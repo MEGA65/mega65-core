@@ -113,6 +113,25 @@ entity iomapper is
         iec_atn_o : out std_logic := '1';
         iec_data_external : in std_logic := 'Z';
         iec_clk_external : in std_logic := 'Z';
+
+         ----------------------------------------------------------------------
+         -- Floppy drive interface
+         ----------------------------------------------------------------------
+         f_density : out std_logic := '1';
+         f_motor : out std_logic := '1';
+         f_select : out std_logic := '1';
+         f_stepdir : out std_logic := '1';
+         f_step : out std_logic := '1';
+         f_wdata : out std_logic := '1';
+         f_wgate : out std_logic := '1';
+         f_side1 : out std_logic := '1';
+         f_index : in std_logic;
+         f_track0 : in std_logic;
+         f_writeprotect : in std_logic;
+         f_rdata : in std_logic;
+         f_diskchanged : in std_logic;
+
+
         
         ps2data : in std_logic;
         ps2clock : in std_logic;
@@ -698,6 +717,20 @@ begin
     drive_led => drive_led,
     motor => motor,
 
+    f_density => f_density,
+    f_motor => f_motor,
+    f_select => f_select,
+    f_stepdir => f_stepdir,
+    f_step => f_step,
+    f_wdata => f_wdata,
+    f_wgate => f_wgate,
+    f_side1 => f_side1,
+    f_index => f_index,
+    f_track0 => f_track0,
+    f_writeprotect => f_writeprotect,
+    f_rdata => f_rdata,
+    f_diskchanged => f_diskchanged,
+    
     sw => sw,
     btn => btn,
 

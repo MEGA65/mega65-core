@@ -151,14 +151,14 @@ entity container is
          ----------------------------------------------------------------------
          -- Floppy drive interface
          ----------------------------------------------------------------------
-         f_density : buffer std_logic := '1';
-         f_motor : buffer std_logic := '1';
-         f_select : buffer std_logic := '1';
-         f_stepdir : buffer std_logic := '1';
-         f_step : buffer std_logic := '1';
-         f_wdata : buffer std_logic := '1';
-         f_wgate : buffer std_logic := '1';
-         f_side1 : buffer std_logic := '1';
+         f_density : out std_logic := '1';
+         f_motor : out std_logic := '1';
+         f_select : out std_logic := '1';
+         f_stepdir : out std_logic := '1';
+         f_step : out std_logic := '1';
+         f_wdata : out std_logic := '1';
+         f_wgate : out std_logic := '1';
+         f_side1 : out std_logic := '1';
          f_index : in std_logic;
          f_track0 : in std_logic;
          f_writeprotect : in std_logic;
@@ -395,6 +395,20 @@ begin
       pot_drain => pot_drain,
       pot_via_iec => pot_via_iec,
 
+    f_density => f_density,
+    f_motor => f_motor,
+    f_select => f_select,
+    f_stepdir => f_stepdir,
+    f_step => f_step,
+    f_wdata => f_wdata,
+    f_wgate => f_wgate,
+    f_side1 => f_side1,
+    f_index => f_index,
+    f_track0 => f_track0,
+    f_writeprotect => f_writeprotect,
+    f_rdata => f_rdata,
+    f_diskchanged => f_diskchanged,
+      
       ---------------------------------------------------------------------------
       -- IO lines to the ethernet controller
       ---------------------------------------------------------------------------

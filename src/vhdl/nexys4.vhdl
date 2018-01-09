@@ -361,7 +361,13 @@ begin
       fa_poty => '0',
       fb_potx => '0',
       fb_poty => '0',
-      
+
+      f_index => '1',
+      f_track0 => '1',
+      f_writeprotect => '1',
+      f_rdata => '1',
+      f_diskchanged => '1',
+            
       ----------------------------------------------------------------------
       -- CBM floppy  std_logic_vectorerial port
       ----------------------------------------------------------------------

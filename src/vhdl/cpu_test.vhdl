@@ -46,34 +46,34 @@ architecture behavior of cpu_test is
   signal sseg_an : std_logic_vector(7 downto 0);
 
   component slowram is
-  port (address : in std_logic_vector(26 downto 0);
-        datain : in std_logic_vector(7 downto 0);
-        request_toggle : in std_logic;
-        done_toggle : out std_logic;
-        cache_address : in std_logic_vector(8 downto 0);
-        we : in std_logic;
-        cache_read_data : out std_logic_vector(150 downto 0)
-        );
+    port (address : in std_logic_vector(26 downto 0);
+          datain : in std_logic_vector(7 downto 0);
+          request_toggle : in std_logic;
+          done_toggle : out std_logic;
+          cache_address : in std_logic_vector(8 downto 0);
+          we : in std_logic;
+          cache_read_data : out std_logic_vector(150 downto 0)
+          );
   end component;
   
   -- Sample ethernet frame to test CRC calculation
   type ram_t is array (0 to 4095) of unsigned(7 downto 0);
-   signal frame : ram_t := (
-     -- A real ping packet captured on the wire
-     x"FF", x"FF", x"FF", x"FF", x"FF", x"FF", x"C8", x"2A", x"14", x"08",
-     x"DA", x"E2", x"08", x"00", x"45", x"00", x"00", x"54", x"53", x"17",
-     x"00", x"00", x"FF", x"01", x"6A", x"73", x"A9", x"FE", x"AA", x"21",
-     x"A9", x"FE", x"FF", x"FF", x"08", x"00", x"DD", x"A7", x"CF", x"6E",
-     x"00", x"79", x"53", x"DB", x"32", x"3C", x"00", x"00", x"D9", x"55",
-     x"08", x"09", x"0A", x"0B", x"0C", x"0D", x"0E", x"0F", x"10", x"11",
-     x"12", x"13", x"14", x"15", x"16", x"17", x"18", x"19", x"1A", x"1B",
-     x"1C", x"1D", x"1E", x"1F", x"20", x"21", x"22", x"23", x"24", x"25",
-     x"26", x"27", x"28", x"29", x"2A", x"2B", x"2C", x"2D", x"2E", x"2F",
-     x"30", x"31", x"32", x"33", x"34", x"35", x"36", x"37", x"46", x"44",
-     x"25", x"A6",
+  signal frame : ram_t := (
+    -- A real ping packet captured on the wire
+    x"FF", x"FF", x"FF", x"FF", x"FF", x"FF", x"C8", x"2A", x"14", x"08",
+    x"DA", x"E2", x"08", x"00", x"45", x"00", x"00", x"54", x"53", x"17",
+    x"00", x"00", x"FF", x"01", x"6A", x"73", x"A9", x"FE", x"AA", x"21",
+    x"A9", x"FE", x"FF", x"FF", x"08", x"00", x"DD", x"A7", x"CF", x"6E",
+    x"00", x"79", x"53", x"DB", x"32", x"3C", x"00", x"00", x"D9", x"55",
+    x"08", x"09", x"0A", x"0B", x"0C", x"0D", x"0E", x"0F", x"10", x"11",
+    x"12", x"13", x"14", x"15", x"16", x"17", x"18", x"19", x"1A", x"1B",
+    x"1C", x"1D", x"1E", x"1F", x"20", x"21", x"22", x"23", x"24", x"25",
+    x"26", x"27", x"28", x"29", x"2A", x"2B", x"2C", x"2D", x"2E", x"2F",
+    x"30", x"31", x"32", x"33", x"34", x"35", x"36", x"37", x"46", x"44",
+    x"25", x"A6",
 
-     
-     others => x"00");
+    
+    others => x"00");
 
   signal eth_rxdv : std_logic := '0';
   signal eth_rxd : unsigned(1 downto 0) := "00";
@@ -104,7 +104,7 @@ architecture behavior of cpu_test is
   signal cart_d : unsigned(7 downto 0) := (others => 'Z');
   signal cart_d_read : unsigned(7 downto 0) := (others => 'Z');
   signal cart_a : unsigned(15 downto 0) := (others => 'Z');
-         
+  
   ----------------------------------------------------------------------
   -- CBM floppy serial port
   ----------------------------------------------------------------------
@@ -187,7 +187,7 @@ begin
       slow_access_address => slow_access_address,
       slow_access_wdata => slow_access_wdata,
       slow_access_rdata => slow_access_rdata,
-  
+      
       ----------------------------------------------------------------------
       -- Expansion/cartridge port
       ----------------------------------------------------------------------
@@ -246,7 +246,7 @@ begin
 
       keyleft => '1',
       keyup => '1',
-    
+      
       fa_left => '1',
       fa_right => '1',
       fa_up => '1',
@@ -264,8 +264,14 @@ begin
       fb_potx => '0',
       fb_poty => '0',
 
+      f_index => '1',
+      f_track0 => '1',
+      f_writeprotect => '1',
+      f_rdata => '1',
+      f_diskchanged => '1',      
+      
       pot_drain => pot_drain,
-    
+      
       slow_access_request_toggle => slow_access_request_toggle,
       slow_access_ready_toggle => slow_access_ready_toggle,
       slow_access_address => slow_access_address,
@@ -360,25 +366,25 @@ begin
   process
     procedure eth_clock_tick is
     begin
-        clock50mhz <= '0';
-        clock200 <= '0';
-        wait for 2.5 ns;
-        clock200 <= '1';
-        wait for 2.5 ns;
-        clock200 <= '0';
-        wait for 2.5 ns;
-        clock200 <= '1';
-        wait for 2.5 ns;
+      clock50mhz <= '0';
+      clock200 <= '0';
+      wait for 2.5 ns;
+      clock200 <= '1';
+      wait for 2.5 ns;
+      clock200 <= '0';
+      wait for 2.5 ns;
+      clock200 <= '1';
+      wait for 2.5 ns;
 
-        clock50mhz <= '1';
-        clock200 <= '0';
-        wait for 2.5 ns;
-        clock200 <= '1';
-        wait for 2.5 ns;
-        clock200 <= '0';
-        wait for 2.5 ns;
-        clock200 <= '1';
-        wait for 2.5 ns;
+      clock50mhz <= '1';
+      clock200 <= '0';
+      wait for 2.5 ns;
+      clock200 <= '1';
+      wait for 2.5 ns;
+      clock200 <= '0';
+      wait for 2.5 ns;
+      clock200 <= '1';
+      wait for 2.5 ns;
     end procedure;
   begin
     for i in 1 to 20 loop
@@ -388,36 +394,37 @@ begin
         eth_clock_tick;
       end loop;
 
-      -- Announce RX carrier
-      eth_rxdv <= '1'; eth_rxd <= "00";
-      eth_clock_tick;
-      eth_clock_tick;
-      -- Send preamble
-      report "CRC: Starting to send preamble";
-      for j in 1 to 31 loop
-        eth_rxd <= "01";
+      if false then
+        -- Announce RX carrier
+        eth_rxdv <= '1'; eth_rxd <= "00";
         eth_clock_tick;
-      end loop;
-      -- Send end of preamble
-      eth_rxd <= "11";
-      eth_clock_tick;
-      -- Feed bytes
-      report "CRC: Starting to send frame";
-      for j in 0 to 101 loop
-        report "ETHRXINJECT: Injecting $" & to_hstring(frame(j));
-        eth_rxd <= frame(j)(1 downto 0);
         eth_clock_tick;
-        eth_rxd <= frame(j)(3 downto 2);
+        -- Send preamble
+        report "CRC: Starting to send preamble";
+        for j in 1 to 31 loop
+          eth_rxd <= "01";
+          eth_clock_tick;
+        end loop;
+        -- Send end of preamble
+        eth_rxd <= "11";
         eth_clock_tick;
-        eth_rxd <= frame(j)(5 downto 4);
+        -- Feed bytes
+        report "CRC: Starting to send frame";
+        for j in 0 to 101 loop
+          report "ETHRXINJECT: Injecting $" & to_hstring(frame(j));
+          eth_rxd <= frame(j)(1 downto 0);
+          eth_clock_tick;
+          eth_rxd <= frame(j)(3 downto 2);
+          eth_clock_tick;
+          eth_rxd <= frame(j)(5 downto 4);
+          eth_clock_tick;
+          eth_rxd <= frame(j)(7 downto 6);
+          eth_clock_tick;
+        end loop;
+        -- Disassert carrier
+        eth_rxdv <= '0';
         eth_clock_tick;
-        eth_rxd <= frame(j)(7 downto 6);
-        eth_clock_tick;
-      end loop;
-      -- Disassert carrier
-      eth_rxdv <= '0';
-      eth_clock_tick;
-      
+      end if; 
       -- Wait a few cycles before feeding next frame
       for j in 1 to 10000 loop
         eth_clock_tick;

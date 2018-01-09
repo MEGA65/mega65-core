@@ -97,6 +97,23 @@ entity sdcardio is
     mosi_o : out std_logic;
     miso_i : in  std_logic;
 
+         ----------------------------------------------------------------------
+         -- Floppy drive interface
+         ----------------------------------------------------------------------
+         f_density : out std_logic := '1';
+         f_motor : out std_logic := '1';
+         f_select : out std_logic := '1';
+         f_stepdir : out std_logic := '1';
+         f_step : out std_logic := '1';
+         f_wdata : out std_logic := '1';
+         f_wgate : out std_logic := '1';
+         f_side1 : out std_logic := '1';
+         f_index : in std_logic;
+         f_track0 : in std_logic;
+         f_writeprotect : in std_logic;
+         f_rdata : in std_logic;
+         f_diskchanged : in std_logic;
+    
     ---------------------------------------------------------------------------
     -- Lines for other devices that we handle here
     ---------------------------------------------------------------------------
