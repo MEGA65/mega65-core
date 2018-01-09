@@ -614,8 +614,7 @@ begin  -- behavioural
             fastio_rdata(5) <= f_writeprotect;
             fastio_rdata(4) <= f_rdata;
             fastio_rdata(3) <= f_diskchanged;
-            fastio_rdata(2 downto 0) <= '1';
-            
+            fastio_rdata(2 downto 0) <= (others => '1');            
           when x"EE" =>
             -- @IO:GS $D6EE - Temperature sensor (lower byte)
             fastio_rdata <= unsigned("0000"&fpga_temperature(3 downto 0));
