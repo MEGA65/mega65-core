@@ -569,8 +569,6 @@ begin
       pwm_l <= pwm_l_drive;
       pwm_r <= pwm_r_drive;
 
-      f_select <= not flopled_drive;
-      f_motor <= not flopmotor_drive;
     end if;
     
     if rising_edge(pixelclock) then
