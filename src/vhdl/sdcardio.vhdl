@@ -312,6 +312,13 @@ architecture behavioural of sdcardio is
   signal f011_led : std_logic := '0';
   signal f011_motor : std_logic := '0';
 
+  signal f011_reg_clock : unsigned(7 downto 0) := x"FF";
+  signal f011_reg_step : unsigned(7 downto 0) := x"80"; -- 8ms steps
+  signal f011_reg_pcode : unsigned(7 downto 0) := x"00";
+  signal counter_16khz : integer := 0;
+  constant cycles_per_16khz : integer :=  (50000000/16000);
+  signal busy_countdown : unsigned(7 downto 0) := x"00";
+  
   signal audio_reflect : std_logic_vector(3 downto 0) := "0000";
 
 begin  -- behavioural
@@ -510,15 +517,16 @@ begin  -- behavioural
  
          when "01000" =>
             -- CLOCK   |  C7   |  C6   |  C5   |  C4   |  C3   |  C2   |  C1   |  C0   | 8 RW
-            fastio_rdata <= (others => 'Z');
+            fastio_rdata <= f011_reg_clock;
  
-         when "01001" =>
+          when "01001" =>
+            -- @IO:65 $D089 - F011 FDC step time (x62.5 micro seconds)
             -- STEP    |  S7   |  S6   |  S5   |  S4   |  S3   |  S2   |  S1   |  S0   | 9 RW
-            fastio_rdata <= (others => 'Z');
- 
+            fastio_rdata <= f011_reg_step;
+            
          when "01010" =>
             -- P CODE  |  P7   |  P6   |  P5   |  P4   |  P3   |  P2   |  P1   |  P0   | A R
-            fastio_rdata <= (others => 'Z');
+            fastio_rdata <= f011_reg_pcode;
           when "11011" => -- @IO:GS $D09B - Most recent SD card command sent
             fastio_rdata <= last_sd_state;
           when "11100" => -- @IO:GS $D09C - FDC read buffer pointer low bits (DEBUG)
@@ -701,6 +709,24 @@ begin  -- behavioural
     
     if rising_edge(clock) then
 
+      -- Check 16KHz timer to see if we need to do anything
+      if counter_16khz /= cycles_per_16khz then
+        counter_16khz <= counter_16khz + 1;
+      else
+        counter_16khz <= 0;
+        if busy_countdown = x"00" then
+          null;
+        elsif busy_countdown = x"01" then
+          busy_countdown <= x"00";
+          f011_busy <= '0'; 
+          -- Stop stepping at end of busy period
+          f_step <= '1';
+          f_stepdir <= '1';
+        else
+          busy_countdown <= busy_countdown - 1;
+        end if;
+      end if;
+      
       -- Advance f011 buffer position when reading from data register
       last_was_d087 <= '0';
       if fastio_read='1' then
@@ -1139,20 +1165,33 @@ begin  -- behavioural
                   end if;
 
                 when x"10" =>         -- head step out, or no step
-                  if fastio_wdata(2)='1' then
-                    -- time, but don't step
-                    null;
-                  else
-                    f011_head_track <= f011_head_track - 1;
-                  end if;
+                  f011_head_track <= f011_head_track - 1;
+                  f_step <= '0';
+                  f_stepdir <= '0';
+                  f011_busy <= '1';
+                  busy_countdown <= f011_reg_step; 
+                when x"14" =>
+                  -- be busy for one step interval, without
+                  -- actually stepping
+                  f011_busy <= '1';
+                  busy_countdown <= f011_reg_step; 
+                  null;
                 when x"18" =>         -- head step in
+                  f_step <= '0';
+                  f_stepdir <= '0';
                   f011_head_track <= f011_head_track + 1;
+                  f011_busy <= '1';
+                  busy_countdown <= f011_reg_step; 
                 when x"20" =>         -- motor spin up
                   f011_motor <= '1';
                   motor <= '1';
+                  f_motor <= '0'; -- start motor on real drive
+                  f011_busy <= '1';
+                  busy_countdown <= x"FF"; -- 16ms spin up time
                 when x"00" =>         -- cancel running command (not implemented)
                   f011_motor <= '0';
                   motor <= '0';
+                  f_motor <= '1'; -- stop motor on real drive
                 when others =>        -- illegal command
                   null;
               end case;
@@ -1184,6 +1223,14 @@ begin  -- behavioural
               end if;
               last_was_d087<='1';
 
+            when "01000" =>
+              f011_reg_clock <= fastio_wdata;
+            when "01001" =>
+              f011_reg_step <= fastio_wdata;
+            when "01010" =>
+              -- P Code: Read only
+              null;
+              
             when others => null;
 
           end case;
