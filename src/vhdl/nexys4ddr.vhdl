@@ -192,6 +192,7 @@ architecture Behavioral of container is
 
   signal pixelclock : std_logic;
   signal cpuclock : std_logic;
+  signal clock200 : std_logic;
   
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
 
