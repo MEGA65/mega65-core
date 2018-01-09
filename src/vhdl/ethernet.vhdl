@@ -676,7 +676,10 @@ begin  -- behavioural
         when ReceivingFrame =>
           rx_fcs_crc_d_valid <= '0';
           rx_fcs_crc_calc_en <= '0';
-          if eth_rxdv='0' then
+          -- RXDV is multiplexed with carrier sense on some PHYs, so we
+          -- need two consecutive low readings to be sure. Otherwise we
+          -- lose the last CRC, and sometimes the last byte.
+          if (eth_rxdv='0') and (eth_rxdv_in='0') then
             report "ETHRX: Ethernet carrier has stopped.";
             -- finished receiving frame
             -- subtract two length field bytes to
