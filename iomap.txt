@@ -377,6 +377,8 @@ GS $D68D - Diskimage sector number (bits 8-15)
 GS $D68E - Diskimage sector number (bits 16-23)
 GS $D68F - Diskimage sector number (bits 24-31)
 GS $D690-$D693 - F011 disk 2 disk image address on SD card
+GS $D6A0 - 3.5" FDC control line debug access
+GS $D6A0 - DEBUG FDC read status lines
 GS $D6E0.0 Clear to reset ethernet PHY
 GS $D6E0.1-2 Read ethernet TX bits currently on the wire
 GS $D6E0.3 Read ethernet RX data valid
@@ -405,6 +407,7 @@ GS $D6E4 Ethernet command
 GS $D6E5.0 Swap RMII RX bit order
 GS $D6E5.1 Disable CRC check for received packets
 GS $D6E5.2-3 Ethernet TX clock phase adjust
+GS $D6E5.4 Swap bit order for TX FCS output
 GS $D6EE - Temperature sensor (lower byte)
 GS $D6EF - Temperature sensor (upper byte)
 GS $D6F0 - Read FPGA switches 0-7

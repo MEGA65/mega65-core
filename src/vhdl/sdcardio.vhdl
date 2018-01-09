@@ -605,6 +605,17 @@ begin  -- behavioural
           when x"8f" =>
             -- @IO:GS $D68F - Diskimage sector number (bits 24-31)
             fastio_rdata <= diskimage_sector(31 downto 24);
+
+
+          when x"a0" =>
+            -- @IO:GS $D6A0 - DEBUG FDC read status lines
+            fastio_rdata(7) <= f_index;
+            fastio_rdata(6) <= f_track0;
+            fastio_rdata(5) <= f_writeprotect;
+            fastio_rdata(4) <= f_rdata;
+            fastio_rdata(3) <= f_diskchanged;
+            fastio_rdata(2 downto 0) <= '1';
+            
           when x"EE" =>
             -- @IO:GS $D6EE - Temperature sensor (lower byte)
             fastio_rdata <= unsigned("0000"&fpga_temperature(3 downto 0));
@@ -1307,6 +1318,17 @@ begin  -- behavioural
             when x"92" => diskimage2_sector(23 downto 16) <= fastio_wdata;
             when x"93" => diskimage2_sector(31 downto 24) <= fastio_wdata;
 
+            when x"a0" =>
+              -- @IO:GS $D6A0 - 3.5" FDC control line debug access
+              f_density <= fastio_wdata(7);
+              f_motor <= fastio_wdata(6);
+              f_select <= fastio_wdata(5);
+              f_stepdir <= fastio_wdata(4);
+              f_step <= fastio_wdata(3);
+              f_wdata <= fastio_wdata(2);
+              f_wgate <= fastio_wdata(1);
+              f_side1 <= fastio_wdata(0);
+                          
             -- @IO:GS $D6F3 - Accelerometer bit-bashing port
             when x"F3" =>
               -- Accelerometer
