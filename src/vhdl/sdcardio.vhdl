@@ -317,7 +317,7 @@ architecture behavioural of sdcardio is
   signal f011_reg_pcode : unsigned(7 downto 0) := x"00";
   signal counter_16khz : integer := 0;
   constant cycles_per_16khz : integer :=  (50000000/16000);
-  signal busy_countdown : unsigned(7 downto 0) := x"00";
+  signal busy_countdown : unsigned(15 downto 0) := x"0000";
   
   signal audio_reflect : std_logic_vector(3 downto 0) := "0000";
 
@@ -714,10 +714,10 @@ begin  -- behavioural
         counter_16khz <= counter_16khz + 1;
       else
         counter_16khz <= 0;
-        if busy_countdown = x"00" then
+        if busy_countdown = x"0000" then
           null;
-        elsif busy_countdown = x"01" then
-          busy_countdown <= x"00";
+        elsif busy_countdown = x"0001" then
+          busy_countdown <= x"0000";
           f011_busy <= '0'; 
           -- Stop stepping at end of busy period
           f_step <= '1';
@@ -1048,7 +1048,7 @@ begin  -- behavioural
                 f011_buffer_next_read(8) <= f011_swap;
               end if;
 
-              temp_cmd := fastio_wdata(7 downto 3) & "000";
+              temp_cmd := fastio_wdata(7 downto 2) & "00";
               report "F011 command $" & to_hstring(temp_cmd) & " issued.";
               case temp_cmd is
 
@@ -1170,28 +1170,30 @@ begin  -- behavioural
                   f_stepdir <= '1';
                   f_select <= '0';
                   f011_busy <= '1';
-                  busy_countdown <= f011_reg_step; 
+                  busy_countdown(15 downto 8) <= (others => '0');
+                  busy_countdown(7 downto 0) <= f011_reg_step; 
                 when x"14" =>
                   -- be busy for one step interval, without
                   -- actually stepping
                   f011_busy <= '1';
                   f_select <= '0';
-                  busy_countdown <= f011_reg_step; 
-                  null;
+                  busy_countdown(15 downto 8) <= (others => '0');
+                  busy_countdown(7 downto 0) <= f011_reg_step; 
                 when x"18" =>         -- head step in
                   f_step <= '0';
                   f_stepdir <= '0';
                   f_select <= '0';
                   f011_head_track <= f011_head_track + 1;
                   f011_busy <= '1';
-                  busy_countdown <= f011_reg_step; 
+                  busy_countdown(15 downto 8) <= (others => '0');
+                  busy_countdown(7 downto 0) <= f011_reg_step; 
                 when x"20" =>         -- motor spin up
                   f011_motor <= '1';
                   motor <= '1';
                   f_motor <= '0'; -- start motor on real drive
                   f_select <= '0';
                   f011_busy <= '1';
-                  busy_countdown <= x"FF"; -- 16ms spin up time
+                  busy_countdown <= to_unsigned(16000,16); -- 1 sec spin up time
                 when x"00" =>         -- cancel running command (not implemented)
                   f011_motor <= '0';
                   motor <= '0';
