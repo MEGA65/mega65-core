@@ -212,6 +212,18 @@ mmsimulate:	$(MMFILES) $(TOOLDIR)/osk_image
 	ghdl -m test_matrix
 	( ./test_matrix || ghdl -r test_matrix ) 2>&1 | $(TOOLDIR)/osk_image matrix.png
 
+MFMFILES=$(VHDLSRCDIR)/mfm_bits_to_bytes.vhdl \
+	 $(VHDLSRCDIR)/mfm_decoder.vhdl \
+	 $(VHDLSRCDIR)/mfm_gaps_to_bits.vhdl \
+	 $(VHDLSRCDIR)/mfm_gaps.vhdl \
+	 $(VHDLSRCDIR)/mfm_quantise_gaps.vhdl \
+	 $(VHDLSRCDIR)/test_mfm.vhdl
+
+mfmsimulate: $(MFMFILES) $(ASSETS)/track2-40ns.dat
+	ghdl -i $(MFMFILES)
+	ghdl -m test_mfm
+	( ./test_mfm || ghdl -r test_mfm ) 
+
 SPRITEFILES=$(VHDLSRCDIR)/sprite.vhdl $(VHDLSRCDIR)/test_sprite.vhdl $(VHDLSRCDIR)/victypes.vhdl
 spritesimulate:	$(SPRITEFILES)
 	ghdl -i $(SPRITEFILES)
