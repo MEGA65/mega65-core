@@ -714,16 +714,16 @@ begin  -- behavioural
         counter_16khz <= counter_16khz + 1;
       else
         counter_16khz <= 0;
+        
         if busy_countdown = x"0000" then
           null;
         elsif busy_countdown = x"0001" then
           busy_countdown <= x"0000";
           f011_busy <= '0'; 
-          -- Stop stepping at end of busy period
-          f_step <= '1';
-          f_stepdir <= '1';
         else
           busy_countdown <= busy_countdown - 1;
+          -- Stepping pulses should be short, so we clear it here
+          f_step <= '1';
         end if;
       end if;
       
