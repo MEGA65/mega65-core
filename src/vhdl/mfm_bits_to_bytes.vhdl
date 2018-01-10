@@ -39,6 +39,7 @@ begin
           -- We now have a complete byte, so output it
           byte_out(7 downto 1) <= partial_byte;
           byte_out(0) <= bit_in;
+          report "MFM byte $" & to_hstring(partial_byte&bit_in);
           byte_valid <= '1';
           bit_count <= 0;
         else

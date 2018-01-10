@@ -33,6 +33,7 @@ begin
         gap_valid <= '1';
         gap_length <= to_unsigned(counter,16);
         counter <= 0;
+--        report "GAP of " & integer'image(counter) & " cycles.";
       else
         gap_valid <= '0';
         if counter /= 65535 then

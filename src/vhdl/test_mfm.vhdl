@@ -16,7 +16,8 @@ architecture foo of test_mfm is
   -- This is relative to the sample rate of the feed, which in reality will be
   -- 20ns, but in our DMA-captured traces is only 25MHz
   -- 1 interval = 4usec, so 1/4 = 1usec = 50 cycles @ 50MHz, or 25 cycles @ 25MHz
-  signal cycles_per_quarter_interval : unsigned(7 downto 0) := to_unsigned(25,8);
+  -- XXX so why do we need to halve it again?
+  signal cycles_per_quarter_interval : unsigned(7 downto 0) := to_unsigned(12,8);
   
     -- The track/sector/side we are being asked to find
   signal target_track : unsigned(7 downto 0) := x"00";
@@ -67,7 +68,7 @@ begin
     file_open(trace,"assets/track2-40ns.dat",READ_MODE);
     while not endfile(trace) loop
       Read(trace,c);
-      report "Read char $" & to_hstring(to_unsigned(character'pos(c),8));      
+--      report "Read char $" & to_hstring(to_unsigned(character'pos(c),8));      
       f_rdata <= to_unsigned(character'pos(c),8)(4);
       clock50mhz <= '0';
       wait for 10 ns;

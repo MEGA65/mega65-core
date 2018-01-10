@@ -46,6 +46,8 @@ begin
   begin
     if rising_edge(clock50mhz) then
       if gap_valid = '1' then
+        report "Interval of %" & to_string(std_logic_vector(gap_size));
+        
         -- Detect sync byte
         recent_gaps(7 downto 2) <= recent_gaps(5 downto 0);
         recent_gaps(1 downto 0) <= gap_size;
@@ -81,28 +83,28 @@ begin
             bits_queued <= 2;
           when others =>
             bits_queued <= 0;
-        end case;
-
-        -- Output bits or sync
-        if (check_sync='1') and (recent_gaps = sync_gaps) then
-          -- Output sync mark
-          sync_out <= '1';
-          bits_queued <= 0;
-          bit_valid <= '0';
-        elsif bits_queued /= 0 then
-          -- Output queued bit
-          bit_valid <= '1';
-          bit_out <= bit_queue(1);
-          bit_queue(1) <= bit_queue(0);
-          bits_queued <= bits_queued -1;
-        else
-          sync_out <= '0';
-          bit_valid <= '0';
-        end if;
-        
+        end case;        
       else
         check_sync <= '0';
       end if;
+
+      -- Output bits or sync
+      if (check_sync='1') and (recent_gaps = sync_gaps) then
+        -- Output sync mark
+        sync_out <= '1';
+        bits_queued <= 0;
+        bit_valid <= '0';
+      elsif bits_queued /= 0 then
+        -- Output queued bit
+        bit_valid <= '1';
+        bit_out <= bit_queue(1);
+        bit_queue(1) <= bit_queue(0);
+        bits_queued <= bits_queued -1;
+      else
+        sync_out <= '0';
+        bit_valid <= '0';
+      end if;
+      
     end if;    
   end process;
 end behavioural;

@@ -40,6 +40,14 @@ begin
       threshold_20_high <= cycles_per_quarter_interval * 10;   -- 2.5 intervals
 
       -- See which category the incoming gap fits
+      if gap_valid_in='1' and false then
+        report "Quantising gap of " & integer'image(to_integer(gap_length_in))
+          & " (thresholds = "
+          & integer'image(to_integer(threshold_10_low)) & ", "
+          & integer'image(to_integer(threshold_10_high)) & ", "
+          & integer'image(to_integer(threshold_15_high)) & ", "
+          & integer'image(to_integer(threshold_20_high)) & ").";
+      end if;
       if gap_length_in < threshold_10_low then
         gap_size_out <= "11"; -- invalid gap (too short)
       elsif gap_length_in <= threshold_10_high then
@@ -51,6 +59,8 @@ begin
       else
         gap_size_out <= "11"; -- invalid gap (too long)
       end if;
+
+      gap_valid_out <= gap_valid_in;
       
       -- XXX to better handle phase-errors, consider substracting deviation of
       -- previous pulse position from next gap length
