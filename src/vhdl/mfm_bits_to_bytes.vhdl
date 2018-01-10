@@ -32,6 +32,7 @@ begin
   begin
     if rising_edge(clock50mhz) then
       if sync_in='1' then
+        report "Sync $A1 detected";
         sync_out <= '1';
         bit_count <= 0;
       elsif bit_valid='1' then

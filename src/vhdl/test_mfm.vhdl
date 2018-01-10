@@ -14,10 +14,10 @@ architecture foo of test_mfm is
   signal clock50mhz : std_logic := '1';
   signal f_rdata : std_logic := '1';
   -- This is relative to the sample rate of the feed, which in reality will be
-  -- 20ns, but in our DMA-captured traces is only 25MHz
-  -- 1 interval = 4usec, so 1/4 = 1usec = 50 cycles @ 50MHz, or 25 cycles @ 25MHz
-  -- XXX so why do we need to halve it again?
-  signal cycles_per_quarter_interval : unsigned(7 downto 0) := to_unsigned(12,8);
+  -- 20ns, but in our DMA-captured traces is only 50/3 = ~17MHz, so an interval
+  -- should be 4usec * (50/3) = ~67 cycles
+
+  signal cycles_per_interval : unsigned(7 downto 0) := to_unsigned(67,8);
   
     -- The track/sector/side we are being asked to find
   signal target_track : unsigned(7 downto 0) := x"00";
@@ -44,7 +44,7 @@ begin
   decoder0: entity work.mfm_decoder port map (
     clock50mhz => clock50mhz,
     f_rdata => f_rdata,
-    cycles_per_quarter_interval => cycles_per_quarter_interval,
+    cycles_per_interval => cycles_per_interval,
 
     target_track => target_track,
     target_sector => target_sector,

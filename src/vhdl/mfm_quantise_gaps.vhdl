@@ -11,7 +11,7 @@ entity mfm_quantise_gaps is
   port (
     clock50mhz : in std_logic;
 
-    cycles_per_quarter_interval : in unsigned(7 downto 0);
+    cycles_per_interval : in unsigned(7 downto 0);
   
     gap_valid_in : in std_logic := '0';
     gap_length_in : in unsigned(15 downto 0) := (others => '0');
@@ -33,14 +33,14 @@ begin
   process (clock50mhz) is
   begin
     if rising_edge(clock50mhz) then
-      -- Calculate thresholds
-      threshold_10_low <= cycles_per_quarter_interval * 2;     -- 0.5 intervals
-      threshold_10_high <= cycles_per_quarter_interval * 6;    -- 1.5 intervals
-      threshold_15_high <= cycles_per_quarter_interval * 9;    -- 1.75 intervals
-      threshold_20_high <= cycles_per_quarter_interval * 10;   -- 2.5 intervals
+      -- Calculate thresholds for 1.0, 1.5 and 2.0 interval gaps
+      threshold_10_low <= to_unsigned(to_integer(cycles_per_interval(7 downto 1)),16);  -- 0.5 intervals
+      threshold_10_high <= to_unsigned(to_integer(cycles_per_interval) + to_integer(cycles_per_interval(7 downto 2)),16);
+      threshold_15_high <= to_unsigned(to_integer(cycles_per_interval(7 downto 0)&'0') - to_integer(cycles_per_interval(7 downto 2)),16);
+      threshold_20_high <= to_unsigned(to_integer(cycles_per_interval(7 downto 0)&'0') + to_integer(cycles_per_interval(7 downto 1)),16);
 
       -- See which category the incoming gap fits
-      if gap_valid_in='1' and false then
+      if gap_valid_in='1' and true then
         report "Quantising gap of " & integer'image(to_integer(gap_length_in))
           & " (thresholds = "
           & integer'image(to_integer(threshold_10_low)) & ", "
