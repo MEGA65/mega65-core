@@ -1167,18 +1167,21 @@ begin  -- behavioural
                 when x"10" =>         -- head step out, or no step
                   f011_head_track <= f011_head_track - 1;
                   f_step <= '0';
-                  f_stepdir <= '0';
+                  f_stepdir <= '1';
+                  f_select <= '0';
                   f011_busy <= '1';
                   busy_countdown <= f011_reg_step; 
                 when x"14" =>
                   -- be busy for one step interval, without
                   -- actually stepping
                   f011_busy <= '1';
+                  f_select <= '0';
                   busy_countdown <= f011_reg_step; 
                   null;
                 when x"18" =>         -- head step in
                   f_step <= '0';
                   f_stepdir <= '0';
+                  f_select <= '0';
                   f011_head_track <= f011_head_track + 1;
                   f011_busy <= '1';
                   busy_countdown <= f011_reg_step; 
@@ -1186,11 +1189,13 @@ begin  -- behavioural
                   f011_motor <= '1';
                   motor <= '1';
                   f_motor <= '0'; -- start motor on real drive
+                  f_select <= '0';
                   f011_busy <= '1';
                   busy_countdown <= x"FF"; -- 16ms spin up time
                 when x"00" =>         -- cancel running command (not implemented)
                   f011_motor <= '0';
                   motor <= '0';
+                  f_select <= '1';
                   f_motor <= '1'; -- stop motor on real drive
                 when others =>        -- illegal command
                   null;
