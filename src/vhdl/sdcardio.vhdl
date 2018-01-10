@@ -988,6 +988,11 @@ begin  -- behavioural
               drive_led <= fastio_wdata(6);
               f011_motor <= fastio_wdata(5);
               motor <= fastio_wdata(5);
+
+              f_motor <= not fastio_wdata(5); -- start motor on real drive
+              f_select <= not fastio_wdata(5);
+              f_side1 <= not fastio_wdata(3);
+              
               f011_swap <= fastio_wdata(4);
               if fastio_wdata(4) /= f011_swap then
                 -- switch halves of buffer if swap bit changes
@@ -1189,11 +1194,7 @@ begin  -- behavioural
                   f011_busy <= '1';
                   busy_countdown(15 downto 8) <= (others => '0');
                   busy_countdown(7 downto 0) <= f011_reg_step; 
-                when x"20" =>         -- motor spin up
-                  f011_motor <= '1';
-                  motor <= '1';
-                  f_motor <= '0'; -- start motor on real drive
-                  f_select <= '0';
+                when x"20" =>         -- wait for motor spin up time (1sec)
                   f011_busy <= '1';
                   busy_countdown <= to_unsigned(16000,16); -- 1 sec spin up time
                 when x"00" =>         -- cancel running command (not implemented)
