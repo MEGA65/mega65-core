@@ -23,9 +23,14 @@ end mfm_quantise_gaps;
 
 architecture behavioural of mfm_quantise_gaps is
 
+  signal threshold_10_low : unsigned(15 downto 0) := to_unsigned(0,16);
+  signal threshold_10_high : unsigned(15 downto 0) := to_unsigned(0,16);
+  signal threshold_15_high : unsigned(15 downto 0) := to_unsigned(0,16);
+  signal threshold_20_high : unsigned(15 downto 0) := to_unsigned(0,16);
+  
 begin
 
-  process (clock50mhz,f_rdata) is
+  process (clock50mhz) is
   begin
     if rising_edge(clock50mhz) then
       -- Calculate thresholds

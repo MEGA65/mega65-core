@@ -28,7 +28,7 @@ architecture behavioural of mfm_bits_to_bytes is
 
 begin
 
-  process (clock50mhz,f_rdata) is
+  process (clock50mhz) is
   begin
     if rising_edge(clock50mhz) then
       if sync_in='1' then
@@ -38,7 +38,7 @@ begin
         if bit_count = 7 then
           -- We now have a complete byte, so output it
           byte_out(7 downto 1) <= partial_byte;
-          bit_out(0) <= bit_in;
+          byte_out(0) <= bit_in;
           byte_valid <= '1';
           bit_count <= 0;
         else

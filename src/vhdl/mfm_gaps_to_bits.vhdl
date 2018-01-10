@@ -12,8 +12,8 @@ entity mfm_gaps_to_bits is
     clock50mhz : in std_logic;
 
     -- Quantised gaps as input
-    gap_valid : out std_logic := '0';
-    gap_size : out unsigned(1 downto 0);
+    gap_valid : in std_logic := '0';
+    gap_size : in unsigned(1 downto 0);
 
     -- Output bits as we decode them
     bit_valid : out std_logic := '0';
@@ -29,6 +29,8 @@ architecture behavioural of mfm_gaps_to_bits is
 
   signal last_bit : std_logic := '0';
 
+  signal check_sync : std_logic := '0';
+  
   -- Used for detecting sync bytes
   signal recent_gaps : unsigned(7 downto 0) := (others => '0');
   -- Sync byte is gaps of 2.0,1.5,2.0,1.5 = 10 01 10 01 as quantised gaps
@@ -39,7 +41,8 @@ architecture behavioural of mfm_gaps_to_bits is
   
 begin
 
-  process (clock50mhz,f_rdata) is
+  process (clock50mhz) is
+    variable state : unsigned(2 downto 0) := "000";
   begin
     if rising_edge(clock50mhz) then
       if gap_valid = '1' then
@@ -49,7 +52,9 @@ begin
         check_sync <= '1';
 
         -- Process gap to produce bits
-        case last_bit & gap_size is
+        state(2) := last_bit;
+        state(1 downto 0) := gap_size;
+        case state is
           when "000" =>
             -- Last was 0, length = 1.0, output 0
             bit_queue <= "00";
