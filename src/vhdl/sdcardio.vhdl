@@ -1169,6 +1169,7 @@ begin  -- behavioural
                   f_step <= '0';
                   f_stepdir <= '1';
                   f_select <= '0';
+                  f_wgate <= '1';
                   f011_busy <= '1';
                   busy_countdown(15 downto 8) <= (others => '0');
                   busy_countdown(7 downto 0) <= f011_reg_step; 
@@ -1183,6 +1184,7 @@ begin  -- behavioural
                   f_step <= '0';
                   f_stepdir <= '0';
                   f_select <= '0';
+                  f_wgate <= '1';
                   f011_head_track <= f011_head_track + 1;
                   f011_busy <= '1';
                   busy_countdown(15 downto 8) <= (others => '0');
@@ -1197,6 +1199,7 @@ begin  -- behavioural
                 when x"00" =>         -- cancel running command (not implemented)
                   f011_motor <= '0';
                   motor <= '0';
+                  f_wgate <= '0';
                   f_select <= '1';
                   f_motor <= '1'; -- stop motor on real drive
                 when others =>        -- illegal command
