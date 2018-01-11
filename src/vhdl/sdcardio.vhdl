@@ -341,6 +341,7 @@ architecture behavioural of sdcardio is
   signal fdc_mfm_state : unsigned(7 downto 0);
   signal fdc_last_gap : unsigned(15 downto 0);
   signal fdc_mfm_byte : unsigned(7 downto 0);
+  signal fdc_quantised_gap : unsigned(7 downto 0);
   
   signal use_real_floppy : std_logic := '0';
   signal fdc_read_request : std_logic := '0';
@@ -442,6 +443,7 @@ begin  -- behavioural
     mfm_state => fdc_mfm_state,
     mfm_last_gap => fdc_last_gap,
     mfm_last_byte => fdc_mfm_byte,
+    mfm_quantised_gap => fdc_quantised_gap,
     
     target_track => target_track,
     target_sector => target_sector,
@@ -722,6 +724,9 @@ begin  -- behavioural
           when x"ab" =>
             -- @IO:GS $D6AB - DEBUG FDC last 7 rdata bits (packed by mfm_gaps)
             fastio_rdata <= unsigned(packed_rdata);
+          when x"ac" =>
+            -- @IO:GS $D6AC - DEBUG FDC last quantised gap
+            fastio_rdata <= unsigned(fdc_quantised_gap);
           when x"EE" =>
             -- @IO:GS $D6EE - Temperature sensor (lower byte)
             fastio_rdata <= unsigned("0000"&fpga_temperature(3 downto 0));

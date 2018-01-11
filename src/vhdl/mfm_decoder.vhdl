@@ -32,6 +32,7 @@ entity mfm_decoder is
     mfm_state : out unsigned(7 downto 0) := x"00";
     mfm_last_gap : out unsigned(15 downto 0) := x"0000";
     mfm_last_byte : out unsigned(7 downto 0) := x"00";
+    mfm_quantised_gap : out unsigned(7 downto 0) := x"00";
     packed_rdata : out std_logic_vector(7 downto 0);
     
     cycles_per_interval : in unsigned(7 downto 0);    
@@ -72,6 +73,7 @@ architecture behavioural of mfm_decoder is
   
   signal gap_size_valid : std_logic;
   signal gap_size : unsigned(1 downto 0);
+  signal qgap_count : unsigned(5 downto 0) := (others => '0');
   
   signal sync_in : std_logic;
   signal bit_in : std_logic;
@@ -144,7 +146,7 @@ begin
   bits0: entity work.mfm_gaps_to_bits port map (
     clock50mhz => clock50mhz,
 
-    gap_valid => gap_valid,
+    gap_valid => gap_size_valid,
     gap_size => gap_size,
 
     bit_valid => bit_valid,
@@ -182,6 +184,15 @@ begin
       mfm_state <= to_unsigned(MFMState'pos(state),8);
       mfm_last_gap(11 downto 0) <= gap_length(11 downto 0);
       mfm_last_gap(15 downto 12) <= gap_count;
+      mfm_quantised_gap(5 downto 0) <= qgap_count;
+      mfm_quantised_gap(1 downto 0) <= gap_size;
+      if gap_size_valid='1' then
+        if qgap_count /= "111111" then
+          qgap_count <= qgap_count + 1;
+        else
+          qgap_count <= "000000";
+        end if;
+      end if;
       
       -- Update expected size of sector
       case seen_size is
