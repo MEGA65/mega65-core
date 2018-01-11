@@ -221,19 +221,24 @@ begin
             sector_end <= '1';
             sector_found <= '0';
           else
-            if last_crc = x"0000" and false then
+            if last_crc = x"0000" and true then
               report "Valid sector header for"
                 & " T:$" & to_hstring(seen_track)
                 & ", S:$" & to_hstring(seen_sector)
                 & ", D:$" & to_hstring(seen_side)
-                & ", Z:$" & to_hstring(seen_size);
+                & ", Z:$" & to_hstring(seen_size)
+                & " (seen_valid=" & std_logic'image(seen_valid)
+                & ", sector_found="
+                & std_logic'image(sector_found)
+                & ", crc=$" & to_hstring(last_crc)
+                & ")";
             end if;
             if (target_any='1')
               or (
                 (target_track = seen_track)
                 and (target_sector = seen_sector)
                 and (target_side = seen_side)) then
-              if last_crc /= x"0000" then
+              if (last_crc = x"0000") then
                 report "Seen sector matches target";
                 found_track <= seen_track;
                 found_sector <= seen_sector;
@@ -241,12 +246,13 @@ begin
                 -- Data gap begins now
                 sector_data_gap <= '1';
                 sector_found <= '1';
+                seen_valid <= '1';
               end if;
-              seen_valid <= '1';
             else
-              if last_crc /= x"0000" then
-                report "Seen sector does not match target";
-              end if;
+              seen_valid <= '0';
+            end if;
+            if last_crc /= x"0000" then
+              report "Seen sector does not match target";
               seen_valid <= '0';
             end if;             
           end if;
@@ -285,6 +291,7 @@ begin
           -- First byte after a sync
           if byte_in = x"FE" then
             crc_feed <= '1'; crc_byte <= byte_in;
+            seen_valid <= '0';
             state <= TrackNumber;
           elsif byte_in = x"FB" then
             state <= SectorData;

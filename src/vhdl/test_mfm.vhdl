@@ -85,6 +85,9 @@ begin
   process (clock50mhz,byte_out) is
   begin
     if rising_edge(clock50mhz) then
+      if sector_found='1' then
+        report "Found the sector";
+      end if;
       if byte_valid='1' then
         report "Read sector byte $" & to_hstring(byte_out)
           & " (first=" & std_logic'image(first_byte)
