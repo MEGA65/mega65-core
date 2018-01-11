@@ -40,7 +40,7 @@ begin
       threshold_20_high <= to_unsigned(to_integer(cycles_per_interval(7 downto 0)&'0') + to_integer(cycles_per_interval(7 downto 1)),16);
 
       -- See which category the incoming gap fits
-      if gap_valid_in='1' and true then
+      if gap_valid_in='1' and false then
         report "Quantising gap of " & integer'image(to_integer(gap_length_in))
           & " (thresholds = "
           & integer'image(to_integer(threshold_10_low)) & ", "
