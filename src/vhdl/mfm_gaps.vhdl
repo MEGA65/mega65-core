@@ -26,7 +26,7 @@ architecture behavioural of mfm_gaps is
 
   signal recent_rdata : std_logic_vector(6 downto 0) := "0000000";
   signal recent_bits : integer range 0 to 7 := 0;
-  signal recent_toggle : std_logic := '0';
+  signal recent_toggle : unsigned(1 downto 0);
   
 begin
 
@@ -38,9 +38,12 @@ begin
       -- Produced packed rdata samples for debugging
       if recent_bits = 6 then
         packed_rdata(5 downto 0) <= recent_rdata(5 downto 0);
-        packed_rdata(6) <= '0';
-        packed_rdata(7) <= recent_toggle;
-        recent_toggle <= not recent_toggle;
+        packed_rdata(7 downto 6) <= std_logic_vector(recent_toggle);
+        if recent_toggle /= "11" then
+          recent_toggle <= recent_toggle + 1;
+        else
+          recent_toggle <= "00";
+        end if;
         recent_bits <= 2;
       else
         recent_bits <= recent_bits + 2;
