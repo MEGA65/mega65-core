@@ -68,6 +68,7 @@ architecture behavioural of mfm_decoder is
 
   signal gap_length : unsigned(15 downto 0);
   signal gap_valid : std_logic;
+  signal gap_count : unsigned(3 downto 0);
   
   signal gap_size_valid : std_logic;
   signal gap_size : unsigned(1 downto 0);
@@ -123,8 +124,9 @@ begin
     packed_rdata => packed_rdata,
     
     f_rdata => f_rdata,
-    gap_length => gap_length,
-    gap_valid => gap_valid
+    gap_length => gap_length,    
+    gap_valid => gap_valid,
+    gap_count => gap_count
     );
 
   quantise0: entity work.mfm_quantise_gaps port map (
@@ -178,7 +180,8 @@ begin
 
       mfm_last_byte <= byte_in;
       mfm_state <= to_unsigned(MFMState'pos(state),8);
-      mfm_last_gap <= gap_length;
+      mfm_last_gap(11 downto 0) <= gap_length(11 downto 0);
+      mfm_last_gap(15 downto 12) <= gap_count;
       
       -- Update expected size of sector
       case seen_size is

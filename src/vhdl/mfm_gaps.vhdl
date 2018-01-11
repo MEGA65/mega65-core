@@ -15,7 +15,8 @@ entity mfm_gaps is
     packed_rdata : out std_logic_vector(7 downto 0);
     
     gap_valid : out std_logic := '0';
-    gap_length : out unsigned(15 downto 0)
+    gap_length : out unsigned(15 downto 0) := x"0000";
+    gap_count : out unsigned(3 downto 0) := x"0"
     );
 end mfm_gaps;
 
@@ -27,6 +28,8 @@ architecture behavioural of mfm_gaps is
   signal recent_rdata : std_logic_vector(6 downto 0) := "0000000";
   signal recent_bits : integer range 0 to 7 := 0;
   signal recent_toggle : unsigned(1 downto 0);
+
+  signal gap_count_internal : unsigned(3 downto 0) := x"0";
   
 begin
 
@@ -57,6 +60,13 @@ begin
           -- Start of pulse
           gap_valid <= '1';
           gap_length <= to_unsigned(counter,16);
+          if gap_count_internal /= x"f" then
+            gap_count <= gap_count_internal + 1;
+            gap_count_internal <= gap_count_internal + 1;
+          else
+            gap_count <= x"0";
+            gap_count_internal <= x"0";
+          end if;
         end if;
         counter <= 0;
 --        report "GAP of " & integer'image(counter) & " cycles.";
