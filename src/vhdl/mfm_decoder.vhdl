@@ -108,6 +108,7 @@ architecture behavioural of mfm_decoder is
   signal sector_size : integer range 0 to 4095 := 0;
 
   signal last_crc : unsigned(15 downto 0) := x"0000";
+  signal crc_wait : std_logic_vector(3 downto 0) := x"0";
   
 begin
 
@@ -170,19 +171,22 @@ begin
 
       -- Update expected size of sector
       case seen_size is
-        when x"00" => sector_size <= 128;
-        when x"01" => sector_size <= 256;
-        when x"02" => sector_size <= 512;
-        when x"03" => sector_size <= 1024;
-        when x"04" => sector_size <= 2048;
-        when others => sector_size <= 512;
+        when x"00" => sector_size <= 128-1;
+        when x"01" => sector_size <= 256-1;
+        when x"02" => sector_size <= 512-1;
+        when x"03" => sector_size <= 1024-1;
+        when x"04" => sector_size <= 2048-1;
+        when others => sector_size <= 512-1;
       end case;
-    
-      if (state = CheckCRC) and (crc_ready='1') and (crc_feed='0') then
+
+      crc_wait(3 downto 1) <= crc_wait(2 downto 0);
+      crc_wait(0) <= '0';
+      if (state = CheckCRC) and (crc_ready='1') and (crc_wait="0000") then
         last_crc <= crc_value;
 
         -- set crc_error and clear seen_valid if CRC /= 0
         if crc_value /= x"0000" then
+          report "crc_value = $" & to_hstring(crc_value) & ", asserting crc_error";
           seen_valid <= '0';
           crc_error <= '1';
         else
@@ -282,6 +286,7 @@ begin
             when HeaderCRC2 =>
               seen_valid <= '1' and (not invalidate);
               crc_feed <= '1'; crc_byte <= byte_in;
+              crc_wait <= "1111";
               state <= CheckCRC;
             when SectorData =>
               if (byte_count = 0) and (seen_valid='1') then
@@ -302,6 +307,7 @@ begin
               state <= DataCRC2;
             when DataCRC2 =>
               crc_feed <= '1'; crc_byte <= byte_in;
+              crc_wait <= "1111";
               state <= CheckCRC;
             when CheckCRC =>
               -- CRC checking is done outside this loop
