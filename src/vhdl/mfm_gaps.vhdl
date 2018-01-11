@@ -37,7 +37,7 @@ begin
 
       -- Produced packed rdata samples for debugging
       if recent_bits = 6 then
-        packed_rdata(5 downto 0) <= recent_rdata;
+        packed_rdata(5 downto 0) <= recent_rdata(5 downto 0);
         packed_rdata(6) <= '0';
         packed_rdata(7) <= recent_toggle;
         recent_toggle <= not recent_toggle;
