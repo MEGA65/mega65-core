@@ -221,17 +221,17 @@ begin
             sector_end <= '1';
             sector_found <= '0';
           else
-            if last_crc = x"0000" and true then
-              report "Valid sector header for"
-                & " T:$" & to_hstring(seen_track)
-                & ", S:$" & to_hstring(seen_sector)
-                & ", D:$" & to_hstring(seen_side)
-                & ", Z:$" & to_hstring(seen_size)
-                & " (seen_valid=" & std_logic'image(seen_valid)
-                & ", sector_found="
-                & std_logic'image(sector_found)
-                & ", crc=$" & to_hstring(last_crc)
-                & ")";
+--            if last_crc = x"0000" and false then
+--              report "Valid sector header for"
+--                & " T:$" & to_hstring(seen_track)
+--                & ", S:$" & to_hstring(seen_sector)
+--                & ", D:$" & to_hstring(seen_side)
+--                & ", Z:$" & to_hstring(seen_size)
+--                & " (seen_valid=" & std_logic'image(seen_valid)
+--                & ", sector_found="
+--                & std_logic'image(sector_found)
+--                & ", crc=$" & to_hstring(last_crc)
+--                & ")";
             end if;
             if (target_any='1')
               or (
