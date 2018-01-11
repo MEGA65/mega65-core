@@ -326,6 +326,7 @@ architecture behavioural of sdcardio is
   signal target_track : unsigned(7 downto 0) := x"00";
   signal target_sector : unsigned(7 downto 0) := x"00";
   signal target_side : unsigned(7 downto 0) := x"00";
+  signal target_any : std_logic := '0';
   signal found_track : unsigned(7 downto 0) := x"00";
   signal found_sector : unsigned(7 downto 0) := x"00";
   signal found_side : unsigned(7 downto 0) := x"00";
@@ -336,6 +337,9 @@ architecture behavioural of sdcardio is
   signal fdc_sector_end : std_logic := '0';
   signal fdc_sector_data_gap : std_logic := '0';
   signal fdc_sector_found : std_logic := '0';
+
+  signal use_real_floppy : std_logic := '0';
+  signal fdc_read_request : std_logic := '0';
   
 begin  -- behavioural
 
@@ -431,6 +435,7 @@ begin  -- behavioural
     target_track => target_track,
     target_sector => target_sector,
     target_side => target_side,
+    target_any => target_any,
 
     sector_data_gap => fdc_sector_data_gap,
     sector_found => fdc_sector_found,
@@ -663,7 +668,34 @@ begin  -- behavioural
             fastio_rdata(5) <= f_writeprotect;
             fastio_rdata(4) <= f_rdata;
             fastio_rdata(3) <= f_diskchanged;
-            fastio_rdata(2 downto 0) <= (others => '1');            
+            fastio_rdata(2 downto 0) <= (others => '1');
+          when x"a1" =>
+            -- @IO:GS $D6A1.0 - Use real floppy drive instead of SD card
+            fastio_rdata(0) <= use_real_floppy;
+            -- @IO:GS $D6A1.1 - Match any sector on a real floppy read/write
+            fastio_rdata(1) <= target_any;
+            -- @IO:GS $D6A1.2-6 - FDC debug status flags
+            fastio_rdata(2) <= fdc_first_byte;
+            fastio_rdata(3) <= fdc_sector_end;
+            fastio_rdata(4) <= fdc_sector_data_gap;
+            fastio_rdata(5) <= fdc_sector_found;
+            fastio_rdata(6) <= fdc_byte_valid;
+            fastio_rdata(7) <= fdc_read_request;
+          when x"a2" =>
+            -- @IO:GS $D6A2 - FDC clock cycles per MFM data bit
+            fastio_rdata <= cycles_per_interval;
+          when x"a3" =>
+            -- @IO:GS $D6A3 - FDC track number of last matching sector header
+            fastio_rdata <= found_track;
+          when x"a4" =>
+            -- @IO:GS $D6A4 - FDC sector number of last matching sector header
+            fastio_rdata <= found_sector;
+          when x"a5" =>
+            -- @IO:GS $D6A5 - FDC side number of last matching sector header
+            fastio_rdata <= found_side;
+          when x"a6" =>
+            -- @IO:GS $D6A6 - DEBUG FDC decoded MFM byte
+            fastio_rdata <= fdc_byte_out;
           when x"EE" =>
             -- @IO:GS $D6EE - Temperature sensor (lower byte)
             fastio_rdata <= unsigned("0000"&fpga_temperature(3 downto 0));
@@ -962,11 +994,48 @@ begin  -- behavioural
         f011_flag_eq <= '0';
       end if;
       f011_buffer_write <= '0';
-      if f011_head_track="0000000" then
-        f011_track0 <= '1';
+      if use_real_floppy='1' then
+        -- When using the real drive, use correct index and track 0 sensors
+        f011_track0 <= not f_track0;
+        f011_over_index <= not f_index;
       else
-        f011_track0 <= '0';
+        if f011_head_track="0000000" then
+          f011_track0 <= '1';
+        else
+          f011_track0 <= '0';
+        end if;
       end if;
+      if fdc_read_request='1' then
+        -- We have an FDC request in progress.
+        if fdc_sector_found='1' then
+          f011_rsector_found <= '1';
+          if fdc_byte_valid = '1' then
+            -- Record byte
+            if f011_drq='1' then f011_lost <= '1'; end if;
+            f011_drq <= '1';
+            -- Update F011 sector buffer
+            f011_flag_eq_inhibit <= '1';
+            f011_buffer_address <= f011_buffer_address + 1;
+            f011_buffer_write <= '1';
+            f011_buffer_wdata <= unsigned(fdc_byte_out);
+          end if;
+          if fdc_crc_error='1' then
+            -- Failed to read sector
+            f011_crc <= '1';
+            fdc_read_request <= '0';
+            f011_busy <= '0';
+          end if;
+          if fdc_sector_end='1' then
+            fdc_read_request <= '0';
+            f011_busy <= '0';
+          end if;
+        end if;
+      end if;
+      -- the read invalidate line is a strobe set by seeking the
+      -- heads.
+      -- XXX It should remain invalidated until seek completes
+      -- however.
+      fdc_read_invalidate <= '0';
       
       -- update diskimage offset
       -- add 1/2 track amount for sectors on the rear
@@ -1138,12 +1207,22 @@ begin  -- behavioural
                       sd_sector(31 downto 9) <= diskimage_sector(31 downto 9) +
                                                 diskimage_offset;     
                     end if;
-                    if virtualise_f011='0' then
-                      sd_state <= ReadSector;
-                    else
+                    if virtualise_f011='1' then
+                      -- Hypervisor virtualised
                       sd_state <= HyperTrapRead;
                       sd_sector(10 downto 0) <= diskimage_offset;
                       sd_sector(31 downto 11) <= (others => '0');
+                    elsif use_real_floppy='0' then
+                      -- SD card
+                      sd_state <= ReadSector;                      
+                    else
+                      -- Real floppy drive request
+                      target_track <= f011_track;
+                      target_sector <= f011_sector;
+                      target_side <= f011_side;
+                      fdc_read_request <= '1';
+                      -- XXX Set timeout ?
+                      
                     end if;
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
@@ -1196,8 +1275,10 @@ begin  -- behavioural
                     else
                       sd_sector(31 downto 9) <= diskimage_sector(31 downto 9) +
                                                 diskimage_offset;     
-                    end if;   
-                    if virtualise_f011='0' then
+                    end if;
+                    -- XXX Writing with real floppy causes a hypervisor trap
+                    -- instead of writing to disk.
+                    if virtualise_f011='0' and use_real_floppy='0' then
                       sd_state <= F011WriteSector;
                     else
                       sd_state <= HyperTrapWrite;
@@ -1240,6 +1321,8 @@ begin  -- behavioural
                   busy_countdown <= to_unsigned(16000,16); -- 1 sec spin up time
                 when x"00" =>         -- cancel running command (not implemented)
                   f_wgate <= '0';
+                  fdc_read_request <= '0';
+                  f011_busy <= '0';
                 when others =>        -- illegal command
                   null;
               end case;
@@ -1422,7 +1505,11 @@ begin  -- behavioural
               f_wdata <= fastio_wdata(2);
               f_wgate <= fastio_wdata(1);
               f_side1 <= fastio_wdata(0);
-                          
+            when x"a1" =>
+              use_real_floppy <= fastio_wdata(0);
+              target_any <= fastio_wdata(1);
+            when x"a2" =>
+              cycles_per_interval <= fastio_wdata;
             -- @IO:GS $D6F3 - Accelerometer bit-bashing port
             when x"F3" =>
               -- Accelerometer

@@ -379,6 +379,14 @@ GS $D68F - Diskimage sector number (bits 24-31)
 GS $D690-$D693 - F011 disk 2 disk image address on SD card
 GS $D6A0 - 3.5" FDC control line debug access
 GS $D6A0 - DEBUG FDC read status lines
+GS $D6A1.0 - Use real floppy drive instead of SD card
+GS $D6A1.1 - Match any sector on a real floppy read/write
+GS $D6A1.2-6 - FDC debug status flags
+GS $D6A2 - FDC clock cycles per MFM data bit
+GS $D6A3 - FDC track number of last matching sector header
+GS $D6A4 - FDC sector number of last matching sector header
+GS $D6A5 - FDC side number of last matching sector header
+GS $D6A6 - DEBUG FDC decoded MFM byte
 GS $D6E0.0 Clear to reset ethernet PHY
 GS $D6E0.1-2 Read ethernet TX bits currently on the wire
 GS $D6E0.3 Read ethernet RX data valid
@@ -407,7 +415,6 @@ GS $D6E4 Ethernet command
 GS $D6E5.0 Swap RMII RX bit order
 GS $D6E5.1 Disable CRC check for received packets
 GS $D6E5.2-3 Ethernet TX clock phase adjust
-GS $D6E5.4 Swap bit order for TX FCS output
 GS $D6EE - Temperature sensor (lower byte)
 GS $D6EF - Temperature sensor (upper byte)
 GS $D6F0 - Read FPGA switches 0-7
