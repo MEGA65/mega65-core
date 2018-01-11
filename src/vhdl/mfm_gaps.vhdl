@@ -36,21 +36,25 @@ begin
       last_rdata <= f_rdata;
 
       -- Produced packed rdata samples for debugging
-      if recent_bits = 7 then
-        packed_rdata(6 downto 0) <= recent_rdata;
+      if recent_bits = 6 then
+        packed_rdata(5 downto 0) <= recent_rdata;
+        packed_rdata(6) <= '0';
         packed_rdata(7) <= recent_toggle;
         recent_toggle <= not recent_toggle;
-        recent_bits <= 1;
+        recent_bits <= 2;
       else
-        recent_bits <= recent_bits + 1;
+        recent_bits <= recent_bits + 2;
       end if;
-      recent_rdata(6 downto 1) <= recent_rdata(5 downto 0);
-      recent_rdata(0) <= f_rdata;
+      recent_rdata(6 downto 2) <= recent_rdata(4 downto 0);
+      recent_rdata(1) <= f_rdata;
+      recent_rdata(0) <= last_rdata;
       
-      if f_rdata='0' and last_rdata='1' then
-        -- Start of pulse
-        gap_valid <= '1';
-        gap_length <= to_unsigned(counter,16);
+      if f_rdata='0' then
+        if counter /= 0 then
+          -- Start of pulse
+          gap_valid <= '1';
+          gap_length <= to_unsigned(counter,16);
+        end if;
         counter <= 0;
 --        report "GAP of " & integer'image(counter) & " cycles.";
       else
