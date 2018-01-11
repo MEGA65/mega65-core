@@ -35,15 +35,14 @@ begin
     if rising_edge(clock50mhz) then
       crc_ready <= ready;
       crc_value <= value;
-      if -- ready='1' and
-        (last_crc /= value) then
+      if ready='1' and (last_crc /= value) then
         report "CRC value is $" & to_hstring(value);
         last_crc := value;
       end if;
 
-      if crc_reset='1' then
-        report "CRC reset asserted";
-      end if;
+--      if crc_reset='1' then
+--        report "CRC reset asserted";
+--      end if;
       
       if crc_feed='1' then
         bits_left <= 8;
@@ -86,9 +85,9 @@ begin
 
         byte(7 downto 1) <= byte(6 downto 0);
 
-        report "CRC feeding bit "
-          & std_logic'image(byte(7))
-          &" bits_left=" & integer'image(bits_left);
+--        report "CRC feeding bit "
+--          & std_logic'image(byte(7))
+--          &" bits_left=" & integer'image(bits_left);
         
         bits_left <= bits_left - 1;
       else
