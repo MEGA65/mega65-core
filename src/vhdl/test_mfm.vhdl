@@ -16,8 +16,8 @@ architecture foo of test_mfm is
   -- This is relative to the sample rate of the feed, which in reality will be
   -- 20ns, but in our DMA-captured traces is only 50/3 = ~17MHz, so an interval
   -- should be 4usec * (50/3) = ~67 cycles
-
-  signal cycles_per_interval : unsigned(7 downto 0) := to_unsigned(67,8);
+  -- This register gets x2 before being used
+  signal cycles_per_interval : unsigned(7 downto 0) := to_unsigned(33,8);
   
     -- The track/sector/side we are being asked to find
   signal target_track : unsigned(7 downto 0) := x"01";
@@ -29,7 +29,7 @@ architecture foo of test_mfm is
     -- begin.  It does have to take account of the latency of
     -- the write stage, and also any write precompensation).
   signal sector_found : std_logic := '0';
-  signal sector_match : std_logic := '0';
+  signal sector_data_gap : std_logic := '0';
   signal found_track : unsigned(7 downto 0) := x"00";
   signal found_sector : unsigned(7 downto 0) := x"00";
   signal found_side : unsigned(7 downto 0) := x"00";
@@ -54,7 +54,7 @@ begin
     target_side => target_side,
 
     sector_found => sector_found,
-    sector_match => sector_match,
+    sector_data_gap => sector_data_gap,
     found_track => found_track,
     found_sector => found_sector,
     found_side => found_side,

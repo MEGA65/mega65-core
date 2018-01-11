@@ -203,7 +203,7 @@ begin
             sector_end <= '1';
             sector_found <= '0';
           else
-            if last_crc /= x"0000" then
+            if last_crc = x"0000" and false then
               report "Valid sector header for"
                 & " T:$" & to_hstring(seen_track)
                 & ", S:$" & to_hstring(seen_sector)
