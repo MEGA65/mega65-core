@@ -232,7 +232,7 @@ begin
 --                & std_logic'image(sector_found)
 --                & ", crc=$" & to_hstring(last_crc)
 --                & ")";
-            end if;
+--            end if;
             if (target_any='1')
               or (
                 (target_track = seen_track)
