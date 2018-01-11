@@ -391,6 +391,7 @@ GS $D6A7 - DEBUG FDC decoded MFM state
 GS $D6A8 - DEBUG FDC last decoded MFM byte
 GS $D6A9 - DEBUG FDC last gap interval (LSB)
 GS $D6AA - DEBUG FDC last gap interval (MSB)
+GS $D6AB - DEBUG FDC last 7 rdata bits (packed by mfm_gaps)
 GS $D6E0.0 Clear to reset ethernet PHY
 GS $D6E0.1-2 Read ethernet TX bits currently on the wire
 GS $D6E0.3 Read ethernet RX data valid

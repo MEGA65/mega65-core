@@ -12,6 +12,8 @@ entity mfm_gaps is
     clock50mhz : in std_logic;
     f_rdata : in std_logic;
 
+    packed_rdata : out std_logic_vector(7 downto 0);
+    
     gap_valid : out std_logic := '0';
     gap_length : out unsigned(15 downto 0)
     );
@@ -22,12 +24,29 @@ architecture behavioural of mfm_gaps is
   signal counter : integer := 0;
   signal last_rdata : std_logic := '0';
 
+  signal recent_rdata : std_logic_vector(6 downto 0) := "0000000";
+  signal recent_bits : integer range 0 to 7 := 0;
+  signal recent_toggle : std_logic := '0';
+  
 begin
 
   process (clock50mhz,f_rdata) is
   begin
     if rising_edge(clock50mhz) then
       last_rdata <= f_rdata;
+
+      -- Produced packed rdata samples for debugging
+      if recent_bits = 7 then
+        packed_rdata(6 downto 0) <= recent_rdata;
+        packed_rdata(7) <= recent_toggle;
+        recent_toggle <= not recent_toggle;
+        recent_bits <= 1;
+      else
+        recent_bits <= recent_bits + 1;
+      end if;
+      recent_rdata(6 downto 1) <= recent_rdata(5 downto 0);
+      recent_rdata(0) <= f_rdata;
+      
       if f_rdata='0' and last_rdata='1' then
         -- Start of pulse
         gap_valid <= '1';

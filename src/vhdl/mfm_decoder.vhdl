@@ -32,6 +32,7 @@ entity mfm_decoder is
     mfm_state : out unsigned(7 downto 0) := x"00";
     mfm_last_gap : out unsigned(15 downto 0) := x"0000";
     mfm_last_byte : out unsigned(7 downto 0) := x"00";
+    packed_rdata : out std_logic_vector(7 downto 0);
     
     cycles_per_interval : in unsigned(7 downto 0);    
 
@@ -118,6 +119,8 @@ begin
 
   gaps0: entity work.mfm_gaps port map (
     clock50mhz => clock50mhz,
+
+    packed_rdata => packed_rdata,
     
     f_rdata => f_rdata,
     gap_length => gap_length,
