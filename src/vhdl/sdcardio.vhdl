@@ -169,7 +169,6 @@ architecture behavioural of sdcardio is
     rdata : OUT unsigned(7 DOWNTO 0)
     );
   END component;
-
   signal QspiSCKInternal : std_logic := '1';
   signal QspiCSnInternal : std_logic := '1'; 
   
@@ -321,6 +320,23 @@ architecture behavioural of sdcardio is
   
   signal audio_reflect : std_logic_vector(3 downto 0) := "0000";
 
+  signal cycles_per_interval : unsigned(7 downto 0)
+    := to_unsigned(100,8);
+  signal fdc_read_invalidate : std_logic := '0';
+  signal target_track : unsigned(7 downto 0) := x"00";
+  signal target_sector : unsigned(7 downto 0) := x"00";
+  signal target_side : unsigned(7 downto 0) := x"00";
+  signal found_track : unsigned(7 downto 0) := x"00";
+  signal found_sector : unsigned(7 downto 0) := x"00";
+  signal found_side : unsigned(7 downto 0) := x"00";
+  signal fdc_first_byte : std_logic := '0';
+  signal fdc_byte_valid : std_logic := '0';
+  signal fdc_byte_out : unsigned(7 downto 0);
+  signal fdc_crc_error : std_logic := '0';
+  signal fdc_sector_end : std_logic := '0';
+  signal fdc_sector_data_gap : std_logic := '0';
+  signal fdc_sector_found : std_logic := '0';
+  
 begin  -- behavioural
 
   --**********************************************************************
@@ -405,6 +421,31 @@ begin  -- behavioural
       wdata => f011_buffer_wdata
       );
 
+  -- Reader for real floppy drive
+  mfm0: entity work.mfm_decoder port map (
+    clock50mhz => clock,
+    f_rdata => f_rdata,
+    cycles_per_interval => cycles_per_interval,
+    invalidate => fdc_read_invalidate,
+
+    target_track => target_track,
+    target_sector => target_sector,
+    target_side => target_side,
+
+    sector_data_gap => fdc_sector_data_gap,
+    sector_found => fdc_sector_found,
+    found_track => found_track,
+    found_sector => found_sector,
+    found_side => found_side,
+
+    first_byte => fdc_first_byte,
+    byte_valid => fdc_byte_valid,
+    byte_out => fdc_byte_out,
+    crc_error => fdc_crc_error,
+    sector_end => fdc_sector_end    
+    );
+  
+  
   
   -- XXX also implement F011 floppy controller emulation.
   process (clock,fastio_addr,fastio_wdata,sector_buffer_mapped,sdio_busy,

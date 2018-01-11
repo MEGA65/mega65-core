@@ -99,6 +99,12 @@ VICIVVHDL=		$(VHDLSRCDIR)/viciv.vhdl \
 
 PERIPHVHDL=		$(VHDLSRCDIR)/sd.vhdl \
 			$(VHDLSRCDIR)/sdcardio.vhdl \
+			$(VHDLSRCDIR)/mfm_bits_to_bytes.vhdl \
+			$(VHDLSRCDIR)/mfm_decoder.vhdl \
+			$(VHDLSRCDIR)/mfm_gaps_to_bits.vhdl \
+			$(VHDLSRCDIR)/mfm_gaps.vhdl \
+			$(VHDLSRCDIR)/mfm_quantise_gaps.vhdl \
+			$(VHDLSRCDIR)/crc1581.vhdl \
 			$(VHDLSRCDIR)/ethernet.vhdl \
 			$(VHDLSRCDIR)/ghdl_fpgatemp.vhdl \
 			$(VHDLSRCDIR)/expansion_port_controller.vhdl \

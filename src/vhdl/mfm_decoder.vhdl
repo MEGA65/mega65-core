@@ -43,7 +43,7 @@ entity mfm_decoder is
     -- begin.  It does have to take account of the latency of
     -- the write stage, and also any write precompensation).
     sector_found : out std_logic := '0';
-    sector_match : out std_logic := '0';
+    sector_data_gap : out std_logic := '0';
     found_track : out unsigned(7 downto 0) := x"00";
     found_sector : out unsigned(7 downto 0) := x"00";
     found_side : out unsigned(7 downto 0) := x"00";
@@ -193,6 +193,7 @@ begin
           crc_error <= '0';
           if byte_count /= 0 then
             sector_end <= '1';
+            sector_found <= '0';
           else
             if last_crc /= x"0000" then
               report "Valid sector header for"
@@ -208,6 +209,12 @@ begin
                 and (target_side = seen_side)) then
               if last_crc /= x"0000" then
                 report "Seen sector matches target";
+                found_track <= seen_track;
+                found_sector <= seen_sector;
+                found_side <= seen_side;
+                -- Data gap begins now
+                sector_data_gap <= '1';
+                sector_found <= '1';
               end if;
               seen_valid <= '1';
             else
@@ -231,6 +238,7 @@ begin
         first_byte <= '0';
         sector_end <= '0';
         crc_error <= '0';
+        sector_data_gap <= '0';
 
         byte_count <= 0;
         state <= WaitingForSync;
