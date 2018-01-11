@@ -338,6 +338,10 @@ architecture behavioural of sdcardio is
   signal fdc_sector_data_gap : std_logic := '0';
   signal fdc_sector_found : std_logic := '0';
 
+  signal fdc_mfm_state : unsigned(7 downto 0);
+  signal fdc_last_gap : unsigned(7 downto 0);
+  signal fdc_mfm_byte : unsigned(7 downto 0);
+  
   signal use_real_floppy : std_logic := '0';
   signal fdc_read_request : std_logic := '0';
   
@@ -432,6 +436,10 @@ begin  -- behavioural
     cycles_per_interval => cycles_per_interval,
     invalidate => fdc_read_invalidate,
 
+    mfm_state => fdc_mfm_state,
+    mfm_last_gap => fdc_last_gap,
+    mfm_last_byte => fdc_mfm_byte,
+    
     target_track => target_track,
     target_sector => target_sector,
     target_side => target_side,
@@ -696,6 +704,15 @@ begin  -- behavioural
           when x"a6" =>
             -- @IO:GS $D6A6 - DEBUG FDC decoded MFM byte
             fastio_rdata <= fdc_byte_out;
+          when x"a7" =>
+            -- @IO:GS $D6A7 - DEBUG FDC decoded MFM state
+            fastio_rdata <= fdc_mfm_state;
+          when x"a8" =>
+            -- @IO:GS $D6A8 - DEBUG FDC last gap interval
+            fastio_rdata <= fdc_last_gap;
+          when x"a9" =>
+            -- @IO:GS $D6A9 - DEBUG FDC last decoded MFM byte
+            fastio_rdata <= fdc_mfm_byte;
           when x"EE" =>
             -- @IO:GS $D6EE - Temperature sensor (lower byte)
             fastio_rdata <= unsigned("0000"&fpga_temperature(3 downto 0));

@@ -28,6 +28,10 @@ entity mfm_decoder is
 
     f_rdata : in std_logic;
     invalidate : in std_logic;
+
+    mfm_state : out unsigned(7 downto 0) := x"00";
+    mfm_last_gap : out unsigned(7 downto 0) := x"00";
+    mfm_last_byte : out unsigned(7 downto 0) := x"00";
     
     cycles_per_interval : in unsigned(7 downto 0);    
 
@@ -169,6 +173,14 @@ begin
   begin
     if rising_edge(clock50mhz) then
 
+      mfm_last_byte <= byte_in;
+      mfm_state <= to_unsigned(MFMState'pos(state),8);
+      if gap_length(15 downto 8) = x"00" then
+        mfm_last_gap <= gap_length(7 downto 0);
+      else
+        mfm_last_gap <= x"FF";
+      end if;
+      
       -- Update expected size of sector
       case seen_size is
         when x"00" => sector_size <= 128-1;

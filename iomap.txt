@@ -387,6 +387,9 @@ GS $D6A3 - FDC track number of last matching sector header
 GS $D6A4 - FDC sector number of last matching sector header
 GS $D6A5 - FDC side number of last matching sector header
 GS $D6A6 - DEBUG FDC decoded MFM byte
+GS $D6A7 - DEBUG FDC decoded MFM state
+GS $D6A8 - DEBUG FDC last gap interval
+GS $D6A9 - DEBUG FDC last decoded MFM byte
 GS $D6E0.0 Clear to reset ethernet PHY
 GS $D6E0.1-2 Read ethernet TX bits currently on the wire
 GS $D6E0.3 Read ethernet RX data valid
