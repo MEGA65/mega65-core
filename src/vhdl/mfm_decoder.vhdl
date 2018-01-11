@@ -301,13 +301,13 @@ begin
             when TrackNumber =>
               seen_track <= byte_in;
               crc_feed <= '1'; crc_byte <= byte_in;
-              state <= SectorNumber;
-            when SectorNumber =>
-              seen_sector <= byte_in;
-              crc_feed <= '1'; crc_byte <= byte_in;
               state <= SideNumber;
             when SideNumber =>
               seen_side <= byte_in;
+              crc_feed <= '1'; crc_byte <= byte_in;
+              state <= SectorNumber;
+            when SectorNumber =>
+              seen_sector <= byte_in;
               crc_feed <= '1'; crc_byte <= byte_in;
               state <= SizeNumber;
             when SizeNumber =>
