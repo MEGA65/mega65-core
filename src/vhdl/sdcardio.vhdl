@@ -998,6 +998,7 @@ begin  -- behavioural
         -- When using the real drive, use correct index and track 0 sensors
         f011_track0 <= not f_track0;
         f011_over_index <= not f_index;
+        f011_disk_changed <= not f_diskchanged;
       else
         if f011_head_track="0000000" then
           f011_track0 <= '1';
