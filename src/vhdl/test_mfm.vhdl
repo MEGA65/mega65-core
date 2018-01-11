@@ -20,9 +20,9 @@ architecture foo of test_mfm is
   signal cycles_per_interval : unsigned(7 downto 0) := to_unsigned(67,8);
   
     -- The track/sector/side we are being asked to find
-  signal target_track : unsigned(7 downto 0) := x"00";
-  signal target_sector : unsigned(7 downto 0) := x"00";
-  signal target_side : unsigned(7 downto 0) := x"00";
+  signal target_track : unsigned(7 downto 0) := x"01";
+  signal target_sector : unsigned(7 downto 0) := x"01";
+  signal target_side : unsigned(7 downto 0) := x"01";
 
     -- Indicate when we have hit the start of the gap leading
     -- to the data area (this is so that sector writing can
@@ -38,6 +38,8 @@ architecture foo of test_mfm is
   signal first_byte : std_logic := '0';
   signal byte_valid : std_logic := '0';
   signal byte_out : unsigned(7 downto 0);
+  signal crc_error : std_logic := '0';
+  signal sector_end : std_logic := '0';
   
 begin
 
@@ -59,7 +61,9 @@ begin
 
     first_byte => first_byte,
     byte_valid => byte_valid,
-    byte_out => byte_out
+    byte_out => byte_out,
+    crc_error => crc_error,
+    sector_end => sector_end
     );
   
   process is
@@ -76,6 +80,21 @@ begin
       clock50mhz <= '1';
       wait for 10 ns;
     end loop;
+  end process;
+
+  process (clock50mhz,byte_out) is
+  begin
+    if rising_edge(clock50mhz) then
+      if byte_valid='1' then
+        report "Read sector byte $" & to_hstring(byte_out)
+          & " (first=" & std_logic'image(first_byte)
+          & ")";
+      end if;
+      if (sector_end or crc_error)='1' then
+        report "End of sector reached: crc_error="
+          & std_logic'image(crc_error);        
+      end if;
+    end if;
   end process;
   
 end foo;
