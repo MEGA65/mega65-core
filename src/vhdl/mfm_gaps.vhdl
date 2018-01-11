@@ -23,11 +23,12 @@ end mfm_gaps;
 architecture behavioural of mfm_gaps is
 
   signal counter : integer := 0;
-  signal last_rdata : std_logic := '0';
+  signal last_rdata : std_logic := '1';
+  signal last_last_rdata : std_logic := '1';
 
   signal recent_rdata : std_logic_vector(6 downto 0) := "0000000";
   signal recent_bits : integer range 0 to 7 := 0;
-  signal recent_toggle : unsigned(1 downto 0);
+  signal recent_toggle : unsigned(1 downto 0) := "00";
 
   signal gap_count_internal : unsigned(3 downto 0) := x"0";
   
@@ -37,6 +38,7 @@ begin
   begin
     if rising_edge(clock50mhz) then
       last_rdata <= f_rdata;
+      last_last_rdata <= last_rdata;
 
       -- Produced packed rdata samples for debugging
       if recent_bits = 6 then
@@ -55,8 +57,8 @@ begin
       recent_rdata(1) <= f_rdata;
       recent_rdata(0) <= last_rdata;
       
-      if f_rdata='0' then
-        if counter /= 0 then
+      if last_rdata='0' and last_last_rdata='1' then
+        if true then
           -- Start of pulse
           gap_valid <= '1';
           gap_length <= to_unsigned(counter,16);
