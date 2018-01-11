@@ -34,6 +34,7 @@ begin
       if sync_in='1' then
         report "Sync $A1 detected";
         sync_out <= '1';
+        byte_out <= x"A1";
         bit_count <= 0;
       elsif bit_valid='1' then
         if bit_count = 7 then

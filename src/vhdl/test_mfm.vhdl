@@ -45,6 +45,7 @@ begin
     clock50mhz => clock50mhz,
     f_rdata => f_rdata,
     cycles_per_interval => cycles_per_interval,
+    invalidate => '0',
 
     target_track => target_track,
     target_sector => target_sector,

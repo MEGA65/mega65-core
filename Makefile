@@ -217,6 +217,7 @@ MFMFILES=$(VHDLSRCDIR)/mfm_bits_to_bytes.vhdl \
 	 $(VHDLSRCDIR)/mfm_gaps_to_bits.vhdl \
 	 $(VHDLSRCDIR)/mfm_gaps.vhdl \
 	 $(VHDLSRCDIR)/mfm_quantise_gaps.vhdl \
+	 $(VHDLSRCDIR)/crc1581.vhdl \
 	 $(VHDLSRCDIR)/test_mfm.vhdl
 
 mfmsimulate: $(MFMFILES) $(ASSETS)/track2-40ns.dat
