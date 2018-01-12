@@ -823,6 +823,10 @@ begin  -- behavioural
     
     if rising_edge(clock) then
 
+      target_track <= f011_track;
+      target_sector <= f011_sector;
+      target_side <= f011_side;      
+      
       -- Check 16KHz timer to see if we need to do anything
       if counter_16khz /= cycles_per_16khz then
         counter_16khz <= counter_16khz + 1;
@@ -1252,58 +1256,60 @@ begin  -- behavioural
                   f011_buffer_next_read(8) <= f011_swap;
 
                   f011_flag_eq_inhibit <= '1';
-                  
-                  if f011_ds="000" and (f011_disk1_present='0' or ((use_real_floppy or diskimage1_enable)='0')) then
-                    f011_rnf <= '1';
-                    report "Drive 0 selected, but not mounted.";
-                  elsif f011_ds="001" and (f011_disk2_present='0' or ((use_real_floppy or diskimage2_enable)='0')) then
-                    f011_rnf <= '1';
-                    report "Drive 1 selected, but not mounted.";
-                  elsif f011_ds(2 downto 1) /= x"00" then
-                    -- only 2 drives supported for now
-                    f011_rnf <= '1';
-                    report "Drive 2-7 selected, but not supported.";
-                  else
-                    report "Drive 0 or 1 selected and active.";
-                    -- f011_buffer_address gets pre-incremented, so start
-                    -- with it pointing to the end of the buffer first
-                    f011_buffer_address(7 downto 0) <= (others => '1');
-                    f011_buffer_address(8) <= '1';
-                    f011_sector_fetch <= '1';
+
+                  if use_real_floppy='1' and f011_ds="000" then
+                    report "Using real floppy drive";
+                    -- Real floppy drive request
+                    fdc_read_request <= '1';
+                    -- Read must complete within 6 rotations
+                    fdc_rotation_timeout <= 6;                      
+
                     f011_busy <= '1';
-                    if sdhc_mode='1' then
-                      sd_sector <= diskimage_sector + diskimage_offset;
+                    f011_rnf <= '0';
+                  else
+                    if f011_ds="000" and (f011_disk1_present='0' or diskimage1_enable='0') then
+                      f011_rnf <= '1';
+                      report "Drive 0 selected, but not mounted.";
+                    elsif f011_ds="001" and (f011_disk2_present='0' or diskimage2_enable='0') then
+                      f011_rnf <= '1';
+                      report "Drive 1 selected, but not mounted.";
+                    elsif f011_ds(2 downto 1) /= x"00" then
+                      -- only 2 drives supported for now
+                      f011_rnf <= '1';
+                      report "Drive 2-7 selected, but not supported.";
                     else
-                      sd_sector(31 downto 9) <= diskimage_sector(31 downto 9) +
-                                                diskimage_offset;     
+                      report "Drive 0 or 1 selected and active.";
+                      -- f011_buffer_address gets pre-incremented, so start
+                      -- with it pointing to the end of the buffer first
+                      f011_buffer_address(7 downto 0) <= (others => '1');
+                      f011_buffer_address(8) <= '1';
+                      f011_sector_fetch <= '1';
+                      f011_busy <= '1';
+                      if sdhc_mode='1' then
+                        sd_sector <= diskimage_sector + diskimage_offset;
+                      else
+                        sd_sector(31 downto 9) <= diskimage_sector(31 downto 9) +
+                                                  diskimage_offset;     
+                      end if;
                     end if;
                     if virtualise_f011='1' then
                       -- Hypervisor virtualised
                       sd_state <= HyperTrapRead;
                       sd_sector(10 downto 0) <= diskimage_offset;
                       sd_sector(31 downto 11) <= (others => '0');
-                    elsif use_real_floppy='0' then
+                    else
                       -- SD card
                       sd_state <= ReadSector;                      
-                    else
-                      -- Real floppy drive request
-                      target_track <= f011_track;
-                      target_sector <= f011_sector;
-                      target_side <= f011_side;
-                      fdc_read_request <= '1';
-                      -- Read must complete within 6 rotations
-                      fdc_rotation_timeout <= 6;                      
                     end if;
                     sdio_error <= '0';
-                    sdio_fsm_error <= '0';
-                    
-                    -- XXX work around specification error: always reset buffer
-                    -- pointers when reading a sector
-                    -- reset buffer (but take SWAP into account)
-                    f011_buffer_next_read(7 downto 0) <= (others => '0');
-                    f011_buffer_next_read(8) <= f011_swap;
-                    
-                  end if;  
+                    sdio_fsm_error <= '0';                    
+                  end if;                      
+
+                  -- XXX work around specification error: always reset buffer
+                  -- pointers when reading a sector
+                  -- reset buffer (but take SWAP into account)
+                  f011_buffer_next_read(7 downto 0) <= (others => '0');
+                  f011_buffer_next_read(8) <= f011_swap;
                   
                 when x"80" =>         -- write sector
                   -- Copy sector from F011 buffer to SD buffer, and then
