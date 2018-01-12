@@ -1091,7 +1091,7 @@ begin  -- behavioural
           f011_rsector_found <= '1';
           if fdc_byte_valid = '1' then
             -- DEBUG: Note how many bytes we have received from the floppy
-            if to_integer(fdc_bytes_read(12 downto 0) /= 8191 then
+            if to_integer(fdc_bytes_read(12 downto 0)) /= 8191 then
               fdc_bytes_read(12 downto 0) <= unsigned(to_integer(fdc_bytes_read(12 downto 0)) + 1,13);
             else
               fdc_bytes_read(12 downto 0) <= (others => '0');
