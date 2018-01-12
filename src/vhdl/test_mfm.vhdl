@@ -20,9 +20,10 @@ architecture foo of test_mfm is
   signal cycles_per_interval : unsigned(7 downto 0) := to_unsigned(33,8);
   
     -- The track/sector/side we are being asked to find
-  signal target_track : unsigned(7 downto 0) := x"01";
+  signal target_track : unsigned(7 downto 0) := x"00";
   signal target_sector : unsigned(7 downto 0) := x"01";
   signal target_side : unsigned(7 downto 0) := x"01";
+  signal target_any : std_logic := '0';
 
     -- Indicate when we have hit the start of the gap leading
     -- to the data area (this is so that sector writing can
@@ -43,7 +44,10 @@ architecture foo of test_mfm is
 
   signal last_sector_end : std_logic := '0';
   signal last_sector_found : std_logic := '0';
-  
+  signal last_crc_error : std_logic := '0';
+
+  signal byte_count : integer := 0;
+                                       
 begin
 
   decoder0: entity work.mfm_decoder port map (
@@ -55,6 +59,7 @@ begin
     target_track => target_track,
     target_sector => target_sector,
     target_side => target_side,
+    target_any => target_any,
 
     sector_found => sector_found,
     sector_data_gap => sector_data_gap,
@@ -73,7 +78,7 @@ begin
     file trace : CharFile;
     variable c : character;
   begin
-    file_open(trace,"assets/track2-40ns.dat",READ_MODE);
+    file_open(trace,"assets/synthesised-40ns.dat",READ_MODE);
     while not endfile(trace) loop
       Read(trace,c);
 --      report "Read char $" & to_hstring(to_unsigned(character'pos(c),8));      
@@ -90,16 +95,22 @@ begin
     if rising_edge(clock50mhz) then
       last_sector_found <= sector_found;
       last_sector_end <= sector_end;
+      last_crc_error <= crc_error;
+      if crc_error /= last_crc_error then
+        report "STATUS: crc_error=" & std_logic'image(crc_error);
+      end if;
       if sector_found /= last_sector_found then
-        report "sector_found=" & std_logic'image(sector_found);
+        report "STATUS: sector_found=" & std_logic'image(sector_found);
       end if;
       if sector_end /= last_sector_end then
-        report "sector_end=" & std_logic'image(sector_end);
+        report "STATUS: sector_end=" & std_logic'image(sector_end)
+          & ", after reading " & integer'image(byte_count) & " bytes.";
       end if;
       if byte_valid='1' then
         report "Read sector byte $" & to_hstring(byte_out)
           & " (first=" & std_logic'image(first_byte)
           & ")";
+        byte_count <= byte_count + 1;
       end if;
       if (sector_end or crc_error)='1' then
         report "End of sector reached: crc_error="
