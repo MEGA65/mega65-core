@@ -494,8 +494,7 @@ begin  -- behavioural
            found_sector,found_side,fdc_byte_out,fdc_mfm_state,
            fdc_mfm_byte,fdc_last_gap,packed_rdata,fdc_quantised_gap,
            fdc_bytes_read,fpga_temperature,ampsd_internal,audio_reflect,
-           stereo_swap,force_mono,audio_mode,rightsid_audio,leftsid_audio,
-           
+           stereo_swap,force_mono,audio_mode,rightsid_audio,leftsid_audio           
            ) is
     variable temp_cmd : unsigned(7 downto 0);
   begin
