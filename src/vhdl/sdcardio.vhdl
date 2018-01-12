@@ -1233,7 +1233,7 @@ begin  -- behavioural
                 f011_buffer_next_read(8) <= f011_swap;
               end if;
 
-              temp_cmd := fastio_wdata(7 downto 2) & "00";
+              temp_cmd := fastio_wdata(7 downto 3) & "000";
               report "F011 command $" & to_hstring(temp_cmd) & " issued.";
               case temp_cmd is
 
