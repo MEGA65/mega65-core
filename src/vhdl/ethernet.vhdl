@@ -965,15 +965,6 @@ begin  -- behavioural
               -- @IO:GS $D6E0.0 Clear to reset ethernet PHY
               eth_reset <= fastio_wdata(0);
               eth_reset_int <= fastio_wdata(0);
-              -- @IO:GS $D6E0.7 ETH_MDIO read/write
-              -- @IO:GS $D6E0.6 ETH_MDIO data direction register
-              if fastio_wdata(6)='1' then
-                eth_mdio <= fastio_wdata(7);
-              else
-                eth_mdio <= 'Z';
-              end if;
-              -- @IO:GS $D6E0.6 ETH_MDC (write only)
-              eth_mdc <= fastio_wdata(5);
               
             when x"1" =>
               -- $D6E1 100mbit ethernet irq mask
