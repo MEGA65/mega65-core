@@ -57,7 +57,7 @@ int process_char(unsigned char c,int live);
 void usage(void)
 {
   fprintf(stderr,"MEGA65 cross-development tool for booting the MEGA65 using a custom bitstream and/or KICKUP file.\n");
-  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <kickup file>] [-R romfile] [-C charromfile]] [-c COLOURRAM.BIN] [-B breakpoint] [-m modeline] [-o] [-d diskimage.d81] [[-1] [<-t|-T> <text>] [filename]]\n");
+  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <kickup file>] [-R romfile] [-C charromfile]] [-c COLOURRAM.BIN] [-B breakpoint] [-m modeline] [-o] [-d diskimage.d81] [[-1] [<-t|-T> <text>] [-f FPGA serial ID] [filename]]\n");
   fprintf(stderr,"  -l - Name of serial port to use, e.g., /dev/ttyUSB1\n");
   fprintf(stderr,"  -s - Speed of serial port in bits per second. This must match what your bitstream uses.\n");
   fprintf(stderr,"       (Older bitstream use 230400, and newer ones 2000000 or 4000000).\n");
@@ -75,6 +75,7 @@ void usage(void)
   fprintf(stderr,"  -t - Type text via keyboard virtualisation.\n");
   fprintf(stderr,"  -T - As above, but also provide carriage return\n");
   fprintf(stderr,"  -B - Set a breakpoint on synchronising, and then immediately exit.\n");
+  fprintf(stderr,"  -f - Specify which FPGA to reconfigure when calling fpgajtag\n");
   fprintf(stderr,"  filename - Load and run this file in C64 mode before exiting.\n");
   fprintf(stderr,"\n");
   exit(-3);
@@ -114,6 +115,7 @@ FILE *f=NULL;
 char *search_path=".";
 char *bitstream=NULL;
 char *kickstart=NULL;
+char *fpga_serial=NULL;
 char serial_port[1024]="/dev/ttyUSB1"; // XXX do a better job auto-detecting this
 int serial_speed=2000000;
 char modeline_cmd[1024]="";
@@ -932,7 +934,7 @@ int main(int argc,char **argv)
   start_time=time(0);
   
   int opt;
-  while ((opt = getopt(argc, argv, "14l:s:B:b:c:k:rR:C:m:Mod:t:T:")) != -1) {
+  while ((opt = getopt(argc, argv, "14l:s:B:b:c:f:k:rR:C:m:Mod:t:T:")) != -1) {
     switch (opt) {
     case 'B': sscanf(optarg,"%x",&break_point); break;
     case 'R': romfile=strdup(optarg); break;
@@ -941,6 +943,7 @@ int main(int argc,char **argv)
     case '4': do_go64=1; break;
     case '1': comma_eight_comma_one=1; break;
     case 'r': do_run=1; break;
+    case 'f': fpga_serial=strdup(optarg); break;
     case 'l': strcpy(serial_port,optarg); break;
     case 'm': prepare_modeline(optarg); mode_report=1; break;
     case 'M': mode_report=1; break;
@@ -979,7 +982,11 @@ int main(int argc,char **argv)
   // Load bitstream if file provided
   if (bitstream) {
     char cmd[1024];
-    snprintf(cmd,1024,"fpgajtag -a %s",bitstream);
+    if (fpga_serial) 
+      snprintf(cmd,1024,"fpgajtag -s %s -a %s",
+	       fpga_serial,bitstream);
+    else
+      snprintf(cmd,1024,"fpgajtag -a %s",bitstream);
     fprintf(stderr,"%s\n",cmd);
     system(cmd);
     fprintf(stderr,"[T+%lldsec] Bitstream loaded\n",(long long)time(0)-start_time);
