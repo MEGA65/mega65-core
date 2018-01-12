@@ -867,6 +867,17 @@ begin  -- behavioural
             fastio_rdata(1) <= eth_disable_crc_check;
             fastio_rdata(3 downto 2) <= eth_txd_phase;
             fastio_rdata(7 downto 5) <= (others => '0');
+          when x"6" =>
+            -- @IO:GS $D6E6.0-4 - Ethernet MIIM register number
+            -- @IO:GS $D6E6.7-5 - Ethernet MIIM PHY number (use 0 for Nexys4, 1 for MEGA65 r1 PCBs)
+            fastio_rdata(4 downto 0) <= miim_register;
+            fastio_rdata(7 downto 5) <= miim_phyid(2 downto 0);
+          when x"7" =>
+            -- @IO:GS $D6E7 - Ethernet MIIM register value (LSB)
+            fastio_rdata <= miim_read_value(7 downto 0);
+          when x"8" =>
+            -- @IO:GS $D6E8 - Ethernet MIIM register value (MSB)
+            fastio_rdata <= miim_read_value(15 downto 8);
           when x"b" =>
             fastio_rdata <= eth_tx_size(7 downto 0);
           when x"c" =>
