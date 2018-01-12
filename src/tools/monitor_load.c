@@ -344,6 +344,10 @@ int process_line(char *line,int live)
 		    case 'R': c1=0x02; c2=0x0f; break;
 		    case 'M': c1=0x01; break;
 		    case 'T': c1=0x00; break;
+		    case '1': c1=0x04; break; // F1
+		    case '3': c1=0x05; break; // F3
+		    case '5': c1=0x06; break; // F5
+		    case '7': c1=0x03; break; // F7
 		    }
 		  i++;
 		  break;
