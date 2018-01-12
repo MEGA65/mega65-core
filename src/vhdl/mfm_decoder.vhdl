@@ -239,7 +239,7 @@ begin
                 and (target_sector = seen_sector)
                 and (target_side = seen_side)) then
               if (last_crc = x"0000") then
-                report "Seen sector matches target";
+--                report "Seen sector matches target";
                 found_track <= seen_track;
                 found_sector <= seen_sector;
                 found_side <= seen_side;

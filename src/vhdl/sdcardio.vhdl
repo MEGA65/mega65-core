@@ -348,6 +348,8 @@ architecture behavioural of sdcardio is
   signal fdc_rotation_timeout : integer range 0 to 6 := 0;
   signal last_f_index : std_logic := '1';
 
+  signal fdc_bytes_read : unsigned(15 downto 0) := x"0000";
+  
   signal packed_rdata : std_logic_vector(7 downto 0);
   
 begin  -- behavioural
@@ -729,6 +731,12 @@ begin  -- behavioural
           when x"ac" =>
             -- @IO:GS $D6AC - DEBUG FDC last quantised gap
             fastio_rdata <= unsigned(fdc_quantised_gap);
+          when x"ad" =>
+            -- @IO:GS $D6AD - DEBUG FDC bytes read counter (LSB)
+            fastio_rdata <= unsigned(fdc_bytes_read(7 downto 0));
+          when x"ae" =>
+            -- @IO:GS $D6AE - DEBUG FDC bytes read counter (MSB)
+            fastio_rdata <= unsigned(fdc_bytes_read(15 downto 8));
           when x"EE" =>
             -- @IO:GS $D6EE - Temperature sensor (lower byte)
             fastio_rdata <= unsigned("0000"&fpga_temperature(3 downto 0));
@@ -1063,6 +1071,13 @@ begin  -- behavioural
         if fdc_sector_found='1' then
           f011_rsector_found <= '1';
           if fdc_byte_valid = '1' then
+            -- DEBUG: Note how many bytes we have received from the floppy
+            if fdc_bytes_read /= x"FFFF" then
+              fdc_bytes_read <= fdc_bytes_read + 1;
+            else
+              fdc_bytes_read <= x"0000";
+            end if;
+            
             -- Record byte
             if f011_drq='1' then f011_lost <= '1'; end if;
             f011_drq <= '1';

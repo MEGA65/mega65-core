@@ -40,6 +40,9 @@ architecture foo of test_mfm is
   signal byte_out : unsigned(7 downto 0);
   signal crc_error : std_logic := '0';
   signal sector_end : std_logic := '0';
+
+  signal last_sector_end : std_logic := '0';
+  signal last_sector_found : std_logic := '0';
   
 begin
 
@@ -85,8 +88,13 @@ begin
   process (clock50mhz,byte_out) is
   begin
     if rising_edge(clock50mhz) then
-      if sector_found='1' then
-        report "Found the sector";
+      last_sector_found <= sector_found;
+      last_sector_end <= sector_end;
+      if sector_found /= last_sector_found then
+        report "sector_found=" & std_logic'image(sector_found);
+      end if;
+      if sector_end /= last_sector_end then
+        report "sector_end=" & std_logic'image(sector_end);
       end if;
       if byte_valid='1' then
         report "Read sector byte $" & to_hstring(byte_out)

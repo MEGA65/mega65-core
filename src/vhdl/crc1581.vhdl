@@ -36,7 +36,7 @@ begin
       crc_ready <= ready;
       crc_value <= value;
       if ready='1' and (last_crc /= value) then
-        report "CRC value is $" & to_hstring(value);
+--        report "CRC value is $" & to_hstring(value);
         last_crc := value;
       end if;
 
@@ -51,7 +51,7 @@ begin
         if crc_reset='1' then
           value <= crc_init;
         end if;
-        report "CRC fed with $" & to_hstring(crc_byte);
+--        report "CRC fed with $" & to_hstring(crc_byte);
       elsif crc_reset = '1' then
         value <= crc_init;
         ready <= '1';
