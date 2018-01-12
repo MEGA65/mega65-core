@@ -991,8 +991,14 @@ begin  -- behavioural
           micLRSelinternal <= not micLRSelinternal;
         end if;
       end if;
-      
-      if f011_ds=x"000" then
+
+      if use_real_floppy='1' then
+        -- PC drives use a combined RDY and DISKCHANGE signal.
+        -- You can only clear the DISKCHANGE and re-assert RDY
+        -- by stepping the disk (thus the ticking of 
+        f011_disk_present <= '1';
+        f011_write_protected <= not f_writeprotect;
+      elsif f011_ds=x"000" then
         f011_write_protected <= f011_disk1_write_protected;
         f011_disk_present <= f011_disk1_present;
       elsif f011_ds=x"001" then
@@ -1142,8 +1148,10 @@ begin  -- behavioural
               end if;
               f011_head_side(0) <= fastio_wdata(3);
               f011_ds <= fastio_wdata(2 downto 0);
-              if fastio_wdata(2 downto 0) /= f011_ds then
-                f011_disk_changed <= '0';
+              if use_real_floppy='0' then
+                if fastio_wdata(2 downto 0) /= f011_ds then
+                  f011_disk_changed <= '0';
+                end if;
               end if;
 
             when "00001" =>           -- $D081
