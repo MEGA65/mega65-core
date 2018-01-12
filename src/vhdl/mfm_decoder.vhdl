@@ -235,9 +235,9 @@ begin
 --            end if;
             if (target_any='1')
               or (
-                (target_track = seen_track)
-                and (target_sector = seen_sector)
-                and (target_side = seen_side)) then
+                (to_integer(target_track) = to_integer(seen_track))
+                and (to_integer(target_sector) = to_integer(seen_sector))
+                and (to_integer(target_side) = to_integer(seen_side))) then
               if (last_crc = x"0000") then
 --                report "Seen sector matches target";
                 found_track <= seen_track;
@@ -256,13 +256,13 @@ begin
             found_track <= seen_track;
             found_sector <= seen_sector;
             found_side <= seen_side;
-            if target_track = seen_track then
+            if to_integer(target_track) = to_integer(seen_track) then
               found_track(7) <= '1';
             end if;
-            if target_sector = seen_sector then
+            if to_integer(target_sector) = to_integer(seen_sector) then
               found_sector(7) <= '1';
             end if;
-            if target_side = seen_side then
+            if to_integer(target_side) = to_integer(seen_side) then
               found_side(7) <= '1';
             end if;
 
