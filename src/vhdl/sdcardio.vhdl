@@ -97,22 +97,22 @@ entity sdcardio is
     mosi_o : out std_logic;
     miso_i : in  std_logic;
 
-         ----------------------------------------------------------------------
-         -- Floppy drive interface
-         ----------------------------------------------------------------------
-         f_density : out std_logic := '1';
-         f_motor : out std_logic := '1';
-         f_select : out std_logic := '1';
-         f_stepdir : out std_logic := '1';
-         f_step : out std_logic := '1';
-         f_wdata : out std_logic := '1';
-         f_wgate : out std_logic := '1';
-         f_side1 : out std_logic := '1';
-         f_index : in std_logic;
-         f_track0 : in std_logic;
-         f_writeprotect : in std_logic;
-         f_rdata : in std_logic;
-         f_diskchanged : in std_logic;
+    ----------------------------------------------------------------------
+    -- Floppy drive interface
+    ----------------------------------------------------------------------
+    f_density : out std_logic := '1';
+    f_motor : out std_logic := '1';
+    f_select : out std_logic := '1';
+    f_stepdir : out std_logic := '1';
+    f_step : out std_logic := '1';
+    f_wdata : out std_logic := '1';
+    f_wgate : out std_logic := '1';
+    f_side1 : out std_logic := '1';
+    f_index : in std_logic;
+    f_track0 : in std_logic;
+    f_writeprotect : in std_logic;
+    f_rdata : in std_logic;
+    f_diskchanged : in std_logic;
     
     ---------------------------------------------------------------------------
     -- Lines for other devices that we handle here
@@ -159,15 +159,15 @@ end sdcardio;
 architecture behavioural of sdcardio is
   
   component ram8x512 IS
-  PORT (
-    clk : IN STD_LOGIC;
-    cs : IN STD_LOGIC;
-    w : IN std_logic;
-    write_address : IN integer;
-    wdata : IN unsigned(7 DOWNTO 0);
-    address : IN integer;
-    rdata : OUT unsigned(7 DOWNTO 0)
-    );
+    PORT (
+      clk : IN STD_LOGIC;
+      cs : IN STD_LOGIC;
+      w : IN std_logic;
+      write_address : IN integer;
+      wdata : IN unsigned(7 DOWNTO 0);
+      address : IN integer;
+      rdata : OUT unsigned(7 DOWNTO 0)
+      );
   END component;
   signal QspiSCKInternal : std_logic := '1';
   signal QspiCSnInternal : std_logic := '1'; 
@@ -359,25 +359,25 @@ begin  -- behavioural
   
   sd0: entity work.sd_controller 
     port map (
-	cs => cs_bo,
-	mosi => mosi_o,
-	miso => miso_i,
-	sclk => sclk_o,
+      cs => cs_bo,
+      mosi => mosi_o,
+      miso => miso_i,
+      sclk => sclk_o,
 
-        last_state => last_sd_state,
-        
-        sector_number => std_logic_vector(sd_sector),
-        sdhc_mode => sdhc_mode,
-        half_speed => half_speed,
-	rd =>  sd_doread,
-	wr =>  sd_dowrite,
-	dm_in => '1',	-- data mode, 0 = write continuously, 1 = write single block
-	reset => sd_reset,
-        data_ready => data_ready,
-	din => std_logic_vector(sd_wdata),
-	unsigned(dout) => sd_rdata,
-	clk => clock	-- twice the SPI clk.  XXX Cannot exceed 50MHz
-        );
+      last_state => last_sd_state,
+      
+      sector_number => std_logic_vector(sd_sector),
+      sdhc_mode => sdhc_mode,
+      half_speed => half_speed,
+      rd =>  sd_doread,
+      wr =>  sd_dowrite,
+      dm_in => '1',	-- data mode, 0 = write continuously, 1 = write single block
+      reset => sd_reset,
+      data_ready => data_ready,
+      din => std_logic_vector(sd_wdata),
+      unsigned(dout) => sd_rdata,
+      clk => clock	-- twice the SPI clk.  XXX Cannot exceed 50MHz
+      );
 
   -- This buffer is used for the CPU to be able to read the sector buffer.
   -- The SD card side writes to it as data is read from the SD card, or
@@ -499,9 +499,9 @@ begin  -- behavioural
     variable temp_cmd : unsigned(7 downto 0);
   begin
 
-  -- ==================================================================
-  -- here is a combinational process (ie: not clocked)
-  -- ==================================================================
+    -- ==================================================================
+    -- here is a combinational process (ie: not clocked)
+    -- ==================================================================
 
     if fastio_read='1' and sectorbuffercs='0' then
 
@@ -589,17 +589,17 @@ begin  -- behavioural
           when "00111" =>
             -- DATA    |  D7   |  D6   |  D5   |  D4   |  D3   |  D2   |  D1   |  D0   | 7 RW
             fastio_rdata <= f011_buffer_rdata;
- 
-         when "01000" =>
+            
+          when "01000" =>
             -- CLOCK   |  C7   |  C6   |  C5   |  C4   |  C3   |  C2   |  C1   |  C0   | 8 RW
             fastio_rdata <= f011_reg_clock;
- 
+            
           when "01001" =>
             -- @IO:65 $D089 - F011 FDC step time (x62.5 micro seconds)
             -- STEP    |  S7   |  S6   |  S5   |  S4   |  S3   |  S2   |  S1   |  S0   | 9 RW
             fastio_rdata <= f011_reg_step;
             
-         when "01010" =>
+          when "01010" =>
             -- P CODE  |  P7   |  P6   |  P5   |  P4   |  P3   |  P2   |  P1   |  P0   | A R
             fastio_rdata <= f011_reg_pcode;
           when "11011" => -- @IO:GS $D09B - Most recent SD card command sent
@@ -624,7 +624,7 @@ begin  -- behavioural
             fastio_rdata <= (others => 'Z');
         end case;
 
-  -- ==================================================================
+        -- ==================================================================
 
       elsif sdcardio_cs='1' then
         -- microSD controller registers
@@ -648,8 +648,8 @@ begin  -- behavioural
           when x"83" => fastio_rdata <= sd_sector(23 downto 16); -- SD-controll
           when x"84" => fastio_rdata <= sd_sector(31 downto 24); -- SD-control, MSByte of address
 
-                        -- maybe these next four are for debugging
-                        -- @IO:GS $D685 - DEBUG Show current state ID of SD card interface
+          -- maybe these next four are for debugging
+          -- @IO:GS $D685 - DEBUG Show current state ID of SD card interface
           when x"85" => fastio_rdata <= to_unsigned(sd_state_t'pos(sd_state),8);
           when x"86" => fastio_rdata <= sd_datatoken;
           when x"87" => fastio_rdata <= unsigned(sd_rdata);                        
@@ -657,7 +657,7 @@ begin  -- behavioural
 
 
           when x"89" =>
-		-- this register is currently used for checking how many bytes have been read.
+            -- this register is currently used for checking how many bytes have been read.
             fastio_rdata(7 downto 1) <= (others => '0');
             fastio_rdata(0) <= sector_offset(8);
             fastio_rdata(1) <= sector_offset(9);
@@ -668,7 +668,7 @@ begin  -- behavioural
             fastio_rdata(1) <= viciii_iomode(1);
             
           when x"8b" =>
-	-- BG the description seems in conflict with the assignment in the write section (below)
+            -- BG the description seems in conflict with the assignment in the write section (below)
             -- @IO:GS $D68B - Diskimage control flags
             fastio_rdata(0) <= diskimage1_enable;
             fastio_rdata(1) <= f011_disk1_present;
@@ -706,7 +706,7 @@ begin  -- behavioural
             -- @IO:GS $D6A1.2-6 - FDC debug status flags
             fastio_rdata(2) <= fdc_first_byte;
             fastio_rdata(3) <= fdc_sector_end;
-            fastio_rdata(4) <= fdc_sector_data_gap;
+            fastio_rdata(4) <= fdc_crc_error;
             fastio_rdata(5) <= fdc_sector_found;
             fastio_rdata(6) <= fdc_byte_valid;
             fastio_rdata(7) <= fdc_read_request;
@@ -830,8 +830,8 @@ begin  -- behavioural
       end if;
     end if;
 
-  -- ==================================================================
-  -- ==================================================================
+    -- ==================================================================
+    -- ==================================================================
     
     if rising_edge(clock) then
 
@@ -870,7 +870,7 @@ begin  -- behavioural
           last_was_d087 <= '1';
         end if;
       end if;
-          
+      
       -- Generate combined audio from stereo sids plus 2 8-bit digital channels
       -- (4x14 bit values = 16 bit level)
       pwm_value_combined <= to_integer(leftsid_audio(17 downto 4))
@@ -881,7 +881,7 @@ begin  -- behavioural
       pwm_value_left <= to_integer(leftsid_audio(17 downto 3))
                         + to_integer("00"&pwm_value_new_left &"00000");
       pwm_value_right <= to_integer(rightsid_audio(17 downto 3))
-                        + to_integer("00"&pwm_value_new_right&"00000");
+                         + to_integer("00"&pwm_value_new_right&"00000");
 
       
       -- Implement 10-bit digital combined audio output
@@ -1031,7 +1031,7 @@ begin  -- behavioural
         f011_write_protected <= f011_disk2_write_protected;      
         f011_disk_present <= f011_disk2_present;
       end if;
-    
+      
       f011_buffer_write <= '0';
       -- EQ flag is asserted when buffer address matches where we are upto
       -- reading or writing.  On complete reads this should correspond to the
@@ -1083,6 +1083,7 @@ begin  -- behavioural
             -- Out of time: fail job
             f011_rnf <= '1';
             fdc_read_request <= '0';
+            fdc_bytes_read(4) <= '1';
             f011_busy <= '0';
           end if;
         end if;
@@ -1110,10 +1111,12 @@ begin  -- behavioural
             -- Failed to read sector
             f011_crc <= '1';
             fdc_read_request <= '0';
+            fdc_bytes_read(0) <= '1';
             f011_busy <= '0';
           end if;
           if fdc_sector_end='1' then
             fdc_read_request <= '0';
+            fdc_bytes_read(1) <= '1';
             f011_busy <= '0';
           end if;
         end if;
@@ -1155,7 +1158,7 @@ begin  -- behavioural
         sectorbuffermapped <= sector_buffer_mapped;
         sectorbuffermapped2 <= sector_buffer_mapped;
       end if;
-            
+      
       if fastio_write='1' then
         if f011_cs='1' then
           -- ================================================================== START
@@ -1423,6 +1426,7 @@ begin  -- behavioural
                 when x"00" =>         -- cancel running command (not implemented)
                   f_wgate <= '0';
                   fdc_read_request <= '0';
+                  fdc_bytes_read(2) <= '1';
                   f011_busy <= '0';
                 when others =>        -- illegal command
                   null;
@@ -1495,7 +1499,7 @@ begin  -- behavioural
                   -- Reset SD card with flags specified
                   sd_reset <= '1';
                   sd_state <= Idle;
-                    sdio_error <= '0';
+                  sdio_error <= '0';
                   sdio_fsm_error <= '0';
 
                 when x"01" =>
@@ -1553,20 +1557,20 @@ begin  -- behavioural
 
             when x"81" =>
               -- @IO:GS $D681-$D684 - SD controller SD sector address
-                           sd_sector(7 downto 0) <= fastio_wdata;
+              sd_sector(7 downto 0) <= fastio_wdata;
             when x"82" => sd_sector(15 downto 8) <= fastio_wdata;
             when x"83" => sd_sector(23 downto 16) <= fastio_wdata;
             when x"84" => sd_sector(31 downto 24) <= fastio_wdata;
 
-          -- ================================================================== END
-          -- the section above was for the SDcard
-          -- ==================================================================
+                          -- ================================================================== END
+                          -- the section above was for the SDcard
+                          -- ==================================================================
 
-          -- ================================================================== START
-          -- the section below is for OTHER I/O
-          -- ==================================================================
+                          -- ================================================================== START
+                          -- the section below is for OTHER I/O
+                          -- ==================================================================
 
-              -- @IO:GS $D68B - F011 emulation control register
+            -- @IO:GS $D68B - F011 emulation control register
             when x"8b" =>
               -- @IO:GS $D68B.5 - F011 disk 2 write protect
               f011_disk2_write_protected <= not fastio_wdata(5);
@@ -1683,9 +1687,9 @@ begin  -- behavioural
               QspiSCKInternal <= fastio_wdata(7);
             when others => null;
 
-          -- ================================================================== END
-          -- the section above was for OTHER I/O
-          -- ==================================================================
+                           -- ================================================================== END
+                           -- the section above was for OTHER I/O
+                           -- ==================================================================
 
           end case;
 
@@ -1716,8 +1720,8 @@ begin  -- behavioural
             sb_w <= '0';
           end if;
 
-          -- Trap to hypervisor when accessing SD card if virtualised.
-          -- Wait until hypervisor kicks in before releasing request.
+        -- Trap to hypervisor when accessing SD card if virtualised.
+        -- Wait until hypervisor kicks in before releasing request.
         when HyperTrapRead =>
           hyper_trap_f011_read <= '1';
           if hypervisor_mode='1' then
