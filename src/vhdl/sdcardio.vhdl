@@ -345,6 +345,8 @@ architecture behavioural of sdcardio is
   
   signal use_real_floppy : std_logic := '0';
   signal fdc_read_request : std_logic := '0';
+  signal fdc_rotation_timeout : integer range 0 to 6 := 0;
+  signal last_f_index : std_logic := '1';
 
   signal packed_rdata : std_logic_vector(7 downto 0);
   
@@ -1045,6 +1047,19 @@ begin  -- behavioural
       end if;
       if fdc_read_request='1' then
         -- We have an FDC request in progress.
+        last_f_index <= f_index;
+        if (f_index='0' and last_f_index='1') and (fdc_sector_found='0') then
+          -- Index hole is here. Decrement rotation counter,
+          -- and timeout with RNF set if we reach zero.
+          if fdc_rotation_timeout /= 0 then
+            fdc_rotation_timeout <= fdc_rotation_timeout - 1;
+          else
+            -- Out of time: fail job
+            f011_rnf <= '1';
+            fdc_read_request <= '0';
+            f011_busy <= '0';
+          end if;
+        end if;
         if fdc_sector_found='1' then
           f011_rsector_found <= '1';
           if fdc_byte_valid = '1' then
@@ -1223,10 +1238,10 @@ begin  -- behavioural
 
                   f011_flag_eq_inhibit <= '1';
                   
-                  if f011_ds="000" and f011_disk1_present='0' or ((use_real_floppy or diskimage1_enable)='0') then
+                  if f011_ds="000" and (f011_disk1_present='0' or ((use_real_floppy or diskimage1_enable)='0')) then
                     f011_rnf <= '1';
                     report "Drive 0 selected, but not mounted.";
-                  elsif f011_ds="001" and f011_disk2_present='0' or ((use_real_floppy or diskimage2_enable)='0') then
+                  elsif f011_ds="001" and (f011_disk2_present='0' or ((use_real_floppy or diskimage2_enable)='0')) then
                     f011_rnf <= '1';
                     report "Drive 1 selected, but not mounted.";
                   elsif f011_ds(2 downto 1) /= x"00" then
@@ -1261,8 +1276,8 @@ begin  -- behavioural
                       target_sector <= f011_sector;
                       target_side <= f011_side;
                       fdc_read_request <= '1';
-                      -- XXX Set timeout ?
-                      
+                      -- Read must complete within 6 rotations
+                      fdc_rotation_timeout <= 6;                      
                     end if;
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
