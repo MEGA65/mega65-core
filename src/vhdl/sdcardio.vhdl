@@ -1068,7 +1068,7 @@ begin  -- behavioural
             f011_busy <= '0';
           end if;
         end if;
-        if fdc_sector_found='1' then
+        if (fdc_sector_found='1') or (fdc_sector_end='1') then
           f011_rsector_found <= '1';
           if fdc_byte_valid = '1' then
             -- DEBUG: Note how many bytes we have received from the floppy
