@@ -244,6 +244,14 @@ architecture behavioural of ethernet is
  signal eth_txen_delayed : std_logic_vector(3 downto 0) := "0000";
  signal eth_txd_phase : unsigned(1 downto 0) := "00";
  signal eth_txd_phase_drive : unsigned(1 downto 0) := "00";
+
+ signal miim_request : std_logic := '0';
+ signal miim_write : std_logic := '0';
+ signal miim_phyid : unsigned(4 downto 0) := to_unsigned(0,5);
+ signal miim_register : unsigned(4 downto 0) := to_unsigned(0,5);
+ signal miim_read_value : unsigned(15 downto 0) := to_unsigned(0,16);
+ signal miim_write_value : unsigned(15 downto 0) := to_unsigned(0,16);
+ signal miim_ready : std_logic := '0'; 
  
  -- Reverse the input vector.
  function reversed(slv: std_logic_vector) return std_logic_vector is
@@ -314,6 +322,20 @@ begin  -- behavioural
       CRC_REG         => tx_crc_reg,
       CRC_VALID       => tx_crc_valid
       );
+
+  miim0:        entity work.ethernet_miim port map (
+    clock => clock50mhz,
+    eth_mdio => eth_mdio,
+    eth_mdc => eth_mdc,
+
+    miim_request => miim_request,
+    miim_write => miim_write,
+    miim_phyid => miim_phyid,
+    miim_register => miim_register,
+    miim_read_value => miim_read_value,
+    miim_write_value => miim_write_value,
+    miim_ready => miim_ready
+    );
   
   -- Look after CPU side of mapping of RX buffer
   process(eth_rx_buffer_moby,fastio_addr,fastio_read) is

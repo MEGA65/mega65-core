@@ -106,6 +106,7 @@ PERIPHVHDL=		$(VHDLSRCDIR)/sd.vhdl \
 			$(VHDLSRCDIR)/mfm_quantise_gaps.vhdl \
 			$(VHDLSRCDIR)/crc1581.vhdl \
 			$(VHDLSRCDIR)/ethernet.vhdl \
+			$(VHDLSRCDIR)/ethernet_miim.vhdl \
 			$(VHDLSRCDIR)/ghdl_fpgatemp.vhdl \
 			$(VHDLSRCDIR)/expansion_port_controller.vhdl \
 			$(VHDLSRCDIR)/slow_devices.vhdl \
