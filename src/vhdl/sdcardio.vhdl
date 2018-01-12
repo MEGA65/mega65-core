@@ -1077,6 +1077,7 @@ begin  -- behavioural
         if (f_index='0' and last_f_index='1') and (fdc_sector_found='0') then
           -- Index hole is here. Decrement rotation counter,
           -- and timeout with RNF set if we reach zero.
+          fdc_bytes_read(14) <= not fdc_bytes_read(14);
           if fdc_rotation_timeout /= 0 then
             fdc_rotation_timeout <= fdc_rotation_timeout - 1;
           else
@@ -1087,13 +1088,14 @@ begin  -- behavioural
           end if;
         end if;
         if (fdc_sector_found='1') or (fdc_sector_end='1') then
+          fdc_bytes_read(13) <= not fdc_bytes_read(13);
           f011_rsector_found <= '1';
           if fdc_byte_valid = '1' then
             -- DEBUG: Note how many bytes we have received from the floppy
-            if fdc_bytes_read /= x"FFFF" then
-              fdc_bytes_read <= fdc_bytes_read + 1;
+            if to_integer(fdc_bytes_read(12 downto 0) /= 8191 then
+              fdc_bytes_read(12 downto 0) <= unsigned(to_integer(fdc_bytes_read(12 downto 0)) + 1,13);
             else
-              fdc_bytes_read <= x"0000";
+              fdc_bytes_read(12 downto 0) <= (others => '0');
             end if;
             
             -- Record byte
