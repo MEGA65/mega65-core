@@ -281,7 +281,6 @@ architecture behavioural of sdcardio is
   signal f011_swap : std_logic := '0';
   signal f011_rdata : unsigned(7 downto 0);
   signal f011_buffer_write : std_logic := '0';
-  signal f011_wdata : unsigned(7 downto 0);
 
   signal f011_irqenable : std_logic := '0';
   
@@ -482,7 +481,21 @@ begin  -- behavioural
            aclmosiinternal,aclssinternal,aclSCKinternal,aclint1,aclint2,
            tmpsdainternal,tmpsclinternal,tmpint,tmpct,tmpint,last_scan_code,
            pwm_value_new_left,mic_value_left,mic_value_right,qspidb,
-           qspicsninternal,QspiSCKInternal          
+           qspicsninternal,QspiSCKInternal,
+           sectorbuffercs,f011_cs,f011_led,f011_head_side,f011_drq,
+           f011_lost,f011_wsector_found,f011_write_gate,f011_irq,
+           f011_buffer_rdata,f011_reg_clock,f011_reg_step,f011_reg_pcode,
+           last_sd_state,f011_buffer_address,f011_flag_eq_inhibit,
+           f011_flag_eq,sdcardio_cs,colourram_at_dc00,viciii_iomode,
+           f_index,f_track0,f_writeprotect,f_rdata,f_diskchanged,
+           use_real_floppy,target_any,fdc_first_byte,fdc_sector_end,
+           fdc_sector_data_gap,fdc_sector_found,fdc_byte_valid,
+           fdc_read_request,cycles_per_interval,found_track,
+           found_sector,found_side,fdc_byte_out,fdc_mfm_state,
+           fdc_mfm_byte,fdc_last_gap,packed_rdata,fdc_quantised_gap,
+           fdc_bytes_read,fpga_temperature,ampsd_internal,audio_reflect,
+           stereo_swap,force_mono,audio_mode,rightsid_audio,leftsid_audio,
+           
            ) is
     variable temp_cmd : unsigned(7 downto 0);
   begin
@@ -1431,7 +1444,6 @@ begin  -- behavioural
               -- Data register -- should probably be putting byte into the sector
               -- buffer.
               if last_was_d087='0' then
-                f011_wdata <= fastio_wdata;
                 f011_buffer_write <= '0';
                 f011_buffer_address <= f011_buffer_next_read;
                 f011_buffer_wdata <= fastio_wdata;

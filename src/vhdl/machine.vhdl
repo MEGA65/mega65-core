@@ -447,7 +447,7 @@ begin
   -- interrupt.
   -----------------------------------------------------------------------------
   process(irq,nmi,restore_nmi,io_irq,vic_irq,io_nmi,sw,reset_io,btnCpuReset,
-          power_on_reset,reset_monitor)
+          power_on_reset,reset_monitor,hyper_trap)
   begin
     -- XXX Allow switch 0 to mask IRQs
     combinedirq <= ((irq and io_irq and vic_irq) or sw(0));

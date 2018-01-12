@@ -32,7 +32,7 @@ architecture behavioural of THEROM is
   
 begin  -- behavioural
 
-  process(clka)
+  process(clka,ram,douta_drive,doutb_drive)
   begin
     douta_drive <= ram(to_integer(unsigned(addra(14 downto 0))));
     douta <= douta_drive;

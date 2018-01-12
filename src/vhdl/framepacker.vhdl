@@ -87,7 +87,6 @@ architecture behavioural of framepacker is
   
   -- signals go here
   signal pixel_count : unsigned(7 downto 0) := x"00";
-  signal last_pixel_value : unsigned(7 downto 0) := x"FF";
   signal dispatch_frame : std_logic := '0';
 
   signal new_raster_pending : std_logic := '0';
@@ -160,7 +159,9 @@ begin  -- behavioural
 
   
   -- Look after CPU side of mapping of compressed data
-  process (ioclock,fastio_addr,fastio_wdata,fastio_read,fastio_write
+  process (ioclock,fastio_addr,fastio_wdata,fastio_read,fastio_write,
+           thumbnail_cs,thumbnail_read_address,thumbnail_rdata,
+           thumbnail_valid,thumbnail_started
            ) is
     variable temp_cmd : unsigned(7 downto 0);
   begin
@@ -363,7 +364,6 @@ begin  -- behavioural
             & " @ $" & to_hstring(output_address_internal + 1);
 
           -- Reset pixel value state
-          last_pixel_value <= x"ff";
           pixel_count <= x"00";
         end if;
       end if;

@@ -119,7 +119,7 @@ int main(int argc,char **argv)
 	  "begin\n"
 	  "\n"
 	  "--process for read and write operation.\n"
-	  "  PROCESS(Clk,ram,address)\n"
+	  "  PROCESS(Clk,ram,address,write_count,no_write_count)\n"
 	  "  BEGIN\n"
 	  "    data_o <= ram(address);\n"
 	  "    writes <= write_count;\n"

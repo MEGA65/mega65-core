@@ -114,7 +114,6 @@ architecture behavioural of sprite is
   signal sprite_data_offset : integer range 0 to 1023 := 0;    
   signal y_last : integer range 0 to 4095 := 0; 
   signal x_last : integer range 0 to 4095 := 0;
-  signal x_left : std_logic := '0';
   signal y_top : std_logic := '0';
   signal y_offset : integer range 0 to 255 := 0;
   signal x_offset : integer range 0 to 64 := 0;
@@ -137,7 +136,7 @@ begin  -- behavioural
   -- type   : sequential
   -- inputs : pixelclock, <reset>
   -- outputs: colour, is_sprite_out
-  main: process (pixelclock)
+  main: process (pixelclock,sprite_number,sprite_h640,x640_in,x320_in)
     variable sprite_number_mod_4 : integer range 0 to 7 := (sprite_number mod 4) * 2;
     variable pixel_16 : std_logic_vector(3 downto 0);
   begin  -- process main
@@ -283,7 +282,6 @@ begin  -- behavioural
         and (x_in /= x_last)
         and (sprite_enable='1')
         and ((y_top='1') or (sprite_drawing = '1')) then
-        x_left <= '1';
         x_in_sprite <= '1';
         x_expand_toggle <= '0';
         report "SPRITE: drawing row " & integer'image(y_offset)
@@ -293,7 +291,7 @@ begin  -- behavioural
       else
 --        report "SPRITE: not drawing a row: xcompare=" & boolean'image(x_in=sprite_x)
 --          & ", sprite_x=" & integer'image(to_integer(sprite_x));
-        x_left <= '0';
+        null;
       end if;
       if y_top = '1' and sprite_enable = '1' then
         if sprite_drawing='0' then

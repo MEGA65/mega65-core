@@ -877,7 +877,6 @@ constant cycle_count_lut : clut9bit := (
   signal a_asl : unsigned(7 downto 0);
   signal a_asr : unsigned(7 downto 0);
   signal a_lsr : unsigned(7 downto 0);
-  signal a_ior : unsigned(7 downto 0);
   signal a_xor : unsigned(7 downto 0);
   signal a_and : unsigned(7 downto 0);
   signal a_neg : unsigned(7 downto 0);
@@ -1120,7 +1119,7 @@ begin
     dinl => std_logic_vector(cache_wdata)
     );    
   
-  process(clock,reset,reg_a,reg_x,reg_y,reg_z,flag_c)
+  process(clock,reset,reg_a,reg_x,reg_y,reg_z,flag_c,phi0_export,all_pause)
     procedure disassemble_last_instruction is
       variable justification : side := RIGHT;
       variable size : width := 0;
@@ -2694,7 +2693,6 @@ begin
     a_rol <= reg_a(6 downto 0) & flag_c;    
     a_asr <= reg_a(7) & reg_a(7 downto 1);
     a_lsr <= '0' & reg_a(7 downto 1);
-    a_ior <= reg_a or read_data;
     a_xor <= reg_a xor read_data;
     a_and <= reg_a and read_data;
     a_asl <= reg_a(6 downto 0)&'0';      

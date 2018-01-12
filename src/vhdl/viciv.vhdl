@@ -422,7 +422,6 @@ architecture Behavioral of viciv is
   signal debug_screen_ram_buffer_address_drive2 : unsigned(8 downto 0) := to_unsigned(0,9);
   signal debug_raster_buffer_read_address_drive2 : unsigned(7 downto 0) := to_unsigned(0,8);
   signal debug_raster_buffer_write_address_drive2 : unsigned(7 downto 0) := to_unsigned(0,8);
-  signal debug_cycles_to_next_card_drive2 : unsigned(7 downto 0) := to_unsigned(0,8);
   signal debug_raster_fetch_state_drive2 : vic_chargen_fsm := Idle;
   signal debug_paint_fsm_state_drive2 : vic_paint_fsm := Idle;
   signal debug_chargen_active_drive2 : std_logic := '0';
@@ -665,7 +664,6 @@ architecture Behavioral of viciv is
   signal chargen_y_hold : unsigned(2 downto 0) := (others => '0');
   -- fractional pixel position for scaling
   signal chargen_y_sub : unsigned(4 downto 0);
-  signal chargen_x_sub : unsigned(4 downto 0);
 
   -- Common bitmap and character drawing info
   signal glyph_data_address : unsigned(16 downto 0);
@@ -1114,7 +1112,21 @@ begin
           reg_rom_a000,reg_c65_charset,reg_rom_8000,reg_palrom,
           reg_h640,reg_h1280,reg_v400,xcounter_drive,ycounter_drive,
           horizontal_filter,xfrontporch_drive,chargen_active_drive,
-          inborder_drive,chargen_active_soon_drive,card_number_drive) is
+          inborder_drive,chargen_active_soon_drive,card_number_drive,
+          bitplanes_x_start,bitplanes_y_start,dat_y,dat_x,dat_bitplane_offset,
+          bitplane_addresses,vicii_2mhz_internal,viciii_fast_internal,
+          bitplane_mode,bitplane_enables,bitplane_addresses,bitplane_complements,
+          sprite_bitplane_enables,sprite_horizontal_tile_enables,compositor_enable,
+          viciv_fast_internal,pal_simulate,sprite_extended_height_enables,
+          sprite_extended_height_size,sprite_extended_width_enables,
+          chargen_x_scale_drive,single_side_border,chargen_x_pixels,
+          sprite_x_scale_640,sprite_first_x,sprite_sixteen_colour_enables,
+          vicii_ntsc,viciv_1080p,vicii_first_raster,vertical_flyback,
+          palette_bank_chargen256,bitplane_sixteen_colour_mode_flags,
+          vsync_delay,hsync_end,vicii_ycounter_scale_minus_zero,
+          display_width,frame_width,display_height,frame_height,
+          hsync_start,hsync_polarity,vsync_polarity,ssx_table_phase          
+          ) is
     variable bitplane_number : integer;
 
     procedure viciv_calculate_modeline_dimensions is
@@ -1835,7 +1847,6 @@ begin
       report "drive led = " & std_logic'image(led)
         & ", drive motor= " & std_logic'image(motor) severity note;
 
-      debug_cycles_to_next_card_drive2 <= debug_cycles_to_next_card_drive;
       debug_chargen_active_drive2 <= debug_chargen_active_drive;
       debug_chargen_active_soon_drive2 <= debug_chargen_active_soon_drive;
       debug_raster_fetch_state_drive2 <= debug_raster_fetch_state_drive;
@@ -2811,7 +2822,6 @@ begin
         vicii_xcounter_640 <= to_unsigned(0,10);
         vicii_xcounter_sub320 <= 0;
         vicii_xcounter_sub640 <= 0;
-        chargen_x_sub <= (others => '0');
         raster_buffer_read_address <= (others => '0');
         chargen_active <= '0';
         chargen_active_soon <= '0';
@@ -3021,7 +3031,6 @@ begin
       if xcounter = x_chargen_start_minus1 then
         -- trigger next card at start of chargen row
         chargen_x <= (others => '0');
-        chargen_x_sub <= (others => '0');
         report "reset chargen_x" severity note;
         -- Request first byte of pre-rendered character data
         raster_buffer_read_address <= (others => '0');

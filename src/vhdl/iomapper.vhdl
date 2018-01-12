@@ -226,7 +226,6 @@ architecture behavioral of iomapper is
   signal cia2cs_en : std_logic := '1';
   signal lscs_en : std_logic := '1';
   signal rscs_en : std_logic := '1';
-  signal kscs_en : std_logic := '1';
   signal sbcs_en : std_logic := '1';
   signal c65uart_en : std_logic := '1';
   signal sdcardio_en : std_logic := '1';
@@ -783,7 +782,8 @@ begin
   mosi_o <= mosi_o_sd when sd_bitbash='0' else sd_bitbash_mosi_o;
   
   scancode_out<=last_scan_code;
-  process(clk)
+  process(clk,sbcs_en,lscs_en,c65uart_en,ethernetcs_en,sdcardio_en,
+          cia1cs_en,cia2cs_en)
   begin
     if rising_edge(clk) then
 
@@ -792,7 +792,7 @@ begin
       lscs_en <= chipselect_enables(2);
       rscs_en <= chipselect_enables(2);
       ethernetcs_en <= chipselect_enables(3);
-      kscs_en <= chipselect_enables(4);
+      -- (4)
       sbcs_en <= chipselect_enables(5);
       c65uart_en <= chipselect_enables(6);
       sdcardio_en <= chipselect_enables(7);
@@ -945,7 +945,7 @@ begin
       -- @IO:GS $FFF8114 Hypervisor entry point on FDC write (when virtualised) (trap $45)
       
       if address(19 downto 14)&"00" = x"F8" then
-        kickstartcs <= cpu_hypervisor_mode; -- and (not kscs_en);
+        kickstartcs <= cpu_hypervisor_mode;
       else
         kickstartcs <='0';
       end if;
@@ -1041,12 +1041,13 @@ begin
       end case;
             
       -- CPU uses $FFD{0,1,2,3}700 for DMAgic and other CPU-hosted IO registers.
-      case address(19 downto 8) is
-        when x"D17" => cpuregs_cs <= '1';
-        when x"D27" => cpuregs_cs <= '1';
-        when x"D37" => cpuregs_cs <= '1';
-        when others => cpuregs_cs <= '0';
-      end case;
+      -- XXX is resolved in CPU
+--      case address(19 downto 8) is
+--        when x"D17" => cpuregs_cs <= '1';
+--        when x"D27" => cpuregs_cs <= '1';
+--        when x"D37" => cpuregs_cs <= '1';
+--        when others => cpuregs_cs <= '0';
+--      end case;
       
       -- Now map the CIAs.
 

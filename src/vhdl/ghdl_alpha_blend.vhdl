@@ -45,12 +45,6 @@ architecture behavioural of alpha_blend_top is
   signal g1drive  : integer := 0;
   signal b0drive  : integer := 0;
   signal b1drive  : integer := 0;
-  signal r_strm0_drive: std_logic_vector(9 downto 0);
-  signal g_strm0_drive: std_logic_vector(9 downto 0);              
-  signal b_strm0_drive: std_logic_vector(9 downto 0);
-  signal r_strm1_drive: std_logic_vector(9 downto 0);
-  signal g_strm1_drive: std_logic_vector(9 downto 0);              
-  signal b_strm1_drive: std_logic_vector(9 downto 0);
   signal alpha_strm_drive: unsigned(10 downto 0);
   signal oneminusalpha : integer;
 
@@ -60,12 +54,6 @@ begin
     variable temp : unsigned(19 downto 0);
   begin
     if rising_edge(clk1x) then
-      r_strm0_drive <= r_strm0;
-      r_strm1_drive <= r_strm1;
-      g_strm0_drive <= g_strm0;
-      g_strm1_drive <= g_strm1;
-      b_strm0_drive <= b_strm0;
-      b_strm1_drive <= b_strm1;
 
       -- Keep alpha values as-is, as we sign-extend the lowest bit into the bottom
       -- two bits, so full brightness will be $3FF/$400 = 99.9%, which is fine,

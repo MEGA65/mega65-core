@@ -26,7 +26,7 @@ architecture behavioural of ram8x4096 is
 
 begin  -- behavioural
 
-  process(clk,cs,address)
+  process(clk,cs,address,ram)
   begin
     if cs='1' then
       rdata <= ram(address);

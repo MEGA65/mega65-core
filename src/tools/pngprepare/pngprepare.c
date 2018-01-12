@@ -60,7 +60,7 @@ char *vhdl_suffix=
   "begin\n"
   "\n"
   "--process for read and write operation.\n"
-  "PROCESS(Clk)\n"
+  "PROCESS(Clk,ram,writeclk)\n"
   "BEGIN\n"
   "  data_o <= ram(address);          \n"
   "\n"

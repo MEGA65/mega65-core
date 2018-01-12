@@ -124,9 +124,6 @@ architecture behavioural of vicii_sprites is
 
   type sprite_vector_8 is array(0 to 7) of unsigned(7 downto 0);
 
-  signal viciii_iomode : std_logic_vector(1 downto 0) := "11";
-  signal reg_key : unsigned(7 downto 0) := x"00";
-  
   -- Description of VIC-II sprites
   signal sprite_x : sprite_vector_8  := (others => x"02");
   signal vicii_sprite_enables : std_logic_vector(7 downto 0) := (others => '1');
@@ -929,7 +926,7 @@ begin
              );
 
   
-  process(ioclock) is
+  process(ioclock,fastio_addr,is_sprite_final,sprite_colour_final,pixel_final,alpha_final) is
     variable register_bank : unsigned(7 downto 0) := x"00";
     variable register_page : unsigned(3 downto 0) := "0000";
     variable register_num : unsigned(7 downto 0) := x"00";
@@ -1002,21 +999,6 @@ begin
           sprite_multi1_colour <= unsigned(fastio_wdata);
         elsif register_number>=39 and register_number<=46 then
           sprite_colours(to_integer(register_number)-39) <= unsigned(fastio_wdata);
-        elsif register_number=47 then
-          -- C65 VIC-III KEY register for unlocking extended registers.
-          viciii_iomode <= "00"; -- by default go back to VIC-II mode
-          if reg_key=x"a5" then
-            if fastio_wdata=x"96" then
-              -- C65 VIC-III mode
-              viciii_iomode <= "01";
-            end if;
-          elsif reg_key=x"47" then
-            if fastio_wdata=x"53" then
-              -- C65GS VIC-IV mode
-              viciii_iomode <= "11";
-            end if;
-          end if;
-          reg_key <= unsigned(fastio_wdata);
         elsif register_number=49 then
           viciii_extended_attributes <= fastio_wdata(5);
         elsif register_number=95 then
