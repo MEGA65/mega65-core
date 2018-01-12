@@ -1223,10 +1223,10 @@ begin  -- behavioural
 
                   f011_flag_eq_inhibit <= '1';
                   
-                  if f011_ds="000" and (diskimage1_enable='0' or f011_disk1_present='0') then
+                  if f011_ds="000" and f011_disk1_present='0' or ((use_real_floppy or diskimage1_enable)='0') then
                     f011_rnf <= '1';
                     report "Drive 0 selected, but not mounted.";
-                  elsif f011_ds="001" and (diskimage2_enable='0' or f011_disk2_present='0') then
+                  elsif f011_ds="001" and f011_disk2_present='0' or ((use_real_floppy or diskimage2_enable)='0') then
                     f011_rnf <= '1';
                     report "Drive 1 selected, but not mounted.";
                   elsif f011_ds(2 downto 1) /= x"00" then
@@ -1290,10 +1290,14 @@ begin  -- behavioural
                   f011_buffer_next_read(7 downto 0) <= (others => '0');
                   f011_buffer_next_read(8) <= f011_swap;
                   
-                  if f011_ds="000" and (diskimage1_enable='0' or f011_disk1_present='0' or f011_disk1_write_protected='1') then
+                  if f011_ds="000" and ((diskimage1_enable or use_real_floppy)='0'
+                                        or f011_disk1_present='0'
+                                        or f011_disk1_write_protected='1') then
                     f011_rnf <= '1';
                     report "Drive 0 selected, but not mounted.";
-                  elsif f011_ds="001" and (diskimage2_enable='0' or f011_disk2_present='0' or f011_disk2_write_protected='1') then
+                  elsif f011_ds="001" and (diskimage2_enable='0'
+                                           or f011_disk2_present='0'
+                                           or f011_disk2_write_protected='1') then
                     f011_rnf <= '1';
                     report "Drive 1 selected, but not mounted.";
                   elsif f011_ds(2 downto 1) /= x"00" then
