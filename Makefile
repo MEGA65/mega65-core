@@ -232,6 +232,14 @@ mfmsimulate: $(MFMFILES) $(ASSETS)/synthesised-40ns.dat
 	ghdl -m test_mfm
 	( ./test_mfm || ghdl -r test_mfm ) 
 
+MIIMFILES=	$(VHDLSRCDIR)/ethernet_miim.vhdl \
+		$(VHDLSRCDIR)/test_miim.vhdl
+
+miimsimulate:	$(MIIMFILES)
+	ghdl -i $(MIIMFILES)
+	ghdl -m test_miim
+	( ./test_miim || ghdl -r test_miim ) 
+
 SPRITEFILES=$(VHDLSRCDIR)/sprite.vhdl $(VHDLSRCDIR)/test_sprite.vhdl $(VHDLSRCDIR)/victypes.vhdl
 spritesimulate:	$(SPRITEFILES)
 	ghdl -i $(SPRITEFILES)

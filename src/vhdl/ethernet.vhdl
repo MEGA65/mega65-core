@@ -902,6 +902,8 @@ begin  -- behavioural
 
     if rising_edge(clock) then
 
+      miim_request <= '0';
+      
       -- Automatically de-assert transmit trigger once the FSM has caught the signal.
       -- (but don't accidently de-assert when sending compressed video.)
       if (eth_tx_complete = '1')
@@ -1016,6 +1018,10 @@ begin  -- behavioural
               eth_swap_rx <= fastio_wdata(0);
               -- @IO:GS $D6E5.1 Disable CRC check for received packets
               eth_disable_crc_check <= fastio_wdata(1);
+            when x"6" =>
+              miim_request <= '1';
+              miim_register <= fastio_wdata(4 downto 0);
+              miim_phyid(2 downto 0) <= fastio_wdata(7 downto 5);
             when others =>
               -- Other registers do nothing
               null;

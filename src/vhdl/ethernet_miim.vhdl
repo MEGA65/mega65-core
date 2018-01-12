@@ -47,6 +47,7 @@ begin
     if rising_edge(clock) then
       -- Update external interface
       if busy='0' then
+        report "exporting read_value";
         miim_read_value <= read_value;
         miim_ready <= '1';
       else
@@ -57,14 +58,17 @@ begin
       -- Update MIIM clock. This should be no faster than 2.5MHz
       -- so 25 cycles per tick, so invert every 13 cycles @ 50MHz
       if miim_phase = 13 then
+        report "miim half tick";
         miim_clock <= not miim_clock;
         miim_phase <= 0;
       else
         miim_phase <= miim_phase + 1;
       end if;
       
-      last_miim_request <= '1';
+      last_miim_request <= miim_request;
+      last_miim_clock <= miim_clock;
       if miim_request='1' and last_miim_request='0' then
+        report "Starting MIIM transaction";
         -- Generate MIIM command
         miim_command(68 downto 32) <= (others => '1'); -- preamble
         miim_command(31 downto 30) <= "01"; -- start of frame
@@ -93,6 +97,7 @@ begin
             eth_mdio <= 'Z';
           end if;
         elsif miim_clock='1' and last_miim_clock='0' then
+          report "miim 2.5MHz clock tick";
           -- Rising MIIM clock, so capture read bit if
           -- necessary
           if bit_number < 16 then
@@ -103,6 +108,8 @@ begin
             bit_number <= bit_number - 1;
           else
             busy <= '0';
+            eth_mdio <= '1';
+            report "end of MIIM transaction";
           end if;
           miim_command(68 downto 1) <= miim_command(67 downto 0);
         end if;
