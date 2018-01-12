@@ -1116,7 +1116,7 @@ begin
           bitplanes_x_start,bitplanes_y_start,dat_y,dat_x,dat_bitplane_offset,
           bitplane_addresses,vicii_2mhz_internal,viciii_fast_internal,
           bitplane_mode,bitplane_enables,bitplane_addresses,bitplane_complements,
-          sprite_bitplane_enables,sprite_horizontal_tile_enables,compositor_enable,
+          sprite_bitplane_enables,sprite_horizontal_tile_enables,compositer_enable,
           viciv_fast_internal,pal_simulate,sprite_extended_height_enables,
           sprite_extended_height_size,sprite_extended_width_enables,
           chargen_x_scale_drive,single_side_border,chargen_x_pixels,
