@@ -70,6 +70,11 @@ architecture behavioural of mouse_input is
   signal potb_x_internal : unsigned(7 downto 0) := x"00";
   signal potb_y_internal : unsigned(7 downto 0) := x"00";
 
+  -- Are the real POT values at either extremity of value?
+  -- (if so, it can't be a 1351, but might be amiga mouse)
+  signal potsa_at_edge : std_logic := '0';
+  signal potsb_at_edge : std_logic := '0';
+  
   -- Remember quadrature positions for Amiga mouse
   signal last_fa_leftright : std_logic_vector(1 downto 0) := "11";
   signal last_fa_updown : std_logic_vector(1 downto 0) := "11";
@@ -98,11 +103,11 @@ begin
         potsb_at_edge <= '0';
         mb_amiga_mode <= '0';
       end if;
-      if ((fa_up or fa_down) = '0') or ((fa_left or fa_right) = '0')
+      if (((fa_up or fa_down) = '0') or ((fa_left or fa_right) = '0'))
          and (potsa_at_edge='1') then
         ma_amiga_mode <= '1';
       end if;
-      if ((fb_up or fb_down) = '0') or ((fb_left or fb_right) = '0')
+      if (((fb_up or fb_down) = '0') or ((fb_left or fb_right) = '0'))
          and (potsb_at_edge='1') then
         mb_amiga_mode <= '1';
       end if;
@@ -125,6 +130,7 @@ begin
             else
               ma_x <= "1111111";
             end if;
+          when others => null;
         end case;
         joybits := fa_up & fa_down & last_fa_updown;
         case joybits is
@@ -140,6 +146,7 @@ begin
             else
               ma_y <= "1111111";
             end if;
+          when others => null;
         end case;
       end if;
       if mb_amiga_mode='1' then
@@ -157,6 +164,7 @@ begin
             else
               mb_x <= "1111111";
             end if;
+          when others => null;
         end case;
         joybits := fb_up & fb_down & last_fb_updown;
         case joybits is
@@ -172,6 +180,7 @@ begin
             else
               mb_y <= "1111111";
             end if;
+          when others => null;
         end case;
       end if;
 
