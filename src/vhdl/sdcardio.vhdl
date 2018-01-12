@@ -1059,6 +1059,7 @@ begin  -- behavioural
       end if;
       if fdc_read_request='1' then
         -- We have an FDC request in progress.
+        fdc_bytes_read(15) <= not fdc_bytes_read(15);
         last_f_index <= f_index;
         if (f_index='0' and last_f_index='1') and (fdc_sector_found='0') then
           -- Index hole is here. Decrement rotation counter,
@@ -1264,6 +1265,11 @@ begin  -- behavioural
                     -- Read must complete within 6 rotations
                     fdc_rotation_timeout <= 6;                      
 
+                    -- f011_buffer_address gets pre-incremented, so start
+                    -- with it pointing to the end of the buffer first
+                    f011_buffer_address(7 downto 0) <= (others => '1');
+                    f011_buffer_address(8) <= '1';
+                    
                     f011_busy <= '1';
                     f011_rnf <= '0';
                   else
