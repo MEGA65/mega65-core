@@ -1169,7 +1169,7 @@ begin  -- behavioural
 
               f_motor <= not fastio_wdata(5); -- start motor on real drive
               f_select <= not fastio_wdata(5);
-              f_side1 <= not fastio_wdata(3);
+              f_side1 <= fastio_wdata(3);
               
               f011_swap <= fastio_wdata(4);
               if fastio_wdata(4) /= f011_swap then
@@ -1392,6 +1392,7 @@ begin  -- behavioural
                   busy_countdown(7 downto 0) <= f011_reg_step; 
                 when x"20" =>         -- wait for motor spin up time (1sec)
                   f011_busy <= '1';
+                  f011_rnf <= '1';    -- Set according to the specifications
                   busy_countdown <= to_unsigned(16000,16); -- 1 sec spin up time
                 when x"00" =>         -- cancel running command (not implemented)
                   f_wgate <= '0';
