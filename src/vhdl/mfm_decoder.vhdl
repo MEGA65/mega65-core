@@ -249,8 +249,23 @@ begin
                 seen_valid <= '1';
               end if;
             else
+              -- T/S/S doesn't match
               seen_valid <= '0';
             end if;
+            -- XXX Debug T/S/S mismatches
+            found_track <= seen_track;
+            found_sector <= seen_sector;
+            found_side <= seen_side;
+            if target_track = seen_track then
+              found_track(7) <= '1';
+            end if;
+            if target_sector = seen_sector then
+              found_sector(7) <= '1';
+            end if;
+            if target_side = seen_side then
+              found_side(7) <= '1';
+            end if;
+
             if last_crc /= x"0000" then
               report "Seen sector does not match target";
               seen_valid <= '0';
