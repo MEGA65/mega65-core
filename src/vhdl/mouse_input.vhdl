@@ -159,6 +159,14 @@ begin
          and (potsa_at_edge='1') then
         ma_amiga_mode <= '1';
         ma_amiga_pots <= '1';
+        if ma_amiga_pots = '0' then
+          -- Copy existing pot value in to avoid mouse jumping when swapping
+          -- between 1351 and amiga mouse
+          ma_x(5 downto 0) <= pota_x_internal(5 downto 0);
+          ma_x(6) <= not pota_x_internal(6);
+          ma_y(5 downto 0) <= pota_y_internal(5 downto 0);
+          ma_y(6) <= not pota_y_internal(6);
+        end if;
         ma_amiga_mode_timeout <= 0;
       end if;
       if (((fb_up or fb_down) = '0') or ((fb_left or fb_right) = '0'))
@@ -166,6 +174,14 @@ begin
         mb_amiga_mode <= '1';
         mb_amiga_pots <= '1';
         mb_amiga_mode_timeout <= 0;
+        if mb_amiga_pots = '0' then
+          -- Copy existing pot value in to avoid mouse jumping when swapping
+          -- between 1351 and amiga mouse
+          mb_x(5 downto 0) <= potb_x_internal(5 downto 0);
+          mb_x(6) <= not potb_x_internal(6);
+          mb_y(5 downto 0) <= potb_y_internal(5 downto 0);
+          mb_y(6) <= not potb_y_internal(6);
+        end if;
       end if;
       -- If all lines are high, we can't be sure it is an amiga mouse,
       -- but we don't want to cause glitchy behaviour if the mouse is moved
@@ -186,7 +202,7 @@ begin
       last_fb_rightdown <= fb_right & fb_down;
       if ma_amiga_mode='1' then
         -- Map Amiga right button from POTY to UP
-        fa_up_out <= pota_y_internal(7);
+        fa_up_out <= pota_x_internal(7);
         fa_left_out <= '1';
         fa_right_out <= '1';
         fa_down_out <= '1';
@@ -229,7 +245,7 @@ begin
         fa_down_out <= fa_down;
       end if;
       if mb_amiga_mode='1' then
-        fb_up_out <= potb_y_internal(7);            
+        fb_up_out <= potb_x_internal(7);
         fb_left_out <= '1';
         fb_right_out <= '1';
         fb_down_out <= '1';
