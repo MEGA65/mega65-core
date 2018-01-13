@@ -139,16 +139,16 @@ begin
       end if;
       
       -- Work out if we think we have an amiga mouse connected
-      if (pota_x_internal(7 downto 2) = "111111" or pota_x_internal(7 downto 2) = "000000")
-        and (pota_y_internal(7 downto 2) = "111111" or pota_y_internal(7 downto 2) = "000000") then
+      if ((pota_x_internal(7 downto 2) = "111111") or (pota_x_internal(7 downto 2) = "000000"))
+        and ((pota_y_internal(7 downto 2) = "111111") or (pota_y_internal(7 downto 2) = "000000")) then
         potsa_at_edge <= '1';
       else
         potsa_at_edge <= '0';
         ma_amiga_mode <= '0';
         ma_amiga_pots <= '0';
       end if;
-      if (potb_x_internal(7 downto 2) = "111111" or potb_x_internal(7 downto 2) = "000000")
-        and (potb_y_internal(7 downto 2) = "111111" or potb_y_internal(7 downto 2) = "000000") then
+      if (potb_x_internal(7 downto 2) = "111111" or (potb_x_internal(7 downto 2) = "000000"))
+        and (potb_y_internal(7 downto 2) = "111111" or (potb_y_internal(7 downto 2) = "000000")) then
         potsb_at_edge <= '1';
       else
         potsb_at_edge <= '0';
@@ -288,7 +288,7 @@ begin
         fb_down_out <= fb_down;
       end if;
 
-      if ma_amiga_mode='1' then
+      if ma_amiga_pots='1' then
         pota_x(5 downto 0) <= ma_x(5 downto 0);
         pota_x(6) <= ma_x(6) xor '1';
         pota_x(7) <= ma_x(6);
@@ -299,7 +299,7 @@ begin
         pota_x <= pota_x_internal;
         pota_y <= pota_y_internal;
       end if;
-      if mb_amiga_mode='1' then
+      if mb_amiga_pots='1' then
         potb_x(5 downto 0) <= mb_x(5 downto 0);
         potb_x(6) <= mb_x(6) xor '1';
         potb_x(7) <= mb_x(6);
