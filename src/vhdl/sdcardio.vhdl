@@ -1205,11 +1205,11 @@ begin  -- behavioural
                 f011_buffer_next_read(8) <= f011_swap;
               end if;
 
-              temp_cmd := fastio_wdata(7 downto 3) & "000";
+              temp_cmd := fastio_wdata(7 downto 2) & "00";
               report "F011 command $" & to_hstring(temp_cmd) & " issued.";
               case temp_cmd is
 
-                when x"40" =>         -- read sector
+                when x"40" | x"44" =>         -- read sector
                   -- calculate sector number.
                   -- physical sector on disk = track * $14 + sector on track
                   -- then add to disk image start sector for the selected
@@ -1286,7 +1286,7 @@ begin  -- behavioural
                   f011_buffer_next_read(7 downto 0) <= (others => '0');
                   f011_buffer_next_read(8) <= f011_swap;
                   
-                when x"80" =>         -- write sector
+                when x"80" | x"84" =>         -- write sector
                   -- Copy sector from F011 buffer to SD buffer, and then
                   -- pretend the SD card registers were used to trigger a write.
                   -- The F011 can in theory do unbuffered sector writes, but
