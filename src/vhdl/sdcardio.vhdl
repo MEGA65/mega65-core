@@ -1110,6 +1110,11 @@ begin  -- behavioural
             f011_buffer_address <= f011_buffer_address + 1;
             f011_buffer_write <= '1';
             f011_buffer_wdata <= unsigned(fdc_byte_out);
+            -- ... and the other one
+            sb_w <= '1';
+            sb_wdata <= unsigned(fdc_byte_out);
+            sb_writeaddress <= to_integer(sector_offset);
+                  
           end if;
           if fdc_crc_error='1' then
             -- Failed to read sector
