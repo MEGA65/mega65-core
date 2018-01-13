@@ -939,7 +939,7 @@ begin
       key_up => keyup,
 
       fa_fire => fa_fire,
-      fa_up => fa_up and fa_up_out,
+      fa_up => fa_up_out,
       fa_left => fa_left,
       fa_down => fa_down,
       fa_right => fa_right,
@@ -947,7 +947,7 @@ begin
       fa_poty => fa_poty,
       
       fb_fire => fb_fire,
-      fb_up => fb_up and fb_up_out,
+      fb_up => fb_up_out,
       fb_left => fb_left,
       fb_down => fb_down,
       fb_right => fb_right,

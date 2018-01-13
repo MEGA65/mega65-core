@@ -165,7 +165,7 @@ begin
           when others => null;
         end case;
       else
-        fa_up_out <= '1';
+        fa_up_out <= fa_up;
       end if;
       if mb_amiga_mode='1' then
         fb_up_out <= potb_y_internal(7);            
@@ -202,7 +202,7 @@ begin
           when others => null;
         end case;
       else
-        fb_up_out <= '1';
+        fb_up_out <= fb_up;
       end if;
 
       if ma_amiga_mode='1' then
