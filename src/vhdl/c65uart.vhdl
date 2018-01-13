@@ -53,6 +53,7 @@ entity c65uart is
     potb_y : in unsigned(7 downto 0);    
     pot_via_iec : buffer std_logic := '0';
     mouse_debug : in unsigned(7 downto 0);
+    amiga_mouse_enable : out std_logic;
     
     porte : inout std_logic_vector(7 downto 0);
     portf : inout std_logic_vector(7 downto 0);
@@ -182,6 +183,7 @@ architecture behavioural of c65uart is
 
   signal joya_rotate_internal : std_logic := '0';
   signal joyb_rotate_internal : std_logic := '0';
+  signal amiga_mouse_enable_internal : std_logic := '0';
   
 begin  -- behavioural
   
@@ -337,7 +339,11 @@ begin  -- behavioural
           when x"19" =>
             porto_internal <= std_logic_vector(fastio_wdata);
           when x"1A" =>
-            portp_internal <= std_logic_vector(fastio_wdata);            
+            portp_internal <= std_logic_vector(fastio_wdata);
+          when x"1b" =>
+            -- @IO:GS $D61B.0 WRITE enable/disable Amiga mouse support (1351 emulation)
+            amiga_mouse_enable_internal <= fastio_wdata(0);
+            amiga_mouse_enable <= fastio_wdata(0);
           when others => null;
         end case;
       end if;
@@ -471,7 +477,7 @@ begin  -- behavioural
           -- @IO:GS $D61A On-screen keyboard Y position (x4 physical pixels)
           fastio_rdata <= unsigned(portp_internal);
         when x"1b" =>
-          -- @IO:GS $D61B 1351/amiga mouse auto detection DEBUG
+          -- @IO:GS $D61B READ 1351/amiga mouse auto detection DEBUG
           fastio_rdata <= mouse_debug;
           -- @IO:GS $D620 Read Port A paddle X
           -- @IO:GS $D621 Read Port A paddle Y

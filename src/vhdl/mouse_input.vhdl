@@ -10,6 +10,8 @@ entity mouse_input is
   port (
     clk : in std_logic;
 
+    amiga_mouse_enable : in std_logic;
+    
     pot_drain : buffer std_logic;
     fa_potx : in std_logic;
     fa_poty : in std_logic;
@@ -117,6 +119,15 @@ begin
       mouse_debug(5 downto 4) <= unsigned(last_fa_leftup);
       mouse_debug(7 downto 6) <= unsigned(last_fa_rightdown);
 
+      if amiga_mouse_enable='0' then
+        ma_amiga_mode <= '0';
+        mb_amiga_mode <= '0';
+        ma_amiga_pots <= '0';
+        mb_amiga_pots <= '0';
+        ma_amiga_mode_timeout <= 0;
+        mb_amiga_mode_timeout <= 0;
+      end if;
+      
       -- Timeout Amiga mode interpretation of mouse after
       -- a period of all digital lines being relaxed.
       -- We don't just assume joystick immediately, because slow
@@ -157,8 +168,8 @@ begin
       end if;
       if (((fa_up or fa_down) = '0') or ((fa_left or fa_right) = '0'))
          and (potsa_at_edge='1') then
-        ma_amiga_mode <= '1';
-        ma_amiga_pots <= '1';
+        ma_amiga_mode <= amiga_mouse_enable;
+        ma_amiga_pots <= amiga_mouse_enable;
         if ma_amiga_pots = '0' then
           -- Copy existing pot value in to avoid mouse jumping when swapping
           -- between 1351 and amiga mouse

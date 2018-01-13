@@ -449,6 +449,7 @@ architecture Behavioral of machine is
   signal potb_y : unsigned(7 downto 0);
   
   signal mouse_debug : unsigned(7 downto 0);
+  signal amiga_mouse_enable : std_logic;
 
 begin
 
@@ -812,6 +813,7 @@ begin
       clk => ioclock,
 
       mouse_debug => mouse_debug,
+      amiga_mouse_enable => amiga_mouse_enable,
       
       -- These are the 1351 mouse / C64 paddle inputs and drain control
       pot_drain => pot_drain,
@@ -980,6 +982,7 @@ begin
       pot_via_iec => pot_via_iec,
 
       mouse_debug => mouse_debug,
+      amiga_mouse_enable => amiga_mouse_enable,
       
       pixel_stream_in => pixel_stream,
       pixel_y => pixel_y,
