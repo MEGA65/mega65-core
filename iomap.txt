@@ -271,10 +271,12 @@ GS $D617 ID of key #3 held down on virtual keyboard
 GS $D618 Keyboard scan rate ($00=50MHz, $FF=~200KHz)
 GS $D619 On-screen keyboard X position (x4 640H pixels)
 GS $D61A On-screen keyboard Y position (x4 physical pixels)
+GS $D61B.0 WRITE enable/disable Amiga mouse support (1351 emulation)
+GS $D61B READ 1351/amiga mouse auto detection DEBUG
 GS $D620 Read Port A paddle X
 GS $D621 Read Port A paddle Y
 GS $D622 Read Port B paddle X
-GS $D623 Read Port B paddle Y
+GS $D623 Read Port B paddle Y          
 GS $D624.0 Paddles connected via IEC port (rev1 PCB debug)
 GS $D624.1 pot_drain signal
 GS $D624.3-2 CIA porta bits 7-6 for POT multiplexor

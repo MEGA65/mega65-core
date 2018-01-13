@@ -1100,7 +1100,7 @@ begin  -- behavioural
 --      report "colourram_at_dc00 = " &
 -- std_logic'image(colourram_at_dc00) & ", sector_buffer_mapped = " & std_logic'image(sector_buffer_mapped) severity note;
       if colourram_at_dc00='1' or viciii_iomode(1)='0' then
-        report "unmapping sector buffer due to mapping of colour ram/D02F mode select" severity note;
+--        report "unmapping sector buffer due to mapping of colour ram/D02F mode select" severity note;
         sector_buffer_mapped <= '0';
         sectorbuffermapped <= '0';
         sectorbuffermapped2 <= '0';
@@ -1835,7 +1835,7 @@ begin  -- behavioural
                 sb_w <= '1';
                 sb_wdata <= unsigned(fdc_byte_out);
                 sb_writeaddress <= to_integer(sector_offset);
-                
+                sector_offset <= sector_offset + 1;
               end if;
               if fdc_crc_error='1' then
                 -- Failed to read sector
