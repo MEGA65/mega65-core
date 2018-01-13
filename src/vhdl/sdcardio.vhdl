@@ -506,7 +506,7 @@ begin  -- behavioural
 
     if fastio_read='1' and sectorbuffercs='0' then
 
-      if f011_cs='1' then
+      if f011_cs='1' and sdcardio_cs='0' then
         -- F011 FDC emulation registers
         report "Preparing to read F011 emulation register @ $" & to_hstring(fastio_addr);
 
@@ -627,7 +627,7 @@ begin  -- behavioural
 
         -- ==================================================================
 
-      elsif sdcardio_cs='1' then
+      elsif sdcardio_cs='1' and f011_cs='0' then
         -- microSD controller registers
         report "reading SDCARD registers" severity note;
         case fastio_addr(7 downto 0) is
@@ -1141,7 +1141,7 @@ begin  -- behavioural
 
               f_motor <= not fastio_wdata(5); -- start motor on real drive
               f_select <= not fastio_wdata(5);
-              f_side1 <= fastio_wdata(3);
+              f_side1 <= not fastio_wdata(3);
               
               f011_swap <= fastio_wdata(4);
               if fastio_wdata(4) /= f011_swap then
@@ -1652,6 +1652,9 @@ begin  -- behavioural
 
 
 
+      if sb_w='1' then
+        report "sector buffer: sb_w=1";
+      end if;
       sb_w <= '0';
 --      report "SD interface state = " & sd_state_t'image(sd_state)
 --        & ", virtualise_f011 = " & std_logic'image(virtualise_f011);
