@@ -1090,7 +1090,7 @@ begin  -- behavioural
           end if;
         end if;
         if (fdc_sector_found='1') or (fdc_sector_end='1') then
-          report "fdc_sector_found or fdc_sector_end = 1";
+--          report "fdc_sector_found or fdc_sector_end = 1";
           fdc_bytes_read(13) <= not fdc_bytes_read(13);
           f011_rsector_found <= '1';
           if fdc_byte_valid = '1' then
