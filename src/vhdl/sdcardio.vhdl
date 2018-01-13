@@ -250,6 +250,7 @@ architecture behavioural of sdcardio is
   
   type sd_state_t is (Idle,
                       ReadSector,ReadingSector,ReadingSectorAckByte,DoneReadingSector,
+                      FDCReadingSector,
                       WriteSector,WritingSector,WritingSectorAckByte,
                       HyperTrapRead,HyperTrapWrite,
                       F011WriteSector,F011WriteSectorCopying,DoneWritingSector);
@@ -1069,70 +1070,7 @@ begin  -- behavioural
           f011_track0 <= '0';
         end if;
       end if;
-      if fdc_read_request='1' then
-        -- We have an FDC request in progress.
---        report "fdc_read_request asserted, checking for activity";
-        fdc_bytes_read(15) <= not fdc_bytes_read(15);
-        last_f_index <= f_index;
-        if (f_index='0' and last_f_index='1') and (fdc_sector_found='0') then
-          -- Index hole is here. Decrement rotation counter,
-          -- and timeout with RNF set if we reach zero.
-          fdc_bytes_read(14) <= not fdc_bytes_read(14);
-          if fdc_rotation_timeout /= 0 then
-            fdc_rotation_timeout <= fdc_rotation_timeout - 1;
-          else
-            -- Out of time: fail job
-            report "Clearing fdc_read_request due to timeout";
-            f011_rnf <= '1';
-            fdc_read_request <= '0';
-            fdc_bytes_read(4) <= '1';
-            f011_busy <= '0';
-          end if;
-        end if;
-        if (fdc_sector_found='1') or (fdc_sector_end='1') then
---          report "fdc_sector_found or fdc_sector_end = 1";
-          fdc_bytes_read(13) <= not fdc_bytes_read(13);
-          f011_rsector_found <= '1';
-          if fdc_byte_valid = '1' then
-            -- DEBUG: Note how many bytes we have received from the floppy
-            report "fdc_byte valid asserted, storing byte @ $" & to_hstring(f011_buffer_address);
-            if to_integer(fdc_bytes_read(12 downto 0)) /= 8191 then
-              fdc_bytes_read(12 downto 0) <= to_unsigned(to_integer(fdc_bytes_read(12 downto 0)) + 1,13);
-            else
-              fdc_bytes_read(12 downto 0) <= (others => '0');
-            end if;
-            
-            -- Record byte
-            if f011_drq='1' then f011_lost <= '1'; end if;
-            f011_drq <= '1';
-            -- Update F011 sector buffer
-            f011_flag_eq_inhibit <= '1';
-            f011_buffer_address <= f011_buffer_address + 1;
-            f011_buffer_write <= '1';
-            f011_buffer_wdata <= unsigned(fdc_byte_out);
-            -- ... and the other one
-            sb_w <= '1';
-            sb_wdata <= unsigned(fdc_byte_out);
-            sb_writeaddress <= to_integer(sector_offset);
-                  
-          end if;
-          if fdc_crc_error='1' then
-            -- Failed to read sector
-            f011_crc <= '1';
-            report "Clearing fdc_read_request due to crc error";
-            fdc_read_request <= '0';
-            fdc_bytes_read(0) <= '1';
-            f011_busy <= '0';
-          end if;
-          -- Clear read request only at the end of the sector we are looking for
-          if fdc_sector_end='1' and f011_rsector_found='1' then
-            report "Clearing fdc_read_request due end of target sector";
-            fdc_read_request <= '0';
-            fdc_bytes_read(1) <= '1';
-            f011_busy <= '0';
-          end if;
-        end if;
-      end if;
+
       -- the read invalidate line is a strobe set by seeking the
       -- heads.
       -- XXX It should remain invalidated until seek completes
@@ -1301,6 +1239,8 @@ begin  -- behavioural
                     
                     f011_busy <= '1';
                     f011_rnf <= '0';
+
+                    sd_state <= FDCReadingSector;
                   else
                     if f011_ds="000" and (f011_disk1_present='0' or diskimage1_enable='0') then
                       f011_rnf <= '1';
@@ -1807,6 +1747,70 @@ begin  -- behavioural
             end if;
           end if;
 
+        when FDCReadingSector =>
+          if fdc_read_request='1' then
+            -- We have an FDC request in progress.
+--        report "fdc_read_request asserted, checking for activity";
+            last_f_index <= f_index;
+            if (f_index='0' and last_f_index='1') and (fdc_sector_found='0') then
+              -- Index hole is here. Decrement rotation counter,
+              -- and timeout with RNF set if we reach zero.
+              if fdc_rotation_timeout /= 0 then
+                fdc_rotation_timeout <= fdc_rotation_timeout - 1;
+              else
+                -- Out of time: fail job
+                report "Clearing fdc_read_request due to timeout";
+                f011_rnf <= '1';
+                fdc_read_request <= '0';
+                fdc_bytes_read(4) <= '1';
+                f011_busy <= '0';
+              end if;
+            end if;
+            if (fdc_sector_found='1') or (fdc_sector_end='1') then
+--          report "fdc_sector_found or fdc_sector_end = 1";
+              f011_rsector_found <= '1';
+              if fdc_byte_valid = '1' then
+                -- DEBUG: Note how many bytes we have received from the floppy
+                report "fdc_byte valid asserted, storing byte @ $" & to_hstring(f011_buffer_address);
+                if to_integer(fdc_bytes_read(12 downto 0)) /= 8191 then
+                  fdc_bytes_read(12 downto 0) <= to_unsigned(to_integer(fdc_bytes_read(12 downto 0)) + 1,13);
+                else
+                  fdc_bytes_read(12 downto 0) <= (others => '0');
+                end if;
+                
+                -- Record byte
+                if f011_drq='1' then f011_lost <= '1'; end if;
+                f011_drq <= '1';
+                -- Update F011 sector buffer
+                f011_flag_eq_inhibit <= '1';
+                f011_buffer_address <= f011_buffer_address + 1;
+                f011_buffer_write <= '1';
+                f011_buffer_wdata <= unsigned(fdc_byte_out);
+                -- ... and the other one
+                sb_w <= '1';
+                sb_wdata <= unsigned(fdc_byte_out);
+                sb_writeaddress <= to_integer(sector_offset);
+                
+              end if;
+              if fdc_crc_error='1' then
+                -- Failed to read sector
+                f011_crc <= '1';
+                report "Clearing fdc_read_request due to crc error";
+                fdc_read_request <= '0';
+                fdc_bytes_read(0) <= '1';
+                f011_busy <= '0';
+              end if;
+              -- Clear read request only at the end of the sector we are looking for
+              if fdc_sector_end='1' and f011_rsector_found='1' then
+                report "Clearing fdc_read_request due end of target sector";
+                fdc_read_request <= '0';
+                fdc_bytes_read(1) <= '1';
+                f011_busy <= '0';
+                sd_state <= Idle;
+              end if;
+            end if;
+          end if;          
+          
         when F011WriteSector =>
           -- Sit out the wait state for reading the next sector buffer byte
           -- as we copy the F011 sector buffer to the primary SD card sector buffer.
