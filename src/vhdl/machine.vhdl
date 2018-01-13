@@ -236,8 +236,8 @@ architecture Behavioral of machine is
   signal pmodb_in_buffer : std_logic_vector(5 downto 0);
   signal pmodb_out_buffer : std_logic_vector(1 downto 0);
 
-  signal fa_up_out : std_logic_vector;
-  signal fb_up_out : std_logic_vector;
+  signal fa_up_out : std_logic;
+  signal fb_up_out : std_logic;
   
   signal key_scancode : unsigned(15 downto 0);
   signal key_scancode_toggle : std_logic;
