@@ -1427,7 +1427,7 @@ begin  -- behavioural
                 when x"00" =>         -- cancel running command (not implemented)
                   f_wgate <= '0';
                   fdc_read_request <= '0';
-                  fdc_bytes_read(2) <= '1';
+                  fdc_bytes_read <= (others => '0');
                   f011_busy <= '0';
                 when others =>        -- illegal command
                   null;
