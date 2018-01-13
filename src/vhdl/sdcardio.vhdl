@@ -251,7 +251,7 @@ architecture behavioural of sdcardio is
   type sd_state_t is (Idle,
                       ReadSector,ReadingSector,ReadingSectorAckByte,DoneReadingSector,
                       WriteSector,WritingSector,WritingSectorAckByte,
-                      HyperTrapRead,HyperTrapWrite,
+                      HyperTrapRead,HyperTrapRead2,HyperTrapWrite,MoveReadingSector,
                       F011WriteSector,F011WriteSectorCopying,DoneWritingSector);
   signal sd_state : sd_state_t := Idle;
 
@@ -474,7 +474,7 @@ begin  -- behavioural
            f011_track,f011_sector,f011_side,sdio_fsm_error,sdio_error,
            sd_state,f011_irqenable,f011_ds,f011_cmd,f011_busy,f011_crc,
            f011_track0,f011_rsector_found,f011_over_index,f011_rdata,
-           f011_buffer_next_read,sdhc_mode,half_speed,sd_datatoken,sd_rdata,
+           f011_buffer_next_read,sdhc_mode,half_speed,sd_datatoken, sd_rdata,
            sector_offset,diskimage1_enable,f011_disk1_present,
            f011_disk1_write_protected,diskimage2_enable,f011_disk2_present,
            f011_disk2_write_protected,diskimage_sector,sw,btn,aclmiso,
@@ -1736,16 +1736,58 @@ begin  -- behavioural
         -- Trap to hypervisor when accessing SD card if virtualised.
         -- Wait until hypervisor kicks in before releasing request.
         when HyperTrapRead =>
-          hyper_trap_f011_read <= '1';
           if hypervisor_mode='1' then
-            sd_state <= Idle;
+            sd_state <= HyperTrapRead2;
+            hyper_trap_f011_read <= '0';
+          else
+            hyper_trap_f011_read <= '1';
           end if;
+
+        when HyperTrapRead2 =>
+          if fastio_write='1' and sectorbuffercs='1' then
+            sb_w <= '1';
+            report "Writing $" & to_hstring(fastio_wdata) & " to sector buffer $" & to_hstring("000"&fastio_addr(8 downto 0)) severity note;
+            sb_wdata <= unsigned(fastio_wdata);
+            sb_writeaddress <= to_integer(fastio_addr(8 downto 0));
+            f011_buffer_wdata <= unsigned(fastio_wdata);
+            f011_buffer_address <= fastio_addr(8 downto 0);
+            f011_buffer_write <= '1';
+          else
+            sb_w <= '0';
+          end if;
+
+          if hypervisor_mode='0' then
+            -- Hypervisor done, init transfer of data to f011 buffer
+            sector_offset <= (others => '0');
+            sd_state <= MoveReadingSector;
+            read_bytes <= '0';
+          end if;
+
+        when MoveReadingSector =>
+          if (sector_offset = "100000000") then
+            -- done transfering
+            f011_sector_fetch <= '0';
+            f011_busy <= '0';
+            f011_buffer_address <= ( others => '0');
+            sd_state <= DoneReadingSector;
+          else
+            f011_rsector_found <= '1';
+            -- move next bytes
+            if f011_drq='1' then f011_lost <= '1'; end if;
+            f011_drq <= '1';
+            f011_flag_eq_inhibit <= '1';
+            -- f011_buffer_wdata <= sd_wdata;
+            -- f011_buffer_address <= sector_offset(8 downto 0);
+            -- f011_buffer_write <= '1';
+            sector_offset <= sector_offset + 1;
+          end if;
+
         when HyperTrapWrite =>
           hyper_trap_f011_write <= '1';
           if hypervisor_mode='1' then
             sd_state <= Idle;
           end if;
-          
+
         when ReadSector =>
           -- Begin reading a sector into the buffer
           if sdio_busy='0' then

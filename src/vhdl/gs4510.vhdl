@@ -472,6 +472,8 @@ end component;
   signal hyper_trap_pending : std_logic := '0';
   signal hyper_trap_state : std_logic := '1';
   signal matrix_trap_pending : std_logic := '0';
+  signal f011_read_trap_pending : std_logic := '0';
+  signal f011_write_trap_pending : std_logic := '0';
   -- To defer interrupts in the hypervisor, we have a special mechanism for this.
   signal irq_defer_request : std_logic := '0';
   signal irq_defer_counter : integer range 0 to 65535 := 0;
@@ -2809,19 +2811,19 @@ begin
       end if;
           
       --Check for system-generated traps (matrix mode, and double tap restore)
-      if (hyper_trap = '0' or matrix_trap_in ='1') and hyper_trap_state = '1' then
+      if (hyper_trap = '0' or matrix_trap_in ='1' or hyper_trap_f011_read = '1' or hyper_trap_f011_write = '1') and hyper_trap_state = '1' then
+        hyper_trap_state <= '0';
         hyper_trap_pending <= '1'; 
         if matrix_trap_in='1' then 
           matrix_trap_pending <='1';
+        elsif hyper_trap_f011_read='1' then 
+          f011_read_trap_pending <='1';
+        elsif hyper_trap_f011_write='1' then 
+          f011_write_trap_pending <='1';
         end if;
+      else
+        hyper_trap_state <= '1';
       end if;
-      if hyper_trap_f011_read = '1' then
-        hyper_trap_pending <= '1';
-      end if;
-      if hyper_trap_f011_write = '1' then
-        hyper_trap_pending <= '1';
-      end if;
-      hyper_trap_state <= hyper_trap;
               
       -- Select CPU personality based on IO mode, but hypervisor can override to
       -- for 4502 mode, and the hypervisor itself always runs in 4502 mode.
@@ -3929,12 +3931,14 @@ begin
                   -- Trap #67 ($43) = ALT-TAB key press (toggles matrix mode)
                   hypervisor_trap_port <= "1000011";                     
                   matrix_trap_pending <= '0';
-                elsif hyper_trap_f011_read = '1' then
+                elsif f011_read_trap_pending = '1' then
                   -- Trap #68 ($44) = SD/F011 read sector
                   hypervisor_trap_port <= "1000100";
-                elsif hyper_trap_f011_read = '1' then
+                  f011_read_trap_pending <= '0';
+                elsif f011_write_trap_pending = '1' then
                   -- Trap #69 ($45) = SD/F011 write sector
                   hypervisor_trap_port <= "1000101";
+                  f011_write_trap_pending <= '0';
                 else
                   -- Trap #66 ($42) = RESTORE key double-tap
                   hypervisor_trap_port <= "1000010";                     
