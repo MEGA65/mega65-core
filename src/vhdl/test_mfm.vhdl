@@ -13,11 +13,8 @@ architecture foo of test_mfm is
 
   signal clock50mhz : std_logic := '1';
   signal f_rdata : std_logic := '1';
-  -- This is relative to the sample rate of the feed, which in reality will be
-  -- 20ns, but in our DMA-captured traces is only 50/3 = ~17MHz, so an interval
-  -- should be 4usec * (50/3) = ~67 cycles
-  -- This register gets x2 before being used
-  signal cycles_per_interval : unsigned(7 downto 0) := to_unsigned(33,8);
+  -- 2 usec bit rate for 720K disks
+  signal cycles_per_interval : unsigned(7 downto 0) := to_unsigned(100,8);
   
     -- The track/sector/side we are being asked to find
   signal target_track : unsigned(7 downto 0) := x"00";
@@ -78,11 +75,19 @@ begin
     file trace : CharFile;
     variable c : character;
   begin
-    file_open(trace,"assets/synthesised-40ns.dat",READ_MODE);
+    file_open(trace,"assets/synthesised-60ns.dat",READ_MODE);
     while not endfile(trace) loop
       Read(trace,c);
 --      report "Read char $" & to_hstring(to_unsigned(character'pos(c),8));      
       f_rdata <= to_unsigned(character'pos(c),8)(4);
+      clock50mhz <= '0';
+      wait for 10 ns;
+      clock50mhz <= '1';
+      wait for 10 ns;
+      clock50mhz <= '0';
+      wait for 10 ns;
+      clock50mhz <= '1';
+      wait for 10 ns;
       clock50mhz <= '0';
       wait for 10 ns;
       clock50mhz <= '1';

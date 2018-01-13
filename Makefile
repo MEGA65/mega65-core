@@ -227,7 +227,7 @@ MFMFILES=$(VHDLSRCDIR)/mfm_bits_to_bytes.vhdl \
 	 $(VHDLSRCDIR)/crc1581.vhdl \
 	 $(VHDLSRCDIR)/test_mfm.vhdl
 
-mfmsimulate: $(MFMFILES) $(ASSETS)/synthesised-40ns.dat
+mfmsimulate: $(MFMFILES) $(ASSETS)/synthesised-60ns.dat
 	ghdl -i $(MFMFILES)
 	ghdl -m test_mfm
 	( ./test_mfm || ghdl -r test_mfm ) 
