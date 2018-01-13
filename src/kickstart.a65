@@ -229,7 +229,7 @@ trap_entry_points:
 ;	========================
 
 	; Traps $40-$4F (reset, page fault and other system-generated traps)
-	jmp reset_entry_allow_etherkick	; Trap #$40 (power on / reset)
+	jmp reset_entry			; Trap #$40 (power on / reset)
 	nop				; refer: below in this file
 
 	jmp page_fault			; Trap #$41 (page fault)
@@ -279,9 +279,9 @@ trap_entry_points:
 	; trap addresses).
 	; These are used to catch interrupts in hypervisor mode
 	; (although the need for them may have since been removed)
-	.word reset_entry_allow_etherkick ; unused vector
+	.word reset_entry    ; unused vector
 	.word hypervisor_nmi ; NMI
-	.word reset_entry_allow_etherkick ; RESET
+	.word reset_entry    ; RESET
 	.word hypervisor_irq ; IRQ
 
 	.checkpc $8200
@@ -388,7 +388,7 @@ invalid_subfunction:
 		.include "kickstart_sdfat.a65"
 
 ;;; ----------------------------------------------------------------------------
-;;; Virtualised F011 access (used for disk over ethernet)
+;;; Virtualised F011 access (used for disk over serial monitor)
 ;;; ----------------------------------------------------------------------------
 		.include "kickstart_virtual_f011.a65"
 
@@ -484,19 +484,8 @@ reset_machine_state:
 ;;; CPU Hypervisor reset/trap routines
 ;;; ----------------------------------------------------------------------------
 ;
-reset_entry_allow_etherkick:
+reset_entry:
 		sei
-		lda #$00
-		sta kickstart_boot_flags
-		jmp reset_entry_common
-
-reset_entry_no_etherkick:
-		sei
-		lda #$80
-		sta kickstart_boot_flags
-		jmp reset_entry_common
-
-reset_entry_common:
 
 		jsr reset_machine_state
 
@@ -1208,7 +1197,7 @@ romfiletoolong:
 		ldz file_pagesread
 		jsr printhex
 		jsr sdwaitawhile
-		jmp reset_entry_allow_etherkick
+		jmp reset_entry
 
 romfiletooshort:
 		ldx #<msg_romfileshorterror
@@ -1219,7 +1208,7 @@ romfiletooshort:
 		ldz file_pagesread
 		jsr printhex
 		jsr sdwaitawhile
-		jmp reset_entry_allow_etherkick
+		jmp reset_entry
 
 ;	========================
 
@@ -1233,7 +1222,7 @@ sdcarderror:	ldx #<msg_sdcarderror
 		jsr printmessage
 
 		jsr sdwaitawhile
-		jmp reset_entry_allow_etherkick
+		jmp reset_entry
 
 ;	========================
 
@@ -1242,7 +1231,7 @@ badfs:		ldx #<msg_badformat
 		jsr printmessage
 
 		jsr sdwaitawhile
-		jmp reset_entry_allow_etherkick
+		jmp reset_entry
 
 ;;; ----------------------------------------------------------------------------
 ;;; ROM loading and manipulation routines
@@ -2758,7 +2747,6 @@ msg_foundkickup:      .byte "LOADING KICKUP.M65 INTO HYPERVISOR",0
 msg_nokickup:         .byte "NO KICKUP.M65 TO LOAD (OR BROKEN)",0
 msg_kickuploaded:     .byte "KICKUP LOADED TO 00004000 - $$$$$$$$",0
 msg_alreadykicked:    .byte "RUNNING KICKED HYPERVISOR",0
-msg_etherkick:	      .byte "BOOTING VIA ETHERKICK: UDP PORT 4511",0
 msg_lookingfornextsector:
 		      .byte "LOOKING FOR NEXT SECTOR OF FILE",0
 msg_nologo:	      .byte "COULD NOT LOAD BANNER.M65 (ERRNO:$$)",0
@@ -2986,10 +2974,6 @@ dos_error_code:
 		.checkpc $BF00
 		.advance $BF00,$3e
 
-kickstart_boot_flags:
-			; $80 = disable etherkick this boot only
-			.byte 0
-			
 		; Temporary vector storage for DOS
 		;
 dos_scratch_vector: .word 0,0
