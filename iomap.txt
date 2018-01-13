@@ -393,14 +393,13 @@ GS $D6A9 - DEBUG FDC last gap interval (LSB)
 GS $D6AA - DEBUG FDC last gap interval (MSB)
 GS $D6AB - DEBUG FDC last 7 rdata bits (packed by mfm_gaps)
 GS $D6AC - DEBUG FDC last quantised gap
+GS $D6AD - DEBUG FDC bytes read counter (LSB)
+GS $D6AE - DEBUG FDC bytes read counter (MSB)
 GS $D6E0.0 Clear to reset ethernet PHY
 GS $D6E0.1-2 Read ethernet TX bits currently on the wire
 GS $D6E0.3 Read ethernet RX data valid
 GS $D6E0.4 Allow remote keyboard input via magic ethernet frames
-GS $D6E0.6 ETH_MDC (write only)
-GS $D6E0.6 ETH_MDIO data direction register
 GS $D6E0.7 ETH_MDIO
-GS $D6E0.7 ETH_MDIO read/write
 GS $D6E0 Ethernet control
 GS $D6E1.0 reset ethernet PHY
 GS $D6E1.1 - Set which RX buffer is memory mapped
@@ -421,6 +420,10 @@ GS $D6E4 Ethernet command
 GS $D6E5.0 Swap RMII RX bit order
 GS $D6E5.1 Disable CRC check for received packets
 GS $D6E5.2-3 Ethernet TX clock phase adjust
+GS $D6E6.0-4 - Ethernet MIIM register number
+GS $D6E6.7-5 - Ethernet MIIM PHY number (use 0 for Nexys4, 1 for MEGA65 r1 PCBs)
+GS $D6E7 - Ethernet MIIM register value (LSB)
+GS $D6E8 - Ethernet MIIM register value (MSB)
 GS $D6EE - Temperature sensor (lower byte)
 GS $D6EF - Temperature sensor (upper byte)
 GS $D6F0 - Read FPGA switches 0-7

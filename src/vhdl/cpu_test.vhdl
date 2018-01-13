@@ -1,6 +1,7 @@
 library ieee;
 USE ieee.std_logic_1164.ALL;
 use ieee.numeric_std.all;
+use STD.textio.all;
 use work.all;
 use work.debugtools.all;
 
@@ -10,6 +11,8 @@ end cpu_test;
 
 architecture behavior of cpu_test is
 
+  type CharFile is file of character;
+  
   signal pmoda : std_logic_vector(7 downto 0) := "ZZZZZZZZ";
   signal pmodc : std_logic_vector(7 downto 0) := "ZZZZZZZZ";
   
@@ -131,6 +134,8 @@ architecture behavior of cpu_test is
   signal sector_buffer_mapped : std_logic;
 
   signal pot_drain : std_logic := '0';
+
+  signal f_rdata : std_logic := '1';
   
 begin
 
@@ -267,7 +272,7 @@ begin
       f_index => '1',
       f_track0 => '1',
       f_writeprotect => '1',
-      f_rdata => '1',
+      f_rdata => f_rdata,
       f_diskchanged => '1',      
       
       pot_drain => pot_drain,
@@ -333,6 +338,20 @@ begin
       sseg_ca         => sseg_ca,
       sseg_an         => sseg_an);
 
+  process is
+    file trace : CharFile;
+    variable c : character;
+  begin
+    file_open(trace,"assets/synthesised-60ns.dat",READ_MODE);
+    while not endfile(trace) loop
+      Read(trace,c);
+      f_rdata <= std_logic(to_unsigned(character'pos(c),8)(4));
+      wait for 60 ns;
+    end loop;
+    file_close(trace);
+  end process;
+
+  
   process
   begin  -- process tb
     report "beginning simulation" severity note;

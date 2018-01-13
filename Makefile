@@ -178,7 +178,7 @@ NOCPUSIMULATIONVHDL=	$(VHDLSRCDIR)/cpu_test.vhdl \
 			$(M65VHDL)
 
 
-simulate:	$(SIMULATIONVHDL)
+simulate:	$(SIMULATIONVHDL) $(ASSETS)/synthesised-60ns.dat
 	ghdl -i $(SIMULATIONVHDL)
 	ghdl -m cpu_test
 	./cpu_test || ghdl -r cpu_test
