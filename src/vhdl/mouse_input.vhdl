@@ -28,6 +28,8 @@ entity mouse_input is
     fb_up : in std_logic;
     fb_down : in std_logic;
 
+    mouse_debug : out unsigned(7 downto 0);
+    
     pota_x : out unsigned(7 downto 0) := x"33";
     pota_y : out unsigned(7 downto 0) := x"44";
     potb_x : out unsigned(7 downto 0) := x"55";
@@ -87,17 +89,24 @@ begin
     variable joybits : std_logic_vector(3 downto 0);
   begin
     if rising_edge(clk) then
+
+      mouse_debug(0) <= potsa_at_edge;
+      mouse_debug(1) <= ma_amiga_mode;
+      mouse_debug(2) <= potsb_at_edge;
+      mouse_debug(3) <= mb_amiga_mode;
+      mouse_debug(5 downto 4) <= unsigned(last_fa_leftright);
+      mouse_debug(7 downto 6) <= unsigned(last_fa_updown);
       
       -- Work out if we think we have an amiga mouse connected
-      if (pota_x_internal(7 downto 5) = "111111" or pota_x_internal(7 downto 5) = "000000")
-        and (pota_y_internal(7 downto 5) = "111111" or pota_y_internal(7 downto 5) = "000000") then
+      if (pota_x_internal(7 downto 2) = "111111" or pota_x_internal(7 downto 2) = "000000")
+        and (pota_y_internal(7 downto 2) = "111111" or pota_y_internal(7 downto 2) = "000000") then
         potsa_at_edge <= '1';
       else
         potsa_at_edge <= '0';
         ma_amiga_mode <= '0';
       end if;
-      if (potb_x_internal(7 downto 5) = "111111" or potb_x_internal(7 downto 5) = "000000")
-        and (potb_y_internal(7 downto 5) = "111111" or potb_y_internal(7 downto 5) = "000000") then
+      if (potb_x_internal(7 downto 2) = "111111" or potb_x_internal(7 downto 2) = "000000")
+        and (potb_y_internal(7 downto 2) = "111111" or potb_y_internal(7 downto 2) = "000000") then
         potsb_at_edge <= '1';
       else
         potsb_at_edge <= '0';
@@ -222,16 +231,24 @@ begin
             pot_drain <= '0';
           elsif (pot_counter > 257) then
             if fa_potx='0' then
-              pota_x_counter <= pota_x_counter + 1;
+              if pota_x_counter /= 255 then
+                pota_x_counter <= pota_x_counter + 1;
+              end if;
             end if;
             if fa_poty='0' then
-              pota_y_counter <= pota_y_counter + 1;
+              if pota_y_counter /= 255 then
+                pota_y_counter <= pota_y_counter + 1;
+              end if;
             end if;
             if fb_potx='0' then
-              potb_x_counter <= potb_x_counter + 1;
+              if potb_x_counter /= 255 then
+                potb_x_counter <= potb_x_counter + 1;
+              end if;
             end if;
             if fb_poty='0' then
-              potb_y_counter <= potb_y_counter + 1;
+              if potb_y_counter /= 255 then
+                potb_y_counter <= potb_y_counter + 1;
+              end if;
             end if;
           end if;
         else
