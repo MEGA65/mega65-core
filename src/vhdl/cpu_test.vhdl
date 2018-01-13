@@ -358,21 +358,21 @@ begin
     
     for i in 1 to 2000000 loop
       pixelclock <= '0'; cpuclock <= '0'; ioclock <= '0';
-      wait for 5 ns;     
+      wait for 2.5 ns;     
       pixelclock <= '1'; cpuclock <= '0'; ioclock <= '0';
-      wait for 5 ns;     
+      wait for 2.5 ns;     
       pixelclock <= '0'; cpuclock <= '0'; ioclock <= '0';
-      wait for 5 ns;     
+      wait for 2.5 ns;     
       pixelclock <= '1'; cpuclock <= '0'; ioclock <= '0';
-      wait for 5 ns;     
+      wait for 2.5 ns;     
       pixelclock <= '0'; cpuclock <= '1'; ioclock <= '1';
-      wait for 5 ns;     
+      wait for 2.5 ns;     
       pixelclock <= '1'; cpuclock <= '1'; ioclock <= '1';
-      wait for 5 ns;     
+      wait for 2.5 ns;     
       pixelclock <= '0'; cpuclock <= '1'; ioclock <= '1';
-      wait for 5 ns;     
+      wait for 2.5 ns;     
       pixelclock <= '1'; cpuclock <= '1'; ioclock <= '1';
-      wait for 5 ns;
+      wait for 2.5 ns;
       if i = 10 then
         reset <= '1';
         report "Releasing reset";

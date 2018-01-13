@@ -507,7 +507,7 @@ begin  -- behavioural
 
       if f011_cs='1' then
         -- F011 FDC emulation registers
-        report "Preparing to read F011 emulation register";
+        report "Preparing to read F011 emulation register @ $" & to_hstring(fastio_addr);
 
         case fastio_addr(4 downto 0) is
           when "00000" =>
@@ -1071,6 +1071,7 @@ begin  -- behavioural
       end if;
       if fdc_read_request='1' then
         -- We have an FDC request in progress.
+--        report "fdc_read_request asserted, checking for activity";
         fdc_bytes_read(15) <= not fdc_bytes_read(15);
         last_f_index <= f_index;
         if (f_index='0' and last_f_index='1') and (fdc_sector_found='0') then
@@ -1081,6 +1082,7 @@ begin  -- behavioural
             fdc_rotation_timeout <= fdc_rotation_timeout - 1;
           else
             -- Out of time: fail job
+            report "Clearing fdc_read_request due to timeout";
             f011_rnf <= '1';
             fdc_read_request <= '0';
             fdc_bytes_read(4) <= '1';
@@ -1088,10 +1090,12 @@ begin  -- behavioural
           end if;
         end if;
         if (fdc_sector_found='1') or (fdc_sector_end='1') then
+          report "fdc_sector_found or fdc_sector_end = 1";
           fdc_bytes_read(13) <= not fdc_bytes_read(13);
           f011_rsector_found <= '1';
           if fdc_byte_valid = '1' then
             -- DEBUG: Note how many bytes we have received from the floppy
+            report "fdc_byte valid asserted, storing byte @ $" & to_hstring(f011_buffer_address);
             if to_integer(fdc_bytes_read(12 downto 0)) /= 8191 then
               fdc_bytes_read(12 downto 0) <= to_unsigned(to_integer(fdc_bytes_read(12 downto 0)) + 1,13);
             else
@@ -1110,12 +1114,14 @@ begin  -- behavioural
           if fdc_crc_error='1' then
             -- Failed to read sector
             f011_crc <= '1';
+            report "Clearing fdc_read_request due to crc error";
             fdc_read_request <= '0';
             fdc_bytes_read(0) <= '1';
             f011_busy <= '0';
           end if;
           -- Clear read request only at the end of the sector we are looking for
           if fdc_sector_end='1' and f011_rsector_found='1' then
+            report "Clearing fdc_read_request due end of target sector";
             fdc_read_request <= '0';
             fdc_bytes_read(1) <= '1';
             f011_busy <= '0';
@@ -1277,7 +1283,7 @@ begin  -- behavioural
                   f011_flag_eq_inhibit <= '1';
 
                   if use_real_floppy='1' and f011_ds="000" then
-                    report "Using real floppy drive";
+                    report "Using real floppy drive, asserting fdc_read_request";
                     -- Real floppy drive request
                     fdc_read_request <= '1';
                     -- Read must complete within 6 rotations
@@ -1426,6 +1432,7 @@ begin  -- behavioural
                   busy_countdown <= to_unsigned(16000,16); -- 1 sec spin up time
                 when x"00" =>         -- cancel running command (not implemented)
                   f_wgate <= '0';
+                  report "Clearing fdc_read_request due to $00 command";
                   fdc_read_request <= '0';
                   fdc_bytes_read <= (others => '0');
                   f011_busy <= '0';
@@ -1701,8 +1708,8 @@ begin  -- behavioural
 
 
       sb_w <= '0';
-      report "SD interface state = " & sd_state_t'image(sd_state)
-        & ", virtualise_f011 = " & std_logic'image(virtualise_f011);
+--      report "SD interface state = " & sd_state_t'image(sd_state)
+--        & ", virtualise_f011 = " & std_logic'image(virtualise_f011);
 
       case sd_state is
 
