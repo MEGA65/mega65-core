@@ -192,13 +192,13 @@ begin
         fa_down_out <= '1';
         joybits := fa_right & fa_down & last_fa_rightdown;
         case joybits is
-          when "1110" | "0111" | "0001" | "1000" =>
+          when "0010" | "1011" | "1101" | "0100" =>
             if ma_x /= "1111111" then
               ma_x <= ma_x + 1;
             else
               ma_x <= "0000000";
             end if;
-          when "0010" | "1011" | "1101" | "0100" =>
+          when "1110" | "0111" | "0001" | "1000" =>
             if ma_x /= "0000000" then
               ma_x <= ma_x - 1;
             else
@@ -235,13 +235,13 @@ begin
         fb_down_out <= '1';
         joybits := fb_right & fb_down & last_fb_rightdown;
         case joybits is
-          when "1110" | "0111" | "0001" | "1000" =>
+          when "0010" | "1011" | "1101" | "0100" =>
             if mb_x /= "1111111" then
               mb_x <= mb_x + 1;
             else
               mb_x <= "0000000";
             end if;
-          when "0010" | "1011" | "1101" | "0100" =>
+          when "1110" | "0111" | "0001" | "1000" =>
             if mb_x /= "0000000" then
               mb_x <= mb_x - 1;
             else
