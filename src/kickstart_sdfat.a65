@@ -134,10 +134,6 @@ sdwaitawhile:
 		jsr sdtimeoutreset
 
 sw1:		
-		inc $d020
-		jsr checkethernet
-		dec $d020
-
 		inc sdcounter+0
 		bne sw1
 		inc sdcounter+1
