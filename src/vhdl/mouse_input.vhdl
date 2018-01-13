@@ -28,6 +28,11 @@ entity mouse_input is
     fb_up : in std_logic;
     fb_down : in std_logic;
 
+    -- When using an Amiga mouse, we need to override the up direction, which
+    -- is right button on an Amiga mouse
+    fa_up_out : out std_logic := '1';
+    fb_up_out : out std_logic := '1';
+    
     mouse_debug : out unsigned(7 downto 0);
     
     pota_x : out unsigned(7 downto 0) := x"33";
@@ -78,10 +83,10 @@ architecture behavioural of mouse_input is
   signal potsb_at_edge : std_logic := '0';
   
   -- Remember quadrature positions for Amiga mouse
-  signal last_fa_leftright : std_logic_vector(1 downto 0) := "11";
-  signal last_fa_updown : std_logic_vector(1 downto 0) := "11";
-  signal last_fb_leftright : std_logic_vector(1 downto 0) := "11";
-  signal last_fb_updown : std_logic_vector(1 downto 0) := "11";
+  signal last_fa_leftup : std_logic_vector(1 downto 0) := "11";
+  signal last_fa_rightdown : std_logic_vector(1 downto 0) := "11";
+  signal last_fb_leftup : std_logic_vector(1 downto 0) := "11";
+  signal last_fb_rightdown : std_logic_vector(1 downto 0) := "11";
   
 begin
 
@@ -94,8 +99,8 @@ begin
       mouse_debug(1) <= ma_amiga_mode;
       mouse_debug(2) <= potsb_at_edge;
       mouse_debug(3) <= mb_amiga_mode;
-      mouse_debug(5 downto 4) <= unsigned(last_fa_leftright);
-      mouse_debug(7 downto 6) <= unsigned(last_fa_updown);
+      mouse_debug(5 downto 4) <= unsigned(last_fa_leftup);
+      mouse_debug(7 downto 6) <= unsigned(last_fa_rightdown);
       
       -- Work out if we think we have an amiga mouse connected
       if (pota_x_internal(7 downto 2) = "111111" or pota_x_internal(7 downto 2) = "000000")
@@ -120,12 +125,14 @@ begin
          and (potsb_at_edge='1') then
         mb_amiga_mode <= '1';
       end if;
-      last_fa_leftright <= fa_left & fa_right;
-      last_fa_updown <= fa_up & fa_down;
-      last_fb_leftright <= fb_left & fb_right;
-      last_fb_updown <= fb_up & fb_down;
+      last_fa_leftup <= fa_left & fa_up;
+      last_fa_rightdown <= fa_right & fa_down;
+      last_fb_leftup <= fb_left & fb_up;
+      last_fb_rightdown <= fb_right & fb_down;
       if ma_amiga_mode='1' then
-        joybits := fa_left & fa_right & last_fa_leftright;
+        -- Map Amiga right button from POTY to UP
+        fa_up_out <= pota_y_internal(7);            
+        joybits := fa_right & fa_down & last_fa_rightdown;
         case joybits is
           when "1110" | "0111" | "0001" | "1000" =>
             if ma_x /= "1111111" then
@@ -141,7 +148,7 @@ begin
             end if;
           when others => null;
         end case;
-        joybits := fa_up & fa_down & last_fa_updown;
+        joybits := fa_left & fa_up & last_fa_leftup;
         case joybits is
           when "1110" | "0111" | "0001" | "1000" =>
             if ma_y /= "1111111" then
@@ -157,9 +164,12 @@ begin
             end if;
           when others => null;
         end case;
+      else
+        fa_up_out <= '1';
       end if;
       if mb_amiga_mode='1' then
-        joybits := fb_left & fb_right & last_fb_leftright;
+        fb_up_out <= potb_y_internal(7);            
+        joybits := fb_right & fb_down & last_fb_rightdown;
         case joybits is
           when "1110" | "0111" | "0001" | "1000" =>
             if mb_x /= "1111111" then
@@ -175,7 +185,7 @@ begin
             end if;
           when others => null;
         end case;
-        joybits := fb_up & fb_down & last_fb_updown;
+        joybits := fb_left & fb_up & last_fb_leftup;
         case joybits is
           when "1110" | "0111" | "0001" | "1000" =>
             if mb_y /= "1111111" then
@@ -191,6 +201,8 @@ begin
             end if;
           when others => null;
         end case;
+      else
+        fb_up_out <= '1';
       end if;
 
       if ma_amiga_mode='1' then
