@@ -1114,7 +1114,8 @@ begin  -- behavioural
             fdc_bytes_read(0) <= '1';
             f011_busy <= '0';
           end if;
-          if fdc_sector_end='1' then
+          -- Clear read request only at the end of the sector we are looking for
+          if fdc_sector_end='1' and f011_rsector_found='1' then
             fdc_read_request <= '0';
             fdc_bytes_read(1) <= '1';
             f011_busy <= '0';
