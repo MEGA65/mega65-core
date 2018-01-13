@@ -241,9 +241,9 @@ architecture Behavioral of machine is
   signal fa_left_out : std_logic;
   signal fa_right_out : std_logic;
   signal fb_up_out : std_logic;
-  signal fa_down_out : std_logic;
-  signal fa_left_out : std_logic;
-  signal fa_right_out : std_logic;
+  signal fb_down_out : std_logic;
+  signal fb_left_out : std_logic;
+  signal fb_right_out : std_logic;
   
   signal key_scancode : unsigned(15 downto 0);
   signal key_scancode_toggle : std_logic;
