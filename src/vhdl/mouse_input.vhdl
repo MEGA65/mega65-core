@@ -30,9 +30,18 @@ entity mouse_input is
 
     -- When using an Amiga mouse, we need to override the up direction, which
     -- is right button on an Amiga mouse
-    fa_up_out : out std_logic := '1';
-    fb_up_out : out std_logic := '1';
+    -- We also mask out the joystick movements that would be seen from the
+    -- digital inputs.
+    fa_left_out : out std_logic :='1';
+    fa_right_out : out std_logic :='1';
+    fa_up_out : out std_logic :='1';
+    fa_down_out : out std_logic :='1';
     
+    fb_left_out : out std_logic :='1';
+    fb_right_out : out std_logic :='1';
+    fb_up_out : out std_logic :='1';
+    fb_down_out : out std_logic :='1';
+        
     mouse_debug : out unsigned(7 downto 0);
     
     pota_x : out unsigned(7 downto 0) := x"33";
@@ -57,6 +66,8 @@ architecture behavioural of mouse_input is
   -- but could be a 1351.
   -- Then it is just a case of separating Amiga mouse from joystick. Basically
   -- if we don't see UP+DOWN/LEFT+RIGHT for a while, then we conclude it is a joystick.
+  -- ... but we keep driving the POTs as though it were an amiga mouse until
+  -- such time as we see the pots no longer at the edges
   -- In fact, we can safely always pass the joystick directions through, even
   -- if we think it is an amiga mouse.
   -- The only other catch is we have to have two consecutive pot reads to be
@@ -64,7 +75,11 @@ architecture behavioural of mouse_input is
   -- sampling sequence
   signal ma_amiga_mode : std_logic := '0';
   signal mb_amiga_mode : std_logic := '0';
-
+  signal ma_amiga_pots : std_logic := '0';
+  signal mb_amiga_pots : std_logic := '0';
+  signal ma_amiga_mode_timeout : integer := 0;
+  signal mb_amiga_mode_timeout : integer := 0;
+  
   -- Integrated Amiga mouse positions
   signal ma_x : unsigned(6 downto 0) := "1111111";
   signal ma_y : unsigned(6 downto 0) := "1111111";
@@ -101,6 +116,27 @@ begin
       mouse_debug(3) <= mb_amiga_mode;
       mouse_debug(5 downto 4) <= unsigned(last_fa_leftup);
       mouse_debug(7 downto 6) <= unsigned(last_fa_rightdown);
+
+      -- Timeout Amiga mode interpretation of mouse after
+      -- a period of all digital lines being relaxed.
+      -- We don't just assume joystick immediately, because slow
+      -- mouse movement can have all lines relaxed for a little while.
+      -- This leaves a 1 in 16 chance of glitchy mouse/joystick
+      -- interpretation if an amiga mouse is plugged in, and is moved
+      -- only a single quad in either axis after having been stationary
+      -- for some time.
+      if ma_amiga_mode_timeout /= 0 then
+        ma_amiga_mode_timeout <= ma_amiga_mode_timeout - 1;
+      end if;
+      if ma_amiga_mode_timeout = 1 then
+        ma_amiga_mode <= '0';
+      end if;
+      if mb_amiga_mode_timeout /= 0 then
+        mb_amiga_mode_timeout <= mb_amiga_mode_timeout - 1;
+      end if;
+      if mb_amiga_mode_timeout = 1 then
+        mb_amiga_mode <= '0';
+      end if;
       
       -- Work out if we think we have an amiga mouse connected
       if (pota_x_internal(7 downto 2) = "111111" or pota_x_internal(7 downto 2) = "000000")
@@ -109,6 +145,7 @@ begin
       else
         potsa_at_edge <= '0';
         ma_amiga_mode <= '0';
+        ma_amiga_pots <= '0';
       end if;
       if (potb_x_internal(7 downto 2) = "111111" or potb_x_internal(7 downto 2) = "000000")
         and (potb_y_internal(7 downto 2) = "111111" or potb_y_internal(7 downto 2) = "000000") then
@@ -116,14 +153,32 @@ begin
       else
         potsb_at_edge <= '0';
         mb_amiga_mode <= '0';
+        mb_amiga_pots <= '0';
       end if;
       if (((fa_up or fa_down) = '0') or ((fa_left or fa_right) = '0'))
          and (potsa_at_edge='1') then
         ma_amiga_mode <= '1';
+        ma_amiga_pots <= '1';
+        ma_amiga_mode_timeout <= 0;
       end if;
       if (((fb_up or fb_down) = '0') or ((fb_left or fb_right) = '0'))
          and (potsb_at_edge='1') then
         mb_amiga_mode <= '1';
+        mb_amiga_pots <= '1';
+        mb_amiga_mode_timeout <= 0;
+      end if;
+      -- If all lines are high, we can't be sure it is an amiga mouse,
+      -- but we don't want to cause glitchy behaviour if the mouse is moved
+      -- slowly, so we have a 5 second timeout before we think it is a joystick
+      -- (i.e., about the time it takes to unplug and replug a joystick/mouse.)
+      -- This does mean if you are using a joystick/mouse switcher with an
+      -- Amiga mouse you have to leave the joystick motionless for 5 seconds in
+      -- 1 in 16 cases before it will be properly recognised by the MEGA65.
+      if ((fa_up and fa_down and fa_left and fa_right) = '1') then
+        ma_amiga_mode_timeout <= 250000000;
+      end if;
+      if ((fb_up and fb_down and fb_left and fb_right) = '1') then
+        mb_amiga_mode_timeout <= 250000000;
       end if;
       last_fa_leftup <= fa_left & fa_up;
       last_fa_rightdown <= fa_right & fa_down;
@@ -131,7 +186,10 @@ begin
       last_fb_rightdown <= fb_right & fb_down;
       if ma_amiga_mode='1' then
         -- Map Amiga right button from POTY to UP
-        fa_up_out <= pota_y_internal(7);            
+        fa_up_out <= pota_y_internal(7);
+        fa_left_out <= '1';
+        fa_right_out <= '1';
+        fa_down_out <= '1';
         joybits := fa_right & fa_down & last_fa_rightdown;
         case joybits is
           when "1110" | "0111" | "0001" | "1000" =>
@@ -166,9 +224,15 @@ begin
         end case;
       else
         fa_up_out <= fa_up;
+        fa_left_out <= fa_left;
+        fa_right_out <= fa_right;
+        fa_down_out <= fa_down;
       end if;
       if mb_amiga_mode='1' then
         fb_up_out <= potb_y_internal(7);            
+        fb_left_out <= '1';
+        fb_right_out <= '1';
+        fb_down_out <= '1';
         joybits := fb_right & fb_down & last_fb_rightdown;
         case joybits is
           when "1110" | "0111" | "0001" | "1000" =>
@@ -203,6 +267,9 @@ begin
         end case;
       else
         fb_up_out <= fb_up;
+        fb_left_out <= fb_left;
+        fb_right_out <= fb_right;
+        fb_down_out <= fb_down;
       end if;
 
       if ma_amiga_mode='1' then

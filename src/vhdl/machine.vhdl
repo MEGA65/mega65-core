@@ -237,7 +237,13 @@ architecture Behavioral of machine is
   signal pmodb_out_buffer : std_logic_vector(1 downto 0);
 
   signal fa_up_out : std_logic;
+  signal fa_down_out : std_logic;
+  signal fa_left_out : std_logic;
+  signal fa_right_out : std_logic;
   signal fb_up_out : std_logic;
+  signal fa_down_out : std_logic;
+  signal fa_left_out : std_logic;
+  signal fa_right_out : std_logic;
   
   signal key_scancode : unsigned(15 downto 0);
   signal key_scancode_toggle : std_logic;
@@ -940,17 +946,17 @@ begin
 
       fa_fire => fa_fire,
       fa_up => fa_up_out,
-      fa_left => fa_left,
-      fa_down => fa_down,
-      fa_right => fa_right,
+      fa_left => fa_left_out,
+      fa_down => fa_down_out,
+      fa_right => fa_right_out,
       fa_potx => fa_potx,
       fa_poty => fa_poty,
       
       fb_fire => fb_fire,
       fb_up => fb_up_out,
-      fb_left => fb_left,
-      fb_down => fb_down,
-      fb_right => fb_right,
+      fb_left => fb_left_out,
+      fb_down => fb_down_out,
+      fb_right => fb_right_out,
       fb_potx => fb_potx,
       fb_poty => fb_poty,
 
