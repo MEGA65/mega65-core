@@ -225,7 +225,7 @@ begin
   core0: entity work.machine
     port map (
       fpga_temperature => (others => '1'),
-      
+
       pixelclock      => pixelclock,
       cpuclock      => cpuclock,
       clock50mhz   => clock50mhz,

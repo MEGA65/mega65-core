@@ -448,6 +448,8 @@ architecture Behavioral of machine is
   signal potb_x : unsigned(7 downto 0);
   signal potb_y : unsigned(7 downto 0);
   
+  signal mouse_debug : unsigned(7 downto 0);
+
 begin
 
   ----------------------------------------------------------------------------
@@ -809,6 +811,8 @@ begin
     port map (
       clk => ioclock,
 
+      mouse_debug => mouse_debug,
+      
       -- These are the 1351 mouse / C64 paddle inputs and drain control
       pot_drain => pot_drain,
       fa_potx => fa_potx,
@@ -970,10 +974,12 @@ begin
       pota_x => pota_x,
       pota_y => pota_y,
       potb_x => potb_x,
-      potb_y => potb_y,
-
+      potb_y => potb_y,      
+      
       pot_drain => pot_drain,
       pot_via_iec => pot_via_iec,
+
+      mouse_debug => mouse_debug,
       
       pixel_stream_in => pixel_stream,
       pixel_y => pixel_y,

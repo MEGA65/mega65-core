@@ -102,6 +102,8 @@ entity iomapper is
         pot_drain : in std_logic;
         pot_via_iec : buffer std_logic;
         
+        mouse_debug : in unsigned(7 downto 0);
+        
         ----------------------------------------------------------------------
         -- CBM floppy serial port
         ----------------------------------------------------------------------
@@ -508,6 +510,7 @@ begin
       portp_out => osk_y(11 downto 4),
       joya_rotate => joya_rotate,
       joyb_rotate => joyb_rotate,
+      mouse_debug => mouse_debug,
 
       pot_via_iec => pot_via_iec,
       pot_drain => pot_drain,

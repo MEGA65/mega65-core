@@ -52,6 +52,7 @@ entity c65uart is
     potb_x : in unsigned(7 downto 0);
     potb_y : in unsigned(7 downto 0);    
     pot_via_iec : buffer std_logic := '0';
+    mouse_debug : in unsigned(7 downto 0);
     
     porte : inout std_logic_vector(7 downto 0);
     portf : inout std_logic_vector(7 downto 0);
@@ -336,7 +337,7 @@ begin  -- behavioural
           when x"19" =>
             porto_internal <= std_logic_vector(fastio_wdata);
           when x"1A" =>
-            portp_internal <= std_logic_vector(fastio_wdata);
+            portp_internal <= std_logic_vector(fastio_wdata);            
           when others => null;
         end case;
       end if;
@@ -469,10 +470,13 @@ begin  -- behavioural
         when x"1a" =>
           -- @IO:GS $D61A On-screen keyboard Y position (x4 physical pixels)
           fastio_rdata <= unsigned(portp_internal);
+        when x"1b" =>
+          -- @IO:GS $D61B 1351/amiga mouse auto detection DEBUG
+          fastio_rdata <= mouse_debug;
           -- @IO:GS $D620 Read Port A paddle X
           -- @IO:GS $D621 Read Port A paddle Y
           -- @IO:GS $D622 Read Port B paddle X
-          -- @IO:GS $D623 Read Port B paddle Y
+          -- @IO:GS $D623 Read Port B paddle Y          
         when x"20" => fastio_rdata <= pota_x;
         when x"21" => fastio_rdata <= pota_y;
         when x"22" => fastio_rdata <= potb_x;
