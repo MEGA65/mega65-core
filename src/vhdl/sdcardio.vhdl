@@ -1240,6 +1240,8 @@ begin  -- behavioural
                     f011_busy <= '1';
                     f011_rnf <= '0';
 
+                    sector_offset <= (others => '0');
+                    
                     sd_state <= FDCReadingSector;
                   else
                     if f011_ds="000" and (f011_disk1_present='0' or diskimage1_enable='0') then
