@@ -342,13 +342,15 @@ begin
     file trace : CharFile;
     variable c : character;
   begin
-    file_open(trace,"assets/synthesised-60ns.dat",READ_MODE);
-    while not endfile(trace) loop
-      Read(trace,c);
-      f_rdata <= std_logic(to_unsigned(character'pos(c),8)(4));
-      wait for 60 ns;
+    while true loop
+      file_open(trace,"assets/synthesised-60ns.dat",READ_MODE);
+      while not endfile(trace) loop
+        Read(trace,c);
+        f_rdata <= std_logic(to_unsigned(character'pos(c),8)(4));
+        wait for 6 ns;
+      end loop;
+      file_close(trace);
     end loop;
-    file_close(trace);
   end process;
 
   
