@@ -52,8 +52,8 @@ entity ethernet is
     ---------------------------------------------------------------------------
     -- IO lines to the ethernet controller
     ---------------------------------------------------------------------------
-    eth_mdio : inout std_logic := '1';
-    eth_mdc : out std_logic := '1';
+    eth_mdio : inout std_logic;
+    eth_mdc : out std_logic;
     eth_reset : out std_logic := '1';
     eth_rxd_in : in unsigned(1 downto 0);
     eth_txd_out : out unsigned(1 downto 0) := "11";
