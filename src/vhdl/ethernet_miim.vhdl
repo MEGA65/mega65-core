@@ -35,7 +35,7 @@ architecture foo of ethernet_miim is
 
   signal read_value : unsigned(15 downto 0) := x"0000";
 
-  signal miim_phase : integer range 0 to 13 := 0;
+  signal miim_phase : integer range 0 to 100 := 0;
   signal miim_clock : std_logic := '0';
 
   signal last_miim_request : std_logic := '0';
