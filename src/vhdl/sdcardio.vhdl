@@ -653,7 +653,7 @@ begin  -- behavioural
           -- @IO:GS $D685 - DEBUG Show current state ID of SD card interface
           when x"85" => fastio_rdata <= to_unsigned(sd_state_t'pos(sd_state),8);
           when x"86" => fastio_rdata <= sd_datatoken;
-          when x"87" => fastio_rdata <= unsigned(sd_rdata);                        
+          when x"87" => fastio_rdata <= unsigned(sd_rdata);
           when x"88" => fastio_rdata <= sector_offset(7 downto 0);
 
 
@@ -1721,6 +1721,13 @@ begin  -- behavioural
             -- move next bytes
             if f011_drq='1' then f011_lost <= '1'; end if;
             f011_drq <= '1';
+            -- SD card reading is so fast, that the poll loop used by C65 DOS
+            -- will see the EQ flag set before it has a chance to read a single
+            -- byte, and will thus busy wait forever.  Thus we have to inhibit
+            -- the EQ flag during reading the sector.
+            -- For real floppies, the opposite is true: we need the EQ flag to
+            -- work, so that the DOS doesn't read past where the floppy drive
+            -- has read to within the sector.
             f011_flag_eq_inhibit <= '1';
             -- f011_buffer_wdata <= sd_wdata;
             -- f011_buffer_address <= sector_offset(8 downto 0);
@@ -1844,7 +1851,7 @@ begin  -- behavioural
                 if f011_drq='1' then f011_lost <= '1'; end if;
                 f011_drq <= '1';
                 -- Update F011 sector buffer
-                f011_flag_eq_inhibit <= '1';
+--                f011_flag_eq_inhibit <= '1';
                 if f011_buffer_address /= "111111111" then
                   f011_buffer_address <= f011_buffer_address + 1;
                 else
