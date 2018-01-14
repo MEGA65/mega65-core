@@ -245,7 +245,7 @@ architecture behavioural of sdcardio is
   signal sb_w : std_logic := '0';
   signal sb_wdata : unsigned(7 downto 0);
   -- Counter for reading/writing sector
-  signal sector_offset : unsigned(9 downto 0);
+  signal sector_offset : unsigned(9 downto 0) := (others => '0');
   signal sb_writeaddress : integer range 0 to 511 := 0;
   
   type sd_state_t is (Idle,
@@ -1739,6 +1739,7 @@ begin  -- behavioural
             sdio_busy <= '1';
             skip <= 2;
             sector_offset <= (others => '0');
+            report "Clearing sector_offset";
             read_bytes <= '0';
           else
             sd_doread <= '0';
@@ -1812,8 +1813,19 @@ begin  -- behavioural
               end if;
             end if;
             if (fdc_sector_found='1') or (fdc_sector_end='1') then
---          report "fdc_sector_found or fdc_sector_end = 1";
-              f011_rsector_found <= fdc_sector_found;
+--              report "fdc_sector_found or fdc_sector_end = 1";
+              if fdc_sector_found='1' then
+                if f011_rsector_found = '0' then
+                  report "asserting f011_rsector_found";
+                end if;
+                f011_rsector_found <= '1';
+              end if;
+              if fdc_sector_end='1' then
+                if f011_rsector_found = '0' then
+                  report "reseting f011_rsector_found";
+                end if;
+                f011_rsector_found <= '0';
+              end if;
               if fdc_byte_valid = '1' and (fdc_sector_found or f011_rsector_found)='1' then
                 -- DEBUG: Note how many bytes we have received from the floppy
                 report "fdc_byte valid asserted, storing byte @ $" & to_hstring(f011_buffer_address);
@@ -1836,6 +1848,9 @@ begin  -- behavioural
                 sb_wdata <= unsigned(fdc_byte_out);
                 sb_writeaddress <= to_integer(sector_offset);
                 sector_offset <= sector_offset + 1;
+                report "setting sector_offset to $" & to_hstring(sector_offset+1);
+                report "sector_offset = $" & to_hstring(sector_offset)
+                  & ", f011_buffer_address = $" & to_hstring(f011_buffer_address);
               end if;
               if fdc_crc_error='1' then
                 -- Failed to read sector
@@ -1844,6 +1859,7 @@ begin  -- behavioural
                 fdc_read_request <= '0';
                 fdc_bytes_read(0) <= '1';
                 f011_busy <= '0';
+                sd_state <= Idle;
               end if;
               -- Clear read request only at the end of the sector we are looking for
               if fdc_sector_end='1' and f011_rsector_found='1' then
@@ -1890,6 +1906,7 @@ begin  -- behavioural
             skip <= 1;
             sd_state <= WritingSector;
             sector_offset <= (others => '0');
+            report "Clearing sector_offset";
             sb_writeaddress <= to_integer(sector_offset);
           else
             sd_dowrite <= '0';
