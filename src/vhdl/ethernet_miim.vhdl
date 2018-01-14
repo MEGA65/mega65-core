@@ -57,7 +57,7 @@ begin
       
       -- Update MIIM clock. This should be no faster than 2.5MHz
       -- so 25 cycles per tick, so invert every 13 cycles @ 50MHz
-      if miim_phase = 13 then
+      if miim_phase = 100 then  -- about 0.5MHz
         report "miim half tick";
         miim_clock <= not miim_clock;
         miim_phase <= 0;
