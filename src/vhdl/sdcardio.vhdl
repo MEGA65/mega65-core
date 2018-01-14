@@ -1813,7 +1813,7 @@ begin  -- behavioural
             end if;
             if (fdc_sector_found='1') or (fdc_sector_end='1') then
 --          report "fdc_sector_found or fdc_sector_end = 1";
-              f011_rsector_found <= '1';
+              f011_rsector_found <= fdc_sector_found;
               if fdc_byte_valid = '1' then
                 -- DEBUG: Note how many bytes we have received from the floppy
                 report "fdc_byte valid asserted, storing byte @ $" & to_hstring(f011_buffer_address);
