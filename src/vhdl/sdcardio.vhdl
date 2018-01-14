@@ -1381,6 +1381,7 @@ begin  -- behavioural
                   fdc_read_request <= '0';
                   fdc_bytes_read <= (others => '0');
                   f011_busy <= '0';
+                  sd_state <= Idle;
                 when others =>        -- illegal command
                   null;
               end case;
