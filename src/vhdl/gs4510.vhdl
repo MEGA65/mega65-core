@@ -4422,6 +4422,11 @@ begin
                   reg_addr <= temp_addr;
                   if is_load='1' or is_rmw='1' then
                     state <= LoadTarget;
+                    -- On memory read wait-state, read from RAM, so that FastIO
+                    -- lines clear
+                    memory_access_read := '1';
+                    memory_access_address := x"0000002";
+                    memory_access_resolve_address := '0';
                   else
                     -- (reading next instruction argument byte as default action)
                     state <= MicrocodeInterpret;
@@ -4453,6 +4458,11 @@ begin
                   reg_addr <= temp_addr;
                   if is_load='1' or is_rmw='1' then
                     state <= LoadTarget;
+                    -- On memory read wait-state, read from RAM, so that FastIO
+                    -- lines clear
+                    memory_access_read := '1';
+                    memory_access_address := x"0000002";
+                    memory_access_resolve_address := '0';
                   else
                     -- (reading next instruction argument byte as default action)
                     state <= MicrocodeInterpret;
@@ -4463,6 +4473,11 @@ begin
                   reg_addr <= temp_addr;
                   if is_load='1' or is_rmw='1' then
                     state <= LoadTarget;
+                    -- On memory read wait-state, read from RAM, so that FastIO
+                    -- lines clear
+                    memory_access_read := '1';
+                    memory_access_address := x"0000002";
+                    memory_access_resolve_address := '0';
                   else
                     -- (reading next instruction argument byte as default action)
                     state <= MicrocodeInterpret;
@@ -4715,6 +4730,11 @@ begin
                     reg_addr <= temp_addr;
                     if is_load='1' or is_rmw='1' then
                       state <= LoadTarget;
+                    -- On memory read wait-state, read from RAM, so that FastIO
+                    -- lines clear
+                    memory_access_read := '1';
+                    memory_access_address := x"0000002";
+                    memory_access_resolve_address := '0';
                     else
                       -- (reading next instruction argument byte as default action)
                       state <= MicrocodeInterpret;
@@ -4741,6 +4761,11 @@ begin
                     else
                       if is_load='1' or is_rmw='1' then
                         state <= LoadTarget;
+                        -- On memory read wait-state, read from RAM, so that FastIO
+                        -- lines clear
+                        memory_access_read := '1';
+                        memory_access_address := x"0000002";
+                        memory_access_resolve_address := '0';
                       else
                         -- (reading next instruction argument byte as default action)
                         state <= MicrocodeInterpret;
@@ -4846,6 +4871,11 @@ begin
                     reg_addr <= temp_addr;
                     if is_load='1' or is_rmw='1' then
                       state <= LoadTarget;
+                      -- On memory read wait-state, read from RAM, so that FastIO
+                      -- lines clear
+                      memory_access_read := '1';
+                      memory_access_address := x"0000002";
+                      memory_access_resolve_address := '0';
                     else
                       -- (reading next instruction argument byte as default action)
                       state <= MicrocodeInterpret;
@@ -4855,6 +4885,11 @@ begin
                     reg_addr <= temp_addr;
                     if is_load='1' or is_rmw='1' then
                       state <= LoadTarget;
+                      -- On memory read wait-state, read from RAM, so that FastIO
+                      -- lines clear
+                      memory_access_read := '1';
+                      memory_access_address := x"0000002";
+                      memory_access_resolve_address := '0';
                     else
                       -- (reading next instruction argument byte as default action)
                       state <= MicrocodeInterpret;
@@ -4867,6 +4902,11 @@ begin
                     reg_addr <= x"00"&reg_y + to_integer(memory_read_value&reg_addr(7 downto 0));
                     if is_load='1' or is_rmw='1' then
                       state <= LoadTarget;
+                      -- On memory read wait-state, read from RAM, so that FastIO
+                      -- lines clear
+                      memory_access_read := '1';
+                      memory_access_address := x"0000002";
+                      memory_access_resolve_address := '0';
                     else
                       -- (reading next instruction argument byte as default action)
                       state <= MicrocodeInterpret;
@@ -4879,6 +4919,11 @@ begin
                     reg_addr <= x"00"&reg_x + to_integer(memory_read_value&reg_addr(7 downto 0));
                     if is_load='1' or is_rmw='1' then
                       state <= LoadTarget;
+                      -- On memory read wait-state, read from RAM, so that FastIO
+                      -- lines clear
+                      memory_access_read := '1';
+                      memory_access_address := x"0000002";
+                      memory_access_resolve_address := '0';
                     else
                       -- (reading next instruction argument byte as default action)
                       state <= MicrocodeInterpret;
@@ -4998,6 +5043,11 @@ begin
                 to_unsigned(to_integer(memory_read_value&reg_addr(7 downto 0)),16);
               if is_load='1' or is_rmw='1' then
                 state <= LoadTarget;
+                -- On memory read wait-state, read from RAM, so that FastIO
+                -- lines clear
+                memory_access_read := '1';
+                memory_access_address := x"0000002";
+                memory_access_resolve_address := '0';
               else
                 -- (reading next instruction argument byte as default action)
                 state <= MicrocodeInterpret;
@@ -5014,6 +5064,11 @@ begin
                             + to_integer(reg_y),16);
               if is_load='1' or is_rmw='1' then
                 state <= LoadTarget;
+                -- On memory read wait-state, read from RAM, so that FastIO
+                -- lines clear
+                memory_access_read := '1';
+                memory_access_address := x"0000002";
+                memory_access_resolve_address := '0';
               else
                 -- (reading next instruction argument byte as default action)
                 state <= MicrocodeInterpret;
@@ -5030,6 +5085,11 @@ begin
                             + to_integer(reg_y),16);
               if is_load='1' or is_rmw='1' then
                 state <= LoadTarget;
+                -- On memory read wait-state, read from RAM, so that FastIO
+                -- lines clear
+                memory_access_read := '1';
+                memory_access_address := x"0000002";
+                memory_access_resolve_address := '0';
               else
                 -- (reading next instruction argument byte as default action)
                 state <= MicrocodeInterpret;
@@ -5091,6 +5151,11 @@ begin
                 & to_hstring(reg_addr_lsbs);
               if is_load='1' or is_rmw='1' then
                 state <= LoadTarget;
+                -- On memory read wait-state, read from RAM, so that FastIO
+                -- lines clear
+                memory_access_read := '1';
+                memory_access_address := x"0000002";
+                memory_access_resolve_address := '0';
               else
                 -- (reading next instruction argument byte as default action)
                 state <= MicrocodeInterpret;
@@ -5101,6 +5166,11 @@ begin
                             + to_integer(reg_z),16);
               if is_load='1' or is_rmw='1' then
                 state <= LoadTarget;
+                -- On memory read wait-state, read from RAM, so that FastIO
+                -- lines clear
+                memory_access_read := '1';
+                memory_access_address := x"0000002";
+                memory_access_resolve_address := '0';
               else
                 -- (reading next instruction argument byte as default action)
                 state <= MicrocodeInterpret;
