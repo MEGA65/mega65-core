@@ -1810,6 +1810,7 @@ begin  -- behavioural
                 fdc_read_request <= '0';
                 fdc_bytes_read(4) <= '1';
                 f011_busy <= '0';
+                sd_state <= Idle;
               end if;
             end if;
             if (fdc_sector_found='1') or (fdc_sector_end='1') then
