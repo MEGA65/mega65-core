@@ -1822,6 +1822,7 @@ begin  -- behavioural
                 f011_rsector_found <= '1';
               end if;
               if fdc_sector_end='1' then
+                report "fdc_sector_end=1";
                 if f011_rsector_found = '0' then
                   report "reseting f011_rsector_found";
                 end if;
@@ -1841,14 +1842,22 @@ begin  -- behavioural
                 f011_drq <= '1';
                 -- Update F011 sector buffer
                 f011_flag_eq_inhibit <= '1';
-                f011_buffer_address <= f011_buffer_address + 1;
+                if f011_buffer_address /= "111111111" then
+                  f011_buffer_address <= f011_buffer_address + 1;
+                else
+                  f011_buffer_address <= (others => '0');
+                end if;
                 f011_buffer_write <= '1';
                 f011_buffer_wdata <= unsigned(fdc_byte_out);
                 -- ... and the other one
                 sb_w <= '1';
                 sb_wdata <= unsigned(fdc_byte_out);
                 sb_writeaddress <= to_integer(sector_offset);
-                sector_offset <= sector_offset + 1;
+                if to_integer(sector_offset) < 511 then
+                  sector_offset <= sector_offset + 1;
+                else
+                  sector_offset <= (others => '0');
+                end if;
                 report "setting sector_offset to $" & to_hstring(sector_offset+1);
                 report "sector_offset = $" & to_hstring(sector_offset)
                   & ", f011_buffer_address = $" & to_hstring(f011_buffer_address);
@@ -1908,7 +1917,7 @@ begin  -- behavioural
             sd_state <= WritingSector;
             sector_offset <= (others => '0');
             report "Clearing sector_offset";
-            sb_writeaddress <= to_integer(sector_offset);
+            sb_writeaddress <= to_integer(sector_offset(8 downto 0));
           else
             sd_dowrite <= '0';
           end if;
