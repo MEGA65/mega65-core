@@ -99,6 +99,7 @@ int slow_write(int fd,char *d,int l)
   return 0;
 }
 
+int counter  =0;
 int fd=-1;
 int state=99;
 int name_len,name_lo,name_hi,name_addr=-1;
@@ -106,12 +107,14 @@ int do_go64=0;
 int do_run=0;
 int comma_eight_comma_one=0;
 int virtual_f011=0;
+int virtual_f011_pending=0;
 char *d81file=NULL;
 char *filename=NULL;
 char *romfile=NULL;
 char *charromfile=NULL;
 char *colourramfile=NULL;
 FILE *f=NULL;
+FILE *fd81=NULL;
 char *search_path=".";
 char *bitstream=NULL;
 char *kickstart=NULL;
@@ -245,13 +248,8 @@ int read_and_print(int fd)
 int process_line(char *line,int live)
 {
   int pc,a,x,y,sp,p;
-  // printf("[%s]\n",line);
+  //printf("[%s]\n",line);
   if (!live) return 0;
-  if (sscanf(line,"F011READ")) {
-    fprintf(stderr,"[T+%lldsec] Servicing hypervisor request for F011 FDC sector read.\n",
-	    (long long)time(0)-start_time);
-    fprintf(stderr,"   XXX Not implemented.\n");
-  }
   if (sscanf(line,"%04x %02x %02x %02x %02x %02x",
 	     &pc,&a,&x,&y,&sp,&p)==6) {
     // printf("PC=$%04x\n",pc);
@@ -279,13 +277,16 @@ int process_line(char *line,int live)
 	slow_write(fd,cmd,strlen(cmd));
 	usleep(20000);
 	// Enable disk 0
-	snprintf(cmd,1024,"sffd8b 03\r");
+	snprintf(cmd,1024,"sffd368b 03\r");
 	slow_write(fd,cmd,strlen(cmd));
       }
       charromfile=NULL;
       colourramfile=NULL;
       if (!virtual_f011) restart_kickstart();
-      else hypervisor_paused=1;
+      else {
+	hypervisor_paused=1;
+	printf("hypervisor paused\n");
+      }
     } else {
       if (state==99) {
 	// Synchronised with monitor
@@ -470,10 +471,86 @@ int process_line(char *line,int live)
 	  state=0;
 	}
       }
+      if (addr==0xffd3077) {
+        if((b[6+9] & 0x80) && !virtual_f011_pending) {  /* virtual f011 read request issued */
+	  
+          char cmd[1024];
+
+          int device, track, sector, side;
+          device = b[0+9] & 0x7;
+          track = b[4+9];
+          sector = b[5+9];
+          side = b[6+9] & 0x7F;
+
+	  fprintf(stderr,"[T+%lldsec] Servicing hypervisor request for F011 FDC sector read.\n",
+		    (long long)time(0)-start_time);
+	  fprintf(stderr, "device: %d  track: %d  sector: %d  side: %d", device, track, sector, side);
+
+	  if(fd81 == NULL) {
+
+	    fd81 = fopen(d81file, "rb");
+	    if(!fd81) {
+
+              fprintf(stderr, "Could not open D81 file: '%s'\n", d81file);
+	      exit(-1);
+	    }
+	  }
+	  /* read the block */
+	  unsigned char buf[512];
+	  int b=-1;
+	  int physical_sector=( side==0 ? sector-1 : sector+9 );
+	  int result = fseek(fd81, (track*20+physical_sector)*512, SEEK_SET);
+	  if(result) {
+
+	    fprintf(stderr, "Error finding D81 sector %d %d\n", result, (track*20+physical_sector)*512);
+	    exit(-2);
+	  }
+	  else {
+	    b=fread(buf,1,512,fd81);
+	    fprintf(stderr, "read: %d\n", b);
+	    if(b==512) {
+	      
+              //fprintf(stderr, "%02x %02x %02x %02x\n", buf[0], buf[1], buf[2], buf[3]);
+
+              char cmd[1024];
+
+              /* send block to m65 memory */
+              sprintf(cmd,"l%x %x\r",0xffd6000-1,0xffd6200-1);
+              slow_write(fd,cmd,strlen(cmd));
+              usleep(1000);
+              int n=0x200;
+              unsigned char *p=buf;
+              while(n>0) {
+                int w=write(fd,p,n);
+                if (w>0) { p+=w; n-=w; } else usleep(1000);
+            }
+            /*if (serial_speed==230400) usleep(10000+50*b);
+            else if (serial_speed==2000000)
+              // 2mbit/sec / 11bits/char (inc space) = ~5.5usec per char
+              usleep(5.1*b);
+            else
+              // 4mbit/sec / 11bits/char (inc space) = ~2.6usec per char
+              usleep(2.6*b);*/
+	    }
+	  }
+	    
+	  /* signal done/result */
+          //stop_cpu();
+	  virtual_f011_pending = 1;
+          snprintf(cmd,1024,"sffd3086 %02x\n",side);
+	  slow_write(fd,cmd,strlen(cmd));
+          //slow_write(fd,"t0\r",3);
+          slow_write(fd,"mffd3077\r",9);
+        }
+        else {
+          virtual_f011_pending = 0;
+	}
+      }
       if (addr==0xffd3659) {
 	fprintf(stderr,"Hypervisor virtualisation flags = $%02x\n",b[0]);
 	if (virtual_f011&&hypervisor_paused) restart_kickstart();
 	hypervisor_paused=0;
+        printf("hyperv not paused\n");
       }
       if (addr>=0xffd3000U&&addr<=0xffd3100) {
 	// copy bytes to VIC-IV register buffer
@@ -652,7 +729,7 @@ int line_len=0;
 
 int process_char(unsigned char c, int live)
 {
-  // printf("char $%02x\n",c);
+  //printf("char $%02x\n",c);
   if (c=='\r'||c=='\n') {
     line[line_len]=0;
     if (line_len>0) process_line(line,live);
@@ -1038,12 +1115,14 @@ int main(int argc,char **argv)
   while(1)
     {
       int b;
+      int fast_mode;
       char read_buff[1024];
       switch(state) {
       case 0: case 2: case 3: case 99:
 	errno=0;
 	b=read(fd,read_buff,1024);
 	if (b>0) {
+//printf("%s\n", read_buff);
 	  int i;
 	  for(i=0;i<b;i++) {
 	    process_char(read_buff[i],1);
@@ -1051,17 +1130,26 @@ int main(int argc,char **argv)
 	} else {
 	  usleep(1000);
 	}
+
+        fast_mode = saw_c65_mode || saw_c64_mode;
 	if (gettime_ms()>last_check) {
-	  if (state==99) printf("sending R command to sync @ %dpbs.\n",serial_speed);
-	  switch (phase%(3+hypervisor_paused)) {
-	  case 0: slow_write(fd,"r\r",2); break; // PC check
-	  case 1: slow_write(fd,"m86d\r",5); break; // C65 Mode check
-	  case 2: slow_write(fd,"m42c\r",5); break; // C64 mode check
-	  case 3: slow_write(fd,"mffd3659\r",9); break; // Hypervisor virtualisation/security mode flag check
-	  default: phase=0;
-	  }
+          if(fast_mode) {
+          
+            slow_write(fd,"mffd3077\r",9);
+          } else {
+          
+	    if (state==99) printf("sending R command to sync @ %dpbs.\n",serial_speed);
+	    switch (phase%(4+hypervisor_paused)) {
+	    case 0: slow_write(fd,"r\r",2); break; // PC check
+	    case 1: slow_write(fd,"m86d\r",5); break; // C65 Mode check
+	    case 2: slow_write(fd,"m42c\r",5); break; // C64 mode check
+            case 3: slow_write(fd,"mffd3077\r",9); break; 
+	    case 4: slow_write(fd,"mffd3659\r",9); break; // Hypervisor virtualisation/security mode flag check
+	    default: phase=0;
+	    }
+          } 
 	  phase++;	  
-	  last_check=gettime_ms()+50;
+	  last_check=gettime_ms()+ (fast_mode ? 5 : 50);
 	}
 	break;
       case 1: // trapped LOAD, so read file name
