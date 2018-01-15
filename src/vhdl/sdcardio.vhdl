@@ -781,28 +781,6 @@ begin  -- behavioural
       target_sector <= f011_sector;
       target_side <= f011_side;      
 
-      -- Make CPU write request if required
-      if sb_cpu_write_request='1' then
-        f011_buffer_write_address <= f011_buffer_cpu_address;
-        f011_buffer_wdata <= sb_cpu_wdata;
-        f011_buffer_write <= '1';
-        f011_buffer_cpu_pointer_advance <= '1';
-        sb_cpu_write_request <= '0';
-      else
-        f011_buffer_write <= '0';
-      end if;
-      -- Prepare for CPU read request if required
-      if sb_cpu_read_request='1' then
-        f011_buffer_read_address <= f011_buffer_cpu_address;
-        sb_cpu_reading <= '1';
-      else
-        sb_cpu_reading <= '0';
-      end if;
-      if sb_cpu_reading = '1' then
-        sb_cpu_rdata <= f011_buffer_rdata;
-        sb_cpu_reading <= '0';
-      end if;
-      
       -- Advance sector buffer pointers
       f011_buffer_disk_pointer_advance <= '0';
       if f011_buffer_disk_pointer_advance = '1' then
@@ -821,12 +799,39 @@ begin  -- behavioural
           f011_buffer_cpu_address <= (others => '0');
         end if;
       end if;
+      
+      -- Make CPU write request if required
+      if sb_cpu_write_request='1' then
+        report "CPU writing $" & to_hstring(sb_cpu_wdata) & " to sector buffer @ $" & to_hstring(f011_buffer_cpu_address);
+        f011_buffer_write_address <= f011_buffer_cpu_address;
+        f011_buffer_wdata <= sb_cpu_wdata;
+        f011_buffer_write <= '1';
+        f011_buffer_cpu_pointer_advance <= '1';
+        sb_cpu_write_request <= '0';
+      else
+        f011_buffer_write <= '0';
+      end if;
+      -- Prepare for CPU read request if required
+      if sb_cpu_read_request='1' and sb_cpu_reading='0' then
+        report "CPU read pre-fetch from sector buffer @ $" & to_hstring(f011_buffer_cpu_address);
+        f011_buffer_read_address <= f011_buffer_cpu_address;
+        sb_cpu_reading <= '1';
+      else
+        sb_cpu_reading <= '0';
+      end if;
+      if sb_cpu_reading = '1' then
+        sb_cpu_rdata <= f011_buffer_rdata;
+        report "CPU sector buffer data pre-fetch = $" & to_hstring(f011_buffer_rdata);
+        sb_cpu_reading <= '0';
+      end if;
+      
       -- Advance f011 buffer position when reading from data register
       last_was_d087 <= '0';
       if fastio_read='1' then
         if (fastio_addr(19 downto 0) = x"D1087"
             or fastio_addr(19 downto 0) = x"D3087") then
           if last_was_d087='0' then
+            report "$D087 access : advancing CPU sector buffer pointer";
             f011_buffer_cpu_pointer_advance <= '1';
             sb_cpu_read_request <= '1';
             f011_drq <= '0';
@@ -1359,6 +1364,7 @@ begin  -- behavioural
             when "00111" =>
               -- @IO:C65 $D087 - F011 FDC data register (read/write)
               if last_was_d087='0' then
+                report "$D087 write : trigger sector buffer write of $" & to_hstring(fastio_wdata);
                 sb_cpu_write_request <= '1';
                 sb_cpu_wdata <= fastio_wdata;
                 f011_drq <= '0';                         
