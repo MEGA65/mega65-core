@@ -173,6 +173,7 @@ entity gs4510 is
     fastio_write : out std_logic := '0';
     fastio_wdata : out std_logic_vector(7 downto 0);
     fastio_rdata : in std_logic_vector(7 downto 0);
+    kickstart_rdata : in std_logic_vector(7 downto 0);
     sector_buffer_mapped : in std_logic;
     fastio_vic_rdata : in std_logic_vector(7 downto 0);
     fastio_colour_ram_rdata : in std_logic_vector(7 downto 0);
@@ -527,6 +528,7 @@ end component;
   signal accessing_rom : std_logic;
   signal accessing_fastio : std_logic;
   signal accessing_vic_fastio : std_logic;
+  signal accessing_kickstart_fastio : std_logic;
   signal accessing_colour_ram_fastio : std_logic;
 --  signal accessing_ram : std_logic;
   signal accessing_slowram : std_logic;
@@ -607,6 +609,7 @@ end component;
     FastIO,
     ColourRAM,
     VICIV,
+    Kickstart,
     SlowRAM,
     Unmapped
     );
@@ -1827,6 +1830,7 @@ begin
         accessing_fastio <= '1';
         accessing_vic_fastio <= '0';
         accessing_colour_ram_fastio <= '0';
+        accessing_kickstart_fastio <= '0';
         -- XXX Some fastio (that referencing ioclocked registers) does require
         -- io_wait_states, while some can use fewer waitstates because the
         -- memories involved can be clocked at the CPU clock, and have just 1
@@ -1866,6 +1870,11 @@ begin
             wait_states_non_zero <= '0';
           end if;
         end if;
+        -- @IO:GS $FFF8000-$FFFBFFF 16KB Kickstart/hypervisor ROM
+        if long_address(19 downto 14)&"00" = x"F8" then
+          accessing_kickstart_fastio <= '1';
+          read_source <= Kickstart;
+        end if;  
         if long_address(19 downto 16) = x"D" then
           if long_address(15 downto 14) = "00" then    --   $D{0,1,2,3}XXX
             if long_address(11 downto 10) = "00" then  --   $D{0,1,2,3}{0,1,2,3}XX
@@ -1876,6 +1885,7 @@ begin
                 read_source <= VICIV;
               end if;            
             end if;
+
             -- Colour RAM at $D800-$DBFF and optionally $DC00-$DFFF
             if long_address(11)='1' then
               if (long_address(10)='0') or (colourram_at_dc00='1') then
@@ -2093,6 +2103,9 @@ begin
         when FastIO =>
           report "reading normal fastio byte $" & to_hstring(fastio_rdata) severity note;
           return unsigned(fastio_rdata);
+        when KickStart =>
+          report "reading kickstart fastio byte $" & to_hstring(kickstart_rdata) severity note;
+          return unsigned(kickstart_rdata);
         when SlowRAM =>
           report "reading slow RAM data. Word is $" & to_hstring(slow_access_rdata) severity note;
           return unsigned(slow_access_rdata);
@@ -2113,7 +2126,7 @@ begin
       
       accessing_fastio <= '0'; accessing_vic_fastio <= '0';
       accessing_cpuport <= '0'; accessing_colour_ram_fastio <= '0';
-      accessing_shadow <= '0';
+      accessing_shadow <= '0'; accessing_kickstart_fastio <= '0';
       accessing_rom <= '0';
       accessing_slowram <= '0';
       slow_access_write_drive <= '0';

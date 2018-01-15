@@ -51,6 +51,7 @@ entity iomapper is
         w : in std_logic;
         data_i : in std_logic_vector(7 downto 0);
         data_o : out std_logic_vector(7 downto 0);
+        kickstart_rdata : out std_logic_vector(7 downto 0);
         sector_buffer_mapped : out std_logic;
 
         key_scancode : in unsigned(15 downto 0);
@@ -352,7 +353,7 @@ begin
     address => address(13 downto 0),
     we      => w,
     cs      => kickstartcs,
-    data_o  => data_o,
+    data_o  => kickstart_rdata,
     data_i  => data_i
     );
   end block;
@@ -945,7 +946,7 @@ begin
       -- @IO:GS $FFF8100 Hypervisor entry point on reset (trap $40)
       -- @IO:GS $FFF8104 Hypervisor entry point on page fault (trap $41)
       -- @IO:GS $FFF8108 Hypervisor entry point on RESTORE double-tap (trap $42)
-      -- @IO:GS $FFF810C Hypervisor entry point on ALT-TAB (trap $43)
+      -- @IO:GS $FFF810C Hypervisor entry point on C=-TAB / ALT-TAB (trap $43)
       -- @IO:GS $FFF8110 Hypervisor entry point on FDC read (when virtualised) (trap $44)
       -- @IO:GS $FFF8114 Hypervisor entry point on FDC write (when virtualised) (trap $45)
       
