@@ -218,10 +218,10 @@ architecture behavioural of sdcardio is
   signal last_was_d087 : std_logic := '0';
   
   signal skip : integer range 0 to 2;
-  signal read_bytes : std_logic;
+  signal read_data_byte : std_logic;
   signal sd_doread       : std_logic := '0';
   signal sd_dowrite      : std_logic := '0';
-  signal data_ready : std_logic := '0';
+  signal sd_data_ready : std_logic := '0';
 
   -- Signals to communicate with SD controller core
   signal sd_sector       : unsigned(31 downto 0) := (others => '0');
@@ -241,19 +241,12 @@ architecture behavioural of sdcardio is
 
   signal sector_buffer_mapped : std_logic := '0';
   
-  -- Signals for sector buffers (both SD and CPU side)
-  signal sb_w : std_logic := '0';
-  signal sb_wdata : unsigned(7 downto 0);
-  -- Counter for reading/writing sector
-  signal sector_offset : unsigned(9 downto 0) := (others => '0');
-  signal sb_writeaddress : integer range 0 to 511 := 0;
-  
   type sd_state_t is (Idle,
                       ReadSector,ReadingSector,ReadingSectorAckByte,DoneReadingSector,
                       FDCReadingSector,
                       WriteSector,WritingSector,WritingSectorAckByte,
-                      HyperTrapRead,HyperTrapRead2,HyperTrapWrite,MoveReadingSector,
-                      F011WriteSector,F011WriteSectorCopying,DoneWritingSector);
+                      HyperTrapRead,HyperTrapRead2,HyperTrapWrite,
+                      F011WriteSector,DoneWritingSector);
   signal sd_state : sd_state_t := Idle;
 
   -- Diagnostic register for determining SD/SDHC card state.
@@ -272,16 +265,25 @@ architecture behavioural of sdcardio is
   signal f011_head_side : unsigned(7 downto 0) := x"00";
   signal f011_sector_fetch : std_logic := '0';
 
-  signal f011_buffer_address : unsigned(8 downto 0) := (others => '0');
-  signal f011_buffer_next_read : unsigned(8 downto 0) := (others => '0');
+  signal sb_cpu_read_request : std_logic := '0';
+  signal sb_cpu_write_request : std_logic := '0';
+  signal sb_cpu_reading : std_logic := '0';
+  signal sb_cpu_writing : std_logic := '0';
+  signal sb_cpu_rdata : unsigned(7 downto 0) := x"00";
+  signal sb_cpu_wdata : unsigned(7 downto 0) := x"00";
+  
+  signal f011_buffer_disk_pointer_advance : std_logic := '0';
+  signal f011_buffer_cpu_pointer_advance : std_logic := '0';
+  signal f011_buffer_disk_address : unsigned(8 downto 0) := (others => '0');
+  signal f011_buffer_cpu_address : unsigned(8 downto 0) := (others => '0');
+  
+  signal f011_buffer_read_address : unsigned(8 downto 0) := (others => '0');
+  signal f011_buffer_write_address : unsigned(8 downto 0) := (others => '0');
   signal f011_buffer_wdata : unsigned(7 downto 0);
   signal f011_buffer_rdata : unsigned(7 downto 0);
-
-  signal f011_flag_eq : std_logic := '1';
-  signal f011_flag_eq_inhibit : std_logic := '1';
-  signal f011_swap : std_logic := '0';
-  signal f011_rdata : unsigned(7 downto 0);
   signal f011_buffer_write : std_logic := '0';
+  signal f011_flag_eq : std_logic := '1';
+  signal f011_swap : std_logic := '0';
 
   signal f011_irqenable : std_logic := '0';
   
@@ -374,51 +376,10 @@ begin  -- behavioural
       wr =>  sd_dowrite,
       dm_in => '1',	-- data mode, 0 = write continuously, 1 = write single block
       reset => sd_reset,
-      data_ready => data_ready,
+      data_ready => sd_data_ready,
       din => std_logic_vector(sd_wdata),
       unsigned(dout) => sd_rdata,
       clk => clock	-- twice the SPI clk.  XXX Cannot exceed 50MHz
-      );
-
-  -- This buffer is used for the CPU to be able to read the sector buffer.
-  -- The SD card side writes to it as data is read from the SD card, or
-  -- if the CPU requests to write to it.  When the CPU writes to it, the write
-  -- request is actually passed to the SD card side, which then schedules the write.
-  sdsectorbuffer0: ram8x512
-    port map (
-      clk => clock,
-
-      -- CPU side read access
-      cs => sectorbuffercs,
-      address => to_integer(fastio_addr(8 downto 0)),
-      rdata => fastio_rdata,
-
-      -- Write side controlled by SD-card side.
-      -- (CPU side effects writes by asking SD-card side to write)
-      w => sb_w,
-      write_address => sb_writeaddress,
-      wdata => sb_wdata
-      );
-
-  -- This buffer is the same as above, except that it is for reading by the SD
-  -- card side.  This is only required for writing sectors, as in that case the
-  -- SD card side needs to be able to read the F011 emulation sector buffer
-  -- that is stored here (and in the buffer above).
-  -- This does use an extra BRAM, and it would be nice if we could merge this.
-  sdsectorbuffer1: ram8x512
-    port map (
-      clk => clock,
-
-      -- SD-card side read access (for writing sectors to SD card)
-      cs => '1',
-      address => to_integer(sector_offset),
-      rdata => sd_wdata,
-
-      -- Write side controlled by SD-card side.
-      -- (CPU side effects writes by asking SD-card side to write)
-      w => sb_w,
-      write_address => sb_writeaddress,
-      wdata => sb_wdata
       );
 
   f011sectorbuffer: ram8x512
@@ -426,13 +387,13 @@ begin  -- behavioural
       clk => clock,
 
       cs => '1',
-      address => to_integer(f011_buffer_next_read),
+      address => to_integer(f011_buffer_read_address),
       rdata => f011_buffer_rdata,
 
       -- Write side controlled by SD-card side.
       -- (CPU side effects writes by asking SD-card side to write)
       w => f011_buffer_write,
-      write_address => to_integer(f011_buffer_address),
+      write_address => to_integer(f011_buffer_write_address),
       wdata => f011_buffer_wdata
       );
 
@@ -474,9 +435,9 @@ begin  -- behavioural
            sd_reset,fastio_read,sd_sector,fastio_write,
            f011_track,f011_sector,f011_side,sdio_fsm_error,sdio_error,
            sd_state,f011_irqenable,f011_ds,f011_cmd,f011_busy,f011_crc,
-           f011_track0,f011_rsector_found,f011_over_index,f011_rdata,
-           f011_buffer_next_read,sdhc_mode,half_speed,sd_datatoken, sd_rdata,
-           sector_offset,diskimage1_enable,f011_disk1_present,
+           f011_track0,f011_rsector_found,f011_over_index,
+           sdhc_mode,half_speed,sd_datatoken, sd_rdata,
+           diskimage1_enable,f011_disk1_present,
            f011_disk1_write_protected,diskimage2_enable,f011_disk2_present,
            f011_disk2_write_protected,diskimage_sector,sw,btn,aclmiso,
            aclmosiinternal,aclssinternal,aclSCKinternal,aclint1,aclint2,
@@ -486,7 +447,7 @@ begin  -- behavioural
            sectorbuffercs,f011_cs,f011_led,f011_head_side,f011_drq,
            f011_lost,f011_wsector_found,f011_write_gate,f011_irq,
            f011_buffer_rdata,f011_reg_clock,f011_reg_step,f011_reg_pcode,
-           last_sd_state,f011_buffer_address,f011_flag_eq_inhibit,
+           last_sd_state,f011_buffer_disk_address,f011_buffer_cpu_address,
            f011_flag_eq,sdcardio_cs,colourram_at_dc00,viciii_iomode,
            f_index,f_track0,f_writeprotect,f_rdata,f_diskchanged,
            use_real_floppy,target_any,fdc_first_byte,fdc_sector_end,
@@ -508,7 +469,7 @@ begin  -- behavioural
 
       if f011_cs='1' and sdcardio_cs='0' then
         -- F011 FDC emulation registers
-        report "Preparing to read F011 emulation register @ $" & to_hstring(fastio_addr);
+--        report "Preparing to read F011 emulation register @ $" & to_hstring(fastio_addr);
 
         case fastio_addr(4 downto 0) is
           when "00000" =>
@@ -587,9 +548,9 @@ begin  -- behavioural
             -- SIDE    |  S7   |  S6   |  S5   |  S4   |  S3   |  S2   |  S1   |  S0   | 6 RW
             fastio_rdata <= f011_side;
 
-          when "00111" =>
+          when "00111" =>  -- $D087
             -- DATA    |  D7   |  D6   |  D5   |  D4   |  D3   |  D2   |  D1   |  D0   | 7 RW
-            fastio_rdata <= f011_buffer_rdata;
+            fastio_rdata <= sb_cpu_rdata;
             
           when "01000" =>
             -- CLOCK   |  C7   |  C6   |  C5   |  C4   |  C3   |  C2   |  C1   |  C0   | 8 RW
@@ -605,21 +566,19 @@ begin  -- behavioural
             fastio_rdata <= f011_reg_pcode;
           when "11011" => -- @IO:GS $D09B - Most recent SD card command sent
             fastio_rdata <= last_sd_state;
-          when "11100" => -- @IO:GS $D09C - FDC read buffer pointer low bits (DEBUG)
-            fastio_rdata <= f011_buffer_address(7 downto 0);
-          when "11101" => -- @IO:GS $D09D - FDC read buffer pointer high bit (DEBUG)
-            fastio_rdata(0) <= f011_buffer_address(8);
+          when "11100" => -- @IO:GS $D09C - FDC-side buffer pointer low bits (DEBUG)
+            fastio_rdata <= f011_buffer_disk_address(7 downto 0);
+          when "11101" => -- @IO:GS $D09D - FDC-side buffer pointer high bit (DEBUG)
+            fastio_rdata(0) <= f011_buffer_disk_address(8);
             fastio_rdata(7 downto 1) <= (others => '0');
-          when "11110" => -- @IO:GS $D09E - read buffer pointer low bits (DEBUG)
-            fastio_rdata <= f011_buffer_next_read(7 downto 0);
+          when "11110" => -- @IO:GS $D09E - CPU-side buffer pointer low bits (DEBUG)
+            fastio_rdata <= f011_buffer_cpu_address(7 downto 0);
           when "11111" =>
-            -- @IO:GS $D09F.0 - read buffer pointer high bit (DEBUG)
-            -- @IO:GS $D09F.1 - EQ flag inhibit bit (DEBUG)
-            -- @IO:GS $D09F.2 - EQ flag (DEBUG)
-            fastio_rdata(0) <= f011_buffer_next_read(8);
-            fastio_rdata(1) <= f011_flag_eq_inhibit;
-            fastio_rdata(2) <= f011_flag_eq;
-            fastio_rdata(7 downto 3) <= (others => '0');
+            -- @IO:GS $D09F.0 - CPU-side buffer pointer high bit (DEBUG)
+            -- @IO:GS $D09F.1 - EQ flag (DEBUG)
+            fastio_rdata(0) <= f011_buffer_cpu_address(8);
+            fastio_rdata(1) <= f011_flag_eq;
+            fastio_rdata(7 downto 2) <= (others => '0');
 
           when others =>
             fastio_rdata <= (others => 'Z');
@@ -649,19 +608,10 @@ begin  -- behavioural
           when x"83" => fastio_rdata <= sd_sector(23 downto 16); -- SD-controll
           when x"84" => fastio_rdata <= sd_sector(31 downto 24); -- SD-control, MSByte of address
 
-          -- maybe these next four are for debugging
           -- @IO:GS $D685 - DEBUG Show current state ID of SD card interface
           when x"85" => fastio_rdata <= to_unsigned(sd_state_t'pos(sd_state),8);
           when x"86" => fastio_rdata <= sd_datatoken;
           when x"87" => fastio_rdata <= unsigned(sd_rdata);
-          when x"88" => fastio_rdata <= sector_offset(7 downto 0);
-
-
-          when x"89" =>
-            -- this register is currently used for checking how many bytes have been read.
-            fastio_rdata(7 downto 1) <= (others => '0');
-            fastio_rdata(0) <= sector_offset(8);
-            fastio_rdata(1) <= sector_offset(9);
 
           when x"8a" =>
             -- @IO:GS $D68A - DEBUG check signals that can inhibit sector buffer mapping
@@ -839,6 +789,77 @@ begin  -- behavioural
       target_track <= f011_track;
       target_sector <= f011_sector;
       target_side <= f011_side;      
+
+      -- Make CPU write request if required
+      if sb_cpu_write_request='1' then
+        f011_buffer_write_address <= f011_buffer_cpu_address;
+        f011_buffer_wdata <= sb_cpu_wdata;
+        f011_buffer_write <= '1';
+        f011_buffer_cpu_pointer_advance <= '1';
+        sb_cpu_write_request <= '0';
+      else
+        f011_buffer_write <= '0';
+      end if;
+      -- Prepare for CPU read request if required
+      if sb_cpu_read_request='1' then
+        f011_buffer_read_address <= f011_buffer_cpu_address;
+        sb_cpu_reading <= '1';
+      else
+        sb_cpu_reading <= '0';
+      end if;
+      if sb_cpu_reading = '1' then
+        sb_cpu_rdata <= f011_buffer_rdata;
+        sb_cpu_reading <= '0';
+      end if;
+      
+      -- Advance sector buffer pointers
+      f011_buffer_disk_pointer_advance <= '0';
+      if f011_buffer_disk_pointer_advance = '1' then
+        if f011_buffer_disk_address /= "111111111" then
+          f011_buffer_disk_address <= f011_buffer_disk_address + 1;
+        else
+          f011_buffer_disk_address <= (others => '0');
+        end if;
+      end if;
+      f011_buffer_cpu_pointer_advance <= '0';
+      if f011_buffer_cpu_pointer_advance = '1' then
+        sb_cpu_read_request <= '1';
+        if f011_buffer_cpu_address /= "111111111" then
+          f011_buffer_cpu_address <= f011_buffer_cpu_address + 1;
+        else
+          f011_buffer_cpu_address <= (others => '0');
+        end if;
+      end if;
+      -- Advance f011 buffer position when reading from data register
+      last_was_d087 <= '0';
+      if fastio_read='1' then
+        if (fastio_addr(19 downto 0) = x"D1087"
+            or fastio_addr(19 downto 0) = x"D3087") then
+          if last_was_d087='0' then
+            f011_buffer_cpu_pointer_advance <= '1';
+            sb_cpu_read_request <= '1';
+            f011_drq <= '0';
+          end if;
+          last_was_d087 <= '1';
+        end if;
+      end if;
+      -- EQ flag is asserted when buffer address matches where we are upto
+      -- reading or writing.  On complete reads this should correspond to the
+      -- start of the buffer.
+      report "f011_buffer_disk_address = $" & to_hstring(f011_buffer_disk_address)
+        & ", f011_buffer_cpu_address = $" & to_hstring(f011_buffer_cpu_address);
+      if f011_buffer_disk_address = f011_buffer_cpu_address then
+        if f011_flag_eq='0' then
+          report "Asserting f011_flag_eq";
+        end if;
+        f011_flag_eq <= '1';
+      else
+        if f011_flag_eq='1' then
+          report "Clearing f011_flag_eq";
+        end if;
+        f011_flag_eq <= '0';
+      end if;
+
       
       -- Check 16KHz timer to see if we need to do anything
       if counter_16khz /= cycles_per_16khz then
@@ -857,21 +878,7 @@ begin  -- behavioural
           f_step <= '1';
         end if;
       end if;
-      
-      -- Advance f011 buffer position when reading from data register
-      last_was_d087 <= '0';
-      if fastio_read='1' then
-        if (fastio_addr(19 downto 0) = x"D1087"
-            or fastio_addr(19 downto 0) = x"D3087") then
-          if last_was_d087='0' then
-            f011_buffer_next_read <= f011_buffer_next_read + 1;
-            f011_drq <= '0';
-            f011_flag_eq_inhibit <= '0';
-          end if;
-          last_was_d087 <= '1';
-        end if;
-      end if;
-      
+            
       -- Generate combined audio from stereo sids plus 2 8-bit digital channels
       -- (4x14 bit values = 16 bit level)
       pwm_value_combined <= to_integer(leftsid_audio(17 downto 4))
@@ -1033,31 +1040,6 @@ begin  -- behavioural
         f011_disk_present <= f011_disk2_present;
       end if;
       
-      f011_buffer_write <= '0';
-      -- EQ flag is asserted when buffer address matches where we are upto
-      -- reading or writing.  On complete reads this should correspond to the
-      -- start of the buffer.
-
-      -- XXX This formulation isn't right, as we can't properly signal buffer
-      -- full/empty status in a way that the C65 ROM understands for both read
-      -- and write.  Nothing seems to work for the write routines.
-      if f011_buffer_address = f011_buffer_next_read then
-        -- pointers point to same place, so EQUAL flag should be set,
-        -- unless inhibited, because buffer is full, not empty.
-        -- if 1, then something else doesn't work?
-        -- LGB worked out that the problem here is that the eq flag should only
-        -- be set whenever the CPU side of the buffer advances to match the FDC
-        -- side's pointer.
-        if (f011_flag_eq_inhibit='0') then
-          f011_flag_eq <= '1';
-        else
-          f011_flag_eq <= '0';
-        end if;
-      else
-        -- pointers not at the same place, so flag should be clear
-        f011_flag_eq <= '0';
-      end if;
-      f011_buffer_write <= '0';
       if use_real_floppy='1' then
         -- When using the real drive, use correct index and track 0 sensors
         f011_track0 <= not f_track0;
@@ -1146,7 +1128,8 @@ begin  -- behavioural
               f011_swap <= fastio_wdata(4);
               if fastio_wdata(4) /= f011_swap then
                 -- switch halves of buffer if swap bit changes
-                f011_buffer_next_read(8) <= not f011_buffer_next_read(8);
+                f011_buffer_cpu_address(8) <= not f011_buffer_cpu_address(8);
+                sb_cpu_read_request <= '1';
               end if;
               f011_head_side(0) <= fastio_wdata(3);
               f011_ds <= fastio_wdata(2 downto 0);
@@ -1201,8 +1184,9 @@ begin  -- behavioural
               f011_wsector_found <= '0';
               if fastio_wdata(0) = '1' then
                 -- reset buffer (but take SWAP into account)
-                f011_buffer_next_read(7 downto 0) <= (others => '0');
-                f011_buffer_next_read(8) <= f011_swap;
+                f011_buffer_cpu_address(7 downto 0) <= (others => '0');
+                f011_buffer_cpu_address(8) <= f011_swap;
+                sb_cpu_read_request <= '1';
               end if;
 
               temp_cmd := fastio_wdata(7 downto 2) & "00";
@@ -1217,30 +1201,20 @@ begin  -- behavioural
                   -- put sector number into sd_sector, and then trigger read.
                   -- If no disk image is enabled, then report an error.
 
-                  -- PGS Force pointer to be reset after reading a sector to
-                  -- avoid out-by-two error we have been seeing with C65 DOS.
-                  -- reset buffer (but take SWAP into account)
-                  f011_buffer_next_read(7 downto 0) <= (others => '0');
-                  f011_buffer_next_read(8) <= f011_swap;
-
-                  f011_flag_eq_inhibit <= '1';
-
+                  -- Start reading into start of pointer
+                  f011_buffer_disk_address <= (others => '0');
+                  
                   if use_real_floppy='1' and f011_ds="000" then
                     report "Using real floppy drive, asserting fdc_read_request";
                     -- Real floppy drive request
                     fdc_read_request <= '1';
                     -- Read must complete within 6 rotations
                     fdc_rotation_timeout <= 6;                      
-
-                    -- f011_buffer_address gets pre-incremented, so start
-                    -- with it pointing to the end of the buffer first
-                    f011_buffer_address(7 downto 0) <= (others => '1');
-                    f011_buffer_address(8) <= '1';
                     
+                    -- Mark F011 as busy with FDC job
                     f011_busy <= '1';
+                    -- Clear request not found flag (gets set by timeout if required)
                     f011_rnf <= '0';
-
-                    sector_offset <= (others => '0');
                     
                     sd_state <= FDCReadingSector;
                   else
@@ -1256,10 +1230,6 @@ begin  -- behavioural
                       report "Drive 2-7 selected, but not supported.";
                     else
                       report "Drive 0 or 1 selected and active.";
-                      -- f011_buffer_address gets pre-incremented, so start
-                      -- with it pointing to the end of the buffer first
-                      f011_buffer_address(7 downto 0) <= (others => '1');
-                      f011_buffer_address(8) <= '1';
                       f011_sector_fetch <= '1';
                       f011_busy <= '1';
                       if sdhc_mode='1' then
@@ -1281,12 +1251,6 @@ begin  -- behavioural
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';                    
                   end if;                      
-
-                  -- XXX work around specification error: always reset buffer
-                  -- pointers when reading a sector
-                  -- reset buffer (but take SWAP into account)
-                  f011_buffer_next_read(7 downto 0) <= (others => '0');
-                  f011_buffer_next_read(8) <= f011_swap;
                   
                 when x"80" | x"84" =>         -- write sector
                   -- Copy sector from F011 buffer to SD buffer, and then
@@ -1294,14 +1258,15 @@ begin  -- behavioural
                   -- The F011 can in theory do unbuffered sector writes, but
                   -- we don't support them.  The C65 ROM does buffered
                   -- writes, anyway, so it isn't a problem.
-
-                  f011_flag_eq_inhibit <= '1';
+                  -- The only place where unbuffered writes is required, is for
+                  -- formatting disks. We will support unbuffered writes for
+                  -- the real floppy drive only, i.e., not for SD card, where
+                  -- it is meaningless.
                   
-                  -- PGS Force pointer to be reset after reading a sector to
-                  -- avoid out-by-two error we have been seeing with C65 DOS.
-                  -- reset buffer (but take SWAP into account)
-                  f011_buffer_next_read(7 downto 0) <= (others => '0');
-                  f011_buffer_next_read(8) <= f011_swap;
+                  f011_buffer_cpu_address(7 downto 0) <= (others => '0');
+                  f011_buffer_cpu_address(8) <= f011_swap;
+                  sb_cpu_read_request <= '1';
+                  f011_buffer_disk_address <= (others => '0');
                   
                   if f011_ds="000" and ((diskimage1_enable or use_real_floppy)='0'
                                         or f011_disk1_present='0'
@@ -1319,10 +1284,6 @@ begin  -- behavioural
                     report "Drive 2-7 selected, but not mounted.";
                   else
                     report "Drive 0 or 1 selected, and image present.";
-                    -- f011_buffer_address gets pre-incremented, so start
-                    -- with it pointing to the end of the buffer first
-                    f011_buffer_address(7 downto 0) <= (others => '0');
-                    f011_buffer_address(8) <= '0';
                     f011_sector_fetch <= '1';
                     f011_busy <= '1';
                     -- XXX Doesn't trigger an error for bad track/sector:
@@ -1342,7 +1303,6 @@ begin  -- behavioural
                       sd_sector(10 downto 0) <= diskimage_offset;
                       sd_sector(31 downto 11) <= (others => '0');
                     end if;
-                    f011_buffer_address <= (others => '0');
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
                     report "Commencing FDC buffered write.";
@@ -1401,15 +1361,10 @@ begin  -- behavioural
               f011_side <= fastio_wdata;
 
             when "00111" =>
-              -- @IO:C65 $D085 - F011 FDC data register
-              -- Data register -- should probably be putting byte into the sector
-              -- buffer.
+              -- @IO:C65 $D087 - F011 FDC data register (read/write)
               if last_was_d087='0' then
-                f011_buffer_write <= '0';
-                f011_buffer_address <= f011_buffer_next_read;
-                f011_buffer_wdata <= fastio_wdata;
-                f011_buffer_next_read <= f011_buffer_next_read + 1;
-                f011_buffer_write <= '1';
+                sb_cpu_write_request <= '1';
+                sb_cpu_wdata <= fastio_wdata;
                 f011_drq <= '0';                         
               end if;
               last_was_d087<='1';
@@ -1653,31 +1608,12 @@ begin  -- behavioural
 
       end if; --    if fastio_write='1' then
 
-
-
-      if sb_w='1' then
-        report "sector buffer: sb_w=1";
-      end if;
-      sb_w <= '0';
---      report "SD interface state = " & sd_state_t'image(sd_state)
---        & ", virtualise_f011 = " & std_logic'image(virtualise_f011);
-
       case sd_state is
-
+        
         when Idle =>
           sdio_busy <= '0';
           hyper_trap_f011_read <= '0';
           hyper_trap_f011_write <= '0';
-          -- Allow CPU to write to sector buffers if we are not talking to the
-          -- SD card.
-          if fastio_write='1' and sectorbuffercs='1' then
-            sb_w <= '1';
-            report "Writing $" & to_hstring(fastio_wdata) & " to sector buffer $" & to_hstring("000"&fastio_addr(8 downto 0)) severity note;
-            sb_wdata <= unsigned(fastio_wdata);
-            sb_writeaddress <= to_integer(fastio_addr(8 downto 0));
-          else
-            sb_w <= '0';
-          end if;
 
         -- Trap to hypervisor when accessing SD card if virtualised.
         -- Wait until hypervisor kicks in before releasing request.
@@ -1691,48 +1627,17 @@ begin  -- behavioural
 
         when HyperTrapRead2 =>
           if fastio_write='1' and sectorbuffercs='1' then
-            sb_w <= '1';
-            report "Writing $" & to_hstring(fastio_wdata) & " to sector buffer $" & to_hstring("000"&fastio_addr(8 downto 0)) severity note;
-            sb_wdata <= unsigned(fastio_wdata);
-            sb_writeaddress <= to_integer(fastio_addr(8 downto 0));
             f011_buffer_wdata <= unsigned(fastio_wdata);
-            f011_buffer_address <= fastio_addr(8 downto 0);
+            f011_buffer_write_address <= fastio_addr(8 downto 0);
             f011_buffer_write <= '1';
-          else
-            sb_w <= '0';
+            -- Defer any CPU write request, since we are writing
+            sb_cpu_write_request <= sb_cpu_write_request;
           end if;
 
           if hypervisor_mode='0' then
             -- Hypervisor done, init transfer of data to f011 buffer
-            sector_offset <= (others => '0');
-            sd_state <= MoveReadingSector;
-            read_bytes <= '0';
-          end if;
-
-        when MoveReadingSector =>
-          if (sector_offset = "100000000") then
-            -- done transfering
-            f011_sector_fetch <= '0';
-            f011_busy <= '0';
-            f011_buffer_address <= ( others => '0');
             sd_state <= DoneReadingSector;
-          else
-            f011_rsector_found <= '1';
-            -- move next bytes
-            if f011_drq='1' then f011_lost <= '1'; end if;
-            f011_drq <= '1';
-            -- SD card reading is so fast, that the poll loop used by C65 DOS
-            -- will see the EQ flag set before it has a chance to read a single
-            -- byte, and will thus busy wait forever.  Thus we have to inhibit
-            -- the EQ flag during reading the sector.
-            -- For real floppies, the opposite is true: we need the EQ flag to
-            -- work, so that the DOS doesn't read past where the floppy drive
-            -- has read to within the sector.
-            f011_flag_eq_inhibit <= '1';
-            -- f011_buffer_wdata <= sd_wdata;
-            -- f011_buffer_address <= sector_offset(8 downto 0);
-            -- f011_buffer_write <= '1';
-            sector_offset <= sector_offset + 1;
+            read_data_byte <= '0';
           end if;
 
         when HyperTrapWrite =>
@@ -1748,34 +1653,27 @@ begin  -- behavioural
             sd_state <= ReadingSector;
             sdio_busy <= '1';
             skip <= 2;
-            sector_offset <= (others => '0');
-            report "Clearing sector_offset";
-            read_bytes <= '0';
+            read_data_byte <= '0';
           else
             sd_doread <= '0';
           end if;
 
         when ReadingSector =>
-          if data_ready='1' then
+          if sd_data_ready='1' then
             sd_doread <= '0';
             -- A byte is ready to read, so store it
-            -- sector_buffer(to_integer(sector_offset)) <= unsigned(sd_rdata);
-            sb_w <= '1';
-            sb_wdata <= unsigned(sd_rdata);
-            sb_writeaddress <= to_integer(sector_offset);	-- read it from the same address
-            sd_state <= ReadingSectorAckByte;
             if skip=0 then
-              sector_offset <= sector_offset + 1;
-              read_bytes <= '1';
+              read_data_byte <= '1';
               if f011_sector_fetch='1' then
                 f011_rsector_found <= '1';
                 if f011_drq='1' then f011_lost <= '1'; end if;
                 f011_drq <= '1';
                 -- Update F011 sector buffer
-                f011_flag_eq_inhibit <= '1';
-                f011_buffer_address <= f011_buffer_address + 1;
-                f011_buffer_write <= '1';
+                f011_buffer_disk_pointer_advance <= '1';
                 f011_buffer_wdata <= unsigned(sd_rdata);
+                f011_buffer_write <= '1';
+                -- Defer any CPU write request, since we are writing
+                sb_cpu_write_request <= sb_cpu_write_request;
               end if;
             else
               if skip=2 then
@@ -1783,19 +1681,18 @@ begin  -- behavioural
               end if;
               skip <= skip - 1;
             end if;
+            sd_state <= ReadingSectorAckByte;
           end if;
 
         when ReadingSectorAckByte =>
           -- Wait until controller acknowledges that we have acked it
-          if data_ready='0' then
-            if (sector_offset = "1000000000") and (read_bytes='1') then
+          if sd_data_ready='0' then
+            if (f011_buffer_disk_address = "000000000") and (read_data_byte='1') then
               -- sector offset has reached 512, so we must have
               -- read the whole sector.
               -- Update F011 FDC emulation status registers
               f011_sector_fetch <= '0';
               f011_busy <= '0';
-              -- Don't forget to rotate FDC buffer pointer back to zero as well.
-              f011_buffer_address <= (others => '0');
               sd_state <= DoneReadingSector;
             else
               -- Still more bytes to read.
@@ -1840,37 +1737,21 @@ begin  -- behavioural
               end if;
               if fdc_byte_valid = '1' and (fdc_sector_found or f011_rsector_found)='1' then
                 -- DEBUG: Note how many bytes we have received from the floppy
-                report "fdc_byte valid asserted, storing byte @ $" & to_hstring(f011_buffer_address);
+                report "fdc_byte valid asserted, storing byte @ $" & to_hstring(f011_buffer_disk_address);
                 if to_integer(fdc_bytes_read(12 downto 0)) /= 8191 then
                   fdc_bytes_read(12 downto 0) <= to_unsigned(to_integer(fdc_bytes_read(12 downto 0)) + 1,13);
                 else
                   fdc_bytes_read(12 downto 0) <= (others => '0');
                 end if;
                 
-                -- Record byte
+                -- Record byte into sector bufferr
                 if f011_drq='1' then f011_lost <= '1'; end if;
                 f011_drq <= '1';
-                -- Update F011 sector buffer
---                f011_flag_eq_inhibit <= '1';
-                if f011_buffer_address /= "111111111" then
-                  f011_buffer_address <= f011_buffer_address + 1;
-                else
-                  f011_buffer_address <= (others => '0');
-                end if;
-                f011_buffer_write <= '1';
+                f011_buffer_disk_pointer_advance <= '1';
                 f011_buffer_wdata <= unsigned(fdc_byte_out);
-                -- ... and the other one
-                sb_w <= '1';
-                sb_wdata <= unsigned(fdc_byte_out);
-                sb_writeaddress <= to_integer(sector_offset);
-                if to_integer(sector_offset) < 511 then
-                  sector_offset <= sector_offset + 1;
-                else
-                  sector_offset <= (others => '0');
-                end if;
-                report "setting sector_offset to $" & to_hstring(sector_offset+1);
-                report "sector_offset = $" & to_hstring(sector_offset)
-                  & ", f011_buffer_address = $" & to_hstring(f011_buffer_address);
+                f011_buffer_write <= '1';
+                -- Defer any CPU write request, since we are writing
+                sb_cpu_write_request <= sb_cpu_write_request;
               end if;
               if fdc_crc_error='1' then
                 -- Failed to read sector
@@ -1896,51 +1777,34 @@ begin  -- behavioural
           -- Sit out the wait state for reading the next sector buffer byte
           -- as we copy the F011 sector buffer to the primary SD card sector buffer.
           report "Starting to write sector from unified FDC/SD buffer.";
-          sb_w <= '0';
-          f011_buffer_address <= f011_buffer_address;
-          f011_buffer_next_read <= (others => '0');
-          sd_state <= F011WriteSectorCopying;
-
-        when F011WriteSectorCopying =>	
-          -- Write byte to SD sector buffer		
-          sb_writeaddress <= to_integer("0"&f011_buffer_next_read);		
-          sb_wdata <= f011_buffer_rdata;		
-          sb_w <= '1';		
-          f011_flag_eq_inhibit <= '1';		
-          if f011_buffer_next_read /= "111111111" then		
-            -- Schedule reading of the next byte		
-            f011_buffer_next_read <= f011_buffer_next_read + 1;		
-            sd_state <= F011WriteSectorCopying;		
-          else		
-            -- Got all bytes, so proceed to writing sector.		
-            f011_buffer_next_read <= (others => '0');		
-            sd_state <= WriteSector;		
-          end if;
-
+          f011_buffer_cpu_address <= (others => '0');
+          sb_cpu_read_request <= '1';
+          f011_buffer_read_address <= f011_buffer_disk_address;
+          f011_buffer_disk_pointer_advance <= '1';
+          -- Abort CPU buffer read if in progess, since we are reading the buffer
+          sb_cpu_reading <= '0';
+          
+          sd_state <= WriteSector;
         when WriteSector =>
           -- Begin writing a sector into the buffer
-          sb_w <= '0';
           if sdio_busy='0' then
             sd_dowrite <= '1';
             sdio_busy <= '1';
             skip <= 1;
             sd_state <= WritingSector;
-            sector_offset <= (others => '0');
-            report "Clearing sector_offset";
-            sb_writeaddress <= to_integer(sector_offset(8 downto 0));
+            sd_wdata <= f011_buffer_rdata;
           else
             sd_dowrite <= '0';
           end if;
 
         when WritingSector =>
-          if data_ready='1' then
+          if sd_data_ready='1' then
             sd_dowrite <= '0';
             if skip = 0 then
               -- Byte has been accepted, write next one
               sd_state <= WritingSectorAckByte;
-              sector_offset <= sector_offset + 1;
-              -- Update FDC buffer pointer to reflect position in write
-              f011_buffer_address <= f011_buffer_address + 1;            
+              f011_buffer_disk_pointer_advance <= '1';
+
             else
               skip <= skip - 1;
               sd_state <= WritingSectorAckByte;
@@ -1949,14 +1813,20 @@ begin  -- behavioural
 
         when WritingSectorAckByte =>
           -- Wait until controller acknowledges that we have acked it
-          if data_ready='0' then
-            if sector_offset = "1000000000" then
+          if sd_data_ready='0' then
+            if f011_buffer_disk_address = "000000000" then
               -- sector offset has reached 512, so we have
               -- written the whole sector.
               sd_state <= DoneWritingSector;
             else
               -- Still more bytes to read.
               sd_state <= WritingSector;
+
+              -- Get next byte ready
+              f011_buffer_read_address <= f011_buffer_disk_address;
+              f011_buffer_disk_pointer_advance <= '1';
+              -- Abort CPU buffer read if in progess, since we are reading the buffer
+              sb_cpu_reading <= '0';              
             end if;
           end if;
 
