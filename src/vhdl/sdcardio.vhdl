@@ -158,17 +158,6 @@ end sdcardio;
 
 architecture behavioural of sdcardio is
   
-  component ram8x512 IS
-    PORT (
-      clk : IN STD_LOGIC;
-      cs : IN STD_LOGIC;
-      w : IN std_logic;
-      write_address : IN integer;
-      wdata : IN unsigned(7 DOWNTO 0);
-      address : IN integer;
-      rdata : OUT unsigned(7 DOWNTO 0)
-      );
-  END component;
   signal QspiSCKInternal : std_logic := '1';
   signal QspiCSnInternal : std_logic := '1'; 
   
@@ -275,7 +264,9 @@ architecture behavioural of sdcardio is
   signal f011_buffer_disk_pointer_advance : std_logic := '0';
   signal f011_buffer_cpu_pointer_advance : std_logic := '0';
   signal f011_buffer_disk_address : unsigned(8 downto 0) := (others => '0');
-  signal f011_buffer_cpu_address : unsigned(8 downto 0) := (others => '0');
+  signal f011_buffer_cpu_address : unsigned(8 downto 0) := (others => '0');  
+  signal last_f011_buffer_disk_address : unsigned(8 downto 0) := (others => '1');
+  signal last_f011_buffer_cpu_address : unsigned(8 downto 0) := (others => '1');
   
   signal f011_buffer_read_address : unsigned(8 downto 0) := (others => '0');
   signal f011_buffer_write_address : unsigned(8 downto 0) := (others => '0');
@@ -382,7 +373,7 @@ begin  -- behavioural
       clk => clock	-- twice the SPI clk.  XXX Cannot exceed 50MHz
       );
 
-  f011sectorbuffer: ram8x512
+  f011sectorbuffer: entity work.ram8x512
     port map (
       clk => clock,
 
@@ -846,8 +837,13 @@ begin  -- behavioural
       -- EQ flag is asserted when buffer address matches where we are upto
       -- reading or writing.  On complete reads this should correspond to the
       -- start of the buffer.
-      report "f011_buffer_disk_address = $" & to_hstring(f011_buffer_disk_address)
-        & ", f011_buffer_cpu_address = $" & to_hstring(f011_buffer_cpu_address);
+      last_f011_buffer_disk_address <= f011_buffer_disk_address;
+      last_f011_buffer_cpu_address <= f011_buffer_cpu_address;
+      if (f011_buffer_disk_address /= last_f011_buffer_disk_address) or
+        (f011_buffer_cpu_address /= last_f011_buffer_cpu_address) then
+        report "f011_buffer_disk_address = $" & to_hstring(f011_buffer_disk_address)
+          & ", f011_buffer_cpu_address = $" & to_hstring(f011_buffer_cpu_address);
+      end if;
       if f011_buffer_disk_address = f011_buffer_cpu_address then
         if f011_flag_eq='0' then
           report "Asserting f011_flag_eq";
@@ -1670,6 +1666,7 @@ begin  -- behavioural
                 f011_drq <= '1';
                 -- Update F011 sector buffer
                 f011_buffer_disk_pointer_advance <= '1';
+                f011_buffer_write_address <= f011_buffer_disk_address;
                 f011_buffer_wdata <= unsigned(sd_rdata);
                 f011_buffer_write <= '1';
                 -- Defer any CPU write request, since we are writing
@@ -1748,6 +1745,7 @@ begin  -- behavioural
                 if f011_drq='1' then f011_lost <= '1'; end if;
                 f011_drq <= '1';
                 f011_buffer_disk_pointer_advance <= '1';
+                f011_buffer_write_address <= f011_buffer_disk_address;
                 f011_buffer_wdata <= unsigned(fdc_byte_out);
                 f011_buffer_write <= '1';
                 -- Defer any CPU write request, since we are writing
