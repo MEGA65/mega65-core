@@ -1831,6 +1831,12 @@ begin
         accessing_vic_fastio <= '0';
         accessing_colour_ram_fastio <= '0';
         accessing_kickstart_fastio <= '0';
+
+        fastio_addr <= std_logic_vector(long_address(19 downto 0));
+        last_fastio_addr <= std_logic_vector(long_address(19 downto 0));
+        fastio_read <= '1';
+        proceed <= '0';
+        
         -- XXX Some fastio (that referencing ioclocked registers) does require
         -- io_wait_states, while some can use fewer waitstates because the
         -- memories involved can be clocked at the CPU clock, and have just 1
@@ -1872,6 +1878,8 @@ begin
         end if;
         -- @IO:GS $FFF8000-$FFFBFFF 16KB Kickstart/hypervisor ROM
         if long_address(19 downto 14)&"00" = x"F8" then
+          accessing_fastio <= '0';
+          fastio_read <= '0';
           accessing_kickstart_fastio <= '1';
           read_source <= Kickstart;
         end if;  
@@ -1904,10 +1912,6 @@ begin
             end if;
           end if;                         -- $D{0,1,2,3}XXX
         end if;                           -- $DXXXX
-        fastio_addr <= std_logic_vector(long_address(19 downto 0));
-        last_fastio_addr <= std_logic_vector(long_address(19 downto 0));
-        fastio_read <= '1';
-        proceed <= '0';
       elsif long_address(27) = '1' or long_address(26)='1' then
         -- @IO:GS $4000000 - $7FFFFFF Slow Device memory (64MB)
         -- @IO:GS $8000000 - $FEFFFFF Slow Device memory (127MB)
