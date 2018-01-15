@@ -487,6 +487,57 @@ reset_machine_state:
 reset_entry:
 		sei
 
+.macro f011test
+		; use real floppy drive
+		lda #$01
+		sta $d6a1
+
+		; 10x MFM speed for simulation data
+		lda #$0a
+		sta $d6a2
+
+		lda #$68 ; floppy motor + LED on, head side 1
+		sta $d080
+
+		; Request sector T39,S1,H1
+		lda #0
+		sta $d084
+		lda #1
+		sta $d085
+		sta $d086
+
+		lda $d087 ; clear DRQ flag
+		; reset buffer pointers
+		lda #$01
+		sta $d081
+
+		; Test sector buffer access
+		lda #$11
+		sta $d087
+		lda #$22
+		sta $d087
+		lda #$01
+		sta $d081
+		lda $d087
+		lda $d087
+
+		; Issue read request
+		lda #$40
+		sta $d081
+
+bytewait:
+		lda $d082
+		and #$20
+		bne bytewait
+
+		; read next byte
+		lda $d087
+
+		; get next byte
+		jmp bytewait
+.macend
+;		.invoke f011test
+
 		jsr reset_machine_state
 
 		; display welcome screen

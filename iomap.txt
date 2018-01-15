@@ -204,16 +204,15 @@ C65 $D081 - F011 FDC command
 C65 $D082 - F011 FDC Status A port (read only)
 C65 $D083 - F011 FDC Status B port (read only)
 C65 $D084 - F011 FDC track
-C65 $D085 - F011 FDC data register
 C65 $D085 - F011 FDC sector
 C65 $D086 - F011 FDC side
+C65 $D087 - F011 FDC data register (read/write)
 GS $D09B - Most recent SD card command sent
-GS $D09C - FDC read buffer pointer low bits (DEBUG)
-GS $D09D - FDC read buffer pointer high bit (DEBUG)
-GS $D09E - read buffer pointer low bits (DEBUG)
-GS $D09F.0 - read buffer pointer high bit (DEBUG)
-GS $D09F.1 - EQ flag inhibit bit (DEBUG)
-GS $D09F.2 - EQ flag (DEBUG)
+GS $D09C - FDC-side buffer pointer low bits (DEBUG)
+GS $D09D - FDC-side buffer pointer high bit (DEBUG)
+GS $D09E - CPU-side buffer pointer low bits (DEBUG)
+GS $D09F.0 - CPU-side buffer pointer high bit (DEBUG)
+GS $D09F.1 - EQ flag (DEBUG)
 C65 $D0A0-$D0FF - Reserved for C65 RAM Expansion Controller.
 C65 $D100-$D1FF red palette values (reversed nybl order)
 C65 $D200-$D2FF green palette values (reversed nybl order)
@@ -472,6 +471,6 @@ GS $FFF8000-$FFFBFFF 16KB Kickstart/hypervisor ROM
 GS $FFF8100 Hypervisor entry point on reset (trap $40)
 GS $FFF8104 Hypervisor entry point on page fault (trap $41)
 GS $FFF8108 Hypervisor entry point on RESTORE double-tap (trap $42)
-GS $FFF810C Hypervisor entry point on ALT-TAB (trap $43)
+GS $FFF810C Hypervisor entry point on C=-TAB / ALT-TAB (trap $43)
 GS $FFF8110 Hypervisor entry point on FDC read (when virtualised) (trap $44)
 GS $FFF8114 Hypervisor entry point on FDC write (when virtualised) (trap $45)
