@@ -1291,7 +1291,7 @@ badfs:		ldx #<msg_badformat
 checkromok:
 		; read switch 13.  If set, assume ROM is invalid
 		;
-		lda $d6f1
+		lda fpga_switches_high
 		and #$20
 		bne checksumfails
 
@@ -2007,7 +2007,7 @@ go64:
 
 		; Check if hold boot switch is set (switch 15)?
 		;
-		lda $d6f1
+		lda fpga_switches_high
 		bpl l42      ; no, so continue		
 
 		; yes, display message
@@ -2016,7 +2016,7 @@ go64:
 		ldy #>msg_releasesw15
 		jsr printmessage
 
-l41:		lda $d6f1
+l41:		lda fpga_switches_high
 		bmi l41
 l42:
 
@@ -2322,7 +2322,7 @@ checkpoint:
 	sta checkpoint_pch
 
 	; Only do checkpoints visibly if switch 12 is set
-	lda $d6f1
+	lda fpga_switches_high
 	and #$10
 	beq cp9
 
@@ -2417,7 +2417,7 @@ nocheckpointmessage:
 	sta checkpoint_pch
 
 	; Only do checkpoints visibly if switch 12 is set
-	lda $d6f1
+	lda fpga_switches_high
 	and #$10
 	beq checkpoint_return
 

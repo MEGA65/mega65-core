@@ -87,4 +87,7 @@
 	.alias sd_address_byte2 $D683
 	.alias sd_address_byte3 $D684
 
+	.alias fpga_switches_low $d6ec
+	.alias fpga_switches_high $d6ed
+
 	.alias viciv_magic $d02f

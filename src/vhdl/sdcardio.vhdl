@@ -756,12 +756,6 @@ begin  -- behavioural
           when x"EF" =>
             -- @IO:GS $D6EF - Temperature sensor (upper byte)
             fastio_rdata <= unsigned(fpga_temperature(11 downto 4));
-          when x"F0" =>
-            -- @IO:GS $D6F0 - Read FPGA switches 0-7
-            fastio_rdata(7 downto 0) <= unsigned(sw(7 downto 0));
-          when x"F1" =>
-            -- @IO:GS $D6F1 - Read FPGA switches 8-15
-            fastio_rdata(7 downto 0) <= unsigned(sw(15 downto 8));
           when x"F2" =>
             -- @IO:GS $D6F2 - Read FPGA five-way buttons
             fastio_rdata(7 downto 5) <= "000";
