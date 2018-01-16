@@ -707,6 +707,12 @@ begin  -- behavioural
           when x"ae" =>
             -- @IO:GS $D6AE - DEBUG FDC bytes read counter (MSB)
             fastio_rdata <= unsigned(fdc_bytes_read(15 downto 8));
+          when x"ec" =>
+            -- @IO:GS $D6EC - DEBUG duplicate of FPGA switches 0-7
+            fastio_rdata(7 downto 0) <= unsigned(sw(7 downto 0));
+          when x"ed" =>
+            -- @IO:GS $D6ED - DEBUG duplicate of FPGA switches 8-15
+            fastio_rdata(7 downto 0) <= unsigned(sw(15 downto 8));
           when x"EE" =>
             -- @IO:GS $D6EE - Temperature sensor (lower byte)
             fastio_rdata <= unsigned("0000"&fpga_temperature(3 downto 0));

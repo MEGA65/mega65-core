@@ -438,6 +438,8 @@ GS $D6E6.0-4 - Ethernet MIIM register number
 GS $D6E6.7-5 - Ethernet MIIM PHY number (use 0 for Nexys4, 1 for MEGA65 r1 PCBs)
 GS $D6E7 - Ethernet MIIM register value (LSB)
 GS $D6E8 - Ethernet MIIM register value (MSB)
+GS $D6EC - DEBUG duplicate of FPGA switches 0-7
+GS $D6ED - DEBUG duplicate of FPGA switches 8-15
 GS $D6EE - Temperature sensor (lower byte)
 GS $D6EF - Temperature sensor (upper byte)
 GS $D6F0 - Read FPGA switches 0-7
