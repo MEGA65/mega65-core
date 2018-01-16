@@ -283,6 +283,8 @@ architecture behavioural of sdcardio is
   signal f011_flag_eq : std_logic := '1';
   signal f011_swap : std_logic := '0';
 
+  signal f011_eq_inhibit : std_logic := '0';
+
   signal f011_irqenable : std_logic := '0';
   
   signal f011_cmd : unsigned(7 downto 0) := x"00";
@@ -601,9 +603,11 @@ begin  -- behavioural
           when "11111" =>
             -- @IO:GS $D09F.0 - CPU-side buffer pointer high bit (DEBUG)
             -- @IO:GS $D09F.1 - EQ flag (DEBUG)
+            -- @IO:GS $D09F.2 - EQ flag inhibit state (DEBUG)
             fastio_rdata(0) <= f011_buffer_cpu_address(8);
             fastio_rdata(1) <= f011_flag_eq;
-            fastio_rdata(7 downto 2) <= (others => '0');
+            fastio_rdata(2) <= f011_eq_inhibit;
+            fastio_rdata(7 downto 3) <= (others => '0');
 
           when others =>
             fastio_rdata <= (others => 'Z');
@@ -890,6 +894,7 @@ begin  -- behavioural
             f011_drq <= '0';
           end if;
           last_was_d087 <= '1';
+          f011_eq_inhibit <= '0';         
         end if;
       end if;
       -- EQ flag is asserted when buffer address matches where we are upto
@@ -906,7 +911,7 @@ begin  -- behavioural
         if f011_flag_eq='0' then
           report "Asserting f011_flag_eq";
         end if;
-        f011_flag_eq <= '1';
+        f011_flag_eq <= not f011_eq_inhibit;
       else
         if f011_flag_eq='1' then
           report "Clearing f011_flag_eq";
@@ -1423,6 +1428,7 @@ begin  -- behavioural
                 f011_drq <= '0';                         
               end if;
               last_was_d087<='1';
+              f011_eq_inhibit <= '0';
 
             when "01000" =>
               f011_reg_clock <= fastio_wdata;
@@ -1740,6 +1746,12 @@ begin  -- behavioural
                 
                 -- Defer any CPU write request, since we are writing
                 sb_cpu_write_request <= sb_cpu_write_request;
+
+                -- Because the SD card interface is so fast, the entire sector
+                -- can become read, before the C65 DOS tries to read the first
+                -- byte. This means the EQ flag is set when DOS thinks it means
+                -- buffer empty, instead of buffer full.
+                f011_eq_inhibit <= '1';                
               else
                 -- SD-card direct access
                 -- Write to SD-card half of sector buffer

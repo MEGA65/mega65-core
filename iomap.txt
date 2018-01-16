@@ -213,6 +213,7 @@ GS $D09D - FDC-side buffer pointer high bit (DEBUG)
 GS $D09E - CPU-side buffer pointer low bits (DEBUG)
 GS $D09F.0 - CPU-side buffer pointer high bit (DEBUG)
 GS $D09F.1 - EQ flag (DEBUG)
+GS $D09F.2 - EQ flag inhibit state (DEBUG)
 C65 $D0A0-$D0FF - Reserved for C65 RAM Expansion Controller.
 C65 $D100-$D1FF red palette values (reversed nybl order)
 C65 $D200-$D2FF green palette values (reversed nybl order)
@@ -443,8 +444,6 @@ GS $D6EC - DEBUG duplicate of FPGA switches 0-7
 GS $D6ED - DEBUG duplicate of FPGA switches 8-15
 GS $D6EE - Temperature sensor (lower byte)
 GS $D6EF - Temperature sensor (upper byte)
-GS $D6F0 - Read FPGA switches 0-7
-GS $D6F1 - Read FPGA switches 8-15
 GS $D6F2 - Read FPGA five-way buttons
 GS $D6F3 - Accelerometer bit-bashing port
 GS $D6F3 Accelerometer inputs
