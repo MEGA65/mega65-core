@@ -581,6 +581,14 @@ begin  -- behavioural
         -- microSD controller registers
         report "reading SDCARD registers" severity note;
         case fastio_addr(7 downto 0) is
+          -- @IO:GS $D680.0 - SD controller BUSY flag
+          -- @IO:GS $D680.1 - SD controller BUSY flag
+          -- @IO:GS $D680.2 - SD controller RESET flag
+          -- @IO:GS $D680.3 - SD controller sector buffer mapped flag
+          -- @IO:GS $D680.4 - SD controller SDHC mode flag
+          -- @IO:GS $D680.5 - SD controller SDIO FSM ERROR flag
+          -- @IO:GS $D680.6 - SD controller SDIO error flag
+          -- @IO:GS $D680.7 - SD controller hald speed flag
           when x"80" =>
             -- status / command register
             -- error status in bit 6 so that V flag can be used for check
@@ -601,9 +609,17 @@ begin  -- behavioural
 
           -- @IO:GS $D685 - DEBUG Show current state ID of SD card interface
           when x"85" => fastio_rdata <= to_unsigned(sd_state_t'pos(sd_state),8);
-          when x"86" => fastio_rdata <= sd_datatoken;
+          -- @IO:GS $D686 - DEBUG SD card data token
+          when x"86" => fastio_rdata <= sd_datatoken;                        
+          -- @IO:GS $D687 - DEBUG SD card most recent byte read
           when x"87" => fastio_rdata <= unsigned(sd_rdata);
-
+          -- @IO:GS $D688 - Low-byte of F011 buffer pointer (disk side) (read only)
+          when x"88" => fastio_rdata <= f011_buffer_disk_address(7 downto 0);
+          -- @IO:GS $D689.0 - High bit of F011 buffer pointer (disk side) (read only)
+          -- @IO:GS $D689.1 - Sector read from SD/F011/FDC, but not yet read by CPU
+          when x"89" =>
+            fastio_rdata(0) <= f011_buffer_disk_address(8);
+            fastio_rdata(1) <= f011_flag_eq and f011_drq;
           when x"8a" =>
             -- @IO:GS $D68A - DEBUG check signals that can inhibit sector buffer mapping
             fastio_rdata(0) <= colourram_at_dc00;
