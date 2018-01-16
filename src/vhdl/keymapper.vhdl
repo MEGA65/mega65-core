@@ -214,14 +214,14 @@ begin  -- behavioural
       restore_up_count <= restore_up_ticks(7 downto 0);
       restore_down_count <= restore_down_ticks(7 downto 0);
 
+      restore_state <= (restore_ps2 or ps2_disable)
+                       and (restore_physkey or physkey_disable)
+                       and (restore_widget or widget_disable);
+      
       if fiftyhz_counter /= ( 50000000 / 50 ) then
         fiftyhz_counter <= fiftyhz_counter + 1;
       else
         fiftyhz_counter <= (others => '0');        
-
-        restore_state <= (restore_ps2 or ps2_disable)
-                         and (restore_physkey or physkey_disable)
-                         and (restore_widget or widget_disable);
         
         last_restore_state <= restore_state;
 
