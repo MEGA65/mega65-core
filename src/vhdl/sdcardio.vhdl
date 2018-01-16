@@ -273,7 +273,7 @@ architecture behavioural of sdcardio is
   
   -- Toggles whether the memory mapped sector buffer is the F011 (0) or
   -- SD-card (1) sector buffer.
-  signal f011sd_buffer_select : std_logic := '0';
+  signal f011sd_buffer_select : std_logic := '1';
   
   signal f011_buffer_read_address : unsigned(9 downto 0) := (others => '0');
   signal f011_buffer_write_address : unsigned(9 downto 0) := (others => '0');
@@ -622,7 +622,7 @@ begin  -- behavioural
           -- @IO:GS $D680.4 - SD controller SDHC mode flag
           -- @IO:GS $D680.5 - SD controller SDIO FSM ERROR flag
           -- @IO:GS $D680.6 - SD controller SDIO error flag
-          -- @IO:GS $D680.7 - SD controller hald speed flag
+          -- @IO:GS $D680.7 - SD controller half speed flag
           when x"80" =>
             -- status / command register
             -- error status in bit 6 so that V flag can be used for check
@@ -650,10 +650,13 @@ begin  -- behavioural
           -- @IO:GS $D688 - Low-byte of F011 buffer pointer (disk side) (read only)
           when x"88" => fastio_rdata <= f011_buffer_disk_address(7 downto 0);
           -- @IO:GS $D689.0 - High bit of F011 buffer pointer (disk side) (read only)
-          -- @IO:GS $D689.1 - Sector read from SD/F011/FDC, but not yet read by CPU
+          -- @IO:GS $D689.1 - Sector read from SD/F011/FDC, but not yet read by CPU (i.e., EQ and DRQ)
+          -- @IO:GS $D689.7 - Memory mapped sector buffer select: 1=SD-Card, 0=F011/FDC
           when x"89" =>
             fastio_rdata(0) <= f011_buffer_disk_address(8);
             fastio_rdata(1) <= f011_flag_eq and f011_drq;
+            fastio_rdata(6 downto 2) <= (others => '0');
+            fastio_rdata(7) <= f011sd_buffer_select;
           when x"8a" =>
             -- @IO:GS $D68A - DEBUG check signals that can inhibit sector buffer mapping
             fastio_rdata(0) <= colourram_at_dc00;
@@ -1533,6 +1536,7 @@ begin  -- behavioural
             when x"82" => sd_sector(15 downto 8) <= fastio_wdata;
             when x"83" => sd_sector(23 downto 16) <= fastio_wdata;
             when x"84" => sd_sector(31 downto 24) <= fastio_wdata;
+            when x"89" => f011sd_buffer_select <= fastio_wdata(7);
 
                           -- ================================================================== END
                           -- the section above was for the SDcard

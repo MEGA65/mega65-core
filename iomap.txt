@@ -367,7 +367,7 @@ GS $D680.3 - SD controller sector buffer mapped flag
 GS $D680.4 - SD controller SDHC mode flag
 GS $D680.5 - SD controller SDIO FSM ERROR flag
 GS $D680.6 - SD controller SDIO error flag
-GS $D680.7 - SD controller hald speed flag
+GS $D680.7 - SD controller half speed flag
 GS $D680 - SD controller status/command
 GS $D681-$D684 - SD controller SD sector address
 GS $D685 - DEBUG Show current state ID of SD card interface
@@ -375,7 +375,8 @@ GS $D686 - DEBUG SD card data token
 GS $D687 - DEBUG SD card most recent byte read
 GS $D688 - Low-byte of F011 buffer pointer (disk side) (read only)
 GS $D689.0 - High bit of F011 buffer pointer (disk side) (read only)
-GS $D689.1 - Sector read from SD/F011/FDC, but not yet read by CPU
+GS $D689.1 - Sector read from SD/F011/FDC, but not yet read by CPU (i.e., EQ and DRQ)
+GS $D689.7 - Memory mapped sector buffer select: 1=SD-Card, 0=F011/FDC
 GS $D68A - DEBUG check signals that can inhibit sector buffer mapping
 GS $D68B.0 - F011 disk 1 disk image enable
 GS $D68B.1 - F011 disk 1 present
