@@ -260,6 +260,8 @@ architecture behavioural of sdcardio is
   signal sb_cpu_writing : std_logic := '0';
   signal sb_cpu_rdata : unsigned(7 downto 0) := x"00";
   signal sb_cpu_wdata : unsigned(7 downto 0) := x"00";
+
+  signal sector_buffer_fastio_address : integer := 0;
   
   signal f011_buffer_disk_pointer_advance : std_logic := '0';
   signal f011_buffer_cpu_pointer_advance : std_logic := '0';
@@ -267,9 +269,14 @@ architecture behavioural of sdcardio is
   signal f011_buffer_cpu_address : unsigned(8 downto 0) := (others => '0');  
   signal last_f011_buffer_disk_address : unsigned(8 downto 0) := (others => '1');
   signal last_f011_buffer_cpu_address : unsigned(8 downto 0) := (others => '1');
+  signal sd_buffer_offset : unsigned(8 downto 0) := (others => '0');
   
-  signal f011_buffer_read_address : unsigned(8 downto 0) := (others => '0');
-  signal f011_buffer_write_address : unsigned(8 downto 0) := (others => '0');
+  -- Toggles whether the memory mapped sector buffer is the F011 (0) or
+  -- SD-card (1) sector buffer.
+  signal f011sd_buffer_select : std_logic := '0';
+  
+  signal f011_buffer_read_address : unsigned(9 downto 0) := (others => '0');
+  signal f011_buffer_write_address : unsigned(9 downto 0) := (others => '0');
   signal f011_buffer_wdata : unsigned(7 downto 0);
   signal f011_buffer_rdata : unsigned(7 downto 0);
   signal f011_buffer_write : std_logic := '0';
@@ -344,6 +351,12 @@ architecture behavioural of sdcardio is
   signal fdc_bytes_read : unsigned(15 downto 0) := x"0000";
   
   signal packed_rdata : std_logic_vector(7 downto 0);
+
+  function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
+    return integer is
+  begin
+    return to_integer(f011orsd & addr);
+  end function;
   
 begin  -- behavioural
 
@@ -373,7 +386,26 @@ begin  -- behavioural
       clk => clock	-- twice the SPI clk.  XXX Cannot exceed 50MHz
       );
 
-  f011sectorbuffer: entity work.ram8x512
+  -- CPU direct-readable sector buffer, so that it can be memory mapped
+  sb_memorymapped0: entity work.ram8x4096
+    port map (
+      clk => clock,
+
+      -- CPU side read access
+      cs => sectorbuffercs,
+      address => sector_buffer_fastio_address,
+      rdata => fastio_rdata,
+
+      -- Write side controlled by SD-card side.
+      -- (CPU side effects writes by asking SD-card side to write)
+      w => f011_buffer_write,
+      write_address => to_integer(f011_buffer_write_address),
+      wdata => f011_buffer_wdata
+      );
+  
+  -- Locally readable copy of the same data, so that we can read it when writing
+  -- to SD card or floppy drive
+  sb_workcopy: entity work.ram8x4096
     port map (
       clk => clock,
 
@@ -456,6 +488,8 @@ begin  -- behavioural
     -- here is a combinational process (ie: not clocked)
     -- ==================================================================
 
+    sector_buffer_fastio_address <= resolve_sector_buffer_address(f011sd_buffer_select,fastio_addr(8 downto 0));
+    
     if fastio_read='1' and sectorbuffercs='0' then
 
       if f011_cs='1' and sdcardio_cs='0' then
@@ -825,7 +859,7 @@ begin  -- behavioural
       -- Make CPU write request if required
       if sb_cpu_write_request='1' then
         report "CPU writing $" & to_hstring(sb_cpu_wdata) & " to sector buffer @ $" & to_hstring(f011_buffer_cpu_address);
-        f011_buffer_write_address <= f011_buffer_cpu_address;
+        f011_buffer_write_address <= '0'&f011_buffer_cpu_address;
         f011_buffer_wdata <= sb_cpu_wdata;
         f011_buffer_write <= '1';
         f011_buffer_cpu_pointer_advance <= '1';
@@ -833,10 +867,10 @@ begin  -- behavioural
       else
         f011_buffer_write <= '0';
       end if;
-      -- Prepare for CPU read request if required
+      -- Prepare for CPU read request via $D087 if required
       if sb_cpu_read_request='1' and sb_cpu_reading='0' then
         report "CPU read pre-fetch from sector buffer @ $" & to_hstring(f011_buffer_cpu_address);
-        f011_buffer_read_address <= f011_buffer_cpu_address;
+        f011_buffer_read_address <= '0'&f011_buffer_cpu_address;
         sb_cpu_reading <= '1';
       else
         sb_cpu_reading <= '0';
@@ -1462,6 +1496,7 @@ begin  -- behavioural
                     sdio_fsm_error <= '0';
                     -- Put into SD card buffer, not F011 buffer
                     f011_sector_fetch <= '0';
+                    sd_buffer_offset <= (others => '0');
                   end if;
 
                 when x"03" =>
@@ -1641,6 +1676,16 @@ begin  -- behavioural
           hyper_trap_f011_read <= '0';
           hyper_trap_f011_write <= '0';
 
+          if sectorbuffercs='1' and fastio_write='1' then
+            -- Writing via memory mapped sector buffer
+            
+            f011_buffer_write_address <=
+              f011sd_buffer_select&f011_buffer_disk_address;  
+            f011_buffer_wdata <= fastio_wdata;
+            f011_buffer_write <= '1';
+            
+          end if;
+          
         -- Trap to hypervisor when accessing SD card if virtualised.
         -- Wait until hypervisor kicks in before releasing request.
         when HyperTrapRead =>
@@ -1652,13 +1697,6 @@ begin  -- behavioural
           end if;
 
         when HyperTrapRead2 =>
-          if fastio_write='1' and sectorbuffercs='1' then
-            f011_buffer_wdata <= unsigned(fastio_wdata);
-            f011_buffer_write_address <= fastio_addr(8 downto 0);
-            f011_buffer_write <= '1';
-            -- Defer any CPU write request, since we are writing
-            sb_cpu_write_request <= sb_cpu_write_request;
-          end if;
 
           if hypervisor_mode='0' then
             -- Hypervisor done, init transfer of data to f011 buffer
@@ -1696,11 +1734,25 @@ begin  -- behavioural
                 f011_drq <= '1';
                 -- Update F011 sector buffer
                 f011_buffer_disk_pointer_advance <= '1';
-                f011_buffer_write_address <= f011_buffer_disk_address;
+
+                -- Write to sector buffer
+                f011_buffer_write_address <= '0'&f011_buffer_disk_address;
                 f011_buffer_wdata <= unsigned(sd_rdata);
                 f011_buffer_write <= '1';
+                
                 -- Defer any CPU write request, since we are writing
                 sb_cpu_write_request <= sb_cpu_write_request;
+              else
+                -- SD-card direct access
+                -- Write to SD-card half of sector buffer
+                f011_buffer_write_address <= '1'&sd_buffer_offset;
+                f011_buffer_wdata <= unsigned(sd_rdata);
+                f011_buffer_write <= '1';
+
+                -- Advance pointer in SD-card buffer (this is
+                -- separate from the F011 buffer pointers)
+                sd_buffer_offset <= sd_buffer_offset + 1;
+                
               end if;
             else
               if skip=2 then
@@ -1714,16 +1766,27 @@ begin  -- behavioural
         when ReadingSectorAckByte =>
           -- Wait until controller acknowledges that we have acked it
           if sd_data_ready='0' then
-            if (f011_buffer_disk_address = "000000000") and (read_data_byte='1') then
-              -- sector offset has reached 512, so we must have
-              -- read the whole sector.
-              -- Update F011 FDC emulation status registers
-              f011_sector_fetch <= '0';
-              f011_busy <= '0';
-              sd_state <= DoneReadingSector;
+            if f011_sector_fetch = '1' then
+              if (f011_buffer_disk_address = "000000000") and (read_data_byte='1')      then
+                -- sector offset has reached 512, so we must have
+                -- read the whole sector.
+                -- Update F011 FDC emulation status registers
+                f011_sector_fetch <= '0';
+                f011_busy <= '0';
+                sd_state <= DoneReadingSector;
+              else
+                -- Still more bytes to read.
+                sd_state <= ReadingSector;
+              end if;
             else
-              -- Still more bytes to read.
-              sd_state <= ReadingSector;
+              -- SD-card direct access job
+              if (sd_buffer_offset = "000000000") and (read_data_byte='1') then
+                -- Finished reading SD-card sectory
+                sd_state <= DoneReadingSector;
+              else
+                -- Else keep on reading
+                sd_state <= ReadingSector;
+              end if;
             end if;
           end if;
 
@@ -1775,7 +1838,8 @@ begin  -- behavioural
                 if f011_drq='1' then f011_lost <= '1'; end if;
                 f011_drq <= '1';
                 f011_buffer_disk_pointer_advance <= '1';
-                f011_buffer_write_address <= f011_buffer_disk_address;
+                -- Write to F011 sector buffer
+                f011_buffer_write_address <= '0'&f011_buffer_disk_address;
                 f011_buffer_wdata <= unsigned(fdc_byte_out);
                 f011_buffer_write <= '1';
                 -- Defer any CPU write request, since we are writing
@@ -1807,7 +1871,7 @@ begin  -- behavioural
           report "Starting to write sector from unified FDC/SD buffer.";
           f011_buffer_cpu_address <= (others => '0');
           sb_cpu_read_request <= '1';
-          f011_buffer_read_address <= f011_buffer_disk_address;
+          f011_buffer_read_address <= '0'&f011_buffer_disk_address;
           f011_buffer_disk_pointer_advance <= '1';
           -- Abort CPU buffer read if in progess, since we are reading the buffer
           sb_cpu_reading <= '0';
@@ -1851,7 +1915,7 @@ begin  -- behavioural
               sd_state <= WritingSector;
 
               -- Get next byte ready
-              f011_buffer_read_address <= f011_buffer_disk_address;
+              f011_buffer_read_address <= '0'&f011_buffer_disk_address;
               f011_buffer_disk_pointer_advance <= '1';
               -- Abort CPU buffer read if in progess, since we are reading the buffer
               sb_cpu_reading <= '0';              
