@@ -238,6 +238,7 @@ begin
               current_address <= last_row_address;
             else
               y_phase <= 0;
+              double_height_phase <= '0';
               if y_row = 6 then
                 -- We draw only the top line for row 6 to cap
                 -- off row 5
