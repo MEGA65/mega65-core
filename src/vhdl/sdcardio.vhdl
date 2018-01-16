@@ -207,7 +207,7 @@ architecture behavioural of sdcardio is
   signal last_was_d087 : std_logic := '0';
   
   signal skip : integer range 0 to 2;
-  signal read_data_byte : std_logic;
+  signal read_data_byte : std_logic := '0';
   signal sd_doread       : std_logic := '0';
   signal sd_dowrite      : std_logic := '0';
   signal sd_data_ready : std_logic := '0';
@@ -1460,6 +1460,8 @@ begin  -- behavioural
                     sd_state <= ReadSector;
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
+                    -- Put into SD card buffer, not F011 buffer
+                    f011_sector_fetch <= '0';
                   end if;
 
                 when x"03" =>
