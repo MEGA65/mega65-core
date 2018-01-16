@@ -1777,7 +1777,14 @@ begin  -- behavioural
           -- Wait until controller acknowledges that we have acked it
           if sd_data_ready='0' then
             if f011_sector_fetch = '1' then
-              if (f011_buffer_disk_address = "000000000") and (read_data_byte='1')      then
+              if
+                -- We have read at least one byte, and ...
+                (read_data_byte='1')
+                -- the buffer pointer is back to the start of the sector, and ...
+                and (f011_buffer_disk_address = "000000000")
+                -- we aren't waiting for the disk pointer to advance from the
+                -- starting line
+                and (f011_buffer_disk_pointer_advance='0') then
                 -- sector offset has reached 512, so we must have
                 -- read the whole sector.
                 -- Update F011 FDC emulation status registers
