@@ -1786,7 +1786,7 @@ begin  -- behavioural
                 -- We have read at least one byte, and ...
                 (read_data_byte='1')
                 -- the buffer pointer is back to the start of the sector, and ...
-                and (sd_sector_buffer="000000000")
+                and (sd_buffer_offset="000000000")
                 then
                 -- sector offset has reached 512, so we must have
                 -- read the whole sector.
@@ -1916,7 +1916,7 @@ begin  -- behavioural
               -- Byte has been accepted, write next one
               sd_state <= WritingSectorAckByte;
               f011_buffer_disk_pointer_advance <= '1';
-              sd_sector_offset <= sd_sector_offset + 1;
+              sd_buffer_offset <= sd_buffer_offset + 1;
             else
               skip <= skip - 1;
               sd_state <= WritingSectorAckByte;
@@ -1926,7 +1926,7 @@ begin  -- behavioural
         when WritingSectorAckByte =>
           -- Wait until controller acknowledges that we have acked it
           if sd_data_ready='0' then
-            if sd_sector_offset = "000000000" then
+            if sd_buffer_offset = "000000000" then
               -- Whole sector written when we have written 512 bytes
               sd_state <= DoneWritingSector;
             else
