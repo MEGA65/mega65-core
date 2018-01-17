@@ -593,8 +593,8 @@ begin
       -- HDMI control interface
       -- XXX We need to send some commands via I2C to configure the HDMI
       -- interface, which we don't yet do, so HDMI output will not yet work.
-      hdmi_scl <= hdmi_scl;
-      hdmi_sda <= hdmi_sda;
+--      hdmi_scl <= hdmi_scl;
+--      hdmi_sda <= hdmi_sda;
     end if;
   end process;    
   
