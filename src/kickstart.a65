@@ -413,6 +413,7 @@ reset_machine_state:
 		; determine VIC mode and set it accordingly in VICIV_MAGIC
 		jsr enhanced_io
 
+		; clear UART interrupt status
 		lda $d60d
 
 		; switch to fast mode
@@ -463,6 +464,10 @@ reset_machine_state:
 		
 		lda #$6b    ; 01101011
 		sta hypervisor_feature_enables
+
+		; Map SD card sector buffer
+		lda #$80
+		sta $d689
 
 		; Access cartridge IO area to force EXROM probe on R1 PCBs
 		lda $de00
