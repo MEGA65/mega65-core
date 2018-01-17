@@ -43,7 +43,12 @@ programentrypoint:
 	jsr i2cstop
 
 	; Try reading an HDMI I2C register
-	lda #$72
+
+	lda #$00  ; I2C address
+
+nextaddr:
+	pha
+
 	ldy #$00
 	jsr readregister
 	pha
@@ -53,6 +58,25 @@ programentrypoint:
 	lda #$00
 	tay
 	jsr $bdcd
+
+	lda txackresult
+	cmp #$70
+	beq foundaddr
+
+	pla
+	inc 
+	bne nextaddr
+
+	jmp endloop
+
+foundaddr:
+	pla
+	sta $0400
+l:	inc $d020
+	jmp l
+	
+
+
 	
 endloop:
 	jmp endloop
@@ -183,12 +207,16 @@ txbitsent:
 	pla
 	pha
 	ora #$70
+	sta txackresult
+
 	jsr $ffd2
 	lda #$0d
 	jsr $ffd2
 	pla
 
 	rts
+
+txackresult:	.byte 0
 
 delay10usec:
 	; 50MHz = 20ns cycles.
