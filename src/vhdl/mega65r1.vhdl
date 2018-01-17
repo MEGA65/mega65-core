@@ -276,7 +276,7 @@ begin
     port map (
       cpuclock => cpuclock,
       pixelclock => pixelclock,
-      reset => reset_out,
+      reset => iec_reset_drive,
       cpu_exrom => cpu_exrom,
       cpu_game => cpu_game,
       sector_buffer_mapped => sector_buffer_mapped,
