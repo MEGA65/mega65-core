@@ -30,10 +30,29 @@ programentrypoint:
 	lda #65
 	sta 0
 
+	; clear screen, lower case
 	lda #$93
 	jsr $ffd2
+	lda #$0e
+	jsr $ffd2
+	lda #$41
+	jsr $ffd2
+	lda #$61
+	jsr $ffd2
 
+	jsr i2cstop
 
+	; Try reading an HDMI I2C register
+	lda #$72
+	ldy #$00
+	jsr readregister
+	pha
+	lda #$0d
+	jsr $ffd2
+	plx
+	lda #$00
+	tay
+	jsr $bdcd
 	
 endloop:
 	jmp endloop
@@ -128,16 +147,18 @@ rxackclk:
 ; Send a byte on the I2C bus
 
 i2ctxbyte:
+	pha
 	jsr delay10usec
 	ldx #$08
 txnextbit:
-	cmp #$00
+	pla
+	pha
+	and #$80
 	bmi tx1
-tx0:	pha
-	jsr sdahigh
+tx0:	
+	jsr sdalow
 	jmp txbitsent
-tx1:	pha
-	jsr scllow
+tx1:	
 	jsr sdahigh
 txbitsent:
 	jsr sclhigh
@@ -146,8 +167,11 @@ txbitsent:
 	jsr delay10usec
 	pla
 	asl
+	pha
 	dex
 	bne txnextbit
+
+	pla
 
 	; sent the byte, now receive the ACK bit
 	jsr sclhigh
@@ -155,6 +179,13 @@ txbitsent:
 	jsr sdaread	
 	pha
 	jsr scllow
+
+	pla
+	pha
+	ora #$70
+	jsr $ffd2
+	lda #$0d
+	jsr $ffd2
 	pla
 
 	rts
@@ -168,9 +199,17 @@ delay10usec:
 d1:	inx
 	bne d1
 	plx
+	
+	lda #$2d
+	jsr $ffd2
+
 	rts
 
 i2cstart:
+
+	lda #$28
+	jsr $ffd2
+
 	jsr sdalow
 	jsr delay10usec
 	jsr scllow
@@ -182,24 +221,40 @@ i2cstop:
 	jsr delay10usec
 	jsr sdahigh
 	jsr delay10usec
+
+	lda #$29
+	jsr $ffd2
+
 	rts
 
 sclhigh:
 	lda #$80
 	trb $d607
 	tsb $d60d
+
+	lda #$63
+	jsr $ffd2
+
 	rts
 scllow:
 	lda #$80
 	tsb $d607
 	trb $d60d
+
+	lda #$43
+	jsr $ffd2
+
 	rts
 
 sclread:
 	lda #$80
 	trb $d607
+	tsb $d607
 	lda $d60d
 	and #$80
+	rol
+	rol
+	and #$01
 	rts
 
 
@@ -207,18 +262,32 @@ sdahigh:
 	lda #$40
 	trb $d607
 	tsb $d60d
+
+	lda #$64
+	jsr $ffd2
 	rts
 sdalow:
 	lda #$40
 	tsb $d607
 	trb $d60d
+
+	lda #$44
+	jsr $ffd2
 	rts
 
 sdaread:
 	lda #$40
 	trb $d607
+	tsb $d607
 	lda $d60d
 	and #$40
+	lsr
+	lsr
+	lsr
+	lsr
+	lsr
+	lsr
+
 	rts
 	
 
