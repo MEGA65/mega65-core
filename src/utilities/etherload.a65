@@ -74,7 +74,6 @@ waitingforpacket:
 	ora #$01
 	sta $d6e1
 
-
 	; Got a packet.
 	; check whether it is UDP port 4510
 	; or whether it is an ARP request
@@ -154,7 +153,8 @@ arploop4:
 	lda #$01
 	sta $d6e4	
 
-; BG should this fall through ???
+	; Fall through to rest of packet parser (even though it won't pass
+	; these tests -- it just saves a few bytes of code).
 
 notarp:
 	; is it IPv4?
@@ -202,4 +202,4 @@ arptemplate:
 	.checkpc $CFFF
 	.scend
 
-	.outfile "utilities/etherload.prg"
+	.outfile "bin/etherload.prg"

@@ -1,0 +1,5 @@
+*** MEGA65 Memory/Machine Inspection Interface ***
+GIT commit: GITCOMMITID
+   F1/F3 - Explore Memory, F7 - Clear all memory
+  SECURE - Accept entry to secure compartment
+INSECURE - Return from secure compartment

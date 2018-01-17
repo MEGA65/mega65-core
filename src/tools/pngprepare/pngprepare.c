@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
 #include <stdarg.h>
 
 #define PNG_DEBUG 3
@@ -59,7 +60,7 @@ char *vhdl_suffix=
   "begin\n"
   "\n"
   "--process for read and write operation.\n"
-  "PROCESS(Clk)\n"
+  "PROCESS(Clk,ram,writeclk)\n"
   "BEGIN\n"
   "  data_o <= ram(address);          \n"
   "\n"
@@ -168,6 +169,42 @@ void read_png_file(char* file_name)
 
 /* ============================================================= */
 
+struct rgb {
+  int r;
+  int g;
+  int b;
+};
+
+struct rgb palette[256];
+int palette_first=16;
+int palette_index=16; // only use upper half of palette
+
+int palette_lookup(int r,int g, int b)
+{
+  int i;
+
+  // Do we know this colour already?
+  for(i=palette_first;i<palette_index;i++) {
+    if (r==palette[i].r&&g==palette[i].g&&b==palette[i].b) {
+      return i;
+    }
+  }
+  
+  // new colour
+  if (palette_index>255) {
+    fprintf(stderr,"Too many colours in image: Must be <= %d\n",
+	    256-palette_first);
+    exit(-1);
+  }
+
+  // allocate it
+  palette[palette_index].r=r;
+  palette[palette_index].g=g;
+  palette[palette_index].b=b;
+  return palette_index++;
+  
+}
+
 void process_file(int mode, char *outputfilename)
 {
   int multiplier=-1;
@@ -198,8 +235,15 @@ void process_file(int mode, char *outputfilename)
     printf("mode=0 (logo)\n");
     // Logo mode
 
-    if (height!=64||width!=64) {
-      fprintf(stderr,"Logo images must be 64x64\n");
+    int size=-1;
+    #define SIZE_LOGO 1
+    #define SIZE_BANNER 2
+    if (height==64&&width==64) size=SIZE_LOGO;
+    if (height==64&&width==320) size=SIZE_BANNER;
+    
+    if (size==-1) {
+      fprintf(stderr,"Logo images must be 64x64 or 320x64\n");
+      exit(-1);
     }
     for (y=0; y<height; y++) {
       png_byte* row = row_pointers[y];
@@ -210,14 +254,22 @@ void process_file(int mode, char *outputfilename)
 	// Compute colour cube colour
 	unsigned char c=(r&0xe0)|((g>>5)<<2)|(b>>6);
 
+	c=palette_lookup(r,g,b);
+
 	/* work out where in logo file it must be written.
 	   image is made of 8x8 blocks.  So every 8 pixels across increases address
 	   by 64, and every 8 pixels down increases pixel count by (64*8), and every
 	   single pixel down increases address by 8.
 	*/
-	int address=(x&7)+(y&7)*8;
+	int address=0;
+	address+=0x300; // space for palettes
+	address+=(x&7)+(y&7)*8;
 	address+=(x>>3)*64;
-	address+=(y>>3)*64*8;
+	if (size==SIZE_LOGO)
+	  address+=(y>>3)*64*8;
+	else
+	  address+=(y>>3)*64*40;
+
 	fseek(outfile,address,SEEK_SET);
 	int n=fwrite(&c,1,1,outfile);
 	if (n!=1) {
@@ -231,6 +283,32 @@ void process_file(int mode, char *outputfilename)
       }
     }
 
+    fprintf(stderr,"Writing out palette of %d values\n",palette_index-palette_first);
+    for(int i=0;i<256;i++){
+      int address;
+      unsigned char c;
+      int v;
+      
+      address=i+0x000;
+      v=palette[i].r;
+      c=(v>>4)|((v&0xf)<<4);
+      fseek(outfile,address,SEEK_SET);
+      fwrite(&c,1,1,outfile);
+      
+      address=i+0x100;
+      v=palette[i].g;
+      c=(v>>4)|((v&0xf)<<4);
+      fseek(outfile,address,SEEK_SET);
+      fwrite(&c,1,1,outfile);
+
+      address=i+0x200;
+      v=palette[i].b;
+      c=(v>>4)|((v&0xf)<<4);
+      fseek(outfile,address,SEEK_SET);
+      fwrite(&c,1,1,outfile);
+    }
+    
+    
     if (outfile != NULL) {
       fclose(outfile);
       outfile = NULL;
@@ -238,64 +316,98 @@ void process_file(int mode, char *outputfilename)
 
   }
 
+
   /* ============================ */
   if (mode==1) {
     printf("mode=1 (charrom)\n");
     // charrom mode
 
+    int vhdl_mode=1;
+    if (!strstr(outputfilename,".vhdl")) vhdl_mode=0;
+    
     int bytes=0;
-    fprintf(outfile,"%s",vhdl_prefix);
+    if (vhdl_mode) fprintf(outfile,"%s",vhdl_prefix);
     if (width!=8) {
       fprintf(stderr,"Fonts must be 8 pixels wide\n");
     }
 
     int spots[8][8];
+    int charsets;
 
-    for (y=0; y<height; y++) {
-      png_byte* row = row_pointers[y];
-      int byte=0;
-      int yy=y&7;
 
-      for (x=0; x<width; x++) {
-	png_byte* ptr = &(row[x*multiplier]);
-	int r=ptr[0]; // g=ptr[1],b=ptr[2], a=ptr[3];
-
-	if (x<8) {
-	  if (r>0x7f) {
-	    byte|=(1<<(7-x));
-	    spots[yy][x]=1;
-	  } else spots[yy][x]=0;
-	}
-      }
-      fflush(stdout);
-      char comma = ',';
-      if (y==height-1) comma=' ';
-      fprintf(outfile,"x\"%02x\"%c",byte,comma);
-      bytes++;
-      if ((y&7)==7) {
-	fprintf(outfile,"\n");
-	int yy;
-	for(yy=0;yy<8;yy++) {
-	  fprintf(outfile,"-- [");
-	  for(x=0;x<8;x++) {
-	    if (spots[yy][x]) fprintf(outfile,"*"); else fprintf(outfile," ");
+    // 4KB = 2x 256 char = 2KB charsets
+    for(charsets = 0 ; charsets<2 ; charsets++) {
+      for (y=0; y<height; y++) {
+	png_byte* row = row_pointers[y];
+	int byte=0;
+	int yy=y&7;
+	
+	for (x=0; x<width; x++) {
+	  png_byte* ptr = &(row[x*multiplier]);
+	  int r=ptr[0],g=ptr[1],b=ptr[2]; //, a=ptr[3];
+	  
+	  if (x<8) {
+	    if (r>0x7f||g>0x7f||b>0x7f) {
+	      byte|=(1<<(7-x));
+	      spots[yy][x]=1;
+	    } else spots[yy][x]=0;
 	  }
-	  fprintf(outfile,"]\n");
+	}
+	fflush(stdout);
+	char comma = ',';
+	if (y==height-1) comma=' ';
+	if (vhdl_mode) fprintf(outfile,"x\"%02x\"%c",byte,comma);
+	else fputc(byte,outfile);
+	bytes++;
+	if (vhdl_mode) {
+	  if ((y&7)==7) {
+	    fprintf(outfile,"\n");
+	    int yy;
+	    for(yy=0;yy<8;yy++) {
+	      fprintf(outfile,"-- [");
+	      for(x=0;x<8;x++) {
+		if (spots[yy][x]) fprintf(outfile,"*"); else fprintf(outfile," ");
+	      }
+	      fprintf(outfile,"]\n");
+	    }
+	  }
 	}
       }
+
+      // Fill in any missing bytes
+      if (bytes<2048) {
+
+      printf("Padding output file to 2048 after first charset\n");
+
+      if (vhdl_mode) {
+	fprintf(outfile,",\n");
+	for(;bytes<2048;bytes+=8) {
+	  fprintf(outfile,"x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",\n");
+	}
+      } else {
+	// In raw mode, don't pad, or write charset twice
+	break;
+      }
+
+    }
+
     }
     // Fill in any missing bytes
     if (bytes<4096) {
 
       printf("Padding output file to 4096\n");
 
-      fprintf(outfile,",\n");
-      for(;bytes<4096;bytes+=8) {
-	fprintf(outfile,"x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",x\"00\"%c\n",
-		bytes<(4096-8)?',':' ');
+      if (vhdl_mode) {
+	fprintf(outfile,",\n");
+	for(;bytes<4096;bytes+=8) {
+	  fprintf(outfile,"x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",x\"00\"%c\n",
+		  bytes<(4096-8)?',':' ');
+	}
+      } else {
+	// In raw mode, don't pad
       }
     }
-    fprintf(outfile,"%s",vhdl_suffix);
+    if (vhdl_mode) fprintf(outfile,"%s",vhdl_suffix);
 
     if (outfile != NULL) {
       fclose(outfile);

@@ -7,6 +7,12 @@ use work.debugtools.all;
 
 entity iomapper is
   port (Clk : in std_logic;
+        clock200 : in std_logic;
+        protected_hardware_in : in unsigned(7 downto 0);
+        virtualised_hardware_in : in unsigned(7 downto 0);
+        -- Enables for the various chip select lines
+        chipselect_enables : in std_logic_vector(7 downto 0) := x"FF";
+
         cpuclock : in std_logic;
         pixelclk : in std_logic;
         uartclock : in std_logic;
@@ -16,24 +22,51 @@ entity iomapper is
         reset_out : out std_logic;
         irq : out std_logic;
         nmi : out std_logic;
-        capslock_state : inout std_logic;
+        capslock_key : in std_logic;
         speed_gate : out std_logic;
         speed_gate_enable : in std_logic;
         hyper_trap : out std_logic;
+        matrix_mode_trap : out std_logic;
+        restore_key : in std_logic;
         restore_nmi : out std_logic;
         cpu_hypervisor_mode : in std_logic;
+        hyper_trap_f011_read : out std_logic;
+        hyper_trap_f011_write : out std_logic;
+
+        uart_char : out unsigned(7 downto 0);
+        uart_char_valid : out std_logic := '0';
+        uart_monitor_char : out unsigned(7 downto 0);
+        uart_monitor_char_valid : out std_logic := '0';
+
+        display_shift_out : out std_logic_vector(2 downto 0) := "000";
+        shift_ready_out : out std_logic := '0';
+        shift_ack_in : in std_logic;        
+        mm_displayMode_out : out unsigned(1 downto 0) := "00";
+
+        cart_access_count : in unsigned(7 downto 0);
+        
         fpga_temperature : in std_logic_vector(11 downto 0);
         address : in std_logic_vector(19 downto 0);
         r : in std_logic;
         w : in std_logic;
         data_i : in std_logic_vector(7 downto 0);
         data_o : out std_logic_vector(7 downto 0);
-        sd_data_o : out std_logic_vector(7 downto 0);
+        kickstart_rdata : out std_logic_vector(7 downto 0);
         sector_buffer_mapped : out std_logic;
 
         key_scancode : in unsigned(15 downto 0);
         key_scancode_toggle : in std_logic;
-        
+
+        visual_keyboard_enable : out std_logic;
+        keyboard_at_top : out std_logic;
+        alternate_keyboard : out std_logic;
+        osk_x : out unsigned(11 downto 0) := (others => '0');
+        osk_y : out unsigned(11 downto 0);
+        osk_key1 : out unsigned(7 downto 0);
+        osk_key2 : out unsigned(7 downto 0);
+        osk_key3 : out unsigned(7 downto 0);
+        osk_key4 : out unsigned(7 downto 0);
+
         reg_isr_out : out unsigned(7 downto 0);
         imask_ta_out : out std_logic;
 
@@ -41,14 +74,80 @@ entity iomapper is
         motor : out std_logic := '0';
         drive_led_out : in std_logic;
 
+        porta_pins : inout  std_logic_vector(7 downto 0);
+        portb_pins : inout  std_logic_vector(7 downto 0);
+        keyboard_column8_out : out std_logic;
+        key_left : in std_logic;
+        key_up : in std_logic;
+
+        fa_left : in std_logic;
+        fa_right : in std_logic;
+        fa_up : in std_logic;
+        fa_down : in std_logic;
+        fa_fire : in std_logic;
+        fb_left : in std_logic;
+        fb_right : in std_logic;
+        fb_up : in std_logic;
+        fb_down : in std_logic;
+        fb_fire : in std_logic;
+        fa_potx : in std_logic;
+        fa_poty : in std_logic;
+        fb_potx : in std_logic;
+        fb_poty : in std_logic;
+        
+        pota_x : in unsigned(7 downto 0);
+        pota_y : in unsigned(7 downto 0);
+        potb_x : in unsigned(7 downto 0);
+        potb_y : in unsigned(7 downto 0);
+
+        pot_drain : in std_logic;
+        pot_via_iec : buffer std_logic;
+        
+        mouse_debug : in unsigned(7 downto 0);
+        amiga_mouse_enable : out std_logic;
+        
+        ----------------------------------------------------------------------
+        -- CBM floppy serial port
+        ----------------------------------------------------------------------
+        iec_clk_en : out std_logic := '0';
+        iec_data_en : out std_logic := '0';
+        iec_data_o : out std_logic := '1';
+        iec_reset : out std_logic := '1';
+        iec_clk_o : out std_logic := '1';
+        iec_atn_o : out std_logic := '1';
+        iec_data_external : in std_logic := 'Z';
+        iec_clk_external : in std_logic := 'Z';
+
+         ----------------------------------------------------------------------
+         -- Floppy drive interface
+         ----------------------------------------------------------------------
+         f_density : out std_logic := '1';
+         f_motor : out std_logic := '1';
+         f_select : out std_logic := '1';
+         f_stepdir : out std_logic := '1';
+         f_step : out std_logic := '1';
+         f_wdata : out std_logic := '1';
+         f_wgate : out std_logic := '1';
+         f_side1 : out std_logic := '1';
+         f_index : in std_logic;
+         f_track0 : in std_logic;
+         f_writeprotect : in std_logic;
+         f_rdata : in std_logic;
+         f_diskchanged : in std_logic;
+
+
+        
         ps2data : in std_logic;
         ps2clock : in std_logic;
-
+        scancode_out : out std_logic_vector(12 downto 0); 												  
         pmod_clock : in std_logic;
         pmod_start_of_sequence : in std_logic;
         pmod_data_in : in std_logic_vector(3 downto 0);
         pmod_data_out : out std_logic_vector(1 downto 0);
         pmoda : inout std_logic_vector(7 downto 0);
+
+        hdmi_scl : inout std_logic := '1';
+        hdmi_sda : inout std_logic := 'Z';
 
         uart_rx : in std_logic;
         uart_tx : out std_logic;
@@ -58,6 +157,7 @@ entity iomapper is
         pixel_valid : in std_logic;
         pixel_newframe : in std_logic;
         pixel_newraster : in std_logic;
+        pixel_x_640 : in integer;
     
     ---------------------------------------------------------------------------
     -- IO lines to the ethernet controller
@@ -102,6 +202,8 @@ entity iomapper is
         micLRSel : out std_logic;
 
         ampPWM : out std_logic;
+        ampPWM_l : out std_logic;
+        ampPWM_r : out std_logic;
         ampSD : out std_logic;
 
         tmpSDA : out std_logic;
@@ -115,339 +217,42 @@ entity iomapper is
 
         viciii_iomode : in std_logic_vector(1 downto 0);
         
-        colourram_at_dc00 : in std_logic;
+        colourram_at_dc00 : in std_logic
        
-        ---------------------------------------------------------------------------
-        -- IO port to far call stack
-        ---------------------------------------------------------------------------
-        farcallstack_we : in std_logic;
-        farcallstack_addr : in std_logic_vector(8 downto 0);
-        farcallstack_din : in std_logic_vector(63 downto 0);
-        farcallstack_dout : out std_logic_vector(63 downto 0)
-
         );
 end iomapper;
 
 architecture behavioral of iomapper is
-  component kickstart is
-    port (
-      Clk : in std_logic;
-      address : in std_logic_vector(13 downto 0);
-      we : in std_logic;
-      cs : in std_logic;
-      data_i : in std_logic_vector(7 downto 0);
-      data_o : out std_logic_vector(7 downto 0));
-  end component;
 
-  component sid6581 is
-    port (
-      clk_1MHz			: in  std_logic;		-- main SID clock signal
-      clk32				: in  std_logic;		-- main clock signal
-      reset				: in  std_logic;		-- high active signal (reset when reset = '1')
-      cs					: in  std_logic;		-- "chip select", when this signal is '1' this model can be accessed
-      we					: in std_logic;		-- when '1' this model can be written to, otherwise access is considered as read
-      
-      addr				: in  unsigned(4 downto 0);	-- address lines
-      di					: in  unsigned(7 downto 0);	-- data in (to chip)
-      do					: out unsigned(7 downto 0);	-- data out	(from chip)
-      pot_x				: in  unsigned(7 downto 0);	-- paddle input-X
-      pot_y				: in  unsigned(7 downto 0);	-- paddle input-Y
-      audio_data		: out unsigned(17 downto 0)
-      );
-  end component;
+  -- Enables for each of the chip select lines,
+  -- used for disabling IO devices for debugging
+  signal cia1cs_en : std_logic := '1';
+  signal cia2cs_en : std_logic := '1';
+  signal lscs_en : std_logic := '1';
+  signal rscs_en : std_logic := '1';
+  signal sbcs_en : std_logic := '1';
+  signal c65uart_en : std_logic := '1';
+  signal sdcardio_en : std_logic := '1';
+  signal ethernetcs_en : std_logic := '1';
 
-  component ethernet is
-  port (
-    clock : in std_logic;
-    clock50mhz : in std_logic;
-    reset : in std_logic;
-    irq : out std_logic := 'Z';
-
-    ---------------------------------------------------------------------------
-    -- IO lines to the ethernet controller
-    ---------------------------------------------------------------------------
-    eth_mdio : inout std_logic;
-    eth_mdc : out std_logic;
-    eth_reset : out std_logic;
-    eth_rxd : in unsigned(1 downto 0);
-    eth_txd : out unsigned(1 downto 0);
-    eth_txen : out std_logic;
-    eth_rxdv : in std_logic;
-    eth_rxer : in std_logic;
-    eth_interrupt : in std_logic;
-
-    -- Signals from the VIC-IV frame packer to supply the compressed video feed
-    buffer_moby_toggle : in std_logic := '0';
-    buffer_address : out unsigned(11 downto 0);
-    buffer_rdata : in unsigned(7 downto 0);    
-
-    ---------------------------------------------------------------------------
-    -- keyboard event capture via ethernet
-    ---------------------------------------------------------------------------    
-    eth_keycode_toggle : out std_logic;
-    eth_keycode : out unsigned(15 downto 0);
-
-    fastio_addr : in unsigned(19 downto 0);
-    fastio_write : in std_logic;
-    fastio_read : in std_logic;
-    fastio_wdata : in unsigned(7 downto 0);
-    fastio_rdata : out unsigned(7 downto 0)
-    );
-  end component;
   
-  component sdcardio is
-    port (
-      clock : in std_logic;
-      pixelclk : in std_logic;
-      reset : in std_logic;
-
-      fpga_temperature : in std_logic_vector(11 downto 0);
-      
-      ---------------------------------------------------------------------------
-      -- fast IO port (clocked at core clock). 1MB address space
-      ---------------------------------------------------------------------------
-      fastio_addr : in unsigned(19 downto 0);
-      fastio_read : in std_logic;
-      fastio_write : in std_logic;
-      fastio_wdata : in unsigned(7 downto 0);
-      fastio_rdata : out unsigned(7 downto 0);
-
-      -- If colour RAM is mapped at $DC00-$DFFF, then don't map sector buffer
-      colourram_at_dc00 : in std_logic;
-      viciii_iomode : in std_logic_vector(1 downto 0);
-      
-      sectorbuffermapped : out std_logic;
-      sectorbuffermapped2 : out std_logic;
-      sectorbuffercs : in std_logic;
-      
-      drive_led : out std_logic := '0';
-      motor : out std_logic := '0';
-
-      -------------------------------------------------------------------------
-      -- Lines for the SDcard interface itself
-      -------------------------------------------------------------------------
-      cs_bo : out std_logic;
-      sclk_o : out std_logic;
-      mosi_o : out std_logic;
-      miso_i : in  std_logic;
-
-      ---------------------------------------------------------------------------
-      -- Lines for other devices that we handle here
-      ---------------------------------------------------------------------------
-      -- Accelerometer
-      aclMISO : in std_logic;
-      aclMOSI : out std_logic;
-      aclSS : out std_logic;
-      aclSCK : out std_logic;
-      aclInt1 : in std_logic;
-      aclInt2 : in std_logic;
-
-      -- Microphone
-      micData : in std_logic;
-      micClk : out std_logic;
-      micLRSel : out std_logic;
-
-      -- Audio in from digital SIDs
-      leftsid_audio : in unsigned(17 downto 0);
-      rightsid_audio : in unsigned(17 downto 0);
-
-      -- Audio output
-      ampPWM : out std_logic;
-      ampSD : out std_logic;
-
-      -- Temperature sensor
-      tmpSDA : out std_logic;
-      tmpSCL : out std_logic;
-      tmpInt : in std_logic;
-      tmpCT : in std_logic;
-
-      ----------------------------------------------------------------------
-      -- Flash RAM for holding config
-      ----------------------------------------------------------------------
-      QspiSCK : out std_logic;
-      QspiDB : inout std_logic_vector(3 downto 0);
-      QspiCSn : out std_logic;
-      
-      last_scan_code : in std_logic_vector(12 downto 0);
-      
-      -------------------------------------------------------------------------
-      -- And general switch inputs on the FPGA board (good as place as any here)
-      -------------------------------------------------------------------------
-      sw : in std_logic_vector(15 downto 0);
-      btn : in std_logic_vector(4 downto 0)
-
-      );
-  end component;
-
-  component c65uart is
-    port (
-      pixelclock : in std_logic;
-      cpuclock : in std_logic;
-      phi0 : in std_logic;
-      reset : in std_logic;
-      irq : out std_logic := '1';
-
-      uart_rx : in std_logic;
-      uart_tx : out std_logic;
-      
-      porte_out : out std_logic_vector(1 downto 0);
-      porte_in : in std_logic_vector(1 downto 0);
-      portf : inout std_logic_vector(7 downto 0);
-      portg : in std_logic_vector(7 downto 0);
-      porth : in std_logic_vector(7 downto 0);
-      porti : in std_logic_vector(7 downto 0);
-
-      ---------------------------------------------------------------------------
-      -- fast IO port (clocked at core clock). 1MB address space
-      ---------------------------------------------------------------------------
-      fastio_address : in unsigned(19 downto 0);
-      fastio_write : in std_logic;
-      fastio_read : in std_logic;
-      fastio_wdata : in unsigned(7 downto 0);
-      fastio_rdata : out unsigned(7 downto 0)
-      );
-  end component;
-  
-  component cia6526 is
-    port (
-      cpuclock : in std_logic;
-      phi0 : in std_logic;
-      todclock : in std_logic;
-      reset : in std_logic;
-      irq : out std_logic := '1';
-
-      reg_isr_out : out unsigned(7 downto 0);
-      imask_ta_out : out std_logic;
-
-      ---------------------------------------------------------------------------
-      -- fast IO port (clocked at core clock). 1MB address space
-      ---------------------------------------------------------------------------
-      cs : in std_logic;
-      fastio_address : in unsigned(7 downto 0);
-      fastio_write : in std_logic;
-      fastio_wdata : in unsigned(7 downto 0);
-      fastio_rdata : out unsigned(7 downto 0);
-
-      portaout : out std_logic_vector(7 downto 0);
-      portain : in std_logic_vector(7 downto 0);
-      
-      portbout : out std_logic_vector(7 downto 0);
-      portbin : in std_logic_vector(7 downto 0);
-
-      flagin : in std_logic;
-
-      pcout : out std_logic;
-
-      spout : out std_logic;
-      spin : in std_logic;
-
-      countout : out std_logic;
-      countin : in std_logic);
-  end component;
-  component keymapper is    
-  port (
-    ioclock : in std_logic;
-
-    cpu_hypervisor_mode : in std_logic;
-    drive_led_out : in std_logic;
-
-    last_scan_code : out std_logic_vector(12 downto 0);
-
-    nmi : out std_logic := 'Z';
-    reset : out std_logic := 'Z';
-    hyper_trap : out std_logic := '1';
-    hyper_trap_count : out unsigned(7 downto 0) := x"00";
-    restore_up_count : out unsigned(7 downto 0) := x"00";
-    restore_down_count : out unsigned(7 downto 0) := x"00";
-    
-    -- PS2 keyboard interface
-    ps2clock  : in  std_logic;
-    ps2data   : in  std_logic;
-
-    speed_gate : out std_logic;
-    speed_gate_enable : in std_logic;
-    
-    capslock_out : out std_logic;    
-    keyboard_column8_select_in : in std_logic;
-    pmod_clock : in std_logic;
-    pmod_start_of_sequence : in std_logic;
-    pmod_data_in : in std_logic_vector(3 downto 0);
-    pmod_data_out : out std_logic_vector(1 downto 0);
-    
-    -- CIA ports
-    porta_in  : in  std_logic_vector(7 downto 0);
-    portb_in  : in  std_logic_vector(7 downto 0);
-    porta_out : out std_logic_vector(7 downto 0);
-    portb_out : out std_logic_vector(7 downto 0);
-
-    pota_x : out unsigned(7 downto 0);
-    pota_y : out unsigned(7 downto 0);
-    potb_x : out unsigned(7 downto 0);    
-    potb_y : out unsigned(7 downto 0);
-    
-    ---------------------------------------------------------------------------
-    -- keyboard event capture via ethernet
-    ---------------------------------------------------------------------------    
-    eth_keycode_toggle : in std_logic;
-    eth_keycode : in unsigned(15 downto 0)
-    
-    );
-  end component;
-
-  component framepacker is
-    port (
-      pixelclock : in std_logic;
-      ioclock : in std_logic;
-      hypervisor_mode : in std_logic;
-      
-      pixel_stream_in : in unsigned (7 downto 0);
-      pixel_y : in unsigned (11 downto 0);
-      pixel_valid : in std_logic;
-      pixel_newframe : in std_logic;
-      pixel_newraster : in std_logic;
-
-      -- Signals for ethernet controller
-      buffer_moby_toggle : out std_logic := '0';
-      buffer_address : in unsigned(11 downto 0);
-      buffer_rdata : out unsigned(7 downto 0);    
-      
-      ---------------------------------------------------------------------------
-      -- fast IO port (clocked at CPU clock).
-      ---------------------------------------------------------------------------
-      fastio_addr : in unsigned(19 downto 0);
-      fastio_write : in std_logic;
-      fastio_read : in std_logic;
-      fastio_wdata : in unsigned(7 downto 0);
-      fastio_rdata : out unsigned(7 downto 0)
-      );
-  end component;
-
-  component farcallstack IS
-  PORT (
-    -- CPU fastio port
-    clka : IN STD_LOGIC;
-    ena : IN STD_LOGIC;
-    wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
-    addra : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
-    dina : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
-    douta : OUT STD_LOGIC_VECTOR(7 DOWNTO 0);
-    -- CPU parallel push/pop port
-    clkb : IN STD_LOGIC;
-    web : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
-    addrb : IN STD_LOGIC_VECTOR(8 DOWNTO 0);
-    dinb : IN STD_LOGIC_VECTOR(63 DOWNTO 0);
-    doutb : OUT STD_LOGIC_VECTOR(63 DOWNTO 0)
-    );
-  end component;
-
-  signal pota_x : unsigned(7 downto 0);
-  signal pota_y : unsigned(7 downto 0);
-  signal potb_x : unsigned(7 downto 0);
-  signal potb_y : unsigned(7 downto 0);
+  signal potl_x : unsigned(7 downto 0);
+  signal potl_y : unsigned(7 downto 0);
+  signal potr_x : unsigned(7 downto 0);
+  signal potr_y : unsigned(7 downto 0);
   
   signal kickstartcs : std_logic;
 
   signal reset_high : std_logic;
+
+  signal capslock_from_keymapper : std_logic := '1';
+  signal key_debug : std_logic_vector(7 downto 0);
+  signal widget_disable : std_logic;
+  signal ps2_disable : std_logic;
+  signal joykey_disable : std_logic;
+  signal joyreal_disable : std_logic;
+  signal virtual_disable : std_logic;
+  signal physkey_disable : std_logic;
 
   signal hyper_trap_count : unsigned(7 downto 0) := x"00";
   signal restore_up_count : unsigned(7 downto 0) := x"00";
@@ -463,15 +268,12 @@ architecture behavioral of iomapper is
   signal sectorbuffercs : std_logic;
   signal sector_buffer_mapped_read : std_logic;
 
-  signal farcallstackcs : std_logic;
-  signal farcallstack_w : std_logic;
-  signal farcallstack_wdata : std_logic_vector(63 downto 0);
-  signal farcallstack_rdata : std_logic_vector(63 downto 0);
-                        
   signal last_scan_code : std_logic_vector(12 downto 0);
   
+  signal cia1porta_ddr : std_logic_vector(7 downto 0);
   signal cia1porta_out : std_logic_vector(7 downto 0);
   signal cia1porta_in : std_logic_vector(7 downto 0);
+  signal cia1portb_ddr : std_logic_vector(7 downto 0);
   signal cia1portb_out : std_logic_vector(7 downto 0);
   signal cia1portb_in : std_logic_vector(7 downto 0);
 
@@ -480,6 +282,13 @@ architecture behavioral of iomapper is
   signal rightsid_cs : std_logic;
   signal rightsid_audio : unsigned(17 downto 0);
 
+  signal c65uart_cs : std_logic := '0';
+  signal sdcardio_cs : std_logic := '0';
+  signal f011_cs : std_logic := '0';
+  signal cpuregs_cs : std_logic := '0';
+  signal thumbnail_cs : std_logic := '0';
+  signal ethernet_cs : std_logic := '0';
+  
   signal spare_bits : unsigned(4 downto 0);
 
   signal buffer_moby_toggle : std_logic;
@@ -490,27 +299,72 @@ architecture behavioral of iomapper is
   signal eth_keycode : unsigned(15 downto 0);
 
   signal keyboard_column8_select : std_logic;
-  signal dummy_bits : std_logic_vector(1 downto 0);
+
+  signal ascii_key_valid : std_logic := '0';
+  signal ascii_key : unsigned(7 downto 0) := x"00";
+  signal bucky_key : std_logic_vector(7 downto 0) := (others => '0');
+  signal ascii_key_buffered : unsigned(7 downto 0) := x"00";
+  signal ascii_key_presenting : std_logic := '0';
+  type key_buffer_t is array(0 to 3) of unsigned(7 downto 0);
+  signal ascii_key_buffer : key_buffer_t;
+  signal ascii_key_buffer_count : integer range 0 to 3 := 0;
+  signal ascii_key_next : std_logic := '0';
+
+  signal sd_bitbash : std_logic;
+  signal sd_bitbash_cs_bo : std_logic;
+  signal sd_bitbash_sclk_o : std_logic;
+  signal sd_bitbash_mosi_o : std_logic;
+  signal sd_bitbash_miso_i : std_logic;
+  signal cs_bo_sd : std_logic;
+  signal sclk_o_sd : std_logic;
+  signal mosi_o_sd : std_logic;  
+
+  signal matrix_segment_num : std_logic_vector(7 downto 0) := (others => '0');
+  signal matrix_segment_out : std_logic_vector(7 downto 0);
+  signal virtual_key1 : std_logic_vector(7 downto 0);
+  signal virtual_key2 : std_logic_vector(7 downto 0);
+  signal virtual_key3 : std_logic_vector(7 downto 0);
+
+  signal keyboard_scan_mode : std_logic_vector(1 downto 0);
+  signal keyboard_scan_rate : unsigned(7 downto 0);
+
+  signal ef_latch : std_logic := '0';
+  
+  signal dummy_e : std_logic_vector(7 downto 0);
+  signal dummy_g : std_logic_vector(7 downto 0);
+  signal dummy : std_logic_vector(10 downto 0);
+
+  signal joya_rotate : std_logic;
+  signal joyb_rotate : std_logic;
+
+  signal iec_atn_reflect : std_logic := '1';
+  signal iec_clk_reflect : std_logic := '1';
+  signal iec_data_reflect : std_logic := '1';
+  signal iec_atn_fromcia : std_logic := '1';
+  signal iec_clk_fromcia : std_logic := '1';
+  signal iec_data_fromcia : std_logic := '1';
   
 begin
 
   block1: block
   begin
-  kickstartrom : kickstart port map (
+  kickstartrom : entity work.kickstart port map (
     clk     => clk,
     address => address(13 downto 0),
     we      => w,
     cs      => kickstartcs,
-    data_i  => data_i,
-    data_o  => data_o);
+    data_o  => kickstart_rdata,
+    data_i  => data_i
+    );
   end block;
 
   block2: block
   begin
-  framepacker0: framepacker port map (
+  framepacker0: entity work.framepacker port map (
     ioclock => clk,
     pixelclock => pixelclk,
     hypervisor_mode => cpu_hypervisor_mode,
+    thumbnail_cs => thumbnail_cs,
 
     pixel_stream_in => pixel_stream_in,
     pixel_y => pixel_y,
@@ -532,7 +386,9 @@ begin
 
   block3: block
   begin
-  cia1: cia6526 port map (
+    cia1: entity work.cia6526
+      generic map ( unit => x"1")
+      port map (
     cpuclock => clk,
     phi0 => phi0,
     todclock => clock50hz,
@@ -549,6 +405,8 @@ begin
     portbout => cia1portb_out,
     portain => cia1porta_in,
     portbin => cia1portb_in,
+    portaddr => cia1porta_ddr,
+    portbddr => cia1portb_ddr,
     flagin => '1',
     spin => '1',
     countin => '1'
@@ -557,7 +415,9 @@ begin
 
   block4: block
   begin
-  ciatwo: cia6526 port map (
+    ciatwo: entity work.cia6526
+      generic map ( unit => x"2")
+      port map (
     cpuclock => clk,
     phi0 => phi0,
     todclock => clock50hz,
@@ -569,9 +429,27 @@ begin
     std_logic_vector(fastio_rdata) => data_o,
     fastio_wdata => unsigned(data_i),
 
-    -- CIA ports not connected by default
+    -- CIA port a (VIC-II bank select + IEC serial port)
+    portain(2 downto 0) => (others => '1'),   
+    portain(3) => iec_atn_reflect, -- IEC serial ATN
+    -- We reflect the output values for CLK and DATA straight back in,
+    -- as they are needed to be visible for the DOS routines to work.
+    portain(4) => iec_clk_reflect,
+    portain(5) => iec_data_reflect,
+    portain(6) => iec_clk_external,
+    portain(7) => iec_data_external,
+    portaout(2 downto 0) => dummy(2 downto 0),
+    portaout(3) => iec_atn_fromcia,
+    portaout(4) => iec_clk_fromcia,
+    portaout(5) => iec_data_fromcia,
+    portaout(7 downto 6) => dummy(4 downto 3),
+    portaddr(3 downto 0) => dummy(8 downto 5),
+    portaddr(4) => iec_clk_en,
+    portaddr(5) => iec_data_en,
+    portaddr(7 downto 6) => dummy(10 downto 9),
+    
+    -- CIA port b (user port) not connected by default
     portbin => x"ff",
-    portain => x"ff",
     flagin => '1',
     spin => '1',
     countin => '1'
@@ -580,9 +458,10 @@ begin
 
   block4b: block
   begin
-    c65uart0: c65uart port map (
+    c65uart0: entity work.c65uart port map (
       pixelclock => pixelclk,
       cpuclock => clk,
+      c65uart_cs => c65uart_cs,
       phi0 => phi0,
       reset => reset,
 --      irq => nmi,
@@ -593,49 +472,140 @@ begin
       fastio_wdata => unsigned(data_i),
       -- Port E is used for extra keys on C65 keyboard:
       -- bit0 = caps lock (input only)
-      -- bit1 = column 8 select (output only)      
-      porte_in(1) => keyboard_column8_select,
-      porte_in(0) => capslock_state,
-      porte_out => dummy_bits,
+      -- bit1 = column 8 select (output only)
+      porte(7 downto 2) => dummy_e(7 downto 2),
+      porte(1) => keyboard_column8_select,
+      porte(0) => capslock_from_keymapper,
+      -- Port G is M65 only, and has bit-bash interfaces
+      portg(7) => hdmi_sda,
+      portg(6) => hdmi_scl,
+      portg(5) => sd_bitbash,
+      portg(4) => sd_bitbash_cs_bo,
+      portg(3) => sd_bitbash_sclk_o,
+      portg(2) => sd_bitbash_mosi_o,
+      portg(1 downto 0) => keyboard_scan_mode,
+      key_debug => key_debug,
+      widget_disable => widget_disable,
+      ps2_disable => ps2_disable,
+      joykey_disable => joykey_disable,
+      joyreal_disable => joyreal_disable,
+      virtual_disable => virtual_disable,
+      physkey_disable => physkey_disable,
+      key_left => key_left,
+      key_up => key_up,
       uart_rx => uart_rx,
       uart_tx => uart_tx,
       portf => pmoda,
-      portg => std_logic_vector(hyper_trap_count),
-      porth => std_logic_vector(restore_up_count),
-      porti => std_logic_vector(restore_down_count)
+      porth => std_logic_vector(ascii_key_buffered),
+      porth_write_strobe => ascii_key_next,
+      porti => std_logic_vector(bucky_key(7 downto 0)),
+      portj_out => matrix_segment_num,
+      portj_in => std_logic_vector(cart_access_count),
+      portk_out(6 downto 0) => virtual_key1(6 downto 0),
+      portk_out(7) => visual_keyboard_enable,
+      portl_out(6 downto 0) => virtual_key2(6 downto 0),
+      portl_out(7) => keyboard_at_top,
+      portm_out(6 downto 0) => virtual_key3(6 downto 0),
+      portm_out(7) => alternate_keyboard,
+      portn_out => keyboard_scan_rate,
+      porto_out => osk_x(7 downto 0),
+      portp_out => osk_y(11 downto 4),
+      joya_rotate => joya_rotate,
+      joyb_rotate => joyb_rotate,
+      mouse_debug => mouse_debug,
+      amiga_mouse_enable => amiga_mouse_enable,
+
+      pot_via_iec => pot_via_iec,
+      pot_drain => pot_drain,
+      cia1portb_out => cia1portb_out(7 downto 6),
+      fa_potx => fa_potx,
+      fa_poty => fa_poty,
+      fb_potx => fb_potx,
+      fb_poty => fb_poty,
+      pota_x => pota_x,
+      pota_y => pota_y,
+      potb_x => potb_x,
+      potb_y => potb_y
       );
   end block;
   
   block5: block
   begin
-  keymapper0 : keymapper port map (
+    kc0 : entity work.keyboard_complex
+      port map (
+      reset_in => reset,
+      matrix_mode_in => protected_hardware_in(6),
+
+      matrix_segment_num => matrix_segment_num,
+      matrix_segment_out => matrix_segment_out,
+
+      scan_mode => keyboard_scan_mode,
+      scan_rate => keyboard_scan_rate,
+      
+    widget_disable => widget_disable,
+    ps2_disable => ps2_disable,
+    joyreal_disable => joyreal_disable,
+    joykey_disable => joykey_disable,
+    physkey_disable => physkey_disable,
+    virtual_disable => virtual_disable,
+
+      joya_rotate => joya_rotate,
+      joyb_rotate => joyb_rotate,
+      
     ioclock       => clk,
-    cpu_hypervisor_mode => cpu_hypervisor_mode,
-    drive_led_out => drive_led_out,
-    nmi => restore_nmi,
-    hyper_trap => hyper_trap,
+    restore_out => restore_nmi,
+    keyboard_restore => restore_key,
+    keyboard_capslock => capslock_key,
+    key_left => key_left,
+    key_up => key_up,
+
+    key1 => unsigned(virtual_key1),
+    key2 => unsigned(virtual_key2),
+    key3 => unsigned(virtual_key3),
+
+    keydown1 => osk_key1,
+    keydown2 => osk_key2,
+    keydown3 => osk_key3,
+    keydown4 => osk_key4,
+      
+    hyper_trap_out => hyper_trap,
     hyper_trap_count => hyper_trap_count,
     restore_up_count => restore_up_count,
     restore_down_count => restore_down_count,
-    reset => reset_out,
+    reset_out => reset_out,
     ps2clock       => ps2clock,
     ps2data        => ps2data,
     last_scan_code => last_scan_code,
 --    key_status     => seg_led(1 downto 0),
     porta_in       => cia1porta_out,
-    portb_in       => cia1portb_out,
+    portb_in       => cia1portb_out,    
     porta_out      => cia1porta_in,
     portb_out      => cia1portb_in,
+    porta_ddr      => cia1porta_ddr,
+    portb_ddr      => cia1portb_ddr,
 
-    pota_x => pota_x,
-    pota_y => pota_y,
-    potb_x => potb_x,
-    potb_y => potb_y,
+    joya(4) => fa_fire,
+    joya(0) => fa_up,
+    joya(2) => fa_left,
+    joya(1) => fa_down,
+    joya(3) => fa_right,
     
+    joyb(4) => fb_fire,
+    joyb(0) => fb_up,
+    joyb(2) => fb_left,
+    joyb(1) => fb_down,
+    joyb(3) => fb_right,
+    
+    key_debug_out => key_debug,
+  
+    porta_pins => porta_pins,
+    portb_pins => portb_pins,
+
     speed_gate => speed_gate,
     speed_gate_enable => speed_gate_enable,
 
-    capslock_out => capslock_state,
+    capslock_out => capslock_from_keymapper,
+    keyboard_column8_out => keyboard_column8_out,
     keyboard_column8_select_in => keyboard_column8_select,
     pmod_clock => pmod_clock,
     pmod_start_of_sequence => pmod_start_of_sequence,
@@ -648,13 +618,19 @@ begin
 
     -- remote 
     eth_keycode_toggle => key_scancode_toggle,
-    eth_keycode => key_scancode
+    eth_keycode => key_scancode,
+
+    -- ASCII feed via hardware keyboard scanner
+    ascii_key => ascii_key,
+    ascii_key_valid => ascii_key_valid,
+    bucky_key => bucky_key(6 downto 0)
+    
     );
   end block;
 
   block6: block
   begin
-  leftsid: sid6581 port map (
+  leftsid: entity work.sid6581 port map (
     clk_1MHz => phi0,
     clk32 => clk,
     reset => reset_high,
@@ -663,14 +639,14 @@ begin
     addr => unsigned(address(4 downto 0)),
     di => unsigned(data_i),
     std_logic_vector(do) => data_o,
-    pot_x => pota_x,
-    pot_y => pota_y,
+    pot_x => potl_x,
+    pot_y => potl_y,
     audio_data => leftsid_audio);
   end block;
 
   block7: block
   begin
-  rightsid: sid6581 port map (
+  rightsid: entity work.sid6581 port map (
     clk_1MHz => phi0,
     clk32 => clk,
     reset => reset_high,
@@ -679,16 +655,18 @@ begin
     addr => unsigned(address(4 downto 0)),
     di => unsigned(data_i),
     std_logic_vector(do) => data_o,
-    pot_x => potb_x,
-    pot_y => potb_y,
+    pot_x => potr_x,
+    pot_y => potr_y,
     audio_data => rightsid_audio);
   end block;
 
-  ethernet0 : ethernet port map (
+  ethernet0 : entity work.ethernet port map (
     clock50mhz => clock50mhz,
+    clock200 => clock200,
     clock => clk,
     reset => reset,
     irq => irq,
+    ethernet_cs => ethernet_cs,
 
     ---------------------------------------------------------------------------
     -- IO lines to the ethernet controller
@@ -696,10 +674,10 @@ begin
     eth_mdio => eth_mdio,
     eth_mdc => eth_mdc,
     eth_reset => eth_reset,
-    eth_rxd => eth_rxd,
-    eth_txd => eth_txd,
-    eth_txen => eth_txen,
-    eth_rxdv => eth_rxdv,
+    eth_rxd_in => eth_rxd,
+    eth_txd_out => eth_txd,
+    eth_txen_out => eth_txen,
+    eth_rxdv_in => eth_rxdv,
     eth_rxer => eth_rxer,
     eth_interrupt => eth_interrupt,
 
@@ -713,14 +691,20 @@ begin
     fastio_addr => unsigned(address),
     fastio_write => w,
     fastio_read => r,
-    fastio_wdata => unsigned(data_i),
-    std_logic_vector(fastio_rdata) => data_o
+    std_logic_vector(fastio_rdata) => data_o,
+    fastio_wdata => unsigned(data_i)
     );
   
-  sdcard0 : sdcardio port map (
+  sdcard0 : entity work.sdcardio port map (
     pixelclk => pixelclk,
     clock => clk,
     reset => reset,
+    sdcardio_cs => sdcardio_cs,
+    f011_cs => f011_cs,
+    hypervisor_mode => cpu_hypervisor_mode,
+    hyper_trap_f011_read => hyper_trap_f011_read,
+    hyper_trap_f011_write => hyper_trap_f011_write,
+    virtualise_f011 => virtualised_hardware_in(0),
 
     fpga_temperature => fpga_temperature,
 
@@ -738,11 +722,27 @@ begin
     drive_led => drive_led,
     motor => motor,
 
+    f_density => f_density,
+    f_motor => f_motor,
+    f_select => f_select,
+    f_stepdir => f_stepdir,
+    f_step => f_step,
+    f_wdata => f_wdata,
+    f_wgate => f_wgate,
+    f_side1 => f_side1,
+    f_index => f_index,
+    f_track0 => f_track0,
+    f_writeprotect => f_writeprotect,
+    f_rdata => f_rdata,
+    f_diskchanged => f_diskchanged,
+    
     sw => sw,
     btn => btn,
-    cs_bo => cs_bo,
-    sclk_o => sclk_o,
-    mosi_o => mosi_o,
+
+    -- SD card interface
+    cs_bo => cs_bo_sd,
+    sclk_o => sclk_o_sd,
+    mosi_o => mosi_o_sd,
     miso_i => miso_i,
 
     aclMISO => aclMISO,
@@ -761,6 +761,8 @@ begin
     
     ampSD => ampSD,
     ampPWM => ampPWM,
+    ampPWM_l => ampPWM_l,
+    ampPWM_r => ampPWM_r,
     
     tmpSDA => tmpSDA,
     tmpSCL => tmpSCL,
@@ -775,28 +777,71 @@ begin
 
     );
 
-  farcallstack0: farcallstack port map (
-    clka => clk,
-    ena => farcallstackcs,
-    wea(0) => w,
-    addra => address(11 downto 0),
-    dina => data_i,
-    douta => data_o,
-    clkb => cpuclock,
-    web(0) => farcallstack_w,
-    addrb => farcallstack_addr,
-    dinb => farcallstack_wdata,
-    doutb => farcallstack_rdata
-    );
-  
   process(reset)
   begin
     reset_high <= not reset;
   end process;
 
-  process(clk)
+  -- Allow taking over of SD interface for bitbashing and debugging
+  cs_bo <= cs_bo_sd when sd_bitbash='0' else sd_bitbash_cs_bo;
+  sclk_o <= sclk_o_sd when sd_bitbash='0' else sd_bitbash_sclk_o;
+  mosi_o <= mosi_o_sd when sd_bitbash='0' else sd_bitbash_mosi_o;
+  
+  scancode_out<=last_scan_code;
+  process(clk,sbcs_en,lscs_en,c65uart_en,ethernetcs_en,sdcardio_en,
+          cia1cs_en,cia2cs_en)
   begin
     if rising_edge(clk) then
+
+      cia1cs_en <= chipselect_enables(0);
+      cia2cs_en <= chipselect_enables(1);
+      lscs_en <= chipselect_enables(2);
+      rscs_en <= chipselect_enables(2);
+      ethernetcs_en <= chipselect_enables(3);
+      -- (4)
+      sbcs_en <= chipselect_enables(5);
+      c65uart_en <= chipselect_enables(6);
+      sdcardio_en <= chipselect_enables(7);
+
+      -- Switch POTs between the two SIDs, based on the CIA port A upper
+      -- bits.
+      case cia1portb_out(7 downto 6) is
+        when "01" =>
+          potl_x <= pota_x;
+          potl_y <= pota_y;
+          potr_x <= potb_x;
+          potr_y <= potb_y;
+        when others =>
+          potr_x <= pota_x;
+          potr_y <= pota_y;
+          potl_x <= potb_x;
+          potl_y <= potb_y;
+      end case;
+      
+      -- Reflect CIA lines for IEC bus driverse so that they
+      -- can be read by the CIA
+      if iec_clk_reflect /= iec_clk_fromcia then
+        report "MAP: copying iec_clk_fromcia = "
+          & std_logic'image(iec_clk_fromcia)
+          & " to iec_clk_reflect.";
+      end if;
+      if iec_data_reflect /= iec_data_fromcia then
+        report "MAP: copying iec_data_fromcia = "
+          & std_logic'image(iec_data_fromcia)
+          & " to iec_data_reflect.";
+      end if;
+      if iec_atn_reflect /= iec_atn_fromcia then
+        report "MAP: copying iec_atn_fromcia = "
+          & std_logic'image(iec_atn_fromcia)
+          & " to iec_atn_reflect.";
+      end if;
+      iec_clk_reflect <= iec_clk_fromcia;
+      iec_data_reflect <= iec_data_fromcia;
+      iec_atn_reflect <= iec_atn_fromcia;
+      iec_clk_o <= iec_clk_fromcia;
+      iec_data_o <= iec_data_fromcia;
+      iec_atn_o <= iec_atn_fromcia;
+      
       -- Generate 50Hz signal for TOD clock
       -- (Note that we are a bit conflicted here, as our video mode is PALx4,
       --  but at 60Hz.  We will make our CIAs take 50Hz like in most PAL countries
@@ -812,30 +857,105 @@ begin
       seg_led(12) <= eth_keycode_toggle;
       seg_led(11) <= last_scan_code(12);
       seg_led(10 downto 0) <= unsigned(last_scan_code(10 downto 0));
+
+      -- Buffer ASCII keyboard input: Writing to the register causes
+      -- the next key in the queue to be displayed.
+      matrix_mode_trap <= '0';
+      if ascii_key_valid='1' and ascii_key = x"EF" and  ef_latch='0' then
+        -- C= + TAB
+        -- This replaces the old ALT+TAB task switch combination
+        matrix_mode_trap <= '1';
+        ef_latch <= '1';
+      end if;
+      if ascii_key /= x"ef" then
+        ef_latch <= '0';
+      end if;
+
+      -- UART char for monitor/matrix mode
+      if ascii_key_valid='1' and protected_hardware_in(6)='1' then
+        uart_monitor_char <= ascii_key;
+        uart_monitor_char_valid <= '1';
+        case ascii_key is
+          -- C= + 1,2,3 to set display size
+          when x"95" => mm_displayMode_out <= "00";
+          when x"96" => mm_displayMode_out <= "01";
+          when x"97" => mm_displayMode_out <= "10";
+          -- Cursor keys to move matrix mode display
+          when x"1d" => display_shift_out <= "010"; --right
+                        shift_ready_out <= '1';
+          when x"9d" => display_shift_out <= "100"; --left
+                        shift_ready_out <= '1';
+          when x"91" => display_shift_out <= "001"; --up
+                        shift_ready_out <= '1';
+          when x"11" => display_shift_out <= "011"; --down
+                        shift_ready_out <= '1';
+          when others =>  null;
+        end case;
+    
+      else
+        uart_monitor_char_valid <= '0';      
+      end if;
+      if shift_ack_in='1' then
+        shift_ready_out <= '0';
+      end if;
+      
+      -- UART char for user mode
+      uart_char_valid <= '0';
+      if ascii_key_valid='1' and protected_hardware_in(6)='0' then
+        uart_char <= ascii_key;
+        uart_char_valid <= '1';
+        if ascii_key_presenting = '1' then
+          if ascii_key_buffer_count < 4 then
+            ascii_key_buffer(ascii_key_buffer_count) <= ascii_key;
+            ascii_key_buffer_count <= ascii_key_buffer_count + 1;
+          end if;
+        else
+          ascii_key_buffered <= ascii_key;
+        end if;
+      end if;
+      if reset_high = '1' then
+        ascii_key_presenting <= '0';
+        ascii_key_buffered <= x"00";
+        ascii_key_buffer_count <= 0;
+      elsif ascii_key_next = '1' then
+        if ascii_key_buffer_count > 0 then
+          ascii_key_presenting <= '1';
+          ascii_key_buffered <= ascii_key_buffer(0);
+          ascii_key_buffer_count <= ascii_key_buffer_count - 1;
+          for i in 0 to 2 loop
+            ascii_key_buffer(i) <= ascii_key_buffer(i+1);
+          end loop;
+        else
+          ascii_key_presenting <= '0';
+          ascii_key_buffered <= x"00";
+        end if;
+      end if;
       
     end if;
   end process;
   
   process (r,w,address,cia1portb_in,cia1porta_out,colourram_at_dc00,
            sector_buffer_mapped_read)
+    variable temp : unsigned(19 downto 0);
   begin  -- process
 
-    if (r or w) = '1' then
+--    data_o <= (others => 'H');
+    
       -- @IO:GS $FFF8000-$FFFBFFF 16KB Kickstart/hypervisor ROM
-      -- @IO:GS $FFF8000 Hypervisor entry point when $D67F is written
+      -- @IO:GS $FFF8000-$FFF80FC Hypervisor entry point when $D640-$D67F is written
+      -- @IO:GS $FFF8100 Hypervisor entry point on reset (trap $40)
+      -- @IO:GS $FFF8104 Hypervisor entry point on page fault (trap $41)
+      -- @IO:GS $FFF8108 Hypervisor entry point on RESTORE double-tap (trap $42)
+      -- @IO:GS $FFF810C Hypervisor entry point on C=-TAB / ALT-TAB (trap $43)
+      -- @IO:GS $FFF8110 Hypervisor entry point on FDC read (when virtualised) (trap $44)
+      -- @IO:GS $FFF8114 Hypervisor entry point on FDC write (when virtualised) (trap $45)
+      
       if address(19 downto 14)&"00" = x"F8" then
         kickstartcs <= cpu_hypervisor_mode;
       else
         kickstartcs <='0';
       end if;
 
-      -- @IO:GS $FFF0000-$FFF0FFF - CPU far call stack (512x8 byte entries)
-      if address(19 downto 12) = x"F0" then
-        farcallstackcs <= '1';
-      else
-        farcallstackcs <= '0';
-      end if;
-      
       -- sdcard sector buffer: only mapped if no colour ram @ $DC00, and if
       -- the sectorbuffer mapping flag is set
       sectorbuffercs <= '0';
@@ -845,13 +965,13 @@ begin
         and address(15 downto 14) = "00"
         and address(11 downto 9)&'0' = x"E"
         and sector_buffer_mapped_read = '1' and colourram_at_dc00 = '0' then
-        sectorbuffercs <= '1';
+        sectorbuffercs <= sbcs_en;
         report "selecting SD card sector buffer" severity note;
       end if;
       -- Also map SD card sector buffer at $FFD6000 - $FFD61FF regardless of
       -- VIC-IV IO mode and mapping of colour RAM
       if address(19 downto 8) = x"D60" or address(19 downto 8) = x"D61" then
-        sectorbuffercs <= '1';
+        sectorbuffercs <= sbcs_en;
       end if;
 
       -- Now map the SIDs
@@ -861,31 +981,79 @@ begin
       -- Presumably repeated through to $D5FF.  But we will repeat to $D4FF only
       -- so that we can use $D500-$D5FF for other stuff.
       case address(19 downto 8) is
-        when x"D04" => leftsid_cs <= address(6); rightsid_cs <= not address(6);
-        when x"D14" => leftsid_cs <= address(6); rightsid_cs <= not address(6);
-        when x"D24" => leftsid_cs <= address(6); rightsid_cs <= not address(6);
-        when x"D34" => leftsid_cs <= address(6); rightsid_cs <= not address(6);
+        when x"D04" => leftsid_cs <= address(6) and lscs_en; rightsid_cs <= not address(6) and rscs_en;
+        when x"D14" => leftsid_cs <= address(6) and lscs_en; rightsid_cs <= not address(6) and rscs_en;
+        when x"D24" => leftsid_cs <= address(6) and lscs_en; rightsid_cs <= not address(6) and rscs_en;
+        when x"D34" => leftsid_cs <= address(6) and lscs_en; rightsid_cs <= not address(6) and rscs_en;
         -- Some C64 dual-sid programs expect the 2nd sid to be at $D500, so
         -- we will make the SIDs visible at $D500 in c64 io context, and switched
         -- sides.
-        when x"D05" => leftsid_cs <= not address(6); rightsid_cs <= address(6);
+        when x"D05" => leftsid_cs <= not address(6) and lscs_en; rightsid_cs <= address(6) and rscs_en;
         when others => leftsid_cs <= '0'; rightsid_cs <= '0';
       end case;
 
       -- $D500 - $D5FF is not currently used.  Probably use some for FPU.
       
-      -- $D600 - $D60F is reserved for C65 serial UART emulation for C65
+      -- $D600 - $D62F is reserved for C65 serial UART emulation for C65
       -- compatibility (C65 UART actually only has 7 registers).
       -- 6551 is not currently implemented, so this is just unmapped for now,
       -- except for any read values required to allow the C65 ROM to function.
+      temp(15 downto 2) := unsigned(address(19 downto 6));
+      temp(1 downto 0) := "00";
+      if address(7 downto 4) /= x"3" then
+        case temp(15 downto 0) is
+          when x"D160" => c65uart_cs <= c65uart_en;
+          when x"D260" => c65uart_cs <= c65uart_en;
+          when x"D360" => c65uart_cs <= c65uart_en;
+          when others => c65uart_cs <= '0';
+        end case;
+      else
+        c65uart_cs <= '0';
+        -- $D630-$D63F is thumbnail generator
+        if address(19 downto 8) = x"D363" then
+          thumbnail_cs <= c65uart_en;
+        else
+          thumbnail_cs <= '0';
+        end if;
+      end if;
+      if address(19 downto 4) = x"D36E" then
+        ethernet_cs <= ethernetcs_en;
+      else
+        ethernet_cs <= '0';
+      end if;
 
       -- Hypervisor control (only visible from hypervisor mode) $D640 - $D67F
       -- The hypervisor is a CPU provided function.
       
       -- SD controller and miscellaneous hardware (microphone, accelerometer etc)
       -- uses $D680 - $D6FF
-      
+      temp(15 downto 3) := unsigned(address(19 downto 7));
+      temp(2 downto 0) := "000";
+      case temp(15 downto 0) is
+        when x"D168" => sdcardio_cs <= sdcardio_en;
+        when x"D268" => sdcardio_cs <= sdcardio_en;
+        when x"D368" => sdcardio_cs <= sdcardio_en;
+        when others => sdcardio_cs <= '0';
+      end case;
+
+      -- F011 emulation registers
+      temp(15 downto 1) := unsigned(address(19 downto 5));
+      temp(0) := '0';
+      case temp(15 downto 0) is
+        when x"D108" => f011_cs <= sdcardio_en;
+        when x"D208" => f011_cs <= sdcardio_en;
+        when x"D308" => f011_cs <= sdcardio_en;
+        when others => f011_cs <= '0';
+      end case;
+            
       -- CPU uses $FFD{0,1,2,3}700 for DMAgic and other CPU-hosted IO registers.
+      -- XXX is resolved in CPU
+--      case address(19 downto 8) is
+--        when x"D17" => cpuregs_cs <= '1';
+--        when x"D27" => cpuregs_cs <= '1';
+--        when x"D37" => cpuregs_cs <= '1';
+--        when others => cpuregs_cs <= '0';
+--      end case;
       
       -- Now map the CIAs.
 
@@ -895,26 +1063,20 @@ begin
       cia2cs <='0';
       if colourram_at_dc00='0' and sector_buffer_mapped_read='0' then
         case address(19 downto 8) is
-          when x"D0C" => cia1cs <='1';
-          when x"D1C" => cia1cs <='1';
-          when x"D2C" => cia1cs <='1';
-          when x"D3C" => cia1cs <='1';
-          when x"D0D" => cia2cs <='1';
-          when x"D1D" => cia2cs <='1';
-          when x"D2D" => cia2cs <='1';
-          when x"D3D" => cia2cs <='1';
+          when x"D0C" => cia1cs <=cia1cs_en;
+          when x"D1C" => cia1cs <=cia1cs_en;
+          when x"D2C" => cia1cs <=cia1cs_en;
+          when x"D3C" => cia1cs <=cia1cs_en;
+          when x"D0D" => cia2cs <=cia2cs_en;
+          when x"D1D" => cia2cs <=cia2cs_en;
+          when x"D2D" => cia2cs <=cia2cs_en;
+          when x"D3D" => cia2cs <=cia2cs_en;
           when others => null;
         end case;
       end if;
-    else
-      cia1cs <= '0';
-      cia2cs <= '0';
-      kickstartcs <= '0';
-      sectorbuffercs <= '0';
-      leftsid_cs <= '0';
-      rightsid_cs <= '0';
-      farcallstackcs <= '0';
-    end if;
+
+    report "CS lines: "
+      & to_string(cia1cs&cia2cs&kickstartcs&sectorbuffercs&leftsid_cs&rightsid_cs&c65uart_cs&sdcardio_cs&thumbnail_cs);
   end process;
 
 end behavioral;

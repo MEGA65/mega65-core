@@ -32,8 +32,17 @@ entity uart_monitor is
     clock : in std_logic;
     tx : out std_logic;
     rx : in  std_logic;
+    bit_rate_divisor : out unsigned(13 downto 0);
     activity : out std_logic;
 
+    protected_hardware_in : in unsigned(7 downto 0);
+    uart_char : in unsigned(7 downto 0);
+    uart_char_valid : in std_logic;
+
+    monitor_char_out : out unsigned(7 downto 0);
+    monitor_char_valid : out std_logic;
+    terminal_emulator_ready : in std_logic;
+    
     key_scancode : out unsigned(15 downto 0);
     key_scancode_toggle : out std_logic;
 
@@ -48,7 +57,6 @@ entity uart_monitor is
     monitor_pc : in unsigned(15 downto 0);
     monitor_cpu_state : in unsigned(15 downto 0);
     monitor_hypervisor_mode : in std_logic;
-    monitor_ddr_ram_banking : in std_logic;
     monitor_instruction : in unsigned(7 downto 0);
     monitor_watch : out unsigned(27 downto 0) := x"7FFFFFF";
     monitor_watch_match : in std_logic;
@@ -88,33 +96,6 @@ entity uart_monitor is
 end uart_monitor;
 
 architecture behavioural of uart_monitor is
-  component UART_TX_CTRL is
-    Port ( SEND : in  STD_LOGIC;
-           DATA : in  STD_LOGIC_VECTOR (7 downto 0);
-           CLK : in  STD_LOGIC;
-           READY : out  STD_LOGIC;
-           UART_TX : out  STD_LOGIC);
-  end component;
-
-  component uart_rx is
-    Port ( clk : in  STD_LOGIC;
-           UART_RX : in  STD_LOGIC;
-           data : out  STD_LOGIC_VECTOR (7 downto 0);
-           data_ready : out std_logic;
-           data_acknowledge : in std_logic
-           );
-  end component;
-
-  component ram128x1k IS
-    -- NOTE: is actually 177-bits and NOT 128-bits as the name suggests
-    PORT (
-      clk : IN STD_LOGIC;
-      w : IN STD_LOGIC;
-      addr : IN integer range 0 to 1023;
-      din : IN unsigned(176 downto 0);
-      dout : OUT unsigned(176 downto 0)
-      );
-  END component;
 
   signal reset_timeout : integer range 0 to 15 := 15;
 
@@ -139,7 +120,7 @@ architecture behavioural of uart_monitor is
 -- indicates that uart is ready to TX the next byte.
   signal tx_ready : std_logic;
 
-  signal rx_data : std_logic_vector(7 downto 0);
+  signal rx_data : unsigned(7 downto 0);
   signal rx_ready : std_logic;
   signal rx_acknowledge : std_logic := '0';
 
@@ -153,6 +134,25 @@ architecture behavioural of uart_monitor is
   constant crlf : string := cr & lf;
 
   constant bannerMessage : String :=
+    crlf &
+    crlf &
+    crlf &
+    crlf &
+    crlf &
+    crlf &
+    crlf &
+    crlf &
+    crlf &
+    crlf &
+    crlf &
+    crlf &
+    crlf &
+    crlf &
+    crlf &
+    crlf &
+    crlf &
+    crlf &
+    crlf &
     crlf &
     crlf &
     "MEGA65 Serial Monitor" & crlf &
@@ -215,7 +215,8 @@ architecture behavioural of uart_monitor is
                          CPUTransaction1,CPUTransaction2,CPUTransaction3,
                          ParseHex,
                          PrintHex,PrintSpaces,
-                         ParseFlagBreak,                         
+                         ParseFlagBreak,
+                         SetBaudRate,
                          Watch1,
                          SetMemory1,SetMemory2,SetMemory3,SetMemory4,SetMemory5,
                          SetMemory6,SetMemory7,SetMemory8,
@@ -283,7 +284,8 @@ architecture behavioural of uart_monitor is
   signal key_state : integer range 0 to 5 := 0;
 
   signal key_scancode_toggle_internal : std_logic := '0';
-
+  signal uart_char_processed : std_logic := '0';
+  
   -- Processor break point
   signal break_address : unsigned(15 downto 0) := x"0000";
   signal break_enabled : std_logic := '0';
@@ -303,25 +305,36 @@ architecture behavioural of uart_monitor is
   signal cpu_state_was_hold : std_logic := '0';
 
   signal show_register_delay : integer range 0 to 255;
+
+  signal bit_rate_divisor_internal : unsigned(13 downto 0) := to_unsigned(50000000/2000000,14);
+
+  signal in_matrix_mode : std_logic := '0';
+
+  signal terminal_emulator_ready_computed : std_logic := '1';
+  signal terminal_emulator_just_sent : std_logic := '0';
+  signal terminal_emulator_ready_counter : integer range 0 to 511 := 0;
   
 begin
 
-  uart_tx0: UART_TX_CTRL
+  uart_tx0: entity work.UART_TX_CTRL
     port map (
       send    => tx_trigger,
+      BIT_TMR_MAX => bit_rate_divisor_internal,
       clk     => clock,
       data    => tx_data,
       ready   => tx_ready,
       uart_tx => tx);
 
-  uart_rx0: uart_rx 
+  uart_rx0: entity work.uart_rx 
     Port map ( clk => clock,
+               bit_rate_divisor => bit_rate_divisor_internal,
                UART_RX => rx,
+
                data => rx_data,
                data_ready => rx_ready,
                data_acknowledge => rx_acknowledge);
 
-  historyram0: ram128x1k
+  historyram0: entity work.ram128x1k
     -- NOTE: is actually 177-bits and NOT 128-bits as the name suggests
     port map ( clk => clock,
                w => history_write,
@@ -343,11 +356,32 @@ begin
 
     -- purpose: convert ascii value in a std_logic_vector to a VHDL character
     function to_character (
-      v : std_logic_vector(7 downto 0))
+      v : unsigned(7 downto 0))
       return character is
     begin  -- to_character
-      return character'val(to_integer(unsigned(v)));   
+      return character'val(to_integer(v));   
     end to_character;
+
+    procedure output_char(char : in character) is
+    begin
+      if (protected_hardware_in(6)='0') then
+        -- UART output
+        tx_data <= to_std_logic_vector(char);
+        tx_trigger <= '1';
+      else
+        -- matrix mode terminal emulator output
+        monitor_char_out <= unsigned(to_std_logic_vector(char));
+        monitor_char_valid <= '1';
+
+        -- Then mark terminal emulator busy long enough for it to
+        -- accept the character, and clear the ready flag, if required.
+        -- (this is required because the terminal emulator might be busy
+        -- drawing pixels at the time).
+        terminal_emulator_just_sent <= '1';
+        terminal_emulator_ready_counter <= 511;
+        
+      end if;
+    end output_char;
     
     -- purpose: Process a character typed by the user.
     procedure character_received (char : in character) is
@@ -355,15 +389,13 @@ begin
       if ((char >= ' ' and char < del) or (char > c159)) and (key_state=0) then
         if cmdlen<65 then
           -- Echo character back to user
-          tx_data <= to_std_logic_vector(char);
-          tx_trigger <= '1';
+          output_char(char);
           -- Append to input buffer
           cmdbuffer(cmdlen) <= char;
           cmdlen <= cmdlen + 1;
         else
           -- Input buffer full, so ring bell.
-          tx_data <= to_std_logic_vector(bel);
-          tx_trigger <= '1';
+          output_char(bel);
         end if;
       else
         -- Non-printable character, for now print ?
@@ -430,19 +462,24 @@ begin
               when bs =>
                 if cmdlen>1 then
                   -- Delete character from end of line
-                  tx_data <= to_std_logic_vector(bs);
-                  tx_trigger <= '1';
+                  output_char(bs);
                   cmdlen <= cmdlen - 1;          
                   state <= EraseCharacter;
                 end if;
               when del =>
                 if cmdlen>1 then
                   -- Delete character from end of line
-                  tx_data <= to_std_logic_vector(bs);
-                  tx_trigger <= '1';                    
+                  output_char(bs);
                   cmdlen <= cmdlen - 1;          
                   state <= EraseCharacter;
                 end if;
+              when character'val(20) => -- PETSCII delete
+                if cmdlen>1 then
+                  -- Delete character from end of line
+                  output_char(bs);
+                  cmdlen <= cmdlen - 1;          
+                  state <= EraseCharacter;
+                end if;                
               when ack =>
               -- ^F move forward one character
               -- XXX not implemented
@@ -452,8 +489,8 @@ begin
               when cr => state <= EnterPressed;
               when lf => state <= EnterPressed;
               when others =>
-                tx_data <= to_std_logic_vector(bel);
-                tx_trigger <= '1';                    
+                -- Ring bell
+                output_char(bel);
             end case;
           when others =>
             null;
@@ -466,9 +503,12 @@ begin
       char       : in character;
       next_state : in monitor_state) is
     begin  -- try_output_char
-      if tx_ready='1' then
-        tx_data <= to_std_logic_vector(char);
-        tx_trigger <= '1';
+      if tx_ready='1' and protected_hardware_in(6)='0' then
+        output_char(char);
+        state <= next_state;
+      end if;
+      if protected_hardware_in(6)='1' and terminal_emulator_ready_computed='1' then
+        output_char(char);
         state <= next_state;
       end if;
     end try_output_char;
@@ -641,6 +681,21 @@ begin
   begin  -- process testclock
     if rising_edge(clock) then
 
+      if terminal_emulator_ready_counter = 0 then
+        terminal_emulator_ready_computed
+          <= terminal_emulator_ready and (not terminal_emulator_just_sent);
+      else
+        terminal_emulator_ready_computed <= '0';
+        terminal_emulator_ready_counter <= terminal_emulator_ready_counter - 1;
+      end if;
+      -- Clear just-sent flag only when the terminal emulator has accepted the
+      -- character by marking not-ready
+      if terminal_emulator_ready = '0' then
+        terminal_emulator_just_sent <= '0';
+      end if;
+
+      bit_rate_divisor <= bit_rate_divisor_internal;
+      
       if reset='0' then -- reset is asserted
 
         state <= Reseting;
@@ -729,6 +784,11 @@ begin
         if break_enabled='1' and break_address = unsigned(monitor_pc) then
           monitor_mem_trace_mode <= '1';
         end if;
+        -- Stop CPU on BRK instructin if break address set to $0000
+        if break_enabled='1' and break_address = to_unsigned(0,16)
+          and monitor_opcode = x"00" then
+          monitor_mem_trace_mode <= '1';
+        end if;          
         -- Stop CPU when specified memory location is written to
         if monitor_watch_match='1' then
           monitor_mem_trace_mode <= '1';
@@ -746,7 +806,8 @@ begin
         -- Update counter and clear outputs
         counter <= counter + 1;
         rx_acknowledge <= '0';
-        tx_trigger<='0';
+        tx_trigger <= '0';
+        monitor_char_valid <= '0';
 
         -- Make sure we don't leave the CPU locked
         if rx_ready='1' then
@@ -755,8 +816,8 @@ begin
           monitor_mem_attention_request <= '0';
         end if;
         
-        -- 1 cycle delay after sending characters
-        if tx_trigger/='1' then      
+        -- Maintain 1 cycle delay after sending characters
+        if tx_trigger/='1' and terminal_emulator_ready_computed='1' then      
           -- General state machine
           case state is
             when Reseting =>
@@ -764,9 +825,8 @@ begin
               state <= PrintBanner;
               
             when PrintBanner =>
-              if tx_ready='1' then
-                tx_data <= to_std_logic_vector(bannerMessage(banner_position));
-                tx_trigger <= '1';
+              if tx_ready='1' then                
+                output_char(bannerMessage(banner_position));
                 if banner_position<bannerMessage'length then
                   banner_position <= banner_position + 1;
                 else
@@ -776,9 +836,8 @@ begin
               end if;
               
             when PrintError =>
-              if tx_ready='1' then
-                tx_data <= to_std_logic_vector(errorMessage(banner_position));
-                tx_trigger <= '1';
+              if tx_ready='1' then                
+                output_char(errorMessage(banner_position));
                 if banner_position<errorMessage'length then
                   banner_position <= banner_position + 1;
                 else
@@ -801,8 +860,7 @@ begin
             when PrintRequestTimeoutError =>
               monitor_mem_attention_request <= '0';
               if tx_ready='1' then
-                tx_data <= to_std_logic_vector(requestTimeoutMessage(banner_position));
-                tx_trigger <= '1';
+                output_char(requestTimeoutMessage(banner_position));
                 if banner_position<requestTimeoutMessage'length then
                   banner_position <= banner_position + 1;
                 else
@@ -813,8 +871,7 @@ begin
             when PrintReplyTimeoutError =>
               monitor_mem_attention_request <= '0';
               if tx_ready='1' then
-                tx_data <= to_std_logic_vector(replyTimeoutMessage(banner_position));
-                tx_trigger <= '1';
+                output_char(replyTimeoutMessage(banner_position));
                 if banner_position<replyTimeoutMessage'length then
                   banner_position <= banner_position + 1;
                 else
@@ -829,7 +886,13 @@ begin
                                 
             when AcceptingInput =>
               -- If there is a character waiting
-              if monitor_char_toggle /= monitor_char_toggle_last then
+              if protected_hardware_in(6)='0' then
+                in_matrix_mode <= '0';
+              end if;
+              if protected_hardware_in(6)='1' and in_matrix_mode = '0' then
+                state <= PrintBanner;
+                in_matrix_mode <= '1';
+              elsif monitor_char_toggle /= monitor_char_toggle_last then
                 monitor_char_toggle_last <= monitor_char_toggle;
                 try_output_char(character'val(to_integer(monitor_char)),
                                 AcceptingInput2);
@@ -839,13 +902,23 @@ begin
                   monitor_char_count <= x"0000";
                 end if;
               elsif rx_ready = '1' and rx_acknowledge='0' then
+                -- Serial port input
                 blink <= not blink;
                 activity <= blink;
                 rx_acknowledge<='1';
                 trace_continuous <= '0';
-                character_received(to_character(rx_data));
+                if protected_hardware_in(6) = '0' then
+                  character_received(to_character(rx_data));
+                end if;
+              elsif uart_char_valid = '1' and uart_char_processed='0' and uart_char /= x"ef" then
+                -- Matrix mode input
+                character_received(to_character(uart_char));
+                uart_char_processed <= '1';
+              elsif uart_char_valid = '0' then
+                uart_char_processed <= '0';
               end if;
-
+              
+              
               if trace_continuous='1' then
                 state <= EnterPressed;
               end if;
@@ -1002,7 +1075,9 @@ begin
                   else
                     -- D prints 32 lines
                     line_number <= 0;
-                  end if;                
+                  end if;
+                elsif cmdbuffer(1) = '+' then
+                  parse_hex(SetBaudRate);
                 elsif cmdbuffer(1) = 'm' or cmdbuffer(1) = 'M' then
                   report "read memory command" severity note;
                   parse_position <= 2;
@@ -1095,6 +1170,9 @@ begin
             when Watch1 => monitor_watch <= hex_value(27 downto 0);
                            state <= NextCommand;
                            
+            when SetBaudRate =>
+              bit_rate_divisor_internal <= hex_value(13 downto 0);
+              state <= NextCommand;
             when LoadMemory1 => target_address <= hex_value(27 downto 0);
                                 skip_space(LoadMemory2);
             when LoadMemory2 => parse_hex(LoadMemory3);
@@ -1109,21 +1187,23 @@ begin
                   activity <= blink;
                   rx_acknowledge<='1';
 
-                  monitor_mem_read <= '0';
-                  monitor_mem_write <= '1';
-                  monitor_mem_address <= target_address;
-                  monitor_mem_wdata <= unsigned(rx_data);
-
+                  monitor_mem_wdata <= rx_data;
                   target_address(15 downto 0) <= target_address(15 downto 0) + 1;
+                  state <= LoadMemory4;
                   
-                  timeout <= 65535;
-                  cpu_transaction(LoadMemory3);
                 end if;
               else
                 rx_acknowledge <= '0';
                 state <= NextCommand;
               end if;
-              
+            when LoadMemory4 =>
+              if rx_ready = '0' then
+                rx_acknowledge <= '0';
+                monitor_mem_read <= '0';
+                monitor_mem_write <= '1';
+                monitor_mem_address <= target_address;
+                cpu_transaction(LoadMemory3);
+              end if;
             when SetMemory1 =>
               if cmdbuffer(1) = 'S' then
                 target_address <= x"777"&hex_value(15 downto 0);
@@ -1282,8 +1362,7 @@ begin
               
             when ShowRegisters1 =>
               if tx_ready='1' then
-                tx_data <= to_std_logic_vector(registerMessage(banner_position));
-                tx_trigger <= '1';
+                output_char(registerMessage(banner_position));
                 if banner_position<registerMessage'length then
                   banner_position <= banner_position + 1;
                 else
@@ -1476,11 +1555,7 @@ begin
                 try_output_char('-',ShowP20);
               end if;
             when ShowP20 =>
-              if monitor_ddr_ram_banking='1' then
-                try_output_char('B',NextCommand);
-              else
-                try_output_char('-',NextCommand);
-              end if;
+              try_output_char('-',NextCommand);          
               
             when EraseCharacter => try_output_char(' ',EraseCharacter1);
             when EraseCharacter1 => try_output_char(bs,AcceptingInput);

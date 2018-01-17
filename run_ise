@@ -1,0 +1,193 @@
+#!/bin/bash
+
+TARGET=$1
+TASK=$2
+# Required because Xilinx settings scripts require $# = 0 to work
+# correctly
+shift 2
+
+if [ "x$TARGET" = "x" ]; then
+    echo "ERROR: Target missing."
+    echo "usage: run_ise <target> <task>"
+    exit 3
+fi
+
+if [ "x$TASK" = "x" ]; then
+    echo "ERROR: Task missing."
+    echo "usage: run_ise <target> <task>"
+    exit 3
+fi
+
+# ensure these directory exists, if not, make them
+LOGDIR="build-logs"
+if test ! -e    "./${LOGDIR}"; then
+  echo "Creating ./${LOGDIR}"
+  mkdir          ./${LOGDIR}
+fi
+if test ! -e    "./sdcard-files"; then
+  echo "Creating ./sdcard-files"
+  mkdir          ./sdcard-files
+fi
+if test ! -e    "./sdcard-files/old-bitfiles"; then
+  echo "Creating ./sdcard-files/old-bitfiles"
+  mkdir          ./sdcard-files/old-bitfiles
+fi
+
+# here we need to detect if you have 64 or 32 bit machine
+# on a 64-bit installation, both 32 and 64 bit settings files exist.
+# on a 32-bit installation, only the settings32 exists.
+# -> so first check for the 64-bit settings file.
+#       special case/path for Colossus Supercomputer
+if [ -e /usr/local/Xilinx/14.7/ISE_DS/settings64.sh ]; then
+  echo "Detected 64-bit Xilinx installation on Colossus"
+#  echo . /usr/local/Xilinx/14.7/ISE_DS/settings64.sh
+  . /usr/local/Xilinx/14.7/ISE_DS/settings64.sh
+#       standard install location for 32/64 bit Xilinx installation
+elif [ -e /opt/Xilinx/14.7/ISE_DS/settings64.sh ]; then
+  echo "Detected 64-bit Xilinx installation"
+  echo source /opt/Xilinx/14.7/ISE_DS/settings64.sh
+  source /opt/Xilinx/14.7/ISE_DS/settings64.sh
+#       standard install location for 32/64 bit Xilinx installation
+elif [ -e /opt/Xilinx/14.7/ISE_DS/settings32.sh ]; then
+  echo "Detected 32-bit Xilinx installation"
+  echo . /opt/Xilinx/14.7/ISE_DS/settings32.sh
+  . /opt/Xilinx/14.7/ISE_DS/settings32.sh
+else
+  echo "Cannot detect a Xilinx installation"
+  exit 0;
+fi
+echo "PATH = $PATH"
+
+datetime=`date +%Y%m%d_%H:%M:%S`
+# time for the output filenames
+datetime2=`date +%m%d%H%M`
+# gitstring for the output filenames, results in '10bef97' or similar
+gitstring=`git describe --always --abbrev=7 --dirty=~`
+# git status of 'B'ranch in 'S'hort format, for the output filename
+branch=`git status -b -s | head -n 1`
+# get from charpos3, for 6 chars
+branch2=${branch:3:6}
+
+TARGETNAME=`echo $TARGET | sed -e 's,^.*/,,'`
+
+outfile0="${LOGDIR}/compile-${TARGETNAME}-${gitstring}_0.log"
+outfile1="${LOGDIR}/compile-${TARGETNAME}-${gitstring}_1-xst.log"
+outfile2="${LOGDIR}/compile-${TARGETNAME}-${gitstring}_2-ngd.log"
+outfile3="${LOGDIR}/compile-${TARGETNAME}-${gitstring}_3-map.log"
+outfile4="${LOGDIR}/compile-${TARGETNAME}-${gitstring}_4-par.log"
+outfile5="${LOGDIR}/compile-${TARGETNAME}-${gitstring}_5-trc.log"
+outfile6="${LOGDIR}/compile-${TARGETNAME}-${gitstring}_6-bit.log"
+
+PART=`grep "^-p " ./isework/${TARGETNAME}.xst`
+
+ISE_COMMON_OPTS="-intstyle ise"
+ISE_NGDBUILD_OPTS="$PART -dd _ngo -sd ipcore_dir -nt timestamp"
+ISE_MAP_OPTS="$PART -w -logic_opt on -ol high -t 1 -xt 0 -register_duplication on -r 4 -mt 2 -ir off -ignore_keep_hierarchy -pr b -lc off -power off"
+ISE_PAR_OPTS="-w -ol std -mt off"
+ISE_TRCE_OPTS="-v 3 -s 1 -n 3 -fastpaths -xml"
+
+# ensure these directory exists, if not, make them
+if test ! -e    "./isework/xst/"; then
+  echo "Creating ./isework/xst/"
+  mkdir          ./isework/xst/
+fi
+if test ! -e    "./isework/xst/projnav.tmp/"; then
+  echo "Creating ./isework/xst/projnav.tmp/"
+  mkdir          ./isework/xst/projnav.tmp
+fi
+
+# begin the ISE build:
+echo "Beginning the ISE build."
+echo " "
+echo "Check ./${LOGDIR}/compile-<target>-<git commit>-X*.log for the log files, X={1,2,3,4,5,6}"
+echo " "
+
+# first, put the git-commit-ID in the first log file.
+echo ${gitstring} > $outfile0
+# put the git-branch-ID in the log file.
+echo ${branch}  >> $outfile0
+echo ${branch2} >> $outfile0
+
+UCF_TARGET_FPGA="./src/vhdl/${TARGETNAME}.ucf"
+
+echo " "
+cat ./src/version.a65
+pwd
+echo " "
+
+if [ $TASK == xst ]; then
+    #
+    # ISE: synthesize
+    #
+    echo "==> $datetime Starting: xst, see ${TARGET}.syr"
+    echo xst ${ISE_COMMON_OPTS} -ifn "isework/${TARGETNAME}.xst" -ofn "isework/${TARGETNAME}.syr"
+    xst ${ISE_COMMON_OPTS} -ifn "isework/${TARGETNAME}.xst" -ofn "isework/${TARGETNAME}.syr" >> $outfile1
+    exit $?
+fi
+
+if [ "$TASK" == "ngdbuild" ];
+then
+    #
+    # ISE: ngdbuild
+    #
+    echo "==> $datetime Starting: ngdbuild, see ${TARGET}.bld"
+    echo ngdbuild ${ISE_COMMON_OPTS} ${ISE_NGDBUILD_OPTS} -uc ${UCF_TARGET_FPGA} ./isework/${TARGETNAME}.ngc ./isework/${TARGETNAME}.ngd
+    ngdbuild ${ISE_COMMON_OPTS} ${ISE_NGDBUILD_OPTS} -uc ${UCF_TARGET_FPGA} ./isework/${TARGETNAME}.ngc ./isework/${TARGETNAME}.ngd > $outfile2
+    exit $?   
+	
+fi
+
+if [ $TASK == map ]; then
+    #
+    # ISE: map
+    #
+    echo "==> $datetime Starting: map, see ${TARGET}.mrp"
+    map ${ISE_COMMON_OPTS} ${ISE_MAP_OPTS} -o ./isework/${TARGETNAME}_map.ncd ./isework/${TARGETNAME}.ngd ./isework/${TARGETNAME}.pcf > $outfile3
+    mv ./isework/${TARGETNAME}_map.ncd ./isework/${TARGETNAME}.mapncd
+    exit $?
+fi
+
+if [ $TASK == par ]; then
+    #
+    # ISE: place and route
+    #
+    echo "==> $datetime Starting: par, see ${TARGET}.par"
+    rm  ./isework/${TARGETNAME}_map.ncd
+    ln -s ${TARGETNAME}.mapncd  ./isework/${TARGETNAME}_map.ncd 
+    par ${ISE_COMMON_OPTS} ${ISE_PAR_OPTS} ./isework/${TARGETNAME}_map.ncd ./isework/${TARGETNAME}.ncd ./isework/${TARGETNAME}.pcf > $outfile4
+    exit $?
+fi
+
+if [ $TASK == trce ]; then
+    #
+    # ISE: trace
+    #
+    echo "==> $datetime Starting: trace"
+    trce ${ISE_COMMON_OPTS} ${ISE_TRCE_OPTS} ./isework/${TARGETNAME}.twx ./isework/${TARGETNAME}.ncd -o ./isework/${TARGETNAME}.twr ./isework/${TARGETNAME}.pcf -ucf ./src/vhdl/${TARGETNAME}.ucf > $outfile5
+    exit $?
+fi
+
+if [ $TASK == bitgen ]; then
+    #
+    # ISE: bitgen
+    #
+    echo "==> $datetime Starting: bitgen, see ${TARGET}.bgn"
+    echo bitgen ${ISE_COMMON_OPTS} -g SPI_buswidth:4 -g ConfigRate:33 -f ./isework/${TARGETNAME}.ut ./isework/${TARGETNAME}.ncd
+    bitgen ${ISE_COMMON_OPTS} -g SPI_buswidth:4 -g ConfigRate:33 -f ./isework/${TARGETNAME}.ut ./isework/${TARGETNAME}.ncd > $outfile6
+    mkdir -p old-bitfiles
+    cp isework/${TARGETNAME}.bit old-bitfiles/${TARGETNAME}-`date +%Y%m%d`-${gitstring}.bit
+    mv isework/${TARGETNAME}.bit bin/${TARGETNAME}.bit
+    exit $?
+fi
+
+if [ $TASK == promgen ]; then
+    #
+    # ISE: Promgen
+    #
+    echo "===> $datetime Starting: promgen, set ${TARGET}.mcs"
+    echo promgen -spi -p mcs -w -o bin/${TARGETNAME}.mcs -s 16384 -u 0 bin/${TARGETNAME}.bit
+    promgen -spi -p mcs -w -o bin/${TARGETNAME}.mcs -s 16384 -u 0 bin/${TARGETNAME}.bit
+    mkdir -p old-bitfiles
+    cp bin/${TARGETNAME}.mcs old-bitfiles/${TARGETNAME}-`date +%Y%m%d`-${gitstring}.mcs
+fi
+

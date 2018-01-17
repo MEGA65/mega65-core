@@ -5,104 +5,95 @@ use Std.TextIO.all;
 use work.debugtools.all;
 
 entity keymapper is
-  
   port (
     ioclock : in std_logic;
+    reset_in : in std_logic;
+    matrix_mode_in : std_logic;
 
-    cpu_hypervisor_mode : in std_logic;
-    drive_led_out : in std_logic;
+    joya_rotate : in std_logic;
+    joyb_rotate : in std_logic;
+    
+    -- Which inputs shall we incorporate
+    virtual_disable : in std_logic;
+    matrix_virtual : in std_logic_vector(71 downto 0);
+    
+    physkey_disable : in std_logic;
+    matrix_physkey : in std_logic_vector(71 downto 0);
+    capslock_physkey : in std_logic;
+    restore_physkey : in std_logic;
 
-    last_scan_code : out std_logic_vector(12 downto 0);
+    joykey_disable : in std_logic;
+    joya_physkey : in std_logic_vector(4 downto 0);
+    joyb_physkey : in std_logic_vector(4 downto 0);
 
-    nmi : out std_logic := 'Z';
-    reset : out std_logic := 'Z';
-    hyper_trap : out std_logic := '1';
-    hyper_trap_count : out unsigned(7 downto 0) := x"00";
-    restore_up_count : out unsigned(7 downto 0) := x"00";
-    restore_down_count : out unsigned(7 downto 0) := x"00";
+    joyreal_disable : in std_logic;
+    joya_real : in std_logic_vector(4 downto 0);
+    joyb_real : in std_logic_vector(4 downto 0);
+    
+    widget_disable : in std_logic;
+    matrix_widget : in std_logic_vector(71 downto 0);
+    joya_widget : in std_logic_vector(4 downto 0);
+    joyb_widget : in std_logic_vector(4 downto 0);
+    capslock_widget : in std_logic;
+    restore_widget : in std_logic;
 
+    ps2_disable : in std_logic;
+    matrix_ps2 : in std_logic_vector(71 downto 0);
+    joya_ps2 : in std_logic_vector(4 downto 0);
+    joyb_ps2 : in std_logic_vector(4 downto 0);
+    capslock_ps2 : in std_logic;
+    restore_ps2 : in std_logic;
+
+    matrix_combined : out std_logic_vector(71 downto 0) := (others => '1');
+    
+    -- RESTORE when held or double-tapped does special things
+    restore_out : out std_logic := '1';
+    reset_out : out std_logic := '1';
+    hyper_trap_out : out std_logic := '1';
+    
     -- USE ASC/DIN / CAPS LOCK key to control CPU speed instead of CAPS LOCK function
     speed_gate : out std_logic := '1';
     speed_gate_enable : in std_logic := '1';
     
     -- appears as bit0 of $D607 (see C65 keyboard scan routine at $E406)
     capslock_out : out std_logic := '1';
+
+    -- Registers for debugging
+    key_debug_out : out std_logic_vector(7 downto 0);
+    hyper_trap_count : out unsigned(7 downto 0) := x"00";
+    restore_up_count : out unsigned(7 downto 0) := x"00";
+    restore_down_count : out unsigned(7 downto 0) := x"00";
     
-    -- PS2 keyboard interface
-    ps2clock  : in  std_logic;
-    ps2data   : in  std_logic;
-    -- CIA ports
+    -- CIA1 ports
     porta_in  : in  std_logic_vector(7 downto 0);
     portb_in  : in  std_logic_vector(7 downto 0);
     porta_out : out std_logic_vector(7 downto 0);
     portb_out : out std_logic_vector(7 downto 0);
+    porta_ddr : in  std_logic_vector(7 downto 0);
+    portb_ddr : in  std_logic_vector(7 downto 0);
 
-    pota_x : out unsigned(7 downto 0) := x"ff";
-    pota_y : out unsigned(7 downto 0) := x"ff";
-    potb_x : out unsigned(7 downto 0) := x"ff";    
-    potb_y : out unsigned(7 downto 0) := x"ff";
-    
     -- read from bit1 of $D607 (see C65 keyboard scan routine at $E406)?
-    keyboard_column8_select_in : in std_logic;
+    keyboard_column8_select_in : in std_logic
 
-    pmod_clock : in std_logic;
-    pmod_start_of_sequence : in std_logic;
-    pmod_data_in : in std_logic_vector(3 downto 0);
-    pmod_data_out : out std_logic_vector(1 downto 0) := "ZZ";
-    
-    -- ethernet keyboard input interface for remote head mode
-    eth_keycode_toggle : in std_logic;
-    eth_keycode : in unsigned(15 downto 0)
     );
 
 end entity keymapper;
 
 architecture behavioural of keymapper is
 
-  type ps2_state is (Idle,StartBit,Bit0,Bit1,Bit2,Bit3,Bit4,Bit5,Bit6,Bit7,
-                     ParityBit,StopBit);
-  signal ps2state : ps2_state := Idle;
-
-  signal leftorupcount : unsigned(2 downto 0) := "000";
-  
-  signal resetbutton_state : std_logic := 'Z';
   signal matrix_offset : integer range 0 to 255 := 252;
-  signal last_pmod_clock : std_logic := '1';
   
-  signal scan_code : unsigned(7 downto 0) := x"FF";
-  signal parity : std_logic := '0';
+  signal hyper_trap_count_internal : unsigned(7 downto 0) := x"00";  
 
-  -- PS2 clock rate is as low as 10KHz.  Allow double that for a timeout
-  -- 192MHz/5KHz = 192000/5 = 38400 cycles
-  -- 48MHz/5khz = 48000/5 = 9600 cycles
-  constant ps2timeout : integer := 9600;
-  signal ps2timer : integer range 0 to ps2timeout := 0;
-
-  signal hyper_trap_count_internal : unsigned(7 downto 0) := x"00";
+  -- Allow inverting of capslock sense, so that we always boot with it off.
+  signal capslock_xor : std_logic := '0';
   
-  signal ps2clock_samples : std_logic_vector(7 downto 0) := (others => '1');
-  signal ps2clock_debounced : std_logic := '0';
-
-  signal ps2data_samples : std_logic_vector(7 downto 0) := (others => '1');
-  signal ps2data_debounced : std_logic := '0';
-
-  signal ps2clock_prev : std_logic := '0';
-
-  signal recent_scan_code_list_index : unsigned(7 downto 0) := x"01";
-
-  signal extended : std_logic := '0';
-  signal break : std_logic := '0';
-
-  signal cursor_left : std_logic := '1';
-  signal cursor_up : std_logic := '1';
-  signal cursor_right : std_logic := '1';
-  signal cursor_down : std_logic := '1';
-  signal right_shift : std_logic := '1';
-  signal ps2 : std_logic := '0';
   signal matrix : std_logic_vector(71 downto 0) := (others =>'1');
-  signal joy1 : std_logic_vector(4 downto 0) := (others =>'1');
-  signal joy2 : std_logic_vector(4 downto 0) := (others =>'1');
 
+  -- PS2 keyboard emulated joystick
+  signal joya : std_logic_vector(7 downto 0) := (others =>'1');
+  signal joyb : std_logic_vector(7 downto 0) := (others =>'1');
+  
   signal restore_state : std_logic := '1';
   signal last_restore_state : std_logic := '1';
   signal restore_down_ticks : unsigned(15 downto 0) := (others => '0');  
@@ -112,25 +103,126 @@ architecture behavioural of keymapper is
 
   signal eth_keycode_toggle_last : std_logic := '0';
   signal ethernet_keyevent : std_logic := '0';
+
+  signal key_num : integer range 0 to 71 := 0;
+  signal hyper_trap : std_logic := '1';
+
+  signal porta_pins : std_logic_vector(7 downto 0);
+  signal portb_pins : std_logic_vector(7 downto 0);
   
 begin  -- behavioural
 
--- purpose: read from ps2 keyboard interface
-  keyread: process (ioclock, ps2data,ps2clock)
-    variable full_scan_code : std_logic_vector(11 downto 0);
+  keyread: process (ioclock)
     variable portb_value : std_logic_vector(7 downto 0);
     variable porta_value : std_logic_vector(7 downto 0);
+    variable n2 : integer;
   begin  -- process keyread
     if rising_edge(ioclock) then      
-      reset <= reset_drive;
+      reset_out <= reset_drive;
+      hyper_trap_out <= hyper_trap;
 
+      -- Update keyboard matrix as combination of the various inputs
+      if key_num < 71 then
+        key_num <= key_num + 1;
+      else
+        key_num <= 0;
+      end if;
+
+      matrix(key_num) <= '1'    
+                         and (matrix_physkey(key_num) or physkey_disable)
+                         and (matrix_widget(key_num) or widget_disable)
+                         and (matrix_virtual(key_num) or virtual_disable)
+                         and (matrix_ps2(key_num) or ps2_disable);
+
+      -- Update unified view for export
+      matrix_combined(key_num) <= matrix(key_num);
+
+      -- And joysticks (with optional 180 degree rotation for swapping between
+      -- left and right handed operation of sticks with only a single button
+      -- on the base.      
+      for n in 0 to 3 loop
+        if joya_rotate = '1' then
+          if n = 0 then
+            n2 := 1;
+          elsif n = 1 then
+            n2 := 0;
+          elsif n = 2 then
+            n2 := 3;
+          elsif n = 3 then
+            n2 := 2;
+          end if;
+        else
+          n2 := n;
+        end if;
+        joya(n) <= '1' and (joya_physkey(n2) or joykey_disable)
+                   and (joya_widget(n2) or widget_disable)
+                   and (joya_real(n2) or joyreal_disable)
+                   and (joya_ps2(n2) or ps2_disable);
+        if joyb_rotate = '1' then
+          if n = 0 then
+            n2 := 1;
+          elsif n = 1 then
+            n2 := 0;
+          elsif n = 2 then
+            n2 := 3;
+          elsif n = 3 then
+            n2 := 2;
+          end if;
+        else
+          n2 := n;
+        end if;
+        joyb(n) <= '1' and (joyb_physkey(n2) or joykey_disable)
+                   and (joyb_widget(n2) or widget_disable)
+                   and (joyb_real(n2) or joyreal_disable)
+                   and (joyb_ps2(n2) or ps2_disable);
+      end loop;
+      joya(4) <= '1' and (joya_physkey(4) or joykey_disable)
+                 and (joya_widget(4) or widget_disable)
+                 and (joya_real(4) or joyreal_disable)
+                 and (joya_ps2(4) or ps2_disable);
+      joyb(4) <= '1' and (joyb_physkey(4) or joykey_disable)
+                 and (joyb_widget(4) or widget_disable)
+                 and (joyb_real(4) or joyreal_disable)
+                 and (joyb_ps2(4) or ps2_disable);
+
+      
+      if reset_in = '0' then
+        -- if caps lock down on reset, invert sense
+        capslock_xor <= capslock_ps2 xor capslock_physkey xor capslock_widget xor '1';
+      end if;
+
+      -- Calculate caps lock, with each input toggling
+      capslock_out <= capslock_xor
+                      xor (capslock_ps2 or ps2_disable)
+                      xor (capslock_physkey or physkey_disable)
+                      xor (capslock_widget or widget_disable);
+
+
+      -- Debug problems with restore and capslock
+      key_debug_out(0) <= capslock_xor
+                          xor (capslock_ps2 or ps2_disable)
+                          xor (capslock_physkey or physkey_disable)
+                          xor (capslock_widget or widget_disable);
+      key_debug_out(1) <= capslock_widget;
+      key_debug_out(2) <= capslock_ps2;
+      key_debug_out(3) <= restore_state;
+      key_debug_out(4) <= restore_widget;
+      key_debug_out(5) <= restore_ps2;
+      key_debug_out(6) <= restore_state;
+      key_debug_out(7) <= last_restore_state;
+      
       restore_up_count <= restore_up_ticks(7 downto 0);
       restore_down_count <= restore_down_ticks(7 downto 0);
 
-      fiftyhz_counter <= fiftyhz_counter + 1;
-      if fiftyhz_counter = ( 48000000 / 50 ) then
+      restore_state <= (restore_ps2 or ps2_disable)
+                       and (restore_physkey or physkey_disable)
+                       and (restore_widget or widget_disable);
+      
+      if fiftyhz_counter /= ( 50000000 / 50 ) then
+        fiftyhz_counter <= fiftyhz_counter + 1;
+      else
         fiftyhz_counter <= (others => '0');        
-
+        
         last_restore_state <= restore_state;
 
         -- 0= restore down (pressed), 1 = restore up (not-pressed)
@@ -146,7 +238,7 @@ begin  -- behavioural
         elsif restore_state='1' and last_restore_state='0' then
           -- Restore has just been released
           if restore_down_ticks < 32 then
-            nmi <= '0';
+            restore_out <= '0';
           -- But holding it down for >2 seconds does nothing,
           -- incase someone holds it by mistake.
           elsif restore_down_ticks < 128 then
@@ -155,10 +247,8 @@ begin  -- behavioural
           end if;
         else
           hyper_trap <= '1';
-          nmi <= 'Z';
-          reset_drive <= resetbutton_state;
-          report "setting reset=" & std_logic'image(resetbutton_state)
-            & " via FPGA board reset button";
+          restore_out <= '1';
+          reset_drive <= '1';
         end if;
         
         if restore_state='0' then
@@ -175,353 +265,6 @@ begin  -- behavioural
           end if;
         end if;
       end if;      
-      
-      -------------------------------------------------------------------------
-      -- Generate timer for keyscan timeout
-      -------------------------------------------------------------------------
-      if ps2timer < ps2timeout then
-        ps2timer <= ps2timer + 1;
-      end if;
-      if ps2timer >= ps2timeout then
-        -- Reset ps2 keyboard timer
-        ps2timer <= 0;
-        ps2state <= Idle;
-      end if;
-
-      ------------------------------------------------------------------------
-      -- Read from MEGA keyboard/joystick/expansion port PMOD interface
-      ------------------------------------------------------------------------
-      -- This interface has a clock, start-of-sequence signal and 4 data lines
-      -- The data is pumped out in the correct order for us to just stash it
-      -- into the matrix (or, at least it will when it is implemented ;)
-      last_pmod_clock <= pmod_clock;
-      if pmod_clock='1' and last_pmod_clock='0' then
-        -- Data available
-        if pmod_start_of_sequence='1' then
-          -- Write first four bits, and set offset for next time
-          matrix_offset <= 4;
-          matrix(3 downto 0) <= pmod_data_in;
-          -- First two bits of output from FPGA to input PCB is the status of
-          -- the two LEDs: power LED is on when CPU is not in hypervisor mode,
-          -- drive LED shows F011 drive status.
-          pmod_data_out(0) <= not cpu_hypervisor_mode;
-          pmod_data_out(1) <= drive_led_out;
-        else
-          -- Clear output bits for bit positions for which we yet have no assignment
-          pmod_data_out <= "00";
-          
-          if matrix_offset < 252 then
-            matrix_offset <= matrix_offset+ 4;
-          end if;
-          -- Read keyboard matrix when required
-          if matrix_offset < 72 then
-            matrix((matrix_offset +3) downto matrix_offset) <= pmod_data_in;
-          end if;
-          -- Joysticks + restore + capslock + reset? (72-79, 80-87)
-          if matrix_offset = 72 then
-            -- joy 1 directions
-            joy1(3 downto 0) <= pmod_data_in;
-          end if;
-          if matrix_offset = 76 then
-            -- restore is active low, like all other keys
-            restore_state <= pmod_data_in(3);
-            if speed_gate_enable='1' then
-              -- CAPS LOCK UP = force 48MHz, up = enable speed control
-              speed_gate <= pmod_data_in(2);
-              capslock_out <= '1';
-            else
-              -- CAPS LOCK does CAPS LOCK, and speed control is enabled
-              speed_gate <= '1';
-              capslock_out <= pmod_data_in(2);
-            end if;
-            joy1(4) <= pmod_data_in(0);
-            -- Check for RESTORE key being released, and adjust action
-            -- based on how long it was being held down.
-            if pmod_data_in(3)='1' and restore_state='0' then
-              if restore_down_ticks < 25 then
-                nmi <= '0';
-              -- But holding it down for >2 seconds does nothing,
-              -- incase someone holds it by mistake.
-              elsif restore_down_ticks < 100 then
-                reset_drive <= '0';
-                report "asserting reset via RESTORE key on widget board";
-              end if;
-              -- Make sure that next check for releasing NMI
-              -- and reset is not for almost 1/50th of a second.
-              fiftyhz_counter <= (others => '0');
-            end if;
-          end if;
-          if matrix_offset = 80 then
-            -- joy 2 directions
-            joy2(3 downto 0) <= pmod_data_in;
-          end if;
-          if matrix_offset = 84 then
-            if pmod_data_in(3)='0' then
-              resetbutton_state <= '0';
-            else
-              resetbutton_state <= 'Z';
-            end if;
-            joy2(4) <= pmod_data_in(0);
-          end if;
-          -- Expansion port state (88-127)
-          -- Reserved for extra stuff (128-255)
-          -- 4x 8-bit analog paddle inputs
-          if matrix_offset = 128 then
-            pota_x(7 downto 4) <= unsigned(pmod_data_in);
-          end if;
-          if matrix_offset = 132 then
-            pota_x(3 downto 0) <= unsigned(pmod_data_in);
-          end if;
-          if matrix_offset = 136 then
-            pota_y(7 downto 4) <= unsigned(pmod_data_in);
-          end if;
-          if matrix_offset = 140 then
-            pota_y(3 downto 0) <= unsigned(pmod_data_in);
-          end if;
-          if matrix_offset = 144 then
-            potb_x(7 downto 4) <= unsigned(pmod_data_in);
-          end if;
-          if matrix_offset = 148 then
-            potb_x(3 downto 0) <= unsigned(pmod_data_in);
-          end if;
-          if matrix_offset = 152 then
-            potb_y(7 downto 4) <= unsigned(pmod_data_in);
-          end if;
-          if matrix_offset = 156 then
-            potb_y(3 downto 0) <= unsigned(pmod_data_in);
-          end if;
-        end if;
-      end if;
-
-      ------------------------------------------------------------------------
-      -- Read from PS/2 keyboard/mouse interface
-      ------------------------------------------------------------------------
-      
-      ps2clock_samples <= ps2clock_samples(6 downto 0) & ps2clock;
-      if ps2clock_samples = "11111111" then
-        ps2clock_debounced <= '1';
-      end if;
-      if ps2clock_samples = "00000000" then
-        ps2clock_debounced <= '0';
-      end if;
-
-      ps2data_samples <= ps2data_samples(6 downto 0) & ps2data;
-      if ps2data_samples = "11111111" then
-        ps2data_debounced <= '1';
-      end if; 
-      if ps2data_samples = "00000000" then
-        ps2data_debounced <= '0';
-      end if;
-      
-      ps2clock_prev <= ps2clock_debounced;
-
-      if eth_keycode_toggle /= eth_keycode_toggle_last then
-        scan_code <= eth_keycode(7 downto 0);
-        break <= eth_keycode(12);
-        extended <= eth_keycode(8);        
-        eth_keycode_toggle_last <= eth_keycode_toggle;
-
-        -- now rig status so that next cycle the key event will be processed
-        ps2state <= Bit7;
-        ethernet_keyevent <= '1';        
-      elsif (ps2clock_debounced = '0' and ps2clock_prev = '1')
-            or (ethernet_keyevent = '1') then
-        ethernet_keyevent <= '0';
-        ps2timer <= 0;
-        case ps2state is
-          when Idle => ps2state <= StartBit; scan_code <= x"FF"; parity <= '0';
-                       -- Check for keyboard input via ethernet
-          when StartBit => ps2state <= Bit0; scan_code(0) <= ps2data_debounced;
-                           parity <= parity xor ps2data_debounced;
-          when Bit0 => ps2state <= Bit1; scan_code(1) <= ps2data_debounced;
-                       parity <= parity xor ps2data_debounced;
-          when Bit1 => ps2state <= Bit2; scan_code(2) <= ps2data_debounced;
-                       parity <= parity xor ps2data_debounced;
-          when Bit2 => ps2state <= Bit3; scan_code(3) <= ps2data_debounced;
-                       parity <= parity xor ps2data_debounced;
-          when Bit3 => ps2state <= Bit4; scan_code(4) <= ps2data_debounced;
-                       parity <= parity xor ps2data_debounced;
-          when Bit4 => ps2state <= Bit5; scan_code(5) <= ps2data_debounced;
-                       parity <= parity xor ps2data_debounced;
-          when Bit5 => ps2state <= Bit6; scan_code(6) <= ps2data_debounced;
-                       parity <= parity xor ps2data_debounced;
-          when Bit6 => ps2state <= Bit7; scan_code(7) <= ps2data_debounced;
-                       parity <= parity xor ps2data_debounced;
-          when Bit7 => ps2state <= parityBit;
-                       -- if parity = ps2data then 
-                       -- Valid PS2 symbol
-
-                       -- XXX Make a little FSM to set bit 8 on E0 xx sequences
-                       -- so that we can have a 9-bit number to look up.
-                       -- XXX also work out when a key goes down versus up by F0
-                       -- byte.
-                       if scan_code = x"F0"  then
-                         -- break code
-                         break <= '1';
-                       elsif scan_code = x"E0" then
-                         extended <= '1';
-                       else
-                         full_scan_code := "000" & extended & std_logic_vector(scan_code);
-                         break <= '0';
-                         extended <= '0';
-
-                         report "PS2KEYBOARD: processing scan code $" & to_hstring("000"&break&"000"&extended&std_logic_vector(scan_code));
-                         
-                         -- keyboard scancodes for the more normal keys from a keyboard I have here
-                         -- (will replace these with the keyrah obtained ones)
-                         --                                      $DC01 bits
-                         --               0   1   2   3   4   5   6   7
-                         -- $DC00 values  
-                         -- Bit#0 $FE     1E0 5A  174 83  05  04  03  72
-                         -- Bit#1 $FD     26  1D  1C  25  1A  1B  24  12
-                         -- Bit#2 $FB     2E  2D  23  36  21  2B  2C  22
-                         -- Bit#3 $F7     3D  35  34  3E  32  33  3C  2A
-                         -- Bit#4 $EF     46  43  3B  45  3A  42  44  31
-                         -- Bit#5 $DF     55  4D  4B  4E  49  54  5B  41
-                         -- Bit#6 $BF     52  5D  4C  16C 59  169 75  4A
-                         -- Bit#7 $7F     16  6B  14  1E  29  11  15  76
-                         -- RESTORE - 0E (`/~ key)
-
-                         -- Let the CPU read the most recent scan code for
-                         -- debugging keyboard layout.
-                         last_scan_code(12) <= break;
-                         last_scan_code(11 downto 9) <= std_logic_vector(leftorupcount(2 downto 0));
-                         last_scan_code(8 downto 0) <= full_scan_code(8 downto 0);
-
-                         case full_scan_code is
-                           when x"17D" =>
-                              -- Restore key shall do NMI as expected, but also
-                              -- reset
-                             restore_state <= break;                             
-                           -- Joysticks
-                           when x"07d" =>  -- JOY1 LEFT
-                             joy1(0) <= break;
-                           when x"07a" =>  -- JOY1 RIGHT
-                             joy1(1) <= break;
-                           when x"06c" =>  -- JOY1 UP
-                             joy1(2) <= break;
-                           when x"069" =>  -- JOY1 DOWN
-                             joy1(3) <= break;
-                           when x"070" =>  -- JOY1 FIRE
-                             joy1(4) <= break;
-                           when x"074" =>  -- JOY2 DOWN
-                             joy2(3) <= break;
---                           when x"072" =>  -- JOY2 RIGHT
---                             joy2(3) <= break;
-                           when x"073" =>  -- JOY2 FIRE
-                             joy2(4) <= break;
-                                           
-                           -- DELETE, RETURN, RIGHT, F7, F1, F3, F5, down
-                           when x"066" => matrix(0) <= break;
-                           when x"05A" => matrix(1) <= break;
-                           when x"174" => cursor_right <= break; ps2 <= '1';
-                           when x"083" => matrix(3) <= break;
-                           when x"005" => matrix(4) <= break;
-                           when x"004" => matrix(5) <= break;
-                           when x"003" => matrix(6) <= break;
-                           when x"072" => cursor_down <= break; ps2 <= '1';
-                                          joy2(1) <= break;  -- keyrah
-                                                             -- duplicate scan
-                                                             -- code for down
-                                                             -- key and joy2 right?
-                           when x"075" => -- JOY2 LEFT
-                             joy2(0) <= break;
-                             cursor_up <= break; ps2 <= '1';
-                           when x"06B" => -- JOY2 UP
-                             joy2(2) <= break;
-                             cursor_left <= break; ps2 <= '1';
-
-                           -- 3, W, A, 4, Z, S, E, left-SHIFT
-                           when x"026" => matrix(8) <= break;
-                           when x"01D" => matrix(9) <= break;
-                           when x"01C" => matrix(10) <= break;
-                           when x"025" => matrix(11) <= break;
-                           when x"01A" => matrix(12) <= break;
-                           when x"01B" => matrix(13) <= break;
-                           when x"024" => matrix(14) <= break;
-                           when x"012" => matrix(15) <= break;
-
-                           -- 5, R, D, 6, C, F, T, X
-                           when x"02E" => matrix(16) <= break;
-                           when x"02D" => matrix(17) <= break;
-                           when x"023" => matrix(18) <= break;
-                           when x"036" => matrix(19) <= break;
-                           when x"021" => matrix(20) <= break;
-                           when x"02B" => matrix(21) <= break;
-                           when x"02C" => matrix(22) <= break;
-                           when x"022" => matrix(23) <= break;
-
-                           -- 7, Y, G, 8, B, H, U, V
-                           when x"03D" => matrix(24) <= break;
-                           when x"035" => matrix(25) <= break;
-                           when x"034" => matrix(26) <= break;
-                           when x"03E" => matrix(27) <= break;
-                           when x"032" => matrix(28) <= break;
-                           when x"033" => matrix(29) <= break;
-                           when x"03C" => matrix(30) <= break;
-                           when x"02A" => matrix(31) <= break;
-
-                           -- 9, I, J, 0, M, K, O, N
-                           when x"046" => matrix(32) <= break;
-                           when x"043" => matrix(33) <= break;
-                           when x"03B" => matrix(34) <= break;
-                           when x"045" => matrix(35) <= break;
-                           when x"03A" => matrix(36) <= break;
-                           when x"042" => matrix(37) <= break;
-                           when x"044" => matrix(38) <= break;
-                           when x"031" => matrix(39) <= break;
-
-                           -- +, P, L, -, ., :, @, COMMA
-                           when x"04E" => matrix(40) <= break;
-                           when x"04D" => matrix(41) <= break;
-                           when x"04B" => matrix(42) <= break;
-                           when x"055" => matrix(43) <= break;
-                           when x"049" => matrix(44) <= break;
-                           when x"04C" => matrix(45) <= break;
-                           when x"054" => matrix(46) <= break;
-                           when x"041" => matrix(47) <= break;
-
-                           -- POUND, *, ;, HOME, right SHIFT, =, UP-ARROW, /
-                           when x"170" => matrix(48) <= break;
-                           when x"05B" => matrix(49) <= break;
-                           when x"052" => matrix(50) <= break;
-                           when x"16C" => matrix(51) <= break;
-                           when x"059" => right_shift <= break; ps2 <= '1';
-                           when x"05D" => matrix(53) <= break;
-                           when x"171" => matrix(54) <= break;
-                           when x"04A" => matrix(55) <= break;
-
-                           -- 1, LEFT-ARROW, CTRL, 2, SPACE, C=, Q, RUN/STOP
-                           when x"016" => matrix(56) <= break;
-                           when x"00E" => matrix(57) <= break;
-                           when x"00D" => matrix(58) <= break;
-                           when x"01E" => matrix(59) <= break;
-                           when x"029" => matrix(60) <= break;
-                           when x"014" => matrix(61) <= break;
-                           when x"015" => matrix(62) <= break;
-                           when x"076" => matrix(63) <= break;
-                                          
-                           when others => null;
-                         end case;
-                         
-                       end if;
-                                              
-          when ParityBit =>  ps2state <= Idle;  -- was StopBit.  See if
-                                                -- changing this fixed munching
-                                                -- of first bit of back-to-back bytes.
-
-          when StopBit => ps2state <= Idle;
-          when others => ps2state <= Idle;
-        end case;        
-      -- Cursor left and up are down and right + right shift,
-      -- so combine these appropriately
-      elsif ps2 = '1' then
-        leftorupcount <= leftorupcount + 1;
-        matrix(7) <= cursor_down and cursor_up;
-        matrix(2) <= cursor_left and cursor_right;
-        matrix(52) <= right_shift and cursor_up and cursor_left;
-        ps2 <= '0';
-      end if;
       
       -------------------------------------------------------------------------
       -- Update C64 CIA ports
@@ -569,47 +312,100 @@ begin  -- behavioural
 
       -- C64 drives lines low on $DC00, and then reads $DC01
       -- This means that we read from porta_in, to compute values for portb_out
+
+      -- XXX We see some reliability problems when scanning the keyboad on the
+      -- M65 prototype PCB, particularly with the C= key being confused for =.
+      -- This is a bit weird.  They are adjacent bits on the same column, so
+      -- perhaps there is some electrical problem behind it? Or perhaps it is
+      -- just that we scan it too quickly?  If it is a scanning speed problem,
+      -- then we should scan the entire matrix in continuously at a slower
+      -- speed,and reconstruct it in memory.  In fact, we basically need to do
+      -- this anyway, so that we can use the real keyboard for input into the
+      -- matrix/secure mode facility, i.e., we need to synthesise serial input
+      -- characters based on the matrix state.
       
       portb_value := x"FF";
       for i in 0 to 7 loop
         if porta_in(i)='0' then
           for j in 0 to 7 loop
-            portb_value(j) := portb_value(j) and matrix((i*8)+j);
+            portb_value(j) := portb_value(j) and (matrix((i*8)+j) or matrix_mode_in);
           end loop;  -- j
         end if;        
       end loop;
       if keyboard_column8_select_in='0' then
         for j in 0 to 7 loop
-          portb_value(j) := portb_value(j) and matrix(64+j);
+          portb_value(j) := portb_value(j) and (matrix(64+j) or matrix_mode_in);
         end loop;  -- j
       end if;
 
       -- We should also do it the otherway around as well
-      porta_value := x"FF";
+
       for i in 0 to 7 loop
         if portb_in(i)='0' then
           for j in 0 to 7 loop
-            porta_value(j) := porta_value(j) and matrix((j*8)+i);
+            porta_value(j) := porta_value(j) and (matrix((j*8)+i) or matrix_mode_in);
+            report "updating porta_value(" & integer'image(j)
+              & ") = " & std_logic'image(porta_value(j))
+              & " & ("
+              & std_logic'image(matrix((j*8)+i))
+              & " | "
+              & std_logic'image(matrix_mode_in)
+              & ")";
           end loop;  -- j
+        else
+          -- keyboard not being scanned on this bit
+          porta_value := (others => '1');
+          report "porta_value = "
+            & to_string(porta_value) & " as not being keyboard scanned.";
         end if;        
       end loop;      
       
-      -- Keyboard rows and joystick 1
-      portb_out(7 downto 5) <= portb_value(7 downto 5);
-      portb_out(4) <= portb_value(4) and joy1(4);
-      portb_out(3) <= portb_value(3) and joy1(3);
-      portb_out(2) <= portb_value(2) and joy1(2);
-      portb_out(1) <= portb_value(1) and joy1(1);
-      portb_out(0) <= portb_value(0) and joy1(0);
+      -- Update physical pins to reflect what the CIA is asking for
+      for b in 0 to 7 loop
+        if porta_ddr(b)='1' then
+          -- Pin is output
+          report "porta copying porta_in(" & integer'image(b) & ") due to ddr=1. Copied value = " & std_logic'image(porta_in(b));
+          porta_pins(b) <= porta_in(b);
+        else
+          -- Pin is input, i.e., tri-stated
+          report "porta tristating porta_in(" & integer'image(b) & ") due to ddr=0.";
+          porta_pins(b) <= '1'; -- was 'Z'
+        end if;
+        report "porta_pins = " & to_string(porta_pins);
+        if portb_ddr(b)='1' then
+          -- Pin is output
+          portb_pins(b) <= portb_in(b);
+        else
+          -- Pin is input, i.e., tri-stated
+          portb_pins(b) <= 'Z';
+        end if;
+      end loop;
 
-      -- Keyboard columns and joystick 2
-      porta_out(7 downto 5) <= porta_value(7 downto 5);
-      porta_out(4) <= porta_value(4) and joy2(4);
-      porta_out(3) <= porta_value(3) and joy2(3);
-      porta_out(2) <= porta_value(2) and joy2(2);
-      porta_out(1) <= porta_value(1) and joy2(1);
-      porta_out(0) <= porta_value(0) and joy2(0);
+      -- Reading the CIAs requires us to take into account our modeled port
+      -- values for the keyboard matrix, combined with the actual values coming
+      -- in on the pins.  If DDR='1', then we don't want to read the pin, but if
+      -- DDR='0', and if the pin is '0', then it should pull low.
+      for b in 0 to 7 loop
+        if (porta_ddr(b) = '0') and (porta_pins(b) = '0') then
+          -- CIA should read bit as low
+          porta_out(b) <= '0';
+          report "porta_out(" & integer'image(b) & ") = 0, due to ddr=0 and drive=0";
+        else
+          porta_out(b) <= porta_value(b) and joyb(b);
+          report "porta_out(" & integer'image(b) & ") = " &
+            std_logic'image(porta_value(b)) & " & "
+            & std_logic'image(joyb(b))
+            & ", due to ddr=0 and drive=0";
+        end if;
+        if (portb_ddr(b) = '0') and (portb_pins(b) = '0') then
+          -- CIA should read bit as low
+          portb_out(b) <= '0';
+        else
+          portb_out(b) <= portb_value(b) and joya(b);
+        end if;
+      end loop;
     end if;
+
   end process keyread;
 
 end behavioural;

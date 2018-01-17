@@ -40,7 +40,7 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
-
+use work.victypes.all;
 
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
@@ -52,30 +52,86 @@ use Std.TextIO.all;
 --use UNISIM.VComponents.all;
 
 entity machine is
+  generic (cpufrequency : integer := 50;
+           pixel_clock_frequency_hz : integer := 150000000);
   Port ( pixelclock : STD_LOGIC;
-         pixelclock2x : STD_LOGIC;
          cpuclock : std_logic;
          clock50mhz : in std_logic;
+         clock200 : in std_logic;
          ioclock : std_logic;
          uartclock : std_logic;
          btnCpuReset : in  STD_LOGIC;
+         reset_out : out std_logic;
          irq : in  STD_LOGIC;
          nmi : in  STD_LOGIC;
+         restore_key : in std_logic;
+         cpu_exrom : in std_logic;
+         cpu_game : in std_logic;
 
          no_kickstart : in std_logic;
 
-         ddr_counter : in unsigned(7 downto 0);
-         ddr_state : in unsigned(7 downto 0);
+         flopled : out std_logic;
+         flopmotor : out std_logic;
+
+         slow_access_request_toggle : out std_logic;
+         slow_access_ready_toggle : in std_logic := '0';
+         slow_access_write : out std_logic := '0';
+         slow_access_address : out unsigned(27 downto 0);
+         slow_access_wdata : out unsigned(7 downto 0);
+         slow_access_rdata : in unsigned(7 downto 0);
+         cart_access_count : in unsigned(7 downto 0) := x"00";
+
+         sector_buffer_mapped : inout std_logic;
          
          ----------------------------------------------------------------------
          -- VGA output
          ----------------------------------------------------------------------
          vsync : out  STD_LOGIC;
          hsync : out  STD_LOGIC;
-         vgared : out  UNSIGNED (3 downto 0);
-         vgagreen : out  UNSIGNED (3 downto 0);
-         vgablue : out  UNSIGNED (3 downto 0);
+         vgared : out  UNSIGNED (7 downto 0);
+         vgagreen : out  UNSIGNED (7 downto 0);
+         vgablue : out  UNSIGNED (7 downto 0);
+         hdmi_scl : inout std_logic := '1';
+         hdmi_sda : inout std_logic := 'Z';
 
+         -------------------------------------------------------------------------
+         -- CIA1 ports for keyboard and joysticks
+         -------------------------------------------------------------------------
+         porta_pins : inout  std_logic_vector(7 downto 0);
+         portb_pins : inout  std_logic_vector(7 downto 0);
+         keyleft : in std_logic;
+         keyup : in std_logic;
+         keyboard_column8 : out std_logic;
+         caps_lock_key : in std_logic;
+         fa_left : in std_logic;
+         fa_right : in std_logic;
+         fa_up : in std_logic;
+         fa_down : in std_logic;
+         fa_fire : in std_logic;
+         fb_left : in std_logic;
+         fb_right : in std_logic;
+         fb_up : in std_logic;
+         fb_down : in std_logic;
+         fb_fire : in std_logic;
+         fa_potx : in std_logic;
+         fa_poty : in std_logic;
+         fb_potx : in std_logic;
+         fb_poty : in std_logic;
+         pot_drain : buffer std_logic;
+         pot_via_iec : buffer std_logic;
+         
+         ----------------------------------------------------------------------
+         -- CBM floppy serial port
+         ----------------------------------------------------------------------
+         iec_clk_en : out std_logic;
+         iec_data_en : out std_logic;
+         iec_data_o : out std_logic;
+         iec_reset : out std_logic;
+         iec_clk_o : out std_logic;
+         iec_atn_o : out std_logic;
+         iec_data_external : in std_logic;
+         iec_clk_external : in std_logic;
+         
          -------------------------------------------------------------------------
          -- Lines for the SDcard interface itself
          -------------------------------------------------------------------------
@@ -84,6 +140,24 @@ entity machine is
          mosi_o : out std_logic;
          miso_i : in  std_logic;
 
+         ----------------------------------------------------------------------
+         -- Floppy drive interface
+         ----------------------------------------------------------------------
+         f_density : out std_logic := '1';
+         f_motor : out std_logic := '1';
+         f_select : out std_logic := '1';
+         f_stepdir : out std_logic := '1';
+         f_step : out std_logic := '1';
+         f_wdata : out std_logic := '1';
+         f_wgate : out std_logic := '1';
+         f_side1 : out std_logic := '1';
+         f_index : in std_logic;
+         f_track0 : in std_logic;
+         f_writeprotect : in std_logic;
+         f_rdata : in std_logic;
+         f_diskchanged : in std_logic;
+
+         
          ---------------------------------------------------------------------------
          -- Lines for other devices that we handle here
          ---------------------------------------------------------------------------
@@ -93,8 +167,10 @@ entity machine is
          aclSCK : out std_logic;
          aclInt1 : in std_logic;
          aclInt2 : in std_logic;
-    
+         
          ampPWM : out std_logic;
+         ampPWM_l : out std_logic;
+         ampPWM_r : out std_logic;
          ampSD : out std_logic;
 
          micData : in std_logic;
@@ -119,30 +195,8 @@ entity machine is
          eth_rxer : in std_logic;
          eth_interrupt : in std_logic;
          
-         ----------------------------------------------------------------------
-         -- Flash RAM for holding config
-         ----------------------------------------------------------------------
-         QspiSCK : out std_logic;
-         QspiDB : inout std_logic_vector(3 downto 0);
-         QspiCSn : out std_logic;
-
          fpga_temperature : in std_logic_vector(11 downto 0);
          
-         ---------------------------------------------------------------------------
-         -- Interface to Slow RAM (128MB DDR2 RAM chip)
-         ---------------------------------------------------------------------------
-         slowram_addr_reflect : in std_logic_vector(26 downto 0);
-         slowram_datain_reflect : in std_logic_vector(7 downto 0);
-         slowram_addr : out std_logic_vector(26 downto 0);
-         slowram_we : out std_logic;
-         slowram_request_toggle : out std_logic;
-         slowram_done_toggle : in std_logic;
-         slowram_datain : out std_logic_vector(7 downto 0);
-         -- simple-dual-port cache RAM interface so that CPU doesn't have to read
-         -- data cross-clock
-         cache_address        : out std_logic_vector(8 downto 0);
-         cache_read_data      : in std_logic_vector(150 downto 0);   
-
          ----------------------------------------------------------------------
          -- PS/2 adapted USB keyboard & joystick connector.
          -- (For using a keyrah adapter to connect to the keyboard.)
@@ -161,7 +215,7 @@ entity machine is
 
          uart_rx : in std_logic;
          uart_tx : out std_logic;
-    
+         
          ----------------------------------------------------------------------
          -- Debug interfaces on Nexys4 board
          ----------------------------------------------------------------------
@@ -179,395 +233,17 @@ end machine;
 
 architecture Behavioral of machine is
 
-  component uart_monitor
-    port (
-    reset : in std_logic;
-    reset_out : out std_logic;
-    monitor_hyper_trap : out std_logic := '1';
-    clock : in std_logic;
-    tx : out std_logic;
-    rx : in  std_logic;
-    activity : out std_logic;
-    
-    key_scancode : out unsigned(15 downto 0);
-    key_scancode_toggle : out std_logic;
-
-    force_single_step : in std_logic;
-    
-    fastio_read : in std_logic;
-    fastio_write : in std_logic;
-
-    monitor_char : in unsigned(7 downto 0);
-    monitor_char_toggle : in std_logic;
-    monitor_char_busy : out std_logic;
-    
-    monitor_proceed : in std_logic;
-    monitor_waitstates : in unsigned(7 downto 0);
-    monitor_request_reflected : in std_logic;
-    monitor_pc : in unsigned(15 downto 0);
-    monitor_hypervisor_mode : in std_logic;
-    monitor_ddr_ram_banking : in std_logic;
-    monitor_cpu_state : in unsigned(15 downto 0);
-    monitor_instruction : in unsigned(7 downto 0);
-    monitor_watch : out unsigned(27 downto 0) := x"7FFFFFF";
-    monitor_watch_match : in std_logic;
-    monitor_opcode : in unsigned(7 downto 0);
-    monitor_ibytes : in std_logic_vector(3 downto 0);
-    monitor_arg1 : in unsigned(7 downto 0);
-    monitor_arg2 : in unsigned(7 downto 0);
-    monitor_a : in unsigned(7 downto 0);
-    monitor_x : in unsigned(7 downto 0);
-    monitor_y : in unsigned(7 downto 0);
-    monitor_z : in unsigned(7 downto 0);
-    monitor_b : in unsigned(7 downto 0);
-    monitor_sp : in unsigned(15 downto 0);
-    monitor_p : in unsigned(7 downto 0);
-    monitor_map_offset_low : in unsigned(11 downto 0);
-    monitor_map_offset_high : in unsigned(11 downto 0);
-    monitor_map_enables_low : in std_logic_vector(3 downto 0);
-    monitor_map_enables_high : in std_logic_vector(3 downto 0);
-    monitor_interrupt_inhibit : in std_logic;
-
-    monitor_mem_address : out unsigned(27 downto 0);
-    monitor_mem_rdata : in unsigned(7 downto 0);
-    monitor_mem_wdata : out unsigned(7 downto 0);
-    monitor_mem_attention_request : out std_logic := '0';
-    monitor_mem_attention_granted : in std_logic;
-    monitor_mem_read : out std_logic := '0';
-    monitor_mem_write : out std_logic := '0';
-    monitor_mem_setpc : out std_logic := '0';
-    monitor_mem_stage_trace_mode : out std_logic := '0';
-    monitor_mem_trace_mode : out std_logic := '0';
-    monitor_mem_trace_toggle : out std_logic := '0'
-      );
-  end component;
-
-  component gs4510
-    port (
-      Clock : in std_logic;
-      ioclock : in std_logic;
-      reset : in std_logic;
-      irq : in std_logic;
-      nmi : in std_logic;
-      hyper_trap : in std_logic;
-      cpu_hypervisor_mode : out std_logic;
-
-      cpuis6502 : out std_logic;
-      cpuspeed : out unsigned(7 downto 0);
-      
-      irq_hypervisor : in std_logic_vector(2 downto 0);  -- JBM
-
-      no_kickstart : in std_logic;
-
-      ddr_counter : in unsigned(7 downto 0);
-      ddr_state : in unsigned(7 downto 0);
-    
-      reg_isr_out : in unsigned(7 downto 0);
-      imask_ta_out : in std_logic;
-
-      vicii_2mhz : in std_logic;
-      viciii_fast : in std_logic;
-      viciv_fast : in std_logic;
-      speed_gate : in std_logic;
-      speed_gate_enable : out std_logic;
-
-      monitor_char : out unsigned(7 downto 0);
-      monitor_char_toggle : out std_logic;    
-      monitor_char_busy : in std_logic;
-
-      monitor_proceed : out std_logic;
-      monitor_waitstates : out unsigned(7 downto 0);
-      monitor_request_reflected : out std_logic;
-      monitor_hypervisor_mode : out std_logic;
-      monitor_ddr_ram_banking : out std_logic;
-      monitor_pc : out unsigned(15 downto 0);
-      monitor_state : out unsigned(15 downto 0);
-      monitor_instruction : out unsigned(7 downto 0);
-      monitor_instructionpc : out unsigned(15 downto 0);
-      monitor_watch : in unsigned(27 downto 0);
-      monitor_watch_match : out std_logic;
-      monitor_opcode : out unsigned(7 downto 0);
-      monitor_ibytes : out std_logic_vector(3 downto 0);
-      monitor_arg1 : out unsigned(7 downto 0);
-      monitor_arg2 : out unsigned(7 downto 0);
-      monitor_a : out unsigned(7 downto 0);
-      monitor_b : out unsigned(7 downto 0);
-      monitor_x : out unsigned(7 downto 0);
-      monitor_y : out unsigned(7 downto 0);
-      monitor_z : out unsigned(7 downto 0);
-      monitor_sp : out unsigned(15 downto 0);
-      monitor_p : out unsigned(7 downto 0);
-      monitor_map_offset_low : out unsigned(11 downto 0);
-      monitor_map_offset_high : out unsigned(11 downto 0);
-      monitor_map_enables_low : out std_logic_vector(3 downto 0);
-      monitor_map_enables_high : out std_logic_vector(3 downto 0);
-      monitor_interrupt_inhibit : out std_logic;
-
-      ---------------------------------------------------------------------------
-      -- Memory access interface used by monitor
-      ---------------------------------------------------------------------------
-      monitor_mem_address : in unsigned(27 downto 0);
-      monitor_mem_rdata : out unsigned(7 downto 0);
-      monitor_mem_wdata : in unsigned(7 downto 0);
-      monitor_mem_read : in std_logic;
-      monitor_mem_write : in std_logic;
-      monitor_mem_setpc : in std_logic;
-      monitor_mem_attention_request : in std_logic;
-      monitor_mem_attention_granted : out std_logic;
-      monitor_mem_trace_mode : in std_logic;
-      monitor_mem_stage_trace_mode : in std_logic;
-      monitor_mem_trace_toggle : in std_logic;
-
-      ---------------------------------------------------------------------------
-      -- Interface to Slow RAM (128MB DDR2 RAM disguised as SRAM)
-      ---------------------------------------------------------------------------
-      slowram_addr : out std_logic_vector(26 downto 0);
-      slowram_we : out std_logic;
-      slowram_addr_reflect : in std_logic_vector(26 downto 0);
-      slowram_datain_reflect : in std_logic_vector(7 downto 0);
-      slowram_request_toggle : out std_logic;
-      slowram_done_toggle : in std_logic;
-      slowram_datain : out std_logic_vector(7 downto 0);
-      -- simple-dual-port cache RAM interface so that CPU doesn't have to read
-      -- data cross-clock
-      cache_address        : out std_logic_vector(8 downto 0);
-      cache_read_data      : in std_logic_vector(150 downto 0);   
-      
-      cpu_leds : out std_logic_vector(3 downto 0);              
-
-      ---------------------------------------------------------------------------
-      -- Interface to ChipRAM in video controller (just 128KB for now)
-      ---------------------------------------------------------------------------
-      chipram_we : OUT STD_LOGIC;
-      chipram_address : OUT unsigned(16 DOWNTO 0);
-      chipram_datain : OUT unsigned(7 DOWNTO 0);
-      
-      ---------------------------------------------------------------------------
-      -- fast IO port (clocked at core clock). 1MB address space
-      ---------------------------------------------------------------------------
-      fastio_addr : inout std_logic_vector(19 downto 0);
-      fastio_read : out std_logic;
-      fastio_write : out std_logic;
-      fastio_wdata : out std_logic_vector(7 downto 0);
-      fastio_rdata : in std_logic_vector(7 downto 0);
-      sector_buffer_mapped : in std_logic;
-      fastio_vic_rdata : in std_logic_vector(7 downto 0);
-      fastio_colour_ram_rdata : in std_logic_vector(7 downto 0);
-      colour_ram_cs : out std_logic;
-      charrom_write_cs : out std_logic;
-
-      viciii_iomode : in std_logic_vector(1 downto 0);
-      iomode_set : out std_logic_vector(1 downto 0);
-      iomode_set_toggle : out std_logic;
-
-      colourram_at_dc00 : in std_logic;
-      rom_at_e000 : in std_logic;
-      rom_at_c000 : in std_logic;
-      rom_at_a000 : in std_logic;
-      rom_at_8000 : in std_logic;
-
-      ---------------------------------------------------------------------------
-      -- IO port to far call stack
-      ---------------------------------------------------------------------------
-      farcallstack_we : out std_logic;
-      farcallstack_addr : out std_logic_vector(8 downto 0);
-      farcallstack_din : out std_logic_vector(63 downto 0);
-      farcallstack_dout : in std_logic_vector(63 downto 0)
-
-      );
-  end component;
-  
-  component viciv is
-    Port (
-      pixelclock : in  STD_LOGIC;
-      pixelclock2x : in  STD_LOGIC;
-      cpuclock : in std_logic;
-      ioclock : in std_logic;
-
-      irq : out std_logic;
-      reset : in std_logic;
-
-      led : in std_logic;
-      motor : in std_logic;
-      drive_led_out : out std_logic;
-
-      xray_mode : in std_logic;
-      
-      ----------------------------------------------------------------------
-      -- VGA output
-      ----------------------------------------------------------------------
-      vsync : out  STD_LOGIC;
-      hsync : out  STD_LOGIC;
-      vgared : out  UNSIGNED (3 downto 0);
-      vgagreen : out  UNSIGNED (3 downto 0);
-      vgablue : out  UNSIGNED (3 downto 0);
-
-      pixel_stream_out : out unsigned (7 downto 0);
-      pixel_y : out unsigned (11 downto 0);
-      pixel_valid : out std_logic;   
-      pixel_newframe : out std_logic;
-      pixel_newraster : out std_logic;
-
-      ---------------------------------------------------------------------------
-      -- CPU Interface to ChipRAM in video controller (just 128KB for now)
-      ---------------------------------------------------------------------------
-      chipram_we : IN STD_LOGIC;
-      chipram_address : IN unsigned(16 DOWNTO 0);
-      chipram_datain : IN unsigned(7 DOWNTO 0);
-
-      -----------------------------------------------------------------------------
-      -- FastIO interface for accessing video registers
-      -----------------------------------------------------------------------------
-      fastio_addr : in std_logic_vector(19 downto 0);
-      fastio_read : in std_logic;
-      fastio_write : in std_logic;
-      fastio_wdata : in std_logic_vector(7 downto 0);
-      fastio_rdata : out std_logic_vector(7 downto 0);
-      colour_ram_fastio_rdata : out std_logic_vector(7 downto 0);
-      colour_ram_cs : in std_logic;
-      charrom_write_cs : in std_logic;
-
-      viciii_iomode : out std_logic_vector(1 downto 0);
-      iomode_set : in std_logic_vector(1 downto 0);
-      iomode_set_toggle : in std_logic;
-
-      vicii_2mhz : out std_logic;
-      viciii_fast : out std_logic;
-      viciv_fast : out std_logic;
-      
-      colourram_at_dc00 : out std_logic;
-      rom_at_e000 : out std_logic;
-      rom_at_c000 : out std_logic;
-      rom_at_a000 : out std_logic;
-      rom_at_8000 : out std_logic
-      );
-  end component;
-  
-  component iomapper is
-    port (Clk : in std_logic;
-          cpuclock : in std_logic;
-          pixelclk : in std_logic;
-          clock50mhz : in std_logic;
-          
-          reg_isr_out : out unsigned(7 downto 0);
-          imask_ta_out : out std_logic;
-          cpu_hypervisor_mode : in std_logic;
-
-          fpga_temperature : in std_logic_vector(11 downto 0);
-          
-          key_scancode : in unsigned(15 downto 0);
-          key_scancode_toggle : in std_logic;
-
-          capslock_state : inout std_logic;
-          speed_gate : out std_logic;
-          speed_gate_enable : in std_logic;
-          
-          uartclock : in std_logic;
-          phi0 : in std_logic;
-          reset : in std_logic;
-          reset_out : out std_logic;
-          irq : out std_logic;
-          nmi : out std_logic;
-          hyper_trap : out std_logic;
-          restore_nmi : out std_logic;
-          address : in std_logic_vector(19 downto 0);
-          r : in std_logic;
-          w : in std_logic;
-          data_i : in std_logic_vector(7 downto 0);
-          data_o : out std_logic_vector(7 downto 0);
-          sd_data_o : out std_logic_vector(7 downto 0);
-          sector_buffer_mapped : out std_logic;
-          colourram_at_dc00 : in std_logic;
-          viciii_iomode : in std_logic_vector(1 downto 0);
-
-          drive_led : out std_logic;
-          motor : out std_logic;
-          drive_led_out : in std_logic;
-
-          sw : in std_logic_vector(15 downto 0);
-          btn : in std_logic_vector(4 downto 0);
-          seg_led : out unsigned(31 downto 0);
-
-          pmod_clock : in std_logic;
-          pmod_start_of_sequence : in std_logic;
-          pmod_data_in : in std_logic_vector(3 downto 0);
-          pmod_data_out : out std_logic_vector(1 downto 0);
-          pmoda : inout std_logic_vector(7 downto 0);
-          
-          pixel_stream_in : in unsigned (7 downto 0);
-          pixel_y : in unsigned (11 downto 0);
-          pixel_valid : in std_logic;
-          pixel_newframe : in std_logic;
-          pixel_newraster : in std_logic;   
-          
-          ---------------------------------------------------------------------------
-          -- IO lines to the ethernet controller
-          ---------------------------------------------------------------------------
-          eth_mdio : inout std_logic;
-          eth_mdc : out std_logic;
-          eth_reset : out std_logic;
-          eth_rxd : in unsigned(1 downto 0);
-          eth_txd : out unsigned(1 downto 0);
-          eth_txen : out std_logic;
-          eth_rxdv : in std_logic;
-          eth_rxer : in std_logic;
-          eth_interrupt : in std_logic;
-
-          ----------------------------------------------------------------------
-          -- Flash RAM for holding config
-          ----------------------------------------------------------------------
-          QspiSCK : out std_logic;
-          QspiDB : inout std_logic_vector(3 downto 0);
-          QspiCSn : out std_logic;
-          
-          -------------------------------------------------------------------------
-          -- Lines for the SDcard interface itself
-          -------------------------------------------------------------------------
-          cs_bo : out std_logic;
-          sclk_o : out std_logic;
-          mosi_o : out std_logic;
-          miso_i : in  std_logic;
-
-          ---------------------------------------------------------------------------
-          -- IO port to far call stack
-          ---------------------------------------------------------------------------
-          farcallstack_we : in std_logic;
-          farcallstack_addr : in std_logic_vector(8 downto 0);
-          farcallstack_din : in std_logic_vector(63 downto 0);
-          farcallstack_dout : out std_logic_vector(63 downto 0);
-          
-          ---------------------------------------------------------------------------
-          -- Lines for other devices that we handle here
-          ---------------------------------------------------------------------------
-          aclMISO : in std_logic;
-          aclMOSI : out std_logic;
-          aclSS : out std_logic;
-          aclSCK : out std_logic;
-          aclInt1 : in std_logic;
-          aclInt2 : in std_logic;
-    
-          ampPWM : out std_logic;
-          ampSD : out std_logic;
-
-          micData : in std_logic;
-          micClk : out std_logic;
-          micLRSel : out std_logic;
-
-          tmpSDA : out std_logic;
-          tmpSCL : out std_logic;
-          tmpInt : in std_logic;
-          tmpCT : in std_logic;
-
-          uart_rx : in std_logic;
-          uart_tx : out std_logic;
-
-          ps2data : in std_logic;
-          ps2clock : in std_logic
-          );
-  end component;
-
   signal pmodb_in_buffer : std_logic_vector(5 downto 0);
   signal pmodb_out_buffer : std_logic_vector(1 downto 0);
+
+  signal fa_up_out : std_logic;
+  signal fa_down_out : std_logic;
+  signal fa_left_out : std_logic;
+  signal fa_right_out : std_logic;
+  signal fb_up_out : std_logic;
+  signal fb_down_out : std_logic;
+  signal fb_left_out : std_logic;
+  signal fb_right_out : std_logic;
   
   signal key_scancode : unsigned(15 downto 0);
   signal key_scancode_toggle : std_logic;
@@ -589,7 +265,6 @@ architecture Behavioral of machine is
   signal vicii_2mhz : std_logic;
   signal viciii_fast : std_logic;
   signal viciv_fast : std_logic;
-  signal capslock_state : std_logic;
   signal speed_gate : std_logic;
   signal speed_gate_enable : std_logic;
   
@@ -599,7 +274,7 @@ architecture Behavioral of machine is
   
   signal seg_led_data : unsigned(31 downto 0);
 
-  signal reset_out : std_logic;
+  signal reset_io : std_logic;
   signal reset_monitor : std_logic;
   -- Holds reset on for 8 cycles so that reset line entry is used on start up,
   -- instead of implicit startup state.
@@ -615,15 +290,17 @@ architecture Behavioral of machine is
   signal hyper_trap : std_logic := '1';
   signal hyper_trap_combined : std_logic := '1';
   signal monitor_hyper_trap : std_logic := '1';
+  signal hyper_trap_f011_read : std_logic := '0';
+  signal hyper_trap_f011_write : std_logic := '0';
 
   signal fastio_addr : std_logic_vector(19 downto 0);
   signal fastio_read : std_logic;
   signal fastio_write : std_logic;
   signal fastio_wdata : std_logic_vector(7 downto 0);
   signal fastio_rdata : std_logic_vector(7 downto 0);
+  signal kickstart_rdata : std_logic_vector(7 downto 0);
   signal fastio_vic_rdata : std_logic_vector(7 downto 0);
   signal colour_ram_fastio_rdata : std_logic_vector(7 downto 0);
-  signal sector_buffer_mapped : std_logic;
 
   signal chipram_we : STD_LOGIC;
   signal chipram_address : unsigned(16 DOWNTO 0);
@@ -640,7 +317,6 @@ architecture Behavioral of machine is
 
   signal monitor_pc : unsigned(15 downto 0);
   signal monitor_hypervisor_mode : std_logic;
-  signal monitor_ddr_ram_banking : std_logic;
   signal monitor_state : unsigned(15 downto 0);
   signal monitor_instruction : unsigned(7 downto 0);
   signal monitor_instructionpc : unsigned(15 downto 0);
@@ -685,28 +361,96 @@ architecture Behavioral of machine is
   signal cpuis6502 : std_logic;
   signal cpuspeed : unsigned(7 downto 0);
 
-  
   signal segled_counter : unsigned(19 downto 0) := (others => '0');
 
-  -- Clock running as close as possible to 17.734475 MHz / 18 = 985248Hz
-  -- Our pixel clock is 192MHz.  195 ticks gives 984615Hz for NTSC.
-  -- 188 ticks at 192MHz gives 1021276Hz, which is pretty close for PAL.
-  -- But dotclock is really 193.75MHz, so adjust accordingly.
-  -- Then divide by 2 again, since the loop toggles phi0.
   signal phi0 : std_logic := '0';
-  constant phi0_divisor : integer := 95;
-  signal phi0_counter : integer range 0 to phi0_divisor;
 
   signal pixel_stream : unsigned (7 downto 0);
   signal pixel_y : unsigned (11 downto 0);
   signal pixel_valid : std_logic;
   signal pixel_newframe : std_logic;
   signal pixel_newraster : std_logic;
+  signal pixel_x_640 : integer;
+  signal pixel_y_scale_200 : unsigned(3 downto 0);
+  signal pixel_y_scale_400 : unsigned(3 downto 0);
 
-  signal farcallstack_we : std_logic;
-  signal farcallstack_addr : std_logic_vector(8 downto 0);
-  signal farcallstack_din : std_logic_vector(63 downto 0);
-  signal farcallstack_dout : std_logic_vector(63 downto 0);
+  signal uart_tx_buffer : std_logic; 
+  signal uart_rx_buffer : std_logic;
+  signal protected_hardware_sig : unsigned(7 downto 0);
+  signal virtualised_hardware_sig : unsigned(7 downto 0);
+  signal chipselect_enables : std_logic_vector(7 downto 0);
+
+  -- Matrix Mode signals
+  signal scancode_out : std_logic_vector(12 downto 0); 
+  signal mm_displayMode : unsigned(1 downto 0):=b"10"; 
+  signal bit_rate_divisor : unsigned(13 downto 0);
+
+  signal matrix_fetch_address : unsigned(11 downto 0) := to_unsigned(0,12);
+  signal matrix_rdata : unsigned(7 downto 0);
+  
+  signal vgablue_sig : unsigned(7 downto 0);
+  signal vgared_sig : unsigned(7 downto 0);
+  signal vgagreen_sig : unsigned(7 downto 0);
+  signal vgablue_kbd : unsigned(7 downto 0);
+  signal vgared_kbd : unsigned(7 downto 0);
+  signal vgagreen_kbd : unsigned(7 downto 0);
+  signal vgablue_out : unsigned(7 downto 0);
+  signal vgared_out : unsigned(7 downto 0);
+  signal vgagreen_out : unsigned(7 downto 0);
+  signal viciv_outofframe : std_logic := '0';
+  signal viciv_outofframe_1 : std_logic := '0';
+  signal viciv_outofframe_2 : std_logic := '0';
+  signal viciv_outofframe_3 : std_logic := '0';
+  
+  signal xcounter : unsigned(13 downto 0);
+  signal ycounter : unsigned(11 downto 0); 
+  signal uart_txd_sig : std_logic;
+  signal display_shift : std_logic_vector(2 downto 0) := "000";
+  signal shift_ready : std_logic := '0';
+  signal shift_ack : std_logic := '0'; 
+  signal matrix_trap : std_logic;  
+  signal uart_char : unsigned(7 downto 0);
+  signal uart_char_valid : std_logic := '0';
+  signal uart_monitor_char : unsigned(7 downto 0);
+  signal uart_monitor_char_valid : std_logic := '0';
+  signal monitor_char_out : unsigned(7 downto 0);
+  signal monitor_char_out_valid : std_logic := '0';
+  signal terminal_emulator_ready : std_logic := '0';
+
+  signal visual_keyboard_enable : std_logic;
+  signal keyboard_at_top : std_logic;
+  signal alternate_keyboard : std_logic;
+  signal osk_x : unsigned(11 downto 0);
+  signal osk_y : unsigned(11 downto 0);
+  signal osk_key1 : unsigned(7 downto 0);
+  signal osk_key2 : unsigned(7 downto 0);
+  signal osk_key3 : unsigned(7 downto 0);
+  signal osk_key4 : unsigned(7 downto 0);
+
+  signal osk_touch1_valid : std_logic := '0';
+  signal osk_touch1_x : unsigned(13 downto 0) := to_unsigned(0,14);
+  signal osk_touch1_y : unsigned(11 downto 0) := to_unsigned(0,12);
+  signal osk_touch2_valid : std_logic := '0';
+  signal osk_touch2_x : unsigned(13 downto 0) := to_unsigned(0,14);
+  signal osk_touch2_y : unsigned(11 downto 0) := to_unsigned(0,12);
+
+  signal secure_mode_flag : std_logic := '0';
+  signal matrix_rain_seed : unsigned(15 downto 0);
+  signal hsync_drive : std_logic := '0';
+  signal vsync_drive : std_logic := '0';
+  
+  signal all_pause : std_logic := '0';
+
+  signal dat_offset : unsigned(15 downto 0);
+  signal dat_bitplane_addresses : sprite_vector_eight;  
+
+  signal pota_x : unsigned(7 downto 0);
+  signal pota_y : unsigned(7 downto 0);
+  signal potb_x : unsigned(7 downto 0);
+  signal potb_y : unsigned(7 downto 0);
+  
+  signal mouse_debug : unsigned(7 downto 0);
+  signal amiga_mouse_enable : std_logic;
 
 begin
 
@@ -715,8 +459,8 @@ begin
   -- device via the IOmapper pull an interrupt line down, then trigger an
   -- interrupt.
   -----------------------------------------------------------------------------
-  process(irq,nmi,restore_nmi,io_irq,vic_irq,io_nmi,sw,reset_out,btnCpuReset,
-          power_on_reset,reset_monitor)
+  process(irq,nmi,restore_nmi,io_irq,vic_irq,io_nmi,sw,reset_io,btnCpuReset,
+          power_on_reset,reset_monitor,hyper_trap)
   begin
     -- XXX Allow switch 0 to mask IRQs
     combinedirq <= ((irq and io_irq and vic_irq) or sw(0));
@@ -724,8 +468,8 @@ begin
     if btnCpuReset='0' then
       report "reset asserted via btnCpuReset";
       reset_combined <= '0';
-    elsif reset_out='0' then
-      report "reset asserted via reset_out";
+    elsif reset_io='0' then
+      report "reset asserted via reset_io";
       reset_combined <= '0';
     elsif power_on_reset(0)='0' then
       report "reset asserted via power_on_reset(0)";
@@ -739,8 +483,8 @@ begin
 
     hyper_trap_combined <= hyper_trap and monitor_hyper_trap;
     
-    -- report "btnCpuReset = " & std_logic'image(btnCpuReset) & ", reset_out = " & std_logic'image(reset_out) & ", sw(15) = " & std_logic'image(sw(15)) severity note;
-    -- report "reset_combined = " & std_logic'image(reset_combined) severity note;
+  -- report "btnCpuReset = " & std_logic'image(btnCpuReset) & ", reset_io = " & std_logic'image(reset_io) & ", sw(15) = " & std_logic'image(sw(15)) severity note;
+  -- report "reset_combined = " & std_logic'image(reset_combined) severity note;
   end process;
   
   process(pixelclock,ioclock)
@@ -758,7 +502,9 @@ begin
       led(3) <= combinednmi;
       led(4) <= io_irq;
       led(5) <= io_nmi;
-      led(9 downto 6) <= (others => '0');
+      led(7 downto 6) <= (others => '0');
+      led(8) <= motor;
+      led(9) <= drive_led_out;
       led(10) <= cpu_hypervisor_mode;
       led(11) <= hyper_trap;
       led(12) <= hyper_trap_combined;
@@ -816,23 +562,25 @@ begin
       elsif segled_counter(17 downto 15)=3 then
         digit := std_logic_vector(seg_led_data(15 downto 12));
       elsif segled_counter(17 downto 15)=4 then
-        --digit := std_logic_vector(seg_led_data(19 downto 16));
-        digit := (others => '0');
+        digit := std_logic_vector(seg_led_data(19 downto 16));
       elsif segled_counter(17 downto 15)=5 then
-        --digit := std_logic_vector(seg_led_data(23 downto 20));
-        digit := (others => '0');
+        digit := std_logic_vector(seg_led_data(23 downto 20));
       elsif segled_counter(17 downto 15)=6 then
         digit := std_logic_vector(seg_led_data(27 downto 24));
       elsif segled_counter(17 downto 15)=7 then
         digit := std_logic_vector(seg_led_data(31 downto 28));
       end if;
       
-      if cpuis6502 = '1' then
-        seg_led_data(15 downto 0) <= x"6510";
-      else
-        seg_led_data(15 downto 0) <= x"4502";
-      end if;
       seg_led_data(31 downto 24) <= cpuspeed;
+      if cpuis6502 = '1' then
+        seg_led_data(23 downto 16) <= x"65";
+      else
+        seg_led_data(23 downto 16) <= x"45";
+      end if;
+      -- XXX temporary debug
+      seg_led_data(23 downto 16) <= protected_hardware_sig;
+      seg_led_data(15 downto 8) <= uart_char;
+      seg_led_data(7 downto 0) <= uart_monitor_char;
       
       -- segments are:
       -- 7 - decimal point
@@ -867,141 +615,143 @@ begin
     end if;
     if rising_edge(pixelclock) then
       
-      -- Work out phi0 frequency for CIA timers
-      if phi0_counter=phi0_divisor then
-        phi0 <= not phi0;
-        phi0_counter <= 0;
-      else
-        phi0_counter <= phi0_counter + 1;
-      end if;
+      null;
       
     end if;
   end process;
   
-  cpu0: gs4510 port map(
-    clock => cpuclock,
-    ioclock => ioclock,
-    reset =>reset_combined,
-    irq => combinedirq,
-    nmi => combinednmi,
-    hyper_trap => hyper_trap_combined,
-    speed_gate => speed_gate,
-    speed_gate_enable => speed_gate_enable,
-    cpuis6502 => cpuis6502,
-    cpuspeed => cpuspeed,
+  cpu0: entity work.gs4510
+    generic map(
+      cpufrequency => cpufrequency)
+    port map(
+      phi0 => phi0,
+      all_pause => all_pause,
+      matrix_trap_in=>matrix_trap,
+      protected_hardware => protected_hardware_sig,
+      virtualised_hardware => virtualised_hardware_sig,
+      chipselect_enables => chipselect_enables,
+      clock => cpuclock,
+      ioclock => ioclock,
+      reset =>reset_combined,
+      reset_out => reset_out,
+      irq => combinedirq,
+      nmi => combinednmi,
+      exrom => cpu_exrom,
+      game => cpu_game,
+      hyper_trap => hyper_trap_combined,
+      hyper_trap_f011_read => hyper_trap_f011_read,
+      hyper_trap_f011_write => hyper_trap_f011_write,    
+      speed_gate => speed_gate,
+      speed_gate_enable => speed_gate_enable,
+      cpuis6502 => cpuis6502,
+      cpuspeed => cpuspeed,
+      secure_mode_out => secure_mode_flag,
+      matrix_rain_seed => matrix_rain_seed,
+      dat_offset => dat_offset,
+      dat_bitplane_addresses => dat_bitplane_addresses,
 
-    irq_hypervisor => sw(4 downto 2),    -- JBM
-    
-    ddr_state => ddr_state,
-    ddr_counter => ddr_counter,
+      irq_hypervisor => sw(4 downto 2),    -- JBM
+      
+      -- Hypervisor signals: we need to tell kickstart memory whether
+      -- to map or not, and we also need to be able to set the VIC-III
+      -- IO mode.
+      cpu_hypervisor_mode => cpu_hypervisor_mode,
+      iomode_set => iomode_set,
+      iomode_set_toggle => iomode_set_toggle,
+      
+      no_kickstart => no_kickstart,
+      
+      reg_isr_out => reg_isr_out,
+      imask_ta_out => imask_ta_out,
+      
+      vicii_2mhz => vicii_2mhz,
+      viciii_fast => viciii_fast,
+      viciv_fast => viciv_fast,
 
-    -- Hypervisor signals: we need to tell kickstart memory whether
-    -- to map or not, and we also need to be able to set the VIC-III
-    -- IO mode.
-    cpu_hypervisor_mode => cpu_hypervisor_mode,
-    iomode_set => iomode_set,
-    iomode_set_toggle => iomode_set_toggle,
-    
-    no_kickstart => no_kickstart,
-    
-    reg_isr_out => reg_isr_out,
-    imask_ta_out => imask_ta_out,
-    
-    vicii_2mhz => vicii_2mhz,
-    viciii_fast => viciii_fast,
-    viciv_fast => viciv_fast,
+      monitor_char => monitor_char,
+      monitor_char_toggle => monitor_char_toggle,
+      monitor_char_busy => monitor_char_busy,
 
-    monitor_char => monitor_char,
-    monitor_char_toggle => monitor_char_toggle,
-    monitor_char_busy => monitor_char_busy,
-
-    monitor_proceed => monitor_proceed,
+      monitor_proceed => monitor_proceed,
 --    monitor_debug_memory_access => monitor_debug_memory_access,
-    monitor_waitstates => monitor_waitstates,
-    monitor_request_reflected => monitor_request_reflected,
-    monitor_hypervisor_mode => monitor_hypervisor_mode,
-    monitor_ddr_ram_banking => monitor_ddr_ram_banking,
-    monitor_pc => monitor_pc,
-    monitor_watch => monitor_watch,
-    monitor_watch_match => monitor_watch_match,
-    monitor_opcode => monitor_opcode,
-    monitor_ibytes => monitor_ibytes,
-    monitor_arg1 => monitor_arg1,
-    monitor_arg2 => monitor_arg2,
-    monitor_a => monitor_a,
-    monitor_b => monitor_b,
-    monitor_x => monitor_x,
-    monitor_y => monitor_y,
-    monitor_z => monitor_z,
-    monitor_sp => monitor_sp,
-    monitor_p => monitor_p,
-    monitor_state => monitor_state,
-    monitor_map_offset_low => monitor_map_offset_low,
-    monitor_map_offset_high => monitor_map_offset_high,
-    monitor_map_enables_low => monitor_map_enables_low,
-    monitor_map_enables_high => monitor_map_enables_high,
+      monitor_waitstates => monitor_waitstates,
+      monitor_request_reflected => monitor_request_reflected,
+      monitor_hypervisor_mode => monitor_hypervisor_mode,
+      monitor_pc => monitor_pc,
+      monitor_watch => monitor_watch,
+      monitor_watch_match => monitor_watch_match,
+      monitor_opcode => monitor_opcode,
+      monitor_ibytes => monitor_ibytes,
+      monitor_arg1 => monitor_arg1,
+      monitor_arg2 => monitor_arg2,
+      monitor_a => monitor_a,
+      monitor_b => monitor_b,
+      monitor_x => monitor_x,
+      monitor_y => monitor_y,
+      monitor_z => monitor_z,
+      monitor_sp => monitor_sp,
+      monitor_p => monitor_p,
+      monitor_state => monitor_state,
+      monitor_map_offset_low => monitor_map_offset_low,
+      monitor_map_offset_high => monitor_map_offset_high,
+      monitor_map_enables_low => monitor_map_enables_low,
+      monitor_map_enables_high => monitor_map_enables_high,
 
-    monitor_mem_address => monitor_mem_address,
-    monitor_mem_rdata => monitor_mem_rdata,
-    monitor_mem_wdata => monitor_mem_wdata,
-    monitor_mem_read => monitor_mem_read,
-    monitor_mem_write => monitor_mem_write,
-    monitor_mem_setpc => monitor_mem_setpc,
-    monitor_mem_attention_request => monitor_mem_attention_request,
-    monitor_mem_attention_granted => monitor_mem_attention_granted,
-    monitor_mem_trace_mode => monitor_mem_trace_mode,
-    monitor_mem_stage_trace_mode => monitor_mem_stage_trace_mode,
-    monitor_mem_trace_toggle => monitor_mem_trace_toggle,
+      monitor_mem_address => monitor_mem_address,
+      monitor_mem_rdata => monitor_mem_rdata,
+      monitor_mem_wdata => monitor_mem_wdata,
+      monitor_mem_read => monitor_mem_read,
+      monitor_mem_write => monitor_mem_write,
+      monitor_mem_setpc => monitor_mem_setpc,
+      monitor_mem_attention_request => monitor_mem_attention_request,
+      monitor_mem_attention_granted => monitor_mem_attention_granted,
+      monitor_mem_trace_mode => monitor_mem_trace_mode,
+      monitor_mem_stage_trace_mode => monitor_mem_stage_trace_mode,
+      monitor_mem_trace_toggle => monitor_mem_trace_toggle,
 
-    slowram_addr => slowram_addr,
-    slowram_we => slowram_we,
-    slowram_request_toggle => slowram_request_toggle,
-    slowram_done_toggle => slowram_done_toggle,
-    slowram_datain => slowram_datain,
-    slowram_addr_reflect => slowram_addr_reflect,
-    slowram_datain_reflect => slowram_datain_reflect,
-    cache_address => cache_address,
-    cache_read_data => cache_read_data,
-    
-    chipram_we => chipram_we,
-    chipram_address => chipram_address,
-    chipram_datain => chipram_datain,
+      slow_access_request_toggle => slow_access_request_toggle,
+      slow_access_ready_toggle => slow_access_ready_toggle,    
+      slow_access_address => slow_access_address,
+      slow_access_write => slow_access_write,
+      slow_access_wdata => slow_access_wdata,
+      slow_access_rdata => slow_access_rdata,
+      
+      chipram_we => chipram_we,
+      chipram_address => chipram_address,
+      chipram_datain => chipram_datain,
 
-    cpu_leds => cpu_leds,
-    
-    fastio_addr => fastio_addr,
-    fastio_read => fastio_read,
-    fastio_write => fastio_write,
-    fastio_wdata => fastio_wdata,
-    fastio_rdata => fastio_rdata,
-    sector_buffer_mapped => sector_buffer_mapped,
-    fastio_vic_rdata => fastio_vic_rdata,
-    fastio_colour_ram_rdata => colour_ram_fastio_rdata,
-    colour_ram_cs => colour_ram_cs,
-    charrom_write_cs => charrom_write_cs,
+      cpu_leds => cpu_leds,
+      
+      fastio_addr => fastio_addr,
+      fastio_read => fastio_read,
+      fastio_write => fastio_write,
+      fastio_wdata => fastio_wdata,
+      fastio_rdata => fastio_rdata,
+      sector_buffer_mapped => sector_buffer_mapped,
+      fastio_vic_rdata => fastio_vic_rdata,
+      fastio_colour_ram_rdata => colour_ram_fastio_rdata,
+      kickstart_rdata => kickstart_rdata,
+      colour_ram_cs => colour_ram_cs,
+      charrom_write_cs => charrom_write_cs,
 
-    viciii_iomode => viciii_iomode,
-  
-    colourram_at_dc00 => colourram_at_dc00,
-    rom_at_e000 => rom_at_e000,
-    rom_at_c000 => rom_at_c000,
-    rom_at_a000 => rom_at_a000,
-    rom_at_8000 => rom_at_8000,
+      viciii_iomode => viciii_iomode,
+      
+      colourram_at_dc00 => colourram_at_dc00,
+      rom_at_e000 => rom_at_e000,
+      rom_at_c000 => rom_at_c000,
+      rom_at_a000 => rom_at_a000,
+      rom_at_8000 => rom_at_8000
 
-    ---------------------------------------------------------------------------
-    -- IO port to far call stack
-    ---------------------------------------------------------------------------
-    farcallstack_we => farcallstack_we,
-    farcallstack_addr => farcallstack_addr,
-    farcallstack_din => farcallstack_din,
-    farcallstack_dout => farcallstack_dout
+      );
 
-    );
-
-  viciv0: viciv
+  viciv0: entity work.viciv
     port map (
+
+      all_pause => all_pause,
+      
+      xcounter_out => xcounter,
+      ycounter_out => ycounter,
       pixelclock      => pixelclock,
-      pixelclock2x      => pixelclock2x,
       cpuclock        => cpuclock,
       ioclock        => ioclock,
 
@@ -1013,18 +763,25 @@ begin
       drive_led_out => drive_led_out,
 
       xray_mode => xray_mode,
+
+      dat_offset => dat_offset,
+      dat_bitplane_addresses => dat_bitplane_addresses,
       
-      vsync           => vsync,
-      hsync           => hsync,
-      vgared          => vgared,
-      vgagreen        => vgagreen,
-      vgablue         => vgablue,
+      vsync           => vsync_drive,
+      hsync           => hsync_drive,
+      vgared          => vgared_sig,
+      vgagreen        => vgagreen_sig,
+      vgablue         => vgablue_sig,
+      viciv_outofframe => viciv_outofframe,
 
       pixel_stream_out => pixel_stream,
       pixel_y => pixel_y,
       pixel_valid => pixel_valid,
       pixel_newframe => pixel_newframe,
       pixel_newraster => pixel_newraster,
+      pixel_x_640 => pixel_x_640,
+      pixel_y_scale_200 => pixel_y_scale_200,
+      pixel_y_scale_400 => pixel_y_scale_400,
       
       chipram_we => chipram_we,
       chipram_address => chipram_address,
@@ -1038,137 +795,352 @@ begin
       fastio_write    => fastio_write,
       fastio_wdata    => fastio_wdata,
       fastio_rdata    => fastio_vic_rdata,
-    
+      
       viciii_iomode => viciii_iomode,
       iomode_set_toggle => iomode_set_toggle,
       iomode_set => iomode_set,
       vicii_2mhz => vicii_2mhz,
       viciii_fast => viciii_fast,
       viciv_fast => viciv_fast,
-    
+      
       colourram_at_dc00 => colourram_at_dc00,
       rom_at_e000 => rom_at_e000,
       rom_at_c000 => rom_at_c000,
       rom_at_a000 => rom_at_a000,
       rom_at_8000 => rom_at_8000      
       );
+
+  mouse0: entity work.mouse_input
+    port map (
+      clk => ioclock,
+
+      mouse_debug => mouse_debug,
+      amiga_mouse_enable => amiga_mouse_enable,
+      
+      -- These are the 1351 mouse / C64 paddle inputs and drain control
+      pot_drain => pot_drain,
+      fa_potx => fa_potx,
+      fa_poty => fa_poty,
+      fb_potx => fb_potx,
+      fb_poty => fb_poty,
+
+      -- To allow auto-detection of Amiga mouses, we need to know what the
+      -- rest of the joystick pins are doing
+      fa_fire => fa_fire,
+      fa_left => fa_left,
+      fa_right => fa_right,
+      fa_up => fa_up,
+      fa_down => fa_down,
+      fb_fire => fb_fire,
+      fb_left => fb_left,
+      fb_right => fb_right,
+      fb_up => fb_up,
+      fb_down => fb_down,
+
+      fa_up_out => fa_up_out,
+      fa_down_out => fa_down_out,
+      fa_left_out => fa_left_out,
+      fa_right_out => fa_right_out,
+
+      fb_up_out => fb_up_out,
+      fb_down_out => fb_down_out,
+      fb_left_out => fb_left_out,
+      fb_right_out => fb_right_out,
+      
+      -- We output the four sampled pot values
+      pota_x => pota_x,
+      pota_y => pota_y,
+      potb_x => potb_x,
+      potb_y => potb_y
+      );
   
-  iomapper0: iomapper port map (
-    clk => ioclock,
-    hyper_trap => hyper_trap,
-    cpuclock => cpuclock,
-    pixelclk => pixelclock,
-    clock50mhz => clock50mhz,
-    cpu_hypervisor_mode => cpu_hypervisor_mode,
-    capslock_state => capslock_state,
-    speed_gate => speed_gate,
-    speed_gate_enable => speed_gate_enable,
-    
-    fpga_temperature => fpga_temperature,
-    
-    reg_isr_out => reg_isr_out,
-    imask_ta_out => imask_ta_out,    
+  iomapper0: entity work.iomapper
+    port map (
+      clk => ioclock,
+      clock200 => clock200,
+      protected_hardware_in => protected_hardware_sig,
+      virtualised_hardware_in => virtualised_hardware_sig,
+      chipselect_enables => chipselect_enables,
+      matrix_mode_trap => matrix_trap,
+      hyper_trap => hyper_trap,
+      hyper_trap_f011_read => hyper_trap_f011_read,
+      hyper_trap_f011_write => hyper_trap_f011_write,
+      cpuclock => cpuclock,
+      pixelclk => pixelclock,
+      clock50mhz => clock50mhz,
+      cpu_hypervisor_mode => cpu_hypervisor_mode,
+      speed_gate => speed_gate,
+      speed_gate_enable => speed_gate_enable,
 
-    key_scancode => key_scancode,
-    key_scancode_toggle => key_scancode_toggle,
-    
-    uartclock => uartclock,
-    phi0 => phi0,
-    reset => reset_combined,
-    reset_out => reset_out,
-    irq => io_irq, -- (but we might like to AND this with the hardware IRQ button)
-    nmi => io_nmi, -- (but we might like to AND this with the hardware IRQ button)
-    restore_nmi => restore_nmi,
-    address => fastio_addr,
-    r => fastio_read, w => fastio_write,
-    data_i => fastio_wdata, data_o => fastio_rdata,
-    colourram_at_dc00 => colourram_at_dc00,
-    drive_led => drive_led,
-    motor => motor,
-    drive_led_out => drive_led_out,
-    sw => sw,
-    btn => btn,
+      visual_keyboard_enable => visual_keyboard_enable,
+      keyboard_at_top => keyboard_at_top,
+      alternate_keyboard => alternate_keyboard,
+      osk_x => osk_x,
+      osk_y => osk_y,
+      osk_key1 => osk_key1,
+      osk_key2 => osk_key2,
+      osk_key3 => osk_key3,
+      osk_key4 => osk_key4,
+            
+      uart_char => uart_char,
+      uart_char_valid => uart_char_valid,
+      
+      -- ASCII key from keyboard_complex for feeding UART monitor interface
+      -- when using local keyboard
+      uart_monitor_char => uart_monitor_char,
+      uart_monitor_char_valid => uart_monitor_char_valid,
+      mm_displayMode_out => mm_displayMode,
+      display_shift_out => display_shift,
+      shift_ready_out => shift_ready,
+      shift_ack_in => shift_ack,     
+      
+      fpga_temperature => fpga_temperature,
+
+      restore_key => restore_key,
+      
+      reg_isr_out => reg_isr_out,
+      imask_ta_out => imask_ta_out,    
+
+      key_scancode => key_scancode,
+      key_scancode_toggle => key_scancode_toggle,
+
+      cart_access_count => cart_access_count,
+      
+      uartclock => uartclock,
+      phi0 => phi0,
+      reset => reset_combined,
+      reset_out => reset_io,
+      irq => io_irq, -- (but we might like to AND this with the hardware IRQ button)
+      nmi => io_nmi, -- (but we might like to AND this with the hardware IRQ button)
+      restore_nmi => restore_nmi,
+      address => fastio_addr,
+      r => fastio_read, w => fastio_write,
+      data_i => fastio_wdata, data_o => fastio_rdata,
+      kickstart_rdata => kickstart_rdata,
+      colourram_at_dc00 => colourram_at_dc00,
+      drive_led => drive_led,
+      motor => motor,
+      drive_led_out => drive_led_out,
+      sw => sw,
+      btn => btn,
 --    seg_led => seg_led_data,
-    viciii_iomode => viciii_iomode,
-    sector_buffer_mapped => sector_buffer_mapped,
+      viciii_iomode => viciii_iomode,
+      sector_buffer_mapped => sector_buffer_mapped,
 
-    pixel_stream_in => pixel_stream,
-    pixel_y => pixel_y,
-    pixel_valid => pixel_valid,
-    pixel_newframe => pixel_newframe,
-    pixel_newraster => pixel_newraster,
+    f_density => f_density,
+    f_motor => f_motor,
+    f_select => f_select,
+    f_stepdir => f_stepdir,
+    f_step => f_step,
+    f_wdata => f_wdata,
+    f_wgate => f_wgate,
+    f_side1 => f_side1,
+    f_index => f_index,
+    f_track0 => f_track0,
+    f_writeprotect => f_writeprotect,
+    f_rdata => f_rdata,
+    f_diskchanged => f_diskchanged,
+      
+      ----------------------------------------------------------------------
+      -- CBM floppy  std_logic_vectorerial port
+      ----------------------------------------------------------------------
+      iec_clk_en => iec_clk_en,
+      iec_data_en => iec_data_en,
+      iec_data_o => iec_data_o,
+      iec_reset => iec_reset,
+      iec_clk_o => iec_clk_o,
+      iec_atn_o => iec_atn_o,
+      iec_data_external => iec_data_external,
+      iec_clk_external => iec_clk_external,
+      
+      porta_pins => porta_pins,
+      portb_pins => portb_pins,
+      capslock_key => caps_lock_key,
+      keyboard_column8_out => keyboard_column8,
+      key_left => keyleft,
+      key_up => keyup,
 
-    pmod_clock => pmodb_in_buffer(0),
-    pmod_start_of_sequence => pmodb_in_buffer(1),
-    pmod_data_in => pmodb_in_buffer(5 downto 2),
-    pmod_data_out => pmodb_out_buffer(1 downto 0),
-    
-    pmoda => pmoda,
+      fa_fire => fa_fire,
+      fa_up => fa_up_out,
+      fa_left => fa_left_out,
+      fa_down => fa_down_out,
+      fa_right => fa_right_out,
+      fa_potx => fa_potx,
+      fa_poty => fa_poty,
+      
+      fb_fire => fb_fire,
+      fb_up => fb_up_out,
+      fb_left => fb_left_out,
+      fb_down => fb_down_out,
+      fb_right => fb_right_out,
+      fb_potx => fb_potx,
+      fb_poty => fb_poty,
 
-    uart_rx => uart_rx,
-    uart_tx => uart_tx,
-    
-    farcallstack_we => farcallstack_we,
-    farcallstack_addr => farcallstack_addr,
-    farcallstack_din => farcallstack_din,
-    farcallstack_dout => farcallstack_dout,
-    
-    cs_bo => cs_bo,
-    sclk_o => sclk_o,
-    mosi_o => mosi_o,
-    miso_i => miso_i,
-    
-    QspiSCK => QspiSCK,
-    QspiDB => QspiDB,
-    QspiCSn => QspiCSn,
-    
-    aclMISO => aclMISO,
-    aclMOSI => aclMOSI,
-    aclSS => aclSS,
-    aclSCK => aclSCK,
-    aclInt1 => aclInt1,
-    aclInt2 => aclInt2,
-    
-    ampPWM => ampPWM,
-    ampSD => ampSD,
-    
-    micData => micData,
-    micClk => micClk,
-    micLRSel => micLRSel,
-    
-    tmpSDA => tmpSDA,
-    tmpSCL => tmpSCL,
-    tmpInt => tmpInt,
-    tmpCT => tmpCT,
+      pota_x => pota_x,
+      pota_y => pota_y,
+      potb_x => potb_x,
+      potb_y => potb_y,      
+      
+      pot_drain => pot_drain,
+      pot_via_iec => pot_via_iec,
 
-    ---------------------------------------------------------------------------
-    -- IO lines to the ethernet controller
-    ---------------------------------------------------------------------------
-    eth_mdio => eth_mdio,
-    eth_mdc => eth_mdc,
-    eth_reset => eth_reset,
-    eth_rxd => eth_rxd,
-    eth_txd => eth_txd,
-    eth_txen => eth_txen,
-    eth_rxdv => eth_rxdv,
-    eth_rxer => eth_rxer,
-    eth_interrupt => eth_interrupt,
-    
-    ps2data => ps2data,
-    ps2clock => ps2clock
+      mouse_debug => mouse_debug,
+      amiga_mouse_enable => amiga_mouse_enable,
+      
+      pixel_stream_in => pixel_stream,
+      pixel_y => pixel_y,
+      pixel_valid => pixel_valid,
+      pixel_newframe => pixel_newframe,
+      pixel_newraster => pixel_newraster,
+      pixel_x_640 => pixel_x_640,
+
+      pmod_clock => pmodb_in_buffer(0),
+      pmod_start_of_sequence => pmodb_in_buffer(1),
+      pmod_data_in => pmodb_in_buffer(5 downto 2),
+      pmod_data_out => pmodb_out_buffer(1 downto 0),
+      
+      pmoda => pmoda,
+
+      hdmi_sda => hdmi_sda,
+      hdmi_scl => hdmi_scl,    
+
+      uart_rx => uart_rx,
+      uart_tx => uart_tx,
+      
+      cs_bo => cs_bo,
+      sclk_o => sclk_o,
+      mosi_o => mosi_o,
+      miso_i => miso_i,
+      
+      aclMISO => aclMISO,
+      aclMOSI => aclMOSI,
+      aclSS => aclSS,
+      aclSCK => aclSCK,
+      aclInt1 => aclInt1,
+      aclInt2 => aclInt2,
+      
+      ampPWM => ampPWM,
+      ampPWM_l => ampPWM_l,
+      ampPWM_r => ampPWM_r,
+      ampSD => ampSD,
+      
+      micData => micData,
+      micClk => micClk,
+      micLRSel => micLRSel,
+      
+      tmpSDA => tmpSDA,
+      tmpSCL => tmpSCL,
+      tmpInt => tmpInt,
+      tmpCT => tmpCT,
+
+      ---------------------------------------------------------------------------
+      -- IO lines to the ethernet controller
+      ---------------------------------------------------------------------------
+      eth_mdio => eth_mdio,
+      eth_mdc => eth_mdc,
+      eth_reset => eth_reset,
+      eth_rxd => eth_rxd,
+      eth_txd => eth_txd,
+      eth_txen => eth_txen,
+      eth_rxdv => eth_rxdv,
+      eth_rxer => eth_rxer,
+      eth_interrupt => eth_interrupt,
+      
+      ps2data => ps2data,
+      ps2clock => ps2clock,
+      
+      scancode_out => scancode_out
+      );
+
+  matrix_compositor0 : entity work.matrix_rain_compositor port map(
+    display_shift_in=>display_shift,
+    shift_ready_in => shift_ready,
+    shift_ack_out => shift_ack,
+    mm_displayMode_in => mm_displayMode,
+    monitor_char_in => monitor_char_out,
+    monitor_char_valid => monitor_char_out_valid,
+    terminal_emulator_ready => terminal_emulator_ready,
+
+    matrix_rdata => matrix_rdata,
+    matrix_fetch_address => matrix_fetch_address,
+    seed => matrix_rain_seed,
+
+    hsync_in => hsync_drive,
+    vsync_in => vsync_drive,
+    pixel_x_640 => pixel_x_640,
+    pixel_y_scale_200 => pixel_y_scale_200,
+    pixel_y_scale_400 => pixel_y_scale_400,
+    ycounter_in => ycounter,	
+    clk => uartclock,
+    pixelclock => pixelclock,
+    matrix_mode_enable => protected_hardware_sig(6),--sw(5),
+    secure_mode_flag =>  secure_mode_flag,
+    vgared_in => vgared_sig,
+    vgagreen_in => vgagreen_sig,
+    vgablue_in => vgablue_sig,
+    vgared_out => vgared_kbd,
+    vgagreen_out => vgagreen_kbd,
+    vgablue_out => vgablue_kbd
     );
 
+    visual_keyboard0 : entity work.visual_keyboard port map(
+    pixel_x_640_in => pixel_x_640,
+    pixel_y_scale_200 => pixel_y_scale_200,
+    pixel_y_scale_400 => pixel_y_scale_400,
+    ycounter_in => ycounter,
+    y_start => osk_y,
+    x_start => osk_x,
+    pixelclock => pixelclock,
+    vgared_in => vgared_kbd,
+    vgagreen_in => vgagreen_kbd,
+    visual_keyboard_enable => visual_keyboard_enable,
+    keyboard_at_top => keyboard_at_top,
+    alternate_keyboard => alternate_keyboard,
+    instant_at_top => '0',
+    key1 => osk_key1,
+    key2 => osk_key2,
+    key3 => osk_key3,
+    key4 => osk_key4,
+    touch1_valid => osk_touch1_valid,
+    touch1_x => osk_touch1_x,    
+    touch1_y => osk_touch1_y,    
+    touch2_valid => osk_touch2_valid,
+    touch2_x => osk_touch2_x,    
+    touch2_y => osk_touch2_y,
+
+    matrix_fetch_address => matrix_fetch_address,
+    matrix_rdata => matrix_rdata,
+    
+    vgablue_in => vgablue_kbd,
+    vgared_out => vgared_out,
+    vgagreen_out => vgagreen_out,
+    vgablue_out => vgablue_out
+    );
+  
   -----------------------------------------------------------------------------
   -- UART interface for monitor debugging and loading data
   -----------------------------------------------------------------------------
-  monitor0 : uart_monitor port map (
+  monitor0 : entity work.uart_monitor port map (
     reset => reset_combined,
     reset_out => reset_monitor,
+
     monitor_hyper_trap => monitor_hyper_trap,
     clock => uartclock,
-    tx       => UART_TXD,
+    tx       => uart_txd_sig,--uart_txd_sig,
     rx       => RsRx,
+    bit_rate_divisor => bit_rate_divisor,
 
+    protected_hardware_in => protected_hardware_sig,
+    -- ASCII key from keyboard_complex for feeding UART monitor interface
+    -- when using local keyboard
+    uart_char => uart_monitor_char,
+    uart_char_valid => uart_monitor_char_valid,
+
+    -- output for matrix mode
+    monitor_char_out => monitor_char_out,
+    monitor_char_valid => monitor_char_out_valid,
+    terminal_emulator_ready => terminal_emulator_ready,
+    
     force_single_step => sw(11),
     
     fastio_read => fastio_read,
@@ -1186,7 +1158,6 @@ begin
     monitor_waitstates => monitor_waitstates,
     monitor_request_reflected => monitor_request_reflected,
     monitor_hypervisor_mode => monitor_hypervisor_mode,
-    monitor_ddr_ram_banking => monitor_ddr_ram_banking,
     monitor_pc => monitor_pc,
     monitor_cpu_state => monitor_state,
     monitor_instruction => monitor_instruction,
@@ -1220,7 +1191,7 @@ begin
     monitor_mem_trace_mode => monitor_mem_trace_mode,
     monitor_mem_stage_trace_mode => monitor_mem_stage_trace_mode,
     monitor_mem_trace_toggle => monitor_mem_trace_toggle
-  );
+    );
 
   process (cpuclock) is
   begin
@@ -1229,8 +1200,34 @@ begin
       pmodb_in_buffer(1) <= pmod_start_of_sequence;
       pmodb_in_buffer(5 downto 2) <= pmod_data_in;
       pmod_data_out <= pmodb_out_buffer;
+      flopled <= drive_led_out;
+      flopmotor <= motor;
     end if;
   end process;
+
+  process (pixelclock) is
+  begin
+    if rising_edge(pixelclock) then
+      -- Enforce black output outside of frame, so that
+      -- compositors can't mess the frame up
+      hsync <= hsync_drive;
+      vsync <= vsync_drive;
+      viciv_outofframe_3 <= viciv_outofframe_2;
+      viciv_outofframe_2 <= viciv_outofframe_1;
+      viciv_outofframe_1 <= viciv_outofframe;
+      if viciv_outofframe_3 = '1' then
+        vgared <= (others => '0');
+        vgagreen <= (others => '0');
+        vgablue <= (others => '0');
+      else
+        vgared <= vgared_out;
+        vgagreen <= vgagreen_out;
+        vgablue <= vgablue_out;
+      end if;
+    end if;
+  end process;
+  
+  UART_TXD<=uart_txd_sig; 
   
 end Behavioral;
 

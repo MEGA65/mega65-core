@@ -23,6 +23,7 @@ use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
 use work.cputypes.all;
+use work.victypes.all;
 
 entity bitplanes is
   Port (
@@ -38,23 +39,23 @@ entity bitplanes is
     
     -- Pull sprite data in along the chain from the previous sprite (or VIC-IV)
     signal sprite_datavalid_in : in std_logic;
-    signal sprite_bytenumber_in : in integer range 0 to 15;
-    signal sprite_spritenumber_in : in integer range 0 to 15;
+    signal sprite_bytenumber_in : in spritebytenumber;
+    signal sprite_spritenumber_in : in spritenumber;
     signal sprite_data_in : in unsigned(7 downto 0);
 
     -- Pass sprite data out along the chain to the next sprite
     signal sprite_datavalid_out : out std_logic;
-    signal sprite_bytenumber_out : out integer range 0 to 79;
-    signal sprite_spritenumber_out : out integer range 0 to 79;
+    signal sprite_bytenumber_out : out spritebytenumber;
+    signal sprite_spritenumber_out : out spritenumber;
     signal sprite_data_out : out unsigned(7 downto 0);
 
     -- which base offset for the VIC-II sprite data are we showing this raster line?
     -- VIC-IV clocks sprite_number_for_data and each sprite replaces
     -- sprite_data_offset with the appropriate value if the sprite number is itself
-    signal sprite_number_for_data_in : in integer range 0 to 15;
-    signal sprite_data_offset_in : in integer range 0 to 65535;    
-    signal sprite_data_offset_out : out integer range 0 to 65535;    
-    signal sprite_number_for_data_out : out integer range 0 to 15;
+    signal sprite_number_for_data_in : in spritenumber;
+    signal sprite_data_offset_in : in spritedatabytenumber;    
+    signal sprite_data_offset_out : out spritedatabytenumber;    
+    signal sprite_number_for_data_out : out spritenumber;
 
     signal bitplane_h640 : in std_logic;
     signal bitplane_h1280 : in std_logic;
@@ -69,10 +70,10 @@ entity bitplanes is
     signal is_foreground_in : in std_logic;
     signal is_background_in : in std_logic;
     -- and what is the colour of the bitmap pixel?
-    signal x_in : in integer range 0 to 4095;
-    signal x640_in : in integer range 0 to 4095;
-    signal x1280_in : in integer range 0 to 4095;
-    signal y_in : in integer range 0 to 4095;
+    signal x_in : in xposition;
+    signal x640_in : in xposition;
+    signal x1280_in : in xposition;
+    signal y_in : in yposition;
     signal border_in : in std_logic;
     signal pixel_in : in unsigned(7 downto 0);
     signal alpha_in : in unsigned(7 downto 0);
@@ -85,8 +86,8 @@ entity bitplanes is
     -- Pass pixel information back out, as well as the sprite colour information
     signal is_foreground_out : out std_logic;
     signal is_background_out : out std_logic;
-    signal x_out : out integer range 0 to 4095;
-    signal y_out : out integer range 0 to 4095;
+    signal x_out : out xposition;
+    signal y_out : out yposition;
     signal border_out : out std_logic;
     signal pixel_out : out unsigned(7 downto 0);
     signal alpha_out : out unsigned(7 downto 0);
@@ -94,6 +95,7 @@ entity bitplanes is
     signal is_sprite_out : out std_logic;
     signal sprite_map_out : out std_logic_vector(7 downto 0);
     signal sprite_fg_map_out : out std_logic_vector(7 downto 0)
+
     
 );
 
@@ -108,6 +110,8 @@ architecture behavioural of bitplanes is
     ----------------------------------------------------------------------
     pixelclock : in  STD_LOGIC;
 
+    reset : in std_logic;
+
     advance_pixel : in std_logic;
     sixteen_colour_mode : in std_logic;
 
@@ -121,43 +125,52 @@ architecture behavioural of bitplanes is
 
   end component;
 
-  
-  component ram9x4k IS
+  component ram8x4096 IS
     PORT (
-      clka : IN STD_LOGIC;
-      wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
-      addraa : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
-      dina : IN STD_LOGIC_VECTOR(8 DOWNTO 0);
-      clkb : IN STD_LOGIC;
-      addrb : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
-      doutb : OUT STD_LOGIC_VECTOR(8 DOWNTO 0)
-      );
+      clk : IN STD_LOGIC;
+      cs : IN STD_LOGIC;
+      w : IN std_logic;
+      write_address : IN integer range 0 to 4095;
+      wdata : IN unsigned(7 DOWNTO 0);
+      address : IN integer range 0 to 4095;
+      rdata : OUT unsigned(7 DOWNTO 0)
+      ); 
   END component;
 
-  signal y_last : integer range 0 to 4095;
-  signal x_last : integer range 0 to 4095;
+  signal y_last : yposition;
+  signal x_last : xposition;
   signal x_left : std_logic := '0';
   signal y_top : std_logic := '0';
   signal x_in_bitplanes : std_logic := '0';
   signal bitplane_drawing : std_logic := '0';
-  signal bitplane_x_start : integer range 0 to 4095 := 30;
-  signal bitplane_y_start : integer range 0 to 4095 := 30;
+  signal bitplane_drawing_next : std_logic := '0';
+  signal bitplane_x_start : xposition := 23;
+  signal bitplane_x_start_h640 : xposition := 54;
+  signal bitplane_x_start_h1280 : xposition := 54;
+  signal bitplane_y_start : yposition := 51;
+  signal bitplane_y_start_h640 : yposition := 51;
+  signal bitplane_y_start_h1820 : xposition := 51;
   signal bitplanes_answer_data_request_timeout : integer range 0 to 255 := 0;
 
   signal bitplane_mode : std_logic;
   signal bitplane_enables : std_logic_vector(7 downto 0);
   signal bitplane_complements : std_logic_vector(7 downto 0);
 
-  type bdo is array(0 to 7) of integer range 0 to 65535;
+  type bdo is array(0 to 7) of spritedatabytenumber;
   signal bitplane_data_offsets : bdo;
-
+  signal bitplane_data_offsets_next : bdo;
+  signal bitplane_y_card_position : spritedatabytenumber := 0;
+  signal bitplane_y_card_number : spritedatabytenumber := 0;
+  
+  signal bitplanedatabuffer_cs : std_logic := '1';
   signal bitplanedatabuffer_write : std_logic := '0';
-  signal bitplanedatabuffer_wdata : unsigned(8 downto 0);
-  signal bitplanedatabuffer_waddress : unsigned(11 downto 0);
-  signal bitplanedatabuffer_rdata : unsigned(8 downto 0);
-  signal bitplanedatabuffer_address : unsigned(11 downto 0);
+  signal bitplanedatabuffer_wdata : unsigned(7 downto 0);
+  signal bitplanedatabuffer_waddress : integer range 0 to 4095 := 0;
+  signal bitplanedatabuffer_rdata : unsigned(7 downto 0);
+  signal bitplanedatabuffer_address : integer range 0 to 4095 := 0;
 
   -- Signals into and out of bitplane pixel engines
+  signal bitplanes_reset : std_logic_vector(7 downto 0) := "00000000";
   signal bitplanes_advance_pixel : std_logic_vector(7 downto 0) := "00000000";
   signal bitplanes_sixteen_colour_mode : std_logic_vector(7 downto 0) := "00000000";
   signal bitplanes_data_in_valid : std_logic_vector(7 downto 0) := "00000000";
@@ -168,9 +181,19 @@ architecture behavioural of bitplanes is
   signal bitplanes_pixel16_out : nybl_array_8;
   type bitplane_offsets_8 is array(0 to 7) of integer range 0 to 511;
   signal bitplanes_byte_numbers : bitplane_offsets_8;
+  signal bitplanes_byte_number : integer range 0 to 511;
+  signal bitplanedata_fetch_column : integer range 0 to 511;
 
   signal bitplanedata_fetching : std_logic := '0';
   signal bitplanedata_fetch_bitplane : integer range 0 to 7;
+  signal current_data_fetch : integer range 0 to 8;
+  
+  signal fetch_ongoing : std_logic := '0';
+  signal bitplanes_column_done : std_logic := '0';
+
+  signal pixel_out_count : integer range 0 to 255 := 0;
+
+  signal bitplanes_y_start_drive : unsigned(7 downto 0) := to_unsigned(0,8);
   
 begin  -- behavioural
 
@@ -178,15 +201,15 @@ begin  -- behavioural
   -- 8 bitplanes x 512 bytes = 4KB.
   -- This is plenty, since we actually only read 80 bytes max per bitplane per
   -- line (actually upto 320 bytes per line when using bitplanes in 16-colour mode)
-  bitplanedatabuffer: component ram9x4k
-    port map (clka => pixelclock,
-              wea(0) => bitplanedatabuffer_write,
-              dina => std_logic_vector(bitplanedatabuffer_wdata),
-              addraa => std_logic_vector(bitplanedatabuffer_waddress),
+  bitplanedatabuffer: component ram8x4096
+    port map (clk => pixelclock,
+              w => bitplanedatabuffer_write,
+              wdata => bitplanedatabuffer_wdata,
+              write_address => bitplanedatabuffer_waddress,
 
-              clkb => pixelclock,
-              addrb => std_logic_vector(bitplanedatabuffer_address),
-              unsigned(doutb) => bitplanedatabuffer_rdata
+              cs => bitplanedatabuffer_cs,
+              address => bitplanedatabuffer_address,
+              rdata => bitplanedatabuffer_rdata
               );
 
   generate_bitplanes:  
@@ -195,6 +218,7 @@ begin  -- behavioural
       bitplane_inst : bitplane
       port map (  
         pixelclock => pixelclock,
+        reset => bitplanes_reset(index),
         advance_pixel => bitplanes_advance_pixel(index),
         sixteen_colour_mode => bitplanes_sixteen_colour_mode(index),
         data_in_valid => bitplanes_data_in_valid(index),
@@ -209,22 +233,31 @@ begin  -- behavioural
   -- type   : sequential
   -- inputs : pixelclock, <reset>
   -- outputs: colour, is_sprite_out
-  main: process (pixelclock)
+  main: process (pixelclock) is
+    variable v_x_in : integer;
+    variable v_bitplane_y_start : integer := 0;
+    variable v_bitplane_x_start : integer := 0;
   begin  -- process main
-    if ioclock'event and ioclock = '1' then
-      -- Allow writing to bitplane buffer memory directly for debugging
-      -- (will be overridden if VIC-IV data pipeline is feeding us data)
-      -- @IO:GS $FFBF000 - $FFBFFFF - DEBUG allow writing directly to the bitplane data buffer.  Will be removed in production.
-      if fastio_write='1' and fastio_address(19 downto 12) = x"BF" then
-        bitplanedatabuffer_waddress(11 downto 0)
-          <= fastio_address(11 downto 0);
-        bitplanedatabuffer_wdata(8) <= '0';
-        bitplanedatabuffer_wdata(7 downto 0) <= fastio_wdata;
-        bitplanedatabuffer_write <= '1';
-      end if;
-    end if;
     if pixelclock'event and pixelclock = '1' then  -- rising clock edge
 
+      -- Process delayed signals for improving timing closure
+      bitplanes_y_start_drive <= bitplanes_y_start;
+      bitplane_data_offsets <= bitplane_data_offsets_next;
+
+      -- Pre-calculate some things to improve timing
+      if y_in >= (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive)))) then
+--        report "y_in = " & integer'image(y_in);
+--        report "v_bitplane_y_start = " & integer'image(v_bitplane_y_start);
+--        report "bitplane_y_start_drive = " & integer'image(to_integer(signed(std_logic_vector(bitplanes_y_start_drive))));
+        bitplane_y_card_position
+          <= integer((y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive))))) mod 8);
+        bitplane_y_card_number
+          <= integer(((y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive))))) / 8));
+      else
+        bitplane_y_card_position <= integer(y_in mod 8);
+        bitplane_y_card_number <= 0;
+      end if;
+      
       -- Copy sprite colission status out
       sprite_map_out <= sprite_map_in;
       sprite_fg_map_out <= sprite_fg_map_in;
@@ -240,8 +273,28 @@ begin  -- behavioural
       sprite_bytenumber_out <= sprite_bytenumber_in;
       sprite_data_out <= sprite_data_in;
       sprite_number_for_data_out <= sprite_number_for_data_in;
+
+      bitplanes_column_done <= '0';
+      if bitplanes_column_done = '1' then
+
+        fetch_ongoing <= '0';
+      end if;
       
-      if sprite_datavalid_in = '1' and (sprite_spritenumber_in > 7) then
+      if bitplane_h640='1' then
+        v_x_in := x640_in;
+        v_bitplane_y_start := bitplane_y_start_h640;
+        v_bitplane_x_start := bitplane_x_start_h640;
+      elsif bitplane_h1280='1' then
+        v_x_in := x1280_in;
+        v_bitplane_y_start := bitplane_y_start_h1820;
+        v_bitplane_x_start := bitplane_x_start_h1280;
+      else
+        v_x_in := x_in;
+        v_bitplane_y_start := bitplane_y_start;
+        v_bitplane_x_start := bitplane_x_start;
+      end if;
+
+      if (sprite_datavalid_in = '1') and (sprite_spritenumber_in > 7) then
         -- Record sprite data
         report "BITPLANES:"
           & "  byte $" & to_hstring(sprite_data_in)
@@ -255,11 +308,8 @@ begin  -- behavioural
           & " border_in=" & std_logic'image(border_in)
           & " bitplane_mode_in=" & std_logic'image(bitplane_mode_in)
           & " bitplane_drawing=" & std_logic'image(bitplane_drawing);
-        bitplanedatabuffer_waddress(11 downto 9)
-          <= to_unsigned(sprite_spritenumber_in mod 8, 3);
-        bitplanedatabuffer_waddress(8 downto 0)
-          <= to_unsigned(sprite_bytenumber_in, 9);
-        bitplanedatabuffer_wdata(8) <= '0';
+        bitplanedatabuffer_waddress
+          <= (sprite_spritenumber_in mod 8)*512 + sprite_bytenumber_in;
         bitplanedatabuffer_wdata(7 downto 0) <= sprite_data_in;
         bitplanedatabuffer_write <= '1';
       end if;      
@@ -280,29 +330,32 @@ begin  -- behavioural
       is_background_out <= is_background_in;
 
       -- Work out if we need to fetch a byte
+      bitplanes_advance_pixel <= "00000000";
       bitplanedata_fetching <= '0';
-      if bitplanes_answer_data_request_timeout = 0 then        
-        for i in 7 downto 0 loop
-          if bitplanes_data_request(i) = '1' then
-            bitplanedatabuffer_address(11 downto 9) <= to_unsigned(i,3);
-            bitplanedatabuffer_address(8 downto 0)
-              <= to_unsigned(bitplanes_byte_numbers(i),9);
-            bitplanedata_fetch_bitplane <= i;
-            if bitplanes_byte_numbers(i) < 511 then
-              bitplanes_byte_numbers(i) <= bitplanes_byte_numbers(i) + 1;
-            else
-              bitplanes_byte_numbers(i) <= 0;
-            end if;
-            -- Only fetch the byte if we have not reached the end of the bitplane
-            if bitplanes_byte_numbers(i) < 320 then
-              bitplanedata_fetching <= '1';
-            end if;
-          end if;
-        end loop;
-      else
-        -- Reduce timeout before we honour bitplane fetch requests
-        bitplanes_answer_data_request_timeout
-          <= bitplanes_answer_data_request_timeout - 1;
+
+      if current_data_fetch > 0 then
+
+        bitplanedata_fetching <= '1';
+        bitplanedata_fetch_bitplane <= current_data_fetch - 1;
+        bitplanedatabuffer_address <= (current_data_fetch - 1)*512 + bitplanes_byte_number;
+        bitplanedata_fetch_column <= bitplanes_byte_number;
+	current_data_fetch <= current_data_fetch - 1;
+
+      elsif (bitplanes_data_request(7) = '1') and (fetch_ongoing = '0') then
+
+        fetch_ongoing <= '1';
+
+        -- start new fetch of column
+        bitplanes_byte_number <= bitplanes_byte_numbers(0);
+        bitplanes_byte_numbers(0) <= bitplanes_byte_numbers(0) + 1;
+        -- ent_data_fetch <= 8;   -- triggers fetching data in the next cycle
+
+        bitplanedata_fetching <= '1';
+        bitplanedata_fetch_bitplane <= 7;
+        bitplanedatabuffer_address <= (7)*512 + bitplanes_byte_number;
+        bitplanedata_fetch_column <= bitplanes_byte_number;
+	current_data_fetch <= 7;
+
       end if;
       
       -- Pass fetched data to bitplanes if data is available
@@ -310,29 +363,28 @@ begin  -- behavioural
       if bitplanedata_fetching = '1' then
         bitplanes_data_in <= bitplanedatabuffer_rdata(7 downto 0);
         bitplanes_data_in_valid(bitplanedata_fetch_bitplane) <= '1';
+
+        if(bitplanedata_fetch_bitplane = 0) then
+          fetch_ongoing <= '0';
+        end if;
       end if;
       
       -- Work out when we start drawing the bitplane
       y_last <= y_in;
-      if y_last = bitplane_y_start then
+      if y_in = (v_bitplane_y_start + bitplanes_y_start) then
         y_top <= '1';
         report "asserting y_top";
-        -- Start requesting pixels from bitplanes to empty their buffers.
-        bitplanes_advance_pixel <= "11111111";
-        -- Allow enough cycles to flush the buffers in single-colour (C65) bitplane mode
-        bitplanes_answer_data_request_timeout <= 64;
       else
         y_top <= '0';
       end if;
 
-      bitplanes_advance_pixel <= "00000000";
       -- XXX: Bitplane output is delayed by one physical pixel here.
       -- This means that the bitplanes needs to be fed the x value one pixel clock
       -- early, or bitplanes will be offset by one physical pixel.
       -- Also, we need to have a 640 and 1280 pixel clock to do
       -- higher-resolution bitplanes for full C65 compatibility.
       -- None of the above has yet been done.
-      if x_in = bitplane_x_start
+      if v_x_in = (v_bitplane_x_start + to_integer(signed(std_logic_vector(bitplanes_x_start))))
         and (y_top='1' or bitplane_drawing='1') then
         x_left <= '1';
         x_in_bitplanes <= '1';
@@ -340,35 +392,77 @@ begin  -- behavioural
       else
         x_left <= '0';
       end if;
+
+      if bitplane_h640 = '1' then
+        if v_x_in > (v_bitplane_x_start + to_integer(signed(std_logic_vector(bitplanes_x_start))) + 640) then
+          x_in_bitplanes <= '0';
+        end if;
+      elsif bitplane_h1280 = '1' then
+        if v_x_in > (v_bitplane_x_start + to_integer(signed(std_logic_vector(bitplanes_x_start))) + 1280) then
+          x_in_bitplanes <= '0';
+        end if;
+      else
+        if v_x_in > (v_bitplane_x_start + to_integer(signed(std_logic_vector(bitplanes_x_start))) + 320) then
+          x_in_bitplanes <= '0';
+        end if;
+      end if;
       -- Clear bitplane byte numbers at the start of each raster.
-      if x_in = 0 then
+      if v_x_in = 0 then
         for i in 7 downto 0 loop
           bitplanes_byte_numbers(i) <= 0; 
+          if y_in <= (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start)))) then
+            bitplane_data_offsets_next(i) <= 0;
+          else
+
+            if bitplane_h640 = '1' then
+                bitplane_data_offsets_next(i) <= bitplane_y_card_position + (bitplane_y_card_number * 512) + (bitplane_y_card_number * 128);
+            elsif bitplane_h1280 = '1' then
+                bitplane_data_offsets_next(i) <= bitplane_y_card_position + (bitplane_y_card_number * 1024) + (bitplane_y_card_number * 256);
+            else
+                bitplane_data_offsets_next(i) <= bitplane_y_card_position + (bitplane_y_card_number * 256) + (bitplane_y_card_number * 64);
+            end if;
+          end if;
         end loop;
+
+        x_in_bitplanes <= '0';
+        bitplanes_reset <= "11111111";
+        bitplanes_data_in_valid <= "00000000";
+	bitplanes_advance_pixel <= "11111111";
+	fetch_ongoing <= '0';
+      else
+        bitplanes_reset <= "00000000";
       end if;
 
       -- Start drawing once we hit the top of the bitplanes.
       -- Note: the logic here means that bitplanes must be enabled at this
       -- point, or they will not be shown at all on the frame!
       if (y_top = '1') and (bitplane_mode_in = '1') then
-        bitplane_drawing <= '1';
+        bitplane_drawing_next <= '1';
         report "bitplane_drawing asserted.";
+      else 
+        bitplane_drawing_next <= '0';
       end if;
+
+      if bitplane_drawing_next = '1' then
+        bitplane_drawing <= '1';
+      end if;
+
       -- Always stop drawing bitplanes at raster 255 (just a little into the
       -- lower border).
-      if y_in = 255 then
+      if y_in = (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start))) + 200) then
         bitplane_drawing <= '0';
         report "bitplane_drawing cleared.";
       end if;
         
-      if (x_in /= x_last) and (bitplane_drawing='1') then
+      if (v_x_in /= x_last) and (bitplane_drawing='1') and (x_in_bitplanes='1') then
         -- Request first or next pixel from each bitplane.
         -- We now fetch enough bytes for 16-colour bitplanes to be at full resolution.
         bitplanes_advance_pixel <= "11111111";
       end if;              
+      x_last <= v_x_in;
 
       pixel_out <= pixel_in;
-      if (bitplane_mode='1') and (border_in='0') and (bitplane_drawing='1') then
+      if (bitplane_mode='1') and (x_in_bitplanes='1') and (bitplane_drawing='1') then
         -- Display bitplanes, and set foreground based on bitplane 2
         -- (but not for 16-colour bitplanes)
         report "bitplane pixel";
@@ -394,9 +488,8 @@ begin  -- behavioural
               is_foreground_out <= bitplane_complements(i);
             end if;
           end if;
-        end loop;
+        end loop;        
       end if;
-      
       is_sprite_out <= is_sprite_in;
       sprite_colour_out <= sprite_colour_in;
     end if;

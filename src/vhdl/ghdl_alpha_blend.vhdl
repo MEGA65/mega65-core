@@ -7,7 +7,6 @@ use work.debugtools.all;
 entity alpha_blend_top is
   port(
     clk1x:       in  std_logic;
-    clk2x:       in  std_logic;
     reset:       in  std_logic;
     hsync_strm0: in  std_logic;
     vsync_strm0: in  std_logic;
@@ -34,25 +33,19 @@ entity alpha_blend_top is
 end alpha_blend_top;
 
 architecture behavioural of alpha_blend_top is
-  signal r0  : integer;
-  signal r1  : integer;
-  signal g0  : integer;
-  signal g1  : integer;
-  signal b0  : integer;
-  signal b1  : integer;
-  signal r0drive  : integer;
-  signal r1drive  : integer;
-  signal g0drive  : integer;
-  signal g1drive  : integer;
-  signal b0drive  : integer;
-  signal b1drive  : integer;
-  signal r_strm0_drive: std_logic_vector(9 downto 0);
-  signal g_strm0_drive: std_logic_vector(9 downto 0);              
-  signal b_strm0_drive: std_logic_vector(9 downto 0);
-  signal r_strm1_drive: std_logic_vector(9 downto 0);
-  signal g_strm1_drive: std_logic_vector(9 downto 0);              
-  signal b_strm1_drive: std_logic_vector(9 downto 0);
-  signal alpha_strm_drive: std_logic_vector(9 downto 0);
+  signal r0  : integer := 0;
+  signal r1  : integer := 0;
+  signal g0  : integer := 0;
+  signal g1  : integer := 0;
+  signal b0  : integer := 0;
+  signal b1  : integer := 0;
+  signal r0drive  : integer := 0;
+  signal r1drive  : integer := 0;
+  signal g0drive  : integer := 0;
+  signal g1drive  : integer := 0;
+  signal b0drive  : integer := 0;
+  signal b1drive  : integer := 0;
+  signal alpha_strm_drive: unsigned(10 downto 0);
   signal oneminusalpha : integer;
 
 begin
@@ -61,17 +54,15 @@ begin
     variable temp : unsigned(19 downto 0);
   begin
     if rising_edge(clk1x) then
-      r_strm0_drive <= r_strm0;
-      r_strm1_drive <= r_strm1;
-      g_strm0_drive <= g_strm0;
-      g_strm1_drive <= g_strm1;
-      b_strm0_drive <= b_strm0;
-      b_strm1_drive <= b_strm1;
-      alpha_strm_drive <= alpha_strm;
-      oneminusalpha <= (1023-to_integer(unsigned(alpha_strm)));
+
+      -- Keep alpha values as-is, as we sign-extend the lowest bit into the bottom
+      -- two bits, so full brightness will be $3FF/$400 = 99.9%, which is fine,
+      -- and will avoid the wrap-around from stark white to black that we are seeing.
+      alpha_strm_drive <= unsigned("0"&alpha_strm);
+      oneminusalpha <= (1024-to_integer(unsigned(alpha_strm)));
       
       r0 <= to_integer(unsigned(r_strm0))
-            *to_integer(unsigned(alpha_strm_drive));
+            *to_integer(alpha_strm_drive);
       r1 <= to_integer(unsigned(r_strm1))*oneminusalpha;
       r0drive <= r0;
       r1drive <= r1;
@@ -79,7 +70,7 @@ begin
       r_blnd <= std_logic_vector(temp(19 downto 10));
 
       g0 <= to_integer(unsigned(g_strm0))
-            *to_integer(unsigned(alpha_strm_drive));
+            *to_integer(alpha_strm_drive);
       g1 <= to_integer(unsigned(g_strm1))*oneminusalpha;
       g0drive <= g0;
       g1drive <= g1;
@@ -87,7 +78,7 @@ begin
       g_blnd <= std_logic_vector(temp(19 downto 10));
       
       b0 <= to_integer(unsigned(b_strm0))
-            *to_integer(unsigned(alpha_strm_drive));
+            *to_integer(alpha_strm_drive);
       b1 <= to_integer(unsigned(b_strm1))*oneminusalpha;
       b0drive <= b0;
       b1drive <= b1;

@@ -18,7 +18,9 @@ entity sd_controller is
 
     sdhc_mode : in std_logic;
     half_speed : in std_logic;
-   
+
+    last_state : out unsigned(7 downto 0) := x"00";
+    
     rd : in std_logic;
     wr : in std_logic;
     dm_in : in std_logic;	-- data mode, 0 = write continuously, 1 = write single block
@@ -41,6 +43,8 @@ architecture rtl of sd_controller is
     INIT,
     CMD0,
     CMD8,
+    CMD7B,
+    CMD7A,
     CMD55,
     CMD41,
     POLL_CMD,
@@ -112,6 +116,8 @@ begin
       if (reset='1') then
         state <= RST;
         sclk_sig <= '0';
+        -- Show when we are reseting
+        last_state <= x"99";
       else
         case state is
           
@@ -138,6 +144,7 @@ begin
             end if;	
             
           when CMD0 =>
+            last_state <= x"00";
             cmd_out <= x"FF400000000095";
             bit_counter := 55;
             if sdhc_mode='1' then
@@ -147,19 +154,58 @@ begin
             end if;
             state <= SEND_CMD;
 
+            
           when CMD8 =>
-            cmd_out <= x"FF48" & x"000001aa" & x"87"; -- 8d or 40h = 48h
-            bit_counter := 55;
-            return_state <= CMD55;
-            state <= SEND_CMD;
+            -- Tell SDHC card which voltages we support
+            last_state <= x"08";
+            
+            -- Initialising SDHC cards is not as simple as it should be.
+            -- It seems to always fail first time around.
+            -- Retry CMD0 until it gives result 0x01 (Idle, no errors)
+            if recv_data = "00000001" then               
+              cmd_out <= x"FF48" & x"000001aa" & x"87"; -- 8d or 40h = 48h
+              bit_counter := 55;
+              return_state <= CMD7B;
+              state <= SEND_CMD;
+            else
+              state <= CMD0;
+            end if;
 
+          when CMD7B =>
+            -- Tell SDHC card to disable CRC checks
+            last_state <= x"7B";
+
+            if recv_data = "00000001" then
+              cmd_out <= x"FF7B0000000091";
+              bit_counter := 55;
+              return_state <= CMD7A;
+              state <= SEND_CMD;
+            else
+              state <= CMD7A; -- proceed anyway
+            end if;
+
+          when CMD7A =>
+            -- Check OCR
+            last_state <= x"7A";
+
+            if recv_data = "00000001" then
+              cmd_out <= x"FF7A0000000000";
+              bit_counter := 55;
+              return_state <= CMD55;
+              state <= SEND_CMD;
+            else
+              state <= CMD55; -- proceed anyway
+            end if;            
+            
           when CMD55 =>
+            last_state <= x"77";
             cmd_out <= x"FF770000000001";	-- 55d OR 40h = 77h
             bit_counter := 55;
             return_state <= CMD41;
             state <= SEND_CMD;
             
           when CMD41 =>
+            last_state <= x"69";
                                         -- Allow setting flags during CMD41
             cmd_out <= x"FF69" & address & x"01";	-- 41d OR 40h = 69h
             bit_counter := 55;
@@ -168,8 +214,10 @@ begin
             
           when POLL_CMD =>
             if (recv_data(0) = '0') then
+              last_state <= x"FF";
               state <= IDLE;
             else
+              -- Failed to accept CMD55, so retry until it accepts it.
               state <= CMD55;
             end if;
             

@@ -11,9 +11,9 @@ ENTITY ram8x4096 IS
     clk : IN STD_LOGIC;
     cs : IN STD_LOGIC;
     w : IN std_logic;
-    write_address : IN integer range 0 to 4095;
+    write_address : IN integer;
     wdata : IN unsigned(7 DOWNTO 0);
-    address : IN integer range 0 to 4095;
+    address : IN integer;
     rdata : OUT unsigned(7 DOWNTO 0)
     );
 END ram8x4096;
@@ -26,7 +26,7 @@ architecture behavioural of ram8x4096 is
 
 begin  -- behavioural
 
-  process(clk,cs,address)
+  process(clk,cs,address,ram)
   begin
     if cs='1' then
       rdata <= ram(address);

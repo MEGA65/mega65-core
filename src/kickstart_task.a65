@@ -43,6 +43,14 @@ task_set_c64_memorymap:
 	lda #$00
 	sta hypervisor_iomode    ; C64 IO map
 
+	; Unmap SD sector buffer
+	lda #$82
+	sta $D680
+	
+	; Unmap 2nd KB colour RAM
+	lda #$01
+	trb $d030
+
 	; XXX - disable C65 ROM maps
 	rts
 	
@@ -51,7 +59,6 @@ task_set_c64_memorymap:
 task_set_pc_to_reset_vector:
 
 	; Set PC from $FFFC in ROM, i.e., $802FFFC
-	;
 	ldx #<reset_vector
 	ldy #>reset_vector
 	ldz #$02
@@ -145,6 +152,22 @@ task_asblankslate:
 
 double_restore_trap:
 
+	; switch video mode
+	lda $d06f
+	clc
+	adc #$40
+	sta $d06f
+	; update X scaling
+	; XXX can mess up raster interrupts
+	lda $d011
+	sta $d011
+
+	; return from hypervisor
+	;
+	sta hypervisor_enterexit_trigger
+
+double_restore_trap_old:
+
 	; For now we just want to toggle the CPU speed between 48MHz and
 	; 1MHz
 
@@ -173,4 +196,47 @@ double_restore_trap:
 
 ;	========================
 
+protected_hardware_config:
 
+        ; store config info passed from register a 
+        lda hypervisor_a
+	sta hypervisor_secure_mode_flags
+
+	; bump border colour so that we know something has happened
+	;
+
+        lda $D020
+	inc 
+	and #$0f
+	sta $D020
+		
+	sta hypervisor_enterexit_trigger
+
+;	========================
+
+matrix_mode_toggle:
+
+	lda hypervisor_secure_mode_flags
+	; We want to toggle bit 6 only.
+	and #$40 ; mask bit 6
+	bne clearmm ;if its not zero
+	
+	;If its not enabled, we want to set bit 6
+	lda hypervisor_secure_mode_flags
+        ora #$40 
+	jmp exitmm
+       ;If its enabled, we want to clear bit 6
+clearmm:
+        lda hypervisor_secure_mode_flags
+        and #$BF
+exitmm:
+        sta hypervisor_secure_mode_flags
+
+        ;;;Dont need this any more
+	;; bump border colour so that we know something has happened	
+        ;lda $D020
+	;inc 
+	;and #$0f
+	;sta $D020
+
+	sta hypervisor_enterexit_trigger

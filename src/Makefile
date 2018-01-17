@@ -1,4 +1,7 @@
 
+COPT=	-Wall -g -std=c99
+CC=	gcc
+
 VHDLSRCDIR=	vhdl
 
 SDCARD_DIR=	../sdcard-files
@@ -8,6 +11,7 @@ KICKSTARTSRCS = kickstart.a65 \
 		kickstart_process_descriptor.a65 \
 		kickstart_dos.a65 \
 		kickstart_task.a65 \
+		kickstart_virtual_f011.a65 \
 		kickstart_mem.a65
 
 # if you want your PRG to appear on "MEGA65.D81", then put your PRG in "./src/utilities/userPRGs"
@@ -30,6 +34,9 @@ UTILITIES=	utilities/ethertest.prg \
 TOOLS=	tools/etherkick/etherkick \
 	tools/etherload/etherload \
 	tools/hotpatch/hotpatch \
+	tools/monitor_load \
+	tools/monitor_save \
+	tools/on_screen_keyboard_gen \
 	tools/pngprepare/pngprepare
 
 all:
@@ -45,12 +52,16 @@ fpga:
 
 generated_vhdl:	$(VHDLSRCDIR)/kickstart.vhdl \
 		$(VHDLSRCDIR)/charrom.vhdl \
-		$(VHDLSRCDIR)/version.vhdl
+		$(VHDLSRCDIR)/version.vhdl \
+		$(VHDLSRCDIR)/shadowram.vhdl \
+		$(VHDLSRCDIR)/oskmem.vhdl \
+		$(VHDLSRCDIR)/colourram.vhdl
 
 
 # files destined to go on the SD-card to serve as firmware for the MEGA65
-firmware:	$(SDCARD_DIR)/BOOTLOGO.M65 \
+firmware:	$(SDCARD_DIR)/BANNER.M65 \
 		KICKUP.M65 \
+		COLOURRAM.BIN \
 		$(SDCARD_DIR)/MEGA65.D81 \
 		$(SDCARD_DIR)/C000UTIL.BIN
 
@@ -64,14 +75,65 @@ tools:	$(TOOLS)
 utilities:	$(UTILITIES)
 
 
-simulate:	diskmenu.prg \
-	KICKUP.M65 \
-	makerom \
-	container.prj \
-	thumbnail.prg \
-	textmodetest.prg \
-	etherload \
-	etherkick
+SIMULATIONFILES=	vhdl/UART_TX_CTRL.vhd vhdl/bitplane.vhdl vhdl/bitplanes.vhdl \
+	vhdl/c65uart.vhdl vhdl/charrom.vhdl vhdl/cia6526.vhdl vhdl/container.vhd \
+	vhdl/cpu_test.vhdl vhdl/cputypes.vhdl vhdl/crc.vhdl vhdl/ddrwrapper.vhdl \
+	vhdl/debugtools.vhdl vhdl/ethernet.vhdl vhdl/framepacker.vhdl \
+	vhdl/ghdl_alpha_blend.vhdl vhdl/ghdl_chipram8bit.vhdl vhdl/ghdl_farstack.vhdl \
+	vhdl/ghdl_ram128x1k.vhdl vhdl/ghdl_ram18x2k.vhdl vhdl/colourram.vhdl \
+	vhdl/ghdl_ram8x4096.vhdl vhdl/ghdl_ram8x512.vhdl vhdl/ghdl_ram9x4k.vhdl \
+	vhdl/ghdl_screen_ram_buffer.vhdl vhdl/ghdl_videobuffer.vhdl vhdl/gs4510.vhdl \
+	vhdl/iomapper.vhdl vhdl/keymapper.vhdl vhdl/kickstart.vhdl vhdl/machine.vhdl \
+	vhdl/ramlatch64.vhdl vhdl/sd.vhdl vhdl/sdcardio.vhdl vhdl/shadowram.vhdl \
+	vhdl/sid_6581.vhd vhdl/sid_coeffs.vhd vhdl/sid_components.vhd vhdl/sid_filters.vhd \
+	vhdl/sid_voice.vhd vhdl/slowram.vhdl vhdl/sprite.vhdl vhdl/uart_monitor.vhdl \
+	vhdl/uart_rx.vhdl vhdl/version.vhdl vhdl/vicii_sprites.vhdl vhdl/viciv.vhdl \
+	vhdl/ghdl_fpgatemp.vhdl vhdl/victypes.vhdl vhdl/pal_simulation.vhdl \
+	vhdl/fake_expansion_port.vhdl vhdl/expansion_port_controller.vhdl \
+	vhdl/slow_devices.vhdl vhdl/ps2_to_uart.vhdl vhdl/matrix_compositor.vhdl \
+	vhdl/terminalemulator.vhdl vhdl/uart_charrom.vhdl vhdl/uart_rx.vhdl \
+	vhdl/keyboard_to_matrix.vhdl vhdl/matrix_to_ascii.vhdl \
+	vhdl/widget_to_matrix.vhdl vhdl/ps2_to_matrix.vhdl vhdl/keymapper.vhdl \
+	vhdl/keyboard_complex.vhdl vhdl/virtual_to_matrix.vhdl \
+	vhdl/visual_keyboard.vhdl vhdl/oskmem.vhdl vhdl/ghdl_ram36x1k.vhdl
+simulate:	$(SIMULATIONFILES)
+	ghdl -i $(SIMULATIONFILES)
+	ghdl -m cpu_test
+	./cpu_test || ghdl -r cpu_test
+
+KVFILES=vhdl/test_kv.vhdl vhdl/keyboard_to_matrix.vhdl vhdl/matrix_to_ascii.vhdl \
+	vhdl/widget_to_matrix.vhdl vhdl/ps2_to_matrix.vhdl vhdl/keymapper.vhdl \
+	vhdl/keyboard_complex.vhdl vhdl/virtual_to_matrix.vhdl
+kvsimulate:	$(KVFILES)
+	ghdl -i $(KVFILES)
+	ghdl -m test_kv
+	./test_kv || ghdl -r test_kv
+
+OSKFILES=vhdl/test_osk.vhdl \
+	vhdl/visual_keyboard.vhdl \
+	vhdl/oskmem.vhdl
+osksimulate:	$(OSKFILES) tools/osk_image
+	ghdl -i $(OSKFILES)
+	ghdl -m test_osk
+	( ./test_osk || ghdl -r test_osk ) 2>&1 | tools/osk_image
+
+MMFILES=vhdl/test_matrix.vhdl \
+	vhdl/matrix_compositor.vhdl \
+	vhdl/uart_charrom.vhdl \
+	vhdl/terminalemulator.vhdl
+mmsimulate:	$(MMFILES) tools/osk_image
+	ghdl -i $(MMFILES)
+	ghdl -m test_matrix
+	( ./test_matrix || ghdl -r test_matrix ) 2>&1 | tools/osk_image matrix.png
+
+tools/osk_image:	tools/osk_image.c
+	$(CC) $(COPT) -I/usr/local/include -L/usr/local/lib -o tools/osk_image tools/osk_image.c -lpng
+
+vfsimulate:	vhdl/frame_test.vhdl vhdl/video_frame.vhdl
+	ghdl -i vhdl/frame_test.vhdl vhdl/video_frame.vhdl
+	ghdl -m frame_test
+	./frame_test || ghdl -r frame_test
+
 
 # =======================================================================
 # =======================================================================
@@ -88,7 +150,7 @@ $(SDCARD_DIR)/CHARROM.M65:
 $(SDCARD_DIR)/MEGA65.ROM:
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $(SDCARD_DIR)/MEGA65.ROM)
-	wget -O $(SDCARD_DIR)/MEGA65.ROM http://www.zimmers.net/anonftp/pub/cbm/firmware/computers/c65/910111.bin
+	wget -O $(SDCARD_DIR)/MEGA65.ROM http://www.zimmers.net/anonftp/pub/cbm/firmware/computers/c65/910111-390488-01.bin
 
 # ============================, print-warn, clean target
 # verbose, for 1581 format, overwrite
@@ -121,6 +183,19 @@ diskmenu.prg:	diskmenuprg.a65 diskmenu.a65 utilities/etherload.prg
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: diskmenu.prg and diskmenuprg.list)
 	./../../Ophis/bin/ophis -4 diskmenuprg.a65 -l diskmenuprg.list -m diskmenuprg.map
+
+megacart.crt:	megacartstub.a65
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: diskmenu.prg and diskmenuprg.list)
+	./../../Ophis/bin/ophis -4 megacartstub.a65 -l megacart.list -m megacart.map
+
+mega65-fdisk/m65fdisk.prg:	
+	( cd mega65-fdisk ; make )
+
+border.prg:	border.a65
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: border.prg)
+	./../../Ophis/bin/ophis -4 border.a65
 
 
 # ============================ done moved, print-warn, clean-target
@@ -214,6 +289,26 @@ $(VHDLSRCDIR)/kickstart.vhdl:	tools/makerom/rom_template.vhdl KICKUP.M65 tools/m
 #       script                arg[1]                          arg[2]     arg[3]                  arg[4]
 	tools/makerom/makerom tools/makerom/rom_template.vhdl KICKUP.M65 $(VHDLSRCDIR)/kickstart kickstart
 
+$(VHDLSRCDIR)/colourram.vhdl:	tools/makerom/colourram_template.vhdl COLOURRAM.BIN tools/makerom/makerom
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $(VHDLSRCDIR)/colourram.vhdl)
+	tools/makerom/makerom tools/makerom/colourram_template.vhdl COLOURRAM.BIN $(VHDLSRCDIR)/colourram ram8x32k
+
+$(VHDLSRCDIR)/shadowram.vhdl:	tools/mempacker/mempacker $(SDCARD_DIR)/BANNER.M65
+	tools/mempacker/mempacker -n shadowram -s 131071 -f $(VHDLSRCDIR)/shadowram.vhdl $(SDCARD_DIR)/BANNER.M65@3D00
+
+$(VHDLSRCDIR)/oskmem.vhdl:	tools/mempacker/mempacker asciifont.bin osdmap.bin
+	tools/mempacker/mempacker -n oskmem -s 4095 -f $(VHDLSRCDIR)/oskmem.vhdl asciifont.bin@0000 osdmap.bin@0800
+
+osdmap.bin:	tools/on_screen_keyboard_gen keyboard.txt
+	 tools/on_screen_keyboard_gen >osdmap.bin
+
+asciifont.bin:	tools/pngprepare/pngprepare ascii00-7f.png
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: asciifont.bin)
+#       exe          option  infile      outfile
+	tools/pngprepare/pngprepare charrom ascii00-7f.png asciifont.bin
+
 
 # unsure why the below is commented out
 #slowram.vhdl:	c65gs.rom makeslowram slowram_template.vhdl
@@ -227,7 +322,7 @@ $(VHDLSRCDIR)/kickstart.vhdl:	tools/makerom/rom_template.vhdl KICKUP.M65 tools/m
 videoproxy:	videoproxy.c
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: videoproxy)
-	gcc -Wall -g -o videoproxy videoproxy.c -lpcap
+	$(CC) $(COPT) -o videoproxy videoproxy.c -lpcap
 
 
 # ============================ done moved, print-warn, clean-target
@@ -236,7 +331,7 @@ videoproxy:	videoproxy.c
 tools/etherload/etherload:	tools/etherload/etherload.c Makefile
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: tools/etherload/etherload)
-	gcc -Wall -g -o tools/etherload/etherload tools/etherload/etherload.c $(SOCKLIBS)
+	$(CC) $(COPT) -o tools/etherload/etherload tools/etherload/etherload.c $(SOCKLIBS)
 
 
 # ============================ done moved, print-warn, clean-target
@@ -245,21 +340,21 @@ tools/etherload/etherload:	tools/etherload/etherload.c Makefile
 tools/etherkick/etherkick:	tools/etherkick/etherkick.c Makefile
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: tools/etherkick/etherkick)
-	gcc -Wall -g -o tools/etherkick/etherkick ./tools/etherkick/etherkick.c $(SOCKLIBS)
+	$(CC) $(COPT) -o tools/etherkick/etherkick ./tools/etherkick/etherkick.c $(SOCKLIBS)
 
 
 # ============================ print-warn, clean-target
 tools/hotpatch/hotpatch:	tools/hotpatch/hotpatch.c Makefile
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: tools/hotpatch/hotpatch)
-	gcc -Wall -g -o tools/hotpatch/hotpatch tools/hotpatch/hotpatch.c
+	$(CC) $(COPT) -o tools/hotpatch/hotpatch tools/hotpatch/hotpatch.c
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
 # c-code that makes an executable that processes images, and can make a vhdl file
 tools/pngprepare/pngprepare:	tools/pngprepare/pngprepare.c Makefile
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: tools/pngprepare/pngprepare)
-	gcc -g -Wall -I/usr/local/include -L/usr/local/lib -o tools/pngprepare/pngprepare tools/pngprepare/pngprepare.c -lpng
+	$(CC) $(COPT) -I/usr/local/include -L/usr/local/lib -o tools/pngprepare/pngprepare tools/pngprepare/pngprepare.c -lpng
 
 # ============================ done *deleted*, Makefile-dep, print-warn, clean-target
 # unix command to generate the 'iomap.txt' file that represents the registers
@@ -272,6 +367,15 @@ tools/pngprepare/pngprepare:	tools/pngprepare/pngprepare.c Makefile
 	# Force consistent ordering of items according to natural byte values
 	export LC_ALL=C
 	egrep "IO:C6|IO:GS" $(VHDLSRCDIR)/*.vhdl | cut -f3- -d: | sort -u -k2 > ../iomap.txt
+
+CRAMUTILS=	border.prg mega65-fdisk/m65fdisk.prg
+COLOURRAM.BIN:	tools/utilpacker/utilpacker $(CRAMUTILS)
+	tools/utilpacker/utilpacker COLOURRAM.BIN $(CRAMUTILS)
+
+tools/utilpacker/utilpacker:	tools/utilpacker/utilpacker.c Makefile
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: tools/utilpacker/utilpacker)
+	$(CC) $(COPT) -o tools/utilpacker/utilpacker tools/utilpacker/utilpacker.c
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
 # script to extract the git-status from the ./.git filesystem, and to embed that string
@@ -293,14 +397,12 @@ $(VHDLSRCDIR)/charrom.vhdl:	tools/pngprepare/pngprepare 8x8font.png
 #       exe          option  infile      outfile
 	tools/pngprepare/pngprepare charrom 8x8font.png $(VHDLSRCDIR)/charrom.vhdl
 
-# ============================ done moved, Makefile-dep, print-warn, clean-target
-# i think the 'logo' is used to put the pngprepare into a special mode that
-# generates the BOOTLOGO.M65 file that is embedded with the contents of the mega65*.png file
-$(SDCARD_DIR)/BOOTLOGO.M65:	tools/pngprepare/pngprepare mega65_64x64.png
+$(SDCARD_DIR)/BANNER.M65:	tools/pngprepare/pngprepare mega65_320x64.png
 	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: $(SDCARD_DIR)/BOOTLOGO.M65)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $(SDCARD_DIR)/BANNER.M65)
 #       exe          opt  infile           outfile
-	tools/pngprepare/pngprepare logo mega65_64x64.png $(SDCARD_DIR)/BOOTLOGO.M65
+	/usr/bin/convert -colors 128 -depth 8 +dither mega65_320x64.png mega65_320x64_128colour.png
+	tools/pngprepare/pngprepare logo mega65_320x64_128colour.png $(SDCARD_DIR)/BANNER.M65
 
 # disk menu program for loading from SD card to $C000 on boot by kickstart
 $(SDCARD_DIR)/C000UTIL.BIN:	diskmenu_c000.bin
@@ -312,17 +414,22 @@ $(SDCARD_DIR)/C000UTIL.BIN:	diskmenu_c000.bin
 monitor_drive:	monitor_drive.c Makefile
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: monitor_drive)
-	gcc -g -Wall -o monitor_drive monitor_drive.c
+	$(CC) $(COPT) -o monitor_drive monitor_drive.c
 
-
-# ============================ done moved, Makefile-dep, print-warn, clean-target
-# c-code that makes and executable that seems to read a file and transferrs that file
-# via the serial monitor to the fpga
-# currently has warnings upon compile
-monitor_load:	monitor_load.c Makefile
+tools/monitor_load:	tools/monitor_load.c Makefile
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: monitor_load)
-	gcc -g -Wall -o monitor_load monitor_load.c
+	$(CC) $(COPT) -o tools/monitor_load tools/monitor_load.c
+
+tools/monitor_save:	tools/monitor_save.c Makefile
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: monitor_save)
+	$(CC) $(COPT) -o tools/monitor_save tools/monitor_save.c
+
+tools/on_screen_keyboard_gen:	tools/on_screen_keyboard_gen.c Makefile
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: on_screen_keyboard_gen)
+	$(CC) $(COPT) -o tools/on_screen_keyboard_gen tools/on_screen_keyboard_gen.c
 
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
@@ -332,7 +439,7 @@ monitor_load:	monitor_load.c Makefile
 read_mem:	read_mem.c Makefile
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: read_mem)
-	gcc -g -Wall -o read_mem read_mem.c
+	$(CC) $(COPT) -o read_mem read_mem.c
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
 # c-code that makes and executable that seems to read serial commands from serial-port
@@ -347,7 +454,7 @@ chargen_debug:	chargen_debug.c Makefile
 dis4510:	dis4510.c Makefile
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: dis4510)
-	gcc -g -Wall -o dis4510 dis4510.c
+	$(CC) $(COPT) -o dis4510 dis4510.c
 
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
@@ -356,7 +463,7 @@ dis4510:	dis4510.c Makefile
 em4510:	em4510.c Makefile
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: em4510)
-	gcc -g -Wall -o em4510 em4510.c
+	$(CC) $(COPT) -o em4510 em4510.c
 
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
@@ -364,7 +471,7 @@ em4510:	em4510.c Makefile
 4510tables:	4510tables.c Makefile
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: 4510tables)
-	gcc -g -Wall -o 4510tables 4510tables.c
+	$(CC) $(COPT) -o 4510tables 4510tables.c
 
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
@@ -415,6 +522,8 @@ c65-911001-dos-context.bin:	911001.bin Makefile
 	dd if=/dev/zero  bs=4096          count=1 >> c65-911001-dos-context.bin
 	dd if=911001.bin bs=8192  skip=15 count=1 >> c65-911001-dos-context.bin
 
+modeline:	Makefile modeline.c
+	$(CC) $(COPT) -o modeline modeline.c $(LOPT)
 
 clean:
 	rm -f KICKUP.M65 kickstart.list kickstart.map

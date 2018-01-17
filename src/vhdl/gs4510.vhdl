@@ -3,7 +3,7 @@
 -- Written by
 --    Paul Gardner-Stephen <hld@c64.org>  2013-2014
 --
--- * ADC/SBC algorithm derived from  6510core.c - WICE MOS6510 emulation core.
+-- * ADC/SBC algorithm derived from  6510core.c - VICE MOS6510 emulation core.
 -- *   Written by
 -- *    Ettore Perazzoli <ettore@comm2000.it>
 -- *    Andreas Boose <viceteam@t-online.de>
@@ -33,30 +33,62 @@ use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
 use work.cputypes.all;
+use work.victypes.all;
 
 entity gs4510 is
+  generic(
+    cpufrequency : integer := 50 );
   port (
     Clock : in std_logic;
+    phi0 : out std_logic;
     ioclock : in std_logic;
     reset : in std_logic;
+    reset_out : out std_logic;
     irq : in std_logic;
     nmi : in std_logic;
-    hyper_trap : in std_logic;
+    exrom : in std_logic;
+    game : in std_logic;
 
-    cpu_hypervisor_mode : out std_logic;
+    all_pause : in std_logic;
+    
+    hyper_trap : in std_logic;
+    cpu_hypervisor_mode : out std_logic := '0';
+    matrix_trap_in : in std_logic;
+    hyper_trap_f011_read : in std_logic;
+    hyper_trap_f011_write : in std_logic;
+    --Protected Hardware Bits
+    --Bit 0: TBD
+    --Bit 1: TBD
+    --Bit 2: TBD
+    --Bit 3: TBD
+    --Bit 4: TBD
+    --Bit 5: TBD
+    --Bit 6: Matrix Mode
+    --Bit 7: Secure Mode enable 
+    protected_hardware : out unsigned(7 downto 0);	
+    --Bit 0: Trap on F011 FDC read/write
+    virtualised_hardware : out unsigned(7 downto 0);
+    -- Enable disabling of various IO devices to help debug bus collisions
+    chipselect_enables : buffer std_logic_vector(7 downto 0) := x"EF";
+	 
     iomode_set : out std_logic_vector(1 downto 0) := "11";
     iomode_set_toggle : out std_logic := '0';
 
-    cpuis6502 : out std_logic;
+    dat_offset : in unsigned(15 downto 0);
+    dat_bitplane_addresses : in sprite_vector_eight;
+    
+    cpuis6502 : out std_logic := '0';
     cpuspeed : out unsigned(7 downto 0);
 
     irq_hypervisor : in std_logic_vector(2 downto 0) := "000";    -- JBM
 
+    -- Asserted when CPU is in secure mode: Activates secure mode matrix mode interface
+    secure_mode_out : out std_logic := '0';
+
+    matrix_rain_seed : out unsigned(15 downto 0) := (others => '0');
+    
     no_kickstart : in std_logic;
 
-    ddr_counter : in unsigned(7 downto 0);
-    ddr_state : in unsigned(7 downto 0);   
-    
     reg_isr_out : in unsigned(7 downto 0);
     imask_ta_out : in std_logic;
 
@@ -68,7 +100,6 @@ entity gs4510 is
       monitor_waitstates : out unsigned(7 downto 0);
       monitor_request_reflected : out std_logic;
       monitor_hypervisor_mode : out std_logic;
-      monitor_ddr_ram_banking : out std_logic;
       monitor_pc : out unsigned(15 downto 0);
       monitor_state : out unsigned(15 downto 0);
       monitor_instruction : out unsigned(7 downto 0);
@@ -114,22 +145,6 @@ entity gs4510 is
     chipram_address : OUT unsigned(16 DOWNTO 0) := "00000000000000000";
     chipram_datain : OUT unsigned(7 DOWNTO 0);
 
-    ---------------------------------------------------------------------------
-    -- Interface to Slow RAM (128MB DDR2 RAM (or 16MB cellular RAM chip on
-    -- original non-DDR Nexys4 boards)
-    ---------------------------------------------------------------------------
-    slowram_addr_reflect : in std_logic_vector(26 downto 0);
-    slowram_datain_reflect : in std_logic_vector(7 downto 0);
-    slowram_addr : out std_logic_vector(26 downto 0);
-    slowram_we : out std_logic := '0';
-    slowram_request_toggle : out std_logic := '0';
-    slowram_done_toggle : in std_logic;
-    slowram_datain : out std_logic_vector(7 downto 0);
-    -- simple-dual-port cache RAM interface so that CPU doesn't have to read
-    -- data cross-clock
-    cache_address        : out std_logic_vector(8 downto 0);
-    cache_read_data      : in std_logic_vector(150 downto 0);   
-
     cpu_leds : out std_logic_vector(3 downto 0);
 
     ---------------------------------------------------------------------------
@@ -154,31 +169,38 @@ entity gs4510 is
     -- fast IO port (clocked at core clock). 1MB address space
     ---------------------------------------------------------------------------
     fastio_addr : inout std_logic_vector(19 downto 0);
-    fastio_read : out std_logic;
-    fastio_write : out std_logic;
+    fastio_read : out std_logic := '0';
+    fastio_write : out std_logic := '0';
     fastio_wdata : out std_logic_vector(7 downto 0);
     fastio_rdata : in std_logic_vector(7 downto 0);
+    kickstart_rdata : in std_logic_vector(7 downto 0);
     sector_buffer_mapped : in std_logic;
     fastio_vic_rdata : in std_logic_vector(7 downto 0);
     fastio_colour_ram_rdata : in std_logic_vector(7 downto 0);
-    colour_ram_cs : out std_logic;
-    charrom_write_cs : out std_logic;
+    colour_ram_cs : out std_logic := '0';
+    charrom_write_cs : out std_logic := '0';
 
+    ---------------------------------------------------------------------------
+    -- Slow device access 4GB address space
+    ---------------------------------------------------------------------------
+    slow_access_request_toggle : out std_logic := '0';
+    slow_access_ready_toggle : in std_logic;
+
+    slow_access_address : out unsigned(27 downto 0) := (others => '1');
+    slow_access_write : out std_logic := '0';
+    slow_access_wdata : out unsigned(7 downto 0);
+    slow_access_rdata : in unsigned(7 downto 0);
+    
+    ---------------------------------------------------------------------------
+    -- VIC-III memory banking control
+    ---------------------------------------------------------------------------
     viciii_iomode : in std_logic_vector(1 downto 0);
 
     colourram_at_dc00 : in std_logic;
     rom_at_e000 : in std_logic;
     rom_at_c000 : in std_logic;
     rom_at_a000 : in std_logic;
-    rom_at_8000 : in std_logic;
-
-    ---------------------------------------------------------------------------
-    -- IO port to far call stack
-    ---------------------------------------------------------------------------
-    farcallstack_we : out std_logic := '0';
-    farcallstack_addr : out std_logic_vector(8 downto 0) := (others => '0');
-    farcallstack_din : out std_logic_vector(63 downto 0) := (others => '0');
-    farcallstack_dout : in std_logic_vector(63 downto 0) := (others => '0')
+    rom_at_8000 : in std_logic
 
     );
 end entity gs4510;
@@ -196,44 +218,55 @@ component shadowram is
         );
 end component;
 
-  signal cpuspeed_internal : unsigned(7 downto 0);
+  signal cpuspeed_internal : unsigned(7 downto 0) := (others => '0');
+  signal cpuspeed_external : unsigned(7 downto 0) := (others => '0');
 
   signal reset_drive : std_logic := '0';
+  signal cartridge_enable : std_logic := '0';
+  signal gated_exrom : std_logic := '1'; 
+  signal gated_game : std_logic := '1';
+  signal force_exrom : std_logic := '1'; 
+  signal force_game : std_logic := '1';
 
   signal force_fast : std_logic := '0';
   signal speed_gate_enable_internal : std_logic := '1';
+  signal speed_gate_drive : std_logic := '1';
 
   signal iomode_set_toggle_internal : std_logic := '0';
-  signal rom_from_colour_ram : std_logic := '0';
   signal rom_writeprotect : std_logic := '0';
+
+  signal virtualise_sd : std_logic := '0';
+
+  signal dat_bitplane_addresses_drive : sprite_vector_eight;
+  signal dat_offset_drive : unsigned(15 downto 0) := to_unsigned(0,16);
 
   -- Instruction log
   signal last_instruction_pc : unsigned(15 downto 0) := x"FFFF";
-  signal last_opcode : unsigned(7 downto 0);
-  signal last_byte2 : unsigned(7 downto 0);
-  signal last_byte3 : unsigned(7 downto 0);
+  signal last_opcode : unsigned(7 downto 0)  := (others => '0');
+  signal last_byte2 : unsigned(7 downto 0)  := (others => '0');
+  signal last_byte3 : unsigned(7 downto 0)  := (others => '0');
   signal last_bytecount : integer range 0 to 3 := 0;
   signal last_action : character := ' ';
-  signal last_address : unsigned(27 downto 0);
-  signal last_value : unsigned(7 downto 0);
+  signal last_address : unsigned(27 downto 0)  := (others => '0');
+  signal last_value : unsigned(7 downto 0)  := (others => '0');
 
   -- Shadow RAM control
-  signal shadow_bank : unsigned(7 downto 0);
-  signal shadow_address : integer range 0 to 131071;
-  signal shadow_rdata : unsigned(7 downto 0);
-  signal shadow_wdata : unsigned(7 downto 0);
-  signal shadow_write_count : unsigned(7 downto 0);
-  signal shadow_no_write_count : unsigned(7 downto 0);
+  signal shadow_bank : unsigned(7 downto 0)  := (others => '0');
+  signal shadow_address : integer range 0 to 131071 := 0;
+  signal shadow_rdata : unsigned(7 downto 0)  := (others => '0');
+  signal shadow_wdata : unsigned(7 downto 0)  := (others => '0');
+  signal shadow_write_count : unsigned(7 downto 0)  := (others => '0');
+  signal shadow_no_write_count : unsigned(7 downto 0)  := (others => '0');
   signal shadow_try_write_count : unsigned(7 downto 0) := x"00";
   signal shadow_observed_write_count : unsigned(7 downto 0) := x"00";
   signal shadow_write : std_logic := '0';
 
   -- ROM RAM control
-  signal rom_address : integer range 0 to 131071;
-  signal rom_rdata : unsigned(7 downto 0);
-  signal rom_wdata : unsigned(7 downto 0);
-  signal rom_write_count : unsigned(7 downto 0);
-  signal rom_no_write_count : unsigned(7 downto 0);
+  signal rom_address : integer range 0 to 131071 := 0;
+  signal rom_rdata : unsigned(7 downto 0)  := (others => '0');
+  signal rom_wdata : unsigned(7 downto 0)  := (others => '0');
+  signal rom_write_count : unsigned(7 downto 0)  := (others => '0');
+  signal rom_no_write_count : unsigned(7 downto 0)  := (others => '0');
   signal rom_write : std_logic := '0';
 
   -- GeoRAM emulation: by default point it somewhere at the DDR RAM
@@ -255,71 +288,62 @@ end component;
   signal reu_hold_reu_address : std_logic := '0';
   signal reu_ff00_pending : std_logic := '0';
 
-  signal last_fastio_addr : std_logic_vector(19 downto 0);
-  signal last_write_address : unsigned(27 downto 0);
+  signal last_fastio_addr : std_logic_vector(19 downto 0)  := (others => '0');
+  signal last_write_address : unsigned(27 downto 0)  := (others => '0');
   signal shadow_write_flags : unsigned(3 downto 0) := "0000";
   -- Registers to hold delayed write to hypervisor and related CPU registers
   -- to improve CPU timing closure.
-  signal last_write_value : unsigned(7 downto 0);
+  signal last_write_value : unsigned(7 downto 0)  := (others => '0');
   signal last_write_pending : std_logic := '0';
   -- Flag used to ensure monitor serial character out busy flag gets asserted
   -- immediately on writing a character, without having to wait for the uart
   -- monitor to have a serial port tick (which is when it checks on that side)
   signal immediate_monitor_char_busy : std_logic := '0';
 
-  -- On the original Nexys4 board:
-  -- SlowRAM has 70ns access time, so need some wait states.
-  -- At 48MHz we only need 4 cycles.
-  -- (had +2 extra for drive stages)
-  -- On the Nexys4DDR board, the DDR2 ram is annoying MUCH slower,
-  -- requiring $16 = 22 cycles to be reliable!
-  -- We really are going to want to have a slowram cache!
-  -- It will be fairly trivial to read 128 bits (16 bytes) of slowram at a time
-  -- and cache that, since that is exactly how the DDR RAM module wrapper works
-  -- internally.  Thus for sequential memory accesses, we can get 16 bytes every
-  -- 22 cycles, and potentially service memory reads with just one wait-state on
-  -- average (although the CPU state machine would make this a little interesting
-  -- to achieve.  2 wait states on the other hand would be quite achievable, and
-  -- would still be 3x the speed of slowram currently.
-  -- Shadow RAM has 0 wait states by default
+  -- For instruction-accurate CPU timing at 1MHz and 3.5MHz
+  -- XXX Doesn't differentiate between PAL and NTSC
+  constant pal1mhz_times_65536 : integer := 64569;
+  constant pal2mhz_times_65536 : integer := 64569 * 2;
+  constant pal3point5mhz_times_65536 : integer := 225992;
+  constant phi_fraction_01pal : unsigned(16 downto 0) :=
+    to_unsigned(pal1mhz_times_65536 / cpufrequency,17);
+  constant phi_fraction_02pal : unsigned(16 downto 0) :=
+    to_unsigned(pal2mhz_times_65536 / cpufrequency,17);
+  constant phi_fraction_04pal : unsigned(16 downto 0) :=
+    to_unsigned(pal3point5mhz_times_65536 / cpufrequency,17);
+  signal phi_export_counter : unsigned(16 downto 0) := (others => '0');
+  signal phi_counter : unsigned(16 downto 0) := (others => '0');
+  signal phi_pause : std_logic := '0';
+  signal phi_backlog : integer range 0 to 127 := 0;
+  signal phi_add_backlog : std_logic := '0';
+  signal charge_for_branches_taken : std_logic := '1';
+  signal phi_new_backlog : integer range 0 to 15 := 0;
+  signal last_phi16 : std_logic := '0';
+  signal phi0_export : std_logic := '0';
+
   -- IO has one waitstate for reading, 0 for writing
   -- (Reading incurrs an extra waitstate due to read_data_copy)
   -- XXX An extra wait state seems to be necessary when reading from dual-port
   -- memories like colour ram.
-  constant slowram_48mhz : unsigned(7 downto 0) := x"ff";
   constant ioread_48mhz : unsigned(7 downto 0) := x"01";
   constant colourread_48mhz : unsigned(7 downto 0) := x"02";
   constant iowrite_48mhz : unsigned(7 downto 0) := x"00";
   constant shadow_48mhz :  unsigned(7 downto 0) := x"00";
 
-  --constant slowram_3mhz : unsigned(7 downto 0) := x"0d";
-  --constant ioread_3mhz : unsigned(7 downto 0) := x"0d";
-  --constant colourread_3mhz : unsigned(7 downto 0) := x"0d";
-  --constant iowrite_3mhz : unsigned(7 downto 0) := x"0d";
-  --constant shadow_3mhz :  unsigned(7 downto 0) := x"0d";
-
-  --constant slowram_2mhz : unsigned(7 downto 0) := x"1b";
-  --constant ioread_2mhz : unsigned(7 downto 0) := x"1b";
-  --constant colourread_2mhz : unsigned(7 downto 0) := x"1b";
-  --constant iowrite_2mhz : unsigned(7 downto 0) := x"1b";
-  --constant shadow_2mhz :  unsigned(7 downto 0) := x"1b";
-
-  --constant slowram_1mhz : unsigned(7 downto 0) := x"2f";
-  --constant ioread_1mhz : unsigned(7 downto 0) := x"2f";
-  --constant colourread_1mhz : unsigned(7 downto 0) := x"2f";
-  --constant iowrite_1mhz : unsigned(7 downto 0) := x"2f";
-  --constant shadow_1mhz :  unsigned(7 downto 0) := x"2f";
-
-  signal slowram_waitstates : unsigned(7 downto 0) := slowram_48mhz;
   signal shadow_wait_states : unsigned(7 downto 0) := shadow_48mhz;
   signal io_read_wait_states : unsigned(7 downto 0) := ioread_48mhz;
   signal colourram_read_wait_states : unsigned(7 downto 0) := colourread_48mhz;
   signal io_write_wait_states : unsigned(7 downto 0) := iowrite_48mhz;
 
-  signal slowram_request_toggle_drive : std_logic := '0';
-  signal slowram_desired_done_toggle : std_logic := '0';
-  signal slowram_data_valid : std_logic := '0';
-  signal slowram_pending_write : std_logic := '0';
+  -- Interface to slow device address space
+  signal slow_access_request_toggle_drive : std_logic := '0';
+  signal slow_access_write_drive : std_logic := '0';
+  signal slow_access_address_drive : unsigned(27 downto 0) := (others => '1');
+  signal slow_access_wdata_drive : unsigned(7 downto 0) := (others => '1');
+  signal slow_access_desired_ready_toggle : std_logic := '0';
+  signal slow_access_ready_toggle_buffer : std_logic := '0';
+  signal slow_access_pending_write : std_logic := '0';
+  signal slow_access_data_ready : std_logic := '0';
 
   -- Number of pending wait states
   signal wait_states : unsigned(7 downto 0) := x"05";
@@ -329,106 +353,116 @@ end component;
 
   -- DMAgic registers
   signal dmagic_list_counter : integer range 0 to 12;
-  signal dmagic_first_read : std_logic;
+  signal dmagic_first_read : std_logic := '0';
   signal reg_dmagic_addr : unsigned(27 downto 0) := x"0000000";
-  signal reg_dmagic_withio : std_logic;
+  signal reg_dmagic_withio : std_logic := '0';
   signal reg_dmagic_status : unsigned(7 downto 0) := x"00";
   signal reg_dmacount : unsigned(7 downto 0) := x"00";  -- number of DMA jobs done
   signal dma_pending : std_logic := '0';
   signal dma_checksum : unsigned(23 downto 0) := x"000000";
-  signal dmagic_cmd : unsigned(7 downto 0);
-  signal dmagic_subcmd : unsigned(7 downto 0);	-- F018A/B extention
-  signal dmagic_count : unsigned(15 downto 0);
-  signal dmagic_tally : unsigned(15 downto 0);
-  signal reg_dmagic_src_mb : unsigned(7 downto 0);
-  signal dmagic_src_addr : unsigned(27 downto 0);
-  signal dmagic_src_io : std_logic;
-  signal dmagic_src_direction : std_logic;
-  signal dmagic_src_modulo : std_logic;
-  signal dmagic_src_hold : std_logic;
-  signal reg_dmagic_dst_mb : unsigned(7 downto 0);
-  signal dmagic_dest_addr : unsigned(27 downto 0);
-  signal dmagic_dest_io : std_logic;
-  signal dmagic_dest_direction : std_logic;
-  signal dmagic_dest_modulo : std_logic;
-  signal dmagic_dest_hold : std_logic;
-  signal dmagic_modulo : unsigned(15 downto 0);
+  signal dmagic_cmd : unsigned(7 downto 0)  := (others => '0');
+  signal dmagic_subcmd : unsigned(7 downto 0)  := (others => '0');	-- F018A/B extention
+  signal dmagic_count : unsigned(15 downto 0)  := (others => '0');
+  signal dmagic_tally : unsigned(15 downto 0)  := (others => '0');
+  signal reg_dmagic_src_mb : unsigned(7 downto 0)  := (others => '0');
+  signal dmagic_src_addr : unsigned(35 downto 0)  := (others => '0'); -- in 256ths of bytes
+  signal dmagic_src_io : std_logic := '0';
+  signal dmagic_src_direction : std_logic := '0';
+  signal dmagic_src_modulo : std_logic := '0';
+  signal dmagic_src_hold : std_logic := '0';
+  signal reg_dmagic_dst_mb : unsigned(7 downto 0)  := (others => '0');
+  signal dmagic_dest_addr : unsigned(35 downto 0)  := (others => '0'); -- in 256ths of bytes
+  signal dmagic_dest_io : std_logic := '0';
+  signal dmagic_dest_direction : std_logic := '0';
+  signal dmagic_dest_modulo : std_logic := '0';
+  signal dmagic_dest_hold : std_logic := '0';
+  signal dmagic_modulo : unsigned(15 downto 0)  := (others => '0');
+
+  -- Allow source and destination address advance to range from 1/256th of a
+  -- byte (i.e., 1 byte every 256 operations) through to 255 + 255/256ths per
+  -- operation. This was added to accelerate texture copying for Doom-style 3D
+  -- drawing.
+  signal reg_dmagic_src_skip : unsigned(15 downto 0) := x"0100";
+  signal reg_dmagic_dst_skip : unsigned(15 downto 0) := x"0100";
+
   -- Temporary registers used while loading DMA list
-  signal dmagic_dest_bank_temp : unsigned(7 downto 0);
-  signal dmagic_src_bank_temp : unsigned(7 downto 0);
+  signal dmagic_dest_bank_temp : unsigned(7 downto 0)  := (others => '0');
+  signal dmagic_src_bank_temp : unsigned(7 downto 0)  := (others => '0');
 
 
   -- CPU internal state
-  signal flag_c : std_logic;        -- carry flag
-  signal flag_z : std_logic;        -- zero flag
-  signal flag_d : std_logic;        -- decimal mode flag
-  signal flag_n : std_logic;        -- negative flag
-  signal flag_v : std_logic;        -- positive flag
-  signal flag_i : std_logic;        -- interrupt disable flag
-  signal flag_e : std_logic;        -- 8-bit stack flag
+  signal flag_c : std_logic := '0';        -- carry flag
+  signal flag_z : std_logic := '0';        -- zero flag
+  signal flag_d : std_logic := '0';        -- decimal mode flag
+  signal flag_n : std_logic := '0';        -- negative flag
+  signal flag_v : std_logic := '0';        -- positive flag
+  signal flag_i : std_logic := '0';        -- interrupt disable flag
+  signal flag_e : std_logic := '0';        -- 8-bit stack flag
 
-  signal reg_a : unsigned(7 downto 0);
-  signal reg_b : unsigned(7 downto 0);
-  signal reg_x : unsigned(7 downto 0);
-  signal reg_y : unsigned(7 downto 0);
-  signal reg_z : unsigned(7 downto 0);
-  signal reg_sp : unsigned(7 downto 0);
-  signal reg_sph : unsigned(7 downto 0);
-  signal reg_pc : unsigned(15 downto 0);
+  signal reg_a : unsigned(7 downto 0)  := (others => '0');
+  signal reg_b : unsigned(7 downto 0)  := (others => '0');
+  signal reg_x : unsigned(7 downto 0)  := (others => '0');
+  signal reg_y : unsigned(7 downto 0)  := (others => '0');
+  signal reg_z : unsigned(7 downto 0)  := (others => '0');
+  signal reg_sp : unsigned(7 downto 0)  := (others => '0');
+  signal reg_sph : unsigned(7 downto 0)  := (others => '0');
+  signal reg_pc : unsigned(15 downto 0)  := (others => '0');
 
   -- CPU RAM bank selection registers.
   -- Now C65 style, but extended by 8 bits to give 256MB address space
-  signal reg_mb_low : unsigned(7 downto 0);
-  signal reg_mb_high : unsigned(7 downto 0);
-  signal reg_map_low : std_logic_vector(3 downto 0);
-  signal reg_map_high : std_logic_vector(3 downto 0);
-  signal reg_offset_low : unsigned(11 downto 0);
-  signal reg_offset_high : unsigned(11 downto 0);
+  signal reg_mb_low : unsigned(7 downto 0)  := (others => '0');
+  signal reg_mb_high : unsigned(7 downto 0)  := (others => '0');
+  signal reg_map_low : std_logic_vector(3 downto 0)  := (others => '0');
+  signal reg_map_high : std_logic_vector(3 downto 0)  := (others => '0');
+  signal reg_offset_low : unsigned(11 downto 0)  := (others => '0');
+  signal reg_offset_high : unsigned(11 downto 0)  := (others => '0');
 
   -- Are we in hypervisor mode?
   signal hypervisor_mode : std_logic := '1';
-  signal hypervisor_trap_port : unsigned (6 downto 0);
+  signal hypervisor_trap_port : unsigned (6 downto 0)  := (others => '0');
   -- Have we ever replaced the hypervisor with another?
   -- (used to allow once-only update of hypervisor by kick-up file)
   signal hypervisor_upgraded : std_logic := '0';
   
   -- Duplicates of all CPU registers to hold user-space contents when trapping
   -- to hypervisor.
-  signal hyper_iomode : unsigned(7 downto 0);
-  signal hyper_dmagic_src_mb : unsigned(7 downto 0);
-  signal hyper_dmagic_dst_mb : unsigned(7 downto 0);
-  signal hyper_dmagic_list_addr : unsigned(27 downto 0);
-  signal hyper_p : unsigned(7 downto 0);
-  signal hyper_a : unsigned(7 downto 0);
-  signal hyper_b : unsigned(7 downto 0);
-  signal hyper_x : unsigned(7 downto 0);
-  signal hyper_y : unsigned(7 downto 0);
-  signal hyper_z : unsigned(7 downto 0);
-  signal hyper_sp : unsigned(7 downto 0);
-  signal hyper_sph : unsigned(7 downto 0);
-  signal hyper_pc : unsigned(15 downto 0);
-  signal hyper_mb_low : unsigned(7 downto 0);
-  signal hyper_mb_high : unsigned(7 downto 0);
-  signal hyper_port_00 : unsigned(7 downto 0);
-  signal hyper_port_01 : unsigned(7 downto 0);
-  signal hyper_map_low : std_logic_vector(3 downto 0);
-  signal hyper_map_high : std_logic_vector(3 downto 0);
-  signal hyper_map_offset_low : unsigned(11 downto 0);
-  signal hyper_map_offset_high : unsigned(11 downto 0);
-
+  signal hyper_iomode : unsigned(7 downto 0)  := (others => '0');
+  signal hyper_dmagic_src_mb : unsigned(7 downto 0)  := (others => '0');
+  signal hyper_dmagic_dst_mb : unsigned(7 downto 0)  := (others => '0');
+  signal hyper_dmagic_list_addr : unsigned(27 downto 0)  := (others => '0');
+  signal hyper_p : unsigned(7 downto 0)  := (others => '0');
+  signal hyper_a : unsigned(7 downto 0)  := (others => '0');
+  signal hyper_b : unsigned(7 downto 0)  := (others => '0');
+  signal hyper_x : unsigned(7 downto 0)  := (others => '0');
+  signal hyper_y : unsigned(7 downto 0)  := (others => '0');
+  signal hyper_z : unsigned(7 downto 0)  := (others => '0');
+  signal hyper_sp : unsigned(7 downto 0)  := (others => '0');
+  signal hyper_sph : unsigned(7 downto 0)  := (others => '0');
+  signal hyper_pc : unsigned(15 downto 0)  := (others => '0');
+  signal hyper_mb_low : unsigned(7 downto 0)  := (others => '0');
+  signal hyper_mb_high : unsigned(7 downto 0)  := (others => '0');
+  signal hyper_port_00 : unsigned(7 downto 0)  := (others => '0');
+  signal hyper_port_01 : unsigned(7 downto 0)  := (others => '0');
+  signal hyper_map_low : std_logic_vector(3 downto 0)  := (others => '0');
+  signal hyper_map_high : std_logic_vector(3 downto 0)  := (others => '0');
+  signal hyper_map_offset_low : unsigned(11 downto 0)  := (others => '0');
+  signal hyper_map_offset_high : unsigned(11 downto 0)  := (others => '0');
+  signal hyper_protected_hardware : unsigned(7 downto 0)  := (others => '0');
+  
   -- Page table for virtual memory
-  signal reg_page0_logical : unsigned(15 downto 0);
-  signal reg_page0_physical : unsigned(15 downto 0);
-  signal reg_page1_logical : unsigned(15 downto 0);
-  signal reg_page1_physical : unsigned(15 downto 0);
-  signal reg_page2_logical : unsigned(15 downto 0);
-  signal reg_page2_physical : unsigned(15 downto 0);
-  signal reg_page3_logical : unsigned(15 downto 0);
-  signal reg_page3_physical : unsigned(15 downto 0);
-  signal reg_pagenumber : unsigned(17 downto 0);
-  signal reg_pages_dirty : std_logic_vector(3 downto 0);
-  signal reg_pageid : unsigned(1 downto 0);
+  signal reg_page0_logical : unsigned(15 downto 0)  := (others => '0');
+  signal reg_page0_physical : unsigned(15 downto 0)  := (others => '0');
+  signal reg_page1_logical : unsigned(15 downto 0)  := (others => '0');
+  signal reg_page1_physical : unsigned(15 downto 0)  := (others => '0');
+  signal reg_page2_logical : unsigned(15 downto 0)  := (others => '0');
+  signal reg_page2_physical : unsigned(15 downto 0)  := (others => '0');
+  signal reg_page3_logical : unsigned(15 downto 0)  := (others => '0');
+  signal reg_page3_physical : unsigned(15 downto 0)  := (others => '0');
+  signal reg_pagenumber : unsigned(17 downto 0)  := (others => '0');
+  signal reg_pages_dirty : std_logic_vector(3 downto 0)  := (others => '0');
+  signal reg_pageid : unsigned(1 downto 0)  := (others => '0');
   signal reg_pageactive : std_logic := '0';
+  
 
   -- Flags to detect interrupts
   signal map_interrupt_inhibit : std_logic := '0';
@@ -438,37 +472,40 @@ end component;
   signal no_interrupt : std_logic := '0';
   signal hyper_trap_pending : std_logic := '0';
   signal hyper_trap_state : std_logic := '1';
+  signal matrix_trap_pending : std_logic := '0';
+  signal f011_read_trap_pending : std_logic := '0';
+  signal f011_write_trap_pending : std_logic := '0';
   -- To defer interrupts in the hypervisor, we have a special mechanism for this.
   signal irq_defer_request : std_logic := '0';
   signal irq_defer_counter : integer range 0 to 65535 := 0;
   signal irq_defer_active : std_logic := '0';
 
   -- Interrupt/reset vector being used
-  signal vector : unsigned(3 downto 0);
+  signal vector : unsigned(3 downto 0)  := (others => '0');
   
   -- Information about instruction currently being executed
-  signal reg_opcode : unsigned(7 downto 0);
-  signal reg_arg1 : unsigned(7 downto 0);
-  signal reg_arg2 : unsigned(7 downto 0);
+  signal reg_opcode : unsigned(7 downto 0)  := (others => '0');
+  signal reg_arg1 : unsigned(7 downto 0)  := (others => '0');
+  signal reg_arg2 : unsigned(7 downto 0)  := (others => '0');
 
-  signal bbs_or_bbc : std_logic;
-  signal bbs_bit : unsigned(2 downto 0);
+  signal bbs_or_bbc : std_logic := '0';
+  signal bbs_bit : unsigned(2 downto 0)  := (others => '0');
   
   -- PC used for JSR is the value of reg_pc after reading only one of
   -- of the argument bytes.  We could subtract one, but it is less logic to
   -- just remember PC after reading one argument byte.
-  signal reg_pc_jsr : unsigned(15 downto 0);
+  signal reg_pc_jsr : unsigned(15 downto 0)  := (others => '0');
   -- Temporary address register (used for indirect modes)
-  signal reg_addr : unsigned(15 downto 0);
+  signal reg_addr : unsigned(15 downto 0)  := (others => '0');
   -- ... and this one for 32-bit flat addressing modes
-  signal reg_addr32 : unsigned(31 downto 0);
+  signal reg_addr32 : unsigned(31 downto 0)  := (others => '0');
   -- ... and this one for pushing 32bit virtual address onto the stack
-  signal reg_addr32save : unsigned(31 downto 0);
+  signal reg_addr32save : unsigned(31 downto 0)  := (others => '0');
   -- Upper and lower
   -- 16 bits of temporary address register. Used for 32-bit
   -- absolute addresses
-  signal reg_addr_msbs : unsigned(15 downto 0);
-  signal reg_addr_lsbs : unsigned(15 downto 0);
+  signal reg_addr_msbs : unsigned(15 downto 0)  := (others => '0');
+  signal reg_addr_lsbs : unsigned(15 downto 0)  := (others => '0');
   -- Flag that indicates if a ($nn),Z access is using a 32-bit pointer
   signal absolute32_addressing_enabled : std_logic := '0';
   -- Flag that indicates far JMP, JSR or RTS
@@ -477,12 +514,12 @@ end component;
   signal flat32_address_prime : std_logic := '0';
   signal flat32_enabled : std_logic := '1';
   -- flag for progressive carry calculation when loading a 32-bit pointer
-  signal pointer_carry : std_logic;
+  signal pointer_carry : std_logic := '0';
   -- Temporary value holder (used for RMW instructions)
-  signal reg_t : unsigned(7 downto 0);
-  signal reg_t_high : unsigned(7 downto 0);
+  signal reg_t : unsigned(7 downto 0)  := (others => '0');
+  signal reg_t_high : unsigned(7 downto 0)  := (others => '0');
 
-  signal instruction_phase : unsigned(3 downto 0);
+  signal instruction_phase : unsigned(3 downto 0)  := (others => '0');
   
 -- Indicate source of operand for instructions
 -- Note that ROM is actually implemented using
@@ -491,6 +528,7 @@ end component;
   signal accessing_rom : std_logic;
   signal accessing_fastio : std_logic;
   signal accessing_vic_fastio : std_logic;
+  signal accessing_kickstart_fastio : std_logic;
   signal accessing_colour_ram_fastio : std_logic;
 --  signal accessing_ram : std_logic;
   signal accessing_slowram : std_logic;
@@ -560,17 +598,6 @@ end component;
     others => '0'
     );
 
-  -- Pause 1usec per cycle of instruction for 1MHz operation
-  -- This is only approximate, because it doesnt count the time spent
-  -- executing the instruction, or the cycle to setup the delay.
-  -- Offsetting this is the lack of badlines, so the end result is probably
-  -- close enough for now.  It can be improved later to allow for more exact
-  -- timing for demos etc.
-  constant pause_per_cycle : integer := 48;
-  signal pause_cycles : unsigned(8 downto 0) := "000000000";
-  signal pause_cycles_counter : unsigned(8 downto 0) := "000000000";
-  signal cpu_pause_shift : integer range 0 to 2 := 0;
-
   signal vector_read_stage : integer range 0 to 15 := 0;
 
   type memory_source is (
@@ -582,6 +609,7 @@ end component;
     FastIO,
     ColourRAM,
     VICIV,
+    Kickstart,
     SlowRAM,
     Unmapped
     );
@@ -608,8 +636,6 @@ end component;
     InstructionWait,                    -- Wait for PC to become available on
                                         -- interrupt/reset
     ProcessorHold,
-    ProcessorPause,
-    ProcessorPausing,
     MonitorMemoryAccess,
     InstructionFetch,
     InstructionDecode,  -- $16
@@ -702,7 +728,8 @@ constant instruction_lut : ilut9bit := (
     I_BEQ,I_SBC,I_SBC,I_BEQ,I_PHW,I_SBC,I_INC,I_SMB,I_SED,I_SBC,I_PLX,I_PLZ,I_PHW,I_SBC,I_INC,I_BBS,
 
     -- 6502 personality
-    -- XXX Currently just a copy of 4502 personality
+    -- MAP is not available here. To MAP from 6502 mode, you have to first
+    -- enable 4502 mode by switching VIC-III/IV IO mode from VIC-II.
     I_BRK,I_ORA,I_KIL,I_SLO,I_NOP,I_ORA,I_ASL,I_SLO,I_PHP,I_ORA,I_ASL,I_ANC,I_NOP,I_ORA,I_ASL,I_SLO,
     I_BPL,I_ORA,I_KIL,I_SLO,I_NOP,I_ORA,I_ASL,I_SLO,I_CLC,I_ORA,I_NOP,I_SLO,I_NOP,I_ORA,I_ASL,I_SLO,
     I_JSR,I_AND,I_KIL,I_RLA,I_BIT,I_AND,I_ROL,I_RLA,I_PLP,I_AND,I_ROL,I_ANC,I_BIT,I_AND,I_ROL,I_RLA,
@@ -795,6 +822,49 @@ constant mode_lut : mlut9bit := (
     M_rr,M_InnY,M_impl,M_InnY,M_nnX,M_nnX,M_nnX,M_nnX,
     M_impl,M_nnnnY,M_impl,M_nnnnY,M_nnnnX,M_nnnnX,M_nnnnX,M_nnnnX);
 
+type clut9bit is array(0 to 511) of integer range 0 to 15;
+constant cycle_count_lut : clut9bit := (
+  -- 4502 timing
+  -- from http://archive.6502.org/datasheets/mos_65ce02_mpu.pdf
+  7,5,2,2,4,3,4,4, 3,2,1,1,5,4,5,4,
+  2,5,5,3,4,3,4,4, 1,4,1,1,5,4,5,4,
+  2,5,7,7,4,3,4,4, 3,2,1,1,5,4,4,4,
+  2,5,5,3,4,3,4,4, 1,4,1,1,5,4,5,4,
+  
+  5,5,2,2,4,3,4,4, 3,2,1,1,3,4,5,4,
+  2,5,5,3,4,3,4,4, 1,4,3,3,4,4,5,4,
+  4,5,7,5,3,3,4,4, 3,2,1,1,5,4,5,4,
+  2,5,5,3,3,3,4,4, 2,4,3,1,5,4,5,4,
+    
+  2,5,6,3,3,3,3,4, 1,2,1,4,4,4,4,4,
+  2,5,5,3,3,3,3,4, 1,4,1,4,4,4,4,4,
+  2,5,2,2,3,3,3,4, 1,2,1,4,4,4,4,4,
+  2,5,5,3,3,3,3,4, 1,4,1,4,4,4,4,4,
+    
+  2,5,2,6,3,3,4,4, 1,2,1,7,4,4,5,4,
+  2,5,5,3,3,3,4,4, 1,4,3,3,4,4,5,4,
+  2,5,6,6,3,3,4,4, 1,2,1,6,4,4,5,4,
+  2,5,5,3,5,3,4,4, 1,4,3,3,7,4,5,4,
+
+  -- 6502 timings from  "Graham's table" (Oxyron)
+  7,6,0,8,3,3,5,5,3,2,2,2,4,4,6,6,
+  2,5,0,8,4,4,6,6,2,4,2,7,4,4,7,7,
+  6,6,0,8,3,3,5,5,4,2,2,2,4,4,6,6,
+  2,5,0,8,4,4,6,6,2,4,2,7,4,4,7,7,
+  6,6,0,8,3,3,5,5,3,2,2,2,3,4,6,6,
+  2,5,0,8,4,4,6,6,2,4,2,7,4,4,7,7,
+  6,6,0,8,3,3,5,5,4,2,2,2,5,4,6,6,
+  2,5,0,8,4,4,6,6,2,4,2,7,4,4,7,7,
+  2,6,2,6,3,3,3,3,2,2,2,2,4,4,4,4,
+  2,6,0,6,4,4,4,4,2,5,2,5,5,5,5,5,
+  2,6,2,6,3,3,3,3,2,2,2,2,4,4,4,4,
+  2,5,0,5,4,4,4,4,2,4,2,4,4,4,4,4,
+  2,6,2,8,3,3,5,5,2,2,2,2,4,4,6,6,
+  2,5,0,8,4,4,6,6,2,4,2,7,4,4,7,7,
+  2,6,2,8,3,3,5,5,2,2,2,2,4,4,6,6,
+  2,5,0,8,4,4,6,6,2,4,2,7,4,4,7,7
+  );
+
 
   signal reg_addressingmode : addressingmode;
   signal reg_instruction : instruction;
@@ -812,7 +882,6 @@ constant mode_lut : mlut9bit := (
   signal a_asl : unsigned(7 downto 0);
   signal a_asr : unsigned(7 downto 0);
   signal a_lsr : unsigned(7 downto 0);
-  signal a_ior : unsigned(7 downto 0);
   signal a_xor : unsigned(7 downto 0);
   signal a_and : unsigned(7 downto 0);
   signal a_neg : unsigned(7 downto 0);
@@ -841,29 +910,29 @@ constant mode_lut : mlut9bit := (
   signal rmb_mask : unsigned(7 downto 0);
   signal smb_mask : unsigned(7 downto 0);
 
-  signal ddr_ram_banking : std_logic := '0';
-  signal ddr_ram_bank : std_logic_vector(2 downto 0);
-  signal ddr_reply_counter : unsigned(7 downto 0) := x"00";
-  signal ddr_timeout_counter : unsigned(7 downto 0) := x"00";
-  signal ddr_cache_load_counter : unsigned(7 downto 0) := x"00";
-  signal ddr_write_ready_counter : unsigned(7 downto 0) := x"00";
-  signal ddr_got_reply : std_logic := '0';
-
-  signal slowram_addr_drive : std_logic_vector(26 downto 0);
-  signal slowram_addr_reflect_drive : std_logic_vector(26 downto 0);
-  signal slowram_data_in : std_logic_vector(7 downto 0);
-  signal slowram_datain_expected : std_logic_vector(7 downto 0);
-  signal slowram_datain_reflect_drive : std_logic_vector(7 downto 0);
-  signal slowram_we_drive : std_logic;
-
   signal watchdog_reset : std_logic := '0';
   signal watchdog_fed : std_logic := '0';
   signal watchdog_countdown : integer range 0 to 65535;
 
   signal emu6502 : std_logic := '0';
+  signal timing6502 : std_logic := '0';
   signal force_4502 : std_logic := '1';
 
   signal monitor_char_toggle_internal : std_logic := '1';
+
+  -- ZP/stack cache
+  signal cache_we : std_logic := '0';
+  signal cache_waddr : unsigned(9 downto 0);
+  signal cache_raddr : unsigned(9 downto 0);
+  signal cache_rdata : unsigned(35 downto 0);
+  signal cache_wdata : unsigned(35 downto 0);
+  signal cache_read_valid : std_logic := '0';
+  signal cache_flushing : std_logic := '1';
+  signal cache_flush_counter : unsigned(9 downto 0) := (others => '0');
+
+  signal cycle_counter : unsigned(15 downto 0) := (others => '0');
+
+  signal cpu_speed_bias : integer := 128;
 
   type microcode_lut_t is array (instruction)
     of microcodeops;
@@ -1044,8 +1113,18 @@ begin
     data_o  => rom_rdata,
     no_writes => rom_no_write_count,
     writes => rom_write_count);
+
+  zpcache0: entity work.ram36x1k port map (
+    clkl => clock,
+    clkr => clock,
+    wel(0) => cache_we,
+    addrl => std_logic_vector(cache_waddr),
+    addrr => std_logic_vector(cache_raddr),
+    unsigned(doutr) => cache_rdata,
+    dinl => std_logic_vector(cache_wdata)
+    );    
   
-  process(clock,reset,reg_a,reg_x,reg_y,reg_z,flag_c)
+  process(clock,reset,reg_a,reg_x,reg_y,reg_z,flag_c,phi0_export,all_pause)
     procedure disassemble_last_instruction is
       variable justification : side := RIGHT;
       variable size : width := 0;
@@ -1208,6 +1287,9 @@ begin
     begin
       -- Set microcode state for reset
 
+      -- Enable chipselect for all peripherals and memories
+      chipselect_enables <= x"EF";              
+      
       -- CPU starts in hypervisor
       hypervisor_mode <= '1';
       
@@ -1274,13 +1356,12 @@ begin
       fastio_write <= '0';
       chipram_we <= '0';        
       chipram_datain <= x"c0";    
-      slowram_we_drive <= '0';
 
-      ddr_ram_banking <= '0';
-      ddr_ram_bank <= "000";
-
-      slowram_request_toggle_drive <= slowram_done_toggle;
-      slowram_desired_done_toggle <= slowram_done_toggle;
+      slow_access_request_toggle_drive <= slow_access_ready_toggle_buffer;
+      slow_access_write_drive <= '0';
+      slow_access_address_drive <= (others => '1');
+      slow_access_wdata_drive <= (others => '1');
+      slow_access_desired_ready_toggle <= slow_access_ready_toggle;
       
       wait_states <= (others => '0');
       wait_states_non_zero <= '0';
@@ -1334,13 +1415,15 @@ begin
       return unsigned is 
       variable temp_address : unsigned(27 downto 0);
       variable blocknum : integer;
-      variable lhc : std_logic_vector(2 downto 0);
+      variable lhc : std_logic_vector(4 downto 0);
     begin  -- resolve_long_address
 
       -- Now apply C64-style $01 lines first, because MAP and $D030 take precedence
       blocknum := to_integer(short_address(15 downto 12));
 
-      lhc := std_logic_vector(cpuport_value(2 downto 0));
+      lhc(4) := gated_exrom;
+      lhc(3) := gated_game;
+      lhc(2 downto 0) := std_logic_vector(cpuport_value(2 downto 0));
       lhc(2) := lhc(2) or (not cpuport_ddr(2));
       lhc(1) := lhc(1) or (not cpuport_ddr(1));
       lhc(0) := lhc(0) or (not cpuport_ddr(0));
@@ -1369,67 +1452,164 @@ begin
       if (blocknum=13) then
         temp_address(11 downto 0) := short_address(11 downto 0);
         if writeP then
-          case lhc(2 downto 0) is
-            when "000" => temp_address(27 downto 12) := x"000D";  -- WRITE RAM
-            when "001" => temp_address(27 downto 12) := x"000D";  -- WRITE RAM
-            when "010" => temp_address(27 downto 12) := x"000D";  -- WRITE RAM
-            when "011" => temp_address(27 downto 12) := x"000D";  -- WRITE RAM
-            when "100" => temp_address(27 downto 12) := x"000D";  -- WRITE RAM
-            when others =>
-              -- All else accesses IO
-              -- C64/C65/C65GS I/O is based on which secret knock has been applied
-              -- to $D02F
-              temp_address(27 downto 12) := x"FFD3";
-              temp_address(13 downto 12) := unsigned(viciii_iomode);          
-          end case;        
+          -- IO is always visible in ultimax mode
+          if gated_exrom/='1' or gated_game/='0' or hypervisor_mode='1' then
+            case lhc(2 downto 0) is
+              when "000" => temp_address(27 downto 12) := x"000D";  -- WRITE RAM
+              when "001" => temp_address(27 downto 12) := x"000D";  -- WRITE RAM
+              when "010" => temp_address(27 downto 12) := x"000D";  -- WRITE RAM
+              when "011" => temp_address(27 downto 12) := x"000D";  -- WRITE RAM
+              when "100" => temp_address(27 downto 12) := x"000D";  -- WRITE RAM
+              when others =>
+                -- All else accesses IO
+                -- C64/C65/C65GS I/O is based on which secret knock has been applied
+                -- to $D02F
+                temp_address(27 downto 12) := x"FFD3";
+                temp_address(13 downto 12) := unsigned(viciii_iomode);          
+                -- Optionally map SIDs to expansion port
+                if (short_address(11 downto 8) = x"4") and hyper_iomode(2)='1' then
+                  temp_address(27 downto 12) := x"7FFD";
+                end if;
+                if sector_buffer_mapped='0' and colourram_at_dc00='0' then
+                  -- Map $DE00-$DFFF IO expansion areas to expansion port
+                  -- (but only if SD card sector buffer is not mapped, and
+                  -- 2nd KB of colour RAM is not mapped).
+                  if (short_address(11 downto 8) = x"E")
+                    or (short_address(11 downto 8) = x"F") then
+                    temp_address(27 downto 12) := x"7FFD";
+                  end if;
+                end if;
+            end case;
+          else
+            temp_address(27 downto 12) := x"FFD3";
+            temp_address(13 downto 12) := unsigned(viciii_iomode);          
+            if sector_buffer_mapped='0' and colourram_at_dc00='0' then
+              -- Map $DE00-$DFFF IO expansion areas to expansion port
+              -- (but only if SD card sector buffer is not mapped, and
+              -- 2nd KB of colour RAM is not mapped).
+              if (short_address(11 downto 8) = x"E")
+                or (short_address(11 downto 8) = x"F") then
+                temp_address(27 downto 12) := x"7FFD";
+              end if;
+            end if;
+          end if;
         else
           -- READING
-          case lhc(2 downto 0) is
-            when "000" => temp_address(27 downto 12) := x"000D";  -- READ RAM
-            when "001" => temp_address(27 downto 12) := x"002D";  -- CHARROM
-                          if rom_from_colour_ram='1' then temp_address(27 downto 16) := x"001"; end if;
-            when "010" => temp_address(27 downto 12) := x"002D";  -- CHARROM
-                          if rom_from_colour_ram='1' then temp_address(27 downto 16) := x"001"; end if;       
-            when "011" => temp_address(27 downto 12) := x"002D";  -- CHARROM
-                          if rom_from_colour_ram='1' then temp_address(27 downto 16) := x"001"; end if;       
-            when "100" => temp_address(27 downto 12) := x"000D";  -- READ RAM
-            when others =>
-              -- All else accesses IO
-              -- C64/C65/C65GS I/O is based on which secret knock has been applied
-              -- to $D02F
-              temp_address(27 downto 12) := x"FFD3";
-              temp_address(13 downto 12) := unsigned(viciii_iomode);          
-          end case;              end if;
+          -- IO is always visible in ultimax mode
+          if gated_exrom/='1' or gated_game/='0' or hypervisor_mode='1' then
+            case lhc(2 downto 0) is
+              when "000" => temp_address(27 downto 12) := x"000D";  -- READ RAM
+              when "001" => temp_address(27 downto 12) := x"002D";  -- CHARROM
+              when "010" => temp_address(27 downto 12) := x"002D";  -- CHARROM
+              when "011" => temp_address(27 downto 12) := x"002D";  -- CHARROM
+              when "100" => temp_address(27 downto 12) := x"000D";  -- READ RAM
+              when others =>
+                -- All else accesses IO
+                -- C64/C65/C65GS I/O is based on which secret knock has been applied
+                -- to $D02F
+                temp_address(27 downto 12) := x"FFD3";
+                temp_address(13 downto 12) := unsigned(viciii_iomode);          
+                -- Optionally map SIDs to expansion port
+                if (short_address(11 downto 8) = x"4") and hyper_iomode(2)='1' then
+                  temp_address(27 downto 12) := x"7FFD";
+                end if;
+                if sector_buffer_mapped='0' and colourram_at_dc00='0' then
+                  -- Map $DE00-$DFFF IO expansion areas to expansion port
+                  -- (but only if SD card sector buffer is not mapped, and
+                  -- 2nd KB of colour RAM is not mapped).
+                  if (short_address(11 downto 8) = x"E")
+                    or (short_address(11 downto 8) = x"F") then
+                    temp_address(27 downto 12) := x"7FFD";
+                  end if;
+                end if;
+            end case;
+          else
+            temp_address(27 downto 12) := x"FFD3";
+            temp_address(13 downto 12) := unsigned(viciii_iomode);          
+            if sector_buffer_mapped='0' and colourram_at_dc00='0' then
+              -- Map $DE00-$DFFF IO expansion areas to expansion port
+              -- (but only if SD card sector buffer is not mapped, and
+              -- 2nd KB of colour RAM is not mapped).
+              if (short_address(11 downto 8) = x"E")
+                or (short_address(11 downto 8) = x"F") then
+                temp_address(27 downto 12) := x"7FFD";
+              end if;
+            end if;
+          end if;
+        end if;
       end if;
 
       -- C64 KERNEL
       if reg_map_high(3)='0' then
-        if (blocknum=14) and (lhc(1)='1') and (writeP=false) then
-          temp_address(27 downto 12) := x"002E";      
-          if rom_from_colour_ram='1' then
-            temp_address(27 downto 12) := x"0018";
+        if ((blocknum=14) or (blocknum=15)) and ((gated_exrom='1') and (gated_game='0')) then
+          -- ULTIMAX mode external ROM
+          temp_address(27 downto 16) := x"7FF";
+        else
+          if (blocknum=14) and (lhc(1)='1') and (writeP=false) then
+            temp_address(27 downto 12) := x"002E";
+          end if;        
+          if (blocknum=15) and (lhc(1)='1') and (writeP=false) then
+            temp_address(27 downto 12) := x"002F";      
           end if;
+        end if;        
+      end if;      
+      -- C64 BASIC or cartridge ROM LO
+      if reg_map_high(0)='0' then
+        if ((blocknum=8) or (blocknum=9)) and
+          (
+            (
+              ((gated_exrom='1') and (gated_game='0'))
+              or
+              ((gated_exrom='0') and (lhc(1 downto 0)="11"))
+            )
+            and
+            (writeP=false)
+          )
+        then
+          -- ULTIMAX mode or cartridge external ROM
+          temp_address(27 downto 16) := x"7FF";
         end if;
-        if (blocknum=15) and (lhc(1)='1') and (writeP=false) then
-          temp_address(27 downto 12) := x"002F";      
-          if rom_from_colour_ram='1' then
-            temp_address(27 downto 12) := x"0019";
-          end if;
-        end if;
-      end if;
-      -- C64 BASIC
-      if reg_map_high(1)='0' then
         if (blocknum=10) and (lhc(0)='1') and (lhc(1)='1') and (writeP=false) then
+          
           temp_address(27 downto 12) := x"002A";
-          if rom_from_colour_ram='1' then
-            temp_address(27 downto 12) := x"001A";
-          end if;
         end if;
         if (blocknum=11) and (lhc(0)='1') and (lhc(1)='1') and (writeP=false) then
           temp_address(27 downto 12) := x"002B";      
-          if rom_from_colour_ram='1' then
-            temp_address(27 downto 12) := x"001B";
-          end if;
+        end if;
+      end if;
+      if reg_map_high(1)='0' then
+        if (((blocknum=10) or (blocknum=11)) -- $A000-$BFFF cartridge ROM
+          and ((gated_exrom='0') and (gated_game='0'))) and (writeP=false)
+        then
+          -- ULTIMAX mode or cartridge external ROM
+          temp_address(27 downto 16) := x"7FF";          
+        end if;
+      end if;
+
+      -- Expose remaining address space to cartridge port in ultimax mode
+      if (gated_exrom='1') and (gated_game='0') and (hypervisor_mode='0') then
+        if (reg_map_low(0)='0') and  (blocknum=1) then
+          -- $1000 - $1FFF Ultimax mode
+          temp_address(27 downto 16) := x"7FF";
+        end if;
+        if (reg_map_low(1)='0') and (blocknum=2 ) then
+          -- $2000 - $2FFF Ultimax mode
+          -- XXX $3000-$3FFf is a copy of $F000-$FFFF from the cartridge so
+          -- that the VIC-II can see it. On the M65, the Hypervisor has to copy
+          -- it down. Not yet implemented, and won't be perfectly compatible.
+          temp_address(27 downto 16) := x"7FF";
+        end if;
+        if (reg_map_low(2)='0') and ((blocknum=4) or (blocknum=5)) then
+          -- $4000 - $5FFF Ultimax mode
+        temp_address(27 downto 16) := x"7FF";
+        end if;
+        if (reg_map_low(3)='0') and ((blocknum=6) or (blocknum=7)) then
+          -- $6000 - $7FFF Ultimax mode
+          temp_address(27 downto 16) := x"7FF";
+        end if;
+        if (reg_map_high(2)='0') and (blocknum=12) then
+          -- $C000 - $CFFF Ultimax mode
+          temp_address(27 downto 16) := x"7FF";
         end if;
       end if;
 
@@ -1456,26 +1636,43 @@ begin
       -- $D030 ROM select lines:
       if hypervisor_mode = '0' then
         blocknum := to_integer(short_address(15 downto 12));
-        if (blocknum=14 or blocknum=15) and rom_at_e000='1' then
+        if (blocknum=14 or blocknum=15) and (rom_at_e000='1')
+          and (hypervisor_mode='0') then
           temp_address(27 downto 12) := x"003E";
           if blocknum=15 then temp_address(12):='1'; end if;
         end if;
-        if (blocknum=12) and rom_at_c000='1' then
+        if (blocknum=12) and rom_at_c000='1' and (hypervisor_mode='0') then
           temp_address(27 downto 12) := x"002C";
-          if rom_from_colour_ram='1' then temp_address(27 downto 16) := x"FF8"; end if;
         end if;
-        if (blocknum=10 or blocknum=11) and rom_at_a000='1' then
+        if (blocknum=10 or blocknum=11) and (rom_at_a000='1')
+          and (hypervisor_mode='0') then
           temp_address(27 downto 12) := x"003A";
           if blocknum=11 then temp_address(12):='1'; end if;
         end if;
-        if (blocknum=9) and rom_at_8000='1' then
+        if (blocknum=9) and (rom_at_8000='1') and (hypervisor_mode='0') then
           temp_address(27 downto 12) := x"0039";
         end if;
-        if (blocknum=8) and rom_at_8000='1' then
+        if (blocknum=8) and (rom_at_8000='1') and (hypervisor_mode='0') then
           temp_address(27 downto 12) := x"0038";
         end if;
       end if;
-            
+
+      -- C65 DAT
+      report "C65 VIC-III DAT: Address before translation is $" & to_hstring(temp_address);
+      if temp_address(27 downto 3) & "000" = x"FFD1040"
+        or temp_address(27 downto 3) & "000" = x"FFD3040" then
+        temp_address(27 downto 17) := (others => '0');
+        temp_address(16) := temp_address(0); -- odd/even bitplane bank select
+        -- Bit plane address
+        -- XXX only uses the address from upper nybl -- doesn't pick based on
+        -- odd/even line/frame.
+        temp_address(15 downto 13) :=
+          dat_bitplane_addresses(to_integer(temp_address(2 downto 0)))(7 downto 5);
+        -- Bitplane offset
+        temp_address(12 downto 0) := dat_offset_drive(12 downto 0);
+        report "C65 VIC-III DAT: Address translated to $" & to_hstring(temp_address);
+      end if;
+      
       return temp_address;
     end resolve_address_to_long;
 
@@ -1498,7 +1695,10 @@ begin
       if real_long_address(27 downto 12) = x"001F" and real_long_address(11)='1' then
         -- colour ram access: remap to $FF80000 - $FF807FF
         long_address := x"FF80"&'0'&real_long_address(10 downto 0);
-      else
+		  -- also remap to $7F40000 - $7F407FF
+      elsif real_long_address(27 downto 16) = x"7F4" then
+		  long_address := x"FF80"&'0'&real_long_address(10 downto 0);
+		else
         long_address := real_long_address;
       end if;
 
@@ -1509,8 +1709,8 @@ begin
       accessing_fastio <= '0'; accessing_vic_fastio <= '0';
       accessing_cpuport <= '0'; accessing_colour_ram_fastio <= '0';
       accessing_slowram <= '0'; accessing_hypervisor <= '0';
-      slowram_pending_write <= '0';
-      slowram_we_drive <= '0';
+      slow_access_pending_write <= '0';
+      slow_access_write_drive <= '0';
       charrom_write_cs <= '0';
 
       wait_states <= io_read_wait_states;
@@ -1520,18 +1720,12 @@ begin
         wait_states_non_zero <= '0';
       end if; 
         
-      ddr_got_reply <= '0';
-
       -- Clear fastio access so that we don't keep reading/writing last IO address
       -- (this is bad when it is $DC0D for example, as it will stop IRQs from
       -- the CIA).
       fastio_addr <= x"FFFFF"; fastio_write <= '0'; fastio_read <= '0';
       
       the_read_address <= long_address;
-      if (long_address(27 downto 8) = x"FFD17") or (long_address(27 downto 8) = x"FFD37") then
-        report "Preparing to read from a DMAgicRegister";
-        read_source <= DMAgicRegister;
-      end if;      
 
       -- Get the shadow RAM or ROM address on the bus fast to improve timing.
       shadow_write <= '0';
@@ -1593,7 +1787,8 @@ begin
         end if;
         report "Reading from shadow ram address $" & to_hstring(long_address(17 downto 0))
           & ", word $" & to_hstring(long_address(18 downto 3)) severity note;
-      elsif long_address(27 downto 17)="00000000000" then
+			                                                        --Also mapped to 7F00000 - 7F1FFFF
+      elsif long_address(27 downto 17)="00000000000" or long_address(27 downto 17)="01111111000" then
         -- Reading from chipram, so read from the bottom 128KB of the shadow RAM
         -- instead.
         report "Preparing to read from Shadow";
@@ -1610,7 +1805,8 @@ begin
         end if;
         report "Reading from shadowed chipram address $"
           & to_hstring(long_address(19 downto 0)) severity note;
-      elsif long_address(27 downto 17)="00000000001" then
+			                                              --Also mapped to 7F2 0000 - 7F3 FFFF
+      elsif long_address(27 downto 17)="00000000001" or long_address(27 downto 17)="01111111001" then
         -- Reading from 128KB ROM
         report "Preparing to read from ROMRAM";
         read_source <= ROMRAM;
@@ -1634,6 +1830,13 @@ begin
         accessing_fastio <= '1';
         accessing_vic_fastio <= '0';
         accessing_colour_ram_fastio <= '0';
+        accessing_kickstart_fastio <= '0';
+
+        fastio_addr <= std_logic_vector(long_address(19 downto 0));
+        last_fastio_addr <= std_logic_vector(long_address(19 downto 0));
+        fastio_read <= '1';
+        proceed <= '0';
+        
         -- XXX Some fastio (that referencing ioclocked registers) does require
         -- io_wait_states, while some can use fewer waitstates because the
         -- memories involved can be clocked at the CPU clock, and have just 1
@@ -1659,6 +1862,7 @@ begin
         -- registers from all other IO registers, partly to work around some bugs,
         -- and partly because the banking of the VIC registers is the fiddliest part.
 
+        -- @IO:GS $FF8xxxx - Colour RAM (32KB or 64KB)
         if long_address(19 downto 16) = x"8" then
           report "VIC 64KB colour RAM access from VIC fastio" severity note;
           accessing_colour_ram_fastio <= '1';
@@ -1672,6 +1876,13 @@ begin
             wait_states_non_zero <= '0';
           end if;
         end if;
+        -- @IO:GS $FFF8000-$FFFBFFF 16KB Kickstart/hypervisor ROM
+        if long_address(19 downto 14)&"00" = x"F8" then
+          accessing_fastio <= '0';
+          fastio_read <= '0';
+          accessing_kickstart_fastio <= '1';
+          read_source <= Kickstart;
+        end if;  
         if long_address(19 downto 16) = x"D" then
           if long_address(15 downto 14) = "00" then    --   $D{0,1,2,3}XXX
             if long_address(11 downto 10) = "00" then  --   $D{0,1,2,3}{0,1,2,3}XX
@@ -1682,6 +1893,7 @@ begin
                 read_source <= VICIV;
               end if;            
             end if;
+
             -- Colour RAM at $D800-$DBFF and optionally $DC00-$DFFF
             if long_address(11)='1' then
               if (long_address(10)='0') or (colourram_at_dc00='1') then
@@ -1700,31 +1912,20 @@ begin
             end if;
           end if;                         -- $D{0,1,2,3}XXX
         end if;                           -- $DXXXX
-        fastio_addr <= std_logic_vector(long_address(19 downto 0));
-        last_fastio_addr <= std_logic_vector(long_address(19 downto 0));
-        fastio_read <= '1';
-        proceed <= '0';
-      elsif long_address(27) = '1' then
-        -- @IO:GS $8000000 - $FEFFFFF Slow RAM (127MB)
-        -- Slow RAM maps to $8000000-$FEFFFFF, and also $0020000 - $003FFFF for
-        -- C65 ROM emulation.
+      elsif long_address(27) = '1' or long_address(26)='1' then
+        -- @IO:GS $4000000 - $7FFFFFF Slow Device memory (64MB)
+        -- @IO:GS $8000000 - $FEFFFFF Slow Device memory (127MB)
         report "Preparing to read from SlowRAM";
         read_source <= SlowRAM;
         accessing_shadow <= '0';
         accessing_rom <= '0';
         accessing_slowram <= '1';
-        slowram_data_valid <= '0';
-        if ddr_ram_banking='1' then
-          slowram_addr_drive <= std_logic_vector(long_address(23 downto 1))&ddr_ram_bank&std_logic(long_address(0));
-        else
-          slowram_addr_drive <= std_logic_vector(long_address(26 downto 0));
-        end if;
-        slowram_we_drive <= '0';
-        -- With the cache, we only request the cache be updated if we the wrong
-        -- cache line is loaded.  This happen while waiting for the memory to load.
---        slowram_request_toggle <= not slowram_done_toggle;
---        slowram_desired_done_toggle <= not slowram_done_toggle;        
-        wait_states <= slowram_waitstates;
+        slow_access_data_ready <= '0';
+        slow_access_address_drive <= long_address(27 downto 0);
+        slow_access_write_drive <= '0';
+        slow_access_request_toggle_drive <= not slow_access_request_toggle_drive;
+        slow_access_desired_ready_toggle <= not slow_access_desired_ready_toggle;
+        wait_states <= x"FF";
         wait_states_non_zero <= '1';
         proceed <= '0';
       else
@@ -1742,6 +1943,10 @@ begin
         end if;
         proceed <= '1';
       end if;
+      if (long_address(27 downto 8) = x"FFD17") or (long_address(27 downto 8) = x"FFD37") then
+        report "Preparing to read from a DMAgicRegister";
+        read_source <= DMAgicRegister;
+      end if;      
 
     end read_long_address;
     
@@ -1760,13 +1965,32 @@ begin
     -- purpose: obtain the byte of memory that has been read
     impure function read_data_complex
       return unsigned is
+      variable value : unsigned(7 downto 0);
     begin  -- read_data
       -- CPU hosted IO registers
+      report "Read source is " & memory_source'image(read_source);
       case read_source is
         when DMAgicRegister =>
           -- Actually, this is all of $D700-$D7FF decoded by the CPU at present
+          report "Reading CPU register (DMAgicRegister path)";
           case the_read_address(7 downto 0) is
             when x"03" => return reg_dmagic_status(7 downto 1) & support_f018b;
+            when x"08" => return reg_dmagic_src_skip(7 downto 0);
+            when x"09" => return reg_dmagic_src_skip(15 downto 8);
+            when x"0a" => return reg_dmagic_dst_skip(7 downto 0);
+            when x"0b" => return reg_dmagic_dst_skip(15 downto 8);
+            when x"fc" => return unsigned(chipselect_enables);
+            when x"fd" =>
+              report "Reading $D7FD";
+              value(7) := force_exrom;
+              value(6) := force_game;
+              value(5) := gated_exrom;
+              value(4) := gated_game;
+              value(3) := exrom;
+              value(2) := game;
+              value(1) := cartridge_enable;              
+              value(0) := '0';
+              return value;
             when others => return x"ff";
           end case;
         when HypervisorRegister =>
@@ -1777,9 +2001,9 @@ begin
             when "000010" => return hyper_y;
             when "000011" => return hyper_z;
             when "000100" => return hyper_b;
-            when "000101" => return hyper_p;
-            when "000110" => return hyper_sp;
-            when "000111" => return hyper_sph;
+            when "000101" => return hyper_sp;
+            when "000110" => return hyper_sph;
+            when "000111" => return hyper_p;
             when "001000" => return hyper_pc(7 downto 0);
             when "001001" => return hyper_pc(15 downto 8);                           
             when "001010" =>
@@ -1803,8 +2027,8 @@ begin
             when "011000" =>
               return to_unsigned(0,4)&hyper_dmagic_list_addr(27 downto 24);
             when "011001" =>
-              return unsigned(ddr_ram_banking&std_logic_vector(to_unsigned(0,4))
-                              &ddr_ram_bank(2 downto 0));
+              return "0000000"&virtualise_sd;
+              
             -- Virtual memory page registers here
             when "011101" =>
               return unsigned(std_logic_vector(reg_pagenumber(1 downto 0))
@@ -1829,24 +2053,34 @@ begin
             when "101101" => return reg_page3_logical(15 downto 8);
             when "101110" => return reg_page3_physical(7 downto 0);
             when "101111" => return reg_page3_physical(15 downto 8);
-
+				--$D672 - Protected Hardware
+            when "110010" => return hyper_protected_hardware;
+				
             when "111100" => -- $D640+$3C
               -- @IO:GS $D67C.6 - (read) Hypervisor internal immediate UART monitor busy flag (can write when 0)
               -- @IO:GS $D67C.7 - (read) Hypervisor serial output from UART monitor busy flag (can write when 0)
-              -- the serial monitor interface takes a while to assert its busy flag (one serial bit of time)
               -- so we have an immediate busy flag that we manage separately.
-              return "000000" & immediate_monitor_char_busy & monitor_char_busy;
+              return "000000"
+                & immediate_monitor_char_busy
+                & monitor_char_busy;
 
-            when "111101" =>                                                   -- this section
-              return "11" & force_4502 & force_fast                            -- was previously
-                & speed_gate_enable_internal & rom_writeprotect                -- mapped to io-reg
-                & flat32_enabled & rom_from_colour_ram;                        -- D67C / "111100"
+            when "111101" =>
+              -- this section
+              return "11"
+                & force_4502
+                & force_fast
+                & speed_gate_enable_internal
+                & rom_writeprotect
+                & flat32_enabled
+                & cartridge_enable;                        
             when "111110" =>
-              if hypervisor_upgraded='1' then
-                return x"FF";
-              else
-                return x"00";
-              end if;
+              -- @IO:GS $D67E.7 (read) Hypervisor upgraded flag. Writing any value here sets this bit until next power on (i.e., it surives reset).
+              -- @IO:GS $D67E.6 (read) Hypervisor read /EXROM signal from cartridge.
+              -- @IO:GS $D67E.5 (read) Hypervisor read /GAME signal from cartridge.
+              return hypervisor_upgraded
+                & exrom
+                & game
+                & "00000";
             when "111111" => return x"48"; -- 'H' for Hypermode
             when others => return x"FF";
           end case;
@@ -1856,24 +2090,6 @@ begin
           case cpuport_num is
             when x"0" => return cpuport_ddr;
             when x"1" => return cpuport_value;
-            when x"4" => return ddr_state;
-            when x"5" => return ddr_counter;
-            when x"6" => return ddr_reply_counter;
-            when x"7" => return ddr_timeout_counter;
-            when x"8" => return ddr_cache_load_counter;
-            when x"9" => return slowram_desired_done_toggle
-                           &slowram_done_toggle
-                           &accessing_slowram
-                           &slowram_we_drive
-                           &slowram_pending_write
-                           &slowram_data_valid
-                           &"00";
-            when x"a" => return ddr_write_ready_counter;
-            when x"b" => return unsigned(slowram_datain_reflect_drive);
-            when x"c" => return unsigned(slowram_addr_reflect_drive(7 downto 0));
-            when x"d" => return unsigned(slowram_addr_reflect_drive(15 downto 8));
-            when x"e" => return unsigned(slowram_addr_reflect_drive(23 downto 16));
-            when x"f" => return "00000"&unsigned(slowram_addr_reflect_drive(26 downto 24));
             when others => return x"ff";
           end case;
         when Shadow =>
@@ -1891,9 +2107,12 @@ begin
         when FastIO =>
           report "reading normal fastio byte $" & to_hstring(fastio_rdata) severity note;
           return unsigned(fastio_rdata);
+        when KickStart =>
+          report "reading kickstart fastio byte $" & to_hstring(kickstart_rdata) severity note;
+          return unsigned(kickstart_rdata);
         when SlowRAM =>
-          report "reading slow RAM data. Word is $" & to_hstring(slowram_data_in) severity note;
-          return unsigned(slowram_data_in);
+          report "reading slow RAM data. Word is $" & to_hstring(slow_access_rdata) severity note;
+          return unsigned(slow_access_rdata);
         when Unmapped =>
           report "accessing unmapped memory" severity note;
           return x"A0";                     -- make unmmapped memory obvious
@@ -1911,11 +2130,10 @@ begin
       
       accessing_fastio <= '0'; accessing_vic_fastio <= '0';
       accessing_cpuport <= '0'; accessing_colour_ram_fastio <= '0';
-      accessing_shadow <= '0';
+      accessing_shadow <= '0'; accessing_kickstart_fastio <= '0';
       accessing_rom <= '0';
       accessing_slowram <= '0';
-      slowram_pending_write <= '0';
-      ddr_got_reply <= '0';
+      slow_access_write_drive <= '0';
       charrom_write_cs <= '0';
 
       -- Get the shadow RAM or ROM address on the bus fast to improve timing.
@@ -1991,10 +2209,31 @@ begin
         end if;        
       end if;
 
-      
-      if real_long_address(27 downto 12) = x"001F" and real_long_address(11)='1' then
-        -- colour ram access: remap to $FF80000 - $FF807FF
+
+      report "real_long_address for write = $" & to_hstring(real_long_address);
+      if
+        -- FF80000-FF807FF = 2KB colour RAM at times, which overlaps chip RAM
+        -- XXX - We don't handle the 2nd KB colour RAM at $DC00 when mapped
+        (real_long_address(27 downto 12) = x"FF80" and real_long_address(11) = '0')
+        or
+        -- FFD[0-3]800-BFF
+        (real_long_address(27 downto 16) = x"FFD"
+         and real_long_address(15 downto 14) = "00"
+         and real_long_address(11 downto 10) = "10")        
+      then
+        report "Writing to colour RAM";
+	-- Write to shadow RAM
+        shadow_write <= '0';
+        rom_write <= '0';
+
+        -- Then remap to colour ram access: remap to $FF80000 - $FF807FF
         long_address := x"FF80"&'0'&real_long_address(10 downto 0);
+
+        -- XXX What the heck is this remapping of $7F4xxxx -> colour RAM for?
+        -- Is this for creating a linear memory map for quick task swapping, or
+        -- something else? (PGS)
+      elsif real_long_address(27 downto 16) = x"7F4" then
+		  long_address := x"FF80"&'0'&real_long_address(10 downto 0);
       else
         long_address := real_long_address;
       end if;
@@ -2011,9 +2250,15 @@ begin
         else
           cpuport_ddr <= value;
         end if;
+        report "ZPCACHE: Flushing cache due to write to $01";
+        cache_flushing <= '1';
+        cache_flush_counter <= (others => '0');
       elsif (long_address = x"0000001") then
         report "MEMORY: Writing to CPU PORT register" severity note;
         cpuport_value <= value;
+        report "ZPCACHE: Flushing cache due to write to $01";
+        cache_flushing <= '1';
+        cache_flush_counter <= (others => '0');
       -- Write to DMAgic registers if required
       elsif (long_address = x"FFD3700") or (long_address = x"FFD1700") then        
         -- Set low order bits of DMA list address
@@ -2022,21 +2267,54 @@ begin
         -- memory_access_write.
       elsif (long_address = x"FFD370E") or (long_address = x"FFD170E") then
         -- Set low order bits of DMA list address, without starting
+        -- @IO:GS $D702 DMA list address low byte (address bits 0 -- 7). Writing triggers DMA to start.
         reg_dmagic_addr(7 downto 0) <= value;
       elsif (long_address = x"FFD3701") or (long_address = x"FFD1701") then
+        -- @IO:GS $D702 DMA list address high byte (address bits 8 -- 15).
         reg_dmagic_addr(15 downto 8) <= value;
       elsif (long_address = x"FFD3702") or (long_address = x"FFD1702") then
+        -- @IO:GS $D702 DMA list address bank (address bits 16 -- 22). Writing clears $D704.
         reg_dmagic_addr(22 downto 16) <= value(6 downto 0);
         reg_dmagic_addr(27 downto 23) <= (others => '0');
         reg_dmagic_withio <= value(7);
       elsif (long_address = x"FFD3703") or (long_address = x"FFD1703") then
+        -- @IO:GS $D703.0 DMA enable F018B mode (adds sub-command byte)
         support_f018b <= value(0);	-- setable dmagic mode
       elsif (long_address = x"FFD3704") or (long_address = x"FFD1704") then
+        -- @IO:GS $D704 DMA list address mega-byte
         reg_dmagic_addr(27 downto 20) <= value;
       elsif (long_address = x"FFD3705") or (long_address = x"FFD1705") then
+        -- @IO:GS $D705 DMA source address mega-byte
         reg_dmagic_src_mb <= value;
       elsif (long_address = x"FFD3706") or (long_address = x"FFD1706") then
+        -- @IO:GS $D706 DMA destination address mega-byte
         reg_dmagic_dst_mb <= value;
+      elsif (long_address = x"FFD3708") or (long_address = x"FFD1708") then
+        -- @IO:GS $D708 DMA source skip rate (/256ths of bytes)
+        reg_dmagic_src_skip(7 downto 0) <= value;
+      elsif (long_address = x"FFD3709") or (long_address = x"FFD1709") then
+        -- @IO:GS $D709 DMA source skip rate (whole bytes)
+        reg_dmagic_src_skip(15 downto 8) <= value;
+      elsif (long_address = x"FFD370a") or (long_address = x"FFD170a") then
+        -- @IO:GS $D70A DMA destination skip rate (/256ths of bytes)
+        reg_dmagic_dst_skip(7 downto 0) <= value;
+      elsif (long_address = x"FFD370b") or (long_address = x"FFD170b") then
+        -- @IO:GS $D70B DMA destination skip rate (whole bytes)
+        reg_dmagic_dst_skip(15 downto 8) <= value;
+      elsif (long_address = x"FFD37FA") then
+        -- @IO:GS $D7FA.0 DEBUG 1/2/3.5MHz CPU speed fine adjustment
+        cpu_speed_bias <= to_integer(value);
+      elsif (long_address = x"FFD37FB") then
+        -- @IO:GS $D7FB.0 DEBUG 1=charge extra cycle(s) for branches taken
+        charge_for_branches_taken <= value(0);
+      elsif (long_address = x"FFD37FC") then
+        -- @IO:GS $D7FC DEBUG chip-select enables for various devices
+        chipselect_enables <= std_logic_vector(value);
+      elsif (long_address = x"FFD37FD") then
+        -- @IO:GS $D7FD.7 Override for /EXROM : set to 0 to enable
+        -- @IO:GS $D7FD.6 Override for /GAME : set to 0 to enable
+        force_exrom <= value(7);
+        force_game <= value(6);
       elsif (long_address = x"FFD37FE") or (long_address = x"FFD17FE") then
         shadow_bank <= value;
       elsif (long_address = x"FFD37ff") or (long_address = x"FFD17ff") then
@@ -2066,7 +2344,7 @@ begin
         rom_write <= '0';
         shadow_write_flags(3) <= '1';
       end if;
-      if long_address(27 downto 17)="00000000000" then
+      if long_address(27 downto 17)="00000000000" or (long_address(27 downto 17)="01111111000" and hypervisor_mode='1') then
         report "writing to shadow RAM via chipram shadowing. addr=$" & to_hstring(long_address) severity note;
         shadow_write <= '1';
         rom_write <= '0';
@@ -2083,12 +2361,30 @@ begin
         else
           wait_states_non_zero <= '0';
         end if;
-      elsif long_address(27 downto 17)="00000000001" then
+
+        -- C65 uses $1F800-FFF as colour RAM, so we need to write there, too,
+        -- when writing here.
+        if long_address(27 downto 12) = x"001F" and long_address(11) = '1' then
+          report "writing to colour RAM via $001F8xx" severity note;
+
+          -- And also to colour RAM
+          colour_ram_cs <= '1';
+          fastio_write <= '1';
+          fastio_wdata <= std_logic_vector(value);
+          fastio_addr(19 downto 16) <= x"8";
+          fastio_addr(15 downto 11) <= (others => '0');
+          fastio_addr(10 downto 0) <= std_logic_vector(long_address(10 downto 0));
+        end if;
+
+
+      --Also mapped to 7F20000-7F3FFFF (is this for 1MB linear address space
+      --for task switching?)
+      elsif long_address(27 downto 17)="00000000001" or long_address(27 downto 17)="01111111001" then
         report "writing to ROM. addr=$" & to_hstring(long_address) severity note;
         shadow_write <= '0';
         rom_write <= not rom_writeprotect;
         fastio_write <= '0';        
-      elsif long_address(27 downto 24) = x"F" then
+      elsif long_address(27 downto 24) = x"F" then --
         accessing_fastio <= '1';
         shadow_write <= '0';
         rom_write <= '0';
@@ -2123,39 +2419,50 @@ begin
               if (long_address(10)='0') or (colourram_at_dc00='1') then
                 report "D800-DBFF/DC00-DFFF colour ram access from VIC fastio" severity note;
                 colour_ram_cs <= '1';
+
+                -- Write also to CHIP RAM, so that $1F800-FFF works as chipRAM
+                -- as well as colour RAM, when accessed via $D800+ portal
+                chipram_address(16 downto 11) <= "111111"; -- $1F8xx
+                chipram_address(10 downto 0) <= long_address(10 downto 0);
+                chipram_we <= '1';
+                chipram_datain <= value;
+                report "writing to chipram..." severity note;
+                
               end if;
             end if;
           end if;                         -- $D{0,1,2,3}XXX
         end if;                           -- $DXXXX
+        
         wait_states <= io_write_wait_states;
         if io_write_wait_states /= x"00" then
           wait_states_non_zero <= '1';
         else
           wait_states_non_zero <= '0';
         end if;
-      elsif long_address(27) = '1' then
-        report "writing to slowram..." severity note;
+      elsif long_address(27) = '1' or long_address(26)='1' then
+        report "writing to slow device memory..." severity note;
         accessing_slowram <= '1';
-        ddr_got_reply <= '0';
         shadow_write <= '0';
         rom_write <= '0';
         fastio_write <= '0';
         shadow_write_flags(2) <= '1';
-        if ddr_ram_banking='1' then
-          slowram_addr_drive <= std_logic_vector(long_address(23 downto 1))&ddr_ram_bank&std_logic(long_address(0));
-        else
-          slowram_addr_drive <= std_logic_vector(long_address(26 downto 0));
-        end if;
-        slowram_we_drive <= '1';
-        slowram_datain <= std_logic_vector(value);
-        slowram_datain_expected <= std_logic_vector(value);
-        slowram_pending_write <= '1';
-        wait_states <= slowram_waitstates;
-        if slowram_waitstates /= x"00" then
-          wait_states_non_zero <= '1';
-        else
-          wait_states_non_zero <= '0';
-        end if;
+        -- We dispatch the write, and then wait for the slow access controller
+        -- to acknowledge the write.  The slow access controller is free to
+        -- buffer the writes as it wishes to hide latency -- we don't need to worry
+        -- about there here, as it only changes the latency for receiving the
+        -- write acknowledgement (a similar process can be used for caching reads
+        -- from appropriate slow devices, e.g., for expansion memory).
+        slow_access_address_drive <= long_address(27 downto 0);
+        slow_access_write_drive <= '1';
+        slow_access_wdata_drive <= value;
+        slow_access_pending_write <= '1';
+        slow_access_data_ready <= '0';
+
+        -- Tell CPU to wait for response
+        slow_access_request_toggle_drive <= not slow_access_request_toggle_drive;
+        slow_access_desired_ready_toggle <= not slow_access_desired_ready_toggle;
+        wait_states_non_zero <= '1';
+        wait_states <= x"FF";
         proceed <= '0';
       else
         -- Don't let unmapped memory jam things up
@@ -2235,6 +2542,11 @@ begin
       -- Inhibit all interrupts until EOM (opcode $EA, which used to be NOP)
       -- is executed.
       map_interrupt_inhibit <= '1';
+
+      -- Flush ZP/stack cache because memory map may have changed
+      cache_flushing <= '1';
+      cache_flush_counter <= (others => '0');      
+      
     end c65_map_instruction;
 
     procedure alu_op_cmp (
@@ -2387,6 +2699,9 @@ begin
     variable cpu_speed : std_logic_vector(2 downto 0);
     
   begin
+
+    -- Export phi0 for the rest of the machine (scales with CPU speed)
+    phi0 <= phi0_export;
     
     -- Begin calculating results for operations immediately to help timing.
     -- The trade-off is consuming a bit of extra silicon.
@@ -2397,7 +2712,6 @@ begin
     a_rol <= reg_a(6 downto 0) & flag_c;    
     a_asr <= reg_a(7) & reg_a(7 downto 1);
     a_lsr <= '0' & reg_a(7 downto 1);
-    a_ior <= reg_a or read_data;
     a_xor <= reg_a xor read_data;
     a_and <= reg_a and read_data;
     a_asl <= reg_a(6 downto 0)&'0';      
@@ -2416,12 +2730,117 @@ begin
     z_decremented <= reg_z - 1;
     
     -- BEGINNING OF MAIN PROCESS FOR CPU
-    if rising_edge(clock) then
+    if rising_edge(clock) and all_pause='0' then
 
-      if hyper_trap = '0' and hyper_trap_state = '1' then
-        hyper_trap_pending <= '1';        
+      dat_bitplane_addresses_drive <= dat_bitplane_addresses;
+      dat_offset_drive <= dat_offset;
+      
+      cycle_counter <= cycle_counter + 1;
+      
+      if cache_flushing = '1' then
+        cache_waddr <= cache_flush_counter;
+        cache_wdata <= (others => '1');
+        if cache_flush_counter /= "1111111111" then
+          cache_flush_counter <= cache_flush_counter + 1;
+        else
+          cache_flushing <= '0';
+          report "ZPCACHE: Flush complete.";
+        end if;
       end if;
-      hyper_trap_state <= hyper_trap;
+      
+      speed_gate_drive <= speed_gate;
+      
+      if cartridge_enable='1' then
+        gated_exrom <= exrom and force_exrom;
+        gated_game <= game and force_game;
+      else
+        gated_exrom <= force_exrom;
+        gated_game <= force_game;
+      end if;
+
+      -- Count slow clock ticks for CIAs and other peripherals (never goes >3.5MHz)
+      -- Actually, the C65 always counts timers etc at 1MHz, which simplifies
+      -- things a little. We only deviate for C128 2MHz mode emulation, where we
+      -- do double it.
+      -- Actually, CIAs must run at 1MHz still in 2MHz mode, because SynthMark
+      -- depends  on it.
+      case cpuspeed_external is
+--        when x"02" =>          
+--          phi_export_counter <= phi_export_counter + phi_fraction_02pal;
+        when others =>          
+          phi_export_counter <= phi_export_counter + phi_fraction_01pal;
+      end case;
+      phi0_export <= phi_export_counter(16);
+      
+      
+      -- Count slow clock ticks for applying instruction-level 6502/4510 timing
+      -- accuracy at 1MHz and 3.5MHz
+      -- XXX Add NTSC speed emulation option as well
+      phi_add_backlog <= '0';
+      phi_new_backlog <= 0;
+      last_phi16 <= phi_counter(16);
+      case cpuspeed_internal is
+        when x"01" =>          
+          phi_counter <= phi_counter + phi_fraction_01pal + cpu_speed_bias*16 - (128*16);
+        when x"02" =>          
+          phi_counter <= phi_counter + phi_fraction_02pal + cpu_speed_bias*16 - (128*16);
+        when x"04" =>
+          phi_counter <= phi_counter + phi_fraction_04pal + cpu_speed_bias*16 - (128*16);
+        when others =>
+          -- Full speed = 1 clock tick per cycle
+          phi_counter(16) <= phi_counter(16) xor '1';
+          phi_backlog <= 0;
+          phi_pause <= '0';
+      end case;
+      if cpuspeed_internal /= x"50" then
+        if last_phi16 /= phi_counter(16) then
+          -- phi2 cycle has passed
+          if phi_backlog = 1 or phi_backlog=0 then
+            if phi_add_backlog = '0' then
+              -- We have just finished our backlog, allow CPU to proceed
+              phi_backlog <= 0;
+              phi_pause <= '0';
+            else
+              -- We would have finished the back log, but we have new backlog
+              -- to process
+              phi_backlog <= phi_new_backlog;
+              phi_pause <= '1';
+            end if;            
+          else
+            if phi_add_backlog = '0' then
+              phi_backlog <= phi_backlog - 1;
+              phi_pause <= '1';
+            else
+              phi_backlog <= phi_backlog - 1 + phi_new_backlog;
+              phi_pause <= '1';
+            end if;
+          end if;
+        else
+          if phi_add_backlog = '1' then
+            phi_backlog <= phi_backlog + phi_new_backlog;
+            phi_pause <= '1';
+          end if;
+        end if;
+      else
+        -- Full speed - never pause
+        phi_backlog <= 0;
+        phi_pause <= '0';
+      end if;
+          
+      --Check for system-generated traps (matrix mode, and double tap restore)
+      if (hyper_trap = '0' or matrix_trap_in ='1' or hyper_trap_f011_read = '1' or hyper_trap_f011_write = '1') and hyper_trap_state = '1' then
+        hyper_trap_state <= '0';
+        hyper_trap_pending <= '1'; 
+        if matrix_trap_in='1' then 
+          matrix_trap_pending <='1';
+        elsif hyper_trap_f011_read='1' then 
+          f011_read_trap_pending <='1';
+        elsif hyper_trap_f011_write='1' then 
+          f011_write_trap_pending <='1';
+        end if;
+      else
+        hyper_trap_state <= '1';
+      end if;
               
       -- Select CPU personality based on IO mode, but hypervisor can override to
       -- for 4502 mode, and the hypervisor itself always runs in 4502 mode.
@@ -2445,6 +2864,16 @@ begin
         emu6502 <= '0';
       end if;
       cpuis6502 <= emu6502;
+
+      -- Instruction cycle times are 6502 whenever we are at 1 or 2
+      -- MHz, for C64 compatibility, and 4502 at 3.5MHz and when
+      -- full speed. This is even if the CPU is forced to 4502 mode.
+      if cpuspeed_internal = x"01"
+        or cpuspeed_internal = x"02" then
+        timing6502 <= '1';
+      else
+        timing6502 <= '0';
+      end if;
       
       -- Work out actual georam page
       georam_page(5 downto 0) <= georam_blockpage(5 downto 0);
@@ -2462,12 +2891,7 @@ begin
       -- and thus help achieve timing closure.)
       if last_write_pending = '1' then
         last_write_pending <= '0';
-
-        -- @IO:GS $FFC00A0 45GS10 slowram wait-states (write-only)
-        if last_write_address = x"FFC00A0" then
-          slowram_waitstates <= last_value;
-        end if;
-
+        
         -- @IO:GS $D640 - Hypervisor A register storage
         if last_write_address = x"FFD3640" and hypervisor_mode='1' then
           hyper_a <= last_value;
@@ -2543,6 +2967,8 @@ begin
           hyper_port_01 <= last_value;
         end if;
         -- @IO:GS $D652 - Hypervisor VIC-IV IO mode
+        -- @IO:GS $D652.0-1 - VIC-II/VIC-III/VIC-IV mode select
+        -- @IO:GS $D652.2 - Use internal(0) or external(1) SIDs
         if last_write_address = x"FFD3652" and hypervisor_mode='1' then
           hyper_iomode <= last_value;
         end if;
@@ -2570,14 +2996,11 @@ begin
         if last_write_address = x"FFD3658" and hypervisor_mode='1' then
           hyper_dmagic_list_addr(27 downto 24) <= last_value(3 downto 0);
         end if;
-        -- @IO:GS $D659 - Hypervisor DDR RAM banking control
-        -- @IO:GS $D659.7 - Enable DDR RAM banking
-        -- @IO:GS $D659.0-2 - Select which 16MB DDR RAM bank to make visible
+        -- @IO:GS $D659 - Hypervisor virtualise hardware flags
+        -- @IO:GS $D659.0 - Virtualise SD/Floppy access
         if last_write_address = x"FFD3659" and hypervisor_mode='1' then
-          ddr_ram_banking <= last_value(7);
-          ddr_ram_bank <= std_logic_vector(last_value(2 downto 0));
+          virtualise_sd <= last_value(0);
         end if;
-
         -- @IO:GS $D65D - Hypervisor current virtual page number (low byte)
         if last_write_address = x"FFD365D" and hypervisor_mode='1' then
           reg_pagenumber(1 downto 0) <= last_value(7 downto 6);
@@ -2667,7 +3090,16 @@ begin
         -- register) (write-only for now)
         if last_write_address = x"FFD3671" and hypervisor_mode='1' then
           georam_blockmask <= last_value;
-        end if;        
+        end if;   
+ 		  
+        -- @IO:GS $D672 - Protected Hardware configuration
+        -- @IO:GS $D672.6 - Enable composited Matrix Mode, and disable UART access to serial monitor.
+        if last_write_address = x"FFD3672" and hypervisor_mode='1' then
+          hyper_protected_hardware(7 downto 0) <= last_value;
+          if last_value(6)='1' then
+            matrix_rain_seed <= cycle_counter(15 downto 0);
+          end if;
+        end if; 
 
         -- @IO:GS $D67C.0-7 - (write) Hypervisor write serial output to UART monitor
         if last_write_address = x"FFD367C" and hypervisor_mode='1' then
@@ -2680,7 +3112,7 @@ begin
           immediate_monitor_char_busy <= '1';
         end if;
 
-        -- @IO:GS $D67D.0 - Hypervisor C64 ROM source select (0=normal,1=colour RAM)
+        -- @IO:GS $D67D.0 - Hypervisor enable /EXROM and /GAME from cartridge
         -- @IO:GS $D67D.1 - Hypervisor enable 32-bit JMP/JSR etc
         -- @IO:GS $D67D.2 - Hypervisor write protect C65 ROM $20000-$3FFFF
         -- @IO:GS $D67D.3 - Hypervisor enable ASC/DIN CAPS LOCK key to enable/disable CPU slow-down in C64/C128/C65 modes
@@ -2691,7 +3123,7 @@ begin
         
         -- @IO:GS $D67D - Hypervisor watchdog register: writing any value clears the watch dog
         if last_write_address = x"FFD367D" and hypervisor_mode='1' then
-          rom_from_colour_ram <= last_value(0);
+          cartridge_enable <= last_value(0);
           flat32_enabled <= last_value(1);
           rom_writeprotect <= last_value(2);
           speed_gate_enable <= last_value(3);
@@ -2710,42 +3142,20 @@ begin
         end if;
 
       end if;
-      
-      slowram_request_toggle <= slowram_request_toggle_drive;
-      slowram_addr_reflect_drive <= slowram_addr_reflect;
-      slowram_datain_reflect_drive <= slowram_datain_reflect;
-      
+
+      -- Propagate slow device access interface signals
+      slow_access_request_toggle <= slow_access_request_toggle_drive;
+      slow_access_address <= slow_access_address_drive;
+      slow_access_write <= slow_access_write_drive;
+      slow_access_wdata <= slow_access_wdata_drive;
+      slow_access_ready_toggle_buffer <= slow_access_ready_toggle;
+
+      -- Allow matrix mode in hypervisor
+      protected_hardware <= hyper_protected_hardware;
+      virtualised_hardware(0) <= virtualise_sd;
+      virtualised_hardware(7 downto 1) <= (others => '0');
       cpu_hypervisor_mode <= hypervisor_mode;
-      
-      slowram_addr <= slowram_addr_drive;
-      slowram_we <= slowram_we_drive;
-      cache_address <= slowram_addr_drive(12 downto 4);
-      if (slowram_addr_drive(26 downto 4) = cache_read_data(150 downto 128)) then
-        slowram_data_valid <= '1';
-        case slowram_addr_drive(3 downto 0) is
-          when "0000" => slowram_data_in <= cache_read_data(7 downto 0);
-          when "0001" => slowram_data_in <= cache_read_data(15 downto 8);
-          when "0010" => slowram_data_in <= cache_read_data(23 downto 16);
-          when "0011" => slowram_data_in <= cache_read_data(31 downto 24);
-          when "0100" => slowram_data_in <= cache_read_data(39 downto 32);
-          when "0101" => slowram_data_in <= cache_read_data(47 downto 40);
-          when "0110" => slowram_data_in <= cache_read_data(55 downto 48);
-          when "0111" => slowram_data_in <= cache_read_data(63 downto 56);
-          when "1000" => slowram_data_in <= cache_read_data(71 downto 64);
-          when "1001" => slowram_data_in <= cache_read_data(79 downto 72);
-          when "1010" => slowram_data_in <= cache_read_data(87 downto 80);
-          when "1011" => slowram_data_in <= cache_read_data(95 downto 88);
-          when "1100" => slowram_data_in <= cache_read_data(103 downto 96);
-          when "1101" => slowram_data_in <= cache_read_data(111 downto 104);
-          when "1110" => slowram_data_in <= cache_read_data(119 downto 112);
-          when "1111" => slowram_data_in <= cache_read_data(127 downto 120);
-          when others => slowram_data_in <= x"dd";
-        end case;
-      else
-        slowram_data_valid <= '0';
-        slowram_data_in <= x"CF";
-      end if;
-      
+            
       check_for_interrupts;
       
       if wait_states = x"00" then
@@ -2771,19 +3181,7 @@ begin
       monitor_mem_setpc_drive <= monitor_mem_setpc;
       monitor_mem_address_drive <= monitor_mem_address;
       monitor_mem_wdata_drive <= monitor_mem_wdata;
-      
-      --monitor_debug_memory_access(31) <= accessing_shadow;
-      --monitor_debug_memory_access(30) <= accessing_fastio;
-      --monitor_debug_memory_access(29) <= accessing_slowram;
-      --monitor_debug_memory_access(27) <= accessing_colour_ram_fastio;
-      --monitor_debug_memory_access(26) <= accessing_vic_fastio;
-      --monitor_debug_memory_access(25) <= accessing_cpuport;
-      --monitor_debug_memory_access(24) <= '0';
-
-      --monitor_debug_memory_access(23 downto 16) <= std_logic_vector(read_data_copy);
-      --monitor_debug_memory_access(15 downto 8) <= std_logic_vector(read_data);
-      --monitor_debug_memory_access(7 downto 0) <= std_logic_vector(read_data_complex);
-      
+            
       -- Copy read memory location to simplify reading from memory.
       -- Penalty is +1 wait state for memory other than shadowram.
       read_data_copy <= read_data_complex;
@@ -2799,7 +3197,6 @@ begin
       monitor_watch_match <= '0';       -- set if writing to watched address
       monitor_state <= to_unsigned(processor_state'pos(state),8)&read_data;
       monitor_hypervisor_mode <= hypervisor_mode;
-      monitor_ddr_ram_banking <= ddr_ram_banking;
       monitor_pc <= reg_pc;
       monitor_a <= reg_a;
       monitor_x <= reg_x;
@@ -2842,57 +3239,51 @@ begin
         -- Test goes here so that it doesn't break the monitor interface.
         -- But the hypervisor always runs at full speed.
         fast_fetch_state <= InstructionDecode;
-              cpu_speed := vicii_2mhz&viciii_fast&viciv_fast;
-        if hypervisor_mode='0' and ((speed_gate='1') and (force_fast='0')) then
+        cpu_speed := vicii_2mhz&viciii_fast&viciv_fast;
+        case cpu_speed is
+          when "100" => -- 1mhz
+            cpuspeed_external <= x"01";
+          when "101" =>
+            cpuspeed_external <= x"01";
+          when "000" =>
+            cpuspeed_external <= x"02";
+          when "001" =>
+            cpuspeed_external <= x"02";
+          when others =>
+            cpuspeed_external <= x"04";
+        end case;
+        if hypervisor_mode='0' and ((speed_gate_drive='1') and (force_fast='0')) then
           case cpu_speed is
             when "100" => -- 1mhz
-              normal_fetch_state <= ProcessorPause;
-              fast_fetch_state <= ProcessorPause;
-              cpu_pause_shift <= 0;
               cpuspeed <= x"01";
               cpuspeed_internal <= x"01";
             when "101" => -- 1mhz
-              normal_fetch_state <= ProcessorPause;
-              fast_fetch_state <= ProcessorPause;          
-              cpu_pause_shift <= 0;
               cpuspeed <= x"01";
               cpuspeed_internal <= x"01";
             when "110" => -- 3.5mhz
-              normal_fetch_state <= ProcessorPause;
-              fast_fetch_state <= ProcessorPause;          
-              cpu_pause_shift <= 2;
               cpuspeed <= x"04";
               cpuspeed_internal <= x"04";
-            when "111" => -- 48mhz
-              cpuspeed <= x"48";
-              cpuspeed_internal <= x"48";
-              null;
+            when "111" => -- full speed
+              cpuspeed <= x"50";
+              cpuspeed_internal <= x"50";
             when "000" => -- 2mhz
-              normal_fetch_state <= ProcessorPause;
-              fast_fetch_state <= ProcessorPause;          
-              cpu_pause_shift <= 1;
               cpuspeed <= x"02";
               cpuspeed_internal <= x"02";
-            when "001" => -- 48mhz
-              cpuspeed <= x"48";
-              cpuspeed_internal <= x"48";
-              null;
+            when "001" => -- full speed
+              cpuspeed <= x"50";
+              cpuspeed_internal <= x"50";
             when "010" => -- 3.5mhz
-              normal_fetch_state <= ProcessorPause;
-              fast_fetch_state <= ProcessorPause;          
-              cpu_pause_shift <= 2;
               cpuspeed <= x"04";
               cpuspeed_internal <= x"04";
-            when "011" => -- 48mhz
-              cpuspeed <= x"48";
-              cpuspeed_internal <= x"48";
-              null;
+            when "011" => -- full speed
+              cpuspeed <= x"50";
+              cpuspeed_internal <= x"50";
             when others =>
               null;
           end case;
         else
-          cpuspeed <= x"48";
-          cpuspeed_internal <= x"48";
+          cpuspeed <= x"50";
+          cpuspeed_internal <= x"50";
         end if;
       else
         normal_fetch_state <= ProcessorHold;
@@ -2926,6 +3317,7 @@ begin
       -- report "reset = " & std_logic'image(reset) severity note;
       reset_drive <= reset;
       if reset_drive='0' or watchdog_reset='1' then
+        reset_out <= '0';
         state <= ResetLow;
         proceed <= '0';
         wait_states <= x"00";
@@ -2935,11 +3327,20 @@ begin
         report "resetting cpu: reset_drive = " & std_logic'image(reset_drive)
           & ", watchdog_reset=" & std_logic'image(watchdog_reset);
         reset_cpu_state;
+      elsif phi_pause = '1' then
+        -- Wait for time to catch up with CPU instructions when running at low
+        -- speed (CPU actually runs at full speed, and just gets held here if it
+        -- gets too far ahead.  This gives us quite accurate timing at an instruction
+        -- level, with a jitter of ~1 instruction at any point in time, which should
+        -- be sufficient even for most fast loaders.
+        report "PHI pause : " & integer'image(phi_backlog) & " CPU cycles remaining.";
+        proceed <= '0';
       else
         -- Honour wait states on memory accesses
         -- Clear memory access lines unless we are in a memory wait state
         -- XXX replace with single bit test flag for wait_states = 0 to reduce
-        -- logic depth        
+        -- logic depth
+        reset_out <= '1';
         if wait_states_non_zero = '1' then
           report "  $" & to_hstring(wait_states)
             &" memory waitstates remaining.  Fastio_rdata = $"
@@ -2947,70 +3348,25 @@ begin
             & ", mem_reading=" & std_logic'image(mem_reading)
             & ", fastio_addr=$" & to_hstring(fastio_addr)
             severity note;
-          wait_states <= wait_states - 1;
-          if wait_states = x"01" then
-            -- Next cycle we can do stuff, provided that the serial monitor
-            -- isn't asking us to do anything.
-            proceed <= '1';
-            -- timeout DDR memory if it isn't responding
-            if (ddr_got_reply = '0') and (accessing_slowram='1') then
-              ddr_timeout_counter <= ddr_timeout_counter + 1;
-              slowram_request_toggle_drive <= slowram_done_toggle;
-              slowram_desired_done_toggle <= slowram_done_toggle;
-              slowram_pending_write <='0';
-              slowram_we_drive <= '0';
-            end if;
-            wait_states_non_zero <= '0';
+          if (accessing_slowram='1') then
+            if slow_access_ready_toggle = slow_access_desired_ready_toggle then
+              -- Next cycle we can do stuff, provided that the serial monitor
+              -- isn't asking us to do anything.
+              proceed <= '1';
+              slow_access_write_drive <= '0';
+            else
+              -- Otherwise keep waiting for slow memory interface
+              null;
+            end if;           
           else
-            wait_states_non_zero <= '1';            
-          end if;
-          -- Stop waiting on slow ram as soon as we have the result.
-          -- We know we have the result when the RAM is no longer busy, and the
-          -- cache has the correct memory line.
-          if (accessing_slowram='1') and (slowram_we_drive='0')
-            and (slowram_data_valid='1') and (proceed='0') then
-            ddr_reply_counter <= ddr_reply_counter + 1;
-            ddr_got_reply <= '1';
-            wait_states <= x"00";
-            wait_states_non_zero <= '0';
-            proceed <= '1';
-          end if;
-          -- Similarly, when writing to slowram, we return only once we have verified
-          -- that the value has been written.
-          if (accessing_slowram='1') and (slowram_we_drive='1')
-            and (slowram_data_valid='1') and (proceed='0')
-            and (slowram_datain_expected = slowram_data_in) then
-            ddr_write_ready_counter <= ddr_write_ready_counter + 1;
-            slowram_pending_write <= '0';
-            slowram_we_drive <= '0';
-            ddr_got_reply <= '1';
-            wait_states <= x"00";
-            wait_states_non_zero <= '0';
-            proceed <= '1';
-          end if;
-          
-          -- If the DDR memory is idle, and he cache has the wrong memory line,
-          -- so ask the DDR controller to load the cache line.
-          if (accessing_slowram='1') and (slowram_we_drive='0')
-            and (slowram_addr_drive(26 downto 4) /= cache_read_data(150 downto 128))
-            and (slowram_desired_done_toggle = slowram_done_toggle) then
-            -- The address & WE has already been set in read_long_address()
-            slowram_request_toggle_drive <= not slowram_done_toggle;
-            slowram_desired_done_toggle <= not slowram_done_toggle;
-            ddr_cache_load_counter <= ddr_cache_load_counter + 1;
-          end if;
-
-          -- Now that the slowram signals have all been set for a write and
-          -- had a cycle to settle, toggle the request line, so that the DDR
-          -- can get the write request without missing it.
-          if (slowram_pending_write='1')
-            and (slowram_desired_done_toggle = slowram_done_toggle)
-            and (slowram_addr_reflect_drive = slowram_addr_drive)
-            and (slowram_datain_reflect_drive = slowram_datain_expected) then
-            slowram_desired_done_toggle <= not slowram_done_toggle;
-            slowram_request_toggle_drive <= not slowram_done_toggle;
-          end if;
-
+            if wait_states /= x"01" then
+              wait_states <= wait_states - 1;
+              wait_states_non_zero <= '1';
+            else
+              wait_states_non_zero <= '0';
+              proceed <= '1';
+            end if;
+          end if;          
         else
           -- End of wait states, so clear memory writing and reading
 
@@ -3018,7 +3374,7 @@ begin
           fastio_write <= '0';
 --          fastio_read <= '0';
           chipram_we <= '0';
-          slowram_we_drive <= '0';
+          slow_access_write_drive <= '0';
 
           if mem_reading='1' then
 --            report "resetting mem_reading (read $" & to_hstring(memory_read_value) & ")" severity note;
@@ -3079,10 +3435,11 @@ begin
             when Interrupt =>
               -- BRK or IRQ
               -- Push P and PC
+              pc_inc := '0';
               if nmi_pending='1' then
                 vector <= x"a";
                 nmi_pending <= '0';
-              else
+              else      
                 vector <= x"e";
               end if;
               flag_i <= '1';
@@ -3098,6 +3455,7 @@ begin
               memory_access_wdata := reg_pc(15 downto 8);
               state <= InterruptPushPCL;
             when InterruptPushPCL =>
+              pc_inc := '0';
               stack_push := '1';
               memory_access_wdata := reg_pc(7 downto 0);
               state <= InterruptPushP;    
@@ -3148,25 +3506,6 @@ begin
                 report "Pre-incrementing PC for immediate dispatch" severity note;
               end if;
               state <= fast_fetch_state;
-            when ProcessorPause =>
-              -- Pause CPU before next instruction to simulate 1MHz, 2MHz or 3.5MHz
-              -- operation.
-              pc_inc := '0';
-              if cpu_pause_shift=1 then
-                pause_cycles_counter <= '0'&pause_cycles(8 downto 1);
-              elsif cpu_pause_shift=2 then
-                pause_cycles_counter <= "00"&pause_cycles(8 downto 2);
-              else
-                pause_cycles_counter <= pause_cycles;
-              end if;
-              state <= ProcessorPausing;
-            when ProcessorPausing =>
-              pc_inc := '0';
-              if pause_cycles_counter /=0 then
-                pause_cycles_counter <= pause_cycles_counter - 1;
-              else
-                state <= InstructionFetch;
-              end if;
             when ProcessorHold =>
               -- Hold CPU while blocked by monitor
 
@@ -3249,6 +3588,10 @@ begin
               hyper_port_00 <= cpuport_ddr; hyper_port_01 <= cpuport_value;
               hyper_p <= unsigned(virtual_reg_p);
 
+              report "ZPCACHE: Flushing cache due to trap to hypervisor";
+              cache_flushing <= '1';
+              cache_flush_counter <= (others => '0');
+              
               -- NEVER leave the @#$%! decimal flag set when entering the hypervisor
               -- (This took MONTHS to realise as the source of a MYRIAD of hypervisor
               -- problems.  Anyone removing this without asking Paul first will
@@ -3284,6 +3627,12 @@ begin
               reg_map_high <= "0011";
               reg_offset_high <= x"f00"; -- add $F0000
               reg_mb_high <= x"ff";
+              -- Make sure that a naughty person can't trick the hypervisor
+              -- into modifying itself, by having the Hypervisor address space
+              -- mapped in the bottom 32KB of address space.
+              if reg_mb_low = x"ff" then
+                reg_mb_low <= x"00";
+              end if;
               -- IO, but no C64 ROMS
               cpuport_ddr <= x"3f"; cpuport_value <= x"35";
 
@@ -3312,6 +3661,10 @@ begin
               flag_e <= hyper_p(5); flag_d <= hyper_p(3);
               flag_i <= hyper_p(2); flag_z <= hyper_p(1);
               flag_c <= hyper_p(0);
+
+              report "ZPCACHE: Flushing cache due to return from hypervisor";
+              cache_flushing <= '1';
+              cache_flush_counter <= (others => '0');
               
               -- clear hypervisor mode flag
               hypervisor_mode <= '0';
@@ -3330,10 +3683,12 @@ begin
               memory_access_read := '1';
               state <= DMAgicReadList;
               dmagic_list_counter <= 0;
+              phi_add_backlog <= '1'; phi_new_backlog <= 1;
             when DMAgicReadList =>
               report "DMAgic: Reading DMA list (setting dmagic_cmd to $" & to_hstring(dmagic_count(7 downto 0))
                 &", memory_read_value = $"&to_hstring(memory_read_value)&")";
               -- ask for next byte from DMA list
+              phi_add_backlog <= '1'; phi_new_backlog <= 1;
               memory_access_address := reg_dmagic_addr;
               memory_access_resolve_address := '0';
               memory_access_read := '1';
@@ -3346,12 +3701,12 @@ begin
               else
                 dmagic_dest_bank_temp <= dmagic_modulo(7 downto 0);
               end if;
-              dmagic_dest_addr(15 downto 8) <= dmagic_dest_bank_temp;
-              dmagic_dest_addr(7 downto 0) <= dmagic_dest_addr(15 downto 8);
-              dmagic_src_bank_temp <= dmagic_dest_addr(7 downto 0);
-              dmagic_src_addr(15 downto 8) <= dmagic_src_bank_temp;
-              dmagic_src_addr(7 downto 0) <= dmagic_src_addr(15 downto 8);
-              dmagic_count(15 downto 8) <= dmagic_src_addr(7 downto 0);
+              dmagic_dest_addr(23 downto 16) <= dmagic_dest_bank_temp;
+              dmagic_dest_addr(15 downto 8) <= dmagic_dest_addr(23 downto 16);
+              dmagic_src_bank_temp <= dmagic_dest_addr(15 downto 8);
+              dmagic_src_addr(23 downto 16) <= dmagic_src_bank_temp;
+              dmagic_src_addr(15 downto 8) <= dmagic_src_addr(23 downto 16);
+              dmagic_count(15 downto 8) <= dmagic_src_addr(15 downto 8);
               dmagic_count(7 downto 0) <= dmagic_count(15 downto 8);
               dmagic_cmd <= dmagic_count(7 downto 0);
               if (support_f018b = '0') and (dmagic_list_counter = 10) then
@@ -3366,20 +3721,24 @@ begin
             when DMAgicGetReady =>
               report "DMAgic: got list: cmd=$"
                 & to_hstring(dmagic_cmd)
-                & "src=$"
-                & to_hstring(dmagic_src_addr(15 downto 0))
-                & "dest=$" & to_hstring(dmagic_dest_addr(15 downto 0));
+                & ", src=$"
+                & to_hstring(dmagic_src_addr(23 downto 8))
+                & ", dest=$" & to_hstring(dmagic_dest_addr(23 downto 8))
+                & ", count=$" & to_hstring(dmagic_count);
+              phi_add_backlog <= '1'; phi_new_backlog <= 1;
               if (support_f018b = '1') then
-                dmagic_src_addr(27 downto 20) <= reg_dmagic_src_mb + dmagic_src_bank_temp(6 downto 4);
-                dmagic_src_addr(19 downto 16) <= dmagic_src_bank_temp(3 downto 0);
-                dmagic_dest_addr(27 downto 20) <= reg_dmagic_dst_mb + dmagic_dest_bank_temp(6 downto 4);
-                dmagic_dest_addr(19 downto 16) <= dmagic_dest_bank_temp(3 downto 0);
+                dmagic_src_addr(35 downto 28) <= reg_dmagic_src_mb + dmagic_src_bank_temp(6 downto 4);
+                dmagic_src_addr(27 downto 24) <= dmagic_src_bank_temp(3 downto 0);
+                dmagic_dest_addr(35 downto 28) <= reg_dmagic_dst_mb + dmagic_dest_bank_temp(6 downto 4);
+                dmagic_dest_addr(27 downto 24) <= dmagic_dest_bank_temp(3 downto 0);
               else
-                dmagic_src_addr(27 downto 20) <= reg_dmagic_src_mb;
-                dmagic_src_addr(19 downto 16) <= dmagic_src_bank_temp(3 downto 0);
-                dmagic_dest_addr(27 downto 20) <= reg_dmagic_dst_mb;
-                dmagic_dest_addr(19 downto 16) <= dmagic_dest_bank_temp(3 downto 0);
+                dmagic_src_addr(35 downto 28) <= reg_dmagic_src_mb;
+                dmagic_src_addr(27 downto 24) <= dmagic_src_bank_temp(3 downto 0);
+                dmagic_dest_addr(35 downto 28) <= reg_dmagic_dst_mb;
+                dmagic_dest_addr(27 downto 24) <= dmagic_dest_bank_temp(3 downto 0);
               end if;               
+              dmagic_src_addr(7 downto 0) <= (others => '0');
+              dmagic_dest_addr(7 downto 0) <= (others => '0');
               dmagic_src_io <= dmagic_src_bank_temp(7);
               if (support_f018b = '1') then
                 dmagic_src_direction <= dmagic_cmd(4);
@@ -3410,18 +3769,41 @@ begin
                   -- swap and mix not yet implemented
                   state <= normal_fetch_state;
               end case;
+              -- XXX Potential security issue: Ideally we should not allow a DMA to
+              -- write to Hypervisor memory, so as to make it harder to overwrite
+              -- hypervisor memory.  However, we currently use it to do exactly
+              -- that in the kickup routine.  Thus before we implement such
+              -- protection, we need to change kickup to use a simple copy
+              -- routine. We then need to get a bit creative about how we
+              -- implement the restriction, as the hypervisor memory doesnt
+              -- exist in its own 1MB off address space, so we can't easily
+              -- quarantine it by blockinig DMA to that section off address
+              -- space. It does live in its own 64KB of address space, however.
+              -- that would involve adding a wrap-around check on the bottom 16
+              -- bits of the address.
+              -- One question is: Does it make sense to try to protect against
+              -- this, since the hypervisor memory is only accessible from
+              -- hypervisor mode, and any exploit via DMA requires another
+              -- exploit first.  Perhaps the only additional issue is if a DMA
+              -- chained request went feral, but even that requires at least a
+              -- significant bug in the hypervisor.  We could just disable
+              -- chained DMA in the hypevisor as a simple safety catch, as this
+              -- will provide the main value, without a burdonsome change. But
+              -- even that gets used in kickstart when clearing the screen on
+              -- boot.
             when DMAgicFill =>
               -- Fill memory at dmagic_dest_addr with dmagic_src_addr(7 downto
               -- 0)
 
               -- Do memory write
+              phi_add_backlog <= '1'; phi_new_backlog <= 1;
               memory_access_write := '1';
-              memory_access_wdata := dmagic_src_addr(7 downto 0);
+              memory_access_wdata := dmagic_src_addr(15 downto 8);
               memory_access_resolve_address := '0';
-              memory_access_address := dmagic_dest_addr;
+              memory_access_address := dmagic_dest_addr(35 downto 8);
 
               -- redirect memory write to IO block if required
-              if dmagic_dest_addr(15 downto 12) = x"d" and dmagic_dest_io='1' then
+              if dmagic_dest_addr(23 downto 20) = x"d" and dmagic_dest_io='1' then
                 memory_access_address(27 downto 12) := x"FFD3";
               end if;
               
@@ -3430,9 +3812,11 @@ begin
               -- in the C65 specifications document
               if dmagic_dest_hold='0' then
                 if dmagic_dest_direction='0' then
-                  dmagic_dest_addr <= dmagic_dest_addr + 1;
+                  dmagic_dest_addr(23 downto 0)
+                    <= dmagic_dest_addr(23 downto 0) + reg_dmagic_dst_skip;
                 else
-                  dmagic_dest_addr <= dmagic_dest_addr - 1;
+                  dmagic_dest_addr(23 downto 0)
+                    <= dmagic_dest_addr(23 downto 0) - reg_dmagic_dst_skip;
                 end if;
               end if;
               -- XXX we compare count with 1 before decrementing.
@@ -3444,6 +3828,10 @@ begin
                 if dmagic_cmd(2) = '0' then
                   -- Last DMA job in chain, go back to executing instructions
                   state <= normal_fetch_state;
+                  -- Reset DMAgic skip to normal at the end of the last DMA job
+                  -- in a chain.
+                  reg_dmagic_src_skip <= x"0100";
+                  reg_dmagic_dst_skip <= x"0100";
                 else
                   -- Chain to next DMA job
                   state <= DMAgicTrigger;
@@ -3458,39 +3846,50 @@ begin
               -- so we need to read the first byte now.
 
               -- Do memory read
+              phi_add_backlog <= '1'; phi_new_backlog <= 1;
               memory_access_read := '1';
               memory_access_resolve_address := '0';
-              memory_access_address := dmagic_src_addr;
+              memory_access_address := dmagic_src_addr(35 downto 8);
 
               -- redirect memory write to IO block if required
-              if dmagic_src_addr(15 downto 12) = x"d" and dmagic_src_io='1' then
+              if dmagic_src_addr(23 downto 20) = x"d" and dmagic_src_io='1' then
                 memory_access_address(27 downto 12) := x"FFD3";
               end if;
               
               -- Update source address.
               -- XXX Ignores modulus, whose behaviour is insufficiently defined
               -- in the C65 specifications document
+              report "dmagic_src_addr=$" & to_hstring(dmagic_src_addr(35 downto 8))
+                &"."&to_hstring(dmagic_src_addr(7 downto 0))
+                & " (reg_dmagic_src_skip=$" & to_hstring(reg_dmagic_src_skip)&")";
               if dmagic_src_hold='0' then
                 if dmagic_src_direction='0' then
-                  dmagic_src_addr <= dmagic_src_addr + 1;
+                  dmagic_src_addr(23 downto 0)
+                    <= dmagic_src_addr(23 downto 0) + reg_dmagic_src_skip;
                 else
-                  dmagic_src_addr <= dmagic_src_addr - 1;
+                  dmagic_src_addr(23 downto 0)
+                    <= dmagic_src_addr(23 downto 0) - reg_dmagic_src_skip;
                 end if;
               end if;
               state <= DMAgicCopyWrite;
             when DMAgicCopyWrite =>
               -- Remember value just read
+              report "dmagic_src_addr=$" & to_hstring(dmagic_src_addr(35 downto 8))
+                &"."&to_hstring(dmagic_src_addr(7 downto 0))
+                & " (reg_dmagic_src_skip=$" & to_hstring(reg_dmagic_src_skip)&")";
               dmagic_first_read <= '0';
               reg_t <= memory_read_value;
 
               state <= DMAgicCopyRead;
 
+              phi_add_backlog <= '1'; phi_new_backlog <= 1;
+              
               if dmagic_first_read = '0' then
                 -- Do memory write
                 memory_access_write := '1';
                 memory_access_wdata := reg_t;
                 memory_access_resolve_address := '0';
-                memory_access_address := dmagic_dest_addr;
+                memory_access_address := dmagic_dest_addr(35 downto 8);
 
                 -- redirect memory write to IO block if required
                 if dmagic_dest_addr(15 downto 12) = x"d" and dmagic_dest_io='1' then
@@ -3502,9 +3901,11 @@ begin
                 -- in the C65 specifications document
                 if dmagic_dest_hold='0' then
                   if dmagic_dest_direction='0' then
-                    dmagic_dest_addr <= dmagic_dest_addr + 1;
+                    dmagic_dest_addr(23 downto 0)
+                      <= dmagic_dest_addr(23 downto 0) + reg_dmagic_dst_skip;
                   else
-                    dmagic_dest_addr <= dmagic_dest_addr - 1;
+                    dmagic_dest_addr(23 downto 0)
+                      <= dmagic_dest_addr(23 downto 0) - reg_dmagic_dst_skip;
                   end if;
                 end if;
                 -- XXX we compare count with 1 before decrementing.
@@ -3527,19 +3928,38 @@ begin
             when InstructionWait =>
               state <= InstructionFetch;
             when InstructionFetch =>
+              -- Allow toggling of matrix mode in the hypervisor
+              if matrix_trap_pending = '1' and hypervisor_mode='1' then
+                hyper_protected_hardware(6) <= hyper_protected_hardware(6) xor '1';
+              end if;
               if (hypervisor_mode='0')
                 and ((irq_pending='1' and flag_i='0') or nmi_pending='1') then
                 -- An interrupt has occurred
+                pc_inc := '0';
                 state <= Interrupt;
                 -- Make sure reg_instruction /= I_BRK, so that B flag is not
                 -- erroneously set.
                 reg_instruction <= I_SEI;
               elsif (hyper_trap_pending = '1' and hypervisor_mode='0') then
                 -- Trap to hypervisor
-                hyper_trap_pending <= '0';
-                state <= TrapToHypervisor;
-                -- Trap #66 ($42) = RESTORE key double-tap
-                hypervisor_trap_port <= "1000010";                     
+                hyper_trap_pending <= '0';					 
+                state <= TrapToHypervisor;                
+                if matrix_trap_pending = '1' then
+                  -- Trap #67 ($43) = ALT-TAB key press (toggles matrix mode)
+                  hypervisor_trap_port <= "1000011";                     
+                  matrix_trap_pending <= '0';
+                elsif f011_read_trap_pending = '1' then
+                  -- Trap #68 ($44) = SD/F011 read sector
+                  hypervisor_trap_port <= "1000100";
+                  f011_read_trap_pending <= '0';
+                elsif f011_write_trap_pending = '1' then
+                  -- Trap #69 ($45) = SD/F011 write sector
+                  hypervisor_trap_port <= "1000101";
+                  f011_write_trap_pending <= '0';
+                else
+                  -- Trap #66 ($42) = RESTORE key double-tap
+                  hypervisor_trap_port <= "1000010";                     
+                end if;	
               else
                 -- Normal instruction execution
                 state <= InstructionDecode;
@@ -3558,6 +3978,8 @@ begin
                 microcode_lut(instruction_lut(to_integer(emu6502&memory_read_value)));
               reg_addressingmode <= mode_lut(to_integer(emu6502&memory_read_value));
               reg_instruction <= instruction_lut(to_integer(emu6502&memory_read_value));
+              phi_add_backlog <= '1';
+              phi_new_backlog <= cycle_count_lut(to_integer(timing6502&memory_read_value));
               
               -- 4502 doesn't allow interrupts immediately following a
               -- single-cycle instruction
@@ -3568,6 +3990,10 @@ begin
                 report "Interrupt detected, decrementing PC";
                 state <= Interrupt;
                 reg_pc <= reg_pc - 1;
+                pc_inc := '0';
+                -- Make sure reg_instruction /= I_BRK, so that B flag is not
+                -- erroneously set.
+                reg_instruction <= I_SEI;
               else
                 reg_opcode <= memory_read_value;
                 -- Present instruction to serial monitor;
@@ -3594,14 +4020,22 @@ begin
                 flat32_address_prime <= '0';
                 
                 case memory_read_value is
-                  when x"03" => flag_e <= '1'; -- SEE
+                  when x"03" =>
+                    flag_e <= '1'; -- SEE
+                    report "ZPCACHE: Flushing cache due to setting E flag";
+                    cache_flushing <= '1';
+                    cache_flush_counter <= (others => '0');
                   when x"0A" => reg_a <= a_asl; set_nz(a_asl); flag_c <= reg_a(7); -- ASL A
                   when x"0B" => reg_y <= reg_sph; set_nz(reg_sph); -- TSY
                   when x"18" => flag_c <= '0';  -- CLC
                   when x"1A" => reg_a <= a_incremented; set_nz(a_incremented); -- INC A
                   when x"1B" => reg_z <= z_incremented; set_nz(z_incremented); -- INZ
                   when x"2A" => reg_a <= a_rol; set_nz(a_rol); flag_c <= reg_a(7); -- ROL A
-                  when x"2B" => reg_sph <= reg_y; -- TYS
+                  when x"2B" =>
+                    reg_sph <= reg_y; -- TYS
+                    report "ZPCACHE: Flushing cache due to setting SPH";
+                    cache_flushing <= '1';
+                    cache_flush_counter <= (others => '0');                    
                   when x"38" => flag_c <= '1';  -- SEC
                   when x"3A" => reg_a <= a_decremented; set_nz(a_decremented); -- DEC A
                   when x"3B" => reg_z <= z_decremented; set_nz(z_decremented); -- DEZ
@@ -3609,7 +4043,11 @@ begin
                   when x"43" => reg_a <= a_asr; set_nz(a_asr); -- ASR A
                   when x"4A" => reg_a <= a_lsr; set_nz(a_lsr); flag_c <= reg_a(0); -- LSR A
                   when x"4B" => reg_z <= reg_a; set_nz(reg_a); -- TAZ
-                  when x"5B" => reg_b <= reg_a; -- TAB
+                  when x"5B" =>
+                    reg_b <= reg_a; -- TAB
+                    report "ZPCACHE: Flushing cache due to moving ZP";
+                    cache_flushing <= '1';
+                    cache_flush_counter <= (others => '0');
                   when x"6A" => reg_a <= a_ror; set_nz(a_ror); flag_c <= reg_a(0); -- ROR A
                   when x"6B" => reg_a <= reg_z; set_nz(reg_z); -- TZA
                   when x"78" => flag_i <= '1';  -- SEI
@@ -3685,47 +4123,7 @@ begin
                   else
                     state <= Cycle2;
                   end if;
-                  case mode_lut(to_integer(emu6502&memory_read_value)) is
-                    when M_IMPL =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 2,9);
-                    when M_nn =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 3,9);
-                    when M_immnn =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 2,9);
-                    when M_A =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 2,9);
-                    when M_nnnn =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 4,9);
-                    when M_nnrr =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 4,9);
-                    when M_rr =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 3,9);
-                    when M_InnY =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 5,9);
-                    when M_InnZ =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 5,9);
-                    when M_rrrr =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 4,9);
-                    when M_nnX =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 3,9);
-                    when M_nnnnY =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 4,9);
-                    when M_nnnnX =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 4,9);
-                    when M_Innnn =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 5,9);
-                    when M_InnnnX =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 5,9);
-                    when M_InnSPY =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 6,9);
-                    when M_nnY =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 3,9);
-                    when M_immnnnn =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 7,9);
-                    when others =>
-                  end case;
                 else
-                  pause_cycles <= to_unsigned(pause_per_cycle,9);
                   no_interrupt <= '1';
                   -- Allow monitor to trace through single-cycle instructions
                   if monitor_mem_trace_mode='1' or debugging_single_stepping='1' then
@@ -3776,7 +4174,30 @@ begin
                   when I_STX => is_store <= '1';
                   when I_STY => is_store <= '1';
                   when I_STZ => is_store <= '1';
-                                
+
+                  -- And 6502 illegal opcodes
+                  when I_SLO => is_rmw <= '1';
+                  when I_RLA => is_rmw <= '1';
+                  when I_SRE => is_rmw <= '1';
+                  when I_SAX => is_store <= '1';
+                  when I_LAX => is_load <= '1';
+                  when I_RRA => is_rmw <= '1';
+                  when I_DCP => is_rmw <= '1';
+                  when I_ISC => is_rmw <= '1';
+                  when I_ANC => is_load <= '1';
+                  when I_ALR => null;
+                  when I_ARR => null;
+                  when I_XAA => null;
+                  when I_AXS => null;
+                  when I_AHX => null;
+                  when I_SHY => null;
+                  when I_SHX => null;
+                  when I_TAS => null;
+                  when I_LAS => null;
+                  when I_KIL =>
+                    state <= TrapToHypervisor;
+                    -- Trap $7F = 6502 KIL instruction encountered
+                    hypervisor_trap_port <= "1111111";                     
                   -- Nothing special for other instructions
                   when others => null;
                 end case;
@@ -3801,6 +4222,10 @@ begin
                 report "Interrupt detected in 6502 mode, decrementing PC";
                 state <= Interrupt;
                 reg_pc <= reg_pc - 1;
+                pc_inc := '0';
+                -- Make sure reg_instruction /= I_BRK, so that B flag is not
+                -- erroneously set.
+                reg_instruction <= I_SEI;
               else
                 reg_opcode <= memory_read_value;
                 -- Present instruction to serial monitor;
@@ -3880,47 +4305,7 @@ begin
                   else
                     state <= Cycle2;
                   end if;
-                  case mode_lut(to_integer(emu6502&memory_read_value)) is
-                    when M_IMPL =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 2,9);
-                    when M_nn =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 3,9);
-                    when M_immnn =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 2,9);
-                    when M_A =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 2,9);
-                    when M_nnnn =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 4,9);
-                    when M_nnrr =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 4,9);
-                    when M_rr =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 3,9);
-                    when M_InnY =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 5,9);
-                    when M_InnZ =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 5,9);
-                    when M_rrrr =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 4,9);
-                    when M_nnX =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 3,9);
-                    when M_nnnnY =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 4,9);
-                    when M_nnnnX =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 4,9);
-                    when M_Innnn =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 5,9);
-                    when M_InnnnX =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 5,9);
-                    when M_InnSPY =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 6,9);
-                    when M_nnY =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 3,9);
-                    when M_immnnnn =>
-                      pause_cycles <= to_unsigned(pause_per_cycle * 7,9);
-                    when others =>
-                  end case;
                 else
-                  pause_cycles <= to_unsigned(pause_per_cycle,9);
                   no_interrupt <= '1';
                   -- Allow monitor to trace through single-cycle instructions
                   if monitor_mem_trace_mode='1' or debugging_single_stepping='1' then
@@ -3996,6 +4381,27 @@ begin
               monitor_ibytes(1) <= '1';
               reg_arg1 <= memory_read_value;
               reg_addr(7 downto 0) <= memory_read_value;
+
+              -- Request ZP/stack cache read
+              -- Cache lines are 4 bytes wide
+              -- ZP cache is bottom 64 lines
+              cache_raddr(9 downto 6) <= "0000";
+              if reg_addressingmode = M_InnX then
+                -- Pre-increment address ZP by X
+                temp_value := memory_read_value + reg_x;
+                cache_raddr(5 downto 0) <= temp_value(7 downto 2);
+              else
+                cache_raddr(5 downto 0) <= memory_read_value(7 downto 2);
+              end if;
+              if cache_flushing = '1' or reg_addressingmode = M_InnSPY then
+                -- Don't use cache if flushing or for the stack-relative instructions
+                -- (at least until we work out the correct formula for the
+                -- InnSPY access -- it should be quite possibe)
+                cache_read_valid <= '0';
+              else
+                cache_read_valid <= '1';
+                report "ZPCACHE: Reading ZP cache entry $" & to_hstring(memory_read_value(7 downto 2));
+              end if;
               
               -- Work out relevant bit mask for RMB/SMB
               case reg_opcode(6 downto 4) is
@@ -4033,6 +4439,11 @@ begin
                   reg_addr <= temp_addr;
                   if is_load='1' or is_rmw='1' then
                     state <= LoadTarget;
+                    -- On memory read wait-state, read from RAM, so that FastIO
+                    -- lines clear
+                    memory_access_read := '1';
+                    memory_access_address := x"0000002";
+                    memory_access_resolve_address := '0';
                   else
                     -- (reading next instruction argument byte as default action)
                     state <= MicrocodeInterpret;
@@ -4064,6 +4475,11 @@ begin
                   reg_addr <= temp_addr;
                   if is_load='1' or is_rmw='1' then
                     state <= LoadTarget;
+                    -- On memory read wait-state, read from RAM, so that FastIO
+                    -- lines clear
+                    memory_access_read := '1';
+                    memory_access_address := x"0000002";
+                    memory_access_resolve_address := '0';
                   else
                     -- (reading next instruction argument byte as default action)
                     state <= MicrocodeInterpret;
@@ -4074,6 +4490,11 @@ begin
                   reg_addr <= temp_addr;
                   if is_load='1' or is_rmw='1' then
                     state <= LoadTarget;
+                    -- On memory read wait-state, read from RAM, so that FastIO
+                    -- lines clear
+                    memory_access_read := '1';
+                    memory_access_address := x"0000002";
+                    memory_access_resolve_address := '0';
                   else
                     -- (reading next instruction argument byte as default action)
                     state <= MicrocodeInterpret;
@@ -4326,6 +4747,11 @@ begin
                     reg_addr <= temp_addr;
                     if is_load='1' or is_rmw='1' then
                       state <= LoadTarget;
+                    -- On memory read wait-state, read from RAM, so that FastIO
+                    -- lines clear
+                    memory_access_read := '1';
+                    memory_access_address := x"0000002";
+                    memory_access_resolve_address := '0';
                     else
                       -- (reading next instruction argument byte as default action)
                       state <= MicrocodeInterpret;
@@ -4352,6 +4778,11 @@ begin
                     else
                       if is_load='1' or is_rmw='1' then
                         state <= LoadTarget;
+                        -- On memory read wait-state, read from RAM, so that FastIO
+                        -- lines clear
+                        memory_access_read := '1';
+                        memory_access_address := x"0000002";
+                        memory_access_resolve_address := '0';
                       else
                         -- (reading next instruction argument byte as default action)
                         state <= MicrocodeInterpret;
@@ -4383,6 +4814,10 @@ begin
                     reg_addr <= temp_addr + 1;
                     state <= InnZReadVectorLow;
                   when M_rr =>
+                    temp_addr := reg_pc +
+                                 to_integer(reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&
+                                            reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&
+                                            reg_arg1);
                     if (reg_instruction=I_BRA) or
                       (reg_instruction=I_BSR) or
                       (reg_instruction=I_BEQ and flag_z='1') or
@@ -4396,29 +4831,25 @@ begin
                       -- Branch will be taken. Calculate destination address by
                       -- sign-extending the 8-bit offset.
                       report "Taking 8-bit branch" severity note;
-                      temp_addr := reg_pc +
-                                   to_integer(reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&
-                                              reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&reg_arg1(7)&
-                                              reg_arg1);
                       report "Setting PC (8-bit branch)";
+                      
+                      -- Charge one cycle for branches that are taken
+                      if temp_addr(15 downto 8) /= reg_pc(15 downto 8) then
+                        -- 1 cycle for branch taken, + 1 cycle extra for page crossing
+                        phi_new_backlog <= 2;
+                      else
+                        phi_new_backlog <= 1;
+                      end if;
+                      phi_add_backlog <= charge_for_branches_taken;
+
+                      pc_inc := '0';
                       reg_pc <= temp_addr;
                       -- Take an extra cycle when taking a branch.  This avoids
                       -- poor timing due to memory-to-memory activity in a
                       -- single cycle.
-                      -- XXX consider using the disabled faster (fewer cycles) option
-                      -- below, if the timing will tolerate it.  But disabled
-                      -- for now, since it increases synthesis time.
+
                       state <= normal_fetch_state;
 
-                      -- memory_access_read := '1';
-                      -- memory_access_address := x"000"&temp_addr;
-                      -- memory_access_resolve_address := '1';
-                      -- -- Read next instruction now to save a cycle, i.e.,
-                      -- -- 8-bit branches will take 2 cycles, whether taken or not.
-                      -- state <= fast_fetch_state;
-                      -- if fast_fetch_state = InstructionDecode then
-                      --  reg_pc <= temp_addr + 1;
-                      -- end if;
                     else
                       report "NOT Taking 8-bit branch" severity note;
                       -- Branch will not be taken.
@@ -4457,6 +4888,11 @@ begin
                     reg_addr <= temp_addr;
                     if is_load='1' or is_rmw='1' then
                       state <= LoadTarget;
+                      -- On memory read wait-state, read from RAM, so that FastIO
+                      -- lines clear
+                      memory_access_read := '1';
+                      memory_access_address := x"0000002";
+                      memory_access_resolve_address := '0';
                     else
                       -- (reading next instruction argument byte as default action)
                       state <= MicrocodeInterpret;
@@ -4466,6 +4902,11 @@ begin
                     reg_addr <= temp_addr;
                     if is_load='1' or is_rmw='1' then
                       state <= LoadTarget;
+                      -- On memory read wait-state, read from RAM, so that FastIO
+                      -- lines clear
+                      memory_access_read := '1';
+                      memory_access_address := x"0000002";
+                      memory_access_resolve_address := '0';
                     else
                       -- (reading next instruction argument byte as default action)
                       state <= MicrocodeInterpret;
@@ -4478,6 +4919,11 @@ begin
                     reg_addr <= x"00"&reg_y + to_integer(memory_read_value&reg_addr(7 downto 0));
                     if is_load='1' or is_rmw='1' then
                       state <= LoadTarget;
+                      -- On memory read wait-state, read from RAM, so that FastIO
+                      -- lines clear
+                      memory_access_read := '1';
+                      memory_access_address := x"0000002";
+                      memory_access_resolve_address := '0';
                     else
                       -- (reading next instruction argument byte as default action)
                       state <= MicrocodeInterpret;
@@ -4490,6 +4936,11 @@ begin
                     reg_addr <= x"00"&reg_x + to_integer(memory_read_value&reg_addr(7 downto 0));
                     if is_load='1' or is_rmw='1' then
                       state <= LoadTarget;
+                      -- On memory read wait-state, read from RAM, so that FastIO
+                      -- lines clear
+                      memory_access_read := '1';
+                      memory_access_address := x"0000002";
+                      memory_access_resolve_address := '0';
                     else
                       -- (reading next instruction argument byte as default action)
                       state <= MicrocodeInterpret;
@@ -4594,6 +5045,9 @@ begin
             when B16TakeBranch =>
               report "Setting PC: 16-bit branch will be taken";
               reg_pc <= reg_pc + to_integer(reg_addr) - 1;
+              -- Charge one cycle for branches that are taken
+              phi_new_backlog <= 1;
+              phi_add_backlog <= charge_for_branches_taken;
               state <= normal_fetch_state;
             when InnXReadVectorLow =>
               reg_addr(7 downto 0) <= memory_read_value;
@@ -4606,6 +5060,11 @@ begin
                 to_unsigned(to_integer(memory_read_value&reg_addr(7 downto 0)),16);
               if is_load='1' or is_rmw='1' then
                 state <= LoadTarget;
+                -- On memory read wait-state, read from RAM, so that FastIO
+                -- lines clear
+                memory_access_read := '1';
+                memory_access_address := x"0000002";
+                memory_access_resolve_address := '0';
               else
                 -- (reading next instruction argument byte as default action)
                 state <= MicrocodeInterpret;
@@ -4622,6 +5081,11 @@ begin
                             + to_integer(reg_y),16);
               if is_load='1' or is_rmw='1' then
                 state <= LoadTarget;
+                -- On memory read wait-state, read from RAM, so that FastIO
+                -- lines clear
+                memory_access_read := '1';
+                memory_access_address := x"0000002";
+                memory_access_resolve_address := '0';
               else
                 -- (reading next instruction argument byte as default action)
                 state <= MicrocodeInterpret;
@@ -4638,6 +5102,11 @@ begin
                             + to_integer(reg_y),16);
               if is_load='1' or is_rmw='1' then
                 state <= LoadTarget;
+                -- On memory read wait-state, read from RAM, so that FastIO
+                -- lines clear
+                memory_access_read := '1';
+                memory_access_address := x"0000002";
+                memory_access_resolve_address := '0';
               else
                 -- (reading next instruction argument byte as default action)
                 state <= MicrocodeInterpret;
@@ -4699,6 +5168,11 @@ begin
                 & to_hstring(reg_addr_lsbs);
               if is_load='1' or is_rmw='1' then
                 state <= LoadTarget;
+                -- On memory read wait-state, read from RAM, so that FastIO
+                -- lines clear
+                memory_access_read := '1';
+                memory_access_address := x"0000002";
+                memory_access_resolve_address := '0';
               else
                 -- (reading next instruction argument byte as default action)
                 state <= MicrocodeInterpret;
@@ -4709,6 +5183,11 @@ begin
                             + to_integer(reg_z),16);
               if is_load='1' or is_rmw='1' then
                 state <= LoadTarget;
+                -- On memory read wait-state, read from RAM, so that FastIO
+                -- lines clear
+                memory_access_read := '1';
+                memory_access_address := x"0000002";
+                memory_access_resolve_address := '0';
               else
                 -- (reading next instruction argument byte as default action)
                 state <= MicrocodeInterpret;
@@ -4943,7 +5422,12 @@ begin
                 reg_t <= memory_read_value or smb_mask;
               end if;
               
-              if reg_microcode.mcClearE='1' then flag_e <= '0'; end if;
+              if reg_microcode.mcClearE='1' then
+                flag_e <= '0';
+                report "ZPCACHE: Flushing cache due to clearing E flag";
+                cache_flushing <= '1';
+                cache_flush_counter <= (others => '0');
+              end if;
               if reg_microcode.mcClearI='1' then flag_i <= '0'; end if;
               if reg_microcode.mcMap='1' then c65_map_instruction; end if;
 
@@ -4954,6 +5438,7 @@ begin
               if reg_microcode.mcStoreP='1' then
                  memory_access_wdata := unsigned(virtual_reg_p);
                  memory_access_wdata(4) := '1';  -- B always set when pushed
+                 memory_access_wdata(5) := '1';  -- E always set when pushed
               end if;              
               if reg_microcode.mcWriteRegAddr='1' then
                 memory_access_address := x"000"&reg_addr;
@@ -5177,7 +5662,10 @@ begin
         -- the operation is read or write.  ROM accesses are a good example.
         -- We delay the memory write until the next cycle to minimise logic depth
 
-        -- Mark pages dirty as necessary
+        -- XXX - Try to fast-route low address lines to shadowram and other memory
+        -- blocks.
+        
+        -- Mark pages dirty as necessary        
         if memory_access_write='1' then
           if (reg_pageactive = '1' ) then
             if (memory_access_address(15 downto 14) = "01") then
@@ -5208,6 +5696,8 @@ begin
             dma_pending <= '1';
             state <= DMAgicTrigger;
 
+            phi_add_backlog <= '1'; phi_new_backlog <= 1;
+            
             -- Don't increment PC if we were otherwise going to shortcut to
             -- InstructionDecode next cycle
             report "Setting PC to self (DMAgic entry)";

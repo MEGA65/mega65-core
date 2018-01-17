@@ -1,0 +1,324 @@
+; 3.5" floppy drive test program for MEGA65
+
+; Include C64 BASIC program load header
+
+	 .word $0801
+	 .org $0801
+
+	 .scope
+	 .word _next, 10                       ; Next line and current line number
+	 .byte $97, "2,0:", $9e, " 2014", $AA, "65",0      ; POKE 2,0 : SYS 2014+65
+_next:	 .word 0
+
+iter1:	 .byte 0
+
+	 .checkpc 2079
+	 .advance 2079
+
+programentrypoint:
+
+	; disable interrupts so we can single-step more easily
+	sei
+	
+	; Enable C65GS io
+	lda #$47
+	sta $d02f
+	lda #$53
+	sta $D02f
+
+	; 50MHz CPU
+	lda #65
+	sta 0
+
+	; clear screen, lower case
+	lda #$93
+	jsr $ffd2
+	lda #$0e
+	jsr $ffd2
+	lda #$41
+	jsr $ffd2
+	lda #$61
+	jsr $ffd2
+
+	jsr i2cstop
+
+	; Try reading an HDMI I2C register
+
+	lda #$00  ; I2C address
+
+nextaddr:
+	pha
+
+	ldy #$00
+	jsr readregister
+	pha
+	lda #$0d
+	jsr $ffd2
+	plx
+	lda #$00
+	tay
+	jsr $bdcd
+
+	lda txackresult
+	cmp #$70
+	beq foundaddr
+
+	pla
+	inc 
+	bne nextaddr
+
+	jmp endloop
+
+foundaddr:
+	pla
+	sta $0400
+l:	inc $d020
+	jmp l
+	
+
+
+	
+endloop:
+	jmp endloop
+
+
+	; $D607 bit 6 = DDR SDA
+	; $D607 bit 7 = DDR SCL
+	; $D60D bit 6 = SDA
+	; $D60D bit 7 = SCL
+
+; Read a register on the I2C bus
+	; A = I2C address of device
+	; Y = register number to read
+
+readregister:
+	phy
+	pha
+	jsr i2cstart
+	; Send I2C address with read bit set
+	pla
+	ora #$01
+	jsr i2ctxbyte
+	; Send register number
+	pla
+	jsr i2ctxbyte
+	; Read result
+	jsr i2cstart
+	jsr i2crxbyte
+	pha
+	jsr i2cstop
+	pla
+	rts
+
+; Receive a byte on the I2C bus
+;   Y = (N)ACK bit to send
+i2crxbyte:
+
+	jsr sdahigh
+	ldx #$00
+
+	; Read byte
+	lda #$00
+	pha
+
+rxbit:
+	; Rotate result left one bit
+	pla
+	asl
+	pha
+	
+	jsr sclhigh
+
+clockstretchwait:
+	; Wait for clock stretching
+	jsr sclread
+	cmp #$00
+	beq clockstretchwait
+
+	jsr delay10usec
+
+	jsr sdaread
+	cmp #$00
+	beq rx0
+	pla
+	ora #$01
+	pha
+rx0:
+	jsr scllow
+
+	inx 
+	cpx #$08
+	bne rxbit
+
+	; have byte, so now send (N)ACK bit
+	cpy #$00
+	bne rxack1
+rxack0:	jsr sdalow
+	jmp rxackclk
+rxack1:	jsr sdahigh
+rxackclk:
+	jsr sclhigh
+	jsr delay10usec
+	jsr scllow
+	jsr sdahigh
+
+	; return result byte
+	pla
+	rts
+
+
+
+; Send a byte on the I2C bus
+
+i2ctxbyte:
+	pha
+	jsr delay10usec
+	ldx #$08
+txnextbit:
+	pla
+	pha
+	and #$80
+	bmi tx1
+tx0:	
+	jsr sdalow
+	jmp txbitsent
+tx1:	
+	jsr sdahigh
+txbitsent:
+	jsr sclhigh
+	jsr delay10usec
+	jsr scllow
+	jsr delay10usec
+	pla
+	asl
+	pha
+	dex
+	bne txnextbit
+
+	pla
+
+	; sent the byte, now receive the ACK bit
+	jsr sclhigh
+	jsr delay10usec
+	jsr sdaread	
+	pha
+	jsr scllow
+
+	pla
+	pha
+	ora #$70
+	sta txackresult
+
+	jsr $ffd2
+	lda #$0d
+	jsr $ffd2
+	pla
+
+	rts
+
+txackresult:	.byte 0
+
+delay10usec:
+	; 50MHz = 20ns cycles.
+	; 10usec = 500 CPU cycles
+	; This loop should be more than sufficient
+	phx
+	ldx #$00
+d1:	inx
+	bne d1
+	plx
+	
+	lda #$2d
+	jsr $ffd2
+
+	rts
+
+i2cstart:
+
+	lda #$28
+	jsr $ffd2
+
+	jsr sdalow
+	jsr delay10usec
+	jsr scllow
+	jsr delay10usec
+	rts
+
+i2cstop:
+	jsr sclhigh
+	jsr delay10usec
+	jsr sdahigh
+	jsr delay10usec
+
+	lda #$29
+	jsr $ffd2
+
+	rts
+
+sclhigh:
+	lda #$80
+	trb $d607
+	tsb $d60d
+
+	lda #$63
+	jsr $ffd2
+
+	rts
+scllow:
+	lda #$80
+	tsb $d607
+	trb $d60d
+
+	lda #$43
+	jsr $ffd2
+
+	rts
+
+sclread:
+	lda #$80
+	trb $d607
+	tsb $d607
+	lda $d60d
+	and #$80
+	rol
+	rol
+	and #$01
+	rts
+
+
+sdahigh:
+	lda #$40
+	trb $d607
+	tsb $d60d
+
+	lda #$64
+	jsr $ffd2
+	rts
+sdalow:
+	lda #$40
+	tsb $d607
+	trb $d60d
+
+	lda #$44
+	jsr $ffd2
+	rts
+
+sdaread:
+	lda #$40
+	trb $d607
+	tsb $d607
+	lda $d60d
+	and #$40
+	lsr
+	lsr
+	lsr
+	lsr
+	lsr
+	lsr
+
+	rts
+	
+
+	.scend
+
+	.outfile "utilities/floptest.prg"

@@ -1,4 +1,4 @@
-
+		
 
 ; XXX - Track down why 2nd and subsequent LFN blocks are not used.
 
@@ -104,11 +104,6 @@ dos_and_process_trap:
 	; Mask out bit 0 so that indirect jmp's are valid.
 	;
 	and #$FE
-
-	; to save memory we only allow this table to be 128 bytes long,
-	; thus we have to check that bit 7 is clear.
-	;
-	bmi invalid_subfunction		; defined in kickstart
 	tax
 	jmp (dos_and_process_trap_table,x)
 
@@ -192,6 +187,17 @@ dos_and_process_trap_table:
 	.word trap_dos_exit_and_switch_to_task	; not currently implememted
 	.word trap_dos_switch_to_task		; not currently implememted
 	.word trap_dos_exit_task		; not currently implememted
+
+	; $70 - $7E
+	;
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
 
 ;	========================
 
@@ -2799,6 +2805,7 @@ dfrcs1:	lda dos_file_descriptors+dos_filedescriptor_offset_currentcluster,x
 
 dos_file_read_current_sector:
 
+	jsr dos_get_file_descriptor_offset
 	jsr dos_set_current_cluster_from_file
 	jsr dos_cluster_to_sector
 
@@ -3021,33 +3028,7 @@ dfanc_high:
 dfanc_check:
 	; check that resulting cluster number is valid.
 
-		; BG: I dont think this code runs, ie PRINTHEX
-		;
-		jsr checkpoint
-		.byte 0,"WARN: PRINTHEX in dfanc_check",0
-
-	ldy #$00
-
-	; get current cluster field address again
-	;
-	lda dos_file_descriptors+3,y
-	taz
-	phy
-	jsr printhex
-	ply
-	lda dos_file_descriptors+2,y
-	taz
-	phy
-	jsr printhex
-	ply
-	lda dos_file_descriptors+1,y
-	taz
-	phy
-	jsr printhex
-	ply
-	lda dos_file_descriptors+0,y
-	taz
-	jsr printhex
+;	jsr debug_show_cluster_number
 
 	; get current cluster field address again
 	;

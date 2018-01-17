@@ -42,7 +42,7 @@
 ;	========================
 
 	.space romslab 1
-	.space screenrow 1
+	.space screenrow 1 
 
 	.space checksum 4
 	.space file_pagesread 2
@@ -74,9 +74,9 @@ trap_entry_points:
 	; Traps $00-$07 (user callable)
 	;
 	jmp dos_and_process_trap	; Trap #$00 (unsure what to call it)
-	nop				; refer: kickstart_dos
-	jmp nosuchtrap
-	nop
+	nop				; refer: kickstart_dos.a65
+	jmp memory_trap                 ; Trap #$01
+	nop                             ; refer: kickstart_mem.a65
 	jmp nosuchtrap
 	nop
 	jmp nosuchtrap
@@ -191,8 +191,11 @@ trap_entry_points:
 	nop
 	jmp nosuchtrap
 	nop
-	jmp nosuchtrap
-	nop
+
+	jmp protected_hardware_config	; Trap #$32 (Protected Hardware Configuration) 
+	nop			  	; refer: kickstart_task
+
+
 	jmp nosuchtrap
 	nop
 	jmp nosuchtrap
@@ -226,14 +229,23 @@ trap_entry_points:
 ;	========================
 
 	; Traps $40-$4F (reset, page fault and other system-generated traps)
-	jmp reset_entry_allow_etherkick	; Trap #$40 (power on / reset)
+	jmp reset_entry			; Trap #$40 (power on / reset)
 	nop				; refer: below in this file
 
 	jmp page_fault			; Trap #$41 (page fault)
 	nop				; refer: kickstart_mem
 
 	jmp double_restore_trap		; Trap #$42 (double-tap RESTORE key)
-	nop				; refer: kickstart_task 
+	nop				; refer: kickstart_task "1000010" x"42"
+
+	jmp matrix_mode_toggle          ; Trap #$43 (C= + TAB combination)
+	nop				; refer: kickstart_task
+
+	jmp f011_virtual_read           ; Trap #$44 (virtualised F011 sector read)
+	nop
+
+	jmp f011_virtual_write	        ; Trap #$44 (virtualised F011 sector write)
+	nop
 
 	jmp nosuchtrap			; common-trap (catch all)
 	nop				; refer: below in this file
@@ -255,24 +267,21 @@ trap_entry_points:
 	nop
 	jmp nosuchtrap
 	nop
-	jmp nosuchtrap
-	nop
-	jmp nosuchtrap
-	nop
-	jmp nosuchtrap
-	nop
 
 
-	; Leave room for traps to $7E (BG: why 7E ?)
+	; Leave room for relocated cpu vectors below
 	;
 	.checkpc $81F8
 	.advance $81F8
 
-	; Then we have relocated CPU vectors
-	;
-	.word reset_entry_allow_etherkick ; unused vector
+	; Then we have relocated CPU vectors at $81F8-$81FF
+	; (which are 2-byte vectors for interrupts, not 4-byte
+	; trap addresses).
+	; These are used to catch interrupts in hypervisor mode
+	; (although the need for them may have since been removed)
+	.word reset_entry    ; unused vector
 	.word hypervisor_nmi ; NMI
-	.word reset_entry_allow_etherkick ; RESET
+	.word reset_entry    ; RESET
 	.word hypervisor_irq ; IRQ
 
 	.checkpc $8200
@@ -379,6 +388,11 @@ invalid_subfunction:
 		.include "kickstart_sdfat.a65"
 
 ;;; ----------------------------------------------------------------------------
+;;; Virtualised F011 access (used for disk over serial monitor)
+;;; ----------------------------------------------------------------------------
+		.include "kickstart_virtual_f011.a65"
+
+;;; ----------------------------------------------------------------------------
 ;;; CPU Hypervisor Entry Point on reset
 ;;; ----------------------------------------------------------------------------
 
@@ -399,6 +413,7 @@ reset_machine_state:
 		; determine VIC mode and set it accordingly in VICIV_MAGIC
 		jsr enhanced_io
 
+		; clear UART interrupt status
 		lda $d60d
 
 		; switch to fast mode
@@ -407,35 +422,55 @@ reset_machine_state:
 		ora #$40
 		sta $d031
 		; 2. MEGA65 48MHz enable (requires C65 or C128 fast mode to truly enable, hence the above)
-		lda $d054
-		ora #$40
-		sta $d054
+		lda #$40
+		tsb $d054
 
 		; sprites off
 		lda #$00
-		sta $d017
+		sta $d015
 
+		; disable CIA interrupts		
 		lda #$7f
 		sta $DC0D
 		sta $DD0D
+
+		; disable video interrupts
 		lda #$00
 		sta $D01A
+
+		; enable audio amplifier
+		lda #$01
+		sta $d6f9
 
 		; We DO NOT need to mess with $01, because
 		; the 4510 starts up with kickstart mapped at $8000-$BFFF 
 		; enhanced ($FFD3xxx) IO page mapped at $D000,
 		; and fast RAM elsewhere.
 
-		; Disable reset watchdog, enable flat 32-bit addressing, don't engage
-		; ROM write protect (yet), do make ASC/DIN / CAPS LOCK control CPU speed.
-		; also force 4502 CPU personality (6502 personality is still incomplete)
-		; and clear any pending IRQ or NMI event.
+		; Disable reset watchdog (this happens simply by writing anything to
+		; this register)
+		; Enable /EXROM and /GAME from cartridge port (bit 0)
+		; enable flat 32-bit addressing (bit 1)
+		; do not engage ROM write protect (yet) (bit 2)
+		; do make ASC/DIN / CAPS LOCK control CPU speed (bit 3)
+		; do not force CPU to full speed (bit 4)
+		; also force 4502 CPU personality (6502 personality is still incomplete) (bit 5)
+		; and clear any pending IRQ or NMI event (bit 6)
+		;
 		; (The watchdog was added to catch reset problems where the machine
 		; would run off somewhere odd instead of resetting properly. Now it
 		; will auto-reset after 65535 cycles if the watchdog is not cleared).
 		;
-		lda #$6a
+		
+		lda #$6b    ; 01101011
 		sta hypervisor_feature_enables
+
+		; Map SD card sector buffer
+		lda #$80
+		sta $d689
+
+		; Access cartridge IO area to force EXROM probe on R1 PCBs
+		lda $de00
 
 		jsr resetdisplay
 		jsr erasescreen
@@ -454,19 +489,59 @@ reset_machine_state:
 ;;; CPU Hypervisor reset/trap routines
 ;;; ----------------------------------------------------------------------------
 ;
-reset_entry_allow_etherkick:
+reset_entry:
 		sei
-		lda #$00
-		sta kickstart_boot_flags
-		jmp reset_entry_common
 
-reset_entry_no_etherkick:
-		sei
-		lda #$80
-		sta kickstart_boot_flags
-		jmp reset_entry_common
+.macro f011test
+		; use real floppy drive
+		lda #$01
+		sta $d6a1
 
-reset_entry_common:
+		; 10x MFM speed for simulation data
+		lda #$0a
+		sta $d6a2
+
+		lda #$68 ; floppy motor + LED on, head side 1
+		sta $d080
+
+		; Request sector T39,S1,H1
+		lda #0
+		sta $d084
+		lda #1
+		sta $d085
+		sta $d086
+
+		lda $d087 ; clear DRQ flag
+		; reset buffer pointers
+		lda #$01
+		sta $d081
+
+		; Test sector buffer access
+		lda #$11
+		sta $d087
+		lda #$22
+		sta $d087
+		lda #$01
+		sta $d081
+		lda $d087
+		lda $d087
+
+		; Issue read request
+		lda #$40
+		sta $d081
+
+bytewait:
+		lda $d082
+		and #$20
+		bne bytewait
+
+		; read next byte
+		lda $d087
+
+		; get next byte
+		jmp bytewait
+.macend
+;		.invoke f011test
 
 		jsr reset_machine_state
 
@@ -474,7 +549,7 @@ reset_entry_common:
 		;
 		ldx #<msg_kickstart
 		ldy #>msg_kickstart
-		jsr printbanner
+		jsr printmessage
 
 		; leave a blank line below kickstart banner
 		;
@@ -498,27 +573,23 @@ reset_entry_common:
 		;
 		jsr keyboardread
 
-		; If switch 8 and 9 are set, and etherkick mode is not disabled
-		; then wait forever for ethernet packets
-		;
-		lda kickstart_boot_flags
-		bmi normalboot
-		lda $d6f1
-		and #$02
-		beq normalboot
-etherboot:
-		ldx #<msg_etherkick
-		ldy #>msg_etherkick
-		jsr printmessage
-		jsr setupethernet
-etherloop:
-		jsr checkethernet
-		.byte 0,"etherloop",0
-		jmp etherloop
+		; Magic instruction used by monitor_load to work out where
+		; to patch. Monitor_load changes bit to JMP when patching for
+		; SD-cardless operation
+		bit go64
+		bit $1234
 
 ;	========================
 
 normalboot:
+
+	; check for keyboard input to jump to utility menu
+	jsr scankeyboard
+	bcs nokey1
+	cmp #$20
+	beq utility_menu
+
+nokey1:
 
 	jsr dump_disk_count	; debugging to Checkpoint
 	jsr dumpcurrentfd	; debugging to Checkpoint
@@ -533,12 +604,24 @@ tryreadmbr:
 		jsr readmbr
 		bcs gotmbr
 
+	; check for keyboard input to jump to utility menu
+	jsr scankeyboard
+	bcs nokey2
+	cmp #$20
+	beq utility_menu
+nokey2:
+
 		; Oops, cant read MBR
 		; display debug message to screen
 		;
 		ldx #<msg_retryreadmbr
 		ldy #>msg_retryreadmbr
 		jsr printmessage
+
+		; put sd card sector buffer back after scanning
+		; keyboard
+		lda #$81
+		tsb $d680
 
 		; display debug message to uart
 		;
@@ -577,6 +660,10 @@ gotmbr:
 
 ;	========================
 
+		; If we have no disks, offer the utility menu
+		lda dos_disk_count
+		beq utility_menu
+
 
 		; Go to root directory on default disk
 		;
@@ -602,14 +689,15 @@ gotmbr:
 mountsystemdiskok:
 
 		; Load and display boot logo
-		; Prepare 32-bit pointer for loading boot logo @ $0004000
-		lda #$00
-		sta <dos_file_loadaddress+0
-		lda #$40
+		; Prepare 32-bit pointer for loading boot logo @ $0003D00
+		; (palette is $3D00-$3FFF, logo $4000-$8FFF)
+		lda #$3d
 		sta <dos_file_loadaddress+1
 		lda #$00
+		sta <dos_file_loadaddress+0
+		; lda #$00
 		sta <dos_file_loadaddress+2
-		lda #$00
+		; lda #$00
 		sta <dos_file_loadaddress+3
 
 		ldx #<txt_BOOTLOGOM65
@@ -646,12 +734,15 @@ mountsystemdiskok:
 ;	========================
 
 logook:
+		; Loaded banner, so copy palette into place
+		jsr setbannerpalette
+
 		; iterate through directory entries looking for ordinary file 
 		; KICKUP.M65 to load into hypervisor memory ...
 		; ... but only if we are not running a kick-up'd kickstart now.
 		;
 		lda hypervisor_kickedup_flag	;$d67e = register for kickup-state (00=virgin, else already-kicked)
-		beq allowkickup
+		bpl allowkickup
 
 		; already kicked
 		;
@@ -715,6 +806,7 @@ allowkickup:	; BG was label nextdirectoryentry3:
 		ldz <zptempv32+0
 		jsr printhex
 
+dokickup:
 		; Use DMAgic to copy $0004000-$0007FFF to $FFF8000-$FFFBFFF
 		; (We have to copy the routine to do this to RAM, since we will
 		; be replacing ourselves)
@@ -809,6 +901,25 @@ postkickup:
 		jsr dos_cdroot
 		bcc sdcarderror
 
+		; Select PAL/NTSC mode based on presence of file called NTSC
+		ldx #<txt_NTSC
+		ldy #>txt_NTSC
+		jsr dos_setname
+		jsr dos_findfile
+		bcc setpal
+setntsc:
+		lda #$80
+		tsb $d06f
+		jmp setpalntsc
+setpal:
+		lda #$80
+		trb $d06f		
+
+setpalntsc:
+		; Re-set virtual screen row length after touching $D06F
+		lda #80
+		sta $d058
+
 		; set name of file we are looking for
 		;
 		ldx #<txt_MEGA65D81
@@ -871,6 +982,14 @@ findrom:
 
 		jsr checkpoint
 		.byte 0,"JUMPing into ROM-code",0
+
+	; check for keyboard input to jump to utility menu
+	jsr scankeyboard
+	bcs nokey3
+	cmp #$20
+	beq utility_menu
+nokey3:
+
 
 		jmp go64
 
@@ -1007,8 +1126,7 @@ loadedok:
 		sta file_pagesread+1
 
 		; check the size of the loaded file
-		;
-		; BG need to ascertain which is HB and which is LB
+		; i.e., that we have loaded $0200 x $100 = $20000 = 128KiB
 		lda file_pagesread
 		bne romfiletooshort
 		lda file_pagesread+1
@@ -1018,9 +1136,36 @@ loadedok:
 		bne romfiletoolong
 
 		; the loaded ROM was OK in size
-		; need to store checksum
+
+		; Store checksum of ROM
 		;
 		jsr storeromsum
+
+		; copy character ROM portion into place
+		; i.e., copy $2Dxxx to $FF7Exxx
+
+		lda #$ff
+		sta $d702
+		sta $d704
+		sta $d706
+		lda #$00
+		sta $d705
+		lda #>charromdmalist
+		sta $d701
+		lda #<charromdmalist
+		sta $d700
+
+		jmp loadedmegaromok
+
+charromdmalist:
+		.byte $00
+		.word $1000
+		.word $D000
+		.byte $02
+		.word $E000
+		.byte $07
+		.word $0000
+		
 
 loadedmegaromok:
 		; print debug message
@@ -1088,6 +1233,12 @@ loaddiskmenu:
 
 	jsr dumpcurrentfd	; debugging to Checkpoint
 
+	; check for keyboard input to jump to utility menu
+	jsr scankeyboard
+	bcs nokey4
+	cmp #$20
+	beq utility_menu
+nokey4:
 
 		jmp go64		
 
@@ -1102,7 +1253,7 @@ romfiletoolong:
 		ldz file_pagesread
 		jsr printhex
 		jsr sdwaitawhile
-		jmp reset_entry_allow_etherkick
+		jmp reset_entry
 
 romfiletooshort:
 		ldx #<msg_romfileshorterror
@@ -1113,7 +1264,7 @@ romfiletooshort:
 		ldz file_pagesread
 		jsr printhex
 		jsr sdwaitawhile
-		jmp reset_entry_allow_etherkick
+		jmp reset_entry
 
 ;	========================
 
@@ -1127,7 +1278,7 @@ sdcarderror:	ldx #<msg_sdcarderror
 		jsr printmessage
 
 		jsr sdwaitawhile
-		jmp reset_entry_allow_etherkick
+		jmp reset_entry
 
 ;	========================
 
@@ -1136,7 +1287,7 @@ badfs:		ldx #<msg_badformat
 		jsr printmessage
 
 		jsr sdwaitawhile
-		jmp reset_entry_allow_etherkick
+		jmp reset_entry
 
 ;;; ----------------------------------------------------------------------------
 ;;; ROM loading and manipulation routines
@@ -1145,7 +1296,7 @@ badfs:		ldx #<msg_badformat
 checkromok:
 		; read switch 13.  If set, assume ROM is invalid
 		;
-		lda $d6f1
+		lda fpga_switches_high
 		and #$20
 		bne checksumfails
 
@@ -1361,7 +1512,9 @@ resetdisplay:
 		sta $D020	; border
 		sta $D021	; background
 
-		lda #$00
+		; Enable alpha blending and horizontal blending to smooth display
+		; slightly
+		lda #$28  ; XXX alpha blending has problems still
 		sta $D054	;VIC-IV Control Register C
 
 		; We use VIC-II style registers as this resets video frame in
@@ -1386,7 +1539,7 @@ resetdisplay:
 		; characters and full-colour characters for chars >$FF for the logo
 		;
 		lda #$05	; 0000 0101
-		sta $d054	; VIC-IV Control Register C
+		tsb $d054	; VIC-IV Control Register C
 
 		; and 80 bytes (40 16-bit characters) per row.
 		;
@@ -1405,7 +1558,7 @@ resetpalette:
 		; PAL bit in $D030 is set.
 		;
 		lda #$04
-		sta $D030	; enable PAL bit in $D030
+		tsb $D030	; enable PAL bit in $D030
 
 		lda #$ff
 		sta $D070	; select palette bank 3 for display and edit
@@ -1517,37 +1670,8 @@ resetpalette:
 	                sta $D20f
 	                sta $D30f
 
-;	========================
 
-		; put a colour cube in other entries
-		;
-		ldx #$10
-paletteloop:
-		; R = upper 3 bits
-		txa
-		lsr
-		lsr
-		lsr
-		and #$0e
-		sta $d100,x
-
-		; G = next 3 bits
-		txa
-		lsr
-		and #$0e
-		sta $d200,x
-		
-		; B = lowest 2 bits
-		txa
-		asl
-		asl
-		and #$0c
-		sta $d300,x
-
-		inx
-		bne paletteloop
-
-		rts
+	rts
 
 ;	========================
 
@@ -1627,112 +1751,88 @@ erasescreen:
 		lda #$08
 		sta screenrow
 
-		; draw 8x8 char block for logo
+		; draw 40x8 char block for banner
 		;
-		ldx #$00
 		ldy #$00
-logo1:		txa
-		sta $0400+[80*0],y
-		ora #$08
-		sta $0400+[80*1],y
-		txa
-		ora #$10
-		sta $0400+[80*2],y
-		txa
-		ora #$18
-		sta $0400+[80*3],y
-		txa
-		ora #$20
-		sta $0400+[80*4],y
-		txa
-		ora #$28
-		sta $0400+[80*5],y
-		txa
-		ora #$30
-		sta $0400+[80*6],y
-		txa
-		ora #$38
-		sta $0400+[80*7],y
+		lda #$00
+logo1:		sta $0400,y
+		inc
 		iny
 		iny
-		inx
-		cpx #$08		
-		bne logo1
+		bne logo1		
+logo1a:		sta $0500,y
+		inc
+		iny
+		iny
+		bne logo1a
+logo1b:		sta $0600,y
+		inc
+		iny
+		iny
+		cpy #$80
+		bne logo1b
 
 		; then write the high bytes for these (all $01, so char range will be
 		; $100-$140. $100 x $40 = $4000-$4FFF
 		;
 		ldx #$00
-		lda #$01
-logo2:		sta $0401+[80*0],x
-		sta $0401+[80*1],x
-		sta $0401+[80*2],x
-		sta $0401+[80*3],x
-		sta $0401+[80*4],x
-		sta $0401+[80*5],x
-		sta $0401+[80*6],x
-		sta $0401+[80*7],x
+		lda #$01		
+logo2:		sta $0401,x
+		inc
+		sta $0581,x
+		dec
+		sta $0501,x
 		inx
-		inx
-		cpx #$10
+		inx		
 		bne logo2
 
-		; finally work around the VIC-IV bug where the first normal character
-		; following a full-colour character gets skipped by inserting early
-		; end of line terminator markers on the lines. Without this, the first
-		; character of the next line would show
-		;
-		lda #$ff
-		sta $044e
-		sta $044f
-		sta $049e
-		sta $049f
-		sta $04ee
-		sta $04ef
-		sta $053e
-		sta $053f
-		sta $058e
-		sta $058f
-		sta $05de
-		sta $05df
-		sta $062e
-		sta $062f
-		sta $067e
-		sta $067f
-
+		; finally set palette for banner using contents of memory at $3D00-$3FFF
+setbannerpalette:
+		ldx #$10
+lo1:		lda $3d00,x
+		sta $D100,x
+		lda $3e00,x
+		sta $d200,x
+		lda $3f00,x
+		sta $d300,x
+		inx
+		bne lo1
+		; put nothing else here, as setbannerpalette also gets called after loading banner file
 		rts
+
 
 ;	========================
 
 erasescreendmalist:
 		; Clear screen RAM
 		;
-		.byte $04 ; COPY + chained request
-		.word 1996 ; 40x25x2-4 = 1996
+		.byte $04   ; COPY + chained request
+		.word 1996  ; 40x25x2-4 = 1996
 		.word $0400 ; copy from start of screen at $0400
-		.byte $00 ; source bank 00
+		.byte $00   ; source bank 00
 		.word $0404 ; ... to screen at $0402
 		.byte $00   ; screen is in bank $00
 		.word $0000 ; modulo (unused)
 
 		; Clear colour RAM
 		;
-		.byte $07 ; fill + chained request
-		.word 2000 ; 40x25x2 = 2000
-		.byte $01 ; fill with white = $01
+		.byte $07     ; FILL + chained request
+		.word 2000    ; 40x25x2 = 2000
+		.byte $01     ; fill with white = $01
 		.byte $00,$00 ; rest of source address is ignored in fill
-		.word $d800 ; screen is at $0400
-		.byte $80   ; screen is in IO, so bank IO in to DMA context
-		.word $0000 ; modulo (unused)
+		.word $d800   ; screen is at $0400
+		.byte $80     ; screen is in IO, so bank IO in to DMA context
+		.word $0000   ; modulo (unused)
 
-		; Clear $4000-$4FFF (for logo display) 
+		; Copy shadow RAM logo to chip RAM
+		; XXX - We can get rid of this by preinitialising CHIPRAM as well as shadow RAM
 		;
-		.byte $03 ; fill + last request
-		.word $1000 ; 64x64 = $1000
-		.byte $00 ; fill with black = $00
-		.byte $00,$00 ; rest of source address is ignored in fill
-		.word $4000 ; logo sits at $4000
-		.byte $00   ; ... in bottom half of chipram, so bank $00
+		.byte $00   ; COPY + end of chain
+		.word $6000 ; 320x64 = $6000
+		.word $4000 ; fill with white = $01
+		.byte $00   ; rest of source address is ignored in fill
+		.word $4000 ; screen is at $0400
+		.byte $00   ; screen is in IO, so bank IO in to DMA context
 		.word $0000 ; modulo (unused)
 
 ;	========================
@@ -1759,6 +1859,12 @@ printmessage:	;HELPER routine
 		sta <zptempp2+1
 
 		ldx screenrow
+
+		; Makesure we can't accidentally write on row zero
+		bne pm22
+		ldx #$08
+pm22:
+
 		; if we have reached the bottom of the screen, start writing again
 		; from the top of the screen (but don't touch the top 8 rows for
 		; logo and banner)
@@ -1906,7 +2012,7 @@ go64:
 
 		; Check if hold boot switch is set (switch 15)?
 		;
-		lda $d6f1
+		lda fpga_switches_high
 		bpl l42      ; no, so continue		
 
 		; yes, display message
@@ -1915,7 +2021,7 @@ go64:
 		ldy #>msg_releasesw15
 		jsr printmessage
 
-l41:		lda $d6f1
+l41:		lda fpga_switches_high
 		bmi l41
 l42:
 
@@ -1938,8 +2044,9 @@ g61:		sta $0800,x
 		inx
 		bne g61		
 
-		; reset video mode to normal
-		lda #$00
+		; reset video mode to normal (but with PAL + compositing enabled)
+		; and return CPU to slow speed for exit
+		lda #$28    ; XXX no compositing for now, as it still has problems
 		sta $d054
 
 		lda #<40
@@ -1947,16 +2054,22 @@ g61:		sta $0800,x
 		lda #>40
 		sta $d059
 
+		; write protect ROM RAM
+		lda #$04
+		tsb hypervisor_feature_enables
+
 		jsr task_set_c64_memorymap
 		jsr task_set_pc_to_reset_vector
 		jsr task_dummy_nmi_vector
 
-		; Exit hypervisor and transfer control to ROM
-		;
+		; This must happen last, so that the ultimax cartridge
+		; reset vector is used, instead of the one in the loaded ROM
+		jsr setup_for_ultimax_cartridge
+
+		; exit from hypervisor to start machine
 		sta hypervisor_enterexit_trigger
 
-		; BG: i think the line above causes the HYP to take control,
-		;     and so execution does not continue to the next line.
+		.include "kickstart_ultimax.a65"		
 
 ;	========================
 
@@ -2004,6 +2117,54 @@ longpeekdmalist:
 		.word kickstart_scratchbyte0
 		.byte $0F 
 		.byte $00,00 ; Modulo
+
+longpoke:
+		; Use DMAgic to write any byte of RAM in C65 1MB address space.
+		; XXX - Which version of DMAgic does this assume!!?? 
+		; A = value
+		; X = Address LSB
+		; Y = Address MidB
+		; Z = Address Bank
+
+		; Patch DMA list
+		;
+		sta longpokevalue
+		stx longpokeaddress+0
+		sty longpokeaddress+1
+		stz longpokeaddress+2
+		lda #$00
+		sta $d706 ; DMAgic destination MB
+		; and disable F108B enhanced mode
+		sta $d703
+
+		; Set DMA list address
+		;
+		lda #>longpokedmalist
+		sta $d701
+		lda #$0f
+		sta $d702 ; DMA list address is $xxFxxxx
+		lda #$ff
+		sta $d704 ; DMA list address is $FFxxxxx
+
+		; set bottom bits of DMA list address and trigger DMA
+		;
+		lda #<longpokedmalist
+		sta $d700
+		rts
+
+longpokedmalist:
+		.byte $03 ; FILL, no chain
+		; 1 byte
+		.word $0001
+		; source address (LSB = fill value)
+longpokevalue:	.byte $00
+		.word $0000
+		; destination address
+longpokeaddress:
+		.word $0000
+		.byte $0F 
+		.byte $00,00 ; Modulo
+
 
 ;	========================
 		
@@ -2054,54 +2215,23 @@ l1:		; Enable VIC-IV / MEGA65 IO
 
 
 ;	========================
+		.include "kickstart_keyboard.a65"
 
 keyboardread:
 
-; Check for digits 0 - 9 on keyboard, and change which ROM we intend to read
-; based on that.
+; Check for keyboard activity, and change which ROM we intend to read
+; based on that, i.e., holding any key down during boot will load MEGA65<that character>.ROM instead of MEGA65.ROM
 
-		lda #$ff
-		sta $dc03
-		lda #$00
-		sta $dc02
-		lda #$fe
-		sta $dc01
-		lda #$20
-		ldx $dc00
-		cpx #$7f
-		bne k1
-		lda #$31
-k1:		cpx #$ef
-		bne k9
-		lda #$39
-k9:		cpx #$f7
-		bne k7
-		lda #$37
-k7:		cpx #$fb
-		bne k5
-		lda #$35
-k5:		cpx #$fd
-		bne k3
-		lda #$33
-k3:		ldx #$f7
-		stx $dc01
-		ldx $dc00
-		cpx #$7f
-		bne k0
-		lda #$32
-k0:		cpx #$ef
-		bne k8
-		lda #$30
-k8:		cpx #$f7
-		bne k6
-		lda #$38
-k6:		cpx #$fb
-		bne k4
-		lda #$36
-k4:		cpx #$fd
-		bne k2
-		lda #$34
-k2:		
+		jsr scankeyboard		
+		bcs kr2  ; if an error occured
+		cmp #$20
+		beq utility_menu
+		cmp #$30
+		bcc kr2
+		cmp #$39
+		bcs kr2
+kr2:		lda #$20 ; default to space
+kr1:
 		; put character into 6th byte position of ROM file name.
 		; so no key looks for MEGA65.ROM, where as 0-9 will look
 		; for MEGA65x.ROM, where x is the number.
@@ -2127,199 +2257,6 @@ default_rom:
 		sta txt_MEGA65ROM,x    
 
 		rts
-
-;-----------------------------------------------------------------------------
-	; This is an adaption of the etherload code, to allow loading of memory
-	; while waiting at the kickstart ROM.  Since this is an amazing security
-	; hole, we only do it if switch 8 is set.
-
-setupethernet:
-	; only do it if switch 8 is on
-	lda $d6f1
-	and #$01
-	bne e1
-	rts
-e1:
-	; C65GS io
-	lda #$47
-	sta viciv_magic
-	lda #$53
-	sta viciv_magic
-
-	; Map ethernet registers at $6000 - $7FFF
-	
-	; Ethernet controller really lives $FFDE000 - $FFDEFFF, so select $FF megabyte section for MAP LO
-	lda #$ff
-	ldx #$0f
-	ldy #$00   ; keep kickstart mapped at $8000-$BFFF
-	ldz #$3f
-	map
-	eom
-
-	; now enable mapping of $DE000-$DFFFF at $6000
-	; MAPs are offset based, so we need to subtract $6000 from the target address
-	; $DE000 - $6000 = $D8000
-	lda #$80
-	ldx #$8d
-	ldy #$00   ; keep kickstart mapped at $8000-$BFFF
-	ldz #$3f
-	map
-	eom
-
-	; Ethernet registers should now be visible from $6000 - $6FFF
-	; read buffer will be at $6800 - $6FFF
-	; length of frame is in $6FFE / $6FFF in little-endian byte order
-	; so LDA $6FFE ; LDX $6FFF ; jsr $BDCD should print packet length to screen
-
-	; make sure ethernet transceiver is on and not generating IRQs
-	; (we will poll it).
-	; also make sure that we acknowledge the last received packet so that the
-	; ethernet controller knows it can receive.
-	lda $d6e1
-	lsr
-	and #$02
-	ora #$01
-	sta $d6e1
-
-	rts
-
-checkethernet:
-	; only do it if switch 8 is on
-	lda $d6f1
-	and #$01
-	bne e2
-	rts
-e2:
-
-	lda $d6e1
-	and #$20
-	bne gotpacket
-	rts
-gotpacket:
-	; clear eth RX signal, and leave ethernet tranceiver on
-	; and make last used RX buffer visible
-	lda $d6e1
-	and #$04
-	lsr
-	ora #$01
-	sta $d6e1
-
-
-	; Got a packet.
-	; check whether it is UDP port 4510
-	; or whether it is an ARP request
-
-	; Here we want to check that $680E - $6817 =
-	; 08 06 00 01 08 00 06 04 00 01
-
-	ldx #$09
-arploop0:
-	lda $680e,x
-	cmp arptemplate,x
-	bne notarp
-	dex
-	bpl arploop0
-
-	; check that IP address asked for ends in .65
-	lda $682b
-	cmp #65
-	bne notarp
-
-	; ok, so we have an ARP request.
-	; now we need to build the ARP reply and send it.
-	; We should copy the sender's 
-
-	; XXX for now just increment border colour
-
-	; set output packet size
-	; 6+6+2 bytes ethernet header + 28 bytes of ARP reply = 42
-	lda #<42
-	sta $d6e2
-	lda #>42
-	sta $d6e3
-
-	; copy fixed ARP fields (we will overwrite some later)
-	; (note that TX buffer lacks 2 byte RX buffer header)
-	ldx #$14
-arploop1:
-	lda $6802,x
-	sta $6800,x
-	dex
-	bpl arploop1
-	; Copy ethernet source to ethernet destination in TX buffer
-	; Set our mac address in ethernet source address field in TX buffer
-	ldx #$05
-arploop2:
-	lda $6808,x    ; requestors mac from RX ethernet header
-	sta $6800,x    ; requestors mac into TX ethernet header
-	lda #$40
-	sta $6806,x    ; our mac in ethernet header
-	sta $6816,x    ; our mac in ARP payload
-	dex
-	bpl arploop2
-	; set packet as ARP reply
-	lda #$02     ; $02 = reply, $01 = request
-	sta $6815
-
-	ldx #$03
-	; copy requested IP address into reply IP address field
-arploop3:
-	lda $6828,x
-	sta $681c,x
-	dex
-	bpl arploop3
-	; copy requestors MAC+IP into target MAC+IP fields
-	ldx #9
-arploop4:
-	lda $6818,x
-	sta $6820,x
-	dex
-	bpl arploop4
-	
-	; packet should now all be ready - hit TX button
-	lda #$01
-	sta $d6e4
-notarp:
-
-	; is it IPv4?
-	lda $6810
-	cmp #$45
-	bne badpacket
-	; is it UDP?
-	lda $6819
-	cmp #$11
-	bne badpacket
-	; UDP port #4510
-	lda $6826
-	cmp #>4511
-	bne badpacket
-	lda $6827
-	cmp #<4511
-	bne badpacket
-
-	; packet body begins at $0444 / $682C.
-	; if it begins with $A9 = LDA immediate, then jsr to the packet body.
-	; packet body can do whatever is required to load data, keeping this
-	; programme very simple.
-	lda $682c
-	cmp #$a9
-	bne badpacket
-	jsr $682C
-
-badpacket:
-	rts
-
-arptemplate:
-	.byte $08,$06,$00,$01,$08,$00,$06,$04,$00,$01
-
-nybltohex:
-	cmp #$a
-	bcs nth1
-	ora #$30
-	rts
-nth1:	sec
-	sbc #9
-	rts
 
 ;	========================
 
@@ -2390,11 +2327,9 @@ checkpoint:
 	sta checkpoint_pch
 
 	; Only do checkpoints visibly if switch 12 is set
-	lda $d6f1
+	lda fpga_switches_high
 	and #$10
 	beq cp9
-
-	inc $d020
 
 	; Write checkpoint byte values out as hex into message template
 	ldx checkpoint_a
@@ -2487,7 +2422,7 @@ nocheckpointmessage:
 	sta checkpoint_pch
 
 	; Only do checkpoints visibly if switch 12 is set
-	lda $d6f1
+	lda fpga_switches_high
 	and #$10
 	beq checkpoint_return
 
@@ -2561,15 +2496,267 @@ cpnth1:	adc #$06
 	rts
 
 ;	========================
+;       Scan the 32KB colour RAM looking for pre-loaded utilities.
+;       Offer for the user to be able to launch one of them
+
+utility_menu:
+	ldx #<msg_utilitymenu
+	ldy #>msg_utilitymenu
+	jsr printmessage
+
+	; First utility will be number 1
+	lda #$30
+	sta zptempv
+	
+	jsr utillist_rewind
+um1:
+	jsr utillist_validity_check
+	bcc utility_end_of_list
+
+	; Display utility and assign number
+	ldy #39
+	lda #$20
+um2:	sta msg_utility_item,y
+	dey
+	cpy #2
+	bne um2
+	iny
+	inc zptempv
+	lda zptempv	
+	sta msg_utility_item
+	ldz #4
+um4:	nop
+	lda (<zptempv32),z
+	sta msg_utility_item,y
+	beq um3
+	iny
+	inz
+	bra um4
+um3:
+
+	ldx #<msg_utility_item
+	ldy #>msg_utility_item
+	jsr printmessage
+
+	jsr utillist_next
+
+	bra um1
+	
+
+utility_end_of_list:
+	; XXX Get input from user (accept only numbers 1 - 9)
+	jsr scankeyboard
+	cmp #$ff
+	beq utility_end_of_list
+	cmp #$31
+	bcc utility_end_of_list
+	cmp #$39
+	bcs utility_end_of_list
+
+	; XXX Based on input, find that utility
+	and #$f
+	tax
+	dex ; input is 1-9, so subtract one for list beginning at 0
+	jsr utillist_rewind
+ueol2:	jsr utillist_validity_check
+	; Select again if first choice invalid
+	bcc utility_end_of_list
+	dex
+	bmi ueol1
+	jsr utillist_next
+	bra ueol2
+ueol1:	
+
+	inc $d021
+
+	; XXX - Set hardware protection bits based on utility definition
+	;       (and check that utility memory has not been modified. If modified.
+	;        give an error instead of giving privileges, so that there is no
+	;        privilege escalation vulnerability here.)
+	; XXX - In fact, if the utility memory has been modified, we shouldn't even
+	;       offer the menu at all perhaps?
+
+	; Load selected utility into memory
+	; length @ offset 36
+	ldz #36
+	nop
+	lda (<zptempv32),z
+	sta utility_dmalist+1
+	inz
+	nop
+	lda (<zptempv32),z
+	sta utility_dmalist+2
+	lda <zptempv32+0
+	clc
+	adc #44 ; length of header structure
+	sta utility_dmalist+3
+	lda <zptempv32+1
+	adc #0
+	sta utility_dmalist+4
+		
+	; load address is always $07FF (to skip $0801 header)
+	; start @ zptempv32 + 44
+	; DMA list is from Hypervisor ROM, so DMA list address MB also = $FF
+	lda #$ff
+	sta $d702
+	sta $d704
+	; (colour RAM is at $FF8xxxx, so need to set DMA source MB to $FF)
+	; lda #$ff
+	sta $d705 
+	; DMA destination is normal RAM, so DMA destination MB = $00
+	; lda #$00
+	inc
+	sta $d706
+	lda #>utility_dmalist
+	sta $d701
+	lda #<utility_dmalist
+	sta $d700  ; Trigger DAM
+
+	; clear 16-bit char mode
+	lda #$05	; 0000 0101
+	trb $d054	; VIC-IV Control Register C
+
+	; and 40 bytes (40 8-bit characters) per row.
+	lda #<40
+	sta $d058
+	lda #>40
+	sta $d059
+
+	; screen at $0800 for debug
+	lda #$25
+	sta $d018
+
+
+	; Exit hypervisor, with PC set to entry point of utility
+	ldz #38
+	nop
+	lda (<zptempv32),z
+	sta hypervisor_pcl
+	inz
+	nop
+	lda (<zptempv32),z
+	sta hypervisor_pch
+
+	jsr task_set_c64_memorymap
+	lda #$3f
+	sta hypervisor_cpuport00
+	lda #$35 ; IO + Kernel ROM @ $E000 (although Kernel is blank)
+	sta hypervisor_cpuport01
+
+	; make $FFD2 safe for CC65 compiled programs that call
+	; there to set lower case during initialisation.
+	; We need to write $60 to $2FFD2
+	lda #$60 ; RTS
+	ldx #$d2
+	ldy #$ff
+	ldz #$02
+	jsr longpoke
+
+	; Next instruction exits hypervisor to user mode
+	sta hypervisor_enterexit_trigger
+
+utility_dmalist:
+		; copy $FF8xxxx-$FF8yyyy to $00007FF-$000xxxx
+		; (MB offsets get set in routine)
+		.byte $00 ; copy + last request in chain
+		.word $FFFF ; size of copy  (gets overwritten)
+		.word $FFFF ; starting addr (gets overwritten)
+		.byte $08   ; of bank $8
+		.word $07FF ; destination address is $0801 - 2
+		.byte $00   ; of bank $0
+		.word $0000 ; modulo (unused)
+
+
+msg_utility_item:
+	.byte "1. 32 CHARACTERS OF UTILITY NAME...    ",0
+
+utillist_next:
+
+	; Advance pointer to the next pointer
+	ldz #42
+	nop
+	lda (<zptempv32),z
+	tax
+	inz
+	nop
+	lda (<zptempv32),z
+	; XXX - Make sure it can't point earlier into the colour RAM here
+
+	sta <zptempv32+1
+	stx <zptempv32
+	rts
+
+utillist_validity_check:
+	; See if this is a valid utility entry
+	ldz #0
+
+	; Check for magic value
+	nop ; 32-bit pointer access follows
+	lda (<zptempv32),z
+	cmp #'M
+	bne ulvc_fail
+	inz
+	nop ; 32-bit pointer access follows
+	lda (<zptempv32),z
+	cmp #'6
+	bne ulvc_fail
+	inz
+	nop ; 32-bit pointer access follows
+	lda (<zptempv32),z
+	cmp #'5
+	bne ulvc_fail
+	inz
+	nop ; 32-bit pointer access follows
+	lda (<zptempv32),z
+	cmp #'U
+	bne ulvc_fail
+
+	; Check self address
+	ldz #40
+	nop ; 32-bit pointer access follows
+	lda (<zptempv32),z
+	cmp zptempv32
+	bne ulvc_fail
+	inz
+	nop ; 32-bit pointer access follows
+	lda (<zptempv32),z
+	cmp zptempv32+1
+	bne ulvc_fail
+
+	; success
+	sec
+	rts
+
+ulvc_fail:
+	clc
+	rts
+
+utillist_rewind:
+	; Set pointer to first entry in colour RAM ($0800)
+	lda #<$0800
+	sta <zptempv32
+	lda #>$0800
+	sta <zptempv32+1
+	lda #<$0FF8
+	sta <zptempv32+2
+	lda #>$0FF8
+	sta <zptempv32+3
+
+	rts
+
+msg_utilitymenu:
+	.byte "SELECT UTILITY TO LAUNCH",0
+
+;	========================
 
 ; checkpoint message
 
-msg_checkpoint:	      .byte "Checkpoint @ $"
-msg_checkpoint_pc:    .byte "%%%% A:$"
-msg_checkpoint_a:     .byte "%%, X:$"
-msg_checkpoint_x:     .byte "%%, Y:$"
-msg_checkpoint_y:     .byte "%%, Z:$"
-msg_checkpoint_z:     .byte "%%, P:$"
+msg_checkpoint:	      .byte "$"
+msg_checkpoint_pc:    .byte "%%%% A:"
+msg_checkpoint_a:     .byte "%%, X:"
+msg_checkpoint_x:     .byte "%%, Y:"
+msg_checkpoint_y:     .byte "%%, Z:"
+msg_checkpoint_z:     .byte "%%, P:"
 msg_checkpoint_p:     .byte "%% :"
 msg_checkpointmsg:    .byte "                                                             " ; END_OF_STRING
 		      .byte 13,10  ; CR/LF
@@ -2581,7 +2768,7 @@ msg_checkpoint_eom:
 ; messages all have to be <=40 bytes long
 
 msg_retryreadmbr:     .byte "RE-TRYING TO READ MBR",0
-msg_kickstart:        .byte "MEGA65 KICKSTART V00.10",0
+msg_kickstart:        .byte "MEGA65 MEGAOS HYPERVISOR V00.11",0
 msg_kickstarthelp:    .byte "SW15=HOLD-BOOT, SW12=DEBUG-COMMS",0
 msg_romok:            .byte "ROM CHECKSUM OK - BOOTING",0
 msg_rombad:	      .byte "ROM CHECKSUM FAIL - LOADING ROMS",0
@@ -2616,10 +2803,9 @@ msg_foundkickup:      .byte "LOADING KICKUP.M65 INTO HYPERVISOR",0
 msg_nokickup:         .byte "NO KICKUP.M65 TO LOAD (OR BROKEN)",0
 msg_kickuploaded:     .byte "KICKUP LOADED TO 00004000 - $$$$$$$$",0
 msg_alreadykicked:    .byte "RUNNING KICKED HYPERVISOR",0
-msg_etherkick:	      .byte "BOOTING VIA ETHERKICK: UDP PORT 4511",0
 msg_lookingfornextsector:
 		      .byte "LOOKING FOR NEXT SECTOR OF FILE",0
-msg_nologo:	      .byte "COULD NOT LOAD BOOTLOGO.M65 (ERRNO:$$)",0
+msg_nologo:	      .byte "COULD NOT LOAD BANNER.M65 (ERRNO:$$)",0
 msg_cdrootfailed:     .byte "COULD NOT CHDIR TO / (ERRNO:$$)",0
 
 			; include the GIT-STRING as a message
@@ -2654,7 +2840,13 @@ txt_KICKUPM65:		.byte "KICKUP.M65",0
 
 			; filename containing boot logo
 			;
-txt_BOOTLOGOM65:	.byte "BOOTLOGO.M65",0
+txt_BOOTLOGOM65:	.byte "BANNER.M65",0
+
+			; If this file is present, then machine starts up with video
+			; mode set to NTSC (60Hz), else as PAL (50Hz).
+			; This is to allow us to boot in PAL by default, except for
+			; those who have a monitor that cannot do 50Hz.
+txt_NTSC:		.byte "NTSC",0
 
 ;	========================
 
@@ -2838,10 +3030,6 @@ dos_error_code:
 		.checkpc $BF00
 		.advance $BF00,$3e
 
-kickstart_boot_flags:
-			; $80 = disable etherkick this boot only
-			.byte 0
-			
 		; Temporary vector storage for DOS
 		;
 dos_scratch_vector: .word 0,0
@@ -2861,6 +3049,20 @@ zptempp2:		.word 0
 zptempv32:		.word 0,0
 zptempv32b:		.word 0,0
 dos_file_loadaddress:	.word 0,0
+
+		; Keyboard scan routine
+		
+    ; // ZERO PAGE Varibles
+ScanResult:   	    .byte 0,0,0,0,0,0,0,0
+BufferNew:    	    .byte 0,0,0
+KeyQuantity:  	    .byte 0
+NonAlphaFlagX: 	    .byte 0
+NonAlphaFlagY: 	    .byte 0
+TempZP: 	    .byte 0
+SimultaneousKeys:   .byte 0
+
+    ; // Operational Variables
+   .alias MaxKeyRollover 3
 
 		; Used for checkpoint debug system of hypervisor
 		;
@@ -2883,5 +3085,5 @@ sdcounter:		.byte 0,0,0
 			.checkpc $C000
 			.advance $C000, $3f
 
-			.outfile "KICKUP.M65"
+			.outfile "bin/KICKUP.M65"
 

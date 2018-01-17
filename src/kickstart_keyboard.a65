@@ -1,0 +1,15 @@
+peekkeyboard:
+	; We now use hardware-accelerated keyboard reading
+	lda $d610
+	cmp #$00
+	beq nokey
+	clc
+	rts
+nokey:	; no key currently down, so set carry and return
+	sec	
+	rts
+
+scankeyboard:
+	jsr peekkeyboard
+	sta $d610 ; clear key from buffer
+	rts

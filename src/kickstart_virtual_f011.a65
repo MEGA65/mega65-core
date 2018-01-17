@@ -1,0 +1,61 @@
+f011_virtual_read:
+
+	; Let monitor_load fill in the requeated block.
+        ; Operation is triggered by side bit 7 = 1
+        ; Request served once monitor_load sets side bit 7 = 0
+
+	; this is an hack to work around on sector request
+        ; end up in multiple traps.
+	lda $d084
+        cmp vfr_last_track
+        bne fvr
+        lda $d085
+        cmp vfr_last_sec
+        bne fvr
+        lda $d086
+        cmp vfr_last_side
+        beq fvr6
+
+fvr:
+        lda $d084
+        sta vfr_last_track
+        lda $d085
+        sta vfr_last_sec
+
+        lda $d086
+        sta vfr_last_side
+        ora #$80
+        sta $d086
+
+fvr3:
+        lda $d086
+        bmi fvr3
+
+fvr4:
+        lda $d09e
+        cmp #$ff
+        bne fvr5
+        ;lda $d09f
+        ;and #1
+        ;bne fvr6
+        jmp fvr6
+
+fvr5:
+;        lda $D086
+;        lda $d087
+;        jmp fvr4
+fvr6:
+        sta hypervisor_enterexit_trigger
+
+vfr_last_track:		.byte	0
+vfr_last_sec:		.byte	0
+vfr_last_side:		.byte	0
+
+
+f011_virtual_write:
+
+	; XXX - We ignore virtualised writes to F011 for now
+
+	; return from hypervisor
+	;
+	sta hypervisor_enterexit_trigger

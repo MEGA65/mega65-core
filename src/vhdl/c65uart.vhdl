@@ -13,6 +13,7 @@ entity c65uart is
     phi0 : in std_logic;
     reset : in std_logic;
     irq : out std_logic := 'Z';
+    c65uart_cs : in std_logic;
     
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
@@ -23,16 +24,51 @@ entity c65uart is
     fastio_wdata : in unsigned(7 downto 0);
     fastio_rdata : out unsigned(7 downto 0);
 
-    porte_out : out std_logic_vector(1 downto 0);
-    porte_in : in std_logic_vector(1 downto 0);
-
     uart_rx : in std_logic;
     uart_tx : out std_logic;
+
+    key_debug : in std_logic_vector(7 downto 0);
+    key_left : in std_logic;
+    key_up : in std_logic;
     
+    widget_disable : out std_logic;
+    ps2_disable : out std_logic;
+    joykey_disable : out std_logic;
+    joyreal_disable : out std_logic;
+    physkey_disable : out std_logic;
+    virtual_disable : out std_logic;
+    joya_rotate : out std_logic := '0';
+    joyb_rotate : out std_logic := '0';
+
+    -- Paddle/analog mouse inputs and debugging
+    cia1portb_out : in std_logic_vector(7 downto 6);
+    fa_potx : in std_logic;
+    fa_poty : in std_logic;
+    fb_potx : in std_logic;
+    fb_poty : in std_logic;
+    pot_drain : in std_logic;
+    pota_x : in unsigned(7 downto 0);
+    pota_y : in unsigned(7 downto 0);
+    potb_x : in unsigned(7 downto 0);
+    potb_y : in unsigned(7 downto 0);    
+    pot_via_iec : buffer std_logic := '0';
+    mouse_debug : in unsigned(7 downto 0);
+    amiga_mouse_enable : out std_logic;
+    
+    porte : inout std_logic_vector(7 downto 0);
     portf : inout std_logic_vector(7 downto 0);
-    portg : in std_logic_vector(7 downto 0);
+    portg : inout std_logic_vector(7 downto 0);    
     porth : in std_logic_vector(7 downto 0);
-    porti : in std_logic_vector(7 downto 0)
+    porth_write_strobe : out std_logic := '0';
+    porti : in std_logic_vector(7 downto 0);
+    portj_in : in std_logic_vector(7 downto 0);
+    portj_out : out std_logic_vector(7 downto 0);
+    portk_out : out  std_logic_vector(7 downto 0);
+    portl_out : out  std_logic_vector(7 downto 0);
+    portm_out : out  std_logic_vector(7 downto 0);
+    portn_out : out unsigned(7 downto 0);
+    porto_out : out unsigned(7 downto 0);
+    portp_out : out unsigned(7 downto 0)
     
     );
 end c65uart;
@@ -108,35 +144,65 @@ architecture behavioural of c65uart is
   signal reg_intflag : std_logic_vector(7 downto 0) := (others => '0');
   signal reg_data_tx : std_logic_vector(7 downto 0) := (others => '0');
   signal reg_data_rx : std_logic_vector(7 downto 0) := (others => '0');
+  signal reg_data_rx_drive : std_logic_vector(7 downto 0) := (others => '0');
 
   -- C65 extra 2-bit port for keyboard column 8 and capslock key state.
-  signal reg_porte_out : std_logic_vector(1 downto 0) := (others => '0');
-  signal reg_porte_ddr : std_logic_vector(1 downto 0) := (others => '0');
-  signal reg_porte_read : unsigned(1 downto 0) := (others => '0');
+  signal reg_porte_out : std_logic_vector(7 downto 0) := "00000011";
+  signal reg_porte_ddr : std_logic_vector(7 downto 0) := "00000010";
+  signal reg_porte_read : unsigned(7 downto 0) := (others => '0');
+  -- Used for HDMI SPI control interface and SD SPI bitbashing debug interface)
+  -- Bits 0 and 1 are invert sense for left and up keys
+  signal reg_portg_out : std_logic_vector(7 downto 0) := "00000011"; 
+  signal reg_portg_ddr : std_logic_vector(7 downto 0) := "00111111";
+  signal reg_portg_read : unsigned(7 downto 0) := (others => '0');
 
   -- MEGA65 PMOD register for debugging and fiddling
   signal reg_portf_out : std_logic_vector(7 downto 0) := (others => '0');
   signal reg_portf_ddr : std_logic_vector(7 downto 0) := (others => '0');
   signal reg_portf_read : unsigned(7 downto 0) := (others => '0');
 
+  signal portj_internal : std_logic_vector(7 downto 0) := x"FF";
+  
+  signal widget_enable_internal : std_logic := '1';
+  signal ps2_enable_internal : std_logic := '1';
+  signal joykey_enable_internal : std_logic := '1';
+  signal joyreal_enable_internal : std_logic := '1';
+  signal physkey_enable_internal : std_logic := '1';
+  signal virtual_enable_internal : std_logic := '1';
+
+  signal portk_internal : std_logic_vector(7 downto 0) := x"7F"; -- visual
+                                                                 -- keyboard
+                                                                 -- off by default
+  signal portl_internal : std_logic_vector(7 downto 0) := x"FF";
+  signal portm_internal : std_logic_vector(7 downto 0) := x"FF";
+  signal portn_internal : std_logic_vector(7 downto 0) := x"FF";
+
+  -- Visual keyboard X and Y start positions (x4).
+  signal porto_internal : std_logic_vector(7 downto 0) := x"00";
+  signal portp_internal : std_logic_vector(7 downto 0) := x"34";
+
+  signal joya_rotate_internal : std_logic := '0';
+  signal joyb_rotate_internal : std_logic := '0';
+  signal amiga_mouse_enable_internal : std_logic := '0';
+  
 begin  -- behavioural
   
   process(pixelclock,cpuclock,fastio_address,fastio_write
           ) is
     -- purpose: use DDR to show either input or output bits
     function ddr_pick (
-      ddr                            : in std_logic_vector(1 downto 0);
-      i                              : in std_logic_vector(1 downto 0);
-      o                              : in std_logic_vector(1 downto 0))
+      ddr                            : in std_logic_vector(7 downto 0);
+      i                              : in std_logic_vector(7 downto 0);
+      o                              : in std_logic_vector(7 downto 0))
     return unsigned is
-    variable result : unsigned(1 downto 0);     
+    variable result : unsigned(7 downto 0);     
   begin  -- ddr_pick
     --report "determining read value for CIA port." &
     --  "  DDR=$" & to_hstring(ddr) &
     --  ", out_value=$" & to_hstring(o) &
     --  ", in_value=$" & to_hstring(i) severity note;
     result := unsigned(i);
-    for b in 0 to 1 loop
+    for b in 0 to 7 loop
       if ddr(b)='1' and i(b)='1' then
         result(b) := std_ulogic(o(b));
       end if;
@@ -147,10 +213,24 @@ begin  -- behavioural
     variable register_number : unsigned(7 downto 0);
   begin
 
-    register_number(7 downto 5) := "000";
-    register_number(4 downto 0) := fastio_address(4 downto 0);
-    
     if rising_edge(cpuclock) then
+
+      reg_data_rx_drive <= reg_data_rx;
+      
+      widget_disable <= not widget_enable_internal;
+      ps2_disable <= not ps2_enable_internal;
+      joykey_disable <= not joykey_enable_internal;
+      joyreal_disable <= not joykey_enable_internal;
+      physkey_disable <= not physkey_enable_internal;
+      virtual_disable <= not virtual_enable_internal;
+
+      portk_out <= portk_internal;
+      portl_out <= portl_internal;
+      portm_out <= portm_internal;
+      portn_out <= unsigned(portn_internal);
+      porto_out <= unsigned(porto_internal);
+      portp_out <= unsigned(portp_internal);
+      
       rx_clear_flags <= '0';
       if (fastio_address(19 downto 16) = x"D")
         and (fastio_address(11 downto 5) = "0110000") then
@@ -159,16 +239,123 @@ begin  -- behavioural
         end if;
       end if;
     end if;
+
+    register_number(7 downto 6) := "00";
+    register_number(5 downto 0) := fastio_address(5 downto 0);
+    
+    if rising_edge(cpuclock) then
+
+      porth_write_strobe <= '0';
+      
+      -- Calculate read value for various ports
+      reg_porte_read <= ddr_pick(reg_porte_ddr,porte,reg_porte_out);        
+      reg_portf_read <= ddr_pick(reg_portf_ddr,portf,reg_portf_out);
+      reg_portg_read <= ddr_pick(reg_portg_ddr,portg,reg_portg_out);
+
+      -- Support proper tri-stating on port F and port G which connects to FPGA board PMOD
+      -- connector.
+      for bit in 1 to 7 loop
+        -- Bit 0 of porte is the capslock key, which is input only
+        if reg_porte_ddr(bit)='1' then
+          porte(bit) <= reg_porte_out(bit) or (not reg_porte_ddr(bit));
+        else
+          porte(bit) <= 'Z';
+        end if;
+      end loop;
+      for bit in 0 to 7 loop
+        if reg_portf_ddr(bit)='1' then
+          portf(bit) <= reg_portf_out(bit) or (not reg_portf_ddr(bit));
+        else
+          portf(bit) <= 'Z';
+        end if;
+        if reg_portg_ddr(bit)='1' then
+          portg(bit) <= reg_portg_out(bit) or (not reg_portg_ddr(bit));
+        else
+          portg(bit) <= 'Z';
+        end if;
+      end loop;
+      
+      -- Check for register writing
+      if (fastio_write='1') and (c65uart_cs='1') then
+        case register_number is
+          when x"00" =>
+            reg_data_tx <= std_logic_vector(fastio_wdata);
+            reg_status5_tx_eot <= '0';
+            reg_status6_tx_empty <= '0';
+          when x"01" => null;
+          when x"02" =>
+            reg_ctrl0_parity_even <= fastio_wdata(0);
+            reg_ctrl1_parity_enable <= fastio_wdata(1);
+            reg_ctrl23_char_length_deduct  <= fastio_wdata(3 downto 2);
+            reg_ctrl45_sync_mode_flags <= std_logic_vector(fastio_wdata(5 downto 4));
+            reg_ctrl6_rx_enable <= fastio_wdata(6);
+            reg_ctrl7_tx_enable <= fastio_wdata(7);
+          when x"03" => reg_divisor(7 downto 0) <= fastio_wdata;
+          when x"04" => reg_divisor(15 downto 8) <= fastio_wdata;
+          when x"05" => reg_intmask <= std_logic_vector(fastio_wdata);
+          when x"06" =>
+            -- reg_intflag
+            -- This register is not used in the C65 ROM, so we don't know how it
+            -- should behave.  What is clear, is that there is some other mechanism
+            -- besides reading this register that actually clears the IRQ.
+            -- Perhaps just reading the data register is enough to clear an RX
+            -- IRQ?  What about TX ready IRQ? It seems like writing a character
+            -- or disabling the transmitter should clear it.
+          when x"07" => reg_porte_out<=std_logic_vector(fastio_wdata(7 downto 0));
+          when x"08" => reg_porte_ddr<=std_logic_vector(fastio_wdata(7 downto 0));
+
+          when x"09" =>
+            clock709375 <= fastio_wdata(0);
+          when x"0b" => reg_portf_out <= std_logic_vector(fastio_wdata);
+          when x"0c" => reg_portf_ddr <= std_logic_vector(fastio_wdata);
+          when x"0d" => reg_portg_out <= std_logic_vector(fastio_wdata);
+          when x"0e" => reg_portg_ddr <= std_logic_vector(fastio_wdata);
+          when x"10" => porth_write_strobe <= '1';
+          when x"11" =>
+            -- bucky keys readonly
+            -- IO:GS $D611.0 WRITE ONLY Connect POT lines to IEC port (for r1 PCB only)
+            pot_via_iec <= fastio_wdata(0);
+          when x"12" =>
+            widget_enable_internal <= std_logic(fastio_wdata(0));
+            ps2_enable_internal <= std_logic(fastio_wdata(1));
+            physkey_enable_internal <= std_logic(fastio_wdata(2));
+            virtual_enable_internal <= std_logic(fastio_wdata(3));
+            joykey_enable_internal <= std_logic(fastio_wdata(4));
+            joyreal_enable_internal <= std_logic(fastio_wdata(5));
+            joya_rotate <= fastio_wdata(6);
+            joya_rotate_internal <= fastio_wdata(6);
+            joyb_rotate <= fastio_wdata(7);
+            joyb_rotate_internal <= fastio_wdata(7);
+          when x"14" => portj_out <= std_logic_vector(fastio_wdata);
+                        portj_internal <= std_logic_vector(fastio_wdata);
+          when x"15" =>
+            portk_internal <= std_logic_vector(fastio_wdata);
+          when x"16" =>
+            portl_internal <= std_logic_vector(fastio_wdata);
+          when x"17" =>
+            portm_internal <= std_logic_vector(fastio_wdata);
+          when x"18" =>
+            portn_internal <= std_logic_vector(fastio_wdata);
+          when x"19" =>
+            porto_internal <= std_logic_vector(fastio_wdata);
+          when x"1A" =>
+            portp_internal <= std_logic_vector(fastio_wdata);
+          when x"1b" =>
+            -- @IO:GS $D61B.0 WRITE enable/disable Amiga mouse support (1351 emulation)
+            amiga_mouse_enable_internal <= fastio_wdata(0);
+            amiga_mouse_enable <= fastio_wdata(0);
+          when others => null;
+        end case;
+      end if;
+    end if;
     
     -- Reading of registers
-    if (fastio_read='1')
-      and (fastio_address(19 downto 16) = x"D")
-      and (fastio_address(11 downto 5) = "0110000") then
+    if (fastio_read='1') and (c65uart_cs='1') then
       report "Reading C65 UART controller register";
       case register_number is
         when x"00" =>
           -- @IO:C65 $D600 C65 UART data register (read or write)
-          fastio_rdata <= unsigned(reg_data_rx);            
+          fastio_rdata <= unsigned(reg_data_rx_drive);            
         when x"01" =>
           -- @IO:C65 $D601 C65 UART status register
           -- @IO:C65 $D601.0 C65 UART RX byte ready flag (clear by reading $D600)
@@ -205,33 +392,120 @@ begin  -- behavioural
           fastio_rdata <= unsigned(reg_intflag);
         when x"07" =>
           -- @IO:C65 $D607 C65 UART 2-bit port data register (used for C65 keyboard)
-          fastio_rdata(7 downto 2) <= (others => 'Z');
-          fastio_rdata(1 downto 0) <= reg_porte_read;
+          -- @IO:GS $D607.1 C65 keyboard column 8 select
+          -- @IO:GS $D607.0 C65 capslock key sense
+          fastio_rdata(7 downto 0) <= reg_porte_read;
         when x"08" =>
-          -- @IO:C65 $D607 C65 UART 2-bit port data direction register (used for C65 keyboard)
-          fastio_rdata(7 downto 2) <= (others => 'Z');
-          fastio_rdata(1 downto 0) <= unsigned(reg_porte_ddr);
+          -- @IO:C65 $D607 C65 UART data direction register (used for C65 keyboard, HDMI and SD card I2C/SPI)
+          fastio_rdata(7 downto 0) <= unsigned(reg_porte_ddr);
         when x"09" =>
           -- @IO:GS $D609 MEGA65 extended UART control register
-          -- @IO:GS $D609.0 UART BAUD clock source: 1 = 7.09375MHz, 0 = 193.5MHz
+          -- @IO:GS $D609.0 UART BAUD clock source: 1 = 7.09375MHz, 0 = 150MHz
           fastio_rdata(0) <= clock709375;
           fastio_rdata(7 downto 1) <= (others => '1');
-        when x"0d" =>
-          -- @IO:GS $D60D DEBUG - Read hyper_trap_count: will be removed after debugging. XXX - Temporarily reading restore_up_ticks instead
-          fastio_rdata(7 downto 0) <= unsigned(portg);
-        when x"0e" =>
-          -- @IO:GS $D60E PMOD port A on FPGA board (data bits)
-          fastio_rdata(7 downto 0) <= reg_portf_read;
-        when x"0f" =>
-          -- @IO:GS $D60F PMOD port A on FPGA board (DDR)
+        when x"0b" =>
+          -- @IO:GS $D60B PMOD port A on FPGA board (data)
+          fastio_rdata(7 downto 0) <= unsigned(reg_portf_read);
+        when x"0c" =>
+          -- @IO:GS $D60C PMOD port A on FPGA board (DDR)
           fastio_rdata(7 downto 0) <= unsigned(reg_portf_ddr);
+        when x"0d" =>
+          -- @IO:GS $D60D Bit bashing port
+          -- @IO:GS $D60D.7 HDMI SPI control interface SCL clock 
+          -- @IO:GS $D60D.6 HDMI SPI control interface SDA data line 
+          -- @IO:GS $D60D.5 Enable SD card bitbash mode
+          -- @IO:GS $D60D.4 SD card CS_BO
+          -- @IO:GS $D60D.3 SD card SCLK
+          -- @IO:GS $D60D.2 SD card MOSI/MISO
+          -- @IO:GS $D60D.1-0 Physical keyboard scanning: Float inputs to 0/L/H/1
+          
+          fastio_rdata(7 downto 0) <= reg_portg_read;
+        when x"0e" =>
+          -- @IO:GS $D60E Bit bashing port DDR
+          fastio_rdata(7 downto 0) <= unsigned(reg_portg_ddr);
+        when x"0f" =>
+          -- @IO:GS $D60F.0 C65 Cursor left key
+          -- @IO:GS $D60F.0 C65 Cursor up key
+          fastio_rdata(0) <= key_left;
+          fastio_rdata(1) <= key_up;
         when x"10" =>
-          -- @IO:GS $D610 DEBUG - Read restore_up_count: will be removed after debugging. XXX - Temporarily reading restore_up_ticks instead
+          -- @IO:GS $D610 Last key press as ASCII (hardware accelerated keyboard scanner). Write to clear event ready for next.
           fastio_rdata(7 downto 0) <= unsigned(porth);
         when x"11" =>
-          -- @IO:GS $D611 DEBUG - Read restore_down_count: will be removed after debugging. XXX - Temporarily reading restore_up_ticks instead
+          -- @IO:GS $D611 Modifier key state (hardware accelerated keyboard scanner).
           fastio_rdata(7 downto 0) <= unsigned(porti);
-        when others => fastio_rdata <= (others => 'Z');
+        when x"12" =>
+          -- @IO:GS $D612.0 Enable widget board keyboard/joystick input
+          fastio_rdata(0) <= widget_enable_internal;
+          -- @IO:GS $D612.1 Enable ps2 keyboard/joystick input
+          fastio_rdata(1) <= ps2_enable_internal;
+          -- @IO:GS $D612.2 Enable physical keyboard input
+          fastio_rdata(2) <= physkey_enable_internal;
+          -- @IO:GS $D612.3 Enable virtual keyboard input
+          fastio_rdata(3) <= virtual_enable_internal;
+          -- @IO:GS $D612.4 Enable PS/2 / USB keyboard simulated joystick input
+          fastio_rdata(4) <= joykey_enable_internal;
+          -- @IO:GS $D612.5 Enable physical joystick input
+          fastio_rdata(5) <= joyreal_enable_internal;
+          -- @IO:GS $D612.6 Rotate inputs of joystick A by 180 degrees
+          fastio_rdata(6) <= joya_rotate_internal;
+          -- @IO:GS $D612.7 Rotate inputs of joystick B by 180 degrees
+          fastio_rdata(7) <= joyb_rotate_internal;
+        when x"13" =>
+          -- @IO:GS $D613 DEBUG: Count of cartridge port memory accesses (read only)
+          fastio_rdata <= unsigned(portj_in);
+        when x"14" =>
+          -- @IO:GS $D614 DEBUG: 8-bit segment of combined keyboard matrix (READ)
+          fastio_rdata <= unsigned(portj_internal);
+        when x"15" =>
+          -- @IO:GS $D615.0-6 ID of key #1 held down on virtual keyboard
+          -- @IO:GS $D615.7 Enable visual keyboard composited overlay
+          fastio_rdata <= unsigned(portk_internal);
+        when x"16" =>
+          -- @IO:GS $D616 ID of key #2 held down on virtual keyboard
+          fastio_rdata <= unsigned(portl_internal);
+        when x"17" =>
+          -- @IO:GS $D617 ID of key #3 held down on virtual keyboard
+          fastio_rdata <= unsigned(portm_internal);
+        when x"18" =>
+          -- @IO:GS $D618 Keyboard scan rate ($00=50MHz, $FF=~200KHz)
+          fastio_rdata <= unsigned(portn_internal);
+        when x"19" =>
+          -- @IO:GS $D619 On-screen keyboard X position (x4 640H pixels)
+          fastio_rdata <= unsigned(porto_internal);
+        when x"1a" =>
+          -- @IO:GS $D61A On-screen keyboard Y position (x4 physical pixels)
+          fastio_rdata <= unsigned(portp_internal);
+        when x"1b" =>
+          -- @IO:GS $D61B READ 1351/amiga mouse auto detection DEBUG
+          fastio_rdata <= mouse_debug;
+          -- @IO:GS $D620 Read Port A paddle X
+          -- @IO:GS $D621 Read Port A paddle Y
+          -- @IO:GS $D622 Read Port B paddle X
+          -- @IO:GS $D623 Read Port B paddle Y          
+        when x"20" => fastio_rdata <= pota_x;
+        when x"21" => fastio_rdata <= pota_y;
+        when x"22" => fastio_rdata <= potb_x;
+        when x"23" => fastio_rdata <= potb_y;
+        when x"24" =>
+          -- @IO:GS $D624 READ ONLY
+          -- @IO:GS $D624.0 Paddles connected via IEC port (rev1 PCB debug)
+          -- @IO:GS $D624.1 pot_drain signal
+          -- @IO:GS $D624.3-2 CIA porta bits 7-6 for POT multiplexor
+          -- @IO:GS $D624.4 fa_potx line
+          -- @IO:GS $D624.5 fa_poty line
+          -- @IO:GS $D624.6 fb_potx line
+          -- @IO:GS $D624.7 fb_poty line          
+          fastio_rdata(0) <= pot_via_iec;
+          fastio_rdata(1) <= pot_drain;
+          fastio_rdata(3 downto 2) <= unsigned(cia1portb_out(7 downto 6));
+          fastio_rdata(4) <= fa_potx;
+          fastio_rdata(5) <= fa_poty;
+          fastio_rdata(6) <= fb_potx;
+          fastio_rdata(7) <= fb_poty;                        
+        when others =>
+          report "Reading untied register, result = Z";
+          fastio_rdata <= (others => 'Z');
       end case;
     else
       fastio_rdata <= (others => 'Z');
@@ -370,74 +644,6 @@ begin  -- behavioural
             -- XXX Assert IRQ and/or NMI according to RX interrupt masks
           end if;
         end if;
-      end if;
-    end if;
-    
-    if rising_edge(cpuclock) then
-      register_number(7 downto 5) := "000";
-      register_number(4 downto 0) := fastio_address(4 downto 0);
-
-      -- Calculate read value for porta and portb
-      reg_porte_read <= ddr_pick(reg_porte_ddr,porte_in,reg_porte_out);        
-      reg_portf_read(7 downto 6) <= ddr_pick(reg_portf_ddr(7 downto 6),
-                                             portf(7 downto 6),
-                                             reg_portf_out(7 downto 6));
-      reg_portf_read(5 downto 4) <= ddr_pick(reg_portf_ddr(5 downto 4),
-                                             portf(5 downto 4),
-                                             reg_portf_out(5 downto 4));
-      reg_portf_read(3 downto 2) <= ddr_pick(reg_portf_ddr(3 downto 2),
-                                             portf(3 downto 2),
-                                             reg_portf_out(3 downto 2));
-      reg_portf_read(1 downto 0) <= ddr_pick(reg_portf_ddr(1 downto 0),
-                                             portf(1 downto 0),
-                                             reg_portf_out(1 downto 0));
-
-      porte_out <= reg_porte_out or (not reg_porte_ddr);
-      -- Support proper tri-stating on port F which connects to FPGA board PMOD
-      -- connector.
-      for bit in 0 to 7 loop
-        if reg_portf_ddr(bit)='1' then
-          portf(bit) <= reg_portf_out(bit) or (not reg_portf_ddr(bit));
-        else
-          portf(bit) <= 'Z';
-        end if;
-      end loop;
-      
-      -- Check for register writing
-      if (fastio_write='1') and (fastio_address(19 downto 16) = x"D")
-         and (fastio_address(11 downto 5) = "0110000") then
-        register_number(7 downto 5) := "000";
-        register_number(4 downto 0) := fastio_address(4 downto 0);
-        case register_number is
-          when x"00" =>
-            reg_data_tx <= std_logic_vector(fastio_wdata);
-            reg_status5_tx_eot <= '0';
-            reg_status6_tx_empty <= '0';
-          when x"01" => null;
-          when x"02" =>
-            reg_ctrl0_parity_even <= fastio_wdata(0);
-            reg_ctrl1_parity_enable <= fastio_wdata(1);
-            reg_ctrl23_char_length_deduct  <= fastio_wdata(3 downto 2);
-            reg_ctrl45_sync_mode_flags <= std_logic_vector(fastio_wdata(5 downto 4));
-            reg_ctrl6_rx_enable <= fastio_wdata(6);
-            reg_ctrl7_tx_enable <= fastio_wdata(7);
-          when x"03" => reg_divisor(7 downto 0) <= fastio_wdata;
-          when x"04" => reg_divisor(15 downto 8) <= fastio_wdata;
-          when x"05" => reg_intmask <= std_logic_vector(fastio_wdata);
-          when x"06" =>
-            -- reg_intflag
-            -- This register is not used in the C65 ROM, so we don't know how it
-            -- should behave.  What is clear, is that there is some other mechanism
-            -- besides reading this register that actually clears the IRQ.
-            -- Perhaps just reading the data register is enough to clear an RX
-            -- IRQ?  What about TX ready IRQ? It seems like writing a character
-            -- or disabling the transmitter should clear it.
-          when x"07" => reg_porte_out<=std_logic_vector(fastio_wdata(1 downto 0));
-          when x"08" => reg_porte_ddr<=std_logic_vector(fastio_wdata(1 downto 0));
-          when x"0e" => reg_portf_out <= std_logic_vector(fastio_wdata);
-          when x"0f" => reg_portf_ddr <= std_logic_vector(fastio_wdata);
-          when others => null;
-        end case;
       end if;
     end if;
   end process;
