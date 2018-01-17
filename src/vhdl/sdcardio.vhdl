@@ -1291,6 +1291,8 @@ begin  -- behavioural
                       report "Drive 0 or 1 selected and active.";
                       f011_sector_fetch <= '1';
                       f011_busy <= '1';
+                      -- We use the SD-card buffer offset to count the bytes read
+                      sd_buffer_offset <= (others => '0');
                       if sdhc_mode='1' then
                         sd_sector <= diskimage_sector + diskimage_offset;
                       else
@@ -1345,6 +1347,8 @@ begin  -- behavioural
                     report "Drive 0 or 1 selected, and image present.";
                     f011_sector_fetch <= '1';
                     f011_busy <= '1';
+                    -- We use the SD-card buffer offset to count the bytes written
+                    sd_buffer_offset <= (others => '0');
                     -- XXX Doesn't trigger an error for bad track/sector:
                     -- just writes to sector 1599 of the disk image!
                     if sdhc_mode='1' then
@@ -1757,13 +1761,14 @@ begin  -- behavioural
                 -- Write to SD-card half of sector buffer
                 f011_buffer_write_address <= '1'&sd_buffer_offset;
                 f011_buffer_wdata <= unsigned(sd_rdata);
-                f011_buffer_write <= '1';
-
-                -- Advance pointer in SD-card buffer (this is
-                -- separate from the F011 buffer pointers)
-                sd_buffer_offset <= sd_buffer_offset + 1;
-                
+                f011_buffer_write <= '1';                
               end if;
+
+              -- Advance pointer in SD-card buffer (this is
+              -- separate from the F011 buffer pointers, but is used for SD and
+              -- F011 requests, so that we know when we have read 512 bytes)
+              sd_buffer_offset <= sd_buffer_offset + 1;
+              
             else
               if skip=2 then
                 sd_datatoken <= unsigned(sd_rdata);
@@ -1781,10 +1786,8 @@ begin  -- behavioural
                 -- We have read at least one byte, and ...
                 (read_data_byte='1')
                 -- the buffer pointer is back to the start of the sector, and ...
-                and (f011_buffer_disk_address = "000000000")
-                -- we aren't waiting for the disk pointer to advance from the
-                -- starting line
-                and (f011_buffer_disk_pointer_advance='0') then
+                and (sd_sector_buffer="000000000")
+                then
                 -- sector offset has reached 512, so we must have
                 -- read the whole sector.
                 -- Update F011 FDC emulation status registers
@@ -1913,7 +1916,7 @@ begin  -- behavioural
               -- Byte has been accepted, write next one
               sd_state <= WritingSectorAckByte;
               f011_buffer_disk_pointer_advance <= '1';
-
+              sd_sector_offset <= sd_sector_offset + 1;
             else
               skip <= skip - 1;
               sd_state <= WritingSectorAckByte;
@@ -1923,9 +1926,8 @@ begin  -- behavioural
         when WritingSectorAckByte =>
           -- Wait until controller acknowledges that we have acked it
           if sd_data_ready='0' then
-            if f011_buffer_disk_address = "000000000" then
-              -- sector offset has reached 512, so we have
-              -- written the whole sector.
+            if sd_sector_offset = "000000000" then
+              -- Whole sector written when we have written 512 bytes
               sd_state <= DoneWritingSector;
             else
               -- Still more bytes to read.
