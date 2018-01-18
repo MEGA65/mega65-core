@@ -199,7 +199,7 @@ begin
             cart_flags <= cart_exrom & cart_game;
             cart_ctrl_dir <= '1';
           end if;
-          if reprobe_exrom = '1' then
+          if (reprobe_exrom = '1') and (reset='1') and (reset_timeout=0) then
             -- But first, if necessary, re-probe the cartridge control lines
             -- (Hopefully on rev2 PCB these lines will be input and can be read
             -- continuously without wasting bus cycles.)
