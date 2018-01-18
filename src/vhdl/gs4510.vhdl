@@ -3804,7 +3804,9 @@ begin
 
               -- redirect memory write to IO block if required
               if dmagic_dest_addr(23 downto 20) = x"d" and dmagic_dest_io='1' then
-                memory_access_address(27 downto 12) := x"FFD" & "00" & viciii_iomode;
+                memory_access_address(27 downto 16) := x"FFD";
+                memory_access_address(15 downto 14) := "00";
+                memory_access_address(13 downto 2)  := viciii_iomode;
               end if;
               
               -- Update address and check for end of job.
@@ -3853,7 +3855,9 @@ begin
 
               -- redirect memory write to IO block if required
               if dmagic_src_addr(23 downto 20) = x"d" and dmagic_src_io='1' then
-                memory_access_address(27 downto 12) := x"FFD" & "00" & viciii_iomode;
+                memory_access_address(27 downto 16) := x"FFD";
+                memory_access_address(15 downto 14) := "00";
+                memory_access_address(13 downto 2)  := viciii_iomode;
               end if;
               
               -- Update source address.
@@ -3893,7 +3897,9 @@ begin
 
                 -- redirect memory write to IO block if required
                 if dmagic_dest_addr(15 downto 12) = x"d" and dmagic_dest_io='1' then
-                  memory_access_address(27 downto 12) := x"FFD" & "00" & viciii_iomode;
+                  memory_access_address(27 downto 16) := x"FFD";
+                  memory_access_address(15 downto 14) := "00";
+                  memory_access_address(13 downto 2)  := viciii_iomode;
                 end if;
               
                 -- Update address and check for end of job.
