@@ -780,6 +780,7 @@ begin
   process(reset)
   begin
     reset_high <= not reset;
+    iec_reset <= reset;    
   end process;
 
   -- Allow taking over of SD interface for bitbashing and debugging
