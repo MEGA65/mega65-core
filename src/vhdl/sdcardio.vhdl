@@ -351,6 +351,7 @@ architecture behavioural of sdcardio is
   signal last_f_index : std_logic := '1';
 
   signal fdc_bytes_read : unsigned(15 downto 0) := x"0000";
+  signal sd_wrote_byte : std_logic := '0';
   
   signal packed_rdata : std_logic_vector(7 downto 0);
 
@@ -1515,6 +1516,10 @@ begin  -- behavioural
                     sd_state <= WriteSector;
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
+
+                    sd_wrote_byte <= '0';
+                    f011_buffer_read_address <= '1'&"000000000";
+                    sd_buffer_offset <= (others => '0');
                   end if;
 
                 when x"40" => sdhc_mode <= '0';
@@ -1903,6 +1908,7 @@ begin  -- behavioural
             sd_dowrite <= '1';
             sdio_busy <= '1';
             skip <= 1;
+            sd_wrote_byte <= '0';
             sd_state <= WritingSector;
             sd_wdata <= f011_buffer_rdata;
           else
@@ -1915,8 +1921,11 @@ begin  -- behavioural
             if skip = 0 then
               -- Byte has been accepted, write next one
               sd_state <= WritingSectorAckByte;
+
               f011_buffer_disk_pointer_advance <= '1';
               sd_buffer_offset <= sd_buffer_offset + 1;
+
+              sd_wrote_byte <= '1';
             else
               skip <= skip - 1;
               sd_state <= WritingSectorAckByte;
@@ -1926,7 +1935,7 @@ begin  -- behavioural
         when WritingSectorAckByte =>
           -- Wait until controller acknowledges that we have acked it
           if sd_data_ready='0' then
-            if sd_buffer_offset = "000000000" then
+            if sd_buffer_offset = "000000000" and sd_wrote_byte='1' then
               -- Whole sector written when we have written 512 bytes
               sd_state <= DoneWritingSector;
             else
@@ -1934,7 +1943,11 @@ begin  -- behavioural
               sd_state <= WritingSector;
 
               -- Get next byte ready
-              f011_buffer_read_address <= '0'&f011_buffer_disk_address;
+              if f011_sector_fetch='1' then
+                f011_buffer_read_address <= '0'&f011_buffer_disk_address;
+              else
+                f011_buffer_read_address <= '1'&sd_buffer_offset;
+              end if;
               f011_buffer_disk_pointer_advance <= '1';
               -- Abort CPU buffer read if in progess, since we are reading the buffer
               sb_cpu_reading <= '0';              
