@@ -278,6 +278,8 @@ architecture Behavioral of machine is
   signal reset_monitor : std_logic;
   -- Holds reset on for 8 cycles so that reset line entry is used on start up,
   -- instead of implicit startup state.
+  -- (Note that uart_monitor actually holds reset low for ~5 usec on power on,
+  --  i.e., for much longer than this here provides).
   signal power_on_reset : std_logic_vector(7 downto 0) := (others => '0');
   signal reset_combined : std_logic := '1';
   

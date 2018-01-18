@@ -97,7 +97,7 @@ end uart_monitor;
 
 architecture behavioural of uart_monitor is
 
-  signal reset_timeout : integer range 0 to 15 := 15;
+  signal reset_timeout : integer range 0 to 255 := 255;
 
   signal monitor_char_toggle_last : std_logic := '1';
   signal monitor_char_count : unsigned(15 downto 0) := x"0000";
@@ -1040,7 +1040,7 @@ begin
                     parse_hex(CPUBreak1);
                   end if;
                 elsif cmdbuffer(1) = '!' then
-                  reset_timeout <= 15; -- 15 cycles of asserting reset to make sure it works
+                  reset_timeout <= 255; -- 255 cycles = ~5usec for reset
                   state <= NextCommand;
                 elsif cmdbuffer(1) = 'z' or cmdbuffer(1) = 'Z' then
                   banner_position <= 0;
