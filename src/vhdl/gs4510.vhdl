@@ -388,7 +388,8 @@ end component;
   -- Temporary registers used while loading DMA list
   signal dmagic_dest_bank_temp : unsigned(7 downto 0)  := (others => '0');
   signal dmagic_src_bank_temp : unsigned(7 downto 0)  := (others => '0');
-
+  -- Temporary store for CPU port bits to bank IO/ROMs in/out during DMA
+  signal pre_dma_cpuport_bits : unsigned(2 downto 0) := (others => '1');
 
   -- CPU internal state
   signal flag_c : std_logic := '0';        -- carry flag
@@ -3759,12 +3760,25 @@ begin
                 dmagic_dest_modulo <= dmagic_dest_bank_temp(5);
                 dmagic_dest_hold <= dmagic_dest_bank_temp(4);
               end if;
+
+              -- Save memory mapping flags, and set memory map to
+              -- be all RAM +/- IO area
+              pre_dma_cpuport_bits <= cpuport_value(2 downto 0);
+              cpuport_value(2 downto 1) <= "10";
+              
               case dmagic_cmd(1 downto 0) is                
-                when "11" => -- fill
+                when "11" => -- fill                  
                   state <= DMAgicFill;
+
+                  -- And set IO visibility based on destination bank flags
+                  -- since we are only writing.
+                  cpuport_value(0) <= dmagic_dest_bank_temp(7);
+                                    
                 when "00" => -- copy
                   dmagic_first_read <= '1';
                   state <= DMagicCopyRead;
+                  -- Set IO visibility based on source bank flags
+                  cpuport_value(0) <= dmagic_src_bank_temp(7);
                 when others =>
                   -- swap and mix not yet implemented
                   state <= normal_fetch_state;
@@ -3826,7 +3840,8 @@ begin
               -- probably different to on a real C65, but this is untested.
               if dmagic_count = 1 then
                 -- DMA done
-                report "DMAgic: DMA complete";
+                report "DMAgic: DMA fill complete";
+                cpuport_value(2 downto 0) <= pre_dma_cpuport_bits;
                 if dmagic_cmd(2) = '0' then
                   -- Last DMA job in chain, go back to executing instructions
                   state <= normal_fetch_state;
@@ -3875,6 +3890,8 @@ begin
                     <= dmagic_src_addr(23 downto 0) - reg_dmagic_src_skip;
                 end if;
               end if;
+              -- Set IO visibility for destination
+              cpuport_value(0) <= dmagic_dest_io;
               state <= DMAgicCopyWrite;
             when DMAgicCopyWrite =>
               -- Remember value just read
@@ -3884,6 +3901,8 @@ begin
               dmagic_first_read <= '0';
               reg_t <= memory_read_value;
 
+              -- Set IO visibility for source
+              cpuport_value(0) <= dmagic_src_io;              
               state <= DMAgicCopyRead;
 
               phi_add_backlog <= '1'; phi_new_backlog <= 1;
@@ -3919,7 +3938,8 @@ begin
                 -- probably different to on a real C65, but this is untested.
                 if dmagic_count = 1 then
                   -- DMA done
-                  report "DMAgic: DMA complete";
+                  report "DMAgic: DMA copy complete";
+                  cpuport_value(2 downto 0) <= pre_dma_cpuport_bits;
                   if dmagic_cmd(2) = '0' then
                     -- Last DMA job in chain, go back to executing instructions
                     state <= normal_fetch_state;
