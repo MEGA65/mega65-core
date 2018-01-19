@@ -1510,9 +1510,11 @@ begin  -- behavioural
                 when x"03" =>
                   -- Write sector
                   if sdio_busy='1' then
+                    report "SDWRITE: sdio_busy is set, not writing";
                     sdio_error <= '1';
                     sdio_fsm_error <= '1';
-                  else                  
+                  else
+                    report "SDWRITE: Commencing write";
                     sd_state <= WriteSector;
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
@@ -1905,6 +1907,7 @@ begin  -- behavioural
         when WriteSector =>
           -- Begin writing a sector into the buffer
           if sdio_busy='0' then
+            report "SDWRITE: Busy flag clear; writing value $" & to_hstring(f011_buffer_rdata);
             sd_dowrite <= '1';
             sdio_busy <= '1';
             skip <= 1;
@@ -1912,12 +1915,18 @@ begin  -- behavioural
             sd_state <= WritingSector;
             sd_wdata <= f011_buffer_rdata;
           else
+            report "SDWRITE: Waiting for busy flag to clear...";
             sd_dowrite <= '0';
           end if;
 
         when WritingSector =>
           if sd_data_ready='1' then
             sd_dowrite <= '0';
+            sd_wdata <= f011_buffer_rdata;
+            
+            report "SDWRITE: skip = " & integer'image(skip)
+              & ", sd_buffer_offset=$" & to_hstring(sd_buffer_offset)
+              & ", sd_wrote_byte=" & std_logic'image(sd_wrote_byte);
             if skip = 0 then
               -- Byte has been accepted, write next one
               sd_state <= WritingSectorAckByte;
