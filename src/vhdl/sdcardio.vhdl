@@ -1910,7 +1910,7 @@ begin  -- behavioural
             report "SDWRITE: Busy flag clear; writing value $" & to_hstring(f011_buffer_rdata);
             sd_dowrite <= '1';
             sdio_busy <= '1';
-            skip <= 1;
+            skip <= 0;
             sd_wrote_byte <= '0';
             sd_state <= WritingSector;
             sd_wdata <= f011_buffer_rdata;
