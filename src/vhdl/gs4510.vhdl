@@ -163,8 +163,6 @@ entity gs4510 is
     speed_gate : in std_logic;
     speed_gate_enable : out std_logic := '1';
     
-    support_f018b : inout std_logic := '0';
-
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
     ---------------------------------------------------------------------------
@@ -217,6 +215,11 @@ component shadowram is
         writes : out unsigned(7 downto 0)
         );
 end component;
+
+  -- DMAgic settings
+  signal support_f018b : std_logic := '0';
+  signal job_is_f018b : std_logic := '0';
+  signal job_uses_options : std_logic := '0';
 
   signal cpuspeed_internal : unsigned(7 downto 0) := (others => '0');
   signal cpuspeed_external : unsigned(7 downto 0) := (others => '0');
@@ -365,7 +368,11 @@ end component;
   signal dmagic_count : unsigned(15 downto 0)  := (others => '0');
   signal dmagic_tally : unsigned(15 downto 0)  := (others => '0');
   signal reg_dmagic_src_mb : unsigned(7 downto 0)  := (others => '0');
-  signal dmagic_src_addr : unsigned(35 downto 0)  := (others => '0'); -- in 256ths of bytes
+signal dmagic_src_addr : unsigned(35 downto 0)  := (others => '0'); -- in 256ths of bytes
+  signal reg_dmagic_use_transparent_value : std_logic := '0';
+  signal reg_dmagic_transparent_value : unsigned(7 downto 0) := x"00";
+  signal dmagic_option_id : unsigned(7 downto 0) := x"00";
+
   signal dmagic_src_io : std_logic := '0';
   signal dmagic_src_direction : std_logic := '0';
   signal dmagic_src_modulo : std_logic := '0';
@@ -628,10 +635,11 @@ end component;
     TrapToHypervisor,ReturnFromHypervisor,
     
     -- DMAgic
-    DMAgicTrigger,DMAgicReadList,DMAgicGetReady,
+    DMAgicTrigger,
+    DMAgicReadOptions,DMAgicReadList,
+    DMAgicGetReady,
     DMAgicFill,
     DMAgicCopyRead,DMAgicCopyWrite,
-    DMAgicRead,DMAgicWrite,
 
     -- Normal instructions
     InstructionWait,                    -- Wait for PC to become available on
@@ -1975,11 +1983,12 @@ begin
           -- Actually, this is all of $D700-$D7FF decoded by the CPU at present
           report "Reading CPU register (DMAgicRegister path)";
           case the_read_address(7 downto 0) is
+            when x"00"|x"05" => return reg_dmagic_addr(7 downto 0);
+            when x"01" => return reg_dmagic_addr(15 downto 8);
+            when x"02" => return reg_dmagic_withio
+                            & reg_dmagic_addr(22 downto 16);
             when x"03" => return reg_dmagic_status(7 downto 1) & support_f018b;
-            when x"08" => return reg_dmagic_src_skip(7 downto 0);
-            when x"09" => return reg_dmagic_src_skip(15 downto 8);
-            when x"0a" => return reg_dmagic_dst_skip(7 downto 0);
-            when x"0b" => return reg_dmagic_dst_skip(15 downto 8);
+            when x"04" => return reg_dmagic_addr(27 downto 20);
             when x"fc" => return unsigned(chipselect_enables);
             when x"fd" =>
               report "Reading $D7FD";
@@ -2264,14 +2273,15 @@ begin
       elsif (long_address = x"FFD3700") or (long_address = x"FFD1700") then        
         -- Set low order bits of DMA list address
         reg_dmagic_addr(7 downto 0) <= value;
+        -- @ IO:GS $D700 - DMAgic DMA list address LSB, and trigger DMA (when written)
         -- DMA gets triggered when we write here. That actually happens through
         -- memory_access_write.
       elsif (long_address = x"FFD370E") or (long_address = x"FFD170E") then
         -- Set low order bits of DMA list address, without starting
-        -- @IO:GS $D702 DMA list address low byte (address bits 0 -- 7). Writing triggers DMA to start.
+        -- @IO:GS $D70E DMA list address low byte (address bits 0 -- 7) WITHOUT STARTING A DMA JOB (used by Hypervisor for unfreezing DMA-using tasks)
         reg_dmagic_addr(7 downto 0) <= value;
       elsif (long_address = x"FFD3701") or (long_address = x"FFD1701") then
-        -- @IO:GS $D702 DMA list address high byte (address bits 8 -- 15).
+        -- @IO:GS $D701 DMA list address high byte (address bits 8 -- 15).
         reg_dmagic_addr(15 downto 8) <= value;
       elsif (long_address = x"FFD3702") or (long_address = x"FFD1702") then
         -- @IO:GS $D702 DMA list address bank (address bits 16 -- 22). Writing clears $D704.
@@ -2285,23 +2295,8 @@ begin
         -- @IO:GS $D704 DMA list address mega-byte
         reg_dmagic_addr(27 downto 20) <= value;
       elsif (long_address = x"FFD3705") or (long_address = x"FFD1705") then
-        -- @IO:GS $D705 DMA source address mega-byte
+        -- @IO:GS $D705 Set low-order byte of DMA list address, and trigger Enhanced DMA job (uses DMA option list)
         reg_dmagic_src_mb <= value;
-      elsif (long_address = x"FFD3706") or (long_address = x"FFD1706") then
-        -- @IO:GS $D706 DMA destination address mega-byte
-        reg_dmagic_dst_mb <= value;
-      elsif (long_address = x"FFD3708") or (long_address = x"FFD1708") then
-        -- @IO:GS $D708 DMA source skip rate (/256ths of bytes)
-        reg_dmagic_src_skip(7 downto 0) <= value;
-      elsif (long_address = x"FFD3709") or (long_address = x"FFD1709") then
-        -- @IO:GS $D709 DMA source skip rate (whole bytes)
-        reg_dmagic_src_skip(15 downto 8) <= value;
-      elsif (long_address = x"FFD370a") or (long_address = x"FFD170a") then
-        -- @IO:GS $D70A DMA destination skip rate (/256ths of bytes)
-        reg_dmagic_dst_skip(7 downto 0) <= value;
-      elsif (long_address = x"FFD370b") or (long_address = x"FFD170b") then
-        -- @IO:GS $D70B DMA destination skip rate (whole bytes)
-        reg_dmagic_dst_skip(15 downto 8) <= value;
       elsif (long_address = x"FFD37FA") then
         -- @IO:GS $D7FA.0 DEBUG 1/2/3.5MHz CPU speed fine adjustment
         cpu_speed_bias <= to_integer(value);
@@ -2550,6 +2545,16 @@ begin
       
     end c65_map_instruction;
 
+    procedure dmagic_reset_options is
+    begin
+      reg_dmagic_use_transparent_value <= '0';
+      reg_dmagic_src_mb <= x"00";
+      reg_dmagic_dst_mb <= x"00";
+      reg_dmagic_transparent_value <= x"00";
+      reg_dmagic_src_skip <= x"0100";
+      reg_dmagic_dst_skip <= x"0100";
+    end procedure;
+    
     procedure alu_op_cmp (
       i1 : in unsigned(7 downto 0);
       i2 : in unsigned(7 downto 0)) is
@@ -3682,9 +3687,63 @@ begin
               reg_dmagic_addr <= reg_dmagic_addr + 1;
               memory_access_resolve_address := '0';
               memory_access_read := '1';
-              state <= DMAgicReadList;
+              if job_uses_options='0' then              
+                state <= DMAgicReadList;
+              else
+                state <= DMAgicReadOptions;
+              end if;
               dmagic_list_counter <= 0;
               phi_add_backlog <= '1'; phi_new_backlog <= 1;
+            when DMAgicReadOptions =>
+              memory_access_address := reg_dmagic_addr;
+              reg_dmagic_addr <= reg_dmagic_addr + 1;
+              memory_access_resolve_address := '0';
+              memory_access_read := '1';
+
+              if dmagic_option_id(7)='1' then
+                -- This is the value for this option
+                dmagic_option_id <= (others => '0');
+                case dmagic_option_id is
+                  -- @ IO:GS $D705 - Enhanced DMAgic job option $80 $xx = Set MB of source address
+                  
+                  when x"80" => reg_dmagic_src_mb <= memory_read_value;
+                  -- @ IO:GS $D705 - Enhanced DMAgic job option $81 $xx = Set MB of destination address
+                  when x"81" => reg_dmagic_dst_mb <= memory_read_value;
+                  -- @ IO:GS $D705 - Enhanced DMAgic job option $82 $xx = Set source skip rate (/256ths of bytes)
+                  when x"82" => reg_dmagic_src_skip(7 downto 0) <= memory_read_value;
+                  -- @ IO:GS $D705 - Enhanced DMAgic job option $83 $xx = Set source skip rate (whole bytes)
+                  when x"83" => reg_dmagic_src_skip(15 downto 8) <= memory_read_value;
+                  -- @ IO:GS $D705 - Enhanced DMAgic job option $84 $xx = Set destination skip rate (/256ths of bytes)
+                  when x"84" => reg_dmagic_dst_skip(7 downto 0) <= memory_read_value;
+                  -- @ IO:GS $D705 - Enhanced DMAgic job option $85 $xx = Set destination skip rate (whole bytes)
+                  when x"85" => reg_dmagic_dst_skip(15 downto 8) <= memory_read_value;
+                  -- @ IO:GS $D705 - Enhanced DMAgic job option $86 $xx = Don't write to destination if byte value = $xx, and option $06 enabled
+                  when x"86" => reg_dmagic_transparent_value <= memory_read_value;
+                  when others => null;
+                end case;
+              else
+                if memory_read_value(7)='1' then
+                  -- Options with 1 byte argument, so remember
+                  -- this option ID byte, and process next byte.
+                  dmagic_option_id <= memory_read_value;
+                else
+                  -- Options without arguments
+                  case memory_read_value is
+                    -- @ IO:GS $D705 - Enhanced DMAgic job option $00 = End of options
+                    when x"00" =>  state <= DMAgicReadList;
+                    -- @ IO:GS $D705 - Enhanced DMAgic job option $06 = Use $86 $xx transparency value (don't write source bytes to destination, if byte value matches $xx)
+                    -- @ IO:GS $D705 - Enhanced DMAgic job option $07 = Disable $86 $xx transparency value.
+                                   
+                    when x"06" => reg_dmagic_use_transparent_value <= '0';               
+                    when x"07" => reg_dmagic_use_transparent_value <= '1';               
+                    -- @ IO:GS $D705 - Enhanced DMAgic job option $0A = Use F018A list format
+                    -- @ IO:GS $D705 - Enhanced DMAgic job option $0B = Use F018B list format
+                    when x"0A" => job_is_f018b <= '0';
+                    when x"0B" => job_is_f018b <= '1';
+                    when others => null;
+                  end case;
+                end if;
+              end if;
             when DMAgicReadList =>
               report "DMAgic: Reading DMA list (setting dmagic_cmd to $" & to_hstring(dmagic_count(7 downto 0))
                 &", memory_read_value = $"&to_hstring(memory_read_value)&")";
@@ -3696,7 +3755,7 @@ begin
               -- shift read byte into DMA registers and shift everything around
               dmagic_modulo(15 downto 8) <= memory_read_value;
               dmagic_modulo(7 downto 0) <= dmagic_modulo(15 downto 8);
-              if (support_f018b = '1') then
+              if (job_is_f018b = '1') then
                 dmagic_subcmd <= dmagic_modulo(7 downto 0);
                 dmagic_dest_bank_temp <= dmagic_subcmd;
               else
@@ -3710,7 +3769,7 @@ begin
               dmagic_count(15 downto 8) <= dmagic_src_addr(15 downto 8);
               dmagic_count(7 downto 0) <= dmagic_count(15 downto 8);
               dmagic_cmd <= dmagic_count(7 downto 0);
-              if (support_f018b = '0') and (dmagic_list_counter = 10) then
+              if (job_is_f018b = '0') and (dmagic_list_counter = 10) then
                 state <= DMAgicGetReady;
               elsif dmagic_list_counter = 11 then
                 state <= DMAgicGetReady;
@@ -3727,7 +3786,7 @@ begin
                 & ", dest=$" & to_hstring(dmagic_dest_addr(23 downto 8))
                 & ", count=$" & to_hstring(dmagic_count);
               phi_add_backlog <= '1'; phi_new_backlog <= 1;
-              if (support_f018b = '1') then
+              if (job_is_f018b = '1') then
                 dmagic_src_addr(35 downto 28) <= reg_dmagic_src_mb + dmagic_src_bank_temp(6 downto 4);
                 dmagic_src_addr(27 downto 24) <= dmagic_src_bank_temp(3 downto 0);
                 dmagic_dest_addr(35 downto 28) <= reg_dmagic_dst_mb + dmagic_dest_bank_temp(6 downto 4);
@@ -3741,7 +3800,7 @@ begin
               dmagic_src_addr(7 downto 0) <= (others => '0');
               dmagic_dest_addr(7 downto 0) <= (others => '0');
               dmagic_src_io <= dmagic_src_bank_temp(7);
-              if (support_f018b = '1') then
+              if (job_is_f018b = '1') then
                 dmagic_src_direction <= dmagic_cmd(4);
                 dmagic_src_modulo <= dmagic_subcmd(0);
                 dmagic_src_hold <= dmagic_subcmd(1);
@@ -3751,7 +3810,7 @@ begin
                 dmagic_src_hold <= dmagic_src_bank_temp(4);
               end if;
               dmagic_dest_io <= dmagic_dest_bank_temp(7);
-              if (support_f018b = '1') then
+              if (job_is_f018b = '1') then
                 dmagic_dest_direction <= dmagic_cmd(5);
                 dmagic_dest_modulo <= dmagic_subcmd(2);
                 dmagic_dest_hold <= dmagic_subcmd(3);
@@ -3845,10 +3904,9 @@ begin
                 if dmagic_cmd(2) = '0' then
                   -- Last DMA job in chain, go back to executing instructions
                   state <= normal_fetch_state;
-                  -- Reset DMAgic skip to normal at the end of the last DMA job
+                  -- Reset DMAgic options to normal at the end of the last DMA job
                   -- in a chain.
-                  reg_dmagic_src_skip <= x"0100";
-                  reg_dmagic_dst_skip <= x"0100";
+                  dmagic_reset_options;
                 else
                   -- Chain to next DMA job
                   state <= DMAgicTrigger;
@@ -3909,7 +3967,12 @@ begin
               
               if dmagic_first_read = '0' then
                 -- Do memory write
-                memory_access_write := '1';
+                if (reg_t /= reg_dmagic_transparent_value)
+                  or (reg_dmagic_use_transparent_value='0') then
+                  memory_access_write := '1';
+                else
+                  memory_access_write := '0';
+                end if;
                 memory_access_wdata := reg_t;
                 memory_access_resolve_address := '0';
                 memory_access_address := dmagic_dest_addr(35 downto 8);
@@ -3943,6 +4006,9 @@ begin
                   if dmagic_cmd(2) = '0' then
                     -- Last DMA job in chain, go back to executing instructions
                     state <= normal_fetch_state;
+                    -- Reset DMAgic options to normal at the end of the last DMA job
+                    -- in a chain.
+                    dmagic_reset_options;
                   else
                     -- Chain to next DMA job
                     state <= DMAgicTrigger;
@@ -5722,6 +5788,10 @@ begin
             dma_pending <= '1';
             state <= DMAgicTrigger;
 
+            -- Normal DMA, use pre-set F018A/B mode
+            job_is_f018b <= support_f018b;
+            job_uses_options <= '0';
+
             phi_add_backlog <= '1'; phi_new_backlog <= 1;
             
             -- Don't increment PC if we were otherwise going to shortcut to
@@ -5729,6 +5799,24 @@ begin
             report "Setting PC to self (DMAgic entry)";
             reg_pc <= reg_pc;
           end if;
+          if memory_access_address = x"FFD3705"
+            or memory_access_address = x"FFD1705" then
+            report "DMAgic: Enhanced DMA pending";
+            dma_pending <= '1';
+            state <= DMAgicTrigger;
+
+            -- Normal DMA, use pre-set F018A/B mode
+            job_is_f018b <= support_f018b;
+            job_uses_options <= '1';
+
+            phi_add_backlog <= '1'; phi_new_backlog <= 1;
+            
+            -- Don't increment PC if we were otherwise going to shortcut to
+            -- InstructionDecode next cycle
+            report "Setting PC to self (DMAgic entry)";
+            reg_pc <= reg_pc;
+          end if;
+
           -- @IO:GS $D67F - Trigger trap to hypervisor
           if memory_access_address(27 downto 6)&"111111" = x"FFD367F" then
             hypervisor_trap_port(5 downto 0) <= memory_access_address(5 downto 0);
