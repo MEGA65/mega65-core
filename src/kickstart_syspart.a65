@@ -99,7 +99,15 @@ spo3:	lda $de00,x
 	ldy #>msg_syspart_ok
 	jsr printmessage
 
-	sec
+	jsr syspart_configsector_read
+	jsr syspart_configsector_apply
+	bcs spo4
+
+	ldx #<msg_syspart_config_invalid
+	ldy #>msg_syspart_config_invalid
+	jsr printmessage
+
+spo4:	sec
 	rts
 
 syspart_openerror:
@@ -116,6 +124,62 @@ syspart_openerror:
 	clc
 	rts
 
+syspart_configsector_set:
+	ldx #3
+spcr1:	lda syspart_start_sector,x
+	sta $d680,x
+	dex
+	bpl spcr1
+	jsr sd_fix_sectornumber
+	jmp sd_inc_fixedsectornumber
+
+syspart_configsector_read:
+	jsr syspart_configsector_set
+	jmp sd_readsector
+
+syspart_configsector_write:
+	jsr syspart_configsector_set
+	lda #$03
+	sta $d680
+	sec
+	rts
+
+syspart_configsector_apply:
+	; Check version
+	lda $de00
+	cmp #$01
+	bne syspart_config_invalid
+	lda $de01
+	cmp #$01
+	bne syspart_config_invalid
+
+	; Set PAL/NTSC mode
+	lda $d67f
+	and #$3f
+	sta $d67f
+	lda $de02
+	and #$c0
+	ora $d67f
+	sta $d67f
+
+	; Set audio options
+	lda $de03
+	sta $d6f9
+
+	; Set F011 to use 3.5" drive or disk images
+	lda $de04
+	sta $d6a1
+
+	; Enable/disable Amiga mouse support (emulates 1351 mouse)
+	lda $de05
+	sta $d61b
+	
+	sec
+	rts
+
+syspart_config_invalid:	
+	clc
+	rts
 
 ; Magic string that identifies a MEGA65 system partition
 syspart_magic:
@@ -127,4 +191,5 @@ msg_syspart_ok:
 	.byte "SYSTEM PARTITION OK",0
 msg_syspart_info:
 	.byte "SYSPART: $$$$ FREEZE, $$$$ SERVICE SLOTS",0
-	
+msg_syspart_config_invalid:
+	.byte "SYSPART CONFIG INVALID. PLEASE SET.",0
