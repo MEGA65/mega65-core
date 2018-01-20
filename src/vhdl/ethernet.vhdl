@@ -819,8 +819,12 @@ begin  -- behavioural
           if rx_crc_valid='1' or eth_disable_crc_check='1' then
             -- record that we have received a frame, but only if there was no
             -- CRC error.
-            report "ETHRX: Toggling eth_rx_buffer_last_used_50mhz";
-            eth_rx_buffer_last_used_50mhz <= not eth_rx_buffer_last_used_50mhz;
+            if ((frame_is_multicast and eth_accept_multicast)='1')
+              or ((frame_is_broadcast and eth_accept_broadcast)='1') 
+              or (frame_is_for_me='1') then
+              report "ETHRX: Toggling eth_rx_buffer_last_used_50mhz";
+              eth_rx_buffer_last_used_50mhz <= not eth_rx_buffer_last_used_50mhz;
+            end if;
           end if;
           -- ready to receive another frame
           eth_state <= Idle;
