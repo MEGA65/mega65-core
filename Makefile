@@ -17,6 +17,8 @@ KICKSTARTSRCS = $(SRCDIR)/kickstart.a65 \
 		$(SRCDIR)/kickstart_machine.a65 \
 		$(SRCDIR)/kickstart_process_descriptor.a65 \
 		$(SRCDIR)/kickstart_dos.a65 \
+		$(SRCDIR)/kickstart_syspart.a65 \
+		$(SRCDIR)/kickstart_sdfat.a65 \
 		$(SRCDIR)/kickstart_task.a65 \
 		$(SRCDIR)/kickstart_virtual_f011.a65 \
 		$(SRCDIR)/kickstart_debug.a65 \
@@ -310,7 +312,7 @@ $(BINDIR)/border.prg: 	$(SRCDIR)/border.a65
 
 # ============================ done moved, print-warn, clean-target
 #??? diskmenu_c000.bin yet b0rken
-$(BINDIR)/KICKUP.M65:	$(KICKSTARTSRCS) $(BINDIR)/diskmenu_c000.bin $(SRCDIR)/version.a65
+$(BINDIR)/KICKUP.M65:	$(KICKSTARTSRCS) $(SRCDIR)/version.a65
 	$(OPHIS) $< -l kickstart.list -m kickstart.map
 
 # ============================ done moved, print-warn, clean-target
