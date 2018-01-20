@@ -614,11 +614,10 @@ bytewait:
 
 normalboot:
 
-	; check for keyboard input to jump to utility menu
-	jsr scankeyboard
-	bcs nokey1
-	cmp #$20
-	beq utility_menu
+	; check for ALT key to jump to utility menu
+	lda $d611
+	and #$10
+	bne utility_menu
 
 nokey1:
 
@@ -2041,15 +2040,16 @@ go64:
 ;  C64-mode kernel on the C65 checks if C65 mode
 ;  should be entered.)
 
-		; Check if hold boot switch is set (switch 15)?
+		; Check if hold boot switch is set (control-key)
 		;
-		lda fpga_switches_high
-		bpl l42      ; no, so continue		
+		lda $d611
+		and #$04
+		beq l42      ; no, so continue		
 
 		; yes, display message
 		;
-		ldx #<msg_releasesw15
-		ldy #>msg_releasesw15
+		ldx #<msg_releasectrl
+		ldy #>msg_releasectrl
 		jsr printmessage
 
 l41:		lda fpga_switches_high
@@ -2357,9 +2357,9 @@ checkpoint:
 	adc #$00
 	sta checkpoint_pch
 
-	; Only do checkpoints visibly if switch 12 is set
-	lda fpga_switches_high
-	and #$10
+	; Only do checkpoints visibly if shift held during boot
+	lda $d611
+	and #$03
 	beq cp9
 
 	; Write checkpoint byte values out as hex into message template
@@ -2452,10 +2452,10 @@ nocheckpointmessage:
 	adc #$00
 	sta checkpoint_pch
 
-	; Only do checkpoints visibly if switch 12 is set
-	lda fpga_switches_high
-	and #$10
-	beq checkpoint_return
+	; Only do checkpoints visibly if shift key held
+	lda $d611
+	and #$03
+	beq cp9
 
 	; output checkpoint message to serial monitor
 	ldx #0
@@ -2799,8 +2799,8 @@ msg_checkpoint_eom:
 ; messages all have to be <=40 bytes long
 
 msg_retryreadmbr:     .byte "RE-TRYING TO READ MBR",0
-msg_kickstart:        .byte "MEGA65 MEGAOS HYPERVISOR V00.11",0
-msg_kickstarthelp:    .byte "SW15=HOLD-BOOT, SW12=DEBUG-COMMS",0
+msg_kickstart:        .byte "MEGA65 MEGAOS HYPERVISOR V00.12",0
+msg_kickstarthelp:    .byte "ALT=UTIL MENU CTRL=HOLD-BOOT SHIFT=DEBUG",0
 msg_romok:            .byte "ROM CHECKSUM OK - BOOTING",0
 msg_rombad:	      .byte "ROM CHECKSUM FAIL - LOADING ROMS",0
 msg_charrombad:	      .byte "COULD NOT LOAD CHARROM.M65",0
@@ -2828,7 +2828,7 @@ msg_clusternumber:    .byte "CURRENT CLUSTER=$$$$$$$$",0
 msg_sectoraddress:    .byte "CURRENT SECTOR= $$$$$$$$",0
 msg_nod81:	      .byte "CANNOT MOUNT MEGA65.D81 - (ERRNO: $$)",0
 msg_d81mounted:	      .byte "MEGA65.D81 SUCCESSFULLY MOUNTED",0
-msg_releasesw15:      .byte "RELEASE SW15 TO CONTINUE BOOTING.",0
+msg_releasesctrl:      .byte "RELEASE CONTROL TO CONTINUE BOOTING.",0
 msg_romnotfound:      .byte "COULD NOT FIND ROM MEGA65XXROM",0
 msg_foundkickup:      .byte "LOADING KICKUP.M65 INTO HYPERVISOR",0
 msg_nokickup:         .byte "NO KICKUP.M65 TO LOAD (OR BROKEN)",0
