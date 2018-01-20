@@ -145,10 +145,15 @@ architecture behavioural of ethernet is
                           );
   signal eth_state : ethernet_state := Idle;
 
+  -- MAC address and filtering functions
   signal eth_mac : unsigned(47 downto 0) := x"024753656565";
+  signal eth_mac_shift : unsigned(39 downto 0) := (others => '0');
   signal eth_mac_filter : std_logic := '1';
   signal eth_accept_broadcast : std_logic := '1';
   signal eth_accept_multicast : std_logic := '1';
+  signal frame_is_broadcast : std_logic := '0';
+  signal frame_is_multicast : std_logic := '0';
+  signal frame_is_for_me : std_logic := '0';
  
   signal rx_keyinput : std_logic := '0';
   signal eth_keycode_toggle_internal : std_logic := '0';
@@ -708,6 +713,28 @@ begin  -- behavioural
                 -- (max frame length = 2048 - 2 length bytes - 4 CRC bytes = 2042 bytes
                 null;
               else
+                if eth_frame_len = 0 then
+                  frame_is_multicast <= eth_rxbits(0);
+                  if eth_rxd /= "111111" or eth_rxbits /= "11" then
+                    frame_is_broadcast <= '0';
+                  else
+                    frame_is_broadcast <= '1';
+                  end if;
+                  if (eth_rxd & eth_rxbits) /= eth_mac(47 downto 40) then
+                    frame_is_for_me <= '0';
+                  else
+                    frame_is_for_me <= '1';
+                  end if;
+                  eth_mac_shift <= eth_mac(39 downto 0);
+                elsif eth_frame_len < 6 then
+                  if eth_rxd /= "111111" or eth_rxbits /= "11" then
+                    frame_is_broadcast <= '0';
+                  end if;
+                  if (eth_rxd & eth_rxbits) /= eth_mac_shift(39 downto 32) then
+                    frame_is_for_me <= '0';
+                  end if;
+                  eth_mac_shift(39 downto 8) <= eth_mac_shift(31 downto 0);
+                end if;
                 eth_frame_len <= eth_frame_len + 1;
                 rxbuffer_write <= '1';
                 report "ETHRX: Received byte $" & to_hstring(eth_rxd & eth_rxbits);
@@ -784,7 +811,10 @@ begin  -- behavioural
           report "ETHRX: Recording crc_valid = " & std_logic'image(rx_crc_valid) & "   (CRC = $"& to_hstring(rx_crc_reg)&")";
           rxbuffer_writeaddress <= rxbuffer_writeaddress + 1;
           rxbuffer_wdata(7) <= not rx_crc_valid;
-          rxbuffer_wdata(6 downto 3) <= "0000";
+          rxbuffer_wdata(6) <= frame_is_for_me;
+          rxbuffer_wdata(5) <= frame_is_broadcast;
+          rxbuffer_wdata(4) <= frame_is_multicast;
+          rxbuffer_wdata(3) <= '0';
           rxbuffer_wdata(2 downto 0) <= frame_length(10 downto 8);
           if rx_crc_valid='1' or eth_disable_crc_check='1' then
             -- record that we have received a frame, but only if there was no
