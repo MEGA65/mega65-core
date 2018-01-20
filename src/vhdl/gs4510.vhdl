@@ -2276,6 +2276,9 @@ begin
         -- @ IO:GS $D700 - DMAgic DMA list address LSB, and trigger DMA (when written)
         -- DMA gets triggered when we write here. That actually happens through
         -- memory_access_write.
+        -- We also clear out the upper address bits in case an enhanced job had
+        -- set them.
+        reg_dmagic_addr(27 downto 23) <= (others => '0');        
       elsif (long_address = x"FFD370E") or (long_address = x"FFD170E") then
         -- Set low order bits of DMA list address, without starting
         -- @IO:GS $D70E DMA list address low byte (address bits 0 -- 7) WITHOUT STARTING A DMA JOB (used by Hypervisor for unfreezing DMA-using tasks)
