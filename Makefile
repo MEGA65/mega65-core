@@ -5,6 +5,9 @@ COPT=	-Wall -g -std=c99
 CC=	gcc
 OPHIS=	../Ophis/bin/ophis -4
 
+CA65=  ca65 --cpu 4510
+LD65=  ld65 -t none
+
 ASSETS=		assets
 SRCDIR=		src
 BINDIR=		bin
@@ -301,8 +304,11 @@ $(SDCARD_DIR)/MEGA65.D81:	$(UTILITIES)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(OPHIS) $< -l $*.list -m $*.map -o $*.prg
 
-$(UTILDIR)/diskmenu.prg:	$(UTILDIR)/diskmenuprg.a65 $(UTILDIR)/diskmenu.a65 $(UTILDIR)/etherload.prg
-	$(OPHIS) $< -l $*.list -m $*.map	
+$(UTILDIR)/diskmenuprg.o:      $(UTILDIR)/diskmenuprg.a65 $(UTILDIR)/diskmenu.a65 $(UTILDIR)/diskmenu_sort.a65
+	$(CA65) $< -l $*.list
+
+$(UTILDIR)/diskmenu.prg:       $(UTILDIR)/diskmenuprg.o
+	$(LD65) $< --mapfile $*.map -o $*.prg
 
 $(SRCDIR)/mega65-fdisk/m65fdisk.prg:	
 	( cd $(SRCDIR)/mega65-fdisk ; make )
@@ -316,8 +322,11 @@ $(BINDIR)/KICKUP.M65:	$(KICKSTARTSRCS) $(SRCDIR)/version.a65
 	$(OPHIS) $< -l kickstart.list -m kickstart.map
 
 # ============================ done moved, print-warn, clean-target
-$(BINDIR)/diskmenu_c000.bin:	$(UTILDIR)/diskmenuc000.a65 $(UTILDIR)/diskmenu.a65 $(BINDIR)/etherload.prg
-	$(OPHIS) $< -l $*.list -m $*.map -o $*.bin
+$(UTILDIR)/diskmenuc000.o:     $(UTILDIR)/diskmenuc000.a65 $(UTILDIR)/diskmenu.a65 $(UTILDIR)/diskmenu_sort.a65
+	$(CA65) $< -l $*.list
+
+$(BINDIR)/diskmenu_c000.bin:   $(UTILDIR)/diskmenuc000.o
+	$(LD65) $< --mapfile $*.map -o $*.bin
 
 $(BINDIR)/etherload.prg:	$(UTILDIR)/etherload.a65
 	$(OPHIS) $< -l $*.list -m $*.map -o $*.prg
@@ -470,8 +479,8 @@ bin/%.bit:	isework/%.ncd
 
 clean:
 	rm -f KICKUP.M65 kickstart.list kickstart.map
-	rm -f $(UTILDIR)/diskmenu.prg diskmenuprg.list diskmenuprg.map
-	rm -f diskmenu_c000.bin diskmenuc000.list diskmenuc000.map
+	rm -f $(UTILDIR)/diskmenu.prg $(UTILDIR)/diskmenuprg.list $(UTILDIR)/diskmenu.map $(UTILDIR)/diskmenuprg.o
+	rm -f $(BINDIR)/diskmenu_c000.bin $(UTILDIR)/diskmenuc000.list $(BINDIR)/diskmenu_c000.map $(UTILDIR)/diskmenuc000.o
 	rm -f $(TOOLDIR)/etherkick/etherkick
 	rm -f $(TOOLDIR)/etherload/etherload
 	rm -f $(TOOLDIR)/hotpatch/hotpatch

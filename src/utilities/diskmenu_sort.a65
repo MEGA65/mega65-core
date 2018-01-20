@@ -1,134 +1,410 @@
 
-sortnames:
-	; Sort list of disk names
+;-------------------------------------------------------------------------------
+sortNames:
+;-------------------------------------------------------------------------------
+;	Sort list of disk names
 
-	; start by setting pointer of compare to the newly added item
-	lda diskpointer
-	sta sortpointer
-	lda diskpointer+1
-	sta sortpointer+1
+;	start by setting pointer of compare to the newly added item
+		LDA 	diskPointer
+		STA 	sortPointer
+		LDA 	diskPointer + 1
+		STA 	sortPointer + 1
 
-	; Now do sortpointer-- to make it point to the last string
-	; already added.
-	jsr sortpointer_minus_minus
-	; return if list is empty
-	bne nameloop
-	rts
+;	return if list is empty
+;	If  sortPointer = diskNameArray then return else continue
+		LDA	#>diskNameArray 
+		CMP	sortPointer + 1
+		BNE	@cont
+		LDA	#<diskNameArray
+		CMP	sortPointer
+		BNE	@cont
+@exit:
+		RTS
 
-nameloop:
-	; Now iterate through the strings, to work out where the new string
-	; should be inserted.
-	jsr comparenames
-	bne doinsertnamehere
+@cont:
+		LDA	#$00
+		STA	fHadPos
+		STA	lastSortPos 
+		STA	lastSortPos + 1
 
-	; keep searching for insert point
-	jsr sortpointer_minus_minus
-	; If we hit the start of the list, then it must go there
-	beq doinsertnamehere
-	; else, keep searching
-	jmp nameloop
+nameLoop:
+;	Now do sortpointer-- to make it point to the item before the new one.
+		JSR 	sortPointer_minus_minus
+		
+;**************************************************
+	.if	DEBUG_SORT
+		LDA	#$00
+		STA	cmdNmPos
+		LDA	#$00
+		STA	cmdNmLen
+		
+		LDA	#'-'
+		JSR	appendCmdNm
+		LDA	#'-'
+		JSR	appendCmdNm
+		
+		LDA	sortPointer
+		STA	VALUE
+		JSR	PRTBYT
+		
+		LDA	#'-'
+		JSR	appendCmdNm
+		LDA	#'-'
+		JSR	appendCmdNm
+		
+		LDX 	#$00
+@loop:	
+		LDA 	cmdNameTS, X
+		JSR 	asciiToCharROM
+		ORA 	#$80
+		STA 	$07C0, X
+		INX
+		CPX	cmdNmLen
+		BNE	@loop
+		
+				
+		JSR	waitTwoSeconds
+		JSR	waitTwoSeconds
+	.endif
+;**************************************************
 
-doinsertnamehere:
-	; sortpointer points to where the new entry should go.
-	; so we need to copy [sortpointer,diskpointer+$0f) -> sortpointer+$10
-	; and copy the new disk name from [diskpointer,diskpointer+$0f)
-	; to sortpointer.  This means we need to put [diskpointer,diskpointer+$0f)
-	; somewhere safe while we DMA the rest up.
+;	If we hit before start of the list, then check swap
+;	If sortPointer < diskNameArray then done
+		LDA	sortPointer + 1
+		CMP	#>diskNameArray
+		BCC	@check
+		BNE	@cont
+		LDA	sortPointer
+		CMP	#<diskNameArray
+		BCC	@check
+@cont:
+;	Now iterate through the strings, to work out where the new string should 
+;	be inserted (search until one is less). 
+		JSR 	compareNames
+		BEQ 	@tstCont
+	
+		LDA	#$01
+		STA	fHadPos
+	
+		LDA	sortPointer
+		STA	lastSortPos
+		LDA	sortPointer + 1		
+		STA	lastSortPos + 1
+		
+		JMP	nameLoop
+		
+@tstCont:
+		LDA	fHadPos
+		CMP	#$01
+		BNE	nameLoop
+		
+@check:
+		LDA	lastSortPos + 1
+		BEQ	@done
+		
+		LDA	lastSortPos
+		STA	sortPointer
+		LDA	lastSortPos + 1
+		STA	sortPointer + 1	
+		
+		JMP	doInsertNameHere
 
-	; Save the name at [diskpointer,diskpointer+$0f)
-	ldy #$0f
-din1:	lda diskpointer,y
-	sta nametemp,y
-	dey
-	bpl din1
+@done:
+		RTS
 
-	; Set sortpointer as DMA source address ...
-	; ... and set destination to source + $10
-	lda sortpointer+0
-	sta sortdmasrc+0
-	clc
-	adc #$10
-	sta sortdmadst+0
-	lda sortpointer+1
-	sta sortdmasrc+1
-	adc #$00
-	sta sortdmadst+1
+doInsertNameHere:
+;**************************************************
+	.if	DEBUG_SORT
+		LDA	#$00
+		STA	cmdNmPos
+		LDA	#$00
+		STA	cmdNmLen
+		
+		LDA	#'!'
+		JSR	appendCmdNm
+		LDA	#'!'
+		JSR	appendCmdNm
+		
+		LDA	sortPointer
+		STA	VALUE
+		JSR	PRTBYT
+		
+		LDA	#'!'
+		JSR	appendCmdNm
+		LDA	#'!'
+		JSR	appendCmdNm
+		
+		LDX 	#$00
+@loop:	
+		LDA 	cmdNameTS, X
+		JSR 	asciiToCharROM
+		ORA 	#$80
+		STA 	$07C0, X
+		INX
+		CPX	cmdNmLen
+		BNE	@loop
+		
+				
+		JSR	waitTwoSeconds
+		JSR	waitTwoSeconds
+	.endif
+;**************************************************
 
-	; Set the copy length to diskpointer-sortpointer bytes.
-	lda diskpointer+0
-	sec
-	sbc sortpointer+0
-	sta sortdmacnt+0
-	lda diskpointer+1
-	sbc sortpointer+1
-	sta sortdmacnt+1
+;	Save the name at [diskpointer,diskpointer+$0f]
+		LDY 	#$0F
+din1:	
+		LDA 	(diskPointer), Y
+		STA 	nameTemp, Y
+		DEY
+		BPL 	din1
 
-	; Ask DMAgic to do the transfer.
-	; (clear DMAgic src/dst MB values, since the list lives in the first 1MB
-	; address space)
-	lda #$00
-	sta $d702
-	sta $d704
-	sta $d705
-	sta $d706
-	lda #>sortdmalist
-	sta $d701
-	lda #<sortdmalist
-	sta $d700
+;	Set source as diskpointer - 1
+		SEC
+		LDA 	diskPointer
+		SBC 	#$01
+		STA 	sortDmaSrc
+		LDA 	diskPointer + 1
+		SBC 	#$00
+		STA 	sortDmaSrc + 1
+		
+;	Set destination as diskpointer + $0F
+		CLC
+		LDA 	diskPointer
+		ADC 	#$0F
+		STA 	sortDmaDst
+		LDA 	diskPointer + 1
+		ADC 	#$00
+		STA 	sortDmaDst + 1
 
-	; Now copy the saved entry to sortpointer
-	ldy #$0f
-din2:	lda nametemp,y
-	sta sortpointer,y
-	dey
-	bpl din2 
+;	Set the copy length to diskpointer-sortpointer bytes.
+		LDA 	diskPointer
+		SEC
+		SBC 	sortPointer
+		STA 	sortDmaCnt
+		LDA 	diskPointer + 1
+		SBC	sortPointer + 1
+		STA 	sortDmaCnt + 1
+				
+;**************************************************
+	.if	DEBUG_SORT
+		LDA	#$00
+		STA	cmdNmPos
+		LDA	#$00
+		STA	cmdNmLen
+		
+		LDA	sortDmaSrc
+		STA	VALUE
+		JSR	PRTBYT
+		
+		LDA	#':'
+		JSR	appendCmdNm
+		
+		LDA	sortDmaDst
+		STA	VALUE
+		JSR	PRTBYT
+		
+		LDA	#':'
+		JSR	appendCmdNm
+		
+		LDA	sortDmaCnt
+		STA	VALUE
+		JSR	PRTBYT
 
-	; Now we are all done
+		LDA	#':'
+		JSR	appendCmdNm
+		
+		LDX 	#$00
+@loop:	
+		LDA 	cmdNameTS, X
+		JSR 	asciiToCharROM
+		ORA 	#$80
+		STA 	$07C0, X
+		INX
+		CPX	cmdNmLen
+		BNE	@loop
+		
+				
+		JSR	waitTwoSeconds
+		JSR	waitTwoSeconds
+	.endif
+;**************************************************
 
-	rts
 
-sortdmalist:	.byte $00 ; copy non-chained job 
-sortdmacnt:		.word $0001 ; number of bytes to copy
-sortdmasrc:		.word $0000 ; source address
-				.byte $40 ; source bank number / direction
-sortdmadst:		.word $0000 ; destination address
-				.byte $40 ; destination bank number / direction
-				.word $0000 ; modulo
-nametemp:	.byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+
+
+;**************************************************
+	.if	USE_DMAGIC
+;	Ask DMAgic to do the transfer.
+;	(clear DMAgic src/dst MB values, since the list lives in the first 1MB
+;	address space)
+		LDA 	#$00
+		STA 	$D702
+		STA 	$D704
+		STA 	$D705
+		STA 	$D706
+		LDA 	#>sortDmaList
+		STA 	$D701
+		LDA 	#<sortDmaList
+		STA 	$D700
+
+	.else
+;	Set sortpointer as source address ...
+; 	... and set destination to source + $10
+		LDA 	sortPointer
+		STA 	sortDmaSrc
+		CLC
+		ADC 	#$10
+		STA 	sortDmaDst
+		LDA 	sortPointer + 1
+		STA 	sortDmaSrc + 1
+		ADC 	#$00
+		STA 	sortDmaDst + 1
+
+;	Set the copy length to diskpointer-sortpointer bytes.
+		LDA 	diskPointer
+		SEC
+		SBC 	sortPointer
+		STA 	sortDmaCnt
+		LDA 	diskPointer + 1
+		SBC	sortPointer + 1
+		STA 	sortDmaCnt + 1
+		
+		LDA	sortDmaSrc
+		STA	$4B
+		LDA	sortDmaSrc + 1
+		STA	$4C
+		LDA	sortDmaDst
+		STA	$4D
+		LDA	sortDmaDst + 1
+		STA	$4E
+		
+		LDY	sortDmaCnt
+		DEY
+@loop1:
+		LDA	($4B), Y
+		STA	($4D), Y
+		DEY
+		BPL	@loop1
+	.endif
+;**************************************************
+
+
+;	Now copy the saved entry to sortpointer
+		LDY 	#$0F
+din2:	
+		LDA 	nameTemp, Y
+		STA 	(sortPointer), Y
+		DEY
+		BPL 	din2 
+
+;	Now we are all done
+
+		RTS
+
+sortDmaList:	
+	.byte 		$00 			; copy non-chained job 
+sortDmaCnt:		
+	.word 		$0001 			; number of bytes to copy
+sortDmaSrc:		
+	.word 		$0000 			; source address
+	.byte 		$40 			; source bank number / direction
+sortDmaDst:		
+	.word 		$0000 			; destination address
+	.byte 		$40 			; destination bank number / direction
+	.word 		$0000 			; modulo
+nameTemp:	
+	.byte 		0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+lastSortPos:
+	.word		$0000
+fHadPos:
+	.byte		$00
+
 
 
 ; To sort the names of disks, we first need a routine to compare the names of
 ; two disks, and indicate which is the lesser.
-comparenames:
-	ldy #$00
+compareNames:
+		LDY 	#$00
 cnl:
-	lda (diskpointer),y
-	cmp (sortpointer),y
-	bcs cn_gt
-	bne cn_lt
-	; chars equal
-	iny
-	cpy #$10
-	bne cnl
-	; names match
-	lda #$00
-	rts
-cn_gt:	; name @ sortpointer > name @ diskpointer
-	; so they need to swap
-	lda #$01
-	rts
-cn_lt:	; name @ sortpointer < name @ diskpointer
-	; so no need to swap
-	lda #$00
-	rts
+;**************************************************
+	.if	DEBUG_SORT
+		PHY
+	
+		LDA	#$00
+		STA	cmdNmPos
+		LDA	#$00
+		STA	cmdNmLen
+		
+		LDA	#'?'
+		JSR	appendCmdNm
+		
+		LDA	(diskPointer), Y
+		JSR	appendCmdNm
+	
+		LDA	#'?'
+		JSR	appendCmdNm
+
+		LDA	(sortPointer), Y
+		JSR	appendCmdNm
+
+		LDA	#'?'
+		JSR	appendCmdNm
+		
+		LDX 	#$00
+@loop:	
+		LDA 	cmdNameTS, X
+		JSR 	asciiToCharROM
+		ORA 	#$80
+		STA 	$07C0, X
+		INX
+		CPX	cmdNmLen
+		BNE	@loop
+		
+		JSR	waitTwoSeconds
+		JSR	waitTwoSeconds
+		
+		PLY
+	.endif
+;**************************************************
+
+
+		LDA 	(diskPointer), Y
+		CMP 	(sortPointer), Y
+;dengland
+;	BCS actually gives us >= not just >
+;		BEQ	@cont
+;		BCS 	cn_gt
+;		BNE 	cn_lt
+
+		BCC	cn_lt
+		BEQ	@cont
+		BCS	cn_gt
+
+;	chars equal
+@cont:
+		INY
+		CPY 	#$10
+		BNE 	cnl
+		
+;	names match
+	
+cn_gt:	
+;	name @ diskpointer > name @ sortpointer so don't swap
+		LDA 	#$00
+		RTS
+		
+cn_lt:	
+;	 name @ diskpointer < name @ sortpointer so no need to swap
+		LDA 	#$01
+		RTS
 
 ;  Make sortpointer point to the previous entry in the list
-sortpointer_minus_minus:
-	sec
-	lda sortpointer+1
-	sbc #$10
-	sta sortpointer+1
-	lda sortpointer
-	sbc #$00
-	sta sortpointer
-	rts
+sortPointer_minus_minus:
+		SEC
+		LDA 	sortPointer
+		SBC 	#$10
+		STA 	sortPointer
+		LDA 	sortPointer + 1
+		SBC 	#$00
+		STA 	sortPointer + 1
+		RTS

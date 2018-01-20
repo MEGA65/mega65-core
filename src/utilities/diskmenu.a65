@@ -1,943 +1,1865 @@
+;===============================================================================
+; DiskMenu
+; --------
 ;
-;  Display list of disk images on SD card on MEGA65, and allow user to pick which one
-;  to mount.
+;  Display list of disk images on SD card on MEGA65, and allow user to pick 
+;  which one to mount.
 ;
-;  Display configuration will (for now) be 40x25 screen with 16 character filenames
-;  in columns.  The on-screen order is to allow moving sideways to skip 21 disks
-;  at a time.  Only two columns will be shown on screen at a time.
+;  Display configuration will (for now) be 40x25 screen with 16 character 
+;  filenames in columns.  The on-screen order is to allow moving sideways to 
+;  skip 21 disks at a time.  Only two columns will be shown on screen at a time.
 ;
-;  To save memory, we will only cache the names of the disk images. When one is selected
-;  then we repeat the directory scan to find the matching disk image name, and then mount
-;  it from there. Hopefully this won't be too slow. It would also be nice to sort the list
-;  alphabetically when it is displayed.
+;  To save memory, we will only cache the names of the disk images. When one is 
+;  selected then we repeat the directory scan to find the matching disk image 
+;  name, and then mount it from there. Hopefully this won't be too slow. It 
+;  would also be nice to sort the list alphabetically when it is displayed.
 ;
+;  Caveats:
+;	- Disk image names have to be in capitals.  The Hypervisor is currently 
+;	  only providing the names in uppercase and is case sensitive when 
+;	  mounting.
+;	- Disk image names can only be up to 16 characters in length.
+;	- Only the first 2752 disk images can be viewed.
+;	- The code is getting rather close to its "BSS" or data storage area.  
+;	  Adding more features will likely reduce the disk image count that can 
+;	  be viewed.
+;	- Programs with stack-based loaders may not load correctly.
+;
+;
+;  DiskMenu has been brought to you by (not an exhaustive list):
+;
+;	Paul Gardner-Stephen
+;		- Initial coding?
+;	Daniel England		
+;		- Port to ca65 assembler and re-nice
+;		- D81 contents browsing and program loading
+;		- Bug fixes for $0801 version
+;		- Numerous other minor fixes
+;		- Fix/rewrite sort routines
+;
+;===============================================================================
 
-	 ; List of disk names begins at $1000 - $9FFF
-	 ; 16 bytes each, so 36KB can hold 2,304 disks
-	 .alias disknamearray $1000
-	 ; Where to get Hypervisor to copy dirent structures
-	 .alias dirent $0f00
-	 ; temporary filename structure (must also be <32KB)
-	 .alias scratch_filename $0e00
-	 ; 16-bit pointers to current disk and number of
-	 ; disks.
-	 .alias displaydiskpointer $40
-	 .alias diskpointer $fe
-	 .alias sortpointer $f7
-	 ; pointer for where we are drawing on screen
-	 .alias screenpointer $f9
+;-------------------------------------------------------------------------------
+;Debugging defines
+;-------------------------------------------------------------------------------
+	.define		USE_SORT	1
+	.define		DEBUG_SORT	0
+	.define		USE_DMAGIC	1
 
-	 .scope
-	 
-	 ; enable enhanced registers
-	 lda #$47
-	 sta $d02f
-	 lda #$53
-	 sta $d02f
 
-	 ; Clear screen
-	 lda #$0e
-	 sta $d020
-	 lda #$06
-	 sta $d021
-	 ; Lower-case
-	 lda #$0e
-	 jsr $ffd2
-	 
-	 ldx #0
-ll9:	 lda #$20
-	 sta $0400,x
-	 sta $0500,x
-	 sta $0600,x
-	 sta $0700,x
-	 lda #$e
-	 sta $d800,x
-	 sta $d900,x
-	 sta $da00,x
-	 sta $db00,x
-	 inx
-	 bne ll9
-
-	 ; top and bottom text
-	 ldy #39
-ll13:	 lda topbanner,y
-	 jsr asciitocharrom
-	 ora #$80
-	 sta $0400,y
-	 lda bottombanner,y
-	 jsr asciitocharrom
-	 ora #$80
-	 sta $07c0,y
-	 dey
-	 bpl ll13
-
-	 ; reset state
-	 lda #$00
-	 sta currentitem
-	 sta currentitem+1
-	 sta diskcount
-	 sta diskcount+1
-	 sta screenitem
-   	 sta screenitem+1
-
-	 ; enquire hypervisor version
-	 ; (protect NMI handler from non-zero Z register value which
-	 ; can upset some 6502 instructions).
-	 sei
-	 lda #$00
-	 sta $d640
-	 ; XXX - work around bug in hypervisor traps, where the byte
-	 ; after a trap may or may not get executed	 
-	 nop
-	 ldz #$00
-	 cli
-
-	 cmp #$00
-	 bne getdisklist
-
-	 ; no hypervisor. not on a mega65?
-	 ldx #39
-ll15:	 lda nohypermsg,x
-	 jsr asciitocharrom
-	 sta $05e0,x
-	 dex
-	 bpl ll15
-ll16:	 jmp ll16
-
-nohypermsg:
-	 .byte "No reply from Hypervisor - not a MEGA65?"
-
-getdisklist:
-	; make sure Z = $00 after OS & DOS version enquiry 
-	lda #$00
-	taz
-
-	; Now that we know we are on a real MEGA65, ask for fast CPU
-	lda #65
-	sta 0
-
-	; Open current directory via Hypervisor
-	lda #$12
-	sta $d640
-	; XXX - Work around hypervisor trap bug
-	nop
-	bcs opendirok
+	.if	DEBUG_SORT
+	.out	"WARNING    :  The loader code is presently broken when debugging sort."
+	.endif
 	
-         ; Display error message	 
-	 ldx #39
-ll17:	 lda noopendirmsg,x
-	 jsr asciitocharrom
-	 sta $05e0,x
-	 dex
-	 bpl ll17
-	 jmp ll16
-
-noopendirmsg:
-	 .byte "  Couldn't open directory for reading   "
+	.if	.not USE_DMAGIC
+	.out	"Please note:  The CPU sort code will only handle 15 images."
+	.endif
 
 
-opendirok:
-	; Remember file descriptor for calls to readdir
-	sta filedescriptor
+;-------------------------------------------------------------------------------
+;Global defs
+;-------------------------------------------------------------------------------
+krnlSTNM	=	$FFBD			;Set file name
+krnlSLFS	=	$FFBA			;Set logical addresses
+krnlLOAD	=	$FFD5			;Load
+krnlOPEN	= 	$FFC0			;Open a channel
+krnlCLSE	= 	$FFC3			;Close a channel
+krnlCHKI	= 	$FFC6			;Set input from file
+krnlCHRI	= 	$FFCF			;Get character from channel
+krnlCLRC	=	$FFCC			;Clear channels
+krnlCLAL	=	$FFE7			;Close all
+krnlCHRO	=	$FFD2      		;Output character
+
+krnlTBUF	=	$033C			;Tape buffer
+krnlKBUF	= 	$0277			;Keyboard input buffer
+krnlKBLN	=	$C6			;Length of keyboard buffer
+
+basCHROUT	=	$0326			;BASIC's CHROUT vector
+
+saveVect	=	$CCE0			;Storage for original vector
+fileAddr	=	$CCE2			;Storage for filename
+
+ldrHiAddr	=	$CD00			;Where to put high loader
+
+blockBufPtr	=	$4B
+cmdNmLen	= 	$4C
+cmdNmPos	=	$4D
+cmdNmTmp	=	$4E
+
+LEAD0		=	$4F
+DIGIT   	=	LEAD0 + $01
+VALUE   	=	DIGIT + $01
+
+	.struct		D81FILENAME
+			fName00		.byte
+			fName01		.byte
+			fName02		.byte
+			fName03		.byte
+			fName04		.byte
+			fName05		.byte
+			fName06		.byte
+			fName07		.byte
+			fName08		.byte
+			fName09		.byte
+			fName0A		.byte
+			fName0B		.byte
+			fName0C		.byte
+			fName0D		.byte
+			fName0E		.byte
+			fName0F		.byte
+	.endstruct
+
+	.struct		D81DIRENTRY
+			nextTrk		.byte	
+			nextSec		.byte	
+			fileType	.byte	
+			firstTrk	.byte
+			firstSec	.byte
+			fileName	.tag	D81FILENAME
+			relFTrk		.byte
+			relFSec		.byte
+			relRLen		.byte
+			unused0		.byte
+			unused1		.byte
+			unused2		.byte
+			unused3		.byte
+			savNewT		.byte
+			savNewS		.byte
+			fileSize	.word
+	.endstruct
+			
+	.assert		.sizeof(D81DIRENTRY) = $20, error, "D81DIRENTRY definition incorrect!"
+
+blkBuf0			=	$CD00
+blkBuf1			=	blkBuf0 + $20
+blkBuf2			=	blkBuf1 + $20
+blkBuf3			=	blkBuf2 + $20
+blkBuf4			=	blkBuf3 + $20
+blkBuf5			=	blkBuf4 + $20
+blkBuf6			=	blkBuf5 + $20
+blkBuf7			=	blkBuf6 + $20
+
+
+;	List of disk names begins at $1600 - $BFFF
+;	16 bytes each, up to 2,720 disks
+diskNameArray		=	$1600
+
+;	Where to get Hypervisor to copy dirent structures
+dirEnt 			=	$1500
+
+; 	Temporary filename structure (must also be <32KB)
+scratch_fileName 	=	$1400
+
+; 	16-bit pointers to current disk and number of disks.
+displayDiskPointer 	=	$40
+diskPointer 		=	$FE
+sortPointer 		=	$F7
+
+; 	Pointer for where we are drawing on screen
+screenPointer 		=	$F9
+
+;	Indicate which "mode" the program is in
+;	- 0 for browsing D81 images, 1 for browsing D81 contents
+programMode		= 	$FB
+
+
+;-------------------------------------------------------------------------------
+;Program start
+;-------------------------------------------------------------------------------
+		JSR 	initM65IO
+
+		JSR	initScreen
+
+;	Reset state
+		LDA 	#$00
+		STA 	currentItem
+		STA 	currentItem + 1
+		STA 	diskCount
+		STA 	diskCount + 1
+		STA 	screenItem
+		STA 	screenItem + 1
+		
+		STA	programMode
+		
+
+;	Enquire about the hypervisor version (protect NMI handler from non-zero 
+;	Z register value which can upset some 6502 instructions).
+		SEI
+		LDA 	#$00			;Hypervisor, who are you?
+		STA 	$D640
+;***	Work around bug in hypervisor traps, where the byte after a trap may or 
+;	may not get executed	 
+		NOP
+		
+;***	On a C64, this becomes LAX ($00, X) which shouldn't be a problem
+		LDZ 	#$00			
+		CLI
+
+		CMP 	#$00
+		BNE 	getDiskList
+
+;	No hypervisor.  Not on a Mega65?
+		LDX 	#39			;Output an error message
+ll15:	 
+		LDA 	noHyperMsg, X
+		JSR 	asciiToCharROM
+		STA 	$05E0, X
+		DEX
+		BPL 	ll15
+ll16:	 
+		JMP 	ll16			;Freeze
+
+
+noHyperMsg:
+	.asciiz		"No reply from Hypervisor - not a MEGA65?"
 	
-	; get pointer ready for writing disk names from DIRENT structure
-	lda #<disknamearray
-	sta diskpointer
-	lda #>disknamearray
-	sta diskpointer+1
 
-readnextentry:
-	; ask for next directory entry
-	lda #$14
-	; Ask for entry to be written to screen RAM for debugging
-	ldx filedescriptor
-	ldy #>dirent
-	; XXX - NOP after trap to hypervisor to work around CPU bug
-	sta $d640
-	nop
-	bcc endofdir
 
-	; Check file type: we only want regular files
+;-------------------------------------------------------------------------------
+getDiskList:
+;-------------------------------------------------------------------------------
+;	Make sure Z = $00 after OS & DOS version enquiry 
+		LDA 	#$00
+		TAZ
 
-	; Skip "hidden" files
-	lda dirent
-	cmp #$2e
-	beq readnextentry
+;	Now that we know we are on a real MEGA65, ask for fast CPU
+		LDA 	#65
+		STA 	$00
+		
+;	Bank out BASIC (keep Kernal and IO).  First, make sure that the IO port
+;	is set to output on those lines.
+		LDA	$00
+		ORA	$07
+		STA	$00
+		
+;	Now, exclude BASIC from the memory map (and include Kernal and IO)
+		LDA	$01
+		AND	#$FE
+		ORA	#$06
+		STA	$01
+	
+getDiskLstStart:	
+;	Open current directory via Hypervisor
+		LDA 	#$12			;Hypervisor open curr directory
+		STA 	$D640
+;***	Work around hypervisor trap bug
+		NOP
+;dengland
+;	Carry set is success.  Different...
+		BCS 	openDirOK		
+	
+;	Display error message	 
+		LDX 	#39
+ll17:	 
+		LDA 	noOpenDirMsg, X
+		JSR 	asciiToCharROM
+		STA 	$05E0, X
+		DEX
+		BPL 	ll17
+		JMP 	ll16			;Freeze
 
-	; Check if filename ends in .D81
-	; Begin by checking length >4 (i.e, something.d81)
-	lda dirent+64
-	cmp #5
-	bcc readnextentry
-	tay
-	dey
-	lda dirent,y
-	cmp #$31
-	bne readnextentry
-	dey
-	lda dirent,y
-	cmp #$38
-	bne readnextentry
-	dey
-	lda dirent,y
-	cmp #$44
-	beq isd81file
-	cmp #$64
-	bne readnextentry
-isd81file:
+noOpenDirMsg:
+	.asciiz		"  Couldn't open directory for reading   "
 
-	; Chop extension from filename
-	lda dirent+64
-	sec
-	sbc #$04
-	sta dirent+64
 
-	; Got an entry - copy name
-	ldy #$00
-ll19:	lda dirent,y
-	sta (diskpointer),y
-	iny
-	cpy dirent+64
-	beq ll19b
-	cpy #$10
-	bne ll19
+openDirOK:
+;	Remember file descriptor for calls to readdir
+		STA 	fileDescriptor
+	
+;	Get pointer ready for writing disk names from DIRENT structure
+		LDA 	#<diskNameArray
+		STA 	diskPointer
+		LDA 	#>diskNameArray
+		STA 	diskPointer + 1
+
+readNextEntry:
+;	Ask for next directory entry
+		LDA 	#$14			;Hypervisor get next dir entry
+		LDX 	fileDescriptor		
+		LDY 	#>dirEnt
+		STA 	$D640
+;***	NOP after trap to hypervisor to work around CPU bug
+		NOP
+;dengland
+;***	Carry clear is failure.  Different...
+;		BCC 	endOfDir
+		BCS	@cont
+		JMP	endOfDir
+
+@cont:
+;	Check file type: we only want regular files
+
+;	Skip "hidden" files
+		LDA 	dirEnt
+		CMP 	#$2E
+		BEQ 	readNextEntry
+
+;	Check if filename ends in .D81
+;	Begin by checking length > 4 (i.e, something.D81)
+		LDA 	dirEnt + 64		;File name length
+		CMP 	#5
+		BCC 	readNextEntry
+		
+		TAY
+		DEY
+		LDA 	dirEnt, Y
+		CMP 	#$31			;'1'?
+		BNE 	readNextEntry
+	
+		DEY
+		LDA 	dirEnt, Y
+		CMP 	#$38			;'8'?
+		BNE 	readNextEntry
+	
+		DEY
+		LDA 	dirEnt, Y
+		CMP 	#$44			;'D'?
+		BEQ 	isD81File
+
+		CMP 	#$64			;'d'?
+		BNE 	readNextEntry
+
+isD81File:
+;	Chop extension from filename
+		LDA 	dirEnt + 64
+		SEC
+		SBC 	#$04
+		STA 	dirEnt + 64
+
+;	Got an entry - copy name
+		LDY 	#$00
+ll19:	
+		LDA 	dirEnt, Y
+		STA 	(diskPointer), Y
+		INY
+		CPY 	dirEnt + 64
+		BEQ 	ll19b
+		
+		CPY 	#$10			;Only 16 characters allowed!
+		BNE 	ll19
+				
 ll19b:
-        ; blank out beyond end of filename
-	; get length byte from dirent structure
-	cpy #$10
-	bcs ll20
-	lda #$00
-ll21:	cpy #$10
-	bcs ll20
-	sta (diskpointer),y
-	iny
-	jmp ll21
+;	Blank out beyond end of filename
+		CPY 	#$10
+		BCS 	ll20
+		LDA 	#$00
+ll21:	
+		CPY 	#$10
+		BCS 	ll20
+	
+		STA 	(diskPointer), Y
+		INY
+		JMP 	ll21
 ll20:
+;	Bump directory count
+		LDA 	diskCount
+		CLC
+		ADC 	#$01
+		STA 	diskCount
+		LDA 	diskCount + 1
+		ADC 	#$00
+		STA 	diskCount + 1
+		
+;	Limit directory to fit between $1400-$BFFF
+		CMP 	#$C0
+		BCS 	endOfDir
 
-	; Bump directory count
-	lda diskcount
-	clc
-	adc #$01
-	sta diskcount
-	lda diskcount+1
-	adc #$00
-	sta diskcount+1
-	; Limit directory to fit between $1000-$8FFF
-	; (= 2,304 entries)
-	cmp #$90
-	bcs endofdir
-
-;	jsr sortnames
-
-	; update pointer address for dirent
-	lda diskpointer
-	clc
-	adc #$10
-	sta diskpointer
-	lda diskpointer+1
-	adc #$00
-	sta diskpointer+1
-
-	jsr updatescreen
-
-	jmp readnextentry
-
-endofdir:
-	ldz #0
-	jmp mainloop
-
-	.include "diskmenu_sort.a65"
-
-mainloop:
-	 ; display current screen of disks
-
-	 jsr updatescreen
-
-waitforkey:
-
-	 ; check for keyboard input
-	 jsr $ffe4
-	 bne havekey
-;	 jsr scanjoystick
-
-havekey:
-	 cmp #$11
-	 bne notdownkey
-	 ldx #1
-	 ldy #0
-	 jsr adjustcurrentitem
-	 jsr adjustcurrentscreen
-	 jmp mainloop
- notdownkey:
-	 cmp #$91
-	 bne notupkey
-	 ldx #$ff
-	 ldy #$ff
-	 jsr adjustcurrentitem
-	 jsr adjustcurrentscreen
-	 jmp mainloop
- notupkey:
-	 cmp #$1D
-	 bne notrightkey
-	 ldx #21
-	 ldy #0
-	 jsr adjustcurrentitem
-	 jsr adjustcurrentscreen
-	 jmp mainloop
- notrightkey:
-	 cmp #$9D
-	 bne notleftkey
-	 ldx #235
-	 ldy #$ff
-	 jsr adjustcurrentitem
-	 jsr adjustcurrentscreen
-	 jmp mainloop
- notleftkey:
-	cmp #$30
-	bne notzerokey
-	jsr jumptofirstitem
-        jsr adjustcurrentscreen
-	jmp mainloop
-notzerokey:
-	cmp #$39
-	bne notninekey
-	jsr jumptolastitem
-        jsr adjustcurrentscreen
-	jmp mainloop
-notninekey:
-	cmp #$03
-	bne notrunstopkey
-
-        ; Quit back to BASIC
-
-	; Allow CPU to go slow again
-	lda #$40
-	sta $00
-	; and return to VIC-II mode
-	sta $d02f
-
-	; Exit nicely to basic.
-	ldz #$00
-	jmp $FE66
-
-notrunstopkey:
-	cmp #$35
-	bne notfivekey
-
-	; Allow CPU to go slow again
-	lda #$40
-	sta $00
-
-	; Exit to C65 mode
-	ldz #$00
-	jmp $e4b8 
-
-notfivekey:
-	cmp #$0d
-	bne notreturnkey
-
-	ldx #39
-me12:	lda msg_mounttrying,x
-	jsr asciitocharrom
-	ora #$80
-	sta $07c0,x
-	dex
-	bpl me12
+	.if	DEBUG_SORT
+		JSR 	updateScreen
+		JSR	waitTwoSeconds
+	.endif
+		
+		
+	.if	USE_SORT
+		JSR 	sortNames
+	.endif
 
 
-	; RETURN pressed, so mount image and exit
-	; To do this, we just need the name of the .D81 file (with extension)
-	; and call the DOS setname trap, and then the d81attach trap
-	; So first step is to find any copy the disk image name
-	lda currentitem
-	asl
-	asl
-	asl
-	asl
-	sta diskpointer
-	lda currentitem
-	lsr
-	lsr
-	lsr
-	lsr
-	sta diskpointer+1
-	lda currentitem+1
-	asl
-	asl
-	asl
-	asl
-	ora diskpointer+1
-	clc
-	adc #>disknamearray
-	sta diskpointer+1
+;	Update pointer address for next dirent
+		LDA 	diskPointer
+		CLC
+		ADC 	#$10
+		STA 	diskPointer
+		LDA 	diskPointer + 1
+		ADC 	#$00
+		STA 	diskPointer + 1
 
-	ldy #$00
-r1:	lda (diskpointer),y
-	beq eoname
-	sta scratch_filename,y
-	iny
-	cpy #$10
-	bne r1
-eoname:	ldx #0
-eoname1:
-	lda dotd81,x
-	sta scratch_filename,y
-	iny
-	inx
-	cpx #5
-	bne eoname1
+		JSR 	updateScreen
 
-	; call DOS setname function
-	dey
-	tya
-	taz
-	lda #$2e
-	ldx #<scratch_filename
-	ldy #>scratch_filename
-	sta $d640
-	nop
-	ldz #$00
-	bcc mounterror
-
-	; call DOS disk image mount function
-	lda #$40
-	sta $d640
-	nop
-	bcc mounterror
-
-	ldx #39
-me11:	lda msg_mountsuccess,x
-	jsr asciitocharrom
-	ora #$80
-	sta $07c0,x
-	dex
-	bpl me11
-	jmp mainloop
-
-msg_mountsuccess:
-	.byte "Disk image mounted. RUN/STOP to exit.   "
-msg_mounttrying:
-	.byte "Attempting to mount disk image...       "
-
-mounterror:
-
-	; Get DOS error code from hypervisor
-	lda #$38
-	sta $d640
-	nop
-
-	; Put dos error code into mount error message
-	tax
-	jsr checkpoint_bytetohex
-	sty msg_mounterror+34
-	stx msg_mounterror+35	
+	.if	DEBUG_SORT
+		JSR	waitTwoSeconds
+	.endif
 	
-	ldx #39
-me1:	lda msg_mounterror,x
-	jsr asciitocharrom
-	ora #$80
-	sta $07c0,x
-	dex
-	bpl me1
-	jmp mainloop
+		JMP 	readNextEntry
 
-msg_mounterror:
-	.byte "Error mounting disk image (errno=$nn)   "
-dotd81:
-	.byte ".d81",0
-
-notreturnkey:
-
-	 jmp waitforkey
-	 rts
-
-nybltohex:
-	cmp #$a
-	bcs nth1
-	ora #$30
-	rts
-nth1:	sec
-	sbc #9
-	rts
-
-checkpoint_bytetohex:
-	txa
-	and #$f0
-	lsr
-	lsr
-	lsr
-	lsr
-	jsr checkpoint_nybltohex
-	tay
-	txa
-	and #$0f
-	jsr checkpoint_nybltohex
-	tax	
-	rts
-checkpoint_nybltohex:
-	and #$0f
-	ora #$30
-	cmp #$3a
-	bcs cpnth1
-	rts
-cpnth1:	adc #$06
-	rts
+endOfDir:
+		LDZ 	#$00
+		JMP 	mainLoop
 
 
-adjustcurrentscreen:
+	.if	USE_SORT
+	.include 	"diskmenu_sort.a65"
+	.endif
 
-	; Check if current item is before what we are displaying now,
-	; if so, move display to the left a column
+;-------------------------------------------------------------------------------
+mainLoop:
+;-------------------------------------------------------------------------------
+;	Display current screen of disks
+
+		JSR 	updateScreen
+
+waitForKey:
+;	Check for keyboard input
+		JSR 	$FFE4
+		BNE 	haveKey
+;	 	JSR 	scanJoystick
+
+haveKey:
+		CMP 	#$11			;Down key?
+		BNE 	tstUpKey
+
+		LDX 	#$01
+		LDY 	#$00
+		JSR 	adjustCurrentItem
+		JSR 	adjustCurrentScreen
+		JMP 	mainLoop
+		
+ tstUpKey:
+		CMP 	#$91			;Up key?
+		BNE 	tstRightKey
+		LDX 	#$FF
+		LDY 	#$FF
+		JSR 	adjustCurrentItem
+		jsr 	adjustCurrentScreen
+		JMP 	mainLoop
+		
+ tstRightKey:
+		CMP 	#$1D			;Right key?
+		BNE 	tstLeftKey
+		LDX 	#21
+		LDY 	#0
+		JSR 	adjustCurrentItem
+		jsr 	adjustCurrentScreen
+		JMP 	mainLoop
+		
+ tstLeftKey:
+		CMP 	#$9D			;Left key?
+		BNE 	tstZeroKey
+		LDX 	#235
+		LDY 	#$FF
+		JSR 	adjustCurrentItem
+		jsr 	adjustCurrentScreen
+		JMP 	mainLoop
+		
+ tstZeroKey:
+		cmp 	#$30			;'0'?
+		bne 	tstNineKey
+		jsr 	jumpToFirstItem
+		jsr 	adjustCurrentScreen
+		jmp 	mainLoop
+		
+tstNineKey:
+		CMP 	#$39			;'9'?
+		BNE 	tstRSKey
+		JSR 	jumpToLastItem
+		JSR 	adjustCurrentScreen
+		JMP 	mainLoop
+		
+tstRSKey:
+		CMP 	#$03			;RUN/STOP key?
+		BNE 	tstFiveKey
+
+		LDA	programMode
+		CMP	#$01
+		BEQ	@retToDiskLst
+
+
+;	Quit back to BASIC
+;	Allow CPU to go slow again and return to VIC-II mode
+		LDA 	#$40
+		STA 	$00
+		STA 	$D02F			;M65 good-bye		
+
+		LDZ 	#$00
+
+;	Bank BASIC back in
+		LDA	$01
+		ORA	#$01
+		STA	$01		
+		
+;	Exit nicely to basic.
+		JMP 	$FE66			;Default BRK handler
+
+@retToDiskLst:
+		JSR	initScreen
+		
+		LDA 	#$00
+		STA 	currentItem
+		STA 	currentItem + 1
+		STA 	diskCount
+		STA 	diskCount + 1
+		STA 	screenItem
+		STA 	screenItem + 1
+		
+		STA	programMode
+		
+		JMP	getDiskLstStart
+
+tstFiveKey:
+		CMP 	#$35			;'5'?
+		BNE 	tstReturnKey
+
+; 	Allow CPU to go slow again
+		LDA 	#$40
+		STA 	$00
+
+		LDZ 	#$00
+		
+;	Bank BASIC back in
+		LDA	$01
+		ORA	#$01
+		STA	$01		
+		
+;dengland
+;***	This is unused bytes ($AA) on the C64.  What is it to the C65???
+;	Exit to C65 mode
+		JMP 	$E4B8 
+
+tstReturnKey:
+		CMP 	#$0D			;Return key?
+		
+;dengland
+;	For some reason, this is out of range
+;		BNE 	unknownKey
+		BEQ	isReturnKey
+		JMP	unknownKey
+
+isReturnKey:
+		LDX 	#39
+me12:	
+		LDA 	msg_mountTrying, X
+		JSR 	asciiToCharROM
+		ORA 	#$80
+		STA 	$07C0, X
+		DEX
+		BPL 	me12
+
+
+;	RETURN pressed, so mount image and exit
+;	To do this, we just need the name of the .D81 file (with extension)
+;	and call the DOS setname trap, and then the d81attach trap
+;	So first step is to find and copy the disk image name
+		LDA 	currentItem
+		ASL				;multiply by 16
+		ASL
+		ASL
+		ASL
+		STA 	diskPointer		
+		LDA 	currentItem
+		LSR				;divide by 16
+		LSR
+		LSR
+		LSR
+		STA 	diskPointer + 1
+		LDA 	currentItem + 1
+		ASL				;multiply by 16
+		ASL
+		ASL
+		ASL
+		ORA 	diskPointer + 1
+		CLC
+		ADC 	#>diskNameArray
+		STA 	diskPointer + 1
+
+
+		LDA	programMode
+		CMP	#$01
+		BEQ	doProgLoad
+		
+;	Mount the disk and read its contents into the names array
+		JSR	mountAndReadDisk
+		JMP 	mainLoop
+		
+doProgLoad:
+		JMP	installProgLoader	
+
+unknownKey:
+		JMP 	waitForKey
+		
+		RTS				;Dummy
+
+
+;-------------------------------------------------------------------------------
+nyblToHex:
+;-------------------------------------------------------------------------------
+		CMP 	#$0A
+		BCS 	nth1
+		ORA 	#$30
+		RTS
+nth1:		
+		SEC
+		SBC 	#9
+		RTS
+
+
+;-------------------------------------------------------------------------------
+checkpoint_byteToHex:
+;-------------------------------------------------------------------------------
+		TXA
+		AND 	#$F0
+		LSR
+		LSR
+		LSR
+		LSR
+		JSR 	checkpoint_nyblToHex
+		TAY
+		TXA
+		AND 	#$0F
+		JSR 	checkpoint_nyblToHex
+		TAX	
+		RTS
+
+
+;-------------------------------------------------------------------------------
+checkpoint_nyblToHex:
+;-------------------------------------------------------------------------------
+		AND 	#$0F
+		ORA 	#$30
+		CMP 	#$3A
+		BCS 	cpnth1
+		RTS
+cpnth1:	
+		ADC 	#$06
+		RTS
+
+
+;-------------------------------------------------------------------------------
+adjustCurrentScreen:
+;-------------------------------------------------------------------------------
+; 	Check if current item is before what we are displaying now.  If so, move 
+;	display to the left a column
+		LDA 	currentItem
+		SEC
+		SBC 	screenItem
+		LDA 	currentItem+1
+		SBC 	screenItem+1
+		BCS 	notBeforeHere
+
+		LDA 	screenItem
+		SEC
+		SBC 	#21
+		STA 	screenItem
+		LDA 	screenItem+1
+		SBC 	#0
+		STA 	screenItem+1
+		JMP 	adjustCurrentScreen
+
+notBeforeHere:
+; 	Now check the select item would be off to the right of the edge of the 
+;	screen.
+
+;	Work out where edge of the screen would be
+		LDA 	screenItem
+		CLC
+		ADC 	#41
+		STA 	temp16
+		LDA 	screenItem + 1 
+		ADC 	#0
+		STA 	temp16 + 1
+
+;	now do the comparison
+		LDA 	temp16
+		SEC
+		SBC 	currentItem
+		LDA 	temp16 + 1
+		SBC 	currentItem + 1
+		BCS  	notAfterHere
+
+		LDA 	screenItem
+		CLC
+		ADC 	#21
+		STA 	screenItem
+		LDA 	screenItem + 1
+		ADC 	#0
+		STA 	screenItem + 1
+		JMP 	adjustCurrentScreen
+
+notAfterHere:
+		RTS
 	
-	lda currentitem
-	sec
-	sbc screenitem
-	lda currentitem+1
-	sbc screenitem+1
-	bcs notbeforehere
 
-	lda screenitem
-	sec
-	sbc #21
-	sta screenitem
-	lda screenitem+1
-	sbc #0
-	sta screenitem+1
-	jmp adjustcurrentscreen
+;-------------------------------------------------------------------------------
+adjustCurrentItem:
+;-------------------------------------------------------------------------------
+		TXA
+		CLC
+		ADC 	currentItem
+		STA 	currentItem
+		TYA
+		ADC 	currentItem + 1
+		STA 	currentItem+1
+		BMI 	itemNegative	
+		SEC
+		SBC 	diskCount + 1
+		BPL 	itemNumberMayBeTooLarge
+;	Item number is ok
+		RTS
+		
+itemNumberMayBeTooLarge:
+		LDA 	currentItem
+		CMP 	diskCount
+		BCS 	itemNumberTooLarge
+;	Item number is ok
+		RTS	
 
-notbeforehere:
+itemNumberTooLarge:
+;	item negative, so limit to end of list
+;	... or better, wrap around for convenience
+jumpToFirstItem:
+		LDA 	#0
+		STA 	currentItem
+		STA 	currentItem + 1
+		RTS
 
-	; Now check the select item would be off to the right of the
-	; edge of the screen.
+itemNegative:
+;	if trying to go before start of list, then limit to start of list.
+;	... or better, wrap around for convenience
 
-	; work out where edge of the screen would be
-	lda screenitem
-	clc
-	adc #41
-	sta temp16
-	lda screenitem+1
-	adc #0
-	sta temp16+1
-
-	; now do the comparison
-	lda temp16
-	sec
-	sbc currentitem
-	lda temp16+1
-	sbc currentitem+1
-	bcs notafterhere
-
-	lda screenitem
-	clc
-	adc #21
-	sta screenitem
-	lda screenitem+1
-	adc #0
-	sta screenitem+1
-	jmp adjustcurrentscreen
-
-notafterhere:
-	rts
-	
+jumpToLastItem:
+		LDA  	diskCount
+		SEC
+		SBC 	#1
+		STA 	currentItem
+		lda 	diskCount + 1
+		SBC 	#0
+		STA 	currentItem + 1
+		RTS
 
 
-adjustcurrentitem:
-	txa
-	clc
-	adc currentitem
-	sta currentitem
-	tya
-	adc currentitem+1
-	sta currentitem+1
-	bmi itemnegative	
-	sec
-	sbc diskcount+1
-	bpl itemnumbermaybetoolarge
-	; Item number is ok
-	rts
-itemnumbermaybetoolarge:
-	lda currentitem
-	cmp diskcount
-	bcs itemnumbertoolarge
-	; Item number is ok
-	rts	
+;-------------------------------------------------------------------------------
+updateScreen:
+;-------------------------------------------------------------------------------
+;	Draw 2 columns x 25 disk image names
+;	Current selection is displayed reversed
 
-itemnumbertoolarge:
-	; item negative, so limit to end of list
-	; ... or better, wrap around for convenience
-jumptofirstitem:
-	lda #0
-	sta currentitem
-	sta currentitem+1
-	rts
+;	get pointer to start of array
+		LDA 	#<diskNameArray
+		STA 	displayDiskPointer
+		LDA 	#>diskNameArray
+		STA 	displayDiskPointer + 1
 
-itemnegative:
-	; if trying to go before start of list, then limit to start of
-	; list.
-	; ... or better, wrap around for convenience
+;	add on for starting item on the screen
+		LDA 	screenItem
+		STA 	temp16
+		LDA 	screenItem + 1
+		STA 	temp16 + 1
+		LDX 	#$04
+ll1:	
+		CLC	
+		ROL 	temp16
+		ROL 	temp16 + 1
+		DEX
+		BNE 	ll1
+		
+		LDA 	displayDiskPointer
+		CLC
+		ADC 	temp16
+		STA 	displayDiskPointer
+		LDA 	displayDiskPointer + 1
+		ADC 	temp16 + 1
+		STA 	displayDiskPointer + 1
 
-jumptolastitem:
-	lda diskcount
-	sec
-	sbc #1
-	sta currentitem
-	lda diskcount+1
-	sbc #0
-	sta currentitem+1
-	rts
+;	Now display 2 columns of 21 names each
+		LDA 	#<$0452
+		STA 	screenPointer
+		LDA 	#>$0452
+		STA 	screenPointer + 1
 
+;	Keep track of which item is current, so that we can highlight it when 
+;	drawing
+		LDA 	screenItem
+		STA 	temp16
+		LDA 	screenItem + 1
+		STA 	temp16 + 1
 
-sortentry:
-	; char offset for comparing the entries (max 16 bytes)
-	ldy #00
-	; flag if proper position has been found AND entry must be moved
-	ldx #00
+		LDX 	#$00
+ drawNextDiskName:
+;	Is the item we are drawing past the end of the list?
+		LDA 	temp16
+		CMP 	diskCount
+		BCC 	ll10
 
-	lda diskpointer
-	sta sortpointer
-	lda diskpointer+1
-	sta sortpointer+1
+		LDA 	temp16 + 1
+		CMP 	diskCount + 1
+		BCC 	ll10
 
-sortloop2:
-	sec
-	lda sortpointer+1
-	sbc #$10
-	sta sortpointer+1
-	lda sortpointer
-	sbc #$00
-	sta sortpointer
-
-sortloop1:
-	lda (diskpointer),y
-	cmp (sortpointer),y
-	bcs sortgreatervalue
-	bne sortlesservalue
-	iny
-	; advance to next char
-	jmp sortloop1
-
-sortlesservalue:
-	ldx #$01
-	jmp sortloop2
-
-sortgreatervalue:
-	txa
-	; if X flag is not set sorting is not necessary (because last entry stays last)
-	beq exitsort
-
-	; Prepare to do DMA copy to make space for this entry
-
-	; First, we add $0f to diskpointer to get the last byte to
-	; get the copy source address.
-	clc
-	lda	diskpointer
-	adc #15
-	sta sortdmasrc
-	lda diskpointer+1
-	adc #$00
-	sta sortdmasrc+1
-
-    ; the destination address is $10 more, so that we make 16 bytes of space
-    ; for the sorted entry to be copied into
-	clc
-	lda	diskpointer
-	adc #31
-	sta sortdmadst
-	lda diskpointer+1
-	adc #$00
-	sta sortdmadst+1
-
-    ; We need to copy diskpointer-sortpointer bytes
-	sec
-	lda diskpointer
-	sbc sortpointer
-	sta sortdmacnt
-	lda diskpointer+1
-	sbc sortpointer+1
-	sta sortdmacnt+1
-
-    ; Set DMAgic list address and trigger job
-    ; (Since we are on a MEGA65, also clear the high bytes of list and src/dst address)
-	lda #$00
-	sta $d702
-	sta $d704
-	sta $d705
-	sta $d706
-	lda #>sortdmalist
-	sta $d701
-	lda #<sortdmalist
-	sta $d700
-
-	;now copy the new entry to the space we just freed
-	ldx	#15
-sortcopy:
-	lda diskpointer+15,x
-	sta sortpointer,x
-	dex
-	bne sortcopy
-
-exitsort:
-	rts
-
-
-
-updatescreen:
-	; Draw 2 columns x 25 disk image names
-	; Current selection is displayed reversed
-
-	; get pointer to start of array
-	lda #<disknamearray
-	sta displaydiskpointer
-	lda #>disknamearray
-	sta displaydiskpointer+1
-
-	; add on for starting item on the screen
-
-	lda screenitem
-    	sta temp16
-	lda screenitem+1
-	sta temp16+1
-	ldx #$04
-ll1:	clc
-	rol temp16
-	rol temp16+1
-	dex
-	bne ll1
-	lda displaydiskpointer
-	clc
-	adc temp16
-	sta displaydiskpointer
-	lda displaydiskpointer+1
-	adc temp16+1
-	sta displaydiskpointer+1
-
-	; Now display 2 columns of 21 names each
-
-	lda #<$0452
-	sta screenpointer
-	lda #>$0452
-	sta screenpointer+1
-
-	; Keep track of which item is current, so that we can
-	; highlight it when drawing
-	lda screenitem
-	sta temp16
-	lda screenitem+1
-	sta temp16+1
-
-	ldx #$00
- drawnextdiskname:
-
-	; Is the item we are drawing past the end of the list?
-	lda temp16
-	cmp diskcount
-	bcc ll10
-	lda temp16+1
-	cmp diskcount+1
-	bcc ll10
-
-	; Item is past end of list, so don't draw
-	ldy #$0f
-	lda #$20
-ll12:	sta (screenpointer),y
-	dey
-	bpl ll12
-	jmp ll11
+;	Item is past end of list, so don't draw
+		LDY 	#$0F
+		LDA 	#$20
+ll12:	
+		STA 	(screenPointer), Y
+		DEY
+		BPL 	ll12
+		JMP 	ll11
 
 ll10:
-	ldy #$0f
-ll2:	lda (displaydiskpointer),y
-	jsr asciitocharrom
-	sta (screenpointer),y
-	dey
-	bpl ll2
+		LDY 	#$0F
+ll2:	
+		LDA 	(displayDiskPointer), Y
+		JSR 	asciiToCharROM
+		STA 	(screenPointer), Y
+		DEY
+		BPL 	ll2
 
 ll11:
-
-	; Work out drawing attributes for this item
-	lda #$0e
-	sta colour
-	lda #$00
-	sta reverse
+;	Work out drawing attributes for this item
+		LDA 	#$0E
+		STA 	colour
+		LDA 	#$00
+		STA 	reverse
 	
-	; is this the current item?
-	lda currentitem
-	cmp temp16
-	bne ll5
-	lda currentitem+1
-	cmp temp16+1
-	bne ll5
+;	is this the current item?
+		LDA 	currentItem
+		CMP 	temp16
+		BNE 	ll5
+		
+		LDA 	currentItem + 1
+		CMP 	temp16 + 1
+		BNE 	ll5
 
-	; it's the current item, so draw in reverse white
-	; instead
-	lda #$01
-	sta colour
-	lda #$80
-	sta reverse
+;	it's the current item, so draw in reverse white instead
+		LDA 	#$01
+		STA 	colour
+		LDA 	#$80
+		STA 	reverse
 
 ll5:
 	; set reverse video as required
-	ldy #$0f
-ll6:	lda (screenpointer),y
-	ora reverse
-	sta (screenpointer),y
-	dey
-	bpl ll6
+		LDY 	#$0F
+ll6:	
+		LDA 	(screenPointer), Y
+		ORA 	reverse
+		STA 	(screenPointer), Y	
+		DEY
+		BPL 	ll6
 
-	; jump to colour ram
-	lda screenpointer+1
-	clc
-	and #$03
-	ora #$d8
-	sta screenpointer+1
+;	jump to colour ram
+		LDA 	screenPointer + 1
+		CLC
+		AND 	#$03
+		ORA 	#$D8
+		STA 	screenPointer + 1
 
-	ldy #$0f
-	lda colour
-ll7:	sta (screenpointer),y
-	dey
-	bpl ll7
+		LDY 	#$0F
+		LDA 	colour
+ll7:	
+		STA 	(screenPointer), Y	
+		DEY
+		BPL 	ll7
 
-	; switch back to screen RAM
-	lda screenpointer+1
-	and #$03
-	ora #$04
-	sta screenpointer+1	
+;	switch back to screen RAM
+		LDA 	screenPointer + 1
+		AND 	#$03
+		ORA 	#$04
+		STA 	screenPointer + 1	
 
-	; advance screen item number for comparison with current
-	; selected item.
-	inc temp16
-	lda temp16+1
-	adc #0
-	sta temp16+1
+;	advance screen item number for comparison with current selected item.
+		INC 	temp16
+		LDA 	temp16 + 1
+		ADC 	#0
+		STA 	temp16 + 1
 
-	; advance screen pointer ready for drawing next item
-	
-	lda screenpointer
-	clc
-	adc #$28
-	sta screenpointer
-	lda screenpointer+1
-	adc #0
-	sta screenpointer+1
+;	advance screen pointer ready for drawing next item
+		LDA 	screenPointer
+		CLC
+		ADC 	#$28
+		STA 	screenPointer
+		LDA 	screenPointer + 1
+		ADC 	#0
+		STA 	screenPointer + 1
 
-	; advance disk name pointer
-	lda displaydiskpointer
-	clc
-	adc #$10
-	sta displaydiskpointer
-	lda displaydiskpointer+1
-	adc #0
-	sta displaydiskpointer+1
+;	advance disk name pointer
+		LDA 	displayDiskPointer
+		CLC
+		ADC 	#$10
+		STA 	displayDiskPointer
+		LDA 	displayDiskPointer + 1
+		ADC 	#0
+		STA 	displayDiskPointer + 1
 
-	; XXX - Reverse video for current item	
+; 	Reverse video for current item	
+		INX
+		CPX 	#21
+		BNE 	ll4
 
-	inx
-	cpx #21
-	bne ll4
-
-	; Disk 22 is start of 2nd column, so update screen pointer
-	lda #<$0466
-	sta screenpointer
-	lda #>$0466
-	sta screenpointer+1
+;	Disk 22 is start of 2nd column, so update screen pointer
+		LDA 	#<$0466
+		STA 	screenPointer
+		LDA 	#>$0466
+		STA 	screenPointer + 1
 
 ll4:
-	cpx #42
-	beq alldonedrawing
-    	jmp drawnextdiskname
-alldonedrawing:
-	rts
+		CPX 	#42
+		BEQ 	allDoneDrawing
+		JMP 	drawNextDiskName
+allDoneDrawing:
+		RTS
 
-waitoneframe:
-	lda $d012
-wof1:	
-	cmp $d012
-	beq wof1
-wof2:	
-	cmp $d012
-	bne wof2
-	rts
 
-waitonesecond:
-	pha
-	phx
-	phy
-	phz
-	ldx #60
-wos1:	jsr waitoneframe
-	dex
-	bpl wos1
-	plz
-	ply
-	plx
-	pla
-	rts
+;-------------------------------------------------------------------------------
+mountAndReadDisk:
+;-------------------------------------------------------------------------------
+		LDA	#$00
+		STA	VALUE
+		
+		LDA	#<dotD81
+		STA	eoName1 + 1
+		LDA	#>dotD81
+		STA	eoName1 + 2
 
-asciitocharrom:
-	; NUL ($00) becomes a space
-	cmp #0
-	bne atc0
-	lda #$20
+mntReadStart:
+		LDY 	#$00
+r1:	
+		LDA 	(diskPointer), Y
+		BEQ 	eoName
+		STA 	scratch_fileName, Y
+		INY
+		CPY 	#$10
+		BNE 	r1
+eoName:	
+		LDX 	#$00
+eoName1:
+		LDA 	dotD81, X
+		STA 	scratch_fileName, Y
+		INY
+		INX
+		CPX 	#$05
+		BNE 	eoName1
+
+;	Call DOS setname function
+		DEY
+		TYA
+		TAZ
+		LDA 	#$2E
+		LDX 	#<scratch_fileName
+		LDY 	#>scratch_fileName
+		STA 	$D640			;Hypervisor set file name
+		NOP
+	
+		LDZ 	#$00			;Restore Z page location
+		
+;	Carry clear is failure
+		BCC 	mountError
+
+
+;	Call DOS disk image mount function
+		LDA 	#$40
+		STA 	$D640			;Hypervisor mount .D81 image
+		NOP
+		
+;	Carry clear is failure
+		BCC 	mountError
+
+		JSR	initScreen
+
+		LDX 	#39
+me11:	
+		LDA 	msg_mountSuccess, X
+		JSR 	asciiToCharROM
+		ORA 	#$80
+		STA 	$07C0, X
+		DEX
+		BPL 	me11
+
+		JSR	readD81Contents
+
+		RTS
+
+mountError:
+		LDA	VALUE
+		BNE	mntErrorFinal
+
+		INC	VALUE
+		
+		LDA	#<dotd81
+		STA	eoName1 + 1
+		LDA	#>dotd81
+		STA	eoName1 + 2
+		
+		JMP	mntReadStart
+
+mntErrorFinal:
+;	Get DOS error code from hypervisor
+		LDA 	#$38
+		STA 	$D640			;Hypervisor what was the error
+		NOP
+
+;	Put dos error code into mount error message
+		TAX
+		JSR 	checkpoint_byteToHex
+		STY 	msg_mountError + 34
+		STX 	msg_mountError + 35	
+	
+		LDX 	#39
+me1:	
+		LDA 	msg_mountError, X
+		JSR 	asciiToCharROM
+		ORA 	#$80
+		STA 	$07C0, X
+		DEX
+		BPL 	me1
+		
+		RTS
+
+msg_mountError:
+	.asciiz 	"Error mounting disk image (errno=$nn)   "
+
+
+msg_mountSuccess:
+	.asciiz 	"Disk image mounted. RUN/STOP to exit.   "
+msg_mountTrying:
+	.asciiz		"Attempting to mount disk image...       "
+
+dotD81:
+	.asciiz 	".D81"
+dotd81:
+	.asciiz		".d81"
+
+	
+;-------------------------------------------------------------------------------
+readD81Contents:
+;-------------------------------------------------------------------------------
+;	Reset state
+		LDA 	#$00
+		STA 	currentItem
+		STA 	currentItem + 1
+		STA 	diskCount
+		STA 	diskCount + 1
+		STA 	screenItem
+		STA 	screenItem + 1
+		
+		LDA	#$01
+		STA	programMode
+
+		LDA 	#<diskNameArray
+		STA 	diskPointer
+		LDA 	#>diskNameArray
+		STA 	diskPointer + 1
+		
+		LDA	#$28
+		STA	nextTrk
+		LDA	#$03
+		STA	nextSec
+
+@loop:
+		JSR	setCmdName		;Set the command name for the T/S
+		JSR	readBuffer		;Read the S into buffer
+		BCS	@error
+		
+;dengland
+;	After calls into the Kernal for DOS, we need to re-init the M65 IO
+		JSR	initM65IO
+		
+		JSR	outputPrgEnts		;Output any PRG entries
+		
+		LDA	blkBuf0 + 1		;Check for next T/S of directory
+		STA	nextSec
+		LDA	blkBuf0
+		STA	nextTrk
+		
+		CMP	#$00			;Not 0 T?  
+		BNE	@loop			;Have T so must be another 
+		
+		LDA	blkBuf0 + 1		;Not $FF S?
+		CMP	#$FF			
+		BNE	@loop			;Have S so must be another
+
+@done:
+		RTS
+		
+@error:						;Should do something here
+;dengland
+;***fixme Output an error message
+		JSR	krnlCLAL
+		
+;dengland
+;	After calls into the Kernal, we need to re-init the M65 IO
+		JSR	initM65IO
+
+		RTS
+		
+;-------------------------------------------------------------------------------
+readBuffer:
+;-------------------------------------------------------------------------------
+;dengland
+;	We have to set up the input channel each time, it seems.  How annoying.
+		LDA	#$01			;Set the input name
+		LDX	#<inputName
+		LDY	#>inputName
+		JSR	krnlSTNM
+		
+		LDA     #$02                    ;Init a input channel
+		LDX     #$08
+		LDY     #$02
+		JSR     krnlSLFS
+		
+		JSR	krnlOPEN		;Open the channel
+		BCS	@error					
+		
+		LDA	cmdNmLen		;Set a command channel name
+		LDX	#<cmdName
+		LDY	#>cmdName
+		JSR	krnlSTNM
+		
+		LDA     #$0F                    ;Init a commnd channel
+		LDX     #$08
+		LDY     #$0F
+		JSR     krnlSLFS
+		
+		JSR	krnlOPEN		;Open the channel
+		BCS	@error					
+
+		LDX	#$02
+		JSR	krnlCHKI		;Set input channel for input
+		
+		LDY	#$00			;Read the block
+@loop:
+		JSR	krnlCHRI
+		
+		STA	blkBuf0, Y
+		INY
+		BNE	@loop
+		
+;		JSR	krnlCLAL		
+		
+		LDA	#$0F
+		JSR	krnlCLSE
+		
+		LDA	#$02
+		JSR	krnlCLSE
+
+		JSR	krnlCLRC
+		
+@exit:
+		CLC
+		RTS
+
+@error:
+;dengland
+;	I have no idea if this will work at this point.
+		JSR	krnlCLAL		
+		
+		SEC
+		RTS
+		
+;-------------------------------------------------------------------------------
+setCmdName:
+;-------------------------------------------------------------------------------
+		LDA	#$00
+		STA	cmdNmPos
+		LDA	#$07
+		STA	cmdNmLen
+		
+		LDA	nextTrk
+		STA	VALUE
+		JSR	PRTBYT
+		
+		LDA	#' '
+		JSR	appendCmdNm
+		
+		LDA	nextSec
+		STA	VALUE
+		JSR	PRTBYT
+		
+		RTS
+	
+;-------------------------------------------------------------------------------
+appendCmdNm:
+;-------------------------------------------------------------------------------
+		STX	cmdNmTmp
+		
+		LDX	cmdNmPos
+		STA	cmdNameTS, X
+		INC	cmdNmPos
+		INC	cmdNmLen
+		
+		LDX	cmdNmTmp
+		
+		RTS
+		
+
+;-------------------------------------------------------------------------------
+outputPrgEnts:
+;-------------------------------------------------------------------------------
+		LDX	#$00
+		
+@loopEnt:
+		LDA	bufEntriesLo, X
+		STA	blockBufPtr
+		LDA	bufEntriesHi, X
+		STA	blockBufPtr + 1
+		
+		LDA	#$80
+		STA	LEAD0
+
+		LDY	#D81DIRENTRY::fileType
+		LDA	(blockBufPtr), Y
+		
+		BIT	LEAD0
+		BPL	@next
+		
+		AND	#$0F
+		CMP	#$02
+		BNE	@next
+		
+		JSR	doOutputFileName
+		
+@next:
+		INX
+		CPX	#$08
+		BNE	@loopEnt
+		
+		RTS
+		
+;-------------------------------------------------------------------------------
+doOutputFileName:
+;-------------------------------------------------------------------------------
+		LDA	#$00
+		STA	DIGIT
+		
+		LDY	#D81DIRENTRY::fileName
+;		STY	VALUE
+@loop0:
+		LDA	(blockBufPtr), Y
+		CMP	#$A0
+		BEQ	@cont0
+		
+		STY	VALUE
+		LDY	DIGIT
+
+		STA 	(diskPointer), Y
+		INY
+		STY	DIGIT
+
+		LDY	VALUE
+		INY
+		CPY	#(D81DIRENTRY::fileName + .sizeof(D81FILENAME))
+		BNE	@loop0
+		
+@cont0:
+		LDY	DIGIT
+		
+		CPY 	#$10
+		BCS 	@cont1
+		LDA 	#$00
+@loop1:	
+		CPY 	#$10
+		BCS 	@cont1
+	
+		STA 	(diskPointer), Y
+		INY
+		JMP 	@loop1		
+
+@cont1:
+;	Bump directory count
+		LDA 	diskCount
+		CLC
+		ADC 	#$01
+		STA 	diskCount
+		LDA 	diskCount + 1
+		ADC 	#$00
+		STA 	diskCount + 1		
+		
+;dengland
+;	Don't sort the D81 contents list!
+;		JSR 	sortNames		
+
+
+		LDA 	diskPointer
+		CLC
+		ADC 	#$10
+		STA 	diskPointer
+		LDA 	diskPointer + 1
+		ADC 	#$00
+		STA 	diskPointer + 1
+
+;dengland
+;***fixme If I call this here, the screen fills with garbage and the program crashes.
+;		JSR 	updateScreen
+		
+		RTS
+		
+
+;-------------------------------------------------------------------------------
+PRTBYT: 
+;-------------------------------------------------------------------------------
+		PHA             		;SAVE REGISTERS
+                TXA
+                PHA
+		
+;dengland
+;	There was a bug handling the leading zeros.  This helps fix it.
+		LDX	#$00
+		STX 	LEAD0       		;INIT LEAD0 TO NON-NEG VALUE
+		
+		LDX 	#$02         		;MAX OF 3 DIGITS (0-255)
+;		STX 	LEAD0       		
+;---
+
+PRTB1:
+		LDA 	#'0'        		;INITIALIZE DIGIT COUNTER
+		STA 	DIGIT
+
+PRTB2:   
+		SEC
+                LDA 	VALUE       		;GET VALUE TO BE OUTPUT
+                SBC 	TBL10, X     		;COMPARE WITH POWERS OF 10
+		BCC 	PRTB3       		;IF LESS THAN, OUTPUT DIGIT
+
+		STA 	VALUE       		;DECREMENT VALUE
+		INC 	DIGIT       		;INCREMENT DIGIT COUOTER
+		JMP 	PRTB2       		;AND TRY AGAIN
+
+PRTB3:
+		LDA 	DIGIT       		;GET CHARACTER TO OUTPUT
+		CPX 	#$00         		;CHECK TO SEE IF THE LAST DIGIT
+		BEQ 	PRTB5       		;IS BEING OUTPUT
+		CMP 	#'0'        		;TEST FOR LEADING ZEROS
+		BEQ 	PRTB4
+		
+;dengland
+;	There was a bug here.  If the value is a whole multiple of 10 or 100 (I guess)
+;	then LEAD0 was going to go to 0, not negative.  Since only 3 characters can
+;	be output, this fixes it.
+;		STA 	LEAD0       		;FORCE LEAD0 NEG IF NON-ZERO
+		DEC	LEAD0
+;---
+
+PRTB4:
+		BIT 	LEAD0       		;IF ALL LEADING ZEROS, DON'T
+		BPL 	PRTB6       		;OUTPUT THIS ONE
+PRTB5:
+		JSR 	appendCmdNm    		;OUTPUT DIGIT
+		
+PRTB6:
+		DEX             		;MOVE TO NEXT DIGIT
+		BPL 	PRTB1       		;QUIT IF THREE DIGITS HAVE
+		PLA             		;BEEN HANDLED
+                TAX
+                PLA
+
+		RTS
+
+
+TBL10:
+	.byte		1
+        .byte		10
+        .byte		100
+
+bufEntriesLo:
+	.byte		<blkBuf0, <blkBuf1, <blkBuf2, <blkBuf3
+	.byte		<blkBuf4, <blkBuf5, <blkBuf6, <blkBuf7
+bufEntriesHi:
+	.byte		>blkBuf0, >blkBuf1, >blkBuf2, >blkBuf3
+	.byte		>blkBuf4, >blkBuf5, >blkBuf6, >blkBuf7
+	
+inputName:
+	.byte		'#'
+cmdName:
+	.byte		'U', '1', ' ', '2', ' ', '0', ' '
+cmdNameTS:
+	.byte		'4', '0', ' ', '3', ' '
+nextTrk:
+	.byte		$28
+nextSec:
+	.byte		$03
+
+
+;-------------------------------------------------------------------------------
+installProgLoader:
+;-------------------------------------------------------------------------------
+		LDA	#'0'			;put filename @ fileAddr + 1
+		STA	fileAddr + 1		;including "0:" at the start
+		LDA	#':'			;and ",P,R" at the end
+		STA	fileAddr + 2				
+		
+		LDY 	#$00
+@r1:	
+		LDA 	(diskPointer), Y
+		BEQ 	@eoName
+		STA 	fileAddr + 3, Y
+		INY
+		CPY 	#$10
+		BNE 	@r1
+
+@eoName:
+		LDA	#','
+		STA	fileAddr + 3, Y
+		INY
+		LDA	#'P'
+		STA	fileAddr + 3, Y
+		INY
+		LDA	#','
+		STA	fileAddr + 3, Y
+		INY
+		LDA	#'R'
+		STA	fileAddr + 3, Y
+		INY
+
+		INY				;Need two more for the "0:"
+		INY
+		
+		STY	fileAddr		;Put length at fileAddr
+		
+		LDY	#$00			;Print a nice message
+@loop3:
+		LDA	loadMsg, Y
+		BEQ	@cont1
+		
+		JSR 	krnlCHRO
+		INY
+		BNE	@loop3
+		
+
+@cont1:
+		LDA	#$0D
+		JSR 	krnlCHRO
+		
+;		LDX	#$00
+;@loop4:
+;		LDA	fileAddr + 1, X
+;		JSR	krnlCHRO
+;		INX
+;		CPX	fileAddr
+;		BNE	@loop4
+				
+		JSR	readLoadAddress		;Get the load address
+		
+		LDA	loadAddr + 1		;Is it a standard program?
+		CMP	#$08
+		BMI	@loaderHi		;No...  Use the "high loader"
+		
+		JSR	installLoaderLo		;Yes... Use the "low loader"
+
+;	Make CPU to go slow again and return to VIC-II mode
+		LDA 	#$40
+		STA 	$00
+		STA 	$D02F			;M65 good-bye		
+
+		LDZ 	#$00
+
+;	Bank BASIC back in
+		LDA	$01
+		ORA	#$01
+		STA	$01
+
+		RTS				;Done, go back to BASIC which 
+						;will call our loader
+
+		
+@loaderHi:
+		JSR	installLoaderHi
+
+;	Make CPU to go slow again and return to VIC-II mode
+		LDA 	#$40
+		STA 	$00
+		STA 	$D02F			;M65 good-bye		
+
+		LDZ 	#$00
+
+;	Bank BASIC back in
+		LDA	$01
+		ORA	#$01
+		STA	$01
+
+		JMP	ldrHiAddr		;Here we jump to the loader 
+						;which will return to BASIC
+
+	
+;-------------------------------------------------------------------------------
+installLoaderLo:
+;-------------------------------------------------------------------------------
+						;Install our loader code
+		LDX	#(loaderLoEnd - loaderLo) - 1	
+@loop1:				
+		LDA	loaderLo, X
+		STA	krnlTBUF, X
+		DEX
+		BPL	@loop1
+		
+		LDA	basCHROUT		;save the current vector
+		STA	saveVect
+		LDA	basCHROUT + 1
+		STA	saveVect + 1
+		
+		LDA	#<krnlTBUF		;point the vector to our code
+		STA	basCHROUT
+		LDA	#>krnlTBUF
+		STA	basCHROUT + 1
+		
+		RTS				
+
+
+;-------------------------------------------------------------------------------
+installLoaderHi:
+;-------------------------------------------------------------------------------
+						;Install our loader code
+		LDX	#(loaderHiEnd - loaderHi) - 1	
+@loop1:				
+		LDA	loaderHi, X
+		STA	ldrHiAddr, X
+		DEX
+		BPL	@loop1
+
+
+;-------------------------------------------------------------------------------
+readLoadAddress:
+;-------------------------------------------------------------------------------
+		LDA	fileAddr		;Set the file name
+		LDX	#<(fileAddr + 1)
+		LDY	#>(fileAddr + 1)
+		
+		JSR	krnlSTNM
+		
+		LDA     #$01                    ;Init a channel
+		LDX     #$08
+		LDY     #$02
+		JSR     krnlSLFS
+
+		JSR	krnlOPEN		;Open the channel
+		
+		LDX	#$01
+		JSR	krnlCHKI		;Set channel for input
+		
+		JSR	krnlCHRI
+		STA	loadAddr
+		JSR	krnlCHRI
+		STA	loadAddr + 1
+		
+		LDA	#$01
+		JSR	krnlCLSE
+
+		JSR	krnlCLRC
+		
+;dengland
+;	After calls into the Kernal like this, we need to re-init the M65 IO
+		JSR	initM65IO
+		
+readLdAddrExit:
+		RTS
+		
+	
+loadMsg:
+	.byte		$93, $11
+	.asciiz		"lOADING..."	
+	
+loadAddr:
+	.word		$0000
+	
+	
+;-------------------------------------------------------------------------------
+initM65IO:
+;-------------------------------------------------------------------------------
+;	Enable enhanced registers
+		LDA 	#$47			;M65 knock knock
+		STA 	$D02F
+		LDA 	#$53
+		STA 	$D02F
+
+		RTS
+
+;-------------------------------------------------------------------------------
+initScreen:
+;-------------------------------------------------------------------------------
+; 	Clear screen
+		LDA 	#$0E			;Border colour
+		STA 	$D020
+		LDA 	#$06			;Screen colour
+		STA 	$D021
+;	Lower-case
+		LDA 	#$0E			;Print to-lower-case character
+		JSR 	$FFD2
+	 
+		LDX 	#$00
+ll9:	 
+		LDA 	#$20			;Screen memory
+		STA 	$0400, X
+		STA 	$0500, X
+		STA 	$0600, X
+		STA 	$0700, X
+		LDA 	#$0E			;Colour memory
+		STA 	$D800, X
+		STA 	$D900, X
+		STA 	$DA00, X
+		STA 	$DB00, X
+		INX
+		BNE 	ll9
+
+; 	Top and bottom text
+		LDY 	#39
+ll13:	 
+		LDA 	topBanner, Y		
+		JSR 	asciiToCharROM		;Convert top banner for screen 
+		ORA 	#$80			;Output in reverse
+		STA 	$0400, Y
+		
+		LDA 	bottomBanner, Y		
+		JSR 	asciiToCharROM		;Convert bottom banner to screen 
+		ORA 	#$80			;Output in reverse
+		STA 	$07C0, Y
+		
+		DEY
+		BPL 	ll13
+		
+		RTS
+	
+	
+;-------------------------------------------------------------------------------
+asciiToCharROM:
+;-------------------------------------------------------------------------------
+; 	NUL ($00) becomes a space
+		CMP 	#0
+		BNE 	atc0
+		LDA 	#$20
 atc0:
-	; @ becomes $00
-	cmp #$40
-	bne atc1
-	lda #0
-	rts
+;	@ becomes $00
+		CMP 	#$40
+		BNE 	atc1
+		LDA 	#0
+		RTS
 atc1:
-	cmp #$5b
-	bcs atc2
-	; A to Z -> leave unchanged
-	rts
+		CMP 	#$5B
+		BCS 	atc2
+;	A to Z -> leave unchanged
+		RTS
 atc2:
-	cmp #$5b
-	bcc atc3
-	cmp #$60
-	bcs atc3
-	; [ \ ] ^ _ -> subtract $40
-	and #$1f
-	rts
+		CMP 	#$5B
+		BCC 	atc3
+		CMP 	#$60
+		BCS 	atc3
+;	[ \ ] ^ _ -> subtract $40
+;dengland
+;		AND 	#$1F
+		SEC
+		SBC	#$40
+
+		RTS
 atc3:
-	cmp #$61
-	bcc atc4
-	cmp #$7b
-	bcs atc4
-	; a - z -> subtract $60
-	and #$1f
-	rts
-atc4:	rts
+		CMP 	#$61
+		BCC 	atc4
+		CMP 	#$7B
+		BCS 	atc4
+;	a - z -> subtract $60
+;dengland
+;		AND 	#$1F
+		SEC
+		SBC	#$60
+atc4:		
+		RTS
 
 
-scanjoystick:
-	lda $dc00
-	and $dc01
-	and #$1f
-	eor #$1f
-	tay
-	lda joysticktable,y
-	rts
+	.if	DEBUG_SORT
+;-------------------------------------------------------------------------------
+waitOneFrame:
+;-------------------------------------------------------------------------------
+		LDA 	$D012
+wof1:	
+		CMP 	$D012
+		BEQ 	wof1
+wof2:	
+		CMP 	$D012
+		BNE 	wof2
+		RTS
 
-joysticktable:
-; UDLRF $91,$11,$9d,$1d,$0d
-	.byte $00,$91,$11,$00,$9d,$91,$11,$00
-	.byte $1d,$91,$10,$00,$00,$00,$00,$00
-	.byte $0d,$0d,$0d,$0d,$0d,$0d,$0d,$0d
-	.byte $0d,$0d,$0d,$0d,$0d,$0d,$0d,$0d
 
-	.scend
+;-------------------------------------------------------------------------------
+waitOneSecond:
+;-------------------------------------------------------------------------------
+		PHA
+		PHX
+		PHY
+		PHZ
+		LDX 	#50
+wos1:	
+		JSR 	waitOneFrame
+		DEX
+		BPL 	wos1
+		PLZ
+		PLY
+		PLX
+		PLA
 
-iter1:	 .byte 0
+		RTS
 
-diskcount:     .byte 0,0
+;-------------------------------------------------------------------------------
+waitTwoSeconds:
+;-------------------------------------------------------------------------------
+		PHA
+		PHX
+		PHY
+		PHZ
+		LDX 	#100
+wts1:	
+		JSR 	waitOneFrame
+		DEX
+		BPL 	wts1
+		PLZ
+		PLY
+		PLX
+		PLA
 
-screenitem:    .byte 0,0
-currentitem:   .byte 0,0
-temp16:	       .byte 0,0
-colour:	       .byte 14 ; light blue
-reverse:       .byte 0
-filedescriptor:	     .byte 0
+		RTS
+	.endif
 
-topbanner:
-		.byte "MEGA65 Disk Image Chooser V00.01        "		
-bottombanner:
-		.byte ">>  RUN/STOP exits to C64, 5 to C65   <<"
+;-------------------------------------------------------------------------------
+;scanjoystick:
+;dengland
+;	Routine is unused
+;-------------------------------------------------------------------------------
+;		LDA 	$DC00
+;		AND 	$DC01
+;		AND 	#$1F
+;		EOR 	#$1F
+;		TAY
+;		LDA 	joystickTable, Y
+;		RTS
+
+;joystickTable:
+;;	UDLRF $91,$11,$9D,$1D,$0D
+;	.byte 		$00, $91, $11, $00, $9D, $91, $11, $00
+;	.byte 		$1D, $91, $10, $00, $00, $00, $00, $00
+;	.byte 		$0D, $0D, $0D, $0D, $0D, $0D, $0D, $0D
+;	.byte 		$0D, $0D, $0D, $0D, $0D, $0D, $0D, $0D
+
+
+iter1:	 
+	.byte 		0
+
+diskCount:     
+	.word 		0
+
+screenItem:    
+	.word		0
+currentItem:   
+	.word  		0
+temp16:	       
+	.word 		0
+colour:	       
+	.byte 		14 			;light blue
+reverse:       
+	.byte 		0
+fileDescriptor:	     
+	.byte 		0
+
+topBanner:
+	.asciiz 	"MEGA65 Disk Image Mount           V00.70"		
+bottomBanner:
+	.asciiz 	">>  RUN/STOP exits to C64, 5 to C65   <<"
+
+
+;-------------------------------------------------------------------------------
+;	.org		krnlTBUF		;nothing that requires this
+loaderLo:
+;	This loader should work for normal programs loading at $0801
+;-------------------------------------------------------------------------------
+		PHP				;Play nice with BASIC and
+		PHA				;prepare to continue what it 
+		TXA				;asked for
+		PHA				
+		TYA
+		PHA
+		
+		LDA	fileAddr		;Set the file name
+		LDX	#<(fileAddr + 1)
+		LDY	#>(fileAddr + 1)
+		
+		JSR	krnlSTNM
+		
+		LDA     #$01                    ;Init a channel
+		LDX     #$08
+		LDY     #$01
+		JSR     krnlSLFS
+
+		LDA     #$00                    ;Load the file
+		LDX     #$FF
+		LDY     #$FF
+		JSR     krnlLOAD
+
+;		JSR     krnlCLAL		;Close the channel
+		LDA	#$01
+		JSR	krnlCLSE
+		JSR	krnlCLRC
+
+		LDA	saveVect		;Restore the chrout vector
+		STA	basCHROUT
+		LDA	saveVect + 1
+		STA	basCHROUT + 1
+		
+		LDA	#'R'			;Inject RUN command into 
+		STA	krnlKBUF		;keyboard buffer
+		LDA	#'U'			
+		STA	krnlKBUF + 1
+		LDA	#'N'			
+		STA	krnlKBUF + 2
+		LDA	#$0D
+		STA	krnlKBUF + 3
+		
+		LDA	#$04
+		STA	Z:krnlKBLN
+
+		PLA				;Restore the state in order to	
+		TAY				;continue the call BASIC made
+		PLA
+		TAX
+		PLA
+		PLP
+
+		JMP	(basCHROUT)		;If we don't do this, we'll get 
+						;an error on the screen (albiet
+						;momentarily)
+loaderLoEnd:
+
+
+;-------------------------------------------------------------------------------
+;	.org		ldrHiAddr		;nothing that requires this
+loaderHi:
+;	This loader should work for programs loading into "low memory" as per
+;	our own lo loader.  It may or may not work for stack based loaders.
+;	That may need to be a special case?  We may need to detect them and then
+;	pull the return address from the stack to pretend we were never here.
+;-------------------------------------------------------------------------------
+		LDA	fileAddr		;Set the file name
+		LDX	#<(fileAddr + 1)
+		LDY	#>(fileAddr + 1)
+		
+		JSR	krnlSTNM
+		
+		LDA     #$01                    ;Init a channel
+		LDX     #$08
+		LDY     #$01
+		JSR     krnlSLFS
+
+		LDA     #$00                    ;Load the file
+		LDX     #$FF
+		LDY     #$FF
+		JSR     krnlLOAD
+
+		JSR     krnlCLAL		;Close the channel
+
+;dengland
+;	Actually, lets not do this.  These type of programs will take control all
+;	on their own.
+;		LDA	#'R'			;Inject RUN command into 
+;		STA	krnlKBUF		;keyboard buffer
+;		LDA	#'U'			
+;		STA	krnlKBUF + 1
+;		LDA	#'N'			
+;		STA	krnlKBUF + 2
+;		LDA	#$0D
+;		STA	krnlKBUF + 3
+;		
+;		LDA	#$04
+;		STA	Z:krnlKBLN
+
+		RTS
+loaderHiEnd:

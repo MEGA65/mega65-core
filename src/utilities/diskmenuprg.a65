@@ -1,17 +1,20 @@
+;-------------------------------------------------------------------------------
+;BASIC interface
+;-------------------------------------------------------------------------------
+	.code
+	.org		$07FF			;start 2 before load address so
+						;we can inject it into the binary
+						
+	.byte		$01, $08		;load address
+	
+	.word		_basNext, $000A		;BASIC next addr and this line #
+	.byte		$9E			;SYS command
+	.asciiz		"2061"			;2061 and line end
+_basNext:
+	.word		$0000			;BASIC prog terminator
+	.assert         * = $080D, error, "BASIC Loader incorrect!"
+;-------------------------------------------------------------------------------
 
-	.outfile "src/utilities/diskmenu.prg"
+	.include 	"diskmenu.a65"
 
-	 .word $0801
-	 .org $0801
-
-	 .scope
-	 .word _next, 10                       ; Next line and current line number
-	 .byte $97, "2,0:", $9e, " 2014", $AA, "65",0      ; POKE 2,0 : SYS 2014+65
-_next:	 .word 0
-    
-	 .checkpc 2079
-	 .advance 2079
-
-	 .include "diskmenu.a65"
-
-	 .scend
+	.assert		* < scratch_fileName, error, "Code overflows dynamic storage area!"
