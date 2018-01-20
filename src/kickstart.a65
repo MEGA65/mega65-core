@@ -2117,12 +2117,10 @@ longpeek:
 
 		; Patch DMA list
 		;
-		sta $d705 ; DMAgic source MB
-		lda #$ff
-		sta $d706 ; DMAgic destination MB
 		stx longpeekdmalist_src_lsb
 		sty longpeekdmalist_src_2sb
 		stz longpeekdmalist_src_msb
+		sta longpeekdmalist_src_mb 
 
 		; Set DMA list address
 		;
@@ -2146,6 +2144,8 @@ longpeekdmalist:
 longpeekdmalist_src_mb:
 		.byte $FF
 		.byte $81,$FF ; destination is always $FFxxxxx
+		.byte $00 ; end of options marker
+		; F018A format request follows
 		.byte $00 ; COPY, no chain
 		; 1 byte
 		.word $0001
