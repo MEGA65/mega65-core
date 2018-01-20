@@ -146,7 +146,10 @@ architecture behavioural of ethernet is
   signal eth_state : ethernet_state := Idle;
 
   signal eth_mac : unsigned(47 downto 0) := x"024753656565";
-
+  signal eth_mac_filter : std_logic := '1';
+  signal eth_accept_broadcast : std_logic := '1';
+  signal eth_accept_multicast : std_logic := '1';
+ 
   signal rx_keyinput : std_logic := '0';
   signal eth_keycode_toggle_internal : std_logic := '0';
  
@@ -233,7 +236,6 @@ architecture behavioural of ethernet is
  signal eth_byte_fail : unsigned(7 downto 0) := x"00";
  signal eth_offset_fail : unsigned(7 downto 0) := x"00";
 
- signal eth_swap_rx : std_logic := '0';
  signal eth_rxdv : std_logic := '0';
  signal eth_rxd : unsigned(1 downto 0) := "00";
  signal eth_disable_crc_check : std_logic := '0';
@@ -382,12 +384,7 @@ begin  -- behavioural
     if rising_edge(clock50mhz) then
       eth_txd_phase_drive <= eth_txd_phase;
       
-      if eth_swap_rx='1' then
-        eth_rxd(1) <= eth_rxd_in(0);
-        eth_rxd(0) <= eth_rxd_in(1);
-      else
-        eth_rxd <= eth_rxd_in;
-      end if;
+      eth_rxd <= eth_rxd_in;
       eth_rxdv <= eth_rxdv_in;
       
       -- Register ethernet data lines and data valid signal
@@ -863,10 +860,17 @@ begin  -- behavioural
             fastio_rdata(6) <= eth_tx_viciv;
             fastio_rdata(7) <= '0';
           when x"5" =>
-            fastio_rdata(0) <= eth_swap_rx;
+            -- @IO:GS $D6E5.0 - Ethernet disable promiscuous mode
+            fastio_rdata(0) <= eth_mac_filter;
+            -- @IO:GS $D6E5.1 Disable CRC check for received packets
             fastio_rdata(1) <= eth_disable_crc_check;
+            -- @IO:GS $D6E5.2-3 Ethernet TX clock phase adjust
             fastio_rdata(3 downto 2) <= eth_txd_phase;
-            fastio_rdata(7 downto 5) <= (others => '0');
+            -- @IO:GS $D6E5.4 Accept broadcast frames
+            fastio_rdata(4) <= eth_accept_broadcast;
+            -- @IO:GS $D6E5.5 Accept multicast frames
+            fastio_rdata(5) <= eth_accept_multicast;
+            fastio_rdata(7 downto 6) <= (others => '0');
           when x"6" =>
             -- @IO:GS $D6E6.0-4 - Ethernet MIIM register number
             -- @IO:GS $D6E6.7-5 - Ethernet MIIM PHY number (use 0 for Nexys4, 1 for MEGA65 r1 PCBs)
@@ -878,11 +882,13 @@ begin  -- behavioural
           when x"8" =>
             -- @IO:GS $D6E8 - Ethernet MIIM register value (MSB)
             fastio_rdata <= miim_read_value(15 downto 8);
-          when x"b" =>
-            fastio_rdata <= eth_tx_size(7 downto 0);
-          when x"c" =>
-            fastio_rdata(7 downto 4) <= x"0";
-            fastio_rdata(3 downto 0) <= eth_tx_size(11 downto 8);
+          -- @IO:GS $D6E9-E - Ethernet MAC address
+          when x"9" => fastio_rdata <= eth_mac(47 downto 40);
+          when x"A" => fastio_rdata <= eth_mac(39 downto 32);
+          when x"B" => fastio_rdata <= eth_mac(31 downto 24);
+          when x"C" => fastio_rdata <= eth_mac(23 downto 16);
+          when x"D" => fastio_rdata <= eth_mac(15 downto 8);
+          when x"E" => fastio_rdata <= eth_mac(7 downto 0);
           when x"f" =>
             fastio_rdata <= to_unsigned(ethernet_state'pos(eth_tx_state),8);
           when others =>
@@ -1012,16 +1018,24 @@ begin  -- behavioural
                   null;
               end case;
             when x"5" =>
+              eth_mac_filter <= fastio_wdata(0);
+              eth_disable_crc_check <= fastio_wdata(1);
               -- @IO:GS $D6E5.2-3 Ethernet TX clock phase adjust
               eth_txd_phase <= fastio_wdata(3 downto 2);
-              -- @IO:GS $D6E5.0 Swap RMII RX bit order
-              eth_swap_rx <= fastio_wdata(0);
               -- @IO:GS $D6E5.1 Disable CRC check for received packets
-              eth_disable_crc_check <= fastio_wdata(1);
+              eth_accept_broadcast <= fastio_wdata(4);
+              eth_accept_multicast <= fastio_wdata(5);
             when x"6" =>
               miim_request <= '1';
               miim_register <= fastio_wdata(4 downto 0);
               miim_phyid(2 downto 0) <= fastio_wdata(7 downto 5);
+            when x"9" => eth_mac(47 downto 40) <= fastio_wdata;
+            when x"A" => eth_mac(39 downto 32) <= fastio_wdata;
+            when x"B" => eth_mac(31 downto 24) <= fastio_wdata;
+            when x"C" => eth_mac(23 downto 16) <= fastio_wdata;
+            when x"D" => eth_mac(15 downto 8) <= fastio_wdata;
+            when x"E" => eth_mac(7 downto 0) <= fastio_wdata;
+              
             when others =>
               -- Other registers do nothing
               null;
