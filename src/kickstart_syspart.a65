@@ -72,6 +72,29 @@ spo2:	lda $de00,x
 	lda #$00
 	sta syspart_error_code
 
+	; Copy bytes from offset $10 - $2F into syspart_structure
+	; XXX It is assumed that these fields are aligned with each other
+	ldx #$10
+spo3:	lda $de00,x
+	sta syspart_structure,x
+	inx
+	cpx #$30
+	bne spo3
+
+	; Display info about # of freeze and service slots
+	ldx #<msg_syspart_info
+	ldy #>msg_syspart_info
+	jsr printmessage
+	ldy #$00
+	ldz syspart_freeze_slot_count+1
+	jsr printhex
+	ldz syspart_freeze_slot_count+0
+	jsr printhex
+	ldz syspart_service_slot_count+1
+	jsr printhex
+	ldz syspart_service_slot_count+0
+	jsr printhex
+
 	ldx #<msg_syspart_ok
 	ldy #>msg_syspart_ok
 	jsr printmessage
@@ -102,3 +125,6 @@ msg_syspart_open_error:
 	.byte "SYSTEM PARTITION ERROR: (ERRNO: $$)",0
 msg_syspart_ok:
 	.byte "SYSTEM PARTITION OK",0
+msg_syspart_info:
+	.byte "SYSPART: $$$$ FREEZE, $$$$ SERVICE SLOTS",0
+	
