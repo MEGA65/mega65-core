@@ -2296,7 +2296,7 @@ begin
         reg_dmagic_addr(27 downto 20) <= value;
       elsif (long_address = x"FFD3705") or (long_address = x"FFD1705") then
         -- @IO:GS $D705 Set low-order byte of DMA list address, and trigger Enhanced DMA job (uses DMA option list)
-        reg_dmagic_src_mb <= value;
+        reg_dmagic_addr(7 downto 0) <= value;
       elsif (long_address = x"FFD37FA") then
         -- @IO:GS $D7FA.0 DEBUG 1/2/3.5MHz CPU speed fine adjustment
         cpu_speed_bias <= to_integer(value);
@@ -3393,7 +3393,8 @@ begin
 
         monitor_proceed <= proceed;
         monitor_request_reflected <= monitor_mem_attention_request_drive;
-        
+
+        report "CPU state : proceed=" & std_logic'image(proceed);
         if proceed='1' then
           -- Main state machine for CPU
           report "CPU state = " & processor_state'image(state) & ", PC=$" & to_hstring(reg_pc) severity note;
@@ -3690,6 +3691,7 @@ begin
               if job_uses_options='0' then              
                 state <= DMAgicReadList;
               else
+                dmagic_option_id(7) <= '0';
                 state <= DMAgicReadOptions;
               end if;
               dmagic_list_counter <= 0;
@@ -3700,8 +3702,13 @@ begin
               memory_access_resolve_address := '0';
               memory_access_read := '1';
 
+              report "Parsing DMA options: option_id=$" & to_hstring(dmagic_option_id)
+                  & ", new byte=$" & to_hstring(memory_read_value);
+              
               if dmagic_option_id(7)='1' then
                 -- This is the value for this option
+                report "Processing DMA option $" & to_hstring(dmagic_option_id)
+                  & " $" & to_hstring(memory_read_value);
                 dmagic_option_id <= (others => '0');
                 case dmagic_option_id is
                   -- @ IO:GS $D705 - Enhanced DMAgic job option $80 $xx = Set MB of source address
@@ -3726,11 +3733,16 @@ begin
                   -- Options with 1 byte argument, so remember
                   -- this option ID byte, and process next byte.
                   dmagic_option_id <= memory_read_value;
+                  report "Saw DMA option $" & to_hstring(memory_read_value)
+                    & ", will read parameter value";
                 else
                   -- Options without arguments
+                  report "Processing single-byte DMA option";
                   case memory_read_value is
                     -- @ IO:GS $D705 - Enhanced DMAgic job option $00 = End of options
-                    when x"00" =>  state <= DMAgicReadList;
+                    when x"00" =>
+                      report "End of Enhanced DMA option list.";
+                      state <= DMAgicReadList;
                     -- @ IO:GS $D705 - Enhanced DMAgic job option $06 = Use $86 $xx transparency value (don't write source bytes to destination, if byte value matches $xx)
                     -- @ IO:GS $D705 - Enhanced DMAgic job option $07 = Disable $86 $xx transparency value.
                                    
