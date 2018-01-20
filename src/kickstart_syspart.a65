@@ -14,8 +14,9 @@
 ;    header.
 ;
 
-	.alias syspart_readerror $01
-	.alias syspart_badmagic  $42
+	.alias syspart_error_readerror $01
+	.alias syspart_error_badmagic  $42
+	.alias syspart_error_nosyspart $ff
 
 ; HEADER - First sector of partition
 ; $000-$00A "MEGA65SYS00" - Magic string and version indication
@@ -52,7 +53,7 @@ spo1:	lda syspart_start_sector,x
 	bpl spo1
 	jsr sd_fix_sectornumber
 	
-	lda #syspart_readerror
+	lda #syspart_error_readerror
 	sta syspart_error_code
 	jsr sd_readsector
 	bcc syspart_openerror
@@ -60,7 +61,7 @@ spo1:	lda syspart_start_sector,x
 	; Got First sector of system partition.
 
 	; Check magic string
-	lda #syspart_badmagic
+	lda #syspart_error_badmagic
 	sta syspart_error_code
 	ldx #10
 spo2:	lda $de00,x
@@ -124,6 +125,7 @@ syspart_openerror:
 	clc
 	rts
 
+; XXX These should return success/failure indication
 syspart_configsector_read_trap:
 	jsr syspart_configsector_read
 	sta hypervisor_enterexit_trigger
@@ -139,6 +141,55 @@ syspart_configsector_set_trap:
 syspart_configsector_apply_trap:
 	jsr syspart_configsector_apply
 	sta hypervisor_enterexit_trigger
+
+syspart_locate_freezeslot:
+	; Get the first sector of a given freeze slot
+	; X = low byte of slot #
+	; Y = high byte of slot #
+
+	phx
+	phy
+
+	; Check that we have a system partition
+	lda syspart_present
+	bne splf1
+	lda #syspart_error_nosyspart
+	sta syspart_error_code
+	rts
+splf1:
+	jsr syspart_locate_freezeslot_0
+	; Now add freeze slot size x (YYXX) bytes
+	; This is needless to say a bit of a pain to calculate
+	; on an 8-bit integer-only CPU.  Our long-planned
+	; Integer Processing Unit (IPU) would be welcome exactly
+	; now, so that we could load in the multiplication inputs
+	; and read the outputs a convenient few cycles later.
+
+
+syspart_locate_freezeslot_0:
+	; Freeze slot #0 starts at:
+	;   syspart_start_sector + syspart_freeze_area_start
+	; + syspart_freeze_directory_sector_count
+	lda syspart_start_sector+0
+	clc
+	adc syspart_freeze_area_start+0
+	sta $d681
+	ldx #1
+splf2:	lda syspart_start_sector,x
+	adc syspart_freeze_area_start,x
+	sta $d681,x
+	inx
+	cpx #4
+	bne splf2
+	lda $d681
+	clc
+	adc syspart_freeze_directory_sector_count+0
+	sta $d681
+	lda $d682
+	adc syspart_freeze_directory_sector_count+1
+	sta $d682
+
+	rts
 
 
 syspart_configsector_set:
