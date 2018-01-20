@@ -27,10 +27,6 @@ is_ultimax_cartridge:
 		lda reset_vector+1
 		sta hypervisor_pch
 		; Use DMA to quickly do the copy
-		lda #$70     
-		sta $d705   ; src in $70xxxxx
-		lda #$00
-		sta $d706   ; dst in $00xxxxx
 		lda #>ultimaxsetup_dmalist
 		sta $d701
 		lda #$0f
@@ -42,7 +38,8 @@ is_ultimax_cartridge:
 		ldx #<ultimaxsetup_dmalist
 ultimax_setup_loop:
 		sta ultimaxsetup_destination+1
-		stx $d700
+		; Trigger MEGA65 enhanced DMA
+		stx $d705
 		clc
 		adc #$40
 		cmp #$30
@@ -51,6 +48,11 @@ ultimax_setup_loop:
 		rts
 
 ultimaxsetup_dmalist:
+		; MEGA65 Enhanced DMA options
+		.byte $80,$70 ; copy from $70xxxxx
+		.byte $81,$00 ; copy to $01xxxxx
+		.byte $00 ; end of options
+		; F018A dma list
 		.byte $00 ; COPY, no chain
 		.word $1000 ; 4KB
 		; source address

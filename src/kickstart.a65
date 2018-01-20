@@ -866,16 +866,11 @@ kickuproutine:
 		sta $d702
 		lda #$ff   
 		sta $d704  ; dma list is in top MB of address space
-		sta $d706  ; similarly destination of copy is top MB of address space
-		lda #$00
-		sta $d705  ; source of copy is bottom MB of address space
 		lda #>kickupdmalist
 		sta $d701
+		; Trigger enhanced DMA 
 		lda #<kickupdmalist
-		sta $d700
-		; clear source/destination MB so that C65 ROM doesn't go bananas
-		lda #$00
-		sta $d706
+		sta $d705
 
 		; copy complete, so mark ourselves upgraded, and jump into hypervisor
 		; as though we were just reset.
@@ -888,7 +883,13 @@ kickuproutine:
 ;	========================
 
 kickupdmalist:
+		; MEGA65 Enhanced DMA options
+		.byte $0A  ; Request format is F018A
+		.byte $80,$00 ; Source is $00xxxxx
+		.byte $81,$FF ; Destination is $FF
+		.byte $00  ; No more options
 		; copy $0004000-$0007FFF to $FFF8000-$FFFBFFF
+		; F018A DMA list
 		; (MB offsets get set in routine)
 		.byte $00 ; copy + last request in chain
 		.word $4000 ; size of copy is 16KB
@@ -1177,17 +1178,20 @@ loadedok:
 		lda #$ff
 		sta $d702
 		sta $d704
-		sta $d706
 		lda #$00
-		sta $d705
 		lda #>charromdmalist
 		sta $d701
 		lda #<charromdmalist
-		sta $d700
+		sta $d705
 
 		jmp loadedmegaromok
 
 charromdmalist:
+		; M65 DMA options
+		.byte $0A    ; Request format is F018A
+		.byte $81,$FF ; destination is $FFxxxxx
+		.byte $00 ; no more options
+		; F018A DMA list
 		.byte $00
 		.word $1000
 		.word $D000
@@ -1745,23 +1749,13 @@ erasescreen:
 		lda #$ff
 		sta $d704
 
-		; copy from MB $00 for screen clearing
-		;
-		lda #$00
-		sta $d705
-
-		; destination MB is $00, since we are writing to C64 RAM space.
-		;
-		lda #$00
-		sta $d706
-
 		lda #>erasescreendmalist
 		sta $d701
 
 		; set bottom 8 bits of address and trigger DMA.
 		;
 		lda #<erasescreendmalist
-		sta $d700
+		sta $d705
 
 		; clear source/destination MB so that C65 ROM doesn't go bananas
 		;
@@ -1836,6 +1830,10 @@ lo1:		lda $3d00,x
 erasescreendmalist:
 		; Clear screen RAM
 		;
+		; MEGA65 enhanced DMA options
+		.byte $0A      ; Request format is F018A
+		.byte $00 ; no more options
+		; F018A DMA list
 		.byte $04   ; COPY + chained request
 		.word 1996  ; 40x25x2-4 = 1996
 		.word $0400 ; copy from start of screen at $0400
@@ -1846,6 +1844,9 @@ erasescreendmalist:
 
 		; Clear colour RAM
 		;
+		; MEGA65 DMA options
+		.byte $00     ; no more options
+		; F018A dma list
 		.byte $07     ; FILL + chained request
 		.word 2000    ; 40x25x2 = 2000
 		.byte $01     ; fill with white = $01
@@ -2119,9 +2120,9 @@ longpeek:
 		sta $d705 ; DMAgic source MB
 		lda #$ff
 		sta $d706 ; DMAgic destination MB
-		stx longpeekdmalist+3
-		sty longpeekdmalist+4
-		stz longpeekdmalist+5
+		stx longpeekdmalist_src_lsb
+		sty longpeekdmalist_src_2sb
+		stz longpeekdmalist_src_msb
 
 		; Set DMA list address
 		;
@@ -2132,18 +2133,28 @@ longpeek:
 		lda #$ff
 		sta $d704 ; DMA list address is $FFxxxxx
 
-		; set bottom bits of DMA list address and trigger DMA
+		; set bottom bits of DMA list address and trigger enhanced DMA
 		;
 		lda #<longpeekdmalist
-		sta $d700
+		sta $d705
 		rts
 
 longpeekdmalist:
+		; MEGA65 Enhanced DMA options
+		.byte $0A      ; Request format is F018A
+		.byte $80
+longpeekdmalist_src_mb:
+		.byte $FF
+		.byte $81,$FF ; destination is always $FFxxxxx
 		.byte $00 ; COPY, no chain
 		; 1 byte
 		.word $0001
 		; source address
-		.word $0000
+longpeekdmalist_src_lsb:
+		.byte $00
+longpeekdmalist_src_2sb:
+		.byte $00
+longpeekdmalist_src_msb:
 		.byte $00
 		; destination address ($xxFBC00)
 		.word kickstart_scratchbyte0
@@ -2152,7 +2163,6 @@ longpeekdmalist:
 
 longpoke:
 		; Use DMAgic to write any byte of RAM in C65 1MB address space.
-		; XXX - Which version of DMAgic does this assume!!?? 
 		; A = value
 		; X = Address LSB
 		; Y = Address MidB
@@ -2164,8 +2174,12 @@ longpoke:
 		stx longpokeaddress+0
 		sty longpokeaddress+1
 		stz longpokeaddress+2
-		lda #$00
-		sta $d706 ; DMAgic destination MB
+		tza
+		asl
+		asl
+		asl
+		asl
+		sta longpokedmalist_dest_mb ; DMAgic destination MB
 		; and disable F108B enhanced mode
 		sta $d703
 
@@ -2178,13 +2192,20 @@ longpoke:
 		lda #$ff
 		sta $d704 ; DMA list address is $FFxxxxx
 
-		; set bottom bits of DMA list address and trigger DMA
+		; set bottom bits of DMA list address and trigger enhhanced DMA
 		;
 		lda #<longpokedmalist
-		sta $d700
+		sta $d705
 		rts
 
 longpokedmalist:
+		; MEGA65 Enhanced DMA option list
+		.byte $0A      ; Request format is F018A
+		.byte $81
+longpokedmalist_dest_mb:
+		.byte $00
+		.byte $00 ; no more enhanced DMA options
+		; F018A dma list
 		.byte $03 ; FILL, no chain
 		; 1 byte
 		.word $0001
@@ -2613,18 +2634,18 @@ ueol1:
 	ldz #36
 	nop
 	lda (<zptempv32),z
-	sta utility_dmalist+1
+	sta utility_dmalist_length+0
 	inz
 	nop
 	lda (<zptempv32),z
-	sta utility_dmalist+2
+	sta utility_dmalist_length+1
 	lda <zptempv32+0
 	clc
 	adc #44 ; length of header structure
-	sta utility_dmalist+3
+	sta utility_dmalist_srcaddr+0
 	lda <zptempv32+1
 	adc #0
-	sta utility_dmalist+4
+	sta utility_dmalist_srcaddr+1
 		
 	; load address is always $07FF (to skip $0801 header)
 	; start @ zptempv32 + 44
@@ -2632,17 +2653,10 @@ ueol1:
 	lda #$ff
 	sta $d702
 	sta $d704
-	; (colour RAM is at $FF8xxxx, so need to set DMA source MB to $FF)
-	; lda #$ff
-	sta $d705 
-	; DMA destination is normal RAM, so DMA destination MB = $00
-	; lda #$00
-	inc
-	sta $d706
 	lda #>utility_dmalist
 	sta $d701
 	lda #<utility_dmalist
-	sta $d700  ; Trigger DAM
+	sta $d705  ; Trigger enhanced DMA
 
 	; clear 16-bit char mode
 	lda #$05	; 0000 0101
@@ -2687,11 +2701,19 @@ ueol1:
 	; Next instruction exits hypervisor to user mode
 	sta hypervisor_enterexit_trigger
 
-utility_dmalist:
+utility_dmalist:	
 		; copy $FF8xxxx-$FF8yyyy to $00007FF-$000xxxx
-		; (MB offsets get set in routine)
+
+		; MEGA65 Enhanced DMA options
+		.byte $0A      ; Request format is F018A
+		.byte $80,$FF  ; Copy from $FFxxxxx
+		.byte $81,$00  ; Copy to $00xxxxx
+		.byte $00 ; no more options
+		; F018A DMA list
 		.byte $00 ; copy + last request in chain
+utility_dmalist_length:
 		.word $FFFF ; size of copy  (gets overwritten)
+utility_dmalist_srcaddr:
 		.word $FFFF ; starting addr (gets overwritten)
 		.byte $08   ; of bank $8
 		.word $07FF ; destination address is $0801 - 2
