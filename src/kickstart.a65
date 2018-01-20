@@ -77,8 +77,8 @@ trap_entry_points:
 	nop				; refer: kickstart_dos.a65
 	jmp memory_trap                 ; Trap #$01
 	nop                             ; refer: kickstart_mem.a65
-	jmp nosuchtrap
-	nop
+	jmp syspart_trap		; Trap #$02
+	nop                             ; refer: kickstart_syspart.a65
 	jmp nosuchtrap
 	nop
 	jmp nosuchtrap

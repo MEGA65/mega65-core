@@ -124,6 +124,23 @@ syspart_openerror:
 	clc
 	rts
 
+syspart_configsector_read_trap:
+	jsr syspart_configsector_read
+	sta hypervisor_enterexit_trigger
+
+syspart_configsector_write_trap:
+	jsr syspart_configsector_write
+	sta hypervisor_enterexit_trigger
+
+syspart_configsector_set_trap:
+	jsr syspart_configsector_set
+	sta hypervisor_enterexit_trigger
+
+syspart_configsector_apply_trap:
+	jsr syspart_configsector_apply
+	sta hypervisor_enterexit_trigger
+
+
 syspart_configsector_set:
 	ldx #3
 spcr1:	lda syspart_start_sector,x
@@ -193,3 +210,92 @@ msg_syspart_info:
 	.byte "SYSPART: $$$$ FREEZE, $$$$ SERVICE SLOTS",0
 msg_syspart_config_invalid:
 	.byte "SYSPART CONFIG INVALID. PLEASE SET.",0
+
+
+syspart_trap:
+	sei
+	cld
+	and #$fe
+	tax
+	jmp (syspart_trap_table,x)
+
+syspart_trap_table:
+	; $00-$0E
+	.word syspart_configsector_read_trap
+	.word syspart_configsector_write_trap
+	.word syspart_configsector_apply_trap
+	.word syspart_configsector_set_trap
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+
+	; $10-$1E
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+
+	; $20-$2E
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+
+	; $30-$3E
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+
+	; $40-$4E
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+
+	; $50-$5E
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+
+	; $60-$6E
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+
+	; $70-$7E
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
+	.word invalid_subfunction
