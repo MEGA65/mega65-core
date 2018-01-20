@@ -881,7 +881,7 @@ partitionisinteresting:
 	asl
 	asl
 	asl
-
+	tax
 
 	; Copy relevant fields into place
 	; These are start of partition and length of partition (both in sectors)
