@@ -227,21 +227,22 @@ begin  -- behavioural
 
         -- 0= restore down (pressed), 1 = restore up (not-pressed)
         if restore_state='0' and last_restore_state='1' then
-          -- Restore has just been pressed
-          if (restore_up_ticks > 1) and (restore_up_ticks < 16) then
-            -- If between 50ms and 800ms, then it is a double-tap:
-            -- triger a hypervisor trap
+          -- Restore has just been pressed, do nothing special.
+          -- (Events happen on rising edge)
+        elsif restore_state='1' and last_restore_state='0' then
+          -- Restore has just been released
+          if restore_down_ticks < 8 then
+            -- <0.25 seconds = quick tap = trigger NMI
+            restore_out <= '0';
+          elsif restore_down_ticks < 16 then
+            -- 0.25 - ~ 1 second hold = trigger hypervisor trap
             hyper_trap <= '0';
             hyper_trap_count <= hyper_trap_count_internal + 1;
             hyper_trap_count_internal <= hyper_trap_count_internal + 1;
-          end if;
-        elsif restore_state='1' and last_restore_state='0' then
-          -- Restore has just been released
-          if restore_down_ticks < 32 then
-            restore_out <= '0';
-          -- But holding it down for >2 seconds does nothing,
-          -- incase someone holds it by mistake.
           elsif restore_down_ticks < 128 then
+            -- Long hold = do RESET instead of NMI
+            -- But holding it down for >4 seconds does nothing,
+            -- incase someone holds it by mistake, and wants to abort doing a reset.
             reset_drive <= '0';
             report "asserting reset via RESTORE key";
           end if;
