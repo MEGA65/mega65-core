@@ -865,7 +865,7 @@ partitionisinteresting:
 
 	; Make sure we have a spare disk slot
 	lda dos_disk_count
-	cmp dos_max_disks
+	cmp #dos_max_disks
 	beq partitionerror	
 
 	; Partition is FAT32 (either 0B or 0C), so add it to the list
