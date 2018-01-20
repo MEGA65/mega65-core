@@ -433,13 +433,16 @@ GS $D6E3 - TX Packet size (high byte)
 GS $D6E4 = $00 = Clear ethernet TX trigger (debug)
 GS $D6E4 = $01 = Transmit packet
 GS $D6E4 Ethernet command
-GS $D6E5.0 Swap RMII RX bit order
+GS $D6E5.0 - Ethernet disable promiscuous mode
 GS $D6E5.1 Disable CRC check for received packets
 GS $D6E5.2-3 Ethernet TX clock phase adjust
+GS $D6E5.4 Accept broadcast frames
+GS $D6E5.5 Accept multicast frames
 GS $D6E6.0-4 - Ethernet MIIM register number
 GS $D6E6.7-5 - Ethernet MIIM PHY number (use 0 for Nexys4, 1 for MEGA65 r1 PCBs)
 GS $D6E7 - Ethernet MIIM register value (LSB)
 GS $D6E8 - Ethernet MIIM register value (MSB)
+GS $D6E9-E - Ethernet MAC address
 GS $D6EC - DEBUG duplicate of FPGA switches 0-7
 GS $D6ED - DEBUG duplicate of FPGA switches 8-15
 GS $D6EE - Temperature sensor (lower byte)
@@ -461,17 +464,25 @@ GS $D6F9.7 - Select PDM or PWM audio output mode
 GS $D6FA - 8-bit digital audio out (left)
 GS $D6FB - microphone input (left)
 GS $D6FF - Flash bit-bashing port
+GS $D700 - DMAgic DMA list address LSB, and trigger DMA (when written)
+GS $D701 DMA list address high byte (address bits 8 -- 15).
 GS $D702 DMA list address bank (address bits 16 -- 22). Writing clears $D704.
-GS $D702 DMA list address high byte (address bits 8 -- 15).
-GS $D702 DMA list address low byte (address bits 0 -- 7). Writing triggers DMA to start.
 GS $D703.0 DMA enable F018B mode (adds sub-command byte)
 GS $D704 DMA list address mega-byte
-GS $D705 DMA source address mega-byte
-GS $D706 DMA destination address mega-byte
-GS $D708 DMA source skip rate (/256ths of bytes)
-GS $D709 DMA source skip rate (whole bytes)
-GS $D70A DMA destination skip rate (/256ths of bytes)
-GS $D70B DMA destination skip rate (whole bytes)
+GS $D705 - Enhanced DMAgic job option $00 = End of options
+GS $D705 - Enhanced DMAgic job option $06 = Use $86 $xx transparency value (don't write source bytes to destination, if byte value matches $xx)
+GS $D705 - Enhanced DMAgic job option $07 = Disable $86 $xx transparency value.
+GS $D705 - Enhanced DMAgic job option $0A = Use F018A list format
+GS $D705 - Enhanced DMAgic job option $0B = Use F018B list format
+GS $D705 - Enhanced DMAgic job option $80 $xx = Set MB of source address
+GS $D705 - Enhanced DMAgic job option $81 $xx = Set MB of destination address
+GS $D705 - Enhanced DMAgic job option $82 $xx = Set source skip rate (/256ths of bytes)
+GS $D705 - Enhanced DMAgic job option $83 $xx = Set source skip rate (whole bytes)
+GS $D705 - Enhanced DMAgic job option $84 $xx = Set destination skip rate (/256ths of bytes)
+GS $D705 - Enhanced DMAgic job option $85 $xx = Set destination skip rate (whole bytes)
+GS $D705 - Enhanced DMAgic job option $86 $xx = Don't write to destination if byte value = $xx, and option $06 enabled
+GS $D705 Set low-order byte of DMA list address, and trigger Enhanced DMA job (uses DMA option list)
+GS $D70E DMA list address low byte (address bits 0 -- 7) WITHOUT STARTING A DMA JOB (used by Hypervisor for unfreezing DMA-using tasks)
 GS $D7FA.0 DEBUG 1/2/3.5MHz CPU speed fine adjustment
 GS $D7FB.0 DEBUG 1=charge extra cycle(s) for branches taken
 GS $D7FC DEBUG chip-select enables for various devices
