@@ -483,6 +483,9 @@ GS $D705 - Enhanced DMAgic job option $85 $xx = Set destination skip rate (whole
 GS $D705 - Enhanced DMAgic job option $86 $xx = Don't write to destination if byte value = $xx, and option $06 enabled
 GS $D705 Set low-order byte of DMA list address, and trigger Enhanced DMA job (uses DMA option list)
 GS $D70E DMA list address low byte (address bits 0 -- 7) WITHOUT STARTING A DMA JOB (used by Hypervisor for unfreezing DMA-using tasks)
+GS $D780-3 25-bit multiplier input A
+GS $D784-7 18-bit multiplier input B
+GS $D788-$D78F - 48-bit multiplication output
 GS $D7FA.0 DEBUG 1/2/3.5MHz CPU speed fine adjustment
 GS $D7FB.0 DEBUG 1=charge extra cycle(s) for branches taken
 GS $D7FC DEBUG chip-select enables for various devices

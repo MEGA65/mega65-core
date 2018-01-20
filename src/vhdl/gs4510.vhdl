@@ -927,6 +927,10 @@ constant cycle_count_lut : clut9bit := (
   signal timing6502 : std_logic := '0';
   signal force_4502 : std_logic := '1';
 
+  signal reg_mult_a : unsigned(24 downto 0) := (others => '0');
+  signal reg_mult_b : unsigned(17 downto 0) := (others => '0');
+  signal reg_mult_p : unsigned(47 downto 0) := (others => '0');
+
   signal monitor_char_toggle_internal : std_logic := '1';
 
   -- ZP/stack cache
@@ -1989,6 +1993,25 @@ begin
                             & reg_dmagic_addr(22 downto 16);
             when x"03" => return reg_dmagic_status(7 downto 1) & support_f018b;
             when x"04" => return reg_dmagic_addr(27 downto 20);
+
+            -- $D780-$D7BF reserved for math unit functions
+            when x"80" => return reg_mult_a(7 downto 0);
+            when x"81" => return reg_mult_a(15 downto 8);
+            when x"82" => return reg_mult_a(23 downto 16);
+            when x"83" => return to_unsigned(to_integer(reg_mult_a(24 downto 24)),8);
+            when x"84" => return reg_mult_b(7 downto 0);
+            when x"85" => return reg_mult_b(15 downto 8);
+            when x"86" => return to_unsigned(to_integer(reg_mult_b(17 downto 16)),8);
+            when x"87" => return x"00";
+            -- @IO:GS $D788-$D78F - 48-bit multiplication output
+            when x"88" => return reg_mult_p(7 downto 0);
+            when x"89" => return reg_mult_p(15 downto 8);
+            when x"8a" => return reg_mult_p(23 downto 16);
+            when x"8b" => return reg_mult_p(31 downto 24);
+            when x"8c" => return reg_mult_p(39 downto 32);
+            when x"8d" => return reg_mult_p(47 downto 40);
+            when x"8e" => return x"00";
+            when x"8f" => return x"00";
             when x"fc" => return unsigned(chipselect_enables);
             when x"fd" =>
               report "Reading $D7FD";
@@ -2300,6 +2323,22 @@ begin
       elsif (long_address = x"FFD3705") or (long_address = x"FFD1705") then
         -- @IO:GS $D705 Set low-order byte of DMA list address, and trigger Enhanced DMA job (uses DMA option list)
         reg_dmagic_addr(7 downto 0) <= value;
+        -- @IO:GS $D780-3 25-bit multiplier input A
+      elsif (long_address = x"FFD3780") or (long_address = x"FFD1780") then
+        reg_mult_a(7 downto 0) <= value;
+      elsif (long_address = x"FFD3781") or (long_address = x"FFD1781") then
+        reg_mult_a(15 downto 8) <= value;
+      elsif (long_address = x"FFD3782") or (long_address = x"FFD1782") then
+        reg_mult_a(23 downto 16) <= value;
+      elsif (long_address = x"FFD3783") or (long_address = x"FFD1783") then
+        reg_mult_a(24) <= value(0);
+        -- @IO:GS $D784-7 18-bit multiplier input B
+      elsif (long_address = x"FFD3784") or (long_address = x"FFD1784") then
+        reg_mult_b(7 downto 0) <= value;
+      elsif (long_address = x"FFD3785") or (long_address = x"FFD1785") then
+        reg_mult_b(15 downto 8) <= value;
+      elsif (long_address = x"FFD3786") or (long_address = x"FFD1786") then
+        reg_mult_b(17 downto 16) <= value(1 downto 0);
       elsif (long_address = x"FFD37FA") then
         -- @IO:GS $D7FA.0 DEBUG 1/2/3.5MHz CPU speed fine adjustment
         cpu_speed_bias <= to_integer(value);
@@ -2709,6 +2748,8 @@ begin
     
   begin
 
+    reg_mult_p <= to_unsigned(to_integer(reg_mult_a) * to_integer(reg_mult_b),48);
+    
     -- Export phi0 for the rest of the machine (scales with CPU speed)
     phi0 <= phi0_export;
     
