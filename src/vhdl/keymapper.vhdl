@@ -234,7 +234,7 @@ begin  -- behavioural
           if restore_down_ticks < 8 then
             -- <0.25 seconds = quick tap = trigger NMI
             restore_out <= '0';
-          elsif restore_down_ticks < 16 then
+          elsif restore_down_ticks < 32 then
             -- 0.25 - ~ 1 second hold = trigger hypervisor trap
             hyper_trap <= '0';
             hyper_trap_count <= hyper_trap_count_internal + 1;
