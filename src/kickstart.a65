@@ -368,6 +368,11 @@ invalid_subfunction:
 ;	========================
 
 ;;; ----------------------------------------------------------------------------
+;;; System Partition functions
+;;; ----------------------------------------------------------------------------
+		.include "kickstart_syspart.a65"
+
+;;; ----------------------------------------------------------------------------
 ;;; DOS, process control and related functions trap
 ;;; ----------------------------------------------------------------------------
 		.include "kickstart_dos.a65"
@@ -494,6 +499,30 @@ reset_machine_state:
 reset_entry:
 		sei
 
+.macro sdtest
+		; Reset SD card
+		lda #$00
+		sta $d680
+		lda #$01
+		sta $d680
+		; map sector buffer
+		lda #$81
+		sta $d680
+		; put some data in sector buffer
+		ldx #$01
+		stx $de00
+		inx
+		stx $de01
+		inx
+		stx $de02
+		inx
+		stx $de03
+		; Issue write block command
+		lda #$03
+		sta $d680
+foo:		jmp foo
+.macend
+;		.invoke sdtest
 .macro f011test
 		; use real floppy drive
 		lda #$01
@@ -2864,9 +2893,63 @@ txt_NTSC:		.byte "NTSC",0
 ; mounted .D41, .D71, .D81 and .DHD files using Commodore DOS filesystems.
 ; But for now, we are supporting only FAT32 as the filesystem.
 ; See kickstart_dos.a65 for information on how the table is used.
-; Entries are 32 bytes long, so we can have 8 of them.
+; Entries are 32 bytes long, so we can have 6 of them.
 ;
+		.alias dos_max_disks 6
 dos_disk_table:
+		.checkpc $BBC0
+		.advance $BBC0
+
+syspart_structure:
+
+syspart_start_sector:  .byte 0,0,0,0
+syspart_size_in_sectors:   .byte 0,0,0,0
+syspart_reserved:
+		.byte 0,0,0,0,0,0,0,0
+
+; For fast freezing/unfreezing, we have a number of contiguous
+; freeze slots that can each store the state of the machine
+; We note where the area begins, how big it is, how many slots
+; it has, and how many sectors are used at the start of the area
+; to hold a directory with 128 bytes per slot, the contains info
+; about the frozen program.
+syspart_freeze_area_start:
+		.byte 0,0,0,0
+syspart_freeze_area_size_in_bytes:
+		.byte 0,0,0,0
+syspart_freeze_slot_size_in_bytes:
+		.byte 0,0,0,0
+syspart_freeze_slot_count:
+		.byte 0,0
+syspart_freeze_directory_sector_count:
+		.byte 0,0
+
+; The first 64 freeze slots are reserved for various purposes
+	.alias syspart_freeze_slots_reserved 64
+	; Freeze slot 0 is used when the hypervisor needs to
+	; temporarily shove all or part of the active process out
+	; the way to do something
+	.alias freeze_slot_temporary 0
+
+	; Freeze slots 1 - 63 are currently reserved
+	; They will likely get used for a service call-stack
+	; among other purposes.
+		
+
+; We then have a similar area for system services, which are stored
+; using much the same representation, but are used as helper
+; programs.
+syspart_service_area_start:
+		.byte 0,0,0,0
+syspart_service_area_size_in_bytes:
+		.byte 0,0,0,0
+syspart_service_slot_size_in_bytes:
+		.byte 0,0,0,0
+syspart_service_slot_count:
+		.byte 0,0
+syspart_service_directory_sector_count:
+		.byte 0,0
+
 
 ;;; ----------------------------------------------------------------------------
 ;;; Hypervisor DOS work area and scratch pad at $BC00-$BCFF
@@ -3007,6 +3090,14 @@ dos_current_file_descriptor_offset:
 	; For providing feedback on why DOS calls have failed
 	; There is a set of error codes defined in kickstart_dos.a65
 dos_error_code:
+		.byte $00
+
+	; Similarly for system partition related errors
+syspart_error_code:
+		.byte $00
+
+	; Non-zero if there is a valid system partition
+syspart_present:
 		.byte $00
 
 ;;; ----------------------------------------------------------------------------

@@ -6,6 +6,7 @@
 	.alias dos_version $0102
 	.alias constant_partition_type_fat32_chs $0b
 	.alias constant_partition_type_fat32_lba $0c
+	.alias constant_partition_type_megea65_sys $41
 
 	; DOS error codes
 	;
@@ -809,11 +810,40 @@ dos_consider_partition_entry:
 	cmp #constant_partition_type_fat32_chs	;compare with 0x0B
 	beq partitionisinteresting_chs
 
+	cmp #constant_partition_type_megea65_sys ; compare with 0x41
+	beq partitionisinteresting_mega65sys
+
 	lda #dos_errorcode_partition_not_interesting
 	sta dos_error_code
 	jmp partitionisnotinteresting
 
 ;	========================
+
+partitionisinteresting_mega65sys:
+
+	jsr checkpoint
+	.byte 0,"MEGA65 System Partition (type=0x41)",0
+
+	; Only one system partition
+	lda syspart_present
+	bne partitionerror
+
+	; Store start and length of System partition
+	; (These are the first two fields of the syspart structure
+	;  to facilitate a simple copy here)
+	ldy #$08
+	ldx #$00
+
+spc1:	lda (<dos_scratch_vector),y
+	sta syspart_structure,x
+	inx
+	iny
+	cpy #$10
+	bne spc1
+
+	jsr syspart_open
+	sec
+	rts	
 
 partitionisinteresting_lba:
 
@@ -833,6 +863,11 @@ partitionisinteresting_chs:
 
 partitionisinteresting:
 
+	; Make sure we have a spare disk slot
+	lda dos_disk_count
+	cmp dos_max_disks
+	beq partitionerror	
+
 	; Partition is FAT32 (either 0B or 0C), so add it to the list
 
 	; Disk structures in dos_disk_table are 32 bytes long, so shift count left
@@ -846,7 +881,7 @@ partitionisinteresting:
 	asl
 	asl
 	asl
-	tax	; x is offset into dos_disk_table
+
 
 	; Copy relevant fields into place
 	; These are start of partition and length of partition (both in sectors)
@@ -869,7 +904,7 @@ dcpe1:	lda (<dos_scratch_vector),y
 	jsr dos_disk_openpartition
 	bcc partitionerror
 
-jsr dump_disk_table
+	jsr dump_disk_table
 
 	; Check if partition is bootable (or the only partition)
 	; If so, make the partition the default disk

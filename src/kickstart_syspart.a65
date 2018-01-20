@@ -1,0 +1,93 @@
+;
+; MEGA65 System Partition functions
+;
+; The system partition (type = $41 = 65) holds several major data areas:
+;
+; 1. Header, that identifies the version and structure of the system partition.
+;
+; 2. Frozen programs for task switching.
+;    (Some of which may be reserved by the operating system, e.g., for alarms
+;     and other special purposes.)
+;
+; 3. Installed services that can be requested via the Hypervisor.
+;    These are internally just frozen programs with a valid service description
+;    header.
+;
+
+	.alias syspart_readerror $01
+	.alias syspart_badmagic  $42
+
+; HEADER - First sector of partition
+; $000-$00A "MEGA65SYS00" - Magic string and version indication
+; $010-$017 Start and size (in sectors) of frozen program area
+; $018-$01b Size of each frozen program slot
+; $01c-$01d Number of frozen program slots
+; $01e-$01f Number of sectors used for frozen program directory
+; $020-$027 Start and size (in sectors) or installed services
+; $028-$02b Size of each installed service slot
+; $02c-$02d Number of service slots
+; $02e-$02f Number of sectors used for slot directory
+; $030-$1ff RESERVED
+;
+; Basically we have two main areas in the system partition for frozen programs,
+; and for each we have a directory that allows for quick scanning of the lists.
+; Thee goal is to reduce the number of random seeks (which still have a cost on
+; SD cards, because commencing a read is much slower than continuing one), and
+; also the amount of data required.
+; To this end the directory entries consist of a 64 byte name field and a 64
+; byte reserved field, so that each is 128 bytes in total, allowing 4 per 512
+; byte sector.
+; If the first byte of a direectory is $00, then the entry is assumed to be free.
+
+syspart_open:
+	; Open a system partition.
+	; At this point, only syspart_start_sector and
+	; syspart_size_in_sectors have been initialised.
+
+	; Read First sector of system partition
+	ldx #$03
+spo1:	lda syspart_start_sector,x
+	sta $d681,x
+	dex
+	bpl spo1
+
+	lda #syspart_readerror
+	sta syspart_error_code
+	jsr sd_readsector
+	bcc syspart_openerror
+
+	; Got First sector of system partition.
+
+	; Check magic string
+	lda #syspart_badmagic
+	sta syspart_error_code
+	ldx #10
+spo2:	lda $de00,x
+	cmp syspart_magic,x
+	bne syspart_openerror
+	dex
+	bpl spo2
+
+	sec
+	rts
+
+syspart_openerror:
+	; Report error opening system partition
+	ldx #<msg_syspart_open_error
+	ldy #<msg_syspart_open_error
+	jsr printmessage
+	ldy #$00
+	ldz syspart_error_code
+	jsr printhex
+	ldz #$00
+
+	clc
+	rts
+
+
+; Magic string that identifies a MEGA65 system partition
+syspart_magic:
+	.byte "MEGA65SYS00"
+
+msg_syspart_open_error:
+	.byte "SYSTEM PARTITION ERROR: (ERRNO: $$)",0
