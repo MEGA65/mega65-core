@@ -50,7 +50,8 @@ spo1:	lda syspart_start_sector,x
 	sta $d681,x
 	dex
 	bpl spo1
-
+	jsr sd_fix_sectornumber
+	
 	lda #syspart_readerror
 	sta syspart_error_code
 	jsr sd_readsector
@@ -67,14 +68,22 @@ spo2:	lda $de00,x
 	bne syspart_openerror
 	dex
 	bpl spo2
+	
+	lda #$00
+	sta syspart_error_code
+
+	ldx #<msg_syspart_ok
+	ldy #>msg_syspart_ok
+	jsr printmessage
 
 	sec
 	rts
 
 syspart_openerror:
+
 	; Report error opening system partition
 	ldx #<msg_syspart_open_error
-	ldy #<msg_syspart_open_error
+	ldy #>msg_syspart_open_error
 	jsr printmessage
 	ldy #$00
 	ldz syspart_error_code
@@ -91,3 +100,5 @@ syspart_magic:
 
 msg_syspart_open_error:
 	.byte "SYSTEM PARTITION ERROR: (ERRNO: $$)",0
+msg_syspart_ok:
+	.byte "SYSTEM PARTITION OK",0
