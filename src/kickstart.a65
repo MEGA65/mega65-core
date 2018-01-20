@@ -2828,7 +2828,7 @@ msg_clusternumber:    .byte "CURRENT CLUSTER=$$$$$$$$",0
 msg_sectoraddress:    .byte "CURRENT SECTOR= $$$$$$$$",0
 msg_nod81:	      .byte "CANNOT MOUNT MEGA65.D81 - (ERRNO: $$)",0
 msg_d81mounted:	      .byte "MEGA65.D81 SUCCESSFULLY MOUNTED",0
-msg_releasesctrl:      .byte "RELEASE CONTROL TO CONTINUE BOOTING.",0
+msg_releasectrl:      .byte "RELEASE CONTROL TO CONTINUE BOOTING.",0
 msg_romnotfound:      .byte "COULD NOT FIND ROM MEGA65XXROM",0
 msg_foundkickup:      .byte "LOADING KICKUP.M65 INTO HYPERVISOR",0
 msg_nokickup:         .byte "NO KICKUP.M65 TO LOAD (OR BROKEN)",0
