@@ -98,8 +98,7 @@ VICIVVHDL=		$(VHDLSRCDIR)/viciv.vhdl \
 			$(VHDLSRCDIR)/ghdl_alpha_blend.vhdl \
 			$(OVERLAYVHDL)
 
-PERIPHVHDL=		$(VHDLSRCDIR)/sd.vhdl \
-			$(VHDLSRCDIR)/sdcardio.vhdl \
+PERIPHVHDL=		$(VHDLSRCDIR)/sdcardio.vhdl \
 			$(VHDLSRCDIR)/mfm_bits_to_bytes.vhdl \
 			$(VHDLSRCDIR)/mfm_decoder.vhdl \
 			$(VHDLSRCDIR)/mfm_gaps_to_bits.vhdl \
@@ -164,12 +163,14 @@ MEMVHDL=		$(VHDLSRCDIR)/ghdl_chipram8bit.vhdl \
 			$(VHDLSRCDIR)/ghdl_ram36x1k.vhdl
 
 NEXYSVHDL=		$(VHDLSRCDIR)/slowram.vhdl \
+			$(VHDLSRCDIR)/sd.vhdl \
 			$(CPUVHDL) \
 			$(M65VHDL)
 
 
 SIMULATIONVHDL=		$(VHDLSRCDIR)/cpu_test.vhdl \
 			$(VHDLSRCDIR)/fake_expansion_port.vhdl \
+			$(VHDLSRCDIR)/fake_sd.vhdl \
 			$(CPUVHDL) \
 			$(M65VHDL)
 
