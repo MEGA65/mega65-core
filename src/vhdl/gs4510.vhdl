@@ -2086,6 +2086,8 @@ begin
             when "101101" => return reg_page3_logical(15 downto 8);
             when "101110" => return reg_page3_physical(7 downto 0);
             when "101111" => return reg_page3_physical(15 downto 8);
+            when "110000" => return georam_page(19 downto 12);
+            when "110001" => return georam_blockmask;
 				--$D672 - Protected Hardware
             when "110010" => return hyper_protected_hardware;
 				
@@ -3131,13 +3133,11 @@ begin
           reg_page3_physical(15 downto 8) <= last_value;
         end if;
 
-        -- @IO:GS $D670 - Hypervisor GeoRAM base address (x MB) (write-only for
-        -- now)
+        -- @IO:GS $D670 - Hypervisor GeoRAM base address (x MB)
         if last_write_address = x"FFD3670" and hypervisor_mode='1' then
           georam_page(19 downto 12) <= last_value;
         end if;
-        -- @IO:GS $D671 - Hypervisor GeoRAM address mask (applied to GeoRAM block
-        -- register) (write-only for now)
+        -- @IO:GS $D671 - Hypervisor GeoRAM address mask (applied to GeoRAM block register)
         if last_write_address = x"FFD3671" and hypervisor_mode='1' then
           georam_blockmask <= last_value;
         end if;   
