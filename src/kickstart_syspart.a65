@@ -165,6 +165,29 @@ splf1:
 	; now, so that we could load in the multiplication inputs
 	; and read the outputs a convenient few cycles later.
 
+	; Set multiplicant inputs to multiplier
+	ldx #$03
+splf4:	lda syspart_freeze_slot_size_in_bytes,x
+	sta $d740,x
+	dex
+	bpl splf4
+
+	ply
+	sty $d744
+	plx
+	stx $d745
+	lda #$00
+	sta $d746
+	sta $d747
+
+	; Read out answer, and add it to slot 0 address
+	ldx #3
+splf3:	lda $d748,x
+	sta $d681,x
+	dex
+	bpl splf3
+
+	rts
 
 syspart_locate_freezeslot_0:
 	; Freeze slot #0 starts at:
