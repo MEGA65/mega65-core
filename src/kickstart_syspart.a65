@@ -142,6 +142,11 @@ syspart_configsector_apply_trap:
 	jsr syspart_configsector_apply
 	sta hypervisor_enterexit_trigger
 
+syspart_locate_freezeslot_trap:
+	ldx hypervisor_x
+	jsr syspart_configsector_apply
+	sta hypervisor_enterexit_trigger
+
 syspart_locate_freezeslot:
 	; Get the first sector of a given freeze slot
 	; X = low byte of slot #
@@ -305,7 +310,7 @@ syspart_trap_table:
 	.word invalid_subfunction
 
 	; $10-$1E
-	.word invalid_subfunction
+	.word syspart_locate_freezeslot_trap
 	.word invalid_subfunction
 	.word invalid_subfunction
 	.word invalid_subfunction
