@@ -180,10 +180,10 @@ splf4:	lda syspart_freeze_slot_size_in_bytes,x
 	dex
 	bpl splf4
 
-	ply
-	sty $d784
 	plx
-	stx $d785
+	stx $d784
+	ply
+	sty $d785
 	lda #$00
 	sta $d786
 	sta $d787
