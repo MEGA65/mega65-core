@@ -1601,7 +1601,21 @@ begin  -- behavioural
               target_any <= fastio_wdata(1);
             when x"a2" =>
               cycles_per_interval <= fastio_wdata;
-            -- @IO:GS $D6F3 - Accelerometer bit-bashing port
+              -- @IO:GS $D6F3 - Accelerometer bit-bashing port
+            when x"af" =>
+              -- @IO:GS $D6AF - Directly set F011 flags (intended for virtual F011 mode) WRITE ONLY
+              -- @IO:GS $D6AF.0 - f011_rsector_found
+              -- @IO:GS $D6AF.1 - f011_wsector_found
+              -- @IO:GS $D6AF.2 - f011_eq_inhibit
+              -- @IO:GS $D6AF.3 - f011_rnf
+              -- @IO:GS $D6AF.4 - f011_drq
+              -- @IO:GS $D6AF.5 - f011_lost
+              f011_rsector_found <= fastio_wdata(0);
+              f011_wsector_found <= fastio_wdata(1);
+              f011_eq_inhibit <= fastio_wdata(2);
+              f011_rnf <= fastio_wdata(3);
+              f011_drq <= fastio_wdata(4);
+              f011_lost <= fastio_wdata(5);
             when x"F3" =>
               -- Accelerometer
               aclMOSI         <= fastio_wdata(1);
