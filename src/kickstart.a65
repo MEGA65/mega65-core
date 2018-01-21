@@ -2175,10 +2175,10 @@ longpoke:
 		sty longpokeaddress+1
 		stz longpokeaddress+2
 		tza
-		asl
-		asl
-		asl
-		asl
+		lsr
+		lsr
+		lsr
+		lsr
 		sta longpokedmalist_dest_mb ; DMAgic destination MB
 		; and disable F108B enhanced mode
 		sta $d703
@@ -2194,6 +2194,7 @@ longpoke:
 
 		; set bottom bits of DMA list address and trigger enhhanced DMA
 		;
+
 		lda #<longpokedmalist
 		sta $d705
 		rts
