@@ -96,6 +96,9 @@ spo3:	lda $de00,x
 	ldz syspart_service_slot_count+0
 	jsr printhex
 
+	lda #$01
+	sta syspart_present
+
 	ldx #<msg_syspart_ok
 	ldy #>msg_syspart_ok
 	jsr printmessage
@@ -144,7 +147,7 @@ syspart_configsector_apply_trap:
 
 syspart_locate_freezeslot_trap:
 	ldx hypervisor_x
-	jsr syspart_configsector_apply
+	jsr syspart_locate_freezeslot
 	sta hypervisor_enterexit_trigger
 
 syspart_locate_freezeslot:
@@ -173,21 +176,23 @@ splf1:
 	; Set multiplicant inputs to multiplier
 	ldx #$03
 splf4:	lda syspart_freeze_slot_size_in_bytes,x
-	sta $d740,x
+	sta $d780,x
 	dex
 	bpl splf4
 
 	ply
-	sty $d744
+	sty $d784
 	plx
-	stx $d745
+	stx $d785
 	lda #$00
-	sta $d746
-	sta $d747
+	sta $d786
+	sta $d787
 
 	; Read out answer, and add it to slot 0 address
 	ldx #3
-splf3:	lda $d748,x
+	clc
+splf3:	lda $d788,x
+	adc $d681,x
 	sta $d681,x
 	dex
 	bpl splf3
@@ -216,6 +221,12 @@ splf2:	lda syspart_start_sector,x
 	lda $d682
 	adc syspart_freeze_directory_sector_count+1
 	sta $d682
+	lda $d683
+	adc #0
+	sta $d683
+	lda $d684
+	adc #0
+	sta $d684
 
 	rts
 
