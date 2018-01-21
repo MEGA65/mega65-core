@@ -32,13 +32,13 @@ Other regions may be added later
 $000-$00A - "MEGA65SYS00" magic string
 $00B-$00F - Reserved. Must be all zeroes
 $010-$013 - Start sector of freeze program area
-$014-$017 - Size of freeze program area (in bytes)
-$018-$01B - Size of each freeze slot (in bytes)
+$014-$017 - Size of freeze program area (in sectors)
+$018-$01B - Size of each freeze slot (in sectors)
 $01C-$01D - Number of freeze slots
 $01E-$01F - Number of sectors in freeze slot directory
-$020-$023 - Start of freeze program area (in bytes)
-$024-$027 - Size of service program area (in bytes)
-$028-$02B - Size of each service slot (in bytes)
+$020-$023 - Start of freeze program area (in sectors)
+$024-$027 - Size of service program area (in sectors)
+$028-$02B - Size of each service slot (in sectors)
 $02C-$02D - Number of service slots
 $02E-$02F - Number of sectors in service slot directory
 
