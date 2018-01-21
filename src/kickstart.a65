@@ -2053,7 +2053,14 @@ l41:		lda $d611
 		ldy #>msg_releasectrl
 		jsr printmessage
 
-l41a:		lda $d611
+l41a:
+		; check for ALT key to jump to utility menu
+		lda $d611
+		and #$10
+		bne utility_menu
+
+		; and otherwise wait until CTRL is released
+		lda $d611
 		and #$04
 		bne l41a
 l42:
