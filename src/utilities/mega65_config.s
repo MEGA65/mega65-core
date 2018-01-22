@@ -145,10 +145,13 @@ init:
 		STA 	$D021
 		
 ;	Upper-case
-		LDA 	#$8E			;Print to-upper-case character
-		JSR 	$FFD2
-		LDA	#$08			;Disable change of case
-		JSR	$FFD2
+	;; 	LDA 	#$8E			;Print to-upper-case character
+	;; 	JSR 	$FFD2
+		LDA #$14
+		STA $D018
+
+	;; 	LDA	#$08			;Disable change of case
+	;; 	JSR	$FFD2
 		
 		
 ;-------------------------------------------------------------------------------
