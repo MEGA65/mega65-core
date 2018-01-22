@@ -41,18 +41,50 @@ freeze_next_region:
 	rts
 
 freeze_write_sector_and_wait:
+
+	lda #$00
+	sta freeze_write_tries+0
+	sta freeze_write_tries+1
+
+freeze_write_busywait0:
+	inc $0800
+	inc freeze_write_tries+0
+	bne fwb1
+	inc freeze_write_tries+1
+	bne fwb1
+	; If it takes too long to get ready, reset the SD card
+	lda #$00
+	sta $d680
+	jsr sdwaitawhile
+	jsr sdwaitawhile
+	lda #$01
+	sta $d680
+	
+fwb1:	lda $d680
+	and #$03
+	bne freeze_write_busywait0
+
+
 	lda #$03
 	sta $d680
 
 freeze_write_busywait:
+	inc $0801
 	lda $d680
 	and #$03
 	bne freeze_write_busywait
+
+	; Work around SD bug by reading the sector again
+	lda #$02
+	sta $d680
 
 	; Increment freeze slot sector number
 	jsr sd_inc_fixedsectornumber
 
 	rts
+
+freeze_write_tries:
+	.word $0
 
 freeze_save_region:
 	; X = offset into freeze_mem_list
