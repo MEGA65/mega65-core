@@ -340,6 +340,8 @@ void process_file(int mode, char *outputfilename)
 
     // 4KB = 2x 256 char = 2KB charsets
     for(charsets = 0 ; charsets<2 ; charsets++) {
+      if (bytes>=4096) break;
+      fprintf(stderr,"yheight=%d\n",height);
       for (y=0; y<height; y++) {
 	png_byte* row = row_pointers[y];
 	int byte=0;
@@ -358,13 +360,15 @@ void process_file(int mode, char *outputfilename)
 	}
 	fflush(stdout);
 	char comma = ',';
-	if (y==height-1) comma=' ';
-	if (vhdl_mode) fprintf(outfile,"x\"%02x\"%c",byte,comma);
-	else fputc(byte,outfile);
 	if (bytes<1024) {
 	  first_half[bytes]=byte;
 	}
 	bytes++;
+	if (bytes>=4096) {
+	  comma=' ';
+	}
+	if (vhdl_mode) fprintf(outfile,"x\"%02x\"%c",byte,comma);
+	else fputc(byte,outfile);
 	if (vhdl_mode) {
 	  if ((y&7)==7) {
 	    fprintf(outfile,"\n");
