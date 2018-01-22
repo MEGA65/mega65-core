@@ -152,15 +152,10 @@ task_asblankslate:
 
 double_restore_trap:
 
-	; switch video mode
-	lda $d06f
-	clc
-	adc #$40
-	sta $d06f
-	; update X scaling
-	; XXX can mess up raster interrupts
-	lda $d011
-	sta $d011
+	; Freeze to slot 0
+	ldx #$00
+	ldy #$00
+	jsr freeze_to_slot
 
 	; return from hypervisor
 	;
