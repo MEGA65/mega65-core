@@ -401,7 +401,7 @@ void process_file(int mode, char *outputfilename)
 		  first_half[(bytes+5)&0x3ff]^reverse,
 		  first_half[(bytes+6)&0x3ff]^reverse,
 		  first_half[(bytes+7)&0x3ff]^reverse,		  
-		  bytes<(4096-8)?',':' ',
+		  ',',
 		  bytes,bytes/2048,(bytes/8)&0xff);
 
 	  fprintf(outfile,"\n");
