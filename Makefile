@@ -305,6 +305,12 @@ $(SDCARD_DIR)/MEGA65.D81:	$(UTILITIES)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(OPHIS) $< -l $*.list -m $*.map -o $*.prg
 
+$(UTILDIR)/mega65_config.o:      $(UTILDIR)/mega65_config.s
+	$(CA65) $< -l $*.list
+
+$(UTILDIR)/mega65_config.prg:       $(UTILDIR)/mega65_config.o
+	$(LD65) $< --mapfile $*.map -o $*.prg
+
 $(UTILDIR)/diskmenuprg.o:      $(UTILDIR)/diskmenuprg.a65 $(UTILDIR)/diskmenu.a65 $(UTILDIR)/diskmenu_sort.a65
 	$(CA65) $< -l $*.list
 
@@ -377,7 +383,7 @@ iomap.txt:	$(VHDLSRCDIR)/*.vhdl
 	# Force consistent ordering of items according to natural byte values
 	LC_ALL=C egrep "IO:C6|IO:GS" $(VHDLSRCDIR)/*.vhdl | cut -f3- -d: | sort -u -k2 > iomap.txt
 
-CRAMUTILS=	$(BINDIR)/border.prg $(SRCDIR)/mega65-fdisk/m65fdisk.prg
+CRAMUTILS=	$(UTILDIR)/mega65_config.prg $(SRCDIR)/mega65-fdisk/m65fdisk.prg
 $(BINDIR)/COLOURRAM.BIN:	$(TOOLDIR)/utilpacker/utilpacker $(CRAMUTILS)
 	$(TOOLDIR)/utilpacker/utilpacker $(BINDIR)/COLOURRAM.BIN $(CRAMUTILS)
 
@@ -481,6 +487,7 @@ bin/%.bit:	isework/%.ncd
 clean:
 	rm -f KICKUP.M65 kickstart.list kickstart.map
 	rm -f $(UTILDIR)/diskmenu.prg $(UTILDIR)/diskmenuprg.list $(UTILDIR)/diskmenu.map $(UTILDIR)/diskmenuprg.o
+	rm -f $(UTILDIR)/mega65_config.prg $(UTILDIR)/mega65_config.list $(UTILDIR)/mega65_config.map $(UTILDIR)/mega65_config.o
 	rm -f $(BINDIR)/diskmenu_c000.bin $(UTILDIR)/diskmenuc000.list $(BINDIR)/diskmenu_c000.map $(UTILDIR)/diskmenuc000.o
 	rm -f $(TOOLDIR)/etherkick/etherkick
 	rm -f $(TOOLDIR)/etherload/etherload
