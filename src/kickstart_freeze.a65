@@ -1,0 +1,362 @@
+freeze_to_slot:
+	; Freeze current running process to the specified slot
+
+	; Slot in XXYY
+
+	lda syspart_present
+	bne f2s1
+	lda #syspart_error_nosyspart
+	sta syspart_error_code
+	clc
+	rts
+f2s1:
+	jsr syspart_locate_freezeslot
+	jsr freeze_save_to_sdcard_immediate
+	sec
+	rts
+
+
+freeze_save_to_sdcard_immediate:
+	; Save the current process to the SD card. $D681-4 are expected to
+	; already be pointing to the first sector of the freeze slot
+
+	; Stash SD card registers to scratch area
+	jsr do_freeze_prep_sdcard_regs_to_scratch
+
+	; Save current SD card sector buffer contents
+	jsr freeze_write_sector_and_wait
+
+	; XXX Save each region in the list
+	ldx #$00
+freeze_next_region:
+	jsr freeze_save_region
+	txa
+	clc
+	adc #$08
+	tax
+	lda freeze_mem_list+7,x
+	cmp #$ff
+	bne freeze_next_region
+
+	rts
+
+freeze_write_sector_and_wait:
+	lda #$03
+	sta $d680
+
+freeze_write_busywait:
+	lda $d680
+	and #$03
+	bne freeze_write_busywait
+
+	; Increment freeze slot sector number
+	jsr sd_inc_fixedsectornumber
+
+	rts
+
+freeze_save_region:
+	; X = offset into freeze_mem_list
+
+	; Check if end of list, if so, do nothing and return
+	lda freeze_mem_list+7,x
+	cmp #$ff
+	bne fsr1
+	rts
+fsr1:
+	; Get address of region
+	lda freeze_mem_list+0,x
+	sta freeze_region_dmalist_source_start+0
+	lda freeze_mem_list+1,x
+	sta freeze_region_dmalist_source_start+1
+
+	; Source address is 32-bit, and we need bits 20-27
+	; for the source MB (upper 4 bits are ignored)
+	lda freeze_mem_list+2,x
+	lsr
+	lsr
+	lsr
+	lsr
+	sta freeze_region_dmalist_source_mb
+	lda freeze_mem_list+3,x
+	asl
+	asl
+	asl
+	asl
+	ora freeze_region_dmalist_source_mb
+	sta freeze_region_dmalist_source_mb
+
+	; Bank is a bit fiddly: Lower nybl is bits
+	; 16-19 of address.  Then we have to add the IO flag
+	; The IO flag is used if the source MB value = $FF.
+	; However, because we use 28-bit addresses for everything
+	; the IO bit should be zero, as should the other special
+	; bits.
+
+	lda freeze_mem_list+2,X
+	and #$0f
+	sta freeze_region_dmalist_source_bank
+
+
+	; At this point, we have the DMA list source setup.
+
+	; Point the destination to the SD card direct job
+	; sector buffer ($FFD6E00).
+	lda #$00
+	sta freeze_region_dmalist_dest_start+0
+	lda #$6E
+	sta freeze_region_dmalist_dest_start+1
+	lda #$0D
+	sta freeze_region_dmalist_dest_bank
+	lda #$ff
+	sta freeze_region_dmalist_dest_mb
+
+	; Now DMA source and destination addresses have been set
+	; We now need to step through the region $200 bytes at a
+	; time, until there are no bytes left.
+	; If the length is $0000 initially, then it means 64KB.
+	; The tricky bit is for regions <$200 bytes long, as we need
+	; to make sure we don't copy more than we should (it could
+	; be from Hypervisor memory, for example, or to some
+	; important IO registers, such as the Hypervisor enter/exit
+	; trap).
+
+	; Get length of region
+	lda freeze_mem_list+4,x
+	sta freeze_dma_length_remaining+0
+	lda freeze_mem_list+5,x
+	sta freeze_dma_length_remaining+1	
+	lda freeze_mem_list+6,x
+	sta freeze_dma_length_remaining+2
+
+freeze_region_dma_loop:
+	; Check if remaining length is negative or zero. If so, stop
+	lda freeze_dma_length_remaining+2
+	bmi freeze_region_dma_done
+	ora freeze_dma_length_remaining+1
+	ora freeze_dma_length_remaining+0
+	beq freeze_region_dma_done
+
+	lda freeze_dma_length_remaining+0
+	sta freeze_region_dmalist_count+0
+	lda freeze_dma_length_remaining+1
+	sta freeze_region_dmalist_count+1
+	cmp #$02
+	bcc not_too_big
+	; remaining length too great
+	lda #$02
+	sta freeze_region_dmalist_count+1
+not_too_big:
+	; DMA count is set, subtract from remaining length
+	sec
+	lda freeze_dma_length_remaining+0
+	sbc freeze_region_dmalist_count+0
+	sta freeze_dma_length_remaining+0
+	lda freeze_dma_length_remaining+1
+	sbc freeze_region_dmalist_count+1
+	sta freeze_dma_length_remaining+1
+
+	; Execute DMA job
+	
+
+	; Write SD-card direct sector buffer to freeze slot
+	; Flash a different colour while actually writing sector
+	inc $d020
+
+	; XXX disabled for now, until rest of code complete.
+
+	jsr freeze_write_sector_and_wait
+
+	dec $d020
+
+	jmp freeze_region_dma_loop
+
+freeze_region_dma_done:
+
+	; And increase screen colour after writing each region
+	inc $d020
+
+	rts
+
+freeze_dma_length_remaining:
+	.byte 0,0,0
+
+dispatch_freeze_prep:
+	; X = Freeze prep ID byte
+	; (all of which are even, so that we can use an indirect
+	; X indexed jump table to efficiently do the dispatch)
+
+	jmp (freeze_prep_jump_table,x)
+
+freeze_prep_jump_table:
+	.alias freeze_prep_none 0
+	.word do_freeze_prep_sdcard_regs_to_scratch
+	.alias freeze_prep_palette0 2
+	.alias freeze_prep_palette1 4
+	.alias freeze_prep_palette2 6
+	.alias freeze_prep_palette3 8
+	.word do_freeze_prep_palette_select
+	.word do_freeze_prep_palette_select
+	.word do_freeze_prep_palette_select
+	.word do_freeze_prep_palette_select
+
+do_freeze_prep_sdcard_regs_to_scratch:
+	; Copy the main SD card access registers to a
+	; scratch area, so that we can save them, and thus restore
+	; them after unfreezing.
+	; (This is done outside of the automatic loop, because
+	; it has to be handled specially.)
+	ldx #$0f
+dfp1:	lda $d680,x
+	sta freeze_scratch_area,x
+	dex
+	bpl dfp1
+	rts
+
+freeze_scratch_area:
+	.byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+
+freeze_region_dmalist:
+	.byte $0A ; F011A format DMA list
+	.byte $80 ; Source MB option follows
+freeze_region_dmalist_source_mb:
+	.byte $00
+	.byte $81 ; Dest MB option follows
+freeze_region_dmalist_dest_mb:
+	.byte $00
+	.byte $00 ; end of enhanced DMA option list
+
+	; F011A format DMA list
+	.byte $00 ; copy + last request in chain
+freeze_region_dmalist_count:
+	.word $0000 ; size of copy
+freeze_region_dmalist_source_start:
+	.word $0000 ; source address lower 16 bits
+freeze_region_dmalist_source_bank:
+	.byte $00   ;
+freeze_region_dmalist_dest_start:
+	.word $0000
+freeze_region_dmalist_dest_bank:
+	.byte $00
+	.word $0000 ; modulo (unused)	
+
+do_freeze_prep_palette_select:
+	; X = 6, 8, 10 or 12
+	; Use this to pick which of the four palette banks
+	; is visible at $D100-$D3FF
+	txa
+	clc
+	sbc #freeze_prep_palette0
+	asl
+	asl
+	asl
+	asl
+	asl
+	sta $d070
+	rts
+	
+
+
+
+
+
+freeze_mem_list:
+	; start address (4 bytes), length (3 bytes),
+	; preparatory action required before reading/writing (1 byte)
+	; Each segment will live in its own sector (or sectors if
+	; >512 bytes) when frozen. So we should avoid excessive
+	; numbers of blocks.
+
+	; core SDcard registers we need to be ready to start writing
+	; sectors. We copy these out and in manually at the start
+	; and end of the freeze and unfreeze routines, respectively.
+	; So they are not done here
+	;	.dword freezer_scratch_area
+	;       .byte 0
+	;	.word $0010
+	;	.byte freeze_prep_none
+
+	; SDcard sector buffer
+	; We have to save this before anything much else, because
+	; we need it for freezing
+	.dword $ffd6e00
+	.word $0200
+	.byte 0
+	.byte freeze_prep_none
+
+	; SDcard and related registers
+	.dword $ffd3680
+	.word $0080
+	.byte 0
+	.byte freeze_prep_none
+
+	; SDcard sector buffer (F011)
+	.dword $ffd6c00
+	.word $0200
+	.byte 0
+	.byte freeze_prep_none
+
+	; Process scratch space
+	.dword currenttask_block
+	.word $0100
+	.byte 0
+	.byte freeze_prep_none
+	
+	; $D640-$D67E hypervisor state registers
+	.dword $ffd3640
+	.word $003F
+	.byte 0
+	.byte freeze_prep_none
+
+	; VIC-IV, F011 $D000-$D0FF
+	.dword $ffd3000
+	.word $0100
+	.byte 0
+	.byte freeze_prep_none
+
+	; VIC-IV palette block 0
+	.dword $ffd3100
+	.word $0300
+	.byte 0
+	.byte freeze_prep_palette0
+
+	; VIC-IV palette block 1
+	.dword $ffd3100
+	.word $0300
+	.byte 0
+	.byte freeze_prep_palette1
+
+	; VIC-IV palette block 2
+	.dword $ffd3100
+	.word $0300
+	.byte 0
+	.byte freeze_prep_palette2
+
+	; VIC-IV palette block 3
+	.dword $ffd3100
+	.word $0300
+	.byte 0
+	.byte freeze_prep_palette3
+	
+	; $D700-$D7FF CPU registers
+	.dword $ffd3700
+	.word $0100
+	.byte 0
+	.byte freeze_prep_none
+	
+	; 128KB RAM + 128KB "ROM"
+	.dword $0000000
+	.word $0000      
+	.byte 4          ; =4x64K blocks = 128K + 128K
+	.byte freeze_prep_none
+	
+	; 32KB colour RAM
+	.dword $ff80000
+	.word $8000
+	.byte $00
+	.byte freeze_prep_none
+
+	; End of list
+	.dword $FFFFFFFF
+	.word $FFFF
+	.byte $FF
+	.byte $FF
