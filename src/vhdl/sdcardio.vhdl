@@ -358,7 +358,7 @@ architecture behavioural of sdcardio is
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
   begin
-    return to_integer(f011orsd & addr);
+    return to_integer("11" & f011orsd & addr);
   end function;
   
 begin  -- behavioural
@@ -865,7 +865,7 @@ begin  -- behavioural
       -- Make CPU write request if required
       if sb_cpu_write_request='1' then
         report "CPU writing $" & to_hstring(sb_cpu_wdata) & " to sector buffer @ $" & to_hstring(f011_buffer_cpu_address);
-        f011_buffer_write_address <= "0000"&f011_buffer_cpu_address;
+        f011_buffer_write_address <= "110"&f011_buffer_cpu_address;
         f011_buffer_wdata <= sb_cpu_wdata;
         f011_buffer_write <= '1';
         f011_buffer_cpu_pointer_advance <= '1';
@@ -876,7 +876,7 @@ begin  -- behavioural
       -- Prepare for CPU read request via $D087 if required
       if sb_cpu_read_request='1' and sb_cpu_reading='0' then
         report "CPU read pre-fetch from sector buffer @ $" & to_hstring(f011_buffer_cpu_address);
-        f011_buffer_read_address <= "0000"&f011_buffer_cpu_address;
+        f011_buffer_read_address <= "110"&f011_buffer_cpu_address;
         sb_cpu_reading <= '1';
       else
         sb_cpu_reading <= '0';
@@ -1524,7 +1524,7 @@ begin  -- behavioural
                     sdio_fsm_error <= '0';
 
                     sd_wrote_byte <= '0';
-                    f011_buffer_read_address <= "0001"&"000000000";
+                    f011_buffer_read_address <= "111"&"000000000";
                     sd_buffer_offset <= (others => '0');
                   end if;
 
@@ -1714,7 +1714,7 @@ begin  -- behavioural
 
             if hypervisor_mode='0' then
               f011_buffer_write_address <=
-                "000"&f011sd_buffer_select&fastio_addr(8 downto 0);
+                "11"&f011sd_buffer_select&fastio_addr(8 downto 0);
             else
               f011_buffer_write_address <=
                 fastio_addr(11 downto 0);
@@ -1774,7 +1774,7 @@ begin  -- behavioural
                 f011_buffer_disk_pointer_advance <= '1';
 
                 -- Write to sector buffer
-                f011_buffer_write_address <= "0000"&f011_buffer_disk_address;
+                f011_buffer_write_address <= "110"&f011_buffer_disk_address;
                 f011_buffer_wdata <= unsigned(sd_rdata);
                 f011_buffer_write <= '1';
                 
@@ -1789,7 +1789,7 @@ begin  -- behavioural
               else
                 -- SD-card direct access
                 -- Write to SD-card half of sector buffer
-                f011_buffer_write_address <= "0001"&sd_buffer_offset;
+                f011_buffer_write_address <= "111"&sd_buffer_offset;
                 f011_buffer_wdata <= unsigned(sd_rdata);
                 f011_buffer_write <= '1';                
               end if;
@@ -1889,7 +1889,7 @@ begin  -- behavioural
                 f011_drq <= '1';
                 f011_buffer_disk_pointer_advance <= '1';
                 -- Write to F011 sector buffer
-                f011_buffer_write_address <= "0000"&f011_buffer_disk_address;
+                f011_buffer_write_address <= "110"&f011_buffer_disk_address;
                 f011_buffer_wdata <= unsigned(fdc_byte_out);
                 f011_buffer_write <= '1';
                 -- Defer any CPU write request, since we are writing
@@ -1921,7 +1921,7 @@ begin  -- behavioural
           report "Starting to write sector from unified FDC/SD buffer.";
           f011_buffer_cpu_address <= (others => '0');
           sb_cpu_read_request <= '1';
-          f011_buffer_read_address <= "0000"&f011_buffer_disk_address;
+          f011_buffer_read_address <= "110"&f011_buffer_disk_address;
           f011_buffer_disk_pointer_advance <= '1';
           -- Abort CPU buffer read if in progess, since we are reading the buffer
           sb_cpu_reading <= '0';
@@ -1976,9 +1976,9 @@ begin  -- behavioural
 
               -- Get next byte ready
               if f011_sector_fetch='1' then
-                f011_buffer_read_address <= "0000"&f011_buffer_disk_address;
+                f011_buffer_read_address <= "110"&f011_buffer_disk_address;
               else
-                f011_buffer_read_address <= "0001"&sd_buffer_offset;
+                f011_buffer_read_address <= "111"&sd_buffer_offset;
               end if;
               f011_buffer_disk_pointer_advance <= '1';
               -- Abort CPU buffer read if in progess, since we are reading the buffer
