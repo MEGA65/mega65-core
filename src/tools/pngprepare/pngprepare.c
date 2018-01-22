@@ -319,6 +319,9 @@ void process_file(int mode, char *outputfilename)
 
   /* ============================ */
   if (mode==1) {
+
+    unsigned char first_half[1024];
+    
     printf("mode=1 (charrom)\n");
     // charrom mode
 
@@ -358,6 +361,9 @@ void process_file(int mode, char *outputfilename)
 	if (y==height-1) comma=' ';
 	if (vhdl_mode) fprintf(outfile,"x\"%02x\"%c",byte,comma);
 	else fputc(byte,outfile);
+	if (bytes<1024) {
+	  first_half[bytes]=byte;
+	}
 	bytes++;
 	if (vhdl_mode) {
 	  if ((y&7)==7) {
@@ -377,20 +383,44 @@ void process_file(int mode, char *outputfilename)
       // Fill in any missing bytes
       if (bytes<2048) {
 
-      printf("Padding output file to 2048 after first charset\n");
+	printf("Padding output file to 2048 after first charset\n");
 
-      if (vhdl_mode) {
-	fprintf(outfile,",\n");
+	if (vhdl_mode) {
+	  fprintf(outfile,",\n");
+
 	for(;bytes<2048;bytes+=8) {
-	  fprintf(outfile,"x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",\n");
+	  int reverse=bytes&0x400;
+	  if (reverse) reverse=0xff;
+	  
+	  fprintf(outfile,"x\"%02X\",x\"%02X\",x\"%02X\",x\"%02X\",x\"%02X\",x\"%02X\",x\"%02X\",x\"%02X\"%c -- 0x%03x (set %d, char 0x%02x)\n",
+		  first_half[(bytes+0)&0x3ff]^reverse,
+		  first_half[(bytes+1)&0x3ff]^reverse,
+		  first_half[(bytes+2)&0x3ff]^reverse,
+		  first_half[(bytes+3)&0x3ff]^reverse,
+		  first_half[(bytes+4)&0x3ff]^reverse,
+		  first_half[(bytes+5)&0x3ff]^reverse,
+		  first_half[(bytes+6)&0x3ff]^reverse,
+		  first_half[(bytes+7)&0x3ff]^reverse,		  
+		  bytes<(4096-8)?',':' ',
+		  bytes,bytes/2048,(bytes/8)&0xff);
+
+	  fprintf(outfile,"\n");
+	  int yy;
+	  for(yy=0;yy<8;yy++) {
+	    fprintf(outfile,"-- [");
+	    for(x=0;x<8;x++) {
+	      if ((first_half[(bytes+yy)&0x3ff]^reverse)&(1<<(7-x))) fprintf(outfile,"*"); else fprintf(outfile," ");
+	    }
+	    fprintf(outfile,"]\n");
+	  }
 	}
-      } else {
-	// In raw mode, don't pad, or write charset twice
-	break;
+	} else {
+	  // In raw mode, don't pad, or write charset twice
+	  break;
+	}
+	
       }
-
-    }
-
+      
     }
     // Fill in any missing bytes
     if (bytes<4096) {
@@ -400,8 +430,20 @@ void process_file(int mode, char *outputfilename)
       if (vhdl_mode) {
 	fprintf(outfile,",\n");
 	for(;bytes<4096;bytes+=8) {
-	  fprintf(outfile,"x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",x\"00\",x\"00\"%c\n",
-		  bytes<(4096-8)?',':' ');
+	  int reverse=bytes&0x400;
+	  if (reverse) reverse=0xff;
+	  
+	  fprintf(outfile,"x\"%02X\",x\"%02X\",x\"%02X\",x\"%02X\",x\"%02X\",x\"%02X\",x\"%02X\",x\"%02X\"%c -- 0x%03x (set %d, char %d)\n",
+		  first_half[(bytes+0)&0x3ff]^reverse,
+		  first_half[(bytes+1)&0x3ff]^reverse,
+		  first_half[(bytes+2)&0x3ff]^reverse,
+		  first_half[(bytes+3)&0x3ff]^reverse,
+		  first_half[(bytes+4)&0x3ff]^reverse,
+		  first_half[(bytes+5)&0x3ff]^reverse,
+		  first_half[(bytes+6)&0x3ff]^reverse,
+		  first_half[(bytes+7)&0x3ff]^reverse,		  
+		  bytes<(4096-8)?',':' ',
+		  bytes,bytes/2048,(bytes/8)&0xff);
 	}
       } else {
 	// In raw mode, don't pad
