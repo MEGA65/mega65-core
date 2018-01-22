@@ -971,7 +971,7 @@ begin
       end if;
       -- Also map SD card sector buffer at $FFD6000 - $FFD61FF regardless of
       -- VIC-IV IO mode and mapping of colour RAM
-      if address(19 downto 8) = x"D60" or address(19 downto 8) = x"D61" then
+      if address(19 downto 12) = x"D6" then
         sectorbuffercs <= sbcs_en;
       end if;
 
