@@ -2137,7 +2137,7 @@ begin
           reg_key <= unsigned(fastio_wdata);
         elsif register_number=255 then
           -- @IO:C64 $D030 C128 2MHz emulation
-          -- @IO:C64 $D030.0 2MHz select (not yet functional)
+          -- @IO:C64 $D030.0 2MHz select (for C128 2MHz emulation)
           vicii_2mhz_internal <= fastio_wdata(0);
         elsif register_number=48 then
           -- @IO:C65 $D030 VIC-III Control Register A

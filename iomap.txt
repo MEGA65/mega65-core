@@ -82,7 +82,7 @@ C65 $D02F VIC-III KEY register for unlocking extended registers.
 GS $D02F Write $47 then $53 to enable C65GS/VIC-IV IO registers
 C65 $D02F Write $A5 then $96 to enable C65/VIC-III IO registers
 C65 $D02F Write anything else to return to C64/VIC-II IO map
-C64 $D030.0 2MHz select (not yet functional)
+C64 $D030.0 2MHz select (for C128 2MHz emulation)
 C65 $D030.0 2nd KB of colour RAM @ $DC00-$DFFF
 C65 $D030.1 VIC-III EXT SYNC (not implemented)
 C65 $D030.2 Use PALETTE ROM or RAM entries for colours 0 - 15
@@ -340,8 +340,8 @@ GS $D66C - Hypervisor virtual memory page 3 logical page low byte
 GS $D66D - Hypervisor virtual memory page 3 logical page high byte
 GS $D66E - Hypervisor virtual memory page 3 physical page low byte
 GS $D66F - Hypervisor virtual memory page 3 physical page high byte
-GS $D670 - Hypervisor GeoRAM base address (x MB) (write-only for
-GS $D671 - Hypervisor GeoRAM address mask (applied to GeoRAM block
+GS $D670 - Hypervisor GeoRAM base address (x MB)
+GS $D671 - Hypervisor GeoRAM address mask (applied to GeoRAM block register)
 GS $D672.6 - Enable composited Matrix Mode, and disable UART access to serial monitor.
 GS $D672 - Protected Hardware configuration
 GS $D67C.0-7 - (write) Hypervisor write serial output to UART monitor
@@ -411,6 +411,19 @@ GS $D6AB - DEBUG FDC last 7 rdata bits (packed by mfm_gaps)
 GS $D6AC - DEBUG FDC last quantised gap
 GS $D6AD - DEBUG FDC bytes read counter (LSB)
 GS $D6AE - DEBUG FDC bytes read counter (MSB)
+GS $D6AF.0 - f011_rsector_found
+GS $D6AF.1 - f011_wsector_found
+GS $D6AF.2 - f011_eq_inhibit
+GS $D6AF.3 - f011_rnf
+GS $D6AF.4 - f011_drq
+GS $D6AF.5 - f011_lost
+GS $D6AF - Directly set F011 flags (intended for virtual F011 mode) WRITE ONLY
+GS $D6DA - DEBUG SD card last error code LSB
+GS $D6DB - DEBUG SD card last error code MSB
+GS $D6DC - DEBUG duplicate of FPGA switches 0-7
+GS $D6DD - DEBUG duplicate of FPGA switches 8-15
+GS $D6DE - Temperature sensor (lower byte)
+GS $D6DF - Temperature sensor (upper byte)
 GS $D6E0.0 Clear to reset ethernet PHY
 GS $D6E0.1-2 Read ethernet TX bits currently on the wire
 GS $D6E0.3 Read ethernet RX data valid
@@ -443,10 +456,6 @@ GS $D6E6.7-5 - Ethernet MIIM PHY number (use 0 for Nexys4, 1 for MEGA65 r1 PCBs)
 GS $D6E7 - Ethernet MIIM register value (LSB)
 GS $D6E8 - Ethernet MIIM register value (MSB)
 GS $D6E9-E - Ethernet MAC address
-GS $D6EC - DEBUG duplicate of FPGA switches 0-7
-GS $D6ED - DEBUG duplicate of FPGA switches 8-15
-GS $D6EE - Temperature sensor (lower byte)
-GS $D6EF - Temperature sensor (upper byte)
 GS $D6F2 - Read FPGA five-way buttons
 GS $D6F3 - Accelerometer bit-bashing port
 GS $D6F3 Accelerometer inputs
