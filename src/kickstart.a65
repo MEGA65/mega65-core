@@ -412,6 +412,10 @@ reset_machine_state:
 		cld
 		see
 
+		; Clear system partition present flag
+		lda #$00
+		sta syspart_present
+
 		; disable IRQ/NMI sources
 		lda #$7f
 		sta $DC0D
