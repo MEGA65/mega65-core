@@ -254,7 +254,7 @@ begin
     constant RD_BLK_SZ_C : natural := 1 + BLOCK_SIZE_G + CRC_SZ_C;
     -- When writing blocks of data, send 0xFF + 0xFE + [DATA BLOCK] + [CRC] then receive response byte.
     constant WR_BLK_SZ_C : natural := 1 + 1 + BLOCK_SIZE_G + CRC_SZ_C + 1;
-    variable byteCnt_v   : natural range 0 to RD_BLK_SZ_C;  -- Tx/Rx byte counter.
+    variable byteCnt_v   : natural range 0 to WR_BLK_SZ_C;  -- Tx/Rx byte counter.
 
     -- Command bytes for various SD card operations.
     subtype Cmd_t is std_logic_vector(7 downto 0);
