@@ -121,7 +121,7 @@ if [ $TASK == xst ]; then
     #
     echo "==> $datetime Starting: xst, see ${TARGET}.syr"
     echo xst ${ISE_COMMON_OPTS} -ifn "isework/${TARGETNAME}.xst" -ofn "isework/${TARGETNAME}.syr"
-    xst ${ISE_COMMON_OPTS} -ifn "isework/${TARGETNAME}.xst" -ofn "isework/${TARGETNAME}.syr" >> $outfile1
+    xst ${ISE_COMMON_OPTS} -ifn "isework/${TARGETNAME}.xst" -ofn "isework/${TARGETNAME}.syr" > $outfile1
     exit $?
 fi
 
