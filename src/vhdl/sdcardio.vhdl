@@ -389,7 +389,7 @@ begin  -- behavioural
       hndshk_i => sd_handshake,
       data_i => std_logic_vector(sd_wdata),
       unsigned(data_o) => sd_rdata,
-      clk_i => clock	-- 50 MHz. If not, use generic map to set
+      clk_i => clock	-- 50 MHz. If not 100MHz, use generic map to set
       );
 
   -- CPU direct-readable sector buffer, so that it can be memory mapped
@@ -1763,7 +1763,9 @@ begin  -- behavioural
             sd_doread <= '1';
             sd_state <= ReadingSector;
             sdio_busy <= '1';
-            skip <= 2;
+            -- skip <= 2;
+            -- New sdcard.vhdl removes the tokens for us.
+            skip <= 0;
             read_data_byte <= '0';
           else
             sd_doread <= '0';
@@ -1810,18 +1812,17 @@ begin  -- behavioural
               sd_buffer_offset <= sd_buffer_offset + 1;
               
             else
-              if skip=2 then
-                sd_datatoken <= unsigned(sd_rdata);
-              end if;
               skip <= skip - 1;
             end if;
             sd_state <= ReadingSectorAckByte;
+          else
+            sd_handshake <= '0';
           end if;
 
         when ReadingSectorAckByte =>
           -- Wait until controller acknowledges that we have acked it
+          sd_handshake <= '0';
           if sd_data_ready='0' then
-            sd_handshake <= '0';
             if f011_sector_fetch = '1' then
               if
                 -- We have read at least one byte, and ...
@@ -1955,6 +1956,7 @@ begin  -- behavioural
           end if;
 
         when WritingSector =>
+          sd_handshake <= '0';
           if sd_data_ready='1' then
             sd_dowrite <= '0';
             sd_wdata <= f011_buffer_rdata;
