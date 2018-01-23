@@ -53,7 +53,7 @@ l7:		ldx #<msg_foundsdcard
 		sta sd_address_byte0 ; is $D681
 		sta sd_address_byte1 ; is $d682
 		sta sd_address_byte2 ; is $d683
-		sta sd_address_byte0 ; is $d684
+		sta sd_address_byte3 ; is $d684
 
 		jmp sd_readsector
 
