@@ -39,10 +39,10 @@ architecture behavioral of matrix_to_ascii is
     0 => x"14", -- INS/DEL
     1 => x"0D", -- RET/NO KEY
     2 => x"1d", -- HORZ/CRSR
-    3 => x"f8", -- F8/F7
-    4 => x"f2", -- F2/F1
-    5 => x"f4", -- F4/F3
-    6 => x"f6", -- F6/F5
+    3 => x"f7", -- F8/F7
+    4 => x"f1", -- F2/F1
+    5 => x"f3", -- F4/F3
+    6 => x"f5", -- F6/F5
     7 => x"11", -- VERT/CRSR
     8 => x"33", -- #/3
     9 => x"77", -- W/w
@@ -104,9 +104,9 @@ architecture behavioral of matrix_to_ascii is
     65 => x"09", -- TAB/NO KEY
     66 => x"00", -- ALT/NO KEY
     67 => x"00", -- HELP/NO KEY
-    68 => x"fa", -- F10/F9
-    69 => x"fc", -- F12/F11
-    70 => x"fe", -- F14/F13
+    68 => x"f9", -- F10/F9
+    69 => x"fb", -- F12/F11
+    70 => x"fd", -- F14/F13
     71 => x"1b", -- ESC/NO KEY
 
     others => x"00"
@@ -116,10 +116,10 @@ architecture behavioral of matrix_to_ascii is
     0 => x"94", -- INS/DEL
     1 => x"0D", -- RET/NO KEY
     2 => x"9d", -- HORZ/CRSR
-    3 => x"f7", -- F8/F7
-    4 => x"f1", -- F2/F1
-    5 => x"f3", -- F4/F3
-    6 => x"f5", -- F6/F5
+    3 => x"f8", -- F8/F7
+    4 => x"f2", -- F2/F1
+    5 => x"f4", -- F4/F3
+    6 => x"f6", -- F6/F5
     7 => x"91", -- VERT/CRSR
     8 => x"23", -- #/3
     9 => x"57", -- W/w
@@ -181,9 +181,9 @@ architecture behavioral of matrix_to_ascii is
     65 => x"0f", -- TAB/NO KEY
     66 => x"00", -- ALT/NO KEY
     67 => x"00", -- HELP/NO KEY
-    68 => x"f9", -- F10/F9
-    69 => x"fb", -- F12/F11
-    70 => x"fd", -- F14/F13
+    68 => x"fa", -- F10/F9
+    69 => x"fc", -- F12/F11
+    70 => x"fe", -- F14/F13
     71 => x"1b", -- ESC/NO KEY
 
     others => x"00"
