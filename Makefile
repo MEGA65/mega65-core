@@ -169,14 +169,14 @@ MEMVHDL=		$(VHDLSRCDIR)/ghdl_chipram8bit.vhdl \
 			$(VHDLSRCDIR)/ghdl_ram36x1k.vhdl
 
 NEXYSVHDL=		$(VHDLSRCDIR)/slowram.vhdl \
-			$(VHDLSRCDIR)/sd.vhdl \
+			$(VHDLSRCDIR)/sdcard.vhdl \
 			$(CPUVHDL) \
 			$(M65VHDL)
 
 
 SIMULATIONVHDL=		$(VHDLSRCDIR)/cpu_test.vhdl \
 			$(VHDLSRCDIR)/fake_expansion_port.vhdl \
-			$(VHDLSRCDIR)/fake_sd.vhdl \
+			$(VHDLSRCDIR)/sdcard.vhdl \
 			$(CPUVHDL) \
 			$(M65VHDL)
 

@@ -11,12 +11,14 @@ freeze_to_slot:
 	rts
 f2s1:
 	jsr syspart_locate_freezeslot
+
 	jsr freeze_save_to_sdcard_immediate
 	sec
 	rts
 
 
 freeze_save_to_sdcard_immediate:
+
 	; Save the current process to the SD card. $D681-4 are expected to
 	; already be pointing to the first sector of the freeze slot
 
@@ -42,9 +44,33 @@ freeze_next_region:
 
 freeze_write_sector_and_wait:
 
+	lda $d681
+	sta $0808
+	lda $d682
+	sta $0809
+	lda $d683
+	sta $080a
+	lda $d684
+	sta $080b
+
+	; Require SHIFT press and release between every sector
+fww1:	lda $d611
+	beq fww1
+fww2: 	lda $d611
+	bne fww2
+
 	lda #$00
 	sta freeze_write_tries+0
 	sta freeze_write_tries+1
+
+	lda $d681
+	pha
+	lda $d682
+	pha
+	lda $d683
+	pha
+	lda $d684
+	pha
 
 freeze_write_busywait0:
 	inc $0800
@@ -55,8 +81,10 @@ freeze_write_busywait0:
 	; If it takes too long to get ready, reset the SD card
 	lda #$00
 	sta $d680
+
 	jsr sdwaitawhile
 	jsr sdwaitawhile
+
 	lda #$01
 	sta $d680
 	
@@ -64,12 +92,50 @@ fwb1:	lda $d680
 	and #$03
 	bne freeze_write_busywait0
 
-
 	lda #$03
 	sta $d680
 
-freeze_write_busywait:
+	lda #$00
+	sta freeze_write_tries+0
+	sta freeze_write_tries+1
+
+freeze_write_busywait1:
 	inc $0801
+	inc freeze_write_tries+0
+	bne fwb11
+	inc freeze_write_tries+1
+	bne fwb11
+
+	; If it takes too long to get ready, reset the SD card
+	lda #$00
+	sta $d680
+
+	jsr sdwaitawhile
+	jsr sdwaitawhile
+
+	; End reset
+	lda #$01
+	sta $d680
+
+	jsr sdwaitawhile
+
+	; Re-issue the write
+	lda #$03
+	sta $d680
+	
+fwb11:
+	ldy #$04
+fwb111:	dey
+	bne fwb111
+
+	lda $d680
+	and #$03
+	bne freeze_write_busywait1
+
+
+
+freeze_write_busywait:
+	inc $0802
 	lda $d680
 	and #$03
 	bne freeze_write_busywait
@@ -77,6 +143,15 @@ freeze_write_busywait:
 	; Work around SD bug by reading the sector again
 	lda #$02
 	sta $d680
+
+	pla
+	sta $d684
+	pla
+	sta $d683
+	pla
+	sta $d682
+	pla
+	sta $d681
 
 	; Increment freeze slot sector number
 	jsr sd_inc_fixedsectornumber
@@ -128,7 +203,6 @@ fsr1:
 	and #$0f
 	sta freeze_region_dmalist_source_bank
 
-
 	; At this point, we have the DMA list source setup.
 
 	; Point the destination to the SD card direct job
@@ -161,6 +235,7 @@ fsr1:
 	sta freeze_dma_length_remaining+2
 
 freeze_region_dma_loop:
+
 	; Check if remaining length is negative or zero. If so, stop
 	lda freeze_dma_length_remaining+2
 	bmi freeze_region_dma_done
@@ -193,8 +268,6 @@ not_too_big:
 	; Write SD-card direct sector buffer to freeze slot
 	; Flash a different colour while actually writing sector
 	inc $d020
-
-	; XXX disabled for now, until rest of code complete.
 
 	jsr freeze_write_sector_and_wait
 
