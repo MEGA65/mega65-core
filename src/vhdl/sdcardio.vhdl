@@ -758,10 +758,10 @@ begin  -- behavioural
             fastio_rdata <= unsigned(fdc_bytes_read(15 downto 8));
           when x"da" =>
             -- @IO:GS $D6DA - DEBUG SD card last error code LSB
-            fastio_rdata(7 downto 0) <= unsigned(sd_last_error(7 downto 0));
+            fastio_rdata(7 downto 0) <= unsigned(last_sd_error(7 downto 0));
           when x"db" =>
             -- @IO:GS $D6DB - DEBUG SD card last error code MSB
-            fastio_rdata(7 downto 0) <= unsigned(sd_last_error(15 downto 8));
+            fastio_rdata(7 downto 0) <= unsigned(last_sd_error(15 downto 8));
           when x"dc" =>
             -- @IO:GS $D6DC - DEBUG duplicate of FPGA switches 0-7
             fastio_rdata(7 downto 0) <= unsigned(sw(7 downto 0));
