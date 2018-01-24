@@ -1949,6 +1949,9 @@ begin  -- behavioural
           f011_buffer_disk_pointer_advance <= '1';
           -- Abort CPU buffer read if in progess, since we are reading the buffer
           sb_cpu_reading <= '0';
+
+          sd_handshake <= '0';
+          sd_handshake_internal <= '0';
           
           sd_state <= WriteSector;
         when WriteSector =>
@@ -1960,20 +1963,17 @@ begin  -- behavioural
             skip <= 0;
             sd_wrote_byte <= '0';
             sd_state <= WritingSector;
-            sd_wdata <= f011_buffer_rdata;
-            sd_handshake <= '1';
-            sd_handshake_internal <= '1';
           else
             report "SDWRITE: Waiting for busy flag to clear...";
             sd_dowrite <= '0';
           end if;
 
         when WritingSector =>
-          sd_handshake <= '0';
-          sd_handshake_internal <= '0';
           if sd_data_ready='1' then
             sd_dowrite <= '0';
             sd_wdata <= f011_buffer_rdata;
+            sd_handshake <= '1';
+            sd_handshake_internal <= '1';
             
             report "SDWRITE: skip = " & integer'image(skip)
               & ", sd_buffer_offset=$" & to_hstring(sd_buffer_offset)
