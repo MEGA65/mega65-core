@@ -1774,6 +1774,8 @@ begin  -- behavioural
             -- New sdcard.vhdl removes the tokens for us.
             skip <= 0;
             read_data_byte <= '0';
+            sd_handshake <= '0';
+            sd_handshake_internal <= '0';
           else
             sd_doread <= '0';
           end if;
@@ -1782,6 +1784,8 @@ begin  -- behavioural
           if sd_data_ready='1' then
             sd_doread <= '0';
             -- A byte is ready to read, so store it
+            sd_handshake <= '1';
+            sd_handshake_internal <= '1';
             if skip=0 then
               read_data_byte <= '1';
               if f011_sector_fetch='1' then
@@ -1795,8 +1799,6 @@ begin  -- behavioural
                 f011_buffer_write_address <= "110"&f011_buffer_disk_address;
                 f011_buffer_wdata <= unsigned(sd_rdata);
                 f011_buffer_write <= '1';
-                sd_handshake <= '1';
-                sd_handshake_internal <= '1';
                 
                 -- Defer any CPU write request, since we are writing
                 sb_cpu_write_request <= sb_cpu_write_request;
