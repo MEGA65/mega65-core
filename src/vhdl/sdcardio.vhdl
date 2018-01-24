@@ -1718,6 +1718,12 @@ begin  -- behavioural
 
       end if; --    if fastio_write='1' then
 
+      if last_sd_error /= x"0000" then
+        sdio_error <= '1';
+        sdio_busy <= '0';
+        sd_state <= Idle;
+      end if;
+      
       case sd_state is
         
         when Idle =>
