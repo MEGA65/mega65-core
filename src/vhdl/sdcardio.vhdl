@@ -212,6 +212,7 @@ architecture behavioural of sdcardio is
   signal sd_dowrite      : std_logic := '0';
   signal sd_data_ready : std_logic := '0';
   signal sd_handshake : std_logic := '0';
+  signal sd_handshake_internal : std_logic := '0';
 
   -- Signals to communicate with SD controller core
   signal sd_sector       : unsigned(31 downto 0) := (others => '0');
@@ -663,11 +664,14 @@ begin  -- behavioural
           when x"88" => fastio_rdata <= f011_buffer_disk_address(7 downto 0);
           -- @IO:GS $D689.0 - High bit of F011 buffer pointer (disk side) (read only)
           -- @IO:GS $D689.1 - Sector read from SD/F011/FDC, but not yet read by CPU (i.e., EQ and DRQ)
+          -- @IO:GS $D689.3 - (read only) sd_data_ready signal.
           -- @IO:GS $D689.7 - Memory mapped sector buffer select: 1=SD-Card, 0=F011/FDC
           when x"89" =>
             fastio_rdata(0) <= f011_buffer_disk_address(8);
             fastio_rdata(1) <= f011_flag_eq and f011_drq;
             fastio_rdata(6 downto 2) <= (others => '0');
+            fastio_rdata(2) <= sd_handshake;
+            fastio_rdata(3) <= sd_data_ready;
             fastio_rdata(7) <= f011sd_buffer_select;
           when x"8a" =>
             -- @IO:GS $D68A - DEBUG check signals that can inhibit sector buffer mapping
@@ -1561,6 +1565,9 @@ begin  -- behavioural
             when x"83" => sd_sector(23 downto 16) <= fastio_wdata;
             when x"84" => sd_sector(31 downto 24) <= fastio_wdata;
             when x"89" => f011sd_buffer_select <= fastio_wdata(7);
+                          -- @ IO:GS $D689.2 Set/read SD card sd_handshake signal
+                          sd_handshake <= fastio_wdata(2);
+                          sd_handshake_internal <= fastio_wdata(2);
 
                           -- ================================================================== END
                           -- the section above was for the SDcard
@@ -1789,6 +1796,7 @@ begin  -- behavioural
                 f011_buffer_wdata <= unsigned(sd_rdata);
                 f011_buffer_write <= '1';
                 sd_handshake <= '1';
+                sd_handshake_internal <= '1';
                 
                 -- Defer any CPU write request, since we are writing
                 sb_cpu_write_request <= sb_cpu_write_request;
@@ -1817,11 +1825,13 @@ begin  -- behavioural
             sd_state <= ReadingSectorAckByte;
           else
             sd_handshake <= '0';
+            sd_handshake_internal <= '0';
           end if;
 
         when ReadingSectorAckByte =>
           -- Wait until controller acknowledges that we have acked it
           sd_handshake <= '0';
+          sd_handshake_internal <= '0';
           if sd_data_ready='0' then
             if f011_sector_fetch = '1' then
               if
@@ -1950,6 +1960,7 @@ begin  -- behavioural
             sd_state <= WritingSector;
             sd_wdata <= f011_buffer_rdata;
             sd_handshake <= '1';
+            sd_handshake_internal <= '1';
           else
             report "SDWRITE: Waiting for busy flag to clear...";
             sd_dowrite <= '0';
@@ -1957,6 +1968,7 @@ begin  -- behavioural
 
         when WritingSector =>
           sd_handshake <= '0';
+          sd_handshake_internal <= '0';
           if sd_data_ready='1' then
             sd_dowrite <= '0';
             sd_wdata <= f011_buffer_rdata;
@@ -1982,6 +1994,7 @@ begin  -- behavioural
           -- Wait until controller acknowledges that we have acked it
           if sd_data_ready='0' then
             sd_handshake <= '0';
+            sd_handshake_internal <= '0';
             if sd_buffer_offset = "000000000" and sd_wrote_byte='1' then
               -- Whole sector written when we have written 512 bytes
               sd_state <= DoneWritingSector;
