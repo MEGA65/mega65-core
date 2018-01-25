@@ -65,7 +65,7 @@ systemPageCnt	=	1
 	
 systemOptions0:
 	.byte		$20			;option input type
-	.word		$0003			;offset into config table
+	.word		$0005			;offset into config table
 	.byte		$01			;bits for testing/setting
 	.defPStr	"amiga mouse mode:"	;label
 	.defPStr	'normal';option unset
@@ -135,7 +135,7 @@ diskOptions0:
 	.defPStr	"uses sdcard disk image";option set
 
 	.byte		$30			;string input type
-	.word		$0004			;offset into config table
+	.word		$0010			;offset into config table
 	.byte		$10			;input string length
 	.defPStr	"default disk image:"	;label
 	
