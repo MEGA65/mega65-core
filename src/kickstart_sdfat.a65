@@ -355,11 +355,11 @@ sdhc1:		; SDHC card mode: add 1
 		;
 
 		inc sd_address_byte0
-		bcc s1
+		bne s1
 		inc sd_address_byte1
-s2:		bcc s1
+		bne s1
 		inc sd_address_byte2
-		bcc s1
+		bne s1
 		inc sd_address_byte3
 s1:		
 		rts
