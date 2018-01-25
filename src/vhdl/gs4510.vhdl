@@ -1787,6 +1787,18 @@ begin
         -- Reading from 256KB shadow ram (which includes 128KB fixed shadowing of
         -- chipram).  This is the only memory running at the CPU's native clock.
         -- Think of it as a kind of direct-mapped L1 cache.
+        -- @ IO:C64 $0000002-$000FFFF - 64KB RAM
+        -- @ IO:C65 $0010000-$001FFFF - 64KB RAM
+        -- @ IO:C65 $0020000-$003FFFF - 128KB ROM
+        -- @ IO:C65 $002A000-$002BFFF - 8KB C64 BASIC ROM
+        -- @ IO:C65 $002D000-$002DFFF - 4KB C64 CHARACTER ROM
+        -- @ IO:C65 $002E000-$002FFFF - 8KB C64 KERNAL ROM
+        -- @ IO:C65 $003E000-$003FFFF - 8KB C65 KERNAL ROM
+        -- @ IO:C65 $003C000-$003CFFF - 4KB C65 KERNAL/INTERFACE ROM
+        -- @ IO:C65 $0038000-$003BFFF - 8KB C65 BASIC GRAPHICS ROM
+        -- @ IO:C65 $0032000-$0035FFF - 8KB C65 BASIC ROM
+        -- @ IO:C65 $0030000-$0031FFF - 16KB C65 DOS ROM
+        
         report "Preparing to read from Shadow";
         read_source <= Shadow;
         accessing_shadow <= '1';
@@ -1889,7 +1901,7 @@ begin
             wait_states_non_zero <= '0';
           end if;
         end if;
-        -- @IO:GS $FFF8000-$FFFBFFF 16KB Kickstart/hypervisor ROM
+        -- @IO:GS $FFF8000-$FFFBFFF 16KB Kickstart/Hypervisor ROM
         if long_address(19 downto 14)&"00" = x"F8" then
           accessing_fastio <= '0';
           fastio_read <= '0';

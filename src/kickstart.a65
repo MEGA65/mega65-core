@@ -412,6 +412,10 @@ reset_machine_state:
 		cld
 		see
 
+		; Clear system partition present flag
+		lda #$00
+		sta syspart_present
+
 		; disable IRQ/NMI sources
 		lda #$7f
 		sta $DC0D
@@ -1163,13 +1167,15 @@ loadedok:
 
 		; check the size of the loaded file
 		; i.e., that we have loaded $0200 x $100 = $20000 = 128KiB
-		lda file_pagesread
-		bne romfiletooshort
 		lda file_pagesread+1
 		cmp #$00
 		beq romfiletooshort
+		cmp #$01
+		beq romfiletooshort
 		cmp #$02
 		bne romfiletoolong
+		lda file_pagesread
+		bne romfiletoolong		
 
 		; the loaded ROM was OK in size
 

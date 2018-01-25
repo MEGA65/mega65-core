@@ -693,7 +693,7 @@ dos_read_partitiontable:
 	lda #dos_errorcode_bad_signature
 	sta dos_error_code
 
-	; check for $55AA MBR signature
+	; check for $55, $AA MBR signature
 	;
 	lda [sd_sectorbuffer+$1FE]
 	cmp #$55
@@ -705,7 +705,7 @@ dos_read_partitiontable:
 	; yes, $55AA MBR signature was found
 
 	jsr checkpoint
-	.byte 0,"Found $55AA at $1FE on MBR",0
+	.byte 0,"Found $55, $AA at $1FE on MBR",0
 
 	; Partitions start at offsets $1BE, $1CE, $1DE, $1EE
 	; so consider each in turn.  Opening the partition causes other sectors to
@@ -1127,7 +1127,7 @@ ddop1a:
 	jmp partitionerror
 ddop1b:
 	jsr checkpoint
-	.byte 0,"Partn has $55AA GOOD",0
+	.byte 0,"Partn has $55, $AA GOOD",0
 
 	; Start populating fields
 
