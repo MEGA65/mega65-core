@@ -1488,7 +1488,6 @@ begin  -- behavioural
                   sd_state <= Idle;
                   sdio_error <= '0';
                   sdio_fsm_error <= '0';
-                  -- Remember to tell SDHC card if we support high capacity
                   sd_sector <= (others => '0');
 
                 when x"10" =>
