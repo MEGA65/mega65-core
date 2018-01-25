@@ -1489,7 +1489,7 @@ begin  -- behavioural
                   sdio_error <= '0';
                   sdio_fsm_error <= '0';
                   -- Remember to tell SDHC card if we support high capacity
-                  sd_sector <= (30 => sdhc_mode, others => '0');
+                  sd_sector <= (others => '0');
 
                 when x"10" =>
                   -- Reset SD card with flags specified
