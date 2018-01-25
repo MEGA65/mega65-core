@@ -1537,6 +1537,7 @@ begin  -- behavioural
                     sd_state <= WriteSector;
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
+                    f011_sector_fetch <= '0';
 
                     sd_wrote_byte <= '0';
                     f011_buffer_read_address <= "111"&"000000000";
@@ -1983,7 +1984,8 @@ begin  -- behavioural
             
             report "SDWRITE: skip = " & integer'image(skip)
               & ", sd_buffer_offset=$" & to_hstring(sd_buffer_offset)
-              & ", sd_wrote_byte=" & std_logic'image(sd_wrote_byte);
+              & ", sd_wrote_byte=" & std_logic'image(sd_wrote_byte)
+              & ", sd_wdata=$" & to_hstring(f011_buffer_rdata);
             if skip = 0 then
               -- Byte has been accepted, write next one
               sd_state <= WritingSectorAckByte;
