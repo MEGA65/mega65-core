@@ -37,7 +37,7 @@ readmbr:
 	jsr checkpoint
 	.byte 0,"Resetting SDCARD",0
 
-		jsr sdreset
+		jsr sd_resetsequence
 		bcs l7
 	jsr checkpoint
 	.byte 0,"FAILED resetting SDCARD",0
@@ -66,12 +66,8 @@ sdhccheckwait:
 
 		; Normal SD (SDSC) card
 
-		; Reset after SDHC test
+		; Reset after SDHC test for normal SD mode
 		jsr sd_resetsequence
-
-		; Clear SDHC flag
-		lda #$40
-		sta $d680
 
 		lda #$00
 		sta sd_address_byte0
@@ -97,24 +93,14 @@ issdhc:
 ;;; SD Card access routines
 ;;; ----------------------------------------------------------------------------
 ;
-sdreset:
-		; try SD-HC mode first
-		;
-	;	lda #$41
-	;	sta $D680
-	;	jsr sd_resetsequence
-	;	bcc sdr1
-	;	rts
-
-sdr1:		; fall back to SD mode
-		;
-		lda #$42	;B#0100.0010
-		sta $d680
-		; fall through		
-
 sd_resetsequence:
 		; write $00 to $D680 to start reset
 		;
+
+		; Clear SDHC flag
+		lda #$40
+		sta $d680
+
 		lda #$00
 		sta $D680
 		jsr sdtimeoutreset
@@ -320,7 +306,7 @@ rereadsector:
 		jsr checkpoint			; we should never get here
 		.byte 0,"ERROR rereadsector:",0
 
-		jsr sdreset
+		jsr sd_resetsequence
 		jmp rs4
 
 rsbusyfail:     ; fail
@@ -367,9 +353,6 @@ sd_inc_fixedsectornumber:
 
 sdhc1:		; SDHC card mode: add 1
 		;
-
-		jsr checkpoint	; this is not supported
-		.byte 0,"ERROR: sdhc1:",0
 
 		inc sd_address_byte0
 		bcc s1
