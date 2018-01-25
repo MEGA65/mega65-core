@@ -64,15 +64,12 @@ systemPageCnt	=	1
 	.endif
 	
 systemOptions0:
-	.byte		$30			;string input type
-	.word		$0004			;offset into config table
-	.byte		$10			;input string length
-	.defPStr	"default disk image:"	;label
-	
-	.byte		$00, $00, $00, $00	;storage for value
-	.byte		$00, $00, $00, $00
-	.byte		$00, $00, $00, $00
-	.byte		$00, $00, $00, $00
+	.byte		$20			;option input type
+	.word		$0003			;offset into config table
+	.byte		$01			;bits for testing/setting
+	.defPStr	"amiga mouse mode:"	;label
+	.defPStr	'normal';option unset
+	.defPStr	"1351 emulation";option set
 
 	.if		DEBUG_MODE
 	.byte		$20
@@ -136,6 +133,17 @@ diskOptions0:
 	.defPStr	"f011 disk controller:"	;label
 	.defPStr	'uses 3.5" floppy drive';option unset
 	.defPStr	"uses sdcard disk image";option set
+
+	.byte		$30			;string input type
+	.word		$0004			;offset into config table
+	.byte		$10			;input string length
+	.defPStr	"default disk image:"	;label
+	
+	.byte		$00, $00, $00, $00	;storage for value
+	.byte		$00, $00, $00, $00
+	.byte		$00, $00, $00, $00
+	.byte		$00, $00, $00, $00
+
 	.byte		$00			;end of list type
 diskOptions0_end:
 	.assert		(diskOptions0_end - diskOptions0) < 256, error, "Disk Options 0 too large!"
@@ -170,6 +178,35 @@ videoPageIndex:
 audioPageCnt	=	1
 
 audioOptions0:
+	.byte		$20
+	.word		$0003
+	.byte		$40
+	.defPStr	"audio output:"
+	.defPStr	"stereo"
+	.defPStr	"mono"
+
+	.byte		$20
+	.word		$0003
+	.byte		$20
+	.defPStr	"swap stereo channels:"
+	.defPStr	"no"
+	.defPStr	"yes"
+
+	.byte		$20
+	.word		$0003
+	.byte		$80
+	.defPStr	"dac algorithm:"
+	.defPStr	"pdm"
+	.defPStr	"pwm"
+
+
+	.byte		$20
+	.word		$0003
+	.byte		$01
+	.defPStr	"audio amplifier:"
+	.defPStr	"off"
+	.defPStr	"on"
+
 	.byte		$00
 audioOptions0_end:
 	.assert		(audioOptions0_end - audioOptions0) < 256, error, "Audio Options 0 too large!"

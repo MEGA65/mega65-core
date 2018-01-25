@@ -305,7 +305,7 @@ $(SDCARD_DIR)/MEGA65.D81:	$(UTILITIES)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(OPHIS) $< -l $*.list -m $*.map -o $*.prg
 
-$(UTILDIR)/mega65_config.o:      $(UTILDIR)/mega65_config.s
+$(UTILDIR)/mega65_config.o:      $(UTILDIR)/mega65_config.s $(UTILDIR)/mega65_config.inc
 	$(CA65) $< -l $*.list
 
 $(UTILDIR)/mega65_config.prg:       $(UTILDIR)/mega65_config.o
