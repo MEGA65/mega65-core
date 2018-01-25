@@ -1,5 +1,16 @@
 C64 $0000000 6510/45GS10 CPU port DDR
 C64 $0000001 6510/45GS10 CPU port data
+C64 $0000002-$000FFFF - 64KB RAM
+C65 $0010000-$001FFFF - 64KB RAM
+C65 $0020000-$003FFFF - 128KB ROM
+C65 $002A000-$002BFFF - 8KB C64 BASIC ROM
+C65 $002D000-$002DFFF - 4KB C64 CHARACTER ROM
+C65 $002E000-$002FFFF - 8KB C64 KERNAL ROM
+C65 $0030000-$0031FFF - 16KB C65 DOS ROM
+C65 $0032000-$0035FFF - 8KB C65 BASIC ROM
+C65 $0038000-$003BFFF - 8KB C65 BASIC GRAPHICS ROM
+C65 $003C000-$003CFFF - 4KB C65 KERNAL/INTERFACE ROM
+C65 $003E000-$003FFFF - 8KB C65 KERNAL ROM
 GS $4000000 - $7FFFFFF Slow Device memory (64MB)
 GS $8000000 - $FEFFFFF Slow Device memory (127MB)
 C64 $D000 VIC-II sprite 0 horizontal position
@@ -377,6 +388,8 @@ GS $D687 - DEBUG SD card most recent byte read
 GS $D688 - Low-byte of F011 buffer pointer (disk side) (read only)
 GS $D689.0 - High bit of F011 buffer pointer (disk side) (read only)
 GS $D689.1 - Sector read from SD/F011/FDC, but not yet read by CPU (i.e., EQ and DRQ)
+GS $D689.2 Set/read SD card sd_handshake signal
+GS $D689.3 - (read only) sd_data_ready signal.
 GS $D689.7 - Memory mapped sector buffer select: 1=SD-Card, 0=F011/FDC
 GS $D68A - DEBUG check signals that can inhibit sector buffer mapping
 GS $D68B.0 - F011 disk 1 disk image enable
@@ -502,13 +515,16 @@ GS $D7FD.6 Override for /GAME : set to 0 to enable
 GS $D7FD.7 Override for /EXROM : set to 0 to enable
 GS $FF7Exxx VIC-IV CHARROM write area
 GS $FF8xxxx - Colour RAM (32KB or 64KB)
+GS $FFD6C00-DFF - F011 floppy controller sector buffer
+GS $FFD6E00-FFF - SD card direct access sector buffer
 GS $FFDE800 - $FFDEFFF Ethernet RX buffer (read only)
 GS $FFDE800 - $FFDEFFF Ethernet TX buffer (write only)
 GS $FFF8000-$FFF80FC Hypervisor entry point when $D640-$D67F is written
 GS $FFF8000-$FFFBFFF 16KB Kickstart/hypervisor ROM
+GS $FFF8000-$FFFBFFF 16KB Kickstart/Hypervisor ROM
 GS $FFF8100 Hypervisor entry point on reset (trap $40)
 GS $FFF8104 Hypervisor entry point on page fault (trap $41)
-GS $FFF8108 Hypervisor entry point on RESTORE double-tap (trap $42)
+GS $FFF8108 Hypervisor entry point on RESTORE long-press (trap $42)
 GS $FFF810C Hypervisor entry point on C=-TAB / ALT-TAB (trap $43)
 GS $FFF8110 Hypervisor entry point on FDC read (when virtualised) (trap $44)
 GS $FFF8114 Hypervisor entry point on FDC write (when virtualised) (trap $45)
