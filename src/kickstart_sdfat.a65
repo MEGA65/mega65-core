@@ -43,10 +43,7 @@ readmbr:
 	.byte 0,"FAILED resetting SDCARD",0
 		rts
 
-l7:		ldx #<msg_foundsdcard
-		ldy #>msg_foundsdcard
-		jsr printmessage
-
+l7:
 		; MBR is sector 0
 		;
 		lda #$00
@@ -54,6 +51,45 @@ l7:		ldx #<msg_foundsdcard
 		sta sd_address_byte1 ; is $d682
 		sta sd_address_byte2 ; is $d683
 		sta sd_address_byte3 ; is $d684
+
+		; Work out if SD card or SDHC card
+		; SD cards only read on 512 byte aligned addresses.
+		; SDHC addresses by sector, so all addresses are valid
+		; Attempt non-aligned read		
+		lda #$02
+		sta sd_address_byte0
+		sta $d680
+sdhccheckwait:
+		jsr sdreadytest
+		bcs issdhc
+		bne sdhccheckwait
+
+		; Normal SD (SDSC) card
+
+		; Reset after SDHC test
+		jsr sd_resetsequence
+
+		; Clear SDHC flag
+		lda #$40
+		sta $d680
+
+		lda #$00
+		sta sd_address_byte0
+
+		ldx #<msg_foundsdcard
+		ldy #>msg_foundsdcard
+		jsr printmessage
+
+		jmp sd_readsector
+
+issdhc:
+		ldx #<msg_foundsdhccard
+		ldy #>msg_foundsdhccard
+		jsr printmessage
+
+		; set SDHC flag
+		lda #$41
+		sta $d680
 
 		jmp sd_readsector
 
