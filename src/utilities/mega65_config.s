@@ -231,6 +231,12 @@ init:
 		STA 	$D020
 		LDA 	#$00			;Screen colour
 		STA 	$D021
+
+		LDA 	#$01			; Enable Amiga -> 1351 mouse translation
+		STA	$D61B
+
+		LDA 	#$14			; Set screen address to $0400, upper-case font
+	        STA	$D018  
 	
 	.if	C64_MODE
 ;	Upper-case
