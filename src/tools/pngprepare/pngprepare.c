@@ -1,6 +1,6 @@
 /*
  * Copyright 2002-2010 Guillaume Cottenceau.
- * Copyright 2015 Paul Gardner-Stephen.
+ * Copyright 2015-2018 Paul Gardner-Stephen.
  *
  * This software may be freely redistributed under the terms
  * of the X11 license.
@@ -203,6 +203,11 @@ int palette_lookup(int r,int g, int b)
   palette[palette_index].b=b;
   return palette_index++;
   
+}
+
+unsigned char nyblswap(unsigned char in)
+{
+  return ((in&0xf)<<4)+((in&0xf0)>>4);
 }
 
 void process_file(int mode, char *outputfilename)
@@ -547,6 +552,108 @@ void process_file(int mode, char *outputfilename)
     printf("%d unique tiles\n",tile_count);
   }
 
+  if (mode==3) {
+    // Output set of 16-colour sprites
+    int colour_count=0;
+    int colours[16];
+    fprintf(stderr,"Scanning colour palette...\n");
+    for (y=0; y<height; y++) {
+      for (x=0; x<width; x++) {
+	int i;
+
+	png_byte* row = row_pointers[y];
+	png_byte* ptr = &(row[x*multiplier]);
+	int r=ptr[0], g=ptr[1],b=ptr[2]; // , a=ptr[3];
+	int c=r+256*g+65536*b;
+	for(i=0;i<colour_count;i++) if (c==colours[i]) break;
+	if (i==colour_count) {
+	  if (colour_count>=16) {
+	    fprintf(stderr,"Too many colours. Image must be 16-colours or less.\n");
+	    exit(-1);
+	  }
+	  colours[colour_count++]=c;
+	}
+      }
+    }
+    fprintf(stderr,"%d unique colours found.\n",colour_count);
+
+    // Avoid colour 0 if we can, to keep it for transparency
+    int colour_offset=0;
+    //    if (colour_count<16) colour_offset=1;
+
+
+    int bytes_per_sprite=8*(height>>1);
+    while (bytes_per_sprite%64) bytes_per_sprite++;
+    fprintf(stderr,"Sprites are %d ($%02X) pixels high, and will occupy %d bytes (%d VIC-II sprite slots) each.\n",
+	    height/2,height/2,bytes_per_sprite,bytes_per_sprite/64);    
+
+    
+    // Output palette
+    unsigned char red[16];
+    unsigned char green[16];
+    unsigned char blue[16];
+    int i;
+    
+    for(i=0;i<16;i++)
+      {
+	int idx=i;
+	if (colour_offset) idx+=colour_offset;
+	if (idx>=16) idx-=16;
+
+	red[idx]=nyblswap(colours[i]&0xff);
+	green[idx]=nyblswap((colours[i]>>8)&0xff);
+	blue[idx]=nyblswap((colours[i]>>16)&0xff);
+      }
+    // Write magic string, height of sprites in pixels,
+    // and the number of sprites, and how many slots per
+    // sprite
+    fwrite("M65SPRITE16",12,1,outfile);
+    fputc(height/2,outfile);
+    fputc(width/32,outfile);
+    fputc(bytes_per_sprite&0xff,outfile);
+    fputc(bytes_per_sprite>>8,outfile);
+    fwrite(red,16,1,outfile);
+    fwrite(green,16,1,outfile);
+    fwrite(blue,16,1,outfile);
+    
+
+    // Output pixels
+    for (x=0; x<width; x+=32) {
+      int bytes_written=0;
+      int xx;
+      fprintf(stderr,"Writing sprite %d\n",x/32);
+      for (y=0; y<height; y+=2) {
+	for(xx=x;xx<(x+32);xx+=4) {
+	  unsigned char byte;
+	  unsigned char p1,p2;
+	  int i;
+
+	  png_byte* row = row_pointers[y];
+	  png_byte* ptr = &(row[(xx+0)*multiplier]);
+	  int r=ptr[0], g=ptr[1],b=ptr[2]; // , a=ptr[3];
+	  int c=r+256*g+65536*b;
+	  for(i=0;i<colour_count;i++) if (c==colours[i]) break;
+	  p1=i;
+	  ptr = &(row[(xx+2)*multiplier]);	  
+	  r=ptr[0]; g=ptr[1]; b=ptr[2]; // , a=ptr[3];
+	  c=r+256*g+65536*b;
+	  for(i=0;i<colour_count;i++) if (c==colours[i]) break;
+	  p2=i;
+	  byte=(p1<<4)+p2;
+	  if (byte) fprintf(stderr,"Writing pixels %d:%d as $%02X\n",
+			    p1,p2,byte);
+	  fputc(byte,outfile);
+	  bytes_written++;
+	}
+      }
+      while(bytes_written<bytes_per_sprite) {
+	fputc(0x00,outfile); 
+	bytes_written++;
+      }
+    }
+    
+  }
+  
 }
 
 /* ============================================================= */
@@ -554,7 +661,7 @@ void process_file(int mode, char *outputfilename)
 int main(int argc, char **argv)
 {
   if (argc != 4) {
-    fprintf(stderr,"Usage: program_name <logo|charrom> <file_in> <file_out>\n");
+    fprintf(stderr,"Usage: program_name <logo|charrom|hires|sprite16> <file_in> <file_out>\n");
     exit(-1);
   }
 
@@ -563,8 +670,9 @@ int main(int argc, char **argv)
   if (!strcasecmp("logo",argv[1])) mode=0;
   if (!strcasecmp("charrom",argv[1])) mode=1;
   if (!strcasecmp("hires",argv[1])) mode=2;
+  if (!strcasecmp("sprite16",argv[1])) mode=3;
   if (mode==-1) {
-    fprintf(stderr,"Usage: program_name <logo|charrom> <file_in> <file_out>\n");
+    fprintf(stderr,"Usage: program_name <logo|charrom|hires|sprite16> <file_in> <file_out>\n");
     exit(-1);
   }
 
