@@ -410,10 +410,8 @@ begin  -- behavioural
           sprite_fg_map_out(sprite_number) <= check_collisions;
         end if;
         if (sprite_sixteen_colour_mode='1')
-          and ((sprite_pixel_bits(127)
-                or sprite_pixel_bits(125)
-                or sprite_pixel_bits(123)
-                or sprite_pixel_bits(121)) /= '0') then
+          and ((sprite_pixel_bits(127) & sprite_pixel_bits(125) & sprite_pixel_bits(123) & sprite_pixel_bits(121))
+              /= sprite_colour(3 downto 0)) then
           -- Sprite and foreground collision
           sprite_fg_map_out(sprite_number) <= check_collisions;
         end if;
@@ -426,10 +424,8 @@ begin  -- behavioural
           sprite_map_out(sprite_number) <= check_collisions;
         end if;
         if (sprite_sixteen_colour_mode='1')
-          and ((sprite_pixel_bits(127)
-                or sprite_pixel_bits(125)
-                or sprite_pixel_bits(123)
-                or sprite_pixel_bits(121)) /= '0') then
+          and ((sprite_pixel_bits(127) & sprite_pixel_bits(125) & sprite_pixel_bits(123) & sprite_pixel_bits(121))
+              /= sprite_colour(3 downto 0)) then
           -- Sprite and foreground collision
           sprite_map_out(sprite_number) <= check_collisions;
         end if;
