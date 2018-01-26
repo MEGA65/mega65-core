@@ -493,6 +493,8 @@ begin  -- behavioural
               -- upper bits of the sprite colour
               sprite_colour_out(6 downto 4) <= to_unsigned(sprite_number,3);
               sprite_colour_out(7) <= sprite_bitplane_enable;
+            else
+              is_sprite_out <= '0';
             end if;
           else
             report "SPRITE: Painting pixel using bits " & to_string(sprite_pixel_bits(127 downto 126));        
