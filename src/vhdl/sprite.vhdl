@@ -482,7 +482,7 @@ begin  -- behavioural
             pixel_16(0) := sprite_pixel_bits(121);
             report "SPRITE: Painting 16-colour pixel using bits "
               & to_string(pixel_16);
-            if pixel_16 /= "0000" then
+            if unsigned(pixel_16) /= sprite_colour(3 downto 0) then
               is_sprite_out <= not border_in;
               sprite_colour_out(3 downto 0) <= unsigned(pixel_16);
               -- Setting bitplane mode and 16-colour mode allows setting the
