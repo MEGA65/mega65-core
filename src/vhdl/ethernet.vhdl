@@ -924,7 +924,8 @@ begin  -- behavioural
           when x"D" => fastio_rdata <= eth_mac(15 downto 8);
           when x"E" => fastio_rdata <= eth_mac(7 downto 0);
           when x"f" =>
-            fastio_rdata <= to_unsigned(ethernet_state'pos(eth_tx_state),8);
+            -- @ IO:GS $D6EF - DEBUG show current ethernet RX state
+            fastio_rdata <= to_unsigned(ethernet_state'pos(eth_state),8);
           when others =>
             fastio_rdata <= (others => 'Z');
         end case;
