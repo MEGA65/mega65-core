@@ -640,8 +640,6 @@ void process_file(int mode, char *outputfilename)
 	  for(i=0;i<colour_count;i++) if (c==colours[i]) break;
 	  p2=i;
 	  byte=(p1<<4)+p2;
-	  if (byte) fprintf(stderr,"Writing pixels %d:%d as $%02X\n",
-			    p1,p2,byte);
 	  fputc(byte,outfile);
 	  bytes_written++;
 	}
