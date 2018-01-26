@@ -439,9 +439,25 @@ reset_machine_state:
 		lda #$40
 		tsb $d054
 
-		; sprites off
+		; sprites off, and normal mode
 		lda #$00
 		sta $d015
+		sta $d055
+		sta $d06b
+		sta $d057
+		lda $d049
+		and #$f
+		sta $d049
+		lda $d04b
+		and #$f
+		sta $d04b
+		lda $d04d
+		and #$f
+		sta $d04d
+		lda $d04f
+		and #$f
+		sta $d04f
+		
 
 		; disable CIA interrupts		
 		lda #$7f
