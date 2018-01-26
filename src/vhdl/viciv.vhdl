@@ -2098,15 +2098,19 @@ begin
           -- @IO:C64 $D026 VIC-II/III/IV sprite multi-colour 1 (always 256 colour)
           sprite_multi1_colour <= unsigned(fastio_wdata);
         elsif register_number>=39 and register_number<=46 then
-          -- @IO:C64 $D027 VIC-II sprite 0 colour (always 256 colour)
-          -- @IO:C64 $D028 VIC-II sprite 1 colour (always 256 colour)
-          -- @IO:C64 $D029 VIC-II sprite 2 colour (always 256 colour)
-          -- @IO:C64 $D02A VIC-II sprite 3 colour (always 256 colour)
-          -- @IO:C64 $D02B VIC-II sprite 4 colour (always 256 colour)
-          -- @IO:C64 $D02C VIC-II sprite 5 colour (always 256 colour)
-          -- @IO:C64 $D02D VIC-II sprite 6 colour (always 256 colour)
-          -- @IO:C64 $D02E VIC-II sprite 7 colour (always 256 colour)
-          sprite_colours(to_integer(register_number)-39) <= unsigned(fastio_wdata);
+          -- @IO:C64 $D027 VIC-II sprite 0 colour / 16-colour sprite transparency colour (lower nybl)
+          -- @IO:C64 $D028 VIC-II sprite 1 colour / 16-colour sprite transparency colour (lower nybl)
+          -- @IO:C64 $D029 VIC-II sprite 2 colour / 16-colour sprite transparency colour (lower nybl)
+          -- @IO:C64 $D02A VIC-II sprite 3 colour / 16-colour sprite transparency colour (lower nybl)
+          -- @IO:C64 $D02B VIC-II sprite 4 colour / 16-colour sprite transparency colour (lower nybl)
+          -- @IO:C64 $D02C VIC-II sprite 5 colour / 16-colour sprite transparency colour (lower nybl)
+          -- @IO:C64 $D02D VIC-II sprite 6 colour / 16-colour sprite transparency colour (lower nybl)
+          -- @IO:C64 $D02E VIC-II sprite 7 colour / 16-colour sprite transparency colour (lower nybl)
+          if (register_bank=x"D0" or register_bank=x"D2") then
+            sprite_colours(to_integer(register_number)-39)(3 downto 0) <= unsigned(fastio_wdata(3 downto 0));
+          else
+            sprite_colours(to_integer(register_number)-39) <= unsigned(fastio_wdata);
+          end if;
         -- Skip $D02F - $D03F to avoid real C65/C128 programs trying to
         -- fiddle with registers in this range.
         -- NEW VIDEO REGISTERS
