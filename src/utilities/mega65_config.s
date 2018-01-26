@@ -2,7 +2,7 @@
 ;M65 Configuration Utility
 ;-------------------------
 ;
-;Version 00.96
+;Version 00.99 alpha
 ;
 ;Written by Daniel England for the MEGA65 project.
 ;
@@ -74,7 +74,10 @@ spriteMemD	=	$0340
 spritePtr0	=	$07F8
 vicSprClr0	= 	$D027
 vicSprEnab	= 	$D015
-
+vicSpr16Col	=	$D06B
+vicSprExYEn	=	$D055
+vicSprExXEn	=	$D057
+vicSprBitPlaneEn0to3=	$D049
 
 CIA1_DDRA	=	$DC02
 CIA1_DDRB	=	$DC03
@@ -110,6 +113,8 @@ keyF5		=	$F5
 keyF6		=	$F6
 keyF7		=	$F7
 keyF8		=	$F8
+keyF9		=	$F9
+;keyF10		=	$FA			;Doesn't work.
 	.endif
 
 ;-------------------------------------------------------------------------------
@@ -123,7 +128,7 @@ selectedOpt	=	$42			;Might be able to be non-ZP
 optTempLine	=	$43			;Might be able to be non-ZP
 optTempIndx	=	$44			;Might be able to be non-ZP
 tabSelected	=	$45			;Might be able to be non-ZP
-lastSelcOpt	=	$46			;Might be able to be non-ZP
+saveSlctOpt	=	$46			;Might be able to be non-ZP
 progTermint	=	$47			;Might be able to be non-ZP
 pgeSelected	=	$48			;Might be able to be non-ZP
 currPageCnt	=	$49			;Might be able to be non-ZP
@@ -185,7 +190,7 @@ footerLine:
 	.byte		"                                page  / "
 
 helpText0:
-	.byte		"version 00.96              "
+	.byte		"version 00.99a             "
 helpText1:
 	.byte		"cursor up/down to navigate "
 helpText2:
@@ -195,17 +200,33 @@ helpText3:
 helpText4:
 	.byte		"f7 for save and exit       "
 helpText5:
-	.byte		"space or return for toggle "
+	.byte		"f8 to apply settings       "
 helpText6:
+	.byte		"space or return for toggle "
+helpText7:
 	.byte		"any key for data entry     "
 
 helpTexts:
 	.word		helpText0, helpText1, helpText2, helpText3
-	.word		helpText4, helpText5, helpText6
+	.word		helpText4, helpText5, helpText6, helpText7
 
 currHelpTxt:
 	.byte		$00
 
+saveConfExit0:
+	.defPStr	"are you sure you wish to exit"
+saveConfExit1:
+	.defPStr	"without saving?"
+saveConfAppl0:
+	.defPStr	"are you sure you wish to apply"
+saveConfAppl1:
+	.defPStr	"the current settings?"
+saveConfSave0:
+	.defPStr	"are you sure you wish to save"
+saveConfSess0:
+	.defPStr	"for this boot and exit?"
+saveConfDflt0:
+	.defPStr	"as the defaults and exit?"
 
 errorLine:
 	.byte		"a version mismatch has been detected!   "
@@ -259,8 +280,8 @@ init:
 		STA	tabSelected
 		STA	progTermint
 		
-		LDA	#$FF
-		STA	lastSelcOpt
+		LDA	#$00
+		STA	mouseYRow
 		
 		JSR	readDefaultOpts
 
@@ -273,7 +294,13 @@ main:
 
 @inputLoop:
 		LDA	progTermint
-		BNE	@terminate
+		BEQ	@cont
+		
+@terminate:
+		RTS
+
+@cont:
+		JSR	hotTrackMouse
 
 		LDA	ButtonLClick
 		BEQ	@tstKeys
@@ -336,12 +363,21 @@ main:
 		
 @tstF7Key:
 		CMP	#keyF7
-		BNE	@otherKey
+		BNE	@tstF8Key
 		
 		LDA	#tabMaxCount
 		STA	tabSelected
+		JSR	setupSelectedTab
 		
 		JMP	main
+		
+@tstF8Key:
+		CMP	#keyF8
+		BNE	@otherKey
+		
+		JSR	doJumpApplyNow
+		JMP	main
+		
 				
 @otherKey:
 	.if	DEBUG_MODE
@@ -360,27 +396,24 @@ main:
 		BNE	@toggleInput
 		
 		JSR	doTestSaveKeys
+		JMP	@inputLoop
 		
 @toggleInput:
 		JSR	doTestToggleKeys
 		JMP	@inputLoop
 
-@terminate:
-
-		RTS
-
 
 ;-------------------------------------------------------------------------------
 checkMagicBytes:
 ;-------------------------------------------------------------------------------
-		LDA	optDfltBase
-		CMP	#configMagicByte0
+		LDA	optDfltBase + 1		;Major versions different, fail
+		CMP	#configMagicByte1
 		BNE	@fail
 		
-		LDA	optDfltBase + 1
-		CMP	#configMagicByte1
-		BEQ	@exit
-
+		LDA	#configMagicByte0	;Opts minor >= system minor, ok
+		CMP	optDfltBase
+		BCS	@exit
+		
 @fail:
 		JSR	clearScreen
 		
@@ -407,6 +440,8 @@ readTemp1:
 	.byte		$00
 readTemp2:
 	.byte		$00
+readTemp3:
+	.byte		$00
 	
 ptrOptionBase0:
 	.word		$0000
@@ -419,38 +454,91 @@ readDefaultOpts:
 		LDA	#>optDfltBase
 		STA	ptrOptionBase0 + 1
 
-		LDA	#<systemOptions0
+		LDX	#$00
+@loopSystem:
+		STX	readTemp3
+		TXA
+		ASL
+		TAX
+		LDA	systemPageIndex, X
 		STA	ptrOptsTemp
-		LDA	#>systemOptions0
+		LDA	systemPageIndex + 1, X
 		STA	ptrOptsTemp + 1
-		
-		JSR	doReadOptList
-		BCS	@exit
-		
-		LDA	#<diskOptions0
-		STA	ptrOptsTemp
-		LDA	#>diskOptions0
-		STA	ptrOptsTemp + 1
-		
-		JSR	doReadOptList
-		BCS	@exit
 
-		LDA	#<videoOptions0
-		STA	ptrOptsTemp
-		LDA	#>videoOptions0
-		STA	ptrOptsTemp + 1
-		
 		JSR	doReadOptList
-		BCS	@exit
+		BCS	@error
+		
+		LDX	readTemp3
+		INX
+		CPX	#systemPageCnt
+		BNE	@loopSystem
+		
 
-		LDA	#<audioOptions0
+		LDX	#$00
+@loopDisk:
+		STX	readTemp3
+		TXA
+		ASL
+		TAX
+		LDA	diskPageIndex, X
 		STA	ptrOptsTemp
-		LDA	#>audioOptions0
+		LDA	diskPageIndex + 1, X
 		STA	ptrOptsTemp + 1
-		
+
 		JSR	doReadOptList
+		BCS	@error
+		
+		LDX	readTemp3
+		INX
+		CPX	#diskPageCnt
+		BNE	@loopDisk
+
+
+		LDX	#$00
+@loopVideo:
+		STX	readTemp3
+		TXA
+		ASL
+		TAX
+		LDA	videoPageIndex, X
+		STA	ptrOptsTemp
+		LDA	videoPageIndex + 1, X
+		STA	ptrOptsTemp + 1
+
+		JSR	doReadOptList
+		BCS	@error
+		
+		LDX	readTemp3
+		INX
+		CPX	#videoPageCnt
+		BNE	@loopVideo
+		
+		
+		LDX	#$00
+@loopAudio:
+		STX	readTemp3
+		TXA
+		ASL
+		TAX
+		LDA	audioPageIndex, X
+		STA	ptrOptsTemp
+		LDA	audioPageIndex + 1, X
+		STA	ptrOptsTemp + 1
+
+		JSR	doReadOptList
+		BCS	@error
+		
+		LDX	readTemp3
+		INX
+		CPX	#audioPageCnt
+		BNE	@loopAudio
 
 @exit:
+		RTS
+
+@error:
+		LDA	#$02
+		STA	$D020
 		RTS
 
 
@@ -474,9 +562,7 @@ doReadOptList:
 		RTS
 		
 @error:
-		LDA	#$02
-		STA	$D020
-		
+		SEC
 		RTS
 
 
@@ -639,39 +725,90 @@ saveDefaultOpts:
 ;-------------------------------------------------------------------------------
 doSaveOptions:
 ;-------------------------------------------------------------------------------
-		LDA	#<systemOptions0
+		LDX	#$00
+@loopSystem:
+		STX	readTemp3
+		TXA
+		ASL
+		TAX
+		LDA	systemPageIndex, X
 		STA	ptrOptsTemp
-		LDA	#>systemOptions0
+		LDA	systemPageIndex + 1, X
 		STA	ptrOptsTemp + 1
-		
-		JSR	doSaveOptList
-		BCS	@exit
-		
-		LDA	#<diskOptions0
-		STA	ptrOptsTemp
-		LDA	#>diskOptions0
-		STA	ptrOptsTemp + 1
-		
-		JSR	doSaveOptList
-		BCS	@exit
 
-		LDA	#<videoOptions0
-		STA	ptrOptsTemp
-		LDA	#>videoOptions0
-		STA	ptrOptsTemp + 1
-		
 		JSR	doSaveOptList
-		BCS	@exit
+		BCS	@error
+		
+		LDX	readTemp3
+		INX
+		CPX	#systemPageCnt
+		BNE	@loopSystem
 
-		LDA	#<audioOptions0
+
+		LDX	#$00
+@loopDisk:
+		STX	readTemp3
+		TXA
+		ASL
+		TAX
+		LDA	diskPageIndex, X
 		STA	ptrOptsTemp
-		LDA	#>audioOptions0
+		LDA	diskPageIndex + 1, X
 		STA	ptrOptsTemp + 1
-		
+
 		JSR	doSaveOptList
+		BCS	@error
+		
+		LDX	readTemp3
+		INX
+		CPX	#diskPageCnt
+		BNE	@loopDisk
+
+		LDX	#$00
+@loopVideo:
+		STX	readTemp3
+		TXA
+		ASL
+		TAX
+		LDA	videoPageIndex, X
+		STA	ptrOptsTemp
+		LDA	videoPageIndex + 1, X
+		STA	ptrOptsTemp + 1
+
+		JSR	doSaveOptList
+		BCS	@error
+		
+		LDX	readTemp3
+		INX
+		CPX	#videoPageCnt
+		BNE	@loopVideo
+
+		LDX	#$00
+@loopAudio:
+		STX	readTemp3
+		TXA
+		ASL
+		TAX
+		LDA	audioPageIndex, X
+		STA	ptrOptsTemp
+		LDA	audioPageIndex + 1, X
+		STA	ptrOptsTemp + 1
+
+		JSR	doSaveOptList
+		BCS	@error
+		
+		LDX	readTemp3
+		INX
+		CPX	#audioPageCnt
+		BNE	@loopAudio
 
 @exit:
 		RTS
+@error:
+		LDA	#$02
+		STA	$D020
+		RTS
+
 
 
 ;-------------------------------------------------------------------------------
@@ -694,8 +831,7 @@ doSaveOptList:
 		RTS
 		
 @error:
-		LDA	#$02
-		STA	$D020
+		SEC
 		RTS
 		
 
@@ -812,7 +948,28 @@ doSaveOpt:
 		SEC
 		RTS
 		
+
+;-------------------------------------------------------------------------------
+doJumpApplyNow:
+;-------------------------------------------------------------------------------
+		LDA	#tabMaxCount
+		STA	tabSelected
+		LDA	#$02
+		STA	saveSlctOpt
+		LDA	#$01
+		STA	pgeSelected
+
+		LDA	#savePageCnt
+		STA	currPageCnt
 		
+		LDA	#<savePageIndex
+		STA	ptrPageIndx
+		LDA	#>savePageIndex 
+		STA	ptrPageIndx + 1
+		
+		RTS
+
+
 ;-------------------------------------------------------------------------------
 doTestStringKeys:
 ;***fixme?
@@ -994,15 +1151,59 @@ doTestSaveKeys:
 ;-------------------------------------------------------------------------------
 doHandleSaveButton:
 ;-------------------------------------------------------------------------------
+		LDX	pgeSelected
+		CPX	#$00
+		BEQ	@switchConfirm
+		
 		LDX	selectedOpt
-		BNE	@tstSaveThis
+		CPX	#$06
+		BNE	@performSave
+
+		JMP	@clear
+
+
+@performSave:
+		JSR	doPerformSaveAction
+
+@clear:
+		LDX	$FF
+		STX	saveSlctOpt
+		LDX	#$00
+		JMP	@update
+		
+@switchConfirm:
+		LDX	selectedOpt
+		STX	saveSlctOpt
+		
+		LDX	#$01
+		
+@update:
+		STX	pgeSelected	
+		JSR	displayOptionsPage
+		
+@exit:
+		RTS
+
+
+;-------------------------------------------------------------------------------
+doPerformSaveAction:
+;-------------------------------------------------------------------------------
+		LDX	saveSlctOpt
+		BNE	@tstSaveApply
 		
 		LDA	#$01
 		STA	progTermint
 		RTS
 
-@tstSaveThis:
+@tstSaveApply:
 		CPX	#$02
+		BNE	@tstSaveThis
+		
+		JSR	saveSessionOpts
+		RTS
+		
+@tstSaveThis:
+		CPX	#$04
 		BNE	@tstSaveSys
 		
 		JSR	saveSessionOpts
@@ -1011,21 +1212,23 @@ doHandleSaveButton:
 		RTS
 	
 @tstSaveSys:		
-		CPX	#$04
+		CPX	#$06
 		BNE	@exit
 		
 		JSR	saveDefaultOpts
 		JSR	saveSessionOpts
 		LDA	#$01
 		STA	progTermint
-		
+
 @exit:
 		RTS
-
 
 ;-------------------------------------------------------------------------------
 setupSelectedTab:
 ;-------------------------------------------------------------------------------
+		LDA	#$FF
+		STA	saveSlctOpt
+		
 		LDA	tabSelected
 		CMP	#$00
 		BNE	@tstDisk
@@ -1282,6 +1485,87 @@ mouseXCol:
 mouseYRow:
 	.byte		$00
 
+
+;-------------------------------------------------------------------------------
+hotTrackMouse:
+;-------------------------------------------------------------------------------
+		LDA	YPos
+		STA	mouseTemp0
+		LDA	YPos + 1
+		STA	mouseTemp0 + 1
+
+		LDX	#$02
+@yDiv8Loop:
+		LSR
+		STA	mouseTemp0 + 1
+		LDA	mouseTemp0
+		ROR
+		STA	mouseTemp0
+		LDA	mouseTemp0 + 1
+		
+		DEX
+		BPL	@yDiv8Loop
+		
+		LDA	mouseTemp0
+		CMP	mouseYRow
+		BEQ	@exit
+		
+		STA	mouseYRow
+		
+		CMP	#optLineOffs
+		BCS	@tstInOptions
+		
+
+		CMP	#$01
+		BNE	@exit
+
+;***fixme Could do a nice little hot track on the menu, too.
+		RTS
+		
+@tstInOptions:
+		CMP	#(optLineMaxC + optLineOffs + 1)
+		BCC	@isInOptions
+		
+		RTS
+
+@isInOptions:
+		SEC
+		SBC	#optLineOffs
+		
+		TAX
+		LDA	pageOptions, X
+		
+		AND	#$F0
+		BEQ	@selectLine
+	
+		CMP	#$F0
+		BEQ	@exit
+
+		CMP	#$30
+		BEQ	@selectLine
+
+		RTS
+		
+@selectLine:
+		TXA
+		PHA
+
+		LDA	#$0B
+		JSR	doHighlightSelected
+
+		PLA
+		TAX
+
+		STX	selectedOpt
+		LDA	#$01
+		JSR	doHighlightSelected
+		
+		JSR	doUpdateSelected
+		
+
+@exit:
+		RTS
+
 ;-------------------------------------------------------------------------------
 processMouseClick:
 ;-------------------------------------------------------------------------------
@@ -1341,8 +1625,11 @@ doMouseClick:
 		
 
 		CMP	#$01
-		BNE	@exit
+		BEQ	@clickMenu
+		
+		RTS
 
+@clickMenu:
 		JSR	doClickMenu
 		RTS
 		
@@ -1359,6 +1646,7 @@ doMouseClick:
 		
 		TAX
 		LDA	pageOptions, X
+		STA	mouseTemp0
 		
 		AND	#$F0
 		BEQ	@selectLine
@@ -1375,7 +1663,6 @@ doMouseClick:
 		DEX
 		LDA	pageOptions, X
 		AND	#$F0
-		
 		BNE	@loop
 
 		TXA
@@ -1404,19 +1691,46 @@ doMouseClick:
 		
 		JSR	doUpdateSelected
 		
-		LDX	selectedOpt
-		CPX	lastSelcOpt
-		BNE	@done
-		
 		LDA	tabSelected
 		CMP	#tabMaxCount
-		BNE	@done
+		BNE	@checkToggle
 		
 		JSR	doHandleSaveButton
+		JMP	@done
 		
-@done:
+@checkToggle:
+		LDA	mouseTemp0
+		AND	#$F0
+		BNE	@done
+
+		LDA	mouseTemp0
+		AND	#$0F
+
+		ASL				
+		TAX
+
+		LDA	heap0, X		;Get to the type/data
+		STA	ptrOptsTemp
+		LDA	heap0 + 1, X
+		STA	ptrOptsTemp + 1		
+		
+		LDY	#$00
+		LDA	(ptrOptsTemp), Y
+
+		CMP	#$21
+		BEQ	@toggleOff
+		
+		LDA	#$20
+		JMP	@doToggle
+
+@toggleOff:
+		LDA	#$10
+		
+@doToggle:
 		LDX	selectedOpt
-		STX	lastSelcOpt
+		JSR	doToggleOption
+				
+@done:
 
 		
 @exit:
@@ -1539,6 +1853,13 @@ moveTabRight:
 ;-------------------------------------------------------------------------------
 moveNextPage:
 ;-------------------------------------------------------------------------------
+		LDX	tabSelected
+		CPX	#tabMaxCount
+		BNE	@cont
+		
+		RTS
+		
+@cont:
 		LDX	pgeSelected
 		INX	
 		CPX	currPageCnt
@@ -1555,6 +1876,13 @@ moveNextPage:
 ;-------------------------------------------------------------------------------
 movePriorPage:
 ;-------------------------------------------------------------------------------
+		LDX	tabSelected
+		CPX	#tabMaxCount
+		BNE	@cont
+		
+		RTS
+		
+@cont:
 		LDX	pgeSelected
 		DEX
 		BPL	@done
@@ -1596,7 +1924,6 @@ moveSelectDown:
 		
 @found:
 		STX	selectedOpt
-		STX	lastSelcOpt
 		
 		LDA	#$01
 		JSR	doHighlightSelected
@@ -1634,7 +1961,6 @@ moveSelectUp:
 		
 @found:
 		STX	selectedOpt
-		STX	lastSelcOpt
 		
 		LDA	#$01
 		JSR	doHighlightSelected
@@ -1901,11 +2227,26 @@ displayOptionsPage:
 		JMP	@loop1
 		
 @done:
+@dispOptionsChk:
+		LDA	tabSelected
+		CMP	#tabMaxCount
+		BNE	@updateStd
+	
+		LDA	pgeSelected
+		CMP	#$01
+		BNE	@updateStd
+		
+		JSR	updateSaveConfirm
+		JMP	@cont		
+		
+@updateStd:
 		LDX	#$00
 		LDA	pageOptions, X
 		CMP	#$FF
 		BEQ	@exit
 		
+		
+@cont:
 		STX	selectedOpt
 
 		LDA	#$01
@@ -1924,6 +2265,109 @@ displayOptionsPage:
 		STA	$D020
 ;***
 		RTS
+
+
+;-------------------------------------------------------------------------------
+updateSaveConfirm:
+;-------------------------------------------------------------------------------
+		LDX	saveSlctOpt
+		BNE	@tstSaveApply
+		
+		LDA	#<saveConfExit0
+		STA	ptrOptsTemp
+		LDA	#>saveConfExit0
+		STA	ptrOptsTemp + 1
+		
+		LDY	#optLineOffs
+		
+		JSR	dispCentreText
+		
+		LDA	#<saveConfExit1
+		STA	ptrOptsTemp
+		LDA	#>saveConfExit1
+		STA	ptrOptsTemp + 1
+		
+		LDY	#(optLineOffs + 2)
+		
+		JSR	dispCentreText
+		JMP	@exit
+
+@tstSaveApply:
+		CPX	#$02
+		BNE	@tstSaveThis
+		
+		LDA	#<saveConfAppl0
+		STA	ptrOptsTemp
+		LDA	#>saveConfAppl0
+		STA	ptrOptsTemp + 1
+		
+		LDY	#optLineOffs
+		
+		JSR	dispCentreText
+		
+		LDA	#<saveConfAppl1
+		STA	ptrOptsTemp
+		LDA	#>saveConfAppl1
+		STA	ptrOptsTemp + 1
+		
+		LDY	#(optLineOffs + 2)
+		
+		JSR	dispCentreText
+		JMP	@exit
+		
+@tstSaveThis:
+		CPX	#$04
+		BNE	@tstSaveSys
+		
+		LDA	#<saveConfSave0
+		STA	ptrOptsTemp
+		LDA	#>saveConfSave0
+		STA	ptrOptsTemp + 1
+		
+		LDY	#optLineOffs
+		
+		JSR	dispCentreText
+		
+		LDA	#<saveConfSess0
+		STA	ptrOptsTemp
+		LDA	#>saveConfSess0
+		STA	ptrOptsTemp + 1
+		
+		LDY	#(optLineOffs + 2)
+		
+		JSR	dispCentreText
+		JMP	@exit
+	
+@tstSaveSys:		
+		CPX	#$06
+		BNE	@invalid
+		
+		LDA	#<saveConfSave0
+		STA	ptrOptsTemp
+		LDA	#>saveConfSave0
+		STA	ptrOptsTemp + 1
+		
+		LDY	#optLineOffs
+		
+		JSR	dispCentreText
+		
+		LDA	#<saveConfDflt0
+		STA	ptrOptsTemp
+		LDA	#>saveConfDflt0
+		STA	ptrOptsTemp + 1
+		
+		LDY	#(optLineOffs + 2)
+		
+		JSR	dispCentreText
+
+@exit:
+		LDX	#$06
+		RTS
+		
+@invalid:
+		LDX	#$FF
+		RTS
+		
 
 
 ;-------------------------------------------------------------------------------
@@ -2006,9 +2450,20 @@ doDisplayOpt:
 		
 @tstStrOpt:
 		CMP	#$30
-		BNE	@unknownOpt
+		BNE	@tstBlankOpt
 		
 		JSR	doDispStringOpt
+		RTS
+		
+@tstBlankOpt:
+		CMP	#$40
+		BNE	@unknownOpt
+		
+		LDX	optTempLine		;Blank line 
+		LDA	#$FF
+		STA	pageOptions, X
+		INC	optTempLine		;and next line
+		CLC
 		RTS
 		
 @unknownOpt:
@@ -2020,7 +2475,6 @@ doDisplayOpt:
 doDispButtonOpt:
 ;-------------------------------------------------------------------------------
 		TXA
-;		PHA
 		
 		JSR	doDispOptHdrLbl		;Display the header label
 		
@@ -2381,6 +2835,51 @@ doDispOptTogLbl:
 
 		RTS
 
+
+;-------------------------------------------------------------------------------
+dispCentreText:
+;-------------------------------------------------------------------------------
+		LDA	screenRowsLo, Y		;Get screen RAM ptr for line #
+		STA	ptrTempData
+		LDA	screenRowsHi, Y
+		STA	ptrTempData + 1		
+		
+		LDY	#$00
+		LDA	(ptrOptsTemp), Y
+		STA	optTempIndx
+		
+		CLC
+		LDA	ptrOptsTemp
+		ADC	#$01
+		STA	ptrOptsTemp
+		LDA	ptrOptsTemp + 1
+		ADC	#$00
+		STA	ptrOptsTemp + 1
+		
+		SEC
+		LDA	#$28
+		SBC	optTempIndx
+		LSR
+		
+		CLC
+		ADC	ptrTempData
+		STA	ptrTempData
+		LDA	ptrTempData + 1
+		ADC	#$00
+		STA	ptrTempData + 1
+		
+		LDY	optTempIndx
+		DEY
+@loop:
+		LDA	(ptrOptsTemp), Y
+		JSR	asciiToCharROM
+		ORA	#$80
+		STA	(ptrTempData), Y
+		DEY
+		BPL	@loop
+		
+		RTS
+		
 
 ;-------------------------------------------------------------------------------
 	.if	.not	C64_MODE
@@ -2805,12 +3304,23 @@ initMouse:
 		LDA	#$0D
 		STA	spritePtr0
 		
-		LDA	#$01
+		LDA	#$0A
 		STA	vicSprClr0
 		
 		LDA	vicSprEnab
 		ORA	#$01
 		STA	vicSprEnab
+
+		;; Normal sprite
+		LDA	#$00
+		STA	vicSpr16Col
+		STA	vicSprExYEn
+		STA	vicSprExXEn
+		;; ... but with bitplane enable mode, so cursor
+		;; is always visible, no matter what it is over
+		LDA	vicSprBitPlaneEn0to3
+		ORA	#$10
+		STA	vicSprBitPlaneEn0to3
 		
 	.if	C64_MODE
 		LDA 	IIRQ + 1
@@ -2893,7 +3403,7 @@ MIRQ:
 		
 		INC	currHelpTxt
 		LDA	currHelpTxt
-		CMP	#$07
+		CMP	#$08
 		BNE	@cont0
 		
 		LDA	#$00
