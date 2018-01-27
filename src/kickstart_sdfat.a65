@@ -385,9 +385,6 @@ sd_fix_sectornumber:
 		; SDHC mode, so nothing to do
 		;
 
-		jsr checkpoint	; this is not supported
-		.byte 0,"ERROR: sd_fix_sectornumber:",0
-
 		rts
 
 ;	========================
