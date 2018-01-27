@@ -813,7 +813,10 @@ allowkickup:	; BG was label nextdirectoryentry3:
 
 		; Prepare 32-bit pointer for loading kickup @ $0004000
 		;
-		; BG: and why load at $4000 again?
+		; We load it at $4000, which is mapped to first 64KB RAM, and then
+		; have a routine also in RAM that we use to copy the loaded data
+		; back onto the Kickstart "ROM" space, so that there are no problems
+		; with the copying code being changed while it being replaced.
 		;
 		lda #$00
 		sta <dos_file_loadaddress+0
@@ -1885,6 +1888,7 @@ erasescreendmalist:
 		; Copy shadow RAM logo to chip RAM
 		; XXX - We can get rid of this by preinitialising CHIPRAM as well as shadow RAM
 		;
+		.byte $00   ; no more options
 		.byte $00   ; COPY + end of chain
 		.word $6000 ; 320x64 = $6000
 		.word $4000 ; fill with white = $01
