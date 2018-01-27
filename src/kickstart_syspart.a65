@@ -234,7 +234,7 @@ splf2:	lda syspart_start_sector,x
 syspart_configsector_set:
 	ldx #3
 spcr1:	lda syspart_start_sector,x
-	sta $d680,x
+	sta $d681,x
 	dex
 	bpl spcr1
 	jsr sd_fix_sectornumber
