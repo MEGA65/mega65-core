@@ -484,9 +484,22 @@ hypervisorLoadOrResetConfig:
 		STA	optDfltBase+$100,X
 		DEX
 		BNE @rl2
+
+		;; Provide sensible initial values
 		LDA	#$01   	; major and minor version
 		STA	optDfltBase
 		STA	optDfltBase+1
+
+		;; (actually copy the ones we can from the running system)
+		LDA	$D67F
+		AND	#$C0
+		STA	optDfltBase+2
+		LDA	$D6F9
+		STA	optDfltBase+3
+		LDA	$D6A1
+		STA	optDfltBase+4
+		LDA	$D61B
+		STA	optDfltBase+5
 		
 @notempty:
 		RTS
