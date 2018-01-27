@@ -247,6 +247,7 @@ pageOptions:
 ;-------------------------------------------------------------------------------
 init:
 ;-------------------------------------------------------------------------------
+
 ; 	Init screen
 		LDA 	#$0B			;Border colour
 		STA 	$D020
@@ -266,14 +267,16 @@ init:
 	
 		SEI             		;disable the interrupts
 	
-		JSR	initState
+		JSR	initState		
 		
-	.if	.not DEBUG_MODE
+		JSR	hypervisorLoadOrResetConfig
+		
+		.if	.not DEBUG_MODE	
 		JSR	checkMagicBytes
 	.endif
 		
 		JSR	initMouse
-		
+
 		CLI				;enable the interrupts
 		
 		LDA	#$00
@@ -445,10 +448,54 @@ readTemp3:
 	
 ptrOptionBase0:
 	.word		$0000
-	
+
+;-------------------------------------------------------------------------------
+hypervisorLoadOrResetConfig:	
+;-------------------------------------------------------------------------------
+		;; Load current options sector from SD card using Hypervisor trap		
+		
+		;; Hypervisor trap to read config
+		LDA	#$00
+		STA 	$D642
+		NOP	     ; Required after hypervisor traps, as PC skips one
+		
+		;; Copy from sector buffer to optDfltBase
+		LDA	#$81
+		STA	$D680
+		LDX	#$00
+@rl:		LDA 	$DE00, X
+		STA	optDfltBase, X
+		LDA	$DF00, X
+		STA	optDfltBase+$100, X
+		INX
+		BNE	@rl
+		;; Demap sector buffer when done
+		LDA	#$82
+		STA	$D680
+
+		;; Check for empty config
+		LDA	optDfltBase+0
+		ORA	optDfltBase+1
+		bne	@notempty
+
+		;; Empty config, so zero out and reset
+		;; A=0, X=0 here already
+@rl2:		STA	optDfltBase, X
+		STA	optDfltBase+$100,X
+		DEX
+		BNE @rl2
+		LDA	#$01   	; major and minor version
+		STA	optDfltBase
+		STA	optDfltBase+1
+		
+@notempty:
+		RTS
+		
 ;-------------------------------------------------------------------------------
 readDefaultOpts:
 ;-------------------------------------------------------------------------------
+		jsr hypervisorLoadOrResetConfig
+
 		LDA	#<optDfltBase
 		STA	ptrOptionBase0
 		LDA	#>optDfltBase
@@ -3162,6 +3209,12 @@ initState:
 ;		SEI             		;disable the interrupts
 		CLD             		;clear decimal mode
 
+		;; Make sure no colour RAM @ $DC00, no sector buffer overlaying $DCxx/$DDxx
+		LDA	#$00
+		STA	$D030
+		LDA	#$82
+		STA	$D680
+		
 		LDA 	#$7F        		;disable all interrupts
 		STA 	$DC0D       		;save VIA 1 ICR
 		STA 	$DD0D       		;save VIA 2 ICR
