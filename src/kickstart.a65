@@ -2765,6 +2765,7 @@ utillist_next:
 	ldz #42
 	nop
 	lda (<zptempv32),z
+	phx
 	tax
 	inz
 	nop
@@ -2773,6 +2774,7 @@ utillist_next:
 
 	sta <zptempv32+1
 	stx <zptempv32
+	plx
 	rts
 
 utillist_validity_check:
