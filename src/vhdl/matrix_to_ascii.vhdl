@@ -6,7 +6,7 @@ use ieee.numeric_std.all;
 use work.debugtools.all;
 
 entity matrix_to_ascii is
-  generic (scan_frequency : integer := 100;
+  generic (scan_frequency : integer := 1000;
            clock_frequency : integer);
   port (Clk : in std_logic;
         reset_in : in std_logic;
