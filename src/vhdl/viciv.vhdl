@@ -1310,11 +1310,11 @@ begin
         else
           border_y_top <= to_unsigned(raster_correction
                                       +to_integer(single_top_border_400)
-                                      +ssy_table_200(4),12);
+                                      +ssy_table_400(4),12);
           border_y_bottom <= to_unsigned(raster_correction
                                          +to_integer(display_height)
                                          -to_integer(single_top_border_400)
-                                         -ssy_table_200(4),12);
+                                         -ssy_table_400(4),12);
         end if;
         -- set y_chargen_start based on twentyfourlines
         y_chargen_start <= to_unsigned(raster_correction
