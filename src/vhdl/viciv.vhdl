@@ -1302,6 +1302,7 @@ begin
       if reg_v400='0' then
         chargen_y_scale <= to_unsigned(to_integer(chargen_y_scale_200)-1,8);
       else
+        chargen_y_scale <= to_unsigned(to_integer(chargen_y_scale_400)-1,8);
         if twentyfourlines='0' then
           border_y_top <= to_unsigned(raster_correction
                                       +to_integer(single_top_border_400),12);
@@ -1321,7 +1322,6 @@ begin
                                        +to_integer(single_top_border_400)
                                        -ssy_table_400(3)
                                        +ssy_table_400(to_integer(vicii_y_smoothscroll)),12);
-        chargen_y_scale <= to_unsigned(to_integer(chargen_y_scale_400)-1,8);
       end if;
       
       if reg_h640='1' then
