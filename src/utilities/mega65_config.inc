@@ -178,7 +178,7 @@ networkPageCnt	=	1
 
 networkOptions0:
 	.byte		$50
-	.word		$0020
+	.word		$0006
 	.defPStr	"mac address:"
 	.byte		$00, $00, $00, $00, $00, $00
 	.byte		$00
