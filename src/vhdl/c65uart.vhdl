@@ -490,6 +490,9 @@ begin  -- behavioural
           -- @IO:GS $D621 Read Port A paddle Y
           -- @IO:GS $D622 Read Port B paddle X
           -- @IO:GS $D623 Read Port B paddle Y          
+        when x"1c" =>
+          -- @IO:GS $D61c DEBUG DUPLICATE Last key press as ASCII (hardware accelerated keyboard scanner). Write to clear event ready for next.
+          fastio_rdata(7 downto 0) <= unsigned(porth);
         when x"20" => fastio_rdata <= pota_x;
         when x"21" => fastio_rdata <= pota_y;
         when x"22" => fastio_rdata <= potb_x;
