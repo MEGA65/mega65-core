@@ -343,7 +343,10 @@ architecture behavioral of iomapper is
   signal iec_atn_fromcia : std_logic := '1';
   signal iec_clk_fromcia : std_logic := '1';
   signal iec_data_fromcia : std_logic := '1';
-  
+
+  signal suppress_key_glitches : std_logic;
+  signal suppress_key_retrigger : std_logic;
+    
 begin
 
   block1: block
@@ -491,6 +494,8 @@ begin
       joyreal_disable => joyreal_disable,
       virtual_disable => virtual_disable,
       physkey_disable => physkey_disable,
+      suppress_key_glitches => suppress_key_glitches,
+      suppress_key_retrigger => suppress_key_retrigger,
       key_left => key_left,
       key_up => key_up,
       uart_rx => uart_rx,
@@ -538,6 +543,8 @@ begin
 
       matrix_segment_num => matrix_segment_num,
       matrix_segment_out => matrix_segment_out,
+      suppress_key_glitches => suppress_key_glitches,
+      suppress_key_retrigger => suppress_key_retrigger,
 
       scan_mode => keyboard_scan_mode,
       scan_rate => keyboard_scan_rate,

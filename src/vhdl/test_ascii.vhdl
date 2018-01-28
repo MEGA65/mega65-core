@@ -24,7 +24,9 @@ begin
       clk => clock50mhz,
       reset_in => reset,
       ascii_key => ascii_key,
-      matrix => matrix,
+      suppress_key_glitches => '1',
+      suppress_key_retrigger => '0',
+      matrix_in => matrix,
       bucky_key => bucky_key,
       ascii_key_valid => ascii_key_valid
       );
@@ -32,16 +34,18 @@ begin
   process is
   begin
     while true loop
-      for j in 0 to 72 loop
+      for j in 71 to 72 loop
         -- Lower each key in turn
         matrix <= (others => '1');
         if j /= 72 then
           report "Pulling key "
             & integer'image(j) & " down.";
           matrix(j) <= '0';
+        else
+          report "Releasing all keys.";
         end if;
         -- Then leave it low long enough to be meaningful
-        for i in 1 to 500000 loop
+        for i in 1 to 250000 loop
           clock50mhz <= '0';
           wait for 10 ns;
           clock50mhz <= '1';
@@ -55,7 +59,7 @@ begin
   begin
     if rising_edge(clock50mhz) then
       if ascii_key_valid='1' then
-        report "ascii_key_valid sest: ascii_key=$"
+        report "ascii_key_valid seen: ascii_key=$"
           & to_hstring(ascii_key);
       end if;
     end if;

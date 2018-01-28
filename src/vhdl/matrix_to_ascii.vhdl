@@ -10,8 +10,11 @@ entity matrix_to_ascii is
            clock_frequency : integer);
   port (Clk : in std_logic;
         reset_in : in std_logic;
-        matrix : in std_logic_vector(71 downto 0);
+        matrix_in : in std_logic_vector(71 downto 0);
 
+        suppress_key_glitches : in std_logic;
+        suppress_key_retrigger : in std_logic;
+        
         -- UART key stream
         ascii_key : out unsigned(7 downto 0) := (others => '0');
         -- Bucky key list:
@@ -32,8 +35,12 @@ architecture behavioral of matrix_to_ascii is
   -- Multiple by 11, as there are 11 scan phases
   constant keyscan_delay : integer := clock_frequency/(72*scan_frequency);
 
-  signal matrix_last : std_logic_vector(71 downto 0) := (others => '1');
+  signal matrix : std_logic_vector(71 downto 0) := (others => '1');
+  signal bucky_key_internal : std_logic_vector(6 downto 0) := (others => '0');
+  signal matrix_internal : std_logic_vector(71 downto 0) := (others => '1');
 
+  signal reset : std_logic := '1';
+  
   type key_matrix_t is array(0 to 71) of unsigned(7 downto 0);
   signal matrix_normal : key_matrix_t := (
     0 => x"14", -- INS/DEL
@@ -345,9 +352,6 @@ architecture behavioral of matrix_to_ascii is
 
   signal key_num : integer range 0 to 71 := 0;
 
-  signal bucky_key_internal : std_logic_vector(6 downto 0) := (others => '0');
-  signal matrix_internal : std_logic_vector(71 downto 0) := (others => '1');
-
   -- Automatic key repeat (just repeats ascii_key_valid strobe periodically)
   signal repeat_key : integer range 0 to 71 := 0;
   signal repeat_key_timer : integer := 0;
@@ -360,9 +364,11 @@ begin
   begin
     if rising_edge(clk) then
 
---      if reset_in = '1' then
---        matrix_internal <= (others => '1');
---      end if;
+      reset <= reset_in;
+      if reset_in /= reset then
+        matrix_internal <= (others => '1');
+        matrix <= (others => '1');
+      end if;
       
       -- Which matrix to use, based on modifier key state
       -- C= takes precedence over SHIFT, so that we can have C= + cursor keys
@@ -390,7 +396,14 @@ begin
       if keyscan_counter /= 0 then
         keyscan_counter <= keyscan_counter - 1;
         ascii_key_valid <= '0';
+        if suppress_key_glitches='1' then
+          matrix <= matrix and matrix_in;
+        else
+          matrix <= matrix_in;
+        end if;
       else
+--        report "Checking matrix for key event, matrix=" & to_string(matrix);
+        matrix <= matrix_in;
         keyscan_counter <= keyscan_delay;
         matrix_internal(key_num) <= matrix(key_num);
         if to_UX01(matrix_internal(key_num)) = '1'
@@ -401,8 +414,23 @@ begin
             report "key press, ASCII code = " & to_hstring(key_matrix(key_num));
             ascii_key <= key_matrix(key_num);
             repeat_key <= key_num;
-            repeat_key_timer <= repeat_start_timer;
-            ascii_key_valid <= '1';
+            -- On the M65 PCB with a real keyboard, there is a strange problem
+            -- that causes extreme key repeat, as though each key is being
+            -- pressed and released at the scan rate.  This is despite when
+            -- readingg the keyboard matrix segments when a key is held down
+            -- that there is no glitching visible (at least at the speed the CPU
+            -- routine is checking the matrix).  It only happens with the real
+            -- keyboard. On a Nexys4 board with USB / PS2 keyboard, the
+            -- problem doesn't occur.
+            -- As an interim, we refuse to retrigger an ASCII key event for the
+            -- same key that was most recently triggered.
+            -- If there is glitching, we could deal with it by ANDing the matrix
+            -- data every cycle within a scan interval, so that transiently down
+            -- lines will be detected as firmly down.            
+            if (repeat_key /= key_num) or (suppress_key_retrigger='0') then
+              repeat_key_timer <= repeat_start_timer;
+              ascii_key_valid <= '1';
+            end if;
           else
             ascii_key_valid <= '0';
           end if;
@@ -414,6 +442,7 @@ begin
             repeat_key_timer <= repeat_again_timer;
             if matrix(repeat_key)='0' then
               ascii_key_valid <= '1';
+              report "Repeating key held down";
               -- Republish the key, so that modifiers can change during repeat,
               -- e.g., to allow cursor direction changing without stopping the
               -- repeat.
