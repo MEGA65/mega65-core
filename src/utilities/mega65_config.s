@@ -426,7 +426,46 @@ main:
 		JSR	doTestToggleKeys
 		JMP	@inputLoop
 
+;-------------------------------------------------------------------------------
+copyOptionsToSectorBuffer:	
+;-------------------------------------------------------------------------------
+;; As the name suggests, simply copy the specified 512 bytes to the SD card
+;; sector buffer, which is where the hypervisor expects options to be placed
+		LDA	#$81
+		STA	$D680
+		LDY	#$00
+@copyLoop:	LDA	optSessBase, Y
+		STA	$DE00, Y
+		LDA	optSessBase+$100, Y
+		STA	$DF00, Y
+		DEY
+		BNE	@copyLoop
+		;; Set magic bytes
+		LDA	#$01
+		STA	$DE00
+		STA	$DE01
+		RTS
+		
+;-------------------------------------------------------------------------------
+hypervisorApplyConfig:
+;-------------------------------------------------------------------------------
+;; Apply options in optSessBase
+		JSR	copyOptionsToSectorBuffer
+		LDA	#$04
+		STA	$D642
+		NOP
+		RTS
 
+;-------------------------------------------------------------------------------
+hypervisorSaveConfig:
+;-------------------------------------------------------------------------------
+;; Save options in optSessBase
+		JSR	copyOptionsToSectorBuffer
+		LDA	#$02
+		STA	$D642
+		NOP
+		RTS
+		
 ;-------------------------------------------------------------------------------
 hypervisorLoadOrResetConfig:	
 ;-------------------------------------------------------------------------------
@@ -469,7 +508,7 @@ hypervisorLoadOrResetConfig:
 		STA	optDfltBase+1
 
 ;;      (actually copy the ones we can from the running system)
-		LDA	$D67F
+		LDA	$D06F
 		AND	#$C0
 		STA	optDfltBase+2
 		LDA	$D6F9
@@ -841,12 +880,15 @@ doSkipString:
 ;-------------------------------------------------------------------------------
 saveSessionOpts:
 ;-------------------------------------------------------------------------------
+
 		LDA	#<optSessBase
 		STA	ptrOptionBase0
 		LDA	#>optSessBase
 		STA	ptrOptionBase0 + 1
 
 		JSR	doSaveOptions
+
+		JSR	hypervisorApplyConfig
 		
 		RTS
 
@@ -861,6 +903,9 @@ saveDefaultOpts:
 
 		JSR	doSaveOptions
 
+		JSR	hypervisorSaveConfig
+		JSR	hypervisorApplyConfig
+		
 		RTS
 
 
@@ -1458,6 +1503,11 @@ doHandleSaveButton:
 		JMP	@update
 		
 @switchReset:
+		;; Hypervisor trap to reset machine
+		LDA	#$7E
+		STA	$D640
+		NOP
+		
 		LDX	#$02
 		JMP	@update
 		
@@ -1488,7 +1538,7 @@ doPerformSaveAction:
 @tstSaveApply:
 		CPX	#$02
 		BNE	@tstSaveThis
-		
+
 		JSR	saveSessionOpts
 		RTS
 		
@@ -2712,9 +2762,10 @@ updateSaveConfirm:
 		JMP	@exit
 
 @tstSaveApply:
+
 		CPX	#$02
 		BNE	@tstSaveThis
-		
+
 		LDA	#<saveConfAppl0
 		STA	ptrOptsTemp
 		LDA	#>saveConfAppl0
