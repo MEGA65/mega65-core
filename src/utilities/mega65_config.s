@@ -512,10 +512,13 @@ hypervisorLoadOrResetConfig:
 ;;      Check for empty config
 		LDA	optDfltBase+0
 		ORA	optDfltBase+1
-		BNE	@notempty
+		BEQ	getDefaultSettings
+		RTS
 
-;;      Empty config, so zero out and reset
-;;      A=0, X=0 here already
+getDefaultSettings:
+;;      Empty config, so zero out and reset		
+		LDA	#$00
+		TAX
 @rl2:		STA	optDfltBase, X
 		STA	optDfltBase+$100,X
 		DEX
@@ -536,10 +539,13 @@ hypervisorLoadOrResetConfig:
 		STA	optDfltBase+4
 		LDA	$D61B
 		STA	optDfltBase+5
-		
-@notempty:
+		LDX	#$05
+@maccopy:	LDA	$D6E9, X
+		STA	$DE06, X
+		DEX
+		bpl @maccopy
+
 		RTS
-		
 		
 ;-------------------------------------------------------------------------------
 checkMagicBytes:
