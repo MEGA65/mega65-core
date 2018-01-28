@@ -484,7 +484,7 @@ hypervisorSaveConfig:
 		STA	$D642
 		NOP
 		RTS
-		
+
 ;-------------------------------------------------------------------------------
 hypervisorLoadOrResetConfig:	
 ;-------------------------------------------------------------------------------
@@ -899,15 +899,16 @@ doSkipString:
 ;-------------------------------------------------------------------------------
 saveSessionOpts:
 ;-------------------------------------------------------------------------------
-
 		LDA	#<optSessBase
 		STA	ptrOptionBase0
 		LDA	#>optSessBase
 		STA	ptrOptionBase0 + 1
 
 		JSR	doSaveOptions
-
+		
+	.if 	.not C64_MODE
 		JSR	hypervisorApplyConfig
+	.endif
 		
 		RTS
 
@@ -922,8 +923,10 @@ saveDefaultOpts:
 
 		JSR	doSaveOptions
 
+	.if 	.not C64_MODE
 		JSR	hypervisorSaveConfig
 		JSR	hypervisorApplyConfig
+	.endif
 		
 		RTS
 
@@ -1277,6 +1280,8 @@ doTestMACKeys:
 		RTS
 		
 @tstCharIn:
+		TAX
+
 		CMP	#$30
 		BCC	@exit
 		
@@ -1307,12 +1312,211 @@ doTestMACKeys:
 ;-------------------------------------------------------------------------------
 doDelMACChar:
 ;-------------------------------------------------------------------------------
+		LDA	currMACByte
+		BNE	@cont
+		LDA	currMACNybb
+		BEQ	@exit
+		
+@cont:
+		LDX	#$00
+		STX	crsrIsDispl
+
+		LDY	#$00
+		LDA	(ptrCrsrSPos), Y
+		ORA	#$80
+		STA	(ptrCrsrSPos), Y
+
+		LDA	currMACByte
+		CMP	#$06
+		BNE	@tstLow
+
+		LDA	#$01
+		STA	currMACNybb
+		DEC	currMACByte
+
+		SEC
+		LDA	ptrNextInsP
+		SBC	#$01	
+		STA	ptrNextInsP
+		LDA	ptrNextInsP + 1
+		SBC	#$00
+		STA	ptrNextInsP + 1
+
+		SEC
+		LDA	ptrCrsrSPos
+		SBC	#$01
+		STA	ptrCrsrSPos
+		LDA	ptrCrsrSPos + 1
+		SBC	#$00
+		STA	ptrCrsrSPos + 1
+
+		LDX	#$01
+		STX	crsrIsDispl
+		RTS
+
+
+@tstLow:
+		LDA	currMACNybb
+		BEQ	@isHigh
+		
+		LDA	#$00
+		STA	currMACNybb
+		
+		SEC
+		LDA	ptrCrsrSPos
+		SBC	#$01
+		STA	ptrCrsrSPos
+		LDA	ptrCrsrSPos + 1
+		SBC	#$00
+		STA	ptrCrsrSPos + 1
+
+		LDX	#$01
+		STX	crsrIsDispl
+		RTS
+		
+@isHigh:
+		DEC	currMACByte
+		LDA	#$01
+		STA	currMACNybb
+
+		SEC
+		LDA	ptrNextInsP
+		SBC	#$01	
+		STA	ptrNextInsP
+		LDA	ptrNextInsP + 1
+		SBC	#$00
+		STA	ptrNextInsP + 1
+
+		SEC
+		LDA	ptrCrsrSPos
+		SBC	#$02
+		STA	ptrCrsrSPos
+		LDA	ptrCrsrSPos + 1
+		SBC	#$00
+		STA	ptrCrsrSPos + 1
+
+		LDX	#$01
+		STX	crsrIsDispl
+
+@exit:
 		RTS
 		
 
 ;-------------------------------------------------------------------------------
 doAppMACChar:
 ;-------------------------------------------------------------------------------
+		STA	dispOptTemp0	
+				
+		LDA	currMACByte
+		CMP	#$06
+		BEQ	@exit
+		
+		LDY	#$00
+		TXA	
+	.if	C64_MODE
+		JSR	inputToCharROM
+	.else
+		JSR	asciiToCharROM
+	.endif
+		ORA	#$80
+		STA	(ptrCrsrSPos), Y
+		
+		LDA	currMACNybb
+		BEQ	@isHigh
+		
+		JSR	doAppMACCharLow
+		RTS
+		
+@isHigh:
+		JSR	doAppMACCharHigh
+		
+@exit:
+		RTS
+
+
+;-------------------------------------------------------------------------------
+doAppMACCharLow:
+;-------------------------------------------------------------------------------
+		LDX	#$00
+		STX	crsrIsDispl
+		
+		LDY	#$00
+		LDA	(ptrNextInsP), Y
+		AND	#$F0
+		ORA	dispOptTemp0
+		STA	(ptrNextInsP), Y
+		
+		INC	currMACByte
+		LDA	#$00
+		STA	currMACNybb
+
+		LDA	currMACByte
+		CMP	#$06
+		BEQ	@atEnd
+		
+		LDA	#$02
+		STA	dispOptTemp0
+		JMP	@cont
+		
+@atEnd:
+		LDA	#$01
+		STA	dispOptTemp0
+
+@cont:
+		CLC
+		LDA	#$01
+		ADC	ptrNextInsP
+		STA	ptrNextInsP
+		LDA	ptrNextInsP + 1
+		ADC	#$00
+		STA	ptrNextInsP + 1
+		
+		CLC
+		LDA	dispOptTemp0
+		ADC	ptrCrsrSPos
+		STA	ptrCrsrSPos
+		LDA	ptrCrsrSPos + 1
+		ADC	#$00
+		STA	ptrCrsrSPos + 1
+		
+		LDX	#$01
+		STX	crsrIsDispl
+		
+		RTS
+		
+
+;-------------------------------------------------------------------------------
+doAppMACCharHigh:
+;-------------------------------------------------------------------------------
+		LDX	#$00
+		STX	crsrIsDispl
+
+		LDA	dispOptTemp0
+		ASL
+		ASL
+		ASL
+		ASL
+		STA	dispOptTemp0
+
+		LDY	#$00
+		LDA	(ptrNextInsP), Y
+		AND	#$0F
+		ORA	dispOptTemp0
+		STA	(ptrNextInsP), Y
+		
+		INC	currMACNybb
+		
+		CLC
+		LDA	#$01
+		ADC	ptrCrsrSPos
+		STA	ptrCrsrSPos
+		LDA	ptrCrsrSPos + 1
+		ADC	#$00
+		STA	ptrCrsrSPos + 1
+		
+		LDX	#$01
+		STX	crsrIsDispl
+		
 		RTS
 
 
@@ -1557,7 +1761,7 @@ doPerformSaveAction:
 @tstSaveApply:
 		CPX	#$02
 		BNE	@tstSaveThis
-
+		
 		JSR	saveSessionOpts
 		RTS
 		
@@ -2436,6 +2640,46 @@ doUpdateSelected:
 		RTS
 		
 @updateMAC:
+		JSR	doUpdateMAC
+		RTS
+		
+
+@updateStr:
+		JSR	doUpdateString
+		
+@exit:
+		RTS
+
+
+;-------------------------------------------------------------------------------
+doUpdateMAC:
+;-------------------------------------------------------------------------------
+		LDA	pageOptions, X
+		AND	#$0F
+
+		ASL				
+		TAX
+
+		CLC
+		LDA	heap0, X		;Get pointer to the string
+		ADC	#$03
+		STA	ptrOptsTemp
+		LDA	heap0 + 1, X
+		ADC	#$00
+		STA	ptrOptsTemp + 1		
+
+		LDY	#$00			;Get pointer to data area
+		LDA	(ptrOptsTemp), Y
+		TAY
+		INY
+		TYA
+		CLC
+		ADC	ptrOptsTemp
+		STA	ptrNextInsP
+		LDA	ptrOptsTemp + 1
+		ADC	#$00
+		STA	ptrNextInsP + 1
+		
 		CLC
 		LDA	selectedOpt
 		ADC	#optLineOffs
@@ -2456,10 +2700,12 @@ doUpdateSelected:
 		LDA	#$01
 		STA	crsrIsDispl
 
-		RTS
-		
 
-@updateStr:
+		RTS
+
+;-------------------------------------------------------------------------------
+doUpdateString:
+;-------------------------------------------------------------------------------
 		LDA	pageOptions, X
 		AND	#$0F
 
@@ -2527,8 +2773,6 @@ doUpdateSelected:
 		
 		LDA	#$01
 		STA	crsrIsDispl
-		
-@exit:
 		
 		RTS
 
@@ -2781,10 +3025,9 @@ updateSaveConfirm:
 		JMP	@exit
 
 @tstSaveApply:
-
 		CPX	#$02
 		BNE	@tstSaveThis
-
+		
 		LDA	#<saveConfAppl0
 		STA	ptrOptsTemp
 		LDA	#>saveConfAppl0
