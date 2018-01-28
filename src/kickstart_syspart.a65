@@ -260,7 +260,8 @@ syspart_configsector_apply:
 	cmp #$01
 	bne syspart_config_invalid
 
-	; Set PAL/NTSC mode
+	; Set PAL/NTSC mode (keeping $D058 value)
+	LDX $D058
 	lda $d06f
 	and #$3f
 	sta $d06f
@@ -268,6 +269,7 @@ syspart_configsector_apply:
 	and #$c0
 	ora $d06f
 	sta $d06f
+	STX $D058
 
 	; Set audio options
 	lda $de03

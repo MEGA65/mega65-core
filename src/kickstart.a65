@@ -960,21 +960,6 @@ postkickup:
 		jsr dos_cdroot
 		bcc sdcarderror
 
-		; Select PAL/NTSC mode based on presence of file called NTSC
-		ldx #<txt_NTSC
-		ldy #>txt_NTSC
-		jsr dos_setname
-		jsr dos_findfile
-		bcc setpal
-setntsc:
-		lda #$80
-		tsb $d06f
-		jmp setpalntsc
-setpal:
-		lda #$80
-		trb $d06f		
-
-setpalntsc:
 		; Re-set virtual screen row length after touching $D06F
 		lda #80
 		sta $d058
