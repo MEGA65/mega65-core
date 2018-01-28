@@ -142,6 +142,7 @@ syspart_configsector_set_trap:
 	sta hypervisor_enterexit_trigger
 
 syspart_configsector_apply_trap:
+	INC	$D020
 	jsr syspart_configsector_apply
 	sta hypervisor_enterexit_trigger
 
@@ -248,6 +249,7 @@ syspart_configsector_write:
 	jsr syspart_configsector_set
 	lda #$03
 	sta $d680
+	INC $D021
 	sec
 	rts
 
@@ -261,13 +263,13 @@ syspart_configsector_apply:
 	bne syspart_config_invalid
 
 	; Set PAL/NTSC mode
-	lda $d67f
+	lda $d06f
 	and #$3f
-	sta $d67f
+	sta $d06f
 	lda $de02
 	and #$c0
-	ora $d67f
-	sta $d67f
+	ora $d06f
+	sta $d06f
 
 	; Set audio options
 	lda $de03
@@ -280,6 +282,14 @@ syspart_configsector_apply:
 	; Enable/disable Amiga mouse support (emulates 1351 mouse)
 	lda $de05
 	sta $d61b
+
+	; Copy MAC address
+	LDX    #$05
+maccopy:
+	LDA    $DE06, X
+	STA    $D6E9, X
+	DEX
+	BPL    maccopy
 	
 	sec
 	rts
