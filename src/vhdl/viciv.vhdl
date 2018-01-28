@@ -2773,8 +2773,8 @@ begin
       end if;
       
       indisplay :='1';
-      report "VICII: SPRITE: xcounter(320) = " & integer'image(to_integer(vicii_xcounter_320))
-        & " (sub) = " & integer'image(vicii_xcounter_sub320);
+--      report "VICII: SPRITE: xcounter(320) = " & integer'image(to_integer(vicii_xcounter_320))
+--        & " (sub) = " & integer'image(vicii_xcounter_sub320);
       if xcounter /= to_integer(frame_width) then
         xcounter <= xcounter + 1;
         if xcounter = sprite_first_x then
@@ -4462,8 +4462,18 @@ begin
         if chargen_y_sub=chargen_y_scale then
           chargen_y_next <= chargen_y_next + 1;
           report "bumping chargen_y to " & integer'image(to_integer(chargen_y)) severity note;
-          if chargen_y = "111" then
-            bump_screen_row_address<='1';
+          if chargen_y_scale /= 0 then
+            if chargen_y = "111" then
+              bump_screen_row_address<='1';
+            end if;
+          else
+            -- We need 2 raster lines to make this take effect, so if we are
+            -- running at the physical Y resolution, we need to bump this one
+            -- raster early.
+            if chargen_y = "110" then
+              report "LEGACY: Bumping screen row address one raster early for V400";
+              bump_screen_row_address<='1';
+            end if;
           end if;
           if (chargen_y_scale=x"02") and (chargen_y(0)='1') then
             chargen_y_sub <= "00001";
