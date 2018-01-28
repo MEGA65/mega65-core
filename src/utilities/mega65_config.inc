@@ -15,15 +15,15 @@
 ;below).  Pascal strings are used to speed up various operations (list 
 ;traversal, on-screen manipulation).  Use .defPStr to declare a Pascal string.
 ;
-;The options are defined in a list for each page and grouped under five tabs.
-;Each list is therefore a on-screen page worth of options and can be navigated
+;The options are defined in a list for each page and grouped under six tabs.
+;Each list is therefore an on-screen page worth of options and can be navigated
 ;by the user.  Each list must be a maximum of 256 bytes due to a limitation in
 ;the current implementation.  This limitation is checked with compile asserts.
 ;
-;Each page (or list) is defined to belong to one of five tabs, as already 
-;mentioned.  These tabs are:  System, Disk, Video, Audio and Save.  The Save
-;tab options must not be changed as the code relies on them being defined in a
-;particular way (although the text of the buttons can be changed).
+;Each page (or list) is defined to belong to one of six tabs, as already 
+;mentioned.  These tabs are:  System, Disk, Video, Audio, Network and Save.  
+;The Save tab options must not be changed as the code relies on them being 
+;defined in a particular way (although the text of the buttons can be changed).
 ;
 ;The pages are listed in an index for each tab such that the code can traverse
 ;the lists as defined here.  The number of pages in a tab must also be defined.
@@ -43,6 +43,9 @@
 ;			length requires 1 string:  label
 ;			requires data area of string length for storage.
 ;			input string will be null or length terminated.
+;	40	- 	Blank line, no data
+;	50	-	MAC Address input.  requires 1 string (label), word
+;			offset and data	area of 6 bytes for storage of address.
 ;	
 ;===============================================================================
 
@@ -57,68 +60,21 @@ configMagicByte1	=	$01
 ;-------------------------------------------------------------------------------
 ;System tab
 ;-------------------------------------------------------------------------------
-	.if	DEBUG_MODE
-systemPageCnt	=	2
-	.else
 systemPageCnt	=	1
-	.endif
 	
 systemOptions0:
 	.byte		$20			;option input type
 	.word		$0005			;offset into config table
 	.byte		$01			;bits for testing/setting
 	.defPStr	"amiga mouse mode:"	;label
-	.defPStr	'normal';option unset
-	.defPStr	"1351 emulation";option set
-
-	.if		DEBUG_MODE
-	.byte		$20
-	.word		$0015
-	.byte		$00
-	.defPStr	"test setting:"
-	.defPStr	"setting a"
-	.defPStr	"setting b"
-	
-	.byte		$21
-	.word		$0016
-	.byte		$00
-	.defPStr	"another setting:"
-	.defPStr	"option 1"
-	.defPStr	"option 2"
-	
-	.byte		$30			;string input type
-	.word		$0017			;offset into config table
-	.byte		$08			;input string length
-	.defPStr	"test data:"	;label
-	
-	.byte		"blah"			;storage for value
-	.byte		$00, $00, $00, $00
-	.endif
-
+	.defPStr	'normal'		;option unset
+	.defPStr	"1351 emulation"	;option set
 	.byte		$00			;end of list type
 systemOptions0_end:
 	.assert		(systemOptions0_end - systemOptions0) < 256, error, "System Options too large!"
 
-	.if	DEBUG_MODE
-systemOptions1:
-	.byte		$20			;option input type
-	.word		$0003			;offset into config table
-	.byte		$01			;bits for testing/setting
-	.defPStr	"f011 disk controller:"	;label
-	.defPStr	'uses 3.5" floppy drive';option unset
-	.defPStr	"uses sdcard disk image";option set
-	.byte		$00			;end of list type
-systemOptions1_end:
-	.assert		(systemOptions1_end - systemOptions1) < 256, error, "System Options 1 too large!"
-	.endif
-	
-	.if	DEBUG_MODE
-systemPageIndex:
-	.word		systemOptions0, systemOptions1
-	.else
 systemPageIndex:
 	.word		systemOptions0
-	.endif
 	
 
 ;-------------------------------------------------------------------------------
@@ -216,18 +172,54 @@ audioPageIndex:
 
 
 ;-------------------------------------------------------------------------------
+;Network tab
+;-------------------------------------------------------------------------------
+networkPageCnt	=	1
+
+networkOptions0:
+	.byte		$50
+	.word		$0020
+	.defPStr	"mac address:"
+	.byte		$00, $00, $00, $00, $00, $00
+	.byte		$00
+networkOptions0_end:
+	.assert		(networkOptions0_end - networkOptions0) < 256, error, "Network Options 0 too large!"
+
+networkPageIndex:
+	.word		networkOptions0
+
+
+;-------------------------------------------------------------------------------
 ;Save tab
 ;-------------------------------------------------------------------------------
 savePageCnt	=	1
-	
+
+;*******************************************************************************
+;Do not change the order or number of options in these lists!
+;*******************************************************************************
 saveOptions0:
 	.byte		$10
 	.defPStr	"exit without saving"
+	.byte		$10
+	.defPStr	"apply settings now"
 	.byte		$10
 	.defPStr	"save for this boot and exit"
 	.byte		$10
 	.defPStr	"save as defaults and exit"
 	.byte		$00
 	
+saveOptions1:
+	.byte		$40
+	.byte		$40
+	.byte		$40
+	.byte		$10
+	.defPStr	"cancel"
+	.byte		$10
+	.defPStr	"ok"
+	.byte		$00
+	
+saveOptions2:
+	.byte		$00
+	
 savePageIndex:
-	.word		saveOptions0
+	.word		saveOptions0, saveOptions1, saveOptions2
