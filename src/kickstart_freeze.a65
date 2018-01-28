@@ -73,7 +73,6 @@ fww2: 	lda $d611
 	pha
 
 freeze_write_busywait0:
-	inc $0800
 	inc freeze_write_tries+0
 	bne fwb1
 	inc freeze_write_tries+1
@@ -100,7 +99,6 @@ fwb1:	lda $d680
 	sta freeze_write_tries+1
 
 freeze_write_busywait1:
-	inc $0801
 	inc freeze_write_tries+0
 	bne fwb11
 	inc freeze_write_tries+1
@@ -135,7 +133,6 @@ fwb111:	dey
 
 
 freeze_write_busywait:
-	inc $0802
 	lda $d680
 	and #$03
 	bne freeze_write_busywait
@@ -236,6 +233,13 @@ fsr1:
 
 freeze_region_dma_loop:
 
+	lda freeze_dma_length_remaining
+	sta $0810
+	lda freeze_dma_length_remaining+1
+	sta $0811
+	lda freeze_dma_length_remaining+2
+	sta $0812
+
 	; Check if remaining length is negative or zero. If so, stop
 	lda freeze_dma_length_remaining+2
 	bmi freeze_region_dma_done
@@ -262,8 +266,19 @@ not_too_big:
 	sbc freeze_region_dmalist_count+1
 	sta freeze_dma_length_remaining+1
 
+	lda freeze_region_dmalist_count+0
+	sta $0818
+	lda freeze_region_dmalist_count+1
+	sta $0819
+
 	; Execute DMA job
-	
+	lda #$ff
+	sta $d702
+	sta $d704
+	lda #>freeze_region_dmalist
+	sta $d701
+	lda #<freeze_region_dmalist
+	sta $d705		
 
 	; Write SD-card direct sector buffer to freeze slot
 	; Flash a different colour while actually writing sector

@@ -180,6 +180,7 @@ architecture behavioural of ethernet is
   signal eth_rxbits : unsigned(5 downto 0);
   signal eth_bit_count : integer range 0 to 6;  
   signal eth_frame_len : integer range 0 to 4095;
+  signal eth_mac_counter : integer range 0 to 7;
   
   signal rxbuffer_cs : std_logic;
   signal rxbuffer_write : std_logic;
@@ -627,10 +628,12 @@ begin  -- behavioural
               -- ... and vice-versa
               eth_frame_len <= 2;
             end if;
+            eth_mac_counter <= 0;
             eth_bit_count <= 0;
             -- Veto packet reception if the CPU is watching the buffer we were
             -- going to write to.
             if eth_rx_buffer_last_used_50mhz /= eth_rx_buffer_moby_50mhz then
+              report "ETHRX: Skipping frame";
               eth_state <= SkippingFrame;
             end if;
           end if;
@@ -713,27 +716,65 @@ begin  -- behavioural
                 -- (max frame length = 2048 - 2 length bytes - 4 CRC bytes = 2042 bytes
                 null;
               else
-                if eth_frame_len = 0 then
+                report "ETHRX: eth_frame_len = " & integer'image(eth_frame_len);
+                if eth_mac_counter /= 7 then
+                  eth_mac_counter <= eth_mac_counter + 1;
+                end if;
+                if eth_mac_counter = 0 then
+                  report "ETHRX: First byte is $" & to_hstring(eth_rxd & eth_rxbits);
                   frame_is_multicast <= eth_rxbits(0);
-                  if eth_rxd /= "111111" or eth_rxbits /= "11" then
+                  if eth_rxbits(0) = '0' then
+                    report "ETHRX: Frame is not multicast";
+                  else
+                    report "ETHRX: Frame is multicast";
+                  end if;
+                  if (eth_rxbits /= "111111") or (eth_rxd /= "11") then
                     frame_is_broadcast <= '0';
+                    report "ETHRX: Frame is not broadcast (MAC byte 0 = $" & to_hstring( eth_rxd & eth_rxbits )
+                      & " (should be $FF)";
+                    report "ETHRX: bits = " & to_string(std_logic_vector(eth_rxd)) & to_string(std_logic_vector(eth_rxbits));
                   else
                     frame_is_broadcast <= '1';
                   end if;
                   if (eth_rxd & eth_rxbits) /= eth_mac(47 downto 40) then
                     frame_is_for_me <= '0';
+                    report "ETHRX: Frame is not address to me ("
+                      & to_hstring(eth_mac(47 downto 40)) & ":"
+                      & to_hstring(eth_mac(39 downto 32)) & ":"
+                      & to_hstring(eth_mac(31 downto 24)) & ":"
+                      & to_hstring(eth_mac(23 downto 16)) & ":"
+                      & to_hstring(eth_mac(15 downto 8)) & ":"
+                      & to_hstring(eth_mac(7 downto 0)) & ").";
                   else
                     frame_is_for_me <= '1';
                   end if;
                   eth_mac_shift <= eth_mac(39 downto 0);
-                elsif eth_frame_len < 6 then
-                  if eth_rxd /= "111111" or eth_rxbits /= "11" then
+                elsif eth_mac_counter < 6 then
+                  report "ETHRX: subsequent MAC byte is $" & to_hstring(eth_rxd & eth_rxbits);
+                  if eth_rxbits /= "111111" or eth_rxd /= "11" then
                     frame_is_broadcast <= '0';
+                    if frame_is_broadcast = '1' then
+                      report "ETHRX: Frame is not broadcast.";
+                    end if;
                   end if;
                   if (eth_rxd & eth_rxbits) /= eth_mac_shift(39 downto 32) then
                     frame_is_for_me <= '0';
+                    if frame_is_for_me = '1' then
+                      report "ETHRX: Frame is not address to me ("
+                        & to_hstring(eth_mac(47 downto 40)) & " :"
+                        & to_hstring(eth_mac(39 downto 32)) & " :"
+                        & to_hstring(eth_mac(31 downto 24)) & " :"
+                        & to_hstring(eth_mac(23 downto 16)) & " :"
+                        & to_hstring(eth_mac(15 downto 8)) & " :"
+                        & to_hstring(eth_mac(7 downto 0)) & ").";
+                    end if;
                   end if;
                   eth_mac_shift(39 downto 8) <= eth_mac_shift(31 downto 0);
+                elsif eth_mac_counter = 6 then
+                  report "ETHRX: Got target MAC. Frame is:"
+                    & " for_me=" & std_logic'image(frame_is_for_me)
+                    & ", broadcast=" & std_logic'image(frame_is_broadcast)
+                    & ", multicast=" & std_logic'image(frame_is_multicast);
                 end if;
                 eth_frame_len <= eth_frame_len + 1;
                 rxbuffer_write <= '1';
@@ -819,11 +860,14 @@ begin  -- behavioural
           if rx_crc_valid='1' or eth_disable_crc_check='1' then
             -- record that we have received a frame, but only if there was no
             -- CRC error.
+            report "ETHRX: Considering frame against filter criteria";
             if ((frame_is_multicast and eth_accept_multicast)='1')
               or ((frame_is_broadcast and eth_accept_broadcast)='1') 
-              or (frame_is_for_me='1') then
-              report "ETHRX: Toggling eth_rx_buffer_last_used_50mhz";
+              or (frame_is_for_me='1') or (eth_mac_filter='0') then
+              report "ETHRX: Frame accepted: Toggling eth_rx_buffer_last_used_50mhz";
               eth_rx_buffer_last_used_50mhz <= not eth_rx_buffer_last_used_50mhz;
+            else
+              report "ETHRX: Frame does not match filter.";
             end if;
           end if;
           -- ready to receive another frame
@@ -924,7 +968,8 @@ begin  -- behavioural
           when x"D" => fastio_rdata <= eth_mac(15 downto 8);
           when x"E" => fastio_rdata <= eth_mac(7 downto 0);
           when x"f" =>
-            fastio_rdata <= to_unsigned(ethernet_state'pos(eth_tx_state),8);
+            -- @ IO:GS $D6EF - DEBUG show current ethernet RX state
+            fastio_rdata <= to_unsigned(ethernet_state'pos(eth_state),8);
           when others =>
             fastio_rdata <= (others => 'Z');
         end case;

@@ -81,14 +81,14 @@ C65 $D024.7-0 VIC-III/IV multi-colour 3 (256 colour)
 C64 $D024 VIC-II multi-colour 3
 C64 $D025 VIC-II/III/IV sprite multi-colour 0 (always 256 colour)
 C64 $D026 VIC-II/III/IV sprite multi-colour 1 (always 256 colour)
-C64 $D027 VIC-II sprite 0 colour (always 256 colour)
-C64 $D028 VIC-II sprite 1 colour (always 256 colour)
-C64 $D029 VIC-II sprite 2 colour (always 256 colour)
-C64 $D02A VIC-II sprite 3 colour (always 256 colour)
-C64 $D02B VIC-II sprite 4 colour (always 256 colour)
-C64 $D02C VIC-II sprite 5 colour (always 256 colour)
-C64 $D02D VIC-II sprite 6 colour (always 256 colour)
-C64 $D02E VIC-II sprite 7 colour (always 256 colour)
+C64 $D027 VIC-II sprite 0 colour / 16-colour sprite transparency colour (lower nybl)
+C64 $D028 VIC-II sprite 1 colour / 16-colour sprite transparency colour (lower nybl)
+C64 $D029 VIC-II sprite 2 colour / 16-colour sprite transparency colour (lower nybl)
+C64 $D02A VIC-II sprite 3 colour / 16-colour sprite transparency colour (lower nybl)
+C64 $D02B VIC-II sprite 4 colour / 16-colour sprite transparency colour (lower nybl)
+C64 $D02C VIC-II sprite 5 colour / 16-colour sprite transparency colour (lower nybl)
+C64 $D02D VIC-II sprite 6 colour / 16-colour sprite transparency colour (lower nybl)
+C64 $D02E VIC-II sprite 7 colour / 16-colour sprite transparency colour (lower nybl)
 C65 $D02F VIC-III KEY register for unlocking extended registers.
 GS $D02F Write $47 then $53 to enable C65GS/VIC-IV IO registers
 C65 $D02F Write $A5 then $96 to enable C65/VIC-III IO registers
@@ -283,6 +283,8 @@ GS $D618 Keyboard scan rate ($00=50MHz, $FF=~200KHz)
 GS $D619 On-screen keyboard X position (x4 640H pixels)
 GS $D61A On-screen keyboard Y position (x4 physical pixels)
 GS $D61B.0 WRITE enable/disable Amiga mouse support (1351 emulation)
+GS $D61B.1 WRITEONLY DEBUG disable ASCII key retrigger suppression
+GS $D61B.2 WRITEONLY DEBUG disable ASCII key glitch suppression
 GS $D61B READ 1351/amiga mouse auto detection DEBUG
 GS $D620 Read Port A paddle X
 GS $D621 Read Port A paddle Y
@@ -469,6 +471,7 @@ GS $D6E6.7-5 - Ethernet MIIM PHY number (use 0 for Nexys4, 1 for MEGA65 r1 PCBs)
 GS $D6E7 - Ethernet MIIM register value (LSB)
 GS $D6E8 - Ethernet MIIM register value (MSB)
 GS $D6E9-E - Ethernet MAC address
+GS $D6EF - DEBUG show current ethernet RX state
 GS $D6F2 - Read FPGA five-way buttons
 GS $D6F3 - Accelerometer bit-bashing port
 GS $D6F3 Accelerometer inputs

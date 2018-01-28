@@ -68,7 +68,10 @@ entity c65uart is
     portm_out : out  std_logic_vector(7 downto 0);
     portn_out : out unsigned(7 downto 0);
     porto_out : out unsigned(7 downto 0);
-    portp_out : out unsigned(7 downto 0)
+    portp_out : out unsigned(7 downto 0);
+
+    suppress_key_glitches : out std_logic := '1';
+    suppress_key_retrigger : out std_logic := '0'
     
     );
 end c65uart;
@@ -344,6 +347,10 @@ begin  -- behavioural
             -- @IO:GS $D61B.0 WRITE enable/disable Amiga mouse support (1351 emulation)
             amiga_mouse_enable_internal <= fastio_wdata(0);
             amiga_mouse_enable <= fastio_wdata(0);
+            -- @IO:GS $D61B.1 WRITEONLY DEBUG disable ASCII key retrigger suppression
+            suppress_key_retrigger <= not fastio_wdata(1);
+            -- @IO:GS $D61B.2 WRITEONLY DEBUG disable ASCII key glitch suppression
+            suppress_key_glitches <= not fastio_wdata(2);
           when others => null;
         end case;
       end if;

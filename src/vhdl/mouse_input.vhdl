@@ -104,6 +104,7 @@ architecture behavioural of mouse_input is
   signal last_fa_rightdown : std_logic_vector(1 downto 0) := "11";
   signal last_fb_leftup : std_logic_vector(1 downto 0) := "11";
   signal last_fb_rightdown : std_logic_vector(1 downto 0) := "11";
+  signal last_amiga_mouse_enable : std_logic := '0';
   
 begin
 
@@ -119,6 +120,14 @@ begin
       mouse_debug(5 downto 4) <= unsigned(last_fa_leftup);
       mouse_debug(7 downto 6) <= unsigned(last_fa_rightdown);
 
+      last_amiga_mouse_enable <= amiga_mouse_enable;
+      if amiga_mouse_enable='1' and last_amiga_mouse_enable='0' then
+        ma_amiga_mode <= '1';
+        ma_amiga_pots <= '1';
+        mb_amiga_mode <= '1';
+        mb_amiga_pots <= '1';
+      end if;
+      
       if amiga_mouse_enable='0' then
         ma_amiga_mode <= '0';
         mb_amiga_mode <= '0';

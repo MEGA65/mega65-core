@@ -439,9 +439,25 @@ reset_machine_state:
 		lda #$40
 		tsb $d054
 
-		; sprites off
+		; sprites off, and normal mode
 		lda #$00
 		sta $d015
+		sta $d055
+		sta $d06b
+		sta $d057
+		lda $d049
+		and #$f
+		sta $d049
+		lda $d04b
+		and #$f
+		sta $d04b
+		lda $d04d
+		and #$f
+		sta $d04d
+		lda $d04f
+		and #$f
+		sta $d04f
+		
 
 		; disable CIA interrupts		
 		lda #$7f
@@ -797,7 +813,10 @@ allowkickup:	; BG was label nextdirectoryentry3:
 
 		; Prepare 32-bit pointer for loading kickup @ $0004000
 		;
-		; BG: and why load at $4000 again?
+		; We load it at $4000, which is mapped to first 64KB RAM, and then
+		; have a routine also in RAM that we use to copy the loaded data
+		; back onto the Kickstart "ROM" space, so that there are no problems
+		; with the copying code being changed while it being replaced.
 		;
 		lda #$00
 		sta <dos_file_loadaddress+0
@@ -941,21 +960,6 @@ postkickup:
 		jsr dos_cdroot
 		bcc sdcarderror
 
-		; Select PAL/NTSC mode based on presence of file called NTSC
-		ldx #<txt_NTSC
-		ldy #>txt_NTSC
-		jsr dos_setname
-		jsr dos_findfile
-		bcc setpal
-setntsc:
-		lda #$80
-		tsb $d06f
-		jmp setpalntsc
-setpal:
-		lda #$80
-		trb $d06f		
-
-setpalntsc:
 		; Re-set virtual screen row length after touching $D06F
 		lda #80
 		sta $d058
@@ -1869,6 +1873,7 @@ erasescreendmalist:
 		; Copy shadow RAM logo to chip RAM
 		; XXX - We can get rid of this by preinitialising CHIPRAM as well as shadow RAM
 		;
+		.byte $00   ; no more options
 		.byte $00   ; COPY + end of chain
 		.word $6000 ; 320x64 = $6000
 		.word $4000 ; fill with white = $01
@@ -2749,6 +2754,7 @@ utillist_next:
 	ldz #42
 	nop
 	lda (<zptempv32),z
+	phx
 	tax
 	inz
 	nop
@@ -2757,6 +2763,7 @@ utillist_next:
 
 	sta <zptempv32+1
 	stx <zptempv32
+	plx
 	rts
 
 utillist_validity_check:

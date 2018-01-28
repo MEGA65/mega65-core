@@ -343,7 +343,10 @@ architecture behavioral of iomapper is
   signal iec_atn_fromcia : std_logic := '1';
   signal iec_clk_fromcia : std_logic := '1';
   signal iec_data_fromcia : std_logic := '1';
-  
+
+  signal suppress_key_glitches : std_logic;
+  signal suppress_key_retrigger : std_logic;
+    
 begin
 
   block1: block
@@ -491,6 +494,8 @@ begin
       joyreal_disable => joyreal_disable,
       virtual_disable => virtual_disable,
       physkey_disable => physkey_disable,
+      suppress_key_glitches => suppress_key_glitches,
+      suppress_key_retrigger => suppress_key_retrigger,
       key_left => key_left,
       key_up => key_up,
       uart_rx => uart_rx,
@@ -500,7 +505,7 @@ begin
       porth_write_strobe => ascii_key_next,
       porti => std_logic_vector(bucky_key(7 downto 0)),
       portj_out => matrix_segment_num,
-      portj_in => std_logic_vector(cart_access_count),
+      portj_in => std_logic_vector(matrix_segment_out),
       portk_out(6 downto 0) => virtual_key1(6 downto 0),
       portk_out(7) => visual_keyboard_enable,
       portl_out(6 downto 0) => virtual_key2(6 downto 0),
@@ -538,6 +543,8 @@ begin
 
       matrix_segment_num => matrix_segment_num,
       matrix_segment_out => matrix_segment_out,
+      suppress_key_glitches => suppress_key_glitches,
+      suppress_key_retrigger => suppress_key_retrigger,
 
       scan_mode => keyboard_scan_mode,
       scan_rate => keyboard_scan_rate,
@@ -1064,7 +1071,7 @@ begin
       -- being mapped in $DC00-$DFFF using the C65 2K colour ram register
       cia1cs <='0';
       cia2cs <='0';
-      if colourram_at_dc00='0' and sector_buffer_mapped_read='0' then
+      if colourram_at_dc00='0' then
         case address(19 downto 8) is
           when x"D0C" => cia1cs <=cia1cs_en;
           when x"D1C" => cia1cs <=cia1cs_en;

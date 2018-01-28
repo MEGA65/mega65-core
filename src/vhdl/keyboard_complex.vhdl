@@ -83,6 +83,8 @@ entity keyboard_complex is
 
     matrix_segment_num : in std_logic_vector(7 downto 0);
     matrix_segment_out : out std_logic_vector(7 downto 0);
+    suppress_key_glitches : in std_logic;
+    suppress_key_retrigger : in std_logic;
 
     -- cia1 ports
     keyboard_column8_select_in : in std_logic;
@@ -273,7 +275,10 @@ begin
     port map(
       Clk => ioclock,
       reset_in => reset_in,
-      matrix => matrix_combined,
+      matrix_in => matrix_combined,
+
+      suppress_key_glitches => suppress_key_glitches,
+      suppress_key_retrigger => suppress_key_retrigger,
 
       -- UART key stream
       ascii_key => ascii_key,

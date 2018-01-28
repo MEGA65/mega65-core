@@ -197,8 +197,12 @@ dos_and_process_trap_table:
 	.word invalid_subfunction
 	.word invalid_subfunction
 	.word invalid_subfunction
-	.word invalid_subfunction
-	.word invalid_subfunction
+	.word trap_serial_monitor_write
+	.word reset_entry
+
+trap_serial_monitor_write:
+	STY $D67C
+	jmp return_from_trap_with_success	
 
 ;	========================
 

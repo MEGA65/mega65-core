@@ -234,7 +234,7 @@ splf2:	lda syspart_start_sector,x
 syspart_configsector_set:
 	ldx #3
 spcr1:	lda syspart_start_sector,x
-	sta $d680,x
+	sta $d681,x
 	dex
 	bpl spcr1
 	jsr sd_fix_sectornumber
@@ -260,14 +260,16 @@ syspart_configsector_apply:
 	cmp #$01
 	bne syspart_config_invalid
 
-	; Set PAL/NTSC mode
-	lda $d67f
+	; Set PAL/NTSC mode (keeping $D058 value)
+	LDX $D058
+	lda $d06f
 	and #$3f
-	sta $d67f
+	sta $d06f
 	lda $de02
 	and #$c0
-	ora $d67f
-	sta $d67f
+	ora $d06f
+	sta $d06f
+	STX $D058
 
 	; Set audio options
 	lda $de03
@@ -280,6 +282,14 @@ syspart_configsector_apply:
 	; Enable/disable Amiga mouse support (emulates 1351 mouse)
 	lda $de05
 	sta $d61b
+
+	; Copy MAC address
+	LDX    #$05
+maccopy:
+	LDA    $DE06, X
+	STA    $D6E9, X
+	DEX
+	BPL    maccopy
 	
 	sec
 	rts

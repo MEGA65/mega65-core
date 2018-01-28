@@ -248,6 +248,14 @@ miimsimulate:	$(MIIMFILES)
 	ghdl -m test_miim
 	( ./test_miim || ghdl -r test_miim ) 
 
+ASCIIFILES=	$(VHDLSRCDIR)/matrix_to_ascii.vhdl \
+		$(VHDLSRCDIR)/test_ascii.vhdl
+
+asciisimulate:	$(ASCIIFILES)
+	ghdl -i $(ASCIIFILES)
+	ghdl -m test_ascii
+	( ./test_ascii || ghdl -r test_ascii ) 
+
 SPRITEFILES=$(VHDLSRCDIR)/sprite.vhdl $(VHDLSRCDIR)/test_sprite.vhdl $(VHDLSRCDIR)/victypes.vhdl
 spritesimulate:	$(SPRITEFILES)
 	ghdl -i $(SPRITEFILES)
@@ -305,7 +313,7 @@ $(SDCARD_DIR)/MEGA65.D81:	$(UTILITIES)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(OPHIS) $< -l $*.list -m $*.map -o $*.prg
 
-$(UTILDIR)/mega65_config.o:      $(UTILDIR)/mega65_config.s
+$(UTILDIR)/mega65_config.o:      $(UTILDIR)/mega65_config.s $(UTILDIR)/mega65_config.inc
 	$(CA65) $< -l $*.list
 
 $(UTILDIR)/mega65_config.prg:       $(UTILDIR)/mega65_config.o

@@ -410,10 +410,8 @@ begin  -- behavioural
           sprite_fg_map_out(sprite_number) <= check_collisions;
         end if;
         if (sprite_sixteen_colour_mode='1')
-          and ((sprite_pixel_bits(127)
-                or sprite_pixel_bits(125)
-                or sprite_pixel_bits(123)
-                or sprite_pixel_bits(121)) /= '0') then
+          and ((sprite_pixel_bits(127) & sprite_pixel_bits(125) & sprite_pixel_bits(123) & sprite_pixel_bits(121))
+              /= sprite_colour(3 downto 0)) then
           -- Sprite and foreground collision
           sprite_fg_map_out(sprite_number) <= check_collisions;
         end if;
@@ -426,10 +424,8 @@ begin  -- behavioural
           sprite_map_out(sprite_number) <= check_collisions;
         end if;
         if (sprite_sixteen_colour_mode='1')
-          and ((sprite_pixel_bits(127)
-                or sprite_pixel_bits(125)
-                or sprite_pixel_bits(123)
-                or sprite_pixel_bits(121)) /= '0') then
+          and ((sprite_pixel_bits(127) & sprite_pixel_bits(125) & sprite_pixel_bits(123) & sprite_pixel_bits(121))
+              /= sprite_colour(3 downto 0)) then
           -- Sprite and foreground collision
           sprite_map_out(sprite_number) <= check_collisions;
         end if;
@@ -486,13 +482,15 @@ begin  -- behavioural
             pixel_16(0) := sprite_pixel_bits(121);
             report "SPRITE: Painting 16-colour pixel using bits "
               & to_string(pixel_16);
-            if pixel_16 /= "0000" then
+            if unsigned(pixel_16) /= sprite_colour(3 downto 0) then
               is_sprite_out <= not border_in;
               sprite_colour_out(3 downto 0) <= unsigned(pixel_16);
               -- Setting bitplane mode and 16-colour mode allows setting the
               -- upper bits of the sprite colour
               sprite_colour_out(6 downto 4) <= to_unsigned(sprite_number,3);
               sprite_colour_out(7) <= sprite_bitplane_enable;
+            else
+              is_sprite_out <= '0';
             end if;
           else
             report "SPRITE: Painting pixel using bits " & to_string(sprite_pixel_bits(127 downto 126));        
