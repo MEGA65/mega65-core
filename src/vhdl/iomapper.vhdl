@@ -346,7 +346,8 @@ architecture behavioral of iomapper is
 
   signal suppress_key_glitches : std_logic;
   signal suppress_key_retrigger : std_logic;
-    
+  signal ascii_key_event_count : unsigned(15 downto 0) := x"0000";
+  
 begin
 
   block1: block
@@ -496,6 +497,7 @@ begin
       physkey_disable => physkey_disable,
       suppress_key_glitches => suppress_key_glitches,
       suppress_key_retrigger => suppress_key_retrigger,
+      ascii_key_event_count => ascii_key_event_count,
       key_left => key_left,
       key_up => key_up,
       uart_rx => uart_rx,
@@ -936,6 +938,11 @@ begin
         else
           ascii_key_presenting <= '0';
           ascii_key_buffered <= x"00";
+        end if;
+        if ascii_key_event_count /= x"FFFF" then
+          ascii_key_event_count <= ascii_key_event_count + 1;
+        else
+          ascii_key_event_count <= x"0000";
         end if;
       end if;
       
