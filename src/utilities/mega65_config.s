@@ -1294,10 +1294,10 @@ doTestMACKeys:
 		CMP	#$3A
 		BCC	@acceptDigit
 		
-		CMP	#$41
+		CMP	#$61
 		BCC	@exit
 		
-		CMP	#$47
+		CMP	#$67
 		BCS	@exit
 		
 		SEC
