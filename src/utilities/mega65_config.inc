@@ -84,11 +84,11 @@ diskPageCnt 	=	1
 
 diskOptions0:
 	.byte		$20			;option input type
-	.word		$0003			;offset into config table
+	.word		$0004			;offset into config table
 	.byte		$01			;bits for testing/setting
 	.defPStr	"f011 disk controller:"	;label
-	.defPStr	'uses 3.5" floppy drive';option unset
-	.defPStr	"uses sdcard disk image";option set
+	.defPStr	"uses sdcard disk image";option unset
+	.defPStr	'uses 3.5" floppy drive';option set
 
 	.byte		$30			;string input type
 	.word		$0010			;offset into config table
