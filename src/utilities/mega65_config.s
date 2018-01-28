@@ -427,7 +427,7 @@ main:
 		JMP	@inputLoop
 
 ;-------------------------------------------------------------------------------
-copyOptionsToSectorBuffer:	
+copySessionOptionsToSectorBuffer:	
 ;-------------------------------------------------------------------------------
 ;; As the name suggests, simply copy the specified 512 bytes to the SD card
 ;; sector buffer, which is where the hypervisor expects options to be placed
@@ -445,12 +445,31 @@ copyOptionsToSectorBuffer:
 		STA	$DE00
 		STA	$DE01
 		RTS
+;-------------------------------------------------------------------------------
+copyDefaultOptionsToSectorBuffer:	
+;-------------------------------------------------------------------------------
+;; As the name suggests, simply copy the specified 512 bytes to the SD card
+;; sector buffer, which is where the hypervisor expects options to be placed
+		LDA	#$81
+		STA	$D680
+		LDY	#$00
+@copyLoop2:	LDA	optDfltBase, Y
+		STA	$DE00, Y
+		LDA	optDfltBase+$100, Y
+		STA	$DF00, Y
+		DEY
+		BNE	@copyLoop2
+		;; Set magic bytes
+		LDA	#$01
+		STA	$DE00
+		STA	$DE01
+		RTS
 		
 ;-------------------------------------------------------------------------------
 hypervisorApplyConfig:
 ;-------------------------------------------------------------------------------
 ;; Apply options in optSessBase
-		JSR	copyOptionsToSectorBuffer
+		JSR	copySessionOptionsToSectorBuffer
 		LDA	#$04
 		STA	$D642
 		NOP
@@ -460,7 +479,7 @@ hypervisorApplyConfig:
 hypervisorSaveConfig:
 ;-------------------------------------------------------------------------------
 ;; Save options in optSessBase
-		JSR	copyOptionsToSectorBuffer
+		JSR	copyDefaultOptionsToSectorBuffer
 		LDA	#$02
 		STA	$D642
 		NOP
