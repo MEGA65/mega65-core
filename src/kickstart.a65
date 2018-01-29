@@ -244,7 +244,7 @@ trap_entry_points:
 	jmp f011_virtual_read           ; Trap #$44 (virtualised F011 sector read)
 	nop
 
-	jmp f011_virtual_write	        ; Trap #$44 (virtualised F011 sector write)
+	jmp f011_virtual_write	        ; Trap #$45 (virtualised F011 sector write)
 	nop
 
 	jmp nosuchtrap			; common-trap (catch all)
