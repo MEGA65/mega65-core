@@ -1,6 +1,9 @@
 f011_virtual_read:
 
-	inc $d021
+	; Reset buffer pointers and stop SD card from reading
+	; from card and overwriting what we load
+	LDA	#$01
+	STA	$D081
 
 	; Let monitor_load fill in the requeated block.
         ; Operation is triggered by side bit 7 = 1
@@ -47,9 +50,6 @@ fvr5:
 ;        lda $d087
 ;        jmp fvr4
 fvr6:
-	; Reset buffer pointers
-	LDA	#$01
-	STA	$D081
 	; Set floppy flags as appropriate
 	LDA   #$35
 	STA   $D6AF
@@ -65,7 +65,6 @@ f011_virtual_write:
 
 	; XXX - We ignore virtualised writes to F011 for now
 	inc $D021
-	jmp f011_virtual_write
 
 	; return from hypervisor
 	;

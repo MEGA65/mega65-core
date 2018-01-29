@@ -558,12 +558,13 @@ int process_line(char *line,int live)
               usleep(1000);
               int n=0x200;
               unsigned char *p=buf;
-	      fprintf(stderr,"%s\n",cmd);
-	      dump_bytes(0,"F011 virtual sector data",p,512);
+	      //	      fprintf(stderr,"%s\n",cmd);
+	      //	      dump_bytes(0,"F011 virtual sector data",p,512);
               while(n>0) {
                 int w=write(fd,p,n);
                 if (w>0) { p+=w; n-=w; } else usleep(1000);
-            }
+	      }
+
             /*if (serial_speed==230400) usleep(10000+50*b);
             else if (serial_speed==2000000)
               // 2mbit/sec / 11bits/char (inc space) = ~5.5usec per char
