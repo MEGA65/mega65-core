@@ -236,6 +236,25 @@ int restart_kickstart(void)
   return 0;
 }
 
+void print_spaces(FILE *f,int col)
+{
+  for(int i=0;i<col;i++)
+    fprintf(f," ");  
+}
+
+int dump_bytes(int col, char *msg,unsigned char *bytes,int length)
+{
+  print_spaces(stderr,col);
+  fprintf(stderr,"%s:\n",msg);
+  for(int i=0;i<length;i+=16) {
+    print_spaces(stderr,col);
+    fprintf(stderr,"%04X: ",i);
+    for(int j=0;j<16;j++) if (i+j<length) fprintf(stderr," %02X",bytes[i+j]);
+    fprintf(stderr,"\n");
+  }
+  return 0;
+}
+
 int first_load=1;
 int first_go64=1;
 
@@ -513,7 +532,7 @@ int process_line(char *line,int live)
 	  }
 	  else {
 	    b=fread(buf,1,512,fd81);
-	    fprintf(stderr, "read: %d\n", b);
+	    fprintf(stderr, " bytes read: %d\n", b);
 	    if(b==512) {
 	      
               //fprintf(stderr, "%02x %02x %02x %02x\n", buf[0], buf[1], buf[2], buf[3]);
@@ -526,6 +545,8 @@ int process_line(char *line,int live)
               usleep(1000);
               int n=0x200;
               unsigned char *p=buf;
+	      fprintf(stderr,"%s\n",cmd);
+	      dump_bytes(0,"F011 virtual sector data",p,512);
               while(n>0) {
                 int w=write(fd,p,n);
                 if (w>0) { p+=w; n-=w; } else usleep(1000);
