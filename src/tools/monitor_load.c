@@ -282,7 +282,7 @@ int process_line(char *line,int live)
 	snprintf(cmd,1024,"sffd3659 01\r");
 	slow_write(fd,cmd,strlen(cmd));
 	usleep(20000);
-	// Enable disk 0
+	// Enable disk 0 (including for write)
 	snprintf(cmd,1024,"sffd368b 03\r");
 	slow_write(fd,cmd,strlen(cmd));
       }
@@ -521,7 +521,7 @@ int process_line(char *line,int live)
               char cmd[1024];
 
               /* send block to m65 memory */
-              sprintf(cmd,"l%x %x\r",0xffd6000-1,0xffd6200-1);
+              sprintf(cmd,"l%x %x\r",0xffd6c00-1,0xffd6e00-1);
               slow_write(fd,cmd,strlen(cmd));
               usleep(1000);
               int n=0x200;
