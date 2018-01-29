@@ -139,6 +139,8 @@ int hypervisor_paused=0;
 char *type_text=NULL;
 int type_text_cr=0;
 
+#define READ_SECTOR_BUFFER_ADDRESS 0xFFD6c00
+#define WRITE_SECTOR_BUFFER_ADDRESS 0xFFD6c00
 int sdbuf_request_addr = 0;
 unsigned char sd_sector_buf[512];
 int saved_track = 0;
@@ -561,7 +563,7 @@ int process_line(char *line,int live)
               char cmd[1024];
 
               /* send block to m65 memory */
-              sprintf(cmd,"l%x %x\r",0xffd6c00-1,0xffd6e00-1);
+              sprintf(cmd,"l%x %x\r",READ_SECTOR_BUFFER_ADDRESS-1,READ_SECTOR_BUFFER_ADDRESS+0x200-1);
               slow_write(fd,cmd,strlen(cmd));
               usleep(1000);
               int n=0x200;
@@ -606,9 +608,12 @@ int process_line(char *line,int live)
 	    }
 	  }
           // fetch buffer from M65 memory
-          sdbuf_request_addr = 0xFFD6c00;
+          sdbuf_request_addr = WRITE_SECTOR_BUFFER_ADDRESS;
 	  stop_cpu();
-          slow_write(fd,"Mffd6c00\r",9);	    
+	  { char  cmd[1024];
+	    sprintf(cmd,"M%x\r",sdbuf_request_addr);
+	    slow_write(fd,cmd,strlen(cmd));
+	  }
 
 	  /* signal done/result */
           //stop_cpu();
@@ -625,10 +630,10 @@ int process_line(char *line,int live)
   
 	int i;
 	for(i=0;i<16;i++)
-	    sd_sector_buf[sdbuf_request_addr-0xFFD6C00+i]=b[i];
+	    sd_sector_buf[sdbuf_request_addr-WRITE_SECTOR_BUFFER_ADDRESS+i]=b[i];
         sdbuf_request_addr += 16;
 
-        if(sdbuf_request_addr == 0xFFD6E00) {
+        if(sdbuf_request_addr == (WRITE_SECTOR_BUFFER_ADDRESS+0x200)) {
 
 	  dump_bytes(0,"Sector to write",sd_sector_buf,512);
 	  
@@ -1254,8 +1259,10 @@ int main(int argc,char **argv)
           if(fast_mode) {
           
             slow_write(fd,"mffd3077\r",9);
-	    if( sdbuf_request_addr != 0) {            
-	      slow_write(fd,"Mffd6c00\r",9);
+	    if( sdbuf_request_addr != 0) {
+	      char cmd[1024];
+	      sprintf(cmd,"M%x\r",WRITE_SECTOR_BUFFER_ADDRESS);
+	      slow_write(fd,cmd,strlen(cmd));
             } else {
 	      slow_write(fd,"mffd3077\r",9);
             }
