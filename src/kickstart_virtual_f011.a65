@@ -47,8 +47,11 @@ fvr5:
 ;        lda $d087
 ;        jmp fvr4
 fvr6:
+	; Reset buffer pointers
+	LDA	#$01
+	STA	$D081
 	; Set floppy flags as appropriate
-	LDA   #$3D
+	LDA   #$35
 	STA   $D6AF
 
         sta hypervisor_enterexit_trigger
@@ -61,6 +64,8 @@ vfr_last_side:		.byte	0
 f011_virtual_write:
 
 	; XXX - We ignore virtualised writes to F011 for now
+	inc $D021
+	jmp f011_virtual_write
 
 	; return from hypervisor
 	;
