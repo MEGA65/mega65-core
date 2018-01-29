@@ -67,6 +67,11 @@ f011_virtual_write:
 ; monitor_load. We set bit 6, and wait for it to be cleared by monitor_load.
 ; Other than that, all the hard work happens in monitor_load
 
+	; Reset buffer pointers and stop SD card from reading
+	; from card and overwriting what we load
+	LDA	#$01
+	STA	$D081
+
 	lda $d083
         and #$40		; already written successful?
         bne fvw2
