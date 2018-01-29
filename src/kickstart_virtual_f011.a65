@@ -71,6 +71,7 @@ f011_virtual_write:
 	; from card and overwriting what we load
 	LDA	#$01
 	STA	$D081
+	NOP  ; XXX Work around Ophis bug.  Kickstart is messed up if this is missing!
 
 	lda $d083
         and #$40		; already written successful?
