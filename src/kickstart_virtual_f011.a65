@@ -1,5 +1,7 @@
 f011_virtual_read:
 
+	inc $d021
+
 	; Let monitor_load fill in the requeated block.
         ; Operation is triggered by side bit 7 = 1
         ; Request served once monitor_load sets side bit 7 = 0
@@ -45,6 +47,10 @@ fvr5:
 ;        lda $d087
 ;        jmp fvr4
 fvr6:
+	; Set floppy flags as appropriate
+	LDA   #$3D
+	STA   $D6AF
+
         sta hypervisor_enterexit_trigger
 
 vfr_last_track:		.byte	0
