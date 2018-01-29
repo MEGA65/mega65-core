@@ -40,11 +40,6 @@ f011_virtual_write:
 	LDA	#$40
         TSB	$D086
 
-        ; ensure f011 buffer is mapped
-        lda $d689
-        and #$7F
-        sta $d689
-
 fvw1:
         lda $d086
         and #$c0

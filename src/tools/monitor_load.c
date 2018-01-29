@@ -606,9 +606,9 @@ int process_line(char *line,int live)
 	    }
 	  }
           // fetch buffer from M65 memory
-          sdbuf_request_addr = 0xFFD6000;
+          sdbuf_request_addr = 0xFFD6c00;
 	  stop_cpu();
-          slow_write(fd,"Mffd6000\r",9);	    
+          slow_write(fd,"Mffd6c00\r",9);	    
 
 	  /* signal done/result */
           //stop_cpu();
@@ -625,10 +625,10 @@ int process_line(char *line,int live)
   
 	int i;
 	for(i=0;i<16;i++)
-	    sd_sector_buf[sdbuf_request_addr-0xFFD6000+i]=b[i];
+	    sd_sector_buf[sdbuf_request_addr-0xFFD6C00+i]=b[i];
         sdbuf_request_addr += 16;
 
-        if(sdbuf_request_addr == 0xFFD6200) {
+        if(sdbuf_request_addr == 0xFFD6E00) {
 
 	  dump_bytes(0,"Sector to write",sd_sector_buf,512);
 	  
@@ -649,7 +649,7 @@ int process_line(char *line,int live)
              fprintf(stderr, "Could not write D81 file: '%s'\n", d81file);
 	      exit(-1);
             }
-	    fprintf(stderr, "write: %d %d\n", b, (saved_track*20+physical_sector)*512);
+	    fprintf(stderr, "write: %d @ 0x%x\n", b, (saved_track*20+physical_sector)*512);
           }
 
           // block loaded save it now
@@ -1255,7 +1255,7 @@ int main(int argc,char **argv)
           
             slow_write(fd,"mffd3077\r",9);
 	    if( sdbuf_request_addr != 0) {            
-	      slow_write(fd,"Mffd6000\r",9);
+	      slow_write(fd,"Mffd6c00\r",9);
             } else {
 	      slow_write(fd,"mffd3077\r",9);
             }
