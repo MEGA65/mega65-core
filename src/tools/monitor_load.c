@@ -55,6 +55,8 @@ time_t start_time=0;
 
 int osk_enable=0;
 
+int not_already_loaded=1;
+
 int viciv_mode_report(unsigned char *viciv_regs);
 
 int process_char(unsigned char c,int live);
@@ -461,15 +463,17 @@ int process_line(char *line,int live)
   }
   if (sscanf(line," :00000B7 %02x %*02x %*02x %*02x %02x %02x",
 	     &name_len,&name_lo,&name_hi)==3) {
-    name_addr=(name_hi<<8)+name_lo;
-    printf("Filename is %d bytes long, and is stored at $%04x\n",
-	   name_len,name_addr);
-    char filename[16];
-    snprintf(filename,16,"m%04x\r",name_addr);
-    usleep(10000);
-    slow_write(fd,filename,strlen(filename));
-    printf("Asking for filename from memory: %s\n",filename);
-    state=3;
+    if (not_already_loaded||name_len>1) {
+      name_addr=(name_hi<<8)+name_lo;
+      printf("Filename is %d bytes long, and is stored at $%04x\n",
+	     name_len,name_addr);
+      char filename[16];
+      snprintf(filename,16,"m%04x\r",name_addr);
+      usleep(10000);
+      slow_write(fd,filename,strlen(filename));
+      printf("Asking for filename from memory: %s\n",filename);
+      state=3;
+    }
   }
   {
     int addr;
@@ -486,8 +490,17 @@ int process_line(char *line,int live)
 	for(int i=0;i<16;i++) fname[i]=b[i]; fname[16]=0;
 	fname[name_len]=0;
 	printf("Request to load '%s'\n",fname);
-	if (fname[0]=='!') // we use this form in case junk gets typed while we are doing it
-	  state=2; // load specified file
+	if (fname[0]=='!') {
+	  // we use this form in case junk gets typed while we are doing it
+	  if (not_already_loaded)
+	    state=2; // load specified file
+	  not_already_loaded=0;
+	  // and change filename, so that we don't get stuck in a loop repeatedly loading
+	  char cmd[1024];
+	  snprintf(cmd,1024,"s%x 41\r",name_addr);
+	  fprintf(stderr,"Replacing filename: %s\n",cmd);
+	  slow_write(fd,cmd,strlen(cmd));
+	}
 	else {
 	  printf("Specific file to load is '%s'\n",fname);
 	  if (filename) free(filename);
@@ -659,7 +672,7 @@ int process_line(char *line,int live)
 			 " :000042C 2A 2A 2A 2A 20 03 0F 0D 0D 0F 04 0F 12 05 20 36")) {
     // C64 mode BASIC -- set LOAD trap, and then issue LOAD command
     char *cmd;
-    if (filename) {
+    if (filename&&not_already_loaded) {
       cmd="bf4a5\r";
       slow_write(fd,cmd,strlen(cmd));
       cmd="s277 4c 6f 22 21 22 2c 38 2c 31 d\rsc6 10\r";
@@ -675,6 +688,7 @@ int process_line(char *line,int live)
   }  
   if (state==2)
     {
+      state=99;
       printf("Filename is %s\n",filename);
       f=fopen(filename,"r");
       if (f==NULL) {
