@@ -45,6 +45,12 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <errno.h>
 #include <getopt.h>
 
+#ifdef APPLE
+static const int B1000000 = 1000000;
+static const int B1500000 = 1500000;
+static const int B2000000 = 2000000;
+static const int B4000000 = 4000000;
+#endif
 time_t start_time=0;
 
 int osk_enable=0;
