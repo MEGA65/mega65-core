@@ -9,57 +9,22 @@ f011_virtual_read:
         ; Operation is triggered by side bit 7 = 1
         ; Request served once monitor_load sets side bit 7 = 0
 
-	; this is an hack to work around on sector request
-        ; end up in multiple traps.
-	lda $d084
-        cmp vfr_last_track
-        bne fvr
-        lda $d085
-        cmp vfr_last_sec
-        bne fvr
-        lda $d086
-        cmp vfr_last_side
-        beq fvr6
+	LDA 	  #$80	
+        TSB	  $D086
 
-fvr:
-        lda $d084
-        sta vfr_last_track
-        lda $d085
-        sta vfr_last_sec
-
-        lda $d086
-        sta vfr_last_side
-        ora #$80
-        sta $d086
-
+	; Wait for monitor_load to clear bit 7 of side register to indicate that
+	; it has done the job
 fvr3:
         lda $d086
         bmi fvr3
 
-fvr4:
-        lda $d09e
-        cmp #$ff
-        bne fvr5
-        ;lda $d09f
-        ;and #1
-        ;bne fvr6
-        jmp fvr6
-
-fvr5:
-;        lda $D086
-;        lda $d087
-;        jmp fvr4
-fvr6:
-	; Set floppy flags as appropriate
+fvr_same_as_last_time:
+	; Set floppy flags as appropriate to look like FDC has just successfully read a
+	; sector
 	LDA   #$35
 	STA   $D6AF
 
         sta hypervisor_enterexit_trigger
-
-vfr_last_track:		.byte	0
-vfr_last_sec:		.byte	0
-vfr_last_side:		.byte	0
-
 
 f011_virtual_write:
 
@@ -71,15 +36,9 @@ f011_virtual_write:
 	; from card and overwriting what we load
 	LDA	#$01
 	STA	$D081
-	NOP  ; XXX Work around Ophis bug.  Kickstart is messed up if this is missing!
 
-	lda $d083
-        and #$40		; already written successful?
-        bne fvw2
-
-	lda $d086
-        ora #$40
-        sta $d086
+	LDA	#$40
+        TSB	$D086
 
         ; ensure f011 buffer is mapped
         lda $d689
