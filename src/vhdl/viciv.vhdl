@@ -3785,38 +3785,44 @@ begin
           glyph_blink_drive <= '0';
           glyph_with_alpha_drive <= '0';
           report "Reading high-byte of colour RAM (value $" & to_hstring(colourramdata)&")";
-          if viciii_extended_attributes='1' then
-            if colourramdata(4)='1' then
-              -- Blinking glyph
-              glyph_blink_drive <= '1';
-              if colourramdata(5)='1'
-                or colourramdata(6)='1'
-                or colourramdata(7)='1' then
-                -- Blinking attributes
-                if viciii_blink_phase='1' then
-                  glyph_reverse_drive <= colourramdata(5);
-                  glyph_bold_drive <= colourramdata(6);
-                  glyph_colour_drive(4) <= colourramdata(6);
-                  if chargen_y_hold="111" then
-                    glyph_underline_drive <= colourramdata(7);
+          if multicolour_mode='1' then
+            -- Multicolour + full colour mode + 16-bit char mode = simple 256 colour foreground
+            -- colour selection from 2nd byte of colour RAM data
+            glyph_colour_drive(7 downto 4) <= colourramdata(7 downto 4);
+          else
+            if viciii_extended_attributes='1' then
+              if colourramdata(4)='1' then
+                -- Blinking glyph
+                glyph_blink_drive <= '1';
+                if colourramdata(5)='1'
+                  or colourramdata(6)='1'
+                  or colourramdata(7)='1' then
+                  -- Blinking attributes
+                  if viciii_blink_phase='1' then
+                    glyph_reverse_drive <= colourramdata(5);
+                    glyph_bold_drive <= colourramdata(6);
+                    glyph_colour_drive(4) <= colourramdata(6);
+                    if chargen_y_hold="111" then
+                      glyph_underline_drive <= colourramdata(7);
+                    end if;
                   end if;
+                else
+                  -- Just plain blinking character
+                  glyph_visible_drive <= viciii_blink_phase;
                 end if;
               else
-                -- Just plain blinking character
-                glyph_visible_drive <= viciii_blink_phase;
-              end if;
-            else
-              -- Non-blinking attributes
-              glyph_visible_drive <= '1';
-              glyph_reverse_drive <= colourramdata(5);
-              glyph_bold_drive <= colourramdata(6);
-              glyph_colour_drive(4) <= colourramdata(6);
-              if chargen_y_hold="111" then
-                glyph_underline_drive <= colourramdata(7);
+                -- Non-blinking attributes
+                glyph_visible_drive <= '1';
+                glyph_reverse_drive <= colourramdata(5);
+                glyph_bold_drive <= colourramdata(6);
+                glyph_colour_drive(4) <= colourramdata(6);
+                if chargen_y_hold="111" then
+                  glyph_underline_drive <= colourramdata(7);
+                end if;
               end if;
             end if;
           end if;
-
+      
           -- Ask for first byte of data so that paint can commence immediately.
           report "setting ramaddress to $" & to_hstring("000"&glyph_data_address) & " for glyph painting." severity note;
           ramaddress <= glyph_data_address;
