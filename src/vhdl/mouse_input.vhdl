@@ -122,9 +122,9 @@ begin
 
       last_amiga_mouse_enable <= amiga_mouse_enable;
       if amiga_mouse_enable='1' and last_amiga_mouse_enable='0' then
-        ma_amiga_mode <= '1';
+        ma_amiga_mode <= fa_left and fa_right and fa_down and fa_up;
         ma_amiga_pots <= '1';
-        mb_amiga_mode <= '1';
+        mb_amiga_mode <= fb_left and fb_right and fb_down and fb_up;
         mb_amiga_pots <= '1';
       end if;
       
