@@ -4207,12 +4207,16 @@ begin
             raster_buffer_write_data(8) <= '0';
             raster_buffer_write_data(7 downto 0) <= paint_background;
           else
-            -- fullground pixel
+            -- foreground pixel
             if paint_with_alpha='0' then
               report "full-colour glyph painting pixel $" & to_hstring(paint_full_colour_data(7 downto 0));
               raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
-              raster_buffer_write_data(8) <= '1';              
-              raster_buffer_write_data(7 downto 0) <= paint_full_colour_data(7 downto 0);
+              raster_buffer_write_data(8) <= '1';
+              if paint_full_colour_data(7 downto 0) /= x"FF" then
+                raster_buffer_write_data(7 downto 0) <= paint_full_colour_data(7 downto 0);
+              else
+                raster_buffer_write_data(7 downto 0) <= paint_foreground;
+              end if;
             else
               report "full-colour glyph painting alpha pixel $"
                 & to_hstring(paint_full_colour_data(7 downto 0))
