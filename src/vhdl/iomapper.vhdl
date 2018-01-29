@@ -104,7 +104,10 @@ entity iomapper is
         pot_via_iec : buffer std_logic;
         
         mouse_debug : in unsigned(7 downto 0);
-        amiga_mouse_enable : out std_logic;
+        amiga_mouse_enable_a : out std_logic;
+        amiga_mouse_enable_b : out std_logic;
+        amiga_mouse_assume_a : out std_logic;
+        amiga_mouse_assume_b : out std_logic;
         
         ----------------------------------------------------------------------
         -- CBM floppy serial port
@@ -522,8 +525,10 @@ begin
       joya_rotate => joya_rotate,
       joyb_rotate => joyb_rotate,
       mouse_debug => mouse_debug,
-      amiga_mouse_enable => amiga_mouse_enable,
-
+      amiga_mouse_enable_a => amiga_mouse_enable_a,
+      amiga_mouse_enable_b => amiga_mouse_enable_b,
+      amiga_mouse_assume_a => amiga_mouse_assume_a,
+      amiga_mouse_assume_b => amiga_mouse_assume_b,
       pot_via_iec => pot_via_iec,
       pot_drain => pot_drain,
       cia1portb_out => cia1portb_out(7 downto 6),

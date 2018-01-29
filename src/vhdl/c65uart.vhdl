@@ -53,7 +53,10 @@ entity c65uart is
     potb_y : in unsigned(7 downto 0);    
     pot_via_iec : buffer std_logic := '0';
     mouse_debug : in unsigned(7 downto 0);
-    amiga_mouse_enable : out std_logic;
+    amiga_mouse_enable_a : out std_logic;
+    amiga_mouse_enable_b : out std_logic;
+    amiga_mouse_assume_a : out std_logic;
+    amiga_mouse_assume_b : out std_logic;
     
     porte : inout std_logic_vector(7 downto 0);
     portf : inout std_logic_vector(7 downto 0);
@@ -187,7 +190,10 @@ architecture behavioural of c65uart is
 
   signal joya_rotate_internal : std_logic := '0';
   signal joyb_rotate_internal : std_logic := '0';
-  signal amiga_mouse_enable_internal : std_logic := '0';
+  signal amiga_mouse_enable_a_internal : std_logic := '0';
+  signal amiga_mouse_enable_b_internal : std_logic := '0';
+  signal amiga_mouse_assume_a_internal : std_logic := '0';
+  signal amiga_mouse_assume_b_internal : std_logic := '0';
   
 begin  -- behavioural
   
@@ -345,13 +351,22 @@ begin  -- behavioural
           when x"1A" =>
             portp_internal <= std_logic_vector(fastio_wdata);
           when x"1b" =>
-            -- @IO:GS $D61B.0 WRITE enable/disable Amiga mouse support (1351 emulation)
-            amiga_mouse_enable_internal <= fastio_wdata(0);
-            amiga_mouse_enable <= fastio_wdata(0);
-            -- @IO:GS $D61B.1 WRITEONLY DEBUG disable ASCII key retrigger suppression
-            suppress_key_retrigger <= not fastio_wdata(1);
-            -- @IO:GS $D61B.2 WRITEONLY DEBUG disable ASCII key glitch suppression
-            suppress_key_glitches <= not fastio_wdata(2);
+            -- @IO:GS $D61B.0 WRITEONLY enable/disable Amiga mouse support (1351 emulation) on jostick 1
+            amiga_mouse_enable_a_internal <= fastio_wdata(0);
+            amiga_mouse_enable_a <= fastio_wdata(0);
+            -- @IO:GS $D61B.1 WRITEONLY enable/disable Amiga mouse support (1351 emulation) on jostick 2
+            amiga_mouse_enable_b_internal <= fastio_wdata(1);
+            amiga_mouse_enable_b <= fastio_wdata(1);
+            -- @IO:GS $D61B.2 WRITEONLY assume amiga mouse on jostick 1 if enabled
+            amiga_mouse_enable_a_internal <= fastio_wdata(2);
+            amiga_mouse_enable_a <= fastio_wdata(2);
+            -- @IO:GS $D61B.3 WRITEONLY assume amiga mouse on jostick 2 if enabled
+            amiga_mouse_enable_b_internal <= fastio_wdata(3);
+            amiga_mouse_enable_b <= fastio_wdata(3);
+            -- @IO:GS $D61B.6 WRITEONLY DEBUG disable ASCII key retrigger suppression
+            suppress_key_retrigger <= not fastio_wdata(6);
+            -- @IO:GS $D61B.7 WRITEONLY DEBUG disable ASCII key glitch suppression
+            suppress_key_glitches <= not fastio_wdata(7);
           when others => null;
         end case;
       end if;

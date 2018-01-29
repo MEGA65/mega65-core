@@ -10,7 +10,10 @@ entity mouse_input is
   port (
     clk : in std_logic;
 
-    amiga_mouse_enable : in std_logic;
+    amiga_mouse_enable_a : in std_logic;
+    amiga_mouse_enable_b : in std_logic;
+    amiga_mouse_assume_a : in std_logic;
+    amiga_mouse_assume_b : in std_logic;
     
     pot_drain : buffer std_logic;
     fa_potx : in std_logic;
@@ -104,7 +107,8 @@ architecture behavioural of mouse_input is
   signal last_fa_rightdown : std_logic_vector(1 downto 0) := "11";
   signal last_fb_leftup : std_logic_vector(1 downto 0) := "11";
   signal last_fb_rightdown : std_logic_vector(1 downto 0) := "11";
-  signal last_amiga_mouse_enable : std_logic := '0';
+  signal last_amiga_mouse_enable_a : std_logic := '0';
+  signal last_amiga_mouse_enable_b : std_logic := '0';
   
 begin
 
@@ -117,23 +121,28 @@ begin
       mouse_debug(1) <= ma_amiga_mode;
       mouse_debug(2) <= potsb_at_edge;
       mouse_debug(3) <= mb_amiga_mode;
-      mouse_debug(5 downto 4) <= unsigned(last_fa_leftup);
-      mouse_debug(7 downto 6) <= unsigned(last_fa_rightdown);
+      mouse_debug(5 downto 4) <= unsigned(last_fb_leftup);
+      mouse_debug(7 downto 6) <= unsigned(last_fb_rightdown);
 
-      last_amiga_mouse_enable <= amiga_mouse_enable;
-      if amiga_mouse_enable='1' and last_amiga_mouse_enable='0' then
-        ma_amiga_mode <= fa_left and fa_right and fa_down and fa_up;
-        ma_amiga_pots <= '1';
-        mb_amiga_mode <= fb_left and fb_right and fb_down and fb_up;
-        mb_amiga_pots <= '1';
+      last_amiga_mouse_enable_a <= amiga_mouse_enable_a;
+      last_amiga_mouse_enable_b <= amiga_mouse_enable_b;
+      if amiga_mouse_enable_a='1' and last_amiga_mouse_enable_a='0' then
+        ma_amiga_mode <= fa_left and fa_right and fa_down and fa_up and amiga_mouse_assume_a;
+        ma_amiga_pots <= amiga_mouse_assume_a;
+      end if;
+      if amiga_mouse_enable_b='1' and last_amiga_mouse_enable_b='0' then
+        mb_amiga_mode <= fb_left and fb_right and fb_down and fb_up and amiga_mouse_assume_b;
+        mb_amiga_pots <= amiga_mouse_assume_b;
       end if;
       
-      if amiga_mouse_enable='0' then
+      if amiga_mouse_enable_a='0' then
         ma_amiga_mode <= '0';
-        mb_amiga_mode <= '0';
         ma_amiga_pots <= '0';
-        mb_amiga_pots <= '0';
         ma_amiga_mode_timeout <= 0;
+      end if;
+      if amiga_mouse_enable_b='0' then
+        mb_amiga_mode <= '0';
+        mb_amiga_pots <= '0';
         mb_amiga_mode_timeout <= 0;
       end if;
       
@@ -177,8 +186,8 @@ begin
       end if;
       if (((fa_up or fa_down) = '0') or ((fa_left or fa_right) = '0'))
          and (potsa_at_edge='1') then
-        ma_amiga_mode <= amiga_mouse_enable;
-        ma_amiga_pots <= amiga_mouse_enable;
+        ma_amiga_mode <= amiga_mouse_enable_a;
+        ma_amiga_pots <= amiga_mouse_enable_a;
         if ma_amiga_pots = '0' then
           -- Copy existing pot value in to avoid mouse jumping when swapping
           -- between 1351 and amiga mouse
@@ -191,8 +200,8 @@ begin
       end if;
       if (((fb_up or fb_down) = '0') or ((fb_left or fb_right) = '0'))
          and (potsb_at_edge='1') then
-        mb_amiga_mode <= '1';
-        mb_amiga_pots <= '1';
+        mb_amiga_mode <= amiga_mouse_enable_b;
+        mb_amiga_pots <= amiga_mouse_enable_b;
         mb_amiga_mode_timeout <= 0;
         if mb_amiga_pots = '0' then
           -- Copy existing pot value in to avoid mouse jumping when swapping
