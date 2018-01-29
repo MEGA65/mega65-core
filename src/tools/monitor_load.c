@@ -484,6 +484,7 @@ int process_line(char *line,int live)
   {
     int addr;
     int b[16];
+    if (line[0]=='?') fprintf(stderr,"%s\n",line);
     if (sscanf(line," :%x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
 	       &addr,
 	       &b[0],&b[1],&b[2],&b[3],
@@ -516,6 +517,7 @@ int process_line(char *line,int live)
 	}
       }
       if (addr==0xffd3077) {
+	//	fprintf(stderr,"$D086 = $%02X, virtual_f011_pending=%d\n",b[6+9],virtual_f011_pending);
         if((b[6+9] & 0x80) && !virtual_f011_pending) {  /* virtual f011 read request issued */
 	  
           char cmd[1024];
@@ -605,6 +607,7 @@ int process_line(char *line,int live)
 	  }
           // fetch buffer from M65 memory
           sdbuf_request_addr = 0xFFD6000;
+	  stop_cpu();
           slow_write(fd,"Mffd6000\r",9);	    
 
 	  /* signal done/result */
@@ -626,7 +629,9 @@ int process_line(char *line,int live)
         sdbuf_request_addr += 16;
 
         if(sdbuf_request_addr == 0xFFD6200) {
-    
+
+	  dump_bytes(0,"Sector to write",sd_sector_buf,512);
+	  
           char cmd[1024];
 
 	  int physical_sector=( saved_side==0 ? saved_sector-1 : saved_sector+9 );
@@ -654,7 +659,7 @@ int process_line(char *line,int live)
 	  virtual_f011_pending = 1;
           snprintf(cmd,1024,"sffd3086 %02x\n",saved_side);
 	  slow_write(fd,cmd,strlen(cmd));
-          //slow_write(fd,"t0\r",3);
+          slow_write(fd,"t0\r",3);
           slow_write(fd,"mffd3077\r",9);
         }
       }
