@@ -950,9 +950,13 @@ postkickup:
 	jsr dumpcurrentfd	; debugging to Checkpoint
 		
 		; for now indicate that there is no disk in drive
-		;
+		; (unless we notice that floppy access has been virtualised)
+		LDA	$D659
+		AND	#$01
+		BNE	f011Virtualised
 		lda #$00
 		sta $d68b	; f011 emulation, BG: should have an alias
+f011Virtualised:
 
 		; Go to root directory on default disk
 		;
