@@ -2523,7 +2523,7 @@ begin
                                                     palette_bank_chargen <= fastio_wdata(5 downto 4);
                                         -- @IO:GS $D070.3-2 VIC-IV sprite palette bank
                                                     palette_bank_sprites <= fastio_wdata(3 downto 2);
-                                        -- @IO:GS $D070.1-0 VIC-IV bitmap/text palette bank
+                                        -- @IO:GS $D070.1-0 VIC-IV bitmap/text palette bank for 256 colour modes
                                                     palette_bank_chargen256 <= fastio_wdata(1 downto 0);
                                                   elsif register_number=113 then -- $D3071
                                                                                  -- @IO:GS $D071 VIC-IV 16-colour bitplane enable flags
