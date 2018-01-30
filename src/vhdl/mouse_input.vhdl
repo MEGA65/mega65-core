@@ -127,11 +127,11 @@ begin
       last_amiga_mouse_enable_a <= amiga_mouse_enable_a;
       last_amiga_mouse_enable_b <= amiga_mouse_enable_b;
       if amiga_mouse_enable_a='1' and last_amiga_mouse_enable_a='0' then
-        ma_amiga_mode <= fa_left and fa_right and fa_down and fa_up and amiga_mouse_assume_a;
+        ma_amiga_mode <= (not (fa_left and fa_right and fa_down and fa_up)) and amiga_mouse_assume_a;
         ma_amiga_pots <= amiga_mouse_assume_a;
       end if;
       if amiga_mouse_enable_b='1' and last_amiga_mouse_enable_b='0' then
-        mb_amiga_mode <= fb_left and fb_right and fb_down and fb_up and amiga_mouse_assume_b;
+        mb_amiga_mode <= (not (fb_left and fb_right and fb_down and fb_up)) and amiga_mouse_assume_b;
         mb_amiga_pots <= amiga_mouse_assume_b;
       end if;
       
