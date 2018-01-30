@@ -358,11 +358,11 @@ begin  -- behavioural
             amiga_mouse_enable_b_internal <= fastio_wdata(1);
             amiga_mouse_enable_b <= fastio_wdata(1);
             -- @IO:GS $D61B.2 WRITEONLY assume amiga mouse on jostick 1 if enabled
-            amiga_mouse_enable_a_internal <= fastio_wdata(2);
-            amiga_mouse_enable_a <= fastio_wdata(2);
+            amiga_mouse_assume_a_internal <= fastio_wdata(2);
+            amiga_mouse_assume_a <= fastio_wdata(2);
             -- @IO:GS $D61B.3 WRITEONLY assume amiga mouse on jostick 2 if enabled
-            amiga_mouse_enable_b_internal <= fastio_wdata(3);
-            amiga_mouse_enable_b <= fastio_wdata(3);
+            amiga_mouse_assume_b_internal <= fastio_wdata(3);
+            amiga_mouse_assume_b <= fastio_wdata(3);
             -- @IO:GS $D61B.6 WRITEONLY DEBUG disable ASCII key retrigger suppression
             suppress_key_retrigger <= not fastio_wdata(6);
             -- @IO:GS $D61B.7 WRITEONLY DEBUG disable ASCII key glitch suppression
