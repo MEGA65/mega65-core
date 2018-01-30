@@ -66,9 +66,32 @@ systemOptions0:
 	.byte		$20			;option input type
 	.word		$0005			;offset into config table
 	.byte		$01			;bits for testing/setting
-	.defPStr	"amiga mouse mode:"	;label
+	.defPStr	"joystick 2 amiga mouse mode:"	;label
 	.defPStr	'normal'		;option unset
 	.defPStr	"1351 emulation"	;option set
+
+	.byte		$20			;option input type
+	.word		$0005			;offset into config table
+	.byte		$08			;bits for testing/setting
+	.defPStr	"joystick 1 amiga mouse detection:"	;label
+	.defPStr	'conservative'		;option unset
+	.defPStr	"aggressive"	;option set
+
+	.byte		$20			;option input type
+	.word		$0005			;offset into config table
+	.byte		$02			;bits for testing/setting
+	.defPStr	"joystick 1 amiga mouse mode:"	;label
+	.defPStr	'normal'		;option unset
+	.defPStr	"1351 emulation"	;option set
+
+	.byte		$20			;option input type
+	.word		$0005			;offset into config table
+	.byte		$04			;bits for testing/setting
+	.defPStr	"joystick 2 amiga mouse detection:"	;label
+	.defPStr	'conservative'		;option unset
+	.defPStr	"aggressive"	;option set
+
+
 	.byte		$00			;end of list type
 systemOptions0_end:
 	.assert		(systemOptions0_end - systemOptions0) < 256, error, "System Options too large!"
