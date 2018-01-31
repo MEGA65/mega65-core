@@ -65,8 +65,8 @@ systemPageCnt	=	1
 systemOptions0:
 	.byte		$20			;option input type
 	.word		$0005			;offset into config table
-	.byte		$01			;bits for testing/setting
-	.defPStr	"joystick 2 amiga mouse mode:"	;label
+	.byte		$02			;bits for testing/setting
+	.defPStr	"joystick 1 amiga mouse mode:"	;label
 	.defPStr	'normal'		;option unset
 	.defPStr	"1351 emulation"	;option set
 
@@ -79,8 +79,8 @@ systemOptions0:
 
 	.byte		$20			;option input type
 	.word		$0005			;offset into config table
-	.byte		$02			;bits for testing/setting
-	.defPStr	"joystick 1 amiga mouse mode:"	;label
+	.byte		$01			;bits for testing/setting
+	.defPStr	"joystick 2 amiga mouse mode:"	;label
 	.defPStr	'normal'		;option unset
 	.defPStr	"1351 emulation"	;option set
 

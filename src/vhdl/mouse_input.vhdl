@@ -219,10 +219,10 @@ begin
       -- This does mean if you are using a joystick/mouse switcher with an
       -- Amiga mouse you have to leave the joystick motionless for 5 seconds in
       -- 1 in 16 cases before it will be properly recognised by the MEGA65.
-      if ((fa_up and fa_down and fa_left and fa_right) = '1') then
+      if ((fa_up and fa_down and fa_left and fa_right) = '1') and (ma_amiga_mode='1') then
         ma_amiga_mode_timeout <= 250000000;
       end if;
-      if ((fb_up and fb_down and fb_left and fb_right) = '1') then
+      if ((fb_up and fb_down and fb_left and fb_right) = '1') and (mb_amiga_mode='1') then
         mb_amiga_mode_timeout <= 250000000;
       end if;
       last_fa_leftup <= fa_left & fa_up;
