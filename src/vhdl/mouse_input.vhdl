@@ -166,6 +166,21 @@ begin
       if mb_amiga_mode_timeout = 1 then
         mb_amiga_mode <= '0';
       end if;
+
+      -- If all lines are high, we can't be sure it is an amiga mouse,
+      -- but we don't want to cause glitchy behaviour if the mouse is moved
+      -- slowly, so we have a 5 second timeout before we think it is a joystick
+      -- (i.e., about the time it takes to unplug and replug a joystick/mouse.)
+      -- This does mean if you are using a joystick/mouse switcher with an
+      -- Amiga mouse you have to leave the joystick motionless for 5 seconds in
+      -- 1 in 16 cases before it will be properly recognised by the MEGA65.
+      if ((fa_up and fa_down and fa_left and fa_right) = '0') and (ma_amiga_mode='1') then
+        ma_amiga_mode_timeout <= 250000000;
+      end if;
+      if ((fb_up and fb_down and fb_left and fb_right) = '0') and (mb_amiga_mode='1') then
+        mb_amiga_mode_timeout <= 250000000;
+      end if;
+      
       
       -- Work out if we think we have an amiga mouse connected
       if ((pota_x_internal(7 downto 2) = "111111") or (pota_x_internal(7 downto 2) = "000000"))
@@ -188,6 +203,7 @@ begin
          and (potsa_at_edge='1') then
         ma_amiga_mode <= amiga_mouse_enable_a;
         ma_amiga_pots <= amiga_mouse_enable_a;
+        ma_amiga_mode_timeout <= 250000000;
         if ma_amiga_pots = '0' then
           -- Copy existing pot value in to avoid mouse jumping when swapping
           -- between 1351 and amiga mouse
@@ -196,13 +212,12 @@ begin
           ma_y(5 downto 0) <= pota_y_internal(5 downto 0);
           ma_y(6) <= not pota_y_internal(6);
         end if;
-        ma_amiga_mode_timeout <= 0;
       end if;
       if (((fb_up or fb_down) = '0') or ((fb_left or fb_right) = '0'))
          and (potsb_at_edge='1') then
         mb_amiga_mode <= amiga_mouse_enable_b;
         mb_amiga_pots <= amiga_mouse_enable_b;
-        mb_amiga_mode_timeout <= 0;
+        mb_amiga_mode_timeout <= 250000000;
         if mb_amiga_pots = '0' then
           -- Copy existing pot value in to avoid mouse jumping when swapping
           -- between 1351 and amiga mouse
@@ -211,19 +226,6 @@ begin
           mb_y(5 downto 0) <= potb_y_internal(5 downto 0);
           mb_y(6) <= not potb_y_internal(6);
         end if;
-      end if;
-      -- If all lines are high, we can't be sure it is an amiga mouse,
-      -- but we don't want to cause glitchy behaviour if the mouse is moved
-      -- slowly, so we have a 5 second timeout before we think it is a joystick
-      -- (i.e., about the time it takes to unplug and replug a joystick/mouse.)
-      -- This does mean if you are using a joystick/mouse switcher with an
-      -- Amiga mouse you have to leave the joystick motionless for 5 seconds in
-      -- 1 in 16 cases before it will be properly recognised by the MEGA65.
-      if ((fa_up and fa_down and fa_left and fa_right) = '1') and (ma_amiga_mode='1') then
-        ma_amiga_mode_timeout <= 250000000;
-      end if;
-      if ((fb_up and fb_down and fb_left and fb_right) = '1') and (mb_amiga_mode='1') then
-        mb_amiga_mode_timeout <= 250000000;
       end if;
       last_fa_leftup <= fa_left & fa_up;
       last_fa_rightdown <= fa_right & fa_down;
