@@ -80,7 +80,8 @@ The 16-bit character mode is enabled by setting bit 0 in $D054 (remember to enab
 | Bit | Function |
 | --- | --- |
 | Screen RAM byte 0 | Lower 8 bits of character number, the same as the VIC-II and VIC-III |
-| Screen RAM byte 1, bits 0 - 3 | Upper 4 bits of character number, allowing addressing of 4096 unique characters |
+| Screen RAM byte 1, bits 0 - 5 | Upper 5 bits of character number, allowing addressing of 8,192 unique characters |
+| Screen RAM byte 1, bits 5 - 7 | Trim pixels from right side of character | 
 | Colour RAM byte 0, bit 7 | Vertically flip the character |
 | Colour RAM byte 0, bit 6 | Horizontally flip the character |
 | Colour RAM byte 0, bit 5 | Alpha blend mode (leave 0, discussed later) |
@@ -93,4 +94,9 @@ The 16-bit character mode is enabled by setting bit 0 in $D054 (remember to enab
 | Colour RAM byte 1, bit 6 | Hardware bold attribute of character (if VIC-III extended attributes are enabled) |
 | Colour RAM byte 1, bit 7 | Hardware underlining of character (if VIC-III extended attributes are enabled) |
 
+We can see that we still have the C64 style bottom 8 bits of the character number in the first screen byte. The second byte of screen memory gets five extra bits for that, allowing 2^13 = 8,192 different characters to be used on a single screen. That's enough for unique characters covering an 80x50 screen (which is possible to create).  The remaining bits allow for trimming of the character.  This allows for variable width characters, which can be used to do things that would not normally be possible, such as using text mode for free horizontal placement of characters (or parts thereof). This was originally added to provide hardware support for proportional width fonts.
+
+For the colour RAM, the second byte (byte 1) is the same as the C65, i.e., the lower half providing four bits of foreground colour, as on the C64, plus the optional VIC-III extended attributes. The C65 specifications document describes the behaviour when more than one of these are used together, most of which are logical, but there are a few combinations that behave differently than one might expect. For example, combining bold with blink causes the character to toggle between bold and normal mode. Bold mode itself is implemented by effectively acting as bit 4 of the foreground colour value, causing the colour to be drawn from different palette entries than usual.  
+
+The C65 / VIC-III attributes (and the use of 256 colour 8-bit values for various VIC-II colour registers is enabled by setting bit 5 of $D031.  Therefore this is highly recommended when using the VIC-IV mode, as otherwise certain functions will not behave as expected.
 
