@@ -102,7 +102,7 @@ The C65 / VIC-III attributes (and the use of 256 colour 8-bit values for various
 
 A C64-mode BASIC 2 program that shows the various effects of these in a crude way on the screen can be found [here](viciv-modes-16-bit-charmode-1.prg).  As this has been only quickly written, the format of the display is simply the bytes having been written linearly to screen memory and colour RAM, so some effort is required to work out which values are causing which effect. We hope to improve this later (and it is an ideal task for someone in the commmunity to attack), but it is enough now to enable exploration and discovery. 
 
-A video of the program running is available (here)[https://youtu.be/-5858xd1Hdo].
+A video of the program running is available [here](https://youtu.be/-5858xd1Hdo).
 
 When run, the programme shows several successive displays, advancing to the next when you press the space bar:
 
