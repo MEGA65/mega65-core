@@ -100,3 +100,16 @@ For the colour RAM, the second byte (byte 1) is the same as the C65, i.e., the l
 
 The C65 / VIC-III attributes (and the use of 256 colour 8-bit values for various VIC-II colour registers is enabled by setting bit 5 of $D031.  Therefore this is highly recommended when using the VIC-IV mode, as otherwise certain functions will not behave as expected.
 
+A C64-mode BASIC 2 program that shows the various effects of these in a crude way on the screen can be found [here](viciv-modes-16-bit-charmode-1.prg).  As this has been only quickly written, the format of the display is simply the bytes having been written linearly to screen memory and colour RAM, so some effort is required to work out which values are causing which effect. We hope to improve this later (and it is an ideal task for someone in the commmunity to attack), but it is enough now to enable exploration and discovery. When run, the programme shows several successive displays, advancing to the next when you press the space bar:
+
+1. VIC-III character mode attributes. Here normal character mode is used, without enabling 16-bit character mode. Only the VIC-III extended attributes are enabled. This provides a base line for comparison with the later screens. 
+
+2. 16-bit char mode: screen byte 0.  All other bytes are made zero, so the characters are black, and we see the usual 256 characters of the C64 uppercase font, because the lower byte of screen RAM selects the lower 8 bits of the character number.
+
+3. 16 bit chaar mode: screen byte 1, masked to $E1 (bits 5-7 and bit 0).  Bits 5-7 encode the number of pixels to trim from the right of each character, making the drawn characters narrower.  The effect of this can be seen sa the letter F's get progressively more truncated the later on the screen that they are drawn, i.e, with higher values put in the screen byte 1.  Bit 0 is the 9th bit of the character number.  As the C64 stores the lower-case character set immediately following the upper-case character set, this effectively makes it possible to access both character sets at the same time, an effect which is shown more clearly in the last screen.
+
+4. 16-bit character mode: colour byte 0. All other bytes are zero, except screen ram byte 0, which is set to $06, so that the letter F is displayed. F was chosen as the orientation of hte letter is easy to identify. As the vertical trimming functions are not enabled in this demo, only the flipping of the character in both axes is visible, controlled by bits 6 and 7.
+
+5. 16-bit character mode: colour byte 1. This gives a similar effect to the VIC-III attribute display of the first screen, because this byte has the same function as the sole colour byte per character in VIC-III text mode.
+
+6. 16-bit character mod: double character set. Here the 9th character select bit (screen byte 1, bit 0) is used to allow simultaneous display of characters from both standard character sets, clearly demonstrating the ability to have more than 256 characters on the screen simultaneously.
