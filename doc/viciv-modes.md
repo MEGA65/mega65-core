@@ -100,7 +100,11 @@ For the colour RAM, the second byte (byte 1) is the same as the C65, i.e., the l
 
 The C65 / VIC-III attributes (and the use of 256 colour 8-bit values for various VIC-II colour registers is enabled by setting bit 5 of $D031.  Therefore this is highly recommended when using the VIC-IV mode, as otherwise certain functions will not behave as expected.
 
-A C64-mode BASIC 2 program that shows the various effects of these in a crude way on the screen can be found [here](viciv-modes-16-bit-charmode-1.prg).  As this has been only quickly written, the format of the display is simply the bytes having been written linearly to screen memory and colour RAM, so some effort is required to work out which values are causing which effect. We hope to improve this later (and it is an ideal task for someone in the commmunity to attack), but it is enough now to enable exploration and discovery. When run, the programme shows several successive displays, advancing to the next when you press the space bar:
+A C64-mode BASIC 2 program that shows the various effects of these in a crude way on the screen can be found [here](viciv-modes-16-bit-charmode-1.prg).  As this has been only quickly written, the format of the display is simply the bytes having been written linearly to screen memory and colour RAM, so some effort is required to work out which values are causing which effect. We hope to improve this later (and it is an ideal task for someone in the commmunity to attack), but it is enough now to enable exploration and discovery. 
+
+A video of the program running is available (here)[https://youtu.be/-5858xd1Hdo].
+
+When run, the programme shows several successive displays, advancing to the next when you press the space bar:
 
 1. VIC-III character mode attributes. Here normal character mode is used, without enabling 16-bit character mode. Only the VIC-III extended attributes are enabled. This provides a base line for comparison with the later screens. 
 
