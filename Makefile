@@ -53,7 +53,8 @@ TOOLS=	$(TOOLDIR)/etherkick/etherkick \
 	$(TOOLDIR)/monitor_load \
 	$(TOOLDIR)/monitor_save \
 	$(TOOLDIR)/on_screen_keyboard_gen \
-	$(TOOLDIR)/pngprepare/pngprepare
+	$(TOOLDIR)/pngprepare/pngprepare \
+	$(TOOLDIR)/pngprepare/pngtoscreens
 
 all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r1.mcs $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr.mcs $(BINDIR)/touch_test.mcs
 
@@ -382,6 +383,10 @@ $(BINDIR)/matrixfont.bin:	$(TOOLDIR)/pngprepare/pngprepare $(ASSETS)/matrix.png
 $(TOOLDIR)/pngprepare/pngprepare:	$(TOOLDIR)/pngprepare/pngprepare.c Makefile
 	$(CC) $(COPT) -I/usr/local/include -L/usr/local/lib -o $(TOOLDIR)/pngprepare/pngprepare $(TOOLDIR)/pngprepare/pngprepare.c -lpng
 
+$(TOOLDIR)/pngprepare/pngtoscreens:	$(TOOLDIR)/pngprepare/pngtoscreens.c Makefile
+	$(CC) $(COPT) -I/usr/local/include -L/usr/local/lib -o $(TOOLDIR)/pngprepare/pngtoscreens $(TOOLDIR)/pngprepare/pngtoscreens.c -lpng
+
+
 # ============================ done *deleted*, Makefile-dep, print-warn, clean-target
 # unix command to generate the 'iomap.txt' file that represents the registers
 # within both the c64 and the c65gs
@@ -501,6 +506,7 @@ clean:
 	rm -f $(TOOLDIR)/etherload/etherload
 	rm -f $(TOOLDIR)/hotpatch/hotpatch
 	rm -f $(TOOLDIR)/pngprepare/pngprepare
+	rm -f $(TOOLDIR)/pngprepare/pngtoscreens
 	rm -f $(UTILDIR)/etherload.prg $(UTILDIR)/etherload.list $(UTILDIR)/etherload.map
 	rm -f $(UTILDIR)/ethertest.prg $(UTILDIR)/ethertest.list $(UTILDIR)/ethertest.map
 	rm -f $(UTILDIR)/test01prg.prg $(UTILDIR)/test01prg.list $(UTILDIR)/test01prg.map
