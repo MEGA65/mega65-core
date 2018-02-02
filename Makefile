@@ -53,8 +53,7 @@ TOOLS=	$(TOOLDIR)/etherkick/etherkick \
 	$(TOOLDIR)/monitor_load \
 	$(TOOLDIR)/monitor_save \
 	$(TOOLDIR)/on_screen_keyboard_gen \
-	$(TOOLDIR)/pngprepare/pngprepare \
-	$(TOOLDIR)/pngprepare/pngtoscreens
+	$(TOOLDIR)/pngprepare/pngprepare
 
 all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r1.mcs $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr.mcs $(BINDIR)/touch_test.mcs
 
@@ -314,10 +313,16 @@ $(SDCARD_DIR)/MEGA65.D81:	$(UTILITIES)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(OPHIS) $< -l $*.list -m $*.map -o $*.prg
 
+%.o:	%.s
+	$(CA65) $< -l $*.list
+
 $(UTILDIR)/mega65_config.o:      $(UTILDIR)/mega65_config.s $(UTILDIR)/mega65_config.inc
 	$(CA65) $< -l $*.list
 
 $(UTILDIR)/mega65_config.prg:       $(UTILDIR)/mega65_config.o
+	$(LD65) $< --mapfile $*.map -o $*.prg
+
+$(UTILDIR)/tiles.prg:       $(UTILDIR)/tiles.o
 	$(LD65) $< --mapfile $*.map -o $*.prg
 
 $(UTILDIR)/diskmenuprg.o:      $(UTILDIR)/diskmenuprg.a65 $(UTILDIR)/diskmenu.a65 $(UTILDIR)/diskmenu_sort.a65
@@ -382,10 +387,6 @@ $(BINDIR)/matrixfont.bin:	$(TOOLDIR)/pngprepare/pngprepare $(ASSETS)/matrix.png
 # c-code that makes an executable that processes images, and can make a vhdl file
 $(TOOLDIR)/pngprepare/pngprepare:	$(TOOLDIR)/pngprepare/pngprepare.c Makefile
 	$(CC) $(COPT) -I/usr/local/include -L/usr/local/lib -o $(TOOLDIR)/pngprepare/pngprepare $(TOOLDIR)/pngprepare/pngprepare.c -lpng
-
-$(TOOLDIR)/pngprepare/pngtoscreens:	$(TOOLDIR)/pngprepare/pngtoscreens.c Makefile
-	$(CC) $(COPT) -I/usr/local/include -L/usr/local/lib -o $(TOOLDIR)/pngprepare/pngtoscreens $(TOOLDIR)/pngprepare/pngtoscreens.c -lpng
-
 
 # ============================ done *deleted*, Makefile-dep, print-warn, clean-target
 # unix command to generate the 'iomap.txt' file that represents the registers
@@ -506,7 +507,6 @@ clean:
 	rm -f $(TOOLDIR)/etherload/etherload
 	rm -f $(TOOLDIR)/hotpatch/hotpatch
 	rm -f $(TOOLDIR)/pngprepare/pngprepare
-	rm -f $(TOOLDIR)/pngprepare/pngtoscreens
 	rm -f $(UTILDIR)/etherload.prg $(UTILDIR)/etherload.list $(UTILDIR)/etherload.map
 	rm -f $(UTILDIR)/ethertest.prg $(UTILDIR)/ethertest.list $(UTILDIR)/ethertest.map
 	rm -f $(UTILDIR)/test01prg.prg $(UTILDIR)/test01prg.list $(UTILDIR)/test01prg.map
