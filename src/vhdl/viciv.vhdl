@@ -95,6 +95,10 @@ entity viciv is
     ----------------------------------------------------------------------
     vsync : out  STD_LOGIC;
     hsync : out  STD_LOGIC;
+    lcd_vsync : out std_logic;
+    lcd_hsync : out std_logic;
+    lcd_display_enable : out std_logic;
+    lcd_pixel_strobe : out std_logic;
     vgared : out  UNSIGNED (7 downto 0);
     vgagreen : out  UNSIGNED (7 downto 0);
     vgablue : out  UNSIGNED (7 downto 0);
@@ -252,6 +256,8 @@ architecture Behavioral of viciv is
   signal vicii_ycounter_scale : unsigned(3 downto 0) := to_unsigned(0,4);
   
   constant frame_v_front : integer := 1;
+
+  signal lcd_in_letterbox : std_logic := '1';
   
   -- Frame generator counters
   -- DEBUG: Start frame at a point that will soon trigger a badline
@@ -280,6 +286,7 @@ architecture Behavioral of viciv is
 
   signal vicii_xcounter_320 : unsigned(8 downto 0) := (others => '0');
   signal vicii_xcounter_640 : unsigned(9 downto 0) := (others => '0');
+  signal last_vicii_xcounter_640 : unsigned(9 downto 0) := (others => '0');
   signal vicii_xcounter_sub320 : integer := 0;
   signal vicii_xcounter_sub640 : integer := 0;
 
@@ -2762,7 +2769,8 @@ begin
       elsif set_hsync='1' then
         hsync_drive <= '1' xor hsync_polarity;
       end if;
-      hsync <= hsync_drive;      
+      hsync <= hsync_drive;
+      lcd_hsync <= hsync_drive;
 
       if pixel_newframe_internal='1' then
         -- C65/VIC-III style 1Hz blink attribute clock
@@ -2988,6 +2996,29 @@ begin
 
       end if;
       vsync <= vsync_drive;
+      -- LCD uses same VSYNC as VGA/HDMI output
+      lcd_vsync <= vsync_drive;
+      -- LCD letter box starts after half the excess raster lines are gone, so
+      -- that it is vertically centred on the 800x480 display.
+      if to_integer(ycounter) = (to_integer(vsync_delay_drive) + (to_integer(display_height) - 480)/2) then
+        lcd_in_letterbox <= '1';
+      elsif vertical_flyback = '1' then
+        lcd_in_letterbox <= '0';
+      end if;
+      -- Gate LCD pixel enable based on whether we are in the active part of      
+      -- the scan, and within the LCD letter box region.
+      if postsprite_inborder='0' and lcd_in_letterbox='1' then
+        lcd_display_enable <= '1';
+      else
+        lcd_display_enable <= '0';
+      end if;
+      -- Generate pixel clock based on x640 clock
+      last_vicii_xcounter_640 <= vicii_xcounter_640;
+      if vicii_xcounter_640 /= last_vicii_xcounter_640 then
+        lcd_pixel_strobe <= '1';
+      else
+        lcd_pixel_strobe <= '0';
+      end if;
       
       -- Stop drawing characters when we reach the end of the prepared data
       if raster_buffer_write_address = "111111111111" then

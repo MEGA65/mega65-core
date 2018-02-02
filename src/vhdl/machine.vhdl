@@ -88,6 +88,10 @@ entity machine is
          ----------------------------------------------------------------------
          vsync : out  STD_LOGIC;
          hsync : out  STD_LOGIC;
+         lcd_hsync : out std_logic;
+         lcd_vsync : out std_logic;
+         lcd_display_enable : out std_logic;
+         lcd_pixel_strobe : out std_logic;
          vgared : out  UNSIGNED (7 downto 0);
          vgagreen : out  UNSIGNED (7 downto 0);
          vgablue : out  UNSIGNED (7 downto 0);
@@ -774,6 +778,10 @@ begin
       
       vsync           => vsync_drive,
       hsync           => hsync_drive,
+      lcd_vsync => lcd_vsync,
+      lcd_hsync => lcd_hsync,
+      lcd_display_enable => lcd_display_enable,
+      lcd_pixel_strobe => lcd_pixel_strobe,
       vgared          => vgared_sig,
       vgagreen        => vgagreen_sig,
       vgablue         => vgablue_sig,
