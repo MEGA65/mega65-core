@@ -45,9 +45,17 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <errno.h>
 #include <getopt.h>
 
+#ifdef APPLE
+static const int B1000000 = 1000000;
+static const int B1500000 = 1500000;
+static const int B2000000 = 2000000;
+static const int B4000000 = 4000000;
+#endif
 time_t start_time=0;
 
 int osk_enable=0;
+
+int not_already_loaded=1;
 
 int viciv_mode_report(unsigned char *viciv_regs);
 
@@ -130,6 +138,14 @@ int hypervisor_paused=0;
 
 char *type_text=NULL;
 int type_text_cr=0;
+
+#define READ_SECTOR_BUFFER_ADDRESS 0xFFD6c00
+#define WRITE_SECTOR_BUFFER_ADDRESS 0xFFD6c00
+int sdbuf_request_addr = 0;
+unsigned char sd_sector_buf[512];
+int saved_track = 0;
+int saved_sector = 0;
+int saved_side = 0;
 
 unsigned long long gettime_ms()
 {
@@ -230,6 +246,25 @@ int restart_kickstart(void)
   return 0;
 }
 
+void print_spaces(FILE *f,int col)
+{
+  for(int i=0;i<col;i++)
+    fprintf(f," ");  
+}
+
+int dump_bytes(int col, char *msg,unsigned char *bytes,int length)
+{
+  print_spaces(stderr,col);
+  fprintf(stderr,"%s:\n",msg);
+  for(int i=0;i<length;i+=16) {
+    print_spaces(stderr,col);
+    fprintf(stderr,"%04X: ",i);
+    for(int j=0;j<16;j++) if (i+j<length) fprintf(stderr," %02X",bytes[i+j]);
+    fprintf(stderr,"\n");
+  }
+  return 0;
+}
+
 int first_load=1;
 int first_go64=1;
 
@@ -276,7 +311,7 @@ int process_line(char *line,int live)
 	snprintf(cmd,1024,"sffd3659 01\r");
 	slow_write(fd,cmd,strlen(cmd));
 	usleep(20000);
-	// Enable disk 0
+	// Enable disk 0 (including for write)
 	snprintf(cmd,1024,"sffd368b 03\r");
 	slow_write(fd,cmd,strlen(cmd));
       }
@@ -436,19 +471,22 @@ int process_line(char *line,int live)
   }
   if (sscanf(line," :00000B7 %02x %*02x %*02x %*02x %02x %02x",
 	     &name_len,&name_lo,&name_hi)==3) {
-    name_addr=(name_hi<<8)+name_lo;
-    printf("Filename is %d bytes long, and is stored at $%04x\n",
-	   name_len,name_addr);
-    char filename[16];
-    snprintf(filename,16,"m%04x\r",name_addr);
-    usleep(10000);
-    slow_write(fd,filename,strlen(filename));
-    printf("Asking for filename from memory: %s\n",filename);
-    state=3;
+    if (not_already_loaded||name_len>1) {
+      name_addr=(name_hi<<8)+name_lo;
+      printf("Filename is %d bytes long, and is stored at $%04x\n",
+	     name_len,name_addr);
+      char filename[16];
+      snprintf(filename,16,"m%04x\r",name_addr);
+      usleep(10000);
+      slow_write(fd,filename,strlen(filename));
+      printf("Asking for filename from memory: %s\n",filename);
+      state=3;
+    }
   }
   {
     int addr;
     int b[16];
+    if (line[0]=='?') fprintf(stderr,"%s\n",line);
     if (sscanf(line," :%x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
 	       &addr,
 	       &b[0],&b[1],&b[2],&b[3],
@@ -461,8 +499,17 @@ int process_line(char *line,int live)
 	for(int i=0;i<16;i++) fname[i]=b[i]; fname[16]=0;
 	fname[name_len]=0;
 	printf("Request to load '%s'\n",fname);
-	if (fname[0]=='!') // we use this form in case junk gets typed while we are doing it
-	  state=2; // load specified file
+	if (fname[0]=='!') {
+	  // we use this form in case junk gets typed while we are doing it
+	  if (not_already_loaded)
+	    state=2; // load specified file
+	  not_already_loaded=0;
+	  // and change filename, so that we don't get stuck in a loop repeatedly loading
+	  char cmd[1024];
+	  snprintf(cmd,1024,"s%x 41\r",name_addr);
+	  fprintf(stderr,"Replacing filename: %s\n",cmd);
+	  slow_write(fd,cmd,strlen(cmd));
+	}
 	else {
 	  printf("Specific file to load is '%s'\n",fname);
 	  if (filename) free(filename);
@@ -472,6 +519,7 @@ int process_line(char *line,int live)
 	}
       }
       if (addr==0xffd3077) {
+	//	fprintf(stderr,"$D086 = $%02X, virtual_f011_pending=%d\n",b[6+9],virtual_f011_pending);
         if((b[6+9] & 0x80) && !virtual_f011_pending) {  /* virtual f011 read request issued */
 	  
           char cmd[1024];
@@ -480,7 +528,7 @@ int process_line(char *line,int live)
           device = b[0+9] & 0x7;
           track = b[4+9];
           sector = b[5+9];
-          side = b[6+9] & 0x7F;
+          side = b[6+9] & 0x3F;
 
 	  fprintf(stderr,"[T+%lldsec] Servicing hypervisor request for F011 FDC sector read.\n",
 		    (long long)time(0)-start_time);
@@ -488,7 +536,7 @@ int process_line(char *line,int live)
 
 	  if(fd81 == NULL) {
 
-	    fd81 = fopen(d81file, "rb");
+	    fd81 = fopen(d81file, "rb+");
 	    if(!fd81) {
 
               fprintf(stderr, "Could not open D81 file: '%s'\n", d81file);
@@ -502,12 +550,12 @@ int process_line(char *line,int live)
 	  int result = fseek(fd81, (track*20+physical_sector)*512, SEEK_SET);
 	  if(result) {
 
-	    fprintf(stderr, "Error finding D81 sector %d %d\n", result, (track*20+physical_sector)*512);
+	    fprintf(stderr, "Error finding D81 sector %d @ 0x%x\n", result, (track*20+physical_sector)*512);
 	    exit(-2);
 	  }
 	  else {
 	    b=fread(buf,1,512,fd81);
-	    fprintf(stderr, "read: %d\n", b);
+	    fprintf(stderr, " bytes read: %d @ 0x%x\n", b,(track*20+physical_sector)*512);
 	    if(b==512) {
 	      
               //fprintf(stderr, "%02x %02x %02x %02x\n", buf[0], buf[1], buf[2], buf[3]);
@@ -515,22 +563,17 @@ int process_line(char *line,int live)
               char cmd[1024];
 
               /* send block to m65 memory */
-              sprintf(cmd,"l%x %x\r",0xffd6000-1,0xffd6200-1);
+              sprintf(cmd,"l%x %x\r",READ_SECTOR_BUFFER_ADDRESS-1,READ_SECTOR_BUFFER_ADDRESS+0x200-1);
               slow_write(fd,cmd,strlen(cmd));
               usleep(1000);
               int n=0x200;
               unsigned char *p=buf;
+	      //	      fprintf(stderr,"%s\n",cmd);
+	      //	      dump_bytes(0,"F011 virtual sector data",p,512);
               while(n>0) {
                 int w=write(fd,p,n);
                 if (w>0) { p+=w; n-=w; } else usleep(1000);
-            }
-            /*if (serial_speed==230400) usleep(10000+50*b);
-            else if (serial_speed==2000000)
-              // 2mbit/sec / 11bits/char (inc space) = ~5.5usec per char
-              usleep(5.1*b);
-            else
-              // 4mbit/sec / 11bits/char (inc space) = ~2.6usec per char
-              usleep(2.6*b);*/
+	      }
 	    }
 	  }
 	    
@@ -542,9 +585,88 @@ int process_line(char *line,int live)
           //slow_write(fd,"t0\r",3);
           slow_write(fd,"mffd3077\r",9);
         }
+
+	else if ((b[6+9] & 0x40) && !virtual_f011_pending) {
+
+          int device, track, sector, side;
+          device = b[0+9] & 0x7;
+          track = b[4+9];
+          sector = b[5+9];
+          side = b[6+9] & 0x3F;
+
+	  fprintf(stderr,"[T+%lldsec] Servicing hypervisor request for F011 FDC sector write.\n",
+		    (long long)time(0)-start_time);
+	  fprintf(stderr, "device: %d  track: %d  sector: %d  side: %d", device, track, sector, side);
+
+	  if(fd81 == NULL) {
+
+	    fd81 = fopen(d81file, "rb+");
+	    if(!fd81) {
+
+              fprintf(stderr, "Could not open D81 file: '%s'\n", d81file);
+	      exit(-1);
+	    }
+	  }
+          // fetch buffer from M65 memory
+          sdbuf_request_addr = WRITE_SECTOR_BUFFER_ADDRESS;
+	  stop_cpu();
+	  { char  cmd[1024];
+	    sprintf(cmd,"M%x\r",sdbuf_request_addr);
+	    slow_write(fd,cmd,strlen(cmd));
+	  }
+
+	  /* signal done/result */
+          //stop_cpu();
+	  virtual_f011_pending = 1;
+          saved_side = side;
+          saved_sector = sector;
+          saved_track = track;
+        }		
         else {
           virtual_f011_pending = 0;
 	}
+      }
+     else if(addr == sdbuf_request_addr) {
+  
+	int i;
+	for(i=0;i<16;i++)
+	    sd_sector_buf[sdbuf_request_addr-WRITE_SECTOR_BUFFER_ADDRESS+i]=b[i];
+        sdbuf_request_addr += 16;
+
+        if(sdbuf_request_addr == (WRITE_SECTOR_BUFFER_ADDRESS+0x200)) {
+
+	  dump_bytes(0,"Sector to write",sd_sector_buf,512);
+	  
+          char cmd[1024];
+
+	  int physical_sector=( saved_side==0 ? saved_sector-1 : saved_sector+9 );
+	  int result = fseek(fd81, (saved_track*20+physical_sector)*512, SEEK_SET);
+	  if(result) {
+
+	    fprintf(stderr, "Error finding D81 sector %d %d\n", result, (saved_track*20+physical_sector)*512);
+	    exit(-2);
+	  }
+	  else {
+            int b=-1;
+	    b=fwrite(sd_sector_buf,1,512,fd81);
+            if(b!=512) {
+
+             fprintf(stderr, "Could not write D81 file: '%s'\n", d81file);
+	      exit(-1);
+            }
+	    fprintf(stderr, "write: %d @ 0x%x\n", b, (saved_track*20+physical_sector)*512);
+          }
+
+          // block loaded save it now
+          sdbuf_request_addr = 0;
+
+          //stop_cpu();
+	  virtual_f011_pending = 1;
+          snprintf(cmd,1024,"sffd3086 %02x\n",saved_side);
+	  slow_write(fd,cmd,strlen(cmd));
+          slow_write(fd,"t0\r",3);
+          slow_write(fd,"mffd3077\r",9);
+        }
       }
       if (addr==0xffd3659) {
 	fprintf(stderr,"Hypervisor virtualisation flags = $%02x\n",b[0]);
@@ -632,7 +754,7 @@ int process_line(char *line,int live)
 			 " :000042C 2A 2A 2A 2A 20 03 0F 0D 0D 0F 04 0F 12 05 20 36")) {
     // C64 mode BASIC -- set LOAD trap, and then issue LOAD command
     char *cmd;
-    if (filename) {
+    if (filename&&not_already_loaded) {
       cmd="bf4a5\r";
       slow_write(fd,cmd,strlen(cmd));
       cmd="s277 4c 6f 22 21 22 2c 38 2c 31 d\rsc6 10\r";
@@ -648,6 +770,7 @@ int process_line(char *line,int live)
   }  
   if (state==2)
     {
+      state=99;
       printf("Filename is %s\n",filename);
       f=fopen(filename,"r");
       if (f==NULL) {
@@ -1136,8 +1259,14 @@ int main(int argc,char **argv)
           if(fast_mode) {
           
             slow_write(fd,"mffd3077\r",9);
-          } else {
-          
+	    if( sdbuf_request_addr != 0) {
+	      char cmd[1024];
+	      sprintf(cmd,"M%x\r",WRITE_SECTOR_BUFFER_ADDRESS);
+	      slow_write(fd,cmd,strlen(cmd));
+            } else {
+	      slow_write(fd,"mffd3077\r",9);
+            }
+	  } else {	    
 	    if (state==99) printf("sending R command to sync @ %dpbs.\n",serial_speed);
 	    switch (phase%(4+hypervisor_paused)) {
 	    case 0: slow_write(fd,"r\r",2); break; // PC check

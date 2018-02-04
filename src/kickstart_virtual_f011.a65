@@ -1,61 +1,55 @@
 f011_virtual_read:
 
+	; Reset buffer pointers and stop SD card from reading
+	; from card and overwriting what we load
+	LDA	#$01
+	STA	$D081
+
 	; Let monitor_load fill in the requeated block.
         ; Operation is triggered by side bit 7 = 1
         ; Request served once monitor_load sets side bit 7 = 0
 
-	; this is an hack to work around on sector request
-        ; end up in multiple traps.
-	lda $d084
-        cmp vfr_last_track
-        bne fvr
-        lda $d085
-        cmp vfr_last_sec
-        bne fvr
-        lda $d086
-        cmp vfr_last_side
-        beq fvr6
+	LDA 	  #$80	
+        TSB	  $D086
 
-fvr:
-        lda $d084
-        sta vfr_last_track
-        lda $d085
-        sta vfr_last_sec
-
-        lda $d086
-        sta vfr_last_side
-        ora #$80
-        sta $d086
-
+	; Wait for monitor_load to clear bit 7 of side register to indicate that
+	; it has done the job
 fvr3:
         lda $d086
         bmi fvr3
 
-fvr4:
-        lda $d09e
-        cmp #$ff
-        bne fvr5
-        ;lda $d09f
-        ;and #1
-        ;bne fvr6
-        jmp fvr6
+fvr_same_as_last_time:
+	; Set floppy flags as appropriate to look like FDC has just successfully read a
+	; sector
+	LDA   #$35
+	STA   $D6AF
 
-fvr5:
-;        lda $D086
-;        lda $d087
-;        jmp fvr4
-fvr6:
         sta hypervisor_enterexit_trigger
-
-vfr_last_track:		.byte	0
-vfr_last_sec:		.byte	0
-vfr_last_side:		.byte	0
-
 
 f011_virtual_write:
 
-	; XXX - We ignore virtualised writes to F011 for now
+; Bit 6 and 7 in $D086 (FDC side register) are used to communicate with
+; monitor_load. We set bit 6, and wait for it to be cleared by monitor_load.
+; Other than that, all the hard work happens in monitor_load
 
-	; return from hypervisor
-	;
-	sta hypervisor_enterexit_trigger
+	; Reset buffer pointers and stop SD card from reading
+	; from card and overwriting what we load
+	LDA	#$01
+	STA	$D081
+
+	LDA	#$40
+        TSB	$D086
+
+fvw1:
+        lda $d086
+        and #$c0
+        bne fvw1
+ 
+        lda #$16
+        sta $d6af
+ 
+ 	; return from hypervisor
+ 	;
+fvw2:
+ 	sta hypervisor_enterexit_trigger
+

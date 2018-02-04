@@ -95,6 +95,10 @@ entity viciv is
     ----------------------------------------------------------------------
     vsync : out  STD_LOGIC;
     hsync : out  STD_LOGIC;
+    lcd_vsync : out std_logic;
+    lcd_hsync : out std_logic;
+    lcd_display_enable : out std_logic;
+    lcd_pixel_strobe : out std_logic;
     vgared : out  UNSIGNED (7 downto 0);
     vgagreen : out  UNSIGNED (7 downto 0);
     vgablue : out  UNSIGNED (7 downto 0);
@@ -252,6 +256,8 @@ architecture Behavioral of viciv is
   signal vicii_ycounter_scale : unsigned(3 downto 0) := to_unsigned(0,4);
   
   constant frame_v_front : integer := 1;
+
+  signal lcd_in_letterbox : std_logic := '1';
   
   -- Frame generator counters
   -- DEBUG: Start frame at a point that will soon trigger a badline
@@ -280,6 +286,7 @@ architecture Behavioral of viciv is
 
   signal vicii_xcounter_320 : unsigned(8 downto 0) := (others => '0');
   signal vicii_xcounter_640 : unsigned(9 downto 0) := (others => '0');
+  signal last_vicii_xcounter_640 : unsigned(9 downto 0) := (others => '0');
   signal vicii_xcounter_sub320 : integer := 0;
   signal vicii_xcounter_sub640 : integer := 0;
 
@@ -2523,7 +2530,7 @@ begin
                                                     palette_bank_chargen <= fastio_wdata(5 downto 4);
                                         -- @IO:GS $D070.3-2 VIC-IV sprite palette bank
                                                     palette_bank_sprites <= fastio_wdata(3 downto 2);
-                                        -- @IO:GS $D070.1-0 VIC-IV bitmap/text palette bank
+                                        -- @IO:GS $D070.1-0 VIC-IV bitmap/text palette bank for 256 colour modes
                                                     palette_bank_chargen256 <= fastio_wdata(1 downto 0);
                                                   elsif register_number=113 then -- $D3071
                                                                                  -- @IO:GS $D071 VIC-IV 16-colour bitplane enable flags
@@ -2762,7 +2769,8 @@ begin
       elsif set_hsync='1' then
         hsync_drive <= '1' xor hsync_polarity;
       end if;
-      hsync <= hsync_drive;      
+      hsync <= hsync_drive;
+      lcd_hsync <= hsync_drive;
 
       if pixel_newframe_internal='1' then
         -- C65/VIC-III style 1Hz blink attribute clock
@@ -2988,6 +2996,29 @@ begin
 
       end if;
       vsync <= vsync_drive;
+      -- LCD uses same VSYNC as VGA/HDMI output
+      lcd_vsync <= vsync_drive;
+      -- LCD letter box starts after half the excess raster lines are gone, so
+      -- that it is vertically centred on the 800x480 display.
+      if to_integer(ycounter) = (to_integer(vsync_delay_drive) + (to_integer(display_height) - 480)/2) then
+        lcd_in_letterbox <= '1';
+      elsif vertical_flyback = '1' then
+        lcd_in_letterbox <= '0';
+      end if;
+      -- Gate LCD pixel enable based on whether we are in the active part of      
+      -- the scan, and within the LCD letter box region.
+      if postsprite_inborder='0' and lcd_in_letterbox='1' then
+        lcd_display_enable <= '1';
+      else
+        lcd_display_enable <= '0';
+      end if;
+      -- Generate pixel clock based on x640 clock
+      last_vicii_xcounter_640 <= vicii_xcounter_640;
+      if vicii_xcounter_640 /= last_vicii_xcounter_640 then
+        lcd_pixel_strobe <= '1';
+      else
+        lcd_pixel_strobe <= '0';
+      end if;
       
       -- Stop drawing characters when we reach the end of the prepared data
       if raster_buffer_write_address = "111111111111" then
@@ -3785,38 +3816,44 @@ begin
           glyph_blink_drive <= '0';
           glyph_with_alpha_drive <= '0';
           report "Reading high-byte of colour RAM (value $" & to_hstring(colourramdata)&")";
-          if viciii_extended_attributes='1' then
-            if colourramdata(4)='1' then
-              -- Blinking glyph
-              glyph_blink_drive <= '1';
-              if colourramdata(5)='1'
-                or colourramdata(6)='1'
-                or colourramdata(7)='1' then
-                -- Blinking attributes
-                if viciii_blink_phase='1' then
-                  glyph_reverse_drive <= colourramdata(5);
-                  glyph_bold_drive <= colourramdata(6);
-                  glyph_colour_drive(4) <= colourramdata(6);
-                  if chargen_y_hold="111" then
-                    glyph_underline_drive <= colourramdata(7);
+          if multicolour_mode='1' then
+            -- Multicolour + full colour mode + 16-bit char mode = simple 256 colour foreground
+            -- colour selection from 2nd byte of colour RAM data
+            glyph_colour_drive(7 downto 4) <= colourramdata(7 downto 4);
+          else
+            if viciii_extended_attributes='1' then
+              if colourramdata(4)='1' then
+                -- Blinking glyph
+                glyph_blink_drive <= '1';
+                if colourramdata(5)='1'
+                  or colourramdata(6)='1'
+                  or colourramdata(7)='1' then
+                  -- Blinking attributes
+                  if viciii_blink_phase='1' then
+                    glyph_reverse_drive <= colourramdata(5);
+                    glyph_bold_drive <= colourramdata(6);
+                    glyph_colour_drive(4) <= colourramdata(6);
+                    if chargen_y_hold="111" then
+                      glyph_underline_drive <= colourramdata(7);
+                    end if;
                   end if;
+                else
+                  -- Just plain blinking character
+                  glyph_visible_drive <= viciii_blink_phase;
                 end if;
               else
-                -- Just plain blinking character
-                glyph_visible_drive <= viciii_blink_phase;
-              end if;
-            else
-              -- Non-blinking attributes
-              glyph_visible_drive <= '1';
-              glyph_reverse_drive <= colourramdata(5);
-              glyph_bold_drive <= colourramdata(6);
-              glyph_colour_drive(4) <= colourramdata(6);
-              if chargen_y_hold="111" then
-                glyph_underline_drive <= colourramdata(7);
+                -- Non-blinking attributes
+                glyph_visible_drive <= '1';
+                glyph_reverse_drive <= colourramdata(5);
+                glyph_bold_drive <= colourramdata(6);
+                glyph_colour_drive(4) <= colourramdata(6);
+                if chargen_y_hold="111" then
+                  glyph_underline_drive <= colourramdata(7);
+                end if;
               end if;
             end if;
           end if;
-
+      
           -- Ask for first byte of data so that paint can commence immediately.
           report "setting ramaddress to $" & to_hstring("000"&glyph_data_address) & " for glyph painting." severity note;
           ramaddress <= glyph_data_address;
@@ -4207,12 +4244,16 @@ begin
             raster_buffer_write_data(8) <= '0';
             raster_buffer_write_data(7 downto 0) <= paint_background;
           else
-            -- fullground pixel
+            -- foreground pixel
             if paint_with_alpha='0' then
               report "full-colour glyph painting pixel $" & to_hstring(paint_full_colour_data(7 downto 0));
               raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
-              raster_buffer_write_data(8) <= '1';              
-              raster_buffer_write_data(7 downto 0) <= paint_full_colour_data(7 downto 0);
+              raster_buffer_write_data(8) <= '1';
+              if paint_full_colour_data(7 downto 0) /= x"FF" then
+                raster_buffer_write_data(7 downto 0) <= paint_full_colour_data(7 downto 0);
+              else
+                raster_buffer_write_data(7 downto 0) <= paint_foreground;
+              end if;
             else
               report "full-colour glyph painting alpha pixel $"
                 & to_hstring(paint_full_colour_data(7 downto 0))

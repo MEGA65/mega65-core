@@ -116,6 +116,8 @@ architecture behavioural of expansion_port_controller is
 
   signal cart_probe_count : unsigned(5 downto 0) := "000000";
   signal cart_flags : std_logic_vector(1 downto 0) := "00";
+
+  signal cart_force_reset : std_logic := '0';
   
 begin
 
@@ -151,11 +153,13 @@ begin
           -- cartridge time to reset.
           if (reset_counter = 1) and (reset='1') then
             reset_counter <= 0;
-            cart_reset <= '1';
-            report "Releasing RESET on cartridge port";
           elsif reset_counter /= 0 then
             reset_counter <= reset_counter - 1;
+          elsif reset_counter = 0 then
+            cart_reset <= reset and (not cart_force_reset);
+            report "Releasing RESET on cartridge port";            
           end if;
+          
             
           phi2_ticker <= (others => '0');
           cart_phi2 <= not cart_phi2_internal;
@@ -166,7 +170,8 @@ begin
             -- XXX Debug: show stats on probing cartridge flags
             if cart_access_address(15 downto 0) = x"0000" then
               cart_access_rdata(7 downto 6) <= unsigned(cart_flags);
-              cart_access_rdata(5 downto 0) <= cart_probe_count;
+              cart_access_rdata(5) <= cart_force_reset;
+              cart_access_rdata(4 downto 0) <= cart_probe_count(4 downto 0);
             else
               cart_access_rdata <= cart_d_in;
             end if;
@@ -222,6 +227,12 @@ begin
               & " rw=" & std_logic'image(cart_access_read)
               & " wdata=$" & to_hstring(cart_access_wdata);
 
+            if cart_access_read='0' then
+              if cart_access_address(15 downto 0) = x"0000" then
+                -- @ IO:GS $7010000.5 - Force assertion of /RESET on cartridge port
+                cart_force_reset <= cart_access_wdata(5);
+              end if;
+            end if;
             cart_busy <= '1';
 
             -- Count number of cartridge accesses to aid debugging
