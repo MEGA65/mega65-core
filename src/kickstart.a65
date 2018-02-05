@@ -1776,11 +1776,6 @@ erasescreen:
 		lda #<erasescreendmalist
 		sta $d705
 
-		; clear source/destination MB so that C65 ROM doesn't go bananas
-		;
-		lda #$00
-		sta $d705
-
 		; bank 2nd KB of colour RAM back out
 		;
 		lda #$01
