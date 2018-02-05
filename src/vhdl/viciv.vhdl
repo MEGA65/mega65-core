@@ -3708,7 +3708,7 @@ begin
           screen_ram_buffer_read_address <= screen_ram_buffer_read_address + 1;
           report "INCREMENTing screen_ram_buffer_read_address to " & integer'image(to_integer(screen_ram_buffer_read_address)+1) severity note;
         when FetchBitmapCell =>
-          report "from bitmap layout, we get glyph_data_address = $" & to_hstring("000"&glyph_data_address) severity note;
+          report "LEGACY: from bitmap layout, we get glyph_data_address = $" & to_hstring("000"&glyph_data_address) severity note;
           raster_fetch_state <= FetchBitmapData;
         when FetchTextCell =>
           if screen_ram_is_ff='1' and screen_ram_high_is_ff='1' then
@@ -3719,7 +3719,7 @@ begin
             short_line_length <= to_integer(screen_ram_buffer_read_address);
           end if;
 
-          report "from screen_ram we get glyph_number = $" & to_hstring(to_unsigned(to_integer(glyph_number),16)) severity note;
+          report "LEGACY: from screen_ram we get glyph_number = $" & to_hstring(to_unsigned(to_integer(glyph_number),16)) severity note;
           -- We now know the character number, and whether it is full-colour or
           -- normal, and whether we are flipping in either axis, and so can
           -- work out the address to fetch data from.
@@ -3893,7 +3893,7 @@ begin
             else
               glyph_data_address(2 downto 0) <= glyph_data_address(2 downto 0) - 1;
             end if;
-            report "setting ramaddress to $x" & to_hstring(glyph_data_address(15 downto 0)) & " for full-colour glyph drawing";
+            report "LEGACY: setting ramaddress to $x" & to_hstring(glyph_data_address(15 downto 0)) & " for full-colour glyph drawing";
             ramaddress <= glyph_data_address;
             full_colour_fetch_count <= 0;
             raster_fetch_state <= PaintFullColourFetch;
@@ -3902,7 +3902,7 @@ begin
           end if;
         when PaintFullColourFetch =>
           -- Read and store the 8 bytes of data we need for a full-colour character
-          report "glyph reading full-colour pixel value $" & to_hstring(ramdata); 
+          report "LEGACY: glyph reading full-colour pixel value $" & to_hstring(ramdata); 
           full_colour_data(63 downto 56) <= ramdata;
           full_colour_data(55 downto 0) <= full_colour_data(63 downto 8);
           if glyph_flip_horizontal = '0' then
@@ -3963,7 +3963,7 @@ begin
             -- Now work out exactly how we are painting
             if glyph_full_colour='1' then
               -- Paint full-colour glyph
-              report "Dispatching to PaintFullColour due to glyph_full_colour = 1";
+              report "LEGACY: Dispatching to PaintFullColour due to glyph_full_colour = 1";
               -- We set background colour to screen colour in full-colour mode
               -- for transparent pixels, and for alpha blending of anti-aliased
               -- text.  We do also support ECM mode.
@@ -3982,6 +3982,8 @@ begin
               paint_foreground <= glyph_colour;
               paint_fsm_state <= PaintFullColour;
             else
+              report "LEGACY: Dispatching normal due to glyph_full_colour = 0"
+                & ", paint_ready=" & std_logic'image(paint_ready);
               if multicolour_mode='0' and extended_background_mode='0' then
                 -- Mono mode
                 if text_mode='1' then
@@ -4227,7 +4229,7 @@ begin
         when Idle =>
           if paint_ready /= '1' then
             paint_ready <= '1';
-            report "asserting paint_ready" severity note;
+            report "LEGACY: asserting paint_ready" severity note;
           end if;
         when PaintFullColour =>
           -- Draw 8 pixels using a byte at a time from full_colour_data          
@@ -4235,6 +4237,7 @@ begin
                                    & std_logic_vector(paint_background);
           paint_bits_remaining <= paint_glyph_width - 1;
           paint_ready <= '0';
+          report "LEGACY: clearing paint_ready";
           paint_full_colour_data <= full_colour_data;
           paint_fsm_state <= PaintFullColourPixels;
         when PaintFullColourPixels =>
@@ -4246,7 +4249,8 @@ begin
           else
             -- foreground pixel
             if paint_with_alpha='0' then
-              report "full-colour glyph painting pixel $" & to_hstring(paint_full_colour_data(7 downto 0));
+              report "LEGACY: full-colour glyph painting pixel $" & to_hstring(paint_full_colour_data(7 downto 0))
+                & " into buffer @ $" & to_hstring(raster_buffer_write_address);
               raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
               raster_buffer_write_data(8) <= '1';
               if paint_full_colour_data(7 downto 0) /= x"FF" then
@@ -4255,7 +4259,7 @@ begin
                 raster_buffer_write_data(7 downto 0) <= paint_foreground;
               end if;
             else
-              report "full-colour glyph painting alpha pixel $"
+              report "LEGACY: full-colour glyph painting alpha pixel $"
                 & to_hstring(paint_full_colour_data(7 downto 0))
                 & " with alpha value $" & to_hstring(paint_full_colour_data(7 downto 0));
               -- Colour RAM provides foreground colour
@@ -4268,22 +4272,22 @@ begin
           paint_full_colour_data(55 downto 0) <= paint_full_colour_data(63 downto 8);
           raster_buffer_write_address <= raster_buffer_write_address + 1;
           raster_buffer_write <= '1';
-          report "full colour glyph paint_bits_remaining=" & integer'image(paint_bits_remaining) severity note;
+          report "LEGACY: full colour glyph paint_bits_remaining=" & integer'image(paint_bits_remaining) severity note;
           if paint_bits_remaining > 0 then
             paint_bits_remaining <= paint_bits_remaining - 1;
           else
             paint_fsm_state <= PaintFullColourDone;
           end if;
           if paint_bits_remaining = 1 or paint_bits_remaining = 0 then
-            -- Tell character generator when we are able to become idle.
-            -- (the generator tells us when to go idle)
-            paint_ready <= '1';
+            -- All done
+            paint_fsm_state <= Idle;
           end if;
         when PaintFullColourDone =>
           null;
         when PaintMono =>
           -- Drive stage costs us another cycle per glyph, but seems necessary
           -- to meet timing.
+          report "LEGACY: Painting mono card";
           if glyph_reverse='1' then
             paint_buffer_hflip_chardata <= not paint_chardata;
             paint_buffer_noflip_chardata <= not (
@@ -4330,10 +4334,8 @@ begin
           -- 9 cycles per char to paint, instead of the ideal 8.          
           report "paint_flip_horizontal="&std_logic'image(paint_flip_horizontal)
             & ", paint_from_charrom=" & std_logic'image(paint_from_charrom) severity note;
-          if raster_buffer_write_address = 0 then
-            report "painting either $ " & to_hstring(paint_ramdata) & " or $" & to_hstring(paint_chardata) severity note;
-            report "  painting from direct memory would have $ " & to_hstring(ramdata) & " or $" & to_hstring(chardata) severity note;
-          end if;
+          report "LEGACY: painting either $ " & to_hstring(paint_ramdata) & " or $" & to_hstring(paint_chardata) severity note;
+          report "  painting from direct memory would have $ " & to_hstring(ramdata) & " or $" & to_hstring(chardata) severity note;
           if paint_flip_horizontal='1' and paint_from_charrom='1' then
             paint_buffer <= paint_buffer_hflip_chardata;
           elsif paint_flip_horizontal='0' and paint_from_charrom='1' then
@@ -4352,12 +4354,15 @@ begin
           end if;
           paint_bits_remaining <= paint_glyph_width;
           paint_ready <= '0';
+          report "LEGACY: clearing paint_ready";          
           paint_fsm_state <= PaintMonoBits;
         when PaintMonoBits =>
           if paint_bits_remaining = paint_glyph_width then
             report "painting card using data $" & to_hstring(paint_buffer) severity note;
           end if;
           if paint_bits_remaining /= 0 then
+            report "LEGACY: Painting mono char pixel @ $" & to_hstring(raster_buffer_write_address)
+              & " (" & integer'image(paint_bits_remaining) & " pixels remaining in card.)";
             paint_buffer<= '0'&paint_buffer(7 downto 1);
             raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
             if paint_buffer(0)='1' then
@@ -4373,9 +4378,7 @@ begin
             paint_bits_remaining <= paint_bits_remaining - 1;
           end if;
           if paint_bits_remaining = 1 or paint_bits_remaining = 0 then
-            -- Tell character generator when we are able to become idle.
-            -- (the generator tells us when to go idle)
-            paint_ready <= '1';
+            paint_fsm_state <= Idle;
           end if;
         when PaintMultiColour =>
           -- Drive stage costs us another cycle per glyph, but seems necessary
@@ -4448,6 +4451,7 @@ begin
           end if;
           paint_bits_remaining <= (paint_glyph_width / 2);
           paint_ready <= '0';
+          report "LEGACY: clearing paint_ready";
           paint_fsm_state <= PaintMultiColourBits;
         when PaintMultiColourBits =>
           if paint_bits_remaining = (paint_glyph_width / 2) then
@@ -4483,9 +4487,6 @@ begin
           raster_buffer_write_address <= raster_buffer_write_address + 1;
           raster_buffer_write <= '1';
           if paint_bits_remaining = 0 then
-            -- Tell character generator when we are able to become idle.
-            -- (the generator tells us when to go idle)
-            paint_ready <= '1';
             paint_fsm_state <= Idle;
           else
             paint_fsm_state <= PaintMultiColourBits;
@@ -4493,7 +4494,7 @@ begin
         when others =>
           -- If we don't know what to do, just smile and nod and say we are
           -- ready again.
-          paint_ready <= '1';
+          paint_fsm_state <= Idle;
       end case;
 
       if raster_fetch_state /= Idle or paint_fsm_state /= Idle then
