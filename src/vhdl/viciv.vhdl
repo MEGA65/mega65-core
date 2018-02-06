@@ -3687,7 +3687,11 @@ begin
             glyph_flip_vertical <= colourramdata(7);
             glyph_flip_horizontal <= colourramdata(6);
             glyph_with_alpha <= colourramdata(5);
-            -- bit 4 is spare for an extra attribute
+            -- bit 4 indicates glyph number is actually a GOTO pixel number
+            if colourramdata(4)='1' then
+              -- Glyph is tab-stop glyph
+            end if;
+            
             if colourramdata(3)='1' then
               glyph_trim_top <= to_integer(colourramdata(2 downto 0));
             else
@@ -4157,6 +4161,8 @@ begin
         when SpritePointerCompute1 =>
           -- Drive stage for ram data to improve timing closure
           raster_fetch_state <= SpritePointerCompute;
+          -- Also drive upper byte of sprite pointer address
+          ramaddress <= sprite_pointer_address;          
         when SpritePointerCompute =>
           -- Sprite data address is 64*pointer value, plus the 16KB bank
           -- from $DD00.  Then we need to add the data offset for this sprite.
@@ -4197,6 +4203,7 @@ begin
           -- Copy in MSB bits for sprite data address
           -- XXX It would be nice to use bit 7 to indicate to source from
           -- colour RAM, but for now we just clip to the 128KB of chip RAM
+          report "SPRITE: setting upper bits of sprite data address to $" & to_hstring(ramdata_drive);
           sprite_data_address(16 downto 14) <= ramdata_drive(2 downto 0);
           raster_fetch_state <= SpriteDataFetch;          
         when SpriteDataFetch =>
