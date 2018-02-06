@@ -702,6 +702,7 @@ architecture Behavioral of viciv is
   signal glyph_full_colour : std_logic;
   signal glyph_flip_horizontal : std_logic;
   signal glyph_flip_vertical : std_logic;
+  signal glyph_goto : std_logic;
   signal glyph_width_deduct : unsigned(2 downto 0);
   signal glyph_width : integer range 0 to 8;
   signal paint_glyph_width : integer range 0 to 8;
@@ -3640,7 +3641,8 @@ begin
           glyph_flip_horizontal <= '0';
           glyph_trim_top <= 0;
           glyph_trim_bottom <= 0;
-
+          glyph_goto <= '1';
+          
           screen_ram_is_ff <= '0';
           screen_ram_high_is_ff <= '0';
           
@@ -3688,9 +3690,8 @@ begin
             glyph_flip_horizontal <= colourramdata(6);
             glyph_with_alpha <= colourramdata(5);
             -- bit 4 indicates glyph number is actually a GOTO pixel number
-            if colourramdata(4)='1' then
-              -- Glyph is tab-stop glyph
-            end if;
+            -- (allows over-rendering and skipping)
+            glyph_goto <= colourramdata(4);
             
             if colourramdata(3)='1' then
               glyph_trim_top <= to_integer(colourramdata(2 downto 0));
@@ -3966,8 +3967,18 @@ begin
             paint_blink <= glyph_blink;
             paint_with_alpha <= glyph_with_alpha;
 
+            if glyph_goto='1' then
+              -- Glyph is tab-stop glyph
+              -- Set screen ram buffer write address to 11 bit
+              -- offset indicated by glyph number bits
+              raster_buffer_write_address(11 downto 8)
+                <= screen_ram_buffer_dout(3 downto 0);
+              raster_buffer_write_address(7 downto 0)
+                <= glyph_number(7 downto 0);
+              -- ... and don't paint anything, because it is just
+              -- a tab stop.
+            elsif glyph_full_colour='1' then
             -- Now work out exactly how we are painting
-            if glyph_full_colour='1' then
               -- Paint full-colour glyph
               report "LEGACY: Dispatching to PaintFullColour due to glyph_full_colour = 1";
               -- We set background colour to screen colour in full-colour mode
