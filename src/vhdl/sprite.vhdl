@@ -491,6 +491,7 @@ begin  -- behavioural
               sprite_colour_out(7) <= sprite_bitplane_enable;
             else
               -- Transparent pixel, don't draw.
+              is_sprite_out <= is_sprite_in;
               null;
             end if;
           else
