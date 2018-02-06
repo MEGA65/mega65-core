@@ -3641,7 +3641,7 @@ begin
           glyph_flip_horizontal <= '0';
           glyph_trim_top <= 0;
           glyph_trim_bottom <= 0;
-          glyph_goto <= '1';
+          glyph_goto <= '0';
           
           screen_ram_is_ff <= '0';
           screen_ram_high_is_ff <= '0';
