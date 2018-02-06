@@ -85,20 +85,22 @@ The 16-bit character mode is enabled by setting bit 0 in $D054 (remember to enab
 | Colour RAM byte 0, bit 7 | Vertically flip the character |
 | Colour RAM byte 0, bit 6 | Horizontally flip the character |
 | Colour RAM byte 0, bit 5 | Alpha blend mode (leave 0, discussed later) |
-| Colour RAM byte 0, bit 4 | Reserved (leave 0) |
+| Colour RAM byte 0, bit 4 | GOTO X (allows repositioning of characters along a raster, discussed later) |
 | Colour RAM byte 0, bits 3 | Trim top or trim bottom of character (for variable height characters ) |
 | Colour RAM byte 0, bits 0 - 2 | Number of pixels to trim from top or bottom of character |
 | Colour RAM byte 1, bits 0 - 3 | Low 4 bits of colour of character |
 | Colour RAM byte 1, bit 4 | Hardware blink of character (if VIC-III extended attributes are enabled) |
-| Colour RAM byte 1, bit 5 | Hardware reverse video enable of character (if VIC-III extended attributes are enabled) |
-| Colour RAM byte 1, bit 6 | Hardware bold attribute of character (if VIC-III extended attributes are enabled) |
+| Colour RAM byte 1, bit 5 | Hardware reverse video enable of character (if VIC-III extended attributes are enabled)* |
+| Colour RAM byte 1, bit 6 | Hardware bold attribute of character (if VIC-III extended attributes are enabled)* |
 | Colour RAM byte 1, bit 7 | Hardware underlining of character (if VIC-III extended attributes are enabled) |
+
+* Enabling BOLD and REVERSE attributes at the same time on the MEGA65 selects an alternate palette, effectively allowing 512 colours on screen, but each 8x8 character can use colours only from one 256 colour palette.
 
 We can see that we still have the C64 style bottom 8 bits of the character number in the first screen byte. The second byte of screen memory gets five extra bits for that, allowing 2^13 = 8,192 different characters to be used on a single screen. That's enough for unique characters covering an 80x50 screen (which is possible to create).  The remaining bits allow for trimming of the character.  This allows for variable width characters, which can be used to do things that would not normally be possible, such as using text mode for free horizontal placement of characters (or parts thereof). This was originally added to provide hardware support for proportional width fonts.
 
 For the colour RAM, the second byte (byte 1) is the same as the C65, i.e., the lower half providing four bits of foreground colour, as on the C64, plus the optional VIC-III extended attributes. The C65 specifications document describes the behaviour when more than one of these are used together, most of which are logical, but there are a few combinations that behave differently than one might expect. For example, combining bold with blink causes the character to toggle between bold and normal mode. Bold mode itself is implemented by effectively acting as bit 4 of the foreground colour value, causing the colour to be drawn from different palette entries than usual.  
 
-The C65 / VIC-III attributes (and the use of 256 colour 8-bit values for various VIC-II colour registers is enabled by setting bit 5 of $D031.  Therefore this is highly recommended when using the VIC-IV mode, as otherwise certain functions will not behave as expected.
+The C65 / VIC-III attributes (and the use of 256 colour 8-bit values for various VIC-II colour registers is enabled by setting bit 5 of $D031.  Therefore this is highly recommended when using the VIC-IV mode, as otherwise certain functions will not behave as expected.)  Note that BOLD+REVERSE together has the meaning of selecting an alternate palette on the MEGA65, which differs from the C65.
 
 A C64-mode BASIC 2 program that shows the various effects of these in a crude way on the screen can be found [here](viciv-modes-16-bit-charmode-1.prg).  As this has been only quickly written, the format of the display is simply the bytes having been written linearly to screen memory and colour RAM, so some effort is required to work out which values are causing which effect. We hope to improve this later (and it is an ideal task for someone in the commmunity to attack), but it is enough now to enable exploration and discovery. 
 

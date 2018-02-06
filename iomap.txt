@@ -185,7 +185,7 @@ GS $D06E.0-6 VIC-IV sprite pointer address (bits 22 - 16)
 GS $D06E.7 VIC-IV 16-bit sprite pointer mode (allows sprites to be located on any 64 byte boundary in chip RAM)
 GS $D06F.5-0 VIC-IV first VIC-II raster line
 GS $D06F.7 VIC-IV NTSC emulation mode (max raster = 262)
-GS $D070.1-0 VIC-IV bitmap/text palette bank for 256 colour modes
+GS $D070.1-0 VIC-IV bitmap/text palette bank (alternate palette)
 GS $D070.3-2 VIC-IV sprite palette bank
 GS $D070.5-4 VIC-IV bitmap/text palette bank
 GS $D070.7-6 VIC-IV palette bank mapped at $D100-$D3FF
