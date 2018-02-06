@@ -51,9 +51,18 @@ $GIT_ROOT$> cd mega65-core
 $GIT_ROOT$/mega65-core>
 ```
 
-Currently, the MASTER branch (the default branch) is what you should compile.  
+Currently, the ```px100mhz``` branch is what you should compile.  
+So, checkout that branch:  
+```
+$GIT_ROOT$/mega65-core> git checkout px100mhz
+Branch px100mhz set up to track remote branch px100mhz from origin.
+Switched to a new branch 'px100mhz'
+$GIT_ROOT$/mega65-core>
+```
 
-If you want to try a different (development) branch, do the following: e.g., to see/use the example banana branch, type ```$GIT_ROOT$/mega65-core> git checkout banana```. To revert back to the MASTER branch, type ```git checkout master```.
+If you want to try a different (development) branch, do the following:  
+e.g., to see/use the example ```banana``` branch, type ```$GIT_ROOT$/mega65-core> git checkout banana```.  
+To change to the ```MASTER``` branch, type ```git checkout master```.
 
 You may want to type ```git status``` or ```git branch``` to check what branch you have checked out.  
 
@@ -61,6 +70,31 @@ To make sure that you have the latest files, all you have to do is type:
 ``` 
 $GIT_ROOT$/mega65-core> git pull
 ```
+
+## Submodules
+
+The project uses submodules, which are other git-projects used within this project.  
+Therefore, you need to do the following:  
+
+```
+$GIT_ROOT$/mega65-core> git submodule init
+
+Submodule 'src/mega65-fdisk' (https://github.com/MEGA65/mega65-fdisk.git) registered for path 'src/mega65-fdisk'
+
+$GIT_ROOT$/mega65-core> git submodule update
+
+Cloning into 'src/mega65-fdisk'...
+remote: Counting objects: 171, done.
+remote: Compressing objects: 100% (36/36), done.
+remote: Total 171 (delta 32), reused 42 (delta 20), pack-reused 115
+Receiving objects: 100% (171/171), 69.77 KiB | 0 bytes/s, done.
+Resolving deltas: 100% (97/97), done.
+Checking connectivity... done.
+Submodule path 'src/mega65-fdisk': checked out 'bb81b3b5244b916f7c82c947693cba31787c8b97'
+
+$GIT_ROOT$/mega65-core>
+```
+
 You are now ready to compile the design.
 
 ## Compiling
