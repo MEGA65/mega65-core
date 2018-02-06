@@ -12,6 +12,7 @@ C65 $0038000-$003BFFF - 8KB C65 BASIC GRAPHICS ROM
 C65 $003C000-$003CFFF - 4KB C65 KERNAL/INTERFACE ROM
 C65 $003E000-$003FFFF - 8KB C65 KERNAL ROM
 GS $4000000 - $7FFFFFF Slow Device memory (64MB)
+GS $7010000.5 - Force assertion of /RESET on cartridge port
 GS $8000000 - $FEFFFFF Slow Device memory (127MB)
 C64 $D000 VIC-II sprite 0 horizontal position
 C64 $D001 VIC-II sprite 1 horizontal position
@@ -180,10 +181,11 @@ GS $D06A VIC-IV character set precise base address (bits 23 - 16)
 GS $D06B VIC-IV sprite 16-colour mode enables
 GS $D06C VIC-IV sprite pointer address (bits 7 - 0)
 GS $D06D VIC-IV sprite pointer address (bits 15 - 8)
-GS $D06E VIC-IV sprite pointer address (bits 23 - 16)
+GS $D06E.0-6 VIC-IV sprite pointer address (bits 22 - 16)
+GS $D06E.7 VIC-IV 16-bit sprite pointer mode (allows sprites to be located on any 64 byte boundary in chip RAM)
 GS $D06F.5-0 VIC-IV first VIC-II raster line
 GS $D06F.7 VIC-IV NTSC emulation mode (max raster = 262)
-GS $D070.1-0 VIC-IV bitmap/text palette bank
+GS $D070.1-0 VIC-IV bitmap/text palette bank for 256 colour modes
 GS $D070.3-2 VIC-IV sprite palette bank
 GS $D070.5-4 VIC-IV bitmap/text palette bank
 GS $D070.7-6 VIC-IV palette bank mapped at $D100-$D3FF

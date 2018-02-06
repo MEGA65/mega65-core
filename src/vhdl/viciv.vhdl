@@ -371,6 +371,7 @@ architecture Behavioral of viciv is
                            SpritePointerFetch2,
                            SpritePointerCompute1,
                            SpritePointerCompute,
+                           SpritePointerComputeMSB,
                            SpriteDataFetch,
                            SpriteDataFetch2);
   signal raster_fetch_state : vic_chargen_fsm := Idle;
@@ -2388,7 +2389,8 @@ begin
                                         -- @IO:GS $D06D VIC-IV sprite pointer address (bits 15 - 8)
                                                     vicii_sprite_pointer_address(15 downto 8) <= unsigned(fastio_wdata);
                                                   elsif register_number=110 then
-                                        -- @IO:GS $D06E VIC-IV sprite pointer address (bits 23 - 16)
+                                        -- @IO:GS $D06E.0-6 VIC-IV sprite pointer address (bits 22 - 16)
+                                        -- @IO:GS $D06E.7 VIC-IV 16-bit sprite pointer mode (allows sprites to be located on any 64 byte boundary in chip RAM)
                                                     vicii_sprite_pointer_address(23 downto 16) <= unsigned(fastio_wdata);
                                                   elsif register_number=111 then
                                         -- @IO:GS $D06F.5-0 VIC-IV first VIC-II raster line
@@ -4058,10 +4060,22 @@ begin
           elsif sprite_fetch_sprite_number < 8 then
             -- Fetch sprites
             max_sprite_fetch_byte_number <= 7;
-            sprite_pointer_address(16 downto 3) <= vicii_sprite_pointer_address(16 downto 3);
-            sprite_pointer_address(2 downto 0) <=  to_unsigned(sprite_fetch_sprite_number,3);
-            report "SPRITE: will fetch pointer value from $" &
-              to_hstring("000"&(vicii_sprite_pointer_address(16 downto 0) + sprite_fetch_sprite_number));
+            if vicii_sprite_pointer_address(23)='0' then
+              -- Normal 8-bit sprite pointers
+              sprite_pointer_address(16 downto 3) <= vicii_sprite_pointer_address(16 downto 3);
+              sprite_pointer_address(2 downto 0) <=  to_unsigned(sprite_fetch_sprite_number,3);
+              report "SPRITE: will fetch pointer value from $" &
+                to_hstring("000"&(vicii_sprite_pointer_address(16 downto 0) + sprite_fetch_sprite_number));
+            else
+              -- 16-bit sprite pointers, allowing sprites to be sourced from
+              -- anywhere in first 64K x 64 = 4MB of chip RAM (of which we
+              -- currently have only 128KB :)
+              sprite_pointer_address(16 downto 4) <= vicii_sprite_pointer_address(16 downto 4);
+              sprite_pointer_address(3 downto 1) <=  to_unsigned(sprite_fetch_sprite_number,3);
+              sprite_pointer_address(0) <= '0';
+              report "SPRITE: will fetch pointer LSB from $" &
+                to_hstring("000"&(vicii_sprite_pointer_address(16 downto 0) + sprite_fetch_sprite_number*2));              
+            end if;
             raster_fetch_state <= SpritePointerFetch2;
           else
             -- Fetch VIC-III bitplanes
@@ -4130,6 +4144,16 @@ begin
         when SpritePointerFetch2 =>
           ramaddress <= sprite_pointer_address;
           raster_fetch_state <= SpritePointerCompute1;
+          if vicii_sprite_pointer_address(23)='1' then
+            -- 16-bit sprite pointers, allowing sprites to be sourced from
+            -- anywhere in first 64K x 64 = 4MB of chip RAM (of which we
+            -- currently have only 128KB :)
+            sprite_pointer_address(16 downto 4) <= vicii_sprite_pointer_address(16 downto 4);
+            sprite_pointer_address(3 downto 1) <=  to_unsigned(sprite_fetch_sprite_number,3);
+            sprite_pointer_address(0) <= '1';
+            report "SPRITE: will fetch pointer MSB from $" &
+              to_hstring("000"&(vicii_sprite_pointer_address(16 downto 0) + sprite_fetch_sprite_number*2));              
+          end if;          
         when SpritePointerCompute1 =>
           -- Drive stage for ram data to improve timing closure
           raster_fetch_state <= SpritePointerCompute;
@@ -4164,6 +4188,16 @@ begin
               sprite_data_address(12 downto 0) <= to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),13);
             end if;
           end if;
+          if vicii_sprite_pointer_address(23)='1' then
+            raster_fetch_state <= SpritePointerComputeMSB;
+          else                                  
+            raster_fetch_state <= SpriteDataFetch;
+          end if;
+        when SpritePointerComputeMSB =>
+          -- Copy in MSB bits for sprite data address
+          -- XXX It would be nice to use bit 7 to indicate to source from
+          -- colour RAM, but for now we just clip to the 128KB of chip RAM
+          sprite_data_address(16 downto 14) <= ramdata_drive(2 downto 0);
           raster_fetch_state <= SpriteDataFetch;          
         when SpriteDataFetch =>
           report "SPRITE: fetching sprite #"
