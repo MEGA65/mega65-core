@@ -191,7 +191,7 @@ dos_and_process_trap_table:
 
 	; $70 - $7E
 	;
-	.word invalid_subfunction
+	.word trap_task_toggle_rom_writeprotect
 	.word invalid_subfunction
 	.word invalid_subfunction
 	.word invalid_subfunction
@@ -205,6 +205,12 @@ trap_serial_monitor_write:
 	jmp return_from_trap_with_success	
 
 ;	========================
+
+trap_task_toggle_rom_writeprotect:
+	LDA	hypervisor_feature_enables
+	EOR	#$04
+	STA	hypervisor_feature_enables
+	jmp	return_from_trap_with_success
 
 trap_dos_getversion:
 
