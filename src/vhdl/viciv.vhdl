@@ -3269,17 +3269,22 @@ begin
       -- should be placed there for C65 compatibility).
       if postsprite_pixel_colour(7 downto 4) = x"0" and reg_palrom='0' then
         palette_address <= "11" & std_logic_vector(postsprite_pixel_colour);
+        alias_palette_address <= "11" & std_logic_vector(postsprite_alpha_value);
       else
         palette_address(7 downto 0) <= std_logic_vector(postsprite_pixel_colour);
+        alias_palette_address(7 downto 0) <= std_logic_vector(postsprite_alpha_value);
         if pixel_is_sprite='0' then
           -- Bold + reverse = use alternate palette
           if (glyph_bold and glyph_reverse)='1' then
             palette_address(9 downto 8) <= palette_bank_chargen_alt;
+            alias_palette_address(9 downto 8) <= palette_bank_chargen_alt;
           else
             palette_address(9 downto 8) <= palette_bank_chargen;
+            alias_palette_address(9 downto 8) <= palette_bank_chargen_alt;
           end if;
         else
           palette_address(9 downto 8) <= palette_bank_sprites;
+          alias_palette_address(9 downto 8) <= palette_bank_sprites;
         end if;          
       end if;
       rgb_is_background <= pixel_is_background_out;
@@ -4286,13 +4291,6 @@ begin
           end if;
         when PaintFullColour =>
           -- Draw 8 pixels using a byte at a time from full_colour_data          
-          if (glyph_bold and glyph_reverse)='1' then
-            alias_palette_address <= palette_bank_chargen_alt
-                                   & std_logic_vector(paint_background);                                     
-          else
-            alias_palette_address <= palette_bank_chargen
-                                   & std_logic_vector(paint_background);                                     
-          end if;
           paint_bits_remaining <= paint_glyph_width - 1;
           paint_ready <= '0';
           report "LEGACY: clearing paint_ready";
@@ -4317,14 +4315,19 @@ begin
                 raster_buffer_write_data(7 downto 0) <= paint_foreground;
               end if;
             else
+              -- XXX Add alternate alpha mode where alhpa value is picked by
+              -- colour RAM, allowing full colour chars to be faded in and out
+              -- from background?
               report "LEGACY: full-colour glyph painting alpha pixel $"
                 & to_hstring(paint_full_colour_data(7 downto 0))
                 & " with alpha value $" & to_hstring(paint_full_colour_data(7 downto 0));
               -- Colour RAM provides foreground colour
               raster_buffer_write_data(16 downto 9) <= paint_full_colour_data(7 downto 0);
               raster_buffer_write_data(8) <= '1';
-              -- 8-bit pixel provides alpha value
-              raster_buffer_write_data(7 downto 0) <= paint_foreground;
+              -- 8-bit pixel provides alpha value (nybl swapped, so 4-bit
+              -- colour values can select high bits of alpha blend)
+              raster_buffer_write_data(7 downto 4) <= paint_foreground(3 downto 0);
+              raster_buffer_write_data(3 downto 0) <= paint_foreground(7 downto 4);
             end if;
           end if;
           paint_full_colour_data(55 downto 0) <= paint_full_colour_data(63 downto 8);
