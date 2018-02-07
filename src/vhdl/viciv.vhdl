@@ -709,7 +709,6 @@ architecture Behavioral of viciv is
   signal glyph_blink : std_logic;
   signal glyph_blink_drive : std_logic;
   signal paint_blink : std_logic;
-  signal glyph_with_alpha_drive : std_logic;
   signal glyph_with_alpha : std_logic;
   signal paint_with_alpha : std_logic;
   signal glyph_trim_top : integer range 0 to 7;
@@ -3642,9 +3641,8 @@ begin
           -- Clear 16-bit character attributes in case we are reading 8-bits only.
           glyph_flip_horizontal <= '0';
           glyph_flip_vertical <= '0';
+          glyph_with_alpha <= '0';
           glyph_width_deduct <= to_unsigned(0,3);
-          glyph_flip_vertical <= '0';
-          glyph_flip_horizontal <= '0';
           glyph_trim_top <= 0;
           glyph_trim_bottom <= 0;
           glyph_goto <= '0';
@@ -3803,7 +3801,6 @@ begin
           glyph_reverse_drive <= glyph_reverse;
           glyph_underline_drive <= glyph_underline;
           glyph_bold_drive <= glyph_bold;
-          glyph_with_alpha_drive <= glyph_with_alpha;
 
           raster_fetch_state <= PaintMemWait;
         when FetchTextCellColourAndSource =>
@@ -3827,7 +3824,6 @@ begin
           glyph_reverse_drive <= '0';
           glyph_visible_drive <= '1';
           glyph_blink_drive <= '0';
-          glyph_with_alpha_drive <= '0';
           report "Reading high-byte of colour RAM (value $" & to_hstring(colourramdata)&")";
           if multicolour_mode='1' then
             -- Multicolour + full colour mode + 16-bit char mode = simple 256 colour foreground
@@ -3890,7 +3886,6 @@ begin
           glyph_underline <= glyph_underline_drive;
           glyph_bold <= glyph_bold_drive;
           glyph_colour_drive2 <= glyph_colour_drive;
-          glyph_with_alpha <= glyph_with_alpha_drive;
           if glyph_full_colour = '1' then
             report "setting ramaddress to $x" & to_hstring(glyph_data_address(15 downto 0)) & " for full-colour glyph drawing";
             ramaddress <= glyph_data_address;
