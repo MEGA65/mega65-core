@@ -38,6 +38,10 @@ entity iomapper is
         uart_monitor_char : out unsigned(7 downto 0);
         uart_monitor_char_valid : out std_logic := '0';
 
+        buffereduart_rx : in std_logic;
+        buffereduart_tx : out std_logic := '1';
+        buffereduart_ringindicate : in std_logic;
+        
         display_shift_out : out std_logic_vector(2 downto 0) := "000";
         shift_ready_out : out std_logic := '0';
         shift_ack_in : in std_logic;        
@@ -288,6 +292,7 @@ architecture behavioral of iomapper is
   signal c65uart_cs : std_logic := '0';
   signal sdcardio_cs : std_logic := '0';
   signal f011_cs : std_logic := '0';
+  signal buffereduart_cs : std_logic := '0';
   signal cpuregs_cs : std_logic := '0';
   signal thumbnail_cs : std_logic := '0';
   signal ethernet_cs : std_logic := '0';
@@ -711,6 +716,28 @@ begin
     fastio_wdata => unsigned(data_i)
     );
   
+  buffered_uart0 : entity work.buffereduart port map (
+    clock50mhz => clock50mhz,
+    clock200 => clock200,
+    clock => clk,
+    reset => reset,
+    irq => irq,
+    buffereduart_cs => buffereduart_cs,
+
+    ---------------------------------------------------------------------------
+    -- IO lines to the buffered UART
+    ---------------------------------------------------------------------------
+    uart_rx => buffereduart_rx,
+    uart_tx => buffereduart_tx,
+    uart_ringindicate => buffereduart_ringindicate,
+
+    fastio_addr => unsigned(address),
+    fastio_write => w,
+    fastio_read => r,
+    std_logic_vector(fastio_rdata) => data_o,
+    fastio_wdata => unsigned(data_i)
+    );
+
   sdcard0 : entity work.sdcardio port map (
     pixelclk => pixelclk,
     clock => clk,
@@ -1068,6 +1095,15 @@ begin
         when x"D208" => f011_cs <= sdcardio_en;
         when x"D308" => f011_cs <= sdcardio_en;
         when others => f011_cs <= '0';
+      end case;
+
+      -- Buffered UART registers at $D0Ex
+      temp(15 downto 0) := unsigned(address(19 downto 4));
+      case temp(15 downto 0) is
+        when x"D10E" => buffereduart_cs <= sdcardio_en;
+        when x"D20E" => buffereduart_cs <= sdcardio_en;
+        when x"D30E" => buffereduart_cs <= sdcardio_en;
+        when others => buffereduart_cs <= '0';
       end case;
             
       -- CPU uses $FFD{0,1,2,3}700 for DMAgic and other CPU-hosted IO registers.

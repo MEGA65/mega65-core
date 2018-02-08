@@ -367,7 +367,9 @@ begin
       iec_data_external => iec_data_i_drive,
       iec_clk_external => iec_clk_i_drive,
       iec_atn_o => iec_atn_drive,
-        
+
+      buffereduart_rx => '1',
+      buffereduart_ringindicate => '1',
 
       porta_pins => column(7 downto 0),
       portb_pins => row(7 downto 0),

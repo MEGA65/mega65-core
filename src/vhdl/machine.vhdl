@@ -73,6 +73,10 @@ entity machine is
          flopled : out std_logic;
          flopmotor : out std_logic;
 
+         buffereduart_rx : in std_logic;
+         buffereduart_tx : out std_logic := '1';
+         buffereduart_ringindicate : in std_logic;
+         
          slow_access_request_toggle : out std_logic;
          slow_access_ready_toggle : in std_logic := '0';
          slow_access_write : out std_logic := '0';
@@ -888,6 +892,10 @@ begin
       speed_gate => speed_gate,
       speed_gate_enable => speed_gate_enable,
 
+      buffereduart_rx => buffereduart_rx,
+      buffereduart_tx => buffereduart_tx,
+      buffereduart_ringindicate => buffereduart_ringindicate,
+      
       visual_keyboard_enable => visual_keyboard_enable,
       keyboard_at_top => keyboard_at_top,
       alternate_keyboard => alternate_keyboard,

@@ -105,6 +105,7 @@ VICIVVHDL=		$(VHDLSRCDIR)/viciv.vhdl \
 			$(OVERLAYVHDL)
 
 PERIPHVHDL=		$(VHDLSRCDIR)/sdcardio.vhdl \
+			$(VHDLSRCDIR)/buffereduart.vhdl \
 			$(VHDLSRCDIR)/mfm_bits_to_bytes.vhdl \
 			$(VHDLSRCDIR)/mfm_decoder.vhdl \
 			$(VHDLSRCDIR)/mfm_gaps_to_bits.vhdl \

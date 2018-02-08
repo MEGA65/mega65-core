@@ -393,6 +393,11 @@ begin
       vgablue(7 downto 4)         => vgablue,
       vgablue(3 downto 0)         => dummy_vgablue,
 
+      -- XXX Connect to actual pins
+      buffereduart_rx => '1',
+      -- buffereduart_tx => ...,
+      buffereduart_ringindicate => '1',
+      
       porta_pins => porta_pins,
       portb_pins => portb_pins,
       keyleft => '0',
