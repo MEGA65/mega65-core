@@ -2402,21 +2402,21 @@ begin
       elsif (long_address = x"FFD3705") or (long_address = x"FFD1705") then
         -- @IO:GS $D705 Set low-order byte of DMA list address, and trigger Enhanced DMA job (uses DMA option list)
         reg_dmagic_addr(7 downto 0) <= value;
-      -- @IO:GS $D780-3 25-bit multiplier input A
-      elsif (long_address = x"FFD3780") or (long_address = x"FFD1780") then
+      -- @IO:GS $D770-3 25-bit multiplier input A
+      elsif (long_address = x"FFD3770") or (long_address = x"FFD1770") then
         reg_mult_a(7 downto 0) <= value;
-      elsif (long_address = x"FFD3781") or (long_address = x"FFD1781") then
+      elsif (long_address = x"FFD3771") or (long_address = x"FFD1771") then
         reg_mult_a(15 downto 8) <= value;
-      elsif (long_address = x"FFD3782") or (long_address = x"FFD1782") then
+      elsif (long_address = x"FFD3772") or (long_address = x"FFD1772") then
         reg_mult_a(23 downto 16) <= value;
-      elsif (long_address = x"FFD3783") or (long_address = x"FFD1783") then
+      elsif (long_address = x"FFD3773") or (long_address = x"FFD1773") then
         reg_mult_a(24) <= value(0);
-      -- @IO:GS $D784-7 18-bit multiplier input B
-      elsif (long_address = x"FFD3784") or (long_address = x"FFD1784") then
+      -- @IO:GS $D774-7 18-bit multiplier input B
+      elsif (long_address = x"FFD3774") or (long_address = x"FFD1774") then
         reg_mult_b(7 downto 0) <= value;
-      elsif (long_address = x"FFD3785") or (long_address = x"FFD1785") then
+      elsif (long_address = x"FFD3775") or (long_address = x"FFD1775") then
         reg_mult_b(15 downto 8) <= value;
-      elsif (long_address = x"FFD3786") or (long_address = x"FFD1786") then
+      elsif (long_address = x"FFD3776") or (long_address = x"FFD1776") then
         reg_mult_b(17 downto 16) <= value(1 downto 0);
       elsif (long_address = x"FFD37FA") then
         -- @IO:GS $D7FA.0 DEBUG 1/2/3.5MHz CPU speed fine adjustment
