@@ -2065,7 +2065,7 @@ begin
                 when "00" => return reg_math_regs(to_integer(the_read_address(5 downto 2)))(7 downto 0);              
                 when "01" => return reg_math_regs(to_integer(the_read_address(5 downto 2)))(15 downto 8);
                 when "10" => return reg_math_regs(to_integer(the_read_address(5 downto 2)))(23 downto 16);
-                when "11" => return reg_math_regs(to_integer(the_read_address(5 downto 2)))(31 downto 23);
+                when "11" => return reg_math_regs(to_integer(the_read_address(5 downto 2)))(31 downto 24);
                 when others => return x"59";
               end case;
             when
