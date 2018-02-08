@@ -2418,6 +2418,27 @@ begin
         reg_mult_b(15 downto 8) <= value;
       elsif (long_address = x"FFD3776") or (long_address = x"FFD1776") then
         reg_mult_b(17 downto 16) <= value(1 downto 0);
+      elsif (long_address(27 downto 6)&"00"=x"FFD3780")
+        or  (long_address(27 downto 6)&"00"=x"FFD1780") then
+        -- Math unit registers
+        case long_address(1 downto 0) is
+          when "00" => reg_math_regs(to_integer(long_address(5 downto 2)))(7 downto 0) <= value;
+          when "01" => reg_math_regs(to_integer(long_address(5 downto 2)))(15 downto 8) <= value;
+          when "10" => reg_math_regs(to_integer(long_address(5 downto 2)))(23 downto 16) <= value;
+          when "11" => reg_math_regs(to_integer(long_address(5 downto 2)))(31 downto 24) <= value;
+          when others => null;
+        end case;
+      elsif (long_address(27 downto 4)=x"FFD37C0") or  (long_address(27 downto 4)=x"FFD17C0") then
+        -- Math unit input select registers
+        reg_math_config(to_integer(long_address(3 downto 0))).source_a <= to_integer(value(3 downto 0));
+        reg_math_config(to_integer(long_address(3 downto 0))).source_b <= to_integer(value(7 downto 4));
+      elsif (long_address(27 downto 4)=x"FFD37D0") or  (long_address(27 downto 4)=x"FFD17D0") then
+        -- Math unit input select registers
+        reg_math_config(to_integer(long_address(3 downto 0))).latched <= value(7);
+        reg_math_config(to_integer(long_address(3 downto 0))).do_add <= value(6);
+        reg_math_config(to_integer(long_address(3 downto 0))).output_high <= value(5);
+        reg_math_config(to_integer(long_address(3 downto 0))).output_low <= value(4);
+        reg_math_config(to_integer(long_address(3 downto 0))).output <= to_integer(value(3 downto 0));
       elsif (long_address = x"FFD37FA") then
         -- @IO:GS $D7FA.0 DEBUG 1/2/3.5MHz CPU speed fine adjustment
         cpu_speed_bias <= to_integer(value);
