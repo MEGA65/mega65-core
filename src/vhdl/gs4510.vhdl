@@ -2088,7 +2088,8 @@ begin
                 &reg_math_config(to_integer(the_read_address(3 downto 0))).do_add
                 &reg_math_config(to_integer(the_read_address(3 downto 0))).output_high
                 &reg_math_config(to_integer(the_read_address(3 downto 0))).output_low
-                &to_unsigned(reg_math_config(to_integer(the_read_address(3 downto 0))).output,4);              
+                &to_unsigned(reg_math_config(to_integer(the_read_address(3 downto 0))).output,4);
+            when x"E0" => return reg_math_latch_interval;
             when x"fc" => return unsigned(chipselect_enables);
             when x"fd" =>
               report "Reading $D7FD";
@@ -2439,6 +2440,9 @@ begin
         reg_math_config(to_integer(long_address(3 downto 0))).output_high <= value(5);
         reg_math_config(to_integer(long_address(3 downto 0))).output_low <= value(4);
         reg_math_config(to_integer(long_address(3 downto 0))).output <= to_integer(value(3 downto 0));
+      elsif (long_address = x"FFD37E0") or (long_address = x"FFD17E0") then
+        -- @IO:GS $D7E0 - Math unit latch interval (only update output of math function units every this many cycles, if they have the latch output flag set)
+        reg_math_latch_interval <= value;
       elsif (long_address = x"FFD37FA") then
         -- @IO:GS $D7FA.0 DEBUG 1/2/3.5MHz CPU speed fine adjustment
         cpu_speed_bias <= to_integer(value);
