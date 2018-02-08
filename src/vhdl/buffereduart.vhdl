@@ -79,6 +79,8 @@ begin  -- behavioural
 
   begin
 
+    irq <= 'Z';
+    
     -- Register reading is asynchronous to avoid wait states
     if fastio_read='1' then
       if buffereduart_cs='1' then
