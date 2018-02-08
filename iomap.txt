@@ -228,6 +228,7 @@ GS $D09F.0 - CPU-side buffer pointer high bit (DEBUG)
 GS $D09F.1 - EQ flag (DEBUG)
 GS $D09F.2 - EQ flag inhibit state (DEBUG)
 C65 $D0A0-$D0FF - Reserved for C65 RAM Expansion Controller.
+GS $D0E0 An example register
 C65 $D100-$D1FF red palette values (reversed nybl order)
 C65 $D200-$D2FF green palette values (reversed nybl order)
 C65 $D300-$D3FF blue palette values (reversed nybl order)
@@ -516,9 +517,17 @@ GS $D705 - Enhanced DMAgic job option $85 $xx = Set destination skip rate (whole
 GS $D705 - Enhanced DMAgic job option $86 $xx = Don't write to destination if byte value = $xx, and option $06 enabled
 GS $D705 Set low-order byte of DMA list address, and trigger Enhanced DMA job (uses DMA option list)
 GS $D70E DMA list address low byte (address bits 0 -- 7) WITHOUT STARTING A DMA JOB (used by Hypervisor for unfreezing DMA-using tasks)
-GS $D780-3 25-bit multiplier input A
-GS $D784-7 18-bit multiplier input B
-GS $D788-$D78F - 48-bit multiplication output
+GS $D770-3 25-bit multiplier input A
+GS $D774-7 18-bit multiplier input B
+GS $D778-$D77F - 48-bit multiplication output
+GS $D780-$D7BF - 16 x 32 bit Math Unit values
+GS $D7C0-$D7CF - 16 Math function unit input A (3-0) and input B (7-4) selects
+GS $D7D0-$D7DF.0-3 - 16 Math function unit output selects
+GS $D7D0-$D7DF.4 - 16 Math function unit output low half of result
+GS $D7D0-$D7DF.5 - 16 Math function unit output high half of result
+GS $D7D0-$D7DF.6 - 16 Math function unit select adder mode instead of special function
+GS $D7D0-$D7DF.7 - 16 Math function unit latch output
+GS $D7E0 - Math unit latch interval (only update output of math function units every this many cycles, if they have the latch output flag set)
 GS $D7FA.0 DEBUG 1/2/3.5MHz CPU speed fine adjustment
 GS $D7FB.0 DEBUG 1=charge extra cycle(s) for branches taken
 GS $D7FC DEBUG chip-select enables for various devices

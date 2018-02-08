@@ -87,7 +87,7 @@ begin  -- behavioural
         report "MEMORY: Reading from buffered UART register block";
         case fastio_addr(3 downto 0) is
           -- Use this notation to create entries for auto-populating iomap.txt
-          -- @IO:GS $D0E0 An example regisgter
+          -- @IO:GS $D0E0 An example register
           when x"0" =>
             fastio_rdata <= x"12";
           when others =>
