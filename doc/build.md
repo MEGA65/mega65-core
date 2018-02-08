@@ -45,6 +45,14 @@ $GIT_ROOT$>
 ```
 You should now have two directories in your working directory, ie ```mega65-core``` and ```Ophis```.
 
+If you have a github account, and use SSH keys to avoid being prompted for your github password,
+use the following command to tell git to always use SSH instead of HTTPS when comminicating with
+the github.com servers:
+
+```
+git config --global url.ssh://git@github.com/.insteadOf https://github.com/
+```
+
 Change directory into the ```mega65-core``` working directory.
 ```
 $GIT_ROOT$> cd mega65-core
