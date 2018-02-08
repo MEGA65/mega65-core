@@ -500,7 +500,7 @@ bin/%.bit:	isework/%.ncd
 
 
 clean:
-	rm -f KICKUP.M65 kickstart.list kickstart.map
+	rm -f $(BINDIR)/KICKUP.M65 kickstart.list kickstart.map
 	rm -f $(UTILDIR)/diskmenu.prg $(UTILDIR)/diskmenuprg.list $(UTILDIR)/diskmenu.map $(UTILDIR)/diskmenuprg.o
 	rm -f $(UTILDIR)/mega65_config.prg $(UTILDIR)/mega65_config.list $(UTILDIR)/mega65_config.map $(UTILDIR)/mega65_config.o
 	rm -f $(BINDIR)/diskmenu_c000.bin $(UTILDIR)/diskmenuc000.list $(BINDIR)/diskmenu_c000.map $(UTILDIR)/diskmenuc000.o
