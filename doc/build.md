@@ -129,7 +129,7 @@ Someone else please document how the simulate function(s) work and what compile 
 
 In your working directory, type the following:
 ```
-$GIT_ROOT$/mega65-core> make bin/nexys4.ddr
+$GIT_ROOT$/mega65-core> make bin/nexys4ddr.bit
 $GIT_ROOT$/mega65-core> 
 ```
 The Makefile performs two main tasks:  
