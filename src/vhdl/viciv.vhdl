@@ -874,6 +874,37 @@ architecture Behavioral of viciv is
   signal viciv_flyback : std_logic := '0';
 
   signal pixel_newframe_internal : std_logic := '0';
+
+  -- Signals for managing the state of the programmable screen RAM lists
+  -- We have a simple call-stack scheme, where GOTO tokens and GOSUB tokens
+  -- can cause redirection of the screen RAM stream being read. This happens
+  -- during the badline fetch, i.e., once per character row.
+  type screenline_return_stack_t is  array (0 to 3) of unsigned(16 downto 0);
+  signal screenline_return_stack : screenline_return_stack_t;
+  signal screenline_return_stack_count : integer range 0 to 3 := 0;
+  -- Some tokens can also set other interesting parameters, such as whether
+  -- drawing should happen with the background being painted, or not, to
+  -- allow transparency.  This can be useful for using characters to draw
+  -- bullets etc, or even large animated sprite-like objects, consisting of
+  -- sets of characters.
+  signal screenline_transparent_background : std_logic := '0';
+  -- We also allow shoving characters up or down, so that by displaying
+  -- a set of screen characters (possibly via a GOSUB token), they can be
+  -- displayed at any vertical offset, as well as horizontal offset via the
+  -- GOTOX tokens.
+  -- _empty_rows indicates the number of blank rasters at the top of the char,
+  -- before showing the characterr, i.e., how many pixels to shove a character
+  -- down.
+  -- _skip_rows indicates how many of the pixels of the character to skip at
+  -- top of a character, so that the bottom half of a shoved row can be displayed
+  -- on the subsequent line, by drawing it one each in both lines, once with
+  -- _empty_rows and and once with _skip_rows set to the same number, which is
+  -- the number of pixels vertical shift down the screen compared with normal.
+  signal screenline_y_empty_rows : integer := 0;
+  signal screenline_y_skip_rows : integer := 0;
+
+  -- For accumulating the last token
+  signal screen_line_last_token : unsigned(15 downto 0) := x"0000";
   
 begin
   
@@ -3463,6 +3494,9 @@ begin
       screen_ram_buffer_write <= final_ramaccess_is_screen_row_fetch;
       screen_ram_buffer_write_address <= final_ramaccess_screen_row_buffer_address;
       screen_ram_buffer_din <= final_ramdata;
+      -- Collect last token for processing
+      screen_line_last_screen_token(15 downto 8) <= final_ramdata;
+      screen_line_last_screen_token(7 downto 0) <= screen_line_last_token(15 downto 8);
       
       if raster_fetch_state /= Idle or paint_fsm_state /= Idle then
         report "raster_fetch_state=" & vic_chargen_fsm'image(raster_fetch_state) & ", "
@@ -3532,6 +3566,20 @@ begin
           -- read so that it can be committed by the receiving side of the logic.
           -- Otherwise, if we are at the end of the row, then stop.
 
+          -- XXX check the last stored token to see if it is a GOTO, GOSUB or RETURN.
+          -- If it is, rewind, and redirect accordingly.
+          -- Part of the challenge here is that the bytes here are delayed by
+          -- several cycles, so we have to take that into account.
+          report "BADLINEPROG: last_token=$" & to_hstring(screen_line_last_token);
+          case screen_line_last_token is
+            when x"FFFF" =>
+              -- End of line / RETURN token
+              -- If nothing on the stack, this is the last token to fetch.
+              null;
+            when others =>
+              null;
+          end case;
+          
           -- Is this the last character in the row?
           if character_number = virtual_row_width_minus1(7 downto 0)&'1' then
             end_of_row_16 <= '1';
@@ -4316,13 +4364,11 @@ begin
               report "LEGACY: full-colour glyph painting alpha pixel $"
                 & to_hstring(paint_full_colour_data(7 downto 0))
                 & " with alpha value $" & to_hstring(paint_full_colour_data(7 downto 0));
-              -- Colour RAM provides foreground colour
+              -- 8-bit pixel values provide the alpha
               raster_buffer_write_data(16 downto 9) <= paint_full_colour_data(7 downto 0);
               raster_buffer_write_data(8) <= '1';
-              -- 8-bit pixel provides alpha value (nybl swapped, so 4-bit
-              -- colour values can select high bits of alpha blend)
-              raster_buffer_write_data(7 downto 4) <= paint_foreground(3 downto 0);
-              raster_buffer_write_data(3 downto 0) <= paint_foreground(7 downto 4);
+              -- colour RAM colour provides the foreground
+              raster_buffer_write_data <= paint_foreground;
             end if;
           end if;
           paint_full_colour_data(55 downto 0) <= paint_full_colour_data(63 downto 8);
