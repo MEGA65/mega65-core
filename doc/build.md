@@ -130,7 +130,7 @@ The following is assumed:
 
 Overview of the compile process:  
 
-1. make bin/<board type>.bit
+1. ```make bin/(board type).bit```, supported (board types)'s are: ```nexys4```, ```nexys4ddr```.  
 1. optionally: see design run in fpga hardware (to do)
 1. optionally: see design run in ghdl simulator (to do)
 
