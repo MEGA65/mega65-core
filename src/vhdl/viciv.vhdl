@@ -4368,7 +4368,7 @@ begin
               raster_buffer_write_data(16 downto 9) <= paint_full_colour_data(7 downto 0);
               raster_buffer_write_data(8) <= '1';
               -- colour RAM colour provides the foreground
-              raster_buffer_write_data <= paint_foreground;
+              raster_buffer_write_data(7 downto 0) <= paint_foreground;
             end if;
           end if;
           paint_full_colour_data(55 downto 0) <= paint_full_colour_data(63 downto 8);
