@@ -102,6 +102,18 @@ Submodule path 'src/mega65-fdisk': checked out 'bb81b3b5244b916f7c82c947693cba31
 
 $GIT_ROOT$/mega65-core>
 ```
+## 3rd-party programs
+
+You need ```cc65``` installed. See below for info:
+```
+$ cd .. (to get out of the $git_root dir)
+$ git clone https://github.com/cc65/cc65.git
+$ cd cc65
+$ make
+$ sudo cp bin/* /usr/local/bin
+$ cd ..
+$ cd mega65-core
+```
 
 You are now ready to compile the design.
 
