@@ -3495,8 +3495,8 @@ begin
       screen_ram_buffer_write_address <= final_ramaccess_screen_row_buffer_address;
       screen_ram_buffer_din <= final_ramdata;
       -- Collect last token for processing
-      screen_line_last_screen_token(15 downto 8) <= final_ramdata;
-      screen_line_last_screen_token(7 downto 0) <= screen_line_last_token(15 downto 8);
+      screen_line_last_token(15 downto 8) <= final_ramdata;
+      screen_line_last_token(7 downto 0) <= screen_line_last_token(15 downto 8);
       
       if raster_fetch_state /= Idle or paint_fsm_state /= Idle then
         report "raster_fetch_state=" & vic_chargen_fsm'image(raster_fetch_state) & ", "
