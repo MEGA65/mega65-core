@@ -3005,10 +3005,10 @@ begin
             when 1 => math_result := mult1_p;
             when 2 => math_result := mult2_p;
             when 3 => math_result := mult3_p;
-            when 4 => math_result := mult4_p;
-            when 5 => math_result := mult5_p;
-            when 6 => math_result := mult6_p;
-            when 7 => math_result := mult7_p;
+--            when 4 => math_result := mult4_p;
+--            when 5 => math_result := mult5_p;
+--            when 6 => math_result := mult6_p;
+--            when 7 => math_result := mult7_p;
             when 15 =>
                                         -- Reciprocal calculator: output = 1/input a
                                         -- XXX Not implemented
