@@ -51,7 +51,7 @@ begin
       p1 <= to_unsigned(to_integer(a)*to_integer(b),64);
       p2 <= p1;
       p3 <= p2;
-      p4 <= p1;
+      p4 <= p3;
       p <= p4;
     end if;
   end process;
