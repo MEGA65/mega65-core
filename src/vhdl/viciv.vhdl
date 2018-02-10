@@ -324,7 +324,6 @@ architecture Behavioral of viciv is
   signal paint_full_colour_data : unsigned(63 downto 0) := (others => '0');
 
   -- chipram access management registers
-  signal next_ramaddress : unsigned(16 downto 0) := to_unsigned(0,17);
   signal next_ramaccess_is_screen_row_fetch : std_logic := '0';
   signal this_ramaccess_is_screen_row_fetch : std_logic := '0';
   signal last_ramaccess_is_screen_row_fetch : std_logic := '0';
@@ -905,6 +904,15 @@ architecture Behavioral of viciv is
 
   -- For accumulating the last token
   signal screen_line_last_token : unsigned(15 downto 0) := x"0000";
+  -- Count down used to extracting read 16-bit character tokens from the
+  -- badline data stream (corrects for pipeline delay, and only every other
+  -- byte completing a 16-bit token).
+  signal badlineprog_countdown : integer := 0;
+  -- Count down used when branching in a badline program to flush the memory
+  -- fetch pipeline.
+  signal badlineprog_inhibit_screen_row_buffer_write_counter : integer := 0;
+  -- Indicates if the next 16 bit screen token will be a GOTO/GOSUB token
+  signal next_token_is_goto : std_logic := '0';
   
 begin
   
@@ -3546,7 +3554,7 @@ begin
             character_number <= to_unsigned(1,9);
             end_of_row_16 <= '0'; end_of_row <= '0';
             colourramaddress <= to_unsigned(to_integer(colour_ram_base) + to_integer(first_card_of_row),16);
-
+            
             -- Now ask for the first byte.  We indicate all details of this
             -- read so that it can be committed by the receiving side of the logic.
             next_ramaccess_is_screen_row_fetch <= '1';
@@ -3554,6 +3562,11 @@ begin
             next_ramaccess_is_sprite_data_fetch <= '0';
             next_ramaccess_screen_row_buffer_address <= to_unsigned(0,9);
             next_screen_row_fetch_address <= screen_row_current_address;
+
+            -- Set pipeline delay countdown for investigating the 16-bit tokens
+            -- to see if they indicate programmatic instructions, rather than
+            -- ordinary characte data.
+            badlineprog_countdown <= 5;
             
             report "BADLINE, colour_ram_base=$" & to_hstring(colour_ram_base) severity note;
 
@@ -3570,15 +3583,43 @@ begin
           -- If it is, rewind, and redirect accordingly.
           -- Part of the challenge here is that the bytes here are delayed by
           -- several cycles, so we have to take that into account.
-          report "BADLINEPROG: last_token=$" & to_hstring(screen_line_last_token);
-          case screen_line_last_token is
-            when x"FFFF" =>
-              -- End of line / RETURN token
-              -- If nothing on the stack, this is the last token to fetch.
-              null;
-            when others =>
-              null;
-          end case;
+          if sixteenbit_charset='1' then
+            if badlineprog_countdown = 0 then
+              report "BADLINEPROG: last_token=$" & to_hstring(screen_line_last_token);
+              if next_token_is_goto='1' then
+                -- Set screen RAM fetch to the value of this token (shifted
+                -- left one bit).
+                next_screen_row_fetch_address(16 downto 1) <= screen_line_last_token;
+                next_screen_row_fetch_address(0) <= '0';
+                -- Flush screen row buffer fetch pipeline while waiting for
+                -- branch to complete
+                badlineprog_inhibit_screen_row_buffer_write_counter <= 4;
+                -- Clear next token is branch flag
+                next_token_is_goto <= '0';
+              else
+                case screen_line_last_token is
+                  when x"FFFF" =>
+                    -- End of line / RETURN token
+                    -- If nothing on the stack, this is the last token to fetch.                  
+                    null;
+                  when x"FFFE" =>
+                    -- GOTO: Next token is address to goto (shifted left one bit)
+                    null;
+                  when x"FFFD" =>
+                    -- GOSUB: Next token is address to goto (shifted left one bit)
+                    -- (Same as GOTO, except that we push the write offset to be
+                    --  retrieved on return.)
+                    null;
+                  when others =>
+                    null;
+                end case;
+              end if;
+              -- We need two bytes before we have next token, so set count down
+              badlineprog_countdown <= 1;
+            else
+              badlineprog_countdown <= badlineprog_countdown - 1;
+            end if;
+          end if;
           
           -- Is this the last character in the row?
           if character_number = virtual_row_width_minus1(7 downto 0)&'1' then
@@ -3602,13 +3643,18 @@ begin
             next_ramaccess_is_sprite_data_fetch <= '0';
           else
             -- More to fetch, so keep scheduling the reads
-            character_number <= character_number + 1;
-            next_ramaddress <= screen_row_current_address;
+            if screenline_return_stack_count = 0 then
+              -- Only advance fetched character counter if we are not in a
+              -- GOSUB in the screen row data.
+              character_number <= character_number + 1;
+            end if;
             next_ramaccess_is_screen_row_fetch <= '1';
             next_ramaccess_is_glyph_data_fetch <= '0';
             next_ramaccess_is_sprite_data_fetch <= '0';
-            next_ramaccess_screen_row_buffer_address <= next_ramaccess_screen_row_buffer_address + 1;
-            next_screen_row_fetch_address <= next_screen_row_fetch_address + 1;
+            if next_token_is_goto='0' then
+              next_ramaccess_screen_row_buffer_address <= next_ramaccess_screen_row_buffer_address + 1;
+              next_screen_row_fetch_address <= next_screen_row_fetch_address + 1;
+            end if;
           end if;
         when FetchFirstCharacter =>
           next_ramaccess_is_screen_row_fetch <= '0';
