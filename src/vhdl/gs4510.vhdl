@@ -1134,8 +1134,82 @@ architecture Behavioural of gs4510 is
   signal reg_math_latch_counter : unsigned(7 downto 0) := x"00";
   signal reg_math_latch_interval : unsigned(7 downto 0) := x"00";
 
+  signal mult0_a : unsigned(31 downto 0);
+  signal mult0_b : unsigned(31 downto 0);
+  signal mult1_a : unsigned(31 downto 0);
+  signal mult1_b : unsigned(31 downto 0);
+  signal mult2_a : unsigned(31 downto 0);
+  signal mult2_b : unsigned(31 downto 0);
+  signal mult3_a : unsigned(31 downto 0);
+  signal mult3_b : unsigned(31 downto 0);
+  signal mult4_a : unsigned(31 downto 0);
+  signal mult4_b : unsigned(31 downto 0);
+  signal mult5_a : unsigned(31 downto 0);
+  signal mult5_b : unsigned(31 downto 0);
+  signal mult6_a : unsigned(31 downto 0);
+  signal mult6_b : unsigned(31 downto 0);
+  signal mult7_a : unsigned(31 downto 0);
+  signal mult7_b : unsigned(31 downto 0);
+  signal mult0_p : unsigned(63 downto 0);
+  signal mult1_p : unsigned(63 downto 0);
+  signal mult2_p : unsigned(63 downto 0);
+  signal mult3_p : unsigned(63 downto 0);
+  signal mult4_p : unsigned(63 downto 0);
+  signal mult5_p : unsigned(63 downto 0);
+  signal mult6_p : unsigned(63 downto 0);
+  signal mult7_p : unsigned(63 downto 0);
+  
 begin
 
+  mult0 : entity work.multiply32 port map (
+    clock => clock,
+    a => mult0_a,
+    b => mult0_b,
+    p => mult0_p
+    );
+  mult1 : entity work.multiply32 port map (
+    clock => clock,
+    a => mult1_a,
+    b => mult1_b,
+    p => mult1_p
+    );
+  mult2 : entity work.multiply32 port map (
+    clock => clock,
+    a => mult2_a,
+    b => mult2_b,
+    p => mult2_p
+    );
+  mult3 : entity work.multiply32 port map (
+    clock => clock,
+    a => mult3_a,
+    b => mult3_b,
+    p => mult3_p
+    );
+  mult4 : entity work.multiply32 port map (
+    clock => clock,
+    a => mult4_a,
+    b => mult4_b,
+    p => mult4_p
+    );
+  mult5 : entity work.multiply32 port map (
+    clock => clock,
+    a => mult5_a,
+    b => mult5_b,
+    p => mult5_p
+    );
+  mult6 : entity work.multiply32 port map (
+    clock => clock,
+    a => mult6_a,
+    b => mult6_b,
+    p => mult6_p
+    );
+  mult7 : entity work.multiply32 port map (
+    clock => clock,
+    a => mult7_a,
+    b => mult7_b,
+    p => mult7_p
+    );
+  
   shadowram0 : shadowram port map (
     clk     => clock,
     address => shadow_address,
@@ -2859,68 +2933,7 @@ begin
     variable math_output_high : integer := 0;
     variable math_result : unsigned(63 downto 0) := to_unsigned(0,64);
     
-  begin
-
-                                        -- Formula Plumbing Unit (FPU), the MEGA65's answer to a traditional
-                                        -- Floating Point Unit (FPU).
-                                        -- The idea is simple: We have a bunch of math units, and a bunch of
-                                        -- inputs and outputs, and a bunch of multiplexors that let you select what
-                                        -- joins where: In short, you can plumb your own formulae directly.
-                                        -- For each unit we have to pick one or more inputs, and set at least one
-                                        -- output.  We will map these all onto the same 64 bytes of registers.
-    reg_mult_p <= to_unsigned(to_integer(reg_mult_a) * to_integer(reg_mult_b),48);
-    for i in 0 to (math_unit_count-1) loop
-                                        -- Work out sources and destinations of the units
-      math_input_a_source := reg_math_config(i).source_a;
-      math_input_b_source := reg_math_config(i).source_b;
-
-      math_output_low := 0;
-      math_output_high := 0;      
-      if reg_math_config(i).output_low='1' then
-        math_output_low := reg_math_config(i).output;
-        if reg_math_config(i).output_high='1' then
-          if reg_math_config(i).output /= 15 then
-            math_output_high := reg_math_config(i).output + 1;
-          else
-            math_output_high := 0;
-          end if;
-        end if;
-      elsif reg_math_config(i).output_high='1' then
-        math_output_high := reg_math_config(i).output;
-      end if;
-      
-      if reg_math_config(i).do_add='1' then
-                                        -- All units can be used as adders, because it is cheap.
-        math_result := to_unsigned(to_integer(reg_math_regs(math_input_a_source))
-                                   + to_integer(reg_math_regs(math_input_b_source))
-                                   ,64);
-      else
-        case i is
-          when 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 =>
-                                        -- First eight units are multipliers
-            math_result := to_unsigned(to_integer(reg_math_regs(math_input_a_source)(17 downto 0))
-                                       * to_integer(reg_math_regs(math_input_b_source)(24 downto 0))
-                                       ,64);
-          when 15 =>
-                                        -- Reciprocal calculator: output = 1/input a
-                                        -- XXX Not implemented
-            math_result := to_unsigned(0,64);
-          when others =>
-                                        -- XXX Not implemented
-            math_result := to_unsigned(0,64);            
-        end case;
-      end if;
-      if reg_math_config(i).latched='0' or reg_math_latch_counter = 0 then
-                                        -- Copy result to output
-        if reg_math_config(i).output_low='1' then
-          reg_math_regs(math_output_low) <= math_result(31 downto 0);
-        end if;
-        if reg_math_config(i).output_high='1' then
-          reg_math_regs(math_output_high) <= math_result(63 downto 32);
-        end if;
-      end if;
-    end loop;    
-    
+  begin    
                                         -- Export phi0 for the rest of the machine (scales with CPU speed)
     phi0 <= phi0_export;
     
@@ -2953,13 +2966,92 @@ begin
     z_decremented <= reg_z - 1;
 
     if rising_edge(clock) then
+      -- Formula Plumbing Unit (FPU), the MEGA65's answer to a traditional
+      -- Floating Point Unit (FPU).
+      -- The idea is simple: We have a bunch of math units, and a bunch of
+      -- inputs and outputs, and a bunch of multiplexors that let you select what
+      -- joins where: In short, you can plumb your own formulae directly.
+      -- For each unit we have to pick one or more inputs, and set at least one
+      -- output.  We will map these all onto the same 64 bytes of registers.
+      reg_mult_p <= to_unsigned(to_integer(reg_mult_a) * to_integer(reg_mult_b),48);
+      for i in 0 to (math_unit_count-1) loop
+        -- Work out sources and destinations of the units
+        math_input_a_source := reg_math_config(i).source_a;
+        math_input_b_source := reg_math_config(i).source_b;
+
+        math_output_low := 0;
+        math_output_high := 0;      
+        if reg_math_config(i).output_low='1' then
+          math_output_low := reg_math_config(i).output;
+          if reg_math_config(i).output_high='1' then
+            if reg_math_config(i).output /= 15 then
+              math_output_high := reg_math_config(i).output + 1;
+            else
+              math_output_high := 0;
+            end if;
+          end if;
+        elsif reg_math_config(i).output_high='1' then
+          math_output_high := reg_math_config(i).output;
+        end if;
+      
+        if reg_math_config(i).do_add='1' then
+          -- All units can be used as adders, because it is cheap.
+          math_result := to_unsigned(to_integer(reg_math_regs(math_input_a_source))
+                                     + to_integer(reg_math_regs(math_input_b_source))
+                                     ,64);
+        else
+          case i is
+            when 0 => math_result := mult0_p;
+            when 1 => math_result := mult1_p;
+            when 2 => math_result := mult2_p;
+            when 3 => math_result := mult3_p;
+            when 4 => math_result := mult4_p;
+            when 5 => math_result := mult5_p;
+            when 6 => math_result := mult6_p;
+            when 7 => math_result := mult7_p;
+            when 15 =>
+                                        -- Reciprocal calculator: output = 1/input a
+                                        -- XXX Not implemented
+            math_result := to_unsigned(0,64);
+          when others =>
+                                        -- XXX Not implemented
+            math_result := to_unsigned(0,64);            
+        end case;
+      end if;
+      if reg_math_config(i).latched='0' or reg_math_latch_counter = 0 then
+                                        -- Copy result to output
+        if reg_math_config(i).output_low='1' then
+          reg_math_regs(math_output_low) <= math_result(31 downto 0);
+        end if;
+        if reg_math_config(i).output_high='1' then
+          reg_math_regs(math_output_high) <= math_result(63 downto 32);
+        end if;
+      end if;
+    end loop;    
       -- Decrement latch counter
       if reg_math_latch_counter = 0 then
         reg_math_latch_counter <= reg_math_latch_interval;
       else
         reg_math_latch_counter <= reg_math_latch_counter - 1;
       end if;
-    end if;
+      -- Assign all inputs to math units
+      mult0_a <= reg_math_regs(reg_math_config(0).source_a);
+      mult0_b <= reg_math_regs(reg_math_config(0).source_b);
+      mult1_a <= reg_math_regs(reg_math_config(1).source_a);
+      mult1_b <= reg_math_regs(reg_math_config(1).source_b);
+      mult2_a <= reg_math_regs(reg_math_config(2).source_a);
+      mult2_b <= reg_math_regs(reg_math_config(2).source_b);
+      mult3_a <= reg_math_regs(reg_math_config(3).source_a);
+      mult3_b <= reg_math_regs(reg_math_config(3).source_b);
+      mult4_a <= reg_math_regs(reg_math_config(4).source_a);
+      mult4_b <= reg_math_regs(reg_math_config(4).source_b);
+      mult5_a <= reg_math_regs(reg_math_config(5).source_a);
+      mult5_b <= reg_math_regs(reg_math_config(5).source_b);
+      mult6_a <= reg_math_regs(reg_math_config(6).source_a);
+      mult6_b <= reg_math_regs(reg_math_config(6).source_b);
+      mult7_a <= reg_math_regs(reg_math_config(7).source_a);
+      mult7_b <= reg_math_regs(reg_math_config(7).source_b);        
+    end if;    
     
                                         -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) and all_pause='0' then

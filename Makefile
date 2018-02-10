@@ -82,7 +82,8 @@ SIDVHDL=		$(VHDLSRCDIR)/sid_6581.vhd \
 			$(VHDLSRCDIR)/sid_filters.vhd \
 			$(VHDLSRCDIR)/sid_voice.vhd \
 
-CPUVHDL=		$(VHDLSRCDIR)/gs4510.vhdl
+CPUVHDL=		$(VHDLSRCDIR)/gs4510.vhdl \
+			$(VHDLSRCDIR)/multiply32.vhdl
 
 NOCPUVHDL=		$(VHDLSRCDIR)/nocpu.vhdl
 
