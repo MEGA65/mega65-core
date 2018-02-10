@@ -2896,11 +2896,11 @@ begin
                                    ,64);
       else
         case i is
-          when 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 =>
-                                        -- First eight units are multipliers
-            math_result := to_unsigned(to_integer(reg_math_regs(math_input_a_source))
-                                       * to_integer(reg_math_regs(math_input_b_source))
-                                       ,64);
+--          when 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 =>
+--                                        -- First eight units are multipliers
+--            math_result := to_unsigned(to_integer(reg_math_regs(math_input_a_source))
+--                                       * to_integer(reg_math_regs(math_input_b_source))
+--                                       ,64);
           when 15 =>
                                         -- Reciprocal calculator: output = 1/input a
                                         -- XXX Not implemented
