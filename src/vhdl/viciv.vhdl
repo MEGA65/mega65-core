@@ -562,9 +562,9 @@ architecture Behavioral of viciv is
   signal composite_red : unsigned(7 downto 0);
   signal composite_green : unsigned(7 downto 0);
   signal composite_blue : unsigned(7 downto 0);
-  signal composited_red : unsigned(9 downto 0);
-  signal composited_green : unsigned(9 downto 0);
-  signal composited_blue : unsigned(9 downto 0);
+  signal composited_red : std_logic_vector(9 downto 0);
+  signal composited_green : std_logic_vector(9 downto 0);
+  signal composited_blue : std_logic_vector(9 downto 0);
   signal compositer_enable : std_logic := '0';
   signal is_background_in : std_logic;
   signal pixel_is_background_out : std_logic;
@@ -1011,9 +1011,9 @@ begin
               alpha_strm(1) => postsprite_pixel_colour(0),
               alpha_strm(0) => postsprite_pixel_colour(0),
 
-              unsigned(r_blnd) => composited_red,
-              unsigned(g_blnd) => composited_green,
-              unsigned(b_blnd) => composited_blue
+              r_blnd => composited_red,
+              g_blnd => composited_green,
+              b_blnd => composited_blue
               );
 
   pal_sim0: entity work.pal_simulation
@@ -3327,9 +3327,9 @@ begin
       composite_blue <= vga_buffer_blue;
 
       if compositer_enable='1' then
-        vga_buffer2_red <= composited_red(9 downto 2);
-        vga_buffer2_green <= composited_green(9 downto 2);
-        vga_buffer2_blue <= composited_blue(9 downto 2);
+        vga_buffer2_red <= unsigned(composited_red(9 downto 2));
+        vga_buffer2_green <= unsigned(composited_green(9 downto 2));
+        vga_buffer2_blue <= unsigned(composited_blue(9 downto 2));
       else
         vga_buffer2_red <= vga_buffer_red;
         vga_buffer2_green <= vga_buffer_green;
