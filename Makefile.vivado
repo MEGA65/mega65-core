@@ -1,5 +1,5 @@
 .SUFFIXES: .bin .prg 
-.PRECIOUS:	%.ngd %.ncd %.twx vivado_work/%.xpr
+.PRECIOUS:	%.ngd %.ncd %.twx vivado/%.xpr bin/%.bit
 
 COPT=	-Wall -g -std=c99
 CC=	gcc
@@ -452,11 +452,11 @@ $(TOOLDIR)/on_screen_keyboard_gen:	$(TOOLDIR)/on_screen_keyboard_gen.c Makefile
 #-----------------------------------------------------------------------------
 
 # Generate Vivado .xpr from .tcl
-vivado/%.xpr: 	vivado/%_gen.tcl $(VHDLSRCDIR)/*.vhdl $(SIMULATIONVHDL)
+vivado/%.xpr: 	vivado/%_gen.tcl | $(VHDLSRCDIR)/*.vhdl $(SIMULATIONVHDL)
 	echo MOOSE $@ from $<
 	vivado -mode batch -source $<
 
-bin/%.bit: 	vivado/%.xpr
+bin/%.bit: 	vivado/%.xpr $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(SIMULATIONVHDL)
 	echo MOOSE $@ from $<
 #	@rm -f $@
 #	@echo "---------------------------------------------------------"
@@ -471,14 +471,12 @@ bin/%.bit: 	vivado/%.xpr
 #	@echo "---------------------------------------------------------"
 
 	mkdir -p $(SDCARD_DIR)
-	vivado -mode batch -source vivado/$(subst bin/,,$*)_impl.tcl $<
+	vivado -mode batch -source vivado/$(subst bin/,,$*)_impl.tcl vivado/$(subst bin/,,$*).xpr
 	cp vivado/$(subst bin/,,$*).runs/impl_1/container.bit $@
 
-%.mcs:	%.bit
+bin/%.mcs:	bin/%.bit
 	mkdir -p $(SDCARD_DIR)
 	vivado -mode batch -source vivado/run_mcs.tcl -tclargs $< $@
-
-
 
 clean:
 	rm -f $(BINDIR)/KICKUP.M65 kickstart.list kickstart.map
@@ -503,6 +501,7 @@ clean:
 	rm -f thumbnail.prg
 	rm -f textmodetest.prg textmodetest.list etherload_done.bin etherload_stub.bin
 	rm -f videoproxy
+	rm -rf vivado/mega65r1.cache vivado/mega65r1.runs vivado/mega65r1.hw vivado/mega65r1.ip_user_files vivado/mega65r1.srcs vivado/mega65r1.xpr
 
 cleangen:
 	rm $(VHDLSRCDIR)/kickstart.vhdl $(VHDLSRCDIR)/charrom.vhdl *.M65
