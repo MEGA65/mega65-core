@@ -67,11 +67,12 @@ entity sdcardio is
     -- fast IO port (clocked at core clock). 1MB address space
     ---------------------------------------------------------------------------
     fastio_addr : in unsigned(19 downto 0);
+    fastio_addr_fast : in unsigned(19 downto 0);  -- The "quick" version that arrives one clock earlier
     fastio_write : in std_logic;
     fastio_read : in std_logic;
     fastio_wdata : in unsigned(7 downto 0);
-    fastio_rdata : out unsigned(7 downto 0);
-
+    fastio_rdata_sel : out unsigned(7 downto 0);
+    
     virtualise_f011 : in std_logic;
     
     colourram_at_dc00 : in std_logic;
@@ -80,6 +81,7 @@ entity sdcardio is
     sectorbuffermapped : out std_logic := '0';
     sectorbuffermapped2 : out std_logic := '0';
     sectorbuffercs : in std_logic;
+    sectorbuffercs_fast : in std_logic;
 
     last_scan_code : in std_logic_vector(12 downto 0);
     
@@ -205,6 +207,9 @@ architecture behavioural of sdcardio is
   -- debounce reading from or writing to $D087 so that buffered read/write
   -- behaves itself.
   signal last_was_d087 : std_logic := '0';
+  
+  signal fastio_rdata_ram : unsigned(7 downto 0);
+  signal fastio_rdata : unsigned(7 downto 0);
   
   signal skip : integer range 0 to 2;
   signal read_data_byte : std_logic := '0';
@@ -366,7 +371,7 @@ architecture behavioural of sdcardio is
   
 begin  -- behavioural
 
-  --**********************************************************************
+--**********************************************************************
   -- SD card controller module.
   --**********************************************************************
   
@@ -394,14 +399,15 @@ begin  -- behavioural
       );
 
   -- CPU direct-readable sector buffer, so that it can be memory mapped
-  sb_memorymapped0: entity work.ram8x4096
+  sb_memorymapped0: entity work.ram8x4096_sync
     port map (
       clk => clock,
 
       -- CPU side read access
-      cs => sectorbuffercs,
+      cs => sectorbuffercs_fast,
+--      cs => sectorbuffercs,
       address => sector_buffer_fastio_address,
-      rdata => fastio_rdata,
+      rdata => fastio_rdata_ram,
 
       -- Write side controlled by SD-card side.
       -- (CPU side effects writes by asking SD-card side to write)
@@ -496,10 +502,12 @@ begin  -- behavioural
     -- ==================================================================
 
     if hypervisor_mode='0' then
-      sector_buffer_fastio_address <= resolve_sector_buffer_address(f011sd_buffer_select,fastio_addr(8 downto 0));
+      sector_buffer_fastio_address <= resolve_sector_buffer_address(f011sd_buffer_select,fastio_addr_fast(8 downto 0));
     else
-      sector_buffer_fastio_address <= to_integer(fastio_addr(11 downto 0));
+      sector_buffer_fastio_address <= to_integer(fastio_addr_fast(11 downto 0));
     end if;
+    
+    fastio_rdata <= x"00";
     
     if fastio_read='1' and sectorbuffercs='0' then
 
@@ -619,7 +627,7 @@ begin  -- behavioural
             fastio_rdata(7 downto 3) <= (others => '0');
 
           when others =>
-            fastio_rdata <= (others => 'Z');
+            fastio_rdata <= (others => '0');
         end case;
 
         -- ==================================================================
@@ -841,14 +849,24 @@ begin  -- behavioural
             fastio_rdata(6) <= QspiCSnInternal;
             fastio_rdata(7) <= QspiSCKInternal;
           when others =>
-            fastio_rdata <= (others => 'Z');
+            fastio_rdata <= (others => '0');
         end case;
       else
         -- Otherwise tristate output
-        fastio_rdata <= (others => 'Z');
+        fastio_rdata <= (others => '0');
       end if;
+    else
+      fastio_rdata <= (others => '0');
     end if;
 
+    -- output select
+    fastio_rdata_sel <= (others => 'Z');
+    if fastio_read='1' and sectorbuffercs='0' then
+      fastio_rdata_sel <= fastio_rdata;
+    elsif sectorbuffercs='1' then
+      fastio_rdata_sel <= fastio_rdata_ram;
+    end if;
+        
     -- ==================================================================
     -- ==================================================================
     

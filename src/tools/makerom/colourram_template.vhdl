@@ -25,39 +25,36 @@ END THEROM;
 architecture behavioural of THEROM is
 
   type ram_t is array (0 to 32767) of std_logic_vector(7 downto 0);
-  signal ram : ram_t := (ROMDATA);
+  shared variable ram : ram_t := (ROMDATA);
 
-  signal douta_drive : std_logic_vector(7 downto 0);
-  signal doutb_drive : std_logic_vector(7 downto 0);
-  
 begin  -- behavioural
 
-  process(clka,ram,douta_drive,doutb_drive)
+  process(clka)
   begin
-    douta_drive <= ram(to_integer(unsigned(addra(14 downto 0))));
-    douta <= douta_drive;
 
     --report "COLOURRAM: A Reading from $" & to_hstring(unsigned(addra))
     --  & " = $" & to_hstring(ram(to_integer(unsigned(addra))));
     if(rising_edge(Clka)) then 
       if ena='1' then
         if(wea="1") then
-          ram(to_integer(unsigned(addra(14 downto 0)))) <= dina;
+          ram(to_integer(unsigned(addra(14 downto 0)))) := dina;
           report "COLOURRAM: A writing to $" & to_hstring(unsigned(addra))
             & " = $" & to_hstring(dina);
+            douta <= dina;
+          else
+            douta <= ram(to_integer(unsigned(addra(14 downto 0))));            
         end if;
       end if;
     end if;
   end process;
 
-  process (clkb,addrb,ram)
+  process (clkb)
   begin
-    doutb_drive <= ram(to_integer(unsigned(addrb(14 downto 0))));
-    doutb <= doutb_drive;
     if(rising_edge(Clkb)) then 
       if(web="1") then
 --        ram(to_integer(unsigned(addrb))) <= dinb;
       end if;
+      doutb <= ram(to_integer(unsigned(addrb(14 downto 0))));
     end if;
   end process;
 

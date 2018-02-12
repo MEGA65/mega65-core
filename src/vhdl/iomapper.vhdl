@@ -51,6 +51,7 @@ entity iomapper is
         
         fpga_temperature : in std_logic_vector(11 downto 0);
         address : in std_logic_vector(19 downto 0);
+        addr_fast : in std_logic_vector(19 downto 0);
         r : in std_logic;
         w : in std_logic;
         data_i : in std_logic_vector(7 downto 0);
@@ -224,8 +225,10 @@ entity iomapper is
 
         viciii_iomode : in std_logic_vector(1 downto 0);
         
+        kickstart_address : in std_logic_vector(13 downto 0);
+        
         colourram_at_dc00 : in std_logic
-       
+               
         );
 end iomapper;
 
@@ -273,6 +276,7 @@ architecture behavioral of iomapper is
   signal cia2cs : std_logic;
 
   signal sectorbuffercs : std_logic;
+  signal sectorbuffercs_fast : std_logic;
   signal sector_buffer_mapped_read : std_logic;
 
   signal last_scan_code : std_logic_vector(12 downto 0);
@@ -291,6 +295,7 @@ architecture behavioral of iomapper is
 
   signal c65uart_cs : std_logic := '0';
   signal sdcardio_cs : std_logic := '0';
+  signal sdcardio_cs_fast : std_logic := '0';
   signal f011_cs : std_logic := '0';
   signal buffereduart_cs : std_logic := '0';
   signal cpuregs_cs : std_logic := '0';
@@ -356,20 +361,28 @@ architecture behavioral of iomapper is
   signal suppress_key_retrigger : std_logic;
   signal ascii_key_event_count : unsigned(15 downto 0) := x"0000";
   
+  signal cia1_irq : std_logic;
+  signal ethernet_irq : std_logic;
+  signal uart_irq : std_logic;
+  
 begin
 
   block1: block
   begin
   kickstartrom : entity work.kickstart port map (
     clk     => clk,
-    address => address(13 downto 0),
+    address => kickstart_address,
+    address_i => address(13 downto 0),
     we      => w,
     cs      => kickstartcs,
     data_o  => kickstart_rdata,
     data_i  => data_i
     );
   end block;
-
+  
+  -- IRQ line is wire-anded together as if it had a pullup.
+  irq <= cia1_irq and ethernet_irq and uart_irq;
+  
   block2: block
   begin
   framepacker0: entity work.framepacker port map (
@@ -405,7 +418,7 @@ begin
     phi0 => phi0,
     todclock => clock50hz,
     reset => reset,
-    irq => irq,
+    irq => cia1_irq,
     reg_isr_out => reg_isr_out,
     imask_ta_out => imask_ta_out,
     cs => cia1cs,
@@ -686,7 +699,7 @@ begin
     clock200 => clock200,
     clock => clk,
     reset => reset,
-    irq => irq,
+    irq => ethernet_irq,
     ethernet_cs => ethernet_cs,
 
     ---------------------------------------------------------------------------
@@ -721,7 +734,7 @@ begin
     clock200 => clock200,
     clock => clk,
     reset => reset,
-    irq => irq,
+    irq => uart_irq,
     buffereduart_cs => buffereduart_cs,
 
     ---------------------------------------------------------------------------
@@ -752,15 +765,17 @@ begin
     fpga_temperature => fpga_temperature,
 
     fastio_addr => unsigned(address),
+    fastio_addr_fast => unsigned(addr_fast),
     fastio_write => w,
     fastio_read => r,
     fastio_wdata => unsigned(data_i),
-    std_logic_vector(fastio_rdata) => data_o,
+    std_logic_vector(fastio_rdata_sel) => data_o,
     colourram_at_dc00 => colourram_at_dc00,
     viciii_iomode => viciii_iomode,
     sectorbuffermapped => sector_buffer_mapped,
     sectorbuffermapped2 => sector_buffer_mapped_read,
     sectorbuffercs => sectorbuffercs,
+    sectorbuffercs_fast => sectorbuffercs_fast,
 
     drive_led => drive_led,
     motor => motor,
@@ -1008,6 +1023,7 @@ begin
       -- sdcard sector buffer: only mapped if no colour ram @ $DC00, and if
       -- the sectorbuffer mapping flag is set
       sectorbuffercs <= '0';
+      sectorbuffercs_fast <= '0';
       report "fastio address = $" & to_hstring(address) severity note;
       
       if address(19 downto 16) = x"D"
@@ -1023,6 +1039,22 @@ begin
       -- @ IO:GS $FFD6C00-DFF - F011 floppy controller sector buffer
       if address(19 downto 12) = x"D6" then
         sectorbuffercs <= sbcs_en;
+      end if;
+
+      -- Same thing as above, but for the addr_fast bus, which is usually one clock ahead.
+      if addr_fast(19 downto 16) = x"D"
+        and addr_fast(15 downto 14) = "00"
+        and addr_fast(11 downto 9)&'0' = x"E"
+        and sector_buffer_mapped_read = '1' and colourram_at_dc00 = '0' then
+        sectorbuffercs_fast <= sbcs_en;
+        report "selecting SD card sector buffer" severity note;
+      end if;
+      -- Also map SD card sector buffer at $FFD6000 - $FFD61FF regardless of
+      -- VIC-IV IO mode and mapping of colour RAM
+      -- @ IO:GS $FFD6E00-FFF - SD card direct access sector buffer
+      -- @ IO:GS $FFD6C00-DFF - F011 floppy controller sector buffer
+      if addr_fast(19 downto 12) = x"D6" then
+        sectorbuffercs_fast <= sbcs_en;
       end if;
 
       -- Now map the SIDs
@@ -1085,6 +1117,15 @@ begin
         when x"D268" => sdcardio_cs <= sdcardio_en;
         when x"D368" => sdcardio_cs <= sdcardio_en;
         when others => sdcardio_cs <= '0';
+      end case;
+
+      temp(15 downto 3) := unsigned(addr_fast(19 downto 7));
+      temp(2 downto 0) := "000";
+      case temp(15 downto 0) is
+        when x"D168" => sdcardio_cs_fast <= sdcardio_en;
+        when x"D268" => sdcardio_cs_fast <= sdcardio_en;
+        when x"D368" => sdcardio_cs_fast <= sdcardio_en;
+        when others => sdcardio_cs_fast <= '0';
       end case;
 
       -- F011 emulation registers

@@ -15,7 +15,7 @@ entity cia6526 is
     phi0 : in std_logic;
     todclock : in std_logic;
     reset : in std_logic;
-    irq : out std_logic := 'Z';
+    irq : out std_logic;
 
     seg_led : out unsigned(31 downto 0);
 
@@ -351,7 +351,7 @@ begin  -- behavioural
         -- report "IRQ asserted, imask_ta=" & std_logic'image(imask_ta) severity note;
         reg_isr(7)<='1'; irq<='0';
       else
-        reg_isr(7)<='0'; irq<='Z';
+        reg_isr(7)<='0'; irq<='1';
       end if;
       
       prev_todclock <= todclock;

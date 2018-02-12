@@ -562,9 +562,9 @@ architecture Behavioral of viciv is
   signal composite_red : unsigned(7 downto 0);
   signal composite_green : unsigned(7 downto 0);
   signal composite_blue : unsigned(7 downto 0);
-  signal composited_red : unsigned(9 downto 0);
-  signal composited_green : unsigned(9 downto 0);
-  signal composited_blue : unsigned(9 downto 0);
+  signal composited_red : std_logic_vector(9 downto 0);
+  signal composited_green : std_logic_vector(9 downto 0);
+  signal composited_blue : std_logic_vector(9 downto 0);
   signal compositer_enable : std_logic := '0';
   signal is_background_in : std_logic;
   signal pixel_is_background_out : std_logic;
@@ -798,6 +798,8 @@ architecture Behavioral of viciv is
   -- Read address is in 128th of pixels
   signal raster_buffer_read_address : unsigned(10 downto 0);
   signal raster_buffer_read_address_sub : unsigned(9 downto 0);
+  signal raster_buffer_read_address_next : unsigned(10 downto 0);
+  signal raster_buffer_read_address_sub_next : unsigned(9 downto 0);
   signal raster_buffer_read_data : unsigned(17 downto 0);
   signal raster_buffer_write_address : unsigned(11 downto 0);
   signal raster_buffer_write_data : unsigned(17 downto 0);
@@ -885,7 +887,7 @@ begin
       dinl => std_logic_vector(raster_buffer_write_data),
       unsigned(doutr) => raster_buffer_read_data,
       addrl => std_logic_vector(raster_buffer_write_address(10 downto 0)),
-      addrr => std_logic_vector(raster_buffer_read_address)
+      addrr => std_logic_vector(raster_buffer_read_address_next)
       );
   
   buffer1: entity work.screen_ram_buffer
@@ -908,7 +910,7 @@ begin
       dina => std_logic_vector(chipram_datain),
       -- VIC-IV side port (read)
       clkb => pixelclock,
-      addrb => std_logic_vector(ramaddress),
+      addrb => std_logic_vector(next_ramaddress),
       unsigned(doutb) => ramdata
       );
 
@@ -916,16 +918,18 @@ begin
   begin
     colourram1 : entity work.ram8x32k
       PORT MAP (
-        clka => cpuclock,
-        ena => colour_ram_cs,
+         clka => cpuclock,
+         ena => colour_ram_cs,
         wea(0) => fastio_write,
-        addra => std_logic_vector(colour_ram_fastio_address(14 downto 0)),
-        dina => fastio_wdata,
-        douta => colour_ram_fastio_rdata,
-        -- video controller use port b of the dual-port colour ram.
-        -- The CPU uses port a via the fastio interface
-        clkb => pixelclock,
+--        wea => fastio_write,
+         addra => std_logic_vector(colour_ram_fastio_address(14 downto 0)),
+         dina => fastio_wdata,
+         douta => colour_ram_fastio_rdata,
+         -- video controller use port b of the dual-port colour ram.
+         -- The CPU uses port a via the fastio interface
+         clkb => pixelclock,
         web => (others => '0'),
+--        web => '0',
         addrb => std_logic_vector(colourramaddress(14 downto 0)),
         dinb => (others => '0'),
         unsigned(doutb) => colourramdata
@@ -1011,9 +1015,9 @@ begin
               alpha_strm(1) => postsprite_pixel_colour(0),
               alpha_strm(0) => postsprite_pixel_colour(0),
 
-              unsigned(r_blnd) => composited_red,
-              unsigned(g_blnd) => composited_green,
-              unsigned(b_blnd) => composited_blue
+              r_blnd => composited_red,
+              g_blnd => composited_green,
+              b_blnd => composited_blue
               );
 
   pal_sim0: entity work.pal_simulation
@@ -2748,7 +2752,7 @@ begin
       if irq_drive = '0' then
         irq <= '0';
       else
-        irq <= 'Z';
+        irq <= '1';
       end if;
       
       
@@ -2794,6 +2798,9 @@ begin
 --      report "VICII: SPRITE: xcounter(320) = " & integer'image(to_integer(vicii_xcounter_320))
 --        & " (sub) = " & integer'image(vicii_xcounter_sub320);
       if xcounter /= to_integer(frame_width) then
+          raster_buffer_read_address <= raster_buffer_read_address_next;
+          raster_buffer_read_address_sub <= raster_buffer_read_address_sub_next;
+
         xcounter <= xcounter + 1;
         if xcounter = sprite_first_x then
           sprite_x_counting <= '1';
@@ -2844,7 +2851,7 @@ begin
         vicii_xcounter_640 <= to_unsigned(0,10);
         vicii_xcounter_sub320 <= 0;
         vicii_xcounter_sub640 <= 0;
-        raster_buffer_read_address <= (others => '0');
+
         chargen_active <= '0';
         chargen_active_soon <= '0';
         if ycounter /= to_integer(frame_height) then
@@ -3034,34 +3041,6 @@ begin
         chargen_active_soon <= '0';
       end if;
       
-      -- Update current horizontal sub-pixel and pixel position
-      -- Work out if a new logical pixel starts on the next physical pixel
-      -- (overrides general advance).
-      if reg_h640='1' then
-        -- 640 wide characters use x scale directly
-        if raster_buffer_read_address_sub >= 240 then
-          raster_buffer_read_address_sub <= raster_buffer_read_address_sub - 240 + chargen_x_scale_drive;
-          raster_buffer_read_address <= raster_buffer_read_address + 2;
-        elsif raster_buffer_read_address_sub >= 120 then
-          raster_buffer_read_address_sub <= raster_buffer_read_address_sub - 120 + chargen_x_scale_drive;
-          raster_buffer_read_address <= raster_buffer_read_address + 1;
-        else
-          raster_buffer_read_address_sub <= raster_buffer_read_address_sub + chargen_x_scale_drive;
-        end if;
-      else
-        -- 320 wide / 40 column text is 2x as wide, i.e., we halve the x scale
-        -- factor.
-        if raster_buffer_read_address_sub >= 240 then
-          raster_buffer_read_address_sub <= raster_buffer_read_address_sub - 240 + chargen_x_scale_drive(7 downto 1);
-          raster_buffer_read_address <= raster_buffer_read_address + 2;
-        elsif raster_buffer_read_address_sub >= 120 then
-          raster_buffer_read_address_sub <= raster_buffer_read_address_sub - 120 + chargen_x_scale_drive(7 downto 1);
-          raster_buffer_read_address <= raster_buffer_read_address + 1;
-        else
-          raster_buffer_read_address_sub <= raster_buffer_read_address_sub + chargen_x_scale_drive(7 downto 1);
-        end if;
-      end if;
-
       report "chargen_active=" & std_logic'image(chargen_active)
         & ", xcounter = " & to_string(std_logic_vector(xcounter))
         & ", x_chargen_start = " & to_string(std_logic_vector(x_chargen_start)) severity note;
@@ -3078,8 +3057,8 @@ begin
         chargen_x <= (others => '0');
         report "reset chargen_x" severity note;
         -- Request first byte of pre-rendered character data
-        raster_buffer_read_address <= (others => '0');
-        raster_buffer_read_address_sub <= (others => '0');
+        -- raster_buffer_read_address <= (others => '0');
+        -- raster_buffer_read_address_sub <= (others => '0');
       end if;
       if xcounter = x_chargen_start then
         -- Gets masked to 0 below if displayy is above y_chargen_start
@@ -3327,9 +3306,9 @@ begin
       composite_blue <= vga_buffer_blue;
 
       if compositer_enable='1' then
-        vga_buffer2_red <= composited_red(9 downto 2);
-        vga_buffer2_green <= composited_green(9 downto 2);
-        vga_buffer2_blue <= composited_blue(9 downto 2);
+        vga_buffer2_red <= unsigned(composited_red(9 downto 2));
+        vga_buffer2_green <= unsigned(composited_green(9 downto 2));
+        vga_buffer2_blue <= unsigned(composited_blue(9 downto 2));
       else
         vga_buffer2_red <= vga_buffer_red;
         vga_buffer2_green <= vga_buffer_green;
@@ -3451,12 +3430,6 @@ begin
         <= last_ramaccess_screen_row_buffer_address;
       final_screen_row_fetch_address <= last_screen_row_fetch_address;
 
-      -- Screen ram row accesses
-      if this_ramaccess_is_screen_row_fetch='1' then
-        ramaddress <= this_screen_row_fetch_address;
-        report "chipram fetch for screen row data from $" & to_hstring(to_unsigned(to_integer(this_screen_row_fetch_address),16));
-      end if;
-      
       if final_ramaccess_is_screen_row_fetch='1' then
         report "buffering screen ram byte $" & to_hstring(final_ramdata) & " to address $" & to_hstring(to_unsigned(to_integer(final_ramaccess_screen_row_buffer_address),16));
       end if;
@@ -3493,6 +3466,8 @@ begin
             );
       end if;
       virtual_row_width_minus1 <= virtual_row_width - 1;
+
+      ramaddress <= next_ramaddress;
 
       report "raster_fetch_state = " & vic_chargen_fsm'image(raster_fetch_state);
       case raster_fetch_state is
@@ -3555,7 +3530,6 @@ begin
           else
             -- More to fetch, so keep scheduling the reads
             character_number <= character_number + 1;
-            next_ramaddress <= screen_row_current_address;
             next_ramaccess_is_screen_row_fetch <= '1';
             next_ramaccess_is_glyph_data_fetch <= '0';
             next_ramaccess_is_sprite_data_fetch <= '0';
@@ -3777,13 +3751,6 @@ begin
               character_data_from_rom <= '0';
             end if;
           end if;
-          -- Ask for first byte of data so that paint can commence immediately.
-          report "setting ramaddress to $" & to_hstring("000"&glyph_data_address) & " for glyph painting." severity note;
-          ramaddress <= glyph_data_address;
-
-          report "setting charaddress to " & integer'image(to_integer(glyph_data_address(10 downto 0)))
-            & " for painting glyph $" & to_hstring(to_unsigned(to_integer(glyph_number),16)) severity note;
-          charaddress <= to_integer(glyph_data_address(11 downto 0));
 
           -- Schedule next colour ram byte
           colourramaddress <= colourramaddress + 1;
@@ -3863,15 +3830,6 @@ begin
             end if;
           end if;
       
-          -- Ask for first byte of data so that paint can commence immediately.
-          report "setting ramaddress to $" & to_hstring("000"&glyph_data_address) & " for glyph painting." severity note;
-          ramaddress <= glyph_data_address;
-          -- upper bit of charrom address is set by $D018, only 258*8 = 2K
-          -- range of address is controlled here by character number.
-          report "setting charaddress to " & integer'image(to_integer(glyph_data_address(10 downto 0)))
-            & " for painting glyph $" & to_hstring(to_unsigned(to_integer(glyph_number),16)) severity note;
-          charaddress <= to_integer(glyph_data_address(11 downto 0));
-
           -- Schedule next colour ram byte
           colourramaddress <= colourramaddress + 1;
           
@@ -3886,10 +3844,6 @@ begin
           glyph_underline <= glyph_underline_drive;
           glyph_bold <= glyph_bold_drive;
           glyph_colour_drive2 <= glyph_colour_drive;
-          if glyph_full_colour = '1' then
-            report "setting ramaddress to $x" & to_hstring(glyph_data_address(15 downto 0)) & " for full-colour glyph drawing";
-            ramaddress <= glyph_data_address;
-          end if;
           raster_fetch_state <= PaintMemWait2;
         when PaintMemWait2 =>
           glyph_colour <= glyph_colour_drive2;
@@ -3901,8 +3855,6 @@ begin
             else
               glyph_data_address(2 downto 0) <= glyph_data_address(2 downto 0) - 1;
             end if;
-            report "LEGACY: setting ramaddress to $x" & to_hstring(glyph_data_address(15 downto 0)) & " for full-colour glyph drawing";
-            ramaddress <= glyph_data_address;
             full_colour_fetch_count <= 0;
             raster_fetch_state <= PaintFullColourFetch;
           else
@@ -3927,8 +3879,6 @@ begin
           if glyph_underline='1' then
             full_colour_data(63 downto 56) <= "11111111";
           end if;
-          report "setting ramaddress to $x" & to_hstring(glyph_data_address(15 downto 0)) & " for full-colour glyph drawing";
-          ramaddress <= glyph_data_address;
           if full_colour_fetch_count < 7 then
             full_colour_fetch_count <= full_colour_fetch_count + 1;
             raster_fetch_state <= PaintFullColourFetch;
@@ -4158,7 +4108,6 @@ begin
             end if;
           end if;
         when SpritePointerFetch2 =>
-          ramaddress <= sprite_pointer_address;
           raster_fetch_state <= SpritePointerCompute1;
           if vicii_sprite_pointer_address(23)='1' then
             -- 16-bit sprite pointers, allowing sprites to be sourced from
@@ -4173,8 +4122,6 @@ begin
         when SpritePointerCompute1 =>
           -- Drive stage for ram data to improve timing closure
           raster_fetch_state <= SpritePointerCompute;
-          -- Also drive upper byte of sprite pointer address
-          ramaddress <= sprite_pointer_address;          
         when SpritePointerCompute =>
           -- Sprite data address is 64*pointer value, plus the 16KB bank
           -- from $DD00.  Then we need to add the data offset for this sprite.
@@ -4223,7 +4170,6 @@ begin
             & integer'image(sprite_fetch_sprite_number)
             & " data from $" & to_hstring("000"&sprite_data_address(16 downto 0));
           
-          ramaddress <= sprite_data_address;
           if sprite_fetch_sprite_number < 8 then
             sprite_data_address(16 downto 0) <= sprite_data_address(16 downto 0) + 1;
           else
@@ -4242,7 +4188,6 @@ begin
           else
             sprite_data_address(16 downto 0) <= sprite_data_address(16 downto 0) + 8;
           end if;
-          ramaddress <= sprite_data_address;
 
           -- Schedule pushing fetched sprite/bitplane byte to next cycle when
           -- the data will be available in ramdata_drive
@@ -4636,6 +4581,110 @@ begin
     end if;
   end process;
 
+  -- charaddress generation
+  process(raster_fetch_state,glyph_data_address)
+  begin
+    charaddress <= to_integer(glyph_data_address(11 downto 0));
+    --charaddress <= to_unsigned(0,12);
+    --case raster_fetch_state is    
+    --  when FetchBitmapData =>
+    --    report "setting charaddress to " & integer'image(to_integer(glyph_data_address(10 downto 0)))
+    --      & " for painting glyph $" & to_hstring(to_unsigned(to_integer(glyph_number),16)) severity note;
+    --    charaddress <= to_integer(glyph_data_address(11 downto 0));
+    --  when FetchTextCellColourAndSource =>
+    --    -- upper bit of charrom address is set by $D018, only 258*8 = 2K
+    --    -- range of address is controlled here by character number.
+    --    report "setting charaddress to " & integer'image(to_integer(glyph_data_address(10 downto 0)))
+    --        & " for painting glyph $" & to_hstring(to_unsigned(to_integer(glyph_number),16)) severity note;
+    --    charaddress <= to_integer(glyph_data_address(11 downto 0));
+    --  when others => null;
+    -- end case;    
+  end process;
+  
+  -- raster buffer read address/sub calculations 
+  -- pulled out so "next" value can be fed directly to raster buffer ram read address.  
+  process(raster_buffer_read_address,raster_buffer_read_address_sub,chargen_x_scale_drive,xcounter,x_chargen_start_minus1)
+  begin
+      raster_buffer_read_address_next <= raster_buffer_read_address;
+      if xcounter = x_chargen_start_minus1 then
+        -- Request first byte of pre-rendered character data
+        raster_buffer_read_address_next <= (others => '0');
+        raster_buffer_read_address_sub_next <= (others => '0');
+      else
+          if reg_h640='1' then
+            -- 640 wide characters use x scale directly
+            if raster_buffer_read_address_sub >= 240 then
+              raster_buffer_read_address_sub_next <= raster_buffer_read_address_sub - 240 + chargen_x_scale_drive;
+              raster_buffer_read_address_next <= raster_buffer_read_address + 2;
+            elsif raster_buffer_read_address_sub >= 120 then
+              raster_buffer_read_address_sub_next <= raster_buffer_read_address_sub - 120 + chargen_x_scale_drive;
+              raster_buffer_read_address_next <= raster_buffer_read_address + 1;
+            else
+              raster_buffer_read_address_sub_next <= raster_buffer_read_address_sub + chargen_x_scale_drive;
+            end if;
+          else
+            -- 320 wide / 40 column text is 2x as wide, i.e., we halve the x scale
+            -- factor.
+            if raster_buffer_read_address_sub >= 240 then
+              raster_buffer_read_address_sub_next <= raster_buffer_read_address_sub - 240 + chargen_x_scale_drive(7 downto 1);
+              raster_buffer_read_address_next <= raster_buffer_read_address + 2;
+            elsif raster_buffer_read_address_sub >= 120 then
+              raster_buffer_read_address_sub_next <= raster_buffer_read_address_sub - 120 + chargen_x_scale_drive(7 downto 1);
+              raster_buffer_read_address_next <= raster_buffer_read_address + 1;
+            else
+              raster_buffer_read_address_sub_next <= raster_buffer_read_address_sub + chargen_x_scale_drive(7 downto 1);
+            end if;
+          end if;
+      end if;
+  end process;
+  
+  -- ramaddress mux
+  -- This is pulled out into a combinatorial section so that ramaddress changes as soon as the raster_fetch_state
+  -- value changes so that it can be driven into the block ram and sampled at the next clock cycle, thus providing the
+  -- expected data on the next clock as well.
+  process(raster_fetch_state,this_ramaccess_is_screen_row_fetch,glyph_data_address,sprite_pointer_address,sprite_data_address)
+  begin
+    next_ramaddress <= ramaddress;
+
+    if this_ramaccess_is_screen_row_fetch='1' then
+      report "chipram fetch for screen row data from $" & to_hstring(to_unsigned(to_integer(this_screen_row_fetch_address),16));
+      next_ramaddress <= this_screen_row_fetch_address;
+    end if;
+
+    case raster_fetch_state is
+      when FetchBitmapData =>
+        -- Ask for first byte of data so that paint can commence immediately.
+        report "setting ramaddress to $" & to_hstring("000"&glyph_data_address) & " for glyph painting." severity note;
+        next_ramaddress <= glyph_data_address;
+      when FetchTextCellColourAndSource =>
+        -- Ask for first byte of data so that paint can commence immediately.
+        report "setting ramaddress to $" & to_hstring("000"&glyph_data_address) & " for glyph painting." severity note;
+        next_ramaddress <= glyph_data_address;
+      when PaintMemWait =>
+        if glyph_full_colour = '1' then
+          report "setting ramaddress to $x" & to_hstring(glyph_data_address(15 downto 0)) & " for full-colour glyph drawing";
+          next_ramaddress <= glyph_data_address;
+        end if;
+      when PaintMemWait2 =>
+        if glyph_full_colour = '1' then
+          report "LEGACY: setting ramaddress to $x" & to_hstring(glyph_data_address(15 downto 0)) & " for full-colour glyph drawing";
+          next_ramaddress <= glyph_data_address;
+        end if;
+      when PaintFullColourFetch =>
+        report "setting ramaddress to $x" & to_hstring(glyph_data_address(15 downto 0)) & " for full-colour glyph drawing";
+        next_ramaddress <= glyph_data_address;
+      when SpritePointerFetch2 =>
+        next_ramaddress <= sprite_pointer_address;
+      when SpritePointerCompute1 =>
+        next_ramaddress <= sprite_pointer_address;          
+      when SpriteDataFetch =>
+        next_ramaddress <= sprite_data_address;
+      when SpriteDataFetch2 =>
+        next_ramaddress <= sprite_data_address;
+      when others => null;
+    end case;
+  end process;
+  
   --Route out position counters for compositor
   xcounter_out <= xcounter; 
   ycounter_out <= ycounter;

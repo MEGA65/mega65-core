@@ -18,7 +18,7 @@ END chipram8bit;
 architecture behavioural of chipram8bit is
 
   type ram_t is array (0 to 131071) of std_logic_vector(7 downto 0);
-  signal ram : ram_t := (
+  shared variable RAM : ram_t := (
     -- Some data for testing full-colour mode
     -- Screen starts @ $1000, so put a couple of glyph numbers that point
     -- somewhere convenient there. Each full-colour glyph is 64 bytes long,
@@ -56,20 +56,29 @@ architecture behavioural of chipram8bit is
     others => x"BD" );
 
 begin
-  PROCESS(Clka,addrb,ram)
+
+PROCESS(Clka)
 BEGIN
   --report "viciv reading charrom address $"
   --  & to_hstring(address)
   --  & " = " & integer'image(to_integer(address))
   --  & " -> $" & to_hstring(ram(to_integer(address)))
   --  severity note;
-  doutb <= ram(to_integer(unsigned(addrb)));
 
   if(rising_edge(Clka)) then 
     if(wea(0)='1') then
-      ram(to_integer(unsigned(addra))) <= dina;
+      ram(to_integer(unsigned(addra))) := dina;
     end if;
   end if;
+
+END PROCESS;
+
+PROCESS(Clkb)
+BEGIN
+  if(rising_edge(Clkb)) then
+    doutb <= ram(to_integer(unsigned(addrb)));
+end if;
+
 END PROCESS;
 
 end Behavioural;

@@ -64,6 +64,8 @@ entity uart_monitor is
     monitor_ibytes : in std_logic_vector(3 downto 0);
     monitor_arg1 : in unsigned(7 downto 0);
     monitor_arg2 : in unsigned(7 downto 0);
+    monitor_memory_access_address : in unsigned(31 downto 0);
+    
     monitor_a : in unsigned(7 downto 0);
     monitor_x : in unsigned(7 downto 0);
     monitor_y : in unsigned(7 downto 0);
@@ -227,6 +229,7 @@ architecture behavioural of uart_monitor is
                          ShowMemory9,
                          CPUHistory,CPUHistory1,
                          CPUStateLog,CPUStateLog2,CPUStateLog3,CPUStateLog4,
+                         CPUStateLog5,CPUStateLog6,CPUStateLog7,CPUStateLog8,CPUStateLog9,
                          FillMemory1,FillMemory2,FillMemory3,FillMemory4,
                          FillMemory5,
                          SetPC1,
@@ -300,7 +303,9 @@ architecture behavioural of uart_monitor is
 
   -- Remember last 16 CPU states prior to hitting ProcessorHold
   type sixteenwords is array (0 to 15) of unsigned(15 downto 0);
+  type sixteenaddresses is array (0 to 15) of unsigned(31 downto 0);
   signal cpu_state_buf : sixteenwords;
+  signal cpu_addresses : sixteenaddresses;
   signal cpu_state_count : integer range 0 to 16;
   signal cpu_state_was_hold : std_logic := '0';
 
@@ -704,6 +709,8 @@ begin
 
         if reset_timeout = 0 then
           reset_out <= '1';
+          cpu_state_was_hold <= '1';
+          -- cpu_state_count <= 0;
         else
           reset_out <= '0';
           reset_timeout <= reset_timeout - 1;
@@ -724,20 +731,22 @@ begin
         end if;
         
         -- Maintain list of recent CPU states
-        if (monitor_cpu_state(15 downto 8) /= x"0B") then
+        if (monitor_cpu_state(15 downto 8) /= x"10") then
           if cpu_state_was_hold='1' then
             cpu_state_buf(0) <= monitor_cpu_state;
+            cpu_addresses(0) <= monitor_memory_access_address;
             cpu_state_count <= 1;
           else
             if (cpu_state_count < 16) then
               cpu_state_buf(cpu_state_count) <= monitor_cpu_state;
+              cpu_addresses(cpu_state_count) <= monitor_memory_access_address;
               cpu_state_count <= cpu_state_count + 1;
             end if;
           end if;
           cpu_state_was_hold <= '0';
         else
           cpu_state_was_hold <= '1';
-        end if;      
+        end if; 
 
         if history_record='1' and (history_address < 1023) then
           history_write <= '1';
@@ -1017,6 +1026,7 @@ begin
                     history_record_continuous <= '1';
                     history_address <= 0;
                   else
+                    cpu_state_count <= 0;                    
                     state <= TraceStep;
                   end if;
                 elsif cmdbuffer(1) = 'e' or cmdbuffer(1) = 'e' then
@@ -1107,6 +1117,7 @@ begin
                 end if;
               else
                 -- On empty line toggle trace flag so that CPU knows it can do one more instruction
+                -- cpu_state_count <= 0;
                 monitor_mem_trace_toggle <= not monitor_mem_trace_toggle_internal;
                 monitor_mem_trace_toggle_internal <= not monitor_mem_trace_toggle_internal;
 
@@ -1137,11 +1148,37 @@ begin
             when CPUStateLog3 =>
               if banner_position /= cpu_state_count then
                 print_hex_byte(cpu_state_buf(banner_position)(7 downto 0),CPUStateLog4);
-                banner_position <= banner_position + 1;
               else
                 state <= NextCommand;
               end if;
             when CPUStateLog4 =>
+              try_output_char(':',CPUStateLog5);
+            when CPUStateLog5 =>
+              if banner_position /= cpu_state_count then
+                print_hex_byte(cpu_addresses(banner_position)(31 downto 24),CPUStateLog6);
+              else
+                state <= NextCommand;
+              end if;
+            when CPUStateLog6 =>
+              if banner_position /= cpu_state_count then
+                print_hex_byte(cpu_addresses(banner_position)(23 downto 16),CPUStateLog7);
+              else
+                state <= NextCommand;
+              end if;
+            when CPUStateLog7 =>
+              if banner_position /= cpu_state_count then
+                print_hex_byte(cpu_addresses(banner_position)(15 downto 8),CPUStateLog8);
+              else
+                state <= NextCommand;
+              end if;
+            when CPUStateLog8 =>
+              if banner_position /= cpu_state_count then
+                print_hex_byte(cpu_addresses(banner_position)(7 downto 0),CPUStateLog9);
+                banner_position <= banner_position + 1;
+              else
+                state <= NextCommand;
+              end if;              
+            when CPUStateLog9 =>
               try_output_char(' ',CPUStateLog);
               
             when FillMemory1 =>
@@ -1621,6 +1658,7 @@ begin
               monitor_mem_trace_toggle_internal <= not monitor_mem_trace_toggle_internal;
               -- Give CPU a couple of cycles to leave instruction fetch state
               post_transaction_state <= ShowRegisters;
+              -- cpu_state_count <= 0;
               state <= WaitOneCycle;
               
             when WaitOneCycle => state <= post_transaction_state;

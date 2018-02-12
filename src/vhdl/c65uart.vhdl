@@ -170,12 +170,12 @@ architecture behavioural of c65uart is
 
   signal portj_internal : std_logic_vector(7 downto 0) := x"FF";
   
-  signal widget_enable_internal : std_logic := '1';
+  signal widget_enable_internal : std_logic := '0';
   signal ps2_enable_internal : std_logic := '1';
-  signal joykey_enable_internal : std_logic := '1';
-  signal joyreal_enable_internal : std_logic := '1';
-  signal physkey_enable_internal : std_logic := '1';
-  signal virtual_enable_internal : std_logic := '1';
+  signal joykey_enable_internal : std_logic := '0';
+  signal joyreal_enable_internal : std_logic := '0';
+  signal physkey_enable_internal : std_logic := '0';
+  signal virtual_enable_internal : std_logic := '0';
 
   signal portk_internal : std_logic_vector(7 downto 0) := x"7F"; -- visual
                                                                  -- keyboard
@@ -371,6 +371,9 @@ begin  -- behavioural
         end case;
       end if;
     end if;
+    
+    -- make sure this doesn't infer a latch
+    fastio_rdata <= (others => 'Z');
     
     -- Reading of registers
     if (fastio_read='1') and (c65uart_cs='1') then
