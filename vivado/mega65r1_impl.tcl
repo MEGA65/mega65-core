@@ -1,18 +1,9 @@
 
-# Don't re-launch run if it's already done, otherwise Vivado will
-# throw an error and the Makefile will abort.
-set runStatus [get_property STATUS [get_runs impl_1]]
+# Assume that if the Makefile runs this step we have to start all over.
+reset_project
 
-set runProgress [get_property PROGRESS [get_runs impl_1]]
+launch_runs synth_1 -jobs 2
+wait_on_run synth_1
 
-if { $runStatus == "write_bitstream Complete!" && $runProgress == "100%"} {
-
-	puts "Skipping bitstream generation"
-
-} else {
-
-	launch_runs impl_1 -to_step write_bitstream
-	wait_on_run impl_1
-
-}
-
+launch_runs impl_1 -to_step write_bitstream
+wait_on_run impl_1
