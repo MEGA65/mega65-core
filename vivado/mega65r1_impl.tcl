@@ -1,5 +1,6 @@
 
 # Assume that if the Makefile runs this step we have to start all over.
+reimport_files
 reset_project
 
 launch_runs synth_1 -jobs 2
