@@ -22,15 +22,15 @@ set_property -dict { PACKAGE_PIN Y21  IOSTANDARD LVCMOS33 } [get_ports iec_data_
 set_property -dict { PACKAGE_PIN Y22  IOSTANDARD LVCMOS33 } [get_ports iec_data_o]
 set_property -dict { PACKAGE_PIN AB21 IOSTANDARD LVCMOS33 } [get_ports iec_reset]
 set_property -dict { PACKAGE_PIN AB22 IOSTANDARD LVCMOS33 } [get_ports iec_clk_o]
-set_property -dict { PACKAGE_PIN W19 IOSTANDARD LVCMOS33 DRIVE 16 PULLUP true} [get_ports iec_data_i]
-set_property -dict { PACKAGE_PIN Y19 IOSTANDARD LVCMOS33 DRIVE 16 PULLUP true} [get_ports iec_clk_i]
+set_property -dict { PACKAGE_PIN W19 IOSTANDARD LVCMOS33 PULLUP true} [get_ports iec_data_i]
+set_property -dict { PACKAGE_PIN Y19 IOSTANDARD LVCMOS33 PULLUP true} [get_ports iec_clk_i]
 set_property -dict { PACKAGE_PIN P14 IOSTANDARD LVCMOS33 } [get_ports iec_atn]
 
 # C64 Cartridge port control lines
 # *_dir=1 means FPGA->Port, =0 means Port->FPGA
 set_property -dict { PACKAGE_PIN Y18 IOSTANDARD LVCMOS33 } [get_ports cart_ctrl_dir]; #  R/_W, ROMH, IO1, GAME, EXROM, IO2, ROML, BA
 set_property -dict { PACKAGE_PIN L19 IOSTANDARD LVCMOS33 } [get_ports cart_haddr_dir]; # A15-8
-set_property -dict { PACKAGE_PIN L20 IOSTANDARD LVCMOS33 } get_ports cart_laddr_dir]; # A7-0
+set_property -dict { PACKAGE_PIN L20 IOSTANDARD LVCMOS33 } [get_ports cart_laddr_dir]; # A7-0
 set_property -dict { PACKAGE_PIN W21 IOSTANDARD LVCMOS33 } [get_ports cart_data_dir]; # D7-D0
 set_property -dict { PACKAGE_PIN K19 IOSTANDARD LVCMOS33 } [get_ports cart_addr_en]; # A15-0
 set_property -dict { PACKAGE_PIN U18 IOSTANDARD LVCMOS33 } [get_ports cart_data_en]; # D7-D0
