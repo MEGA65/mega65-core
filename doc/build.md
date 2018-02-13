@@ -130,7 +130,14 @@ The following is assumed:
 
 Overview of the compile process:  
 
-1. ```make bin/(board type).bit```, supported (board types)'s are: ```nexys4```, ```nexys4ddr```.  
+1. ```make bin/(board type).bit```,
+currently supported (board types)'s are:
+```nexys4```,
+```nexys4ddr```,
+```mega65r1```,
+```lcd4ddr```,
+```nocpu``` and
+```touch_test```.  
 1. optionally: see design run in fpga hardware (to do)
 1. optionally: see design run in ghdl simulator (to do)
 
@@ -139,7 +146,7 @@ The following instructions are for running in the fpga.
 * As there are many end-use cases, i will not cover them all here, just the one that suits me.  
 Someone else please document how the simulate function(s) work and what compile options etc.  
 
-In your working directory, type the following:
+In your working directory, type the following (select a specific board-type-target):
 ```
 $GIT_ROOT$/mega65-core> make bin/nexys4ddr.bit
 $GIT_ROOT$/mega65-core> 
