@@ -30,14 +30,24 @@ use work.debugtools.all;
 entity multiply32 is
   port (
     clock : in std_logic;
-    a : in unsigned(31 downto 0);
-    b : in unsigned(31 downto 0);
-    p : out unsigned(63 downto 0)
+    unit : in integer range 0 to 15;
+    do_add : in std_logic;
+    input_a : in integer range 0 to 15;
+    input_b : in integer range 0 to 15;
+    input_value_number : in integer range 0 to 15;
+    input_value : unsigned(31 downto 0);
+    output_select : in integer range 0 to 15;
+    output_value : out unsigned(63 downto 0)
     );
 end entity;
 
 architecture neo_gregorian of multiply32 is
 
+  signal a : unsigned(31 downto 0) := to_unsigned(0,32);
+  signal b : unsigned(31 downto 0) := to_unsigned(0,32);
+  signal p : unsigned(63 downto 0) := to_unsigned(0,64);
+  signal s : unsigned(32 downto 0) := to_unsigned(0,33);
+  
   signal p1 : unsigned(63 downto 0);
   signal p2 : unsigned(63 downto 0);
   signal p3 : unsigned(63 downto 0);
@@ -48,11 +58,34 @@ begin
   process(clock) is
   begin
     if rising_edge(clock) then
+      -- Latch input values as required
+      if input_value_number = input_a then
+        a <= input_value;
+      end if;
+      if input_value_number = input_b then
+        b <= input_value;
+      end if;
+
+      -- Calculate the result
       p1 <= to_unsigned(to_integer(a)*to_integer(b),64);
       p2 <= p1;
       p3 <= p2;
       p4 <= p3;
       p <= p4;
+      s <= to_unsigned(to_integer(a)+to_integer(b),33);
+
+      -- Display output value when requested, and tri-state outputs otherwise
+      if output_select = unit then
+        if do_add='1' then
+          -- Output sign-extended 33 bit addition result
+          output_value(63 downto 33) <= (others => s(32));
+          output_value(32 downto 0) <= s;
+        else
+          output_value <= p;
+        end if;
+      else
+        output_value <= (others => 'Z');
+      end if;
     end if;
   end process;
 end neo_gregorian;
