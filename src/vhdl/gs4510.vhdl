@@ -1145,7 +1145,7 @@ architecture Behavioural of gs4510 is
   
 begin
 
-  multiplliers: for unit in 0 to 7 generate
+  multipliers: for unit in 0 to 7 generate
     mult_unit : entity work.multiply32 port map (
       clock => clock,
       unit => unit,
@@ -1159,6 +1159,19 @@ begin
       output_value(63 downto 32) => math_output_value_high
       );
   end generate;
+
+  shifter14:  entity work.shifter32 port map (
+      clock => clock,
+      unit => 14,
+      do_add => reg_math_config(14).do_add,
+      input_a => reg_math_config(14).source_a,
+      input_b => reg_math_config(14).source_b,
+      input_value_number => math_input_number,
+      input_value => math_input_value,
+      output_select => math_output_counter,
+      output_value(31 downto 0) => math_output_value_low,
+      output_value(63 downto 32) => math_output_value_high
+      );
   
   shadowram0 : shadowram port map (
     clk     => clock,
