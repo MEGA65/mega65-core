@@ -515,6 +515,9 @@ begin  -- behavioural
           fastio_rdata(7 downto 0) <= ascii_key_event_count(7 downto 0);
         when x"1e" =>
           fastio_rdata(7 downto 0) <= ascii_key_event_count(7 downto 0);
+        when x"1F" =>
+          -- @IO:GS $D61F DUPLICATE Modifier key state (hardware accelerated keyboard scanner).
+          fastio_rdata(7 downto 0) <= unsigned(porti);
         when x"20" => fastio_rdata <= pota_x;
         when x"21" => fastio_rdata <= pota_y;
         when x"22" => fastio_rdata <= potb_x;
