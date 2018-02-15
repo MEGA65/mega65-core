@@ -1144,6 +1144,10 @@ architecture Behavioural of gs4510 is
   signal math_output_value_high : unsigned(31 downto 0) := (others => '0');
 
   signal math_unit_flags : unsigned(7 downto 0) := x"00";
+  signal reg_math_write : std_logic := '0';
+  signal reg_math_regnum : integer range 0 to 15 := 0;
+  signal reg_math_regbyte : integer range 0 to 3 := 0;
+  signal reg_math_write_value : unsigned(7 downto 0) := x"00";
   
 begin
 
@@ -2461,19 +2465,11 @@ begin
         reg_mult_b(17 downto 16) <= value(1 downto 0);
       elsif (long_address(27 downto 6)&"00"=x"FFD378")
         or  (long_address(27 downto 6)&"00"=x"FFD178") then
-        -- Math unit registers
-        if math_unit_flags(0) = '1' then
-          case long_address(1 downto 0) is
-            when "00" => reg_math_regs(to_integer(long_address(5 downto 2)))(7 downto 0) <= value;
-            when "01" => reg_math_regs(to_integer(long_address(5 downto 2)))(15 downto 8) <= value;
-            when "10" => reg_math_regs(to_integer(long_address(5 downto 2)))(23 downto 16) <= value;
-            when "11" => reg_math_regs(to_integer(long_address(5 downto 2)))(31 downto 24) <= value;
-            when others =>
-              math_unit_flags(6) <= not math_unit_flags(6);
-          end case;
-          math_unit_flags(7) <= not math_unit_flags(7);
-          math_unit_flags(5 downto 2) <= long_address(5 downto 2);
-        end if;
+        -- Math unit register writing
+        reg_math_write <= '1';
+        reg_math_regnum <= to_integer(long_address(5 downto 2));
+        reg_math_regbyte <= to_integer(long_address(1 downto 0));
+        reg_math_write_value <= value;
       elsif (long_address(27 downto 4)=x"FFD37C") or  (long_address(27 downto 4)=x"FFD17C") then
         -- Math unit input select registers
         reg_math_config(to_integer(long_address(3 downto 0))).source_a <= to_integer(value(3 downto 0));
@@ -3031,6 +3027,22 @@ begin
         end if;
       end if;
 
+      -- Implement writing to math registers
+      reg_math_write <= '0';
+      if math_unit_flags(0) = '1' then
+        if reg_math_write = '1' then
+          case reg_math_regbyte is
+            when 0 => reg_math_regs(reg_math_regnum)(7 downto 0) <= reg_math_write_value;
+            when 1 => reg_math_regs(reg_math_regnum)(15 downto 8) <= reg_math_write_value;
+            when 2 => reg_math_regs(reg_math_regnum)(23 downto 16) <= reg_math_write_value;
+            when 3 => reg_math_regs(reg_math_regnum)(31 downto 24) <= reg_math_write_value;
+            when others =>
+          end case;
+          math_unit_flags(7) <= not math_unit_flags(7);
+          math_unit_flags(3 downto 2) <= to_unsigned(reg_math_regbyte,2);
+        end if;
+      end if;
+      
       -- Decrement latch counter
       if reg_math_latch_counter = 0 then
         reg_math_latch_counter <= reg_math_latch_interval;
