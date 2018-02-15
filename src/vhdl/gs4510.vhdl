@@ -1142,6 +1142,8 @@ architecture Behavioural of gs4510 is
   signal math_input_value : unsigned(31 downto 0) := (others => '0');
   signal math_output_value_low : unsigned(31 downto 0) := (others => '0');
   signal math_output_value_high : unsigned(31 downto 0) := (others => '0');
+
+  signal math_unit_flags : unsigned(7 downto 0) := x"00";
   
 begin
 
@@ -2127,6 +2129,7 @@ begin
                 &reg_math_config(to_integer(the_read_address(3 downto 0))).output_low
                 &to_unsigned(reg_math_config(to_integer(the_read_address(3 downto 0))).output,4);
             when x"E0" => return reg_math_latch_interval;
+            when x"E1" => return math_unit_flags;
             when x"fc" => return unsigned(chipselect_enables);
             when x"fd" =>
               report "Reading $D7FD";
@@ -2459,13 +2462,18 @@ begin
       elsif (long_address(27 downto 6)&"00"=x"FFD378")
         or  (long_address(27 downto 6)&"00"=x"FFD178") then
         -- Math unit registers
-        case long_address(1 downto 0) is
-          when "00" => reg_math_regs(to_integer(long_address(5 downto 2)))(7 downto 0) <= value;
-          when "01" => reg_math_regs(to_integer(long_address(5 downto 2)))(15 downto 8) <= value;
-          when "10" => reg_math_regs(to_integer(long_address(5 downto 2)))(23 downto 16) <= value;
-          when "11" => reg_math_regs(to_integer(long_address(5 downto 2)))(31 downto 24) <= value;
-          when others => null;
-        end case;
+        if math_unit_flags(0) = '1' then
+          case long_address(1 downto 0) is
+            when "00" => reg_math_regs(to_integer(long_address(5 downto 2)))(7 downto 0) <= value;
+            when "01" => reg_math_regs(to_integer(long_address(5 downto 2)))(15 downto 8) <= value;
+            when "10" => reg_math_regs(to_integer(long_address(5 downto 2)))(23 downto 16) <= value;
+            when "11" => reg_math_regs(to_integer(long_address(5 downto 2)))(31 downto 24) <= value;
+            when others =>
+              math_unit_flags(6) <= not math_unit_flags(6);
+          end case;
+          math_unit_flags(7) <= not math_unit_flags(7);
+          math_unit_flags(5 downto 2) <= long_address(5 downto 2);
+        end if;
       elsif (long_address(27 downto 4)=x"FFD37C") or  (long_address(27 downto 4)=x"FFD17C") then
         -- Math unit input select registers
         reg_math_config(to_integer(long_address(3 downto 0))).source_a <= to_integer(value(3 downto 0));
@@ -2480,6 +2488,9 @@ begin
       elsif (long_address = x"FFD37E0") or (long_address = x"FFD17E0") then
         -- @IO:GS $D7E0 - Math unit latch interval (only update output of math function units every this many cycles, if they have the latch output flag set)
         reg_math_latch_interval <= value;
+      elsif (long_address = x"FFD37E1") or (long_address = x"FFD17E1") then
+        -- @IO:GS $D7E1 - Math unit general settings
+        math_unit_flags <= value;        
       elsif (long_address = x"FFD37FA") then
         -- @IO:GS $D7FA.0 DEBUG 1/2/3.5MHz CPU speed fine adjustment
         cpu_speed_bias <= to_integer(value);
@@ -2965,6 +2976,8 @@ begin
       end if;
       math_input_number <= math_input_counter;
       math_input_value <= reg_math_regs(math_input_counter);
+      report "MATH: Presenting math reg #" & integer'image(math_input_counter)
+        &" = $" & to_hstring(reg_math_regs(math_input_counter));
 
       -- Update output counter being shown to math units
       if math_output_counter /= 15 then
@@ -2975,26 +2988,44 @@ begin
       prev_math_output_counter <= math_output_counter;
       -- Based on the configuration for the previously selected unit,
       -- stash the results in the appropriate place
-      if reg_math_config(prev_math_output_counter).latched='0' or reg_math_latch_counter = 0 then
-        if reg_math_config(prev_math_output_counter).output_high = '0' then
-          if reg_math_config(prev_math_output_counter).output_low = '0' then
-            -- No output being kept, so nothing to do.
-            null;
-          else
-            -- Only low output being kept
-            reg_math_regs(reg_math_config(prev_math_output_counter).output) <= math_output_value_low;
-          end if;
-        else
-          if reg_math_config(prev_math_output_counter).output_low = '0' then          
-            -- Only high half of output is being kept, so stash it
-            reg_math_regs(reg_math_config(prev_math_output_counter).output) <= math_output_value_high;
-          else
-            -- Both are being stashed, so store in consecutive slots
-            reg_math_regs(reg_math_config(prev_math_output_counter).output) <= math_output_value_low;
-            if reg_math_config(prev_math_output_counter).output /= 15 then
-              reg_math_regs(reg_math_config(prev_math_output_counter).output + 1) <= math_output_value_high;
+      if true then
+        report "MATH: output flags for unit #" & integer'image(prev_math_output_counter)
+          & " = "
+          & std_logic'image(reg_math_config(prev_math_output_counter).output_low) & ", "
+          & std_logic'image(reg_math_config(prev_math_output_counter).output_high) & ", "
+          & integer'image(reg_math_config(prev_math_output_counter).output) & ", "
+          & std_logic'image(reg_math_config(prev_math_output_counter).latched) & ".";
+      end if;
+
+      if math_unit_flags(1) = '1' then
+        if reg_math_config(prev_math_output_counter).latched='0' or reg_math_latch_counter = 0 then
+          if reg_math_config(prev_math_output_counter).output_high = '0' then
+            if reg_math_config(prev_math_output_counter).output_low = '0' then
+              -- No output being kept, so nothing to do.
+              null;
             else
-              reg_math_regs(0) <= math_output_value_high;
+              -- Only low output being kept
+              report "MATH: Setting reg_math_regs(" & integer'image(reg_math_config(prev_math_output_counter).output)
+                & ") from output of math unit #" & integer'image(prev_math_output_counter)
+                & " ( = $" & to_hstring(math_output_value_low) & ")";
+              reg_math_regs(reg_math_config(prev_math_output_counter).output) <= math_output_value_low;
+            end if;
+          else
+            if reg_math_config(prev_math_output_counter).output_low = '0' then          
+              -- Only high half of output is being kept, so stash it
+              report "MATH: Setting reg_math_regs(" & integer'image(reg_math_config(prev_math_output_counter).output)
+                & ") from output of math unit #" & integer'image(prev_math_output_counter);
+              reg_math_regs(reg_math_config(prev_math_output_counter).output) <= math_output_value_high;
+            else
+              -- Both are being stashed, so store in consecutive slots
+              report "MATH: Setting reg_math_regs(" & integer'image(reg_math_config(prev_math_output_counter).output)
+                & ") (and next) from output of math unit #" & integer'image(prev_math_output_counter);
+              reg_math_regs(reg_math_config(prev_math_output_counter).output) <= math_output_value_low;
+              if reg_math_config(prev_math_output_counter).output /= 15 then
+                reg_math_regs(reg_math_config(prev_math_output_counter).output + 1) <= math_output_value_high;
+              else
+                reg_math_regs(0) <= math_output_value_high;
+              end if;
             end if;
           end if;
         end if;

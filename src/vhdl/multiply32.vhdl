@@ -59,10 +59,20 @@ begin
   begin
     if rising_edge(clock) then
       -- Latch input values as required
+      if false then
+        report "MATH: Unit #" & integer'image(unit)
+          & ": I see input_value_number = " & integer'image(input_value_number)
+          & ", while I am waiting for " &
+          integer'image(input_a) & " or " & integer'image(input_b);
+      end if;
       if input_value_number = input_a then
+        report "MATH: Unit #" & integer'image(unit)
+          & ": Setting a=$" & to_hstring(input_value);
         a <= input_value;
       end if;
       if input_value_number = input_b then
+        report "MATH: Unit #" & integer'image(unit)
+          & ": Setting b=$" & to_hstring(input_value);
         b <= input_value;
       end if;
 
@@ -80,8 +90,12 @@ begin
           -- Output sign-extended 33 bit addition result
           output_value(63 downto 33) <= (others => s(32));
           output_value(32 downto 0) <= s;
+          report "MATH: Unit #" & integer'image(unit)
+            & " outputting addition sum $" & to_hstring(s);
         else
           output_value <= p;
+          report "MATH: Unit #" & integer'image(unit)
+            & " outputting multiplication product $" & to_hstring(p);
         end if;
       else
         output_value <= (others => 'Z');
