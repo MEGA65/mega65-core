@@ -43,15 +43,15 @@ end entity;
 
 architecture neo_gregorian of multiply32 is
 
-  signal a : unsigned(31 downto 0) := to_unsigned(0,32);
-  signal b : unsigned(31 downto 0) := to_unsigned(0,32);
-  signal p : unsigned(63 downto 0) := to_unsigned(0,64);
+  signal a : signed(31 downto 0) := to_signed(0,32);
+  signal b : signed(31 downto 0) := to_signed(0,32);
+  signal p : signed(63 downto 0) := to_signed(0,64);
   signal s : unsigned(32 downto 0) := to_unsigned(0,33);
   
-  signal p1 : unsigned(63 downto 0);
-  signal p2 : unsigned(63 downto 0);
-  signal p3 : unsigned(63 downto 0);
-  signal p4 : unsigned(63 downto 0);
+  signal p1 : signed(63 downto 0);
+  signal p2 : signed(63 downto 0);
+  signal p3 : signed(63 downto 0);
+  signal p4 : signed(63 downto 0);
 
 begin
 
@@ -68,16 +68,16 @@ begin
       if input_value_number = input_a then
         report "MATH: Unit #" & integer'image(unit)
           & ": Setting a=$" & to_hstring(input_value);
-        a <= input_value;
+        a <= signed(input_value);
       end if;
       if input_value_number = input_b then
         report "MATH: Unit #" & integer'image(unit)
           & ": Setting b=$" & to_hstring(input_value);
-        b <= input_value;
+        b <= signed(input_value);
       end if;
 
       -- Calculate the result
-      p1 <= to_unsigned(to_integer(a)*to_integer(b),64);
+      p1 <= a*b;
       p2 <= p1;
       p3 <= p2;
       p4 <= p3;
@@ -93,9 +93,9 @@ begin
           report "MATH: Unit #" & integer'image(unit)
             & " outputting addition sum $" & to_hstring(s);
         else
-          output_value <= p;
+          output_value <= unsigned(p);
           report "MATH: Unit #" & integer'image(unit)
-            & " outputting multiplication product $" & to_hstring(p);
+            & " outputting multiplication product $" & to_hstring(unsigned(p));
         end if;
       else
         output_value <= (others => 'Z');
