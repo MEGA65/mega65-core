@@ -2490,6 +2490,8 @@ begin
         reg_math_latch_interval <= value;
       elsif (long_address = x"FFD37E1") or (long_address = x"FFD17E1") then
         -- @IO:GS $D7E1 - Math unit general settings
+        -- @IO:GS $D7E1.0 - Enable setting of math registers (must normally be set)
+        -- @IO:GS $D7E1.1 - Enable committing of output values from math units back to math registers (clearing effectively pauses iterative formulae)
         math_unit_flags <= value;        
       elsif (long_address = x"FFD37FA") then
         -- @IO:GS $D7FA.0 DEBUG 1/2/3.5MHz CPU speed fine adjustment

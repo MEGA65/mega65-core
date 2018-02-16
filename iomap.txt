@@ -295,6 +295,7 @@ GS $D61B READ 1351/amiga mouse auto detection DEBUG
 GS $D61C DEBUG DUPLICATE Last key press as ASCII (hardware accelerated keyboard scanner). Write to clear event ready for next.
 GS $D61D DEBUG ASCII key event counter LSB
 GS $D61E DEBUG ASCII key event counter LSB
+GS $D61F DUPLICATE Modifier key state (hardware accelerated keyboard scanner).
 GS $D620 Read Port A paddle X
 GS $D621 Read Port A paddle Y
 GS $D622 Read Port B paddle X
@@ -528,6 +529,9 @@ GS $D7D0-$D7DF.5 - 16 Math function unit output high half of result
 GS $D7D0-$D7DF.6 - 16 Math function unit select adder mode instead of special function
 GS $D7D0-$D7DF.7 - 16 Math function unit latch output
 GS $D7E0 - Math unit latch interval (only update output of math function units every this many cycles, if they have the latch output flag set)
+GS $D7E1.0 - Enable setting of math registers (must normally be set)
+GS $D7E1.1 - Enable committing of output values from math units back to math registers (clearing effectively pauses iterative formulae)
+GS $D7E1 - Math unit general settings
 GS $D7FA.0 DEBUG 1/2/3.5MHz CPU speed fine adjustment
 GS $D7FB.0 DEBUG 1=charge extra cycle(s) for branches taken
 GS $D7FC DEBUG chip-select enables for various devices
