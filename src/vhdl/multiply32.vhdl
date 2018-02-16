@@ -82,7 +82,12 @@ begin
       p3 <= p2;
       p4 <= p3;
       p <= p4;
-      s <= to_unsigned(to_integer(a)+to_integer(b),33);
+      -- Even units do addition, odd ones do subtraction
+      if (unit mod 2) = 0 then
+        s <= to_unsigned(to_integer(a)+to_integer(b),33);
+      else
+        s <= to_unsigned(to_integer(a)-to_integer(b),33);
+      end if;
 
       -- Display output value when requested, and tri-state outputs otherwise
       if output_select = unit then
