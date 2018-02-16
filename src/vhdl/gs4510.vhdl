@@ -1143,7 +1143,11 @@ architecture Behavioural of gs4510 is
   signal math_output_value_low : unsigned(31 downto 0) := (others => '0');
   signal math_output_value_high : unsigned(31 downto 0) := (others => '0');
 
-  signal math_unit_flags : unsigned(7 downto 0) := x"00";
+  -- Start with input and outputting enabled
+  signal math_unit_flags : unsigned(7 downto 0) := x"03";
+  -- Each write to the math registers is passed to the math unit to handle
+  -- (this is to avoid ISE doing really weird things in synthesis, thinking
+  -- that each bit of each register was a clock or something similarly odd.)
   signal reg_math_write : std_logic := '0';
   signal reg_math_regnum : integer range 0 to 15 := 0;
   signal reg_math_regbyte : integer range 0 to 3 := 0;
