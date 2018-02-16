@@ -2998,7 +2998,7 @@ begin
       end if;
 
       if math_unit_flags(1) = '1' then
-        if reg_math_config(prev_math_output_counter).latched='0' or reg_math_latch_counter = 0 then
+        if (reg_math_config(prev_math_output_counter).latched='0') or (reg_math_latch_counter = x"00") then
           if reg_math_config(prev_math_output_counter).output_high = '0' then
             if reg_math_config(prev_math_output_counter).output_low = '0' then
               -- No output being kept, so nothing to do.
@@ -3048,7 +3048,7 @@ begin
       end if;
       
       -- Decrement latch counter
-      if reg_math_latch_counter = 0 then
+      if reg_math_latch_counter = x"00" then
         reg_math_latch_counter <= reg_math_latch_interval;
       else
         reg_math_latch_counter <= reg_math_latch_counter - 1;
