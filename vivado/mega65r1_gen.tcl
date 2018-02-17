@@ -167,7 +167,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/lfsr16.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ram32x1024.vhdl"]"\
 ]
-set imported_files [import_files -fileset sources_1 $files]
+set imported_files [add_files -fileset sources_1 $files]
 
 # Set 'sources_1' fileset file properties for remote files
 # None
@@ -480,7 +480,7 @@ set obj [get_filesets constrs_1]
 
 # Add/Import constrs file and set constrs file properties
 set file "[file normalize "$origin_dir/src/vhdl/mega65r1.xdc"]"
-set file_imported [import_files -fileset constrs_1 $file]
+set file_imported [add_files -fileset constrs_1 $file]
 set file "vhdl/mega65r1.xdc"
 set file_obj [get_files -of_objects [get_filesets constrs_1] [list "*$file"]]
 set_property -name "file_type" -value "XDC" -objects $file_obj
