@@ -1159,7 +1159,7 @@ architecture Behavioural of gs4510 is
   
 begin
 
-  multipliers: for unit in 0 to 11 generate
+  multipliers: for unit in 0 to 7 generate
     mult_unit : entity work.multiply32 port map (
       clock => mathclock,
       unit => unit,
@@ -1174,31 +1174,35 @@ begin
       );
   end generate;
 
-  shifter13:  entity work.shifter32 port map (
+  shifters: for unit in 8 to 11 generate
+    mult_unit : entity work.shifter32 port map (
       clock => mathclock,
-      unit => 13,
-      do_add => reg_math_config(13).do_add,
-      input_a => reg_math_config(13).source_a,
-      input_b => reg_math_config(13).source_b,
+      unit => unit,
+      do_add => reg_math_config(unit).do_add,
+      input_a => reg_math_config(unit).source_a,
+      input_b => reg_math_config(unit).source_b,
       input_value_number => math_input_number,
       input_value => math_input_value,
       output_select => math_output_counter,
       output_value(31 downto 0) => math_output_value_low,
       output_value(63 downto 32) => math_output_value_high
       );
-  
-  shifter12:  entity work.shifter32 port map (
+  end generate;
+
+  dividerrs: for unit in 12 to 15 generate
+    mult_unit : entity work.divider32 port map (
       clock => mathclock,
-      unit => 12,
-      do_add => reg_math_config(12).do_add,
-      input_a => reg_math_config(12).source_a,
-      input_b => reg_math_config(12).source_b,
+      unit => unit,
+      do_add => reg_math_config(unit).do_add,
+      input_a => reg_math_config(unit).source_a,
+      input_b => reg_math_config(unit).source_b,
       input_value_number => math_input_number,
       input_value => math_input_value,
       output_select => math_output_counter,
       output_value(31 downto 0) => math_output_value_low,
       output_value(63 downto 32) => math_output_value_high
       );
+  end generate;
   
   shadowram0 : shadowram port map (
     clk     => clock,
