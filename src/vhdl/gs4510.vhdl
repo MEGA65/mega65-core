@@ -3099,8 +3099,6 @@ begin
             when 3 => reg_math_regs(reg_math_regnum)(31 downto 24) <= reg_math_write_value;
             when others =>
           end case;
-          math_unit_flags(7) <= not math_unit_flags(7);
-          math_unit_flags(3 downto 2) <= to_unsigned(reg_math_regbyte,2);
         end if;
       end if;
 
