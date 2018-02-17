@@ -297,3 +297,12 @@ notified when a calculation is complete, and to halt the math unit.
 
 XXX - Implement and document the remaining math function units.
 
+XXX - Use flags to indicate internally changed values to speed up
+cycles.
+
+XXX - Use flags to indicate when convergence is complete, e.g., for
+taylors series for common trig functions, where this makes sense.
+
+XXX - Speed up math unit clock
+
+XXX - Implement and add divider

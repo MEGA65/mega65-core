@@ -39,6 +39,7 @@ entity gs4510 is
   generic(
     cpufrequency : integer := 50 );
   port (
+    mathclock : in std_logic;
     Clock : in std_logic;
     phi0 : out std_logic;
     ioclock : in std_logic;
@@ -1134,9 +1135,12 @@ architecture Behavioural of gs4510 is
   signal reg_math_latch_counter : unsigned(7 downto 0) := x"00";
   signal reg_math_latch_interval : unsigned(7 downto 0) := x"00";
 
+  -- We have the output counter out of phase with the input counter, so that we
+  -- have time to catch an output, and store it, ready for presenting as an input
+  -- very soon after.
   signal math_input_counter : integer range 0 to 15 := 0;
-  signal math_output_counter : integer range 0 to 15 := 0;
-  signal prev_math_output_counter : integer range 0 to 15 := 0;
+  signal math_output_counter : integer range 0 to 15 := 3;
+  signal prev_math_output_counter : integer range 0 to 15 := 2;
 
   signal math_input_number : integer range 0 to 15 := 0;
   signal math_input_value : unsigned(31 downto 0) := (others => '0');
@@ -1155,9 +1159,9 @@ architecture Behavioural of gs4510 is
   
 begin
 
-  multipliers: for unit in 0 to 7 generate
+  multipliers: for unit in 0 to 11 generate
     mult_unit : entity work.multiply32 port map (
-      clock => clock,
+      clock => mathclock,
       unit => unit,
       do_add => reg_math_config(unit).do_add,
       input_a => reg_math_config(unit).source_a,
@@ -1170,12 +1174,25 @@ begin
       );
   end generate;
 
-  shifter14:  entity work.shifter32 port map (
-      clock => clock,
-      unit => 14,
-      do_add => reg_math_config(14).do_add,
-      input_a => reg_math_config(14).source_a,
-      input_b => reg_math_config(14).source_b,
+  shifter13:  entity work.shifter32 port map (
+      clock => mathclock,
+      unit => 13,
+      do_add => reg_math_config(13).do_add,
+      input_a => reg_math_config(13).source_a,
+      input_b => reg_math_config(13).source_b,
+      input_value_number => math_input_number,
+      input_value => math_input_value,
+      output_select => math_output_counter,
+      output_value(31 downto 0) => math_output_value_low,
+      output_value(63 downto 32) => math_output_value_high
+      );
+  
+  shifter12:  entity work.shifter32 port map (
+      clock => mathclock,
+      unit => 12,
+      do_add => reg_math_config(12).do_add,
+      input_a => reg_math_config(12).source_a,
+      input_b => reg_math_config(12).source_b,
       input_value_number => math_input_number,
       input_value => math_input_value,
       output_select => math_output_counter,
@@ -2941,20 +2958,54 @@ begin
     z_incremented <= reg_z + 1;
     z_decremented <= reg_z - 1;
 
-    if rising_edge(clock) then
-      -- Formula Plumbing Unit (FPU), the MEGA65's answer to a traditional
-      -- Floating Point Unit (FPU).
-      -- The idea is simple: We have a bunch of math units, and a bunch of
-      -- inputs and outputs, and a bunch of multiplexors that let you select what
-      -- joins where: In short, you can plumb your own formulae directly.
-      -- For each unit we have to pick one or more inputs, and set at least one
-      -- output.  We will map these all onto the same 64 bytes of registers.
 
+    -- Formula Plumbing Unit (FPU), the MEGA65's answer to a traditional
+    -- Floating Point Unit (FPU).
+    -- The idea is simple: We have a bunch of math units, and a bunch of
+    -- inputs and outputs, and a bunch of multiplexors that let you select what
+    -- joins where: In short, you can plumb your own formulae directly.
+    -- For each unit we have to pick one or more inputs, and set at least one
+    -- output.  We will map these all onto the same 64 bytes of registers.
+
+    if rising_edge(clock) then
       -- We also have one direct 18x25 multiplier for use by the hypervisor.
       -- This multiplier fits a single DSP48E unit, and does not use the plumbing
       -- facility.
       reg_mult_p <= to_unsigned(to_integer(reg_mult_a) * to_integer(reg_mult_b),48);
 
+      -- We also provide some flags (which will later trigger interrupts) based
+      -- on the equality of math registers 14 and 15
+      if reg_math_regs(14) = reg_math_regs(15) then
+        math_unit_flags(6) <= '1';
+        if math_unit_flags(3 downto 2) = "00" then
+          math_unit_flags(7) <= '1' ;
+        end if;
+      else
+        math_unit_flags(6) <= '0';
+        if math_unit_flags(3 downto 2) = "11" then
+          math_unit_flags(7) <= '1' ;
+        end if;
+      end if;
+      if reg_math_regs(14) < reg_math_regs(15) then
+        math_unit_flags(5) <= '1';
+        if math_unit_flags(3 downto 2) = "10" then
+          math_unit_flags(7) <= '1' ;
+        end if;
+      else
+        math_unit_flags(5) <= '0';
+      end if;
+      if reg_math_regs(14) > reg_math_regs(15) then
+        math_unit_flags(4) <= '1';
+        if math_unit_flags(3 downto 2) = "01" then
+          math_unit_flags(7) <= '1' ;
+        end if;
+      else
+        math_unit_flags(4) <= '0';
+      end if;
+      
+    end if;
+
+    if rising_edge(mathclock) then
       -- For the plumbed math units, we want to avoid having two huge 16x32x32
       -- MUXes to pick the inputs and outputs to and from the register file.
       -- The interim solution is to have counters that present each of the
@@ -3048,15 +3099,19 @@ begin
           math_unit_flags(3 downto 2) <= to_unsigned(reg_math_regbyte,2);
         end if;
       end if;
-      
-      -- Decrement latch counter
-      if reg_math_latch_counter = x"00" then
-        reg_math_latch_counter <= reg_math_latch_interval;
-      else
-        reg_math_latch_counter <= reg_math_latch_counter - 1;
+
+      -- Latch counter counts "math cycles", which is the time it takes for an
+      -- output to appear on the inputs again, i.e., once per lap of the input
+      -- and output propagation.
+      if math_output_counter = 1 then
+        -- Decrement latch counter
+        if reg_math_latch_counter = x"00" then
+          reg_math_latch_counter <= reg_math_latch_interval;
+        else
+          reg_math_latch_counter <= reg_math_latch_counter - 1;
+        end if;
       end if;
     end if;    
-    
                                         -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) and all_pause='0' then
 

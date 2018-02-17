@@ -63,7 +63,12 @@ begin
       end if;
 
       -- Calculate the result
-      s <= to_unsigned(to_integer(a)+to_integer(b),33);
+      -- Even units do addition, odd ones do subtraction
+      if (unit mod 2) = 0 then
+        s <= to_unsigned(to_integer(a)+to_integer(b),33);
+      else
+        s <= to_unsigned(to_integer(a)-to_integer(b),33);
+      end if;
 
       if b(7 downto 0) = x"00" then
         p(63 downto 32) <= (others => '0');
