@@ -201,7 +201,7 @@ dos_and_process_trap_table:
 	.word reset_entry
 
 trap_serial_monitor_write:
-	STY $D67C
+	sty hypervisor_write_char_to_serial_monitor
 	jmp return_from_trap_with_success	
 
 ;	========================
