@@ -1156,6 +1156,10 @@ architecture Behavioural of gs4510 is
   signal reg_math_regnum : integer range 0 to 15 := 0;
   signal reg_math_regbyte : integer range 0 to 3 := 0;
   signal reg_math_write_value : unsigned(7 downto 0) := x"00";
+  -- Count # of math cycles since cycle latch last written to
+  signal reg_math_cycle_counter : unsigned(31 downto 0) := to_unsigned(0,32);
+  -- # of math cycles to trigger end of job / math interrupt
+  signal reg_math_cycle_compare : unsigned(31 downto 0) := to_unsigned(0,32);
   
 begin
 
@@ -2159,6 +2163,23 @@ begin
                 &to_unsigned(reg_math_config(to_integer(the_read_address(3 downto 0))).output,4);
             when x"E0" => return reg_math_latch_interval;
             when x"E1" => return math_unit_flags;
+            --@IO:GS $D7E4 - Math iteration counter (bits 0 - 7)
+            --@IO:GS $D7E5 - Math iteration counter (bits 8 - 15)
+            --@IO:GS $D7E6 - Math iteration counter (bits 16 - 23)
+            --@IO:GS $D7E7 - Math iteration counter (bits 24 - 31)
+            when x"e4" => return reg_math_cycle_counter(7 downto 0);
+            when x"e5" => return reg_math_cycle_counter(15 downto 8);
+            when x"e6" => return reg_math_cycle_counter(23 downto 16);
+            when x"e7" => return reg_math_cycle_counter(31 downto 24);
+            --@IO:GS $D7E8 - Math iteration comparison (bits 0 - 7)
+            --@IO:GS $D7E9 - Math iteration comparison (bits 8 - 15)
+            --@IO:GS $D7EA - Math iteration comparison (bits 16 - 23)
+            --@IO:GS $D7EB - Math iteration comparison (bits 24 - 31)
+            when x"e8" => return reg_math_cycle_compare(7 downto 0);
+            when x"e9" => return reg_math_cycle_compare(15 downto 8);
+            when x"ea" => return reg_math_cycle_compare(23 downto 16);
+            when x"eb" => return reg_math_cycle_compare(31 downto 24);
+
             when x"fc" => return unsigned(chipselect_enables);
             when x"fd" =>
               report "Reading $D7FD";
@@ -2510,10 +2531,27 @@ begin
         -- @IO:GS $D7E0 - Math unit latch interval (only update output of math function units every this many cycles, if they have the latch output flag set)
         reg_math_latch_interval <= value;
       elsif (long_address = x"FFD37E1") or (long_address = x"FFD17E1") then
-        -- @IO:GS $D7E1 - Math unit general settings
+        -- @IO:GS $D7E1 - Math unit general settings (writing also clears math cycle counter)
         -- @IO:GS $D7E1.0 - Enable setting of math registers (must normally be set)
         -- @IO:GS $D7E1.1 - Enable committing of output values from math units back to math registers (clearing effectively pauses iterative formulae)
-        math_unit_flags <= value;        
+        math_unit_flags <= value;
+        reg_math_cycle_counter <= to_unsigned(0,32);        
+      elsif (long_address = x"FFD37E4") or (long_address = x"FFD17E4") then
+        reg_math_cycle_counter(7 downto 0) <= value;
+      elsif (long_address = x"FFD37E5") or (long_address = x"FFD17E5") then
+        reg_math_cycle_counter(15 downto 8) <= value;
+      elsif (long_address = x"FFD37E6") or (long_address = x"FFD17E6") then
+        reg_math_cycle_counter(23 downto 16) <= value;
+      elsif (long_address = x"FFD37E7") or (long_address = x"FFD17E7") then
+        reg_math_cycle_counter(31 downto 24) <= value;
+      elsif (long_address = x"FFD37E8") or (long_address = x"FFD17E8") then
+        reg_math_cycle_compare(7 downto 0) <= value;
+      elsif (long_address = x"FFD37E9") or (long_address = x"FFD17E9") then
+        reg_math_cycle_compare(15 downto 8) <= value;
+      elsif (long_address = x"FFD37EA") or (long_address = x"FFD17EA") then
+        reg_math_cycle_compare(23 downto 16) <= value;
+      elsif (long_address = x"FFD37EB") or (long_address = x"FFD17EB") then
+        reg_math_cycle_compare(31 downto 24) <= value;
       elsif (long_address = x"FFD37FA") then
         -- @IO:GS $D7FA.0 DEBUG 1/2/3.5MHz CPU speed fine adjustment
         cpu_speed_bias <= to_integer(value);
@@ -3109,6 +3147,10 @@ begin
         -- Decrement latch counter
         if reg_math_latch_counter = x"00" then
           reg_math_latch_counter <= reg_math_latch_interval;
+          -- And update math cycle counter, if math unit is active
+          if math_unit_flags(1) = '1' then
+            reg_math_cycle_counter <= reg_math_cycle_counter + 1;
+          end if;
         else
           reg_math_latch_counter <= reg_math_latch_counter - 1;
         end if;
