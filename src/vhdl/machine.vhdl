@@ -643,7 +643,7 @@ begin
       protected_hardware => protected_hardware_sig,
       virtualised_hardware => virtualised_hardware_sig,
       chipselect_enables => chipselect_enables,
-      mathclock => clock200,
+      mathclock => cpuclock,
       clock => cpuclock,
       ioclock => ioclock,
       reset =>reset_combined,
