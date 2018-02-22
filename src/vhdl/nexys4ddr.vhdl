@@ -458,6 +458,12 @@ begin
 
       uart_rx => jclo(1),
       uart_tx => jclo(2),
+
+      buffereduart_rx => jclo(3),
+      buffereduart_tx => jclo(4),
+      buffereduart2_rx => jc(9),
+      buffereduart2_tx => jc(10),
+      buffereduart_ringindicate => '1',
       
       slow_access_request_toggle => slow_access_request_toggle,
       slow_access_ready_toggle => slow_access_ready_toggle,
