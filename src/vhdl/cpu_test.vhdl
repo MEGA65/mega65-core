@@ -248,6 +248,7 @@ begin
 
       buffereduart_rx => '1',
       buffereduart_ringindicate => '1',
+      buffereduart2_rx => '1',
       
       ps2data => '1',
       ps2clock => '1',
