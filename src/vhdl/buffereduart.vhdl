@@ -309,20 +309,36 @@ begin  -- behavioural
       end if;
 
       if uart0_check_full='1' then
+        if uart0_rx_buffer_pointer = uart0_rx_buffer_pointer_cpu then
+          uart0_rx_full <= '1';
+        else
+          uart0_rx_full <= '0';          
+        end if;
         uart0_check_full <= '0';
-        -- XXX do check
       end if;
       if uart0_check_empty='1' then
+        if uart0_tx_buffer_pointer = uart0_tx_buffer_pointer_cpu then
+          uart0_tx_empty <= '1';
+        else
+          uart0_tx_empty <= '0';
+        end if;
         uart0_check_empty <= '0';
-        -- XXX do check
       end if;
       if uart2_check_full='1' then
+        if uart2_rx_buffer_pointer = uart2_rx_buffer_pointer_cpu then
+          uart2_rx_full <= '1';
+        else
+          uart2_rx_full <= '0';          
+        end if;
         uart2_check_full <= '0';
-        -- XXX do check
       end if;
       if uart2_check_empty='1' then
+        if uart2_tx_buffer_pointer = uart2_tx_buffer_pointer_cpu then
+          uart2_tx_empty <= '1';
+        else
+          uart2_tx_empty <= '0';
+        end if;
         uart2_check_empty <= '0';
-        -- XXX do check
       end if;
       
       -- Do synchronous actions
