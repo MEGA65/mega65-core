@@ -232,6 +232,10 @@ begin  -- behavioural
             fastio_rdata(2) <= uart0_irq_on_rx;
             fastio_rdata(1) <= uart0_irq_on_rx_highwater;
             fastio_rdata(0) <= uart0_irq_on_tx_lowwater;
+          when x"2" => fastio_rdata <= uart0_rx_buffer_pointer_cpu(7 downto 0);
+          when x"3" => fastio_rdata <= uart0_tx_buffer_pointer_cpu(7 downto 0);
+          when x"4" => fastio_rdata <= uart0_rx_buffer_pointer(7 downto 0);
+          when x"5" => fastio_rdata <= uart0_tx_buffer_pointer(7 downto 0);
           when x"6" => fastio_rdata <= uart0_bit_rate_divisor_internal(7 downto 0);
           when x"7" =>
             fastio_rdata(5 downto 0) <= uart0_bit_rate_divisor_internal(13 downto 8);
@@ -246,6 +250,10 @@ begin  -- behavioural
             fastio_rdata(2) <= uart2_irq_on_rx;
             fastio_rdata(1) <= uart2_irq_on_rx_highwater;
             fastio_rdata(0) <= uart2_irq_on_tx_lowwater;
+          when x"A" => fastio_rdata <= uart2_rx_buffer_pointer_cpu(7 downto 0);
+          when x"B" => fastio_rdata <= uart2_tx_buffer_pointer_cpu(7 downto 0);
+          when x"C" => fastio_rdata <= uart2_rx_buffer_pointer(7 downto 0);
+          when x"D" => fastio_rdata <= uart2_tx_buffer_pointer(7 downto 0);
           when x"E" => fastio_rdata <= uart2_bit_rate_divisor_internal(7 downto 0);
           when x"F" =>
             fastio_rdata(5 downto 0) <= uart2_bit_rate_divisor_internal(13 downto 8);
