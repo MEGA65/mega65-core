@@ -115,13 +115,16 @@ $ cd ..
 $ cd mega65-core
 ```
 
-You need ```fpgaprog``` installed to make use of the improved tool-chain.
+You need ```fpgajtag``` installed to make use of the improved tool-chain.
 See below for info:  
 ```
 $ cd .. (to get out of the $git_root dir)
 $ git clone https://github.com/cambridgehackers/fpgajtag.git
 $ cd fpgajtag
 $ make
+```
+if the above fails, ```sudo apt-get install libusb-1.0-0-dev``` and ```make```.
+```
 $ sudo cp src/fpgajtag /usr/local/bin
 $ cd ..
 $ cd mega65-core
