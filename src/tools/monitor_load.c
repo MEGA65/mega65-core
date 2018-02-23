@@ -690,7 +690,8 @@ int process_line(char *line,int live)
     }
   }
   if (!strcmp(line,
-	      " :000086D 14 08 05 20 03 0F 0D 0D 0F 04 0F 12 05 20 03 36")) {
+	      " :000086D 14 08 05 20 03 0F 0D 0D 0F 04 0F 12 05 20 03 36"))
+    {
 
     if (modeline_cmd[0]) {
       fprintf(stderr,"[T+%lldsec] Setting video modeline\n",(long long)time(0)-start_time);
@@ -750,8 +751,10 @@ int process_line(char *line,int live)
       }
     }    
   }
-  if (!strcmp(line,
-			 " :000042C 2A 2A 2A 2A 20 03 0F 0D 0D 0F 04 0F 12 05 20 36")) {
+  if (// C64 BASIC banner
+      (!strcmp(line," :000042C 2A 2A 2A 2A 20 03 0F 0D 0D 0F 04 0F 12 05 20 36"))
+      // MEGA BASIC banner
+      ||(!strcmp(line," :000042C 2A 2A 2A 2A 20 0D 05 07 01 36 35 20 0D 05 07 01"))) {
     // C64 mode BASIC -- set LOAD trap, and then issue LOAD command
     char *cmd;
     if (filename&&not_already_loaded) {
