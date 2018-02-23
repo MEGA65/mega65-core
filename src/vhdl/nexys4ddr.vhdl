@@ -117,7 +117,7 @@ entity container is
          jdlo : inout std_logic_vector(4 downto 1) := (others => 'Z');
          jdhi : inout std_logic_vector(10 downto 7) := (others => 'Z');
          jclo : inout std_logic_vector(4 downto 1) := (others => 'Z');
-         jchi : inout std_logic_vector(10 downto 9) := (others => 'Z');
+         jchi : inout std_logic_vector(10 downto 7) := (others => 'Z');
          
          ----------------------------------------------------------------------
          -- Flash RAM for holding config
