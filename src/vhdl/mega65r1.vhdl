@@ -479,7 +479,7 @@ begin
       pmod_data_in => (others => '1'),
       pmoda => pmoda_dummy,
       sw => (others => '0'),
-      uart_rx => '1',
+--      uart_rx => '1',
       btn => (others => '1')
          
       );
