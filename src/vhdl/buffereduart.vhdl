@@ -26,7 +26,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
-  
+
 entity buffereduart is
   port (
     clock : in std_logic;
@@ -39,7 +39,7 @@ entity buffereduart is
     ---------------------------------------------------------------------------
     -- IO lines to the UART
     ---------------------------------------------------------------------------
-    uart_rx : in std_logic;
+    uart_rx : in std_logic := 'Z';
     uart_tx : out std_logic := '1';
     -- Only the primary UART has a ring indicate input
     uart_ringindicate : in std_logic;    
@@ -47,7 +47,7 @@ entity buffereduart is
     ---------------------------------------------------------------------------
     -- IO lines to the second (auxilliary) UART
     ---------------------------------------------------------------------------    
-    uart2_rx : in std_logic;
+    uart2_rx : in std_logic := 'Z';
     uart2_tx : out std_logic := '1';
     
     ---------------------------------------------------------------------------
@@ -115,10 +115,10 @@ architecture behavioural of buffereduart is
   signal uart0_irq_on_rx : std_logic := '0';
   signal uart0_irq_on_rx_highwater : std_logic := '0';
   signal uart0_irq_on_tx_lowwater : std_logic := '0';
-  signal uart0_rx_empty : std_logic := '0';
-  signal uart0_tx_empty : std_logic := '0';
-  signal uart0_rx_full : std_logic := '0';
-  signal uart0_tx_full : std_logic := '0';
+  signal uart0_rx_empty : std_logic := '1';
+  signal uart0_tx_empty : std_logic := '1';
+  signal uart0_rx_full : std_logic := '1';
+  signal uart0_tx_full : std_logic := '1';
   signal uart0_check_full : std_logic := '0';
   signal uart0_check_empty : std_logic := '0';
   
@@ -142,6 +142,14 @@ architecture behavioural of buffereduart is
 
   signal uart0_tx_drive : std_logic;
   signal uart2_tx_drive : std_logic;
+
+  signal uart0_read_byte_from_buffer : std_logic := '0';
+  signal uart2_read_byte_from_buffer : std_logic := '0';
+
+  signal uart0_rx_cpu_was_last : std_logic := '0';
+  signal uart2_rx_cpu_was_last : std_logic := '0';
+
+  signal last_was_read : std_logic := '0';
   
 begin  -- behavioural
 
@@ -298,15 +306,61 @@ begin  -- behavioural
       
       -- Update module status based on register reads
       if fastio_read='1' and buffereduart_cs='1' then
-        case fastio_addr(3 downto 0) is
-          when x"0" =>
-            -- Cause a side effect when $D0E0 is read
-            null;
-          when others =>
-            null;
-        end case;
+        -- CPU can cause successive reads to a single address
+        -- that are spurious, so we require a non-access between
+        -- accesses for the side effect to happen
+        last_was_read <= '1';
+        if last_was_read = '0' then
+          case fastio_addr(3 downto 0) is
+            when x"0" =>
+              if
+                -- Buffer is either full or empty
+                (uart0_rx_buffer_pointer = uart0_rx_buffer_pointer_cpu)
+                -- And it is empty (because it was read from to get here)
+                and (uart0_rx_cpu_was_last='1') then
+                -- Buffer is empty, so don't advance pointer
+                uart0_rx_empty <= '1';
+                uart0_rx_byte <= x"00";
+              else
+                -- Buffer is not empty, so advance
+                uart0_rx_empty <= '0';
+                uart0_rx_cpu_was_last <= '1';
+                if uart0_rx_buffer_pointer_cpu /= "1111111111" then
+                  uart0_rx_buffer_pointer_cpu <= uart0_rx_buffer_pointer_cpu + 1;
+                else
+                  uart0_rx_buffer_pointer_cpu <= to_unsigned(0,10);
+                end if;
+                uart0_read_byte_from_buffer <= '1';
+              end if;
+            when x"8" =>
+              -- After reading a byte from buffer, advance buffer pointer
+              if
+                -- Buffer is either full or empty
+                (uart2_rx_buffer_pointer = uart2_rx_buffer_pointer_cpu)
+                -- And it is empty (because it was read from to get here)
+                and (uart2_rx_cpu_was_last='1') then
+                -- Buffer is empty, so don't advance pointer
+                uart2_rx_empty <= '1';
+                uart2_rx_byte <= x"00";
+              else
+                -- Buffer is not empty, so advance
+                uart2_rx_empty <= '0';
+                uart2_rx_cpu_was_last <= '1';
+                if uart2_rx_buffer_pointer_cpu /= "1111111111" then
+                  uart2_rx_buffer_pointer_cpu <= uart2_rx_buffer_pointer_cpu + 1;
+                else
+                  uart2_rx_buffer_pointer_cpu <= to_unsigned(0,10);
+                end if;
+                uart2_read_byte_from_buffer <= '1';
+              end if;
+            when others =>
+              null;
+          end case;
+        else
+          last_was_read <= '0';
+        end if;
       end if;
-
+      
       if fastio_write='1' and buffereduart_cs='1' then
         case fastio_addr(3 downto 0) is
           when x"0" =>
@@ -418,6 +472,20 @@ begin  -- behavioural
         -- XXX Clearing this hear means back-to-back writes will
         -- not work.  Only a problem for DMA filling the buffer.
         queued_write <= '0';
+      elsif uart0_read_byte_from_buffer='1' then
+        report "UART0: Scheduling read of next byte from RX buffer in preparation for next CPU read";
+        queued_read <= '1';
+        queued_read_rx0 <= '1';
+        buffer_readaddress <= uart0_rx_buffer_start
+                              + to_integer(uart0_rx_buffer_pointer_cpu);
+        uart0_read_byte_from_buffer <= '0';
+      elsif uart2_read_byte_from_buffer='1' then
+        report "UART2: Scheduling read of next byte from RX buffer in preparation for next CPU read";
+        queued_read <= '1';
+        queued_read_rx2 <= '1';
+        buffer_readaddress <= uart0_rx_buffer_start
+                              + to_integer(uart2_rx_buffer_pointer_cpu);
+        uart2_read_byte_from_buffer <= '0';
       elsif rx0_ready='1' then
         report "UART0: Data ready was asserted by UART RX. Byte is $" & to_hstring(rx0_data);
         buffer_wdata <= rx0_data;
@@ -425,6 +493,7 @@ begin  -- behavioural
 
           uart0_rx_byte <= rx0_data;
         end if;
+        uart0_rx_cpu_was_last <= '0';
         uart0_check_full <= '1';
         buffer_writeaddress <= uart0_rx_buffer_start
                                + to_integer(uart0_rx_buffer_pointer);
@@ -443,6 +512,7 @@ begin  -- behavioural
           uart2_rx_byte <= rx2_data;
         end if;
         uart2_check_full <= '1';
+        uart2_rx_cpu_was_last <= '0';
         buffer_writeaddress <= uart2_rx_buffer_start
                                + to_integer(uart2_rx_buffer_pointer);
         if uart2_rx_buffer_pointer /= "1111111111" then
