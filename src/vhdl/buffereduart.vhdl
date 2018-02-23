@@ -133,6 +133,15 @@ architecture behavioural of buffereduart is
   signal uart2_tx_full : std_logic := '0';
   signal uart2_check_full : std_logic := '0';
   signal uart2_check_empty  : std_logic := '0';
+
+  signal uart0_rx_mux : std_logic;
+  signal uart2_rx_mux : std_logic;
+
+  signal uart0_rx_from_uart2_tx : std_logic := '0';
+  signal uart2_rx_from_uart0_tx : std_logic := '0';
+
+  signal uart0_tx_drive : std_logic;
+  signal uart2_tx_drive : std_logic;
   
 begin  -- behavioural
 
@@ -152,12 +161,12 @@ begin  -- behavioural
       clk     => clock,
       data    => std_logic_vector(tx0_data),
       ready   => tx0_ready,
-      uart_tx => uart_tx);
+      uart_tx => uart0_tx_drive);
 
   uart_rx0: entity work.uart_rx 
     Port map ( clk => clock,
                bit_rate_divisor => uart0_bit_rate_divisor_internal,
-               UART_RX => uart_rx,
+               UART_RX => uart0_rx_mux,
 
                data => rx0_data,
                data_ready => rx0_ready,
@@ -170,12 +179,12 @@ begin  -- behavioural
       clk     => clock,
       data    => std_logic_vector(tx2_data),
       ready   => tx2_ready,
-      uart_tx => uart2_tx);
+      uart_tx => uart2_tx_drive);
 
   uart_rx1: entity work.uart_rx 
     Port map ( clk => clock,
                bit_rate_divisor => uart2_bit_rate_divisor_internal,
-               UART_RX => uart2_rx,
+               UART_RX => uart2_rx_mux,
 
                data => rx2_data,
                data_ready => rx2_ready,
@@ -188,6 +197,19 @@ begin  -- behavioural
 
   begin
 
+    -- MUX to allow connecting serial ports to outside lines, or alternatively
+    -- to the opposite buffered UART (as a remote loopback diagnostic mode)
+    if uart0_rx_from_uart2_tx='0' then
+      uart0_rx_mux <= uart_rx;
+    else
+      uart0_rx_mux <= uart2_tx_drive;
+    end if;
+    if uart2_rx_from_uart0_tx='0' then
+      uart2_rx_mux <= uart2_rx;
+    else
+      uart2_rx_mux <= uart0_tx_drive;
+    end if;
+    
     irq <= 'Z';
     
     -- Register reading is asynchronous to avoid wait states
@@ -270,6 +292,9 @@ begin  -- behavioural
 
     if rising_edge(clock) then
 
+      uart_tx <= uart0_tx_drive;
+      uart2_tx <= uart2_tx_drive;
+      
       -- Update module status based on register reads
       if fastio_read='1' and buffereduart_cs='1' then
         case fastio_addr(3 downto 0) is
@@ -301,6 +326,10 @@ begin  -- behavioural
             uart2_irq_on_rx <= fastio_wdata(2);
             uart2_irq_on_rx_highwater <= fastio_wdata(1);
             uart2_irq_on_tx_lowwater <= fastio_wdata(0);
+          when x"2" =>
+            uart0_rx_from_uart2_tx <= fastio_wdata(0);
+          when x"a" =>
+            uart2_rx_from_uart0_tx <= fastio_wdata(0);
           when x"6" =>
             uart0_bit_rate_divisor_internal(7 downto 0) <= fastio_wdata;
           when x"7" =>
