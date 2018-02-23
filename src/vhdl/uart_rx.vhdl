@@ -29,6 +29,8 @@ signal rx_state : uart_rx_state := Idle;
 signal uart_rx_debounced : std_logic_vector(3 downto 0) := (others =>'1');
 signal uart_rx_bit : std_logic := '1';
 
+signal data_ready_internal : std_logic := '0';
+
 type uart_buffer is array (0 to 63) of std_logic_vector(7 downto 0);
 
 begin  -- behavioural
@@ -41,12 +43,14 @@ begin  -- behavioural
       -- Accept input from keyboard if we are in matrix mode
       -- (but ignore 0xEF, the character which indicates matrix mode toggle)
 
+      if false then
       if rx_state /= Idle then
         report "UART" & name &": rx_state = " & uart_rx_state'image(rx_state)
           & ", bit_timer=$" & to_hstring(bit_timer)
           & ", bit_position="
           & integer'image(bit_position)
           & ", bit_rate_divisor=$" & to_hstring(bit_rate_divisor);
+      end if;
       end if;
       
       uart_rx_debounced <= uart_rx_debounced(2 downto 0) & uart_rx;
@@ -69,7 +73,7 @@ begin  -- behavioural
         report "UART"&name&": start receiving byte (divider = $"
           & to_hstring(bit_rate_divisor) & ")" severity note;
         -- Start receiving next byte
-        report "UART"&name&": zeroing bit_timer";
+--        report "UART"&name&": zeroing bit_timer";
         bit_timer <= (others => '0');
         bit_position <= 0;
         rx_state <= WaitingForMidBit;
@@ -77,15 +81,16 @@ begin  -- behavioural
         
       -- Check for data_acknowledge before potentially reasserting data_ready
       -- so that we can't miss characters
-      if data_acknowledge='1' then
+      if data_acknowledge='1' and data_ready_internal='1' then
         report "UART"&name&": received acknowledgement from reader" severity note;
         data_ready <= '0';
+        data_ready_internal <= '0';
       end if;
 
       -- Sample bit in the middle of the frame
       if rx_state = WaitingForMidBit
         and bit_timer = '0' & bit_rate_divisor(13 downto 1) then
-        report "UART"&name&": reached mid bit point, bit = " & integer'image(bit_position) severity note;
+--        report "UART"&name&": reached mid bit point, bit = " & integer'image(bit_position) severity note;
         -- Reached mid bit
         rx_data(bit_position) <= uart_rx_bit;
         if bit_position<9 then
@@ -97,6 +102,7 @@ begin  -- behavioural
           report "UART"&name&": Finished receiving byte. Value = $" & to_hstring(rx_data(8 downto 1)) severity note;
           data <= unsigned(rx_data(8 downto 1));
           data_ready <= '1';
+          data_ready_internal <= '1';
           bit_timer <= "00000001";
           rx_state <= WaitForRise;
         end if;        
@@ -107,7 +113,7 @@ begin  -- behavioural
       -- Wait for most of a bit after receiving a byte before going back
       -- to idle state
       if (bit_timer = 0 or uart_rx_bit = '1') and rx_state = WaitForRise then
-        report "UART"&name&": Cancelling reception in WaitForRise";
+--        report "UART"&name&": Cancelling reception in WaitForRise";
         rx_state <= Idle;
       end if;
     end if;
