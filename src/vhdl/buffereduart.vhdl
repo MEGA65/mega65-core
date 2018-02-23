@@ -39,7 +39,7 @@ entity buffereduart is
     ---------------------------------------------------------------------------
     -- IO lines to the UART
     ---------------------------------------------------------------------------
-    uart_rx : in std_logic := 'Z';
+    uart_rx : inout std_logic := 'H';
     uart_tx : out std_logic := '1';
     -- Only the primary UART has a ring indicate input
     uart_ringindicate : in std_logic;    
@@ -47,7 +47,7 @@ entity buffereduart is
     ---------------------------------------------------------------------------
     -- IO lines to the second (auxilliary) UART
     ---------------------------------------------------------------------------    
-    uart2_rx : in std_logic := 'Z';
+    uart2_rx : inout std_logic := 'H';
     uart2_tx : out std_logic := '1';
     
     ---------------------------------------------------------------------------

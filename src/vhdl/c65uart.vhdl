@@ -24,7 +24,7 @@ entity c65uart is
     fastio_wdata : in unsigned(7 downto 0);
     fastio_rdata : out unsigned(7 downto 0);
 
-    uart_rx : in std_logic;
+    uart_rx : inout std_logic := 'H';
     uart_tx : out std_logic;
 
     key_debug : in std_logic_vector(7 downto 0);

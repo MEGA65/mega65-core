@@ -73,10 +73,10 @@ entity machine is
          flopled : out std_logic;
          flopmotor : out std_logic;
 
-         buffereduart_rx : in std_logic;
+         buffereduart_rx : inout std_logic;
          buffereduart_tx : out std_logic := '1';
          buffereduart_ringindicate : in std_logic;
-         buffereduart2_rx : in std_logic := '1';
+         buffereduart2_rx : inout std_logic := '1';
          buffereduart2_tx : out std_logic;
          
          slow_access_request_toggle : out std_logic;
@@ -223,7 +223,7 @@ entity machine is
          pmod_data_out : out std_logic_vector(1 downto 0);
          pmoda : inout std_logic_vector(7 downto 0);
 
-         uart_rx : in std_logic;
+         uart_rx : inout std_logic;
          uart_tx : out std_logic;
          
          ----------------------------------------------------------------------
