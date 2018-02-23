@@ -69,8 +69,8 @@ architecture behavioural of buffereduart is
   signal buffer_wdata : unsigned(7 downto 0) := x"00"; 
   signal buffer_rdata : unsigned(7 downto 0) := x"00"; 
 
-  signal uart0_bit_rate_divisor_internal : unsigned(13 downto 0);
-  signal uart2_bit_rate_divisor_internal : unsigned(13 downto 0);
+  signal uart0_bit_rate_divisor_internal : unsigned(13 downto 0) := to_unsigned(0,14);
+  signal uart2_bit_rate_divisor_internal : unsigned(13 downto 0) := to_unsigned(0,14);
   signal tx0_data : unsigned(7 downto 0) := x"00";
   signal tx2_data : unsigned(7 downto 0) := x"00";
   signal tx0_ready : std_logic;
@@ -164,6 +164,7 @@ begin  -- behavioural
       uart_tx => uart0_tx_drive);
 
   uart_rx0: entity work.uart_rx 
+    generic map (name => "0")
     Port map ( clk => clock,
                bit_rate_divisor => uart0_bit_rate_divisor_internal,
                UART_RX => uart0_rx_mux,
@@ -181,7 +182,8 @@ begin  -- behavioural
       ready   => tx2_ready,
       uart_tx => uart2_tx_drive);
 
-  uart_rx1: entity work.uart_rx 
+  uart_rx1: entity work.uart_rx
+    generic map (name => "2")
     Port map ( clk => clock,
                bit_rate_divisor => uart2_bit_rate_divisor_internal,
                UART_RX => uart2_rx_mux,
