@@ -1486,6 +1486,8 @@ begin  -- behavioural
                   -- Reset SD card
                   sd_reset <= '1';
                   sd_state <= Idle;
+                  sd_handshake <= '1';
+                  sd_handshake_internal <= '1';
                   sdio_error <= '0';
                   sdio_fsm_error <= '0';
                   sd_sector <= (others => '0');
@@ -1501,8 +1503,19 @@ begin  -- behavioural
                   -- End reset
                   sd_reset <= '0';
                   sd_state <= Idle;
+                  sd_handshake <= '0';
+                  sd_handshake_internal <= '0';
                   sdio_error <= '0';
                   sdio_fsm_error <= '0';
+
+                  -- XXX DEBUG provision for finding out why SD card
+                  -- gets jammed.
+                when x"04" =>
+                  sd_handshake <= '0';
+                  sd_handshake_internal <= '0';
+                when x"05" =>
+                  sd_handshake <= '1';
+                  sd_handshake_internal <= '1';
 
                 when x"11" =>
                   -- End reset
