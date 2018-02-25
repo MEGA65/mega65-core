@@ -28,7 +28,7 @@ freeze_save_to_sdcard_immediate:
 	; Save current SD card sector buffer contents
 	jsr freeze_write_sector_and_wait
 
-	; XXX Save each region in the list
+	; Save each region in the list
 	ldx #$00
 freeze_next_region:
 	jsr freeze_save_region
@@ -45,19 +45,16 @@ freeze_next_region:
 freeze_write_sector_and_wait:
 
 	lda $d681
-	sta $0808
 	lda $d682
-	sta $0809
 	lda $d683
-	sta $080a
 	lda $d684
-	sta $080b
 
-	; Require SHIFT press and release between every sector
-fww1:	lda $d611
-	beq fww1
-fww2: 	lda $d611
-	bne fww2
+;	; Require SHIFT press and release between every sector
+;fww1:	lda $d611
+;	beq fww1
+;fww2: 	lda $d611
+;	bne fww2
+
 
 	lda #$00
 	sta freeze_write_tries+0
@@ -234,11 +231,8 @@ fsr1:
 freeze_region_dma_loop:
 
 	lda freeze_dma_length_remaining
-	sta $0810
 	lda freeze_dma_length_remaining+1
-	sta $0811
 	lda freeze_dma_length_remaining+2
-	sta $0812
 
 	; Check if remaining length is negative or zero. If so, stop
 	lda freeze_dma_length_remaining+2
@@ -269,11 +263,12 @@ not_too_big:
 	lda freeze_dma_length_remaining+1
 	sbc freeze_region_dmalist_count+1
 	sta freeze_dma_length_remaining+1
+	lda freeze_dma_length_remaining+2
+	sbc #$00
+	sta freeze_dma_length_remaining+2
 
 	lda freeze_region_dmalist_count+0
-	sta $0818
 	lda freeze_region_dmalist_count+1
-	sta $0819
 
 	; Execute DMA job
 	lda #$ff
@@ -297,7 +292,7 @@ not_too_big:
 freeze_region_dma_done:
 
 	; And increase screen colour after writing each region
-	inc $d020
+;	inc $d020
 
 	rts
 

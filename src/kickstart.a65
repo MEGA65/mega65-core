@@ -235,7 +235,7 @@ trap_entry_points:
 	jmp page_fault			; Trap #$41 (page fault)
 	nop				; refer: kickstart_mem
 
-	jmp double_restore_trap		; Trap #$42 (double-tap RESTORE key)
+	jmp restore_press_trap		; Trap #$42 (press RESTORE for 0.5 - 1.99 seconds)
 	nop				; refer: kickstart_task "1000010" x"42"
 
 	jmp matrix_mode_toggle          ; Trap #$43 (C= + TAB combination)
