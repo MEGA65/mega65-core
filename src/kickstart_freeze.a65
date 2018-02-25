@@ -249,11 +249,15 @@ freeze_region_dma_loop:
 
 	lda freeze_dma_length_remaining+0
 	sta freeze_region_dmalist_count+0
+	ora freeze_dma_length_remaining+1
+	beq @multipleOf64KRemaining
 	lda freeze_dma_length_remaining+1
 	sta freeze_region_dmalist_count+1
 	cmp #$02
 	bcc not_too_big
-	; remaining length too great
+@multipleOf64KRemaining:
+	; remaining length too great, or
+	; bottom 16 bits = 0, i.e., multiple of 64KB remaining
 	lda #$02
 	sta freeze_region_dmalist_count+1
 not_too_big:
@@ -433,6 +437,12 @@ freeze_mem_list:
 	.byte 0
 	.byte freeze_prep_none
 
+	; 128KB RAM + 128KB "ROM"
+	.dword $0000000
+	.word $0000      
+	.byte 4          ; =4x64K blocks = 128K + 128K
+	.byte freeze_prep_none	
+
 	; VIC-IV palette block 0
 	.dword $ffd3100
 	.word $0300
@@ -461,12 +471,6 @@ freeze_mem_list:
 	.dword $ffd3700
 	.word $0100
 	.byte 0
-	.byte freeze_prep_none
-	
-	; 128KB RAM + 128KB "ROM"
-	.dword $0000000
-	.word $0000      
-	.byte 4          ; =4x64K blocks = 128K + 128K
 	.byte freeze_prep_none
 	
 	; 32KB colour RAM
