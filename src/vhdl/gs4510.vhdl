@@ -479,6 +479,8 @@ architecture Behavioural of gs4510 is
   signal irq_pending : std_logic := '0';
   signal nmi_state : std_logic := '1';
   signal no_interrupt : std_logic := '0';
+  signal hyper_trap_last : std_logic := '0';
+  signal hyper_trap_edge : std_logic := '0';
   signal hyper_trap_pending : std_logic := '0';
   signal hyper_trap_state : std_logic := '1';
   signal matrix_trap_pending : std_logic := '0';
@@ -3255,7 +3257,13 @@ begin
       end if;
       
                                         --Check for system-generated traps (matrix mode, and double tap restore)
-      if (hyper_trap = '0' or matrix_trap_in ='1' or hyper_trap_f011_read = '1' or hyper_trap_f011_write = '1') and hyper_trap_state = '1' then
+      if hyper_trap = '0' and hyper_trap_last = '1' then
+        hyper_trap_edge <= '1';
+      else
+        hyper_trap_edge <= '0';
+      end if;
+      hyper_trap_last <= hyper_trap;
+      if (hyper_trap_edge = '1' or matrix_trap_in ='1' or hyper_trap_f011_read = '1' or hyper_trap_f011_write = '1') and hyper_trap_state = '1' then
         hyper_trap_state <= '0';
         hyper_trap_pending <= '1'; 
         if matrix_trap_in='1' then 
