@@ -83,6 +83,8 @@ architecture behavioural of buffereduart is
   signal rx2_ready : std_logic;
   signal rx0_ready_wait : std_logic := '0';
   signal rx2_ready_wait : std_logic := '0';
+  signal tx0_ready_wait : std_logic := '0';
+  signal tx2_ready_wait : std_logic := '0';
   signal rx0_acknowledge : std_logic := '0';
   signal rx2_acknowledge : std_logic := '0';
 
@@ -474,24 +476,32 @@ begin  -- behavioural
         -- XXX Clearing this hear means back-to-back writes will
         -- not work.  Only a problem for DMA filling the buffer.
         queued_write <= '0';
-      elsif uart0_read_byte_from_buffer='1' then
-        report "UART0: Scheduling read of next byte from RX buffer in preparation for next CPU read";
+      elsif uart0_read_byte_from_buffer='1' and queued_read='0' then
+        report "UART0: Scheduling read of next byte from RX buffer in preparation for next CPU read"
+          & " (address = $" & to_hstring(to_unsigned(uart0_rx_buffer_start
+                                + to_integer(uart0_rx_buffer_pointer_cpu),12));
         queued_read <= '1';
         queued_read_rx0 <= '1';
         buffer_readaddress <= uart0_rx_buffer_start
                               + to_integer(uart0_rx_buffer_pointer_cpu);
-        uart0_read_byte_from_buffer <= '0';
-      elsif uart2_read_byte_from_buffer='1' then
-        report "UART2: Scheduling read of next byte from RX buffer in preparation for next CPU read";
+          uart0_read_byte_from_buffer <= '0';
+      elsif uart2_read_byte_from_buffer='1' and queued_read='0' then
+        report "UART2: Scheduling read of next byte from RX buffer in preparation for next CPU read"
+          & " (address = $" & to_hstring(to_unsigned(uart2_rx_buffer_start
+                                + to_integer(uart2_rx_buffer_pointer_cpu),12));
         queued_read <= '1';
         queued_read_rx2 <= '1';
         buffer_readaddress <= uart0_rx_buffer_start
                               + to_integer(uart2_rx_buffer_pointer_cpu);
         uart2_read_byte_from_buffer <= '0';
-      elsif rx0_ready='0' then
+      elsif rx0_ready='0' and rx0_ready_wait='1' then
         rx0_ready_wait <= '0';        
-      elsif rx0_ready='1' and rx0_ready_wait='0' then
-        report "UART0: Data ready was asserted by UART RX. Byte is $" & to_hstring(rx0_data);
+      elsif tx0_ready='0' and tx0_ready_wait='1' then
+        tx0_ready_wait <= '0';        
+      elsif rx0_ready='1' and rx0_ready_wait='0' and queued_write='0' then
+        report "UART0: Data ready was asserted by UART RX. Byte is $" & to_hstring(rx0_data)
+          & ", writing to $" & to_hstring(to_unsigned(uart0_rx_buffer_start
+                               + to_integer(uart0_rx_buffer_pointer),12));
         rx0_ready_wait <= '1';
         buffer_wdata <= rx0_data;
         if uart0_rx_buffer_pointer = uart0_rx_buffer_pointer_cpu then
@@ -509,11 +519,15 @@ begin  -- behavioural
         end if;
         buffer_write <= '1';
         rx0_acknowledge <= '1';        
-      elsif rx2_ready='0' then
+      elsif rx2_ready='0' and rx2_ready_wait='1' then
         rx2_ready_wait <= '0';        
-      elsif rx2_ready='1' and rx2_ready_wait='0' then
+      elsif tx2_ready='0' and tx2_ready_wait='1' then
+        tx2_ready_wait <= '0';        
+      elsif rx2_ready='1' and rx2_ready_wait='0' and queued_write='0' then
         rx2_ready_wait <= '1';
-        report "UART2: Data ready was asserted by UART RX. Byte is $" & to_hstring(rx2_data);
+        report "UART2: Data ready was asserted by UART RX. Byte is $" & to_hstring(rx2_data)
+          & ", writing to $" & to_hstring(to_unsigned(uart2_rx_buffer_start
+                               + to_integer(uart2_rx_buffer_pointer),12));
         buffer_wdata <= rx2_data;
         if uart2_rx_buffer_pointer = uart2_rx_buffer_pointer_cpu then
           -- Buffer was empty, so make this received byte visible
@@ -560,13 +574,14 @@ begin  -- behavioural
       elsif uart0_tx_buffer_pointer_cpu /= uart0_tx_buffer_pointer then
         -- Queue buffer read
         report "UART0: TX buffer is not empty, consider sending a byte.";
-        if tx0_ready='1' then
+        if tx0_ready='1' and queued_read='0' and tx0_ready_wait='0' then
           report "UART0: Queuing reading of byte at $"
             & to_hstring(to_unsigned(uart0_tx_buffer_start
                                      + to_integer(uart0_tx_buffer_pointer),12))
             & " ready for TX";
           queued_read <= '1';
           queued_read_tx0 <= '1';
+          tx0_ready_wait <= '1';
           buffer_readaddress <= uart0_tx_buffer_start
                                 + to_integer(uart0_tx_buffer_pointer);
           if uart0_tx_buffer_pointer /= "111111111" then
@@ -577,13 +592,14 @@ begin  -- behavioural
         end if;
       elsif uart2_tx_buffer_pointer_cpu /= uart2_tx_buffer_pointer then
         report "UART2: TX buffer is not empty, consider sending a byte.";
-        if tx2_ready='1' then
+        if tx2_ready='1' and queued_read='0' and tx2_ready_wait='0' then
           report "UART2: Queuing reading of byte at $"
             & to_hstring(to_unsigned(uart2_tx_buffer_start
                                      + to_integer(uart2_tx_buffer_pointer),12))
             & " ready for TX";
           queued_read <= '1';
           queued_read_tx2 <= '1';
+          tx2_ready_wait <= '1';
           buffer_readaddress <= uart2_tx_buffer_start
                                 + to_integer(uart2_tx_buffer_pointer);
           if uart2_tx_buffer_pointer /= "111111111" then
