@@ -76,8 +76,8 @@ entity machine is
          buffereduart_rx : inout std_logic;
          buffereduart_tx : out std_logic := '1';
          buffereduart_ringindicate : in std_logic;
-         buffereduart2_rx : inout std_logic := '1';
-         buffereduart2_tx : out std_logic;
+         buffereduart2_rx : inout std_logic;
+         buffereduart2_tx : out std_logic := '1';
          
          slow_access_request_toggle : out std_logic;
          slow_access_ready_toggle : in std_logic := '0';
