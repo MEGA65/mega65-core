@@ -318,11 +318,11 @@ begin  -- behavioural
         if last_was_read = '0' then
           case fastio_addr(3 downto 0) is
             when x"0" =>
-              if
+              if uart0_rx_empty='1' or
                 -- Buffer is either full or empty
-                (uart0_rx_buffer_pointer = uart0_rx_buffer_pointer_cpu)
+                ((uart0_rx_buffer_pointer = uart0_rx_buffer_pointer_cpu)
                 -- And it is empty (because it was read from to get here)
-                and (uart0_rx_cpu_was_last='1') then
+                and (uart0_rx_cpu_was_last='1')) then
                 -- Buffer is empty, so don't advance pointer
                 uart0_rx_empty <= '1';
                 uart0_rx_byte <= x"00";
@@ -339,11 +339,11 @@ begin  -- behavioural
               end if;
             when x"8" =>
               -- After reading a byte from buffer, advance buffer pointer
-              if
+              if uart2_rx_empty='1' or
                 -- Buffer is either full or empty
-                (uart2_rx_buffer_pointer = uart2_rx_buffer_pointer_cpu)
+                ((uart2_rx_buffer_pointer = uart2_rx_buffer_pointer_cpu)
                 -- And it is empty (because it was read from to get here)
-                and (uart2_rx_cpu_was_last='1') then
+                and (uart2_rx_cpu_was_last='1')) then
                 -- Buffer is empty, so don't advance pointer
                 uart2_rx_empty <= '1';
                 uart2_rx_byte <= x"00";
@@ -509,6 +509,7 @@ begin  -- behavioural
 
           uart0_rx_byte <= rx0_data;
         end if;
+        uart0_rx_empty <= '0';
         uart0_rx_cpu_was_last <= '0';
         uart0_check_full <= '1';
         buffer_writeaddress <= uart0_rx_buffer_start
@@ -534,6 +535,7 @@ begin  -- behavioural
           -- Buffer was empty, so make this received byte visible
           uart2_rx_byte <= rx2_data;
         end if;
+        uart2_rx_empty <= '0';
         uart2_check_full <= '1';
         uart2_rx_cpu_was_last <= '0';
         buffer_writeaddress <= uart2_rx_buffer_start
