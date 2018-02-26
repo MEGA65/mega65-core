@@ -158,7 +158,6 @@ architecture behavioural of buffereduart is
 begin  -- behavioural
 
   buffer0: entity work.ram8x4096
-    generic map ( name => "UARTRAM" )
     port map (
     clk => clock50mhz,
     cs => '1',
