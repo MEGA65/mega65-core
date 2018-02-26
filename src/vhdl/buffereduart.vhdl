@@ -157,7 +157,9 @@ architecture behavioural of buffereduart is
   
 begin  -- behavioural
 
-  buffer0: entity work.ram8x4096 port map (
+  buffer0: entity work.ram8x4096
+    generic map ( name => "UARTRAM" )
+    port map (
     clk => clock50mhz,
     cs => '1',
     w => buffer_write,
@@ -491,7 +493,7 @@ begin  -- behavioural
                                 + to_integer(uart2_rx_buffer_pointer_cpu),12));
         queued_read <= '1';
         queued_read_rx2 <= '1';
-        buffer_readaddress <= uart0_rx_buffer_start
+        buffer_readaddress <= uart2_rx_buffer_start
                               + to_integer(uart2_rx_buffer_pointer_cpu);
         uart2_read_byte_from_buffer <= '0';
       elsif rx0_ready='0' and rx0_ready_wait='1' then
