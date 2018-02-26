@@ -81,6 +81,8 @@ architecture behavioural of buffereduart is
   signal rx2_data : unsigned(7 downto 0);
   signal rx0_ready : std_logic;
   signal rx2_ready : std_logic;
+  signal rx0_ready_wait : std_logic := '0';
+  signal rx2_ready_wait : std_logic := '0';
   signal rx0_acknowledge : std_logic := '0';
   signal rx2_acknowledge : std_logic := '0';
 
@@ -486,8 +488,11 @@ begin  -- behavioural
         buffer_readaddress <= uart0_rx_buffer_start
                               + to_integer(uart2_rx_buffer_pointer_cpu);
         uart2_read_byte_from_buffer <= '0';
-      elsif rx0_ready='1' then
+      elsif rx0_ready='0' then
+        rx0_ready_wait <= '0';        
+      elsif rx0_ready='1' and rx0_ready_wait='0' then
         report "UART0: Data ready was asserted by UART RX. Byte is $" & to_hstring(rx0_data);
+        rx0_ready_wait <= '1';
         buffer_wdata <= rx0_data;
         if uart0_rx_buffer_pointer = uart0_rx_buffer_pointer_cpu then
 
@@ -504,7 +509,10 @@ begin  -- behavioural
         end if;
         buffer_write <= '1';
         rx0_acknowledge <= '1';        
-      elsif rx2_ready='1' then
+      elsif rx2_ready='0' then
+        rx2_ready_wait <= '0';        
+      elsif rx2_ready='1' and rx2_ready_wait='0' then
+        rx2_ready_wait <= '1';
         report "UART2: Data ready was asserted by UART RX. Byte is $" & to_hstring(rx2_data);
         buffer_wdata <= rx2_data;
         if uart2_rx_buffer_pointer = uart2_rx_buffer_pointer_cpu then
