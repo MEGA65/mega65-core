@@ -306,6 +306,63 @@ dispatch_freeze_prep:
 
 	jmp (freeze_prep_jump_table,x)
 
+do_freeze_prep_stash_sd_buffer_and_regs:
+	; Stash the SD and DMAgic registers we use to actually save
+	; the machine state.
+	; DMAgic registers have to get copied without using DMA, so
+	; that we don't corrupt the registers.
+	LDA    #<$6200
+	STA    dos_scratch_vector+0
+	LDA    #>$6200
+	STA    dos_scratch_vector+1
+	LDA    #<$0FFD
+	STA    dos_scratch_vector+2
+	LDA    #>$0FFD
+	STA    dos_scratch_vector+3
+	
+	LDZ    #$8F
+@zz:	TZA
+	TAX
+	LDA    $D680,X
+	NOP
+	NOP
+	STA	(<dos_scratch_vector) ,Z
+	DEZ
+	BPL	@zz
+	LDZ	#$00
+
+	; Now DMA copy the SD sector buffer from $FFD6e00 to
+	; $FFD6000.
+	lda	#$ff
+	sta	freeze_region_dmalist_source_mb
+	sta	freeze_region_dmalist_dest_mb
+	lda	#$8d
+	sta	freeze_region_dmalist_source_bank
+	sta	freeze_region_dmalist_dest_bank
+	lda	#<$6e00
+	sta	freeze_region_dmalist_source_start+0
+	lda	#>$6e00
+	sta	freeze_region_dmalist_source_start+1
+	lda	#<$6000
+	sta	freeze_region_dmalist_dest_start+0
+	lda	#>$6000
+	sta	freeze_region_dmalist_dest_start+1
+	lda	#<$0200
+	sta	freeze_region_dmalist_count+0
+	lda	#>$0200
+	sta	freeze_region_dmalist_count+1
+
+	; Execute DMA job
+	lda #$ff
+	sta $d702
+	sta $d704
+	lda #>freeze_region_dmalist
+	sta $d701
+	lda #<freeze_region_dmalist
+	sta $d705
+
+	rts
+
 freeze_prep_jump_table:
 	.alias freeze_prep_none 0
 	.word do_freeze_prep_sdcard_regs_to_scratch
@@ -313,10 +370,12 @@ freeze_prep_jump_table:
 	.alias freeze_prep_palette1 4
 	.alias freeze_prep_palette2 6
 	.alias freeze_prep_palette3 8
+	.alias freeze_prep_stash_sd_buffer_and_regs 10
 	.word do_freeze_prep_palette_select
 	.word do_freeze_prep_palette_select
 	.word do_freeze_prep_palette_select
 	.word do_freeze_prep_palette_select
+	.word do_freeze_prep_sdcard_regs_to_scratch
 
 do_freeze_prep_sdcard_regs_to_scratch:
 	; Copy the main SD card access registers to a
@@ -394,19 +453,18 @@ freeze_mem_list:
 	;	.word $0010
 	;	.byte freeze_prep_none
 
-	; SDcard sector buffer
+	; SDcard sector buffer + SD card registers
 	; We have to save this before anything much else, because
-	; we need it for freezing
-	.dword $ffd6e00
-	.word $0200
+	; we need it for freezing.  We stash $FFD6E00-FFF and
+	; $FFD3680-70F at $FFD6000 before hand, so that we preserve
+	; these registers before touching them.
+	; (the DMAgic registers at $DDF370x have to get copied manually,
+	; so that we don't mess up the DMA state.  Also, when restoring
+	; we have to take some care putting them back exactly.)
+	.dword $ffd6000
+	.word $0290
 	.byte 0
-	.byte freeze_prep_none
-
-	; SDcard and related registers
-	.dword $ffd3680
-	.word $0080
-	.byte 0
-	.byte freeze_prep_none
+	.byte freeze_prep_stash_sd_buffer_and_regs
 
 	; SDcard sector buffer (F011)
 	.dword $ffd6c00
