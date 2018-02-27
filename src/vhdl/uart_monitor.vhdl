@@ -89,6 +89,7 @@ entity uart_monitor is
     monitor_mem_read : out std_logic := '0';
     monitor_mem_write : out std_logic := '0';
     monitor_mem_setpc : out std_logic := '0';
+    monitor_irq_inhibit : out std_logic := '0';
     monitor_mem_stage_trace_mode : out std_logic := '0';
     monitor_mem_trace_mode : out std_logic := '0';
     monitor_mem_trace_toggle : out std_logic := '0'
@@ -988,20 +989,27 @@ begin
                     monitor_hyper_trap <= '0';
                   end if;
                   state <= NextCommand;
+                elsif cmdbuffer(1) = 'i' then
+                  monitor_irq_inhibit <= '0';
+                elsif cmdbuffer(1) = 'I' then
+                  monitor_irq_inhibit <= '1';
                 elsif cmdbuffer(1) = 'r' or cmdbuffer(1) = 'R' then
                   state <= ShowRegisters;                
                 elsif cmdbuffer(1) = 't' or cmdbuffer(1) = 'T' then
                   if cmdbuffer(2)='2' then
                     monitor_mem_stage_trace_mode<='1';
                   elsif cmdbuffer(2)='1' then
+                    monitor_irq_inhibit <= '1';
                     monitor_mem_trace_mode<='1';
                     state <= NextCommand;
                   elsif cmdbuffer(2)='c' then
+                    monitor_irq_inhibit <= '0';
                     monitor_mem_trace_mode<='1';
                     trace_continuous <= '1';
                     state <= NextCommand;
                   elsif cmdbuffer(2)='0' then
                     -- Set CPU free running
+                    monitor_irq_inhibit <= '0';
                     monitor_mem_trace_mode<='0';
                     state <= NextCommand;
                     -- Also start capturing CPU history
@@ -1010,6 +1018,7 @@ begin
                     history_address <= 0;
                   elsif cmdbuffer(2)='l' then
                     -- Set CPU free running
+                    monitor_irq_inhibit <= '0';
                     monitor_mem_trace_mode<='0';
                     state <= NextCommand;
                     -- Also start capturing CPU history continuously

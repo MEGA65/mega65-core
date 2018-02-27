@@ -135,6 +135,7 @@ entity gs4510 is
     monitor_mem_setpc : in std_logic;
     monitor_mem_attention_request : in std_logic;
     monitor_mem_attention_granted : out std_logic;
+    monitor_irq_inhibit : in std_logic;
     monitor_mem_trace_mode : in std_logic;
     monitor_mem_stage_trace_mode : in std_logic;
     monitor_mem_trace_toggle : in std_logic;
@@ -4464,7 +4465,8 @@ begin
                 hyper_protected_hardware(6) <= hyper_protected_hardware(6) xor '1';
               end if;
               if (hypervisor_mode='0')
-                and ((irq_pending='1' and flag_i='0') or nmi_pending='1') then
+                and ((irq_pending='1' and flag_i='0') or nmi_pending='1')
+                and (monitor_irq_inhibit='0') then
                                         -- An interrupt has occurred
                 pc_inc := '0';
                 state <= Interrupt;

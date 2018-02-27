@@ -351,6 +351,7 @@ architecture Behavioral of machine is
   signal monitor_mem_attention_request : std_logic;
   signal monitor_mem_attention_granted : std_logic;
   signal monitor_mem_stage_trace_mode : std_logic;
+  signal monitor_irq_inhibit : std_logic;
   signal monitor_mem_trace_mode : std_logic;
   signal monitor_mem_trace_toggle : std_logic;
   signal monitor_char : unsigned(7 downto 0);
@@ -721,6 +722,7 @@ begin
       monitor_mem_setpc => monitor_mem_setpc,
       monitor_mem_attention_request => monitor_mem_attention_request,
       monitor_mem_attention_granted => monitor_mem_attention_granted,
+      monitor_irq_inhibit => monitor_irq_inhibit,
       monitor_mem_trace_mode => monitor_mem_trace_mode,
       monitor_mem_stage_trace_mode => monitor_mem_stage_trace_mode,
       monitor_mem_trace_toggle => monitor_mem_trace_toggle,
@@ -1220,6 +1222,7 @@ begin
     monitor_mem_setpc => monitor_mem_setpc,
     monitor_mem_attention_request => monitor_mem_attention_request,
     monitor_mem_attention_granted => monitor_mem_attention_granted,
+    monitor_irq_inhibit => monitor_irq_inhibit,
     monitor_mem_trace_mode => monitor_mem_trace_mode,
     monitor_mem_stage_trace_mode => monitor_mem_stage_trace_mode,
     monitor_mem_trace_toggle => monitor_mem_trace_toggle
