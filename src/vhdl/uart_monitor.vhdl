@@ -1002,8 +1002,15 @@ begin
                     monitor_irq_inhibit <= '1';
                     monitor_mem_trace_mode<='1';
                     state <= NextCommand;
-                  elsif cmdbuffer(2)='c' then
+                  elsif cmdbuffer(2)='C' then
+                    -- tC = trace continuous with IRQs enabled
                     monitor_irq_inhibit <= '0';
+                    monitor_mem_trace_mode<='1';
+                    trace_continuous <= '1';
+                    state <= NextCommand;
+                  elsif cmdbuffer(2)='c' then
+                    -- tC = trace continuous with IRQs disabled
+                    monitor_irq_inhibit <= '1';
                     monitor_mem_trace_mode<='1';
                     trace_continuous <= '1';
                     state <= NextCommand;
