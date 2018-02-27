@@ -94,12 +94,16 @@ architecture behavioural of buffereduart is
   constant uart0_tx_buffer_start : integer := 1024+1024;
   constant uart2_tx_buffer_start : integer := 1024+1024+512;
   signal uart0_rx_buffer_pointer : unsigned(9 downto 0) := to_unsigned(0,10);
+  signal uart0_rx_buffer_pointer_prev : unsigned(9 downto 0) := to_unsigned(1023,10);
   signal uart2_rx_buffer_pointer : unsigned(9 downto 0) := to_unsigned(0,10);
+  signal uart2_rx_buffer_pointer_prev : unsigned(9 downto 0) := to_unsigned(1023,10);
   signal uart0_tx_buffer_pointer : unsigned(8 downto 0) := to_unsigned(0,9);
   signal uart2_tx_buffer_pointer : unsigned(8 downto 0) := to_unsigned(0,9);
   -- Duplicates of the pointers for the CPU side
-  signal uart0_rx_buffer_pointer_cpu : unsigned(9 downto 0) := to_unsigned(0,10);
-  signal uart2_rx_buffer_pointer_cpu : unsigned(9 downto 0) := to_unsigned(0,10);
+  -- The RX pointers point to the last address read from, so need to be
+  -- initialised to point to the end of the buffer
+  signal uart0_rx_buffer_pointer_cpu : unsigned(9 downto 0) := to_unsigned(1023,10);
+  signal uart2_rx_buffer_pointer_cpu : unsigned(9 downto 0) := to_unsigned(1023,10);
   signal uart0_tx_buffer_pointer_cpu : unsigned(8 downto 0) := to_unsigned(0,9);
   signal uart2_tx_buffer_pointer_cpu : unsigned(8 downto 0) := to_unsigned(0,9);
   -- (when the two are equal, the buffer is either empty or full)
@@ -115,24 +119,26 @@ architecture behavioural of buffereduart is
   signal queued_address : integer := 0;
 
   signal uart0_rx_byte : unsigned(7 downto 0) := x"00";
+  signal uart0_rx_byte_ready : std_logic := '0';
   signal uart0_irq : std_logic := '0';
   signal uart0_irq_on_rx : std_logic := '0';
   signal uart0_irq_on_rx_highwater : std_logic := '0';
   signal uart0_irq_on_tx_lowwater : std_logic := '0';
   signal uart0_rx_empty : std_logic := '1';
   signal uart0_tx_empty : std_logic := '1';
-  signal uart0_rx_full : std_logic := '1';
-  signal uart0_tx_full : std_logic := '1';
+  signal uart0_rx_full : std_logic := '0';
+  signal uart0_tx_full : std_logic := '0';
   signal uart0_check_full : std_logic := '0';
   signal uart0_check_empty : std_logic := '0';
   
   signal uart2_rx_byte : unsigned(7 downto 0) := x"00";
+  signal uart2_rx_byte_ready : std_logic := '0';
   signal uart2_irq : std_logic := '0';
   signal uart2_irq_on_rx : std_logic := '0';
   signal uart2_irq_on_rx_highwater : std_logic := '0';
   signal uart2_irq_on_tx_lowwater : std_logic := '0';
-  signal uart2_rx_empty : std_logic := '0';
-  signal uart2_tx_empty : std_logic := '0';
+  signal uart2_rx_empty : std_logic := '1';
+  signal uart2_tx_empty : std_logic := '1';
   signal uart2_rx_full : std_logic := '0';
   signal uart2_tx_full : std_logic := '0';
   signal uart2_check_full : std_logic := '0';
@@ -261,7 +267,7 @@ begin  -- behavioural
           when x"0" => fastio_rdata <= uart0_rx_byte;
           when x"1" =>
             fastio_rdata(7) <= uart0_irq;
-            fastio_rdata(6) <= uart0_rx_empty;
+            fastio_rdata(6) <= not uart0_rx_byte_ready;
             fastio_rdata(5) <= uart0_tx_empty;
             fastio_rdata(4) <= uart0_rx_full;
             fastio_rdata(3) <= uart0_tx_full;
@@ -278,7 +284,7 @@ begin  -- behavioural
           when x"8" => fastio_rdata <= uart2_rx_byte;
           when x"9" =>
             fastio_rdata(7) <= uart2_irq;
-            fastio_rdata(6) <= uart2_rx_empty;
+            fastio_rdata(6) <= not uart2_rx_byte_ready;
             fastio_rdata(5) <= uart2_tx_empty;
             fastio_rdata(4) <= uart2_rx_full;
             fastio_rdata(3) <= uart2_tx_full;
@@ -316,9 +322,10 @@ begin  -- behavioural
         if last_was_read = '0' then
           case fastio_addr(3 downto 0) is
             when x"0" =>
+              uart0_rx_byte_ready <= '0';
               if uart0_rx_empty='1' or
                 -- Buffer is either full or empty
-                ((uart0_rx_buffer_pointer = uart0_rx_buffer_pointer_cpu)
+                ((uart0_rx_buffer_pointer_prev = uart0_rx_buffer_pointer_cpu)
                 -- And it is empty (because it was read from to get here)
                 and (uart0_rx_cpu_was_last='1')) then
                 -- Buffer is empty, so don't advance pointer
@@ -337,16 +344,23 @@ begin  -- behavioural
               end if;
             when x"8" =>
               -- After reading a byte from buffer, advance buffer pointer
+              uart2_rx_byte_ready <= '0';
+              report "UART2 reading from $D0E8 : uart2_rx_buffer_pointer_prev=$" & to_hstring(uart2_rx_buffer_pointer_prev)
+                & ", *_cpu=$" & to_hstring(uart2_rx_buffer_pointer_cpu)
+                & ", *_empty=" & std_logic'image(uart2_rx_empty)
+                & ", *_cpu_was_last=" & std_logic'image(uart2_rx_cpu_was_last);
               if uart2_rx_empty='1' or
                 -- Buffer is either full or empty
-                ((uart2_rx_buffer_pointer = uart2_rx_buffer_pointer_cpu)
+                ((uart2_rx_buffer_pointer_prev = uart2_rx_buffer_pointer_cpu)
                 -- And it is empty (because it was read from to get here)
-                and (uart2_rx_cpu_was_last='1')) then
+                 and (uart2_rx_cpu_was_last='1')) then
+                report "UART2: not advancing buffer, because empty";
                 -- Buffer is empty, so don't advance pointer
                 uart2_rx_empty <= '1';
                 uart2_rx_byte <= x"00";
               else
                 -- Buffer is not empty, so advance
+                report "UART2: advancing pointer in non-empty buffer";
                 uart2_rx_empty <= '0';
                 uart2_rx_cpu_was_last <= '1';
                 if uart2_rx_buffer_pointer_cpu /= "1111111111" then
@@ -475,7 +489,8 @@ begin  -- behavioural
         -- XXX Clearing this hear means back-to-back writes will
         -- not work.  Only a problem for DMA filling the buffer.
         queued_write <= '0';
-      elsif uart0_read_byte_from_buffer='1' and queued_read='0' then
+      elsif uart0_read_byte_from_buffer='1' and queued_read='0' and uart0_rx_empty='0' then
+        uart0_rx_byte <= x"00";
         report "UART0: Scheduling read of next byte from RX buffer in preparation for next CPU read"
           & " (address = $" & to_hstring(to_unsigned(uart0_rx_buffer_start
                                 + to_integer(uart0_rx_buffer_pointer_cpu),12));
@@ -484,7 +499,8 @@ begin  -- behavioural
         buffer_readaddress <= uart0_rx_buffer_start
                               + to_integer(uart0_rx_buffer_pointer_cpu);
           uart0_read_byte_from_buffer <= '0';
-      elsif uart2_read_byte_from_buffer='1' and queued_read='0' then
+      elsif uart2_read_byte_from_buffer='1' and queued_read='0' and uart2_rx_empty='0' then
+        uart2_rx_byte <= x"00";
         report "UART2: Scheduling read of next byte from RX buffer in preparation for next CPU read"
           & " (address = $" & to_hstring(to_unsigned(uart2_rx_buffer_start
                                 + to_integer(uart2_rx_buffer_pointer_cpu),12));
@@ -503,10 +519,6 @@ begin  -- behavioural
                                + to_integer(uart0_rx_buffer_pointer),12));
         rx0_ready_wait <= '1';
         buffer_wdata <= rx0_data;
-        if uart0_rx_buffer_pointer = uart0_rx_buffer_pointer_cpu then
-
-          uart0_rx_byte <= rx0_data;
-        end if;
         uart0_rx_empty <= '0';
         uart0_rx_cpu_was_last <= '0';
         uart0_check_full <= '1';
@@ -517,6 +529,7 @@ begin  -- behavioural
         else
           uart0_rx_buffer_pointer <= to_unsigned(0,10);
         end if;
+        uart0_rx_buffer_pointer_prev <= uart0_rx_buffer_pointer;
         buffer_write <= '1';
         rx0_acknowledge <= '1';        
       elsif rx2_ready='0' and rx2_ready_wait='1' then
@@ -529,10 +542,6 @@ begin  -- behavioural
           & ", writing to $" & to_hstring(to_unsigned(uart2_rx_buffer_start
                                + to_integer(uart2_rx_buffer_pointer),12));
         buffer_wdata <= rx2_data;
-        if uart2_rx_buffer_pointer = uart2_rx_buffer_pointer_cpu then
-          -- Buffer was empty, so make this received byte visible
-          uart2_rx_byte <= rx2_data;
-        end if;
         uart2_rx_empty <= '0';
         uart2_check_full <= '1';
         uart2_rx_cpu_was_last <= '0';
@@ -543,6 +552,9 @@ begin  -- behavioural
         else
           uart2_rx_buffer_pointer <= to_unsigned(0,10);
         end if;
+        uart2_rx_buffer_pointer_prev <= uart2_rx_buffer_pointer;
+        report "UART2: Updating uart2_rx_buffer_pointer_prev to $"
+          & to_hstring(uart2_rx_buffer_pointer);
         buffer_write <= '1';
         rx2_acknowledge <= '1';
       elsif queued_read='1' then
@@ -565,10 +577,12 @@ begin  -- behavioural
           report "UART2: Triggering transmit of $" & to_hstring(buffer_rdata);
         end if;
         if queued_read_rx0 = '1' then
+          uart0_rx_byte_ready <= '1';
           uart0_rx_byte <= buffer_rdata;
           report "UART0: Pre-fetching next received byte to show at $D0E0 (byte is $" & to_hstring(buffer_rdata) & ")";
         end if;
         if queued_read_rx2 = '1' then
+          uart2_rx_byte_ready <= '1';
           uart2_rx_byte <= buffer_rdata;
           report "UART2: Pre-fetching next received byte to show at $D0E0 (byte is $" & to_hstring(buffer_rdata) & ")";
         end if;
