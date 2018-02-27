@@ -396,7 +396,7 @@ architecture Behavioral of machine is
   -- Matrix Mode signals
   signal scancode_out : std_logic_vector(12 downto 0); 
   signal mm_displayMode : unsigned(1 downto 0):=b"10"; 
-  signal bit_rate_divisor : unsigned(13 downto 0);
+  signal bit_rate_divisor : unsigned(15 downto 0);
 
   signal matrix_fetch_address : unsigned(11 downto 0) := to_unsigned(0,12);
   signal matrix_rdata : unsigned(7 downto 0);

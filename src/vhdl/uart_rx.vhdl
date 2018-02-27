@@ -6,7 +6,7 @@ use work.debugtools.all;
 entity uart_rx is
   generic ( name : in string := "?");
   Port ( clk : in  STD_LOGIC;
-         bit_rate_divisor : in unsigned(13 downto 0);
+         bit_rate_divisor : in unsigned(15 downto 0);
            UART_RX : in STD_LOGIC;
            data : out  unsigned(7 downto 0);
            data_ready : out std_logic;
@@ -18,7 +18,7 @@ end uart_rx;
 architecture behavioural of uart_rx is
 
 -- Timer for the above
-signal bit_timer : unsigned(7 downto 0) := (others => '0');
+signal bit_timer : unsigned(15 downto 0) := (others => '0');
 
 signal bit_position : natural range 0 to 15 := 0;
 
@@ -89,7 +89,7 @@ begin  -- behavioural
 
       -- Sample bit in the middle of the frame
       if rx_state = WaitingForMidBit
-        and bit_timer = '0' & bit_rate_divisor(13 downto 1) then
+        and bit_timer = '0' & bit_rate_divisor(15 downto 1) then
 --        report "UART"&name&": reached mid bit point, bit = " & integer'image(bit_position) severity note;
         -- Reached mid bit
         rx_data(bit_position) <= uart_rx_bit;
@@ -103,7 +103,7 @@ begin  -- behavioural
           data <= unsigned(rx_data(8 downto 1));
           data_ready <= '1';
           data_ready_internal <= '1';
-          bit_timer <= "00000001";
+          bit_timer <= to_unsigned(1,16);
           rx_state <= WaitForRise;
         end if;        
       end if;

@@ -69,8 +69,8 @@ architecture behavioural of buffereduart is
   signal buffer_wdata : unsigned(7 downto 0) := x"00"; 
   signal buffer_rdata : unsigned(7 downto 0) := x"00"; 
 
-  signal uart0_bit_rate_divisor_internal : unsigned(13 downto 0) := to_unsigned(0,14);
-  signal uart2_bit_rate_divisor_internal : unsigned(13 downto 0) := to_unsigned(0,14);
+  signal uart0_bit_rate_divisor_internal : unsigned(15 downto 0) := to_unsigned(0,16);
+  signal uart2_bit_rate_divisor_internal : unsigned(15 downto 0) := to_unsigned(0,16);
   signal tx0_data : unsigned(7 downto 0) := x"00";
   signal tx2_data : unsigned(7 downto 0) := x"00";
   signal tx0_ready : std_logic;
@@ -274,8 +274,7 @@ begin  -- behavioural
           when x"5" => fastio_rdata <= uart0_tx_buffer_pointer(7 downto 0);
           when x"6" => fastio_rdata <= uart0_bit_rate_divisor_internal(7 downto 0);
           when x"7" =>
-            fastio_rdata(5 downto 0) <= uart0_bit_rate_divisor_internal(13 downto 8);
-            fastio_rdata(7 downto 6) <= "00";
+            fastio_rdata <= uart0_bit_rate_divisor_internal(15 downto 8);
           when x"8" => fastio_rdata <= uart2_rx_byte;
           when x"9" =>
             fastio_rdata(7) <= uart2_irq;
@@ -292,8 +291,7 @@ begin  -- behavioural
           when x"D" => fastio_rdata <= uart2_tx_buffer_pointer(7 downto 0);
           when x"E" => fastio_rdata <= uart2_bit_rate_divisor_internal(7 downto 0);
           when x"F" =>
-            fastio_rdata(5 downto 0) <= uart2_bit_rate_divisor_internal(13 downto 8);
-            fastio_rdata(7 downto 6) <= "00";
+            fastio_rdata <= uart2_bit_rate_divisor_internal(15 downto 8);
           when others =>
             fastio_rdata <= (others => 'Z');
         end case;
@@ -413,13 +411,13 @@ begin  -- behavioural
           when x"6" =>
             uart0_bit_rate_divisor_internal(7 downto 0) <= fastio_wdata;
           when x"7" =>
-            uart0_bit_rate_divisor_internal(13 downto 8)
-              <= fastio_wdata(5 downto 0);
+            uart0_bit_rate_divisor_internal(15 downto 8)
+              <= fastio_wdata;
           when x"e" =>
             uart2_bit_rate_divisor_internal(7 downto 0) <= fastio_wdata;
           when x"f" =>
-            uart2_bit_rate_divisor_internal(13 downto 8)
-              <= fastio_wdata(5 downto 0);
+            uart2_bit_rate_divisor_internal(15 downto 8)
+              <= fastio_wdata;
           when others =>
             null;
         end case;

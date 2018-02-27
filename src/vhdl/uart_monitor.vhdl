@@ -32,7 +32,7 @@ entity uart_monitor is
     clock : in std_logic;
     tx : out std_logic;
     rx : in  std_logic;
-    bit_rate_divisor : out unsigned(13 downto 0);
+    bit_rate_divisor : out unsigned(15 downto 0);
     activity : out std_logic;
 
     protected_hardware_in : in unsigned(7 downto 0);
@@ -307,7 +307,7 @@ architecture behavioural of uart_monitor is
 
   signal show_register_delay : integer range 0 to 255;
 
-  signal bit_rate_divisor_internal : unsigned(13 downto 0) := to_unsigned(50000000/2000000,14);
+  signal bit_rate_divisor_internal : unsigned(15 downto 0) := to_unsigned(50000000/2000000,16);
 
   signal in_matrix_mode : std_logic := '0';
 
@@ -1187,7 +1187,7 @@ begin
                            state <= NextCommand;
                            
             when SetBaudRate =>
-              bit_rate_divisor_internal <= hex_value(13 downto 0);
+              bit_rate_divisor_internal <= hex_value(15 downto 0);
               state <= NextCommand;
             when LoadMemory1 => target_address <= hex_value(27 downto 0);
                                 skip_space(LoadMemory2);
