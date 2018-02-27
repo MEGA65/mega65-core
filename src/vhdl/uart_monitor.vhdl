@@ -991,8 +991,10 @@ begin
                   state <= NextCommand;
                 elsif cmdbuffer(1) = 'i' then
                   monitor_irq_inhibit <= '0';
+                  state <= NextCommand;
                 elsif cmdbuffer(1) = 'I' then
                   monitor_irq_inhibit <= '1';
+                  state <= NextCommand;
                 elsif cmdbuffer(1) = 'r' or cmdbuffer(1) = 'R' then
                   state <= ShowRegisters;                
                 elsif cmdbuffer(1) = 't' or cmdbuffer(1) = 'T' then
