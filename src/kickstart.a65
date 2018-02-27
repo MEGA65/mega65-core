@@ -524,6 +524,32 @@ reset_machine_state:
 reset_entry:
 		sei
 
+.macro	buffereduarttest
+		LDA	#$b2
+		STA	$D0E6
+		STA	$D0EE
+		LDA	#$01
+		STA	$D0EF
+		STA	$D0E7
+		STA	$D0E2
+		STA	$D0EA
+		LDA	#$11
+@ll:		STA	$D0E8
+		CLC
+		ADC	#$11
+		CMP	#$10
+		BNE	@ll
+
+		LDA	#$00
+		TAX
+		TAY
+		TAZ
+@ll2:		LDX	$D0E1
+		LDA	$D0E0
+		JMP	@ll2
+.macend		
+;		.invoke buffereduarttest
+
 .macro sdtest
 		; Reset SD card
 		lda #$00
