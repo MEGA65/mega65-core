@@ -488,14 +488,7 @@ begin
   nmi <= not btn(4);
   restore_key <= not btn(1);
   
-  -- Generate 50MHz clock for ethernet
-  process (clock100mhz) is
-  begin
-    if rising_edge(clock100mhz) then
-      report "50MHz tick";
-      clock50mhz <= not clock50mhz;
-      eth_clock <= not clock50mhz;
-    end if;
-  end process;
+  -- Ethernet clock is now just the CPU clock, since both are on 50MHz
+  eth_clock <= cpuclock;  
   
 end Behavioral;
