@@ -40,9 +40,6 @@ begin  -- behavioural
   begin
     if rising_edge(CLK) then
     
-      -- Accept input from keyboard if we are in matrix mode
-      -- (but ignore 0xEF, the character which indicates matrix mode toggle)
-
       if false then
       if rx_state /= Idle then
         report "UART" & name &": rx_state = " & uart_rx_state'image(rx_state)

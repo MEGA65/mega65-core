@@ -117,7 +117,7 @@ entity container is
          jdlo : inout std_logic_vector(4 downto 1) := (others => 'Z');
          jdhi : inout std_logic_vector(10 downto 7) := (others => 'Z');
          jclo : inout std_logic_vector(4 downto 1) := (others => 'Z');
-         jc : inout std_logic_vector(10 downto 9) := (others => 'Z');
+         jchi : inout std_logic_vector(10 downto 7) := (others => 'Z');
          
          ----------------------------------------------------------------------
          -- Flash RAM for holding config
@@ -378,7 +378,7 @@ begin
       iec_clk_o => iec_clk_o,
       iec_data_external => iec_data_i,
       iec_clk_external => iec_clk_i,
-      iec_atn => iec_atn,
+      iec_atn_o => iec_atn,
       
       no_kickstart => '0',
       
@@ -449,6 +449,12 @@ begin
 
       uart_rx => jclo(1),
       uart_tx => jclo(2),
+
+      buffereduart_rx => jclo(3),
+      buffereduart_tx => jclo(4),
+      buffereduart2_rx => jchi(9),
+      buffereduart2_tx => jchi(10),
+      buffereduart_ringindicate => jchi(8),
       
       slow_access_request_toggle => slow_access_request_toggle,
       slow_access_ready_toggle => slow_access_ready_toggle,
