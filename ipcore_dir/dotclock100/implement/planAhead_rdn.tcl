@@ -47,7 +47,7 @@
 # PART OF THIS FILE AT ALL TIMES.
 # 
 
-set device xc7a100tcsg324-1
+set device xc6vlx75tff484-3
 set projName dotclock100
 set design dotclock100
 set projDir [file dirname [info script]]

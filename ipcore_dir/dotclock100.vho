@@ -55,10 +55,12 @@
 -- "Clock    Freq (MHz) (degrees) Cycle (%) Jitter (ps)  Error (ps)"
 ------------------------------------------------------------------------------
 -- CLK_OUT1___100.000______0.000______50.0______115.831_____87.180
--- CLK_OUT2____50.000______0.000______50.0______132.683_____87.180
--- CLK_OUT3___100.000______0.000______50.0______115.831_____87.180
--- CLK_OUT4___150.000______0.000______50.0______107.567_____87.180
--- CLK_OUT5___200.000______0.000______50.0______102.086_____87.180
+-- CLK_OUT2___200.000______0.000______50.0______102.086_____87.180
+-- CLK_OUT3____50.000______0.000______50.0______132.683_____87.180
+-- CLK_OUT4____40.000______0.000______50.0______139.033_____87.180
+-- CLK_OUT5____30.000______0.000______50.0______147.931_____87.180
+-- CLK_OUT6____33.333______0.000______50.0______144.570_____87.180
+-- CLK_OUT7___150.000______0.000______50.0______107.567_____87.180
 --
 ------------------------------------------------------------------------------
 -- "Input Clock   Freq (MHz)    Input Jitter (UI)"
@@ -74,10 +76,15 @@ port
   CLK_IN1           : in     std_logic;
   -- Clock out ports
   clock100          : out    std_logic;
+  clock200          : out    std_logic;
   clock50          : out    std_logic;
-  clock100b          : out    std_logic;
+  clock40          : out    std_logic;
+  clock30          : out    std_logic;
+  clock33          : out    std_logic;
   clock150          : out    std_logic;
-  clock200          : out    std_logic
+  -- Status and control signals
+  RESET             : in     std_logic;
+  LOCKED            : out    std_logic
  );
 end component;
 
@@ -91,8 +98,13 @@ your_instance_name : dotclock100
     CLK_IN1 => CLK_IN1,
     -- Clock out ports
     clock100 => clock100,
+    clock200 => clock200,
     clock50 => clock50,
-    clock100b => clock100b,
+    clock40 => clock40,
+    clock30 => clock30,
+    clock33 => clock33,
     clock150 => clock150,
-    clock200 => clock200);
+    -- Status and control signals
+    RESET  => RESET,
+    LOCKED => LOCKED);
 -- INST_TAG_END ------ End INSTANTIATION Template ------------
