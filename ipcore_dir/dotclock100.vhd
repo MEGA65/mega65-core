@@ -90,7 +90,6 @@ port
   clock33          : out    std_logic;
   clock150          : out    std_logic;
   -- Status and control signals
-  RESET             : in     std_logic;
   LOCKED            : out    std_logic
  );
 end dotclock100;
@@ -219,7 +218,7 @@ begin
     CLKINSTOPPED        => clkinstopped_unused,
     CLKFBSTOPPED        => clkfbstopped_unused,
     PWRDWN              => '0',
-    RST                 => RESET);
+    RST                 => '0');
 
   -- Output buffering
   -------------------------------------
