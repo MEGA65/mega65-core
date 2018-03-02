@@ -223,7 +223,9 @@ begin  -- behavioural
            uart2_tx_full,uart2_rx_full,uart2_irq_on_rx,uart2_irq_on_rx_highwater,
            uart2_irq_on_tx_lowwater,uart2_rx_buffer_pointer_cpu,
            uart2_tx_buffer_pointer_cpu,uart2_rx_buffer_pointer,
-           uart2_tx_buffer_pointer,uart2_bit_rate_divisor_internal          
+           uart2_tx_buffer_pointer,uart2_bit_rate_divisor_internal,
+           uart2_tx_drive,buffereduart_cs,uart0_tx_buffer_pointer,
+           uart0_tx_buffer_pointer_cpu
            ) is
     variable temp_cmd : unsigned(7 downto 0);
 
