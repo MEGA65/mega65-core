@@ -165,7 +165,7 @@ begin  -- behavioural
 
   buffer0: entity work.ram8x4096
     port map (
-    clk => clock50mhz,
+    clk => clock,
     cs => '1',
     w => buffer_write,
     write_address => buffer_writeaddress,
@@ -212,7 +212,18 @@ begin  -- behavioural
                data_acknowledge => rx2_acknowledge);
 
   
-  process (clock,fastio_addr,fastio_wdata,fastio_read,fastio_write
+  process (clock,fastio_addr,fastio_wdata,fastio_read,fastio_write,
+           uart0_rx_from_uart2_tx,uart2_rx_from_uart0_tx,
+           uart_rx,uart0_tx_drive,uart2_rx,uart0_rx_byte,uart0_irq,
+           uart0_rx_byte_ready,uart0_tx_empty,uart0_rx_full,
+           uart0_tx_full,uart0_irq_on_rx,uart0_irq_on_rx_highwater,
+           uart0_irq_on_tx_lowwater,uart0_rx_buffer_pointer_cpu,
+           uart0_rx_buffer_pointer,uart0_bit_rate_divisor_internal,
+           uart2_rx_byte,uart2_irq,uart2_rx_byte_ready,uart2_tx_empty,
+           uart2_tx_full,uart2_rx_full,uart2_irq_on_rx,uart2_irq_on_rx_highwater,
+           uart2_irq_on_tx_lowwater,uart2_rx_buffer_pointer_cpu,
+           uart2_tx_buffer_pointer_cpu,uart2_rx_buffer_pointer,
+           uart2_tx_buffer_pointer,uart2_bit_rate_divisor_internal          
            ) is
     variable temp_cmd : unsigned(7 downto 0);
 
