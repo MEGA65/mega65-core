@@ -62,6 +62,7 @@ entity viciv is
     -- dot clock
     ----------------------------------------------------------------------
     pixelclock : in  STD_LOGIC;
+    pixelclock_select : out std_logic_vector(1 downto 0);
     ----------------------------------------------------------------------
     -- CPU clock (used for chipram and fastio interfaces)
     ----------------------------------------------------------------------
@@ -148,6 +149,8 @@ entity viciv is
 end viciv;
 
 architecture Behavioral of viciv is
+
+  signal pixelclock_select_internal : std_logic_vector(1 downto 0) := "00";
   
   signal reset_drive : std_logic := '0';
   
@@ -1823,7 +1826,7 @@ begin
           fastio_rdata(3 downto 0) <= std_logic_vector(hsync_start(13 downto 10));
           fastio_rdata(4) <= hsync_polarity;
           fastio_rdata(5) <= vsync_polarity;
-          fastio_rdata(7 downto 6) <= "00";
+          fastio_rdata(7 downto 6) <= pixelclock_select_internal;
         elsif register_number=125 then
         -- fastio_rdata <=
         --  std_logic_vector(to_unsigned(vic_paint_fsm'pos(debug_paint_fsm_state_drive2),8));
@@ -2622,6 +2625,9 @@ begin
                                                     hsync_polarity <= fastio_wdata(4);
                                         -- @IO:GS $D07C.5 VIC-IV vsync polarity
                                                     vsync_polarity <= fastio_wdata(5);
+                                        -- @IO:GS $D07C.6-7 VIC-IV pixel clock select (30,33,40 or 50MHz)
+                                                    pixelclock_select <= fastio_wdata(7 downto 6);
+                                                    pixelclock_select_internal <= fastio_wdata(7 downto 6);
                                                   elsif register_number=125 then
                                         -- @IO:GS $D07D VIC-IV debug X position (LSB)
                                                     debug_x(7 downto 0) <= unsigned(fastio_wdata);
