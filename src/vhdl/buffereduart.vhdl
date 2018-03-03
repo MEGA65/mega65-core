@@ -72,6 +72,7 @@ architecture behavioural of buffereduart is
   signal uart0_bit_rate_divisor_internal : unsigned(15 downto 0) := to_unsigned(0,16);
   signal uart2_bit_rate_divisor_internal : unsigned(15 downto 0) := to_unsigned(0,16);
   signal tx0_data : unsigned(7 downto 0) := x"00";
+  signal tx0_last_data : unsigned(7 downto 0) := x"00";
   signal tx2_data : unsigned(7 downto 0) := x"00";
   signal tx0_ready : std_logic;
   signal tx2_ready : std_logic;
@@ -298,7 +299,7 @@ begin  -- behavioural
           when x"2" => fastio_rdata <= uart0_rx_buffer_pointer_cpu(7 downto 0);
           when x"3" => fastio_rdata <= uart0_tx_buffer_pointer_cpu(7 downto 0);
           when x"4" => fastio_rdata <= uart0_rx_buffer_pointer(7 downto 0);
-          when x"5" => fastio_rdata <= uart0_tx_buffer_pointer(7 downto 0);
+          when x"5" => fastio_rdata <= tx0_last_data;
           when x"6" => fastio_rdata <= uart0_bit_rate_divisor_internal(7 downto 0);
           when x"7" =>
             fastio_rdata <= uart0_bit_rate_divisor_internal(15 downto 8);
@@ -426,6 +427,7 @@ begin  -- behavioural
             if uart0_no_tx_buffer='1' and tx0_ready='1' then
               tx0_trigger <= '1';
               tx0_data <= fastio_wdata;
+              tx0_last_data <= fastio_wdata;
             else
               -- CPU asks for byte to be TXd, so put in buffer
               queued_write <= '1';
@@ -624,8 +626,10 @@ begin  -- behavioural
           tx0_trigger <= '1';
           if uart0_tx_dummy_data='1' then
             tx0_data <= x"55";
+            tx0_last_data <= x"55";
           else
             tx0_data <= buffer_rdata;
+            tx0_last_data <= buffer_rdata;
           end if;
           queued_read_tx0 <= '0';
           report "UART0: Triggering transmit of $" & to_hstring(buffer_rdata);
