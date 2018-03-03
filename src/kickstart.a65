@@ -525,14 +525,17 @@ reset_entry:
 		sei
 
 .macro	buffereduarttest
+		; 115200 bps for both
 		LDA	#$b2
 		STA	$D0E6
 		STA	$D0EE
 		LDA	#$01
 		STA	$D0EF
 		STA	$D0E7
+		; Hook the two UARTs together
 		STA	$D0E2
 		STA	$D0EA
+		; Write a bunch of bytes
 		LDA	#$11
 @ll:		STA	$D0E8
 		CLC
@@ -544,6 +547,7 @@ reset_entry:
 		TAX
 		TAY
 		TAZ
+		; See if they get read correctly
 @ll2:		LDX	$D0E1
 		LDA	$D0E0
 		JMP	@ll2
