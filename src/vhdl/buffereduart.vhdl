@@ -571,7 +571,7 @@ begin  -- behavioural
         rx0_ready_wait <= '0';        
       elsif tx0_ready='0' and tx0_ready_wait='1' then
         tx0_ready_wait <= '0';        
-      elsif rx0_ready='1' and rx0_ready_wait='0' and queued_write='0' then
+      elsif rx0_ready='1' and rx0_ready_wait='0' and queued_write='0' and fastio_write='0' then
         report "UART0: Data ready was asserted by UART RX. Byte is $" & to_hstring(rx0_data)
           & ", writing to $" & to_hstring(to_unsigned(uart0_rx_buffer_start
                                + to_integer(uart0_rx_buffer_pointer),12));
@@ -594,7 +594,7 @@ begin  -- behavioural
         rx2_ready_wait <= '0';        
       elsif tx2_ready='0' and tx2_ready_wait='1' then
         tx2_ready_wait <= '0';        
-      elsif rx2_ready='1' and rx2_ready_wait='0' and queued_write='0' then
+      elsif rx2_ready='1' and rx2_ready_wait='0' and queued_write='0' and fastio_write='0' then
         rx2_ready_wait <= '1';
         report "UART2: Data ready was asserted by UART RX. Byte is $" & to_hstring(rx2_data)
           & ", writing to $" & to_hstring(to_unsigned(uart2_rx_buffer_start
