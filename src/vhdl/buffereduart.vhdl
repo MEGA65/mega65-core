@@ -544,7 +544,7 @@ begin  -- behavioural
         buffer_wdata <= queued_wdata;
         buffer_writeaddress <= queued_address;
         buffer_Write <= '1';
-        -- XXX Clearing this hear means back-to-back writes will
+        -- XXX Clearing this here means back-to-back writes will
         -- not work.  Only a problem for DMA filling the buffer.
         queued_write <= '0';
       elsif uart0_read_byte_from_buffer='1' and queued_read='0' and uart0_rx_empty='0' then
@@ -653,7 +653,7 @@ begin  -- behavioural
       elsif uart0_tx_buffer_pointer_cpu /= uart0_tx_buffer_pointer then
         -- Queue buffer read
         report "UART0: TX buffer is not empty, consider sending a byte.";
-        if tx0_ready='1' and queued_read='0' and tx0_ready_wait='0' then
+        if tx0_ready='1' and queued_read='0' and queued_write='0' and tx0_ready_wait='0' then
           report "UART0: Queuing reading of byte at $"
             & to_hstring(to_unsigned(uart0_tx_buffer_start
                                      + to_integer(uart0_tx_buffer_pointer),12))
@@ -671,7 +671,7 @@ begin  -- behavioural
         end if;
       elsif uart2_tx_buffer_pointer_cpu /= uart2_tx_buffer_pointer then
         report "UART2: TX buffer is not empty, consider sending a byte.";
-        if tx2_ready='1' and queued_read='0' and tx2_ready_wait='0' then
+        if tx2_ready='1' and queued_read='0' and queued_write='0' and tx2_ready_wait='0' then
           report "UART2: Queuing reading of byte at $"
             & to_hstring(to_unsigned(uart2_tx_buffer_start
                                      + to_integer(uart2_tx_buffer_pointer),12))
