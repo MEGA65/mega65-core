@@ -533,6 +533,7 @@ reset_entry:
 		STA	$D0EF
 		STA	$D0E7
 		; Hook the two UARTs together
+		LDA    #$11
 		STA	$D0E2
 		STA	$D0EA
 		; Write a bunch of bytes

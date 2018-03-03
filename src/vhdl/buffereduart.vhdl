@@ -169,6 +169,8 @@ architecture behavioural of buffereduart is
   signal uart2_rx_read_advance : std_logic := '0';
   
   signal last_was_read : std_logic := '0';
+
+  signal queued_write_settle_counter : integer range 0 to 7 := 0;
   
 begin  -- behavioural
 
@@ -538,6 +540,12 @@ begin  -- behavioural
       end if;
       
       -- Do synchronous actions
+      if queued_write='0' then
+        if queued_write_settle_counter /= 0 then
+          queued_write_settle_counter <= queued_write_settle_counter - 1;
+          report "UART: queued_write_settle_counter = " & integer'image(queued_write_settle_counter);
+        end if;
+      end if;
       if queued_write='1' then
         report "UART: Performing queued write of $" & to_hstring(queued_wdata) & " to $" & to_hstring(to_unsigned(queued_address,12));
         -- CPU queued buffer write
@@ -547,6 +555,7 @@ begin  -- behavioural
         -- XXX Clearing this here means back-to-back writes will
         -- not work.  Only a problem for DMA filling the buffer.
         queued_write <= '0';
+        queued_write_settle_counter <= 7;
       elsif uart0_read_byte_from_buffer='1' and queued_read='0' and uart0_rx_empty='0' then
         uart0_rx_byte <= x"00";
         report "UART0: Scheduling read of next byte from RX buffer in preparation for next CPU read"
@@ -653,7 +662,7 @@ begin  -- behavioural
       elsif uart0_tx_buffer_pointer_cpu /= uart0_tx_buffer_pointer then
         -- Queue buffer read
         report "UART0: TX buffer is not empty, consider sending a byte.";
-        if tx0_ready='1' and queued_read='0' and queued_write='0' and tx0_ready_wait='0' then
+        if tx0_ready='1' and queued_read='0' and queued_write_settle_counter=0 and tx0_ready_wait='0' then
           report "UART0: Queuing reading of byte at $"
             & to_hstring(to_unsigned(uart0_tx_buffer_start
                                      + to_integer(uart0_tx_buffer_pointer),12))
@@ -671,7 +680,7 @@ begin  -- behavioural
         end if;
       elsif uart2_tx_buffer_pointer_cpu /= uart2_tx_buffer_pointer then
         report "UART2: TX buffer is not empty, consider sending a byte.";
-        if tx2_ready='1' and queued_read='0' and queued_write='0' and tx2_ready_wait='0' then
+        if tx2_ready='1' and queued_read='0' and queued_write_settle_counter=0 and tx2_ready_wait='0' then
           report "UART2: Queuing reading of byte at $"
             & to_hstring(to_unsigned(uart2_tx_buffer_start
                                      + to_integer(uart2_tx_buffer_pointer),12))
