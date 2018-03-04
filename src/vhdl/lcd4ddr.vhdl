@@ -563,6 +563,37 @@ begin
 --    jbhi(9) <= lcd_vsync;
 --    jbhi(10) <= lcd_display_enable;
 
+
+  -- output something to unused pins
+  pmodja01 <= '0';
+  pmodja02 <= '0';
+  pmodja03 <= '0';
+  pmodja04 <= '0';
+  pmodja07 <= '0';
+  pmodja08 <= '0';
+  pmodja09 <= '0';
+  pmodja10 <= '0';
+  --
+  pmodjb01 <= '0';
+  pmodjb02 <= '0';
+  pmodjb03 <= '0';
+  pmodjb04 <= '0';
+  pmodjb07 <= '0';
+  pmodjb08 <= '0';
+  pmodjb09 <= '0';
+  pmodjb10 <= '0';
+  --
+  pmodjc07 <= '0';
+  --
+  pmodjd01 <= '0';
+  pmodjd02 <= '0';
+  pmodjd03 <= '0';
+  pmodjd04 <= '0';
+  pmodjd07 <= '0';
+  pmodjd08 <= '0';
+  pmodjd09 <= '0';
+  pmodjd10 <= '0';
+
   
   -- Hardware buttons for triggering IRQ & NMI
   irq <= not btn(0);
