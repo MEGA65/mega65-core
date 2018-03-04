@@ -47,11 +47,11 @@ entity container is
          ----------------------------------------------------------------------
          -- VGA output
          ----------------------------------------------------------------------
-         vsync : out STD_LOGIC;
+         vsync : out  STD_LOGIC;
          hsync : out  STD_LOGIC;
-         vgared : buffer  UNSIGNED (3 downto 0);
-         vgagreen : buffer  UNSIGNED (3 downto 0);
-         vgablue : buffer  UNSIGNED (3 downto 0);
+         vgared   : out  UNSIGNED (3 downto 0);
+         vgagreen : out  UNSIGNED (3 downto 0);
+         vgablue  : out  UNSIGNED (3 downto 0);
 
          ---------------------------------------------------------------------------
          -- IO lines to the ethernet controller
@@ -186,6 +186,16 @@ architecture Behavioral of container is
   signal cpu_game : std_logic := '1';
   signal cpu_exrom : std_logic := '1';
   
+  -- internal signals that drive the VGA output port
+  -- and can be sampled to create LCD signals.
+  signal vsync_int : std_logic;
+  signal hsync_int : std_logic;
+  signal vgared_int   : unsigned(3 downto 0);
+  signal vgagreen_int : unsigned(3 downto 0);
+  signal vgablue_int  : unsigned(3 downto 0);
+
+  -- internal signals of LSBs of 8-bit VGA,
+  -- not currently connected to anything.
   signal dummy_vgared : unsigned(3 downto 0);
   signal dummy_vgagreen : unsigned(3 downto 0);
   signal dummy_vgablue : unsigned(3 downto 0);
@@ -205,11 +215,12 @@ architecture Behavioral of container is
 
   signal sector_buffer_mapped : std_logic;
 
-  
+  -- unsure if needed, arnt they the same purpose as "dummy_vga*"
   signal vgaredignore : unsigned(3 downto 0);
   signal vgagreenignore : unsigned(3 downto 0);
   signal vgablueignore : unsigned(3 downto 0);
 
+  -- currently unconnected
   signal porta_pins : std_logic_vector(7 downto 0) := (others => '1');
   signal portb_pins : std_logic_vector(7 downto 0) := (others => '1');
 
@@ -261,6 +272,7 @@ architecture Behavioral of container is
   signal sawtooth_counter : integer := 0;
   signal sawtooth_level : integer := 0;
 
+  -- internal signals to be mapped to PMOD-header
   signal lcd_pixel_strobe : std_logic;
   signal lcd_hsync : std_logic;
   signal lcd_vsync : std_logic;
@@ -389,17 +401,17 @@ begin
       
       no_kickstart => '0',
       
-      vsync           => vsync,
-      hsync           => hsync,
+      vsync           => vsync_int,
+      hsync           => hsync_int,
       lcd_vsync => lcd_vsync,
       lcd_hsync => lcd_hsync,
       lcd_display_enable => lcd_display_enable,
       lcd_pixel_strobe => lcd_pixel_strobe,
-      vgared(7 downto 4)          => vgared,
+      vgared(7 downto 4)          => vgared_int,
       vgared(3 downto 0)          => dummy_vgared,
-      vgagreen(7 downto 4)        => vgagreen,
+      vgagreen(7 downto 4)        => vgagreen_int,
       vgagreen(3 downto 0)        => dummy_vgagreen,
-      vgablue(7 downto 4)         => vgablue,
+      vgablue(7 downto 4)         => vgablue_int,
       vgablue(3 downto 0)         => dummy_vgablue,
 
       porta_pins => porta_pins,
@@ -495,7 +507,14 @@ begin
       sseg_ca => sseg_ca,
       sseg_an => sseg_an
       );
+    -- connect internal signals to external pins
+    vsync <= vsync_int;
+    hsync <= hsync_int;
+    vgared   <= vgared_int;
+    vgagreen <= vgagreen_int;
+    vgablue  <= vgablue_int;
 
+  -- currently the below LCD-interface is NOT working
 --  if lcd_panel_enable='1' then
     jalo <= std_logic_vector(vgablue);
     jahi <= std_logic_vector(vgared);
