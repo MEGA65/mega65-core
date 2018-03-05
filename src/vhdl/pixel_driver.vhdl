@@ -25,55 +25,107 @@ use work.victypes.all;
 
 entity pixel_driver is
 
-port (
-  pixelclock_select : in std_logic_vector(7 downto 0);
+  port (
+    pixelclock_select : in std_logic_vector(7 downto 0);
 
-  clock200 : in std_logic;
-  clock100 : in std_logic;
-  clock50 : in std_logic;
-  clock40 : in std_logic;
-  clock33 : in std_logic;
-  clock30 : in std_logic;
+    clock200 : in std_logic;
+    clock100 : in std_logic;
+    clock50 : in std_logic;
+    clock40 : in std_logic;
+    clock33 : in std_logic;
+    clock30 : in std_logic;
 
-  red_i : in unsigned(7 downto 0);
-  green_i : in unsigned(7 downto 0);
-  blue_i : in unsigned(7 downto 0);
+    red_i : in unsigned(7 downto 0);
+    green_i : in unsigned(7 downto 0);
+    blue_i : in unsigned(7 downto 0);
 
-  red_o : out unsigned(7 downto 0);
-  green_o : out unsigned(7 downto 0);
-  blue_o : out unsigned(7 downto 0);
+    red_o : out unsigned(7 downto 0);
+    green_o : out unsigned(7 downto 0);
+    blue_o : out unsigned(7 downto 0);
 
-  hsync_i : in std_logic;
-  hsync_o : out std_logic;
-  vsync_i : in std_logic;
-  vsync_o : out std_logic;
+    hsync_i : in std_logic;
+    hsync_o : out std_logic;
+    vsync_i : in std_logic;
+    vsync_o : out std_logic;
 
-  lcd_hsync_i : in std_logic;
-  lcd_hsync_o : out std_logic;
-  lcd_vsync_i : in std_logic;
-  lcd_vsync_o : out std_logic;
+    lcd_hsync_i : in std_logic;
+    lcd_hsync_o : out std_logic;
+    lcd_vsync_i : in std_logic;
+    lcd_vsync_o : out std_logic;
 
-  lcd_display_enable_i : in std_logic;
-  lcd_display_enable_o : out std_logic;
-  lcd_pixel_strobe_i : in std_logic;
-  lcd_pixel_strobe_o : out std_logic;
-  
-  viciv_outofframe_i : in std_logic;
-  viciv_outofframe_o : out std_logic
+    lcd_display_enable_i : in std_logic;
+    lcd_display_enable_o : out std_logic;
+    lcd_pixel_strobe_i : in std_logic;
+    lcd_pixel_strobe_o : out std_logic;
+    
+    viciv_outofframe_i : in std_logic;
+    viciv_outofframe_o : out std_logic
 
-  );
+    );
 
 end pixel_driver;
 
 architecture greco_roman of pixel_driver is
 
-  -- signals here
+  signal red_l : unsigned(7 downto 0) := x"00";
+  signal green_l : unsigned(7 downto 0) := x"00";
+  signal blue_l : unsigned(7 downto 0) := x"00";
 
+  signal clock_select : std_logic_vector(7 downto 0) := x"00";
+  
 begin
 
   -- The only real job here is to select the output clock based
   -- on the input clock.  Thus the bulk of the logic is actually
   -- timing-domain crossing logic.
-  
+  -- If we are lucky, it can in fact be implemented just as a
+  -- bunch of latches and muxes.
 
+  process (lcd_pixel_strobe_i,red_i,green_i,blue_i,clock50) is
+  begin
+
+    if rising_edge(clock50) then
+      clock_select <= pixelclock_select;
+    end if;
+    
+    hsync_o <= hsync_i;
+    vsync_o <= vsync_i;
+    lcd_hsync_o <= lcd_hsync_i;
+    lcd_vsync_o <= lcd_vsync_i;
+    lcd_display_enable_o <= lcd_display_enable_i;
+    viciv_outofframe_o <= viciv_outofframe_i;
+    
+    if clock_select(6) = '0' then
+      red_o <= red_i;
+      green_o <= green_i;
+      blue_o <= blue_i;
+    else
+      red_o <= red_l;
+      green_o <= green_l;
+      blue_o <= blue_l;
+    end if;
+
+    if rising_edge(lcd_pixel_strobe_i) then
+      red_l <= red_i;
+      green_l <= green_i;
+      blue_l <= blue_i;
+    end if;
+    
+    if clock_select(7) = '1' then
+      -- Replace pixel clock with a fixed one
+      case clock_select(1 downto 0) is
+        when "00" => lcd_pixel_strobe_o <= clock30;
+        when "01" => lcd_pixel_strobe_o <= clock33;
+        when "10" => lcd_pixel_strobe_o <= clock40;
+        when "11" => lcd_pixel_strobe_o <= clock50;
+        when others =>
+          lcd_pixel_strobe_o <= clock50;
+      end case;
+    else
+      -- Pass pixel clock unmodified
+      lcd_pixel_strobe_o <= lcd_pixel_strobe_i;
+    end if;
+
+  end process;
+  
 end greco_roman;
