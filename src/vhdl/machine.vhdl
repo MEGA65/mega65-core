@@ -57,6 +57,9 @@ entity machine is
   Port ( pixelclock : STD_LOGIC;
          cpuclock : std_logic;
          clock50mhz : in std_logic;
+         clock30 : in std_logic;
+         clock33 : in std_logic;
+         clock40 : in std_logic;
          clock200 : in std_logic;
          ioclock : std_logic;
          uartclock : std_logic;
@@ -400,7 +403,17 @@ architecture Behavioral of machine is
 
   signal matrix_fetch_address : unsigned(11 downto 0) := to_unsigned(0,12);
   signal matrix_rdata : unsigned(7 downto 0);
+
+  signal lcd_hsync1 : std_logic := '0';
+  signal lcd_vsync1 : std_logic := '0';
+  signal hsync_drive1 : std_logic := '0';
+  signal vsync_drive1 : std_logic := '0';
+  signal lcd_pixel_strobe1 : std_logic := '0';
+  signal lcd_display_enable1 : std_logic := '0';
   
+  signal vgablue_viciv : unsigned(7 downto 0);
+  signal vgared_viciv : unsigned(7 downto 0);
+  signal vgagreen_viciv : unsigned(7 downto 0);
   signal vgablue_sig : unsigned(7 downto 0);
   signal vgared_sig : unsigned(7 downto 0);
   signal vgagreen_sig : unsigned(7 downto 0);
@@ -410,6 +423,7 @@ architecture Behavioral of machine is
   signal vgablue_out : unsigned(7 downto 0);
   signal vgared_out : unsigned(7 downto 0);
   signal vgagreen_out : unsigned(7 downto 0);
+  signal viciv_outofframe_viciv : std_logic := '0';
   signal viciv_outofframe : std_logic := '0';
   signal viciv_outofframe_1 : std_logic := '0';
   signal viciv_outofframe_2 : std_logic := '0';
@@ -468,6 +482,8 @@ architecture Behavioral of machine is
   signal amiga_mouse_assume_a : std_logic;
   signal amiga_mouse_assume_b : std_logic;
 
+  signal pixelclock_select : std_logic_vector(7 downto 0);
+  
 begin
 
   ----------------------------------------------------------------------------
@@ -762,6 +778,46 @@ begin
 
       );
 
+  pixel0: entity work.pixel_driver
+    port map (
+      pixelclock_select => pixelclock_select,
+      
+      clock200 => clock200,
+      clock50 => cpuclock,
+      clock40 => clock40,
+      clock33 => clock33,
+      clock30 => clock30,
+
+      red_i => vgared_viciv,
+      green_i => vgagreen_viciv,
+      blue_i => vgablue_viciv,
+
+      red_o => vgared_sig,
+      green_o => vgagreen_sig,
+      blue_o => vgablue_sig,      
+
+      hsync_i => hsync_drive1,
+      hsync_o => hsync_drive,
+      vsync_i => vsync_drive1,
+      vsync_o => vsync_drive,
+
+      lcd_hsync_i => lcd_hsync1,
+      lcd_hsync_o => lcd_hsync,
+      lcd_vsync_i => lcd_vsync1,
+      lcd_vsync_o => lcd_vsync,
+
+      viciv_outofframe_i => viciv_outofframe_viciv,
+      viciv_outofframe_o => viciv_outofframe,
+      
+      lcd_display_enable_i => lcd_display_enable1,
+      lcd_display_enable_o => lcd_display_enable,
+
+      lcd_pixel_strobe_i => lcd_pixel_strobe1,
+      lcd_pixel_strobe_o => lcd_pixel_strobe
+
+      );
+      
+      
   viciv0: entity work.viciv
     port map (
 
@@ -773,6 +829,8 @@ begin
       cpuclock        => cpuclock,
       ioclock        => ioclock,
 
+      pixelclock_select => pixelclock_select,
+      
       irq             => vic_irq,
       reset           => reset_combined,
 
@@ -785,16 +843,16 @@ begin
       dat_offset => dat_offset,
       dat_bitplane_addresses => dat_bitplane_addresses,
       
-      vsync           => vsync_drive,
-      hsync           => hsync_drive,
-      lcd_vsync => lcd_vsync,
-      lcd_hsync => lcd_hsync,
-      lcd_display_enable => lcd_display_enable,
-      lcd_pixel_strobe => lcd_pixel_strobe,
-      vgared          => vgared_sig,
-      vgagreen        => vgagreen_sig,
-      vgablue         => vgablue_sig,
-      viciv_outofframe => viciv_outofframe,
+      vsync           => vsync_drive1,
+      hsync           => hsync_drive1,
+      lcd_vsync => lcd_vsync1,
+      lcd_hsync => lcd_hsync1,
+      lcd_display_enable => lcd_display_enable1,
+      lcd_pixel_strobe => lcd_pixel_strobe1,
+      vgared          => vgared_viciv,
+      vgagreen        => vgagreen_viciv,
+      vgablue         => vgablue_viciv,
+      viciv_outofframe => viciv_outofframe_viciv,
 
       pixel_stream_out => pixel_stream,
       pixel_y => pixel_y,

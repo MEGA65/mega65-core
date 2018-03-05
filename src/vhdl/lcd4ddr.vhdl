@@ -193,6 +193,9 @@ architecture Behavioral of container is
   signal pixelclock : std_logic;
   signal cpuclock : std_logic;
   signal clock200 : std_logic;
+  signal clock40 : std_logic;
+  signal clock33 : std_logic;
+  signal clock30 : std_logic;
   
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
 
@@ -272,6 +275,9 @@ begin
     port map ( clk_in1 => CLK_IN,
                clock100 => pixelclock, -- 100MHz
                clock50 => cpuclock, -- 50MHz
+               clock40 => clock40,
+               clock33 => clock33,
+               clock30 => clock30,
                clock200 => clock200
                );
 
@@ -339,6 +345,9 @@ begin
       pixelclock      => pixelclock,
       cpuclock        => cpuclock,
       clock200 => clock200,
+      clock40 => clock40,
+      clock33 => clock33,
+      clock30 => clock30,
       clock50mhz      => cpuclock,
       uartclock       => cpuclock, -- Match CPU clock
       ioclock         => cpuclock, -- Match CPU clock

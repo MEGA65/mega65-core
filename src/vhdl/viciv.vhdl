@@ -62,7 +62,7 @@ entity viciv is
     -- dot clock
     ----------------------------------------------------------------------
     pixelclock : in  STD_LOGIC;
-    pixelclock_select : out std_logic_vector(1 downto 0);
+    pixelclock_select : out std_logic_vector(7 downto 0) := x"00";
     ----------------------------------------------------------------------
     -- CPU clock (used for chipram and fastio interfaces)
     ----------------------------------------------------------------------
@@ -150,7 +150,7 @@ end viciv;
 
 architecture Behavioral of viciv is
 
-  signal pixelclock_select_internal : std_logic_vector(1 downto 0) := "00";
+  signal pixelclock_select_internal : std_logic_vector(7 downto 0) := x"00";
   
   signal reset_drive : std_logic := '0';
   
@@ -1826,7 +1826,7 @@ begin
           fastio_rdata(3 downto 0) <= std_logic_vector(hsync_start(13 downto 10));
           fastio_rdata(4) <= hsync_polarity;
           fastio_rdata(5) <= vsync_polarity;
-          fastio_rdata(7 downto 6) <= pixelclock_select_internal;
+          fastio_rdata(7 downto 6) <= pixelclock_select_internal(1 downto 0);
         elsif register_number=125 then
         -- fastio_rdata <=
         --  std_logic_vector(to_unsigned(vic_paint_fsm'pos(debug_paint_fsm_state_drive2),8));
@@ -2318,12 +2318,12 @@ begin
                                         -- @IO:GS $D04F.7-4 VIC-IV sprite 7-4 horizontal tile enables
                                                     sprite_horizontal_tile_enables(7 downto 4) <= fastio_wdata(7 downto 4);
                                                   elsif register_number=80 then
-                                        -- @IO:GS $D050 VIC-IV read horizontal position (LSB)
-                                        -- xcounter
-                                                    null;
+                                        -- @IO:GS $D050 VIC-IV read horizontal position (LSB) (READ) xcounter
+                                                -- @IO:GS $D050 VIC-IV pixel clock configuration (WRITE ONLY)
+                                                   pixelclock_select <= fastio_wdata;
+                                                   pixelclock_select_internal <= fastio_wdata;
                                                   elsif register_number=81 then
-                                        -- @IO:GS $D051 VIC-IV read horizontal position (MSB)
-                                        -- xcounter
+                                        -- @IO:GS $D051 VIC-IV read horizontal position (MSB) (READ) xcounter
                                                     null;
                                                   elsif register_number=82 then
                                         -- @IO:GS $D052 VIC-IV read physical raster/set raster compare (LSB)
@@ -2626,8 +2626,8 @@ begin
                                         -- @IO:GS $D07C.5 VIC-IV vsync polarity
                                                     vsync_polarity <= fastio_wdata(5);
                                         -- @IO:GS $D07C.6-7 VIC-IV pixel clock select (30,33,40 or 50MHz)
-                                                    pixelclock_select <= fastio_wdata(7 downto 6);
-                                                    pixelclock_select_internal <= fastio_wdata(7 downto 6);
+                                                    pixelclock_select(1 downto 0) <= fastio_wdata(7 downto 6);
+                                                    pixelclock_select_internal(1 downto 0) <= fastio_wdata(7 downto 6);
                                                   elsif register_number=125 then
                                         -- @IO:GS $D07D VIC-IV debug X position (LSB)
                                                     debug_x(7 downto 0) <= unsigned(fastio_wdata);

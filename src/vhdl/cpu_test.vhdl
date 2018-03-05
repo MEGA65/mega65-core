@@ -21,6 +21,9 @@ architecture behavior of cpu_test is
   signal ioclock : std_logic := '0';
   signal clock50mhz : std_logic := '0';
   signal clock200 : std_logic := '0';
+  signal clock40 : std_logic := '0';
+  signal clock33 : std_logic := '0';
+  signal clock30 : std_logic := '0';
   signal reset : std_logic := '0';
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
@@ -230,6 +233,9 @@ begin
       cpuclock      => cpuclock,
       clock50mhz   => clock50mhz,
       ioclock      => cpuclock,
+      clock40 => clock40,
+      clock33 => clock33,
+      clock30 => clock30,
       clock200 => clock200,
       uartclock    => ioclock,
       btnCpuReset      => reset,
@@ -391,6 +397,7 @@ begin
   process
     procedure eth_clock_tick is
     begin
+      -- XXX Doesn't tick the 30, 33 or 40 MHz clocks
       clock50mhz <= '0';
       clock200 <= '0';
       wait for 2.5 ns;

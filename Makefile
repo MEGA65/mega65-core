@@ -98,6 +98,7 @@ C65VHDL=		$(SIDVHDL) \
 			$(VHDLSRCDIR)/cputypes.vhdl \
 
 VICIVVHDL=		$(VHDLSRCDIR)/viciv.vhdl \
+			$(VHDLSRCDIR)/pixel_driver.vhdl \
 			$(VHDLSRCDIR)/sprite.vhdl \
 			$(VHDLSRCDIR)/vicii_sprites.vhdl \
 			$(VHDLSRCDIR)/bitplane.vhdl \
