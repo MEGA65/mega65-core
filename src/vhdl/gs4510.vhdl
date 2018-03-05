@@ -37,6 +37,7 @@ use work.victypes.all;
 
 entity gs4510 is
   generic(
+    math_unit_enable : boolean := false;
     cpufrequency : integer := 50 );
   port (
     mathclock : in std_logic;
@@ -1210,7 +1211,7 @@ begin
       output_value(63 downto 32) => math_output_value_high
       );
   end generate;
-  
+    
   shadowram0 : shadowram port map (
     clk     => clock,
     address => shadow_address,
@@ -3018,6 +3019,7 @@ begin
       -- facility.
       reg_mult_p <= to_unsigned(to_integer(reg_mult_a) * to_integer(reg_mult_b),48);
 
+      if math_unit_enable then
       -- We also provide some flags (which will later trigger interrupts) based
       -- on the equality of math registers 14 and 15
       if reg_math_regs(14) = reg_math_regs(15) then
@@ -3047,10 +3049,11 @@ begin
       else
         math_unit_flags(4) <= '0';
       end if;
+      end if;
       
     end if;
 
-    if rising_edge(mathclock) then
+    if rising_edge(mathclock) and math_unit_enable then
       -- For the plumbed math units, we want to avoid having two huge 16x32x32
       -- MUXes to pick the inputs and outputs to and from the register file.
       -- The interim solution is to have counters that present each of the
