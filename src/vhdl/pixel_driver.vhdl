@@ -105,12 +105,17 @@ begin
       blue_o <= blue_l;
     end if;
 
-    if rising_edge(lcd_pixel_strobe_i) then
+    if (rising_edge(lcd_pixel_strobe_i) and clock_select(5)='0')
+      or (rising_edge(clock30) and clock_select(5)='1' and clock_select(1 downto 0) = "00")
+      or (rising_edge(clock33) and clock_select(5)='1' and clock_select(1 downto 0) = "01")
+      or (rising_edge(clock40) and clock_select(5)='1' and clock_select(1 downto 0) = "10")
+      or (rising_edge(clock50) and clock_select(5)='1' and clock_select(1 downto 0) = "11")
+    then
       red_l <= red_i;
       green_l <= green_i;
       blue_l <= blue_i;
     end if;
-    
+
     if clock_select(7) = '1' then
       -- Replace pixel clock with a fixed one
       case clock_select(1 downto 0) is
