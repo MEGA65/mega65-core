@@ -29,6 +29,7 @@ port (
   pixelclock_select : in std_logic_vector(7 downto 0);
 
   clock200 : in std_logic;
+  clock100 : in std_logic;
   clock50 : in std_logic;
   clock40 : in std_logic;
   clock33 : in std_logic;
@@ -70,8 +71,9 @@ architecture greco_roman of pixel_driver is
 
 begin
 
-  process (clock200) is
-  begin
-  end process;
+  -- The only real job here is to select the output clock based
+  -- on the input clock.  Thus the bulk of the logic is actually
+  -- timing-domain crossing logic.
+  
 
 end greco_roman;

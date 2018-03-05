@@ -52,10 +52,9 @@ use work.victypes.all;
 --use UNISIM.VComponents.all;
 
 entity machine is
-  generic (cpufrequency : integer := 50;
-           pixel_clock_frequency_hz : integer := 150000000);
-  Port ( pixelclock : STD_LOGIC;
-         cpuclock : std_logic;
+  generic (cpufrequency : integer := 50);
+  Port ( pixelclock : in STD_LOGIC;
+         cpuclock : in std_logic;
          clock50mhz : in std_logic;
          clock30 : in std_logic;
          clock33 : in std_logic;
@@ -783,6 +782,7 @@ begin
       pixelclock_select => pixelclock_select,
       
       clock200 => clock200,
+      clock100 => pixelclock,
       clock50 => cpuclock,
       clock40 => clock40,
       clock33 => clock33,
