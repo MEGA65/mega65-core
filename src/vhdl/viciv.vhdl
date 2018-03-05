@@ -2324,6 +2324,10 @@ begin
                                                    pixelclock_select_internal <= fastio_wdata;
                                                   elsif register_number=81 then
                                         -- @IO:GS $D051 VIC-IV read horizontal position (MSB) (READ) xcounter
+                                        -- @IO:GS $D051 VIC-IV frame width, hsync fine tuning (WRITE ONLY)
+                                                    hsync_start(1 downto 0) <= unsigned(fastio_wdata(1 downto 0));
+                                                    hsync_end(1 downto 0) <= unsigned(fastio_wdata(3 downto 2));
+                                                    frame_width(1 downto 0) <= unsigned(fastio_wdata(5 downto 4));
                                                     null;
                                                   elsif register_number=82 then
                                         -- @IO:GS $D052 VIC-IV read physical raster/set raster compare (LSB)
