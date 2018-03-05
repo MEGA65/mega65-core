@@ -105,15 +105,41 @@ begin
       blue_o <= blue_l;
     end if;
 
-    if (rising_edge(lcd_pixel_strobe_i) and clock_select(5)='0')
-      or (rising_edge(clock30) and clock_select(5)='1' and clock_select(1 downto 0) = "00")
-      or (rising_edge(clock33) and clock_select(5)='1' and clock_select(1 downto 0) = "01")
-      or (rising_edge(clock40) and clock_select(5)='1' and clock_select(1 downto 0) = "10")
-      or (rising_edge(clock50) and clock_select(5)='1' and clock_select(1 downto 0) = "11")
-    then
-      red_l <= red_i;
-      green_l <= green_i;
-      blue_l <= blue_i;
+    if clock_select(5)='0' then
+      if rising_edge(lcd_pixel_strobe_i) then
+        red_l <= red_i;
+        green_l <= green_i;
+        blue_l <= blue_i;
+      end if;
+    else
+      if clock_select(1 downto 0) = "00" then
+        if rising_edge(clock30) then
+          red_l <= red_i;
+          green_l <= green_i;
+          blue_l <= blue_i;
+        end if;
+      end if;
+      if clock_select(1 downto 0) = "01" then
+        if rising_edge(clock33) then
+          red_l <= red_i;
+          green_l <= green_i;
+          blue_l <= blue_i;
+        end if;
+      end if;
+      if clock_select(1 downto 0) = "10" then
+        if rising_edge(clock40) then
+          red_l <= red_i;
+          green_l <= green_i;
+          blue_l <= blue_i;
+        end if;
+      end if;
+      if clock_select(1 downto 0) = "11" then
+        if rising_edge(clock50) then
+          red_l <= red_i;
+          green_l <= green_i;
+          blue_l <= blue_i;
+        end if;
+      end if;
     end if;
 
     if clock_select(7) = '1' then
