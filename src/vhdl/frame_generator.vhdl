@@ -21,7 +21,6 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
-use work.victypes.all;
 
 entity frame_generator is
   generic (
@@ -32,7 +31,7 @@ entity frame_generator is
     vsync_start : integer := 618;
     hsync_start : integer := 921;
     hsync_end : integer := 1033
-    )
+    );
   port (
     clock : in std_logic;
     hsync : out std_logic := '0';
@@ -41,7 +40,7 @@ entity frame_generator is
 
     red_o : out unsigned(7 downto 0) := x"00";
     green_o : out unsigned(7 downto 0) := x"00";
-    blue_o : out unsigned(7 downto 0) := x"00";
+    blue_o : out unsigned(7 downto 0) := x"00"
     
     );
 
@@ -51,6 +50,7 @@ architecture brutalist of frame_generator is
 
   signal x : integer := 0;
   signal y : integer := 0;
+  signal inframe_internal : std_logic := '0';
   
 begin
 
@@ -85,6 +85,7 @@ begin
       -- Draw white edge on frame
       if x = 0 and y < vsync_start then
         inframe <= '1';
+        inframe_internal <= '1';
         red_o <= x"FF";
         green_o <= x"FF";
         blue_o <= x"FF";
@@ -95,7 +96,7 @@ begin
         green_o <= x"FF";
         blue_o <= x"FF";
       end if;
-      if inframe = '1' then
+      if inframe_internal = '1' then
         -- Inside frame, draw a test pattern
         red_o <= to_unsigned(x,8);
         green_o <= to_unsigned(y,8);
@@ -104,6 +105,7 @@ begin
       -- Black outside of frame
       if x = display_width then
         inframe <= '0';
+        inframe_internal <= '0';
         red_o <= x"00";
         green_o <= x"00";
         blue_o <= x"00";        

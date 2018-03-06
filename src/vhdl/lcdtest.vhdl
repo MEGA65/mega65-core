@@ -103,18 +103,25 @@ architecture Behavioral of container is
   signal vsync_i : std_logic := '0';
   signal hsync_o : std_logic := '0';
   signal vsync_o : std_logic := '0';
+  signal oof_i : std_logic := '0';
+  signal oof_o : std_logic := '0';
   
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
 
   signal lcd_clk_i : std_logic;
-  signal lcd_clk : std_logic;
+  signal lcd_clk_o : std_logic;
   signal lcd_hsync_i : std_logic;
-  signal lcd_vsync : std_logic;
   signal lcd_hsync : std_logic;
+  signal lcd_vsync_i : std_logic;
   signal lcd_vsync : std_logic;
   signal lcd_de_i : std_logic;
-  signal lcd_de : std_logic;
+  signal lcd_de_o : std_logic;
 
+  signal hsync_pal50 : std_logic;
+  signal vsync_pal50 : std_logic;
+  signal inframe_pal50 : std_logic;
+  
+  
   signal red_i : unsigned(7 downto 0);
   signal green_i : unsigned(7 downto 0);
   signal blue_i : unsigned(7 downto 0);
@@ -168,7 +175,7 @@ begin
       clock33 => clock33,
       clock30 => clock30,
 
-      red_i => red_,
+      red_i => red_i,
       green_i => green_i,
       blue_i => blue_i,
 
@@ -197,17 +204,17 @@ begin
 
       );
 
-  vgared <= red_o;
-  vgagreen <= green_o;
-  vgablue <= blue_o;
+  vgared <= red_o(7 downto 4);
+  vgagreen <= green_o(7 downto 4);
+  vgablue <= blue_o(7 downto 4);
     
   jalo <= std_logic_vector(blue_o);
   jahi <= std_logic_vector(red_o);
   jblo <= std_logic_vector(green_o);
-  jbhi(7) <= lcd_clk;
+  jbhi(7) <= lcd_clk_o;
   jbhi(8) <= lcd_hsync;
   jbhi(9) <= lcd_vsync;
-  jbhi(10) <= lcd_de;
+  jbhi(10) <= lcd_de_o;
   
   process (cpuclock)
   begin
