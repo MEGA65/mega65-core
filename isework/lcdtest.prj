@@ -1,0 +1,4 @@
+vhdl work "../ipcore_dir/dotclock100.vhd"
+vhdl work "../src/vhdl/debugtools.vhdl"
+vhdl work "../src/vhdl/pixel_driver.vhdl"
+vhdl work "../src/vhdl/frame_generator.vhdl"
