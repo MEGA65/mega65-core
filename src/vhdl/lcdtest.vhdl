@@ -120,12 +120,23 @@ architecture Behavioral of container is
   signal hsync_pal50 : std_logic;
   signal vsync_pal50 : std_logic;
   signal inframe_pal50 : std_logic;
-  
+
+  signal hsync_ntsc60 : std_logic;
+  signal vsync_ntsc60 : std_logic;
+  signal inframe_ntsc60 : std_logic;  
   
   signal red_i : unsigned(7 downto 0);
   signal green_i : unsigned(7 downto 0);
   signal blue_i : unsigned(7 downto 0);
 
+  signal red_n : unsigned(7 downto 0);
+  signal green_n : unsigned(7 downto 0);
+  signal blue_n : unsigned(7 downto 0);
+
+  signal red_p : unsigned(7 downto 0);
+  signal green_p : unsigned(7 downto 0);
+  signal blue_p : unsigned(7 downto 0);
+  
   signal red_o : unsigned(7 downto 0);
   signal green_o : unsigned(7 downto 0);
   signal blue_o : unsigned(7 downto 0);
@@ -143,26 +154,46 @@ begin
                );
 
   frame50: entity work.frame_generator
-    generic map ( frame_width => 1065,
+    generic map ( frame_width => 960,
                   display_width => 800,
                   frame_height => 625,
                   display_height => 600,
-                  vsync_start => 618,
-                  hsync_start => 921,
-                  hsync_end => 1033
+                  vsync_start => 601,
+                  vsync_end => 606,
+                  hsync_start => 814,
+                  hsync_end => 884
                   )                  
-    port map ( clock => clock33,
+    port map ( clock => clock30,
                hsync => hsync_pal50,
                vsync => vsync_pal50,
                inframe => inframe_pal50,
 
                -- Get test pattern
-               red_o => red_i,
-               green_o => green_i,
-               blue_o => blue_i
+               red_o => red_p,
+               green_o => green_p,
+               blue_o => blue_p
                );
-               
-               
+
+  frame60: entity work.frame_generator
+    generic map ( frame_width => 1056,
+                  display_width => 800,
+                  frame_height => 628,
+                  display_height => 600,
+                  vsync_start => 601,
+                  vsync_end => 605,
+                  hsync_start => 840,
+                  hsync_end => 968
+                  )                  
+    port map ( clock => clock40,
+               hsync => hsync_ntsc60,
+               vsync => vsync_ntsc60,
+               inframe => inframe_ntsc60,
+
+               -- Get test pattern
+               red_o => red_n,
+               green_o => green_n,
+               blue_o => blue_n
+               );               
   
   pixel0: entity work.pixel_driver
     port map (
@@ -207,7 +238,9 @@ begin
   vgared <= red_o(7 downto 4);
   vgagreen <= green_o(7 downto 4);
   vgablue <= blue_o(7 downto 4);
-    
+  hsync <= hsync_o;
+  vsync <= vsync_o;
+  
   jalo <= std_logic_vector(blue_o(7 downto 4));
   jahi <= std_logic_vector(red_o(7 downto 4));
   jblo <= std_logic_vector(green_o(7 downto 4));
@@ -218,6 +251,25 @@ begin
   
   process (cpuclock)
   begin
+
+    if sw(15)='1' then
+      hsync_i <= hsync_pal50;
+      vsync_i <= vsync_pal50;
+      lcd_de_i <= inframe_pal50;
+      lcd_clk_i <= clock33;
+      red_i <= red_p;
+      green_i <= green_p;
+      blue_i <= blue_p;
+    else
+      hsync_i <= hsync_ntsc60;
+      vsync_i <= vsync_ntsc60;
+      lcd_de_i <= inframe_ntsc60;
+      lcd_clk_i <= clock40;
+      red_i <= red_n;
+      green_i <= green_n;
+      blue_i <= blue_n;
+    end if;
+    
     if rising_edge(cpuclock) then
     end if;
   end process;

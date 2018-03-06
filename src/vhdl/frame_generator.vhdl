@@ -24,13 +24,14 @@ use Std.TextIO.all;
 
 entity frame_generator is
   generic (
-    frame_width : integer := 1065;
+    frame_width : integer := 960;
     display_width : integer := 800;
     frame_height : integer := 625;
     display_height : integer := 600;
-    vsync_start : integer := 618;
-    hsync_start : integer := 921;
-    hsync_end : integer := 1033
+    vsync_start : integer := 601;
+    vsync_end : integer := 606;
+    hsync_start : integer := 814;
+    hsync_end : integer := 880
     );
   port (
     clock : in std_logic;
@@ -78,7 +79,7 @@ begin
       if y = vsync_start then
         vsync <= '1';
       end if;
-      if y = 0 then
+      if y = 0 or y = vsync_end then
         vsync <= '0';
       end if;
 
