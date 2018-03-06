@@ -71,6 +71,10 @@ architecture greco_roman of pixel_driver is
   signal green_l : unsigned(7 downto 0) := x"00";
   signal blue_l : unsigned(7 downto 0) := x"00";
 
+  signal red_b : unsigned(7 downto 0) := x"00";
+  signal green_b : unsigned(7 downto 0) := x"00";
+  signal blue_b : unsigned(7 downto 0) := x"00";
+  
   signal clock_select : std_logic_vector(7 downto 0) := x"00";
   
 begin
@@ -84,64 +88,67 @@ begin
   process (lcd_pixel_strobe_i,red_i,green_i,blue_i,clock50) is
   begin
 
+    -- Make local clocked version of pixelclock_select, so that we know what we
+    -- are doing.
     if rising_edge(clock50) then
       clock_select <= pixelclock_select;
     end if;
-    
+
+    -- We start by latching the pixels as they are emitted by the VIC-IV.
+    -- i.e., *_b should have clean pixel values
+    if rising_edge(lcd_pixel_strobe_i) then
+      red_b <= red_i;
+      green_b <= green_i;
+      blue_b <= blue_i;
+    end if;
+
+    -- We also need to propagate a bunch of framing signals
     hsync_o <= hsync_i;
     vsync_o <= vsync_i;
     lcd_hsync_o <= lcd_hsync_i;
     lcd_vsync_o <= lcd_vsync_i;
     lcd_display_enable_o <= lcd_display_enable_i;
     viciv_outofframe_o <= viciv_outofframe_i;
-    
-    if clock_select(6) = '0' then
-      red_o <= red_i;
-      green_o <= green_i;
-      blue_o <= blue_i;
-    else
-      red_o <= red_l;
-      green_o <= green_l;
-      blue_o <= blue_l;
-    end if;
 
-    if clock_select(5)='0' then
-      if rising_edge(lcd_pixel_strobe_i) then
-        red_l <= red_i;
-        green_l <= green_i;
-        blue_l <= blue_i;
+    -- Then we convert the pixel clock from the jittery one from the VIC-IV to
+    -- being clocked by the chosed pixel output clock.
+    if clock_select(1 downto 0) = "00" then
+      if rising_edge(clock30) then
+        red_l <= red_b;
+        green_l <= green_b;
+        blue_l <= blue_b;
       end if;
-    else
-      if clock_select(1 downto 0) = "00" then
-        if rising_edge(clock30) then
-          red_l <= red_i;
-          green_l <= green_i;
-          blue_l <= blue_i;
-        end if;
+    end if;
+    if clock_select(1 downto 0) = "01" then
+      if rising_edge(clock33) then
+        red_l <= red_b;
+        green_l <= green_b;
+        blue_l <= blue_b;
       end if;
-      if clock_select(1 downto 0) = "01" then
-        if rising_edge(clock33) then
-          red_l <= red_i;
-          green_l <= green_i;
-          blue_l <= blue_i;
-        end if;
+    end if;
+    if clock_select(1 downto 0) = "10" then
+      if rising_edge(clock40) then
+        red_l <= red_b;
+        green_l <= green_b;
+        blue_l <= blue_b;
       end if;
-      if clock_select(1 downto 0) = "10" then
-        if rising_edge(clock40) then
-          red_l <= red_i;
-          green_l <= green_i;
-          blue_l <= blue_i;
-        end if;
-      end if;
-      if clock_select(1 downto 0) = "11" then
-        if rising_edge(clock50) then
-          red_l <= red_i;
-          green_l <= green_i;
-          blue_l <= blue_i;
-        end if;
+    end if;
+    if clock_select(1 downto 0) = "11" then
+      if rising_edge(clock50) then
+        red_l <= red_b;
+        green_l <= green_b;
+        blue_l <= blue_b;
       end if;
     end if;
 
+    -- Finally, we make that latched version of the pixel visible
+    -- on the output lines
+    red_o <= red_l;
+    green_o <= green_l;
+    blue_o <= blue_l;
+
+    -- We also have to make sure that the new pixel clock is actually
+    -- visible on the pixel clocking pin.
     if clock_select(7) = '1' then
       -- Replace pixel clock with a fixed one
       case clock_select(1 downto 0) is
