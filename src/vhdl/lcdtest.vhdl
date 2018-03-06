@@ -208,9 +208,9 @@ begin
   vgagreen <= green_o(7 downto 4);
   vgablue <= blue_o(7 downto 4);
     
-  jalo <= std_logic_vector(blue_o);
-  jahi <= std_logic_vector(red_o);
-  jblo <= std_logic_vector(green_o);
+  jalo <= std_logic_vector(blue_o(7 downto 4));
+  jahi <= std_logic_vector(red_o(7 downto 4));
+  jblo <= std_logic_vector(green_o(7 downto 4));
   jbhi(7) <= lcd_clk_o;
   jbhi(8) <= lcd_hsync;
   jbhi(9) <= lcd_vsync;
