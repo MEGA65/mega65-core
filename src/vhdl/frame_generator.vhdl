@@ -83,6 +83,14 @@ begin
         vsync <= '0';
       end if;
 
+      -- Colourful pattern inside frame
+      if inframe_internal = '1' then
+        -- Inside frame, draw a test pattern
+        red_o <= to_unsigned(x,8);
+        green_o <= to_unsigned(y,8);
+        blue_o <= to_unsigned(x+y,8);
+      end if;
+      
       -- Draw white edge on frame
       if x = 0 and y < vsync_start then
         inframe <= '1';
@@ -91,17 +99,12 @@ begin
         green_o <= x"FF";
         blue_o <= x"FF";
       end if;
-      if (x = ( display_width - 1 ))
-         or (y = 0) or (y = (display_height - 1)) then
+      if ((x = ( display_width - 1 ))
+          or (y = 0) or (y = (display_height - 1)))
+        and (inframe_internal='1') then
         red_o <= x"FF";
         green_o <= x"FF";
         blue_o <= x"FF";
-      end if;
-      if inframe_internal = '1' then
-        -- Inside frame, draw a test pattern
-        red_o <= to_unsigned(x,8);
-        green_o <= to_unsigned(y,8);
-        blue_o <= to_unsigned(x+y,8);
       end if;
       -- Black outside of frame
       if x = display_width then

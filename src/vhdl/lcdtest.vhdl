@@ -158,8 +158,8 @@ begin
                   display_width => 800,
                   frame_height => 625,
                   display_height => 600,
-                  vsync_start => 601,
-                  vsync_end => 606,
+                  vsync_start => 620,
+                  vsync_end => 625,
                   hsync_start => 814,
                   hsync_end => 884
                   )                  
@@ -179,8 +179,8 @@ begin
                   display_width => 800,
                   frame_height => 628,
                   display_height => 600,
-                  vsync_start => 601,
-                  vsync_end => 605,
+                  vsync_start => 624,
+                  vsync_end => 628,
                   hsync_start => 840,
                   hsync_end => 968
                   )                  
@@ -256,7 +256,7 @@ begin
       hsync_i <= hsync_pal50;
       vsync_i <= vsync_pal50;
       lcd_de_i <= inframe_pal50;
-      lcd_clk_i <= clock33;
+      lcd_clk_i <= clock30;
       red_i <= red_p;
       green_i <= green_p;
       blue_i <= blue_p;
