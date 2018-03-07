@@ -92,7 +92,7 @@ begin
       end if;
       
       -- Draw white edge on frame
-      if x = 0 and y < vsync_start then
+      if x = 0 and y < display_height then
         inframe <= '1';
         inframe_internal <= '1';
         red_o <= x"FF";
