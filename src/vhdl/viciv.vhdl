@@ -2462,7 +2462,7 @@ begin
                                                         hsync_end <= to_unsigned(3100,14);
                                                         vicii_max_raster <= pal_max_raster;
                                                         hsync_polarity <= '0';
-                                                        vsync_polarity <= '0';
+                                                        vsync_polarity <= '1';
 
                                         -- 3 1/3 physical
                                         -- pixels per actual
@@ -2487,7 +2487,7 @@ begin
                                                         hsync_end <= to_unsigned(3100,14);
                                                         vicii_max_raster <= ntsc_max_raster;
                                                         hsync_polarity <= '0';
-                                                        vsync_polarity <= '0';
+                                                        vsync_polarity <= '1';
 
                                                         chargen_x_pixels <= 3;
                                                         chargen_x_pixels_sub <= 216/3;
