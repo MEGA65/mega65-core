@@ -254,7 +254,7 @@ begin
 
     if sw(15)='1' then
       hsync_i <= hsync_pal50;
-      vsync_i <= vsync_pal50;
+      vsync_i <= not vsync_pal50;
       lcd_de_i <= inframe_pal50;
       lcd_clk_i <= clock30;
       red_i <= red_p;
