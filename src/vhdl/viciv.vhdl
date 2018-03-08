@@ -2467,6 +2467,10 @@ begin
                                                         hsync_start <= to_unsigned(2764,14);
                                                         hsync_end <= to_unsigned(3100,14);
                                                         vicii_max_raster <= pal_max_raster;
+                                                        -- Set 30MHz pixel clock for PAL
+                                                        pixelclock_select_internal(1 downto 0) <= "00";
+                                                        pixelclock_select(1 downto 0) <= "00";
+                                                        -- VSYNC is negative for 50Hz (required for some monitors)
                                                         hsync_polarity <= '0';
                                                         vsync_polarity <= '1';
 
@@ -2492,6 +2496,9 @@ begin
                                                         hsync_start <= to_unsigned(2764,14);
                                                         hsync_end <= to_unsigned(3100,14);
                                                         vicii_max_raster <= ntsc_max_raster;
+                                                        -- Set 30MHz pixel clock for PAL
+                                                        pixelclock_select_internal(1 downto 0) <= "00";
+                                                        pixelclock_select(1 downto 0) <= "00";
                                                         hsync_polarity <= '0';
                                                         vsync_polarity <= '1';
 
@@ -2517,6 +2524,9 @@ begin
                                                         hsync_end <= to_unsigned(2540,14);
                                                         hsync_polarity <= '0';
                                                         vsync_polarity <= '0';
+                                                        -- Set 40MHz pixel clock for NTSC
+                                                        pixelclock_select_internal(1 downto 0) <= "10";
+                                                        pixelclock_select(1 downto 0) <= "10";
 
                                                         chargen_x_pixels <= 2;
                                                         chargen_x_pixels_sub <= 216/2;
@@ -2542,6 +2552,10 @@ begin
                                                         hsync_polarity <= '0';
                                                         vsync_polarity <= '0';
 
+                                                        -- Set 40MHz pixel clock for NTSC
+                                                        pixelclock_select_internal(1 downto 0) <= "10";
+                                                        pixelclock_select(1 downto 0) <= "10";
+                                                        
                                                         chargen_x_pixels <= 2;
                                                         chargen_x_pixels_sub <= 216/2;
 
@@ -2564,6 +2578,10 @@ begin
                                                         hsync_polarity <= '0';
                                                         vsync_polarity <= '0';
 
+                                                        -- Set 40MHz pixel clock for NTSC
+                                                        pixelclock_select_internal(1 downto 0) <= "10";
+                                                        pixelclock_select(1 downto 0) <= "10";
+                                                        
                                                         chargen_x_pixels <= 2;
                                                         chargen_x_pixels_sub <= 216/2;
 
@@ -2848,7 +2866,8 @@ begin
       indisplay :='1';
 --      report "VICII: SPRITE: xcounter(320) = " & integer'image(to_integer(vicii_xcounter_320))
 --        & " (sub) = " & integer'image(vicii_xcounter_sub320);
-      if xcounter /= to_integer(frame_width) and external_frame_x_zero='0' then
+--      if xcounter /= to_integer(frame_width) and external_frame_x_zero='0' then
+      if external_frame_x_zero='0' then
         xcounter <= xcounter + 1;
         if xcounter = sprite_first_x then
           sprite_x_counting <= '1';
@@ -2902,7 +2921,8 @@ begin
         raster_buffer_read_address <= (others => '0');
         chargen_active <= '0';
         chargen_active_soon <= '0';
-        if ycounter /= to_integer(frame_height) and external_frame_y_zero='0' then
+--        if ycounter /= to_integer(frame_height) and external_frame_y_zero='0' then
+        if external_frame_y_zero='0' then
           ycounter <= ycounter + 1;
           if vicii_ycounter_phase = vicii_ycounter_max_phase then
             if to_integer(vicii_ycounter) /= vicii_max_raster then
