@@ -67,7 +67,7 @@ entity container is
          jdhi : inout std_logic_vector(10 downto 7) := (others => 'Z');
          jclo : inout std_logic_vector(4 downto 1) := (others => 'Z');
          jchi : inout std_logic_vector(10 downto 7) := (others => 'Z');
-                  
+         
          ----------------------------------------------------------------------
          -- Debug interfaces on Nexys4 board
          ----------------------------------------------------------------------
@@ -91,7 +91,7 @@ architecture Behavioral of container is
            rst : in  STD_LOGIC;
            temp : out  STD_LOGIC_VECTOR (11 downto 0));
   end component;
-    
+  
   signal pixelclock : std_logic;
   signal cpuclock : std_logic;
   signal clock200 : std_logic;
@@ -116,6 +116,7 @@ architecture Behavioral of container is
   signal lcd_vsync : std_logic;
   signal lcd_de_i : std_logic;
   signal lcd_de_o : std_logic;
+  signal lcd_pwm : std_logic;
 
   signal hsync_pal50 : std_logic;
   signal vsync_pal50 : std_logic;
@@ -144,9 +145,15 @@ architecture Behavioral of container is
   signal red_o : unsigned(7 downto 0);
   signal green_o : unsigned(7 downto 0);
   signal blue_o : unsigned(7 downto 0);
+
+  signal pwm_brightness : unsigned(7 downto 0) := x"FF";
+  signal pwm_comparison : unsigned(7 downto 0) := x"FF";
+  signal pwm_divisor_counter : integer := 0;
+  -- 1KHz * 256 values of brightness
+  constant pwm_divisor : integer := 100000000 / (1000 * 256);
   
 begin
-  
+
   dotclock1: entity work.dotclock100
     port map ( clk_in1 => CLK_IN,
                clock100 => pixelclock, -- 100MHz
@@ -256,6 +263,7 @@ begin
   jbhi(8) <= lcd_hsync;
   jbhi(9) <= lcd_vsync;
   jbhi(10) <= lcd_de_o;
+  jclo(1) <= lcd_pwm;
   
   process (cpuclock)
   begin
@@ -283,7 +291,22 @@ begin
     end if;
     
     if rising_edge(cpuclock) then
+      pwm_brightness <= unsigned(sw(12 downto 5));
+      if pwm_divisor_counter < pwm_divisor then
+        pwm_divisor_counter <= pwm_divisor_counter + 1;
+      else
+        pwm_divisor_counter <= 0;
+        if pwm_comparison /= x"FF" then
+          pwm_comparison <= pwm_comparison + 1;
+          if pwm_comparison = pwm_brightness then
+            lcd_pwm <= '0';
+          end if;
+        else
+          pwm_comparison <= x"00";
+          lcd_pwm <= '1';
+        end if;
+      end if;
     end if;
   end process;
-  
+      
 end Behavioral;
