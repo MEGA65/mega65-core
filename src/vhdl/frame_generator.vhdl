@@ -70,7 +70,10 @@ begin
     if rising_edge(clock) then
       if x < frame_width then
         x <= x + 1;
-        x_zero <= '0';
+        -- make the x_zero signal last a bit longer, to make sure it gets captured.
+        if x = 3 then
+          x_zero <= '0';
+        end if;
       else
         x <= 0;
         x_zero <= '1';
