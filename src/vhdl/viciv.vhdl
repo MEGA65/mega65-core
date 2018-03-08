@@ -62,7 +62,7 @@ entity viciv is
     -- dot clock
     ----------------------------------------------------------------------
     pixelclock : in  STD_LOGIC;
-    pixelclock_select : out std_logic_vector(7 downto 0) := x"00";
+    pixelclock_select : out std_logic_vector(7 downto 0) := x"bc";
     ----------------------------------------------------------------------
     -- CPU clock (used for chipram and fastio interfaces)
     ----------------------------------------------------------------------
@@ -156,7 +156,7 @@ end viciv;
 
 architecture Behavioral of viciv is
 
-  signal pixelclock_select_internal : std_logic_vector(7 downto 0) := x"00";
+  signal pixelclock_select_internal : std_logic_vector(7 downto 0) := x"bc";
   
   signal reset_drive : std_logic := '0';
   
@@ -2325,9 +2325,9 @@ begin
                                                     sprite_horizontal_tile_enables(7 downto 4) <= fastio_wdata(7 downto 4);
                                                   elsif register_number=80 then
                                         -- @IO:GS $D050 VIC-IV read horizontal position (LSB) (READ) xcounter
-                                                -- @IO:GS $D050 VIC-IV pixel clock configuration (WRITE ONLY)
-                                                   pixelclock_select <= fastio_wdata;
-                                                   pixelclock_select_internal <= fastio_wdata;
+                                        -- @IO:GS $D050 VIC-IV pixel clock configuration (WRITE ONLY)
+                                                    pixelclock_select <= fastio_wdata;
+                                                    pixelclock_select_internal <= fastio_wdata;
                                                   elsif register_number=81 then
                                         -- @IO:GS $D051 VIC-IV read horizontal position (MSB) (READ) xcounter
                                         -- @IO:GS $D051 VIC-IV frame width, hsync fine tuning (WRITE ONLY)
@@ -2467,10 +2467,10 @@ begin
                                                         hsync_start <= to_unsigned(2764,14);
                                                         hsync_end <= to_unsigned(3100,14);
                                                         vicii_max_raster <= pal_max_raster;
-                                                        -- Set 30MHz pixel clock for PAL
-                                                        pixelclock_select_internal(1 downto 0) <= "00";
-                                                        pixelclock_select(1 downto 0) <= "00";
-                                                        -- VSYNC is negative for 50Hz (required for some monitors)
+                                        -- Set 30MHz pixel clock for PAL
+                                                        pixelclock_select_internal <= "bc";
+                                                        pixelclock_select <= "bc";
+                                        -- VSYNC is negative for 50Hz (required for some monitors)
                                                         hsync_polarity <= '0';
                                                         vsync_polarity <= '1';
 
@@ -2496,9 +2496,9 @@ begin
                                                         hsync_start <= to_unsigned(2764,14);
                                                         hsync_end <= to_unsigned(3100,14);
                                                         vicii_max_raster <= ntsc_max_raster;
-                                                        -- Set 30MHz pixel clock for PAL
-                                                        pixelclock_select_internal(1 downto 0) <= "00";
-                                                        pixelclock_select(1 downto 0) <= "00";
+                                        -- Set 30MHz pixel clock for PAL
+                                                        pixelclock_select_internal <= "bc";
+                                                        pixelclock_select <= "bc";
                                                         hsync_polarity <= '0';
                                                         vsync_polarity <= '1';
 
@@ -2524,9 +2524,9 @@ begin
                                                         hsync_end <= to_unsigned(2540,14);
                                                         hsync_polarity <= '0';
                                                         vsync_polarity <= '0';
-                                                        -- Set 40MHz pixel clock for NTSC
-                                                        pixelclock_select_internal(1 downto 0) <= "10";
-                                                        pixelclock_select(1 downto 0) <= "10";
+                                        -- Set 40MHz pixel clock for NTSC
+                                                        pixelclock_select_internal <= "3e";
+                                                        pixelclock_select <= "3e";
 
                                                         chargen_x_pixels <= 2;
                                                         chargen_x_pixels_sub <= 216/2;
@@ -2552,9 +2552,9 @@ begin
                                                         hsync_polarity <= '0';
                                                         vsync_polarity <= '0';
 
-                                                        -- Set 40MHz pixel clock for NTSC
-                                                        pixelclock_select_internal(1 downto 0) <= "10";
-                                                        pixelclock_select(1 downto 0) <= "10";
+                                        -- Set 40MHz pixel clock for NTSC
+                                                        pixelclock_select_internal <= "3e";
+                                                        pixelclock_select <= "3e";
                                                         
                                                         chargen_x_pixels <= 2;
                                                         chargen_x_pixels_sub <= 216/2;
@@ -2578,9 +2578,9 @@ begin
                                                         hsync_polarity <= '0';
                                                         vsync_polarity <= '0';
 
-                                                        -- Set 40MHz pixel clock for NTSC
-                                                        pixelclock_select_internal(1 downto 0) <= "10";
-                                                        pixelclock_select(1 downto 0) <= "10";
+                                        -- Set 40MHz pixel clock for NTSC
+                                                        pixelclock_select_internal(1 downto 0) <= "3e";
+                                                        pixelclock_select(1 downto 0) <= "3e";
                                                         
                                                         chargen_x_pixels <= 2;
                                                         chargen_x_pixels_sub <= 216/2;
@@ -2922,65 +2922,67 @@ begin
         chargen_active <= '0';
         chargen_active_soon <= '0';
 --        if ycounter /= to_integer(frame_height) and external_frame_y_zero='0' then
-        if external_frame_y_zero='0' then
-          ycounter <= ycounter + 1;
-          if vicii_ycounter_phase = vicii_ycounter_max_phase then
-            if to_integer(vicii_ycounter) /= vicii_max_raster then
-              if ycounter >= vsync_delay_drive then
-                vicii_ycounter <= vicii_ycounter + 1;
+        if xcounter /= 0 then
+          if external_frame_y_zero='0' then
+            ycounter <= ycounter + 1;
+            if vicii_ycounter_phase = vicii_ycounter_max_phase then
+              if to_integer(vicii_ycounter) /= vicii_max_raster then
+                if ycounter >= vsync_delay_drive then
+                  vicii_ycounter <= vicii_ycounter + 1;
+                  vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;
+                end if;
+              end if;
+              vicii_ycounter_phase <= (others => '0');
+              -- All visible rasters are now equal height
+              -- (we take up the slack using vertical_flyback fast raster stepping,
+              -- and allow arbitrary setting of first raster of the VGA frame).
+              vicii_ycounter_max_phase <= vicii_ycounter_scale;
+            else
+              -- In the middle of a VIC-II logical raster, so just increase phase.
+              vicii_ycounter_phase <= vicii_ycounter_phase + 1;
+              if to_integer(vicii_ycounter_phase) =  to_integer(vicii_ycounter_max_phase(3 downto 1)) then
                 vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;
               end if;
             end if;
-            vicii_ycounter_phase <= (others => '0');
-            -- All visible rasters are now equal height
-            -- (we take up the slack using vertical_flyback fast raster stepping,
-            -- and allow arbitrary setting of first raster of the VGA frame).
-            vicii_ycounter_max_phase <= vicii_ycounter_scale;
-          else
-            -- In the middle of a VIC-II logical raster, so just increase phase.
-            vicii_ycounter_phase <= vicii_ycounter_phase + 1;
-            if to_integer(vicii_ycounter_phase) =  to_integer(vicii_ycounter_max_phase(3 downto 1)) then
-              vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;
+
+            -- Make VIC-II triggered raster interrupts edge triggered, since one
+            -- emulated VIC-II raster is ~63*48 = ~3,000 cycles, and many C64
+            -- raster routines may finish in that time, and might get confused if
+            -- a raster interrupt gets retriggered too soon.
+            if (vicii_is_raster_source='1') and (vicii_ycounter = vicii_raster_compare(8 downto 0)) and last_vicii_ycounter /= vicii_ycounter then
+              irq_raster <= '1';
             end if;
+            last_vicii_ycounter <= vicii_ycounter;
+            -- However, if a raster interrupt is being triggered from a VIC-IV
+            -- physical raster, then there is no need to make raster IRQs edge triggered
+            if (vicii_is_raster_source='0') and (ycounter = vicii_raster_compare) then
+              irq_raster <= '1';
+            end if;
+          else
+            -- Start of next frame
+            ycounter <= (others =>'0');
+            report "LEGACY: chargen_y_sub = 0, first_card_of_row = 0 due to start of frame";
+            chargen_y_sub <= (others => '0');
+            next_card_number <= (others => '0');
+            first_card_of_row <= (others => '0');
+
+            displayy <= (others => '0');
+            vertical_flyback <= '0';
+            displayline0 <= '1';
+            indisplay := '0';
+            report "clearing indisplay because xcounter=0" severity note;
+            screen_row_address <= screen_ram_base(16 downto 0);
+
+            -- Reset VIC-II raster counter to first raster for top of frame
+            -- (the preceeding rasters occur during vertical flyback, in case they
+            -- have interrupts triggered on them).
+            vicii_ycounter_phase <= to_unsigned(1,4);
+            vicii_ycounter <= vicii_first_raster;
+            vicii_ycounter_v400 <= (others =>'0');
+            vicii_ycounter_phase_v400 <= to_unsigned(1,4);
+
           end if;
-
-          -- Make VIC-II triggered raster interrupts edge triggered, since one
-          -- emulated VIC-II raster is ~63*48 = ~3,000 cycles, and many C64
-          -- raster routines may finish in that time, and might get confused if
-          -- a raster interrupt gets retriggered too soon.
-          if (vicii_is_raster_source='1') and (vicii_ycounter = vicii_raster_compare(8 downto 0)) and last_vicii_ycounter /= vicii_ycounter then
-            irq_raster <= '1';
-          end if;
-          last_vicii_ycounter <= vicii_ycounter;
-          -- However, if a raster interrupt is being triggered from a VIC-IV
-          -- physical raster, then there is no need to make raster IRQs edge triggered
-          if (vicii_is_raster_source='0') and (ycounter = vicii_raster_compare) then
-            irq_raster <= '1';
-          end if;
-        else
-          -- Start of next frame
-          ycounter <= (others =>'0');
-          report "LEGACY: chargen_y_sub = 0, first_card_of_row = 0 due to start of frame";
-          chargen_y_sub <= (others => '0');
-          next_card_number <= (others => '0');
-          first_card_of_row <= (others => '0');
-
-          displayy <= (others => '0');
-          vertical_flyback <= '0';
-          displayline0 <= '1';
-          indisplay := '0';
-          report "clearing indisplay because xcounter=0" severity note;
-          screen_row_address <= screen_ram_base(16 downto 0);
-
-          -- Reset VIC-II raster counter to first raster for top of frame
-          -- (the preceeding rasters occur during vertical flyback, in case they
-          -- have interrupts triggered on them).
-          vicii_ycounter_phase <= to_unsigned(1,4);
-          vicii_ycounter <= vicii_first_raster;
-          vicii_ycounter_v400 <= (others =>'0');
-          vicii_ycounter_phase_v400 <= to_unsigned(1,4);
-
-        end if;	
+        end if;
       end if;
       
       if xcounter<frame_h_front then
@@ -3992,7 +3994,7 @@ begin
               end if;
             end if;
           end if;
-      
+          
           -- Ask for first byte of data so that paint can commence immediately.
           report "setting ramaddress to $" & to_hstring("000"&glyph_data_address) & " for glyph painting." severity note;
           ramaddress <= glyph_data_address;
@@ -4106,10 +4108,10 @@ begin
                 <= screen_ram_buffer_dout(3 downto 0);
               raster_buffer_write_address(7 downto 0)
                 <= glyph_number(7 downto 0);
-              -- ... and don't paint anything, because it is just
-              -- a tab stop.
+            -- ... and don't paint anything, because it is just
+            -- a tab stop.
             elsif glyph_full_colour='1' then
-            -- Now work out exactly how we are painting
+              -- Now work out exactly how we are painting
               -- Paint full-colour glyph
               report "LEGACY: Dispatching to PaintFullColour due to glyph_full_colour = 1";
               -- We set background colour to screen colour in full-colour mode
