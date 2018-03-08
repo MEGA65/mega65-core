@@ -2901,6 +2901,7 @@ begin
       else
         -- End of raster reached.
         -- Bump raster number and start next raster.
+        report "XZERO: ycounter=" & integer'image(to_integer(ycounter));
         xcounter <= (others => '0');
         sprite_x_counting <= '0';
         vicii_ycounter_scale <= vicii_ycounter_scale_minus_zero;
@@ -2924,7 +2925,15 @@ begin
 --        if ycounter /= to_integer(frame_height) and external_frame_y_zero='0' then
         if xcounter > 255 then
           if external_frame_y_zero='0' then
+            report "XZERO: incrementing ycounter from " & integer'image(to_integer(ycounter));
             ycounter <= ycounter + 1;
+
+            displaycolumn0 <= '1';
+            displayy <= displayy + 1;
+            if displayy(4)='1' then
+              displayline0 <= '0';            
+            end if;
+            
             if vicii_ycounter_phase = vicii_ycounter_max_phase then
               if to_integer(vicii_ycounter) /= vicii_max_raster then
                 if ycounter >= vsync_delay_drive then
@@ -3202,12 +3211,6 @@ begin
           & ", chargen_active = " & std_logic'image(chargen_active)
           ;
         
-        displaycolumn0 <= '1';
-        displayy <= displayy + 1;
-        if displayy(4)='1' then
-          displayline0 <= '0';            
-        end if;
-
         -- Next line of display.  Reset card number and start address of
         -- screen ram for the row of characters currently being displayed.
         -- (this gets overriden below if crossing from one character row to
