@@ -2922,7 +2922,7 @@ begin
         chargen_active <= '0';
         chargen_active_soon <= '0';
 --        if ycounter /= to_integer(frame_height) and external_frame_y_zero='0' then
-        if xcounter /= 0 then
+        if xcounter > 255 then
           if external_frame_y_zero='0' then
             ycounter <= ycounter + 1;
             if vicii_ycounter_phase = vicii_ycounter_max_phase then
