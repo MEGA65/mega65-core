@@ -2579,8 +2579,8 @@ begin
                                                         vsync_polarity <= '0';
 
                                         -- Set 40MHz pixel clock for NTSC
-                                                        pixelclock_select_internal(1 downto 0) <= x"3e";
-                                                        pixelclock_select(1 downto 0) <= x"3e";
+                                                        pixelclock_select_internal <= x"3e";
+                                                        pixelclock_select <= x"3e";
                                                         
                                                         chargen_x_pixels <= 2;
                                                         chargen_x_pixels_sub <= 216/2;
