@@ -27,6 +27,7 @@ entity frame_generator is
     frame_width : integer := 960;
     display_width : integer := 800;
     frame_height : integer := 625;
+    lcd_height : integer := 480;
     display_height : integer := 600;
     vsync_start : integer := 601;
     vsync_end : integer := 606;
@@ -38,6 +39,9 @@ entity frame_generator is
     hsync : out std_logic := '0';
     vsync : out std_logic := '0';
     inframe : out std_logic := '0';
+    
+    lcd_vsync : out std_logic := '0';
+    lcd_inframe : out std_logic := '0';
 
     red_o : out unsigned(7 downto 0) := x"00";
     green_o : out unsigned(7 downto 0) := x"00";
@@ -52,6 +56,8 @@ architecture brutalist of frame_generator is
   signal x : integer := 0;
   signal y : integer := 0;
   signal inframe_internal : std_logic := '0';
+
+  signal lcd_inletterbox : std_logic := '0';
   
 begin
 
@@ -75,6 +81,23 @@ begin
       end if;
       if x = hsync_end then
         hsync <= '0';
+      end if;
+      if y = ( frame_height - lcd_height ) / 2 then
+        lcd_inletterbox <= '1';
+      end if;
+      if y = frame_height - (frame_height - lcd_height ) / 2 then
+        lcd_inletterbox <= '0';
+      end if;
+      if x = 0 and lcd_inletterbox = '1' then
+        lcd_inframe <= '1';
+        lcd_vsync <= '0';
+      end if;
+      if x = 0 and lcd_inletterbox = '0' then
+        lcd_inframe <= '0';
+        lcd_vsync <= '1';
+      end if;
+      if x = 0 and y < display_height then
+        inframe <= '1';
       end if;
       if y = vsync_start then
         vsync <= '1';
@@ -108,6 +131,7 @@ begin
       end if;
       -- Black outside of frame
       if x = display_width then
+        lcd_inframe <= '0';
         inframe <= '0';
         inframe_internal <= '0';
         red_o <= x"00";

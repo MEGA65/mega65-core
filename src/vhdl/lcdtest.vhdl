@@ -120,10 +120,14 @@ architecture Behavioral of container is
   signal hsync_pal50 : std_logic;
   signal vsync_pal50 : std_logic;
   signal inframe_pal50 : std_logic;
+  signal lcd_vsync_pal50 : std_logic;
+  signal lcd_inframe_pal50 : std_logic;
 
   signal hsync_ntsc60 : std_logic;
   signal vsync_ntsc60 : std_logic;
   signal inframe_ntsc60 : std_logic;  
+  signal lcd_vsync_ntsc60 : std_logic;
+  signal lcd_inframe_ntsc60 : std_logic;  
   
   signal red_i : unsigned(7 downto 0);
   signal green_i : unsigned(7 downto 0);
@@ -167,6 +171,8 @@ begin
                hsync => hsync_pal50,
                vsync => vsync_pal50,
                inframe => inframe_pal50,
+               lcd_vsync => lcd_vsync_pal50,
+               lcd_inframe => lcd_inframe_pal50,
 
                -- Get test pattern
                red_o => red_p,
@@ -188,6 +194,8 @@ begin
                hsync => hsync_ntsc60,
                vsync => vsync_ntsc60,
                inframe => inframe_ntsc60,
+               lcd_vsync => lcd_vsync_ntsc60,
+               lcd_inframe => lcd_inframe_ntsc60,
 
                -- Get test pattern
                red_o => red_n,
@@ -255,7 +263,9 @@ begin
     if sw(15)='1' then
       hsync_i <= hsync_pal50;
       vsync_i <= not vsync_pal50;
-      lcd_de_i <= inframe_pal50;
+      lcd_hsync_i <= hsync_pal50;
+      lcd_vsync_i <= not lcd_vsync_pal50;
+      lcd_de_i <= lcd_inframe_pal50;
       lcd_clk_i <= clock30;
       red_i <= red_p;
       green_i <= green_p;
@@ -263,7 +273,9 @@ begin
     else
       hsync_i <= hsync_ntsc60;
       vsync_i <= vsync_ntsc60;
-      lcd_de_i <= inframe_ntsc60;
+      lcd_hsync_i <= hsync_ntsc60;
+      lcd_vsync_i <= lcd_vsync_ntsc60;
+      lcd_de_i <= lcd_inframe_ntsc60;
       lcd_clk_i <= clock40;
       red_i <= red_n;
       green_i <= green_n;
