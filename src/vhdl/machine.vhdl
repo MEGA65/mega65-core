@@ -409,10 +409,41 @@ architecture Behavioral of machine is
   signal vsync_drive1 : std_logic := '0';
   signal lcd_pixel_strobe1 : std_logic := '0';
   signal lcd_display_enable1 : std_logic := '0';
+
+  signal hsync_pal50 : std_logic;
+  signal vsync_pal50 : std_logic;
+  signal inframe_pal50 : std_logic;
+  signal lcd_vsync_pal50 : std_logic;
+  signal lcd_inframe_pal50 : std_logic;
+  signal x_zero_pal50 : std_logic := '0';
+  signal y_zero_pal50 : std_logic := '0';
+
+  signal hsync_ntsc60 : std_logic;
+  signal vsync_ntsc60 : std_logic;
+  signal inframe_ntsc60 : std_logic;  
+  signal lcd_vsync_ntsc60 : std_logic;
+  signal lcd_inframe_ntsc60 : std_logic;  
+  signal x_zero_ntsc60 : std_logic := '0';
+  signal y_zero_ntsc60 : std_logic := '0';
+
+  signal external_frame_x_zero : std_logic := '0';
+  signal external_frame_y_zero : std_logic := '0';
+  
+  signal red_n : unsigned(7 downto 0);
+  signal green_n : unsigned(7 downto 0);
+  signal blue_n : unsigned(7 downto 0);
+
+  signal red_p : unsigned(7 downto 0);
+  signal green_p : unsigned(7 downto 0);
+  signal blue_p : unsigned(7 downto 0);
+
   
   signal vgablue_viciv : unsigned(7 downto 0);
   signal vgared_viciv : unsigned(7 downto 0);
   signal vgagreen_viciv : unsigned(7 downto 0);
+  signal vgablue_source : unsigned(7 downto 0);
+  signal vgared_source : unsigned(7 downto 0);
+  signal vgagreen_source : unsigned(7 downto 0);
   signal vgablue_sig : unsigned(7 downto 0);
   signal vgared_sig : unsigned(7 downto 0);
   signal vgagreen_sig : unsigned(7 downto 0);
@@ -777,6 +808,56 @@ begin
 
       );
 
+  frame50: entity work.frame_generator
+    generic map ( frame_width => 960,
+                  display_width => 800,
+                  frame_height => 625,
+                  display_height => 600,
+                  vsync_start => 620,
+                  vsync_end => 625,
+                  hsync_start => 814,
+                  hsync_end => 884
+                  )                  
+    port map ( clock => clock30,
+               hsync => hsync_pal50,
+               vsync => vsync_pal50,
+               x_zero => x_zero_pal50,
+               y_zero => y_zero_pal50,
+               inframe => inframe_pal50,
+               lcd_vsync => lcd_vsync_pal50,
+               lcd_inframe => lcd_inframe_pal50,
+
+               -- Get test pattern
+               red_o => red_p,
+               green_o => green_p,
+               blue_o => blue_p
+               );
+
+  frame60: entity work.frame_generator
+    generic map ( frame_width => 1056,
+                  display_width => 800,
+                  frame_height => 628,
+                  display_height => 600,
+                  vsync_start => 624,
+                  vsync_end => 628,
+                  hsync_start => 840,
+                  hsync_end => 968
+                  )                  
+    port map ( clock => clock40,
+               hsync => hsync_ntsc60,
+               vsync => vsync_ntsc60,
+               x_zero => x_zero_ntsc60,
+               y_zero => y_zero_ntsc60,
+               inframe => inframe_ntsc60,
+               lcd_vsync => lcd_vsync_ntsc60,
+               lcd_inframe => lcd_inframe_ntsc60,
+
+               -- Get test pattern
+               red_o => red_n,
+               green_o => green_n,
+               blue_o => blue_n
+               );               
+  
   pixel0: entity work.pixel_driver
     port map (
       pixelclock_select => pixelclock_select,
@@ -788,9 +869,9 @@ begin
       clock33 => clock33,
       clock30 => clock30,
 
-      red_i => vgared_viciv,
-      green_i => vgagreen_viciv,
-      blue_i => vgablue_viciv,
+      red_i => vgared_source,
+      green_i => vgagreen_source,
+      blue_i => vgablue_source,
 
       red_o => vgared_sig,
       green_o => vgagreen_sig,
@@ -822,6 +903,9 @@ begin
     port map (
 
       all_pause => all_pause,
+
+      external_frame_x_zero => external_frame_x_zero,
+      external_frame_y_zero => external_frame_y_zero,
       
       xcounter_out => xcounter,
       ycounter_out => ycounter,
@@ -843,10 +927,10 @@ begin
       dat_offset => dat_offset,
       dat_bitplane_addresses => dat_bitplane_addresses,
       
-      vsync           => vsync_drive1,
-      hsync           => hsync_drive1,
-      lcd_vsync => lcd_vsync1,
-      lcd_hsync => lcd_hsync1,
+--      vsync           => vsync_drive1,
+--      hsync           => hsync_drive1,
+--      lcd_vsync => lcd_vsync1,
+--      lcd_hsync => lcd_hsync1,
       lcd_display_enable => lcd_display_enable1,
       lcd_pixel_strobe => lcd_pixel_strobe1,
       vgared          => vgared_viciv,
@@ -1317,6 +1401,48 @@ begin
         vgagreen <= vgagreen_out;
         vgablue <= vgablue_out;
       end if;
+    end if;
+  end process;
+
+  process (pixelclock_select,cpuclock) is
+  begin
+    if pixelclock_select(6)='1' then
+      -- Show test pattern instead of VIC-IV output
+      if pixelclock_select(7) = '1' then
+        vgared_source <= red_n;
+        vgagreen_source <= green_n;
+        vgablue_source <= blue_n;
+      else
+        vgared_source <= red_p;
+        vgagreen_source <= green_p;
+        vgablue_source <= blue_p;
+      end if;
+    else
+      -- Show VIC-IV output
+      vgared_source <= vgared_viciv;
+      vgagreen_source <= vgagreen_viciv;
+      vgablue_source <= vgablue_viciv;
+    end if;
+    if pixelclock_select(7)='1' then
+      -- PAL 50 Hz frame
+      hsync_drive1 <= hsync_pal50;
+      vsync_drive1 <= not vsync_pal50;
+      lcd_hsync1 <= hsync_pal50;
+      lcd_vsync1 <= not lcd_vsync_pal50;
+      lcd_display_enable1 <= lcd_inframe_pal50;
+      lcd_pixel_strobe1 <= clock30;
+      external_frame_x_zero <= x_zero_pal50;
+      external_frame_y_zero <= y_zero_pal50;
+    else
+      -- NTSC 60 Hz frame
+      hsync_drive1 <= hsync_ntsc60;
+      vsync_drive1 <= vsync_ntsc60;
+      lcd_hsync1 <= hsync_ntsc60;
+      lcd_vsync1 <= lcd_vsync_ntsc60;
+      lcd_display_enable1 <= lcd_inframe_ntsc60;
+      lcd_pixel_strobe1 <= clock40;
+      external_frame_x_zero <= x_zero_ntsc60;
+      external_frame_y_zero <= y_zero_ntsc60;
     end if;
   end process;
   

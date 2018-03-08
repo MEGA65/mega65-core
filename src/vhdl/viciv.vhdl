@@ -90,6 +90,12 @@ entity viciv is
 
     dat_offset : out unsigned(15 downto 0);
     dat_bitplane_addresses : out sprite_vector_eight;
+
+    -- Used to synchronise our frame with an external frame generator
+    -- (Used to provide stable frame generation for LCD displays, as well
+    -- as to support a genlock input).
+    external_frame_x_zero : in std_logic := '0';
+    external_frame_y_zero : in std_logic := '0';
     
     ----------------------------------------------------------------------
     -- VGA output
@@ -2842,7 +2848,7 @@ begin
       indisplay :='1';
 --      report "VICII: SPRITE: xcounter(320) = " & integer'image(to_integer(vicii_xcounter_320))
 --        & " (sub) = " & integer'image(vicii_xcounter_sub320);
-      if xcounter /= to_integer(frame_width) then
+      if xcounter /= to_integer(frame_width) and external_frame_x_zero='0' then
         xcounter <= xcounter + 1;
         if xcounter = sprite_first_x then
           sprite_x_counting <= '1';
@@ -2896,7 +2902,7 @@ begin
         raster_buffer_read_address <= (others => '0');
         chargen_active <= '0';
         chargen_active_soon <= '0';
-        if ycounter /= to_integer(frame_height) then
+        if ycounter /= to_integer(frame_height) and external_frame_y_zero='0' then
           ycounter <= ycounter + 1;
           if vicii_ycounter_phase = vicii_ycounter_max_phase then
             if to_integer(vicii_ycounter) /= vicii_max_raster then

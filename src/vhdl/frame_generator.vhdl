@@ -39,10 +39,13 @@ entity frame_generator is
     hsync : out std_logic := '0';
     vsync : out std_logic := '0';
     inframe : out std_logic := '0';
-    
+
     lcd_vsync : out std_logic := '0';
     lcd_inframe : out std_logic := '0';
 
+    x_zero : out std_logic := '0';
+    y_zero : out std_logic := '0';
+    
     red_o : out unsigned(7 downto 0) := x"00";
     green_o : out unsigned(7 downto 0) := x"00";
     blue_o : out unsigned(7 downto 0) := x"00"
@@ -67,12 +70,16 @@ begin
     if rising_edge(clock) then
       if x < frame_width then
         x <= x + 1;
+        x_zero <= '0';
       else
         x <= 0;
+        x_zero <= '1';
         if y < frame_height then
           y <= y + 1;
+          y_zero <= '0';
         else
           y <= 0;
+          y_zero <= '1';
         end if;
       end if;
 
