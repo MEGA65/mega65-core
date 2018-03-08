@@ -134,6 +134,7 @@ entity gs4510 is
       monitor_mem_setpc : in std_logic;
       monitor_mem_attention_request : in std_logic;
       monitor_mem_attention_granted : out std_logic := '0';
+      monitor_irq_inhibit : in std_logic;
       monitor_mem_trace_mode : in std_logic;
       monitor_mem_stage_trace_mode : in std_logic;
       monitor_mem_trace_toggle : in std_logic;
@@ -173,6 +174,7 @@ entity gs4510 is
     fastio_write : out std_logic := '0';
     fastio_wdata : out std_logic_vector(7 downto 0);
     fastio_rdata : in std_logic_vector(7 downto 0);
+    kickstart_rdata : in std_logic_vector(7 downto 0);
     sector_buffer_mapped : in std_logic;
     fastio_vic_rdata : in std_logic_vector(7 downto 0);
     fastio_colour_ram_rdata : in std_logic_vector(7 downto 0);
@@ -309,6 +311,8 @@ architecture Behavioural of gs4510 is
   signal accessing_colour_ram_fastio : std_logic;
 --  signal accessing_ram : std_logic;
   signal accessing_slowram : std_logic;
+  signal accessing_shadow : std_logic;
+  signal accessing_kickstart_fastio : std_logic;
   signal accessing_cpuport : std_logic;
   signal accessing_hypervisor : std_logic;
   signal cpuport_num : unsigned(3 downto 0);
@@ -338,6 +342,7 @@ architecture Behavioural of gs4510 is
     Shadow,
     ROMRAM,
     FastIO,
+    Kickstart,
     ColourRAM,
     VICIV,
     SlowRAM,
@@ -751,6 +756,13 @@ begin
             wait_states_non_zero <= '0';
           end if;
         end if;
+        -- @IO:GS $FFF8000-$FFFBFFF 16KB Kickstart/Hypervisor ROM
+        if long_address(19 downto 14)&"00" = x"F8" then
+          accessing_fastio <= '0';
+          fastio_read <= '0';
+          accessing_kickstart_fastio <= '1';
+          read_source <= Kickstart;
+        end if;  
         if long_address(19 downto 16) = x"D" then
           if long_address(15 downto 14) = "00" then    --   $D{0,1,2,3}XXX
             if long_address(11 downto 10) = "00" then  --   $D{0,1,2,3}{0,1,2,3}XX
@@ -789,6 +801,7 @@ begin
         report "Preparing to read from SlowRAM";
         read_source <= SlowRAM;
         accessing_slowram <= '1';
+        accessing_shadow <= '0';
         slow_access_data_ready <= '0';
         slow_access_address_drive <= long_address(27 downto 0);
         slow_access_write_drive <= '0';
@@ -842,6 +855,9 @@ begin
             when x"1" => return cpuport_value;
             when others => return x"ff";
           end case;
+        when Shadow =>
+          report "reading from shadow RAM" severity note;
+--          return shadow_rdata;
         when ColourRAM =>
           report "reading colour RAM fastio byte $" & to_hstring(fastio_vic_rdata) severity note;
           return unsigned(fastio_colour_ram_rdata);
@@ -851,6 +867,9 @@ begin
         when FastIO =>
           report "reading normal fastio byte $" & to_hstring(fastio_rdata) severity note;
           return unsigned(fastio_rdata);
+        when KickStart =>
+          report "reading kickstart fastio byte $" & to_hstring(kickstart_rdata) severity note;
+          return unsigned(kickstart_rdata);
         when SlowRAM =>
           report "reading slow RAM data. Word is $" & to_hstring(slow_access_rdata) severity note;
           return unsigned(slow_access_rdata);
@@ -869,6 +888,7 @@ begin
 
       accessing_fastio <= '0'; accessing_vic_fastio <= '0';
       accessing_cpuport <= '0'; accessing_colour_ram_fastio <= '0';
+      accessing_shadow <= '0'; accessing_kickstart_fastio <= '0';
       accessing_slowram <= '0';
       slow_access_write_drive <= '0';
       charrom_write_cs <= '0';
