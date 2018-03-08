@@ -2468,8 +2468,8 @@ begin
                                                         hsync_end <= to_unsigned(3100,14);
                                                         vicii_max_raster <= pal_max_raster;
                                         -- Set 30MHz pixel clock for PAL
-                                                        pixelclock_select_internal <= "bc";
-                                                        pixelclock_select <= "bc";
+                                                        pixelclock_select_internal <= x"bc";
+                                                        pixelclock_select <= x"bc";
                                         -- VSYNC is negative for 50Hz (required for some monitors)
                                                         hsync_polarity <= '0';
                                                         vsync_polarity <= '1';
@@ -2497,8 +2497,8 @@ begin
                                                         hsync_end <= to_unsigned(3100,14);
                                                         vicii_max_raster <= ntsc_max_raster;
                                         -- Set 30MHz pixel clock for PAL
-                                                        pixelclock_select_internal <= "bc";
-                                                        pixelclock_select <= "bc";
+                                                        pixelclock_select_internal <= x"bc";
+                                                        pixelclock_select <= x"bc";
                                                         hsync_polarity <= '0';
                                                         vsync_polarity <= '1';
 
@@ -2525,8 +2525,8 @@ begin
                                                         hsync_polarity <= '0';
                                                         vsync_polarity <= '0';
                                         -- Set 40MHz pixel clock for NTSC
-                                                        pixelclock_select_internal <= "3e";
-                                                        pixelclock_select <= "3e";
+                                                        pixelclock_select_internal <= x"3e";
+                                                        pixelclock_select <= x"3e";
 
                                                         chargen_x_pixels <= 2;
                                                         chargen_x_pixels_sub <= 216/2;
@@ -2553,8 +2553,8 @@ begin
                                                         vsync_polarity <= '0';
 
                                         -- Set 40MHz pixel clock for NTSC
-                                                        pixelclock_select_internal <= "3e";
-                                                        pixelclock_select <= "3e";
+                                                        pixelclock_select_internal <= x"3e";
+                                                        pixelclock_select <= x"3e";
                                                         
                                                         chargen_x_pixels <= 2;
                                                         chargen_x_pixels_sub <= 216/2;
@@ -2579,8 +2579,8 @@ begin
                                                         vsync_polarity <= '0';
 
                                         -- Set 40MHz pixel clock for NTSC
-                                                        pixelclock_select_internal(1 downto 0) <= "3e";
-                                                        pixelclock_select(1 downto 0) <= "3e";
+                                                        pixelclock_select_internal(1 downto 0) <= x"3e";
+                                                        pixelclock_select(1 downto 0) <= x"3e";
                                                         
                                                         chargen_x_pixels <= 2;
                                                         chargen_x_pixels_sub <= 216/2;
