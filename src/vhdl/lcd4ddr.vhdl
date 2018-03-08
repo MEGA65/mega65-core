@@ -47,11 +47,11 @@ entity container is
          ----------------------------------------------------------------------
          -- VGA output
          ----------------------------------------------------------------------
-         vsync : out STD_LOGIC;
+         vsync : out  STD_LOGIC;
          hsync : out  STD_LOGIC;
-         vgared : buffer  UNSIGNED (3 downto 0);
-         vgagreen : buffer  UNSIGNED (3 downto 0);
-         vgablue : buffer  UNSIGNED (3 downto 0);
+         vgared   : out  UNSIGNED (3 downto 0);
+         vgagreen : out  UNSIGNED (3 downto 0);
+         vgablue  : out  UNSIGNED (3 downto 0);
 
          ---------------------------------------------------------------------------
          -- IO lines to the ethernet controller
@@ -103,22 +103,45 @@ entity container is
          ps2clk : in std_logic;
          ps2data : in std_logic;
 
-         ----------------------------------------------------------------------
-         -- PMOD B for input PCB
-         ----------------------------------------------------------------------
-         jblo : inout std_logic_vector(4 downto 1) := (others => 'Z');
-         jbhi : inout std_logic_vector(10 downto 7) := (others => 'Z');
-         
-         ----------------------------------------------------------------------
-         -- PMOD A for general IO while debugging and testing
-         ----------------------------------------------------------------------
-         jalo : inout std_logic_vector(4 downto 1) := (others => 'Z');
-         jahi : inout std_logic_vector(10 downto 7) := (others => 'Z');
-         jdlo : inout std_logic_vector(4 downto 1) := (others => 'Z');
-         jdhi : inout std_logic_vector(10 downto 7) := (others => 'Z');
-         jclo : inout std_logic_vector(4 downto 1) := (others => 'Z');
-         jchi : inout std_logic_vector(10 downto 7) := (others => 'Z');
-         
+    ----------------------------------------------------------------------
+    -- PMODs for general IO while debugging and testing
+    ----------------------------------------------------------------------
+    pmodja01 : out std_logic; -- PMOD-A was previously the WIDGET board,
+    pmodja02 : out std_logic; --            and some LCD interface.
+    pmodja03 : out std_logic; -- now currently unused.
+    pmodja04 : out std_logic;
+    pmodja07 : out std_logic;
+    pmodja08 : out std_logic;
+    pmodja09 : out std_logic;
+    pmodja10 : out std_logic;
+
+    pmodjb01 : out std_logic; -- PMOD-B was previously for LCD interface,
+    pmodjb02 : out std_logic; -- now currently unconnected.
+    pmodjb03 : out std_logic; -- ""
+    pmodjb04 : out std_logic; -- ""
+    pmodjb07 : out std_logic; -- ""
+    pmodjb08 : out std_logic; -- ""
+    pmodjb09 : out std_logic; -- ""
+    pmodjb10 : out std_logic; -- ""
+
+    pmodjc01 : inout std_logic; -- uart for historic purposes
+    pmodjc02 : out std_logic;   -- uart for historic purposes
+    pmodjc03 : inout std_logic; -- uart 0
+    pmodjc04 : out std_logic;   -- uart 0
+    pmodjc07 : out std_logic;
+    pmodjc08 : in  std_logic;   -- uart 2
+    pmodjc09 : inout std_logic; -- uart 2
+    pmodjc10 : out std_logic;   -- uart 0 RI
+
+    pmodjd01 : out std_logic;
+    pmodjd02 : out std_logic;
+    pmodjd03 : out std_logic;
+    pmodjd04 : out std_logic;
+    pmodjd07 : out std_logic;
+    pmodjd08 : out std_logic;
+    pmodjd09 : out std_logic;
+    pmodjd10 : out std_logic;
+
          ----------------------------------------------------------------------
          -- Flash RAM for holding config
          ----------------------------------------------------------------------
@@ -186,6 +209,16 @@ architecture Behavioral of container is
   signal cpu_game : std_logic := '1';
   signal cpu_exrom : std_logic := '1';
   
+  -- internal signals that drive the VGA output port
+  -- and can be sampled to create LCD signals.
+  signal vsync_int : std_logic;
+  signal hsync_int : std_logic;
+  signal vgared_int   : unsigned(3 downto 0);
+  signal vgagreen_int : unsigned(3 downto 0);
+  signal vgablue_int  : unsigned(3 downto 0);
+
+  -- internal signals of LSBs of 8-bit VGA,
+  -- not currently connected to anything.
   signal dummy_vgared : unsigned(3 downto 0);
   signal dummy_vgagreen : unsigned(3 downto 0);
   signal dummy_vgablue : unsigned(3 downto 0);
@@ -208,11 +241,13 @@ architecture Behavioral of container is
 
   signal sector_buffer_mapped : std_logic;
 
-  
+  -- unsure if needed, arnt they the same purpose as "dummy_vga*"
+  -- yes can be deleted, as they dont appear anywhere else.
   signal vgaredignore : unsigned(3 downto 0);
   signal vgagreenignore : unsigned(3 downto 0);
   signal vgablueignore : unsigned(3 downto 0);
 
+  -- currently unconnected
   signal porta_pins : std_logic_vector(7 downto 0) := (others => '1');
   signal portb_pins : std_logic_vector(7 downto 0) := (others => '1');
 
@@ -264,6 +299,7 @@ architecture Behavioral of container is
   signal sawtooth_counter : integer := 0;
   signal sawtooth_level : integer := 0;
 
+  -- internal signals to be mapped to PMOD-header
   signal lcd_pixel_strobe : std_logic;
   signal lcd_hsync : std_logic;
   signal lcd_vsync : std_logic;
@@ -396,19 +432,25 @@ begin
       
       no_kickstart => '0',
       
-      vsync           => vsync,
-      hsync           => hsync,
+      ----------------------------------------------------------------------
+      -- VGA/LCD outputs
+      ----------------------------------------------------------------------
+      vsync           => vsync_int,
+      hsync           => hsync_int,
       lcd_vsync => lcd_vsync,
       lcd_hsync => lcd_hsync,
       lcd_display_enable => lcd_display_enable,
       lcd_pixel_strobe => lcd_pixel_strobe,
-      vgared(7 downto 4)          => vgared,
+      vgared(7 downto 4)          => vgared_int,
       vgared(3 downto 0)          => dummy_vgared,
-      vgagreen(7 downto 4)        => vgagreen,
+      vgagreen(7 downto 4)        => vgagreen_int,
       vgagreen(3 downto 0)        => dummy_vgagreen,
-      vgablue(7 downto 4)         => vgablue,
+      vgablue(7 downto 4)         => vgablue_int,
       vgablue(3 downto 0)         => dummy_vgablue,
 
+      ----------------------------------------------------------------------
+      -- unsure
+      ----------------------------------------------------------------------
       porta_pins => porta_pins,
       portb_pins => portb_pins,
       keyleft => '0',
@@ -459,22 +501,27 @@ begin
       ps2data =>      ps2data,
       ps2clock =>     ps2clk,
 
-      pmod_clock => jblo(1),
-      pmod_start_of_sequence => jblo(2),
-      pmod_data_in(1 downto 0) => jblo(4 downto 3),
-      pmod_data_in(3 downto 2) => "00", -- jbhi(8 downto 7),
---      pmod_data_out => jbhi(10 downto 9),
---      pmoda(3 downto 0) => jalo(4 downto 1),
---      pmoda(7 downto 4) => jahi(10 downto 7),
+      -- the lcd4ddr target does NOT currently use this interface
+      -- and is likely to be removed in the near future
+      pmod_clock => '0',                --jblo(1),
+      pmod_start_of_sequence => '0',    --jblo(2),
+      pmod_data_in(1 downto 0) => "00", --jblo(4 downto 3),
+      pmod_data_in(3 downto 2) => "00", --jbhi(8 downto 7),
+      pmod_data_out => open,            --jbhi(10 downto 9),
+      pmoda(3 downto 0) => open,        --jalo(4 downto 1),
+      pmoda(7 downto 4) => open,        --jahi(10 downto 7),
 
-      uart_rx => jclo(1),
-      uart_tx => jclo(2),
+      -- this uart seems not currently used in the design,
+      -- and is likely to be removed in the near future
+      uart_rx => pmodjc01, --jclo(1),
+      uart_tx => pmodjc02, --jclo(2),
 
-      buffereduart_rx => jclo(3),
-      buffereduart_tx => jclo(4),
-      buffereduart2_rx => jchi(9),
-      buffereduart2_tx => jchi(10),
-      buffereduart_ringindicate => jchi(8),
+      -- these two uarts are under development
+      buffereduart_rx =>           pmodjc03,
+      buffereduart_tx =>           pmodjc04,
+      buffereduart2_rx =>          pmodjc09,
+      buffereduart2_tx =>          pmodjc10,
+      buffereduart_ringindicate => pmodjc08,
       
       slow_access_request_toggle => slow_access_request_toggle,
       slow_access_ready_toggle => slow_access_ready_toggle,
@@ -496,6 +543,8 @@ begin
       sw => sw,
       btn => btn,
 
+      -- this uart is embedded within the PROG/UART (micro-USB) port
+      -- of the nexyx4 board
       UART_TXD => UART_TXD,
       RsRx => RsRx,
       
@@ -503,20 +552,55 @@ begin
       sseg_an => sseg_an
       );
 
---  if lcd_panel_enable='1' then
-    jalo <= std_logic_vector(vgablue);
-    jahi <= std_logic_vector(vgared);
-    jblo <= std_logic_vector(vgagreen);
-    jbhi(7) <= lcd_pixel_strobe;
-    jbhi(8) <= lcd_hsync;
-    jbhi(9) <= lcd_vsync;
-    jbhi(10) <= lcd_display_enable;
---  else
---    -- XXX Not bidirectional! Widget board will most likely
---    -- not work with this.
---    pmoda_hi <= jahi(10 downto 7);
---    pmoda_lo <= jalo(4 downto 1);
---  end if;    
+
+    -- connect internal signals to external pins
+    vsync <= vsync_int;
+    hsync <= hsync_int;
+    vgared   <= vgared_int;
+    vgagreen <= vgagreen_int;
+    vgablue  <= vgablue_int;
+
+
+  -- currently the below LCD-interface is NOT working
+--    jalo <= std_logic_vector(vgablue);
+--    jahi <= std_logic_vector(vgared);
+--    jblo <= std_logic_vector(vgagreen);
+--    jbhi(7) <= lcd_pixel_strobe;
+--    jbhi(8) <= lcd_hsync;
+--    jbhi(9) <= lcd_vsync;
+--    jbhi(10) <= lcd_display_enable;
+
+
+  -- output something to unused pins
+  pmodja01 <= '0';
+  pmodja02 <= '0';
+  pmodja03 <= '0';
+  pmodja04 <= '0';
+  pmodja07 <= '0';
+  pmodja08 <= '0';
+  pmodja09 <= '0';
+  pmodja10 <= '0';
+  --
+  pmodjb01 <= '0';
+  pmodjb02 <= '0';
+  pmodjb03 <= '0';
+  pmodjb04 <= '0';
+  pmodjb07 <= '0';
+  pmodjb08 <= '0';
+  pmodjb09 <= '0';
+  pmodjb10 <= '0';
+  --
+  pmodjc07 <= '0';
+  --
+  pmodjd01 <= '0';
+  pmodjd02 <= '0';
+  pmodjd03 <= '0';
+  pmodjd04 <= '0';
+  pmodjd07 <= '0';
+  pmodjd08 <= '0';
+  pmodjd09 <= '0';
+  pmodjd10 <= '0';
+
   
   -- Hardware buttons for triggering IRQ & NMI
   irq <= not btn(0);
