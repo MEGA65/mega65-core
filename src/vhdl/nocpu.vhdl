@@ -40,6 +40,7 @@ entity gs4510 is
     cpufrequency : integer := 50 );
   port (
     Clock : in std_logic;
+    mathclock : in std_logic;
     phi0 : out std_logic := '1'; -- XXX CIAs won't tick
     ioclock : in std_logic;
     reset : in std_logic;
