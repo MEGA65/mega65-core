@@ -2867,7 +2867,7 @@ begin
 --      report "VICII: SPRITE: xcounter(320) = " & integer'image(to_integer(vicii_xcounter_320))
 --        & " (sub) = " & integer'image(vicii_xcounter_sub320);
 --      if xcounter /= to_integer(frame_width) and external_frame_x_zero='0' then
-      if external_frame_x_zero='0' then
+      if external_frame_x_zero='0' or xcounter = 0 then
         xcounter <= xcounter + 1;
         if xcounter = sprite_first_x then
           sprite_x_counting <= '1';
