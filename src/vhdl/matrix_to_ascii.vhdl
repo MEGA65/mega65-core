@@ -37,8 +37,8 @@ architecture behavioral of matrix_to_ascii is
   -- Automatic key repeat (just repeats ascii_key_valid strobe periodically)
   signal repeat_key : integer range 0 to 71 := 0;
   signal repeat_key_timer : integer range 0 to clock_frequency := 0;
-  constant repeat_start_timer : integer := 0.5*clock_frequency/(scan_frequency*72); -- 0.5 sec
-  constant repeat_again_timer : integer := 0.1*clock_frequency/(scan_frequency*72); -- 0.1 sec
+  constant repeat_start_timer : integer := clock_frequency/(scan_frequency*72)/2; -- 0.5 sec
+  constant repeat_again_timer : integer := clock_frequency/(scan_frequency*72)/10; -- 0.1 sec
 
   signal matrix : std_logic_vector(71 downto 0) := (others => '1');
   signal bucky_key_internal : std_logic_vector(6 downto 0) := (others => '0');
