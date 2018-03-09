@@ -354,7 +354,7 @@ architecture behavioral of matrix_to_ascii is
 
   -- Automatic key repeat (just repeats ascii_key_valid strobe periodically)
   signal repeat_key : integer range 0 to 71 := 0;
-  signal repeat_key_timer : integer := 0;
+  signal repeat_key_timer : integer range 0 to 50000000 := 0;
   constant repeat_start_timer : integer := 25000000/(scan_frequency*72); -- 0.5 sec
   constant repeat_again_timer : integer := 5000000/(scan_frequency*72); -- 0.1 sec
   
@@ -406,8 +406,7 @@ begin
         matrix <= matrix_in;
         keyscan_counter <= keyscan_delay;
         matrix_internal(key_num) <= matrix(key_num);
-        if to_UX01(matrix_internal(key_num)) = '1'
-          and to_UX01(matrix(key_num))='0' then
+        if (to_UX01(matrix_internal(key_num)) = '1') and (to_UX01(matrix(key_num))='0') then
           if key_matrix(key_num) /= x"00" then
             -- Key press event
             report "matrix = " & to_string(matrix);
@@ -421,7 +420,7 @@ begin
             -- that there is no glitching visible (at least at the speed the CPU
             -- routine is checking the matrix).  It only happens with the real
             -- keyboard. On a Nexys4 board with USB / PS2 keyboard, the
-            -- problem doesn't occur.
+            -- problem doesn't occur. CORRECTION: It DOES happen with PS2 on Nexys4
             -- As an interim, we refuse to retrigger an ASCII key event for the
             -- same key that was most recently triggered.
             -- If there is glitching, we could deal with it by ANDing the matrix
@@ -435,7 +434,7 @@ begin
             ascii_key_valid <= '0';
           end if;
         else
-          if repeat_key_timer > 0 then
+          if repeat_key_timer /= 0 then
             repeat_key_timer <= repeat_key_timer - 1;
             ascii_key_valid <= '0';
           else
@@ -447,6 +446,8 @@ begin
               -- e.g., to allow cursor direction changing without stopping the
               -- repeat.
               ascii_key <= key_matrix(repeat_key);
+              -- XXX Debug if extreme key repeat is due to this code path
+              ascii_key(7) <= '1';
             else
               ascii_key_valid <= '0';              
             end if;
