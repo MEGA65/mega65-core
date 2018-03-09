@@ -34,6 +34,11 @@ architecture behavioral of matrix_to_ascii is
   signal keyscan_counter : integer := 0;
   -- Multiple by 11, as there are 11 scan phases
   constant keyscan_delay : integer := clock_frequency/(72*scan_frequency);
+  -- Automatic key repeat (just repeats ascii_key_valid strobe periodically)
+  signal repeat_key : integer range 0 to 71 := 0;
+  signal repeat_key_timer : integer range 0 to clock_frequency := 0;
+  constant repeat_start_timer : integer := 0.5*clock_frequency/(scan_frequency*72); -- 0.5 sec
+  constant repeat_again_timer : integer := 0.1*clock_frequency/(scan_frequency*72); -- 0.1 sec
 
   signal matrix : std_logic_vector(71 downto 0) := (others => '1');
   signal bucky_key_internal : std_logic_vector(6 downto 0) := (others => '0');
@@ -352,12 +357,6 @@ architecture behavioral of matrix_to_ascii is
 
   signal key_num : integer range 0 to 71 := 0;
 
-  -- Automatic key repeat (just repeats ascii_key_valid strobe periodically)
-  signal repeat_key : integer range 0 to 71 := 0;
-  signal repeat_key_timer : integer range 0 to 50000000 := 0;
-  constant repeat_start_timer : integer := 25000000/(scan_frequency*72); -- 0.5 sec
-  constant repeat_again_timer : integer := 5000000/(scan_frequency*72); -- 0.1 sec
-  
 begin
   process(clk)
     variable key_matrix : key_matrix_t;
