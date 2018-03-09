@@ -437,6 +437,15 @@ architecture Behavioral of machine is
   signal green_p : unsigned(7 downto 0);
   signal blue_p : unsigned(7 downto 0);
 
+  signal vgablue_viciv4 : unsigned(7 downto 0);
+  signal vgared_viciv4 : unsigned(7 downto 0);
+  signal vgagreen_viciv4 : unsigned(7 downto 0);
+  signal vgablue_viciv3 : unsigned(7 downto 0);
+  signal vgared_viciv3 : unsigned(7 downto 0);
+  signal vgagreen_viciv3 : unsigned(7 downto 0);
+  signal vgablue_viciv2 : unsigned(7 downto 0);
+  signal vgared_viciv2 : unsigned(7 downto 0);
+  signal vgagreen_viciv2 : unsigned(7 downto 0);
   
   signal vgablue_viciv : unsigned(7 downto 0);
   signal vgared_viciv : unsigned(7 downto 0);
@@ -1401,6 +1410,22 @@ begin
         vgagreen <= vgagreen_out;
         vgablue <= vgablue_out;
       end if;
+
+      -- Create delayed versions of pixels
+      -- (we use these for lining up the 100MHz pixel clock edges
+      -- better to the 30 or 40MHz video mode pixel clocks)
+      vgared_viciv2 <= vgared_viciv;
+      vgagreen_viciv2 <= vgagreen_viciv;
+      vgablue_viciv2 <= vgablue_viciv;
+
+      vgared_viciv3 <= vgared_viciv2;
+      vgagreen_viciv3 <= vgagreen_viciv2;
+      vgablue_viciv3 <= vgablue_viciv2;
+
+      vgared_viciv4 <= vgared_viciv3;
+      vgagreen_viciv4 <= vgagreen_viciv3;
+      vgablue_viciv4 <= vgablue_viciv3;
+      
     end if;
   end process;
 
@@ -1418,10 +1443,25 @@ begin
         vgablue_source <= blue_p;
       end if;
     else
-      -- Show VIC-IV output
-      vgared_source <= vgared_viciv;
-      vgagreen_source <= vgagreen_viciv;
-      vgablue_source <= vgablue_viciv;
+      -- Show VIC-IV output (with optional pixel delay to get edges lining up nicely)
+      case pixelclock_select(5 downto 4) is
+        when "11" =>
+          vgared_source <= vgared_viciv4;
+          vgagreen_source <= vgagreen_viciv4;
+          vgablue_source <= vgablue_viciv4;
+        when "10" =>
+          vgared_source <= vgared_viciv3;
+          vgagreen_source <= vgagreen_viciv3;
+          vgablue_source <= vgablue_viciv3;
+        when "01" =>
+          vgared_source <= vgared_viciv2;
+          vgagreen_source <= vgagreen_viciv2;
+          vgablue_source <= vgablue_viciv2;
+        when others =>
+          vgared_source <= vgared_viciv;
+          vgagreen_source <= vgagreen_viciv;
+          vgablue_source <= vgablue_viciv;
+      end case;
     end if;
     if pixelclock_select(7)='1' then
       -- PAL 50 Hz frame
