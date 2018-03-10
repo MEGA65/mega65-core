@@ -151,6 +151,12 @@ architecture Behavioral of container is
   signal pwm_divisor_counter : integer := 0;
   -- 1KHz * 256 values of brightness
   constant pwm_divisor : integer := 100000000 / (1000 * 256);
+
+  signal x_zero50 : std_logic := '0';
+  signal last_x_zero50 : std_logic := '0';
+  signal x_counter : integer := 0;
+  signal x_counter_max : integer := 0;
+  signal pix100 : std_logic_vector(2 downto 0) := "000";
   
 begin
 
@@ -178,6 +184,7 @@ begin
                hsync => hsync_pal50,
                vsync => vsync_pal50,
                inframe => inframe_pal50,
+               x_zero => x_zero50,
                lcd_vsync => lcd_vsync_pal50,
                lcd_inframe => lcd_inframe_pal50,
 
@@ -250,20 +257,56 @@ begin
 
       );
 
-  vgared <= red_o(7 downto 4);
-  vgagreen <= green_o(7 downto 4);
-  vgablue <= blue_o(7 downto 4);
+  process (sw(14), pix100, red_o, green_o, blue_o) is
+  begin
+    if sw(14)='0' then
+      vgared <= red_o(7 downto 4);
+      vgagreen <= green_o(7 downto 4);
+      vgablue <= blue_o(7 downto 4);
+      jalo <= std_logic_vector(blue_o(7 downto 4));
+      jahi <= std_logic_vector(red_o(7 downto 4));
+      jblo <= std_logic_vector(green_o(7 downto 4));
+    else
+      for i in 0 to 3 loop
+        vgared(i) <= pix100(2);
+        vgagreen(i) <= pix100(2);
+        vgablue(i) <= pix100(2);
+        jalo <= pix100(2) &pix100(2) &pix100(2) &pix100(2);
+        jahi <= pix100(2) &pix100(2) &pix100(2) &pix100(2);
+        jblo <= pix100(2) &pix100(2) &pix100(2) &pix100(2);
+      end loop;
+    end if;
+  end process;
+  
   hsync <= hsync_o;
   vsync <= vsync_o;
   
-  jalo <= std_logic_vector(blue_o(7 downto 4));
-  jahi <= std_logic_vector(red_o(7 downto 4));
-  jblo <= std_logic_vector(green_o(7 downto 4));
   jbhi(7) <= lcd_clk_o;
   jbhi(8) <= lcd_hsync;
   jbhi(9) <= lcd_vsync;
   jbhi(10) <= lcd_de_o;
   jclo(1) <= lcd_pwm;
+
+  process (pixelclock)
+  begin
+    if rising_edge (pixelclock) then
+      last_x_zero50 <= x_zero50;
+      if x_zero50 = '1' and last_x_zero50 = '0' then
+        x_counter_max <= 1;
+        x_counter <= 0;
+      else
+        if x_counter = x_counter_max then
+          x_counter_max <= x_counter_max + 1;
+          x_counter <= 0;
+          pix100 <= "111";
+        else
+          x_counter <= x_counter + 1;
+          pix100(2 downto 1) <= pix100(1 downto 0);
+          pix100(0) <= '0';
+        end if;
+      end if;
+    end if;
+  end process;
   
   process (cpuclock)
   begin
