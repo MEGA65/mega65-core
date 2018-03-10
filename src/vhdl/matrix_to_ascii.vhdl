@@ -445,8 +445,6 @@ begin
               -- e.g., to allow cursor direction changing without stopping the
               -- repeat.
               ascii_key <= key_matrix(repeat_key);
-              -- XXX Debug if extreme key repeat is due to this code path
-              ascii_key(7) <= '1';
             else
               ascii_key_valid <= '0';              
             end if;
