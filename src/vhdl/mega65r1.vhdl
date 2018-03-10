@@ -187,6 +187,9 @@ architecture Behavioral of container is
   signal halfpixelclock : std_logic := '1';  
   signal pixelclock : std_logic;
   signal cpuclock : std_logic;
+  signal clock30 : std_logic;
+  signal clock33 : std_logic;
+  signal clock40 : std_logic;
   signal clock200 : std_logic;
   
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
@@ -261,6 +264,9 @@ begin
   dotclock1: entity work.dotclock100
     port map ( clk_in1 => CLK_IN,
                clock100 => pixelclock, -- 100MHz
+               clock30 => clock30,
+               clock33 => clock33,
+               clock40 => clock40,
                clock50 => cpuclock, -- 50MHz
                clock200 => clock200
                );
@@ -328,11 +334,13 @@ begin
   
   machine0: entity work.machine
     generic map (
-      cpufrequency => 50,
-      pixel_clock_frequency_hz => 100000000)
+      cpufrequency => 50)
     port map (
       pixelclock      => pixelclock,
       cpuclock        => cpuclock,
+      clock30 => clock30,
+      clock33 => clock33,
+      clock40 => clock40,
       clock50mhz      => cpuclock,
 --      ioclock         => ioclock, -- 32MHz
 --      uartclock         => ioclock, -- must be 32MHz
