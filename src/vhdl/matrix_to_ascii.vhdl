@@ -31,6 +31,9 @@ entity matrix_to_ascii is
 end entity matrix_to_ascii;
   
 architecture behavioral of matrix_to_ascii is
+  -- Number of CPU cycles between each key scan event.
+  constant keyscan_delay : integer := clock_frequency/(72*scan_frequency);
+  
   signal keyscan_counter : integer := 0;
   -- Automatic key repeat (just repeats ascii_key_valid strobe periodically)
   -- (As key repeat is checked on each of the 72 key tests, we don't need to
