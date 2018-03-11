@@ -3223,20 +3223,6 @@ zptempv32:		.word 0,0
 zptempv32b:		.word 0,0
 dos_file_loadaddress:	.word 0,0
 
-		; Keyboard scan routine
-		
-    ; // ZERO PAGE Varibles
-ScanResult:   	    .byte 0,0,0,0,0,0,0,0
-BufferNew:    	    .byte 0,0,0
-KeyQuantity:  	    .byte 0
-NonAlphaFlagX: 	    .byte 0
-NonAlphaFlagY: 	    .byte 0
-TempZP: 	    .byte 0
-SimultaneousKeys:   .byte 0
-
-    ; // Operational Variables
-   .alias MaxKeyRollover 3
-
 		; Used for checkpoint debug system of hypervisor
 		;
 checkpoint_a:	      .byte 0
