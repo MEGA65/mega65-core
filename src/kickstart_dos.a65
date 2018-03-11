@@ -55,7 +55,8 @@
 
 	; VFAT long file name entry constants
 	;
-	; these seem to be offsets into the STANDARD FAT32 header (DO NOT CHANGE)
+	; These are the offsets of the various fields in a directory entry, when
+	; used to store a long-file-name fragment.
 	;
 	.alias fs_fat32_dirent_offset_lfn_part_number 0
 	.alias fs_fat32_dirent_offset_lfn_type 12
@@ -2923,7 +2924,7 @@ dos_file_advance_to_next_cluster:
 	; read chained cluster number for fs_clusternumber
 
 	; FAT32 uses 32-bit cluster numbers.
-; the text below may be misleading, as we have 8 sectors per cluster
+	; the text below may be misleading, as we have 8 sectors per cluster
 	; 512 / 4 = 128 cluster numbers per sector.
 	; To get the sector of the FAT containin a particular
 	; cluster entry, we thus need to shift the cluster number
