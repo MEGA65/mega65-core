@@ -1,0 +1,43 @@
+	;	Routines for writing to FAT file system.
+
+
+dos_find_contiguous_free_space:
+	; Find a piece of free space in the specified file system
+	; (dos_default_disk), and return the first cluster number
+	; if it can be found.
+	;
+	; FAT32 file systems have the expected first cluster free
+	; stored in the 2nd sector of the file system at offset
+	; $1EC (actually, this may point to the last allocated cluster).
+	; This field is only a suggestion however, to accelerate allocation,
+	; and thus should not be relied upon, but rather to allow quick
+	; skipping of the already allocated area of disk.
+	;
+	; The number of clusters we need to allocate is to be provided in
+	; dos_opendir_cluster as a 32-bit value, thus allowing for files
+	; upto 2^32 * cluster size bytes long to be created.
+	; (Note that in practice files are limited to 2GiB - 1 bytes for
+	; total compatibility, and 4GiB -1 for fairly decent compatibility,
+	; and 256GiB - 1 if we implement the FAT+ specification
+	; (http://www.fdos.org/kernel/fatplus.txt.1) in the appropriate places
+	; at some point, which we will likely do, as it is really very simple.
+	; Mostly we just have to use 40 bit offsets for file lengths.
+
+	; Let's start with a completely naive algorithm:
+	; 1. Begin at cluster 2. Reset # of contiguous clusters found to zero.
+	;    Remember this cluster as candidatee starting point.
+	; 2. If current cluster not free, advance to next cluster number, reset
+	;    contiguous free cluster count.  Remember the newly advanced cluster
+	;    number as candidate starting point.
+	; 3. If current cluster is free, increase contiguous free clusters found.
+	;    If equal to desired number, return candidate cluster number.
+	; 4. Repeat 2 and 3 above until end of file system is reached (and return
+	;    an error), or until step 3 has returned success.
+	;
+	; This algorithm can be made more efficient by using the last allocated
+	; cluster number field as an alternative starting point, and only if that
+	; fails, retrying beginning at cluster 2.
+
+	; So the state we need to keep track of is:
+	; dos_opendir_cluster = current cluster we are considering.
+	; dos_current_

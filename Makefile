@@ -20,6 +20,7 @@ KICKSTARTSRCS = $(SRCDIR)/kickstart.a65 \
 		$(SRCDIR)/kickstart_machine.a65 \
 		$(SRCDIR)/kickstart_process_descriptor.a65 \
 		$(SRCDIR)/kickstart_dos.a65 \
+		$(SRCDIR)/kickstart_dos_write.a65 \
 		$(SRCDIR)/kickstart_syspart.a65 \
 		$(SRCDIR)/kickstart_freeze.a65 \
 		$(SRCDIR)/kickstart_sdfat.a65 \

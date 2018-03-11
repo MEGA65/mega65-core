@@ -381,6 +381,7 @@ invalid_subfunction:
 ;;; DOS, process control and related functions trap
 ;;; ----------------------------------------------------------------------------
 		.include "kickstart_dos.a65"
+		.include "kickstart_dos_write.a65"
 
 ;;; ----------------------------------------------------------------------------
 ;;; Virtual memory and memory management
