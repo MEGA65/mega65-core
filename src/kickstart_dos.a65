@@ -22,6 +22,9 @@
 	.alias dos_errorcode_invalid_address $10
 	.alias dos_errorcode_illegal_value $11
 
+	.alias dos_errorcode_read_error	   $20
+	.alias dos_errorcode_write_error   $21
+
 	.alias dos_errorcode_no_such_disk $80
 	.alias dos_errorcode_name_too_long $81
 	.alias dos_errorcode_not_implemented $82
@@ -34,6 +37,7 @@
 	.alias dos_errorcode_invalid_file_descriptor $89
 	.alias dos_errorcode_image_wrong_length $8A
 	.alias dos_errorcode_image_fragmented $8B
+	.alias dos_errorcode_no_space	      $8C
 
 	.alias dos_errorcode_eof $FF
 

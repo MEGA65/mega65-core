@@ -6,6 +6,10 @@ dos_find_contiguous_free_space:
 	; (dos_default_disk), and return the first cluster number
 	; if it can be found.
 	;
+	; INPUT: dos_dirent_length = # of clusters required
+	; OUTPUT: dos_opendir_cluster = first cluster
+	; C flag set on success, clear on failure.
+	;
 	; FAT32 file systems have the expected first cluster free
 	; stored in the 2nd sector of the file system at offset
 	; $1EC (actually, this may point to the last allocated cluster).
@@ -39,5 +43,184 @@ dos_find_contiguous_free_space:
 	; fails, retrying beginning at cluster 2.
 
 	; So the state we need to keep track of is:
-	; dos_opendir_cluster = current cluster we are considering.
-	; dos_current_
+	; dos_opendir_cluster = current cluster we are considering as candidate starting point.
+	; dos_file_loadaddress = current cluster being tested for vacancy.
+	; dos_dirent_length = number of clusters required, in total.
+	; dos_dirent_cluster = number of clusters required, from this point
+	; (i.e., the total minus the number we have already found contiguously free).
+	; current_disk[fs_fat32_cluster_count] = number of clusters in disk
+	; (and thus the end point of our search).
+	;
+	; Other than that, we just need to advance our way linearly through the FAT sectors.
+	; This is straight forward, as we can just read the first FAT sector, and then progress
+	; our way through, until we reach the end.
+
+	; First, make sure we can see the sector buffer at $DE00-$DFFF
+	JSR   sd_map_sectorbuffer
+
+	; 1. Start at cluster 2
+	LDA  #$02
+	STA  dos_opendir_cluster+0
+	STA  dos_file_loadaddress+0
+	LDA  #$00
+	STA  dos_opendir_cluster+1
+	STA  dos_opendir_cluster+2
+	STA  dos_opendir_cluster+3
+	STA  dos_file_loadaddress+1
+	STA  dos_file_loadaddress+2
+	STA  dos_file_loadaddress+3
+
+@tryNewStartingPointCandidate:
+
+	;    Reset # of clusters still required
+	LDX  #$03
+@ll74:	LDA  dos_dirent_length, X
+	STA  dos_dirent_cluster, X
+	DEX  
+	BPL  @ll74
+
+@testIfClusterEmptyAfterReadingFATSector:
+	; Read the appropriate sector of the FAT
+	; To do this, we copy the target cluster number to
+	; dos_current_cluster, and call dos_cluster_to_fat_sector.
+	; This leaves the absolute sector number in
+	; dos_current_cluster.
+	LDX	#$03
+@ll78:	LDA	dos_file_loadaddress, X
+	STA	dos_current_cluster, X
+	DEX
+	BPL	@ll78
+	JSR	dos_cluster_to_fat_sector
+	; Now we have the sector # in dos_current_cluster
+	; Copy to the SD card sector register, and do the read
+	LDX    #$03
+@ll83:	LDA    dos_current_cluster, X
+	STA    $D681, X
+	DEX
+	BPL	@ll83
+	JSR	sd_fix_sectornumber
+	; Finally, do the read
+	LDA	#dos_errorcode_read_error
+	STA	dos_error_code
+	JSR	sd_readsector
+	; XXX - Fail on error
+	BCS   	@ll93
+	RTS
+@ll93:
+
+@testIfClusterEmpty:
+	; Here we have the sector read, and do the test on the contents of the cluster
+	; entry.
+
+	; But first, check that the cluster number is valid:
+	; 1. Get dos_disk_table_offset pointing correctly
+	LDX   dos_disk_current_disk
+	JSR   dos_set_current_disk
+	LDX   dos_disk_table_offset
+	; 2. Compare cluster count to current cluster
+	LDY   #$00
+@ll128:	LDA   [dos_disk_table + fs_fat32_cluster_count + 0], X
+	CMP   dos_file_loadaddress, Y
+	BNE   @notLastClusterOfFileSystem
+	INX
+	INY
+	CPY	#$04
+	BNE	@ll128
+
+	; Return error due to lack of space
+	LDA	#dos_errorcode_no_space
+	STA	dos_error_code
+	CLC
+	RTS
+
+@notLastClusterOfFileSystem:
+
+	; The offset in the sector is computed from the bottom
+	; 7 bits of the cluster number * 4, to give an offset
+	; in the 512 byte sector. Once we have the offset, OR the
+	; four bytes of the cluster number together to test if = 0,
+	; and thus empty.
+	LDA  	dos_file_loadaddress+0
+	ASL
+	ASL
+	TAY
+	LDA	dos_file_loadaddress+0
+	AND	#$40
+	BEQ	@lowMoby
+	LDA	$DF00, Y
+	ORA	$DF01, Y
+	ORA	$DF02, Y
+	ORA	$DF03, Y
+	BRA	@ll120
+@lowMoby:
+	LDA	$DE00, Y
+	ORA	$DE01, Y
+	ORA	$DE02, Y
+	ORA	$DE03, Y
+@ll120:
+	; Remember result of free-test
+	TAX
+
+	; Increment next cluster number we will look at
+	LDA	dos_file_loadaddress+0
+	CLC
+	ADC	#$01
+	STA	dos_file_loadaddress+0
+	LDA	dos_file_loadaddress+1
+	ADC	#$00
+	LDA	dos_file_loadaddress+1
+	LDA	dos_file_loadaddress+2
+	ADC	#$00
+	LDA	dos_file_loadaddress+2
+	LDA	dos_file_loadaddress+3
+	ADC	#$00
+	LDA	dos_file_loadaddress+3
+
+	; If the cluster was not free, then reset search point
+	CPX  	 #$00
+	BEQ	 @thisClusterWasFree
+	LDX	 #$03	
+@ll160:	LDA	 dos_file_loadaddress, X
+	STA	 dos_opendir_cluster, X
+	DEX
+	BPL	 @ll160	
+	JMP	 @tryNewStartingPointCandidate
+
+@thisClusterWasFree:
+	; Decrement # of clusters still required
+	LDA	dos_dirent_cluster+0
+	SEC
+	SBC	#$01
+	STA	dos_dirent_cluster+0
+	LDA	dos_dirent_cluster+1
+	SBC	#$00
+	STA	dos_dirent_cluster+1
+	LDA	dos_dirent_cluster+2
+	SBC	#$00
+	STA	dos_dirent_cluster+2
+	LDA	dos_dirent_cluster+3
+	SBC	#$00
+	STA	dos_dirent_cluster+3
+	; Now see if zero
+	ORA	dos_dirent_cluster+2
+	ORA	dos_dirent_cluster+1
+	ORA	dos_dirent_cluster+0
+	BEQ	@foundFreeSpace
+	
+	; Nope, we still need more, so continue the search
+
+	; Then check if this next cluster is unallocated?
+	; (If the cluster entry in the FAT will be in the same
+	;  sector as the last, then don't waste time recomputing
+	;  and reading the FAT sector number).
+	LDA	dos_file_loadaddress+0
+	AND	#$7F
+	BNE	@sameSector
+	JMP 	@testIfClusterEmptyAfterReadingFATSector
+@sameSector:
+	JMP	@testIfClusterEmpty
+
+@foundFreeSpace:
+	; Found the requested space
+	SEC
+	RTS
