@@ -6091,19 +6091,26 @@ begin
                                         -- us with loads, stores and reaad/modify/write instructions
 
                                         -- Go to next instruction by default
-              if fast_fetch_state = InstructionDecode then
-                pc_inc := reg_microcode.mcIncPC;
+              if next_is_axyz32_instruction = '1' and reg_instruction = I_STA then
+                -- 32-bit store begins here, and the other 3 bytes get written
+                -- in common with the 32-bit RMW instructions
+                axyz_phase <= 1;
+                state <= StoreTarget32;
               else
-                report "not setting pc_inc, because fast_fetch_state /= InstructionDecode";
-                pc_inc := '0';
-              end if;
-              pc_dec := reg_microcode.mcDecPC;
-              if reg_microcode.mcInstructionFetch='1' then
-                report "Fast dispatch for next instruction by order of microcode";
-                state <= fast_fetch_state;
-              else
+                if fast_fetch_state = InstructionDecode then
+                  pc_inc := reg_microcode.mcIncPC;
+                else
+                  report "not setting pc_inc, because fast_fetch_state /= InstructionDecode";
+                  pc_inc := '0';
+                end if;
+                pc_dec := reg_microcode.mcDecPC;
+                if reg_microcode.mcInstructionFetch='1' then
+                  report "Fast dispatch for next instruction by order of microcode";
+                  state <= fast_fetch_state;
+                else
                                         -- (this gets overriden below for RMW and other instruction types)
-                state <= normal_fetch_state;
+                  state <= normal_fetch_state;
+                end if;
               end if;
               
               if reg_addressingmode = M_immnn then
