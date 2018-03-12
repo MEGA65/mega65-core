@@ -830,7 +830,7 @@ begin
                y_zero => y_zero_pal50,
                inframe => inframe_pal50,
                lcd_vsync => lcd_vsync_pal50,
-               lcd_inframe => lcd_inframe_pal50,
+               lcd_inframe => lcd_inframe_pal50
                );
 
   frame60: entity work.frame_generator
