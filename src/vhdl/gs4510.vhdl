@@ -5959,10 +5959,114 @@ begin
                   reg_x <= vreg33(15 downto 8);
                   reg_y <= vreg33(23 downto 16);
                   reg_z <= vreg33(31 downto 24);
+                when I_INC =>
+                  vreg33 := '0' & reg_val32;
+                  vreg33 := vreg33 + 1;
+                  reg_val32 <= vreg33(31 downto 0);
+                  if vreg33(31 downto 0) = to_unsigned(0,32) then
+                    flag_z <= '1';
+                  else
+                    flag_z <= '0';
+                  end if;
+                  flag_n <= vreg33(31);
+                  axyz_phase <= 0;
+                  state <= StoreTarget32;
+                when I_DEC =>
+                  vreg33 := '0' & reg_val32;
+                  vreg33 := vreg33 - 1;
+                  reg_val32 <= vreg33(31 downto 0);
+                  if vreg33(31 downto 0) = to_unsigned(0,32) then
+                    flag_z <= '1';
+                  else
+                    flag_z <= '0';
+                  end if;
+                  flag_n <= vreg33(31);
+                  axyz_phase <= 0;
+                  state <= StoreTarget32;
+                when I_ASL =>
+                  vreg33 := '0' & reg_val32;
+                  vreg33(32 downto 1) := vreg33(31 downto 0);
+                  vreg33(0) := vreg33(32);
+                  reg_val32 <= vreg33(31 downto 0);
+                  if vreg33(31 downto 0) = to_unsigned(0,32) then
+                    flag_z <= '1';
+                  else
+                    flag_z <= '0';
+                  end if;
+                  flag_n <= vreg33(31);
+                  axyz_phase <= 0;
+                  state <= StoreTarget32;
+                when I_ROL =>
+                  vreg33 := flag_c & reg_val32;
+                  vreg33(32 downto 1) := vreg33(31 downto 0);
+                  vreg33(0) := vreg33(32);
+                  reg_val32 <= vreg33(31 downto 0);
+                  if vreg33(31 downto 0) = to_unsigned(0,32) then
+                    flag_z <= '1';
+                  else
+                    flag_z <= '0';
+                  end if;
+                  flag_n <= vreg33(31);
+                  axyz_phase <= 0;
+                  state <= StoreTarget32;
+                when I_LSR =>
+                  vreg33 := '0' & reg_val32;
+                  vreg33(31 downto 0) := vreg33(32 downto 1);
+                  vreg33(32) := vreg33(0);
+                  reg_val32 <= vreg33(31 downto 0);
+                  if vreg33(31 downto 0) = to_unsigned(0,32) then
+                    flag_z <= '1';
+                  else
+                    flag_z <= '0';
+                  end if;
+                  flag_n <= vreg33(31);
+                  axyz_phase <= 0;
+                  state <= StoreTarget32;
+                when I_ROR =>
+                  vreg33 := flag_c & reg_val32;
+                  vreg33(31 downto 0) := vreg33(32 downto 1);
+                  vreg33(32) := vreg33(0);
+                  reg_val32 <= vreg33(31 downto 0);
+                  if vreg33(31 downto 0) = to_unsigned(0,32) then
+                    flag_z <= '1';
+                  else
+                    flag_z <= '0';
+                  end if;
+                  flag_n <= vreg33(31);
+                  axyz_phase <= 0;
+                  state <= StoreTarget32;
                 when others =>
-                  null;
+                  -- XXX: Don't lock CPU up if we get something odd here
+                  state <= normal_fetch_state;
               end case;
               if is_rmw = '0' then
+                -- Go to next instruction by default
+                if fast_fetch_state = InstructionDecode then
+                  pc_inc := reg_microcode.mcIncPC;
+                else
+                  report "not setting pc_inc, because fast_fetch_state /= InstructionDecode";
+                  pc_inc := '0';
+                end if;
+                pc_dec := reg_microcode.mcDecPC;
+                if reg_microcode.mcInstructionFetch='1' then
+                  report "Fast dispatch for next instruction by order of microcode";
+                  state <= fast_fetch_state;
+                else
+                  state <= normal_fetch_state;
+                end if;
+              end if;
+            when StoreTarget32 =>
+              report "VAL32: StoreTarget32 memory_access_address=$" & to_hstring(memory_access_address) & ", reg_val32=$" & to_hstring(reg_val32);
+              memory_access_write := '1';
+              memory_access_wdata := reg_val32(7 downto 0);
+              reg_val32(23 downto 0) <= reg_val32(31 downto 8);
+              memory_access_address(15 downto 0) := to_unsigned(to_integer(reg_addr) + axyz_phase,16);
+              memory_access_resolve_address := not absolute32_addressing_enabled;
+              report "VAL32: memory_access_address=$" & to_hstring(memory_access_address);
+              if axyz_phase /= 4 then
+                axyz_phase <= axyz_phase + 1;
+              end if;              
+              if axyz_phase = 4 then
                 -- Go to next instruction by default
                 if fast_fetch_state = InstructionDecode then
                   pc_inc := reg_microcode.mcIncPC;
