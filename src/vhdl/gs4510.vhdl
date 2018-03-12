@@ -5377,6 +5377,7 @@ begin
                     memory_access_address := x"000"&temp_addr;
                     memory_access_resolve_address := '1';
                     reg_addr <= temp_addr + 1;
+                    report "VAL32: InnZReadVectorLow read address set to $"& to_hstring(memory_access_address);
                     state <= InnZReadVectorLow;
                   when M_rr =>
                     temp_addr := reg_pc +
@@ -5677,11 +5678,14 @@ begin
                 state <= MicrocodeInterpret;
               end if;
             when InnZReadVectorLow =>
+              report "VAL32: InnZReadVectorLow value read as $" & to_hstring(memory_read_value)
+                & ", memory_access_address was $" & to_hstring(memory_access_address);
               reg_addr_lsbs(7 downto 0) <= memory_read_value;
               memory_access_read := '1';
               memory_access_address := x"000"&reg_addr;
               memory_access_resolve_address := '1';
               if absolute32_addressing_enabled='1' then
+                report "VAL32: absolute32_addressing_enabled=1, so proceeding to InnZReadVectorByte2";
                 state <= InnZReadVectorByte2;
                 reg_addr <= reg_addr + 1;
               else
@@ -5695,11 +5699,19 @@ begin
               memory_access_address := x"000"&reg_addr;
               memory_access_resolve_address := '1';
               reg_addr <= reg_addr + 1;
-              report "ABS32: Adding " & integer'image(to_integer(memory_read_value&reg_addr_lsbs(7 downto 0)) )& " to " & integer'image(to_integer(reg_z));
+              if reg_instruction /= I_STA and next_is_axyz32_instruction='1' then
+                report "VAL32/ABS32: Adding " & integer'image(to_integer(memory_read_value&reg_addr_lsbs(7 downto 0)) )& " to " & integer'image(to_integer(reg_z));
               
-              temp17 :=
-                to_unsigned(to_integer(memory_read_value&reg_addr_lsbs(7 downto 0))
-                            + to_integer(reg_z),17);
+                temp17 :=
+                  to_unsigned(to_integer(memory_read_value&reg_addr_lsbs(7 downto 0))
+                              + to_integer(reg_z),17);
+              else
+                report "VAL32/ABS32: not adding value of Z for 32-bit ($nn),Z because it is using 32-bit AXYZ register";
+              
+                temp17 :=
+                  to_unsigned(to_integer(memory_read_value&reg_addr_lsbs(7 downto 0))
+                              + 0,17);
+              end if;
               reg_addr_lsbs <= temp17(15 downto 0);
               pointer_carry <= temp17(16);
               state <= InnZReadVectorByte3;
@@ -5727,11 +5739,12 @@ begin
               end if;
               reg_addr_msbs(15 downto 8) <= temp9(7 downto 0);
               reg_addr(15 downto 0) <= reg_addr_lsbs;
-              report "ABS32: final address is $"
+              report "VAL32/ABS32: final address is $"
                 & to_hstring(temp9(3 downto 0))
                 & to_hstring(reg_addr_msbs(7 downto 0))
                 & to_hstring(reg_addr_lsbs);
               if is_load='1' or is_rmw='1' then
+                report "VAL32: (ZP),Z LoadTarget";
                 state <= LoadTarget;
                 -- On memory read wait-state, read from RAM, so that FastIO
                 -- lines clear
