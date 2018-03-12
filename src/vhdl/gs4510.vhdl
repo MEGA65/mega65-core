@@ -532,6 +532,11 @@ architecture Behavioural of gs4510 is
   signal reg_t : unsigned(7 downto 0)  := (others => '0');
   signal reg_t_high : unsigned(7 downto 0)  := (others => '0');
 
+  signal reg_val32 : unsigned(31 downto 0) := to_unsigned(0,32);
+  signal next_is_axyz32_instruction : std_logic := '0';
+  signal value32_enabled : std_logic := '0';
+  signal axyz_phase : integer range 0 to 4 := 0;
+  
   signal instruction_phase : unsigned(3 downto 0)  := (others => '0');
   
 -- Indicate source of operand for instructions
@@ -693,7 +698,10 @@ architecture Behavioural of gs4510 is
     WordOpWriteHigh,
     PushWordLow,PushWordHigh,
     Pop,
-    MicrocodeInterpret
+    MicrocodeInterpret,
+    LoadTarget32,
+    Execute32,
+    StoreTarget32
     );
   signal state : processor_state := ResetLow;
   signal fast_fetch_state : processor_state := InstructionDecode;
@@ -2971,6 +2979,7 @@ begin
     variable math_output_low : integer := 0;
     variable math_output_high : integer := 0;
     variable math_result : unsigned(63 downto 0) := to_unsigned(0,64);
+    variable vreg33 : unsigned(32 downto 0) := to_unsigned(0,33);
     
   begin    
                                         -- Export phi0 for the rest of the machine (scales with CPU speed)
@@ -4545,15 +4554,20 @@ begin
                 report "Executing instruction " & instruction'image(instruction_lut(to_integer(emu6502&memory_read_value)))
                   severity note;                
 
-                                        -- See if this is a single cycle instruction.
-                                        -- Note that CLI and CLE take 2 cycles so that any
-                                        -- pending interrupt can happen immediately (interrupts cannot
-                                        -- happen immediately after a single cycle instruction, because
-                                        -- interrupts are only checked in InstructionFetch, not
-                                        -- InstructionDecode).
+                -- See if this is a single cycle instruction.
+                -- Note that CLI and CLE take 2 cycles so that any
+                -- pending interrupt can happen immediately (interrupts cannot
+                -- happen immediately after a single cycle instruction, because
+                -- interrupts are only checked in InstructionFetch, not
+                -- InstructionDecode).
                 absolute32_addressing_enabled <= '0';
                 flat32_address <= '0';
                 flat32_address_prime <= '0';
+                value32_enabled <= '0';
+                next_is_axyz32_instruction <= '0';
+
+                report "VAL32: next_is_axyz32_instruction=" & std_logic'image(next_is_axyz32_instruction)
+                  & ", value32_enabled = " & std_logic'image(value32_enabled);
                 
                 case memory_read_value is
                   when x"03" =>
@@ -4575,7 +4589,19 @@ begin
                   when x"38" => flag_c <= '1';  -- SEC
                   when x"3A" => reg_a <= a_decremented; set_nz(a_decremented); -- DEC A
                   when x"3B" => reg_z <= z_decremented; set_nz(z_decremented); -- DEZ
-                  when x"42" => reg_a <= a_negated; set_nz(a_negated); -- NEG A
+                  when x"42" =>
+                    reg_a <= a_negated; set_nz(a_negated); -- NEG A
+                    -- NEG / NEG / INSTRUCTION is used to indicate using AXYZ
+                    -- regs as single 32-bit pseudo register.
+                    -- This prefix can be used together with the NOP / NOP prefix
+                    -- for the 32-bit ZP-indirect instructions. In that case,
+                    -- this prefix must come first, i.e., NEG / NEG / NOP / NOP
+                    -- / LDA or STA ($xx), Z
+                    if value32_enabled = '0' then
+                      value32_enabled <= '1';
+                    else
+                      next_is_axyz32_instruction <= '1';
+                    end if;
                   when x"43" => reg_a <= a_asr; set_nz(a_asr); -- ASR A
                   when x"4A" => reg_a <= a_lsr; set_nz(a_lsr); flag_c <= reg_a(0); -- LSR A
                   when x"4B" => reg_z <= reg_a; set_nz(reg_a); -- TAZ
@@ -4603,25 +4629,28 @@ begin
                                 flat32_address <= flat32_address_prime;
                   when x"E8" => reg_x <= x_incremented; set_nz(x_incremented); -- INX
                   when x"EA" => map_interrupt_inhibit <= '0'; -- EOM
-                                                              -- Enable 32-bit pointer for ($nn),Z addressing
-                                                              -- mode
+                                -- Enable 32-bit pointer for ($nn),Z addressing
+                                -- mode
                                 absolute32_addressing_enabled <= '1';
+                                -- Preserve NEG / NEG prefix status for AXYZ
+                                -- 32-bit pseudo register usage.
+                                next_is_axyz32_instruction <= next_is_axyz32_instruction;
                   when x"F8" => flag_d <= '1';  -- SED
                   when others => null;
                 end case;
                 
-                                        -- Preserve absolute32_addressing_enabled value if the current
-                                        -- instruction is ($nn),Z, so that we can use a 32-bit pointer
-                                        -- for that instruction.  Fortunately these all have the same
-                                        -- bottom five bits, being $x2, where x is odd.
+                -- Preserve absolute32_addressing_enabled value if the current
+                -- instruction is ($nn),Z, so that we can use a 32-bit pointer
+                -- for that instruction.  Fortunately these all have the same
+                -- bottom five bits, being $x2, where x is odd.
                 if memory_read_value(4 downto 0) = "10010" then
                   absolute32_addressing_enabled <= absolute32_addressing_enabled;
                 end if;
-                                        -- Preset flat32_address value if the current instruction is
-                                        -- JMP, JSR or RTS
-                                        -- This is opcodes JMP absolute ($4C), JMP indirect ($6C),
-                                        -- JMP (absolute,X) ($7C), JSR absolute ($20), JSR (absolute) ($22)
-                                        -- JSR (absolute,X) ($23), RTS ($60), RTS immediate ($62)
+                -- Preset flat32_address value if the current instruction is
+                -- JMP, JSR or RTS
+                -- This is opcodes JMP absolute ($4C), JMP indirect ($6C),
+                -- JMP (absolute,X) ($7C), JSR absolute ($20), JSR (absolute) ($22)
+                -- JSR (absolute,X) ($23), RTS ($60), RTS immediate ($62)
                 case memory_read_value is
                   when x"20" => flat32_address <= flat32_address;
                   when x"22" => flat32_address <= flat32_address;
@@ -4657,6 +4686,7 @@ begin
                       state <= MicrocodeInterpret;
                     end if;
                   else
+                    next_is_axyz32_instruction <= next_is_axyz32_instruction;
                     state <= Cycle2;
                   end if;
                 else
@@ -4775,12 +4805,10 @@ begin
                 report "Executing instruction " & instruction'image(instruction_lut(to_integer(emu6502&memory_read_value)))
                   severity note;                
 
-                                        -- See if this is a single cycle instruction in 4502 mode.
-                                        -- We take 2 cycles for these, and allow interrupts following
-                                        -- them, however.
-                absolute32_addressing_enabled <= '0';
+                -- See if this is a single cycle instruction in 6502 mode.
                 flat32_address <= '0';
                 flat32_address_prime <= '0';
+                absolute32_addressing_enabled <= '0';
                 
                 case memory_read_value is
                   when x"0A" => reg_a <= a_asl; set_nz(a_asl); flag_c <= reg_a(7); -- ASL A
@@ -4907,7 +4935,7 @@ begin
                                         -- XXX - This is at the cost of 1 cycle on most 2 or 3 byte, which
                                         -- is really bad. ZP is practically pointless as a result.  See below
                                         -- for optimising this away for most instructions.
-
+              report "VAL32: next_is_axyz32_instruction = " & std_logic'image(next_is_axyz32_instruction);
               reg_pc_jsr <= reg_pc;
               
                                         -- Store and announce arg1
@@ -4974,9 +5002,10 @@ begin
                   temp_addr := reg_b & memory_read_value;
                   reg_addr <= temp_addr;
                   if is_load='1' or is_rmw='1' then
+                    report "VAL32: ZP LoadTarget";
                     state <= LoadTarget;
-                                        -- On memory read wait-state, read from RAM, so that FastIO
-                                        -- lines clear
+                    -- On memory read wait-state, read from RAM, so that FastIO
+                    -- lines clear
                     memory_access_read := '1';
                     memory_access_address := x"0000002";
                     memory_access_resolve_address := '0';
@@ -5011,8 +5040,8 @@ begin
                   reg_addr <= temp_addr;
                   if is_load='1' or is_rmw='1' then
                     state <= LoadTarget;
-                                        -- On memory read wait-state, read from RAM, so that FastIO
-                                        -- lines clear
+                    -- On memory read wait-state, read from RAM, so that FastIO
+                    -- lines clear
                     memory_access_read := '1';
                     memory_access_address := x"0000002";
                     memory_access_resolve_address := '0';
@@ -5026,8 +5055,8 @@ begin
                   reg_addr <= temp_addr;
                   if is_load='1' or is_rmw='1' then
                     state <= LoadTarget;
-                                        -- On memory read wait-state, read from RAM, so that FastIO
-                                        -- lines clear
+                    -- On memory read wait-state, read from RAM, so that FastIO
+                    -- lines clear
                     memory_access_read := '1';
                     memory_access_address := x"0000002";
                     memory_access_resolve_address := '0';
@@ -5283,8 +5312,8 @@ begin
                     reg_addr <= temp_addr;
                     if is_load='1' or is_rmw='1' then
                       state <= LoadTarget;
-                                        -- On memory read wait-state, read from RAM, so that FastIO
-                                        -- lines clear
+                      -- On memory read wait-state, read from RAM, so that FastIO
+                      -- lines clear
                       memory_access_read := '1';
                       memory_access_address := x"0000002";
                       memory_access_resolve_address := '0';
@@ -5314,8 +5343,8 @@ begin
                     else
                       if is_load='1' or is_rmw='1' then
                         state <= LoadTarget;
-                                        -- On memory read wait-state, read from RAM, so that FastIO
-                                        -- lines clear
+                        -- On memory read wait-state, read from RAM, so that FastIO
+                        -- lines clear
                         memory_access_read := '1';
                         memory_access_address := x"0000002";
                         memory_access_resolve_address := '0';
@@ -5424,8 +5453,8 @@ begin
                     reg_addr <= temp_addr;
                     if is_load='1' or is_rmw='1' then
                       state <= LoadTarget;
-                                        -- On memory read wait-state, read from RAM, so that FastIO
-                                        -- lines clear
+                      -- On memory read wait-state, read from RAM, so that FastIO
+                      -- lines clear
                       memory_access_read := '1';
                       memory_access_address := x"0000002";
                       memory_access_resolve_address := '0';
@@ -5438,8 +5467,8 @@ begin
                     reg_addr <= temp_addr;
                     if is_load='1' or is_rmw='1' then
                       state <= LoadTarget;
-                                        -- On memory read wait-state, read from RAM, so that FastIO
-                                        -- lines clear
+                      -- On memory read wait-state, read from RAM, so that FastIO
+                      -- lines clear
                       memory_access_read := '1';
                       memory_access_address := x"0000002";
                       memory_access_resolve_address := '0';
@@ -5455,8 +5484,8 @@ begin
                     reg_addr <= x"00"&reg_y + to_integer(memory_read_value&reg_addr(7 downto 0));
                     if is_load='1' or is_rmw='1' then
                       state <= LoadTarget;
-                                        -- On memory read wait-state, read from RAM, so that FastIO
-                                        -- lines clear
+                      -- On memory read wait-state, read from RAM, so that FastIO
+                      -- lines clear
                       memory_access_read := '1';
                       memory_access_address := x"0000002";
                       memory_access_resolve_address := '0';
@@ -5472,8 +5501,8 @@ begin
                     reg_addr <= x"00"&reg_x + to_integer(memory_read_value&reg_addr(7 downto 0));
                     if is_load='1' or is_rmw='1' then
                       state <= LoadTarget;
-                                        -- On memory read wait-state, read from RAM, so that FastIO
-                                        -- lines clear
+                      -- On memory read wait-state, read from RAM, so that FastIO
+                      -- lines clear
                       memory_access_read := '1';
                       memory_access_address := x"0000002";
                       memory_access_resolve_address := '0';
@@ -5596,8 +5625,8 @@ begin
                 to_unsigned(to_integer(memory_read_value&reg_addr(7 downto 0)),16);
               if is_load='1' or is_rmw='1' then
                 state <= LoadTarget;
-                                        -- On memory read wait-state, read from RAM, so that FastIO
-                                        -- lines clear
+                -- On memory read wait-state, read from RAM, so that FastIO
+                -- lines clear
                 memory_access_read := '1';
                 memory_access_address := x"0000002";
                 memory_access_resolve_address := '0';
@@ -5617,8 +5646,8 @@ begin
                             + to_integer(reg_y),16);
               if is_load='1' or is_rmw='1' then
                 state <= LoadTarget;
-                                        -- On memory read wait-state, read from RAM, so that FastIO
-                                        -- lines clear
+                -- On memory read wait-state, read from RAM, so that FastIO
+                -- lines clear
                 memory_access_read := '1';
                 memory_access_address := x"0000002";
                 memory_access_resolve_address := '0';
@@ -5638,8 +5667,8 @@ begin
                             + to_integer(reg_y),16);
               if is_load='1' or is_rmw='1' then
                 state <= LoadTarget;
-                                        -- On memory read wait-state, read from RAM, so that FastIO
-                                        -- lines clear
+                -- On memory read wait-state, read from RAM, so that FastIO
+                -- lines clear
                 memory_access_read := '1';
                 memory_access_address := x"0000002";
                 memory_access_resolve_address := '0';
@@ -5704,8 +5733,8 @@ begin
                 & to_hstring(reg_addr_lsbs);
               if is_load='1' or is_rmw='1' then
                 state <= LoadTarget;
-                                        -- On memory read wait-state, read from RAM, so that FastIO
-                                        -- lines clear
+                -- On memory read wait-state, read from RAM, so that FastIO
+                -- lines clear
                 memory_access_read := '1';
                 memory_access_address := x"0000002";
                 memory_access_resolve_address := '0';
@@ -5719,8 +5748,8 @@ begin
                             + to_integer(reg_z),16);
               if is_load='1' or is_rmw='1' then
                 state <= LoadTarget;
-                                        -- On memory read wait-state, read from RAM, so that FastIO
-                                        -- lines clear
+                -- On memory read wait-state, read from RAM, so that FastIO
+                -- lines clear
                 memory_access_read := '1';
                 memory_access_address := x"0000002";
                 memory_access_resolve_address := '0';
@@ -5793,8 +5822,8 @@ begin
               memory_access_wdata := reg_t;
               state <= normal_fetch_state;
             when LoadTarget =>
-                                        -- For some addressing modes we load the target in a separate
-                                        -- cycle to improve timing.
+              -- For some addressing modes we load the target in a separate
+              -- cycle to improve timing.
               memory_access_read := '1';
               memory_access_address(15 downto 0) := reg_addr;
               memory_access_resolve_address := not absolute32_addressing_enabled;
@@ -5803,7 +5832,152 @@ begin
               else
                 memory_access_address(27 downto 16) := x"000";
               end if;
-              state <= MicrocodeInterpret;
+              report "VAL32: memory_access_address=$" & to_hstring(memory_access_address);
+
+              -- If an instruction was preceeded with NEG / NEG, then the load
+              -- is into all four registers, AXYZ, as a pseudo register.
+              -- We only support this for certain instructions:
+              -- LDA, STA, CMP, ADC, SBC, ORA, EOR, AND,
+              -- INC, DEC, ROL, ROR, ASL, LSR.
+              -- (All addressing modes are supported, however)
+              report "VAL32: next_is_axyz32_instruction = " & std_logic'image(next_is_axyz32_instruction)
+                & ", reg_instruction = " & instruction'image(reg_instruction) & ", reg_addr=$" & to_hstring(reg_addr);
+              if next_is_axyz32_instruction = '1' then
+                case reg_instruction is
+                  when I_LDA | I_CMP | I_ADC | I_SBC | I_ORA | I_EOR | I_AND | I_INC | I_DEC
+                      | I_ROL | I_ROR | I_ASL | I_LSR =>
+                    report "VAL32: Proceeding to LoadTarget32";
+                    state <= LoadTarget32;
+                    axyz_phase <= 1;
+                  when others =>
+                    -- Process other instructions normally
+                    report "VAL32: Ignoring unsupported instruction " & instruction'image(reg_instruction);
+                    state <= MicrocodeInterpret;
+                end case;
+              else
+                state <= MicrocodeInterpret;
+              end if;
+            when LoadTarget32 =>
+              reg_val32(31 downto 24) <= memory_read_value;
+              reg_val32(23 downto 0) <= reg_val32(31 downto 8);
+              report "VAL32: reg_val32 = $" & to_hstring(reg_val32) & ", at axyz_phase = " & integer'image(axyz_phase);
+              if axyz_phase /= 4 then
+                -- More bytes to read, so schedule next byte to read                
+                report "VAL32: memory_access_address=$" & to_hstring(memory_access_address);
+                memory_access_read := '1';
+                memory_access_address(15 downto 0) := to_unsigned(to_integer(reg_addr) + axyz_phase,16);
+                memory_access_resolve_address := not absolute32_addressing_enabled;
+                report "VAL32: memory_access_address=$" & to_hstring(memory_access_address);
+                axyz_phase <= axyz_phase + 1;
+              else
+                -- Already got the four bytes, so now trigger the execution
+                state <= Execute32;                    
+              end if;
+            when Execute32 =>
+              report "VAL32: reg_val32 = $" & to_hstring(reg_val32);
+              case reg_instruction is
+                when I_LDA =>
+                  reg_a <= reg_val32(7 downto 0);
+                  reg_x <= reg_val32(15 downto 8);
+                  reg_y <= reg_val32(23 downto 16);
+                  reg_z <= reg_val32(31 downto 24);
+                when I_CMP =>
+                  vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
+                  vreg33 := vreg33 - reg_val32;
+                  if vreg33(31 downto 0) = to_unsigned(0,32) then
+                    flag_z <= '1';
+                  else
+                    flag_z <= '0';
+                  end if;
+                  flag_c <= not vreg33(32);
+                  flag_n <= vreg33(31);
+                when I_SBC =>
+                  vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
+                  vreg33 := vreg33 - reg_val32;
+                  if vreg33(31 downto 0) = to_unsigned(0,32) then
+                    flag_z <= '1';
+                  else
+                    flag_z <= '0';
+                  end if;
+                  flag_c <= not vreg33(32);
+                  flag_n <= vreg33(31);
+                  reg_a <= vreg33(7 downto 0);
+                  reg_x <= vreg33(15 downto 8);
+                  reg_y <= vreg33(23 downto 16);
+                  reg_z <= vreg33(31 downto 24);
+                when I_ADC =>
+                  -- Note: No decimal mode for 32-bit add!
+                  vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
+                  vreg33 := vreg33 + reg_val32;
+                  if vreg33(31 downto 0) = to_unsigned(0,32) then
+                    flag_z <= '1';
+                  else
+                    flag_z <= '0';
+                  end if;
+                  flag_c <= not vreg33(32);
+                  flag_n <= vreg33(31);
+                  reg_a <= vreg33(7 downto 0);
+                  reg_x <= vreg33(15 downto 8);
+                  reg_y <= vreg33(23 downto 16);
+                  reg_z <= vreg33(31 downto 24);
+                when I_ORA =>
+                  vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
+                  vreg33(31 downto 0) := vreg33(31 downto 0) or reg_val32;
+                  if vreg33(31 downto 0) = to_unsigned(0,32) then
+                    flag_z <= '1';
+                  else
+                    flag_z <= '0';
+                  end if;
+                  flag_n <= vreg33(31);
+                  reg_a <= vreg33(7 downto 0);
+                  reg_x <= vreg33(15 downto 8);
+                  reg_y <= vreg33(23 downto 16);
+                  reg_z <= vreg33(31 downto 24);
+                when I_EOR =>
+                  vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
+                  vreg33(31 downto 0) := vreg33(31 downto 0) or reg_val32;
+                  if vreg33(31 downto 0) = to_unsigned(0,32) then
+                    flag_z <= '1';
+                  else
+                    flag_z <= '0';
+                  end if;
+                  flag_n <= vreg33(31);
+                  reg_a <= vreg33(7 downto 0);
+                  reg_x <= vreg33(15 downto 8);
+                  reg_y <= vreg33(23 downto 16);
+                  reg_z <= vreg33(31 downto 24);
+                when I_AND =>
+                  vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
+                  vreg33(31 downto 0) := vreg33(31 downto 0) or reg_val32;
+                  if vreg33(31 downto 0) = to_unsigned(0,32) then
+                    flag_z <= '1';
+                  else
+                    flag_z <= '0';
+                  end if;
+                  flag_n <= vreg33(31);
+                  reg_a <= vreg33(7 downto 0);
+                  reg_x <= vreg33(15 downto 8);
+                  reg_y <= vreg33(23 downto 16);
+                  reg_z <= vreg33(31 downto 24);
+                when others =>
+                  null;
+              end case;
+              if is_rmw = '0' then
+                -- Go to next instruction by default
+                if fast_fetch_state = InstructionDecode then
+                  pc_inc := reg_microcode.mcIncPC;
+                else
+                  report "not setting pc_inc, because fast_fetch_state /= InstructionDecode";
+                  pc_inc := '0';
+                end if;
+                pc_dec := reg_microcode.mcDecPC;
+                if reg_microcode.mcInstructionFetch='1' then
+                  report "Fast dispatch for next instruction by order of microcode";
+                  state <= fast_fetch_state;
+                else
+                  state <= normal_fetch_state;
+                end if;
+              end if;
             when MicrocodeInterpret =>
                                         -- By this stage we have the address of the operand in
                                         -- reg_addr, and if it is a load instruction then the contents
