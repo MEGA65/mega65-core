@@ -1170,6 +1170,7 @@ architecture Behavioural of gs4510 is
   signal reg_math_write_value : unsigned(7 downto 0) := x"00";
   -- Count # of math cycles since cycle latch last written to
   signal reg_math_cycle_counter : unsigned(31 downto 0) := to_unsigned(0,32);
+  signal reg_math_cycle_counter_plus_one : unsigned(31 downto 0) := to_unsigned(0,32);
   -- # of math cycles to trigger end of job / math interrupt
   signal reg_math_cycle_compare : unsigned(31 downto 0) := to_unsigned(0,32);
   
@@ -2548,14 +2549,6 @@ begin
         -- @IO:GS $D7E1.1 - Enable committing of output values from math units back to math registers (clearing effectively pauses iterative formulae)
         math_unit_flags <= value;
         reg_math_cycle_counter <= to_unsigned(0,32);        
-      elsif (long_address = x"FFD37E4") or (long_address = x"FFD17E4") then
-        reg_math_cycle_counter(7 downto 0) <= value;
-      elsif (long_address = x"FFD37E5") or (long_address = x"FFD17E5") then
-        reg_math_cycle_counter(15 downto 8) <= value;
-      elsif (long_address = x"FFD37E6") or (long_address = x"FFD17E6") then
-        reg_math_cycle_counter(23 downto 16) <= value;
-      elsif (long_address = x"FFD37E7") or (long_address = x"FFD17E7") then
-        reg_math_cycle_counter(31 downto 24) <= value;
       elsif (long_address = x"FFD37E8") or (long_address = x"FFD17E8") then
         reg_math_cycle_compare(7 downto 0) <= value;
       elsif (long_address = x"FFD37E9") or (long_address = x"FFD17E9") then
@@ -3158,13 +3151,14 @@ begin
       -- Latch counter counts "math cycles", which is the time it takes for an
       -- output to appear on the inputs again, i.e., once per lap of the input
       -- and output propagation.
+      reg_math_cycle_counter_plus_one <= reg_math_cycle_counter + 1;
       if math_output_counter = 1 then
         -- Decrement latch counter
         if reg_math_latch_counter = x"00" then
           reg_math_latch_counter <= reg_math_latch_interval;
           -- And update math cycle counter, if math unit is active
           if math_unit_flags(1) = '1' then
-            reg_math_cycle_counter <= reg_math_cycle_counter + 1;
+            reg_math_cycle_counter <= reg_math_cycle_counter_plus_one;
           end if;
         else
           reg_math_latch_counter <= reg_math_latch_counter - 1;
