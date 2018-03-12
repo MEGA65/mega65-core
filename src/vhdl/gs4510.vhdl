@@ -6057,13 +6057,14 @@ begin
               end if;
             when StoreTarget32 =>
               report "VAL32: StoreTarget32 memory_access_address=$" & to_hstring(memory_access_address) & ", reg_val32=$" & to_hstring(reg_val32);
-              memory_access_write := '1';
-              memory_access_wdata := reg_val32(7 downto 0);
-              reg_val32(23 downto 0) <= reg_val32(31 downto 8);
-              memory_access_address(15 downto 0) := to_unsigned(to_integer(reg_addr) + axyz_phase,16);
-              memory_access_resolve_address := not absolute32_addressing_enabled;
-              report "VAL32: memory_access_address=$" & to_hstring(memory_access_address);
               if axyz_phase /= 4 then
+                memory_access_write := '1';
+                memory_access_wdata := reg_val32(7 downto 0);
+                reg_val32(23 downto 0) <= reg_val32(31 downto 8);
+                memory_access_address(15 downto 0) := to_unsigned(to_integer(reg_addr) + axyz_phase,16);
+                memory_access_resolve_address := not absolute32_addressing_enabled;
+                report "VAL32: memory_access_address=$" & to_hstring(memory_access_address);
+
                 axyz_phase <= axyz_phase + 1;
               end if;              
               if axyz_phase = 4 then
@@ -6095,6 +6096,7 @@ begin
                 -- 32-bit store begins here, and the other 3 bytes get written
                 -- in common with the 32-bit RMW instructions
                 axyz_phase <= 1;
+                reg_val32(23 downto 0) <= reg_val32(31 downto 8);
                 state <= StoreTarget32;
               else
                 if fast_fetch_state = InstructionDecode then
