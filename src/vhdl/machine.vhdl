@@ -433,10 +433,6 @@ architecture Behavioral of machine is
   signal green_n : unsigned(7 downto 0);
   signal blue_n : unsigned(7 downto 0);
 
-  signal red_p : unsigned(7 downto 0);
-  signal green_p : unsigned(7 downto 0);
-  signal blue_p : unsigned(7 downto 0);
-
   signal vgablue_viciv4 : unsigned(7 downto 0);
   signal vgared_viciv4 : unsigned(7 downto 0);
   signal vgagreen_viciv4 : unsigned(7 downto 0);
@@ -835,11 +831,6 @@ begin
                inframe => inframe_pal50,
                lcd_vsync => lcd_vsync_pal50,
                lcd_inframe => lcd_inframe_pal50,
-
-               -- Get test pattern
-               red_o => red_p,
-               green_o => green_p,
-               blue_o => blue_p
                );
 
   frame60: entity work.frame_generator
@@ -1432,16 +1423,9 @@ begin
   process (pixelclock_select,cpuclock) is
   begin
     if pixelclock_select(6)='1' then
-      -- Show test pattern instead of VIC-IV output
-      if pixelclock_select(7) = '1' then
-        vgared_source <= red_n;
-        vgagreen_source <= green_n;
-        vgablue_source <= blue_n;
-      else
-        vgared_source <= red_p;
-        vgagreen_source <= green_p;
-        vgablue_source <= blue_p;
-      end if;
+      vgared_source <= red_n;
+      vgagreen_source <= green_n;
+      vgablue_source <= blue_n;
     else
       -- Show VIC-IV output (with optional pixel delay to get edges lining up nicely)
       case pixelclock_select(5 downto 4) is
