@@ -5693,7 +5693,7 @@ begin
               memory_access_address := x"000"&reg_addr;
               memory_access_resolve_address := '1';
               reg_addr <= reg_addr + 1;
-              if reg_instruction /= I_STA or next_is_axyz32_instruction='0' then
+              if (reg_instruction /= I_STA) or (next_is_axyz32_instruction='0') then
                 report "VAL32/ABS32: Adding " & integer'image(to_integer(memory_read_value&reg_addr_lsbs(7 downto 0)) )& " to " & integer'image(to_integer(reg_z));
               
                 temp17 :=
