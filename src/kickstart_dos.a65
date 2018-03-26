@@ -22,6 +22,9 @@
 	.alias dos_errorcode_invalid_address $10
 	.alias dos_errorcode_illegal_value $11
 
+	.alias dos_errorcode_read_error	   $20
+	.alias dos_errorcode_write_error   $21
+
 	.alias dos_errorcode_no_such_disk $80
 	.alias dos_errorcode_name_too_long $81
 	.alias dos_errorcode_not_implemented $82
@@ -34,6 +37,7 @@
 	.alias dos_errorcode_invalid_file_descriptor $89
 	.alias dos_errorcode_image_wrong_length $8A
 	.alias dos_errorcode_image_fragmented $8B
+	.alias dos_errorcode_no_space	      $8C
 
 	.alias dos_errorcode_eof $FF
 
@@ -55,7 +59,8 @@
 
 	; VFAT long file name entry constants
 	;
-	; these seem to be offsets into the STANDARD FAT32 header (DO NOT CHANGE)
+	; These are the offsets of the various fields in a directory entry, when
+	; used to store a long-file-name fragment.
 	;
 	.alias fs_fat32_dirent_offset_lfn_part_number 0
 	.alias fs_fat32_dirent_offset_lfn_type 12
@@ -201,7 +206,7 @@ dos_and_process_trap_table:
 	.word reset_entry
 
 trap_serial_monitor_write:
-	STY $D67C
+	sty hypervisor_write_char_to_serial_monitor
 	jmp return_from_trap_with_success	
 
 ;	========================
@@ -2923,7 +2928,7 @@ dos_file_advance_to_next_cluster:
 	; read chained cluster number for fs_clusternumber
 
 	; FAT32 uses 32-bit cluster numbers.
-; the text below may be misleading, as we have 8 sectors per cluster
+	; the text below may be misleading, as we have 8 sectors per cluster
 	; 512 / 4 = 128 cluster numbers per sector.
 	; To get the sector of the FAT containin a particular
 	; cluster entry, we thus need to shift the cluster number
@@ -2946,49 +2951,7 @@ dfanc1:
 	lda dos_current_cluster
 	sta dos_scratch_byte_1
 
-	; shift right 7 times = divide by 128
-	;
-	ldy #$07
-dfanc2:	clc		
-	ror dos_current_cluster+3
-	ror dos_current_cluster+2
-	ror dos_current_cluster+1
-	ror dos_current_cluster+0
-	dey
-	bne dfanc2
-
-	; add start of partition offset
-	;
-	ldy dos_disk_table_offset
-	ldx #$00
-	clc
-	php
-dfanc3:	plp
-	lda dos_current_cluster,x
-	adc dos_disk_table + fs_start_sector ,y
-	sta dos_current_cluster,x
-	php
-	iny
-	inx
-	cpx #$04
-	bne dfanc3
-	plp
-
-	; add start of fat offset
-	;
-	ldy dos_disk_table_offset
-	ldx #$00
-	clc
-	php
-dfanc4:	plp
-	lda dos_current_cluster,x
-	adc dos_disk_table + fs_fat32_system_sectors ,y
-	sta dos_current_cluster,x
-	php
-	iny
-	inx
-	cpx #$02
-	bne dfanc4
+	jsr dos_cluster_to_fat_sector
 
 	; copy from current cluster to SD sector address register
 	;
@@ -3118,6 +3081,63 @@ dfanc_ok:
 dfanc_fail:
 	lda #dos_errorcode_invalid_cluster
 	jmp dos_return_error
+
+;	========================
+
+dos_cluster_to_fat_sector:
+	; Take dos_current_cluster, as a cluster number,
+	; and compute the absolute sector number on the SD card
+	; where that cluster must live.
+	; INPUT: dos_current_cluster = cluster number
+	; OUTPUT: dos_current_cluster = absolute sector, which
+	;         contains the FAT sector that has the FAT entry
+	;         corresponding to the requested cluster number.
+
+	; shift right 7 times = divide by 128
+	;
+	ldy #$07
+dfanc2:	clc		
+	ror dos_current_cluster+3
+	ror dos_current_cluster+2
+	ror dos_current_cluster+1
+	ror dos_current_cluster+0
+	dey
+	bne dfanc2
+
+	; add start of partition offset
+	;
+	ldy dos_disk_table_offset
+	ldx #$00
+	clc
+	php
+dfanc3:	plp
+	lda dos_current_cluster,x
+	adc dos_disk_table + fs_start_sector ,y
+	sta dos_current_cluster,x
+	php
+	iny
+	inx
+	cpx #$04
+	bne dfanc3
+	plp
+
+	; add start of fat offset
+	;
+	ldy dos_disk_table_offset
+	ldx #$00
+	clc
+	php
+dfanc4:	plp
+	lda dos_current_cluster,x
+	adc dos_disk_table + fs_fat32_system_sectors ,y
+	sta dos_current_cluster,x
+	php
+	iny
+	inx
+	cpx #$02
+	bne dfanc4
+
+	RTS
 
 ;	========================
 

@@ -235,7 +235,7 @@ trap_entry_points:
 	jmp page_fault			; Trap #$41 (page fault)
 	nop				; refer: kickstart_mem
 
-	jmp double_restore_trap		; Trap #$42 (double-tap RESTORE key)
+	jmp restore_press_trap		; Trap #$42 (press RESTORE for 0.5 - 1.99 seconds)
 	nop				; refer: kickstart_task "1000010" x"42"
 
 	jmp matrix_mode_toggle          ; Trap #$43 (C= + TAB combination)
@@ -381,6 +381,7 @@ invalid_subfunction:
 ;;; DOS, process control and related functions trap
 ;;; ----------------------------------------------------------------------------
 		.include "kickstart_dos.a65"
+		.include "kickstart_dos_write.a65"
 
 ;;; ----------------------------------------------------------------------------
 ;;; Virtual memory and memory management
@@ -523,6 +524,37 @@ reset_machine_state:
 ;
 reset_entry:
 		sei
+
+.macro	buffereduarttest
+		; 115200 bps for both
+		LDA	#$b2
+		STA	$D0E6
+		STA	$D0EE
+		LDA	#$01
+		STA	$D0EF
+		STA	$D0E7
+		; Hook the two UARTs together
+		LDA    #$11
+		STA	$D0E2
+		STA	$D0EA
+		; Write a bunch of bytes
+		LDA	#$11
+@ll:		STA	$D0E8
+		CLC
+		ADC	#$11
+		CMP	#$10
+		BNE	@ll
+
+		LDA	#$00
+		TAX
+		TAY
+		TAZ
+		; See if they get read correctly
+@ll2:		LDX	$D0E1
+		LDA	$D0E0
+		JMP	@ll2
+.macend		
+;		.invoke buffereduarttest
 
 .macro sdtest
 		; Reset SD card
@@ -3191,20 +3223,6 @@ zptempp2:		.word 0
 zptempv32:		.word 0,0
 zptempv32b:		.word 0,0
 dos_file_loadaddress:	.word 0,0
-
-		; Keyboard scan routine
-		
-    ; // ZERO PAGE Varibles
-ScanResult:   	    .byte 0,0,0,0,0,0,0,0
-BufferNew:    	    .byte 0,0,0
-KeyQuantity:  	    .byte 0
-NonAlphaFlagX: 	    .byte 0
-NonAlphaFlagY: 	    .byte 0
-TempZP: 	    .byte 0
-SimultaneousKeys:   .byte 0
-
-    ; // Operational Variables
-   .alias MaxKeyRollover 3
 
 		; Used for checkpoint debug system of hypervisor
 		;

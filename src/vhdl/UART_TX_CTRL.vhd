@@ -41,7 +41,7 @@ use ieee.numeric_std.all;
 
 entity UART_TX_CTRL is
   Port ( SEND : in  STD_LOGIC;
-         BIT_TMR_MAX : in unsigned(13 downto 0);
+         BIT_TMR_MAX : in unsigned(15 downto 0);
            DATA : in  STD_LOGIC_VECTOR (7 downto 0);
            CLK : in  STD_LOGIC;
            READY : out  STD_LOGIC;
@@ -56,7 +56,7 @@ constant BIT_INDEX_MAX : natural := 10;
 
 --Counter that keeps track of the number of clock cycles the current bit has been held stable over the
 --UART TX line. It is used to signal when the ne
-signal bitTmr : unsigned(13 downto 0) := (others => '0');
+signal bitTmr : unsigned(15 downto 0) := (others => '0');
 
 --combinatorial logic that goes high when bitTmr has counted to the proper value to ensure
 --a 9600 baud rate

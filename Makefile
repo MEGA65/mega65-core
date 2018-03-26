@@ -20,6 +20,7 @@ KICKSTARTSRCS = $(SRCDIR)/kickstart.a65 \
 		$(SRCDIR)/kickstart_machine.a65 \
 		$(SRCDIR)/kickstart_process_descriptor.a65 \
 		$(SRCDIR)/kickstart_dos.a65 \
+		$(SRCDIR)/kickstart_dos_write.a65 \
 		$(SRCDIR)/kickstart_syspart.a65 \
 		$(SRCDIR)/kickstart_freeze.a65 \
 		$(SRCDIR)/kickstart_sdfat.a65 \
@@ -82,7 +83,10 @@ SIDVHDL=		$(VHDLSRCDIR)/sid_6581.vhd \
 			$(VHDLSRCDIR)/sid_filters.vhd \
 			$(VHDLSRCDIR)/sid_voice.vhd \
 
-CPUVHDL=		$(VHDLSRCDIR)/gs4510.vhdl
+CPUVHDL=		$(VHDLSRCDIR)/gs4510.vhdl \
+			$(VHDLSRCDIR)/multiply32.vhdl \
+			$(VHDLSRCDIR)/divider32.vhdl \
+			$(VHDLSRCDIR)/shifter32.vhdl
 
 NOCPUVHDL=		$(VHDLSRCDIR)/nocpu.vhdl
 
@@ -95,6 +99,8 @@ C65VHDL=		$(SIDVHDL) \
 			$(VHDLSRCDIR)/cputypes.vhdl \
 
 VICIVVHDL=		$(VHDLSRCDIR)/viciv.vhdl \
+			$(VHDLSRCDIR)/pixel_driver.vhdl \
+			$(VHDLSRCDIR)/frame_generator.vhdl \
 			$(VHDLSRCDIR)/sprite.vhdl \
 			$(VHDLSRCDIR)/vicii_sprites.vhdl \
 			$(VHDLSRCDIR)/bitplane.vhdl \

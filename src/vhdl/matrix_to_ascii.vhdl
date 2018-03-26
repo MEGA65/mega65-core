@@ -31,9 +31,17 @@ entity matrix_to_ascii is
 end entity matrix_to_ascii;
   
 architecture behavioral of matrix_to_ascii is
-  signal keyscan_counter : integer := 0;
-  -- Multiple by 11, as there are 11 scan phases
+  -- Number of CPU cycles between each key scan event.
   constant keyscan_delay : integer := clock_frequency/(72*scan_frequency);
+  
+  signal keyscan_counter : integer := 0;
+  -- Automatic key repeat (just repeats ascii_key_valid strobe periodically)
+  -- (As key repeat is checked on each of the 72 key tests, we don't need to
+  -- divide the maximum repeat counters by 72.)
+  signal repeat_key : integer range 0 to 71 := 0;
+  signal repeat_key_timer : integer range 0 to clock_frequency := 0;
+  constant repeat_start_timer : integer := clock_frequency/scan_frequency/2; -- 0.5 sec
+  constant repeat_again_timer : integer := clock_frequency/scan_frequency/10; -- 0.1 sec
 
   signal matrix : std_logic_vector(71 downto 0) := (others => '1');
   signal bucky_key_internal : std_logic_vector(6 downto 0) := (others => '0');
@@ -352,12 +360,6 @@ architecture behavioral of matrix_to_ascii is
 
   signal key_num : integer range 0 to 71 := 0;
 
-  -- Automatic key repeat (just repeats ascii_key_valid strobe periodically)
-  signal repeat_key : integer range 0 to 71 := 0;
-  signal repeat_key_timer : integer := 0;
-  constant repeat_start_timer : integer := 25000000/(scan_frequency*72); -- 0.5 sec
-  constant repeat_again_timer : integer := 5000000/(scan_frequency*72); -- 0.1 sec
-  
 begin
   process(clk)
     variable key_matrix : key_matrix_t;
@@ -406,8 +408,7 @@ begin
         matrix <= matrix_in;
         keyscan_counter <= keyscan_delay;
         matrix_internal(key_num) <= matrix(key_num);
-        if to_UX01(matrix_internal(key_num)) = '1'
-          and to_UX01(matrix(key_num))='0' then
+        if (to_UX01(matrix_internal(key_num)) = '1') and (to_UX01(matrix(key_num))='0') then
           if key_matrix(key_num) /= x"00" then
             -- Key press event
             report "matrix = " & to_string(matrix);
@@ -421,7 +422,7 @@ begin
             -- that there is no glitching visible (at least at the speed the CPU
             -- routine is checking the matrix).  It only happens with the real
             -- keyboard. On a Nexys4 board with USB / PS2 keyboard, the
-            -- problem doesn't occur.
+            -- problem doesn't occur. CORRECTION: It DOES happen with PS2 on Nexys4
             -- As an interim, we refuse to retrigger an ASCII key event for the
             -- same key that was most recently triggered.
             -- If there is glitching, we could deal with it by ANDing the matrix
@@ -435,7 +436,7 @@ begin
             ascii_key_valid <= '0';
           end if;
         else
-          if repeat_key_timer > 0 then
+          if repeat_key_timer /= 0 then
             repeat_key_timer <= repeat_key_timer - 1;
             ascii_key_valid <= '0';
           else

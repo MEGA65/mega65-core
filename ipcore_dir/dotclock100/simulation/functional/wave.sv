@@ -91,7 +91,8 @@ group clear 0 end
 group insert \
     {dotclock100_tb.dut.clk[1]} \
     {dotclock100_tb.dut.clk[2]}  \     {dotclock100_tb.dut.clk[3]}  \     {dotclock100_tb.dut.clk[4]}  \  
-    {dotclock100_tb.dut.clk[5]} 
+    {dotclock100_tb.dut.clk[5]}  \     {dotclock100_tb.dut.clk[6]}  \     {dotclock100_tb.dut.clk[7]} 
+
 group using {Counters}
 group set -overlay 0
 group set -comment {}
@@ -100,7 +101,16 @@ group clear 0 end
 group insert \
     {dotclock100_tb.dut.counter[1]} \
     {dotclock100_tb.dut.counter[2]}  \     {dotclock100_tb.dut.counter[3]}  \     {dotclock100_tb.dut.counter[4]}  \  
-    {dotclock100_tb.dut.counter[5]} 
+    {dotclock100_tb.dut.counter[5]}  \     {dotclock100_tb.dut.counter[6]}  \     {dotclock100_tb.dut.counter[7]} 
+
+group using {Status/control}
+group set -overlay 0
+group set -comment {}
+group clear 0 end
+
+group insert \
+   {nc::dotclock100_tb.RESET}    {nc::dotclock100_tb.LOCKED}
+
 
 set id [waveform add -signals [list {nc::dotclock100_tb.COUNT} ]]
 

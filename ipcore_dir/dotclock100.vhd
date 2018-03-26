@@ -56,10 +56,12 @@
 -- "Clock    Freq (MHz) (degrees) Cycle (%) Jitter (ps)  Error (ps)"
 ------------------------------------------------------------------------------
 -- CLK_OUT1___100.000______0.000______50.0______115.831_____87.180
--- CLK_OUT2____50.000______0.000______50.0______132.683_____87.180
--- CLK_OUT3___100.000______0.000______50.0______115.831_____87.180
--- CLK_OUT4___150.000______0.000______50.0______107.567_____87.180
--- CLK_OUT5___200.000______0.000______50.0______102.086_____87.180
+-- CLK_OUT2___200.000______0.000______50.0______102.086_____87.180
+-- CLK_OUT3____50.000______0.000______50.0______132.683_____87.180
+-- CLK_OUT4____40.000______0.000______50.0______139.033_____87.180
+-- CLK_OUT5____30.000______0.000______50.0______147.931_____87.180
+-- CLK_OUT6____33.333______0.000______50.0______144.570_____87.180
+-- CLK_OUT7___150.000______0.000______50.0______107.567_____87.180
 --
 ------------------------------------------------------------------------------
 -- "Input Clock   Freq (MHz)    Input Jitter (UI)"
@@ -81,16 +83,20 @@ port
   CLK_IN1           : in     std_logic;
   -- Clock out ports
   clock100          : out    std_logic;
+  clock200          : out    std_logic;
   clock50          : out    std_logic;
-  clock100b          : out    std_logic;
+  clock40          : out    std_logic;
+  clock30          : out    std_logic;
+  clock33          : out    std_logic;
   clock150          : out    std_logic;
-  clock200          : out    std_logic
+  -- Status and control signals
+  LOCKED            : out    std_logic
  );
 end dotclock100;
 
 architecture xilinx of dotclock100 is
   attribute CORE_GENERATION_INFO : string;
-  attribute CORE_GENERATION_INFO of xilinx : architecture is "dotclock100,clk_wiz_v3_6,{component_name=dotclock100,use_phase_alignment=true,use_min_o_jitter=false,use_max_i_jitter=false,use_dyn_phase_shift=false,use_inclk_switchover=false,use_dyn_reconfig=false,feedback_source=FDBK_AUTO,primtype_sel=MMCM_ADV,num_out_clk=5,clkin1_period=10.0,clkin2_period=10.0,use_power_down=false,use_reset=false,use_locked=false,use_inclk_stopped=false,use_status=false,use_freeze=false,use_clk_valid=false,feedback_type=SINGLE,clock_mgr_type=MANUAL,manual_override=false}";
+  attribute CORE_GENERATION_INFO of xilinx : architecture is "dotclock100,clk_wiz_v3_6,{component_name=dotclock100,use_phase_alignment=true,use_min_o_jitter=false,use_max_i_jitter=false,use_dyn_phase_shift=false,use_inclk_switchover=false,use_dyn_reconfig=false,feedback_source=FDBK_AUTO,primtype_sel=MMCM_ADV,num_out_clk=7,clkin1_period=10.000,clkin2_period=10.000,use_power_down=false,use_reset=true,use_locked=true,use_inclk_stopped=false,use_status=false,use_freeze=false,use_clk_valid=false,feedback_type=SINGLE,clock_mgr_type=MANUAL,manual_override=false}";
   -- Input clock buffering / unused connectors
   signal clkin1      : std_logic;
   -- Output clock buffering / unused connectors
@@ -106,15 +112,14 @@ architecture xilinx of dotclock100 is
   signal clkout3          : std_logic;
   signal clkout3b_unused  : std_logic;
   signal clkout4          : std_logic;
-  signal clkout5_unused   : std_logic;
-  signal clkout6_unused   : std_logic;
+  signal clkout5          : std_logic;
+  signal clkout6          : std_logic;
   -- Dynamic programming unused signals
   signal do_unused        : std_logic_vector(15 downto 0);
   signal drdy_unused      : std_logic;
   -- Dynamic phase shift unused signals
   signal psdone_unused    : std_logic;
   -- Unused status signals
-  signal locked_unused    : std_logic;
   signal clkfbstopped_unused : std_logic;
   signal clkinstopped_unused : std_logic;
 begin
@@ -133,10 +138,11 @@ begin
   -- Instantiation of the MMCM primitive
   --    * Unused inputs are tied off
   --    * Unused outputs are labeled unused
-  mmcm_adv_inst : MMCME2_ADV
+  mmcm_adv_inst : MMCM_ADV
   generic map
    (BANDWIDTH            => "OPTIMIZED",
     CLKOUT4_CASCADE      => FALSE,
+    CLOCK_HOLD           => FALSE,
     COMPENSATION         => "ZHOLD",
     STARTUP_WAIT         => FALSE,
     DIVCLK_DIVIDE        => 1,
@@ -147,23 +153,31 @@ begin
     CLKOUT0_PHASE        => 0.000,
     CLKOUT0_DUTY_CYCLE   => 0.500,
     CLKOUT0_USE_FINE_PS  => FALSE,
-    CLKOUT1_DIVIDE       => 24,
+    CLKOUT1_DIVIDE       => 6,
     CLKOUT1_PHASE        => 0.000,
     CLKOUT1_DUTY_CYCLE   => 0.500,
     CLKOUT1_USE_FINE_PS  => FALSE,
-    CLKOUT2_DIVIDE       => 12,
+    CLKOUT2_DIVIDE       => 24,
     CLKOUT2_PHASE        => 0.000,
     CLKOUT2_DUTY_CYCLE   => 0.500,
     CLKOUT2_USE_FINE_PS  => FALSE,
-    CLKOUT3_DIVIDE       => 8,
+    CLKOUT3_DIVIDE       => 30,
     CLKOUT3_PHASE        => 0.000,
     CLKOUT3_DUTY_CYCLE   => 0.500,
     CLKOUT3_USE_FINE_PS  => FALSE,
-    CLKOUT4_DIVIDE       => 6,
+    CLKOUT4_DIVIDE       => 40,
     CLKOUT4_PHASE        => 0.000,
     CLKOUT4_DUTY_CYCLE   => 0.500,
     CLKOUT4_USE_FINE_PS  => FALSE,
-    CLKIN1_PERIOD        => 10.0,
+    CLKOUT5_DIVIDE       => 36,
+    CLKOUT5_PHASE        => 0.000,
+    CLKOUT5_DUTY_CYCLE   => 0.500,
+    CLKOUT5_USE_FINE_PS  => FALSE,
+    CLKOUT6_DIVIDE       => 8,
+    CLKOUT6_PHASE        => 0.000,
+    CLKOUT6_DUTY_CYCLE   => 0.500,
+    CLKOUT6_USE_FINE_PS  => FALSE,
+    CLKIN1_PERIOD        => 10.000,
     REF_JITTER1          => 0.010)
   port map
     -- Output clocks
@@ -178,8 +192,8 @@ begin
     CLKOUT3             => clkout3,
     CLKOUT3B            => clkout3b_unused,
     CLKOUT4             => clkout4,
-    CLKOUT5             => clkout5_unused,
-    CLKOUT6             => clkout6_unused,
+    CLKOUT5             => clkout5,
+    CLKOUT6             => clkout6,
     -- Input clock control
     CLKFBIN             => clkfbout_buf,
     CLKIN1              => clkin1,
@@ -200,7 +214,7 @@ begin
     PSINCDEC            => '0',
     PSDONE              => psdone_unused,
     -- Other control and status signals
-    LOCKED              => locked_unused,
+    LOCKED              => LOCKED,
     CLKINSTOPPED        => clkinstopped_unused,
     CLKFBSTOPPED        => clkfbstopped_unused,
     PWRDWN              => '0',
@@ -223,22 +237,32 @@ begin
 
   clkout2_buf : BUFG
   port map
-   (O   => clock50,
+   (O   => clock200,
     I   => clkout1);
 
   clkout3_buf : BUFG
   port map
-   (O   => clock100b,
+   (O   => clock50,
     I   => clkout2);
 
   clkout4_buf : BUFG
   port map
-   (O   => clock150,
+   (O   => clock40,
     I   => clkout3);
 
   clkout5_buf : BUFG
   port map
-   (O   => clock200,
+   (O   => clock30,
     I   => clkout4);
+
+  clkout6_buf : BUFG
+  port map
+   (O   => clock33,
+    I   => clkout5);
+
+  clkout7_buf : BUFG
+  port map
+   (O   => clock150,
+    I   => clkout6);
 
 end xilinx;

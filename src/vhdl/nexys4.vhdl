@@ -117,7 +117,7 @@ entity container is
          jdlo : inout std_logic_vector(4 downto 1) := (others => 'Z');
          jdhi : inout std_logic_vector(10 downto 7) := (others => 'Z');
          jclo : inout std_logic_vector(4 downto 1) := (others => 'Z');
-         jc : inout std_logic_vector(10 downto 9) := (others => 'Z');
+         jchi : inout std_logic_vector(10 downto 7) := (others => 'Z');
          
          ----------------------------------------------------------------------
          -- Flash RAM for holding config
@@ -200,6 +200,9 @@ architecture Behavioral of container is
   signal clock100mhz : std_logic := '0';
   signal clock50mhz : std_logic := '0';
   signal clock200 : std_logic := '0';
+  signal clock40 : std_logic := '0';
+  signal clock33 : std_logic := '0';
+  signal clock30 : std_logic := '0';
 
   signal slow_access_request_toggle : std_logic;
   signal slow_access_ready_toggle : std_logic;
@@ -266,6 +269,9 @@ begin
     port map ( clk_in1 => CLK_IN,
                clock100 => pixelclock, -- 100MHz
                clock50 => cpuclock, -- 50MHz
+               clock40 => clock40,
+               clock33 => clock33,
+               clock30 => clock30,
                clock200 => clock200
                );
 
@@ -331,6 +337,9 @@ begin
       cpuclock        => cpuclock,
       clock50mhz      => clock50mhz,
       clock200 => clock200,
+      clock40 => clock40,
+      clock33 => clock33,
+      clock30 => clock30,
 --      ioclock         => ioclock, -- 32MHz
 --      uartclock         => ioclock, -- must be 32MHz
       uartclock         => cpuclock, -- Match CPU clock (48MHz)
@@ -378,7 +387,7 @@ begin
       iec_clk_o => iec_clk_o,
       iec_data_external => iec_data_i,
       iec_clk_external => iec_clk_i,
-      iec_atn => iec_atn,
+      iec_atn_o => iec_atn,
       
       no_kickstart => '0',
       
@@ -449,6 +458,12 @@ begin
 
       uart_rx => jclo(1),
       uart_tx => jclo(2),
+
+      buffereduart_rx => jclo(3),
+      buffereduart_tx => jclo(4),
+      buffereduart2_rx => jchi(9),
+      buffereduart2_tx => jchi(10),
+      buffereduart_ringindicate => jchi(8),
       
       slow_access_request_toggle => slow_access_request_toggle,
       slow_access_ready_toggle => slow_access_ready_toggle,
@@ -482,14 +497,7 @@ begin
   nmi <= not btn(4);
   restore_key <= not btn(1);
   
-  -- Generate 50MHz clock for ethernet
-  process (clock100mhz) is
-  begin
-    if rising_edge(clock100mhz) then
-      report "50MHz tick";
-      clock50mhz <= not clock50mhz;
-      eth_clock <= not clock50mhz;
-    end if;
-  end process;
+  -- Ethernet clock is now just the CPU clock, since both are on 50MHz
+  eth_clock <= cpuclock;  
   
 end Behavioral;

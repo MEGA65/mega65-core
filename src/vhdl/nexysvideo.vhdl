@@ -248,10 +248,13 @@ end component;
   --signal dummy_vgablue : unsigned(3 downto 0);
 
   signal pixelclock : std_logic;
-  signal pixelclock_x5 : std_logic;
-  
   signal cpuclock : std_logic;
   signal clock200 : std_logic;
+  signal clock40 : std_logic;
+  signal clock33 : std_logic;
+  signal clock30 : std_logic;
+
+  signal pixelclock_x5 : std_logic;
   
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
 
@@ -388,12 +391,14 @@ end component;
   
 begin
   
-  dotclock1: dotclock100
+  dotclock1: entity work.dotclock100
     port map ( clk_in1 => CLK_IN,
                clock100 => pixelclock, -- 100MHz
                clock50 => cpuclock, -- 50MHz
-               clock200 => clock200 --,
-               -- clock500 => pixelclock_x5
+               clock40 => clock40,
+               clock33 => clock33,
+               clock30 => clock30,
+               clock200 => clock200
                );
 
  -- dvi_out0 : dvi_out
@@ -473,13 +478,14 @@ begin
       );
   
   machine0: entity work.machine
-    generic map (
-      cpufrequency => 50,
-      pixel_clock_frequency_hz => 100000000)
+    generic map (cpufrequency => 50)
     port map (
       pixelclock      => pixelclock,
       cpuclock        => cpuclock,
       clock200 => clock200,
+      clock40 => clock40,
+      clock33 => clock33,
+      clock30 => clock30,
       clock50mhz      => cpuclock,
       uartclock       => cpuclock, -- Match CPU clock
       ioclock         => cpuclock, -- Match CPU clock
@@ -537,7 +543,11 @@ begin
       vgagreen(7 downto 0)        => vgagreen,
       vgablue(7 downto 0)         => vgablue,
 
-      buffereduart_rx => '1',
+      -- need to figure out what to do with these on this board.
+      --buffereduart_rx => jclo(3),
+      --buffereduart_tx => jclo(4),
+      --buffereduart2_rx => jchi(9),
+      --buffereduart2_tx => jchi(10),
       buffereduart_ringindicate => '1',
 
       porta_pins => porta_pins,

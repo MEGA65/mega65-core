@@ -115,7 +115,25 @@ $ cd ..
 $ cd mega65-core
 ```
 
-You are now ready to compile the design.
+You need ```fpgajtag``` installed to make use of the improved tool-chain.
+See below for info:  
+```
+$ cd .. (to get out of the $git_root dir)
+$ git clone https://github.com/cambridgehackers/fpgajtag.git
+$ cd fpgajtag
+$ make
+```
+if the above fails, ```sudo apt-get install libusb-1.0-0-dev``` and ```make```.
+```
+$ sudo cp src/fpgajtag /usr/local/bin
+$ cd ..
+$ cd mega65-core
+$ fpgajtag --version
+```
+
+See below for other dependencies.  
+
+You are now ready to compile the design.  
 
 ## Compiling
 
@@ -125,12 +143,19 @@ The following is assumed:
 1. you have ```make``` installed (I have 4.0) (for the makefile)
 1. you have ```python``` installed (I have ver 2.7.10) (for some scripts)
 1. you have ```libpng12-dev``` installed (for the image manipulation)
-1. you have ```cbmconvert``` installed (I have ver 2.1.2) (to make a D81 image)
+1. you have ```cbmconvert``` installed (I have ver 2.1.2) (to make a D81 image) (refer to ./using.md)
 1. you have Xilinx ISE 14.7 WebPACK installed, with a valid licence
 
 Overview of the compile process:  
 
-1. ```make bin/(board type).bit```, supported (board types)'s are: ```nexys4```, ```nexys4ddr```.  
+1. ```make bin/(board type).bit```,
+currently supported (board types)'s are:
+```nexys4```,
+```nexys4ddr```,
+```mega65r1```,
+```lcd4ddr```,
+```nocpu``` and
+```touch_test```.  
 1. optionally: see design run in fpga hardware (to do)
 1. optionally: see design run in ghdl simulator (to do)
 
@@ -139,7 +164,7 @@ The following instructions are for running in the fpga.
 * As there are many end-use cases, i will not cover them all here, just the one that suits me.  
 Someone else please document how the simulate function(s) work and what compile options etc.  
 
-In your working directory, type the following:
+In your working directory, type the following (select a specific board-type-target):
 ```
 $GIT_ROOT$/mega65-core> make bin/nexys4ddr.bit
 $GIT_ROOT$/mega65-core> 

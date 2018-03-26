@@ -1,7 +1,7 @@
 run
 -ifmt MIXED
 -top dotclock100_exdes
--p xc7a100t-csg324-1
+-p xc6vlx75t-ff484-3
 -ifn xst.prj
 -ofn dotclock100_exdes
 -keep_hierarchy soft 

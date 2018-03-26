@@ -32,7 +32,7 @@ entity uart_monitor is
     clock : in std_logic;
     tx : out std_logic;
     rx : in  std_logic;
-    bit_rate_divisor : out unsigned(13 downto 0);
+    bit_rate_divisor : out unsigned(15 downto 0);
     activity : out std_logic;
 
     protected_hardware_in : in unsigned(7 downto 0);
@@ -91,6 +91,7 @@ entity uart_monitor is
     monitor_mem_read : out std_logic := '0';
     monitor_mem_write : out std_logic := '0';
     monitor_mem_setpc : out std_logic := '0';
+    monitor_irq_inhibit : out std_logic := '0';
     monitor_mem_stage_trace_mode : out std_logic := '0';
     monitor_mem_trace_mode : out std_logic := '0';
     monitor_mem_trace_toggle : out std_logic := '0'
@@ -311,7 +312,7 @@ architecture behavioural of uart_monitor is
 
   signal show_register_delay : integer range 0 to 255;
 
-  signal bit_rate_divisor_internal : unsigned(13 downto 0) := to_unsigned(50000000/2000000,14);
+  signal bit_rate_divisor_internal : unsigned(15 downto 0) := to_unsigned(50000000/2000000,16);
 
   signal in_matrix_mode : std_logic := '0';
 
@@ -997,20 +998,36 @@ begin
                     monitor_hyper_trap <= '0';
                   end if;
                   state <= NextCommand;
+                elsif cmdbuffer(1) = 'i' then
+                  monitor_irq_inhibit <= '0';
+                  state <= NextCommand;
+                elsif cmdbuffer(1) = 'I' then
+                  monitor_irq_inhibit <= '1';
+                  state <= NextCommand;
                 elsif cmdbuffer(1) = 'r' or cmdbuffer(1) = 'R' then
                   state <= ShowRegisters;                
                 elsif cmdbuffer(1) = 't' or cmdbuffer(1) = 'T' then
                   if cmdbuffer(2)='2' then
                     monitor_mem_stage_trace_mode<='1';
                   elsif cmdbuffer(2)='1' then
+                    monitor_irq_inhibit <= '1';
                     monitor_mem_trace_mode<='1';
                     state <= NextCommand;
+                  elsif cmdbuffer(2)='C' then
+                    -- tC = trace continuous with IRQs enabled
+                    monitor_irq_inhibit <= '0';
+                    monitor_mem_trace_mode<='1';
+                    trace_continuous <= '1';
+                    state <= NextCommand;
                   elsif cmdbuffer(2)='c' then
+                    -- tC = trace continuous with IRQs disabled
+                    monitor_irq_inhibit <= '1';
                     monitor_mem_trace_mode<='1';
                     trace_continuous <= '1';
                     state <= NextCommand;
                   elsif cmdbuffer(2)='0' then
                     -- Set CPU free running
+                    monitor_irq_inhibit <= '0';
                     monitor_mem_trace_mode<='0';
                     state <= NextCommand;
                     -- Also start capturing CPU history
@@ -1019,6 +1036,7 @@ begin
                     history_address <= 0;
                   elsif cmdbuffer(2)='l' then
                     -- Set CPU free running
+                    monitor_irq_inhibit <= '0';
                     monitor_mem_trace_mode<='0';
                     state <= NextCommand;
                     -- Also start capturing CPU history continuously
@@ -1208,7 +1226,7 @@ begin
                            state <= NextCommand;
                            
             when SetBaudRate =>
-              bit_rate_divisor_internal <= hex_value(13 downto 0);
+              bit_rate_divisor_internal <= hex_value(15 downto 0);
               state <= NextCommand;
             when LoadMemory1 => target_address <= hex_value(27 downto 0);
                                 skip_space(LoadMemory2);

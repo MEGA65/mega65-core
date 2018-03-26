@@ -176,22 +176,22 @@ splf1:
 	; Set multiplicant inputs to multiplier
 	ldx #$03
 splf4:	lda syspart_freeze_slot_size_in_bytes,x
-	sta $d780,x
+	sta $d770,x
 	dex
 	bpl splf4
 
 	plx
-	stx $d784
+	stx $d774
 	ply
-	sty $d785
+	sty $d775
 	lda #$00
-	sta $d786
-	sta $d787
+	sta $d776
+	sta $d777
 
 	; Read out answer, and add it to slot 0 address
 	ldx #3
 	clc
-splf3:	lda $d788,x
+splf3:	lda $d778,x
 	adc $d681,x
 	sta $d681,x
 	dex

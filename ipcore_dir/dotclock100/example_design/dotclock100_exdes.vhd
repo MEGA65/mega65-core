@@ -71,9 +71,12 @@ port
   CLK_IN1           : in  std_logic;
   -- Reset that only drives logic in example design
   COUNTER_RESET     : in  std_logic;
-  CLK_OUT           : out std_logic_vector(5 downto 1) ;
+  CLK_OUT           : out std_logic_vector(7 downto 1) ;
   -- High bits of counters driven by clocks
-  COUNT             : out std_logic_vector(5 downto 1)
+  COUNT             : out std_logic_vector(7 downto 1);
+  -- Status and control signals
+  RESET             : in  std_logic;
+  LOCKED            : out std_logic
  );
 end dotclock100_exdes;
 
@@ -85,11 +88,12 @@ architecture xilinx of dotclock100_exdes is
   constant C_W        : integer := 16;
 
   -- Number of counters
-  constant NUM_C      : integer := 5;
+  constant NUM_C      : integer := 7;
   -- Array typedef
   type ctrarr is array (1 to NUM_C) of std_logic_vector(C_W-1 downto 0);
 
-  -- Reset for counters when lock status changes
+  -- When the clock goes out of lock, reset the counters
+  signal   locked_int : std_logic;
   signal   reset_int  : std_logic                     := '0';
   -- Declare the clocks and counters
   signal   clk        : std_logic_vector(NUM_C downto 1);
@@ -108,16 +112,24 @@ port
   CLK_IN1           : in     std_logic;
   -- Clock out ports
   clock100          : out    std_logic;
+  clock200          : out    std_logic;
   clock50          : out    std_logic;
-  clock100b          : out    std_logic;
+  clock40          : out    std_logic;
+  clock30          : out    std_logic;
+  clock33          : out    std_logic;
   clock150          : out    std_logic;
-  clock200          : out    std_logic
+  -- Status and control signals
+  RESET             : in     std_logic;
+  LOCKED            : out    std_logic
  );
 end component;
 
 begin
-  -- Create reset for the counters
-  reset_int <= COUNTER_RESET;
+  -- Alias output to internally used signal
+  LOCKED    <= locked_int;
+
+  -- When the clock goes out of lock, reset the counters
+  reset_int <= (not locked_int) or RESET or COUNTER_RESET;
 
 
   counters_1: for count_gen in 1 to NUM_C generate begin
@@ -145,10 +157,15 @@ end generate counters_1;
     CLK_IN1            => CLK_IN1,
     -- Clock out ports
     clock100           => clk_int(1),
-    clock50           => clk_int(2),
-    clock100b           => clk_int(3),
-    clock150           => clk_int(4),
-    clock200           => clk_int(5));
+    clock200           => clk_int(2),
+    clock50           => clk_int(3),
+    clock40           => clk_int(4),
+    clock30           => clk_int(5),
+    clock33           => clk_int(6),
+    clock150           => clk_int(7),
+    -- Status and control signals
+    RESET              => RESET,
+    LOCKED             => locked_int);
 
 
   gen_outclk_oddr: 
@@ -171,6 +188,8 @@ end generate counters_1;
   clk(3) <= clk_int(3);
   clk(4) <= clk_int(4);
   clk(5) <= clk_int(5);
+  clk(6) <= clk_int(6);
+  clk(7) <= clk_int(7);
 
   -- Output clock sampling
   -------------------------------------

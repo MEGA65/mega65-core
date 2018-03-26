@@ -50,7 +50,7 @@
 set projDir [file dirname [info script]]
 set projName dotclock100
 set topName dotclock100_exdes
-set device xc7a100tcsg324-1
+set device xc6vlx75tff484-3
 
 create_project $projName $projDir/results/$projName -part $device
 

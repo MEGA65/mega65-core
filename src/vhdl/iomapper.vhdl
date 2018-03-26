@@ -38,9 +38,11 @@ entity iomapper is
         uart_monitor_char : out unsigned(7 downto 0);
         uart_monitor_char_valid : out std_logic := '0';
 
-        buffereduart_rx : in std_logic;
+        buffereduart_rx : inout std_logic := 'H';
         buffereduart_tx : out std_logic := '1';
         buffereduart_ringindicate : in std_logic;
+        buffereduart2_rx : inout std_logic := 'H';
+        buffereduart2_tx : out std_logic := '1';
         
         display_shift_out : out std_logic_vector(2 downto 0) := "000";
         shift_ready_out : out std_logic := '0';
@@ -157,7 +159,7 @@ entity iomapper is
         hdmi_scl : inout std_logic := '1';
         hdmi_sda : inout std_logic := 'Z';
 
-        uart_rx : in std_logic;
+        uart_rx : inout std_logic := 'H';
         uart_tx : out std_logic;
 
         pixel_stream_in : in unsigned (7 downto 0);
@@ -743,6 +745,8 @@ begin
     uart_rx => buffereduart_rx,
     uart_tx => buffereduart_tx,
     uart_ringindicate => buffereduart_ringindicate,
+    uart2_rx => buffereduart2_rx,
+    uart2_tx => buffereduart2_tx,
 
     fastio_addr => unsigned(address),
     fastio_write => w,

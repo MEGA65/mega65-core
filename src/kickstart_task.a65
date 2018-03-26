@@ -150,40 +150,11 @@ task_asblankslate:
 
 ;	========================
 
-double_restore_trap:
-
+restore_press_trap:
 	; Freeze to slot 0
 	ldx #$00
 	ldy #$00
 	jsr freeze_to_slot
-
-	; return from hypervisor
-	;
-	sta hypervisor_enterexit_trigger
-
-double_restore_trap_old:
-
-	; For now we just want to toggle the CPU speed between 48MHz and
-	; 1MHz
-
-	; enable 48MHz for fast mode instead of 3.5MHz
-	;
-	lda $D054
-	eor #$40
-	sta $D054
-
-	; enable FAST mode,
-	;
-	lda $D031
-	ora #$40
-	sta $D031
-
-	; bump border colour so that we know something has happened
-	;
-	lda $D020
-	inc
-	and #$0f
-	sta $D020
 
 	; return from hypervisor
 	;

@@ -82,34 +82,43 @@ architecture test of dotclock100_tb is
 
 
   -- we'll be using the period in many locations
-  constant PER1        : time := 10.0 ns;
+  constant PER1        : time := 10.000 ns;
 
 
   -- Declare the input clock signals
   signal CLK_IN1       : std_logic := '1';
   -- The high bits of the sampling counters
-  signal COUNT         : std_logic_vector(5 downto 1);
+  signal COUNT         : std_logic_vector(7 downto 1);
+  -- Status and control signals
+  signal RESET         : std_logic := '0';
+  signal LOCKED        : std_logic;
   signal COUNTER_RESET : std_logic := '0';
   signal timeout_counter : std_logic_vector (13 downto 0) := (others => '0');
 --  signal defined to stop mti simulation without severity failure in the report
   signal end_of_sim : std_logic := '0';
-  signal CLK_OUT : std_logic_vector(5 downto 1);
+  signal CLK_OUT : std_logic_vector(7 downto 1);
 --Freq Check using the M & D values setting and actual Frequency generated
   signal period1 : time := 0 ps;
-constant  ref_period1_clkin1 : time := (10.0*1*12.000/12.000)*1000 ps;
+constant  ref_period1_clkin1 : time := (10.000*1*12.000/12.000)*1000 ps;
    signal prev_rise1 : time := 0 ps;
   signal period2 : time := 0 ps;
-constant  ref_period2_clkin1 : time := (10.0*1*24/12.000)*1000 ps;
+constant  ref_period2_clkin1 : time := (10.000*1*6/12.000)*1000 ps;
    signal prev_rise2 : time := 0 ps;
   signal period3 : time := 0 ps;
-constant  ref_period3_clkin1 : time := (10.0*1*12/12.000)*1000 ps;
+constant  ref_period3_clkin1 : time := (10.000*1*24/12.000)*1000 ps;
    signal prev_rise3 : time := 0 ps;
   signal period4 : time := 0 ps;
-constant  ref_period4_clkin1 : time := (10.0*1*8/12.000)*1000 ps;
+constant  ref_period4_clkin1 : time := (10.000*1*30/12.000)*1000 ps;
    signal prev_rise4 : time := 0 ps;
   signal period5 : time := 0 ps;
-constant  ref_period5_clkin1 : time := (10.0*1*6/12.000)*1000 ps;
+constant  ref_period5_clkin1 : time := (10.000*1*40/12.000)*1000 ps;
    signal prev_rise5 : time := 0 ps;
+  signal period6 : time := 0 ps;
+constant  ref_period6_clkin1 : time := (10.000*1*36/12.000)*1000 ps;
+   signal prev_rise6 : time := 0 ps;
+  signal period7 : time := 0 ps;
+constant  ref_period7_clkin1 : time := (10.000*1*8/12.000)*1000 ps;
+   signal prev_rise7 : time := 0 ps;
 
 component dotclock100_exdes
 port
@@ -117,9 +126,12 @@ port
   CLK_IN1           : in  std_logic;
   -- Reset that only drives logic in example design
   COUNTER_RESET     : in  std_logic;
-  CLK_OUT           : out std_logic_vector(5 downto 1) ;
+  CLK_OUT           : out std_logic_vector(7 downto 1) ;
   -- High bits of counters driven by clocks
-  COUNT             : out std_logic_vector(5 downto 1)
+  COUNT             : out std_logic_vector(7 downto 1);
+  -- Status and control signals
+  RESET             : in  std_logic;
+  LOCKED            : out std_logic
  );
 end component;
 
@@ -166,8 +178,10 @@ begin
 
   begin
    report "Timing checks are not valid" severity note;
-    -- can't probe into hierarchy, wait "some time" for lock
-    wait for (PER1*2500);
+    RESET      <= '1';
+    wait for (PER1*6);
+    RESET      <= '0';
+    wait until LOCKED = '1';
     wait for (PER1*20);
     COUNTER_RESET <= '1';
     wait for (PER1*19.5);
@@ -185,6 +199,10 @@ begin
     assert (((period4 - ref_period4_clkin1) >= -100 ps) and ((period4 - ref_period4_clkin1) <= 100 ps)) report "ERROR: Freq of CLK_OUT(4) is not correct"  severity note;
     simfreqprint(period5, 5);
     assert (((period5 - ref_period5_clkin1) >= -100 ps) and ((period5 - ref_period5_clkin1) <= 100 ps)) report "ERROR: Freq of CLK_OUT(5) is not correct"  severity note;
+    simfreqprint(period6, 6);
+    assert (((period6 - ref_period6_clkin1) >= -100 ps) and ((period6 - ref_period6_clkin1) <= 100 ps)) report "ERROR: Freq of CLK_OUT(6) is not correct"  severity note;
+    simfreqprint(period7, 7);
+    assert (((period7 - ref_period7_clkin1) >= -100 ps) and ((period7 - ref_period7_clkin1) <= 100 ps)) report "ERROR: Freq of CLK_OUT(7) is not correct"  severity note;
 
 
     simtimeprint;
@@ -193,6 +211,27 @@ begin
     report "Simulation Stopped." severity failure;
     wait;
   end process;
+
+ process (CLK_IN1)
+    procedure simtimeprint is
+      variable outline : line;
+    begin
+      write(outline, string'("## SYSTEM_CYCLE_COUNTER "));
+      write(outline, NOW/PER1);
+      write(outline, string'(" ns"));
+      writeline(output,outline);
+    end simtimeprint;
+   begin
+     if (CLK_IN1'event and CLK_IN1='1') then
+         timeout_counter <= timeout_counter + '1';
+       if (timeout_counter = "10000000000000") then
+          if (LOCKED /= '1') then
+            simtimeprint;
+            report "NO LOCK signal" severity failure;
+          end if;
+       end if;
+     end if;
+ end process; 
 
 
   -- Instantiation of the example design containing the clock
@@ -206,7 +245,10 @@ begin
     COUNTER_RESET      => COUNTER_RESET,
     CLK_OUT            => CLK_OUT,
     -- High bits of the counters
-    COUNT              => COUNT);
+    COUNT              => COUNT,
+    -- Status and control signals
+    RESET              => RESET,
+    LOCKED             => LOCKED);
 
 -- Freq Check 
    process(CLK_OUT(1))
@@ -252,6 +294,24 @@ begin
        period5 <= NOW - prev_rise5;
      end if;
      prev_rise5 <= NOW; 
+   end if;
+   end process;
+   process(CLK_OUT(6))
+   begin
+   if (CLK_OUT(6)'event and CLK_OUT(6) = '1') then
+     if (prev_rise6 /= 0 ps) then
+       period6 <= NOW - prev_rise6;
+     end if;
+     prev_rise6 <= NOW; 
+   end if;
+   end process;
+   process(CLK_OUT(7))
+   begin
+   if (CLK_OUT(7)'event and CLK_OUT(7) = '1') then
+     if (prev_rise7 /= 0 ps) then
+       period7 <= NOW - prev_rise7;
+     end if;
+     prev_rise7 <= NOW; 
    end if;
    end process;
 

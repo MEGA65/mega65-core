@@ -62,6 +62,7 @@ entity viciv is
     -- dot clock
     ----------------------------------------------------------------------
     pixelclock : in  STD_LOGIC;
+    pixelclock_select : out std_logic_vector(7 downto 0) := x"bc";
     ----------------------------------------------------------------------
     -- CPU clock (used for chipram and fastio interfaces)
     ----------------------------------------------------------------------
@@ -89,6 +90,12 @@ entity viciv is
 
     dat_offset : out unsigned(15 downto 0);
     dat_bitplane_addresses : out sprite_vector_eight;
+
+    -- Used to synchronise our frame with an external frame generator
+    -- (Used to provide stable frame generation for LCD displays, as well
+    -- as to support a genlock input).
+    external_frame_x_zero : in std_logic := '0';
+    external_frame_y_zero : in std_logic := '0';
     
     ----------------------------------------------------------------------
     -- VGA output
@@ -148,6 +155,8 @@ entity viciv is
 end viciv;
 
 architecture Behavioral of viciv is
+
+  signal pixelclock_select_internal : std_logic_vector(7 downto 0) := x"bc";
   
   signal reset_drive : std_logic := '0';
   
@@ -324,7 +333,7 @@ architecture Behavioral of viciv is
   signal paint_full_colour_data : unsigned(63 downto 0) := (others => '0');
 
   -- chipram access management registers
-  signal next_ramaddress : unsigned(16 downto 0) := to_unsigned(0,17);
+  signal next_ramaddress : unsigned(16 downto 0);
   signal next_ramaccess_is_screen_row_fetch : std_logic := '0';
   signal this_ramaccess_is_screen_row_fetch : std_logic := '0';
   signal last_ramaccess_is_screen_row_fetch : std_logic := '0';
@@ -876,6 +885,46 @@ architecture Behavioral of viciv is
   signal viciv_flyback : std_logic := '0';
 
   signal pixel_newframe_internal : std_logic := '0';
+
+  -- Signals for managing the state of the programmable screen RAM lists
+  -- We have a simple call-stack scheme, where GOTO tokens and GOSUB tokens
+  -- can cause redirection of the screen RAM stream being read. This happens
+  -- during the badline fetch, i.e., once per character row.
+  type screenline_return_stack_t is  array (0 to 3) of unsigned(16 downto 0);
+  signal screenline_return_stack : screenline_return_stack_t;
+  signal screenline_return_stack_count : integer range 0 to 3 := 0;
+  -- Some tokens can also set other interesting parameters, such as whether
+  -- drawing should happen with the background being painted, or not, to
+  -- allow transparency.  This can be useful for using characters to draw
+  -- bullets etc, or even large animated sprite-like objects, consisting of
+  -- sets of characters.
+  signal screenline_transparent_background : std_logic := '0';
+  -- We also allow shoving characters up or down, so that by displaying
+  -- a set of screen characters (possibly via a GOSUB token), they can be
+  -- displayed at any vertical offset, as well as horizontal offset via the
+  -- GOTOX tokens.
+  -- _empty_rows indicates the number of blank rasters at the top of the char,
+  -- before showing the characterr, i.e., how many pixels to shove a character
+  -- down.
+  -- _skip_rows indicates how many of the pixels of the character to skip at
+  -- top of a character, so that the bottom half of a shoved row can be displayed
+  -- on the subsequent line, by drawing it one each in both lines, once with
+  -- _empty_rows and and once with _skip_rows set to the same number, which is
+  -- the number of pixels vertical shift down the screen compared with normal.
+  signal screenline_y_empty_rows : integer := 0;
+  signal screenline_y_skip_rows : integer := 0;
+
+  -- For accumulating the last token
+  signal screen_line_last_token : unsigned(15 downto 0) := x"0000";
+  -- Count down used to extracting read 16-bit character tokens from the
+  -- badline data stream (corrects for pipeline delay, and only every other
+  -- byte completing a 16-bit token).
+  signal badlineprog_countdown : integer := 0;
+  -- Count down used when branching in a badline program to flush the memory
+  -- fetch pipeline.
+  signal badlineprog_inhibit_screen_row_buffer_write_counter : integer := 0;
+  -- Indicates if the next 16 bit screen token will be a GOTO/GOSUB token
+  signal next_token_is_goto : std_logic := '0';
   
 begin
   
@@ -1788,7 +1837,7 @@ begin
           fastio_rdata(3 downto 0) <= std_logic_vector(hsync_start(13 downto 10));
           fastio_rdata(4) <= hsync_polarity;
           fastio_rdata(5) <= vsync_polarity;
-          fastio_rdata(7 downto 6) <= "00";
+          fastio_rdata(7 downto 6) <= pixelclock_select_internal(1 downto 0);
         elsif register_number=125 then
         -- fastio_rdata <=
         --  std_logic_vector(to_unsigned(vic_paint_fsm'pos(debug_paint_fsm_state_drive2),8));
@@ -2280,12 +2329,16 @@ begin
                                         -- @IO:GS $D04F.7-4 VIC-IV sprite 7-4 horizontal tile enables
                                                     sprite_horizontal_tile_enables(7 downto 4) <= fastio_wdata(7 downto 4);
                                                   elsif register_number=80 then
-                                        -- @IO:GS $D050 VIC-IV read horizontal position (LSB)
-                                        -- xcounter
-                                                    null;
+                                        -- @IO:GS $D050 VIC-IV read horizontal position (LSB) (READ) xcounter
+                                        -- @IO:GS $D050 VIC-IV pixel clock configuration (WRITE ONLY)
+                                                    pixelclock_select <= fastio_wdata;
+                                                    pixelclock_select_internal <= fastio_wdata;
                                                   elsif register_number=81 then
-                                        -- @IO:GS $D051 VIC-IV read horizontal position (MSB)
-                                        -- xcounter
+                                        -- @IO:GS $D051 VIC-IV read horizontal position (MSB) (READ) xcounter
+                                        -- @IO:GS $D051 VIC-IV frame width, hsync fine tuning (WRITE ONLY)
+                                                    hsync_start(1 downto 0) <= unsigned(fastio_wdata(1 downto 0));
+                                                    hsync_end(1 downto 0) <= unsigned(fastio_wdata(3 downto 2));
+                                                    frame_width(1 downto 0) <= unsigned(fastio_wdata(5 downto 4));
                                                     null;
                                                   elsif register_number=82 then
                                         -- @IO:GS $D052 VIC-IV read physical raster/set raster compare (LSB)
@@ -2419,8 +2472,12 @@ begin
                                                         hsync_start <= to_unsigned(2764,14);
                                                         hsync_end <= to_unsigned(3100,14);
                                                         vicii_max_raster <= pal_max_raster;
+                                        -- Set 30MHz pixel clock for PAL
+                                                        pixelclock_select_internal <= x"bc";
+                                                        pixelclock_select <= x"bc";
+                                        -- VSYNC is negative for 50Hz (required for some monitors)
                                                         hsync_polarity <= '0';
-                                                        vsync_polarity <= '0';
+                                                        vsync_polarity <= '1';
 
                                         -- 3 1/3 physical
                                         -- pixels per actual
@@ -2444,8 +2501,11 @@ begin
                                                         hsync_start <= to_unsigned(2764,14);
                                                         hsync_end <= to_unsigned(3100,14);
                                                         vicii_max_raster <= ntsc_max_raster;
+                                        -- Set 30MHz pixel clock for PAL
+                                                        pixelclock_select_internal <= x"bc";
+                                                        pixelclock_select <= x"bc";
                                                         hsync_polarity <= '0';
-                                                        vsync_polarity <= '0';
+                                                        vsync_polarity <= '1';
 
                                                         chargen_x_pixels <= 3;
                                                         chargen_x_pixels_sub <= 216/3;
@@ -2469,6 +2529,9 @@ begin
                                                         hsync_end <= to_unsigned(2540,14);
                                                         hsync_polarity <= '0';
                                                         vsync_polarity <= '0';
+                                        -- Set 40MHz pixel clock for NTSC
+                                                        pixelclock_select_internal <= x"3e";
+                                                        pixelclock_select <= x"3e";
 
                                                         chargen_x_pixels <= 2;
                                                         chargen_x_pixels_sub <= 216/2;
@@ -2494,6 +2557,10 @@ begin
                                                         hsync_polarity <= '0';
                                                         vsync_polarity <= '0';
 
+                                        -- Set 40MHz pixel clock for NTSC
+                                                        pixelclock_select_internal <= x"3e";
+                                                        pixelclock_select <= x"3e";
+                                                        
                                                         chargen_x_pixels <= 2;
                                                         chargen_x_pixels_sub <= 216/2;
 
@@ -2516,6 +2583,10 @@ begin
                                                         hsync_polarity <= '0';
                                                         vsync_polarity <= '0';
 
+                                        -- Set 40MHz pixel clock for NTSC
+                                                        pixelclock_select_internal <= x"3e";
+                                                        pixelclock_select <= x"3e";
+                                                        
                                                         chargen_x_pixels <= 2;
                                                         chargen_x_pixels_sub <= 216/2;
 
@@ -2587,6 +2658,9 @@ begin
                                                     hsync_polarity <= fastio_wdata(4);
                                         -- @IO:GS $D07C.5 VIC-IV vsync polarity
                                                     vsync_polarity <= fastio_wdata(5);
+                                        -- @IO:GS $D07C.6-7 VIC-IV pixel clock select (30,33,40 or 50MHz)
+                                                    pixelclock_select(1 downto 0) <= fastio_wdata(7 downto 6);
+                                                    pixelclock_select_internal(1 downto 0) <= fastio_wdata(7 downto 6);
                                                   elsif register_number=125 then
                                         -- @IO:GS $D07D VIC-IV debug X position (LSB)
                                                     debug_x(7 downto 0) <= unsigned(fastio_wdata);
@@ -2797,10 +2871,10 @@ begin
       indisplay :='1';
 --      report "VICII: SPRITE: xcounter(320) = " & integer'image(to_integer(vicii_xcounter_320))
 --        & " (sub) = " & integer'image(vicii_xcounter_sub320);
-      if xcounter /= to_integer(frame_width) then
-          raster_buffer_read_address <= raster_buffer_read_address_next;
-          raster_buffer_read_address_sub <= raster_buffer_read_address_sub_next;
-
+--      if xcounter /= to_integer(frame_width) and external_frame_x_zero='0' then
+      if external_frame_x_zero='0' then
+        raster_buffer_read_address <= raster_buffer_read_address_next;
+        raster_buffer_read_address_sub <= raster_buffer_read_address_sub_next;
         xcounter <= xcounter + 1;
         if xcounter = sprite_first_x then
           sprite_x_counting <= '1';
@@ -2834,6 +2908,7 @@ begin
       else
         -- End of raster reached.
         -- Bump raster number and start next raster.
+        report "XZERO: ycounter=" & integer'image(to_integer(ycounter));
         xcounter <= (others => '0');
         sprite_x_counting <= '0';
         vicii_ycounter_scale <= vicii_ycounter_scale_minus_zero;
@@ -2854,65 +2929,76 @@ begin
 
         chargen_active <= '0';
         chargen_active_soon <= '0';
-        if ycounter /= to_integer(frame_height) then
-          ycounter <= ycounter + 1;
-          if vicii_ycounter_phase = vicii_ycounter_max_phase then
-            if to_integer(vicii_ycounter) /= vicii_max_raster then
-              if ycounter >= vsync_delay_drive then
-                vicii_ycounter <= vicii_ycounter + 1;
+--        if ycounter /= to_integer(frame_height) and external_frame_y_zero='0' then
+        if xcounter > 255 then
+          if external_frame_y_zero='0' then
+            report "XZERO: incrementing ycounter from " & integer'image(to_integer(ycounter));
+            ycounter <= ycounter + 1;
+
+            displaycolumn0 <= '1';
+            displayy <= displayy + 1;
+            if displayy(4)='1' then
+              displayline0 <= '0';            
+            end if;
+            
+            if vicii_ycounter_phase = vicii_ycounter_max_phase then
+              if to_integer(vicii_ycounter) /= vicii_max_raster then
+                if ycounter >= vsync_delay_drive then
+                  vicii_ycounter <= vicii_ycounter + 1;
+                  vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;
+                end if;
+              end if;
+              vicii_ycounter_phase <= (others => '0');
+              -- All visible rasters are now equal height
+              -- (we take up the slack using vertical_flyback fast raster stepping,
+              -- and allow arbitrary setting of first raster of the VGA frame).
+              vicii_ycounter_max_phase <= vicii_ycounter_scale;
+            else
+              -- In the middle of a VIC-II logical raster, so just increase phase.
+              vicii_ycounter_phase <= vicii_ycounter_phase + 1;
+              if to_integer(vicii_ycounter_phase) =  to_integer(vicii_ycounter_max_phase(3 downto 1)) then
                 vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;
               end if;
             end if;
-            vicii_ycounter_phase <= (others => '0');
-            -- All visible rasters are now equal height
-            -- (we take up the slack using vertical_flyback fast raster stepping,
-            -- and allow arbitrary setting of first raster of the VGA frame).
-            vicii_ycounter_max_phase <= vicii_ycounter_scale;
-          else
-            -- In the middle of a VIC-II logical raster, so just increase phase.
-            vicii_ycounter_phase <= vicii_ycounter_phase + 1;
-            if to_integer(vicii_ycounter_phase) =  to_integer(vicii_ycounter_max_phase(3 downto 1)) then
-              vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;
+
+            -- Make VIC-II triggered raster interrupts edge triggered, since one
+            -- emulated VIC-II raster is ~63*48 = ~3,000 cycles, and many C64
+            -- raster routines may finish in that time, and might get confused if
+            -- a raster interrupt gets retriggered too soon.
+            if (vicii_is_raster_source='1') and (vicii_ycounter = vicii_raster_compare(8 downto 0)) and last_vicii_ycounter /= vicii_ycounter then
+              irq_raster <= '1';
             end if;
+            last_vicii_ycounter <= vicii_ycounter;
+            -- However, if a raster interrupt is being triggered from a VIC-IV
+            -- physical raster, then there is no need to make raster IRQs edge triggered
+            if (vicii_is_raster_source='0') and (ycounter = vicii_raster_compare) then
+              irq_raster <= '1';
+            end if;
+          else
+            -- Start of next frame
+            ycounter <= (others =>'0');
+            report "LEGACY: chargen_y_sub = 0, first_card_of_row = 0 due to start of frame";
+            chargen_y_sub <= (others => '0');
+            next_card_number <= (others => '0');
+            first_card_of_row <= (others => '0');
+
+            displayy <= (others => '0');
+            vertical_flyback <= '0';
+            displayline0 <= '1';
+            indisplay := '0';
+            report "clearing indisplay because xcounter=0" severity note;
+            screen_row_address <= screen_ram_base(16 downto 0);
+
+            -- Reset VIC-II raster counter to first raster for top of frame
+            -- (the preceeding rasters occur during vertical flyback, in case they
+            -- have interrupts triggered on them).
+            vicii_ycounter_phase <= to_unsigned(1,4);
+            vicii_ycounter <= vicii_first_raster;
+            vicii_ycounter_v400 <= (others =>'0');
+            vicii_ycounter_phase_v400 <= to_unsigned(1,4);
+
           end if;
-
-          -- Make VIC-II triggered raster interrupts edge triggered, since one
-          -- emulated VIC-II raster is ~63*48 = ~3,000 cycles, and many C64
-          -- raster routines may finish in that time, and might get confused if
-          -- a raster interrupt gets retriggered too soon.
-          if (vicii_is_raster_source='1') and (vicii_ycounter = vicii_raster_compare(8 downto 0)) and last_vicii_ycounter /= vicii_ycounter then
-            irq_raster <= '1';
-          end if;
-          last_vicii_ycounter <= vicii_ycounter;
-          -- However, if a raster interrupt is being triggered from a VIC-IV
-          -- physical raster, then there is no need to make raster IRQs edge triggered
-          if (vicii_is_raster_source='0') and (ycounter = vicii_raster_compare) then
-            irq_raster <= '1';
-          end if;
-        else
-          -- Start of next frame
-          ycounter <= (others =>'0');
-          report "LEGACY: chargen_y_sub = 0, first_card_of_row = 0 due to start of frame";
-          chargen_y_sub <= (others => '0');
-          next_card_number <= (others => '0');
-          first_card_of_row <= (others => '0');
-
-          displayy <= (others => '0');
-          vertical_flyback <= '0';
-          displayline0 <= '1';
-          indisplay := '0';
-          report "clearing indisplay because xcounter=0" severity note;
-          screen_row_address <= screen_ram_base(16 downto 0);
-
-          -- Reset VIC-II raster counter to first raster for top of frame
-          -- (the preceeding rasters occur during vertical flyback, in case they
-          -- have interrupts triggered on them).
-          vicii_ycounter_phase <= to_unsigned(1,4);
-          vicii_ycounter <= vicii_first_raster;
-          vicii_ycounter_v400 <= (others =>'0');
-          vicii_ycounter_phase_v400 <= to_unsigned(1,4);
-
-        end if;	
+        end if;
       end if;
       
       if xcounter<frame_h_front then
@@ -3104,12 +3190,6 @@ begin
           & ", chargen_active = " & std_logic'image(chargen_active)
           ;
         
-        displaycolumn0 <= '1';
-        displayy <= displayy + 1;
-        if displayy(4)='1' then
-          displayline0 <= '0';            
-        end if;
-
         -- Next line of display.  Reset card number and start address of
         -- screen ram for the row of characters currently being displayed.
         -- (this gets overriden below if crossing from one character row to
@@ -3436,6 +3516,9 @@ begin
       screen_ram_buffer_write <= final_ramaccess_is_screen_row_fetch;
       screen_ram_buffer_write_address <= final_ramaccess_screen_row_buffer_address;
       screen_ram_buffer_din <= final_ramdata;
+      -- Collect last token for processing
+      screen_line_last_token(15 downto 8) <= final_ramdata;
+      screen_line_last_token(7 downto 0) <= screen_line_last_token(15 downto 8);
       
       if raster_fetch_state /= Idle or paint_fsm_state /= Idle then
         report "raster_fetch_state=" & vic_chargen_fsm'image(raster_fetch_state) & ", "
@@ -3487,7 +3570,7 @@ begin
             character_number <= to_unsigned(1,9);
             end_of_row_16 <= '0'; end_of_row <= '0';
             colourramaddress <= to_unsigned(to_integer(colour_ram_base) + to_integer(first_card_of_row),16);
-
+            
             -- Now ask for the first byte.  We indicate all details of this
             -- read so that it can be committed by the receiving side of the logic.
             next_ramaccess_is_screen_row_fetch <= '1';
@@ -3495,6 +3578,11 @@ begin
             next_ramaccess_is_sprite_data_fetch <= '0';
             next_ramaccess_screen_row_buffer_address <= to_unsigned(0,9);
             next_screen_row_fetch_address <= screen_row_current_address;
+
+            -- Set pipeline delay countdown for investigating the 16-bit tokens
+            -- to see if they indicate programmatic instructions, rather than
+            -- ordinary characte data.
+            badlineprog_countdown <= 5;
             
             report "BADLINE, colour_ram_base=$" & to_hstring(colour_ram_base) severity note;
 
@@ -3507,6 +3595,48 @@ begin
           -- read so that it can be committed by the receiving side of the logic.
           -- Otherwise, if we are at the end of the row, then stop.
 
+          -- XXX check the last stored token to see if it is a GOTO, GOSUB or RETURN.
+          -- If it is, rewind, and redirect accordingly.
+          -- Part of the challenge here is that the bytes here are delayed by
+          -- several cycles, so we have to take that into account.
+          if sixteenbit_charset='1' then
+            if badlineprog_countdown = 0 then
+              report "BADLINEPROG: last_token=$" & to_hstring(screen_line_last_token);
+              if next_token_is_goto='1' then
+                -- Set screen RAM fetch to the value of this token (shifted
+                -- left one bit).
+                next_screen_row_fetch_address(16 downto 1) <= screen_line_last_token;
+                next_screen_row_fetch_address(0) <= '0';
+                -- Flush screen row buffer fetch pipeline while waiting for
+                -- branch to complete
+                badlineprog_inhibit_screen_row_buffer_write_counter <= 4;
+                -- Clear next token is branch flag
+                next_token_is_goto <= '0';
+              else
+                case screen_line_last_token is
+                  when x"FFFF" =>
+                    -- End of line / RETURN token
+                    -- If nothing on the stack, this is the last token to fetch.                  
+                    null;
+                  when x"FFFE" =>
+                    -- GOTO: Next token is address to goto (shifted left one bit)
+                    null;
+                  when x"FFFD" =>
+                    -- GOSUB: Next token is address to goto (shifted left one bit)
+                    -- (Same as GOTO, except that we push the write offset to be
+                    --  retrieved on return.)
+                    null;
+                  when others =>
+                    null;
+                end case;
+              end if;
+              -- We need two bytes before we have next token, so set count down
+              badlineprog_countdown <= 1;
+            else
+              badlineprog_countdown <= badlineprog_countdown - 1;
+            end if;
+          end if;
+          
           -- Is this the last character in the row?
           if character_number = virtual_row_width_minus1(7 downto 0)&'1' then
             end_of_row_16 <= '1';
@@ -3529,12 +3659,18 @@ begin
             next_ramaccess_is_sprite_data_fetch <= '0';
           else
             -- More to fetch, so keep scheduling the reads
-            character_number <= character_number + 1;
+            if screenline_return_stack_count = 0 then
+              -- Only advance fetched character counter if we are not in a
+              -- GOSUB in the screen row data.
+              character_number <= character_number + 1;
+            end if;
             next_ramaccess_is_screen_row_fetch <= '1';
             next_ramaccess_is_glyph_data_fetch <= '0';
             next_ramaccess_is_sprite_data_fetch <= '0';
-            next_ramaccess_screen_row_buffer_address <= next_ramaccess_screen_row_buffer_address + 1;
-            next_screen_row_fetch_address <= next_screen_row_fetch_address + 1;
+            if next_token_is_goto='0' then
+              next_ramaccess_screen_row_buffer_address <= next_ramaccess_screen_row_buffer_address + 1;
+              next_screen_row_fetch_address <= next_screen_row_fetch_address + 1;
+            end if;
           end if;
         when FetchFirstCharacter =>
           next_ramaccess_is_screen_row_fetch <= '0';
@@ -3926,10 +4062,10 @@ begin
                 <= screen_ram_buffer_dout(3 downto 0);
               raster_buffer_write_address(7 downto 0)
                 <= glyph_number(7 downto 0);
-              -- ... and don't paint anything, because it is just
-              -- a tab stop.
+            -- ... and don't paint anything, because it is just
+            -- a tab stop.
             elsif glyph_full_colour='1' then
-            -- Now work out exactly how we are painting
+              -- Now work out exactly how we are painting
               -- Paint full-colour glyph
               report "LEGACY: Dispatching to PaintFullColour due to glyph_full_colour = 1";
               -- We set background colour to screen colour in full-colour mode
@@ -4261,13 +4397,11 @@ begin
               report "LEGACY: full-colour glyph painting alpha pixel $"
                 & to_hstring(paint_full_colour_data(7 downto 0))
                 & " with alpha value $" & to_hstring(paint_full_colour_data(7 downto 0));
-              -- Colour RAM provides foreground colour
+              -- 8-bit pixel values provide the alpha
               raster_buffer_write_data(16 downto 9) <= paint_full_colour_data(7 downto 0);
               raster_buffer_write_data(8) <= '1';
-              -- 8-bit pixel provides alpha value (nybl swapped, so 4-bit
-              -- colour values can select high bits of alpha blend)
-              raster_buffer_write_data(7 downto 4) <= paint_foreground(3 downto 0);
-              raster_buffer_write_data(3 downto 0) <= paint_foreground(7 downto 4);
+              -- colour RAM colour provides the foreground
+              raster_buffer_write_data(7 downto 0) <= paint_foreground;
             end if;
           end if;
           paint_full_colour_data(55 downto 0) <= paint_full_colour_data(63 downto 8);

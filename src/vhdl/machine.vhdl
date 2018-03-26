@@ -52,11 +52,13 @@ use work.victypes.all;
 --use UNISIM.VComponents.all;
 
 entity machine is
-  generic (cpufrequency : integer := 50;
-           pixel_clock_frequency_hz : integer := 150000000);
-  Port ( pixelclock : STD_LOGIC;
-         cpuclock : std_logic;
+  generic (cpufrequency : integer := 50);
+  Port ( pixelclock : in STD_LOGIC;
+         cpuclock : in std_logic;
          clock50mhz : in std_logic;
+         clock30 : in std_logic;
+         clock33 : in std_logic;
+         clock40 : in std_logic;
          clock200 : in std_logic;
          ioclock : std_logic;
          uartclock : std_logic;
@@ -73,9 +75,11 @@ entity machine is
          flopled : out std_logic;
          flopmotor : out std_logic;
 
-         buffereduart_rx : in std_logic;
+         buffereduart_rx : inout std_logic;
          buffereduart_tx : out std_logic := '1';
          buffereduart_ringindicate : in std_logic;
+         buffereduart2_rx : inout std_logic;
+         buffereduart2_tx : out std_logic := '1';
          
          slow_access_request_toggle : out std_logic;
          slow_access_ready_toggle : in std_logic := '0';
@@ -221,7 +225,7 @@ entity machine is
          pmod_data_out : out std_logic_vector(1 downto 0);
          pmoda : inout std_logic_vector(7 downto 0);
 
-         uart_rx : in std_logic;
+         uart_rx : inout std_logic;
          uart_tx : out std_logic;
          
          -- CPU block ram debug
@@ -370,6 +374,7 @@ architecture Behavioral of machine is
   signal monitor_mem_attention_request : std_logic;
   signal monitor_mem_attention_granted : std_logic;
   signal monitor_mem_stage_trace_mode : std_logic;
+  signal monitor_irq_inhibit : std_logic;
   signal monitor_mem_trace_mode : std_logic;
   signal monitor_mem_trace_toggle : std_logic;
   signal monitor_memory_access_address : unsigned(31 downto 0);
@@ -415,11 +420,57 @@ architecture Behavioral of machine is
   -- Matrix Mode signals
   signal scancode_out : std_logic_vector(12 downto 0); 
   signal mm_displayMode : unsigned(1 downto 0):=b"10"; 
-  signal bit_rate_divisor : unsigned(13 downto 0);
+  signal bit_rate_divisor : unsigned(15 downto 0);
 
   signal matrix_fetch_address : unsigned(11 downto 0) := to_unsigned(0,12);
   signal matrix_rdata : unsigned(7 downto 0);
+
+  signal lcd_hsync1 : std_logic := '0';
+  signal lcd_vsync1 : std_logic := '0';
+  signal hsync_drive1 : std_logic := '0';
+  signal vsync_drive1 : std_logic := '0';
+  signal lcd_pixel_strobe1 : std_logic := '0';
+  signal lcd_display_enable1 : std_logic := '0';
+
+  signal hsync_pal50 : std_logic;
+  signal vsync_pal50 : std_logic;
+  signal inframe_pal50 : std_logic;
+  signal lcd_vsync_pal50 : std_logic;
+  signal lcd_inframe_pal50 : std_logic;
+  signal x_zero_pal50 : std_logic := '0';
+  signal y_zero_pal50 : std_logic := '0';
+
+  signal hsync_ntsc60 : std_logic;
+  signal vsync_ntsc60 : std_logic;
+  signal inframe_ntsc60 : std_logic;  
+  signal lcd_vsync_ntsc60 : std_logic;
+  signal lcd_inframe_ntsc60 : std_logic;  
+  signal x_zero_ntsc60 : std_logic := '0';
+  signal y_zero_ntsc60 : std_logic := '0';
+
+  signal external_frame_x_zero : std_logic := '0';
+  signal external_frame_y_zero : std_logic := '0';
   
+  signal red_n : unsigned(7 downto 0);
+  signal green_n : unsigned(7 downto 0);
+  signal blue_n : unsigned(7 downto 0);
+
+  signal vgablue_viciv4 : unsigned(7 downto 0);
+  signal vgared_viciv4 : unsigned(7 downto 0);
+  signal vgagreen_viciv4 : unsigned(7 downto 0);
+  signal vgablue_viciv3 : unsigned(7 downto 0);
+  signal vgared_viciv3 : unsigned(7 downto 0);
+  signal vgagreen_viciv3 : unsigned(7 downto 0);
+  signal vgablue_viciv2 : unsigned(7 downto 0);
+  signal vgared_viciv2 : unsigned(7 downto 0);
+  signal vgagreen_viciv2 : unsigned(7 downto 0);
+  
+  signal vgablue_viciv : unsigned(7 downto 0);
+  signal vgared_viciv : unsigned(7 downto 0);
+  signal vgagreen_viciv : unsigned(7 downto 0);
+  signal vgablue_source : unsigned(7 downto 0);
+  signal vgared_source : unsigned(7 downto 0);
+  signal vgagreen_source : unsigned(7 downto 0);
   signal vgablue_sig : unsigned(7 downto 0);
   signal vgared_sig : unsigned(7 downto 0);
   signal vgagreen_sig : unsigned(7 downto 0);
@@ -429,6 +480,7 @@ architecture Behavioral of machine is
   signal vgablue_out : unsigned(7 downto 0);
   signal vgared_out : unsigned(7 downto 0);
   signal vgagreen_out : unsigned(7 downto 0);
+  signal viciv_outofframe_viciv : std_logic := '0';
   signal viciv_outofframe : std_logic := '0';
   signal viciv_outofframe_1 : std_logic := '0';
   signal viciv_outofframe_2 : std_logic := '0';
@@ -489,6 +541,7 @@ architecture Behavioral of machine is
 
   -- local debug signals from CPU
   signal shadow_address_state_dbg_out : std_logic_vector(3 downto 0);
+  signal pixelclock_select : std_logic_vector(7 downto 0);
   
 begin
 
@@ -668,6 +721,7 @@ begin
       protected_hardware => protected_hardware_sig,
       virtualised_hardware => virtualised_hardware_sig,
       chipselect_enables => chipselect_enables,
+      mathclock => cpuclock,
       clock => cpuclock,
       ioclock => ioclock,
       reset =>reset_combined,
@@ -753,6 +807,7 @@ begin
       monitor_mem_setpc => monitor_mem_setpc,
       monitor_mem_attention_request => monitor_mem_attention_request,
       monitor_mem_attention_granted => monitor_mem_attention_granted,
+      monitor_irq_inhibit => monitor_irq_inhibit,
       monitor_mem_trace_mode => monitor_mem_trace_mode,
       monitor_mem_stage_trace_mode => monitor_mem_stage_trace_mode,
       monitor_mem_trace_toggle => monitor_mem_trace_toggle,
@@ -794,10 +849,99 @@ begin
 
       );
 
+  frame50: entity work.frame_generator
+    generic map ( frame_width => 960,
+                  display_width => 800,
+                  frame_height => 625,
+                  display_height => 600,
+                  vsync_start => 620,
+                  vsync_end => 625,
+                  hsync_start => 814,
+                  hsync_end => 884
+                  )                  
+    port map ( clock => clock30,
+               hsync => hsync_pal50,
+               vsync => vsync_pal50,
+               x_zero => x_zero_pal50,
+               y_zero => y_zero_pal50,
+               inframe => inframe_pal50,
+               lcd_vsync => lcd_vsync_pal50,
+               lcd_inframe => lcd_inframe_pal50
+               );
+
+  frame60: entity work.frame_generator
+    generic map ( frame_width => 1056,
+                  display_width => 800,
+                  frame_height => 628,
+                  display_height => 600,
+                  vsync_start => 624,
+                  vsync_end => 628,
+                  hsync_start => 840,
+                  hsync_end => 968
+                  )                  
+    port map ( clock => clock40,
+               hsync => hsync_ntsc60,
+               vsync => vsync_ntsc60,
+               x_zero => x_zero_ntsc60,
+               y_zero => y_zero_ntsc60,
+               inframe => inframe_ntsc60,
+               lcd_vsync => lcd_vsync_ntsc60,
+               lcd_inframe => lcd_inframe_ntsc60,
+
+               -- Get test pattern
+               red_o => red_n,
+               green_o => green_n,
+               blue_o => blue_n
+               );               
+  
+  pixel0: entity work.pixel_driver
+    port map (
+      pixelclock_select => pixelclock_select,
+      
+      clock200 => clock200,
+      clock100 => pixelclock,
+      clock50 => cpuclock,
+      clock40 => clock40,
+      clock33 => clock33,
+      clock30 => clock30,
+
+      red_i => vgared_source,
+      green_i => vgagreen_source,
+      blue_i => vgablue_source,
+
+      red_o => vgared_sig,
+      green_o => vgagreen_sig,
+      blue_o => vgablue_sig,      
+
+      hsync_i => hsync_drive1,
+      hsync_o => hsync_drive,
+      vsync_i => vsync_drive1,
+      vsync_o => vsync_drive,
+
+      lcd_hsync_i => lcd_hsync1,
+      lcd_hsync_o => lcd_hsync,
+      lcd_vsync_i => lcd_vsync1,
+      lcd_vsync_o => lcd_vsync,
+
+      viciv_outofframe_i => viciv_outofframe_viciv,
+      viciv_outofframe_o => viciv_outofframe,
+      
+      lcd_display_enable_i => lcd_display_enable1,
+      lcd_display_enable_o => lcd_display_enable,
+
+      lcd_pixel_strobe_i => lcd_pixel_strobe1,
+      lcd_pixel_strobe_o => lcd_pixel_strobe
+
+      );
+      
+      
   viciv0: entity work.viciv
     port map (
 
       all_pause => all_pause,
+
+      external_frame_x_zero => external_frame_x_zero,
+      external_frame_y_zero => external_frame_y_zero,
       
       xcounter_out => xcounter,
       ycounter_out => ycounter,
@@ -805,6 +949,8 @@ begin
       cpuclock        => cpuclock,
       ioclock        => ioclock,
 
+      pixelclock_select => pixelclock_select,
+      
       irq             => vic_irq,
       reset           => reset_combined,
 
@@ -817,16 +963,16 @@ begin
       dat_offset => dat_offset,
       dat_bitplane_addresses => dat_bitplane_addresses,
       
-      vsync           => vsync_drive,
-      hsync           => hsync_drive,
-      lcd_vsync => lcd_vsync,
-      lcd_hsync => lcd_hsync,
-      lcd_display_enable => lcd_display_enable,
-      lcd_pixel_strobe => lcd_pixel_strobe,
-      vgared          => vgared_sig,
-      vgagreen        => vgagreen_sig,
-      vgablue         => vgablue_sig,
-      viciv_outofframe => viciv_outofframe,
+--      vsync           => vsync_drive1,
+--      hsync           => hsync_drive1,
+--      lcd_vsync => lcd_vsync1,
+--      lcd_hsync => lcd_hsync1,
+--      lcd_display_enable => lcd_display_enable1,
+--      lcd_pixel_strobe => lcd_pixel_strobe1,
+      vgared          => vgared_viciv,
+      vgagreen        => vgagreen_viciv,
+      vgablue         => vgablue_viciv,
+      viciv_outofframe => viciv_outofframe_viciv,
 
       pixel_stream_out => pixel_stream,
       pixel_y => pixel_y,
@@ -932,6 +1078,8 @@ begin
       buffereduart_rx => buffereduart_rx,
       buffereduart_tx => buffereduart_tx,
       buffereduart_ringindicate => buffereduart_ringindicate,
+      buffereduart2_rx => buffereduart2_rx,
+      buffereduart2_tx => buffereduart2_tx,
       
       visual_keyboard_enable => visual_keyboard_enable,
       keyboard_at_top => keyboard_at_top,
@@ -1254,6 +1402,7 @@ begin
     monitor_mem_setpc => monitor_mem_setpc,
     monitor_mem_attention_request => monitor_mem_attention_request,
     monitor_mem_attention_granted => monitor_mem_attention_granted,
+    monitor_irq_inhibit => monitor_irq_inhibit,
     monitor_mem_trace_mode => monitor_mem_trace_mode,
     monitor_mem_stage_trace_mode => monitor_mem_stage_trace_mode,
     monitor_mem_trace_toggle => monitor_mem_trace_toggle
@@ -1290,6 +1439,72 @@ begin
         vgagreen <= vgagreen_out;
         vgablue <= vgablue_out;
       end if;
+
+      -- Create delayed versions of pixels
+      -- (we use these for lining up the 100MHz pixel clock edges
+      -- better to the 30 or 40MHz video mode pixel clocks)
+      vgared_viciv2 <= vgared_viciv;
+      vgagreen_viciv2 <= vgagreen_viciv;
+      vgablue_viciv2 <= vgablue_viciv;
+
+      vgared_viciv3 <= vgared_viciv2;
+      vgagreen_viciv3 <= vgagreen_viciv2;
+      vgablue_viciv3 <= vgablue_viciv2;
+
+      vgared_viciv4 <= vgared_viciv3;
+      vgagreen_viciv4 <= vgagreen_viciv3;
+      vgablue_viciv4 <= vgablue_viciv3;
+      
+    end if;
+  end process;
+
+  process (pixelclock_select,cpuclock) is
+  begin
+    if pixelclock_select(6)='1' then
+      vgared_source <= red_n;
+      vgagreen_source <= green_n;
+      vgablue_source <= blue_n;
+    else
+      -- Show VIC-IV output (with optional pixel delay to get edges lining up nicely)
+      case pixelclock_select(5 downto 4) is
+        when "11" =>
+          vgared_source <= vgared_viciv4;
+          vgagreen_source <= vgagreen_viciv4;
+          vgablue_source <= vgablue_viciv4;
+        when "10" =>
+          vgared_source <= vgared_viciv3;
+          vgagreen_source <= vgagreen_viciv3;
+          vgablue_source <= vgablue_viciv3;
+        when "01" =>
+          vgared_source <= vgared_viciv2;
+          vgagreen_source <= vgagreen_viciv2;
+          vgablue_source <= vgablue_viciv2;
+        when others =>
+          vgared_source <= vgared_viciv;
+          vgagreen_source <= vgagreen_viciv;
+          vgablue_source <= vgablue_viciv;
+      end case;
+    end if;
+    if pixelclock_select(7)='1' then
+      -- PAL 50 Hz frame
+      hsync_drive1 <= hsync_pal50;
+      vsync_drive1 <= not vsync_pal50;
+      lcd_hsync1 <= hsync_pal50;
+      lcd_vsync1 <= not lcd_vsync_pal50;
+      lcd_display_enable1 <= lcd_inframe_pal50;
+      lcd_pixel_strobe1 <= clock30;
+      external_frame_x_zero <= x_zero_pal50;
+      external_frame_y_zero <= y_zero_pal50;
+    else
+      -- NTSC 60 Hz frame
+      hsync_drive1 <= hsync_ntsc60;
+      vsync_drive1 <= vsync_ntsc60;
+      lcd_hsync1 <= hsync_ntsc60;
+      lcd_vsync1 <= lcd_vsync_ntsc60;
+      lcd_display_enable1 <= lcd_inframe_ntsc60;
+      lcd_pixel_strobe1 <= clock40;
+      external_frame_x_zero <= x_zero_ntsc60;
+      external_frame_y_zero <= y_zero_ntsc60;
     end if;
   end process;
   
