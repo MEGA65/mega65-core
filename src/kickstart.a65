@@ -2435,9 +2435,9 @@ checkpoint:
 	sta checkpoint_pch
 
 	; Only do checkpoints visibly if shift held during boot
-	;lda $d611
-	;and #$03
-	;beq cp9
+	lda $d611
+	and #$03
+	beq cp9
 
 	; Write checkpoint byte values out as hex into message template
 	ldx checkpoint_a
@@ -2530,9 +2530,9 @@ nocheckpointmessage:
 	sta checkpoint_pch
 
 	; Only do checkpoints visibly if shift key held
-	;lda $d611
-	;and #$03
-	;beq checkpoint_return
+	lda $d611
+	and #$03
+	beq checkpoint_return
 
 	; output checkpoint message to serial monitor
 	ldx #0
