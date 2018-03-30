@@ -2956,6 +2956,7 @@ dfanc1:
 	; copy from current cluster to SD sector address register
 	;
 	ldx #$03
+	php
 dfanc41:
 	lda dos_current_cluster,x
 	sta $d681,x
@@ -3136,6 +3137,8 @@ dfanc4:	plp
 	inx
 	cpx #$02
 	bne dfanc4
+
+	plp
 
 	RTS
 
