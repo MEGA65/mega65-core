@@ -5693,18 +5693,20 @@ begin
               memory_access_address := x"000"&reg_addr;
               memory_access_resolve_address := '1';
               reg_addr <= reg_addr + 1;
-              if (reg_instruction /= I_STA) or (next_is_axyz32_instruction='0') then
-                report "VAL32/ABS32: Adding " & integer'image(to_integer(memory_read_value&reg_addr_lsbs(7 downto 0)) )& " to " & integer'image(to_integer(reg_z));
-              
-                temp17 :=
-                  to_unsigned(to_integer(memory_read_value&reg_addr_lsbs(7 downto 0))
-                              + to_integer(reg_z),17);
-              else
-                report "VAL32/ABS32: not adding value of Z for 32-bit ($nn),Z because it is using 32-bit AXYZ register";
+              if (reg_instruction = I_STA) and (next_is_axyz32_instruction='1') then
+                report "VAL32/ABS32: not adding value of Z for 32-bit STA ($nn),Z because it is using 32-bit AXYZ register";
               
                 temp17 :=
                   to_unsigned(to_integer(memory_read_value&reg_addr_lsbs(7 downto 0))
                               + 0,17);
+              else
+                report "VAL32/ABS32: Adding "
+                  & integer'image(to_integer(memory_read_value&reg_addr_lsbs(7 downto 0)) )
+                  & " to " & integer'image(to_integer(reg_z));
+              
+                temp17 :=
+                  to_unsigned(to_integer(memory_read_value&reg_addr_lsbs(7 downto 0))
+                              + to_integer(reg_z),17);
               end if;
               reg_addr_lsbs <= temp17(15 downto 0);
               pointer_carry <= temp17(16);
