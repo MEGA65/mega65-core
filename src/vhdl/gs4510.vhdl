@@ -229,7 +229,6 @@ component shadowram is
           data_i : in unsigned(7 downto 0);
           writes : out unsigned(7 downto 0);
           no_writes : out unsigned(7 downto 0);
-          address_o : in integer range 0 to 131071;
           data_o : out unsigned(7 downto 0)
           );
 end component;
@@ -1264,23 +1263,21 @@ begin
     
   shadowram0 : shadowram port map (
     clk     => clock,
-    address_i => shadow_address,
-    we      => shadow_write,
-    data_i  => shadow_wdata,
+    address_i => shadow_address_next,
+    we      => shadow_write_next,
+    data_i  => memory_access_wdata_next,
     no_writes => shadow_no_write_count,
     writes => shadow_write_count,
-    address_o => shadow_address_next,
     data_o  => shadow_rdata
     );
 
   romram0 : shadowram port map (
     clk   => clock,
-    address_i => rom_address,
-    we      => rom_write,
-    data_i  => rom_wdata,
+    address_i => rom_address_next,
+    we      => rom_write_next,
+    data_i  => memory_access_wdata_next,
     no_writes => rom_no_write_count,
     writes => rom_write_count,
-    address_o => rom_address_next,
     data_o  => rom_rdata
     );
 
@@ -5335,10 +5332,6 @@ begin
               report "VAL32: reg_val32 = $" & to_hstring(reg_val32) & ", at axyz_phase = " & integer'image(axyz_phase);
               if axyz_phase /= 4 then
                 -- More bytes to read, so schedule next byte to read                
-                report "VAL32: memory_access_address=$" & to_hstring(memory_access_address);
-                memory_access_read := '1';
-                memory_access_address(15 downto 0) := to_unsigned(to_integer(reg_addr) + axyz_phase,16);
-                memory_access_resolve_address := not absolute32_addressing_enabled;
                 report "VAL32: memory_access_address=$" & to_hstring(memory_access_address);
                 axyz_phase <= axyz_phase + 1;
               else

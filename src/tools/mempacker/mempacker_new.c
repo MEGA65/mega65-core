@@ -96,7 +96,6 @@ int main(int argc,char **argv)
 	  "        data_i : in unsigned(7 downto 0);\n"
 	  "        writes : out unsigned(7 downto 0);\n"
 	  "        no_writes : out unsigned(7 downto 0);\n"
-	  "        address_o : in integer range 0 to %d;\n"
 	  "        data_o : out unsigned(7 downto 0)\n"
 	  "        );\n"
 	  "end %s;\n"
@@ -108,7 +107,7 @@ int main(int argc,char **argv)
 	  "  \n"
 	  "  type ram_t is array (0 to %d) of unsigned(7 downto 0);\n"
 	  "  shared variable ram : ram_t := (\n",
-	  name,bytes,bytes,name,name,bytes);
+	  name,bytes,name,name,bytes);
 
   for(i=0;i<bytes;i++)
 //    if (archive[i])
@@ -122,16 +121,16 @@ int main(int argc,char **argv)
 	  "  writes <= write_count;\n"
 	  "  no_writes <= no_write_count;\n"
 	  "--process for read and write operation.\n"
-	  "  PROCESS(Clk,write_count,no_write_count)\n"
+	  "  PROCESS(Clk)\n"
 	  "  BEGIN\n"
 	  "    if(rising_edge(Clk)) then \n"
-	  "      data_o <= ram(address_o);\n"
 	  "      if we /= '0' then\n"
 	  "        write_count <= write_count + 1;        \n"
 	  "        ram(address_i) := data_i;\n"
 	  "      else\n"
 	  "        no_write_count <= no_write_count + 1;        \n"
 	  "      end if;\n"
+	  "      data_o <= ram(address_i);\n"
 	  "    end if;\n"
 	  "  END PROCESS;\n"
 	  "\n"
