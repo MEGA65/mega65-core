@@ -1,3 +1,4 @@
+#!/bin/bash
 . /opt/Xilinx/Vivado_Lab/2017.2/settings64.sh
 echo vivado_lab $*
 vivado_lab $*
