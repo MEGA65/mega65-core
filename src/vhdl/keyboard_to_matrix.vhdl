@@ -7,8 +7,8 @@ use work.debugtools.all;
 
 entity keyboard_to_matrix is
   port (Clk : in std_logic;        
-        porta_pins : inout  std_logic_vector(7 downto 0) := (others => 'Z');
-        portb_pins : inout  std_logic_vector(7 downto 0) := (others => 'Z');
+        porta_pins : inout  std_logic_vector(7 downto 0) := (others => 'H');
+        portb_pins : inout  std_logic_vector(7 downto 0) := (others => 'H');
         keyboard_column8_out : out std_logic := '1';
         key_left : in std_logic;
         key_up : in std_logic;
@@ -79,7 +79,7 @@ begin
         -- that the row pins (portb_pins) is being driven high, instead of
         -- tristates, i.e., '1' instead of 'H' or 'Z'.
 
-        portb_pins <= (others => 'Z');
+        portb_pins <= (others => 'H');
         
         matrix_internal((scan_phase*8)+ 7 downto (scan_phase*8)) <= portb_pins(7 downto 0);
 
@@ -96,15 +96,15 @@ begin
           if next_phase = i then
             porta_pins(i) <= '0';
           else
-            porta_pins(i) <= 'Z';
+            porta_pins(i) <= 'H';
           end if;
         end loop;
         if scan_phase = 7 then
-          porta_pins <= (others => 'Z');
+          porta_pins <= (others => 'H');
           keyboard_column8_out <= '0';
           report "probing column 8";
         else
-          keyboard_column8_out <= 'Z';
+          keyboard_column8_out <= 'H';
         end if;
       else
         -- Keep counting down to next scan event

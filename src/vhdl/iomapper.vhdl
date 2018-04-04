@@ -363,10 +363,6 @@ architecture behavioral of iomapper is
   signal suppress_key_retrigger : std_logic;
   signal ascii_key_event_count : unsigned(15 downto 0) := x"0000";
   
-  signal cia1_irq : std_logic;
-  signal ethernet_irq : std_logic;
-  signal uart_irq : std_logic;
-  
 begin
 
   block1: block
@@ -381,9 +377,6 @@ begin
     data_i  => data_i
     );
   end block;
-  
-  -- IRQ line is wire-anded together as if it had a pullup.
-  irq <= cia1_irq and ethernet_irq and uart_irq;
   
   block2: block
   begin
@@ -420,7 +413,7 @@ begin
     phi0 => phi0,
     todclock => clock50hz,
     reset => reset,
-    irq => cia1_irq,
+    irq => irq,
     reg_isr_out => reg_isr_out,
     imask_ta_out => imask_ta_out,
     cs => cia1cs,
@@ -701,7 +694,7 @@ begin
     clock200 => clock200,
     clock => clk,
     reset => reset,
-    irq => ethernet_irq,
+    irq => irq,
     ethernet_cs => ethernet_cs,
 
     ---------------------------------------------------------------------------
@@ -736,7 +729,7 @@ begin
     clock200 => clock200,
     clock => clk,
     reset => reset,
-    irq => uart_irq,
+    irq => irq,
     buffereduart_cs => buffereduart_cs,
 
     ---------------------------------------------------------------------------

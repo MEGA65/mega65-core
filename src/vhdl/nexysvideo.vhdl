@@ -275,8 +275,8 @@ end component;
   signal vgagreen : unsigned(7 downto 0);
   signal vgablue : unsigned(7 downto 0);
 
-  signal porta_pins : std_logic_vector(7 downto 0) := (others => '1');
-  signal portb_pins : std_logic_vector(7 downto 0) := (others => '1');
+  signal porta_pins : std_logic_vector(7 downto 0) := (others => 'H');
+  signal portb_pins : std_logic_vector(7 downto 0) := (others => 'H');
 
   signal cart_ctrl_dir : std_logic := 'Z';
   signal cart_haddr_dir : std_logic := 'Z';
