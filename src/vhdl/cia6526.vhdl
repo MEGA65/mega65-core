@@ -351,7 +351,7 @@ begin  -- behavioural
         -- report "IRQ asserted, imask_ta=" & std_logic'image(imask_ta) severity note;
         reg_isr(7)<='1'; irq<='0';
       else
-        reg_isr(7)<='0'; irq<='1';
+        reg_isr(7)<='0'; irq<='H';
       end if;
       
       prev_todclock <= todclock;
