@@ -149,7 +149,8 @@ entity gs4510 is
     debug_wdata_dbg_out : out std_logic_vector(7 downto 0);
     debug_write_dbg_out : out std_logic;
     debug_read_dbg_out : out std_logic;
-
+    debug4_state_out : out std_logic_vector(3 downto 0);
+    
     proceed_dbg_out : out std_logic;
       
     ---------------------------------------------------------------------------
@@ -653,17 +654,17 @@ end component;
   signal vector_read_stage : integer range 0 to 15 := 0;
 
   type memory_source is (
-    DMAgicRegister,
-    HypervisorRegister,
-    CPUPort,
-    Shadow,
-    ROMRAM,
-    FastIO,
-    ColourRAM,
-    VICIV,
-    Kickstart,
-    SlowRAM,
-    Unmapped
+    DMAgicRegister,         -- 0x00
+    HypervisorRegister,     -- 0x01
+    CPUPort,                -- 0x02
+    Shadow,                 -- 0x03
+    ROMRAM,                 -- 0x04
+    FastIO,                 -- 0x05
+    ColourRAM,              -- 0x06
+    VICIV,                  -- 0x07
+    Kickstart,              -- 0x08
+    SlowRAM,                -- 0x09
+    Unmapped                -- 0x0a
     );
 
   signal read_source : memory_source;
@@ -688,12 +689,12 @@ end component;
     -- Normal instructions
     InstructionWait,                    -- Wait for PC to become available on       0x0f
                                         -- interrupt/reset
-    ProcessorHold,
-    MonitorMemoryAccess,
-    InstructionFetch,
-    InstructionDecode,  -- $16
-    InstructionDecode6502,
-    Cycle2,Cycle3,
+    ProcessorHold,                      -- 0x10
+    MonitorMemoryAccess,                -- 0x11
+    InstructionFetch,                   -- 0x12
+    InstructionDecode,  -- $16          -- 0x13
+    InstructionDecode6502,              -- 0x14
+    Cycle2,Cycle3,                      -- 0x15, 0x16
     Flat32Got2ndArgument,Flat32Byte3,Flat32Byte4,
     Flat32SaveAddress,
     Flat32SaveAddress1,Flat32SaveAddress2,Flat32SaveAddress3,Flat32SaveAddress4,
@@ -3351,22 +3352,6 @@ begin
       memory_access_write := '0';
       memory_access_resolve_address := '0';
       
-      monitor_watch_match <= '0';       -- set if writing to watched address
-      monitor_state <= to_unsigned(processor_state'pos(state),8)&read_data;
-      monitor_hypervisor_mode <= hypervisor_mode;
-      monitor_pc <= reg_pc;
-      monitor_a <= reg_a;
-      monitor_x <= reg_x;
-      monitor_y <= reg_y;
-      monitor_z <= reg_z;
-      monitor_sp <= reg_sph&reg_sp;
-      monitor_b <= reg_b;
-      monitor_interrupt_inhibit <= map_interrupt_inhibit;
-      monitor_map_offset_low <= reg_offset_low;
-      monitor_map_offset_high <= reg_offset_high; 
-      monitor_map_enables_low <= std_logic_vector(reg_map_low); 
-      monitor_map_enables_high <= std_logic_vector(reg_map_high); 
-      
                                         -- Generate virtual processor status register for convenience
       virtual_reg_p(7) := flag_n;
       virtual_reg_p(6) := flag_v;
@@ -5996,7 +5981,23 @@ begin
     end if;                         -- if rising edge of clock
   end process;
   
+  -- output all monitor values based on current state, not one clock delayed.
   monitor_memory_access_address <= x"0"&memory_access_address_next;
+  monitor_watch_match <= '0';       -- set if writing to watched address
+  monitor_state <= to_unsigned(processor_state'pos(state),8)&read_data;
+  monitor_hypervisor_mode <= hypervisor_mode;
+  monitor_pc <= reg_pc;
+  monitor_a <= reg_a;
+  monitor_x <= reg_x;
+  monitor_y <= reg_y;
+  monitor_z <= reg_z;
+  monitor_sp <= reg_sph&reg_sp;
+  monitor_b <= reg_b;
+  monitor_interrupt_inhibit <= map_interrupt_inhibit;
+  monitor_map_offset_low <= reg_offset_low;
+  monitor_map_offset_high <= reg_offset_high; 
+  monitor_map_enables_low <= std_logic_vector(reg_map_low); 
+  monitor_map_enables_high <= std_logic_vector(reg_map_high); 
   
   -- alternate (new) combinatorial core memory address generation.
   process (state,reg_pc,vector,reg_t,hypervisor_mode,monitor_mem_attention_request_drive,monitor_mem_address_drive,
@@ -7001,15 +7002,16 @@ begin
     long_address_read <= long_address_read_var;
     long_address_write <= long_address_write_var;
 
-    debug_read_dbg_out <= fastio_read;
-    debug_write_dbg_out <= fastio_write;
+    debug_read_dbg_out <= memory_access_read;
+    debug_write_dbg_out <= memory_access_write;
 
-  	debug_wdata_dbg_out <= std_logic_vector(fastio_wdata);
-  	debug_rdata_dbg_out <= std_logic_vector(fastio_rdata);
+  	debug_wdata_dbg_out <= std_logic_vector(memory_access_wdata);
+  	debug_rdata_dbg_out <= std_logic_vector(read_data);
 
-  	debug_address_w_dbg_out <= fastio_addr(16 downto 0);
-  	debug_address_r_dbg_out <= fastio_addr_next(16 downto 0);
-
+  	debug_address_w_dbg_out <= std_logic_vector(to_unsigned(shadow_address,17));
+  	debug_address_r_dbg_out <= std_logic_vector(to_unsigned(shadow_address_next,17));
+    debug4_state_out <= std_logic_vector(to_unsigned(memory_source'pos(read_source),4));
+    
   	proceed_dbg_out <= proceed;
 
     kickstart_address_out <= kickstart_address_next;

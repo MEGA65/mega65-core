@@ -748,7 +748,8 @@ begin
       debug_wdata_dbg_out => debug_wdata_dbg_out,
       debug_write_dbg_out => debug_write_dbg_out,
       debug_read_dbg_out => debug_read_dbg_out,
-
+      debug4_state_out => debug4_state_out,
+      
       proceed_dbg_out => proceed_dbg_out,
       
       irq_hypervisor => sw(4 downto 2),    -- JBM
@@ -1508,8 +1509,8 @@ begin
     end if;
   end process;
   
-  debug8_state_out <= (others => '0');
-  debug4_state_out <= (others => '0');
+  debug8_state_out <= std_logic_vector(monitor_state(15 downto 8));
+--  debug4_state_out <= (others => '0');
 
   UART_TXD<=uart_txd_sig; 
   
