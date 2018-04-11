@@ -378,7 +378,7 @@ begin  -- behavioural
           portb_pins(b) <= portb_in(b);
         else
           -- Pin is input, i.e., tri-stated
-          portb_pins(b) <= '1';
+          portb_pins(b) <= 'H';
         end if;
       end loop;
 
