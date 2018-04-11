@@ -2826,7 +2826,7 @@ begin
       if irq_drive = '0' then
         irq <= '0';
       else
-        irq <= '1';
+        irq <= 'H';
       end if;
       
       

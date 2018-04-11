@@ -15,7 +15,7 @@ entity cia6526 is
     phi0 : in std_logic;
     todclock : in std_logic;
     reset : in std_logic;
-    irq : out std_logic;
+    irq : out std_logic := 'H';
 
     seg_led : out unsigned(31 downto 0);
 
