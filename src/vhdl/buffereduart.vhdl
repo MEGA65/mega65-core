@@ -33,7 +33,7 @@ entity buffereduart is
     clock50mhz : in std_logic;
     clock200 : in std_logic;
     reset : in std_logic;
-    irq : out std_logic := 'H';
+    irq : out std_logic := 'Z';
     buffereduart_cs : in std_logic;
 
     ---------------------------------------------------------------------------
@@ -255,7 +255,7 @@ begin  -- behavioural
       uart2_rx_mux <= uart0_tx_drive;
     end if;
     
-    irq <= 'H';
+    irq <= '1';
 
     -- Register reading is asynchronous to avoid wait states
     if fastio_read='1' then

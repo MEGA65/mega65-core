@@ -46,7 +46,7 @@ entity ethernet is
     clock50mhz : in std_logic;
     clock200 : in std_logic;
     reset : in std_logic;
-    irq : out std_logic := 'H';
+    irq : out std_logic := '1';
     ethernet_cs : in std_logic;
 
     ---------------------------------------------------------------------------
@@ -1033,7 +1033,7 @@ begin  -- behavioural
         or (eth_irqenable_tx='1' and eth_irq_tx='1') then
         irq <= '0';
       else
-        irq <= 'H';
+        irq <= '1';
       end if;
 
       if fastio_write='1' then
