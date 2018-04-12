@@ -229,6 +229,10 @@ architecture behavioural of sdcardio is
   signal sd_reset        : std_logic := '1';
   signal sdhc_mode : std_logic := '0';
 
+  signal sd_fill_mode    : std_logic := '0';
+  signal sd_fill_value   : unsigned(7 downto 0) := (others => '0');
+
+  
   -- IO mapped register to indicate if SD card interface is busy
   signal sdio_busy : std_logic := '0';
   signal sdcard_busy : std_logic := '0';
@@ -1584,7 +1588,12 @@ begin  -- behavioural
                 when x"82" => sector_buffer_mapped<='0';
                               sdio_error <= '0';
                               sdio_fsm_error <= '0';
-
+                -- sd_fill_mode allows us to fill sector writes
+                -- with a common value instead of using data from
+                -- the sector buffer.              
+                when x"83" => sd_fill_mode <= '1';
+                when x"84" => sd_fill_mode <= '0';
+                              
                 when others =>
                   sdio_error <= '1';
               end case;
@@ -1595,6 +1604,9 @@ begin  -- behavioural
             when x"82" => sd_sector(15 downto 8) <= fastio_wdata;
             when x"83" => sd_sector(23 downto 16) <= fastio_wdata;
             when x"84" => sd_sector(31 downto 24) <= fastio_wdata;
+            when x"86" =>
+              -- @ IO:GS $D686 WRITE ONLY set fill byte for use in fill mode, instead of SD buffer data
+              sd_fill_value <= fastio_wdata;
             when x"89" => f011sd_buffer_select <= fastio_wdata(7);
                           -- @ IO:GS $D689.2 Set/read SD card sd_handshake signal
                           sd_handshake <= fastio_wdata(2);
@@ -2008,7 +2020,11 @@ begin  -- behavioural
         when WritingSector =>
           if sd_data_ready='1' then
             sd_dowrite <= '0';
-            sd_wdata <= f011_buffer_rdata;
+            if sd_fill_mode='1' then
+              sd_wdata <= sd_fill_value;
+            else
+              sd_wdata <= f011_buffer_rdata;
+            end if;
             sd_handshake <= '1';
             sd_handshake_internal <= '1';
             
