@@ -58,7 +58,7 @@ TOOLS=	$(TOOLDIR)/etherkick/etherkick \
 	$(TOOLDIR)/on_screen_keyboard_gen \
 	$(TOOLDIR)/pngprepare/pngprepare
 
-all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r1.mcs
+all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r1.mcs $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr.mcs
 
 # Not quite yet with Vivado...
 # $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr.mcs $(BINDIR)/lcd4ddr.mcs $(BINDIR)/touch_test.mcs
@@ -510,6 +510,8 @@ clean:
 	rm -f textmodetest.prg textmodetest.list etherload_done.bin etherload_stub.bin
 	rm -f videoproxy
 	rm -rf vivado/mega65r1.cache vivado/mega65r1.runs vivado/mega65r1.hw vivado/mega65r1.ip_user_files vivado/mega65r1.srcs vivado/mega65r1.xpr
+	rm -rf vivado/nexys4.cache vivado/nexys4.runs vivado/nexys4.hw vivado/nexys4.ip_user_files vivado/nexys4.srcs vivado/nexys4.xpr
+	rm -rf vivado/nexys4ddr.cache vivado/nexys4ddr.runs vivado/nexys4ddr.hw vivado/nexys4ddr.ip_user_files vivado/nexys4ddr.srcs vivado/nexys4ddr.xpr
 
 cleangen:
 	rm $(VHDLSRCDIR)/kickstart.vhdl $(VHDLSRCDIR)/charrom.vhdl *.M65

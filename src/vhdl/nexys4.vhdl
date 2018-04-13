@@ -47,11 +47,11 @@ entity container is
          ----------------------------------------------------------------------
          -- VGA output
          ----------------------------------------------------------------------
-         vsync : out  STD_LOGIC;
+         vsync : out STD_LOGIC;
          hsync : out  STD_LOGIC;
-         vgared : out  UNSIGNED (3 downto 0);
-         vgagreen : out  UNSIGNED (3 downto 0);
-         vgablue : out  UNSIGNED (3 downto 0);
+         vgared : buffer  UNSIGNED (3 downto 0);
+         vgagreen : buffer  UNSIGNED (3 downto 0);
+         vgablue : buffer  UNSIGNED (3 downto 0);
 
          ---------------------------------------------------------------------------
          -- IO lines to the ethernet controller
@@ -84,7 +84,7 @@ entity container is
          aclSCK : out std_logic;
          aclInt1 : in std_logic;
          aclInt2 : in std_logic;
-    
+         
          micData : in std_logic;
          micClk : out std_logic;
          micLRSel : out std_logic;
@@ -185,24 +185,19 @@ architecture Behavioral of container is
   signal reset_out : std_logic := '1';
   signal cpu_game : std_logic := '1';
   signal cpu_exrom : std_logic := '1';
- 
+  
   signal dummy_vgared : unsigned(3 downto 0);
   signal dummy_vgagreen : unsigned(3 downto 0);
   signal dummy_vgablue : unsigned(3 downto 0);
 
   signal pixelclock : std_logic;
-  signal pixelclock2x : std_logic;
   signal cpuclock : std_logic;
---  signal ioclock : std_logic;
+  signal clock200 : std_logic;
+  signal clock40 : std_logic;
+  signal clock33 : std_logic;
+  signal clock30 : std_logic;
   
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
-
-  signal clock100mhz : std_logic := '0';
-  signal clock50mhz : std_logic := '0';
-  signal clock200 : std_logic := '0';
-  signal clock40 : std_logic := '0';
-  signal clock33 : std_logic := '0';
-  signal clock30 : std_logic := '0';
 
   signal slow_access_request_toggle : std_logic;
   signal slow_access_ready_toggle : std_logic;
@@ -245,7 +240,7 @@ architecture Behavioral of container is
   signal cart_d : unsigned(7 downto 0) := (others => 'Z');
   signal cart_d_read : unsigned(7 downto 0) := (others => 'Z');
   signal cart_a : unsigned(15 downto 0) := (others => 'Z');
-         
+  
   ----------------------------------------------------------------------
   -- CBM floppy serial port
   ----------------------------------------------------------------------
@@ -254,17 +249,28 @@ architecture Behavioral of container is
   signal iec_data_o : std_logic := 'Z';
   signal iec_reset : std_logic := 'Z';
   signal iec_clk_o : std_logic := 'Z';
-  signal iec_data_i : std_logic := 'Z';
-  signal iec_clk_i : std_logic := 'Z';
+  signal iec_data_i : std_logic := '1';
+  signal iec_clk_i : std_logic := '1';
   signal iec_atn : std_logic := 'Z';  
 
   
   -- XXX We should read the real temperature and feed this to the DDR controller
   -- so that it can update timing whenever the temperature changes too much.
   signal fpga_temperature : std_logic_vector(11 downto 0) := (others => '0');
+
+  signal ampPWM_internal : std_logic;
+  signal dummy : std_logic_vector(2 downto 0);
+  signal sawtooth_phase : integer := 0;
+  signal sawtooth_counter : integer := 0;
+  signal sawtooth_level : integer := 0;
+
+  signal lcd_pixel_strobe : std_logic;
+  signal lcd_hsync : std_logic;
+  signal lcd_vsync : std_logic;
+  signal lcd_display_enable : std_logic;
   
 begin
-
+  
   dotclock1: entity work.dotclock100
     port map ( clk_in1 => CLK_IN,
                clock100 => pixelclock, -- 100MHz
@@ -282,7 +288,7 @@ begin
       clk => cpuclock,
       temp => fpga_temperature);
 
-    slow_devices0: entity work.slow_devices
+  slow_devices0: entity work.slow_devices
     port map (
       cpuclock => cpuclock,
       pixelclock => pixelclock,
@@ -301,7 +307,7 @@ begin
       slow_access_address => slow_access_address,
       slow_access_wdata => slow_access_wdata,
       slow_access_rdata => slow_access_rdata,
-  
+      
       ----------------------------------------------------------------------
       -- Expansion/cartridge port
       ----------------------------------------------------------------------
@@ -332,17 +338,16 @@ begin
       );
   
   machine0: entity work.machine
+    generic map (cpufrequency => 50)
     port map (
       pixelclock      => pixelclock,
       cpuclock        => cpuclock,
-      clock50mhz      => clock50mhz,
       clock200 => clock200,
       clock40 => clock40,
       clock33 => clock33,
       clock30 => clock30,
---      ioclock         => ioclock, -- 32MHz
---      uartclock         => ioclock, -- must be 32MHz
-      uartclock         => cpuclock, -- Match CPU clock (48MHz)
+      clock50mhz      => cpuclock,
+      uartclock       => cpuclock, -- Match CPU clock
       ioclock         => cpuclock, -- Match CPU clock
       btncpureset => btncpureset,
       reset_out => reset_out,
@@ -376,7 +381,7 @@ begin
       f_writeprotect => '1',
       f_rdata => '1',
       f_diskchanged => '1',
-            
+      
       ----------------------------------------------------------------------
       -- CBM floppy  std_logic_vectorerial port
       ----------------------------------------------------------------------
@@ -385,14 +390,18 @@ begin
       iec_data_o => iec_data_o,
       iec_reset => iec_reset,
       iec_clk_o => iec_clk_o,
+      iec_atn_o => iec_atn,
       iec_data_external => iec_data_i,
       iec_clk_external => iec_clk_i,
-      iec_atn_o => iec_atn,
       
       no_kickstart => '0',
       
       vsync           => vsync,
       hsync           => hsync,
+      lcd_vsync => lcd_vsync,
+      lcd_hsync => lcd_hsync,
+      lcd_display_enable => lcd_display_enable,
+      lcd_pixel_strobe => lcd_pixel_strobe,
       vgared(7 downto 4)          => vgared,
       vgared(3 downto 0)          => dummy_vgared,
       vgagreen(7 downto 4)        => vgagreen,
@@ -432,14 +441,16 @@ begin
       aclSCK => aclSCK,
       aclInt1 => aclInt1,
       aclInt2 => aclInt2,
-    
+      
       micData => micData,
       micClk => micClk,
       micLRSel => micLRSel,
 
-      ampPWM => ampPWM,
+      ampPWM => ampPWM_internal,
+      ampPWM_l => led(13),
+      ampPWM_r => led(14),
       ampSD => ampSD,
-    
+      
       tmpSDA => tmpSDA,
       tmpSCL => tmpSCL,
       tmpInt => tmpInt,
@@ -451,10 +462,10 @@ begin
       pmod_clock => jblo(1),
       pmod_start_of_sequence => jblo(2),
       pmod_data_in(1 downto 0) => jblo(4 downto 3),
-      pmod_data_in(3 downto 2) => jbhi(8 downto 7),
-      pmod_data_out => jbhi(10 downto 9),
-      pmoda(3 downto 0) => jalo(4 downto 1),
-      pmoda(7 downto 4) => jahi(10 downto 7),
+      pmod_data_in(3 downto 2) => "00", -- jbhi(8 downto 7),
+--      pmod_data_out => jbhi(10 downto 9),
+--      pmoda(3 downto 0) => jalo(4 downto 1),
+--      pmoda(7 downto 4) => jahi(10 downto 7),
 
       uart_rx => jclo(1),
       uart_tx => jclo(2),
@@ -475,29 +486,76 @@ begin
 --      cpu_game => cpu_game,      
       -- enable/disable cartridge with sw(8)
       cpu_exrom => '1',
-      cpu_game => '1',      
+      cpu_game => '1',
       cart_access_count => x"00",
 
       fpga_temperature => fpga_temperature,
-      
-      led => led,
+
+      led(12 downto 0) => led(12 downto 0),
+      led(15 downto 13) => dummy,
       sw => sw,
       btn => btn,
 
       UART_TXD => UART_TXD,
       RsRx => RsRx,
-         
+      
       sseg_ca => sseg_ca,
       sseg_an => sseg_an
       );
 
+--  if lcd_panel_enable='1' then
+    jalo <= std_logic_vector(vgablue);
+    jahi <= std_logic_vector(vgared);
+    jblo <= std_logic_vector(vgagreen);
+    jbhi(7) <= lcd_pixel_strobe;
+    jbhi(8) <= lcd_hsync;
+    jbhi(9) <= lcd_vsync;
+    jbhi(10) <= lcd_display_enable;
+--  else
+--    -- XXX Not bidirectional! Widget board will most likely
+--    -- not work with this.
+--    pmoda_hi <= jahi(10 downto 7);
+--    pmoda_lo <= jalo(4 downto 1);
+--  end if;    
   
   -- Hardware buttons for triggering IRQ & NMI
   irq <= not btn(0);
   nmi <= not btn(4);
   restore_key <= not btn(1);
-  
+
+  process (cpuclock)
+  begin
+    if rising_edge(cpuclock) then
+      -- Debug audio output
+      if sw(7) = '0' then
+        ampPWM <= ampPWM_internal;
+        led(15) <= ampPWM_internal;
+      else
+        -- 1KHz sawtooth
+        if sawtooth_phase < 50000 then
+          sawtooth_phase <= sawtooth_phase + 1;
+          if sawtooth_counter < 256 then
+            sawtooth_counter <= sawtooth_counter + sawtooth_level;
+            ampPWM <= '0';
+            led(15) <= '0';
+          else
+            sawtooth_counter <= sawtooth_counter + sawtooth_level - 256;
+            ampPWM <= '1';
+            led(15) <= '1';
+          end if;
+        else
+          sawtooth_phase <= 0;
+          if sawtooth_level < 255 then
+            sawtooth_level <= sawtooth_level + 1;
+          else
+            sawtooth_level <= 0;
+          end if;
+        end if;
+      end if;
+    end if;
+  end process;
+
   -- Ethernet clock is now just the CPU clock, since both are on 50MHz
-  eth_clock <= cpuclock;  
+  eth_clock <= cpuclock;
   
 end Behavioral;

@@ -185,7 +185,7 @@ set_property -dict { PACKAGE_PIN D4 IOSTANDARD LVCMOS33 } [get_ports uart_txd]
 
 ##USB HID (PS/2)
 set_property -dict { PACKAGE_PIN F4 IOSTANDARD LVCMOS33 PULLUP true } [get_ports PS2Clk]
-set_property -dict { PACKAGE_PIN F4 IOSTANDARD LVCMOS33 PULLUP true }  [get_ports PS2Data]
+set_property -dict { PACKAGE_PIN B2 IOSTANDARD LVCMOS33 PULLUP true }  [get_ports PS2Data]
 
 ##SMSC Ethernet PHY
 #set_property -dict { PACKAGE_PIN C9  IOSTANDARD LVCMOS33 } [get_ports eth_Mdc]
