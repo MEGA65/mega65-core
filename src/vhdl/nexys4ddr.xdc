@@ -188,19 +188,19 @@ set_property -dict { PACKAGE_PIN F4 IOSTANDARD LVCMOS33 PULLUP true } [get_ports
 set_property -dict { PACKAGE_PIN B2 IOSTANDARD LVCMOS33 PULLUP true }  [get_ports PS2Data]
 
 ##SMSC Ethernet PHY
-#set_property -dict { PACKAGE_PIN C9  IOSTANDARD LVCMOS33 } [get_ports eth_Mdc]
-#set_property -dict { PACKAGE_PIN A9  IOSTANDARD LVCMOS33 } [get_ports eth_Mdio]
-#set_property -dict { PACKAGE_PIN B3  IOSTANDARD LVCMOS33 } [get_ports eth_reset]
+set_property -dict { PACKAGE_PIN C9  IOSTANDARD LVCMOS33 } [get_ports eth_Mdc]
+set_property -dict { PACKAGE_PIN A9  IOSTANDARD LVCMOS33 } [get_ports eth_Mdio]
+set_property -dict { PACKAGE_PIN B3  IOSTANDARD LVCMOS33 } [get_ports eth_reset]
 # the below eth_rxdv was called PhyCrs, unsure if this is correct, need to check
-#set_property -dict { PACKAGE_PIN D9  IOSTANDARD LVCMOS33 } [get_ports eth_rxdv]
-#set_property -dict { PACKAGE_PIN C10 IOSTANDARD LVCMOS33 } [get_ports eth_Rxer]
-#set_property -dict { PACKAGE_PIN C11 IOSTANDARD LVCMOS33 } [get_ports {eth_Rxd[0]}]
-#set_property -dict { PACKAGE_PIN D10 IOSTANDARD LVCMOS33 } [get_ports {eth_Rxd[1]}]
-#set_property -dict { PACKAGE_PIN B9  IOSTANDARD LVCMOS33 } [get_ports eth_TxEn]
-#set_property -dict { PACKAGE_PIN A10 IOSTANDARD LVCMOS33 } [get_ports {eth_Txd[0]}]
-#set_property -dict { PACKAGE_PIN A8  IOSTANDARD LVCMOS33 } [get_ports {eth_Txd[1]}]
-#set_property -dict { PACKAGE_PIN D5  IOSTANDARD LVCMOS33 } [get_ports eth_clock]
-#set_property -dict { PACKAGE_PIN B8  IOSTANDARD LVCMOS33 } [get_ports eth_Interrupt]
+set_property -dict { PACKAGE_PIN D9  IOSTANDARD LVCMOS33 } [get_ports eth_rxdv]
+set_property -dict { PACKAGE_PIN C10 IOSTANDARD LVCMOS33 } [get_ports eth_Rxer]
+set_property -dict { PACKAGE_PIN C11 IOSTANDARD LVCMOS33 } [get_ports {eth_Rxd[0]}]
+set_property -dict { PACKAGE_PIN D10 IOSTANDARD LVCMOS33 } [get_ports {eth_Rxd[1]}]
+set_property -dict { PACKAGE_PIN B9  IOSTANDARD LVCMOS33 } [get_ports eth_TxEn]
+set_property -dict { PACKAGE_PIN A10 IOSTANDARD LVCMOS33 } [get_ports {eth_Txd[0]}]
+set_property -dict { PACKAGE_PIN A8  IOSTANDARD LVCMOS33 } [get_ports {eth_Txd[1]}]
+set_property -dict { PACKAGE_PIN D5  IOSTANDARD LVCMOS33 } [get_ports eth_clock]
+set_property -dict { PACKAGE_PIN B8  IOSTANDARD LVCMOS33 } [get_ports eth_Interrupt]
 
 ##Quad SPI Flash
 #set_property  -dict { PACKAGE_PIN E9  IOSTANDARD LVCMOS33 } [get_ports {QspiSCK}]
