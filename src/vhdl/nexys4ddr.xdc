@@ -89,14 +89,14 @@ set_property -dict { PACKAGE_PIN F18 IOSTANDARD LVCMOS33 } [get_ports {jahi[9]}]
 set_property -dict { PACKAGE_PIN G18 IOSTANDARD LVCMOS33 } [get_ports {jahi[10]}]
 
 ##Pmod Header JB
-#set_property -dict { PACKAGE_PIN D14 IOSTANDARD LVCMOS33 } [get_ports {jblo[1]}]
-#set_property -dict { PACKAGE_PIN F16 IOSTANDARD LVCMOS33 } [get_ports {jblo[2]}]
-#set_property -dict { PACKAGE_PIN G16 IOSTANDARD LVCMOS33 } [get_ports {jblo[3]}]
-#set_property -dict { PACKAGE_PIN H14 IOSTANDARD LVCMOS33 } [get_ports {jblo[4]}]
-#set_property -dict { PACKAGE_PIN E16 IOSTANDARD LVCMOS33 } [get_ports {jbhi[7]}]
-#set_property -dict { PACKAGE_PIN F13 IOSTANDARD LVCMOS33 } [get_ports {jbhi[8]}]
-#set_property -dict { PACKAGE_PIN G19  IOSTANDARD LVCMOS33 } [get_ports {jbhi[9]}]
-#set_property -dict { PACKAGE_PIN H16 IOSTANDARD LVCMOS33 } [get_ports {jbhi[10]}]
+set_property -dict { PACKAGE_PIN D14 IOSTANDARD LVCMOS33 } [get_ports {jblo[1]}]
+set_property -dict { PACKAGE_PIN F16 IOSTANDARD LVCMOS33 } [get_ports {jblo[2]}]
+set_property -dict { PACKAGE_PIN G16 IOSTANDARD LVCMOS33 } [get_ports {jblo[3]}]
+set_property -dict { PACKAGE_PIN H14 IOSTANDARD LVCMOS33 } [get_ports {jblo[4]}]
+set_property -dict { PACKAGE_PIN E16 IOSTANDARD LVCMOS33 } [get_ports {jbhi[7]}]
+set_property -dict { PACKAGE_PIN F13 IOSTANDARD LVCMOS33 } [get_ports {jbhi[8]}]
+set_property -dict { PACKAGE_PIN G19  IOSTANDARD LVCMOS33 } [get_ports {jbhi[9]}]
+set_property -dict { PACKAGE_PIN H16 IOSTANDARD LVCMOS33 } [get_ports {jbhi[10]}]
 
 ##Pmod Header JC
 set_property -dict { PACKAGE_PIN K1 IOSTANDARD LVCMOS33 } [get_ports {jclo[1]}]
@@ -105,8 +105,8 @@ set_property -dict { PACKAGE_PIN J2 IOSTANDARD LVCMOS33 } [get_ports {jclo[3]}]
 set_property -dict { PACKAGE_PIN G6 IOSTANDARD LVCMOS33 } [get_ports {jclo[4]}]
 #set_property -dict { PACKAGE_PIN E7 IOSTANDARD LVCMOS33 } [get_ports {jchi[7]}]
 #set_property -dict { PACKAGE_PIN J3 IOSTANDARD LVCMOS33 } [get_ports {jchi[8]}]
-#set_property -dict { PACKAGE_PIN J4 IOSTANDARD LVCMOS33 } [get_ports {jchi[9]}]
-#set_property -dict { PACKAGE_PIN E6 IOSTANDARD LVCMOS33 } [get_ports {jchi[10]}]
+set_property -dict { PACKAGE_PIN J4 IOSTANDARD LVCMOS33 } [get_ports {jchi[9]}]
+set_property -dict { PACKAGE_PIN E6 IOSTANDARD LVCMOS33 } [get_ports {jchi[10]}]
 
 ##Pmod Header JD
 #set_property -dict { PACKAGE_PIN H4 IOSTANDARD LVCMOS33 } [get_ports {jdlo[1]}]
