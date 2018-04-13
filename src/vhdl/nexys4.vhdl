@@ -49,9 +49,9 @@ entity container is
          ----------------------------------------------------------------------
          vsync : out STD_LOGIC;
          hsync : out  STD_LOGIC;
-         vgared : buffer  UNSIGNED (3 downto 0);
-         vgagreen : buffer  UNSIGNED (3 downto 0);
-         vgablue : buffer  UNSIGNED (3 downto 0);
+         vgared : out  UNSIGNED (3 downto 0);
+         vgagreen : out  UNSIGNED (3 downto 0);
+         vgablue : out  UNSIGNED (3 downto 0);
 
          ---------------------------------------------------------------------------
          -- IO lines to the ethernet controller
@@ -190,6 +190,10 @@ architecture Behavioral of container is
   signal dummy_vgagreen : unsigned(3 downto 0);
   signal dummy_vgablue : unsigned(3 downto 0);
 
+  signal buffer_vgared : unsigned(7 downto 0);
+  signal buffer_vgagreen : unsigned(7 downto 0);
+  signal buffer_vgablue : unsigned(7 downto 0);
+  
   signal pixelclock : std_logic;
   signal cpuclock : std_logic;
   signal clock200 : std_logic;
@@ -402,12 +406,9 @@ begin
       lcd_hsync => lcd_hsync,
       lcd_display_enable => lcd_display_enable,
       lcd_pixel_strobe => lcd_pixel_strobe,
-      vgared(7 downto 4)          => vgared,
-      vgared(3 downto 0)          => dummy_vgared,
-      vgagreen(7 downto 4)        => vgagreen,
-      vgagreen(3 downto 0)        => dummy_vgagreen,
-      vgablue(7 downto 4)         => vgablue,
-      vgablue(3 downto 0)         => dummy_vgablue,
+      vgared(7 downto 0)          => buffer_vgared,
+      vgagreen(7 downto 0)        => buffer_vgagreen,
+      vgablue(7 downto 0)         => buffer_vgablue,
 
       porta_pins => porta_pins,
       portb_pins => portb_pins,
@@ -503,10 +504,14 @@ begin
       sseg_an => sseg_an
       );
 
+    vgared <= buffer_vgablue(7 downto 4);
+    vgagreen <= buffer_vgablue(7 downto 4);
+    vgablue <= buffer_vgablue(7 downto 4);
+  
 --  if lcd_panel_enable='1' then
-    jalo <= std_logic_vector(vgablue);
-    jahi <= std_logic_vector(vgared);
-    jblo <= std_logic_vector(vgagreen);
+    jalo <= std_logic_vector(buffer_vgablue(7 downto 4));
+    jahi <= std_logic_vector(buffer_vgared(7 downto 4));
+    jblo <= std_logic_vector(buffer_vgagreen(7 downto 4));
     jbhi(7) <= lcd_pixel_strobe;
     jbhi(8) <= lcd_hsync;
     jbhi(9) <= lcd_vsync;
