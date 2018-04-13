@@ -1,9 +1,11 @@
 .SUFFIXES: .bin .prg 
-.PRECIOUS:	%.ngd %.ncd %.twx
+.PRECIOUS:	%.ngd %.ncd %.twx vivado/%.xpr bin/%.bit bin/%.mcs bin/%.M65 bin/%.BIN
 
 COPT=	-Wall -g -std=c99
 CC=	gcc
 OPHIS=	../Ophis/bin/ophis -4
+
+VIVADO=	./vivado_wrapper
 
 CA65=  ca65 --cpu 4510
 LD65=  ld65 -t none
@@ -56,7 +58,10 @@ TOOLS=	$(TOOLDIR)/etherkick/etherkick \
 	$(TOOLDIR)/on_screen_keyboard_gen \
 	$(TOOLDIR)/pngprepare/pngprepare
 
-all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r1.mcs $(BINDIR)/nexysvideo.mcs $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr.mcs $(BINDIR)/lcd4ddr.mcs $(BINDIR)/touch_test.mcs
+all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r1.mcs $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr.mcs
+
+# Not quite yet with Vivado...
+# $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr.mcs $(BINDIR)/lcd4ddr.mcs $(BINDIR)/touch_test.mcs
 
 generated_vhdl:	$(SIMULATIONVHDL)
 
@@ -433,9 +438,9 @@ $(SDCARD_DIR)/BANNER.M65:	$(TOOLDIR)/pngprepare/pngprepare assets/mega65_320x64.
 	$(TOOLDIR)/pngprepare/pngprepare logo $(BINDIR)/mega65_320x64_128colour.png $(SDCARD_DIR)/BANNER.M65
 
 # disk menu program for loading from SD card to $C000 on boot by kickstart
-$(SDCARD_DIR)/C000UTIL.BIN:	$(BINDIR)/diskmenu_c000.bin
+$(SDCARD_DIR)/C000UTIL.BIN:	$(SRCDIR)/diskmenu_c000.bin
 	mkdir -p $(SDCARD_DIR)
-	cp $(BINDIR)/diskmenu_c000.bin $(SDCARD_DIR)/C000UTIL.BIN
+	cp $(SRCDIR)/diskmenu_c000.bin $(SDCARD_DIR)/C000UTIL.BIN
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
 # c-code that makes and executable that seems to be the 'load-wedge'
@@ -452,36 +457,14 @@ $(TOOLDIR)/monitor_save:	$(TOOLDIR)/monitor_save.c Makefile
 $(TOOLDIR)/on_screen_keyboard_gen:	$(TOOLDIR)/on_screen_keyboard_gen.c Makefile
 	$(CC) $(COPT) -o $(TOOLDIR)/on_screen_keyboard_gen $(TOOLDIR)/on_screen_keyboard_gen.c
 
-%.ngc %.syr:	$(VHDLSRCDIR)/*.vhdl $(SIMULATIONVHDL)
-	echo MOOSE $@ from $<
-#	@rm -f $*.ngc $*.syr $*.ngr
-	mkdir -p xst/projnav.tmp
-	./run_ise $* xst
-
 #-----------------------------------------------------------------------------
 
-%.ngd %.bld: %.ngc
+# Generate Vivado .xpr from .tcl
+vivado/%.xpr: 	vivado/%_gen.tcl | $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(SIMULATIONVHDL)
 	echo MOOSE $@ from $<
-#	@rm -f $*.ngd $*.bld
-	./run_ise $* ngdbuild
+	$(VIVADO) -mode batch -source $<
 
-#-----------------------------------------------------------------------------
-
-%.mapncd %.pcf: %.ngd
-	echo MOOSE $@ from $<
-#	@rm -f $*.mapncd $*.pcf
-	./run_ise $* map
-
-#-----------------------------------------------------------------------------
-
-%.ncd %.unroutes %.par %.twr: %.mapncd
-	echo MOOSE $@ from $<
-#	@rm -f $*.ncd $*.unroutes $*.par $*.twr
-	./run_ise $* par
-
-#-----------------------------------------------------------------------------
-
-bin/%.bit:	isework/%.ncd
+bin/%.bit: 	vivado/%.xpr $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(SIMULATIONVHDL)
 	echo MOOSE $@ from $<
 #	@rm -f $@
 #	@echo "---------------------------------------------------------"
@@ -496,14 +479,12 @@ bin/%.bit:	isework/%.ncd
 #	@echo "---------------------------------------------------------"
 
 	mkdir -p $(SDCARD_DIR)
+	$(VIVADO) -mode batch -source vivado/$(subst bin/,,$*)_impl.tcl vivado/$(subst bin/,,$*).xpr
+	cp vivado/$(subst bin/,,$*).runs/impl_1/container.bit $@
 
-	./run_ise $(subst bin/,,$*) bitgen
-
-%.mcs:	%.bit
+bin/%.mcs:	bin/%.bit
 	mkdir -p $(SDCARD_DIR)
-	./run_ise $* promgen
-
-
+	$(VIVADO) -mode batch -source vivado/run_mcs.tcl -tclargs $< $@
 
 clean:
 	rm -f $(BINDIR)/KICKUP.M65 kickstart.list kickstart.map
@@ -528,6 +509,9 @@ clean:
 	rm -f thumbnail.prg
 	rm -f textmodetest.prg textmodetest.list etherload_done.bin etherload_stub.bin
 	rm -f videoproxy
+	rm -rf vivado/mega65r1.cache vivado/mega65r1.runs vivado/mega65r1.hw vivado/mega65r1.ip_user_files vivado/mega65r1.srcs vivado/mega65r1.xpr
+	rm -rf vivado/nexys4.cache vivado/nexys4.runs vivado/nexys4.hw vivado/nexys4.ip_user_files vivado/nexys4.srcs vivado/nexys4.xpr
+	rm -rf vivado/nexys4ddr.cache vivado/nexys4ddr.runs vivado/nexys4ddr.hw vivado/nexys4ddr.ip_user_files vivado/nexys4ddr.srcs vivado/nexys4ddr.xpr
 
 cleangen:
 	rm $(VHDLSRCDIR)/kickstart.vhdl $(VHDLSRCDIR)/charrom.vhdl *.M65
