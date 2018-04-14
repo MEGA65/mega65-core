@@ -49,6 +49,18 @@ begin
         matrix(7) <= '0'; -- cursor down
         matrix(52) <= '0'; -- right shift
       end if;
+
+      -- Put positive charge on the keyboard pins we are going to read,
+      -- to make sure they float high.  Then make them tri-state just
+      -- before we read them, so that we don't have cross-driving
+      -- problems that cause multiple key presses on the same row/column
+      -- to lead to too many pull-ups combining to leave the input
+      -- voltage too high to register a key press.
+      if counter<8 then
+        portb_pins <= (others => 'Z');
+      else
+        portb_pins <= (others => 'H');
+      end if;
       
       -- Scan physical keyboard
       if counter=0 then
@@ -78,8 +90,6 @@ begin
         -- Driving columns low works just fine, however. What it seems like is
         -- that the row pins (portb_pins) is being driven high, instead of
         -- tristates, i.e., '1' instead of 'H' or 'Z'.
-
-        portb_pins <= (others => 'Z');
         
         matrix_internal((scan_phase*8)+ 7 downto (scan_phase*8)) <= portb_pins(7 downto 0);
 
