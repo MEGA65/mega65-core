@@ -422,7 +422,7 @@ begin  -- behavioural
   
   -- Locally readable copy of the same data, so that we can read it when writing
   -- to SD card or floppy drive
-  sb_workcopy: entity work.ram8x4096
+  sb_workcopy: entity work.ram8x4096_sync
     port map (
       clk => clock,
 
@@ -874,7 +874,19 @@ begin  -- behavioural
     -- ==================================================================
     -- ==================================================================
     
-    if rising_edge(clock) then
+    
+    case sd_state is    
+      when WriteSector|WritingSector|WritingSectorAckByte =>
+        if f011_sector_fetch='1' then
+          f011_buffer_read_address <= "110"&f011_buffer_disk_address;
+        else
+          f011_buffer_read_address <= "111"&sd_buffer_offset;
+        end if;
+      when others =>
+        f011_buffer_read_address <= "110"&f011_buffer_cpu_address;
+    end case;
+    
+    if rising_edge(clock) then    
 
       target_track <= f011_track;
       target_sector <= f011_sector;
@@ -913,7 +925,6 @@ begin  -- behavioural
       -- Prepare for CPU read request via $D087 if required
       if sb_cpu_read_request='1' and sb_cpu_reading='0' then
         report "CPU read pre-fetch from sector buffer @ $" & to_hstring(f011_buffer_cpu_address);
-        f011_buffer_read_address <= "110"&f011_buffer_cpu_address;
         sb_cpu_reading <= '1';
       else
         sb_cpu_reading <= '0';
@@ -1574,7 +1585,6 @@ begin  -- behavioural
                     f011_sector_fetch <= '0';
 
                     sd_wrote_byte <= '0';
-                    f011_buffer_read_address <= "111"&"000000000";
                     sd_buffer_offset <= (others => '0');
                   end if;
 
@@ -1994,7 +2004,6 @@ begin  -- behavioural
           report "Starting to write sector from unified FDC/SD buffer.";
           f011_buffer_cpu_address <= (others => '0');
           sb_cpu_read_request <= '1';
-          f011_buffer_read_address <= "110"&f011_buffer_disk_address;
           f011_buffer_disk_pointer_advance <= '1';
           -- Abort CPU buffer read if in progess, since we are reading the buffer
           sb_cpu_reading <= '0';
@@ -2058,12 +2067,6 @@ begin  -- behavioural
               -- Still more bytes to read.
               sd_state <= WritingSector;
 
-              -- Get next byte ready
-              if f011_sector_fetch='1' then
-                f011_buffer_read_address <= "110"&f011_buffer_disk_address;
-              else
-                f011_buffer_read_address <= "111"&sd_buffer_offset;
-              end if;
               f011_buffer_disk_pointer_advance <= '1';
               -- Abort CPU buffer read if in progess, since we are reading the buffer
               sb_cpu_reading <= '0';              
