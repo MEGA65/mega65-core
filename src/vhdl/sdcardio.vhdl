@@ -231,7 +231,6 @@ architecture behavioural of sdcardio is
 
   signal sd_fill_mode    : std_logic := '0';
   signal sd_fill_value   : unsigned(7 downto 0) := (others => '0');
-
   
   -- IO mapped register to indicate if SD card interface is busy
   signal sdio_busy : std_logic := '0';
@@ -241,12 +240,20 @@ architecture behavioural of sdcardio is
 
   signal sector_buffer_mapped : std_logic := '0';
   
-  type sd_state_t is (Idle,
-                      ReadSector,ReadingSector,ReadingSectorAckByte,DoneReadingSector,
-                      FDCReadingSector,
-                      WriteSector,WritingSector,WritingSectorAckByte,
-                      HyperTrapRead,HyperTrapRead2,HyperTrapWrite,
-                      F011WriteSector,DoneWritingSector);
+  type sd_state_t is (Idle,                           -- 0x00
+                      ReadSector,                     -- 0x01
+                      ReadingSector,                  -- 0x02
+                      ReadingSectorAckByte,           -- 0x03
+                      DoneReadingSector,              -- 0x04
+                      FDCReadingSector,               -- 0x05
+                      WriteSector,                    -- 0x06
+                      WritingSector,                  -- 0x07
+                      WritingSectorAckByte,           -- 0x08
+                      HyperTrapRead,                  -- 0x09
+                      HyperTrapRead2,                 -- 0x0A
+                      HyperTrapWrite,                 -- 0x0B
+                      F011WriteSector,                -- 0x0C
+                      DoneWritingSector);             -- 0x0D
   signal sd_state : sd_state_t := Idle;
 
   -- Diagnostic register for determining SD/SDHC card state.
@@ -388,6 +395,8 @@ begin  -- behavioural
 
       last_state_o => last_sd_state,
       error_o => last_sd_error,
+      
+      busy_o => sdcard_busy,
       
       addr_i => std_logic_vector(sd_sector),
       sdhc_i => sdhc_mode,
@@ -1521,6 +1530,8 @@ begin  -- behavioural
                   sd_state <= Idle;
                   sd_handshake <= '1';
                   sd_handshake_internal <= '1';
+                  sd_doread <= '0';
+                  sd_dowrite <= '0';                  
                   sdio_error <= '0';
                   sdio_fsm_error <= '0';
                   sd_sector <= (others => '0');
@@ -1531,6 +1542,8 @@ begin  -- behavioural
                   sd_state <= Idle;
                   sdio_error <= '0';
                   sdio_fsm_error <= '0';
+                  sd_doread <= '0';
+                  sd_dowrite <= '0';                  
 
                 when x"01" =>
                   -- End reset
