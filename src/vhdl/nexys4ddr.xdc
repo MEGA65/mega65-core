@@ -184,8 +184,8 @@ set_property -dict { PACKAGE_PIN D4 IOSTANDARD LVCMOS33 } [get_ports UART_TXD]
 #set_property -dict { PACKAGE_PIN E5 IOSTANDARD LVCMOS33 } [get_ports RsRts]
 
 ##USB HID (PS/2)
-set_property -dict { PACKAGE_PIN F4 IOSTANDARD LVCMOS33 PULLUP true } [get_ports PS2Clk]
-set_property -dict { PACKAGE_PIN B2 IOSTANDARD LVCMOS33 PULLUP true }  [get_ports PS2Data]
+set_property -dict { PACKAGE_PIN F4 IOSTANDARD LVCMOS33 PULLUP true } [get_ports ps2clk]
+set_property -dict { PACKAGE_PIN B2 IOSTANDARD LVCMOS33 PULLUP true }  [get_ports ps2data]
 
 ##SMSC Ethernet PHY
 set_property -dict { PACKAGE_PIN C9  IOSTANDARD LVCMOS33 } [get_ports eth_mdc]
@@ -200,7 +200,7 @@ set_property -dict { PACKAGE_PIN B9  IOSTANDARD LVCMOS33 } [get_ports eth_txen]
 set_property -dict { PACKAGE_PIN A10 IOSTANDARD LVCMOS33 } [get_ports {eth_txd[0]}]
 set_property -dict { PACKAGE_PIN A8  IOSTANDARD LVCMOS33 } [get_ports {eth_txd[1]}]
 set_property -dict { PACKAGE_PIN D5  IOSTANDARD LVCMOS33 } [get_ports eth_clock]
-set_property -dict { PACKAGE_PIN B8  IOSTANDARD LVCMOS33 } [get_ports eth_Interrupt]
+set_property -dict { PACKAGE_PIN B8  IOSTANDARD LVCMOS33 } [get_ports eth_interrupt]
 
 ##Quad SPI Flash
 #set_property  -dict { PACKAGE_PIN E9  IOSTANDARD LVCMOS33 } [get_ports {QspiSCK}]
