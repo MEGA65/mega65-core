@@ -73,7 +73,7 @@ set_property -dict { PACKAGE_PIN U13 IOSTANDARD LVCMOS33 } [get_ports {sseg_an[7
 ##Buttons
 set_property  -dict { PACKAGE_PIN C12 IOSTANDARD LVCMOS33 } [get_ports btnCpuReset]
 set_property  -dict { PACKAGE_PIN N17 IOSTANDARD LVCMOS33 } [get_ports {btn[0]}]
-set_property  -dict { PACKAGE_PIN P18 IOSTANDARD LVCMOS33 } [get_ports {btn[4]}]
+set_property  -dict { PACKAGE_PIN M18 IOSTANDARD LVCMOS33 } [get_ports {btn[4]}]
 set_property  -dict { PACKAGE_PIN M17 IOSTANDARD LVCMOS33 } [get_ports {btn[2]}]
 set_property  -dict { PACKAGE_PIN P17 IOSTANDARD LVCMOS33 } [get_ports {btn[3]}]
 set_property  -dict { PACKAGE_PIN P18 IOSTANDARD LVCMOS33 } [get_ports {btn[1]}]
@@ -95,7 +95,7 @@ set_property -dict { PACKAGE_PIN G16 IOSTANDARD LVCMOS33 } [get_ports {jblo[3]}]
 set_property -dict { PACKAGE_PIN H14 IOSTANDARD LVCMOS33 } [get_ports {jblo[4]}]
 set_property -dict { PACKAGE_PIN E16 IOSTANDARD LVCMOS33 } [get_ports {jbhi[7]}]
 set_property -dict { PACKAGE_PIN F13 IOSTANDARD LVCMOS33 } [get_ports {jbhi[8]}]
-set_property -dict { PACKAGE_PIN G19  IOSTANDARD LVCMOS33 } [get_ports {jbhi[9]}]
+set_property -dict { PACKAGE_PIN G19 IOSTANDARD LVCMOS33 } [get_ports {jbhi[9]}]
 set_property -dict { PACKAGE_PIN H16 IOSTANDARD LVCMOS33 } [get_ports {jbhi[10]}]
 
 ##Pmod Header JC
