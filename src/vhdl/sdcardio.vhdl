@@ -197,7 +197,8 @@ architecture behavioural of sdcardio is
   signal stereo_swap : std_logic := '0';
   signal force_mono : std_logic := '0';
   signal ampSD_internal : std_logic := '1';
-  
+
+  signal mic_do_sample : std_logic := '0';
   signal mic_divider : unsigned(4 downto 0) := "00000";
   signal mic_counter : unsigned(7 downto 0) := "00000000";
   signal mic_onecount : unsigned(7 downto 0) := "00000000";
@@ -1118,16 +1119,21 @@ begin  -- behavioural
 
 
       -- microphone sampling process
-      -- max frequency is 3MHz. 48MHz/16 ~= 3MHz
-      if mic_divider < 16 then
-        if mic_divider < 8 then
+      -- max frequency is 3MHz, optimal is about 2.5MHz according to
+      -- https://pdfs.semanticscholar.org/a3f4/9749f4d3508f58c5ca4693f8bae9c403fc85.pdf
+      mic_do_sample <= '0';
+      if mic_divider < 20 then
+        if mic_divider = 10 then
           micCLK <= '1';
-        else
-          micCLK <= '0';
+          mic_do_sample <= '1';
         end if;
         mic_divider <= mic_divider + 1;
       else
+        micCLK <= '0';
+        mic_do_sample <= '1';
         mic_divider <= (others => '0');
+      end if;
+      if mic_do_sample='1' then
         if mic_counter /= 255 then
           if micData='1' then
             mic_onecount <= mic_onecount + 1;
@@ -1140,8 +1146,8 @@ begin  -- behavioural
           else
             mic_value_right(7 downto 0) <= mic_onecount;
           end if;
-          mic_onecount <= (others => '0');
           mic_counter <= (others => '0');
+          mic_onecount <= (others => '0');
           micLRSel <= not micLRSelinternal;
           micLRSelinternal <= not micLRSelinternal;
         end if;
