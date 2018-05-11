@@ -4098,7 +4098,7 @@ begin
                   paint_background <= bitmap_colour_background;
                 end if;
                 paint_fsm_state <= PaintMono;
-              elsif multicolour_mode='1' and extended_background_mode='0' then
+              elsif multicolour_mode='1' then
                 -- Multicolour mode
                 paint_background <= screen_colour;
                 if text_mode='1' then
@@ -4107,7 +4107,14 @@ begin
                   -- multi-colour text mode masks bit 3 of the foreground
                   -- colour to select whether the character is multi-colour or
                   -- not.
-                  paint_foreground <= glyph_colour(7 downto 4)&'0'&glyph_colour(2 downto 0);
+                  -- We allow the previously unused MCM+EBC mode to let us pick
+                  -- the background from high-nybl of colour RAM byte.
+                  -- i.e., it really is extended background colour mode in multi-colour
+                  -- mode.
+                  paint_foreground <= "00000"&glyph_colour(2 downto 0);
+                  if extended_background_mode='1' then
+                    paint_background <= "0000"&glyph_colour(7 downto 4);
+                  end if;
                 else
                   paint_mc2 <= bitmap_colour_foreground;
                   paint_mc1 <= bitmap_colour_background;
