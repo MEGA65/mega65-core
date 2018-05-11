@@ -794,10 +794,10 @@ begin  -- behavioural
             -- @IO:GS $D6DD - DEBUG duplicate of FPGA switches 8-15
             fastio_rdata(7 downto 0) <= unsigned(sw(15 downto 8));
           when x"DE" =>
-            -- @IO:GS $D6DE - Temperature sensor (lower byte)
+            -- @IO:GS $D6DE - FPGA die temperature sensor (lower nybl)
             fastio_rdata <= unsigned("0000"&fpga_temperature(3 downto 0));
           when x"DF" =>
-            -- @IO:GS $D6DF - Temperature sensor (upper byte)
+            -- @IO:GS $D6DF - FPGA die temperature sensor (upper byte)
             fastio_rdata <= unsigned(fpga_temperature(11 downto 4));
           -- XXX $D6Ex is decoded by ethernet controller, so don't use those
           -- registers here!
@@ -847,7 +847,7 @@ begin  -- behavioural
             -- @IO:GS $D6FB - microphone input (left)
             fastio_rdata <= mic_value_left;
           when x"FC" =>
-            -- @IO:GS $D6F7 - microphone input (right)
+            -- @IO:GS $D6FC - microphone input (right)
             fastio_rdata <= mic_value_right;
           when x"FD" =>
             -- Right SID audio (high) for debugging
@@ -1128,7 +1128,7 @@ begin  -- behavioural
         mic_divider <= mic_divider + 1;
       else
         mic_divider <= (others => '0');
-        if mic_counter < 127 then
+        if mic_counter /= 255 then
           if micData='1' then
             mic_onecount <= mic_onecount + 1;
           end if;
