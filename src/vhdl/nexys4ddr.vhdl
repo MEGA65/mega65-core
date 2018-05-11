@@ -504,8 +504,8 @@ begin
       sseg_an => sseg_an
       );
 
-    vgared <= buffer_vgablue(7 downto 4);
-    vgagreen <= buffer_vgablue(7 downto 4);
+    vgared <= buffer_vgared(7 downto 4);
+    vgagreen <= buffer_vgagreen(7 downto 4);
     vgablue <= buffer_vgablue(7 downto 4);
   
 --  if lcd_panel_enable='1' then
@@ -531,6 +531,10 @@ begin
   process (cpuclock)
   begin
     if rising_edge(cpuclock) then
+
+      -- No physical keyboard
+      portb_pins <= (others => '1');
+      
       -- Debug audio output
       if sw(7) = '0' then
         ampPWM <= ampPWM_internal;
