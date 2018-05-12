@@ -29,6 +29,8 @@ architecture behavioural of widget_to_matrix is
 
   signal matrix_offset : integer range 0 to 255 := 252;
   signal last_pmod_clock : std_logic := '1';
+
+  signal enabled : std_logic := '0';
   
 begin  -- behavioural
 
@@ -42,7 +44,14 @@ begin  -- behavioural
       -- The data is pumped out in the correct order for us to just stash it
       -- into the matrix (or, at least it will when it is implemented ;)
       last_pmod_clock <= pmod_clock;
-      if pmod_clock='1' and last_pmod_clock='0' then
+
+      -- Don't do anything until we see the line float high.
+      -- this is for the hardware targets that lack these interfaces,
+      -- as a protection against incorrect tri-stating etc.
+      if pmod_data_in = "1111" then
+        enabled <= '1';
+      end if;      
+      if pmod_clock='1' and last_pmod_clock='0' and enabled='1' then
         -- Data available
         if pmod_start_of_sequence='1' then
           -- Write first four bits, and set offset for next time

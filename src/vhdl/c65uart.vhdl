@@ -170,7 +170,7 @@ architecture behavioural of c65uart is
 
   signal portj_internal : std_logic_vector(7 downto 0) := x"FF";
   
-  signal widget_enable_internal : std_logic := '0';
+  signal widget_enable_internal : std_logic := '1';
   signal ps2_enable_internal : std_logic := '1';
   signal joykey_enable_internal : std_logic := '1';
   signal joyreal_enable_internal : std_logic := '1';
