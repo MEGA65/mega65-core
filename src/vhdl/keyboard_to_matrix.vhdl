@@ -33,6 +33,8 @@ architecture behavioral of keyboard_to_matrix is
   -- Scanned state of the keyboard
   signal matrix_internal : std_logic_vector(71 downto 0) := (others => '1');
 
+  signal enabled : std_logic := '0';
+  
 begin
   process (clk)
     variable next_phase : integer range 0 to 15;
@@ -90,8 +92,15 @@ begin
         -- Driving columns low works just fine, however. What it seems like is
         -- that the row pins (portb_pins) is being driven high, instead of
         -- tristates, i.e., '1' instead of 'H' or 'Z'.
-        
-        matrix_internal((scan_phase*8)+ 7 downto (scan_phase*8)) <= portb_pins(7 downto 0);
+
+        -- Don't enable if we see pins staying tied low
+        if portb_pins = "11111111" then
+          enabled <= '1';
+        end if;
+
+        if enabled='1' then
+          matrix_internal((scan_phase*8)+ 7 downto (scan_phase*8)) <= portb_pins(7 downto 0);
+        end if;
 
         -- Select lines for next column
         if scan_phase < 8 then
