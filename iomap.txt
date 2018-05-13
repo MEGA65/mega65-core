@@ -474,8 +474,8 @@ GS $D6DA - DEBUG SD card last error code LSB
 GS $D6DB - DEBUG SD card last error code MSB
 GS $D6DC - DEBUG duplicate of FPGA switches 0-7
 GS $D6DD - DEBUG duplicate of FPGA switches 8-15
-GS $D6DE - Temperature sensor (lower byte)
-GS $D6DF - Temperature sensor (upper byte)
+GS $D6DE - FPGA die temperature sensor (lower nybl)
+GS $D6DF - FPGA die temperature sensor (upper byte)
 GS $D6E0.0 Clear to reset ethernet PHY
 GS $D6E0.1-2 Read ethernet TX bits currently on the wire
 GS $D6E0.3 Read ethernet RX data valid
@@ -516,7 +516,6 @@ GS $D6F5 Bit-bashed temperature sensor
 GS $D6F5 - Temperature sensor
 GS $D6F6 - Keyboard scan code reader (lower byte)
 GS $D6F7 - Keyboard scan code reader (upper nybl)
-GS $D6F7 - microphone input (right)
 GS $D6F8 - 8-bit digital audio out (left)
 GS $D6F9.0 - Enable audio amplifier
 GS $D6F9.1-4 - Raw PCM/PDM audio debug interface WILL BE REMOVED
@@ -525,6 +524,9 @@ GS $D6F9.6 - Play mono audio through both channels
 GS $D6F9.7 - Select PDM or PWM audio output mode
 GS $D6FA - 8-bit digital audio out (left)
 GS $D6FB - microphone input (left)
+GS $D6FB - WRITE set microphone trigger phase (DEBUG,WILLBEREMOVED)
+GS $D6FC - microphone input (right)
+GS $D6FC - WRITE set microphone sample frequency (DEBUG,WILLBEREMOVED)
 GS $D6FF - Flash bit-bashing port
 GS $D700 - DMAgic DMA list address LSB, and trigger DMA (when written)
 GS $D701 DMA list address high byte (address bits 8 -- 15).
