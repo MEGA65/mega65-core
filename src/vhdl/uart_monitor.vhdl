@@ -370,11 +370,12 @@ begin
 
     procedure output_char(char : in character) is
     begin
-      if (protected_hardware_in(6)='0') then
-        -- UART output
-        tx_data <= to_std_logic_vector(char);
-        tx_trigger <= '1';
-      else
+      -- XXX MATRIX - Disable UART output when in matrix mode in production
+      -- UART output (even if we are in matrix mode)
+      tx_data <= to_std_logic_vector(char);
+      tx_trigger <= '1';
+
+      if (protected_hardware_in(6)='1') then
         -- matrix mode terminal emulator output
         monitor_char_out <= unsigned(to_std_logic_vector(char));
         monitor_char_valid <= '1';
@@ -509,11 +510,13 @@ begin
       char       : in character;
       next_state : in monitor_state) is
     begin  -- try_output_char
-      if tx_ready='1' and protected_hardware_in(6)='0' then
-        output_char(char);
-        state <= next_state;
-      end if;
-      if protected_hardware_in(6)='1' and terminal_emulator_ready_computed='1' then
+      -- Always wait for UART and terminal emulator to both be ready,
+      -- so that we can display to both at the same time.
+      -- XXX MATRIX in production, only check tx_ready='1' as below:
+      --    if tx_ready='1' and protected_hardware_in(6)='0' then
+      -- (and remove UART output when in matrix mode), so that matrix mode
+      -- display is not slowed down to serial speed.
+      if tx_ready='1' and terminal_emulator_ready_computed='1' then
         output_char(char);
         state <= next_state;
       end if;
@@ -917,9 +920,10 @@ begin
                 activity <= blink;
                 rx_acknowledge<='1';
                 trace_continuous <= '0';
-                if protected_hardware_in(6) = '0' then
+                -- XXX MATRIX allow UART input even when in matrix mode for testing
+--                if protected_hardware_in(6) = '0' then
                   character_received(to_character(rx_data));
-                end if;
+--                end if;
               elsif uart_char_valid = '1' and uart_char_processed='0' and uart_char /= x"ef" then
                 -- Matrix mode input
                 character_received(to_character(uart_char));
