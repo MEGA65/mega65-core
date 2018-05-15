@@ -103,15 +103,6 @@ sd_resetsequence:
 
 		lda #$00
 		sta $D680
-		jsr sdtimeoutreset
-re1:		jsr sdreadytest
-		bcs re1done	; success, so return
-		bne re1		; not timed out, so keep trying
-		rts		; timeout, so return
-
-re1done:	
-		; write $01 to $D680 to complete reset
-		;
 		lda #$01
 		sta $D680
 		jsr sdtimeoutreset

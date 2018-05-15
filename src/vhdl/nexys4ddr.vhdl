@@ -47,7 +47,7 @@ entity container is
          ----------------------------------------------------------------------
          -- VGA output
          ----------------------------------------------------------------------
-         vsync : out  STD_LOGIC;
+         vsync : out STD_LOGIC;
          hsync : out  STD_LOGIC;
          vgared : out  UNSIGNED (3 downto 0);
          vgagreen : out  UNSIGNED (3 downto 0);
@@ -190,6 +190,10 @@ architecture Behavioral of container is
   signal dummy_vgagreen : unsigned(3 downto 0);
   signal dummy_vgablue : unsigned(3 downto 0);
 
+  signal buffer_vgared : unsigned(7 downto 0);
+  signal buffer_vgagreen : unsigned(7 downto 0);
+  signal buffer_vgablue : unsigned(7 downto 0);
+  
   signal pixelclock : std_logic;
   signal cpuclock : std_logic;
   signal clock200 : std_logic;
@@ -263,6 +267,11 @@ architecture Behavioral of container is
   signal sawtooth_phase : integer := 0;
   signal sawtooth_counter : integer := 0;
   signal sawtooth_level : integer := 0;
+
+  signal lcd_pixel_strobe : std_logic;
+  signal lcd_hsync : std_logic;
+  signal lcd_vsync : std_logic;
+  signal lcd_display_enable : std_logic;
   
 begin
   
@@ -393,12 +402,13 @@ begin
       
       vsync           => vsync,
       hsync           => hsync,
-      vgared(7 downto 4)          => vgared,
-      vgared(3 downto 0)          => dummy_vgared,
-      vgagreen(7 downto 4)        => vgagreen,
-      vgagreen(3 downto 0)        => dummy_vgagreen,
-      vgablue(7 downto 4)         => vgablue,
-      vgablue(3 downto 0)         => dummy_vgablue,
+      lcd_vsync => lcd_vsync,
+      lcd_hsync => lcd_hsync,
+      lcd_display_enable => lcd_display_enable,
+      lcd_pixel_strobe => lcd_pixel_strobe,
+      vgared(7 downto 0)          => buffer_vgared,
+      vgagreen(7 downto 0)        => buffer_vgagreen,
+      vgablue(7 downto 0)         => buffer_vgablue,
 
       porta_pins => porta_pins,
       portb_pins => portb_pins,
@@ -453,10 +463,10 @@ begin
       pmod_clock => jblo(1),
       pmod_start_of_sequence => jblo(2),
       pmod_data_in(1 downto 0) => jblo(4 downto 3),
-      pmod_data_in(3 downto 2) => jbhi(8 downto 7),
-      pmod_data_out => jbhi(10 downto 9),
-      pmoda(3 downto 0) => jalo(4 downto 1),
-      pmoda(7 downto 4) => jahi(10 downto 7),
+      pmod_data_in(3 downto 2) => "00", -- jbhi(8 downto 7),
+--      pmod_data_out => jbhi(10 downto 9),
+--      pmoda(3 downto 0) => jalo(4 downto 1),
+--      pmoda(7 downto 4) => jahi(10 downto 7),
 
       uart_rx => jclo(1),
       uart_tx => jclo(2),
@@ -494,6 +504,24 @@ begin
       sseg_an => sseg_an
       );
 
+    vgared <= buffer_vgared(7 downto 4);
+    vgagreen <= buffer_vgagreen(7 downto 4);
+    vgablue <= buffer_vgablue(7 downto 4);
+  
+--  if lcd_panel_enable='1' then
+    jalo <= std_logic_vector(buffer_vgablue(7 downto 4));
+    jahi <= std_logic_vector(buffer_vgared(7 downto 4));
+    jblo <= std_logic_vector(buffer_vgagreen(7 downto 4));
+    jbhi(7) <= lcd_pixel_strobe;
+    jbhi(8) <= lcd_hsync;
+    jbhi(9) <= lcd_vsync;
+    jbhi(10) <= lcd_display_enable;
+--  else
+--    -- XXX Not bidirectional! Widget board will most likely
+--    -- not work with this.
+--    pmoda_hi <= jahi(10 downto 7);
+--    pmoda_lo <= jalo(4 downto 1);
+--  end if;    
   
   -- Hardware buttons for triggering IRQ & NMI
   irq <= not btn(0);
@@ -503,6 +531,10 @@ begin
   process (cpuclock)
   begin
     if rising_edge(cpuclock) then
+
+      -- No physical keyboard
+      portb_pins <= (others => '1');
+      
       -- Debug audio output
       if sw(7) = '0' then
         ampPWM <= ampPWM_internal;

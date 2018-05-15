@@ -143,8 +143,10 @@ GS $D04D.7-4 VIC-IV sprite 3-0 horizontal tile enables
 GS $D04E VIC-IV character generator vertical position (LSB)
 GS $D04F.3-0 VIC-IV character generator vertical position (MSB)
 GS $D04F.7-4 VIC-IV sprite 7-4 horizontal tile enables
-GS $D050 VIC-IV read horizontal position (LSB)
-GS $D051 VIC-IV read horizontal position (MSB)
+GS $D050 VIC-IV pixel clock configuration (WRITE ONLY)
+GS $D050 VIC-IV read horizontal position (LSB) (READ) xcounter
+GS $D051 VIC-IV frame width, hsync fine tuning (WRITE ONLY)
+GS $D051 VIC-IV read horizontal position (MSB) (READ) xcounter
 GS $D052 VIC-IV read physical raster/set raster compare (LSB)
 GS $D053 VIC-IV read physical raster/set raster compare (MSB)
 GS $D054.0 VIC-IV enable 16-bit character numbers (two screen bytes per character)
@@ -207,6 +209,7 @@ GS $D07B VIC-IV hsync x4 start
 GS $D07C.0-3 VIC-IV hsync x4 start (MSB)
 GS $D07C.4 VIC-IV hsync polarity
 GS $D07C.5 VIC-IV vsync polarity
+GS $D07C.6-7 VIC-IV pixel clock select (30,33,40 or 50MHz)
 GS $D07D VIC-IV debug X position (LSB)
 GS $D07E VIC-IV debug Y position (LSB)
 GS $D07F.0-5 VIC-IV debug X position (MSB)
@@ -228,7 +231,30 @@ GS $D09F.0 - CPU-side buffer pointer high bit (DEBUG)
 GS $D09F.1 - EQ flag (DEBUG)
 GS $D09F.2 - EQ flag inhibit state (DEBUG)
 C65 $D0A0-$D0FF - Reserved for C65 RAM Expansion Controller.
-GS $D0E0 An example register
+GS $D0E0 Buffered UART1 Data register (read to accept a byte, write to transmit a byte)
+GS $D0E1.0 Buffered UART1 enable interrupt on TX buffer low-water mark
+GS $D0E1.1 Buffered UART1 enable interrupt on RX high-water mark
+GS $D0E1.2 Buffered UART1 enable interrupt on RX byte
+GS $D0E1.3 Buffered UART1 TX buffer full
+GS $D0E1.4 Buffered UART1 RX buffer full
+GS $D0E1.5 Buffered UART1 TX buffer empty
+GS $D0E1.6 Buffered UART1 RX buffer empty
+GS $D0E1.7 Buffered UART1 interrupt status
+GS $D0E1 Buffered UART1 Status register
+GS $D0E6 Buffered UART2 frequency divisor (LSB)
+GS $D0E7 Buffered UART2 frequency divisor (MSB)
+GS $D0E8 Buffered UART2 Data register (read to accept a byte, write to transmit a byte)
+GS $D0E9.0 Buffered UART2 enable interrupt on TX buffer low-water mark
+GS $D0E9.1 Buffered UART2 enable interrupt on RX high-water mark
+GS $D0E9.2 Buffered UART2 enable interrupt on RX byte
+GS $D0E9.3 Buffered UART2 TX buffer full
+GS $D0E9.4 Buffered UART2 RX buffer full
+GS $D0E9.5 Buffered UART2 TX buffer empty
+GS $D0E9.6 Buffered UART2 RX buffer empty
+GS $D0E9.7 Buffered UART2 interrupt status
+GS $D0E9 Buffered UART2 Status register
+GS $D0EE Buffered UART2 frequency divisor (LSB)
+GS $D0EF Buffered UART2 frequency divisor (MSB)
 C65 $D100-$D1FF red palette values (reversed nybl order)
 C65 $D200-$D2FF green palette values (reversed nybl order)
 C65 $D300-$D3FF blue palette values (reversed nybl order)
@@ -396,6 +422,7 @@ GS $D680 - SD controller status/command
 GS $D681-$D684 - SD controller SD sector address
 GS $D685 - DEBUG Show current state ID of SD card interface
 GS $D686 - DEBUG SD card data token
+GS $D686 WRITE ONLY set fill byte for use in fill mode, instead of SD buffer data
 GS $D687 - DEBUG SD card most recent byte read
 GS $D688 - Low-byte of F011 buffer pointer (disk side) (read only)
 GS $D689.0 - High bit of F011 buffer pointer (disk side) (read only)
@@ -447,8 +474,8 @@ GS $D6DA - DEBUG SD card last error code LSB
 GS $D6DB - DEBUG SD card last error code MSB
 GS $D6DC - DEBUG duplicate of FPGA switches 0-7
 GS $D6DD - DEBUG duplicate of FPGA switches 8-15
-GS $D6DE - Temperature sensor (lower byte)
-GS $D6DF - Temperature sensor (upper byte)
+GS $D6DE - FPGA die temperature sensor (lower nybl)
+GS $D6DF - FPGA die temperature sensor (upper byte)
 GS $D6E0.0 Clear to reset ethernet PHY
 GS $D6E0.1-2 Read ethernet TX bits currently on the wire
 GS $D6E0.3 Read ethernet RX data valid
@@ -489,7 +516,6 @@ GS $D6F5 Bit-bashed temperature sensor
 GS $D6F5 - Temperature sensor
 GS $D6F6 - Keyboard scan code reader (lower byte)
 GS $D6F7 - Keyboard scan code reader (upper nybl)
-GS $D6F7 - microphone input (right)
 GS $D6F8 - 8-bit digital audio out (left)
 GS $D6F9.0 - Enable audio amplifier
 GS $D6F9.1-4 - Raw PCM/PDM audio debug interface WILL BE REMOVED
@@ -498,6 +524,9 @@ GS $D6F9.6 - Play mono audio through both channels
 GS $D6F9.7 - Select PDM or PWM audio output mode
 GS $D6FA - 8-bit digital audio out (left)
 GS $D6FB - microphone input (left)
+GS $D6FB - WRITE set microphone trigger phase (DEBUG,WILLBEREMOVED)
+GS $D6FC - microphone input (right)
+GS $D6FC - WRITE set microphone sample frequency (DEBUG,WILLBEREMOVED)
 GS $D6FF - Flash bit-bashing port
 GS $D700 - DMAgic DMA list address LSB, and trigger DMA (when written)
 GS $D701 DMA list address high byte (address bits 8 -- 15).
@@ -531,7 +560,15 @@ GS $D7D0-$D7DF.7 - 16 Math function unit latch output
 GS $D7E0 - Math unit latch interval (only update output of math function units every this many cycles, if they have the latch output flag set)
 GS $D7E1.0 - Enable setting of math registers (must normally be set)
 GS $D7E1.1 - Enable committing of output values from math units back to math registers (clearing effectively pauses iterative formulae)
-GS $D7E1 - Math unit general settings
+GS $D7E1 - Math unit general settings (writing also clears math cycle counter)
+GS $D7E4 - Math iteration counter (bits 0 - 7)
+GS $D7E5 - Math iteration counter (bits 8 - 15)
+GS $D7E6 - Math iteration counter (bits 16 - 23)
+GS $D7E7 - Math iteration counter (bits 24 - 31)
+GS $D7E8 - Math iteration comparison (bits 0 - 7)
+GS $D7E9 - Math iteration comparison (bits 8 - 15)
+GS $D7EA - Math iteration comparison (bits 16 - 23)
+GS $D7EB - Math iteration comparison (bits 24 - 31)
 GS $D7FA.0 DEBUG 1/2/3.5MHz CPU speed fine adjustment
 GS $D7FB.0 DEBUG 1=charge extra cycle(s) for branches taken
 GS $D7FC DEBUG chip-select enables for various devices

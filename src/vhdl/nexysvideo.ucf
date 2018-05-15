@@ -1,0 +1,361 @@
+### This file is a general .xdc for the Nexys Video Rev. A
+### To use it in a project:
+### - uncomment the lines corresponding to used pins
+### - rename the used ports (in each line, after get_ports) according to the top level signal names in the project
+
+## Clock Signal
+NET "clk_in"   LOC = "R4"	| IOSTANDARD = "LVCMOS33";					#Bank = 35, Pin name = #IO_L12P_T1_MRCC_35,					Sch name = clk100mhz
+NET "clk_in" TNM_NET = sys_clk_pin;
+TIMESPEC TS_sys_clk_pin = PERIOD sys_clk_pin 100 MHz HIGH 50%;
+
+## LEDs
+NET "led_out<0>"         LOC=T14 | IOSTANDARD=LVCMOS25;
+NET "led_out<1>"         LOC=T15 | IOSTANDARD=LVCMOS25;
+NET "led_out<2>"         LOC=T16 | IOSTANDARD=LVCMOS25;
+NET "led_out<3>"         LOC=U16 | IOSTANDARD=LVCMOS25;
+NET "led_out<4>"         LOC=V15 | IOSTANDARD=LVCMOS25;
+NET "led_out<5>"         LOC=W16 | IOSTANDARD=LVCMOS25;
+NET "led_out<6>"         LOC=W15 | IOSTANDARD=LVCMOS25;
+NET "led_out<7>"         LOC=Y13 | IOSTANDARD=LVCMOS25;
+
+## Buttons
+NET "btn<0>"           LOC=B22 | IOSTANDARD=LVCMOS12; #IO_L9P_T1_DQS_14
+NET "btn<1>"           LOC=D22 | IOSTANDARD=LVCMOS12; #IO_L9P_T1_DQS_14
+NET "btn<2>"           LOC=C22 | IOSTANDARD=LVCMOS12; #IO_L9P_T1_DQS_14
+NET "btn<3>"           LOC=D14 | IOSTANDARD=LVCMOS12; #IO_L9P_T1_DQS_14
+NET "btn<4>"           LOC=F15 | IOSTANDARD=LVCMOS12; #IO_L9P_T1_DQS_14
+NET "btnCpuReset"     LOC=G4 | IOSTANDARD=LVCMOS15;
+
+## Switches
+NET "sw_in<0>"          LOC=E22 | IOSTANDARD=LVCMOS12;
+NET "sw_in<1>"          LOC=F21 | IOSTANDARD=LVCMOS12;
+NET "sw_in<2>"          LOC=G21 | IOSTANDARD=LVCMOS12;
+NET "sw_in<3>"          LOC=G22 | IOSTANDARD=LVCMOS12;
+NET "sw_in<4>"          LOC=H17 | IOSTANDARD=LVCMOS12;
+NET "sw_in<5>"          LOC=J16 | IOSTANDARD=LVCMOS12;
+NET "sw_in<6>"          LOC=K13 | IOSTANDARD=LVCMOS12;
+NET "sw_in<7>"          LOC=M17 | IOSTANDARD=LVCMOS12;
+
+## OLED Display
+#set_property -dict { PACKAGE_PIN W22   IOSTANDARD LVCMOS33 } [get_ports { oled_dc }]; #IO_L7N_T1_D10_14 Sch=oled_dc
+#set_property -dict { PACKAGE_PIN U21   IOSTANDARD LVCMOS33 } [get_ports { oled_res }]; #IO_L4N_T0_D05_14 Sch=oled_res
+#set_property -dict { PACKAGE_PIN W21   IOSTANDARD LVCMOS33 } [get_ports { oled_sclk }]; #IO_L7P_T1_D09_14 Sch=oled_sclk
+#set_property -dict { PACKAGE_PIN Y22   IOSTANDARD LVCMOS33 } [get_ports { oled_sdin }]; #IO_L9N_T1_DQS_D13_14 Sch=oled_sdin
+#set_property -dict { PACKAGE_PIN P20   IOSTANDARD LVCMOS33 } [get_ports { oled_vbat }]; #IO_0_14 Sch=oled_vbat
+#set_property -dict { PACKAGE_PIN V22   IOSTANDARD LVCMOS33 } [get_ports { oled_vdd }]; #IO_L3N_T0_DQS_EMCCLK_14 Sch=oled_vdd
+
+
+## HDMI in
+#set_property -dict { PACKAGE_PIN AA5   IOSTANDARD LVCMOS33 } [get_ports { hdmi_rx_cec }]; #IO_L10P_T1_34 Sch=hdmi_rx_cec
+#set_property -dict { PACKAGE_PIN W4    IOSTANDARD TMDS_33  } [get_ports { hdmi_rx_clk_n }]; #IO_L12N_T1_MRCC_34 Sch=hdmi_rx_clk_n
+#set_property -dict { PACKAGE_PIN V4    IOSTANDARD TMDS_33  } [get_ports { hdmi_rx_clk_p }]; #IO_L12P_T1_MRCC_34 Sch=hdmi_rx_clk_p
+#set_property -dict { PACKAGE_PIN AB12  IOSTANDARD LVCMOS25 } [get_ports { hdmi_rx_hpa }]; #IO_L7N_T1_13 Sch=hdmi_rx_hpa
+#set_property -dict { PACKAGE_PIN Y4    IOSTANDARD LVCMOS33 } [get_ports { hdmi_rx_scl }]; #IO_L11P_T1_SRCC_34 Sch=hdmi_rx_scl
+#set_property -dict { PACKAGE_PIN AB5   IOSTANDARD LVCMOS33 } [get_ports { hdmi_rx_sda }]; #IO_L10N_T1_34 Sch=hdmi_rx_sda
+#set_property -dict { PACKAGE_PIN R3    IOSTANDARD LVCMOS33 } [get_ports { hdmi_rx_txen }]; #IO_L3P_T0_DQS_34 Sch=hdmi_rx_txen
+#set_property -dict { PACKAGE_PIN AA3   IOSTANDARD TMDS_33  } [get_ports { hdmi_rx_n[0] }]; #IO_L9N_T1_DQS_34 Sch=hdmi_rx_n[0]
+#set_property -dict { PACKAGE_PIN Y3    IOSTANDARD TMDS_33  } [get_ports { hdmi_rx_p[0] }]; #IO_L9P_T1_DQS_34 Sch=hdmi_rx_p[0]
+#set_property -dict { PACKAGE_PIN Y2    IOSTANDARD TMDS_33  } [get_ports { hdmi_rx_n[1] }]; #IO_L4N_T0_34 Sch=hdmi_rx_n[1]
+#set_property -dict { PACKAGE_PIN W2    IOSTANDARD TMDS_33  } [get_ports { hdmi_rx_p[1] }]; #IO_L4P_T0_34 Sch=hdmi_rx_p[1]
+#set_property -dict { PACKAGE_PIN V2    IOSTANDARD TMDS_33  } [get_ports { hdmi_rx_n[2] }]; #IO_L2N_T0_34 Sch=hdmi_rx_n[2]
+#set_property -dict { PACKAGE_PIN U2    IOSTANDARD TMDS_33  } [get_ports { hdmi_rx_p[2] }]; #IO_L2P_T0_34 Sch=hdmi_rx_p[2]
+
+
+## HDMI out
+#set_property -dict { PACKAGE_PIN AA4   IOSTANDARD LVCMOS33 } [get_ports { hdmi_tx_cec }]; #IO_L11N_T1_SRCC_34 Sch=hdmi_tx_cec
+#set_property -dict { PACKAGE_PIN U1    IOSTANDARD TMDS_33  } [get_ports { hdmi_tx_clk_n }]; #IO_L1N_T0_34 Sch=hdmi_tx_clk_n
+#set_property -dict { PACKAGE_PIN T1    IOSTANDARD TMDS_33  } [get_ports { hdmi_tx_clk_p }]; #IO_L1P_T0_34 Sch=hdmi_tx_clk_p
+#set_property -dict { PACKAGE_PIN AB13  IOSTANDARD LVCMOS25 } [get_ports { hdmi_tx_hpd }]; #IO_L3N_T0_DQS_13 Sch=hdmi_tx_hpd
+#set_property -dict { PACKAGE_PIN U3    IOSTANDARD LVCMOS33 } [get_ports { hdmi_tx_rscl }]; #IO_L6P_T0_34 Sch=hdmi_tx_rscl
+#set_property -dict { PACKAGE_PIN V3    IOSTANDARD LVCMOS33 } [get_ports { hdmi_tx_rsda }]; #IO_L6N_T0_VREF_34 Sch=hdmi_tx_rsda
+#set_property -dict { PACKAGE_PIN Y1    IOSTANDARD TMDS_33  } [get_ports { hdmi_tx_red_n }]; #IO_L5N_T0_34 Sch=hdmi_tx_n[0]
+#set_property -dict { PACKAGE_PIN W1    IOSTANDARD TMDS_33  } [get_ports { hdmi_tx_red_p }]; #IO_L5P_T0_34 Sch=hdmi_tx_p[0]
+#set_property -dict { PACKAGE_PIN AB1   IOSTANDARD TMDS_33  } [get_ports { hdmi_tx_green_n }]; #IO_L7N_T1_34 Sch=hdmi_tx_n[1]
+#set_property -dict { PACKAGE_PIN AA1   IOSTANDARD TMDS_33  } [get_ports { hdmi_tx_green_p }]; #IO_L7P_T1_34 Sch=hdmi_tx_p[1]
+#set_property -dict { PACKAGE_PIN AB2   IOSTANDARD TMDS_33  } [get_ports { hdmi_tx_blue_n }]; #IO_L8N_T1_34 Sch=hdmi_tx_n[2]
+#set_property -dict { PACKAGE_PIN AB3   IOSTANDARD TMDS_33  } [get_ports { hdmi_tx_blue_p }]; #IO_L8P_T1_34 Sch=hdmi_tx_p[2]
+
+
+## Display Port
+#set_property -dict { PACKAGE_PIN AB10  IOSTANDARD TMDS_33  } [get_ports { dp_tx_aux_n }]; #IO_L8N_T1_13 Sch=dp_tx_aux_n
+#set_property -dict { PACKAGE_PIN AA11  IOSTANDARD TMDS_33  } [get_ports { dp_tx_aux_n }]; #IO_L9N_T1_DQS_13 Sch=dp_tx_aux_n
+#set_property -dict { PACKAGE_PIN AA9   IOSTANDARD TMDS_33  } [get_ports { dp_tx_aux_p }]; #IO_L8P_T1_13 Sch=dp_tx_aux_p
+#set_property -dict { PACKAGE_PIN AA10  IOSTANDARD TMDS_33  } [get_ports { dp_tx_aux_p }]; #IO_L9P_T1_DQS_13 Sch=dp_tx_aux_p
+#set_property -dict { PACKAGE_PIN N15   IOSTANDARD LVCMOS33 } [get_ports { dp_tx_hpd }]; #IO_25_14 Sch=dp_tx_hpd
+
+
+## Audio Codec
+#set_property -dict { PACKAGE_PIN T4    IOSTANDARD LVCMOS33 } [get_ports { ac_adc_sdata }]; #IO_L13N_T2_MRCC_34 Sch=ac_adc_sdata
+#set_property -dict { PACKAGE_PIN T5    IOSTANDARD LVCMOS33 } [get_ports { ac_bclk }]; #IO_L14P_T2_SRCC_34 Sch=ac_bclk
+#set_property -dict { PACKAGE_PIN W6    IOSTANDARD LVCMOS33 } [get_ports { ac_dac_sdata }]; #IO_L15P_T2_DQS_34 Sch=ac_dac_sdata
+#set_property -dict { PACKAGE_PIN U5    IOSTANDARD LVCMOS33 } [get_ports { ac_lrclk }]; #IO_L14N_T2_SRCC_34 Sch=ac_lrclk
+#set_property -dict { PACKAGE_PIN U6    IOSTANDARD LVCMOS33 } [get_ports { ac_mclk }]; #IO_L16P_T2_34 Sch=ac_mclk
+
+
+## Pmod header JA
+#NET "jalo<1>"          LOC=AB22 | IOSTANDARD=LVCMOS33;
+#NET "jalo<2>"          LOC=AB21 | IOSTANDARD=LVCMOS33;
+#NET "jalo<3>"          LOC=AB20 | IOSTANDARD=LVCMOS33;
+#NET "jalo<4>"          LOC=AB18 | IOSTANDARD=LVCMOS33;
+#NET "jahi<7>"          LOC=Y21  | IOSTANDARD=LVCMOS33;
+#NET "jahi<8>"          LOC=AA21 | IOSTANDARD=LVCMOS33;
+#NET "jahi<9>"          LOC=AA20 | IOSTANDARD=LVCMOS33;
+#NET "jahi<10>"         LOC=AA18 | IOSTANDARD=LVCMOS33;
+
+## Pmod header JB
+NET "vga_red_out<0>"          LOC=V9 | IOSTANDARD=LVCMOS33;
+NET "vga_red_out<1>"          LOC=V8 | IOSTANDARD=LVCMOS33;
+NET "vga_red_out<2>"          LOC=V7 | IOSTANDARD=LVCMOS33;
+NET "vga_red_out<3>"          LOC=W7 | IOSTANDARD=LVCMOS33;
+NET "vga_blue_out<0>"        LOC=W9 | IOSTANDARD=LVCMOS33;
+NET "vga_blue_out<1>"        LOC=Y9 | IOSTANDARD=LVCMOS33;
+NET "vga_blue_out<2>"        LOC=Y8 | IOSTANDARD=LVCMOS33;
+NET "vga_blue_out<3>"        LOC=Y7 | IOSTANDARD=LVCMOS33;
+
+## Pmod header JC                   
+NET "vga_green_out<0>"         LOC=Y6  | IOSTANDARD=LVCMOS33;
+NET "vga_green_out<1>"         LOC=AA6 | IOSTANDARD=LVCMOS33;
+NET "vga_green_out<2>"         LOC=AA8 | IOSTANDARD=LVCMOS33;
+NET "vga_green_out<3>"         LOC=AB8 | IOSTANDARD=LVCMOS33;
+NET "vga_hsync_out"           LOC=R6 | IOSTANDARD=LVCMOS33;
+NET "vga_vsync_out"           LOC=T6 | IOSTANDARD=LVCMOS33;
+#NET "jc<9>"          LOC=AB7 | IOSTANDARD=LVCMOS33; #IO_L21P_T3_DQS_35
+#NET "jc<10>"         LOC=AB6 | IOSTANDARD=LVCMOS33; #IO_L5P_T0_AD13P_35
+
+                                                           
+## XADC Header         
+#set_property -dict { PACKAGE_PIN J14   IOSTANDARD LVCMOS33 } [get_ports { xa_p[0] }]; #IO_L3P_T0_DQS_AD1P_15 Sch=xa_p[1]                                     
+#set_property -dict { PACKAGE_PIN H14   IOSTANDARD LVCMOS33 } [get_ports { xa_n[0] }]; #IO_L3N_T0_DQS_AD1N_15 Sch=xa_n[1]
+#set_property -dict { PACKAGE_PIN H13   IOSTANDARD LVCMOS33 } [get_ports { xa_p[1] }]; #IO_L1P_T0_AD0P_15 Sch=xa_p[2]
+#set_property -dict { PACKAGE_PIN G13   IOSTANDARD LVCMOS33 } [get_ports { xa_n[1] }]; #IO_L1N_T0_AD0N_15 Sch=xa_n[2]
+#set_property -dict { PACKAGE_PIN G15   IOSTANDARD LVCMOS33 } [get_ports { xa_p[2] }]; #IO_L2P_T0_AD8P_15 Sch=xa_p[3]
+#set_property -dict { PACKAGE_PIN G16   IOSTANDARD LVCMOS33 } [get_ports { xa_n[2] }]; #IO_L2N_T0_AD8N_15 Sch=xa_n[3]
+#set_property -dict { PACKAGE_PIN J15   IOSTANDARD LVCMOS33 } [get_ports { xa_p[3] }]; #IO_L5P_T0_AD9P_15 Sch=xa_p[4]
+#set_property -dict { PACKAGE_PIN H15   IOSTANDARD LVCMOS33 } [get_ports { xa_n[3] }]; #IO_L5N_T0_AD9N_15 Sch=xa_n[4]
+
+
+## UART
+NET "uart_txd"       LOC=AA19 | IOSTANDARD=LVCMOS33; #IO_L11N_T1_SRCC_35
+NET "RsRx"           LOC=V18 | IOSTANDARD=LVCMOS33; #IO_L7P_T1_AD6P_35
+
+
+## Ethernet
+#NET "eth_mdc"        LOC=AA16 | IOSTANDARD=LVCMOS33; #IO_L13P_T2_MRCC_16
+#NET "eth_mdio"       LOC=Y16 | IOSTANDARD=LVCMOS33; #IO_L13P_T2_MRCC_16
+#NET "eth_reset"       LOC=U7 | IOSTANDARD=LVCMOS33; #IO_L13P_T2_MRCC_16
+#NET "eth_rxd<0>"     LOC=AB16 | IOSTANDARD=LVCMOS33; #IO_L13P_T2_MRCC_16
+#NET "eth_rxd<1>"     LOC=AA15 | IOSTANDARD=LVCMOS33; #IO_L13P_T2_MRCC_16
+#NET "eth_txd<0>"     LOC=Y12 | IOSTANDARD=LVCMOS33; #IO_L13P_T2_MRCC_16
+#NET "eth_txd<1>"     LOC=W12 | IOSTANDARD=LVCMOS33; #IO_L13P_T2_MRCC_16
+
+## Fan PWM
+#set_property -dict { PACKAGE_PIN U15   IOSTANDARD LVCMOS25 } [get_ports { fan_pwm }]; #IO_L14P_T2_SRCC_13 Sch=fan_pwm
+
+
+## DPTI/DSPI
+#set_property -dict { PACKAGE_PIN Y18   IOSTANDARD LVCMOS33 } [get_ports { prog_clko }]; #IO_L13P_T2_MRCC_14 Sch=prog_clko
+#set_property -dict { PACKAGE_PIN U20   IOSTANDARD LVCMOS33 } [get_ports { prog_d[0]}]; #IO_L11P_T1_SRCC_14 Sch=prog_d0/sck
+#set_property -dict { PACKAGE_PIN P14   IOSTANDARD LVCMOS33 } [get_ports { prog_d[1] }]; #IO_L19P_T3_A10_D26_14 Sch=prog_d1/mosi
+#set_property -dict { PACKAGE_PIN P15   IOSTANDARD LVCMOS33 } [get_ports { prog_d[2] }]; #IO_L22P_T3_A05_D21_14 Sch=prog_d2/miso
+#set_property -dict { PACKAGE_PIN U17   IOSTANDARD LVCMOS33 } [get_ports { prog_d[3]}]; #IO_L18P_T2_A12_D28_14 Sch=prog_d3/ss
+#set_property -dict { PACKAGE_PIN R17   IOSTANDARD LVCMOS33 } [get_ports { prog_d[4] }]; #IO_L24N_T3_A00_D16_14 Sch=prog_d[4]
+#set_property -dict { PACKAGE_PIN P16   IOSTANDARD LVCMOS33 } [get_ports { prog_d[5] }]; #IO_L24P_T3_A01_D17_14 Sch=prog_d[5]
+#set_property -dict { PACKAGE_PIN R18   IOSTANDARD LVCMOS33 } [get_ports { prog_d[6] }]; #IO_L20P_T3_A08_D24_14 Sch=prog_d[6]
+#set_property -dict { PACKAGE_PIN N14   IOSTANDARD LVCMOS33 } [get_ports { prog_d[7] }]; #IO_L23N_T3_A02_D18_14 Sch=prog_d[7]
+#set_property -dict { PACKAGE_PIN V17   IOSTANDARD LVCMOS33 } [get_ports { prog_oen }]; #IO_L16P_T2_CSI_B_14 Sch=prog_oen
+#set_property -dict { PACKAGE_PIN P19   IOSTANDARD LVCMOS33 } [get_ports { prog_rdn }]; #IO_L5P_T0_D06_14 Sch=prog_rdn
+#set_property -dict { PACKAGE_PIN N17   IOSTANDARD LVCMOS33 } [get_ports { prog_rxen }]; #IO_L21P_T3_DQS_14 Sch=prog_rxen
+#set_property -dict { PACKAGE_PIN P17   IOSTANDARD LVCMOS33 } [get_ports { prog_siwun }]; #IO_L21N_T3_DQS_A06_D22_14 Sch=prog_siwun
+#set_property -dict { PACKAGE_PIN R14   IOSTANDARD LVCMOS33 } [get_ports { prog_spien }]; #IO_L19N_T3_A09_D25_VREF_14 Sch=prog_spien
+#set_property -dict { PACKAGE_PIN Y19   IOSTANDARD LVCMOS33 } [get_ports { prog_txen }]; #IO_L13N_T2_MRCC_14 Sch=prog_txen
+#set_property -dict { PACKAGE_PIN R19   IOSTANDARD LVCMOS33 } [get_ports { prog_wrn }]; #IO_L5N_T0_D07_14 Sch=prog_wrn
+
+
+## HID port
+NET "ps2clk"        LOC=W17 | IOSTANDARD=LVCMOS33 | PULLUP; #IO_L9P_T1_DQS_AD7P_35
+NET "ps2data"        LOC=N13 | IOSTANDARD=LVCMOS33 | PULLUP; #IO_L9P_T1_DQS_AD7P_35
+
+## QSPI
+NET "QspiCSn"        LOC=T19 | IOSTANDARD=LVCMOS33 | PULLUP; #IO_L9P_T1_DQS_AD7P_35
+NET "QspiDB<0>"        LOC=P22 | IOSTANDARD=LVCMOS33 | PULLUP; #IO_L9P_T1_DQS_AD7P_35
+NET "QspiDB<1>"        LOC=R22 | IOSTANDARD=LVCMOS33 | PULLUP; #IO_L9P_T1_DQS_AD7P_35
+NET "QspiDB<2>"        LOC=P21 | IOSTANDARD=LVCMOS33 | PULLUP; #IO_L9P_T1_DQS_AD7P_35
+NET "QspiDB<3>"        LOC=R21 | IOSTANDARD=LVCMOS33 | PULLUP; #IO_L9P_T1_DQS_AD7P_35
+
+
+## SD card
+NET "sdClock"        LOC=W19 | IOSTANDARD=LVCMOS33; #IO_L9P_T1_DQS_AD7P_35
+NET "sdReset"        LOC=V20 | IOSTANDARD=LVCMOS33; #IO_L14P_T2_SRCC_35
+NET "sdMISO"         LOC=V19 | IOSTANDARD=LVCMOS33; #IO_L9N_T1_DQS_AD7N_35
+NET "sdMOSI"         LOC=W20 | IOSTANDARD=LVCMOS33; #IO_L16N_T2_35
+
+## I2C
+#set_property -dict { PACKAGE_PIN W5    IOSTANDARD LVCMOS33 } [get_ports { scl }]; #IO_L15N_T2_DQS_34 Sch=scl
+#set_property -dict { PACKAGE_PIN V5    IOSTANDARD LVCMOS33 } [get_ports { sda }]; #IO_L16N_T2_34 Sch=sda
+
+
+## Voltage Adjust
+#NET "set_vadj<0>"        LOC=AA13 | IOSTANDARD=LVCMOS25; #IO_L3P_T0_DQS_13 Sch=set_vadj[0]
+#NET "set_vadj<1>"        LOC=AB17 | IOSTANDARD=LVCMOS25; #IO_L2N_T0_13 Sch=set_vadj[1]
+#NET "vadj_en"            LOC=V14  | IOSTANDARD=LVCMOS25; #IO_L13N_T2_MRCC_13 Sch=vadj_en
+
+## FMC
+#NET "fmc_clk0_m2c_n"        LOC=H19 | IOSTANDARD=LVCMOS12; #IO_L12N_T1_MRCC_15 Sch=fmc_clk0_m2c_n
+#NET "fmc_clk0_m2c_n"        LOC=J19 | IOSTANDARD=LVCMOS12; #IO_L12P_T1_MRCC_15 Sch=fmc_clk0_m2c_p
+#NET "fmc_clk0_m2c_n"        LOC=C19 | IOSTANDARD=LVCMOS12; #IO_L13N_T2_MRCC_16 Sch=fmc_clk1_m2c_n
+#NET "fmc_clk0_m2c_n"        LOC=C18 | IOSTANDARD=LVCMOS12; #IO_L13P_T2_MRCC_16 Sch=fmc_clk1_m2c_p
+
+#NET "fmc_la00_cc_n"        LOC=K19 | IOSTANDARD=LVCMOS12; #IO_L13N_T2_MRCC_15 Sch=fmc_la00_cc_n
+#NET "fmc_la00_cc_p"        LOC=K18 | IOSTANDARD=LVCMOS12; #IO_L13P_T2_MRCC_15 Sch=fmc_la00_cc_p
+#NET "fmc_la01_cc_n"        LOC=J21 | IOSTANDARD=LVCMOS12; #IO_L11N_T1_SRCC_15 Sch=fmc_la01_cc_n
+#NET "fmc_la01_cc_p"        LOC=J20 | IOSTANDARD=LVCMOS12; #IO_L11P_T1_SRCC_15 Sch=fmc_la01_cc_p
+
+#NET "addr_clk"        LOC=K19 | IOSTANDARD=LVCMOS25; #IO_L13N_T2_MRCC_15 Sch=fmc_la00_cc_n
+
+# For Addr1, on J1 1-35 odd pins, POD 1
+NET "addr_o_dbg<0>"       LOC=K18 | IOSTANDARD=LVCMOS12; #IO_L13P_T2_MRCC_15 Sch=fmc_la00_cc_p
+NET "addr_o_dbg<1>"       LOC=K19 | IOSTANDARD=LVCMOS12; #IO_L13N_T2_MRCC_15 Sch=fmc_la00_cc_n
+NET "addr_o_dbg<2>"       LOC=J20 | IOSTANDARD=LVCMOS12; #IO_L11P_T1_SRCC_15 Sch=fmc_la01_cc_p
+NET "addr_o_dbg<3>"       LOC=J21 | IOSTANDARD=LVCMOS12; #IO_L11N_T1_SRCC_15 Sch=fmc_la01_cc_n
+NET "addr_o_dbg<4>"       LOC=M18 | IOSTANDARD=LVCMOS12; #IO_L16P_T2_A28_15 Sch=fmc_la_p[02]
+NET "addr_o_dbg<5>"       LOC=L18 | IOSTANDARD=LVCMOS12; #IO_L16N_T2_A27_15 Sch=fmc_la_n[02]
+NET "addr_o_dbg<6>"       LOC=N18 | IOSTANDARD=LVCMOS12; #IO_L17P_T2_A26_15 Sch=fmc_la_p[03]
+NET "addr_o_dbg<7>"       LOC=N19 | IOSTANDARD=LVCMOS12; #IO_L17N_T2_A25_15 Sch=fmc_la_n[03]
+NET "addr_o_dbg<8>"       LOC=N20 | IOSTANDARD=LVCMOS12; #IO_L18P_T2_A24_15 Sch=fmc_la_p[04]
+NET "addr_o_dbg<9>"       LOC=M20 | IOSTANDARD=LVCMOS12; #IO_L18N_T2_A23_15 Sch=fmc_la_n[04]
+NET "addr_o_dbg<10>"       LOC=M21 | IOSTANDARD=LVCMOS12; #IO_L10P_T1_AD11P_15 Sch=fmc_la_p[05]
+NET "addr_o_dbg<11>"       LOC=L21 | IOSTANDARD=LVCMOS12; #IO_L10N_T1_AD11N_15 Sch=fmc_la_n[05]
+NET "addr_o_dbg<12>"       LOC=N22 | IOSTANDARD=LVCMOS12; #IO_L15P_T2_DQS_15 Sch=fmc_la_p[06]
+NET "addr_o_dbg<13>"       LOC=M22 | IOSTANDARD=LVCMOS12; #IO_L15N_T2_DQS_ADV_B_15 Sch=fmc_la_n[06]
+NET "addr_o_dbg<14>"       LOC=M13 | IOSTANDARD=LVCMOS12; #IO_L20P_T3_A20_15 Sch=fmc_la_p[07]
+NET "addr_o_dbg<15>"       LOC=L13 | IOSTANDARD=LVCMOS12; #IO_L20N_T3_A19_15 Sch=fmc_la_n[07]
+
+# 8-bits of CPU state on J1 connector.  Low bits on odd pins, high bits on even pins.    Low bits POD 4  8-11, High bits POD 4 12-15
+NET "cpu_state<0>"         LOC=M15 | IOSTANDARD=LVCMOS12; #IO_L24P_T3_RS1_15 Sch=fmc_la_p[08]
+NET "cpu_state<1>"         LOC=M16 | IOSTANDARD=LVCMOS12; #IO_L24N_T3_RS0_15 Sch=fmc_la_n[08]
+NET "cpu_state<2>"         LOC=H20 | IOSTANDARD=LVCMOS12; #IO_L8P_T1_AD10P_15 Sch=fmc_la_p[09]
+NET "cpu_state<3>"         LOC=G20 | IOSTANDARD=LVCMOS12; #IO_L8N_T1_AD10N_15 Sch=fmc_la_n[09]
+NET "cpu_state<4>"         LOC=D17 | IOSTANDARD=LVCMOS12; #IO_L12P_T1_MRCC_16 Sch=fmc_la18_cc_p
+NET "cpu_state<5>"         LOC=C17 | IOSTANDARD=LVCMOS12; #IO_L12N_T1_MRCC_16 Sch=fmc_la18_cc_n
+NET "cpu_state<6>"         LOC=A18 | IOSTANDARD=LVCMOS12; #IO_L17P_T2_16 Sch=fmc_la_p[19]
+NET "cpu_state<7>"         LOC=A19 | IOSTANDARD=LVCMOS12; #IO_L17N_T2_16 Sch=fmc_la_n[19]
+
+#NET "fmc_la_n<02>"        LOC=L18 | IOSTANDARD=LVCMOS12; #IO_L16N_T2_A27_15 Sch=fmc_la_n[02]
+#NET "fmc_la_p<02>"        LOC=M18 | IOSTANDARD=LVCMOS12; #IO_L16P_T2_A28_15 Sch=fmc_la_p[02]
+#NET "fmc_la_n<03>"        LOC=N19 | IOSTANDARD=LVCMOS12; #IO_L17N_T2_A25_15 Sch=fmc_la_n[03]
+#NET "fmc_la_p<03>"        LOC=N18 | IOSTANDARD=LVCMOS12; #IO_L17P_T2_A26_15 Sch=fmc_la_p[03]
+#NET "fmc_la_n<04>"        LOC=M20 | IOSTANDARD=LVCMOS12; #IO_L18N_T2_A23_15 Sch=fmc_la_n[04]
+#NET "fmc_la_p<04>"        LOC=N20 | IOSTANDARD=LVCMOS12; #IO_L18P_T2_A24_15 Sch=fmc_la_p[04]
+#NET "fmc_la_n<05>"        LOC=L21 | IOSTANDARD=LVCMOS12; #IO_L10N_T1_AD11N_15 Sch=fmc_la_n[05]
+#NET "fmc_la_p<05>"        LOC=M21 | IOSTANDARD=LVCMOS12; #IO_L10P_T1_AD11P_15 Sch=fmc_la_p[05]
+#NET "fmc_la_n<06>"        LOC=M22 | IOSTANDARD=LVCMOS12; #IO_L15N_T2_DQS_ADV_B_15 Sch=fmc_la_n[06]
+#NET "fmc_la_p<06>"        LOC=N22 | IOSTANDARD=LVCMOS12; #IO_L15P_T2_DQS_15 Sch=fmc_la_p[06]
+#NET "fmc_la_n<07>"        LOC=L13 | IOSTANDARD=LVCMOS12; #IO_L20N_T3_A19_15 Sch=fmc_la_n[07]
+#NET "fmc_la_p<07>"        LOC=M13 | IOSTANDARD=LVCMOS12; #IO_L20P_T3_A20_15 Sch=fmc_la_p[07]
+#NET "fmc_la_n<08>"        LOC=M16 | IOSTANDARD=LVCMOS12; #IO_L24N_T3_RS0_15 Sch=fmc_la_n[08]
+#NET "fmc_la_p<08>"        LOC=M15 | IOSTANDARD=LVCMOS12; #IO_L24P_T3_RS1_15 Sch=fmc_la_p[08]
+#NET "fmc_la_n<09>"        LOC=G20 | IOSTANDARD=LVCMOS12;  #IO_L8N_T1_AD10N_15 Sch=fmc_la_n[09]
+#NET "fmc_la_p<09>"        LOC=H20 | IOSTANDARD=LVCMOS12;  #IO_L8P_T1_AD10P_15 Sch=fmc_la_p[09]
+
+# For Addr2, on J1, pins 2-36 even, POD 2
+NET "addr_i_dbg<0>"        LOC=K21 | IOSTANDARD=LVCMOS12;  #IO_L9P_T1_DQS_AD3P_15 Sch=fmc_la_p[10]
+NET "addr_i_dbg<1>"        LOC=K22 | IOSTANDARD=LVCMOS12;  #IO_L9N_T1_DQS_AD3N_15 Sch=fmc_la_n[10]
+NET "addr_i_dbg<2>"        LOC=L14 | IOSTANDARD=LVCMOS12;  #IO_L22P_T3_A17_15 Sch=fmc_la_p[11]
+NET "addr_i_dbg<3>"        LOC=L15 | IOSTANDARD=LVCMOS12;  #IO_L22N_T3_A16_15 Sch=fmc_la_n[11]
+NET "addr_i_dbg<4>"        LOC=L19 | IOSTANDARD=LVCMOS12;  #IO_L14P_T2_SRCC_15 Sch=fmc_la_p[12]
+NET "addr_i_dbg<5>"        LOC=L20 | IOSTANDARD=LVCMOS12;  #IO_L14N_T2_SRCC_15 Sch=fmc_la_n[12]
+NET "addr_i_dbg<6>"        LOC=K17 | IOSTANDARD=LVCMOS12;  #IO_L21P_T3_DQS_15 Sch=fmc_la_p[13]
+NET "addr_i_dbg<7>"        LOC=J17 | IOSTANDARD=LVCMOS12;  #IO_L21N_T3_DQS_A18_15 Sch=fmc_la_n[13]
+NET "addr_i_dbg<8>"        LOC=J22 | IOSTANDARD=LVCMOS12;  #IO_L7P_T1_AD2P_15 Sch=fmc_la_p[14]
+NET "addr_i_dbg<9>"        LOC=H22 | IOSTANDARD=LVCMOS12;  #IO_L7N_T1_AD2N_15 Sch=fmc_la_n[14]
+NET "addr_i_dbg<10>"       LOC=L16 | IOSTANDARD=LVCMOS12;  #IO_L23P_T3_FOE_B_15 Sch=fmc_la_p[15]
+NET "addr_i_dbg<11>"       LOC=K16 | IOSTANDARD=LVCMOS12;  #IO_L23N_T3_FWE_B_15 Sch=fmc_la_n[15]
+NET "addr_i_dbg<12>"       LOC=G17 | IOSTANDARD=LVCMOS12;  #IO_L4P_T0_15 Sch=fmc_la_p[16]
+NET "addr_i_dbg<13>"       LOC=G18 | IOSTANDARD=LVCMOS12;  #IO_L4N_T0_15 Sch=fmc_la_n[16]
+NET "addr_i_dbg<14>"       LOC=B17 | IOSTANDARD=LVCMOS12; #IO_L11P_T1_SRCC_16 Sch=fmc_la17_cc_p
+NET "addr_i_dbg<15>"       LOC=B18 | IOSTANDARD=LVCMOS12; #IO_L11N_T1_SRCC_16 Sch=fmc_la17_cc_n
+
+#NET "fmc_la_p<10>"        LOC=K21 | IOSTANDARD=LVCMOS12;  #IO_L9P_T1_DQS_AD3P_15 Sch=fmc_la_p[10]
+#NET "fmc_la_n<10>"        LOC=K22 | IOSTANDARD=LVCMOS12;  #IO_L9N_T1_DQS_AD3N_15 Sch=fmc_la_n[10]
+#NET "fmc_la_p<11>"        LOC=L14 | IOSTANDARD=LVCMOS12;  #IO_L22P_T3_A17_15 Sch=fmc_la_p[11]
+#NET "fmc_la_n<11>"        LOC=L15 | IOSTANDARD=LVCMOS12;  #IO_L22N_T3_A16_15 Sch=fmc_la_n[11]
+#NET "fmc_la_p<12>"        LOC=L19 | IOSTANDARD=LVCMOS12;  #IO_L14P_T2_SRCC_15 Sch=fmc_la_p[12]
+#NET "fmc_la_n<12>"        LOC=L20 | IOSTANDARD=LVCMOS12;  #IO_L14N_T2_SRCC_15 Sch=fmc_la_n[12]
+#NET "fmc_la_p<13>"        LOC=K17 | IOSTANDARD=LVCMOS12;  #IO_L21P_T3_DQS_15 Sch=fmc_la_p[13]
+#NET "fmc_la_n<13>"        LOC=J17 | IOSTANDARD=LVCMOS12;  #IO_L21N_T3_DQS_A18_15 Sch=fmc_la_n[13]
+#NET "fmc_la_p<14>"        LOC=J22 | IOSTANDARD=LVCMOS12;  #IO_L7P_T1_AD2P_15 Sch=fmc_la_p[14]
+#NET "fmc_la_n<14>"        LOC=H22 | IOSTANDARD=LVCMOS12;  #IO_L7N_T1_AD2N_15 Sch=fmc_la_n[14]
+#NET "fmc_la_p<15>"        LOC=L16 | IOSTANDARD=LVCMOS12;  #IO_L23P_T3_FOE_B_15 Sch=fmc_la_p[15]
+#NET "fmc_la_n<15>"        LOC=K16 | IOSTANDARD=LVCMOS12;  #IO_L23N_T3_FWE_B_15 Sch=fmc_la_n[15]
+#NET "fmc_la_p<16>"        LOC=G17 | IOSTANDARD=LVCMOS12;  #IO_L4P_T0_15 Sch=fmc_la_p[16]
+#NET "fmc_la_n<16>"        LOC=G18 | IOSTANDARD=LVCMOS12;  #IO_L4N_T0_15 Sch=fmc_la_n[16]
+#NET "fmc_la17_cc_p"       LOC=B17 | IOSTANDARD=LVCMOS12; #IO_L11P_T1_SRCC_16 Sch=fmc_la17_cc_p
+#NET "fmc_la17_cc_n"       LOC=B18 | IOSTANDARD=LVCMOS12; #IO_L11N_T1_SRCC_16 Sch=fmc_la17_cc_n
+#NET "fmc_la18_cc_p"       LOC=D17 | IOSTANDARD=LVCMOS12; #IO_L12P_T1_MRCC_16 Sch=fmc_la18_cc_p
+#NET "fmc_la18_cc_n"       LOC=C17 | IOSTANDARD=LVCMOS12; #IO_L12N_T1_MRCC_16 Sch=fmc_la18_cc_n
+#NET "fmc_la_p<19>"        LOC=A18 | IOSTANDARD=LVCMOS12; #IO_L17P_T2_16 Sch=fmc_la_p[19]
+#NET "fmc_la_n<19>"        LOC=A19 | IOSTANDARD=LVCMOS12; #IO_L17N_T2_16 Sch=fmc_la_n[19]
+
+# shadow read data - J20 odd pinds - POD 3, bits 0-7
+NET "addr_read<0>"        LOC=F19 | IOSTANDARD=LVCMOS12; #IO_L18P_T2_16 Sch=fmc_la_p[20]
+NET "addr_read<1>"        LOC=F20 | IOSTANDARD=LVCMOS12; #IO_L18N_T2_16 Sch=fmc_la_n[20]
+NET "addr_read<2>"        LOC=E19 | IOSTANDARD=LVCMOS12; #IO_L14P_T2_SRCC_16 Sch=fmc_la_p[21]
+NET "addr_read<3>"        LOC=D19 | IOSTANDARD=LVCMOS12; #IO_L14N_T2_SRCC_16 Sch=fmc_la_n[21]
+NET "addr_read<4>"        LOC=E21 | IOSTANDARD=LVCMOS12; #IO_L23P_T3_16 Sch=fmc_la_p[22
+NET "addr_read<5>"        LOC=D21 | IOSTANDARD=LVCMOS12; #IO_L23N_T3_16 Sch=fmc_la_n[22]
+NET "addr_read<6>"        LOC=B21 | IOSTANDARD=LVCMOS12; #IO_L21P_T3_DQS_16 Sch=fmc_la_p[23]
+NET "addr_read<7>"        LOC=A21 | IOSTANDARD=LVCMOS12; #IO_L21N_T3_DQS_16 Sch=fmc_la_n[23]
+#NET "fmc_la_n<20>"        LOC=F20 | IOSTANDARD=LVCMOS12; #IO_L18N_T2_16 Sch=fmc_la_n[20]
+#NET "fmc_la_p<20>"        LOC=F19 | IOSTANDARD=LVCMOS12; #IO_L18P_T2_16 Sch=fmc_la_p[20]
+#NET "fmc_la_n<21>"        LOC=D19 | IOSTANDARD=LVCMOS12; #IO_L14N_T2_SRCC_16 Sch=fmc_la_n[21]
+#NET "fmc_la_p<21>"        LOC=E19 | IOSTANDARD=LVCMOS12; #IO_L14P_T2_SRCC_16 Sch=fmc_la_p[21]
+#NET "fmc_la_n<22>"        LOC=D21 | IOSTANDARD=LVCMOS12; #IO_L23N_T3_16 Sch=fmc_la_n[22]
+#NET "fmc_la_p<22>"        LOC=E21 | IOSTANDARD=LVCMOS12; #IO_L23P_T3_16 Sch=fmc_la_p[22]
+#NET "fmc_la_n<23>"        LOC=A21 | IOSTANDARD=LVCMOS12; #IO_L21N_T3_DQS_16 Sch=fmc_la_n[23]
+#NET "fmc_la_p<23>"        LOC=B21 | IOSTANDARD=LVCMOS12; #IO_L21P_T3_DQS_16 Sch=fmc_la_p[23]
+
+
+# shadow write data - J20 even pins - POD 3, bits 8-15
+NET "addr_write<0>"        LOC=B15 | IOSTANDARD=LVCMOS12; #IO_L7P_T1_16 Sch=fmc_la_p[24]
+NET "addr_write<1>"        LOC=B16 | IOSTANDARD=LVCMOS12; #IO_L7N_T1_16 Sch=fmc_la_n[24]
+NET "addr_write<2>"        LOC=F16 | IOSTANDARD=LVCMOS12; #IO_L2P_T0_16 Sch=fmc_la_p[25]
+NET "addr_write<3>"        LOC=E17 | IOSTANDARD=LVCMOS12; #IO_L2N_T0_16 Sch=fmc_la_n[25]
+NET "addr_write<4>"        LOC=F18 | IOSTANDARD=LVCMOS12; #IO_L15P_T2_DQS_16 Sch=fmc_la_p[26]
+NET "addr_write<5>"        LOC=E18 | IOSTANDARD=LVCMOS12; #IO_L15N_T2_DQS_16 Sch=fmc_la_n[26]
+NET "addr_write<6>"        LOC=B20 | IOSTANDARD=LVCMOS12; #IO_L16P_T2_16 Sch=fmc_la_p[27]
+NET "addr_write<7>"        LOC=A20 | IOSTANDARD=LVCMOS12; #IO_L16N_T2_16 Sch=fmc_la_n[27]
+#NET "fmc_la_n<24>"        LOC=B16 | IOSTANDARD=LVCMOS12; #IO_L7N_T1_16 Sch=fmc_la_n[24]
+#NET "fmc_la_p<24>"        LOC=B15 | IOSTANDARD=LVCMOS12; #IO_L7P_T1_16 Sch=fmc_la_p[24]
+#NET "fmc_la_n<25>"        LOC=E17 | IOSTANDARD=LVCMOS12; #IO_L2N_T0_16 Sch=fmc_la_n[25]
+#NET "fmc_la_p<25>"        LOC=F16 | IOSTANDARD=LVCMOS12; #IO_L2P_T0_16 Sch=fmc_la_p[25]
+#NET "fmc_la_n<26>"        LOC=E18 | IOSTANDARD=LVCMOS12; #IO_L15N_T2_DQS_16 Sch=fmc_la_n[26]
+#NET "fmc_la_p<26>"        LOC=F18 | IOSTANDARD=LVCMOS12; #IO_L15P_T2_DQS_16 Sch=fmc_la_p[26]
+#NET "fmc_la_n<27>"        LOC=A20 | IOSTANDARD=LVCMOS12; #IO_L16N_T2_16 Sch=fmc_la_n[27]
+#NET "fmc_la_p<27>"        LOC=B20 | IOSTANDARD=LVCMOS12; #IO_L16P_T2_16 Sch=fmc_la_p[27]
+
+# misg debug/read/write control signals, J16 pins (these really need to be better qualified, esp. the read)  POD 4, signals 0, 1, 2, (3)
+NET "addr_r_dbg"        LOC=C13 | IOSTANDARD=LVCMOS12; #IO_L8P_T1_16 Sch=fmc_la_p[28]
+NET "addr_w_dbg"        LOC=B13 | IOSTANDARD=LVCMOS12; #IO_L8N_T1_16 Sch=fmc_la_n[28]
+NET "proceed_dbg_out"   LOC=C14 | IOSTANDARD=LVCMOS12; #IO_L3P_T0_DQS_16 Sch=fmc_la_p[29]
+NET "addr_clk"          LOC=C15 | IOSTANDARD=LVCMOS12; #IO_L3N_T0_DQS_16 Sch=fmc_la_n[29]
+
+#NET "fmc_la_n<28>"        LOC=B13 | IOSTANDARD=LVCMOS12; #IO_L8N_T1_16 Sch=fmc_la_n[28]
+#NET "fmc_la_p<28>"        LOC=C13 | IOSTANDARD=LVCMOS12; #IO_L8P_T1_16 Sch=fmc_la_p[28]
+#NET "fmc_la_n<29>"        LOC=C15 | IOSTANDARD=LVCMOS12; #IO_L3N_T0_DQS_16 Sch=fmc_la_n[29]
+#NET "fmc_la_p<29>"        LOC=C14 | IOSTANDARD=LVCMOS12; #IO_L3P_T0_DQS_16 Sch=fmc_la_p[29]
+
+# address state debug  - POD 4, signals 4, 5, 6, 7
+NET "addr_state<0>"        LOC=A13 | IOSTANDARD=LVCMOS12; #IO_L10P_T1_16 Sch=fmc_la_p[30]
+NET "addr_state<1>"        LOC=A14 | IOSTANDARD=LVCMOS12; #IO_L10N_T1_16 Sch=fmc_la_n[30]
+NET "addr_state<2>"        LOC=E13 | IOSTANDARD=LVCMOS12; #IO_L4P_T0_16 Sch=fmc_la_p[31]
+NET "addr_state<3>"        LOC=E14 | IOSTANDARD=LVCMOS12; #IO_L4N_T0_16 Sch=fmc_la_n[31]
+
+#shadow clock   J16 - pin
+#NET "fmc_la_n<31>"        LOC=E14 | IOSTANDARD=LVCMOS12; #IO_L4N_T0_16 Sch=fmc_la_n[31]
+#NET "fmc_la_p<31>"        LOC=E13 | IOSTANDARD=LVCMOS12; #IO_L4P_T0_16 Sch=fmc_la_p[31]
+#NET "fmc_la_n<32>"        LOC=A16 | IOSTANDARD=LVCMOS12; #IO_L9N_T1_DQS_16 Sch=fmc_la_n[32]
+#NET "fmc_la_p<32>"        LOC=A15 | IOSTANDARD=LVCMOS12; #IO_L9P_T1_DQS_16 Sch=fmc_la_p[32]
+#NET "fmc_la_n<33>"        LOC=F14 | IOSTANDARD=LVCMOS12; #IO_L1N_T0_16 Sch=fmc_la_n[33]
+#NET "fmc_la_p<33>"        LOC=F13 | IOSTANDARD=LVCMOS12; #IO_L1P_T0_16 Sch=fmc_la_p[33]
+
+

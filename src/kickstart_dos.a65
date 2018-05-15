@@ -3138,7 +3138,7 @@ dfanc4:	plp
 	cpx #$02
 	bne dfanc4
 
-	PLP
+	plp
 	
 	RTS
 

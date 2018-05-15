@@ -48,7 +48,7 @@ ENTITY slow_devices IS
     -- Flash RAM for holding FPGA config
     ----------------------------------------------------------------------
     QspiSCK : out std_logic := '1';
-    QspiDB : inout std_logic_vector(3 downto 0) := (others => 'Z');
+    QspiDB : inout std_logic_vector(3 downto 0) := (others => 'H');
     QspiCSn : out std_logic := '1';
     
     ------------------------------------------------------------------------
@@ -61,22 +61,22 @@ ENTITY slow_devices IS
     cart_data_en : out std_logic;
     cart_addr_en : out std_logic;
 
-    cart_phi2 : out std_logic := 'Z';
-    cart_dotclock : out std_logic := 'Z';
-    cart_reset : out std_logic := 'Z';
+    cart_phi2 : out std_logic := 'H';
+    cart_dotclock : out std_logic := 'H';
+    cart_reset : out std_logic := 'H';
 
     cart_nmi : in std_logic;
     cart_irq : in std_logic;
     cart_dma : in std_logic;
     
-    cart_exrom : inout std_logic := 'Z';
-    cart_ba : inout std_logic := 'Z';
-    cart_rw : inout std_logic := 'Z';
-    cart_roml : inout std_logic := 'Z';
-    cart_romh : inout std_logic := 'Z';
-    cart_io1 : inout std_logic := 'Z';
-    cart_game : inout std_logic := 'Z';
-    cart_io2 : inout std_logic := 'Z';
+    cart_exrom : inout std_logic := 'H';
+    cart_ba : inout std_logic := 'H';
+    cart_rw : inout std_logic := 'H';
+    cart_roml : inout std_logic := 'H';
+    cart_romh : inout std_logic := 'H';
+    cart_io1 : inout std_logic := 'H';
+    cart_game : inout std_logic := 'H';
+    cart_io2 : inout std_logic := 'H';
     
     cart_d_in : in unsigned(7 downto 0);
     cart_d : out unsigned(7 downto 0);

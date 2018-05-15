@@ -67,11 +67,12 @@ entity sdcardio is
     -- fast IO port (clocked at core clock). 1MB address space
     ---------------------------------------------------------------------------
     fastio_addr : in unsigned(19 downto 0);
+    fastio_addr_fast : in unsigned(19 downto 0);  -- The "quick" version that arrives one clock earlier
     fastio_write : in std_logic;
     fastio_read : in std_logic;
     fastio_wdata : in unsigned(7 downto 0);
-    fastio_rdata : out unsigned(7 downto 0);
-
+    fastio_rdata_sel : out unsigned(7 downto 0);
+    
     virtualise_f011 : in std_logic;
     
     colourram_at_dc00 : in std_logic;
@@ -80,6 +81,7 @@ entity sdcardio is
     sectorbuffermapped : out std_logic := '0';
     sectorbuffermapped2 : out std_logic := '0';
     sectorbuffercs : in std_logic;
+    sectorbuffercs_fast : in std_logic;
 
     last_scan_code : in std_logic_vector(12 downto 0);
     
@@ -138,7 +140,7 @@ entity sdcardio is
     -- Microphone
     micData : in std_logic;
     micClk : out std_logic;
-    micLRSel : out std_logic;
+    micLRSel : out std_logic := '0';
 
     -- Temperature sensor
     tmpSDA : out std_logic;
@@ -165,7 +167,7 @@ architecture behavioural of sdcardio is
   signal aclSSinternal : std_logic := '0';
   signal aclSCKinternal : std_logic := '0';
   signal micClkinternal : std_logic := '0';
-  signal micLRSelinternal : std_logic := '0';
+--  signal micLRSelinternal : std_logic := '0';
   signal tmpSDAinternal : std_logic := '0';
   signal tmpSCLinternal : std_logic := '0';
 
@@ -195,16 +197,21 @@ architecture behavioural of sdcardio is
   signal stereo_swap : std_logic := '0';
   signal force_mono : std_logic := '0';
   signal ampSD_internal : std_logic := '1';
-  
-  signal mic_divider : unsigned(4 downto 0) := "00000";
-  signal mic_counter : unsigned(7 downto 0) := "00000000";
-  signal mic_onecount : unsigned(7 downto 0) := "00000000";
+
+  signal mic_sample_trigger : unsigned(7 downto 0) := to_unsigned(1,8);
+  signal mic_do_sample_left : std_logic := '0';
+  signal mic_do_sample_right : std_logic := '0';
+  signal mic_divider_max : unsigned(7 downto 0) := to_unsigned(20,8);
+  signal mic_divider : unsigned(7 downto 0) := "00000000";
   signal mic_value_left : unsigned(7 downto 0) := "00000000";
   signal mic_value_right : unsigned(7 downto 0) := "00000000";
   
   -- debounce reading from or writing to $D087 so that buffered read/write
   -- behaves itself.
   signal last_was_d087 : std_logic := '0';
+  
+  signal fastio_rdata_ram : unsigned(7 downto 0);
+  signal fastio_rdata : unsigned(7 downto 0);
   
   signal skip : integer range 0 to 2;
   signal read_data_byte : std_logic := '0';
@@ -224,6 +231,9 @@ architecture behavioural of sdcardio is
   signal sd_reset        : std_logic := '1';
   signal sdhc_mode : std_logic := '0';
 
+  signal sd_fill_mode    : std_logic := '0';
+  signal sd_fill_value   : unsigned(7 downto 0) := (others => '0');
+  
   -- IO mapped register to indicate if SD card interface is busy
   signal sdio_busy : std_logic := '0';
   signal sdcard_busy : std_logic := '0';
@@ -232,12 +242,20 @@ architecture behavioural of sdcardio is
 
   signal sector_buffer_mapped : std_logic := '0';
   
-  type sd_state_t is (Idle,
-                      ReadSector,ReadingSector,ReadingSectorAckByte,DoneReadingSector,
-                      FDCReadingSector,
-                      WriteSector,WritingSector,WritingSectorAckByte,
-                      HyperTrapRead,HyperTrapRead2,HyperTrapWrite,
-                      F011WriteSector,DoneWritingSector);
+  type sd_state_t is (Idle,                           -- 0x00
+                      ReadSector,                     -- 0x01
+                      ReadingSector,                  -- 0x02
+                      ReadingSectorAckByte,           -- 0x03
+                      DoneReadingSector,              -- 0x04
+                      FDCReadingSector,               -- 0x05
+                      WriteSector,                    -- 0x06
+                      WritingSector,                  -- 0x07
+                      WritingSectorAckByte,           -- 0x08
+                      HyperTrapRead,                  -- 0x09
+                      HyperTrapRead2,                 -- 0x0A
+                      HyperTrapWrite,                 -- 0x0B
+                      F011WriteSector,                -- 0x0C
+                      DoneWritingSector);             -- 0x0D
   signal sd_state : sd_state_t := Idle;
 
   -- Diagnostic register for determining SD/SDHC card state.
@@ -366,10 +384,24 @@ architecture behavioural of sdcardio is
   
 begin  -- behavioural
 
-  --**********************************************************************
+--**********************************************************************
   -- SD card controller module.
   --**********************************************************************
-  
+
+  mic0l: entity work.pdm_to_pcm
+    port map (
+      clock => clock,
+      sample_clock => mic_do_sample_left,
+      sample_bit => micData,
+      sample_out => mic_value_left);
+
+  mic0r: entity work.pdm_to_pcm
+    port map (
+      clock => clock,
+      sample_clock => mic_do_sample_right,
+      sample_bit => micData,
+      sample_out => mic_value_right);
+
   sd0: entity work.sdcardctrl
     port map (
       cs_bo => cs_bo,
@@ -379,6 +411,8 @@ begin  -- behavioural
 
       last_state_o => last_sd_state,
       error_o => last_sd_error,
+      
+      busy_o => sdcard_busy,
       
       addr_i => std_logic_vector(sd_sector),
       sdhc_i => sdhc_mode,
@@ -394,14 +428,15 @@ begin  -- behavioural
       );
 
   -- CPU direct-readable sector buffer, so that it can be memory mapped
-  sb_memorymapped0: entity work.ram8x4096
+  sb_memorymapped0: entity work.ram8x4096_sync
     port map (
       clk => clock,
 
       -- CPU side read access
-      cs => sectorbuffercs,
+      cs => sectorbuffercs_fast,
+--      cs => sectorbuffercs,
       address => sector_buffer_fastio_address,
-      rdata => fastio_rdata,
+      rdata => fastio_rdata_ram,
 
       -- Write side controlled by SD-card side.
       -- (CPU side effects writes by asking SD-card side to write)
@@ -412,7 +447,7 @@ begin  -- behavioural
   
   -- Locally readable copy of the same data, so that we can read it when writing
   -- to SD card or floppy drive
-  sb_workcopy: entity work.ram8x4096
+  sb_workcopy: entity work.ram8x4096_sync
     port map (
       clk => clock,
 
@@ -496,10 +531,12 @@ begin  -- behavioural
     -- ==================================================================
 
     if hypervisor_mode='0' then
-      sector_buffer_fastio_address <= resolve_sector_buffer_address(f011sd_buffer_select,fastio_addr(8 downto 0));
+      sector_buffer_fastio_address <= resolve_sector_buffer_address(f011sd_buffer_select,fastio_addr_fast(8 downto 0));
     else
-      sector_buffer_fastio_address <= to_integer(fastio_addr(11 downto 0));
+      sector_buffer_fastio_address <= to_integer(fastio_addr_fast(11 downto 0));
     end if;
+    
+    fastio_rdata <= x"00";
     
     if fastio_read='1' and sectorbuffercs='0' then
 
@@ -619,7 +656,7 @@ begin  -- behavioural
             fastio_rdata(7 downto 3) <= (others => '0');
 
           when others =>
-            fastio_rdata <= (others => 'Z');
+            fastio_rdata <= (others => '0');
         end case;
 
         -- ==================================================================
@@ -773,10 +810,10 @@ begin  -- behavioural
             -- @IO:GS $D6DD - DEBUG duplicate of FPGA switches 8-15
             fastio_rdata(7 downto 0) <= unsigned(sw(15 downto 8));
           when x"DE" =>
-            -- @IO:GS $D6DE - Temperature sensor (lower byte)
+            -- @IO:GS $D6DE - FPGA die temperature sensor (lower nybl)
             fastio_rdata <= unsigned("0000"&fpga_temperature(3 downto 0));
           when x"DF" =>
-            -- @IO:GS $D6DF - Temperature sensor (upper byte)
+            -- @IO:GS $D6DF - FPGA die temperature sensor (upper byte)
             fastio_rdata <= unsigned(fpga_temperature(11 downto 4));
           -- XXX $D6Ex is decoded by ethernet controller, so don't use those
           -- registers here!
@@ -826,7 +863,7 @@ begin  -- behavioural
             -- @IO:GS $D6FB - microphone input (left)
             fastio_rdata <= mic_value_left;
           when x"FC" =>
-            -- @IO:GS $D6F7 - microphone input (right)
+            -- @IO:GS $D6FC - microphone input (right)
             fastio_rdata <= mic_value_right;
           when x"FD" =>
             -- Right SID audio (high) for debugging
@@ -841,18 +878,40 @@ begin  -- behavioural
             fastio_rdata(6) <= QspiCSnInternal;
             fastio_rdata(7) <= QspiSCKInternal;
           when others =>
-            fastio_rdata <= (others => 'Z');
+            fastio_rdata <= (others => '0');
         end case;
       else
         -- Otherwise tristate output
-        fastio_rdata <= (others => 'Z');
+        fastio_rdata <= (others => '0');
       end if;
+    else
+      fastio_rdata <= (others => '0');
     end if;
 
+    -- output select
+    fastio_rdata_sel <= (others => 'Z');
+    if fastio_read='1' and sectorbuffercs='0' then
+      fastio_rdata_sel <= fastio_rdata;
+    elsif sectorbuffercs='1' then
+      fastio_rdata_sel <= fastio_rdata_ram;
+    end if;
+        
     -- ==================================================================
     -- ==================================================================
     
-    if rising_edge(clock) then
+    
+    case sd_state is    
+      when WriteSector|WritingSector|WritingSectorAckByte =>
+        if f011_sector_fetch='1' then
+          f011_buffer_read_address <= "110"&f011_buffer_disk_address;
+        else
+          f011_buffer_read_address <= "111"&sd_buffer_offset;
+        end if;
+      when others =>
+        f011_buffer_read_address <= "110"&f011_buffer_cpu_address;
+    end case;
+    
+    if rising_edge(clock) then    
 
       target_track <= f011_track;
       target_sector <= f011_sector;
@@ -891,7 +950,6 @@ begin  -- behavioural
       -- Prepare for CPU read request via $D087 if required
       if sb_cpu_read_request='1' and sb_cpu_reading='0' then
         report "CPU read pre-fetch from sector buffer @ $" & to_hstring(f011_buffer_cpu_address);
-        f011_buffer_read_address <= "110"&f011_buffer_cpu_address;
         sb_cpu_reading <= '1';
       else
         sb_cpu_reading <= '0';
@@ -1076,33 +1134,21 @@ begin  -- behavioural
 
 
       -- microphone sampling process
-      -- max frequency is 3MHz. 48MHz/16 ~= 3MHz
-      if mic_divider < 16 then
-        if mic_divider < 8 then
-          micCLK <= '1';
-        else
-          micCLK <= '0';
-        end if;
+      -- max frequency is 3MHz, optimal is about 2.5MHz according to
+      -- https://pdfs.semanticscholar.org/a3f4/9749f4d3508f58c5ca4693f8bae9c403fc85.pdf
+      if mic_divider = mic_sample_trigger then
+        mic_do_sample_left <= micclkinternal;
+        mic_do_sample_right <= not micclkinternal;
+      else
+        mic_do_sample_left <= '0';
+        mic_do_sample_right <= '0';
+      end if;
+      if mic_divider < mic_divider_max then
         mic_divider <= mic_divider + 1;
       else
-        mic_divider <= (others => '0');
-        if mic_counter < 127 then
-          if micData='1' then
-            mic_onecount <= mic_onecount + 1;
-          end if;
-          mic_counter <= mic_counter + 1;
-        else
-          -- finished sampling, update output
-          if micLRSelinternal='0' then
-            mic_value_left(7 downto 0) <= mic_onecount;
-          else
-            mic_value_right(7 downto 0) <= mic_onecount;
-          end if;
-          mic_onecount <= (others => '0');
-          mic_counter <= (others => '0');
-          micLRSel <= not micLRSelinternal;
-          micLRSelinternal <= not micLRSelinternal;
-        end if;
+        micCLK <= not micclkinternal;
+        micclkinternal <= not micclkinternal;
+        mic_divider <= to_unsigned(0,8);
       end if;
 
       if use_real_floppy='1' then
@@ -1488,6 +1534,8 @@ begin  -- behavioural
                   sd_state <= Idle;
                   sd_handshake <= '1';
                   sd_handshake_internal <= '1';
+                  sd_doread <= '0';
+                  sd_dowrite <= '0';                  
                   sdio_error <= '0';
                   sdio_fsm_error <= '0';
                   sd_sector <= (others => '0');
@@ -1498,6 +1546,8 @@ begin  -- behavioural
                   sd_state <= Idle;
                   sdio_error <= '0';
                   sdio_fsm_error <= '0';
+                  sd_doread <= '0';
+                  sd_dowrite <= '0';                  
 
                 when x"01" =>
                   -- End reset
@@ -1552,7 +1602,6 @@ begin  -- behavioural
                     f011_sector_fetch <= '0';
 
                     sd_wrote_byte <= '0';
-                    f011_buffer_read_address <= "111"&"000000000";
                     sd_buffer_offset <= (others => '0');
                   end if;
 
@@ -1566,7 +1615,12 @@ begin  -- behavioural
                 when x"82" => sector_buffer_mapped<='0';
                               sdio_error <= '0';
                               sdio_fsm_error <= '0';
-
+                -- sd_fill_mode allows us to fill sector writes
+                -- with a common value instead of using data from
+                -- the sector buffer.              
+                when x"83" => sd_fill_mode <= '1';
+                when x"84" => sd_fill_mode <= '0';
+                              
                 when others =>
                   sdio_error <= '1';
               end case;
@@ -1577,6 +1631,9 @@ begin  -- behavioural
             when x"82" => sd_sector(15 downto 8) <= fastio_wdata;
             when x"83" => sd_sector(23 downto 16) <= fastio_wdata;
             when x"84" => sd_sector(31 downto 24) <= fastio_wdata;
+            when x"86" =>
+              -- @ IO:GS $D686 WRITE ONLY set fill byte for use in fill mode, instead of SD buffer data
+              sd_fill_value <= fastio_wdata;
             when x"89" => f011sd_buffer_select <= fastio_wdata(7);
                           -- @ IO:GS $D689.2 Set/read SD card sd_handshake signal
                           sd_handshake <= fastio_wdata(2);
@@ -1687,7 +1744,12 @@ begin  -- behavioural
               -- @IO:GS $D6FA - 8-bit digital audio out (left)
               -- 8-bit digital audio out
               pwm_value_new_right <= fastio_wdata;
-
+            when x"FB" =>
+              -- @IO:GS $D6FB - WRITE set microphone trigger phase (DEBUG,WILLBEREMOVED)
+              mic_sample_trigger <= fastio_wdata;
+            when x"FC" =>
+              -- @IO:GS $D6FC - WRITE set microphone sample frequency (DEBUG,WILLBEREMOVED)
+              mic_divider_max(6 downto 0) <= fastio_wdata(6 downto 0);
             when x"FF" =>
               -- @IO:GS $D6FF - Flash bit-bashing port
               -- Flash interface
@@ -1964,7 +2026,6 @@ begin  -- behavioural
           report "Starting to write sector from unified FDC/SD buffer.";
           f011_buffer_cpu_address <= (others => '0');
           sb_cpu_read_request <= '1';
-          f011_buffer_read_address <= "110"&f011_buffer_disk_address;
           f011_buffer_disk_pointer_advance <= '1';
           -- Abort CPU buffer read if in progess, since we are reading the buffer
           sb_cpu_reading <= '0';
@@ -1990,7 +2051,11 @@ begin  -- behavioural
         when WritingSector =>
           if sd_data_ready='1' then
             sd_dowrite <= '0';
-            sd_wdata <= f011_buffer_rdata;
+            if sd_fill_mode='1' then
+              sd_wdata <= sd_fill_value;
+            else
+              sd_wdata <= f011_buffer_rdata;
+            end if;
             sd_handshake <= '1';
             sd_handshake_internal <= '1';
             
@@ -2024,12 +2089,6 @@ begin  -- behavioural
               -- Still more bytes to read.
               sd_state <= WritingSector;
 
-              -- Get next byte ready
-              if f011_sector_fetch='1' then
-                f011_buffer_read_address <= "110"&f011_buffer_disk_address;
-              else
-                f011_buffer_read_address <= "111"&sd_buffer_offset;
-              end if;
               f011_buffer_disk_pointer_advance <= '1';
               -- Abort CPU buffer read if in progess, since we are reading the buffer
               sb_cpu_reading <= '0';              

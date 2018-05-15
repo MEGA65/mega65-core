@@ -228,6 +228,24 @@ entity machine is
          uart_rx : inout std_logic;
          uart_tx : out std_logic;
          
+         -- CPU block ram debug
+         -- Debugging
+         debug_address_w_dbg_out : out std_logic_vector(16 downto 0);
+         debug_address_r_dbg_out : out std_logic_vector(16 downto 0);
+         debug_rdata_dbg_out : out std_logic_vector(7 downto 0);
+         debug_wdata_dbg_out : out std_logic_vector(7 downto 0);
+         debug_write_dbg_out : out std_logic;
+         debug_read_dbg_out : out std_logic;
+         rom_address_i_dbg_out : out std_logic_vector(16 downto 0);
+         rom_address_o_dbg_out : out std_logic_vector(16 downto 0);
+         rom_address_rdata_dbg_out : out std_logic_vector(7 downto 0);
+         rom_address_wdata_dbg_out : out std_logic_vector(7 downto 0);
+         rom_address_write_dbg_out : out std_logic;
+         rom_address_read_dbg_out : out std_logic;
+         debug8_state_out : out std_logic_vector(7 downto 0);
+         debug4_state_out : out std_logic_vector(3 downto 0);
+         proceed_dbg_out : out std_logic;
+         
          ----------------------------------------------------------------------
          -- Debug interfaces on Nexys4 board
          ----------------------------------------------------------------------
@@ -308,11 +326,14 @@ architecture Behavioral of machine is
   signal hyper_trap_f011_write : std_logic := '0';
 
   signal fastio_addr : std_logic_vector(19 downto 0);
+  signal fastio_addr_fast : std_logic_vector(19 downto 0);
   signal fastio_read : std_logic;
   signal fastio_write : std_logic;
   signal fastio_wdata : std_logic_vector(7 downto 0);
   signal fastio_rdata : std_logic_vector(7 downto 0);
   signal kickstart_rdata : std_logic_vector(7 downto 0);
+  signal kickstart_address : std_logic_vector(13 downto 0);
+  
   signal fastio_vic_rdata : std_logic_vector(7 downto 0);
   signal colour_ram_fastio_rdata : std_logic_vector(7 downto 0);
 
@@ -356,6 +377,7 @@ architecture Behavioral of machine is
   signal monitor_irq_inhibit : std_logic;
   signal monitor_mem_trace_mode : std_logic;
   signal monitor_mem_trace_toggle : std_logic;
+  signal monitor_memory_access_address : unsigned(31 downto 0);
   signal monitor_char : unsigned(7 downto 0);
   signal monitor_char_toggle : std_logic;
   signal monitor_char_busy : std_logic;
@@ -517,6 +539,8 @@ architecture Behavioral of machine is
   signal amiga_mouse_assume_a : std_logic;
   signal amiga_mouse_assume_b : std_logic;
 
+  -- local debug signals from CPU
+  signal shadow_address_state_dbg_out : std_logic_vector(3 downto 0);
   signal pixelclock_select : std_logic_vector(7 downto 0);
   
 begin
@@ -718,6 +742,16 @@ begin
       dat_offset => dat_offset,
       dat_bitplane_addresses => dat_bitplane_addresses,
 
+      debug_address_w_dbg_out => debug_address_w_dbg_out,
+      debug_address_r_dbg_out => debug_address_r_dbg_out,
+      debug_rdata_dbg_out => debug_rdata_dbg_out,
+      debug_wdata_dbg_out => debug_wdata_dbg_out,
+      debug_write_dbg_out => debug_write_dbg_out,
+      debug_read_dbg_out => debug_read_dbg_out,
+      debug4_state_out => debug4_state_out,
+      
+      proceed_dbg_out => proceed_dbg_out,
+      
       irq_hypervisor => sw(4 downto 2),    -- JBM
       
       -- Hypervisor signals: we need to tell kickstart memory whether
@@ -764,6 +798,7 @@ begin
       monitor_map_offset_high => monitor_map_offset_high,
       monitor_map_enables_low => monitor_map_enables_low,
       monitor_map_enables_high => monitor_map_enables_high,
+      monitor_memory_access_address => monitor_memory_access_address,
 
       monitor_mem_address => monitor_mem_address,
       monitor_mem_rdata => monitor_mem_rdata,
@@ -777,7 +812,7 @@ begin
       monitor_mem_trace_mode => monitor_mem_trace_mode,
       monitor_mem_stage_trace_mode => monitor_mem_stage_trace_mode,
       monitor_mem_trace_toggle => monitor_mem_trace_toggle,
-
+      
       slow_access_request_toggle => slow_access_request_toggle,
       slow_access_ready_toggle => slow_access_ready_toggle,    
       slow_access_address => slow_access_address,
@@ -792,6 +827,7 @@ begin
       cpu_leds => cpu_leds,
       
       fastio_addr => fastio_addr,
+      fastio_addr_fast => fastio_addr_fast,
       fastio_read => fastio_read,
       fastio_write => fastio_write,
       fastio_wdata => fastio_wdata,
@@ -800,6 +836,7 @@ begin
       fastio_vic_rdata => fastio_vic_rdata,
       fastio_colour_ram_rdata => colour_ram_fastio_rdata,
       kickstart_rdata => kickstart_rdata,
+      kickstart_address_out => kickstart_address,
       colour_ram_cs => colour_ram_cs,
       charrom_write_cs => charrom_write_cs,
 
@@ -1087,9 +1124,11 @@ begin
       nmi => io_nmi, -- (but we might like to AND this with the hardware IRQ button)
       restore_nmi => restore_nmi,
       address => fastio_addr,
+      addr_fast => fastio_addr_fast,
       r => fastio_read, w => fastio_write,
       data_i => fastio_wdata, data_o => fastio_rdata,
       kickstart_rdata => kickstart_rdata,
+      kickstart_address => kickstart_address,
       colourram_at_dc00 => colourram_at_dc00,
       drive_led => drive_led,
       motor => motor,
@@ -1355,7 +1394,7 @@ begin
     monitor_map_offset_high => monitor_map_offset_high,
     monitor_map_enables_low => monitor_map_enables_low,
     monitor_map_enables_high => monitor_map_enables_high,
-    
+    monitor_memory_access_address => monitor_memory_access_address,
     monitor_mem_address => monitor_mem_address,
     monitor_mem_rdata => monitor_mem_rdata,
     monitor_mem_wdata => monitor_mem_wdata,
@@ -1470,6 +1509,9 @@ begin
     end if;
   end process;
   
+  debug8_state_out <= std_logic_vector(monitor_state(15 downto 8));
+--  debug4_state_out <= (others => '0');
+
   UART_TXD<=uart_txd_sig; 
   
 end Behavioral;

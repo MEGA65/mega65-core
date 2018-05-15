@@ -215,8 +215,8 @@ begin
             report "EXROM: Tri-stating cart_exrom,game, setting cart_ctrl_dir=0";
             reprobe_exrom <= '0';
             cart_ctrl_dir <= '0';
-            cart_exrom <= 'Z';
-            cart_game <= 'Z';
+            cart_exrom <= 'H';
+            cart_game <= 'H';
             probing_exrom <= '1';
           elsif (cart_access_request='1') and (reset_counter = 0)
             -- Check that clock will be high during this request, i.e.,
@@ -283,7 +283,7 @@ begin
               read_in_progress <= '1';
               -- Tri-state with pull-up
               report "Tristating cartridge port data lines.";
-              cart_d <= (others => 'Z');
+              cart_d <= (others => 'H');
             else
               read_in_progress <= '0';
               cart_d <= cart_access_wdata;

@@ -255,7 +255,7 @@ begin  -- behavioural
       uart2_rx_mux <= uart0_tx_drive;
     end if;
     
-    irq <= 'Z';
+    irq <= '1';
 
     -- Register reading is asynchronous to avoid wait states
     if fastio_read='1' then

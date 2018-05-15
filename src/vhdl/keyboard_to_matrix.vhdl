@@ -7,8 +7,8 @@ use work.debugtools.all;
 
 entity keyboard_to_matrix is
   port (Clk : in std_logic;        
-        porta_pins : inout  std_logic_vector(7 downto 0) := (others => 'Z');
-        portb_pins : inout  std_logic_vector(7 downto 0) := (others => 'Z');
+        porta_pins : inout  std_logic_vector(7 downto 0) := (others => 'H');
+        portb_pins : inout  std_logic_vector(7 downto 0) := (others => 'H');
         keyboard_column8_out : out std_logic := '1';
         key_left : in std_logic;
         key_up : in std_logic;
@@ -33,6 +33,8 @@ architecture behavioral of keyboard_to_matrix is
   -- Scanned state of the keyboard
   signal matrix_internal : std_logic_vector(71 downto 0) := (others => '1');
 
+  signal enabled : std_logic := '0';
+  
 begin
   process (clk)
     variable next_phase : integer range 0 to 15;
@@ -48,6 +50,18 @@ begin
       if key_up= scan_mode(0) then
         matrix(7) <= '0'; -- cursor down
         matrix(52) <= '0'; -- right shift
+      end if;
+
+      -- Put positive charge on the keyboard pins we are going to read,
+      -- to make sure they float high.  Then make them tri-state just
+      -- before we read them, so that we don't have cross-driving
+      -- problems that cause multiple key presses on the same row/column
+      -- to lead to too many pull-ups combining to leave the input
+      -- voltage too high to register a key press.
+      if counter<8 then
+        portb_pins <= (others => 'Z');
+      else
+        portb_pins <= (others => 'H');
       end if;
       
       -- Scan physical keyboard
@@ -79,9 +93,14 @@ begin
         -- that the row pins (portb_pins) is being driven high, instead of
         -- tristates, i.e., '1' instead of 'H' or 'Z'.
 
-        portb_pins <= (others => 'Z');
-        
-        matrix_internal((scan_phase*8)+ 7 downto (scan_phase*8)) <= portb_pins(7 downto 0);
+        -- Don't enable if we see pins staying tied low
+        if portb_pins = "11111111" then
+          enabled <= '1';
+        end if;
+
+        if enabled='1' then
+          matrix_internal((scan_phase*8)+ 7 downto (scan_phase*8)) <= portb_pins(7 downto 0);
+        end if;
 
         -- Select lines for next column
         if scan_phase < 8 then
@@ -96,15 +115,15 @@ begin
           if next_phase = i then
             porta_pins(i) <= '0';
           else
-            porta_pins(i) <= 'Z';
+            porta_pins(i) <= '1';
           end if;
         end loop;
         if scan_phase = 7 then
-          porta_pins <= (others => 'Z');
+          porta_pins <= (others => '1');
           keyboard_column8_out <= '0';
           report "probing column 8";
         else
-          keyboard_column8_out <= 'Z';
+          keyboard_column8_out <= '1';
         end if;
       else
         -- Keep counting down to next scan event

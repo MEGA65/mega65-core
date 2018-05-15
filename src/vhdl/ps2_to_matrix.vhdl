@@ -11,7 +11,7 @@ entity ps2_to_matrix is
 
     -- PS/2 keyboard also provides emulated joysticks and RESTORE key
     restore_out : out std_logic := '1';
-    capslock_out : out std_logic := '1';
+    capslock_out : out std_logic := '0';
     matrix : out std_logic_vector(71 downto 0) := (others => '1');
     joya : out std_logic_vector(4 downto 0) := (others => '1');
     joyb : out std_logic_vector(4 downto 0) := (others => '1');
@@ -70,7 +70,7 @@ architecture behavioural of ps2_to_matrix is
   signal joy2 : std_logic_vector(7 downto 0) := (others =>'1');
   signal joylock : std_logic := '0';
 
-  signal ps2_capslock : std_logic := '1';
+  signal ps2_capslock : std_logic := '0';
   
   signal fiftyhz_counter : unsigned(28 downto 0) := (others => '0');
 

@@ -25,8 +25,8 @@ begin  -- behavioural
 
   process(clk)
   begin
-    dout <= ram(addr);
     if(rising_edge(Clk)) then
+      dout <= ram(addr);
       if w='1' then
         ram(addr) <= din;
       end if;

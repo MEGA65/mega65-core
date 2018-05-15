@@ -1,0 +1,4 @@
+#!/bin/bash
+. /opt/Xilinx/Vivado/2017.4/settings64.sh
+echo vivado $*
+vivado $*

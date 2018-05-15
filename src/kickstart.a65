@@ -2091,7 +2091,7 @@ go64:
 		; Check if hold boot switch is set (control-key)
 		;
 l41:		lda $d611
-		and #$04
+		and #$14
 		beq l42      ; no, so continue		
 
 		; yes, display message

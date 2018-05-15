@@ -1,9 +1,11 @@
 .SUFFIXES: .bin .prg 
-.PRECIOUS:	%.ngd %.ncd %.twx
+.PRECIOUS:	%.ngd %.ncd %.twx vivado/%.xpr bin/%.bit bin/%.mcs bin/%.M65 bin/%.BIN
 
 COPT=	-Wall -g -std=c99
 CC=	gcc
 OPHIS=	../Ophis/bin/ophis -4
+
+VIVADO=	./vivado_wrapper
 
 CA65=  ca65 --cpu 4510
 LD65=  ld65 -t none
@@ -56,7 +58,10 @@ TOOLS=	$(TOOLDIR)/etherkick/etherkick \
 	$(TOOLDIR)/on_screen_keyboard_gen \
 	$(TOOLDIR)/pngprepare/pngprepare
 
-all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r1.mcs $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr.mcs $(BINDIR)/lcd4ddr.mcs $(BINDIR)/touch_test.mcs
+all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r1.mcs $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr.mcs
+
+# Not quite yet with Vivado...
+# $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr.mcs $(BINDIR)/lcd4ddr.mcs $(BINDIR)/touch_test.mcs
 
 generated_vhdl:	$(SIMULATIONVHDL)
 
@@ -111,6 +116,7 @@ VICIVVHDL=		$(VHDLSRCDIR)/viciv.vhdl \
 			$(OVERLAYVHDL)
 
 PERIPHVHDL=		$(VHDLSRCDIR)/sdcardio.vhdl \
+			$(VHDLSRCDIR)/pdm_to_pcm.vhdl \
 			$(VHDLSRCDIR)/buffereduart.vhdl \
 			$(VHDLSRCDIR)/mfm_bits_to_bytes.vhdl \
 			$(VHDLSRCDIR)/mfm_decoder.vhdl \
@@ -168,7 +174,7 @@ MEMVHDL=		$(VHDLSRCDIR)/ghdl_chipram8bit.vhdl \
 			$(VHDLSRCDIR)/ghdl_ram128x1k.vhdl \
 			$(VHDLSRCDIR)/ghdl_ram32x1024.vhdl \
 			$(VHDLSRCDIR)/ghdl_ram18x2k.vhdl \
-			$(VHDLSRCDIR)/ghdl_ram8x4096.vhdl \
+			$(VHDLSRCDIR)/ghdl_ram8x4096_sync.vhdl \
 			$(VHDLSRCDIR)/ghdl_ram8x512.vhdl \
 			$(VHDLSRCDIR)/ghdl_ram9x4k.vhdl \
 			$(VHDLSRCDIR)/ghdl_screen_ram_buffer.vhdl \
@@ -371,9 +377,9 @@ $(VHDLSRCDIR)/kickstart.vhdl:	$(TOOLDIR)/makerom/rom_template.vhdl $(BINDIR)/KIC
 $(VHDLSRCDIR)/colourram.vhdl:	$(TOOLDIR)/makerom/colourram_template.vhdl $(BINDIR)/COLOURRAM.BIN $(TOOLDIR)/makerom/makerom
 	$(TOOLDIR)/makerom/makerom $(TOOLDIR)/makerom/colourram_template.vhdl $(BINDIR)/COLOURRAM.BIN $(VHDLSRCDIR)/colourram ram8x32k
 
-$(VHDLSRCDIR)/shadowram.vhdl:	$(TOOLDIR)/mempacker/mempacker $(SDCARD_DIR)/BANNER.M65
+$(VHDLSRCDIR)/shadowram.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65
 	mkdir -p $(SDCARD_DIR)
-	$(TOOLDIR)/mempacker/mempacker -n shadowram -s 131071 -f $(VHDLSRCDIR)/shadowram.vhdl $(SDCARD_DIR)/BANNER.M65@3D00
+	$(TOOLDIR)/mempacker/mempacker_new -n shadowram -s 131071 -f $(VHDLSRCDIR)/shadowram.vhdl $(SDCARD_DIR)/BANNER.M65@3D00
 
 $(VHDLSRCDIR)/oskmem.vhdl:	$(TOOLDIR)/mempacker/mempacker $(BINDIR)/asciifont.bin $(BINDIR)/osdmap.bin $(BINDIR)/matrixfont.bin
 	$(TOOLDIR)/mempacker/mempacker -n oskmem -s 4095 -f $(VHDLSRCDIR)/oskmem.vhdl $(BINDIR)/asciifont.bin@0000 $(BINDIR)/osdmap.bin@0800 $(BINDIR)/matrixfont.bin@0E00
@@ -452,36 +458,14 @@ $(TOOLDIR)/monitor_save:	$(TOOLDIR)/monitor_save.c Makefile
 $(TOOLDIR)/on_screen_keyboard_gen:	$(TOOLDIR)/on_screen_keyboard_gen.c Makefile
 	$(CC) $(COPT) -o $(TOOLDIR)/on_screen_keyboard_gen $(TOOLDIR)/on_screen_keyboard_gen.c
 
-%.ngc %.syr:	$(VHDLSRCDIR)/*.vhdl $(SIMULATIONVHDL)
-	echo MOOSE $@ from $<
-#	@rm -f $*.ngc $*.syr $*.ngr
-	mkdir -p xst/projnav.tmp
-	./run_ise $* xst
-
 #-----------------------------------------------------------------------------
 
-%.ngd %.bld: %.ngc
+# Generate Vivado .xpr from .tcl
+vivado/%.xpr: 	vivado/%_gen.tcl | $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(SIMULATIONVHDL)
 	echo MOOSE $@ from $<
-#	@rm -f $*.ngd $*.bld
-	./run_ise $* ngdbuild
+	$(VIVADO) -mode batch -source $<
 
-#-----------------------------------------------------------------------------
-
-%.mapncd %.pcf: %.ngd
-	echo MOOSE $@ from $<
-#	@rm -f $*.mapncd $*.pcf
-	./run_ise $* map
-
-#-----------------------------------------------------------------------------
-
-%.ncd %.unroutes %.par %.twr: %.mapncd
-	echo MOOSE $@ from $<
-#	@rm -f $*.ncd $*.unroutes $*.par $*.twr
-	./run_ise $* par
-
-#-----------------------------------------------------------------------------
-
-bin/%.bit:	isework/%.ncd
+bin/%.bit: 	vivado/%.xpr $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(SIMULATIONVHDL)
 	echo MOOSE $@ from $<
 #	@rm -f $@
 #	@echo "---------------------------------------------------------"
@@ -496,14 +480,12 @@ bin/%.bit:	isework/%.ncd
 #	@echo "---------------------------------------------------------"
 
 	mkdir -p $(SDCARD_DIR)
+	$(VIVADO) -mode batch -source vivado/$(subst bin/,,$*)_impl.tcl vivado/$(subst bin/,,$*).xpr
+	cp vivado/$(subst bin/,,$*).runs/impl_1/container.bit $@
 
-	./run_ise $(subst bin/,,$*) bitgen
-
-%.mcs:	%.bit
+bin/%.mcs:	bin/%.bit
 	mkdir -p $(SDCARD_DIR)
-	./run_ise $* promgen
-
-
+	$(VIVADO) -mode batch -source vivado/run_mcs.tcl -tclargs $< $@
 
 clean:
 	rm -f $(BINDIR)/KICKUP.M65 kickstart.list kickstart.map
@@ -528,6 +510,9 @@ clean:
 	rm -f thumbnail.prg
 	rm -f textmodetest.prg textmodetest.list etherload_done.bin etherload_stub.bin
 	rm -f videoproxy
+	rm -rf vivado/mega65r1.cache vivado/mega65r1.runs vivado/mega65r1.hw vivado/mega65r1.ip_user_files vivado/mega65r1.srcs vivado/mega65r1.xpr
+	rm -rf vivado/nexys4.cache vivado/nexys4.runs vivado/nexys4.hw vivado/nexys4.ip_user_files vivado/nexys4.srcs vivado/nexys4.xpr
+	rm -rf vivado/nexys4ddr.cache vivado/nexys4ddr.runs vivado/nexys4ddr.hw vivado/nexys4ddr.ip_user_files vivado/nexys4ddr.srcs vivado/nexys4ddr.xpr
 
 cleangen:
 	rm $(VHDLSRCDIR)/kickstart.vhdl $(VHDLSRCDIR)/charrom.vhdl *.M65
