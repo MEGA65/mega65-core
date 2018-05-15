@@ -69,7 +69,7 @@ begin
         -- Stage 1: Counter: gives values 0-31 for count of 1s
         recent_bits(0) <= sample_bit;
         recent_bits(31 downto 1) <= recent_bits(30 downto 0);
-        ny := std_logic(recent_bits(31))&std_logic(sample_bit);
+        ny := std_logic(recent_bits(30))&std_logic(sample_bit);
         case ny is
           when "11" =>
             -- Total stays unchanged
@@ -104,9 +104,9 @@ begin
           end loop;            
           recent_sums(0) <= sum;
           if ( rolling_sum + sum ) > recent_sums(10) then
-            report "rolling_sum <= " & integer'image(rolling_sum)
-              & " + " & integer'image(sum)
-              & " - " & integer'image(recent_sums(10));
+--            report "rolling_sum <= " & integer'image(rolling_sum)
+--              & " + " & integer'image(sum)
+--              & " - " & integer'image(recent_sums(10));
             rolling_sum <= rolling_sum + sum - recent_sums(10);
           else
             rolling_sum <= 0;
@@ -124,8 +124,8 @@ begin
             report "sum = " & integer'image(sum);
             report "sample_value = " & integer'image(sample_value);
             report "rolling_sum = " & integer'image(rolling_sum);
-            if ( sample_value + rolling_sum ) > rolling_sums(13) then
-              sample_value <= sample_value + rolling_sum - rolling_sums(13);
+            if ( sample_value + rolling_sum ) > rolling_sums(11) then
+              sample_value <= sample_value + rolling_sum - rolling_sums(11);
             else
               sample_value <= 0;
             end if;
