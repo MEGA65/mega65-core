@@ -253,6 +253,12 @@ mfmsimulate: $(MFMFILES) $(ASSETS)/synthesised-60ns.dat
 	ghdl -m test_mfm
 	( ./test_mfm || ghdl -r test_mfm ) 
 
+pdmsimulate: $(VHDLSRCDIR)/test_pdm.vhdl $(VHDLSRCDIR)/pdm_to_pcm.vhdl
+	ghdl -i $(VHDLSRCDIR)/test_pdm.vhdl $(VHDLSRCDIR)/pdm_to_pcm.vhdl
+	ghdl -m test_pdm
+	( ./test_pdm || ghdl -r test_pdm ) 
+
+
 MIIMFILES=	$(VHDLSRCDIR)/ethernet_miim.vhdl \
 		$(VHDLSRCDIR)/test_miim.vhdl
 
