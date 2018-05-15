@@ -140,7 +140,7 @@ entity sdcardio is
     -- Microphone
     micData : in std_logic;
     micClk : out std_logic;
-    micLRSel : out std_logic;
+    micLRSel : out std_logic := '0';
 
     -- Temperature sensor
     tmpSDA : out std_logic;
@@ -167,7 +167,7 @@ architecture behavioural of sdcardio is
   signal aclSSinternal : std_logic := '0';
   signal aclSCKinternal : std_logic := '0';
   signal micClkinternal : std_logic := '0';
-  signal micLRSelinternal : std_logic := '0';
+--  signal micLRSelinternal : std_logic := '0';
   signal tmpSDAinternal : std_logic := '0';
   signal tmpSCLinternal : std_logic := '0';
 
@@ -199,11 +199,10 @@ architecture behavioural of sdcardio is
   signal ampSD_internal : std_logic := '1';
 
   signal mic_sample_trigger : unsigned(7 downto 0) := to_unsigned(1,8);
-  signal mic_do_sample : std_logic := '0';
+  signal mic_do_sample_left : std_logic := '0';
+  signal mic_do_sample_right : std_logic := '0';
   signal mic_divider_max : unsigned(7 downto 0) := to_unsigned(20,8);
   signal mic_divider : unsigned(7 downto 0) := "00000000";
-  signal mic_counter : unsigned(7 downto 0) := "00000000";
-  signal mic_onecount : unsigned(7 downto 0) := "00000000";
   signal mic_value_left : unsigned(7 downto 0) := "00000000";
   signal mic_value_right : unsigned(7 downto 0) := "00000000";
   
@@ -388,7 +387,21 @@ begin  -- behavioural
 --**********************************************************************
   -- SD card controller module.
   --**********************************************************************
-  
+
+  mic0l: entity work.pdm_to_pcm
+    port map (
+      clock => clock,
+      sample_clock => mic_do_sample_left,
+      sample_bit => micData,
+      sample_out => mic_value_left);
+
+  mic0r: entity work.pdm_to_pcm
+    port map (
+      clock => clock,
+      sample_clock => mic_do_sample_right,
+      sample_bit => micData,
+      sample_out => mic_value_right);
+
   sd0: entity work.sdcardctrl
     port map (
       cs_bo => cs_bo,
@@ -1124,9 +1137,11 @@ begin  -- behavioural
       -- max frequency is 3MHz, optimal is about 2.5MHz according to
       -- https://pdfs.semanticscholar.org/a3f4/9749f4d3508f58c5ca4693f8bae9c403fc85.pdf
       if mic_divider = mic_sample_trigger then
-        mic_do_sample <= '1';
+        mic_do_sample_left <= micclkinternal;
+        mic_do_sample_right <= not micclkinternal;
       else
-        mic_do_sample <= '0';
+        mic_do_sample_left <= '0';
+        mic_do_sample_right <= '0';
       end if;
       if mic_divider < mic_divider_max then
         mic_divider <= mic_divider + 1;
@@ -1134,25 +1149,6 @@ begin  -- behavioural
         micCLK <= not micclkinternal;
         micclkinternal <= not micclkinternal;
         mic_divider <= to_unsigned(0,8);
-      end if;
-      if mic_do_sample='1' then
-        if mic_counter /= 63 then
-          if micData='1' then
-            mic_onecount <= mic_onecount + 1;
-          end if;
-          mic_counter <= mic_counter + 1;
-        else
-          -- finished sampling, update output
-          if micLRSelinternal='0' then
-            mic_value_left(7 downto 0) <= mic_onecount;
-          else
-            mic_value_right(7 downto 0) <= mic_onecount;
-          end if;
-          mic_counter <= (others => '0');
-          mic_onecount <= (others => '0');
-          micLRSel <= not micLRSelinternal;
-          micLRSelinternal <= not micLRSelinternal;
-        end if;
       end if;
 
       if use_real_floppy='1' then
@@ -1753,7 +1749,7 @@ begin  -- behavioural
               mic_sample_trigger <= fastio_wdata;
             when x"FC" =>
               -- @IO:GS $D6FC - WRITE set microphone sample frequency (DEBUG,WILLBEREMOVED)
-              mic_divider_max <= fastio_wdata;
+              mic_divider_max(6 downto 0) <= fastio_wdata(6 downto 0);
             when x"FF" =>
               -- @IO:GS $D6FF - Flash bit-bashing port
               -- Flash interface
