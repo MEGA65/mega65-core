@@ -101,7 +101,7 @@ begin
             recent_sums(i) <= recent_sums(i-1);
           end loop;            
           recent_sums(0) <= sum;
-          if rolling_sum + sum > 0 then
+          if rolling_sum + sum > recent_sums(10) then
             rolling_sum <= rolling_sum + sum - recent_sums(10);
           else
             rolling_sum <= 0;
