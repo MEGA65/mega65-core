@@ -125,8 +125,8 @@ entity viciv is
     ---------------------------------------------------------------------------
     -- CPU Interface to ChipRAM in video controller (just 128KB for now)
     ---------------------------------------------------------------------------
-    chipram_we : IN STD_LOGIC;
-    chipram_address : IN unsigned(16 DOWNTO 0);
+    --chipram_we : IN STD_LOGIC;
+    chipram_address : OUT unsigned(16 DOWNTO 0);
     chipram_datain : IN unsigned(7 DOWNTO 0);
     
     -----------------------------------------------------------------------------
@@ -950,18 +950,18 @@ begin
       addrb  => std_logic_vector(screen_ram_buffer_read_address(8 downto 0))
       );
 
-  chipram0: entity work.chipram8bit
-    port map (
-      -- CPU side port (write)
-      clka => cpuclock,
-      wea(0) => chipram_we,
-      addra => std_logic_vector(chipram_address),
-      dina => std_logic_vector(chipram_datain),
-      -- VIC-IV side port (read)
-      clkb => pixelclock,
-      addrb => std_logic_vector(next_ramaddress),
-      unsigned(doutb) => ramdata
-      );
+  --chipram0: entity work.chipram8bit
+  --  port map (
+  --    -- CPU side port (write)
+  --    clka => cpuclock,
+  --    wea(0) => chipram_we,
+  --    addra => std_logic_vector(chipram_address),
+  --    dina => std_logic_vector(chipram_datain),
+  --    -- VIC-IV side port (read)
+  --    clkb => pixelclock,
+  --    addrb => std_logic_vector(next_ramaddress),
+  --    unsigned(doutb) => ramdata
+  --    );
 
   colourram: block
   begin
@@ -1145,6 +1145,9 @@ begin
               fastio_write => fastio_write,
               fastio_wdata => fastio_wdata
               );
+  
+  chipram_address <= next_ramaddress;
+  ramdata <= chipram_datain;
   
   process(cpuclock,ioclock,fastio_addr,fastio_read,chardata,
           sprite_x,sprite_y,vicii_sprite_xmsbs,ycounter,extended_background_mode,

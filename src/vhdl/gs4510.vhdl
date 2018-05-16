@@ -157,8 +157,10 @@ entity gs4510 is
     -- Interface to ChipRAM in video controller (just 128KB for now)
     ---------------------------------------------------------------------------
     chipram_we : OUT STD_LOGIC := '0';
-    chipram_address : OUT unsigned(16 DOWNTO 0) := "00000000000000000";
-    chipram_datain : OUT unsigned(7 DOWNTO 0);
+
+    chipram_clk : IN std_logic;
+    chipram_address : IN unsigned(16 DOWNTO 0) := "00000000000000000";
+    chipram_dataout : OUT unsigned(7 DOWNTO 0);
 
     cpu_leds : out std_logic_vector(3 downto 0);
 
@@ -224,13 +226,16 @@ end entity gs4510;
 architecture Behavioural of gs4510 is
   
 component shadowram is
-    port (Clk : in std_logic;
-          address_i : in integer range 0 to 131071;
-          we : in std_logic;
-          data_i : in unsigned(7 downto 0);
+    port (ClkA : in std_logic;
+          addressa : in integer range 0 to 131071;
+          wea : in std_logic;
+          dia : in unsigned(7 downto 0);
           writes : out unsigned(7 downto 0);
           no_writes : out unsigned(7 downto 0);
-          data_o : out unsigned(7 downto 0)
+          doa : out unsigned(7 downto 0);
+          ClkB : in std_logic;
+          addressb : in unsigned(16 downto 0);
+          dob : out unsigned(7 downto 0)
           );
 end component;
 
@@ -1263,23 +1268,28 @@ begin
   end generate;
     
   shadowram0 : shadowram port map (
-    clk     => clock,
-    address_i => shadow_address_next,
-    we      => shadow_write_next,
-    data_i  => memory_access_wdata_next,
+    clkA      => clock,
+    addressa  => shadow_address_next,
+    wea       => shadow_write_next,
+    dia       => memory_access_wdata_next,
     no_writes => shadow_no_write_count,
-    writes => shadow_write_count,
-    data_o  => shadow_rdata
+    writes    => shadow_write_count,
+    doa       => shadow_rdata,
+    clkB      => chipram_clk,
+    addressb  => chipram_address,
+    dob       => chipram_dataout
     );
 
   romram0 : shadowram port map (
-    clk   => clock,
-    address_i => rom_address_next,
-    we      => rom_write_next,
-    data_i  => memory_access_wdata_next,
+    clkA      => clock,
+    addressa  => rom_address_next,
+    wea       => rom_write_next,
+    dia       => memory_access_wdata_next,
     no_writes => rom_no_write_count,
-    writes => rom_write_count,
-    data_o  => rom_rdata
+    writes    => rom_write_count,
+    doa       => rom_rdata,
+    clkB      => chipram_clk,
+    addressb  => chipram_address
     );
 
   zpcache0: entity work.ram36x1k port map (
@@ -1522,8 +1532,8 @@ begin
       shadow_write_flags(0) <= '1';
       fastio_read <= '0';
       fastio_write <= '0';
-      chipram_we <= '0';        
-      chipram_datain <= x"c0";    
+      --chipram_we <= '0';        
+      --chipram_datain <= x"c0";    
 
       slow_access_request_toggle_drive <= slow_access_ready_toggle_buffer;
       slow_access_write_drive <= '0';
@@ -2325,10 +2335,10 @@ begin
         fastio_write <= '0';
         -- shadow_try_write_count <= shadow_try_write_count + 1;
         shadow_write_flags(3) <= '1';
-        chipram_address <= long_address(16 downto 0);
-        chipram_we <= '1';
-        chipram_datain <= value;
-        report "writing to chipram..." severity note;
+        --chipram_address <= long_address(16 downto 0);
+        --chipram_we <= '1';
+        --chipram_datain <= value;
+        --report "writing to chipram..." severity note;
         wait_states <= io_write_wait_states;
         if io_write_wait_states /= x"00" then
           wait_states_non_zero <= '1';
@@ -2396,11 +2406,11 @@ begin
 
                 -- Write also to CHIP RAM, so that $1F800-FFF works as chipRAM
                 -- as well as colour RAM, when accessed via $D800+ portal
-                chipram_address(16 downto 11) <= "111111"; -- $1F8xx
-                chipram_address(10 downto 0) <= long_address(10 downto 0);
-                chipram_we <= '1';
-                chipram_datain <= value;
-                report "writing to chipram..." severity note;
+                --chipram_address(16 downto 11) <= "111111"; -- $1F8xx
+                --chipram_address(10 downto 0) <= long_address(10 downto 0);
+                --chipram_we <= '1';
+                --chipram_datain <= value;
+                --report "writing to chipram..." severity note;
                 
               end if;
             end if;
@@ -3515,7 +3525,7 @@ begin
           colour_ram_cs <= '0';
           fastio_write <= '0';
 --          fastio_read <= '0';
-          chipram_we <= '0';
+          --chipram_we <= '0';
           slow_access_write_drive <= '0';
 
           if mem_reading='1' then
