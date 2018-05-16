@@ -211,8 +211,8 @@ architecture behavioural of sdcardio is
   signal mic_divider : unsigned(7 downto 0) := "00000000";
   signal mic_value_left : unsigned(7 downto 0) := "00000000";
   signal mic_value_right : unsigned(7 downto 0) := "00000000";
-  signal sample_left : unsigned(7 downto 0) := to_unsigned(0,16);
-  signal sample_right : unsigned(7 downto 0) := to_unsigned(0,16);
+  signal sample_left : unsigned(15 downto 0) := to_unsigned(0,16);
+  signal sample_right : unsigned(15 downto 0) := to_unsigned(0,16);
   
   -- debounce reading from or writing to $D087 so that buffered read/write
   -- behaves itself.
@@ -1146,29 +1146,29 @@ begin  -- behavioural
       -- https://pdfs.semanticscholar.org/a3f4/9749f4d3508f58c5ca4693f8bae9c403fc85.pdf
       case mic_gain is
         when "000" =>
-          mic_value_right <= sample_right(15 downto 8);
-          mic_value_left <= sample_left(15 downto 8);
+          mic_value_right <= to_unsigned(to_integer(sample_right(13 downto 6))-64,8);
+           mic_value_left <= to_unsigned(to_integer(sample_left(13 downto 6))-64,8);
         when "001" =>
-          mic_value_right <= to_unsigned((to_integer(sample_right(15 downto 8))-8192)*2+8192,16);
-          mic_value_left <= to_unsigned((to_integer(sample_left(15 downto 8))-8192)*2+8192,16);
+          mic_value_right <= to_unsigned((to_integer(sample_right(15 downto 8))-8192)*2+8192,16)(13 downto 6);
+          mic_value_left <= to_unsigned((to_integer(sample_left(15 downto 8))-8192)*2+8192,16)(13 downto 6);
         when "010" =>
-          mic_value_right <= to_unsigned((to_integer(sample_right(15 downto 8))-8192)*4+8192,16);
-          mic_value_left <= to_unsigned((to_integer(sample_left(15 downto 8))-8192)*4+8192,16);
+          mic_value_right <= to_unsigned((to_integer(sample_right(15 downto 8))-8192)*4+8192,16)(13 downto 6);
+          mic_value_left <= to_unsigned((to_integer(sample_left(15 downto 8))-8192)*4+8192,16)(13 downto 6);
         when "011" =>
-          mic_value_right <= to_unsigned((to_integer(sample_right(15 downto 8))-8192)*8+8192,16);
-          mic_value_left <= to_unsigned((to_integer(sample_left(15 downto 8))-8192)*8+8192,16);
+          mic_value_right <= to_unsigned((to_integer(sample_right(15 downto 8))-8192)*8+8192,16)(13 downto 6);
+          mic_value_left <= to_unsigned((to_integer(sample_left(15 downto 8))-8192)*8+8192,16)(13 downto 6);
         when "100" =>
-          mic_value_right <= to_unsigned((to_integer(sample_right(15 downto 8))-8192)*16+8192,16);
-          mic_value_left <= to_unsigned((to_integer(sample_left(15 downto 8))-8192)*16+8192,16);
+          mic_value_right <= to_unsigned((to_integer(sample_right(15 downto 8))-8192)*16+8192,16)(13 downto 6);
+          mic_value_left <= to_unsigned((to_integer(sample_left(15 downto 8))-8192)*16+8192,16)(13 downto 6);
         when "101" =>
-          mic_value_right <= to_unsigned((to_integer(sample_right(15 downto 8))-8192)*32+8192,16);
-          mic_value_left <= to_unsigned((to_integer(sample_left(15 downto 8))-8192)*32+8192,16);
+          mic_value_right <= to_unsigned((to_integer(sample_right(15 downto 8))-8192)*32+8192,16)(13 downto 6);
+          mic_value_left <= to_unsigned((to_integer(sample_left(15 downto 8))-8192)*32+8192,16)(13 downto 6);
         when "110" =>
-          mic_value_right <= to_unsigned((to_integer(sample_right(15 downto 8))-8192)*64+8192,16);
-          mic_value_left <= to_unsigned((to_integer(sample_left(15 downto 8))-8192)*64+8192,16);
+          mic_value_right <= to_unsigned((to_integer(sample_right(15 downto 8))-8192)*64+8192,16)(13 downto 6);
+          mic_value_left <= to_unsigned((to_integer(sample_left(15 downto 8))-8192)*64+8192,16)(13 downto 6);
         when others =>
-          mic_value_right <= to_unsigned((to_integer(sample_right(15 downto 8))-8192)*128+8192,16);
-          mic_value_left <= to_unsigned((to_integer(sample_left(15 downto 8))-8192)*128+8192,16);
+          mic_value_right <= to_unsigned((to_integer(sample_right(15 downto 8))-8192)*128+8192,16)(13 downto 6);
+          mic_value_left <= to_unsigned((to_integer(sample_left(15 downto 8))-8192)*128+8192,16)(13 downto 6);
       end case;
           
       if mic_divider = mic_sample_trigger then
@@ -1783,7 +1783,7 @@ begin  -- behavioural
               -- @IO:GS $D6FB.0-4 - WRITE set microphone trigger phase (DEBUG,WILLBEREMOVED)
               mic_sample_trigger(4 downto 0) <= fastio_wdata(4 downto 0);
               -- @IO:GS $D6FB.7-5 - WRITE set microphone gain
-              mig_gain <= fastio_wdata(7 downto 5);
+              mic_gain <= fastio_wdata(7 downto 5);
             when x"FC" =>
               -- @IO:GS $D6FC - WRITE set microphone sample frequency (DEBUG,WILLBEREMOVED)
               mic_divider_max(7 downto 0) <= fastio_wdata(7 downto 0);
