@@ -5923,7 +5923,7 @@ begin
     variable memory_access_resolve_address : std_logic := '0';
     variable memory_access_wdata : unsigned(7 downto 0) := x"FF";
     
-    variable shadow_address_var : integer range 0 to 131071 := 0;
+    variable shadow_address_var : integer range 0 to 1048575 := 0;
     variable shadow_write_var : std_logic := '0';
     variable shadow_read_var : std_logic := '0';
     variable shadow_wdata_var : unsigned(7 downto 0) := x"FF";
@@ -6849,7 +6849,7 @@ begin
 		  
                   if long_address(27 downto 20)=x"00" then
                     shadow_read_var := '1';
-                    shadow_address_var := to_integer(long_address(16 downto 0));
+                    shadow_address_var := to_integer(long_address(19 downto 0));
                   end if;
 		   
          if long_address(19 downto 14)&"00" = x"F8" then
