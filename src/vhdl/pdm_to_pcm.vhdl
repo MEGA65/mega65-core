@@ -36,7 +36,7 @@ entity pdm_to_pcm is
     clock : in std_logic;
     sample_clock : in std_logic;
     sample_bit : in std_logic;
-    sample_out : out unsigned(7 downto 0)
+    sample_out : out unsigned(15 downto 0)
     );
 end pdm_to_pcm;
 
@@ -45,7 +45,7 @@ architecture behavioural of pdm_to_pcm is
   subtype sample_t is integer range 0 to 65535;
   type samplearray_t is array(0 to 15) of sample_t;
     
-  signal recent_bits : std_logic_vector(31 downto 0) := (others => '0');
+  signal recent_bits : std_logic_vector(63 downto 0) := (others => '0');
   signal sum : sample_t := 0;
 
   signal recent_sums : samplearray_t :=( others => 0);
@@ -68,8 +68,8 @@ begin
 
         -- Stage 1: Counter: gives values 0-31 for count of 1s
         recent_bits(0) <= sample_bit;
-        recent_bits(31 downto 1) <= recent_bits(30 downto 0);
-        ny := std_logic(recent_bits(22))&std_logic(sample_bit);
+        recent_bits(63 downto 1) <= recent_bits(62 downto 0);
+        ny := std_logic(recent_bits(63))&std_logic(sample_bit);
         case ny is
           when "11" =>
             -- Total stays unchanged
@@ -98,11 +98,11 @@ begin
 --              & integer'image(recent_sums(i-1));
         end loop;            
         recent_sums(0) <= sum;
-        if ( rolling_sum + sum ) > recent_sums(10) then
+        if ( rolling_sum + sum ) > recent_sums(15) then
 --            report "rolling_sum <= " & integer'image(rolling_sum)
 --              & " + " & integer'image(sum)
---              & " - " & integer'image(recent_sums(10));
-          rolling_sum <= rolling_sum + sum - recent_sums(10);
+--              & " - " & integer'image(recent_sums(15));
+          rolling_sum <= rolling_sum + sum - recent_sums(15);
         else
           rolling_sum <= 0;
         end if;
@@ -115,15 +115,14 @@ begin
         report "sum = " & integer'image(sum);
         report "sample_value = " & integer'image(sample_value);
         report "rolling_sum = " & integer'image(rolling_sum);
-        if ( sample_value + rolling_sum ) > rolling_sums(11) then
+        if ( sample_value + rolling_sum ) > rolling_sums(15) then
           sample_value <= sample_value + rolling_sum - rolling_sums(15);
         else
           sample_value <= 0;
         end if;
 
-        sample_out <= to_unsigned(sample_value,12)(11 downto 4);
---        sample_out <= to_unsigned(rolling_sum,8);
---        sample_out <= to_unsigned(sum,8);
+        -- Get most significant bits of the sample
+        sample_out <= to_unsigned(sample_value,16);
           
       end if;
     end if;

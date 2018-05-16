@@ -198,13 +198,21 @@ architecture behavioural of sdcardio is
   signal force_mono : std_logic := '0';
   signal ampSD_internal : std_logic := '1';
 
+  -- These values seem to work about right.
+  -- Ideally we should be able to make the divider_max more like 10, which
+  -- should get 2 extra bits of audio resolution. To do that we need to shift
+  -- the filter cut-off down by a factor of 4 as well.
+  signal mic_divider_max : unsigned(7 downto 0) := to_unsigned(40,8);
   signal mic_sample_trigger : unsigned(7 downto 0) := to_unsigned(1,8);
+
   signal mic_do_sample_left : std_logic := '0';
   signal mic_do_sample_right : std_logic := '0';
-  signal mic_divider_max : unsigned(7 downto 0) := to_unsigned(20,8);
+  signal mic_gain : unsigned(2 downto 0) := "000";
   signal mic_divider : unsigned(7 downto 0) := "00000000";
   signal mic_value_left : unsigned(7 downto 0) := "00000000";
   signal mic_value_right : unsigned(7 downto 0) := "00000000";
+  signal sample_left : unsigned(7 downto 0) := to_unsigned(0,16);
+  signal sample_right : unsigned(7 downto 0) := to_unsigned(0,16);
   
   -- debounce reading from or writing to $D087 so that buffered read/write
   -- behaves itself.
@@ -393,14 +401,14 @@ begin  -- behavioural
       clock => clock,
       sample_clock => mic_do_sample_left,
       sample_bit => micData,
-      sample_out => mic_value_left);
+      sample_out => sample_left);
 
   mic0r: entity work.pdm_to_pcm
     port map (
       clock => clock,
       sample_clock => mic_do_sample_right,
       sample_bit => micData,
-      sample_out => mic_value_right);
+      sample_out => sample_right);
 
   sd0: entity work.sdcardctrl
     port map (
@@ -1136,6 +1144,33 @@ begin  -- behavioural
       -- microphone sampling process
       -- max frequency is 3MHz, optimal is about 2.5MHz according to
       -- https://pdfs.semanticscholar.org/a3f4/9749f4d3508f58c5ca4693f8bae9c403fc85.pdf
+      case mic_gain is
+        when "000" =>
+          mic_value_right <= sample_right(15 downto 8);
+          mic_value_left <= sample_left(15 downto 8);
+        when "001" =>
+          mic_value_right <= to_unsigned((to_integer(sample_right(15 downto 8))-8192)*2+8192,16);
+          mic_value_left <= to_unsigned((to_integer(sample_left(15 downto 8))-8192)*2+8192,16);
+        when "010" =>
+          mic_value_right <= to_unsigned((to_integer(sample_right(15 downto 8))-8192)*4+8192,16);
+          mic_value_left <= to_unsigned((to_integer(sample_left(15 downto 8))-8192)*4+8192,16);
+        when "011" =>
+          mic_value_right <= to_unsigned((to_integer(sample_right(15 downto 8))-8192)*8+8192,16);
+          mic_value_left <= to_unsigned((to_integer(sample_left(15 downto 8))-8192)*8+8192,16);
+        when "100" =>
+          mic_value_right <= to_unsigned((to_integer(sample_right(15 downto 8))-8192)*16+8192,16);
+          mic_value_left <= to_unsigned((to_integer(sample_left(15 downto 8))-8192)*16+8192,16);
+        when "101" =>
+          mic_value_right <= to_unsigned((to_integer(sample_right(15 downto 8))-8192)*32+8192,16);
+          mic_value_left <= to_unsigned((to_integer(sample_left(15 downto 8))-8192)*32+8192,16);
+        when "110" =>
+          mic_value_right <= to_unsigned((to_integer(sample_right(15 downto 8))-8192)*64+8192,16);
+          mic_value_left <= to_unsigned((to_integer(sample_left(15 downto 8))-8192)*64+8192,16);
+        when others =>
+          mic_value_right <= to_unsigned((to_integer(sample_right(15 downto 8))-8192)*128+8192,16);
+          mic_value_left <= to_unsigned((to_integer(sample_left(15 downto 8))-8192)*128+8192,16);
+      end case;
+          
       if mic_divider = mic_sample_trigger then
         mic_do_sample_left <= micclkinternal;
         mic_do_sample_right <= not micclkinternal;
@@ -1745,11 +1780,13 @@ begin  -- behavioural
               -- 8-bit digital audio out
               pwm_value_new_right <= fastio_wdata;
             when x"FB" =>
-              -- @IO:GS $D6FB - WRITE set microphone trigger phase (DEBUG,WILLBEREMOVED)
-              mic_sample_trigger <= fastio_wdata;
+              -- @IO:GS $D6FB.0-4 - WRITE set microphone trigger phase (DEBUG,WILLBEREMOVED)
+              mic_sample_trigger(4 downto 0) <= fastio_wdata(4 downto 0);
+              -- @IO:GS $D6FB.7-5 - WRITE set microphone gain
+              mig_gain <= fastio_wdata(7 downto 5);
             when x"FC" =>
               -- @IO:GS $D6FC - WRITE set microphone sample frequency (DEBUG,WILLBEREMOVED)
-              mic_divider_max(6 downto 0) <= fastio_wdata(6 downto 0);
+              mic_divider_max(7 downto 0) <= fastio_wdata(7 downto 0);
             when x"FF" =>
               -- @IO:GS $D6FF - Flash bit-bashing port
               -- Flash interface

@@ -13,7 +13,7 @@ architecture foo of test_pdm is
   signal sample_clock : std_logic := '0';
   signal sample_bit : std_logic := '0';
   signal sample_bit_i : std_logic := '0';
-  signal sample_out : unsigned(7 downto 0) := x"00";
+  signal sample_out : unsigned(15 downto 0) := x"0000";
   
 begin
 
