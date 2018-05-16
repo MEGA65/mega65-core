@@ -40,7 +40,8 @@ begin
     wait for 10 ns;
       
     sample_bit_i <= not sample_bit_i;
-    sample_bit <= sample_bit_i;
+--    sample_bit <= sample_bit_i;
+    sample_bit <= '1';
   end process;
 
 end foo;
