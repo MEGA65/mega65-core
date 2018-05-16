@@ -337,9 +337,9 @@ architecture Behavioral of machine is
   signal fastio_vic_rdata : std_logic_vector(7 downto 0);
   signal colour_ram_fastio_rdata : std_logic_vector(7 downto 0);
 
-  signal chipram_we : STD_LOGIC;
+  --signal chipram_we : STD_LOGIC;
   signal chipram_address : unsigned(16 DOWNTO 0);
-  signal chipram_datain : unsigned(7 DOWNTO 0);
+  signal chipram_data : unsigned(7 DOWNTO 0);
   
   signal rom_at_e000 : std_logic := '0';
   signal rom_at_c000 : std_logic := '0';
@@ -820,9 +820,9 @@ begin
       slow_access_wdata => slow_access_wdata,
       slow_access_rdata => slow_access_rdata,
       
-      chipram_we => chipram_we,
+      chipram_clk => pixelclock,
       chipram_address => chipram_address,
-      chipram_datain => chipram_datain,
+      chipram_dataout => chipram_data,
 
       cpu_leds => cpu_leds,
       
@@ -984,9 +984,9 @@ begin
       pixel_y_scale_200 => pixel_y_scale_200,
       pixel_y_scale_400 => pixel_y_scale_400,
       
-      chipram_we => chipram_we,
+      --chipram_we => chipram_we,
       chipram_address => chipram_address,
-      chipram_datain => chipram_datain,
+      chipram_datain => chipram_data,
       colour_ram_fastio_rdata => colour_ram_fastio_rdata,
       colour_ram_cs => colour_ram_cs,
       charrom_write_cs => charrom_write_cs,
