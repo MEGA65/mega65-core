@@ -123,10 +123,10 @@ entity viciv is
     pixel_y_scale_200 : out unsigned(3 downto 0) := (others => '0');
     
     ---------------------------------------------------------------------------
-    -- CPU Interface to ChipRAM in video controller (just 128KB for now)
+    -- CPU Interface to ChipRAM in video controller (allow upto 1MB)
     ---------------------------------------------------------------------------
     --chipram_we : IN STD_LOGIC;
-    chipram_address : OUT unsigned(16 DOWNTO 0);
+    chipram_address : OUT unsigned(19 DOWNTO 0);
     chipram_datain : IN unsigned(7 DOWNTO 0);
     
     -----------------------------------------------------------------------------
@@ -325,15 +325,15 @@ architecture Behavioral of viciv is
   signal screen_ram_buffer_dout : unsigned(7 downto 0) := x"00";
   
   -- Internal registers used to keep track of the screen ram for the current row
-  signal screen_row_address : unsigned(16 downto 0) := to_unsigned(0,17);
-  signal screen_row_current_address : unsigned(16 downto 0) := to_unsigned(0,17);
+  signal screen_row_address : unsigned(19 downto 0) := to_unsigned(0,20);
+  signal screen_row_current_address : unsigned(19 downto 0) := to_unsigned(0,20);
 
   signal full_colour_fetch_count : integer range 0 to 8 := 0;
   signal full_colour_data : unsigned(63 downto 0) := (others => '0');
   signal paint_full_colour_data : unsigned(63 downto 0) := (others => '0');
 
   -- chipram access management registers
-  signal next_ramaddress : unsigned(16 downto 0);
+  signal next_ramaddress : unsigned(19 downto 0);
   signal next_ramaccess_is_screen_row_fetch : std_logic := '0';
   signal this_ramaccess_is_screen_row_fetch : std_logic := '0';
   signal last_ramaccess_is_screen_row_fetch : std_logic := '0';
@@ -350,10 +350,10 @@ architecture Behavioral of viciv is
   signal next_ramaccess_screen_row_buffer_address : unsigned(8 downto 0) := to_unsigned(0,9);
   signal last_ramaccess_screen_row_buffer_address : unsigned(8 downto 0) := to_unsigned(0,9);
   signal final_ramaccess_screen_row_buffer_address : unsigned(8 downto 0) := to_unsigned(0,9);
-  signal next_screen_row_fetch_address : unsigned(16 downto 0) := to_unsigned(0,17);
-  signal this_screen_row_fetch_address : unsigned(16 downto 0) := to_unsigned(0,17);
-  signal last_screen_row_fetch_address : unsigned(16 downto 0) := to_unsigned(0,17);
-  signal final_screen_row_fetch_address : unsigned(16 downto 0) := to_unsigned(0,17);
+  signal next_screen_row_fetch_address : unsigned(19 downto 0) := to_unsigned(0,20);
+  signal this_screen_row_fetch_address : unsigned(19 downto 0) := to_unsigned(0,20);
+  signal last_screen_row_fetch_address : unsigned(19 downto 0) := to_unsigned(0,20);
+  signal final_screen_row_fetch_address : unsigned(19 downto 0) := to_unsigned(0,20);
   signal final_ramdata : unsigned(7 downto 0) := to_unsigned(0,8);
 
   -- Internal registers for drawing a single raster of character data to the
@@ -585,13 +585,13 @@ architecture Behavioral of viciv is
   signal pixel_is_sprite : std_logic;
 
   signal sprite_fetch_drive : std_logic := '0';
-  signal sprite_fetch_sprite_number : integer range 0 to 31;
-  signal sprite_fetch_byte_number : integer range 0 to 319;
-  signal sprite_fetch_sprite_number_drive : integer range 0 to 31;
-  signal sprite_fetch_byte_number_drive : integer range 0 to 319;
-  signal sprite_pointer_address : unsigned(16 downto 0);
-  signal sprite_data_address : unsigned(16 downto 0);
-  signal sprite_h640_msbs : std_logic_vector(7 downto 0);
+  signal sprite_fetch_sprite_number : integer range 0 to 31 := 0;
+  signal sprite_fetch_byte_number : integer range 0 to 319 := 0;
+  signal sprite_fetch_sprite_number_drive : integer range 0 to 31 := 0;
+  signal sprite_fetch_byte_number_drive : integer range 0 to 319 := 0;
+  signal sprite_pointer_address : unsigned(19 downto 0) := to_unsigned(0,20);
+  signal sprite_data_address : unsigned(19 downto 0) := to_unsigned(0,20);
+  signal sprite_h640_msbs : std_logic_vector(7 downto 0) := x"00";
 
   -- Compatibility registers
   signal twentyfourlines : std_logic := '0';
@@ -683,10 +683,10 @@ architecture Behavioral of viciv is
   signal chargen_y_sub : unsigned(4 downto 0);
 
   -- Common bitmap and character drawing info
-  signal glyph_data_address : unsigned(16 downto 0);
+  signal glyph_data_address : unsigned(19 downto 0);
 
   -- For holding pre-calculated expressions to flatten logic
-  signal bitmap_glyph_data_address : unsigned(16 downto 0);
+  signal bitmap_glyph_data_address : unsigned(19 downto 0);
 
 
   -- Bitmap drawing info
@@ -794,8 +794,8 @@ architecture Behavioral of viciv is
   signal xbackporch_edge : std_logic;
   signal last_xbackporch_edge : std_logic;
 
-  signal last_ramaddress : unsigned(16 downto 0);
-  signal ramaddress : unsigned(16 downto 0);
+  signal last_ramaddress : unsigned(19 downto 0);
+  signal ramaddress : unsigned(19 downto 0);
   signal ramdata : unsigned(7 downto 0);
   signal ramdata_drive : unsigned(7 downto 0);
 
@@ -890,7 +890,7 @@ architecture Behavioral of viciv is
   -- We have a simple call-stack scheme, where GOTO tokens and GOSUB tokens
   -- can cause redirection of the screen RAM stream being read. This happens
   -- during the badline fetch, i.e., once per character row.
-  type screenline_return_stack_t is  array (0 to 3) of unsigned(16 downto 0);
+  type screenline_return_stack_t is  array (0 to 3) of unsigned(19 downto 0);
   signal screenline_return_stack : screenline_return_stack_t;
   signal screenline_return_stack_count : integer range 0 to 3 := 0;
   -- Some tokens can also set other interesting parameters, such as whether
@@ -949,19 +949,6 @@ begin
       addra  => std_logic_vector(screen_ram_buffer_write_address(8 downto 0)),
       addrb  => std_logic_vector(screen_ram_buffer_read_address(8 downto 0))
       );
-
-  --chipram0: entity work.chipram8bit
-  --  port map (
-  --    -- CPU side port (write)
-  --    clka => cpuclock,
-  --    wea(0) => chipram_we,
-  --    addra => std_logic_vector(chipram_address),
-  --    dina => std_logic_vector(chipram_datain),
-  --    -- VIC-IV side port (read)
-  --    clkb => pixelclock,
-  --    addrb => std_logic_vector(next_ramaddress),
-  --    unsigned(doutb) => ramdata
-  --    );
 
   colourram: block
   begin
@@ -2080,7 +2067,7 @@ begin
 -- XXX          charaddress(11) <= fastio_wdata(1);
           -- Bits 14 and 15 get set by writing to $DD00, as the VIC-IV sniffs
           -- that CIA register being written on the fastio bus.
-          screen_ram_base(16) <= '0';
+          screen_ram_base(19 downto 16) <= "0000";
           -- @IO:C64 $D018.7-4 VIC-II screen address (*1KB)
           reg_d018_screen_addr <= unsigned(fastio_wdata(7 downto 4));
           viciv_legacy_mode_registers_touched <= '1';
@@ -2990,7 +2977,7 @@ begin
             displayline0 <= '1';
             indisplay := '0';
             report "clearing indisplay because xcounter=0" severity note;
-            screen_row_address <= screen_ram_base(16 downto 0);
+            screen_row_address <= screen_ram_base(19 downto 0);
 
             -- Reset VIC-II raster counter to first raster for top of frame
             -- (the preceeding rasters occur during vertical flyback, in case they
@@ -3213,7 +3200,7 @@ begin
         bump_screen_row_address <= '0';
 
         -- Compute the address for the screen row.
-        screen_row_address <= screen_ram_base(16 downto 0) + first_card_of_row;
+        screen_row_address <= screen_ram_base(19 downto 0) + first_card_of_row;
 
         if before_y_chargen_start='0' then
           -- Increment card number every "bad line"
@@ -3538,13 +3525,13 @@ begin
           + (to_integer(screen_ram_buffer_read_address)+to_integer(prev_first_card_of_row))*8+to_integer(chargen_y_hold);
       else
         bitmap_glyph_data_address
-          <= (character_set_address(16 downto 13)&"0"&x"000")
+          <= (character_set_address(19 downto 13)&"0"&x"000")
           + (to_integer(screen_ram_buffer_read_address)+to_integer(prev_first_card_of_row))*8+to_integer(chargen_y_hold);
       end if;
       if xcounter = 0 then
         report "LEGACY: bitmap_glyph_data_address = $"
           & to_hstring(
-            to_unsigned(to_integer(character_set_address(16 downto 13))*8192
+            to_unsigned(to_integer(character_set_address(19 downto 13))*8192
                         + to_integer(screen_ram_buffer_read_address)
                         +to_integer(first_card_of_row)*8
                         +to_integer(chargen_y_hold)
@@ -3608,6 +3595,8 @@ begin
               if next_token_is_goto='1' then
                 -- Set screen RAM fetch to the value of this token (shifted
                 -- left one bit).
+                -- XXX goto tokens can only point to first 128KB of RAM.
+                next_screen_row_fetch_address(19 downto 17) <= "000";
                 next_screen_row_fetch_address(16 downto 1) <= screen_line_last_token;
                 next_screen_row_fetch_address(0) <= '0';
                 -- Flush screen row buffer fetch pipeline while waiting for
@@ -3850,8 +3839,10 @@ begin
           if glyph_full_colour='1' then
             report "glyph is full colour";
             -- Full colour glyphs come from 64*(glyph_number) in RAM, never
-            -- from character ROM.  128KB/64 = 2048 possible glyphs.
-            glyph_data_address(16 downto 6) <= glyph_number(10 downto 0);
+            -- from character ROM.  As we only have 2^16 positions, the glyphs
+            -- must be in only the first 512KB of chipram.
+            glyph_data_address(19) <= '0';
+            glyph_data_address(18 downto 6) <= glyph_number(12 downto 0);
             if glyph_flip_vertical='1' then
               glyph_data_address(5 downto 3) <= not chargen_y_hold;
             else
@@ -3868,11 +3859,11 @@ begin
             -- Again, we take into account if we are flipping vertically.
             if glyph_flip_vertical='0' then
               glyph_data_address
-                <= character_set_address(16 downto 0)
+                <= character_set_address(19 downto 0)
                 + to_integer(glyph_number)*8+to_integer(chargen_y_hold);
             else
               glyph_data_address
-                <= character_set_address(16 downto 0)
+                <= character_set_address(19 downto 0)
                 + to_integer(glyph_number)*8+7-to_integer(chargen_y_hold);
             end if;
             -- Mark as possibly coming from ROM
@@ -3881,8 +3872,8 @@ begin
           raster_fetch_state <= FetchTextCellColourAndSource;
         when FetchBitmapData =>
           if character_data_from_rom = '1' then
-            if glyph_data_address(16 downto 12) = "0"&x"1"
-              or glyph_data_address(16 downto 12) = "0"&x"9" then
+            if glyph_data_address(19 downto 12) = "0000"&x"1"
+              or glyph_data_address(19 downto 12) = "0000"&x"9" then
               report "reading from rom: glyph_data_address=$" & to_hstring(glyph_data_address(15 downto 0))
                 & "chargen_y_hold=" & to_string(std_logic_vector(chargen_y_hold)) severity note;
               character_data_from_rom <= '1';
@@ -3912,8 +3903,8 @@ begin
         when FetchTextCellColourAndSource =>
           -- Finally determine whether source is from RAM or CHARROM
           if character_data_from_rom = '1' then
-            if glyph_data_address(16 downto 12) = "0"&x"1"
-              or glyph_data_address(16 downto 12) = "0"&x"9" then
+            if glyph_data_address(19 downto 12) = "0000"&x"1"
+              or glyph_data_address(19 downto 12) = "0000"&x"9" then
               report "reading from rom: glyph_data_address=$" & to_hstring(glyph_data_address(15 downto 0))
                 & "chargen_y=" & to_string(std_logic_vector(chargen_y_hold)) severity note;
               character_data_from_rom <= '1';
@@ -4174,19 +4165,19 @@ begin
             max_sprite_fetch_byte_number <= 7;
             if vicii_sprite_pointer_address(23)='0' then
               -- Normal 8-bit sprite pointers
-              sprite_pointer_address(16 downto 3) <= vicii_sprite_pointer_address(16 downto 3);
+              sprite_pointer_address(19 downto 3) <= vicii_sprite_pointer_address(19 downto 3);
               sprite_pointer_address(2 downto 0) <=  to_unsigned(sprite_fetch_sprite_number,3);
               report "SPRITE: will fetch pointer value from $" &
-                to_hstring("000"&(vicii_sprite_pointer_address(16 downto 0) + sprite_fetch_sprite_number));
+                to_hstring(vicii_sprite_pointer_address(19 downto 0) + sprite_fetch_sprite_number);
             else
               -- 16-bit sprite pointers, allowing sprites to be sourced from
               -- anywhere in first 64K x 64 = 4MB of chip RAM (of which we
               -- currently have only 128KB :)
-              sprite_pointer_address(16 downto 4) <= vicii_sprite_pointer_address(16 downto 4);
+              sprite_pointer_address(19 downto 4) <= vicii_sprite_pointer_address(19 downto 4);
               sprite_pointer_address(3 downto 1) <=  to_unsigned(sprite_fetch_sprite_number,3);
               sprite_pointer_address(0) <= '0';
               report "SPRITE: will fetch pointer LSB from $" &
-                to_hstring("000"&(vicii_sprite_pointer_address(16 downto 0) + sprite_fetch_sprite_number*2));              
+                to_hstring(vicii_sprite_pointer_address(19 downto 0) + sprite_fetch_sprite_number*2);
             end if;
             raster_fetch_state <= SpritePointerFetch2;
           else
@@ -4259,11 +4250,11 @@ begin
             -- 16-bit sprite pointers, allowing sprites to be sourced from
             -- anywhere in first 64K x 64 = 4MB of chip RAM (of which we
             -- currently have only 128KB :)
-            sprite_pointer_address(16 downto 4) <= vicii_sprite_pointer_address(16 downto 4);
+            sprite_pointer_address(19 downto 4) <= vicii_sprite_pointer_address(19 downto 4);
             sprite_pointer_address(3 downto 1) <=  to_unsigned(sprite_fetch_sprite_number,3);
             sprite_pointer_address(0) <= '1';
             report "SPRITE: will fetch pointer MSB from $" &
-              to_hstring("000"&(vicii_sprite_pointer_address(16 downto 0) + sprite_fetch_sprite_number*2));              
+              to_hstring(vicii_sprite_pointer_address(19 downto 0) + sprite_fetch_sprite_number*2);
           end if;          
         when SpritePointerCompute1 =>
           -- Drive stage for ram data to improve timing closure
@@ -4292,10 +4283,10 @@ begin
             --  sprite_data_address(14) <= sprite_pointer_address(14);
             --  sprite_data_address(13 downto 0) <= (ramdata_drive&"000000") + to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
             if (reg_h640='1' or reg_h1280='1') then
-              sprite_data_address(16 downto 14) <= sprite_pointer_address(16 downto 14);
+              sprite_data_address(19 downto 14) <= sprite_pointer_address(19 downto 14);
               sprite_data_address(13 downto 0) <= to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
             else
-              sprite_data_address(16 downto 13) <= sprite_pointer_address(16 downto 13);
+              sprite_data_address(19 downto 13) <= sprite_pointer_address(19 downto 13);
               sprite_data_address(12 downto 0) <= to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),13);
             end if;
           end if;
@@ -4307,19 +4298,19 @@ begin
         when SpritePointerComputeMSB =>
           -- Copy in MSB bits for sprite data address
           -- XXX It would be nice to use bit 7 to indicate to source from
-          -- colour RAM, but for now we just clip to the 128KB of chip RAM
+          -- colour RAM, but for now we just clip to the 1MB chip RAM range
           report "SPRITE: setting upper bits of sprite data address to $" & to_hstring(ramdata_drive);
-          sprite_data_address(16 downto 14) <= ramdata_drive(2 downto 0);
+          sprite_data_address(19 downto 14) <= ramdata_drive(5 downto 0);
           raster_fetch_state <= SpriteDataFetch;          
         when SpriteDataFetch =>
           report "SPRITE: fetching sprite #"
             & integer'image(sprite_fetch_sprite_number)
-            & " data from $" & to_hstring("000"&sprite_data_address(16 downto 0));
+            & " data from $" & to_hstring(sprite_data_address(19 downto 0));
           
           if sprite_fetch_sprite_number < 8 then
-            sprite_data_address(16 downto 0) <= sprite_data_address(16 downto 0) + 1;
+            sprite_data_address(19 downto 0) <= sprite_data_address(19 downto 0) + 1;
           else
-            sprite_data_address(16 downto 0) <= sprite_data_address(16 downto 0) + 8;
+            sprite_data_address(19 downto 0) <= sprite_data_address(19 downto 0) + 8;
           end if;
           raster_fetch_state <= SpriteDataFetch2;
         when SpriteDataFetch2 =>
@@ -4327,12 +4318,12 @@ begin
             & integer'image(sprite_fetch_sprite_number)
             & " data = $" &
             to_hstring(ramdata)
-            & " from $" & to_hstring("000"&sprite_data_address(16 downto 0))
+            & " from $" & to_hstring(sprite_data_address(19 downto 0))
             & " for byte number " & integer'image(sprite_fetch_byte_number);
           if sprite_fetch_sprite_number < 8 then
-            sprite_data_address(16 downto 0) <= sprite_data_address(16 downto 0) + 1;
+            sprite_data_address(19 downto 0) <= sprite_data_address(19 downto 0) + 1;
           else
-            sprite_data_address(16 downto 0) <= sprite_data_address(16 downto 0) + 8;
+            sprite_data_address(19 downto 0) <= sprite_data_address(19 downto 0) + 8;
           end if;
 
           -- Schedule pushing fetched sprite/bitplane byte to next cycle when
@@ -4703,8 +4694,8 @@ begin
         -- Set all signals for both eventuality, since none are shared between
         -- the two paths.  This helps keep the logic shallow.
         screen_row_current_address
-          <= to_unsigned(to_integer(screen_ram_base(16 downto 0))
-                         + to_integer(first_card_of_row),17);
+          <= to_unsigned(to_integer(screen_ram_base(19 downto 0))
+                         + to_integer(first_card_of_row),20);
         card_of_row <= (others =>'0');
         screen_ram_buffer_write_address <= to_unsigned(0,9);
         screen_ram_buffer_read_address <= to_unsigned(0,9);

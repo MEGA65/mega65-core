@@ -52,10 +52,10 @@ int main(int argc,char **argv)
 
   char *outfile=NULL;
   
-  int bytes=128*1024-1;
+  int bytes=1024*1024-1;
   char name[1024]="shadowram";
   
-  int ar_size=128*1024;
+  int ar_size=1024*1024;
   unsigned char archive[ar_size];
 
   // Start with empty memory
@@ -91,14 +91,14 @@ int main(int argc,char **argv)
 	  "--\n"
 	  "entity %s is\n"
 	  "  port (ClkA : in std_logic;\n"
-	  "        addressa : in integer range 0 to %d;\n"
+	  "        addressa : in integer range 0 to 1048575;\n"
 	  "        wea : in std_logic;\n"
 	  "        dia : in unsigned(7 downto 0);\n"
 	  "        writes : out unsigned(7 downto 0);\n"
 	  "        no_writes : out unsigned(7 downto 0);\n"
 	  "        doa : out unsigned(7 downto 0);\n"
 	  "        ClkB : in std_logic;\n"
-          "        addressb : in unsigned(16 downto 0);\n"
+          "        addressb : in unsigned(19 downto 0);\n"
           "        dob : out unsigned(7 downto 0)\n"
 	  "        );\n"
 	  "end %s;\n"
@@ -110,7 +110,7 @@ int main(int argc,char **argv)
 	  "  \n"
 	  "  type ram_t is array (0 to %d) of unsigned(7 downto 0);\n"
 	  "  shared variable ram : ram_t := (\n",
-	  name,bytes,name,name,bytes);
+	  name,name,name,bytes);
 
   for(i=0;i<bytes;i++)
 //    if (archive[i])
@@ -129,22 +129,32 @@ int main(int argc,char **argv)
 	  "    if(rising_edge(ClkA)) then \n"
 	  "      if wea /= '0' then\n"
 	  "        write_count <= write_count + 1;        \n"
-	  "        ram(addressa) := dia;\n"
+	  "        if %d>addressa then\n"	  
+	  "          ram(addressa) := dia;\n"
+	  "        end if;\n"
 	  "      else\n"
 	  "        no_write_count <= no_write_count + 1;        \n"
 	  "      end if;\n"
-	  "      doa <= ram(addressa);\n"
+	  "      if %d>addressa then\n"	  
+	  "        doa <= ram(addressa);\n"
+	  "      else\n"
+	  "        doa <= x\"BD\";\n"
+	  "      end if;\n"
 	  "    end if;\n"
 	  "  END PROCESS;\n"
           "PROCESS(ClkB)\n"
           "BEGIN\n"
           "  if(rising_edge(ClkB)) then\n"
-	  "    dob <= ram(to_integer(addressb));\n"
+	  "    if %d>to_integer(addressb) then\n"
+	  "      dob <= ram(to_integer(addressb));\n"
+	  "    else\n"
+	  "      dob <= x\"BD\";\n"
+          "    end if;\n"
           "  end if;\n"
           "END PROCESS;\n"
 	  "\n"
-	  "end Behavioral;\n"
-	  );
+	  "end Behavioral;\n",
+	  bytes+1,bytes+1,bytes+1);
   
   fclose(o);
   fprintf(stderr,"%d bytes written\n",bytes);

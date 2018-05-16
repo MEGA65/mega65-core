@@ -338,7 +338,7 @@ architecture Behavioral of machine is
   signal colour_ram_fastio_rdata : std_logic_vector(7 downto 0);
 
   --signal chipram_we : STD_LOGIC;
-  signal chipram_address : unsigned(16 DOWNTO 0);
+  signal chipram_address : unsigned(19 DOWNTO 0);
   signal chipram_data : unsigned(7 DOWNTO 0);
   
   signal rom_at_e000 : std_logic := '0';
