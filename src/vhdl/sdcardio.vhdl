@@ -1146,8 +1146,16 @@ begin  -- behavioural
       -- https://pdfs.semanticscholar.org/a3f4/9749f4d3508f58c5ca4693f8bae9c403fc85.pdf
       case mic_gain is
         when "000" =>
-          mic_value_right <= to_unsigned(to_integer(sample_right(13 downto 6))-64,8);
-           mic_value_left <= to_unsigned(to_integer(sample_left(13 downto 6))-64,8);
+          if to_integer(sample_right(13 downto 6))>63 then
+            mic_value_right <= to_unsigned(to_integer(sample_right(13 downto 6))-64,8);
+          else
+            mic_value_right <= x"00";
+          end if;
+          if to_integer(sample_left(13 downto 6))>63 then
+            mic_value_left <= to_unsigned(to_integer(sample_left(13 downto 6))-64,8);
+          else
+            mic_value_left <= x"00";
+          end if;            
         when "001" =>
           mic_value_right <= to_unsigned((to_integer(sample_right(15 downto 8))-8192)*2+8192,16)(13 downto 6);
           mic_value_left <= to_unsigned((to_integer(sample_left(15 downto 8))-8192)*2+8192,16)(13 downto 6);
