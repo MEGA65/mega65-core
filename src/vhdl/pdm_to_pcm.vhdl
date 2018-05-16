@@ -92,44 +92,33 @@ begin
         end case;
 
         -- Stage 2: Sum recent sums: Range is 0 - 10x31 = 310
-        if sample_count /= 10 then
-          sample_count <= sample_count + 1;
-        else
-          sample_count <= 0;
-          
-          for i in 15 downto 1 loop
-            recent_sums(i) <= recent_sums(i-1);
---            report "recent_sums(" & integer'image(i) & ") = "
+        for i in 15 downto 1 loop
+          recent_sums(i) <= recent_sums(i-1);
+--              report "recent_sums(" & integer'image(i) & ") = "
 --              & integer'image(recent_sums(i-1));
-          end loop;            
-          recent_sums(0) <= sum;
-          if ( rolling_sum + sum ) > recent_sums(10) then
+        end loop;            
+        recent_sums(0) <= sum;
+        if ( rolling_sum + sum ) > recent_sums(10) then
 --            report "rolling_sum <= " & integer'image(rolling_sum)
 --              & " + " & integer'image(sum)
 --              & " - " & integer'image(recent_sums(10));
-            rolling_sum <= rolling_sum + sum - recent_sums(10);
-          else
-            rolling_sum <= 0;
-          end if;
+          rolling_sum <= rolling_sum + sum - recent_sums(10);
+        else
+          rolling_sum <= 0;
+        end if;
 
-          -- Stage 3: Sum those recent sums: Range is 0 to 13x10x31 = ~4K
-          if rolling_sum_count /= 15 then
-            rolling_sum_count <= rolling_sum_count + 1;
-          else
-            rolling_sum_count <= 0;
-            for i in 15 downto 1 loop
-              rolling_sums(i) <= rolling_sums(i-1);
-            end loop;
-            rolling_sums(0) <= rolling_sum;
-            report "sum = " & integer'image(sum);
-            report "sample_value = " & integer'image(sample_value);
-            report "rolling_sum = " & integer'image(rolling_sum);
-            if ( sample_value + rolling_sum ) > rolling_sums(11) then
-              sample_value <= sample_value + rolling_sum - rolling_sums(11);
-            else
-              sample_value <= 0;
-            end if;
-          end if;        
+        -- Stage 3: Sum those recent sums: Range is 0 to 13x10x31 = ~4K
+        for i in 15 downto 1 loop
+          rolling_sums(i) <= rolling_sums(i-1);
+        end loop;
+        rolling_sums(0) <= rolling_sum;
+        report "sum = " & integer'image(sum);
+        report "sample_value = " & integer'image(sample_value);
+        report "rolling_sum = " & integer'image(rolling_sum);
+        if ( sample_value + rolling_sum ) > rolling_sums(11) then
+          sample_value <= sample_value + rolling_sum - rolling_sums(11);
+        else
+          sample_value <= 0;
         end if;
 
         sample_out <= to_unsigned(sample_value,12)(11 downto 4);
