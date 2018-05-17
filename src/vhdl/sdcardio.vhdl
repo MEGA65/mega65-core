@@ -1820,8 +1820,8 @@ begin  -- behavioural
                 i2c0_reset_internal <= fastio_wdata(0);
                 i2c0_command_en <= fastio_wdata(1);
                 i2c0_command_en_internal <= fastio_wdata(1);
-                i2c0_rw <= fastio_wdata(0);
-                i2c0_rw <= fastio_wdata(0);
+                i2c0_rw <= fastio_wdata(2);
+                i2c0_rw_internal <= fastio_wdata(2);
               end if;
             when x"D2" =>
               -- @IO:GS $D6D2.7-1 - I2C address
