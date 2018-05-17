@@ -199,8 +199,9 @@ begin  -- behavioural
 
   -- 4K buffer for holding buffered bitplane data for rendering.
   -- 8 bitplanes x 512 bytes = 4KB.
-  -- This is plenty, since we actually only read 80 bytes max per bitplane per
-  -- line (actually upto 320 bytes per line when using bitplanes in 16-colour mode)
+  -- This is plenty, since we actually only read 100 bytes max per bitplane
+  -- (800 pixel wide mode) per
+  -- line (actually upto 400 bytes per line when using bitplanes in 16-colour mode)
   bitplanedatabuffer: component ram8x4096
     port map (clk => pixelclock,
               w => bitplanedatabuffer_write,
@@ -393,6 +394,10 @@ begin  -- behavioural
         x_left <= '0';
       end if;
 
+      if bitplane_h640 = '1' and bitplane_h1280 = '1' then
+        if v_x_in > (v_bitplane_x_start + to_integer(signed(std_logic_vector(bitplanes_x_start))) + 800) then
+          x_in_bitplanes <= '0';
+        end if;        
       if bitplane_h640 = '1' then
         if v_x_in > (v_bitplane_x_start + to_integer(signed(std_logic_vector(bitplanes_x_start))) + 640) then
           x_in_bitplanes <= '0';
