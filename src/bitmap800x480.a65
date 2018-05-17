@@ -72,6 +72,84 @@ _next:	 .word 0
 	 LDA	#$00
 	 STA	$D05F
 
+	 ; Set screen ram that has 100x60 cells x 2 bytes per cell = 12,000 bytes of colour
+	 ; information for bitmap mode.
+	 ; First byte is foreground colour (8-bit) and second byte is background colour (also 8-bit),
+	 ; so each 8x8 cell can still have only 2 colours, but they can be chosen from the whole
+	 ; palette.
+	 LDA #<4096
+	 STA $D060
+	 LDA #>4096
+	 STA $D061
+	 LDA #0
+	 STA $D062
+	 STA $D063
+	 ; Set bitmap data to somewhere that has 100x60 x 8 = 48,000 bytes of RAM.
+	 ; (We are using 2nd bank of 64KB for this)
+	 ; NOTE: This can't actually be set freely (yet), but will be on 16KB boundaries.
+	 LDA #<16384
+	 STA $D068
+	 LDA #>16384
+	 STA $D069
+	 LDA #1
+	 STA $D06A
+
+	 ; Setup foreground/background colours
+	 LDA #<4096
+	 STA $FB
+	 LDA #>4096
+	 STA $FC
+
+	 LDX #100
+	 LDZ #$00
+	 LDA #$00
+colloop:
+	 STA ($FB),Z
+	 INZ
+	 PHA
+	 TXA
+	 STA ($FB),Z
+	 INZ
+	 PLA
+	 DEX
+	 BNE cc1
+	 INC
+	 LDX #100
+cc1:
+	 CPZ #$00
+	 bne colloop
+	 inc $fc
+	 ldy $fc
+	 cpy #$40
+	 bne colloop
+
+
+	 ; Initialise a nice screen of triangles
+	 LDA #<16384
+	 STA $FB
+	 LDA #>16384
+	 STA $FC
+	 LDA #<1
+	 STA $FD
+	 LDA #>1
+	 STA $FE
+
+	 LDZ #$00
+charloop:
+	 LDA #$FF
+	 LDX #7
+c1:	 NOP
+	 STA ($FB),Z
+	 LSR	 
+	 INZ
+	 DEX
+	 BPL c1
+	 CPZ #$00
+	 bne charloop
+	 inc $FC
+	 LDA $FC
+	 CMP #$00
+	 BNE charloop
 
 loop:	 JMP	loop
 

@@ -519,7 +519,7 @@ architecture Behavioral of viciv is
   signal dat_y : unsigned(7 downto 0) := x"00";
   signal dat_bitplane_offset : unsigned(15 downto 0) := x"0000";
   signal bitplane_addresses : sprite_vector_eight;
-  signal max_sprite_fetch_byte_number : integer range 0 to 319 := 0;
+  signal max_sprite_fetch_byte_number : integer range 0 to 399 := 0;
   
   -- Extended sprite features
   signal sprite_extended_height_enables : std_logic_vector(7 downto 0) := "00000000";
@@ -3206,8 +3206,15 @@ begin
           -- Increment card number every "bad line"
           report "LEGACY: Advancing first_card_of_row due to end of character";
           first_card_of_row <= to_unsigned(to_integer(first_card_of_row) + row_advance,16);
-          -- Similarly update the colour ram fetch address
-          colourramaddress <= to_unsigned(to_integer(colour_ram_base) + row_advance,16);
+          if bitmap_mode='0' or sixteenbit_charset='0' then
+            -- Similarly update the colour ram fetch address
+            colourramaddress <= to_unsigned(to_integer(colour_ram_base) + row_advance,16);
+          else
+            -- Bitmap + 16-bit character set mode is funny, however, because we
+            -- use 2 bytes of colour ram for every byte of bitmap data, so we
+            -- have to double the advance
+            colourramaddress <= to_unsigned(to_integer(colour_ram_base) + row_advance + row_advance,16);
+          end if;
         else
           report "LEGACY: NOT advancing first_card_of_row due to end of character (before_y_chargen_start=1)";
         end if;
@@ -3521,11 +3528,11 @@ begin
       -- row from the next char card row down the screen.
       if reg_h640='1' then
         bitmap_glyph_data_address
-          <= (character_set_address(19 downto 16)&character_set_address(14 downto 13)&"0"&"0"&x"000")
+          <= character_set_address
           + (to_integer(screen_ram_buffer_read_address)+to_integer(prev_first_card_of_row))*8+to_integer(chargen_y_hold);
       else
         bitmap_glyph_data_address
-          <= (character_set_address(19 downto 13)&"0"&x"000")
+          <= (character_set_address
           + (to_integer(screen_ram_buffer_read_address)+to_integer(prev_first_card_of_row))*8+to_integer(chargen_y_hold);
       end if;
       if xcounter = 0 then
@@ -4187,24 +4194,25 @@ begin
           else
             -- Fetch VIC-III bitplanes
             -- Bitplanes for odd raster lines
+            -- All figures are increased by 1/3 to allow for 800 wide when required
             if (reg_h640='0' and reg_h1280='0') then
               if bitplane_sixteen_colour_mode_flags(sprite_fetch_sprite_number mod 8)='0'
               then
                 -- 320px, mono bitplane = 40 bytes for 320 pixels
-                max_sprite_fetch_byte_number <= 39;
+                max_sprite_fetch_byte_number <= 49; -- 39;
               else
                 -- 320px, 16-colour bitplane = 160 bytes for 320 pixels
-                max_sprite_fetch_byte_number <= 159;
+                max_sprite_fetch_byte_number <= 199; -- 159;
               end if;
             end if;    
             if (reg_h640='1' and reg_h1280='0') then
               if bitplane_sixteen_colour_mode_flags(sprite_fetch_sprite_number mod 8)='0'
               then
                 -- 320px, mono bitplane = 80 bytes for 640 pixels
-                max_sprite_fetch_byte_number <= 79;
+                max_sprite_fetch_byte_number <= 99; -- 79;
               else
                 -- 320px, 16-colour bitplane = 320 bytes for 640 pixels
-                max_sprite_fetch_byte_number <= 319;
+                max_sprite_fetch_byte_number <= 399; -- 319;
               end if;
             end if;
             -- Don't waste time fetching bitplanes that are disabled.
