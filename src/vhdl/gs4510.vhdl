@@ -290,7 +290,8 @@ architecture Behavioural of gs4510 is
   signal long_address_write : unsigned(27 downto 0)  := (others => '0');
 
   -- C65 RAM Expansion Controller
-  signal rec_status : unsigned(7 downto 0) := x"00";
+  -- bit 7 = indicate error status?
+  signal rec_status : unsigned(7 downto 0) := x"80";
   
   -- GeoRAM emulation: by default point it the 128KB of extra memory at the
   -- 256KB mark
@@ -1202,8 +1203,6 @@ architecture Behavioural of gs4510 is
   -- # of math cycles to trigger end of job / math interrupt
   signal reg_math_cycle_compare : unsigned(31 downto 0) := to_unsigned(0,32);
 
-  signal rec_status : unsigned(7 downto 0) := x"00";
-  
 begin
 
   multipliers: for unit in 0 to 7 generate
@@ -1628,7 +1627,7 @@ begin
         wait_states <= x"01";
         wait_states_non_zero <= '1';
         proceed <= '0';
-        cpuport_num <= "010";        
+        cpuport_num <= "0010";        
       elsif long_address(27 downto 4) = x"400000" then
         -- More CPU ports for debugging.
         -- (this was added to debug CIA IRQ bugs where reading/writing from
@@ -6810,10 +6809,11 @@ begin
   		  real_long_address := memory_access_address;
 
   		  -- Remap GeoRAM memory accesses
-  		  --if real_long_address(27 downto 16) = x"FFD"
-  		    --and real_long_address(11 downto 8)= x"E" then
-  		    --long_address := georam_page&real_long_address(7 downto 0);
-  		    --end if;
+  		  if real_long_address(27 downto 16) = x"FFD"
+  		    and real_long_address(11 downto 8)= x"E"
+                    and georam_blockmask /= x"00" then
+  		    long_address := georam_page&real_long_address(7 downto 0);
+                  end if;
 
   		  -- shadow_address_var := to_integer(long_address(16 downto 0));
 		  
@@ -6880,7 +6880,8 @@ begin
 		  
   		  -- Remap GeoRAM memory accesses
   		  if real_long_address(27 downto 16) = x"FFD"
-  		    and real_long_address(11 downto 8) = x"E" then
+  		    and real_long_address(11 downto 8) = x"E"
+                    and georam_blockmask /= x"00" then
   		    long_address := georam_page&real_long_address(7 downto 0);
   		  end if;
 		        
