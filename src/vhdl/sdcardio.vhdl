@@ -1808,13 +1808,13 @@ begin  -- behavioural
             when x"D0" =>
               i2c_bus_id <= fastio_wdata;
             when x"D1" =>
-              -- @IO:GS $D6F1 - I2C control/status
-              -- @IO:GS $D6F1.0 - I2C reset
-              -- @IO:GS $D6F1.1 - I2C command latch write strobe (write 1 to trigger command)
-              -- @IO:GS $D6F1.2 - I2C Select read (1) or write (0)
+              -- @IO:GS $D6D1 - I2C control/status
+              -- @IO:GS $D6D1.0 - I2C reset
+              -- @IO:GS $D6D1.1 - I2C command latch write strobe (write 1 to trigger command)
+              -- @IO:GS $D6D1.2 - I2C Select read (1) or write (0)
               
-              -- @IO:GS $D6F5.6 - I2C busy flag
-              -- @IO:GS $D6F5.7 - I2C ack error
+              -- @IO:GS $D6D5.6 - I2C busy flag
+              -- @IO:GS $D6D5.7 - I2C ack error
               if i2c_bus_id = x"00" then
                 i2c0_reset <= fastio_wdata(0);
                 i2c0_reset_internal <= fastio_wdata(0);
@@ -1824,19 +1824,19 @@ begin  -- behavioural
                 i2c0_rw <= fastio_wdata(0);
               end if;
             when x"D2" =>
-              -- @IO:GS $D6D1.7-1 - I2C address
+              -- @IO:GS $D6D2.7-1 - I2C address
               if i2c_bus_id = x"00" then
                 i2c0_address <= fastio_wdata(7 downto 1);
                 i2c0_address_internal <= fastio_wdata(7 downto 1);
               end if;
             when x"D3" =>
-              -- @IO:GS $D6D2 - I2C data write register
+              -- @IO:GS $D6D3 - I2C data write register
               if i2c_bus_id = x"00" then
                 i2c0_wdata <= fastio_wdata;
                 i2c0_wdata_internal <= fastio_wdata;
               end if;
             when x"D4" =>
-              -- @IO:GS $D6D3 - I2C data read register
+              -- @IO:GS $D6D4 - I2C data read register
               null;
             when x"F3" =>
               -- Accelerometer

@@ -2,7 +2,7 @@ C64 $0000000 6510/45GS10 CPU port DDR
 C64 $0000001 6510/45GS10 CPU port data
 C64 $0000002-$000FFFF - 64KB RAM
 C65 $0010000-$001FFFF - 64KB RAM
-C65 $0020000-$003FFFF - 128KB ROM
+C65 $0020000-$003FFFF - 128KB ROM (can be used as RAM in M65 mode)
 C65 $002A000-$002BFFF - 8KB C64 BASIC ROM
 C65 $002D000-$002DFFF - 4KB C64 CHARACTER ROM
 C65 $002E000-$002FFFF - 8KB C64 KERNAL ROM
@@ -470,6 +470,16 @@ GS $D6AF.3 - f011_rnf
 GS $D6AF.4 - f011_drq
 GS $D6AF.5 - f011_lost
 GS $D6AF - Directly set F011 flags (intended for virtual F011 mode) WRITE ONLY
+GS $D6D0 - I2C bus select (bus 0 = temp sensor on Nexys4 boardS)
+GS $D6D1.0 - I2C reset
+GS $D6D1.1 - I2C command latch write strobe (write 1 to trigger command)
+GS $D6D1.2 - I2C Select read (1) or write (0)
+GS $D6D1 - I2C control/status
+GS $D6D2.7-1 - I2C address
+GS $D6D3 - I2C data write register
+GS $D6D4 - I2C data read register
+GS $D6D5.6 - I2C busy flag
+GS $D6D5.7 - I2C ack error
 GS $D6DA - DEBUG SD card last error code LSB
 GS $D6DB - DEBUG SD card last error code MSB
 GS $D6DC - DEBUG duplicate of FPGA switches 0-7
@@ -512,8 +522,7 @@ GS $D6EF - DEBUG show current ethernet RX state
 GS $D6F2 - Read FPGA five-way buttons
 GS $D6F3 - Accelerometer bit-bashing port
 GS $D6F3 Accelerometer inputs
-GS $D6F5 Bit-bashed temperature sensor
-GS $D6F5 - Temperature sensor
+GS $D6F4 - I2C bus select (bus 0 = temp sensor on Nexys4 boards)
 GS $D6F6 - Keyboard scan code reader (lower byte)
 GS $D6F7 - Keyboard scan code reader (upper nybl)
 GS $D6F8 - 8-bit digital audio out (left)
@@ -523,8 +532,9 @@ GS $D6F9.5 - Swap stereo channels
 GS $D6F9.6 - Play mono audio through both channels
 GS $D6F9.7 - Select PDM or PWM audio output mode
 GS $D6FA - 8-bit digital audio out (left)
+GS $D6FB.0-4 - WRITE set microphone trigger phase (DEBUG,WILLBEREMOVED)
+GS $D6FB.7-5 - WRITE set microphone gain
 GS $D6FB - microphone input (left)
-GS $D6FB - WRITE set microphone trigger phase (DEBUG,WILLBEREMOVED)
 GS $D6FC - microphone input (right)
 GS $D6FC - WRITE set microphone sample frequency (DEBUG,WILLBEREMOVED)
 GS $D6FF - Flash bit-bashing port
