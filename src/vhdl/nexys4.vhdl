@@ -92,8 +92,8 @@ entity container is
          ampPWM : out std_logic;
          ampSD : out std_logic;
 
-         tmpSDA : out std_logic;
-         tmpSCL : out std_logic;
+         tmpSDA : inout std_logic;
+         tmpSCL : inout std_logic;
          tmpInt : in std_logic;
          tmpCT : in std_logic;
          
