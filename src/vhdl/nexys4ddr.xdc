@@ -163,10 +163,10 @@ set_property -dict { PACKAGE_PIN B13 IOSTANDARD LVCMOS33 } [get_ports aclInt1]
 set_property -dict { PACKAGE_PIN C16 IOSTANDARD LVCMOS33 } [get_ports aclInt2]
 
 ##Temperature Sensor
-set_property -dict { PACKAGE_PIN B14 IOSTANDARD LVCMOS33 } [get_ports tmpSCL]
-set_property -dict { PACKAGE_PIN D13 IOSTANDARD LVCMOS33 } [get_ports tmpSDA]
-set_property -dict { PACKAGE_PIN C14 IOSTANDARD LVCMOS33 } [get_ports tmpInt]
-set_property -dict { PACKAGE_PIN C15 IOSTANDARD LVCMOS33 } [get_ports tmpCT]
+set_property -dict { PACKAGE_PIN C14 IOSTANDARD LVCMOS33 } [get_ports tmpSCL]
+set_property -dict { PACKAGE_PIN C15 IOSTANDARD LVCMOS33 } [get_ports tmpSDA]
+set_property -dict { PACKAGE_PIN D13 IOSTANDARD LVCMOS33 } [get_ports tmpInt]
+set_property -dict { PACKAGE_PIN B14 IOSTANDARD LVCMOS33 } [get_ports tmpCT]
 
 ##Omnidirectional Microphone
 set_property -dict { PACKAGE_PIN J5 IOSTANDARD LVCMOS33 } [get_ports micClk]
