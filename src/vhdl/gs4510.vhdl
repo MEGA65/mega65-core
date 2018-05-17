@@ -39,7 +39,8 @@ entity gs4510 is
   generic(
     math_unit_enable : boolean := false;
     chipram_1mb : std_logic := '0';
-    cpufrequency : integer := 50 );
+    cpufrequency : integer := 50;
+    chipram_size : integer := 393216);
   port (
     mathclock : in std_logic;
     Clock : in std_logic;
@@ -6252,7 +6253,9 @@ begin
     
     -- By default these hold their old value while CPU is halted
     shadow_wdata_var := shadow_wdata;
-    shadow_address_next <= shadow_address;
+    if shadow_address < chipram_size then
+      shadow_address_next <= shadow_address;
+    end if;
     shadow_wdata_next <= shadow_wdata;
     kickstart_address_next <= kickstart_address;
 
@@ -6912,7 +6915,9 @@ begin
          
     end if;
 
-      shadow_address_next <= shadow_address_var;    
+    if shadow_address_var < chipram_size then
+      shadow_address_next <= shadow_address_var;
+    end if;
       kickstart_address_next <= kickstart_address_var;
       
     end if;

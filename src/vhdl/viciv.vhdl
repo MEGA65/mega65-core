@@ -53,6 +53,9 @@ use work.all;
 --use UNISIM.VComponents.all;
 
 entity viciv is
+  generic (
+    chipram_size : integer := 393216
+    );
   Port (
     all_pause : in std_logic;
     
@@ -1132,8 +1135,9 @@ begin
               fastio_write => fastio_write,
               fastio_wdata => fastio_wdata
               );
+
   
-  chipram_address <= next_ramaddress;
+  chipram_address <= next_ramaddress when to_integer(next_ramaddress) < chipram_size;
   ramdata <= chipram_datain;
   
   process(cpuclock,ioclock,fastio_addr,fastio_read,chardata,
@@ -3567,10 +3571,15 @@ begin
             -- Reset screen row (bad line) state 
             character_number <= to_unsigned(1,9);
             end_of_row_16 <= '0'; end_of_row <= '0';
-            report "COLOURRAM: Setting colourramaddress via first_card_of_row";
+            report "COLOURRAM: Setting colourramaddress via first_card_of_row."
+              & " text_mode=" & std_logic'image(text_mode)
+              & ", sixteenbit_charset=" & std_logic'image(sixteenbit_charset);
             if (text_mode='0') and (sixteenbit_charset='1') then
               -- bitmap mode in sixteen bit char mode uses 2 colour RAM bytes per
               -- card, but not two bitmap bytes, so we have to increment double
+              report "COLOURRAM: setting colourramaddress to $" &
+                to_hstring(to_unsigned(to_integer(colour_ram_base)
+                                       + to_integer(first_card_of_row) + to_integer(first_card_of_row),16));
               colourramaddress <= to_unsigned(to_integer(colour_ram_base)
                                               + to_integer(first_card_of_row) + to_integer(first_card_of_row),16);
             else
@@ -4710,11 +4719,15 @@ begin
         -- right of display shifting up one physical pixel.
         chargen_y_hold <= chargen_y;
         -- Work out colour ram address
-          report "COLOURRAM: Setting colourramaddress via first_card_of_row";
+        report "COLOURRAM: Setting colourramaddress via first_card_of_row."
+          & " text_mode=" & std_logic'image(text_mode)
+          & ", sixteenbit_charset=" & std_logic'image(sixteenbit_charset);
         if (text_mode='0') and (sixteenbit_charset='1') then
           -- bitmap mode in sixteen bit char mode uses 2 colour RAM bytes per
           -- card, but not two bitmap bytes, so we have to increment double
           colourramaddress <= colour_ram_base + first_card_of_row + first_card_of_row;
+          report "COLOURRAM: setting colourramaddress to $"
+            & to_hstring(to_unsigned(to_integer(colour_ram_base) + to_integer(first_card_of_row) + to_integer(first_card_of_row),16));
         else
           colourramaddress <= colour_ram_base + first_card_of_row;
         end if;
