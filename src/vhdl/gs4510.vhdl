@@ -38,6 +38,7 @@ use work.victypes.all;
 entity gs4510 is
   generic(
     math_unit_enable : boolean := false;
+    chipram_1mb : std_logic := '0';
     cpufrequency : integer := 50 );
   port (
     mathclock : in std_logic;
@@ -1621,7 +1622,7 @@ begin
         wait_states_non_zero <= '1';
         proceed <= '0';
         cpuport_num <= real_long_address(3 downto 0);
-      elsif long_address(27 downto 20)=x"00" then
+      elsif long_address(27 downto 20)=x"00" and ((not long_address(19)) or chipram_1mb)='1' then
         -- Reading from chipram
         -- @ IO:C64 $0000002-$000FFFF - 64KB RAM
         -- @ IO:C65 $0010000-$001FFFF - 64KB RAM
@@ -2232,8 +2233,8 @@ begin
       -- Get the shadow RAM address on the bus fast to improve timing.
       shadow_wdata <= value;
       
-      if long_address(27 downto 20)=x"00" then
-        report "writing to shadow RAM via chipram shadowing. addr=$" & to_hstring(long_address) severity note;
+      if long_address(27 downto 20)=x"00" and ((not long_address(19)) or chipram_1mb)='1' then
+        report "writing to chip RAM addr=$" & to_hstring(long_address) severity note;
         shadow_address <= shadow_address_next;
         -- Enforce write protect of 2nd 128KB of memory, if being used as ROM
         if long_address(19 downto 17)="001" then
@@ -6800,7 +6801,7 @@ begin
   		    report "writing to ROM. addr=$" & to_hstring(long_address) severity note;
   		    shadow_write_var := not rom_writeprotect;
   		    shadow_address_var := to_integer(long_address(19 downto 0));
-                  elsif long_address(27 downto 20)=x"00" then
+                  elsif long_address(27 downto 20)=x"00" and ((not long_address(19)) or chipram_1mb)='1' then
   		    report "writing to shadow RAM via chipram shadowing. addr=$" & to_hstring(long_address) severity note;
   		    shadow_write_var := '1';
   		    shadow_address_var := to_integer(long_address(19 downto 0));
@@ -6847,7 +6848,7 @@ begin
 		  
   		  long_address_read_var := long_address;
 		  
-                  if long_address(27 downto 20)=x"00" then
+                  if long_address(27 downto 20)=x"00" and ((not long_address(19)) or chipram_1mb)='1' then
                     shadow_read_var := '1';
                     shadow_address_var := to_integer(long_address(19 downto 0));
                   end if;
@@ -6860,7 +6861,7 @@ begin
            fastio_addr_var := std_logic_vector(long_address(19 downto 0));
          end if;
          
-  		end if;
+    end if;
 
       shadow_address_next <= shadow_address_var;    
       kickstart_address_next <= kickstart_address_var;
