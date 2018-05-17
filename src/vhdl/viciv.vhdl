@@ -3206,14 +3206,15 @@ begin
           -- Increment card number every "bad line"
           report "LEGACY: Advancing first_card_of_row due to end of character";
           first_card_of_row <= to_unsigned(to_integer(first_card_of_row) + row_advance,16);
-          if text_mode='1' or sixteenbit_charset='0' then
-            -- Similarly update the colour ram fetch address
-            colourramaddress <= to_unsigned(to_integer(colour_ram_base) + row_advance,16);
-          else
+          -- Similarly update the colour ram fetch address
+          report "COLOURRAM: Advancing colourramaddress";
+          if (text_mode='0') and (sixteenbit_charset='1') then
             -- Bitmap + 16-bit character set mode is funny, however, because we
             -- use 2 bytes of colour ram for every byte of bitmap data, so we
             -- have to double the advance
             colourramaddress <= to_unsigned(to_integer(colour_ram_base) + row_advance + row_advance,16);
+          else
+            colourramaddress <= to_unsigned(to_integer(colour_ram_base) + row_advance,16);
           end if;
         else
           report "LEGACY: NOT advancing first_card_of_row due to end of character (before_y_chargen_start=1)";
@@ -3566,6 +3567,7 @@ begin
             -- Reset screen row (bad line) state 
             character_number <= to_unsigned(1,9);
             end_of_row_16 <= '0'; end_of_row <= '0';
+            report "COLOURRAM: Setting colourramaddress via first_card_of_row";
             colourramaddress <= to_unsigned(to_integer(colour_ram_base) + to_integer(first_card_of_row),16);
             
             -- Now ask for the first byte.  We indicate all details of this
@@ -3779,6 +3781,7 @@ begin
           -- In 16-bit character mode we also need to read the 2nd colour byte,
           -- which are doing now, so we need to advance colourramaddress ready
           -- to read the low colour byte of the next character.
+          report "COLOURRAM: Incrementing colourramaddress";
           colourramaddress <= colourramaddress + 1;
           report "reading high colour byte";
           
@@ -3891,6 +3894,7 @@ begin
           end if;
 
           -- Schedule next colour ram byte
+          report "COLOURRAM: Incrementing colourramaddress";
           colourramaddress <= colourramaddress + 1;
 
           if viciii_extended_attributes='1' then
@@ -3969,6 +3973,7 @@ begin
           end if;
       
           -- Schedule next colour ram byte
+          report "COLOURRAM: Incrementing colourramaddress";
           colourramaddress <= colourramaddress + 1;
           
           raster_fetch_state <= PaintMemWait;
@@ -4698,7 +4703,14 @@ begin
         -- right of display shifting up one physical pixel.
         chargen_y_hold <= chargen_y;
         -- Work out colour ram address
-        colourramaddress <= colour_ram_base + first_card_of_row;
+          report "COLOURRAM: Setting colourramaddress via first_card_of_row";
+        if (text_mode='0') and (sixteenbit_charset='1') then
+          -- bitmap mode in sixteen bit char mode uses 2 colour RAM bytes per
+          -- card, but not two bitmap bytes, so we have to increment double
+          colourramaddress <= colour_ram_base + first_card_of_row + first_card_of_row;
+        else
+          colourramaddress <= colour_ram_base + first_card_of_row;
+        end if;
         -- Work out the screen ram address.  We only need to re-fetch screen
         -- RAM if first_card_of_row is different to last time.
         prev_first_card_of_row <= first_card_of_row;

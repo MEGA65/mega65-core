@@ -143,8 +143,8 @@ entity sdcardio is
     micLRSel : out std_logic := '0';
 
     -- Temperature sensor
-    tmpSDA : out std_logic;
-    tmpSCL : out std_logic;
+    tmpSDA : inout std_logic;
+    tmpSCL : inout std_logic;
     tmpInt : in std_logic;
     tmpCT : in std_logic;
 
@@ -384,6 +384,21 @@ architecture behavioural of sdcardio is
   
   signal packed_rdata : std_logic_vector(7 downto 0);
 
+  signal i2c_bus_id : unsigned(7 downto 0) := x"00";
+  signal i2c0_address : unsigned(6 downto 0) := to_unsigned(0,7);
+  signal i2c0_address_internal : unsigned(6 downto 0) := to_unsigned(0,7);
+  signal i2c0_rdata : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal i2c0_wdata : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal i2c0_wdata_internal : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal i2c0_busy : std_logic := '0';
+  signal i2c0_rw : std_logic := '0';
+  signal i2c0_rw_internal : std_logic := '0';
+  signal i2c0_error : std_logic := '0';  
+  signal i2c0_reset : std_logic := '1';
+  signal i2c0_reset_internal : std_logic := '1';
+  signal i2c0_command_en : std_logic := '0';  
+  signal i2c0_command_en_internal : std_logic := '0';  
+  
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
   begin
@@ -396,6 +411,21 @@ begin  -- behavioural
   -- SD card controller module.
   --**********************************************************************
 
+  i2c0: entity work.i2c_master
+    port map (
+      clk => clock,
+      reset_n => i2c0_reset,
+      ena => i2c0_command_en,
+      addr => std_logic_vector(i2c0_address),
+      rw => i2c0_rw,
+      data_wr => std_logic_vector(i2c0_wdata),
+      busy => i2c0_busy,
+      unsigned(data_rd) => i2c0_rdata,
+      ack_error => i2c0_error,
+      sda => tmpSDA,
+      scl => tmpSCL
+      );
+  
   mic0l: entity work.pdm_to_pcm
     port map (
       clock => clock,
@@ -534,6 +564,12 @@ begin  -- behavioural
     variable temp_cmd : unsigned(7 downto 0);
   begin
 
+    -- Reset I2C command enable as soon as busy flag asserts
+    if i2c0_busy = '1' then
+      i2c0_command_en <= '0';
+      i2c0_command_en_internal <= '0';
+    end if;
+    
     -- ==================================================================
     -- here is a combinational process (ie: not clocked)
     -- ==================================================================
@@ -805,6 +841,33 @@ begin  -- behavioural
           when x"ae" =>
             -- @IO:GS $D6AE - DEBUG FDC bytes read counter (MSB)
             fastio_rdata <= unsigned(fdc_bytes_read(15 downto 8));
+          when x"D0" =>
+            -- @IO:GS $D6D0 - I2C bus select (bus 0 = temp sensor on Nexys4 boardS)
+            fastio_rdata <= i2c_bus_id;
+          when x"D1" =>
+            fastio_rdata <= (others => '0');
+            if i2c_bus_id = x"00" then
+              fastio_rdata(0) <= i2c0_reset_internal;
+              fastio_rdata(1) <= i2c0_command_en_internal;
+              fastio_rdata(2) <= i2c0_rw_internal;
+              fastio_rdata(6) <= i2c0_busy;
+              fastio_rdata(7) <= i2c0_error;
+            end if;
+          when x"D2" =>
+            fastio_rdata <= (others => '0');
+            if i2c_bus_id = x"00" then
+              fastio_rdata(7 downto 1) <= i2c0_address_internal;
+            end if;
+          when x"D3" =>
+            fastio_rdata <= (others => '0');
+            if i2c_bus_id = x"00" then
+              fastio_rdata <= i2c0_wdata_internal;
+            end if;
+          when x"D4" =>
+            fastio_rdata <= (others => '0');
+            if i2c_bus_id = x"00" then
+              fastio_rdata <= i2c0_rdata;
+            end if;
           when x"da" =>
             -- @IO:GS $D6DA - DEBUG SD card last error code LSB
             fastio_rdata(7 downto 0) <= unsigned(last_sd_error(7 downto 0));
@@ -839,15 +902,6 @@ begin  -- behavioural
             fastio_rdata(5) <= aclInt1;
             fastio_rdata(6) <= aclInt2;
             fastio_rdata(7) <= aclInt1 or aclInt2;
-          when x"F5" =>
-            -- @IO:GS $D6F5 Bit-bashed temperature sensor
-            fastio_rdata(0) <= tmpSDAinternal;
-            fastio_rdata(1) <= tmpSCLinternal;
-            fastio_rdata(4 downto 2) <= "000";
-            fastio_rdata(5) <= tmpInt;
-            fastio_rdata(6) <= tmpCT;
-            fastio_rdata(7) <= tmpInt or tmpCT;
-            fastio_rdata(7 downto 0) <= unsigned(fpga_temperature(11 downto 4));
           when x"F6" =>
             -- @IO:GS $D6F6 - Keyboard scan code reader (lower byte)
             fastio_rdata <= unsigned(last_scan_code(7 downto 0));
@@ -1751,6 +1805,39 @@ begin  -- behavioural
               f011_rnf <= fastio_wdata(3);
               f011_drq <= fastio_wdata(4);
               f011_lost <= fastio_wdata(5);
+            when x"D0" =>
+              i2c_bus_id <= fastio_wdata;
+            when x"D1" =>
+              -- @IO:GS $D6F1 - I2C control/status
+              -- @IO:GS $D6F1.0 - I2C reset
+              -- @IO:GS $D6F1.1 - I2C command latch write strobe (write 1 to trigger command)
+              -- @IO:GS $D6F1.2 - I2C Select read (1) or write (0)
+              
+              -- @IO:GS $D6F5.6 - I2C busy flag
+              -- @IO:GS $D6F5.7 - I2C ack error
+              if i2c_bus_id = x"00" then
+                i2c0_reset <= fastio_wdata(0);
+                i2c0_reset_internal <= fastio_wdata(0);
+                i2c0_command_en <= fastio_wdata(1);
+                i2c0_command_en_internal <= fastio_wdata(1);
+                i2c0_rw <= fastio_wdata(0);
+                i2c0_rw <= fastio_wdata(0);
+              end if;
+            when x"D2" =>
+              -- @IO:GS $D6D1.7-1 - I2C address
+              if i2c_bus_id = x"00" then
+                i2c0_address <= fastio_wdata(7 downto 1);
+                i2c0_address_internal <= fastio_wdata(7 downto 1);
+              end if;
+            when x"D3" =>
+              -- @IO:GS $D6D2 - I2C data write register
+              if i2c_bus_id = x"00" then
+                i2c0_wdata <= fastio_wdata;
+                i2c0_wdata_internal <= fastio_wdata;
+              end if;
+            when x"D4" =>
+              -- @IO:GS $D6D3 - I2C data read register
+              null;
             when x"F3" =>
               -- Accelerometer
               aclMOSI         <= fastio_wdata(1);
@@ -1759,14 +1846,7 @@ begin  -- behavioural
               aclSSinternal   <= fastio_wdata(2);
               aclSCK          <= fastio_wdata(3);
               aclSCKinternal  <= fastio_wdata(3);
-
-            -- @IO:GS $D6F5 - Temperature sensor
-            when x"F5" =>
-              tmpSDAinternal <= fastio_wdata(0);
-              tmpSDA         <= fastio_wdata(0);
-              tmpSCLinternal <= fastio_wdata(1);
-              tmpSCL         <= fastio_wdata(1);
-
+              -- @IO:GS $D6F4 - I2C bus select (bus 0 = temp sensor on Nexys4 boards)
             -- @IO:GS $D6F8 - 8-bit digital audio out (left)
             when x"F8" =>
               -- 8-bit digital audio out
