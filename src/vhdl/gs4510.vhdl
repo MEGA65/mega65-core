@@ -288,10 +288,18 @@ architecture Behavioural of gs4510 is
   
   signal long_address_read : unsigned(27 downto 0)  := (others => '0');
   signal long_address_write : unsigned(27 downto 0)  := (others => '0');
+
+  -- C65 RAM Expansion Controller
+  signal rec_status : unsigned(7 downto 0) := x"00";
   
-  -- GeoRAM emulation: by default point it somewhere at the DDR RAM
-  signal georam_page : unsigned(19 downto 0) := x"e0000";
-  signal georam_blockmask : unsigned(7 downto 0) := x"ff";
+  -- GeoRAM emulation: by default point it the 128KB of extra memory at the
+  -- 256KB mark
+  -- georam_page is the address x 256, so 256KB = page $400
+  signal georam_page : unsigned(19 downto 0) := x"00400";
+  -- GeoRAM is organised in 16KB blocks.  The block mask is thus in units of 16KB.
+  -- Note that a 128KB GeoRAM is not standard, and some software may think it
+  -- is 512KB, which will of course cause problems.
+  signal georam_blockmask : unsigned(7 downto 0) := to_unsigned(128/16,8);
   signal georam_block : unsigned(7 downto 0) := x"00";
   signal georam_blockpage : unsigned(7 downto 0) := x"00";
 
@@ -1193,6 +1201,8 @@ architecture Behavioural of gs4510 is
   signal reg_math_cycle_counter_plus_one : unsigned(31 downto 0) := to_unsigned(0,32);
   -- # of math cycles to trigger end of job / math interrupt
   signal reg_math_cycle_compare : unsigned(31 downto 0) := to_unsigned(0,32);
+
+  signal rec_status : unsigned(7 downto 0) := x"00";
   
 begin
 
@@ -1609,6 +1619,16 @@ begin
         wait_states_non_zero <= '1';
         proceed <= '0';
         cpuport_num <= real_long_address(3 downto 0);
+      elsif (long_address = x"ffd30a0") or (long_address = x"ffd10a0") then
+        accessing_cpuport <= '1';
+        report "Preparing to read from CPU memory expansion controller port";
+        read_source <= CPUPort;
+        -- One cycle wait-state on hypervisor registers to remove the register
+        -- decode from the critical path of memory access.
+        wait_states <= x"01";
+        wait_states_non_zero <= '1';
+        proceed <= '0';
+        cpuport_num <= "010";        
       elsif long_address(27 downto 4) = x"400000" then
         -- More CPU ports for debugging.
         -- (this was added to debug CIA IRQ bugs where reading/writing from
@@ -1988,6 +2008,7 @@ begin
           case cpuport_num is
             when x"0" => return cpuport_ddr;
             when x"1" => return cpuport_value;
+            when x"2" => return rec_status;
             when others => return x"ff";
           end case;
         when Shadow =>
@@ -2119,6 +2140,33 @@ begin
         cache_flushing <= '1';
         cache_flush_counter <= (others => '0');
       -- Write to DMAgic registers if required
+      elsif (long_address = x"FFD30A0") or (long_address = x"FFD10A0") then
+        -- @ IO:65 $D0A0 - C65 RAM Expansion controller
+        -- The specifications of this interface is VERY under-documented.
+        -- There are two versions: 512KB and 1MB - 8MB
+
+        -- 512KB version is relatively simple:
+        -- Bit 3 - CPU sees expansion bank 0 or 1
+        -- Bit 2 - VIC uses expansion (1) or internal (0) RAM
+        -- Bit 1 - VIC address range (0=$C0000-$DFFFF, 1=$E0000-$FFFFF)
+        -- Bit 0 - VIC sees expansion bank 0 or 1
+        -- Writing %xxxxx0xx -> VIC sees internal 128KB
+        -- Writing %xxxxx100 -> VIC sees expansion RAM bank 0, $C0000-$DFFFF
+        -- Writing %xxxxx110 -> VIC sees expansion RAM bank 0, $E0000-$FFFFF
+        -- Writing %xxxxx101 -> VIC sees expansion RAM bank 1, $C0000-$DFFFF
+        -- Writing %xxxxx111 -> VIC sees expansion RAM bank 1, $E0000-$FFFFF
+        -- Writing %xxxx0xxx -> CPU sees expansion bank 0 (presumably at $80000-$FFFFF)
+        -- Writing %xxxx1xxx -> CPU sees expansiob bank 1 (presumably at $80000-$FFFFF)
+
+        -- 1MB-8MB version lacks documentation that I can find.
+        -- Bit x - CART - presumably enable cartridge memory visibility?
+        -- On read:
+        -- Bit 7 - Indicate error condition?
+        -- DMAgic sees expanded RAM from BANK $40 onwards?
+        -- Presumably something controls what we see in the 1MB address space
+
+        -- For now, just always report an error condition.
+        rec_status <= x"80";
       elsif (long_address = x"FFD3700") or (long_address = x"FFD1700") then        
         -- Set low order bits of DMA list address
         reg_dmagic_addr(7 downto 0) <= value;
