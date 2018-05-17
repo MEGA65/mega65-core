@@ -1582,6 +1582,7 @@ begin  -- behavioural
                   sdio_error <= '0';
                   sdio_fsm_error <= '0';
                   sd_sector <= (others => '0');
+                  sdio_busy <= '0';
 
                 when x"10" =>
                   -- Reset SD card with flags specified
@@ -1590,7 +1591,8 @@ begin  -- behavioural
                   sdio_error <= '0';
                   sdio_fsm_error <= '0';
                   sd_doread <= '0';
-                  sd_dowrite <= '0';                  
+                  sd_dowrite <= '0';
+                  sdio_busy <= '0';
 
                 when x"01" =>
                   -- End reset
