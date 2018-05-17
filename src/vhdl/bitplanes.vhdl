@@ -398,7 +398,7 @@ begin  -- behavioural
         if v_x_in > (v_bitplane_x_start + to_integer(signed(std_logic_vector(bitplanes_x_start))) + 800) then
           x_in_bitplanes <= '0';
         end if;        
-      if bitplane_h640 = '1' then
+      elsif bitplane_h640 = '1' then
         if v_x_in > (v_bitplane_x_start + to_integer(signed(std_logic_vector(bitplanes_x_start))) + 640) then
           x_in_bitplanes <= '0';
         end if;
