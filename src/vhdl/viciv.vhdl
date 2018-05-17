@@ -3206,7 +3206,7 @@ begin
           -- Increment card number every "bad line"
           report "LEGACY: Advancing first_card_of_row due to end of character";
           first_card_of_row <= to_unsigned(to_integer(first_card_of_row) + row_advance,16);
-          if bitmap_mode='0' or sixteenbit_charset='0' then
+          if text_mode='1' or sixteenbit_charset='0' then
             -- Similarly update the colour ram fetch address
             colourramaddress <= to_unsigned(to_integer(colour_ram_base) + row_advance,16);
           else
@@ -3532,7 +3532,7 @@ begin
           + (to_integer(screen_ram_buffer_read_address)+to_integer(prev_first_card_of_row))*8+to_integer(chargen_y_hold);
       else
         bitmap_glyph_data_address
-          <= (character_set_address
+          <= character_set_address
           + (to_integer(screen_ram_buffer_read_address)+to_integer(prev_first_card_of_row))*8+to_integer(chargen_y_hold);
       end if;
       if xcounter = 0 then
