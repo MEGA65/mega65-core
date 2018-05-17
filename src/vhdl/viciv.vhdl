@@ -3528,11 +3528,11 @@ begin
       -- row from the next char card row down the screen.
       if reg_h640='1' then
         bitmap_glyph_data_address
-          <= character_set_address
+          <= character_set_address(19 downto 0)
           + (to_integer(screen_ram_buffer_read_address)+to_integer(prev_first_card_of_row))*8+to_integer(chargen_y_hold);
       else
         bitmap_glyph_data_address
-          <= character_set_address
+          <= character_set_address(19 downto 0)
           + (to_integer(screen_ram_buffer_read_address)+to_integer(prev_first_card_of_row))*8+to_integer(chargen_y_hold);
       end if;
       if xcounter = 0 then
