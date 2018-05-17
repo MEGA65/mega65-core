@@ -2843,10 +2843,10 @@ ulvc_fail:
 	rts
 
 utillist_rewind:
-	; Set pointer to first entry in colour RAM ($0800)
-	lda #<$0800
+	; Set pointer to first entry in colour RAM ($0850)
+	lda #<$0850
 	sta <zptempv32
-	lda #>$0800
+	lda #>$0850
 	sta <zptempv32+1
 	lda #<$0FF8
 	sta <zptempv32+2

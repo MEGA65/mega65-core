@@ -153,9 +153,9 @@ int main(int argc,char **argv)
   unsigned char archive[ar_size];
   bzero(archive,ar_size);
 
-  // Skip the first 2KB of colour RAM, as it is used by C65 system.  This leaves
+  // Skip the first 2KB (plus a bit to work around a VIC-IV bug) of colour RAM, as it is used by C65 system.  This leaves
   // us 30KB of available space.
-  int ar_offset=2048;
+  int ar_offset=2048+80;
   
   for(int i=2;i<argc;i++)
     {
