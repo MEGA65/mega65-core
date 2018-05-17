@@ -3568,7 +3568,14 @@ begin
             character_number <= to_unsigned(1,9);
             end_of_row_16 <= '0'; end_of_row <= '0';
             report "COLOURRAM: Setting colourramaddress via first_card_of_row";
-            colourramaddress <= to_unsigned(to_integer(colour_ram_base) + to_integer(first_card_of_row),16);
+            if (text_mode='0') and (sixteenbit_charset='1') then
+              -- bitmap mode in sixteen bit char mode uses 2 colour RAM bytes per
+              -- card, but not two bitmap bytes, so we have to increment double
+              colourramaddress <= to_unsigned(to_integer(colour_ram_base)
+                                              + to_integer(first_card_of_row) + to_integer(first_card_of_row),16);
+            else
+              colourramaddress <= to_unsigned(to_integer(colour_ram_base) + to_integer(first_card_of_row),16);
+            end if;            
             
             -- Now ask for the first byte.  We indicate all details of this
             -- read so that it can be committed by the receiving side of the logic.
