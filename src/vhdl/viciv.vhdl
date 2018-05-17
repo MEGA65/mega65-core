@@ -3630,6 +3630,7 @@ begin
           end if;
           
           -- Is this the last character in the row?
+          -- (Only used when screen lines have only one character?)
           if character_number = virtual_row_width_minus1(7 downto 0)&'1' then
             end_of_row_16 <= '1';
           else
@@ -4020,7 +4021,10 @@ begin
           -- requested value
           -- Abort if we have already drawn enough characters.
           character_number <= character_number + 1;
-          if character_number = virtual_row_width_minus1(7 downto 0)&'0' then
+          -- We are counting the number characters, not the number of bytes, so
+          -- no need multiply row width by two for 16-bit character mode
+          -- if character_number = virtual_row_width_minus1(7 downto 0)&'0' then
+          if character_number = virtual_row_width_minus1(7 downto 0) then
             end_of_row_16 <= '1';
           else
             end_of_row_16 <= '0';
