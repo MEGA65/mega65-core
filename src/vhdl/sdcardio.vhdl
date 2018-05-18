@@ -902,7 +902,7 @@ begin  -- behavioural
             if i2c_bus_id = x"00" then
               fastio_rdata(7 downto 1) <= i2c0_address_internal;
             elsif i2c_bus_id = x"00" then
-              fastio_rdata(7 downto 1) <= i2c\1_address_internal;
+              fastio_rdata(7 downto 1) <= i2c1_address_internal;
             end if;
           when x"D3" =>
             fastio_rdata <= (others => '0');

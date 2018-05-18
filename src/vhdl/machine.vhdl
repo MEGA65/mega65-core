@@ -1251,8 +1251,8 @@ begin
       tmpInt => tmpInt,
       tmpCT => tmpCT,
 
-      i2c1SDA => i2c1SDA;
-      i2c1SCL => i2c1SDA;
+      i2c1SDA => i2c1SDA,
+      i2c1SCL => i2c1SDA,
       
       ---------------------------------------------------------------------------
       -- IO lines to the ethernet controller
