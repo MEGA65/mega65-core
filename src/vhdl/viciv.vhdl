@@ -3204,22 +3204,22 @@ begin
         bump_screen_row_address <= '0';
 
         -- Compute the address for the screen row.
-        screen_row_address <= screen_ram_base(19 downto 0) + first_card_of_row;
-
+        if (text_mode='0') and (sixteenbit_charset='1') then
+          -- 16bit charset mode + bitmap mode = 2 bytes screen memory per card,
+          -- so that we can pick foreground and background colours from full
+          -- 256-colour palette.
+          screen_row_address <= screen_ram_base(19 downto 0) + first_card_of_row;
+        else
+          screen_row_address <= screen_ram_base(19 downto 0) + first_card_of_row;
+        end if;
+          
         if before_y_chargen_start='0' then
           -- Increment card number every "bad line"
           report "LEGACY: Advancing first_card_of_row due to end of character";
           first_card_of_row <= to_unsigned(to_integer(first_card_of_row) + row_advance,16);
           -- Similarly update the colour ram fetch address
           report "COLOURRAM: Advancing colourramaddress";
-          if (text_mode='0') and (sixteenbit_charset='1') then
-            -- Bitmap + 16-bit character set mode is funny, however, because we
-            -- use 2 bytes of colour ram for every byte of bitmap data, so we
-            -- have to double the advance
-            colourramaddress <= to_unsigned(to_integer(colour_ram_base) + row_advance + row_advance,16);
-          else
-            colourramaddress <= to_unsigned(to_integer(colour_ram_base) + row_advance,16);
-          end if;
+          colourramaddress <= to_unsigned(to_integer(colour_ram_base) + row_advance,16);
         else
           report "LEGACY: NOT advancing first_card_of_row due to end of character (before_y_chargen_start=1)";
         end if;
@@ -3574,17 +3574,7 @@ begin
             report "COLOURRAM: Setting colourramaddress via first_card_of_row."
               & " text_mode=" & std_logic'image(text_mode)
               & ", sixteenbit_charset=" & std_logic'image(sixteenbit_charset);
-            if (text_mode='0') and (sixteenbit_charset='1') then
-              -- bitmap mode in sixteen bit char mode uses 2 colour RAM bytes per
-              -- card, but not two bitmap bytes, so we have to increment double
-              report "COLOURRAM: setting colourramaddress to $" &
-                to_hstring(to_unsigned(to_integer(colour_ram_base)
-                                       + to_integer(first_card_of_row) + to_integer(first_card_of_row),16));
-              colourramaddress <= to_unsigned(to_integer(colour_ram_base)
-                                              + to_integer(first_card_of_row) + to_integer(first_card_of_row),16);
-            else
-              colourramaddress <= to_unsigned(to_integer(colour_ram_base) + to_integer(first_card_of_row),16);
-            end if;            
+            colourramaddress <= to_unsigned(to_integer(colour_ram_base) + to_integer(first_card_of_row),16);
             
             -- Now ask for the first byte.  We indicate all details of this
             -- read so that it can be committed by the receiving side of the logic.
@@ -4722,24 +4712,25 @@ begin
         report "COLOURRAM: Setting colourramaddress via first_card_of_row."
           & " text_mode=" & std_logic'image(text_mode)
           & ", sixteenbit_charset=" & std_logic'image(sixteenbit_charset);
-        if (text_mode='0') and (sixteenbit_charset='1') then
-          -- bitmap mode in sixteen bit char mode uses 2 colour RAM bytes per
-          -- card, but not two bitmap bytes, so we have to increment double
-          colourramaddress <= colour_ram_base + first_card_of_row + first_card_of_row;
-          report "COLOURRAM: setting colourramaddress to $"
-            & to_hstring(to_unsigned(to_integer(colour_ram_base) + to_integer(first_card_of_row) + to_integer(first_card_of_row),16));
-        else
-          colourramaddress <= colour_ram_base + first_card_of_row;
-        end if;
+        colourramaddress <= colour_ram_base + first_card_of_row;
         -- Work out the screen ram address.  We only need to re-fetch screen
         -- RAM if first_card_of_row is different to last time.
         prev_first_card_of_row <= first_card_of_row;
 
         -- Set all signals for both eventuality, since none are shared between
         -- the two paths.  This helps keep the logic shallow.
-        screen_row_current_address
-          <= to_unsigned(to_integer(screen_ram_base(19 downto 0))
-                         + to_integer(first_card_of_row),20);
+
+        if (text_mode='0') and (sixteenbit_charset='1') then
+          -- bitmap mode in sixteen bit char mode uses 2 screen RAM bytes per
+          -- card, but not two bitmap bytes, so we have to increment double
+          screen_row_current_address
+            <= to_unsigned(to_integer(screen_ram_base(19 downto 0))
+                           + to_integer(first_card_of_row) + to_integer(first_card_of_row),20);
+        else
+          screen_row_current_address
+            <= to_unsigned(to_integer(screen_ram_base(19 downto 0))
+                           + to_integer(first_card_of_row),20);
+        end if;
         card_of_row <= (others =>'0');
         screen_ram_buffer_write_address <= to_unsigned(0,9);
         screen_ram_buffer_read_address <= to_unsigned(0,9);
