@@ -482,6 +482,7 @@ begin
       -- Ignore widget board interface and other things
       tmpint => '1',
       tmpct => '1',
+      
       pmod_clock => '1',
       pmod_start_of_sequence => '0',
       pmod_data_in => (others => '1'),

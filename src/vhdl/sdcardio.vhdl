@@ -142,11 +142,15 @@ entity sdcardio is
     micClk : out std_logic;
     micLRSel : out std_logic := '0';
 
-    -- Temperature sensor
+    -- Temperature sensor / I2C bus 0
     tmpSDA : inout std_logic;
     tmpSCL : inout std_logic;
     tmpInt : in std_logic;
     tmpCT : in std_logic;
+
+    -- I2C bus 1
+    i2c1SDA : inout std_logic;
+    i2c1SCL : inout std_logic;    
 
     ----------------------------------------------------------------------
     -- Flash RAM for holding config
@@ -385,6 +389,7 @@ architecture behavioural of sdcardio is
   signal packed_rdata : std_logic_vector(7 downto 0);
 
   signal i2c_bus_id : unsigned(7 downto 0) := x"00";
+
   signal i2c0_address : unsigned(6 downto 0) := to_unsigned(0,7);
   signal i2c0_address_internal : unsigned(6 downto 0) := to_unsigned(0,7);
   signal i2c0_rdata : unsigned(7 downto 0) := to_unsigned(0,8);
@@ -398,6 +403,20 @@ architecture behavioural of sdcardio is
   signal i2c0_reset_internal : std_logic := '1';
   signal i2c0_command_en : std_logic := '0';  
   signal i2c0_command_en_internal : std_logic := '0';  
+
+  signal i2c1_address : unsigned(6 downto 0) := to_unsigned(0,7);
+  signal i2c1_address_internal : unsigned(6 downto 0) := to_unsigned(0,7);
+  signal i2c1_rdata : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal i2c1_wdata : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal i2c1_wdata_internal : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal i2c1_busy : std_logic := '0';
+  signal i2c1_rw : std_logic := '0';
+  signal i2c1_rw_internal : std_logic := '0';
+  signal i2c1_error : std_logic := '0';  
+  signal i2c1_reset : std_logic := '1';
+  signal i2c1_reset_internal : std_logic := '1';
+  signal i2c1_command_en : std_logic := '0';  
+  signal i2c1_command_en_internal : std_logic := '0';  
   
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
@@ -424,6 +443,21 @@ begin  -- behavioural
       ack_error => i2c0_error,
       sda => tmpSDA,
       scl => tmpSCL
+      );
+  
+  i2c1: entity work.i2c_master
+    port map (
+      clk => clock,
+      reset_n => i2c1_reset,
+      ena => i2c1_command_en,
+      addr => std_logic_vector(i2c1_address),
+      rw => i2c1_rw,
+      data_wr => std_logic_vector(i2c1_wdata),
+      busy => i2c1_busy,
+      unsigned(data_rd) => i2c1_rdata,
+      ack_error => i2c1_error,
+      sda => i2c1SDA,
+      scl => i2c1SCL
       );
   
   mic0l: entity work.pdm_to_pcm
@@ -568,6 +602,10 @@ begin  -- behavioural
     if i2c0_busy = '1' then
       i2c0_command_en <= '0';
       i2c0_command_en_internal <= '0';
+    end if;
+    if i2c1_busy = '1' then
+      i2c1_command_en <= '0';
+      i2c1_command_en_internal <= '0';
     end if;
     
     -- ==================================================================
@@ -852,21 +890,33 @@ begin  -- behavioural
               fastio_rdata(2) <= i2c0_rw_internal;
               fastio_rdata(6) <= i2c0_busy;
               fastio_rdata(7) <= i2c0_error;
+            elsif i2c_bus_id = x"01" then
+              fastio_rdata(0) <= i2c1_reset_internal;
+              fastio_rdata(1) <= i2c1_command_en_internal;
+              fastio_rdata(2) <= i2c1_rw_internal;
+              fastio_rdata(6) <= i2c1_busy;
+              fastio_rdata(7) <= i2c1_error;
             end if;
           when x"D2" =>
             fastio_rdata <= (others => '0');
             if i2c_bus_id = x"00" then
               fastio_rdata(7 downto 1) <= i2c0_address_internal;
+            elsif i2c_bus_id = x"00" then
+              fastio_rdata(7 downto 1) <= i2c\1_address_internal;
             end if;
           when x"D3" =>
             fastio_rdata <= (others => '0');
             if i2c_bus_id = x"00" then
               fastio_rdata <= i2c0_wdata_internal;
+            elsif i2c_bus_id = x"01" then
+              fastio_rdata <= i2c1_wdata_internal;
             end if;
           when x"D4" =>
             fastio_rdata <= (others => '0');
             if i2c_bus_id = x"00" then
               fastio_rdata <= i2c0_rdata;
+            elsif i2c_bus_id = x"01" then
+              fastio_rdata <= i2c1_rdata;
             end if;
           when x"da" =>
             -- @IO:GS $D6DA - DEBUG SD card last error code LSB
@@ -1822,18 +1872,31 @@ begin  -- behavioural
                 i2c0_command_en_internal <= fastio_wdata(1);
                 i2c0_rw <= fastio_wdata(2);
                 i2c0_rw_internal <= fastio_wdata(2);
+              elsif i2c_bus_id = x"01" then
+                i2c1_reset <= fastio_wdata(0);
+                i2c1_reset_internal <= fastio_wdata(0);
+                i2c1_command_en <= fastio_wdata(1);
+                i2c1_command_en_internal <= fastio_wdata(1);
+                i2c1_rw <= fastio_wdata(2);
+                i2c1_rw_internal <= fastio_wdata(2);              
               end if;
             when x"D2" =>
               -- @IO:GS $D6D2.7-1 - I2C address
               if i2c_bus_id = x"00" then
                 i2c0_address <= fastio_wdata(7 downto 1);
                 i2c0_address_internal <= fastio_wdata(7 downto 1);
+              elsif i2c_bus_id = x"01" then
+                i2c1_address <= fastio_wdata(7 downto 1);
+                i2c1_address_internal <= fastio_wdata(7 downto 1);
               end if;
             when x"D3" =>
               -- @IO:GS $D6D3 - I2C data write register
               if i2c_bus_id = x"00" then
                 i2c0_wdata <= fastio_wdata;
                 i2c0_wdata_internal <= fastio_wdata;
+              elsif i2c_bus_id = x"01" then
+                i2c1_wdata <= fastio_wdata;
+                i2c1_wdata_internal <= fastio_wdata;
               end if;
             when x"D4" =>
               -- @IO:GS $D6D4 - I2C data read register

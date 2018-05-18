@@ -109,14 +109,14 @@ set_property -dict { PACKAGE_PIN J2 IOSTANDARD LVCMOS33 } [get_ports {jchi[9]}]
 set_property -dict { PACKAGE_PIN G6 IOSTANDARD LVCMOS33 } [get_ports {jchi[10]}]
 
 ##Pmod Header JD
-#set_property -dict { PACKAGE_PIN H4 IOSTANDARD LVCMOS33 } [get_ports {jdlo[1]}]
-#set_property -dict { PACKAGE_PIN H1 IOSTANDARD LVCMOS33 } [get_ports {jdlo[2]}]
-#set_property -dict { PACKAGE_PIN G1 IOSTANDARD LVCMOS33 } [get_ports {jdlo[3]}]
-#set_property -dict { PACKAGE_PIN G3 IOSTANDARD LVCMOS33 } [get_ports {jdlo[4]}]
-#set_property -dict { PACKAGE_PIN H2 IOSTANDARD LVCMOS33 } [get_ports {jdhi[7]}]
-#set_property -dict { PACKAGE_PIN G4 IOSTANDARD LVCMOS33 } [get_ports {jdhi[8]}]
-#set_property -dict { PACKAGE_PIN G2 IOSTANDARD LVCMOS33 } [get_ports {jdhi[9]}]
-#set_property -dict { PACKAGE_PIN F3 IOSTANDARD LVCMOS33 } [get_ports {jdhi[10]}]
+set_property -dict { PACKAGE_PIN H4 IOSTANDARD LVCMOS33 } [get_ports {jdlo[1]}]
+set_property -dict { PACKAGE_PIN H1 IOSTANDARD LVCMOS33 } [get_ports {jdlo[2]}]
+set_property -dict { PACKAGE_PIN G1 IOSTANDARD LVCMOS33 } [get_ports {jdlo[3]}]
+set_property -dict { PACKAGE_PIN G3 IOSTANDARD LVCMOS33 } [get_ports {jdlo[4]}]
+set_property -dict { PACKAGE_PIN H2 IOSTANDARD LVCMOS33 } [get_ports {jdhi[7]}]
+set_property -dict { PACKAGE_PIN G4 IOSTANDARD LVCMOS33 } [get_ports {jdhi[8]}]
+set_property -dict { PACKAGE_PIN G2 IOSTANDARD LVCMOS33 } [get_ports {jdhi[9]}]
+set_property -dict { PACKAGE_PIN F3 IOSTANDARD LVCMOS33 } [get_ports {jdhi[10]}]
 
 ##Pmod Header JXADC
 #set_property -dict { PACKAGE_PIN A13 IOSTANDARD LVCMOS33 } [get_ports {JXADC[0]}]

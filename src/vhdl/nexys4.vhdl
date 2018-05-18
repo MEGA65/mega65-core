@@ -96,7 +96,7 @@ entity container is
          tmpSCL : inout std_logic;
          tmpInt : in std_logic;
          tmpCT : in std_logic;
-         
+        
          ----------------------------------------------------------------------
          -- PS/2 keyboard interface
          ----------------------------------------------------------------------
@@ -118,6 +118,8 @@ entity container is
          jdhi : inout std_logic_vector(10 downto 7) := (others => 'Z');
          jclo : inout std_logic_vector(4 downto 1) := (others => 'Z');
          jchi : inout std_logic_vector(10 downto 7) := (others => 'Z');
+         jdlo : inout std_logic_vector(4 downto 1) := (others => 'Z');
+         jdhi : inout std_logic_vector(10 downto 7) := (others => 'Z');
          
          ----------------------------------------------------------------------
          -- Flash RAM for holding config
@@ -456,6 +458,9 @@ begin
       tmpSCL => tmpSCL,
       tmpInt => tmpInt,
       tmpCT => tmpCT,
+
+      i2c1SDA => jdlo(1),
+      i2c1SCL => jdlo(2),         
       
       ps2data =>      ps2data,
       ps2clock =>     ps2clk,

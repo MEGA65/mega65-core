@@ -96,7 +96,7 @@ entity container is
          tmpSCL : inout std_logic;
          tmpInt : in std_logic;
          tmpCT : in std_logic;
-         
+
          ----------------------------------------------------------------------
          -- PS/2 keyboard interface
          ----------------------------------------------------------------------
@@ -118,6 +118,8 @@ entity container is
          jdhi : inout std_logic_vector(10 downto 7) := (others => 'Z');
          jclo : inout std_logic_vector(4 downto 1) := (others => 'Z');
          jchi : inout std_logic_vector(10 downto 7) := (others => 'Z');
+         jdlo : inout std_logic_vector(4 downto 1) := (others => 'Z');
+         jdhi : inout std_logic_vector(10 downto 7) := (others => 'Z');
          
          ----------------------------------------------------------------------
          -- Flash RAM for holding config
@@ -456,6 +458,9 @@ begin
       tmpSCL => tmpSCL,
       tmpInt => tmpInt,
       tmpCT => tmpCT,
+
+      i2c1SDA => jdlo(1),
+      i2c1SCL => jdlo(2),
       
       ps2data =>      ps2data,
       ps2clock =>     ps2clk,
@@ -508,7 +513,7 @@ begin
     vgagreen <= buffer_vgagreen(7 downto 4);
     vgablue <= buffer_vgablue(7 downto 4);
   
---  if lcd_panel_enable='1' then
+    -- VGA out on LCD panel
     jalo <= std_logic_vector(buffer_vgablue(7 downto 4));
     jahi <= std_logic_vector(buffer_vgared(7 downto 4));
     jblo <= std_logic_vector(buffer_vgagreen(7 downto 4));
@@ -516,12 +521,6 @@ begin
     jbhi(8) <= lcd_hsync;
     jbhi(9) <= lcd_vsync;
     jbhi(10) <= lcd_display_enable;
---  else
---    -- XXX Not bidirectional! Widget board will most likely
---    -- not work with this.
---    pmoda_hi <= jahi(10 downto 7);
---    pmoda_lo <= jalo(4 downto 1);
---  end if;    
   
   -- Hardware buttons for triggering IRQ & NMI
   irq <= not btn(0);

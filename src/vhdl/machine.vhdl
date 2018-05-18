@@ -193,6 +193,9 @@ entity machine is
          tmpSCL : inout std_logic;
          tmpInt : in std_logic;
          tmpCT : in std_logic;
+
+         i2c1SDA : inout std_logic;
+         i2c1SCL : inout std_logic;
          
          ---------------------------------------------------------------------------
          -- IO lines to the ethernet controller
@@ -1248,6 +1251,9 @@ begin
       tmpInt => tmpInt,
       tmpCT => tmpCT,
 
+      i2c1SDA => i2c1SDA;
+      i2c1SCL => i2c1SDA;
+      
       ---------------------------------------------------------------------------
       -- IO lines to the ethernet controller
       ---------------------------------------------------------------------------

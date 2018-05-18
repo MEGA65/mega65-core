@@ -220,6 +220,9 @@ entity iomapper is
         tmpSCL : inout std_logic;
         tmpInt : in std_logic;
         tmpCT : in std_logic;
+
+        i2c1SDA : inout std_logic;
+        i2c1SCL : inout std_logic;
         
         sw : in std_logic_vector(15 downto 0);
         btn : in std_logic_vector(4 downto 0);
@@ -831,6 +834,9 @@ begin
     tmpInt => tmpInt,
     tmpCT => tmpCT,
 
+    i2c1SDA => i2c1SDA,
+    i2c1SCL => i2c1SCL,
+    
     QspiSCK => QspiSCK,
     QspiDB => QspiDB,
     QspiCSn => QspiCSn,
