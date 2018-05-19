@@ -396,6 +396,7 @@ architecture behavioural of sdcardio is
   signal i2c0_wdata : unsigned(7 downto 0) := to_unsigned(0,8);
   signal i2c0_wdata_internal : unsigned(7 downto 0) := to_unsigned(0,8);
   signal i2c0_busy : std_logic := '0';
+  signal i2c0_busy_last : std_logic := '0';
   signal i2c0_rw : std_logic := '0';
   signal i2c0_rw_internal : std_logic := '0';
   signal i2c0_error : std_logic := '0';  
@@ -410,6 +411,7 @@ architecture behavioural of sdcardio is
   signal i2c1_wdata : unsigned(7 downto 0) := to_unsigned(0,8);
   signal i2c1_wdata_internal : unsigned(7 downto 0) := to_unsigned(0,8);
   signal i2c1_busy : std_logic := '0';
+  signal i2c1_busy_last : std_logic := '0';
   signal i2c1_rw : std_logic := '0';
   signal i2c1_rw_internal : std_logic := '0';
   signal i2c1_error : std_logic := '0';  
@@ -420,7 +422,7 @@ architecture behavioural of sdcardio is
   signal i2c1_swap : std_logic := '0';
   signal i2c1_debug_scl : std_logic := '0';
   signal i2c1_debug_sda : std_logic := '0';
-  
+
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
   begin
@@ -605,11 +607,13 @@ begin  -- behavioural
   begin
 
     -- Reset I2C command enable as soon as busy flag asserts
-    if i2c0_busy = '1' then
+    i2c0_busy_last <= i2c0_busy;
+    i2c1_busy_last <= i2c1_busy;
+    if i2c0_busy = '1' and i2c0_busy_last='0' then
       i2c0_command_en <= '0';
       i2c0_command_en_internal <= '0';
     end if;
-    if i2c1_busy = '1' then
+    if i2c1_busy = '1' and i21_busy_last='0' then
       i2c1_command_en <= '0';
       i2c1_command_en_internal <= '0';
     end if;
