@@ -1761,7 +1761,7 @@ begin
         elsif register_number=94 then
           fastio_rdata <= std_logic_vector(to_unsigned(chargen_x_pixels,8));
         elsif register_number=95 then
-          fastio_rdata <= x"FF";          
+          fastio_rdata <= std_logic_vector(sprite_h640_msbs);          
         elsif register_number=96 then
           fastio_rdata <= std_logic_vector(screen_ram_base(7 downto 0));
         elsif register_number=97 then
