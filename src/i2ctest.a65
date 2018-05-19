@@ -154,7 +154,11 @@ test_touchscreen:
 	sta $d6d1
 
 	ldy #0
-	jsr i2c_read_register
+rnr:	jsr i2c_read_register
+	sta $0478,y
+	iny
+	cpy #39
+	bne rnr
 
 	rts
 
@@ -163,15 +167,24 @@ i2c_read_register:
 	; of the register, and then once that is done, ask to read.
 	; what we read back, is the content of the register.
 
+	 ; reset I2C bus
+	 lda #$00
+	 sta $d6d1
+	 lda #$01
+	 sta $d6d1
+
 	; start by writing the register we want to read
 	sty $d6d3
 	lda #$05
 	sta $d6d1
 
+	inc $0447
+
 	; Wait for busy to set
 rr1:	inc $0448
 	lda $d6d1
-	bpl rr1
+	and #$40
+	beq rr1
 
 	; While busy still set, issue read command, so that it follows
 	; on as a continuation.
@@ -181,13 +194,15 @@ rr1:	inc $0448
 	; Wait for busy to clear
 rr2:    inc $0449
 	lda $d6d1
-	bmi rr2
+	and #$40
+	bne rr2
 	; (as the continuation may cause BUSY to clear temporarily,
 	; make sure it stays clear.  With a continuation, the busy
 	; flag only clears for one 50MHz clock tick).
 rr3:    inc $044a
 	lda $d6d1
-	bmi rr3
+	and #$40
+	bne rr3
 
 	lda $d6d4
 	rts
