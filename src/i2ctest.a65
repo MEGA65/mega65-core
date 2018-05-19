@@ -34,7 +34,6 @@ _next:	 .word 0
 	 LDA #0
 	 sta $d6d0
 	 sta $d6d2
-	 sta i2caddr
 
 try:
 	sei
@@ -52,7 +51,6 @@ try:
 
 l6:      inc $041f
 	 lda $d6d1
-	 sta $044f
 	 cmp #$01
 	 bne l6
 
@@ -82,11 +80,10 @@ l7:      inc $0422
 	 bpl gotit
 
 resume:
-	 lda i2caddr
+	 lda $d6d2
 	 clc
 	 adc #$02
 	 sta $d6d2
-	 sta i2caddr
 l3:      inc $0424
 	 cmp $d6d2
 ;	 bne l3
@@ -106,6 +103,8 @@ notfound:
 	jsr $ab1e
 	cli
 
+	jsr test_touchscreen
+	
 	rts
 
 gotit:
@@ -122,7 +121,7 @@ gotit:
 	ldy #>msg2
 	jsr $ab1e
 	lda #0
-	ldx i2caddr
+	ldx $d6d2
 	jsr $bdcd
 	lda #<msg3
 	ldy #>msg3
@@ -141,6 +140,56 @@ msg1:	.byte "  FOUND BUS ",0
 msg2:	.byte ", ADDRESS ",0
 msg3:   .byte ".",13,0
 
-i2caddr:      .byte 0
+test_touchscreen:
+	; Select default touch screen bus and address
+	LDA #1
+	sta $d6d0
+	lda #112
+	sta $d6d2
+
+	; Reset bus for good measure
+	lda #0
+	sta $d6d1
+	lda #1
+	sta $d6d1
+
+	ldy #0
+	jsr i2c_read_register
+
+	rts
+
+i2c_read_register:
+	; To read a register, we have to start by writing the address
+	; of the register, and then once that is done, ask to read.
+	; what we read back, is the content of the register.
+
+	; start by writing the register we want to read
+	sty $d6d3
+	lda #$05
+	sta $d6d1
+
+	; Wait for busy to set
+rr1:	inc $0448
+	lda $d6d1
+	bpl rr1
+
+	; While busy still set, issue read command, so that it follows
+	; on as a continuation.
+	lda #$07
+	sta $d6d1
+
+	; Wait for busy to clear
+rr2:    inc $0449
+	lda $d6d1
+	bmi rr2
+	; (as the continuation may cause BUSY to clear temporarily,
+	; make sure it stays clear.  With a continuation, the busy
+	; flag only clears for one 50MHz clock tick).
+rr3:    inc $044a
+	lda $d6d1
+	bmi rr3
+
+	lda $d6d4
+	rts
 
 	.scend

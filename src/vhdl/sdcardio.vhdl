@@ -606,18 +606,6 @@ begin  -- behavioural
     variable temp_cmd : unsigned(7 downto 0);
   begin
 
-    -- Reset I2C command enable as soon as busy flag asserts
-    i2c0_busy_last <= i2c0_busy;
-    i2c1_busy_last <= i2c1_busy;
-    if i2c0_busy = '1' and i2c0_busy_last='0' then
-      i2c0_command_en <= '0';
-      i2c0_command_en_internal <= '0';
-    end if;
-    if i2c1_busy = '1' and i2c1_busy_last='0' then
-      i2c1_command_en <= '0';
-      i2c1_command_en_internal <= '0';
-    end if;
-    
     -- ==================================================================
     -- here is a combinational process (ie: not clocked)
     -- ==================================================================
@@ -1034,6 +1022,18 @@ begin  -- behavioural
     end case;
     
     if rising_edge(clock) then    
+
+      -- Reset I2C command enable as soon as busy flag asserts
+      i2c0_busy_last <= i2c0_busy;
+      i2c1_busy_last <= i2c1_busy;
+      if i2c0_busy = '1' and i2c0_busy_last='0' then
+        i2c0_command_en <= '0';
+        i2c0_command_en_internal <= '0';
+      end if;
+      if i2c1_busy = '1' and i2c1_busy_last='0' then
+        i2c1_command_en <= '0';
+        i2c1_command_en_internal <= '0';
+      end if;
 
       target_track <= f011_track;
       target_sector <= f011_sector;
