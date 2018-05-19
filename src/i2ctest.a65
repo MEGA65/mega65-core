@@ -142,6 +142,17 @@ msg3:   .byte ".",13,0
 
 test_touchscreen:
 
+	; On the lab unit the PWM modulation for the backlight is fed from
+	; the MSB of blue, because we have run out of GPIOs on the FPGA board,
+	; and it uses too much current combined with the FPGA if we have it set to
+	; full-time on (tied to VCC).
+	; so we need a display with enough blue to be visible, but not so much blue
+	; that we cause voltage drops, which cause nasty white bars on the LCD.
+	LDA #$0
+	sta $d021
+	lda #$6
+	sta $d020
+
 	; borders set to LCD size, so we can see full range of movement
 
 	 ; The order below is a bit important.
@@ -260,7 +271,9 @@ parse_touch:
 	lda ($fb),y
 	lsr
 	ora $fe
-	eor #$ff ; invert Y movement direction
+	; Vertically shift down the display a bit
+	clc
+	adc #26
 	sta $d001,x
 
 	; get touch ID
