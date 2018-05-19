@@ -38,18 +38,13 @@ _next:	 .word 0
 try:
 	sei
 	
-	lda $d6d0
-	sta $0426
-	lda $d6d2
-	sta $0427
-
 	 ; reset I2C bus
 	 lda #$00
 	 sta $d6d1
 	 lda #$01
 	 sta $d6d1
 
-l6:      inc $041f
+l6:     
 	 lda $d6d1
 	 cmp #$01
 	 bne l6
@@ -57,20 +52,20 @@ l6:      inc $041f
 	 ; wait for busy to assert
 	 LDA #$7
 	 sta $d6d1
-l1:      inc $0420
+l1:     
 	 lda $d6d1
 	 and #$40
 	 beq l1
 
 	 ; make sure error flag clears
-l2:      inc $0421
+l2:     
          lda $d6d1
 	 tax
 	 and #$80
 	 bne l2
 
 	 ; wait for busy to clear
-l7:      inc $0422
+l7:     
 	 lda $d6d1
 	 and #$40
 	 bne l7
@@ -84,7 +79,7 @@ resume:
 	 clc
 	 adc #$02
 	 sta $d6d2
-l3:      inc $0424
+l3:     
 	 cmp $d6d2
 ;	 bne l3
 	 cmp #$00
@@ -227,7 +222,7 @@ loop:
 rnr:	jsr i2c_read_registers
 
 	; dump registers to screen
-	lda #0
+	ldy #0
 pl:	lda ($fb),y
 	sta $0478,y
 	iny
@@ -245,7 +240,6 @@ pl:	lda ($fb),y
 	; Was there at least one touch event?
 	Ldy #2
 	lda ($fb),y
-	sta $0501
 	beq loop
 
 	lda #1
@@ -306,7 +300,6 @@ parse_touch:
 	sta $d001,x
 
 	; get touch ID
-	iny
 	lda ($fb),y
 	and #$f0
 	lsr
@@ -316,7 +309,7 @@ parse_touch:
 	sta $0428,x
 
 	; get X position (upper 8 bits only)
-
+	iny
 	lda ($fb),y  ; get MSB bits ready
 	and #$0f
 	sta $fe
@@ -352,11 +345,11 @@ parse_touch:
 sprite0:
 	; set super MSB	
 	lda #$01
-	trb smsbs
+	trb $d05f
 	lda $fe
 	lsr
 	and #$01
-	tsb smsbs
+	tsb $d05f
 	; set normal sprite X MSB
 	lda #$01
 	trb $d010	
@@ -364,17 +357,15 @@ sprite0:
 	and #$01
 	tsb $d010
 
-	lda smsbs
-	sta $d05f
 	rts
 
 sprite2:
 	; set super MSB	
 	lda #$02
-	trb smsbs
+	trb $d05f
 	lda $fe
 	and #$02
-	tsb smsbs
+	tsb $d05f
 	; set normal sprite X MSB
 	lda #$02
 	trb $d010	
@@ -382,9 +373,6 @@ sprite2:
 	and #$01
 	asl
 	tsb $d010
-
-	lda smsbs
-	sta $d05f
 
 	rts	
 
@@ -398,7 +386,6 @@ i2c_read_registers:
 
 	; start by writing the register we want to read
 	sty $d6d3
-	sty $0400
 	; reset bus and lodge request
 	lda #$00
 	sta $d6d1
@@ -409,17 +396,14 @@ i2c_read_registers:
 	lda #$03
 	sta $d6d1
 
-	inc $0447
-
 	; Wait for busy to set
-rr1:	inc $0448
+rr1:	
 	lda $d6d1
-	sta $0418
 	and #$40
 	beq rr1
 
 	; Wait for busy to clear
-rr2:    inc $0449
+rr2:    
 	lda $d6d1
 	and #$40
 	bne rr2
@@ -430,9 +414,8 @@ rloop:
 	sta $d6d1
 
 	; Wait for busy to set
-rr1c:	inc $0448
+rr1c:	
 	lda $d6d1
-	sta $0418
 	and #$40
 	beq rr1c
 
@@ -440,21 +423,18 @@ rr1c:	inc $0448
 	; (as the continuation may cause BUSY to clear temporarily,
 	; make sure it stays clear.  With a continuation, the busy
 	; flag only clears for one 50MHz clock tick).
-rr3:    inc $044a
+rr3:   
 	lda $d6d1
 	bmi rerror
 	cmp #5
 	bne rr3
-	sta $0419
-rr3b:    inc $044a
+rr3b:  
 	lda $d6d1
 	bmi rerror
 	cmp #5
 	bne rr3b
-	sta $0419
 
 	lda $d6d4
-	sta $04a0,y
 	sta ($fb),y
 	iny
 	dex
@@ -462,8 +442,6 @@ rr3b:    inc $044a
 rerror:
 
 	rts
-
-smsbs:	.byte 0
 
 regs:
 	.byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
