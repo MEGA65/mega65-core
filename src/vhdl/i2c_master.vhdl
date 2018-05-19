@@ -45,7 +45,13 @@ ENTITY i2c_master IS
     data_rd   : OUT    STD_LOGIC_VECTOR(7 DOWNTO 0); --data read from slave
     ack_error : BUFFER STD_LOGIC;                    --flag if improper acknowledge from slave
     sda       : INOUT  STD_LOGIC;                    --serial data output of i2c bus
-    scl       : INOUT  STD_LOGIC);                   --serial clock output of i2c bus
+    scl       : INOUT  STD_LOGIC;                   --serial clock output of i2c bus
+
+    -- Debug inputs that allow us to pull the lines low to test
+    swap : in std_logic := '0';
+    debug_scl : in std_logic := '0';
+    debug_sda : in std_logic := '0');
+    
 END i2c_master;
 
 ARCHITECTURE logic OF i2c_master IS
@@ -241,7 +247,11 @@ BEGIN
                  sda_int WHEN OTHERS;          --set to internal sda signal    
       
   --set scl and sda outputs
-  scl <= '0' WHEN (scl_ena = '1' AND scl_clk = '0') ELSE 'Z';
-  sda <= '0' WHEN sda_ena_n = '0' ELSE 'Z';
+  scl <= '0' WHEN ( ( (swap='0') and (scl_ena = '1' AND scl_clk = '0'))
+                    or ( (swap='1') and (sda_ena_n = '0'))
+                   or (debug_scl='1')) ELSE 'Z';
+  sda <= '0' WHEN ( ( (swap='1') and (scl_ena = '1' AND scl_clk = '0'))
+                    or ( (swap='0') and (sda_ena_n = '0'))
+                   or (debug_sda='1')) ELSE 'Z';
   
 END logic;

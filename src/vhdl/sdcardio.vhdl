@@ -417,6 +417,9 @@ architecture behavioural of sdcardio is
   signal i2c1_reset_internal : std_logic := '1';
   signal i2c1_command_en : std_logic := '0';  
   signal i2c1_command_en_internal : std_logic := '0';  
+  signal i2c1_swap : std_logic := '0';
+  signal i2c1_debug_scl : std_logic := '0';
+  signal i2c1_debug_sda : std_logic := '0';
   
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
@@ -457,7 +460,10 @@ begin  -- behavioural
       unsigned(data_rd) => i2c1_rdata,
       ack_error => i2c1_error,
       sda => i2c1SDA,
-      scl => i2c1SCL
+      scl => i2c1SCL,
+      swap => i2c1_swap,
+      debug_sda => i2c1_debug_sda,
+      debug_scl => i2c1_debug_scl
       );
   
   mic0l: entity work.pdm_to_pcm
@@ -1878,7 +1884,11 @@ begin  -- behavioural
                 i2c1_command_en <= fastio_wdata(1);
                 i2c1_command_en_internal <= fastio_wdata(1);
                 i2c1_rw <= fastio_wdata(2);
-                i2c1_rw_internal <= fastio_wdata(2);              
+                i2c1_rw_internal <= fastio_wdata(2);
+
+                i2c1_swap <= fastio_wdata(5);
+                i2c1_debug_scl <= fastio_wdata(6);
+                i2c1_debug_sda <= fastio_wdata(7);
               end if;
             when x"D2" =>
               -- @IO:GS $D6D2.7-1 - I2C address
