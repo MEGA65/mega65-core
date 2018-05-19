@@ -193,7 +193,9 @@ test_touchscreen:
 sl1:	sta $0380,x
 	dex
 	bpl sl1
-	lda #$f0
+	; Draw little square sprite
+	; (need $ff for 4x320H pixels, as we put sprite in H640 mode)
+	lda #$ff
 	sta $0380
 	sta $0383
 	sta $0386
@@ -314,18 +316,33 @@ parse_touch:
 	sta $0428,x
 
 	; get X position (upper 8 bits only)
-	lda #>800
+
+	lda ($fb),y  ; get MSB bits ready
+	and #$0f
+	sta $fe
+	; now subtract low bytes
 	iny
+	lda #<800
 	sec
 	sbc ($fb),y
 	sta $fd
 	dey
-	lda #<800
-	sbc ($fb),y
+	lda #>800
+	sbc $fe
 	sta $fe
 	iny
 
 	; $FD/$FE now contains 0-799 X position, in correct direction.
+
+	; Adjust for horizontal fudge factor
+	lda $fd
+	sec
+	sbc #32
+	sta $fd
+	lda $fe
+	sbc #0
+	sta $fe
+
 	; We are running sprites in H640 mode, so we can use values as-is
 	lda $fd
 	sta $d000,x
@@ -333,26 +350,41 @@ parse_touch:
 	bne sprite2
 
 sprite0:
-	lda $fe
-	sta $0500
-
-	; set super MSB
-	lda $d05f
-	and #$fe
-	sta $d05f
+	; set super MSB	
+	lda #$01
+	trb smsbs
 	lda $fe
 	lsr
 	and #$01
-	tsb $d05f
+	tsb smsbs
 	; set normal sprite X MSB
 	lda #$01
-	trb $d010
+	trb $d010	
 	lda $fe
 	and #$01
-	tsb $fe
+	tsb $d010
+
+	lda smsbs
+	sta $d05f
 	rts
 
 sprite2:
+	; set super MSB	
+	lda #$02
+	trb smsbs
+	lda $fe
+	and #$02
+	tsb smsbs
+	; set normal sprite X MSB
+	lda #$02
+	trb $d010	
+	lda $fe
+	and #$01
+	asl
+	tsb $d010
+
+	lda smsbs
+	sta $d05f
 
 	rts	
 
@@ -430,6 +462,8 @@ rr3b:    inc $044a
 rerror:
 
 	rts
+
+smsbs:	.byte 0
 
 regs:
 	.byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
