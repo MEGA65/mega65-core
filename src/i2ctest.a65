@@ -135,7 +135,14 @@ msg1:	.byte "  FOUND BUS ",0
 msg2:	.byte ", ADDRESS ",0
 msg3:   .byte ".",13,0
 
+touchmsg:
+	.byte "TOUCH SCREEN TO TEST.",13,0
+
 test_touchscreen:
+
+	lda #<touchmsg
+	ldy #>touchmsg	
+	jsr $ab1e
 
 	; On the lab unit the PWM modulation for the backlight is fed from
 	; the MSB of blue, because we have run out of GPIOs on the FPGA board,
@@ -222,12 +229,12 @@ loop:
 rnr:	jsr i2c_read_registers
 
 	; dump registers to screen
-	ldy #0
-pl:	lda ($fb),y
-	sta $0478,y
-	iny
-	cpy #16
-	bne pl
+;	ldy #0
+;pl:	lda ($fb),y
+;	sta $0478,y
+;	iny
+;	cpy #16
+;	bne pl
 
 	; reg 1 = gesture ID (seems to always be zero. maybe needs to be configured to be enabled)
 	; reg 2 = number of current touch points
@@ -246,7 +253,18 @@ pl:	lda ($fb),y
 	tsb $d015
 
 	ldy #3
-	ldx #0
+
+	iny
+	iny
+	lda ($fb),y
+	dey
+	dey
+	lsr
+	lsr
+	lsr
+	and #2
+	tax
+
 	jsr parse_touch
 
 	; Are there two touch events?
@@ -259,7 +277,19 @@ pl:	lda ($fb),y
 	tsb $d015
 
 	ldy #9
-	ldx #2
+
+	iny
+	iny
+	lda ($fb),y
+	dey
+	dey
+	lsr
+	lsr
+	lsr
+	and #2
+	tax
+
+
 	jsr parse_touch
 
 
@@ -278,9 +308,9 @@ parse_touch:
 	; byte 4 = pressure of touch (not used?)
 
 	; Show touch up/down status
-	lda ($fb),y
-	and #$c0
-	sta $0400,x
+;	lda ($fb),y
+;	and #$c0
+;	sta $0400,x
 
 	; get y position (use upper 8 bits only for now)
 	lda ($fb),y
@@ -299,14 +329,15 @@ parse_touch:
 	adc #26
 	sta $d001,x
 
-	; get touch ID
-	lda ($fb),y
-	and #$f0
-	lsr
-	lsr
-	lsr
-	lsr
-	sta $0428,x
+	; show touch ID
+	; 0 or 1, or $F if the touch event is uninitialised and invalid
+;	lda ($fb),y
+;	and #$f0
+;	lsr
+;	lsr
+;	lsr
+;	lsr
+;	sta $0428,x
 
 	; get X position (upper 8 bits only)
 	iny
