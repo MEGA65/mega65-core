@@ -141,6 +141,48 @@ msg2:	.byte ", ADDRESS ",0
 msg3:   .byte ".",13,0
 
 test_touchscreen:
+
+	; borders set to LCD size, so we can see full range of movement
+
+	 ; The order below is a bit important.
+
+	 ; 1. Set horizontal border width
+	 LDA #$00
+	 STA $D05C
+	 STA $D05D
+	 lda #$1b
+	 sta $d011
+
+	 ; Make vertical borders a bit smaller
+	 ; (600 - 480)/2 = 60 top and 60 bottom
+	 ; then add fudge factor of 14 rasters
+	 LDA 	#<73
+	 STA	$D048 ; top border ends here
+	 LDA	#>73
+	 STA 	$D049 ; top border ends here
+	 LDA	#<554
+	 STA	$D04A
+	 LDA 	#>554
+	 STA	$D04B
+
+	; two sprites for touch points
+	lda #$03
+	sta $d015
+
+	LDA #14
+	sta 2040
+	sta 2041
+	ldx #62
+	lda #$00
+sl1:	sta $0380,x
+	dex
+	bpl sl1
+	lda #$f0
+	sta $0380
+	sta $0383
+	sta $0386
+	sta $0389
+
 	; Select default touch screen bus and address
 	LDA #1
 	sta $d6d0
@@ -153,9 +195,9 @@ test_touchscreen:
 ;	sta $d6d2
 
 loop:
-	jsr $ffe4
-	beq loop
-	inc $d020
+;	jsr $ffe4
+;	beq loop
+;	inc $d020
 
 
 	ldy #0
@@ -166,6 +208,7 @@ loop:
 	ldx #15
 rnr:	jsr i2c_read_registers
 
+	; dump registers to screen
 	lda #0
 pl:	lda ($fb),y
 	sta $0478,y
@@ -173,9 +216,80 @@ pl:	lda ($fb),y
 	cpy #16
 	bne pl
 
+	; reg 1 = gesture ID (seems to always be zero. maybe needs to be configured to be enabled)
+	; reg 2 = number of current touch points
+	; reg 3-8 = touch point 1
+	; reg 9-14 = touch point 2
+
+	ldy #3
+	ldx #0
+	jsr parse_touch
+	ldy #9
+	ldx #2
+	jsr parse_touch
+
+
 	jmp loop
 
 	rts
+
+parse_touch:
+	; For each touch point:
+	; byte 0.7-6 = 00=down, 01=liftup, 10=press down start, 11=up
+	; byte 0.3-0 = MSB of Y position
+	; byte 1 = LSB of Y position
+	; byte 2.7-4 = touch id ($F = invalid)
+	; byte 2.3-0 = MSB of X position
+	; byte 3 = LSB of X position (not used?)
+	; byte 4 = pressure of touch (not used?)
+
+	; Show touch up/down status
+	lda ($fb),y
+	and #$c0
+	sta $0400,x
+
+	; get y position (use upper 8 bits only for now)
+	lda ($fb),y
+	and #$f
+	ror
+	ror
+	and #$80
+	sta $fe
+
+	iny
+	lda ($fb),y
+	lsr
+	ora $fe
+	eor #$ff ; invert Y movement direction
+	sta $d001,x
+
+	; get touch ID
+	iny
+	lda ($fb),y
+	and #$f0
+	lsr
+	lsr
+	lsr
+	lsr
+	sta $0428,x
+
+	; get X position (upper 8 bits only)
+	lda ($fb),y
+	and #$f
+	asl
+	asl
+	asl
+	asl
+	asl
+	asl
+	asl
+	sta $fe
+	iny
+	lda ($fb),y
+	lsr
+	ora $fe
+	sta $d000,x
+	rts	
 
 i2c_read_registers:
 	; To read a register, we have to start by writing the address
@@ -231,11 +345,13 @@ rr1c:	inc $0448
 	; flag only clears for one 50MHz clock tick).
 rr3:    inc $044a
 	lda $d6d1
+	bmi rerror
 	cmp #5
 	bne rr3
 	sta $0419
 rr3b:    inc $044a
 	lda $d6d1
+	bmi rerror
 	cmp #5
 	bne rr3b
 	sta $0419
@@ -246,7 +362,8 @@ rr3b:    inc $044a
 	iny
 	dex
 	bne rloop
-	
+rerror:
+
 	rts
 
 regs:
