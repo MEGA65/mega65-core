@@ -1,0 +1,129 @@
+	.outfile "bitmap800x480.prg"
+
+	 .word $0801
+	 .org $0801
+
+	 .scope
+	 .word _next, 10                       ; Next line and current line number
+	 .byte $97, "2,0:", $9e, " 2014", $AA, "65",0      ; POKE 2,0 : SYS 2014+65
+_next:	 .word 0
+    
+	 .checkpc 2079
+	 .advance 2079
+
+	 sei
+
+	 lda #$47
+	 sta $d02f
+	 lda #$53
+	 sta $d02f
+	 lda #$41
+	 sta $0
+
+	 jsr $e544
+
+	 lda #<intromsg
+	 ldy #>intromsg
+	 jsr $ab1e
+
+	 ; Select I2C bus 1, and set first address to probe
+	 LDA #1
+	 sta $d6d0
+
+	; Start on bus 0, address 0
+	 LDA #0
+	 sta $d6d0
+	 sta $d6d2
+
+
+try:
+	 ; reset I2C bus
+	 lda #$00
+	 sta $d6d1
+	 lda #$01
+	 sta $d6d1
+
+l6:      
+	 lda $d6d1
+	 cmp #$01
+	 bne l6
+
+	 ; wait for busy to assert
+	 LDA #$7
+	 sta $d6d1
+l1:	 lda $d6d1
+	 and #$40
+	 beq l1
+
+	 ; make sure error flag clears
+l2:	 lda $d6d1
+	 tax
+	 and #$80
+	 bne l2
+
+	 ; wait for busy to clear
+l7:      lda $d6d1
+	 and #$40
+	 bne l7
+
+	 ; check if succeeded or not
+	 lda $d6d1
+	 bpl gotit
+
+resume:
+	 lda $d6d2
+	 clc
+	 adc #$02
+	 sta $d6d2
+l3:	 cmp $d6d2
+	 bne l3
+	 cmp #$00
+	 bne try
+
+notfound:
+	; no devices found on this bus, so try next bus.
+	; so far, we have only bus 0 and bus 1
+	inc $d6d0
+	lda $d6d0
+	cmp #2      
+	bne try
+
+	lda #<donemsg
+	lda #>donemsg
+	jsr $ab1e
+	cli
+
+	rts
+
+gotit:
+	phx
+	phy
+	; found an I2C device -- so report it.
+	lda #<msg1
+	ldy #>msg1
+	jsr $ab1e
+	lda #0
+	ldx $d6d0
+	jsr $bdcd
+	lda #<msg2
+	ldy #>msg2
+	jsr $ab1e
+	lda #0
+	ldx $d6d2
+	jsr $bdcd
+	lda #<msg3
+	ldy #>msg3
+	jsr $ab1e
+	ply
+	plx
+	
+	jmp resume
+
+intromsg:   .byte "SCANNING I2C BUSSES..",13,0
+donemsg:    .byte "DONE.",13,0
+
+msg1:	.byte "  FOUND BUS ",0
+msg2:	.byte ", ADDRESS ",0
+msg3:   .byte ".",13,0
+
+	.scend
