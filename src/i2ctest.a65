@@ -157,6 +157,11 @@ test_touchscreen:
 
 	 ; The order below is a bit important.
 
+	 ; Enable sprite H640 mode
+ 	 LDA	 $D054
+	 ORA	 #$10
+	 STA	 $D054
+
 	 ; 1. Set horizontal border width
 	 LDA #$00
 	 STA $D05C
@@ -232,9 +237,31 @@ pl:	lda ($fb),y
 	; reg 3-8 = touch point 1
 	; reg 9-14 = touch point 2
 
+	lda #$00
+	sta $d015
+
+	; Was there at least one touch event?
+	Ldy #2
+	lda ($fb),y
+	sta $0501
+	beq loop
+
+	lda #1
+	tsb $d015
+
 	ldy #3
 	ldx #0
 	jsr parse_touch
+
+	; Are there two touch events?
+	Ldy #2
+	lda ($fb),y
+	cmp #1
+	beq loop
+
+	lda #2
+	tsb $d015
+
 	ldy #9
 	ldx #2
 	jsr parse_touch
@@ -287,21 +314,46 @@ parse_touch:
 	sta $0428,x
 
 	; get X position (upper 8 bits only)
-	lda ($fb),y
-	and #$f
-	asl
-	asl
-	asl
-	asl
-	asl
-	asl
-	asl
+	lda #>800
+	iny
+	sec
+	sbc ($fb),y
+	sta $fd
+	dey
+	lda #<800
+	sbc ($fb),y
 	sta $fe
 	iny
-	lda ($fb),y
-	lsr
-	ora $fe
+
+	; $FD/$FE now contains 0-799 X position, in correct direction.
+	; We are running sprites in H640 mode, so we can use values as-is
+	lda $fd
 	sta $d000,x
+	cpx #$00
+	bne sprite2
+
+sprite0:
+	lda $fe
+	sta $0500
+
+	; set super MSB
+	lda $d05f
+	and #$fe
+	sta $d05f
+	lda $fe
+	lsr
+	and #$01
+	tsb $d05f
+	; set normal sprite X MSB
+	lda #$01
+	trb $d010
+	lda $fe
+	and #$01
+	tsb $fe
+	rts
+
+sprite2:
+
 	rts	
 
 i2c_read_registers:
