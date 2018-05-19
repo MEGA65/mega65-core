@@ -34,35 +34,46 @@ _next:	 .word 0
 	 LDA #0
 	 sta $d6d0
 	 sta $d6d2
-
+	 sta i2caddr
 
 try:
+	sei
+	
+	lda $d6d0
+	sta $0426
+	lda $d6d2
+	sta $0427
+
 	 ; reset I2C bus
 	 lda #$00
 	 sta $d6d1
 	 lda #$01
 	 sta $d6d1
 
-l6:      
+l6:      inc $041f
 	 lda $d6d1
+	 sta $044f
 	 cmp #$01
 	 bne l6
 
 	 ; wait for busy to assert
 	 LDA #$7
 	 sta $d6d1
-l1:	 lda $d6d1
+l1:      inc $0420
+	 lda $d6d1
 	 and #$40
 	 beq l1
 
 	 ; make sure error flag clears
-l2:	 lda $d6d1
+l2:      inc $0421
+         lda $d6d1
 	 tax
 	 and #$80
 	 bne l2
 
 	 ; wait for busy to clear
-l7:      lda $d6d1
+l7:      inc $0422
+	 lda $d6d1
 	 and #$40
 	 bne l7
 
@@ -71,12 +82,14 @@ l7:      lda $d6d1
 	 bpl gotit
 
 resume:
-	 lda $d6d2
+	 lda i2caddr
 	 clc
 	 adc #$02
 	 sta $d6d2
-l3:	 cmp $d6d2
-	 bne l3
+	 sta i2caddr
+l3:      inc $0424
+	 cmp $d6d2
+;	 bne l3
 	 cmp #$00
 	 bne try
 
@@ -109,14 +122,16 @@ gotit:
 	ldy #>msg2
 	jsr $ab1e
 	lda #0
-	ldx $d6d2
+	ldx i2caddr
 	jsr $bdcd
 	lda #<msg3
 	ldy #>msg3
 	jsr $ab1e
 	ply
 	plx
-	
+
+	; Attempt to identify the I2C device.
+
 	jmp resume
 
 intromsg:   .byte "SCANNING I2C BUSSES..",13,0
@@ -125,5 +140,7 @@ donemsg:    .byte "DONE.",13,0
 msg1:	.byte "  FOUND BUS ",0
 msg2:	.byte ", ADDRESS ",0
 msg3:   .byte ".",13,0
+
+i2caddr:      .byte 0
 
 	.scend
