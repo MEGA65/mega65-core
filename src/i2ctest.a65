@@ -99,7 +99,7 @@ notfound:
 	bne try
 
 	lda #<donemsg
-	lda #>donemsg
+	ldy #>donemsg
 	jsr $ab1e
 	cli
 
@@ -147,6 +147,11 @@ test_touchscreen:
 	lda #112
 	sta $d6d2
 
+;	lda #0
+;	sta $d6d0
+;	lda #150
+;	sta $d6d2
+
 loop:
 	jsr $ffe4
 	beq loop
@@ -154,53 +159,73 @@ loop:
 
 
 	ldy #0
-rnr:	jsr i2c_read_register
+	lda #<regs
+	sta $fb
+	lda #>regs
+	sta $fc
+	ldx #15
+rnr:	jsr i2c_read_registers
+
+	lda #0
+pl:	lda ($fb),y
 	sta $0478,y
 	iny
-	cpy #39
-;	bne rnr
+	cpy #16
+	bne pl
 
 	jmp loop
 
 	rts
 
-i2c_read_register:
+i2c_read_registers:
 	; To read a register, we have to start by writing the address
 	; of the register, and then once that is done, ask to read.
 	; what we read back, is the content of the register.
 
-	 ; reset I2C bus
-	 lda #$00
-	 sta $d6d1
-	 lda #$01
-	 sta $d6d1
-
+	; XXX - For now we have some bugs, so always read from register 0
+	; consecutively.
 
 	; start by writing the register we want to read
 	sty $d6d3
-	lda #$05
+	sty $0400
+	; reset bus and lodge request
+	lda #$00
+	sta $d6d1
+	lda #$01
+	sta $d6d1
+
+	; Write to set register number we want to read
+	lda #$03
 	sta $d6d1
 
 	inc $0447
 
 	; Wait for busy to set
-	ldx #$00	
 rr1:	inc $0448
 	lda $d6d1
 	sta $0418
 	and #$40
 	beq rr1
 
-	; While busy still set, issue read command, so that it follows
-	; on as a continuation.
-	lda #$07
-	sta $d6d1
-
 	; Wait for busy to clear
 rr2:    inc $0449
 	lda $d6d1
 	and #$40
 	bne rr2
+
+rloop:
+	; Then read
+	lda #$07
+	sta $d6d1
+
+	; Wait for busy to set
+rr1c:	inc $0448
+	lda $d6d1
+	sta $0418
+	and #$40
+	beq rr1c
+
+
 	; (as the continuation may cause BUSY to clear temporarily,
 	; make sure it stays clear.  With a continuation, the busy
 	; flag only clears for one 50MHz clock tick).
@@ -209,8 +234,22 @@ rr3:    inc $044a
 	cmp #5
 	bne rr3
 	sta $0419
+rr3b:    inc $044a
+	lda $d6d1
+	cmp #5
+	bne rr3b
+	sta $0419
 
 	lda $d6d4
+	sta $04a0,y
+	sta ($fb),y
+	iny
+	dex
+	bne rloop
+	
 	rts
+
+regs:
+	.byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 
 	.scend
