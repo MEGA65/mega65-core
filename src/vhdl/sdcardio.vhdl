@@ -613,7 +613,7 @@ begin  -- behavioural
       i2c0_command_en <= '0';
       i2c0_command_en_internal <= '0';
     end if;
-    if i2c1_busy = '1' and i21_busy_last='0' then
+    if i2c1_busy = '1' and i2c1_busy_last='0' then
       i2c1_command_en <= '0';
       i2c1_command_en_internal <= '0';
     end if;
