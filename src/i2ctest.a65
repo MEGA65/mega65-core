@@ -147,18 +147,20 @@ test_touchscreen:
 	lda #112
 	sta $d6d2
 
-	; Reset bus for good measure
-	lda #0
-	sta $d6d1
-	lda #1
-	sta $d6d1
+loop:
+	jsr $ffe4
+	beq loop
+	inc $d020
+
 
 	ldy #0
 rnr:	jsr i2c_read_register
 	sta $0478,y
 	iny
 	cpy #39
-	bne rnr
+;	bne rnr
+
+	jmp loop
 
 	rts
 
@@ -173,6 +175,7 @@ i2c_read_register:
 	 lda #$01
 	 sta $d6d1
 
+
 	; start by writing the register we want to read
 	sty $d6d3
 	lda #$05
@@ -181,8 +184,10 @@ i2c_read_register:
 	inc $0447
 
 	; Wait for busy to set
+	ldx #$00	
 rr1:	inc $0448
 	lda $d6d1
+	sta $0418
 	and #$40
 	beq rr1
 
@@ -201,8 +206,9 @@ rr2:    inc $0449
 	; flag only clears for one 50MHz clock tick).
 rr3:    inc $044a
 	lda $d6d1
-	and #$40
+	cmp #5
 	bne rr3
+	sta $0419
 
 	lda $d6d4
 	rts

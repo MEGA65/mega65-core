@@ -259,6 +259,11 @@ pdmsimulate: $(VHDLSRCDIR)/test_pdm.vhdl $(VHDLSRCDIR)/pdm_to_pcm.vhdl
 	ghdl -m test_pdm
 	( ./test_pdm || ghdl -r test_pdm ) 
 
+i2csimulate: $(VHDLSRCDIR)/test_i2c.vhdl $(VHDLSRCDIR)/i2c_master.vhdl
+	ghdl -i $(VHDLSRCDIR)/test_i2c.vhdl $(VHDLSRCDIR)/i2c_master.vhdl
+	ghdl -m test_i2c
+	( ./test_i2c || ghdl -r test_i2c ) 
+
 
 MIIMFILES=	$(VHDLSRCDIR)/ethernet_miim.vhdl \
 		$(VHDLSRCDIR)/test_miim.vhdl

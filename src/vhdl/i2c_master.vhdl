@@ -135,10 +135,12 @@ BEGIN
               state <= ready;                --remain idle
             END IF;
           WHEN start =>                      --start bit of transaction
+            report "sending start for transaction";
             busy <= '1';                     --resume busy if continuous mode
             sda_int <= addr_rw(bit_cnt);     --set first address bit to bus
             state <= command;                --go to command
           WHEN command =>                    --address and command byte of transaction
+            report "sending command bit " & integer'image(bit_cnt);
             IF(bit_cnt = 0) THEN             --command transmit finished
               sda_int <= '1';                --release sda for slave acknowledge
               bit_cnt <= 7;                  --reset bit counter for "byte" states
@@ -157,6 +159,7 @@ BEGIN
               state <= rd;                   --go to read byte
             END IF;
           WHEN wr =>                         --write byte of transaction
+            report "writing data bit " & integer'image(bit_cnt);
             busy <= '1';                     --resume busy if continuous mode
             IF(bit_cnt = 0) THEN             --write byte transmit finished
               sda_int <= '1';                --release sda for slave acknowledge
@@ -168,6 +171,7 @@ BEGIN
               state <= wr;                   --continue writing
             END IF;
           WHEN rd =>                         --read byte of transaction
+            report "reading data bit " & integer'image(bit_cnt);
             busy <= '1';                     --resume busy if continuous mode
             IF(bit_cnt = 0) THEN             --read byte receive finished
               IF(ena = '1' AND addr_rw = addr & rw) THEN  --continuing with another read at same address
@@ -187,8 +191,8 @@ BEGIN
               busy <= '0';                   --continue is accepted
               addr_rw <= addr & rw;          --collect requested slave address and command
               data_tx <= data_wr;            --collect requested data to write
-              if addr_rw(7 downto 1) = addr THEN   --continue transaction with another
-                                             --write (or read PGS)
+              if addr_rw(7 downto 0) = addr & rw THEN   --continue transaction with
+                                                        --another write
                 sda_int <= data_wr(bit_cnt); --write first bit of data
                 state <= wr;                 --go to write byte
               ELSE                           --continue transaction with a read or new slave
@@ -202,7 +206,7 @@ BEGIN
               busy <= '0';                   --continue is accepted and data received is available on bus
               addr_rw <= addr & rw;          --collect requested slave address and command
               data_tx <= data_wr;            --collect requested data to write
-              if addr_rw(7 downto 1) = addr THEN   --continue transaction with another
+              if addr_rw = addr & rw THEN   --continue transaction with another
                                                    --read (or write PGS)
                 sda_int <= '1';              --release sda from incoming data
                 state <= rd;                 --go to read byte
