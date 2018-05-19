@@ -86,7 +86,7 @@ begin
       end if;
 --      report "busy=" & std_logic'image(i2c0_busy) & "last_busy = " & std_logic'image(last_busy);
       if i2c0_busy='0' and last_busy='1' then
-        report "next command";
+        report "busy de-asserted: dispatching next command";
         busy_count <= busy_count + 1;
         case busy_count is
           when 0 =>
@@ -97,6 +97,7 @@ begin
             i2c0_rw <= '0';
           when 1 =>
             i2c0_rw <= '1';
+            i2c0_command_en <= '1';
           when others =>
             i2c0_command_en <= '0';
         end case;

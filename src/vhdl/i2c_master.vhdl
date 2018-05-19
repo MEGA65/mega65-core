@@ -137,15 +137,16 @@ BEGIN
           WHEN start =>                      --start bit of transaction
             report "sending start for transaction";
             busy <= '1';                     --resume busy if continuous mode
+              report "sending command bit " & integer'image(bit_cnt) & " = " & std_logic'image(addr_rw(bit_cnt));
             sda_int <= addr_rw(bit_cnt);     --set first address bit to bus
             state <= command;                --go to command
           WHEN command =>                    --address and command byte of transaction
-            report "sending command bit " & integer'image(bit_cnt);
             IF(bit_cnt = 0) THEN             --command transmit finished
               sda_int <= '1';                --release sda for slave acknowledge
               bit_cnt <= 7;                  --reset bit counter for "byte" states
               state <= slv_ack1;             --go to slave acknowledge (command)
             ELSE                             --next clock cycle of command state
+              report "sending command bit " & integer'image(bit_cnt-1) & " = " & std_logic'image(addr_rw(bit_cnt-1));
               bit_cnt <= bit_cnt - 1;        --keep track of transaction bits
               sda_int <= addr_rw(bit_cnt-1); --write address/command bit to bus
               state <= command;              --continue with command
@@ -153,6 +154,7 @@ BEGIN
           WHEN slv_ack1 =>                   --slave acknowledge bit (command)
             IF(addr_rw(0) = '0') THEN        --write command
               sda_int <= data_tx(bit_cnt);   --write first bit of data
+              report "switching to wr following command";
               state <= wr;                   --go to write byte
             ELSE                             --read command
               sda_int <= '1';                --release sda from incoming data
@@ -191,9 +193,10 @@ BEGIN
               busy <= '0';                   --continue is accepted
               addr_rw <= addr & rw;          --collect requested slave address and command
               data_tx <= data_wr;            --collect requested data to write
-              if addr_rw(7 downto 0) = addr & rw THEN   --continue transaction with
+              if addr_rw = addr & rw THEN   --continue transaction with
                                                         --another write
                 sda_int <= data_wr(bit_cnt); --write first bit of data
+                report "re-trigging byte write, because ena is still high";
                 state <= wr;                 --go to write byte
               ELSE                           --continue transaction with a read or new slave
                 state <= start;              --go to repeated start

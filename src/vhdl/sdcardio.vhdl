@@ -404,6 +404,7 @@ architecture behavioural of sdcardio is
   signal i2c0_reset_internal : std_logic := '1';
   signal i2c0_command_en : std_logic := '0';  
   signal i2c0_command_en_internal : std_logic := '0';  
+  signal i2c0_stacked_command : std_logic := '0';
 
   signal i2c1_address : unsigned(6 downto 0) := to_unsigned(0,7);
   signal i2c1_address_internal : unsigned(6 downto 0) := to_unsigned(0,7);
@@ -422,6 +423,7 @@ architecture behavioural of sdcardio is
   signal i2c1_swap : std_logic := '0';
   signal i2c1_debug_scl : std_logic := '0';
   signal i2c1_debug_sda : std_logic := '0';
+  signal i2c1_stacked_command : std_logic := '0';
 
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
@@ -1026,13 +1028,17 @@ begin  -- behavioural
       -- Reset I2C command enable as soon as busy flag asserts
       i2c0_busy_last <= i2c0_busy;
       i2c1_busy_last <= i2c1_busy;
-      if i2c0_busy = '1' and i2c0_busy_last='0' then
+      if (i2c0_busy = '1' and i2c0_busy_last='0')
+        or (i2c0_busy = '1' and i2c0_busy_last='0' and i2c0_stacked_command ='1' ) then
         i2c0_command_en <= '0';
         i2c0_command_en_internal <= '0';
+        i2c0_stacked_command <= '0';
       end if;
-      if i2c1_busy = '1' and i2c1_busy_last='0' then
+      if (i2c1_busy = '1' and i2c1_busy_last='0')
+        or (i2c1_busy = '1' and i2c1_busy_last='0' and i2c1_stacked_command ='1' ) then
         i2c1_command_en <= '0';
         i2c1_command_en_internal <= '0';
+        i2c1_stacked_command <= '0';
       end if;
 
       target_track <= f011_track;
@@ -1879,6 +1885,9 @@ begin  -- behavioural
                 i2c0_reset <= fastio_wdata(0);
                 i2c0_reset_internal <= fastio_wdata(0);
                 i2c0_command_en <= fastio_wdata(1);
+                if (fastio_wdata(1) and i2c0_busy) = '1' then
+                  i2c0_stacked_command <= '1';
+                end if;
                 i2c0_command_en_internal <= fastio_wdata(1);
                 i2c0_rw <= fastio_wdata(2);
                 i2c0_rw_internal <= fastio_wdata(2);
@@ -1886,6 +1895,9 @@ begin  -- behavioural
                 i2c1_reset <= fastio_wdata(0);
                 i2c1_reset_internal <= fastio_wdata(0);
                 i2c1_command_en <= fastio_wdata(1);
+                if (fastio_wdata(1) and i2c1_busy) = '1' then
+                  i2c1_stacked_command <= '1';
+                end if;
                 i2c1_command_en_internal <= fastio_wdata(1);
                 i2c1_rw <= fastio_wdata(2);
                 i2c1_rw_internal <= fastio_wdata(2);
