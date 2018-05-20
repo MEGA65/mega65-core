@@ -470,6 +470,29 @@ GS $D6AF.3 - f011_rnf
 GS $D6AF.4 - f011_drq
 GS $D6AF.5 - f011_lost
 GS $D6AF - Directly set F011 flags (intended for virtual F011 mode) WRITE ONLY
+GS $D6B0.0 - Touch event 1 is valid
+GS $D6B0.1 - Touch event 2 is valid
+GS $D6B0.2-3 - Touch event 1 up/down state
+GS $D6B0.5-4 - Touch event 2 up/down state
+GS $D6B0.6 - Invert horizontal axis
+GS $D6B0.7 - Invert vertical axis
+GS $D6B0 - Touch pad control / status
+GS $D6B1 - Touch pad X scaling LSB
+GS $D6B2 - Touch pad X scaling MSB
+GS $D6B3 - Touch pad Y scaling LSB
+GS $D6B4 - Touch pad Y scaling MSB
+GS $D6B5 - Touch pad X delta LSB
+GS $D6B6 - Touch pad X delta MSB
+GS $D6B7 - Touch pad Y delta LSB
+GS $D6B8 - Touch pad Y delta MSB
+GS $D6B9 - Touch pad touch #1 X LSB
+GS $D6BA - Touch pad touch #1 Y LSB
+GS $D6BB.0-1 - Touch pad touch #1 X MSBs
+GS $D6BB.5-4 - Touch pad touch #1 Y MSBs
+GS $D6BC - Touch pad touch #2 X LSB
+GS $D6BD - Touch pad touch #2 Y LSB
+GS $D6BE.0-1 - Touch pad touch #2 X MSBs
+GS $D6BE.5-4 - Touch pad touch #2 Y MSBs
 GS $D6D0 - I2C bus select (bus 0 = temp sensor on Nexys4 boardS)
 GS $D6D1.0 - I2C reset
 GS $D6D1.1 - I2C command latch write strobe (write 1 to trigger command)

@@ -117,6 +117,7 @@ VICIVVHDL=		$(VHDLSRCDIR)/viciv.vhdl \
 
 PERIPHVHDL=		$(VHDLSRCDIR)/sdcardio.vhdl \
 			$(VHDLSRCDIR)/pdm_to_pcm.vhdl \
+			$(VHDLSRCDIR)/touch.vhdl \
 			$(VHDLSRCDIR)/i2c_master.vhdl \
 			$(VHDLSRCDIR)/buffereduart.vhdl \
 			$(VHDLSRCDIR)/mfm_bits_to_bytes.vhdl \

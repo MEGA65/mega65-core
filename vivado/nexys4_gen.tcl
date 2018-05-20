@@ -120,6 +120,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/sid_6581.vhd"]"\
  "[file normalize "$origin_dir/src/vhdl/shadowram.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/sdcardio.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/touch.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/pdm_to_pcm.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/i2c_master.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/mfm_bits_to_bytes.vhdl"]"\

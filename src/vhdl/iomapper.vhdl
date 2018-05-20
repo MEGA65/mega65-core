@@ -223,6 +223,9 @@ entity iomapper is
 
         i2c1SDA : inout std_logic;
         i2c1SCL : inout std_logic;
+
+        touchSDA : inout std_logic;
+        touchSCL : inout std_logic;
         
         sw : in std_logic_vector(15 downto 0);
         btn : in std_logic_vector(4 downto 0);
@@ -836,6 +839,9 @@ begin
 
     i2c1SDA => i2c1SDA,
     i2c1SCL => i2c1SCL,
+
+    touchSDA => touchSDA,
+    touchSCL => touchSCL,
     
     QspiSCK => QspiSCK,
     QspiDB => QspiDB,

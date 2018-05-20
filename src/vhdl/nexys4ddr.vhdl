@@ -457,8 +457,8 @@ begin
       tmpInt => tmpInt,
       tmpCT => tmpCT,
 
-      i2c1SDA => jdlo(2),
-      i2c1SCL => jdlo(1),
+      touchSDA => jdlo(2),
+      touchSCL => jdlo(1),
       
       ps2data =>      ps2data,
       ps2clock =>     ps2clk,

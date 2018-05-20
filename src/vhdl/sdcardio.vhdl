@@ -152,6 +152,10 @@ entity sdcardio is
     i2c1SDA : inout std_logic;
     i2c1SCL : inout std_logic;    
 
+    -- Touch pad I2C bus
+    touchSDA : inout std_logic;
+    touchSCL : inout std_logic;
+    
     ----------------------------------------------------------------------
     -- Flash RAM for holding config
     ----------------------------------------------------------------------
@@ -425,6 +429,28 @@ architecture behavioural of sdcardio is
   signal i2c1_debug_sda : std_logic := '0';
   signal i2c1_stacked_command : std_logic := '0';
 
+  signal touch_enabled : std_logic := '1';
+  signal touch_flip_x : std_logic := '0';
+  signal touch_flip_x_internal : std_logic := '0';
+  signal touch_flip_y : std_logic := '0';
+  signal touch_flip_y_internal : std_logic := '0';
+  signal touch_scale_x : unsigned(15 downto 0 ) := to_unsigned(2048,16);
+  signal touch_scale_x_internal : unsigned(15 downto 0 ) := to_unsigned(2048,16);
+  signal touch_scale_y : unsigned(15 downto 0 ) := to_unsigned(2048,16);
+  signal touch_scale_y_internal : unsigned(15 downto 0 ) := to_unsigned(2048,16);
+  signal touch_delta_x : unsigned(15 downto 0 ) := to_unsigned(0,16);
+  signal touch_delta_x_internal : unsigned(15 downto 0 ) := to_unsigned(0,16);
+  signal touch_delta_y : unsigned(15 downto 0 ) := to_unsigned(0,16);
+  signal touch_delta_y_internal : unsigned(15 downto 0 ) := to_unsigned(0,16);
+  signal touch1_active : std_logic := '0';
+  signal touch1_status : std_logic_vector(1 downto 0) := "11";
+  signal touch_x1 : unsigned(9 downto 0) := to_unsigned(0,10);
+  signal touch_y1 : unsigned(9 downto 0) := to_unsigned(0,10);
+  signal touch2_active : std_logic := '0';
+  signal touch2_status : std_logic_vector(1 downto 0) := "11";
+  signal touch_x2 : unsigned(9 downto 0) := to_unsigned(0,10);
+  signal touch_y2 : unsigned(9 downto 0) := to_unsigned(0,10);
+  
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
   begin
@@ -437,6 +463,28 @@ begin  -- behavioural
   -- SD card controller module.
   --**********************************************************************
 
+  touch0: entity work.touch
+    port map (
+      clock50mhz => clock,
+      sda => touchSDA,
+      scl => touchSCL,
+      touch_enabled => touch_enabled,
+
+      x_invert => touch_flip_x,
+      y_invert => touch_flip_y,
+      x_mult   => touch_scale_x,
+      y_mult   => touch_scale_y,
+      x_delta  => touch_delta_x,
+      y_delta  => touch_delta_y,
+
+      touch1_active => touch1_active,
+      touch1_status => touch1_status,
+      x1 => touch_x1,
+      y1 => touch_y1,
+      x2 => touch_x2,
+      y2 => touch_y2
+      );
+  
   i2c0: entity work.i2c_master
     port map (
       clk => clock,
@@ -879,6 +927,66 @@ begin  -- behavioural
           when x"ae" =>
             -- @IO:GS $D6AE - DEBUG FDC bytes read counter (MSB)
             fastio_rdata <= unsigned(fdc_bytes_read(15 downto 8));
+          when x"B0" =>
+            -- @IO:GS $D6B0 - Touch pad control / status
+            -- @IO:GS $D6B0.0 - Touch event 1 is valid
+            -- @IO:GS $D6B0.1 - Touch event 2 is valid
+            -- @IO:GS $D6B0.2-3 - Touch event 1 up/down state
+            -- @IO:GS $D6B0.5-4 - Touch event 2 up/down state
+            -- @IO:GS $D6B0.6 - Invert horizontal axis
+            -- @IO:GS $D6B0.7 - Invert vertical axis
+            fastio_rdata(0) <= touch1_active;
+            fastio_rdata(1) <= touch2_active;
+            fastio_rdata(3 downto 2) <= unsigned(touch1_status);
+            fastio_rdata(5 downto 4) <= unsigned(touch2_status);
+            fastio_rdata(6) <= touch_flip_x_internal;
+            fastio_rdata(7) <= touch_flip_y_internal;
+          when x"B1" =>
+            -- @IO:GS $D6B1 - Touch pad X scaling LSB
+            fastio_rdata <= touch_scale_x_internal(7 downto 0);
+          when x"B2" =>
+            -- @IO:GS $D6B2 - Touch pad X scaling MSB
+            fastio_rdata <= touch_scale_x_internal(15 downto 8);
+          when x"B3" =>
+            -- @IO:GS $D6B3 - Touch pad Y scaling LSB
+            fastio_rdata <= touch_scale_y_internal(7 downto 0);
+          when x"B4" =>
+            -- @IO:GS $D6B4 - Touch pad Y scaling MSB
+            fastio_rdata <= touch_scale_y_internal(15 downto 8);
+          when x"B5" =>
+            -- @IO:GS $D6B5 - Touch pad X delta LSB
+            fastio_rdata <= touch_delta_x_internal(7 downto 0);
+          when x"B6" =>
+            -- @IO:GS $D6B6 - Touch pad X delta MSB
+            fastio_rdata <= touch_delta_x_internal(15 downto 8);
+          when x"B7" =>
+            -- @IO:GS $D6B7 - Touch pad Y delta LSB
+            fastio_rdata <= touch_delta_y_internal(7 downto 0);
+          when x"B8" =>
+            -- @IO:GS $D6B8 - Touch pad Y delta MSB
+            fastio_rdata <= touch_delta_y_internal(15 downto 8);
+          when x"B9" =>
+            -- @IO:GS $D6B9 - Touch pad touch #1 X LSB
+            fastio_rdata <= touch_x1(7 downto 0);
+          when x"BA" =>
+            -- @IO:GS $D6BA - Touch pad touch #1 Y LSB
+            fastio_rdata <= touch_y1(7 downto 0);
+          when x"BB" =>
+            -- @IO:GS $D6BB.0-1 - Touch pad touch #1 X MSBs
+            -- @IO:GS $D6BB.5-4 - Touch pad touch #1 Y MSBs
+            fastio_rdata(1 downto 0) <= touch_x1(9 downto 8);
+            fastio_rdata(5 downto 4) <= touch_y1(9 downto 8);
+          when x"BC" =>
+            -- @IO:GS $D6BC - Touch pad touch #2 X LSB
+            fastio_rdata <= touch_x2(7 downto 0);
+          when x"BD" =>
+            -- @IO:GS $D6BD - Touch pad touch #2 Y LSB
+            fastio_rdata <= touch_y2(7 downto 0);
+          when x"BE" =>
+            -- @IO:GS $D6BE.0-1 - Touch pad touch #2 X MSBs
+            -- @IO:GS $D6BE.5-4 - Touch pad touch #2 Y MSBs
+            fastio_rdata(1 downto 0) <= touch_x2(9 downto 8);
+            fastio_rdata(5 downto 4) <= touch_y2(9 downto 8);
           when x"D0" =>
             -- @IO:GS $D6D0 - I2C bus select (bus 0 = temp sensor on Nexys4 boardS)
             fastio_rdata <= i2c_bus_id;
@@ -1871,6 +1979,35 @@ begin  -- behavioural
               f011_rnf <= fastio_wdata(3);
               f011_drq <= fastio_wdata(4);
               f011_lost <= fastio_wdata(5);
+            when x"B0" =>
+              touch_flip_x <= fastio_wdata(6);
+              touch_flip_x_internal <= fastio_wdata(6);
+              touch_flip_y <= fastio_wdata(7);
+              touch_flip_y_internal <= fastio_wdata(7);
+            when x"B1" =>
+              touch_scale_x(7 downto 0) <= fastio_wdata;
+              touch_scale_x_internal(7 downto 0) <= fastio_wdata;
+            when x"B2" =>
+              touch_scale_x_internal(15 downto 8) <= fastio_wdata;
+              touch_scale_x(15 downto 8) <= fastio_wdata;
+            when x"B3" =>
+              touch_scale_y(7 downto 0) <= fastio_wdata;
+              touch_scale_y_internal(7 downto 0) <= fastio_wdata;
+            when x"B4" =>
+              touch_scale_y(15 downto 8) <= fastio_wdata;
+              touch_scale_y_internal(15 downto 8) <= fastio_wdata;
+            when x"B5" =>
+              touch_delta_x(7 downto 0) <= fastio_wdata;
+              touch_delta_x_internal(7 downto 0) <= fastio_wdata;
+            when x"B6" =>
+              touch_delta_x(15 downto 8) <= fastio_wdata;
+              touch_delta_x_internal(15 downto 8) <= fastio_wdata;
+            when x"B7" =>
+              touch_delta_y(7 downto 0) <= fastio_wdata;
+              touch_delta_y_internal(7 downto 0) <= fastio_wdata;
+            when x"B8" =>
+              touch_delta_y(15 downto 8) <= fastio_wdata;
+              touch_delta_y_internal(15 downto 8) <= fastio_wdata;
             when x"D0" =>
               i2c_bus_id <= fastio_wdata;
             when x"D1" =>

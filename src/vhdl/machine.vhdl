@@ -197,6 +197,9 @@ entity machine is
          i2c1SDA : inout std_logic;
          i2c1SCL : inout std_logic;
          
+         touchSDA : inout std_logic := '1';
+         touchSCL : inout std_logic := '1';
+         
          ---------------------------------------------------------------------------
          -- IO lines to the ethernet controller
          ---------------------------------------------------------------------------
@@ -1253,6 +1256,9 @@ begin
 
       i2c1SDA => i2c1SDA,
       i2c1SCL => i2c1SCL,
+      
+      touchSDA => touchSDA,
+      touchSCL => touchSCL,
       
       ---------------------------------------------------------------------------
       -- IO lines to the ethernet controller
