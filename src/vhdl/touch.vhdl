@@ -16,8 +16,8 @@ entity touch is
     -- the horizontal axis.
     x_invert : in std_logic := '0';
     y_invert : in std_logic := '0';
-    x_mult : in unsigned(15 downto 0) := to_unsigned(256,16);
-    y_mult : in unsigned(15 downto 0) := to_unsigned(256,16);
+    x_mult : in unsigned(15 downto 0) := to_unsigned(2048,16);
+    y_mult : in unsigned(15 downto 0) := to_unsigned(2048,16);
     x_delta : in unsigned(15 downto 0) := to_unsigned(0,16);
     y_delta : in unsigned(15 downto 0) := to_unsigned(0,16);
     
@@ -141,46 +141,94 @@ begin
           null;
         when 1 =>
           -- Begin parsing
+          report "There are " & integer'image(to_integer(bytes(2))) & " touch events: $"
+            & to_hstring(bytes(3+2)(7 downto 4)) & " & $"
+            & to_hstring(bytes(9+2)(7 downto 4));
+            
           if bytes(2) /= x"00" and bytes(3+2)(7 downto 4) /= x"f" then
             if bytes(3+2)(7 downto 4) = "0001" then
               touch1_status <= std_logic_vector(bytes(3+0)(7 downto 6));
+              report "Setting x1_int to $" & to_hstring(bytes(3+2)(3 downto 0) & bytes(3+3));
               x1_int <= to_integer(bytes(3+2)(3 downto 0) & bytes(3+3));
               y1_int <= to_integer(bytes(3+0)(3 downto 0) & bytes(3+1));
             elsif bytes(3+2)(7 downto 4) = "0010" then
               touch2_status <= std_logic_vector(bytes(3+0)(7 downto 6));
+              report "Setting x2_int to $" & to_hstring(bytes(3+2)(3 downto 0) & bytes(3+3));
               x2_int <= to_integer(bytes(3+2)(3 downto 0) & bytes(3+3));
               y2_int <= to_integer(bytes(3+0)(3 downto 0) & bytes(3+1));
             end if;
           end if;
 
           if bytes(2) > x"01" and bytes(9+2)(7 downto 4) /= x"f" then
-            if bytes(3+2)(7 downto 4) = "0001" then
+            if bytes(9+2)(7 downto 4) = "0001" then
+              report "Setting x1_int to $" & to_hstring(bytes(9+2)(3 downto 0) & bytes(9+3));
               touch1_status <= std_logic_vector(bytes(9+0)(7 downto 6));
               x1_int <= to_integer(bytes(9+2)(3 downto 0) & bytes(9+3));
               y1_int <= to_integer(bytes(9+0)(3 downto 0) & bytes(9+1));
-            elsif bytes(3+2)(7 downto 4) = "0010" then
+            elsif bytes(9+2)(7 downto 4) = "0010" then
+              report "Setting x2_int to $" & to_hstring(bytes(9+2)(3 downto 0) & bytes(9+3));
               touch2_status <= std_logic_vector(bytes(9+0)(7 downto 6));
               x2_int <= to_integer(bytes(9+2)(3 downto 0) & bytes(9+3));
               y2_int <= to_integer(bytes(9+0)(3 downto 0) & bytes(9+1));
             end if;
           end if;
-          parse_touch <= 0;
+          parse_touch <= 2;
+        when 2 =>
+          parse_touch <= 3;
+        when 3 =>
+          parse_touch <= 0;          
+          
         when others =>
           parse_touch <= 0;
       end case;
 
-      -- We ignore the MSB, so that it is possible for the multiplier to
-      -- both scale up and down versus the input from the panel
+      if parse_touch = 3 then
+        -- We ignore the MSB, so that it is possible for the multiplier to
+        -- both scale up and down versus the input from the panel
+        report "touch point 1 ="
+          & " " & to_hstring(bytes(3))
+          & " " & to_hstring(bytes(4))
+          & " " & to_hstring(bytes(5))
+          & " " & to_hstring(bytes(6))
+          & " " & to_hstring(bytes(7))
+          & " " & to_hstring(bytes(8));
+      end if;
+      
       x1_mult <= to_unsigned(x1_int * to_integer(x_mult),12+16)(26 downto 11);
       x2_mult <= to_unsigned(x2_int * to_integer(x_mult),12+16)(26 downto 11);
       y1_mult <= to_unsigned(y1_int * to_integer(y_mult),12+16)(26 downto 11);
       y2_mult <= to_unsigned(y2_int * to_integer(y_mult),12+16)(26 downto 11);
-
-      r := x1_mult + x_delta; x1 <= r(15 downto 6);
-      r := x2_mult + x_delta; x2 <= r(15 downto 6);
-      r := y1_mult + y_delta; y1 <= r(15 downto 6);
-      r := y2_mult + y_delta; y2 <= r(15 downto 6);
       
+      r := x1_mult + x_delta; x1 <= r(15 downto 6);
+      if parse_touch = 3 then
+        report "scaled x1 = ( (" & integer'image(x1_int)
+          & " * " & integer'image(to_integer(x_mult))
+          & ") >> 11) + " & integer'image(to_integer(x_delta))
+          & " = " & integer'image(to_integer(r));
+      end if;
+      r := y1_mult + y_delta; y1 <= r(15 downto 6);
+      if parse_touch = 3 then
+        report "scaled y1 = ( (" & integer'image(y1_int)
+          & " * " & integer'image(to_integer(y_mult))
+          & ") >> 11) + " & integer'image(to_integer(y_delta))
+          & " = " & integer'image(to_integer(r));
+      end if;
+      r := x2_mult + x_delta; x2 <= r(15 downto 6);
+      if parse_touch = 3 then
+        report "scaled x2 = ( (" & integer'image(x2_int)
+          & " * " & integer'image(to_integer(x_mult))
+          & ") >> 11) + " & integer'image(to_integer(x_delta))
+          & " = " & integer'image(to_integer(r));
+      end if;
+      r := y2_mult + y_delta; y2 <= r(15 downto 6);
+      if parse_touch = 3 then
+        report "scaled y2 = ( (" & integer'image(y2_int)
+          & " * " & integer'image(to_integer(y_mult))
+          & ") >> 11) + " & integer'image(to_integer(y_delta))
+          & " = " & integer'image(to_integer(r));
+      end if;
+
+
       
     end if;
   end process;  
