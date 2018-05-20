@@ -1259,6 +1259,12 @@ begin
       
       touchSDA => touchSDA,
       touchSCL => touchSCL,
+      touch1_valid => osk_touch1_valid,
+      touch1_x => osk_touch1_x,
+      touch1_y => osk_touch1_y,
+      touch2_valid => osk_touch2_valid,
+      touch2_x => osk_touch2_x,
+      touch2_y => osk_touch2_y,
       
       ---------------------------------------------------------------------------
       -- IO lines to the ethernet controller

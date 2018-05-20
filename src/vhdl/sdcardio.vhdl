@@ -155,6 +155,14 @@ entity sdcardio is
     -- Touch pad I2C bus
     touchSDA : inout std_logic;
     touchSCL : inout std_logic;
+    -- Touch interface
+    touch1_valid : out std_logic;
+    touch1_x : out unsigned(13 downto 0);
+    touch1_y : out unsigned(11 downto 0);
+    touch2_valid : out std_logic;
+    touch2_x : out unsigned(13 downto 0);
+    touch2_y : out unsigned(11 downto 0);
+        
     
     ----------------------------------------------------------------------
     -- Flash RAM for holding config
@@ -1133,6 +1141,18 @@ begin  -- behavioural
     
     if rising_edge(clock) then    
 
+      -- Pass current touch events to the on-screen keyboard
+      touch1_valid <= touch1_active;
+      touch1_x(13 downto 10) <= (others => '0');
+      touch1_y(11 downto 10) <= (others => '0');
+      touch1_x(9 downto 0) <= touch_x1(9 downto 0);
+      touch1_y(9 downto 0) <= touch_y1(9 downto 0);
+      touch2_valid <= touch2_active;
+      touch2_x(13 downto 10) <= (others => '0');
+      touch2_y(11 downto 10) <= (others => '0');
+      touch2_x(9 downto 0) <= touch_x2(9 downto 0);
+      touch2_y(9 downto 0) <= touch_y2(9 downto 0);
+      
       -- Reset I2C command enable as soon as busy flag asserts
       i2c0_busy_last <= i2c0_busy;
       i2c1_busy_last <= i2c1_busy;

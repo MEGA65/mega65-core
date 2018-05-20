@@ -231,6 +231,14 @@ entity iomapper is
         btn : in std_logic_vector(4 downto 0);
         seg_led : out unsigned(31 downto 0);
 
+        -- Touch interface
+        touch1_valid : out std_logic;
+        touch1_x : out unsigned(13 downto 0);
+        touch1_y : out unsigned(11 downto 0);
+        touch2_valid : out std_logic;
+        touch2_x : out unsigned(13 downto 0);
+        touch2_y : out unsigned(11 downto 0);
+        
         viciii_iomode : in std_logic_vector(1 downto 0);
         
         kickstart_address : in std_logic_vector(13 downto 0);
@@ -842,6 +850,12 @@ begin
 
     touchSDA => touchSDA,
     touchSCL => touchSCL,
+    touch1_valid => touch1_valid,
+    touch1_x => touch1_x,
+    touch1_y => touch1_y,
+    touch2_valid => touch2_valid,
+    touch2_x => touch2_x,
+    touch2_y => touch2_y,
     
     QspiSCK => QspiSCK,
     QspiDB => QspiDB,
