@@ -257,8 +257,12 @@ rnr:	jsr i2c_read_registers
 	iny
 	iny
 	lda ($fb),y
+	sta $0400
 	dey
 	dey
+	and #$f0
+	cmp #$f0
+	beq n1
 	lsr
 	lsr
 	lsr
@@ -266,7 +270,7 @@ rnr:	jsr i2c_read_registers
 	tax
 
 	jsr parse_touch
-
+n1:
 	; Are there two touch events?
 	Ldy #2
 	lda ($fb),y
@@ -281,8 +285,12 @@ rnr:	jsr i2c_read_registers
 	iny
 	iny
 	lda ($fb),y
+	sta $0401
 	dey
 	dey
+	and #$f0
+	cmp #$f0
+	beq n2
 	lsr
 	lsr
 	lsr
@@ -291,7 +299,7 @@ rnr:	jsr i2c_read_registers
 
 
 	jsr parse_touch
-
+n2:
 
 	jmp loop
 

@@ -33,6 +33,18 @@ architecture foo of test_i2c is
 
   signal last_busy : std_logic := '1';
   signal busy_count : integer := 0;
+
+  subtype uint8 is unsigned(7 downto 0);
+  type byte_array is array (0 to 15) of uint8;
+  signal bytes : byte_array := (others => x"00");
+
+  signal touch_enabled : std_logic := '1';
+
+  signal read_req : std_logic := '0';
+  signal data_to_master : std_logic_vector(7 downto 0) := x"00";
+  signal data_valid : std_logic := '0';
+  signal data_from_master : std_logic_vector(7 downto 0) := x"00";
+  signal next_value : integer := 0;
   
 begin
 
@@ -51,7 +63,21 @@ begin
       sda => sda,
       scl => scl
       );
-  
+
+  i2cslave: entity work.i2c_slave
+    generic map (
+      SLAVE_ADDR => "0111000"
+      )
+    port map (
+      scl => scl,
+      sda => sda,
+      clk => clock50mhz,
+      rst => '0',
+      read_req => read_req,
+      data_to_master => data_to_master,
+      data_valid => data_valid,
+      data_from_master => data_from_master);
+
   process is
   begin
     clock50mhz <= '0';  
@@ -66,14 +92,26 @@ begin
       
   end process;
 
+  -- Implement simulated I2C slave
+  process (clock50mhz) is
+  begin
+    if rising_edge(clock50mhz) then
+      if read_req = '1' then
+        data_to_master <= std_logic_vector(to_unsigned(next_value,8));
+        next_value <= next_value + 1;
+      end if;
+    end if;
+  end process;
+  
+  
   process (clock50mhz) is
   begin
     if rising_edge(clock50mhz) then
       sda_last <= sda;
       scl_last <= scl;
       if sda /= sda_last or scl /= scl_last then
-        report "SDA=" & std_logic'image(sda) &
-          ", SCL=" & std_logic'image(scl);
+--        report "SDA=" & std_logic'image(sda) &
+--          ", SCL=" & std_logic'image(scl);
       end if;  
     end if;
   end process;
@@ -90,16 +128,35 @@ begin
         busy_count <= busy_count + 1;
         case busy_count is
           when 0 =>
-            -- send initial command
-            i2c0_command_en <= '1';
-            i2c0_address <= "0111000";
-            i2c0_wdata <= x"42";
-            i2c0_rw <= '0';
-          when 1 =>
-            i2c0_rw <= '1';
-            i2c0_command_en <= '1';
+            if touch_enabled='1' then
+              report "Beginning touch panel scan";
+              -- send initial command
+              i2c0_command_en <= '1';
+              i2c0_address <= "0111000";  -- 0x70 = I2C address of touch panel
+              -- Write register zero to set starting point for read
+              i2c0_wdata <= x"00";
+              i2c0_rw <= '0';
+            else
+              busy_count <= 0;
+            end if;
+          when 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 =>
+            if i2c0_error='1' then
+              i2c0_command_en <= '0';
+              busy_count <= 0;
+              report "I2C error: Restarting job.";
+            else
+              i2c0_rw <= '1';
+              i2c0_command_en <= '1';
+            end if;
+            if busy_count>3 then
+              report "Setting byte(" & integer'image(busy_count - 4) & ") to $" & to_hstring(i2c0_rdata);
+              bytes(busy_count - 4) <= i2c0_rdata;
+            end if;
           when others =>
+            report "Setting byte(" & integer'image(busy_count - 4) & ") to $" & to_hstring(i2c0_rdata);
+            bytes(busy_count - 4) <= i2c0_rdata;
             i2c0_command_en <= '0';
+            busy_count <= 0;
         end case;
       end if;
     end if;
