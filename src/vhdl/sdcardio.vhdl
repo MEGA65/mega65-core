@@ -458,6 +458,8 @@ architecture behavioural of sdcardio is
   signal touch2_status : std_logic_vector(1 downto 0) := "11";
   signal touch_x2 : unsigned(9 downto 0) := to_unsigned(0,10);
   signal touch_y2 : unsigned(9 downto 0) := to_unsigned(0,10);
+  signal touch_byte : unsigned(7 downto 0) := x"00";
+  signal touch_byte_num : unsigned(7 downto 0) := x"00";
   
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
@@ -485,6 +487,9 @@ begin  -- behavioural
       x_delta  => touch_delta_x,
       y_delta  => touch_delta_y,
 
+      touch_byte => touch_byte,
+      touch_byte_num => touch_byte_num,
+      
       touch1_active => touch1_active,
       touch1_status => touch1_status,
       x1 => touch_x1,
@@ -995,6 +1000,8 @@ begin  -- behavioural
             -- @IO:GS $D6BE.5-4 - Touch pad touch #2 Y MSBs
             fastio_rdata(1 downto 0) <= touch_x2(9 downto 8);
             fastio_rdata(5 downto 4) <= touch_y2(9 downto 8);
+          when x"BF" =>
+            fastio_rdata <= touch_byte;
           when x"D0" =>
             -- @IO:GS $D6D0 - I2C bus select (bus 0 = temp sensor on Nexys4 boardS)
             fastio_rdata <= i2c_bus_id;
@@ -2028,6 +2035,8 @@ begin  -- behavioural
             when x"B8" =>
               touch_delta_y(15 downto 8) <= fastio_wdata;
               touch_delta_y_internal(15 downto 8) <= fastio_wdata;
+            when x"BF" =>
+              touch_byte_num <= fastio_wdata;
             when x"D0" =>
               i2c_bus_id <= fastio_wdata;
             when x"D1" =>

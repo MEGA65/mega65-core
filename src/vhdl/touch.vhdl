@@ -20,6 +20,9 @@ entity touch is
     y_mult : in unsigned(15 downto 0) := to_unsigned(2048,16);
     x_delta : in unsigned(15 downto 0) := to_unsigned(0,16);
     y_delta : in unsigned(15 downto 0) := to_unsigned(0,16);
+
+    touch_byte : out unsigned(7 downto 0) := x"BD";
+    touch_byte_num : in unsigned(7 downto 0);
     
     -- The touch events we have received
     touch1_active : out std_logic := '0';
@@ -213,6 +216,12 @@ begin
       else
         y1_inv <= y1_int;
         y2_inv <= y2_int;
+      end if;
+
+      if to_integer(touch_byte_num) < 15 then
+        touch_byte <= bytes(to_integer(touch_byte_num));
+      else
+        touch_byte <= x"EE";
       end if;
       
       x1_mult <= to_unsigned(x1_inv * to_integer(x_mult),12+16)(26 downto 11);
