@@ -23,8 +23,8 @@ architecture foo of test_i2c is
   signal next_value : integer := 0;
 
   signal touch_enabled : std_logic := '1';
-  signal x_invert : std_logic := '0';
-  signal y_invert : std_logic := '0';
+  signal x_invert : std_logic := '1';
+  signal y_invert : std_logic := '1';
   signal x_mult : unsigned(15 downto 0) := to_unsigned(2048,16);
   signal y_mult : unsigned(15 downto 0) := to_unsigned(2048,16);
   signal x_delta : unsigned(15 downto 0) := to_unsigned(0,16);

@@ -66,6 +66,11 @@ architecture foo of touch is
   signal y1_int : integer := 0;
   signal y2_int : integer := 0;
 
+  signal x1_inv : integer := 0;
+  signal x2_inv : integer := 0;
+  signal y1_inv : integer := 0;
+  signal y2_inv : integer := 0;
+
   signal x1_mult : unsigned(15 downto 0) := to_unsigned(0,16);
   signal x2_mult : unsigned(15 downto 0) := to_unsigned(0,16);
   signal y1_mult : unsigned(15 downto 0) := to_unsigned(0,16);
@@ -193,11 +198,27 @@ begin
           & " " & to_hstring(bytes(7))
           & " " & to_hstring(bytes(8));
       end if;
+
+      if x_invert = '1' then
+        x1_inv <= 800 - x1_int;
+        x2_inv <= 800 - x2_int;
+      else
+        x1_inv <= x1_int;
+        x2_inv <= x2_int;
+      end if;
       
-      x1_mult <= to_unsigned(x1_int * to_integer(x_mult),12+16)(26 downto 11);
-      x2_mult <= to_unsigned(x2_int * to_integer(x_mult),12+16)(26 downto 11);
-      y1_mult <= to_unsigned(y1_int * to_integer(y_mult),12+16)(26 downto 11);
-      y2_mult <= to_unsigned(y2_int * to_integer(y_mult),12+16)(26 downto 11);
+      if y_invert = '1' then
+        y1_inv <= 500 - y1_int;
+        y2_inv <= 500 - y2_int;
+      else
+        y1_inv <= y1_int;
+        y2_inv <= y2_int;
+      end if;
+      
+      x1_mult <= to_unsigned(x1_inv * to_integer(x_mult),12+16)(26 downto 11);
+      x2_mult <= to_unsigned(x2_inv * to_integer(x_mult),12+16)(26 downto 11);
+      y1_mult <= to_unsigned(y1_inv * to_integer(y_mult),12+16)(26 downto 11);
+      y2_mult <= to_unsigned(y2_inv * to_integer(y_mult),12+16)(26 downto 11);
       
       r := x1_mult + x_delta; x1 <= r(15 downto 6);
       if parse_touch = 3 then
