@@ -2099,8 +2099,8 @@ begin  -- behavioural
               -- @IO:GS $D6D1.2 - I2C Select read (1) or write (0)
               -- @IO:GS $D6D1.3 - Enable/disable touch panel I2C communications
               
-              -- @IO:GS $D6D5.6 - I2C busy flag
-              -- @IO:GS $D6D5.7 - I2C ack error
+              -- @IO:GS $D6D1.6 - I2C busy flag
+              -- @IO:GS $D6D1.7 - I2C ack error
               if i2c_bus_id = x"00" then
                 touch_enabled <= fastio_wdata(3);
                 touch_enabled_internal <= fastio_wdata(3);
