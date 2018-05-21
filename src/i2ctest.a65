@@ -285,8 +285,8 @@ tt2b:
 	; reg 3-8 = touch point 1
 	; reg 9-14 = touch point 2
 
-;	lda #$00
-;	sta $d015
+	lda #$00
+	sta $d015
 
 	; display raw I2C bytes
 	ldy #0
@@ -411,6 +411,13 @@ parse_touch:
 	bne sprite2
 
 sprite0:
+	lda $d6b0
+	and #$01
+	beq no0
+
+	lda #$01
+	tsb $d015
+no0:
 	; set super MSB	
 	lda #$01
 	trb $d05f
@@ -428,6 +435,14 @@ sprite0:
 	rts
 
 sprite2:
+	lda $d6b0
+	and #$02
+	beq no2
+
+	lda #$02
+	tsb $d015
+no2:
+
 	; set super MSB	
 	lda #$02
 	trb $d05f
