@@ -446,14 +446,19 @@ architecture behavioural of sdcardio is
   signal touch_flip_x_internal : std_logic := '0';
   signal touch_flip_y : std_logic := '0';
   signal touch_flip_y_internal : std_logic := '0';
-  signal touch_scale_x : unsigned(15 downto 0 ) := to_unsigned(2048,16);
-  signal touch_scale_x_internal : unsigned(15 downto 0 ) := to_unsigned(2048,16);
-  signal touch_scale_y : unsigned(15 downto 0 ) := to_unsigned(2048,16);
-  signal touch_scale_y_internal : unsigned(15 downto 0 ) := to_unsigned(2048,16);
-  signal touch_delta_x : unsigned(15 downto 0 ) := to_unsigned(0,16);
-  signal touch_delta_x_internal : unsigned(15 downto 0 ) := to_unsigned(0,16);
-  signal touch_delta_y : unsigned(15 downto 0 ) := to_unsigned(0,16);
-  signal touch_delta_y_internal : unsigned(15 downto 0 ) := to_unsigned(0,16);
+
+  -- Approximate touch screen calibration values based on the test panel
+  -- XXX Doesn't take account of the non-linearity in movement we see on some
+  -- areas of the screen.
+  signal touch_scale_x : unsigned(15 downto 0 ) := to_unsigned(1024,16);
+  signal touch_scale_x_internal : unsigned(15 downto 0 ) := to_unsigned(1024,16);
+  signal touch_scale_y : unsigned(15 downto 0 ) := to_unsigned(1024,16);
+  signal touch_scale_y_internal : unsigned(15 downto 0 ) := to_unsigned(1024,16);
+  signal touch_delta_x : unsigned(15 downto 0 ) := to_unsigned(62464,16);
+  signal touch_delta_x_internal : unsigned(15 downto 0 ) := to_unsigned(62464,16);
+  signal touch_delta_y : unsigned(15 downto 0 ) := to_unsigned(2048,16);
+  signal touch_delta_y_internal : unsigned(15 downto 0 ) := to_unsigned(2048,16);
+  
   signal touch1_active : std_logic := '0';
   signal touch1_status : std_logic_vector(1 downto 0) := "11";
   signal touch_x1 : unsigned(9 downto 0) := to_unsigned(0,10);
@@ -474,7 +479,8 @@ architecture behavioural of sdcardio is
 
   signal lcd_pwm_divider : integer range 0 to 255 := 0;
   signal lcd_pwm_counter : integer range 0 to 255 := 0;
-  signal lcdpwm_value : unsigned(7 downto 0) := x"20";
+  -- Start with panel at full brightness
+  signal lcdpwm_value : unsigned(7 downto 0) := x"ff";
   
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
