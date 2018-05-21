@@ -176,12 +176,12 @@ begin
           end if;
           
           if bytes(2) /= x"00" and bytes(3+2)(7 downto 4) /= x"f" then
-            if bytes(3+2)(7 downto 4) = "0001" then
+            if bytes(3+2)(7 downto 4) = "0000" then
               touch1_status <= std_logic_vector(bytes(3+0)(7 downto 6));
               report "Setting x1_int to $" & to_hstring(bytes(3+2)(3 downto 0) & bytes(3+3));
               x1_int <= to_integer(bytes(3+2)(3 downto 0) & bytes(3+3));
               y1_int <= to_integer(bytes(3+0)(3 downto 0) & bytes(3+1));
-            elsif bytes(3+2)(7 downto 4) = "0010" then
+            elsif bytes(3+2)(7 downto 4) = "0001" then
               touch2_status <= std_logic_vector(bytes(3+0)(7 downto 6));
               report "Setting x2_int to $" & to_hstring(bytes(3+2)(3 downto 0) & bytes(3+3));
               x2_int <= to_integer(bytes(3+2)(3 downto 0) & bytes(3+3));
@@ -190,12 +190,12 @@ begin
           end if;
 
           if bytes(2) > x"01" and bytes(9+2)(7 downto 4) /= x"f" then
-            if bytes(9+2)(7 downto 4) = "0001" then
+            if bytes(9+2)(7 downto 4) = "0000" then
               report "Setting x1_int to $" & to_hstring(bytes(9+2)(3 downto 0) & bytes(9+3));
               touch1_status <= std_logic_vector(bytes(9+0)(7 downto 6));
               x1_int <= to_integer(bytes(9+2)(3 downto 0) & bytes(9+3));
               y1_int <= to_integer(bytes(9+0)(3 downto 0) & bytes(9+1));
-            elsif bytes(9+2)(7 downto 4) = "0010" then
+            elsif bytes(9+2)(7 downto 4) = "0001" then
               report "Setting x2_int to $" & to_hstring(bytes(9+2)(3 downto 0) & bytes(9+3));
               touch2_status <= std_logic_vector(bytes(9+0)(7 downto 6));
               x2_int <= to_integer(bytes(9+2)(3 downto 0) & bytes(9+3));
