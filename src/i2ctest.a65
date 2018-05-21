@@ -29,7 +29,7 @@ _next:	 .word 0
 
 	 sei
 
-;	 jsr i2c_busscan
+	 jsr i2c_busscan
 
 ;	jsr test_touch2
 	jsr test_touchscreen
@@ -52,6 +52,7 @@ try:
 
 l6:     
 	 lda $d6d1
+	 and #$c7
 	 cmp #$01
 	 bne l6
 
@@ -217,23 +218,7 @@ sl1:	sta $0380,x
 	sta $0386
 	sta $0389
 
-	; Select default touch screen bus and address
-	LDA #1
-	sta $d6d0
-	lda #112
-	sta $d6d2
-
-;	lda #0
-;	sta $d6d0
-;	lda #150
-;	sta $d6d2
-
 loop:
-;	jsr $ffe4
-;	beq loop
-;	inc $d020
-
-
 	ldy #0
 	lda #<regs
 	sta $fb
@@ -241,7 +226,11 @@ loop:
 	sta $fc
 	ldx #15
 rnr:
-	; jsr i2c_read_registers
+
+	; Read raw I2C bytes
+	; Touch panel is now using hardware accelerated I2C interface, so just
+	; ask and read out the bytes. No need to use the old i2c_read_registers routine.
+
 	ldy #$00
 tt2b:	sty $d6bf
 	lda $d6bf
