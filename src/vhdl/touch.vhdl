@@ -130,7 +130,7 @@ begin
               i2c0_command_en <= '1';
               i2c0_address <= "0111000";  -- 0x70 = I2C address of touch panel
               -- Write register zero to set starting point for read
-              i2c0_wdata <= x"03";
+              i2c0_wdata <= x"00";
               i2c0_rw <= '0';
               busy_count <= busy_count + 1;
             else
@@ -155,11 +155,6 @@ begin
             bytes(busy_count - 4) <= i2c0_rdata;
             i2c0_command_en <= '0';
             busy_count <= 0;
-            if scan_count /= x"ff" then
-              scan_count <= scan_count + 1;
-            else
-              scan_count <= x"00";
-            end if;
             parse_touch <= 1;
         end case;
       end if;
@@ -173,7 +168,13 @@ begin
           report "There are " & integer'image(to_integer(bytes(2))) & " touch events: $"
             & to_hstring(bytes(3+2)(7 downto 4)) & " & $"
             & to_hstring(bytes(9+2)(7 downto 4));
-            
+
+          if scan_count /= x"ff" then
+            scan_count <= scan_count + 1;
+          else
+            scan_count <= x"00";
+          end if;
+          
           if bytes(2) /= x"00" and bytes(3+2)(7 downto 4) /= x"f" then
             if bytes(3+2)(7 downto 4) = "0001" then
               touch1_status <= std_logic_vector(bytes(3+0)(7 downto 6));
