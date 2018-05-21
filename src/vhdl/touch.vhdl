@@ -145,14 +145,14 @@ begin
               i2c0_rw <= '1';
               i2c0_command_en <= '1';
             end if;
-            if busy_count>3 then
-              report "Setting byte(" & integer'image(busy_count - 4) & ") to $" & to_hstring(i2c0_rdata);
-              bytes(busy_count - 4) <= i2c0_rdata;
+            if busy_count>1 then
+              report "Setting byte(" & integer'image(busy_count - 2) & ") to $" & to_hstring(i2c0_rdata);
+              bytes(busy_count - 2) <= i2c0_rdata;
             end if;
             busy_count <= busy_count + 1;
           when others =>
-            report "Setting byte(" & integer'image(busy_count - 4) & ") to $" & to_hstring(i2c0_rdata);
-            bytes(busy_count - 4) <= i2c0_rdata;
+            report "Setting byte(" & integer'image(busy_count - 2) & ") to $" & to_hstring(i2c0_rdata);
+            bytes(busy_count - 2) <= i2c0_rdata;
             i2c0_command_en <= '0';
             busy_count <= 0;
             parse_touch <= 1;
