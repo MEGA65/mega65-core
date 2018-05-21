@@ -29,10 +29,11 @@ _next:	 .word 0
 
 	 sei
 
-	 jsr i2c_busscan
+	jsr i2c_busscan
 
-;	jsr test_touch2
 	jsr test_touchscreen
+	
+;	jsr test_touch2
 	
 	rts
 
@@ -86,7 +87,6 @@ resume:
 	 clc
 	 adc #$02
 	 sta $d6d2
-	 sta $0427
 l3:     
 	 cmp $d6d2
 ;	 bne l3
@@ -98,7 +98,6 @@ notfound:
 	; so far, we have only bus 0 and bus 1
 	inc $d6d0
 	lda $d6d0
-	sta $0427
 	cmp #1   ; only check bus 0, now that touch screen bus is wrapped     
 	bne try
 
@@ -145,7 +144,9 @@ touchmsg:
 
 test_touch2:
 	ldx #$00
-tt2:	stx $d6bf
+tt2:	txa
+	ora #$80
+;	sta $d6bf
 	lda $d6bf
 	sta $0400,x
 	inx
@@ -159,16 +160,34 @@ test_touchscreen:
 	ldy #>touchmsg	
 	jsr $ab1e
 
-	; On the lab unit the PWM modulation for the backlight is fed from
-	; the MSB of blue, because we have run out of GPIOs on the FPGA board,
-	; and it uses too much current combined with the FPGA if we have it set to
-	; full-time on (tied to VCC).
-	; so we need a display with enough blue to be visible, but not so much blue
-	; that we cause voltage drops, which cause nasty white bars on the LCD.
-	LDA #$0
-	sta $d021
-	lda #$6
-	sta $d020
+	; invert X axis of touch pad, but not Y
+	lda #$40
+	sta $d6b0
+
+	; set X scale
+	lda #<2048
+	sta $d6b1
+	lda #>2048
+	sta $d6b2
+
+	; set Y scale
+	lda #<2048
+	sta $d6b3
+	lda #>2048
+	sta $d6b4
+
+	; set x delta
+	lda #<0
+	sta $d6b5
+	lda #>0
+	sta $d6b6
+	; set y delta
+	lda #<0
+	sta $d6b7
+	lda #>0
+	sta $d6b8
+	
+
 
 	; borders set to LCD size, so we can see full range of movement
 
@@ -232,7 +251,10 @@ rnr:
 	; ask and read out the bytes. No need to use the old i2c_read_registers routine.
 
 	ldy #$00
-tt2b:	sty $d6bf
+tt2b:
+	tya
+	ora #$80 ; don't disable touch interface
+	sta $d6bf
 	lda $d6bf
 	sta ($fb),y
 	iny
@@ -255,12 +277,21 @@ tt2b:	sty $d6bf
 	lda #$00
 	sta $d015
 
+	; display raw I2C bytes
 	ldy #0
 ll99:	lda ($fb),y
 	sta $04f0,y
 	iny
 	cpy #16
 	bne ll99
+
+	; display digested status
+	ldy #0
+ll99c:	lda $d6b0,y
+	sta $0518,y
+	iny
+	cpy #16
+	bne ll99c
 
 	; Was there at least one touch event?
 	Ldy #2
@@ -275,7 +306,6 @@ ll99:	lda ($fb),y
 	iny
 	iny
 	lda ($fb),y
-	sta $0400
 	dey
 	dey
 	and #$f0
@@ -303,7 +333,6 @@ n1:
 	iny
 	iny
 	lda ($fb),y
-	sta $0401
 	dey
 	dey
 	and #$f0
