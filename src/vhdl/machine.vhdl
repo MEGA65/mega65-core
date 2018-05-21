@@ -196,7 +196,8 @@ entity machine is
 
          i2c1SDA : inout std_logic;
          i2c1SCL : inout std_logic;
-         
+
+         lcdpwm : inout std_logic := '1';
          touchSDA : inout std_logic := '1';
          touchSCL : inout std_logic := '1';
          
@@ -1256,7 +1257,8 @@ begin
 
       i2c1SDA => i2c1SDA,
       i2c1SCL => i2c1SCL,
-      
+
+      lcdpwm => lcdpwm,
       touchSDA => touchSDA,
       touchSCL => touchSCL,
       touch1_valid => osk_touch1_valid,

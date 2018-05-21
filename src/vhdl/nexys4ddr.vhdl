@@ -104,20 +104,17 @@ entity container is
          ps2data : in std_logic;
 
          ----------------------------------------------------------------------
-         -- PMOD B for input PCB
-         ----------------------------------------------------------------------
-         jblo : inout std_logic_vector(4 downto 1) := (others => 'Z');
-         jbhi : inout std_logic_vector(10 downto 7) := (others => 'Z');
-         
-         ----------------------------------------------------------------------
-         -- PMOD A for general IO while debugging and testing
+         -- PMODs for LCD screen and associated things during testing
          ----------------------------------------------------------------------
          jalo : inout std_logic_vector(4 downto 1) := (others => 'Z');
          jahi : inout std_logic_vector(10 downto 7) := (others => 'Z');
-         jdlo : inout std_logic_vector(4 downto 1) := (others => 'Z');
-         jdhi : inout std_logic_vector(10 downto 7) := (others => 'Z');
+         jblo : inout std_logic_vector(4 downto 1) := (others => 'Z');
+         jbhi : inout std_logic_vector(10 downto 7) := (others => 'Z');
          jclo : inout std_logic_vector(4 downto 1) := (others => 'Z');
          jchi : inout std_logic_vector(10 downto 7) := (others => 'Z');
+         jdlo : inout std_logic_vector(4 downto 1) := (others => 'Z');
+         jdhi : inout std_logic_vector(10 downto 7) := (others => 'Z');
+         jxadc : inout std_logic_vector(7 downto 0) := (others => 'Z');
          
          ----------------------------------------------------------------------
          -- Flash RAM for holding config
@@ -459,6 +456,7 @@ begin
 
       touchSDA => jdlo(2),
       touchSCL => jdlo(1),
+      lcdpwm => jxadc(0),
       
       ps2data =>      ps2data,
       ps2clock =>     ps2clk,

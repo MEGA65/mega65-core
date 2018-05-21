@@ -119,14 +119,14 @@ set_property -dict { PACKAGE_PIN G2 IOSTANDARD LVCMOS33 } [get_ports {jdhi[9]}]
 set_property -dict { PACKAGE_PIN F3 IOSTANDARD LVCMOS33 } [get_ports {jdhi[10]}]
 
 ##Pmod Header JXADC
-#set_property -dict { PACKAGE_PIN A14 IOSTANDARD LVCMOS33 } [get_ports {JXADC[0]}]
-#set_property -dict { PACKAGE_PIN A13 IOSTANDARD LVCMOS33 } [get_ports {JXADC[1]}]
-#set_property -dict { PACKAGE_PIN A16 IOSTANDARD LVCMOS33 } [get_ports {JXADC[2]}]
-#set_property -dict { PACKAGE_PIN A15 IOSTANDARD LVCMOS33 } [get_ports {JXADC[3]}]
-#set_property -dict { PACKAGE_PIN B17 IOSTANDARD LVCMOS33 } [get_ports {JXADC[4]}]
-#set_property -dict { PACKAGE_PIN B16 IOSTANDARD LVCMOS33 } [get_ports {JXADC[5]}]
-#set_property -dict { PACKAGE_PIN A18 IOSTANDARD LVCMOS33 } [get_ports {JXADC[6]}]
-#set_property -dict { PACKAGE_PIN B18 IOSTANDARD LVCMOS33 } [get_ports {JXADC[7]}]
+set_property -dict { PACKAGE_PIN A14 IOSTANDARD LVCMOS33 } [get_ports {JXADC[0]}]
+set_property -dict { PACKAGE_PIN A13 IOSTANDARD LVCMOS33 } [get_ports {JXADC[1]}]
+set_property -dict { PACKAGE_PIN A16 IOSTANDARD LVCMOS33 } [get_ports {JXADC[2]}]
+set_property -dict { PACKAGE_PIN A15 IOSTANDARD LVCMOS33 } [get_ports {JXADC[3]}]
+set_property -dict { PACKAGE_PIN B17 IOSTANDARD LVCMOS33 } [get_ports {JXADC[4]}]
+set_property -dict { PACKAGE_PIN B16 IOSTANDARD LVCMOS33 } [get_ports {JXADC[5]}]
+set_property -dict { PACKAGE_PIN A18 IOSTANDARD LVCMOS33 } [get_ports {JXADC[6]}]
+set_property -dict { PACKAGE_PIN B18 IOSTANDARD LVCMOS33 } [get_ports {JXADC[7]}]
 
 ##VGA Connector
 set_property -dict { PACKAGE_PIN A3  IOSTANDARD LVCMOS33 } [get_ports {vgared[0]}]

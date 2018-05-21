@@ -224,6 +224,7 @@ entity iomapper is
         i2c1SDA : inout std_logic;
         i2c1SCL : inout std_logic;
 
+        lcdpwm : inout std_logic;
         touchSDA : inout std_logic;
         touchSCL : inout std_logic;
         
@@ -848,6 +849,7 @@ begin
     i2c1SDA => i2c1SDA,
     i2c1SCL => i2c1SCL,
 
+    lcdpwm => lcdpwm,
     touchSDA => touchSDA,
     touchSCL => touchSCL,
     touch1_valid => touch1_valid,

@@ -152,6 +152,9 @@ entity sdcardio is
     i2c1SDA : inout std_logic;
     i2c1SCL : inout std_logic;    
 
+    -- PWM brightness control for LCD panel
+    lcdpwm : inout std_logic;
+
     -- Touch pad I2C bus
     touchSDA : inout std_logic;
     touchSCL : inout std_logic;
@@ -458,8 +461,18 @@ architecture behavioural of sdcardio is
   signal touch2_status : std_logic_vector(1 downto 0) := "11";
   signal touch_x2 : unsigned(9 downto 0) := to_unsigned(0,10);
   signal touch_y2 : unsigned(9 downto 0) := to_unsigned(0,10);
+  signal scan_count : unsigned(7 downto 0) := x"00";
+  signal b0 : unsigned(7 downto 0) := x"00";
+  signal b1 : unsigned(7 downto 0) := x"00";
+  signal b2 : unsigned(7 downto 0) := x"00";
+  signal b3 : unsigned(7 downto 0) := x"00";
+  signal b4 : unsigned(7 downto 0) := x"00";
+  signal b5 : unsigned(7 downto 0) := x"00";
   signal touch_byte : unsigned(7 downto 0) := x"00";
   signal touch_byte_num : unsigned(7 downto 0) := x"00";
+
+  signal lcd_pwm_counter : integer range 0 to 255 := 0;
+  signal lcdpwm_value : unsigned(7 downto 0) := x"20";
   
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
@@ -487,8 +500,15 @@ begin  -- behavioural
       x_delta  => touch_delta_x,
       y_delta  => touch_delta_y,
 
+      scan_count => scan_count,
       touch_byte => touch_byte,
       touch_byte_num => touch_byte_num,
+      b0 => b0,
+      b1 => b1,
+      b2 => b2,
+      b3 => b3,
+      b4 => b4,
+      b5 => b5,
       
       touch1_active => touch1_active,
       touch1_status => touch1_status,
@@ -1001,7 +1021,17 @@ begin  -- behavioural
             fastio_rdata(1 downto 0) <= touch_x2(9 downto 8);
             fastio_rdata(5 downto 4) <= touch_y2(9 downto 8);
           when x"BF" =>
+            -- XXX DEBUG temporary
             fastio_rdata <= touch_byte;
+          when x"C0" =>
+            -- XXX DEBUG temporary
+            fastio_rdata <= scan_count;
+          when x"C1" => fastio_rdata <= b0;
+          when x"C2" => fastio_rdata <= b1;
+          when x"C3" => fastio_rdata <= b2;
+          when x"C4" => fastio_rdata <= b3;
+          when x"C5" => fastio_rdata <= b4;
+          when x"C6" => fastio_rdata <= b5;
           when x"D0" =>
             -- @IO:GS $D6D0 - I2C bus select (bus 0 = temp sensor on Nexys4 boardS)
             fastio_rdata <= i2c_bus_id;
@@ -1060,7 +1090,10 @@ begin  -- behavioural
             -- @IO:GS $D6DF - FPGA die temperature sensor (upper byte)
             fastio_rdata <= unsigned(fpga_temperature(11 downto 4));
           -- XXX $D6Ex is decoded by ethernet controller, so don't use those
-          -- registers here!
+            -- registers here!
+          when x"F0" =>
+            -- @IO:GS $D6F0 - LCD panel brightness control
+            fastio_rdata <= lcdpwm_value;
           when x"F2" =>
             -- @IO:GS $D6F2 - Read FPGA five-way buttons
             fastio_rdata(7 downto 5) <= "000";
@@ -1148,6 +1181,17 @@ begin  -- behavioural
     
     if rising_edge(clock) then    
 
+      if lcd_pwm_counter >= to_integer(lcdpwm_value) then
+        lcdpwm <= '0';
+      else
+        lcdpwm <= '1';
+      end if;
+      if lcd_pwm_counter = 255 then
+        lcd_pwm_counter <= 0;
+      else
+        lcd_pwm_counter <= lcd_pwm_counter + 1;
+      end if;
+      
       -- Pass current touch events to the on-screen keyboard
       touch1_valid <= touch1_active;
       touch1_x(13 downto 10) <= (others => '0');
@@ -2093,6 +2137,9 @@ begin  -- behavioural
             when x"D4" =>
               -- @IO:GS $D6D4 - I2C data read register
               null;
+            when x"F0" =>
+              -- @IO:GS $D6F0 - LCD panel brightness control
+              lcdpwm_value <= fastio_wdata;
             when x"F3" =>
               -- Accelerometer
               aclMOSI         <= fastio_wdata(1);
