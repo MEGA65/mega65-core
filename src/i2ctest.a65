@@ -26,22 +26,28 @@ _next:	 .word 0
 	 ldy #>intromsg
 	 jsr $ab1e
 
-	 ; Select I2C bus 1, and set first address to probe
-	 LDA #1
-	 sta $d6d0
 
+	 sei
+
+;	 jsr i2c_busscan
+
+;	jsr test_touch2
+	jsr test_touchscreen
+	
+	rts
+
+i2c_busscan:
 	; Start on bus 0, address 0
 	 LDA #0
 	 sta $d6d0
 	 sta $d6d2
 
 try:
-	sei
 	
 	 ; reset I2C bus
-	 lda #$00
+	 lda #$08
 	 sta $d6d1
-	 lda #$01
+	 lda #$09
 	 sta $d6d1
 
 l6:     
@@ -50,7 +56,7 @@ l6:
 	 bne l6
 
 	 ; wait for busy to assert
-	 LDA #$7
+	 LDA #$f
 	 sta $d6d1
 l1:     
 	 lda $d6d1
@@ -79,6 +85,7 @@ resume:
 	 clc
 	 adc #$02
 	 sta $d6d2
+	 sta $0427
 l3:     
 	 cmp $d6d2
 ;	 bne l3
@@ -90,16 +97,13 @@ notfound:
 	; so far, we have only bus 0 and bus 1
 	inc $d6d0
 	lda $d6d0
-	cmp #2      
+	sta $0427
+	cmp #1   ; only check bus 0, now that touch screen bus is wrapped     
 	bne try
 
 	lda #<donemsg
 	ldy #>donemsg
 	jsr $ab1e
-	cli
-
-	jsr test_touchscreen
-	
 	rts
 
 gotit:
@@ -137,6 +141,16 @@ msg3:   .byte ".",13,0
 
 touchmsg:
 	.byte "TOUCH SCREEN TO TEST.",13,0
+
+test_touch2:
+	ldx #$00
+tt2:	stx $d6bf
+	lda $d6bf
+	sta $0400,x
+	inx
+	jmp tt2
+
+
 
 test_touchscreen:
 
@@ -226,7 +240,15 @@ loop:
 	lda #>regs
 	sta $fc
 	ldx #15
-rnr:	jsr i2c_read_registers
+rnr:
+	; jsr i2c_read_registers
+	ldy #$00
+tt2b:	sty $d6bf
+	lda $d6bf
+	sta ($fb),y
+	iny
+	cpy #$10
+	bne tt2b
 
 	; dump registers to screen
 ;	ldy #0
@@ -243,6 +265,13 @@ rnr:	jsr i2c_read_registers
 
 	lda #$00
 	sta $d015
+
+	ldy #0
+ll99:	lda ($fb),y
+	sta $04f0,y
+	iny
+	cpy #16
+	bne ll99
 
 	; Was there at least one touch event?
 	Ldy #2
@@ -425,14 +454,14 @@ i2c_read_registers:
 
 	; start by writing the register we want to read
 	sty $d6d3
-	; reset bus and lodge request
-	lda #$00
+	; reset bus and lodge request (leaving touch panel enabled)
+	lda #$08
 	sta $d6d1
-	lda #$01
+	lda #$09
 	sta $d6d1
 
 	; Write to set register number we want to read
-	lda #$03
+	lda #$0b
 	sta $d6d1
 
 	; Wait for busy to set
@@ -449,7 +478,7 @@ rr2:
 
 rloop:
 	; Then read
-	lda #$07
+	lda #$0f
 	sta $d6d1
 
 	; Wait for busy to set
