@@ -113,6 +113,16 @@ begin
         last_busy <= i2c0_busy;
       end if;
 --      report "busy=" & std_logic'image(i2c0_busy) & "last_busy = " & std_logic'image(last_busy);
+
+      -- Check for I2C error, and if so, reset the bus.
+      if i2c0_error='1' then
+        i2c0_reset <= '1';
+        busy_count <= 0;
+      else
+        i2c_reset <= '0';
+      end if;
+
+      -- Cycle through reading the touch digitiser registers
       if i2c0_busy='0' and last_busy='1' then
         report "busy de-asserted: dispatching next command";
          case busy_count is
@@ -123,7 +133,7 @@ begin
               i2c0_command_en <= '1';
               i2c0_address <= "0111000";  -- 0x70 = I2C address of touch panel
               -- Write register zero to set starting point for read
-              i2c0_wdata <= x"00";
+              i2c0_wdata <= x"03";
               i2c0_rw <= '0';
               busy_count <= busy_count + 1;
             else
