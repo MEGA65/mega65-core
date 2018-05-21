@@ -456,7 +456,7 @@ begin
 
       touchSDA => jdlo(2),
       touchSCL => jdlo(1),
-      lcdpwm => jxadc(0),
+      lcdpwm => jdlo(3),
       
       ps2data =>      ps2data,
       ps2clock =>     ps2clk,
