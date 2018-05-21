@@ -21,6 +21,14 @@ entity touch is
     x_delta : in unsigned(15 downto 0) := to_unsigned(0,16);
     y_delta : in unsigned(15 downto 0) := to_unsigned(0,16);
 
+
+    scan_count : inout unsigned(7 downto 0) := x"00";
+    b0 : out unsigned(7 downto 0);
+    b1 : out unsigned(7 downto 0);
+    b2 : out unsigned(7 downto 0);
+    b3 : out unsigned(7 downto 0);
+    b4 : out unsigned(7 downto 0);
+    b5 : out unsigned(7 downto 0);
     touch_byte : out unsigned(7 downto 0) := x"BD";
     touch_byte_num : in unsigned(7 downto 0);
     
@@ -107,8 +115,7 @@ begin
 --      report "busy=" & std_logic'image(i2c0_busy) & "last_busy = " & std_logic'image(last_busy);
       if i2c0_busy='0' and last_busy='1' then
         report "busy de-asserted: dispatching next command";
-        busy_count <= busy_count + 1;
-        case busy_count is
+         case busy_count is
           when 0 =>
             if touch_enabled='1' then
               report "Beginning touch panel scan";
@@ -118,6 +125,7 @@ begin
               -- Write register zero to set starting point for read
               i2c0_wdata <= x"00";
               i2c0_rw <= '0';
+              busy_count <= busy_count + 1;
             else
               busy_count <= 0;
             end if;
@@ -134,11 +142,17 @@ begin
               report "Setting byte(" & integer'image(busy_count - 4) & ") to $" & to_hstring(i2c0_rdata);
               bytes(busy_count - 4) <= i2c0_rdata;
             end if;
+            busy_count <= busy_count + 1;
           when others =>
             report "Setting byte(" & integer'image(busy_count - 4) & ") to $" & to_hstring(i2c0_rdata);
             bytes(busy_count - 4) <= i2c0_rdata;
             i2c0_command_en <= '0';
             busy_count <= 0;
+            if scan_count /= x"ff" then
+              scan_count <= scan_count + 1;
+            else
+              scan_count <= x"00";
+            end if;
             parse_touch <= 1;
         end case;
       end if;
@@ -223,6 +237,12 @@ begin
       else
         touch_byte <= x"EE";
       end if;
+      b0 <= bytes(0);
+      b1 <= bytes(1);
+      b2 <= bytes(2);
+      b3 <= bytes(3);
+      b4 <= bytes(4);
+      b5 <= bytes(5);
       
       x1_mult <= to_unsigned(x1_inv * to_integer(x_mult),12+16)(26 downto 11);
       x2_mult <= to_unsigned(x2_inv * to_integer(x_mult),12+16)(26 downto 11);
