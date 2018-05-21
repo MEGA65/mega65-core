@@ -74,6 +74,9 @@ entity iomapper is
         osk_key3 : out unsigned(7 downto 0);
         osk_key4 : out unsigned(7 downto 0);
 
+        touch_key1 : in unsigned(7 downto 0);
+        touch_key2 : in unsigned(7 downto 0);
+        
         reg_isr_out : out unsigned(7 downto 0);
         imask_ta_out : out std_logic;
 
@@ -613,6 +616,9 @@ begin
     key1 => unsigned(virtual_key1),
     key2 => unsigned(virtual_key2),
     key3 => unsigned(virtual_key3),
+
+    touch_key1 => touch_key1,  
+    touch_key2 => touch_key2,  
 
     keydown1 => osk_key1,
     keydown2 => osk_key2,

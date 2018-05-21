@@ -45,6 +45,9 @@ entity keyboard_complex is
     key1 : in unsigned(7 downto 0);
     key2 : in unsigned(7 downto 0);
     key3 : in unsigned(7 downto 0);
+    -- And keys pressed on on screen keyboard
+    touch_key1 : in unsigned(7 downto 0);
+    touch_key2 : in unsigned(7 downto 0);
 
     -- Summary of currently pressed keys for the on-screen keyboard
     keydown1 : out unsigned(7 downto 0);
@@ -137,6 +140,8 @@ begin
       key1 => key1,
       key2 => key2,
       key3 => key3,
+      touch_key1 => touch_key1,
+      touch_key2 => touch_key2,
       
       matrix => virtual_matrix
       );

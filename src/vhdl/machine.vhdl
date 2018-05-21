@@ -517,13 +517,15 @@ architecture Behavioral of machine is
   signal osk_key2 : unsigned(7 downto 0);
   signal osk_key3 : unsigned(7 downto 0);
   signal osk_key4 : unsigned(7 downto 0);
-
+  
   signal osk_touch1_valid : std_logic := '0';
   signal osk_touch1_x : unsigned(13 downto 0) := to_unsigned(0,14);
   signal osk_touch1_y : unsigned(11 downto 0) := to_unsigned(0,12);
+  signal osk_touch1_key : unsigned(7 downto 0) := x"FF";
   signal osk_touch2_valid : std_logic := '0';
   signal osk_touch2_x : unsigned(13 downto 0) := to_unsigned(0,14);
   signal osk_touch2_y : unsigned(11 downto 0) := to_unsigned(0,12);
+  signal osk_touch2_key : unsigned(7 downto 0) := x"FF";
 
   signal secure_mode_flag : std_logic := '0';
   signal matrix_rain_seed : unsigned(15 downto 0);
@@ -1098,6 +1100,8 @@ begin
       osk_key2 => osk_key2,
       osk_key3 => osk_key3,
       osk_key4 => osk_key4,
+      touch_key1 => osk_touch1_key,
+      touch_key2 => osk_touch2_key,
             
       uart_char => uart_char,
       uart_char_valid => uart_char_valid,
@@ -1338,10 +1342,12 @@ begin
     key4 => osk_key4,
     touch1_valid => osk_touch1_valid,
     touch1_x => osk_touch1_x,    
-    touch1_y => osk_touch1_y,    
+    touch1_y => osk_touch1_y,
+    touch1_key => osk_touch1_key,
     touch2_valid => osk_touch2_valid,
     touch2_x => osk_touch2_x,    
     touch2_y => osk_touch2_y,
+    touch2_key => osk_touch2_key,
 
     matrix_fetch_address => matrix_fetch_address,
     matrix_rdata => matrix_rdata,

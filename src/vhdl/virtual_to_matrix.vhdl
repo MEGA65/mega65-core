@@ -11,6 +11,8 @@ entity virtual_to_matrix is
         key1 : in unsigned(7 downto 0);
         key2 : in unsigned(7 downto 0);
         key3 : in unsigned(7 downto 0);
+        touch_key1 : in unsigned(7 downto 0);
+        touch_key2 : in unsigned(7 downto 0);
         
         -- Virtualised keyboard matrix
         matrix : out std_logic_vector(71 downto 0) := (others => '1')
@@ -28,6 +30,8 @@ architecture behavioral of virtual_to_matrix is
   signal key1_drive : unsigned(7 downto 0);
   signal key2_drive : unsigned(7 downto 0);
   signal key3_drive : unsigned(7 downto 0);
+  signal touch_key1_drive : unsigned(7 downto 0);
+  signal touch_key2_drive : unsigned(7 downto 0);
   
 begin
   process (clk)
@@ -41,10 +45,14 @@ begin
       key1_drive <= key1;
       key2_drive <= key2;
       key3_drive <= key3;
+      touch_key1_drive <= touch_key1;
+      touch_key2_drive <= touch_key2;
       
       if (key1_drive = to_unsigned(scan_phase,8))
         or (key2_drive = to_unsigned(scan_phase,8))
         or (key3_drive = to_unsigned(scan_phase,8))
+        or (touch_key1_drive = to_unsigned(scan_phase,8))
+        or (touch_key2_drive = to_unsigned(scan_phase,8))
       then
         matrix_internal(scan_phase) <= '0';
       else
