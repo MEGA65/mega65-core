@@ -174,6 +174,9 @@ begin
           else
             scan_count <= x"00";
           end if;
+
+          touch1_active <= '0';
+          touch2_active <= '0';
           
           if bytes(2) /= x"00" and bytes(3+2)(7 downto 4) /= x"f" then
             if bytes(3+2)(7 downto 4) = "0000" then
@@ -194,7 +197,7 @@ begin
           if bytes(2) > x"01" and bytes(9+2)(7 downto 4) /= x"f" then
             if bytes(9+2)(7 downto 4) = "0000" then
               report "Setting x1_int to $" & to_hstring(bytes(9+2)(3 downto 0) & bytes(9+3));
-              touch2_active <= not std_logic(bytes(9+0)(6));
+              touch1_active <= not std_logic(bytes(9+0)(6));
               touch1_status <= std_logic_vector(bytes(9+0)(7 downto 6));
               x1_int <= to_integer(bytes(9+2)(3 downto 0) & bytes(9+3));
               y1_int <= to_integer(bytes(9+0)(3 downto 0) & bytes(9+1));
