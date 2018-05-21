@@ -471,6 +471,7 @@ architecture behavioural of sdcardio is
   signal touch_byte : unsigned(7 downto 0) := x"00";
   signal touch_byte_num : unsigned(7 downto 0) := x"00";
 
+  signal lcd_pwm_divider : integer range 0 to 255 := 0;
   signal lcd_pwm_counter : integer range 0 to 255 := 0;
   signal lcdpwm_value : unsigned(7 downto 0) := x"20";
   
@@ -1181,15 +1182,21 @@ begin  -- behavioural
     
     if rising_edge(clock) then    
 
-      if lcd_pwm_counter >= to_integer(lcdpwm_value) then
-        lcdpwm <= '0';
+      -- Drive LCD panel PWM brightness control
+      if lcd_pwm_divider /= 255 then
+        lcd_pwm_divider <= lcd_pwm_divider + 1;
       else
-        lcdpwm <= '1';
-      end if;
-      if lcd_pwm_counter = 255 then
-        lcd_pwm_counter <= 0;
-      else
-        lcd_pwm_counter <= lcd_pwm_counter + 1;
+        lcd_pwm_divider <= 0;        
+        if lcd_pwm_counter >= to_integer(lcdpwm_value) then
+          lcdpwm <= '0';
+        else
+          lcdpwm <= '1';
+        end if;
+        if lcd_pwm_counter = 255 then
+          lcd_pwm_counter <= 0;
+        else
+          lcd_pwm_counter <= lcd_pwm_counter + 1;
+        end if;
       end if;
       
       -- Pass current touch events to the on-screen keyboard
