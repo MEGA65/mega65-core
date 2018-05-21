@@ -160,34 +160,44 @@ test_touchscreen:
 	ldy #>touchmsg	
 	jsr $ab1e
 
+	; full brightness
+	lda #$ff
+	sta $d6f0
+
 	; invert X axis of touch pad, but not Y
 	lda #$40
 	sta $d6b0
 
 	; set X scale
-	lda #<2048
+	; NOTE: Makes scale 0-799
+	lda #<1024
 	sta $d6b1
-	lda #>2048
+	lda #>1024
 	sta $d6b2
 
 	; set Y scale
-	lda #<2048
+	; NOTE: This makes Y scale 0-239, not 0-479, for simplicity of plotting
+	lda #<512
 	sta $d6b3
-	lda #>2048
+	lda #>512
 	sta $d6b4
 
 	; set x delta
-	lda #<0
+	lda #<$f400
 	sta $d6b5
-	lda #>0
+	lda #>$f400
 	sta $d6b6
 	; set y delta
-	lda #<0
+	lda #<$0800
 	sta $d6b7
-	lda #>0
+	lda #>$0800
 	sta $d6b8
-	
 
+	; Set sprite colours
+	lda #$01
+	sta $d022
+	lda #$02
+	sta $d023
 
 	; borders set to LCD size, so we can see full range of movement
 
@@ -274,8 +284,8 @@ tt2b:
 	; reg 3-8 = touch point 1
 	; reg 9-14 = touch point 2
 
-	lda #$00
-	sta $d015
+;	lda #$00
+;	sta $d015
 
 	; display raw I2C bytes
 	ldy #0
@@ -293,67 +303,48 @@ ll99c:	lda $d6b0,y
 	cpy #16
 	bne ll99c
 
-	; Was there at least one touch event?
-	Ldy #2
-	lda ($fb),y
-	beq loop
+	; First touch active?
+	lda $d6b0
+	and #$01
+;	beq n1
 
-	lda #1
-	tsb $d015
-
-	ldy #3
-
-	iny
-	iny
-	lda ($fb),y
-	dey
-	dey
-	and #$f0
-	cmp #$f0
-	beq n1
-	lsr
-	lsr
-	lsr
-	and #2
-	tax
-
+	ldy #0
+	ldx #0
 	jsr parse_touch
 n1:
-	; Are there two touch events?
-	Ldy #2
-	lda ($fb),y
-	cmp #1
-	beq loop
+	; second touch active?
+	lda $d6b0
+	and #$02
+;	bne loop
 
-	lda #2
-	tsb $d015
-
-	ldy #9
-
-	iny
-	iny
-	lda ($fb),y
-	dey
-	dey
-	and #$f0
-	cmp #$f0
-	beq n2
-	lsr
-	lsr
-	lsr
-	and #2
-	tax
-
-
+	ldy #3
+	ldx #2
 	jsr parse_touch
 n2:
+
+	; report coordinates
+	lda $d6bb
+	and #$0f
+	ldx $d6b9
+	jsr $bdcd
+	lda #$2c
+	jsr $ffd2
+	lda $d6bb
+	lsr
+	lsr
+	lsr
+	lsr
+	ldx $d6ba
+	jsr $bdcd
+	lda #$0d
+	jsr $ffd2
 
 	jmp loop
 
 	rts
 
 parse_touch:
-	; For each touch point:
+	; For each touch point the raw data is:
 	; byte 0.7-6 = 00=down, 01=liftup, 10=press down start, 11=up
 	; byte 0.3-0 = MSB of Y position
 	; byte 1 = LSB of Y position
@@ -362,69 +353,23 @@ parse_touch:
 	; byte 3 = LSB of X position (not used?)
 	; byte 4 = pressure of touch (not used?)
 
-	; Show touch up/down status
-;	lda ($fb),y
-;	and #$c0
-;	sta $0400,x
+	; But at $d6b9-f, we have 2x 3 bytes:
+	; byte 0 = X LSB
+	; byte 1 = Y LSB
+	; byte 2 low nybl = X MSBs
+	; byte 2 high nybl = Y MSBs
 
-	; get y position (use upper 8 bits only for now)
-	lda ($fb),y
-	and #$f
-	ror
-	ror
-	and #$80
-	sta $fe
-
-	iny
-	lda ($fb),y
-	lsr
-	ora $fe
-	; Vertically shift down the display a bit
-	clc
-	adc #26
+	lda $d6b9+0,y
+	sta $d000,x
+	lda $d6b9+1,y
 	sta $d001,x
 
-	; show touch ID
-	; 0 or 1, or $F if the touch event is uninitialised and invalid
-;	lda ($fb),y
-;	and #$f0
-;	lsr
-;	lsr
-;	lsr
-;	lsr
-;	sta $0428,x
-
 	; get X position (upper 8 bits only)
-	iny
-	lda ($fb),y  ; get MSB bits ready
-	and #$0f
-	sta $fe
-	; now subtract low bytes
-	iny
-	lda #<800
-	sec
-	sbc ($fb),y
-	sta $fd
-	dey
-	lda #>800
-	sbc $fe
-	sta $fe
-	iny
-
-	; $FD/$FE now contains 0-799 X position, in correct direction.
-
-	; Adjust for horizontal fudge factor
-	lda $fd
-	sec
-	sbc #32
-	sta $fd
-	lda $fe
-	sbc #0
+	lda $d6b9+2,y
+	and #$f
 	sta $fe
 
 	; We are running sprites in H640 mode, so we can use values as-is
-	lda $fd
-	sta $d000,x
 	cpx #$00
 	bne sprite2
 
@@ -432,14 +377,14 @@ sprite0:
 	; set super MSB	
 	lda #$01
 	trb $d05f
-	lda $fe
+	lda $d6b9+2,y
 	lsr
 	and #$01
 	tsb $d05f
 	; set normal sprite X MSB
 	lda #$01
 	trb $d010	
-	lda $fe
+	lda $d6b9+2,y
 	and #$01
 	tsb $d010
 
@@ -449,13 +394,13 @@ sprite2:
 	; set super MSB	
 	lda #$02
 	trb $d05f
-	lda $fe
+	lda $d6b9+2,y
 	and #$02
 	tsb $d05f
 	; set normal sprite X MSB
 	lda #$02
 	trb $d010	
-	lda $fe
+	lda $d6b9+2,y
 	and #$01
 	asl
 	tsb $d010
