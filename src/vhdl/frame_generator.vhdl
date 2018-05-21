@@ -25,7 +25,8 @@ use Std.TextIO.all;
 entity frame_generator is
   generic (
     frame_width : integer := 960;
-    display_width : integer := 800;
+    display_width : integer := 800;  -- 32 cycles of video pipeline
+    pipeline_delay : integer := 20;
     frame_height : integer := 625;
     lcd_height : integer := 480;
     display_height : integer := 600;
@@ -98,7 +99,7 @@ begin
       if y = frame_height - (frame_height - lcd_height ) / 2 then
         lcd_inletterbox <= '0';
       end if;
-      if x = 20 and lcd_inletterbox = '1' then
+      if x = pipeline_delay and lcd_inletterbox = '1' then
         lcd_inframe <= '1';
       end if;
       if x = 0 and lcd_inletterbox = '1' then
@@ -134,7 +135,7 @@ begin
         green_o <= x"FF";
         blue_o <= x"FF";
       end if;
-      if ((x = ( display_width - 1 ))
+      if ((x = ( display_width + pipeline_delay - 1 ))
           or (y = 0) or (y = (display_height - 1)))
         and (inframe_internal='1') then
         red_o <= x"FF";
@@ -142,7 +143,7 @@ begin
         blue_o <= x"FF";
       end if;
       -- Black outside of frame
-      if x = display_width then
+      if x = display_width + pipeline_delay then
         lcd_inframe <= '0';
         inframe <= '0';
         inframe_internal <= '0';
