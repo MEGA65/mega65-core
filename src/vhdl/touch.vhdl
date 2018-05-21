@@ -119,7 +119,7 @@ begin
         i2c0_reset <= '1';
         busy_count <= 0;
       else
-        i2c_reset <= '0';
+        i2c0_reset <= '0';
       end if;
 
       -- Cycle through reading the touch digitiser registers
