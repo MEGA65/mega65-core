@@ -98,8 +98,10 @@ begin
       if y = frame_height - (frame_height - lcd_height ) / 2 then
         lcd_inletterbox <= '0';
       end if;
-      if x = 0 and lcd_inletterbox = '1' then
+      if x = 20 and lcd_inletterbox = '1' then
         lcd_inframe <= '1';
+      end if;
+      if x = 0 and lcd_inletterbox = '1' then
         lcd_vsync <= '0';
       end if;
       if x = 0 and lcd_inletterbox = '0' then
