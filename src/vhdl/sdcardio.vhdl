@@ -441,6 +441,7 @@ architecture behavioural of sdcardio is
   signal i2c1_stacked_command : std_logic := '0';
 
   signal touch_enabled : std_logic := '1';
+  signal touch_enabled_internal : std_logic := '1';
   signal touch_flip_x : std_logic := '0';
   signal touch_flip_x_internal : std_logic := '0';
   signal touch_flip_y : std_logic := '0';
@@ -1038,6 +1039,7 @@ begin  -- behavioural
             fastio_rdata <= i2c_bus_id;
           when x"D1" =>
             fastio_rdata <= (others => '0');
+            fastio_rdata(3) <= touch_enabled_internal;
             if i2c_bus_id = x"00" then
               fastio_rdata(0) <= i2c0_reset_internal;
               fastio_rdata(1) <= i2c0_command_en_internal;
@@ -2095,10 +2097,13 @@ begin  -- behavioural
               -- @IO:GS $D6D1.0 - I2C reset
               -- @IO:GS $D6D1.1 - I2C command latch write strobe (write 1 to trigger command)
               -- @IO:GS $D6D1.2 - I2C Select read (1) or write (0)
+              -- @IO:GS $D6D1.3 - Enable/disable touch panel I2C communications
               
               -- @IO:GS $D6D5.6 - I2C busy flag
               -- @IO:GS $D6D5.7 - I2C ack error
               if i2c_bus_id = x"00" then
+                touch_enabled <= fastio_wdata(3);
+                touch_enabled_internal <= fastio_wdata(3);
                 i2c0_reset <= fastio_wdata(0);
                 i2c0_reset_internal <= fastio_wdata(0);
                 i2c0_command_en <= fastio_wdata(1);
