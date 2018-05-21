@@ -1023,8 +1023,9 @@ begin  -- behavioural
             fastio_rdata(1 downto 0) <= touch_x2(9 downto 8);
             fastio_rdata(5 downto 4) <= touch_y2(9 downto 8);
           when x"BF" =>
+            fastio_rdata(7) <= touch_enabled_internal;
             -- XXX DEBUG temporary
-            fastio_rdata <= touch_byte;
+            fastio_rdata(6 downto 0) <= touch_byte(6 downto 0);
           when x"C0" =>
             -- XXX DEBUG temporary
             fastio_rdata <= scan_count;
@@ -1039,7 +1040,6 @@ begin  -- behavioural
             fastio_rdata <= i2c_bus_id;
           when x"D1" =>
             fastio_rdata <= (others => '0');
-            fastio_rdata(3) <= touch_enabled_internal;
             if i2c_bus_id = x"00" then
               fastio_rdata(0) <= i2c0_reset_internal;
               fastio_rdata(1) <= i2c0_command_en_internal;
@@ -2089,6 +2089,9 @@ begin  -- behavioural
               touch_delta_y(15 downto 8) <= fastio_wdata;
               touch_delta_y_internal(15 downto 8) <= fastio_wdata;
             when x"BF" =>
+              -- @IO:GS $D6BF.7 - Enable/disable touch panel I2C communications
+              touch_enabled <= fastio_wdata(7);
+              touch_enabled_internal <= fastio_wdata(7);
               touch_byte_num <= fastio_wdata;
             when x"D0" =>
               i2c_bus_id <= fastio_wdata;
@@ -2097,13 +2100,10 @@ begin  -- behavioural
               -- @IO:GS $D6D1.0 - I2C reset
               -- @IO:GS $D6D1.1 - I2C command latch write strobe (write 1 to trigger command)
               -- @IO:GS $D6D1.2 - I2C Select read (1) or write (0)
-              -- @IO:GS $D6D1.3 - Enable/disable touch panel I2C communications
               
               -- @IO:GS $D6D1.6 - I2C busy flag
               -- @IO:GS $D6D1.7 - I2C ack error
               if i2c_bus_id = x"00" then
-                touch_enabled <= fastio_wdata(3);
-                touch_enabled_internal <= fastio_wdata(3);
                 i2c0_reset <= fastio_wdata(0);
                 i2c0_reset_internal <= fastio_wdata(0);
                 i2c0_command_en <= fastio_wdata(1);

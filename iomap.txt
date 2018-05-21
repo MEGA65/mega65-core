@@ -493,17 +493,17 @@ GS $D6BC - Touch pad touch #2 X LSB
 GS $D6BD - Touch pad touch #2 Y LSB
 GS $D6BE.0-1 - Touch pad touch #2 X MSBs
 GS $D6BE.5-4 - Touch pad touch #2 Y MSBs
+GS $D6BF.7 - Enable/disable touch panel I2C communications
 GS $D6D0 - I2C bus select (bus 0 = temp sensor on Nexys4 boardS)
 GS $D6D1.0 - I2C reset
 GS $D6D1.1 - I2C command latch write strobe (write 1 to trigger command)
 GS $D6D1.2 - I2C Select read (1) or write (0)
-GS $D6D1.3 - Enable/disable touch panel I2C communications
+GS $D6D1.6 - I2C busy flag
+GS $D6D1.7 - I2C ack error
 GS $D6D1 - I2C control/status
 GS $D6D2.7-1 - I2C address
 GS $D6D3 - I2C data write register
 GS $D6D4 - I2C data read register
-GS $D6D5.6 - I2C busy flag
-GS $D6D5.7 - I2C ack error
 GS $D6DA - DEBUG SD card last error code LSB
 GS $D6DB - DEBUG SD card last error code MSB
 GS $D6DC - DEBUG duplicate of FPGA switches 0-7
