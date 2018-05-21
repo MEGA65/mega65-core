@@ -109,25 +109,22 @@ begin
     variable r : unsigned(15 downto 0) := to_unsigned(0,16);
   begin
     if rising_edge(clock50mhz) then
-      if i2c0_busy /= 'U' then
+      if i2c0_error = '0' and touch_enabled='1' then
         last_busy <= i2c0_busy;
+      else
+        last_busy <= '1';
       end if;
 --      report "busy=" & std_logic'image(i2c0_busy) & "last_busy = " & std_logic'image(last_busy);
 
-      -- Check for I2C error, and if so, reset the bus.
-      if i2c0_error='1' then
-        i2c0_reset <= '1';
-        busy_count <= 0;
-      else
-        i2c0_reset <= '0';
-      end if;
-
       -- Cycle through reading the touch digitiser registers
+      if touch_enabled = '0' then
+        busy_count <= 0;
+      end if;
       if i2c0_busy='0' and last_busy='1' then
         report "busy de-asserted: dispatching next command";
          case busy_count is
           when 0 =>
-            if touch_enabled='1' then
+            if touch_enabled='1' and i2c0_error='0' then
               report "Beginning touch panel scan";
               -- send initial command
               i2c0_command_en <= '1';
