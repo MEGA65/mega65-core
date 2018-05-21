@@ -176,10 +176,11 @@ test_touchscreen:
 	sta $d6b2
 
 	; set Y scale
-	; NOTE: This makes Y scale 0-239, not 0-479, for simplicity of plotting
-	lda #<512
+	; NOTE: This makes Y scale 0-479. We have to reduce it before plotting
+	; (it must have full range, however, for the on-screen keyboard to work).
+	lda #<1024
 	sta $d6b3
-	lda #>512
+	lda #>1024
 	sta $d6b4
 
 	; set x delta
@@ -323,6 +324,18 @@ n1:
 n2:
 
 	; report coordinates
+
+	lda #$13
+	jsr $ffd2
+	lda #$11
+	jsr $ffd2
+	lda #$11
+	jsr $ffd2
+	lda #$11
+	jsr $ffd2
+	lda #$11
+	jsr $ffd2
+
 	lda $d6bb
 	and #$0f
 	ldx $d6b9
@@ -336,7 +349,22 @@ n2:
 	lsr
 	ldx $d6ba
 	jsr $bdcd
-	lda #$0d
+	
+	lda #$20
+	jsr $ffd2
+	lda #$20
+	jsr $ffd2
+	lda #$20
+	jsr $ffd2
+	lda #$20
+	jsr $ffd2
+	lda #$20
+	jsr $ffd2
+	lda #$20
+	jsr $ffd2
+	lda #$20
+	jsr $ffd2
+	lda #$20
 	jsr $ffd2
 
 	jmp loop
@@ -361,7 +389,16 @@ parse_touch:
 
 	lda $d6b9+0,y
 	sta $d000,x
+	; Divide Y position by two before using as sprite coordinate
 	lda $d6b9+1,y
+	lsr
+	sta $fe
+	lda $d6b9+2,y
+	asl
+	asl
+	asl
+	and #$80
+	ora $fe
 	sta $d001,x
 
 	; get X position (upper 8 bits only)
