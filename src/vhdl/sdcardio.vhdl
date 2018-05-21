@@ -2092,7 +2092,7 @@ begin  -- behavioural
               -- @IO:GS $D6BF.7 - Enable/disable touch panel I2C communications
               touch_enabled <= fastio_wdata(7);
               touch_enabled_internal <= fastio_wdata(7);
-              touch_byte_num <= fastio_wdata;
+              touch_byte_num(6 downto 0) <= fastio_wdata(6 downto 0);
             when x"D0" =>
               i2c_bus_id <= fastio_wdata;
             when x"D1" =>
