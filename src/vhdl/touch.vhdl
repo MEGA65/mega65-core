@@ -252,10 +252,10 @@ begin
       b4 <= bytes(4);
       b5 <= bytes(5);
       
-      x1_mult <= to_unsigned(x1_inv * to_integer(x_mult),12+16)(26 downto 11);
-      x2_mult <= to_unsigned(x2_inv * to_integer(x_mult),12+16)(26 downto 11);
-      y1_mult <= to_unsigned(y1_inv * to_integer(y_mult),12+16)(26 downto 11);
-      y2_mult <= to_unsigned(y2_inv * to_integer(y_mult),12+16)(26 downto 11);
+      x1_mult <= to_unsigned(x1_inv * to_integer(x_mult),12+16)(19 downto 4);
+      x2_mult <= to_unsigned(x2_inv * to_integer(x_mult),12+16)(19 downto 4);
+      y1_mult <= to_unsigned(y1_inv * to_integer(y_mult),12+16)(19 downto 4);
+      y2_mult <= to_unsigned(y2_inv * to_integer(y_mult),12+16)(19 downto 4);
       
       r := x1_mult + x_delta; x1 <= r(15 downto 6);
       if parse_touch = 3 then
