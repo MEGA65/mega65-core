@@ -131,6 +131,8 @@ architecture behavioural of visual_keyboard is
   signal touch2_dont_hold : std_logic := '0';
   signal touch2_set : std_logic := '0';
 
+  signal key_read : std_logic := '0';
+  
   -- Keep OSK in region that fits on 800x480 LCD panel
   constant y_start_minimum : integer := (600-480)/2;
   constant y_end_maximum : integer := 600 - y_start_minimum;
@@ -346,9 +348,18 @@ begin
         if (key1(6 downto 0) = current_matrix_id(6 downto 0))
           or (key2(6 downto 0) = current_matrix_id(6 downto 0))
           or (key3(6 downto 0) = current_matrix_id(6 downto 0))
+          or (key4(6 downto 0) = current_matrix_id(6 downto 0)) then
+          key_real <= '1';
+        else
+          key_real <= '0';
+        end if;
+        
+        if (key1(6 downto 0) = current_matrix_id(6 downto 0))
+          or (key2(6 downto 0) = current_matrix_id(6 downto 0))
+          or (key3(6 downto 0) = current_matrix_id(6 downto 0))
           or (key4(6 downto 0) = current_matrix_id(6 downto 0))
-          or (touch1_key_internal(6 downto 0) = current_matrix_id(6 downto 0))
-          or (touch2_key_internal(6 downto 0) = current_matrix_id(6 downto 0))
+          or (touch1_key_last(6 downto 0) = current_matrix_id(6 downto 0))
+          or (touch2_key_last(6 downto 0) = current_matrix_id(6 downto 0))
         then
 --          if current_matrix_id(6 downto 0) /= "1111111" then
 --            report "Key $"& to_hstring(current_matrix_id(6 downto 0))  &" down";
@@ -580,9 +591,14 @@ begin
         vgagreen_out <= x"FF";
         vgablue_out <= x"FF";
       elsif visual_keyboard_enable='1' and active='1' then
-        vgared_out <= vk_pixel(1)&vgared_in(7 downto 1);
         vgagreen_out <= vk_pixel(1)&vgagreen_in(7 downto 1);
-        vgablue_out <= vk_pixel(1)&vgablue_in(7 downto 1);
+        if key_real='0' then
+          vgared_out <= vk_pixel(1)&vgared_in(7 downto 1);
+          vgablue_out <= vk_pixel(1)&vgablue_in(7 downto 1);
+        else
+          vgared_out <= '0'&vgared_in(7 downto 1);
+          vgablue_out <= '0'&vgablue_in(7 downto 1);
+        end if;
       else
         vgared_out <= vgared_in;
         vgagreen_out <= vgagreen_in;
@@ -603,6 +619,7 @@ begin
 
         touch1_key_last <= touch1_key_internal;
         touch2_key_last <= touch2_key_internal;
+        
         if touch1_key_last /= x"FF" and touch1_key_internal = x"FF" and touch1_dont_hold='0' then
           -- Touch released over a key. Issue event for this key
           -- XXX Toggle bucky keys rather than holding them.
