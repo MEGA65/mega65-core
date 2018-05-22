@@ -65,6 +65,8 @@ entity iomapper is
         key_scancode_toggle : in std_logic;
 
         visual_keyboard_enable : out std_logic;
+        zoom_en_osk : inout std_logic;
+        zoom_en_always : inout std_logic;
         keyboard_at_top : out std_logic;
         alternate_keyboard : out std_logic;
         osk_x : out unsigned(11 downto 0) := (others => '0');
@@ -545,7 +547,9 @@ begin
       key_up => key_up,
       uart_rx => uart_rx,
       uart_tx => uart_tx,
-      portf => pmoda,
+      portf(7) => zoom_en_osk,
+      portf(6) => zoom_en_always,
+      portf(5 downto 0) => pmoda(5 downto 0),
       porth => std_logic_vector(ascii_key_buffered),
       porth_write_strobe => ascii_key_next,
       porti => std_logic_vector(bucky_key(7 downto 0)),

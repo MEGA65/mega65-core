@@ -36,6 +36,11 @@ entity visual_keyboard is
     touch2_x : in unsigned(13 downto 0);
     touch2_y : in unsigned(11 downto 0);
     touch2_key : out unsigned(7 downto 0) := x"FF";
+
+    -- Flags to enable zoomed display of what is under (the first)
+    -- touch point.
+    zoom_en_osk : inout std_logic := '1';
+    zoom_en_always : inout std_logic := '1';
     
     vgared_in : in  unsigned (7 downto 0);
     vgagreen_in : in  unsigned (7 downto 0);
@@ -135,6 +140,32 @@ architecture behavioural of visual_keyboard is
 
   -- Is the key really down, not just maybe down?
   signal key_real : std_logic := '0';
+
+  -- Interface for showing zoomed version of where a touch is
+  -- occurring.
+  signal zoom_raddr : integer := 0;
+  signal zoom_waddr : integer := 0;
+  signal zoom_we : std_logic := '0';
+  signal zoom_wdata : unsigned(31 downto 0) := to_unsigned(0,32);
+  signal zoom_rdata : unsigned(31 downto 0) := to_unsigned(0,32);
+  -- And where it should appear
+  signal zoom_display_x : integer := 0;
+  signal zoom_display_y : integer := 0;
+  signal zoom_display_enable : std_logic := '0';
+  -- And the origin of the area we are copying to display zoomed
+  signal zoom_origin_x : integer := 0;
+  signal zoom_origin_y : integer := 0;
+  -- And variables for controlling the recording
+  signal zoom_record_en : std_logic := '0';
+  signal zoom_record_y : unsigned(4 downto 0) := to_unsigned(0,5);
+  signal zoom_record_x : unsigned(4 downto 0) := to_unsigned(0,5);
+  signal zoom_recording : integer range 0 to 32 := 0;
+  signal zoom_play_y : unsigned(4 downto 0) := to_unsigned(0,5);
+  signal zoom_play_x : unsigned(4 downto 0) := to_unsigned(0,5);
+  signal zoom_playback_en : std_logic := '0';
+  signal zoom_playing : integer range 0 to 64 := 0;
+  signal zoom_playback_pixel : std_logic := '0';
+  signal zoom_play_x_stretch : std_logic := '0';
   
   -- Keep OSK in region that fits on 800x480 LCD panel
   constant y_start_minimum : integer := (600-480)/2;
@@ -168,6 +199,18 @@ begin
       data_i => (others => '1'),
       data_o => rdata
       );
+
+  -- 4KB BRAM for saving 32x32 pixel region 
+  zoom0: entity work.ram32x1024_sync
+    port map (
+      clk => pixelclock,
+      cs => '1',
+      address => zoom_raddr,
+      write_address => zoom_waddr,
+      w => zoom_we,
+      wdata => zoom_wdata,
+      rdata => zoom_rdata
+      );
   
   process (pixelclock)
     variable char_addr : unsigned(10 downto 0);
@@ -187,14 +230,86 @@ begin
         alt_offset <= 0;
       end if;
       
-      -- Update vertical scale factor to fit video mode
-      -- XXX Currently fixed for 400ish pixels high
---      if pixel_y_scale_200 /= x"0" then
---        y_stretch <= to_integer(pixel_y_scale_200) - 1;
---      else
---        y_stretch <= 0;
---      end if;
+      -- Work out where to display the zoom, and whether to show it.
+      -- We can control if we want it to always appear, only for the visual
+      -- keyboard (default), or never.
+      if (touch1_key_last /= x"FF"  and zoom_en_osk='1')
+        or (touch1_valid='1' and zoom_en_always='1') then
+        zoom_display_enable <= '1';
+      else
+        zoom_display_enable <= '0';
+      end if;
+      if to_integer(touch1_x) > 15 then
+        zoom_origin_x <= to_integer(touch1_x) - 16;
+        zoom_display_x <= to_integer(touch1_x) - 16;
+      else
+        zoom_origin_x <= 0;
+        zoom_display_x <= 0;
+      end if;
+      if to_integer(touch1_y) > 15 then
+        zoom_origin_y <= to_integer(touch1_y) - 16;
+      else
+        zoom_origin_y <= 0;
+      end if;
+      if to_integer(touch1_y) < (60 + (32*2)) then
+        -- Position zoomed display below touch point if touch point
+        -- is right near the top of the display.
+        zoom_display_y <= to_integer(touch1_y) + 16;
+      else
+        -- Position zoomed display above touch point
+        zoom_display_y <= to_integer(touch1_y) - (32*2) - 16;
+      end if;
 
+      -- Work out when to record for zoom display
+      if native_x_640 = zoom_origin_x then
+        zoom_recording <= 32;
+        zoom_record_x <= to_unsigned(0,5);
+      end if;
+      if (native_y_400 >= zoom_origin_y)
+         and ((native_y_400 - zoom_origin_y) < 32) then
+        zoom_record_en <= '1';
+        zoom_record_y <= to_unsigned(native_y_400 - zoom_origin_y,5);
+      end if;
+      -- And record it
+      if zoom_record_en = '1' and zoom_recording /= 0 then
+        zoom_waddr <= to_integer(zoom_record_y&zoom_record_x);
+        zoom_wdata(7 downto 0) <= vgared_in;
+        zoom_wdata(15 downto 8) <= vgagreen_in;
+        zoom_wdata(23 downto 16) <= vgablue_in;
+        zoom_we <= '1';
+        zoom_recording <= zoom_recording - 1;
+        zoom_record_x <= zoom_record_x + 1;
+      else
+        zoom_we <= '0';
+      end if;
+
+      -- And similarly for playing back the zoomed display
+      if native_x_640 = zoom_display_x then
+        zoom_playing <= 64;
+        zoom_play_x <= to_unsigned(0,5);
+        zoom_play_x_stretch <= '1';
+      end if;
+      if (native_y_400 >= zoom_display_y)
+         and ((native_y_400 - zoom_display_y) < 64) then
+        zoom_playback_en <= '1';
+        zoom_play_y <= to_unsigned(native_y_400 - zoom_display_y,6)(5 downto 1);
+      end if;
+      -- And play it it
+      if zoom_record_en = '1' and zoom_recording /= 0 then
+        zoom_playback_pixel <= '1';
+        zoom_waddr <= to_integer(zoom_record_y&zoom_record_x);
+        zoom_playing <= zoom_playing - 1;
+        if zoom_play_x_stretch='1' then
+          zoom_play_x_stretch <= '0';
+        else
+          zoom_play_x_stretch <= '1';
+          zoom_play_x <= zoom_play_x + 1;
+        end if;
+      else
+        zoom_playback_pixel <= '0';
+      end if;
+      
+      
       -- Check if current touch events correspond to any key
       if visual_keyboard_enable='1' then
         if native_x_640 = touch1_x and ycounter_in = touch1_y and touch1_valid='1' then
@@ -593,6 +708,10 @@ begin
         vgared_out <= x"FF";
         vgagreen_out <= x"FF";
         vgablue_out <= x"FF";
+      elsif zoom_playback_pixel='1' and zoom_display_enable='1' then
+        vgared_out <= zoom_rdata(7 downto 0);
+        vgagreen_out <= zoom_rdata(15 downto 8);
+        vgablue_out <= zoom_rdata(23 downto 16);
       elsif visual_keyboard_enable='1' and active='1' then
         vgagreen_out <= vk_pixel(1)&vgagreen_in(7 downto 1);
         if key_real='0' then

@@ -511,6 +511,8 @@ architecture Behavioral of machine is
   signal terminal_emulator_ready : std_logic := '0';
 
   signal visual_keyboard_enable : std_logic;
+  signal zoom_en_osk : std_logic;
+  signal zoom_en_always : std_logic;
   signal keyboard_at_top : std_logic;
   signal alternate_keyboard : std_logic;
   signal osk_x : unsigned(11 downto 0);
@@ -1096,6 +1098,8 @@ begin
       buffereduart2_tx => buffereduart2_tx,
       
       visual_keyboard_enable => visual_keyboard_enable,
+      zoom_en_osk => zoom_en_osk,
+      zoom_en_always => zoom_en_always,
       keyboard_at_top => keyboard_at_top,
       alternate_keyboard => alternate_keyboard,
       osk_x => osk_x,
@@ -1339,6 +1343,8 @@ begin
     vgared_in => vgared_kbd,
     vgagreen_in => vgagreen_kbd,
     visual_keyboard_enable => visual_keyboard_enable,
+    zoom_en_osk => zoom_en_osk,
+    zoom_en_always => zoom_en_always,
     keyboard_at_top => keyboard_at_top,
     alternate_keyboard => alternate_keyboard,
     instant_at_top => '0',
