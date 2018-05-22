@@ -670,6 +670,9 @@ begin
         elsif touch1_key_last /= touch1_key_internal and touch1_key_internal /= x"FF" then
           -- We have moved from one key to another, so reset press delay
           touch1_press_delay <= 40;
+          -- And mark previous key as no longer set
+          touch1_key <= current_bucky;
+          touch1_set <= '0';
         elsif touch1_key_last = touch1_key_internal and touch1_key_internal /= x"FF" then
           if touch1_press_delay /= 0 then
             touch1_press_delay <= touch1_press_delay - 1;
