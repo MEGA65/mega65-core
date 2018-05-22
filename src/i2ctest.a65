@@ -184,15 +184,22 @@ test_touchscreen:
 	sta $d6b4
 
 	; set x delta
-	lda #<$f400
+	lda #<$f500
 	sta $d6b5
-	lda #>$f400
+	lda #>$f500
 	sta $d6b6
 	; set y delta
 	lda #<$0800
 	sta $d6b7
 	lda #>$0800
 	sta $d6b8
+
+	; Turn on visual keyboard
+	LDA #$7F
+	sta $d616
+	sta $d617
+	lda #$ff
+	sta $d615
 
 	; Set sprite colours
 	lda #$01
