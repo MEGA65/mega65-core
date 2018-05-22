@@ -31,13 +31,16 @@ entity touch is
     b5 : out unsigned(7 downto 0);
     touch_byte : out unsigned(7 downto 0) := x"BD";
     touch_byte_num : in unsigned(7 downto 0);
+
+    gesture_event_id : out unsigned(3 downto 0) := x"0";
+    gesture_event : out unsigned(3 downto 0) := x"0";
     
     -- The touch events we have received
-    touch1_active : out std_logic := '0';
-    touch1_status : out std_logic_vector(1 downto 0) := "11";
+    touch1_active : inout std_logic := '0';
+    touch1_status : inout std_logic_vector(1 downto 0) := "11";
     x1 : out unsigned(9 downto 0) := to_unsigned(0,10);
     y1 : out unsigned(9 downto 0) := to_unsigned(0,10);
-
+    
     touch2_active : out std_logic := '0';
     touch2_status : out std_logic_vector(1 downto 0) := "11";
     x2 : out unsigned(9 downto 0) := to_unsigned(0,10);
@@ -86,6 +89,17 @@ architecture foo of touch is
   signal x2_mult : unsigned(15 downto 0) := to_unsigned(0,16);
   signal y1_mult : unsigned(15 downto 0) := to_unsigned(0,16);
   signal y2_mult : unsigned(15 downto 0) := to_unsigned(0,16);
+
+  signal touch1_active_internal : std_logic := '0';
+  signal touch2_active_internal : std_logic := '0';
+
+  signal gesture_directions : std_logic_vector(3 downto 0) := "0000";
+  signal gesture_timeout : integer range 0 to 50000000 := 0;
+  signal gesture_start_x : integer := 0;
+  signal gesture_start_y : integer := 0;
+  signal gesture_last_x : integer := 0;
+  signal gesture_last_y : integer := 0;
+  signal gesture_next_event_id : integer range 0 to 15 := 1;
   
 begin
 
@@ -109,6 +123,7 @@ begin
     variable r : unsigned(15 downto 0) := to_unsigned(0,16);
   begin
     if rising_edge(clock50mhz) then
+
       if i2c0_error = '0' and touch_enabled='1' then
         last_busy <= i2c0_busy;
       else
@@ -116,6 +131,72 @@ begin
       end if;
 --      report "busy=" & std_logic'image(i2c0_busy) & "last_busy = " & std_logic'image(last_busy);
 
+      touch1_active <= touch1_active_internal;
+      touch2_active <= touch2_active_internal;
+
+      if touch1_active = '1' and touch1_active_internal='0' then
+        -- Start of touch.
+        -- We want to keep track of direction of travel and magnitude
+        -- so that we can detect various gestures
+
+        gesture_directions <= "1111";
+        gesture_start_x <= x1_int;
+        gesture_start_y <= y1_int;
+        gesture_last_x <= x1_int;
+        gesture_last_y <= y1_int;        
+        -- Gesture must complete in <0.5 seconds
+        gesture_timeout <= 25000000;
+      elsif touch1_active_internal='1' then
+        -- Touch being held, so track gesture
+        if x1_int < gesture_last_x then
+          gesture_directions(1) <= '0';
+        end if;
+        if x1_int > gesture_last_x then
+          gesture_directions(0) <= '0';
+        end if;
+        if y1_int < gesture_last_y then
+          gesture_directions(3) <= '0';
+        end if;
+        if y1_int > gesture_last_y then
+          gesture_directions(2) <= '0';
+        end if;        
+        gesture_last_x <= x1_int;
+        gesture_last_y <= y1_int;
+      elsif touch1_active_internal='0' and touch1_active = '1'  and gesture_timeout /= 0 then
+        -- Touch release within gesture timeout
+        gesture_event_id <= to_unsigned(gesture_next_event_id,4);
+        if gesture_next_event_id /= 15 then
+          gesture_next_event_id <= gesture_next_event_id + 1;
+        else
+          gesture_next_event_id <= 0;
+        end if;
+        if gesture_directions(0)='1' and (gesture_start_x - gesture_last_x ) > 100 then
+          gesture_event(0) <= '1';
+        else
+          gesture_event(0) <= '0';
+        end if;
+        if gesture_directions(1)='1' and (gesture_last_x - gesture_start_x ) > 100 then
+          gesture_event(1) <= '1';
+        else
+          gesture_event(1) <= '0';
+        end if;
+        if gesture_directions(2)='1' and (gesture_start_y - gesture_last_y ) > 100 then
+          gesture_event(2) <= '1';
+        else
+          gesture_event(2) <= '0';
+        end if;
+        if gesture_directions(3)='1' and (gesture_last_y - gesture_start_y ) > 100 then
+          gesture_event(3) <= '1';
+        else
+          gesture_event(3) <= '0';
+        end if;
+      end if;
+
+      if gesture_timeout /= 0 then
+        gesture_timeout <= gesture_timeout - 1;
+      end if;
+      
+      
       -- Cycle through reading the touch digitiser registers
       if touch_enabled = '0' then
         busy_count <= 0;
@@ -175,18 +256,18 @@ begin
             scan_count <= x"00";
           end if;
 
-          touch1_active <= '0';
-          touch2_active <= '0';
+          touch1_active_internal <= '0';
+          touch2_active_internal <= '0';
           
           if bytes(2) /= x"00" and bytes(3+2)(7 downto 4) /= x"f" then
             if bytes(3+2)(7 downto 4) = "0000" then
-              touch1_active <= not std_logic(bytes(3+0)(6));
+              touch1_active_internal <= not std_logic(bytes(3+0)(6));
               touch1_status <= std_logic_vector(bytes(3+0)(7 downto 6));
               report "Setting x1_int to $" & to_hstring(bytes(3+2)(3 downto 0) & bytes(3+3));
               x1_int <= to_integer(bytes(3+2)(3 downto 0) & bytes(3+3));
               y1_int <= to_integer(bytes(3+0)(3 downto 0) & bytes(3+1));
             elsif bytes(3+2)(7 downto 4) = "0001" then
-              touch2_active <= not std_logic(bytes(3+0)(6));
+              touch2_active_internal <= not std_logic(bytes(3+0)(6));
               touch2_status <= std_logic_vector(bytes(3+0)(7 downto 6));
               report "Setting x2_int to $" & to_hstring(bytes(3+2)(3 downto 0) & bytes(3+3));
               x2_int <= to_integer(bytes(3+2)(3 downto 0) & bytes(3+3));
@@ -197,13 +278,13 @@ begin
           if bytes(2) > x"01" and bytes(9+2)(7 downto 4) /= x"f" then
             if bytes(9+2)(7 downto 4) = "0000" then
               report "Setting x1_int to $" & to_hstring(bytes(9+2)(3 downto 0) & bytes(9+3));
-              touch1_active <= not std_logic(bytes(9+0)(6));
+              touch1_active_internal <= not std_logic(bytes(9+0)(6));
               touch1_status <= std_logic_vector(bytes(9+0)(7 downto 6));
               x1_int <= to_integer(bytes(9+2)(3 downto 0) & bytes(9+3));
               y1_int <= to_integer(bytes(9+0)(3 downto 0) & bytes(9+1));
             elsif bytes(9+2)(7 downto 4) = "0001" then
               report "Setting x2_int to $" & to_hstring(bytes(9+2)(3 downto 0) & bytes(9+3));
-              touch2_active <= not std_logic(bytes(9+0)(6));
+              touch2_active_internal <= not std_logic(bytes(9+0)(6));
               touch2_status <= std_logic_vector(bytes(9+0)(7 downto 6));
               x2_int <= to_integer(bytes(9+2)(3 downto 0) & bytes(9+3));
               y2_int <= to_integer(bytes(9+0)(3 downto 0) & bytes(9+1));
