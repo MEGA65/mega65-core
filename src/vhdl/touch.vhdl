@@ -162,7 +162,7 @@ begin
         end if;        
         gesture_last_x <= x1_int;
         gesture_last_y <= y1_int;
-      elsif touch1_active_internal='0' and touch1_active = '1'  and gesture_timeout /= 0 then
+      elsif touch1_active_internal='1' and touch1_active = '0'  and gesture_timeout /= 0 then
         -- Touch release within gesture timeout
         gesture_event_id <= to_unsigned(gesture_next_event_id,4);
         if gesture_next_event_id /= 15 then
