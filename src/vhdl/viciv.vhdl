@@ -2753,9 +2753,12 @@ begin
 
       -- But also export native X position, e.g., for touch panel interface to
       -- match up with visual keyboard
+
+      -- XXX Why do we need these fudge factors to make everything line up?
       -- Subtract 10 for video pipeline depth?
       native_x_640 <= to_integer(vicii_xcounter_640 - 10);
-      native_y_400 <= to_integer(vicii_ycounter);
+      -- Subtract 34 for some reason?
+      native_y_400 <= to_integer(vicii_ycounter - 34);
       
       --chardata_drive <= unsigned(chardata);
       --paint_chardata <= chardata_drive;
