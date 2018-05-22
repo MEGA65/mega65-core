@@ -442,8 +442,8 @@ architecture behavioural of sdcardio is
 
   signal touch_enabled : std_logic := '1';
   signal touch_enabled_internal : std_logic := '1';
-  signal touch_flip_x : std_logic := '0';
-  signal touch_flip_x_internal : std_logic := '0';
+  signal touch_flip_x : std_logic := '1';
+  signal touch_flip_x_internal : std_logic := '1';
   signal touch_flip_y : std_logic := '0';
   signal touch_flip_y_internal : std_logic := '0';
 
