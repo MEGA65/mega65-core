@@ -481,6 +481,9 @@ architecture behavioural of sdcardio is
   signal lcd_pwm_counter : integer range 0 to 255 := 0;
   -- Start with panel at full brightness
   signal lcdpwm_value : unsigned(7 downto 0) := x"ff";
+
+  signal gesture_event_id : unsigned(3 downto 0) := x"0";
+  signal gesture_event : unsigned(3 downto 0) := x"0";
   
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
@@ -501,6 +504,9 @@ begin  -- behavioural
       scl => touchSCL,
       touch_enabled => touch_enabled,
 
+      gesture_event_id => gesture_event_id,
+      gesture_event => gesture_event,
+      
       x_invert => touch_flip_x,
       y_invert => touch_flip_y,
       x_mult   => touch_scale_x,
@@ -1035,14 +1041,10 @@ begin  -- behavioural
             -- XXX DEBUG temporary
             fastio_rdata(6 downto 0) <= touch_byte(6 downto 0);
           when x"C0" =>
-            -- XXX DEBUG temporary
-            fastio_rdata <= scan_count;
-          when x"C1" => fastio_rdata <= b0;
-          when x"C2" => fastio_rdata <= b1;
-          when x"C3" => fastio_rdata <= b2;
-          when x"C4" => fastio_rdata <= b3;
-          when x"C5" => fastio_rdata <= b4;
-          when x"C6" => fastio_rdata <= b5;
+            -- @IO:GS $D6C0.0-3 - Touch pad gesture directions (left,right,up,down)
+            -- @IO:GS $D6C0.7-4 - Touch pad gesture ID
+            fastio_rdata(3 downto 0) <= gesture_event;
+            fastio_rdata(7 downto 4) <= gesture_event_id;
           when x"D0" =>
             -- @IO:GS $D6D0 - I2C bus select (bus 0 = temp sensor on Nexys4 boardS)
             fastio_rdata <= i2c_bus_id;
@@ -1192,6 +1194,8 @@ begin  -- behavioural
     
     if rising_edge(clock) then    
 
+      
+      
       -- Drive LCD panel PWM brightness control
       if lcd_pwm_divider /= 255 then
         lcd_pwm_divider <= lcd_pwm_divider + 1;
