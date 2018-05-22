@@ -346,7 +346,10 @@ begin
         if (key1(6 downto 0) = current_matrix_id(6 downto 0))
           or (key2(6 downto 0) = current_matrix_id(6 downto 0))
           or (key3(6 downto 0) = current_matrix_id(6 downto 0))
-          or (key4(6 downto 0) = current_matrix_id(6 downto 0)) then
+          or (key4(6 downto 0) = current_matrix_id(6 downto 0))
+          or (touch1_key_internal(6 downto 0) = current_matrix_id(6 downto 0))
+          or (touch2_key_internal(6 downto 0) = current_matrix_id(6 downto 0))
+        then
 --          if current_matrix_id(6 downto 0) /= "1111111" then
 --            report "Key $"& to_hstring(current_matrix_id(6 downto 0))  &" down";
 --          end if;
@@ -364,7 +367,7 @@ begin
             box_inverse <= '1';
           else
             box_inverse <= '0';
-          end if;
+          end if;          
         else
           box_inverse <= '0';
         end if;
@@ -576,7 +579,7 @@ begin
         vgared_out <= x"FF";
         vgagreen_out <= x"FF";
         vgablue_out <= x"FF";
-        elsif visual_keyboard_enable='1' and active='1' then
+      elsif visual_keyboard_enable='1' and active='1' then
         vgared_out <= vk_pixel(1)&vgared_in(7 downto 1);
         vgagreen_out <= vk_pixel(1)&vgagreen_in(7 downto 1);
         vgablue_out <= vk_pixel(1)&vgablue_in(7 downto 1);
@@ -598,6 +601,8 @@ begin
         double_width <= '0';
         double_width_phase <= '0';
 
+        touch1_key_last <= touch1_key_internal;
+        touch2_key_last <= touch2_key_internal;
         if touch1_key_last /= x"FF" and touch1_key_internal = x"FF" and touch1_dont_hold='0' then
           -- Touch released over a key. Issue event for this key
           -- XXX Toggle bucky keys rather than holding them.
