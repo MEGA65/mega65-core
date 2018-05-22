@@ -522,6 +522,8 @@ begin  -- behavioural
       touch1_status => touch1_status,
       x1 => touch_x1,
       y1 => touch_y1,
+      touch2_active => touch2_active,
+      touch2_status => touch2_status,
       x2 => touch_x2,
       y2 => touch_y2
       );
