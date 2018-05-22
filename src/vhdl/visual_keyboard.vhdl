@@ -115,8 +115,21 @@ architecture behavioural of visual_keyboard is
   signal alt_keyboard_text_start : unsigned(11 downto 0) := to_unsigned(2048+256,12);
   signal alt_offset : integer := 0;
 
+  signal current_bucky : unsigned(7 downto 0) := x"FF";
+  
   signal touch1_key_internal : unsigned(7 downto 0) := (others => '1');
+  signal touch1_key_last : unsigned(7 downto 0) := (others => '1');
+  signal touch1_hold_timeout : integer range 0 to 127 := 0;
+  signal touch1_press_delay : integer range 0 to 127 := 0;
+  signal touch1_dont_hold : std_logic := '0';
+  signal touch1_set : std_logic := '0';
+  
   signal touch2_key_internal : unsigned(7 downto 0) := (others => '1');
+  signal touch2_key_last : unsigned(7 downto 0) := (others => '1');
+  signal touch2_hold_timeout : integer range 0 to 127 := 0;
+  signal touch2_press_delay : integer range 0 to 127 := 0;
+  signal touch2_dont_hold : std_logic := '0';
+  signal touch2_set : std_logic := '0';
 
   -- Keep OSK in region that fits on 800x480 LCD panel
   constant y_start_minimum : integer := (600-480)/2;
@@ -585,10 +598,132 @@ begin
         double_width <= '0';
         double_width_phase <= '0';
 
-        touch1_key <= touch1_key_internal;
-        touch2_key <= touch2_key_internal;
-        report "Exporting touch keys $" & to_hstring(touch1_key_internal)
-          & " & $" & to_hstring(touch2_key_internal);
+        if touch1_key_last /= x"FF" and touch1_key_internal = x"FF" and touch1_dont_hold='0' then
+          -- Touch released over a key. Issue event for this key
+          -- XXX Toggle bucky keys rather than holding them.
+          -- (and toggle should be on key-down, not key up)
+          case to_integer(touch1_key_internal) is
+            when 15|52|58|61|66|64 =>
+              -- Bucky keys -- so toggle, not brief press
+              -- The trick is we can only present two pressed keys, so we need
+              -- to have a way of remembering which buckys are pressed, and on
+              -- which of the two touch key slots to present it.
+              -- Simple approach is that bucky keys always set touch2.  The
+              -- downside is holding shift on screen and pressing another key
+              -- will not work, which is a problem, since that is traditionally
+              -- how shift and C= and CTRL are used on the C64.
+              -- Alternative is to remember a pressed bucky, and substitute
+              -- that to either touch which does not otherwise have a key active.
+              -- This is a much better idea.
+              if current_bucky = touch1_key_internal then
+                current_bucky <= x"FF";
+                if touch1_set = '0' then
+                  touch1_key <= x"FF";
+                end if;
+                if touch2_set = '0' then
+                  touch2_key <= x"FF";
+                end if;
+              else
+                current_bucky <= touch1_key_internal;
+                if touch1_set = '0' then
+                  touch1_key <= touch1_key_internal;
+                end if;
+                if touch2_set = '0' then
+                  touch2_key <= touch1_key_internal;
+                end if;
+              end if;
+            when others =>
+              touch1_key <= touch1_key_internal;
+              touch1_hold_timeout <= 5;
+          end case;
+        elsif touch1_key_internal = x"FF" and touch1_hold_timeout = 0 then
+          -- Timeout holding of a key after it has been pressed
+          touch1_key <= current_bucky;
+          touch1_set <= '0';
+          touch1_dont_hold <= '0';
+        elsif touch1_key_internal = x"FF" and touch1_hold_timeout > 0 then
+          -- Decrement key release timeout if non-zero
+          touch1_hold_timeout <= touch1_hold_timeout - 1;
+        elsif touch1_key_last /= touch1_key_internal and touch1_key_internal /= x"FF" then
+          -- We have moved from one key to another, so reset press delay
+          touch1_press_delay <= 40;
+        elsif touch1_key_last = touch1_key_internal and touch1_key_internal /= x"FF" then
+          if touch1_press_delay /= 0 then
+            touch1_press_delay <= touch1_press_delay - 1;
+          else
+            -- Same key held for more than 40 frames, so now press it.
+            touch1_set <= '1';
+            touch1_key <= touch1_key_internal;
+            -- But don't set hold timeout for this key, since it is already
+            -- being pressed, and should be release immediately on release
+            touch1_dont_hold <= '1';
+            touch1_hold_timeout <= 0;
+          end if;
+        end if;
+
+        if touch2_key_last /= x"FF" and touch2_key_internal = x"FF" and touch2_dont_hold='0' then
+          -- Touch released over a key. Issue event for this key
+          -- XXX Toggle bucky keys rather than holding them.
+          -- (and toggle should be on key-down, not key up)
+          case to_integer(touch2_key_internal) is
+            when 15|52|58|61|66|64 =>
+              -- Bucky keys -- so toggle, not brief press
+              -- The trick is we can only present two pressed keys, so we need
+              -- to have a way of remembering which buckys are pressed, and on
+              -- which of the two touch key slots to present it.
+              -- Simple approach is that bucky keys always set touch2.  The
+              -- downside is holding shift on screen and pressing another key
+              -- will not work, which is a problem, since that is traditionally
+              -- how shift and C= and CTRL are used on the C64.
+              -- Alternative is to remember a pressed bucky, and substitute
+              -- that to either touch which does not otherwise have a key active.
+              -- This is a much better idea.
+              if current_bucky = touch2_key_internal then
+                current_bucky <= x"FF";
+                if touch1_set = '0' then
+                  touch1_key <= x"FF";
+                end if;
+                if touch2_set = '0' then
+                  touch2_key <= x"FF";
+                end if;
+              else
+                current_bucky <= touch2_key_internal;
+                if touch1_set = '0' then
+                  touch1_key <= touch1_key_internal;
+                end if;
+                if touch2_set = '0' then
+                  touch2_key <= touch1_key_internal;
+                end if;
+              end if;
+            when others =>
+              touch2_key <= touch2_key_internal;
+              touch2_hold_timeout <= 5;
+          end case;
+        elsif touch2_key_internal = x"FF" and touch2_hold_timeout = 0 then
+          -- Timeout holding of a key after it has been pressed
+          touch2_key <= current_bucky;
+          touch2_set <= '0';
+          touch2_dont_hold <= '0';
+        elsif touch2_key_internal = x"FF" and touch2_hold_timeout > 0 then
+          -- Decrement key release timeout if non-zero
+          touch2_hold_timeout <= touch2_hold_timeout - 1;
+        elsif touch2_key_last /= touch2_key_internal and touch2_key_internal /= x"FF" then
+          -- We have moved from one key to another, so reset press delay
+          touch2_press_delay <= 40;
+        elsif touch2_key_last = touch2_key_internal and touch2_key_internal /= x"FF" then
+          if touch2_press_delay /= 0 then
+            touch2_press_delay <= touch2_press_delay - 1;
+          else
+            -- Same key held for more than 40 frames, so now press it.
+            touch2_set <= '1';
+            touch2_key <= touch1_key_internal;
+            -- But don't set hold timeout for this key, since it is already
+            -- being pressed, and should be release immediately on release
+            touch2_dont_hold <= '1';
+            touch2_hold_timeout <= 0;
+          end if;
+        end if;
+        
         touch1_key_internal <= (others => '1');
         touch2_key_internal <= (others => '1');
         
