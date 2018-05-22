@@ -656,6 +656,7 @@ begin
                 end if;
               end if;
             when others =>
+              touch1_set <= '1';
               touch1_key <= touch1_key_internal;
               touch1_hold_timeout <= 5;
           end case;
