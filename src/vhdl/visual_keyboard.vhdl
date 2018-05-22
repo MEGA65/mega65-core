@@ -131,7 +131,8 @@ architecture behavioural of visual_keyboard is
   signal touch2_dont_hold : std_logic := '0';
   signal touch2_set : std_logic := '0';
 
-  signal key_read : std_logic := '0';
+  -- Is the key really down, not just maybe down?
+  signal key_real : std_logic := '0';
   
   -- Keep OSK in region that fits on 800x480 LCD panel
   constant y_start_minimum : integer := (600-480)/2;
