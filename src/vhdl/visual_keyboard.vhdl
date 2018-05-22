@@ -6,6 +6,7 @@ use work.debugtools.all;
 entity visual_keyboard is
   port (
     native_x_640 : in integer;
+    native_y_400 : in integer;
     pixel_x_640_in : in integer;
     pixel_y_scale_200 : in unsigned(3 downto 0);
     pixel_y_scale_400 : in unsigned(3 downto 0);
@@ -580,13 +581,13 @@ begin
         vk_pixel <= "00";
       end if;
 
-      if touch1_y = ycounter_in and touch1_x = pixel_x_640 then
+      if touch1_y = ycounter_in and touch1_x = native_x_640 then
 --        report "touch1 @ " & integer'image(to_integer(touch1_x))
 --          & "," & integer'image(to_integer(touch1_y));
         vgared_out <= x"00";
         vgagreen_out <= x"00";
         vgablue_out <= x"00";
-      elsif touch2_y = ycounter_in and touch2_x = pixel_x_640 then
+      elsif touch2_y = ycounter_in and touch2_x = native_x_640 then
 --        report "touch2 @ " & integer'image(to_integer(touch2_x))
 --          & "," & integer'image(to_integer(touch2_y));
         vgared_out <= x"FF";
