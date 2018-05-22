@@ -624,22 +624,11 @@ begin
         
         if touch1_key_last /= x"FF" and touch1_key_internal = x"FF" and touch1_dont_hold='0' then
           -- Touch released over a key. Issue event for this key
-          -- XXX Toggle bucky keys rather than holding them.
-          -- (and toggle should be on key-down, not key up)
-          case to_integer(touch1_key_internal) is
+          case to_integer(touch1_key_last) is
             when 15|52|58|61|66|64 =>
-              -- Bucky keys -- so toggle, not brief press
-              -- The trick is we can only present two pressed keys, so we need
-              -- to have a way of remembering which buckys are pressed, and on
-              -- which of the two touch key slots to present it.
-              -- Simple approach is that bucky keys always set touch2.  The
-              -- downside is holding shift on screen and pressing another key
-              -- will not work, which is a problem, since that is traditionally
-              -- how shift and C= and CTRL are used on the C64.
-              -- Alternative is to remember a pressed bucky, and substitute
-              -- that to either touch which does not otherwise have a key active.
-              -- This is a much better idea.
-              if current_bucky = touch1_key_internal then
+              -- It's a bucky key, so make this the current set bucky key,
+              -- or cancel it if it already was the current bucky.
+              if current_bucky = touch1_key_last then
                 current_bucky <= x"FF";
                 if touch1_set = '0' then
                   touch1_key <= x"FF";
@@ -648,21 +637,22 @@ begin
                   touch2_key <= x"FF";
                 end if;
               else
-                current_bucky <= touch1_key_internal;
+                current_bucky <= touch1_key_last;
                 if touch1_set = '0' then
-                  touch1_key <= touch1_key_internal;
+                  touch1_key <= touch1_key_last;
                 end if;
                 if touch2_set = '0' then
-                  touch2_key <= touch1_key_internal;
+                  touch2_key <= touch1_key_last;
                 end if;
               end if;
             when others =>
               touch1_set <= '1';
-              touch1_key <= touch1_key_internal;
+              touch1_key <= touch1_key_last;
               touch1_hold_timeout <= 5;
           end case;
-        elsif touch1_key_internal = x"FF" and touch1_hold_timeout = 0 then
-          -- Timeout holding of a key after it has been pressed
+        elsif touch1_key_internal = x"FF" and touch1_key_last = x"FF" and touch1_hold_timeout = 0 then
+          -- Timeout holding of a key after it has been pressed (only if no
+          -- active or just ended touch in play)
           touch1_key <= current_bucky;
           touch1_set <= '0';
           touch1_dont_hold <= '0';
@@ -693,20 +683,11 @@ begin
           -- Touch released over a key. Issue event for this key
           -- XXX Toggle bucky keys rather than holding them.
           -- (and toggle should be on key-down, not key up)
-          case to_integer(touch2_key_internal) is
+          case to_integer(touch2_key_last) is
             when 15|52|58|61|66|64 =>
-              -- Bucky keys -- so toggle, not brief press
-              -- The trick is we can only present two pressed keys, so we need
-              -- to have a way of remembering which buckys are pressed, and on
-              -- which of the two touch key slots to present it.
-              -- Simple approach is that bucky keys always set touch2.  The
-              -- downside is holding shift on screen and pressing another key
-              -- will not work, which is a problem, since that is traditionally
-              -- how shift and C= and CTRL are used on the C64.
-              -- Alternative is to remember a pressed bucky, and substitute
-              -- that to either touch which does not otherwise have a key active.
-              -- This is a much better idea.
-              if current_bucky = touch2_key_internal then
+              -- Bucky key: Replace current buckey key with this, or
+              -- cancel if it already was the current bucky.
+              if current_bucky = touch2_key_last then
                 current_bucky <= x"FF";
                 if touch1_set = '0' then
                   touch1_key <= x"FF";
@@ -715,19 +696,19 @@ begin
                   touch2_key <= x"FF";
                 end if;
               else
-                current_bucky <= touch2_key_internal;
+                current_bucky <= touch2_key_last;
                 if touch1_set = '0' then
-                  touch1_key <= touch1_key_internal;
+                  touch1_key <= touch1_key_last;
                 end if;
                 if touch2_set = '0' then
-                  touch2_key <= touch1_key_internal;
+                  touch2_key <= touch1_key_last;
                 end if;
               end if;
             when others =>
-              touch2_key <= touch2_key_internal;
+              touch2_key <= touch2_key_last;
               touch2_hold_timeout <= 5;
           end case;
-        elsif touch2_key_internal = x"FF" and touch2_hold_timeout = 0 then
+        elsif touch2_key_internal = x"FF" and touch2_key_last = x"FF" and touch2_hold_timeout = 0 then
           -- Timeout holding of a key after it has been pressed
           touch2_key <= current_bucky;
           touch2_set <= '0';
