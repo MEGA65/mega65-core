@@ -121,6 +121,8 @@ entity viciv is
     pixel_newraster : out std_logic;
     -- Pixel x counter scaled to count to about 640
     pixel_x_640 : out integer := 0;
+    -- And pixel X counter scaled to actual video mode (typically 800)
+    native_x_640 : out integer := 0;
     -- Scale for 200 and 400px high modes (used by compositors)
     pixel_y_scale_400 : out unsigned(3 downto 0) := (others => '0');
     pixel_y_scale_200 : out unsigned(3 downto 0) := (others => '0');
@@ -2746,6 +2748,10 @@ begin
       pixel_x_640 <= to_integer(xpixel_fw640);
       pixel_y_scale_400 <= chargen_y_scale_400(3 downto 0);
       pixel_y_scale_200 <= chargen_y_scale_200(3 downto 0);
+
+      -- But also export native X position, e.g., for touch panel interface to
+      -- match up with visual keyboard
+      native_x_640 <= to_integer(vicii_xcounter_640);      
       
       --chardata_drive <= unsigned(chardata);
       --paint_chardata <= chardata_drive;
