@@ -92,6 +92,7 @@ architecture behavioural of visual_keyboard is
   signal last_was_640 : std_logic := '0';
   signal active : std_logic := '0';
   signal last_pixel_x_640 : integer := 0;
+  signal last_native_x_640 : integer := 0;
   signal key_box_counter : integer := 1;
   signal key_same_as_last : std_logic := '0';
   
@@ -218,6 +219,8 @@ begin
   begin
     if rising_edge(pixelclock) then
 
+      last_native_x_640 <= native_x_640;
+      
       if alternate_keyboard='1' then
         double_width <= '1';
         double_height <= '1';
@@ -265,9 +268,14 @@ begin
         zoom_recording <= 32;
         zoom_record_x <= to_unsigned(0,5);
       end if;
-      if (native_y_400 >= zoom_origin_y)
-         and ((native_y_400 - zoom_origin_y) < 32) then
+      if (native_y_400 = zoom_origin_y) then
         zoom_record_en <= '1';
+        zoom_record_y <= to_unsigned(0,5);
+      end if;
+      if (native_y_400 = (zoom_origin_y + 32)) then
+        zoom_record_en <= '0';
+      end if;
+      if zoom_record_en = '1' then
         zoom_record_y <= to_unsigned(native_y_400 - zoom_origin_y,5);
       end if;
       -- And record it
@@ -277,8 +285,10 @@ begin
         zoom_wdata(15 downto 8) <= vgagreen_in;
         zoom_wdata(23 downto 16) <= vgablue_in;
         zoom_we <= '1';
-        zoom_recording <= zoom_recording - 1;
-        zoom_record_x <= zoom_record_x + 1;
+        if last_native_x_640 /= native_x_640 then
+          zoom_recording <= zoom_recording - 1;
+          zoom_record_x <= zoom_record_x + 1;
+        end if;
       else
         zoom_we <= '0';
       end if;
@@ -289,21 +299,26 @@ begin
         zoom_play_x <= to_unsigned(0,5);
         zoom_play_x_stretch <= '1';
       end if;
-      if (native_y_400 >= zoom_display_y)
-         and ((native_y_400 - zoom_display_y) < 64) then
+      if native_y_400 = zoom_display_y then
         zoom_playback_en <= '1';
+      elsif native_y_400 = ( zoom_display_y + 64 ) then
+        zoom_playback_en <= '0';
+      end if;
+      if zoom_playback_en='1' then
         zoom_play_y <= to_unsigned(native_y_400 - zoom_display_y,6)(5 downto 1);
       end if;
       -- And play it it
       if zoom_record_en = '1' and zoom_recording /= 0 then
         zoom_playback_pixel <= '1';
         zoom_waddr <= to_integer(zoom_record_y&zoom_record_x);
-        zoom_playing <= zoom_playing - 1;
-        if zoom_play_x_stretch='1' then
-          zoom_play_x_stretch <= '0';
-        else
-          zoom_play_x_stretch <= '1';
-          zoom_play_x <= zoom_play_x + 1;
+        if native_x_640 /= last_native_x_640 then
+          zoom_playing <= zoom_playing - 1;
+          if zoom_play_x_stretch='1' then
+            zoom_play_x_stretch <= '0';
+          else
+            zoom_play_x_stretch <= '1';
+            zoom_play_x <= zoom_play_x + 1;
+          end if;
         end if;
       else
         zoom_playback_pixel <= '0';
@@ -421,6 +436,7 @@ begin
         last_was_640 <= '0';
       end if;
 
+      
       if pixel_x_640 /= last_pixel_x_640 and active='1' and pixel_x_640 < 640 then
         last_pixel_x_640 <= pixel_x_640;
 
