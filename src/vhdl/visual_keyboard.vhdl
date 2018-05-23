@@ -94,6 +94,7 @@ architecture behavioural of visual_keyboard is
   signal active : std_logic := '0';
   signal last_pixel_x_640 : integer := 0;
   signal last_native_x_640 : integer := 0;
+  signal last_native_y_400 : integer := 0;
   signal key_box_counter : integer := 1;
   signal key_same_as_last : std_logic := '0';
   
@@ -162,12 +163,13 @@ architecture behavioural of visual_keyboard is
   signal zoom_record_y : unsigned(4 downto 0) := to_unsigned(0,5);
   signal zoom_record_x : unsigned(4 downto 0) := to_unsigned(0,5);
   signal zoom_recording : integer range 0 to 32 := 0;
-  signal zoom_play_y : unsigned(4 downto 0) := to_unsigned(0,5);
-  signal zoom_play_x : unsigned(4 downto 0) := to_unsigned(0,5);
+  signal zoom_play_y : unsigned(5 downto 0) := to_unsigned(0,6);
+  signal zoom_play_x : unsigned(5 downto 0) := to_unsigned(0,6);
   signal zoom_playback_en : std_logic := '0';
-  signal zoom_playing : integer range 0 to 64 := 0;
+  signal zoom_playback_enx : std_logic := '0';
   signal zoom_playback_pixel : std_logic := '0';
-  signal zoom_play_x_stretch : std_logic := '0';
+  signal zoom_border_pixel : std_logic := '0';
+  signal zoom_border_colour : unsigned(7 downto 0) := x"00";
   
   -- Keep OSK in region that fits on 800x480 LCD panel
   constant y_start_minimum : integer := (600-480)/2;
@@ -221,6 +223,7 @@ begin
     if rising_edge(pixelclock) then
 
       last_native_x_640 <= native_x_640;
+      last_native_y_400 <= native_y_400;
       
       if alternate_keyboard='1' then
         double_width <= '1';
@@ -273,11 +276,12 @@ begin
         zoom_record_en <= '1';
         zoom_record_y <= to_unsigned(0,5);
       end if;
-      if (native_y_400 = (zoom_origin_y + 32)) then
-        zoom_record_en <= '0';
-      end if;
-      if zoom_record_en = '1' then
-        zoom_record_y <= to_unsigned(native_y_400 - zoom_origin_y,5);
+      if last_native_y_400 /= native_y_400 then
+        if zoom_record_y /= "11111" then
+          zoom_record_y <= zoom_record_y + 1;
+        else
+          zoom_record_en <= '0';
+        end if;
       end if;
       -- And record it
       if zoom_record_en = '1' and zoom_recording /= 0 then
@@ -301,29 +305,40 @@ begin
 
       -- And similarly for playing back the zoomed display
       if native_x_640 = zoom_display_x then
-        zoom_playing <= 64;
-        zoom_play_x <= to_unsigned(0,5);
-        zoom_play_x_stretch <= '1';
+        zoom_play_x <= "000000";
+        zoom_playback_enx <= '1';
       end if;
       if native_y_400 = zoom_display_y then
         zoom_playback_en <= '1';
-      elsif native_y_400 = ( zoom_display_y + 64 ) then
-        zoom_playback_en <= '0';
+        zoom_play_y <= "000000";
       end if;
-      if zoom_playback_en='1' then
-        zoom_play_y <= to_unsigned(native_y_400 - zoom_display_y,6)(5 downto 1);
+      if (last_native_y_400 /= native_y_400) and zoom_playback_en='1' then
+        if zoom_play_y = "111111" then
+          zoom_playback_en <= '0';
+        else
+          zoom_play_y <= zoom_play_y + 1;
+        end if;
       end if;
       -- And play it it
-      if zoom_record_en = '1' and zoom_recording /= 0 then
+      if zoom_playback_en = '1' and zoom_playback_enx='1' then
         zoom_playback_pixel <= '1';
-        zoom_waddr <= to_integer(zoom_record_y&zoom_record_x);
+        if zoom_play_x = "111111" or zoom_play_x="000000"
+          or zoom_play_y = "111111" or zoom_play_y="000000" then
+          zoom_border_pixel <= '1';
+          zoom_border_colour <= x"00";
+        elsif zoom_play_x = "111110" or zoom_play_x="000001"
+          or zoom_play_y = "111110" or zoom_play_y="000001" then
+          zoom_border_pixel <= '1';
+          zoom_border_colour <= x"FF";
+        else
+          zoom_border_pixel <= '0';
+        end if;
+        zoom_raddr <= to_integer(zoom_play_y(5 downto 1)&zoom_play_x(5 downto 1));
         if native_x_640 /= last_native_x_640 then
-          zoom_playing <= zoom_playing - 1;
-          if zoom_play_x_stretch='1' then
-            zoom_play_x_stretch <= '0';
-          else
-            zoom_play_x_stretch <= '1';
+          if zoom_play_x/="111111" then
             zoom_play_x <= zoom_play_x + 1;
+          else
+            zoom_playback_enx <= '0';
           end if;
         end if;
       else
@@ -731,9 +746,16 @@ begin
         vgagreen_out <= x"FF";
         vgablue_out <= x"FF";
       elsif zoom_playback_pixel='1' and zoom_display_enable='1' then
-        vgared_out <= zoom_rdata(7 downto 0);
-        vgagreen_out <= zoom_rdata(15 downto 8);
-        vgablue_out <= zoom_rdata(23 downto 16);
+        if zoom_border_pixel='1' then
+          -- Show 
+          vgared_out <= zoom_border_colour;
+          vgagreen_out <= zoom_border_colour;
+          vgablue_out <= zoom_border_colour;
+        else
+          vgared_out <= zoom_rdata(7 downto 0);
+          vgagreen_out <= zoom_rdata(15 downto 8);
+          vgablue_out <= zoom_rdata(23 downto 16);
+        end if;
       elsif visual_keyboard_enable='1' and active='1' then
         vgagreen_out <= vk_pixel(1)&vgagreen_in(7 downto 1);
         if key_real='0' then
