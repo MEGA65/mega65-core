@@ -246,25 +246,28 @@ begin
       else
         zoom_display_enable <= '0';
       end if;
+      if to_integer(touch1_x) > 31 then
+        zoom_display_x <= to_integer(touch1_x) - 32;
+      else
+        zoom_display_x <= 0;
+      end if;
       if to_integer(touch1_x) > 15 then
         zoom_origin_x <= to_integer(touch1_x) - 16;
-        zoom_display_x <= to_integer(touch1_x) - 16;
       else
         zoom_origin_x <= 0;
-        zoom_display_x <= 0;
       end if;
       if to_integer(touch1_y) > 15 then
         zoom_origin_y <= to_integer(touch1_y) - 16;
       else
         zoom_origin_y <= 0;
       end if;
-      if to_integer(touch1_y) < (60 + (32*2)) then
+      if to_integer(touch1_y) < (60 + 32 + (32*2)) then
         -- Position zoomed display below touch point if touch point
         -- is right near the top of the display.
-        zoom_display_y <= to_integer(touch1_y) + 16;
+        zoom_display_y <= to_integer(touch1_y) + 32;
       else
         -- Position zoomed display above touch point
-        zoom_display_y <= to_integer(touch1_y) - (32*2) - 16;
+        zoom_display_y <= to_integer(touch1_y) - (32*2) - 32;
       end if;
 
       -- Work out when to record for zoom display
@@ -286,13 +289,21 @@ begin
       -- And record it
       if zoom_record_en = '1' and zoom_recording /= 0 then
         zoom_waddr <= to_integer(zoom_record_y&zoom_record_x);
-        zoom_wdata(7 downto 0) <= vk_pixel(1)&vgared_in(7 downto 1);
-        if key_real='0' then
-          zoom_wdata(15 downto 8) <= vk_pixel(1)&vgagreen_in(7 downto 1);
-          zoom_wdata(23 downto 16) <= vk_pixel(1)&vgablue_in(7 downto 1);
+        if visual_keyboard_enable='1' and active='1' then
+          -- Record pixel with visual keyboard overlain
+          zoom_wdata(7 downto 0) <= vk_pixel(1)&vgagreen_in(7 downto 1);
+          if key_real='0' then
+            zoom_wdata(15 downto 8) <= vk_pixel(1)&vgared_in(7 downto 1);
+            zoom_wdata(23 downto 16) <= vk_pixel(1)&vgablue_in(7 downto 1);
+          else
+            zoom_wdata(15 downto 8) <= '0'&vgared_in(7 downto 1);
+            zoom_wdata(23 downto 16) <= '0'&vgablue_in(7 downto 1);
+          end if;
         else
-          zoom_wdata(15 downto 8) <= '0'&vgagreen_in(7 downto 1);
-          zoom_wdata(23 downto 16) <= '0'&vgablue_in(7 downto 1);
+          -- Record normal screen pixel
+          zoom_wdata(7 downto 0) <= vgared_in;
+          zoom_wdata(15 downto 8) <= vgagreen_in;
+          zoom_wdata(23 downto 16) <= vgablue_in;
         end if;
         zoom_we <= '1';
         if last_native_x_640 /= native_x_640 then
