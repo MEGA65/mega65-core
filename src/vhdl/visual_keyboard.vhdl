@@ -291,12 +291,12 @@ begin
         zoom_waddr <= to_integer(zoom_record_y&zoom_record_x);
         if visual_keyboard_enable='1' and active='1' then
           -- Record pixel with visual keyboard overlain
-          zoom_wdata(7 downto 0) <= vk_pixel(1)&vgagreen_in(7 downto 1);
+          zoom_wdata(15 downto 8) <= vk_pixel(1)&vgagreen_in(7 downto 1);
           if key_real='0' then
-            zoom_wdata(15 downto 8) <= vk_pixel(1)&vgared_in(7 downto 1);
+            zoom_wdata(7 downto 0) <= vk_pixel(1)&vgared_in(7 downto 1);
             zoom_wdata(23 downto 16) <= vk_pixel(1)&vgablue_in(7 downto 1);
           else
-            zoom_wdata(15 downto 8) <= '0'&vgared_in(7 downto 1);
+            zoom_wdata(7 downto 0) <= '0'&vgared_in(7 downto 1);
             zoom_wdata(23 downto 16) <= '0'&vgablue_in(7 downto 1);
           end if;
         else
