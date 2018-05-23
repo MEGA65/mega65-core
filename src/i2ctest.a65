@@ -201,6 +201,11 @@ test_touchscreen:
 	lda #$ff
 	sta $d615
 
+	; Turn on display of zoom of selection area
+	lda #$c0
+	sta $d60c
+	sta $d60b
+
 	; Set sprite colours
 	lda #$01
 	sta $d022

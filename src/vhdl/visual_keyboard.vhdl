@@ -282,13 +282,13 @@ begin
       -- And record it
       if zoom_record_en = '1' and zoom_recording /= 0 then
         zoom_waddr <= to_integer(zoom_record_y&zoom_record_x);
-        zoom_wdata(6 downto 0) <= vk_pixel(1)&vgared_in(7 downto 1);
+        zoom_wdata(7 downto 0) <= vk_pixel(1)&vgared_in(7 downto 1);
         if key_real='0' then
-          zoom_wdata(14 downto 8) <= vk_pixel(1)&vgagreen_in(7 downto 1);
-          zoom_wdata(22 downto 16) <= vk_pixel(1)&vgablue_in(7 downto 1);
+          zoom_wdata(15 downto 8) <= vk_pixel(1)&vgagreen_in(7 downto 1);
+          zoom_wdata(23 downto 16) <= vk_pixel(1)&vgablue_in(7 downto 1);
         else
-          zoom_wdata(14 downto 8) <= '0'&vgagreen_in(7 downto 1);
-          zoom_wdata(22 downto 16) <= '0'&vgablue_in(7 downto 1);
+          zoom_wdata(15 downto 8) <= '0'&vgagreen_in(7 downto 1);
+          zoom_wdata(23 downto 16) <= '0'&vgablue_in(7 downto 1);
         end if;
         zoom_we <= '1';
         if last_native_x_640 /= native_x_640 then
