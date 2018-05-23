@@ -34,6 +34,7 @@ entity touch is
 
     gesture_event_id : out unsigned(3 downto 0) := x"0";
     gesture_event : out unsigned(3 downto 0) := x"0";
+    gesture_timeout_out : out unsigned(7 downto 0) := x"00";
     
     -- The touch events we have received
     touch1_active : inout std_logic := '0';
@@ -139,6 +140,17 @@ begin
         -- We want to keep track of direction of travel and magnitude
         -- so that we can detect various gestures
 
+        if x1_int < 55 and y1_int >= 500 then
+          -- Touch in bottom left corner, indicate event
+          gesture_event_id <= to_unsigned(gesture_next_event_id,4);
+          gesture_event <= "0011";  -- bottom left touch
+          if gesture_next_event_id /= 15 then
+            gesture_next_event_id <= gesture_next_event_id + 1;
+          else
+            gesture_next_event_id <= 0;
+          end if;          
+        end if;
+        
         gesture_directions <= "1111";
         gesture_start_x <= x1_int;
         gesture_start_y <= y1_int;
@@ -195,7 +207,7 @@ begin
       if gesture_timeout /= 0 then
         gesture_timeout <= gesture_timeout - 1;
       end if;
-      
+      gesture_timeout_out <= to_unsigned(gesture_timeout,8);      
       
       -- Cycle through reading the touch digitiser registers
       if touch_enabled = '0' then
