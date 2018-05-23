@@ -415,6 +415,7 @@ architecture Behavioral of machine is
   signal pixel_newframe : std_logic;
   signal pixel_newraster : std_logic;
   signal native_x_640 : integer;
+  signal native_y_200 : integer;
   signal native_y_400 : integer;
   signal pixel_x_640 : integer;
   signal pixel_y_scale_200 : unsigned(3 downto 0);
@@ -994,6 +995,7 @@ begin
       pixel_newframe => pixel_newframe,
       pixel_newraster => pixel_newraster,
       native_x_640 => native_x_640,
+      native_y_200 => native_y_200,
       native_y_400 => native_y_400,
       pixel_x_640 => pixel_x_640,
       pixel_y_scale_200 => pixel_y_scale_200,
@@ -1332,6 +1334,7 @@ begin
 
     visual_keyboard0 : entity work.visual_keyboard port map(
     native_x_640 => native_x_640,
+    native_y_200 => native_y_200,
     native_y_400 => native_y_400,
     pixel_x_640_in => pixel_x_640,
     pixel_y_scale_200 => pixel_y_scale_200,

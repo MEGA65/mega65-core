@@ -6,6 +6,7 @@ use work.debugtools.all;
 entity visual_keyboard is
   port (
     native_x_640 : in integer;
+    native_y_200 : in integer;
     native_y_400 : in integer;
     pixel_x_640_in : in integer;
     pixel_y_scale_200 : in unsigned(3 downto 0);

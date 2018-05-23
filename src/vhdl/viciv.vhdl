@@ -124,6 +124,7 @@ entity viciv is
     -- And pixel X counter scaled to actual video mode (typically 800)
     -- (and corrected for video pipeline depth)
     native_x_640 : out integer := 0;
+    native_y_200 : out integer := 0;
     native_y_400 : out integer := 0;
     -- Scale for 200 and 400px high modes (used by compositors)
     pixel_y_scale_400 : out unsigned(3 downto 0) := (others => '0');
@@ -2758,7 +2759,8 @@ begin
       -- Subtract 10 for video pipeline depth?
       native_x_640 <= to_integer(vicii_xcounter_640 - 10);
       -- Subtract 34 for some reason?
-      native_y_400 <= to_integer(vicii_ycounter - 34);
+      native_y_200 <= to_integer(vicii_ycounter - 34);
+      native_y_400 <= to_integer(displayy);
       
       --chardata_drive <= unsigned(chardata);
       --paint_chardata <= chardata_drive;
