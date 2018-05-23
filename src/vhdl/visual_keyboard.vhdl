@@ -346,7 +346,7 @@ begin
         end if;
         zoom_raddr <= to_integer(zoom_play_y(5 downto 1)&zoom_play_x(5 downto 1));
         if native_x_640 /= last_native_x_640 then
-          if zoom_play_x/="111111" then
+          if zoom_play_x /="111111" then
             zoom_play_x <= zoom_play_x + 1;
           else
             zoom_playback_enx <= '0';
@@ -354,6 +354,7 @@ begin
         end if;
       else
         zoom_playback_pixel <= '0';
+        zoom_border_pixel <= '0';
       end if;
       
       
