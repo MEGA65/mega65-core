@@ -232,6 +232,9 @@ architecture behavioural of sdcardio is
   signal mic_value_right : unsigned(7 downto 0) := "00000000";
   signal sample_left : unsigned(15 downto 0) := to_unsigned(0,16);
   signal sample_right : unsigned(15 downto 0) := to_unsigned(0,16);
+  signal infra_lr_sel : std_logic := '0';
+  signal infra_left : unsigned(15 downto 0) := to_unsigned(0,16);
+  signal infra_right : unsigned(15 downto 0) := to_unsigned(0,16);
   
   -- debounce reading from or writing to $D087 so that buffered read/write
   -- behaves itself.
@@ -572,6 +575,7 @@ begin  -- behavioural
       clock => clock,
       sample_clock => mic_do_sample_left,
       sample_bit => micData,
+      infrasample_out => infra_left,
       sample_out => sample_left);
 
   mic0r: entity work.pdm_to_pcm
@@ -579,6 +583,7 @@ begin  -- behavioural
       clock => clock,
       sample_clock => mic_do_sample_right,
       sample_bit => micData,
+      infrasample_out => infra_right,
       sample_out => sample_right);
 
   sd0: entity work.sdcardctrl
@@ -1091,11 +1096,19 @@ begin  -- behavioural
             -- @IO:GS $D6DB - DEBUG SD card last error code MSB
             fastio_rdata(7 downto 0) <= unsigned(last_sd_error(15 downto 8));
           when x"dc" =>
-            -- @IO:GS $D6DC - DEBUG duplicate of FPGA switches 0-7
-            fastio_rdata(7 downto 0) <= unsigned(sw(7 downto 0));
+            -- @IO:GS $D6DC - Infra-sound reading from microphone MSB
+            if infra_lr_sel='0' then
+              fastio_rdata <= infra_left(15 downto 8);
+            else
+              fastio_rdata <= infra_right(15 downto 8);
+            end if;
           when x"dd" =>
-            -- @IO:GS $D6DD - DEBUG duplicate of FPGA switches 8-15
-            fastio_rdata(7 downto 0) <= unsigned(sw(15 downto 8));
+            -- @IO:GS $D6DD - Infra-sound reading from microphone MSB
+            if infra_lr_sel='0' then
+              fastio_rdata <= infra_left(7 downto 0);
+            else
+              fastio_rdata <= infra_right(7 downto 0);
+            end if;
           when x"DE" =>
             -- @IO:GS $D6DE - FPGA die temperature sensor (lower nybl)
             fastio_rdata <= unsigned("0000"&fpga_temperature(3 downto 0));
@@ -2161,6 +2174,9 @@ begin  -- behavioural
             when x"D4" =>
               -- @IO:GS $D6D4 - I2C data read register
               null;
+            when x"DC" =>
+              -- @IO:GS $D6DC.0 - Select left or right microphone as source for infra-sound measurement (write only)
+              infra_lr_sel <= fastio_wdata(0);
             when x"F0" =>
               -- @IO:GS $D6F0 - LCD panel brightness control
               lcdpwm_value <= fastio_wdata;

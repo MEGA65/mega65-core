@@ -36,6 +36,7 @@ entity pdm_to_pcm is
     clock : in std_logic;
     sample_clock : in std_logic;
     sample_bit : in std_logic;
+    infrasample_out : out unsigned(15 downto 0);
     sample_out : out unsigned(15 downto 0)
     );
 end pdm_to_pcm;
@@ -57,6 +58,8 @@ architecture behavioural of pdm_to_pcm is
 
   signal sample_value : sample_t := 0;
 
+  signal infra_counter : integer := 0;
+  signal infra_value : sample_t := 0;
   
 begin
   process (clock) is
@@ -66,6 +69,25 @@ begin
       if sample_clock='1' then
         -- New sample, update everything
 
+        -- As well as the filtered stuff below, simply collect
+        -- a raw 16-bit count of the 1s, to use for very low frequency
+        -- detection, as we want to see if we can do infrasound on these
+        -- microphones.
+        if infra_counter /= 65535 then
+          infra_counter <= infra_counter + 1;
+          if sample_bit = '1' then
+            infra_value <= infra_value + 1;
+          end if;
+        else
+          infra_counter <= 0;
+          infrasample_out <= to_unsigned(infra_value,16);
+          if sample_bit = '1' then
+            infra_value <= 1;
+          else
+            infra_value <= 0;
+          end if;
+        end if;
+        
         -- Stage 1: Counter: gives values 0-31 for count of 1s
         recent_bits(0) <= sample_bit;
         recent_bits(63 downto 1) <= recent_bits(62 downto 0);
