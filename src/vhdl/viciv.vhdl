@@ -2760,7 +2760,7 @@ begin
       native_x_640 <= to_integer(vicii_xcounter_640 - 10);
       -- Subtract 34 for some reason?
       native_y_200 <= to_integer(vicii_ycounter - 34);
-      native_y_400 <= to_integer(displayy - 34);
+      native_y_400 <= to_integer(displayy);
       
       --chardata_drive <= unsigned(chardata);
       --paint_chardata <= chardata_drive;
