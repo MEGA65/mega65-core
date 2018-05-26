@@ -746,8 +746,13 @@ int process_line(char *line,int live)
       if (!saw_c65_mode) fprintf(stderr,"MEGA65 is in C65 mode.\n");
       saw_c65_mode=1;
       if ((!mode_report)&&(!virtual_f011)&&(!type_text)) {
-	fprintf(stderr,"Exiting now that we are in C65 mode.\n");
-	exit(0);
+        if (do_run) {
+          // C65 mode stuff keyboard buffer
+
+        } else {
+  	  fprintf(stderr,"Exiting now that we are in C65 mode.\n");
+	  exit(0);
+        }
       }
     }    
   }
@@ -1261,7 +1266,7 @@ int main(int argc,char **argv)
 	if (gettime_ms()>last_check) {
           if(fast_mode) {
           
-            slow_write(fd,"mffd3077\r",9);
+	    //            slow_write(fd,"mffd3077\r",9);
 	    if( sdbuf_request_addr != 0) {
 	      char cmd[1024];
 	      sprintf(cmd,"M%x\r",WRITE_SECTOR_BUFFER_ADDRESS);
