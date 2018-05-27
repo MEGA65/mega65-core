@@ -375,8 +375,8 @@ begin  -- behavioural
       -- as it goes.
       if bit_queue_len /= 0 then
         report "Existing bit queue = %" & to_string(bit_queue(31 downto (32 - bit_queue_len)));
-      else
-        report "Bit queue empty.";
+--      else
+--        report "Bit queue empty.";
       end if;
       next_byte_valid := '0';
       if bits_appended /= 0 then
@@ -486,6 +486,7 @@ begin  -- behavioural
                 when 5 => bit_queue(31 downto 3) <= new_bits(28 downto 0);
                 when 6 => bit_queue(31 downto 2) <= new_bits(29 downto 0);
                 when 7 => bit_queue(31 downto 1) <= new_bits(30 downto 0);
+                when others => null;
               end case;
               bit_queue_len <= bit_queue_len + bits_appended;
             end if;
