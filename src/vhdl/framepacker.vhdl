@@ -100,41 +100,10 @@ architecture behavioural of framepacker is
       );
   END component;
 
-  component CRC is
-    Port 
-      (  
-        CLOCK               :   in  std_logic;
-        RESET               :   in  std_logic;
-        DATA                :   in  std_logic_vector(7 downto 0);
-        LOAD_INIT           :   in  std_logic;
-        CALC                :   in  std_logic;
-        D_VALID             :   in  std_logic;
-        CRC                 :   out std_logic_vector(7 downto 0);
-        CRC_REG             :   out std_logic_vector(31 downto 0);
-        CRC_VALID           :   out std_logic
-        );
-  end component CRC;
-  
-  -- signals go here
-  signal pixel_count : unsigned(7 downto 0) := x"00";
-  signal dispatch_frame : std_logic := '0';
-
-  signal new_raster_pending : std_logic := '0';
-  signal new_raster_phase : integer range 0 to 8;
-  signal next_draw_raster : unsigned(11 downto 0) := to_unsigned(1,12);
-  
   signal output_address_internal : unsigned(11 downto 0) := (others => '0');
   signal output_address : unsigned(11 downto 0);
   signal output_data : unsigned(7 downto 0);
   signal output_write : std_logic := '0';
-  signal draw_this_raster : std_logic := '0';
-  signal just_drew_a_raster : std_logic := '0';
-
-  signal crc_data_in : unsigned(7 downto 0);
-  signal crc_reg : unsigned(31 downto 0);
-  signal crc_load_init : std_logic := '0';
-  signal crc_calc_en : std_logic := '0';
-  signal crc_d_valid : std_logic := '0';
 
   signal thumbnail_write_address : unsigned(11 downto 0);
   signal thumbnail_read_address : unsigned(11 downto 0);
@@ -153,6 +122,7 @@ architecture behavioural of framepacker is
   signal thumbnail_y_counter : integer range 0 to 24 := 0;
 
 
+  signal x_counter : integer range 0 to 4095 := 0;
   signal bit_queue_len : integer range 0 to 32 := 0;
   signal bit_queue : std_logic_vector(31 downto 0) := (others => '0');
   signal bits_appended : integer range 0 to 32 := 0;
@@ -186,20 +156,6 @@ begin  -- behavioural
     unsigned(doutb) => thumbnail_rdata
     );
 
-  raster_crc : CRC
-    port map(
-      CLOCK           => pixelclock,
-      RESET           => '0',
-      DATA            => std_logic_vector(crc_data_in),
-      LOAD_INIT       => crc_load_init,
-      CALC            => crc_calc_en,
-      D_VALID         => crc_d_valid,
-      CRC             => open,
-      unsigned(CRC_REG)         => crc_reg,
-      CRC_VALID       => open
-      );
-
-  
   -- Look after CPU side of mapping of compressed data
   process (ioclock,fastio_addr,fastio_wdata,fastio_read,fastio_write,
            thumbnail_cs,thumbnail_read_address,thumbnail_rdata,
@@ -298,7 +254,15 @@ begin  -- behavioural
             & to_string(std_logic_vector(pixel_y));
         end if;
       end if;
+      if pixel_newraster='1' then
+        x_counter <= 0;
+      end if;
       if pixel_valid = '1' then
+        if pixel_newraster='1' then
+          x_counter <= 0;
+        else
+          x_counter <= x_counter + 1;
+        end if;
         if thumbnail_x_counter < 9 then
           -- Make sure it doesn't wrap around within a frame if things go wrong.
           if thumbnail_x_counter< 4000 then
@@ -344,7 +308,9 @@ begin  -- behavioural
         -- If not the same as the last, then output RLE if run warrants it,
         -- else output the bit vector for the pixels.  After outputing
         -- RLE/pixel vector, output token for encoding this pixel.
-        report "PACKER: considering raw pixel $" & to_hstring(pixel_stream_in) & " in raster $" & to_hstring(pixel_y);
+        report "PACKER: considering raw pixel (" & integer'image(x_counter) & "," & integer'image(pixel_y) & ")"
+          & " #" & to_hstring(pixel_red_in)
+          & to_hstring(pixel_green_in) & to_hstring(pixel_blue_in) & " in raster $" & to_hstring(pixel_y);
         if std_logic_vector(pixel_red_in(7 downto 4) & pixel_green_in(7 downto 4) & pixel_blue_in(7 downto 4)) = colour0 then
           bits_appended <= 1;
           new_bits <= "00000000"&"00000000"&"00000000"&"00000000";          
@@ -376,7 +342,7 @@ begin  -- behavioural
           colour4 <= colour3;
         else
           bits_appended <= 17;
-          new_bits <= "11110" & std_logic_vector(pixel_red_in(7 downto 4) & pixel_green_in(7 downto 4) & pixel_blue_in(7 downto 4)) & "000000"&"00000000";
+          new_bits <= "11110" & std_logic_vector(pixel_red_in(7 downto 4) & pixel_green_in(7 downto 4) & pixel_blue_in(7 downto 4)) & "0000000"&"00000000";
           colour0 <= std_logic_vector(pixel_red_in(7 downto 4) & pixel_green_in(7 downto 4) & pixel_blue_in(7 downto 4));
           colour1 <= colour0;
           colour2 <= colour1;
@@ -453,9 +419,13 @@ begin  -- behavioural
               -- New token plus existing queue is >= 1 byte, so output mashed byte
               report "Appending " & integer'image(bits_appended) & " to " & integer'image(bit_queue_len)
                 & " existing bits in queue (hybrid byte)";
-              next_byte := bit_queue(31 downto (31 - bit_queue_len)) & new_bits(31 downto (23 + bit_queue_len));
+              if bit_queue_len > 0 then
+                next_byte := bit_queue(31 downto (31 - bit_queue_len)) & new_bits(31 downto (24 + bit_queue_len));
+              else
+                next_byte := new_bits(31 downto 24);
+              end if;
               next_byte_valid := '1';
-              bit_queue(31 downto (7 - bit_queue_len)) <= new_bits((23 + bit_queue_len) downto 0);
+              bit_queue(31 downto (8 - bit_queue_len)) <= new_bits((23 + bit_queue_len) downto 0);
               bit_queue_len <= bit_queue_len - 8 + bits_appended;
             else
               -- Append token to end of partial byte 
