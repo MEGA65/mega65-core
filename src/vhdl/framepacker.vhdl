@@ -535,7 +535,7 @@ begin  -- behavioural
           output_address(10 downto 0) <= (others => '0');
           output_address_internal(10 downto 0) <= (others => '0');
         end if;
-        report "Commiting byte $" & to_hstring(next_byte) & " to packet buffer @ offset " & integer'image(output_address_internal);
+        report "Commiting byte $" & to_hstring(next_byte) & " to packet buffer @ offset $" & to_hstring(output_address_internal);
         output_data <= unsigned(next_byte);
         output_write <= '1';
       else
