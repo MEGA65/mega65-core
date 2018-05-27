@@ -168,6 +168,9 @@ entity iomapper is
         uart_tx : out std_logic;
 
         pixel_stream_in : in unsigned (7 downto 0);
+        pixel_red_in : in unsigned (7 downto 0);
+        pixel_green_in : in unsigned (7 downto 0);
+        pixel_blue_in : in unsigned (7 downto 0);
         pixel_y : in unsigned (11 downto 0);
         pixel_valid : in std_logic;
         pixel_newframe : in std_logic;
@@ -414,6 +417,9 @@ begin
     thumbnail_cs => thumbnail_cs,
 
     pixel_stream_in => pixel_stream_in,
+    pixel_red_in => pixel_red_in,
+    pixel_green_in => pixel_green_in,
+    pixel_blue_in => pixel_blue_in,
     pixel_y => pixel_y,
     pixel_valid => pixel_valid,
     pixel_newframe => pixel_newframe,

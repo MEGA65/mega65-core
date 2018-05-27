@@ -410,6 +410,9 @@ architecture Behavioral of machine is
   signal phi0 : std_logic := '0';
 
   signal pixel_stream : unsigned (7 downto 0);
+  signal pixel_red : unsigned (7 downto 0);
+  signal pixel_green : unsigned (7 downto 0);
+  signal pixel_blue : unsigned (7 downto 0);
   signal pixel_y : unsigned (11 downto 0);
   signal pixel_valid : std_logic;
   signal pixel_newframe : std_logic;
@@ -990,6 +993,9 @@ begin
       viciv_outofframe => viciv_outofframe_viciv,
 
       pixel_stream_out => pixel_stream,
+      pixel_red_out => pixel_red,
+      pixel_green_out => pixel_green,
+      pixel_blue_out => pixel_blue,
       pixel_y => pixel_y,
       pixel_valid => pixel_valid,
       pixel_newframe => pixel_newframe,
@@ -1224,6 +1230,9 @@ begin
       amiga_mouse_assume_b => amiga_mouse_assume_b,
       
       pixel_stream_in => pixel_stream,
+      pixel_red_in => pixel_red,
+      pixel_green_in => pixel_green,
+      pixel_blue_in => pixel_blue,
       pixel_y => pixel_y,
       pixel_valid => pixel_valid,
       pixel_newframe => pixel_newframe,

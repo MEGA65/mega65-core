@@ -115,6 +115,9 @@ entity viciv is
     viciv_outofframe : out std_logic := '0';
 
     pixel_stream_out : out unsigned (7 downto 0);
+    pixel_red_out : out unsigned (7 downto 0);
+    pixel_green_out : out unsigned (7 downto 0);
+    pixel_blue_out : out unsigned (7 downto 0);
     pixel_y : out unsigned (11 downto 0) := (others => '0');
     pixel_valid : out std_logic;
     pixel_newframe : out std_logic;
@@ -829,6 +832,7 @@ architecture Behavioral of viciv is
   signal xpixel_fw640 : unsigned(10 downto 0);
   signal xpixel_fw640_sub : unsigned(9 downto 0);
   signal chargen_x_scale_fw640 : unsigned(7 downto 0);
+  signal xpixel_fw640_last : unsigned(10 downto 0);
   
   -- Colour RAM access for video controller
   signal colourramaddress : unsigned(15 downto 0);
@@ -3476,7 +3480,15 @@ begin
         pixel_stream_out(7 downto 5) <= vga_buffer3_red(7 downto 5);
         pixel_stream_out(4 downto 2) <= vga_buffer3_green(7 downto 5);
         pixel_stream_out(1 downto 0) <= vga_buffer3_blue(7 downto 6);
-        pixel_valid <= indisplay;
+        -- And also output full 24bit RGB, that the new frame packer uses
+        pixel_red_out <= vga_buffer3_red;
+        pixel_green_out <= vga_buffer3_green;
+        pixel_blue_out <= vga_buffer3_blue;
+        if xpixel_fw640 /= xpixel_fw640_last then
+          pixel_valid <= indisplay;
+        else
+          pixel_valid <= '0';
+        end if;
         pixel_newraster <= '0';
       end if;
       
