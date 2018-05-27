@@ -3472,6 +3472,7 @@ begin
       if xcounter=x_end_of_raster then
         report "FRAMEPACKER: end of raster announcement";
         pixel_newraster <= '1';
+        pixel_valid <= '0';
         pixel_y <= displayy;
       else
         -- output pixels as packed RGB instead of palette colours
@@ -3484,6 +3485,7 @@ begin
         pixel_red_out <= vga_buffer3_red;
         pixel_green_out <= vga_buffer3_green;
         pixel_blue_out <= vga_buffer3_blue;
+        xpixel_fw640_last <= xpixel_fw640;
         if xpixel_fw640 /= xpixel_fw640_last then
           pixel_valid <= indisplay;
         else
