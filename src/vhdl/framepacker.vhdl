@@ -308,7 +308,7 @@ begin  -- behavioural
         -- If not the same as the last, then output RLE if run warrants it,
         -- else output the bit vector for the pixels.  After outputing
         -- RLE/pixel vector, output token for encoding this pixel.
-        report "PACKER: considering raw pixel (" & integer'image(x_counter) & "," & integer'image(pixel_y) & ")"
+        report "PACKER: considering raw pixel (" & integer'image(x_counter) & "," & integer'image(to_integer(pixel_y)) & ")"
           & " #" & to_hstring(pixel_red_in)
           & to_hstring(pixel_green_in) & to_hstring(pixel_blue_in) & " in raster $" & to_hstring(pixel_y);
         if std_logic_vector(pixel_red_in(7 downto 4) & pixel_green_in(7 downto 4) & pixel_blue_in(7 downto 4)) = colour0 then
@@ -373,8 +373,14 @@ begin  -- behavioural
       -- But what we can see is that the buffer doesn't need to be very big.
       -- Also, we can make the buffer to double duty, by encodin the RLE tokens
       -- as it goes.
+      if bit_queue_len /= 0 then
+        report "Existing bit queue = %" & to_string(bit_queue(31 downto (32 - bit_queue_len)));
+      else
+        report "Bit queue empty.";
+      end if;
       next_byte_valid := '0';
       if bits_appended /= 0 then
+        report "Appending " & integer'image(bits_appended) & " bits = %" & to_string(new_bits(31 downto (32-bits_appended)));
         if bits_appended=1 then
           -- It's the same colour as the last pixel, so collect RLE token
           if rle_count < 255 then
@@ -529,6 +535,7 @@ begin  -- behavioural
           output_address(10 downto 0) <= (others => '0');
           output_address_internal(10 downto 0) <= (others => '0');
         end if;
+        report "Commiting byte $" & to_hstring(next_byte) & " to packet buffer @ offset " & integer'image(output_address_internal);
         output_data <= unsigned(next_byte);
         output_write <= '1';
       else
