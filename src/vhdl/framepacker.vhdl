@@ -425,20 +425,68 @@ begin  -- behavioural
               -- New token plus existing queue is >= 1 byte, so output mashed byte
               report "Appending " & integer'image(bits_appended) & " to " & integer'image(bit_queue_len)
                 & " existing bits in queue (hybrid byte)";
-              if bit_queue_len > 0 then
-                next_byte := bit_queue(31 downto (31 - bit_queue_len)) & new_bits(31 downto (24 + bit_queue_len));
-              else
-                next_byte := new_bits(31 downto 24);
-              end if;
+              case bit_queue_len is
+                when 0 => next_byte := new_bits(31 downto 24);
+                when 1 => next_byte := bit_queue(31) & new_bits(31 downto 25);
+                when 2 => next_byte := bit_queue(31 downto 30) & new_bits(31 downto 26);
+                when 3 => next_byte := bit_queue(31 downto 29) & new_bits(31 downto 27);
+                when 4 => next_byte := bit_queue(31 downto 28) & new_bits(31 downto 28);
+                when 5 => next_byte := bit_queue(31 downto 27) & new_bits(31 downto 29);
+                when 6 => next_byte := bit_queue(31 downto 26) & new_bits(31 downto 30);
+                when 7 => next_byte := bit_queue(31 downto 25) & new_bits(31);
+                when others => next_byte := x"00";
+              end case;
               next_byte_valid := '1';
-              bit_queue(31 downto (8 - bit_queue_len)) <= new_bits((23 + bit_queue_len) downto 0);
+              case bit_queue_len is
+                when 0 => bit_queue(31 downto 8) <= new_bits(23 downto 0);
+                when 1 => bit_queue(31 downto 7) <= new_bits(24 downto 0);
+                when 2 => bit_queue(31 downto 6) <= new_bits(25 downto 0);
+                when 3 => bit_queue(31 downto 5) <= new_bits(26 downto 0);
+                when 4 => bit_queue(31 downto 4) <= new_bits(27 downto 0);
+                when 5 => bit_queue(31 downto 3) <= new_bits(28 downto 0);
+                when 6 => bit_queue(31 downto 2) <= new_bits(29 downto 0);
+                when 7 => bit_queue(31 downto 1) <= new_bits(30 downto 0);
+                when 8 => bit_queue(31 downto 0) <= new_bits(31 downto 0);
+                when 9 => bit_queue(31 downto 0) <= bit_queue(23) & new_bits(31 downto 1);
+                when 10 => bit_queue(31 downto 0) <= bit_queue(23 downto 22) & new_bits(31 downto 2);
+                when 11 => bit_queue(31 downto 0) <= bit_queue(23 downto 21) & new_bits(31 downto 3);
+                when 12 => bit_queue(31 downto 0) <= bit_queue(23 downto 20) & new_bits(31 downto 4);
+                when 13 => bit_queue(31 downto 0) <= bit_queue(23 downto 19) & new_bits(31 downto 5);
+                when 14 => bit_queue(31 downto 0) <= bit_queue(23 downto 18) & new_bits(31 downto 6);
+                when 15 => bit_queue(31 downto 0) <= bit_queue(23 downto 17) & new_bits(31 downto 7);
+                when 16 => bit_queue(31 downto 0) <= bit_queue(23 downto 16) & new_bits(31 downto 8);
+                when 17 => bit_queue(31 downto 0) <= bit_queue(23 downto 15) & new_bits(31 downto 9);
+                when 18 => bit_queue(31 downto 0) <= bit_queue(23 downto 14) & new_bits(31 downto 10);
+                when 19 => bit_queue(31 downto 0) <= bit_queue(23 downto 13) & new_bits(31 downto 11);
+                when 20 => bit_queue(31 downto 0) <= bit_queue(23 downto 12) & new_bits(31 downto 12);
+                when 21 => bit_queue(31 downto 0) <= bit_queue(23 downto 11) & new_bits(31 downto 13);
+                when 22 => bit_queue(31 downto 0) <= bit_queue(23 downto 10) & new_bits(31 downto 14);
+                when 23 => bit_queue(31 downto 0) <= bit_queue(23 downto  9) & new_bits(31 downto 15);
+                when 24 => bit_queue(31 downto 0) <= bit_queue(23 downto  8) & new_bits(31 downto 16);
+                when 25 => bit_queue(31 downto 0) <= bit_queue(23 downto  7) & new_bits(31 downto 17);
+                when 26 => bit_queue(31 downto 0) <= bit_queue(23 downto  6) & new_bits(31 downto 18);
+                when 27 => bit_queue(31 downto 0) <= bit_queue(23 downto  5) & new_bits(31 downto 19);
+                when 28 => bit_queue(31 downto 0) <= bit_queue(23 downto  4) & new_bits(31 downto 20);
+                when 29 => bit_queue(31 downto 0) <= bit_queue(23 downto  3) & new_bits(31 downto 21);
+                when 30 => bit_queue(31 downto 0) <= bit_queue(23 downto  2) & new_bits(31 downto 22);
+                when 31 => bit_queue(31 downto 0) <= bit_queue(23 downto  1) & new_bits(31 downto 23);
+                when 32 => bit_queue(31 downto 0) <= bit_queue(23 downto  0) & new_bits(31 downto 24);
+              end case;
               bit_queue_len <= bit_queue_len - 8 + bits_appended;
             else
               -- Append token to end of partial byte 
               report "Appending " & integer'image(bits_appended) & " to " & integer'image(bit_queue_len)
                 & " existing bits in queue (accumulating partial byte)";
-              bit_queue(31 - (bit_queue_len - 8) downto 0)
-                <= new_bits(31 downto (bit_queue_len - 8));
+              case bit_queue_len is
+                when 0 => bit_queue(31 downto 8) <= new_bits(23 downto 0);
+                when 1 => bit_queue(31 downto 7) <= new_bits(24 downto 0);
+                when 2 => bit_queue(31 downto 6) <= new_bits(25 downto 0);
+                when 3 => bit_queue(31 downto 5) <= new_bits(26 downto 0);
+                when 4 => bit_queue(31 downto 4) <= new_bits(27 downto 0);
+                when 5 => bit_queue(31 downto 3) <= new_bits(28 downto 0);
+                when 6 => bit_queue(31 downto 2) <= new_bits(29 downto 0);
+                when 7 => bit_queue(31 downto 1) <= new_bits(30 downto 0);
+              end case;
               bit_queue_len <= bit_queue_len + bits_appended;
             end if;
           elsif rle_count /= 0 and rle_count < 17 then
