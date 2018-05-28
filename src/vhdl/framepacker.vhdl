@@ -100,8 +100,7 @@ architecture behavioural of framepacker is
       );
   END component;
 
-  signal output_address_internal : unsigned(11 downto 0) := (others => '0');
-  signal output_address : unsigned(11 downto 0);
+  signal output_address : unsigned(11 downto 0) := (others => '0');
   signal output_data : unsigned(7 downto 0);
   signal output_write : std_logic := '0';
 
@@ -200,7 +199,7 @@ begin  -- behavioural
       -- Tell ethernet controller which half of the buffer we are writing to.
       -- Ethernet controller autonomously sends the contents of the other half
       -- whenever we switch halves.
-      buffer_moby_toggle <= output_address_internal(11);
+      buffer_moby_toggle <= output_address(11);
 
       -- Logic to control port address for thumbnail buffer
       if (fastio_read='1') and (thumbnail_cs='1') then
@@ -575,16 +574,14 @@ begin  -- behavioural
       if next_byte_valid = '1' then
         -- XXX Need to detect when we get close to full, so that we can
         -- consciously flip buffer halves, and reset the move to front coder.
-        if output_address_internal(10 downto 0) /= "1111111111" then
-          output_address <= output_address_internal + 1;
-          output_address_internal <= output_address_internal + 1;
+        if output_address(10 downto 0) /= "1111111111" then
+          output_address <= output_address + 1;
         else
           -- Flip half of packet buffer if required
           output_address(11) <= not output_address(11);
           output_address(10 downto 0) <= (others => '0');
-          output_address_internal(10 downto 0) <= (others => '0');
         end if;
-        report "Commiting byte $" & to_hstring(next_byte) & " to packet buffer @ offset $" & to_hstring(output_address_internal);
+        report "Commiting byte $" & to_hstring(next_byte) & " to packet buffer @ offset $" & to_hstring(output_address);
         output_data <= unsigned(next_byte);
         output_write <= '1';
       else
