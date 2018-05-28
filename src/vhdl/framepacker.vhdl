@@ -196,11 +196,6 @@ begin  -- behavioural
     
     if rising_edge(ioclock) then
 
-      -- Tell ethernet controller which half of the buffer we are writing to.
-      -- Ethernet controller autonomously sends the contents of the other half
-      -- whenever we switch halves.
-      buffer_moby_toggle <= output_address(11);
-
       -- Logic to control port address for thumbnail buffer
       if (fastio_read='1') and (thumbnail_cs='1') then
         if fastio_addr(3 downto 0) = x"1" then
@@ -226,6 +221,11 @@ begin  -- behavioural
   begin
     if rising_edge(pixelclock) then
 
+      -- Tell ethernet controller which half of the buffer we are writing to.
+      -- Ethernet controller autonomously sends the contents of the other half
+      -- whenever we switch halves.
+      buffer_moby_toggle <= output_address(11);
+      
       -- Work out address to write pixel to in thumbnail buffer.
       -- 80x50 pixels = 4,000 bytes.
       -- 600 / 50 = every 12th row 
