@@ -2208,7 +2208,7 @@ begin  -- behavioural
               audio_mode <= fastio_wdata(7);
 
             when x"FA" =>
-              -- @IO:GS $D6FA - 8-bit digital audio out (left)
+              -- @IO:GS $D6FA - 8-bit digital audio out (right)
               -- 8-bit digital audio out
               pwm_value_new_right <= fastio_wdata;
             when x"FB" =>
