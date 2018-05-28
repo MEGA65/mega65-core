@@ -574,12 +574,10 @@ begin  -- behavioural
       if next_byte_valid = '1' then
         -- XXX Need to detect when we get close to full, so that we can
         -- consciously flip buffer halves, and reset the move to front coder.
-        if output_address(10 downto 0) /= "1111111111" then
+        if output_address(11 downto 0) /= "11111111111" then
           output_address <= output_address + 1;
         else
-          -- Flip half of packet buffer if required
-          output_address(11) <= not output_address(11);
-          output_address(10 downto 0) <= (others => '0');
+          output_address <= to_unsigned(0,12);
         end if;
         report "Commiting byte $" & to_hstring(next_byte) & " to packet buffer @ offset $" & to_hstring(output_address);
         output_data <= unsigned(next_byte);
