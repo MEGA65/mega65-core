@@ -4,7 +4,7 @@
   separate the packet sniffer which needs root, from the part that listens
   to connections from the internet.
 
-  (C) Paul Gardner-Stephen 2014.
+  (C) Paul Gardner-Stephen 2014, 2018.
 
   This program is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License
@@ -28,7 +28,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/socket.h>
-#include <sys/filio.h>
+// #include <sys/filio.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
 #include <netinet/in.h>

@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/socket.h>
-#include <sys/filio.h>
+// #include <sys/filio.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
 #include <netinet/in.h>
@@ -47,7 +47,7 @@ int y;
 #include <rfb/keysym.h>
 
 static const int bpp=4;
-static int maxx=1920, maxy=1200;
+static int maxx=800, maxy=600;
 
 static void initBuffer(unsigned char* buffer)
 {
