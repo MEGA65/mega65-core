@@ -414,7 +414,9 @@ architecture Behavioral of machine is
   signal pixel_green : unsigned (7 downto 0);
   signal pixel_blue : unsigned (7 downto 0);
   signal pixel_y : unsigned (11 downto 0);
-  signal pixel_valid : std_logic;
+  signal pixel_valid : std_logic;  -- 0-639 across physical display for visual
+                                   -- keyboard
+  signal pixel_strobe : std_logic;  -- 0-799 across physical display for framepacker
   signal pixel_newframe : std_logic;
   signal pixel_newraster : std_logic;
   signal native_x_640 : integer;
@@ -986,7 +988,7 @@ begin
 --      lcd_vsync => lcd_vsync1,
 --      lcd_hsync => lcd_hsync1,
 --      lcd_display_enable => lcd_display_enable1,
---      lcd_pixel_strobe => lcd_pixel_strobe1,
+      lcd_pixel_strobe => pixel_strobe,
       vgared          => vgared_viciv,
       vgagreen        => vgagreen_viciv,
       vgablue         => vgablue_viciv,
@@ -1234,7 +1236,7 @@ begin
       pixel_green_in => pixel_green,
       pixel_blue_in => pixel_blue,
       pixel_y => pixel_y,
-      pixel_valid => pixel_valid,
+      pixel_valid => pixel_strobe,
       pixel_newframe => pixel_newframe,
       pixel_newraster => pixel_newraster,
       pixel_x_640 => pixel_x_640,
