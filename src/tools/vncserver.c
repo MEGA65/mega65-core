@@ -505,6 +505,11 @@ int main(int argc,char** argv)
       int counter=0;
       
       // Process all bits in packet
+
+      // Start outside frame so that we can synchronise without visible artefacts
+      int lasty=-1;
+      y=-1;
+      
       for(;offset<len;offset++) {
 	if (debug&0x200) printf("> 0x%02x\n",packet[offset]);
 	for(bn=7;bn>=0;bn--) {
@@ -538,6 +543,14 @@ int main(int argc,char** argv)
 	    int s=bit_sequence[16]; bit_sequence[16]=0;
 	    for(;x<maxx;x++) setPixel(rfbScreen,x,y,colour0);	    
 	    y=strtol(&bit_sequence[6],NULL,2);
+	    if (lasty==-1) lasty=y; else {
+	      if (y!=(1+lasty)) {
+		// Non successive raster linese, block drawing
+		lasty=y;
+		y=-1;
+	      } else lasty=y;
+	    }
+	    
 	    bit_sequence[16]=s;
 	    if (debug&2) printf("Raster #%d (x got to %d)\n",y,x);
 	    x=0;
@@ -563,6 +576,11 @@ int main(int argc,char** argv)
 	    for(;x<maxx;x++) setPixel(rfbScreen,x,y,colour0);	    
 	    y=-1; x=0;
 	    memset(bit_sequence,'.',8);
+	    colour0=0x000000;
+	    colour1=0xf0f0f0;
+	    colour2=0x303030;
+	    colour3=0x707070;
+	    colour4=0xb0b0b0;
 	    updateFrameBuffer(rfbScreen);	    
 	  } else if (!strncmp("11111101",bit_sequence,8)) {
 	    // Reserved -- this is an error for now
