@@ -88,7 +88,10 @@ begin
     clock50mhz <= '1';        
     wait for 10 ns;
       
+    pixel_newframe <= '0';
+    pixel_newraster <= '0';      
     pixel_valid <= '0';
+    
     clock50mhz <= '0';
     wait for 10 ns;
     clock50mhz <= '1';
