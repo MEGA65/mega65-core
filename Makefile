@@ -266,6 +266,11 @@ i2csimulate: $(VHDLSRCDIR)/test_i2c.vhdl $(VHDLSRCDIR)/i2c_master.vhdl $(VHDLSRC
 	ghdl -m test_i2c
 	( ./test_i2c || ghdl -r test_i2c ) 
 
+fpacksimulate: $(VHDLSRCDIR)/test_framepacker.vhdl $(VHDLSRCDIR)/framepacker.vhdl
+	ghdl -i $(VHDLSRCDIR)/test_framepacker.vhdl $(VHDLSRCDIR)/framepacker.vhdl
+	ghdl -m test_framepacker
+	( ./test_framepacker || ghdl -r test_framepacker ) 
+
 
 MIIMFILES=	$(VHDLSRCDIR)/ethernet_miim.vhdl \
 		$(VHDLSRCDIR)/test_miim.vhdl
@@ -503,6 +508,9 @@ $(BINDIR)/%.mcs:	$(BINDIR)/%.bit
 
 $(BINDIR)/videoproxy:	$(TOOLDIR)/videoproxy.c
 	$(CC) $(COPT) -o $(BINDIR)/videoproxy $(TOOLDIR)/videoproxy.c -I/usr/local/include -lpcap
+
+$(BINDIR)/vncserver:	$(TOOLDIR)/vncserver.c
+	$(CC) $(COPT) -o $(BINDIR)/vncserver $(TOOLDIR)/vncserver.c -I/usr/local/include -lvncserver -lpthread
 
 clean:
 	rm -f $(BINDIR)/KICKUP.M65 kickstart.list kickstart.map
