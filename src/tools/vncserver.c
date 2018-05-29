@@ -416,7 +416,11 @@ int setPixel(rfbScreenInfoPtr screen,int x,int y,uint32_t v)
 
 int main(int argc,char** argv)
 {
-  if (argc>1) openSerialPort(argv[1]);
+  int do_dummy=0;
+
+  if (!do_dummy) {
+    if (argc>1) openSerialPort(argv[1]);
+  }
 
   rfbScreenInfoPtr rfbScreen = rfbGetScreen(&argc,argv,maxx,maxy,8,3,bpp);
   if(!rfbScreen)
@@ -439,9 +443,11 @@ int main(int argc,char** argv)
   fprintf(stderr, "Running background loop...\n");
 
   int sock = connect_to_port(6565);
-  if (sock==-1) {
-    fprintf(stderr,"Could not connect to video proxy on port 6565.\n");
-    exit(-1);
+  if (!do_dummy)  {
+    if (sock==-1) {
+      fprintf(stderr,"Could not connect to video proxy on port 6565.\n");
+      exit(-1);
+    }
   }
 
   printf("Started.\n"); fflush(stdout);
@@ -454,8 +460,6 @@ int main(int argc,char** argv)
   // Put end of string marker in place
   bit_sequence[20]=0;
 
-  int do_dummy=1;
-  
   while(1) {    
     unsigned char packet[8192];
     int len;
@@ -530,6 +534,7 @@ int main(int argc,char** argv)
 	  } else if (!strncmp("111110",bit_sequence,6)) {
 	    // Indicate raster (10 bits)
 	    int s=bit_sequence[16]; bit_sequence[16]=0;
+	    for(;x<maxx;x++) setPixel(rfbScreen,x,y,colour0);	    
 	    y=strtol(&bit_sequence[6],NULL,2);
 	    bit_sequence[16]=s;
 	    if (debug&2) printf("Raster #%d (x got to %d)\n",y,x);
@@ -548,6 +553,7 @@ int main(int argc,char** argv)
 	  } else if (!strncmp("11111100",bit_sequence,8)) {
 	    // New frame
 	    if (debug&1) printf("New frame (y got to %d)\n",y);
+	    for(;x<maxx;x++) setPixel(rfbScreen,x,y,colour0);	    
 	    y=-1; x=0;
 	    memset(bit_sequence,'.',8);
 	    updateFrameBuffer(rfbScreen);	    
@@ -585,8 +591,8 @@ int main(int argc,char** argv)
 	    memset(bit_sequence,'.',2);
 	  } else if (!strncmp("0",bit_sequence,1)) {
 	    // Repeat last colour
-	    x++;
 	    if (debug&4) printf("Same colour\n");
+	    setPixel(rfbScreen,x++,y,colour0);
 	    memset(bit_sequence,'.',1);
 	  }
 	}
