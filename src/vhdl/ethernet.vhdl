@@ -114,7 +114,13 @@ architecture behavioural of ethernet is
    x"60", -- version and traffic class high nybl
    x"00",x"00",x"00", -- traffic class low nybl and flow label
    x"08",x"00",  -- payload length (2048 bytes)
-   x"00", -- next header (blank for now)
+   -- XXX Move to making this a valid UDP6 packet at some point.
+   -- Main problem is we need to compute the checksum over the data
+   -- before we can do this.  Not impossible, but will require modifying
+   -- the framepacker to do this as the data is collected.
+   -- It will need to do this using a seed checksum that covers the
+   -- invariant header, so it shouldn't really be a big imposition.
+   x"00", -- next header (0x11 = indicate UDP, 0x00 = hop-by-hop options)
    x"01", -- hop limit: local
    -- ipv6 source address
    x"fe",x"80",x"00",x"00",x"00",x"00",x"00",x"00",
