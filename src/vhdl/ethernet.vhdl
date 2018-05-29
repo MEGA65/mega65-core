@@ -75,9 +75,12 @@ entity ethernet is
     -- compressed video stream from the VIC-IV frame packer for autonomous dispatch
     ---------------------------------------------------------------------------    
     buffer_moby_toggle : in std_logic;
+    buffer_offset : in unsigned(11 downto 0);
     buffer_address : out unsigned(11 downto 0);
     buffer_rdata : in unsigned(7 downto 0);
 
+    debug_vector : in unsigned(31 downto 0);
+    
     ---------------------------------------------------------------------------
     -- keyboard event capture via ethernet
     ---------------------------------------------------------------------------    
@@ -209,7 +212,7 @@ architecture behavioural of ethernet is
   signal eth_tx_trigger : std_logic := '0';
   signal eth_tx_commenced : std_logic := '0';
   signal eth_tx_complete : std_logic := '0';
-  signal eth_txen_int : std_logic;
+  signal eth_txen_int : std_logic := '0';
   signal eth_txd_int : unsigned(1 downto 0) := "00";
   signal eth_tx_wait : integer range 0 to 50;
  
@@ -253,6 +256,8 @@ architecture behavioural of ethernet is
  signal eth_txd_phase : unsigned(1 downto 0) := "00";
  signal eth_txd_phase_drive : unsigned(1 downto 0) := "00";
 
+ signal eth_tx_packet_count : unsigned(5 downto 0) := "000000";
+ 
  signal miim_request : std_logic := '0';
  signal miim_write : std_logic := '0';
  signal miim_phyid : unsigned(4 downto 0) := to_unsigned(0,5);
@@ -428,6 +433,7 @@ begin  -- behavioural
           end if;
         when Idle =>
           if eth_tx_trigger = '1' then
+
             -- reset frame padding state
             eth_tx_padding <= '0';
             if to_integer(eth_tx_size)<60 then
@@ -455,13 +461,18 @@ begin  -- behavioural
             eth_tx_commenced <= '1';
             eth_tx_complete <= '0';
             tx_preamble_count <= 29;
-            eth_txen <= '1';
             eth_txen_int <= '1';
             eth_txd_int <= "01";
             eth_tx_state <= WaitBeforeTX;
             eth_tx_viciv <= '1';
           end if;
         when WaitBeforeTX =>
+          if eth_tx_packet_count /= "111111" then
+            eth_tx_packet_count <= eth_tx_packet_count + 1;
+          else
+            eth_tx_packet_count <= "000000";
+          end if;           
+
           txbuffer_readaddress <= 0;
           eth_tx_state <= SendingPreamble;
           report "Reseting TX CRC";
@@ -707,8 +718,8 @@ begin  -- behavioural
             rxbuffer_writeaddress <= eth_frame_len;
           else
             -- got two more bits
-            report "ETHRX: Received bits from RMII: "
-              & to_string(std_logic_vector(eth_rxd));
+--            report "ETHRX: Received bits from RMII: "
+--              & to_string(std_logic_vector(eth_rxd));
             if eth_bit_count = 6 then
               -- this makes a byte
               if frame_length(10 downto 0) = "11111111000" then
