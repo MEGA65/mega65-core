@@ -416,8 +416,8 @@ int setPixel(rfbScreenInfoPtr screen,int x,int y,uint32_t v)
 
 int main(int argc,char** argv)
 {
-  int do_dummy=1;
-  int debug=0; //0x21b;
+  int do_dummy=0;
+  int debug=0; //x806; //0x21b;
 
   if (!do_dummy) {
     if (argc>1) openSerialPort(argv[1]);
@@ -523,9 +523,13 @@ int main(int argc,char** argv)
 	    // Explcit colour (12 bits)
 	    int s=bit_sequence[17]; bit_sequence[17]=0;
 	    int c=strtol(&bit_sequence[5],NULL,2);
-	    colour4=colour3; colour3=colour2; colour2=colour1; colour1=colour0;
+	    colour4=colour3;
+	    colour3=colour2;
+	    colour2=colour1;
+	    colour1=colour0;
 	    colour0=((c&0xf)<<4)|((c&0xf0)<<8)|((c&0xf00)<<12);
-	    if (debug&0x810) printf("Saw new colour #%06x at x=%d\n",colour0,x);
+	    if (debug&0x800)
+	      printf("Saw new colour #%06x at (%d,%d)\n",colour0,x,y);
 	    bit_sequence[17]=s;
 	    memset(bit_sequence,'.',17);
 	    setPixel(rfbScreen,x++,y,colour0);
@@ -537,6 +541,11 @@ int main(int argc,char** argv)
 	    bit_sequence[16]=s;
 	    if (debug&2) printf("Raster #%d (x got to %d)\n",y,x);
 	    x=0;
+	    colour0=0x000000;
+	    colour1=0xf0f0f0;
+	    colour2=0x303030;
+	    colour3=0x707070;
+	    colour4=0xb0b0b0;
 	    memset(bit_sequence,'.',16);
 	  } else if (!strncmp("11111110",bit_sequence,8)) {
 	    // RLE run of 0 - 255 pixels
