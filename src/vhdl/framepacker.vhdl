@@ -490,7 +490,7 @@ begin  -- behavioural
                 when 5 => bit_queue(31 downto 0) <= new_bits(28 downto 0) & "000";
                 when 6 => bit_queue(31 downto 0) <= new_bits(29 downto 0) & "00";
                 when 7 => bit_queue(31 downto 0) <= new_bits(30 downto 0) & "0";
-                when 8 => bit_queue(31 downto 0) <= new_bits(31 downto 0) & "0";
+                when 8 => bit_queue(31 downto 0) <= new_bits(31 downto 0);
                 when 9 => bit_queue(31 downto 0) <= bit_queue(23) & new_bits(31 downto 1);
                 when 10 => bit_queue(31 downto 0) <= bit_queue(23 downto 22) & new_bits(31 downto 2);
                 when 11 => bit_queue(31 downto 0) <= bit_queue(23 downto 21) & new_bits(31 downto 3);
@@ -569,11 +569,12 @@ begin  -- behavioural
             else
               -- Whew! We can fit the data in
               if bit_queue_len > 7 then
+                report "Appending 0's to queue containing at least 1 byte of data";
                 bit_queue_len <= (bit_queue_len + rle_count) - 8;
                 next_byte_valid := '1';
                 next_byte := bit_queue(31 downto 24);
                 bit_queue(31 downto 8) <= bit_queue(23 downto 0);
-                bit_queue(7 downto 0) <= "00000000";
+                bit_queue((31-bit_queue_len+8) downto 0) <= (others => '0');
                 if rle_count > 7 then
                   rle_count <= rle_count - 8;
                 else
@@ -584,8 +585,10 @@ begin  -- behavioural
                 -- But we can send off the current set of bits and
                 -- the RLE bits, but only if that all adds up to at least
                 -- 8 bits. Else we just need to stuff it in the bit queue
+                report "Appending 0's to queue containing < 1 byte of data";
                 if (bit_queue_len + rle_count) > 7 then
                   bit_queue_len <= (bit_queue_len + rle_count) - 8;
+                  next_byte_valid := '1';
                   next_byte := bit_queue(31 downto 24);
                   next_byte((7 - bit_queue_len) downto 0) := (others => '0');
                   bit_queue(31 downto 0) <= (others => '0');

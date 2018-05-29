@@ -52,20 +52,24 @@ begin
   process is
   begin
     x_counter <= x_counter + 1;
-    if x_counter < 40 then
+    if x_counter < 60 then
       red <= x"00";
-    else
-      red <= x"ff";
-    end if;
-    if x_counter < 90 then
       green <= x"00";
+      blue <= x"FF";
+    elsif x_counter < 700 then
+      if ( ( x_counter/16) rem 2 ) = 0 then
+        red <= x"ff";
+        green <= x"00";
+        blue <= x"ff";
+      else
+        red <= x"00";
+        green <= x"ff";
+        blue <= x"00";
+      end if;
     else
-      green <= x"ff";
-    end if;
-    if x_counter < 160 then
-      blue <= x"00";
-    else
-      blue <= x"ff";
+      red <= x"00";
+      green <= x"00";
+      blue <= x"FF";      
     end if;
     if x_counter = 799 then
       x_counter <= 0;
