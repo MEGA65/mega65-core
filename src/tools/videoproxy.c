@@ -22,7 +22,6 @@
 
 */
 
-#include <pcap.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -30,6 +29,8 @@
 #include <sys/socket.h>
 // #include <sys/filio.h>
 #include <sys/ioctl.h>
+#include <sys/types.h>
+#include <linux/types.h>
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -37,9 +38,11 @@
 #include <netinet/tcp.h>
 #include <netinet/ip.h>
 #include <string.h>
+#include <strings.h>
 #include <signal.h>
 #include <netdb.h>
 #include <time.h>
+#include <pcap.h>
 
 int client_sock=-1;
 
@@ -89,11 +92,10 @@ int main(int argc,char **argv)
     char *dev;
     char errbuf[PCAP_ERRBUF_SIZE];
     pcap_t* descr;
-    struct bpf_program fp;        /* to hold compiled program */
+    //    struct bpf_program fp;        /* to hold compiled program */
     bpf_u_int32 pMask;            /* subnet mask */
     bpf_u_int32 pNet;             /* ip address*/
-    pcap_if_t *alldevs, *d;
-    int i =0;
+    pcap_if_t *alldevs;
 
     // Prepare a list of all the devices
     if (pcap_findalldevs(&alldevs, errbuf) == -1)
@@ -129,11 +131,6 @@ int main(int argc,char **argv)
 
     printf("Started.\n"); fflush(stdout);
 
-    int last_colour=0x00;
-    int in_vblank=0;
-    int firstraster=1;
-    int bytes=0;
-
     int listen_sock = create_listen_socket(6565);
 
     while(1) {
@@ -146,6 +143,7 @@ int main(int argc,char **argv)
       const unsigned char *packet = pcap_next(descr,&hdr);
       if (packet) {
 	if (hdr.caplen == 2132) {
+	  printf("."); fflush(stdout);
 	  // probably a C65GS compressed video frame.
 	  if (client_sock!=-1) write(client_sock,packet,2132);
 	}

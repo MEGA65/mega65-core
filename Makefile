@@ -1,7 +1,7 @@
 .SUFFIXES: .bin .prg 
 .PRECIOUS:	%.ngd %.ncd %.twx vivado/%.xpr bin/%.bit bin/%.mcs bin/%.M65 bin/%.BIN
 
-COPT=	-Wall -g -std=c99
+COPT=	-Wall -g -std=gnu99
 CC=	gcc
 OPHIS=	../Ophis/bin/ophis -4
 
@@ -479,7 +479,7 @@ vivado/%.xpr: 	vivado/%_gen.tcl | $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(SIM
 	echo MOOSE $@ from $<
 	$(VIVADO) -mode batch -source $<
 
-bin/%.bit: 	vivado/%.xpr $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(SIMULATIONVHDL)
+$(BINDIR)/%.bit: 	vivado/%.xpr $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(SIMULATIONVHDL)
 	echo MOOSE $@ from $<
 #	@rm -f $@
 #	@echo "---------------------------------------------------------"
@@ -497,9 +497,12 @@ bin/%.bit: 	vivado/%.xpr $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(SIMULATIONVH
 	$(VIVADO) -mode batch -source vivado/$(subst bin/,,$*)_impl.tcl vivado/$(subst bin/,,$*).xpr
 	cp vivado/$(subst bin/,,$*).runs/impl_1/container.bit $@
 
-bin/%.mcs:	bin/%.bit
+$(BINDIR)/%.mcs:	$(BINDIR)/%.bit
 	mkdir -p $(SDCARD_DIR)
 	$(VIVADO) -mode batch -source vivado/run_mcs.tcl -tclargs $< $@
+
+$(BINDIR)/videoproxy:	$(TOOLDIR)/videoproxy.c
+	$(CC) $(COPT) -o $(BINDIR)/videoproxy $(TOOLDIR)/videoproxy.c -I/usr/local/include -lpcap
 
 clean:
 	rm -f $(BINDIR)/KICKUP.M65 kickstart.list kickstart.map
@@ -523,7 +526,7 @@ clean:
 	rm -f c65-rom-911001.txt c65-911001-rom-annotations.txt c65-dos-context.bin c65-911001-dos-context.bin
 	rm -f thumbnail.prg
 	rm -f textmodetest.prg textmodetest.list etherload_done.bin etherload_stub.bin
-	rm -f videoproxy
+	rm -f $(BINDIR)/videoproxy $(BINDIR)/vncserver
 	rm -rf vivado/mega65r1.cache vivado/mega65r1.runs vivado/mega65r1.hw vivado/mega65r1.ip_user_files vivado/mega65r1.srcs vivado/mega65r1.xpr
 	rm -rf vivado/nexys4.cache vivado/nexys4.runs vivado/nexys4.hw vivado/nexys4.ip_user_files vivado/nexys4.srcs vivado/nexys4.xpr
 	rm -rf vivado/nexys4ddr.cache vivado/nexys4ddr.runs vivado/nexys4ddr.hw vivado/nexys4ddr.ip_user_files vivado/nexys4ddr.srcs vivado/nexys4ddr.xpr
