@@ -3123,7 +3123,7 @@ begin
       -- Generate pixel clock based on x640 clock
       last_vicii_xcounter_640 <= vicii_xcounter_640;
       if vicii_xcounter_640 /= last_vicii_xcounter_640 then
-        lcd_pixel_strobe <= '1';
+        lcd_pixel_strobe <= indisplay;
       else
         lcd_pixel_strobe <= '0';
       end if;
