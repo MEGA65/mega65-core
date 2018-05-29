@@ -104,20 +104,20 @@ architecture behavioural of framepacker is
   END component;
 
   signal output_address : unsigned(11 downto 0) := to_unsigned(0,12);
-  signal output_data : unsigned(7 downto 0);
+  signal output_data : unsigned(7 downto 0) := x"00";
   signal output_write : std_logic := '0';
 
-  signal thumbnail_write_address : unsigned(11 downto 0);
-  signal thumbnail_read_address : unsigned(11 downto 0);
-  signal thumbnail_wdata : unsigned(7 downto 0);
-  signal thumbnail_rdata : unsigned(7 downto 0);
+  signal thumbnail_write_address : unsigned(11 downto 0) := x"000";
+  signal thumbnail_read_address : unsigned(11 downto 0) := x"000";
+  signal thumbnail_wdata : unsigned(7 downto 0) := x"00";
+  signal thumbnail_rdata : unsigned(7 downto 0) := x"00";
   signal thumbnail_valid : std_logic := '0';
   signal thumbnail_started : std_logic := '0';  
   signal thumbnail_active_pixel : std_logic := '0';
   signal thumbnail_active_row : std_logic := '0';
 
-  signal last_pixel_y : unsigned(11 downto 0);
-  signal pixel_drive : unsigned(7 downto 0);
+  signal last_pixel_y : unsigned(11 downto 0) := x"000";
+  signal pixel_drive : unsigned(7 downto 0) := x"00";
   signal last_hypervisor_mode : std_logic := '0'; 
   signal last_access_is_thumbnail : std_logic := '0';
   signal thumbnail_x_counter : integer range 0 to 24 := 0;
@@ -304,6 +304,16 @@ begin  -- behavioural
         -- pixels will be the same colour)
         bits_appended <= 16;
         new_bits <= "111110" & std_logic_vector(pixel_y(9 downto 0)) & "00000000" & "00000000";
+        -- Forget previously known colours
+        -- (cost is at < 5 x (17-1) = 80 bits per raster, and means we can
+        -- synchronise colour every raster line)
+        colour0 <= x"000";
+        colour1 <= x"FFF";
+        colour2 <= x"333";
+        colour3 <= x"777";
+        colour4 <= x"BBB";
+        -- And of course reset the RLE count
+        rle_count <= 0;
       elsif pixel_valid='1' then
         -- Work out how to encode this pixel
         -- If the same as the last, then accumulate RLE, and output RLE
@@ -411,7 +421,8 @@ begin  -- behavioural
           -- The pain is that we have to glue all the bits together.
           -- So what we can do is to defer the new token to the next cycle,
           -- and just append the RLE token/bits for now
-
+          report "It's some other token";
+          
           -- Now work out what to do about the RLE bits...
           if rle_count = 0 then
             -- The easy case: No RLE to flush, so just write the token
@@ -441,14 +452,14 @@ begin  -- behavioural
               end case;
               next_byte_valid := '1';
               case bit_queue_len is
-                when 0 => bit_queue(31 downto 8) <= new_bits(23 downto 0);
-                when 1 => bit_queue(31 downto 7) <= new_bits(24 downto 0);
-                when 2 => bit_queue(31 downto 6) <= new_bits(25 downto 0);
-                when 3 => bit_queue(31 downto 5) <= new_bits(26 downto 0);
-                when 4 => bit_queue(31 downto 4) <= new_bits(27 downto 0);
-                when 5 => bit_queue(31 downto 3) <= new_bits(28 downto 0);
-                when 6 => bit_queue(31 downto 2) <= new_bits(29 downto 0);
-                when 7 => bit_queue(31 downto 1) <= new_bits(30 downto 0);
+                when 0 => bit_queue(31 downto 0) <= new_bits(31 downto 0);
+                when 1 => bit_queue(30 downto 0) <= new_bits(31 downto 1);
+                when 2 => bit_queue(29 downto 0) <= new_bits(31 downto 2);
+                when 3 => bit_queue(28 downto 0) <= new_bits(31 downto 3);
+                when 4 => bit_queue(27 downto 0) <= new_bits(31 downto 4);
+                when 5 => bit_queue(26 downto 0) <= new_bits(31 downto 5);
+                when 6 => bit_queue(25 downto 0) <= new_bits(31 downto 6);
+                when 7 => bit_queue(24 downto 0) <= new_bits(31 downto 7);
                 when 8 => bit_queue(31 downto 0) <= new_bits(31 downto 0);
                 when 9 => bit_queue(31 downto 0) <= bit_queue(23) & new_bits(31 downto 1);
                 when 10 => bit_queue(31 downto 0) <= bit_queue(23 downto 22) & new_bits(31 downto 2);
@@ -481,14 +492,14 @@ begin  -- behavioural
               report "Appending " & integer'image(bits_appended) & " to " & integer'image(bit_queue_len)
                 & " existing bits in queue (accumulating partial byte)";
               case bit_queue_len is
-                when 0 => bit_queue(31 downto 8) <= new_bits(23 downto 0);
-                when 1 => bit_queue(31 downto 7) <= new_bits(24 downto 0);
-                when 2 => bit_queue(31 downto 6) <= new_bits(25 downto 0);
-                when 3 => bit_queue(31 downto 5) <= new_bits(26 downto 0);
-                when 4 => bit_queue(31 downto 4) <= new_bits(27 downto 0);
-                when 5 => bit_queue(31 downto 3) <= new_bits(28 downto 0);
-                when 6 => bit_queue(31 downto 2) <= new_bits(29 downto 0);
-                when 7 => bit_queue(31 downto 1) <= new_bits(30 downto 0);
+                when 0 => bit_queue(31 downto 0) <= new_bits(31 downto 0);
+                when 1 => bit_queue(30 downto 0) <= new_bits(30 downto 0);
+                when 2 => bit_queue(29 downto 0) <= new_bits(29 downto 0);
+                when 3 => bit_queue(28 downto 0) <= new_bits(28 downto 0);
+                when 4 => bit_queue(27 downto 0) <= new_bits(27 downto 0);
+                when 5 => bit_queue(26 downto 0) <= new_bits(26 downto 0);
+                when 6 => bit_queue(25 downto 0) <= new_bits(25 downto 0);
+                when 7 => bit_queue(24 downto 0) <= new_bits(24 downto 0);
                 when others => null;
               end case;
               bit_queue_len <= bit_queue_len + bits_appended;
@@ -554,16 +565,45 @@ begin  -- behavioural
           else
             -- RLE run is long, so output proper RLE token
             -- Here we can be sure there are no backed up bits, and can output
-            -- the RLE token immediately.
+            -- the RLE token immediately.  Well, actually, there can only
+            -- be a partial byte backed up, so we have to be a bit clever about
+            -- managing that.
 
+            report "This RLE is long enough to commit as a run. " & integer'image(bit_queue_len) & " bits waiting for flush.";
+            
             -- Mark the new token as still needing processing
             bits_appended <= bits_appended;
-            
+
+            -- Append RLE token to bit queue
+
+            -- Join start of token to what is already in queue
+            case bit_queue_len is
+              when 0 => next_byte := "11111110";
+              when 1 => next_byte := bit_queue(31) & "1111111";
+              when 2 => next_byte := bit_queue(31 downto 30) & "111111";
+              when 3 => next_byte := bit_queue(31 downto 29) & "11111";
+              when 4 => next_byte := bit_queue(31 downto 28) & "1111";
+              when 5 => next_byte := bit_queue(31 downto 27) & "111";
+              when 6 => next_byte := bit_queue(31 downto 26) & "11";
+              when 7 => next_byte := bit_queue(31 downto 25) & "1";
+              when others => next_byte := x"00";
+            end case;
             next_byte_valid := '1';
-            next_byte := "11111110";
-            bit_queue_len <= 8;
-            bit_queue(31 downto 24) <= std_logic_vector(to_unsigned(rle_count,8));
-            rle_count <= 0;
+
+            -- Then append the rest to the bit queue
+            case bit_queue_len is
+              when 0 => bit_queue(31 downto 24) <= std_logic_vector(to_unsigned(rle_count,8));
+              when 1 => bit_queue(31 downto 8) <= "0" & std_logic_vector(to_unsigned(rle_count,8)) & "00000000" & "0000000";
+              when 2 => bit_queue(31 downto 8) <= "10" & std_logic_vector(to_unsigned(rle_count,8)) & "00000000" & "000000";
+              when 3 => bit_queue(31 downto 8) <= "110" & std_logic_vector(to_unsigned(rle_count,8)) & "00000000" & "00000";
+              when 4 => bit_queue(31 downto 8) <= "1110" & std_logic_vector(to_unsigned(rle_count,8)) & "00000000" & "0000";
+              when 5 => bit_queue(31 downto 8) <= "11110" & std_logic_vector(to_unsigned(rle_count,8)) & "00000000" & "000";
+              when 6 => bit_queue(31 downto 8) <= "111110" & std_logic_vector(to_unsigned(rle_count,8)) & "00000000" & "00";
+              when 7 => bit_queue(31 downto 8) <= "1111110" & std_logic_vector(to_unsigned(rle_count,8)) & "00000000" & "0";
+              when others => null;
+            end case;
+            bit_queue_len <= bit_queue_len + 8;
+            rle_count <= 0;            
           end if;
         end if;
       else
