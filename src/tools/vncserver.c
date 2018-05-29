@@ -18,21 +18,13 @@
 #include <poll.h>
 #include <termios.h>
 
-struct raster_cache {
-  unsigned int crc;
-  unsigned char data[1920];
-};
-
-struct raster_cache *raster_cache=NULL;
-
 int sendScanCode(int scan_code);
 
 int raster_line_number=-1;
-unsigned char raster_line[1920];
+unsigned int raster_line[800];
 
-int last_raster_crc[1200];
-unsigned int raster_crc[1200];
-int raster_zero[1200];
+int colour0,colour1,colour2,colour3,colour4;
+
 int image_offset=0;
 int drawing=0;
 int y;
@@ -51,7 +43,6 @@ static int maxx=800, maxy=600;
 
 static void initBuffer(unsigned char* buffer)
 {
-  int i,j;
   bzero(buffer,maxx*maxy);
 }
 
@@ -74,8 +65,8 @@ static enum rfbNewClientAction newclient(rfbClientPtr cl)
   return RFB_CLIENT_ACCEPT;
 }
 
+#if 0
 /* switch to new framebuffer contents */
-
 static void newframebuffer(rfbScreenInfoPtr screen, int width, int height)
 {
   unsigned char *oldfb, *newfb;
@@ -88,6 +79,7 @@ static void newframebuffer(rfbScreenInfoPtr screen, int width, int height)
   rfbNewFramebuffer(screen, (char*)newfb, maxx, maxy, 8, 3, bpp);
   free(oldfb);
 }
+#endif
     
 /* Here the key events are handled */
 
@@ -186,63 +178,8 @@ static void dokey(rfbBool down,rfbKeySym key,rfbClientPtr cl)
 
 int updateFrameBuffer(rfbScreenInfoPtr screen)
 {  
-
-  // draw all pixels onto VNC frame buffer
-  int x,y;
-  for(y=0;y<1200;y++) {
-    unsigned char linebuffer[1920*4];
-    unsigned int crc=raster_crc[y];
-    if (last_raster_crc[y]!=crc) {
-      if (raster_cache[crc&0xffff].crc==crc) {	
-	for(x=0;x<1920;x++)
-	  {	  
-	    // unpack RRRGGGBB pixels into RGB bytes for VNC
-	    ((unsigned char *)screen->frameBuffer)[(y*1920*4)+x*4+0]=raster_cache[crc&0xffff].data[x]&0xe0;
-	    ((unsigned char *)screen->frameBuffer)[(y*1920*4)+x*4+1]=raster_cache[crc&0xffff].data[x]<<3;
-	    ((unsigned char *)screen->frameBuffer)[(y*1920*4)+x*4+2]=raster_cache[crc&0xffff].data[x]<<6;	    
-	    //	  if (y>410&&y<420) 
-	    //  ((unsigned char *)screen->frameBuffer)[(y*1920*4)+x*4+0]=0xff;
-	  } 
-	raster_zero[y]=0;
-      } else {
-	// clear rasters for which we have no valid data
-	if (!raster_zero[y]) {
-	  raster_zero[y]=1;
-	  // Zeroing rasters looks good with horizontal scrolling, but bad in text mode.
-	  // so for now don't zero it.
-	  // bzero(&((unsigned char *)screen->frameBuffer)[(y*1920*4)],1920*4);
-	}
-      }
-    }
-    //    if (y>410&&y<420) printf("[%08x]",crc);
-  }
-  //  printf("\n");
-
-  int last_changed=1;
-  int last_y=0;
-  int updated_y=0;
-  for(y=0;y<1200;y++) {
-    int this_changed=0;
-    if (raster_crc[y]!=last_raster_crc[y]) this_changed=1;
-    if (this_changed!=last_changed) {      
-      if (last_changed) {
-	// Tell VNC that everything has changed, and let it do the optimisation.
-	rfbMarkRectAsModified(screen,0,last_y,1919,y);
-	updated_y+=y-last_y+1;
-	last_changed=this_changed;
-      }
-      last_y=y;
-      last_changed=this_changed;
-    }
-    if (raster_cache[raster_crc[y]&0xffff].crc==raster_crc[y])
-      last_raster_crc[y]=raster_crc[y];
-  }
-  if (last_changed) {
-    rfbMarkRectAsModified(screen,0,last_y,1919,y);
-    last_y=y;
-    updated_y+=y-last_y+1;
-  }
-  //  printf("Updated %d rasters\n",updated_y);
+  // Tell VNC that everything has changed, and let it do the optimisation.
+  rfbMarkRectAsModified(screen,0,0,maxx-1,maxy-1);
 
   return 0;
 }
@@ -409,7 +346,7 @@ int checkSerialActivity()
     fds[1+i].fd=clients[i]; fds[1+i].events=POLLIN; fds[1+i].revents=0;
   
   // read from serial port and write to client socket(s)
-  int s=poll(fds,1+client_count,500);
+  poll(fds,1+client_count,500);
   if (fds[0].revents&POLLIN) {
     int c=read(serialfd,buffer,1024);
     int i;
@@ -419,13 +356,14 @@ int checkSerialActivity()
   for(i=0;i<client_count;i++)
     if (fds[1+i].revents&POLLIN) {
       int c=read(clients[i],buffer,1024);
-      slow_write(serialfd,buffer,c);
+      slow_write(serialfd,(char *)buffer,c);
       if (c<1) { 
 	close(clients[i]); 
 	clients[i]=clients[--client_count];
 	printf("Closed client connection, %d remaining.\n",client_count); }
     }
-  
+
+  return 0;
 }
 
 pthread_t serialThread;
@@ -465,11 +403,20 @@ int openSerialPort(char *port)
   return 0;
 }
 
+int setPixel(rfbScreenInfoPtr screen,int x,int y,uint32_t v)
+{
+  if (y>=0&&y<maxy&&x>=0&&x<maxx) {  
+    ((unsigned char *)screen->frameBuffer)[(y*maxx*4)+x*4+3]=0;
+    ((unsigned char *)screen->frameBuffer)[(y*maxx*4)+x*4+2]=v&0xff;
+    ((unsigned char *)screen->frameBuffer)[(y*maxx*4)+x*4+1]=(v>>8)&0xff;
+    ((unsigned char *)screen->frameBuffer)[(y*maxx*4)+x*4+0]=(v>>16)&0xff;
+  }
+  return 0;
+}
+
 int main(int argc,char** argv)
 {
   if (argc>1) openSerialPort(argv[1]);
-
-  bzero(last_raster_crc,sizeof(unsigned int)*1200);
 
   rfbScreenInfoPtr rfbScreen = rfbGetScreen(&argc,argv,maxx,maxy,8,3,bpp);
   if(!rfbScreen)
@@ -497,109 +444,156 @@ int main(int argc,char** argv)
     exit(-1);
   }
 
-  raster_cache=calloc(sizeof(struct raster_cache),65536);
-  {
-    int j;
-    for(j=0;j<1200;j++) raster_crc[j]=0;
-  }
-
-  printf("Allocated raster cache.\n");
-
   printf("Started.\n"); fflush(stdout);
 
-    int last_colour=0x00;
-    int in_vblank=0;
-    int firstraster=1;
-    int bytes=0;
+  int y=-1;
+  int x=0;
+  
+  char bit_sequence[21];
 
-    int rasternumber;
-    int last_raster=0;
-    int next_rasternumber=0;
+  // Put end of string marker in place
+  bit_sequence[20]=0;
 
-    int raster_low=0;
-    int raster_high=1200;
+  int do_dummy=1;
+  
+  while(1) {    
+    unsigned char packet[8192];
+    int len;
 
-    while(1) {
-      int i;
-      unsigned char packet[8192];
-      int len=read(sock,packet,2132);
+    if (do_dummy) {
+      // Feed dummy data (from simulation) to test
+      FILE *f=fopen("dummy.dat","r");
+      if (f) {
+	char line[1024];
+	len=0x56;
+	line[0]=0; fgets(line,1024,f);
+	while(line[0]&&(len<8000)) {
+	  packet[len++]=strtoll(line,NULL,16);
+	  line[0]=0; fgets(line,1024,f);
+	}
+	fclose(f);
+      }
+    } else {
+      len=read(sock,packet,2132);
       if (len<1) usleep(10000);
-
-      if (1) {
-	if (len > 2100) {
-	  // probably a C65GS compressed video frame.
-	  // printf("."); fflush(stdout);
-
-	  unsigned char *raster_data=NULL;
+    }
     
-	  // Each should consist of 13 blocks of
-	  //   raster_number (16 bits)
-	  //   audio left (8 bits)
-	  //   audio right (8 bits)
-	  //   CRC32 of raster (32 bits)
-	  //   dummy byte (8 bits)
+    if (len > 2100) {
+      // probably a C65GS compressed video frame.
+      // printf("."); fflush(stdout);
+      
+      // Packet consists solely of bit-packed data
+      
+      // Each should consist of 13 blocks of
+      //   raster_number (16 bits)
+      //   audio left (8 bits)
+      //   audio right (8 bits)
+      //   CRC32 of raster (32 bits)
+      //   dummy byte (8 bits)
+      
+      // One of these should have the MSB set in the raster number 
+      // to indicate that a raw raster follows.
+      
+      int offset=0x56;
+      int bn=0;
 
-	  // One of these should have the MSB set in the raster number 
-	  // to indicate that a raw raster follows.
+      int debug=0; // 0x21b;
 
-	  unsigned int crc;
-	  int offset=0x56;
-
-	  for(i=0;i<13;i++) {
-	    rasternumber = packet[offset+0]<<8;
-	    rasternumber |= packet[offset+1];
-	    rasternumber &= 0xfff;
-
-	    next_rasternumber = packet[offset+9+0]<<8;
-	    next_rasternumber |= packet[offset+9+1];
-	    next_rasternumber &= 0xfff;
-
-	    if (rasternumber==1199) {
-	      updateFrameBuffer(rfbScreen);
+      int counter=0;
+      
+      // Process all bits in packet
+      for(;offset<len;offset++) {
+	if (debug&0x200) printf("> 0x%02x\n",packet[offset]);
+	for(bn=7;bn>=0;bn--) {
+	  counter++;
+	  
+	  int bit=(packet[offset]>>bn)&1;
+	  // Shuffle bits down
+	  bcopy(&bit_sequence[1],&bit_sequence[0],19);
+	  bit_sequence[19]='0'+bit;
+	  if (debug&0x200) {
+	    if (bit_sequence[0]!='.')
+	      printf(">> %-8d %s\n",counter,bit_sequence);
+	  }
+	  
+	  if (!strncmp("11110",bit_sequence,5)) {
+	    // Explcit colour (12 bits)
+	    int s=bit_sequence[17]; bit_sequence[17]=0;
+	    int c=strtol(&bit_sequence[5],NULL,2);
+	    colour4=colour3; colour3=colour2; colour1=colour0;
+	    colour0=((c&0xf)<<4)|((c&0xf0)<<8)|((c&0xf00)<<12);
+	    if (debug&0x10) printf("Saw new colour #%06x at x=%d\n",colour0,x);
+	    bit_sequence[17]=s;
+	    memset(bit_sequence,'.',17);
+	    setPixel(rfbScreen,x,y,colour0);
+	    x++;
+	  } else if (!strncmp("111110",bit_sequence,6)) {
+	    // Indicate raster (10 bits)
+	    int s=bit_sequence[16]; bit_sequence[16]=0;
+	    y=strtol(&bit_sequence[6],NULL,2);
+	    bit_sequence[16]=s;
+	    if (debug&2) printf("Raster #%d (x got to %d)\n",y,x);
+	    x=0;
+	    memset(bit_sequence,'.',16);
+	  } else if (!strncmp("11111110",bit_sequence,8)) {
+	    // RLE run of 0 - 255 pixels
+	    int s=bit_sequence[16]; bit_sequence[16]=0;
+	    int r=strtol(&bit_sequence[8],NULL,2);
+	    bit_sequence[16]=s;
+	    if (debug&8) printf("Run of %d\n",r);
+	    for(;r&&(x<800);r--) {
+	      setPixel(rfbScreen,x++,y,colour0);
 	    }
-
-	    crc=packet[offset+4]<<0;
-	    crc|=packet[offset+5]<<8;
-	    crc|=packet[offset+6]<<16;
-	    crc|=packet[offset+7]<<24;
-	   
-	    // printf("i=% 2d@$%03x: Saw raster $%04x, crc=$%08x\n",i,offset,rasternumber,crc);
-	    
-	    // check validity of raster number
-	    if (rasternumber>=0&&rasternumber<1200) {
-	      if (((!i)&&next_rasternumber-1==rasternumber)||(last_raster+1==rasternumber)) { // rasternumber>=raster_low&&rasternumber<=raster_high) {
-		// remember CRC for this raster
-		raster_crc[rasternumber]=crc;
-		if (raster_data) {
-		  // we have raster data, so update the cache
-		  bcopy(raster_data,raster_cache[crc&0xffff].data,1920);
-		  raster_cache[crc&0xffff].crc=crc;
-		}
-		
-		// describe acceptable raster range for next for supressing glitches
-		raster_low=rasternumber+1; if (raster_low>=1200) raster_low=0;
-		raster_high=rasternumber+50; if (raster_high>=1200) raster_high=1200;
-	      } else {
-		// printf("  rejected (acceptable range is %d -- %d)\n",raster_low,raster_high);
-		break;
-	      }
-	    }
-	    
-	    last_raster=rasternumber;
-
-	    // keep pointer to and skip raster data if it follows this line
-	    if (packet[offset+0]&0x80) {
-	      raster_data=&packet[offset+9];
-	      offset+=1920+9;
-	    } else {
-	      offset+=9;
-	      raster_data=NULL;
-	    }
+	    memset(bit_sequence,'.',16);
+	  } else if (!strncmp("11111100",bit_sequence,8)) {
+	    // New frame
+	    if (debug&1) printf("New frame (y got to %d)\n",y);
+	    y=-1; x=0;
+	    memset(bit_sequence,'.',8);
+	    updateFrameBuffer(rfbScreen);	    
+	  } else if (!strncmp("11111101",bit_sequence,8)) {
+	    // Reserved -- this is an error for now
+	    if (debug&0x100) printf("Reserved token.\n");
+	    memset(bit_sequence,'.',8);
+	  } else if (!strncmp("1100",bit_sequence,4)) {
+	    // Colour 2
+	    x++;
+	    if (debug&4) printf("Colour 2\n");
+	    int t=colour2; colour2=colour1; colour1=colour0; colour0=t;
+	    setPixel(rfbScreen,x,y,colour0);
+	    memset(bit_sequence,'.',4);
+	  } else if (!strncmp("1101",bit_sequence,4)) {
+	    // Colour 3
+	    x++;
+	    int t=colour3; colour3=colour2; colour2=colour1; colour1=colour0; colour0=t;
+	    setPixel(rfbScreen,x,y,colour0);
+	    if (debug&4) printf("Colour 3\n");
+	    memset(bit_sequence,'.',4);
+	  } else if (!strncmp("1110",bit_sequence,4)) {
+	    // Colour 4
+	    x++;
+	    int t=colour4; colour4=colour3; colour3=colour2; colour2=colour1; colour1=colour0; colour0=t;
+	    setPixel(rfbScreen,x,y,colour0);
+	    if (debug&4) printf("Colour 4\n");
+	    memset(bit_sequence,'.',4);
+	  } else if (!strncmp("10",bit_sequence,2)) {
+	    // Colour 1
+	    x++;
+	    int t=colour1; colour1=colour0; colour0=t;
+	    setPixel(rfbScreen,x,y,colour0);
+	    if (debug&4) printf("Previous colour\n");
+	    memset(bit_sequence,'.',2);
+	  } else if (!strncmp("0",bit_sequence,1)) {
+	    // Repeat last colour
+	    x++;
+	    if (debug&4) printf("Same colour\n");
+	    memset(bit_sequence,'.',1);
 	  }
 	}
-      }      
-    }
-
+      }
+    }      
+  }
+  
   free(rfbScreen->frameBuffer);
   rfbScreenCleanup(rfbScreen);
 
