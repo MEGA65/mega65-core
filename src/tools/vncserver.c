@@ -416,7 +416,8 @@ int setPixel(rfbScreenInfoPtr screen,int x,int y,uint32_t v)
 
 int main(int argc,char** argv)
 {
-  int do_dummy=0;
+  int do_dummy=1;
+  int debug=0; //0x21b;
 
   if (!do_dummy) {
     if (argc>1) openSerialPort(argv[1]);
@@ -501,8 +502,6 @@ int main(int argc,char** argv)
       int offset=0x56;
       int bn=0;
 
-      int debug=0; // 0x21b;
-
       int counter=0;
       
       // Process all bits in packet
@@ -524,13 +523,12 @@ int main(int argc,char** argv)
 	    // Explcit colour (12 bits)
 	    int s=bit_sequence[17]; bit_sequence[17]=0;
 	    int c=strtol(&bit_sequence[5],NULL,2);
-	    colour4=colour3; colour3=colour2; colour1=colour0;
+	    colour4=colour3; colour3=colour2; colour2=colour1; colour1=colour0;
 	    colour0=((c&0xf)<<4)|((c&0xf0)<<8)|((c&0xf00)<<12);
-	    if (debug&0x10) printf("Saw new colour #%06x at x=%d\n",colour0,x);
+	    if (debug&0x810) printf("Saw new colour #%06x at x=%d\n",colour0,x);
 	    bit_sequence[17]=s;
 	    memset(bit_sequence,'.',17);
-	    setPixel(rfbScreen,x,y,colour0);
-	    x++;
+	    setPixel(rfbScreen,x++,y,colour0);
 	  } else if (!strncmp("111110",bit_sequence,6)) {
 	    // Indicate raster (10 bits)
 	    int s=bit_sequence[16]; bit_sequence[16]=0;
@@ -563,30 +561,26 @@ int main(int argc,char** argv)
 	    memset(bit_sequence,'.',8);
 	  } else if (!strncmp("1100",bit_sequence,4)) {
 	    // Colour 2
-	    x++;
-	    if (debug&4) printf("Colour 2\n");
 	    int t=colour2; colour2=colour1; colour1=colour0; colour0=t;
-	    setPixel(rfbScreen,x,y,colour0);
+	    if (debug&4) printf("Colour 2 @ x=%d (colour=#%06x)\n",x,colour0);
+	    setPixel(rfbScreen,x++,y,colour0);
 	    memset(bit_sequence,'.',4);
 	  } else if (!strncmp("1101",bit_sequence,4)) {
 	    // Colour 3
-	    x++;
 	    int t=colour3; colour3=colour2; colour2=colour1; colour1=colour0; colour0=t;
-	    setPixel(rfbScreen,x,y,colour0);
+	    setPixel(rfbScreen,x++,y,colour0);
 	    if (debug&4) printf("Colour 3\n");
 	    memset(bit_sequence,'.',4);
 	  } else if (!strncmp("1110",bit_sequence,4)) {
 	    // Colour 4
-	    x++;
 	    int t=colour4; colour4=colour3; colour3=colour2; colour2=colour1; colour1=colour0; colour0=t;
-	    setPixel(rfbScreen,x,y,colour0);
+	    setPixel(rfbScreen,x++,y,colour0);
 	    if (debug&4) printf("Colour 4\n");
 	    memset(bit_sequence,'.',4);
 	  } else if (!strncmp("10",bit_sequence,2)) {
 	    // Colour 1
-	    x++;
 	    int t=colour1; colour1=colour0; colour0=t;
-	    setPixel(rfbScreen,x,y,colour0);
+	    setPixel(rfbScreen,x++,y,colour0);
 	    if (debug&4) printf("Previous colour\n");
 	    memset(bit_sequence,'.',2);
 	  } else if (!strncmp("0",bit_sequence,1)) {
@@ -595,6 +589,9 @@ int main(int argc,char** argv)
 	    setPixel(rfbScreen,x++,y,colour0);
 	    memset(bit_sequence,'.',1);
 	  }
+	  if (debug&0x800)
+	    printf("Colours = #%06x, #%06x, #%06x, #%06x, #%06x\n",
+		   colour0,colour1,colour2,colour3,colour4);
 	}
       }
     }      
