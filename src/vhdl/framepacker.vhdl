@@ -71,9 +71,12 @@ entity framepacker is
 
     -- Signals for ethernet controller
     buffer_moby_toggle : out std_logic := '0';
+    buffer_offset : out unsigned(11 downto 0);
     buffer_address : in unsigned(11 downto 0);
     buffer_rdata : out unsigned(7 downto 0);    
-    
+
+    debug_vector : out unsigned(31 downto 0);
+  
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at CPU clock).
     ---------------------------------------------------------------------------
@@ -100,7 +103,7 @@ architecture behavioural of framepacker is
       );
   END component;
 
-  signal output_address : unsigned(11 downto 0) := (others => '0');
+  signal output_address : unsigned(11 downto 0) := to_unsigned(0,12);
   signal output_data : unsigned(7 downto 0);
   signal output_write : std_logic := '0';
 
@@ -225,6 +228,7 @@ begin  -- behavioural
       -- Ethernet controller autonomously sends the contents of the other half
       -- whenever we switch halves.
       buffer_moby_toggle <= output_address(11);
+      buffer_offset <= output_address;
       
       -- Work out address to write pixel to in thumbnail buffer.
       -- 80x50 pixels = 4,000 bytes.
@@ -382,7 +386,7 @@ begin  -- behavioural
         report "Appending " & integer'image(bits_appended) & " bits = %" & to_string(new_bits(31 downto (32-bits_appended)));
         if bits_appended=1 then
           -- It's the same colour as the last pixel, so collect RLE token
-          if rle_count < 255 then
+          if rle_count /= 255 then
             rle_count <= rle_count + 1;
             -- Nothing to emit from this token, so just keep flushing out
             -- any pending bits.
@@ -544,6 +548,7 @@ begin  -- behavioural
                   bit_queue_len <= (bit_queue_len + rle_count);
                   bit_queue(31 - bit_queue_len downto 0) <= (others => '0');
                 end if;
+                rle_count <= 0;
               end if;              
             end if;                        
           else
@@ -571,10 +576,19 @@ begin  -- behavioural
         end if;                                       
       end if;
 
+      debug_vector(5 downto 0) <= to_unsigned(bit_queue_len,6);
+      debug_vector(6) <= next_byte_valid;
+      debug_vector(7) <= output_write;      
+      debug_vector(13 downto 8) <= to_unsigned(bits_appended,6);
+      debug_vector(14) <= output_address(11);
+      debug_vector(15) <= pixel_valid;
+      debug_vector(23 downto 16) <= output_address(7 downto 0);
+      debug_vector(31 downto 24) <= to_unsigned(rle_count,8);
+
       if next_byte_valid = '1' then
         -- XXX Need to detect when we get close to full, so that we can
         -- consciously flip buffer halves, and reset the move to front coder.
-        if output_address(11 downto 0) /= "11111111111" then
+        if to_integer(output_address) /= 4095 then
           output_address <= output_address + 1;
         else
           output_address <= to_unsigned(0,12);
