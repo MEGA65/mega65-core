@@ -330,8 +330,10 @@ architecture behavioral of iomapper is
   signal spare_bits : unsigned(4 downto 0);
 
   signal buffer_moby_toggle : std_logic;
+  signal buffer_offset : unsigned(11 downto 0);
   signal buffer_address : unsigned(11 downto 0);
   signal buffer_rdata : unsigned(7 downto 0);
+  signal debug_vector : unsigned(31 downto 0);
 
   signal eth_keycode_toggle : std_logic;
   signal eth_keycode : unsigned(15 downto 0);
@@ -426,8 +428,10 @@ begin
     pixel_newraster => pixel_newraster,
 
     buffer_moby_toggle => buffer_moby_toggle,
+    buffer_offset => buffer_offset,
     buffer_address => buffer_address,
     buffer_rdata => buffer_rdata,
+    debug_vector => debug_vector,
 
     fastio_addr => unsigned(address(19 downto 0)),
     fastio_write => w,
@@ -749,9 +753,11 @@ begin
     eth_interrupt => eth_interrupt,
 
     buffer_moby_toggle => buffer_moby_toggle,
+    buffer_offset => buffer_offset,
     buffer_address => buffer_address,
     buffer_rdata => buffer_rdata,
-
+    debug_vector => debug_vector,
+    
     eth_keycode_toggle => eth_keycode_toggle,
     eth_keycode => eth_keycode,
 
