@@ -521,7 +521,7 @@ int main(int argc,char** argv)
 	if (debug&0x200) printf("> 0x%02x\n",packet[offset]);
 	for(bn=7;bn>=0;bn--) {
 	  counter++;
-	  
+
 	  int bit=(packet[offset]>>bn)&1;
 	  // Shuffle bits down
 	  bcopy(&bit_sequence[1],&bit_sequence[0],19);
@@ -572,12 +572,13 @@ int main(int argc,char** argv)
 	    int s=bit_sequence[16]; bit_sequence[16]=0;
 	    int r=strtol(&bit_sequence[8],NULL,2);
 	    bit_sequence[16]=s;
-	    if (debug&8) printf("Run of %d\n",r);
+	    if (debug&8) printf("Run of %d at %d,%d\n",r,x,y);
 	    if (x!=-1)
 	      for(;r&&(x<800);r--) {
 		setPixel(rfbScreen,x++,y,colour0);
 	      }
 	    memset(bit_sequence,'.',16);
+	    if (debug&8) printf("After run, x=%d\n",x);
 	  } else if (!strncmp("11111100",bit_sequence,8)) {
 	    // New frame
 	    if (debug&1) printf("New frame (y got to %d)\n",y);
@@ -603,28 +604,31 @@ int main(int argc,char** argv)
 	  } else if (!strncmp("1101",bit_sequence,4)) {
 	    // Colour 3
 	    int t=colour3; colour3=colour2; colour2=colour1; colour1=colour0; colour0=t;
-	    if (x!=-1) setPixel(rfbScreen,x++,y,colour0);
 	    if (debug&4) printf("Colour 3\n");
+	    if (x!=-1) setPixel(rfbScreen,x++,y,colour0);
 	    memset(bit_sequence,'.',4);
 	  } else if (!strncmp("1110",bit_sequence,4)) {
 	    // Colour 4
 	    int t=colour4; colour4=colour3; colour3=colour2; colour2=colour1; colour1=colour0; colour0=t;
+	    if (debug&4) printf("Colour 4 @ %d,%d\n",x,y);
 	    if (x!=-1) setPixel(rfbScreen,x++,y,colour0);
-	    if (debug&4) printf("Colour 4\n");
 	    memset(bit_sequence,'.',4);
 	  } else if (!strncmp("10",bit_sequence,2)) {
 	    // Colour 1
 	    int t=colour1; colour1=colour0; colour0=t;
+	    if (debug&4)
+	      printf("Previous colour @ %d,%d\n",x,y);
 	    if (x!=-1) setPixel(rfbScreen,x++,y,colour0);
-	    if (debug&4) printf("Previous colour\n");
+	    //	    if (debug&4)
 	    memset(bit_sequence,'.',2);
 	  } else if (!strncmp("0",bit_sequence,1)) {
 	    // Repeat last colour
-	    if (debug&4) printf("Same colour\n");
+	    if (debug&4) printf("Same colour at %d,%d\n",x,y);
 	    if (x!=-1) setPixel(rfbScreen,x++,y,colour0);
 	    memset(bit_sequence,'.',1);
 	  }
-	  if (debug&0x800)
+	  //	  if (debug&0x800)
+	  if (0)
 	    printf("Colours = #%06x, #%06x, #%06x, #%06x, #%06x\n",
 		   colour0,colour1,colour2,colour3,colour4);
 	}
