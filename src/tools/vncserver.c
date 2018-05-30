@@ -426,7 +426,7 @@ int main(int argc,char** argv)
   rfbScreenInfoPtr rfbScreen = rfbGetScreen(&argc,argv,maxx,maxy,8,3,bpp);
   if(!rfbScreen)
     return 0;
-  rfbScreen->desktopName = "C65GS Remote Display";
+  rfbScreen->desktopName = "MEGA65 Remote Display";
   rfbScreen->frameBuffer = (char*)malloc(maxx*maxy*bpp);
   rfbScreen->alwaysShared = TRUE;
   rfbScreen->kbdAddEvent = dokey;
