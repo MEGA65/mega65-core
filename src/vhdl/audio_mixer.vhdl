@@ -21,6 +21,7 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use STD.textio.all;
 use work.debugtools.all;
+use work.cputypes.all;
 
 entity audio_mixer is
   port (    
@@ -54,19 +55,27 @@ architecture elizabethan of audio_mixer is
   signal ram_rdata : unsigned(31 downto 0) := to_unsigned(0,32);
   signal ram_we : std_logic := '0';
 
+  signal set_output : std_logic := '0';
+  signal output_channel : integer range 0 to 15 := 0;
+  
+  signal mixed_value : integer := 0;
+
+  signal dummy : unsigned(15 downto 0) := x"0000";
+  
 begin
 
   coefmem0: entity work.ram32x1024_sync
     port map (
-      clk => clock,
+      clk => clock50mhz,
 
-      cs => '1'
+      cs => '1',
       address => ram_raddr,
       rdata => ram_rdata,
 
       w => ram_we,
-      write_address => ram_waddr
-      wdata => wdata
+      write_address => ram_waddr,
+      wdata(31 downto 16) => wdata,
+      wdata(15 downto 0) => dummy
       );
   
   process (clock50mhz) is
@@ -98,7 +107,7 @@ begin
           -- Add this input using the read coefficient
           mixed_value <= mixed_value + to_integer(ram_rdata(31 downto 16)) * to_integer(srcs(0));
           -- Request next mix coefficient
-          ram_addr <= state + output_offset;
+          ram_raddr <= state + output_offset;
           
         when 16 =>
           -- Apply master volume
@@ -116,7 +125,7 @@ begin
           end if;
 
           -- While we are idle, read any requested coefficient
-          ram_addr <= to_integer(req_num(7 downto 1));
+          ram_raddr <= to_integer(reg_num(7 downto 1));
           
         when others =>
           null;
