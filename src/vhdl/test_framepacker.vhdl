@@ -52,24 +52,26 @@ begin
   process is
   begin
     x_counter <= x_counter + 1;
-    if x_counter < 60 then
+    if x_counter < 53 then
+      red <= x"80";
+      green <= x"80";
+      blue <= x"FF";
+    elsif x_counter < 308 then
+      red <= x"00";
+      green <= x"00";
+      blue <= x"ff";
+    elsif (x_counter < 324) and pixel_y(0)='0' then
+      red <= x"80";
+      green <= x"80";
+      blue <= x"ff";
+    elsif x_counter < 690 then
       red <= x"00";
       green <= x"00";
       blue <= x"FF";
-    elsif x_counter < 700 then
-      if ( ( x_counter/16) rem 2 ) = 0 then
-        red <= x"ff";
-        green <= x"00";
-        blue <= x"ff";
-      else
-        red <= x"00";
-        green <= x"ff";
-        blue <= x"00";
-      end if;
     else
-      red <= x"00";
-      green <= x"00";
-      blue <= x"FF";      
+      red <= x"80";
+      green <= x"80";
+      blue <= x"ff";
     end if;
     if x_counter = 799 then
       x_counter <= 0;
