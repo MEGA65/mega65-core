@@ -135,6 +135,12 @@ architecture behavioural of framepacker is
   signal colour2 : std_logic_vector(11 downto 0) := (others => '0');
   signal colour3 : std_logic_vector(11 downto 0) := (others => '0');
   signal colour4 : std_logic_vector(11 downto 0) := (others => '0');
+
+  -- For delaying pixel valid to make it match the video pipeline exactly
+  -- 1 cycle seems to be enough
+  signal pixel_valid_tap : integer := 0; -- 0 = 1 cycle delay, 15 = 16 cycle delay
+  signal pixel_valid_history : std_logic_vector(15 downto 0) := (others => '0');
+  signal pixel_valid_out : std_logic := '0';
   
 begin  -- behavioural
 
@@ -198,7 +204,7 @@ begin  -- behavioural
     end if;
     
     if rising_edge(ioclock) then
-
+      
       -- Logic to control port address for thumbnail buffer
       if (fastio_read='1') and (thumbnail_cs='1') then
         if fastio_addr(3 downto 0) = x"1" then
@@ -211,7 +217,8 @@ begin  -- behavioural
         end if;       
       else
         last_access_is_thumbnail <= '0';
-      end if;             
+      end if;
+
     end if;
   end process;
 
@@ -224,6 +231,11 @@ begin  -- behavioural
   begin
     if rising_edge(pixelclock) then
 
+      -- Get pixel valid signal delayed by correct number of clock ticks
+      pixel_valid_history(0) <= pixel_valid;
+      pixel_valid_history(15 downto 1) <= pixel_valid_history(14 downto 0);
+      pixel_valid_out <= pixel_valid_history(pixel_valid_tap);
+      
       -- Tell ethernet controller which half of the buffer we are writing to.
       -- Ethernet controller autonomously sends the contents of the other half
       -- whenever we switch halves.
@@ -260,7 +272,7 @@ begin  -- behavioural
       if pixel_newraster='1' then
         x_counter <= 0;
       end if;
-      if pixel_valid = '1' then
+      if pixel_valid_out = '1' then
         if pixel_newraster='1' then
           x_counter <= 0;
         else
@@ -316,7 +328,7 @@ begin  -- behavioural
         colour4 <= x"BBB";
         -- And of course reset the RLE count
         rle_count <= 0;
-      elsif pixel_valid='1' then
+      elsif pixel_valid_out='1' then
         -- Work out how to encode this pixel
         -- If the same as the last, then accumulate RLE, and output RLE
         -- token if RLE run is full.
@@ -660,7 +672,7 @@ begin  -- behavioural
       debug_vector(7) <= output_write;      
       debug_vector(13 downto 8) <= to_unsigned(bits_appended,6);
       debug_vector(14) <= output_address(11);
-      debug_vector(15) <= pixel_valid;
+      debug_vector(15) <= pixel_valid_out;
       debug_vector(23 downto 16) <= output_address(7 downto 0);
       debug_vector(31 downto 24) <= to_unsigned(rle_count,8);
 
