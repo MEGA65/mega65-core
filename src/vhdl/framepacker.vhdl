@@ -455,8 +455,8 @@ begin  -- behavioural
             end case;
             bit_queue_len <= bit_queue_len + 8;
 
-            report "Appending 16 bit RLE token %1111111011111111";
-            rle_count <= 0;
+            report "Appending 16 bit RLE token %1111111011111111 (count=255)";
+            rle_count <= 1;
           end if;
         else
           -- Some other token.
@@ -619,7 +619,8 @@ begin  -- behavioural
             -- managing that.
 
             report "This RLE is long enough to commit as a run. " & integer'image(bit_queue_len) & " bits waiting for flush.";
-            report "Appending 16 bit RLE token %11111110"&to_string(std_logic_vector(to_unsigned(rle_count,8)));
+            report "Appending 16 bit RLE token %11111110"&to_string(std_logic_vector(to_unsigned(rle_count,8)))
+              & " (count=" & integer'image(rle_count) & ")";
             
             -- Mark the new token as still needing processing
             report "HOLDING bit sequence while flushing RLE";
