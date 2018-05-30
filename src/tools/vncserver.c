@@ -414,6 +414,17 @@ int setPixel(rfbScreenInfoPtr screen,int x,int y,uint32_t v)
   return 0;
 }
 
+int dump_bytes(char *msg,unsigned char *bytes,int length)
+{
+  fprintf(stdout,"%s:\n",msg);
+  for(int i=0;i<length;i+=16) {
+    fprintf(stdout,"%04X: ",i);
+    for(int j=0;j<16;j++) if (i+j<length) fprintf(stdout," %02X",bytes[i+j]);
+    fprintf(stdout,"\n");
+  }
+  return 0;
+}
+
 int main(int argc,char** argv)
 {
   int do_dummy=0;
@@ -486,19 +497,15 @@ int main(int argc,char** argv)
     if (len > 2100) {
       // probably a C65GS compressed video frame.
       // printf("."); fflush(stdout);
+
+      if (debug&2) printf("--------------- Packet.\n");
       
       // Packet consists solely of bit-packed data
-      
-      // Each should consist of 13 blocks of
-      //   raster_number (16 bits)
-      //   audio left (8 bits)
-      //   audio right (8 bits)
-      //   CRC32 of raster (32 bits)
-      //   dummy byte (8 bits)
-      
-      // One of these should have the MSB set in the raster number 
-      // to indicate that a raw raster follows.
-      
+
+      // Erase any banked up bits before starting decode of next packet
+      memset(bit_sequence,'.',20);
+
+      // Start from beginning of data
       int offset=0x56;
       int bn=0;
 
@@ -541,9 +548,9 @@ int main(int argc,char** argv)
 	  } else if (!strncmp("111110",bit_sequence,6)) {
 	    // Indicate raster (10 bits)
 	    int s=bit_sequence[16]; bit_sequence[16]=0;
-	    for(;x<maxx;x++) setPixel(rfbScreen,x,y,colour0);	    
+	    if (x!=-1) for(;x<maxx;x++) setPixel(rfbScreen,x,y,colour0);	    
 	    y=strtol(&bit_sequence[6],NULL,2);
-	    if (lasty==-1) lasty=y; else {
+	    if (lasty==-1) { lasty=y; y=-1; } else {
 	      if (y!=(1+lasty)) {
 		// Non successive raster linese, block drawing
 		lasty=y;
@@ -566,15 +573,16 @@ int main(int argc,char** argv)
 	    int r=strtol(&bit_sequence[8],NULL,2);
 	    bit_sequence[16]=s;
 	    if (debug&8) printf("Run of %d\n",r);
-	    for(;r&&(x<800);r--) {
-	      setPixel(rfbScreen,x++,y,colour0);
-	    }
+	    if (x!=-1)
+	      for(;r&&(x<800);r--) {
+		setPixel(rfbScreen,x++,y,colour0);
+	      }
 	    memset(bit_sequence,'.',16);
 	  } else if (!strncmp("11111100",bit_sequence,8)) {
 	    // New frame
 	    if (debug&1) printf("New frame (y got to %d)\n",y);
-	    for(;x<maxx;x++) setPixel(rfbScreen,x,y,colour0);	    
-	    y=-1; x=0;
+	    if (x!=-1) for(;x<maxx;x++) setPixel(rfbScreen,x,y,colour0);	    
+	    y=-1; x=-1;
 	    memset(bit_sequence,'.',8);
 	    colour0=0x000000;
 	    colour1=0xf0f0f0;
@@ -590,30 +598,30 @@ int main(int argc,char** argv)
 	    // Colour 2
 	    int t=colour2; colour2=colour1; colour1=colour0; colour0=t;
 	    if (debug&4) printf("Colour 2 @ x=%d (colour=#%06x)\n",x,colour0);
-	    setPixel(rfbScreen,x++,y,colour0);
+	    if (x!=-1) setPixel(rfbScreen,x++,y,colour0);
 	    memset(bit_sequence,'.',4);
 	  } else if (!strncmp("1101",bit_sequence,4)) {
 	    // Colour 3
 	    int t=colour3; colour3=colour2; colour2=colour1; colour1=colour0; colour0=t;
-	    setPixel(rfbScreen,x++,y,colour0);
+	    if (x!=-1) setPixel(rfbScreen,x++,y,colour0);
 	    if (debug&4) printf("Colour 3\n");
 	    memset(bit_sequence,'.',4);
 	  } else if (!strncmp("1110",bit_sequence,4)) {
 	    // Colour 4
 	    int t=colour4; colour4=colour3; colour3=colour2; colour2=colour1; colour1=colour0; colour0=t;
-	    setPixel(rfbScreen,x++,y,colour0);
+	    if (x!=-1) setPixel(rfbScreen,x++,y,colour0);
 	    if (debug&4) printf("Colour 4\n");
 	    memset(bit_sequence,'.',4);
 	  } else if (!strncmp("10",bit_sequence,2)) {
 	    // Colour 1
 	    int t=colour1; colour1=colour0; colour0=t;
-	    setPixel(rfbScreen,x++,y,colour0);
+	    if (x!=-1) setPixel(rfbScreen,x++,y,colour0);
 	    if (debug&4) printf("Previous colour\n");
 	    memset(bit_sequence,'.',2);
 	  } else if (!strncmp("0",bit_sequence,1)) {
 	    // Repeat last colour
 	    if (debug&4) printf("Same colour\n");
-	    setPixel(rfbScreen,x++,y,colour0);
+	    if (x!=-1) setPixel(rfbScreen,x++,y,colour0);
 	    memset(bit_sequence,'.',1);
 	  }
 	  if (debug&0x800)
