@@ -83,6 +83,7 @@ void usage(void)
   fprintf(stderr,"  -t - Type text via keyboard virtualisation.\n");
   fprintf(stderr,"  -T - As above, but also provide carriage return\n");
   fprintf(stderr,"  -B - Set a breakpoint on synchronising, and then immediately exit.\n");
+  fprintf(stderr,"  -E - Enable streaming of video via ethernet.\n");
   fprintf(stderr,"  -f - Specify which FPGA to reconfigure when calling fpgajtag\n");
   fprintf(stderr,"  filename - Load and run this file in C64 mode before exiting.\n");
   fprintf(stderr,"\n");
@@ -114,6 +115,7 @@ int name_len,name_lo,name_hi,name_addr=-1;
 int do_go64=0;
 int do_run=0;
 int comma_eight_comma_one=0;
+int ethernet_video=0;
 int virtual_f011=0;
 int virtual_f011_pending=0;
 char *d81file=NULL;
@@ -332,6 +334,10 @@ int process_line(char *line,int live)
 	usleep(50000);
 	slow_write(fd,"t0\r",3); // and set CPU going
 	usleep(20000);
+	if (ethernet_video) {
+	  slow_write(fd,"sffd36e1 29\r",12); // turn on video streaming over ethernet
+	  usleep(20000);
+	}
 	printf("Synchronised with monitor.\n");
 
 	if (break_point!=-1) {
@@ -1146,9 +1152,10 @@ int main(int argc,char **argv)
   start_time=time(0);
   
   int opt;
-  while ((opt = getopt(argc, argv, "14l:s:B:b:c:f:k:rR:C:m:Mod:t:T:")) != -1) {
+  while ((opt = getopt(argc, argv, "14B:b:c:C:dEf:k:l:m:MorR:s::t:T:")) != -1) {
     switch (opt) {
     case 'B': sscanf(optarg,"%x",&break_point); break;
+    case 'E': ethernet_video=1; break;
     case 'R': romfile=strdup(optarg); break;
     case 'C': charromfile=strdup(optarg); break;
     case 'c': colourramfile=strdup(optarg); break;
