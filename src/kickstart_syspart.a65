@@ -176,22 +176,22 @@ splf1:
 	; Set multiplicant inputs to multiplier
 	ldx #$03
 splf4:	lda syspart_freeze_slot_size_in_bytes,x
-	sta $d770,x
+	sta mult48_d0,x
 	dex
 	bpl splf4
 
 	plx
-	stx $d774
+	stx mult48_e0
 	ply
-	sty $d775
+	sty mult48_e1
 	lda #$00
-	sta $d776
-	sta $d777
+	sta mult48_e2
+	sta mult48_e3
 
 	; Read out answer, and add it to slot 0 address
 	ldx #3
 	clc
-splf3:	lda $d778,x
+splf3:	lda mult48_result0,x
 	adc $d681,x
 	sta $d681,x
 	dex
@@ -273,21 +273,21 @@ syspart_configsector_apply:
 
 	; Set audio options
 	lda $de03
-	sta $d6f9
+	sta audioamp_ctl
 
 	; Set F011 to use 3.5" drive or disk images
 	lda $de04
-	sta $d6a1
+	sta sd_fdc_select
 
 	; Enable/disable Amiga mouse support (emulates 1351 mouse)
 	lda $de05
-	sta $d61b
+	sta mouse_detect_ctrl
 
 	; Copy MAC address
 	LDX    #$05
 maccopy:
 	LDA    $DE06, X
-	STA    $D6E9, X
+	STA    mac_addr_0, X
 	DEX
 	BPL    maccopy
 	

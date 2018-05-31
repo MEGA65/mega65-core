@@ -1,6 +1,6 @@
 peekkeyboard:
 	; We now use hardware-accelerated keyboard reading
-	lda $d610
+	lda ascii_key_in
 	cmp #$00
 	beq nokey
 	clc
@@ -11,5 +11,5 @@ nokey:	; no key currently down, so set carry and return
 
 scankeyboard:
 	jsr peekkeyboard
-	sta $d610 ; clear key from buffer
+	sta ascii_key_in ; clear key from buffer
 	rts

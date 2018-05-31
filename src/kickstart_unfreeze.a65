@@ -1,0 +1,12 @@
+;	Un-freeze routines.
+; 	These routines reverse the process of freezing a task.
+;	Un-freezing has some special challenges, because we have to
+; 	restore the state exactly, including that of the SD card
+;	interface.  In practice this means that we need to do a little
+;	bit of post-loading tweaking, in addition to simply loading the
+;	previously frozen regions.
+;	Obviously for compatibility with the freeze process, we need to
+;	match the order of actions with that.
+
+; XXX - Copy sector buffer and SD and DMAgic regs to spare space in 4KB SD sector buffer BRAM first,
+; then just need that stash and unstash routine, and the rest can remain completely orthoganal.

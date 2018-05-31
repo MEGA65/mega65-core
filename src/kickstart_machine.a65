@@ -3,7 +3,13 @@
 	.alias irq_vector $fffe
 	.alias nmi_vector $fffa
 
+	; UART IO block (contains many other peripherals)
+	.alias uart65_irq_flag $d606
+	.alias ascii_key_in $d610
+	.alias buckykey_status $d611
+	.alias mouse_detect_ctrl $d61b	
 
+	; Hypervisor regisger block $d640-$d67f
 	.alias hypervisor_a $d640
 	.alias hypervisor_x $d641
 	.alias hypervisor_y $d642
@@ -82,12 +88,27 @@
 
 	; Where sector buffer maps (over $DE00-$DFFF IO expansion space)
 	.alias sd_sectorbuffer $DE00
+	.alias sd_ctrl $d680
 	.alias sd_address_byte0 $D681
 	.alias sd_address_byte1 $D682
 	.alias sd_address_byte2 $D683
 	.alias sd_address_byte3 $D684
+	.alias sd_buffer_ctrl $d689
+	.alias sd_f011_en $d68b
+	.alias sd_fdc_select $d6a1
+	.alias fdc_mfm_speed $d6a2
+	.alias f011_flag_stomp  $d6af
 
-	.alias fpga_switches_low $d6ec
-	.alias fpga_switches_high $d6ed
+	.alias fpga_switches_low $d6dc
+	.alias fpga_switches_high $d6dd
+	.alias mac_addr_0 $d6e9
+	.alias mac_addr_1 $d6ea
+	.alias mac_addr_2 $d6eb
+	.alias mac_addr_3 $d6ec
+	.alias mac_addr_4 $d6ed
+	.alias mac_addr_5 $d6ee
+	.alias audiomix_addr $d6f4
+	.alias audiomix_data $d6f5
+	.alias audioamp_ctl $d6fe
 
 	.alias viciv_magic $d02f

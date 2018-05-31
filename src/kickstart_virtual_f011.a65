@@ -22,7 +22,7 @@ fvr_same_as_last_time:
 	; Set floppy flags as appropriate to look like FDC has just successfully read a
 	; sector
 	LDA   #$35
-	STA   $D6AF
+	STA   f011_flag_stomp
 
         sta hypervisor_enterexit_trigger
 
@@ -46,7 +46,7 @@ fvw1:
         bne fvw1
  
         lda #$16
-        sta $d6af
+        sta f011_flag_stomp
  
  	; return from hypervisor
  	;
