@@ -537,7 +537,7 @@ aml1:
 		lda $1234
 		lda $1234
 		; update coefficient
-		lda #$7E   ; loud enough, and with the bit clear that allows the audio amplifier to turn on in reg $FE
+		lda #$0F   ; loud enough, and with the bit clear that allows the audio amplifier to turn on in reg $FE
 		sta audiomix_data
 		; wait for it to be committed
 		lda audiomix_data

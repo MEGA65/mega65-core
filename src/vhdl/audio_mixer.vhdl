@@ -116,6 +116,7 @@ begin
           srcs <= sources;
           -- Reset output value
           mixed_value <= 0;
+          report "Zeroing mixed_value";
           -- Request second mix coefficient (first was already scheduled last cycle)
           -- (this is to handle the wait state on read).
           ram_raddr <= 1 + output_offset;
@@ -127,8 +128,11 @@ begin
           -- Add this input using the read coefficient
           report "For output "
             & integer'image(output_num)
-            & "Adding input " & integer'image(state-1) & " via coefficient $" & to_hstring(ram_rdata(31 downto 16));
-          mixed_value <= mixed_value + to_integer(ram_rdata(31 downto 16)) * to_integer(srcs(0));
+            & ": adding input " & integer'image(state-1)
+            & " (= $" & to_hstring(srcs(state - 1)) & ")"
+            & " via coefficient $" & to_hstring(ram_rdata(31 downto 16))
+            & " to current sum = $" & to_hstring(to_unsigned(mixed_value,32));
+          mixed_value <= mixed_value + to_integer(ram_rdata(31 downto 16)) * to_integer(srcs(state - 1));
           -- Request next mix coefficient
           if state /= 15 then
             ram_raddr <= state + output_offset + 1;
@@ -142,8 +146,7 @@ begin
           -- Apply master volume
           report "For output "
             & integer'image(output_num)
-            & "applying master volume coefficient $" & to_hstring(ram_rdata(31 downto 16));
-          mixed_value <= mixed_value + to_integer(ram_rdata(31 downto 16)) * to_integer(srcs(0));
+            & " applying master volume coefficient $" & to_hstring(ram_rdata(31 downto 16));
           mixed_value <= to_integer(to_unsigned(mixed_value,32)(31 downto 16)) * to_integer(ram_rdata(31 downto 16));
           set_output <= '1';
           output_channel <= output_num;
