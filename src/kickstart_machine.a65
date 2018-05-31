@@ -101,14 +101,36 @@
 
 	.alias fpga_switches_low $d6dc
 	.alias fpga_switches_high $d6dd
+
+	; $D6Ex - Ethernet controller
 	.alias mac_addr_0 $d6e9
 	.alias mac_addr_1 $d6ea
 	.alias mac_addr_2 $d6eb
 	.alias mac_addr_3 $d6ec
 	.alias mac_addr_4 $d6ed
 	.alias mac_addr_5 $d6ee
+
+	; $D6Fx - mostly audio interfaces
 	.alias audiomix_addr $d6f4
 	.alias audiomix_data $d6f5
 	.alias audioamp_ctl $d6fe
+
+	; Hardware 25(d) x 18(e) multiplier
+	.alias mult48_d0 $d770
+	.alias mult48_d1 $d771
+	.alias mult48_d2 $d772
+	.alias mult48_d3 $d773
+	.alias mult48_e0 $d774
+	.alias mult48_e1 $d775
+	.alias mult48_e2 $d776
+	.alias mult48_e3 $d777
+	.alias mult48_result0 $d778
+	.alias mult48_result1 $d779
+	.alias mult48_result2 $d77a
+	.alias mult48_result3 $d77b
+	.alias mult48_result4 $d77c
+	.alias mult48_result5 $d77d
+	.alias mult48_result6 $d77e
+	.alias mult48_result7 $d77f
 
 	.alias viciv_magic $d02f
