@@ -527,7 +527,6 @@ reset_entry:
 
 		; Reset audio mixer coefficients to something sensible
 		ldx #$00
-		lda #$7F
 aml1:
 		STX audiomix_addr
 		; wait 17 cycles before reading (16 + start of read instruction)
@@ -538,6 +537,7 @@ aml1:
 		lda $1234
 		lda $1234
 		; update coefficient
+		lda #$7E   ; loud enough, and with the bit clear that allows the audio amplifier to turn on in reg $FE
 		sta audiomix_data
 		; wait for it to be committed
 		lda audiomix_data
@@ -547,22 +547,6 @@ aml1:
 		inx
 		bne aml1
 
-
-		; Read coefficient
-		lda audiomix_data
-		; update coefficient
-		lda #$42
-		sta audiomix_data
-		; read it back
-		lda audiomix_data
-		lda audiomix_data
-		lda audiomix_data
-		lda audiomix_data
-		lda audiomix_data
-		
-		
-		
-		
 
 .macro	buffereduarttest
 		; 115200 bps for both

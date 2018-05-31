@@ -113,6 +113,7 @@ set_property -dict { PACKAGE_PIN H4 IOSTANDARD LVCMOS33 } [get_ports {jdlo[1]}]
 set_property -dict { PACKAGE_PIN H1 IOSTANDARD LVCMOS33 } [get_ports {jdlo[2]}]
 set_property -dict { PACKAGE_PIN G1 IOSTANDARD LVCMOS33 } [get_ports {jdlo[3]}]
 set_property -dict { PACKAGE_PIN G3 IOSTANDARD LVCMOS33 } [get_ports {jdlo[4]}]
+## Modem PCM digital audio interface is 1.8V, so we will need a level converter
 set_property -dict { PACKAGE_PIN H2 IOSTANDARD LVCMOS33 } [get_ports {jdhi[7]}]
 set_property -dict { PACKAGE_PIN G4 IOSTANDARD LVCMOS33 } [get_ports {jdhi[8]}]
 set_property -dict { PACKAGE_PIN G2 IOSTANDARD LVCMOS33 } [get_ports {jdhi[9]}]

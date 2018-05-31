@@ -293,6 +293,7 @@ begin
     wdata => audio_mix_wdata,
     rdata => audio_mix_rdata,
     audio_loopback => audio_loopback,
+    amplifier_enable => ampSD,
 
     -- SID outputs
     sources(0) => leftsid_audio(17 downto 2),

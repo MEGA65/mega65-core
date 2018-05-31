@@ -33,7 +33,8 @@ entity audio_mixer is
     wdata : in unsigned(15 downto 0) := x"FFFF";
     rdata : out unsigned(15 downto 0) := x"FFFF";
     audio_loopback : out unsigned(15 downto 0) := x"FFFF";
-
+    amplifier_enable : out std_logic := '0';
+    
     -- Audio inputs
     sources : in sample_vector_t := (others => x"8000");
     -- Audio outputs
@@ -95,7 +96,11 @@ begin
       if reg_write='1' then
         report "Writing $" & to_hstring(wdata) & " to mixer coefficient $" & to_hstring(reg_num);
         ram_waddr <= to_integer(reg_num(7 downto 1));
-        ram_wdata(31 downto 16) <= wdata;        
+        ram_wdata(31 downto 16) <= wdata;
+        if reg_num = x"FE" then
+          -- Bit 0 of coefficient register $FE controls audio amplifier
+          amplifier_enable <= wdata(0);
+        end if;
         ram_we <= '1';
       else
         ram_we <= '0';

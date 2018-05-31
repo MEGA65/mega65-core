@@ -48,7 +48,7 @@ architecture brutalist of i2s_clock is
   signal pcmclock_counter : integer range 0 to (clockdivider - 1) := 0;
 
   -- How many I2S clock ticks per half sample rate
-  signal sampleratedivider : integer := 1000000/sample_rate;
+  constant sampleratedivider : integer := 1000000/sample_rate;
   signal eightkhz_counter : integer range 0 to (sampleratedivider - 1) := 0;
 
   signal i2s_clk_int : std_logic := '0';

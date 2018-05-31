@@ -440,12 +440,12 @@ begin
       aclInt1 => aclInt1,
       aclInt2 => aclInt2,
       
-      micData => micData,
+      micData0 => micData,
+      micData1 => '0', -- This board has only one microphone
       micClk => micClk,
       micLRSel => micLRSel,
 
-      ampPWM => ampPWM_internal,
-      ampPWM_l => led(13),
+      ampPWM_l => ampPWM_internal,
       ampPWM_r => led(14),
       ampSD => ampSD,
       
@@ -457,6 +457,10 @@ begin
       touchSDA => jdlo(2),
       touchSCL => jdlo(1),
       lcdpwm => jdlo(3),
+      pcm_modem_clk => jdhi(7),
+      pcm_modem_sync => jdhi(8),
+      pcm_modem1_data_in => jdhi(9),
+      pcm_modem1_data_out => jdhi(10),
       
       ps2data =>      ps2data,
       ps2clock =>     ps2clk,

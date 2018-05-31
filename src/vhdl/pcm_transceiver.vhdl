@@ -69,6 +69,7 @@ begin
 
       last_sync <= pcm_sync;
       last_clk <= pcm_clk;
+      report "CLK=" & std_logic'image(pcm_clk) & ", SYNC=" & std_logic'image(pcm_sync);
 
       if pcm_clk='1' and last_clk='0' then
 
@@ -86,11 +87,13 @@ begin
         pcm_out <= txbuffer(15);
         txbuffer(15 downto 1) <= txbuffer(14 downto 0);
         txbuffer(0) <= '0';
+        report "TXing bit " & std_logic'image(txbuffer(15));
 
         -- Check if it is time for a new sample
         if (last_sync /= pcm_sync) then
           -- Time for a new sample
           txbuffer <= std_logic_vector(tx_sample);
+          report "Starting to send new sample with value $" & to_hstring(tx_sample);
           bit_number <= 15;
         end if;
       end if;
