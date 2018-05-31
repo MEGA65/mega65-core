@@ -127,7 +127,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/i2s_clock.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/i2s_transceiver.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/pcm_clock.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/pcm_transceiver.vh"]"\
+ "[file normalize "$origin_dir/src/vhdl/pcm_transceiver.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/touch.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/pdm_to_pcm.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/i2c_master.vhdl"]"\
@@ -530,7 +530,7 @@ set file "vhdl/pcm_clock.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
-set file "vhdl/pcm_transceiver.vh"
+set file "vhdl/pcm_transceiver.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
