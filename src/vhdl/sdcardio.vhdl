@@ -208,8 +208,8 @@ architecture behavioural of sdcardio is
   signal tmpSCLinternal : std_logic := '0';
 
   -- Combined 10-bit left/right audio
-  signal pwm_value_new_left : unsigned(7 downto 0) := x"00";
-  signal pwm_value_new_right : unsigned(7 downto 0) := x"00";
+  signal pwm_value_new_left : unsigned(15 downto 0) := x"0000";
+  signal pwm_value_new_right : unsigned(15 downto 0) := x"0000";
   signal pwm_value_combined : integer range 0 to 65535 := 0;
   signal pwm_value_left : integer range 0 to 65535 := 0;
   signal pwm_value_right : integer range 0 to 65535 := 0;
@@ -735,12 +735,9 @@ begin  -- behavioural
     -- SID outputs
     sources(0) => leftsid_audio(17 downto 2),
     sources(1) => rightsid_audio(17 downto 2),
-    -- Digital audio 8-bit registers
-    -- XXX make 16 bit?
-    sources(2)(15 downto 8) => pwm_value_new_left,
-    sources(2)(7 downto 0) => x"00",
-    sources(3)(15 downto 8) => pwm_value_new_right,
-    sources(3)(7 downto 0) => x"00",
+    -- Digital audio 16-bit registers
+    sources(2) => pwm_value_new_left,
+    sources(3) => pwm_value_new_right,
     -- Two mono I2S
     sources(4) => i2s0_in,
     sources(5) => i2s1_in,
