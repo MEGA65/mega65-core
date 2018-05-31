@@ -83,12 +83,15 @@ begin
     if rising_edge(clock50mhz) then
 
       if reg_write='1' then
+        report "Writing $" & to_hstring(wdata) & " to mixer coefficient $" & to_hstring(reg_num);
         ram_waddr <= to_integer(reg_num(7 downto 1));
+        ram_wdata(31 downto 16) <= wdata;        
         ram_we <= '1';
       else
         ram_we <= '0';
       end if;
-      
+
+      report "Read data = $" & to_hstring(ram_rdata(31 downto 16)) & " in state " & integer'image(state);
       -- State machine for mixing audio sources
       case state is
         when 0 =>
@@ -98,19 +101,34 @@ begin
           srcs <= sources;
           -- Reset output value
           mixed_value <= 0;
-          -- Request first mix coefficient
-          ram_raddr <= 0 + output_offset;
+          -- Request second mix coefficient (first was already scheduled last cycle)
+          -- (this is to handle the wait state on read).
+          ram_raddr <= 1 + output_offset;
           -- Store fetched coefficient based on CPU request
           -- Service CPU initiated reading of mix coefficient
           rdata <= ram_rdata(31 downto 16);                   
+          report "Read coefficient for the CPU as $" & to_hstring(ram_rdata(31 downto 16));
         when 1|2|3|4|5|6|7|8|9|10|11|12|13|14|15 =>
           -- Add this input using the read coefficient
+          report "For output "
+            & integer'image(output_num)
+            & "Adding input " & integer'image(state-1) & " via coefficient $" & to_hstring(ram_rdata(31 downto 16));
           mixed_value <= mixed_value + to_integer(ram_rdata(31 downto 16)) * to_integer(srcs(0));
           -- Request next mix coefficient
-          ram_raddr <= state + output_offset;
+          if state /= 15 then
+            ram_raddr <= state + output_offset + 1;
+          else
+            -- Service one CPU request per iteration of an output
+            report "Reading coefficient $" & to_hstring(reg_num) & " for the CPU";
+            ram_raddr <= to_integer(reg_num(7 downto 1));
+          end if;
           
         when 16 =>
           -- Apply master volume
+          report "For output "
+            & integer'image(output_num)
+            & "applying master volume coefficient $" & to_hstring(ram_rdata(31 downto 16));
+          mixed_value <= mixed_value + to_integer(ram_rdata(31 downto 16)) * to_integer(srcs(0));
           mixed_value <= to_integer(to_unsigned(mixed_value,32)(31 downto 16)) * to_integer(ram_rdata(31 downto 16));
           set_output <= '1';
           output_channel <= output_num;
@@ -119,14 +137,16 @@ begin
           if output_num /= 7 then
             output_num <= output_num + 1;
             output_offset <= output_offset + 16;
+            -- Schedule reading of first byte ready (RAM has a wait-state on read)
+            ram_raddr <= output_offset + 16;
           else
             output_num <= 0;
             output_offset <= 0;
+            -- Schedule reading of first byte ready (RAM has a wait-state on read)
+            ram_raddr <= 0;
           end if;
 
-          -- While we are idle, read any requested coefficient
-          ram_raddr <= to_integer(reg_num(7 downto 1));
-          
+
         when others =>
           null;
       end case;
@@ -140,6 +160,8 @@ begin
       -- Push mixed output value
       if set_output='1' then
         outputs(output_channel) <= to_unsigned(mixed_value,32)(31 downto 16);
+        report "Outputing channel " & integer'image(output_channel) & " mixed value as $"
+          & to_hstring(to_unsigned(mixed_value,32)(31 downto 16));
       end if;
     end if;
   end process;
