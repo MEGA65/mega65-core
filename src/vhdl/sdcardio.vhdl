@@ -145,8 +145,8 @@ entity sdcardio is
 
     -- Speaker and headset DAC/ADCs
     headset_in : in unsigned(15 downto 0) := x"0000";
-    spkr_left : out unsigned(15 downto 0) := x"0000";
-    spkr_right : out unsigned(15 downto 0) := x"0000";
+    spkr_left : inout unsigned(15 downto 0) := x"0000";
+    spkr_right : inout unsigned(15 downto 0) := x"0000";
     
     -- PWM Audio output
     ampPWM : out std_logic;
@@ -768,6 +768,8 @@ begin  -- behavioural
     -- Communications modules 2x mono output
     outputs(6) => i2s8_out,
     outputs(7) => i2s9_out,
+    -- The other 8 outputs are in fact dummy place-holders.
+    -- We do not expect to have more than 8 audio outputs
     outputs(8) => dummy0,
     outputs(9) => dummy1,
     outputs(10) => dummy2,
@@ -1233,6 +1235,16 @@ begin  -- behavioural
             fastio_rdata(5) <= aclInt1;
             fastio_rdata(6) <= aclInt2;
             fastio_rdata(7) <= aclInt1 or aclInt2;
+          when x"F4" =>
+            -- @IO:GS $D6F4 - Audio Mixer register select
+            fastio_rdata <= audio_mix_reg;
+          when x"F5" =>
+            -- @IO:GS $D6F5 - Audio Mixer register read port
+            if audio_mix_reg(0)='1' then
+              fastio_rdata <= audio_mix_rdata(15 downto 8);
+            else
+              fastio_rdata <= audio_mix_rdata(7 downto 0);
+            end if;
           when x"F6" =>
             -- @IO:GS $D6F6 - Keyboard scan code reader (lower byte)
             fastio_rdata <= unsigned(last_scan_code(7 downto 0));
@@ -1240,34 +1252,23 @@ begin  -- behavioural
             -- @IO:GS $D6F7 - Keyboard scan code reader (upper nybl)
             fastio_rdata <= unsigned("000"&last_scan_code(12 downto 8));
           when x"F8" =>
-            -- PWM output
-            fastio_rdata <= pwm_value_new_left;
+            -- @IO:GS $D6F8 - Digital audio, left channel, LSB
+            fastio_rdata <= pwm_value_new_left(7 downto 0);
           when x"F9" =>
-            -- Debug interface to see what audio output is doing
-            fastio_rdata(0) <= ampSD_internal;
-            fastio_rdata(4 downto 1) <= unsigned(audio_reflect);
-            fastio_rdata(5) <= stereo_swap;
-            fastio_rdata(6) <= force_mono;
-            fastio_rdata(7) <= audio_mode;
+            -- @IO:GS $D6F9 - Digital audio, left channel, MSB
+            fastio_rdata <= pwm_value_new_left(15 downto 8);
           when x"FA" =>
-            -- PWM output
-            fastio_rdata <= pwm_value_new_left;
+            -- @IO:GS $D6FA - Digital audio, left channel, LSB
+            fastio_rdata <= pwm_value_new_right(7 downto 0);
           when x"FB" =>
-            -- @IO:GS $D6FB - microphone input (left)
-            fastio_rdata <= mic_value_left;
+            -- @IO:GS $D6FB - Digital audio, left channel, MSB
+            fastio_rdata <= pwm_value_new_right(15 downto 8);
           when x"FC" =>
-            -- @IO:GS $D6FC - microphone input (right)
-            fastio_rdata <= mic_value_right;
+            -- @IO:GS $D6FC - microphone input (left)
+            fastio_rdata <= mic_value_left;
           when x"FD" =>
-            -- @IO:GS $D6FD - Audio Mixer register select
-            fastio_rdata <= audio_mix_reg;
-          when x"FE" =>
-            -- @IO:GS $D6FE - Audio Mixer register read port
-            if audio_mix_reg(0)='1' then
-              fastio_rdata <= audio_mix_rdata(15 downto 8);
-            else
-              fastio_rdata <= audio_mix_rdata(7 downto 0);
-            end if;
+            -- @IO:GS $D6FD - microphone input (right)
+            fastio_rdata <= mic_value_right;
           when x"FF" =>
             -- Flash interface
             fastio_rdata(3 downto 0) <= unsigned(QspiDB);
@@ -1459,22 +1460,20 @@ begin  -- behavioural
           f_step <= '1';
         end if;
       end if;
-            
-      -- Generate combined audio from stereo sids plus 2 8-bit digital channels
-      -- (4x14 bit values = 16 bit level)
-      pwm_value_combined <= to_integer(leftsid_audio(17 downto 4))
-                            + to_integer(rightsid_audio(17 downto 4))
-                            + to_integer("00"&pwm_value_new_left & "0000")
-                            + to_integer("00"&pwm_value_new_right & "0000");
-      -- 2x15 bit values = 16 bit levels
-      pwm_value_left <= to_integer(leftsid_audio(17 downto 3))
-                        + to_integer("00"&pwm_value_new_left &"00000");
-      pwm_value_right <= to_integer(rightsid_audio(17 downto 3))
-                         + to_integer("00"&pwm_value_new_right&"00000");
 
+      -- Update debug indication of what the audio interface is doing
+      audio_reflect(0) <= not audio_reflect(0);      
+            
+      -- With the new audio mixer, we map the left and right speaker channels
+      -- to the on-board line-out/headphone jack of the Nexys 4 series boards.
+      -- Apart from that, it is really simple, because the mixing of the audio
+      -- sources is done entirely in the audio mixer.
+      pwm_value_combined <= to_integer(spkr_left(15 downto 1)) + to_integer(spkr_right(15 downto 1));
+      pwm_value_left <= to_integer(spkr_left);
+      pwm_value_right <= to_integer(spkr_right);
       
       -- Implement 10-bit digital combined audio output
-      audio_reflect(0) <= not audio_reflect(0);
+
       -- We have three versions of audio output:
       -- 1. Delta-Sigma (aka PDM), which should be most accurate, but requires
       -- good low-pass output filters
@@ -2291,41 +2290,11 @@ begin  -- behavioural
               aclSSinternal   <= fastio_wdata(2);
               aclSCK          <= fastio_wdata(3);
               aclSCKinternal  <= fastio_wdata(3);
-              -- @IO:GS $D6F4 - I2C bus select (bus 0 = temp sensor on Nexys4 boards)
-            -- @IO:GS $D6F8 - 8-bit digital audio out (left)
-            when x"F8" =>
-              -- 8-bit digital audio out
-              pwm_value_new_left <= fastio_wdata;
-
-            when x"F9" =>
-              -- @IO:GS $D6F9.0 - Enable audio amplifier
-              -- @IO:GS $D6F9.1-4 - Raw PCM/PDM audio debug interface WILL BE REMOVED
-              -- @IO:GS $D6F9.5 - Swap stereo channels
-              -- @IO:GS $D6F9.6 - Play mono audio through both channels
-              -- @IO:GS $D6F9.7 - Select PDM or PWM audio output mode
-              -- enable/disable audio amplifiers
-              ampSD <= fastio_wdata(0);
-              ampSD_internal <= fastio_wdata(0);
-              stereo_swap <= fastio_wdata(5);
-              force_mono <= fastio_wdata(6);
-              audio_mode <= fastio_wdata(7);
-
-            when x"FA" =>
-              -- @IO:GS $D6FA - 8-bit digital audio out (right)
-              -- 8-bit digital audio out
-              pwm_value_new_right <= fastio_wdata;
-            when x"FB" =>
-              -- @IO:GS $D6FB.0-4 - WRITE set microphone trigger phase (DEBUG,WILLBEREMOVED)
-              mic_sample_trigger(4 downto 0) <= fastio_wdata(4 downto 0);
-              -- @IO:GS $D6FB.7-5 - WRITE set microphone gain
-              mic_gain <= fastio_wdata(7 downto 5);
-            when x"FC" =>
-              -- @IO:GS $D6FC - WRITE set microphone sample frequency (DEBUG,WILLBEREMOVED)
-              mic_divider_max(7 downto 0) <= fastio_wdata(7 downto 0);
-            when x"FD" =>
-              -- @IO:GS $D6FD - Audio Mixer register select
+            when x"F4" =>
+              -- @IO:GS $D6F4 - Audio Mixer register select
               audio_mix_reg <= fastio_wdata(7 downto 0);
-            when x"FE" =>
+            when x"F5" =>
+              -- @IO:GS $D6F5 - Audio Mixer register write port
               -- Write to audio mixer register.
               -- Minor complication is that the registers are 16-bits wide in
               -- the audio mixer, so we have to write to the correct half of
@@ -2345,6 +2314,40 @@ begin  -- behavioural
                 audio_mix_wdata(15 downto 8) <= audio_mix_rdata(15 downto 8);
               end if;
               audio_mix_write <= '1';
+              
+            -- @IO:GS $D6F8 - 8-bit digital audio out (left)
+            when x"F8" =>
+              -- 8-bit digital audio out
+              pwm_value_new_left(7 downto 0) <= fastio_wdata;
+            when x"F9" =>
+              -- 8-bit digital audio out
+              pwm_value_new_left(15 downto 8) <= fastio_wdata;
+            when x"FA" =>
+              -- 8-bit digital audio out
+              pwm_value_new_right(7 downto 0) <= fastio_wdata;
+            when x"FB" =>
+              -- 8-bit digital audio out
+              pwm_value_new_right(15 downto 8) <= fastio_wdata;
+            when x"FC" =>
+              -- @IO:GS $D6FC.0-4 - WRITE set microphone trigger phase (DEBUG,WILLBEREMOVED)
+              mic_sample_trigger(4 downto 0) <= fastio_wdata(4 downto 0);
+              -- @IO:GS $D6FC.7-5 - WRITE set microphone gain
+              mic_gain <= fastio_wdata(7 downto 5);
+            when x"FD" =>
+              -- @IO:GS $D6FD - WRITE set microphone sample frequency (DEBUG,WILLBEREMOVED)
+              mic_divider_max(7 downto 0) <= fastio_wdata(7 downto 0);
+            when x"FE" =>
+              -- @IO:GS $D6FE.0 - Enable audio amplifier
+              -- @IO:GS $D6FE.1-4 - Raw PCM/PDM audio debug interface WILL BE REMOVED
+              -- @IO:GS $D6FE.5 - Swap stereo channels
+              -- @IO:GS $D6FE.6 - Play mono audio through both channels
+              -- @IO:GS $D6FE.7 - Select PDM or PWM audio output mode
+              -- enable/disable audio amplifiers
+              ampSD <= fastio_wdata(0);
+              ampSD_internal <= fastio_wdata(0);
+              stereo_swap <= fastio_wdata(5);
+              force_mono <= fastio_wdata(6);
+              audio_mode <= fastio_wdata(7);
             when x"FF" =>
               -- @IO:GS $D6FF - Flash bit-bashing port
               -- Flash interface

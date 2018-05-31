@@ -278,7 +278,9 @@ C65 $D607 C65 UART 2-bit port data register (used for C65 keyboard)
 C65 $D607 C65 UART data direction register (used for C65 keyboard, HDMI and SD card I2C/SPI)
 GS $D609.0 UART BAUD clock source: 1 = 7.09375MHz, 0 = 150MHz
 GS $D609 MEGA65 extended UART control register
-GS $D60B PMOD port A on FPGA board (data)
+GS $D60B.5-0 PMOD port A on FPGA board (data)
+GS $D60B.6 Display hardware zoom of region under first touch point always
+GS $D60B.7 Display hardware zoom of region under first touch point for on-screen keyboard
 GS $D60C PMOD port A on FPGA board (DDR)
 GS $D60D.1-0 Physical keyboard scanning: Float inputs to 0/L/H/1
 GS $D60D.2 SD card MOSI/MISO
@@ -494,6 +496,8 @@ GS $D6BD - Touch pad touch #2 Y LSB
 GS $D6BE.0-1 - Touch pad touch #2 X MSBs
 GS $D6BE.5-4 - Touch pad touch #2 Y MSBs
 GS $D6BF.7 - Enable/disable touch panel I2C communications
+GS $D6C0.0-3 - Touch pad gesture directions (left,right,up,down)
+GS $D6C0.7-4 - Touch pad gesture ID
 GS $D6D0 - I2C bus select (bus 0 = temp sensor on Nexys4 boardS)
 GS $D6D1.0 - I2C reset
 GS $D6D1.1 - I2C command latch write strobe (write 1 to trigger command)
@@ -506,8 +510,9 @@ GS $D6D3 - I2C data write register
 GS $D6D4 - I2C data read register
 GS $D6DA - DEBUG SD card last error code LSB
 GS $D6DB - DEBUG SD card last error code MSB
-GS $D6DC - DEBUG duplicate of FPGA switches 0-7
-GS $D6DD - DEBUG duplicate of FPGA switches 8-15
+GS $D6DC.0 - Select left or right microphone as source for infra-sound measurement (write only)
+GS $D6DC - Infra-sound reading from microphone MSB
+GS $D6DD - Infra-sound reading from microphone MSB
 GS $D6DE - FPGA die temperature sensor (lower nybl)
 GS $D6DF - FPGA die temperature sensor (upper byte)
 GS $D6E0.0 Clear to reset ethernet PHY
@@ -547,21 +552,26 @@ GS $D6F0 - LCD panel brightness control
 GS $D6F2 - Read FPGA five-way buttons
 GS $D6F3 - Accelerometer bit-bashing port
 GS $D6F3 Accelerometer inputs
-GS $D6F4 - I2C bus select (bus 0 = temp sensor on Nexys4 boards)
+GS $D6F4 - Audio Mixer register select
+GS $D6F5 - Audio Mixer register read port
+GS $D6F5 - Audio Mixer register write port
 GS $D6F6 - Keyboard scan code reader (lower byte)
 GS $D6F7 - Keyboard scan code reader (upper nybl)
 GS $D6F8 - 8-bit digital audio out (left)
-GS $D6F9.0 - Enable audio amplifier
-GS $D6F9.1-4 - Raw PCM/PDM audio debug interface WILL BE REMOVED
-GS $D6F9.5 - Swap stereo channels
-GS $D6F9.6 - Play mono audio through both channels
-GS $D6F9.7 - Select PDM or PWM audio output mode
-GS $D6FA - 8-bit digital audio out (left)
-GS $D6FB.0-4 - WRITE set microphone trigger phase (DEBUG,WILLBEREMOVED)
-GS $D6FB.7-5 - WRITE set microphone gain
-GS $D6FB - microphone input (left)
-GS $D6FC - microphone input (right)
-GS $D6FC - WRITE set microphone sample frequency (DEBUG,WILLBEREMOVED)
+GS $D6F8 - Digital audio, left channel, LSB
+GS $D6F9 - Digital audio, left channel, MSB
+GS $D6FA - Digital audio, left channel, LSB
+GS $D6FB - Digital audio, left channel, MSB
+GS $D6FC.0-4 - WRITE set microphone trigger phase (DEBUG,WILLBEREMOVED)
+GS $D6FC.7-5 - WRITE set microphone gain
+GS $D6FC - microphone input (left)
+GS $D6FD - microphone input (right)
+GS $D6FD - WRITE set microphone sample frequency (DEBUG,WILLBEREMOVED)
+GS $D6FE.0 - Enable audio amplifier
+GS $D6FE.1-4 - Raw PCM/PDM audio debug interface WILL BE REMOVED
+GS $D6FE.5 - Swap stereo channels
+GS $D6FE.6 - Play mono audio through both channels
+GS $D6FE.7 - Select PDM or PWM audio output mode
 GS $D6FF - Flash bit-bashing port
 GS $D700 - DMAgic DMA list address LSB, and trigger DMA (when written)
 GS $D701 DMA list address high byte (address bits 8 -- 15).
