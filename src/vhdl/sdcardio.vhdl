@@ -1,6 +1,6 @@
 --
 -- Written by
---    Paul Gardner-Stephen <hld@c64.org>  2013-2014
+--    Paul Gardner-Stephen <hld@c64.org>  2013-2018
 --
 -- *  This program is free software; you can redistribute it and/or modify
 -- *  it under the terms of the GNU Lesser General Public License as
@@ -57,6 +57,16 @@ entity sdcardio is
     sdcardio_cs : in std_logic;
     f011_cs : in std_logic;
 
+    -- Interface for accessing mix table via CPU
+    audio_mix_reg : out unsigned(7 downto 0) := x"FF";
+    audio_mix_write : out std_logic := '0';
+    audio_mix_wdata : out unsigned(15 downto 0) := x"FFFF";
+    audio_mix_rdata : in unsigned(15 downto 0) := x"FFFF";
+    audio_loopback : in unsigned(15 downto 0) := x"FFFF";
+    -- PCM digital audio output (to give to the mixer)
+    pcm_left : inout unsigned(15 downto 0) := x"0000";
+    pcm_right : inout unsigned(15 downto 0) := x"0000";
+          
     hypervisor_mode : in std_logic;
     hyper_trap_f011_read : out std_logic := '0';
     hyper_trap_f011_write : out std_logic := '0';
@@ -127,38 +137,6 @@ entity sdcardio is
     aclInt1 : in std_logic;
     aclInt2 : in std_logic;
 
-    -- Audio in from digital SIDs
-    leftsid_audio : in unsigned(17 downto 0);
-    rightsid_audio : in unsigned(17 downto 0);
-
-    -- I2S PCM Audio interfaces
-    i2s0_in : in unsigned(15 downto 0) := x"0000";
-    i2s1_in : in unsigned(15 downto 0) := x"0000";
-    i2s2_in : in unsigned(15 downto 0) := x"0000";
-    i2s3_in : in unsigned(15 downto 0) := x"0000";
-    i2s4_out : out unsigned(15 downto 0) := x"0000";
-    i2s5_out : out unsigned(15 downto 0) := x"0000";
-    i2s6_out : out unsigned(15 downto 0) := x"0000";
-    i2s7_out : out unsigned(15 downto 0) := x"0000";
-    i2s8_out : out unsigned(15 downto 0) := x"0000";
-    i2s9_out : out unsigned(15 downto 0) := x"0000";
-
-    -- Speaker and headset DAC/ADCs
-    headset_in : in unsigned(15 downto 0) := x"0000";
-    spkr_left : inout unsigned(15 downto 0) := x"0000";
-    spkr_right : inout unsigned(15 downto 0) := x"0000";
-    
-    -- PWM Audio output
-    ampPWM : out std_logic;
-    ampPWM_l : out std_logic;
-    ampPWM_r : out std_logic;
-    ampSD : out std_logic := '1';  -- default to amplifier on
-
-    -- MEMs Microphone inputs (microphones 0 and 1)
-    micData : in std_logic;
-    micClk : out std_logic;
-    micLRSel : out std_logic := '0';
-
     -- Temperature sensor / I2C bus 0
     tmpSDA : inout std_logic;
     tmpSCL : inout std_logic;
@@ -195,6 +173,8 @@ entity sdcardio is
 end sdcardio;
 
 architecture behavioural of sdcardio is
+
+  signal audio_mix_reg_int : unsigned(7 downto 0) := x"FF";
   
   signal QspiSCKInternal : std_logic := '1';
   signal QspiCSnInternal : std_logic := '1'; 
@@ -206,54 +186,6 @@ architecture behavioural of sdcardio is
 --  signal micLRSelinternal : std_logic := '0';
   signal tmpSDAinternal : std_logic := '0';
   signal tmpSCLinternal : std_logic := '0';
-
-  -- Combined 10-bit left/right audio
-  signal pwm_value_new_left : unsigned(15 downto 0) := x"0000";
-  signal pwm_value_new_right : unsigned(15 downto 0) := x"0000";
-  signal pwm_value_combined : integer range 0 to 65535 := 0;
-  signal pwm_value_left : integer range 0 to 65535 := 0;
-  signal pwm_value_right : integer range 0 to 65535 := 0;
-  signal pwm_value_combined_hold : integer range 0 to 65535 := 0;
-  signal pwm_value_left_hold : integer range 0 to 65535 := 0;
-  signal pwm_value_right_hold : integer range 0 to 65535 := 0;
-
-  signal pdm_combined_accumulator : integer range 0 to 131071 := 0;
-  signal pdm_left_accumulator : integer range 0 to 131071 := 0;
-  signal pdm_right_accumulator : integer range 0 to 131071 := 0;
-  signal ampPWM_pdm : std_logic := '0';
-  signal ampPWM_pdm_l : std_logic := '0';
-  signal ampPWM_pdm_r : std_logic := '0';
-
-  signal pwm_counter : integer range 0 to 1024 := 0;
-  signal ampPWM_pwm : std_logic := '0';
-  signal ampPWM_pwm_l : std_logic := '0';
-  signal ampPWM_pwm_r : std_logic := '0';
-
-  signal audio_mode : std_logic := '0';
-  signal stereo_swap : std_logic := '0';
-  signal force_mono : std_logic := '0';
-  signal ampSD_internal : std_logic := '1';
-
-  -- These values seem to work about right.
-  -- Ideally we should be able to make the divider_max more like 10, which
-  -- should get 2 extra bits of audio resolution. To do that we need to shift
-  -- the filter cut-off down by a factor of 4 as well.
-  signal mic_divider_max : unsigned(7 downto 0) := to_unsigned(40,8);
-  signal mic_sample_trigger : unsigned(7 downto 0) := to_unsigned(1,8);
-
-  signal mic_do_sample_left : std_logic := '0';
-  signal mic_do_sample_right : std_logic := '0';
-  signal mic_gain : unsigned(2 downto 0) := "000";
-  signal mic_divider : unsigned(7 downto 0) := "00000000";
-  signal mic_value_left : unsigned(7 downto 0) := "00000000";
-  signal mic_value_right : unsigned(7 downto 0) := "00000000";
-  signal sample0_left : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal sample0_right : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal sample1_left : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal sample1_right : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal infra_lr_sel : std_logic := '0';
-  signal infra_left : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal infra_right : unsigned(15 downto 0) := to_unsigned(0,16);
   
   -- debounce reading from or writing to $D087 so that buffered read/write
   -- behaves itself.
@@ -390,8 +322,6 @@ architecture behavioural of sdcardio is
   constant cycles_per_16khz : integer :=  (50000000/16000);
   signal busy_countdown : unsigned(15 downto 0) := x"0000";
   
-  signal audio_reflect : std_logic_vector(3 downto 0) := "0000";
-
   signal cycles_per_interval : unsigned(7 downto 0)
     := to_unsigned(100,8);
   signal fdc_read_invalidate : std_logic := '0';
@@ -507,21 +437,6 @@ architecture behavioural of sdcardio is
   signal gesture_event_id : unsigned(3 downto 0) := x"0";
   signal gesture_event : unsigned(3 downto 0) := x"0";
 
-  signal audio_mix_reg : unsigned(7 downto 0) := x"00";
-  signal audio_mix_rdata : unsigned(15 downto 0) := x"0000";
-  signal audio_mix_wdata : unsigned(15 downto 0) := x"0000";
-  signal audio_mix_write : std_logic := '0';
-
-  -- Dummy signals for soaking up dummy audio mixer outputs
-  signal dummy0 : unsigned(15 downto 0) := x"0000";
-  signal dummy1 : unsigned(15 downto 0) := x"0000";
-  signal dummy2 : unsigned(15 downto 0) := x"0000";
-  signal dummy3 : unsigned(15 downto 0) := x"0000";
-  signal dummy4 : unsigned(15 downto 0) := x"0000";
-  signal dummy5 : unsigned(15 downto 0) := x"0000";
-  signal dummy6 : unsigned(15 downto 0) := x"0000";
-  signal dummy7 : unsigned(15 downto 0) := x"0000";
-  
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
   begin
@@ -604,36 +519,6 @@ begin  -- behavioural
       debug_scl => i2c1_debug_scl
       );
   
-  mic0l: entity work.pdm_to_pcm
-    port map (
-      clock => clock,
-      sample_clock => mic_do_sample_left,
-      sample_bit => micData,
-      infrasample_out => infra_left,
-      sample_out => sample0_left);
-
-  mic0r: entity work.pdm_to_pcm
-    port map (
-      clock => clock,
-      sample_clock => mic_do_sample_right,
-      sample_bit => micData,
-      infrasample_out => infra_right,
-      sample_out => sample0_right);
-
-  mic1l: entity work.pdm_to_pcm
-    port map (
-      clock => clock,
-      sample_clock => mic_do_sample_left,
-      sample_bit => micData,
-      sample_out => sample1_left);
-
-  mic1r: entity work.pdm_to_pcm
-    port map (
-      clock => clock,
-      sample_clock => mic_do_sample_right,
-      sample_bit => micData,
-      sample_out => sample1_right);
-
   sd0: entity work.sdcardctrl
     port map (
       cs_bo => cs_bo,
@@ -725,58 +610,6 @@ begin  -- behavioural
     sector_end => fdc_sector_end    
     );
   
-  mix0: entity work.audio_mixer port map (
-    clock50mhz => clock,
-    reg_num => audio_mix_reg,
-    reg_write => audio_mix_write,
-    wdata => audio_mix_wdata,
-    rdata => audio_mix_rdata,
-
-    -- SID outputs
-    sources(0) => leftsid_audio(17 downto 2),
-    sources(1) => rightsid_audio(17 downto 2),
-    -- Digital audio 16-bit registers
-    sources(2) => pwm_value_new_left,
-    sources(3) => pwm_value_new_right,
-    -- Two mono I2S
-    sources(4) => i2s0_in,
-    sources(5) => i2s1_in,
-    -- Stereo I2S PCM audio source
-    sources(6) => i2s2_in,
-    sources(7) => i2s3_in,
-    sources(8) => sample0_left,
-    sources(9) => sample0_right,
-    sources(10) => sample1_left,
-    sources(11) => sample1_right,
-    sources(12) => headset_in,
-    sources(13) => x"0000",
-    sources(14) => x"0000",
-    sources(15) => x"0000",
-
-    -- Audio outputs for on-board speakers, line-out
-    outputs(0) => spkr_left,
-    outputs(1) => spkr_right,
-    -- Line out channels
-    outputs(2) => i2s4_out,
-    outputs(3) => i2s5_out,
-    -- PCM I2C stereo output
-    outputs(4) => i2s6_out,
-    outputs(5) => i2s7_out,
-    -- Communications modules 2x mono output
-    outputs(6) => i2s8_out,
-    outputs(7) => i2s9_out,
-    -- The other 8 outputs are in fact dummy place-holders.
-    -- We do not expect to have more than 8 audio outputs
-    outputs(8) => dummy0,
-    outputs(9) => dummy1,
-    outputs(10) => dummy2,
-    outputs(11) => dummy3,
-    outputs(12) => dummy4,
-    outputs(13) => dummy5,
-    outputs(14) => dummy6,
-    outputs(15) => dummy7
-    );
-  
   -- XXX also implement F011 floppy controller emulation.
   process (clock,fastio_addr,fastio_wdata,sector_buffer_mapped,sdio_busy,
            sd_reset,fastio_read,sd_sector,fastio_write,
@@ -789,7 +622,7 @@ begin  -- behavioural
            f011_disk2_write_protected,diskimage_sector,sw,btn,aclmiso,
            aclmosiinternal,aclssinternal,aclSCKinternal,aclint1,aclint2,
            tmpsdainternal,tmpsclinternal,tmpint,tmpct,tmpint,last_scan_code,
-           pwm_value_new_left,mic_value_left,mic_value_right,qspidb,
+           pcm_left,qspidb,
            qspicsninternal,QspiSCKInternal,
            sectorbuffercs,f011_cs,f011_led,f011_head_side,f011_drq,
            f011_lost,f011_wsector_found,f011_write_gate,f011_irq,
@@ -802,8 +635,7 @@ begin  -- behavioural
            fdc_read_request,cycles_per_interval,found_track,
            found_sector,found_side,fdc_byte_out,fdc_mfm_state,
            fdc_mfm_byte,fdc_last_gap,packed_rdata,fdc_quantised_gap,
-           fdc_bytes_read,fpga_temperature,ampsd_internal,audio_reflect,
-           stereo_swap,force_mono,audio_mode,rightsid_audio,leftsid_audio           
+           fdc_bytes_read,fpga_temperature                      
            ) is
     variable temp_cmd : unsigned(7 downto 0);
   begin
@@ -1193,20 +1025,6 @@ begin  -- behavioural
           when x"db" =>
             -- @IO:GS $D6DB - DEBUG SD card last error code MSB
             fastio_rdata(7 downto 0) <= unsigned(last_sd_error(15 downto 8));
-          when x"dc" =>
-            -- @IO:GS $D6DC - Infra-sound reading from microphone MSB
-            if infra_lr_sel='0' then
-              fastio_rdata <= infra_left(15 downto 8);
-            else
-              fastio_rdata <= infra_right(15 downto 8);
-            end if;
-          when x"dd" =>
-            -- @IO:GS $D6DD - Infra-sound reading from microphone MSB
-            if infra_lr_sel='0' then
-              fastio_rdata <= infra_left(7 downto 0);
-            else
-              fastio_rdata <= infra_right(7 downto 0);
-            end if;
           when x"DE" =>
             -- @IO:GS $D6DE - FPGA die temperature sensor (lower nybl)
             fastio_rdata <= unsigned("0000"&fpga_temperature(3 downto 0));
@@ -1234,10 +1052,10 @@ begin  -- behavioural
             fastio_rdata(7) <= aclInt1 or aclInt2;
           when x"F4" =>
             -- @IO:GS $D6F4 - Audio Mixer register select
-            fastio_rdata <= audio_mix_reg;
+            fastio_rdata <= audio_mix_reg_int;
           when x"F5" =>
             -- @IO:GS $D6F5 - Audio Mixer register read port
-            if audio_mix_reg(0)='1' then
+            if audio_mix_reg_int(0)='1' then
               fastio_rdata <= audio_mix_rdata(15 downto 8);
             else
               fastio_rdata <= audio_mix_rdata(7 downto 0);
@@ -1250,22 +1068,22 @@ begin  -- behavioural
             fastio_rdata <= unsigned("000"&last_scan_code(12 downto 8));
           when x"F8" =>
             -- @IO:GS $D6F8 - Digital audio, left channel, LSB
-            fastio_rdata <= pwm_value_new_left(7 downto 0);
+            fastio_rdata <= pcm_left(7 downto 0);
           when x"F9" =>
             -- @IO:GS $D6F9 - Digital audio, left channel, MSB
-            fastio_rdata <= pwm_value_new_left(15 downto 8);
+            fastio_rdata <= pcm_left(15 downto 8);
           when x"FA" =>
             -- @IO:GS $D6FA - Digital audio, left channel, LSB
-            fastio_rdata <= pwm_value_new_right(7 downto 0);
+            fastio_rdata <= pcm_right(7 downto 0);
           when x"FB" =>
             -- @IO:GS $D6FB - Digital audio, left channel, MSB
-            fastio_rdata <= pwm_value_new_right(15 downto 8);
+            fastio_rdata <= pcm_right(15 downto 8);
           when x"FC" =>
-            -- @IO:GS $D6FC - microphone input (left)
-            fastio_rdata <= mic_value_left;
+            -- @IO:GS $D6FC - audio MSB (source selected by $D6F4)
+            fastio_rdata <= audio_loopback(7 downto 0);
           when x"FD" =>
-            -- @IO:GS $D6FD - microphone input (right)
-            fastio_rdata <= mic_value_right;
+            -- @IO:GS $D6FD - audio MSB (source selected by $D6F4)
+            fastio_rdata <= audio_loopback(15 downto 8);
           when x"FF" =>
             -- Flash interface
             fastio_rdata(3 downto 0) <= unsigned(QspiDB);
@@ -1456,174 +1274,6 @@ begin  -- behavioural
           -- Stepping pulses should be short, so we clear it here
           f_step <= '1';
         end if;
-      end if;
-
-      -- Update debug indication of what the audio interface is doing
-      audio_reflect(0) <= not audio_reflect(0);      
-            
-      -- With the new audio mixer, we map the left and right speaker channels
-      -- to the on-board line-out/headphone jack of the Nexys 4 series boards.
-      -- Apart from that, it is really simple, because the mixing of the audio
-      -- sources is done entirely in the audio mixer.
-      pwm_value_combined <= to_integer(spkr_left(15 downto 1)) + to_integer(spkr_right(15 downto 1));
-      pwm_value_left <= to_integer(spkr_left);
-      pwm_value_right <= to_integer(spkr_right);
-      
-      -- Implement 10-bit digital combined audio output
-
-      -- We have three versions of audio output:
-      -- 1. Delta-Sigma (aka PDM), which should be most accurate, but requires
-      -- good low-pass output filters
-      -- 2. PWM, similar to what we used to use.
-      -- 3. Balanced PWM, where the pulse is centered in the time domain,
-      -- which apparently is "better". I have a wooden ear, so can't tell.
-
-      if audio_mode = '0' then
-        ampPWM <= ampPWM_pdm;
-        if force_mono = '1' then
-          -- Play combined audio through both left and right channels
-          ampPWM_l <= ampPWM_pdm;
-          ampPWM_r <= ampPWM_pdm;
-        elsif stereo_swap='0' then
-          -- Don't swap stereo channels
-          ampPWM_l <= ampPWM_pdm_l;
-          ampPWM_r <= ampPWM_pdm_r;
-        else
-          -- Swap stereo channels
-          ampPWM_r <= ampPWM_pdm_l;
-          ampPWM_l <= ampPWM_pdm_r;
-        end if;
-      else
-        ampPWM <= ampPWM_pwm;
-        if force_mono = '1' then
-          -- Play combined audio through both left and right channels
-          ampPWM_l <= ampPWM_pwm;
-          ampPWM_r <= ampPWM_pwm;
-        elsif stereo_swap='0' then
-          -- Don't swap stereo channels
-          ampPWM_l <= ampPWM_pwm_l;
-          ampPWM_r <= ampPWM_pwm_r;
-        else
-          -- Swap stereo channels
-          ampPWM_r <= ampPWM_pwm_l;
-          ampPWM_l <= ampPWM_pwm_r;
-        end if;
-      end if;
-      -- 40000 is to reduce range
-      if pdm_combined_accumulator < 65536 +40000 then
-        pdm_combined_accumulator <= pdm_combined_accumulator + pwm_value_combined;
-        ampPWM_pdm <= '0';
-        audio_reflect(1) <= '0';
-      else
-        pdm_combined_accumulator <= pdm_combined_accumulator + pwm_value_combined - 65536 - 40000;
-        ampPWM_pdm <= '1';
-        audio_reflect(1) <= '1';
-      end if;
-      if pdm_left_accumulator < 65536 then
-        pdm_left_accumulator <= pdm_left_accumulator + pwm_value_left;
-        ampPWM_pdm_l <= '0';
-        audio_reflect(2) <= '0';
-      else
-        pdm_left_accumulator <= pdm_left_accumulator + pwm_value_left - 65536;
-        ampPWM_pdm_l <= '1';
-        audio_reflect(2) <= '1';
-      end if;
-      if pdm_right_accumulator < 65536 then
-        pdm_right_accumulator <= pdm_right_accumulator + pwm_value_right;
-        ampPWM_pdm_r <= '0';
-        audio_reflect(3) <= '0';
-      else
-        pdm_right_accumulator <= pdm_right_accumulator + pwm_value_right - 65536;
-        ampPWM_pdm_r <= '1';
-        audio_reflect(3) <= '1';
-      end if;
-
-      -- Normal PWM
-      if pwm_counter < 1024 then
-        pwm_counter <= pwm_counter + 1;
-        if to_integer(to_unsigned(pwm_value_combined_hold,16)(15 downto 6)) = pwm_counter then
-          ampPwm_pwm <= '0';
-        end if;
-        if to_integer(to_unsigned(pwm_value_left_hold,16)(15 downto 6)) = pwm_counter then
-          ampPwm_pwm_l <= '0';
-        end if;
-        if to_integer(to_unsigned(pwm_value_right_hold,16)(15 downto 6)) = pwm_counter then
-          ampPwm_pwm_r <= '0';
-        end if;
-      else
-        pwm_counter <= 0;
-        pwm_value_combined_hold <= pwm_value_combined;
-        pwm_value_left_hold <= pwm_value_left;
-        pwm_value_right_hold <= pwm_value_right;
-        if to_integer(to_unsigned(pwm_value_combined,16)(15 downto 6)) = 0 then
-          ampPWM_pwm <= '0';
-        else
-          ampPWM_pwm <= '1';
-        end if;
-        if to_integer(to_unsigned(pwm_value_left,16)(15 downto 6)) = 0 then
-          ampPWM_pwm_l <= '0';
-        else
-          ampPWM_pwm_l <= '1';
-        end if;
-        if to_integer(to_unsigned(pwm_value_right,16)(15 downto 6)) = 0 then
-          ampPWM_pwm_r <= '0';
-        else
-          ampPWM_pwm_r <= '1';
-        end if;
-      end if;
-
-
-      -- microphone sampling process
-      -- max frequency is 3MHz, optimal is about 2.5MHz according to
-      -- https://pdfs.semanticscholar.org/a3f4/9749f4d3508f58c5ca4693f8bae9c403fc85.pdf
-      case mic_gain is
-        when "000" =>
-          if to_integer(sample0_right(13 downto 6))>63 then
-            mic_value_right <= to_unsigned(to_integer(sample0_right(13 downto 6))-64,8);
-          else
-            mic_value_right <= x"00";
-          end if;
-          if to_integer(sample0_left(13 downto 6))>63 then
-            mic_value_left <= to_unsigned(to_integer(sample0_left(13 downto 6))-64,8);
-          else
-            mic_value_left <= x"00";
-          end if;            
-        when "001" =>
-          mic_value_right <= to_unsigned((to_integer(sample0_right(15 downto 8))-8192)*2+8192,16)(13 downto 6);
-          mic_value_left <= to_unsigned((to_integer(sample0_left(15 downto 8))-8192)*2+8192,16)(13 downto 6);
-        when "010" =>
-          mic_value_right <= to_unsigned((to_integer(sample0_right(15 downto 8))-8192)*4+8192,16)(13 downto 6);
-          mic_value_left <= to_unsigned((to_integer(sample0_left(15 downto 8))-8192)*4+8192,16)(13 downto 6);
-        when "011" =>
-          mic_value_right <= to_unsigned((to_integer(sample0_right(15 downto 8))-8192)*8+8192,16)(13 downto 6);
-          mic_value_left <= to_unsigned((to_integer(sample0_left(15 downto 8))-8192)*8+8192,16)(13 downto 6);
-        when "100" =>
-          mic_value_right <= to_unsigned((to_integer(sample0_right(15 downto 8))-8192)*16+8192,16)(13 downto 6);
-          mic_value_left <= to_unsigned((to_integer(sample0_left(15 downto 8))-8192)*16+8192,16)(13 downto 6);
-        when "101" =>
-          mic_value_right <= to_unsigned((to_integer(sample0_right(15 downto 8))-8192)*32+8192,16)(13 downto 6);
-          mic_value_left <= to_unsigned((to_integer(sample0_left(15 downto 8))-8192)*32+8192,16)(13 downto 6);
-        when "110" =>
-          mic_value_right <= to_unsigned((to_integer(sample0_right(15 downto 8))-8192)*64+8192,16)(13 downto 6);
-          mic_value_left <= to_unsigned((to_integer(sample0_left(15 downto 8))-8192)*64+8192,16)(13 downto 6);
-        when others =>
-          mic_value_right <= to_unsigned((to_integer(sample0_right(15 downto 8))-8192)*128+8192,16)(13 downto 6);
-          mic_value_left <= to_unsigned((to_integer(sample0_left(15 downto 8))-8192)*128+8192,16)(13 downto 6);
-      end case;
-          
-      if mic_divider = mic_sample_trigger then
-        mic_do_sample_left <= micclkinternal;
-        mic_do_sample_right <= not micclkinternal;
-      else
-        mic_do_sample_left <= '0';
-        mic_do_sample_right <= '0';
-      end if;
-      if mic_divider < mic_divider_max then
-        mic_divider <= mic_divider + 1;
-      else
-        micCLK <= not micclkinternal;
-        micclkinternal <= not micclkinternal;
-        mic_divider <= to_unsigned(0,8);
       end if;
 
       if use_real_floppy='1' then
@@ -2273,9 +1923,6 @@ begin  -- behavioural
             when x"D4" =>
               -- @IO:GS $D6D4 - I2C data read register
               null;
-            when x"DC" =>
-              -- @IO:GS $D6DC.0 - Select left or right microphone as source for infra-sound measurement (write only)
-              infra_lr_sel <= fastio_wdata(0);
             when x"F0" =>
               -- @IO:GS $D6F0 - LCD panel brightness control
               lcdpwm_value <= fastio_wdata;
@@ -2290,6 +1937,7 @@ begin  -- behavioural
             when x"F4" =>
               -- @IO:GS $D6F4 - Audio Mixer register select
               audio_mix_reg <= fastio_wdata(7 downto 0);
+              audio_mix_reg_int <= fastio_wdata(7 downto 0);
             when x"F5" =>
               -- @IO:GS $D6F5 - Audio Mixer register write port
               -- Write to audio mixer register.
@@ -2301,7 +1949,7 @@ begin  -- behavioural
               -- This does mean that after you set the selection register, you
               -- have to wait at least 17 clock cycles before trying to read or
               -- write, so that the data has time to settle.
-              if audio_mix_reg(0)='1' then
+              if audio_mix_reg_int(0)='1' then
                 report "Writing upper half of audio mixer coefficient";
                 audio_mix_wdata(15 downto 8) <= fastio_wdata;
                 audio_mix_wdata(7 downto 0) <= audio_mix_rdata(7 downto 0);
@@ -2315,36 +1963,16 @@ begin  -- behavioural
             -- @IO:GS $D6F8 - 8-bit digital audio out (left)
             when x"F8" =>
               -- 8-bit digital audio out
-              pwm_value_new_left(7 downto 0) <= fastio_wdata;
+              pcm_left(7 downto 0) <= fastio_wdata;
             when x"F9" =>
               -- 8-bit digital audio out
-              pwm_value_new_left(15 downto 8) <= fastio_wdata;
+              pcm_left(15 downto 8) <= fastio_wdata;
             when x"FA" =>
               -- 8-bit digital audio out
-              pwm_value_new_right(7 downto 0) <= fastio_wdata;
+              pcm_right(7 downto 0) <= fastio_wdata;
             when x"FB" =>
               -- 8-bit digital audio out
-              pwm_value_new_right(15 downto 8) <= fastio_wdata;
-            when x"FC" =>
-              -- @IO:GS $D6FC.0-4 - WRITE set microphone trigger phase (DEBUG,WILLBEREMOVED)
-              mic_sample_trigger(4 downto 0) <= fastio_wdata(4 downto 0);
-              -- @IO:GS $D6FC.7-5 - WRITE set microphone gain
-              mic_gain <= fastio_wdata(7 downto 5);
-            when x"FD" =>
-              -- @IO:GS $D6FD - WRITE set microphone sample frequency (DEBUG,WILLBEREMOVED)
-              mic_divider_max(7 downto 0) <= fastio_wdata(7 downto 0);
-            when x"FE" =>
-              -- @IO:GS $D6FE.0 - Enable audio amplifier
-              -- @IO:GS $D6FE.1-4 - Raw PCM/PDM audio debug interface WILL BE REMOVED
-              -- @IO:GS $D6FE.5 - Swap stereo channels
-              -- @IO:GS $D6FE.6 - Play mono audio through both channels
-              -- @IO:GS $D6FE.7 - Select PDM or PWM audio output mode
-              -- enable/disable audio amplifiers
-              ampSD <= fastio_wdata(0);
-              ampSD_internal <= fastio_wdata(0);
-              stereo_swap <= fastio_wdata(5);
-              force_mono <= fastio_wdata(6);
-              audio_mode <= fastio_wdata(7);
+              pcm_right(15 downto 8) <= fastio_wdata;
             when x"FF" =>
               -- @IO:GS $D6FF - Flash bit-bashing port
               -- Flash interface

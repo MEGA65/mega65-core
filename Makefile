@@ -115,9 +115,17 @@ VICIVVHDL=		$(VHDLSRCDIR)/viciv.vhdl \
 			$(VHDLSRCDIR)/ghdl_alpha_blend.vhdl \
 			$(OVERLAYVHDL)
 
-PERIPHVHDL=		$(VHDLSRCDIR)/sdcardio.vhdl \
+AUDIOVHDL=		$(VHDLSRCDIR)/audio_complex.vhdl \
 			$(VHDLSRCDIR)/audio_mixer.vhdl \
 			$(VHDLSRCDIR)/pdm_to_pcm.vhdl \
+			$(VHDLSRCDIR)/pcm_to_pdm.vhdl \
+			$(VHDLSRCDIR)/i2s_clock.vhdl \
+			$(VHDLSRCDIR)/i2s_transceiver.vhdl \
+			$(VHDLSRCDIR)/pcm_clock.vhdl \
+			$(VHDLSRCDIR)/pcm_transceiver.vhdl
+
+
+PERIPHVHDL=		$(VHDLSRCDIR)/sdcardio.vhdl \
 			$(VHDLSRCDIR)/touch.vhdl \
 			$(VHDLSRCDIR)/i2c_master.vhdl \
 			$(VHDLSRCDIR)/buffereduart.vhdl \
@@ -132,6 +140,7 @@ PERIPHVHDL=		$(VHDLSRCDIR)/sdcardio.vhdl \
 			$(VHDLSRCDIR)/ghdl_fpgatemp.vhdl \
 			$(VHDLSRCDIR)/expansion_port_controller.vhdl \
 			$(VHDLSRCDIR)/slow_devices.vhdl \
+			$(AUDIOVHDL) \
 			$(KBDVHDL)
 
 KBDVHDL=		$(VHDLSRCDIR)/keymapper.vhdl \

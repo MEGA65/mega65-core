@@ -180,15 +180,32 @@ entity machine is
          aclInt1 : in std_logic;
          aclInt2 : in std_logic;
          
-         ampPWM : out std_logic;
          ampPWM_l : out std_logic;
          ampPWM_r : out std_logic;
          ampSD : out std_logic;
 
-         micData : in std_logic;
+         micData0 : in std_logic;
+         micData1 : in std_logic;
          micClk : out std_logic;
          micLRSel : out std_logic;
 
+         -- I2S audio channels
+         i2s_master_clk : out std_logic := '0';
+         i2s_master_sync : out std_logic := '0';
+         i2s_slave_clk : in std_logic := '0';
+         i2s_slave_sync : in std_logic := '0';
+         pcm_modem_clk : out std_logic := '0';
+         pcm_modem_sync : out std_logic := '0';
+         i2s_headphones_data_out : out std_logic := '0';
+         i2s_headphones_data_in : in std_logic := '0';
+         i2s_speaker_data_out : out std_logic := '0';
+         pcm_modem1_data_in : in std_logic := '0';
+         pcm_modem2_data_in : in std_logic := '0';
+         pcm_modem1_data_out : out std_logic := '0';
+         pcm_modem2_data_out : out std_logic := '0';
+         i2s_bt_data_in : in std_logic := '0';
+         i2s_bt_data_out : out std_logic := '0';    
+         
          tmpSDA : inout std_logic;
          tmpSCL : inout std_logic;
          tmpInt : in std_logic;
@@ -1265,15 +1282,34 @@ begin
       aclSCK => aclSCK,
       aclInt1 => aclInt1,
       aclInt2 => aclInt2,
-      
-      ampPWM => ampPWM,
+
+      -- PDM digital audio output
       ampPWM_l => ampPWM_l,
       ampPWM_r => ampPWM_r,
       ampSD => ampSD,
-      
-      micData => micData,
+
+      -- MEMS microphones
+      micData0 => micData0,
+      micData1 => micData1,
       micClk => micClk,
       micLRSel => micLRSel,
+
+      -- I2S interfaces for various boards
+      i2s_master_clk => i2s_master_clk,
+      i2s_master_sync => i2s_master_sync,
+      i2s_slave_clk => i2s_slave_clk,
+      i2s_slave_sync => i2s_slave_sync,
+      pcm_modem_clk => pcm_modem_clk,
+      pcm_modem_sync => pcm_modem_sync,
+      i2s_headphones_data_out => i2s_headphones_data_out,
+      i2s_headphones_data_in => i2s_headphones_data_in,
+      i2s_speaker_data_out => i2s_speaker_data_out,
+      pcm_modem1_data_in => pcm_modem1_data_in,
+      pcm_modem2_data_in => pcm_modem2_data_in,
+      pcm_modem1_data_out => pcm_modem1_data_out,
+      pcm_modem2_data_out => pcm_modem2_data_out,
+      i2s_bt_data_in => i2s_bt_data_in,
+      i2s_bt_data_out => i2s_bt_data_out,
       
       tmpSDA => tmpSDA,
       tmpSCL => tmpSCL,

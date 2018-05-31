@@ -12,7 +12,7 @@
 -- The framework is purposely general, and doesn't really care what the
 -- sources and outputs are.
 --
--- Inputs: SIDL, SIDR, DIGL, DIGR, CEL1, CEL2, BTL, BTR, MIC1, MIC2, MIC3,
+-- Inputs: SIDL, SIDR, DIGL, DIGR, CEL1L, CEL1R, CEL2L, CEL2R, BTL, BTR, MIC1, MIC2, MIC3,
 -- MIC4, HEADMIC
 -- Outputs: SPKRL, SPKRR, CELO1, CELO2, BTL, BTR, HEADL, HEADR
 
@@ -32,11 +32,12 @@ entity audio_mixer is
     reg_write : in std_logic := '0';
     wdata : in unsigned(15 downto 0) := x"FFFF";
     rdata : out unsigned(15 downto 0) := x"FFFF";
+    audio_loopback : out unsigned(15 downto 0) := x"FFFF";
 
     -- Audio inputs
     sources : in sample_vector_t := (others => x"8000");
     -- Audio outputs
-    outputs : out sample_vector_t := (others => x"8000")
+    outputs : inout sample_vector_t := (others => x"8000")
     );
 
 end entity;
@@ -82,6 +83,15 @@ begin
   begin
     if rising_edge(clock50mhz) then
 
+      -- Allow CPU to read any audio input or mixed output
+      if to_integer(reg_num) < 16 then
+        audio_loopback <= sources(to_integer(reg_num));
+      elsif to_integer(reg_num) < 24 then
+        audio_loopback <= outputs(to_integer(reg_num)-16);
+      else
+        audio_loopback <= x"DEAD";
+      end if;
+      
       if reg_write='1' then
         report "Writing $" & to_hstring(wdata) & " to mixer coefficient $" & to_hstring(reg_num);
         ram_waddr <= to_integer(reg_num(7 downto 1));

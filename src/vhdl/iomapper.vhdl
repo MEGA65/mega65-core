@@ -190,71 +190,90 @@ entity iomapper is
     eth_rxer : in std_logic;
     eth_interrupt : in std_logic;
 
-        ----------------------------------------------------------------------
-        -- Flash RAM for holding config
-        ----------------------------------------------------------------------
-        QspiSCK : out std_logic;
-        QspiDB : inout std_logic_vector(3 downto 0);
-        QspiCSn : out std_logic;        
+    ----------------------------------------------------------------------
+    -- Flash RAM for holding config
+    ----------------------------------------------------------------------
+    QspiSCK : out std_logic;
+    QspiDB : inout std_logic_vector(3 downto 0);
+    QspiCSn : out std_logic;        
 
-        -------------------------------------------------------------------------
-        -- Lines for the SDcard interface itself
-        -------------------------------------------------------------------------
-        cs_bo : out std_logic;
-        sclk_o : out std_logic;
-        mosi_o : out std_logic;
-        miso_i : in  std_logic;
+    -------------------------------------------------------------------------
+    -- Lines for the SDcard interface itself
+    -------------------------------------------------------------------------
+    cs_bo : out std_logic;
+    sclk_o : out std_logic;
+    mosi_o : out std_logic;
+    miso_i : in  std_logic;
 
-        ---------------------------------------------------------------------------
-        -- Lines for other devices that we handle here
-        ---------------------------------------------------------------------------
-        aclMISO : in std_logic;
-        aclMOSI : out std_logic;
-        aclSS : out std_logic;
-        aclSCK : out std_logic;
-        aclInt1 : in std_logic;
-        aclInt2 : in std_logic;
+    ---------------------------------------------------------------------------
+    -- Lines for other devices that we handle here
+    ---------------------------------------------------------------------------
+    aclMISO : in std_logic;
+    aclMOSI : out std_logic;
+    aclSS : out std_logic;
+    aclSCK : out std_logic;
+    aclInt1 : in std_logic;
+    aclInt2 : in std_logic;
+
+    -- MEMs microphones
+    micData0 : in std_logic;
+    micData1 : in std_logic;
+    micClk : out std_logic;
+    micLRSel : out std_logic;
+
+    -- PDM audio output
+    ampPWM_l : out std_logic;
+    ampPWM_r : out std_logic;
+    ampSD : out std_logic;
+
+    -- I2S audio channels
+    i2s_master_clk : out std_logic := '0';
+    i2s_master_sync : out std_logic := '0';
+    i2s_slave_clk : in std_logic := '0';
+    i2s_slave_sync : in std_logic := '0';
+    pcm_modem_clk : out std_logic := '0';
+    pcm_modem_sync : out std_logic := '0';
+    i2s_headphones_data_out : out std_logic := '0';
+    i2s_headphones_data_in : in std_logic := '0';
+    i2s_speaker_data_out : out std_logic := '0';
+    pcm_modem1_data_in : in std_logic := '0';
+    pcm_modem2_data_in : in std_logic := '0';
+    pcm_modem1_data_out : out std_logic := '0';
+    pcm_modem2_data_out : out std_logic := '0';
+    i2s_bt_data_in : in std_logic := '0';
+    i2s_bt_data_out : out std_logic := '0';
     
-        micData : in std_logic;
-        micClk : out std_logic;
-        micLRSel : out std_logic;
+    tmpSDA : inout std_logic;
+    tmpSCL : inout std_logic;
+    tmpInt : in std_logic;
+    tmpCT : in std_logic;
 
-        ampPWM : out std_logic;
-        ampPWM_l : out std_logic;
-        ampPWM_r : out std_logic;
-        ampSD : out std_logic;
-
-        tmpSDA : inout std_logic;
-        tmpSCL : inout std_logic;
-        tmpInt : in std_logic;
-        tmpCT : in std_logic;
-
-        i2c1SDA : inout std_logic;
-        i2c1SCL : inout std_logic;
-
-        lcdpwm : inout std_logic;
-        touchSDA : inout std_logic;
-        touchSCL : inout std_logic;
+    i2c1SDA : inout std_logic;
+    i2c1SCL : inout std_logic;
+    
+    lcdpwm : inout std_logic;
+    touchSDA : inout std_logic;
+    touchSCL : inout std_logic;
+    
+    sw : in std_logic_vector(15 downto 0);
+    btn : in std_logic_vector(4 downto 0);
+    seg_led : out unsigned(31 downto 0);
+    
+    -- Touch interface
+    touch1_valid : out std_logic;
+    touch1_x : out unsigned(13 downto 0);
+    touch1_y : out unsigned(11 downto 0);
+    touch2_valid : out std_logic;
+    touch2_x : out unsigned(13 downto 0);
+    touch2_y : out unsigned(11 downto 0);
+    
+    viciii_iomode : in std_logic_vector(1 downto 0);
+    
+    kickstart_address : in std_logic_vector(13 downto 0);
         
-        sw : in std_logic_vector(15 downto 0);
-        btn : in std_logic_vector(4 downto 0);
-        seg_led : out unsigned(31 downto 0);
-
-        -- Touch interface
-        touch1_valid : out std_logic;
-        touch1_x : out unsigned(13 downto 0);
-        touch1_y : out unsigned(11 downto 0);
-        touch2_valid : out std_logic;
-        touch2_x : out unsigned(13 downto 0);
-        touch2_y : out unsigned(11 downto 0);
-        
-        viciii_iomode : in std_logic_vector(1 downto 0);
-        
-        kickstart_address : in std_logic_vector(13 downto 0);
-        
-        colourram_at_dc00 : in std_logic
-               
-        );
+    colourram_at_dc00 : in std_logic
+    
+    );
 end iomapper;
 
 architecture behavioral of iomapper is
@@ -391,6 +410,14 @@ architecture behavioral of iomapper is
   signal cia1_irq : std_logic;
   signal ethernet_irq : std_logic;
   signal uart_irq : std_logic;
+
+  signal audio_mix_reg : unsigned(7 downto 0) := x"FF";
+  signal audio_mix_write : std_logic := '0';
+  signal audio_mix_wdata : unsigned(15 downto 0) := x"FFFF";
+  signal audio_mix_rdata : unsigned(15 downto 0) := x"FFFF";
+  signal audio_loopback : unsigned(15 downto 0) := x"FFFF";
+  signal pcm_left : unsigned(15 downto 0) := x"FFFF";
+  signal pcm_right : unsigned(15 downto 0) := x"FFFF";
   
 begin
 
@@ -792,6 +819,50 @@ begin
     fastio_wdata => unsigned(data_i)
     );
 
+  audio0: entity work.audio_complex port map (
+    clock50mhz => clk,
+
+    audio_mix_reg => audio_mix_reg,
+    audio_mix_write => audio_mix_write,
+    audio_mix_wdata => audio_mix_wdata,
+    audio_mix_rdata => audio_mix_rdata,
+    audio_loopback => audio_loopback,
+    pcm_left => pcm_left,
+    pcm_right => pcm_right,
+
+    -- MEMS microphone inputs (2 x strings of 2)
+    micData0 => micData0,
+    micData1 => micData1,
+    micClk => micClk,
+    micLRSel => micLRSel,
+
+    leftsid_audio => leftsid_audio,
+    rightsid_audio => rightsid_audio,
+
+    -- PDM audio output for various boards
+    ampSD => ampSD,
+    ampPWM_l => ampPWM_l,
+    ampPWM_r => ampPWM_r,
+
+    -- I2S interfaces for various boards
+    i2s_master_clk => i2s_master_clk,
+    i2s_master_sync => i2s_master_sync,
+    i2s_slave_clk => i2s_slave_clk,
+    i2s_slave_sync => i2s_slave_sync,
+    pcm_modem_clk => pcm_modem_clk,
+    pcm_modem_sync => pcm_modem_sync,
+    i2s_headphones_data_out => i2s_headphones_data_out,
+    i2s_headphones_data_in => i2s_headphones_data_in,
+    i2s_speaker_data_out => i2s_speaker_data_out,
+    pcm_modem1_data_in => pcm_modem1_data_in,
+    pcm_modem2_data_in => pcm_modem2_data_in,
+    pcm_modem1_data_out => pcm_modem1_data_out,
+    pcm_modem2_data_out => pcm_modem2_data_out,
+    i2s_bt_data_in => i2s_bt_data_in,
+    i2s_bt_data_out => i2s_bt_data_out
+
+    );
+  
   sdcard0 : entity work.sdcardio port map (
     pixelclk => pixelclk,
     clock => clk,
@@ -851,18 +922,6 @@ begin
     aclInt1 => aclInt1,
     aclInt2 => aclInt2,
     
-    micData => micData,
-    micClk => micClk,
-    micLRSel => micLRSel,
-
-    leftsid_audio => leftsid_audio,
-    rightsid_audio => rightsid_audio,
-    
-    ampSD => ampSD,
-    ampPWM => ampPWM,
-    ampPWM_l => ampPWM_l,
-    ampPWM_r => ampPWM_r,
-    
     tmpSDA => tmpSDA,
     tmpSCL => tmpSCL,
     tmpInt => tmpInt,
@@ -871,6 +930,14 @@ begin
     i2c1SDA => i2c1SDA,
     i2c1SCL => i2c1SCL,
 
+    audio_mix_reg => audio_mix_reg,
+    audio_mix_write => audio_mix_write,
+    audio_mix_wdata => audio_mix_wdata,
+    audio_mix_rdata => audio_mix_rdata,
+    audio_loopback => audio_loopback,    
+    pcm_left => pcm_left,
+    pcm_right => pcm_right,
+    
     lcdpwm => lcdpwm,
     touchSDA => touchSDA,
     touchSCL => touchSCL,

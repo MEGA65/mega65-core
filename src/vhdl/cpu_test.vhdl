@@ -320,7 +320,8 @@ begin
       aclMISO => '1',
       aclInt1 => '0',
       aclInt2 => '0',
-      micData => '0',
+      micData0 => '0',
+      micData1 => '0',
       tmpInt => '0',
       tmpCT => '0',      
 
