@@ -1262,7 +1262,7 @@ begin  -- behavioural
             -- @IO:GS $D6FD - Audio Mixer register select
             fastio_rdata <= audio_mix_reg;
           when x"FE" =>
-            -- @IO:GS $D6FD - Audio Mixer register read port
+            -- @IO:GS $D6FE - Audio Mixer register read port
             if audio_mix_reg(0)='1' then
               fastio_rdata <= audio_mix_rdata(15 downto 8);
             else
@@ -2336,9 +2336,11 @@ begin  -- behavioural
               -- have to wait at least 17 clock cycles before trying to read or
               -- write, so that the data has time to settle.
               if audio_mix_reg(0)='1' then
+                report "Writing upper half of audio mixer coefficient";
                 audio_mix_wdata(15 downto 8) <= fastio_wdata;
                 audio_mix_wdata(7 downto 0) <= audio_mix_rdata(7 downto 0);
               else
+                report "Writing lower half of audio mixer coefficient";
                 audio_mix_wdata(7 downto 0) <= fastio_wdata;
                 audio_mix_wdata(15 downto 8) <= audio_mix_rdata(15 downto 8);
               end if;
