@@ -534,16 +534,9 @@ aml1:
 		; a cue to patch the instructions into JMPs to skip SD card boot checks.)
 		lda $1234
 		lda $1234
-		lda $1234
-		lda $1234
 		; update coefficient
 		lda #$0F   ; loud enough, and with the bit clear that allows the audio amplifier to turn on in reg $FE
 		sta audiomix_data
-		; wait for it to be committed
-		lda audiomix_data
-		lda audiomix_data
-		lda audiomix_data
-		lda audiomix_data
 		inx
 		bne aml1
 
