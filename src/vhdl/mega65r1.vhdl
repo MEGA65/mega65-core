@@ -461,7 +461,7 @@ begin
       aclInt2 => '1',
     
 --      micData => micData,
-      micData => '1',
+      micData0 => '1',
 --      micClk => micClk,
 --      micLRSel => micLRSel,
 
