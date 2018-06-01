@@ -460,8 +460,8 @@ begin
       aclInt1 => '1',
       aclInt2 => '1',
     
---      micData => micData,
       micData0 => '1',
+      micData1 => '1',
 --      micClk => micClk,
 --      micLRSel => micLRSel,
 
