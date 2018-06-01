@@ -87,16 +87,19 @@ begin
         pcm_out <= txbuffer(15);
         txbuffer(15 downto 1) <= txbuffer(14 downto 0);
         txbuffer(0) <= '0';
-        report "TXing bit " & std_logic'image(txbuffer(15));
-
-        -- Check if it is time for a new sample
-        if (last_sync='0' and pcm_sync='1') then
-          -- Time for a new sample
-          txbuffer <= std_logic_vector(tx_sample);
-          report "Starting to send new sample with value $" & to_hstring(tx_sample);
-          bit_number <= 15;
-        end if;
+        report "TXing bit " & std_logic'image(txbuffer(15))
+          & ", remaining bits = " & to_string(txbuffer)
+          & ", next sample = $" & to_hstring(tx_sample);
       end if;
+
+      -- Check if it is time for a new sample
+      if (last_sync='0' and pcm_sync='1') then
+        -- Time for a new sample
+        txbuffer <= std_logic_vector(tx_sample);
+        report "Starting to send new sample with value $" & to_hstring(tx_sample);
+        bit_number <= 15;
+      end if;
+
     end if;
   end process;
   
