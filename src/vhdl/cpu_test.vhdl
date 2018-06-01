@@ -139,6 +139,8 @@ architecture behavior of cpu_test is
   signal pot_drain : std_logic := '0';
 
   signal f_rdata : std_logic := '1';
+
+  signal pcm_modem1_data_out : std_logic := '0';
   
 begin
 
@@ -259,6 +261,8 @@ begin
       ps2data => '1',
       ps2clock => '1',
 
+      pcm_modem1_data_out => pcm_modem1_data_out,
+      
       keyleft => '1',
       keyup => '1',
       
@@ -501,6 +505,13 @@ begin
       wait for 10 ns;
       
     end loop;
+  end process;
+
+  process (clock50mhz) is
+  begin
+    if rising_edge(clock50mhz) then
+      report "PCM digital audio out = " & std_logic'image(pcm_modem1_data_out);
+    end if;
   end process;
   
 end behavior;
