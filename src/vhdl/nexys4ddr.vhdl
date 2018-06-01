@@ -459,8 +459,8 @@ begin
       lcdpwm => jdlo(3),
       pcm_modem_clk_in => jdhi(7),
       pcm_modem_sync_in => jdhi(8),
-      pcm_modem1_data_in => jdhi(10),
-      pcm_modem1_data_out => jdhi(9),
+      pcm_modem1_data_in => jdhi(9),
+      pcm_modem1_data_out => jdhi(10),
       
       ps2data =>      ps2data,
       ps2clock =>     ps2clk,
