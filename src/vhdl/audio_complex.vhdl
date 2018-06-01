@@ -69,6 +69,11 @@ entity audio_complex is
     -- Master PCM clock for the modems (1.8V and 8KHz instead)
     pcm_modem_clk : out std_logic := '0';
     pcm_modem_sync : out std_logic := '0';
+    -- And slave PCM clock for devices that need it
+    -- (there is a problem with the QC25AU refusing to accept AT+QDAI=1,1,0,4,0
+    -- to set PCM to slave mode, for example)
+    pcm_modem_clk_in : in std_logic;
+    pcm_modem_sync_in : in std_logic;
 
     -- Modem 1 PCM in
     pcm_modem1_data_in : in std_logic := '0';
@@ -149,8 +154,12 @@ architecture elizabethan of audio_complex is
 
   signal i2s_master_clk_int : std_logic := '0';
   signal i2s_master_sync_int : std_logic := '0';
+
+  signal modem_is_pcm_master : std_logic := '0';
   signal pcm_modem_clk_int : std_logic := '0';
   signal pcm_modem_sync_int : std_logic := '0';
+  signal pcm_modem_clk_gen : std_logic := '0';
+  signal pcm_modem_sync_gen : std_logic := '0';
 
   -- Use PWM instead of PDM for digital output to speakers
   -- on boards using 1-wire DAC
@@ -166,8 +175,8 @@ begin
       )
     port map (
     clock50mhz => clock50mhz,
-    pcm_clk => pcm_modem_clk_int,
-    pcm_sync => pcm_modem_sync_int);
+    pcm_clk => pcm_modem_clk_gen,
+    pcm_sync => pcm_modem_sync_gen);
 
   -- PCM interfaces to modems
   pcm0: entity work.pcm_transceiver port map (
@@ -293,6 +302,7 @@ begin
     wdata => audio_mix_wdata,
     rdata => audio_mix_rdata,
     audio_loopback => audio_loopback,
+    modem_is_pcm_master => modem_is_pcm_master,
     amplifier_enable => ampSD,
 
     -- SID outputs
@@ -345,8 +355,25 @@ begin
     if rising_edge(clock50mhz) then
 
       -- Propagate I2S and PCM clocks
-      pcm_modem_clk <= pcm_modem_clk_int;
-      pcm_modem_sync <= pcm_modem_sync_int;
+      if modem_is_pcm_master='0' then
+        -- Use internally generated clock
+        pcm_modem_clk <= pcm_modem_clk_gen;
+        pcm_modem_sync <= pcm_modem_sync_gen;
+        pcm_modem_clk_int <= pcm_modem_clk_gen;
+        pcm_modem_sync_int <= pcm_modem_sync_gen;
+      else
+        -- Use clock supplied by cellular modem
+        -- (The EC25AUs currently refuse to go into PCM slave mode.
+        -- Most Annoying, as this means we need duplicate PCM_CLK and
+        -- PCM_SYNC lines.)
+        -- XXX - Need to make separate copies for the two modems
+        -- inputs.  Else only one will work in master mode.
+        pcm_modem_clk <= pcm_modem_clk_in;
+        pcm_modem_sync <= pcm_modem_sync_in;
+        pcm_modem_clk_int <= pcm_modem_clk_in;
+        pcm_modem_sync_int <= pcm_modem_sync_in;
+      end if;
+      
       i2s_master_clk <= i2s_master_clk_int;
       i2s_master_sync <= i2s_master_sync_int;
       

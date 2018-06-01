@@ -196,6 +196,8 @@ entity machine is
          i2s_slave_sync : in std_logic := '0';
          pcm_modem_clk : out std_logic := '0';
          pcm_modem_sync : out std_logic := '0';
+         pcm_modem_clk_in : in std_logic := '0';
+         pcm_modem_sync_in : in std_logic := '0';
          i2s_headphones_data_out : out std_logic := '0';
          i2s_headphones_data_in : in std_logic := '0';
          i2s_speaker_data_out : out std_logic := '0';
@@ -1301,6 +1303,8 @@ begin
       i2s_slave_sync => i2s_slave_sync,
       pcm_modem_clk => pcm_modem_clk,
       pcm_modem_sync => pcm_modem_sync,
+      pcm_modem_clk_in => pcm_modem_clk_in,
+      pcm_modem_sync_in => pcm_modem_sync_in,      
       i2s_headphones_data_out => i2s_headphones_data_out,
       i2s_headphones_data_in => i2s_headphones_data_in,
       i2s_speaker_data_out => i2s_speaker_data_out,

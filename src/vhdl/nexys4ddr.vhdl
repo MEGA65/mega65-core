@@ -457,8 +457,8 @@ begin
       touchSDA => jdlo(2),
       touchSCL => jdlo(1),
       lcdpwm => jdlo(3),
-      pcm_modem_clk => jdhi(7),
-      pcm_modem_sync => jdhi(8),
+      pcm_modem_clk_in => jdhi(7),
+      pcm_modem_sync_in => jdhi(8),
       pcm_modem1_data_in => jdhi(10),
       pcm_modem1_data_out => jdhi(9),
       

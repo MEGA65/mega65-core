@@ -33,6 +33,7 @@ entity audio_mixer is
     wdata : in unsigned(15 downto 0) := x"FFFF";
     rdata : out unsigned(15 downto 0) := x"FFFF";
     audio_loopback : out unsigned(15 downto 0) := x"FFFF";
+    modem_is_pcm_master : out std_logic := '0';
     amplifier_enable : out std_logic := '0';
     
     -- Audio inputs
@@ -97,6 +98,10 @@ begin
         report "Writing $" & to_hstring(wdata) & " to mixer coefficient $" & to_hstring(reg_num);
         ram_waddr <= to_integer(reg_num(7 downto 1));
         ram_wdata(31 downto 16) <= wdata;
+        if reg_num = x"5E" then
+          -- Bit 0 of coefficient register $5E controls PCM slave/master mode selection
+          modem_is_pcm_master <= wdata(0);
+        end if;
         if reg_num = x"FE" then
           -- Bit 0 of coefficient register $FE controls audio amplifier
           amplifier_enable <= wdata(0);
