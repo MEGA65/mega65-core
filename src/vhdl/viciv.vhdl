@@ -2889,7 +2889,8 @@ begin
         raster_buffer_read_address <= raster_buffer_read_address_next;
         raster_buffer_read_address_sub <= raster_buffer_read_address_sub_next;
         xcounter <= xcounter + 1;
-        if xcounter = sprite_first_x then
+        -- Allow H640 sprites to begin from far-left
+        if (xcounter = sprite_first_x) or (sprite_h640='1') then
           sprite_x_counting <= '1';
         end if;
         if sprite_x_counting = '1' then
