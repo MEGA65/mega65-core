@@ -86,7 +86,7 @@ begin
         -- out zeroes, in accordance with the spec).
         pcm_out <= txbuffer(0);
         txbuffer(14 downto 0) <= txbuffer(15 downto 1);
-        txbuffer(0) <= '0';
+        txbuffer(15) <= '0';
         report "TXing bit " & std_logic'image(txbuffer(0))
           & ", remaining bits = " & to_string(txbuffer)
           & ", next sample = $" & to_hstring(tx_sample);
