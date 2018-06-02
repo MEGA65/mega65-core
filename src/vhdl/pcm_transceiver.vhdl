@@ -73,13 +73,32 @@ begin
 
       if pcm_clk='1' and last_clk='0' then
 
+        -- The EC25AU ignores our sync pulses.
+        -- Therefore we have to try to latch to the audio samples it provides.
+        -- (Also for unknown reasons, it is providing audio samples at only
+        -- 4KHz (3.906KHz according to the oscilloscope), instead of 8KHz.)
+        -- Basically if we see the pcm_in line go low after having been high
+        -- for at least 17 clock ticks, then we can assume that it is the start
+        -- of a sample. This relies on bit 0 of the incoming sample being 0, which
+        -- should be at least 50% of the time. The problem is if it isn't, then
+        -- we will be out of step by one bit, which will result in big problems
+        -- for the audio we feed it (and for the sample we are recovering).
+        rx_sync_buffer(0) <= pcm_in;
+        rx_sync_buffer(19 downto 1) <= rx_sync_buffer(18 downto 0);
+        if (rx_sync_buffer = "11111111111111111111" and pcm_in='0') and (bit_number=0) then
+          -- Time for a new sample
+          txbuffer <= std_logic_vector(tx_sample);
+          report "Synchronising to inferred sync clock via PCM_DIN";
+          bit_number <= 15;
+        end if;
+      
         -- Receive next bit of input
         if bit_number /= 0 then
           bit_number <= bit_number - 1;
           -- SYNC signal indicates left/right select
           rxbuffer(14 downto 0) <= rxbuffer(15 downto 1);
           rxbuffer(15) <= pcm_in;
-        end if;      
+        end if;
         
         -- Present next bit
         -- (If there are more bits than we have, we end up just shifting
