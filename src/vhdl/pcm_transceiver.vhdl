@@ -77,17 +77,17 @@ begin
         if bit_number /= 0 then
           bit_number <= bit_number - 1;
           -- SYNC signal indicates left/right select
-          rxbuffer(15 downto 1) <= rxbuffer(14 downto 0);
-          rxbuffer(0) <= pcm_in;
+          rxbuffer(14 downto 0) <= rxbuffer(15 downto 1);
+          rxbuffer(15) <= pcm_in;
         end if;      
         
         -- Present next bit
         -- (If there are more bits than we have, we end up just shifting
         -- out zeroes, in accordance with the spec).
-        pcm_out <= txbuffer(15);
-        txbuffer(15 downto 1) <= txbuffer(14 downto 0);
+        pcm_out <= txbuffer(0);
+        txbuffer(14 downto 0) <= txbuffer(15 downto 1);
         txbuffer(0) <= '0';
-        report "TXing bit " & std_logic'image(txbuffer(15))
+        report "TXing bit " & std_logic'image(txbuffer(0))
           & ", remaining bits = " & to_string(txbuffer)
           & ", next sample = $" & to_hstring(tx_sample);
       end if;
