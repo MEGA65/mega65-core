@@ -43,36 +43,53 @@ end pcm_clock;
 
 architecture brutalist of pcm_clock is
 
-  constant pcmclock_divider : integer := 25000000/2000000;
-  signal pcmclock_counter : integer range 0 to (pcmclock_divider - 1) := 0;
+  -- Problem here is that we need a clock period of 25 cycles, which means that
+  -- a half clock is 12.5 cycles, which doesn't work this way.
+  -- The simple solution is to make the counter add the fractional part, and to
+  -- add 2 each cycle instead of 1.
+  constant pcmclock_divider : integer := 25000000/(2000000/2);
+  signal pcmclock_counter : integer range 0 to (pcmclock_divider + 1) := 0;
 
   constant samplerate_divider : integer := 2000000/sample_rate;
-  signal eightkhz_counter : integer range 0 to (samplerate_divider - 1) := 0;
+  signal eightkhz_counter : integer range 0 to (samplerate_divider + 1) := samplerate_divider - 2;
 
   signal pcm_clk_int : std_logic := '0';
+
+  signal cycle_count : integer := 0;
   
 begin
 
   process (clock50mhz) is
   begin
     if rising_edge(clock50mhz) then
-      if pcmclock_counter /= (pcmclock_divider - 1) then
-        pcmclock_counter <= pcmclock_counter + 1;
+      report "Cycle " & integer'image(cycle_count) & ", pcmclock_counter=" & integer'image(pcmclock_counter);
+      cycle_count <= cycle_count + 1;
+      
+      if pcmclock_counter < (pcmclock_divider - 1) then
+        pcmclock_counter <= pcmclock_counter + 2;
       else
-        pcmclock_counter <= 0;
-
+        pcmclock_counter <= pcmclock_counter - pcmclock_divider + 2;
+        if pcm_clk_int='1'  then
+          report "Tick";
+        else
+          report "Tock";
+        end if;
+        
         pcm_clk <= not pcm_clk_int;
         pcm_clk_int <= not pcm_clk_int;
         
         -- Check if it is time for a new sample
-        if eightkhz_counter /= (samplerate_divider - 1) then
-          eightkhz_counter <= eightkhz_counter + 1;
-          pcm_sync <= '0';
-        else
-          -- Time for a new sample
-          eightkhz_counter <= 0;
-
-          pcm_sync <= '1';
+        if pcm_clk_int='0' then
+          if eightkhz_counter /= (samplerate_divider - 1) then
+            eightkhz_counter <= eightkhz_counter + 1;
+            report "PCM_SYNC clear";
+            pcm_sync <= '0';
+          else
+            -- Time for a new sample
+            eightkhz_counter <= 0;
+            report "PCM_SYNC assert";            
+            pcm_sync <= '1';
+          end if;
         end if;
       end if;
     end if;
