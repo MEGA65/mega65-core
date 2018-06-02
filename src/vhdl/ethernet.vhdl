@@ -49,6 +49,8 @@ entity ethernet is
     irq : out std_logic := '1';
     ethernet_cs : in std_logic;
 
+    cpu_ethernet_stream : out std_logic := '0';
+    
     ---------------------------------------------------------------------------
     -- IO lines to the ethernet controller
     ---------------------------------------------------------------------------
@@ -932,7 +934,7 @@ begin  -- behavioural
             fastio_rdata(5) <= eth_irq_rx;
             -- @IO:GS $D6E1.4 - Ethernet TX IRQ status
             fastio_rdata(4) <= eth_irq_tx;
-            -- $D6E1.3 - Enable streaming of VIC-IV display on ethernet
+            -- $D6E1.3 - Enable streaming of CPU instruction stream or VIC-IV display on ethernet
             fastio_rdata(3) <= eth_videostream;
             -- @IO:GS $D6E1.2 - Indicate which RX buffer was most recently used
             fastio_rdata(2) <= eth_rx_buffer_last_used_48mhz;            
@@ -1107,6 +1109,10 @@ begin  -- behavioural
                 when x"01" =>
                   -- @IO:GS $D6E4 = $01 = Transmit packet
                   eth_tx_trigger <= '1';
+                when x"dc" => -- (D)ebug (C)pu - stream via ethernet ($D6E1.3 must also be set)
+                  cpu_ethernet_stream <= '1';
+                when x"d4" => -- (D)ebug VIC-IV(4) - stream via ethernet ($D6E1.3 must also be set)
+                  cpu_ethernet_stream <= '0';
                 when x"de" => -- debug rx
                   -- Receive exactly one frame, and keep all signals states
                   debug_rx <= '1';

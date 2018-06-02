@@ -1187,6 +1187,20 @@ begin
       viciii_iomode => viciii_iomode,
       sector_buffer_mapped => sector_buffer_mapped,
 
+      -- CPU status for sending to ethernet frame packer
+      
+    monitor_pc => monitor_pc,
+    monitor_opcode => monitor_opcode,
+    monitor_arg1 => monitor_arg1,
+    monitor_arg2 => monitor_arg2,
+    monitor_a => monitor_a,
+    monitor_b => monitor_b,
+    monitor_x => monitor_x,
+    monitor_y => monitor_y,
+    monitor_z => monitor_z,
+    monitor_sp => monitor_sp,
+    monitor_p => monitor_p,
+      
     f_density => f_density,
     f_motor => f_motor,
     f_select => f_select,

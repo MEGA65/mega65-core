@@ -176,7 +176,19 @@ entity iomapper is
         pixel_newframe : in std_logic;
         pixel_newraster : in std_logic;
         pixel_x_640 : in integer;
-    
+
+        monitor_pc : in unsigned(15 downto 0);
+        monitor_opcode : in unsigned(7 downto 0);        
+        monitor_arg1 : in unsigned(7 downto 0);        
+        monitor_arg2 : in unsigned(7 downto 0);        
+        monitor_a : in unsigned(7 downto 0);        
+        monitor_b : in unsigned(7 downto 0);        
+        monitor_x : in unsigned(7 downto 0);        
+        monitor_y : in unsigned(7 downto 0);        
+        monitor_z : in unsigned(7 downto 0);        
+        monitor_sp : in unsigned(15 downto 0);        
+        monitor_p : in unsigned(7 downto 0);        
+        
     ---------------------------------------------------------------------------
     -- IO lines to the ethernet controller
     ---------------------------------------------------------------------------
@@ -420,6 +432,8 @@ architecture behavioral of iomapper is
   signal audio_loopback : unsigned(15 downto 0) := x"FFFF";
   signal pcm_left : unsigned(15 downto 0) := x"FFFF";
   signal pcm_right : unsigned(15 downto 0) := x"FFFF";
+
+  signal cpu_ethernet_stream : std_logic;
   
 begin
 
@@ -447,6 +461,9 @@ begin
     hypervisor_mode => cpu_hypervisor_mode,
     thumbnail_cs => thumbnail_cs,
 
+    video_or_cpu => cpu_ethernet_stream,
+    
+    -- Video stream for beaming via ethernet
     pixel_stream_in => pixel_stream_in,
     pixel_red_in => pixel_red_in,
     pixel_green_in => pixel_green_in,
@@ -456,6 +473,19 @@ begin
     pixel_newframe => pixel_newframe,
     pixel_newraster => pixel_newraster,
 
+    -- CPU status log for real-time debug
+    monitor_pc => monitor_pc,
+    monitor_opcode => monitor_opcode,
+    monitor_arg1 => monitor_arg1,
+    monitor_arg2 => monitor_arg2,
+    monitor_a => monitor_a,
+    monitor_b => monitor_b,
+    monitor_x => monitor_x,
+    monitor_y => monitor_y,
+    monitor_z => monitor_z,
+    monitor_sp => monitor_sp,
+    monitor_p => monitor_p,
+    
     buffer_moby_toggle => buffer_moby_toggle,
     buffer_offset => buffer_offset,
     buffer_address => buffer_address,
@@ -768,6 +798,8 @@ begin
     irq => ethernet_irq,
     ethernet_cs => ethernet_cs,
 
+    cpu_ethernet_stream => cpu_ethernet_stream,
+    
     ---------------------------------------------------------------------------
     -- IO lines to the ethernet controller
     ---------------------------------------------------------------------------

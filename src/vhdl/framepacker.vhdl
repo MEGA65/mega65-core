@@ -58,6 +58,8 @@ entity framepacker is
     ioclock : in std_logic;
     hypervisor_mode : in std_logic;
     thumbnail_cs : in std_logic;
+
+    video_or_cpu : in std_logic;
     
     -- Signals from VIC-IV
     pixel_stream_in : in unsigned (7 downto 0);
@@ -69,6 +71,20 @@ entity framepacker is
     pixel_newframe : in std_logic;
     pixel_newraster : in std_logic;
 
+    -- CPU state signals for real-time ethernet debug output
+    -- from the CPU
+    monitor_pc : in unsigned(15 downto 0);
+    monitor_opcode : in unsigned(7 downto 0);        
+    monitor_arg1 : in unsigned(7 downto 0);        
+    monitor_arg2 : in unsigned(7 downto 0);        
+    monitor_a : in unsigned(7 downto 0);        
+    monitor_b : in unsigned(7 downto 0);        
+    monitor_x : in unsigned(7 downto 0);        
+    monitor_y : in unsigned(7 downto 0);        
+    monitor_z : in unsigned(7 downto 0);        
+    monitor_sp : in unsigned(15 downto 0);        
+    monitor_p : in unsigned(7 downto 0);        
+    
     -- Signals for ethernet controller
     buffer_moby_toggle : out std_logic := '0';
     buffer_offset : out unsigned(11 downto 0);
