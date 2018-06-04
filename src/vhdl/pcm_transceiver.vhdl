@@ -100,6 +100,10 @@ begin
           -- SYNC signal indicates left/right select
           rxbuffer(15 downto 1) <= rxbuffer(14 downto 0);
           rxbuffer(0) <= pcm_in;
+        else
+          -- Copy received sample out
+          -- Note that the PCM audio is signed, so we need to add $8000 to it.
+          rx_sample <= to_unsigned(to_integer(rxbuffer)+32768,16);
         end if;
         
         -- Present next bit
