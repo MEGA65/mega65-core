@@ -22,7 +22,7 @@ aml2:		jsr audiomix_setcoefficient
 		cpx #$60
 		bne aml2
 		ldx #$40		
-		lda #$0f
+		lda #$5f
 		jsr audiomix_setcoefficient
 		inx
 		jsr audiomix_setcoefficient
@@ -32,7 +32,7 @@ aml2:		jsr audiomix_setcoefficient
 		jsr audiomix_setcoefficient
 		; and set master volume gain to something sensible
 		ldx #$5e
-		lda #$0f ; bit 0 must be set for coefficient $5e, to allow modem to be PCM audio master
+		lda #$ff ; bit 0 must be set for coefficient $5e, to allow modem to be PCM audio master
 		jsr audiomix_setcoefficient
 		inx
 		jsr audiomix_setcoefficient
