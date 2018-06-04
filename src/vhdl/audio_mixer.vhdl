@@ -12,8 +12,8 @@
 -- The framework is purposely general, and doesn't really care what the
 -- sources and outputs are.
 --
--- Inputs: SIDL, SIDR, DIGL, DIGR, CEL1L, CEL1R, CEL2L, CEL2R, BTL, BTR, MIC1, MIC2, MIC3,
--- MIC4, HEADMIC
+-- Inputs: SIDL, SIDR, DIGL, DIGR, CEL1L, CEL1R, CEL2L, CEL2R,
+--         BTL,  BTR,  MIC1, MIC2, MIC3,  MIC4,  HEADMIC
 -- Outputs: SPKRL, SPKRR, CELO1, CELO2, BTL, BTR, HEADL, HEADR
 
 library ieee;

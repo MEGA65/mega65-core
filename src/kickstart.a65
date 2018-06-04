@@ -535,10 +535,19 @@ aml1:
 		lda $1234
 		lda $1234
 		; update coefficient
-		lda #$0F   ; loud enough, and with the bit clear that allows the audio amplifier to turn on in reg $FE
+		lda #$3e   ; loud enough, and with the bit clear that allows the audio amplifier to turn on in reg $FE
 		sta audiomix_data
 		inx
 		bne aml1
+
+		; Be PCM audio master to modem
+		lda #$5e
+		sta audiomix_addr
+		lda $1234
+		lda $1234
+		lda $1234
+		lda #$3f       ; bit 0=1 means modem is PCM master, bit 0=0 means FPGA is PCM master
+		sta audiomix_data
 
 
 .macro	buffereduarttest
