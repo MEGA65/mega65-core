@@ -404,6 +404,11 @@ invalid_subfunction:
 		.include "kickstart_virtual_f011.a65"
 
 ;;; ----------------------------------------------------------------------------
+;;; Audio mixer control functions
+;;; ----------------------------------------------------------------------------
+		.include "kickstart_audiomix.a65"
+
+;;; ----------------------------------------------------------------------------
 ;;; CPU Hypervisor Entry Point on reset
 ;;; ----------------------------------------------------------------------------
 
@@ -525,30 +530,7 @@ reset_machine_state:
 reset_entry:
 		sei
 
-		; Reset audio mixer coefficients to something sensible
-		ldx #$00
-aml1:
-		STX audiomix_addr
-		; wait 17 cycles before reading (16 + start of read instruction)
-		; (cant use bit $1234 here, as that will get picked up by monitor_load
-		; a cue to patch the instructions into JMPs to skip SD card boot checks.)
-		lda $1234
-		lda $1234
-		; update coefficient
-		lda #$3e   ; loud enough, and with the bit clear that allows the audio amplifier to turn on in reg $FE
-		sta audiomix_data
-		inx
-		bne aml1
-
-		; Be PCM audio master to modem
-		lda #$5e
-		sta audiomix_addr
-		lda $1234
-		lda $1234
-		lda $1234
-		lda #$3f       ; bit 0=1 means modem is PCM master, bit 0=0 means FPGA is PCM master
-		sta audiomix_data
-
+		jsr audiomix_setup
 
 .macro	buffereduarttest
 		; 115200 bps for both
