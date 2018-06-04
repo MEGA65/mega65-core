@@ -114,7 +114,7 @@ begin
       end if;
 
       -- Check if it is time for a new sample
-      if (last_sync='0' and pcm_sync='1') then
+      if (last_sync='1' and pcm_sync='0') then
         -- Time for a new sample
         txbuffer <= std_logic_vector(tx_sample);
         report "Starting to send new sample with value $" & to_hstring(tx_sample);
