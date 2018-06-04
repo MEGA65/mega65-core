@@ -58,6 +58,8 @@ architecture brutalist of pcm_transceiver is
   signal rxbuffer : std_logic_vector(15 downto 0) := (others => '0');
   signal txbuffer : std_logic_vector(15 downto 0) := (others => '0');
 
+  signal rx_sync_buffer : std_logic_vector(19 downto 0) := (others => '0');
+  
   signal last_clk : std_logic := '0';
   signal last_sync : std_logic := '0';
   
