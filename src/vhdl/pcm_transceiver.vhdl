@@ -62,6 +62,8 @@ architecture brutalist of pcm_transceiver is
   
   signal last_clk : std_logic := '0';
   signal last_sync : std_logic := '0';
+
+  signal rxdone : std_logic := '0';
   
 begin
 
@@ -103,9 +105,12 @@ begin
         else
           -- Copy received sample out
           -- Note that the PCM audio is signed, so we need to convert it to unsigned
-          rx_sample(14 downto 0) <= unsigned(rxbuffer(14 downto 0));
-          rx_sample(15) <= not rxbuffer(15);
-          rxbuffer <= "0000000000000000";
+          if rxdone='0' then
+            rx_sample(14 downto 0) <= unsigned(rxbuffer(14 downto 0));
+            rx_sample(15) <= not rxbuffer(15);
+            rxbuffer <= "0000000000000000";
+            rxdone <= '1';
+          end if;
         end if;
         
         -- Present next bit
@@ -125,6 +130,7 @@ begin
         txbuffer <= std_logic_vector(tx_sample);
         report "Starting to send new sample with value $" & to_hstring(tx_sample);
         bit_number <= 16;
+        rxdone <= '0';                  
       end if;
 
     end if;
