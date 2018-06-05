@@ -102,8 +102,12 @@ begin
           rxbuffer(0) <= pcm_in;
         else
           -- Copy received sample out
-          -- Note that the PCM audio is signed, so we need to add $8000 to it.
-          rx_sample <= to_unsigned(to_integer(rxbuffer)+32768,16);
+          -- Note that the PCM audio is signed, so we need to convert it to unsigned
+          if rxbuffer(15)='0' then
+            rx_sample <= to_unsigned(to_integer(unsigned(rxbuffer))+32768,16);
+          else
+            rx_sample <= to_unsigned(65536-to_integer(unsigned(rxbuffer)),16);
+          end if;
         end if;
         
         -- Present next bit
