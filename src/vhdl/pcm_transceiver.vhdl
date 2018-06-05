@@ -103,11 +103,9 @@ begin
         else
           -- Copy received sample out
           -- Note that the PCM audio is signed, so we need to convert it to unsigned
-          if rxbuffer(15)='0' then
-            rx_sample <= to_unsigned(to_integer(unsigned(rxbuffer))+32768,16);
-          else
-            rx_sample <= to_unsigned(65536-to_integer(unsigned(rxbuffer)),16);
-          end if;
+          rx_sample(14 downto 0) <= unsigned(rxbuffer(14 downto 0));
+          rx_sample(15) <= not rxbuffer(15);
+          rxbuffer <= "0000000000000000";
         end if;
         
         -- Present next bit
@@ -126,7 +124,7 @@ begin
         -- Time for a new sample
         txbuffer <= std_logic_vector(tx_sample);
         report "Starting to send new sample with value $" & to_hstring(tx_sample);
-        bit_number <= 15;
+        bit_number <= 16;
       end if;
 
     end if;
