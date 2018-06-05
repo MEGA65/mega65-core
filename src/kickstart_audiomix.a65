@@ -3,7 +3,7 @@ audiomix_setup:
 
 		; Set all audio mixer coefficients to something sensible
 		ldx #$00
-		lda #$3f
+		lda #$30
 aml1:
 		jsr audiomix_setcoefficient
 		inx
@@ -12,6 +12,11 @@ aml1:
 		; Enable audio amplifier for Nexys4 series boards
 		ldx #$fe
 		lda #$01
+		jsr audiomix_setcoefficient
+
+		; Maximum gain on headphones/speaker
+		ldx #$1f
+		lda #$ff
 		jsr audiomix_setcoefficient
 
 		; For modem1 output, just have the SIDs at a reasonable volume
