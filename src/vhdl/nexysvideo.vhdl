@@ -583,11 +583,12 @@ begin
       aclInt1 => aclInt1,
       aclInt2 => aclInt2,
       
-      micData => micData,
+      micData0 => micData,
+      micData1 => '0',
       micClk => micClk,
       micLRSel => micLRSel,
 
-      ampPWM => ampPWM_internal,
+      --ampPWM => ampPWM_internal,
       ampPWM_l => led(13),
       ampPWM_r => led(14),
       ampSD => ampSD,

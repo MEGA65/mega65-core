@@ -102,21 +102,20 @@ entity keyboard_complex is
 end entity keyboard_complex;
 
 architecture behavioural of keyboard_complex is
-  signal matrix_combined : std_logic_vector(71 downto 0) := (others => '1');
 
-  signal virtual_matrix : std_logic_vector(71 downto 0);
+  signal virtual_matrix_col : std_logic_vector(7 downto 0);
 
-  signal keyboard_matrix : std_logic_vector(71 downto 0);
+  signal keyboard_matrix_col : std_logic_vector(7 downto 0);
   signal keyboard_joya : std_logic_vector(4 downto 0) := (others => '1');
   signal keyboard_joyb : std_logic_vector(4 downto 0) := (others => '1');
   
-  signal widget_matrix : std_logic_vector(71 downto 0);
+  signal widget_matrix_col : std_logic_vector(7 downto 0);
   signal widget_restore : std_logic;
   signal widget_capslock : std_logic;
   signal widget_joya : std_logic_vector(4 downto 0);
   signal widget_joyb : std_logic_vector(4 downto 0);
 
-  signal ps2_matrix : std_logic_vector(71 downto 0);
+  signal ps2_matrix_col : std_logic_vector(7 downto 0);
   signal ps2_restore : std_logic;
   signal ps2_capslock : std_logic;
   signal ps2_joya : std_logic_vector(4 downto 0);
@@ -132,6 +131,17 @@ architecture behavioural of keyboard_complex is
   signal restore_combined : std_logic := '1';
   signal capslock_combined : std_logic := '1';
 
+  signal matrix_col_idx : integer range 0 to 8;
+
+  signal matrix_combined_col : std_logic_vector(7 downto 0);
+  signal matrix_combined_col_idx : integer range 0 to 15;
+  signal kmm_out : std_logic_vector(7 downto 0);
+  signal kmm_index : integer range 0 to 15;
+  signal summary_index : integer range 0 to 15;
+  signal summary_out : std_logic_vector(7 downto 0);
+  signal shift_key_state : std_logic;
+  signal kd_state : std_logic;
+  
 begin
 
   v2m: entity work.virtual_to_matrix
@@ -143,7 +153,8 @@ begin
       touch_key1 => touch_key1,
       touch_key2 => touch_key2,
       
-      matrix => virtual_matrix
+      matrix_col => virtual_matrix_col,
+      matrix_col_idx => matrix_col_idx
       );
   
   phykbd0: entity work.keyboard_to_matrix
@@ -158,7 +169,8 @@ begin
       scan_mode => scan_mode,
       scan_rate => scan_rate,
 
-      matrix => keyboard_matrix
+      matrix_col => keyboard_matrix_col,
+      matrix_col_idx => matrix_col_idx
       );
 
   widget0: entity work.widget_to_matrix port map(
@@ -170,7 +182,8 @@ begin
     pmod_data_in => pmod_data_in,
     pmod_data_out => pmod_data_out,
 
-    matrix => widget_matrix,
+    matrix_col => widget_matrix_col,
+    matrix_col_idx => matrix_col_idx,
     restore => widget_restore,
     capslock_out => widget_capslock,
     joya => widget_joya,
@@ -184,7 +197,10 @@ begin
     -- PS/2 keyboard also provides emulated joysticks and RESTORE key
     restore_out => ps2_restore,
     capslock_out => ps2_capslock,
-    matrix => ps2_matrix,
+
+    matrix_col => ps2_matrix_col,
+    matrix_col_idx => matrix_col_idx,
+    
     joya => ps2_joya,
     joyb => ps2_joyb,
 
@@ -212,7 +228,7 @@ begin
     
     virtual_disable => virtual_disable,
     physkey_disable => physkey_disable,
-    matrix_physkey => keyboard_matrix,
+    matrix_col_physkey => keyboard_matrix_col,
     capslock_physkey => keyboard_capslock,
     restore_physkey => keyboard_restore,
 
@@ -225,22 +241,24 @@ begin
     joyb_real => joyb,
 
     widget_disable => widget_disable,
-    matrix_widget => widget_matrix,
+    matrix_col_widget => widget_matrix_col,
     joya_widget => widget_joya,
     joyb_widget => widget_joyb,
     capslock_widget => widget_capslock,
     restore_widget => widget_restore,
 
     ps2_disable => ps2_disable,
-    matrix_ps2 => ps2_matrix,
+    matrix_col_ps2 => ps2_matrix_col,
     joya_ps2 => ps2_joya,
     joyb_ps2 => ps2_joyb,
     capslock_ps2 => ps2_capslock,
     restore_ps2 => ps2_restore,
 
-    matrix_virtual => virtual_matrix,
+    matrix_col_virtual => virtual_matrix_col,
     
-    matrix_combined => matrix_combined,
+    matrix_col_idx => matrix_col_idx,    
+    matrix_combined_col => matrix_combined_col,
+    matrix_combined_col_idx => matrix_combined_col_idx,
     
     -- RESTORE when held or double-tapped does special things
     restore_out => restore_combined,
@@ -280,8 +298,10 @@ begin
     port map(
       Clk => ioclock,
       reset_in => reset_in,
-      matrix_in => matrix_combined,
 
+      matrix_col => matrix_combined_col,
+      matrix_col_idx => matrix_combined_col_idx,
+      
       suppress_key_glitches => suppress_key_glitches,
       suppress_key_retrigger => suppress_key_retrigger,
 
@@ -291,9 +311,45 @@ begin
       ascii_key_valid => ascii_key_valid
       );
 
+  -- copy of combined keyboard matrix for debug output
+  kc_kmm_debug: entity work.kb_matrix_ram
+  port map (
+    clkA => ioclock,
+    addressa => matrix_combined_col_idx,
+    dia => matrix_combined_col,
+    wea => x"FF",
+    addressb => kmm_index,
+    dob => kmm_out
+    );
+
+  -- another of combined keyboard matrix for summary view
+  kc_kmm_summary: entity work.kb_matrix_ram
+  port map (
+    clkA => ioclock,
+    addressa => matrix_combined_col_idx,
+    dia => matrix_combined_col,
+    wea => x"FF",
+    addressb => summary_index,
+    dob => summary_out
+    );
+
+  process(kd_phase)
+    variable kd_phase_vec : std_logic_vector(6 downto 0);
+    variable kd_phase_index : integer range 0 to 15;
+    variable kd_phase_bit : integer range 0 to 7;
+  begin
+    kd_phase_vec   := std_logic_vector(to_unsigned(kd_phase,7));
+    kd_phase_index := to_integer(unsigned(kd_phase_vec(6 downto 3)));
+    kd_phase_bit   := to_integer(unsigned(kd_phase_vec(2 downto 0)));
+
+    kd_state       <= summary_out(kd_phase_bit);
+    summary_index  <= kd_phase_index;
+  end process;
+        
   process (ioclock)
     variable num : integer;
   begin
+        
     if rising_edge(ioclock) then
 
       capslock_out <= capslock_combined;
@@ -301,11 +357,13 @@ begin
       
       num := to_integer(unsigned(matrix_segment_num));
       if num < 10 then
-        matrix_segment_out <= matrix_combined((num*8+7) downto (num*8));
+        kmm_index <= num;
+        matrix_segment_out <= kmm_out;
       else
+        kmm_index <= 0;
         matrix_segment_out <= (others => '1');
       end if;
-
+      
       if reset_in = '0' then
         -- $7D = no key ($7E and $7F have special meanings)
         kd1 <= x"7D";
@@ -319,9 +377,13 @@ begin
         -- (so that the OSK shws all currently down keys)
         if kd_phase /= 72 then
           kd_phase <= kd_phase + 1;
-          if kd_phase = 2 and matrix_combined(52)='0' then
+          -- remember last known shift key state
+          if kd_phase = 52 then
+            shift_key_state <= kd_state;
+          end if;
+          if kd_phase = 2 and shift_key_state='0' then
             -- Left (or shift right)
-            if (matrix_combined(kd_phase) = '0') then
+            if (kd_state = '0') then
               if kd_count = 0 then
                 kd1 <= x"53"; -- left key
               elsif kd_count = 1 then
@@ -333,9 +395,9 @@ begin
               end if;
               kd_count <= kd_count + 1;
             end if;
-          elsif kd_phase = 7 and matrix_combined(52)='0' then
+          elsif kd_phase = 7 and shift_key_state='0' then
             -- Up (or shift down)
-            if (matrix_combined(kd_phase) = '0') then
+            if (kd_state = '0') then
               if kd_count = 0 then
                 kd1 <= x"52"; -- up key
               elsif kd_count = 1 then
@@ -347,7 +409,7 @@ begin
               end if;
               kd_count <= kd_count + 1;
             end if;
-          elsif (matrix_combined(kd_phase) = '0') then
+          elsif (kd_state = '0') then
             if kd_count = 0 then
               kd1 <= to_unsigned(kd_phase,8);
             elsif kd_count = 1 then

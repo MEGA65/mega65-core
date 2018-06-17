@@ -10,8 +10,10 @@ entity matrix_to_ascii is
            clock_frequency : integer);
   port (Clk : in std_logic;
         reset_in : in std_logic;
-        matrix_in : in std_logic_vector(71 downto 0);
 
+        matrix_col : in std_logic_vector(7 downto 0);
+        matrix_col_idx : in integer range 0 to 8;
+        
         suppress_key_glitches : in std_logic;
         suppress_key_retrigger : in std_logic;
         
@@ -34,19 +36,39 @@ architecture behavioral of matrix_to_ascii is
   -- Number of CPU cycles between each key scan event.
   constant keyscan_delay : integer := clock_frequency/(72*scan_frequency);
   
-  signal keyscan_counter : integer := 0;
+  signal keyscan_counter : integer range 0 to keyscan_delay := 0;
   -- Automatic key repeat (just repeats ascii_key_valid strobe periodically)
   -- (As key repeat is checked on each of the 72 key tests, we don't need to
   -- divide the maximum repeat counters by 72.)
   signal repeat_key : integer range 0 to 71 := 0;
-  signal repeat_key_timer : integer range 0 to clock_frequency := 0;
   constant repeat_start_timer : integer := clock_frequency/scan_frequency/2; -- 0.5 sec
   constant repeat_again_timer : integer := clock_frequency/scan_frequency/10; -- 0.1 sec
+
+  signal repeat_key_timer : integer range 0 to repeat_start_timer := 0;
+
+  -- This one snoops the input and gets atomically snapshotted at each keyscan interval
+  signal matrix_in : std_logic_vector(71 downto 0);
 
   signal matrix : std_logic_vector(71 downto 0) := (others => '1');
   signal bucky_key_internal : std_logic_vector(6 downto 0) := (others => '0');
   signal matrix_internal : std_logic_vector(71 downto 0) := (others => '1');
 
+  -- These are the current single output bits from the debounce and last matrix rams
+  signal debounce_key_state : std_logic;
+  signal last_key_state : std_logic;
+  
+  -- This is the current index we are reading from both RAMs (and writing to last)
+  signal ram_read_index : integer range 0 to 15;
+  signal debounce_write_mask : std_logic_vector(7 downto 0);
+  signal last_write_mask : std_logic_vector(7 downto 0);
+  
+  signal debounce_in : std_logic_vector(7 downto 0);
+  signal current_col_out : std_logic_vector(7 downto 0);
+  signal debounce_col_out : std_logic_vector(7 downto 0);
+  signal last_col_out : std_logic_vector(7 downto 0);
+  
+  signal repeat_timer_expired : std_logic;
+  
   signal reset : std_logic := '1';
   
   type key_matrix_t is array(0 to 71) of unsigned(7 downto 0);
@@ -361,16 +383,119 @@ architecture behavioral of matrix_to_ascii is
   signal key_num : integer range 0 to 71 := 0;
 
 begin
+  
+  -- This is our first local copy that gets updated continuously by snooping
+  -- the incoming column state from the keymapper.  It exists mostly so we have
+  -- an updated copy of the current matrix state we can sample from at our own
+  -- pace.
+  current_kmm: entity work.kb_matrix_ram
+  port map (
+    clkA => Clk,
+    addressa => matrix_col_idx,
+    dia => matrix_col,
+    wea => x"FF",
+    addressb => ram_read_index,
+    dob => current_col_out
+    );
+  
+  -- This is a second copy we use for debouncing the input.  It's input is either
+  -- the current_col_out (if we're sampling) or the logical and of current_col_out
+  -- and debounce_col_out (if we're debouncing)
+  debounce_kmm : entity work.kb_matrix_ram
+  port map (
+    clkA => Clk,
+    addressa => ram_read_index,
+    dia => debounce_in,
+    wea => debounce_write_mask,
+    addressb => ram_read_index,
+    dob => debounce_col_out
+    );
+    
+  -- This is our third local copy which we use for detecting edges.  It gets 
+  -- updated as we do the key scan and always remembers the last state of whatever
+  -- key we're currently looking at.
+  last_kmm: entity work.kb_matrix_ram
+  port map (
+    clkA => Clk,
+    addressa => ram_read_index,
+    dia => current_col_out,
+    wea => last_write_mask,
+    addressb => ram_read_index,
+    dob => last_col_out
+    );
+    
+    -- combinatorial processes
+  process(ram_read_index,debounce_col_out,current_col_out,last_col_out,keyscan_counter,key_num)
+    variable read_index : integer range 0 to 15;
+    variable key_num_vec : std_logic_vector(6 downto 0);
+    variable key_num_bit : integer range 0 to 7;
+    variable debounce_mask : std_logic_vector(7 downto 0);
+    variable last_mask : std_logic_vector(7 downto 0);
+    variable dks : std_logic;
+    variable lks : std_logic;
+  begin
+      read_index := 0;
+      debounce_mask := x"00";
+      last_mask := x"00";
+      key_num_vec := "0000000";
+      key_num_bit := 0;
+      dks := '1';
+      lks := '1';
+      
+      if keyscan_counter /= 0 then
+        if(keyscan_counter < 11) then
+          read_index := keyscan_counter - 1;
+          debounce_mask := x"FF";
+        end if;
+        if suppress_key_glitches='1' then
+          debounce_in <= current_col_out and debounce_col_out;
+        else
+          debounce_in <= current_col_out;
+        end if;
+      else
+        debounce_in <= current_col_out;
+        key_num_vec   := std_logic_vector(to_unsigned(key_num,7));
+        read_index    := to_integer(unsigned(key_num_vec(6 downto 3)));
+        key_num_bit   := to_integer(unsigned(key_num_vec(2 downto 0)));
+        
+        case to_unsigned(key_num_bit,7)(2 downto 0) is
+          when x"0" => last_mask := "00000001";
+          when x"1" => last_mask := "00000010";
+          when x"2" => last_mask := "00000100";
+          when x"3" => last_mask := "00001000";
+          when x"4" => last_mask := "00010000";
+          when x"5" => last_mask := "00100000";
+          when x"6" => last_mask := "01000000";
+          when x"7" => last_mask := "10000000";
+          when others => last_mask := x"00";
+        end case;
+        debounce_mask := last_mask;
+        dks := debounce_col_out(key_num_bit);
+        lks := last_col_out(key_num_bit);
+      end if;
+      
+      -- update debounce and last bits
+      debounce_key_state <= dks;
+      last_key_state <= lks;
+      
+      -- update other ram input signals
+      ram_read_index <= read_index;
+      debounce_write_mask <= debounce_mask;
+      last_write_mask <= last_mask;
+  end process;
+  
   process(clk)
     variable key_matrix : key_matrix_t;
   begin
     if rising_edge(clk) then
 
-      reset <= reset_in;
-      if reset_in /= reset then
-        matrix_internal <= (others => '1');
-        matrix <= (others => '1');
-      end if;
+      --reset <= reset_in;
+      --if reset_in /= reset then
+      --  matrix_internal <= (others => '1');
+      --  matrix <= (others => '1');
+      --end if;
+      
+      --matrix_in(matrix_col_idx*8+7 downto matrix_col_idx*8) <= matrix_col;
       
       -- Which matrix to use, based on modifier key state
       -- C= takes precedence over SHIFT, so that we can have C= + cursor keys
@@ -385,30 +510,29 @@ begin
         key_matrix := matrix_normal;
       end if;
 
-      -- Update modifiers
-      bucky_key_internal(0) <= not matrix(15);
-      bucky_key_internal(1) <= not matrix(52);
-      bucky_key_internal(2) <= not matrix(58);
-      bucky_key_internal(3) <= not matrix(61);
-      bucky_key_internal(4) <= not matrix(66);
-      bucky_key_internal(5) <= not matrix(64);
       bucky_key <= bucky_key_internal;
 
       -- Check for key press events
       if keyscan_counter /= 0 then
         keyscan_counter <= keyscan_counter - 1;
         ascii_key_valid <= '0';
-        if suppress_key_glitches='1' then
-          matrix <= matrix and matrix_in;
-        else
-          matrix <= matrix_in;
-        end if;
       else
 --        report "Checking matrix for key event, matrix=" & to_string(matrix);
-        matrix <= matrix_in;
+
+        -- Update modifiers
+        case key_num is
+          when 15 => bucky_key_internal(0) <= not debounce_key_state;
+          when 52 => bucky_key_internal(1) <= not debounce_key_state;
+          when 58 => bucky_key_internal(2) <= not debounce_key_state;
+          when 61 => bucky_key_internal(3) <= not debounce_key_state;
+          when 66 => bucky_key_internal(4) <= not debounce_key_state;
+          when 64 => bucky_key_internal(5) <= not debounce_key_state;
+          when others => null;
+        end case;
+        
         keyscan_counter <= keyscan_delay;
-        matrix_internal(key_num) <= matrix(key_num);
-        if (to_UX01(matrix_internal(key_num)) = '1') and (to_UX01(matrix(key_num))='0') then
+
+        if (last_key_state = '1') and (debounce_key_state='0') then
           if key_matrix(key_num) /= x"00" then
             -- Key press event
             report "matrix = " & to_string(matrix);
@@ -439,17 +563,17 @@ begin
           if repeat_key_timer /= 0 then
             repeat_key_timer <= repeat_key_timer - 1;
             ascii_key_valid <= '0';
-          else
-            repeat_key_timer <= repeat_again_timer;
-            if matrix(repeat_key)='0' then
+          elsif repeat_timer_expired = '1' then
+            --repeat_key_timer <= repeat_again_timer;
+            if (repeat_key = key_num) and debounce_key_state='0' then
               ascii_key_valid <= '1';
               report "Repeating key held down";
               -- Republish the key, so that modifiers can change during repeat,
               -- e.g., to allow cursor direction changing without stopping the
               -- repeat.
               ascii_key <= key_matrix(repeat_key);
-            else
-              ascii_key_valid <= '0';              
+              --else
+              --ascii_key_valid <= '0';              
             end if;
           end if;
         end if;
@@ -458,6 +582,15 @@ begin
           key_num <= key_num + 1;
         else
           key_num <= 0;
+          -- If we hit key_num 71 and the repeat key has expired then reset it.
+          -- otherwise we set it so we do the repeat check on the next pass and
+          -- then reset it.
+          if repeat_timer_expired = '1' then
+            repeat_key_timer <= repeat_again_timer;
+            repeat_timer_expired <= '0';
+          elsif repeat_key_timer = 0 then
+            repeat_timer_expired <= '1';
+          end if;
         end if;
       end if;
       

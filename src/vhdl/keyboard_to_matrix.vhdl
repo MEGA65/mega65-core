@@ -18,7 +18,9 @@ entity keyboard_to_matrix is
         scan_rate : in unsigned(7 downto 0);
         
         -- Virtualised keyboard matrix
-        matrix : out std_logic_vector(71 downto 0) := (others => '1')
+        matrix_col : out std_logic_vector(7 downto 0) := (others => '1');
+        matrix_col_idx : in integer range 0 to 8
+        
         );
 
 end keyboard_to_matrix;
@@ -30,28 +32,46 @@ architecture behavioral of keyboard_to_matrix is
 
   signal scan_phase : integer range 0 to 15 := 0; -- reset entry phase
 
-  -- Scanned state of the keyboard
-  signal matrix_internal : std_logic_vector(71 downto 0) := (others => '1');
-
   signal enabled : std_logic := '0';
   
+  signal keyram_wea : std_logic_vector(7 downto 0);
+  signal keyram_mask : std_logic_vector(7 downto 0);
+  
 begin
+  
+  kb_kmm: entity work.kb_matrix_ram
+  port map (
+    clkA => Clk,
+    addressa => scan_phase,
+    dia => (portb_pins(7 downto 0) and keyram_mask),
+    wea => keyram_wea,
+    addressb => matrix_col_idx,
+    dob => matrix_col
+    );
+  
   process (clk)
     variable next_phase : integer range 0 to 15;
+    variable scan_mask : std_logic_vector(7 downto 0);
   begin
     if rising_edge(clk) then
 
       -- Present virtualised keyboard
-      matrix <= matrix_internal;     
-      if key_left = scan_mode(0) then
-        matrix(2) <= '0'; -- cursor right
-        matrix(52) <= '0'; -- right shift
-      end if;
-      if key_up= scan_mode(0) then
-        matrix(7) <= '0'; -- cursor down
-        matrix(52) <= '0'; -- right shift
+      scan_mask := x"FF";      
+      if scan_phase = 0 then
+        if key_left = scan_mode(0) then
+          scan_mask(2) := '0';
+        end if;
+        if key_up = scan_mode(0) then
+          scan_mask(7) := '0';
+        end if;
+      elsif scan_phase = (52 / 8) then
+        if key_left = scan_mode(0) or key_up = scan_mode(0) then
+          scan_mask(52 mod 8) := '0';
+        end if;
       end if;
 
+      keyram_mask <= scan_mask;
+      
       -- Put positive charge on the keyboard pins we are going to read,
       -- to make sure they float high.  Then make them tri-state just
       -- before we read them, so that we don't have cross-driving
@@ -63,6 +83,8 @@ begin
       else
         portb_pins <= (others => 'H');
       end if;
+      
+      keyram_wea <= x"00";
       
       -- Scan physical keyboard
       if counter=0 then
@@ -99,7 +121,7 @@ begin
         end if;
 
         if enabled='1' then
-          matrix_internal((scan_phase*8)+ 7 downto (scan_phase*8)) <= portb_pins(7 downto 0);
+          keyram_wea <= x"FF";
         end if;
 
         -- Select lines for next column

@@ -14,7 +14,9 @@ entity widget_to_matrix is
     pmod_data_in : in std_logic_vector(3 downto 0);
     pmod_data_out : out std_logic_vector(1 downto 0) := "ZZ";
 
-    matrix : out std_logic_vector(71 downto 0) := (others => '1');
+    matrix_col : out std_logic_vector(7 downto 0) := (others => '1');
+    matrix_col_idx : in integer range 0 to 8;
+    
     restore : out std_logic := '1';
     capslock_out : out std_logic := '1';
     reset_out : out std_logic := '1';
@@ -30,11 +32,29 @@ architecture behavioural of widget_to_matrix is
   signal matrix_offset : integer range 0 to 255 := 252;
   signal last_pmod_clock : std_logic := '1';
 
+  signal matrix_ram_offset : integer range 0 to 15 := 0;
+  signal keyram_wea : std_logic_vector(7 downto 0);
+  signal keyram_dia : std_logic_vector(7 downto 0);
+  
   signal enabled : std_logic := '0';
   
 begin  -- behavioural
 
+  widget_kmm: entity work.kb_matrix_ram
+  port map (
+    clkA => ioclock,
+    addressa => matrix_ram_offset,
+    dia => pmod_data_in & pmod_data_in, -- replicate input to high and low nibbles
+    wea => keyram_wea,
+    addressb => matrix_col_idx,
+    dob => matrix_col
+    );
+
   process (ioclock)
+  variable keyram_write_enable : std_logic_vector(7 downto 0);
+  variable keyram_offset : integer range 0 to 15 := 0;
+  variable keyram_offset_tmp : std_logic_vector(2 downto 0);
+  
   begin
     if rising_edge(ioclock) then
       ------------------------------------------------------------------------
@@ -45,6 +65,10 @@ begin  -- behavioural
       -- into the matrix (or, at least it will when it is implemented ;)
       last_pmod_clock <= pmod_clock;
 
+      -- Default is no write nothing at offset zero into the matrix ram.
+      keyram_write_enable := x"00";
+      keyram_offset := 0;
+      keyram_dia <= pmod_data_in & pmod_data_in;
       -- Don't do anything until we see the line float high.
       -- this is for the hardware targets that lack these interfaces,
       -- as a protection against incorrect tri-stating etc.
@@ -55,8 +79,9 @@ begin  -- behavioural
         -- Data available
         if pmod_start_of_sequence='1' then
           -- Write first four bits, and set offset for next time
+          keyram_write_enable := x"0F";
           matrix_offset <= 4;
-          matrix(3 downto 0) <= pmod_data_in;
+          -- matrix(3 downto 0) <= pmod_data_in;
           -- First two bits of output from FPGA to input PCB is the status of
           -- the two LEDs: power LED is on when CPU is not in hypervisor mode,
           -- drive LED shows F011 drive status.
@@ -71,7 +96,15 @@ begin  -- behavioural
           end if;
           -- Read keyboard matrix when required
           if matrix_offset < 72 then
-            matrix((matrix_offset +3) downto matrix_offset) <= pmod_data_in;
+            keyram_offset := matrix_offset / 8;
+            keyram_offset_tmp := std_logic_vector(to_unsigned(matrix_offset,3));
+            -- set up proper write mask
+            if keyram_offset_tmp(2) = '0' then
+              keyram_write_enable := x"0F";
+            else
+              keyram_write_enable := x"F0";
+            end if;              
+            --matrix((matrix_offset +3) downto matrix_offset) <= pmod_data_in;
           end if;
           -- Joysticks + restore + capslock + reset? (72-79, 80-87)
           if matrix_offset = 72 then
@@ -94,6 +127,8 @@ begin  -- behavioural
           end if;
         end if;
       end if;
+      matrix_ram_offset <= keyram_offset;
+      keyram_wea <= keyram_write_enable;
     end if;
   end process;
 

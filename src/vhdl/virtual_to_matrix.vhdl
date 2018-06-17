@@ -15,7 +15,9 @@ entity virtual_to_matrix is
         touch_key2 : in unsigned(7 downto 0);
         
         -- Virtualised keyboard matrix
-        matrix : out std_logic_vector(71 downto 0) := (others => '1')
+        matrix_col : out std_logic_vector(7 downto 0) := (others => '1');
+        matrix_col_idx : in integer range 0 to 8
+        
         );
 
 end virtual_to_matrix;
@@ -24,23 +26,38 @@ architecture behavioral of virtual_to_matrix is
 
   signal scan_phase : integer range 0 to 71 := 0;
 
-  -- Scanned state of the keyboard and joysticks
-  signal matrix_internal : std_logic_vector(71 downto 0) := (others => '1');
-
   signal key1_drive : unsigned(7 downto 0);
   signal key2_drive : unsigned(7 downto 0);
   signal key3_drive : unsigned(7 downto 0);
   signal touch_key1_drive : unsigned(7 downto 0);
   signal touch_key2_drive : unsigned(7 downto 0);
   
+  -- keyboard matrix ram inputs
+  signal keyram_address : integer range 0 to 8;
+  signal keyram_di : std_logic_vector(7 downto 0);
+  signal keyram_wea : std_logic_vector(7 downto 0);
+  
 begin
+
+  virt_kmm: entity work.kb_matrix_ram
+  port map (
+    clkA => Clk,
+    addressa => keyram_address,
+    dia => keyram_di,
+    wea => keyram_wea,
+    addressb => matrix_col_idx,
+    dob => matrix_col
+    );
+  
   process (clk)
+  variable km_index : integer range 0 to 127;
+  variable km_value : std_logic;
 
   begin
     if rising_edge(clk) then
 
       -- Present virtualised keyboard
-      matrix <= matrix_internal;
+      --matrix <= matrix_internal;
 
       key1_drive <= key1;
       key2_drive <= key2;
@@ -54,16 +71,33 @@ begin
         or (touch_key1_drive = to_unsigned(scan_phase,8))
         or (touch_key2_drive = to_unsigned(scan_phase,8))
       then
-        matrix_internal(scan_phase) <= '0';
+        km_value := '0';
       else
-        matrix_internal(scan_phase) <= '1';
+        km_value := '1';
       end if;
+
+      km_index := scan_phase;
 
       if scan_phase /= 71 then
         scan_phase <= scan_phase + 1;
       else
         scan_phase <= 0;
       end if;
+      
+      case to_unsigned(km_index,7)(2 downto 0) is
+        when x"0" => keyram_wea <= "00000001";
+        when x"1" => keyram_wea <= "00000010";
+        when x"2" => keyram_wea <= "00000100";
+        when x"3" => keyram_wea <= "00001000";
+        when x"4" => keyram_wea <= "00010000";
+        when x"5" => keyram_wea <= "00100000";
+        when x"6" => keyram_wea <= "01000000";
+        when x"7" => keyram_wea <= "10000000";
+        when others => keyram_wea <= x"00";
+      end case;
+    
+      keyram_address <= to_integer(to_unsigned(km_index,7)(6 downto 3));
+      keyram_di <= (7 downto 0 => km_value); -- replicate value bit across byte
       
     end if;
   end process;

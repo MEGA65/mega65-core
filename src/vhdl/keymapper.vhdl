@@ -15,10 +15,10 @@ entity keymapper is
     
     -- Which inputs shall we incorporate
     virtual_disable : in std_logic;
-    matrix_virtual : in std_logic_vector(71 downto 0);
+    matrix_col_virtual : in std_logic_vector(7 downto 0);
     
     physkey_disable : in std_logic;
-    matrix_physkey : in std_logic_vector(71 downto 0);
+    matrix_col_physkey : in std_logic_vector(7 downto 0);
     capslock_physkey : in std_logic;
     restore_physkey : in std_logic;
 
@@ -31,20 +31,27 @@ entity keymapper is
     joyb_real : in std_logic_vector(4 downto 0);
     
     widget_disable : in std_logic;
-    matrix_widget : in std_logic_vector(71 downto 0);
+    matrix_col_widget : in std_logic_vector(7 downto 0);
+    
     joya_widget : in std_logic_vector(4 downto 0);
     joyb_widget : in std_logic_vector(4 downto 0);
     capslock_widget : in std_logic;
     restore_widget : in std_logic;
 
     ps2_disable : in std_logic;
-    matrix_ps2 : in std_logic_vector(71 downto 0);
+    matrix_col_ps2 : in std_logic_vector(7 downto 0);
     joya_ps2 : in std_logic_vector(4 downto 0);
     joyb_ps2 : in std_logic_vector(4 downto 0);
     capslock_ps2 : in std_logic;
     restore_ps2 : in std_logic;
 
-    matrix_combined : out std_logic_vector(71 downto 0) := (others => '1');
+    -- This is the keyboard matrix column we are currently sourcing from all KB input modules.
+    matrix_col_idx : out integer range 0 to 8;
+    
+    -- (more or less) continuously scanning combined matrix output that other blocks can either
+    -- make use of directly or snoop into local copies.
+    matrix_combined_col : out std_logic_vector(7 downto 0);
+    matrix_combined_col_idx : out integer range 0 to 15;
     
     -- RESTORE when held or double-tapped does special things
     restore_out : out std_logic := '1';
@@ -88,8 +95,13 @@ architecture behavioural of keymapper is
   -- Allow inverting of capslock sense, so that we always boot with it off.
   signal capslock_xor : std_logic := '0';
   
-  signal matrix : std_logic_vector(71 downto 0) := (others =>'1');
+  -- new compact LUT based keyboard matrix
+  type matrix_array_t is array(0 to 8) of std_logic_vector(7 downto 0);
 
+  --signal matrix_array : matrix_array_t;
+  signal m_col_idx : integer range 0 to 8 := 0;
+  signal km_input : std_logic_vector(7 downto 0);
+  
   -- PS2 keyboard emulated joystick
   signal joya : std_logic_vector(7 downto 0) := (others =>'1');
   signal joyb : std_logic_vector(7 downto 0) := (others =>'1');
@@ -109,12 +121,58 @@ architecture behavioural of keymapper is
 
   signal porta_pins : std_logic_vector(7 downto 0);
   signal portb_pins : std_logic_vector(7 downto 0);
+
+  -- The current column we're scanning from the matrix and the matrix ram output
+  signal scan_idx : integer range 0 to 9 := 9;
+  signal scan_col : std_logic_vector(7 downto 0); 
+
+  -- These hold the intermediate values as we sweep.
+  signal portb_value_scan : std_logic_vector(7 downto 0);
+  signal porta_value_scan : std_logic_vector(7 downto 0);
+  
+  -- These hold the last complete scanned values
+  signal portb_value : std_logic_vector(7 downto 0);
+  signal porta_value : std_logic_vector(7 downto 0);
+  
+  component kb_matrix_ram is
+    port (ClkA : in std_logic;
+          addressa : in integer range 0 to 8;
+          wea : in std_logic;
+          dia : in unsigned(7 downto 0);
+          addressb : in integer range 0 to 8;
+          dob : out unsigned(7 downto 0)
+          );
+  end component;
   
 begin  -- behavioural
 
+  km_input <=
+                "11111111"
+                and (matrix_col_physkey or (7 downto 0 => physkey_disable))
+                and (matrix_col_widget or (7 downto 0 => widget_disable))
+                and (matrix_col_virtual or (7 downto 0 => virtual_disable))
+                and (matrix_col_ps2 or (7 downto 0 => ps2_disable));
+  
+  -- small 9x8 distributed RAM used to store keyboard matrix state.  Its done this way
+  -- to ensure we get the semantics correct for this to be done with LUTs and not 72 flip flops.
+  kmm: entity work.kb_matrix_ram
+  port map (
+    clkA => ioclock,
+    addressa => m_col_idx,
+    dia => km_input,
+    wea => x"FF",
+    addressb => scan_idx,
+    dob => scan_col
+    );
+
+  matrix_col_idx <= m_col_idx;
+
+  -- Let other blocks snoop combined matrix output as we scan through it.
+  matrix_combined_col <= scan_col;
+  matrix_combined_col_idx <= scan_idx;
+  
   keyread: process (ioclock)
-    variable portb_value : std_logic_vector(7 downto 0);
-    variable porta_value : std_logic_vector(7 downto 0);
+    variable scan_col_out : std_logic;
     variable n2 : integer;
   begin  -- process keyread
     if rising_edge(ioclock) then      
@@ -128,15 +186,12 @@ begin  -- behavioural
         key_num <= 0;
       end if;
 
-      matrix(key_num) <= '1'    
-                         and (matrix_physkey(key_num) or physkey_disable)
-                         and (matrix_widget(key_num) or widget_disable)
-                         and (matrix_virtual(key_num) or virtual_disable)
-                         and (matrix_ps2(key_num) or ps2_disable);
-
-      -- Update unified view for export
-      matrix_combined(key_num) <= matrix(key_num);
-
+      if m_col_idx < 8 then
+        m_col_idx <= m_col_idx + 1;
+      else
+        m_col_idx <= 0;
+      end if;
+      
       -- And joysticks (with optional 180 degree rotation for swapping between
       -- left and right handed operation of sticks with only a single button
       -- on the base.      
@@ -286,10 +341,10 @@ begin  -- behavioural
       -- Bit#1 $FD      3      W      A      4      Z      S      E      left Shift
       -- Bit#2 $FB      5      R      D      6      C      F      T      X
       -- Bit#3 $F7      7      Y      G      8      B      H      U      V
-      -- Bit#4 $EF	9      I      J      0      M      K      O      N
-      -- Bit#5 $DF	+      P      L      minus  .      :      @      ,
-      -- Bit#6 $BF      pound  *      ;	     Home   rshift =	  ^	 slash
-      -- Bit#7 $7F	1      _      CTRL   2      Space  C=     Q      Run/Stop
+      -- Bit#4 $EF      9      I      J      0      M      K      O      N
+      -- Bit#5 $DF	    +      P      L      minus  .      :      @      ,
+      -- Bit#6 $BF      pound  *      ;      Home   rshift =      ^      slash
+      -- Bit#7 $7F      1      _      CTRL   2      Space  C=     Q      Run/Stop
       -- RESTORE - Hardwire to NMI
       
       -- Keyrah v2 claims to use default VICE matrix.  Yet to find that clearly
@@ -305,10 +360,10 @@ begin  -- behavioural
       -- Bit#1 $FD      26     1D     1C     25     1A     1B     24     12
       -- Bit#2 $FB      2E     2D     23     36     21     2B     2C     22
       -- Bit#3 $F7      3D     35     34     3E     32     33     3C     2A
-      -- Bit#4 $EF	46     43     3B     45     3A     42     44     31
-      -- Bit#5 $DF	55     4D     4B     4E     49     54     5B     41
-      -- Bit#6 $BF      52     5D     4C     E0 6C  59     E0 69  75	 4A
-      -- Bit#7 $7F	16     6B     14     1E     29     11     15     76
+      -- Bit#4 $EF      46     43     3B     45     3A     42     44     31
+      -- Bit#5 $DF      55     4D     4B     4E     49     54     5B     41
+      -- Bit#6 $BF      52     5D     4C     E0 6C  59     E0 69  75     4A
+      -- Bit#7 $7F      16     6B     14     1E     29     11     15     76
       -- RESTORE - 0E (`/~ key)
 
       -- C64 drives lines low on $DC00, and then reads $DC01
@@ -325,42 +380,32 @@ begin  -- behavioural
       -- matrix/secure mode facility, i.e., we need to synthesise serial input
       -- characters based on the matrix state.
       
-      portb_value := x"FF";
-      for i in 0 to 7 loop
-        if porta_in(i)='0' then
-          for j in 0 to 7 loop
-            portb_value(j) := portb_value(j) and (matrix((i*8)+j) or matrix_mode_in);
-          end loop;  -- j
-        end if;        
-      end loop;
-      if keyboard_column8_select_in='0' then
-        for j in 0 to 7 loop
-          portb_value(j) := portb_value(j) and (matrix(64+j) or matrix_mode_in);
-        end loop;  -- j
-      end if;
-
-      -- We should also do it the otherway around as well
-
-      for i in 0 to 7 loop
-        if portb_in(i)='0' then
-          for j in 0 to 7 loop
-            porta_value(j) := porta_value(j) and (matrix((j*8)+i) or matrix_mode_in);
-            report "updating porta_value(" & integer'image(j)
-              & ") = " & std_logic'image(porta_value(j))
-              & " & ("
-              & std_logic'image(matrix((j*8)+i))
-              & " | "
-              & std_logic'image(matrix_mode_in)
-              & ")";
-          end loop;  -- j
+      scan_col_out := (scan_col(0) and scan_col(1) and scan_col(2) and scan_col(3) and
+                       scan_col(4) and scan_col(5) and scan_col(6) and scan_col(7)) or matrix_mode_in;
+      if scan_idx < 9 then
+        -- each bit N of port b is the logical and of all bits across row N in columns where porta_in(N) is 0, or'd with matrix_mode_in.
+        -- each bit N of port a is the logical and of all bits across col N in rows where portb_in(N) is 0, or'd with matrix_mode_in.
+        if scan_idx < 8 then
+          if porta_in(scan_idx)='0' then
+            portb_value_scan <= portb_value_scan and (scan_col or (7 downto 0 => matrix_mode_in));
+          end if;
+          if portb_in(scan_idx)='0' then
+            porta_value_scan(scan_idx) <= porta_value_scan(scan_idx) and (scan_col_out or matrix_mode_in);
+          end if;
         else
-          -- keyboard not being scanned on this bit
-          porta_value := (others => '1');
-          report "porta_value = "
-            & to_string(porta_value) & " as not being keyboard scanned.";
-        end if;        
-      end loop;      
-      
+          if keyboard_column8_select_in='0' then
+            portb_value_scan <= portb_value_scan and (scan_col or (7 downto 0 => matrix_mode_in));
+          end if;
+        end if;
+        scan_idx <= scan_idx + 1;
+      else
+        scan_idx <= 0;
+        porta_value <= porta_value_scan;
+        portb_value <= portb_value_scan;
+        porta_value_scan <= x"FF";
+        portb_value_scan <= x"FF";
+      end if;
+            
       -- Update physical pins to reflect what the CIA is asking for
       for b in 0 to 7 loop
         if porta_ddr(b)='1' then

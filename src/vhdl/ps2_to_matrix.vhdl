@@ -12,7 +12,10 @@ entity ps2_to_matrix is
     -- PS/2 keyboard also provides emulated joysticks and RESTORE key
     restore_out : out std_logic := '1';
     capslock_out : out std_logic := '0';
-    matrix : out std_logic_vector(71 downto 0) := (others => '1');
+    
+    matrix_col : out std_logic_vector(7 downto 0) := (others => '1');
+    matrix_col_idx : in integer range 0 to 8;
+    
     joya : out std_logic_vector(4 downto 0) := (others => '1');
     joyb : out std_logic_vector(4 downto 0) := (others => '1');
 
@@ -62,8 +65,6 @@ architecture behavioural of ps2_to_matrix is
   signal cursor_down : std_logic := '1';
   signal right_shift : std_logic := '1';
   signal ps2 : std_logic := '0';
-
-  signal matrix_internal : std_logic_vector(71 downto 0) := (others =>'1');
   
   -- PS2 joystick keys
   signal joy1 : std_logic_vector(7 downto 0) := (others =>'1');
@@ -77,11 +78,33 @@ architecture behavioural of ps2_to_matrix is
   signal eth_keycode_toggle_last : std_logic := '0';
   signal ethernet_keyevent : std_logic := '0';
 
+  -- keyboard matrix ram inputs
+  signal keyram_address : integer range 0 to 8;
+  signal keyram_di : std_logic_vector(7 downto 0);
+  signal keyram_wea : std_logic_vector(7 downto 0);
+  
+  -- cursor update state machine
+  signal cursor_update_state : integer range 0 to 2 := 0;
+  
 begin  -- behavioural
 
+  ps2kmm: entity work.kb_matrix_ram
+  port map (
+    clkA => ioclock,
+    addressa => keyram_address,
+    dia => keyram_di,
+    wea => keyram_wea,
+    addressb => matrix_col_idx,
+    dob => matrix_col
+    );
+  
 -- purpose: read from ps2 keyboard interface
   keyread: process (ioclock, ps2data,ps2clock)
     variable full_scan_code : std_logic_vector(11 downto 0);
+    variable km_index : integer range 0 to 127;
+    variable km_update : std_logic;
+    variable km_value : std_logic;
+
   begin  -- process keyread
     if rising_edge(ioclock) then      
 
@@ -90,13 +113,8 @@ begin  -- behavioural
       
       capslock_out <= ps2_capslock;
 
-      matrix <= matrix_internal;
-
-      -- Cursor left and up are down and right + right shift,
-      -- so combine these appropriately
-      matrix(7) <= cursor_down and cursor_up;
-      matrix(2) <= cursor_left and cursor_right;
-      matrix(52) <= right_shift and cursor_up and cursor_left;
+      km_update := '0'; -- by default don't update anything
+      km_index := 127; -- unused index
       
       -------------------------------------------------------------------------
       -- Generate timer for keyscan timeout
@@ -232,18 +250,18 @@ begin  -- behavioural
                              joy2(4) <= break;
                              
                            -- DELETE, RETURN, RIGHT, F7, F1, F3, F5, down
-                           when x"066" => matrix_internal(0) <= break;
-                           when x"05A" => matrix_internal(1) <= break;
+                           when x"066" => km_index := 0;
+                           when x"05A" => km_index := 1;
                            when x"174" =>
                              if joylock='0' then
                                cursor_right <= break; ps2 <= '1';
                              else
                                joy2(3) <= break;
                              end if;
-                           when x"083" => matrix_internal(3) <= break;
-                           when x"005" => matrix_internal(4) <= break;
-                           when x"004" => matrix_internal(5) <= break;
-                           when x"003" => matrix_internal(6) <= break;
+                           when x"083" => km_index := 3;
+                           when x"005" => km_index := 4;
+                           when x"004" => km_index := 5;
+                           when x"003" => km_index := 6;
                            when x"072" =>
                              if joylock='0' then
                                cursor_down <= break; ps2 <= '1';
@@ -266,124 +284,131 @@ begin  -- behavioural
                                cursor_left <= break; ps2 <= '1';
                              end if;
                            -- 3, W, A, 4, Z, S, E, left-SHIFT
-                           when x"026" => matrix_internal(8) <= break; -- 3
+                           when x"026" => km_index := 8; -- 3
                            when x"01D" => -- W
                              if joylock='0' then
-                               matrix_internal(9) <= break;
+                               km_index := 9;
                              else
                                joy1(0) <= break;
                              end if;
                            when x"01C" => -- A
                              if joylock='0' then
-                               matrix_internal(10) <= break;
+                               km_index := 10;
                              else
                                joy1(2) <= break;
                              end if;
-                           when x"025" => matrix_internal(11) <= break; -- 4
-                           when x"01A" => matrix_internal(12) <= break; -- Z
+                           when x"025" => km_index := 11; -- 4
+                           when x"01A" => km_index := 12; -- Z
                            when x"01B" =>
                              if joylock='0' then  -- S
-                               matrix_internal(13) <= break;
+                               km_index := 13;
                              else
                                joy1(1) <= break;
                              end if;
-                           when x"024" => matrix_internal(14) <= break; -- E
+                           when x"024" => km_index := 14; -- E
                            when x"012" => -- Left shift
                              if joylock='0' then
-                               matrix_internal(15) <= break;
+                               km_index := 15;
                              else
                                joy1(4) <= break;
                              end if;
                            -- 5, R, D, 6, C, F, T, X
-                           when x"02E" => matrix_internal(16) <= break; -- 5
-                           when x"02D" => matrix_internal(17) <= break; -- R 
+                           when x"02E" => km_index := 16; -- 5
+                           when x"02D" => km_index := 17; -- R 
                            when x"023" => -- D
                              if joylock='0' then
-                               matrix_internal(18) <= break;
+                               km_index := 18;
                              else
                                joy1(3) <= break;
                              end if;
-                           when x"036" => matrix_internal(19) <= break;
-                           when x"021" => matrix_internal(20) <= break;
-                           when x"02B" => matrix_internal(21) <= break;
-                           when x"02C" => matrix_internal(22) <= break;
-                           when x"022" => matrix_internal(23) <= break;
+                           when x"036" => km_index := 19;
+                           when x"021" => km_index := 20;
+                           when x"02B" => km_index := 21;
+                           when x"02C" => km_index := 22;
+                           when x"022" => km_index := 23;
 
                            -- 7, Y, G, 8, B, H, U, V
-                           when x"03D" => matrix_internal(24) <= break;
-                           when x"035" => matrix_internal(25) <= break;
-                           when x"034" => matrix_internal(26) <= break;
-                           when x"03E" => matrix_internal(27) <= break;
-                           when x"032" => matrix_internal(28) <= break;
-                           when x"033" => matrix_internal(29) <= break;
-                           when x"03C" => matrix_internal(30) <= break;
-                           when x"02A" => matrix_internal(31) <= break;
+                           when x"03D" => km_index := 24;
+                           when x"035" => km_index := 25;
+                           when x"034" => km_index := 26;
+                           when x"03E" => km_index := 27;
+                           when x"032" => km_index := 28;
+                           when x"033" => km_index := 29;
+                           when x"03C" => km_index := 30;
+                           when x"02A" => km_index := 31;
 
                            -- 9, I, J, 0, M, K, O, N
-                           when x"046" => matrix_internal(32) <= break;
-                           when x"043" => matrix_internal(33) <= break;
-                           when x"03B" => matrix_internal(34) <= break;
-                           when x"045" => matrix_internal(35) <= break;
-                           when x"03A" => matrix_internal(36) <= break;
-                           when x"042" => matrix_internal(37) <= break;
-                           when x"044" => matrix_internal(38) <= break;
-                           when x"031" => matrix_internal(39) <= break;
+                           when x"046" => km_index := 32;
+                           when x"043" => km_index := 33;
+                           when x"03B" => km_index := 34;
+                           when x"045" => km_index := 35;
+                           when x"03A" => km_index := 36;
+                           when x"042" => km_index := 37;
+                           when x"044" => km_index := 38;
+                           when x"031" => km_index := 39;
 
                            -- +, P, L, -, ., :, @, COMMA
-                           when x"04E" => matrix_internal(40) <= break;
-                           when x"04D" => matrix_internal(41) <= break;
-                           when x"04B" => matrix_internal(42) <= break;
-                           when x"055" => matrix_internal(43) <= break;
-                           when x"049" => matrix_internal(44) <= break;
-                           when x"04C" => matrix_internal(45) <= break;
-                           when x"054" => matrix_internal(46) <= break;
-                           when x"041" => matrix_internal(47) <= break;
+                           when x"04E" => km_index := 40;
+                           when x"04D" => km_index := 41;
+                           when x"04B" => km_index := 42;
+                           when x"055" => km_index := 43;
+                           when x"049" => km_index := 44;
+                           when x"04C" => km_index := 45;
+                           when x"054" => km_index := 46;
+                           when x"041" => km_index := 47;
 
                            -- POUND, *, ;, HOME, right SHIFT, =, UP-ARROW, /
-                           when x"170" => matrix_internal(48) <= break;
-                           when x"05B" => matrix_internal(49) <= break;
-                           when x"052" => matrix_internal(50) <= break;
-                           when x"16C" => matrix_internal(51) <= break;
+                           when x"170" => km_index := 48;
+                           when x"05B" => km_index := 49;
+                           when x"052" => km_index := 50;
+                           when x"16C" => km_index := 51;
                            when x"059" => right_shift <= break; ps2 <= '1';
-                           when x"05D" => matrix_internal(53) <= break;
-                           when x"171" => matrix_internal(54) <= break;
-                           when x"04A" => matrix_internal(55) <= break;
+                           when x"05D" => km_index := 53;
+                           when x"171" => km_index := 54;
+                           when x"04A" => km_index := 55;
 
                            -- 1, LEFT-ARROW, CTRL, 2, SPACE, C=, Q, RUN/STOP
-                           when x"016" => matrix_internal(56) <= break;
-                           when x"00E" => matrix_internal(57) <= break;
-                           when x"014" => matrix_internal(58) <= break; -- CTRL
-                           when x"01E" => matrix_internal(59) <= break;
+                           when x"016" => km_index := 56;
+                           when x"00E" => km_index := 57;
+                           when x"014" => km_index := 58; -- CTRL
+                           when x"01E" => km_index := 59;
                            when x"029" =>
                              -- SPACE (or fire when using joylock mode)
                              if joylock = '0' then
-                               matrix_internal(60) <= break;
+                               km_index := 60;
                              else
                                joy2(4) <= break;
                              end if;                             
-                           when x"11F" => matrix_internal(61) <= break; -- META/WIN for C=
-                           when x"127" => matrix_internal(61) <= break; -- META/WIN for C=
-                           when x"015" => matrix_internal(62) <= break;
-                           when x"076" => matrix_internal(63) <= break;
+                           when x"11F" => km_index := 61; -- META/WIN for C=
+                           when x"127" => km_index := 61; -- META/WIN for C=
+                           when x"015" => km_index := 62;
+                           when x"076" => km_index := 63;
 
                            -- Column 8:
-                           when x"07E" => matrix_internal(64) <= break; -- NO SCRL
-                           when x"00D" => matrix_internal(65) <= break; -- TAB
-                           when x"011" => matrix_internal(66) <= break; -- ALT
-                           when x"111" => matrix_internal(66) <= break; -- ALTGr
+                           when x"07E" => km_index := 64; -- NO SCRL
+                           when x"00D" => km_index := 65; -- TAB
+                           when x"011" => km_index := 66; -- ALT
+                           when x"111" => km_index := 66; -- ALTGr
                            when x"077" =>
                              --HELP (Pause) and joylock (number lock key)
-                             matrix_internal(67) <= break;
+                             km_index := 67;
                              if break='1' then
                                joylock <= not joylock;
                              end if;
-                           when x"001" => matrix_internal(68) <= break; -- F9/10
-                           when x"078" => matrix_internal(69) <= break; -- F11/F12
-                           when x"007" => matrix_internal(70) <= break; --F13/F14 (F12)
-                           when x"112" => matrix_internal(71) <= break; -- ESC (PrtScr)
+                           when x"001" => km_index := 68; -- F9/10
+                           when x"078" => km_index := 69; -- F11/F12
+                           when x"007" => km_index := 70; --F13/F14 (F12)
+                           when x"112" => km_index := 71; -- ESC (PrtScr)
                                           
                            when others => null;
                          end case;
+                         
+                         -- set update to 1 if we pressed a valid key.
+                         if km_index /= 127 then
+                           km_update := '1';
+                         end if;
+                         km_value := break;
+                         
                        end if;
                        
           when ParityBit =>  ps2state <= Idle;  -- was StopBit.  See if
@@ -392,10 +417,50 @@ begin  -- behavioural
 
           when StopBit => ps2state <= Idle;
           when others => ps2state <= Idle;
-        end case;        
+        end case;
+      else -- run cursor update state machine during otherwise unused cycles.
+        -- Cursor left and up are down and right + right shift,
+        -- so combine these appropriately
+        if cursor_update_state = 0 then
+          km_index := 7;
+          km_value := cursor_down and cursor_up;
+          km_update := '1';
+          cursor_update_state <= 1;
+        elsif cursor_update_state = 1 then
+          km_index := 2;
+          km_value := cursor_left and cursor_right;
+          km_update := '1';
+          cursor_update_state <= 2;
+        else
+          km_index := 52;
+          km_value := right_shift and cursor_up and cursor_left;
+          km_update := '1';
+          cursor_update_state <= 0;
+        end if;
       end if;
-      
+
     end if;
+
+    -- update keyboard matrix memory
+    if km_update = '1' then
+      case to_unsigned(km_index,7)(2 downto 0) is
+        when "000" => keyram_wea <= "00000001";
+        when "001" => keyram_wea <= "00000010";
+        when "010" => keyram_wea <= "00000100";
+        when "011" => keyram_wea <= "00001000";
+        when "100" => keyram_wea <= "00010000";
+        when "101" => keyram_wea <= "00100000";
+        when "110" => keyram_wea <= "01000000";
+        when "111" => keyram_wea <= "10000000";
+        when others => keyram_wea <= x"00";
+      end case;
+    else
+      keyram_wea <= x"00";
+    end if;
+    
+    keyram_address <= to_integer(to_unsigned(km_index,7)(6 downto 3));
+    keyram_di <= (7 downto 0 => km_value); -- replicate value bit across byte
+
   end process keyread;
 
 end behavioural;
