@@ -58,8 +58,6 @@ architecture behavioural of visual_keyboard is
     to_unsigned(0,12);
   signal x_start_current : unsigned(13 downto 0) :=
     to_unsigned(0,14);
-  signal x_surplus : unsigned(13 downto 0) :=
-    to_unsigned(0,14);
   signal max_x : integer := 0;
 
   signal y_start_current_upabit : unsigned(11 downto 0) :=
@@ -1015,13 +1013,8 @@ begin
       end if;
       -- Must start at atleast 1, because starting at 0 causes the display to
       -- be double height.
-      x_start_current(12 downto 0) <= x_start + 1; -- x_surplus(13 downto 1) + x_start + 1;
+      x_start_current(12 downto 0) <= to_unsigned(to_integer(x_start) + 1,13); 
       x_start_current(13) <= '0';
-      if max_x >= 800 then
-        x_surplus <= to_unsigned(max_x - 800,14);
-      else
-        x_surplus <= (others => '0');
-      end if;
     end if;
   end process;
   
