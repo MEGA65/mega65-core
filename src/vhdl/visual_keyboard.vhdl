@@ -172,8 +172,8 @@ architecture behavioural of visual_keyboard is
   signal zoom_border_colour : unsigned(7 downto 0) := x"00";
   
   -- Keep OSK in region that fits on 800x480 LCD panel
-  constant y_start_minimum : integer := (600-480)/2;
-  constant y_end_maximum : integer := 600 - y_start_minimum;
+  constant y_start_minimum : integer := (600-480)/2 + 19 ;
+  constant y_end_maximum : integer := 600 + 19 + 19 - y_start_minimum;
   
   type fetch_state_t is (
     FetchInitial,
