@@ -1015,7 +1015,7 @@ begin
       end if;
       -- Must start at atleast 1, because starting at 0 causes the display to
       -- be double height.
-      x_start_current(12 downto 0) <= x_surplus(13 downto 1) + x_start + 1;
+      x_start_current(12 downto 0) <= x_start + 1; -- x_surplus(13 downto 1) + x_start + 1;
       x_start_current(13) <= '0';
       if max_x >= 800 then
         x_surplus <= to_unsigned(max_x - 800,14);
