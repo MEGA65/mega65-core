@@ -408,8 +408,8 @@ architecture behavioural of sdcardio is
   signal touch_scale_y_internal : unsigned(15 downto 0 ) := to_unsigned(1024,16);
   signal touch_delta_x : unsigned(15 downto 0 ) := to_unsigned(62464,16);
   signal touch_delta_x_internal : unsigned(15 downto 0 ) := to_unsigned(62464,16);
-  signal touch_delta_y : unsigned(15 downto 0 ) := to_unsigned(2048,16);
-  signal touch_delta_y_internal : unsigned(15 downto 0 ) := to_unsigned(2048,16);
+  signal touch_delta_y : unsigned(15 downto 0 ) := to_unsigned(4096,16);
+  signal touch_delta_y_internal : unsigned(15 downto 0 ) := to_unsigned(4096,16);
   
   signal touch1_active : std_logic := '0';
   signal touch1_status : std_logic_vector(1 downto 0) := "11";
