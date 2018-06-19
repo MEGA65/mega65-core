@@ -63,7 +63,7 @@ signal bitTmr : unsigned(15 downto 0) := (others => '0');
 signal bitDone : std_logic;
 
 --Contains the index of the next bit in txData that needs to be transferred 
-signal bitIndex : natural;
+signal bitIndex : natural range 0 to 10;
 
 --a register that holds the current data being sent over the UART TX line
 signal txBit : std_logic := '1';
@@ -129,22 +129,16 @@ begin
 	end if;
 end process;
 
-tx_data_latch_process : process (CLK)
-begin
-	if (rising_edge(CLK)) then
-		if (SEND = '1') then
-			txData <= '1' & DATA & '0';
-		end if;
-	end if;
-end process;
-
 tx_bit_process : process (CLK)
 begin
 	if (rising_edge(CLK)) then
-		if (txState = RDY) then
-			txBit <= '1';
+    if (txState = RDY) then
+      if (SEND = '1') then
+			  txData <= '1' & DATA & '0';
+      end if;
 		elsif (txState = LOAD_BIT) then
-			txBit <= txData(bitIndex);
+      txBit  <= txData(0);
+      txData <= '1' & txData(9 downto 1);
 		end if;
 	end if;
 end process;
