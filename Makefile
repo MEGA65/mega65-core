@@ -3,12 +3,12 @@
 
 COPT=	-Wall -g -std=gnu99
 CC=	gcc
-OPHIS=	../Ophis/bin/ophis -4
+OPHIS=	Ophis/bin/ophis -4
 
 VIVADO=	./vivado_wrapper
 
-CA65=  ca65 --cpu 4510
-LD65=  ld65 -t none
+CA65=  cc65/bin/ca65 --cpu 4510
+LD65=  cc65/bin/ld65 -t none
 
 ASSETS=		assets
 SRCDIR=		src
