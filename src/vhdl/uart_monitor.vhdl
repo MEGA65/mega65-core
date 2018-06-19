@@ -264,21 +264,21 @@ architecture behavioural of uart_monitor is
   signal cmdbuffer : command_t;
   signal cmdlen : integer range 1 to 65 := 1;
   signal prev_cmdlen : integer range 1 to 65 := 1;
-  signal redraw_position : integer;
+  signal redraw_position : integer range 0 to 127;
   
   -- For parsing commands
-  signal parse_position : integer := 2;
+  signal parse_position : integer range 0 to 127 := 2;
   signal hex_value : unsigned(31 downto 0);
   signal target_address : unsigned(27 downto 0);
   signal top_address : unsigned(27 downto 0);
   signal target_value : unsigned(7 downto 0);
-  signal hex_digits_read : integer;
-  signal hex_digits_output : integer;
+  signal hex_digits_read : integer range 0 to 127;
+  signal hex_digits_output : integer range 0 to 127;
   signal success_state : monitor_state;
   signal post_transaction_state : monitor_state;
   signal errorCode : unsigned(7 downto 0) := x"00";
 
-  signal timeout : integer;
+  signal timeout : integer range 0 to 65535;
   
   type sixteenbytes is array (0 to 15) of unsigned(7 downto 0);
   signal membuf : sixteenbytes;
@@ -1379,43 +1379,17 @@ begin
               -- (or mid-) instruction.
               if show_register_delay=0 then
                 state <= ShowRegistersRead;
+                history_write <= '1';
               else
                 show_register_delay <= show_register_delay - 1;
+                -- snapshot state into last blockram address
+                history_address <= 1023;
+                history_write <= '1';
               end if;
               
             when ShowRegistersRead =>            
-              history_buffer(7 downto 0) <= monitor_p;
-              history_buffer(15 downto 8) <= monitor_a;
-              history_buffer(23 downto 16) <= monitor_x;
-              history_buffer(31 downto 24) <= monitor_y;
-              history_buffer(39 downto 32) <= monitor_z;
-              history_buffer(55 downto 40) <= monitor_pc;
-              history_buffer(71 downto 56) <= unsigned(monitor_cpu_state);
-              history_buffer(79 downto 72) <= monitor_waitstates;
-              history_buffer(87 downto 80) <= monitor_b;
-              history_buffer(104 downto 89) <= monitor_sp;
-              history_buffer(112 downto 105)
-                <= unsigned(monitor_map_enables_low)
-                & monitor_map_offset_low(11 downto 8);
-              history_buffer(120 downto 113) <= monitor_map_offset_low(7 downto 0);
-              history_buffer(121) <= monitor_ibytes(1);
-              history_buffer(122) <= fastio_read;
-              history_buffer(123) <= fastio_write;
-              history_buffer(124) <= monitor_proceed;
-              history_buffer(125) <= monitor_mem_attention_granted;
-              history_buffer(126) <= monitor_request_reflected;
-              history_buffer(127) <= monitor_interrupt_inhibit;
-
-              history_buffer(135 downto 128)
-                <= unsigned(monitor_map_enables_high)
-                & monitor_map_offset_high(11 downto 8);
-              history_buffer(143 downto 136) <= monitor_map_offset_high(7 downto 0);
-              history_buffer(151 downto 144) <= monitor_opcode;
-              history_buffer(159 downto 152) <= monitor_arg1;
-              history_buffer(167 downto 160) <= monitor_arg2;
-              history_buffer(175 downto 168) <= monitor_instruction;
-              history_buffer(176) <= monitor_ibytes(0);
-              
+              history_buffer <= history_rdata;
+              history_write <= '0';
               banner_position <= 1; state<= ShowRegisters1;
               monitor_mem_setpc <= '0';
               
