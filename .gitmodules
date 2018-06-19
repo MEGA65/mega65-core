@@ -1,12 +1,12 @@
 [submodule "cc65"]
 	path = cc65
-	url = git@github.com:cc65/cc65.git
+	url = https://github.com/cc65/cc65.git
 [submodule "cbmconvert"]
 	path = cbmconvert
-	url = git@github.com:sasq64/cbmconvert.git
+	url = https://github.com/sasq64/cbmconvert.git
 [submodule "Ophis"]
 	path = Ophis
-	url = git@github.com:gardners/Ophis.git
+	url = https://github.com/gardners/Ophis.git
 [submodule "src/mega65-fdisk"]
 	path = src/mega65-fdisk
-	url = git@github.com:MEGA65/mega65-fdisk.git
+	url = https://github.com/MEGA65/mega65-fdisk.git
