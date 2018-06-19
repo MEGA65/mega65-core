@@ -7,6 +7,7 @@ OPHIS=	Ophis/bin/ophis -4
 
 VIVADO=	./vivado_wrapper
 
+CC65=	cc65/bin/cc65
 CA65=  cc65/bin/ca65 --cpu 4510
 LD65=  cc65/bin/ld65 -t none
 
@@ -60,6 +61,13 @@ TOOLS=	$(TOOLDIR)/etherkick/etherkick \
 	$(TOOLDIR)/pngprepare/pngprepare
 
 all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r1.mcs $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr.mcs
+
+
+
+$(CC65):
+	git submodule init
+	git submodule update
+	( cd cc65 && make )
 
 # Not quite yet with Vivado...
 # $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr.mcs $(BINDIR)/lcd4ddr.mcs $(BINDIR)/touch_test.mcs
