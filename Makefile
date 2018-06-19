@@ -364,22 +364,22 @@ $(SDCARD_DIR)/MEGA65.D81:	$(UTILITIES)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(OPHIS) $< -l $*.list -m $*.map -o $*.prg
 
-%.o:	%.s
+%.o:	%.s $(CA65)
 	$(CA65) $< -l $*.list
 
-$(UTILDIR)/mega65_config.o:      $(UTILDIR)/mega65_config.s $(UTILDIR)/mega65_config.inc
+$(UTILDIR)/mega65_config.o:      $(UTILDIR)/mega65_config.s $(UTILDIR)/mega65_config.inc $(CA65)
 	$(CA65) $< -l $*.list
 
-$(UTILDIR)/mega65_config.prg:       $(UTILDIR)/mega65_config.o
+$(UTILDIR)/mega65_config.prg:       $(UTILDIR)/mega65_config.o $(LD65)
 	$(LD65) $< --mapfile $*.map -o $*.prg
 
-$(UTILDIR)/tiles.prg:       $(UTILDIR)/tiles.o
+$(UTILDIR)/tiles.prg:       $(UTILDIR)/tiles.o $(LD65)
 	$(LD65) $< --mapfile $*.map -o $*.prg
 
-$(UTILDIR)/diskmenuprg.o:      $(UTILDIR)/diskmenuprg.a65 $(UTILDIR)/diskmenu.a65 $(UTILDIR)/diskmenu_sort.a65
+$(UTILDIR)/diskmenuprg.o:      $(UTILDIR)/diskmenuprg.a65 $(UTILDIR)/diskmenu.a65 $(UTILDIR)/diskmenu_sort.a65 $(CA65)
 	$(CA65) $< -l $*.list
 
-$(UTILDIR)/diskmenu.prg:       $(UTILDIR)/diskmenuprg.o
+$(UTILDIR)/diskmenu.prg:       $(UTILDIR)/diskmenuprg.o $(LD65)
 	$(LD65) $< --mapfile $*.map -o $*.prg
 
 $(SRCDIR)/mega65-fdisk/m65fdisk.prg:	
@@ -390,17 +390,17 @@ $(BINDIR)/border.prg: 	$(SRCDIR)/border.a65
 
 # ============================ done moved, print-warn, clean-target
 #??? diskmenu_c000.bin yet b0rken
-$(BINDIR)/KICKUP.M65:	$(KICKSTARTSRCS) $(SRCDIR)/version.a65
+$(BINDIR)/KICKUP.M65:	$(KICKSTARTSRCS) $(SRCDIR)/version.a65 $(OPHIS)
 	$(OPHIS) $< -l kickstart.list -m kickstart.map
 
 # ============================ done moved, print-warn, clean-target
-$(UTILDIR)/diskmenuc000.o:     $(UTILDIR)/diskmenuc000.a65 $(UTILDIR)/diskmenu.a65 $(UTILDIR)/diskmenu_sort.a65
+$(UTILDIR)/diskmenuc000.o:     $(UTILDIR)/diskmenuc000.a65 $(UTILDIR)/diskmenu.a65 $(UTILDIR)/diskmenu_sort.a65 $(CA65)
 	$(CA65) $< -l $*.list
 
-$(BINDIR)/diskmenu_c000.bin:   $(UTILDIR)/diskmenuc000.o
+$(BINDIR)/diskmenu_c000.bin:   $(UTILDIR)/diskmenuc000.o $(LD65)
 	$(LD65) $< --mapfile $*.map -o $*.bin
 
-$(BINDIR)/etherload.prg:	$(UTILDIR)/etherload.a65
+$(BINDIR)/etherload.prg:	$(UTILDIR)/etherload.a65 $(OPHIS)
 	$(OPHIS) $< -l $*.list -m $*.map -o $*.prg
 
 
