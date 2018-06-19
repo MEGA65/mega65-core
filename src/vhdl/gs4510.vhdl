@@ -6253,9 +6253,7 @@ begin
     
     -- By default these hold their old value while CPU is halted
     shadow_wdata_var := shadow_wdata;
-    if shadow_address < chipram_size then
-      shadow_address_next <= shadow_address;
-    end if;
+    shadow_address_next <= shadow_address;
     shadow_wdata_next <= shadow_wdata;
     kickstart_address_next <= kickstart_address;
 
@@ -6913,11 +6911,14 @@ begin
            fastio_addr_var := std_logic_vector(long_address(19 downto 0));
          end if;
          
-    end if;
+       end if;
 
-    if shadow_address_var < chipram_size then
+      if shadow_address_var >= chipram_size then
+        shadow_address_var := 0;
+        shadow_write_var := '0';
+      end if;
+
       shadow_address_next <= shadow_address_var;
-    end if;
       kickstart_address_next <= kickstart_address_var;
       
     end if;
