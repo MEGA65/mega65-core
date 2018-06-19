@@ -11,6 +11,8 @@ CC65=	cc65/bin/cc65
 CA65=  cc65/bin/ca65 --cpu 4510
 LD65=  cc65/bin/ld65 -t none
 
+CBMCONVERT=	cbmconvert/cbmconvert
+
 ASSETS=		assets
 SRCDIR=		src
 BINDIR=		bin
@@ -62,12 +64,15 @@ TOOLS=	$(TOOLDIR)/etherkick/etherkick \
 
 all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r1.mcs $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr.mcs
 
-
+$(CBMCONVERT):
+	git submodule init
+	git submodule update
+	( cd cbmconvert && make -f Makefile.unix )
 
 $(CC65):
 	git submodule init
 	git submodule update
-	( cd cc65 && make )
+	( cd cc65 && make -j 8 )
 
 # Not quite yet with Vivado...
 # $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr.mcs $(BINDIR)/lcd4ddr.mcs $(BINDIR)/touch_test.mcs
@@ -346,11 +351,11 @@ $(SDCARD_DIR)/MEGA65.ROM:
 
 # ============================, print-warn, clean target
 # verbose, for 1581 format, overwrite
-$(SDCARD_DIR)/MEGA65.D81:	$(UTILITIES)
+$(SDCARD_DIR)/MEGA65.D81:	$(UTILITIES) $(CBMCONVERT)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $(SDCARD_DIR)/MEGA65.D81)
 	mkdir -p $(SDCARD_DIR)
-	cbmconvert -v2 -D8o $(SDCARD_DIR)/MEGA65.D81 $(UTILITIES)
+	$(CBMCONVERT) -v2 -D8o $(SDCARD_DIR)/MEGA65.D81 $(UTILITIES)
 
 # ============================ done moved, print-warn, clean-target
 # ophis converts the *.a65 file (assembly text) to *.prg (assembly bytes)
