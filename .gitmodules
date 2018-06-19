@@ -4,3 +4,9 @@
 [submodule "cc65"]
 	path = cc65
 	url = git@github.com:cc65/cc65.git
+[submodule "cbmconvert"]
+	path = cbmconvert
+	url = git@github.com:sasq64/cbmconvert.git
+[submodule "Ophis"]
+	path = Ophis
+	url = git@github.com:gardners/Ophis.git
