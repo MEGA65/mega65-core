@@ -369,22 +369,22 @@ $(SDCARD_DIR)/MEGA65.D81:	$(UTILITIES) $(CBMCONVERT)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(OPHIS) $< -l $*.list -m $*.map -o $*.prg
 
-%.o:	%.s $(CA65)
+%.o:	%.s $(CC65)
 	$(CA65) $< -l $*.list
 
-$(UTILDIR)/mega65_config.o:      $(UTILDIR)/mega65_config.s $(UTILDIR)/mega65_config.inc $(CA65)
+$(UTILDIR)/mega65_config.o:      $(UTILDIR)/mega65_config.s $(UTILDIR)/mega65_config.inc $(CC65)
 	$(CA65) $< -l $*.list
 
-$(UTILDIR)/mega65_config.prg:       $(UTILDIR)/mega65_config.o $(LD65)
+$(UTILDIR)/mega65_config.prg:       $(UTILDIR)/mega65_config.o $(CC65)
 	$(LD65) $< --mapfile $*.map -o $*.prg
 
-$(UTILDIR)/tiles.prg:       $(UTILDIR)/tiles.o $(LD65)
+$(UTILDIR)/tiles.prg:       $(UTILDIR)/tiles.o $(CC65)
 	$(LD65) $< --mapfile $*.map -o $*.prg
 
-$(UTILDIR)/diskmenuprg.o:      $(UTILDIR)/diskmenuprg.a65 $(UTILDIR)/diskmenu.a65 $(UTILDIR)/diskmenu_sort.a65 $(CA65)
+$(UTILDIR)/diskmenuprg.o:      $(UTILDIR)/diskmenuprg.a65 $(UTILDIR)/diskmenu.a65 $(UTILDIR)/diskmenu_sort.a65 $(CC65)
 	$(CA65) $< -l $*.list
 
-$(UTILDIR)/diskmenu.prg:       $(UTILDIR)/diskmenuprg.o $(LD65)
+$(UTILDIR)/diskmenu.prg:       $(UTILDIR)/diskmenuprg.o $(CC65)
 	$(LD65) $< --mapfile $*.map -o $*.prg
 
 $(SRCDIR)/mega65-fdisk/m65fdisk.prg:	
@@ -399,10 +399,10 @@ $(BINDIR)/KICKUP.M65:	$(KICKSTARTSRCS) $(SRCDIR)/version.a65 $(OPHIS)
 	$(OPHIS) $< -l kickstart.list -m kickstart.map
 
 # ============================ done moved, print-warn, clean-target
-$(UTILDIR)/diskmenuc000.o:     $(UTILDIR)/diskmenuc000.a65 $(UTILDIR)/diskmenu.a65 $(UTILDIR)/diskmenu_sort.a65 $(CA65)
+$(UTILDIR)/diskmenuc000.o:     $(UTILDIR)/diskmenuc000.a65 $(UTILDIR)/diskmenu.a65 $(UTILDIR)/diskmenu_sort.a65 $(CC65)
 	$(CA65) $< -l $*.list
 
-$(BINDIR)/diskmenu_c000.bin:   $(UTILDIR)/diskmenuc000.o $(LD65)
+$(BINDIR)/diskmenu_c000.bin:   $(UTILDIR)/diskmenuc000.o $(CC65)
 	$(LD65) $< --mapfile $*.map -o $*.bin
 
 $(BINDIR)/etherload.prg:	$(UTILDIR)/etherload.a65 $(OPHIS)
