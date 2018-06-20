@@ -3,7 +3,8 @@
 
 COPT=	-Wall -g -std=gnu99
 CC=	gcc
-OPHIS=	Ophis/bin/ophis -4
+OPHIS=	Ophis/bin/ophis
+OPHISOPT=	-4
 
 VIVADO=	./vivado_wrapper
 
@@ -359,15 +360,15 @@ $(SDCARD_DIR)/MEGA65.D81:	$(UTILITIES) $(CBMCONVERT)
 
 # ============================ done moved, print-warn, clean-target
 # ophis converts the *.a65 file (assembly text) to *.prg (assembly bytes)
-%.prg:	%.a65
+%.prg:	%.a65 $(OPHIS)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
-	$(OPHIS) $< -l $*.list -m $*.map -o $*.prg
+	$(OPHIS) $(OPHISOPT) $< -l $*.list -m $*.map -o $*.prg
 
-%.bin:	%.a65
+%.bin:	%.a65 $(OPHIS)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
-	$(OPHIS) $< -l $*.list -m $*.map -o $*.prg
+	$(OPHIS) $(OPHISOPT) $< -l $*.list -m $*.map -o $*.prg
 
 %.o:	%.s $(CC65)
 	$(CA65) $< -l $*.list
@@ -390,13 +391,13 @@ $(UTILDIR)/diskmenu.prg:       $(UTILDIR)/diskmenuprg.o $(CC65)
 $(SRCDIR)/mega65-fdisk/m65fdisk.prg:	
 	( cd $(SRCDIR)/mega65-fdisk ; make )
 
-$(BINDIR)/border.prg: 	$(SRCDIR)/border.a65
-	$(OPHIS) $< -l $(BINDIR)/border.list -m $*.map -o $(BINDIR)/border.prg
+$(BINDIR)/border.prg: 	$(SRCDIR)/border.a65 $(OPHIS)
+	$(OPHIS) $(OPHISOPT) $< -l $(BINDIR)/border.list -m $*.map -o $(BINDIR)/border.prg
 
 # ============================ done moved, print-warn, clean-target
 #??? diskmenu_c000.bin yet b0rken
 $(BINDIR)/KICKUP.M65:	$(KICKSTARTSRCS) $(SRCDIR)/version.a65 $(OPHIS)
-	$(OPHIS) $< -l kickstart.list -m kickstart.map
+	$(OPHIS) $(OPHISOPT) $< -l kickstart.list -m kickstart.map
 
 # ============================ done moved, print-warn, clean-target
 $(UTILDIR)/diskmenuc000.o:     $(UTILDIR)/diskmenuc000.a65 $(UTILDIR)/diskmenu.a65 $(UTILDIR)/diskmenu_sort.a65 $(CC65)
@@ -406,7 +407,7 @@ $(BINDIR)/diskmenu_c000.bin:   $(UTILDIR)/diskmenuc000.o $(CC65)
 	$(LD65) $< --mapfile $*.map -o $*.bin
 
 $(BINDIR)/etherload.prg:	$(UTILDIR)/etherload.a65 $(OPHIS)
-	$(OPHIS) $< -l $*.list -m $*.map -o $*.prg
+	$(OPHIS) $(OPHISOPT) $< -l $*.list -m $*.map -o $*.prg
 
 
 # ============================ done moved, print-warn, clean-target
