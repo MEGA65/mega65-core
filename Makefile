@@ -75,6 +75,10 @@ $(CC65):
 	git submodule update
 	( cd cc65 && make -j 8 )
 
+$(OPHIS):
+	git submodule init
+	git submodule update
+
 # Not quite yet with Vivado...
 # $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr.mcs $(BINDIR)/lcd4ddr.mcs $(BINDIR)/touch_test.mcs
 
