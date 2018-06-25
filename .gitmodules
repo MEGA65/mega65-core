@@ -13,4 +13,4 @@
 
 [submodule "ghdl"]
 	path = ghdl
-	url = git@github.com:ghdl/ghdl.git
+	url = https://github.com/ghdl/ghdl.git
