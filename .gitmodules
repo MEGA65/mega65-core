@@ -10,3 +10,7 @@
 [submodule "src/mega65-fdisk"]
 	path = src/mega65-fdisk
 	url = https://github.com/MEGA65/mega65-fdisk.git
+
+[submodule "ghdl"]
+	path = ghdl
+	url = git@github.com:ghdl/ghdl.git
