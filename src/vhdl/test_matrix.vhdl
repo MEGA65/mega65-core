@@ -11,6 +11,9 @@ end test_matrix;
 architecture behavioral of test_matrix is
 
   signal pixel_x_640 : integer := 0;
+  signal native_x_640 : integer :=0;
+  signal native_y_200 : integer :=0;
+  signal native_y_400 : integer :=0;
   signal hsync : std_logic := '0';
   signal vsync : std_logic := '0';
   signal ycounter_in : unsigned(11 downto 0) := (others => '0');
@@ -68,6 +71,9 @@ begin
     );
   
   vk0: entity work.visual_keyboard port map (
+    native_x_640 => native_x_640,
+    native_y_200 => native_y_200,
+    native_y_400 => native_y_400,
     pixel_x_640_in => pixel_x_640,
     pixel_y_scale_200 => to_unsigned(2,4),
     pixel_y_scale_400 => to_unsigned(1,4),
