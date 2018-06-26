@@ -122,6 +122,7 @@ entity gs4510 is
       monitor_map_enables_low : out std_logic_vector(3 downto 0) := "1111";
       monitor_map_enables_high : out std_logic_vector(3 downto 0) := "1111";
       monitor_interrupt_inhibit : out std_logic := '0';
+      monitor_memory_access_address : out unsigned(31 downto 0);
 
       ---------------------------------------------------------------------------
       -- Memory access interface used by monitor
@@ -143,8 +144,10 @@ entity gs4510 is
     -- Interface to ChipRAM in video controller (just 128KB for now)
     ---------------------------------------------------------------------------
     chipram_we : OUT STD_LOGIC := '0';
-    chipram_address : OUT unsigned(16 DOWNTO 0) := "00000000000000000";
-    chipram_datain : OUT unsigned(7 DOWNTO 0) := (others => '0');
+
+    chipram_clk : IN std_logic;
+    chipram_address : IN unsigned(19 DOWNTO 0) := to_unsigned(0,20);
+    chipram_dataout : OUT unsigned(7 DOWNTO 0);
 
     cpu_leds : out std_logic_vector(3 downto 0) := "1111";
 
@@ -170,11 +173,13 @@ entity gs4510 is
     -- fast IO port (clocked at core clock). 1MB address space
     ---------------------------------------------------------------------------
     fastio_addr : inout std_logic_vector(19 downto 0);
+    fastio_addr_fast : inout std_logic_vector(19 downto 0);
     fastio_read : out std_logic := '0';
     fastio_write : out std_logic := '0';
     fastio_wdata : out std_logic_vector(7 downto 0);
     fastio_rdata : in std_logic_vector(7 downto 0);
     kickstart_rdata : in std_logic_vector(7 downto 0);
+    kickstart_address_out : out std_logic_vector(13 downto 0);
     sector_buffer_mapped : in std_logic;
     fastio_vic_rdata : in std_logic_vector(7 downto 0);
     fastio_colour_ram_rdata : in std_logic_vector(7 downto 0);
@@ -202,6 +207,16 @@ entity gs4510 is
     rom_at_c000 : in std_logic;
     rom_at_a000 : in std_logic;
     rom_at_8000 : in std_logic;
+
+ -- Debugging
+    debug_address_w_dbg_out : out std_logic_vector(16 downto 0);
+    debug_address_r_dbg_out : out std_logic_vector(16 downto 0);
+    debug_rdata_dbg_out : out std_logic_vector(7 downto 0);
+    debug_wdata_dbg_out : out std_logic_vector(7 downto 0);
+    debug_write_dbg_out : out std_logic;
+    debug_read_dbg_out : out std_logic;
+    debug4_state_out : out std_logic_vector(3 downto 0);
+    proceed_dbg_out : out std_logic;
 
     ---------------------------------------------------------------------------
     -- IO port to far call stack
@@ -389,7 +404,6 @@ begin
       fastio_read <= '0';
       fastio_write <= '0';
       chipram_we <= '0';        
-      chipram_datain <= x"c0";    
 
       slow_access_request_toggle_drive <= slow_access_ready_toggle_buffer;
       slow_access_write_drive <= '0';
@@ -930,14 +944,14 @@ begin
       elsif (long_address = x"0000001") then
         report "MEMORY: Writing to CPU PORT register" severity note;
         cpuport_value <= value;
+      elsif (long_address = x"0000002") then
+        report "MEMORY: Writing to CPU PORT register" severity note;
+        protected_hardware <= value;
       end if;
       
       if long_address(27 downto 17)="00000000000" or (long_address(27 downto 17)="01111111000" and hypervisor_mode='1') then
         report "writing to shadow RAM via chipram shadowing. addr=$" & to_hstring(long_address) severity note;
         fastio_write <= '0';
-        chipram_address <= long_address(16 downto 0);
-        chipram_we <= '1';
-        chipram_datain <= value;
         report "writing to chipram..." severity note;
         wait_states <= io_write_wait_states;
         if io_write_wait_states /= x"00" then
@@ -993,10 +1007,6 @@ begin
 
                 -- Write also to CHIP RAM, so that $1F800-FFF works as chipRAM
                 -- as well as colour RAM, when accessed via $D800+ portal
-                chipram_address(16 downto 11) <= "111111"; -- $1F8xx
-                chipram_address(10 downto 0) <= long_address(10 downto 0);
-                chipram_we <= '1';
-                chipram_datain <= value;
                 report "writing to chipram..." severity note;
                 
               end if;
