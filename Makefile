@@ -83,7 +83,7 @@ $(OPHIS):
 $(GHDL):
 	git submodule init
 	git submodule update
-	( cd ghdl && ./configure --prefix=$PWD/build && make && make install )
+	( cd ghdl && ./configure --prefix=./build && make && make install )
 
 # Not quite yet with Vivado...
 # $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr.mcs $(BINDIR)/lcd4ddr.mcs $(BINDIR)/touch_test.mcs
