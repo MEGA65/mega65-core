@@ -127,7 +127,9 @@ begin
       -- Check if it is time for a new sample
       if (last_sync='1' and pcm_sync='0') then
         -- Time for a new sample
-        txbuffer <= std_logic_vector(tx_sample);
+        -- Invert bit 15 to convert from unsigned to signed
+        txbuffer(15) <= not tx_sample(15);
+        txbuffer(14 downto 0) <= std_logic_vector(tx_sample(14 downto 0));
         report "Starting to send new sample with value $" & to_hstring(tx_sample);
         bit_number <= 16;
         rxdone <= '0';                  
