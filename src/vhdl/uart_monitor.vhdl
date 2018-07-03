@@ -701,6 +701,7 @@ begin
       -- character by marking not-ready
       if terminal_emulator_ready = '0' then
         terminal_emulator_just_sent <= '0';
+        monitor_char_valid <= '0';
       end if;
 
       bit_rate_divisor <= bit_rate_divisor_internal;
@@ -820,7 +821,6 @@ begin
         counter <= counter + 1;
         rx_acknowledge <= '0';
         tx_trigger <= '0';
-        monitor_char_valid <= '0';
 
         -- Make sure we don't leave the CPU locked
         if rx_ready='1' then
