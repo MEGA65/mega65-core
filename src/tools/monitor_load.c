@@ -342,8 +342,8 @@ int process_line(char *line,int live)
 	slow_write(fd,"t0\r",3); // and set CPU going
 	usleep(20000);
 	if (reset_first) { slow_write(fd,"!\r",2); sleep(1); }
-	if (pal_mode) { slow_write(fd,"sffd306f 80\r",12); usleep(20000); }
-	if (ntsc_mode) { slow_write(fd,"sffd306f 0\r",12); usleep(20000); }
+	if (pal_mode) { slow_write(fd,"sffd306f 0\r",12); usleep(20000); }
+	if (ntsc_mode) { slow_write(fd,"sffd306f 80\r",12); usleep(20000); }
 	if (ethernet_video) {
 	  slow_write(fd,"sffd36e1 29\r",12); // turn on video streaming over ethernet
 	  usleep(20000);
