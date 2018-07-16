@@ -624,7 +624,7 @@ if { [ string equal [get_report_configs -of_objects [get_runs impl_1] impl_1_ini
 }
 set obj [get_report_configs -of_objects [get_runs impl_1] impl_1_init_report_timing_summary_0]
 if { $obj != "" } {
-set_property -name "is_enabled" -value "0" -objects $obj
+set_property -name "is_enabled" -value "1" -objects $obj
 
 }
 # Create 'impl_1_opt_report_drc_0' report (if not found)
