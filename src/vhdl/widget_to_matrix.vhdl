@@ -35,6 +35,7 @@ architecture behavioural of widget_to_matrix is
   signal matrix_ram_offset : integer range 0 to 15 := 0;
   signal keyram_wea : std_logic_vector(7 downto 0);
   signal keyram_dia : std_logic_vector(7 downto 0);
+  signal matrix_dia : std_logic_vector(7 downto 0);
   
   signal enabled : std_logic := '0';
   
@@ -44,12 +45,14 @@ begin  -- behavioural
   port map (
     clkA => ioclock,
     addressa => matrix_ram_offset,
-    dia => pmod_data_in & pmod_data_in, -- replicate input to high and low nibbles
+    dia => matrix_dia,
     wea => keyram_wea,
     addressb => matrix_col_idx,
     dob => matrix_col
     );
 
+  matrix_dia <= pmod_data_in & pmod_data_in;  -- replicate input to high and low nibbles
+    
   process (ioclock)
   variable keyram_write_enable : std_logic_vector(7 downto 0);
   variable keyram_offset : integer range 0 to 15 := 0;

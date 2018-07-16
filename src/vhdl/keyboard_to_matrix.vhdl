@@ -36,23 +36,26 @@ architecture behavioral of keyboard_to_matrix is
   
   signal keyram_wea : std_logic_vector(7 downto 0);
   signal keyram_mask : std_logic_vector(7 downto 0);
-  
+  signal matrix_dia : std_logic_vector(7 downto 0);
 begin
   
   kb_kmm: entity work.kb_matrix_ram
   port map (
     clkA => Clk,
     addressa => scan_phase,
-    dia => (portb_pins(7 downto 0) and keyram_mask),
+    dia => matrix_dia,
     wea => keyram_wea,
     addressb => matrix_col_idx,
     dob => matrix_col
     );
-  
+
+  matrix_dia <= portb_pins(7 downto 0) and keyram_mask;
+    
   process (clk)
     variable next_phase : integer range 0 to 15;
     variable scan_mask : std_logic_vector(7 downto 0);
   begin
+    
     if rising_edge(clk) then
 
       -- Present virtualised keyboard
