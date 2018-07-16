@@ -42,6 +42,7 @@ entity uart_monitor is
     monitor_char_out : out unsigned(7 downto 0);
     monitor_char_valid : out std_logic;
     terminal_emulator_ready : in std_logic;
+    terminal_emulator_ack : in std_logic;
     
     key_scancode : out unsigned(15 downto 0);
     key_scancode_toggle : out std_logic;

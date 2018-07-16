@@ -1,0 +1,1251 @@
+; This code currently assumes 65C02 instruction support.  I originally tried to keep
+; it to just 6502 but the CMOS extensions are pretty useful and supporting the bigger
+; instruction set doesn't require THAT many more recources.  The 6502 core could also
+; be trimmed down a bit if we wanted to "unfix" the decimal flags issue.
+;
+; The main dependency on the 65C02 is really the desire to have the (zp) addressing
+; mode.  It's used in the flags display code.  It could be eliminated by just stashing
+; Y somewhere before the load, but since code size may eventually matter, and supporting
+; the 65C02 instruction set doesn't require more block RAM resources, it seems like the
+; resources tradeoff is the right one here.
+;
+; Ok, I lied. Now I make good use of the jmp (abs,x) instruction and a few other things
+; too.
+;
+; Missing Features
+; 
+; Matrix mode input/output
+; Improved line editing?
+; 
+;
+
+; monitor memory map
+;
+; $0000-$00ff - zero page
+; $0100-$01ff - stack
+; $0200-$07ff - General purpose RAM (monitor scratch space, but currently unused)
+;
+; $7000-$7fff - CPU State History (16 entries, 8 bytes each)
+; $8000-$8017 - history memory read window (read only)
+;
+; $9000-$97ff - monitor hardware control registers
+;
+; $f800-$ffff - 2K Monitor ROM
+
+; monitor I/O memory map
+      .alias      cpu_state_base      $7000
+      .alias      cpu_state_addr      $7000       ; flat 32-bit access address
+      .alias      cpu_rdata           $7004       ; data read from memory
+      .alias      cpu_ustate          $7005       ; microcode state
+      
+      .alias      monitor_mem         $8000
+      .alias      monitor_p           $8000
+      .alias      monitor_a           $8001
+      .alias      monitor_x           $8002
+      .alias      monitor_y           $8003
+      .alias      monitor_z           $8004
+      .alias      monitor_PCLo        $8005
+      .alias      monitor_PCHi        $8006
+      .alias      monitor_StateLo     $8007
+      .alias      monitor_StateHi     $8008
+      .alias      monitor_WaitStates  $8009
+      .alias      monitor_b           $800a
+      .alias      monitor_SPLo        $800b
+      .alias      monitor_SPHi        $800c
+      .alias      monitor_MapLo1      $800d
+      .alias      monitor_MapLo2      $800e
+      .alias      monitor_Misc        $800f
+      .alias      monitor_MapHi1      $8010
+      .alias      monitor_MapHi2      $8011
+      .alias      monitor_Opcode      $8012
+      .alias      monitor_Arg1        $8013
+      .alias      monitor_Arg2        $8014
+      .alias      monitor_Instruction $8015
+      .alias      monitor_Unused0     $8016
+      .alias      monitor_Unused1     $8017
+      
+      .alias      hist_read_lo        $9000
+      .alias      hist_read_hi        $9001
+      .alias      hist_write_lo       $9002
+      .alias      hist_write_hi       $9003
+      .alias      mon_trace           $9004
+      .alias      mon_trace_step      $9005
+      .alias      flag_mask_lo        $9006
+      .alias      flag_mask_hi        $9007
+      .alias      uart_rx             $9008
+      .alias      uart_tx             $9009
+      .alias      uart_status         $900A
+      .alias      mon_reset           $900B
+      
+      .alias      bitrate_lo          $900C
+      .alias      bitrate_hi          $900D
+      
+      .alias      break_addr          $900E
+
+      .alias      mem_addr            $9010
+      .alias      mem_read            $9014
+      .alias      mem_write           $9015
+      .alias      mem_status          $9016
+      .alias      mem_inc             $9017
+
+      .alias      watch_addr          $9018
+      .alias      state_cnt           $901C
+      
+      ; Trace control bits
+      .alias      trace_en            $1
+      .alias      trace_dis           $ff^$1
+      .alias      trace_flag_en       $2
+      .alias      trace_flag_match    $2
+      .alias      trace_hist_en       $4
+      .alias      trace_hist_dis      $ff^$4
+      .alias      trace_hist_cont_en  $8
+      .alias      trace_hist_cont_dis $ff^$8
+      .alias      trace_irq_dis       $10
+      .alias      trace_irq_en        $ff^$10
+      .alias      trace_hyper_trap    $20
+      .alias      trace_watch_en      $40
+      .alias      trace_watch_match   $40
+      .alias      trace_break_en      $80
+      .alias      trace_break_match   $80
+      
+      
+      ; Zero page location aliases
+      .alias      string_ptr          $2     ; address pointer for string output
+      .alias      x_save              $4     ; x save area
+      .alias      num_bytes           $4
+      .alias      y_save              $5     ; y save area
+      .alias      trace_continuous    $6     ; monitor state flag      
+      .alias      fill_value          $7     ; memory fill value
+      
+      .alias      membuf              $20    ; 16 bytes used for memory reads
+      .alias      hex_value           $30    ; 4 bytes for parsed hex value
+      .alias      target_addr         $34    ; 4 bytes for target hex address
+      .alias      flag_ptr            $38    ; pointer to flag byte
+      .alias      flag_char_ptr       $3a    ; pointer to flag characters
+      .alias      cmdchar             $3c    ; current command character      
+      .alias      cmdidx              $3d    ; current position in command (X save)
+      .alias      mem_line_cnt        $3e    ; number of lines to dump
+      .alias      cmdlen              $3f    ; # characters in command line
+      .alias      top_addr            $40    ; 4 bytes for top address
+
+      .alias      cmdbuf              $c0    ; 64 byte command string buffer
+      
+      .macro printstr
+      lda #<_1
+      ldx #>_1
+      jsr printstr
+      .macend
+      
+; Maybe useful to give main core access to monitor memory and CPU core for runtime replacement of
+; monitor code during development?   Or at least have a "monitor patch/load" command?
+
+      .org $f800
+      
+monitor_reset:
+      sei                 ; disable interrupts
+      cld                 ; disable decimal mode
+      ldx         #$ff
+      txs                 ; init stack
+      
+      ; Init a few important zero page locations
+      lda         #>flag0_chars
+      sta         flag_char_ptr+1
+      lda         #>monitor_mem
+      sta         flag_ptr+1
+      lda         #0
+      sta         trace_continuous
+      sta         in_matrix_mode
+      
+      ;bra         watch_cmd               ; Tests for 4510/65CE02 opcode disassembly
+      ;lda         (4,sp),y                ; ""
+      ;bbs0        flag_ptr, first_banner  ;
+      
+      ; Fall through....
+      ldy         #21
+first_banner:
+      jsr         print_crlf
+      dey
+      bne         first_banner
+      
+print_banner:
+      `printstr   banner_msg
+
+next_command:
+      `printstr   prompt_str
+      lda         #$00    ; reset cmdlen
+      sta         cmdlen
+
+accepting_input:
+      jsr         check_protected_hw
+      bit         uart_status
+      bmi         get_uart_char
+
+      bit         monitor_char_status ; Anything from the monitor?
+      bmi         get_monitor_char
+      
+*     bit         mon_trace         ; See if we got a watch or break match
+      bvc         +
+      jmp         watch_match
+*     bpl         +
+      jmp         break_match
+      
+      ; Nothing else to do, see if we're doing continuous tracing
+*     lda         trace_continuous
+      beq         +
+      jmp         trace_step
+
+*     bra         accepting_input
+
+check_protected_hw:
+      bit         protected_hw
+      bvs         maybe_enter_matrix_mode
+      lda         #0
+update_protected_hw:
+      sta         in_matrix_mode
+check_protected_hw_exit:
+      rts
+maybe_enter_matrix_mode:
+      lda         in_matrix_mode
+      bne         check_protected_hw_exit
+      `printstr   banner_msg
+      lda         #1
+      bra         update_protected_hw
+      
+get_monitor_char:
+      lda         monitor_char      ; get character from monitor
+      jsr         output_char       ; send it along to UART (and perhaps back to monitor?)
+      bra         accepting_input
+      
+get_uart_char:
+      lda         uart_rx           ; get character (for now just from UART)
+      ldx         #0
+      stx         trace_continuous  ; disable tracing
+      
+      ; Process new character (in A)
+character_received:      
+      cmp         #$20
+      bcc         otherchar         ; less than space
+      cmp         #$7f
+      bcs         otherchar         ; >= del
+
+      ldx         cmdlen
+      cpx         #64
+      bcs         beep
+      sta         cmdbuf,x
+      inx
+      stx         cmdlen
+      jsr         output_char
+      bra         accepting_input
+      
+beep:
+      lda         #$07
+      jsr         output_char
+      bra         accepting_input
+
+      ; check for "special" non printable character codes
+otherchar:
+      cmp         #$08            ; backspace
+      beq         backspace
+      cmp         #$7f
+      beq         backspace
+      cmp         #13
+      beq         enter_pressed
+      cmp         #10
+      beq         enter_pressed
+      bra         beep
+
+backspace:
+      ldx         cmdlen
+      beq         beep
+      dex
+      stx         cmdlen
+      `printstr   backspace_msg
+      jmp         accepting_input
+
+; -------------------------------------
+; "Empty" command
+;
+; This handles "empty" commands (like single step trace)
+; Currently enables history record and then executes a trace step
+;
+; Might be nicer if this was contextual based on the last command... sortof a "continue"
+; last command or something?
+; -------------------------------------
+empty_command:
+      lda         #0                ; reset history index
+      sta         hist_write_lo
+      sta         hist_write_hi
+      lda         mon_trace
+      ora         #trace_hist_en    ; also record history
+      sta         mon_trace      
+      jmp         trace_step
+
+enter_pressed:
+      jsr         print_crlf
+      ldx         cmdlen
+      beq         empty_command
+      ldx         #$00
+      lda         cmdbuf,x
+      sta         cmdchar                       ; save this in case we need it back...
+      inx
+*     ldy         #16                           ; assume 16 lines for upper case memory dumps...
+      cmp         #'a                           ; unless we're lower case
+      bcc         +                             ; A < 'a'  (i.e. upper case ASCII)
+      ldy         #1                            ; lower case, so just 1 line
+*     sty         mem_line_cnt
+
+      ; Table lookup is cases insensitive.  If commands need to know they can grab cmdchar, stored above
+*     cmp         #'a
+      bcc         is_upper
+      cmp         #'z+1
+      bcs         is_upper
+      and         #$ff-$20                      ; Convert a-z to upper case, leave everything else alone
+is_upper:
+      pha                                       ; save command char...
+      jsr         skip_spaces                   ; skip whitespace after command char
+      pla                                       ; restore command char
+      phx                                       ; push X (popped by command handlers)
+      ldx         #[cmd_jmp_table-cmd_jmp_cmds-1];
+cmd_loop:
+      cmp         cmd_jmp_cmds,x
+      beq         do_jump
+      dex
+      bpl         cmd_loop
+      plx                                       ; command not found, pop X again
+      jmp         next_command
+do_jump:
+      txa
+      asl
+      tax
+      jmp         (cmd_jmp_table,x)
+      
+reset_cmd:
+      lda         #255
+      sta         mon_reset                     ; We probably won't make it past here...
+      jmp         next_command
+
+bad_bitrate:
+      `printstr   bad_bitrate_msg
+      jmp         next_command
+      
+; -------------------------------------
+; Set Bit Rate Divisor Command (+)
+; -------------------------------------
+set_bitrate_cmd:
+      plx                               ; pop x
+      jsr         parse_hex_value       ; returns with # of hex digits parsed in Y, X pointing at next index
+      cpy         #0
+      beq         bad_bitrate
+      cpy         #5                    ; Only accept 2 byte address
+      bcs         bad_bitrate
+      lda         hex_value+0
+      sta         bitrate_lo
+      lda         hex_value+1
+      sta         bitrate_hi
+      jmp         next_command
+      
+; -------------------------------------
+; Fill Memory Command (f or F)
+; -------------------------------------
+fill_mem_cmd:
+      plx                               ; pop x
+      jsr         parse_addr32          ; get 32-bit value, or abort to next command
+
+      jsr         copy_hex_value_to_target_address
+
+      jsr         parse_addr32          ; get 32-bit address, or abort to next command
+
+      phx
+      ldx         #3
+*     lda         hex_value,x           ; copy hex value to top_address
+      sta         top_addr,x
+      dex
+      bpl         -
+      plx
+
+      jsr         parse_hex_value       ; returns with # of hex digits parsed in Y, X pointing at next index
+      cpy         #0
+      beq         bad_fill
+      cpy         #3                    ; Fill value >= 3 digits?
+      bcs         bad_fill
+      
+      lda         hex_value             ; get fill value
+      tay                               ; stash in Y
+      
+      ; Compare current address to top address using 32-bit unsigned compare (or subtract, in this case)
+fill_loop:
+      lda         mem_addr+0
+      cmp         top_addr+0
+      lda         mem_addr+1
+      sbc         top_addr+1
+      lda         mem_addr+2
+      sbc         top_addr+2
+      lda         mem_addr+3
+      sbc         top_addr+3
+      bcs         fill_done             ; mem_addr >= top_addr, do we're done
+      
+      sty         mem_write             ; initiate write of fill value
+fill_wait:
+      bit         mem_status            ; is it done?
+      bvs         mem_write_error       ; oops, error
+      bpl         fill_wait             ; still not done... try again
+      stx         mem_inc               ; increment write address
+      bra         fill_loop             ; do next byte
+
+fill_bad_addr:
+      jmp         dump_bad_addr
+            
+bad_fill:
+      `printstr   bad_fill_msg
+fill_done:
+      jmp         next_command
+      
+; -------------------------------------
+; Set Memory Command (s or S)   S forces upper address bytes to $0777
+; -------------------------------------
+set_mem_cmd:
+      plx                               ; pop x
+      jsr         parse_addr32          ; get 32-bit address, or abort to next command
+
+      lda         cmdchar
+      cmp         #'s
+      beq         set_mem_start
+      lda         #$77                  ; override top address bytes
+      sta         hex_value+2
+      lda         #$07
+      sta         hex_value+3
+
+set_mem_start:
+      jsr         copy_hex_value_to_target_address
+      
+set_mem_loop:
+      jsr         parse_hex_value
+      cpy         #0
+      beq         fill_done
+      cpy         #3
+      beq         bad_fill
+      
+      lda         hex_value             ; get parsed value
+      sta         mem_write             ; write to mem...
+set_mem_wait:
+      bit         mem_status            ; is it done?
+      bvs         mem_write_error       ; oops, error
+      bpl         set_mem_wait          ; still not done... try again
+      stx         mem_inc               ; increment write address
+      bra         set_mem_loop          ; do next byte
+
+; This is here mostly for locality reasons to keep branches within range of all of the
+; memory store codepaths.
+mem_write_error:
+      `printstr   write_timeout_msg
+      jmp         next_command
+
+; -------------------------------------
+; Load Memory Command (l or L)
+;
+; First argument - base address
+; Second argument - 16 bits of top end address
+; -------------------------------------
+load_mem_cmd:
+      plx                               ; pop x
+      jsr         parse_addr32          ; get 32-bit address, or abort to next command
+
+      jsr         copy_hex_value_to_target_address
+
+      jsr         parse_addr32          ; get 32-bit address, or abort to next command
+      
+      lda         hex_value+0
+      sta         top_addr+0
+      lda         hex_value+1
+      sta         top_addr+1
+      
+      ; Do address check first
+load_byte_loop:
+      lda         mem_addr+0
+      cmp         top_addr+0
+      bne         load_byte
+      lda         mem_addr+1
+      cmp         top_addr+1
+      bne         load_byte
+      jmp         next_command          ; all done
+      
+load_byte:
+      bit         uart_status
+      bpl         load_byte             ; not yet, wait for byte
+      
+      lda         uart_rx               ; load byte
+      sta         mem_write             ; initiate memory write
+load_byte_wait:
+      bit         mem_status
+      bvs         mem_write_error       ; oops, error
+      bpl         load_byte_wait        ; still not done... try again
+      stx         mem_inc               ; increment write address
+      bra         load_byte_loop        ; do next byte
+
+; -------------------------------------
+; Set PC Command (g or G)
+; -------------------------------------
+set_pc_cmd:
+      plx                               ; pop x
+      jsr         parse_addr16
+      jsr         copy_hex_value_to_target_address
+      lda         #$80                  ; Setting high bit in mem_read causes it to perform a PC update
+      sta         mem_read
+set_pc_wait:
+      bit         mem_status
+      bvs         set_pc_error
+      bmi         set_pc_done
+      bra         set_pc_wait      
+set_pc_error:
+      `printstr   set_pc_err_msg
+set_pc_done:
+      jmp         next_command
+      
+dump_bad_addr:
+      jsr         bad_addr
+      jmp         next_command
+
+; -------------------------------------
+; Dump CPU Memory Command (d or D)
+; -------------------------------------
+.scope
+dump_cpu_memory_cmd:
+      plx                               ; pop x
+      jsr         parse_addr16
+      lda         #$77
+      sta         hex_value+2
+      lda         #$07
+      sta         hex_value+3
+      jmp         dump_mem
+
+; -------------------------------------
+; Dump Memory Command (m or M)
+; -------------------------------------
+dump_memory_cmd:
+      plx                               ; pop x
+      jsr         parse_addr32          ; get 32-bit address, or abort to next command
+
+dump_mem:
+      jsr         copy_hex_value_to_target_address
+
+      ; x will count bytes we've read (16 per line).  y will count lines printed
+      ldy         mem_line_cnt
+dump_mem_bytes:
+      ; display current memory address
+      ldx         #3
+*     lda         mem_addr,x
+      jsr         print_hex_byte
+      dex
+      bpl         -
+
+      lda         #$3a                      ; :
+      jsr         output_char
+
+      ldx         #16
+dump_mem_loop:
+      ; initiate read via any write (without high bit set) to mem_read
+      stx         mem_read
+      ; wait for N or V flag to get set.  check for error first.
+_wait_byte:
+      bit         mem_status
+      bvs         dump_mem_read_error
+      bpl         _wait_byte
+      lda         mem_read
+      jsr         print_hex_byte
+      stx         mem_inc             ; Dummy write to increment read address
+      dex
+      bne         dump_mem_loop
+      jsr         print_crlf
+      dey
+      bne         dump_mem_bytes      ; do next line
+      jmp         next_command
+      
+.scend
+ 
+dump_mem_read_error:
+      `printstr   read_timeout_msg
+      jmp         next_command
+
+bad_addr:
+      `printstr   bad_addr_msg
+      rts
+      
+is_space:
+      inx                           ; skip space...
+skip_spaces:
+      cpx         cmdlen            ; are we at end of command?
+      bcs         end_spaces        ; no more characters to parse...
+      lda         cmdbuf,x
+      cmp         #$20              ; is it a space?
+      beq         is_space          ; yep, try again
+                                    ; otherwise fall through and don't consume it
+end_spaces:
+      rts
+
+; ----------------------------------------
+; Parse (up to) 32-bit address value
+; If this fails it will print an error message, pop
+; the return address of the stack and go directly to the
+; next command.
+; ----------------------------------------
+parse_addr32:
+      jsr         parse_hex_value       ; returns with # of hex digits parsed in Y, X pointing at next index
+      cpy         #0
+      beq         bad_address_error_pop
+      cpy         #9                    ; Address >8 digits?
+      bcs         bad_address_error_pop
+      rts                               ; otherwise return
+
+parse_addr16:
+      jsr         parse_hex_value       ; returns with # of hex digits parsed in Y, X pointing at next index
+      cpy         #0
+      beq         bad_address_error_pop
+      cpy         #5                    ; Address >8 digits?
+      bcs         bad_address_error_pop
+      rts                               ; otherwise return
+      
+bad_address_error_pop:
+      pla
+      pla                               ; pop return address off stack
+      `printstr   bad_addr_msg
+      jmp         next_command
+
+      ; Y is used to count how many digits we've parsed so far (up to 8).
+parse_hex_value:
+      jsr         skip_spaces
+      ; clear hex value accumulator - this could probably be made a few bytes shorter
+      ldy         #0
+      sty         hex_value+0
+      sty         hex_value+1
+      sty         hex_value+2
+      sty         hex_value+3
+      ; Fall through...
+next_hex_digit:
+      sty         y_save            ; remember Y
+      cpx         cmdlen            ; are we at end of command?
+      bcs         end_nibble        ; no more characters to parse...
+      lda         cmdbuf,x
+      cmp         #'0
+      bcc         end_nibble        ; A < '0'
+      cmp         #'9+1
+      bcc         dec_digit         ; A < '9' + 1
+      cmp         #'A
+      bcc         end_nibble        ; A < 'A'
+      and         #$ff-$20          ; convert to upper case.
+      cmp         #'F+1
+      bcs         end_nibble        ; A >= 'F' + 1
+      sbc         #'A-1-10
+      bra         shift_msb
+dec_digit:
+      sbc         #'0-1
+shift_msb:
+      asl                           ; shift nibble into upper 4 bits
+      asl                           ; in preparation for shifting into
+      asl                           ; address accumulator below
+      asl
+      phx
+      ldx         #4                ; 4 bit shift
+shift_value:
+      asl
+      rol         hex_value+0
+      rol         hex_value+1
+      rol         hex_value+2
+      rol         hex_value+3
+      dex
+      bne         shift_value
+      plx
+      inx         ; consume character
+      iny         ; one more hex digit parsed
+end_nibble:
+      cpy         y_save          ; did we parse anything?
+      bne         next_hex_digit  ; keep going if we parsed something
+      rts                         ; done... leave X with next character index, Y with # chars parsed
+      
+      ; copy hex_value to target_address and mem_addr. preserves X.
+.scope
+copy_hex_value_to_target_address:
+      phx
+      ldx         #3
+_copy_addr:
+      lda         hex_value,x
+      sta         target_addr,x
+      sta         mem_addr,x
+      dex
+      bpl         _copy_addr
+      plx
+      rts
+.scend
+
+; -------------------------------------
+; IRQ command
+; -------------------------------------
+irq_cmd:
+      plx                           ; pop x
+      ldx         #$A
+      lda         cmdchar
+      cmp         #'i               ; Enable IRQs
+      beq         do_trace
+      ldx         #$C               ; Otherwise Disable IRQs
+      bra         do_trace
+      
+; -------------------------------------
+; Trace command
+; -------------------------------------
+trace_cmd:
+      plx                           ; pop x
+      cpx         cmdlen            ; are we at end of command?
+      bcs         trace_step        ; no more characters to parse, just do single step
+
+      lda         cmdbuf,x
+      cmp         #'1               ; Stop CPU with IRQs disabled
+      bne         +
+      ldx         #0
+      bra         do_trace
+*     cmp         #'0               ; Let CPU free run, but begin recording history
+      bne         +
+      ldx         #2
+      bra         trace_hist
+*     cmp         #'C               ; trace continuous with IRQs enabled
+      bne         +
+      ldx         #4
+      bra         trace_cont
+*     cmp         #'c               ; trace continuous with IRQs disabled
+      bne         +
+      ldx         #6
+      bra         trace_cont
+*     cmp         #'l               ; Let CPU free run, but begin recording continous history
+      bne         +
+      ldx         #8
+      bra         trace_hist
+*     jmp         next_command
+
+trace_hist:
+      stz         hist_write_lo
+      stz         hist_write_hi
+      bra         do_trace
+      
+trace_cont:
+      lda         #1
+      sta         trace_continuous
+
+do_trace:
+      lda         mon_trace
+      and         trace_table,x
+      ora         trace_table+1,x
+      sta         mon_trace
+      jmp         next_command
+      
+trace_table:
+      .byte       $ff,trace_irq_dis + trace_en                                        ; $00 - Trace Enabled, IRQ Disabled     '1'
+      .byte       $ff - trace_en - trace_irq_dis - trace_hist_cont_en,trace_hist_en   ; $02 - CPU Run, Record history         '0'
+      .byte       $ff - trace_irq_dis, trace_en                                       ; $04 - Trace Enable Continuous, IRQ ena 'C'
+      .byte       $ff, trace_irq_dis + trace_en                                       ; $06 - Trace Enable Continuous, IRQ dis 'c'
+      .byte       $ff - trace_en - trace_irq_dis,trace_hist_en + trace_hist_cont_en   ; $08 - CPU Run, Record continuous history 'l'
+      .byte       $ff - trace_irq_dis, $00                                            ; $0A - IRQ enabled
+      .byte       $ff, trace_irq_dis                                                  ; $0C - IRQ disabled
+      .byte       $ff - trace_hyper_trap, $00                                         ; $0E - Hypervisor trap disable
+      .byte       $ff, trace_hyper_trap                                               ; $10 - Hypervisor trap enable
+      .byte       $ff - trace_flag_en, $00                                            ; $12 - Flag break disable
+      .byte       $ff, trace_flag_en                                                  ; $14 - Flag break enable
+      
+trace_step:
+      lda         mon_trace_step
+      eor         #1                   ; Toggle trace flag
+      sta         mon_trace_step
+      jmp         show_registers_cmd  ; Then display registers
+
+; -------------------------------------
+; Hypervisor Trap command
+; -------------------------------------
+hyper_trap_cmd:
+      plx                               ; pop x
+      cpx         cmdlen
+      bcs         hyper_trap_dis        ; nothing to parse, treat like zero
+      lda         cmdbuf,x
+      ldx         #$10                  ; Assume hypervisor trap enable
+      cmp         #'1
+      beq         do_trace
+      
+hyper_trap_dis:
+      ldx         #$0E
+      bra         do_trace
+
+; -------------------------------------
+; Flag break command
+; -------------------------------------
+flag_break_cmd:
+      plx                               ; pop x
+      cpx         cmdlen
+      bcs         flag_break_dis        ; nothing to parse, treat like disable
+      
+      ;Try to parse flag mask
+      jsr         parse_hex_value       ; returns with # of hex digits parsed in Y, X pointing at next index
+      cpy         #0
+      beq         bad_mask
+      cpy         #4                    ; require 4 hex digits
+      bne         bad_mask
+      lda         hex_value+0
+      sta         flag_mask_lo
+      lda         hex_value+1
+      sta         flag_mask_hi
+      ldx         #$14
+      bra         do_trace
+
+bad_mask:
+      `printstr   bad_mask_msg
+flag_break_dis:
+      ldx         #$12
+      bra         do_trace
+      
+; -------------------------------------
+; Print CPU State Command (z or Z with no arguments)
+; -------------------------------------
+state_cmd:
+      `printstr   state_msg
+      ldy         #0                    ; init Y at zero
+state_loop:
+      cpy         state_cnt
+      bcs         state_done
+      tya                               ; get current index
+      asl                               ; multiply by 8
+      asl
+      asl
+      tax                               ; back to X for indexing
+      lda         cpu_ustate,x
+      jsr         print_hex_byte
+      jsr         print_space
+      lda         cpu_state_addr+3,x
+      jsr         print_hex_byte
+      lda         cpu_state_addr+2,x
+      jsr         print_hex_byte
+      lda         cpu_state_addr+1,x
+      jsr         print_hex_byte
+      lda         cpu_state_addr+0,x
+      jsr         print_hex_byte
+      lda         #$3a
+      jsr         output_char
+      lda         cpu_rdata,x
+      jsr         print_hex_byte
+      jsr         print_crlf
+      iny
+      bra         state_loop
+      
+state_done:
+      jmp         next_command
+     
+bad_index:
+      `printstr   bad_index_msg
+      jmp         next_command
+     
+; -------------------------------------
+; Print CPU History Command (z or Z with index argument)
+; -------------------------------------
+history_cmd:
+      plx                               ; pop x
+      cpx         cmdlen
+      beq         state_cmd
+      ;Try to parse index
+      jsr         parse_hex_value       ; returns with # of hex digits parsed in Y, X pointing at next index
+      cpy         #0
+      beq         bad_index
+      cpy         #4                    ; accept up to 3 hex digits
+      bcs         bad_index
+      ; compare index to 1023.  Well, ok, just compare upper byte.
+      lda         hex_value+1
+      cmp         #3
+      bcs         bad_index
+      sta         hist_read_hi
+      lda         hex_value+0
+      sta         hist_read_lo
+      jsr         print_history
+      jmp         next_command
+      
+; -------------------------------------
+; Show Registers Command (r or R)
+; -------------------------------------
+
+      ; We wait a little bit for whatever the current instruction
+      ; executing is to finish, then enable history record to the top
+      ; location, then display that.
+      ; Note: what should we do if continous tracing is enabled.  Just
+      ; turn that off?  If we don't then the history stuff is going to be 
+      ; all wonky.
+
+.scope
+show_registers_cmd:
+      ldx         #128
+_lp:  dex
+      bne         _lp
+      ;lda         mon_trace
+      ;and         #trace_hist_dis
+      ;sta         mon_trace
+      
+      ; Set history read and write indices to max hardware index.  Controller will drop unimplemented bits.
+      lda         #$ff
+      sta         hist_write_lo
+      sta         hist_write_hi
+      sta         hist_read_lo
+      sta         hist_read_hi
+      lda         mon_trace
+      ora         #trace_hist_en
+      sta         mon_trace           ; This should enable history writes, which should
+                                      ; only take one cycle to execute and then should auto-disable.
+      jsr         print_history       ; Display current history
+      jmp         next_command
+.scend
+       
+       ; This code formats and displays the currently selected history memory entry
+       ;
+       ; We use Y to index into format as we go, and X to index into jump table or monitor memory.
+       ; See comment at history_fmt for table description.
+.scope
+print_history:
+      `printstr   history_msg
+      ldy         #$ff
+_history_loop:
+      iny
+      lda         history_fmt,y
+      bmi         _history_space          ; print space first
+_history_lookup:
+      cmp         #$20
+      bcs         _history_jmp            ; >= 32, do jump table lookup
+      tax
+      lda         monitor_mem,x
+      jsr         print_hex_byte
+      bra         _history_loop
+
+_history_space:
+      and         #$7f                    ; mask off "print space" bit
+      tax
+      jsr         print_space
+      txa         
+      bra         _history_lookup
+      
+_history_jmp_table:
+      .word       print_crlf,_history_opcode,_history_io,_history_flags0,_history_flags1,_history_hypervisor
+      
+      ; Do table lookup.  Note, we don't subtract $20 here. Instead, subtract $40 from base of jump table.
+_history_jmp:
+      asl
+      tax
+      jmp         (_history_jmp_table-$40,x)
+      
+      ; Specialized display code for showing instruction opcode bytes
+_history_opcode:
+      lda         monitor_Misc                
+      and         #3                          ; get # instruction bytes
+      sta         num_bytes
+      ldx         #0
+_hist_arg_loop:
+      cpx         num_bytes
+      beq         _hist_space_loop
+      lda         monitor_Opcode,x
+      jsr         print_hex_byte
+      inx
+      bra         _hist_arg_loop
+_hist_space_loop:
+      jsr         print_two_spaces
+      inx
+      cpx         #4
+      bne         _hist_space_loop
+      bra         _history_loop
+      
+      ; Specialized display code for showing bit flags
+_history_flags1:
+      lda         #<monitor_Misc
+      sta         flag_ptr
+      lda         #<flag1_chars
+      sta         flag_char_ptr
+      ldx         #$4
+      bra         _flagsLoopStart
+_history_flags0:
+      lda         #<monitor_p
+      sta         flag_ptr
+      lda         #<flag0_chars
+      sta         flag_char_ptr      
+      ldx         #$8                         ; Display all 8 bits from P
+_flagsLoopStart:
+      phy
+      ldy         #$00
+_flagLoop:
+      lda         (flag_ptr)                  ; 65C02 addressing mode
+      and         flag_bits,y
+      beq         _zeroFlag0
+      lda         (flag_char_ptr),y
+      bra         _printFlag
+_zeroFlag0:
+      lda         #'.
+_printFlag:
+      jsr         output_char      
+      iny
+      dex
+      bne         _flagLoop
+      ply
+      jmp         _history_loop
+      
+      ; FastIO read/write/none 
+_history_io:
+      lda         monitor_Misc
+      and         #$08
+      beq         _checkFastIORead
+      lda         #'W
+      bne         _printFastIO
+_checkFastIORead:
+      lda         monitor_Misc
+      and         #$04
+      beq         _noRead
+      lda         #'R
+      bne         _printFastIO      
+_noRead:
+      lda         #$2d
+_printFastIO:
+      jsr         output_char
+      jmp         _history_loop
+      
+_history_hypervisor:
+      lda         mem_status
+      and         #$4
+      beq         _noRead
+      lda         #'H
+      bra         _printFastIO
+      
+      ; TODO - Monitor Hypervisor mode - need bit exposed in a register
+      ; since this is "live" and not recorded state.
+      
+.scend
+
+; Note: The code for watch setup and break setup are nearly identical so it might be worth
+; trying to figure out how to unify them to save some code space.  The main differences are
+; how many digits to accept, where to copy the hex_value to, and which bit to use to enable/disable
+; watch versus trace.  This could maybe be done with some table lookups or something.
+; ----------------------------------------
+; Watch Command
+; ----------------------------------------
+watch_cmd:
+      plx                               ; pop x
+      jsr         parse_hex_value       ; returns with # of hex digits parsed in Y, X pointing at next index
+      cpy         #0
+      beq         watch_disable
+      cpy         #9
+      bcs         watch_bad_addr
+      
+      ldx         #3                    ; copy hex value to watch address
+*     lda         hex_value,x
+      sta         watch_addr,x
+      dex
+      bpl         -
+      lda         mon_trace
+      ora         #trace_watch_en       ; enable watch mode
+      sta         mon_trace
+      jmp         next_command
+watch_bad_addr:
+      jsr         bad_addr
+watch_disable:
+      lda         mon_trace
+      and         #[$ff - trace_watch_en] ; disable watch mode
+      sta         mon_trace
+      jmp         next_command
+      
+; ----------------------------------------
+; Watch Matched "Command"
+;
+; For now this just displays register state and leaves the CPU in trace mode, which
+; should have been auto-enabled by the controller hardware.
+; ----------------------------------------
+
+watch_match:
+      lda         mon_trace
+      and         #[$ff - trace_watch_en] ; disable watch mode to clear status bit
+      sta         mon_trace
+      ora         #trace_watch_en         ; re-enable it for watch mode?
+      sta         mon_trace
+      jmp         show_registers_cmd
+
+; ----------------------------------------
+; Break Command
+; ----------------------------------------
+break_cmd:
+      plx                               ; pop x
+      jsr         parse_hex_value       ; returns with # of hex digits parsed in Y, X pointing at next index
+      cpy         #0
+      beq         break_disable
+      cpy         #5
+      bcs         break_bad_addr
+      
+      ldx         #1                    ; copy hex value to watch address
+*     lda         hex_value,x
+      sta         break_addr,x
+      dex
+      bpl         -
+      lda         mon_trace
+      ora         #trace_break_en       ; enable break mode
+      sta         mon_trace
+      jmp         next_command
+break_bad_addr:
+      jsr         bad_addr
+break_disable:
+      lda         mon_trace
+      and         #[$ff - trace_break_en] ; disable break mode
+      sta         mon_trace
+      jmp         next_command
+
+; ----------------------------------------
+; Break Matched "Command"
+;
+; For now this just displays register state and leaves the CPU in trace mode, which
+; should have been auto-enabled by the controller hardware.
+; Note: We currently arrive here for both flag and PC based breakpoints because the 
+; monitor controller ORs in both bits to the break status bit.
+; ----------------------------------------
+
+break_match:
+      lda         mon_trace
+      and         #[$ff - trace_break_en - trace_flag_en] ; disable break mode to clear status and disable tracing
+      sta         mon_trace
+      jmp         show_registers_cmd
+
+.scope
+printstr:
+      sta         string_ptr
+      stx         string_ptr+1
+      phy
+      ldy         #$00
+_lp:  lda         (string_ptr), y
+      beq         _done
+      jsr         output_char
+      iny
+      bne         _lp
+_done:  
+      ply
+      rts
+.scend
+
+print_crlf:
+      `printstr   crlf_str
+      rts
+      
+print_two_spaces:
+      lda         #$20
+      jsr         output_char
+
+print_space:
+      lda         #$20
+      jmp         output_char
+      
+print_space_hex_byte:
+      pha
+      lda         #$20
+      jsr         output_char
+      pla
+      ; fall through...
+      
+; This little bit of code inspired by Woz's Apple I monitor.
+print_hex_byte:
+      pha
+      lsr
+      lsr
+      lsr
+      lsr
+      jsr         print_hex_nibble
+      pla
+
+print_hex_nibble:
+      and         #$0f
+      ora         #'0
+      cmp         #'9+1
+      bcc         output_char
+      adc         #6
+      ;
+      ; Intentional fallthrough
+      ;
+      
+      ; Preserves all registers, always returns with N flag set, which may prove useful
+      ; for doing shorter branches.
+output_char:
+      bit         uart_status
+      bvc         output_char
+      sta         uart_tx
+      bit         protected_hw              ; check protected hw(6)
+      bvc         output_char_done
+output_char_monitor:
+      bit         monitor_char_status       ; check if terminal emulator is ready for us...
+      bvc         output_char_monitor       ; if not, wait....
+      sta         monitor_char
+output_char_done:
+      rts
+
+      ; Start Data section at a known page address so that certain things will be guaranteed
+      ; not to straddle different pages
+      .checkpc    $fe00
+      .advance    $fe00, $00
+flag0_chars:
+      .byte       "NVEBDIZC"
+flag1_chars:
+      .byte       "MRGP"
+flag_bits:
+      .byte       $80,$40,$20,$10,$08,$04,$02,$01
+
+      .checkpc    $ff00
+
+cmd_jmp_cmds:
+      .byte       "!DM?HRTZWBG+I#EFSL"
+cmd_jmp_table:
+      .word       reset_cmd,dump_cpu_memory_cmd,dump_memory_cmd,print_banner,print_banner,show_registers_cmd
+      .word       trace_cmd,history_cmd,watch_cmd,break_cmd,set_pc_cmd,set_bitrate_cmd,irq_cmd,hyper_trap_cmd
+      .word       flag_break_cmd,fill_mem_cmd,set_mem_cmd,load_mem_cmd
+      
+banner_msg:
+      .byte       "MEGA65 Serial Monitor",13,10
+      .byte       "build "
+      .include    "version.a65"
+crlf_str:
+      .byte       13,10,0
+prompt_str:
+      .byte       13,10,".",0
+backspace_msg:
+      .byte       8," ",8,0
+state_msg:
+      .byte       13,10,"uS Address  Rd",13,10,0
+      
+history_msg:
+      .byte       13,10,"PC   A  X  Y  Z  B  SP   MAPL MAPH LAST-OP In P  P-FLAGS   RGP uS IO",13,10,0
+
+history_fmt:
+      ; $00 - $1f : Offset into memory to print hex value from
+      ; >= $20    : Table lookup to jump table
+      ; 
+      ; High bit set implies printing a space first.       
+      .byte       $06,$05,$81,$82,$83,$84,$8a,$8c,$0b,$8d,$0e,$90,$01,$80+$21,$15,$80+$00,$80+$23,$80+$24,$88,$80+$22,$89,$80+25,$20
+
+bad_bitrate_msg:
+      .byte       13,10,"Bad bit rate divisor",13,10,0
+set_pc_err_msg:
+      .byte       13,10,"Set PC timeout",13,10,0
+read_timeout_msg:
+      .byte       13,10,"Read timeout",13,10,0
+write_timeout_msg:
+      .byte       13,10,"Write timeout",13,10,0
+bad_addr_msg:
+      .byte       13,10,"Address parse error",13,10,0
+bad_index_msg:
+      .byte       13,10,"Bad index (must be 0-1023)",13,10,0
+bad_mask_msg:
+      .byte       13,10,"Bad flag mask",13,10,0
+bad_fill_msg:
+      .byte       13,10,"Bad fill value",13,10,0
+      
+monitor_nmi:
+      rti
+  
+monitor_irq:
+      rti
+
+; NMI/Reset/IRQ vectors
+			.checkpc   $fffa
+			.advance  $fffa, $00
+
+      .word monitor_nmi
+      .word monitor_reset
+      .word monitor_irq
+
+			.outfile "bin/monitor.m65"

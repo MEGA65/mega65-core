@@ -4,6 +4,7 @@
 COPT=	-Wall -g -std=gnu99
 CC=	gcc
 OPHIS=	../Ophis/bin/ophis -4
+OPHIS_MON= ../Ophis/bin/ophis -c
 
 VIVADO=	./vivado_wrapper
 
@@ -15,6 +16,7 @@ SRCDIR=		src
 BINDIR=		bin
 UTILDIR=	$(SRCDIR)/utilities
 VHDLSRCDIR=	$(SRCDIR)/vhdl
+VERILOGSRCDIR=	$(SRCDIR)/verilog
 
 SDCARD_DIR=	sdcard-files
 
@@ -212,6 +214,18 @@ NOCPUSIMULATIONVHDL=	$(VHDLSRCDIR)/cpu_test.vhdl \
 			$(NOCPUVHDL) \
 			$(M65VHDL)
 
+MONITORVERILOG=		$(VERILOGSRCDIR)/6502_alu.v \
+			$(VERILOGSRCDIR)/6502_mux.v \
+			$(VERILOGSRCDIR)/6502_reg.v \
+			$(VERILOGSRCDIR)/6502_timing.v \
+			$(VERILOGSRCDIR)/6502_top.v \
+			$(VERILOGSRCDIR)/6502_ucode.v \
+			$(VERILOGSRCDIR)/monitor.v \
+			$(VERILOGSRCDIR)/monitor_ctrl.v \
+			$(VERILOGSRCDIR)/monitor_ctrl_ram.v \
+			$(VERILOGSRCDIR)/monitor_ram.v \
+			$(VERILOGSRCDIR)/monitor_rom.v
+
 
 simulate:	$(SIMULATIONVHDL) $(ASSETS)/synthesised-60ns.dat
 	ghdl -i $(SIMULATIONVHDL)
@@ -385,6 +399,9 @@ $(BINDIR)/border.prg: 	$(SRCDIR)/border.a65
 $(BINDIR)/KICKUP.M65:	$(KICKSTARTSRCS) $(SRCDIR)/version.a65
 	$(OPHIS) $< -l kickstart.list -m kickstart.map
 
+$(BINDIR)/monitor.m65:	$(SRCDIR)/monitor/monitor.a65
+	$(OPHIS_MON) $< -l monitor.list -m monitor.map
+
 # ============================ done moved, print-warn, clean-target
 $(UTILDIR)/diskmenuc000.o:     $(UTILDIR)/diskmenuc000.a65 $(UTILDIR)/diskmenu.a65 $(UTILDIR)/diskmenu_sort.a65
 	$(CA65) $< -l $*.list
@@ -410,6 +427,9 @@ $(VHDLSRCDIR)/colourram.vhdl:	$(TOOLDIR)/makerom/colourram_template.vhdl $(BINDI
 $(VHDLSRCDIR)/shadowram.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65
 	mkdir -p $(SDCARD_DIR)
 	$(TOOLDIR)/mempacker/mempacker_new -n shadowram -s 393215 -f $(VHDLSRCDIR)/shadowram.vhdl $(SDCARD_DIR)/BANNER.M65@3D00
+
+$(VERILOGSRCDIR)/monitor_rom.v:	$(TOOLDIR)/mempacker/mempacker_v $(BINDIR)/monitor.m65
+	$(TOOLDIR)/mempacker/mempacker_v -n monitorrom -w 11 -s 2048 -f $(VERILOGSRCDIR)/monitor_rom.v $(BINDIR)/monitor.m65@0000
 
 $(VHDLSRCDIR)/oskmem.vhdl:	$(TOOLDIR)/mempacker/mempacker $(BINDIR)/asciifont.bin $(BINDIR)/osdmap.bin $(BINDIR)/matrixfont.bin
 	$(TOOLDIR)/mempacker/mempacker -n oskmem -s 4095 -f $(VHDLSRCDIR)/oskmem.vhdl $(BINDIR)/asciifont.bin@0000 $(BINDIR)/osdmap.bin@0800 $(BINDIR)/matrixfont.bin@0E00
@@ -491,11 +511,11 @@ $(TOOLDIR)/on_screen_keyboard_gen:	$(TOOLDIR)/on_screen_keyboard_gen.c Makefile
 #-----------------------------------------------------------------------------
 
 # Generate Vivado .xpr from .tcl
-vivado/%.xpr: 	vivado/%_gen.tcl | $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(SIMULATIONVHDL)
+vivado/%.xpr: 	vivado/%_gen.tcl | $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(SIMULATIONVHDL) $(VERILOGSRCDIR)/*.v $(VERILOGSRCDIR)/monitor_rom.v
 	echo MOOSE $@ from $<
 	$(VIVADO) -mode batch -source $<
 
-$(BINDIR)/%.bit: 	vivado/%.xpr $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(SIMULATIONVHDL)
+$(BINDIR)/%.bit: 	vivado/%.xpr $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(SIMULATIONVHDL)  $(VERILOGSRCDIR)/*.v
 	echo MOOSE $@ from $<
 #	@rm -f $@
 #	@echo "---------------------------------------------------------"
@@ -541,6 +561,8 @@ clean:
 	rm -f tests/test_fdc_equal_flag.prg tests/test_fdc_equal_flag.list tests/test_fdc_equal_flag.map
 	rm -rf $(SDCARD_DIR)
 	rm -f $(VHDLSRCDIR)/kickstart.vhdl $(VHDLSRCDIR)/charrom.vhdl $(VHDLSRCDIR)/version.vhdl version.a65
+	rm -f $(BINDIR)/monitor.m65 monitor.list monitor.map
+	rm -f $(VERILOGSRCDIR)/monitor_rom.v
 	rm -f monitor_drive monitor_load read_mem ghdl-frame-gen chargen_debug dis4510 em4510 4510tables
 	rm -f c65-rom-911001.txt c65-911001-rom-annotations.txt c65-dos-context.bin c65-911001-dos-context.bin
 	rm -f thumbnail.prg

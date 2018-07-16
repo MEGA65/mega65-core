@@ -289,6 +289,81 @@ end machine;
 
 architecture Behavioral of machine is
 
+  component uart_monitor is
+    port (
+      reset : in std_logic;
+      reset_out : out std_logic := '1';
+      monitor_hyper_trap : out std_logic := '1';
+      clock : in std_logic;
+      tx : out std_logic;
+      rx : in  std_logic;
+      bit_rate_divisor : out unsigned(15 downto 0);
+      activity : out std_logic;
+
+      protected_hardware_in : in unsigned(7 downto 0);
+      uart_char : in unsigned(7 downto 0);
+      uart_char_valid : in std_logic;
+
+      monitor_char_out : out unsigned(7 downto 0);
+      monitor_char_valid : out std_logic;
+      terminal_emulator_ready : in std_logic;
+      terminal_emulator_ack : in std_logic;
+  
+      key_scancode : out unsigned(15 downto 0);
+      key_scancode_toggle : out std_logic;
+
+      force_single_step : in std_logic;
+  
+      fastio_read : in std_logic;
+      fastio_write : in std_logic;
+  
+      monitor_proceed : in std_logic;
+      monitor_waitstates : in unsigned(7 downto 0);
+      monitor_request_reflected : in std_logic;
+      monitor_pc : in unsigned(15 downto 0);
+      monitor_cpu_state : in unsigned(15 downto 0);
+      monitor_hypervisor_mode : in std_logic;
+      monitor_instruction : in unsigned(7 downto 0);
+      monitor_watch : out unsigned(27 downto 0) := x"7FFFFFF";
+      monitor_watch_match : in std_logic;
+      monitor_opcode : in unsigned(7 downto 0);
+      monitor_ibytes : in std_logic_vector(3 downto 0);
+      monitor_arg1 : in unsigned(7 downto 0);
+      monitor_arg2 : in unsigned(7 downto 0);
+      monitor_memory_access_address : in unsigned(31 downto 0);
+  
+      monitor_a : in unsigned(7 downto 0);
+      monitor_x : in unsigned(7 downto 0);
+      monitor_y : in unsigned(7 downto 0);
+      monitor_z : in unsigned(7 downto 0);
+      monitor_b : in unsigned(7 downto 0);
+      monitor_sp : in unsigned(15 downto 0);
+      monitor_p : in unsigned(7 downto 0);
+      monitor_map_offset_low : in unsigned(11 downto 0);
+      monitor_map_offset_high : in unsigned(11 downto 0);
+      monitor_map_enables_low : in std_logic_vector(3 downto 0);
+      monitor_map_enables_high : in std_logic_vector(3 downto 0);
+      monitor_interrupt_inhibit : in std_logic;
+
+      monitor_char : in unsigned(7 downto 0);
+      monitor_char_toggle : in std_logic;
+      monitor_char_busy : out std_logic;
+      
+      monitor_mem_address : out unsigned(27 downto 0);
+      monitor_mem_rdata : in unsigned(7 downto 0);
+      monitor_mem_wdata : out unsigned(7 downto 0);
+      monitor_mem_attention_request : out std_logic := '0';
+      monitor_mem_attention_granted : in std_logic;
+      monitor_mem_read : out std_logic := '0';
+      monitor_mem_write : out std_logic := '0';
+      monitor_mem_setpc : out std_logic := '0';
+      monitor_irq_inhibit : out std_logic := '0';
+      monitor_mem_stage_trace_mode : out std_logic := '0';
+      monitor_mem_trace_mode : out std_logic := '0';
+      monitor_mem_trace_toggle : out std_logic := '0'
+      );
+  end component;
+
   signal pmodb_in_buffer : std_logic_vector(5 downto 0);
   signal pmodb_out_buffer : std_logic_vector(1 downto 0);
 
@@ -534,6 +609,7 @@ architecture Behavioral of machine is
   signal monitor_char_out : unsigned(7 downto 0);
   signal monitor_char_out_valid : std_logic := '0';
   signal terminal_emulator_ready : std_logic := '0';
+  signal terminal_emulator_ack : std_logic := '0';
 
   signal visual_keyboard_enable : std_logic;
   signal zoom_en_osk : std_logic;
@@ -1374,6 +1450,7 @@ begin
     monitor_char_in => monitor_char_out,
     monitor_char_valid => monitor_char_out_valid,
     terminal_emulator_ready => terminal_emulator_ready,
+    terminal_emulator_ack => terminal_emulator_ack,
 
     matrix_rdata => matrix_rdata,
     matrix_fetch_address => matrix_fetch_address,
@@ -1441,7 +1518,7 @@ begin
   -----------------------------------------------------------------------------
   -- UART interface for monitor debugging and loading data
   -----------------------------------------------------------------------------
-  monitor0 : entity work.uart_monitor port map (
+  monitor0 : uart_monitor port map (
     reset => reset_combined,
     reset_out => reset_monitor,
 
@@ -1461,6 +1538,7 @@ begin
     monitor_char_out => monitor_char_out,
     monitor_char_valid => monitor_char_out_valid,
     terminal_emulator_ready => terminal_emulator_ready,
+    terminal_emulator_ack => terminal_emulator_ack,
     
     force_single_step => sw(11),
     

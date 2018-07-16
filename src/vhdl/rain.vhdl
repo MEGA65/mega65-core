@@ -48,6 +48,7 @@ entity matrix_rain_compositor is
     monitor_char_in : in unsigned(7 downto 0);
     monitor_char_valid : in std_logic;
     terminal_emulator_ready : out std_logic := '1';
+    terminal_emulator_ack : out std_logic := '1';
     
     -- Pixel clock and scale factors according to video mode
     pixelclock  : in  std_logic;
@@ -196,6 +197,9 @@ architecture rtl of matrix_rain_compositor is
   
 begin  -- rtl
 
+  -- This will stay high until monitor_char_valid is dropped.
+  terminal_emulator_ack <= not monitor_char_primed;
+  
   screenram0:   entity work.termmem port map (
     clk => pixelclock,
     we => screenram_we,
