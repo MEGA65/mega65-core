@@ -5,7 +5,7 @@
 `define MARK_DEBUG
 `endif
 
-module monitor_bus(input clk, input [15:0] cpu_address, input cpu_write, input [7:0] history_lo, input [7:0] history_hi, input [7:0] ram, input [7:0] rom, input [7:0] ctrl,
+module monitor_bus(input clk, input [15:0] cpu_address, input cpu_write, input [7:0] history_lo, input [7:0] history_hi, input [7:0] mem, input [7:0] ctrl,
                    input [7:0] cpu_state,
                    `MARK_DEBUG output reg ram_write, `MARK_DEBUG output reg ctrl_write, `MARK_DEBUG output reg ctrl_read, output reg [7:0] read_data);
 
@@ -20,12 +20,12 @@ begin
   ctrl_write = 0;
   ctrl_read = 0;
   casez(cpu_address[15:0])
-    16'b00000zzz_zzzzzzzz: begin read_select = 1; ram_write = cpu_write; end  // $0000-$07ff - RAM
-    16'b0111zzzz_zzzzzzzz: read_select = 6;                                   // $7000-$7fff - CPU State
+    16'b0000000z_zzzzzzzz: begin read_select = 1; ram_write = cpu_write; end  // $0000-$01ff - RAM (zero page + stack)
+    16'b0111zzzz_zzzzzzzz: read_select = 5;                                   // $7000-$7fff - CPU State
     16'b1000zzzz_zzz0zzzz: read_select = 2;                                   // $8000-$800f - History Lo
     16'b1000zzzz_zzz10zzz: read_select = 3;                                   // $8010-$8017 - History Hi
     16'b1001zzzz_zzzzzzzz: begin read_select = 4; ctrl_write = cpu_write; ctrl_read = ~cpu_write; end // $9000-$9000 - Monitor Ctrl
-    16'b11111zzz_zzzzzzzz: read_select = 5;                                   // $f800-$ffff - Monitor ROM
+    16'b1111zzzz_zzzzzzzz: read_select = 1;                                   // $f000-$ffff - Monitor "ROM"
     default :              read_select = 0;                                   // Nothing?
   endcase;
 end
@@ -42,12 +42,11 @@ always @(*)
 begin
   case(read_select_reg) // synthesis full_case parallel_case
     0: read_data = 8'h00;
-    1: read_data = ram;
+    1: read_data = mem;
     2: read_data = history_lo;
     3: read_data = history_hi;
     4: read_data = ctrl;
-    5: read_data = rom;
-    6: read_data = cpu_state;
+    5: read_data = cpu_state;
   endcase;
 end  
 

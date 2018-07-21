@@ -23,14 +23,13 @@
 ;
 ; $0000-$00ff - zero page
 ; $0100-$01ff - stack
-; $0200-$07ff - General purpose RAM (monitor scratch space, but currently unused)
 ;
 ; $7000-$7fff - CPU State History (16 entries, 8 bytes each)
 ; $8000-$8017 - history memory read window (read only)
 ;
 ; $9000-$97ff - monitor hardware control registers
 ;
-; $f800-$ffff - 2K Monitor ROM
+; $f000-$ffff - 4K Monitor ROM/RAM, also mirrored at $0000-$0fff
 
 ; monitor I/O memory map
       .alias      cpu_state_base      $7000
@@ -90,6 +89,9 @@
 
       .alias      watch_addr          $9018
       .alias      state_cnt           $901C
+      .alias      protected_hw        $901D
+      .alias      monitor_char        $901E
+      .alias      monitor_char_status $901F
       
       ; Trace control bits
       .alias      trace_en            $1
@@ -107,40 +109,56 @@
       .alias      trace_watch_match   $40
       .alias      trace_break_en      $80
       .alias      trace_break_match   $80
-      
-      
-      ; Zero page location aliases
-      .alias      string_ptr          $2     ; address pointer for string output
-      .alias      x_save              $4     ; x save area
-      .alias      num_bytes           $4
-      .alias      y_save              $5     ; y save area
-      .alias      trace_continuous    $6     ; monitor state flag      
-      .alias      fill_value          $7     ; memory fill value
-      
-      .alias      membuf              $20    ; 16 bytes used for memory reads
-      .alias      hex_value           $30    ; 4 bytes for parsed hex value
-      .alias      target_addr         $34    ; 4 bytes for target hex address
-      .alias      flag_ptr            $38    ; pointer to flag byte
-      .alias      flag_char_ptr       $3a    ; pointer to flag characters
-      .alias      cmdchar             $3c    ; current command character      
-      .alias      cmdidx              $3d    ; current position in command (X save)
-      .alias      mem_line_cnt        $3e    ; number of lines to dump
-      .alias      cmdlen              $3f    ; # characters in command line
-      .alias      top_addr            $40    ; 4 bytes for top address
 
-      .alias      cmdbuf              $c0    ; 64 byte command string buffer
-      
       .macro printstr
       lda #<_1
       ldx #>_1
       jsr printstr
       .macend
-      
-; Maybe useful to give main core access to monitor memory and CPU core for runtime replacement of
-; monitor code during development?   Or at least have a "monitor patch/load" command?
 
-      .org $f800
+      ; Zero page variables
+      .data     zp
+      .org      $0000
+          
+      ; Zero page location aliases
       
+      .space      string_ptr          2       ; address pointer for string output
+      .space      num_bytes           1
+      .space      y_save              1       ; y save area
+      .space      trace_continuous    1       ; monitor state flag      
+      .space      fill_value          1       ; memory fill value
+      .space      in_matrix_mode      1
+      .space      hex_value           4       ; 4 bytes for parsed hex value
+      .space      target_addr         4       ; 4 bytes for target hex address
+      .space      flag_ptr            2       ; pointer to flag byte
+      .space      flag_char_ptr       2       ; pointer to flag characters
+      .space      cmdchar             1       ; current command character      
+      .space      cmdidx              1       ; current position in command (X save)
+      .space      mem_line_cnt        1       ; number of lines to dump
+      .space      cmdlen              1       ; # characters in command line
+      .space      top_addr            4       ; 4 bytes for top address
+
+      .space      cmdbuf              64      ; 64 byte command string buffer
+            
+      .space      opcode_mem          3       ; Local storage of all opcode bytes
+      .space      opcode_bytes        1       ; How many bytes for this instruction
+      .space      opcode_nameidx      1       ; Index into packed opcode name table(s)
+      .space      opcode_name         2       ; 16-bit packed opcode name
+      .space      opcode_data         1       ; 8-bit instruction metadata
+      .space      opcode_pre          1       ; opcode prefix mode
+      .space      opcode_post         1       ; opcode postfix mode
+      .space      opcode_chars        4       ; opcode characters + 0 byte
+      .space      rel_base            2       ; base addr for relative branches
+      .space      rel_offset          2       ; offset for relative branches
+      .space      eff_addr            2       ; final effective address
+      
+      .checkpc  $100      ; Make sure we don't hit stack
+      
+      .text
+			.org    $f000       ; ROM image starts here.  First 512 bytes will be padded and represent monitor RAM.
+
+      .advance  $f200     ; $200 is to avoid zero page and stack space up above that doesn't get output
+          
 monitor_reset:
       sei                 ; disable interrupts
       cld                 ; disable decimal mode
@@ -452,7 +470,7 @@ load_mem_cmd:
 
       jsr         copy_hex_value_to_target_address
 
-      jsr         parse_addr32          ; get 32-bit address, or abort to next command
+      jsr         parse_addr16          ; get 16-bit address, or abort to next command
       
       lda         hex_value+0
       sta         top_addr+0
@@ -1104,6 +1122,280 @@ break_match:
       sta         mon_trace
       jmp         show_registers_cmd
 
+disassemble_done:
+      jmp         next_command
+      
+; ----------------------------------------
+; Disassemble Command
+;
+; Open Question: Use CPU view or allow disassembly of anywhere in 28 bit address space?
+;
+; For now to keep things simple I'm just going to do the 16-bit PC stuff.  It wouldn't be
+; too hard to change if we don't care about wraparound (which wouldn't work, anyway).
+;
+; ----------------------------------------
+disassemble_mem_cmd:
+      plx                               ; pop x
+      jsr         parse_addr16
+      lda         #$77
+      sta         hex_value+2
+      sta         top_addr+2
+      lda         #$07
+      sta         hex_value+3
+      sta         top_addr+3
+      jsr         copy_hex_value_to_target_address
+
+      ; Get "count"
+      jsr         parse_addr16          ; get 16-bit end address, or abort to next command
+      
+      lda         hex_value+0
+      sta         top_addr+0
+      lda         hex_value+1
+      sta         top_addr+1
+      
+      ; Let's start out really simple and just print addresses and instruction bytes
+disassemble_loop:
+      ; See if we are done
+      lda         mem_addr+0
+      cmp         top_addr+0
+      lda         mem_addr+1
+      sbc         top_addr+1
+      lda         mem_addr+2
+      sbc         top_addr+2
+      bcs         disassemble_done             ; mem_addr >= top_addr, do we're done
+      
+      ; Not done, print current address
+      lda         mem_addr+1
+      jsr         print_hex_byte
+      lda         mem_addr+0
+      jsr         print_hex_byte
+      jsr         print_space
+      
+      ; Fetch instruction opcode byte
+      lda         #0
+      sta         mem_read
+_wait_opcode:
+      bit         mem_status
+      bvs         disassemble_read_error
+      bpl         _wait_opcode
+      lda         mem_read
+      sta         opcode_mem
+      stx         mem_inc             ; Dummy write to increment read address
+      
+      tax                             ; move to X for metadata lookup
+      lda         opdata,x
+      pha
+      and         #3
+      sta         opcode_bytes
+      pla                             ; reload
+      lsr                             ; shift away 2 bit count
+      lsr
+      pha                             ; save intermediate
+      and         #7                  ; mask off post mode
+      sta         opcode_post
+      pla                             ; reload partially shifted value
+      lsr
+      lsr
+      lsr
+      sta         opcode_pre
+      
+      lda         opnameidx,x         ; get name index
+      tax
+      lda         opnames_lo,x
+      sta         opcode_name+0
+      lda         opnames_hi,x
+      sta         opcode_name+1
+      
+      ; Continue fetching opcode bytes as needed
+      ldx         #1
+get_opcode_bytes_loop:
+      cpx         opcode_bytes
+      beq         show_opcode_bytes
+      lda         #0
+      sta         mem_read
+_wait_byte:
+      bit         mem_status
+      bvs         disassemble_read_error
+      bpl         _wait_byte
+      lda         mem_read
+      sta         opcode_mem,x        ; save opcode byte
+      stx         mem_inc             ; Dummy write to increment read address
+      inx
+      cpx         #2                  ; have we fetched just one byte?
+      bne         get_opcode_bytes_loop ; not at two
+      jsr         copy_base_addr
+      bra         get_opcode_bytes_loop
+
+copy_base_addr:
+      lda         mem_addr+0            ; BBR/BBS branch offsets are relative to the next instruction
+      sta         rel_base+0
+      lda         mem_addr+1
+      sta         rel_base+1
+      rts
+      
+disassemble_read_error:
+      jmp         dump_mem_read_error
+      
+show_opcode_bytes:
+      ldx         #0
+show_opcode_bytes_loop:
+      lda         opcode_mem,x
+      jsr         print_space_hex_byte
+      inx
+      cpx         opcode_bytes
+      bne         show_opcode_bytes_loop
+      
+pad_opcode_bytes:
+      cpx         #3
+      beq         disassemble_instruction
+      jsr         print_space
+      jsr         print_two_spaces
+      inx
+      bra         pad_opcode_bytes
+      
+disassemble_instruction:
+      jsr         print_two_spaces
+
+      ; unpack instruction name
+      ldy         #0
+unpack_loop:
+      lda         opcode_name+0
+      and         #31
+      clc
+      adc         #'A
+      sta         opcode_chars,y
+      ldx         #5
+shift_name:
+      ror         opcode_name+1         
+      ror         opcode_name+0
+      dex
+      bne         shift_name
+      ; Done with iteration... see if we need more
+      iny
+      cpy         #3
+      bne         unpack_loop
+      
+      ; Terminate string (probably not required)
+      lda         #0
+      sta         opcode_chars,y
+      `printstr   opcode_chars
+      
+      ; get original high bit from opcode_name (which has now been shifted to the bottommost bit)
+      ; If this is set then it means this is an instruction that needs a 0-7 appended to the name.
+      ; i.e. BBRi, BBSi, TRBi, TSBi
+      lda         opcode_name+0
+      and         #1
+      beq         not_bit
+      
+      lda         opcode_mem            ; grab original opcode
+      lsr
+      lsr
+      lsr
+      lsr
+      and         #7
+      clc
+      adc         #'0
+      jsr         output_char
+      jsr         was_bit
+      
+      ; need to display 0-7
+not_bit:
+      jsr         print_space
+was_bit:
+      jsr         print_two_spaces
+      
+      lda         opcode_bytes
+      cmp         #2
+      bcc         all_done              ; < 2 bytes, all done
+      lda         opcode_mem
+      and         #$f
+      cmp         #$f                   ; is it BBR/BBS?
+      bne         not_bb                ; nope, not BB
+      
+      ; BBR/BBS require special handling because they have two arguments, so we handle displaying them
+      ; manually.
+      lda         opcode_mem+1
+      jsr         print_dollar_hex_byte
+      lda         #$2c
+      jsr         output_char
+      jsr         copy_base_addr
+      lda         opcode_mem+2
+      bra         calc_branch_offset8
+      
+not_bb:      
+      ldx         opcode_pre
+      beq         show_argument         ; 0 means no prefix (and not relative)
+      dex                               ; subtract one for table lookup
+      lda         prefix_chars,x        ; grab char...
+      beq         relative_addr         ; if it's zero it's a relative address
+      jsr         output_char
+      
+show_argument:
+      ldx         opcode_bytes
+      dex                               ; subtract one for opcode...
+      beq         show_post             ; none left
+      lda         #$24                  ; $
+      jsr         output_char
+show_argument_byte:
+      lda         opcode_mem,x
+      jsr         print_hex_byte
+      dex
+      bne         show_argument_byte
+      bra         show_post             ; go do postfix if needed
+
+relative_addr:
+      lda         opcode_bytes
+      cmp         #3
+      bne         branch8               ; not 3 bytes, so must be one byte relative addr
+branch16:
+      lda         opcode_mem+1
+      sta         rel_offset+0
+      lda         opcode_mem+2
+      sta         rel_offset+1
+      bra         sum_branch_offset
+branch8:
+      stz         rel_offset+1          ; clear high byte (assume positive branch offset)
+      lda         opcode_mem+1          ; load branch offset
+calc_branch_offset8:
+      sta         rel_offset+0          ; store to low byte
+      bpl         sum_branch_offset
+      lda         #$ff
+      sta         rel_offset+1          ; "sign extend" branch offset
+sum_branch_offset:
+      clc
+      lda         rel_base+0
+      adc         rel_offset+0
+      sta         eff_addr+0
+      lda         rel_base+1
+      adc         rel_offset+1
+      sta         eff_addr+1
+      jsr         print_dollar_hex_byte
+      lda         eff_addr+0
+      jsr         print_hex_byte
+      
+      ; handle post 
+show_post:
+      lda         opcode_post
+      beq         all_done
+      dec
+      asl                               ; mult by two (could split table in two to avoid this and a register transfer)
+      tay
+      lda         post_str_ptrs+0,y
+      ldx         post_str_ptrs+1,y
+      jsr         printstr
+      
+      ; go do next instruction
+all_done:
+      jsr         print_crlf
+
+      jmp         disassemble_loop
+      
+      ; Bring in generated disassembly data
+      .include "monitor_dis.a65"
+
+; ----------------------------------------
+; Output utilities
+; ----------------------------------------
 .scope
 printstr:
       sta         string_ptr
@@ -1131,6 +1423,13 @@ print_two_spaces:
 print_space:
       lda         #$20
       jmp         output_char
+
+print_dollar_hex_byte:
+      pha
+      lda         #$24
+      jsr         output_char
+      pla
+      bra         print_hex_byte
       
 print_space_hex_byte:
       pha
@@ -1188,11 +1487,11 @@ flag_bits:
       .checkpc    $ff00
 
 cmd_jmp_cmds:
-      .byte       "!DM?HRTZWBG+I#EFSL"
+      .byte       "!DM?HRTZWBG+I#EFSL$"
 cmd_jmp_table:
       .word       reset_cmd,dump_cpu_memory_cmd,dump_memory_cmd,print_banner,print_banner,show_registers_cmd
       .word       trace_cmd,history_cmd,watch_cmd,break_cmd,set_pc_cmd,set_bitrate_cmd,irq_cmd,hyper_trap_cmd
-      .word       flag_break_cmd,fill_mem_cmd,set_mem_cmd,load_mem_cmd
+      .word       flag_break_cmd,fill_mem_cmd,set_mem_cmd,load_mem_cmd,disassemble_mem_cmd
       
 banner_msg:
       .byte       "MEGA65 Serial Monitor",13,10

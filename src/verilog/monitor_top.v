@@ -1,4 +1,4 @@
-`define EN_MARK_DEBUG 1
+//`define EN_MARK_DEBUG 1
 `ifdef EN_MARK_DEBUG
 `define MARK_DEBUG (* mark_debug = "true", dont_touch = "true" *)
 `else
@@ -126,7 +126,6 @@
   `MARK_DEBUG wire cpu_write_next;
   
   `MARK_DEBUG wire [7:0] ram_do;
-  `MARK_DEBUG wire [7:0] rom_do;
   `MARK_DEBUG wire [7:0] monitor_do;
   wire [7:0] cpu_state_rdata;
   wire cpu_state_write;
@@ -170,11 +169,8 @@
                .addrA(cpu_state_write_index),.diA({ 16'h0000, monitor_cpu_state, monitor_memory_access_address}),
                .clkB(clock),.enaB(1),.addrB(cpu_address_next[6:0]),.doB(cpu_state_rdata));
   
-  // Instantiate the 6502 2K RAM (zero page, stack space, scratch space, etc)
-  monitorram monitorram(.clk(clock), .we(ram_write), .addr(cpu_address_next[10:0]), .di(cpu_do), .do(ram_do));
-  
-  // Instantiate the 6502 2K ROM (it's really RAM, but we won't write to it for now)
-  monitorrom monitorrom(.clk(clock), .we(0), .addr(cpu_address_next[10:0]), .di(8'h00), .do(rom_do));
+  // Instantiate the 6502 4K RAM/ROM (zero page, stack space, scratch space, code, etc).
+  monitormem monitormem(.clk(clock), .we(ram_write), .addr(cpu_address_next[11:0]), .di(cpu_do), .do(ram_do));
   
   // Will start out simple and slowly add more control outputs as needed for different features and as
   // the software monitor code is written.
@@ -207,7 +203,7 @@
                         
   monitor_bus monitorbus(.clk(clock), .cpu_address(cpu_address_next), .cpu_write(cpu_write_next), 
                          .history_lo(history_rdata_lo), .history_hi(history_rdata_hi), .cpu_state(cpu_state_rdata),
-                         .ram(ram_do), .rom(rom_do), .ctrl(monitor_do), .ram_write(ram_write),
+                         .mem(ram_do), .ctrl(monitor_do), .ram_write(ram_write),
                          .ctrl_write(ctrl_write), .ctrl_read(ctrl_read), .read_data(cpu_di));
                             
   cpu6502 monitorcpu(.clk(clock), .reset(reset_internal), .nmi(0), .irq(0), .ready(1), 

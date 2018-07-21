@@ -1,3 +1,9 @@
+//`define EN_MARK_DEBUG 1
+`ifdef EN_MARK_DEBUG
+`define MARK_DEBUG (* mark_debug = "true", dont_touch = "true" *)
+`else
+`define MARK_DEBUG
+`endif
 
 /* These get mapped into the monitor CPU's address space at $9000 */
 `define MON_READ_IDX_LO       5'h00
@@ -40,13 +46,6 @@
 `define MON_PROT_HARDWARE     5'h1D
 `define MON_CHAR_INOUT        5'h1E       // Hypervisor character input/output
 `define MON_CHAR_STATUS       5'h1F
-
-`define EN_MARK_DEBUG 1
-`ifdef EN_MARK_DEBUG
-`define MARK_DEBUG (* mark_debug = "true", dont_touch = "true" *)
-`else
-`define MARK_DEBUG
-`endif
 
 module monitor_ctrl(input clk, input reset, output wire reset_out, 
                     `MARK_DEBUG input write, (* mark_debug = "true" *) input read, 
