@@ -60,7 +60,7 @@
       .alias      monitor_Arg1        $8013
       .alias      monitor_Arg2        $8014
       .alias      monitor_Instruction $8015
-      .alias      monitor_Unused0     $8016
+      .alias      monitor_roms        $8016
       .alias      monitor_Unused1     $8017
       
       .alias      hist_read_lo        $9000
@@ -940,7 +940,7 @@ _history_space:
       bra         _history_lookup
       
 _history_jmp_table:
-      .word       print_crlf,_history_opcode,_history_io,_history_flags0,_history_flags1,_history_hypervisor
+      .word       print_crlf,_history_opcode,_history_io,_history_flags0,_history_flags1,_history_hypervisor,_history_roms
       
       ; Do table lookup.  Note, we don't subtract $20 here. Instead, subtract $40 from base of jump table.
 _history_jmp:
@@ -969,6 +969,13 @@ _hist_space_loop:
       bra         _history_loop
       
       ; Specialized display code for showing bit flags
+_history_roms:      
+      lda         #<monitor_roms
+      sta         flag_ptr
+      lda         #<flag2_chars
+      sta         flag_char_ptr
+      ldx         #$8
+      bra         _flagsLoopStart
 _history_flags1:
       lda         #<monitor_Misc
       sta         flag_ptr
@@ -1018,6 +1025,7 @@ _noRead:
       lda         #$2d
 _printFastIO:
       jsr         output_char
+      jsr         print_space
       jmp         _history_loop
       
 _history_hypervisor:
@@ -1136,22 +1144,17 @@ disassemble_done:
 ; ----------------------------------------
 disassemble_mem_cmd:
       plx                               ; pop x
-      jsr         parse_addr16
-      lda         #$77
-      sta         hex_value+2
-      sta         top_addr+2
-      lda         #$07
-      sta         hex_value+3
-      sta         top_addr+3
+      jsr         parse_addr32
       jsr         copy_hex_value_to_target_address
 
-      ; Get "count"
-      jsr         parse_addr16          ; get 16-bit end address, or abort to next command
-      
-      lda         hex_value+0
-      sta         top_addr+0
-      lda         hex_value+1
-      sta         top_addr+1
+      ; Get end address
+      jsr         parse_addr32          ; get 32-bit end address, or abort to next command
+
+      ldx         #3
+*     lda         hex_value,x           ; copy hex value to top_address
+      sta         top_addr,x
+      dex
+      bpl         -
       
       ; Let's start out really simple and just print addresses and instruction bytes
 disassemble_loop:
@@ -1162,13 +1165,21 @@ disassemble_loop:
       sbc         top_addr+1
       lda         mem_addr+2
       sbc         top_addr+2
+      lda         mem_addr+3
+      sbc         top_addr+3
       bcs         disassemble_done             ; mem_addr >= top_addr, do we're done
       
+      ; Also check UART.  If we get a char, then stop disassembly so we can get out if needed.
+      bit         uart_status
+      bmi         disassemble_done
+
       ; Not done, print current address
-      lda         mem_addr+1
+      ldx         #3
+*     lda         mem_addr,x
       jsr         print_hex_byte
-      lda         mem_addr+0
-      jsr         print_hex_byte
+      dex
+      bpl         -
+      
       jsr         print_space
       
       ; Fetch instruction opcode byte
@@ -1481,6 +1492,8 @@ flag0_chars:
       .byte       "NVEBDIZC"
 flag1_chars:
       .byte       "MRGP"
+flag2_chars:
+      .byte       "reca8lhc"
 flag_bits:
       .byte       $80,$40,$20,$10,$08,$04,$02,$01
 
@@ -1507,14 +1520,20 @@ state_msg:
       .byte       13,10,"uS Address  Rd",13,10,0
       
 history_msg:
-      .byte       13,10,"PC   A  X  Y  Z  B  SP   MAPL MAPH LAST-OP In P  P-FLAGS   RGP uS IO",13,10,0
+      .byte       13,10,"PC   A  X  Y  Z  B  SP   MAPH MAPL LAST-OP In P  P-FLAGS   RGP uS IO ws h RECA8LHC",13,10,0
 
 history_fmt:
       ; $00 - $1f : Offset into memory to print hex value from
       ; >= $20    : Table lookup to jump table
-      ; 
+      ; $20 - End
+      ; $21 - Opcode
+      ; $22 - IO
+      ; $23 - Flags0
+      ; $24 - Flags1
+      ; $25 - Hypervisor
+      ; $26 - ROM enables
       ; High bit set implies printing a space first.       
-      .byte       $06,$05,$81,$82,$83,$84,$8a,$8c,$0b,$8d,$0e,$90,$01,$80+$21,$15,$80+$00,$80+$23,$80+$24,$88,$80+$22,$89,$80+25,$20
+      .byte       $06,$05,$81,$82,$83,$84,$8a,$8c,$0b,$90,$11,$8d,$0e,$80+$21,$15,$80+$00,$80+$23,$80+$24,$88,$80+$22,$89,$80+$25,$00+$26,$20
 
 bad_bitrate_msg:
       .byte       13,10,"Bad bit rate divisor",13,10,0

@@ -58,7 +58,7 @@
   input [3:0] monitor_map_enables_low,
   input [3:0] monitor_map_enables_high,
   input monitor_interrupt_inhibit,
-
+  input [7:0] monitor_roms,
   input [7:0] monitor_char,
   input monitor_char_toggle,
   output wire monitor_char_busy,
@@ -107,7 +107,7 @@
   assign history_wdata[159:152] = monitor_arg1;
   assign history_wdata[167:160] = monitor_arg2;
   assign history_wdata[175:168] = monitor_instruction;
-  assign history_wdata[183:176] = 8'h00;
+  assign history_wdata[183:176] = monitor_roms;
   assign history_wdata[191:184] = 8'h00;
   
   wire [9:0] history_write_index;

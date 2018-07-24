@@ -127,6 +127,7 @@ entity gs4510 is
     monitor_map_enables_high : out std_logic_vector(3 downto 0);
     monitor_interrupt_inhibit : out std_logic;
     monitor_memory_access_address : out unsigned(31 downto 0);
+    monitor_cpuport : out std_logic_vector(2 downto 0);
 
     ---------------------------------------------------------------------------
     -- Memory access interface used by monitor
@@ -1205,6 +1206,8 @@ architecture Behavioural of gs4510 is
   signal reg_math_cycle_compare : unsigned(31 downto 0) := to_unsigned(0,32);
 
 begin
+
+  monitor_cpuport <= std_logic_vector(cpuport_value(2 downto 0));
 
   multipliers: for unit in 0 to 7 generate
     mult_unit : entity work.multiply32 port map (

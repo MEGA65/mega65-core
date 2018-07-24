@@ -331,7 +331,8 @@ architecture Behavioral of machine is
       monitor_arg1 : in unsigned(7 downto 0);
       monitor_arg2 : in unsigned(7 downto 0);
       monitor_memory_access_address : in unsigned(31 downto 0);
-  
+      monitor_roms : in std_logic_vector(7 downto 0);
+      
       monitor_a : in unsigned(7 downto 0);
       monitor_x : in unsigned(7 downto 0);
       monitor_y : in unsigned(7 downto 0);
@@ -482,6 +483,8 @@ architecture Behavioral of machine is
   signal monitor_char : unsigned(7 downto 0);
   signal monitor_char_toggle : std_logic;
   signal monitor_char_busy : std_logic;
+  signal monitor_cpuport : std_logic_vector(2 downto 0);
+  signal monitor_roms : std_logic_vector(7 downto 0);
   
   signal monitor_a : unsigned(7 downto 0);
   signal monitor_b : unsigned(7 downto 0);
@@ -659,6 +662,8 @@ architecture Behavioral of machine is
   
 begin
 
+  monitor_roms <= colourram_at_dc00 & rom_at_e000  & rom_at_c000 & rom_at_a000 & rom_at_8000 & monitor_cpuport;
+  
   ----------------------------------------------------------------------------
   -- IRQ & NMI: If either the hardware buttons on the FPGA board or an IO
   -- device via the IOmapper pull an interrupt line down, then trigger an
@@ -926,6 +931,7 @@ begin
       monitor_mem_trace_mode => monitor_mem_trace_mode,
       monitor_mem_stage_trace_mode => monitor_mem_stage_trace_mode,
       monitor_mem_trace_toggle => monitor_mem_trace_toggle,
+      monitor_cpuport => monitor_cpuport,
       
       slow_access_request_toggle => slow_access_request_toggle,
       slow_access_ready_toggle => slow_access_ready_toggle,    
@@ -1573,6 +1579,7 @@ begin
     monitor_z => monitor_z,
     monitor_sp => monitor_sp,
     monitor_p => monitor_p,
+    monitor_roms => monitor_roms,
     monitor_interrupt_inhibit => monitor_interrupt_inhibit,
     monitor_map_offset_low => monitor_map_offset_low,
     monitor_map_offset_high => monitor_map_offset_high,
