@@ -191,8 +191,7 @@ set files [list \
  "[file normalize "$origin_dir/src/verilog/6502_top.v"]"\
  "[file normalize "$origin_dir/src/verilog/6502_ucode.v"]"\
  "[file normalize "$origin_dir/src/verilog/monitor_top.v"]"\
- "[file normalize "$origin_dir/src/verilog/monitor_ram.v"]"\
- "[file normalize "$origin_dir/src/verilog/monitor_rom.v"]"\
+ "[file normalize "$origin_dir/src/verilog/monitor_mem.v"]"\
  "[file normalize "$origin_dir/src/verilog/monitor_ctrl.v"]"\
  "[file normalize "$origin_dir/src/verilog/monitor_bus.v"]"\
  "[file normalize "$origin_dir/src/verilog/asym_ram_sdp.v"]"\
@@ -583,11 +582,7 @@ set file "verilog/monitor_top.v"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "Verilog" -objects $file_obj
 
-set file "verilog/monitor_ram.v"
-set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
-set_property -name "file_type" -value "Verilog" -objects $file_obj
-
-set file "verilog/monitor_rom.v"
+set file "verilog/monitor_mem.v"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "Verilog" -objects $file_obj
 
