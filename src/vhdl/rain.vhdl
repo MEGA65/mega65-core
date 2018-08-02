@@ -424,15 +424,18 @@ begin  -- rtl
               -- advance to next line (and possibly scroll)
               te_cursor_x <= 0;
               if te_cursor_y < te_y_max then
+                -- No need to scroll yet
                 te_cursor_y <= te_cursor_y + 1;
                 te_cursor_address <= te_cursor_address + 1;
                 terminal_emulator_fast <= '1';
               else
+                -- We need to scroll
                 terminal_emulator_ready <= '0';
                 scroll_terminal_up <= '1';
                 erase_address
                   <= 4096 - (te_y_max+1) * te_line_length;
                 terminal_emulator_fast <= '0';
+                te_cursor_address <= te_cursor_address - te_line_length;
               end if;
             end if;
           when x"08" =>
@@ -484,6 +487,7 @@ begin  -- rtl
             if te_cursor_x < te_x_max then
               -- stay on same line
               te_cursor_x <= te_cursor_x + 1;
+              report "increment te_cursor_address, because cursor_x < x_max";
               te_cursor_address <= te_cursor_address + 1;
               terminal_emulator_fast <= '1';
             else
@@ -491,6 +495,9 @@ begin  -- rtl
               te_cursor_x <= 0;
               if te_cursor_y < te_y_max then
                 te_cursor_y <= te_cursor_y + 1;
+                report "increment te_cursor_address, because not yet at bottom of screen "
+                  & "(te_cursor_y=" & integer'image(te_cursor_y)
+                  & ", te_y_max=" & integer'image(te_y_max) & ")";
                 te_cursor_address <= te_cursor_address + 1;
                 terminal_emulator_fast <= '1';
               else
@@ -498,6 +505,7 @@ begin  -- rtl
                 scroll_terminal_up <= '1';
                 erase_address <= te_screen_start;
                 terminal_emulator_fast <= '0';
+                te_cursor_address <= te_cursor_address - te_line_length;
               end if;
             end if;
         end case;

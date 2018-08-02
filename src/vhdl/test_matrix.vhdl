@@ -172,6 +172,7 @@ begin
     type_text("4" & lf & cr);
     type_text("5" & lf & cr);
     type_text("6" & lf & cr);
+    type_text("A very long line that should cause problems if we don't handle the end of lines correctly" & lf & cr);
     type_text("7" & lf & cr);
     type_text("8" & lf & cr);
     type_text("9" & lf & cr);
