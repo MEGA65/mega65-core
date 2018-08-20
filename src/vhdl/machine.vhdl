@@ -466,6 +466,9 @@ architecture Behavioral of machine is
   signal lcd_pixel_strobe1 : std_logic := '0';
   signal lcd_display_enable1 : std_logic := '0';
 
+  signal hsync_polarity : std_logic := '0';
+  signal vsync_polarity : std_logic := '0';
+
   signal hsync_pal50 : std_logic;
   signal vsync_pal50 : std_logic;
   signal inframe_pal50 : std_logic;
@@ -899,6 +902,8 @@ begin
                   hsync_end => 884
                   )                  
     port map ( clock => clock30,
+               hsync_polarity => hsync_polarity,
+               vsync_polarity => vsync_polarity,
                hsync => hsync_pal50,
                vsync => vsync_pal50,
                x_zero => x_zero_pal50,
@@ -919,6 +924,8 @@ begin
                   hsync_end => 968
                   )                  
     port map ( clock => clock40,
+               hsync_polarity => hsync_polarity,
+               vsync_polarity => vsync_polarity,
                hsync => hsync_ntsc60,
                vsync => vsync_ntsc60,
                x_zero => x_zero_ntsc60,
@@ -1001,7 +1008,10 @@ begin
 
       dat_offset => dat_offset,
       dat_bitplane_addresses => dat_bitplane_addresses,
-      
+     
+      vsync_polarity => vsync_polarity,
+      hsync_polarity => hsync_polarity,
+ 
 --      vsync           => vsync_drive1,
 --      hsync           => hsync_drive1,
 --      lcd_vsync => lcd_vsync1,
