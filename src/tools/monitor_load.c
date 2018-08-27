@@ -114,7 +114,7 @@ int slow_write(int fd,char *d,int l)
 int counter  =0;
 int fd=-1;
 int state=99;
-int name_len,name_lo,name_hi,name_addr=-1;
+unsigned int name_len,name_lo,name_hi,name_addr=-1;
 int do_go64=0;
 int do_run=0;
 int comma_eight_comma_one=0;
@@ -504,16 +504,41 @@ int process_line(char *line,int live)
       state=3;
     }
   }
+  if (sscanf(line,"000000B7:%08x%08x",
+	     &name_len,&name_addr)==2) {
+    if (not_already_loaded) {
+      name_len=name_len>>24;
+      printf("Filename is %d bytes long, from 0x%08x\n",
+	     name_len,name_addr);
+      name_addr=(name_addr>>24)+((name_addr>>8)&0xff00);
+      printf("Filename is %d bytes long, and is stored at $%04x\n",
+	     name_len,name_addr);
+      char filename[16];
+      snprintf(filename,16,"m%04x\r",name_addr);
+      usleep(10000);
+      slow_write(fd,filename,strlen(filename));
+      printf("Asking for filename from memory: %s\n",filename);
+      state=3;
+    }
+  }
   {
     int addr;
     int b[16];
+    int gotIt=0;
+    unsigned int v[4];
     if (line[0]=='?') fprintf(stderr,"%s\n",line);
+    if (sscanf(line,"%x:%08x%08x%08x%08x",
+	       &addr,&v[0],&v[1],&v[2],&v[3])==5) {
+      for(int i=0;i<16;i++) b[i]=(v[i/4]>>( (3-(i&3))*8)) &0xff;
+      gotIt=1;
+    }
     if (sscanf(line," :%x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
 	       &addr,
 	       &b[0],&b[1],&b[2],&b[3],
 	       &b[4],&b[5],&b[6],&b[7],
 	       &b[8],&b[9],&b[10],&b[11],
-	       &b[12],&b[13],&b[14],&b[15])==17) {
+	       &b[12],&b[13],&b[14],&b[15])==17) gotIt=1;
+    if (gotIt) {
       char fname[17];
       // printf("Read memory @ $%04x\n",addr);
       if (addr==name_addr) {
@@ -715,8 +740,8 @@ int process_line(char *line,int live)
       }
     }
   }
-  if (!strcmp(line,
-	      " :000086D 14 08 05 20 03 0F 0D 0D 0F 04 0F 12 05 20 03 36"))
+  if ((!strcmp(line," :000086D 14 08 05 20 03 0F 0D 0D 0F 04 0F 12 05 20 03 36"))
+      ||(!strcmp(line,"0000086D:14080520030F0D0D0F040F1205200336")))
     {
 
     if (modeline_cmd[0]) {
@@ -784,8 +809,11 @@ int process_line(char *line,int live)
   }
   if (// C64 BASIC banner
       (!strcmp(line," :000042C 2A 2A 2A 2A 20 03 0F 0D 0D 0F 04 0F 12 05 20 36"))
+      ||(!strcmp(line,"0000042C:2A2A2A2A20030F0D0D0F040F12052036"))
       // MEGA BASIC banner
-      ||(!strcmp(line," :000042C 2A 2A 2A 2A 20 0D 05 07 01 36 35 20 0D 05 07 01"))) {
+      ||(!strcmp(line," :000042C 2A 2A 2A 2A 20 0D 05 07 01 36 35 20 0D 05 07 01"))
+      ||(!strcmp(line,"0000042C:2A2A2A2A200D0507013635200D050701"))
+      ) {
     // C64 mode BASIC -- set LOAD trap, and then issue LOAD command
     char *cmd;
     if (filename&&not_already_loaded) {
