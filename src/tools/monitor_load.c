@@ -217,9 +217,10 @@ int load_file(char *filename,int load_addr,int patchKickstart)
     // Also, Kenneth's implementation doesn't need the -1, so we need to know which version we
     // are talking to.
     if (new_monitor) 
-    	sprintf(cmd,"l%x %x\r",munged_load_addr,(munged_load_addr+b)&0xffff);
+    	sprintf(cmd,"l%x %x\r",load_addr,(load_addr+b)&0xffff);
     else    
-	sprintf(cmd,"l%x %x\r",munged_load_addr-1,(munged_load_addr+b-1)&0xffff);
+ 	sprintf(cmd,"l%x %x\r",munged_load_addr-1,(munged_load_addr+b-1)&0xffff);
+    printf("  command ='%s'\n",cmd);
     slow_write(fd,cmd,strlen(cmd));
     usleep(1000);
     int n=b;
@@ -583,7 +584,12 @@ int process_line(char *line,int live)
               char cmd[1024];
 
               /* send block to m65 memory */
-              sprintf(cmd,"l%x %x\r",READ_SECTOR_BUFFER_ADDRESS-1,READ_SECTOR_BUFFER_ADDRESS+0x200-1);
+	      if (new_monitor) 
+		sprintf(cmd,"l%x %x\r",READ_SECTOR_BUFFER_ADDRESS,
+			(READ_SECTOR_BUFFER_ADDRESS+0x200)&0xffff);
+	      else
+		sprintf(cmd,"l%x %x\r",READ_SECTOR_BUFFER_ADDRESS-1,
+			READ_SECTOR_BUFFER_ADDRESS+0x200-1);
               slow_write(fd,cmd,strlen(cmd));
               usleep(1000);
               int n=0x200;
@@ -822,7 +828,10 @@ int process_line(char *line,int live)
 	  printf("Read to $%04x (%d bytes)\n",load_addr,b);
 	  fflush(stdout);
 	  // load_addr=0x400;
-	  sprintf(cmd,"l%x %x\r",load_addr-1,load_addr+b-1);
+	  if (new_monitor) 
+	    sprintf(cmd,"l%x %x\r",load_addr,(load_addr+b)&0xffff);
+	  else
+	    sprintf(cmd,"l%x %x\r",load_addr-1,load_addr+b-1);
 	  slow_write(fd,cmd,strlen(cmd));
 	  usleep(1000);
 	  int n=b;
