@@ -100,7 +100,7 @@ unsigned long long gettime_ms(void)
 int process_line(char *line,int live)
 {
   int pc,a,x,y,sp,p;
- // printf("[%s]\n",line);
+  // printf("[%s]\n",line);
   if (!live) return 0;
   // Notice when we have requested a memory block, so we can stop suppressing duplicate requests
   if (!strcmp(last_mem_request,line)) last_mem_request[0]=0;
@@ -135,6 +135,17 @@ int process_line(char *line,int live)
 	       &bs_low,&bs_high,&be_low,&be_high)==4) {
       start_addr=bs_low+(bs_high<<8);
       end_addr=be_low+(be_high<<8)-1;
+      fprintf(stderr,"BASIC program occupies $%04x -- $%04x\n",
+	      start_addr,end_addr);
+      // C64 BASIC header
+      fputc(start_addr&0xff,o); fputc((start_addr>>8)&0xff,o);      
+      state=1;
+    }
+    unsigned int foo;
+    if (sscanf(line,"0000002B:%08x",
+	       &foo)==1) {      
+      start_addr=((foo>>24)&0xff)+((foo>>8)&0xff00);
+      end_addr=((foo>>8)&0xff) + ((foo<<8)&0xff00) -1;
       fprintf(stderr,"BASIC program occupies $%04x -- $%04x\n",
 	      start_addr,end_addr);
       // C64 BASIC header
