@@ -147,8 +147,17 @@ int process_line(char *line,int live)
     int b[16];
     char hex[128];
     if (sscanf(line,"%x:%s",&addr,hex)==2) {
-   //   printf("Read memory @ $%04x\n",addr);
+      // printf("Read memory @ $%04x\n",addr);
       if (addr==start_addr) {
+      for(int i=0;i<16&&(start_addr+i)<=end_addr;i++) 
+      { 
+	char hex_in[3];
+        hex_in[0]=hex[i*2+0];
+        hex_in[1]=hex[i*2+1];
+	hex_in[2]=0;
+	int b=strtoll(hex_in,NULL,16); 
+	fputc(b,o);
+      }
       start_addr+=0x10;
       if (start_addr>end_addr) {
 	  // All done
