@@ -57,6 +57,9 @@ int osk_enable=0;
 
 int not_already_loaded=1;
 
+// 0 = old hard coded monitor, 1= Kenneth's 65C02 based fancy monitor
+int new_monitor=0;
+
 int viciv_mode_report(unsigned char *viciv_regs);
 
 int process_char(unsigned char c,int live);
@@ -209,7 +212,14 @@ int load_file(char *filename,int load_addr,int patchKickstart)
     if ((load_addr&0xffff)==0x0000) {
       munged_load_addr+=0x10000;
     }
-    sprintf(cmd,"l%x %x\r",munged_load_addr-1,munged_load_addr+b-1);
+    // The old uart monitor could handle being given a 28-bit address for the end address,
+    // but Kenneth's implementation requires it be a 16 bit address.
+    // Also, Kenneth's implementation doesn't need the -1, so we need to know which version we
+    // are talking to.
+    if (new_monitor) 
+    	sprintf(cmd,"l%x %x\r",munged_load_addr,(munged_load_addr+b)&0xffff);
+    else    
+	sprintf(cmd,"l%x %x\r",munged_load_addr-1,(munged_load_addr+b-1)&0xffff);
     slow_write(fd,cmd,strlen(cmd));
     usleep(1000);
     int n=b;
@@ -287,6 +297,10 @@ int process_line(char *line,int live)
   int pc,a,x,y,sp,p;
   //printf("[%s]\n",line);
   if (!live) return 0;
+  if (strstr(line,"ws h RECA8LHC")) {
+     if (!new_monitor) printf("Detected new-style UART monitor.\n");
+     new_monitor=1;
+  }
   if (sscanf(line,"%04x %02x %02x %02x %02x %02x",
 	     &pc,&a,&x,&y,&sp,&p)==6) {
     // printf("PC=$%04x\n",pc);
