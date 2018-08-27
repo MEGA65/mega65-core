@@ -95,7 +95,8 @@ NOTE: see below regarding the above command, ie re VM
 1. ```sudo make install```
 
 NOTE: that i tried ```sudo apt-get install libsdl2 TAB TAB -> libsdl2-2.0-0``` but only version 2.0.0 would realise even after ```sudo apt-get update && sudo apt-get upgrade```.  
-NOTE: that i tried ```sudo apt-get install libsdl2-dev``` but only version 2.0.2 would realise even after ```sudo apt-get update && sudo apt-get upgrade```.  
+NOTE: that i tried ```sudo apt-get install libsdl2-dev``` but only version 2.0.2 would realise even after ```sudo apt-get update && sudo apt-get upgrade```.
+UPDATE: on Ubuntu 16.04 (as of 19/03/2018), the libsdl2-dev packet (on apt) is in version 2.0.4, which is enough.
 
 At this point, we assume that SDL2 is installed (at least version 2.0.4).  
 
@@ -135,11 +136,15 @@ An error may be "No SD-Card image called 'mega65.img' was found". If this is the
 https://raw.githubusercontent.com/lgblgblgb/xemu/gh-pages/files/sd-card-image-for-xemu-xmega65.img.gz  
 Again, the downloaded file should be placed into the ```~/Downloads``` directory.  
 
-move the downloaded zip-file to the xemu directory, then unzip and rename it:
+Move the downloaded zip-file to the xemu directory, then unzip and rename it:
 ```
 $GIT_ROOT/xemu$> mv ~/Downloads/sd-card-image-for-xemu-xmega65.img.gz .
 $GIT_ROOT/xemu$> gunzip sd-card-image-for-xemu-xmega65.img.gz 
 $GIT_ROOT/xemu$> mv sd-card-image-for-xemu-xmega65.img mega65.img
+```
+If you encounter the following error: "ERROR: Cannot open SD-card image /home/jdoe/.local/share/xemu-lgb/mega65/mega65.img, SD-card access won't work! ERROR: No such file or directory", move it to this location:
+```
+mv mega65.img ~/.local/share/xemu-lgb/mega65/mega65.img
 ```
 
 Then re-run the xemu application
