@@ -316,8 +316,8 @@ int process_line(char *line,int live)
 	      (long long)time(0)-start_time,
 	      patchKS?"and patching ":"");
       stop_cpu();
-      if (kickstart) load_file(kickstart,0xfff8000,patchKS); kickstart=NULL;
-      if (romfile) load_file(romfile,0x20000,0); romfile=NULL;
+      if (kickstart) { load_file(kickstart,0xfff8000,patchKS); } kickstart=NULL;
+      if (romfile) { load_file(romfile,0x20000,0); } romfile=NULL;
       if (charromfile) load_file(charromfile,0xFF7E000,0);
       if (colourramfile) load_file(colourramfile,0xFF80000,0);
       if (virtual_f011) {
@@ -517,7 +517,7 @@ int process_line(char *line,int live)
       char fname[17];
       // printf("Read memory @ $%04x\n",addr);
       if (addr==name_addr) {
-	for(int i=0;i<16;i++) fname[i]=b[i]; fname[16]=0;
+	for(int i=0;i<16;i++) { fname[i]=b[i]; } fname[16]=0;
 	fname[name_len]=0;
 	printf("Request to load '%s'\n",fname);
 	if (fname[0]=='!') {
