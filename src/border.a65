@@ -11,11 +11,40 @@ _next:   .word 0
          .checkpc 2079
          .advance 2079,$0
 
-loop:	
-	and #$0f
-	inc
-	sta $d021
-	inc $08ef
+	 ; enable m65 io
+	lda #$47
+	sta $d02f
+	lda #$53
+	sta $d02f
+	; reset sd
+	lda #$00
+	sta $d080
+
+	jsr $e544
+
+	lda #$01
+	sta $d080
+
+	; wait for sd reset response
+ll1:
+	inc $d020
+	lda $d080
+	sta $0427
+	bne ll1
+
+	ldx #$00
+	lda #$ff
+	
+	; read sector
+	ldy #$02
+	sty $d080
+	
+loop:	cmp $d09b
+	beq loop
+	lda $d09b
+	sta $0400,x
+	inx
+
 	jmp loop
 
 	.byte "PROP.M65U.NAME=BORDER FLASH",0

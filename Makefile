@@ -3,8 +3,8 @@
 
 COPT=	-Wall -g -std=gnu99
 CC=	gcc
-OPHIS=	../Ophis/bin/ophis -4
-OPHIS_MON= ../Ophis/bin/ophis -c
+OPHIS=	./Ophis/bin/ophis -4
+OPHIS_MON= ./Ophis/bin/ophis -c
 
 VIVADO=	./vivado_wrapper
 

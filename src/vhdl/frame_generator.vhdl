@@ -58,10 +58,16 @@ end frame_generator;
 architecture brutalist of frame_generator is
 
   signal x : integer := 0;
+  signal x_zero_driver : std_logic := '0';
+  signal y_zero_driver : std_logic := '0';
   signal y : integer := 0;
   signal inframe_internal : std_logic := '0';
 
   signal lcd_inletterbox : std_logic := '0';
+
+  signal vsync_driver : std_logic := '0';
+  signal hsync_driver : std_logic := '0';
+
   
 begin
 
@@ -69,29 +75,35 @@ begin
   begin
 
     if rising_edge(clock) then
+
+      vsync <= vsync_driver;
+      hsync <= hsync_driver;
+      x_zero <= x_zero_driver;
+      y_zero <= y_zero_driver;
+      
       if x < frame_width then
         x <= x + 1;
         -- make the x_zero signal last a bit longer, to make sure it gets captured.
         if x = 3 then
-          x_zero <= '0';
+          x_zero_driver <= '0';
         end if;
       else
         x <= 0;
-        x_zero <= '1';
+        x_zero_driver <= '1';
         if y < frame_height then
           y <= y + 1;
-          y_zero <= '0';
+          y_zero_driver <= '0';
         else
           y <= 0;
-          y_zero <= '1';
+          y_zero_driver <= '1';
         end if;
       end if;
 
       if x = hsync_start then
-        hsync <= '1';
+        hsync_driver <= '1';
       end if;
       if x = hsync_end then
-        hsync <= '0';
+        hsync_driver <= '0';
       end if;
       if y = ( frame_height - lcd_height ) / 2 then
         lcd_inletterbox <= '1';
@@ -113,10 +125,10 @@ begin
         inframe <= '1';
       end if;
       if y = vsync_start then
-        vsync <= '1';
+        vsync_driver <= '1';
       end if;
       if y = 0 or y = vsync_end then
-        vsync <= '0';
+        vsync_driver <= '0';
       end if;
 
       -- Colourful pattern inside frame

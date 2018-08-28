@@ -152,6 +152,7 @@ architecture behavioural of c65uart is
   signal reg_data_tx : std_logic_vector(7 downto 0) := (others => '0');
   signal reg_data_rx : std_logic_vector(7 downto 0) := (others => '0');
   signal reg_data_rx_drive : std_logic_vector(7 downto 0) := (others => '0');
+  signal reg_data_rx_driver : std_logic_vector(7 downto 0) := (others => '0');
 
   -- C65 extra 2-bit port for keyboard column 8 and capslock key state.
   signal reg_porte_out : std_logic_vector(7 downto 0) := "00000011";
@@ -666,20 +667,20 @@ begin  -- behavioural
               end if;
               -- Allow short bytes
               case reg_ctrl23_char_length_deduct is
-                when "01" => reg_data_rx(6 downto 0) <= rx_buffer(7 downto 1);
-                             reg_data_rx(7) <= '1';
-                when "10" => reg_data_rx(5 downto 0) <= rx_buffer(7 downto 2);
-                             reg_data_rx(7 downto 6) <= (others => '1');
-                when "11" => reg_data_rx(4 downto 0) <= rx_buffer(7 downto 3);
-                             reg_data_rx(7 downto 5) <= (others => '1');
-                when others => reg_data_rx <= rx_buffer;
+                when "01" => reg_data_rx_driver(6 downto 0) <= rx_buffer(7 downto 1);
+                             reg_data_rx_driver(7) <= '1';
+                when "10" => reg_data_rx_driver(5 downto 0) <= rx_buffer(7 downto 2);
+                             reg_data_rx_driver(7 downto 6) <= (others => '1');
+                when "11" => reg_data_rx_driver(4 downto 0) <= rx_buffer(7 downto 3);
+                             reg_data_rx_driver(7 downto 5) <= (others => '1');
+                when others => reg_data_rx_driver <= rx_buffer;
               end case;
               -- XXX Work out parity and set state for reading it.
             else
               -- Framing error
               reg_status3_rx_framing_error <= '1';
               -- Make bad data visible, purely for debug purposes
-              reg_data_rx <= rx_buffer;
+              reg_data_rx_driver <= rx_buffer;
             end if;
             -- XXX Assert IRQ and/or NMI according to RX interrupt masks
           end if;

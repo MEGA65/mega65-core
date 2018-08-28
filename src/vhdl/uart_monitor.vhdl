@@ -66,7 +66,8 @@ entity uart_monitor is
     monitor_arg1 : in unsigned(7 downto 0);
     monitor_arg2 : in unsigned(7 downto 0);
     monitor_memory_access_address : in unsigned(31 downto 0);
-    
+    monitor_roms : in std_logic_vector(7 downto 0);
+
     monitor_a : in unsigned(7 downto 0);
     monitor_x : in unsigned(7 downto 0);
     monitor_y : in unsigned(7 downto 0);
