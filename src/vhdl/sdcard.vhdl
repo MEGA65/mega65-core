@@ -142,6 +142,7 @@ package SdCardPckg is
       error_o    : out std_logic_vector(15 downto 0) := (others => '0');
       last_state_o : out unsigned(7 downto 0) := x"00";
       last_sd_rxbyte : out unsigned(7 downto 0) := x"DD";
+      clear_error : in std_logic := '0';
       -- I/O signals to the external SD card.
       cs_bo      : out std_logic                     := '1';  -- Active-low chip-select.
       sclk_o     : out std_logic                     := '0';  -- Serial clock to SD card.
@@ -187,6 +188,7 @@ entity SdCardCtrl is
     error_o    : out std_logic_vector(15 downto 0) := (others => '0');
     last_state_o : out unsigned(7 downto 0) := x"00"; 
     last_sd_rxbyte : out unsigned(7 downto 0) := x"DD";
+    clear_error : in std_logic := '0';
     -- I/O signals to the external SD card.
     cs_bo      : out std_logic                     := '1';  -- Active-low chip-select.
     sclk_o     : out std_logic                     := '0';  -- Serial clock to SD card.
@@ -617,6 +619,12 @@ begin
             error_o(rx_v'range) <= rx_v;  -- Output the SD card response as the error code.
             busy_o              <= '0';  -- Not busy.
 
+            if clear_error='1' then
+              sclk_r     <= '0';
+              bitCnt_v   := 2;
+              state_v    := DESELECT;
+              rtnState_v := WAIT_FOR_HOST_RW;
+            end if;
           when others =>
             state_v := START_INIT;
         end case;

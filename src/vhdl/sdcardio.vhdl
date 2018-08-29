@@ -245,6 +245,7 @@ architecture behavioural of sdcardio is
   signal last_sd_state : unsigned(7 downto 0);
   signal last_sd_rxbyte : unsigned(7 downto 0);
   signal last_sd_error : std_logic_vector(15 downto 0);
+  signal sd_clear_error : std_logic := '0';
   
   -- F011 FDC emulation registers and flags
   signal diskimage_sector : unsigned(31 downto 0) := x"ffffffff";
@@ -532,6 +533,7 @@ begin  -- behavioural
       last_state_o => last_sd_state,
       last_sd_rxbyte => last_sd_rxbyte,
       error_o => last_sd_error,
+      clear_error => sd_clear_error,
       
       busy_o => sdcard_busy,
       
@@ -1747,6 +1749,9 @@ begin  -- behavioural
                 when x"40" => sdhc_mode <= '0';
                 when x"41" => sdhc_mode <= '1';
 
+                when x"45" => sd_clear_error <= '1';
+                when x"44" => sd_clear_error <= '0';
+                              
                 when x"81" => sector_buffer_mapped<='1';
                               sdio_error <= '0';
                               sdio_fsm_error <= '0';
