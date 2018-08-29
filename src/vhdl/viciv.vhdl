@@ -1548,14 +1548,14 @@ begin
                                         -- compatibility sprite x position MSB
           fastio_rdata <= vicii_sprite_xmsbs;
         elsif register_number=17 then             -- $D011
-          fastio_rdata(7) <= vicii_ycounter(8);  -- MSB of raster
+          fastio_rdata(7) <= vicii_ycounter_driver(8);  -- MSB of raster
           fastio_rdata(6) <= extended_background_mode;
           fastio_rdata(5) <= not text_mode;
           fastio_rdata(4) <= not blank;
           fastio_rdata(3) <= not twentyfourlines;
           fastio_rdata(2 downto 0) <= std_logic_vector(vicii_y_smoothscroll);
         elsif register_number=18 then          -- $D012 current raster low 8 bits
-          fastio_rdata <= std_logic_vector(vicii_ycounter(7 downto 0));
+          fastio_rdata <= std_logic_vector(vicii_ycounter_driver(7 downto 0));
         elsif register_number=19 then          -- $D013 lightpen X (coarse rasterX)
           fastio_rdata <= std_logic_vector(displayx_drive(11 downto 4));
         elsif register_number=20 then          -- $D014 lightpen Y (coarse rasterY)
@@ -1891,6 +1891,8 @@ begin
       else
         vicii_sprite_ycounter <= vicii_ycounter - 2;
       end if;
+
+      vicii_ycounter_driver <= vicii_ycounter;
       
       viciv_calculate_modeline_dimensions;            
 
@@ -2972,7 +2974,7 @@ begin
             
             if vicii_ycounter_phase = vicii_ycounter_max_phase then
               if to_integer(vicii_ycounter) /= vicii_max_raster and ycounter >= vsync_delay_drive then
-                  vicii_ycounter_driver <= vicii_ycounter + 1;
+                  vicii_ycounter <= vicii_ycounter + 1;
                   vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;
               end if;
               
@@ -3021,7 +3023,7 @@ begin
             -- (the preceeding rasters occur during vertical flyback, in case they
             -- have interrupts triggered on them).
             vicii_ycounter_phase <= to_unsigned(1,4);
-            vicii_ycounter_driver <= vicii_first_raster;
+            vicii_ycounter <= vicii_first_raster;
             vicii_ycounter_v400 <= (others =>'0');
             vicii_ycounter_phase_v400 <= to_unsigned(1,4);
 
