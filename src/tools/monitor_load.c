@@ -220,7 +220,7 @@ int load_file(char *filename,int load_addr,int patchKickstart)
     	sprintf(cmd,"l%x %x\r",load_addr,(load_addr+b)&0xffff);
     else    
  	sprintf(cmd,"l%x %x\r",munged_load_addr-1,(munged_load_addr+b-1)&0xffff);
-    printf("  command ='%s'\n",cmd);
+    // printf("  command ='%s'\n",cmd);
     slow_write(fd,cmd,strlen(cmd));
     usleep(1000);
     int n=b;
