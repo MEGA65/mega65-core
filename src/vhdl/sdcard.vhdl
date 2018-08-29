@@ -186,6 +186,7 @@ entity SdCardCtrl is
     hndShk_o   : out std_logic;  -- High when controller has taken data or has data to give.
     error_o    : out std_logic_vector(15 downto 0) := (others => '0');
     last_state_o : out unsigned(7 downto 0) := x"00"; 
+    last_sd_rxbyte : out unsigned(7 downto 0) := x"DD";
     -- I/O signals to the external SD card.
     cs_bo      : out std_logic                     := '1';  -- Active-low chip-select.
     sclk_o     : out std_logic                     := '0';  -- Serial clock to SD card.
