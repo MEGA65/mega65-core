@@ -569,6 +569,8 @@ reset_entry:
 		sta sd_ctrl
 		lda #$01
 		sta sd_ctrl
+
+
 		; map sector buffer
 		lda #$81
 		sta sd_ctrl

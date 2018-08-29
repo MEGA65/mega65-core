@@ -101,10 +101,13 @@ sd_resetsequence:
 		lda #$40
 		sta $d680
 
+		; Assert and release reset
 		lda #$00
 		sta $D680
 		lda #$01
 		sta $D680
+
+		; Wait for SD card to become ready
 		jsr sdtimeoutreset
 re2:		jsr sdreadytest
 		bcs re2done	; success, so return
@@ -112,14 +115,13 @@ re2:		jsr sdreadytest
 		rts		; timeout, so return
 
 re2done:
-		; give card some time to settle after reset, otherwise 
-		; reading sectors will fail
-		;
-		jsr sdwaitawhile
-
 		jsr sd_map_sectorbuffer
 
 		; write $02 to $D680 to read MBR as a test of reset
+		; XXX - This must happen IMMEDIATELY after release of reset,
+		; to work around a bug in the SD low-level controller. If you wait more
+		; than a millisecond or so, then all reads will fail forever until next
+		; reset. PGS 20180829
 		;
 		lda #$02	;B#0000.0010
 		sta $D680
