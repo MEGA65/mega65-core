@@ -241,6 +241,7 @@ architecture behavioural of sdcardio is
 
   -- Diagnostic register for determining SD/SDHC card state.
   signal last_sd_state : unsigned(7 downto 0);
+  signal last_sd_rxbyte : unsigned(7 downto 0);
   signal last_sd_error : std_logic_vector(15 downto 0);
   
   -- F011 FDC emulation registers and flags
@@ -527,6 +528,7 @@ begin  -- behavioural
       sclk_o => sclk_o,
 
       last_state_o => last_sd_state,
+      last_sd_rxbyte => last_sd_rxbyte,
       error_o => last_sd_error,
       
       busy_o => sdcard_busy,
@@ -751,10 +753,10 @@ begin  -- behavioural
           when "01010" =>
             -- P CODE  |  P7   |  P6   |  P5   |  P4   |  P3   |  P2   |  P1   |  P0   | A R
             fastio_rdata <= f011_reg_pcode;
-          when "11011" => -- @IO:GS $D09B - Most recent SD card command sent
+          when "11011" => -- @IO:GS $D09B - FSM state of low-level SD controller (DEBUG)
             fastio_rdata <= last_sd_state;
-          when "11100" => -- @IO:GS $D09C - FDC-side buffer pointer low bits (DEBUG)
-            fastio_rdata <= f011_buffer_disk_address(7 downto 0);
+          when "11100" => -- @IO:GS $D09C - Last byte low-level SD controller read from card (DEBUG)
+            fastio_rdata <= last_sd_rxbyte;
           when "11101" => -- @IO:GS $D09D - FDC-side buffer pointer high bit (DEBUG)
             fastio_rdata(0) <= f011_buffer_disk_address(8);
             fastio_rdata(7 downto 1) <= (others => '0');

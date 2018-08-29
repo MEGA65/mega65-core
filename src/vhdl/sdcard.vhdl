@@ -140,7 +140,8 @@ package SdCardPckg is
       hndShk_i   : in  std_logic;  -- High when host has data to give or has taken data.
       hndShk_o   : out std_logic;  -- High when controller has taken data or has data to give.
       error_o    : out std_logic_vector(15 downto 0) := (others => '0');
-      last_state_o : out unsigned(7 downto 0) := x"00"; 
+      last_state_o : out unsigned(7 downto 0) := x"00";
+      last_sd_rxbyte : out unsigned(7 downto 0) := x"DD";
       -- I/O signals to the external SD card.
       cs_bo      : out std_logic                     := '1';  -- Active-low chip-select.
       sclk_o     : out std_logic                     := '0';  -- Serial clock to SD card.
@@ -585,6 +586,7 @@ begin
                   state_v  := DESELECT;  -- De-select SD card before returning.
                 else
                   state_v := rtnState_v;  -- Otherwise, return to calling state without de-selecting.
+                  last_sd_rxbyte <= unsigned(rx_v);
                 end if;
               end if;
             end if;
