@@ -174,6 +174,8 @@ end sdcardio;
 
 architecture behavioural of sdcardio is
 
+  signal read_on_idle : std_logic := '0';
+  
   signal audio_mix_reg_int : unsigned(7 downto 0) := x"FF";
   
   signal QspiSCKInternal : std_logic := '1';
@@ -1678,6 +1680,8 @@ begin  -- behavioural
                   sd_dowrite <= '0';
                   sdio_busy <= '0';
 
+                  read_on_idle <= '0';
+
                 when x"01" =>
                   -- End reset
                   sd_reset <= '0';
@@ -1687,6 +1691,12 @@ begin  -- behavioural
                   sdio_error <= '0';
                   sdio_fsm_error <= '0';
 
+                  -- Queue an automatic read for as soon as the SD card
+                  -- goes idle. This is to work around a bug we have seen where
+                  -- if you don't request a read from the SD card soon enough after
+                  -- reset, then no read will ever succeed.
+                  read_on_idle <= '1';
+                  
                   -- XXX DEBUG provision for finding out why SD card
                   -- gets jammed.
                 when x"04" =>
@@ -2044,6 +2054,21 @@ begin  -- behavioural
             f011_buffer_wdata <= fastio_wdata;
             f011_buffer_write <= '1';
             
+          end if;
+
+          -- Automatically read a sector when reset is released and the card is
+          -- ready.  This is to work around a bug we have seen where the SD card
+          -- low-level controller locks up on the first read attempt, unless it
+          -- happens VERY soon after reset completes.
+          if read_on_idle='1' and sdio_busy='0' and sdcard_busy='0' then
+            read_on_idle <= '0';
+
+            sd_state <= ReadSector;
+            sdio_error <= '0';
+            sdio_fsm_error <= '0';
+            -- Put into SD card buffer, not F011 buffer
+            f011_sector_fetch <= '0';
+            sd_buffer_offset <= (others => '0');
           end if;
           
         -- Trap to hypervisor when accessing SD card if virtualised.
