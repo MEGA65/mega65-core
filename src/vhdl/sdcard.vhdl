@@ -458,7 +458,7 @@ begin
               state_v    := START_TX;  -- Go to this FSM subroutine to send the command ...
               rtnState_v := WR_BLK;  -- then go to this state to write the data block.
             else              -- Do nothing and wait for command from host.
-              cs_bo   <= '1';            -- Deselect the SD card.
+--              cs_bo   <= '1';            -- Deselect the SD card.
               busy_o  <= '0';  -- SD card interface is waiting for R/W from host, so it's not busy.
               state_v := WAIT_FOR_HOST_RW;  -- Keep waiting for command from host.
             end if;
@@ -573,7 +573,13 @@ begin
             end if;
             sclk_r           <= not sclk_r;    -- Toggle the SPI clock...
             sclkPhaseTimer_v := clkDivider_v;  -- and set the duration of the next clock phase.
-
+            if clear_error = '1' then
+              sclk_r     <= '0';
+              bitCnt_v   := 2;
+              state_v    := DESELECT;
+              rtnState_v := WAIT_FOR_HOST_RW;
+            end if;
+            
           when RX_BITS =>               -- Receive bits from the SD card.
             if sclk_r = '1' then    -- Bits enter after the rising edge of SCLK.
               rx_v := rx_v(rx_v'high-1 downto 0) & miso_i;
@@ -598,7 +604,10 @@ begin
             
           when DESELECT =>  -- De-select the SD card and send some clock pulses (Must enter with sclk at zero.)
             doDeselect_v     := false;  -- Once the de-select is done, clear the flag that caused it.
-            cs_bo            <= '1';     -- De-select the SD card.
+--            cs_bo            <= '1';     -- De-select the SD card.
+            -- PGS XXX Make it controllable whether we deselect card when done
+            -- or not.
+            cs_bo <= clear_error;
             mosi_o           <= '1';  -- Keep the data input of the SD card pulled high.
             state_v          := PULSE_SCLK;  -- Pulse the clock so the SD card will see the de-select.
             sclk_r           <= '0';  -- Clock is set low so the next rising edge will see the new CS and MOSI
