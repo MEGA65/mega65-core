@@ -2904,8 +2904,6 @@ begin
         when others =>
                                         -- Full speed = 1 clock tick per cycle
           phi_counter(16) <= phi_counter(16) xor '1';
-          phi_backlog <= 0;
-          phi_pause <= '0';
       end case;
       if cpuspeed_internal /= x"50" then
         if last_phi16 /= phi_counter(16) then
@@ -2939,7 +2937,18 @@ begin
       else
                                         -- Full speed - never pause
         phi_backlog <= 0;
-        phi_pause <= '0';
+
+        -- Enforce 16 clock delay after writing to certain IO locations
+        if io_settle_delay = '1' then
+          phi_pause <= '1';
+          if io_settle_counter = x"0" then
+            io_settle_delay <= '0';
+          else
+            io_settle_counter <= io_settle_counter - 1;
+          end if;
+        else
+          phi_pause <= '0';
+        end if;
       end if;
       
                                         --Check for system-generated traps (matrix mode, and double tap restore)
@@ -6274,17 +6283,7 @@ begin
     reg_pages_dirty_var(2) := '0';
     reg_pages_dirty_var(3) := '0';
 
-    -- Waitstates after touching some IO registers, to allow for
-    -- updating of dependent signals (mostly for keyboard matrix scanning at 50MHz)
-    if io_settle_delay='1' then
-      if io_settle_counter /= x"0" then
-        io_settle_counter <= io_settle_counter - 1;
-      else
-        io_settle_delay <= '0';
-      end if;
-      memory_access_read := '0';
-      memory_access_write := '0';
-    elsif proceed = '1' then
+    if proceed = '1' then
       
       -- By default read next byte in instruction stream.
       memory_access_read := '1';
