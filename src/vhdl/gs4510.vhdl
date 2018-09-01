@@ -918,7 +918,6 @@ architecture Behavioural of gs4510 is
 
   signal is_rmw : std_logic;
   signal is_load : std_logic;
-  signal is_store : std_logic;
   signal rmw_dummy_write_done : std_logic;
   
   signal a_incremented : unsigned(7 downto 0);
@@ -4270,7 +4269,7 @@ begin
                 end if;
                 
                 monitor_instruction <= to_unsigned(instruction'pos(instruction_lut(to_integer(emu6502&memory_read_value))),8);
-                is_rmw <= '0'; is_load <= '0'; is_store <= '0';
+                is_rmw <= '0'; is_load <= '0';
                 rmw_dummy_write_done <= '0';
                 case instruction_lut(to_integer(emu6502&memory_read_value)) is
                                         -- Note if instruction is RMW
@@ -4306,17 +4305,16 @@ begin
                   when I_LDX => is_load <= '1';
                   when I_LDY => is_load <= '1';
                   when I_LDZ => is_load <= '1';
-                                        -- Note if instruction is STORE
-                  when I_STA => is_store <= '1';
-                  when I_STX => is_store <= '1';
-                  when I_STY => is_store <= '1';
-                  when I_STZ => is_store <= '1';
+                  when I_STA => null;
+                  when I_STX => null;
+                  when I_STY => null;
+                  when I_STZ => null;
 
                                         -- And 6502 illegal opcodes
                   when I_SLO => is_rmw <= '1';
                   when I_RLA => is_rmw <= '1';
                   when I_SRE => is_rmw <= '1';
-                  when I_SAX => is_store <= '1';
+                  when I_SAX => null;
                   when I_LAX => is_load <= '1';
                   when I_RRA => is_rmw <= '1';
                   when I_DCP => is_rmw <= '1';
@@ -4450,7 +4448,7 @@ begin
                 end if;
                 
                 monitor_instruction <= to_unsigned(instruction'pos(instruction_lut(to_integer(emu6502&memory_read_value))),8);
-                is_rmw <= '0'; is_load <= '0'; is_store <= '0';
+                is_rmw <= '0'; is_load <= '0';
                 rmw_dummy_write_done <= '0';
                 case instruction_lut(to_integer(emu6502&memory_read_value)) is
                                         -- Note if instruction is RMW
@@ -4487,10 +4485,10 @@ begin
                   when I_LDY => is_load <= '1';
                   when I_LDZ => is_load <= '1';
                                         -- Note if instruction is STORE
-                  when I_STA => is_store <= '1';
-                  when I_STX => is_store <= '1';
-                  when I_STY => is_store <= '1';
-                  when I_STZ => is_store <= '1';
+                  when I_STA => null;
+                  when I_STX => null;
+                  when I_STY => null;
+                  when I_STZ => null;
 
                                         -- 6502 illegal opcodes
                                 
