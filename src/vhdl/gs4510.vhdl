@@ -1,7 +1,7 @@
 -- Accelerated 6502-like CPU for the C65GS
 --
 -- Written by
---    Paul Gardner-Stephen <hld@c64.org>  2013-2014
+--    Paul Gardner-Stephen <hld@c64.org>  2013-2018
 --
 -- * ADC/SBC algorithm derived from  6510core.c - VICE MOS6510 emulation core.
 -- *   Written by
@@ -155,7 +155,7 @@ entity gs4510 is
     debug4_state_out : out std_logic_vector(3 downto 0);
     
     proceed_dbg_out : out std_logic;
-      
+    
     ---------------------------------------------------------------------------
     -- Interface to ChipRAM in video controller (just 128KB for now)
     ---------------------------------------------------------------------------
@@ -1253,7 +1253,7 @@ begin
       output_value(63 downto 32) => math_output_value_high
       );
   end generate;
-    
+  
   shadowram0 : entity work.shadowram port map (
     clkA      => clock,
     addressa  => shadow_address_next,
@@ -2700,35 +2700,35 @@ begin
       reg_mult_p <= to_unsigned(to_integer(reg_mult_a) * to_integer(reg_mult_b),48);
 
       if math_unit_enable then
-      -- We also provide some flags (which will later trigger interrupts) based
-      -- on the equality of math registers 14 and 15
-      if reg_math_regs(14) = reg_math_regs(15) then
-        math_unit_flags(6) <= '1';
-        if math_unit_flags(3 downto 2) = "00" then
-          math_unit_flags(7) <= '1' ;
+        -- We also provide some flags (which will later trigger interrupts) based
+        -- on the equality of math registers 14 and 15
+        if reg_math_regs(14) = reg_math_regs(15) then
+          math_unit_flags(6) <= '1';
+          if math_unit_flags(3 downto 2) = "00" then
+            math_unit_flags(7) <= '1' ;
+          end if;
+        else
+          math_unit_flags(6) <= '0';
+          if math_unit_flags(3 downto 2) = "11" then
+            math_unit_flags(7) <= '1' ;
+          end if;
         end if;
-      else
-        math_unit_flags(6) <= '0';
-        if math_unit_flags(3 downto 2) = "11" then
-          math_unit_flags(7) <= '1' ;
+        if reg_math_regs(14) < reg_math_regs(15) then
+          math_unit_flags(5) <= '1';
+          if math_unit_flags(3 downto 2) = "10" then
+            math_unit_flags(7) <= '1' ;
+          end if;
+        else
+          math_unit_flags(5) <= '0';
         end if;
-      end if;
-      if reg_math_regs(14) < reg_math_regs(15) then
-        math_unit_flags(5) <= '1';
-        if math_unit_flags(3 downto 2) = "10" then
-          math_unit_flags(7) <= '1' ;
+        if reg_math_regs(14) > reg_math_regs(15) then
+          math_unit_flags(4) <= '1';
+          if math_unit_flags(3 downto 2) = "01" then
+            math_unit_flags(7) <= '1' ;
+          end if;
+        else
+          math_unit_flags(4) <= '0';
         end if;
-      else
-        math_unit_flags(5) <= '0';
-      end if;
-      if reg_math_regs(14) > reg_math_regs(15) then
-        math_unit_flags(4) <= '1';
-        if math_unit_flags(3 downto 2) = "01" then
-          math_unit_flags(7) <= '1' ;
-        end if;
-      else
-        math_unit_flags(4) <= '0';
-      end if;
       end if;
       
     end if;
@@ -3332,8 +3332,8 @@ begin
 
                                         -- Catch the CPU when it goes to the next instruction if single stepping.
       if ((monitor_mem_trace_mode='0' or
-          monitor_mem_trace_toggle_last /= monitor_mem_trace_toggle)
-        and (monitor_mem_attention_request_drive='0')) then
+           monitor_mem_trace_toggle_last /= monitor_mem_trace_toggle)
+          and (monitor_mem_attention_request_drive='0')) then
         monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
         normal_fetch_state <= InstructionFetch;
 
@@ -5150,7 +5150,7 @@ begin
               reg_addr <= reg_addr + 1;
               if (reg_instruction = I_STA) and (next_is_axyz32_instruction='1') then
                 report "VAL32/ABS32: not adding value of Z for 32-bit STA ($nn),Z because it is using 32-bit AXYZ register";
-              
+                
                 temp17 :=
                   to_unsigned(to_integer(memory_read_value&reg_addr_lsbs(7 downto 0))
                               + 0,17);
@@ -5259,7 +5259,7 @@ begin
               if next_is_axyz32_instruction = '1' then
                 case reg_instruction is
                   when I_LDA | I_CMP | I_ADC | I_SBC | I_ORA | I_EOR | I_AND | I_INC | I_DEC
-                      | I_ROL | I_ROR | I_ASL | I_LSR =>
+                    | I_ROL | I_ROR | I_ASL | I_LSR =>
                     report "VAL32: Proceeding to LoadTarget32";
                     state <= LoadTarget32;
                     axyz_phase <= 1;
@@ -5960,15 +5960,15 @@ begin
   
   -- alternate (new) combinatorial core memory address generation.
   process (state,reg_pc,vector,reg_t,hypervisor_mode,monitor_mem_attention_request_drive,monitor_mem_address_drive,
-    reg_dmagic_addr,mem_reading,flag_n,flag_v,flag_e,flag_d,flag_i,flag_z,flag_c,monitor_mem_write_drive,monitor_mem_wdata_drive,
-    monitor_mem_read,monitor_mem_setpc,dmagic_src_addr,dmagic_dest_addr,viciii_iomode,reg_dmagic_transparent_value,
-    reg_dmagic_use_transparent_value,reg_addressingmode,is_load,reg_pagenumber,reg_addr32save,reg_addr,reg_instruction,
-    reg_sph,reg_pc_jsr,reg_b,absolute32_addressing_enabled,reg_microcode,reg_t_high,dmagic_dest_io,dmagic_src_io,
-    dmagic_first_read,is_rmw,reg_arg1,reg_sp,reg_addr_msbs,reg_a,reg_x,reg_y,reg_z,reg_pageactive,shadow_rdata,proceed,
-    reg_mult_a,read_data,shadow_wdata,shadow_address,kickstart_address,
-    reg_pageid,rom_writeprotect,georam_page,
-    kickstart_address_next
-    )
+           reg_dmagic_addr,mem_reading,flag_n,flag_v,flag_e,flag_d,flag_i,flag_z,flag_c,monitor_mem_write_drive,monitor_mem_wdata_drive,
+           monitor_mem_read,monitor_mem_setpc,dmagic_src_addr,dmagic_dest_addr,viciii_iomode,reg_dmagic_transparent_value,
+           reg_dmagic_use_transparent_value,reg_addressingmode,is_load,reg_pagenumber,reg_addr32save,reg_addr,reg_instruction,
+           reg_sph,reg_pc_jsr,reg_b,absolute32_addressing_enabled,reg_microcode,reg_t_high,dmagic_dest_io,dmagic_src_io,
+           dmagic_first_read,is_rmw,reg_arg1,reg_sp,reg_addr_msbs,reg_a,reg_x,reg_y,reg_z,reg_pageactive,shadow_rdata,proceed,
+           reg_mult_a,read_data,shadow_wdata,shadow_address,kickstart_address,
+           reg_pageid,rom_writeprotect,georam_page,
+           kickstart_address_next
+           )
     variable memory_access_address : unsigned(27 downto 0) := x"FFFFFFF";
     variable memory_access_read : std_logic := '0';
     variable memory_access_write : std_logic := '0';
@@ -5991,7 +5991,7 @@ begin
     variable stack_push : std_logic;
     variable virtual_reg_p : std_logic_vector(7 downto 0);
     variable reg_pages_dirty_var : std_logic_vector(3 downto 0)  := (others => '0');
-  
+    
     -- temp hack as I work to move this code around...
     variable real_long_address : unsigned(27 downto 0);
     variable long_address : unsigned(27 downto 0);
@@ -6111,10 +6111,10 @@ begin
               ((gated_exrom='1') and (gated_game='0'))
               or
               ((gated_exrom='0') and (lhc(1 downto 0)="11"))
-            )
+              )
             and
             (writeP=false)
-          )
+            )
         then
           -- ULTIMAX mode or cartridge external ROM
           temp_address(27 downto 16) := x"7FF";
@@ -6129,7 +6129,7 @@ begin
       end if;
       if reg_map_high(1)='0' then
         if (((blocknum=10) or (blocknum=11)) -- $A000-$BFFF cartridge ROM
-          and ((gated_exrom='0') and (gated_game='0'))) and (writeP=false)
+            and ((gated_exrom='0') and (gated_game='0'))) and (writeP=false)
         then
           -- ULTIMAX mode or cartridge external ROM
           temp_address(27 downto 16) := x"7FF";          
@@ -6151,7 +6151,7 @@ begin
         end if;
         if (reg_map_low(2)='0') and ((blocknum=4) or (blocknum=5)) then
           -- $4000 - $5FFF Ultimax mode
-        temp_address(27 downto 16) := x"7FF";
+          temp_address(27 downto 16) := x"7FF";
         end if;
         if (reg_map_low(3)='0') and ((blocknum=6) or (blocknum=7)) then
           -- $6000 - $7FFF Ultimax mode
@@ -6225,7 +6225,7 @@ begin
       
       return temp_address;
     end resolve_address_to_long;
-  
+    
   begin
 
     stack_pop := '0'; stack_push := '0';
@@ -6239,7 +6239,7 @@ begin
     virtual_reg_p(2) := flag_i;
     virtual_reg_p(1) := flag_z;
     virtual_reg_p(0) := flag_c;
-        
+    
     -- Don't do anything by default...
     memory_access_read := '0';
     memory_access_write := '0';
@@ -6270,13 +6270,13 @@ begin
     memory_access_address := x"0000000";
     memory_access_wdata := x"00";
 
-		reg_pages_dirty_var(0) := '0';
-		reg_pages_dirty_var(1) := '0';
-		reg_pages_dirty_var(2) := '0';
-		reg_pages_dirty_var(3) := '0';
+    reg_pages_dirty_var(0) := '0';
+    reg_pages_dirty_var(1) := '0';
+    reg_pages_dirty_var(2) := '0';
+    reg_pages_dirty_var(3) := '0';
 
     if proceed = '1' then
-    
+      
       -- By default read next byte in instruction stream.
       memory_access_read := '1';
       memory_access_write := '0';
@@ -6284,417 +6284,417 @@ begin
       memory_access_resolve_address := '1';
 
       fastio_addr_var := x"FFFFF";
+      
+      case state is
+        when VectorRead =>
+          if hypervisor_mode='1' then
+            -- Vectors move in hypervisor mode to be inside the hypervisor
+            -- ROM at $81Fx
+            memory_access_address := x"FF801F"&vector;
+          else
+            memory_access_address := x"000FFF"&vector;
+          end if;
+        when Interrupt =>
+          stack_push := '1';
+          memory_access_wdata := reg_pc(15 downto 8);
+        when InterruptPushPCL =>
+          stack_push := '1';
+          memory_access_wdata := reg_pc(7 downto 0);
+        when InterruptPushP =>
+          stack_push := '1';
+          memory_access_wdata := reg_t;
+        when RTI =>
+          stack_pop := '1';
+        when RTI2 =>
+          stack_pop := '1';
+        when RTS =>
+          stack_pop := '1';
+        when RTS1 =>
+          stack_pop := '1';
+        when RTS3 =>
+          -- Read the instruction byte following
+          memory_access_address := x"000"&reg_pc;
+          memory_access_read := '1';
+        when ProcessorHold =>
+          -- Hold CPU while blocked by monitor
+
+          if monitor_mem_attention_request_drive='1' then
+            -- Memory access by serial monitor.
+            if monitor_mem_address_drive(27 downto 16) = x"777" then
+              -- M777xxxx in serial monitor reads memory from CPU's perspective
+              memory_access_resolve_address := '1';
+            else
+              memory_access_resolve_address := '0';
+            end if;
+            
+            if monitor_mem_write_drive='1' then
+              -- Write to specified long address (or short if address is $777xxxx)
+              memory_access_address := unsigned(monitor_mem_address_drive);
+              memory_access_write := '1';
+              memory_access_wdata := monitor_mem_wdata_drive;
+            elsif monitor_mem_read='1' then
+              -- and optionally set PC
+              if monitor_mem_setpc='0' then
+                -- otherwise just read from memory
+                memory_access_address := unsigned(monitor_mem_address_drive);
+                memory_access_read := '1';
+              end if;
+            end if;
+          else
+            -- Don't do anything while the processor is held.
+            memory_access_write := '0';
+            memory_access_read := '0';
+          end if;
+        when DMAgicTrigger =>
+          -- Begin to load DMA registers
+          -- We load them from the 20 bit address stored $D700 - $D702
+          -- plus the 8-bit MB value in $D704
+          memory_access_address := reg_dmagic_addr;
+          memory_access_resolve_address := '0';
+          memory_access_read := '1';
+        when DMAgicReadOptions =>
+          memory_access_address := reg_dmagic_addr;
+          memory_access_resolve_address := '0';
+          memory_access_read := '1';
+        when DMAgicReadList =>
+          memory_access_address := reg_dmagic_addr;
+          memory_access_resolve_address := '0';
+          memory_access_read := '1';
+        when DMAgicFill =>
+          memory_access_write := '1';
+          memory_access_wdata := dmagic_src_addr(15 downto 8);
+          memory_access_resolve_address := '0';
+          memory_access_address := dmagic_dest_addr(35 downto 8);
+
+          -- redirect memory write to IO block if required
+          if dmagic_dest_addr(23 downto 20) = x"d" and dmagic_dest_io='1' then
+            memory_access_address(27 downto 16) := x"FFD";
+            memory_access_address(15 downto 14) := "00";
+            memory_access_address(13 downto 12)  := unsigned(viciii_iomode);
+          end if;
           
-  		case state is
-  		  when VectorRead =>
-  		    if hypervisor_mode='1' then
-  		      -- Vectors move in hypervisor mode to be inside the hypervisor
-  		      -- ROM at $81Fx
-  		      memory_access_address := x"FF801F"&vector;
-  		    else
-  		      memory_access_address := x"000FFF"&vector;
-  		    end if;
-  		  when Interrupt =>
-  		    stack_push := '1';
-  		    memory_access_wdata := reg_pc(15 downto 8);
-  		  when InterruptPushPCL =>
-  		    stack_push := '1';
-  		    memory_access_wdata := reg_pc(7 downto 0);
-  		  when InterruptPushP =>
-  		    stack_push := '1';
-  		    memory_access_wdata := reg_t;
-  		  when RTI =>
-  		    stack_pop := '1';
-  		  when RTI2 =>
-  		    stack_pop := '1';
-  		  when RTS =>
-  		    stack_pop := '1';
-  		  when RTS1 =>
-  		    stack_pop := '1';
-  		  when RTS3 =>
-  		    -- Read the instruction byte following
-  		    memory_access_address := x"000"&reg_pc;
-  		    memory_access_read := '1';
-  		  when ProcessorHold =>
-  		    -- Hold CPU while blocked by monitor
+        when DMAgicCopyRead =>
+          -- Do memory read
+          memory_access_read := '1';
+          memory_access_resolve_address := '0';
+          memory_access_address := dmagic_src_addr(35 downto 8);
 
-  		    if monitor_mem_attention_request_drive='1' then
-  		      -- Memory access by serial monitor.
-  		      if monitor_mem_address_drive(27 downto 16) = x"777" then
-  		        -- M777xxxx in serial monitor reads memory from CPU's perspective
-  		        memory_access_resolve_address := '1';
-  		      else
-  		        memory_access_resolve_address := '0';
-  		      end if;
-		      
-  		      if monitor_mem_write_drive='1' then
-  		        -- Write to specified long address (or short if address is $777xxxx)
-  		        memory_access_address := unsigned(monitor_mem_address_drive);
-  		        memory_access_write := '1';
-  		        memory_access_wdata := monitor_mem_wdata_drive;
-  		      elsif monitor_mem_read='1' then
-  		        -- and optionally set PC
-  		        if monitor_mem_setpc='0' then
-  		          -- otherwise just read from memory
-  		          memory_access_address := unsigned(monitor_mem_address_drive);
-  		          memory_access_read := '1';
-  		        end if;
-  		      end if;
-  		    else
-  		      -- Don't do anything while the processor is held.
-  		      memory_access_write := '0';
-  		      memory_access_read := '0';
-  		    end if;
-  		  when DMAgicTrigger =>
-  		    -- Begin to load DMA registers
-  		    -- We load them from the 20 bit address stored $D700 - $D702
-  		    -- plus the 8-bit MB value in $D704
-  		    memory_access_address := reg_dmagic_addr;
-  		    memory_access_resolve_address := '0';
-  		    memory_access_read := '1';
-  		  when DMAgicReadOptions =>
-  		    memory_access_address := reg_dmagic_addr;
-  		    memory_access_resolve_address := '0';
-  		    memory_access_read := '1';
-  		  when DMAgicReadList =>
-  		    memory_access_address := reg_dmagic_addr;
-  		    memory_access_resolve_address := '0';
-  		    memory_access_read := '1';
-  		  when DMAgicFill =>
-  		    memory_access_write := '1';
-  		    memory_access_wdata := dmagic_src_addr(15 downto 8);
-  		    memory_access_resolve_address := '0';
-  		    memory_access_address := dmagic_dest_addr(35 downto 8);
+          -- redirect memory write to IO block if required
+          if dmagic_src_addr(23 downto 20) = x"d" and dmagic_src_io='1' then
+            memory_access_address(27 downto 16) := x"FFD";
+            memory_access_address(15 downto 14) := "00";
+            memory_access_address(13 downto 12)  := unsigned(viciii_iomode);
+          end if;
+          
+        when DMAgicCopyWrite =>
+          
+          if dmagic_first_read = '0' then
+            -- Do memory write
+            if (reg_t /= reg_dmagic_transparent_value)
+              or (reg_dmagic_use_transparent_value='0') then
+              memory_access_write := '1';
+            else
+              memory_access_write := '0';
+            end if;
+            memory_access_wdata := reg_t;
+            memory_access_resolve_address := '0';
+            memory_access_address := dmagic_dest_addr(35 downto 8);
 
-  		    -- redirect memory write to IO block if required
-  		    if dmagic_dest_addr(23 downto 20) = x"d" and dmagic_dest_io='1' then
-  		      memory_access_address(27 downto 16) := x"FFD";
-  		      memory_access_address(15 downto 14) := "00";
-  		      memory_access_address(13 downto 12)  := unsigned(viciii_iomode);
-  		    end if;
-		    
-  		  when DMAgicCopyRead =>
-  		    -- Do memory read
-  		    memory_access_read := '1';
-  		    memory_access_resolve_address := '0';
-  		    memory_access_address := dmagic_src_addr(35 downto 8);
+            -- redirect memory write to IO block if required
+            if dmagic_dest_addr(15 downto 12) = x"d" and dmagic_dest_io='1' then
+              memory_access_address(27 downto 16) := x"FFD";
+              memory_access_address(15 downto 14) := "00";
+              memory_access_address(13 downto 12)  := unsigned(viciii_iomode);
+            end if;
+          end if;
+        when Cycle2 =>
+          -- Fetch arg2 if required (only for 3 byte addressing modes)
+          -- Also begin processing operations that don't need any more data
+          -- to start, so that we don't waste a cycle on every 2-byte instruction.
+          -- (We have this block last, so that it can override the destination
+          -- state).
+          case reg_addressingmode is
+            when M_nn =>
+              if is_load='1' or is_rmw='1' then
+                -- On memory read wait-state, read from RAM, so that FastIO
+                -- lines clear
+                memory_access_read := '1';
+                memory_access_address := x"0000002";
+                memory_access_resolve_address := '0';
+              end if;
+            when M_nnX =>
+              if is_load='1' or is_rmw='1' then
+                -- On memory read wait-state, read from RAM, so that FastIO
+                -- lines clear
+                memory_access_read := '1';
+                memory_access_address := x"0000002";
+                memory_access_resolve_address := '0';
+              end if;
+            when M_nnY =>
+              if is_load='1' or is_rmw='1' then
+                -- On memory read wait-state, read from RAM, so that FastIO
+                -- lines clear
+                memory_access_read := '1';
+                memory_access_address := x"0000002";
+                memory_access_resolve_address := '0';
+              end if;
+            when others =>
+              null;
+          end case;              
+          memory_access_wdata := reg_pagenumber(17 downto 10);
+        when Flat32SaveAddress2 =>
+          stack_push := '1';
+          memory_access_wdata := reg_addr32save(23 downto 16);
+        when Flat32SaveAddress3 =>
+          stack_push := '1';
+          memory_access_wdata := reg_addr32save(15 downto 8);
+        when Flat32SaveAddress4 =>
+          stack_push := '1';
+          memory_access_wdata := reg_addr32save(7 downto 0);
+          memory_access_read := '1';
+          memory_access_address := x"000"&reg_addr;
+          memory_access_resolve_address := '1';                
+        when Flat32Dereference1 =>
+          memory_access_read := '1';
+          memory_access_address := x"000"&reg_addr;
+          memory_access_resolve_address := '1';                
+        when Flat32Dereference2 =>
+          memory_access_read := '1';
+          memory_access_address := x"000"&reg_addr;
+          memory_access_resolve_address := '1';                
+        when Flat32Dereference3 =>
+          memory_access_read := '1';
+          memory_access_address := x"000"&reg_addr;
+          memory_access_resolve_address := '1';                
+        when Flat32Dereference4 =>
+          memory_access_read := '1';
+          memory_access_address := x"000"&reg_addr;
+          memory_access_resolve_address := '1';                
+        when Cycle3 =>
 
-  		    -- redirect memory write to IO block if required
-  		    if dmagic_src_addr(23 downto 20) = x"d" and dmagic_src_io='1' then
-  		      memory_access_address(27 downto 16) := x"FFD";
-  		      memory_access_address(15 downto 14) := "00";
-  		      memory_access_address(13 downto 12)  := unsigned(viciii_iomode);
-  		    end if;
-		    
-  		  when DMAgicCopyWrite =>
-		    
-  		    if dmagic_first_read = '0' then
-  		      -- Do memory write
-  		      if (reg_t /= reg_dmagic_transparent_value)
-  		        or (reg_dmagic_use_transparent_value='0') then
-  		        memory_access_write := '1';
-  		      else
-  		        memory_access_write := '0';
-  		      end if;
-  		      memory_access_wdata := reg_t;
-  		      memory_access_resolve_address := '0';
-  		      memory_access_address := dmagic_dest_addr(35 downto 8);
-
-  		      -- redirect memory write to IO block if required
-  		      if dmagic_dest_addr(15 downto 12) = x"d" and dmagic_dest_io='1' then
-  		        memory_access_address(27 downto 16) := x"FFD";
-  		        memory_access_address(15 downto 14) := "00";
-  		        memory_access_address(13 downto 12)  := unsigned(viciii_iomode);
-  		      end if;
-  		    end if;
-  		  when Cycle2 =>
-  		    -- Fetch arg2 if required (only for 3 byte addressing modes)
-  		    -- Also begin processing operations that don't need any more data
-  		    -- to start, so that we don't waste a cycle on every 2-byte instruction.
-  		    -- (We have this block last, so that it can override the destination
-  		    -- state).
-  		    case reg_addressingmode is
-  		      when M_nn =>
-  		        if is_load='1' or is_rmw='1' then
-  		          -- On memory read wait-state, read from RAM, so that FastIO
-  		          -- lines clear
-  		          memory_access_read := '1';
-  		          memory_access_address := x"0000002";
-  		          memory_access_resolve_address := '0';
-  		        end if;
-  		      when M_nnX =>
-  		        if is_load='1' or is_rmw='1' then
-  		          -- On memory read wait-state, read from RAM, so that FastIO
-  		          -- lines clear
-  		          memory_access_read := '1';
-  		          memory_access_address := x"0000002";
-  		          memory_access_resolve_address := '0';
-  		        end if;
-  		      when M_nnY =>
-  		        if is_load='1' or is_rmw='1' then
-  		          -- On memory read wait-state, read from RAM, so that FastIO
-  		          -- lines clear
-  		          memory_access_read := '1';
-  		          memory_access_address := x"0000002";
-  		          memory_access_resolve_address := '0';
-  		        end if;
-  		      when others =>
-  		        null;
-  		    end case;              
-  		    memory_access_wdata := reg_pagenumber(17 downto 10);
-  		  when Flat32SaveAddress2 =>
-  		    stack_push := '1';
-  		    memory_access_wdata := reg_addr32save(23 downto 16);
-  		  when Flat32SaveAddress3 =>
-  		    stack_push := '1';
-  		    memory_access_wdata := reg_addr32save(15 downto 8);
-  		  when Flat32SaveAddress4 =>
-  		    stack_push := '1';
-  		    memory_access_wdata := reg_addr32save(7 downto 0);
-  		    memory_access_read := '1';
-  		    memory_access_address := x"000"&reg_addr;
-  		    memory_access_resolve_address := '1';                
-  		  when Flat32Dereference1 =>
-  		    memory_access_read := '1';
-  		    memory_access_address := x"000"&reg_addr;
-  		    memory_access_resolve_address := '1';                
-  		  when Flat32Dereference2 =>
-  		    memory_access_read := '1';
-  		    memory_access_address := x"000"&reg_addr;
-  		    memory_access_resolve_address := '1';                
-  		  when Flat32Dereference3 =>
-  		    memory_access_read := '1';
-  		    memory_access_address := x"000"&reg_addr;
-  		    memory_access_resolve_address := '1';                
-  		  when Flat32Dereference4 =>
-  		    memory_access_read := '1';
-  		    memory_access_address := x"000"&reg_addr;
-  		    memory_access_resolve_address := '1';                
-  		  when Cycle3 =>
-
-  		    if reg_instruction = I_RTS or reg_instruction = I_RTI then
-  		      stack_pop := '1';
-  		    else
-  		      case reg_addressingmode is
-  		        when M_impl =>  -- Handled in MicrocodeInterpret
-  		        when M_A =>     -- Handled in MicrocodeInterpret
-  		        when M_InnX =>                    
-  		          temp_addr := reg_b & (reg_arg1+reg_X);
-  		          memory_access_read := '1';
-  		          memory_access_address := x"000"&temp_addr;
-  		          memory_access_resolve_address := '1';
-  		        when M_nn =>
-  		          if is_load='1' or is_rmw='1' then
-  		            -- On memory read wait-state, read from RAM, so that FastIO
-  		            -- lines clear
-  		            memory_access_read := '1';
-  		            memory_access_address := x"0000002";
-  		            memory_access_resolve_address := '0';
-  		          end if;
-  		        when M_immnn => -- Handled in MicrocodeInterpret
-  		        when M_nnnn =>
-  		          -- If it is a branch, write the low bits of the programme
-  		          -- counter now.  We will read the 2nd argument next cycle
-  		          if reg_instruction = I_JSR or reg_instruction = I_BSR then
-  		            memory_access_read := '0';
-  		            memory_access_write := '1';
-  		            memory_access_address := x"000"&reg_sph&reg_sp;
-  		            memory_access_resolve_address := '1';
-  		            memory_access_wdata := reg_pc_jsr(15 downto 8);
-  		          else
-  		            if is_load='1' or is_rmw='1' then
-  		              -- On memory read wait-state, read from RAM, so that FastIO
-  		              -- lines clear
-  		              memory_access_read := '1';
-  		              memory_access_address := x"0000002";
-  		              memory_access_resolve_address := '0';
-  		            end if;
-  		          end if;
-  		        when M_nnrr =>
-  		          memory_access_read := '1';
-  		          memory_access_address := x"000"&reg_b&reg_arg1;
-  		          memory_access_resolve_address := '1';
-  		        when M_InnY =>
-  		          temp_addr := reg_b&reg_arg1;
-  		          memory_access_read := '1';
-  		          memory_access_address := x"000"&temp_addr;
-  		          memory_access_resolve_address := '1';
-  		        when M_InnZ =>
-  		          temp_addr := reg_b&reg_arg1;
-  		          memory_access_read := '1';
-  		          memory_access_address := x"000"&temp_addr;
-  		          memory_access_resolve_address := '1';
-  		        when M_nnX =>
-  		          temp_addr := reg_b & (reg_arg1 + reg_X);
-  		          if is_load='1' or is_rmw='1' then
-  		            -- On memory read wait-state, read from RAM, so that FastIO
-  		            -- lines clear
-  		            memory_access_read := '1';
-  		            memory_access_address := x"0000002";
-  		            memory_access_resolve_address := '0';
-  		          end if;
-  		        when M_nnY =>
-  		          temp_addr := reg_b & (reg_arg1 + reg_Y);
-  		          if is_load='1' or is_rmw='1' then
-  		            -- On memory read wait-state, read from RAM, so that FastIO
-  		            -- lines clear
-  		            memory_access_read := '1';
-  		            memory_access_address := x"0000002";
-  		            memory_access_resolve_address := '0';
-  		          end if;
-  		        when M_nnnnY =>
-  		          if is_load='1' or is_rmw='1' then
-  		            -- On memory read wait-state, read from RAM, so that FastIO
-  		            -- lines clear
-  		            memory_access_read := '1';
-  		            memory_access_address := x"0000002";
-  		            memory_access_resolve_address := '0';
-  		          end if;
-  		        when M_nnnnX =>
-  		          if is_load='1' or is_rmw='1' then
-  		            -- On memory read wait-state, read from RAM, so that FastIO
-  		            -- lines clear
-  		            memory_access_read := '1';
-  		            memory_access_address := x"0000002";
-  		            memory_access_resolve_address := '0';
-  		          end if;
-  		        when M_InnSPY =>
-  		          temp_addr :=  to_unsigned(to_integer(reg_b&reg_arg1)
-  		                                    +to_integer(reg_sph&reg_sp),16);
-  		          memory_access_read := '1';
-  		          memory_access_address := x"000"&temp_addr;
-  		          memory_access_resolve_address := '1';
-  		        when others =>
-  		          null;
-  		      end case;
-  		    end if;
-  		  when CallSubroutine =>
-  		    -- Push PCH
-  		    memory_access_read := '0';
-  		    memory_access_write := '1';
-  		    memory_access_address := x"000"&reg_sph&reg_sp;
-  		    memory_access_resolve_address := '1';
-  		    memory_access_wdata := reg_pc_jsr(7 downto 0);
-  		  when CallSubroutine2 =>
-  		    -- Immediately start reading the next instruction
-  		    memory_access_read := '1';
-  		    memory_access_address := x"000"&reg_addr;
-  		    memory_access_resolve_address := '1';
-  		  when InnXReadVectorLow =>
-  		    memory_access_read := '1';
-  		    memory_access_address := x"000"&reg_addr;
-  		    memory_access_resolve_address := '1';
-  		  when InnXReadVectorHigh =>
-  		    if is_load='1' or is_rmw='1' then
-  		      -- On memory read wait-state, read from RAM, so that FastIO
-  		      -- lines clear
-  		      memory_access_read := '1';
-  		      memory_access_address := x"0000002";
-  		      memory_access_resolve_address := '0';
-  		    end if;
-  		  when InnSPYReadVectorLow =>
-  		    memory_access_read := '1';
-  		    memory_access_address := x"000"&reg_addr;
-  		    memory_access_resolve_address := '1';
-  		  when InnSPYReadVectorHigh =>
-  		    if is_load='1' or is_rmw='1' then
-  		      -- On memory read wait-state, read from RAM, so that FastIO
-  		      -- lines clear
-  		      memory_access_read := '1';
-  		      memory_access_address := x"0000002";
-  		      memory_access_resolve_address := '0';
-  		    end if;
-  		  when InnYReadVectorLow =>
-  		    memory_access_read := '1';
-  		    memory_access_address := x"000"&reg_addr;
-  		    memory_access_resolve_address := '1';
-  		  when InnYReadVectorHigh =>
-  		    if is_load='1' or is_rmw='1' then
-  		      -- On memory read wait-state, read from RAM, so that FastIO
-  		      -- lines clear
-  		      memory_access_read := '1';
-  		      memory_access_address := x"0000002";
-  		      memory_access_resolve_address := '0';
-  		    end if;
-  		  when InnZReadVectorLow =>
-  		    memory_access_read := '1';
-  		    memory_access_address := x"000"&reg_addr;
-  		    memory_access_resolve_address := '1';
-  		  when InnZReadVectorByte2 =>
-  		    -- Do addition of Z register as we go along, so that we don't have
-  		    -- a 32-bit carry.
-  		    memory_access_read := '1';
-  		    memory_access_address := x"000"&reg_addr;
-  		    memory_access_resolve_address := '1';
-  		  when InnZReadVectorByte3 =>
-  		    -- Do addition of Z register as we go along, so that we don't have
-  		    -- a 32-bit carry.
-  		    memory_access_read := '1';
-  		    memory_access_address := x"000"&reg_addr;
-  		    memory_access_resolve_address := '1';
-  		  when InnZReadVectorByte4 =>
-  		    if is_load='1' or is_rmw='1' then
-  		      -- On memory read wait-state, read from RAM, so that FastIO
-  		      -- lines clear
-  		      memory_access_read := '1';
-  		      memory_access_address := x"0000002";
-  		      memory_access_resolve_address := '0';
-  		    end if;
-  		  when InnZReadVectorHigh =>
-  		    if is_load='1' or is_rmw='1' then
-  		      -- On memory read wait-state, read from RAM, so that FastIO
-  		      -- lines clear
-  		      memory_access_read := '1';
-  		      memory_access_address := x"0000002";
-  		      memory_access_resolve_address := '0';
-  		    end if;
-  		  when JumpDereference =>
-  		    -- reg_addr holds the address we want to load a 16 bit address
-  		    -- from for a JMP or JSR.
-  		    memory_access_read := '1';
-  		    memory_access_address := x"000"&reg_addr;
-  		    memory_access_resolve_address := '1';
-  		  when JumpDereference2 =>
-  		    memory_access_read := '1';
-  		    memory_access_address := x"000"&reg_addr;
-  		    memory_access_resolve_address := '1';
-  		  when JumpDereference3 =>
-  		    if reg_instruction=I_JMP then
-  		      null;
-  		    else
-  		      memory_access_read := '0';
-  		      memory_access_write := '1';
-  		      memory_access_address := x"000"&reg_sph&reg_sp;
-  		      memory_access_resolve_address := '1';
-  		      memory_access_wdata := reg_pc_jsr(15 downto 8);
-  		    end if;        
-  		  when DummyWrite =>
-  		    memory_access_address := x"000"&reg_addr;
-  		    memory_access_resolve_address := '1';
-  		    memory_access_write := '1';
-  		    memory_access_read := '0';
-  		    memory_access_wdata := reg_t_high;
-  		  when WriteCommit =>
-  		    memory_access_write := '1';
-  		    memory_access_address(15 downto 0) := reg_addr;
-  		    memory_access_resolve_address := not absolute32_addressing_enabled;
-  		    if absolute32_addressing_enabled='1' then
-  		      memory_access_address(27 downto 16) := reg_addr_msbs(11 downto 0);
-  		    else
-  		      memory_access_address(27 downto 16) := x"000";
-  		    end if;
-  		    memory_access_wdata := reg_t;
-  		  when LoadTarget =>
-  		    -- For some addressing modes we load the target in a separate
-  		    -- cycle to improve timing.
-  		    memory_access_read := '1';
-  		    memory_access_address(15 downto 0) := reg_addr;
-  		    memory_access_resolve_address := not absolute32_addressing_enabled;
-  		    if absolute32_addressing_enabled='1' then
-  		      memory_access_address(27 downto 16) := reg_addr_msbs(11 downto 0);
-  		    else
-  		      memory_access_address(27 downto 16) := x"000";
-  		    end if;
+          if reg_instruction = I_RTS or reg_instruction = I_RTI then
+            stack_pop := '1';
+          else
+            case reg_addressingmode is
+              when M_impl =>  -- Handled in MicrocodeInterpret
+              when M_A =>     -- Handled in MicrocodeInterpret
+              when M_InnX =>                    
+                temp_addr := reg_b & (reg_arg1+reg_X);
+                memory_access_read := '1';
+                memory_access_address := x"000"&temp_addr;
+                memory_access_resolve_address := '1';
+              when M_nn =>
+                if is_load='1' or is_rmw='1' then
+                  -- On memory read wait-state, read from RAM, so that FastIO
+                  -- lines clear
+                  memory_access_read := '1';
+                  memory_access_address := x"0000002";
+                  memory_access_resolve_address := '0';
+                end if;
+              when M_immnn => -- Handled in MicrocodeInterpret
+              when M_nnnn =>
+                -- If it is a branch, write the low bits of the programme
+                -- counter now.  We will read the 2nd argument next cycle
+                if reg_instruction = I_JSR or reg_instruction = I_BSR then
+                  memory_access_read := '0';
+                  memory_access_write := '1';
+                  memory_access_address := x"000"&reg_sph&reg_sp;
+                  memory_access_resolve_address := '1';
+                  memory_access_wdata := reg_pc_jsr(15 downto 8);
+                else
+                  if is_load='1' or is_rmw='1' then
+                    -- On memory read wait-state, read from RAM, so that FastIO
+                    -- lines clear
+                    memory_access_read := '1';
+                    memory_access_address := x"0000002";
+                    memory_access_resolve_address := '0';
+                  end if;
+                end if;
+              when M_nnrr =>
+                memory_access_read := '1';
+                memory_access_address := x"000"&reg_b&reg_arg1;
+                memory_access_resolve_address := '1';
+              when M_InnY =>
+                temp_addr := reg_b&reg_arg1;
+                memory_access_read := '1';
+                memory_access_address := x"000"&temp_addr;
+                memory_access_resolve_address := '1';
+              when M_InnZ =>
+                temp_addr := reg_b&reg_arg1;
+                memory_access_read := '1';
+                memory_access_address := x"000"&temp_addr;
+                memory_access_resolve_address := '1';
+              when M_nnX =>
+                temp_addr := reg_b & (reg_arg1 + reg_X);
+                if is_load='1' or is_rmw='1' then
+                  -- On memory read wait-state, read from RAM, so that FastIO
+                  -- lines clear
+                  memory_access_read := '1';
+                  memory_access_address := x"0000002";
+                  memory_access_resolve_address := '0';
+                end if;
+              when M_nnY =>
+                temp_addr := reg_b & (reg_arg1 + reg_Y);
+                if is_load='1' or is_rmw='1' then
+                  -- On memory read wait-state, read from RAM, so that FastIO
+                  -- lines clear
+                  memory_access_read := '1';
+                  memory_access_address := x"0000002";
+                  memory_access_resolve_address := '0';
+                end if;
+              when M_nnnnY =>
+                if is_load='1' or is_rmw='1' then
+                  -- On memory read wait-state, read from RAM, so that FastIO
+                  -- lines clear
+                  memory_access_read := '1';
+                  memory_access_address := x"0000002";
+                  memory_access_resolve_address := '0';
+                end if;
+              when M_nnnnX =>
+                if is_load='1' or is_rmw='1' then
+                  -- On memory read wait-state, read from RAM, so that FastIO
+                  -- lines clear
+                  memory_access_read := '1';
+                  memory_access_address := x"0000002";
+                  memory_access_resolve_address := '0';
+                end if;
+              when M_InnSPY =>
+                temp_addr :=  to_unsigned(to_integer(reg_b&reg_arg1)
+                                          +to_integer(reg_sph&reg_sp),16);
+                memory_access_read := '1';
+                memory_access_address := x"000"&temp_addr;
+                memory_access_resolve_address := '1';
+              when others =>
+                null;
+            end case;
+          end if;
+        when CallSubroutine =>
+          -- Push PCH
+          memory_access_read := '0';
+          memory_access_write := '1';
+          memory_access_address := x"000"&reg_sph&reg_sp;
+          memory_access_resolve_address := '1';
+          memory_access_wdata := reg_pc_jsr(7 downto 0);
+        when CallSubroutine2 =>
+          -- Immediately start reading the next instruction
+          memory_access_read := '1';
+          memory_access_address := x"000"&reg_addr;
+          memory_access_resolve_address := '1';
+        when InnXReadVectorLow =>
+          memory_access_read := '1';
+          memory_access_address := x"000"&reg_addr;
+          memory_access_resolve_address := '1';
+        when InnXReadVectorHigh =>
+          if is_load='1' or is_rmw='1' then
+            -- On memory read wait-state, read from RAM, so that FastIO
+            -- lines clear
+            memory_access_read := '1';
+            memory_access_address := x"0000002";
+            memory_access_resolve_address := '0';
+          end if;
+        when InnSPYReadVectorLow =>
+          memory_access_read := '1';
+          memory_access_address := x"000"&reg_addr;
+          memory_access_resolve_address := '1';
+        when InnSPYReadVectorHigh =>
+          if is_load='1' or is_rmw='1' then
+            -- On memory read wait-state, read from RAM, so that FastIO
+            -- lines clear
+            memory_access_read := '1';
+            memory_access_address := x"0000002";
+            memory_access_resolve_address := '0';
+          end if;
+        when InnYReadVectorLow =>
+          memory_access_read := '1';
+          memory_access_address := x"000"&reg_addr;
+          memory_access_resolve_address := '1';
+        when InnYReadVectorHigh =>
+          if is_load='1' or is_rmw='1' then
+            -- On memory read wait-state, read from RAM, so that FastIO
+            -- lines clear
+            memory_access_read := '1';
+            memory_access_address := x"0000002";
+            memory_access_resolve_address := '0';
+          end if;
+        when InnZReadVectorLow =>
+          memory_access_read := '1';
+          memory_access_address := x"000"&reg_addr;
+          memory_access_resolve_address := '1';
+        when InnZReadVectorByte2 =>
+          -- Do addition of Z register as we go along, so that we don't have
+          -- a 32-bit carry.
+          memory_access_read := '1';
+          memory_access_address := x"000"&reg_addr;
+          memory_access_resolve_address := '1';
+        when InnZReadVectorByte3 =>
+          -- Do addition of Z register as we go along, so that we don't have
+          -- a 32-bit carry.
+          memory_access_read := '1';
+          memory_access_address := x"000"&reg_addr;
+          memory_access_resolve_address := '1';
+        when InnZReadVectorByte4 =>
+          if is_load='1' or is_rmw='1' then
+            -- On memory read wait-state, read from RAM, so that FastIO
+            -- lines clear
+            memory_access_read := '1';
+            memory_access_address := x"0000002";
+            memory_access_resolve_address := '0';
+          end if;
+        when InnZReadVectorHigh =>
+          if is_load='1' or is_rmw='1' then
+            -- On memory read wait-state, read from RAM, so that FastIO
+            -- lines clear
+            memory_access_read := '1';
+            memory_access_address := x"0000002";
+            memory_access_resolve_address := '0';
+          end if;
+        when JumpDereference =>
+          -- reg_addr holds the address we want to load a 16 bit address
+          -- from for a JMP or JSR.
+          memory_access_read := '1';
+          memory_access_address := x"000"&reg_addr;
+          memory_access_resolve_address := '1';
+        when JumpDereference2 =>
+          memory_access_read := '1';
+          memory_access_address := x"000"&reg_addr;
+          memory_access_resolve_address := '1';
+        when JumpDereference3 =>
+          if reg_instruction=I_JMP then
+            null;
+          else
+            memory_access_read := '0';
+            memory_access_write := '1';
+            memory_access_address := x"000"&reg_sph&reg_sp;
+            memory_access_resolve_address := '1';
+            memory_access_wdata := reg_pc_jsr(15 downto 8);
+          end if;        
+        when DummyWrite =>
+          memory_access_address := x"000"&reg_addr;
+          memory_access_resolve_address := '1';
+          memory_access_write := '1';
+          memory_access_read := '0';
+          memory_access_wdata := reg_t_high;
+        when WriteCommit =>
+          memory_access_write := '1';
+          memory_access_address(15 downto 0) := reg_addr;
+          memory_access_resolve_address := not absolute32_addressing_enabled;
+          if absolute32_addressing_enabled='1' then
+            memory_access_address(27 downto 16) := reg_addr_msbs(11 downto 0);
+          else
+            memory_access_address(27 downto 16) := x"000";
+          end if;
+          memory_access_wdata := reg_t;
+        when LoadTarget =>
+          -- For some addressing modes we load the target in a separate
+          -- cycle to improve timing.
+          memory_access_read := '1';
+          memory_access_address(15 downto 0) := reg_addr;
+          memory_access_resolve_address := not absolute32_addressing_enabled;
+          if absolute32_addressing_enabled='1' then
+            memory_access_address(27 downto 16) := reg_addr_msbs(11 downto 0);
+          else
+            memory_access_address(27 downto 16) := x"000";
+          end if;
         when LoadTarget32 =>
           if axyz_phase /= 4 then
             -- More bytes to read, so schedule next byte to read                
@@ -6713,208 +6713,208 @@ begin
             memory_access_resolve_address := not absolute32_addressing_enabled;
             report "VAL32: memory_access_address=$" & to_hstring(memory_access_address);
           end if;              
-  		  when MicrocodeInterpret =>
+        when MicrocodeInterpret =>
 
-  		    if reg_microcode.mcStoreA='1' then memory_access_wdata := reg_a; end if;
-  		    if reg_microcode.mcStoreX='1' then memory_access_wdata := reg_x; end if;
-  		    if reg_microcode.mcStoreY='1' then memory_access_wdata := reg_y; end if;
-  		    if reg_microcode.mcStoreZ='1' then memory_access_wdata := reg_z; end if;              
-  		    if reg_microcode.mcStoreP='1' then
-  		       memory_access_wdata := unsigned(virtual_reg_p);
-  		       memory_access_wdata(4) := '1';  -- B always set when pushed
-  		       memory_access_wdata(5) := '1';  -- E always set when pushed
-  		    end if;              
-  		    if reg_microcode.mcWriteRegAddr='1' then
-  		      memory_access_address := x"000"&reg_addr;
-  		      memory_access_resolve_address := '1';
-  		    end if;
-  		    case reg_instruction is
-  		      when I_PHA => stack_push := '1';
-  		      when I_PHP => stack_push := '1';
-  		      when I_PHX => stack_push := '1';
-  		      when I_PHY => stack_push := '1';
-  		      when I_PHZ => stack_push := '1';
-  		      when others => stack_push := '0';
-  		    end case;              
-  		    stack_pop := reg_microcode.mcPop;
-  		    if reg_microcode.mcWordOp='1' then
-  		      memory_access_address := x"000"&(reg_addr+1);
-  		      memory_access_resolve_address := '1';
-  		      memory_access_read := '1';
-  		    end if;
-  		    memory_access_write := reg_microcode.mcWriteMem;
-  		    if reg_microcode.mcWriteMem='1' then
-  		      memory_access_address(15 downto 0) := reg_addr;
-  		      memory_access_resolve_address := not absolute32_addressing_enabled;
-  		      if absolute32_addressing_enabled='1' then
-  		        memory_access_address(27 downto 16) := reg_addr_msbs(11 downto 0);
-  		      else
-  		        memory_access_address(27 downto 16) := x"000";
-  		      end if;
-  		    end if;
-  		  when PushWordLow =>
-  		    stack_push := '1';
-  		    memory_access_wdata := reg_t;
-  		  when PushWordHigh =>
-  		    stack_push := '1';
-  		    memory_access_wdata := reg_t_high;
-  		  when WordOpWriteLow =>
-  		    memory_access_address := x"000"&(reg_addr);
-  		    memory_access_resolve_address := '1';
-  		    memory_access_write := '1';
-  		    memory_access_wdata := reg_t;
-  		  when WordOpWriteHigh =>
-  		    memory_access_address := x"000"&(reg_addr);
-  		    memory_access_resolve_address := '1';
-  		    memory_access_write := '1';
-  		    memory_access_wdata := reg_t_high;
-  		  when others =>
-  		    null;
-  		end case;            
+          if reg_microcode.mcStoreA='1' then memory_access_wdata := reg_a; end if;
+          if reg_microcode.mcStoreX='1' then memory_access_wdata := reg_x; end if;
+          if reg_microcode.mcStoreY='1' then memory_access_wdata := reg_y; end if;
+          if reg_microcode.mcStoreZ='1' then memory_access_wdata := reg_z; end if;              
+          if reg_microcode.mcStoreP='1' then
+            memory_access_wdata := unsigned(virtual_reg_p);
+            memory_access_wdata(4) := '1';  -- B always set when pushed
+            memory_access_wdata(5) := '1';  -- E always set when pushed
+          end if;              
+          if reg_microcode.mcWriteRegAddr='1' then
+            memory_access_address := x"000"&reg_addr;
+            memory_access_resolve_address := '1';
+          end if;
+          case reg_instruction is
+            when I_PHA => stack_push := '1';
+            when I_PHP => stack_push := '1';
+            when I_PHX => stack_push := '1';
+            when I_PHY => stack_push := '1';
+            when I_PHZ => stack_push := '1';
+            when others => stack_push := '0';
+          end case;              
+          stack_pop := reg_microcode.mcPop;
+          if reg_microcode.mcWordOp='1' then
+            memory_access_address := x"000"&(reg_addr+1);
+            memory_access_resolve_address := '1';
+            memory_access_read := '1';
+          end if;
+          memory_access_write := reg_microcode.mcWriteMem;
+          if reg_microcode.mcWriteMem='1' then
+            memory_access_address(15 downto 0) := reg_addr;
+            memory_access_resolve_address := not absolute32_addressing_enabled;
+            if absolute32_addressing_enabled='1' then
+              memory_access_address(27 downto 16) := reg_addr_msbs(11 downto 0);
+            else
+              memory_access_address(27 downto 16) := x"000";
+            end if;
+          end if;
+        when PushWordLow =>
+          stack_push := '1';
+          memory_access_wdata := reg_t;
+        when PushWordHigh =>
+          stack_push := '1';
+          memory_access_wdata := reg_t_high;
+        when WordOpWriteLow =>
+          memory_access_address := x"000"&(reg_addr);
+          memory_access_resolve_address := '1';
+          memory_access_write := '1';
+          memory_access_wdata := reg_t;
+        when WordOpWriteHigh =>
+          memory_access_address := x"000"&(reg_addr);
+          memory_access_resolve_address := '1';
+          memory_access_write := '1';
+          memory_access_wdata := reg_t_high;
+        when others =>
+          null;
+      end case;            
 
-  		if stack_push='1' then
-  		  memory_access_write := '1';
-  		  memory_access_address := x"000"&reg_sph&reg_sp;
-  		  memory_access_resolve_address := '1';      
-  		end if;
+      if stack_push='1' then
+        memory_access_write := '1';
+        memory_access_address := x"000"&reg_sph&reg_sp;
+        memory_access_resolve_address := '1';      
+      end if;
 
-  		if stack_pop='1' then
-  		  memory_access_read := '1';
-  		  if flag_e='0' then
-  		    -- stack pointer can roam full 64KB
-  		    memory_access_address := x"000"&((reg_sph&reg_sp)+1);
-  		  else
-  		    -- constrain stack pointer to single page if E flag is set
-  		    memory_access_address := x"000"&reg_sph&(reg_sp+1);
-  		  end if;
-  		  memory_access_resolve_address := '1';
-  		end if;
+      if stack_pop='1' then
+        memory_access_read := '1';
+        if flag_e='0' then
+          -- stack pointer can roam full 64KB
+          memory_access_address := x"000"&((reg_sph&reg_sp)+1);
+        else
+          -- constrain stack pointer to single page if E flag is set
+          memory_access_address := x"000"&reg_sph&(reg_sp+1);
+        end if;
+        memory_access_resolve_address := '1';
+      end if;
 
-  		if (reg_pageactive = '1' ) then
-  		  if (memory_access_address(15 downto 14) = "01") then
-  		    case reg_pageid is
-  		      when "00" => reg_pages_dirty_var(0) := '1'; 
-  		      when "01" => reg_pages_dirty_var(1) := '1'; 
-  		      when "10" => reg_pages_dirty_var(2) := '1'; 
-  		      when "11" => reg_pages_dirty_var(3) := '1';
-  		      when others => null;
-  		    end case;
-  		  end if;
-  		end if;
+      if (reg_pageactive = '1' ) then
+        if (memory_access_address(15 downto 14) = "01") then
+          case reg_pageid is
+            when "00" => reg_pages_dirty_var(0) := '1'; 
+            when "01" => reg_pages_dirty_var(1) := '1'; 
+            when "10" => reg_pages_dirty_var(2) := '1'; 
+            when "11" => reg_pages_dirty_var(3) := '1';
+            when others => null;
+          end case;
+        end if;
+      end if;
 
-  		--shadow_address_var := memory_access_address(long_address(16 downto 0));
-  		shadow_wdata_var := memory_access_wdata;
+      --shadow_address_var := memory_access_address(long_address(16 downto 0));
+      shadow_wdata_var := memory_access_wdata;
 
-  		if memory_access_write='1' then
-  		  if memory_access_resolve_address = '1' then
-  		    memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),true);
-  		  end if;
+      if memory_access_write='1' then
+        if memory_access_resolve_address = '1' then
+          memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),true);
+        end if;
 
-  		  real_long_address := memory_access_address;
+        real_long_address := memory_access_address;
 
-  		  -- Remap GeoRAM memory accesses
-  		  if real_long_address(27 downto 16) = x"FFD"
-  		    and real_long_address(11 downto 8)= x"E"
-                    and georam_blockmask /= x"00" then
-  		    long_address := georam_page&real_long_address(7 downto 0);
-                  end if;
+        -- Remap GeoRAM memory accesses
+        if real_long_address(27 downto 16) = x"FFD"
+          and real_long_address(11 downto 8)= x"E"
+          and georam_blockmask /= x"00" then
+          long_address := georam_page&real_long_address(7 downto 0);
+        end if;
 
-  		  -- shadow_address_var := to_integer(long_address(16 downto 0));
-		  
-  		  if
-  		    -- FF80000-FF807FF = 2KB colour RAM at times, which overlaps chip RAM
-  		    -- XXX - We don't handle the 2nd KB colour RAM at $DC00 when mapped
-  		    (real_long_address(27 downto 12) = x"FF80" and real_long_address(11) = '0')
-  		    or
-  		    -- FFD[0-3]800-BFF
-  		    (real_long_address(27 downto 16) = x"FFD"
-  		     and real_long_address(15 downto 14) = "00"
-  		     and real_long_address(11 downto 10) = "10")        
-  		  then
-  		    report "Writing to colour RAM";
-  		    -- Write to shadow RAM
-  		    -- shadow_write <= '0';
-
-  		    -- Then remap to colour ram access: remap to $FF80000 - $FF807FF
-  		    long_address := x"FF80"&'0'&real_long_address(10 downto 0);
-
-  		    -- XXX What the heck is this remapping of $7F4xxxx -> colour RAM for?
-  		    -- Is this for creating a linear memory map for quick task swapping, or
-  		    -- something else? (PGS)
-  		  elsif real_long_address(27 downto 16) = x"7F4" then
-  				long_address := x"FF80"&'0'&real_long_address(10 downto 0);
-  		  else
-  		    long_address := real_long_address;
-  		  end if;
-		  
-  		  long_address_write_var := long_address;
-		        
-  		  if long_address(27 downto 17)="00000000001" then
-  		    report "writing to ROM. addr=$" & to_hstring(long_address) severity note;
-  		    shadow_write_var := not rom_writeprotect;
-  		    shadow_address_var := to_integer(long_address(19 downto 0));
-                  elsif long_address(27 downto 20)=x"00" and ((not long_address(19)) or chipram_1mb)='1' then
-  		    report "writing to shadow RAM via chipram shadowing. addr=$" & to_hstring(long_address) severity note;
-  		    shadow_write_var := '1';
-  		    shadow_address_var := to_integer(long_address(19 downto 0));
-
-                    -- C65 uses $1F800-FFF as colour RAM, so we need to write there, too,
-                    -- when writing here.
-                    if long_address(27 downto 12) = x"001F" and long_address(11) = '1' then
-                      report "writing to colour RAM via $001F8xx" severity note;
-
-                      -- And also to colour RAM
-                      fastio_addr_var(19 downto 16) := x"8";
-                      fastio_addr_var(15 downto 11) := (others => '0');
-                      fastio_addr_var(10 downto 0) := std_logic_vector(long_address(10 downto 0));
-                    end if;
-                  end if;
+        -- shadow_address_var := to_integer(long_address(16 downto 0));
         
-                  if long_address(27 downto 24) = x"F" then --
-                    fastio_addr_var := std_logic_vector(long_address(19 downto 0));
-                  end if;
-        
-  		elsif memory_access_read='1' then
-		   
-  		  if memory_access_resolve_address = '1' then
-  		    memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),false);
-  		  end if;
+        if
+          -- FF80000-FF807FF = 2KB colour RAM at times, which overlaps chip RAM
+          -- XXX - We don't handle the 2nd KB colour RAM at $DC00 when mapped
+          (real_long_address(27 downto 12) = x"FF80" and real_long_address(11) = '0')
+          or
+          -- FFD[0-3]800-BFF
+          (real_long_address(27 downto 16) = x"FFD"
+           and real_long_address(15 downto 14) = "00"
+           and real_long_address(11 downto 10) = "10")        
+        then
+          report "Writing to colour RAM";
+          -- Write to shadow RAM
+          -- shadow_write <= '0';
 
-  		  real_long_address := memory_access_address;
-		  
-  		  -- Remap GeoRAM memory accesses
-  		  if real_long_address(27 downto 16) = x"FFD"
-  		    and real_long_address(11 downto 8) = x"E"
-                    and georam_blockmask /= x"00" then
-  		    long_address := georam_page&real_long_address(7 downto 0);
-  		  end if;
-		        
-  		  if real_long_address(27 downto 12) = x"001F" and real_long_address(11)='1' then
-  		    -- colour ram access: remap to $FF80000 - $FF807FF
-  		    long_address := x"FF80"&'0'&real_long_address(10 downto 0);
-  			  -- also remap to $7F40000 - $7F407FF
-  		  elsif real_long_address(27 downto 16) = x"7F4" then
-  				  long_address := x"FF80"&'0'&real_long_address(10 downto 0);
-  				else
-  		    long_address := real_long_address;
-  		  end if;
-		  
-  		  long_address_read_var := long_address;
-		  
-                  if long_address(27 downto 20)=x"00" and ((not long_address(19)) or chipram_1mb)='1' then
-                    shadow_read_var := '1';
-                    shadow_address_var := to_integer(long_address(19 downto 0));
-                  end if;
-		   
-         if long_address(19 downto 14)&"00" = x"F8" then
-           kickstart_address_var := std_logic_vector(long_address(13 downto 0));
-         end if;
-       
-         if long_address(27 downto 20) = x"FF" then
-           fastio_addr_var := std_logic_vector(long_address(19 downto 0));
-         end if;
-         
-       end if;
+          -- Then remap to colour ram access: remap to $FF80000 - $FF807FF
+          long_address := x"FF80"&'0'&real_long_address(10 downto 0);
+
+        -- XXX What the heck is this remapping of $7F4xxxx -> colour RAM for?
+        -- Is this for creating a linear memory map for quick task swapping, or
+        -- something else? (PGS)
+        elsif real_long_address(27 downto 16) = x"7F4" then
+          long_address := x"FF80"&'0'&real_long_address(10 downto 0);
+        else
+          long_address := real_long_address;
+        end if;
+        
+        long_address_write_var := long_address;
+        
+        if long_address(27 downto 17)="00000000001" then
+          report "writing to ROM. addr=$" & to_hstring(long_address) severity note;
+          shadow_write_var := not rom_writeprotect;
+          shadow_address_var := to_integer(long_address(19 downto 0));
+        elsif long_address(27 downto 20)=x"00" and ((not long_address(19)) or chipram_1mb)='1' then
+          report "writing to shadow RAM via chipram shadowing. addr=$" & to_hstring(long_address) severity note;
+          shadow_write_var := '1';
+          shadow_address_var := to_integer(long_address(19 downto 0));
+
+          -- C65 uses $1F800-FFF as colour RAM, so we need to write there, too,
+          -- when writing here.
+          if long_address(27 downto 12) = x"001F" and long_address(11) = '1' then
+            report "writing to colour RAM via $001F8xx" severity note;
+
+            -- And also to colour RAM
+            fastio_addr_var(19 downto 16) := x"8";
+            fastio_addr_var(15 downto 11) := (others => '0');
+            fastio_addr_var(10 downto 0) := std_logic_vector(long_address(10 downto 0));
+          end if;
+        end if;
+        
+        if long_address(27 downto 24) = x"F" then --
+          fastio_addr_var := std_logic_vector(long_address(19 downto 0));
+        end if;
+        
+      elsif memory_access_read='1' then
+        
+        if memory_access_resolve_address = '1' then
+          memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),false);
+        end if;
+
+        real_long_address := memory_access_address;
+        
+        -- Remap GeoRAM memory accesses
+        if real_long_address(27 downto 16) = x"FFD"
+          and real_long_address(11 downto 8) = x"E"
+          and georam_blockmask /= x"00" then
+          long_address := georam_page&real_long_address(7 downto 0);
+        end if;
+        
+        if real_long_address(27 downto 12) = x"001F" and real_long_address(11)='1' then
+          -- colour ram access: remap to $FF80000 - $FF807FF
+          long_address := x"FF80"&'0'&real_long_address(10 downto 0);
+        -- also remap to $7F40000 - $7F407FF
+        elsif real_long_address(27 downto 16) = x"7F4" then
+          long_address := x"FF80"&'0'&real_long_address(10 downto 0);
+        else
+          long_address := real_long_address;
+        end if;
+        
+        long_address_read_var := long_address;
+        
+        if long_address(27 downto 20)=x"00" and ((not long_address(19)) or chipram_1mb)='1' then
+          shadow_read_var := '1';
+          shadow_address_var := to_integer(long_address(19 downto 0));
+        end if;
+        
+        if long_address(19 downto 14)&"00" = x"F8" then
+          kickstart_address_var := std_logic_vector(long_address(13 downto 0));
+        end if;
+        
+        if long_address(27 downto 20) = x"FF" then
+          fastio_addr_var := std_logic_vector(long_address(19 downto 0));
+        end if;
+        
+      end if;
 
       if shadow_address_var >= chipram_size then
         shadow_address_var := 0;
@@ -6935,7 +6935,7 @@ begin
     memory_access_resolve_address_next <= memory_access_resolve_address;
     memory_access_wdata_next <= memory_access_wdata;
     reg_pages_dirty_next <= reg_pages_dirty_var;
-        
+    
     shadow_write_next <= shadow_write_var;
     
     long_address_read <= long_address_read_var;
@@ -6944,18 +6944,18 @@ begin
     debug_read_dbg_out <= memory_access_read;
     debug_write_dbg_out <= memory_access_write;
 
-  	debug_wdata_dbg_out <= std_logic_vector(memory_access_wdata);
-  	debug_rdata_dbg_out <= std_logic_vector(read_data);
+    debug_wdata_dbg_out <= std_logic_vector(memory_access_wdata);
+    debug_rdata_dbg_out <= std_logic_vector(read_data);
 
-  	debug_address_w_dbg_out <= std_logic_vector(to_unsigned(shadow_address,17));
-  	debug_address_r_dbg_out <= std_logic_vector(to_unsigned(shadow_address_next,17));
+    debug_address_w_dbg_out <= std_logic_vector(to_unsigned(shadow_address,17));
+    debug_address_r_dbg_out <= std_logic_vector(to_unsigned(shadow_address_next,17));
     debug4_state_out <= std_logic_vector(to_unsigned(memory_source'pos(read_source),4));
     
-  	proceed_dbg_out <= proceed;
+    proceed_dbg_out <= proceed;
 
     kickstart_address_out <= kickstart_address_next;
     fastio_addr_fast <= fastio_addr_next;
-  
+    
   end process;
 
   -- read_data input mux
