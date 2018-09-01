@@ -2941,11 +2941,6 @@ begin
         -- Enforce 16 clock delay after writing to certain IO locations
         if io_settle_delay = '1' then
           phi_pause <= '1';
-          if io_settle_counter = x"0" then
-            io_settle_delay <= '0';
-          else
-            io_settle_counter <= io_settle_counter - 1;
-          end if;
         else
           phi_pause <= '0';
         end if;
@@ -6015,6 +6010,14 @@ begin
       
     begin  -- resolve_long_address
 
+      if io_settle_delay = '1' then
+        if io_settle_counter = x"0" then
+          io_settle_delay <= '0';
+        else
+          io_settle_counter <= io_settle_counter - 1;
+        end if;
+      end if;
+      
       -- Now apply C64-style $01 lines first, because MAP and $D030 take precedence
       blocknum := to_integer(short_address(15 downto 12));
 
