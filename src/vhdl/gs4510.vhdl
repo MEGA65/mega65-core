@@ -4484,7 +4484,6 @@ begin
                   when I_LDX => is_load <= '1';
                   when I_LDY => is_load <= '1';
                   when I_LDZ => is_load <= '1';
-                                        -- Note if instruction is STORE
                   when I_STA => null;
                   when I_STX => null;
                   when I_STY => null;
@@ -6680,6 +6679,14 @@ begin
             memory_access_address(27 downto 16) := reg_addr_msbs(11 downto 0);
           else
             memory_access_address(27 downto 16) := x"000";
+          end if;
+          if reg_addr(15 downto 2)&"00" = x"DC00" then
+            -- Writing to keyboard/joystick CIA data ports.
+            -- When we are at 50MHz, the M65's keyboard virtualiser can take up
+            -- to 16 cycles to update the view.  So whenever we do something
+            -- that might change that view, we enforce a brief pause of the CPU.
+            proceed <= '0';
+            wait_states <= x"10";
           end if;
           memory_access_wdata := reg_t;
         when LoadTarget =>
