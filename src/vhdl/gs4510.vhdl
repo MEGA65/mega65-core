@@ -6282,6 +6282,8 @@ begin
       else
         io_settle_delay <= '0';
       end if;
+      memory_access_read := '0';
+      memory_access_write := '0';
     elsif proceed = '1' then
       
       -- By default read next byte in instruction stream.
