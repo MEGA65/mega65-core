@@ -600,7 +600,9 @@ architecture Behavioural of gs4510 is
 
   -- Is CPU free to proceed with processing an instruction?
   signal proceed : std_logic := '1';
-
+  signal io_settle_delay : std_logic := '0';
+  signal io_settle_counter : unsigned(3 downto 0) := x"0";
+  
   signal read_data_copy : unsigned(7 downto 0);
   
   type instruction_property is array(0 to 255) of std_logic;
@@ -6272,7 +6274,15 @@ begin
     reg_pages_dirty_var(2) := '0';
     reg_pages_dirty_var(3) := '0';
 
-    if proceed = '1' then
+    -- Waitstates after touching some IO registers, to allow for
+    -- updating of dependent signals (mostly for keyboard matrix scanning at 50MHz)
+    if io_settle_delay='1' then
+      if io_settle_counter /= x"0" then
+        io_settle_counter <= io_settle_counter - 1;
+      else
+        io_settle_delay <= '0';
+      end if;
+    elsif proceed = '1' then
       
       -- By default read next byte in instruction stream.
       memory_access_read := '1';
@@ -6685,8 +6695,8 @@ begin
             -- When we are at 50MHz, the M65's keyboard virtualiser can take up
             -- to 16 cycles to update the view.  So whenever we do something
             -- that might change that view, we enforce a brief pause of the CPU.
-            proceed <= '0';
-            wait_states <= x"10";
+            io_settle_delay <= '1';
+            io_settle_counter <= x"f";
           end if;
           memory_access_wdata := reg_t;
         when LoadTarget =>
