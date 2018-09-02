@@ -601,7 +601,7 @@ architecture Behavioural of gs4510 is
   -- Is CPU free to proceed with processing an instruction?
   signal proceed : std_logic := '1';
   signal io_settle_delay : std_logic := '0';
-  signal io_settle_counter : unsigned(3 downto 0) := x"0";
+  signal io_settle_counter : unsigned(7 downto 0) := x"00";
   
   signal read_data_copy : unsigned(7 downto 0);
   
@@ -6010,12 +6010,11 @@ begin
       
     begin  -- resolve_long_address
 
-      if io_settle_delay = '1' then
-        if io_settle_counter = x"0" then
-          io_settle_delay <= '0';
-        else
-          io_settle_counter <= io_settle_counter - 1;
-        end if;
+      if io_settle_counter = x"00" then
+        io_settle_delay <= '0';
+      else
+        io_settle_counter <= io_settle_counter - 1;
+        io_settle_delay <= '1';
       end if;
       
       -- Now apply C64-style $01 lines first, because MAP and $D030 take precedence
@@ -6699,8 +6698,9 @@ begin
             -- When we are at 50MHz, the M65's keyboard virtualiser can take up
             -- to 16 cycles to update the view.  So whenever we do something
             -- that might change that view, we enforce a brief pause of the CPU.
-            io_settle_delay <= '1';
-            io_settle_counter <= x"f";
+            if io_settle_counter = x"00" then
+              io_settle_counter <= x"ff";
+            end if;
           end if;
           memory_access_wdata := reg_t;
         when LoadTarget =>
