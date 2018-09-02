@@ -168,8 +168,15 @@ begin  -- behavioural
   matrix_col_idx <= m_col_idx;
 
   -- Let other blocks snoop combined matrix output as we scan through it.
-  matrix_combined_col <= scan_col;
-  matrix_combined_col_idx <= scan_idx;
+  scanexplort: process(ioclock)
+  begin
+    if rising_edge(ioclock) then
+      matrix_combined_col <= scan_col;
+      if scan_idx < 9 then
+        matrix_combined_col_idx <= scan_idx;
+      end if;
+    end if;
+  end process;
   
   keyread: process (ioclock)
     variable scan_col_out : std_logic;

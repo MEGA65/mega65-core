@@ -457,8 +457,10 @@ begin  -- behavioural
     else
       keyram_wea <= x"00";
     end if;
-    
-    keyram_address <= to_integer(to_unsigned(km_index,7)(6 downto 3));
+
+    if to_integer(to_unsigned(km_index,7)(6 downto 3)) < 9 then
+      keyram_address <= to_integer(to_unsigned(km_index,7)(6 downto 3));
+    end if;
     keyram_di <= (7 downto 0 => km_value); -- replicate value bit across byte
 
   end process keyread;
