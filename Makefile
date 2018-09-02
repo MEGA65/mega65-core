@@ -148,6 +148,7 @@ PERIPHVHDL=		$(VHDLSRCDIR)/sdcardio.vhdl \
 
 KBDVHDL=		$(VHDLSRCDIR)/keymapper.vhdl \
 			$(VHDLSRCDIR)/keyboard_complex.vhdl \
+			$(VHDLSRCDIR)/kb_matrix_ram.vhdl \
 			$(VHDLSRCDIR)/keyboard_to_matrix.vhdl \
 			$(VHDLSRCDIR)/matrix_to_ascii.vhdl \
 			$(VHDLSRCDIR)/widget_to_matrix.vhdl \
@@ -164,6 +165,7 @@ OVERLAYVHDL=		$(VHDLSRCDIR)/rain.vhdl \
 
 SERMONVHDL=		$(VHDLSRCDIR)/ps2_to_uart.vhdl \
 			$(VHDLSRCDIR)/uart_monitor.vhdl \
+			$(VHDLSRCDIR)/6502_top.vhdl \
 			$(VHDLSRCDIR)/uart_rx.vhdl \
 
 M65VHDL=		$(VHDLSRCDIR)/machine.vhdl \
@@ -485,6 +487,15 @@ $(VHDLSRCDIR)/charrom.vhdl:	$(TOOLDIR)/pngprepare/pngprepare $(ASSETS)/8x8font.p
 #       exe          option  infile      outfile
 	$(TOOLDIR)/pngprepare/pngprepare charrom $(ASSETS)/8x8font.png $(VHDLSRCDIR)/charrom.vhdl
 
+iverilog/driver/iverilog:	
+	git submodule init
+	git submodule update
+	cd iverilog ; autoconf ; ./configure ; make
+
+$(VHDLSRCDIR)/6502_top.vhdl:	$(SRCDIR)/verilog/* iverilog/driver/iverilog
+	( cd src/verilog ; ../../iverilog/driver/iverilog  -tvhdl -o ../vhdl/6502_top.vhdl 6502_*.v )
+ 
+
 $(SDCARD_DIR)/BANNER.M65:	$(TOOLDIR)/pngprepare/pngprepare assets/mega65_320x64.png
 	mkdir -p $(SDCARD_DIR)
 	/usr/$(BINDIR)/convert -colors 128 -depth 8 +dither assets/mega65_320x64.png $(BINDIR)/mega65_320x64_128colour.png
@@ -562,7 +573,7 @@ clean:
 	rm -f $(SDCARD_DIR)/utility.d81
 	rm -f tests/test_fdc_equal_flag.prg tests/test_fdc_equal_flag.list tests/test_fdc_equal_flag.map
 	rm -rf $(SDCARD_DIR)
-	rm -f $(VHDLSRCDIR)/kickstart.vhdl $(VHDLSRCDIR)/charrom.vhdl $(VHDLSRCDIR)/version.vhdl version.a65
+	rm -f $(VHDLSRCDIR)/kickstart.vhdl $(VHDLSRCDIR)/charrom.vhdl $(VHDLSRCDIR)/version.vhdl version.a65 $(VHDLSRCDIR)/6502_top.vhdl
 	rm -f $(BINDIR)/monitor.m65 monitor.list monitor.map $(SRCDIR)/monitor/gen_dis $(SRCDIR)/monitor/monitor_dis.a65 $(SRCDIR)/monitor/version.a65
 	rm -f $(VERILOGSRCDIR)/monitor_mem.v
 	rm -f monitor_drive monitor_load read_mem ghdl-frame-gen chargen_debug dis4510 em4510 4510tables

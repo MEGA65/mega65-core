@@ -51,7 +51,7 @@ entity keymapper is
     -- (more or less) continuously scanning combined matrix output that other blocks can either
     -- make use of directly or snoop into local copies.
     matrix_combined_col : out std_logic_vector(7 downto 0);
-    matrix_combined_col_idx : out integer range 0 to 15;
+    matrix_combined_col_idx : out integer range 0 to 8;
     
     -- RESTORE when held or double-tapped does special things
     restore_out : out std_logic := '1';

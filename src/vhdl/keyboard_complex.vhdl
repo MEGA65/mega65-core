@@ -134,7 +134,7 @@ architecture behavioural of keyboard_complex is
   signal matrix_col_idx : integer range 0 to 8;
 
   signal matrix_combined_col : std_logic_vector(7 downto 0);
-  signal matrix_combined_col_idx : integer range 0 to 15;
+  signal matrix_combined_col_idx : integer range 0 to 8;
   signal kmm_out : std_logic_vector(7 downto 0);
   signal kmm_index : integer range 0 to 15;
   signal summary_index : integer range 0 to 15;

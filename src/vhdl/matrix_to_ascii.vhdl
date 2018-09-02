@@ -458,15 +458,15 @@ begin
         read_index    := to_integer(unsigned(key_num_vec(6 downto 3)));
         key_num_bit   := to_integer(unsigned(key_num_vec(2 downto 0)));
         
-        case to_unsigned(key_num_bit,7)(2 downto 0) is
-          when x"0" => last_mask := "00000001";
-          when x"1" => last_mask := "00000010";
-          when x"2" => last_mask := "00000100";
-          when x"3" => last_mask := "00001000";
-          when x"4" => last_mask := "00010000";
-          when x"5" => last_mask := "00100000";
-          when x"6" => last_mask := "01000000";
-          when x"7" => last_mask := "10000000";
+        case to_integer(to_unsigned(key_num_bit,2)) is
+          when 0 => last_mask := "00000001";
+          when 1 => last_mask := "00000010";
+          when 2 => last_mask := "00000100";
+          when 3 => last_mask := "00001000";
+          when 4 => last_mask := "00010000";
+          when 5 => last_mask := "00100000";
+          when 6 => last_mask := "01000000";
+          when 7 => last_mask := "10000000";
           when others => last_mask := x"00";
         end case;
         debounce_mask := last_mask;
