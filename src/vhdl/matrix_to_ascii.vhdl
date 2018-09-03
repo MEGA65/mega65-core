@@ -429,6 +429,7 @@ begin
     variable read_index : integer range 0 to 15;
     variable key_num_vec : std_logic_vector(6 downto 0);
     variable key_num_bit : integer range 0 to 7;
+    variable key_num_bit_chop : unsigned(2 downto 0);
     variable debounce_mask : std_logic_vector(7 downto 0);
     variable last_mask : std_logic_vector(7 downto 0);
     variable dks : std_logic;
@@ -457,16 +458,16 @@ begin
         key_num_vec   := std_logic_vector(to_unsigned(key_num,7));
         read_index    := to_integer(unsigned(key_num_vec(6 downto 3)));
         key_num_bit   := to_integer(unsigned(key_num_vec(2 downto 0)));
-        
-        case to_integer(to_unsigned(key_num_bit,2)) is
-          when 0 => last_mask := "00000001";
-          when 1 => last_mask := "00000010";
-          when 2 => last_mask := "00000100";
-          when 3 => last_mask := "00001000";
-          when 4 => last_mask := "00010000";
-          when 5 => last_mask := "00100000";
-          when 6 => last_mask := "01000000";
-          when 7 => last_mask := "10000000";
+        key_num_bit_chop := to_unsigned(key_num_bit,7)(2 downto 0);
+        case key_num_bit_chop is
+          when "000" => last_mask := "00000001";
+          when "001" => last_mask := "00000010";
+          when "010" => last_mask := "00000100";
+          when "011" => last_mask := "00001000";
+          when "100" => last_mask := "00010000";
+          when "101" => last_mask := "00100000";
+          when "110" => last_mask := "01000000";
+          when "111" => last_mask := "10000000";
           when others => last_mask := x"00";
         end case;
         debounce_mask := last_mask;
