@@ -2941,6 +2941,7 @@ begin
         -- Enforce 16 clock delay after writing to certain IO locations
         if io_settle_delay = '1' then
           phi_pause <= '1';
+          report "phi_pause due to io_settle_delay=1 (io_settle_counter = $" & to_hstring(io_settle_counter) & ")";
         else
           phi_pause <= '0';
         end if;
@@ -5970,7 +5971,7 @@ begin
            dmagic_first_read,is_rmw,reg_arg1,reg_sp,reg_addr_msbs,reg_a,reg_x,reg_y,reg_z,reg_pageactive,shadow_rdata,proceed,
            reg_mult_a,read_data,shadow_wdata,shadow_address,kickstart_address,
            reg_pageid,rom_writeprotect,georam_page,
-           kickstart_address_next
+           kickstart_address_next,clock
            )
     variable memory_access_address : unsigned(27 downto 0) := x"FFFFFFF";
     variable memory_access_read : std_logic := '0';
@@ -6010,13 +6011,6 @@ begin
       
     begin  -- resolve_long_address
 
-      if io_settle_counter = x"00" then
-        io_settle_delay <= '0';
-      else
-        io_settle_counter <= io_settle_counter - 1;
-        io_settle_delay <= '1';
-      end if;
-      
       -- Now apply C64-style $01 lines first, because MAP and $D030 take precedence
       blocknum := to_integer(short_address(15 downto 12));
 
@@ -6285,6 +6279,17 @@ begin
     reg_pages_dirty_var(2) := '0';
     reg_pages_dirty_var(3) := '0';
 
+    if rising_edge(clock) then
+      if io_settle_counter = x"00" then
+        io_settle_delay <= '0';
+        report "clearing io_settle_delay due to io_settle_counter=$00";
+      else
+        report "decrementing io_settle_counter from $" & to_hstring(io_settle_counter);
+        io_settle_counter <= io_settle_counter - 1;
+        io_settle_delay <= '1';
+      end if;
+    end if;
+    
     if proceed = '1' then
       
       -- By default read next byte in instruction stream.
@@ -6693,15 +6698,7 @@ begin
           else
             memory_access_address(27 downto 16) := x"000";
           end if;
-          if reg_addr(15 downto 2)&"00" = x"DC00" then
-            -- Writing to keyboard/joystick CIA data ports.
-            -- When we are at 50MHz, the M65's keyboard virtualiser can take up
-            -- to 16 cycles to update the view.  So whenever we do something
-            -- that might change that view, we enforce a brief pause of the CPU.
-            if io_settle_counter = x"00" then
-              io_settle_counter <= x"ff";
-            end if;
-          end if;
+          report "io_settle: reg_addr = $" & to_hstring(reg_addr(15 downto 2)&"00");
           memory_access_wdata := reg_t;
         when LoadTarget =>
           -- For some addressing modes we load the target in a separate
@@ -6770,6 +6767,20 @@ begin
             else
               memory_access_address(27 downto 16) := x"000";
             end if;
+
+            if reg_addr(15 downto 2)&"00" = x"DC00" then
+              -- Writing to keyboard/joystick CIA data ports.
+              -- When we are at 50MHz, the M65's keyboard virtualiser can take up
+              -- to 16 cycles to update the view.  So whenever we do something
+              -- that might change that view, we enforce a brief pause of the CPU.
+              if io_settle_counter = x"00" then
+                report "Activating io_settle_counter";
+                io_settle_counter <= x"ff";
+              else
+                report "not activating io_settle_counter";
+              end if;
+            end if;
+            
           end if;
         when PushWordLow =>
           stack_push := '1';
