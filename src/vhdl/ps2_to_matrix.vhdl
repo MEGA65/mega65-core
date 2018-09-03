@@ -79,7 +79,7 @@ architecture behavioural of ps2_to_matrix is
   signal ethernet_keyevent : std_logic := '0';
 
   -- keyboard matrix ram inputs
-  signal keyram_address : integer range 0 to 8;
+  signal keyram_address : integer range 0 to 15;
   signal keyram_di : std_logic_vector(7 downto 0);
   signal keyram_wea : std_logic_vector(7 downto 0);
   
