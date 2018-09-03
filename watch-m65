@@ -1,0 +1,21 @@
+if [ "x$1" == "x" ]; then
+  echo "usage: record-m65 <network interface>"
+  echo ""
+  echo "NOTE: You must first enable the ethernet video stream on the MEGA65"
+  echo "      sffd36e1 29 from the serial monitor interface will do this."
+  exit
+fi
+make bin/videoproxy bin/vncserver
+pkill vncserver
+sudo echo
+sudo bin/videoproxy $1 &
+sleep 1
+bin/vncserver &
+sleep 1
+vncviewer localhost &
+sleep 2
+xwininfo  -name "VNC: MEGA65 Remote Display"
+x1=`xwininfo  -name "VNC: MEGA65 Remote Display" | grep "Absolute upper-left X:" | cut -f2 -d: | sed s'/ //g'`
+y1=`xwininfo  -name "VNC: MEGA65 Remote Display" | grep "Absolute upper-left Y:" | cut -f2 -d: | sed s'/ //g'`
+wmctrl -a "VNC: MEGA65 Remote Display"
+rm output.mp4

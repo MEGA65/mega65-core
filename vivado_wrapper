@@ -1,6 +1,5 @@
 #!/bin/bash
-vivado=`ls /opt/Xilinx/Vivado/ | tail -1`
-echo $vivado
-. /opt/Xilinx/Vivado/${vivado}/settings64.sh
+vivadodir=`ls -1d /opt/Xilinx/Vivado/* | tail -1`
+. ${vivadodir}/settings64.sh
 echo vivado $*
 vivado $*

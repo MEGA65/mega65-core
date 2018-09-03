@@ -412,8 +412,8 @@ architecture behavioural of sdcardio is
   signal touch_scale_y_internal : unsigned(15 downto 0 ) := to_unsigned(1024,16);
   signal touch_delta_x : unsigned(15 downto 0 ) := to_unsigned(62464,16);
   signal touch_delta_x_internal : unsigned(15 downto 0 ) := to_unsigned(62464,16);
-  signal touch_delta_y : unsigned(15 downto 0 ) := to_unsigned(2048,16);
-  signal touch_delta_y_internal : unsigned(15 downto 0 ) := to_unsigned(2048,16);
+  signal touch_delta_y : unsigned(15 downto 0 ) := to_unsigned(4096,16);
+  signal touch_delta_y_internal : unsigned(15 downto 0 ) := to_unsigned(4096,16);
   
   signal touch1_active : std_logic := '0';
   signal touch1_status : std_logic_vector(1 downto 0) := "11";
@@ -1085,7 +1085,7 @@ begin  -- behavioural
             -- @IO:GS $D6FB - Digital audio, left channel, MSB
             fastio_rdata <= pcm_right(15 downto 8);
           when x"FC" =>
-            -- @IO:GS $D6FC - audio MSB (source selected by $D6F4)
+            -- @IO:GS $D6FC - audio LSB (source selected by $D6F4)
             fastio_rdata <= audio_loopback(7 downto 0);
           when x"FD" =>
             -- @IO:GS $D6FD - audio MSB (source selected by $D6F4)

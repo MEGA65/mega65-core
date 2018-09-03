@@ -3,13 +3,18 @@
 
 COPT=	-Wall -g -std=gnu99
 CC=	gcc
-OPHIS=	./Ophis/bin/ophis -4
-OPHIS_MON= ./Ophis/bin/ophis -c
+OPHIS=	Ophis/bin/ophis
+OPHISOPT=	-4
+OPHIS_MON= Ophis/bin/ophis -c
 
 VIVADO=	./vivado_wrapper
 
-CA65=  ca65 --cpu 4510
-LD65=  ld65 -t none
+CC65=	cc65/bin/cc65
+CA65=  cc65/bin/ca65 --cpu 4510
+LD65=  cc65/bin/ld65 -t none
+GHDL=  ghdl/build/bin/ghdl
+
+CBMCONVERT=	cbmconvert/cbmconvert
 
 ASSETS=		assets
 SRCDIR=		src
@@ -62,6 +67,25 @@ TOOLS=	$(TOOLDIR)/etherkick/etherkick \
 	$(TOOLDIR)/pngprepare/pngprepare
 
 all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r1.mcs $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr.mcs
+
+$(CBMCONVERT):
+	git submodule init
+	git submodule update
+	( cd cbmconvert && make -f Makefile.unix )
+
+$(CC65):
+	git submodule init
+	git submodule update
+	( cd cc65 && make -j 8 )
+
+$(OPHIS):
+	git submodule init
+	git submodule update
+
+$(GHDL):
+	git submodule init
+	git submodule update
+	( cd ghdl && ./configure --prefix=./build && make && make install )
 
 # Not quite yet with Vivado...
 # $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr.mcs $(BINDIR)/lcd4ddr.mcs $(BINDIR)/touch_test.mcs
@@ -191,6 +215,7 @@ MEMVHDL=		$(VHDLSRCDIR)/ghdl_chipram8bit.vhdl \
 			$(VHDLSRCDIR)/ghdl_ram128x1k.vhdl \
 			$(VHDLSRCDIR)/ghdl_ram32x1024.vhdl \
 			$(VHDLSRCDIR)/ghdl_ram18x2k.vhdl \
+			$(VHDLSRCDIR)/ghdl_ram8x4096.vhdl \
 			$(VHDLSRCDIR)/ghdl_ram8x4096_sync.vhdl \
 			$(VHDLSRCDIR)/ghdl_ram32x1024_sync.vhdl \
 			$(VHDLSRCDIR)/ghdl_ram8x512.vhdl \
@@ -228,32 +253,32 @@ MONITORVERILOG=		$(VERILOGSRCDIR)/6502_alu.v \
 			$(VERILOGSRCDIR)/monitor_mem.v
 
 
-simulate:	$(SIMULATIONVHDL) $(ASSETS)/synthesised-60ns.dat
-	ghdl -i $(SIMULATIONVHDL)
-	ghdl -m cpu_test
-	./cpu_test || ghdl -r cpu_test
+simulate:	$(GHDL) $(SIMULATIONVHDL) $(ASSETS)/synthesised-60ns.dat
+	$(GHDL) -i $(SIMULATIONVHDL)
+	$(GHDL) -m cpu_test
+	./cpu_test || $(GHDL) -r cpu_test
 
-nocpu:	$(NOCPUSIMULATIONVHDL)
-	ghdl -i $(NOCPUSIMULATIONVHDL)
-	ghdl -m cpu_test
-	./cpu_test || ghdl -r cpu_test
+nocpu:	$(GHDL) $(NOCPUSIMULATIONVHDL)
+	$(GHDL) -i $(NOCPUSIMULATIONVHDL)
+	$(GHDL) -m cpu_test
+	./cpu_test || $(GHDL) -r cpu_test
 
 
 KVFILES=$(VHDLSRCDIR)/test_kv.vhdl $(VHDLSRCDIR)/keyboard_to_matrix.vhdl $(VHDLSRCDIR)/matrix_to_ascii.vhdl \
 	$(VHDLSRCDIR)/widget_to_matrix.vhdl $(VHDLSRCDIR)/ps2_to_matrix.vhdl $(VHDLSRCDIR)/keymapper.vhdl \
 	$(VHDLSRCDIR)/keyboard_complex.vhdl $(VHDLSRCDIR)/virtual_to_matrix.vhdl
-kvsimulate:	$(KVFILES)
-	ghdl -i $(KVFILES)
-	ghdl -m test_kv
-	./test_kv || ghdl -r test_kv
+kvsimulate:	$(GHDL) $(KVFILES)
+	$(GHDL) -i $(KVFILES)
+	$(GHDL) -m test_kv
+	./test_kv || $(GHDL) -r test_kv
 
 OSKFILES=$(VHDLSRCDIR)/test_osk.vhdl \
 	$(VHDLSRCDIR)/visual_keyboard.vhdl \
 	$(VHDLSRCDIR)/oskmem.vhdl
-osksimulate:	$(OSKFILES) $(TOOLDIR)/osk_image
-	ghdl -i $(OSKFILES)
-	ghdl -m test_osk
-	( ./test_osk || ghdl -r test_osk ) 2>&1 | $(TOOLDIR)/osk_image
+osksimulate:	$(GHDL) $(OSKFILES) $(TOOLDIR)/osk_image
+	$(GHDL) -i $(OSKFILES)
+	$(GHDL) -m test_osk
+	( ./test_osk || $(GHDL) -r test_osk ) 2>&1 | $(TOOLDIR)/osk_image
 
 MMFILES=$(VHDLSRCDIR)/test_matrix.vhdl \
 	$(VHDLSRCDIR)/rain.vhdl \
@@ -264,10 +289,10 @@ MMFILES=$(VHDLSRCDIR)/test_matrix.vhdl \
 	$(VHDLSRCDIR)/oskmem.vhdl \
 	$(VHDLSRCDIR)/termmem.vhdl
 
-mmsimulate:	$(MMFILES) $(TOOLDIR)/osk_image
-	ghdl -i $(MMFILES)
-	ghdl -m test_matrix
-	( ./test_matrix || ghdl -r test_matrix ) 2>&1 | $(TOOLDIR)/osk_image matrix.png
+mmsimulate:	$(GHDL) $(MMFILES) $(TOOLDIR)/osk_image
+	$(GHDL) -i $(MMFILES)
+	$(GHDL) -m test_matrix
+	( ./test_matrix || $(GHDL) -r test_matrix ) 2>&1 | $(TOOLDIR)/osk_image matrix.png
 
 MFMFILES=$(VHDLSRCDIR)/mfm_bits_to_bytes.vhdl \
 	 $(VHDLSRCDIR)/mfm_decoder.vhdl \
@@ -277,48 +302,48 @@ MFMFILES=$(VHDLSRCDIR)/mfm_bits_to_bytes.vhdl \
 	 $(VHDLSRCDIR)/crc1581.vhdl \
 	 $(VHDLSRCDIR)/test_mfm.vhdl
 
-mfmsimulate: $(MFMFILES) $(ASSETS)/synthesised-60ns.dat
-	ghdl -i $(MFMFILES)
-	ghdl -m test_mfm
-	( ./test_mfm || ghdl -r test_mfm ) 
+mfmsimulate: $(GHDL) $(MFMFILES) $(ASSETS)/synthesised-60ns.dat
+	$(GHDL) -i $(MFMFILES)
+	$(GHDL) -m test_mfm
+	( ./test_mfm || $(GHDL) -r test_mfm ) 
 
-pdmsimulate: $(VHDLSRCDIR)/test_pdm.vhdl $(VHDLSRCDIR)/pdm_to_pcm.vhdl
-	ghdl -i $(VHDLSRCDIR)/test_pdm.vhdl $(VHDLSRCDIR)/pdm_to_pcm.vhdl
-	ghdl -m test_pdm
-	( ./test_pdm || ghdl -r test_pdm ) 
+pdmsimulate: $(GHDL) $(VHDLSRCDIR)/test_pdm.vhdl $(VHDLSRCDIR)/pdm_to_pcm.vhdl
+	$(GHDL) -i $(VHDLSRCDIR)/test_pdm.vhdl $(VHDLSRCDIR)/pdm_to_pcm.vhdl
+	$(GHDL) -m test_pdm
+	( ./test_pdm || $(GHDL) -r test_pdm ) 
 
-i2csimulate: $(VHDLSRCDIR)/test_i2c.vhdl $(VHDLSRCDIR)/i2c_master.vhdl $(VHDLSRCDIR)/i2c_slave.vhdl $(VHDLSRCDIR)/debounce.vhdl $(VHDLSRCDIR)/touch.vhdl
-	ghdl -i $(VHDLSRCDIR)/test_i2c.vhdl $(VHDLSRCDIR)/i2c_master.vhdl $(VHDLSRCDIR)/i2c_slave.vhdl $(VHDLSRCDIR)/debounce.vhdl $(VHDLSRCDIR)/touch.vhdl
-	ghdl -m test_i2c
-	( ./test_i2c || ghdl -r test_i2c ) 
+i2csimulate: $(GHDL) $(VHDLSRCDIR)/test_i2c.vhdl $(VHDLSRCDIR)/i2c_master.vhdl $(VHDLSRCDIR)/i2c_slave.vhdl $(VHDLSRCDIR)/debounce.vhdl $(VHDLSRCDIR)/touch.vhdl
+	$(GHDL) -i $(VHDLSRCDIR)/test_i2c.vhdl $(VHDLSRCDIR)/i2c_master.vhdl $(VHDLSRCDIR)/i2c_slave.vhdl $(VHDLSRCDIR)/debounce.vhdl $(VHDLSRCDIR)/touch.vhdl
+	$(GHDL) -m test_i2c
+	( ./test_i2c || $(GHDL) -r test_i2c ) 
 
-fpacksimulate: $(VHDLSRCDIR)/test_framepacker.vhdl $(VHDLSRCDIR)/framepacker.vhdl
-	ghdl -i $(VHDLSRCDIR)/test_framepacker.vhdl $(VHDLSRCDIR)/framepacker.vhdl
-	ghdl -m test_framepacker
-	( ./test_framepacker || ghdl -r test_framepacker ) 
+fpacksimulate: $(GHDL) $(VHDLSRCDIR)/test_framepacker.vhdl $(VHDLSRCDIR)/framepacker.vhdl
+	$(GHDL) -i $(VHDLSRCDIR)/test_framepacker.vhdl $(VHDLSRCDIR)/framepacker.vhdl
+	$(GHDL) -m test_framepacker
+	( ./test_framepacker || $(GHDL) -r test_framepacker ) 
 
 
 MIIMFILES=	$(VHDLSRCDIR)/ethernet_miim.vhdl \
 		$(VHDLSRCDIR)/test_miim.vhdl
 
-miimsimulate:	$(MIIMFILES)
-	ghdl -i $(MIIMFILES)
-	ghdl -m test_miim
-	( ./test_miim || ghdl -r test_miim ) 
+miimsimulate:	$(GHDL) $(MIIMFILES)
+	$(GHDL) -i $(MIIMFILES)
+	$(GHDL) -m test_miim
+	( ./test_miim || $(GHDL) -r test_miim ) 
 
 ASCIIFILES=	$(VHDLSRCDIR)/matrix_to_ascii.vhdl \
 		$(VHDLSRCDIR)/test_ascii.vhdl
 
-asciisimulate:	$(ASCIIFILES)
-	ghdl -i $(ASCIIFILES)
-	ghdl -m test_ascii
-	( ./test_ascii || ghdl -r test_ascii ) 
+asciisimulate:	$(GHDL) $(ASCIIFILES)
+	$(GHDL) -i $(ASCIIFILES)
+	$(GHDL) -m test_ascii
+	( ./test_ascii || $(GHDL) -r test_ascii ) 
 
 SPRITEFILES=$(VHDLSRCDIR)/sprite.vhdl $(VHDLSRCDIR)/test_sprite.vhdl $(VHDLSRCDIR)/victypes.vhdl
-spritesimulate:	$(SPRITEFILES)
-	ghdl -i $(SPRITEFILES)
-	ghdl -m test_sprite
-	./test_sprite || ghdl -r test_sprite
+spritesimulate:	$(GHDL) $(SPRITEFILES)
+	$(GHDL) -i $(SPRITEFILES)
+	$(GHDL) -m test_sprite
+	./test_sprite || $(GHDL) -r test_sprite
 
 $(TOOLDIR)/osk_image:	$(TOOLDIR)/osk_image.c
 	$(CC) $(COPT) -I/usr/local/include -L/usr/local/lib -o $(TOOLDIR)/osk_image $(TOOLDIR)/osk_image.c -lpng
@@ -326,10 +351,10 @@ $(TOOLDIR)/osk_image:	$(TOOLDIR)/osk_image.c
 $(TOOLDIR)/frame2png:	$(TOOLDIR)/frame2png.c
 	$(CC) $(COPT) -I/usr/local/include -L/usr/local/lib -o $(TOOLDIR)/frame2png $(TOOLDIR)/frame2png.c -lpng
 
-vfsimulate:	$(VHDLSRCDIR)/frame_test.vhdl $(VHDLSRCDIR)/video_frame.vhdl
-	ghdl -i $(VHDLSRCDIR)/frame_test.vhdl $(VHDLSRCDIR)/video_frame.vhdl
-	ghdl -m frame_test
-	./frame_test || ghdl -r frame_test
+vfsimulate:	$(GHDL) $(VHDLSRCDIR)/frame_test.vhdl $(VHDLSRCDIR)/video_frame.vhdl
+	$(GHDL) -i $(VHDLSRCDIR)/frame_test.vhdl $(VHDLSRCDIR)/video_frame.vhdl
+	$(GHDL) -m frame_test
+	./frame_test || $(GHDL) -r frame_test
 
 
 # =======================================================================
@@ -353,52 +378,52 @@ $(SDCARD_DIR)/MEGA65.ROM:
 
 # ============================, print-warn, clean target
 # verbose, for 1581 format, overwrite
-$(SDCARD_DIR)/MEGA65.D81:	$(UTILITIES)
+$(SDCARD_DIR)/MEGA65.D81:	$(UTILITIES) $(CBMCONVERT)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $(SDCARD_DIR)/MEGA65.D81)
 	mkdir -p $(SDCARD_DIR)
-	cbmconvert -v2 -D8o $(SDCARD_DIR)/MEGA65.D81 $(UTILITIES)
+	$(CBMCONVERT) -v2 -D8o $(SDCARD_DIR)/MEGA65.D81 $(UTILITIES)
 
 # ============================ done moved, print-warn, clean-target
 # ophis converts the *.a65 file (assembly text) to *.prg (assembly bytes)
-%.prg:	%.a65
+%.prg:	%.a65 $(OPHIS)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
-	$(OPHIS) $< -l $*.list -m $*.map -o $*.prg
+	$(OPHIS) $(OPHISOPT) $< -l $*.list -m $*.map -o $*.prg
 
-%.bin:	%.a65
+%.bin:	%.a65 $(OPHIS)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
-	$(OPHIS) $< -l $*.list -m $*.map -o $*.prg
+	$(OPHIS) $(OPHISOPT) $< -l $*.list -m $*.map -o $*.prg
 
-%.o:	%.s
+%.o:	%.s $(CC65)
 	$(CA65) $< -l $*.list
 
-$(UTILDIR)/mega65_config.o:      $(UTILDIR)/mega65_config.s $(UTILDIR)/mega65_config.inc
+$(UTILDIR)/mega65_config.o:      $(UTILDIR)/mega65_config.s $(UTILDIR)/mega65_config.inc $(CC65)
 	$(CA65) $< -l $*.list
 
-$(UTILDIR)/mega65_config.prg:       $(UTILDIR)/mega65_config.o
+$(UTILDIR)/mega65_config.prg:       $(UTILDIR)/mega65_config.o $(CC65)
 	$(LD65) $< --mapfile $*.map -o $*.prg
 
-$(UTILDIR)/tiles.prg:       $(UTILDIR)/tiles.o
+$(UTILDIR)/tiles.prg:       $(UTILDIR)/tiles.o $(CC65)
 	$(LD65) $< --mapfile $*.map -o $*.prg
 
-$(UTILDIR)/diskmenuprg.o:      $(UTILDIR)/diskmenuprg.a65 $(UTILDIR)/diskmenu.a65 $(UTILDIR)/diskmenu_sort.a65
+$(UTILDIR)/diskmenuprg.o:      $(UTILDIR)/diskmenuprg.a65 $(UTILDIR)/diskmenu.a65 $(UTILDIR)/diskmenu_sort.a65 $(CC65)
 	$(CA65) $< -l $*.list
 
-$(UTILDIR)/diskmenu.prg:       $(UTILDIR)/diskmenuprg.o
+$(UTILDIR)/diskmenu.prg:       $(UTILDIR)/diskmenuprg.o $(CC65)
 	$(LD65) $< --mapfile $*.map -o $*.prg
 
 $(SRCDIR)/mega65-fdisk/m65fdisk.prg:	
 	( cd $(SRCDIR)/mega65-fdisk ; make )
 
-$(BINDIR)/border.prg: 	$(SRCDIR)/border.a65
-	$(OPHIS) $< -l $(BINDIR)/border.list -m $*.map -o $(BINDIR)/border.prg
+$(BINDIR)/border.prg: 	$(SRCDIR)/border.a65 $(OPHIS)
+	$(OPHIS) $(OPHISOPT) $< -l $(BINDIR)/border.list -m $*.map -o $(BINDIR)/border.prg
 
 # ============================ done moved, print-warn, clean-target
 #??? diskmenu_c000.bin yet b0rken
-$(BINDIR)/KICKUP.M65:	$(KICKSTARTSRCS) $(SRCDIR)/version.a65
-	$(OPHIS) $< -l kickstart.list -m kickstart.map
+$(BINDIR)/KICKUP.M65:	$(KICKSTARTSRCS) $(SRCDIR)/version.a65 $(OPHIS)
+	$(OPHIS) $(OPHISOPT) $< -l kickstart.list -m kickstart.map
 
 $(SRCDIR)/monitor/monitor_dis.a65: $(SRCDIR)/monitor/gen_dis
 	$(SRCDIR)/monitor/gen_dis >$(SRCDIR)/monitor/monitor_dis.a65
@@ -407,14 +432,14 @@ $(BINDIR)/monitor.m65:	$(SRCDIR)/monitor/monitor.a65 $(SRCDIR)/monitor/monitor_d
 	$(OPHIS_MON) $< -l monitor.list -m monitor.map
 
 # ============================ done moved, print-warn, clean-target
-$(UTILDIR)/diskmenuc000.o:     $(UTILDIR)/diskmenuc000.a65 $(UTILDIR)/diskmenu.a65 $(UTILDIR)/diskmenu_sort.a65
+$(UTILDIR)/diskmenuc000.o:     $(UTILDIR)/diskmenuc000.a65 $(UTILDIR)/diskmenu.a65 $(UTILDIR)/diskmenu_sort.a65 $(CC65)
 	$(CA65) $< -l $*.list
 
-$(BINDIR)/diskmenu_c000.bin:   $(UTILDIR)/diskmenuc000.o
+$(BINDIR)/diskmenu_c000.bin:   $(UTILDIR)/diskmenuc000.o $(CC65)
 	$(LD65) $< --mapfile $*.map -o $*.bin
 
-$(BINDIR)/etherload.prg:	$(UTILDIR)/etherload.a65
-	$(OPHIS) $< -l $*.list -m $*.map -o $*.prg
+$(BINDIR)/etherload.prg:	$(UTILDIR)/etherload.a65 $(OPHIS)
+	$(OPHIS) $(OPHISOPT) $< -l $*.list -m $*.map -o $*.prg
 
 
 # ============================ done moved, print-warn, clean-target
@@ -554,7 +579,7 @@ $(BINDIR)/videoproxy:	$(TOOLDIR)/videoproxy.c
 	$(CC) $(COPT) -o $(BINDIR)/videoproxy $(TOOLDIR)/videoproxy.c -I/usr/local/include -lpcap
 
 $(BINDIR)/vncserver:	$(TOOLDIR)/vncserver.c
-	$(CC) $(COPT) -o $(BINDIR)/vncserver $(TOOLDIR)/vncserver.c -I/usr/local/include -lvncserver -lpthread
+	$(CC) $(COPT) -O3 -o $(BINDIR)/vncserver $(TOOLDIR)/vncserver.c -I/usr/local/include -lvncserver -lpthread
 
 clean:
 	rm -f $(BINDIR)/KICKUP.M65 kickstart.list kickstart.map

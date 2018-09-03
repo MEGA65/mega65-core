@@ -145,8 +145,8 @@ begin
 
         -- Get most significant bits of the sample
         -- We shift it left one bit, as the microphone tends to be quite quiet
-        sample_out(15 downto 1) <= to_unsigned(sample_value,15);
-        sample_out(0) <= '0';
+        sample_out(15 downto 2) <= to_unsigned(sample_value,14);
+        sample_out(1 downto 0) <= "00";
           
       end if;
     end if;

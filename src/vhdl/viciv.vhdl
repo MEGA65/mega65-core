@@ -103,6 +103,8 @@ entity viciv is
     ----------------------------------------------------------------------
     -- VGA output
     ----------------------------------------------------------------------
+    vsync_polarity : out  STD_LOGIC := '1';
+    hsync_polarity : out  STD_LOGIC := '1';
     vsync : out  STD_LOGIC;
     hsync : out  STD_LOGIC;
     lcd_vsync : out std_logic;
@@ -875,8 +877,8 @@ architecture Behavioral of viciv is
   signal set_hsync : std_logic := '0';
   signal hsync_drive : std_logic := '0';
   signal vsync_drive : std_logic := '0';
-  signal vsync_polarity : std_logic := '1';
-  signal hsync_polarity : std_logic := '0';
+  signal vsync_polarity_internal : std_logic := '1';
+  signal hsync_polarity_internal : std_logic := '0';
 
   -- Mode line calculations
   type ss_table is array(0 to 10) of integer range 0 to 255;
@@ -1197,7 +1199,7 @@ begin
           palette_bank_chargen_alt,bitplane_sixteen_colour_mode_flags,
           vsync_delay,hsync_end,vicii_ycounter_scale_minus_zero,
           display_width,frame_width,display_height,frame_height,
-          hsync_start,hsync_polarity,vsync_polarity,ssx_table_phase          
+          hsync_start,hsync_polarity_internal,vsync_polarity_internal,ssx_table_phase          
           ) is
     variable bitplane_number : integer;
 
@@ -1846,8 +1848,8 @@ begin
           fastio_rdata <= std_logic_vector(hsync_start(9 downto 2));
         elsif register_number=124 then  -- $D307C
           fastio_rdata(3 downto 0) <= std_logic_vector(hsync_start(13 downto 10));
-          fastio_rdata(4) <= hsync_polarity;
-          fastio_rdata(5) <= vsync_polarity;
+          fastio_rdata(4) <= hsync_polarity_internal;
+          fastio_rdata(5) <= vsync_polarity_internal;
           fastio_rdata(7 downto 6) <= pixelclock_select_internal(1 downto 0);
         elsif register_number=125 then
         -- fastio_rdata <=
@@ -1882,6 +1884,9 @@ begin
     end if;
     
     if rising_edge(ioclock) then
+
+      hsync_polarity <= hsync_polarity_internal;
+      vsync_polarity <= vsync_polarity_internal;
 
       -- Calculate raster number for sprites.
       -- The -1 is an adjustment factor to make the sprites line up correctly
@@ -2489,8 +2494,8 @@ begin
                                                         pixelclock_select_internal <= x"bc";
                                                         pixelclock_select_driver <= x"bc";
                                         -- VSYNC is negative for 50Hz (required for some monitors)
-                                                        hsync_polarity <= '0';
-                                                        vsync_polarity <= '1';
+                                                        hsync_polarity_internal <= '0';
+                                                        vsync_polarity_internal <= '1';
 
                                         -- 3 1/3 physical
                                         -- pixels per actual
@@ -2516,9 +2521,9 @@ begin
                                                         vicii_max_raster <= ntsc_max_raster;
                                         -- Set 30MHz pixel clock for PAL
                                                         pixelclock_select_internal <= x"bc";
-                                                        pixelclock_select_driver <= x"bc";
-                                                        hsync_polarity <= '0';
-                                                        vsync_polarity <= '1';
+                                                        pixelclock_select <= x"bc";
+                                                        hsync_polarity_internal <= '0';
+                                                        vsync_polarity_internal <= '1';
 
                                                         chargen_x_pixels <= 3;
                                                         chargen_x_pixels_sub <= 216/3;
@@ -2540,8 +2545,8 @@ begin
                                                         vicii_max_raster <= ntsc_max_raster;
                                                         hsync_start <= to_unsigned(2140,14);
                                                         hsync_end <= to_unsigned(2540,14);
-                                                        hsync_polarity <= '0';
-                                                        vsync_polarity <= '0';
+                                                        hsync_polarity_internal <= '0';
+                                                        vsync_polarity_internal <= '0';
                                         -- Set 40MHz pixel clock for NTSC
                                                         pixelclock_select_internal <= x"3e";
                                                         pixelclock_select_driver <= x"3e";
@@ -2567,8 +2572,8 @@ begin
                                                         vicii_max_raster <= pal_max_raster;
                                                         hsync_start <= to_unsigned(2140,14);
                                                         hsync_end <= to_unsigned(2540,14);
-                                                        hsync_polarity <= '0';
-                                                        vsync_polarity <= '0';
+                                                        hsync_polarity_internal <= '0';
+                                                        vsync_polarity_internal <= '0';
 
                                         -- Set 40MHz pixel clock for NTSC
                                                         pixelclock_select_internal <= x"3e";
@@ -2593,8 +2598,8 @@ begin
                                                         vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                                                         hsync_start <= to_unsigned(2140,14);
                                                         hsync_end <= to_unsigned(2540,14);
-                                                        hsync_polarity <= '0';
-                                                        vsync_polarity <= '0';
+                                                        hsync_polarity_internal <= '0';
+                                                        vsync_polarity_internal <= '0';
 
                                         -- Set 40MHz pixel clock for NTSC
                                                         pixelclock_select_internal <= x"3e";
@@ -2668,9 +2673,9 @@ begin
                                         -- @IO:GS $D07C.0-3 VIC-IV hsync x4 start (MSB)
                                                     hsync_start(13 downto 10) <= unsigned(fastio_wdata(3 downto 0));
                                         -- @IO:GS $D07C.4 VIC-IV hsync polarity
-                                                    hsync_polarity <= fastio_wdata(4);
+                                                    hsync_polarity_internal <= fastio_wdata(4);
                                         -- @IO:GS $D07C.5 VIC-IV vsync polarity
-                                                    vsync_polarity <= fastio_wdata(5);
+                                                    vsync_polarity_internal <= fastio_wdata(5);
                                         -- @IO:GS $D07C.6-7 VIC-IV pixel clock select (30,33,40 or 50MHz)
                                                     pixelclock_select_driver(1 downto 0) <= fastio_wdata(7 downto 6);
                                                     pixelclock_select_internal(1 downto 0) <= fastio_wdata(7 downto 6);
@@ -2874,9 +2879,9 @@ begin
         clear_hsync <= '0';
       end if;
       if clear_hsync='1' then
-        hsync_drive <= '0' xor hsync_polarity;
+        hsync_drive <= '0' xor hsync_polarity_internal;
       elsif set_hsync='1' then
-        hsync_drive <= '1' xor hsync_polarity;
+        hsync_drive <= '1' xor hsync_polarity_internal;
       end if;
       hsync <= hsync_drive;
       lcd_hsync <= hsync_drive;
@@ -3098,7 +3103,7 @@ begin
       vsync_delay_drive <= vsync_delay;
       vsync_start <= frame_v_front+display_height_drive+to_integer(vsync_delay_drive);
       if ycounter=0 then
-        vsync_drive <= '1' xor vsync_polarity;
+        vsync_drive <= '1' xor vsync_polarity_internal;
       elsif ycounter=frame_v_front then
         vert_in_frame <= '1';
       elsif ycounter=vsync_start then
@@ -3107,7 +3112,7 @@ begin
         report "clearing indisplay because of vertical porch";
         vertical_flyback <= '1';        
 
-        vsync_drive <= '0' xor vsync_polarity;
+        vsync_drive <= '0' xor vsync_polarity_internal;
         vert_in_frame <= '0';
         -- Send a 1 cycle pulse at the end of each frame for
         -- streaming display module to synchronise on.
