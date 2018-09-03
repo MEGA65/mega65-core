@@ -2521,7 +2521,7 @@ begin
                                                         vicii_max_raster <= ntsc_max_raster;
                                         -- Set 30MHz pixel clock for PAL
                                                         pixelclock_select_internal <= x"bc";
-                                                        pixelclock_select <= x"bc";
+                                                        pixelclock_select_driver <= x"bc";
                                                         hsync_polarity_internal <= '0';
                                                         vsync_polarity_internal <= '1';
 
@@ -2577,7 +2577,7 @@ begin
 
                                         -- Set 40MHz pixel clock for NTSC
                                                         pixelclock_select_internal <= x"3e";
-                                                        pixelclock_select_driver<= x"3e";
+                                                        pixelclock_select_driver <= x"3e";
                                                         
                                                         chargen_x_pixels <= 2;
                                                         chargen_x_pixels_sub <= 216/2;
