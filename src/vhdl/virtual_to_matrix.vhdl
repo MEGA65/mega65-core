@@ -52,7 +52,8 @@ begin
   process (clk)
   variable km_index : integer range 0 to 127;
   variable km_value : std_logic;
-
+  variable km_index_col : unsigned(2 downto 0);
+  
   begin
     if rising_edge(clk) then
 
@@ -83,16 +84,17 @@ begin
       else
         scan_phase <= 0;
       end if;
-      
-      case to_integer(to_unsigned(km_index,2)) is
-        when 0 => keyram_wea <= "00000001";
-        when 1 => keyram_wea <= "00000010";
-        when 2 => keyram_wea <= "00000100";
-        when 3 => keyram_wea <= "00001000";
-        when 4 => keyram_wea <= "00010000";
-        when 5 => keyram_wea <= "00100000";
-        when 6 => keyram_wea <= "01000000";
-        when 7 => keyram_wea <= "10000000";
+
+      km_index_col := to_unsigned(km_index,7)(2 downto 0);          
+      case km_index_col is 
+        when "000" => keyram_wea <= "00000001";
+        when "001" => keyram_wea <= "00000010";
+        when "010" => keyram_wea <= "00000100";
+        when "011" => keyram_wea <= "00001000";
+        when "100" => keyram_wea <= "00010000";
+        when "101" => keyram_wea <= "00100000";
+        when "110" => keyram_wea <= "01000000";
+        when "111" => keyram_wea <= "10000000";
         when others => keyram_wea <= x"00";
       end case;
     
