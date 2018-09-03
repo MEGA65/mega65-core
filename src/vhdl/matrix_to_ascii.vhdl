@@ -12,7 +12,7 @@ entity matrix_to_ascii is
         reset_in : in std_logic;
 
         matrix_col : in std_logic_vector(7 downto 0);
-        matrix_col_idx : in integer range 0 to 8;
+        matrix_col_idx : in integer range 0 to 15;
         
         suppress_key_glitches : in std_logic;
         suppress_key_retrigger : in std_logic;
