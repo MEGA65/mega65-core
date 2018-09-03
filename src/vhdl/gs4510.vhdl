@@ -6775,7 +6775,7 @@ begin
               -- that might change that view, we enforce a brief pause of the CPU.
               if io_settle_counter = x"00" then
                 report "Activating io_settle_counter";
-                io_settle_counter <= x"ff";
+                io_settle_counter <= x"0f";
               else
                 report "not activating io_settle_counter";
               end if;
