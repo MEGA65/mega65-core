@@ -602,6 +602,8 @@ architecture Behavioural of gs4510 is
   signal proceed : std_logic := '1';
   signal io_settle_delay : std_logic := '0';
   signal io_settle_counter : unsigned(7 downto 0) := x"00";
+  signal io_settle_trigger : std_logic := '0';
+  signal io_settle_trigger_last : std_logic := '0';  
   
   signal read_data_copy : unsigned(7 downto 0);
   
@@ -6288,6 +6290,10 @@ begin
         io_settle_counter <= io_settle_counter - 1;
         io_settle_delay <= '1';
       end if;
+      if io_settle_trigger /= io_settle_trigger_last then
+        io_settle_counter <= x"0f";
+        io_settle_trigger_last <= io_settle_trigger;
+      end if;
     end if;
     
     if proceed = '1' then
@@ -6773,12 +6779,7 @@ begin
               -- When we are at 50MHz, the M65's keyboard virtualiser can take up
               -- to 16 cycles to update the view.  So whenever we do something
               -- that might change that view, we enforce a brief pause of the CPU.
-              if io_settle_counter = x"00" then
-                report "Activating io_settle_counter";
-                io_settle_counter <= x"0f";
-              else
-                report "not activating io_settle_counter";
-              end if;
+              io_settle_trigger <= not io_settle_trigger;
             end if;
             
           end if;
