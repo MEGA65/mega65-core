@@ -102,10 +102,10 @@ begin
       end if;
 
       if x = hsync_start then
-        hsync <= hsync_polarity; 
+        hsync_driver <= hsync_polarity; 
       end if;
       if x = hsync_end then
-        hsync <= not hsync_polarity;
+        hsync_driver <= not hsync_polarity;
       end if;
       if y = ( frame_height - lcd_height ) / 2 then
         lcd_inletterbox <= '1';
@@ -127,10 +127,10 @@ begin
         inframe <= '1';
       end if;
       if y = vsync_start then
-        vsync <= vsync_polarity;
+        vsync_driver <= vsync_polarity;
       end if;
       if y = 0 or y = vsync_end then
-        vsync <= not vsync_polarity;
+        vsync_driver <= not vsync_polarity;
       end if;
 
       -- Colourful pattern inside frame
