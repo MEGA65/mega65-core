@@ -32,7 +32,8 @@ entity iomapper is
         cpu_hypervisor_mode : in std_logic;
         hyper_trap_f011_read : out std_logic;
         hyper_trap_f011_write : out std_logic;
-
+        hyper_trap_count : out unsigned(7 downto 0);
+        
         uart_char : out unsigned(7 downto 0);
         uart_char_valid : out std_logic := '0';
         uart_monitor_char : out unsigned(7 downto 0);
@@ -322,7 +323,6 @@ architecture behavioral of iomapper is
   signal virtual_disable : std_logic;
   signal physkey_disable : std_logic;
 
-  signal hyper_trap_count : unsigned(7 downto 0) := x"00";
   signal restore_up_count : unsigned(7 downto 0) := x"00";
   signal restore_down_count : unsigned(7 downto 0) := x"00";
   

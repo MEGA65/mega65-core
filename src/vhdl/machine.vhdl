@@ -427,6 +427,7 @@ architecture Behavioral of machine is
   signal monitor_hyper_trap : std_logic := '1';
   signal hyper_trap_f011_read : std_logic := '0';
   signal hyper_trap_f011_write : std_logic := '0';
+  signal hyper_trap_count : unsigned(7 downto 0) := x"00";
 
   signal fastio_addr : std_logic_vector(19 downto 0);
   signal fastio_addr_fast : std_logic_vector(19 downto 0);
@@ -721,7 +722,9 @@ begin
       reset_combined <= '1';
     end if;
 
-    hyper_trap_combined <= hyper_trap and monitor_hyper_trap;
+--    hyper_trap_combined <= hyper_trap and monitor_hyper_trap;
+
+    hyper_trap_combined <= sw(6);
     
   -- report "btnCpuReset = " & std_logic'image(btnCpuReset) & ", reset_io = " & std_logic'image(reset_io) & ", sw(15) = " & std_logic'image(sw(15)) severity note;
   -- report "reset_combined = " & std_logic'image(reset_combined) severity note;
@@ -820,7 +823,9 @@ begin
       -- XXX temporary debug
       seg_led_data(23 downto 16) <= protected_hardware_sig;
       seg_led_data(15 downto 8) <= uart_char;
-      seg_led_data(7 downto 0) <= uart_monitor_char;
+      seg_led_data(7 downto 1) <= "0000000";
+      seg_led_data(0) <= restore_nmi;
+      
       
       -- segments are:
       -- 7 - decimal point
@@ -1232,6 +1237,7 @@ begin
       hyper_trap => hyper_trap,
       hyper_trap_f011_read => hyper_trap_f011_read,
       hyper_trap_f011_write => hyper_trap_f011_write,
+      hyper_trap_count => hyper_trap_count,
       cpuclock => cpuclock,
       pixelclk => pixelclock,
       clock50mhz => clock50mhz,

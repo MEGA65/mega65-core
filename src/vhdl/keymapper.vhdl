@@ -133,8 +133,8 @@ architecture behavioural of keymapper is
   -- These hold the last complete scanned values
   signal portb_value : std_logic_vector(7 downto 0);
   signal porta_value : std_logic_vector(7 downto 0);
-  
-  component kb_matrix_ram is
+
+    component kb_matrix_ram is
     port (ClkA : in std_logic;
           addressa : in integer range 0 to 8;
           wea : in std_logic;
