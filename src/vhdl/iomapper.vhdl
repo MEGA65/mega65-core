@@ -1089,7 +1089,7 @@ begin
         matrix_mode_trap <= '1';
         ef_latch <= '1';
       end if;
-      if ascii_key /= x"ef" then
+      if ascii_key_valid='0' or ascii_key /= x"ef" then
         ef_latch <= '0';
       end if;
 
