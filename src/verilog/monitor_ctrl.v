@@ -263,7 +263,7 @@ assign monitor_flag_en = mem_trace_reg[1];
 assign history_write = mem_trace_reg[2];
 assign history_write_continuous = mem_trace_reg[3];
 assign monitor_irq_inhibit = mem_trace_reg[4];
-assign monitor_hyper_trap = mem_trace_reg[5];
+assign monitor_hyper_trap = 1;   
 assign monitor_watch_en = mem_trace_reg[6];
 assign monitor_break_en = mem_trace_reg[7];
 
