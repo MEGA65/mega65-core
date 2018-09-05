@@ -782,7 +782,8 @@ begin
       end if;
 
       y_start_current_upabit <= y_start_current - y_start_current(11 downto 3) - y_start_minimum - 2;
-        
+
+      report "ycounter_in = $" & to_hstring(ycounter_in);
       if ycounter_in = 0 and ycounter_last /= 0 then
         max_y <= ycounter_last;
         max_x <= 0;

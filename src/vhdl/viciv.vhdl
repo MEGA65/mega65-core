@@ -2724,6 +2724,7 @@ begin
   begin    
     if rising_edge(pixelclock) and all_pause='0' then
 
+      report "ycounter = $" & to_hstring(ycounter) & ", ycounter_driver = $" & to_hstring(ycounter_driver);
       ycounter <= ycounter_driver;
       pixelclock_select <= pixelclock_select_driver;
       vgared <= vgared_driver;
@@ -2969,7 +2970,7 @@ begin
         if xcounter > 255 then
           if external_frame_y_zero='0' then
             report "XZERO: incrementing ycounter from " & integer'image(to_integer(ycounter));
-            ycounter <= ycounter + 1;
+            ycounter_driver <= ycounter_driver + 1;
 
             displaycolumn0 <= '1';
             displayy <= displayy + 1;
@@ -3011,7 +3012,7 @@ begin
             end if;
           else
             -- Start of next frame
-            ycounter <= (others =>'0');
+            ycounter_driver <= (others =>'0');
             report "LEGACY: chargen_y_sub = 0, first_card_of_row = 0 due to start of frame";
             chargen_y_sub <= (others => '0');
             next_card_number <= (others => '0');
