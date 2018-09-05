@@ -722,9 +722,7 @@ begin
       reset_combined <= '1';
     end if;
 
---    hyper_trap_combined <= hyper_trap and monitor_hyper_trap;
-
-    hyper_trap_combined <= sw(6);
+    hyper_trap_combined <= hyper_trap and monitor_hyper_trap;
     
   -- report "btnCpuReset = " & std_logic'image(btnCpuReset) & ", reset_io = " & std_logic'image(reset_io) & ", sw(15) = " & std_logic'image(sw(15)) severity note;
   -- report "reset_combined = " & std_logic'image(reset_combined) severity note;
