@@ -36,7 +36,7 @@ $014-$017 - Size of freeze program area (in sectors)
 $018-$01B - Size of each freeze slot (in sectors)
 $01C-$01D - Number of freeze slots
 $01E-$01F - Number of sectors in freeze slot directory
-$020-$023 - Start of freeze program area (in sectors)
+$020-$023 - Start of service program area (in sectors)
 $024-$027 - Size of service program area (in sectors)
 $028-$02B - Size of each service slot (in sectors)
 $02C-$02D - Number of service slots
