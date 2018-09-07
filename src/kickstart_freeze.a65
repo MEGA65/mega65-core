@@ -49,10 +49,10 @@ freeze_write_sector_and_wait:
 	lda $d683
 	lda $d684
 
-;	; Require SHIFT press and release between every sector
+	; Require SHIFT press and release between every sector
 ;fww1:	lda $d611
 ;	beq fww1
-;fww2: 	lda $d611
+;fww2:	lda $d611
 ;	bne fww2
 
 
@@ -88,6 +88,7 @@ fwb1:	lda $d680
 	and #$03
 	bne freeze_write_busywait0
 
+	; trigger write
 	lda #$03
 	sta $d680
 
@@ -135,8 +136,10 @@ freeze_write_busywait:
 	bne freeze_write_busywait
 
 	; Work around SD bug by reading the sector again
-	lda #$02
-	sta $d680
+	; XXX - Ideally read it into a different buffer, and compare, and if there
+	; was a verify error, then try again.
+;	lda #$02
+;	sta $d680
 
 	pla
 	sta $d684
@@ -164,6 +167,15 @@ freeze_save_region:
 	bne fsr1
 	rts
 fsr1:
+
+	; Call setup routine to make any special preparations
+	; (eg copying data out of non-memory mapped areas, or collecting
+	; various groups of data together)
+	phx
+	tax
+	jsr	dispatch_freeze_prep
+	plx
+
 	; Get address of region
 	lda freeze_mem_list+0,x
 	sta freeze_region_dmalist_source_start+0
@@ -270,6 +282,16 @@ not_too_big:
 	lda freeze_region_dmalist_count+0
 	lda freeze_region_dmalist_count+1
 
+	; advance source address
+	lda freeze_region_dmalist_source_start+1
+	clc
+	adc #$02
+	sta freeze_region_dmalist_source_start+1
+	lda freeze_region_dmalist_source_bank
+	adc #$00
+	sta freeze_region_dmalist_source_bank
+	
+
 	; Execute DMA job
 	lda #$ff
 	sta $d702
@@ -327,12 +349,15 @@ do_freeze_prep_stash_sd_buffer_and_regs:
 	NOP
 	NOP
 	STA	(<dos_scratch_vector) ,Z
+	DEX
 	DEZ
-	BPL	@zz
+	CPZ #$FF
+	BNE	@zz
 	LDZ	#$00
 
 	; Now DMA copy the SD sector buffer from $FFD6e00 to
 	; $FFD6000.
+	; XXX Replace this (And the above!) with a fixed DMA list. It will be shorter and faster
 	lda	#$ff
 	sta	freeze_region_dmalist_source_mb
 	sta	freeze_region_dmalist_dest_mb
@@ -370,12 +395,12 @@ freeze_prep_jump_table:
 	.alias freeze_prep_palette1 4
 	.alias freeze_prep_palette2 6
 	.alias freeze_prep_palette3 8
+	.word do_freeze_prep_palette_select
+	.word do_freeze_prep_palette_select
+	.word do_freeze_prep_palette_select
+	.word do_freeze_prep_palette_select
 	.alias freeze_prep_stash_sd_buffer_and_regs 10
-	.word do_freeze_prep_palette_select
-	.word do_freeze_prep_palette_select
-	.word do_freeze_prep_palette_select
-	.word do_freeze_prep_palette_select
-	.word do_freeze_prep_sdcard_regs_to_scratch
+	.word do_freeze_prep_stash_sd_buffer_and_regs
 
 do_freeze_prep_sdcard_regs_to_scratch:
 	; Copy the main SD card access registers to a
@@ -429,6 +454,7 @@ do_freeze_prep_palette_select:
 	asl
 	asl
 	asl
+	ora #$3f  ; keep displaying the default palette
 	sta $d070
 	rts
 	
@@ -472,30 +498,6 @@ freeze_mem_list:
 	.byte 0
 	.byte freeze_prep_none
 
-	; Process scratch space
-	.dword currenttask_block
-	.word $0100
-	.byte 0
-	.byte freeze_prep_none
-	
-	; $D640-$D67E hypervisor state registers
-	.dword $ffd3640
-	.word $003F
-	.byte 0
-	.byte freeze_prep_none
-
-	; VIC-IV, F011 $D000-$D0FF
-	.dword $ffd3000
-	.word $0100
-	.byte 0
-	.byte freeze_prep_none
-
-	; 128KB RAM + 128KB "ROM"
-	.dword $0000000
-	.word $0000      
-	.byte 4          ; =4x64K blocks = 128K + 128K
-	.byte freeze_prep_none	
-
 	; VIC-IV palette block 0
 	.dword $ffd3100
 	.word $0300
@@ -518,8 +520,36 @@ freeze_mem_list:
 	.dword $ffd3100
 	.word $0300
 	.byte 0
-	.byte freeze_prep_palette3
+	.byte freeze_prep_palette3	
+
+	; Process scratch space
+	.dword currenttask_block
+	.word $0100
+	.byte 0
+	.byte freeze_prep_none
 	
+	; $D640-$D67E hypervisor state registers
+	; XXX - These can't be read by DMA, so we need to have a
+	; prep routine that copies them out first?
+	.dword $ffd3640
+	.word $003F
+	.byte 0
+	.byte freeze_prep_none
+
+	; VIC-IV, F011 $D000-$D0FF
+	.dword $ffd3000
+	.word $0100
+	.byte 0
+	.byte freeze_prep_none
+
+	; XXX - Other IO chips!
+
+	; 128KB RAM + 128KB "ROM"
+	.dword $0000000
+	.word $0000      
+	.byte 4          ; =4x64K blocks = 128K + 128K
+	.byte freeze_prep_none	
+
 	; $D700-$D7FF CPU registers
 	.dword $ffd3700
 	.word $0100
