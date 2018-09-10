@@ -328,6 +328,14 @@ dispatch_freeze_prep:
 
 	jmp (freeze_prep_jump_table,x)
 
+
+do_unfreeze_post_restore_sd_buffer_and_regs:
+	; XXX - Not implemented, should reverse the following
+do_unfreeze_prep_restore_sd_buffer_and_regs:
+	; But there is nothing we need to do in preparation to unfreezing
+	; such a region, so just tie it to an RTS
+	RTS
+
 do_freeze_prep_stash_sd_buffer_and_regs:
 	; Stash the SD and DMAgic registers we use to actually save
 	; the machine state.
@@ -388,6 +396,7 @@ do_freeze_prep_stash_sd_buffer_and_regs:
 
 	rts
 
+; Jump table of routines to be called before saving specific regions
 freeze_prep_jump_table:
 	.alias freeze_prep_none 0
 	.word do_freeze_prep_sdcard_regs_to_scratch
@@ -401,6 +410,40 @@ freeze_prep_jump_table:
 	.word do_freeze_prep_palette_select
 	.alias freeze_prep_stash_sd_buffer_and_regs 10
 	.word do_freeze_prep_stash_sd_buffer_and_regs
+
+; Jump table of routines to be called before restoring specific regions
+; (the same region list is used for freeze and unfreeze, so the jump
+; tables for unfreezing mirror those used during freezing. The only difference
+; is we require two sets of jump tables for unfreezing, as sometimes we have
+; to prepare the memory map before restoring, and sometimes we have to move
+; the restored data to the correct place in memory after restoration.
+unfreeze_prep_jump_table:
+	; SD card buffer and regs get restored in post routine
+	.word do_unfreeze_prep_none
+	.word do_unfreeze_prep_palette_select
+	.word do_unfreeze_prep_palette_select
+	.word do_unfreeze_prep_palette_select
+	.word do_unfreeze_prep_palette_select
+	; SD card buffer and regs get restored in post routine
+	.word do_unfreeze_prep_none
+
+unfreeze_post_jump_table:
+	.word do_unfreeze_post_scratch_to_sdcard_regs
+	.word do_unfreeze_post_none
+	.word do_unfreeze_post_none
+	.word do_unfreeze_post_none
+	.word do_unfreeze_post_none
+	.word do_unfreeze_post_restore_sd_buffer_and_regs	
+
+do_unfreeze_prep_none:
+do_unfreeze_post_none:
+	; This just needs to have an RTS, so we use one from the end of this
+	; routine.
+	RTS
+
+do_unfreeze_post_scratch_to_sdcard_regs:
+	; XXX - Not implemented
+	RTS
 
 do_freeze_prep_sdcard_regs_to_scratch:
 	; Copy the main SD card access registers to a
@@ -442,6 +485,8 @@ freeze_region_dmalist_dest_bank:
 	.byte $00
 	.word $0000 ; modulo (unused)	
 
+do_unfreeze_prep_palette_select:
+	; We do the same memory map setup during freeze and unfreeze
 do_freeze_prep_palette_select:
 	; X = 6, 8, 10 or 12
 	; Use this to pick which of the four palette banks
