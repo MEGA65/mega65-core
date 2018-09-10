@@ -438,7 +438,7 @@ begin  -- rtl
                 erase_address
                   <= 4096 - (te_y_max+1) * te_line_length;
                 terminal_emulator_fast <= '0';
-                te_cursor_address <= te_cursor_address - te_line_length;
+                te_cursor_address <= te_cursor_address - te_line_length + 1;
               end if;
             end if;
           when x"08" =>
@@ -508,7 +508,7 @@ begin  -- rtl
                 scroll_terminal_up <= '1';
                 erase_address <= te_screen_start;
                 terminal_emulator_fast <= '0';
-                te_cursor_address <= te_cursor_address - te_line_length;
+                te_cursor_address <= te_cursor_address - te_line_length + 1;
               end if;
             end if;
         end case;
