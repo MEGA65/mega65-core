@@ -1505,7 +1505,7 @@ begin
 
     hsync_in => hsync_drive,
     vsync_in => vsync_drive,
-    pixel_x_640 => pixel_x_640,
+    pixel_x_800 => native_x_640,
     pixel_y_scale_200 => pixel_y_scale_200,
     pixel_y_scale_400 => pixel_y_scale_400,
     ycounter_in => ycounter,	
