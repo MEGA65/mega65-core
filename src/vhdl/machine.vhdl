@@ -542,6 +542,9 @@ architecture Behavioral of machine is
   signal lcd_hsync1 : std_logic := '0';
   signal lcd_vsync1 : std_logic := '0';
   signal hsync_drive1 : std_logic := '0';
+  signal hsync_uninverted : std_logic := '0';
+  signal hsync_ntsc60_uninverted : std_logic := '0';
+  signal hsync_pal50_driver_uninverted : std_logic := '0';
   signal vsync_drive1 : std_logic := '0';
   signal lcd_pixel_strobe1 : std_logic := '0';
   signal lcd_display_enable1 : std_logic := '0';
@@ -668,6 +671,7 @@ architecture Behavioral of machine is
   signal hsync_drive : std_logic := '0';
   signal vsync_drive : std_logic := '0';
   signal hsync_driver : std_logic := '0';
+  signal hsync_drive_uninverted : std_logic := '0';
   signal vsync_driver : std_logic := '0';
   
   signal all_pause : std_logic := '0';
@@ -1015,6 +1019,7 @@ begin
                   )                  
     port map ( clock => clock30,
                hsync => hsync_pal50_driver,
+               hsync_uninverted => hsync_pal50_driver_uninverted,
                vsync => vsync_pal50_driver,
                hsync_polarity => hsync_polarity,
                vsync_polarity => vsync_polarity,
@@ -1038,6 +1043,7 @@ begin
     port map ( clock => clock40,
                hsync_polarity => hsync_polarity,
                vsync_polarity => vsync_polarity,
+               hsync_uninverted => hsync_ntsc60_uninverted,
                hsync => hsync_ntsc60,
                vsync => vsync_ntsc60,
                x_zero => x_zero_ntsc60,
@@ -1503,7 +1509,7 @@ begin
     matrix_fetch_address => matrix_fetch_address,
     seed => matrix_rain_seed,
 
-    hsync_in => hsync_drive,
+    hsync_in => hsync_drive_uninverted,
     vsync_in => vsync_drive,
     pixel_x_800 => native_x_640,
     pixel_y_scale_200 => pixel_y_scale_200,
@@ -1756,6 +1762,7 @@ begin
       -- PAL 50 Hz frame
       hsync_drive1 <= hsync_pal50;
       vsync_drive1 <= not vsync_pal50;
+      hsync_uninverted <= hsync_pal50_driver_uninverted;
       lcd_hsync1 <= hsync_pal50;
       lcd_vsync1 <= not lcd_vsync_pal50;
       lcd_display_enable1 <= lcd_inframe_pal50;
@@ -1766,6 +1773,7 @@ begin
       -- NTSC 60 Hz frame
       hsync_drive1 <= hsync_ntsc60;
       vsync_drive1 <= vsync_ntsc60;
+      hsync_uninverted <= hsync_ntsc60_uninverted;
       lcd_hsync1 <= hsync_ntsc60;
       lcd_vsync1 <= lcd_vsync_ntsc60;
       lcd_display_enable1 <= lcd_inframe_ntsc60;
