@@ -1758,6 +1758,7 @@ begin
           vgablue_source <= vgablue_viciv;
       end case;
     end if;
+    hsync_drive_uninverted <= hsync_uninverted;
     if pixelclock_select(7)='1' then
       -- PAL 50 Hz frame
       hsync_drive1 <= hsync_pal50;
