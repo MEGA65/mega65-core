@@ -3,23 +3,15 @@ freeze_to_slot:
 
 	; Slot in XXYY
 
-	lda syspart_present
-	bne f2s1
-	lda #syspart_error_nosyspart
-	sta syspart_error_code
-	clc
-	rts
-f2s1:
 	jsr syspart_locate_freezeslot
-
-	jsr freeze_save_to_sdcard_immediate
-	sec
-	rts
+	bcc ffail
+	jmp freeze_save_to_sdcard_immediate
+ffail:	rts
 
 
 freeze_save_to_sdcard_immediate:
 
-	; Save the current process to the SD card. $D681-4 are expected to
+	; Save the current process to the SD card. $D681-4 are expecxted to
 	; already be pointing to the first sector of the freeze slot
 
 	; Stash SD card registers to scratch area
