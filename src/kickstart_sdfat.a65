@@ -93,6 +93,21 @@ issdhc:
 ;;; SD Card access routines
 ;;; ----------------------------------------------------------------------------
 ;
+
+sd_wait_for_ready:
+		jsr sdtimeoutreset
+		jsr sdreadytest
+		rts
+		
+sd_wait_for_ready_reset_if_required:
+		; Wait until the SD card is ready. If it doesn't get ready,
+		; then continuously reset it until it does become ready.
+		jsr sd_wait_for_ready
+		bcs @isReady
+		jsr sd_resetsequence
+		jmp sd_wait_for_ready_reset_if_required
+@isReady:	rts
+
 sd_resetsequence:
 		; write $00 to $D680 to start reset
 		;
@@ -108,8 +123,7 @@ sd_resetsequence:
 		sta $D680
 
 		; Wait for SD card to become ready
-		jsr sdtimeoutreset
-re2:		jsr sdreadytest
+re2:		jsr sd_wait_for_ready
 		bcs re2done	; success, so return
 		bne re2		; not timed out, so keep trying
 		rts		; timeout, so return
