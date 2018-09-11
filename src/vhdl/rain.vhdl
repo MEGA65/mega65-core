@@ -61,6 +61,7 @@ entity matrix_rain_compositor is
     -- operation, regardless of physical video mode)
     pixel_x_800 : in integer;
     pixel_x_800_out : out integer;
+    lcd_in_letterbox : in std_logic;
     
     -- Remote memory access interface to visual keyboard for
     -- character set.
@@ -135,7 +136,7 @@ architecture rtl of matrix_rain_compositor is
   signal frame_number : integer range 0 to 127 := 70;
   signal lfsr_advance_counter : integer range 0 to 31 := 0;
   signal last_hsync : std_logic := '1';
-  signal last_vsync : std_logic := '1';
+  signal last_letterbox : std_logic := '1';
   signal last_pixel_x_800 : integer := 0;
   
   signal drop_start : integer range 0 to 63 := 1;
@@ -247,7 +248,7 @@ begin  -- rtl
       hsync_out <= hsync_in;
       vsync_out <= vsync_in;
       last_hsync <= hsync_in;
-      last_vsync <= vsync_in;
+      last_letterbox <= lcd_in_letterbox;
 
       drop_row <= (to_integer(ycounter_in)+0)/16;
 
@@ -767,7 +768,11 @@ begin  -- rtl
               "  pixel_out = " & std_logic'image(char_bits(7))
               & ", char_bits=%" & to_string(char_bits);
           end if;
-          if row_counter >= te_header_line_count then
+          if last_letterbox = '0' then
+            vgared_out <= x"00";
+            vgagreen_out <= x"00";
+            vgablue_out <= x"00";
+          elsif row_counter >= te_header_line_count then
             -- In normal text area
             if char_bits(0) = '1' then
               if is_cursor='1' and te_blink_state='1' then
@@ -875,7 +880,7 @@ begin  -- rtl
         lfsr_advance(1 downto 0) <= "11";        
         lfsr_advance(3 downto 0) <= "1111";        
       end if;
-      if last_vsync = '1' and vsync_in = '0' then
+      if last_letterbox = '0' and lcd_in_letterbox = '1' then
         -- Vertical flyback = start of next frame
         report "Resetting at end of flyback";
 

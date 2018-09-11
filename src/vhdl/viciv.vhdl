@@ -111,6 +111,7 @@ entity viciv is
     lcd_hsync : out std_logic;
     lcd_display_enable : out std_logic;
     lcd_pixel_strobe : out std_logic;
+    lcd_in_letterbox : out std_logic;
     vgared : out  UNSIGNED (7 downto 0);
     vgagreen : out  UNSIGNED (7 downto 0);
     vgablue : out  UNSIGNED (7 downto 0);
@@ -279,7 +280,7 @@ architecture Behavioral of viciv is
   
   constant frame_v_front : integer := 1;
 
-  signal lcd_in_letterbox : std_logic := '1';
+  signal lcd_in_letterbox_internal : std_logic := '1';
   
   -- Frame generator counters
   -- DEBUG: Start frame at a point that will soon trigger a badline
@@ -2724,6 +2725,8 @@ begin
   begin    
     if rising_edge(pixelclock) and all_pause='0' then
 
+      lcd_in_letterbox <= lcd_in_letterbox_internal;
+      
       report "ycounter = $" & to_hstring(ycounter) & ", ycounter_driver = $" & to_hstring(ycounter_driver);
       ycounter <= ycounter_driver;
       pixelclock_select <= pixelclock_select_driver;
@@ -3132,13 +3135,13 @@ begin
       -- LCD letter box starts after half the excess raster lines are gone, so
       -- that it is vertically centred on the 800x480 display.
       if to_integer(ycounter) = (to_integer(vsync_delay_drive) + (to_integer(display_height) - 480)/2) then
-        lcd_in_letterbox <= '1';
+        lcd_in_letterbox_internal <= '1';
       elsif vertical_flyback = '1' then
-        lcd_in_letterbox <= '0';
+        lcd_in_letterbox_internal <= '0';
       end if;
       -- Gate LCD pixel enable based on whether we are in the active part of      
       -- the scan, and within the LCD letter box region.
-      if postsprite_inborder='0' and lcd_in_letterbox='1' then
+      if postsprite_inborder='0' and lcd_in_letterbox_internal='1' then
         lcd_display_enable <= '1';
       else
         lcd_display_enable <= '0';
