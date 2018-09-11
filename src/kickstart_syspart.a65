@@ -15,6 +15,7 @@
 ;
 
 	.alias syspart_error_readerror $01
+	.alias syspart_error_badslotnum $02
 	.alias syspart_error_badmagic  $42
 	.alias syspart_error_nosyspart $ff
 
@@ -163,15 +164,28 @@ syspart_locate_freezeslot:
 	bne splf1
 	lda #syspart_error_nosyspart
 	sta syspart_error_code
+	clc
 	rts
 splf1:
+	; Check that freeze slot number is not invalid
+	cpy syspart_freeze_slot_count+1
+	beq sc1
+	bcc slotnumok
+sc1:	cpx syspart_freeze_slot_count+0
+	beq slotbad
+	bcc slotnumok
+slotbad:
+	; Report error status for out of bounds slot number
+	lda #syspart_error_badslotnum
+	sta syspart_error_code
+	clc
+	rts
+
+slotnumok:
+
 	jsr syspart_locate_freezeslot_0
 	; Now add freeze slot size x (YYXX) bytes
-	; This is needless to say a bit of a pain to calculate
-	; on an 8-bit integer-only CPU.  Our long-planned
-	; Integer Processing Unit (IPU) would be welcome exactly
-	; now, so that we could load in the multiplication inputs
-	; and read the outputs a convenient few cycles later.
+	; Use hardware multiplier to work out slot address
 
 	; Set multiplicant inputs to multiplier
 	ldx #$03
@@ -197,6 +211,7 @@ splf3:	lda mult48_result0,x
 	dex
 	bpl splf3
 
+	sec
 	rts
 
 syspart_locate_freezeslot_0:
