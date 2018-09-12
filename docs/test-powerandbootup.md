@@ -9,13 +9,13 @@ ensure that the host-PC is providing power through the USB cable, and that the P
 
 * Reset the board:  
 press and release the "CPU_RESET" button.  
--> during the approx 3-secs of boot-display, the LCD should display ``4800 4502``.  
+-> during the approx 3-secs of boot-display, the LCD should display ``5000 0000``.  
 -> when in c65 mode, the LCD should display ``0400 4502``.  
 
 * reprogram the board:  
 press and release the "PROG" button.  
 -> (results are the same as the above test)  
--> during the approx 3-secs of boot-display, the LCD should display ``4800 4502``.  
+-> during the approx 3-secs of boot-display, the LCD should display ``5000 0000``.  
 -> when in c65 mode, the LCD should display ``0400 4502``.  
 
 * hold the boot-screen:  

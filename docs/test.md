@@ -17,7 +17,7 @@ A description of the hardware is shown below:
 ![alt tag](https://raw.githubusercontent.com/Ben-401/mega65pics/master/board.jpg)  
 The above image shows:  
 * Nexys4DDR development board,  
-* VGA port connected to a vga monitor capable of 1920x1200@60hz,  
+* VGA port connected to a vga monitor capable of 800x600 @ 50Hz and 60Hz
 * USB port connected to a simple USB keyboard,  
 * PROG/UART port connected to host-PC, for two reasons:  
  * to provide power to the Nexys board, and  
@@ -26,11 +26,10 @@ The host-PC should have the m65dbg running or a suitable serial-port program. I 
 * SDMICRO port has a SDcard inserted, SDcard should contain the following files at a minimum:
  * ``bit03141732_dev..._1541f08~.bit (or similar)``  
 ``BOOTLOGO.M65 (optional)``  
-``C000UTIL.BIN``  
 ``CHARROM.M65``  
 ``MEGA65.D81``  
 ``MEGA65.ROM``  
-* FPGA-Switches (SW-x) all in their OFF position, which is DOWN.
+* FPGA-Switches (SW-x) all in their OFF position, which is DOWN, if using a Nexys4 or Nexys4DDR development board.
 
 ## Test Procedure
 

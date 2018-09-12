@@ -1,13 +1,14 @@
 ## This is the 'toplevel' documentation file.  
 <[how to edit](./howtoedit.md)> <[how to contribute](./howtocontribute.md)>
 
+XXX - Note that this document is out of date
+
 # Table of Contents:
 
 * [build](./build.md) - how to download source code, pre-building, compiling bitstream, loading into FPGA, etc  
 * [using](./using.md) - how to use the architecture when it is running in the fpga  
   * [monitor](./monitor.md) - how to interface with the FPGA using a serial port monitor  
-* [hardware](./hardware.md) - details the interconnectivity of major hardware components  
-* [structural](./structural.md) - vhdl/fpga firmware diagrams and descriptions  
+* [supported-hardware](./supported-hardware.md) - Which FPGA boards can be used, and what modes do monitors need to support?
 * [kickup](./kickup.md) - firmware description and boot code  
   * [fat32](./fat32.md) - implementation of fat32 file system  
 * [viciv](./viciv-modes.md) - information on the viciv (VIC-4) video chip (unsure if this is accurate)  

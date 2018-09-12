@@ -1,5 +1,7 @@
 ## c65 mode
 
+Simple set of tests to verify that C65 mode is working correctly.
+
 * Power up the board:  
 ensure that the host-PC is providing power through the USB cable, and that the POWER switch is ON.  
 -> verify that the VGA screen shows the same as below:  
