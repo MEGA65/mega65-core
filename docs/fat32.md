@@ -1,5 +1,9 @@
 ## This is the 'fat32 / sdcard' documentation file.
 
+This file is out of date.  The most valuable information it contains 
+is the internal FAT32 and partition handling within the Hypervisor (kickstart)
+code, to help others with extending those routines and functionality
+
 # Table of Contents:
 
 [Introduction](#introduction)  
