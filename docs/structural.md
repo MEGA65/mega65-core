@@ -19,7 +19,6 @@ The following components are currently documented (at least in part):
 * [container/machine/iomapper/sid](#sid)
 * [container/machine/iomapper/ethernet](#ethernet)
 * [container/machine/iomapper/sdcardio](#sdcardio)
-* [container/machine/iomapper/farcallstack](#farcallstack)
 * [container/machine/monitor](#monitor)
 
 ## Introduction
@@ -81,7 +80,6 @@ Sub-components include:
 * "[sid](#sid)"  
 * "[ethernet](#ethernet)"  
 * "[sdcardio](#sdcardio)"  
-* "[farcallstack](#farcallstack)"  
 
 [![iomapper](./images/iomapper-small.jpg)](./images/iomapper.jpg)  
 Click the image above for a hi-res JPG, else the [PDF link](./images/iomapper.pdf).
@@ -143,13 +141,6 @@ It is suggested that this component be broken up into more discrete components.
 This component contains: (enuff that it probly warrants a drawing)
 * three RAM components, each of size "8-bit by 512",
 * a single StateMachine to do all the work
-
-
-## farcallstack
-This component seems to be a dualport RAM, and is just implemented using processes, ie no sub-components.  
-The size is "64-bit by 512".  
-I think this component samples the CPU InstructionRegister, ProgramCounter, A,X,Y-registers, ALU-state, etc, and stores these in a circular-buffer. This data can be accessed from the buffer when the Hypervisor-mode is used, or by using the UART-debugger.  
-This component is not fully understood.  
 
 
 ## monitor
