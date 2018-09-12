@@ -18,7 +18,7 @@ The overall process from go-to-whoa takes about 60 minutes.
 Basically you:
 
 1. download the repository from github (5 mins),
-1. compile the design into a bitstream (40 - 240 mins),
+1. compile the design into a bitstream (10 - 240 mins),
 1. copy bitstream onto fpga board (5 mins).
 
 Detailed instructions are below.
@@ -27,7 +27,7 @@ Detailed instructions are below.
 
 The following is assumed:
 
-1. you have linux, say, Ubuntu 16.04
+1. you have linux, say, Ubuntu 18.04
 1. you have git installed, if not, use the following:
 ```
 $> sudo apt-get install git
@@ -40,10 +40,9 @@ $> cd $GIT_ROOT
 Clone the following two git repositories into your working directory
 ```
 $GIT_ROOT$> git clone https://github.com/MEGA65/mega65-core.git
-$GIT_ROOT$> git clone https://github.com/gardners/Ophis.git
 $GIT_ROOT$> 
 ```
-You should now have two directories in your working directory, ie ```mega65-core``` and ```Ophis```.
+You should now have a directory in your working directory called ```mega65-core```.
 
 If you have a github account, and use SSH keys to avoid being prompted for your github password,
 use the following command to tell git to always use SSH instead of HTTPS when comminicating with
@@ -59,12 +58,12 @@ $GIT_ROOT$> cd mega65-core
 $GIT_ROOT$/mega65-core>
 ```
 
-Currently, the ```px100mhz``` branch is what you should compile.  
+Currently, the ```development``` branch is what you should compile.  
 So, checkout that branch:  
 ```
-$GIT_ROOT$/mega65-core> git checkout px100mhz
-Branch px100mhz set up to track remote branch px100mhz from origin.
-Switched to a new branch 'px100mhz'
+$GIT_ROOT$/mega65-core> git checkout development
+Branch px100mhz set up to track remote branch development from origin.
+Switched to a new branch 'development'
 $GIT_ROOT$/mega65-core>
 ```
 
@@ -74,46 +73,16 @@ To change to the ```MASTER``` branch, type ```git checkout master```.
 
 You may want to type ```git status``` or ```git branch``` to check what branch you have checked out.  
 
-To make sure that you have the latest files, all you have to do is type:
+To make sure that you have the latest files, if you wish to repeat this after the MEGA65 team have updated the source code, all you have to do is type:
 ``` 
 $GIT_ROOT$/mega65-core> git pull
 ```
 
 ## Submodules
 
-The project uses submodules, which are other git-projects used within this project.  
-Therefore, you need to do the following:  
+Previously it was necessary to checkout several sub-modules before building. This is now taken care of by the make file (Makefile).
 
-```
-$GIT_ROOT$/mega65-core> git submodule init
-
-Submodule 'src/mega65-fdisk' (https://github.com/MEGA65/mega65-fdisk.git) registered for path 'src/mega65-fdisk'
-
-$GIT_ROOT$/mega65-core> git submodule update
-
-Cloning into 'src/mega65-fdisk'...
-remote: Counting objects: 171, done.
-remote: Compressing objects: 100% (36/36), done.
-remote: Total 171 (delta 32), reused 42 (delta 20), pack-reused 115
-Receiving objects: 100% (171/171), 69.77 KiB | 0 bytes/s, done.
-Resolving deltas: 100% (97/97), done.
-Checking connectivity... done.
-Submodule path 'src/mega65-fdisk': checked out 'bb81b3b5244b916f7c82c947693cba31787c8b97'
-
-$GIT_ROOT$/mega65-core>
-```
 ## 3rd-party programs
-
-You need ```cc65``` installed. See below for info:
-```
-$ cd .. (to get out of the $git_root dir)
-$ git clone https://github.com/cc65/cc65.git
-$ cd cc65
-$ make
-$ sudo cp bin/* /usr/local/bin
-$ cd ..
-$ cd mega65-core
-```
 
 You need ```fpgajtag``` installed to make use of the improved tool-chain.
 See below for info:  
@@ -128,6 +97,11 @@ if the above fails, ```sudo apt-get install libusb-1.0-0-dev``` and ```make```.
 $ sudo cp src/fpgajtag /usr/local/bin
 $ cd ..
 $ cd mega65-core
+```
+
+If it is correct, you should get a meaningful response from the following command:
+
+```
 $ fpgajtag --version
 ```
 
@@ -144,61 +118,16 @@ The following is assumed:
 1. you have ```python``` installed (I have ver 2.7.10) (for some scripts)
 1. you have ```libpng12-dev``` installed (for the image manipulation)
 1. you have ```cbmconvert``` installed (I have ver 2.1.2) (to make a D81 image) (refer to ./using.md)
-1. you have Xilinx ISE 14.7 WebPACK installed, with a valid licence
+1. you have a recent version of Xilinx Vivado WebPACK edition installed, with a valid licence
 
 Overview of the compile process:  
 
-1. ```make bin/(board type).bit```,
-currently supported (board types)'s are:
-```nexys4```,
-```nexys4ddr```,
-```mega65r1```,
-```lcd4ddr```,
-```nocpu``` and
-```touch_test```.  
-1. optionally: see design run in fpga hardware (to do)
-1. optionally: see design run in ghdl simulator (to do)
+1. ```make```,
 
 The following instructions are for running in the fpga.  
 
 * As there are many end-use cases, i will not cover them all here, just the one that suits me.  
 Someone else please document how the simulate function(s) work and what compile options etc.  
-
-In your working directory, type the following (select a specific board-type-target):
-```
-$GIT_ROOT$/mega65-core> make bin/nexys4ddr.bit
-$GIT_ROOT$/mega65-core> 
-```
-The Makefile performs two main tasks:  
-
-1. Generates a number of files used in the VHDL design, and then, 
-1. issues several commands to build the design using ISE commands.  
-
-The image below may be useful to understand which file builds what file during the pre-compile.   
-PLEASE NOTE that this file is now outdated.  
-
-[![precomp](./images/precomp-small.jpg)](./images/precomp.jpg)  
-Click the image above for a hi-res JPG, else the [PDF link](./images/precomp.pdf).  
-
-During the pre-compile, ```Ophis``` may generate the following warnings, but these are OK:
-```
-WARNING: branch out of range, replacing with 16-bit relative branch
-```
-
-During the compile of the design (using ISE commands), many warnings are generated and listed in the relevant log-files. It was thought appropriate to hide these warnings from the user during compilation to make it easier to determine what part of the compile it is up to. If compile fails, (or completes), you are strongly encouraged to browse the log-files to examine the output generated during compile.  Note that at the time of writing, the design does not meet timing closure. This will be fixed.
-There are two sets of log-files:
-
-1. log files are generated by ISE commands, including *.XRPT, *.syr, *.log, etc, and
-1. log files are generated by the ```./compile.sh``` script, ie: ```compile-<date><time>_N.log```, where N is one of the six stages of ISE compile.
-
-
-## Modifying the design using ISE
-
-Open ISE, and then ```Project -> Open``` and choose the ```"mega65"``` project.
-
-You should be able to double-click on the ```"Generate Programming File"``` and a bit-stream should be created. (To-be-reconfirmed)  
-
-NOTE that every compile of a bitstream that is destined for the FPGA, should be compiled using ```make bin/<boardname>.bit``` script, because this script ensures that that all VHDL files are generated correctly. For example, the Kickstart/Hypevisor ROM is generated in this way.
 
 ## Programming the FPGA using fpga-board and the monitor_load command
 
@@ -214,30 +143,16 @@ also be used to auto-switch to C64 mode on start (-4 option), and/or to load and
 a user-supplied program on boot (see the usage text for monitor_load for details), providing a
 greatly simplified work-flow.
 
-```monitor_load -b <bitstream.bit> -k <KICKUP.M65>```
+```src/tools/monitor_load -b bin/nexys4ddr.bit -k bin/KICKUP.M65```
 
-## Programming the FPGA via USB (DEPRECATED IN FAVOUR OF monitor_load)
+(This assumes you are running the command from the ```mega65-core``` directory.
 
-To get the bitstream onto the FPGA, you can use either the USB-Stick or the SD-card. See next section for sdcard.  
+## Programming the flash memory on the FPGA board to load the MEGA65 bitstream on power up
 
-To load the bitstream into the Nexys 4 DDR board via USB stick:
+XXX - To be completed.
 
-1. you need a USB stick formatted as FAT32
-1. copy the bitstream to the root directory of the USB stick
-```
-$GIT_ROOT$/mega65-core> cp *.bit /media/sdc1
-```
-
-1. power OFF nexys board
-1. place USB stick into the USB_HOST header
-1. set jumper JP2 to USB
-1. set jumper MODE to USB/SD
-1. power ON nexys
-
-Upon powerup, the bitstream is copied from USB into FPGA, then the FPGA executes it.
-
-## Programming the FPGA via sdcard (DEPRECATED IN FAVOUR OF monitor_load)
-
-Alternatively, the bitstream can be put onto an SD-card and that SD-card inserted into the Nexys 4 board. If you choose to use this method, just follow the above instructions re the use of the USB-stick, but change the "jumper JP2 to SD".  
-
-The End.
+The general gist is to open vivado, and choose the menu item to program a device, and then
+choose the appropriate .mcs file from the ```bin/``` directory.  The process takes several
+minutes, but after that, if you have your FPGA board to start from [Q]SPI flash, it will
+almost immediately (<1 sec delay) begin starting up as a MEGA65 every time that power is
+provided or the "program FPGA" button is pressed on your FPGA board, if it has such a button.
