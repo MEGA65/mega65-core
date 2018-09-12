@@ -26,14 +26,14 @@ cd picocom
 make
 ./picocom.exe
 ./picocom.exe --help
-./picocom.exe --b 230400 /dev/ttyS3
+./picocom.exe --b 2000000 /dev/ttyS3
 ```
 to exit: ```CTRL-a CTRL-x```
 
 * macintosh/cu
  ```
 sudo apt-get install cu
-sudo cu -s 230400 -l /dev/cu.usbserial<???>
+sudo cu -s 2000000 -l /dev/cu.usbserial<???>
 ```
 to exit: ```~.```
 
@@ -48,7 +48,7 @@ make
 
 For all the above options, the following settings are required:  
 
-1. 230400 baud rate
+1. 2000000 baud rate
 1. 8 data bits
 1. No flow control required
 1. 1 stop bit
