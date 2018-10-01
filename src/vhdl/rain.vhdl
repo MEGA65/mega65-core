@@ -347,6 +347,9 @@ begin  -- rtl
             te_cursor_x <= 0;
             te_cursor_address <= te_screen_start;
             terminal_emulator_fast <= '1';
+          when x"07" =>
+            -- Ignore bell character, instead of printing plus symbol
+            null;
           when x"0e" =>
             -- Control-N - move to header area
             te_in_header <= '1';
