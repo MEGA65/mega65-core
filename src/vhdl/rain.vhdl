@@ -451,6 +451,17 @@ begin  -- rtl
               -- stay on same line
               te_cursor_x <= te_cursor_x - 1;
               te_cursor_address <= te_cursor_address - 1;
+            else
+              -- to end of previous line
+              te_cursor_x <= te_x_max;
+              if te_cursor_y > 0 then
+                -- if not on first line, to go previous line
+                te_cursor_address <= te_cursor_address - 1;
+                te_cursor_y <= te_cursor_y - 1;
+              else
+              -- trying to go left from home position does
+              -- nothing
+              end if;    
             end if;
             terminal_emulator_fast <= '1';
           when x"9d" =>
@@ -520,8 +531,8 @@ begin  -- rtl
 
       
       if screenram_busy = '1' then
-        -- Terminal emulator display is using memory to read something
-        -- so don't try to do anything
+      -- Terminal emulator display is using memory to read something
+      -- so don't try to do anything
       else
         -- Terminal emulator display generator isn't using the memory --
         -- so scroll or erase if required
@@ -634,7 +645,7 @@ begin  -- rtl
         -- where the 8 digits should get picked 4x more often than the other
         -- 2.
         if fetch_next_char = '1' then
-          -- handled elsewhere
+        -- handled elsewhere
         elsif matrix_fetch_screendata = '1' then
           matrix_fetch_address(11) <= '0';
           -- Read byte of matrix rain glyph
