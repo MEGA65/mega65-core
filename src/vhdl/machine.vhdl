@@ -541,6 +541,7 @@ architecture Behavioral of machine is
 
   signal lcd_hsync1 : std_logic := '0';
   signal lcd_vsync1 : std_logic := '0';
+  signal lcd_in_letterbox : std_logic := '0';
   signal hsync_drive1 : std_logic := '0';
   signal hsync_uninverted : std_logic := '0';
   signal hsync_ntsc60_uninverted : std_logic := '0';
@@ -1136,6 +1137,7 @@ begin
 --      lcd_hsync => lcd_hsync1,
 --      lcd_display_enable => lcd_display_enable1,
       lcd_pixel_strobe => pixel_strobe,
+      lcd_in_letterbox => lcd_in_letterbox,
       vgared          => vgared_viciv,
       vgagreen        => vgagreen_viciv,
       vgablue         => vgablue_viciv,
@@ -1512,6 +1514,7 @@ begin
     hsync_in => hsync_drive_uninverted,
     vsync_in => vsync_drive,
     pixel_x_800 => native_x_640,
+    lcd_in_letterbox => lcd_in_letterbox,
     pixel_y_scale_200 => pixel_y_scale_200,
     pixel_y_scale_400 => pixel_y_scale_400,
     ycounter_in => ycounter,	
