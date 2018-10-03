@@ -503,7 +503,7 @@ $(TOOLDIR)/utilpacker/utilpacker:	$(TOOLDIR)/utilpacker/utilpacker.c Makefile
 # version information is updated.
 # for now we will always update the version info whenever we do a make.
 .PHONY: version.vhdl version.a65
-$(VHDLSRCDIR)/version.vhdl src/version.a65 $(BINDIR)/matrix_banner.txt:	.git	./src/version.sh $(ASSETS)/matrix_banner.txt
+$(VHDLSRCDIR)/version.vhdl src/version.a65 $(BINDIR)/matrix_banner.txt:	.git	./src/version.sh $(ASSETS)/matrix_banner.txt $(TOOLDIR)/format_banner
 	./src/version.sh
 
 # i think 'charrom' is used to put the pngprepare file into a special mode that

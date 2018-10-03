@@ -1,1 +1,5 @@
-*** MEGA65 Memory/Machine Inspection Interface *** GIT commit: GITCOMMITID                           F1/F3 - Explore Memory, F7 - Clear all memory    ACCEPT - Accept entry/exit of secure compartment  REJECT - Wipe secure compartment before exiting.  
+*** MEGA65 Memory/Machine Inspection Interface ***
+GIT commit: GITCOMMITID
+ F1/F3 - Explore Memory, F7 - Clear all memory
+ACCEPT - Accept entry/exit of secure compartment
+REJECT - Wipe secure compartment before exiting.  
