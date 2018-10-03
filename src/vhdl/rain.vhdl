@@ -72,6 +72,7 @@ entity matrix_rain_compositor is
     seed   : in  unsigned(15 downto 0);
 
     -- Video feed to be composited over
+    external_frame_x_zero : in std_logic;
     hsync_in : in std_logic;
     vsync_in : in std_logic;
     vgared_in : in unsigned(7 downto 0);
@@ -592,24 +593,20 @@ begin  -- rtl
         -- data.  A complication is that we have to deal with
         -- contention on the BRAM interface, so we ideally need to
         -- sequence the requests a little carefully.
-        if hsync_in = '1' then
+      if external_frame_x_zero='1' then
           char_bit_count <= 0;
-          if last_hsync = '0' then
-            fetch_next_char <= '1';
-          end if;
+          fetch_next_char <= '1';
           -- reset fetch address to start of line, unless
           -- we are advancing to next line
           -- XXX doesn't yet support double-high chars
-          if last_hsync = '0' then
-            if char_ycounter /= 15 then
-              char_screen_address <= line_screen_address;
-              char_ycounter <= char_ycounter + 1;
-            else
-              char_screen_address <= line_screen_address + te_line_length;
-              line_screen_address <= line_screen_address + te_line_length;
-              char_ycounter <= to_unsigned(0,12);
-              row_counter <= row_counter + 1;
-            end if;
+          if char_ycounter /= 15 then
+            char_screen_address <= line_screen_address;
+            char_ycounter <= char_ycounter + 1;
+          else
+            char_screen_address <= line_screen_address + te_line_length;
+            line_screen_address <= line_screen_address + te_line_length;
+            char_ycounter <= to_unsigned(0,12);
+            row_counter <= row_counter + 1;
           end if;
         elsif char_bit_count = 0 then
           -- Request next character
@@ -697,7 +694,7 @@ begin  -- rtl
         drop_distance_to_end_drive <= drop_distance_to_end_drive2(7 downto 0);
         glyph_pixel <= glyph_bits(0);
         
-        if hsync_in = '1' then
+        if external_frame_x_zero = '1' then
           glyph_bit_count <= 0;
         elsif glyph_bit_count < 2 then
           -- Request next glyph
@@ -876,7 +873,7 @@ begin  -- rtl
       end case;
       
       lfsr_reset(3 downto 0) <= "0000";
-      if last_hsync = '0' and hsync_in = '1' then
+      if external_frame_x_zero='1' then
         -- Horizontal fly-back
         -- Reset LFSRs that generate the start/end values
         if seed(15 downto 0) /= "00000000000000" then
@@ -929,7 +926,7 @@ begin  -- rtl
       end if;
       if lfsr_advance_counter /= 0 then
         lfsr_advance_counter <= lfsr_advance_counter - 1;
-      elsif hsync_in = '1' then
+      elsif external_frame_x_zero = '1' then
         lfsr_advance(3 downto 0) <= "0000";
       else
         -- Collect bits to form start and end of rain and glyph

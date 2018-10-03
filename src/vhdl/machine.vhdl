@@ -1506,6 +1506,7 @@ begin
     matrix_fetch_address => matrix_fetch_address,
     seed => matrix_rain_seed,
 
+    external_frame_x_zero => external_frame_x_zero,
     hsync_in => hsync_drive_uninverted,
     vsync_in => vsync_drive,
     pixel_x_800 => native_x_640,
