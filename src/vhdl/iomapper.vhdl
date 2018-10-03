@@ -402,6 +402,7 @@ architecture behavioral of iomapper is
   signal keyboard_scan_rate : unsigned(7 downto 0);
 
   signal ef_latch : std_logic := '0';
+  signal ef_timeout : integer range 0 to 15 := 0;
   
   signal dummy_e : std_logic_vector(7 downto 0);
   signal dummy_g : std_logic_vector(7 downto 0);
@@ -1088,9 +1089,22 @@ begin
         -- This replaces the old ALT+TAB task switch combination
         matrix_mode_trap <= '1';
         ef_latch <= '1';
+        -- But don't allow multiple triggerings of this too quickly
+        -- (This is to work around a very weird bug where C= + TAB on PS/2
+        -- keyboards at least, triggers repeatedly.  But C= + ~ (like <- on a
+        -- C64 keyboard) doesn't have that problem. Maybe the PS/2 keyboard triggers
+        -- the TAB key more frequently?  Anyway, we will just block repeats
+        -- from occurring within 200ms.
+        ef_timeout <= 10; -- x 1/50th of a second
       end if;
-      if ascii_key_valid='0' or ascii_key /= x"ef" then
-        ef_latch <= '0';
+      if (ascii_key_valid='0' or ascii_key /= x"ef") and ef_latch='1' then
+        if counter50hz = 0 then
+          if ef_timeout /= 0 then
+            ef_timout <= ef_timeout - 1;
+          else
+            ef_latch <= '0';
+          end if;
+        end if;
       end if;
 
       -- UART char for monitor/matrix mode
