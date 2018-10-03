@@ -26,24 +26,12 @@ entity matrix_rain_compositor is
     -- CPU clock (typically 50MHz)
     clk : in std_logic; 
     
-    -- Cursor key communication for moving 
-    display_shift_in : in std_logic_vector(2 downto 0);
-    shift_ready_in : in std_logic;
-    shift_ack_out : out std_logic;
-
     -- Whether matrix mode should be displayed or not
     matrix_mode_enable : in std_logic;
 
     -- Green matrix mode or lava secure mode
     secure_mode_flag : in std_logic;
     
-    -- Matrix mode resolution selection:
-    -- For 800x480, these are:
-    -- 00 = 80x50
-    -- 01 = 80x25
-    -- 10 = 40x25
-    mm_displayMode_in : in unsigned(1 downto 0);
-
     -- Character output produced by serial monitor
     monitor_char_in : in unsigned(7 downto 0);
     monitor_char_valid : in std_logic;

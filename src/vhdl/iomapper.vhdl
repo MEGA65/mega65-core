@@ -45,11 +45,6 @@ entity iomapper is
         buffereduart2_rx : inout std_logic := 'H';
         buffereduart2_tx : out std_logic := '1';
         
-        display_shift_out : out std_logic_vector(2 downto 0) := "000";
-        shift_ready_out : out std_logic := '0';
-        shift_ack_in : in std_logic;        
-        mm_displayMode_out : out unsigned(1 downto 0) := "00";
-
         cart_access_count : in unsigned(7 downto 0);
         
         fpga_temperature : in std_logic_vector(11 downto 0);
@@ -1111,44 +1106,28 @@ begin
       if ascii_key_valid='1' and protected_hardware_in(6)='1' then
         uart_monitor_char <= ascii_key;
         uart_monitor_char_valid <= '1';
-        case ascii_key is
-          -- C= + 1,2,3 to set display size
-          when x"95" => mm_displayMode_out <= "00";
-          when x"96" => mm_displayMode_out <= "01";
-          when x"97" => mm_displayMode_out <= "10";
-          -- Cursor keys to move matrix mode display
-          when x"1d" => display_shift_out <= "010"; --right
-                        shift_ready_out <= '1';
-          when x"9d" => display_shift_out <= "100"; --left
-                        shift_ready_out <= '1';
-          when x"91" => display_shift_out <= "001"; --up
-                        shift_ready_out <= '1';
-          when x"11" => display_shift_out <= "011"; --down
-                        shift_ready_out <= '1';
-          when others =>  null;
-        end case;
-    
       else
         uart_monitor_char_valid <= '0';      
-      end if;
-      if shift_ack_in='1' then
-        shift_ready_out <= '0';
       end if;
       
       -- UART char for user mode
       uart_char_valid <= '0';
-      if ascii_key_valid='1' and protected_hardware_in(6)='0' then
-        uart_char <= ascii_key;
-        uart_char_valid <= '1';
-        if ascii_key_presenting = '1' then
-          if ascii_key_buffer_count < 4 then
-            ascii_key_buffer(ascii_key_buffer_count) <= ascii_key;
-            ascii_key_buffer_count <= ascii_key_buffer_count + 1;
+      if ascii_key_valid='1' then
+        if protected_hardware_in(6)='0' then
+          -- Not in matrix mode, so push character out normal path
+          uart_char <= ascii_key;
+          uart_char_valid <= '1';
+          if ascii_key_presenting = '1' then
+            if ascii_key_buffer_count < 4 then
+              ascii_key_buffer(ascii_key_buffer_count) <= ascii_key;
+              ascii_key_buffer_count <= ascii_key_buffer_count + 1;
+            end if;
+          else
+            ascii_key_buffered <= ascii_key;
           end if;
-        else
-          ascii_key_buffered <= ascii_key;
         end if;
       end if;
+        
       if reset_high = '1' then
         ascii_key_presenting <= '0';
         ascii_key_buffered <= x"00";

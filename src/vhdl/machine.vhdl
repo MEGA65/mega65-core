@@ -1273,10 +1273,6 @@ begin
       -- when using local keyboard
       uart_monitor_char => uart_monitor_char,
       uart_monitor_char_valid => uart_monitor_char_valid,
-      mm_displayMode_out => mm_displayMode,
-      display_shift_out => display_shift,
-      shift_ready_out => shift_ready,
-      shift_ack_in => shift_ack,     
       
       fpga_temperature => fpga_temperature,
 
@@ -1493,10 +1489,6 @@ begin
       );
 
   matrix_compositor0 : entity work.matrix_rain_compositor port map(
-    display_shift_in=>display_shift,
-    shift_ready_in => shift_ready,
-    shift_ack_out => shift_ack,
-    mm_displayMode_in => mm_displayMode,
     monitor_char_in => monitor_char_out,
     monitor_char_valid => monitor_char_out_valid,
     terminal_emulator_ready => terminal_emulator_ready,
