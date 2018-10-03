@@ -879,7 +879,7 @@ architecture Behavioral of viciv is
   signal hsync_drive : std_logic := '0';
   signal vsync_drive : std_logic := '0';
   signal vsync_polarity_internal : std_logic := '1';
-  signal hsync_polarity_internal : std_logic := '0';
+  signal hsync_polarity_internal : std_logic := '1';
 
   -- Mode line calculations
   type ss_table is array(0 to 10) of integer range 0 to 255;
@@ -2495,7 +2495,7 @@ begin
                                                         pixelclock_select_internal <= x"bc";
                                                         pixelclock_select_driver <= x"bc";
                                         -- VSYNC is negative for 50Hz (required for some monitors)
-                                                        hsync_polarity_internal <= '0';
+                                                        hsync_polarity_internal <= '1';
                                                         vsync_polarity_internal <= '1';
 
                                         -- 3 1/3 physical
@@ -2523,7 +2523,7 @@ begin
                                         -- Set 30MHz pixel clock for PAL
                                                         pixelclock_select_internal <= x"bc";
                                                         pixelclock_select_driver <= x"bc";
-                                                        hsync_polarity_internal <= '0';
+                                                        hsync_polarity_internal <= '1';
                                                         vsync_polarity_internal <= '1';
 
                                                         chargen_x_pixels <= 3;
@@ -2546,8 +2546,8 @@ begin
                                                         vicii_max_raster <= ntsc_max_raster;
                                                         hsync_start <= to_unsigned(2140,14);
                                                         hsync_end <= to_unsigned(2540,14);
-                                                        hsync_polarity_internal <= '0';
-                                                        vsync_polarity_internal <= '0';
+                                                        hsync_polarity_internal <= '1';
+                                                        vsync_polarity_internal <= '1';
                                         -- Set 40MHz pixel clock for NTSC
                                                         pixelclock_select_internal <= x"3e";
                                                         pixelclock_select_driver <= x"3e";
@@ -2573,8 +2573,8 @@ begin
                                                         vicii_max_raster <= pal_max_raster;
                                                         hsync_start <= to_unsigned(2140,14);
                                                         hsync_end <= to_unsigned(2540,14);
-                                                        hsync_polarity_internal <= '0';
-                                                        vsync_polarity_internal <= '0';
+                                                        hsync_polarity_internal <= '1';
+                                                        vsync_polarity_internal <= '1';
 
                                         -- Set 40MHz pixel clock for NTSC
                                                         pixelclock_select_internal <= x"3e";
@@ -2599,8 +2599,8 @@ begin
                                                         vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                                                         hsync_start <= to_unsigned(2140,14);
                                                         hsync_end <= to_unsigned(2540,14);
-                                                        hsync_polarity_internal <= '0';
-                                                        vsync_polarity_internal <= '0';
+                                                        hsync_polarity_internal <= '1';
+                                                        vsync_polarity_internal <= '1';
 
                                         -- Set 40MHz pixel clock for NTSC
                                                         pixelclock_select_internal <= x"3e";
