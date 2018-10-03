@@ -1131,11 +1131,6 @@ begin
       vsync_polarity => vsync_polarity,
       hsync_polarity => hsync_polarity,
  
---      vsync           => vsync_drive1,
---      hsync           => hsync_drive1,
---      lcd_vsync => lcd_vsync1,
---      lcd_hsync => lcd_hsync1,
---      lcd_display_enable => lcd_display_enable1,
       lcd_pixel_strobe => pixel_strobe,
       lcd_in_letterbox => lcd_in_letterbox,
       vgared          => vgared_viciv,
