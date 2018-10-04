@@ -537,7 +537,7 @@ int process_line(char *line,int live)
     int gotIt=0;
     unsigned int v[4];
     if (line[0]=='?') fprintf(stderr,"%s\n",line);
-    if (sscanf(line,"%x:%08x%08x%08x%08x",
+    if (sscanf(line,":%x:%08x%08x%08x%08x",
 	       &addr,&v[0],&v[1],&v[2],&v[3])==5) {
       for(int i=0;i<16;i++) b[i]=(v[i/4]>>( (3-(i&3))*8)) &0xff;
       gotIt=1;
@@ -575,7 +575,7 @@ int process_line(char *line,int live)
 	}
       }
       if (addr==0xffd3077) {
-	//	fprintf(stderr,"$D086 = $%02X, virtual_f011_pending=%d\n",b[6+9],virtual_f011_pending);
+	//      fprintf(stderr,"$D086 = $%02X, virtual_f011_pending=%d\n",b[6+9],virtual_f011_pending);
         if((b[6+9] & 0x80) && !virtual_f011_pending) {  /* virtual f011 read request issued */
 	  
           char cmd[1024];
@@ -751,7 +751,7 @@ int process_line(char *line,int live)
     }
   }
   if ((!strcmp(line," :000086D 14 08 05 20 03 0F 0D 0D 0F 04 0F 12 05 20 03 36"))
-      ||(!strcmp(line,"0000086D:14080520030F0D0D0F040F1205200336")))
+      ||(!strcmp(line,":0000086D:14080520030F0D0D0F040F1205200336")))
     {
 
     if (modeline_cmd[0]) {
@@ -819,10 +819,10 @@ int process_line(char *line,int live)
   }
   if (// C64 BASIC banner
       (!strcmp(line," :000042C 2A 2A 2A 2A 20 03 0F 0D 0D 0F 04 0F 12 05 20 36"))
-      ||(!strcmp(line,"0000042C:2A2A2A2A20030F0D0D0F040F12052036"))
+      ||(!strcmp(line,":0000042C:2A2A2A2A20030F0D0D0F040F12052036"))
       // MEGA BASIC banner
       ||(!strcmp(line," :000042C 2A 2A 2A 2A 20 0D 05 07 01 36 35 20 0D 05 07 01"))
-      ||(!strcmp(line,"0000042C:2A2A2A2A200D0507013635200D050701"))
+      ||(!strcmp(line,":0000042C:2A2A2A2A200D0507013635200D050701"))
       ) {
     // C64 mode BASIC -- set LOAD trap, and then issue LOAD command
     char *cmd;
