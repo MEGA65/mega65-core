@@ -1205,12 +1205,6 @@ disassemble_mem_cmd:
       lda  mem_line_cnt
       sta  top_addr
 
-      ldx         #3
-*     lda         hex_value,x           ; copy hex value to top_address
-      sta         top_addr,x
-      dex
-      bpl         -
-      
       ; Let's start out really simple and just print addresses and instruction bytes
 disassemble_loop:
       ; See if we are done
