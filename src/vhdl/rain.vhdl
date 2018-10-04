@@ -173,6 +173,7 @@ architecture rtl of matrix_rain_compositor is
 
   signal char_bit_count : integer range 0 to 16 := 0;
   signal char_bits : std_logic_vector(7 downto 0) := x"FF";
+  signal char_bit_stretch : std_logic := '0';
   signal next_char_bits : std_logic_vector(7 downto 0) := x"FF";
   signal matrix_fetch_screendata : std_logic := '0';
   signal matrix_fetch_chardata : std_logic := '0';
@@ -618,14 +619,15 @@ begin  -- rtl
           column_counter <= column_counter + 1;
         else
           -- rotate bits for terminal chargen every 2 640H pixels
-          if (pixel_x_800 mod 2) = 0 and char_bit_count /= 1
-            and pixel_x_800 /= last_pixel_x_800 then
-            char_bits(7 downto 1) <= char_bits(6 downto 0);
-            char_bits(0) <= char_bits(7);
-          end if;
-          if pixel_x_800 /= last_pixel_x_800 
-            and pixel_x_800 /= last_pixel_x_800 then
-            char_bit_count <= char_bit_count - 1;
+          if pixel_x_800 /= last_pixel_x_800 then
+            char_bit_stretch <= not char_bit_stretch;
+            if char_bit_stretch = '1' and char_bit_count /= 1 then
+              char_bits(7 downto 1) <= char_bits(6 downto 0);
+              char_bits(0) <= char_bits(7);
+            end if;
+            if char_bit_count /= 0 then
+              char_bit_count <= char_bit_count - 1;
+            end if;
           end if;
         end if; 
 
