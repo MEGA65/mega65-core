@@ -184,7 +184,7 @@ wire rx_data_ready;
 reg rx_data_ack;
 
 // Keyboard input control signals
-wire uart_char_waiting;
+reg uart_char_waiting;
    
 
 // Instantiate the VHDL TX and RX UARTS
@@ -233,7 +233,10 @@ end
 // UART_RX
 always @(posedge clk)
 begin
-   if (uart_char_valid = 1) uart_char_waiting <= 1;   
+   if (uart_char_valid == 1)
+   begin
+      uart_char_waiting <= 1;
+   end
 			
   if(address == `MON_UART_RX && read == 1)
   begin
