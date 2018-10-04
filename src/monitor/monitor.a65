@@ -298,6 +298,7 @@ otherchar:
 wipememory:
 	; XXX - Erase all RAM, IO registers, including palettes,
 	; and install a minimal black and white palette.
+	jsr   	erase_memory
 	jmp	accepting_input
 
 cursorup:
@@ -358,6 +359,9 @@ enter_pressed:
       jsr         print_crlf
       ldx         cmdlen
       beq         empty_command
+      cpx	  #6
+      beq	  accept_or_reject_command
+not_accept_or_reject:
       ldx         #$00
       lda         cmdbuf,x
       sta         cmdchar                       ; save this in case we need it back...
@@ -397,6 +401,57 @@ reset_cmd:
       lda         #255
       sta         mon_reset                     ; We probably won't make it past here...
       jmp         next_command
+
+; Check if "ACCEPT" or "REJECT" were typed.
+accept_or_reject_command:
+	ldx	#0
+*	lda	cmdbuf,x
+	cmp	accept_string,x
+	bne	+
+	inx
+	cpx	#6
+	bne 	-
+	jmp 	accept_command
+*	ldx	#0
+*	lda	cmdbuf,x
+	cmp	reject_string,x
+	bne	+
+	inx
+	cpx	#6
+	bne	-
+	jmp	reject_command
+*	bra	not_accept_or_reject
+
+accept_string:	.byte "ACCEPT"
+reject_string:	.byte "REJECT"
+
+reject_command:
+	; Erase all memory
+	jsr	erase_memory
+	; Return empty secure container back to hypervisor
+	; (The hypervisor should already have been triggered, and the CPU stopped,
+	;  so all we should need to do is to resume the CPU)
+
+	; FALL THROUGH
+accept_command:
+
+	; Accept is like reject, except that we don't erase memory first.
+	; It is up to the hypervisor to spot the difference.
+
+	; Resume CPU
+	lda   #$00	
+	sta   mon_trace
+
+	jmp	accepting_input
+
+erase_memory:
+	; XXX - Implement me.
+	; Erase all RAM.
+	; Erase all IO registers (including all banks of palette, and
+	; all the other funny bits, like ethernet frame buffer, SD card buffers etc.
+	; basically we have to prevent ANY state being leaked out.  This is actually
+	; the hardest part of the whole system to get right.
+	rts
 
 bad_bitrate:
       `printstr   bad_bitrate_msg
@@ -1263,8 +1318,9 @@ disassemble_mem_cmd:
 disassemble_loop:
       ; See if we are done
       lda         top_addr
-      beq         next_command
-      dec	  top_addr
+      bne	  +
+      jmp         next_command
+*     dec	  top_addr
 
       ; Also check UART.  If we get a char, then stop disassembly so we can get out if needed.
       bit         uart_status
