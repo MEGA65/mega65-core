@@ -302,8 +302,14 @@ otherchar:
       bra         beep
 
 clearscreen:
+	; 25 lines down, and then 25 lines back up to get to the top
 	ldx	#25
 *	lda	#$0a
+	jsr	output_char
+	dex
+	bpl	-
+	ldx 	#25
+*	lda 	#$91
 	jsr	output_char
 	dex
 	bpl	-
