@@ -312,6 +312,16 @@ begin  -- rtl
             "x=" & integer'image(pixel_x_800) & ": " &
             "Reading char #$" & to_hstring(screenram_rdata);
         end if;
+        if column_counter=3 then
+          if screenram_rdata = x"3A" then
+            -- Line begins with a colon, so colour columns differently to_hstring
+            -- make it easier to pick out the columns.  Maybe also the rows,      
+            -- too.
+            colourify_data <= '1';
+          else
+            colourify_data <= '0';
+          end if;
+        end if;
       else
         if matrix_fetch_chardata = '1' then
           matrix_fetch_chardata <= '0';
@@ -631,14 +641,6 @@ begin  -- rtl
           end if;
           if column_counter=3 then
             column_visible <= '1';
-            if next_char_bits = x"3A" then
-              -- Line begins with a colon, so colour columns differently to
-              -- make it easier to pick out the columns.  Maybe also the rows,
-              -- too.
-              colourify_data <= '1';
-            else
-              colourify_data <= '0';
-            end if;
           elsif column_counter=11 then
             if next_char_bits(0)='1' then
               alternate_row <= '1';
