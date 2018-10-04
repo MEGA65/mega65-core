@@ -818,7 +818,7 @@ begin  -- rtl
                 vgablue_out(5 downto 0) <= vgablue_in(7 downto 2);
               end if;
             else
-              if is_cursor='1' and te_blink_state='1' then
+              if is_cursor='1' and te_blink_state='1' and (column_counter <= te_line_length) and (column_counter /= 0) then
                 vgared_out <= "11111111";
                 vgagreen_out <= "11111111";
                 vgablue_out <= "00000000";
@@ -834,7 +834,7 @@ begin  -- rtl
           else
             -- In header of matrix mode
             -- Note that cursor is not visible in header area
-            if char_bits(0) = '0' then
+            if char_bits(0) = '0' or (column_counter > te_line_length) or (column_counter = 0) then
               vgared_out <= (others => '0');
               vgagreen_out <= (others => '0');
               vgablue_out <= (others => '0');
