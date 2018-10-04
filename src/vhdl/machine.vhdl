@@ -1499,7 +1499,7 @@ begin
     external_frame_x_zero => external_frame_x_zero,
     hsync_in => hsync_drive_uninverted,
     vsync_in => vsync_drive,
-    pixel_x_800 => native_x_640,
+    pixel_x_800 => pixel_x_640,
     lcd_in_letterbox => lcd_in_letterbox,
     pixel_y_scale_200 => pixel_y_scale_200,
     pixel_y_scale_400 => pixel_y_scale_400,

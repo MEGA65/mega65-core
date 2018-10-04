@@ -124,6 +124,8 @@ entity viciv is
     pixel_x_640 : out integer := 0;
     -- And pixel X counter scaled to actual video mode (typically 800)
     -- (and corrected for video pipeline depth)
+    -- This one holds at zero until the first VIC-II/III sprite position in the
+    -- left border.
     native_x_640 : out integer := 0;
     native_y_200 : out integer := 0;
     native_y_400 : out integer := 0;
