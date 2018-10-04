@@ -1137,7 +1137,7 @@ _history_end_of_display:
 	jmp   disassemble_one_instruction
 	
 _history_print_padding_spaces:
-      ldx	#8
+      ldx	#3
 _history_space_loop:
       jsr	print_space
       dex
@@ -1717,7 +1717,7 @@ state_msg:
       
 history_msg:
       .byte       13,10,"PC   A  X  Y  Z  B  SP   MAPH MAPL LAST-OP In     "
-      .byte       " P  P-FLAGS   RGP uS IO ws h RECA8LHC",13,10,0
+      .byte       "P  P-FLAGS   RGP uS IO ws h RECA8LHC",13,10,0
 
 history_fmt:
       ; $00 - $1f : Offset into memory to print hex value from
