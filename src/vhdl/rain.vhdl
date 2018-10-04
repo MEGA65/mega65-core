@@ -773,7 +773,19 @@ begin  -- rtl
           if last_letterbox = '0' then
             vgared_out <= x"00";
             vgagreen_out <= x"00";
-            vgablue_out <= x"00";
+            if external_frame_x_zero='1' then
+              vgablue_out <= x"FF";
+            else
+              vgablue_out <= x"00";
+            end if;
+          elsif row_counter >= (te_header_line_count + te_screen_height) then
+            -- Beyond the end of display, so don't display text of overlay.
+            vgared_out(7 downto 6) <= "00";
+            vgagreen_out(7 downto 6) <= "00";
+            vgablue_out(7 downto 6) <= "00";
+            vgared_out(5 downto 0) <= vgared_in(7 downto 2);
+            vgagreen_out(5 downto 0) <= vgagreen_in(7 downto 2);
+            vgablue_out(5 downto 0) <= vgablue_in(7 downto 2);
           elsif row_counter >= te_header_line_count then
             -- In normal text area
             if char_bits(0) = '1' then
