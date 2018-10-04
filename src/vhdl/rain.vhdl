@@ -618,7 +618,7 @@ begin  -- rtl
           is_cursor <= next_is_cursor;
           -- The offset of 3 is to position the matrix mode overlay more
           -- centrally on the screen.
-          if column_counter > 3 then
+          if column_counter > 2 then
             char_screen_address <= char_screen_address + 1;
           end if;
           if colourify_data='1' then
