@@ -122,6 +122,8 @@ entity viciv is
     pixel_newraster : out std_logic;
     -- Pixel x counter scaled to count to about 640
     pixel_x_640 : out integer := 0;
+    -- And as above, but with the 800 pixel resolution.
+    pixel_x_800 : out integer := 0;
     -- And pixel X counter scaled to actual video mode (typically 800)
     -- (and corrected for video pipeline depth)
     -- This one holds at zero until the first VIC-II/III sprite position in the
@@ -836,6 +838,9 @@ architecture Behavioral of viciv is
   signal xpixel_fw640 : unsigned(10 downto 0);
   signal xpixel_fw640_sub : unsigned(9 downto 0);
   signal chargen_x_scale_fw640 : unsigned(7 downto 0);
+  signal xpixel_fw800 : unsigned(10 downto 0);
+  signal xpixel_fw800_sub : unsigned(9 downto 0);
+  signal chargen_x_scale_fw800 : unsigned(7 downto 0);
   signal xpixel_fw640_last : unsigned(10 downto 0);
   
   -- Colour RAM access for video controller
@@ -1202,7 +1207,6 @@ begin
       -- can span full width when required)
       -- XXX Actually, we want 800px wide, not 640
       if display_width>=(11*640) then
-        -- 3 pixels per pixel
         chargen_x_scale_fw640 <= to_unsigned(120/11,8);
       elsif display_width>=(10*640) then
         chargen_x_scale_fw640 <= to_unsigned(120/10,8);
@@ -1225,6 +1229,31 @@ begin
       else
         -- <800 use natural pixels
         chargen_x_scale_fw640 <= x"78";
+      end if;
+
+      if display_width>=(11*800) then
+        chargen_x_scale_fw800 <= to_unsigned(120/11,8);
+      elsif display_width>=(10*800) then
+        chargen_x_scale_fw800 <= to_unsigned(120/10,8);
+      elsif display_width>=(9*800) then
+        chargen_x_scale_fw800 <= to_unsigned(120/9,8);
+      elsif display_width>=(8*800) then
+        chargen_x_scale_fw800 <= to_unsigned(120/8,8);
+      elsif display_width>=(7*800) then
+        chargen_x_scale_fw800 <= to_unsigned(120/7,8);
+      elsif display_width>=(6*800) then
+        chargen_x_scale_fw800 <= to_unsigned(120/6,8);
+      elsif display_width>=(5*800) then
+        chargen_x_scale_fw800 <= to_unsigned(120/5,8);
+      elsif display_width>=(4*800) then
+        chargen_x_scale_fw800 <= to_unsigned(120/4,8);
+      elsif display_width>=(3*800) then
+        chargen_x_scale_fw800 <= to_unsigned(120/3,8);
+      elsif display_width>=(2*800) then
+        chargen_x_scale_fw800 <= to_unsigned(120/2,8);
+      else
+        -- <800 use natural pixels
+        chargen_x_scale_fw800 <= x"78";
       end if;
       
       -- Calculate tables of horizontal smooth scroll values for 320, 640 and
@@ -2731,6 +2760,8 @@ begin
       if xcounter = 0 then
         xpixel_fw640_sub <= (others => '0');
         xpixel_fw640 <= (others => '0');
+        xpixel_fw800_sub <= (others => '0');
+        xpixel_fw800 <= (others => '0');
       else
         if xpixel_fw640_sub >= 240 then
           xpixel_fw640_sub <= xpixel_fw640_sub - 240 + chargen_x_scale_fw640;
@@ -2741,8 +2772,18 @@ begin
         else
           xpixel_fw640_sub <= xpixel_fw640_sub + chargen_x_scale_fw640;
         end if;
+        if xpixel_fw800_sub >= 240 then
+          xpixel_fw800_sub <= xpixel_fw800_sub - 240 + chargen_x_scale_fw800;
+          xpixel_fw800 <= xpixel_fw800 + 2;
+        elsif xpixel_fw800_sub >= 120 then
+          xpixel_fw800_sub <= xpixel_fw800_sub - 120 + chargen_x_scale_fw800;
+          xpixel_fw800 <= xpixel_fw800 + 1;
+        else
+          xpixel_fw800_sub <= xpixel_fw800_sub + chargen_x_scale_fw800;
+        end if;
       end if;
       pixel_x_640 <= to_integer(xpixel_fw640);
+      pixel_x_800 <= to_integer(xpixel_fw800);
       pixel_y_scale_400 <= chargen_y_scale_400(3 downto 0);
       pixel_y_scale_200 <= chargen_y_scale_200(3 downto 0);
 

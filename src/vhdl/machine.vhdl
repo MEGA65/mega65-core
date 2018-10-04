@@ -522,6 +522,7 @@ architecture Behavioral of machine is
   signal native_y_200 : integer;
   signal native_y_400 : integer;
   signal pixel_x_640 : integer;
+  signal pixel_x_800 : integer;
   signal pixel_y_scale_200 : unsigned(3 downto 0);
   signal pixel_y_scale_400 : unsigned(3 downto 0);
 
@@ -1148,6 +1149,7 @@ begin
       native_y_200 => native_y_200,
       native_y_400 => native_y_400,
       pixel_x_640 => pixel_x_640,
+      pixel_x_800 => pixel_x_800,
       pixel_y_scale_200 => pixel_y_scale_200,
       pixel_y_scale_400 => pixel_y_scale_400,
       
@@ -1499,7 +1501,7 @@ begin
     external_frame_x_zero => external_frame_x_zero,
     hsync_in => hsync_drive_uninverted,
     vsync_in => vsync_drive,
-    pixel_x_800 => pixel_x_640,
+    pixel_x_800 => pixel_x_800,
     lcd_in_letterbox => lcd_in_letterbox,
     pixel_y_scale_200 => pixel_y_scale_200,
     pixel_y_scale_400 => pixel_y_scale_400,
