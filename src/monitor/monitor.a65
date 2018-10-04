@@ -277,6 +277,8 @@ beep:
 otherchar:
       cmp         #$08            ; backspace
       beq         backspace
+      cmp	  #$14		; C64 keyboard backspace
+      beq	  backspace
       cmp         #$7f
       beq         backspace
       cmp	  #$11
@@ -303,12 +305,18 @@ wipememory:
 
 cursorup:
 	; Subtract $100 from mem_addr, and act as though M was pressed
+	; (actually subtract $200, since we want to end $100 behind)
 
 	; XXX - Should actually skip over memory pages that are empty
 
+	lda   #16
+	sta   mem_line_cnt
+	lda   #$0d
+	jsr   output_char
+
 	lda 	   mem_addr+1
 	sec
-	sbc	#$01
+	sbc	#$02
 	sta	mem_addr+1
 	lda	mem_addr+2
 	sbc	#$00
@@ -322,6 +330,11 @@ cursorup:
 
 cursordown:
 	; display next page of memory
+
+	lda   #16
+	sta   mem_line_cnt
+	lda   #$0d
+	jsr   output_char
 
 	; XXX - Should actually skip over memory pages that are empty
 
