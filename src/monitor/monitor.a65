@@ -1198,7 +1198,6 @@ disassemble_done:
 disassemble_mem_cmd:
       plx                               ; pop x
       jsr         parse_addr32_or_continue
-      jsr         copy_hex_value_to_target_address
 
       ; We display mem_line_cnt instructions before stopping
       ; (which we keep track of in top_addr)
@@ -1209,7 +1208,7 @@ disassemble_mem_cmd:
 disassemble_loop:
       ; See if we are done
       lda         top_addr
-      beq         disassemble_done             ; mem_addr >= top_addr, do we're done
+      beq         next_command
       dec	  top_addr
 
       ; Also check UART.  If we get a char, then stop disassembly so we can get out if needed.
