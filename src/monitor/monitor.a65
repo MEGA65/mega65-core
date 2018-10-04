@@ -293,11 +293,21 @@ otherchar:
       beq	  wipememory
       cmp	  #$91
       beq	  cursorup
+      cmp	  #$93
+      beq	  clearscreen
       cmp         #13
       beq         enter_pressed
       cmp         #10
       beq         enter_pressed
       bra         beep
+
+clearscreen:
+	ldx	#25
+*	lda	#$0a
+	jsr	output_char
+	dex
+	bpl	-
+	jmp	next_command
 
 wipememory:
 	; XXX - Erase all RAM, IO registers, including palettes,
