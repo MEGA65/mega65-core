@@ -186,6 +186,9 @@ architecture rtl of matrix_rain_compositor is
   signal row_counter : integer := 0;
   signal column_counter : integer := 0;
   signal column_visible : std_logic := '0';
+  signal colourify_data : std_logic := '0';
+  signal alternate_colour : std_logic := '0';
+  signal alternate_row : std_logic := '0';  
   signal next_is_cursor : std_logic := '0';
   signal is_cursor : std_logic := '0';  
   
@@ -618,8 +621,30 @@ begin  -- rtl
           if column_counter > 3 then
             char_screen_address <= char_screen_address + 1;
           end if;
+          if colourify_data='1' then
+            case column_counter is
+              when 13 | 14 | 17 | 18 | 21 | 22 | 25 | 26 | 29 | 30 | 33 | 34 | 37 | 38 | 41 | 42 =>
+                alternate_colour <= '1';
+              when others =>
+                alternate_colour <= '0';
+            end case;
+          end if;
           if column_counter=3 then
             column_visible <= '1';
+            if next_char_bits = x"3A" then
+              -- Line begins with a colon, so colour columns differently to
+              -- make it easier to pick out the columns.  Maybe also the rows,
+              -- too.
+              colourify_data <= '1';
+            else
+              colourify_data <= '0';
+            end if;
+          elsif column_counter=11 then
+            if next_char_bits(0)='1' then
+              alternate_row <= '1';
+            else
+              alternate_row <= '0';
+            end if;
           elsif column_counter = (3 + te_line_length) then
             column_visible <= '0';
           end if;
@@ -819,9 +844,15 @@ begin  -- rtl
                 vgagreen_out(5 downto 0) <= vgagreen_in(7 downto 2);
                 vgablue_out(5 downto 0) <= vgablue_in(7 downto 2);
               else
-                vgared_out(7 downto 6) <= "00";
-                vgagreen_out(7 downto 6) <= "11";
-                vgablue_out(7 downto 6) <= "00";
+                if alternate_colour='1' then
+                  vgared_out(7 downto 6) <= alternate_row & alternate_row;
+                  vgagreen_out(7 downto 6) <= "11";
+                  vgablue_out(7 downto 6) <= "11";
+                else
+                  vgared_out(7 downto 6) <= "00";
+                  vgagreen_out(7 downto 6) <= "11";
+                  vgablue_out(7 downto 6) <= "00";
+                end if;
                 vgared_out(5 downto 0) <= vgared_in(7 downto 2);
                 vgagreen_out(5 downto 0) <= vgagreen_in(7 downto 2);
                 vgablue_out(5 downto 0) <= vgablue_in(7 downto 2);
