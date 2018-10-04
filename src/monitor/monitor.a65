@@ -940,8 +940,8 @@ _history_space:
       bra         _history_lookup
       
 _history_jmp_table:
-      .word       print_crlf,_history_opcode,_history_io,_history_flags0,_history_flags1,_history_hypervisor,_history_roms
-      
+      .word       print_crlf,_history_opcode,_history_io,_history_flags0,_history_flags1,_history_hypervisor,_history_roms,_history_print_five_spaces
+            
       ; Do table lookup.  Note, we don't subtract $20 here. Instead, subtract $40 from base of jump table.
 _history_jmp:
       asl
@@ -949,6 +949,13 @@ _history_jmp:
       jmp         (_history_jmp_table-$40,x)
       
       ; Specialized display code for showing instruction opcode bytes
+_history_print_five_spaces:
+      ldx	#5
+_history_space_loop:
+      jsr	print_space
+      dex
+      bpl	_history_space_loop
+      bra	_history_loop
 _history_opcode:
       lda         monitor_Misc                
       and         #3                          ; get # instruction bytes
@@ -1520,7 +1527,8 @@ state_msg:
       .byte       13,10,"uS Address  Rd",13,10,0
       
 history_msg:
-      .byte       13,10,"PC   A  X  Y  Z  B  SP   MAPH MAPL LAST-OP In P  P-FLAGS   RGP uS IO ws h RECA8LHC",13,10,0
+      .byte       13,10,"PC   A  X  Y  Z  B  SP   MAPH MAPL LAST-OP In     "
+      .byte       " P  P-FLAGS   RGP uS IO ws h RECA8LHC",13,10,0
 
 history_fmt:
       ; $00 - $1f : Offset into memory to print hex value from
@@ -1532,8 +1540,10 @@ history_fmt:
       ; $24 - Flags1
       ; $25 - Hypervisor
       ; $26 - ROM enables
+      ; $27 - print five spaces
       ; High bit set implies printing a space first.       
-      .byte       $06,$05,$81,$82,$83,$84,$8a,$8c,$0b,$90,$11,$8d,$0e,$80+$21,$15,$80+$00,$80+$23,$80+$24,$88,$80+$22,$89,$80+$25,$00+$26,$20
+      .byte       $06,$05,$81,$82,$83,$84,$8a,$8c,$0b,$90,$11,$8d,$0e,$80+$21,$15,$27
+      .byte       $80+$00,$80+$23,$80+$24,$88,$80+$22,$89,$80+$25,$00+$26,$20
 
 bad_bitrate_msg:
       .byte       13,10,"Bad bit rate divisor",13,10,0
