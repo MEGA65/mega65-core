@@ -183,6 +183,7 @@ architecture rtl of matrix_rain_compositor is
   signal line_screen_address : unsigned(11 downto 0) := to_unsigned(te_screen_start,12);
   signal char_ycounter : unsigned(11 downto 0) := to_unsigned(0,12);
   signal row_counter : integer := 0;
+  signal column_counter : integer := 0;
   signal next_is_cursor : std_logic := '0';
   signal is_cursor : std_logic := '0';  
   
@@ -587,6 +588,7 @@ begin  -- rtl
         if external_frame_x_zero='1' and last_external_frame_x_zero = '0' then
           char_bit_count <= 0;
           fetch_next_char <= '1';
+          column_counter <= 0;
           -- reset fetch address to start of line, unless
           -- we are advancing to next line
           -- XXX doesn't yet support double-high chars
@@ -611,6 +613,7 @@ begin  -- rtl
           char_screen_address <= char_screen_address + 1;
           fetch_next_char <= '1';
           char_bit_count <= 16;
+          column_counter <= column_counter + 1;
         else
           -- rotate bits for terminal chargen every 2 640H pixels
           if (pixel_x_800 mod 2) = 0 and char_bit_count /= 1
@@ -786,9 +789,15 @@ begin  -- rtl
             vgared_out(5 downto 0) <= vgared_in(7 downto 2);
             vgagreen_out(5 downto 0) <= vgagreen_in(7 downto 2);
             vgablue_out(5 downto 0) <= vgablue_in(7 downto 2);
+
+            -- Reset fetching to start of area, ready for next frame
+            line_screen_address <= to_unsigned(te_header_start,12);
+            char_screen_address <= to_unsigned(te_header_start,12);
+            char_ycounter <= to_unsigned(0,12);
+
           elsif row_counter >= te_header_line_count then
             -- In normal text area
-            if char_bits(0) = '1' then
+            if (char_bits(0) = '1') and (row_counter <= te_line_length) then
               if is_cursor='1' and te_blink_state='1' then
                 vgared_out(7 downto 6) <= "00";
                 vgagreen_out(7 downto 6) <= "00";
