@@ -610,7 +610,9 @@ begin  -- rtl
           end if;
           char_bits <= std_logic_vector(next_char_bits);
           is_cursor <= next_is_cursor;
-          char_screen_address <= char_screen_address + 1;
+          if column_counter /= 0 then
+            char_screen_address <= char_screen_address + 1;
+          end if;
           fetch_next_char <= '1';
           char_bit_count <= 16;
           column_counter <= column_counter + 1;
@@ -797,7 +799,7 @@ begin  -- rtl
 
           elsif row_counter >= te_header_line_count then
             -- In normal text area
-            if (char_bits(0) = '1') and (row_counter <= te_line_length) then
+            if (char_bits(0) = '1') and (column_counter <= te_line_length) and (column_counter /= 0) then
               if is_cursor='1' and te_blink_state='1' then
                 vgared_out(7 downto 6) <= "00";
                 vgagreen_out(7 downto 6) <= "00";
