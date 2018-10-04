@@ -200,10 +200,12 @@ accepting_input:
 
 ; XXX - When we are in secure mode, we should ignore the UART, only
 ; read from the keyboard
+      lda   	  in_matrix_mode
+      bne	  +
       bit         uart_status
       bmi         get_uart_char
 ; Check for keyboard input
-      lda	  uart_status
+*     lda	  uart_status
       and 	  #$20
       bne	  get_keyboard_char
 
@@ -455,7 +457,7 @@ accept_command:
 	lda   #$00	
 	sta   mon_trace
 
-	jmp	accepting_input
+	jmp	next_command
 
 erase_memory:
 	; XXX - Implement me.
