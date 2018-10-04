@@ -185,6 +185,7 @@ architecture rtl of matrix_rain_compositor is
   signal char_ycounter : unsigned(11 downto 0) := to_unsigned(0,12);
   signal row_counter : integer := 0;
   signal column_counter : integer := 0;
+  signal column_visible : std_logic := '0';
   signal next_is_cursor : std_logic := '0';
   signal is_cursor : std_logic := '0';  
   
@@ -590,6 +591,7 @@ begin  -- rtl
           char_bit_count <= 0;
           fetch_next_char <= '1';
           column_counter <= 0;
+          column_visible <= '0';
           -- reset fetch address to start of line, unless
           -- we are advancing to next line
           -- XXX doesn't yet support double-high chars
@@ -611,8 +613,15 @@ begin  -- rtl
           end if;
           char_bits <= std_logic_vector(next_char_bits);
           is_cursor <= next_is_cursor;
-          if column_counter /= 0 then
+          -- The offset of 3 is to position the matrix mode overlay more
+          -- centrally on the screen.
+          if column_counter > 3 then
             char_screen_address <= char_screen_address + 1;
+          end if;
+          if column_counter=3 then
+            column_visible <= '1';
+          elsif column_counter = (3 + te_line_length) then
+            column_visible <= '0';
           end if;
           fetch_next_char <= '1';
           char_bit_count <= 16;
@@ -801,7 +810,7 @@ begin  -- rtl
 
           elsif row_counter >= te_header_line_count then
             -- In normal text area
-            if (char_bits(0) = '1') and (column_counter <= te_line_length) and (column_counter /= 0) then
+            if (char_bits(0) = '1') and column_visible='1' then
               if is_cursor='1' and te_blink_state='1' then
                 vgared_out(7 downto 6) <= "00";
                 vgagreen_out(7 downto 6) <= "00";
@@ -818,7 +827,7 @@ begin  -- rtl
                 vgablue_out(5 downto 0) <= vgablue_in(7 downto 2);
               end if;
             else
-              if is_cursor='1' and te_blink_state='1' and (column_counter <= te_line_length) and (column_counter /= 0) then
+              if is_cursor='1' and te_blink_state='1' and column_visible='1' then
                 vgared_out <= "11111111";
                 vgagreen_out <= "11111111";
                 vgablue_out <= "00000000";
@@ -834,7 +843,7 @@ begin  -- rtl
           else
             -- In header of matrix mode
             -- Note that cursor is not visible in header area
-            if char_bits(0) = '0' or (column_counter > te_line_length) or (column_counter = 0) then
+            if char_bits(0) = '0' or (column_visible='0') then
               vgared_out <= (others => '0');
               vgagreen_out <= (others => '0');
               vgablue_out <= (others => '0');
