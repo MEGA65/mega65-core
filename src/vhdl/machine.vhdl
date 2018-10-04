@@ -826,9 +826,7 @@ begin
       -- XXX temporary debug
       seg_led_data(23 downto 16) <= protected_hardware_sig;
       seg_led_data(15 downto 8) <= uart_char;
-      seg_led_data(7 downto 1) <= "0000000";
-      seg_led_data(0) <= restore_nmi;
-      
+      seg_led_data(7 downto 0) <= uart_monitor_char;      
       
       -- segments are:
       -- 7 - decimal point

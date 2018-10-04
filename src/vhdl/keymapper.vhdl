@@ -8,8 +8,9 @@ entity keymapper is
   port (
     ioclock : in std_logic;
     reset_in : in std_logic;
-    matrix_mode_in : std_logic;
-
+    matrix_mode_in : in std_logic; -- Is the system displaying matrix mode (not
+                                   -- to be confused with the keyboard matrix).
+    
     joya_rotate : in std_logic;
     joyb_rotate : in std_logic;
     
@@ -168,7 +169,7 @@ begin  -- behavioural
   matrix_col_idx <= m_col_idx;
 
   -- Let other blocks snoop combined matrix output as we scan through it.
-  scanexplort: process(ioclock)
+  scanexport: process(ioclock)
   begin
     if rising_edge(ioclock) then
       matrix_combined_col <= scan_col;
@@ -388,20 +389,20 @@ begin  -- behavioural
       -- characters based on the matrix state.
       
       scan_col_out := (scan_col(0) and scan_col(1) and scan_col(2) and scan_col(3) and
-                       scan_col(4) and scan_col(5) and scan_col(6) and scan_col(7)) or matrix_mode_in;
+                       scan_col(4) and scan_col(5) and scan_col(6) and scan_col(7));
       if scan_idx < 9 then
-        -- each bit N of port b is the logical and of all bits across row N in columns where porta_in(N) is 0, or'd with matrix_mode_in.
-        -- each bit N of port a is the logical and of all bits across col N in rows where portb_in(N) is 0, or'd with matrix_mode_in.
+        -- each bit N of port b is the logical and of all bits across row N in columns where porta_in(N) is 0.
+        -- each bit N of port a is the logical and of all bits across col N in rows where portb_in(N) is 0.
         if scan_idx < 8 then
           if porta_in(scan_idx)='0' then
-            portb_value_scan <= portb_value_scan and (scan_col or (7 downto 0 => matrix_mode_in));
+            portb_value_scan <= portb_value_scan and scan_col;
           end if;
           if portb_in(scan_idx)='0' then
-            porta_value_scan(scan_idx) <= porta_value_scan(scan_idx) and (scan_col_out or matrix_mode_in);
+            porta_value_scan(scan_idx) <= porta_value_scan(scan_idx) and scan_col_out;
           end if;
         else
           if keyboard_column8_select_in='0' then
-            portb_value_scan <= portb_value_scan and (scan_col or (7 downto 0 => matrix_mode_in));
+            portb_value_scan <= portb_value_scan and scan_col;
           end if;
         end if;
         scan_idx <= scan_idx + 1;
@@ -438,25 +439,29 @@ begin  -- behavioural
       -- values for the keyboard matrix, combined with the actual values coming
       -- in on the pins.  If DDR='1', then we don't want to read the pin, but if
       -- DDR='0', and if the pin is '0', then it should pull low.
-      for b in 0 to 7 loop
-        if (porta_ddr(b) = '0') and (porta_pins(b) = '0') then
-          -- CIA should read bit as low
-          porta_out(b) <= '0';
-          report "porta_out(" & integer'image(b) & ") = 0, due to ddr=0 and drive=0";
-        else
-          porta_out(b) <= porta_value(b) and joyb(b);
-          report "porta_out(" & integer'image(b) & ") = " &
-            std_logic'image(porta_value(b)) & " & "
-            & std_logic'image(joyb(b))
-            & ", due to ddr=0 and drive=0";
-        end if;
-        if (portb_ddr(b) = '0') and (portb_pins(b) = '0') then
-          -- CIA should read bit as low
-          portb_out(b) <= '0';
-        else
-          portb_out(b) <= portb_value(b) and joya(b);
-        end if;
-      end loop;
+      -- If we are displaying matrix mode, then we freeze the CIA port values,
+      -- so that a running program can't probe the keyboard lines.
+      if matrix_mode_in='0' then
+        for b in 0 to 7 loop
+          if (porta_ddr(b) = '0') and (porta_pins(b) = '0') then
+            -- CIA should read bit as low
+            porta_out(b) <= '0';
+            report "porta_out(" & integer'image(b) & ") = 0, due to ddr=0 and drive=0";
+          else
+            porta_out(b) <= porta_value(b) and joyb(b);
+            report "porta_out(" & integer'image(b) & ") = " &
+              std_logic'image(porta_value(b)) & " & "
+              & std_logic'image(joyb(b))
+              & ", due to ddr=0 and drive=0";
+          end if;
+          if (portb_ddr(b) = '0') and (portb_pins(b) = '0') then
+            -- CIA should read bit as low
+            portb_out(b) <= '0';
+          else
+            portb_out(b) <= portb_value(b) and joya(b);
+          end if;
+        end loop;
+      end if;
     end if;
 
   end process keyread;
