@@ -137,6 +137,7 @@
       .space      mem_line_cnt        1       ; number of lines to dump
       .space      cmdlen              1       ; # characters in command line
       .space      top_addr            4       ; 4 bytes for top address
+      .space	  use_cpu_perspective 1	      ; 1 byte flag to indicate if addresses are normal or CPU perspective ($777xxxx)
 
       .space      cmdbuf              64      ; 64 byte command string buffer
             
@@ -528,35 +529,40 @@ dump_bad_addr:
 ; -------------------------------------
 .scope
 dump_cpu_memory_cmd:
+	lda #$01
+	sta use_cpu_perspective
+	jmp dump_mem
       plx                               ; pop x
-      jsr         parse_addr16
-      lda         #$77
-      sta         hex_value+2
-      lda         #$07
-      sta         hex_value+3
+      ; we really should make sure it is only a 16-bit address,
+      ; but it isn't that important
+      jsr         parse_addr32_or_continue
       jmp         dump_mem
 
 ; -------------------------------------
 ; Dump Memory Command (m or M)
 ; -------------------------------------
 dump_memory_cmd:
+      lda	#$00
+      sta	use_cpu_perspective
       plx                               ; pop x
-      jsr         parse_addr32          ; get 32-bit address, or abort to next command
+      jsr         parse_addr32_or_continue          ; get 32-bit address, or abort to next command
 
 dump_mem:
-      jsr         copy_hex_value_to_target_address
-
       ; x will count bytes we've read (16 per line).  y will count lines printed
       ldy         mem_line_cnt
 dump_mem_bytes:
-      ; display current memory address
+
+      lda         #$3a                      ; display leading : before address
+      jsr         output_char
+
+	; display current memory address
       ldx         #3
 *     lda         mem_addr,x
       jsr         print_hex_byte
       dex
       bpl         -
 
-      lda         #$3a                      ; :
+      lda         #$3a                      ; display : between address and data
       jsr         output_char
 
       ldx         #16
@@ -606,6 +612,31 @@ end_spaces:
 ; the return address of the stack and go directly to the
 ; next command.
 ; ----------------------------------------
+parse_addr32_or_continue:
+	jsr parse_hex_value
+	cpy #0
+	beq pa_continue
+	cpy #9
+	bcs bad_address_error_pop
+	jsr copy_hex_value_to_target_address
+pa_continue:
+	; keep last value in mem_addr to continue from where last
+	; command finished
+
+      ; Patch memory address to CPU perspective, if required
+      lda 	  use_cpu_perspective
+      beq	  dm_addrpatched
+      lda         #$77
+      sta         mem_addr+2
+      sta	  target_addr+2
+      lda         #$07
+      sta         mem_addr+3
+      sta	  target_addr+3
+
+dm_addrpatched:
+
+	rts
+
 parse_addr32:
       jsr         parse_hex_value       ; returns with # of hex digits parsed in Y, X pointing at next index
       cpy         #0
@@ -940,7 +971,7 @@ _history_space:
       bra         _history_lookup
       
 _history_jmp_table:
-      .word       print_crlf,_history_opcode,_history_io,_history_flags0,_history_flags1,_history_hypervisor,_history_roms,_history_print_five_spaces
+	      .word       _history_end_of_display,_history_opcode,_history_io,_history_flags0,_history_flags1,_history_hypervisor,_history_roms,_history_print_padding_spaces
             
       ; Do table lookup.  Note, we don't subtract $20 here. Instead, subtract $40 from base of jump table.
 _history_jmp:
@@ -949,8 +980,23 @@ _history_jmp:
       jmp         (_history_jmp_table-$40,x)
       
       ; Specialized display code for showing instruction opcode bytes
-_history_print_five_spaces:
-      ldx	#5
+_history_end_of_display:
+	jsr	print_crlf
+	; Now display the next instruction that would be executed
+	; We copy the PC to mem_addr, set the upper part of the address to $0777
+	; for CPU context, and then call disassemble_one_instruction
+	lda   monitor_mem+$05
+	sta   mem_addr+0
+	lda   monitor_mem+$06
+	sta   mem_addr+1
+	lda   #$77
+	sta   mem_addr+2
+	lda   #$07
+	sta   mem_addr+3
+	jmp   disassemble_one_instruction
+	
+_history_print_padding_spaces:
+      ldx	#6
 _history_space_loop:
       jsr	print_space
       dex
@@ -1151,11 +1197,13 @@ disassemble_done:
 ; ----------------------------------------
 disassemble_mem_cmd:
       plx                               ; pop x
-      jsr         parse_addr32
+      jsr         parse_addr32_or_continue
       jsr         copy_hex_value_to_target_address
 
-      ; Get end address
-      jsr         parse_addr32          ; get 32-bit end address, or abort to next command
+      ; We display mem_line_cnt instructions before stopping
+      ; (which we keep track of in top_addr)
+      lda  mem_line_cnt
+      sta  top_addr
 
       ldx         #3
 *     lda         hex_value,x           ; copy hex value to top_address
@@ -1166,21 +1214,25 @@ disassemble_mem_cmd:
       ; Let's start out really simple and just print addresses and instruction bytes
 disassemble_loop:
       ; See if we are done
-      lda         mem_addr+0
-      cmp         top_addr+0
-      lda         mem_addr+1
-      sbc         top_addr+1
-      lda         mem_addr+2
-      sbc         top_addr+2
-      lda         mem_addr+3
-      sbc         top_addr+3
-      bcs         disassemble_done             ; mem_addr >= top_addr, do we're done
-      
+      lda         top_addr
+      beq         disassemble_done             ; mem_addr >= top_addr, do we're done
+      dec	  top_addr
+
       ; Also check UART.  If we get a char, then stop disassembly so we can get out if needed.
       bit         uart_status
       bmi         disassemble_done
 
-      ; Not done, print current address
+      jsr	  disassemble_one_instruction
+
+      jmp	  disassemble_loop
+
+disassemble_one_instruction:
+
+	; print leading comma before disassembled instructions
+	lda	#$2C	; comma
+	jsr	output_char
+
+      ; Print address of instruction
       ldx         #3
 *     lda         mem_addr,x
       jsr         print_hex_byte
@@ -1406,7 +1458,7 @@ show_post:
 all_done:
       jsr         print_crlf
 
-      jmp         disassemble_loop
+      rts
       
       ; Bring in generated disassembly data
       .include "monitor_dis.a65"
@@ -1507,7 +1559,9 @@ flag_bits:
       .checkpc    $ff00
 
 cmd_jmp_cmds:
-      .byte       "!DM?HRTZWBG+I#EFSL$"
+	; @ = dump memory from CPU perspective (was D)
+	; D = disassemble instructions (was $)
+      .byte       "!@M?HRTZWBG+I#EFSLD"
 cmd_jmp_table:
       .word       reset_cmd,dump_cpu_memory_cmd,dump_memory_cmd,print_banner,print_banner,show_registers_cmd
       .word       trace_cmd,history_cmd,watch_cmd,break_cmd,set_pc_cmd,set_bitrate_cmd,irq_cmd,hyper_trap_cmd
@@ -1533,7 +1587,7 @@ history_msg:
 history_fmt:
       ; $00 - $1f : Offset into memory to print hex value from
       ; >= $20    : Table lookup to jump table
-      ; $20 - End
+      ; $20 - Disassemble instruction and end
       ; $21 - Opcode
       ; $22 - IO
       ; $23 - Flags0
