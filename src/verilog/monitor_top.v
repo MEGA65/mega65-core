@@ -198,6 +198,7 @@
                            .monitor_watch(monitor_watch), .monitor_watch_match(monitor_watch_match),
                            .monitor_char_out(monitor_char_out), .monitor_char_valid(monitor_char_valid), .terminal_emulator_ready(terminal_emulator_ready),
                            .terminal_emulator_ack(terminal_emulator_ack),
+			   .uart_char(uart_char), .uart_char_valid(uart_char_valid),
                            .monitor_char_in(monitor_char), .monitor_char_toggle(monitor_char_toggle), .monitor_char_busy(monitor_char_busy),
                            .bit_rate_divisor(bit_rate_divisor),.rx(rx),.tx(tx),.activity(activity));
                         

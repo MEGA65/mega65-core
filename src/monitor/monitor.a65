@@ -72,7 +72,8 @@
       .alias      flag_mask_lo        $9006
       .alias      flag_mask_hi        $9007
       .alias      uart_rx             $9008
-      .alias      uart_tx             $9009
+      .alias      uart_tx             $9008
+      .alias	  keyboard_rx	      $9009
       .alias      uart_status         $900A
       .alias      mon_reset           $900B
       
@@ -196,8 +197,15 @@ next_command:
 
 accepting_input:
       jsr         check_protected_hw
+
+; XXX - When we are in secure mode, we should ignore the UART, only
+; read from the keyboard
       bit         uart_status
       bmi         get_uart_char
+; Check for keyboard input
+      lda	  uart_status
+      and 	  #$20
+      bne	  get_keyboard_char
 
       bit         monitor_char_status ; Anything from the monitor?
       bmi         get_monitor_char
@@ -239,7 +247,11 @@ get_uart_char:
       lda         uart_rx           ; get character (for now just from UART)
       ldx         #0
       stx         trace_continuous  ; disable tracing
-      
+      jmp	  character_received
+
+get_keyboard_char:
+      lda	  keyboard_rx
+
       ; Process new character (in A)
 character_received:      
       cmp         #$20
@@ -267,11 +279,38 @@ otherchar:
       beq         backspace
       cmp         #$7f
       beq         backspace
+      cmp	  #$11
+      beq	  cursordown
+      cmp	  #$91
+      beq	  cursorup
       cmp         #13
       beq         enter_pressed
       cmp         #10
       beq         enter_pressed
       bra         beep
+
+cursorup:
+	; Subtract $100 from mem_addr, and act as though M was pressed
+
+	lda 	   mem_addr+1
+	sec
+	sbc	#$01
+	sta	mem_addr+1
+	lda	mem_addr+2
+	sbc	#$00
+	sta	mem_addr+2
+	lda	mem_addr+3
+	sbc	#$00
+	sta	mem_addr+3
+; XXX It would be nice to have it remember if the previous command was M or D,
+; and repeat accordingly.
+	jmp	   dump_mem
+
+cursordown:
+	; display next page of memory
+; XXX It would be nice to have it remember if the previous command was M or D,
+; and repeat accordingly.
+	jmp	  dump_mem
 
 backspace:
       ldx         cmdlen

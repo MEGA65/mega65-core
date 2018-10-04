@@ -19,7 +19,9 @@
 `define MON_FLAG_MASK1        5'h07
 
 `define MON_UART_RX           5'h08
-`define MON_UART_TX           5'h09         // These two registers could have the same address.  We never need to read from tx, or write to rx
+`define MON_UART_TX           5'h08         // These two registers could have the same address.  We never need to read from tx, or write to rx
+`define MON_KEYBOARD_RX       5'h09
+
 `define MON_UART_STATUS       5'h0A
 `define MON_RESET_TIMEOUT     5'h0B
 
@@ -48,53 +50,57 @@
 `define MON_CHAR_STATUS       5'h1F
 
 module monitor_ctrl(input clk, input reset, output wire reset_out, 
-                    `MARK_DEBUG input write, (* mark_debug = "true" *) input read, 
-                    `MARK_DEBUG input [4:0] address, 
-                    `MARK_DEBUG input [7:0] di, output reg [7:0] do,
-                    output reg [9:0] history_write_index, output wire history_write, output reg [9:0] history_read_index,
+                    `MARK_DEBUG input 		   write, (* mark_debug = "true" *) input read, 
+						   `MARK_DEBUG input [4:0] address, 
+						   `MARK_DEBUG input [7:0] di, output reg [7:0] do,
+				output reg [9:0]   history_write_index, output wire history_write, output reg [9:0] history_read_index,
                     
                     /* CPU Memory Interface */
-                    output wire [27:0] mem_address, 
-                    input [7:0] mem_rdata, 
-                    output reg [7:0] mem_wdata,
-                    output reg mem_attention_request, 
-                    input mem_attention_granted,
-                    output reg mem_read, 
-                    output reg mem_write,
-                    output reg set_pc,
+				output wire [27:0] mem_address, 
+				input [7:0] 	   mem_rdata, 
+				output reg [7:0]   mem_wdata,
+				output reg 	   mem_attention_request, 
+				input 		   mem_attention_granted,
+				output reg 	   mem_read, 
+				output reg 	   mem_write,
+				output reg 	   set_pc,
                     
                     /* CPU State Recording Control */
-                    output reg cpu_state_write,
-                    input [7:0] cpu_state,
-                    output wire [3:0] cpu_state_write_index,
-                    
-                    /* CPU Trace Interface */
-                    `MARK_DEBUG output wire monitor_mem_trace_mode,
-                    `MARK_DEBUG output reg monitor_mem_trace_toggle,
-                    `MARK_DEBUG output wire monitor_irq_inhibit,
-                    
-                    /* Hypervisor stuff */
-                    `MARK_DEBUG input monitor_hypervisor_mode,
-                    `MARK_DEBUG output wire monitor_hyper_trap,
-                    `MARK_DEBUG input [7:0] protected_hardware,
+				output reg 	   cpu_state_write,
+				input [7:0] 	   cpu_state,
+				output wire [3:0]  cpu_state_write_index,
+						   
+						   /* CPU Trace Interface */
+						   `MARK_DEBUG output wire monitor_mem_trace_mode,
+						   `MARK_DEBUG output reg monitor_mem_trace_toggle,
+						   `MARK_DEBUG output wire monitor_irq_inhibit,
+						   
+						   /* Hypervisor stuff */
+						   `MARK_DEBUG input monitor_hypervisor_mode,
+						   `MARK_DEBUG output wire monitor_hyper_trap,
+						   `MARK_DEBUG input [7:0] protected_hardware,
                                     
                     /* Watch interface */
-                    output reg [27:0] monitor_watch,
-                    input monitor_watch_match,
-                    input [7:0] monitor_p,
-                    input [15:0] monitor_pc,
-                    
-                    /* Monitor char input/output */
-                    `MARK_DEBUG output reg [7:0] monitor_char_out,
-                    `MARK_DEBUG output reg monitor_char_valid,
-                    `MARK_DEBUG input terminal_emulator_ready,
-                    `MARK_DEBUG input terminal_emulator_ack,
-                
-                    `MARK_DEBUG input [7:0] monitor_char_in,
-                    `MARK_DEBUG input monitor_char_toggle,
-                    `MARK_DEBUG output reg monitor_char_busy,
-                    
-                    output wire [15:0] bit_rate_divisor, input rx, output wire tx, output reg activity);
+				output reg [27:0]  monitor_watch,
+				input 		   monitor_watch_match,
+				input [7:0] 	   monitor_p,
+				input [15:0] 	   monitor_pc,
+						   
+						   /* Monitor char input/output */
+						   `MARK_DEBUG output reg [7:0] monitor_char_out,
+						   `MARK_DEBUG output reg monitor_char_valid,
+						   `MARK_DEBUG input terminal_emulator_ready,
+						   `MARK_DEBUG input terminal_emulator_ack,
+						   
+						   `MARK_DEBUG input [7:0] monitor_char_in,
+						   `MARK_DEBUG input monitor_char_toggle,
+						   `MARK_DEBUG output reg monitor_char_busy,
+
+				input [7:0]	   uart_char,
+				input 		   uart_char_valid,
+		    
+		    
+				output wire [15:0] bit_rate_divisor, input rx, output wire tx, output reg activity);
 
 // Internal debugging
 `MARK_DEBUG wire [7:0] monitor_di;
@@ -177,6 +183,10 @@ wire [7:0] rx_data;
 wire rx_data_ready;
 reg rx_data_ack;
 
+// Keyboard input control signals
+wire uart_char_waiting;
+   
+
 // Instantiate the VHDL TX and RX UARTS
 UART_TX_CTRL tx_ctrl(.SEND(tx_send),.BIT_TMR_MAX(bit_rate_divisor_reg),
                      .DATA(tx_data),.CLK(clk),.READY(tx_ready),.UART_TX(tx));
@@ -223,10 +233,17 @@ end
 // UART_RX
 always @(posedge clk)
 begin
+   if (uart_char_valid = 1) uart_char_waiting <= 1;   
+			
   if(address == `MON_UART_RX && read == 1)
   begin
     rx_data_ack <= 1;
     activity <= ~activity;    // Flip activity output on each UART RX CPU read
+  end
+  if(address == `MON_KEYBOARD_RX && read == 1)
+  begin
+     uart_char_waiting <= 0;     
+    activity <= ~activity;    // Flip activity output on each KEYBOARD RX CPU read
   end
   else if(rx_data_ready == 0) // Don't reset rx_data_ack until rx_data_ready is dropped by the UART.
     rx_data_ack <= 0;
@@ -563,8 +580,9 @@ begin
 //  `MON_MEM_WRITE:        do <= mem_wdata;
   `MON_MEM_STATUS:       do <= { mem_done, mem_error, 3'b000, monitor_hypervisor_mode, mem_state};
   `MON_UART_RX:          do <= rx_data;
+    `MON_KEYBOARD_RX:    do <= uart_char;    
 //  `MON_UART_TX:          do <= tx_data;
-  `MON_UART_STATUS:      do <= { rx_data_ready & ~rx_data_ack, tx_ready, 6'b0000000}; // Once we ack, mask off data ready bit.
+  `MON_UART_STATUS:      do <= { rx_data_ready & ~rx_data_ack, tx_ready, uart_char_waiting, 5'b000000}; // Once we ack, mask off data ready bit.
   `MON_STATE_CNT:        do <= { 3'b000, cpu_state_write_index_reg };
   
 //  `MON_WATCH_ADDR0:      do <= monitor_watch[7:0];
