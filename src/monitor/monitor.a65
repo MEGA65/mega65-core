@@ -281,6 +281,12 @@ otherchar:
       beq         backspace
       cmp	  #$11
       beq	  cursordown
+      cmp	  #$F3     ; F3 key maps to $F3 via keymapper
+      beq	  cursordown
+      cmp	  #$F1     ; F1 key maps to $F1 via keymapper
+      beq	  cursorup
+      cmp	  #$F7
+      beq	  wipememory
       cmp	  #$91
       beq	  cursorup
       cmp         #13
@@ -289,8 +295,15 @@ otherchar:
       beq         enter_pressed
       bra         beep
 
+wipememory:
+	; XXX - Erase all RAM, IO registers, including palettes,
+	; and install a minimal black and white palette.
+	jmp	accepting_input
+
 cursorup:
 	; Subtract $100 from mem_addr, and act as though M was pressed
+
+	; XXX - Should actually skip over memory pages that are empty
 
 	lda 	   mem_addr+1
 	sec
@@ -308,6 +321,9 @@ cursorup:
 
 cursordown:
 	; display next page of memory
+
+	; XXX - Should actually skip over memory pages that are empty
+
 ; XXX It would be nice to have it remember if the previous command was M or D,
 ; and repeat accordingly.
 	jmp	  dump_mem
