@@ -142,7 +142,7 @@ int process_line(char *line,int live)
       state=1;
     }
     unsigned int foo;
-    if (sscanf(line,"0000002B:%08x",
+    if (sscanf(line,":0000002B:%08x",
 	       &foo)==1) {      
       start_addr=((foo>>24)&0xff)+((foo>>8)&0xff00);
       end_addr=((foo>>8)&0xff) + ((foo<<8)&0xff00) -1;
@@ -157,7 +157,7 @@ int process_line(char *line,int live)
     int addr;
     int b[16];
     char hex[128];
-    if (sscanf(line,"%x:%s",&addr,hex)==2) {
+    if (sscanf(line,":%x:%s",&addr,hex)==2) {
       // printf("Read memory @ $%04x\n",addr);
       if (addr==start_addr) {
       for(int i=0;i<16&&(start_addr+i)<=end_addr;i++) 
