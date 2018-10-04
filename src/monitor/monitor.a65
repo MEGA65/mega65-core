@@ -996,7 +996,7 @@ _history_end_of_display:
 	jmp   disassemble_one_instruction
 	
 _history_print_padding_spaces:
-      ldx	#6
+      ldx	#8
 _history_space_loop:
       jsr	print_space
       dex
