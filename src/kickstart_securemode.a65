@@ -18,9 +18,17 @@ securemode_trap:
 	; First, disable access to cartridge, force 50MHz mode and 4502 CPU personality
 	LDA	 #$32
 	STA	 hypervisor_feature_enables
-	; Second, disable all protecteed IO access, and mark matrix mode and secure mode
+	; Second, disable all protecteed IO access, and mark matrix mode and secure mode.
+	; This also freezes the CPU until the monitor acknowledges that the CPU is in
+	; secure mode.  Only after that will the remainder of this routine proceed,
+	; and thus allow the secure program to run.
+	; XXX - This means that a little piece of the hypervisor is still running when we
+	; go into the secure compartment.  For this reason, the CPU needs to be blocked
+	; from writing to hypervisor_secure_mode_flags when in that state.
 	LDA	  #$c0
 	STA	  hypervisor_secure_mode_flags
+	
+
 	; At this point, the monitor detects that we have asked for secure mode, and will
 	; ask for the user to either accept or reject.  If they accept, the CPU will be
 	; resumed into the loaded service.  If not, all memory will be erased, before the
@@ -28,10 +36,8 @@ securemode_trap:
 	; later, we will have the monitor tell the hypervisor by synthesising an appropriate
 	; trap after wiping memory, presumbly by causing a write to a $D65x register.
 
-	; So for now, we should just infinite loop, while waiting for the monitor to take
-	; control
-*	inc	$d020
-	jmp	-
+
+	jmp	nosuchtrap
 
 
 leave_securemode_trap:
