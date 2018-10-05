@@ -672,6 +672,7 @@ architecture Behavioral of machine is
 
   signal secure_mode_flag : std_logic := '0';
   signal secure_mode_from_monitor : std_logic := '0';
+  signal secure_mode_triage_required : std_logic := '0';
   signal matrix_rain_seed : unsigned(15 downto 0);
   signal hsync_drive : std_logic := '0';
   signal vsync_drive : std_logic := '0';
@@ -1519,7 +1520,7 @@ begin
     clk => uartclock,
     pixelclock => pixelclock,
     matrix_mode_enable => protected_hardware_sig(6),--sw(5),
-    secure_mode_flag =>  protected_hardware_sig(7),
+    secure_mode_flag =>  secure_mode_triage_required,
     vgared_in => vgared_sig,
     vgagreen_in => vgagreen_sig,
     vgablue_in => vgablue_sig,
@@ -1655,6 +1656,8 @@ begin
   begin
     if rising_edge(cpuclock) then
 
+      secure_mode_triage_required <= protected_hardware_sig(7) or secure_mode_from_monitor;
+      
       osk_touch1_key <= osk_touch1_key_driver;
       osk_touch2_key <= osk_touch2_key_driver;
       

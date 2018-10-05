@@ -3243,10 +3243,6 @@ begin
             -- devices.             
             state <= ReturnFromHypervisor;
           end if;
-          if last_value(7) /= hyper_protected_hardware(7) then
-            -- Also force matrix mode to start when we enter or leave secure mode.
-            hyper_protected_hardware(6) <= '1';            
-          end if;
           if last_value(6)='1' then
             matrix_rain_seed <= cycle_counter(15 downto 0);
           end if;
@@ -3731,6 +3727,13 @@ begin
                 -- Trap $11 is enter secure mode, and trap $12 is exit.
                 -- $12 x 4 = $48
                 reg_pc(15 downto 0) <= x"8048";
+                -- But we also clear the secure mode flag on the CPU, and
+                -- reactivate matrix mode, so that the monitor can triage the exit
+                -- before the hypervisor gets activated again.
+                -- (this will implicitly cause the processor to stop, because the
+                -- monitor will be indicating secure mode to us, until such time
+                -- as it receives and ACCEPT or REJECT command.
+                hyper_protected_hardware(7 downto 6) <= "01";
               end if;
                                         -- map hypervisor ROM in upper moby
                                         -- ROM is at $FFF8000-$FFFBFFF

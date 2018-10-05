@@ -45,6 +45,10 @@ leave_securemode_trap:
 	; If we get here, we have left a secure compartment, with either memory erased
 	; or intact.  Either way, we should hand control back to the user, and disable
 	; matrix mode display.
+
+	; XXX - Debug
+	inc $d021
+
 	lda	#$00
 	sta	hypervisor_secure_mode_flags
 
