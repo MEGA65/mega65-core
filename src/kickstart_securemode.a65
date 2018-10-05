@@ -1,0 +1,18 @@
+
+
+securemode_trap:
+
+	; Clear C flag for caller to indicate failure
+	;
+	lda hypervisor_flags
+	and #$FE   ; C flag is bit 0
+	sta hypervisor_flags
+
+	; set A to $FF
+	;
+	lda #$ff
+	sta hypervisor_a
+
+	; return from hypervisor
+	;
+	sta hypervisor_enterexit_trigger

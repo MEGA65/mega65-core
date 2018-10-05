@@ -285,8 +285,7 @@ trap_dos_setname:
 	; piece of the hypervisor, and thus leaking hypervisor data to user-land if the
 	; user were to later query the filename).
 
-	jsr checkpoint
-	.byte 0,"trap_dos_setname",0
+	.invoke checkpoint "trap_dos_setname"
 
 	jsr hypervisor_setup_copy_region
 	bcc tdsnfailure
@@ -362,7 +361,6 @@ tdsn7:
 	sta setnamemsgname,y
 
 	jsr checkpoint
-	.byte 0
 setnamemsg:
 	.byte "setname($"
 setnamemsglen:
@@ -439,8 +437,7 @@ trap_dos_readdir:
 	; Return dirent structure to $YY00
 	; in first 32KB of mapped address space
 
-	jsr checkpoint
-	.byte 0,"trap_dos_readdir",0
+	.invoke checkpoint "trap_dos_readdir"
 
 	jsr sd_map_sectorbuffer
 
@@ -472,16 +469,14 @@ tdrd2:
 	dey
 	bpl tdrd2
 
-	jsr checkpoint
-	.byte 0,"trap_dos_readdir <success>",0
+	.invoke checkpoint "trap_dos_readdir <success>"
 
 	jmp return_from_trap_with_success
 
 ;	========================
 
 tdrd1:
-	jsr checkpoint
-	.byte 0,"trap_dos_readdir <failure>",0
+	.invoke checkpoint "trap_dos_readdir <failure>"
 	
 	lda dos_error_code
 	jmp return_from_trap_with_failure
@@ -502,14 +497,12 @@ trap_dos_openfile:
 	jsr dos_openfile
 	bcc tdof1
 
-	jsr checkpoint
-	.byte 0,"trap_dos_openfile <success>",0
+	.invoke checkpoint "trap_dos_openfile <success>"
 
 	jmp return_from_trap_with_success
 
 tdof1:
-	jsr checkpoint
-	.byte 0,"trap_dos_openfile <failure>",0
+	.invoke checkpoint "trap_dos_openfile <failure>"
 	
 	lda dos_error_code
 	jmp return_from_trap_with_failure
@@ -526,13 +519,11 @@ trap_dos_closefile:
 	jsr dos_closefile
 	bcc tdcf1
 
-	jsr checkpoint
-	.byte 0,"trap_dos_closefile <success>",0
+	.invoke checkpoint "trap_dos_closefile <success>"
 
 	jmp return_from_trap_with_success
 tdcf1:
-	jsr checkpoint
-	.byte 0,"trap_dos_closefile <failure>",0
+	.invoke checkpoint "trap_dos_closefile <failure>"
 	
 	lda dos_error_code
 	jmp return_from_trap_with_failure
@@ -580,8 +571,7 @@ tdgec1:	.byte "%%>",0
 
 trap_dos_d81attach:
 
-	jsr checkpoint
-	.byte 0,"trap_dos_d81attach",0
+	.invoke checkpoint "trap_dos_d81attach"
 
 	lda #$00
 	sta $d68b
@@ -612,8 +602,7 @@ td81we1:
 	; No disk image mounted
 	;
 
-	jsr checkpoint
-	.byte 0,"trap_dos_d81writeen-FAIL",0
+	.invoke checkpoint "trap_dos_d81writen-FAIL"
 
 	lda #dos_errorcode_no_such_disk
 	sta dos_error_code
@@ -719,8 +708,7 @@ dos_read_partitiontable:
 
 	; yes, $55AA MBR signature was found
 
-	jsr checkpoint
-	.byte 0,"Found $55, $AA at $1FE on MBR",0
+	.invoke checkpoint "Found $55, $AA at $1FE on MBR"
 
 	; Partitions start at offsets $1BE, $1CE, $1DE, $1EE
 	; so consider each in turn.  Opening the partition causes other sectors to
@@ -734,32 +722,28 @@ dos_read_partitiontable:
 	sta dos_scratch_vector
 	lda #>[sd_sectorbuffer+$1BE]
 	sta dos_scratch_vector+1
-		jsr checkpoint
-		.byte 0,"=== Checking Partition #1 at $01BE",0
+		.invoke checkpoint "=== Checking Partition #1 at $01BE"
 	jsr dos_consider_partition_entry
 	
 	jsr dos_read_mbr
 	bcc drpt_fail
 	lda #<[sd_sectorbuffer+$1CE]
 	sta dos_scratch_vector
-		jsr checkpoint
-		.byte 0,"=== Checking Partition #2 at $01CE",0
+		.invoke checkpoint "=== Checking Partition #2 at $01CE"
 	jsr dos_consider_partition_entry
 
 	jsr dos_read_mbr
 	bcc drpt_fail
 	lda #<[sd_sectorbuffer+$1DE]
 	sta dos_scratch_vector
-		jsr checkpoint
-		.byte 0,"=== Checking Partition #3 at $01DE",0
+		.invoke checkpoint "=== Checking Partition #3 at $01DE"
 	jsr dos_consider_partition_entry
 
 	jsr dos_read_mbr
 	bcc drpt_fail
 	lda #<[sd_sectorbuffer+$1EE]
 	sta dos_scratch_vector
-		jsr checkpoint
-		.byte 0,"=== Checking Partition #4 at $01EE",0
+		.invoke checkpoint "=== Checking Partition #4 at $01EE"
 	jsr dos_consider_partition_entry
 
 	lda #0
@@ -780,8 +764,7 @@ dos_read_mbr:
 	sta sd_address_byte2
 	sta sd_address_byte3
 
-	jsr checkpoint
-	.byte 0,"Reading MBR @ 0x00000000",0
+	.invoke checkpoint "Reading MBR @ 0x00000000"
 
 	; Read sector
 	;
@@ -836,8 +819,7 @@ dos_consider_partition_entry:
 
 partitionisinteresting_mega65sys:
 
-	jsr checkpoint
-	.byte 0,"MEGA65 System Partition (type=0x41)",0
+	.invoke checkpoint "MEGA65 System Partition (type=0x41)"
 
 	; Only one system partition
 	lda syspart_present
@@ -862,15 +844,13 @@ spc1:	lda (<dos_scratch_vector),y
 
 partitionisinteresting_lba:
 
-	jsr checkpoint
-	.byte 0,"Partn has fat32_lba (type=0x0c)",0
+	.invoke checkpoint "Partn has fat32_lba (type=0x0c)"
 
 	jmp partitionisinteresting
 
 partitionisinteresting_chs:
 
-	jsr checkpoint
-	.byte 0,"WARN:Partn has fat32_chs (type=0x0b)",0
+	.invoke checkpoint "WARN:Partn has fat32_chs (type=0x0b)"
 
 	jmp partitionisinteresting
 
@@ -990,8 +970,7 @@ partitionisnotinteresting:
 	; return OK
 	;
 
-	jsr checkpoint
-	.byte 0,"Partition not interesting",0
+	.invoke checkpoint "Partition not interesting"
 
 	sec
 	rts
@@ -1071,8 +1050,7 @@ fs_dos_disk_table_offsets:
 
 dos_disk_openpartition:
 
-	jsr checkpoint
-	.byte 0,"dos_disk_openpartition: (examine Vol ID)",0
+	.invoke checkpoint "dos_disk_openpartition: (examine Vol ID)"
 
 	; A contains the disk number we are trying to open.
 	;
@@ -1141,8 +1119,7 @@ ddop1a:
 	beq ddop1b
 	jmp partitionerror
 ddop1b:
-	jsr checkpoint
-	.byte 0,"Partn has $55, $AA GOOD",0
+	.invoke checkpoint "Partn has $55, $AA GOOD"
 
 	; Start populating fields
 
@@ -1257,8 +1234,7 @@ ddop11ok:
 	lda [sd_sectorbuffer+$2C]	; 2c is the ClusterNumberOfFirstRootDir
 	sta [dos_disk_table + fs_fat32_reserved_clusters],y
 
-;jsr checkpoint
-;.byte 0,"dos_disk_table-1",0
+;.invoke checkpoint "dos_disk_table-1"
 ;jsr dump_disk_table	; debugging
 
 ; dos_disk_table[00-07] = 00,08,00,00,00,A0,0F,00 = (fs_start_sector),                       (fs_sector_count)
@@ -1302,8 +1278,7 @@ ddop2:	lda dos_disk_table,y
 	sta [dos_disk_table+0],x
 	sta [dos_disk_table+1],x
 
-;jsr checkpoint
-;.byte 0,"dos_disk_table-2",0
+;.invoke checkpoint "dos_disk_table-2"
 ;jsr dump_disk_table	; debugging
 
 ; dos_disk_table[00-07] = 00,08,00,00,00,A0,0F,00
@@ -1352,8 +1327,7 @@ ddop12:	plp	; pull processor-status
 	dez
 	bne ddop_addnextfatsectors
 
-;jsr checkpoint
-;.byte 0,"dos_disk_table-3",0
+;.invoke checkpoint "dos_disk_table-3"
 ;jsr dump_disk_table	; debugging
 
 ; dos_disk_table[00-07] = 00,08,00,00,00,A0,0F,00
@@ -1403,8 +1377,7 @@ get_sec_per_cluster:
 	lda [sd_sectorbuffer+$0D]
 	sta dos_disk_table,y
 
-;jsr checkpoint
-;.byte 0,"dos_disk_table-4",0
+;.invoke checkpoint "dos_disk_table-4"
 ;jsr dump_disk_table	; debugging
 
 ; dos_disk_table[00-07] = 00,08,00,00,00,A0,0F,00
@@ -1465,8 +1438,7 @@ ddop15:	lda dos_disk_table,y
 
 ddop_gotclustercount:
 
-;jsr checkpoint
-;.byte 0,"dos_disk_table-5",0
+;.invoke checkpoint "dos_disk_table-5"
 ;jsr dump_disk_table	; debugging
 
 ; dos_disk_table[00-07] = 00,08,00,00,00,A0,0F,00
@@ -1484,8 +1456,7 @@ ddop_gotclustercount:
 	lda [sd_sectorbuffer+$0D]
 	sta dos_disk_table,y
 
-;jsr checkpoint
-;.byte 0,"dos_disk_table-6",0
+;.invoke checkpoint "dos_disk_table-6"
 ;jsr dump_disk_table	; debugging
 
 ; dos_disk_table[00-07] = 00,08,00,00,00,A0,0F,00
@@ -1538,8 +1509,7 @@ ddop16:	lda [sd_sectorbuffer+$2C],x	; +$2c is rootDirFirstCluster[3..0]
 	; fs_start_sector
 	; fs_sector_count
 
-;jsr checkpoint
-;.byte 0,"dos_disk_table-7",0
+;.invoke checkpoint "dos_disk_table-7"
 ;jsr dump_disk_table	; debugging
 
 ; dos_disk_table[00-07] = 00,08,00,00,00,A0,0F,00
@@ -1564,8 +1534,7 @@ ddop16:	lda [sd_sectorbuffer+$2C],x	; +$2c is rootDirFirstCluster[3..0]
 ; dos_disk_table[18-1F] = 04,0A,00,00,xx,xx,xx,xx
 
 
-	jsr checkpoint
-	.byte 0,"FAT32 partition data copied to dos_disk_table",0
+	.invoke checkpoint "FAT32 partition data copied to dos_disk_table"
 
 	; ... and increment the number of disks we know
 	inc dos_disk_count
@@ -1799,8 +1768,7 @@ dos_clearall:
 
 		; display debug message to uart
 		;
-		jsr checkpoint
-		.byte 0,"dos_clearall:",0
+		.invoke checkpoint "dos_clearall:"
 
 	lda #$ff
 	sta dos_file_descriptors
@@ -2010,8 +1978,7 @@ dos_readdir:
 
 ;debug info, unsure what byte is being displayed...
 ;
-	jsr checkpoint	; just a (near) blank line
-	.byte 0,"-",0
+	.invoke checkpoint "-"
 
 	ldy dos_current_file_descriptor_offset
 	clc
@@ -2033,7 +2000,7 @@ dos_readdir:
 
 	jsr checkpoint
 	.byte 0,"dos_readdir["
-drdcp0:	.byte"xxyy]==========================================",0
+drdcp0:	.byte"xxyy]",0
 
 jsr dumpsectoraddress	;debug
 jsr dumpfddata		;debug
@@ -2220,8 +2187,7 @@ drce_cont3:
 
 drce_hidden:
 
-	jsr checkpoint
-	.byte 0," is hidden/system, so skip this record",0
+	.invoke checkpoint  "is hidden/system, so skip this record"
 
 	jmp drce_cont_next_part
 
@@ -2229,8 +2195,7 @@ drce_hidden:
 
 drce_volumeid:
 
-	jsr checkpoint
-	.byte 0," is Volume ID, so skip this record",0
+	.invoke checkpoint  "is Volume ID, so skip this record"
 
 	jmp drce_cont_next_part
 
@@ -2238,8 +2203,7 @@ drce_volumeid:
 
 drce_directory:
 
-	jsr checkpoint
-	.byte 0," is Directory, so skip this record",0
+	.invoke checkpoint  "is Directory, so skip this record"
 
 	jmp drce_cont_next_part
 
@@ -2247,8 +2211,7 @@ drce_directory:
 
 drce_longname:
 
-	jsr checkpoint
-	.byte 0," is LFN, so skip this record",0
+	.invoke checkpoint  "is LFN, so skip this record"
 
 	jmp drce_cont_next_part
 
@@ -2285,8 +2248,7 @@ drce_longname:
 	lda lfn_piece_offsets,x
 	tax
 
-	jsr checkpoint
-	.byte 0," found LFN piece <start>",0
+	.invoke checkpoint  "found LFN piece <start>"
 	
 	; Copy first part of LFN
 	;
@@ -2341,8 +2303,7 @@ drce4:	lda (<dos_scratch_vector),y
 
 drce_eot_in_filename:
 
-	jsr checkpoint
-	.byte 0,"BGOK drce_eot_in_filename",0
+	.invoke checkpoint "BGOK drce_eot_in_filename"
 	
 	; got all characters from this LFN piece
 	;
@@ -2364,8 +2325,7 @@ drce_piece_didnt_grow_name_length:
 
 drce_ignore_lfn_piece:
 
-	jsr checkpoint
-	.byte 0,"BGOK drce_ignore_lfn_piece",0
+	.invoke checkpoint "BGOK drce_ignore_lfn_piece"
     
 	; We have finished processing this piece of long name.
 	; bump directory entry, read next sector if required, and re-enter loop
@@ -2373,8 +2333,7 @@ drce_ignore_lfn_piece:
 
 drce_cont_next:
 
-	jsr checkpoint
-	.byte 0,"BGOK drce_cont_next",0
+	.invoke checkpoint "BGOK drce_cont_next"
 
 	jsr dos_readdir_advance_to_next_entry
 	bcc drce_no_more_pieces
@@ -2393,8 +2352,7 @@ drd_end_of_directory:
 ;	========================
 
 drce_no_more_pieces:
-	jsr checkpoint
-	.byte 0," FOUND END_OF_DIRECTORY",0
+	.invoke checkpoint  "FOUND END_OF_DIRECTORY"
 
 	lda #dos_errorcode_eof
 	jmp dos_return_error
@@ -2414,8 +2372,7 @@ drce_normalrecord:
 	; PGS: We have found a short name.
 
 
-	jsr checkpoint
-	.byte 0," processing SHORT-name",0
+	.invoke checkpoint  "processing SHORT-name"
 	
 	; store short name
 	;
@@ -2537,16 +2494,14 @@ drce_fl:
 	lda (<dos_scratch_vector),y
 	sta dos_dirent_type_and_attribs
 
-	jsr checkpoint
-	.byte 0," drce_fl populated fields",0
+	.invoke checkpoint  "drce_fl populated fields"
 
 	jsr dos_readdir_advance_to_next_entry
 	bcs drce_not_eof
 
 drce_is_eof:
 
-	jsr checkpoint
-	.byte 0," DEBUG drce_is_eof <!>",0
+	.invoke checkpoint  "DEBUG drce_is_eof <!>"
 
 	; We need to pass the error through here to indicate EOF in directory,
 	; but in a way that can be defered to the next call to dos_readdir, because
@@ -2565,8 +2520,7 @@ drce_is_eof:
 
 drce_not_eof:
 
-	jsr checkpoint
-	.byte 0," drce_not_eof CHECK<1/3>",0
+	.invoke checkpoint  "drce_not_eof CHECK<1/3>"
 
 	; Ignore zero-length filenames (corresponding to empty directory entries)
 	;
@@ -2574,16 +2528,14 @@ drce_not_eof:
 	cmp #0
 	beq dos_readdir
 
-	jsr checkpoint
-	.byte 0," drce_not_eof CHECK<2/3>",0
+	.invoke checkpoint  "drce_not_eof CHECK<2/3>"
 
 	lda dos_dirent_shortfilename
 	beq dos_readdir
 	cmp #$20
 	beq dos_readdir
 
-	jsr checkpoint
-	.byte 0," drce_not_eof CHECK<3/3>",0
+	.invoke checkpoint  "drce_not_eof CHECK<3/3>"
 
 	ldx dos_dirent_longfilename_length
 	jsr lfndebug
@@ -2673,8 +2625,7 @@ dff4:	lda dos_dirent_longfilename,x
 
 	; File names match, so return success
 
-	jsr checkpoint
-	.byte 0,"Found the file...",0
+	.invoke checkpoint "Found the file..."
 
 	sec
 	rts
@@ -3161,8 +3112,7 @@ dos_print_current_cluster:
 	ldz dos_current_cluster+0
 	jsr printhex
 
-	jsr checkpoint
-	.byte 0,"dos_print_current_cluster",0	
+	.invoke checkpoint "dos_print_current_cluster"
 
 	rts
 
@@ -3302,8 +3252,7 @@ dsn_eon:
 
 dos_d81attach:
 
-	jsr checkpoint
-	.byte 0,"dos_d81attach <checking>",0
+	.invoke checkpoint "dos_d81attach <checking>"
 
 	; Assumes only that D81 file name has been set with dos_setname.
 		;
@@ -3422,8 +3371,7 @@ l96:
 		lda #$00
 		sta dos_error_code
 
-		jsr checkpoint
-		.byte 0,"dos_d81attach <measured end of image>",0
+		.invoke checkpoint "dos_d81attach <measured end of image>"
 
 		jsr dos_closefile
 
@@ -3470,8 +3418,7 @@ l94d:		lda $d681,x
 		lda #$03
 		sta $d68b
 
-		jsr checkpoint
-		.byte 0,"dos_d81attach <success>",0
+		.invoke checkpoint "dos_d81attach <success>"
 
 		sec
 		rts
@@ -3479,8 +3426,7 @@ l94d:		lda $d681,x
 ;	========================
 		
 d81wronglength:
-		jsr checkpoint
-		.byte 0,"dos_d81attach <wrong length>",0
+		.invoke checkpoint "dos_d81attach <wrong length>"
 
 		lda #dos_errorcode_image_wrong_length
 		sta dos_error_code
@@ -3490,8 +3436,7 @@ d81wronglength:
 ;	========================
 
 d81isfragged:
-		jsr checkpoint
-		.byte 0,"dos_d81attach <fragmented>",0
+		.invoke checkpoint "dos_d81attach <fragmented>"
 
 		lda #dos_errorcode_image_fragmented
 		sta dos_error_code
@@ -3501,8 +3446,7 @@ d81isfragged:
 ;	========================
 
 nod81:
-		jsr checkpoint
-		.byte 0,"dos_d81attach <file not found>",0
+		.invoke checkpoint "dos_d81attach <file not found>"
 
 		clc
 		rts
