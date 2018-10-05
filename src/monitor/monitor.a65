@@ -241,6 +241,8 @@ leave_secure_mode:
 ;	`printstr	securemode_exit_msg
 	lda	#0
 	sta	in_secure_mode
+	; And tell CPU we are done with secure mode, so that it can resume
+	sta	$901c
 	rts
 
 maybe_enter_secure_mode:
@@ -248,8 +250,10 @@ maybe_enter_secure_mode:
       bne	  +
       ; XXX - We should indicate how much space is transfer
 ;      `printstr	  securemode_entry_msg      
-*     lda	  #1
+*     lda	  #$80
       sta	  in_secure_mode
+      ; And tell CPU we think we are in secure mode, so that it can resume
+      sta	  $901c
       rts
 maybe_enter_matrix_mode:
       lda         in_matrix_mode

@@ -82,7 +82,7 @@ module monitor_ctrl(input clk, input reset, output wire reset_out,
 
 		    /* For controling access to secure mode */
 				input 		   secure_mode_from_cpu,
-				output reg	   secure_mode_cancel,
+				output reg	   secure_mode_from_monitor,
                                     
                     /* Watch interface */
 				output reg [27:0]  monitor_watch,
@@ -106,18 +106,22 @@ module monitor_ctrl(input clk, input reset, output wire reset_out,
 		    
 				output wire [15:0] bit_rate_divisor, input rx, output wire tx, output reg activity);
 
+   initial  secure_mode_from_monitor = 0;
+   
 // Internal debugging
 `MARK_DEBUG wire [7:0] monitor_di;
 assign monitor_di = di;
 
 // MON_RESET_TIMEOUT
-reg [7:0] reset_timeout;
-reg reset_processing;
+reg [7:0] reset_timeout = 255;
+reg reset_processing = 0;
 // reset_out is asserted any time reset_timeout != 0
 assign reset_out = (reset_timeout != 0);
 
 always @(posedge clk)
-begin
+  begin
+     $display("reset=%b, reset_processing=%b, reset_timeoud=%u",reset,reset_processing,reset_timeout);
+     
   if(reset & ~reset_processing)
   begin
     reset_processing <= 1;
@@ -314,7 +318,7 @@ begin
     end
     if(address == `MON_STATE_CNT)
     begin
-       secure_mode_cancel <= di[7];
+       secure_mode_from_monitor <= di[7];
     end
     if(address == `MON_TRACE_CTRL)
     begin

@@ -89,7 +89,7 @@ entity gs4510 is
     -- Asserted when CPU is in secure mode: Activates secure mode matrix mode interface
     secure_mode_out : out std_logic := '0';
     -- Input from uart monitor to cancel secure mode
-    secure_mode_cancel : in std_logic;
+    secure_mode_from_monitor : in std_logic;
 
     matrix_rain_seed : out unsigned(15 downto 0) := (others => '0');
     
@@ -1446,7 +1446,9 @@ begin
       -- Set microcode state for reset
 
       -- Enable chipselect for all peripherals and memories
-      chipselect_enables <= x"EF";              
+      chipselect_enables <= x"EF";
+      cartridge_enable <= '0';
+      hyper_protected_hardware <= x"00";
       
       -- CPU starts in hypervisor
       hypervisor_mode <= '1';
@@ -2706,6 +2708,7 @@ begin
 
       -- Disable all non-essential IO devices from memory map when in secure mode.
       if hyper_protected_hardware(7)='1' then
+        cartridge_enable <= '0';
         chipselect_enables <= x"84"; -- SD card/multi IO controller and SIDs
         -- (we disable the undesirable parts of the SD card interface separately)
       else
@@ -3232,7 +3235,18 @@ begin
                                         -- @IO:GS $D672 - Protected Hardware configuration
                                         -- @IO:GS $D672.6 - Enable composited Matrix Mode, and disable UART access to serial monitor.
         if last_write_address = x"FFD3672" and hypervisor_mode='1' then
-          hyper_protected_hardware(7 downto 0) <= last_value;
+          hyper_protected_hardware <= last_value;
+          if last_value(7)='1' then
+            -- If we attempt to enter secure mode, then we are forced out of
+            -- the hypervisor, to make sure that the hypervisor cannot do
+            -- naughty things to the secure container, like re-enable IO
+            -- devices.             
+            state <= ReturnFromHypervisor;
+          end if;
+          if last_value(7) /= hyper_protected_hardware(7) then
+            -- Also force matrix mode to start when we enter or leave secure mode.
+            hyper_protected_hardware(6) <= '1';            
+          end if;
           if last_value(6)='1' then
             matrix_rain_seed <= cycle_counter(15 downto 0);
           end if;
@@ -6303,7 +6317,18 @@ begin
     reg_pages_dirty_var(3) := '0';
 
     if rising_edge(clock) then
-      if io_settle_counter = x"00" then
+      -- We this awkward comparison because GHDL seems to think secure_mode_from_monitor='U'
+      -- initially, even though it gets initialised to '0' explicitly
+      if (hyper_protected_hardware(7)='1' and secure_mode_from_monitor='0')
+        or (hyper_protected_hardware(7)='0' and secure_mode_from_monitor='1')
+      then
+        -- Hold CPU completely paused if CPU and monitor disagree on whether we
+        -- are in secure mode or not.  This is how the CPU is held when switching
+        -- to and from secure mode.
+        report "SECUREMODE: Holding CPU paused because cpusecure=" & std_logic'image(hyper_protected_hardware(7))
+          & ", but monitorsecure=" & std_logic'image(secure_mode_from_monitor);
+        io_settle_delay <= '1';
+      elsif io_settle_counter = x"00" then
         io_settle_delay <= '0';
         report "clearing io_settle_delay due to io_settle_counter=$00";
       else

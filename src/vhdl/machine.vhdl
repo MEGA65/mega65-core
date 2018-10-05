@@ -305,7 +305,7 @@ architecture Behavioral of machine is
       uart_char : in unsigned(7 downto 0);
       uart_char_valid : in std_logic;
       secure_mode_from_cpu : in std_logic;
-      secure_mode_cancel : out std_logic;
+      secure_mode_from_monitor : out std_logic := '0';
 
       monitor_char_out : out unsigned(7 downto 0);
       monitor_char_valid : out std_logic;
@@ -671,7 +671,7 @@ architecture Behavioral of machine is
   signal osk_touch2_key_driver : unsigned(7 downto 0) := x"FF";
 
   signal secure_mode_flag : std_logic := '0';
-  signal secure_mode_cancel : std_logic := '0';
+  signal secure_mode_from_monitor : std_logic := '0';
   signal matrix_rain_seed : unsigned(15 downto 0);
   signal hsync_drive : std_logic := '0';
   signal vsync_drive : std_logic := '0';
@@ -730,16 +730,17 @@ begin
       report "reset asserted via power_on_reset(0)";
       reset_combined <= '0';
     elsif reset_monitor='0' then
-      report "reset asserted via reset_monitor";
+      report "reset asserted via reset_monitor = " & std_logic'image(reset_monitor);
       reset_combined <= '0';
     else
+      report "reset_combined not asserted";
       reset_combined <= '1';
     end if;
 
     hyper_trap_combined <= hyper_trap and monitor_hyper_trap;
     
   -- report "btnCpuReset = " & std_logic'image(btnCpuReset) & ", reset_io = " & std_logic'image(reset_io) & ", sw(15) = " & std_logic'image(sw(15)) severity note;
-  -- report "reset_combined = " & std_logic'image(reset_combined) severity note;
+    report "reset_combined = " & std_logic'image(reset_combined) severity note;
   end process;
   
   process(pixelclock,ioclock)
@@ -902,7 +903,7 @@ begin
       cpuis6502 => cpuis6502,
       cpuspeed => cpuspeed,
       secure_mode_out => secure_mode_flag,
-      secure_mode_cancel => secure_mode_cancel,
+      secure_mode_from_monitor => secure_mode_from_monitor,
       matrix_rain_seed => matrix_rain_seed,
       dat_offset => dat_offset,
       dat_bitplane_addresses => dat_bitplane_addresses,
@@ -1596,7 +1597,7 @@ begin
     force_single_step => sw(11),
 
     secure_mode_from_cpu => secure_mode_flag,
-    secure_mode_cancel => secure_mode_cancel,
+    secure_mode_from_monitor => secure_mode_from_monitor,
     
     fastio_read => fastio_read,
     fastio_write => fastio_write,
