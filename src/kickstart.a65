@@ -122,7 +122,7 @@ trap_entry_points:
 	nop
 	jmp securemode_trap
 	nop
-	jmp nosuchtrap
+	jmp leave_securemode_trap
 	nop
 	jmp nosuchtrap
 	nop

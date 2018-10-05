@@ -2966,7 +2966,8 @@ begin
         hyper_trap_edge <= '0';
       end if;
       hyper_trap_last <= hyper_trap;
-      if (hyper_trap_edge = '1' or matrix_trap_in ='1' or hyper_trap_f011_read = '1' or hyper_trap_f011_write = '1') and hyper_trap_state = '1' then
+      if (hyper_trap_edge = '1' or matrix_trap_in ='1' or hyper_trap_f011_read = '1' or hyper_trap_f011_write = '1')
+        and hyper_trap_state = '1' then
         hyper_trap_state <= '0';
         hyper_trap_pending <= '1'; 
         if matrix_trap_in='1' then 
@@ -3706,7 +3707,17 @@ begin
                                         -- Actually, set PC based on address written to, so that
                                         -- writing to the 64 hypervisor registers act similar to the INT
                                         -- instruction on x86 machines.
-              reg_pc(8 downto 2) <= hypervisor_trap_port;              
+              if hyper_protected_hardware(7)='0' then
+                reg_pc(8 downto 2) <= hypervisor_trap_port;
+              else
+                -- Any hypervisor trap from in secure mode instead calls one
+                -- specific trap, and automatically generates a signal to the
+                -- monitor interface to say that the user wishes to exit the
+                -- secure compartment.
+                -- Trap $11 is enter secure mode, and trap $12 is exit.
+                -- $12 x 4 = $48
+                reg_pc(15 downto 0) <= x"8048";
+              end if;
                                         -- map hypervisor ROM in upper moby
                                         -- ROM is at $FFF8000-$FFFBFFF
               reg_map_high <= "0011";

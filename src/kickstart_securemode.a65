@@ -33,3 +33,12 @@ securemode_trap:
 *	inc	$d020
 	jmp	-
 
+
+leave_securemode_trap:
+
+	; If we get here, we have left a secure compartment, with either memory erased
+	; or intact.  Either way, we should hand control back to the user
+	lda	#$00
+	sta	hypervisor_secure_mode_flags
+
+	jmp	nosuchtrap
