@@ -82,7 +82,8 @@ module monitor_ctrl(input clk, input reset, output wire reset_out,
 
 		    /* For controling access to secure mode */
 				input 		   secure_mode_from_cpu,
-				output reg	   secure_mode_from_monitor,
+				output reg 	   secure_mode_from_monitor,
+		                output reg         clear_matrix_mode_toggle,
                                     
                     /* Watch interface */
 				output reg [27:0]  monitor_watch,
@@ -319,6 +320,9 @@ begin
     if(address == `MON_STATE_CNT)
     begin
        secure_mode_from_monitor <= di[7];
+       // Writing to $901C from the monitor also instructs CPU to
+       // cancel matrix mode.
+       clear_matrix_mode_toggle <= ~clear_matrix_mode_toggle;       
     end
     if(address == `MON_TRACE_CTRL)
     begin

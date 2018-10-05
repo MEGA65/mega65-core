@@ -88,9 +88,13 @@ entity gs4510 is
 
     -- Asserted when CPU is in secure mode: Activates secure mode matrix mode interface
     secure_mode_out : out std_logic := '0';
-    -- Input from uart monitor to cancel secure mode
+    -- Input from uart monitor to indicate if we should be in secure or normal
+    -- mode (CPU halts if in wrong mode, i.e., until monitor releases it to resume)
     secure_mode_from_monitor : in std_logic;
-
+    -- This signal allows the monitor to cancel matrix mode after we ACCEPT or
+    -- REJECT a secure session.
+    clear_matrix_mode_toggle : in std_logic;
+    
     matrix_rain_seed : out unsigned(15 downto 0) := (others => '0');
     
     no_kickstart : in std_logic;
@@ -332,6 +336,8 @@ architecture Behavioural of gs4510 is
   -- immediately on writing a character, without having to wait for the uart
   -- monitor to have a serial port tick (which is when it checks on that side)
   signal immediate_monitor_char_busy : std_logic := '0';
+
+  signal last_clear_matrix_mode_toggle : std_logic := '0';
 
   -- For instruction-accurate CPU timing at 1MHz and 3.5MHz
   -- XXX Doesn't differentiate between PAL and NTSC
@@ -6322,12 +6328,13 @@ begin
     if rising_edge(clock) then
       -- We this awkward comparison because GHDL seems to think secure_mode_from_monitor='U'
       -- initially, even though it gets initialised to '0' explicitly
-      if (hyper_protected_hardware(7)='1' and secure_mode_from_monitor='1') then
+      if clear_matrix_mode_toggle /= last_clear_matrix_mode_toggle then
         -- Turn off matrix mode once the monitor has accepted or rejected the
         -- transition, since the hypervisor isn't available to do it itself.
         -- This leaves the secure program both running and visible and able to
         -- be interacted with.
-        hyper_protected_hardware(6) <= '0';        
+        hyper_protected_hardware(6) <= '0';
+        last_clear_matrix_mode_toggle <= clear_matrix_mode_toggle;
       end if;
       if (hyper_protected_hardware(7)='1' and secure_mode_from_monitor='0')
         or (hyper_protected_hardware(7)='0' and secure_mode_from_monitor='1')

@@ -306,6 +306,7 @@ architecture Behavioral of machine is
       uart_char_valid : in std_logic;
       secure_mode_from_cpu : in std_logic;
       secure_mode_from_monitor : out std_logic := '0';
+      clear_matrix_mode_toggle : out std_logic := '0';
 
       monitor_char_out : out unsigned(7 downto 0);
       monitor_char_valid : out std_logic;
@@ -673,6 +674,7 @@ architecture Behavioral of machine is
   signal secure_mode_flag : std_logic := '0';
   signal secure_mode_from_monitor : std_logic := '0';
   signal secure_mode_triage_required : std_logic := '0';
+  signal clear_matrix_mode_toggle : std_logic := '0';
   signal matrix_rain_seed : unsigned(15 downto 0);
   signal hsync_drive : std_logic := '0';
   signal vsync_drive : std_logic := '0';
@@ -905,6 +907,7 @@ begin
       cpuspeed => cpuspeed,
       secure_mode_out => secure_mode_flag,
       secure_mode_from_monitor => secure_mode_from_monitor,
+      clear_matrix_mode_toggle => clear_matrix_mode_toggle,
       matrix_rain_seed => matrix_rain_seed,
       dat_offset => dat_offset,
       dat_bitplane_addresses => dat_bitplane_addresses,
@@ -1599,6 +1602,7 @@ begin
 
     secure_mode_from_cpu => secure_mode_flag,
     secure_mode_from_monitor => secure_mode_from_monitor,
+    clear_matrix_mode_toggle => clear_matrix_mode_toggle,
     
     fastio_read => fastio_read,
     fastio_write => fastio_write,
