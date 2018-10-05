@@ -129,6 +129,7 @@
       .space      trace_continuous    1       ; monitor state flag      
       .space      fill_value          1       ; memory fill value
       .space      in_matrix_mode      1
+      .space      in_secure_mode      1
       .space      hex_value           4       ; 4 bytes for parsed hex value
       .space      target_addr         4       ; 4 bytes for target hex address
       .space      flag_ptr            2       ; pointer to flag byte
@@ -227,11 +228,28 @@ accepting_input:
 
 check_protected_hw:
       bit         protected_hw
+      bmi	  maybe_enter_secure_mode
+      lda	  in_secure_mode
+      bne	  leave_secure_mode
       bvs         maybe_enter_matrix_mode
       lda         #0
 update_protected_hw:
       sta         in_matrix_mode
 check_protected_hw_exit:
+      rts
+leave_secure_mode:
+;	`printstr	securemode_exit_msg
+	lda	#0
+	sta	in_secure_mode
+	rts
+
+maybe_enter_secure_mode:
+      lda	  in_secure_mode
+      bne	  +
+      ; XXX - We should indicate how much space is transfer
+;      `printstr	  securemode_entry_msg      
+*     lda	  #1
+      sta	  in_secure_mode
       rts
 maybe_enter_matrix_mode:
       lda         in_matrix_mode
@@ -1702,13 +1720,24 @@ cmd_jmp_table:
       .word       reset_cmd,dump_cpu_memory_cmd,dump_memory_cmd,print_banner,print_banner,show_registers_cmd
       .word       trace_cmd,history_cmd,watch_cmd,break_cmd,set_pc_cmd,set_bitrate_cmd,irq_cmd,hyper_trap_cmd
       .word       flag_break_cmd,fill_mem_cmd,set_mem_cmd,load_mem_cmd,disassemble_mem_cmd
-      
+
+;securemode_entry_msg:
+;	.byte   "All storage and communications devices have been disconnected.",13,10
+;	.byte   "To proceed, type ACCEPT, or to abort, type REJECT.",13,10
+;	.byte 0
+
+;securemode_exit_msg:
+;	.byte	"Check that only what you expect is in memory before proceeding.",13,10
+;	.byte	"To release the data, type ACCEPT, or destroy it by typing REJECT."
+;	.byte 13,10,0
+
 banner_msg:
       .byte       "MEGA65 Serial Monitor",13,10
       .byte       "build "
       .include    "version.a65"
 crlf_str:
       .byte       13,10,0
+
 prompt_str:
       .byte       13,10,".",0
 backspace_msg:
