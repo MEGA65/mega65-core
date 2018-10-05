@@ -69,7 +69,7 @@ architecture Behavioral of ps2_to_uart is
   
   
   --UART Signals
-  signal tx_data : std_logic_vector(7 downto 0);
+  signal tx_data : unsigned(7 downto 0);
   signal tx_ready : std_logic; 
   signal tx_trigger : std_logic := '0';
   
