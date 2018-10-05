@@ -189,7 +189,6 @@ OVERLAYVHDL=		$(VHDLSRCDIR)/rain.vhdl \
 
 SERMONVHDL=		$(VHDLSRCDIR)/ps2_to_uart.vhdl \
 			$(VHDLSRCDIR)/uart_monitor.vhdl \
-			$(VHDLSRCDIR)/6502_top.vhdl \
 			$(VHDLSRCDIR)/uart_rx.vhdl \
 
 M65VHDL=		$(VHDLSRCDIR)/machine.vhdl \
@@ -250,7 +249,9 @@ MONITORVERILOG=		$(VERILOGSRCDIR)/6502_alu.v \
 			$(VERILOGSRCDIR)/monitor.v \
 			$(VERILOGSRCDIR)/monitor_ctrl.v \
 			$(VERILOGSRCDIR)/monitor_ctrl_ram.v \
-			$(VERILOGSRCDIR)/monitor_mem.v
+			$(VERILOGSRCDIR)/monitor_mem.v \
+			$(VERILOGSRCDIR)/UART_TX_CTRL.v \
+			$(VERILOGSRCDIR)/uart_rx.v
 
 
 simulate:	$(GHDL) $(SIMULATIONVHDL) $(ASSETS)/synthesised-60ns.dat
@@ -517,8 +518,10 @@ iverilog/driver/iverilog:
 	git submodule update
 	cd iverilog ; autoconf ; ./configure ; make
 
-$(VHDLSRCDIR)/6502_top.vhdl:	$(SRCDIR)/verilog/* iverilog/driver/iverilog
-	( cd src/verilog ; ../../iverilog/driver/iverilog  -tvhdl -o ../vhdl/6502_top.vhdl 6502_*.v )
+$(VHDLSRCDIR)/uart_monitor.vhdl:	$(VERILOGSRCDIR)/* iverilog/driver/iverilog Makefile
+	( cd $(VERILOGSRCDIR) ; ../../iverilog/driver/iverilog  -tvhdl -o ../../$(VHDLSRCDIR)/uart_monitor.vhdl.tmp monitor_*.v asym_ram_sdp.v 6502_*.v UART_TX_CTRL.v uart_rx.v )
+	# Now remove the dummy definitions of UART_TX_CTRL and uart_rx, as we will use the actual VHDL implementations of them.
+	cat $(VHDLSRCDIR)/uart_monitor.vhdl.tmp | awk 'BEGIN { echo=1; } {if ($$1=="--"&&$$2=="Generated"&&$$3=="from"&&$$4=="Verilog") { if ($$6=="UART_TX_CTRL"||$$6=="uart_rx") echo=0; else echo=1; } if (echo) print; }' > $(VHDLSRCDIR)/uart_monitor.vhdl
  
 
 $(SDCARD_DIR)/BANNER.M65:	$(TOOLDIR)/pngprepare/pngprepare assets/mega65_320x64.png
@@ -598,7 +601,7 @@ clean:
 	rm -f $(SDCARD_DIR)/utility.d81
 	rm -f tests/test_fdc_equal_flag.prg tests/test_fdc_equal_flag.list tests/test_fdc_equal_flag.map
 	rm -rf $(SDCARD_DIR)
-	rm -f $(VHDLSRCDIR)/kickstart.vhdl $(VHDLSRCDIR)/charrom.vhdl $(VHDLSRCDIR)/version.vhdl version.a65 $(VHDLSRCDIR)/6502_top.vhdl
+	rm -f $(VHDLSRCDIR)/kickstart.vhdl $(VHDLSRCDIR)/charrom.vhdl $(VHDLSRCDIR)/version.vhdl version.a65 $(VHDLSRCDIR)/uart_monitor.vhdl
 	rm -f $(BINDIR)/monitor.m65 monitor.list monitor.map $(SRCDIR)/monitor/gen_dis $(SRCDIR)/monitor/monitor_dis.a65 $(SRCDIR)/monitor/version.a65
 	rm -f $(VERILOGSRCDIR)/monitor_mem.v
 	rm -f monitor_drive monitor_load read_mem ghdl-frame-gen chargen_debug dis4510 em4510 4510tables

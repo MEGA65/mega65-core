@@ -79,6 +79,10 @@ module monitor_ctrl(input clk, input reset, output wire reset_out,
 						   `MARK_DEBUG input monitor_hypervisor_mode,
 						   `MARK_DEBUG output wire monitor_hyper_trap,
 						   `MARK_DEBUG input [7:0] protected_hardware,
+
+		    /* For controling access to secure mode */
+				input 		   secure_mode_from_cpu,
+				output reg	   secure_mode_cancel,
                                     
                     /* Watch interface */
 				output reg [27:0]  monitor_watch,
@@ -96,7 +100,7 @@ module monitor_ctrl(input clk, input reset, output wire reset_out,
 						   `MARK_DEBUG input monitor_char_toggle,
 						   `MARK_DEBUG output reg monitor_char_busy,
 
-				input [7:0]	   uart_char,
+				input [7:0] 	   uart_char,
 				input 		   uart_char_valid,
 		    
 		    
@@ -307,6 +311,10 @@ begin
     begin
       history_write_index[9:8] = di[1:0];
       mem_trace_reg[2] <= 0;
+    end
+    if(address == `MON_STATE_CNT)
+    begin
+       secure_mode_cancel <= di[7];
     end
     if(address == `MON_TRACE_CTRL)
     begin
@@ -585,8 +593,8 @@ begin
   `MON_UART_RX:          do <= rx_data;
     `MON_KEYBOARD_RX:    do <= uart_char;    
 //  `MON_UART_TX:          do <= tx_data;
-  `MON_UART_STATUS:      do <= { rx_data_ready & ~rx_data_ack, tx_ready, uart_char_waiting, 5'b000000}; // Once we ack, mask off data ready bit.
-  `MON_STATE_CNT:        do <= { 3'b000, cpu_state_write_index_reg };
+  `MON_UART_STATUS:      do <= { rx_data_ready & ~rx_data_ack, tx_ready, uart_char_waiting, 5'b00000}; // Once we ack, mask off data ready bit.
+  `MON_STATE_CNT:        do <= { secure_mode_from_cpu, 2'b00, cpu_state_write_index_reg };
   
 //  `MON_WATCH_ADDR0:      do <= monitor_watch[7:0];
 //  `MON_WATCH_ADDR1:      do <= monitor_watch[15:8];

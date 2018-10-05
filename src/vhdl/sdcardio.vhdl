@@ -70,6 +70,7 @@ entity sdcardio is
     hypervisor_mode : in std_logic;
     hyper_trap_f011_read : out std_logic := '0';
     hyper_trap_f011_write : out std_logic := '0';
+    secure_mode : in std_logic := '0';
     
     fpga_temperature : in std_logic_vector(11 downto 0);
     
@@ -660,7 +661,7 @@ begin  -- behavioural
     
     if fastio_read='1' and sectorbuffercs='0' then
 
-      if f011_cs='1' and sdcardio_cs='0' then
+      if f011_cs='1' and sdcardio_cs='0' and secure_mode='0' then
         -- F011 FDC emulation registers
 --        report "Preparing to read F011 emulation register @ $" & to_hstring(fastio_addr);
 
@@ -781,7 +782,9 @@ begin  -- behavioural
 
         -- ==================================================================
 
-      elsif sdcardio_cs='1' and f011_cs='0' then
+      -- XXX Simplify this by putting all secure accessible things in one place?
+      elsif (sdcardio_cs='1' and f011_cs='0')
+        and (secure_mode='0' or fastio_addr(7 downto 4) = x"B" or fastio_addr(7 downto 4) = x"F") then
         -- microSD controller registers
         report "reading SDCARD registers" severity note;
         case fastio_addr(7 downto 0) is
@@ -1092,10 +1095,12 @@ begin  -- behavioural
             fastio_rdata <= audio_loopback(15 downto 8);
           when x"FF" =>
             -- Flash interface
-            fastio_rdata(3 downto 0) <= unsigned(QspiDB);
-            fastio_rdata(5 downto 4) <= "00";
-            fastio_rdata(6) <= QspiCSnInternal;
-            fastio_rdata(7) <= QspiSCKInternal;
+            if secure_mode='0' then
+              fastio_rdata(3 downto 0) <= unsigned(QspiDB);
+              fastio_rdata(5 downto 4) <= "00";
+              fastio_rdata(6) <= QspiCSnInternal;
+              fastio_rdata(7) <= QspiSCKInternal;
+            end if;
           when others =>
             fastio_rdata <= (others => '0');
         end case;
@@ -1647,7 +1652,9 @@ begin  -- behavioural
           -- ==================================================================
 
 
-        elsif sdcardio_cs='1' then
+        elsif sdcardio_cs='1'
+          and (secure_mode='0' or fastio_addr(7 downto 4) = x"B" or fastio_addr(7 downto 4) = x"F") then
+
           -- ================================================================== START
           -- the section below is for the SDcard
           -- ==================================================================
@@ -1993,34 +2000,36 @@ begin  -- behavioural
             when x"FF" =>
               -- @IO:GS $D6FF - Flash bit-bashing port
               -- Flash interface
-              if fastio_wdata(0)='0' then
-                QspiDB(0) <= '0';
-              else
-                QspiDB(0) <= 'Z';
-              end if;
-              if fastio_wdata(1)='0' then
-                QspiDB(1) <= '0';
-              else
-                QspiDB(1) <= 'Z';
-              end if;
-              if fastio_wdata(2)='0' then
-                QspiDB(2) <= '0';
-              else
-                QspiDB(2) <= 'Z';
-              end if;
-              if fastio_wdata(3)='0' then
-                QspiDB(3) <= '0';
-              else
-                QspiDB(3) <= 'Z';
-              end if;
+              if secure_mode='0' and hypervisor_mode='1' then
+                if fastio_wdata(0)='0' then
+                  QspiDB(0) <= '0';
+                else
+                  QspiDB(0) <= 'Z';
+                end if;
+                if fastio_wdata(1)='0' then
+                  QspiDB(1) <= '0';
+                else
+                  QspiDB(1) <= 'Z';
+                end if;
+                if fastio_wdata(2)='0' then
+                  QspiDB(2) <= '0';
+                else
+                  QspiDB(2) <= 'Z';
+                end if;
+                if fastio_wdata(3)='0' then
+                  QspiDB(3) <= '0';
+                else
+                  QspiDB(3) <= 'Z';
+                end if;
 
-              -- XXX We should protect CS so that we can prevent use of the flash
-              -- if we want.  As it is a malicious program could reprogram or
-              -- mess up the configuration flash.
-              QspiCSn <= fastio_wdata(6);
-              QspiCSnInternal <= fastio_wdata(6);
-              QspiSCK <= fastio_wdata(7);
-              QspiSCKInternal <= fastio_wdata(7);
+                -- XXX We should protect CS so that we can prevent use of the flash
+                -- if we want.  As it is a malicious program could reprogram or
+                -- mess up the configuration flash.
+                QspiCSn <= fastio_wdata(6);
+                QspiCSnInternal <= fastio_wdata(6);
+                QspiSCK <= fastio_wdata(7);
+                QspiSCKInternal <= fastio_wdata(7);
+              end if;
             when others => null;
 
                            -- ================================================================== END

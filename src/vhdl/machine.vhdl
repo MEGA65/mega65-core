@@ -304,6 +304,8 @@ architecture Behavioral of machine is
       protected_hardware_in : in unsigned(7 downto 0);
       uart_char : in unsigned(7 downto 0);
       uart_char_valid : in std_logic;
+      secure_mode_from_cpu : in std_logic;
+      secure_mode_cancel : out std_logic;
 
       monitor_char_out : out unsigned(7 downto 0);
       monitor_char_valid : out std_logic;
@@ -328,11 +330,11 @@ architecture Behavioral of machine is
       monitor_watch : out unsigned(27 downto 0) := x"7FFFFFF";
       monitor_watch_match : in std_logic;
       monitor_opcode : in unsigned(7 downto 0);
-      monitor_ibytes : in std_logic_vector(3 downto 0);
+      monitor_ibytes : in unsigned(3 downto 0);
       monitor_arg1 : in unsigned(7 downto 0);
       monitor_arg2 : in unsigned(7 downto 0);
       monitor_memory_access_address : in unsigned(31 downto 0);
-      monitor_roms : in std_logic_vector(7 downto 0);
+      monitor_roms : in unsigned(7 downto 0);
       
       monitor_a : in unsigned(7 downto 0);
       monitor_x : in unsigned(7 downto 0);
@@ -343,8 +345,8 @@ architecture Behavioral of machine is
       monitor_p : in unsigned(7 downto 0);
       monitor_map_offset_low : in unsigned(11 downto 0);
       monitor_map_offset_high : in unsigned(11 downto 0);
-      monitor_map_enables_low : in std_logic_vector(3 downto 0);
-      monitor_map_enables_high : in std_logic_vector(3 downto 0);
+      monitor_map_enables_low : in unsigned(3 downto 0);
+      monitor_map_enables_high : in unsigned(3 downto 0);
       monitor_interrupt_inhibit : in std_logic;
 
       monitor_char : in unsigned(7 downto 0);
@@ -470,8 +472,8 @@ architecture Behavioral of machine is
   signal monitor_mem_wdata : unsigned(7 downto 0);
   signal monitor_map_offset_low : unsigned(11 downto 0);
   signal monitor_map_offset_high : unsigned(11 downto 0);
-  signal monitor_map_enables_low : std_logic_vector(3 downto 0);
-  signal monitor_map_enables_high : std_logic_vector(3 downto 0);   
+  signal monitor_map_enables_low : unsigned(3 downto 0);
+  signal monitor_map_enables_high : unsigned(3 downto 0);   
   signal monitor_mem_read : std_logic;
   signal monitor_mem_write : std_logic;
   signal monitor_mem_setpc : std_logic;
@@ -485,8 +487,8 @@ architecture Behavioral of machine is
   signal monitor_char : unsigned(7 downto 0);
   signal monitor_char_toggle : std_logic;
   signal monitor_char_busy : std_logic;
-  signal monitor_cpuport : std_logic_vector(2 downto 0);
-  signal monitor_roms : std_logic_vector(7 downto 0);
+  signal monitor_cpuport : unsigned(2 downto 0);
+  signal monitor_roms : unsigned(7 downto 0);
   
   signal monitor_a : unsigned(7 downto 0);
   signal monitor_b : unsigned(7 downto 0);
@@ -497,7 +499,7 @@ architecture Behavioral of machine is
   signal monitor_sp : unsigned(15 downto 0);
   signal monitor_p : unsigned(7 downto 0);
   signal monitor_opcode : unsigned(7 downto 0);
-  signal monitor_ibytes : std_logic_vector(3 downto 0);
+  signal monitor_ibytes : unsigned(3 downto 0);
   signal monitor_arg1 : unsigned(7 downto 0);
   signal monitor_arg2 : unsigned(7 downto 0);
 
@@ -669,6 +671,7 @@ architecture Behavioral of machine is
   signal osk_touch2_key_driver : unsigned(7 downto 0) := x"FF";
 
   signal secure_mode_flag : std_logic := '0';
+  signal secure_mode_cancel : std_logic := '0';
   signal matrix_rain_seed : unsigned(15 downto 0);
   signal hsync_drive : std_logic := '0';
   signal vsync_drive : std_logic := '0';
@@ -699,7 +702,12 @@ architecture Behavioral of machine is
   
 begin
 
-  monitor_roms <= colourram_at_dc00 & rom_at_e000  & rom_at_c000 & rom_at_a000 & rom_at_8000 & monitor_cpuport;
+  monitor_roms(7) <= colourram_at_dc00;
+  monitor_roms(6) <= rom_at_e000;
+  monitor_roms(5) <= rom_at_c000;
+  monitor_roms(4) <= rom_at_a000;
+  monitor_roms(3) <= rom_at_8000;
+  monitor_roms(2 downto 0) <= monitor_cpuport;
   
   ----------------------------------------------------------------------------
   -- IRQ & NMI: If either the hardware buttons on the FPGA board or an IO
@@ -894,6 +902,7 @@ begin
       cpuis6502 => cpuis6502,
       cpuspeed => cpuspeed,
       secure_mode_out => secure_mode_flag,
+      secure_mode_cancel => secure_mode_cancel,
       matrix_rain_seed => matrix_rain_seed,
       dat_offset => dat_offset,
       dat_bitplane_addresses => dat_bitplane_addresses,
@@ -1585,6 +1594,9 @@ begin
     terminal_emulator_ack => terminal_emulator_ack,
     
     force_single_step => sw(11),
+
+    secure_mode_from_cpu => secure_mode_flag,
+    secure_mode_cancel => secure_mode_cancel,
     
     fastio_read => fastio_read,
     fastio_write => fastio_write,

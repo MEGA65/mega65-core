@@ -72,7 +72,7 @@ entity gs4510 is
     protected_hardware : out unsigned(7 downto 0);	
     --Bit 0: Trap on F011 FDC read/write
     virtualised_hardware : out unsigned(7 downto 0);
-    -- Enable disabling of various IO devices to help debug bus collisions
+    -- Enable disabling of various IO devices, including for secure mode
     chipselect_enables : buffer std_logic_vector(7 downto 0) := x"EF";
     
     iomode_set : out std_logic_vector(1 downto 0) := "11";
@@ -88,6 +88,8 @@ entity gs4510 is
 
     -- Asserted when CPU is in secure mode: Activates secure mode matrix mode interface
     secure_mode_out : out std_logic := '0';
+    -- Input from uart monitor to cancel secure mode
+    secure_mode_cancel : in std_logic;
 
     matrix_rain_seed : out unsigned(15 downto 0) := (others => '0');
     
@@ -111,7 +113,7 @@ entity gs4510 is
     monitor_watch_match : out std_logic;
     monitor_instructionpc : out unsigned(15 downto 0);
     monitor_opcode : out unsigned(7 downto 0);
-    monitor_ibytes : out std_logic_vector(3 downto 0);
+    monitor_ibytes : out unsigned(3 downto 0);
     monitor_arg1 : out unsigned(7 downto 0);
     monitor_arg2 : out unsigned(7 downto 0);
     monitor_a : out unsigned(7 downto 0);
@@ -123,11 +125,11 @@ entity gs4510 is
     monitor_p : out unsigned(7 downto 0);
     monitor_map_offset_low : out unsigned(11 downto 0);
     monitor_map_offset_high : out unsigned(11 downto 0);
-    monitor_map_enables_low : out std_logic_vector(3 downto 0);
-    monitor_map_enables_high : out std_logic_vector(3 downto 0);
+    monitor_map_enables_low : out unsigned(3 downto 0);
+    monitor_map_enables_high : out unsigned(3 downto 0);
     monitor_interrupt_inhibit : out std_logic;
     monitor_memory_access_address : out unsigned(31 downto 0);
-    monitor_cpuport : out std_logic_vector(2 downto 0);
+    monitor_cpuport : out unsigned(2 downto 0);
 
     ---------------------------------------------------------------------------
     -- Memory access interface used by monitor
@@ -1210,7 +1212,7 @@ architecture Behavioural of gs4510 is
 
 begin
 
-  monitor_cpuport <= std_logic_vector(cpuport_value(2 downto 0));
+  monitor_cpuport <= cpuport_value(2 downto 0);
 
   multipliers: for unit in 0 to 7 generate
     mult_unit : entity work.multiply32 port map (
@@ -2262,7 +2264,7 @@ begin
         charge_for_branches_taken <= value(0);
       elsif (long_address = x"FFD37FC") then
         -- @IO:GS $D7FC DEBUG chip-select enables for various devices
-        chipselect_enables <= std_logic_vector(value);
+--        chipselect_enables <= std_logic_vector(value);
       elsif (long_address = x"FFD37FD") then
         -- @IO:GS $D7FD.7 Override for /EXROM : set to 0 to enable
         -- @IO:GS $D7FD.6 Override for /GAME : set to 0 to enable
@@ -2702,6 +2704,14 @@ begin
       -- facility.
       reg_mult_p <= to_unsigned(to_integer(reg_mult_a) * to_integer(reg_mult_b),48);
 
+      -- Disable all non-essential IO devices from memory map when in secure mode.
+      if hyper_protected_hardware(7)='1' then
+        chipselect_enables <= x"84"; -- SD card/multi IO controller and SIDs
+        -- (we disable the undesirable parts of the SD card interface separately)
+      else
+        chipselect_enables <= x"EF";
+      end if;
+      
       if math_unit_enable then
         -- We also provide some flags (which will later trigger interrupts) based
         -- on the equality of math registers 14 and 15
@@ -5961,8 +5971,8 @@ begin
   monitor_interrupt_inhibit <= map_interrupt_inhibit;
   monitor_map_offset_low <= reg_offset_low;
   monitor_map_offset_high <= reg_offset_high; 
-  monitor_map_enables_low <= std_logic_vector(reg_map_low); 
-  monitor_map_enables_high <= std_logic_vector(reg_map_high); 
+  monitor_map_enables_low <= unsigned(reg_map_low); 
+  monitor_map_enables_high <= unsigned(reg_map_high); 
   
   -- alternate (new) combinatorial core memory address generation.
   process (state,reg_pc,vector,reg_t,hypervisor_mode,monitor_mem_attention_request_drive,monitor_mem_address_drive,

@@ -908,7 +908,8 @@ begin
     hyper_trap_f011_read => hyper_trap_f011_read,
     hyper_trap_f011_write => hyper_trap_f011_write,
     virtualise_f011 => virtualised_hardware_in(0),
-
+    secure_mode => protected_hardware_in(7),
+    
     fpga_temperature => fpga_temperature,
 
     fastio_addr => unsigned(address),

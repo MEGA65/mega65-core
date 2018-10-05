@@ -189,7 +189,7 @@ begin  -- behavioural
       send    => tx0_trigger,
       BIT_TMR_MAX => uart0_bit_rate_divisor_internal,
       clk     => clock,
-      data    => std_logic_vector(tx0_data),
+      data    => tx0_data,
       ready   => tx0_ready,
       uart_tx => uart0_tx_drive);
 
@@ -208,7 +208,7 @@ begin  -- behavioural
       send    => tx2_trigger,
       BIT_TMR_MAX => uart2_bit_rate_divisor_internal,
       clk     => clock,
-      data    => std_logic_vector(tx2_data),
+      data    => tx2_data,
       ready   => tx2_ready,
       uart_tx => uart2_tx_drive);
 

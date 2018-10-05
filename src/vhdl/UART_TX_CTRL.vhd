@@ -42,7 +42,7 @@ use ieee.numeric_std.all;
 entity UART_TX_CTRL is
   Port ( SEND : in  STD_LOGIC;
          BIT_TMR_MAX : in unsigned(15 downto 0);
-           DATA : in  STD_LOGIC_VECTOR (7 downto 0);
+           DATA : in  unsigned (7 downto 0);
            CLK : in  STD_LOGIC;
            READY : out  STD_LOGIC;
            UART_TX : out  STD_LOGIC);
@@ -69,7 +69,7 @@ signal bitIndex : natural range 0 to 10;
 signal txBit : std_logic := '1';
 
 --A register that contains the whole data packet to be sent, including start and stop bits. 
-signal txData : std_logic_vector(9 downto 0);
+signal txData : unsigned(9 downto 0);
 
 signal txState : TX_STATE_TYPE := RDY;
 
