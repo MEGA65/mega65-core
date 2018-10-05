@@ -514,7 +514,7 @@ int process_line(char *line,int live)
       state=3;
     }
   }
-  if (sscanf(line,"000000B7:%08x%08x",
+  if (sscanf(line,":000000B7:%08x%08x",
 	     &name_len,&name_addr)==2) {
     if (not_already_loaded) {
       name_len=name_len>>24;
