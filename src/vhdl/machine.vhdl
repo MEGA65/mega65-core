@@ -1518,7 +1518,7 @@ begin
     clk => uartclock,
     pixelclock => pixelclock,
     matrix_mode_enable => protected_hardware_sig(6),--sw(5),
-    secure_mode_flag =>  secure_mode_flag,
+    secure_mode_flag =>  protected_hardware_sig(7),
     vgared_in => vgared_sig,
     vgagreen_in => vgagreen_sig,
     vgablue_in => vgablue_sig,

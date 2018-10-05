@@ -28,4 +28,3 @@ user to accept or reject.
 The user then types ACCEPT or REJECT in the monitor. If REJECT was typed, the
 monitor erases all of memory before allowing the CPU to continue.
 
-TODO: Plumb secure mode flag to monitor, so that we get lava colours on entry.
