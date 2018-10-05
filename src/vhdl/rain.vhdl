@@ -821,11 +821,19 @@ begin  -- rtl
             else
               vgablue_out <= x"00";
             end if;
-          elsif (secure_mode_flag='0' and (row_counter = 3 or row_counter = 4)) then
-            -- Hide the secure compartment instructions when not in secure mode
-            vgared_out <= x"00";
-            vgagreen_out <= x"00";
-            vgablue_out <= x"00";
+          elsif (row_counter = 3 or row_counter = 4) then
+            if secure_mode='0' or char_bits(0)='0' or column_visible='0' or te_blink_state='1' then
+              -- Hide the secure compartment instructions when not in secure mode
+              vgared_out <= x"00";
+              vgagreen_out <= x"00";
+              vgablue_out <= x"00";
+            else
+              -- ACCEPT/REJECT instructions are highlight and blinking (out of
+              -- phase with the cursor).
+              vgared_out <= x"FF";
+              vgagreen_out <= x"7F";
+              vgablue_out <= x"00";
+            end if;            
           elsif (row_counter >= (te_header_line_count + te_screen_height)) then
             -- Beyond the end of display, so don't display text of overlay.
             vgared_out(7 downto 6) <= "00";
