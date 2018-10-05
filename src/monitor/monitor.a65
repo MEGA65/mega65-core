@@ -435,6 +435,10 @@ reset_cmd:
 
 ; Check if "ACCEPT" or "REJECT" were typed.
 accept_or_reject_command:
+	; XXX DEBUG
+	lda #$40
+	jsr output_char
+	
 	ldx	#0
 *	lda	cmdbuf,x
 	cmp	accept_string,x
@@ -463,11 +467,19 @@ reject_command:
 	; (The hypervisor should already have been triggered, and the CPU stopped,
 	;  so all we should need to do is to resume the CPU)
 
+	; XXX DEBUG
+	lda #$52
+	jsr output_char
+
 	; FALL THROUGH
 accept_command:
 
 	; Accept is like reject, except that we don't erase memory first.
 	; It is up to the hypervisor to spot the difference.
+
+	; XXX DEBUG
+	lda #$41
+	jsr output_char
 
 	; Resume CPU
 	lda   #$00	
