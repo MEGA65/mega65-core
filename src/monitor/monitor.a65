@@ -241,8 +241,6 @@ leave_secure_mode:
 ;	`printstr	securemode_exit_msg
 	lda	#0
 	sta	in_secure_mode
-	; And tell CPU we are done with secure mode, so that it can resume
-	sta	$901c
 	rts
 
 maybe_enter_secure_mode:
@@ -252,8 +250,6 @@ maybe_enter_secure_mode:
 ;      `printstr	  securemode_entry_msg      
 *     lda	  #$80
       sta	  in_secure_mode
-      ; And tell CPU we think we are in secure mode, so that it can resume
-      sta	  $901c
       rts
 maybe_enter_matrix_mode:
       lda         in_matrix_mode
@@ -492,9 +488,9 @@ accept_command:
 	; Accept is like reject, except that we don't erase memory first.
 	; It is up to the hypervisor to spot the difference.
 
-	; Resume CPU
-	lda   #$00	
-	sta   mon_trace
+	; Resume CPU by confirming mode change to/from secure mode
+	lda   in_secure_mode
+	sta   $901c
 
 	jmp	next_command
 
