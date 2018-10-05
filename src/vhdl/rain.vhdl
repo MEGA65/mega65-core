@@ -822,7 +822,7 @@ begin  -- rtl
               vgablue_out <= x"00";
             end if;
           elsif (row_counter = 3 or row_counter = 4) then
-            if secure_mode='0' or char_bits(0)='0' or column_visible='0' or te_blink_state='1' then
+            if secure_mode_flag='0' or char_bits(0)='0' or column_visible='0' or te_blink_state='1' then
               -- Hide the secure compartment instructions when not in secure mode
               vgared_out <= x"00";
               vgagreen_out <= x"00";
