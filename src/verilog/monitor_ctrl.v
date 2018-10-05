@@ -319,10 +319,10 @@ begin
     end
     if(address == `MON_STATE_CNT)
     begin
-       secure_mode_from_monitor <= di[7];
        // Writing to $901C from the monitor also instructs CPU to
        // cancel matrix mode.
-       clear_matrix_mode_toggle <= ~clear_matrix_mode_toggle;       
+       if (di[6]) clear_matrix_mode_toggle <= ~clear_matrix_mode_toggle;
+       else secure_mode_from_monitor <= di[7];
     end
     if(address == `MON_TRACE_CTRL)
     begin

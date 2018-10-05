@@ -491,6 +491,9 @@ accept_command:
 	; Resume CPU by confirming mode change to/from secure mode
 	lda   in_secure_mode
 	sta   $901c
+	; And then cancel matrix mode
+	lda   #$40
+	sta   $901c
 
 	jmp	next_command
 

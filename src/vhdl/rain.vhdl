@@ -824,8 +824,11 @@ begin  -- rtl
           elsif (row_counter = 3 or row_counter = 4) then
             if secure_mode_flag='0' or char_bits(0)='0' or column_visible='0' or te_blink_state='1' then
               -- Hide the secure compartment instructions when not in secure mode
-              vgared_out <= x"00";
-              vgagreen_out <= x"00";
+              -- (and otherwise show as solid orange slab when in secure mode
+              -- for the off-phase blink.)
+              vgared_out <= (others => secure_mode_flag);
+              vgagreen_out(7) <= '0';
+              vgagreen_out(6 downto 0) <= (others => secure_mode_flag);
               vgablue_out <= x"00";
             else
               -- ACCEPT/REJECT instructions are highlight and blinking (out of
