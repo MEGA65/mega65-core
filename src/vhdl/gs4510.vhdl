@@ -6319,6 +6319,13 @@ begin
     if rising_edge(clock) then
       -- We this awkward comparison because GHDL seems to think secure_mode_from_monitor='U'
       -- initially, even though it gets initialised to '0' explicitly
+      if (hyper_protected_hardware(7)='1' and secure_mode_from_monitor='1') then
+        -- Turn off matrix mode once the monitor has accepted or rejected the
+        -- transition, since the hypervisor isn't available to do it itself.
+        -- This leaves the secure program both running and visible and able to
+        -- be interacted with.
+        hyper_protected_hardware(6) <= '0';        
+      end if;
       if (hyper_protected_hardware(7)='1' and secure_mode_from_monitor='0')
         or (hyper_protected_hardware(7)='0' and secure_mode_from_monitor='1')
       then
