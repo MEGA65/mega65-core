@@ -44,6 +44,8 @@ architecture behavioral of matrix_to_ascii is
   constant repeat_start_timer : integer := clock_frequency/scan_frequency/2; -- 0.5 sec
   constant repeat_again_timer : integer := clock_frequency/scan_frequency/10; -- 0.1 sec
 
+  signal ascii_key_valid_countdown : integer range 0 to 255 := 0;
+
   signal repeat_key_timer : integer range 0 to repeat_start_timer := 0;
 
   -- This one snoops the input and gets atomically snapshotted at each keyscan interval
@@ -555,7 +557,11 @@ begin
             -- lines will be detected as firmly down.            
             if (repeat_key /= key_num) or (suppress_key_retrigger='0') then
               repeat_key_timer <= repeat_start_timer;
-              ascii_key_valid <= '1';
+              if key_matrix(key_num) = x"11" or key_matrix(key_num) = x"1D" then
+                ascii_key_valid_countdown <= 255;
+              else
+                ascii_key_valid <= '1';
+              end if;
             end if;
           else
             ascii_key_valid <= '0';
@@ -577,6 +583,18 @@ begin
               --ascii_key_valid <= '0';              
             end if;
           end if;
+        end if;
+
+        -- Do delayed presentation of down/right, modifying it to up/left if
+        -- the shift key has gone down in the meantime.
+        if ascii_key_valid_countdown = 1 then
+          ascii_key_valid_countdown <= 0;
+          ascii_key_valid <= '1';
+          ascii_key(7) <= bucky_key_internal(1);
+        elsif ascii_key_valid_countdown /= 0 then
+          ascii_key_valid_countdown <= ascii_key_valid_countdown - 1;
+        else
+          null;
         end if;
         
         if key_num /= 71 then
