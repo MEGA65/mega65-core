@@ -2978,7 +2978,7 @@ begin
         -- Enforce 16 clock delay after writing to certain IO locations
         -- (Also used to stop CPU for secure mode triage, thus the check
         -- to allow the CPU to continue if the monitor is asking for a memory access
-        if (io_settle_delay = '1') and (monitor_mem_attention_request_drive='0')) then
+        if (io_settle_delay = '1') and (monitor_mem_attention_request_drive='0') then
           phi_pause <= '1';
           report "phi_pause due to io_settle_delay=1 (io_settle_counter = $" & to_hstring(io_settle_counter) & ")";
         else
