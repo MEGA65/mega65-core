@@ -50,6 +50,11 @@ entity matrix_rain_compositor is
     pixel_x_800 : in integer;
     pixel_x_800_out : out integer;
     lcd_in_letterbox : in std_logic;
+
+    -- Info about what the visual keyboard is doing
+    osk_ystart : in unsigned(11 downto 0);
+    visual_keyboard_enable : in std_logic;
+    keyboard_at_top : in std_logic;
     
     -- Remote memory access interface to visual keyboard for
     -- character set.
@@ -149,10 +154,6 @@ architecture rtl of matrix_rain_compositor is
   signal drop_distance_to_end_drive2 : unsigned(8 downto 0) := "000000000";
   signal drop_distance_to_start_drive2 : unsigned(8 downto 0) := "000000000";
   
-  signal vgared_matrix : unsigned(7 downto 0) := x"00";
-  signal vgagreen_matrix : unsigned(7 downto 0) := x"00";
-  signal vgablue_matrix : unsigned(7 downto 0) := x"00";
-
   signal lfsr_reset : std_logic_vector(3 downto 0) := "0000";
   signal lfsr_out : std_logic_vector(3 downto 0) := "0000";
   signal lfsr_advance : std_logic_vector(3 downto 0) := "0000";
@@ -191,6 +192,15 @@ architecture rtl of matrix_rain_compositor is
   signal alternate_row : std_logic := '0';  
   signal next_is_cursor : std_logic := '0';
   signal is_cursor : std_logic := '0';  
+
+  signal invert_next_frame : std_logic := '0';
+  signal invert_frame : std_logic := '0';
+
+  signal skip_rows : unsigned(4 downto 0) := to_unsigned(0,5);
+  signal skip_rasters : unsigned(3 downto 0) := to_unsigned(0,4);
+  signal skip_bytes : integer := 0;
+  signal osk_rasters_used: unsigned(11 downto 0) := to_unsigned(0,12);
+  signal last_y_used : unsigned(11 downto 0) := to_unsigned(0,12);
   
 begin  -- rtl
 
@@ -239,8 +249,21 @@ begin  -- rtl
     variable yoffset : integer := 0;
   begin
     if rising_edge(pixelclock) then
-
+      
       screenram_busy := '0';
+
+      -- Work out how many rows of text, and how many pixels in the remainder
+      -- of a row are covered by the on screen keyboard, and push the terminal
+      -- display up that many pixels.
+      osk_rasters_used <= last_y_used - osk_ystart;
+      if osk_rasters_used(11)='0' and visual_keyboard_enable='1' and keyboard_at_top='0' then
+        skip_rows <= 1 + osk_rasters_used(8 downto 4);
+        skip_bytes <= (1 + to_integer(skip_rows)) * te_line_length;
+        skip_rasters <= osk_rasters_used(3 downto 0);
+      else
+        skip_rows <= to_unsigned(0,5);
+        skip_rasters <= to_unsigned(0,4);
+      end if;
       
       hsync_out <= hsync_in;
       vsync_out <= vsync_in;
@@ -356,21 +379,22 @@ begin  -- rtl
             terminal_emulator_fast <= '1';
           when x"07" =>
             -- Ignore bell character, instead of printing plus symbol
+            invert_next_frame <= '1';
             terminal_emulator_fast <= '1';
-          when x"0e" =>
-            -- Control-N - move to header area
-            te_in_header <= '1';
-            te_cursor_y <= 0;
-            te_cursor_x <= 0;
-            te_cursor_address <= te_header_start;
-            terminal_emulator_fast <= '1';
-          when x"8e" =>
-            -- Control-SHIFT-N - exit header area
-            te_in_header <= '0';
-            te_cursor_y <= 0;
-            te_cursor_x <= 0;
-            te_cursor_address <= te_screen_start;
-            terminal_emulator_fast <= '1';
+--          when x"0e" =>
+--            -- Control-N - move to header area
+--            te_in_header <= '1';
+--            te_cursor_y <= 0;
+--            te_cursor_x <= 0;
+--            te_cursor_address <= te_header_start;
+--            terminal_emulator_fast <= '1';
+--          when x"8e" =>
+--            -- Control-SHIFT-N - exit header area
+--            te_in_header <= '0';
+--            te_cursor_y <= 0;
+--            te_cursor_x <= 0;
+--            te_cursor_address <= te_screen_start;
+--            terminal_emulator_fast <= '1';
           when x"93" =>
             -- Clear home
             erase_terminal_memory <= '1';
@@ -612,10 +636,23 @@ begin  -- rtl
             char_screen_address <= line_screen_address;
             char_ycounter <= char_ycounter + 1;
           else
-            char_screen_address <= line_screen_address + te_line_length;
-            line_screen_address <= line_screen_address + te_line_length;
-            char_ycounter <= to_unsigned(0,12);
-            row_counter <= row_counter + 1;
+            if row_counter = (te_header_line_count - 1 ) then
+              -- We are now leaving the header.
+              -- If we have the visual keyboard on, we need to shift things up.
+              -- Basically we need to add one row for every 16 pixels above
+              -- the cut-off at letterbox + te_header_line_count + te_screen_height
+              row_counter <= row_counter + to_integer(skip_rows);
+              char_ycounter(3 downto 0) <= skip_rasters;
+              char_ycounter(11 downto 4) <= (others => '0');
+              char_screen_address <= line_screen_address + skip_bytes;
+              line_screen_address <= line_screen_address + skip_bytes;
+            else
+              -- Normal row advance
+              char_ycounter <= to_unsigned(0,12);
+              row_counter <= row_counter + 1;
+              char_screen_address <= line_screen_address + te_line_length;
+              line_screen_address <= line_screen_address + te_line_length;
+            end if;
           end if;
         elsif char_bit_count = 0 then
           -- Request next character
@@ -804,9 +841,6 @@ begin  -- rtl
         when Matrix =>
           -- Matrix mode, so display the matrix mode text mode that we
           -- generate here.
---          vgared_out <= vgared_matrix;
---          vgagreen_out <= vgagreen_matrix;
---          vgablue_out <= vgablue_matrix;
           if pixel_x_800 >= debug_x and pixel_x_800 < (debug_x+10) then
             report
               "x=" & integer'image(pixel_x_800) & ": " &
@@ -861,7 +895,10 @@ begin  -- rtl
             -- In normal text area
             if (char_bits(0) = '1') and column_visible='1' then
               if is_cursor='1' and te_blink_state='1' then
-                vgared_out(7 downto 6) <= "00";
+                -- Display visual beep by making background of monitor
+                -- terminal area flash red.
+                vgared_out(7) <= invert_frame;
+                vgared_out(6) <= invert_frame;
                 vgagreen_out(7 downto 6) <= "00";
                 vgablue_out(7 downto 6) <= "00";
                 vgared_out(5 downto 0) <= vgared_in(7 downto 2);
@@ -977,10 +1014,16 @@ begin  -- rtl
         lfsr_advance(1 downto 0) <= "11";        
         lfsr_advance(3 downto 0) <= "1111";        
       end if;
+      if last_letterbox = '1' and lcd_in_letterbox = '0' then
+        last_y_used <= ycounter_in;
+      end if;
       if last_letterbox = '0' and lcd_in_letterbox = '1' then
         -- Vertical flyback = start of next frame
         report "Resetting at end of flyback";
 
+        invert_frame <= invert_next_frame;
+        invert_next_frame <= '0';
+        
         if te_blink_counter < 25 then
           te_blink_counter <= te_blink_counter + 1;
         else

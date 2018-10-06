@@ -24,6 +24,8 @@ entity visual_keyboard is
     key3 : in unsigned(7 downto 0);    
     key4 : in unsigned(7 downto 0);
 
+    osk_ystart : out unsigned(11 downto 0) := to_unsigned(65535,12);
+    
     -- memory access interface for matrix mode to read charrom
     matrix_fetch_address : in unsigned(11 downto 0);
     matrix_rdata : out unsigned(7 downto 0);
@@ -220,6 +222,17 @@ begin
   begin
     if rising_edge(pixelclock) then
 
+      -- Export the current position of the OSK, so that we can move things around
+      -- to match it. In particular, we adjust the serial monitor interface, so
+      -- that it doesn't overlap with the keyboard.  Also, we make the memory walking
+      -- commands in the monitor show fewer lines at a time, so that you still
+      -- get one screen full at a time.
+      if visual_keyboard_enable='1' then
+        osk_ystart <= y_start_current;
+      else
+        osk_ystart <= (others => '1');
+      end if;
+      
       last_native_x_640 <= native_x_640;
       last_native_y_400 <= native_y_400;
       

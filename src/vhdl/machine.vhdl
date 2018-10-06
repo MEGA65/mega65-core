@@ -653,6 +653,8 @@ architecture Behavioral of machine is
   signal zoom_en_always : std_logic;
   signal keyboard_at_top : std_logic;
   signal alternate_keyboard : std_logic;
+  signal osk_ystart : unsigned(11 downto 0); 
+  
   signal osk_x : unsigned(11 downto 0);
   signal osk_y : unsigned(11 downto 0);
   signal osk_key1 : unsigned(7 downto 0);
@@ -702,7 +704,7 @@ architecture Behavioral of machine is
   signal shadow_address_state_dbg_out : std_logic_vector(3 downto 0);
   signal pixelclock_select : std_logic_vector(7 downto 0);
   signal pixelclock_select_driver : std_logic_vector(7 downto 0);
-  
+
 begin
 
   monitor_roms(7) <= colourram_at_dc00;
@@ -1520,7 +1522,10 @@ begin
     lcd_in_letterbox => lcd_in_letterbox,
     pixel_y_scale_200 => pixel_y_scale_200,
     pixel_y_scale_400 => pixel_y_scale_400,
-    ycounter_in => ycounter,	
+    ycounter_in => ycounter,
+    osk_ystart => osk_ystart,
+    visual_keyboard_enable => visual_keyboard_enable,
+    keyboard_at_top => keyboard_at_top,
     clk => uartclock,
     pixelclock => pixelclock,
     matrix_mode_enable => protected_hardware_sig(6),--sw(5),
@@ -1552,6 +1557,7 @@ begin
     keyboard_at_top => keyboard_at_top,
     alternate_keyboard => alternate_keyboard,
     instant_at_top => '0',
+    osk_ystart => osk_ystart,
     key1 => osk_key1,
     key2 => osk_key2,
     key3 => osk_key3,
