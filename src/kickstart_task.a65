@@ -184,25 +184,13 @@ matrix_mode_toggle:
 
 	lda hypervisor_secure_mode_flags
 	; We want to toggle bit 6 only.
-	and #$40 ; mask bit 6
-	bne clearmm ;if its not zero
-	
-	;If its not enabled, we want to set bit 6
-	lda hypervisor_secure_mode_flags
-        ora #$40 
-	jmp exitmm
-       ;If its enabled, we want to clear bit 6
-clearmm:
-        lda hypervisor_secure_mode_flags
-        and #$BF
-exitmm:
+	eor #$40
         sta hypervisor_secure_mode_flags
 
-        ;;;Dont need this any more
-	;; bump border colour so that we know something has happened	
-        ;lda $D020
-	;inc 
-	;and #$0f
-	;sta $D020
+	; bump border colour so that we know something has happened	
+        lda $D020
+	inc 
+	and #$0f
+	sta $D020
 
 	sta hypervisor_enterexit_trigger

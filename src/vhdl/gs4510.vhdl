@@ -4095,10 +4095,10 @@ begin
             when InstructionWait =>
               state <= InstructionFetch;
             when InstructionFetch =>
-                                        -- Allow toggling of matrix mode in the hypervisor
-              if matrix_trap_pending = '1' and hypervisor_mode='1' then
-                hyper_protected_hardware(6) <= hyper_protected_hardware(6) xor '1';
-              end if;
+              -- Allow toggling of matrix mode in the hypervisor
+--              if matrix_trap_pending = '1' and hypervisor_mode='1' then
+--                hyper_protected_hardware(6) <= hyper_protected_hardware(6) xor '1';
+--              end if;
               if (hypervisor_mode='0')
                 and ((irq_pending='1' and flag_i='0') or nmi_pending='1')
                 and (monitor_irq_inhibit='0') then

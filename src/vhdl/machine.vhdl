@@ -761,7 +761,8 @@ begin
       led(3) <= combinednmi;
       led(4) <= io_irq;
       led(5) <= io_nmi;
-      led(7 downto 6) <= (others => '0');
+      led(6) <= '0';
+      led(7) <= clear_matrix_mode_toggle;
       led(8) <= motor;
       led(9) <= drive_led_out;
       led(10) <= cpu_hypervisor_mode;
