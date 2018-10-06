@@ -981,6 +981,7 @@ architecture Behavioural of gs4510 is
   signal reg_mult_p : unsigned(47 downto 0) := (others => '0');
 
   signal monitor_char_toggle_internal : std_logic := '1';
+  signal monitor_mem_attention_granted_internal : std_logic := '0';
 
   -- ZP/stack cache
   signal cache_we : std_logic := '0';
@@ -2978,7 +2979,9 @@ begin
         -- Enforce 16 clock delay after writing to certain IO locations
         -- (Also used to stop CPU for secure mode triage, thus the check
         -- to allow the CPU to continue if the monitor is asking for a memory access
-        if (io_settle_delay = '1') and (monitor_mem_attention_request_drive='0') then
+        if (io_settle_delay = '1')
+          and (monitor_mem_attention_request_drive='0')
+          and (monitor_mem_attention_granted_internal='0') then
           phi_pause <= '1';
           report "phi_pause due to io_settle_delay=1 (io_settle_counter = $" & to_hstring(io_settle_counter) & ")";
         else
@@ -3687,8 +3690,10 @@ begin
               monitor_mem_rdata <= memory_read_value;
               if monitor_mem_attention_request_drive='1' then 
                 monitor_mem_attention_granted <= '1';
+                monitor_mem_attention_granted_internal <= '1';
               else
                 monitor_mem_attention_granted <= '0';
+                monitor_mem_attention_granted_internal <= '0';
                 state <= ProcessorHold;
               end if;
             when TrapToHypervisor =>
