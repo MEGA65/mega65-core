@@ -260,7 +260,7 @@ begin  -- rtl
       if osk_rasters_used(11)='0' and osk_ystart(11)='0' and visual_keyboard_enable='1' and keyboard_at_top='0' then
         -- We have to skip a minimum of one row, else it will never advance
         skip_rows <= 1 + osk_rasters_used(8 downto 4);
-        skip_bytes <= (1 + to_integer(skip_rows)) * te_line_length;
+        skip_bytes <= (to_integer(skip_rows)) * te_line_length;
         skip_rasters <= osk_rasters_used(3 downto 0);
       else
         -- Just do the normal skip of 1 to advance to the next row normally.
