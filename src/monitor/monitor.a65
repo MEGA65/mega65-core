@@ -339,9 +339,9 @@ wipememory:
 	jsr   	erase_memory
 	jmp	accepting_input
 
-cursorup:
-	; Subtract $100 from mem_addr, and act as though M was pressed
-	; (actually subtract $200, since we want to end $100 behind)
+cursordown:
+	; Subtract $80 from mem_addr, and act as though M was pressed
+	; (actually subtract $100, since we want to end $80 behind)
 
 	; XXX - Should actually skip over memory pages that are empty
 
@@ -354,7 +354,7 @@ cursorup:
 
 	lda 	   mem_addr+1
 	sec
-	sbc	#$02
+	sbc	#$01
 	sta	mem_addr+1
 	lda	mem_addr+2
 	sbc	#$00
@@ -366,7 +366,7 @@ cursorup:
 ; and repeat accordingly.
 	jmp	   dump_mem
 
-cursordown:
+cursorup:
 	; display next page of memory
 
 	; We display exactly 8 rows, since it is 1/2 a screen with no visual
