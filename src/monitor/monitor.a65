@@ -345,7 +345,9 @@ cursorup:
 
 	; XXX - Should actually skip over memory pages that are empty
 
-	lda   #16
+	; We display exactly 8 rows, since it is 1/2 a screen with no visual
+	; keyboard, or a full screen with visual keyboard on.
+	lda   #8
 	sta   mem_line_cnt
 	lda   #$0d
 	jsr   output_char
@@ -367,7 +369,9 @@ cursorup:
 cursordown:
 	; display next page of memory
 
-	lda   #16
+	; We display exactly 8 rows, since it is 1/2 a screen with no visual
+	; keyboard, or a full screen with visual keyboard on.
+	lda   #8
 	sta   mem_line_cnt
 	lda   #$0d
 	jsr   output_char
