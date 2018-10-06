@@ -59,15 +59,19 @@ begin
     if rising_edge(clk) then
 
       -- Present virtualised keyboard
+      -- XXX Note that the virtualised keyboard is out by one column,
+      -- which we correct at the hardware by rearranging the colunms
+      -- we connect. This just leaves left and up that simulate specific
+      -- keys that we have to shift left one column to match
       scan_mask := x"FF";      
-      if scan_phase = 0 then
+      if scan_phase = 8 then
         if key_left = scan_mode(0) then
           scan_mask(2) := '0';
         end if;
         if key_up = scan_mode(0) then
           scan_mask(7) := '0';
         end if;
-      elsif scan_phase = (52 / 8) then
+      elsif scan_phase = 5 then
         if key_left = scan_mode(0) or key_up = scan_mode(0) then
           scan_mask(52 mod 8) := '0';
         end if;
