@@ -24,7 +24,7 @@ entity visual_keyboard is
     key3 : in unsigned(7 downto 0);    
     key4 : in unsigned(7 downto 0);
 
-    osk_ystart : out unsigned(11 downto 0) := to_unsigned(65535,12);
+    osk_ystart : out unsigned(11 downto 0) := (others => '1');
     
     -- memory access interface for matrix mode to read charrom
     matrix_fetch_address : in unsigned(11 downto 0);

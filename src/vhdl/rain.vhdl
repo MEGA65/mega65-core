@@ -255,13 +255,16 @@ begin  -- rtl
       -- Work out how many rows of text, and how many pixels in the remainder
       -- of a row are covered by the on screen keyboard, and push the terminal
       -- display up that many pixels.
-      osk_rasters_used <= last_y_used - osk_ystart;
-      if osk_rasters_used(11)='0' and visual_keyboard_enable='1' and keyboard_at_top='0' then
+      -- XXX Not sure why we need the - 31 fudge factor, but we do.
+      osk_rasters_used <= last_y_used - osk_ystart - 31;
+      if osk_rasters_used(11)='0' and osk_ystart(11)='0' and visual_keyboard_enable='1' and keyboard_at_top='0' then
+        -- We have to skip a minimum of one row, else it will never advance
         skip_rows <= 1 + osk_rasters_used(8 downto 4);
         skip_bytes <= (1 + to_integer(skip_rows)) * te_line_length;
         skip_rasters <= osk_rasters_used(3 downto 0);
       else
-        skip_rows <= to_unsigned(0,5);
+        -- Just do the normal skip of 1 to advance to the next row normally.
+        skip_rows <= to_unsigned(1,5);
         skip_rasters <= to_unsigned(0,4);
       end if;
       
