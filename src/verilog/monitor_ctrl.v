@@ -317,12 +317,15 @@ begin
       history_write_index[9:8] = di[1:0];
       mem_trace_reg[2] <= 0;
     end
+    if(address == `MON_UART_STATUS)
+    begin
+       // cancel matrix mode if we write to $900A
+       clear_matrix_mode_toggle <= ~clear_matrix_mode_toggle;
+    end 
     if(address == `MON_STATE_CNT)
     begin
        // Writing to $901C from the monitor also instructs CPU to
-       // cancel matrix mode.
-       if (di[6]) clear_matrix_mode_toggle <= ~clear_matrix_mode_toggle;
-       else secure_mode_from_monitor <= di[7];
+       secure_mode_from_monitor <= di[7];
     end
     if(address == `MON_TRACE_CTRL)
     begin

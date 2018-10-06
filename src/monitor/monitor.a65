@@ -492,8 +492,7 @@ accept_command:
 	lda   in_secure_mode
 	sta   $901c
 	; And then cancel matrix mode
-	lda   #$40
-	sta   $901c
+	sta   $900a
 
 	jmp	next_command
 
