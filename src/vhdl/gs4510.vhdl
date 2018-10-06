@@ -1779,9 +1779,10 @@ begin
             end if;
           end if;                         -- $D{0,1,2,3}XXX
         end if;                           -- $DXXXX
-      elsif long_address(27) = '1' or long_address(26)='1' then
+      elsif (long_address(27) = '1' or long_address(26)='1') and hyper_protected_hardware(7)='0' then
         -- @IO:GS $4000000 - $7FFFFFF Slow Device memory (64MB)
         -- @IO:GS $8000000 - $FEFFFFF Slow Device memory (127MB)
+        -- (But not accessible in secure compartment)
         report "Preparing to read from SlowRAM";
         read_source <= SlowRAM;
         accessing_shadow <= '0';
@@ -2387,8 +2388,9 @@ begin
         else
           wait_states_non_zero <= '0';
         end if;
-      elsif long_address(27) = '1' or long_address(26)='1' then
+      elsif (long_address(27) = '1' or long_address(26)='1') and hyper_protected_hardware(7)='0' then
         report "writing to slow device memory..." severity note;
+        -- (But not accessible in secure compartment)
         accessing_slowram <= '1';
         shadow_write <= '0';
         fastio_write <= '0';
