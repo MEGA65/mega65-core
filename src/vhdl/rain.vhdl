@@ -266,6 +266,7 @@ begin  -- rtl
         -- Just do the normal skip of 1 to advance to the next row normally.
         skip_rows <= to_unsigned(1,5);
         skip_rasters <= to_unsigned(0,4);
+        skip_bytes <= te_line_length;
       end if;
       
       hsync_out <= hsync_in;
