@@ -826,9 +826,15 @@ begin  -- rtl
               -- Hide the secure compartment instructions when not in secure mode
               -- (and otherwise show as solid orange slab when in secure mode
               -- for the off-phase blink.)
-              vgared_out <= (others => secure_mode_flag xor te_blink_state);
-              vgagreen_out(7) <= '0';
-              vgagreen_out(6 downto 0) <= (others => secure_mode_flag xor te_blink_state);
+              if secure_mode_flag = '0' then
+                vgared_out <= (others => '0');
+                vgagreen_out(6 downto 0) <= (others => '0');
+                vgagreen_out(7) <= '0';
+              else
+                vgared_out <= (others => te_blink_state);
+                vgagreen_out(6 downto 0) <= (others => te_blink_state);
+                vgagreen_out(7) <= '1';
+              end if;
               vgablue_out <= x"00";
             else
               -- ACCEPT/REJECT instructions are highlight and blinking (out of
