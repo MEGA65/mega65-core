@@ -831,9 +831,9 @@ begin  -- rtl
                 vgagreen_out(6 downto 0) <= (others => '0');
                 vgagreen_out(7) <= '0';
               else
-                vgared_out <= (others => te_blink_state);
-                vgagreen_out(6 downto 0) <= (others => te_blink_state);
-                vgagreen_out(7) <= '1';
+                vgared_out <= (others => not te_blink_state);
+                vgagreen_out(6 downto 0) <= (others => not te_blink_state);
+                vgagreen_out(7) <= not te_blink_state;
               end if;
               vgablue_out <= x"00";
             else
