@@ -641,7 +641,7 @@ set_mem_start:
 set_mem_loop:
       jsr         parse_hex_value
       cpy         #0
-      beq         fill_done
+      beq         next_command
       cpy         #3
       beq         bad_fill
       
