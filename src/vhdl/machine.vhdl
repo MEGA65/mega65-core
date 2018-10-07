@@ -551,7 +551,6 @@ architecture Behavioral of machine is
   signal hsync_ntsc60_uninverted : std_logic := '0';
   signal hsync_pal50_driver_uninverted : std_logic := '0';
   signal vsync_drive1 : std_logic := '0';
-  signal lcd_pixel_strobe1 : std_logic := '0';
   signal lcd_display_enable1 : std_logic := '0';
 
   signal hsync_polarity : std_logic := '0';
@@ -1094,6 +1093,7 @@ begin
       green_o => vgagreen_sig_driver,
       blue_o => vgablue_sig_driver,      
 
+      raster_strobe => external_frame_x_zero,
       hsync_i => hsync_drive1,
       hsync_o => hsync_driver,
       vsync_i => vsync_drive1,
@@ -1110,7 +1110,7 @@ begin
       lcd_display_enable_i => lcd_display_enable1,
       lcd_display_enable_o => lcd_display_enable,
 
-      lcd_pixel_strobe_i => lcd_pixel_strobe1,
+      lcd_pixel_strobe_i => pixel_strobe,
       lcd_pixel_strobe_o => lcd_pixel_strobe
 
       );
@@ -1785,7 +1785,6 @@ begin
       lcd_hsync1 <= hsync_pal50;
       lcd_vsync1 <= not lcd_vsync_pal50;
       lcd_display_enable1 <= lcd_inframe_pal50;
-      lcd_pixel_strobe1 <= clock30;
       external_frame_x_zero_driver <= x_zero_pal50;
       external_frame_y_zero_driver <= y_zero_pal50;
     else
@@ -1796,7 +1795,6 @@ begin
       lcd_hsync1 <= hsync_ntsc60;
       lcd_vsync1 <= lcd_vsync_ntsc60;
       lcd_display_enable1 <= lcd_inframe_ntsc60;
-      lcd_pixel_strobe1 <= clock40;
       external_frame_x_zero_driver <= x_zero_ntsc60;
       external_frame_y_zero_driver <= y_zero_ntsc60;
     end if;

@@ -231,6 +231,8 @@ begin
     port map (
       fpga_temperature => (others => '1'),
 
+      portb_pins => (others => '1'),
+      
       pixelclock      => pixelclock,
       cpuclock      => cpuclock,
       clock50mhz   => clock50mhz,
@@ -376,17 +378,17 @@ begin
     for i in 1 to 2000000 loop
       pixelclock <= '0'; cpuclock <= '0'; ioclock <= '0';
       wait for 2.5 ns;     
-      pixelclock <= '1'; cpuclock <= '0'; ioclock <= '0';
-      wait for 2.5 ns;     
       pixelclock <= '0'; cpuclock <= '0'; ioclock <= '0';
       wait for 2.5 ns;     
       pixelclock <= '1'; cpuclock <= '0'; ioclock <= '0';
       wait for 2.5 ns;     
+      pixelclock <= '1'; cpuclock <= '0'; ioclock <= '0';
+      wait for 2.5 ns;     
+      pixelclock <= '0'; cpuclock <= '1'; ioclock <= '1';
+      wait for 2.5 ns;     
       pixelclock <= '0'; cpuclock <= '1'; ioclock <= '1';
       wait for 2.5 ns;     
       pixelclock <= '1'; cpuclock <= '1'; ioclock <= '1';
-      wait for 2.5 ns;     
-      pixelclock <= '0'; cpuclock <= '1'; ioclock <= '1';
       wait for 2.5 ns;     
       pixelclock <= '1'; cpuclock <= '1'; ioclock <= '1';
       wait for 2.5 ns;
@@ -398,6 +400,30 @@ begin
     assert false report "End of simulation" severity failure;
   end process;
 
+  process
+  begin
+    clock30 <= '0';
+    wait for 1.6666 ns;
+    clock30 <= '1';
+    wait for 1.6667 ns;
+  end process;
+
+  process
+  begin
+    clock33 <= '0';
+    wait for 1.50152 ns;
+    clock33 <= '1';
+    wait for 1.50152 ns;
+  end process;
+  
+  process
+  begin
+    clock40 <= '0';
+    wait for 1.25 ns;
+    clock40 <= '1';
+    wait for 1.25 ns;
+  end process;
+  
   -- Deliver dummy ethernet frames
   process
     procedure eth_clock_tick is

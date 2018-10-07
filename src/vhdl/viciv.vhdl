@@ -3126,8 +3126,10 @@ begin
       last_vicii_xcounter_640 <= vicii_xcounter_640;
       if vicii_xcounter_640 /= last_vicii_xcounter_640 then
         lcd_pixel_strobe <= indisplay;
+        report "lcd_pixel_strobe = " & std_logic'image(indisplay);
       else
         lcd_pixel_strobe <= '0';
+        report "lcd_pixel_strobe = 0";
       end if;
       
       -- Stop drawing characters when we reach the end of the prepared data
