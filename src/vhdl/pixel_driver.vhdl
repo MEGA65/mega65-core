@@ -78,6 +78,15 @@ architecture greco_roman of pixel_driver is
 
   signal rdata : unsigned(31 downto 0);
   signal wdata : unsigned(31 downto 0);
+
+  signal tick30 : std_logic := '0';
+  signal tick33 : std_logic := '0';
+  signal tick40 : std_logic := '0';
+  signal tick50 : std_logic := '0';
+  signal last_tick30 : std_logic := '0';
+  signal last_tick33 : std_logic := '0';
+  signal last_tick40 : std_logic := '0';
+  signal last_tick50 : std_logic := '0';
   
 begin
 
@@ -112,59 +121,26 @@ begin
     blue_o <= rdata(23 downto 16);
     
     if rising_edge(clock30) then
-      report "tick30";
       if clock_select(1 downto 0) = "00" then
-        if raster_toggle /= raster_toggle_last then
-          raster_toggle_last <= raster_toggle;
-          raddr <= 0;
-        else
-          if raddr < 4095 then
-            raddr <= raddr + 1;
-          end if;
-        end if;
-        report "raddr = $" & to_hstring(to_unsigned(raddr,16));
+        tick30 <= not tick30;
       end if;
     end if;
 
     if rising_edge(clock33) then
       if clock_select(1 downto 0) = "01" then
-        if raster_toggle /= raster_toggle_last then
-          raster_toggle_last <= raster_toggle;
-          raddr <= 0;
-        else
-          if raddr < 4095 then
-            raddr <= raddr + 1;
-          end if;
-        end if;
-        report "raddr = $" & to_hstring(to_unsigned(raddr,16));
+        tick33 <= not tick33;
       end if;
     end if;
 
     if rising_edge(clock40) then
       if clock_select(1 downto 0) = "10" then
-        if raster_toggle /= raster_toggle_last then
-          raster_toggle_last <= raster_toggle;
-          raddr <= 0;
-        else
-          if raddr < 4095 then
-            raddr <= raddr + 1;
-          end if;
-        end if;
-        report "raddr = $" & to_hstring(to_unsigned(raddr,16));
+        tick40 <= not tick40;
       end if;
     end if;
 
     if rising_edge(clock50) then
       if clock_select(1 downto 0) = "11" then
-        if raster_toggle /= raster_toggle_last then
-          raster_toggle_last <= raster_toggle;
-          raddr <= 0;
-        else
-          if raddr < 4095 then
-            raddr <= raddr + 1;
-          end if;
-        end if;
-        report "raddr = $" & to_hstring(to_unsigned(raddr,16));
+        tick50 <= not tick50;
       end if;
     end if;
 
@@ -179,15 +155,37 @@ begin
     -- Manage writing into the raster buffer
     if rising_edge(clock100) then
       report "tick : pixel clock";
+
+      if raster_toggle /= raster_toggle_last then
+        raster_toggle_last <= raster_toggle;
+        raddr <= 0;
+        report "raddr = ZERO";
+      elsif (tick30 /= last_tick30)
+        or (tick33 /= last_tick33)
+        or (tick40 /= last_tick40)
+        or (tick50 /= last_tick50) then
+        if raddr < 1023 then
+          raddr <= raddr + 1;
+          report "raddr = $" & to_hstring(to_unsigned(raddr,16));
+        end if;
+      end if;
+      last_tick30 <= tick30;
+      last_tick33 <= tick33;
+      last_tick40 <= tick40;
+      last_tick50 <= tick50;
+      
       if lcd_pixel_strobe_i='1' then
         report "lcd_pixel_strobe";
         if raster_strobe = '0' then
-          if waddr < 4095 then
+          if waddr < 1023 then
             waddr <= waddr + 1;
+          end if;
+          -- Start reading of the buffer after we have just put the 2nd byte in.
+          if waddr = 1 then
+            raster_toggle <= not raster_toggle;
           end if;
         else
           waddr <= 0;
-          raster_toggle <= not raster_toggle;
           report "Zeroing waddr";
         end if;
         report "waddr = $" & to_hstring(to_unsigned(waddr,16));
