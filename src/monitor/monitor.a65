@@ -516,12 +516,27 @@ erase_memory:
 	dex
 	bpl -
 	; Set top to 1MB mark
-	lda #$10
-	sta top_addr+2
-
-	tay
+	ldy #$10
+	sty top_addr+2
 	jsr fill_loop
 
+	; 2. Fill the IO address space $FF00000-$FFEFFFF
+	; ($FFFxxxx has the hypervisor memory, which we need to leave alone)
+	;
+	lda #$0F
+	sta mem_addr+3
+	sta top_addr+3
+	lda #$f0
+	sta mem_addr+2
+	ldy #$fe
+	sty top_addr+2
+	jsr fill_loop
+
+	; 3. XXX - Fill other colour palettes and other funny memories around
+	; the place.
+	; XXX - We could lock colour palette bank in secure mode to make life
+	; simpler for us here.
+	
 	rts
 
 bad_bitrate:
