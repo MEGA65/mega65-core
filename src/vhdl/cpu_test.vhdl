@@ -403,25 +403,25 @@ begin
   process
   begin
     clock30 <= '0';
-    wait for 1.6666 ns;
+    wait for 16.666 ns;
     clock30 <= '1';
-    wait for 1.6667 ns;
+    wait for 16.667 ns;
   end process;
 
   process
   begin
     clock33 <= '0';
-    wait for 1.50152 ns;
+    wait for 15.0152 ns;
     clock33 <= '1';
-    wait for 1.50152 ns;
+    wait for 15.0152 ns;
   end process;
   
   process
   begin
     clock40 <= '0';
-    wait for 1.25 ns;
+    wait for 12.5 ns;
     clock40 <= '1';
-    wait for 1.25 ns;
+    wait for 12.5 ns;
   end process;
   
   -- Deliver dummy ethernet frames
