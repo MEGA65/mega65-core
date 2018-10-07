@@ -179,7 +179,7 @@ architecture behavioral of matrix_to_ascii is
     24 => x"27", -- '/7
     25 => x"59", -- Y/y
     26 => x"47", -- G/g
-    27 => x"7b", -- {/8
+    27 => x"28", -- (/8
     28 => x"42", -- B/b
     29 => x"48", -- H/h
     30 => x"55", -- U/u
