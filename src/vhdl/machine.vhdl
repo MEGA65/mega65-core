@@ -109,8 +109,8 @@ entity machine is
          -------------------------------------------------------------------------
          -- CIA1 ports for keyboard and joysticks
          -------------------------------------------------------------------------
-         porta_pins : inout  std_logic_vector(7 downto 0);
-         portb_pins : inout  std_logic_vector(7 downto 0);
+         porta_pins : inout  std_logic_vector(7 downto 0) := (others => 'Z');
+         portb_pins : inout  std_logic_vector(7 downto 0) := (others => 'Z');
          keyleft : in std_logic;
          keyup : in std_logic;
          keyboard_column8 : out std_logic;
