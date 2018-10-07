@@ -42,7 +42,7 @@ entity container is
          ----------------------------------------------------------------------
          restore_key : in std_logic;
          column : inout  std_logic_vector(8 downto 0) := (others => 'Z');
-         row : inout  std_logic_vector(8 downto 0) := (others => 'Z');
+         row : in  std_logic_vector(8 downto 0);
          keyleft : inout std_logic := 'Z';
          keyup : inout std_logic := 'Z';
          fa_left : in std_logic;

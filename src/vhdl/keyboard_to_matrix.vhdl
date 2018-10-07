@@ -7,8 +7,8 @@ use work.debugtools.all;
 
 entity keyboard_to_matrix is
   port (Clk : in std_logic;        
-        porta_pins : inout  std_logic_vector(7 downto 0) := (others => 'H');
-        portb_pins : inout  std_logic_vector(7 downto 0) := (others => 'H');
+        porta_pins : inout  std_logic_vector(7 downto 0) := (others => 'Z');
+        portb_pins : in  std_logic_vector(7 downto 0);
         keyboard_column8_out : out std_logic := '1';
         key_left : in std_logic;
         key_up : in std_logic;
@@ -85,11 +85,11 @@ begin
       -- problems that cause multiple key presses on the same row/column
       -- to lead to too many pull-ups combining to leave the input
       -- voltage too high to register a key press.
-      if counter<8 then
-        portb_pins <= (others => 'Z');
-      else
-        portb_pins <= (others => 'H');
-      end if;
+--      if counter<8 then
+--        portb_pins <= (others => 'Z');
+--      else
+--        portb_pins <= (others => 'Z');
+--      end if;
       
       keyram_wea <= x"00";
       

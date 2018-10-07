@@ -83,7 +83,7 @@ entity iomapper is
         drive_led_out : in std_logic;
 
         porta_pins : inout  std_logic_vector(7 downto 0) := (others => 'Z');
-        portb_pins : inout  std_logic_vector(7 downto 0) := (others => 'Z');
+        portb_pins : in  std_logic_vector(7 downto 0);
         keyboard_column8_out : out std_logic;
         key_left : in std_logic;
         key_up : in std_logic;
