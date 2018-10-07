@@ -122,6 +122,13 @@ begin
         -- that the row pins (portb_pins) is being driven high, instead of
         -- tristates, i.e., '1' instead of 'H' or 'Z'.
 
+        -- We got this sorted out in ISE, but now under Vivado, we have the same
+        -- problem again. (eg. right-shift + M doesn't work).  However, as we will
+        -- be moving to the fancy new keyboard that will feed the matrix data
+        -- directly in, rather than being scanned in the old way, it isn't such
+        -- an issue, although it would still be really nice to figure it out and
+        -- fix it.
+
         -- Don't enable if we see pins staying tied low
         if portb_pins = "11111111" then
           enabled <= '1';
