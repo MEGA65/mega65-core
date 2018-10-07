@@ -507,6 +507,21 @@ erase_memory:
 	; all the other funny bits, like ethernet frame buffer, SD card buffers etc.
 	; basically we have to prevent ANY state being leaked out.  This is actually
 	; the hardest part of the whole system to get right.
+
+	; 1. Fill the first 1MB of address space
+	lda #$00
+	ldx #3
+*	sta mem_addr,x
+	sta top_addr,x
+	dex
+	bpl -
+	; Set top to 1MB mark
+	lda #$10
+	sta top_addr+2
+
+	tay
+	jsr fill_loop
+
 	rts
 
 bad_bitrate:
@@ -556,6 +571,11 @@ fill_mem_cmd:
       
       lda         hex_value             ; get fill value
       tay                               ; stash in Y
+
+      jsr	do_memory_fill
+      jmp	next_command
+
+do_memory_fill:
       
       ; Compare current address to top address using 32-bit unsigned compare (or subtract, in this case)
 fill_loop:
@@ -583,7 +603,7 @@ fill_bad_addr:
 bad_fill:
       `printstr   bad_fill_msg
 fill_done:
-      jmp         next_command
+      rts
       
 ; -------------------------------------
 ; Set Memory Command (s or S)   S forces upper address bytes to $0777
