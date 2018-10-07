@@ -181,8 +181,8 @@ architecture behavioural of c65uart is
   signal portk_internal : std_logic_vector(7 downto 0) := x"7F"; -- visual
                                                                  -- keyboard
                                                                  -- off by default
-  signal portl_internal : std_logic_vector(7 downto 0) := x"FF";
-  signal portm_internal : std_logic_vector(7 downto 0) := x"FF";
+  signal portl_internal : std_logic_vector(7 downto 0) := x"7F";
+  signal portm_internal : std_logic_vector(7 downto 0) := x"7F";
   signal portn_internal : std_logic_vector(7 downto 0) := x"FF";
 
   -- Visual keyboard X and Y start positions (x4).
