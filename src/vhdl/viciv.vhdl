@@ -831,9 +831,6 @@ architecture Behavioral of viciv is
   signal raster_buffer_write_data : unsigned(17 downto 0);
   signal raster_buffer_write : std_logic;  
 
-  signal xpixel_640 : unsigned(10 downto 0);
-  signal xpixel_640_sub : unsigned(9 downto 0);
-
 
   signal xpixel_fw640 : unsigned(10 downto 0);
   signal xpixel_fw640_sub : unsigned(9 downto 0);
@@ -2736,24 +2733,6 @@ begin
       else
         sprite_number_counter <= sprite_number_counter + 1;
         sprite_number_for_data_tx <= sprite_number_for_data_tx + 1;
-      end if;
-
-      -- Output the logical pixel number assuming H640 output
-      -- (Used for Matrix Mode and visual keyboard compositers, so that
-      -- they know how the actual mode is laid out).
-      if displayx_drive = 0 then
-        xpixel_640_sub <= (others => '0');
-        xpixel_640 <= (others => '0');
-      else
-        if xpixel_640_sub >= 240 then
-          xpixel_640_sub <= xpixel_640_sub - 240 + chargen_x_scale;
-          xpixel_640 <= xpixel_640 + 2;
-        elsif xpixel_640_sub >= 120 then
-          xpixel_640_sub <= xpixel_640_sub - 120 + chargen_x_scale;
-          xpixel_640 <= xpixel_640 + 1;
-        else
-          xpixel_640_sub <= xpixel_640_sub + chargen_x_scale;
-        end if;
       end if;
 
       -- Update counters for X and Y position for compositers
