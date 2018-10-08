@@ -102,7 +102,7 @@ architecture behavioral of matrix_to_ascii is
     24 => x"37", -- '/7
     25 => x"79", -- Y/y
     26 => x"67", -- G/g
-    27 => x"38", -- {/8
+    27 => x"38", -- (/8
     28 => x"62", -- B/b
     29 => x"68", -- H/h
     30 => x"75", -- U/u
@@ -110,7 +110,7 @@ architecture behavioral of matrix_to_ascii is
     32 => x"39", -- )/9
     33 => x"69", -- I/i
     34 => x"6a", -- J/j
-    35 => x"30", -- {/0
+    35 => x"30", -- 0/0
     36 => x"6d", -- M/m
     37 => x"6b", -- K/k
     38 => x"6f", -- O/o
@@ -205,11 +205,11 @@ architecture behavioral of matrix_to_ascii is
     50 => x"5d", -- ]/;
     51 => x"93", -- CLR/HOM
     52 => x"00", -- RIGHT/SHIFT
-    53 => x"7d", -- }/=
+    53 => x"5f", -- _/=
     54 => x"00", -- SPECIAL/UNPRINTABLE/^
     55 => x"3f", -- ?//
     56 => x"21", -- !/1
-    57 => x"7e", -- SPECIAL/UNPRINTABLE/_
+    57 => x"60", -- `/_
     58 => x"00", -- CTRL/NO KEY
     59 => x"22", -- "/2
     60 => x"20", -- SPACE/BAR
@@ -286,7 +286,7 @@ architecture behavioral of matrix_to_ascii is
     54 => x"00", -- SPECIAL/UNPRINTABLE/^
     55 => x"2f", -- ?//
     56 => x"05", -- !/SPECIAL/UNPRINTABLE
-    57 => x"5f", -- SPECIAL/UNPRINTABLE/_
+    57 => x"60", -- SPECIAL/UNPRINTABLE/_
     58 => x"00", -- CTRL/NO KEY
     59 => x"1c", -- "/SPECIAL/UNPRINTABLE
     60 => x"20", -- SPACE/BAR
@@ -350,20 +350,20 @@ architecture behavioral of matrix_to_ascii is
     41 => x"d0", -- P/SPECIAL/UNPRINTABLE
     42 => x"cc", -- L/SPECIAL/UNPRINTABLE
     43 => x"2d", -- NO KEY/-
-    44 => x"2e", -- >/.
-    45 => x"3a", -- [/:
+    44 => x"7c", -- >/./|
+    45 => x"7b", -- [/:/{
     46 => x"40", -- NO KEY/@
-    47 => x"2c", -- </,
+    47 => x"7e", -- </,/~
     48 => x"00", -- SPECIAL/UNPRINTABLE/NO KEY
     49 => x"00", -- */NO KEY
-    50 => x"3b", -- ]/;
+    50 => x"7d", -- ]/;/}
     51 => x"93", -- CLR/HOM
     52 => x"00", -- RIGHT/SHIFT
-    53 => x"3d", -- }/=
+    53 => x"5f", -- _/=
     54 => x"00", -- SPECIAL/UNPRINTABLE/^
-    55 => x"2f", -- ?//
+    55 => x"5c", -- ?///\
     56 => x"95", -- !/SPECIAL/UNPRINTABLE
-    57 => x"ef", -- SPECIAL/UNPRINTABLE/_    C= + <- = matrix mode (for C64 keyboards)
+    57 => x"60", -- _/`/`
     58 => x"00", -- CTRL/NO KEY
     59 => x"96", -- "/SPECIAL/UNPRINTABLE
     60 => x"20", -- SPACE/BAR
