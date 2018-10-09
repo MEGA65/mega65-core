@@ -869,9 +869,9 @@ begin  -- rtl
                 vgagreen_out(6 downto 0) <= (others => '0');
                 vgagreen_out(7) <= '0';
               else
-                vgared_out <= (others => te_blink_state xor char_bits(0));
-                vgagreen_out(6 downto 0) <= (others => te_blink_state xor char_bits(0));
-                vgagreen_out(7) <= te_blink_state xor char_bits(0);
+                vgared_out <= (others => te_blink_state xor (char_bits(0) and column_visible));
+                vgagreen_out(6 downto 0) <= (others => te_blink_state xor (char_bits(0) and column_visible));
+                vgagreen_out(7) <= te_blink_state xor (char_bits(0) and column_visible);
               end if;
               vgablue_out <= x"00";
             else
