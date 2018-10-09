@@ -162,22 +162,22 @@ begin
       or (tick50 /= last_tick50) then
       if raddr < 1023 then
         raddr <= raddr + 1;
-        if tick30 /= last_tick30 then
-          report "tick30 : raddr = $" & to_hstring(to_unsigned(raddr,16));
-          last_tick30 <= tick30;
-        end if;
-        if tick33 /= last_tick33 then
-          report "tick33 : raddr = $" & to_hstring(to_unsigned(raddr,16));
-          last_tick33 <= tick33;
-        end if;
-        if tick40 /= last_tick40 then
-          report "tick40 : raddr = $" & to_hstring(to_unsigned(raddr,16));
-          last_tick40 <= tick40;
-        end if;
-        if tick50 /= last_tick50 then
-          report "tick50 : raddr = $" & to_hstring(to_unsigned(raddr,16));
-          last_tick50 <= tick50;
-        end if;
+      end if;
+      if tick30 /= last_tick30 then
+        report "tick30 : raddr = $" & to_hstring(to_unsigned(raddr,16));
+        last_tick30 <= tick30;
+      end if;
+      if tick33 /= last_tick33 then
+        report "tick33 : raddr = $" & to_hstring(to_unsigned(raddr,16));
+        last_tick33 <= tick33;
+      end if;
+      if tick40 /= last_tick40 then
+        report "tick40 : raddr = $" & to_hstring(to_unsigned(raddr,16));
+        last_tick40 <= tick40;
+      end if;
+      if tick50 /= last_tick50 then
+        report "tick50 : raddr = $" & to_hstring(to_unsigned(raddr,16));
+        last_tick50 <= tick50;
       end if;
     end if;
     
