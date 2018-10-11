@@ -4033,7 +4033,7 @@ begin
             full_colour_data(63 downto 56) <= "00000000";
           end if;
           if glyph_reverse='1' then
-            full_colour_data(63 downto 56) <= not ramdata;
+            full_colour_data(63 downto 56) <= ramdata xor "11111111";
           end if;
           if glyph_underline='1' then
             full_colour_data(63 downto 56) <= "11111111";
