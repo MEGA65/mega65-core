@@ -4434,7 +4434,7 @@ begin
               & " with alpha value $" & to_hstring(paint_full_colour_data(7 downto 0));
             -- 8-bit pixel values provide the alpha
             raster_buffer_write_data(16 downto 9) <= paint_full_colour_data(7 downto 0);
-            raster_buffer_write_data(8) <= '1';
+            raster_buffer_write_data(8) <= paint_full_colour_data(7);
             -- colour RAM colour provides the foreground
             raster_buffer_write_data(7 downto 0) <= paint_foreground;
           end if;
