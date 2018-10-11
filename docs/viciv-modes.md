@@ -80,7 +80,7 @@ The 16-bit character mode is enabled by setting bit 0 in $D054 (remember to enab
 | Bit | Function |
 | --- | --- |
 | Screen RAM byte 0 | Lower 8 bits of character number, the same as the VIC-II and VIC-III |
-| Screen RAM byte 1, bits 0 - 5 | Upper 5 bits of character number, allowing addressing of 8,192 unique characters |
+| Screen RAM byte 1, bits 0 - 4 | Upper 5 bits of character number, allowing addressing of 8,192 unique characters |
 | Screen RAM byte 1, bits 5 - 7 | Trim pixels from right side of character | 
 | Colour RAM byte 0, bit 7 | Vertically flip the character |
 | Colour RAM byte 0, bit 6 | Horizontally flip the character |

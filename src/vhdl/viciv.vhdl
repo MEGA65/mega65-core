@@ -3803,13 +3803,13 @@ begin
           
           -- Work out if character is full colour (ignored for bitmap mode but
           -- calculated outside of if test to flatten logic).
-          if screen_ram_buffer_dout(3 downto 0) = "0000" then
+          if screen_ram_buffer_dout(4 downto 0) = "00000" then
             glyph_full_colour <= fullcolour_8bitchars;
           else
             glyph_full_colour <= fullcolour_extendedchars;
           end if;
           if text_mode='1' then
-            -- We only allow 4096 characters in extended mode.
+            -- We only allow 8192 characters in extended mode.
             -- The spare bits are used to provide some (hopefully useful)
             -- extended attributes.
             glyph_number(12 downto 8) <= screen_ram_buffer_dout(4 downto 0);
