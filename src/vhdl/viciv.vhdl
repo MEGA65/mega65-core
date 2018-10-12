@@ -3330,11 +3330,13 @@ begin
       -- Use palette bank 3 for "palette ROM" colours (C64 default colours
       -- should be placed there for C65 compatibility).
       if postsprite_pixel_colour(7 downto 4) = x"0" and reg_palrom='0' then
+        -- Get pixel colour (which may be foreground or background)
         palette_address <= "11" & std_logic_vector(postsprite_pixel_colour);
-        alias_palette_address <= "11" & std_logic_vector(postsprite_alpha_value);
+        -- Get the colour of the background for doing the alpha blending 
+        alias_palette_address <= "11" & std_logic_vector(paint_background);
       else
         palette_address(7 downto 0) <= std_logic_vector(postsprite_pixel_colour);
-        alias_palette_address(7 downto 0) <= std_logic_vector(postsprite_alpha_value);
+        alias_palette_address(7 downto 0) <= std_logic_vector(paint_background);
         if pixel_is_sprite='0' then
           -- Bold + reverse = use alternate palette
           if (glyph_bold and glyph_reverse)='1' then
