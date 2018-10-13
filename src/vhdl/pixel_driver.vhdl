@@ -87,7 +87,7 @@ architecture greco_roman of pixel_driver is
   signal last_tick33 : std_logic := '0';
   signal last_tick40 : std_logic := '0';
   signal last_tick50 : std_logic := '0';
-  
+
 begin
 
   -- The only real job here is to select the output clock based
@@ -109,12 +109,14 @@ begin
       rdata => rdata);
   
   process (lcd_pixel_strobe_i,red_i,green_i,blue_i,clock50,clock100,clock_select,clock30,clock33,clock40) is
+    variable waddr_unsigned : unsigned(11 downto 0) := to_unsigned(0,12);
   begin
 
-    wdata(7 downto 0) <= red_i;
-    wdata(15 downto 8) <= green_i;
-    wdata(23 downto 16) <= blue_i;
-    wdata(31 downto 24) <= x"00";
+    -- XXX DEBUG - disabled for now: see XXX below for test pattern injection
+--    wdata(7 downto 0) <= red_i;
+--    wdata(15 downto 8) <= green_i;
+--    wdata(23 downto 16) <= blue_i;
+--    wdata(31 downto 24) <= x"00";
 
     red_o <= rdata(7 downto 0);
     green_o <= rdata(15 downto 8);
@@ -187,7 +189,14 @@ begin
     
       if lcd_pixel_strobe_i='1' then
         report "lcd_pixel_strobe";
+        waddr_unsigned := to_unsigned(waddr,12);
+        if waddr_unsigned(0)='1' then
+          wdata <= (others => '1');
+        else
+          wdata <= (others => '0');
+        end if;
         if raster_strobe = '0' then
+          -- XXX debug show a test pattern
           if waddr < 1023 then
             waddr <= waddr + 1;
           end if;
