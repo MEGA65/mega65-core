@@ -35,10 +35,13 @@ entity pixel_driver is
     clock33 : in std_logic;
     clock30 : in std_logic;
 
-    rst_fifo : in std_logic;
     waddr_out : out unsigned(11 downto 0);
     x_zero_out : out std_logic;
     wr_ack : out std_logic;
+    fifo_empty : out std_logic;
+    fifo_full : out std_logic;
+    rd_data_count : out std_logic_vector(9 downto 0);
+    wr_data_count : out std_logic_vector(9 downto 0);
     
     -- 800x600@50Hz if pal50_select='1', else 800x600@60Hz
     pal50_select : in std_logic;
@@ -88,6 +91,10 @@ entity pixel_driver is
 end pixel_driver;
 
 architecture greco_roman of pixel_driver is
+
+  signal fifo_running : std_logic := '0';
+  signal fifo_rst : std_logic := '1';
+  signal reset_counter : integer range 0 to 255 := 255;
 
   signal raster_strobe : std_logic := '0';
   signal inframe_internal : std_logic := '0';
@@ -215,14 +222,14 @@ begin
       FULL_RESET_VALUE=>0,      --DECIMAL
       PROG_EMPTY_THRESH=>10,    --DECIMAL
       PROG_FULL_THRESH=>10,     --DECIMAL
-      RD_DATA_COUNT_WIDTH=>1,   --DECIMAL
+      RD_DATA_COUNT_WIDTH=>10,  --DECIMAL
       READ_DATA_WIDTH=>32,      --DECIMAL
       READ_MODE=>"std",         --String
       RELATED_CLOCKS=>0,        --DECIMAL
       USE_ADV_FEATURES=>"0707", --String
       WAKEUP_TIME=>0,           --DECIMAL
       WRITE_DATA_WIDTH=>32,     --DECIMAL
-      WR_DATA_COUNT_WIDTH=>1    --DECIMAL
+      WR_DATA_COUNT_WIDTH=>10   --DECIMAL
       )
     port map(
       -- almost_empty=>almost_empty,   -- 1-bit output : AlmostEmpty : When
@@ -244,13 +251,13 @@ begin
       unsigned(dout)=>rdata,                  -- READ_DATA_WIDTH-bit output : ReadData : The
                                     -- output data bus is driven
                                     -- when reading the FIFO.
-      -- empty=>empty,                 -- 1-bit output : Empty Flag : When asserted,
+      empty=>fifo_empty,                 -- 1-bit output : Empty Flag : When asserted,
                                     -- this signal indicates that
                                     -- the FIFO is empty. Read requests are
                                     -- ignored when the FIFO is empty,
                                     -- initiating a read while empty is not
                                     -- destructive to the FIFO.
-      -- full=>full,                   -- 1-bit output : Full Flag : When asserted,
+      full=>fifo_full,                   -- 1-bit output : Full Flag : When asserted,
                                     -- this signal indicates that the
                                     -- FIFO is full. Write requests are ignored
                                     -- when the FIFO is full,
@@ -281,7 +288,7 @@ begin
                                     -- of words in the FIFO is less than the
                                     -- programmable full threshold
                                     -- value.
-      -- rd_data_count=>rd_data_count, -- RD_DATA_COUNT_WIDTH-bit output : Read
+      rd_data_count=>rd_data_count, -- RD_DATA_COUNT_WIDTH-bit output : Read
                                     -- Data Count : This bus indicates
                                     -- the number of words read from the FIFO.
       -- rd_rst_busy=>rd_rst_busy,     -- 1-bit output : Read Reset Busy :
@@ -296,7 +303,7 @@ begin
       wr_ack=>wr_ack,               -- 1-bit output : Write Acknowledge :This signal indicates that a write
                                     -- request (wr_en) during the prior clock
                                     -- cycle is succeeded.
-      -- wr_data_count=>wr_data_count, -- WR_DATA_COUNT_WIDTH-bit output :
+      wr_data_count=>wr_data_count, -- WR_DATA_COUNT_WIDTH-bit output :
                                     -- WriteDataCount : This bus indicates`
                                     -- the number of words written into the FIFO.
       -- wr_rst_busy=>wr_rst_busy,  -- 1-bit output : WriteResetBusy:Active-Highindicatorthat the FIFO
@@ -319,7 +326,7 @@ begin
                                     -- signal causes data (on dout) to be read
                                     -- from the FIFO. Must be held
                                     -- active-low when rd_rst_busy is active high..
-      rst=>rst_fifo,                -- 1-bit input : Reset : Must be
+      rst=>fifo_rst,                -- 1-bit input : Reset : Must be
                                     -- synchronous to wr_clk. Must be applied
                                     -- only when wr_clk is stable and free-running.
       sleep=>'0',                   -- 1-bit input : Dynamic power saving : If
@@ -349,7 +356,7 @@ begin
   
   -- Generate output pixel strobe and signals for read-side of the FIFO
   pixel_strobe <= clock30 when pal50_select_internal='1' else clock40;
-  rd_en <= clock30 when pal50_select_internal='1' else clock40;
+  rd_en <= '1' when fifo_running='1' else '0';
   raddr <= raddr50 when pal50_select_internal='1' else raddr60;
   rd_clk <= clock30 when pal50_select_internal='1' else clock40;
 
@@ -415,6 +422,14 @@ begin
     
     -- Manage writing into the raster buffer
     if rising_edge(clock100) then
+      if reset_counter /= 0 then
+        reset_counter <= reset_counter - 1;
+        if reset_counter = 128 then
+          fifo_rst <= '0';
+        end if;
+      else
+        fifo_running <= '1';
+      end if;
       if pixel_valid='1' then
         waddr_unsigned := to_unsigned(waddr,12);
         waddr_out <= to_unsigned(waddr,12);
@@ -434,7 +449,7 @@ begin
           report "Zeroing waddr";
         end if;
         report "waddr = $" & to_hstring(to_unsigned(waddr,16));
-        wr_en <= '1';
+        wr_en <= '1' and fifo_running;
       else
         wr_en <= '0';
       end if;

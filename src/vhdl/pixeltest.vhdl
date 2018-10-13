@@ -217,10 +217,11 @@ begin
                -- Control HSYNC/VSYNC polarities
                hsync_invert => sw(2),
                vsync_invert => sw(3),
-               rst_fifo => sw(4),
-               std_logic_vector(waddr_out) => led(15 downto 4),
+               rd_data_count => led(15 downto 6),
                x_zero_out => led(1),
                wr_ack => led(2),
+               fifo_empty => led(3),
+               fifo_full => led(4),
                
                -- Pixels
                pixel_valid => pixel_valid,
