@@ -1026,57 +1026,6 @@ begin
 
       );
 
-  frame50: entity work.frame_generator
-    generic map ( frame_width => 960,
-                  display_width => 800,
-                  frame_height => 625,
-                  display_height => 600,
-                  vsync_start => 620,
-                  vsync_end => 625,
-                  hsync_start => 814,
-                  hsync_end => 884
-                  )                  
-    port map ( clock => clock30,
-               hsync => hsync_pal50_driver,
-               hsync_uninverted => hsync_pal50_driver_uninverted,
-               vsync => vsync_pal50_driver,
-               hsync_polarity => hsync_polarity,
-               vsync_polarity => vsync_polarity,
-               x_zero => x_zero_pal50,
-               y_zero => y_zero_pal50,
-               inframe => inframe_pal50,
-               lcd_vsync => lcd_vsync_pal50,
-               lcd_inframe => lcd_inframe_pal50
-               );
-
-  frame60: entity work.frame_generator
-    generic map ( frame_width => 1056,
-                  display_width => 800,
-                  frame_height => 628,
-                  display_height => 600,
-                  vsync_start => 624,
-                  vsync_end => 628,
-                  hsync_start => 840,
-                  hsync_end => 968
-                  )                  
-    port map ( clock => clock40,
-               hsync_polarity => hsync_polarity,
-               vsync_polarity => vsync_polarity,
-               hsync_uninverted => hsync_ntsc60_uninverted,
-               hsync => hsync_ntsc60,
-               vsync => vsync_ntsc60,
-               x_zero => x_zero_ntsc60,
-               y_zero => y_zero_ntsc60,
-               inframe => inframe_ntsc60,
-               lcd_vsync => lcd_vsync_ntsc60,
-               lcd_inframe => lcd_inframe_ntsc60,
-
-               -- Get test pattern
-               red_o => red_n_driver,
-               green_o => green_n_driver,
-               blue_o => blue_n_driver
-               );               
-  
   pixel0: entity work.pixel_driver
     port map (
       pixelclock_select => pixelclock_select,
