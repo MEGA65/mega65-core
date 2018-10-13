@@ -154,6 +154,35 @@ begin
       report "tick : clock_select(1 downto 0) = " & to_string(clock_select(1 downto 0));
     end if;
 
+    if rising_edge(lcd_pixel_strobe_i) then
+      report "lcd_pixel_strobe";
+      waddr_unsigned := to_unsigned(waddr,12);
+      if waddr_unsigned(0)='1' then
+        wdata(31 downto 12) <= (others => '1');
+        wdata(11 downto 0) <= waddr_unsigned;
+      else
+        wdata(31 downto 12) <= (others => '0');
+        wdata(11 downto 0) <= waddr_unsigned;
+      end if;
+      if raster_strobe = '0' then
+        -- XXX debug show a test pattern
+        if waddr < 1023 then
+          waddr <= waddr + 1;
+        end if;
+        -- Start reading of the buffer after we have just put the 2nd byte in.
+        if waddr = 1 then
+          raster_toggle <= not raster_toggle;
+        end if;
+      else
+        waddr <= 0;
+        report "Zeroing waddr";
+      end if;
+      report "waddr = $" & to_hstring(to_unsigned(waddr,16));
+--    else
+--      report "lcd_pixel_strobe_i uninteresting " & std_logic'image(lcd_pixel_strobe_i);
+    end if;
+
+    
     -- Manage writing into the raster buffer
     if rising_edge(clock100) then
       report "tick : pixel clock";
@@ -187,31 +216,6 @@ begin
       last_tick40 <= tick40;
       last_tick50 <= tick50;    
     
-      if lcd_pixel_strobe_i='1' then
-        report "lcd_pixel_strobe";
-        waddr_unsigned := to_unsigned(waddr,12);
-        if waddr_unsigned(0)='1' then
-          wdata <= (others => '1');
-        else
-          wdata <= (others => '0');
-        end if;
-        if raster_strobe = '0' then
-          -- XXX debug show a test pattern
-          if waddr < 1023 then
-            waddr <= waddr + 1;
-          end if;
-          -- Start reading of the buffer after we have just put the 2nd byte in.
-          if waddr = 1 then
-            raster_toggle <= not raster_toggle;
-          end if;
-        else
-          waddr <= 0;
-          report "Zeroing waddr";
-        end if;
-        report "waddr = $" & to_hstring(to_unsigned(waddr,16));
-      else
-        report "lcd_pixel_strobe_i uninteresting " & std_logic'image(lcd_pixel_strobe_i);
-      end if;
     end if;
     
     -- We also need to propagate a bunch of framing signals

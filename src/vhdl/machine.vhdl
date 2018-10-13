@@ -750,6 +750,9 @@ begin
   process(pixelclock,ioclock)
     variable digit : std_logic_vector(3 downto 0);
   begin
+    if rising_edge(pixelclock) then
+      report "pixel_strobe = " & std_logic'image(pixel_strobe);
+    end if;
     if rising_edge(ioclock) then
       -- Hold reset low for a while when we first turn on
 --      report "power_on_reset(0) = " & std_logic'image(power_on_reset(0)) severity note;
