@@ -178,10 +178,17 @@ architecture Behavioral of container is
   
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
 
+  signal pixel_strobe : std_logic := '0';
+  signal pixel_valid : std_logic := '0';
+  
   signal lcd_pixel_strobe : std_logic;
   signal lcd_hsync : std_logic;
   signal lcd_vsync : std_logic;
   signal lcd_display_enable : std_logic;
+
+  signal buffer_vgared : unsigned(7 downto 0);
+  signal buffer_vgagreen : unsigned(7 downto 0);
+  signal buffer_vgablue : unsigned(7 downto 0);
   
 begin
   
@@ -202,7 +209,6 @@ begin
                clock40 => clock40,
                clock33 => clock33,
                clock30 => clock30,
-               clock200 => clock200,
 
                -- Select 50/60Hz video mode
                pal50_select => sw(0),
@@ -211,29 +217,39 @@ begin
                -- Control HSYNC/VSYNC polarities
                hsync_invert => sw(2),
                vsync_invert => sw(3),
-
+               rst_fifo => sw(4),
+               std_logic_vector(waddr_out) => led(15 downto 4),
+               x_zero_out => led(1),
+               wr_ack => led(2),
+               
                -- Pixels
+               pixel_valid => pixel_valid,
                red_i => (others => '0'),
                green_i => (others => '1'),
                blue_i => (others => '0'),
-               red_o(7 downto 4) => buffer_vgared,
-               green_o(7 downto 4) => buffer_vgagreen,
-               blueo(7 downto 4) => buffer_vgablue,
+
+               red_o => buffer_vgared,
+               green_o => buffer_vgagreen,
+               blue_o => buffer_vgablue,
+               pixel_strobe => pixel_strobe,
 
                -- VGA signals
                hsync => hsync,
                vsync => vsync,
 
                -- LCD panel signals
-               lcd_pixel_strobe => jbhi(7);
-               lcd_hsync => jbhi(8);
-               lcd_vsync => jbhi(9);
+               lcd_pixel_strobe => jbhi(7),
+               lcd_hsync => jbhi(8),
+               lcd_vsync => jbhi(9),
                lcd_display_enable => jbhi(10)
                );                              
 
-  vgablue <= std_logic_vector(buffer_vgablue(7 downto 4));
-  vgared <= std_logic_vector(buffer_vgared(7 downto 4));
-  vgagreen <= std_logic_vector(buffer_vgagreen(7 downto 4));
+  pixel_valid <= pixel_strobe;
+  led(0) <= pixel_strobe;
+
+  vgablue <= buffer_vgablue(7 downto 4);
+  vgared <= buffer_vgared(7 downto 4);
+  vgagreen <= buffer_vgagreen(7 downto 4);
 
   jalo <= std_logic_vector(buffer_vgablue(7 downto 4));
   jahi <= std_logic_vector(buffer_vgared(7 downto 4));
