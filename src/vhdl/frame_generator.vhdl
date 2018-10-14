@@ -26,7 +26,7 @@ entity frame_generator is
   generic (
     frame_width : integer := 960;
     display_width : integer := 800;  -- 32 cycles of video pipeline
-    pipeline_delay : integer := 20;
+    pipeline_delay : integer := 0;
     frame_height : integer := 625;
     lcd_height : integer := 480;
     display_height : integer := 600;
@@ -105,11 +105,11 @@ begin
       end if;
 
       if x = hsync_start then
-        hsync_driver <= hsync_polarity; 
+        hsync_driver <= not hsync_polarity; 
         hsync_uninverted_driver <= '1'; 
       end if;
       if x = hsync_end then
-        hsync_driver <= not hsync_polarity;
+        hsync_driver <= hsync_polarity;
         hsync_uninverted_driver <= '0';
       end if;
       if y = ( frame_height - lcd_height ) / 2 then
@@ -128,8 +128,9 @@ begin
         lcd_inframe <= '0';
         lcd_vsync <= '1';
       end if;
-      if x = 0 and y < display_height then
+      if x = pipeline_delay and y < display_height then
         inframe <= '1';
+        inframe_internal <= '1';
       end if;
       if y = vsync_start then
         vsync_driver <= vsync_polarity;
@@ -147,7 +148,7 @@ begin
       end if;
       
       -- Draw white edge on frame
-      if x = 0 and y < display_height then
+      if x = pipeline_delay and y < display_height then
         inframe <= '1';
         inframe_internal <= '1';
         red_o <= x"FF";
