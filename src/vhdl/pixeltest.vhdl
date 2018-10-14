@@ -194,9 +194,14 @@ architecture Behavioral of container is
   signal buffer_vgagreen : unsigned(7 downto 0);
   signal buffer_vgablue : unsigned(7 downto 0);
 
-  signal pixel_toggle : std_logic := '0';
   signal pixel_counter : integer := 0;
   signal x_zero : std_logic := '0';
+  signal y_zero : std_logic := '0';
+
+  signal spot : std_logic := '0';
+  signal bitnum : integer range 0 to 16 := 0;
+  signal raster_counter : integer range 0 to 65535 := 0;
+  signal x_zero_last : std_logic := '0';
   
 begin
   
@@ -227,6 +232,7 @@ begin
                vsync_invert => sw(3),
                rd_data_count => led(15 downto 6),
                x_zero_out => x_zero,
+               y_zero_out => y_zero,
                wr_ack => led(2),
                fifo_empty => led(3),
                fifo_full => led(4),
@@ -259,9 +265,9 @@ begin
   vgared <= buffer_vgared(7 downto 4);
   vgagreen <= buffer_vgagreen(7 downto 4);
 
-  red_in <= x"00";
-  blue_in <= x"FF";
-  green_in <= (others => pixel_toggle);
+  red_in <= x"00" when (pixel_counter < 800 ) else x"FF";
+  blue_in <= x"00" when (pixel_counter /= 1 ) else x"FF";
+  green_in <= (others => spot);
   
   jalo <= std_logic_vector(buffer_vgablue(7 downto 4));
   jahi <= std_logic_vector(buffer_vgared(7 downto 4));
@@ -270,15 +276,23 @@ begin
   process (pixelclock) is
   begin
     if rising_edge(pixelclock) then
-      if x_zero='1' then
+      bitnum <= raster_counter mod 16;
+      spot <= to_unsigned(pixel_counter,16)(bitnum);
+      x_zero_last <= x_zero;
+      if y_zero='1' then
+        raster_counter <= 0;
+        pixel_valid <= '0';
+      elsif x_zero='1' then
+        if (x_zero_last = '0') then
+          raster_counter <= raster_counter + 1;
+        end if;
         pixel_counter <= 0;
-        pixel_valid <= '1';
-        pixel_toggle <= '0';
       else
-        if pixel_counter /= 799 then
-          pixel_counter <= pixel_counter + 1;
+        if pixel_counter /= 800 then
+          if x_zero_last = '0' then
+            pixel_counter <= pixel_counter + 1;
+          end if;
           pixel_valid <= '1';
-          pixel_toggle <= not pixel_toggle;
         else
           pixel_valid <= '0';
         end if;
