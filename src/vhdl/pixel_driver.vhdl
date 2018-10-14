@@ -37,6 +37,7 @@ entity pixel_driver is
 
     waddr_out : out unsigned(11 downto 0);
     x_zero_out : out std_logic;
+    y_zero_out : out std_logic;
     wr_ack : out std_logic;
     fifo_empty : out std_logic;
     fifo_full : out std_logic;
@@ -157,6 +158,10 @@ architecture greco_roman of pixel_driver is
   signal raster_toggle60 : std_logic := '0';
   signal raster_toggle_last50 : std_logic := '0';
   signal raster_toggle_last60 : std_logic := '0';
+
+  signal plotting : std_logic := '0';
+  signal plotting50 : std_logic := '0';
+  signal plotting60 : std_logic := '0';
   
 begin
 
@@ -169,6 +174,7 @@ begin
     generic map ( frame_width => 959,
                   display_width => 800,
                   frame_height => 625,
+                  pipeline_delay => 0,
                   display_height => 600,
                   vsync_start => 620,
                   vsync_end => 625,
@@ -194,6 +200,7 @@ begin
                   display_width => 800,
                   frame_height => 628,
                   display_height => 600,
+                  pipeline_delay => 0,
                   vsync_start => 624,
                   vsync_end => 628,
                   hsync_start => 840,
@@ -223,7 +230,7 @@ begin
       FIFO_READ_LATENCY=>1,     --DECIMAL
       FIFO_WRITE_DEPTH=>1024,   --DECIMAL
       FULL_RESET_VALUE=>0,      --DECIMAL
-      PROG_EMPTY_THRESH=>10,    --DECIMAL
+      PROG_EMPTY_THRESH=>5,    --DECIMAL
       PROG_FULL_THRESH=>10,     --DECIMAL
       RD_DATA_COUNT_WIDTH=>10,  --DECIMAL
       READ_DATA_WIDTH=>32,      --DECIMAL
@@ -359,10 +366,12 @@ begin
   
   -- Generate output pixel strobe and signals for read-side of the FIFO
   pixel_strobe <= clock30 when pal50_select_internal='1' else clock40;
-  rd_en <= '1' when (fifo_running = '1' and fifo_inuse='1') else '0';
+  rd_en <= '1' when (fifo_running = '1' and plotting='1') else '0';
   raddr <= raddr50 when pal50_select_internal='1' else raddr60;
   rd_clk <= clock30 when pal50_select_internal='1' else clock40;
 
+  plotting <= plotting50 when pal50_select_internal='1' else plotting60;
+  
   -- Generate test pattern data
   test_pattern_red50 <= to_unsigned(raddr50,8);
   test_pattern_green50 <= to_unsigned(waddr,8);
@@ -376,9 +385,9 @@ begin
   test_pattern_blue <= test_pattern_blue50 when pal50_select_internal='1' else test_pattern_blue60;
   
   -- Output the pixels or else the test pattern
-  red_o <= x"00" when inframe_internal='0' else rdata(7 downto 0);
-  green_o <= x"00" when inframe_internal='0' else rdata(15 downto 8);
-  blue_o <= x"00" when inframe_internal='0' else rdata(23 downto 16);
+  red_o <= x"00" when plotting='0' else rdata(7 downto 0);
+  green_o <= x"00" when plotting='0' else rdata(15 downto 8);
+  blue_o <= x"00" when plotting='0' else rdata(23 downto 16);
   
   wdata(7 downto 0) <= red_i  when test_pattern_enable='0' else test_pattern_red;
   wdata(15 downto 8) <= green_i  when test_pattern_enable='0' else test_pattern_green;
@@ -386,6 +395,7 @@ begin
   wdata(31 downto 24) <= x"00";  
 
   x_zero_out <= x_zero_pal50 when pal50_select='1' else x_zero_ntsc60;
+  y_zero_out <= y_zero_pal50 when pal50_select='1' else y_zero_ntsc60;
   
   process (clock50,clock100,clock30,clock40) is
     variable waddr_unsigned : unsigned(11 downto 0) := to_unsigned(0,12);
@@ -396,10 +406,16 @@ begin
     end if;
         
     if rising_edge(clock30) then
-      if x_zero_pal50='1' then
+      if x_zero_pal50='1' or fifo_inuse='0' then
         raddr50 <= 0;
+        plotting50 <= '0';
         report "raddr = ZERO";
       else
+        if raddr50 <800 then
+          plotting50 <= '1';
+        else
+          plotting50 <= '0';
+        end if;
         if raddr50 < 1023 then
           raddr50 <= raddr50 + 1;
         end if;
@@ -407,10 +423,16 @@ begin
     end if;
 
     if rising_edge(clock40) then
-      if x_zero_ntsc60='1' then
+      if x_zero_ntsc60='1' or fifo_inuse='0' then
         raddr60 <= 0;
+        plotting60 <= '0';
         report "raddr = ZERO";
       else
+        if raddr60 < 800 then
+          plotting60 <= '1';
+        else
+          plotting60 <= '0';
+        end if;
         if raddr60 < 1023 then
           raddr60 <= raddr60 + 1;
         end if;
@@ -421,7 +443,7 @@ begin
     if rising_edge(clock100) then
       if reset_counter /= 0 then
         reset_counter <= reset_counter - 1;
-        if reset_counter = 128 then
+        if reset_counter = 32 then
           fifo_rst <= '0';
         end if;
       else
