@@ -35,9 +35,11 @@ entity pixel_driver is
     clock33 : in std_logic;
     clock30 : in std_logic;
 
-    waddr_out : out unsigned(11 downto 0);
+    -- Inform VIC-IV of new rasters and new frames
     x_zero_out : out std_logic;
     y_zero_out : out std_logic;
+    
+    waddr_out : out unsigned(11 downto 0);
     wr_ack : out std_logic;
     fifo_empty : out std_logic;
     fifo_full : out std_logic;
@@ -366,7 +368,7 @@ begin
   
   -- Generate output pixel strobe and signals for read-side of the FIFO
   pixel_strobe <= clock30 when pal50_select_internal='1' else clock40;
-  rd_en <= '1' when (fifo_running = '1' and fifo_running='1') else '0';
+  rd_en <= fifo_running;
   raddr <= raddr50 when pal50_select_internal='1' else raddr60;
   rd_clk <= clock30 when pal50_select_internal='1' else clock40;
 
@@ -376,7 +378,7 @@ begin
   test_pattern_red50 <= to_unsigned(raddr50,8);
   test_pattern_green50 <= to_unsigned(waddr,8);
   test_pattern_blue50(7 downto 4) <= to_unsigned(raddr50,4);
-  test_pattern_blue50(3 downto 0) <= '0';
+  test_pattern_blue50(3 downto 0) <= (others => '0');
   test_pattern_red60 <= to_unsigned(raddr60,8);
   test_pattern_green60 <= to_unsigned(waddr,8);
   test_pattern_blue60 <= to_unsigned(raddr60,8);
@@ -412,7 +414,7 @@ begin
         plotting50 <= '0';
         report "raddr = ZERO";
       else
-        if raddr50 <800 then
+        if raddr50 < 800 then
           plotting50 <= '1';
         else
           plotting50 <= '0';
