@@ -565,8 +565,11 @@ architecture Behavioral of machine is
   signal external_frame_x_zero : std_logic := '0';
   signal external_frame_y_zero : std_logic := '0';
   
-  signal xcounter : integer;
-  signal ycounter : integer;
+  signal xcounter_viciv : integer;
+  signal ycounter_viciv : integer;
+  signal xcounter_viciv_u : unsigned(11 downto 0);
+  signal ycounter_viciv_u : unsigned(11 downto 0);
+  
   signal uart_txd_sig : std_logic;
   signal display_shift : std_logic_vector(2 downto 0) := "000";
   signal shift_ready : std_logic := '0';
@@ -633,6 +636,9 @@ architecture Behavioral of machine is
 
 begin
 
+  xcounter_viciv_u <= to_unsigned(xcounter_viciv,12);
+  ycounter_viciv_u <= to_unsigned(ycounter_viciv,12);
+  
   monitor_roms(7) <= colourram_at_dc00;
   monitor_roms(6) <= rom_at_e000;
   monitor_roms(5) <= rom_at_c000;
@@ -1022,8 +1028,8 @@ begin
       vgablue         => vgablue_viciv,
 
       -- Framing information for the video pipeline
-      xcounter_out => xcounter,
-      ycounter_out => ycounter,
+      xcounter_out => xcounter_viciv,
+      ycounter_out => ycounter_viciv,
 
       led => drive_led,
       motor => motor,
@@ -1086,12 +1092,12 @@ begin
 
     external_frame_x_zero => external_frame_x_zero,
     external_frame_y_zero => external_frame_y_zero,
-    ycounter_in => ycounter,
-    xcounter_in => xcounter,
+    ycounter_in => ycounter_viciv_u,
+    xcounter_in => xcounter_viciv_u,
     
     lcd_in_letterbox => lcd_in_letterbox,
-    pixel_y_scale_200 => pixel_y_scale_200,
-    pixel_y_scale_400 => pixel_y_scale_400,
+    pixel_y_scale_200 => 2,
+    pixel_y_scale_400 => 1,
     osk_ystart => osk_ystart,
     visual_keyboard_enable => visual_keyboard_enable,
     keyboard_at_top => keyboard_at_top,
@@ -1112,8 +1118,8 @@ begin
     port map(
       pixelclock => pixelclock,
 
-      xcounter_in => xcounter_rain,
-      ycounter_in => ycounter_rain,
+      xcounter_in => xcounter_viciv,
+      ycounter_in => ycounter_viciv,
 
       -- Pixels from video pipeline
       pixel_strobe_in => pixel_strobe_rain,
