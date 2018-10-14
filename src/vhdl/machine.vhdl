@@ -512,7 +512,7 @@ architecture Behavioral of machine is
   signal phi0 : std_logic := '0';
 
   -- Video pipeline plumbing
-  signal pixel_valid_viciv : std_logic := '0';
+  signal pixel_strobe_viciv : std_logic := '0';
   signal vgared_viciv : unsigned(7 downto 0);
   signal vgagreen_viciv : unsigned(7 downto 0);
   signal vgablue_viciv : unsigned(7 downto 0);
@@ -1382,7 +1382,6 @@ begin
       pixel_valid => pixel_strobe_viciv,
       pixel_newframe => pixel_newframe,
       pixel_newraster => pixel_newraster,
-      pixel_x_640 => pixel_x_640,
 
       pmod_clock => pmodb_in_buffer(0),
       pmod_start_of_sequence => pmodb_in_buffer(1),

@@ -171,7 +171,6 @@ entity iomapper is
         pixel_valid : in std_logic;
         pixel_newframe : in std_logic;
         pixel_newraster : in std_logic;
-        pixel_x_640 : in integer;
 
         monitor_pc : in unsigned(15 downto 0);
         monitor_opcode : in unsigned(7 downto 0);        

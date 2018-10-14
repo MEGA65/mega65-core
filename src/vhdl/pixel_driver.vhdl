@@ -75,7 +75,7 @@ entity pixel_driver is
     inframe : out std_logic;
     
     -- Indicate when next pixel/raster is expected
-    pixel_strobe : out std_logic;
+    pixel_strobe_out : out std_logic;
     
     -- Similar signals to above for the LCD panel
     -- The main difference is that we only announce pixels during the 800x480
@@ -367,7 +367,7 @@ begin
   y_zero_internal <= y_zero_pal50 when pal50_select_internal='1' else y_zero_ntsc60;
   
   -- Generate output pixel strobe and signals for read-side of the FIFO
-  pixel_strobe <= clock30 when pal50_select_internal='1' else clock40;
+  pixel_strobe_out <= clock30 when pal50_select_internal='1' else clock40;
   rd_en <= fifo_running;
   raddr <= raddr50 when pal50_select_internal='1' else raddr60;
   rd_clk <= clock30 when pal50_select_internal='1' else clock40;
