@@ -99,6 +99,9 @@ entity viciv is
     -- as to support a genlock input).
     external_frame_x_zero : in std_logic := '0';
     external_frame_y_zero : in std_logic := '0';
+    -- Similarly, we get told when we should be presenting a new pixel, so
+    -- that we don't have to figure out all the fiddly timing ourselves
+    external_pixel_strobe : in std_logic := '0';
     
     ----------------------------------------------------------------------
     -- VGA output
@@ -228,10 +231,9 @@ architecture Behavioral of viciv is
 
   -- Select which of the four video modes to use at any point in time.
   signal vicii_ntsc : std_logic := '0';
-  signal viciv_1080p : std_logic := '0';
 
   -- Video mode definition
-  -- NOTE: These get overwritten by $D06F PAL/NTSC & 1080p/1200p flags
+  -- NOTE: These get overwritten by $D06F PAL/NTSC flags
   -- The values here are simply those that apply on power up.
   signal frame_h_front : unsigned(7 downto 0) := to_unsigned(16,8);  
   -- 800x480 @ 50Hz for 100MHz pixelclock
@@ -1164,7 +1166,7 @@ begin
           sprite_extended_height_size,sprite_extended_width_enables,
           chargen_x_scale_drive,single_side_border,chargen_x_pixels,
           sprite_first_x,sprite_sixteen_colour_enables,
-          vicii_ntsc,viciv_1080p,vicii_first_raster,vertical_flyback,
+          vicii_ntsc,vicii_first_raster,vertical_flyback,
           palette_bank_chargen_alt,bitplane_sixteen_colour_mode_flags,
           vsync_delay,vicii_ycounter_scale_minus_zero,
           hsync_polarity_internal,vsync_polarity_internal
@@ -1709,7 +1711,7 @@ begin
           fastio_rdata <= std_logic_vector(vicii_sprite_pointer_address(23 downto 16));
         elsif register_number=111 then
           fastio_rdata(7) <= vicii_ntsc;
-          fastio_rdata(6) <= viciv_1080p;
+          fastio_rdata(6) <= '0';
           fastio_rdata(5 downto 1) <= std_logic_vector(vicii_first_raster(5 downto 1));
           fastio_rdata(0) <= vertical_flyback;
         elsif register_number=112 then -- $D3070
@@ -2360,7 +2362,6 @@ begin
                                         -- @IO:GS $D06F.5-0 VIC-IV first VIC-II raster line
                                                     vicii_first_raster(5 downto 0) <= unsigned(fastio_wdata(5 downto 0));
                                         -- @IO:GS $D06F.7 VIC-IV NTSC emulation mode (max raster = 262)
-                                                    viciv_1080p <= fastio_wdata(6);
                                                     vicii_ntsc <= fastio_wdata(7);
 
                                                     report "LEGACY register update & PAL/NTSC mode select";
@@ -2585,8 +2586,8 @@ begin
         sprite_number_for_data_tx <= sprite_number_for_data_tx + 1;
       end if;
 
-      pixel_x_640 <= xcounter;
-      pixel_x_800 <= xcounter;
+      pixel_x_640 <= to_integer(xcounter);
+      pixel_x_800 <= to_integer(xcounter);
       pixel_y_scale_400 <= chargen_y_scale_400(3 downto 0);
       pixel_y_scale_200 <= chargen_y_scale_200(3 downto 0);
 
@@ -2739,7 +2740,10 @@ begin
 
         chargen_active <= '0';
         chargen_active_soon <= '0';
+
+        -- If we got far along the last line to make it look real, and ...
         if xcounter > 255 then
+          -- ... it isn't VSYNC time, then update Y position
           if external_frame_y_zero='0' then
             report "XZERO: incrementing ycounter from " & integer'image(to_integer(ycounter));
             ycounter_driver <= ycounter_driver + 1;
@@ -2752,8 +2756,10 @@ begin
             
             if vicii_ycounter_phase = vicii_ycounter_max_phase then
               if to_integer(vicii_ycounter) /= vicii_max_raster and ycounter >= vsync_delay_drive then
-                  vicii_ycounter <= vicii_ycounter + 1;
-                  vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;
+                vicii_ycounter <= vicii_ycounter + 1;
+                -- We update V400 position in this case, bug also in ithe
+                -- alternate case below
+                vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;
               end if;
               
               vicii_ycounter_phase <= (others => '0');
@@ -2764,6 +2770,7 @@ begin
             else
               -- In the middle of a VIC-II logical raster, so just increase phase.
               vicii_ycounter_phase <= vicii_ycounter_phase + 1;
+              -- But also bump V400 raster if required
               if to_integer(vicii_ycounter_phase) =  to_integer(vicii_ycounter_max_phase(3 downto 1)) then
                 vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;
               end if;

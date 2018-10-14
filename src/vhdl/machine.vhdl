@@ -574,6 +574,7 @@ architecture Behavioral of machine is
   signal x_zero_ntsc60 : std_logic := '0';
   signal y_zero_ntsc60 : std_logic := '0';
 
+  signal external_pixel_strobe : std_logic := '0';
   signal external_frame_x_zero : std_logic := '0';
   signal external_frame_y_zero : std_logic := '0';
   signal external_frame_x_zero_driver : std_logic := '0';
@@ -1030,11 +1031,8 @@ begin
     port map (
       pixelclock_select => pixelclock_select,
       
-      clock200 => clock200,
       clock100 => pixelclock,
-      clock50 => cpuclock,
       clock40 => clock40,
-      clock33 => clock33,
       clock30 => clock30,
 
       red_i => vgared_source,
@@ -1045,7 +1043,8 @@ begin
       green_o => vgagreen_sig_driver,
       blue_o => vgablue_sig_driver,      
 
-      raster_strobe => external_frame_x_zero,
+      pixel_strobe => external_pixel_strobe,
+      raster_strobe => external_frame_x_zero,     
       hsync_i => hsync_drive1,
       hsync_o => hsync_driver,
       vsync_i => vsync_drive1,
@@ -1073,6 +1072,7 @@ begin
 
       all_pause => all_pause,
 
+      external_pixel_strobe => external_pixel_strobe,
       external_frame_x_zero => external_frame_x_zero,
       external_frame_y_zero => external_frame_y_zero,
       
