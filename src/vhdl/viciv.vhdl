@@ -246,11 +246,10 @@ architecture Behavioral of viciv is
   -- to allow sufficient precision.
   signal chargen_x_pixels : integer := 3;
   signal chargen_x_pixels_sub : integer := 216/3;
+  signal chargen_x_scale : unsigned(7 downto 0) := to_unsigned(36,8);  
   signal sprite_first_x : unsigned(13 downto 0) := to_unsigned(1+267-(24)*(120/18),14);
   signal sprite_x_counting : std_logic := '0';
-  signal chargen_x_scale : unsigned(7 downto 0) := to_unsigned(36,8); 
-  signal sprite_x_scale_320 : unsigned(7 downto 0) := to_unsigned(18,8);  
-  signal sprite_x_scale_640 : unsigned(7 downto 0) := to_unsigned(36,8);		-- 640 mode sprite scale  
+  signal sprite_x_scale_toggle : std_logic := '0';
   -- Each character pixel will be (n+1) pixels high
   signal chargen_y_scale : unsigned(7 downto 0) := x"01";  -- x"04"
   -- smooth scrolling position in natural pixels.
@@ -279,6 +278,7 @@ architecture Behavioral of viciv is
   -- Frame generator counters
   -- DEBUG: Start frame at a point that will soon trigger a badline
   signal xcounter : unsigned(13 downto 0) := to_unsigned(0,14);
+  signal xcounter_last : unsigned(13 downto 0) := to_unsigned(0,14);
   signal xcounter_delayed : unsigned(13 downto 0) := to_unsigned(0,14);
   
   signal xcounter_drive : unsigned(13 downto 0) := (others => '0');
@@ -305,8 +305,6 @@ architecture Behavioral of viciv is
   signal vicii_xcounter_320 : unsigned(8 downto 0) := (others => '0');
   signal vicii_xcounter_640 : unsigned(9 downto 0) := (others => '0');
   signal last_vicii_xcounter_640 : unsigned(9 downto 0) := (others => '0');
-  signal vicii_xcounter_sub320 : integer := 0;
-  signal vicii_xcounter_sub640 : integer := 0;
 
   -- Actual pixel positions in the frame
   signal displayx : unsigned(13 downto 0) := (others => '0');
@@ -830,15 +828,6 @@ architecture Behavioral of viciv is
   signal raster_buffer_write_data : unsigned(17 downto 0);
   signal raster_buffer_write : std_logic;  
 
-
-  signal xpixel_fw640 : unsigned(10 downto 0);
-  signal xpixel_fw640_sub : unsigned(9 downto 0);
-  signal chargen_x_scale_fw640 : unsigned(7 downto 0);
-  signal xpixel_fw800 : unsigned(10 downto 0);
-  signal xpixel_fw800_sub : unsigned(9 downto 0);
-  signal chargen_x_scale_fw800 : unsigned(7 downto 0);
-  signal xpixel_fw640_last : unsigned(10 downto 0);
-  
   -- Colour RAM access for video controller
   signal colourramaddress : unsigned(15 downto 0);
   signal colourramdata : unsigned(7 downto 0);
@@ -1174,7 +1163,7 @@ begin
           viciv_fast_internal,pal_simulate,sprite_extended_height_enables,
           sprite_extended_height_size,sprite_extended_width_enables,
           chargen_x_scale_drive,single_side_border,chargen_x_pixels,
-          sprite_x_scale_640,sprite_first_x,sprite_sixteen_colour_enables,
+          sprite_first_x,sprite_sixteen_colour_enables,
           vicii_ntsc,viciv_1080p,vicii_first_raster,vertical_flyback,
           palette_bank_chargen_alt,bitplane_sixteen_colour_mode_flags,
           vsync_delay,vicii_ycounter_scale_minus_zero,
@@ -1700,8 +1689,8 @@ begin
           fastio_rdata <= std_logic_vector(colour_ram_base(7 downto 0));
         elsif register_number=101 then
           fastio_rdata <= std_logic_vector(colour_ram_base(15 downto 8));
-        elsif register_number=102 then -- $D3066
-          fastio_rdata <= std_logic_vector(sprite_x_scale_640);
+        elsif register_number=102 then -- $D3066 UNUSED
+          fastio_rdata <= x"FF";
         elsif register_number=103 then  -- $D3067
           fastio_rdata <= std_logic_vector(sprite_first_x(7 downto 0));
         elsif register_number=104 then  -- $D068
@@ -2340,10 +2329,8 @@ begin
                                         -- @IO:GS $D065 VIC-IV colour RAM base address (bits 15 - 8)
                                                     colour_ram_base(15 downto 8) <= unsigned(fastio_wdata);
                                                   elsif register_number=102 then -- $D3066
-                                                                                 -- @IO:GS $D066 VIC-IV Sprite/bitplane horizontal scaling
-                                                    sprite_x_scale_640 <= unsigned(fastio_wdata);
-                                                    sprite_x_scale_320(7) <= '0';
-                                                    sprite_x_scale_320(6 downto 0) <= unsigned(fastio_wdata(7 downto 1));
+                                                                                 -- @IO:GS $D066 VIC-IV UNUSED
+                                                    null;
                                                   elsif register_number=103 then  -- $D3067
                                                                                   -- @IO:GS $D067 VIC-IV Sprite/bitplane first X DEBUG WILL BE REMOVED
                                                     sprite_first_x(7 downto 0) <= unsigned(fastio_wdata);
@@ -2401,8 +2388,6 @@ begin
                                                         single_side_border <= to_unsigned(267,14);
                                                         sprite_first_x <= to_unsigned(1+267-(24)*(120/18),14);
                                                         chargen_x_scale <= to_unsigned(36,8);
-                                                        sprite_x_scale_320 <= to_unsigned(18,8);
-                                                        sprite_x_scale_640 <= to_unsigned(36,8);
                                                         chargen_y_scale <= x"01";
                                                         
                                                       when "01" => -- PAL, 800x600 50Hz, NTSC max raster
@@ -2420,8 +2405,6 @@ begin
                                                         
                                                         sprite_first_x <= to_unsigned(1+267-(24)*(120/18),14);
                                                         chargen_x_scale <= to_unsigned(36,8);
-                                                        sprite_x_scale_320 <= to_unsigned(18,8);
-                                                        sprite_x_scale_640 <= to_unsigned(36,8);
                                                         chargen_y_scale <= x"01";
                                                         single_side_border <= to_unsigned(267,14);
 
@@ -2440,8 +2423,6 @@ begin
                                                         
                                                         sprite_first_x <= to_unsigned(1+200-(24-3)*(120/24),14);
                                                         chargen_x_scale <= to_unsigned(48,8);
-                                                        sprite_x_scale_320 <= to_unsigned(24,8);
-                                                        sprite_x_scale_640 <= to_unsigned(48,8);
                                                         chargen_y_scale <= x"01";                
                                                         single_side_border <= to_unsigned(200,14);
 
@@ -2462,8 +2443,6 @@ begin
 
                                                         sprite_first_x <= to_unsigned(1+200-(24-3)*(120/24),14);
                                                         chargen_x_scale <= to_unsigned(48,8);
-                                                        sprite_x_scale_320 <= to_unsigned(24,8);
-                                                        sprite_x_scale_640 <= to_unsigned(48,8);
                                                         chargen_y_scale <= x"01";                
                                                         single_side_border <= to_unsigned(200,14);
 
@@ -2481,8 +2460,6 @@ begin
                                                         chargen_x_pixels_sub <= 216/2;
 
                                                         chargen_x_scale <= to_unsigned(48,8);
-                                                        sprite_x_scale_320 <= to_unsigned(24,8);
-                                                        sprite_x_scale_640 <= to_unsigned(48,8);
                                                         chargen_y_scale <= x"01";                
                                                         single_side_border <= to_unsigned(200,14);
 
@@ -2608,34 +2585,8 @@ begin
         sprite_number_for_data_tx <= sprite_number_for_data_tx + 1;
       end if;
 
-      -- Update counters for X and Y position for compositers
-      if xcounter = 0 then
-        xpixel_fw640_sub <= (others => '0');
-        xpixel_fw640 <= (others => '0');
-        xpixel_fw800_sub <= (others => '0');
-        xpixel_fw800 <= (others => '0');
-      else
-        if xpixel_fw640_sub >= 240 then
-          xpixel_fw640_sub <= xpixel_fw640_sub - 240 + chargen_x_scale_fw640;
-          xpixel_fw640 <= xpixel_fw640 + 2;
-        elsif xpixel_fw640_sub >= 120 then
-          xpixel_fw640_sub <= xpixel_fw640_sub - 120 + chargen_x_scale_fw640;
-          xpixel_fw640 <= xpixel_fw640 + 1;
-        else
-          xpixel_fw640_sub <= xpixel_fw640_sub + chargen_x_scale_fw640;
-        end if;
-        if xpixel_fw800_sub >= 240 then
-          xpixel_fw800_sub <= xpixel_fw800_sub - 240 + chargen_x_scale_fw800;
-          xpixel_fw800 <= xpixel_fw800 + 2;
-        elsif xpixel_fw800_sub >= 120 then
-          xpixel_fw800_sub <= xpixel_fw800_sub - 120 + chargen_x_scale_fw800;
-          xpixel_fw800 <= xpixel_fw800 + 1;
-        else
-          xpixel_fw800_sub <= xpixel_fw800_sub + chargen_x_scale_fw800;
-        end if;
-      end if;
-      pixel_x_640 <= to_integer(xpixel_fw640);
-      pixel_x_800 <= to_integer(xpixel_fw800);
+      pixel_x_640 <= xcounter;
+      pixel_x_800 <= xcounter;
       pixel_y_scale_400 <= chargen_y_scale_400(3 downto 0);
       pixel_y_scale_200 <= chargen_y_scale_200(3 downto 0);
 
@@ -2748,49 +2699,30 @@ begin
       end if;
       
       indisplay :='1';
---      report "VICII: SPRITE: xcounter(320) = " & integer'image(to_integer(vicii_xcounter_320))
---        & " (sub) = " & integer'image(vicii_xcounter_sub320);
-      if external_frame_x_zero='0' then
+      if external_frame_x_zero='0' and external_pixel_strobe='1' then
         raster_buffer_read_address <= raster_buffer_read_address_next;
         raster_buffer_read_address_sub <= raster_buffer_read_address_sub_next;
         xcounter <= xcounter + 1;
         -- Allow H640 sprites to begin from far-left
         if (xcounter = sprite_first_x) or (sprite_h640='1') then
           sprite_x_counting <= '1';
-        end if;
+        end if;        
         if sprite_x_counting = '1' then
-          if vicii_xcounter_sub320 >= 240 then
-            vicii_xcounter_sub320
-              <= vicii_xcounter_sub320 + to_integer(sprite_x_scale_320) - 240;
-            vicii_xcounter_320 <= vicii_xcounter_320 + 2;
-          elsif vicii_xcounter_sub320 >= 120 then
-            vicii_xcounter_sub320
-              <= vicii_xcounter_sub320 + to_integer(sprite_x_scale_320) - 120;
+          vicii_xcounter_640 <= vicii_xcounter_640 + 1;
+          sprite_x_scale_toggle <= not sprite_x_scale_toggle;
+          if sprite_x_scale_toggle = '1' then
             vicii_xcounter_320 <= vicii_xcounter_320 + 1;
-          else
-            vicii_xcounter_sub320
-              <= vicii_xcounter_sub320 + to_integer(sprite_x_scale_320);
-          end if;
-          if vicii_xcounter_sub640 >= 240 then
-            vicii_xcounter_sub640
-              <= vicii_xcounter_sub640 + to_integer(sprite_x_scale_640) - 240;
-            vicii_xcounter_640 <= vicii_xcounter_640 + 2;
-          elsif vicii_xcounter_sub640 >= 120 then
-            vicii_xcounter_sub640
-              <= vicii_xcounter_sub640 + to_integer(sprite_x_scale_640) - 120;
-            vicii_xcounter_640 <= vicii_xcounter_640 + 1;
-          else
-            vicii_xcounter_sub640
-              <= vicii_xcounter_sub640 + to_integer(sprite_x_scale_640);
           end if;
         end if;
       end if;
+      
       if external_frame_x_zero = '1' then
         -- End of raster reached.
         -- Bump raster number and start next raster.
         report "XZERO: ycounter=" & integer'image(to_integer(ycounter));
         xcounter <= (others => '0');
         sprite_x_counting <= '0';
+        sprite_x_scale_toggle <= '0';
         vicii_ycounter_scale <= vicii_ycounter_scale_minus_zero;
         report "LEGACY vicii_ycounter_scale = " & integer'image(to_integer(vicii_ycounter_scale))
           & ", vicii_ycounter_max_phase = " & integer'image(to_integer(vicii_ycounter_max_phase))
@@ -2804,8 +2736,6 @@ begin
           ;
         vicii_xcounter_320 <= to_unsigned(0,9);
         vicii_xcounter_640 <= to_unsigned(0,10);
-        vicii_xcounter_sub320 <= 0;
-        vicii_xcounter_sub640 <= 0;
 
         chargen_active <= '0';
         chargen_active_soon <= '0';
@@ -3341,8 +3271,8 @@ begin
         pixel_red_out <= vga_buffer3_red;
         pixel_green_out <= vga_buffer3_green;
         pixel_blue_out <= vga_buffer3_blue;
-        xpixel_fw640_last <= xpixel_fw640;
-        if xpixel_fw640 /= xpixel_fw640_last then
+        xcounter_last <= xcounter;
+        if xcounter /= xcounter_last then
           pixel_valid <= indisplay;
         else
           pixel_valid <= '0';
