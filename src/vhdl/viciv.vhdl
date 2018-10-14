@@ -237,8 +237,7 @@ architecture Behavioral of viciv is
   -- 800x480 @ 50Hz for 100MHz pixelclock
   signal display_width : unsigned(13 downto 0) := to_unsigned(2664,14);
   signal single_side_border : unsigned(13 downto 0) := to_unsigned(267,14);
-  signal display_height : unsigned(11 downto 0) := to_unsigned(600,12);
-  signal display_height_drive : unsigned(11 downto 0) := to_unsigned(600,12);
+  constant display_height : unsigned(11 downto 0) := to_unsigned(600,12);
   signal vsync_delay : unsigned(7 downto 0) := to_unsigned(18,8);
   signal vsync_delay_drive : unsigned(7 downto 0) := to_unsigned(18,8);
   signal vicii_ycounter_scale_minus_zero : unsigned(3 downto 0) := to_unsigned(2-1,4);
@@ -1190,7 +1189,7 @@ begin
           vicii_ntsc,viciv_1080p,vicii_first_raster,vertical_flyback,
           palette_bank_chargen_alt,bitplane_sixteen_colour_mode_flags,
           vsync_delay,vicii_ycounter_scale_minus_zero,
-          display_width,display_height,
+          display_width,
           hsync_polarity_internal,vsync_polarity_internal,ssx_table_phase          
           ) is
     variable bitplane_number : integer;
@@ -1286,33 +1285,11 @@ begin
         ssy_table_counter_400 <= ssy_table_counter_400 + to_integer(chargen_y_scale_400);
       end if;
 
-      if display_height>1000 then
-        chargen_y_scale_200 <= to_unsigned(5,8);
-        chargen_y_scale_400 <= to_unsigned(2,8);
-        text_height_200 <= 1000;
-        text_height_400 <= 800;
-      elsif display_height>800 then
-        chargen_y_scale_200 <= to_unsigned(4,8);
-        chargen_y_scale_400 <= to_unsigned(2,8);
-        text_height_200 <= 800;
-        text_height_400 <= 800;
-      elsif display_height>600 then
-        chargen_y_scale_200 <= to_unsigned(3,8);
-        chargen_y_scale_400 <= to_unsigned(1,8);
-        text_height_200 <= 600;
-        text_height_400 <= 400;
-      elsif display_height>400 then
-        chargen_y_scale_200 <= to_unsigned(2,8);
-        chargen_y_scale_400 <= to_unsigned(1,8);
-        text_height_200 <= 400;
-        text_height_400 <= 400;
-      else
-        chargen_y_scale_200 <= to_unsigned(1,8);
-        chargen_y_scale_400 <= to_unsigned(1,8);
-        text_height_200 <= 200;
-        text_height_400 <= 200; -- V400 not possible in such a mode (unless we
-      -- interlace?)
-      end if;
+      -- Display is a fixed 600 pixels high, so set Y scaling appropriately
+      chargen_y_scale_200 <= to_unsigned(2,8);
+      chargen_y_scale_400 <= to_unsigned(1,8);
+      text_height_200 <= 400;
+      text_height_400 <= 400;
 
       -- Calculate height of top borders
       top_borders_height_200 <= to_unsigned(to_integer(display_height)
@@ -1852,8 +1829,8 @@ begin
           fastio_rdata(3 downto 0) <= std_logic_vector(display_width(13 downto 10));
           fastio_rdata(7 downto 4) <= x"F";
 
-        elsif register_number=120 then  -- $D3078
-	  fastio_rdata <= std_logic_vector(display_height(7 downto 0));
+        elsif register_number=120 then  -- $D3078 (was display_height, now free)
+	  fastio_rdata <= X"FF"; -- UNUSED
         elsif register_number=121 then  -- $D3079 (was frame_height, now free)
           fastio_rdata <= x"FF";
         elsif register_number=122 then  -- $D307A
@@ -1866,7 +1843,7 @@ begin
           fastio_rdata(3 downto 0) <= x"F";
           fastio_rdata(4) <= hsync_polarity_internal;
           fastio_rdata(5) <= vsync_polarity_internal;
-          fastio_rdata(7 downto 6) <= pixelclock_select_internal(1 downto 0);
+          fastio_rdata(7 downto 6) <= "11";
         elsif register_number=125 then
         -- fastio_rdata <=
         --  std_logic_vector(to_unsigned(vic_paint_fsm'pos(debug_paint_fsm_state_drive2),8));
@@ -2495,7 +2472,6 @@ begin
                                                     case fastio_wdata(7 downto 6) is
                                                       when "00" => -- PAL, 800x600 @ 50Hz
                                                         display_width <= to_unsigned(2664,14);
-                                                        display_height <= to_unsigned(600,12);
                                                         vsync_delay <= to_unsigned(18,8);
                                                         vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                                                         vicii_max_raster <= pal_max_raster;
@@ -2520,7 +2496,6 @@ begin
                                                         
                                                       when "01" => -- PAL, 800x600 50Hz, NTSC max raster
                                                         display_width <= to_unsigned(2664,14);
-                                                        display_height <= to_unsigned(600,12);
                                                         vsync_delay <= to_unsigned(18,8);
                                                         vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                                                         vicii_max_raster <= ntsc_max_raster;
@@ -2542,7 +2517,6 @@ begin
 
                                                       when "10" => -- NTSC, 800x600 @ 60Hz
                                                         display_width <= to_unsigned(2000,14);
-                                                        display_height <= to_unsigned(600,12);
                                                         vsync_delay <= to_unsigned(22,8);
                                                         vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                                                         vicii_max_raster <= ntsc_max_raster;
@@ -2564,7 +2538,6 @@ begin
 
                                                       when "11" => -- NTSC 800x600 60Hz
                                                         display_width <= to_unsigned(2000,14);
-                                                        display_height <= to_unsigned(600,12);
                                                         vsync_delay <= to_unsigned(22,8);
                                                         vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                                         -- NTSC but with PAL max raster
@@ -2588,7 +2561,6 @@ begin
 
                                                       when others => -- Default to NTSC 800x600 60Hz
                                                         display_width <= to_unsigned(2000,14);
-                                                        display_height <= to_unsigned(600,12);
                                                         vsync_delay <= to_unsigned(22,8);
                                                         vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                                                         hsync_polarity_internal <= '1';
@@ -2647,28 +2619,25 @@ begin
                                                     null;
 
                                                   elsif register_number=120 then  -- $D3078
-                                                                                  -- @IO:GS $D078 VIC-IV display_height (LSB)
-                                                    display_height(7 downto 0) <= unsigned(fastio_wdata);
+                                                                                  -- @IO:GS $D078 VIC-IV UNUSED
+                                                    null;
                                                   elsif register_number=121 then  -- $D3079
                                                                                   -- @IO:GS $D079 VIC-IV UNUSED
                                                     null;
                                                   elsif register_number=122 then  -- $D307A
-                                                                                  -- @IO:GS $D07A.0-3 VIC-IV display_height (MSB)
-                                                    display_height(11 downto 8) <= unsigned(fastio_wdata(3 downto 0));
-                                        -- @IO:GS $D07A.4-7 VIC-IV UNUSED
+                                                                                  -- @IO:GS $D07A VIC-IV UNUSED
                                                     null;
-
                                                   elsif register_number=123 then
                                         -- @IO:GS $D07B VIC-IV UNUSED
                                                     null;
                                                   elsif register_number=124 then
-                                        -- @IO:GS $D07C.0-3 VIC-IV UNUSED
+                                        -- @IO:GS $D07C.0-3 UNUSED BITS
                                                     null;
                                         -- @IO:GS $D07C.4 VIC-IV hsync polarity
                                                     hsync_polarity_internal <= fastio_wdata(4);
                                         -- @IO:GS $D07C.5 VIC-IV vsync polarity
                                                     vsync_polarity_internal <= fastio_wdata(5);
-                                        -- @IO:GS $D07C.6-7 VIC-IV pixel clock select (30,33,40 or 50MHz)
+                                        -- @IO:GS $D07C.6-7 UNUSED BITS
                                                     pixelclock_select_driver(1 downto 0) <= fastio_wdata(7 downto 6);
                                                     pixelclock_select_internal(1 downto 0) <= fastio_wdata(7 downto 6);
                                                   elsif register_number=125 then
@@ -3069,9 +3038,8 @@ begin
       end if;
 
       -- Calculate vertical flyback and related signals
-      display_height_drive <= display_height;
       vsync_delay_drive <= vsync_delay;
-      vsync_start <= frame_v_front+display_height_drive+to_integer(vsync_delay_drive);
+      vsync_start <= frame_v_front+display_height+to_integer(vsync_delay_drive);
       if ycounter=0 then
         null;
       elsif ycounter=frame_v_front then
