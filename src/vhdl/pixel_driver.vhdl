@@ -366,7 +366,7 @@ begin
   
   -- Generate output pixel strobe and signals for read-side of the FIFO
   pixel_strobe <= clock30 when pal50_select_internal='1' else clock40;
-  rd_en <= '1' when (fifo_running = '1' and plotting='1') else '0';
+  rd_en <= '1' when (fifo_running = '1' and fifo_running='1') else '0';
   raddr <= raddr50 when pal50_select_internal='1' else raddr60;
   rd_clk <= clock30 when pal50_select_internal='1' else clock40;
 
