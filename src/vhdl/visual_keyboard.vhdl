@@ -109,8 +109,8 @@ architecture behavioural of visual_keyboard is
   signal last_pixel_x_relative : integer := 0;
   signal osk_in_position_lower : std_logic := '1';
   signal last_visual_keyboard_enable : std_logic := '0';
-  signal max_y : unsigned(11 downto 0) := (others => '0');
-  signal ycounter_last : unsigned(11 downto 0) := (others => '0');
+  signal max_y : integer := 0;
+  signal ycounter_last : integer := 0;
   signal y_lower_start : unsigned(11 downto 0) :=
     to_unsigned(0,12);
 
@@ -794,7 +794,7 @@ begin
 
       y_start_current_upabit <= y_start_current - y_start_current(11 downto 3) - y_start_minimum - 2;
 
-      report "ycounter_in = $" & to_hstring(ycounter_in);
+      report "ycounter_in = " & integer'image(ycounter_in);
       if ycounter_in = 0 and ycounter_last /= 0 then
         max_y <= ycounter_last;
         max_x <= 0;
@@ -923,7 +923,7 @@ begin
         touch2_key_internal <= (others => '1');
         
         report "setting max_y to "
-          & integer'image(to_integer(ycounter_last));
+          & integer'image(ycounter_last);
         -- Move visual keyboard up one a bit each frame
         -- visual keyboard disabled, so push it back off the bottom
         -- of the screen
@@ -937,10 +937,10 @@ begin
           if max_y /= 0 then
             report "Visual keyboard disabled -- pushing to bottom of screen";
             if ycounter_last > max_y then
-              y_start_current <= ycounter_last;
-              y_lower_start <= ycounter_last;
+              y_start_current <= to_unsigned(ycounter_last,12);
+              y_lower_start <= to_unsigned(ycounter_last,12);
             else
-              y_start_current <= max_y;
+              y_start_current <= to_unsigned(max_y,12);
               y_lower_start <= to_unsigned(0,12);
             end if;
           else
@@ -1008,13 +1008,13 @@ begin
         -- move up over several frames
         osk_in_position_lower <= '0';
         if ycounter_last > max_y then
-          y_start_current <= ycounter_last;
-          report "Setting visual keyboard to ycounter_last as it has just been enabled (=$"
-            & to_hstring(ycounter_last) & ")";
+          y_start_current <= to_unsigned(ycounter_last,12);
+          report "Setting visual keyboard to ycounter_last as it has just been enabled (="
+            & integer'image(ycounter_last) & ")";
         else
-          y_start_current <= max_y;
-          report "Setting visual keyboard to max_y as it has just been enabled (=$"
-            & to_hstring(max_y) & ")";
+          y_start_current <= to_unsigned(max_y,12);
+          report "Setting visual keyboard to max_y as it has just been enabled (="
+            & integer'image(max_y) & ")";
         end if;
       end if;
       last_visual_keyboard_enable <= visual_keyboard_enable;
