@@ -415,7 +415,9 @@ begin
         report "raddr = ZERO";
       else
         if raddr50 < 800 then
-          plotting50 <= '1';
+          if fifo_almost_empty='0' then
+            plotting50 <= '1';
+          end if;
         else
           plotting50 <= '0';
         end if;
@@ -432,7 +434,9 @@ begin
         report "raddr = ZERO";
       else
         if raddr60 < 800 then
-          plotting60 <= '1';
+          if fifo_almost_empty='0' then
+            plotting60 <= '1';
+          end if;
         else
           plotting60 <= '0';
         end if;
