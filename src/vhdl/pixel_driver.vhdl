@@ -53,7 +53,7 @@ entity pixel_driver is
     
     -- Incoming video, e.g., from VIC-IV and rain compositer
     -- Clocked at clock100 (aka pixelclock)
-    pixel_valid : in std_logic;
+    pixel_strobe_in : in std_logic;
     red_i : in unsigned(7 downto 0);
     green_i : in unsigned(7 downto 0);
     blue_i : in unsigned(7 downto 0);
@@ -458,7 +458,7 @@ begin
       else
         fifo_running <= '1';
       end if;
-      if pixel_valid='1' then
+      if pixel_strobe_in='1' then
         waddr_unsigned := to_unsigned(waddr,12);
         waddr_out <= to_unsigned(waddr,12);
 --        if waddr_unsigned(0)='1' then

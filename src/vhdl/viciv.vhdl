@@ -100,7 +100,7 @@ entity viciv is
     external_frame_y_zero : in std_logic := '0';
     -- Similarly, we get told when we should be presenting a new pixel, so
     -- that we don't have to figure out all the fiddly timing ourselves
-    external_pixel_strobe : in std_logic := '0';
+    external_pixel_strobe_in : in std_logic := '0';
     
     ----------------------------------------------------------------------
     -- VGA output
@@ -121,7 +121,7 @@ entity viciv is
     pixel_green_out : out unsigned (7 downto 0);
     pixel_blue_out : out unsigned (7 downto 0);
     pixel_y : out unsigned (11 downto 0) := (others => '0');
-    pixel_valid : out std_logic;
+    pixel_strobe_out : out std_logic;
     pixel_newframe : out std_logic;
     pixel_newraster : out std_logic;
     -- Pixel x counter scaled to count to about 640
@@ -2681,7 +2681,7 @@ begin
       end if;
       
       indisplay :='1';
-      if external_frame_x_zero='0' and external_pixel_strobe='1' then
+      if external_frame_x_zero='0' and external_pixel_strobe_in='1' then
         raster_buffer_read_address <= raster_buffer_read_address_next;
         raster_buffer_read_address_sub <= raster_buffer_read_address_sub_next;
         xcounter <= xcounter + 1;
@@ -3246,7 +3246,7 @@ begin
       if xcounter=to_integer(display_width) then
         report "FRAMEPACKER: end of raster announcement";
         pixel_newraster <= '1';
-        pixel_valid <= '0';
+        pixel_strobe_out <= '0';
         pixel_y <= displayy;
       else
         -- output pixels as packed RGB instead of palette colours
@@ -3261,11 +3261,11 @@ begin
         pixel_blue_out <= vga_buffer3_blue;
         xcounter_last <= xcounter;
         if xcounter /= xcounter_last then
-          -- XXX pixel_valid should be fed through the pipeline and delayed
+          -- XXX pixel_strobe_in should be fed through the pipeline and delayed
           -- to match, so that the correct pixels get latched.
-          pixel_valid <= indisplay;
+          pixel_strobe_out <= indisplay;
         else
-          pixel_valid <= '0';
+          pixel_strobe_out <= '0';
         end if;
         pixel_newraster <= '0';
       end if;

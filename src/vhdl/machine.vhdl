@@ -517,12 +517,12 @@ architecture Behavioral of machine is
   signal vgagreen_viciv : unsigned(7 downto 0);
   signal vgablue_viciv : unsigned(7 downto 0);
 
-  signal pixel_valid_rain : std_logic := '0';
+  signal pixel_strobe_rain : std_logic := '0';
   signal vgared_rain : unsigned(7 downto 0);
   signal vgagreen_rain : unsigned(7 downto 0);
   signal vgablue_rain : unsigned(7 downto 0);
 
-  signal pixel_valid_osk : std_logic := '0';
+  signal pixel_strobe_osk : std_logic := '0';
   signal vgared_osk : unsigned(7 downto 0);
   signal vgagreen_osk : unsigned(7 downto 0);
   signal vgablue_osk : unsigned(7 downto 0);
@@ -532,9 +532,6 @@ architecture Behavioral of machine is
   signal pixel_green : unsigned (7 downto 0);
   signal pixel_blue : unsigned (7 downto 0);
   signal pixel_y : unsigned (11 downto 0);
-  signal pixel_valid : std_logic;  -- 0-639 across physical display for visual
-                                   -- keyboard
-  signal pixel_strobe : std_logic;  -- 0-799 across physical display for framepacker
   signal pixel_newframe : std_logic;
   signal pixel_newraster : std_logic;
 
@@ -684,7 +681,7 @@ begin
     variable digit : std_logic_vector(3 downto 0);
   begin
     if rising_edge(pixelclock) then
-      report "pixel_strobe = " & std_logic'image(pixel_strobe);
+      report "external_pixel_strobe = " & std_logic'image(external_pixel_strobe);
     end if;
     if rising_edge(ioclock) then
       -- Hold reset low for a while when we first turn on
@@ -972,13 +969,13 @@ begin
       test_pattern_enable => '0',      
       
       -- Framing information for VIC-IV
-      pixel_strobe => external_pixel_strobe,
+      pixel_strobe_out => external_pixel_strobe,
       x_zero => external_frame_x_zero,     
       y_zero => external_frame_y_zero,     
 
       -- Pixel data from the video pipeline
       -- (clocked at 100MHz pixel clock)
-      pixel_valid => pixel_valid,
+      pixel_strobe_in => pixel_strobe_viciv,
       red_i => vgared_osk,
       green_i => vgagreen_osk,
       blue_i => vgablue_osk,
@@ -1016,13 +1013,13 @@ begin
       hsync_polarity => hsync_polarity,
 
       -- Framing information from pixel_driver
-      external_pixel_strobe => external_pixel_strobe,
+      external_pixel_strobe_in => external_pixel_strobe,
       external_frame_x_zero => external_frame_x_zero,
       external_frame_y_zero => external_frame_y_zero,
       lcd_in_letterbox => lcd_in_letterbox,
 
       -- Pixels output for the video pipeline
-      pixel_valid     => pixel_valid_viciv,
+      pixel_strobe_out => pixel_strobe_viciv,
       vgared          => vgared_viciv,
       vgagreen        => vgagreen_viciv,
       vgablue         => vgablue_viciv,
@@ -1093,11 +1090,11 @@ begin
     external_frame_x_zero => external_frame_x_zero,
     external_frame_y_zero => external_frame_y_zero,
     ycounter_in => ycounter_viciv_u,
-    xcounter_in => xcounter_viciv_u,
+    xcounter_in => xcounter_viciv,
     
     lcd_in_letterbox => lcd_in_letterbox,
-    pixel_y_scale_200 => 2,
-    pixel_y_scale_400 => 1,
+    pixel_y_scale_200 => to_unsigned(2,4),
+    pixel_y_scale_400 => to_unsigneD(1,4),
     osk_ystart => osk_ystart,
     visual_keyboard_enable => visual_keyboard_enable,
     keyboard_at_top => keyboard_at_top,
@@ -1118,6 +1115,9 @@ begin
     port map(
       pixelclock => pixelclock,
 
+      pixel_y_scale_400 => to_unsigned(1,4),
+      pixel_y_scale_200 => to_unsigned(2,4),
+      
       xcounter_in => xcounter_viciv,
       ycounter_in => ycounter_viciv,
 
@@ -1379,7 +1379,7 @@ begin
       pixel_green_in => pixel_green,
       pixel_blue_in => pixel_blue,
       pixel_y => pixel_y,
-      pixel_valid => pixel_strobe,
+      pixel_valid => pixel_strobe_viciv,
       pixel_newframe => pixel_newframe,
       pixel_newraster => pixel_newraster,
       pixel_x_640 => pixel_x_640,

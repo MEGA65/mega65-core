@@ -5,25 +5,46 @@ use work.debugtools.all;
 
 entity visual_keyboard is
   port (
+    pixelclock : in std_logic;
+
     pixel_y_scale_200 : in unsigned(3 downto 0);
     pixel_y_scale_400 : in unsigned(3 downto 0);
-    xcounter_in : in integer;
-    ycounter_in : in integer;
     y_start : in unsigned(11 downto 0);
     x_start : in unsigned(11 downto 0);
-    pixelclock : in std_logic;
+
+    xcounter_in : in integer;
+    ycounter_in : in integer;
+    pixel_strobe_in : in std_logic;
+    vgared_in : in  unsigned (7 downto 0);
+    vgagreen_in : in  unsigned (7 downto 0);
+    vgablue_in : in  unsigned (7 downto 0);
+
+    pixel_strobe_out : out std_logic;
+    vgared_out : out  unsigned (7 downto 0);
+    vgagreen_out : out  unsigned (7 downto 0);
+    vgablue_out : out  unsigned (7 downto 0);
+
+    
+    -- Configuration of display
     visual_keyboard_enable : in std_logic := '0';
     keyboard_at_top : in std_logic;
     alternate_keyboard : in std_logic;
     instant_at_top : in std_logic;
+    -- Flags to enable zoomed display of what is under (the first)
+    -- touch point.
+    zoom_en_osk : inout std_logic := '1';
+    zoom_en_always : inout std_logic := '1';
+
+    -- Current Y position of the OSK
+    osk_ystart : out unsigned(11 downto 0) := (others => '1');
+    
+    
+    -- Synthetic key presses to display
     key1 : in unsigned(7 downto 0);
     key2 : in unsigned(7 downto 0);
     key3 : in unsigned(7 downto 0);    
     key4 : in unsigned(7 downto 0);
 
-    -- Current Y position of the OSK
-    osk_ystart : out unsigned(11 downto 0) := (others => '1');
-    
     -- memory access interface for matrix mode to read charrom
     matrix_fetch_address : in unsigned(11 downto 0);
     matrix_rdata : out unsigned(7 downto 0);
@@ -36,19 +57,9 @@ entity visual_keyboard is
     touch2_valid : in std_logic;
     touch2_x : in unsigned(13 downto 0);
     touch2_y : in unsigned(11 downto 0);
-    touch2_key : out unsigned(7 downto 0) := x"FF";
+    touch2_key : out unsigned(7 downto 0) := x"FF"
 
-    -- Flags to enable zoomed display of what is under (the first)
-    -- touch point.
-    zoom_en_osk : inout std_logic := '1';
-    zoom_en_always : inout std_logic := '1';
     
-    vgared_in : in  unsigned (7 downto 0);
-    vgagreen_in : in  unsigned (7 downto 0);
-    vgablue_in : in  unsigned (7 downto 0);
-    vgared_out : out  unsigned (7 downto 0);
-    vgagreen_out : out  unsigned (7 downto 0);
-    vgablue_out : out  unsigned (7 downto 0)
     );
 end visual_keyboard;
 
@@ -220,6 +231,8 @@ begin
   begin
     if rising_edge(pixelclock) then
 
+      pixel_strobe_out <= pixel_strobe_in;
+      
       -- Export the current position of the OSK, so that we can move things around
       -- to match it. In particular, we adjust the serial monitor interface, so
       -- that it doesn't overlap with the keyboard.  Also, we make the memory walking

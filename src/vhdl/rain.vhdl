@@ -67,15 +67,11 @@ entity matrix_rain_compositor is
     -- Video feed to be composited over
     external_frame_x_zero : in std_logic;
     external_frame_y_zero : in std_logic;
-    hsync_in : in std_logic;
-    vsync_in : in std_logic;
     vgared_in : in unsigned(7 downto 0);
     vgagreen_in : in unsigned(7 downto 0);
     vgablue_in : in unsigned(7 downto 0);
 
     -- Composited output video feed
-    hsync_out : out std_logic;
-    vsync_out : out std_logic;
     vgared_out : out unsigned(7 downto 0);
     vgagreen_out : out unsigned(7 downto 0);
     vgablue_out : out unsigned(7 downto 0)    
@@ -133,7 +129,6 @@ architecture rtl of matrix_rain_compositor is
   signal feed : feed_t := Normal;
   signal frame_number : integer range 0 to 127 := 70;
   signal lfsr_advance_counter : integer range 0 to 31 := 0;
-  signal last_hsync : std_logic := '1';
   signal last_letterbox : std_logic := '1';
   signal last_xcounter_in : integer := 0;
   
@@ -273,9 +268,6 @@ begin  -- rtl
         skip_bytes <= te_line_length;
       end if;
       
-      hsync_out <= hsync_in;
-      vsync_out <= vsync_in;
-      last_hsync <= hsync_in;
       last_letterbox <= lcd_in_letterbox;
 
       drop_row <= (to_integer(ycounter_in)+0)/16;
