@@ -30,9 +30,7 @@ entity pixel_driver is
   port (
     -- The various clocks we need
     clock100 : in std_logic;
-    clock50 : in std_logic;
     clock40 : in std_logic;
-    clock33 : in std_logic;
     clock30 : in std_logic;
 
     -- Inform VIC-IV of new rasters and new frames
@@ -404,11 +402,11 @@ begin
   x_zero_out <= x_zero_pal50 when pal50_select='1' else x_zero_ntsc60;
   y_zero_out <= y_zero_pal50 when pal50_select='1' else y_zero_ntsc60;
   
-  process (clock50,clock100,clock30,clock40) is
+  process (clock100,clock30,clock40) is
     variable waddr_unsigned : unsigned(11 downto 0) := to_unsigned(0,12);
   begin
 
-    if rising_edge(clock50) then
+    if rising_edge(clock100) then
       pal50_select_internal <= pal50_select;
     end if;
         

@@ -218,9 +218,7 @@ begin
   pixeldriver: entity work.pixel_driver
     port map (
                clock100 => pixelclock, -- 100MHz
-               clock50 => cpuclock, -- 50MHz
                clock40 => clock40,
-               clock33 => clock33,
                clock30 => clock30,
 
                -- Select 50/60Hz video mode
