@@ -234,7 +234,6 @@ begin
                x_zero_out => x_zero,
                y_zero_out => y_zero,
                wr_ack => led(2),
-               fifo_empty => led(3),
                fifo_full => led(4),
                
                -- Pixels

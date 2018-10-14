@@ -41,7 +41,6 @@ entity pixel_driver is
     
     waddr_out : out unsigned(11 downto 0);
     wr_ack : out std_logic;
-    fifo_empty : out std_logic;
     fifo_full : out std_logic;
     rd_data_count : out std_logic_vector(9 downto 0);
     wr_data_count : out std_logic_vector(9 downto 0);
@@ -409,7 +408,7 @@ begin
     end if;
         
     if rising_edge(clock30) then
-      if x_zero_pal50='1' or fifo_inuse='0' then
+      if x_zero_pal50='1' or fifo_inuse='0' of fifo_empty='1' then
         raddr50 <= 0;
         plotting50 <= '0';
         report "raddr = ZERO";
@@ -428,7 +427,7 @@ begin
     end if;
 
     if rising_edge(clock40) then
-      if x_zero_ntsc60='1' or fifo_inuse='0' then
+      if x_zero_ntsc60='1' or fifo_inuse='0' or fifo_empty='1' then
         raddr60 <= 0;
         plotting60 <= '0';
         report "raddr = ZERO";
