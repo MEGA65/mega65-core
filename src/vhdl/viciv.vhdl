@@ -235,8 +235,8 @@ architecture Behavioral of viciv is
   -- The values here are simply those that apply on power up.
   signal frame_h_front : unsigned(7 downto 0) := to_unsigned(16,8);  
   -- 800x480 @ 50Hz for 100MHz pixelclock
-  signal display_width : unsigned(13 downto 0) := to_unsigned(2664,14);
   signal single_side_border : unsigned(13 downto 0) := to_unsigned(267,14);
+  constant display_width : unsigned(11 downto 0) := to_unsigned(800,12);
   constant display_height : unsigned(11 downto 0) := to_unsigned(600,12);
   signal vsync_delay : unsigned(7 downto 0) := to_unsigned(18,8);
   signal vsync_delay_drive : unsigned(7 downto 0) := to_unsigned(18,8);
@@ -872,14 +872,8 @@ architecture Behavioral of viciv is
   signal hsync_polarity_internal : std_logic := '1';
 
   -- Mode line calculations
-  type ss_table is array(0 to 10) of integer range 0 to 255;
   signal text_height_200 : integer := 0;
   signal text_height_400 : integer := 0;
-  signal ssx_table : ss_table;
-  signal ssx_table_counter : integer := 0;
-  signal ssx_table_counter_sub : integer range 0 to (216*2) := 0;
-  signal ssx_table_leap_pixel : integer range 0 to 1 := 0;
-  signal ssx_table_phase : integer range 0 to 10 := 0;
   
   signal text_height : integer;
   signal chargen_y_scale_200 : unsigned(7 downto 0) := (others => '0');
@@ -889,11 +883,6 @@ architecture Behavioral of viciv is
   signal top_borders_height_400 : unsigned(11 downto 0) := (others => '0');
   signal single_top_border_200 : unsigned(11 downto 0) := (others => '0');
   signal single_top_border_400 : unsigned(11 downto 0) := (others => '0');
-  signal ssy_table_200 : ss_table;
-  signal ssy_table_400 : ss_table;
-  signal ssy_table_counter_200 : integer := 0;
-  signal ssy_table_counter_400 : integer := 0;
-  signal ssy_table_phase : integer := 0;
   
   signal viciv_flyback : std_logic := '0';
 
@@ -1189,101 +1178,13 @@ begin
           vicii_ntsc,viciv_1080p,vicii_first_raster,vertical_flyback,
           palette_bank_chargen_alt,bitplane_sixteen_colour_mode_flags,
           vsync_delay,vicii_ycounter_scale_minus_zero,
-          display_width,
-          hsync_polarity_internal,vsync_polarity_internal,ssx_table_phase          
+          hsync_polarity_internal,vsync_polarity_internal
           ) is
     variable bitplane_number : integer;
 
     procedure viciv_calculate_modeline_dimensions is
       constant w : integer := 400; -- was 320     
     begin
-
-      -- Width of 80 column composited overlays
-      -- (uses fractional pixel counts, so that on-screen keyboard
-      -- can span full width when required)
-      -- XXX Actually, we want 800px wide, not 640
-      if display_width>=(11*640) then
-        chargen_x_scale_fw640 <= to_unsigned(120/11,8);
-      elsif display_width>=(10*640) then
-        chargen_x_scale_fw640 <= to_unsigned(120/10,8);
-      elsif display_width>=(9*640) then
-        chargen_x_scale_fw640 <= to_unsigned(120/9,8);
-      elsif display_width>=(8*640) then
-        chargen_x_scale_fw640 <= to_unsigned(120/8,8);
-      elsif display_width>=(7*640) then
-        chargen_x_scale_fw640 <= to_unsigned(120/7,8);
-      elsif display_width>=(6*640) then
-        chargen_x_scale_fw640 <= to_unsigned(120/6,8);
-      elsif display_width>=(5*640) then
-        chargen_x_scale_fw640 <= to_unsigned(120/5,8);
-      elsif display_width>=(4*640) then
-        chargen_x_scale_fw640 <= to_unsigned(120/4,8);
-      elsif display_width>=(3*640) then
-        chargen_x_scale_fw640 <= to_unsigned(120/3,8);
-      elsif display_width>=(2*640) then
-        chargen_x_scale_fw640 <= to_unsigned(120/2,8);
-      else
-        -- <800 use natural pixels
-        chargen_x_scale_fw640 <= x"78";
-      end if;
-
-      if display_width>=(11*800) then
-        chargen_x_scale_fw800 <= to_unsigned(120/11,8);
-      elsif display_width>=(10*800) then
-        chargen_x_scale_fw800 <= to_unsigned(120/10,8);
-      elsif display_width>=(9*800) then
-        chargen_x_scale_fw800 <= to_unsigned(120/9,8);
-      elsif display_width>=(8*800) then
-        chargen_x_scale_fw800 <= to_unsigned(120/8,8);
-      elsif display_width>=(7*800) then
-        chargen_x_scale_fw800 <= to_unsigned(120/7,8);
-      elsif display_width>=(6*800) then
-        chargen_x_scale_fw800 <= to_unsigned(120/6,8);
-      elsif display_width>=(5*800) then
-        chargen_x_scale_fw800 <= to_unsigned(120/5,8);
-      elsif display_width>=(4*800) then
-        chargen_x_scale_fw800 <= to_unsigned(120/4,8);
-      elsif display_width>=(3*800) then
-        chargen_x_scale_fw800 <= to_unsigned(120/3,8);
-      elsif display_width>=(2*800) then
-        chargen_x_scale_fw800 <= to_unsigned(120/2,8);
-      else
-        -- <800 use natural pixels
-        chargen_x_scale_fw800 <= x"78";
-      end if;
-      
-      -- Calculate tables of horizontal smooth scroll values for 320, 640 and
-      -- 1280 pixels
-      ssx_table(ssx_table_phase) <= ssx_table_counter;
-      ssy_table_200(ssx_table_phase) <= ssy_table_counter_200;
-      ssy_table_400(ssx_table_phase) <= ssy_table_counter_400;
-      if ssx_table_phase = 10 then
-        ssx_table_phase <= 0; 
-        ssx_table_counter <= 0;
-        ssx_table_counter_sub <= 0;
-        ssx_table_leap_pixel <= 0;
-        ssy_table_counter_200 <= 0;
-        ssy_table_counter_400 <= 0;
-      else
-        ssx_table_phase <= ssx_table_phase + 1;
-        if reg_h640='1' then
-          ssx_table_counter <= ssx_table_counter + chargen_x_pixels + ssx_table_leap_pixel;
-        else
-          ssx_table_counter <= ssx_table_counter
-                               + chargen_x_pixels + chargen_x_pixels
-                               + ssx_table_leap_pixel + ssx_table_leap_pixel;
-        end if;
-        if ssx_table_counter_sub < 216 then 
-          ssx_table_counter_sub <= ssx_table_counter_sub + chargen_x_pixels_sub;
-          ssx_table_leap_pixel <= 0;
-        else
-          ssx_table_counter_sub <= ssx_table_counter_sub + chargen_x_pixels_sub - 216;
-          ssx_table_leap_pixel <= 1;
-        end if;
-
-        ssy_table_counter_200 <= ssy_table_counter_200 + to_integer(chargen_y_scale_200);
-        ssy_table_counter_400 <= ssy_table_counter_400 + to_integer(chargen_y_scale_400);
-      end if;
 
       -- Display is a fixed 600 pixels high, so set Y scaling appropriately
       chargen_y_scale_200 <= to_unsigned(2,8);
@@ -1316,21 +1217,25 @@ begin
         end if;
       else  
         border_x_left <= to_unsigned(to_integer(single_side_border)
-                                     +ssx_table(7),14);
+                                     +(7*2),14);
         if reg_h640='0' then
           border_x_right <= to_unsigned(to_integer(display_width)
                                         -to_integer(single_side_border)
-                                        +2-ssx_table(9),14);
+                                        +2-(9*2),14);
         else
           border_x_right <= to_unsigned(to_integer(display_width)
                                         -to_integer(single_side_border)
-                                        +2-ssx_table(9),14);
+                                        +2-(9*2),14);
         end if;
       end if;
       x_chargen_start
         <= to_unsigned(to_integer(frame_h_front)
                        +to_integer(single_side_border)
-                       +ssx_table(to_integer(vicii_x_smoothscroll)),14);
+                       -- VIC-II smooth scrolling is based on H320/400 and real
+                       -- pixels are H640/800, so add double
+                       +to_integer(vicii_x_smoothscroll)
+                       +to_integer(vicii_x_smoothscroll)
+                       ,14);
 
       if reg_h640='0' then
         -- 40 column mode
@@ -1355,19 +1260,23 @@ begin
           border_y_top <= to_unsigned(raster_correction
                                       +to_integer(single_top_border_200)
                                       +to_integer(vsync_delay_drive)
-                                      +ssy_table_200(4),12);
+                                      +(4*2),12);
           border_y_bottom <= to_unsigned(raster_correction
                                          +to_integer(display_height)
                                          +to_integer(vsync_delay_drive)
                                          -to_integer(single_top_border_200)
-                                         -ssy_table_200(4),12);
+                                         -(4*2),12);
         end if;
         -- set y_chargen_start based on twentyfourlines
         y_chargen_start <= to_unsigned(raster_correction
                                        +to_integer(single_top_border_200)
                                        +to_integer(vsync_delay_drive)
-                                       -ssy_table_200(3)
-                                       +ssy_table_200(to_integer(vicii_y_smoothscroll)),12);
+                                       -(3*2)
+                                       -- Display is always V400/600, so pixels
+                                       -- are double height
+                                       +to_integer(vicii_y_smoothscroll)
+                                       +to_integer(vicii_y_smoothscroll)
+                                       ,12);
       else
         -- V400 mode : as above, but with the different constants
         chargen_y_scale <= to_unsigned(to_integer(chargen_y_scale_400)-1,8);
@@ -1384,19 +1293,23 @@ begin
           border_y_top <= to_unsigned(raster_correction
                                       +to_integer(single_top_border_400)
                                       +to_integer(vsync_delay_drive)
-                                      +ssy_table_400(4),12);
+                                      +(4*2),12);
           border_y_bottom <= to_unsigned(raster_correction
                                          +to_integer(display_height)
                                          +to_integer(vsync_delay_drive)
                                          -to_integer(single_top_border_400)
-                                         -ssy_table_400(4),12);
+                                         -(4*2),12);
         end if;
         -- set y_chargen_start based on twentyfourlines
         y_chargen_start <= to_unsigned(raster_correction
                                        +to_integer(single_top_border_400)
                                        +to_integer(vsync_delay_drive)
-                                       -ssy_table_400(3)
-                                       +ssy_table_400(to_integer(vicii_y_smoothscroll)),12);
+                                       -(3*2)
+                                       -- Screen is always V400/600, so pixels
+                                       -- are 2 physical pixels high
+                                       +to_integer(vicii_y_smoothscroll)
+                                       +to_integer(vicii_y_smoothscroll)
+                                       ,12);
       end if;
       
       if reg_h640='1' then
@@ -1819,16 +1732,14 @@ begin
         elsif register_number=115 then -- $D3073
           fastio_rdata(3 downto 0) <= x"F";
           fastio_rdata(7 downto 4) <= std_logic_vector(vicii_ycounter_scale_minus_zero(3 downto 0));
-        elsif register_number=116 then  -- $D3074
+        elsif register_number=116 then  -- $D3074 (free)
           fastio_rdata <= x"FF";
-        elsif register_number=117 then  -- $D3075
-          fastio_rdata <= std_logic_vector(display_width(9 downto 2));
-        elsif register_number=118 then  -- $D3076
+        elsif register_number=117 then  -- $D3075 (free)
           fastio_rdata <= x"FF";
-        elsif register_number=119 then  -- $D3077
-          fastio_rdata(3 downto 0) <= std_logic_vector(display_width(13 downto 10));
-          fastio_rdata(7 downto 4) <= x"F";
-
+        elsif register_number=118 then  -- $D3076 (free)
+          fastio_rdata <= x"FF";
+        elsif register_number=119 then  -- $D3077 (free)
+          fastio_rdata <= x"FF";
         elsif register_number=120 then  -- $D3078 (was display_height, now free)
 	  fastio_rdata <= X"FF"; -- UNUSED
         elsif register_number=121 then  -- $D3079 (was frame_height, now free)
@@ -1848,10 +1759,11 @@ begin
         -- fastio_rdata <=
         --  std_logic_vector(to_unsigned(vic_paint_fsm'pos(debug_paint_fsm_state_drive2),8));
         -- fastio_rdata <= std_logic_vector(debug_charaddress_drive2(7 downto 0));
+          fastio_rdata <= x"FF";
         elsif register_number=126 then
           -- fastio_rdata <= "0000"
           -- & std_logic_vector(debug_charaddress_drive2(11 downto 8));
-          fastio_rdata <= std_logic_vector(to_unsigned(ssx_table_phase,8));
+          fastio_rdata <= x"FF";
         elsif register_number=127 then
           fastio_rdata <= x"FF";
         elsif register_number<256 then
@@ -2471,7 +2383,6 @@ begin
                                                     
                                                     case fastio_wdata(7 downto 6) is
                                                       when "00" => -- PAL, 800x600 @ 50Hz
-                                                        display_width <= to_unsigned(2664,14);
                                                         vsync_delay <= to_unsigned(18,8);
                                                         vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                                                         vicii_max_raster <= pal_max_raster;
@@ -2495,7 +2406,6 @@ begin
                                                         chargen_y_scale <= x"01";
                                                         
                                                       when "01" => -- PAL, 800x600 50Hz, NTSC max raster
-                                                        display_width <= to_unsigned(2664,14);
                                                         vsync_delay <= to_unsigned(18,8);
                                                         vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                                                         vicii_max_raster <= ntsc_max_raster;
@@ -2516,7 +2426,6 @@ begin
                                                         single_side_border <= to_unsigned(267,14);
 
                                                       when "10" => -- NTSC, 800x600 @ 60Hz
-                                                        display_width <= to_unsigned(2000,14);
                                                         vsync_delay <= to_unsigned(22,8);
                                                         vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                                                         vicii_max_raster <= ntsc_max_raster;
@@ -2537,7 +2446,6 @@ begin
                                                         single_side_border <= to_unsigned(200,14);
 
                                                       when "11" => -- NTSC 800x600 60Hz
-                                                        display_width <= to_unsigned(2000,14);
                                                         vsync_delay <= to_unsigned(22,8);
                                                         vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                                         -- NTSC but with PAL max raster
@@ -2560,7 +2468,6 @@ begin
                                                         single_side_border <= to_unsigned(200,14);
 
                                                       when others => -- Default to NTSC 800x600 60Hz
-                                                        display_width <= to_unsigned(2000,14);
                                                         vsync_delay <= to_unsigned(22,8);
                                                         vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                                                         hsync_polarity_internal <= '1';
@@ -2607,17 +2514,14 @@ begin
                                                                                  -- @IO:GS $D074 VIC-IV UNUSED
                                                     null;
                                                   elsif register_number=117 then
-                                        -- @IO:GS $D075 VIC-IV display_width x4 (LSB)
-                                                    display_width(9 downto 2) <= unsigned(fastio_wdata);
+                                                    -- @IO:GS $D075 VIC-IV UNUSED
+                                                    null;
                                                   elsif register_number=118 then
-                                        -- @IO:GS $D076 VIC-IV UNUSED
+                                                    -- @IO:GS $D076 VIC-IV UNUSED
                                                     null;
                                                   elsif register_number=119 then  -- $D3077
-                                                                                  -- @IO:GS $D077.0-3 VIC-IV display_width x4 (MSB)
-                                                    display_width(13 downto 10) <= unsigned(fastio_wdata(3 downto 0));
-                                        -- @IO:GS $D077.4-7 VIC-IV UNUSED
+                                                                                  -- @IO:GS $D077 VIC-IV UNUSED
                                                     null;
-
                                                   elsif register_number=120 then  -- $D3078
                                                                                   -- @IO:GS $D078 VIC-IV UNUSED
                                                     null;
@@ -3421,8 +3325,7 @@ begin
       -- the pixel stream.
 
       -- Announce each raster line.  Can also be used to identify start of frame.
-      x_end_of_raster <= (to_integer(frame_h_front)+display_width);
-      if xcounter=x_end_of_raster then
+      if xcounter=to_integer(display_width) then
         report "FRAMEPACKER: end of raster announcement";
         pixel_newraster <= '1';
         pixel_valid <= '0';
