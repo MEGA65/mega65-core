@@ -375,7 +375,8 @@ begin
   -- Generate test pattern data
   test_pattern_red50 <= to_unsigned(raddr50,8);
   test_pattern_green50 <= to_unsigned(waddr,8);
-  test_pattern_blue50 <= to_unsigned(raddr50,8);
+  test_pattern_blue50(7 downto 4) <= to_unsigned(raddr50,4);
+  test_pattern_blue50(3 downto 0) <= '0';
   test_pattern_red60 <= to_unsigned(raddr60,8);
   test_pattern_green60 <= to_unsigned(waddr,8);
   test_pattern_blue60 <= to_unsigned(raddr60,8);
