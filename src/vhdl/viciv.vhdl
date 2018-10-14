@@ -65,7 +65,6 @@ entity viciv is
     -- dot clock
     ----------------------------------------------------------------------
     pixelclock : in  STD_LOGIC;
-    pixelclock_select : out std_logic_vector(7 downto 0) := x"bc";
     ----------------------------------------------------------------------
     -- CPU clock (used for chipram and fastio interfaces)
     ----------------------------------------------------------------------
@@ -106,8 +105,8 @@ entity viciv is
     ----------------------------------------------------------------------
     -- VGA output
     ----------------------------------------------------------------------
-    vsync_polarity : out  STD_LOGIC := '1';
-    hsync_polarity : out  STD_LOGIC := '1';
+    vsync_polarity : out  STD_LOGIC := '0';
+    hsync_polarity : out  STD_LOGIC := '0';
     lcd_pixel_strobe : out std_logic;
     lcd_in_letterbox : out std_logic;
     vgared : out  UNSIGNED (7 downto 0);
@@ -172,8 +171,6 @@ end viciv;
 
 architecture Behavioral of viciv is
 
-  signal pixelclock_select_internal : std_logic_vector(7 downto 0) := x"bc";
-  
   signal reset_drive : std_logic := '0';
   
   signal iomode_set_toggle_last : std_logic := '0';    
@@ -369,7 +366,6 @@ architecture Behavioral of viciv is
   signal vgablue_driver : unsigned(7 downto 0);
   signal vgagreen_driver  : unsigned(7 downto 0);
 
-  signal pixelclock_select_driver : std_logic_vector(7 downto 0) := x"bc";
   signal ycounter_driver : unsigned(11 downto 0) := to_unsigned(625,12);
   
   -- Internal registers for drawing a single raster of character data to the
@@ -2244,9 +2240,7 @@ begin
                                                     sprite_horizontal_tile_enables(7 downto 4) <= fastio_wdata(7 downto 4);
                                                   elsif register_number=80 then
                                         -- @IO:GS $D050 VIC-IV read horizontal position (LSB) (READ) xcounter
-                                        -- @IO:GS $D050 VIC-IV pixel clock configuration (WRITE ONLY)
-                                                    pixelclock_select_driver <= fastio_wdata;
-                                                    pixelclock_select_internal <= fastio_wdata;
+                                                    null;
                                                   elsif register_number=81 then
                                         -- @IO:GS $D051 VIC-IV read horizontal position (MSB) (READ) xcounter
                                         -- @IO:GS $D051 VIC-IV UNUSED (WRITE ONLY)
@@ -2375,8 +2369,6 @@ begin
                                                         vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                                                         vicii_max_raster <= pal_max_raster;
                                         -- Set 30MHz pixel clock for PAL
-                                                        pixelclock_select_internal <= x"bc";
-                                                        pixelclock_select_driver <= x"bc";
                                         -- VSYNC is negative for 50Hz (required for some monitors)
                                                         hsync_polarity_internal <= '1';
                                                         vsync_polarity_internal <= '1';
@@ -2396,10 +2388,8 @@ begin
                                                         vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                                                         vicii_max_raster <= ntsc_max_raster;
                                         -- Set 30MHz pixel clock for PAL
-                                                        pixelclock_select_internal <= x"bc";
-                                                        pixelclock_select_driver <= x"bc";
-                                                        hsync_polarity_internal <= '1';
-                                                        vsync_polarity_internal <= '1';
+                                                        hsync_polarity_internal <= '0';
+                                                        vsync_polarity_internal <= '0';
 
                                                         chargen_x_pixels <= 3;
                                                         chargen_x_pixels_sub <= 216/3;
@@ -2413,12 +2403,9 @@ begin
                                                         vsync_delay <= to_unsigned(22,8);
                                                         vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                                                         vicii_max_raster <= ntsc_max_raster;
-                                                        hsync_polarity_internal <= '1';
-                                                        vsync_polarity_internal <= '1';
+                                                        hsync_polarity_internal <= '0';
+                                                        vsync_polarity_internal <= '0';
                                         -- Set 40MHz pixel clock for NTSC
-                                                        pixelclock_select_internal <= x"3e";
-                                                        pixelclock_select_driver <= x"3e";
-
                                                         chargen_x_pixels <= 2;
                                                         chargen_x_pixels_sub <= 216/2;
                                                         
@@ -2432,13 +2419,10 @@ begin
                                                         vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                                         -- NTSC but with PAL max raster
                                                         vicii_max_raster <= pal_max_raster;
-                                                        hsync_polarity_internal <= '1';
-                                                        vsync_polarity_internal <= '1';
+                                                        hsync_polarity_internal <= '0';
+                                                        vsync_polarity_internal <= '0';
 
                                         -- Set 40MHz pixel clock for NTSC
-                                                        pixelclock_select_internal <= x"3e";
-                                                        pixelclock_select_driver <= x"3e";
-                                                        
                                                         chargen_x_pixels <= 2;
                                                         chargen_x_pixels_sub <= 216/2;
 
@@ -2450,13 +2434,10 @@ begin
                                                       when others => -- Default to NTSC 800x600 60Hz
                                                         vsync_delay <= to_unsigned(22,8);
                                                         vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
-                                                        hsync_polarity_internal <= '1';
-                                                        vsync_polarity_internal <= '1';
+                                                        hsync_polarity_internal <= '0';
+                                                        vsync_polarity_internal <= '0';
 
-                                        -- Set 40MHz pixel clock for NTSC
-                                                        pixelclock_select_internal <= x"3e";
-                                                        pixelclock_select_driver <= x"3e";
-                                                        
+                                        -- Set 40MHz pixel clock for NTSC                                                        
                                                         chargen_x_pixels <= 2;
                                                         chargen_x_pixels_sub <= 216/2;
 
@@ -2520,8 +2501,6 @@ begin
                                         -- @IO:GS $D07C.5 VIC-IV vsync polarity
                                                     vsync_polarity_internal <= fastio_wdata(5);
                                         -- @IO:GS $D07C.6-7 UNUSED BITS
-                                                    pixelclock_select_driver(1 downto 0) <= fastio_wdata(7 downto 6);
-                                                    pixelclock_select_internal(1 downto 0) <= fastio_wdata(7 downto 6);
                                                   elsif register_number=125 then
                                         -- @IO:GS $D07D VIC-IV debug X position (LSB)
                                                     debug_x(7 downto 0) <= unsigned(fastio_wdata);
@@ -2571,7 +2550,6 @@ begin
       
       report "ycounter = $" & to_hstring(ycounter) & ", ycounter_driver = $" & to_hstring(ycounter_driver);
       ycounter <= ycounter_driver;
-      pixelclock_select <= pixelclock_select_driver;
       vgared <= vgared_driver;
       vgagreen <= vgagreen_driver;
       vgablue <= vgablue_driver;
@@ -3280,6 +3258,8 @@ begin
         pixel_blue_out <= vga_buffer3_blue;
         xcounter_last <= xcounter;
         if xcounter /= xcounter_last then
+          -- XXX pixel_valid should be fed through the pipeline and delayed
+          -- to match, so that the correct pixels get latched.
           pixel_valid <= indisplay;
         else
           pixel_valid <= '0';
