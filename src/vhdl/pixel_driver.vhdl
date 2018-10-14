@@ -99,7 +99,7 @@ architecture greco_roman of pixel_driver is
   signal fifo_running : std_logic := '0';
   signal fifo_rst : std_logic := '1';
   signal reset_counter : integer range 0 to 255 := 255;
-  
+  signal fifo_empty : std_logic := '0';   
   
   signal raster_strobe : std_logic := '0';
   signal inframe_internal : std_logic := '0';
@@ -163,6 +163,8 @@ architecture greco_roman of pixel_driver is
   signal plotting : std_logic := '0';
   signal plotting50 : std_logic := '0';
   signal plotting60 : std_logic := '0';
+
+  signal y_zero_internal : std_logic := '0';
   
 begin
 
@@ -364,6 +366,7 @@ begin
   raster_strobe <= x_zero_pal50 when pal50_select_internal='1' else x_zero_ntsc60;
   x_zero <= x_zero_pal50 when pal50_select_internal='1' else x_zero_ntsc60;
   y_zero <= y_zero_pal50 when pal50_select_internal='1' else y_zero_ntsc60;
+  y_zero_internal <= y_zero_pal50 when pal50_select_internal='1' else y_zero_ntsc60;
   
   -- Generate output pixel strobe and signals for read-side of the FIFO
   pixel_strobe <= clock30 when pal50_select_internal='1' else clock40;
@@ -371,7 +374,9 @@ begin
   raddr <= raddr50 when pal50_select_internal='1' else raddr60;
   rd_clk <= clock30 when pal50_select_internal='1' else clock40;
 
-  plotting <= plotting50 when pal50_select_internal='1' else plotting60;
+  plotting <= '0' when y_zero_internal='1' else
+              plotting50 when pal50_select_internal='1'
+              else plotting60;
   
   -- Generate test pattern data
   test_pattern_red50 <= to_unsigned(raddr50,8);
@@ -408,7 +413,7 @@ begin
     end if;
         
     if rising_edge(clock30) then
-      if x_zero_pal50='1' or fifo_inuse='0' of fifo_empty='1' then
+      if x_zero_pal50='1' or fifo_inuse='0' or fifo_empty='1' then
         raddr50 <= 0;
         plotting50 <= '0';
         report "raddr = ZERO";
