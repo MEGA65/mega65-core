@@ -92,10 +92,13 @@ end pixel_driver;
 
 architecture greco_roman of pixel_driver is
 
+  signal fifo_inuse : std_logic := '0';
+  signal fifo_almost_empty : std_logic := '0';
   signal fifo_running : std_logic := '0';
   signal fifo_rst : std_logic := '1';
   signal reset_counter : integer range 0 to 255 := 255;
-
+  
+  
   signal raster_strobe : std_logic := '0';
   signal inframe_internal : std_logic := '0';
   
@@ -232,7 +235,7 @@ begin
       WR_DATA_COUNT_WIDTH=>10   --DECIMAL
       )
     port map(
-      -- almost_empty=>almost_empty,   -- 1-bit output : AlmostEmpty : When
+      almost_empty=>fifo_almost_empty,   -- 1-bit output : AlmostEmpty : When
                                     -- asserted,this signal indicates that
                                     -- only one more read can be performed before
                                     -- the FIFO goes to empty.
@@ -356,7 +359,7 @@ begin
   
   -- Generate output pixel strobe and signals for read-side of the FIFO
   pixel_strobe <= clock30 when pal50_select_internal='1' else clock40;
-  rd_en <= '1' when (fifo_running = '1' and raster_strobe='0') else '0';
+  rd_en <= '1' when (fifo_running = '1' and fifo_inuse='1') else '0';
   raddr <= raddr50 when pal50_select_internal='1' else raddr60;
   rd_clk <= clock30 when pal50_select_internal='1' else clock40;
 
@@ -435,11 +438,13 @@ begin
 --          wdata(11 downto 0) <= waddr_unsigned;
 --        end if;
         if raster_strobe = '0' then
+          fifo_inuse <= not fifo_almost_empty;
           if waddr < 1023 then
             waddr <= waddr + 1;
           end if;
         else
           waddr <= 0;
+          fifo_inuse <= '0';
           report "Zeroing waddr";
         end if;
         report "waddr = $" & to_hstring(to_unsigned(waddr,16));
