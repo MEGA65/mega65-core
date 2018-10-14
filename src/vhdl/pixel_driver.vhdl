@@ -356,7 +356,7 @@ begin
   
   -- Generate output pixel strobe and signals for read-side of the FIFO
   pixel_strobe <= clock30 when pal50_select_internal='1' else clock40;
-  rd_en <= '1' when fifo_running='1' else '0';
+  rd_en <= '1' when (fifo_running = '1' and raster_strobe='0') else '0';
   raddr <= raddr50 when pal50_select_internal='1' else raddr60;
   rd_clk <= clock30 when pal50_select_internal='1' else clock40;
 
@@ -373,22 +373,16 @@ begin
   test_pattern_blue <= test_pattern_blue50 when pal50_select_internal='1' else test_pattern_blue60;
   
   -- Output the pixels or else the test pattern
-  red_o <= x"00" when inframe_internal='0'
-           else rdata(7 downto 0) when test_pattern_enable='0'
-           else test_pattern_red;
-  green_o <= x"00" when inframe_internal='0'
-             else rdata(15 downto 8) when test_pattern_enable='0'
-             else test_pattern_green;
-  blue_o <= ( others => inframe_internal);
---            else rdata(23 downto 16) when test_pattern_enable='0'
---            else test_pattern_blue;
+  red_o <= x"00" when inframe_internal='0' else rdata(7 downto 0);
+  green_o <= x"00" when inframe_internal='0' else rdata(15 downto 8);
+  blue_o <= x"00" when inframe_internal='0' else rdata(23 downto 16);
   
-  wdata(7 downto 0) <= red_i; 
-  wdata(15 downto 8) <= green_i;
-  wdata(23 downto 16) <= blue_i;
+  wdata(7 downto 0) <= red_i  when test_pattern_enable='0' else test_pattern_red;
+  wdata(15 downto 8) <= green_i  when test_pattern_enable='0' else test_pattern_green;
+  wdata(23 downto 16) <= blue_i when test_pattern_enable='0' else test_pattern_blue;
   wdata(31 downto 24) <= x"00";  
 
-  x_zero_out <= x_zero_pal50;
+  x_zero_out <= x_zero_pal50 when pal50_select='1' else x_zero_ntsc60;
   
   process (clock50,clock100,clock30,clock40) is
     variable waddr_unsigned : unsigned(11 downto 0) := to_unsigned(0,12);
@@ -433,13 +427,13 @@ begin
       if pixel_valid='1' then
         waddr_unsigned := to_unsigned(waddr,12);
         waddr_out <= to_unsigned(waddr,12);
-        if waddr_unsigned(0)='1' then
-          wdata(31 downto 12) <= (others => '1');
-          wdata(11 downto 0) <= waddr_unsigned;
-        else
-          wdata(31 downto 12) <= (others => '0');
-          wdata(11 downto 0) <= waddr_unsigned;
-        end if;
+--        if waddr_unsigned(0)='1' then
+--          wdata(31 downto 12) <= (others => '1');
+--          wdata(11 downto 0) <= waddr_unsigned;
+--        else
+--          wdata(31 downto 12) <= (others => '0');
+--          wdata(11 downto 0) <= waddr_unsigned;
+--        end if;
         if raster_strobe = '0' then
           if waddr < 1023 then
             waddr <= waddr + 1;

@@ -186,9 +186,17 @@ architecture Behavioral of container is
   signal lcd_vsync : std_logic;
   signal lcd_display_enable : std_logic;
 
+  signal red_in : unsigned(7 downto 0) := x"00";
+  signal green_in : unsigned(7 downto 0) := x"00";
+  signal blue_in : unsigned(7 downto 0) := x"00";
+  
   signal buffer_vgared : unsigned(7 downto 0);
   signal buffer_vgagreen : unsigned(7 downto 0);
   signal buffer_vgablue : unsigned(7 downto 0);
+
+  signal pixel_toggle : std_logic := '0';
+  signal pixel_counter : integer := 0;
+  signal x_zero : std_logic := '0';
   
 begin
   
@@ -218,16 +226,16 @@ begin
                hsync_invert => sw(2),
                vsync_invert => sw(3),
                rd_data_count => led(15 downto 6),
-               x_zero_out => led(1),
+               x_zero_out => x_zero,
                wr_ack => led(2),
                fifo_empty => led(3),
                fifo_full => led(4),
                
                -- Pixels
                pixel_valid => pixel_valid,
-               red_i => (others => '0'),
-               green_i => (others => '1'),
-               blue_i => (others => '0'),
+               red_i => red_in,
+               green_i => green_in,
+               blue_i => blue_in,
 
                red_o => buffer_vgared,
                green_o => buffer_vgagreen,
@@ -245,15 +253,38 @@ begin
                lcd_display_enable => jbhi(10)
                );                              
 
-  pixel_valid <= pixel_strobe;
   led(0) <= pixel_strobe;
 
   vgablue <= buffer_vgablue(7 downto 4);
   vgared <= buffer_vgared(7 downto 4);
   vgagreen <= buffer_vgagreen(7 downto 4);
 
+  red_in <= x"00";
+  blue_in <= x"FF";
+  green_in <= (others => pixel_toggle);
+  
   jalo <= std_logic_vector(buffer_vgablue(7 downto 4));
   jahi <= std_logic_vector(buffer_vgared(7 downto 4));
   jblo <= std_logic_vector(buffer_vgagreen(7 downto 4));    
 
+  process (pixelclock) is
+  begin
+    if rising_edge(pixelclock) then
+      if x_zero='1' then
+        pixel_counter <= 0;
+        pixel_valid <= '1';
+        pixel_toggle <= '0';
+      else
+        if pixel_counter /= 799 then
+          pixel_counter <= pixel_counter + 1;
+          pixel_valid <= '1';
+          pixel_toggle <= not pixel_toggle;
+        else
+          pixel_valid <= '0';
+        end if;
+      end if;
+    end if;
+  end process;
+  
+  
 end Behavioral;
