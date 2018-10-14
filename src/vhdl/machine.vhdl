@@ -537,13 +537,6 @@ architecture Behavioral of machine is
   signal pixel_strobe : std_logic;  -- 0-799 across physical display for framepacker
   signal pixel_newframe : std_logic;
   signal pixel_newraster : std_logic;
-  signal native_x_640 : integer;
-  signal native_y_200 : integer;
-  signal native_y_400 : integer;
-  signal pixel_x_640 : integer;
-  signal pixel_x_800 : integer;
-  signal pixel_y_scale_200 : unsigned(3 downto 0);
-  signal pixel_y_scale_400 : unsigned(3 downto 0);
 
   signal uart_tx_buffer : std_logic; 
   signal uart_rx_buffer : std_logic;
@@ -559,16 +552,12 @@ architecture Behavioral of machine is
   signal matrix_fetch_address : unsigned(11 downto 0) := to_unsigned(0,12);
   signal matrix_rdata : unsigned(7 downto 0);
 
+  signal lcd_display_enable1 : std_logic := '0';
   signal lcd_hsync1 : std_logic := '0';
   signal lcd_vsync1 : std_logic := '0';
   signal lcd_in_letterbox : std_logic := '0';
-  signal hsync_drive1 : std_logic := '0';
-  signal hsync_uninverted : std_logic := '0';
-  signal hsync_ntsc60_uninverted : std_logic := '0';
-  signal hsync_pal50_driver_uninverted : std_logic := '0';
-  signal vsync_drive1 : std_logic := '0';
-  signal lcd_display_enable1 : std_logic := '0';
 
+  signal pal50_select : std_logic := '0';
   signal hsync_polarity : std_logic := '0';
   signal vsync_polarity : std_logic := '0';
 
@@ -576,8 +565,8 @@ architecture Behavioral of machine is
   signal external_frame_x_zero : std_logic := '0';
   signal external_frame_y_zero : std_logic := '0';
   
-  signal xcounter : unsigned(13 downto 0);
-  signal ycounter : unsigned(11 downto 0); 
+  signal xcounter : integer;
+  signal ycounter : integer;
   signal uart_txd_sig : std_logic;
   signal display_shift : std_logic_vector(2 downto 0) := "000";
   signal shift_ready : std_logic := '0';
@@ -622,11 +611,6 @@ architecture Behavioral of machine is
   signal secure_mode_triage_required : std_logic := '0';
   signal clear_matrix_mode_toggle : std_logic := '0';
   signal matrix_rain_seed : unsigned(15 downto 0);
-  signal hsync_drive : std_logic := '0';
-  signal vsync_drive : std_logic := '0';
-  signal hsync_driver : std_logic := '0';
-  signal hsync_drive_uninverted : std_logic := '0';
-  signal vsync_driver : std_logic := '0';
   
   signal all_pause : std_logic := '0';
 
@@ -646,8 +630,6 @@ architecture Behavioral of machine is
 
   -- local debug signals from CPU
   signal shadow_address_state_dbg_out : std_logic_vector(3 downto 0);
-  signal pixelclock_select : std_logic_vector(7 downto 0);
-  signal pixelclock_select_driver : std_logic_vector(7 downto 0);
 
 begin
 
@@ -973,8 +955,6 @@ begin
 
   pixel0: entity work.pixel_driver
     port map (
-      pixelclock_select => pixelclock_select,
-      
       clock100 => pixelclock,
       clock40 => clock40,
       clock30 => clock30,
@@ -982,7 +962,7 @@ begin
       -- Configuration information from the VIC-IV
       hsync_invert => hsync_polarity,
       vsync_invert => vsync_polarity,
-      pal60_select => pal50_select,
+      pal50_select => pal50_select,
       test_pattern_enable => '0',      
       
       -- Framing information for VIC-IV
@@ -993,23 +973,23 @@ begin
       -- Pixel data from the video pipeline
       -- (clocked at 100MHz pixel clock)
       pixel_valid => pixel_valid,
-      red_i => vgared_source,
-      green_i => vgagreen_source,
-      blue_i => vgablue_source,
+      red_i => vgared_osk,
+      green_i => vgagreen_osk,
+      blue_i => vgablue_osk,
 
       -- The pixel for direct output to VGA pins
       -- It is clocked at the correct pixel
       red_o => vgared,
       green_o => vgagreen,
       blue_o => vgablue,      
-      hsync_o => hsync,
-      vsync_o => vsync,
+      hsync => hsync,
+      vsync => vsync,
 
       -- And the variations on those signals for the LCD display
-      lcd_hsync_o => lcd_hsync,
-      lcd_vsync_o => lcd_vsync,
-      lcd_display_enable_o => lcd_display_enable,
-      lcd_pixel_strobe_o => lcd_pixel_strobe
+      lcd_hsync => lcd_hsync,
+      lcd_vsync => lcd_vsync,
+      lcd_display_enable => lcd_display_enable,
+      lcd_pixel_strobe => lcd_pixel_strobe
 
       );
       
@@ -1582,11 +1562,6 @@ begin
       osk_touch1_key <= osk_touch1_key_driver;
       osk_touch2_key <= osk_touch2_key_driver;
       
-      external_frame_x_zero <= external_frame_x_zero_driver;
-      external_frame_y_zero <= external_frame_y_zero_driver;
-
-      pixelclock_select <= pixelclock_select_driver;
-              
       pmodb_in_buffer(0) <= pmod_clock;
       pmodb_in_buffer(1) <= pmod_start_of_sequence;
       pmodb_in_buffer(5 downto 2) <= pmod_data_in;

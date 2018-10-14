@@ -59,8 +59,8 @@ entity viciv is
   Port (
     all_pause : in std_logic;
     
-    xcounter_out : out unsigned(13 downto 0);
-    ycounter_out : out unsigned(11 downto 0);
+    xcounter_out : out integer;
+    ycounter_out : out integer;
     ----------------------------------------------------------------------
     -- dot clock
     ----------------------------------------------------------------------
@@ -107,6 +107,8 @@ entity viciv is
     ----------------------------------------------------------------------
     vsync_polarity : out  STD_LOGIC := '0';
     hsync_polarity : out  STD_LOGIC := '0';
+    pal50_select : out std_logic := '0';
+    
     lcd_pixel_strobe : out std_logic;
     lcd_in_letterbox : out std_logic;
     vgared : out  UNSIGNED (7 downto 0);
@@ -227,7 +229,7 @@ architecture Behavioral of viciv is
   signal pixel_alpha : unsigned(7 downto 0) := x"00";
 
   -- Select which of the four video modes to use at any point in time.
-  signal vicii_ntsc : std_logic := '0';
+  signal vicii_ntsc : std_logic := '1';
 
   -- Video mode definition
   -- NOTE: These get overwritten by $D06F PAL/NTSC flags
@@ -2357,6 +2359,7 @@ begin
                                                     vicii_first_raster(5 downto 0) <= unsigned(fastio_wdata(5 downto 0));
                                         -- @IO:GS $D06F.7 VIC-IV NTSC emulation mode (max raster = 262)
                                                     vicii_ntsc <= fastio_wdata(7);
+                                                    pal50_select <= not fastio_wdata(7);
 
                                                     report "LEGACY register update & PAL/NTSC mode select";
                                                     
@@ -4656,8 +4659,8 @@ begin
   end process;
   
   --Route out position counters for compositor
-  xcounter_out <= xcounter; 
-  ycounter_out <= ycounter;
+  xcounter_out <= to_integer(xcounter); 
+  ycounter_out <= to_integer(ycounter);
   
 end Behavioral;
 

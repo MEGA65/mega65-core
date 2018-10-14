@@ -5,13 +5,10 @@ use work.debugtools.all;
 
 entity visual_keyboard is
   port (
-    native_x_640 : in integer;
-    native_y_200 : in integer;
-    native_y_400 : in integer;
-    pixel_x_640_in : in integer;
     pixel_y_scale_200 : in unsigned(3 downto 0);
     pixel_y_scale_400 : in unsigned(3 downto 0);
-    ycounter_in : in unsigned(11 downto 0);
+    xcounter_in : in integer;
+    ycounter_in : in integer;
     y_start : in unsigned(11 downto 0);
     x_start : in unsigned(11 downto 0);
     pixelclock : in std_logic;
@@ -24,6 +21,7 @@ entity visual_keyboard is
     key3 : in unsigned(7 downto 0);    
     key4 : in unsigned(7 downto 0);
 
+    -- Current Y position of the OSK
     osk_ystart : out unsigned(11 downto 0) := (others => '1');
     
     -- memory access interface for matrix mode to read charrom
@@ -90,11 +88,10 @@ architecture behavioural of visual_keyboard is
   signal matrix_pos : integer := 0;
   signal matrix_fetching : std_logic := '0';
 
-  signal last_was_640 : std_logic := '0';
+  signal last_was_800 : std_logic := '0';
   signal active : std_logic := '0';
-  signal last_pixel_x_640 : integer := 0;
-  signal last_native_x_640 : integer := 0;
-  signal last_native_y_400 : integer := 0;
+  signal last_xcounter_in : integer := 0;
+  signal last_ycounter_in : integer := 0;
   signal key_box_counter : integer := 1;
   signal key_same_as_last : std_logic := '0';
   
@@ -108,7 +105,8 @@ architecture behavioural of visual_keyboard is
   signal char_pixels_remaining : integer range 0 to 8 := 0;
   signal first_column : std_logic := '0';
 
-  signal pixel_x_640 : integer := 0;
+  signal pixel_x_relative : integer := 0;
+  signal last_pixel_x_relative : integer := 0;
   signal osk_in_position_lower : std_logic := '1';
   signal last_visual_keyboard_enable : std_logic := '0';
   signal max_y : unsigned(11 downto 0) := (others => '0');
@@ -233,8 +231,8 @@ begin
         osk_ystart <= (others => '1');
       end if;
       
-      last_native_x_640 <= native_x_640;
-      last_native_y_400 <= native_y_400;
+      last_xcounter_in <= xcounter_in;
+      last_ycounter_in <= ycounter_in;
       
       if alternate_keyboard='1' then
         double_width <= '1';
@@ -282,15 +280,15 @@ begin
       end if;
 
       -- Work out when to record for zoom display
-      if native_x_640 = zoom_origin_x then
+      if xcounter_in = zoom_origin_x then
         zoom_recording <= 32;
         zoom_record_x <= to_unsigned(0,5);
       end if;
-      if (native_y_400 = zoom_origin_y) then
+      if (ycounter_in = zoom_origin_y) then
         zoom_record_en <= '1';
         zoom_record_y <= to_unsigned(0,5);
       end if;
-      if last_native_y_400 /= native_y_400 then
+      if last_xcounter_in /= ycounter_in then
         if zoom_record_y /= "11111" then
           zoom_record_y <= zoom_record_y + 1;
         else
@@ -317,7 +315,7 @@ begin
           zoom_wdata(23 downto 16) <= vgablue_in;
         end if;
         zoom_we <= '1';
-        if last_native_x_640 /= native_x_640 then
+        if last_xcounter_in /= xcounter_in then
           zoom_recording <= zoom_recording - 1;
           zoom_record_x <= zoom_record_x + 1;
         end if;
@@ -326,15 +324,15 @@ begin
       end if;
 
       -- And similarly for playing back the zoomed display
-      if native_x_640 = zoom_display_x then
+      if xcounter_in = zoom_display_x then
         zoom_play_x <= "000000";
         zoom_playback_enx <= '1';
       end if;
-      if native_y_400 = zoom_display_y then
+      if ycounter_in = zoom_display_y then
         zoom_playback_en <= '1';
         zoom_play_y <= "000000";
       end if;
-      if (last_native_y_400 /= native_y_400) and zoom_playback_en='1' then
+      if (last_ycounter_in /= ycounter_in) and zoom_playback_en='1' then
         if zoom_play_y = "111111" then
           zoom_playback_en <= '0';
         else
@@ -356,7 +354,7 @@ begin
           zoom_border_pixel <= '0';
         end if;
         zoom_raddr <= to_integer(zoom_play_y(5 downto 1)&zoom_play_x(5 downto 1));
-        if native_x_640 /= last_native_x_640 then
+        if xcounter_in /= last_xcounter_in then
           if zoom_play_x /="111111" then
             zoom_play_x <= zoom_play_x + 1;
           else
@@ -371,24 +369,24 @@ begin
       
       -- Check if current touch events correspond to any key
       if visual_keyboard_enable='1' then
-        if native_x_640 = touch1_x and ycounter_in = touch1_y and touch1_valid='1' then
+        if xcounter_in = touch1_x and ycounter_in = touch1_y and touch1_valid='1' then
           touch1_key_internal <= current_matrix_id;
 --          report "touch1 key = $" & to_hstring(current_matrix_id);
         end if;
-        if native_x_640 = touch2_x and ycounter_in = touch2_y and touch2_valid='1' then
+        if xcounter_in = touch2_x and ycounter_in = touch2_y and touch2_valid='1' then
           touch2_key_internal <= current_matrix_id;
 --          report "touch2 key = $" & to_hstring(current_matrix_id);
         end if;
       end if;
       
-      if pixel_x_640_in < x_start_current then
-        pixel_x_640 <= 640;
+      if xcounter_in < x_start_current then
+        pixel_x_relative <= 800;
       else
-        pixel_x_640 <= pixel_x_640_in - to_integer(x_start_current);
+        pixel_x_relative <= xcounter_in - to_integer(x_start_current);
       end if;
       
-      if pixel_x_640 = 640 then
-        last_was_640 <= '1';
+      if xcounter_in = 800 then
+        last_was_800 <= '1';
         space_repeat <= 0;
         char_pixels_remaining <= 0;
         first_column <= '0';
@@ -397,7 +395,7 @@ begin
         box_pixel_h <= '0';
         box_inverse <= '0';
 
-        if last_was_640 = '0' then
+        if last_was_800 = '0' then
           -- End of line, prepare for next
           current_matrix_id <= (others => '1');
 --          report "column0: fetch_state = " & fetch_state_t'image(fetch_state);
@@ -477,12 +475,12 @@ begin
           end if;
         end if;
       else
-        last_was_640 <= '0';
+        last_was_800 <= '0';
       end if;
 
       
-      if pixel_x_640 /= last_pixel_x_640 and active='1' and pixel_x_640 < 640 then
-        last_pixel_x_640 <= pixel_x_640;
+      if pixel_x_relative /= last_pixel_x_relative and active='1' and pixel_x_relative < 800 then
+        last_pixel_x_relative <= pixel_x_relative;
 
         -- Calculate character pixel
         char_pixel <= char_data(7);
@@ -499,7 +497,7 @@ begin
             end if;
           end if;
         else
-          if (text_delay = 0) and (pixel_x_640 > 3) then
+          if (text_delay = 0) and (pixel_x_relative > 3) then
             char_pixels_remaining <= 7;
             char_data <= next_char_data;
           else
@@ -577,7 +575,7 @@ begin
                 and (next_matrix_id(6 downto 1) = "111111")) then
             null;
           else
-            if pixel_x_640 < 640 then
+            if pixel_x_relative < 800 then
               box_pixel <= '1';
             else
               box_pixel <= '0';
@@ -595,7 +593,7 @@ begin
           fetch_state <= FetchNextMatrix;
         else
           -- Draw left edge of keyboard as requird (all rows except SPACE bar row)
-          if pixel_x_640=0 and y_row /= 5 and active='1' and alternate_keyboard='0' then
+          if pixel_x_relative=0 and y_row /= 5 and active='1' and alternate_keyboard='0' then
             box_pixel <= '1';
           else
             box_pixel <= '0';
@@ -614,10 +612,10 @@ begin
         -- 7E = with line above
         if (y_char_in_row = 0)  and (y_pixel_counter = 0) then
           if (current_matrix_id(6 downto 0) /= x"7f") then
---            report "box_pixel set x = " & integer'image(pixel_x_640);
+--            report "box_pixel set x = " & integer'image(pixel_x_relative);
             box_pixel_h <= '1';
           else
---            report "box_pixel not set: x = " & integer'image(pixel_x_640)
+--            report "box_pixel not set: x = " & integer'image(pixel_x_relative)
 --              & ", y = " & integer'image(to_integer(ycounter_in))
 --              & ", current_matrix_id=$" & to_hstring(current_matrix_id);
             box_pixel_h <= '0';
@@ -756,13 +754,13 @@ begin
         vk_pixel <= "00";
       end if;
 
-      if touch1_y = ycounter_in and touch1_x = native_x_640 then
+      if touch1_y = ycounter_in and touch1_x = xcounter_in then
 --        report "touch1 @ " & integer'image(to_integer(touch1_x))
 --          & "," & integer'image(to_integer(touch1_y));
         vgared_out <= x"00";
         vgagreen_out <= x"00";
         vgablue_out <= x"00";
-      elsif touch2_y = ycounter_in and touch2_x = native_x_640 then
+      elsif touch2_y = ycounter_in and touch2_x = xcounter_in then
 --        report "touch2 @ " & integer'image(to_integer(touch2_x))
 --          & "," & integer'image(to_integer(touch2_y));
         vgared_out <= x"FF";
@@ -1022,8 +1020,8 @@ begin
       last_visual_keyboard_enable <= visual_keyboard_enable;
 
       -- Work out where to place keyboard to centre it
-      if pixel_x_640 > max_x then
-        max_x <= pixel_x_640;
+      if pixel_x_relative > max_x then
+        max_x <= pixel_x_relative;
       end if;
       -- Must start at atleast 1, because starting at 0 causes the display to
       -- be double height.
