@@ -143,18 +143,17 @@ GS $D04D.7-4 VIC-IV sprite 3-0 horizontal tile enables
 GS $D04E VIC-IV character generator vertical position (LSB)
 GS $D04F.3-0 VIC-IV character generator vertical position (MSB)
 GS $D04F.7-4 VIC-IV sprite 7-4 horizontal tile enables
-GS $D050 VIC-IV pixel clock configuration (WRITE ONLY)
 GS $D050 VIC-IV read horizontal position (LSB) (READ) xcounter
-GS $D051 VIC-IV frame width, hsync fine tuning (WRITE ONLY)
 GS $D051 VIC-IV read horizontal position (MSB) (READ) xcounter
+GS $D051 VIC-IV UNUSED (WRITE ONLY)
 GS $D052 VIC-IV read physical raster/set raster compare (LSB)
 GS $D053 VIC-IV read physical raster/set raster compare (MSB)
 GS $D054.0 VIC-IV enable 16-bit character numbers (two screen bytes per character)
 GS $D054.1 VIC-IV enable full-colour mode for character numbers <=$FF
 GS $D054.2 VIC-IV enable full-colour mode for character numbers >$FF
 GS $D054.3 VIC-IV video output horizontal smoothing enable
-GS $D054.3 VIC-IV video output pal simulation
 GS $D054.4 VIC-IV Sprite H640 enable;
+GS $D054.5 VIC-IV video output pal simulation
 GS $D054.6 VIC-IV/C65GS FAST mode (48MHz)
 GS $D054.7 VIC-IV/C65GS Alpha compositor enable
 GS $D054 VIC-IV Control register C
@@ -167,7 +166,7 @@ GS $D05A VIC-IV horizontal hardware scale setting (pixel 120ths)
 GS $D05B VIC-IV vertical hardware scale setting
 GS $D05C VIC-IV side border width (LSB)
 GS $D05D VIC-IV side border width (MSB)
-GS $D05E VIC-IV Physical pixels per H640 VIC-III pixel (should = 120/PEEK($D05A).
+GS $D05E VIC-IV UNUSED
 GS $D05F VIC-IV Sprite H640 X Super-MSBs
 GS $D060 VIC-IV screen RAM precise base address (bits 0 - 7)
 GS $D061 VIC-IV screen RAM precise base address (bits 15 - 8)
@@ -175,7 +174,7 @@ GS $D062 VIC-IV screen RAM precise base address (bits 23 - 16)
 GS $D063 VIC-IV screen RAM precise base address (bits 31 - 24)
 GS $D064 VIC-IV colour RAM base address (bits 0 - 7)
 GS $D065 VIC-IV colour RAM base address (bits 15 - 8)
-GS $D066 VIC-IV Sprite/bitplane horizontal scaling
+GS $D066 VIC-IV UNUSED
 GS $D067 VIC-IV Sprite/bitplane first X DEBUG WILL BE REMOVED
 GS $D068 VIC-IV character set precise base address (bits 0 - 7)
 GS $D069 VIC-IV character set precise base address (bits 15 - 8)
@@ -194,22 +193,20 @@ GS $D070.7-6 VIC-IV palette bank mapped at $D100-$D3FF
 GS $D070 VIC-IV palette bank selection
 GS $D071 VIC-IV 16-colour bitplane enable flags
 GS $D072 VIC-IV VSYNC delay
-GS $D073.0-3 VIC-IV hsync x4 end (MSB)
 GS $D073.4-7 VIC-IV physical rasters per VIC-II raster (1 to 16)
-GS $D074 VIC-IV hsync x4 end (LSB)
-GS $D075 VIC-IV display_width x4 (LSB)
-GS $D076 VIC-IV frame_width x4 (LSB)
-GS $D077.0-3 VIC-IV display_width x4 (MSB)
-GS $D077.4-7 VIC-IV frame_width x4 (MSB)
-GS $D078 VIC-IV display_height (LSB)
-GS $D079 VIC-IV frame_height (LSB)
-GS $D07A.0-3 VIC-IV display_height (MSB)
-GS $D07A.4-7 VIC-IV frame_height (MSB)
-GS $D07B VIC-IV hsync x4 start
-GS $D07C.0-3 VIC-IV hsync x4 start (MSB)
+GS $D073 VIC-IV UNUSED
+GS $D074 VIC-IV UNUSED
+GS $D075 VIC-IV UNUSED
+GS $D076 VIC-IV UNUSED
+GS $D077 VIC-IV UNUSED
+GS $D078 VIC-IV UNUSED
+GS $D079 VIC-IV UNUSED
+GS $D07A VIC-IV UNUSED
+GS $D07B VIC-IV UNUSED
+GS $D07C.0-3 UNUSED BITS
 GS $D07C.4 VIC-IV hsync polarity
 GS $D07C.5 VIC-IV vsync polarity
-GS $D07C.6-7 VIC-IV pixel clock select (30,33,40 or 50MHz)
+GS $D07C.6-7 UNUSED BITS
 GS $D07D VIC-IV debug X position (LSB)
 GS $D07E VIC-IV debug Y position (LSB)
 GS $D07F.0-5 VIC-IV debug X position (MSB)
@@ -223,8 +220,8 @@ C65 $D084 - F011 FDC track
 C65 $D085 - F011 FDC sector
 C65 $D086 - F011 FDC side
 C65 $D087 - F011 FDC data register (read/write)
-GS $D09B - Most recent SD card command sent
-GS $D09C - FDC-side buffer pointer low bits (DEBUG)
+GS $D09B - FSM state of low-level SD controller (DEBUG)
+GS $D09C - Last byte low-level SD controller read from card (DEBUG)
 GS $D09D - FDC-side buffer pointer high bit (DEBUG)
 GS $D09E - CPU-side buffer pointer low bits (DEBUG)
 GS $D09F.0 - CPU-side buffer pointer high bit (DEBUG)
@@ -559,7 +556,7 @@ GS $D6F8 - Digital audio, left channel, LSB
 GS $D6F9 - Digital audio, left channel, MSB
 GS $D6FA - Digital audio, left channel, LSB
 GS $D6FB - Digital audio, left channel, MSB
-GS $D6FC - audio MSB (source selected by $D6F4)
+GS $D6FC - audio LSB (source selected by $D6F4)
 GS $D6FD - audio MSB (source selected by $D6F4)
 GS $D6FF - Flash bit-bashing port
 GS $D700 - DMAgic DMA list address LSB, and trigger DMA (when written)

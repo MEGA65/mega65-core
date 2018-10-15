@@ -2255,7 +2255,7 @@ begin
                                                     compositer_enable <= fastio_wdata(7);
                                         -- @IO:GS $D054.6 VIC-IV/C65GS FAST mode (48MHz)
                                                     viciv_fast_internal <= fastio_wdata(6);
-                                        -- @IO:GS $D054.3 VIC-IV video output pal simulation
+                                        -- @IO:GS $D054.5 VIC-IV video output pal simulation
                                                     pal_simulate <= fastio_wdata(5);
                                         -- @IO:GS $D054.4 VIC-IV Sprite H640 enable;
                                                     sprite_h640 <= fastio_wdata(4);

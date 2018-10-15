@@ -1594,11 +1594,6 @@ resetdisplay:
 		sta $D020	; border
 		sta $D021	; background
 
-		; Enable alpha blending and horizontal blending to smooth display
-		; slightly
-		lda #$28  ; XXX alpha blending has problems still
-		sta $D054	;VIC-IV Control Register C
-
 		; We use VIC-II style registers as this resets video frame in
 		; least instructions, and 40 columns is fine for us.
 		;
@@ -2128,9 +2123,9 @@ g61:		sta $0800,x
 		inx
 		bne g61		
 
-		; reset video mode to normal (but with PAL + compositing enabled)
+		; reset video mode to normal
 		; and return CPU to slow speed for exit
-		lda #$28    ; XXX no compositing for now, as it still has problems
+		lda #$00
 		sta $d054
 
 		lda #<40
