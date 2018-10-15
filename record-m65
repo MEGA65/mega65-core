@@ -8,6 +8,7 @@ fi
 make bin/videoproxy bin/vncserver
 pkill vncserver
 sudo echo
+sudo ifconfig $1 mtu 9000
 sudo bin/videoproxy $1 &
 sleep 1
 bin/vncserver &
