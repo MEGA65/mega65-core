@@ -396,7 +396,7 @@ begin
         pixel_x_relative <= xcounter_in - to_integer(x_start_current);
       end if;
       
-      if xcounter_in = 800 then
+      if xcounter_in = 799 then
         last_was_800 <= '1';
         space_repeat <= 0;
         char_pixels_remaining <= 0;
@@ -490,7 +490,7 @@ begin
       end if;
 
       
-      if pixel_x_relative /= last_pixel_x_relative and active='1' and pixel_x_relative < 800 then
+      if pixel_x_relative /= last_pixel_x_relative and active='1' and pixel_x_relative < 799 then
         last_pixel_x_relative <= pixel_x_relative;
 
         -- Calculate character pixel
@@ -586,7 +586,7 @@ begin
                 and (next_matrix_id(6 downto 1) = "111111")) then
             null;
           else
-            if pixel_x_relative < 800 then
+            if pixel_x_relative < 799 then
               box_pixel <= '1';
             else
               box_pixel <= '0';
