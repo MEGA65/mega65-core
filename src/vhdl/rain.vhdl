@@ -626,7 +626,7 @@ begin  -- rtl
         -- data.  A complication is that we have to deal with
         -- contention on the BRAM interface, so we ideally need to
         -- sequence the requests a little carefully.
-        if external_frame_x_zero='1' and last_external_frame_x_zero = '0' then
+        if external_frame_x_zero='1' and last_external_frame_x_zero = '0' and lcd_in_letterbox='1' then
           char_bit_count <= 0;
           fetch_next_char <= '1';
           column_counter <= 0;
