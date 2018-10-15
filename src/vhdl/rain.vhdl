@@ -690,7 +690,7 @@ begin  -- rtl
             column_visible <= '0';
           end if;
           fetch_next_char <= '1';
-          char_bit_count <= 16;
+          char_bit_count <= 15;
           column_counter <= column_counter + 1;
         else
           -- rotate bits for terminal chargen every 2 640H pixels
