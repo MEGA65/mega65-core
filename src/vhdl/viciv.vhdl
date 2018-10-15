@@ -852,8 +852,8 @@ architecture Behavioral of viciv is
   signal palette_bank_chargen_alt : std_logic_vector(1 downto 0) := "11";
   signal palette_bank_sprites : std_logic_vector(1 downto 0) := "11";
   
-  signal vsync_polarity_internal : std_logic := '1';
-  signal hsync_polarity_internal : std_logic := '1';
+  signal vsync_polarity_internal : std_logic := '0';
+  signal hsync_polarity_internal : std_logic := '0';
 
   -- Mode line calculations
   signal text_height_200 : integer := 0;
@@ -2368,8 +2368,8 @@ begin
                                                         vicii_max_raster <= pal_max_raster;
                                         -- Set 30MHz pixel clock for PAL
                                         -- VSYNC is negative for 50Hz (required for some monitors)
-                                                        hsync_polarity_internal <= '1';
-                                                        vsync_polarity_internal <= '1';
+                                                        hsync_polarity_internal <= '0';
+                                                        vsync_polarity_internal <= '0';
 
                                                         single_side_border <= to_unsigned(80,14);
                                                         sprite_first_x <= to_unsigned(1+80-(24)*(120/60),14);
