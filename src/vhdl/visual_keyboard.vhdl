@@ -246,12 +246,12 @@ begin
       
       if alternate_keyboard='1' then
         double_width <= '1';
-        double_height <= '0';
+        double_height <= '1';
         keyboard_text_start <= alt_keyboard_text_start;
         alt_offset <= 7*16;
       else
         double_width <= '0';
-        double_height <= '0';
+        double_height <= '1';
         keyboard_text_start <= to_unsigned(2048+256,12);
         alt_offset <= 0;
       end if;

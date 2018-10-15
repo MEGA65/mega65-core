@@ -1115,8 +1115,8 @@ begin
     port map(
       pixelclock => pixelclock,
 
-      pixel_y_scale_400 => to_unsigned(1,4),
-      pixel_y_scale_200 => to_unsigned(2,4),
+      pixel_y_scale_400 => to_unsigned(0,4),
+      pixel_y_scale_200 => to_unsigned(1,4),
       
       xcounter_in => xcounter_viciv,
       ycounter_in => ycounter_viciv,
