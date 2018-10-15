@@ -1019,7 +1019,7 @@ begin  -- rtl
       if last_letterbox = '1' and lcd_in_letterbox = '0' then
         last_y_used <= ycounter_in;
       end if;
-      if external_frame_y_zero = '0' and external_frame_y_zero = '1' then
+      if external_frame_y_zero = '0' and last_external_frame_y_zero = '1' then
         -- Vertical flyback = start of next frame
         report "Resetting at end of flyback";
 
