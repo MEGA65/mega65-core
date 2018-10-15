@@ -101,7 +101,6 @@ architecture behavioural of visual_keyboard is
 
   signal last_was_800 : std_logic := '0';
   signal active : std_logic := '0';
-  signal last_xcounter_in : integer := 0;
   signal last_ycounter_in : integer := 0;
   signal key_box_counter : integer := 1;
   signal key_same_as_last : std_logic := '0';
@@ -244,7 +243,6 @@ begin
         osk_ystart <= (others => '1');
       end if;
       
-      last_xcounter_in <= xcounter_in;
       last_ycounter_in <= ycounter_in;
       
       if alternate_keyboard='1' then
@@ -301,7 +299,7 @@ begin
         zoom_record_en <= '1';
         zoom_record_y <= to_unsigned(0,5);
       end if;
-      if last_xcounter_in /= ycounter_in then
+      if last_ycounter_in /= ycounter_in then
         if zoom_record_y /= "11111" then
           zoom_record_y <= zoom_record_y + 1;
         else
@@ -328,7 +326,7 @@ begin
           zoom_wdata(23 downto 16) <= vgablue_in;
         end if;
         zoom_we <= '1';
-        if last_xcounter_in /= xcounter_in then
+        if pixel_strobe_in='1' then
           zoom_recording <= zoom_recording - 1;
           zoom_record_x <= zoom_record_x + 1;
         end if;
@@ -367,7 +365,7 @@ begin
           zoom_border_pixel <= '0';
         end if;
         zoom_raddr <= to_integer(zoom_play_y(5 downto 1)&zoom_play_x(5 downto 1));
-        if xcounter_in /= last_xcounter_in then
+        if pixel_strobe_in='1' then
           if zoom_play_x /="111111" then
             zoom_play_x <= zoom_play_x + 1;
           else

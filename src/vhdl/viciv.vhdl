@@ -236,14 +236,14 @@ architecture Behavioral of viciv is
   -- The values here are simply those that apply on power up.
   signal frame_h_front : unsigned(7 downto 0) := to_unsigned(16,8);  
   -- 800x480 @ 50Hz for 100MHz pixelclock
-  signal single_side_border : unsigned(13 downto 0) := to_unsigned(267,14);
+  signal single_side_border : unsigned(13 downto 0) := to_unsigned(80,14);
   constant display_width : unsigned(11 downto 0) := to_unsigned(800,12);
   constant display_height : unsigned(11 downto 0) := to_unsigned(600,12);
   signal vsync_delay : unsigned(7 downto 0) := to_unsigned(18,8);
   signal vsync_delay_drive : unsigned(7 downto 0) := to_unsigned(18,8);
   signal vicii_ycounter_scale_minus_zero : unsigned(3 downto 0) := to_unsigned(2-1,4);
-  signal chargen_x_scale : unsigned(7 downto 0) := to_unsigned(36,8);  
-  signal sprite_first_x : unsigned(13 downto 0) := to_unsigned(1+267-(24)*(120/18),14);
+  signal chargen_x_scale : unsigned(7 downto 0) := to_unsigned(120,8);  
+  signal sprite_first_x : unsigned(13 downto 0) := to_unsigned(1+80-(24)*(120/60),14);
   signal sprite_x_counting : std_logic := '0';
   signal sprite_x_scale_toggle : std_logic := '0';
   -- Each character pixel will be (n+1) pixels high
@@ -2373,7 +2373,7 @@ begin
 
                                                         single_side_border <= to_unsigned(80,14);
                                                         sprite_first_x <= to_unsigned(1+80-(24)*(120/60),14);
-                                                        chargen_x_scale <= to_unsigned(60,8);
+                                                        chargen_x_scale <= to_unsigned(120,8);
                                                         chargen_y_scale <= x"01";
                                                         
                                                       when "01" => -- PAL, 800x600 50Hz, NTSC max raster
@@ -2385,7 +2385,7 @@ begin
                                                         vsync_polarity_internal <= '0';
 
                                                         sprite_first_x <= to_unsigned(1+80-(24)*(120/60),14);
-                                                        chargen_x_scale <= to_unsigned(60,8);
+                                                        chargen_x_scale <= to_unsigned(120,8);
                                                         chargen_y_scale <= x"01";
                                                         single_side_border <= to_unsigned(80,14);
 
@@ -2398,7 +2398,7 @@ begin
                                         -- Set 40MHz pixel clock for NTSC
                                                         
                                                         sprite_first_x <= to_unsigned(1+80-(24-3)*(120/60),14);
-                                                        chargen_x_scale <= to_unsigned(60,8);
+                                                        chargen_x_scale <= to_unsigned(120,8);
                                                         chargen_y_scale <= x"01";                
                                                         single_side_border <= to_unsigned(80,14);
 
@@ -2412,9 +2412,9 @@ begin
 
                                         -- Set 40MHz pixel clock for NTSC
                                                         sprite_first_x <= to_unsigned(1+80-(24-3)*(120/60),14);
-                                                        chargen_x_scale <= to_unsigned(60,8);
+                                                        chargen_x_scale <= to_unsigned(120,8);
                                                         chargen_y_scale <= x"01";                
-                                                        single_side_border <= to_unsigned(60,14);
+                                                        single_side_border <= to_unsigned(80,14);
 
                                                       when others => -- Default to NTSC 800x600 60Hz
                                                         vsync_delay <= to_unsigned(22,8);
@@ -2423,7 +2423,7 @@ begin
                                                         vsync_polarity_internal <= '0';
 
                                         -- Set 40MHz pixel clock for NTSC                                                        
-                                                        chargen_x_scale <= to_unsigned(60,8);
+                                                        chargen_x_scale <= to_unsigned(120,8);
                                                         chargen_y_scale <= x"01";                
                                                         single_side_border <= to_unsigned(80,14);
 
