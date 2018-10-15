@@ -303,8 +303,6 @@ architecture Behavioral of viciv is
   signal last_vicii_xcounter_640 : unsigned(9 downto 0) := (others => '0');
 
   -- Actual pixel positions in the frame
-  signal displayx : unsigned(13 downto 0) := (others => '0');
-  signal displayx_drive : unsigned(13 downto 0) := (others => '0');
   signal displayy : unsigned(11 downto 0) := to_unsigned(0,12);
   signal display_active : std_logic := '0';
   -- Mark if we are in the top line of display
@@ -1052,7 +1050,7 @@ begin
       red_out => vga_palout_red,
       green_out => vga_palout_green,
       blue_out => vga_palout_blue,
-      x_position => displayx,
+      x_position => xcounter,
       y_position => displayy
       );  
   
@@ -1125,7 +1123,7 @@ begin
   
   process(cpuclock,ioclock,fastio_addr,fastio_read,chardata,
           sprite_x,sprite_y,vicii_sprite_xmsbs,ycounter,extended_background_mode,
-          text_mode,blank,twentyfourlines,vicii_y_smoothscroll,displayx,displayy,
+          text_mode,blank,twentyfourlines,vicii_y_smoothscroll,displayy,
           vicii_sprite_enables,multicolour_mode,thirtyeightcolumns,
           vicii_x_smoothscroll,vicii_sprite_y_expand,screen_ram_base,
           character_set_address,irq_collisionspritebitmap,irq_collisionspritesprite,
@@ -1146,7 +1144,7 @@ begin
           debug_chargen_active,debug_raster_fetch_state,debug_charaddress,
           debug_charrow,palette_fastio_rdata,palette_bank_chargen,
           debug_chargen_active_soon,palette_bank_sprites,
-          vicii_ycounter,displayx_drive,reg_rom_e000,reg_rom_c000,
+          vicii_ycounter,reg_rom_e000,reg_rom_c000,
           reg_rom_a000,reg_c65_charset,reg_rom_8000,reg_palrom,
           reg_h640,reg_h1280,reg_v400,xcounter_drive,ycounter_drive,
           horizontal_filter,xfrontporch_drive,chargen_active_drive,
@@ -1449,7 +1447,7 @@ begin
         elsif register_number=18 then          -- $D012 current raster low 8 bits
           fastio_rdata <= std_logic_vector(vicii_ycounter_driver(7 downto 0));
         elsif register_number=19 then          -- $D013 lightpen X (coarse rasterX)
-          fastio_rdata <= std_logic_vector(displayx_drive(11 downto 4));
+          fastio_rdata <= std_logic_vector(xcounter_drive(11 downto 4));
         elsif register_number=20 then          -- $D014 lightpen Y (coarse rasterY)
           fastio_rdata <= std_logic_vector(displayy(10 downto 3));
         elsif register_number=21 then          -- $D015 compatibility sprite enable
@@ -1835,7 +1833,6 @@ begin
       debug_raster_buffer_write_address_drive2 <= debug_raster_buffer_write_address_drive;
 
       inborder_drive <= inborder;
-      displayx_drive <= displayx;
       chargen_active_soon_drive <= chargen_active_soon;
       cycles_to_next_card_drive <= cycles_to_next_card;
       chargen_active_drive <= chargen_active;
@@ -2778,7 +2775,6 @@ begin
       
       if xcounter<frame_h_front then
         xfrontporch <= '1';
-        displayx <= (others => '0');
       else
         xfrontporch <= '0';
       end if;
@@ -2798,14 +2794,8 @@ begin
       else
         xbackporch <= '1';
         xbackporch_edge <= not xbackporch;
-        displayx <= (others => '1');
       end if;
 
-      if xfrontporch='0' and xbackporch = '0' then
-        -- Increase horizonal physical pixel position
-        displayx <= displayx + 1;
-      end if;
-      
       -- Work out if the border is active
       inborder_t1 <= inborder;
       inborder_t2 <= inborder_t1;
@@ -2820,7 +2810,7 @@ begin
         upper_border <= '0';
       end if;
 
-      if displayx<border_x_left or displayx>=border_x_right or
+      if xcounter<border_x_left or xcounter>=border_x_right or
         upper_border='1' or lower_border='1' then
         inborder<='1';
         viciv_flyback <= '1';
@@ -2895,10 +2885,10 @@ begin
       report "chargen_active=" & std_logic'image(chargen_active)
         & ", xcounter = " & to_string(std_logic_vector(xcounter))
         & ", x_chargen_start = " & to_string(std_logic_vector(x_chargen_start)) severity note;
-      if displayx=border_x_right then
+      if xcounter=border_x_right then
         -- Stop character generator as soon as we hit the right border
         -- so that we can switch to fetching sprite data for the next raster.
-        report "Masking chargen_active based on displayx<border_x_right" severity note;
+        report "Masking chargen_active based on xcounter<border_x_right" severity note;
         chargen_active <= '0';
         chargen_active_soon <= '0';
       end if;
@@ -2944,7 +2934,7 @@ begin
         
       end if;
 
-      if displayx(5)='1' and displayx(4)='1' then
+      if xcounter(5)='1' and xcounter(4)='1' then
         displaycolumn0 <= '0';
       end if;
       if xcounter = 0 then
@@ -3080,7 +3070,7 @@ begin
       
       -- Pixels have a two cycle pipeline to help keep timing contraints:
 
-      report "PIXEL (" & integer'image(to_integer(displayx)) & "," & integer'image(to_integer(displayy)) & ") = $"
+      report "PIXEL (" & integer'image(to_integer(xcounter)) & "," & integer'image(to_integer(displayy)) & ") = $"
         & to_hstring(postsprite_pixel_colour)
         & ", RGBA = $" &to_hstring(palette_rdata)
         severity note;
