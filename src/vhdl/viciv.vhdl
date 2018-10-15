@@ -276,6 +276,28 @@ architecture Behavioral of viciv is
   signal xcounter : unsigned(13 downto 0) := to_unsigned(0,14);
   signal xcounter_last : unsigned(13 downto 0) := to_unsigned(0,14);
   signal xcounter_delayed : unsigned(13 downto 0) := to_unsigned(0,14);
+
+  -- Pipeline delay for export of xcounter
+  signal xcounter_17 : unsigned(13 downto 0) := to_unsigned(0,14);
+  signal xcounter_16 : unsigned(13 downto 0) := to_unsigned(0,14);
+  signal xcounter_15 : unsigned(13 downto 0) := to_unsigned(0,14);
+  signal xcounter_14 : unsigned(13 downto 0) := to_unsigned(0,14);
+  signal xcounter_13 : unsigned(13 downto 0) := to_unsigned(0,14);
+  signal xcounter_12 : unsigned(13 downto 0) := to_unsigned(0,14);
+  signal xcounter_11 : unsigned(13 downto 0) := to_unsigned(0,14);
+  signal xcounter_10 : unsigned(13 downto 0) := to_unsigned(0,14);
+  signal xcounter_9 : unsigned(13 downto 0) := to_unsigned(0,14);
+  signal xcounter_8 : unsigned(13 downto 0) := to_unsigned(0,14);
+  signal xcounter_7 : unsigned(13 downto 0) := to_unsigned(0,14);
+  signal xcounter_6 : unsigned(13 downto 0) := to_unsigned(0,14);
+  signal xcounter_5 : unsigned(13 downto 0) := to_unsigned(0,14);
+  signal xcounter_4 : unsigned(13 downto 0) := to_unsigned(0,14);
+  signal xcounter_3 : unsigned(13 downto 0) := to_unsigned(0,14);
+  signal xcounter_2 : unsigned(13 downto 0) := to_unsigned(0,14);
+  signal xcounter_1 : unsigned(13 downto 0) := to_unsigned(0,14);
+
+  signal ycounter_last : unsigned(13 downto 0) := to_unsigned(0,14);
+  signal ycounter_export_countdown : integer range 0 to 31 := 0;
   
   signal xcounter_drive : unsigned(13 downto 0) := (others => '0');
   signal ycounter : unsigned(11 downto 0) := to_unsigned(625,12);
@@ -4628,8 +4650,39 @@ begin
   end process;
   
   --Route out position counters for compositor
-  xcounter_out <= to_integer(xcounter); 
-  ycounter_out <= to_integer(ycounter);
+  --But delay them for the video pipeline depth.
+  --1 pixel stage + 8 sprite + 8 bitplane = 17 cycles 
+  xcounter_out <= to_integer(xcounter_17);
+  xcounter_17 <= xcounter_16;
+  xcounter_16 <= xcounter_15;
+  xcounter_15 <= xcounter_14;
+  xcounter_14 <= xcounter_13;
+  xcounter_13 <= xcounter_12;
+  xcounter_12 <= xcounter_11;
+  xcounter_11 <= xcounter_10;
+  xcounter_10 <= xcounter_9;
+  xcounter_9 <= xcounter_8;
+  xcounter_8 <= xcounter_7;
+  xcounter_7 <= xcounter_6;
+  xcounter_6 <= xcounter_5;
+  xcounter_5 <= xcounter_4;
+  xcounter_4 <= xcounter_3;
+  xcounter_3 <= xcounter_2;
+  xcounter_2 <= xcounter_1;
+  xcounter_1 <= xcounter;
+
+  -- ycounter we can watch for changes and count down, instead of having to have
+  -- 17 copies of it
+  if ycounter /= ycounter_last then
+    ycounter_export_countdown <= 17;
+  else
+    if ycounter_export_countdown /= 0 then
+      ycounter_export_countdown <= ycounter_export_countdown - 1;
+      ycounter_out <= to_integer(ycounter_last);
+    else
+      ycounter_out <= to_integer(ycounter);
+    end if;
+  end if;
   
 end Behavioral;
 
