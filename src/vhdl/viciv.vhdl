@@ -4682,12 +4682,14 @@ begin
 --        if ycounter_export_countdown /= 0 then
 --          ycounter_export_countdown <= ycounter_export_countdown - 1;
 --          ycounter_out <= to_integer(ycounter_last);
+--          ycounter_out <= to_integer(ycounter);
 --        else
-          ycounter_out <= to_integer(ycounter);
 --        end if;
 --      end if;
---    end if;
---  end process;
+    end if;
+  end process;
+
+  ycounter_out <= to_integer(ycounter);
   
 end Behavioral;
 
