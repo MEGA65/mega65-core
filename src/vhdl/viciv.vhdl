@@ -1189,23 +1189,23 @@ begin
       -- set horizontal borders based on 40/38 columns
       report "LEGACY register update";
       if thirtyeightcolumns='0' then
-        border_x_left <= to_unsigned(to_integer(single_side_border),14);
+        border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border),14);
         if reg_h640='0' then
-          border_x_right <= to_unsigned(to_integer(display_width)
+          border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
                                         -to_integer(single_side_border)+2,14);
         else
-          border_x_right <= to_unsigned(to_integer(display_width)
+          border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
                                         -to_integer(single_side_border)+2,14);
         end if;
       else  
-        border_x_left <= to_unsigned(to_integer(single_side_border)
+        border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border)
                                      +(7*2),14);
         if reg_h640='0' then
-          border_x_right <= to_unsigned(to_integer(display_width)
+          border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
                                         -to_integer(single_side_border)
                                         +2-(9*2),14);
         else
-          border_x_right <= to_unsigned(to_integer(display_width)
+          border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
                                         -to_integer(single_side_border)
                                         +2-(9*2),14);
         end if;
