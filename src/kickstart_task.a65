@@ -171,11 +171,6 @@ protected_hardware_config:
 	; bump border colour so that we know something has happened
 	;
 
-        lda $D020
-	inc 
-	and #$0f
-	sta $D020
-		
 	sta hypervisor_enterexit_trigger
 
 ;	========================
@@ -187,10 +182,10 @@ matrix_mode_toggle:
 	eor #$40
         sta hypervisor_secure_mode_flags
 
-	; bump border colour so that we know something has happened	
-        lda $D020
-	inc 
-	and #$0f
-	sta $D020
+;	; bump border colour so that we know something has happened	
+;        lda $D020
+;	inc 
+;	and #$0f
+;	sta $D020
 
 	sta hypervisor_enterexit_trigger
