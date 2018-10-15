@@ -116,7 +116,6 @@ architecture behavioural of visual_keyboard is
   signal first_column : std_logic := '0';
 
   signal pixel_x_relative : integer := 0;
-  signal last_pixel_x_relative : integer := 0;
   signal osk_in_position_lower : std_logic := '1';
   signal last_visual_keyboard_enable : std_logic := '0';
   signal max_y : integer := 0;
@@ -247,12 +246,12 @@ begin
       
       if alternate_keyboard='1' then
         double_width <= '1';
-        double_height <= '1';
+        double_height <= '0';
         keyboard_text_start <= alt_keyboard_text_start;
         alt_offset <= 7*16;
       else
         double_width <= '0';
-        double_height <= '1';
+        double_height <= 0';
         keyboard_text_start <= to_unsigned(2048+256,12);
         alt_offset <= 0;
       end if;
@@ -490,8 +489,7 @@ begin
       end if;
 
       
-      if pixel_x_relative /= last_pixel_x_relative and active='1' and pixel_x_relative < 799 then
-        last_pixel_x_relative <= pixel_x_relative;
+      if pixel_strobe_in='1' and active='1' and pixel_x_relative < 799 then
 
         -- Calculate character pixel
         char_pixel <= char_data(7);
@@ -603,7 +601,7 @@ begin
           -- Pre-fetch the next key matrix id
           fetch_state <= FetchNextMatrix;
         else
-          -- Draw left edge of keyboard as requird (all rows except SPACE bar row)
+          -- Draw left edge of keyboard as required (all rows except SPACE bar row)
           if pixel_x_relative=0 and y_row /= 5 and active='1' and alternate_keyboard='0' then
             box_pixel <= '1';
           else
