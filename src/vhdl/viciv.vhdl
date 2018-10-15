@@ -960,16 +960,16 @@ begin
   begin
     colourram1 : entity work.ram8x32k
       PORT MAP (
-         clka => cpuclock,
-         ena => colour_ram_cs,
+        clka => cpuclock,
+        ena => colour_ram_cs,
         wea(0) => fastio_write,
 --        wea => fastio_write,
-         addra => std_logic_vector(colour_ram_fastio_address(14 downto 0)),
-         dina => fastio_wdata,
-         douta => colour_ram_fastio_rdata,
-         -- video controller use port b of the dual-port colour ram.
-         -- The CPU uses port a via the fastio interface
-         clkb => pixelclock,
+        addra => std_logic_vector(colour_ram_fastio_address(14 downto 0)),
+        dina => fastio_wdata,
+        douta => colour_ram_fastio_rdata,
+        -- video controller use port b of the dual-port colour ram.
+        -- The CPU uses port a via the fastio interface
+        clkb => pixelclock,
         web => (others => '0'),
 --        web => '0',
         addrb => std_logic_vector(colourramaddress(14 downto 0)),
@@ -1760,9 +1760,9 @@ begin
           fastio_rdata(5) <= vsync_polarity_internal;
           fastio_rdata(7 downto 6) <= "11";
         elsif register_number=125 then
-        -- fastio_rdata <=
-        --  std_logic_vector(to_unsigned(vic_paint_fsm'pos(debug_paint_fsm_state_drive2),8));
-        -- fastio_rdata <= std_logic_vector(debug_charaddress_drive2(7 downto 0));
+          -- fastio_rdata <=
+          --  std_logic_vector(to_unsigned(vic_paint_fsm'pos(debug_paint_fsm_state_drive2),8));
+          -- fastio_rdata <= std_logic_vector(debug_charaddress_drive2(7 downto 0));
           fastio_rdata <= x"FF";
         elsif register_number=126 then
           -- fastio_rdata <= "0000"
@@ -2474,10 +2474,10 @@ begin
                                                                                  -- @IO:GS $D074 VIC-IV UNUSED
                                                     null;
                                                   elsif register_number=117 then
-                                                    -- @IO:GS $D075 VIC-IV UNUSED
+                                        -- @IO:GS $D075 VIC-IV UNUSED
                                                     null;
                                                   elsif register_number=118 then
-                                                    -- @IO:GS $D076 VIC-IV UNUSED
+                                        -- @IO:GS $D076 VIC-IV UNUSED
                                                     null;
                                                   elsif register_number=119 then  -- $D3077
                                                                                   -- @IO:GS $D077 VIC-IV UNUSED
@@ -2919,9 +2919,9 @@ begin
         -- trigger next card at start of chargen row
         chargen_x <= (others => '0');
         report "reset chargen_x" severity note;
-        -- Request first byte of pre-rendered character data
-        -- raster_buffer_read_address <= (others => '0');
-        -- raster_buffer_read_address_sub <= (others => '0');
+      -- Request first byte of pre-rendered character data
+      -- raster_buffer_read_address <= (others => '0');
+      -- raster_buffer_read_address_sub <= (others => '0');
       end if;
       if xcounter = x_chargen_start then
         -- Gets masked to 0 below if displayy is above y_chargen_start
@@ -2995,7 +2995,7 @@ begin
         else
           screen_row_address <= screen_ram_base(19 downto 0) + first_card_of_row;
         end if;
-          
+        
         if before_y_chargen_start='0' then
           -- Increment card number every "bad line"
           report "LEGACY: Advancing first_card_of_row due to end of character";
@@ -3771,7 +3771,7 @@ begin
               end if;
             end if;
           end if;
-      
+          
           -- Schedule next colour ram byte
           report "COLOURRAM: Incrementing colourramaddress";
           colourramaddress <= colourramaddress + 1;
@@ -4549,57 +4549,57 @@ begin
   process(raster_fetch_state,glyph_data_address)
   begin
     charaddress <= to_integer(glyph_data_address(11 downto 0));
-    --charaddress <= to_unsigned(0,12);
-    --case raster_fetch_state is    
-    --  when FetchBitmapData =>
-    --    report "setting charaddress to " & integer'image(to_integer(glyph_data_address(10 downto 0)))
-    --      & " for painting glyph $" & to_hstring(to_unsigned(to_integer(glyph_number),16)) severity note;
-    --    charaddress <= to_integer(glyph_data_address(11 downto 0));
-    --  when FetchTextCellColourAndSource =>
-    --    -- upper bit of charrom address is set by $D018, only 258*8 = 2K
-    --    -- range of address is controlled here by character number.
-    --    report "setting charaddress to " & integer'image(to_integer(glyph_data_address(10 downto 0)))
-    --        & " for painting glyph $" & to_hstring(to_unsigned(to_integer(glyph_number),16)) severity note;
-    --    charaddress <= to_integer(glyph_data_address(11 downto 0));
-    --  when others => null;
-    -- end case;    
+  --charaddress <= to_unsigned(0,12);
+  --case raster_fetch_state is    
+  --  when FetchBitmapData =>
+  --    report "setting charaddress to " & integer'image(to_integer(glyph_data_address(10 downto 0)))
+  --      & " for painting glyph $" & to_hstring(to_unsigned(to_integer(glyph_number),16)) severity note;
+  --    charaddress <= to_integer(glyph_data_address(11 downto 0));
+  --  when FetchTextCellColourAndSource =>
+  --    -- upper bit of charrom address is set by $D018, only 258*8 = 2K
+  --    -- range of address is controlled here by character number.
+  --    report "setting charaddress to " & integer'image(to_integer(glyph_data_address(10 downto 0)))
+  --        & " for painting glyph $" & to_hstring(to_unsigned(to_integer(glyph_number),16)) severity note;
+  --    charaddress <= to_integer(glyph_data_address(11 downto 0));
+  --  when others => null;
+  -- end case;    
   end process;
   
   -- raster buffer read address/sub calculations 
   -- pulled out so "next" value can be fed directly to raster buffer ram read address.  
   process(raster_buffer_read_address,raster_buffer_read_address_sub,chargen_x_scale_drive,xcounter,x_chargen_start_minus1)
   begin
-      raster_buffer_read_address_next <= raster_buffer_read_address;
-      if xcounter = x_chargen_start_minus1 then
-        -- Request first byte of pre-rendered character data
-        raster_buffer_read_address_next <= (others => '0');
-        raster_buffer_read_address_sub_next <= (others => '0');
+    raster_buffer_read_address_next <= raster_buffer_read_address;
+    if xcounter = x_chargen_start_minus1 then
+      -- Request first byte of pre-rendered character data
+      raster_buffer_read_address_next <= (others => '0');
+      raster_buffer_read_address_sub_next <= (others => '0');
+    else
+      if reg_h640='1' then
+        -- 640 wide characters use x scale directly
+        if raster_buffer_read_address_sub >= 240 then
+          raster_buffer_read_address_sub_next <= raster_buffer_read_address_sub - 240 + chargen_x_scale_drive;
+          raster_buffer_read_address_next <= raster_buffer_read_address + 2;
+        elsif raster_buffer_read_address_sub >= 120 then
+          raster_buffer_read_address_sub_next <= raster_buffer_read_address_sub - 120 + chargen_x_scale_drive;
+          raster_buffer_read_address_next <= raster_buffer_read_address + 1;
+        else
+          raster_buffer_read_address_sub_next <= raster_buffer_read_address_sub + chargen_x_scale_drive;
+        end if;
       else
-          if reg_h640='1' then
-            -- 640 wide characters use x scale directly
-            if raster_buffer_read_address_sub >= 240 then
-              raster_buffer_read_address_sub_next <= raster_buffer_read_address_sub - 240 + chargen_x_scale_drive;
-              raster_buffer_read_address_next <= raster_buffer_read_address + 2;
-            elsif raster_buffer_read_address_sub >= 120 then
-              raster_buffer_read_address_sub_next <= raster_buffer_read_address_sub - 120 + chargen_x_scale_drive;
-              raster_buffer_read_address_next <= raster_buffer_read_address + 1;
-            else
-              raster_buffer_read_address_sub_next <= raster_buffer_read_address_sub + chargen_x_scale_drive;
-            end if;
-          else
-            -- 320 wide / 40 column text is 2x as wide, i.e., we halve the x scale
-            -- factor.
-            if raster_buffer_read_address_sub >= 240 then
-              raster_buffer_read_address_sub_next <= raster_buffer_read_address_sub - 240 + chargen_x_scale_drive(7 downto 1);
-              raster_buffer_read_address_next <= raster_buffer_read_address + 2;
-            elsif raster_buffer_read_address_sub >= 120 then
-              raster_buffer_read_address_sub_next <= raster_buffer_read_address_sub - 120 + chargen_x_scale_drive(7 downto 1);
-              raster_buffer_read_address_next <= raster_buffer_read_address + 1;
-            else
-              raster_buffer_read_address_sub_next <= raster_buffer_read_address_sub + chargen_x_scale_drive(7 downto 1);
-            end if;
-          end if;
+        -- 320 wide / 40 column text is 2x as wide, i.e., we halve the x scale
+        -- factor.
+        if raster_buffer_read_address_sub >= 240 then
+          raster_buffer_read_address_sub_next <= raster_buffer_read_address_sub - 240 + chargen_x_scale_drive(7 downto 1);
+          raster_buffer_read_address_next <= raster_buffer_read_address + 2;
+        elsif raster_buffer_read_address_sub >= 120 then
+          raster_buffer_read_address_sub_next <= raster_buffer_read_address_sub - 120 + chargen_x_scale_drive(7 downto 1);
+          raster_buffer_read_address_next <= raster_buffer_read_address + 1;
+        else
+          raster_buffer_read_address_sub_next <= raster_buffer_read_address_sub + chargen_x_scale_drive(7 downto 1);
+        end if;
       end if;
+    end if;
   end process;
   
   -- ramaddress mux
@@ -4648,41 +4648,46 @@ begin
       when others => null;
     end case;
   end process;
-  
-  --Route out position counters for compositor
-  --But delay them for the video pipeline depth.
-  --1 pixel stage + 8 sprite + 8 bitplane = 17 cycles 
-  xcounter_out <= to_integer(xcounter_17);
-  xcounter_17 <= xcounter_16;
-  xcounter_16 <= xcounter_15;
-  xcounter_15 <= xcounter_14;
-  xcounter_14 <= xcounter_13;
-  xcounter_13 <= xcounter_12;
-  xcounter_12 <= xcounter_11;
-  xcounter_11 <= xcounter_10;
-  xcounter_10 <= xcounter_9;
-  xcounter_9 <= xcounter_8;
-  xcounter_8 <= xcounter_7;
-  xcounter_7 <= xcounter_6;
-  xcounter_6 <= xcounter_5;
-  xcounter_5 <= xcounter_4;
-  xcounter_4 <= xcounter_3;
-  xcounter_3 <= xcounter_2;
-  xcounter_2 <= xcounter_1;
-  xcounter_1 <= xcounter;
 
-  -- ycounter we can watch for changes and count down, instead of having to have
-  -- 17 copies of it
-  if ycounter /= ycounter_last then
-    ycounter_export_countdown <= 17;
-  else
-    if ycounter_export_countdown /= 0 then
-      ycounter_export_countdown <= ycounter_export_countdown - 1;
-      ycounter_out <= to_integer(ycounter_last);
-    else
-      ycounter_out <= to_integer(ycounter);
+  process (pixelclock) is
+  begin
+    if rising_edge(pixelclock) then
+      --Route out position counters for compositor
+      --But delay them for the video pipeline depth.
+      --1 pixel stage + 8 sprite + 8 bitplane = 17 cycles 
+      xcounter_out <= to_integer(xcounter_17);
+      xcounter_17 <= xcounter_16;
+      xcounter_16 <= xcounter_15;
+      xcounter_15 <= xcounter_14;
+      xcounter_14 <= xcounter_13;
+      xcounter_13 <= xcounter_12;
+      xcounter_12 <= xcounter_11;
+      xcounter_11 <= xcounter_10;
+      xcounter_10 <= xcounter_9;
+      xcounter_9 <= xcounter_8;
+      xcounter_8 <= xcounter_7;
+      xcounter_7 <= xcounter_6;
+      xcounter_6 <= xcounter_5;
+      xcounter_5 <= xcounter_4;
+      xcounter_4 <= xcounter_3;
+      xcounter_3 <= xcounter_2;
+      xcounter_2 <= xcounter_1;
+      xcounter_1 <= xcounter;
+
+      -- ycounter we can watch for changes and count down, instead of having to have
+      -- 17 copies of it
+      if ycounter /= ycounter_last then
+        ycounter_export_countdown <= 17;
+      else
+        if ycounter_export_countdown /= 0 then
+          ycounter_export_countdown <= ycounter_export_countdown - 1;
+          ycounter_out <= to_integer(ycounter_last);
+        else
+          ycounter_out <= to_integer(ycounter);
+        end if;
+      end if;
     end if;
-  end if;
+  end process;
   
 end Behavioral;
 
