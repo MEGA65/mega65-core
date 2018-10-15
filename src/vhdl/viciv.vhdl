@@ -242,11 +242,6 @@ architecture Behavioral of viciv is
   signal vsync_delay : unsigned(7 downto 0) := to_unsigned(18,8);
   signal vsync_delay_drive : unsigned(7 downto 0) := to_unsigned(18,8);
   signal vicii_ycounter_scale_minus_zero : unsigned(3 downto 0) := to_unsigned(2-1,4);
-  -- Each logical pixel will be 120/n physical pixels wide
-  -- For non-integer multiples, the fraction is represented as n/(2*2*2*3*3*3)
-  -- to allow sufficient precision.
-  signal chargen_x_pixels : integer := 3;
-  signal chargen_x_pixels_sub : integer := 216/3;
   signal chargen_x_scale : unsigned(7 downto 0) := to_unsigned(36,8);  
   signal sprite_first_x : unsigned(13 downto 0) := to_unsigned(1+267-(24)*(120/18),14);
   signal sprite_x_counting : std_logic := '0';
@@ -1162,7 +1157,7 @@ begin
           sprite_bitplane_enables,sprite_horizontal_tile_enables,compositer_enable,
           viciv_fast_internal,pal_simulate,sprite_extended_height_enables,
           sprite_extended_height_size,sprite_extended_width_enables,
-          chargen_x_scale_drive,single_side_border,chargen_x_pixels,
+          chargen_x_scale_drive,single_side_border,
           sprite_first_x,sprite_sixteen_colour_enables,
           vicii_ntsc,vicii_first_raster,vertical_flyback,
           palette_bank_chargen_alt,bitplane_sixteen_colour_mode_flags,
@@ -1673,7 +1668,7 @@ begin
           fastio_rdata(7 downto 6) <= "00";
           fastio_rdata(5 downto 0) <= std_logic_vector(single_side_border(13 downto 8));
         elsif register_number=94 then
-          fastio_rdata <= std_logic_vector(to_unsigned(chargen_x_pixels,8));
+          fastio_rdata <= x"FF";
         elsif register_number=95 then
           fastio_rdata <= std_logic_vector(sprite_h640_msbs);          
         elsif register_number=96 then
@@ -2303,8 +2298,8 @@ begin
                                         -- @IO:GS $D05D VIC-IV side border width (MSB)
                                                     single_side_border(13 downto 8) <= unsigned(fastio_wdata(5 downto 0));
                                                   elsif register_number=94 then
-                                        -- @IO:GS $D05E VIC-IV Physical pixels per H640 VIC-III pixel (should = 120/PEEK($D05A).
-                                                    chargen_x_pixels <= to_integer(unsigned(fastio_wdata));
+                                        -- @IO:GS $D05E VIC-IV UNUSED
+                                                    null;
                                                   elsif register_number=95 then
                                         -- @IO:GS $D05F VIC-IV Sprite H640 X Super-MSBs
                                                     sprite_h640_msbs <= fastio_wdata;
@@ -2376,14 +2371,9 @@ begin
                                                         hsync_polarity_internal <= '1';
                                                         vsync_polarity_internal <= '1';
 
-                                        -- 3 1/3 physical
-                                        -- pixels per actual
-                                                        chargen_x_pixels <= 3;
-                                                        chargen_x_pixels_sub <= 216/3;
-                                                        
-                                                        single_side_border <= to_unsigned(267,14);
-                                                        sprite_first_x <= to_unsigned(1+267-(24)*(120/18),14);
-                                                        chargen_x_scale <= to_unsigned(36,8);
+                                                        single_side_border <= to_unsigned(80,14);
+                                                        sprite_first_x <= to_unsigned(1+80-(24)*(120/60),14);
+                                                        chargen_x_scale <= to_unsigned(60,8);
                                                         chargen_y_scale <= x"01";
                                                         
                                                       when "01" => -- PAL, 800x600 50Hz, NTSC max raster
@@ -2394,13 +2384,10 @@ begin
                                                         hsync_polarity_internal <= '0';
                                                         vsync_polarity_internal <= '0';
 
-                                                        chargen_x_pixels <= 3;
-                                                        chargen_x_pixels_sub <= 216/3;
-                                                        
-                                                        sprite_first_x <= to_unsigned(1+267-(24)*(120/18),14);
-                                                        chargen_x_scale <= to_unsigned(36,8);
+                                                        sprite_first_x <= to_unsigned(1+80-(24)*(120/60),14);
+                                                        chargen_x_scale <= to_unsigned(60,8);
                                                         chargen_y_scale <= x"01";
-                                                        single_side_border <= to_unsigned(267,14);
+                                                        single_side_border <= to_unsigned(80,14);
 
                                                       when "10" => -- NTSC, 800x600 @ 60Hz
                                                         vsync_delay <= to_unsigned(22,8);
@@ -2409,13 +2396,11 @@ begin
                                                         hsync_polarity_internal <= '0';
                                                         vsync_polarity_internal <= '0';
                                         -- Set 40MHz pixel clock for NTSC
-                                                        chargen_x_pixels <= 2;
-                                                        chargen_x_pixels_sub <= 216/2;
                                                         
-                                                        sprite_first_x <= to_unsigned(1+200-(24-3)*(120/24),14);
-                                                        chargen_x_scale <= to_unsigned(48,8);
+                                                        sprite_first_x <= to_unsigned(1+80-(24-3)*(120/60),14);
+                                                        chargen_x_scale <= to_unsigned(60,8);
                                                         chargen_y_scale <= x"01";                
-                                                        single_side_border <= to_unsigned(200,14);
+                                                        single_side_border <= to_unsigned(80,14);
 
                                                       when "11" => -- NTSC 800x600 60Hz
                                                         vsync_delay <= to_unsigned(22,8);
@@ -2426,13 +2411,10 @@ begin
                                                         vsync_polarity_internal <= '0';
 
                                         -- Set 40MHz pixel clock for NTSC
-                                                        chargen_x_pixels <= 2;
-                                                        chargen_x_pixels_sub <= 216/2;
-
-                                                        sprite_first_x <= to_unsigned(1+200-(24-3)*(120/24),14);
-                                                        chargen_x_scale <= to_unsigned(48,8);
+                                                        sprite_first_x <= to_unsigned(1+80-(24-3)*(120/60),14);
+                                                        chargen_x_scale <= to_unsigned(60,8);
                                                         chargen_y_scale <= x"01";                
-                                                        single_side_border <= to_unsigned(200,14);
+                                                        single_side_border <= to_unsigned(60,14);
 
                                                       when others => -- Default to NTSC 800x600 60Hz
                                                         vsync_delay <= to_unsigned(22,8);
@@ -2441,12 +2423,9 @@ begin
                                                         vsync_polarity_internal <= '0';
 
                                         -- Set 40MHz pixel clock for NTSC                                                        
-                                                        chargen_x_pixels <= 2;
-                                                        chargen_x_pixels_sub <= 216/2;
-
-                                                        chargen_x_scale <= to_unsigned(48,8);
+                                                        chargen_x_scale <= to_unsigned(60,8);
                                                         chargen_y_scale <= x"01";                
-                                                        single_side_border <= to_unsigned(200,14);
+                                                        single_side_border <= to_unsigned(80,14);
 
                                                     end case;
                                         -- Update screen and border positions
