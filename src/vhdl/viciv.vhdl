@@ -4676,18 +4676,18 @@ begin
 
       -- ycounter we can watch for changes and count down, instead of having to have
       -- 17 copies of it
-      if ycounter /= ycounter_last then
-        ycounter_export_countdown <= 17;
-      else
-        if ycounter_export_countdown /= 0 then
-          ycounter_export_countdown <= ycounter_export_countdown - 1;
-          ycounter_out <= to_integer(ycounter_last);
-        else
+--      if ycounter /= ycounter_last then
+--        ycounter_export_countdown <= 17;
+--      else
+--        if ycounter_export_countdown /= 0 then
+--          ycounter_export_countdown <= ycounter_export_countdown - 1;
+--          ycounter_out <= to_integer(ycounter_last);
+--        else
           ycounter_out <= to_integer(ycounter);
-        end if;
-      end if;
-    end if;
-  end process;
+--        end if;
+--      end if;
+--    end if;
+--  end process;
   
 end Behavioral;
 
