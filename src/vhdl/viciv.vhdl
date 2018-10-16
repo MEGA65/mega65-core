@@ -3114,10 +3114,10 @@ begin
         -- Get pixel colour (which may be foreground or background)
         palette_address <= "11" & std_logic_vector(postsprite_pixel_colour);
         -- Get the colour of the background for doing the alpha blending 
-        alias_palette_address <= "11" & std_logic_vector(paint_background);
+        alias_palette_address <= "11" & std_logic_vector(postsprite_alpha_value);
       else
         palette_address(7 downto 0) <= std_logic_vector(postsprite_pixel_colour);
-        alias_palette_address(7 downto 0) <= std_logic_vector(paint_background);
+        alias_palette_address(7 downto 0) <= std_logic_vector(postsprite_alpha_value);
         if pixel_is_sprite='0' then
           -- Bold + reverse = use alternate palette
           if (glyph_bold and glyph_reverse)='1' then
