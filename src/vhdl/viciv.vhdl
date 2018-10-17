@@ -492,7 +492,7 @@ architecture Behavioral of viciv is
 
   -- DEBUG: Start character generator in first raster on power up to make ghdl
   -- simulation much quicker
-  signal y_chargen_start : unsigned(11 downto 0) := to_unsigned(4,12);  -- 0
+  signal y_chargen_start : unsigned(11 downto 0) := to_unsigned(1,12);  -- 0
   signal y_chargen_start_minus_one : unsigned(11 downto 0) := to_unsigned(0,12);  --
                                                                                   --auto-calculated signal
   -- Charset is 16bit (2 bytes per char) when this mode is enabled.
@@ -504,7 +504,7 @@ architecture Behavioral of viciv is
   
   -- VIC-II style Mode control bits (correspond to bits in $D016 etc)
   -- -- Text/graphics mode select
-  signal text_mode : std_logic := '0';
+  signal text_mode : std_logic := '1';
   -- -- Basic multicolour mode bit
   signal multicolour_mode : std_logic := '0';
   -- -- Extended background colour mode (reduces charset to 64 entries)
@@ -515,7 +515,7 @@ architecture Behavioral of viciv is
   -- drawing much quicker.
   signal border_x_left : unsigned(13 downto 0) := to_unsigned(0,14);
   signal border_x_right : unsigned(13 downto 0) := to_unsigned(2000,14);
-  signal border_y_top : unsigned(11 downto 0) := to_unsigned(4,12);
+  signal border_y_top : unsigned(11 downto 0) := to_unsigned(1,12);
   signal border_y_bottom : unsigned(11 downto 0) := to_unsigned(600,12);
   signal blank : std_logic := '0';
   -- intermediate calculations for whether we are in the border to improve timing.
@@ -603,7 +603,7 @@ architecture Behavioral of viciv is
   signal composited_red : std_logic_vector(9 downto 0);
   signal composited_green : std_logic_vector(9 downto 0);
   signal composited_blue : std_logic_vector(9 downto 0);
-  signal compositer_enable : std_logic := '0';
+  signal compositer_enable : std_logic := '1';
   signal is_background_in : std_logic;
   signal pixel_is_background_out : std_logic;
   signal pixel_is_foreground_out : std_logic;
@@ -3011,7 +3011,7 @@ begin
       display_active <= indisplay;
       viciv_outofframe <= (not indisplay_t3);
       
-      if indisplay_t3='1' then
+--      if indisplay_t3='1' then
         if inborder_t2='1' or blank='1' or (bitplane_mode='1' and viciv_bitplane_chargen_on='0') then
           pixel_colour <= border_colour;
           report "VICIV: Drawing border" severity note;
@@ -3023,21 +3023,24 @@ begin
           if raster_buffer_read_address = to_unsigned(0,11) then
             report "LEGACY: Painting pixels from raster buffer";
           end if;
-          report "VICIV: rb_read_address = $" & to_hstring(raster_buffer_read_address)
-            & ", data = $" & to_hstring(raster_buffer_read_data(7 downto 0)) severity note;
+          report "VICIV: raster buffer reading next from = $" & to_hstring(raster_buffer_read_address)
+            & ", pixel_colour = $" & to_hstring(raster_buffer_read_data(7 downto 0))
+            & ", pixel_alpha = $" & to_hstring(raster_buffer_read_data(16 downto 9))
+            & ", pixel_is_foreground = " & std_logic'image(raster_buffer_read_data(8))
+            severity note;
           pixel_colour <= raster_buffer_read_data(7 downto 0);
           pixel_alpha <= raster_buffer_read_data(16 downto 9);
           -- 9th bit indicates foreground for sprite collission handling
           pixel_is_background <= not raster_buffer_read_data(8);
           pixel_is_foreground <= raster_buffer_read_data(8);
         end if;
-      else
-        pixel_alpha <= x"ff";
-        pixel_colour <= x"00";
-        pixel_is_background <= '0';
-        pixel_is_foreground <= '0';
-        report "VICIV: Outside of frame" severity note;
-      end if;
+--      else
+--        pixel_alpha <= x"ff";
+--        pixel_colour <= x"00";
+--        pixel_is_background <= '0';
+--        pixel_is_foreground <= '0';
+--        report "VICIV: Outside of frame" severity note;
+--      end if;
       
       -- Make delayed versions of card number and x position so that we have time
       -- to fetch character row data.
@@ -3092,14 +3095,17 @@ begin
       
       -- Pixels have a two cycle pipeline to help keep timing contraints:
 
-      report "PIXEL (" & integer'image(to_integer(xcounter)) & "," & integer'image(to_integer(displayy)) & ") = $"
+      report "PIXEL (" & integer'image(to_integer(xcounter)) & "," & integer'image(to_integer(displayy)) & ") : colour =\ $"
         & to_hstring(postsprite_pixel_colour)
         & ", RGBA = $" &to_hstring(palette_rdata)
+        & ", alpha = $" & to_hstring(postsprite_alpha_value)
         severity note;
       
       -- 1. From pixel colour lookup RGB
 
       -- Feed pixel into sprite pipeline
+      report "Feeding pixel+alpha to pipeline: pixel_colour=$" & to_hstring(pixel_colour)
+        & ", pixel_alpha=$" & to_hstring(pixel_alpha);
       chargen_pixel_colour <= pixel_colour;
       chargen_alpha_value <= pixel_alpha;
       pixel_is_foreground_in <= pixel_is_foreground;
@@ -3113,11 +3119,11 @@ begin
       if postsprite_pixel_colour(7 downto 4) = x"0" and reg_palrom='0' then
         -- Get pixel colour (which may be foreground or background)
         palette_address <= "11" & std_logic_vector(postsprite_pixel_colour);
-        -- Get the colour of the background for doing the alpha blending 
-        alias_palette_address <= "11" & std_logic_vector(postsprite_alpha_value);
+        -- Get the colour of the background for doing the alpha blending
+        alias_palette_address <= "11" & std_logic_vector(paint_background);
       else
         palette_address(7 downto 0) <= std_logic_vector(postsprite_pixel_colour);
-        alias_palette_address(7 downto 0) <= std_logic_vector(postsprite_alpha_value);
+        alias_palette_address(7 downto 0) <= std_logic_vector(paint_background);
         if pixel_is_sprite='0' then
           -- Bold + reverse = use alternate palette
           if (glyph_bold and glyph_reverse)='1' then
@@ -3172,6 +3178,25 @@ begin
       composite_green <= vga_buffer_green;
       composite_blue <= vga_buffer_blue;
 
+      report "Palette read address = $" & to_hstring(palette_address)
+        & ", alpha palette read address = $" & to_hstring(alias_palette_address)
+        & ", rdata=$" & to_hstring(palette_rdata)
+        & ", alias rdata=$" & to_hstring(alias_palette_rdata);
+      report "compositing background "
+        & "R=$" & to_hstring(alias_palette_rdata(31 downto 24))
+        & ", G=$" & to_hstring(alias_palette_rdata(23 downto 16))
+        & ", B=$" & to_hstring(alias_palette_rdata(15 downto 8))
+        &" with foreground "
+        & "R=$" & to_hstring(vga_buffer_red)
+        & ", G=$" & to_hstring(vga_buffer_green)
+        & ", B=$" & to_hstring(vga_buffer_blue)
+        & ", alpha=$" & to_hstring(raster_buffer_read_data(16 downto 9));
+      
+      report "alpha composited"
+        & " red=$" & to_hstring(composited_red(9 downto 2))
+        & ", green=$" & to_hstring(composited_green(9 downto 2))
+        & ", blue=$" & to_hstring(composited_blue(9 downto 2));
+        
       if compositer_enable='1' then
         vga_buffer2_red <= unsigned(composited_red(9 downto 2));
         vga_buffer2_green <= unsigned(composited_green(9 downto 2));
@@ -3467,6 +3492,8 @@ begin
               character_number <= character_number + 1;
             end if;
             next_ramaccess_is_screen_row_fetch <= '1';
+            report "Scheduling read of $" & to_hstring(next_screen_row_fetch_address)
+              & " for screen row read.";
             next_ramaccess_is_glyph_data_fetch <= '0';
             next_ramaccess_is_sprite_data_fetch <= '0';
             if next_token_is_goto='0' then
@@ -3647,6 +3674,9 @@ begin
           -- We now know the character number, and whether it is full-colour or
           -- normal, and whether we are flipping in either axis, and so can
           -- work out the address to fetch data from.
+          if glyph_with_alpha='1' then
+            report "glyph is alpha blended";
+          end if;
           if glyph_full_colour='1' then
             report "glyph is full colour";
             -- Full colour glyphs come from 64*(glyph_number) in RAM, never
@@ -4187,7 +4217,7 @@ begin
           -- Draw 8 pixels using a byte at a time from full_colour_data          
           paint_bits_remaining <= paint_glyph_width - 1;
           paint_ready <= '0';
-          report "LEGACY: clearing paint_ready";
+          report "LEGACY: clearing paint_ready. full_colour_data=$" & to_hstring(full_colour_data);
           paint_full_colour_data <= full_colour_data;
           paint_fsm_state <= PaintFullColourPixels;
         when PaintFullColourPixels =>
@@ -4213,8 +4243,10 @@ begin
               -- colour RAM, allowing full colour chars to be faded in and out
               -- from background?
               report "LEGACY: full-colour glyph painting alpha pixel $"
-                & to_hstring(paint_full_colour_data(7 downto 0))
-                & " with alpha value $" & to_hstring(paint_full_colour_data(7 downto 0));
+                & to_hstring(paint_foreground)
+                & " with alpha value $" & to_hstring(paint_full_colour_data(7 downto 0))
+                & " : raster_buffer_write_address=$" & to_hstring(raster_buffer_write_address)
+                & " ( + 1 ?)";
               -- 8-bit pixel values provide the alpha
               raster_buffer_write_data(16 downto 9) <= paint_full_colour_data(7 downto 0);
               raster_buffer_write_data(8) <= paint_full_colour_data(7);
@@ -4626,16 +4658,16 @@ begin
         next_ramaddress <= glyph_data_address;
       when PaintMemWait =>
         if glyph_full_colour = '1' then
-          report "setting ramaddress to $x" & to_hstring(glyph_data_address(15 downto 0)) & " for full-colour glyph drawing";
+          report "setting ramaddress to $" & to_hstring(glyph_data_address) & " for full-colour glyph drawing";
           next_ramaddress <= glyph_data_address;
         end if;
       when PaintMemWait2 =>
         if glyph_full_colour = '1' then
-          report "LEGACY: setting ramaddress to $x" & to_hstring(glyph_data_address(15 downto 0)) & " for full-colour glyph drawing";
+          report "LEGACY: setting ramaddress to $" & to_hstring(glyph_data_address) & " for full-colour glyph drawing";
           next_ramaddress <= glyph_data_address;
         end if;
       when PaintFullColourFetch =>
-        report "setting ramaddress to $x" & to_hstring(glyph_data_address(15 downto 0)) & " for full-colour glyph drawing";
+        report "setting ramaddress to $" & to_hstring(glyph_data_address) & " for full-colour glyph drawing";
         next_ramaddress <= glyph_data_address;
       when SpritePointerFetch2 =>
         next_ramaddress <= sprite_pointer_address;
