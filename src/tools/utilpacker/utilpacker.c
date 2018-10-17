@@ -156,6 +156,13 @@ int main(int argc,char **argv)
   // Skip the first 2KB (plus a bit to work around a VIC-IV bug) of colour RAM, as it is used by C65 system.  This leaves
   // us 30KB of available space.
   int ar_offset=2048+80;
+
+  // Put some values in colour ram for testing alpha blending in simulation
+  for(int i=0;i<0xff;i+=2)
+    {
+      archive[i]=0x20; // alpha mode
+      archive[i+1]=0x01; // foreground = white
+    }
   
   for(int i=2;i<argc;i++)
     {
