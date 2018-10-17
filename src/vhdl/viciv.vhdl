@@ -4191,14 +4191,14 @@ begin
           paint_full_colour_data <= full_colour_data;
           paint_fsm_state <= PaintFullColourPixels;
         when PaintFullColourPixels =>
-          if paint_with_alpha='0' then
-            if paint_full_colour_data(7 downto 0) = x"00" then
-              -- background pixel
-              raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
-              raster_buffer_write_data(8) <= '0';
-              raster_buffer_write_data(7 downto 0) <= paint_background;
-            else
-              -- foreground pixel
+          if paint_full_colour_data(7 downto 0) = x"00" then
+            -- background pixel
+            raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
+            raster_buffer_write_data(8) <= '0';
+            raster_buffer_write_data(7 downto 0) <= paint_background;
+          else
+            -- foreground pixel
+            if paint_with_alpha='0' then
               report "LEGACY: full-colour glyph painting pixel $" & to_hstring(paint_full_colour_data(7 downto 0))
                 & " into buffer @ $" & to_hstring(raster_buffer_write_address);
               raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
@@ -4208,19 +4208,19 @@ begin
               else
                 raster_buffer_write_data(7 downto 0) <= paint_foreground;
               end if;
+            else
+              -- XXX Add alternate alpha mode where alhpa value is picked by
+              -- colour RAM, allowing full colour chars to be faded in and out
+              -- from background?
+              report "LEGACY: full-colour glyph painting alpha pixel $"
+                & to_hstring(paint_full_colour_data(7 downto 0))
+                & " with alpha value $" & to_hstring(paint_full_colour_data(7 downto 0));
+              -- 8-bit pixel values provide the alpha
+              raster_buffer_write_data(16 downto 9) <= paint_full_colour_data(7 downto 0);
+              raster_buffer_write_data(8) <= paint_full_colour_data(7);
+              -- colour RAM colour provides the foreground
+              raster_buffer_write_data(7 downto 0) <= paint_foreground;
             end if;
-          else
-            -- XXX Add alternate alpha mode where alhpa value is picked by
-            -- colour RAM, allowing full colour chars to be faded in and out
-            -- from background?
-            report "LEGACY: full-colour glyph painting alpha pixel $"
-              & to_hstring(paint_full_colour_data(7 downto 0))
-              & " with alpha value $" & to_hstring(paint_full_colour_data(7 downto 0));
-            -- 8-bit pixel values provide the alpha
-            raster_buffer_write_data(16 downto 9) <= paint_full_colour_data(7 downto 0);
-            raster_buffer_write_data(8) <= paint_full_colour_data(7);
-            -- colour RAM colour provides the foreground
-            raster_buffer_write_data(7 downto 0) <= paint_foreground;
           end if;
           paint_full_colour_data(55 downto 0) <= paint_full_colour_data(63 downto 8);
           raster_buffer_write_address <= raster_buffer_write_address + 1;
