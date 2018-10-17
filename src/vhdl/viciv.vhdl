@@ -59,8 +59,8 @@ entity viciv is
   Port (
     all_pause : in std_logic;
     
-    xcounter_out : out integer;
-    ycounter_out : out integer;
+    xcounter_out : out integer range 0 to 4095 := 0;
+    ycounter_out : out integer range 0 to 2047 := 0;
     ----------------------------------------------------------------------
     -- dot clock
     ----------------------------------------------------------------------
@@ -496,11 +496,11 @@ architecture Behavioral of viciv is
   signal y_chargen_start_minus_one : unsigned(11 downto 0) := to_unsigned(0,12);  --
                                                                                   --auto-calculated signal
   -- Charset is 16bit (2 bytes per char) when this mode is enabled.
-  signal sixteenbit_charset : std_logic := '0';
+  signal sixteenbit_charset : std_logic := '1';
   -- Characters >255 are full-colour blocks when enabled.
-  signal fullcolour_extendedchars : std_logic := '0';
+  signal fullcolour_extendedchars : std_logic := '1';
   -- Characters <256 are full-colour blocks when enabled
-  signal fullcolour_8bitchars : std_logic := '0';
+  signal fullcolour_8bitchars : std_logic := '1';
   
   -- VIC-II style Mode control bits (correspond to bits in $D016 etc)
   -- -- Text/graphics mode select
