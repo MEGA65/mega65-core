@@ -95,6 +95,7 @@ architecture greco_roman of pixel_driver is
   signal fifo_inuse : std_logic := '0';
   signal fifo_almost_empty : std_logic := '0';
   signal fifo_running : std_logic := '0';
+  signal fifo_running_drive : std_logic := '0';
   signal fifo_rst : std_logic := '1';
   signal reset_counter : integer range 0 to 255 := 255;
   signal fifo_empty : std_logic := '0';   
@@ -368,7 +369,7 @@ begin
   
   -- Generate output pixel strobe and signals for read-side of the FIFO
   pixel_strobe_out <= clock30 when pal50_select_internal='1' else clock40;
-  rd_en <= fifo_running;
+  rd_en <= fifo_running_drive;
   raddr <= raddr50 when pal50_select_internal='1' else raddr60;
   rd_clk <= clock30 when pal50_select_internal='1' else clock40;
 
@@ -450,6 +451,8 @@ begin
     
     -- Manage writing into the raster buffer
     if rising_edge(clock100) then
+      fifo_running_drive <= fifo_running;
+      
       if reset_counter /= 0 then
         reset_counter <= reset_counter - 1;
         if reset_counter = 32 then
@@ -458,6 +461,7 @@ begin
       else
         fifo_running <= '1';
       end if;
+
       if pixel_strobe_in='1' then
         waddr_unsigned := to_unsigned(waddr,12);
         waddr_out <= to_unsigned(waddr,12);
