@@ -2698,7 +2698,7 @@ begin
         xcounter_pipeline_delayed <= 0;
       end if;
       
-      if external_frame_x_zero_latched='0' and external_pixel_strobe_in='1' then
+      if external_frame_x_zero_latched='0' and external_pixel_strobe_log(0)='1' then
         raster_buffer_read_address <= raster_buffer_read_address_next;
         raster_buffer_read_address_sub <= raster_buffer_read_address_sub_next;
         xcounter <= xcounter + 1;
