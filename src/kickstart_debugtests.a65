@@ -60,7 +60,7 @@ theroutine_end:
 
 
 .macend
-.invoke	cpupersonalitytest
+;.invoke	cpupersonalitytest
 
 .macro	buffereduarttest
 		; 115200 bps for both
