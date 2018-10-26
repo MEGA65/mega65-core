@@ -2281,16 +2281,7 @@ begin
         force_exrom <= value(7);
         force_game <= value(6);
       elsif (long_address = x"FFD37ff") or (long_address = x"FFD17ff") then
-        -- re-enable kickstart ROM.  This is only to allow for easier development
-        -- of kickstart ROMs.
-        if value = x"4B" then
-          reg_offset_high <= x"F00";
-          reg_map_high <= "1000";
-          reg_offset_low <= x"000";
-          reg_map_low <= "0000";
-          reg_mb_high <= x"FF";
-          reg_mb_low <= x"00";
-        end if;
+        null;
       end if;
       
       -- Always write to shadow ram if in scope, even if we also write elsewhere.
