@@ -188,6 +188,9 @@ architecture Behavioral of viciv is
   signal reg_xcounter_delay : integer range 0 to 31 := 17;
   signal xcounter_pipeline_delayed : integer := 0;
   signal external_pixel_strobe_log : std_logic_vector(31 downto 0) := (others => '0');
+  signal sprite_h640_delayed : std_logic := '0';
+  signal reg_h640_delayed : std_logic := '0';
+  signal reg_h1280_delayed : std_logic := '0';
   
   -- last value written to key register
   signal reg_key : unsigned(7 downto 0) := x"00";
@@ -1085,9 +1088,9 @@ begin
     port map (pixelclock => pixelclock,
               ioclock => ioclock,
 
-              sprite_h640 => sprite_h640,
-              bitplane_h640 => reg_h640,
-              bitplane_h1280 => reg_h1280,
+              sprite_h640 => sprite_h640_delayed,
+              bitplane_h640 => reg_h640_delayed,
+              bitplane_h1280 => reg_h1280_delayed,
               bitplane_mode_in => bitplane_mode,
               bitplane_enables_in => bitplane_enables,
               bitplane_complements_in => bitplane_complements,
@@ -4704,6 +4707,10 @@ begin
       --1 pixel stage + 8 sprite + 8 bitplane = 17 cycles 
       xcounter_out <= xcounter_pipeline_delayed;
 
+      sprite_h640_delayed <= sprite_h640;
+      reg_h640_delayed <= reg_h640;
+      reg_h1280_delayed <= reg_h1280;        
+      
       -- ycounter we can watch for changes and count down, instead of having to have
       -- 17 copies of it
 --      if ycounter /= ycounter_last then
