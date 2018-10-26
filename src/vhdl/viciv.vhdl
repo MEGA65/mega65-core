@@ -191,6 +191,7 @@ architecture Behavioral of viciv is
   signal sprite_h640_delayed : std_logic := '0';
   signal reg_h640_delayed : std_logic := '0';
   signal reg_h1280_delayed : std_logic := '0';
+  signal external_frame_x_zero_latched : std_logic := '0';
   
   -- last value written to key register
   signal reg_key : unsigned(7 downto 0) := x"00";
@@ -2691,13 +2692,13 @@ begin
       -- for pipeline depth
       external_pixel_strobe_log(0) <= external_pixel_strobe_in;
       external_pixel_strobe_log(31 downto 1) <= external_pixel_strobe_log(30 downto 0);
-      if external_frame_x_zero='0' and external_pixel_strobe_log(reg_xcounter_delay)='1' then
+      if external_frame_x_zero_latched='0' and external_pixel_strobe_log(reg_xcounter_delay)='1' then
         xcounter_pipeline_delayed <= xcounter_pipeline_delayed + 1;
-      elsif external_frame_x_zero='1' then
+      elsif external_frame_x_zero_latched='1' then
         xcounter_pipeline_delayed <= 0;
       end if;
       
-      if external_frame_x_zero='0' and external_pixel_strobe_in='1' then
+      if external_frame_x_zero_latched='0' and external_pixel_strobe_in='1' then
         raster_buffer_read_address <= raster_buffer_read_address_next;
         raster_buffer_read_address_sub <= raster_buffer_read_address_sub_next;
         xcounter <= xcounter + 1;
@@ -2714,7 +2715,7 @@ begin
         end if;
       end if;
       
-      if external_frame_x_zero = '1' then
+      if external_frame_x_zero_latched = '1' then
         -- End of raster reached.
         -- Bump raster number and start next raster.
         report "XZERO: ycounter=" & integer'image(to_integer(ycounter));
@@ -2818,7 +2819,7 @@ begin
       else
         xfrontporch <= '0';
       end if;
-      if external_frame_x_zero='1' then
+      if external_frame_x_zero_latched='1' then
         -- tell frame grabber about each new raster
         pixel_newraster <= '1';
       else
@@ -4709,7 +4710,8 @@ begin
 
       sprite_h640_delayed <= sprite_h640;
       reg_h640_delayed <= reg_h640;
-      reg_h1280_delayed <= reg_h1280;        
+      reg_h1280_delayed <= reg_h1280;
+      external_frame_x_zero_latched <= external_frame_x_zero;
       
       -- ycounter we can watch for changes and count down, instead of having to have
       -- 17 copies of it
