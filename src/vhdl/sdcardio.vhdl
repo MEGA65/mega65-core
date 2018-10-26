@@ -1676,7 +1676,8 @@ begin  -- behavioural
                   sd_dowrite <= '0';                  
                   sdio_error <= '0';
                   sdio_fsm_error <= '0';
-                  sd_sector <= (others => '0');
+                  -- Don't reset sector number on reset                
+--                  sd_sector <= (others => '0');
                   sdio_busy <= '0';
 
                 when x"10" =>
