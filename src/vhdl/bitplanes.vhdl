@@ -161,6 +161,7 @@ architecture behavioural of bitplanes is
   signal bitplane_data_offsets_next : bdo;
   signal bitplane_y_card_position : spritedatabytenumber := 0;
   signal bitplane_y_card_number : spritedatabytenumber := 0;
+  signal bitplane_y_card_number_drive : spritedatabytenumber := 0;
   
   signal bitplanedatabuffer_cs : std_logic := '1';
   signal bitplanedatabuffer_write : std_logic := '0';
@@ -252,12 +253,13 @@ begin  -- behavioural
 --        report "bitplane_y_start_drive = " & integer'image(to_integer(signed(std_logic_vector(bitplanes_y_start_drive))));
         bitplane_y_card_position
           <= integer((y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive))))) mod 8);
-        bitplane_y_card_number
+        bitplane_y_card_number_drive
           <= integer(((y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive))))) / 8));
       else
         bitplane_y_card_position <= integer(y_in mod 8);
         bitplane_y_card_number <= 0;
       end if;
+      bitplane_y_card_number <= bitplane_y_card_number_drive;
       
       -- Copy sprite colission status out
       sprite_map_out <= sprite_map_in;
