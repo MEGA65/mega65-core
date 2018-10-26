@@ -538,115 +538,9 @@ reset_machine_state:
 reset_entry:
 		sei
 
+		.include "kickstart_debugtests.a65"
+
 		jsr audiomix_setup
-
-.macro	buffereduarttest
-		; 115200 bps for both
-		LDA	#$b2
-		STA	$D0E6
-		STA	$D0EE
-		LDA	#$01
-		STA	$D0EF
-		STA	$D0E7
-		; Hook the two UARTs together
-		LDA    #$11
-		STA	$D0E2
-		STA	$D0EA
-		; Write a bunch of bytes
-		LDA	#$11
-@ll:		STA	$D0E8
-		CLC
-		ADC	#$11
-		CMP	#$10
-		BNE	@ll
-
-		LDA	#$00
-		TAX
-		TAY
-		TAZ
-		; See if they get read correctly
-@ll2:		LDX	$D0E1
-		LDA	$D0E0
-		JMP	@ll2
-.macend		
-;		.invoke buffereduarttest
-
-.macro sdtest
-		; Reset SD card
-		lda #$00
-		sta sd_ctrl
-		lda #$01
-		sta sd_ctrl
-
-
-		; map sector buffer
-		lda #$81
-		sta sd_ctrl
-		; put some data in sector buffer
-		ldx #$01
-		stx $de00
-		inx
-		stx $de01
-		inx
-		stx $de02
-		inx
-		stx $de03
-		; Issue write block command
-		lda #$03
-		sta sd_ctrl
-foo:		jmp foo
-.macend
-;		.invoke sdtest
-.macro f011test
-		; use real floppy drive
-		lda #$01
-		sta sd_fdc_select
-
-		; 10x MFM speed for simulation data
-		lda #$0a
-		sta fdc_mfm_speed
-
-		lda #$68 ; floppy motor + LED on, head side 1
-		sta $d080
-
-		; Request sector T39,S1,H1
-		lda #0
-		sta $d084
-		lda #1
-		sta $d085
-		sta $d086
-
-		lda $d087 ; clear DRQ flag
-		; reset buffer pointers
-		lda #$01
-		sta $d081
-
-		; Test sector buffer access
-		lda #$11
-		sta $d087
-		lda #$22
-		sta $d087
-		lda #$01
-		sta $d081
-		lda $d087
-		lda $d087
-
-		; Issue read request
-		lda #$40
-		sta $d081
-
-bytewait:
-		lda $d082
-		and #$20
-		bne bytewait
-
-		; read next byte
-		lda $d087
-
-		; get next byte
-		jmp bytewait
-.macend
-;		.invoke f011test
 
 		jsr reset_machine_state
 
@@ -945,7 +839,8 @@ kickuproutine:
 		; copy complete, so mark ourselves upgraded, and jump into hypervisor
 		; as though we were just reset.
 
-		; BG: here we should store non-zero, not ZERO ?
+		; (it doesn't matter what gets written to this register, it is just the fact that it has been
+		; written to, that sets the flag).
 		;
 		sta hypervisor_kickedup_flag	; mark ourselves as having kicked up, (00=virgin, else already-kicked)
 		jmp $8100
