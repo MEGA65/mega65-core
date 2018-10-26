@@ -184,6 +184,10 @@ architecture Behavioral of viciv is
   signal viciii_fast_internal : std_logic := '1';
   signal viciv_fast_internal : std_logic := '1';
   signal viciv_bitplane_chargen_on : std_logic := '0';
+
+  signal reg_xcounter_delay : integer range 0 to 31 := 17;
+  signal xcounter_pipeline_delayed : integer := 0;
+  signal external_pixel_strobe_log : std_logic_vector(31 downto 0) := (others => '0');
   
   -- last value written to key register
   signal reg_key : unsigned(7 downto 0) := x"00";
@@ -1704,8 +1708,8 @@ begin
           fastio_rdata <= std_logic_vector(colour_ram_base(7 downto 0));
         elsif register_number=101 then
           fastio_rdata <= std_logic_vector(colour_ram_base(15 downto 8));
-        elsif register_number=102 then -- $D3066 UNUSED
-          fastio_rdata <= x"FF";
+        elsif register_number=102 then -- $D3066 xcounter_pipeline_delayed delay
+          fastio_rdata <= std_logic_vector(to_unsigned(reg_xcounter_delay,8));
         elsif register_number=103 then  -- $D3067
           fastio_rdata <= std_logic_vector(sprite_first_x(7 downto 0));
         elsif register_number=104 then  -- $D068
@@ -2341,8 +2345,8 @@ begin
                                         -- @IO:GS $D065 VIC-IV colour RAM base address (bits 15 - 8)
                                                     colour_ram_base(15 downto 8) <= unsigned(fastio_wdata);
                                                   elsif register_number=102 then -- $D3066
-                                                                                 -- @IO:GS $D066 VIC-IV UNUSED
-                                                    null;
+                                        -- @IO:GS $D066.0-4 VIC-IV xcounter pipeline delay DEBUG WILL BE REMOVED
+                                                    reg_xcounter_delay <= to_integer(unsigned(fastio_wdata(4 downto 0)));
                                                   elsif register_number=103 then  -- $D3067
                                                                                   -- @IO:GS $D067 VIC-IV Sprite/bitplane first X DEBUG WILL BE REMOVED
                                                     sprite_first_x(7 downto 0) <= unsigned(fastio_wdata);
@@ -2679,6 +2683,17 @@ begin
       end if;
       
       indisplay :='1';
+
+      -- Make variably delayed xcounter signal, so that we can correct delay
+      -- for pipeline depth
+      external_pixel_strobe_log(0) <= external_pixel_strobe_in;
+      external_pixel_strobe_log(31 downto 1) <= external_pixel_strobe_log(30 downto 0);
+      if external_frame_x_zero='0' and external_pixel_strobe_log(reg_xcounter_delay)='1' then
+        xcounter_pipeline_delayed <= xcounter_pipeline_delayed + 1;
+      elsif external_frame_x_zero='1' then
+        xcounter_pipeline_delayed <= 0;
+      end if;
+      
       if external_frame_x_zero='0' and external_pixel_strobe_in='1' then
         raster_buffer_read_address <= raster_buffer_read_address_next;
         raster_buffer_read_address_sub <= raster_buffer_read_address_sub_next;
@@ -4687,24 +4702,7 @@ begin
       --Route out position counters for compositor
       --But delay them for the video pipeline depth.
       --1 pixel stage + 8 sprite + 8 bitplane = 17 cycles 
-      xcounter_out <= to_integer(xcounter_17);
-      xcounter_17 <= xcounter_16;
-      xcounter_16 <= xcounter_15;
-      xcounter_15 <= xcounter_14;
-      xcounter_14 <= xcounter_13;
-      xcounter_13 <= xcounter_12;
-      xcounter_12 <= xcounter_11;
-      xcounter_11 <= xcounter_10;
-      xcounter_10 <= xcounter_9;
-      xcounter_9 <= xcounter_8;
-      xcounter_8 <= xcounter_7;
-      xcounter_7 <= xcounter_6;
-      xcounter_6 <= xcounter_5;
-      xcounter_5 <= xcounter_4;
-      xcounter_4 <= xcounter_3;
-      xcounter_3 <= xcounter_2;
-      xcounter_2 <= xcounter_1;
-      xcounter_1 <= xcounter;
+      xcounter_out <= xcounter_pipeline_delayed;
 
       -- ycounter we can watch for changes and count down, instead of having to have
       -- 17 copies of it
