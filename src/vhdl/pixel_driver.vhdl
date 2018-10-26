@@ -483,7 +483,7 @@ begin
           report "Zeroing waddr";
         end if;
         report "waddr = $" & to_hstring(to_unsigned(waddr,16));
-        wr_en <= '1' and fifo_running;
+        wr_en <= '1' and fifo_running_drive;
       else
         wr_en <= '0';
       end if;
