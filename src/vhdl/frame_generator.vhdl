@@ -62,7 +62,9 @@ architecture brutalist of frame_generator is
 
   signal x : integer := 0;
   signal x_zero_driver : std_logic := '0';
+  signal x_zero_driver2 : std_logic := '0';
   signal y_zero_driver : std_logic := '0';
+  signal y_zero_driver2 : std_logic := '0';
   signal y : integer := 0;
   signal inframe_internal : std_logic := '0';
 
@@ -83,8 +85,10 @@ begin
       vsync <= vsync_driver;
       hsync <= hsync_driver;
       hsync_uninverted <= hsync_uninverted_driver;
-      x_zero <= x_zero_driver;
-      y_zero <= y_zero_driver;
+      x_zero <= x_zero_driver2;
+      y_zero <= y_zero_driver2;
+      x_zero_driver2 <= x_zero_driver;
+      y_zero_driver2 <= y_zero_driver;
       
       if x < frame_width then
         x <= x + 1;
