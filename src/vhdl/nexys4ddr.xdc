@@ -3,10 +3,25 @@
 ## - uncomment the lines corresponding to used pins
 ## - rename the used ports (in each line, after get_ports) according to the top level signal names in the project
 
+# Ignore false paths crossing clock domains in pixel output stage
+set_false_path -through [ get_cells -hierarchical machine0/pixel0* ]
+set_false_path -through [ get_cells -hierarchical machine0/viciv0/vicii_sprites0/bitplanes0/v_bitplane_y_start* ]
+set_false_path -through [ get_cells -hierarchical machine0/viciv0/vicii_sprites0/sprite0/bitplane_y_card_number* ]
+
 ## Clock signal
 set_property -dict { PACKAGE_PIN E3 IOSTANDARD LVCMOS33 } [get_ports CLK_IN]
 create_clock -add -name sys_clk_pin -period 10.00 -waveform {0 5} [get_ports CLK_IN]
- 
+
+# Ignore paths from 30/40MHz frame generators to 100MHz pixel clock
+
+create_clock -name clkout3 -period 25 [get_pins dotclock1/clkout3_buf/O]
+set_input_jitter clkout3 0.100
+create_clock -name clkout4 -period 33.33 [get_pins dotclock1/clkout4_buf/O]
+set_input_jitter clkout4 0.100
+
+set_false_path -from [get_clocks clkout3] -to [get_clocks clkout0]
+set_false_path -from [get_clocks clkout4] -to [get_clocks clkout0]
+
 ## Switches
 set_property -dict { PACKAGE_PIN J15 IOSTANDARD LVCMOS33 } [get_ports {sw[0]}]
 set_property -dict { PACKAGE_PIN L16 IOSTANDARD LVCMOS33 } [get_ports {sw[1]}]
