@@ -56,9 +56,7 @@ entity machine is
   Port ( pixelclock : in STD_LOGIC;
          cpuclock : in std_logic;
          clock50mhz : in std_logic;
-         clock30 : in std_logic;
-         clock33 : in std_logic;
-         clock40 : in std_logic;
+         clock120 : in std_logic;
          clock200 : in std_logic;
          ioclock : std_logic;
          uartclock : std_logic;
@@ -959,8 +957,7 @@ begin
   pixel0: entity work.pixel_driver
     port map (
       clock100 => pixelclock,
-      clock40 => clock40,
-      clock30 => clock30,
+      clock120 => clock120,
 
       -- Configuration information from the VIC-IV
       hsync_invert => hsync_polarity,
@@ -969,7 +966,7 @@ begin
       test_pattern_enable => '0',      
       
       -- Framing information for VIC-IV
-      pixel_strobe_out => external_pixel_strobe,
+      pixel_strobe100_out => external_pixel_strobe,
       x_zero => external_frame_x_zero,     
       y_zero => external_frame_y_zero,     
 

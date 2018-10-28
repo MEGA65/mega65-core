@@ -19,8 +19,13 @@ set_input_jitter clkout4 0.100
 create_clock -name clkout5 -period 33.33 [get_pins dotclock1/clkout4_buf/O]
 set_input_jitter clkout5 0.100
 
-set_false_path -from [get_clocks clkout4] -to [get_clocks clkout0]
-set_false_path -from [get_clocks clkout5] -to [get_clocks clkout0]
+set_false_path -to [get_cells machine/pixeldriver/frame50/x_zero_driver100b_reg_srl2]
+set_false_path -to [get_cells machine/pixeldriver/frame50/y_zero_driver100b_reg_srl2]
+set_false_path -to [get_cells machine/pixeldriver/frame60/x_zero_driver100b_reg_srl2]
+set_false_path -to [get_cells machine/pixeldriver/frame60/y_zero_driver100b_reg_srl2]
+set_false_path -to [get_cells machine/pixeldriver/fifo_running_reg_srl2]
+set_false_path -to [get_cells machine/pixeldriver/fifo_inuse120_drive_reg]
+
 
 ## Switches
 set_property -dict { PACKAGE_PIN J15 IOSTANDARD LVCMOS33 } [get_ports {sw[0]}]
