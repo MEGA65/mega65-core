@@ -101,7 +101,9 @@ architecture greco_roman of pixel_driver is
   signal fifo_running100 : std_logic := '0';
   signal fifo_running_drive : std_logic := '0';
   signal fifo_rst : std_logic := '1';
-  signal reset_counter : integer range 0 to 255 := 255;
+  signal reset_counter_zero_120 : std_logic := '0';
+  signal reset_counter_zero : std_logic := '0';
+  signal reset_counter_zero_drive : std_logic := '0';
   signal reset_counter100 : integer range 0 to 255 := 255;
   signal fifo_empty120 : std_logic := '0';
   signal fifo_full120 : std_logic := '0';
@@ -498,22 +500,26 @@ begin
     end if;
     
     if rising_edge(clock120) then
-      reset_counter <= reset_counter100;
+      reset_counter_zero_120 <= reset_counter_zero_drive;
       fifo_running_drive <= fifo_running;      
-      if reset_counter /= 0 then
-      else
+      if reset_counter_zero_120 = '1' then
         fifo_running <= '1';
+      else
+        fifo_running <= '0';
       end if;
     end if;
 
     if rising_edge(clock100) then
+      reset_counter_zero_drive <= reset_counter_zero;
       if reset_counter100 /= 0 then
         reset_counter100 <= reset_counter100 - 1;
         fifo_running100 <= '0';
         if reset_counter100 = 32 then
           fifo_rst <= '0';
         end if;
+        reset_counter_zero <= '0';
       else
+        reset_counter_zero <= '1';
         fifo_running100 <= '1';
       end if;
     end if;

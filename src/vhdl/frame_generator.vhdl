@@ -74,9 +74,11 @@ architecture brutalist of frame_generator is
 
   signal x : integer := 0;
   signal x_zero_driver : std_logic := '0';
+  signal x_zero_driver2 : std_logic := '0';
   signal x_zero_driver100 : std_logic := '0';
   signal x_zero_driver100b : std_logic := '0';
   signal y_zero_driver : std_logic := '0';
+  signal y_zero_driver2 : std_logic := '0';
   signal y_zero_driver100 : std_logic := '0';
   signal y_zero_driver100b : std_logic := '0';
   signal y : integer := 0;
@@ -96,7 +98,7 @@ architecture brutalist of frame_generator is
   
 begin
 
-  process (clock120) is
+  process (clock120,clock100) is
   begin
 
     if rising_edge(clock100) then
@@ -105,8 +107,8 @@ begin
       y_zero_100 <= y_zero_driver100b;
       x_zero_driver100b <= x_zero_driver100;
       y_zero_driver100b <= y_zero_driver100;      
-      x_zero_driver100 <= x_zero_driver;
-      y_zero_driver100 <= y_zero_driver;      
+      x_zero_driver100 <= x_zero_driver2;
+      y_zero_driver100 <= y_zero_driver2;      
 
       -- Pixel strobe to VIC-IV can just be a 50MHz pulse
       -- train, since it all goes into a buffer.
@@ -123,6 +125,8 @@ begin
     
     if rising_edge(clock120) then
 
+      x_zero_driver2 <= x_zero_driver;
+      y_zero_driver2 <= y_zero_driver;
       x_zero_120 <= x_zero_driver;
       y_zero_120 <= y_zero_driver;
       
