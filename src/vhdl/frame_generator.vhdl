@@ -114,7 +114,7 @@ begin
       -- train, since it all goes into a buffer.
       -- But better is to still try to follow the 120MHz driven
       -- chain.
-      pixel_toggle100 <= not pixel_toggle120;
+      pixel_toggle100 <= pixel_toggle120;
       last_pixel_toggle100 <= pixel_toggle100;
       if pixel_toggle100 /= last_pixel_toggle100 then
         pixel_strobe_100 <= '1';
@@ -139,6 +139,7 @@ begin
       if pixel_strobe_counter = 0 then
         pixel_strobe_counter <= (clock_dividor - 1);
         pixel_strobe120_drive <= '1';
+        pixel_toggle120 <= not pixel_toggle120;
       else
         pixel_strobe120_drive <= '0';
         pixel_strobe_counter <= pixel_strobe_counter - 1;
