@@ -235,7 +235,7 @@ begin
                fifo_full => led(4),
                
                -- Pixels
-               pixel_valid => pixel_valid,
+               pixel_strobe_in => pixel_valid,
                red_i => red_in,
                green_i => green_in,
                blue_i => blue_in,
@@ -243,7 +243,7 @@ begin
                red_o => buffer_vgared,
                green_o => buffer_vgagreen,
                blue_o => buffer_vgablue,
-               pixel_strobe => pixel_strobe,
+               pixel_strobe_out => pixel_strobe,
 
                -- VGA signals
                hsync => hsync,
