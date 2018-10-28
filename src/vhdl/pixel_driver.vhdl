@@ -222,8 +222,9 @@ begin
                x_zero_100 => x_zero_pal50_100,
                y_zero_100 => y_zero_pal50_100,
                y_zero_120 => y_zero_pal50_120,
-               pixel_strobe_120 => pixel_strobe120_50
-               
+               pixel_strobe_120 => pixel_strobe120_50,
+               pixel_strobe_100 => pixel_strobe100_50
+
                );
 
   frame60: entity work.frame_generator
@@ -255,6 +256,7 @@ begin
                x_zero_100 => x_zero_ntsc60_100,               
                y_zero_100 => y_zero_ntsc60_100,
                y_zero_120 => y_zero_ntsc60_120,
+               pixel_strobe_120 => pixel_strobe120_60,
                pixel_strobe_100 => pixel_strobe100_60
                
                
