@@ -93,6 +93,7 @@ end pixel_driver;
 architecture greco_roman of pixel_driver is
 
   signal fifo_inuse120 : std_logic := '0';
+  signal fifo_inuse120_drive : std_logic := '0';
   signal fifo_inuse100 : std_logic := '0';
   signal fifo_almost_empty100 : std_logic := '0';
   signal fifo_almost_empty120 : std_logic := '0';
@@ -442,7 +443,8 @@ begin
       fifo_full <= fifo_full120;
     end if;        
     if rising_edge(clock120) then
-      fifo_inuse120 <= fifo_inuse100;
+      fifo_inuse120_drive <= fifo_inuse100;
+      fifo_inuse120 <= fifo_inuse120_drive;
       pal50_select_internal_drive <= pal50_select;
       pal50_select_internal <= pal50_select_internal_drive;
     end if;
