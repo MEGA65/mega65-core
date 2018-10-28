@@ -500,17 +500,17 @@ begin
     if rising_edge(clock120) then
       fifo_running_drive <= fifo_running;      
       if reset_counter /= 0 then
-        reset_counter <= reset_counter - 1;
       else
         fifo_running <= '1';
       end if;
     end if;
 
     if rising_edge(clock100) then
-      reset_counter100 <= reset_counter;
+      reset_counter <= reset_counter100;
       if reset_counter100 /= 0 then
+        reset_counter100 <= reset_counter100 - 1;
         fifo_running100 <= '0';
-        if reset_counter = 32 then
+        if reset_counter100 = 32 then
           fifo_rst <= '0';
         end if;
       else
