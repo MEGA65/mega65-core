@@ -25,7 +25,8 @@ use Std.TextIO.all;
 entity frame_generator is
   generic (
     frame_width : integer := 960;
-    display_width : integer := 800;  -- 32 cycles of video pipeline
+    display_width : integer := 800;
+    clock_dividor : integer := 4;
     pipeline_delay : integer := 0;
     frame_height : integer := 625;
     lcd_height : integer := 480;
@@ -36,23 +37,33 @@ entity frame_generator is
     hsync_end : integer := 880
     );
   port (
-    clock : in std_logic;
+    clock120 : in std_logic;
+    clock100 : in std_logic;
+
+    -- 100MHz oriented configuration flags
     hsync_polarity : in std_logic;
     vsync_polarity : in std_logic;
+
+    -- 120MHz video output oriented signals
     hsync : out std_logic := '0';
     hsync_uninverted : out std_logic := '0';
     vsync : out std_logic := '0';
     inframe : out std_logic := '0';
 
+    pixel_strobe_120 : out std_logic := '0';    
     lcd_vsync : out std_logic := '0';
     lcd_inframe : out std_logic := '0';
 
-    x_zero : out std_logic := '0';
-    y_zero : out std_logic := '0';
-    
     red_o : out unsigned(7 downto 0) := x"00";
     green_o : out unsigned(7 downto 0) := x"00";
-    blue_o : out unsigned(7 downto 0) := x"00"
+    blue_o : out unsigned(7 downto 0) := x"00";
+
+    -- 100MHz oriented signals for VIC-IV
+    pixel_strobe_100 : out std_logic := '0';
+    x_zero_100 : out std_logic := '0';
+    x_zero_120 : out std_logic := '0';
+    y_zero : out std_logic := '0'
+    
     
     );
 
@@ -74,21 +85,54 @@ architecture brutalist of frame_generator is
   signal hsync_driver : std_logic := '0';
   signal hsync_uninverted_driver : std_logic := '0';
 
+  signal pixel_toggle120 : std_logic := '0';
+  signal pixel_toggle100 : std_logic := '0';
+  signal last_pixel_toggle100 : std_logic := '0';
+  signal pixel_strobe_counter : integer range 0 to clock_dividor := 0;
+  signal pixel_strobe120_drive : std_logic := '0';
   
 begin
 
-  process (clock) is
+  process (clock120) is
   begin
 
-    if rising_edge(clock) then
+    if rising_edge(clock100) then
+      -- Cross from 120MHz to 100MHz clock domains for VIC-IV signals
+      x_zero_100 <= x_zero_driver2;
+      y_zero <= y_zero_driver2;
+      x_zero_driver2 <= x_zero_driver;
+      y_zero_driver2 <= y_zero_driver;      
 
+      -- Pixel strobe to VIC-IV can just be a 50MHz pulse
+      -- train, since it all goes into a buffer.
+      -- But better is to still try to follow the 120MHz driven
+      -- chain.
+      pixel_toggle100 <= pixel_toggle120;
+      last_pixel_toggle100 <= pixel_toggle100;
+      if pixel_toggle100 /= last_pixel_toggle100 then
+        pixel_strobe_100 <= '1';
+      else
+        pixel_strobe_100 <= '0';
+      end if;
+    end if;
+    
+    if rising_edge(clock120) then
+
+      x_zero_120 <= x_zero_driver;
+      
       vsync <= vsync_driver;
       hsync <= hsync_driver;
       hsync_uninverted <= hsync_uninverted_driver;
-      x_zero <= x_zero_driver2;
-      y_zero <= y_zero_driver2;
-      x_zero_driver2 <= x_zero_driver;
-      y_zero_driver2 <= y_zero_driver;
+      pixel_strobe_120 <= pixel_strobe120_drive;
+
+      -- Generate pixel strobe train
+      if pixel_strobe_counter = 0 then
+        pixel_strobe_counter <= (clock_dividor - 1);
+        pixel_strobe120_drive <= '1';
+      else
+        pixel_strobe120_drive <= '0';
+        pixel_strobe_counter <= pixel_strobe_counter - 1;
+      end if;
       
       if x < frame_width then
         x <= x + 1;

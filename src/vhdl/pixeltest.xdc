@@ -6,7 +6,15 @@
 ## Clock signal
 set_property -dict { PACKAGE_PIN E3 IOSTANDARD LVCMOS33 } [get_ports CLK_IN]
 create_clock -add -name sys_clk_pin -period 10.00 -waveform {0 5} [get_ports CLK_IN]
- 
+
+##create_clock -name clkout4 -period 8.333 [get_pins dotclock1/clkout3_buf/O]
+##set_input_jitter clkout4 0.100
+##create_clock -name clkout5 -period 8.333 [get_pins dotclock1/clkout4_buf/O]
+##set_input_jitter clkout5 0.100
+##
+##set_false_path -from [get_clocks clkout4] -to [get_clocks clkout5]
+##set_false_path -from [get_clocks clkout5] -to [get_clocks clkout4]
+
 ## Switches
 set_property -dict { PACKAGE_PIN J15 IOSTANDARD LVCMOS33 } [get_ports {sw[0]}]
 set_property -dict { PACKAGE_PIN L16 IOSTANDARD LVCMOS33 } [get_ports {sw[1]}]

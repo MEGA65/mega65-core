@@ -172,9 +172,7 @@ architecture Behavioral of container is
   signal pixelclock : std_logic;
   signal cpuclock : std_logic;
   signal clock200 : std_logic;
-  signal clock40 : std_logic;
-  signal clock33 : std_logic;
-  signal clock30 : std_logic;
+  signal clock120 : std_logic;
   
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
 
@@ -209,17 +207,14 @@ begin
     port map ( clk_in1 => CLK_IN,
                clock100 => pixelclock, -- 100MHz
                clock50 => cpuclock, -- 50MHz
-               clock40 => clock40,
-               clock33 => clock33,
-               clock30 => clock30,
-               clock200 => clock200
+               clock120 => clock120
+
                );
 
   pixeldriver: entity work.pixel_driver
     port map (
                clock100 => pixelclock, -- 100MHz
-               clock40 => clock40,
-               clock30 => clock30,
+               clock120 => clock120,
 
                -- Select 50/60Hz video mode
                pal50_select => sw(0),
@@ -243,7 +238,7 @@ begin
                red_o => buffer_vgared,
                green_o => buffer_vgagreen,
                blue_o => buffer_vgablue,
-               pixel_strobe_out => pixel_strobe,
+               pixel_strobe120_out => pixel_strobe,
 
                -- VGA signals
                hsync => hsync,
