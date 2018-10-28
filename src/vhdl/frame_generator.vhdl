@@ -62,7 +62,8 @@ entity frame_generator is
     pixel_strobe_100 : out std_logic := '0';
     x_zero_100 : out std_logic := '0';
     x_zero_120 : out std_logic := '0';
-    y_zero : out std_logic := '0'
+    y_zero_120 : out std_logic := '0';
+    y_zero_100 : out std_logic := '0'
     
     
     );
@@ -99,7 +100,7 @@ begin
     if rising_edge(clock100) then
       -- Cross from 120MHz to 100MHz clock domains for VIC-IV signals
       x_zero_100 <= x_zero_driver2;
-      y_zero <= y_zero_driver2;
+      y_zero_100 <= y_zero_driver2;
       x_zero_driver2 <= x_zero_driver;
       y_zero_driver2 <= y_zero_driver;      
 
@@ -119,6 +120,7 @@ begin
     if rising_edge(clock120) then
 
       x_zero_120 <= x_zero_driver;
+      y_zero_120 <= y_zero_driver;
       
       vsync <= vsync_driver;
       hsync <= hsync_driver;

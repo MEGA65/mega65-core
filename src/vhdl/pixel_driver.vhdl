@@ -147,10 +147,12 @@ architecture greco_roman of pixel_driver is
 
   signal x_zero_pal50_100 : std_logic := '0';
   signal x_zero_pal50_120 : std_logic := '0';
-  signal y_zero_pal50 : std_logic := '0';
+  signal y_zero_pal50_100 : std_logic := '0';
+  signal y_zero_pal50_120 : std_logic := '0';
   signal x_zero_ntsc60_100 : std_logic := '0';
   signal x_zero_ntsc60_120 : std_logic := '0';
-  signal y_zero_ntsc60 : std_logic := '0';
+  signal y_zero_ntsc60_100 : std_logic := '0';
+  signal y_zero_ntsc60_120 : std_logic := '0';
 
   signal inframe_pal50 : std_logic := '0';
   signal inframe_ntsc60 : std_logic := '0';
@@ -216,7 +218,8 @@ begin
                -- 100MHz facing signals for the VIC-IV
                x_zero_120 => x_zero_pal50_120,
                x_zero_100 => x_zero_pal50_100,
-               y_zero => y_zero_pal50,
+               y_zero_100 => y_zero_pal50_100,
+               y_zero_120 => y_zero_pal50_120,
                pixel_strobe_120 => pixel_strobe120_50
                
                );
@@ -248,7 +251,8 @@ begin
                -- 100MHz facing signals for VIC-IV
                x_zero_120 => x_zero_ntsc60_120,
                x_zero_100 => x_zero_ntsc60_100,               
-               y_zero => y_zero_ntsc60,
+               y_zero_100 => y_zero_ntsc60_100,
+               y_zero_120 => y_zero_ntsc60_120,
                pixel_strobe_100 => pixel_strobe100_60
                
                
@@ -393,10 +397,10 @@ begin
   inframe_internal <= inframe_pal50 when pal50_select_internal='1' else inframe_ntsc60;
   lcd_inframe <= lcd_inframe_pal50 when pal50_select_internal='1' else lcd_inframe_ntsc60;
 
-  raster_strobe <= x_zero_pal50_100 when pal50_select_internal='1' else x_zero_ntsc60_100;
+  raster_strobe <= x_zero_pal50_100 when pal50_select_internal100='1' else x_zero_ntsc60_100;
   x_zero <= x_zero_pal50_100 when pal50_select_internal100='1' else x_zero_ntsc60_100;
-  y_zero <= y_zero_pal50 when pal50_select_internal100='1' else y_zero_ntsc60;
-  y_zero_internal <= y_zero_pal50 when pal50_select_internal100='1' else y_zero_ntsc60;
+  y_zero <= y_zero_pal50_100 when pal50_select_internal100='1' else y_zero_ntsc60_100;
+  y_zero_internal <= y_zero_pal50_120 when pal50_select_internal='1' else y_zero_ntsc60_120;
   pixel_strobe100_out <= pixel_strobe100_50 when pal50_select_internal100='1' else pixel_strobe100_60;
   
   -- Generate output pixel strobe and signals for read-side of the FIFO
@@ -409,13 +413,13 @@ begin
               else plotting60;
   
   -- Generate test pattern data
-  test_pattern_red50 <= to_unsigned(waddr,8);
-  test_pattern_green50 <= to_unsigned(waddr,8);
-  test_pattern_blue50(7 downto 4) <= to_unsigned(waddr,4);
-  test_pattern_blue50(3 downto 0) <= (others => '0');
-  test_pattern_red60 <= to_unsigned(waddr,8);
-  test_pattern_green60 <= to_unsigned(waddr,8);
-  test_pattern_blue60 <= to_unsigned(waddr,8);
+--  test_pattern_red50 <= to_unsigned(waddr,8);
+--  test_pattern_green50 <= to_unsigned(waddr,8);
+--  test_pattern_blue50(7 downto 4) <= to_unsigned(waddr,4);
+--  test_pattern_blue50(3 downto 0) <= (others => '0');
+--  test_pattern_red60 <= to_unsigned(waddr,8);
+--  test_pattern_green60 <= to_unsigned(waddr,8);
+--  test_pattern_blue60 <= to_unsigned(waddr,8);
 
   test_pattern_red <= test_pattern_red50 when pal50_select_internal100='1' else test_pattern_red60;
   test_pattern_green <= test_pattern_green50 when pal50_select_internal100='1' else test_pattern_green60;
@@ -432,7 +436,7 @@ begin
   wdata(31 downto 24) <= x"00";  
 
   x_zero_out <= x_zero_pal50_100 when pal50_select_internal100='1' else x_zero_ntsc60_100;
-  y_zero_out <= y_zero_pal50 when pal50_select_internal100='1' else y_zero_ntsc60;
+  y_zero_out <= y_zero_pal50_100 when pal50_select_internal100='1' else y_zero_ntsc60_100;
   
   process (clock100,clock120) is
     variable waddr_unsigned : unsigned(11 downto 0) := to_unsigned(0,12);
@@ -494,13 +498,9 @@ begin
     end if;
     
     if rising_edge(clock120) then
-      fifo_running_drive <= fifo_running;
-      
+      fifo_running_drive <= fifo_running;      
       if reset_counter /= 0 then
         reset_counter <= reset_counter - 1;
-        if reset_counter = 32 then
-          fifo_rst <= '0';
-        end if;
       else
         fifo_running <= '1';
       end if;
@@ -510,6 +510,9 @@ begin
       reset_counter100 <= reset_counter;
       if reset_counter100 /= 0 then
         fifo_running100 <= '0';
+        if reset_counter = 32 then
+          fifo_rst <= '0';
+        end if;
       else
         fifo_running100 <= '1';
       end if;
