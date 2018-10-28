@@ -693,16 +693,16 @@ begin
       led(3) <= combinednmi;
       led(4) <= io_irq;
       led(5) <= io_nmi;
-      led(6) <= '0';
-      led(7) <= clear_matrix_mode_toggle;
-      led(8) <= motor;
+      led(6) <= external_pixel_strobe;
+      led(7) <= external_frame_x_zero;      
+      led(8) <= external_frame_y_zero;      
       led(9) <= drive_led_out;
       led(10) <= cpu_hypervisor_mode;
       led(11) <= hyper_trap;
       led(12) <= hyper_trap_combined;
-      led(13) <= monitor_hyper_trap;
-      led(14) <= speed_gate;
-      led(15) <= speed_gate_enable;
+      led(13) <= speed_gate;
+      led(14) <= speed_gate_enable;
+      led(15) <= motor;
 
       xray_mode <= sw(1);
       
