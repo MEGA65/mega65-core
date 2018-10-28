@@ -57,7 +57,7 @@
 -- CLK_OUT1___100.000______0.000______50.0______115.831_____87.180
 -- CLK_OUT2___200.000______0.000______50.0______102.086_____87.180
 -- CLK_OUT3____50.000______0.000______50.0______132.683_____87.180
--- CLK_OUT4____40.000______0.000______50.0______139.033_____87.180
+-- CLK_OUT4___120.000______0.000______50.0______139.033_____87.180
 -- CLK_OUT5____30.000______0.000______50.0______147.931_____87.180
 -- CLK_OUT6____33.333______0.000______50.0______144.570_____87.180
 -- CLK_OUT7___150.000______0.000______50.0______107.567_____87.180
@@ -78,7 +78,7 @@ port
   clock100          : out    std_logic;
   clock200          : out    std_logic;
   clock50          : out    std_logic;
-  clock40          : out    std_logic;
+  clock120          : out    std_logic;
   clock30          : out    std_logic;
   clock33          : out    std_logic;
   clock150          : out    std_logic;
@@ -100,7 +100,7 @@ your_instance_name : dotclock100
     clock100 => clock100,
     clock200 => clock200,
     clock50 => clock50,
-    clock40 => clock40,
+    clock120 => clock120,
     clock30 => clock30,
     clock33 => clock33,
     clock150 => clock150,
