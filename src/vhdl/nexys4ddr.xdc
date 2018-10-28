@@ -25,6 +25,8 @@ set_false_path -to [get_cells machine/pixeldriver/frame60/x_zero_driver100b_reg_
 set_false_path -to [get_cells machine/pixeldriver/frame60/y_zero_driver100b_reg_srl2]
 set_false_path -to [get_cells machine/pixeldriver/fifo_running_reg_srl2]
 set_false_path -to [get_cells machine/pixeldriver/fifo_inuse120_drive_reg]
+set_false_path -from [get_cells led*]
+set_false_path -from [get_cells sw*]
 
 
 ## Switches
