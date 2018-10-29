@@ -181,6 +181,8 @@ architecture greco_roman of pixel_driver is
   signal plotting50 : std_logic := '0';
   signal plotting60 : std_logic := '0';
 
+  signal test_pattern_enable120 : std_logic := '0';
+  
   signal y_zero_internal : std_logic := '0';
 
 begin
@@ -199,8 +201,8 @@ begin
                   display_height => 600,
                   vsync_start => 620,
                   vsync_end => 625,
-                  hsync_start => 814*4,
-                  hsync_end => 884*4
+                  hsync_start => 834*4,
+                  hsync_end => 914*4
                   )                  
     port map ( clock120 => clock120,
                clock100 => clock100,
@@ -405,28 +407,14 @@ begin
   
   -- Generate output pixel strobe and signals for read-side of the FIFO
   pixel_strobe120_out <= pixel_strobe120_50 when pal50_select_internal='1' else pixel_strobe120_60;
-  rd_en <= (fifo_running_drive and pixel_strobe120_50) when pal50_select_internal='1' else (fifo_running_drive and pixel_strobe120_60);
 
   plotting <= '0' when y_zero_internal='1' else
               plotting50 when pal50_select_internal='1'
               else plotting60;
   
-  -- Generate test pattern data
---  test_pattern_red50 <= to_unsigned(waddr,8);
---  test_pattern_green50 <= to_unsigned(waddr,8);
---  test_pattern_blue50(7 downto 4) <= to_unsigned(waddr,4);
---  test_pattern_blue50(3 downto 0) <= (others => '0');
---  test_pattern_red60 <= to_unsigned(waddr,8);
---  test_pattern_green60 <= to_unsigned(waddr,8);
---  test_pattern_blue60 <= to_unsigned(waddr,8);
-
-  test_pattern_red <= test_pattern_red50 when pal50_select_internal100='1' else test_pattern_red60;
-  test_pattern_green <= test_pattern_green50 when pal50_select_internal100='1' else test_pattern_green60;
-  test_pattern_blue <= test_pattern_blue50 when pal50_select_internal100='1' else test_pattern_blue60;
-  
-  wdata(7 downto 0) <= red_i  when test_pattern_enable='0' else test_pattern_red;
-  wdata(15 downto 8) <= green_i  when test_pattern_enable='0' else test_pattern_green;
-  wdata(23 downto 16) <= blue_i when test_pattern_enable='0' else test_pattern_blue;
+  wdata(7 downto 0) <= red_i;
+  wdata(15 downto 8) <= green_i;
+  wdata(23 downto 16) <= blue_i;
   wdata(31 downto 24) <= x"00";  
 
   x_zero_out <= x_zero_pal50_100 when pal50_select_internal100='1' else x_zero_ntsc60_100;
@@ -448,12 +436,26 @@ begin
     end if;
 
     if rising_edge(clock120) then
-
+      test_pattern_enable120 <= test_pattern_enable;
+      if fifo_running_drive='0' then
+        rd_en <= '0';
+      else
+        if pal50_select_internal='1' then
+          rd_en <= pixel_strobe120_50;
+        else
+          rd_en <= pixel_strobe120_60;
+        end if;
+      end if;
+      
       -- Output the pixels or else the test pattern
       if plotting='0' then        
         red_o <= x"00";
         green_o <= x"00";
         blue_o <= x"00";
+      elsif test_pattern_enable120='1' then
+        red_o <= to_unsigned(raddr50,8);
+        green_o <= to_unsigned(raddr60,8);
+        blue_o <= x"FF";
       else
         red_o <= rdata(7 downto 0);
         green_o <= rdata(15 downto 8);

@@ -629,6 +629,8 @@ architecture Behavioral of machine is
   -- local debug signals from CPU
   signal shadow_address_state_dbg_out : std_logic_vector(3 downto 0);
 
+  signal test_pattern_enable : std_logic := '0';
+  
 begin
 
   xcounter_viciv_u <= to_unsigned(xcounter_viciv,12);
@@ -963,7 +965,7 @@ begin
       hsync_invert => hsync_polarity,
       vsync_invert => vsync_polarity,
       pal50_select => pal50_select,
-      test_pattern_enable => '0',      
+      test_pattern_enable => test_pattern_enable,      
       
       -- Framing information for VIC-IV
       pixel_strobe100_out => external_pixel_strobe,
@@ -1025,6 +1027,8 @@ begin
       xcounter_out => xcounter_viciv,
       ycounter_out => ycounter_viciv,
 
+      test_pattern_enable => test_pattern_enable,
+      
       led => drive_led,
       motor => motor,
       drive_led_out => drive_led_out,

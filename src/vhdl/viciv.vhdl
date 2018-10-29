@@ -89,6 +89,7 @@ entity viciv is
     viciv_fast : out std_logic;     
 
     xray_mode : in std_logic;
+    test_pattern_enable : out std_logic := '0';
 
     dat_offset : out unsigned(15 downto 0);
     dat_bitplane_addresses : out sprite_vector_eight;
@@ -2350,7 +2351,9 @@ begin
                                                     colour_ram_base(15 downto 8) <= unsigned(fastio_wdata);
                                                   elsif register_number=102 then -- $D3066
                                         -- @IO:GS $D066.0-4 VIC-IV xcounter pipeline delay DEBUG WILL BE REMOVED
+                                        -- @IO:GS $D066.7 VIC-IV test pattern enable DEBUG WILL BE REMOVED
                                                     reg_xcounter_delay <= to_integer(unsigned(fastio_wdata(4 downto 0)));
+                                                    test_pattern_enable <= fastio_wdata(7);
                                                   elsif register_number=103 then  -- $D3067
                                                                                   -- @IO:GS $D067 VIC-IV Sprite/bitplane first X DEBUG WILL BE REMOVED
                                                     sprite_first_x(7 downto 0) <= unsigned(fastio_wdata);
