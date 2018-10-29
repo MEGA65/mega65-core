@@ -394,6 +394,7 @@ begin
 
   hsync <= hsync_pal50 when pal50_select_internal='1' else hsync_ntsc60;
   vsync <= vsync_pal50 when pal50_select_internal='1' else vsync_ntsc60;
+  lcd_hsync <= hsync_pal50 when pal50_select_internal='1' else hsync_ntsc60;
   lcd_vsync <= vsync_pal50 when pal50_select_internal='1' else lcd_vsync_ntsc60;
   inframe <= inframe_pal50 when pal50_select_internal='1' else inframe_ntsc60;
   inframe_internal <= inframe_pal50 when pal50_select_internal='1' else inframe_ntsc60;
@@ -456,6 +457,9 @@ begin
         red_o <= to_unsigned(raddr50,8);
         green_o <= to_unsigned(raddr60,8);
         blue_o <= x"FF";
+        blue_o(7) <= pixel_strobe120_50;
+        blue_o(6) <= fifo_inuse120;
+        blue_o(5) <= fifo_empty120;        
       else
         red_o <= rdata(7 downto 0);
         green_o <= rdata(15 downto 8);
