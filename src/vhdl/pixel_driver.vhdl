@@ -121,8 +121,6 @@ architecture greco_roman of pixel_driver is
 
   signal raddr50 : integer := 0;
   signal raddr60 : integer := 0;
-  signal raddr50_drive : integer := 0;
-  signal raddr60_drive : integer := 0;
   signal rd_en : std_logic := '0';
   signal rdata : unsigned(31 downto 0);  
   
@@ -426,11 +424,6 @@ begin
   test_pattern_green <= test_pattern_green50 when pal50_select_internal100='1' else test_pattern_green60;
   test_pattern_blue <= test_pattern_blue50 when pal50_select_internal100='1' else test_pattern_blue60;
   
-  -- Output the pixels or else the test pattern
-  red_o <= x"00" when plotting='0' else rdata(7 downto 0);
-  green_o <= x"00" when plotting='0' else rdata(15 downto 8);
-  blue_o <= x"00" when plotting='0' else rdata(23 downto 16);
-  
   wdata(7 downto 0) <= red_i  when test_pattern_enable='0' else test_pattern_red;
   wdata(15 downto 8) <= green_i  when test_pattern_enable='0' else test_pattern_green;
   wdata(23 downto 16) <= blue_i when test_pattern_enable='0' else test_pattern_blue;
@@ -455,7 +448,12 @@ begin
     end if;
 
     if rising_edge(clock120) then
-      raddr50_drive <= raddr50;
+
+      -- Output the pixels or else the test pattern
+      red_o <= x"00" when plotting='0' else rdata(7 downto 0);
+      green_o <= x"00" when plotting='0' else rdata(15 downto 8);
+      blue_o <= x"00" when plotting='0' else rdata(23 downto 16);
+        
       if x_zero_pal50_120='1' or fifo_inuse120='0' or fifo_empty120='1' then
         raddr50 <= 0;
         plotting50 <= '0';
@@ -474,10 +472,7 @@ begin
           end if;
         end if;
       end if;
-    end if;
 
-    if rising_edge(clock120) then
-      raddr60_drive <= raddr60;
       if x_zero_ntsc60_120='1' or fifo_inuse120='0' or fifo_empty120='1' then
         raddr60 <= 0;
         plotting60 <= '0';
