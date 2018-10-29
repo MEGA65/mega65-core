@@ -80,11 +80,11 @@ entity pixel_driver is
     -- Similar signals to above for the LCD panel
     -- The main difference is that we only announce pixels during the 800x480
     -- letter box that the LCD can show.
-    lcd_hsync : out std_logic;
-    lcd_vsync : out std_logic;
-    lcd_display_enable : out std_logic;
-    lcd_pixel_strobe : out std_logic;     -- in 30/40MHz clock domain to match pixels
-    lcd_inframe : out std_logic
+    lcd_hsync : out std_logic := '0';
+    lcd_vsync : out std_logic := '0';
+    lcd_display_enable : out std_logic := '1';
+    lcd_pixel_strobe : out std_logic := '0';     -- in 30/40MHz clock domain to match pixels
+    lcd_inframe : out std_logic := '0'
     
     );
 
@@ -184,6 +184,11 @@ architecture greco_roman of pixel_driver is
   signal test_pattern_enable120 : std_logic := '0';
   
   signal y_zero_internal : std_logic := '0';
+
+  signal pixel_toggle : std_logic := '0';
+  signal toggle_counter : integer range 0 to 15 := 0;
+
+  signal data_valid : std_logic := '0';
 
 begin
 
@@ -289,7 +294,7 @@ begin
                                     -- this signal indicates that
                                     -- only one more write can be performed before
                                     -- the FIFO is full.
-      -- data_valid=>data_valid,       -- 1-bit output : Read Data Valid : When
+      data_valid=>data_valid,       -- 1-bit output : Read Data Valid : When
                                     -- asserted, this signal indicates
                                     -- that valid data is available on the output
                                     -- bus (dout).
@@ -428,6 +433,14 @@ begin
     if rising_edge(clock100) then
       pal50_select_internal100 <= pal50_select;
       fifo_full <= fifo_full120;
+
+      if toggle_counter = 0 then
+        lcd_pixel_strobe <= not pixel_toggle;
+        pixel_toggle <= not pixel_toggle;
+        toggle_counter <= 1;
+      else
+        toggle_counter <= toggle_counter - 1;
+      end if;
     end if;        
     if rising_edge(clock120) then
       fifo_inuse120_drive <= fifo_inuse100;
@@ -437,6 +450,14 @@ begin
     end if;
 
     if rising_edge(clock120) then
+
+      -- And similarly for the LCD panel to latch pixels
+--      if pal50_select_internal='1' then
+--        lcd_pixel_strobe <= pixel_strobe120_50;
+--      else
+--        lcd_pixel_strobe <= pixel_strobe120_60;
+--      end if;
+      
       test_pattern_enable120 <= test_pattern_enable;
       if fifo_running_drive='0' then
         rd_en <= '0';
@@ -461,9 +482,11 @@ begin
         blue_o(6) <= fifo_inuse120;
         blue_o(5) <= fifo_empty120;        
       else
-        red_o <= rdata(7 downto 0);
-        green_o <= rdata(15 downto 8);
-        blue_o <= rdata(23 downto 16);
+        if data_valid='1' then
+          red_o <= rdata(7 downto 0);
+          green_o <= rdata(15 downto 8);
+          blue_o <= rdata(23 downto 16);
+        end if;
       end if;
       
       if x_zero_pal50_120='1' or fifo_inuse120='0' or fifo_empty120='1' then

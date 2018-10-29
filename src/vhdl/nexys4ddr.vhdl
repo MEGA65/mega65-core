@@ -514,10 +514,16 @@ begin
   process (cpuclock,clock120)
   begin
     if rising_edge(clock120) then
-      -- VGA direct output
-      vgared <= buffer_vgared(7 downto 4);
-      vgagreen <= buffer_vgagreen(7 downto 4);
-      vgablue <= buffer_vgablue(7 downto 4);
+      if sw(7)='0' then
+        -- VGA direct output
+        vgared <= buffer_vgared(7 downto 4);
+        vgagreen <= buffer_vgagreen(7 downto 4);
+        vgablue <= buffer_vgablue(7 downto 4);
+      else
+        vgared <= (others => not (lcd_hsync or lcd_vsync));
+        vgagreen <= to_unsigned(sawtooth_counter,4);
+        vgablue <= to_unsigned(sawtooth_counter,4);
+      end if;
 
       -- VGA out on LCD panel
       jalo <= std_logic_vector(buffer_vgablue(7 downto 4));

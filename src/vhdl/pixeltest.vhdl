@@ -182,7 +182,7 @@ architecture Behavioral of container is
   signal lcd_pixel_strobe : std_logic;
   signal lcd_hsync : std_logic;
   signal lcd_vsync : std_logic;
-  signal lcd_display_enable : std_logic;
+  signal lcd_display_enable : std_logic := '0';
 
   signal red_in : unsigned(7 downto 0) := x"00";
   signal green_in : unsigned(7 downto 0) := x"00";
@@ -245,10 +245,10 @@ begin
                vsync => vsync,
 
                -- LCD panel signals
-               lcd_pixel_strobe => jbhi(7),
-               lcd_hsync => jbhi(8),
-               lcd_vsync => jbhi(9),
-               lcd_display_enable => jbhi(10)
+               lcd_pixel_strobe => lcd_pixel_strobe,
+               lcd_hsync => lcd_hsync,
+               lcd_vsync => lcd_vsync,
+               lcd_display_enable => lcd_display_enable
                );                              
 
   led(0) <= pixel_strobe;
@@ -261,10 +261,15 @@ begin
   blue_in <= x"00" when (pixel_counter /= 1 ) else x"FF";
   green_in <= (others => spot);
   
+  -- VGA out on LCD panel
   jalo <= std_logic_vector(buffer_vgablue(7 downto 4));
   jahi <= std_logic_vector(buffer_vgared(7 downto 4));
   jblo <= std_logic_vector(buffer_vgagreen(7 downto 4));    
-
+  jbhi(7) <= lcd_pixel_strobe;
+  jbhi(8) <= lcd_hsync;
+  jbhi(9) <= lcd_vsync;
+  jbhi(10) <= lcd_display_enable xor sw(15);
+  
   process (pixelclock) is
   begin
     if rising_edge(pixelclock) then
