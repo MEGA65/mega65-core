@@ -183,10 +183,6 @@ architecture Behavioral of container is
   signal cpu_game : std_logic := '1';
   signal cpu_exrom : std_logic := '1';
   
-  signal dummy_vgared : unsigned(3 downto 0);
-  signal dummy_vgagreen : unsigned(3 downto 0);
-  signal dummy_vgablue : unsigned(3 downto 0);
-
   signal buffer_vgared : unsigned(7 downto 0);
   signal buffer_vgagreen : unsigned(7 downto 0);
   signal buffer_vgablue : unsigned(7 downto 0);
@@ -509,27 +505,30 @@ begin
       sseg_ca => sseg_ca,
       sseg_an => sseg_an
       );
-
-    vgared <= buffer_vgared(7 downto 4);
-    vgagreen <= buffer_vgagreen(7 downto 4);
-    vgablue <= buffer_vgablue(7 downto 4);
-  
-    -- VGA out on LCD panel
-    jalo <= std_logic_vector(buffer_vgablue(7 downto 4));
-    jahi <= std_logic_vector(buffer_vgared(7 downto 4));
-    jblo <= std_logic_vector(buffer_vgagreen(7 downto 4));
-    jbhi(7) <= lcd_pixel_strobe;
-    jbhi(8) <= lcd_hsync;
-    jbhi(9) <= lcd_vsync;
-    jbhi(10) <= lcd_display_enable;
-  
+    
   -- Hardware buttons for triggering IRQ & NMI
   irq <= not btn(0);
   nmi <= not btn(4);
   restore_key <= not btn(1);
 
-  process (cpuclock)
+  process (cpuclock,clock120)
   begin
+    if rising_edge(clock120) then
+      -- VGA direct output
+      vgared <= buffer_vgared(7 downto 4);
+      vgagreen <= buffer_vgagreen(7 downto 4);
+      vgablue <= buffer_vgablue(7 downto 4);
+
+      -- VGA out on LCD panel
+      jalo <= std_logic_vector(buffer_vgablue(7 downto 4));
+      jahi <= std_logic_vector(buffer_vgared(7 downto 4));
+      jblo <= std_logic_vector(buffer_vgagreen(7 downto 4));
+      jbhi(7) <= lcd_pixel_strobe;
+      jbhi(8) <= lcd_hsync;
+      jbhi(9) <= lcd_vsync;
+      jbhi(10) <= lcd_display_enable;
+    end if;
+    
     if rising_edge(cpuclock) then
 
       -- No physical keyboard
