@@ -450,10 +450,16 @@ begin
     if rising_edge(clock120) then
 
       -- Output the pixels or else the test pattern
-      red_o <= x"00" when plotting='0' else rdata(7 downto 0);
-      green_o <= x"00" when plotting='0' else rdata(15 downto 8);
-      blue_o <= x"00" when plotting='0' else rdata(23 downto 16);
-        
+      if plotting='0' then        
+        red_o <= x"00";
+        green_o <= x"00";
+        blue_o <= x"00";
+      else
+        red_o <= rdata(7 downto 0);
+        green_o <= rdata(15 downto 8);
+        blue_o <= rdata(23 downto 16);
+      end if;
+      
       if x_zero_pal50_120='1' or fifo_inuse120='0' or fifo_empty120='1' then
         raddr50 <= 0;
         plotting50 <= '0';
