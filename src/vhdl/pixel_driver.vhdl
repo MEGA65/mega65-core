@@ -246,7 +246,6 @@ begin
                hsync_uninverted => hsync_ntsc60_uninverted,
                hsync => hsync_ntsc60,
                vsync => vsync_ntsc60,
-               pixel_strobe_120 => pixel_strobe120_60,
                inframe => inframe_ntsc60,
                lcd_vsync => lcd_vsync_ntsc60,
                lcd_inframe => lcd_inframe_ntsc60,
