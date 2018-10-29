@@ -119,7 +119,6 @@ architecture greco_roman of pixel_driver is
   signal waddr : integer := 0;
   signal wdata : unsigned(31 downto 0);
 
-  signal raddr : integer := 0;
   signal raddr50 : integer := 0;
   signal raddr60 : integer := 0;
   signal raddr50_drive : integer := 0;
@@ -409,7 +408,6 @@ begin
   -- Generate output pixel strobe and signals for read-side of the FIFO
   pixel_strobe120_out <= pixel_strobe120_50 when pal50_select_internal='1' else pixel_strobe120_60;
   rd_en <= (fifo_running_drive and pixel_strobe120_50) when pal50_select_internal='1' else (fifo_running_drive and pixel_strobe120_60);
-  raddr <= raddr50_drive when pal50_select_internal='1' else raddr60_drive;
 
   plotting <= '0' when y_zero_internal='1' else
               plotting50 when pal50_select_internal='1'
