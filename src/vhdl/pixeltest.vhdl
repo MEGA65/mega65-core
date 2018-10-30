@@ -200,6 +200,8 @@ architecture Behavioral of container is
   signal bitnum : integer range 0 to 16 := 0;
   signal raster_counter : integer range 0 to 65535 := 0;
   signal x_zero_last : std_logic := '0';
+
+  signal pixel_due : std_logic := '0';
   
 begin
   
@@ -227,6 +229,8 @@ begin
                x_zero_out => x_zero,
                y_zero_out => y_zero,
                fifo_full => led(4),
+
+               pixel_strobe100_out => pixel_due,
                
                -- Pixels
                pixel_strobe_in => pixel_valid,
@@ -284,13 +288,15 @@ begin
         end if;
         pixel_counter <= 0;
       else
-        if pixel_counter /= 800 then
-          if x_zero_last = '0' then
-            pixel_counter <= pixel_counter + 1;
+        if pixel_due='1' then          
+          if pixel_counter /= 800 then
+            if x_zero_last = '0' then
+              pixel_counter <= pixel_counter + 1;
+            end if;
+            pixel_valid <= '1';
+          else
+            pixel_valid <= '0';
           end if;
-          pixel_valid <= '1';
-        else
-          pixel_valid <= '0';
         end if;
       end if;
     end if;
