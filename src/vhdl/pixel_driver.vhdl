@@ -37,7 +37,6 @@ entity pixel_driver is
     y_zero_out : out std_logic;
     
     waddr_out : out unsigned(11 downto 0);
-    wr_ack : out std_logic;
     fifo_full : out std_logic;
     rd_data_count : out std_logic_vector(9 downto 0);
     wr_data_count : out std_logic_vector(9 downto 0);
@@ -100,7 +99,6 @@ architecture greco_roman of pixel_driver is
   signal fifo_running : std_logic := '0';
   signal fifo_running100 : std_logic := '0';
   signal fifo_running_drive : std_logic := '0';
-  signal fifo_rst : std_logic := '1';
   signal reset_counter_zero_120 : std_logic := '0';
   signal reset_counter_zero : std_logic := '0';
   signal reset_counter_zero_drive : std_logic := '0';
@@ -117,12 +115,13 @@ architecture greco_roman of pixel_driver is
 
   signal wr_en : std_logic := '0';
   signal waddr : integer := 0;
-  signal wdata : unsigned(31 downto 0);
+  signal wdata : unsigned(23 downto 0);
 
   signal raddr50 : integer := 0;
   signal raddr60 : integer := 0;
   signal rd_en : std_logic := '0';
-  signal rdata : unsigned(31 downto 0);  
+  signal rd_en_internal : std_logic := '0';
+  signal rdata : unsigned(23 downto 0);  
   
   signal raster_toggle : std_logic := '0';
   signal raster_toggle_last : std_logic := '0';
@@ -265,44 +264,17 @@ begin
                
                );               
   
-  xpm_fifo_async_inst:  xpm_fifo_async
-    generic map(
-      CDC_SYNC_STAGES=>2,       --DECIMAL
-      DOUT_RESET_VALUE=>"0",    --String
-      ECC_MODE=>"no_ecc",       --String
-      FIFO_MEMORY_TYPE=>"auto", --String
-      FIFO_READ_LATENCY=>1,     --DECIMAL
-      FIFO_WRITE_DEPTH=>1024,   --DECIMAL
-      FULL_RESET_VALUE=>0,      --DECIMAL
-      PROG_EMPTY_THRESH=>5,    --DECIMAL
-      PROG_FULL_THRESH=>10,     --DECIMAL
-      RD_DATA_COUNT_WIDTH=>10,  --DECIMAL
-      READ_DATA_WIDTH=>32,      --DECIMAL
-      READ_MODE=>"std",         --String
-      RELATED_CLOCKS=>0,        --DECIMAL
-      USE_ADV_FEATURES=>"0707", --String
-      WAKEUP_TIME=>0,           --DECIMAL
-      WRITE_DATA_WIDTH=>32,     --DECIMAL
-      WR_DATA_COUNT_WIDTH=>10   --DECIMAL
-      )
+  fifo0:  entity work.pixel_fifo
     port map(
       almost_empty=>fifo_almost_empty120,   -- 1-bit output : AlmostEmpty : When
                                     -- asserted,this signal indicates that
                                     -- only one more read can be performed before
                                     -- the FIFO goes to empty.
-      -- almost_full=>almost_full,     -- 1-bit output : AlmostFull : When asserted,
-                                    -- this signal indicates that
-                                    -- only one more write can be performed before
-                                    -- the FIFO is full.
       data_valid=>data_valid,       -- 1-bit output : Read Data Valid : When
                                     -- asserted, this signal indicates
                                     -- that valid data is available on the output
                                     -- bus (dout).
-      -- dbiterr=>dbiterr,             -- 1-bitoutput : Double Bit Error : Indicates
-                                    -- that the ECC decoder
-                                    -- detected a double-bit error and data in the
-                                    -- FIFO core is corrupted.
-      unsigned(dout)=>rdata,                  -- READ_DATA_WIDTH-bit output : ReadData : The
+      dout=>rdata,                  -- READ_DATA_WIDTH-bit output : ReadData : The
                                     -- output data bus is driven
                                     -- when reading the FIFO.
       empty=>fifo_empty120,                 -- 1-bit output : Empty Flag : When asserted,
@@ -318,60 +290,14 @@ begin
                                     -- initiating a write when the FIFO is full is
                                     -- not destructive to the
                                     -- contents of the FIFO.
-      -- overflow=>overflow,           -- 1-bit output : Overflow : This signal
-                                    -- indicates that a write request
-                                    -- (wren) during the prior clock cycle was
-                                    -- rejected, because the FIFO is
-                                    -- full. Overflowing the FIFO is not
-                                    -- destructive to the contents of the
-                                    -- FIFO.
-      -- prog_empty=>prog_empty,       -- 1-bit output : Programmable Empty : This
-                                    -- signal is asserted when the
-                                    -- number of words in the FIFO is less than or
-                                    -- equal to the programmable
-                                    -- empty threshold value. It is de-asserted
-                                    -- when the number of words in
-                                    -- the FIFO exceeds the programmable empty
-                                    -- threshold value.
-      -- prog_full=>prog_full,         -- 1-bit output : Programmable Full : This
-                                    -- signal is asserted when the
-                                    -- number of words in the FIFO is greater than
-                                    -- or equal to the
-                                    -- programmable full threshold value. It is
-                                    -- de-asserted when the number
-                                    -- of words in the FIFO is less than the
-                                    -- programmable full threshold
-                                    -- value.
       rd_data_count=>rd_data_count, -- RD_DATA_COUNT_WIDTH-bit output : Read
                                     -- Data Count : This bus indicates
                                     -- the number of words read from the FIFO.
-      -- rd_rst_busy=>rd_rst_busy,     -- 1-bit output : Read Reset Busy :
-                                    -- Active-High indicator that the FIFO
-                                    -- read domain is currently in a reset state.
-      -- sbiterr=>sbiterr,             -- 1-bit output : Single Bit Error :
-                                    -- Indicates that the ECC decoder
-                                    -- detected and fixed a single-bit error.
-      -- underflow=>underflow,         -- 1-bit output : Underflow:Indicates that the read request(rd_en)
-                                    -- during the previous clock cycle was rejected because the FIFO is
-                                    -- empty. Underflowing the FIFO is not destructive to the FIFO.
-      wr_ack=>wr_ack,               -- 1-bit output : Write Acknowledge :This signal indicates that a write
-                                    -- request (wr_en) during the prior clock
-                                    -- cycle is succeeded.
       wr_data_count=>wr_data_count, -- WR_DATA_COUNT_WIDTH-bit output :
                                     -- WriteDataCount : This bus indicates`
                                     -- the number of words written into the FIFO.
-      -- wr_rst_busy=>wr_rst_busy,  -- 1-bit output : WriteResetBusy:Active-Highindicatorthat the FIFO
-                                    -- write domain is currently in a reset state.
-      din=>std_logic_vector(wdata), -- WRITE_DATA_WIDTH-bit input : WriteData :
+      din=>wdata,                   -- WRITE_DATA_WIDTH-bit input : WriteData :
                                     -- The input data bus used when writing the FIFO.
-      injectdbiterr=>'0',           -- 1-bit input : Double Bit Error Injection
-                                    -- : Injects a double bit error if
-                                    -- the ECC feature is used on block RAMs or
-                                    -- UltraRAM macros.
-      injectsbiterr=>'0',           -- 1-bit input : Single Bit Error Injection
-                                    -- : Injects a single bit error if
-                                    -- the ECC feature is used on block RAMs or
-                                    -- UltraRAM macros.
       rd_clk=>clock120,             -- 1-bit input : Read clock : Used for read
                                     -- operation. rd_clk must be a
                                     -- free running clock.
@@ -380,12 +306,6 @@ begin
                                     -- signal causes data (on dout) to be read
                                     -- from the FIFO. Must be held
                                     -- active-low when rd_rst_busy is active high..
-      rst=>fifo_rst,                -- 1-bit input : Reset : Must be
-                                    -- synchronous to wr_clk. Must be applied
-                                    -- only when wr_clk is stable and free-running.
-      sleep=>'0',                   -- 1-bit input : Dynamic power saving : If
-                                    -- sleep is High, the memory/fifo
-                                    -- block is in power saving mode.
       wr_clk=>clock100,             -- 1-bit input : Write clock : Used for
                                     -- write operation. wr_clk must be a
                                     -- free running clock.
@@ -421,7 +341,6 @@ begin
   wdata(7 downto 0) <= red_i;
   wdata(15 downto 8) <= green_i;
   wdata(23 downto 16) <= blue_i;
-  wdata(31 downto 24) <= x"00";  
 
   x_zero_out <= x_zero_pal50_100 when pal50_select_internal100='1' else x_zero_ntsc60_100;
   y_zero_out <= y_zero_pal50_100 when pal50_select_internal100='1' else y_zero_ntsc60_100;
@@ -461,11 +380,14 @@ begin
       test_pattern_enable120 <= test_pattern_enable;
       if fifo_running_drive='0' then
         rd_en <= '0';
+        rd_en_internal <= '0';
       else
         if pal50_select_internal='1' then
           rd_en <= pixel_strobe120_50;
+          rd_en_internal <= pixel_strobe120_50;          
         else
           rd_en <= pixel_strobe120_60;
+          rd_en_internal <= pixel_strobe120_60;
         end if;
       end if;
       
@@ -482,7 +404,7 @@ begin
         blue_o(6) <= fifo_inuse120;
         blue_o(5) <= fifo_empty120;        
       else
-        if data_valid='1' then
+        if rd_en_internal='1' then
           red_o <= rdata(7 downto 0);
           green_o <= rdata(15 downto 8);
           blue_o <= rdata(23 downto 16);
@@ -543,9 +465,6 @@ begin
       if reset_counter100 /= 0 then
         reset_counter100 <= reset_counter100 - 1;
         fifo_running100 <= '0';
-        if reset_counter100 = 32 then
-          fifo_rst <= '0';
-        end if;
         reset_counter_zero <= '0';
       else
         reset_counter_zero <= '1';

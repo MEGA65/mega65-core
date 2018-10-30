@@ -226,7 +226,6 @@ begin
                rd_data_count => led(15 downto 6),
                x_zero_out => x_zero,
                y_zero_out => y_zero,
-               wr_ack => led(2),
                fifo_full => led(4),
                
                -- Pixels

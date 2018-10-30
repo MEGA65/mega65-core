@@ -21,9 +21,7 @@ architecture behavior of cpu_test is
   signal ioclock : std_logic := '0';
   signal clock50mhz : std_logic := '0';
   signal clock200 : std_logic := '0';
-  signal clock40 : std_logic := '0';
-  signal clock33 : std_logic := '0';
-  signal clock30 : std_logic := '0';
+  signal clock120 : std_logic := '0';
   signal reset : std_logic := '0';
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
@@ -237,9 +235,7 @@ begin
       cpuclock      => cpuclock,
       clock50mhz   => clock50mhz,
       ioclock      => cpuclock,
-      clock40 => clock40,
-      clock33 => clock33,
-      clock30 => clock30,
+      clock120 => clock120,
       clock200 => clock200,
       uartclock    => ioclock,
       btnCpuReset      => reset,
@@ -402,26 +398,10 @@ begin
 
   process
   begin
-    clock30 <= '0';
-    wait for 16.666 ns;
-    clock30 <= '1';
-    wait for 16.667 ns;
-  end process;
-
-  process
-  begin
-    clock33 <= '0';
-    wait for 15.0152 ns;
-    clock33 <= '1';
-    wait for 15.0152 ns;
-  end process;
-  
-  process
-  begin
-    clock40 <= '0';
-    wait for 12.5 ns;
-    clock40 <= '1';
-    wait for 12.5 ns;
+    clock120 <= '0';
+    wait for 4.167 ns;
+    clock120 <= '1';
+    wait for 4.167 ns;
   end process;
   
   -- Deliver dummy ethernet frames
