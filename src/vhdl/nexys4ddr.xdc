@@ -19,18 +19,23 @@ set_input_jitter clkout4 0.100
 create_clock -name clkout5 -period 33.33 [get_pins dotclock1/clkout4_buf/O]
 set_input_jitter clkout5 0.100
 
-set_false_path -to [get_cells machine0/pixel0/frame50/x_zero_driver100b_reg_srl2]
-set_false_path -to [get_cells machine0/pixel0/frame50/y_zero_driver100b_reg_srl2]
-set_false_path -to [get_cells machine0/pixel0/frame60/x_zero_driver100b_reg_srl2]
-set_false_path -to [get_cells machine0/pixel0/frame60/y_zero_driver100b_reg_srl2]
-set_false_path -to [get_cells machine0/pixel0/fifo_running_reg_srl2]
-set_false_path -to [get_cells machine0/pixel0/fifo_inuse120_drive_reg]
 set_false_path -from [get_cells led*]
 set_false_path -from [get_cells sw*]
 set_false_path -to [get_cells vga*]
-set_false_path -to [get_cells jb*]
-set_false_path -to [get_cells pmodb*]
-set_false_path -from [get_cells pmodb*]
+set_false_path -to [get_cells *jb*]
+set_false_path -to [get_cells *pmodb*]
+set_false_path -from [get_cells *pmodb*]
+
+set_false_path -to [get_cells *pixel0/frame50/x_zero_driver100b*]
+set_false_path -to [get_cells *pixel0/frame50/y_zero_driver100b*]
+set_false_path -to [get_cells *pixel0/frame60/x_zero_driver100b*]
+set_false_path -to [get_cells *pixel0/frame60/y_zero_driver100b*]
+set_false_path -to [get_cells *pixel0/fifo_inuse120_drive_reg]
+set false_path -to [get_cells *pixel_toggle100*]
+set false_path -to [get_cells *pixel0/fifo_full*]
+set false_path -to [get_cells *pixel0/fifo_almost_empty*]
+set false_path -from [get_cells *fifo0/write_toggle*]
+
 
 ## Switches
 set_property -dict { PACKAGE_PIN J15 IOSTANDARD LVCMOS33 } [get_ports {sw[0]}]
