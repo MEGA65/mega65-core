@@ -1809,10 +1809,10 @@ begin
       -- Calculate raster number for sprites.
       -- The -1 is an adjustment factor to make the sprites line up correctly
       -- on the screen.
-      if vicii_ycounter < 2 then
+      if vicii_ycounter < 1 then
         vicii_sprite_ycounter <= to_unsigned(0,9);
       else
-        vicii_sprite_ycounter <= vicii_ycounter - 2;
+        vicii_sprite_ycounter <= vicii_ycounter - 1;
       end if;
 
       vicii_ycounter_driver <= vicii_ycounter;
