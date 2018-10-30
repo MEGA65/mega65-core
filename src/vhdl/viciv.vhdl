@@ -2385,6 +2385,13 @@ begin
                                         -- @IO:GS $D06F.7 VIC-IV NTSC emulation mode (max raster = 262)
                                                     vicii_ntsc <= fastio_wdata(7);
                                                     pal50_select <= not fastio_wdata(7);
+                                                    -- Make sure that matrix
+                                                    -- mode display isn't jiggly
+                                                    if fastio_wdata(7)='1' then
+                                                      reg_xcounter_delay <= 4;
+                                                    else
+                                                      reg_xcounter_delay <= 0;
+                                                    end if;
 
                                                     report "LEGACY register update & PAL/NTSC mode select";
                                                     
