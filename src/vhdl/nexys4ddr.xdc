@@ -12,13 +12,6 @@ set_false_path -through [ get_cells -hierarchical machine0/viciv0/vicii_sprites0
 set_property -dict { PACKAGE_PIN E3 IOSTANDARD LVCMOS33 } [get_ports CLK_IN]
 create_clock -add -name sys_clk_pin -period 10.00 -waveform {0 5} [get_ports CLK_IN]
 
-# Ignore paths from 30/40MHz frame generators to 100MHz pixel clock
-
-create_clock -name clkout4 -period 25 [get_pins dotclock1/clkout3_buf/O]
-set_input_jitter clkout4 0.100
-create_clock -name clkout5 -period 33.33 [get_pins dotclock1/clkout4_buf/O]
-set_input_jitter clkout5 0.100
-
 set_false_path -from [get_cells led*]
 set_false_path -from [get_cells sw*]
 set_false_path -to [get_cells vga*]
@@ -26,10 +19,11 @@ set_false_path -to [get_cells *jb*]
 set_false_path -to [get_cells *pmodb*]
 set_false_path -from [get_cells *pmodb*]
 
+set_false_path -through [get_cells *bitplanes_y_start_drive*]
 set_false_path -to [get_cells *pixel0/frame50/x_zero_driver100b*]
 set_false_path -to [get_cells *pixel0/frame50/y_zero_driver100b*]
-set_false_path -to [get_cells *pixel0/frame60/x_zero_driver100b*]
-set_false_path -to [get_cells *pixel0/frame60/y_zero_driver100b*]
+set_false_path -through [get_cells *pixel0/frame60/x_zero_driver100b*]
+set_false_path -through [get_cells *pixel0/frame60/y_zero_driver100b*]
 set_false_path -to [get_cells *pixel0/fifo_inuse120_drive_reg]
 set false_path -to [get_cells *pixel_toggle100*]
 set false_path -to [get_cells *pixel0/fifo_full*]
