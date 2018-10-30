@@ -961,6 +961,8 @@ begin
       clock100 => pixelclock,
       clock120 => clock120,
 
+      pixel_strobe100_out => external_pixel_strobe,
+      
       -- Configuration information from the VIC-IV
       hsync_invert => hsync_polarity,
       vsync_invert => vsync_polarity,
@@ -968,7 +970,6 @@ begin
       test_pattern_enable => test_pattern_enable,      
       
       -- Framing information for VIC-IV
-      pixel_strobe100_out => external_pixel_strobe,
       x_zero => external_frame_x_zero,     
       y_zero => external_frame_y_zero,     
 

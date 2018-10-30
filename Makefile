@@ -133,7 +133,7 @@ C65VHDL=		$(SIDVHDL) \
 			$(VHDLSRCDIR)/cputypes.vhdl \
 
 VICIVVHDL=		$(VHDLSRCDIR)/viciv.vhdl \
-			$(VHDLSRCDIR)/ghdl_pixel_driver.vhdl \
+			$(VHDLSRCDIR)/pixel_driver.vhdl \
 			$(VHDLSRCDIR)/pixel_fifo.vhdl \
 			$(VHDLSRCDIR)/frame_generator.vhdl \
 			$(VHDLSRCDIR)/sprite.vhdl \
@@ -611,7 +611,7 @@ clean:
 	rm -f $(VERILOGSRCDIR)/monitor_mem.v
 	rm -f monitor_drive monitor_load read_mem ghdl-frame-gen chargen_debug dis4510 em4510 4510tables
 	rm -f c65-rom-911001.txt c65-911001-rom-annotations.txt c65-dos-context.bin c65-911001-dos-context.bin
-	rm -f thumbnail.prg
+	rm -f thumbnail.prg work-obj93.cf
 	rm -f textmodetest.prg textmodetest.list etherload_done.bin etherload_stub.bin
 	rm -f $(BINDIR)/videoproxy $(BINDIR)/vncserver
 	rm -rf vivado/mega65r1.cache vivado/mega65r1.runs vivado/mega65r1.hw vivado/mega65r1.ip_user_files vivado/mega65r1.srcs vivado/mega65r1.xpr
