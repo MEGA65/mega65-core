@@ -86,39 +86,7 @@ begin
       full <= full_internal;
       almost_empty <= almost_empty_internal;
       
-      -- Record on the read side if we have new data in the buffer
-      if write_toggle /= last_write_toggle then
-        report "Saw write to fifo.";
-        last_write_toggle <= write_toggle;
-        if available = 0 and rd_en='1' then
-          -- FIFO was empty, and a read was requested, to push it directly to
-          -- the output
-          report "Reading new value immediately. Value = $" & to_hstring(pixel_buffer(next_read))
-            & " from slot " & integer'image(next_read);
-          dout <= pixel_buffer(next_read);
-          almost_empty_internal <= '1';
-          empty_internal <= '1';
-          data_valid <= '1';
-          if next_read /= 15 then
-            next_read <= next_read + 1;
-          else
-            next_read <= 0;
-          end if;                  
-        elsif available /= 15 then
-          report "Acknowledging write by increasing available count";
-          empty_internal <= '0';
-          available <= available + 1;
-          if available > 2 then
-            almost_empty_internal <= '0';
-          else
-            almost_empty_internal <= '1';
-          end if;          
-        else
-          report "FIFO over filled.";
-          empty_internal <= '0';
-          full_internal <= '1';
-        end if;
-      elsif available /= 0 and rd_en='1' then
+      if available /= 0 and rd_en='1' then
         report "Reading an item from slot " & integer'image(next_read) & " of the FIFO, " & integer'image(available) & " items available. Value is $" & to_hstring(pixel_buffer(next_read));
         dout <= pixel_buffer(next_read);
         data_valid <= '1';
@@ -138,6 +106,24 @@ begin
         empty_internal <= '1';
         almost_empty_internal <= '1';
         full_internal <= '0';
+      elsif write_toggle /= last_write_toggle then
+      -- Record on the read side if we have new data in the buffer
+        report "Saw write to fifo.";
+        last_write_toggle <= write_toggle;
+        if available /= 15 then
+          report "Acknowledging write by increasing available count";
+          empty_internal <= '0';
+          available <= available + 1;
+          if available > 2 then
+            almost_empty_internal <= '0';
+          else
+            almost_empty_internal <= '1';
+          end if;          
+        else
+          report "FIFO over filled.";
+          empty_internal <= '0';
+          full_internal <= '1';
+        end if;
       end if;
     end if;
   end process;

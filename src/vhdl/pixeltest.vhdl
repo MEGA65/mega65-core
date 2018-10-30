@@ -213,7 +213,7 @@ begin
 
                );
 
-  pixeldriver: entity work.pixel_driver
+  pixel0: entity work.pixel_driver
     port map (
                clock100 => pixelclock, -- 100MHz
                clock120 => clock120,

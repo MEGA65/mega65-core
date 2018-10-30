@@ -15,12 +15,16 @@ create_clock -add -name sys_clk_pin -period 10.00 -waveform {0 5} [get_ports CLK
 ##set_false_path -from [get_clocks clkout4] -to [get_clocks clkout5]
 ##set_false_path -from [get_clocks clkout5] -to [get_clocks clkout4]
 
-set_false_path -to [get_cells pixeldriver/frame50/x_zero_driver100b_reg_srl2]
-set_false_path -to [get_cells pixeldriver/frame50/y_zero_driver100b_reg_srl2]
-set_false_path -to [get_cells pixeldriver/frame60/x_zero_driver100b_reg_srl2]
-set_false_path -to [get_cells pixeldriver/frame60/y_zero_driver100b_reg_srl2]
-set_false_path -to [get_cells pixeldriver/fifo_running_reg_srl2]
-set_false_path -to [get_cells pixeldriver/fifo_inuse120_drive_reg]
+set_false_path -to [get_cells *pixel0/frame50/x_zero_driver100b*]
+set_false_path -to [get_cells *pixel0/frame50/y_zero_driver100b*]
+set_false_path -to [get_cells *pixel0/frame60/x_zero_driver100b*]
+set_false_path -to [get_cells *pixel0/frame60/y_zero_driver100b*]
+set_false_path -to [get_cells *pixel0/fifo_inuse120_drive_reg]
+set false_path -to [get_cells *pixel_toggle100*]
+set false_path -to [get_cells *pixel0/fifo_full*]
+set false_path -to [get_cells *pixel0/fifo_almost_empty*]
+set false_path -from [get_cells *fifo0/write_toggle*]
+
 
 ## Switches
 set_property -dict { PACKAGE_PIN J15 IOSTANDARD LVCMOS33 } [get_ports {sw[0]}]
