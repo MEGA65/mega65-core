@@ -63,6 +63,7 @@ begin
   begin
     if rising_edge(wr_clk) then
       if wr_en='1' then
+        report "Saw write to fifo of $" & to_hstring(din);        
         pixel_buffer(next_write) <= din;
         if next_write /= 15 then
           next_write <= next_write + 1;
@@ -79,18 +80,25 @@ begin
     if rising_edge(rd_clk) then
       -- Record on the read side if we have new data in the buffer
       if write_toggle /= last_write_toggle then
-        report "Saw write to fifo";
+        report "Saw write to fifo.";
         last_write_toggle <= write_toggle;
         if available = 0 and rd_en='1' then
           -- FIFO was empty, and a read was requested, to push it directly to
           -- the output
           report "Reading new value immediately";
+          report "Item is $" & to_hstring(pixel_buffer(next_read));
           dout <= pixel_buffer(next_read);
           almost_empty_internal <= '1';
           empty_internal <= '1';
           data_valid <= '1';
+          if next_read /= 15 then
+            next_read <= next_read + 1;
+          else
+            next_read <= 0;
+          end if;                  
         elsif available /= 15 then
           report "Stashing write for reading later";
+          report "Item is $" & to_hstring(pixel_buffer(next_read));
           available <= available + 1;
           if available > 2 then
             almost_empty_internal <= '0';
@@ -103,6 +111,7 @@ begin
         end if;
       elsif available /= 0 and rd_en='1' then
         report "Reading an item from the FIFO, " & integer'image(available) & " items available.";
+        report "Item is $" & to_hstring(pixel_buffer(next_read));
         dout <= pixel_buffer(next_read);
         data_valid <= '1';
         available <= available - 1;

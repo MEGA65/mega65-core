@@ -491,9 +491,10 @@ begin
         else
           waddr <= 0;
           fifo_inuse100 <= '0';
-          report "Zeroing waddr";
+          report "Zeroing fifo waddr";
         end if;
-        report "waddr = $" & to_hstring(to_unsigned(waddr,16));
+        report "pixel_fifo waddr estimate = $" & to_hstring(to_unsigned(waddr,16));
+        report "pixel_fifo pixel write = R:G:B $" & to_hstring(red_i) & ":" & to_hstring(green_i) & ":" & to_hstring(blue_i);
         wr_en <= '1' and fifo_running100;
       else
         wr_en <= '0';
