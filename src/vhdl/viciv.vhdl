@@ -423,7 +423,7 @@ architecture Behavioral of viciv is
                            SpriteDataFetch2);
   signal raster_fetch_state : vic_chargen_fsm := Idle;
   type vic_paint_fsm is (Idle,
-                         PaintFullColour,PaintFullColourPixels,PaintFullColourDone,
+                         PaintFullColour,Paint4bitColourPixels,PaintFullColourPixels,PaintFullColourDone,
                          PaintMono,PaintMonoDrive,PaintMonoBits,
                          PaintMultiColour,PaintMultiColourDrive,
                          PaintMultiColourBits,PaintMultiColourHold);
@@ -751,8 +751,9 @@ architecture Behavioral of viciv is
   signal glyph_flip_vertical : std_logic;
   signal glyph_goto : std_logic;
   signal glyph_width_deduct : unsigned(2 downto 0);
-  signal glyph_width : integer range 0 to 8;
-  signal paint_glyph_width : integer range 0 to 8;
+  signal glyph_width : integer range 0 to 16;
+  signal paint_glyph_width : integer range 0 to 16;
+  signal reg_fullcolour4bit : std_logic := '0';
   signal glyph_blink : std_logic;
   signal glyph_blink_drive : std_logic;
   signal paint_blink : std_logic;
@@ -1697,7 +1698,8 @@ begin
           fastio_rdata(7 downto 6) <= "00";
           fastio_rdata(5 downto 0) <= std_logic_vector(single_side_border(13 downto 8));
         elsif register_number=94 then
-          fastio_rdata <= x"FF";
+          fastio_rdata(0) <= reg_fullcolour4bit;
+          fastio_rdata(7 downto 1)  <= (others => '1');
         elsif register_number=95 then
           fastio_rdata <= std_logic_vector(sprite_h640_msbs);          
         elsif register_number=96 then
@@ -2326,8 +2328,9 @@ begin
                                         -- @IO:GS $D05D VIC-IV side border width (MSB)
                                                     single_side_border(13 downto 8) <= unsigned(fastio_wdata(5 downto 0));
                                                   elsif register_number=94 then
-                                        -- @IO:GS $D05E VIC-IV UNUSED
-                                                    null;
+                                        -- @IO:GS $D05E.0 VIC-IV full colour text mode uses 4 bits per pixel / 16 pixel wide characters
+                                        -- @IO:GS $D05E.1-7 VIC-IV UNUSED
+                                                    reg_fullcolour4bit <= fastio_wdata(0);
                                                   elsif register_number=95 then
                                         -- @IO:GS $D05F VIC-IV Sprite H640 X Super-MSBs
                                                     sprite_h640_msbs <= fastio_wdata;
@@ -3919,7 +3922,11 @@ begin
             report "character rom address set to $" & to_hstring(glyph_data_address(11 downto 0)) severity note;
             -- Tell painter whether to flip horizontally or not.
             paint_flip_horizontal <= glyph_flip_horizontal;
-            paint_glyph_width <= glyph_width;
+            if reg_fullcolour4bit='1' then
+              paint_glyph_width <= 16 - 2*glyph_width;
+            else
+              paint_glyph_width <= glyph_width;
+            end if;
             paint_blink <= glyph_blink;
             paint_with_alpha <= glyph_with_alpha;
 
@@ -4244,11 +4251,63 @@ begin
           end if;
         when PaintFullColour =>
           -- Draw 8 pixels using a byte at a time from full_colour_data          
-          paint_bits_remaining <= paint_glyph_width - 1;
           paint_ready <= '0';
           report "LEGACY: clearing paint_ready. full_colour_data=$" & to_hstring(full_colour_data);
           paint_full_colour_data <= full_colour_data;
-          paint_fsm_state <= PaintFullColourPixels;
+          if reg_fullcolour4bit='1' then
+            paint_fsm_state <= Paint4bitColourPixels;
+          else
+            paint_fsm_state <= PaintFullColourPixels;
+          end if;
+        when Paint4bitColourPixels =>
+          if paint_full_colour_data(3 downto 0) = x"00" then
+            -- background pixel
+            raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
+            raster_buffer_write_data(8) <= '0';
+            raster_buffer_write_data(7 downto 0) <= paint_background;
+          else
+            -- foreground pixel
+            if paint_with_alpha='0' then
+              report "LEGACY: full-colour glyph painting pixel $" & to_hstring(paint_full_colour_data(7 downto 0))
+                & " into buffer @ $" & to_hstring(raster_buffer_write_address);
+              raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
+              raster_buffer_write_data(8) <= '1';
+              if paint_full_colour_data(3 downto 0) /= x"F" then
+                raster_buffer_write_data(3 downto 0) <= paint_full_colour_data(3 downto 0);
+                raster_buffer_write_data(7 downto 4) <= x"0";
+              else
+                raster_buffer_write_data(7 downto 0) <= paint_foreground;
+              end if;
+            else
+              -- XXX Add alternate alpha mode where alhpa value is picked by
+              -- colour RAM, allowing full colour chars to be faded in and out
+              -- from background?
+              report "LEGACY: full-colour glyph painting alpha pixel $"
+                & to_hstring(paint_foreground)
+                & " with alpha value $" & to_hstring(paint_full_colour_data(3 downto 0)) & "F"
+                & " : raster_buffer_write_address=$" & to_hstring(raster_buffer_write_address)
+                & " ( + 1 ?)";
+              -- 8-bit pixel values provide the alpha
+              raster_buffer_write_data(16 downto 13) <= paint_full_colour_data(3 downto 0);
+              raster_buffer_write_data(12 downto 9) <= (others => paint_full_colour_data(0));
+              raster_buffer_write_data(8) <= paint_full_colour_data(3);
+              -- colour RAM colour provides the foreground
+              raster_buffer_write_data(7 downto 0) <= paint_foreground;
+            end if;
+          end if;
+          paint_full_colour_data(59 downto 0) <= paint_full_colour_data(63 downto 4);
+          raster_buffer_write_address <= raster_buffer_write_address + 1;
+          raster_buffer_write <= '1';
+          report "LEGACY: full colour glyph paint_bits_remaining=" & integer'image(paint_bits_remaining) severity note;
+          if paint_bits_remaining > 0 then
+            paint_bits_remaining <= paint_bits_remaining - 1;
+          else
+            paint_fsm_state <= PaintFullColourDone;
+          end if;
+          if paint_bits_remaining = 0 then
+            -- All done
+            paint_fsm_state <= Idle;
+          end if;
         when PaintFullColourPixels =>
           if paint_full_colour_data(7 downto 0) = x"00" then
             -- background pixel
