@@ -1063,9 +1063,9 @@ begin
               b_strm1(9 downto 2) => std_logic_vector(composite_blue),
               b_strm1(1 downto 0) => (others => '0'),
               de_alpha => '1',
-              alpha_strm(9 downto 2) => std_logic_vector(postsprite_pixel_colour(7 downto 0)),
-              alpha_strm(1) => postsprite_pixel_colour(0),
-              alpha_strm(0) => postsprite_pixel_colour(0),
+              alpha_strm(9 downto 2) => std_logic_vector(postsprite_alpha_value(7 downto 0)),
+              alpha_strm(1) => postsprite_alpha_value(0),
+              alpha_strm(0) => postsprite_alpha_value(0),
 
               r_blnd => composited_red,
               g_blnd => composited_green,
@@ -3066,13 +3066,6 @@ begin
           pixel_is_background <= not raster_buffer_read_data(8);
           pixel_is_foreground <= raster_buffer_read_data(8);
         end if;
---      else
---        pixel_alpha <= x"ff";
---        pixel_colour <= x"00";
---        pixel_is_background <= '0';
---        pixel_is_foreground <= '0';
---        report "VICIV: Outside of frame" severity note;
---      end if;
       
       -- Make delayed versions of card number and x position so that we have time
       -- to fetch character row data.
