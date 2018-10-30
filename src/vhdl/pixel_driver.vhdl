@@ -94,13 +94,6 @@ architecture greco_roman of pixel_driver is
   signal fifo_inuse100 : std_logic := '0';
   signal fifo_almost_empty100 : std_logic := '0';
   signal fifo_almost_empty120 : std_logic := '0';
-  signal fifo_running : std_logic := '0';
-  signal fifo_running100 : std_logic := '0';
-  signal fifo_running_drive : std_logic := '0';
-  signal reset_counter_zero_120 : std_logic := '0';
-  signal reset_counter_zero : std_logic := '0';
-  signal reset_counter_zero_drive : std_logic := '0';
-  signal reset_counter100 : integer range 0 to 255 := 255;
   signal fifo_empty120 : std_logic := '0';
   signal fifo_full120 : std_logic := '0';
   
@@ -185,8 +178,6 @@ architecture greco_roman of pixel_driver is
   signal pixel_toggle : std_logic := '0';
   signal toggle_counter : integer range 0 to 15 := 0;
 
-  signal data_valid : std_logic := '0';
-
 begin
 
   -- Here we generate the frames and the pixel strobe references for everything
@@ -268,10 +259,6 @@ begin
                                     -- asserted,this signal indicates that
                                     -- only one more read can be performed before
                                     -- the FIFO goes to empty.
-      data_valid=>data_valid,       -- 1-bit output : Read Data Valid : When
-                                    -- asserted, this signal indicates
-                                    -- that valid data is available on the output
-                                    -- bus (dout).
       dout=>rdata,                  -- READ_DATA_WIDTH-bit output : ReadData : The
                                     -- output data bus is driven
                                     -- when reading the FIFO.
@@ -376,17 +363,13 @@ begin
 --      end if;
       
       test_pattern_enable120 <= test_pattern_enable;
-      if fifo_running_drive='0' then
-        rd_en <= '0';
-        rd_en_internal <= '0';
+
+      if pal50_select_internal='1' then
+        rd_en <= pixel_strobe120_50 and plotting;
+        rd_en_internal <= pixel_strobe120_50;          
       else
-        if pal50_select_internal='1' then
-          rd_en <= pixel_strobe120_50;
-          rd_en_internal <= pixel_strobe120_50;          
-        else
-          rd_en <= pixel_strobe120_60;
-          rd_en_internal <= pixel_strobe120_60;
-        end if;
+        rd_en <= pixel_strobe120_60 and plotting;
+        rd_en_internal <= pixel_strobe120_60;
       end if;
       
       -- Output the pixels or else the test pattern
@@ -412,13 +395,17 @@ begin
       if x_zero_pal50_120='1' or fifo_inuse120='0' or fifo_empty120='1' then
         raddr50 <= 0;
         plotting50 <= '0';
-        report "raddr = ZERO";
+        report "raddr = ZERO, clearing plotting50";
+        report "fifo_inuse120=" & std_logic'image(fifo_inuse120)
+          & ", fifo_empty120=" & std_logic'image(fifo_empty120);
       else
         if raddr50 < 800 then
           if fifo_almost_empty120='0' then
             plotting50 <= '1';
+            report "FIFO is no longer almost empty, asserting plotting50";
           end if;
         else
+          report "clearing plotting50 due to end of line";
           plotting50 <= '0';
         end if;
         if pixel_strobe120_50 = '1' then
@@ -448,28 +435,6 @@ begin
       end if;
     end if;
     
-    if rising_edge(clock120) then
-      reset_counter_zero_120 <= reset_counter_zero_drive;
-      fifo_running_drive <= fifo_running;      
-      if reset_counter_zero_120 = '1' then
-        fifo_running <= '1';
-      else
-        fifo_running <= '0';
-      end if;
-    end if;
-
-    if rising_edge(clock100) then
-      reset_counter_zero_drive <= reset_counter_zero;
-      if reset_counter100 /= 0 then
-        reset_counter100 <= reset_counter100 - 1;
-        fifo_running100 <= '0';
-        reset_counter_zero <= '0';
-      else
-        reset_counter_zero <= '1';
-        fifo_running100 <= '1';
-      end if;
-    end if;
-    
     -- Manage writing into the raster buffer
     if rising_edge(clock100) then
       fifo_almost_empty100 <= fifo_almost_empty120;
@@ -493,9 +458,9 @@ begin
           fifo_inuse100 <= '0';
           report "Zeroing fifo waddr";
         end if;
-        report "pixel_fifo waddr estimate = $" & to_hstring(to_unsigned(waddr,16));
-        report "pixel_fifo pixel write = R:G:B $" & to_hstring(red_i) & ":" & to_hstring(green_i) & ":" & to_hstring(blue_i);
-        wr_en <= '1' and fifo_running100;
+--        report "pixel_fifo waddr estimate = $" & to_hstring(to_unsigned(waddr,16));
+--        report "pixel_fifo pixel write = R:G:B $" & to_hstring(red_i) & ":" & to_hstring(green_i) & ":" & to_hstring(blue_i);
+        wr_en <= '1';
       else
         wr_en <= '0';
       end if;

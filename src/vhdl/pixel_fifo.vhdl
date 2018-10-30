@@ -26,17 +26,21 @@ use work.debugtools.all;
 entity pixel_fifo is
 
   port (
-    almost_empty : out std_logic := '1';  -- goes low when there is enough in the
-                                        -- fifo
+    wr_clk : in std_logic;
+    wr_en : in std_logic;
+    din : in unsigned(23 downto 0);
+
+    rd_clk : in std_logic;
+    rd_en : in std_logic;
     dout : out unsigned(23 downto 0) := x"000000"; -- pixel out
+    data_valid : out std_logic;
+
     empty : out std_logic := '1';
     full : out std_logic := '0';
-    din : in unsigned(23 downto 0);
-    rd_clk : in std_logic;
-    wr_clk : in std_logic;
-    rd_en : in std_logic;
-    wr_en : in std_logic;
-    data_valid : out std_logic;
+    almost_empty : out std_logic := '1';  -- goes low when there is enough in the
+                                        -- fifo
+
+    
     rd_data_count : out std_logic_vector(9 downto 0) := (others => '0');
     wr_data_count : out std_logic_vector(9 downto 0) := (others => '0')
     );
@@ -63,7 +67,7 @@ begin
   begin
     if rising_edge(wr_clk) then
       if wr_en='1' then
-        report "Saw write to fifo of $" & to_hstring(din);        
+        report "Writing $" & to_hstring(din) & " into FIFO slot " & integer'image(next_write);
         pixel_buffer(next_write) <= din;
         if next_write /= 15 then
           next_write <= next_write + 1;
@@ -78,6 +82,10 @@ begin
   process (rd_clk) is
   begin
     if rising_edge(rd_clk) then
+      empty <= empty_internal;
+      full <= full_internal;
+      almost_empty <= almost_empty_internal;
+      
       -- Record on the read side if we have new data in the buffer
       if write_toggle /= last_write_toggle then
         report "Saw write to fifo.";
@@ -85,8 +93,8 @@ begin
         if available = 0 and rd_en='1' then
           -- FIFO was empty, and a read was requested, to push it directly to
           -- the output
-          report "Reading new value immediately";
-          report "Item is $" & to_hstring(pixel_buffer(next_read));
+          report "Reading new value immediately. Value = $" & to_hstring(pixel_buffer(next_read))
+            & " from slot " & integer'image(next_read);
           dout <= pixel_buffer(next_read);
           almost_empty_internal <= '1';
           empty_internal <= '1';
@@ -97,8 +105,8 @@ begin
             next_read <= 0;
           end if;                  
         elsif available /= 15 then
-          report "Stashing write for reading later";
-          report "Item is $" & to_hstring(pixel_buffer(next_read));
+          report "Acknowledging write by increasing available count";
+          empty_internal <= '0';
           available <= available + 1;
           if available > 2 then
             almost_empty_internal <= '0';
@@ -107,11 +115,11 @@ begin
           end if;          
         else
           report "FIFO over filled.";
+          empty_internal <= '0';
           full_internal <= '1';
         end if;
       elsif available /= 0 and rd_en='1' then
-        report "Reading an item from the FIFO, " & integer'image(available) & " items available.";
-        report "Item is $" & to_hstring(pixel_buffer(next_read));
+        report "Reading an item from slot " & integer'image(next_read) & " of the FIFO, " & integer'image(available) & " items available. Value is $" & to_hstring(pixel_buffer(next_read));
         dout <= pixel_buffer(next_read);
         data_valid <= '1';
         available <= available - 1;
