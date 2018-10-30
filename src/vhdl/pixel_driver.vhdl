@@ -22,8 +22,6 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
-library Xpm;
-use xpm.vcomponents.all;
 
 entity pixel_driver is
 
