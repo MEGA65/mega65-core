@@ -515,7 +515,6 @@ architecture Behavioral of machine is
   signal vgagreen_viciv : unsigned(7 downto 0);
   signal vgablue_viciv : unsigned(7 downto 0);
 
-  signal pixel_strobe_rain : std_logic := '0';
   signal vgared_rain : unsigned(7 downto 0);
   signal vgagreen_rain : unsigned(7 downto 0);
   signal vgablue_rain : unsigned(7 downto 0);
@@ -1096,7 +1095,7 @@ begin
     
     lcd_in_letterbox => lcd_in_letterbox,
     pixel_y_scale_200 => to_unsigned(2,4),
-    pixel_y_scale_400 => to_unsigneD(1,4),
+    pixel_y_scale_400 => to_unsigned(1,4),
     osk_ystart => osk_ystart,
     visual_keyboard_enable => visual_keyboard_enable,
     keyboard_at_top => keyboard_at_top,
@@ -1124,7 +1123,7 @@ begin
       ycounter_in => ycounter_viciv,
 
       -- Pixels from video pipeline
-      pixel_strobe_in => pixel_strobe_rain,
+      pixel_strobe_in => pixel_strobe_viciv,
       vgared_in => vgared_rain,
       vgagreen_in => vgagreen_rain,
       vgablue_in => vgablue_rain,
