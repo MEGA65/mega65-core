@@ -3923,7 +3923,7 @@ begin
             -- Tell painter whether to flip horizontally or not.
             paint_flip_horizontal <= glyph_flip_horizontal;
             if reg_fullcolour4bit='1' then
-              paint_glyph_width <= 16 - 2*glyph_width;
+              paint_glyph_width <= 2*glyph_width;
             else
               paint_glyph_width <= glyph_width;
             end if;
@@ -4254,6 +4254,7 @@ begin
           paint_ready <= '0';
           report "LEGACY: clearing paint_ready. full_colour_data=$" & to_hstring(full_colour_data);
           paint_full_colour_data <= full_colour_data;
+          paint_bits_remaining <= paint_glyph_width - 1;
           if reg_fullcolour4bit='1' then
             paint_fsm_state <= Paint4bitColourPixels;
           else
