@@ -79,15 +79,18 @@ begin
     if rising_edge(rd_clk) then
       -- Record on the read side if we have new data in the buffer
       if write_toggle /= last_write_toggle then
+        report "Saw write to fifo";
         last_write_toggle <= write_toggle;
         if available = 0 and rd_en='1' then
           -- FIFO was empty, and a read was requested, to push it directly to
           -- the output
+          report "Reading new value immediately";
           dout <= pixel_buffer(next_read);
           almost_empty_internal <= '1';
           empty_internal <= '1';
           data_valid <= '1';
         elsif available /= 15 then
+          report "Stashing write for reading later";
           available <= available + 1;
           if available > 2 then
             almost_empty_internal <= '0';
@@ -95,9 +98,11 @@ begin
             almost_empty_internal <= '1';
           end if;          
         else
+          report "FIFO over filled.";
           full_internal <= '1';
         end if;
-      elsif available /= 0 and rd_en='1' then        
+      elsif available /= 0 and rd_en='1' then
+        report "Reading an item from the FIFO, " & integer'image(available) & " items available.";
         dout <= pixel_buffer(next_read);
         data_valid <= '1';
         available <= available - 1;
@@ -110,6 +115,7 @@ begin
           next_read <= 0;
         end if;
       elsif rd_en='1' then
+        report "Reading from FIFO while empty";
         dout <= x"000000";
         data_valid <= '0';
         empty_internal <= '1';
