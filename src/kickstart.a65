@@ -1489,6 +1489,11 @@ resetdisplay:
 		sta $D020	; border
 		sta $D021	; background
 
+		; Start in 60Hz mode, since most monitors support it
+		; (Also required to make sure matrix mode pixels aren't ragged on first boot).
+		lda #$80
+		sta $d06f
+
 		; We use VIC-II style registers as this resets video frame in
 		; least instructions, and 40 columns is fine for us.
 		;
