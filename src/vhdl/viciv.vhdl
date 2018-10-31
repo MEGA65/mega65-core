@@ -2387,8 +2387,10 @@ begin
                                                     -- mode display isn't jiggly
                                                     if fastio_wdata(7)='1' then
                                                       reg_xcounter_delay <= 4;
+                                                      reg_alpha_delay <= x"2";
                                                     else
                                                       reg_xcounter_delay <= 0;
+                                                      reg_alpha_delay <= x"4";
                                                     end if;
 
                                                     report "LEGACY register update & PAL/NTSC mode select";

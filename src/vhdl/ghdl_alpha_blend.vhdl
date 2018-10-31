@@ -58,6 +58,10 @@ architecture behavioural of alpha_blend_top is
   signal oneminusalpha_delayed2 : integer;
   signal alpha_delayed3 : unsigned(10 downto 0);
   signal oneminusalpha_delayed3 : integer;
+  signal alpha_delayed4 : unsigned(10 downto 0);
+  signal oneminusalpha_delayed4 : integer;
+  signal alpha_delayed5 : unsigned(10 downto 0);
+  signal oneminusalpha_delayed5 : integer;
   
   
 begin
@@ -81,6 +85,12 @@ begin
 
       alpha_delayed3 <= alpha_delayed2;
       oneminusalpha_delayed3 <= oneminusalpha_delayed2;
+
+      alpha_delayed4 <= alpha_delayed3;
+      oneminusalpha_delayed4 <= oneminusalpha_delayed3;
+
+      alpha_delayed5 <= alpha_delayed4;
+      oneminusalpha_delayed5 <= oneminusalpha_delayed4;
       
       case alpha_delay is
         when x"1" =>
@@ -92,6 +102,12 @@ begin
         when x"3" =>
           alpha_delayed <= alpha_delayed3;
           oneminusalpha_delayed <= oneminusalpha_delayed3;
+        when x"4" =>
+          alpha_delayed <= alpha_delayed4;
+          oneminusalpha_delayed <= oneminusalpha_delayed4;
+        when x"5" =>
+          alpha_delayed <= alpha_delayed5;
+          oneminusalpha_delayed <= oneminusalpha_delayed5;
         when others =>
           alpha_delayed <= alpha_strm_drive;
           oneminusalpha_delayed <= oneminusalpha;
