@@ -20,16 +20,16 @@ set_false_path -to [get_cells *pmodb*]
 set_false_path -from [get_cells *pmodb*]
 
 set_false_path -through [get_cells *bitplanes_y_start_drive*]
-set_false_path -to [get_cells *pixel0/frame50/x_zero_driver100b*]
-set_false_path -to [get_cells *pixel0/frame50/y_zero_driver100b*]
-set_false_path -through [get_cells *pixel0/frame60/x_zero_driver100b*]
-set_false_path -through [get_cells *pixel0/frame60/y_zero_driver100b*]
+set_false_path -through [get_cells *bitplanes_x_start*]
+set_false_path -through [get_cells *x_zero_driver100b*]
+set_false_path -to [get_cells *y_zero_driver100b*]
+set_false_path -through [get_cells *x_zero_driver100b*]
 set_false_path -to [get_cells *pixel0/fifo_inuse120_drive_reg]
 set false_path -to [get_cells *pixel_toggle100*]
 set false_path -to [get_cells *pixel0/fifo_full*]
 set false_path -to [get_cells *pixel0/fifo_almost_empty*]
 set false_path -from [get_cells *fifo0/write_toggle*]
-
+set false_path -through [get_cells *v_bitplane_y_start*]
 
 ## Switches
 set_property -dict { PACKAGE_PIN J15 IOSTANDARD LVCMOS33 } [get_ports {sw[0]}]
