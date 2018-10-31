@@ -941,6 +941,8 @@ architecture Behavioral of viciv is
   signal badlineprog_inhibit_screen_row_buffer_write_counter : integer := 0;
   -- Indicates if the next 16 bit screen token will be a GOTO/GOSUB token
   signal next_token_is_goto : std_logic := '0';
+
+  signal reg_alpha_delay : unsigned(3 downto 0) := x"2";
   
 begin
   
@@ -1067,6 +1069,8 @@ begin
               alpha_strm(1) => postsprite_alpha_value(0),
               alpha_strm(0) => postsprite_alpha_value(0),
 
+              alpha_delay => reg_alpha_delay,
+              
               r_blnd => composited_red,
               g_blnd => composited_green,
               b_blnd => composited_blue
@@ -1745,15 +1749,15 @@ begin
         elsif register_number=114 then -- $D3072
           fastio_rdata(7 downto 0) <= std_logic_vector(vsync_delay);
         elsif register_number=115 then -- $D3073
-          fastio_rdata(3 downto 0) <= x"F";
+          fastio_rdata(3 downto 0) <= std_logic_vector(reg_alpha_delay);
           fastio_rdata(7 downto 4) <= std_logic_vector(vicii_ycounter_scale_minus_zero(3 downto 0));
-        elsif register_number=116 then  -- $D3074 (free)
+        elsif register_number=116 then  -- $D3074 (UNUSED)
           fastio_rdata <= x"FF";
-        elsif register_number=117 then  -- $D3075 (free)
+        elsif register_number=117 then  -- $D3075 (UNUSED)
           fastio_rdata <= x"FF";
-        elsif register_number=118 then  -- $D3076 (free)
+        elsif register_number=118 then  -- $D3076 (UNUSED)
           fastio_rdata <= x"FF";
-        elsif register_number=119 then  -- $D3077 (free)
+        elsif register_number=119 then  -- $D3077 (UNUSED)
           fastio_rdata <= x"FF";
         elsif register_number=120 then  -- $D3078 (was display_height, now free)
 	  fastio_rdata <= X"FF"; -- UNUSED
@@ -2478,8 +2482,8 @@ begin
                                                                                  -- @IO:GS $D072 VIC-IV VSYNC delay
                                                     vsync_delay <= unsigned(fastio_wdata);
                                                   elsif register_number=115 then -- $D3073
-                                                                                 -- @IO:GS $D073 VIC-IV UNUSED
-                                                    null;
+                                        -- @IO:GS $D073.0-3 VIC-IV Alpha delay for compositor
+                                                    reg_alpha_Delay <= unsigned(fastio_wdata(3 downto 0));
                                         -- @IO:GS $D073.4-7 VIC-IV physical rasters per VIC-II raster (1 to 16)
                                                     vicii_ycounter_scale_minus_zero(3 downto 0) <= unsigned(fastio_wdata(7 downto 4));
                                                   elsif register_number=116 then -- $D3074

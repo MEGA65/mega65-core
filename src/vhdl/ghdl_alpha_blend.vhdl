@@ -20,7 +20,9 @@ entity alpha_blend_top is
     b_strm1:     in  std_logic_vector(9 downto 0);
     de_alpha:    in  std_logic;
     alpha_strm:  in  std_logic_vector(9 downto 0);
- 
+
+    alpha_delay : in unsigned(3 downto 0);
+    
      pixclk_out: out std_logic;
      hsync_blnd: out std_logic;
      vsync_blnd: out std_logic;
@@ -52,6 +54,10 @@ architecture behavioural of alpha_blend_top is
   signal oneminusalpha_delayed : integer;
   signal alpha_delayed1 : unsigned(10 downto 0);
   signal oneminusalpha_delayed1 : integer;
+  signal alpha_delayed2 : unsigned(10 downto 0);
+  signal oneminusalpha_delayed2 : integer;
+  signal alpha_delayed3 : unsigned(10 downto 0);
+  signal oneminusalpha_delayed3 : integer;
   
   
 begin
@@ -70,8 +76,26 @@ begin
       alpha_delayed1 <= alpha_strm_drive;
       oneminusalpha_delayed1 <= oneminusalpha;
 
-      alpha_delayed <= alpha_delayed1;
-      oneminusalpha_delayed <= oneminusalpha_delayed1;
+      alpha_delayed2 <= alpha_delayed1;
+      oneminusalpha_delayed2 <= oneminusalpha_delayed1;
+
+      alpha_delayed3 <= alpha_delayed2;
+      oneminusalpha_delayed3 <= oneminusalpha_delayed2;
+      
+      case alpha_delay is
+        when x"1" =>
+          alpha_delayed <= alpha_delayed1;
+          oneminusalpha_delayed <= oneminusalpha_delayed1;
+        when x"2" =>
+          alpha_delayed <= alpha_delayed2;
+          oneminusalpha_delayed <= oneminusalpha_delayed2;
+        when x"3" =>
+          alpha_delayed <= alpha_delayed3;
+          oneminusalpha_delayed <= oneminusalpha_delayed3;
+        when others =>
+          alpha_delayed <= alpha_strm_drive;
+          oneminusalpha_delayed <= oneminusalpha;
+      end case;                    
       
       r0 <= to_integer(unsigned(r_strm0))
             *to_integer(alpha_delayed);
