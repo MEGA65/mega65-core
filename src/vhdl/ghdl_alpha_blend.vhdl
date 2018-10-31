@@ -48,6 +48,13 @@ architecture behavioural of alpha_blend_top is
   signal alpha_strm_drive: unsigned(10 downto 0);
   signal oneminusalpha : integer;
 
+  signal r_strm0drive : std_logic_vector(9 downto 0);
+  signal g_strm0drive : std_logic_vector(9 downto 0);              
+  signal b_strm0drive : std_logic_vector(9 downto 0);
+  signal r_strm1drive : std_logic_vector(9 downto 0);
+  signal g_strm1drive : std_logic_vector(9 downto 0);              
+  signal b_strm1drive : std_logic_vector(9 downto 0);
+  
 begin
   
   process (clk1x) is
@@ -60,26 +67,32 @@ begin
       -- and will avoid the wrap-around from stark white to black that we are seeing.
       alpha_strm_drive <= unsigned("0"&alpha_strm);
       oneminusalpha <= (1024-to_integer(unsigned(alpha_strm)));
-      
-      r0 <= to_integer(unsigned(r_strm0))
+      r_strm0drive <= r_strm0;
+      g_strm0drive <= g_strm0;
+      b_strm0drive <= b_strm0;
+      r_strm1drive <= r_strm1;
+      g_strm1drive <= g_strm1;
+      b_strm1drive <= b_strm1;
+    
+      r0 <= to_integer(unsigned(r_strm0drive))
             *to_integer(alpha_strm_drive);
-      r1 <= to_integer(unsigned(r_strm1))*oneminusalpha;
+      r1 <= to_integer(unsigned(r_strm1drive))*oneminusalpha;
       r0drive <= r0;
       r1drive <= r1;
       temp := to_unsigned(r0drive+r1drive,20);
       r_blnd <= std_logic_vector(temp(19 downto 10));
 
-      g0 <= to_integer(unsigned(g_strm0))
+      g0 <= to_integer(unsigned(g_strm0drive))
             *to_integer(alpha_strm_drive);
-      g1 <= to_integer(unsigned(g_strm1))*oneminusalpha;
+      g1 <= to_integer(unsigned(g_strm1drive))*oneminusalpha;
       g0drive <= g0;
       g1drive <= g1;
       temp := to_unsigned(g0drive+g1drive,20);
       g_blnd <= std_logic_vector(temp(19 downto 10));
       
-      b0 <= to_integer(unsigned(b_strm0))
+      b0 <= to_integer(unsigned(b_strm0drive))
             *to_integer(alpha_strm_drive);
-      b1 <= to_integer(unsigned(b_strm1))*oneminusalpha;
+      b1 <= to_integer(unsigned(b_strm1drive))*oneminusalpha;
       b0drive <= b0;
       b1drive <= b1;
       temp := to_unsigned(b0drive+b1drive,20);
