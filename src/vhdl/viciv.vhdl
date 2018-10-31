@@ -186,7 +186,7 @@ architecture Behavioral of viciv is
   signal viciv_fast_internal : std_logic := '1';
   signal viciv_bitplane_chargen_on : std_logic := '0';
 
-  signal reg_xcounter_delay : integer range 0 to 31 := 17;
+  signal reg_xcounter_delay : integer range 0 to 31 := 4;
   signal xcounter_pipeline_delayed : integer := 0;
   signal external_pixel_strobe_log : std_logic_vector(31 downto 0) := (others => '0');
   signal sprite_h640_delayed : std_logic := '0';
