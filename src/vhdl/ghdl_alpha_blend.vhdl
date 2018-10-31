@@ -48,8 +48,10 @@ architecture behavioural of alpha_blend_top is
   signal alpha_strm_drive: unsigned(10 downto 0);
   signal oneminusalpha : integer;
 
-  signal alpha_delayed: unsigned(10 downto 0);
+  signal alpha_delayed : unsigned(10 downto 0);
   signal oneminusalpha_delayed : integer;
+  signal alpha_delayed1 : unsigned(10 downto 0);
+  signal oneminusalpha_delayed1 : integer;
   
   
 begin
@@ -65,8 +67,11 @@ begin
       alpha_strm_drive <= unsigned("0"&alpha_strm);
       oneminusalpha <= (1024-to_integer(unsigned(alpha_strm)));
 
-      alpha_delayed <= alpha_strm_drive;
-      oneminusalpha_delayed <= oneminusalpha;
+      alpha_delayed1 <= alpha_strm_drive;
+      oneminusalpha_delayed1 <= oneminusalpha;
+
+      alpha_delayed <= alpha_delayed1;
+      oneminusalpha_delayed <= oneminusalpha_delayed1;
       
       r0 <= to_integer(unsigned(r_strm0))
             *to_integer(alpha_delayed);
