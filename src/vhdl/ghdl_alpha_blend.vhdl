@@ -74,25 +74,25 @@ begin
       g_strm1drive <= g_strm1;
       b_strm1drive <= b_strm1;
     
-      r0 <= to_integer(unsigned(r_strm0drive))
+      r0 <= to_integer(unsigned(r_strm0))
             *to_integer(alpha_strm_drive);
-      r1 <= to_integer(unsigned(r_strm1drive))*oneminusalpha;
+      r1 <= to_integer(unsigned(r_strm1))*oneminusalpha;
       r0drive <= r0;
       r1drive <= r1;
       temp := to_unsigned(r0drive+r1drive,20);
       r_blnd <= std_logic_vector(temp(19 downto 10));
 
-      g0 <= to_integer(unsigned(g_strm0drive))
+      g0 <= to_integer(unsigned(g_strm0))
             *to_integer(alpha_strm_drive);
-      g1 <= to_integer(unsigned(g_strm1drive))*oneminusalpha;
+      g1 <= to_integer(unsigned(g_strm1))*oneminusalpha;
       g0drive <= g0;
       g1drive <= g1;
       temp := to_unsigned(g0drive+g1drive,20);
       g_blnd <= std_logic_vector(temp(19 downto 10));
       
-      b0 <= to_integer(unsigned(b_strm0drive))
+      b0 <= to_integer(unsigned(b_strm0))
             *to_integer(alpha_strm_drive);
-      b1 <= to_integer(unsigned(b_strm1drive))*oneminusalpha;
+      b1 <= to_integer(unsigned(b_strm1))*oneminusalpha;
       b0drive <= b0;
       b1drive <= b1;
       temp := to_unsigned(b0drive+b1drive,20);
