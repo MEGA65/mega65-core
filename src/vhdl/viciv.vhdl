@@ -2390,7 +2390,7 @@ begin
                                                       reg_alpha_delay <= x"2";
                                                     else
                                                       reg_xcounter_delay <= 0;
-                                                      reg_alpha_delay <= x"4";
+                                                      reg_alpha_delay <= x"2";
                                                     end if;
 
                                                     report "LEGACY register update & PAL/NTSC mode select";
