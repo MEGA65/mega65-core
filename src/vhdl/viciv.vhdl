@@ -3195,9 +3195,14 @@ begin
 
       rgb_is_background2 <= rgb_is_background;
 
-      composite_bg_red <= unsigned(alias_palette_rdata(31 downto 24));
-      composite_bg_green <= unsigned(alias_palette_rdata(23 downto 16));
-      composite_bg_blue <= unsigned(alias_palette_rdata(15 downto 8));
+      -- The nybls have not been switched around for the alpha palette, so we
+      -- have to do that here
+      composite_bg_red(7 downto 4) <= unsigned(alias_palette_rdata(27 downto 24));
+      composite_bg_red(3 downto 0) <= unsigned(alias_palette_rdata(31 downto 28));
+      composite_bg_green(7 downto 4) <= unsigned(alias_palette_rdata(19 downto 16));
+      composite_bg_green(3 downto 0) <= unsigned(alias_palette_rdata(23 downto 20));
+      composite_bg_blue(7 downto 4) <= unsigned(alias_palette_rdata(11 downto 8));
+      composite_bg_blue(3 downto 0) <= unsigned(alias_palette_rdata(15 downto 12));
 
       composite_red <= vga_buffer_red;
       composite_green <= vga_buffer_green;
