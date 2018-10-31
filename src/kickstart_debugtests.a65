@@ -4,6 +4,17 @@
 	; It is used for debugging various things using GHDL simulation,
 	; because the simulation is so slow, we want things to run instantly.
 
+.macro alphatest
+       ; 16-bit text mode, alpha blend enable
+       lda #$85
+       sta $d054
+
+*
+	jmp -
+
+.macend
+; .invoke alphatest
+
 
 .macro cpupersonalitytest
 
