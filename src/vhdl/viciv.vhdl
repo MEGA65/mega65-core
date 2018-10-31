@@ -1808,15 +1808,6 @@ begin
       hsync_polarity <= hsync_polarity_internal;
       vsync_polarity <= vsync_polarity_internal;
 
-      -- Calculate raster number for sprites.
-      -- The -3 is an adjustment factor to make the sprites line up correctly
-      -- on the screen.
-      if vicii_ycounter < 3 then
-        vicii_sprite_ycounter <= to_unsigned(0,9);
-      else
-        vicii_sprite_ycounter <= vicii_ycounter - 3;
-      end if;
-
       vicii_ycounter_driver <= vicii_ycounter;
       
       viciv_calculate_modeline_dimensions;            
@@ -2772,6 +2763,17 @@ begin
                 -- alternate case below
                 vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;
               end if;
+
+              if vicii_ycounter_max_phase = 0 then
+                -- Calculate raster number for sprites.
+                -- The -2 is an adjustment factor to make the sprites line up correctly
+                -- on the screen.
+                if vicii_ycounter < 2 then
+                  vicii_sprite_ycounter <= to_unsigned(0,9);
+                else
+                  vicii_sprite_ycounter <= vicii_ycounter - 2;
+                end if;
+              end if;
               
               vicii_ycounter_phase <= (others => '0');
               -- All visible rasters are now equal height
@@ -2785,6 +2787,17 @@ begin
               if to_integer(vicii_ycounter_phase) =  to_integer(vicii_ycounter_max_phase(3 downto 1)) then
                 vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;
               end if;
+
+              -- Calculate raster number for sprites.
+              -- The -2 is an adjustment factor to make the sprites line up correctly
+              -- on the screen.
+              -- This is done on an "off" line, so that the sprites line up properly
+              if vicii_ycounter < 2 then
+                vicii_sprite_ycounter <= to_unsigned(0,9);
+              else
+                vicii_sprite_ycounter <= vicii_ycounter - 2;
+              end if;
+              
             end if;
 
             -- Make VIC-II triggered raster interrupts edge triggered, since one
