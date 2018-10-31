@@ -3046,6 +3046,7 @@ begin
 --      if indisplay_t3='1' then
         if inborder_t2='1' or blank='1' or (bitplane_mode='1' and viciv_bitplane_chargen_on='0') then
           pixel_colour <= border_colour;
+          pixel_alpha <= x"FF";
           report "VICIV: Drawing border" severity note;
         elsif chargen_active='0' then
           pixel_colour <= screen_colour;
