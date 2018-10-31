@@ -452,7 +452,7 @@ reset_machine_state:
 		ora #$40
 		sta $d031
 		; 2. MEGA65 48MHz enable (requires C65 or C128 fast mode to truly enable, hence the above)
-		lda #$cd
+		lda #$c5
 		sta $d054
 
 		; sprites off, and normal mode
@@ -1515,7 +1515,7 @@ resetdisplay:
 		; Now switch to 16-bit text mode so that we can use proportional
 		; characters and full-colour characters for chars >$FF for the logo
 		;
-		lda #$cd	; 1100 1101
+		lda #$c5	
 		lda $d054	; VIC-IV Control Register C
 
 		; and 80 bytes (40 16-bit characters) per row.
