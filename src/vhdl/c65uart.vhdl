@@ -139,6 +139,15 @@ architecture behavioural of c65uart is
   signal reg_status6_tx_empty : std_logic := '1';
   signal reg_status7_xmit_on : std_logic := '0';
 
+  signal reg_status0_rx_full_drive : std_logic := '0';
+  signal reg_status1_rx_overrun_drive : std_logic := '0';
+  signal reg_status2_rx_parity_error_drive : std_logic := '0';
+  signal reg_status3_rx_framing_error_drive : std_logic := '0';
+  signal reg_status4_rx_idle_mode_drive : std_logic := '0';  -- XXX not implemented
+  signal reg_status5_tx_eot_drive : std_logic := '0';
+  signal reg_status6_tx_empty_drive : std_logic := '1';
+  signal reg_status7_xmit_on_drive : std_logic := '0';
+  
   signal reg_ctrl0_parity_even : std_logic := '0';
   signal reg_ctrl1_parity_enable : std_logic := '0';
   signal reg_ctrl23_char_length_deduct : unsigned(1 downto 0) := "00";
@@ -256,6 +265,16 @@ begin  -- behavioural
     
     if rising_edge(cpuclock) then
 
+      -- Make copies of registers from pixelclock domain
+      reg_status0_rx_full_drive <= reg_status0_rx_full;
+      reg_status1_rx_overrun_drive <= reg_status1_rx_overrun;
+      reg_status2_rx_parity_error_drive <= reg_status2_rx_parity_error;
+      reg_status3_rx_framing_error_drive <= reg_status3_rx_framing_error;
+      reg_status4_rx_idle_mode_drive <= reg_status4_rx_idle_mode;
+      reg_status5_tx_eot_drive <= reg_status5_tx_eot;
+      reg_status6_tx_empty_drive <= reg_status6_tx_empty;
+      reg_status7_xmit_on_drive <= reg_status7_xmit_on;      
+      
       porth_write_strobe <= '0';
       
       -- Calculate read value for various ports
@@ -389,14 +408,14 @@ begin  -- behavioural
           -- @IO:C65 $D601.1 C65 UART RX overrun flag (clear by reading $D600)
           -- @IO:C65 $D601.2 C65 UART RX parity error flag (clear by reading $D600)
           -- @IO:C65 $D601.3 C65 UART RX framing error flag (clear by reading $D600)
-          fastio_rdata(0) <= reg_status0_rx_full;
-          fastio_rdata(1) <= reg_status1_rx_overrun;
-          fastio_rdata(2) <= reg_status2_rx_parity_error;
-          fastio_rdata(3) <= reg_status3_rx_framing_error;
-          fastio_rdata(4) <= reg_status4_rx_idle_mode;
-          fastio_rdata(5) <= reg_status5_tx_eot;
-          fastio_rdata(6) <= reg_status6_tx_empty;
-          fastio_rdata(7) <= reg_status7_xmit_on;              
+          fastio_rdata(0) <= reg_status0_rx_full_drive;
+          fastio_rdata(1) <= reg_status1_rx_overrun_drive;
+          fastio_rdata(2) <= reg_status2_rx_parity_error_drive;
+          fastio_rdata(3) <= reg_status3_rx_framing_error_drive;
+          fastio_rdata(4) <= reg_status4_rx_idle_mode_drive;
+          fastio_rdata(5) <= reg_status5_tx_eot_drive;
+          fastio_rdata(6) <= reg_status6_tx_empty_drive;
+          fastio_rdata(7) <= reg_status7_xmit_on_drive;              
         when x"02" =>
           -- @IO:C65 $D602 C65 UART control register
           fastio_rdata(0) <= reg_ctrl0_parity_even;
