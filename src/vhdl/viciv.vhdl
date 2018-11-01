@@ -253,7 +253,8 @@ architecture Behavioral of viciv is
   -- XXX how do you do something like display_width*0.3 in VHDL???
   -- For now, just hard-code it.
   -- 800 - 800/3.3 = 558
-  constant display_fetch_start : unsigned(11 downto 0) := to_unsigned(558,12);
+  -- XXX this causes a problem, so begin fetch at end of display instead
+  constant display_fetch_start : unsigned(11 downto 0) := to_unsigned(800,12);
   constant display_height : unsigned(11 downto 0) := to_unsigned(600,12);
   signal vsync_delay : unsigned(7 downto 0) := to_unsigned(18,8);
   signal vsync_delay_drive : unsigned(7 downto 0) := to_unsigned(18,8);
