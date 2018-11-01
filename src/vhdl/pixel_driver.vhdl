@@ -195,7 +195,7 @@ begin
                   vsync_start => 620,
                   vsync_end => 625,
                   hsync_start => 834*4,
-                  hsync_end => 914*4
+                  hsync_end => 870*4
                   )                  
     port map ( clock120 => clock120,
                clock100 => clock100,
@@ -229,7 +229,7 @@ begin
                   vsync_start => 624,
                   vsync_end => 628,
                   hsync_start => 840*3,
-                  hsync_end => 968*3
+                  hsync_end => 900*3
                   )                  
     port map ( clock120 => clock120,
                clock100 => clock100,
