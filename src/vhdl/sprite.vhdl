@@ -145,8 +145,10 @@ begin  -- behavioural
   begin  -- process main
     if sprite_h640='1' then
       x_in <= x640_in;
+      report "x_in <= x640_in";
     else
       x_in <= x320_in;
+      report "x_in <= x320_in";
     end if;
     
     x_offset_bits := std_logic_vector(to_unsigned(x_offset,6));
@@ -295,6 +297,7 @@ begin  -- behavioural
       end if;
       -- Advance Y position of sprite
       if y_last /= y_in then
+        report "stop drawing to to y_in advance to " & integer'image(y_in);
         y_last <= y_in;
         x_in_sprite <= '0';
         if (sprite_drawing = '1') or (y_top='1') then

@@ -247,6 +247,13 @@ architecture Behavioral of viciv is
   -- 800x480 @ 50Hz for 100MHz pixelclock
   signal single_side_border : unsigned(13 downto 0) := to_unsigned(80,14);
   constant display_width : unsigned(11 downto 0) := to_unsigned(800,12);
+  -- Fetching and rendering of next raster line begins as soon as it can't
+  -- catch up with drawing the current raster.  30MHz pixel clock means we do
+  -- no more than ~3.3 clocks per pixel, so we can start at display_width - display_width/3.3
+  -- XXX how do you do something like display_width*0.3 in VHDL???
+  -- For now, just hard-code it.
+  -- 800 - 800/3.3 = 558
+  constant display_fetch_start : unsigned(11 downto 0) := to_unsigned(558,12);
   constant display_height : unsigned(11 downto 0) := to_unsigned(600,12);
   signal vsync_delay : unsigned(7 downto 0) := to_unsigned(18,8);
   signal vsync_delay_drive : unsigned(7 downto 0) := to_unsigned(18,8);
@@ -639,7 +646,7 @@ architecture Behavioral of viciv is
   signal vicii_y_smoothscroll : unsigned(2 downto 0);
   -- NOTE: these are here for reading. the actual used VIC-II sprite
   -- registers are defined in vicii_sprites.vhdl
-  signal vicii_sprite_enables : std_logic_vector(7 downto 0);
+  signal vicii_sprite_enables : std_logic_vector(7 downto 0) := x"FF";
   signal vicii_sprite_xmsbs : std_logic_vector(7 downto 0);
   signal vicii_sprite_x_expand : std_logic_vector(7 downto 0);
   signal vicii_sprite_y_expand : std_logic_vector(7 downto 0);
@@ -811,7 +818,7 @@ architecture Behavioral of viciv is
   signal reg_h640 : std_logic := '0';
   signal reg_h1280 : std_logic := '0';
   signal reg_v400 : std_logic := '0';
-  signal sprite_h640 : std_logic := '0';
+  signal sprite_h640 : std_logic := '1';
   
   type rgb is
   record
@@ -1843,7 +1850,7 @@ begin
         mask_raster <= '0';
 
         -- Also turn sprites off on reset
-        vicii_sprite_enables <= (others => '0');
+--        vicii_sprite_enables <= (others => '0');
       end if;
       
       report "drive led = " & std_logic'image(led)
@@ -2717,6 +2724,7 @@ begin
           sprite_x_counting <= '1';
         end if;        
         if sprite_x_counting = '1' then
+          report "sprite_x_counting=1, vicii_xcounter_640 = " & to_hstring(vicii_xcounter_640);
           vicii_xcounter_640 <= vicii_xcounter_640 + 1;
           sprite_x_scale_toggle <= not sprite_x_scale_toggle;
           if sprite_x_scale_toggle = '1' then
@@ -2861,7 +2869,12 @@ begin
       -- Work out when the horizonal back porch starts.
       -- The edge is used to trigger drawing of the next raster into the raster
       -- buffer.
-      if xcounter<(to_integer(frame_h_front)+display_width) then
+      -- We actually want to trigger this as early as possible, so that sprite
+      -- fetching doesn't run over into the next raster line.
+      -- 30MHz pixel clock @ 50Hz display means we will catch up 3.3 pixels
+      -- per pixel, so we can't start before (display_width - (display_width/3.3)).
+      
+      if xcounter<(to_integer(frame_h_front)+display_fetch_start) then
         xbackporch <= '0';
         xbackporch_edge <= '0';
       else
