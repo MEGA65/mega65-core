@@ -1764,9 +1764,10 @@ begin
           fastio_rdata(3 downto 0) <= std_logic_vector(reg_alpha_delay);
           fastio_rdata(7 downto 4) <= std_logic_vector(vicii_ycounter_scale_minus_zero(3 downto 0));
         elsif register_number=116 then  -- $D3074 (UNUSED)
-          fastio_rdata <= x"FF";
+          fastio_rdata <= std_logic_vector(raster_buffer_max_write_address_prev(7 downto 0));
         elsif register_number=117 then  -- $D3075 (UNUSED)
-          fastio_rdata <= x"FF";
+          fastio_rdata(3 downto 0) <= std_logic_vector(raster_buffer_max_write_address_prev(11 downto 8));
+          fastio_rdata(7 downto 4) <= x"0";
         elsif register_number=118 then  -- $D3076 (UNUSED)
           fastio_rdata <= x"FF";
         elsif register_number=119 then  -- $D3077 (UNUSED)
@@ -2949,6 +2950,35 @@ begin
         else
           report "noBADLINE" severity note;
           raster_fetch_state <= FetchFirstCharacter;
+        end if;
+
+        -- Now check if we have tipped over from one logical pixel row to another.
+        chargen_y <= chargen_y_next;
+        if chargen_y_sub=chargen_y_scale then
+          chargen_y_next <= chargen_y_next + 1;
+          report "bumping chargen_y to " & integer'image(to_integer(chargen_y)) severity note;
+          if chargen_y_scale /= 0 then
+            if chargen_y = "111" then
+              bump_screen_row_address<='1';
+            end if;
+          else
+            -- We need 2 raster lines to make this take effect, so if we are
+            -- running at the physical Y resolution, we need to bump this one
+            -- raster early.
+            if chargen_y = "110" then
+              report "LEGACY: Bumping screen row address one raster early for V400";
+              bump_screen_row_address<='1';
+            end if;
+          end if;
+          if (chargen_y_scale=x"02") and (chargen_y(0)='1') then
+            chargen_y_sub <= "00001";
+          else
+            report "LEGACY: chargen_y_sub = 0 due increment of chargen_y";
+            chargen_y_sub <= (others => '0');
+          end if;
+        else
+          report "LEGACY: chargen_y_sub incremented";
+          chargen_y_sub <= chargen_y_sub + 1;
         end if;
       end if;
         
@@ -4683,35 +4713,6 @@ begin
       if xbackporch_edge='1' then
         report "ZEROing screen_ram_buffer_read_address" severity note;
         screen_ram_buffer_read_address <= to_unsigned(0,9);
-
-        -- Now check if we have tipped over from one logical pixel row to another.
-        chargen_y <= chargen_y_next;
-        if chargen_y_sub=chargen_y_scale then
-          chargen_y_next <= chargen_y_next + 1;
-          report "bumping chargen_y to " & integer'image(to_integer(chargen_y)) severity note;
-          if chargen_y_scale /= 0 then
-            if chargen_y = "111" then
-              bump_screen_row_address<='1';
-            end if;
-          else
-            -- We need 2 raster lines to make this take effect, so if we are
-            -- running at the physical Y resolution, we need to bump this one
-            -- raster early.
-            if chargen_y = "110" then
-              report "LEGACY: Bumping screen row address one raster early for V400";
-              bump_screen_row_address<='1';
-            end if;
-          end if;
-          if (chargen_y_scale=x"02") and (chargen_y(0)='1') then
-            chargen_y_sub <= "00001";
-          else
-            report "LEGACY: chargen_y_sub = 0 due increment of chargen_y";
-            chargen_y_sub <= (others => '0');
-          end if;
-        else
-          report "LEGACY: chargen_y_sub incremented";
-          chargen_y_sub <= chargen_y_sub + 1;
-        end if;
       end if;
     end if;
   end process;
