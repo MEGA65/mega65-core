@@ -793,7 +793,6 @@ architecture Behavioral of viciv is
   signal indisplay_t1 : std_logic := '0';
   signal indisplay_t2 : std_logic := '0';
   signal indisplay_t3 : std_logic := '0';
-  signal next_card_number : unsigned(15 downto 0) := (others => '0');
   signal cycles_to_next_card : unsigned(7 downto 0);
   signal cycles_to_next_card_drive : unsigned(7 downto 0);
   
@@ -2839,7 +2838,6 @@ begin
             ycounter_driver <= (others =>'0');
             report "LEGACY: chargen_y_sub = 0, first_card_of_row = 0 due to start of frame";
             chargen_y_sub <= (others => '0');
-            next_card_number <= (others => '0');
             first_card_of_row <= (others => '0');
 
             displayy <= (others => '0');
@@ -2927,7 +2925,7 @@ begin
         -- Work out the screen ram address.  We only need to re-fetch screen
         -- RAM if first_card_of_row is different to last time.
         prev_first_card_of_row <= first_card_of_row;
-
+        
         -- Set all signals for both eventuality, since none are shared between
         -- the two paths.  This helps keep the logic shallow.
 
@@ -3129,14 +3127,6 @@ begin
           & ", chargen_active = " & std_logic'image(chargen_active)
           ;
         
-        -- Next line of display.  Reset card number and start address of
-        -- screen ram for the row of characters currently being displayed.
-        -- (this gets overriden below if crossing from one character row to
-        -- another.  This also gives us the hope of implementing DMA delay,
-        -- since that is such a common C64 VIC-II trick.)
-        next_card_number <= first_card_of_row;
-        screen_row_current_address <= screen_row_address;
-
       end if;
       
       if short_line='1' then
