@@ -955,6 +955,7 @@ architecture Behavioral of viciv is
   signal next_token_is_goto : std_logic := '0';
 
   signal reg_alpha_delay : unsigned(3 downto 0) := x"2";
+  signal last_was_fetch_start : std_logic := '0';
   
 begin
   
@@ -2895,8 +2896,12 @@ begin
       end if;
       
         
-      
       if xcounter=(to_integer(frame_h_front)+display_fetch_start) then
+        last_was_fetch_start <= '1';
+      else
+        last_was_fetch_start <= '0';
+      end if;
+      if (xcounter=(to_integer(frame_h_front)+display_fetch_start)) and last_was_fetch_start='0' then
         -- Start of filling raster buffer.
         -- We don't need to double-buffer, as we start filling from the back
         -- porch of the previous line, hundreds of cycles before the start of
