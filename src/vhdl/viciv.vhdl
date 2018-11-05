@@ -861,6 +861,10 @@ architecture Behavioral of viciv is
   signal raster_buffer_write_data : unsigned(17 downto 0);
   signal raster_buffer_write : std_logic;  
 
+  signal raster_buffer_max_write_address : unsigned(11 downto 0);
+  signal raster_buffer_max_write_address_hold : unsigned(11 downto 0);
+  signal raster_buffer_max_write_address_prev : unsigned(11 downto 0);
+  
   -- Colour RAM access for video controller
   signal colourramaddress : unsigned(15 downto 0);
   signal colourramdata : unsigned(7 downto 0);
@@ -2875,16 +2879,36 @@ begin
       -- 30MHz pixel clock @ 50Hz display means we will catch up 3.3 pixels
       -- per pixel, so we can't start before (display_width - (display_width/3.3)).
 
+      if xcounter=0 then
+        report "stopping drawing at start of next raster";
+        chargen_active <= '0';
+        chargen_active_soon <= '0';
+        raster_buffer_max_write_address_prev <= raster_buffer_max_write_address_hold;
+        report "setting raster_buffer_max_write_address_prev to $" & to_hstring(raster_buffer_max_write_address_hold);
+      end if;
+      if raster_buffer_read_address = raster_buffer_max_write_address_prev then
+        report "stopping character generator due to buffer exhaustion"
+          severity note;
+        chargen_active <= '0';
+        chargen_active_soon <= '0';
+      end if;
+      
+        
+      
       if xcounter=(to_integer(frame_h_front)+display_fetch_start) then
         -- Start of filling raster buffer.
         -- We don't need to double-buffer, as we start filling from the back
         -- porch of the previous line, hundreds of cycles before the start of
         -- the next line of display.
+        report "RASTER FETCH: start of fetch in preparation for the next raster";
 
         -- Some house keeping first:
         -- Reset write address in raster buffer
         -- Set write address to all 1's, so that it wraps to zero at the start
         raster_buffer_write_address <= (others => '1');
+        raster_buffer_max_write_address_hold <= raster_buffer_max_write_address;
+        report "setting raster_buffer_max_write_address_hold to $" & to_hstring(raster_buffer_max_write_address);
+        
         -- Hold chargen_y for entire fetch, so that we don't get glitching when
         -- chargen_y increases part way through resulting in characters on
         -- right of display shifting up one physical pixel.
@@ -2928,7 +2952,7 @@ begin
         end if;
       end if;
         
-      if xcounter<(to_integer(frame_h_front)+frame_width) then
+      if xcounter<(to_integer(frame_h_front)+display_width) then
         xbackporch <= '0';
         xbackporch_edge <= '0';
       else
@@ -3010,18 +3034,6 @@ begin
         report "lcd_pixel_strobe = 0";
       end if;
       
-      -- Stop drawing characters when we reach the end of the prepared data
-      if raster_buffer_write_address = "111111111111" then
-        chargen_active <= '0';
-        chargen_active_soon <= '0';
-      end if;
-      if raster_buffer_read_address > raster_buffer_write_address then
-        report "stopping character generator due to buffer exhaustion"
-          severity note;
-        chargen_active <= '0';
-        chargen_active_soon <= '0';
-      end if;
-      
       report "chargen_active=" & std_logic'image(chargen_active)
         & ", xcounter = " & to_string(std_logic_vector(xcounter))
         & ", x_chargen_start = " & to_string(std_logic_vector(x_chargen_start)) severity note;
@@ -3037,9 +3049,6 @@ begin
         -- trigger next card at start of chargen row
         chargen_x <= (others => '0');
         report "reset chargen_x" severity note;
-      -- Request first byte of pre-rendered character data
-      -- raster_buffer_read_address <= (others => '0');
-      -- raster_buffer_read_address_sub <= (others => '0');
       end if;
       if xcounter = x_chargen_start then
         -- Gets masked to 0 below if displayy is above y_chargen_start
@@ -3143,6 +3152,7 @@ begin
             report "LEGACY: Painting pixels from raster buffer";
           end if;
           report "VICIV: raster buffer reading next from = $" & to_hstring(raster_buffer_read_address)
+            & "/$" & to_hstring(raster_buffer_max_write_address_prev)
             & ", pixel_colour = $" & to_hstring(raster_buffer_read_data(7 downto 0))
             & ", pixel_alpha = $" & to_hstring(raster_buffer_read_data(16 downto 9))
             & ", pixel_is_foreground = " & std_logic'image(raster_buffer_read_data(8))
@@ -4383,6 +4393,7 @@ begin
           end if;
           paint_full_colour_data(59 downto 0) <= paint_full_colour_data(63 downto 4);
           raster_buffer_write_address <= raster_buffer_write_address + 1;
+          raster_buffer_max_write_address <= raster_buffer_write_address + 1;
           raster_buffer_write <= '1';
           report "LEGACY: full colour glyph paint_bits_remaining=" & integer'image(paint_bits_remaining) severity note;
           if paint_bits_remaining > 0 then
@@ -4430,6 +4441,7 @@ begin
           end if;
           paint_full_colour_data(55 downto 0) <= paint_full_colour_data(63 downto 8);
           raster_buffer_write_address <= raster_buffer_write_address + 1;
+          raster_buffer_max_write_address <= raster_buffer_write_address + 1;
           raster_buffer_write <= '1';
           report "LEGACY: full colour glyph paint_bits_remaining=" & integer'image(paint_bits_remaining) severity note;
           if paint_bits_remaining > 0 then
@@ -4532,6 +4544,7 @@ begin
               report "Painting background pixel in colour $" & to_hstring(paint_background) severity note;
             end if;
             raster_buffer_write_address <= raster_buffer_write_address + 1;
+            raster_buffer_max_write_address <= raster_buffer_write_address + 1;
             raster_buffer_write <= '1';
             report "paint_bits_remaining=" & integer'image(paint_bits_remaining) severity note;
             paint_bits_remaining <= paint_bits_remaining - 1;
@@ -4636,6 +4649,7 @@ begin
                 null;
             end case;
             raster_buffer_write_address <= raster_buffer_write_address + 1;
+            raster_buffer_max_write_address <= raster_buffer_write_address + 1;
             raster_buffer_write <= '1';
             report "paint_bits_remaining=" & integer'image(paint_bits_remaining) severity note;
             paint_bits_remaining <= paint_bits_remaining - 1;
@@ -4644,6 +4658,7 @@ begin
           paint_fsm_state <= PaintMultiColourHold;
         when PaintMultiColourHold =>
           raster_buffer_write_address <= raster_buffer_write_address + 1;
+          raster_buffer_max_write_address <= raster_buffer_write_address + 1;
           raster_buffer_write <= '1';
           if paint_bits_remaining = 0 then
             paint_fsm_state <= Idle;
@@ -4728,6 +4743,7 @@ begin
     raster_buffer_read_address_next <= raster_buffer_read_address;
     if xcounter = x_chargen_start_minus1 then
       -- Request first byte of pre-rendered character data
+      report "raster fetch raster_buffer_read_address reset to zero at start of chargen";
       raster_buffer_read_address_next <= (others => '0');
       raster_buffer_read_address_sub_next <= (others => '0');
     else
