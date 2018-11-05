@@ -86,8 +86,8 @@ trap_entry_points:
 	nop                             ; refer: kickstart_mem.a65
 	jmp syspart_trap		; Trap #$02
 	nop                             ; refer: kickstart_syspart.a65
-	jmp nosuchtrap
-	nop
+	jmp serialwrite			; Trap #$03
+	nop 				; refer serialwrite in this file
 	jmp nosuchtrap
 	nop
 	jmp nosuchtrap
@@ -2747,6 +2747,13 @@ utillist_rewind:
 
 msg_utilitymenu:
 	.byte "SELECT UTILITY TO LAUNCH",0
+
+serialwrite:
+	; write character to serial port
+	; XXX - Have some kind of permission control on this
+	; XXX - $D67C should not work when matrix mode is enabled at all?
+	sta	hypervisor_write_char_to_serial_monitor	
+	sta	hypervisor_enterexit_trigger
 
 ;	========================
 
