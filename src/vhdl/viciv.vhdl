@@ -953,6 +953,8 @@ architecture Behavioral of viciv is
   signal next_token_is_goto : std_logic := '0';
 
   signal reg_alpha_delay : unsigned(3 downto 0) := x"2";
+
+  signal is_fetch_start : std_logic := '0';
   signal last_was_fetch_start : std_logic := '0';
   
 begin
@@ -2892,13 +2894,14 @@ begin
         chargen_active_soon <= '0';
       end if;
       
-        
+
+      last_was_fetch_start <= is_fetch_start;
       if xcounter=(to_integer(frame_h_front)+display_fetch_start) then
-        last_was_fetch_start <= '1';
+        is_fetch_start <= '1';
       else
-        last_was_fetch_start <= '0';
+        is_fetch_start <= '0';
       end if;
-      if (xcounter=(to_integer(frame_h_front)+display_fetch_start)) and last_was_fetch_start='0' then
+      if is_fetch_start='1' and last_was_fetch_start='0' then
         -- Start of filling raster buffer.
         -- We don't need to double-buffer, as we start filling from the back
         -- porch of the previous line, hundreds of cycles before the start of
@@ -2967,9 +2970,6 @@ begin
               bump_screen_row_address<='1';
             end if;
           else
-            -- We need 2 raster lines to make this take effect, so if we are
-            -- running at the physical Y resolution, we need to bump this one
-            -- raster early.
             if chargen_y = "110" then
               report "LEGACY: Bumping screen row address one raster early for V400";
               bump_screen_row_address<='1';
@@ -2985,6 +2985,29 @@ begin
           report "LEGACY: chargen_y_sub incremented";
           chargen_y_sub <= chargen_y_sub + 1;
         end if;
+
+        if bump_screen_row_address='1' then
+          bump_screen_row_address <= '0';
+          
+          -- Compute the address for the screen row.
+          if (text_mode='0') and (sixteenbit_charset='1') then
+            -- 16bit charset mode + bitmap mode = 2 bytes screen memory per card,
+            -- so that we can pick foreground and background colours from full
+            -- 256-colour palette.
+            screen_row_address <= screen_ram_base(19 downto 0) + first_card_of_row;
+          else
+            screen_row_address <= screen_ram_base(19 downto 0) + first_card_of_row;
+          end if;
+          
+          if before_y_chargen_start='0' then
+            -- Increment card number every "bad line"
+            report "LEGACY: Advancing first_card_of_row due to end of character";
+            first_card_of_row <= to_unsigned(to_integer(first_card_of_row) + row_advance,16);
+          else
+            report "LEGACY: NOT advancing first_card_of_row due to end of character (before_y_chargen_start=1)";
+          end if;
+        end if;
+        
       end if;
         
       if xcounter<(to_integer(frame_h_front)+display_width) then
@@ -3135,31 +3158,6 @@ begin
         row_advance <= short_line_length;
       else
         row_advance <= to_integer(virtual_row_width);
-      end if;
-      
-      if bump_screen_row_address='1' then
-        bump_screen_row_address <= '0';
-
-        -- Compute the address for the screen row.
-        if (text_mode='0') and (sixteenbit_charset='1') then
-          -- 16bit charset mode + bitmap mode = 2 bytes screen memory per card,
-          -- so that we can pick foreground and background colours from full
-          -- 256-colour palette.
-          screen_row_address <= screen_ram_base(19 downto 0) + first_card_of_row;
-        else
-          screen_row_address <= screen_ram_base(19 downto 0) + first_card_of_row;
-        end if;
-        
-        if before_y_chargen_start='0' then
-          -- Increment card number every "bad line"
-          report "LEGACY: Advancing first_card_of_row due to end of character";
-          first_card_of_row <= to_unsigned(to_integer(first_card_of_row) + row_advance,16);
-          -- Similarly update the colour ram fetch address
-          report "COLOURRAM: Advancing colourramaddress";
-          colourramaddress <= to_unsigned(to_integer(colour_ram_base) + row_advance,16);
-        else
-          report "LEGACY: NOT advancing first_card_of_row due to end of character (before_y_chargen_start=1)";
-        end if;
       end if;
       
       display_active <= indisplay;
