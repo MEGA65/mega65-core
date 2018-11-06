@@ -838,7 +838,6 @@ architecture Behavioral of viciv is
   signal xfrontporch_drive : std_logic;
   signal xbackporch : std_logic;
   signal xbackporch_edge : std_logic;
-  signal last_xbackporch_edge : std_logic;
 
   signal last_ramaddress : unsigned(19 downto 0);
   signal ramaddress : unsigned(19 downto 0);
@@ -2906,6 +2905,9 @@ begin
         -- the next line of display.
         report "RASTER FETCH: start of fetch in preparation for the next raster";
 
+        report "ZEROing screen_ram_buffer_read_address" severity note;
+        screen_ram_buffer_read_address <= to_unsigned(0,9);
+        
         -- Some house keeping first:
         -- Reset write address in raster buffer
         -- Set write address to all 1's, so that it wraps to zero at the start
@@ -4700,14 +4702,6 @@ begin
         report "raster_fetch_state=" & vic_chargen_fsm'image(raster_fetch_state) & ", "
           & "paint_fsm_state=" & vic_paint_fsm'image(paint_fsm_state)
           & ", rb_w_addr=$" & to_hstring(raster_buffer_write_address) severity note;
-      end if;
-
-      -- Do end-of-raster detection last in the process so that the state
-      -- machine cannot get stuck.
-      last_xbackporch_edge <= xbackporch_edge;
-      if xbackporch_edge='1' then
-        report "ZEROing screen_ram_buffer_read_address" severity note;
-        screen_ram_buffer_read_address <= to_unsigned(0,9);
       end if;
     end if;
   end process;
