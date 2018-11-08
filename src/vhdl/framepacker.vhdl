@@ -56,6 +56,7 @@ entity framepacker is
   port (
     pixelclock : in std_logic;
     ioclock : in std_logic;
+    ethclock : in std_logic;
     hypervisor_mode : in std_logic;
     thumbnail_cs : in std_logic;
 
@@ -165,7 +166,7 @@ begin  -- behavioural
     wea(0) => output_write,
     addra => std_logic_vector(output_address),
     dina => std_logic_vector(output_data),
-    clkb => ioclock,
+    clkb => ethclock,
     addrb => std_logic_vector(buffer_address),
     unsigned(doutb) => buffer_rdata
     );

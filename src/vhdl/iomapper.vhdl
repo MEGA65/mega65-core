@@ -456,6 +456,7 @@ begin
   framepacker0: entity work.framepacker port map (
     ioclock => clk,
     pixelclock => pixelclk,
+    ethclock => clock50mhz,
     hypervisor_mode => cpu_hypervisor_mode,
     thumbnail_cs => thumbnail_cs,
 
