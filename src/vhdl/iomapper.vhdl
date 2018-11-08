@@ -7,7 +7,7 @@ use work.debugtools.all;
 
 entity iomapper is
   port (Clk : in std_logic;
-        clock200 : in std_logic;
+        clock100 : in std_logic;
         protected_hardware_in : in unsigned(7 downto 0);
         virtualised_hardware_in : in unsigned(7 downto 0);
         -- Enables for the various chip select lines
@@ -790,7 +790,7 @@ begin
 
   ethernet0 : entity work.ethernet port map (
     clock50mhz => clock50mhz,
-    clock200 => clock200,
+    clock100 => clock100,
     clock => clk,
     reset => reset,
     irq => ethernet_irq,
@@ -829,7 +829,6 @@ begin
   
   buffered_uart0 : entity work.buffereduart port map (
     clock50mhz => clock50mhz,
-    clock200 => clock200,
     clock => clk,
     reset => reset,
     irq => uart_irq,

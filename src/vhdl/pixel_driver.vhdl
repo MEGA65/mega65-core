@@ -29,6 +29,7 @@ entity pixel_driver is
     -- The various clocks we need
     clock100 : in std_logic;
     clock120 : in std_logic;
+    clock240 : in std_logic;
 
     -- Inform VIC-IV of new rasters and new frames
     x_zero_out : out std_logic;
