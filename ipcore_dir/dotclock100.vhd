@@ -56,12 +56,12 @@
 -- "Clock    Freq (MHz) (degrees) Cycle (%) Jitter (ps)  Error (ps)"
 ------------------------------------------------------------------------------
 -- CLK_OUT1___100.000______0.000______50.0______115.831_____87.180
--- CLK_OUT2___200.000______0.000______50.0______102.086_____87.180
+-- CLK_OUT2___240.000______0.000______50.0______102.086_____87.180
 -- CLK_OUT3____50.000______0.000______50.0______132.683_____87.180
 -- CLK_OUT4___120.000______0.000______50.0______139.033_____87.180
--- CLK_OUT5____30.000______0.000______50.0______147.931_____87.180
--- CLK_OUT6____33.333______0.000______50.0______144.570_____87.180
--- CLK_OUT7___150.000______0.000______50.0______107.567_____87.180
+-- CLK_OUT5____80.000______0.000______50.0______147.931_____87.180
+-- CLK_OUT6____40.000______0.000______50.0______144.570_____87.180
+-- CLK_OUT7____30.000______0.000______50.0______107.567_____87.180
 --
 ------------------------------------------------------------------------------
 -- "Input Clock   Freq (MHz)    Input Jitter (UI)"
@@ -83,12 +83,12 @@ port
   CLK_IN1           : in     std_logic;
   -- Clock out ports
   clock100          : out    std_logic;
-  clock200          : out    std_logic;
-  clock50          : out    std_logic;
+  clock240          : out    std_logic;
+  clock50           : out    std_logic;
   clock120          : out    std_logic;
-  clock30          : out    std_logic;
-  clock33          : out    std_logic;
-  clock150          : out    std_logic;
+  clock80           : out    std_logic;
+  clock40           : out    std_logic;
+  clock30           : out    std_logic;
   -- Status and control signals
   LOCKED            : out    std_logic
  );
@@ -145,35 +145,43 @@ begin
     CLOCK_HOLD           => FALSE,
     COMPENSATION         => "ZHOLD",
     STARTUP_WAIT         => FALSE,
+    -- Create 1200MHz clock from 12x100MHz/1
     DIVCLK_DIVIDE        => 1,
     CLKFBOUT_MULT_F      => 12.000,
     CLKFBOUT_PHASE       => 0.000,
     CLKFBOUT_USE_FINE_PS => FALSE,
+    -- CLKOUT0 = CLK_OUT1 = clock100 = 1200MHz/12
     CLKOUT0_DIVIDE_F     => 12.000,
     CLKOUT0_PHASE        => 0.000,
     CLKOUT0_DUTY_CYCLE   => 0.500,
     CLKOUT0_USE_FINE_PS  => FALSE,
-    CLKOUT1_DIVIDE       => 6,
+    -- CLKOUT1 = CLK_OUT2 = clock240 = 1200MHz/5
+    CLKOUT1_DIVIDE       => 5,
     CLKOUT1_PHASE        => 0.000,
     CLKOUT1_DUTY_CYCLE   => 0.500,
     CLKOUT1_USE_FINE_PS  => FALSE,
+    -- CLKOUT2 = CLK_OUT3 = clock50 = 1200MHz/24
     CLKOUT2_DIVIDE       => 24,
     CLKOUT2_PHASE        => 0.000,
     CLKOUT2_DUTY_CYCLE   => 0.500,
     CLKOUT2_USE_FINE_PS  => FALSE,
+    -- CLKOUT3 = CLK_OUT4 = clock120 = 1200MHz/10
     CLKOUT3_DIVIDE       => 10,
     CLKOUT3_PHASE        => 0.000,
     CLKOUT3_DUTY_CYCLE   => 0.500,
     CLKOUT3_USE_FINE_PS  => FALSE,
-    CLKOUT4_DIVIDE       => 40,
+    -- CLKOUT4 = CLK_OUT5 = clock80 - 1200MHz/15
+    CLKOUT4_DIVIDE       => 15,
     CLKOUT4_PHASE        => 0.000,
     CLKOUT4_DUTY_CYCLE   => 0.500,
     CLKOUT4_USE_FINE_PS  => FALSE,
-    CLKOUT5_DIVIDE       => 36,
+    -- CLKOUT5 = CLK_OUT6 = clock40 - 1200MHz/30
+    CLKOUT5_DIVIDE       => 30,
     CLKOUT5_PHASE        => 0.000,
     CLKOUT5_DUTY_CYCLE   => 0.500,
     CLKOUT5_USE_FINE_PS  => FALSE,
-    CLKOUT6_DIVIDE       => 8,
+    -- CLKOUT6 = CLK_OUT7 = clock30 - 1200MHZ/40
+    CLKOUT6_DIVIDE       => 40,
     CLKOUT6_PHASE        => 0.000,
     CLKOUT6_DUTY_CYCLE   => 0.500,
     CLKOUT6_USE_FINE_PS  => FALSE,
@@ -237,7 +245,7 @@ begin
 
   clkout2_buf : BUFG
   port map
-   (O   => clock200,
+   (O   => clock240,
     I   => clkout1);
 
   clkout3_buf : BUFG
@@ -252,17 +260,17 @@ begin
 
   clkout5_buf : BUFG
   port map
-   (O   => clock30,
+   (O   => clock80,
     I   => clkout4);
 
   clkout6_buf : BUFG
   port map
-   (O   => clock33,
+   (O   => clock40,
     I   => clkout5);
 
   clkout7_buf : BUFG
   port map
-   (O   => clock150,
+   (O   => clock30,
     I   => clkout6);
 
 end xilinx;
