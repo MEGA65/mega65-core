@@ -2934,7 +2934,7 @@ begin
                                         -- Full speed = 1 clock tick per cycle
           phi_counter(16) <= phi_counter(16) xor '1';
       end case;
-      if cpuspeed_internal /= x"50" then
+      if cpuspeed_internal /= x"40" then
         if last_phi16 /= phi_counter(16) then
                                         -- phi2 cycle has passed
           if phi_backlog = 1 or phi_backlog=0 then
@@ -3413,26 +3413,26 @@ begin
               cpuspeed <= x"04";
               cpuspeed_internal <= x"04";
             when "111" => -- full speed
-              cpuspeed <= x"50";
-              cpuspeed_internal <= x"50";
+              cpuspeed <= x"40";
+              cpuspeed_internal <= x"40";
             when "000" => -- 2mhz
               cpuspeed <= x"02";
               cpuspeed_internal <= x"02";
             when "001" => -- full speed
-              cpuspeed <= x"50";
-              cpuspeed_internal <= x"50";
+              cpuspeed <= x"40";
+              cpuspeed_internal <= x"40";
             when "010" => -- 3.5mhz
               cpuspeed <= x"04";
               cpuspeed_internal <= x"04";
             when "011" => -- full speed
-              cpuspeed <= x"50";
-              cpuspeed_internal <= x"50";
+              cpuspeed <= x"40";
+              cpuspeed_internal <= x"40";
             when others =>
               null;
           end case;
         else
-          cpuspeed <= x"50";
-          cpuspeed_internal <= x"50";
+          cpuspeed <= x"40";
+          cpuspeed_internal <= x"40";
         end if;
       else
         normal_fetch_state <= ProcessorHold;
