@@ -27,7 +27,7 @@ entity pixel_driver is
 
   port (
     -- The various clocks we need
-    clock100 : in std_logic;
+    clock80 : in std_logic;
     clock120 : in std_logic;
     clock240 : in std_logic;
 
@@ -49,7 +49,7 @@ entity pixel_driver is
     vsync_invert : in std_logic;
     
     -- Incoming video, e.g., from VIC-IV and rain compositer
-    -- Clocked at clock100 (aka pixelclock)
+    -- Clocked at clock80 (aka pixelclock)
     pixel_strobe_in : in std_logic;
     red_i : in unsigned(7 downto 0);
     green_i : in unsigned(7 downto 0);
@@ -199,7 +199,7 @@ begin
                   hsync_end => 870*4
                   )                  
     port map ( clock120 => clock120,
-               clock100 => clock100,
+               clock80 => clock80,
                hsync => hsync_pal50,
                hsync_uninverted => hsync_pal50_uninverted,
                vsync => vsync_pal50,
@@ -233,7 +233,7 @@ begin
                   hsync_end => 900*3
                   )                  
     port map ( clock120 => clock120,
-               clock100 => clock100,
+               clock80 => clock80,
                hsync_polarity => hsync_invert,
                vsync_polarity => vsync_invert,
                hsync_uninverted => hsync_ntsc60_uninverted,
@@ -292,7 +292,7 @@ begin
                                     -- signal causes data (on dout) to be read
                                     -- from the FIFO. Must be held
                                     -- active-low when rd_rst_busy is active high..
-      wr_clk=>clock100,             -- 1-bit input : Write clock : Used for
+      wr_clk=>clock80,             -- 1-bit input : Write clock : Used for
                                     -- write operation. wr_clk must be a
                                     -- free running clock.
       wr_en=>wr_en                  -- 1-bit input : Write Enable : If the FIFO
@@ -331,11 +331,11 @@ begin
   x_zero_out <= x_zero_pal50_100 when pal50_select_internal100='1' else x_zero_ntsc60_100;
   y_zero_out <= y_zero_pal50_100 when pal50_select_internal100='1' else y_zero_ntsc60_100;
   
-  process (clock100,clock120) is
+  process (clock80,clock120) is
     variable waddr_unsigned : unsigned(11 downto 0) := to_unsigned(0,12);
   begin
 
-    if rising_edge(clock100) then
+    if rising_edge(clock80) then
       pal50_select_internal100 <= pal50_select;
       fifo_full <= fifo_full120;
 
@@ -437,7 +437,7 @@ begin
     end if;
     
     -- Manage writing into the raster buffer
-    if rising_edge(clock100) then
+    if rising_edge(clock80) then
       fifo_almost_empty100 <= fifo_almost_empty120;
       if pixel_strobe_in='1' then
         waddr_unsigned := to_unsigned(waddr,12);

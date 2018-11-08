@@ -38,7 +38,7 @@ entity frame_generator is
     );
   port (
     clock120 : in std_logic;
-    clock100 : in std_logic;
+    clock80 : in std_logic;
 
     -- 100MHz oriented configuration flags
     hsync_polarity : in std_logic;
@@ -98,11 +98,11 @@ architecture brutalist of frame_generator is
   
 begin
 
-  process (clock120,clock100) is
+  process (clock120,clock80) is
   begin
 
-    if rising_edge(clock100) then
-      -- Cross from 120MHz to 100MHz clock domains for VIC-IV signals
+    if rising_edge(clock80) then
+      -- Cross from 120MHz to 80MHz clock domains for VIC-IV signals
       x_zero_100 <= x_zero_driver100b;
       y_zero_100 <= y_zero_driver100b;
       x_zero_driver100b <= x_zero_driver100;

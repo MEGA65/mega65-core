@@ -191,6 +191,7 @@ architecture Behavioral of container is
   signal cpuclock : std_logic;
   signal clock240 : std_logic;
   signal clock120 : std_logic;
+  signal clock100 : std_logic;
   signal ethclock : std_logic;
   signal clock40 : std_logic;
   signal clock30 : std_logic;
@@ -343,6 +344,7 @@ begin
       cpuclock        => cpuclock,
       uartclock       => cpuclock, -- Match CPU clock
       ioclock         => cpuclock, -- Match CPU clock
+      clock100 => clock100,
       clock240 => clock240,
       clock120 => clock120,
       clock40 => clock40,

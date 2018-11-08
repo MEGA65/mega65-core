@@ -55,9 +55,12 @@ entity machine is
   generic (cpufrequency : integer := 50);
   Port ( pixelclock : in STD_LOGIC;
          cpuclock : in std_logic;
-         clock50mhz : in std_logic;
+         clock50mhz : in std_logic;  -- normal ethernet clock
+         clock100 : in std_logic;    -- double ethernet clock
          clock120 : in std_logic;
          clock240 : in std_logic;
+         clock40 : in std_logic;
+         clock30 : in std_logic;
          ioclock : std_logic;
          uartclock : std_logic;
          btnCpuReset : in  STD_LOGIC;
@@ -957,8 +960,9 @@ begin
 
   pixel0: entity work.pixel_driver
     port map (
-      clock100 => pixelclock,
+      clock80 => pixelclock,
       clock120 => clock120,
+      clock240 => clock240,
 
       pixel_strobe100_out => external_pixel_strobe,
       
