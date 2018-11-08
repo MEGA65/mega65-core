@@ -107,19 +107,6 @@ end framepacker;
 
 architecture behavioural of framepacker is
   
-  -- components go here
-  component videobuffer IS
-    PORT (
-      clka : IN STD_LOGIC;
-      wea : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
-      addra : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
-      dina : IN STD_LOGIC_VECTOR(7 DOWNTO 0);
-      clkb : IN STD_LOGIC;
-      addrb : IN STD_LOGIC_VECTOR(11 DOWNTO 0);
-      doutb : OUT STD_LOGIC_VECTOR(7 DOWNTO 0)
-      );
-  END component;
-
   signal output_address : unsigned(11 downto 0) := to_unsigned(0,12);
   signal output_data : unsigned(7 downto 0) := x"00";
   signal output_write : std_logic := '0';
@@ -161,7 +148,7 @@ architecture behavioural of framepacker is
   
 begin  -- behavioural
 
-  videobuffer0: videobuffer port map (
+  videobuffer0: entity work.videobuffer port map (
     clka => pixelclock,
     wea(0) => output_write,
     addra => std_logic_vector(output_address),
@@ -171,7 +158,7 @@ begin  -- behavioural
     unsigned(doutb) => buffer_rdata
     );
 
-  thumnailbuffer0: videobuffer port map (
+  thumnailbuffer0: entity work.videobuffer port map (
     clka => pixelclock,
     wea(0) => '1',
     addra => std_logic_vector(thumbnail_write_address),

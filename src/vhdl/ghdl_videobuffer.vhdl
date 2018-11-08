@@ -29,7 +29,9 @@ BEGIN
   --  & " = " & integer'image(to_integer(address))
   --  & " -> $" & to_hstring(ram(to_integer(address)))
   --  severity note;
-  doutb <= ram(to_integer(unsigned(addrb)));
+  if rising_edge(clkb) then
+    doutb <= ram(to_integer(unsigned(addrb)));
+  end if;
 
   if(rising_edge(Clka)) then 
     if(wea(0)='1') then
