@@ -188,13 +188,14 @@ architecture Behavioral of container is
   signal ethclock : std_logic;
   signal cpuclock : std_logic;
   signal clock30 : std_logic;
-  signal clock80 : std_logic;
   signal clock40 : std_logic;
+  signal clock120 : std_logic;
+  signal clock100 : std_logic := '0';
   signal clock200 : std_logic;
+  signal clock240 : std_logic;
   
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
 
-  signal clock100mhz : std_logic := '0';
 
   signal slow_access_request_toggle : std_logic;
   signal slow_access_ready_toggle : std_logic;
@@ -263,12 +264,13 @@ begin
 
   dotclock1: entity work.dotclock100
     port map ( clk_in1 => CLK_IN,
-               clock100 => pixelclock, -- 100MHz
+               clock80 => pixelclock, -- 80MHz
+               clock40 => cpuclock, -- 40MHz
+               clock50 => ethclock,
                clock30 => clock30,
-               clock33 => clock33,
-               clock40 => clock40,
-               clock50 => cpuclock, -- 50MHz
-               clock200 => clock200
+               clock100 => clock100,
+               clock120 => clock120,
+               clock240 => clock240
                );
 
   fpgatemp0: entity work.fpgatemp
