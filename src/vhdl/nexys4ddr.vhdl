@@ -338,7 +338,7 @@ begin
       );
   
   machine0: entity work.machine
-    generic map (cpufrequency => 50)
+    generic map (cpufrequency => 40)
     port map (
       pixelclock      => pixelclock,
       cpuclock        => cpuclock,

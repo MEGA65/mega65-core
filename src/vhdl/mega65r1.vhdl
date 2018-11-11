@@ -184,11 +184,11 @@ architecture Behavioral of container is
   signal cpu_game : std_logic := '1';
   signal cpu_exrom : std_logic := '1';
 
-  signal halfpixelclock : std_logic := '1';  
   signal pixelclock : std_logic;
+  signal ethclock : std_logic;
   signal cpuclock : std_logic;
   signal clock30 : std_logic;
-  signal clock33 : std_logic;
+  signal clock80 : std_logic;
   signal clock40 : std_logic;
   signal clock200 : std_logic;
   
@@ -334,19 +334,19 @@ begin
   
   machine0: entity work.machine
     generic map (
-      cpufrequency => 50)
+      cpufrequency => 40)
     port map (
       pixelclock      => pixelclock,
       cpuclock        => cpuclock,
-      clock30 => clock30,
-      clock33 => clock33,
-      clock40 => clock40,
-      clock50mhz      => cpuclock,
---      ioclock         => ioclock, -- 32MHz
---      uartclock         => ioclock, -- must be 32MHz
-      uartclock         => cpuclock, -- Match CPU clock (48MHz)
+      uartclock       => cpuclock, -- Match CPU clock
       ioclock         => cpuclock, -- Match CPU clock
-      clock200 => clock200,
+      clock100 => clock100,
+      clock240 => clock240,
+      clock120 => clock120,
+      clock40 => clock40,
+      clock30 => clock30,
+      clock50mhz      => ethclock,
+
       btncpureset => btncpureset,
       reset_out => reset_out,
       irq => irq,
