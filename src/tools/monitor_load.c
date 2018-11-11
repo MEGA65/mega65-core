@@ -57,6 +57,8 @@ int osk_enable=0;
 
 int not_already_loaded=1;
 
+int halt=0;
+
 // 0 = old hard coded monitor, 1= Kenneth's 65C02 based fancy monitor
 int new_monitor=0;
 
@@ -68,7 +70,7 @@ int process_char(unsigned char c,int live);
 void usage(void)
 {
   fprintf(stderr,"MEGA65 cross-development tool for booting the MEGA65 using a custom bitstream and/or KICKUP file.\n");
-  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <kickup file>] [-R romfile] [-C charromfile]] [-c COLOURRAM.BIN] [-B breakpoint] [-m modeline] [-o] [-d diskimage.d81] [[-1] [<-t|-T> <text>] [-f FPGA serial ID] [filename]]\n");
+  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <kickup file>] [-R romfile] [-C charromfile]] [-c COLOURRAM.BIN] [-B breakpoint] [-m modeline] [-o] [-d diskimage.d81] [[-1] [<-t|-T> <text>] [-f FPGA serial ID] [filename]] [-H]\n");
   fprintf(stderr,"  -l - Name of serial port to use, e.g., /dev/ttyUSB1\n");
   fprintf(stderr,"  -s - Speed of serial port in bits per second. This must match what your bitstream uses.\n");
   fprintf(stderr,"       (Older bitstream use 230400, and newer ones 2000000 or 4000000).\n");
@@ -78,6 +80,7 @@ void usage(void)
   fprintf(stderr,"  -C - Character ROM file to preload.\n");
   fprintf(stderr,"  -c - Colour RAM contents to preload.\n");
   fprintf(stderr,"  -4 - Switch to C64 mode before exiting.\n");
+  fprintf(stderr,"  -H - Halt CPU after loading ROMs.\n");
   fprintf(stderr,"  -1 - Load as with ,8,1 taking the load address from the program, instead of assuming $0801\n");
   fprintf(stderr,"  -r - Automatically RUN programme after loading.\n");
   fprintf(stderr,"  -m - Set video mode to Xorg style modeline.\n");
@@ -100,7 +103,7 @@ int slow_write(int fd,char *d,int l)
 {
   // UART is at 2Mbps, but we need to allow enough time for a whole line of
   // writing. 100 chars x 0.5usec = 500usec. So 1ms between chars should be ok.
-  //  printf("Writing [%s]\n",d);
+  // printf("Writing [%s]\n",d);
   int i;
   for(i=0;i<l;i++)
     {
@@ -185,11 +188,11 @@ int load_file(char *filename,int load_addr,int patchKickstart)
     fprintf(stderr,"Could not open file '%s'\n",filename);
     exit(-2);
   }
-  
+
   usleep(50000);
   unsigned char buf[16384];
   int max_bytes;
-  int byte_limit=16384;
+  int byte_limit=65536;
   max_bytes=0x10000-(load_addr&0xffff);
   if (max_bytes>byte_limit) max_bytes=byte_limit;
   int b=fread(buf,1,max_bytes,f);
@@ -259,10 +262,12 @@ int load_file(char *filename,int load_addr,int patchKickstart)
 int restart_kickstart(void)
 {
   // Start executing in new kickstart
-  usleep(50000);
-  slow_write(fd,"g8100\r",6);
-  usleep(10000);
-  slow_write(fd,"t0\r",3);
+  if (!halt) {
+    usleep(50000);
+    slow_write(fd,"g8100\r",6);
+    usleep(10000);
+    slow_write(fd,"t0\r",3);
+  }
   return 0;
 }
 
@@ -353,8 +358,10 @@ int process_line(char *line,int live)
 	// Send ^U r <return> to print registers and get into a known state.
 	usleep(50000);
 	slow_write(fd,"\r",1);
-	usleep(50000);
-	slow_write(fd,"t0\r",3); // and set CPU going
+	if (!halt) {
+	  usleep(50000);
+	  slow_write(fd,"t0\r",3); // and set CPU going
+	}
 	usleep(20000);
 	if (reset_first) { slow_write(fd,"!\r",2); sleep(1); }
 	if (pal_mode) { slow_write(fd,"sffd306f 0\r",12); usleep(20000); }
@@ -725,7 +732,7 @@ int process_line(char *line,int live)
 	  virtual_f011_pending = 1;
           snprintf(cmd,1024,"sffd3086 %02x\n",saved_side);
 	  slow_write(fd,cmd,strlen(cmd));
-          slow_write(fd,"t0\r",3);
+          if (!halt) slow_write(fd,"t0\r",3);
           slow_write(fd,"mffd3077\r",9);
         }
       }
@@ -902,8 +909,10 @@ int process_line(char *line,int live)
 	sprintf(cmd,"g0380\r");
 	slow_write(fd,cmd,strlen(cmd));	usleep(20000);
 
-	sprintf(cmd,"t0\r");
-	slow_write(fd,cmd,strlen(cmd));	usleep(20000);
+	if (!halt) {
+	  sprintf(cmd,"t0\r");
+	  slow_write(fd,cmd,strlen(cmd));	usleep(20000);
+	}
 
 	if (do_run) {
 	  sprintf(cmd,"s277 52 55 4e d\rsc6 4\r");
@@ -1213,11 +1222,12 @@ int main(int argc,char **argv)
   start_time=time(0);
   
   int opt;
-  while ((opt = getopt(argc, argv, "14B:b:c:C:dEFf:k:l:m:MnoprR:s::t:T:")) != -1) {
+  while ((opt = getopt(argc, argv, "14B:b:c:C:dEFHf:k:l:m:MnoprR:s:t:T:")) != -1) {
     switch (opt) {
     case 'B': sscanf(optarg,"%x",&break_point); break;
     case 'E': ethernet_video=1; break;
     case 'R': romfile=strdup(optarg); break;
+    case 'H': halt=1; break;
     case 'C': charromfile=strdup(optarg); break;
     case 'c': colourramfile=strdup(optarg); break;
     case '4': do_go64=1; break;
