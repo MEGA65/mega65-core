@@ -207,7 +207,13 @@ uart_rx rx_ctrl(.clk(clk),.bit_rate_divisor(bit_rate_divisor_reg),.UART_RX(rx),
 always @(posedge clk)
 begin
   if(reset)
-    bit_rate_divisor_reg <= 40000000/2000000;
+    // PGS 20181111 - 2Mbps has problems with intermittant lost characters
+    // with the shift to 40MHz cpu clock.  Oddly, 4Mbps works just fine.
+    // So we will use that.
+    // PGS 20181111 - Ah, the problem is that we need to reduce the count by one.
+    // With the reduced clock speed, the error in timing was increased to the point
+    // where it began causing problems.
+    bit_rate_divisor_reg <= (40000000/2000000) - 1;
   else if(write)
   begin
     if(address == `MON_UART_BITRATE_LO)
