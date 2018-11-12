@@ -20,8 +20,9 @@ architecture behavior of cpu_test is
   signal cpuclock : std_logic := '0';
   signal ioclock : std_logic := '0';
   signal clock50mhz : std_logic := '0';
-  signal clock200 : std_logic := '0';
+  signal clock240 : std_logic := '0';
   signal clock120 : std_logic := '0';
+  signal clock100 : std_logic := '0';
   signal reset : std_logic := '0';
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
@@ -236,7 +237,7 @@ begin
       clock50mhz   => clock50mhz,
       ioclock      => cpuclock,
       clock120 => clock120,
-      clock200 => clock200,
+      clock240 => clock240,
       uartclock    => ioclock,
       btnCpuReset      => reset,
       irq => irq,
@@ -373,21 +374,21 @@ begin
     
     for i in 1 to 2000000 loop
       pixelclock <= '0'; cpuclock <= '0'; ioclock <= '0';
-      wait for 2.5 ns;     
+      wait for 3.125 ns;     
       pixelclock <= '0'; cpuclock <= '0'; ioclock <= '0';
-      wait for 2.5 ns;     
+      wait for 3.125 ns;     
       pixelclock <= '1'; cpuclock <= '0'; ioclock <= '0';
-      wait for 2.5 ns;     
+      wait for 3.125 ns;     
       pixelclock <= '1'; cpuclock <= '0'; ioclock <= '0';
-      wait for 2.5 ns;     
+      wait for 3.125 ns;     
       pixelclock <= '0'; cpuclock <= '1'; ioclock <= '1';
-      wait for 2.5 ns;     
+      wait for 3.125 ns;     
       pixelclock <= '0'; cpuclock <= '1'; ioclock <= '1';
-      wait for 2.5 ns;     
+      wait for 3.125 ns;     
       pixelclock <= '1'; cpuclock <= '1'; ioclock <= '1';
-      wait for 2.5 ns;     
+      wait for 3.125 ns;     
       pixelclock <= '1'; cpuclock <= '1'; ioclock <= '1';
-      wait for 2.5 ns;
+      wait for 3.125 ns;
       if i = 10 then
         reset <= '1';
         report "Releasing reset";
@@ -408,26 +409,18 @@ begin
   process
     procedure eth_clock_tick is
     begin
-      -- XXX Doesn't tick the 30, 33 or 40 MHz clocks
+      -- XXX Doesn't tick the 120 or 240 MHz clocks
+      clock100 <= '0';
       clock50mhz <= '0';
-      clock200 <= '0';
-      wait for 2.5 ns;
-      clock200 <= '1';
-      wait for 2.5 ns;
-      clock200 <= '0';
-      wait for 2.5 ns;
-      clock200 <= '1';
-      wait for 2.5 ns;
-
+      wait for 10 ns;
       clock50mhz <= '1';
-      clock200 <= '0';
-      wait for 2.5 ns;
-      clock200 <= '1';
-      wait for 2.5 ns;
-      clock200 <= '0';
-      wait for 2.5 ns;
-      clock200 <= '1';
-      wait for 2.5 ns;
+      wait for 10 ns;
+
+      clock100 <= '1';
+      clock50mhz <= '0';
+      wait for 10 ns;
+      clock50mhz <= '1';
+      wait for 10 ns;
     end procedure;
   begin
     for i in 1 to 20 loop
