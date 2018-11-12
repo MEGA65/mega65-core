@@ -629,6 +629,7 @@ architecture Behavioral of viciv is
   signal chargen_alpha_value : unsigned(7 downto 0);
   signal postsprite_pixel_colour : unsigned(7 downto 0);
   signal postsprite_alpha_value : unsigned(7 downto 0);
+  signal postsprite_sprite_number : integer range 0 to 7;
   signal alpha_blend_alpha : unsigned(7 downto 0);
   signal pixel_is_sprite : std_logic;
 
@@ -1155,6 +1156,7 @@ begin
               alpha_out => postsprite_alpha_value,
               border_out => postsprite_inborder,
               is_sprite_out => pixel_is_sprite,
+              sprite_number_out => postsprite_sprite_number,
               is_background_out => pixel_is_background_out,
               is_foreground_out => pixel_is_foreground_out,
 
@@ -3264,6 +3266,11 @@ begin
         palette_address <= "11" & std_logic_vector(postsprite_pixel_colour);
         -- Get the colour of the background for doing the alpha blending
         alias_palette_address <= "11" & std_logic_vector(paint_background);
+        if pixel_is_sprite='0' or sprite_alpha_blend_enables(postsprite_sprite_number)='0' then
+          alpha_blend_alpha <= postsprite_alpha_value;
+        else
+          alpha_blend_alpha <= sprite_alpha_blend_value;
+        end if;
       else
         palette_address(7 downto 0) <= std_logic_vector(postsprite_pixel_colour);
         alias_palette_address(7 downto 0) <= std_logic_vector(paint_background);
@@ -3282,9 +3289,15 @@ begin
           -- XXX The video pipeline currently doesn't tell us WHICH sprite the
           -- pixel belongs to, and we need to know this to be able to decide if
           -- we should alpha blend the sprite pixel to whatever is behind it.
+          -- XXX We should blend to the non-sprite palette, so that sprites can
+          -- have their own colours, but still fade into any background colour.
           palette_address(9 downto 8) <= palette_bank_sprites;
           alias_palette_address(9 downto 8) <= palette_bank_sprites;
-          alpha_blend_alpha <= sprite_alpha_blend_value;
+          if sprite_alpha_blend_enables(postsprite_sprite_number)='0' then
+            alpha_blend_alpha <= postsprite_alpha_value;
+          else
+            alpha_blend_alpha <= sprite_alpha_blend_value;
+          end if;
         end if;          
       end if;
       rgb_is_background <= pixel_is_background_out;
@@ -3293,7 +3306,11 @@ begin
         -- Debug mode enabled using switch 1 to show whether we think pixels
         -- are foreground, background, sprite and/or border.
         palette_address(9 downto 4) <= (others => '0');
-        palette_address(3) <= postsprite_inborder;
+        if pixel_is_sprite='0' or sprite_alpha_blend_enables(postsprite_sprite_number)='0' then
+          palette_address(3) <= '1';
+        else
+          palette_address(3) <= postsprite_inborder;
+        end if;
         palette_address(2) <= pixel_is_foreground_out;
         palette_address(1) <= pixel_is_background_out;
         palette_address(0) <= pixel_is_sprite;
