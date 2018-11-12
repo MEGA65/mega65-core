@@ -1140,7 +1140,7 @@ begin
               
               
               is_foreground_in => pixel_is_foreground_in,
-              is_background_in => pixel_is_foreground_in,
+              is_background_in => pixel_is_background_in,
               -- VIC-II sprites care only about VIC-II coordinates
               -- XXX 40 and 80 column displays should have the same aspect
               -- ratio for this to really work.
@@ -3305,7 +3305,13 @@ begin
       if xray_mode='1' then
         -- Debug mode enabled using switch 1 to show whether we think pixels
         -- are foreground, background, sprite and/or border.
-        palette_address(9 downto 4) <= (others => '0');
+        palette_address(9 downto 6) <= (others => '0');
+        palette_address(5) <= postsprite_pixel_colour(0);
+        palette_address(4) <= paint_background(0);
+        -- background was always set due to bug with passing in foreground flag
+        -- to background flag in sprite module.
+        -- sprite + text = $7 (foreground, sprites and background!)
+        -- text = $E (foreground and background, and not alpha sprite pixel)
         if pixel_is_sprite='0' or sprite_alpha_blend_enables(postsprite_sprite_number)='0' then
           palette_address(3) <= '1';
         else
