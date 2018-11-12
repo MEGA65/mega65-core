@@ -77,6 +77,7 @@ entity sprite is
     -- and information from the previous sprite
     signal is_sprite_in : in std_logic;
     signal sprite_colour_in : in unsigned(7 downto 0);
+    signal sprite_number_in : in integer range 0 to 7;
     signal sprite_map_in : in std_logic_vector(7 downto 0);
     signal sprite_fg_map_in : in std_logic_vector(7 downto 0);
 
@@ -90,6 +91,7 @@ entity sprite is
     signal pixel_out : out unsigned(7 downto 0);
     signal alpha_out : out unsigned(7 downto 0);
     signal sprite_colour_out : out unsigned(7 downto 0);
+    signal sprite_number_out : out integer range 0 to 7;
     signal is_sprite_out : out std_logic;
     signal sprite_map_out : out std_logic_vector(7 downto 0);
     signal sprite_fg_map_out : out std_logic_vector(7 downto 0);
@@ -437,6 +439,7 @@ begin  -- behavioural
         -- sprites can be combined to get more colours, like on the Amiga,
         -- but also with the background, e.g., to modify colour of background
         -- when a "shadow" or "highlight" or sprite of other purpose is drawn
+        sprite_number_out <= sprite_number_in;
         is_sprite_out <= is_sprite_in;
         if sprite_is_multicolour = '0' then
           for bit in 0 to 7 loop
@@ -469,6 +472,7 @@ begin  -- behavioural
             report "SPRITE: Painting 16-colour pixel using bits "
               & to_string(pixel_16);
             if unsigned(pixel_16) /= sprite_colour(3 downto 0) then
+              sprite_number_out <= sprite_number;
               is_sprite_out <= not border_in;
               sprite_colour_out(3 downto 0) <= unsigned(pixel_16);
               -- Setting bitplane mode and 16-colour mode allows setting the
@@ -477,6 +481,7 @@ begin  -- behavioural
               sprite_colour_out(7) <= sprite_bitplane_enable;
             else
               -- Transparent pixel, don't draw.
+              sprite_number_out <= sprite_number_in;
               is_sprite_out <= is_sprite_in;
               null;
             end if;
@@ -485,22 +490,27 @@ begin  -- behavioural
             case sprite_color2_bits is
               when "01" =>
                 is_sprite_out <= not border_in;
+                sprite_number_out <= sprite_number;
                 sprite_colour_out <= sprite_multi0_colour;
               when "10" =>
                 is_sprite_out <= not border_in;
+                sprite_number_out <= sprite_number;
                 sprite_colour_out <= sprite_colour;
               when "11" =>
                 is_sprite_out <= not border_in;
+                sprite_number_out <= sprite_number;
                 sprite_colour_out <= sprite_multi1_colour;
               when others =>
                 -- background shows through
                 is_sprite_out <= is_sprite_in;
+                sprite_number_out <= sprite_number_in;
                 sprite_colour_out <= sprite_colour_in;
             end case;
           end if;
         else
           is_sprite_out <= is_sprite_in;
           sprite_colour_out <= sprite_colour_in;
+          sprite_number_out <= sprite_number_in;
         end if;
       end if;
 --      report "SPRITE: leaving VIC-II sprite #" & integer'image(sprite_number);

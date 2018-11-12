@@ -79,6 +79,7 @@ entity bitplanes is
     signal alpha_in : in unsigned(7 downto 0);
     -- and information from the previous sprite
     signal is_sprite_in : in std_logic;
+    signal sprite_number_in : integer range 0 to 7;
     signal sprite_colour_in : in unsigned(7 downto 0);
     signal sprite_map_in : in std_logic_vector(7 downto 0);
     signal sprite_fg_map_in : in std_logic_vector(7 downto 0);
@@ -93,6 +94,7 @@ entity bitplanes is
     signal alpha_out : out unsigned(7 downto 0);
     signal sprite_colour_out : out unsigned(7 downto 0);
     signal is_sprite_out : out std_logic;
+    signal sprite_number_out : out integer range 0 to 7;
     signal sprite_map_out : out std_logic_vector(7 downto 0);
     signal sprite_fg_map_out : out std_logic_vector(7 downto 0)
 
@@ -499,6 +501,7 @@ begin  -- behavioural
       end if;
       is_sprite_out <= is_sprite_in;
       sprite_colour_out <= sprite_colour_in;
+      sprite_number_out <= sprite_number_in;
     end if;
   end process main;
 

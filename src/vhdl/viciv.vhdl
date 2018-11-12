@@ -572,6 +572,8 @@ architecture Behavioral of viciv is
   signal sprite_extended_width_enables : std_logic_vector(7 downto 0) := "00000000";
   signal sprite_horizontal_tile_enables : std_logic_vector(7 downto 0) := "00000000";
   signal sprite_bitplane_enables : std_logic_vector(7 downto 0) := "00000000";
+  signal sprite_alpha_blend_enables : std_logic_vector(7 downto 0) := "00000000";
+  signal sprite_alpha_blend_value : unsigned(7 downto 0) := x"80";
   signal sprite_sixteen_colour_enables : std_logic_vector(7 downto 0) := "00000000";
 
   -- VIC-II sprites are in a separate module as a chain.  To avoid the need to
@@ -627,6 +629,7 @@ architecture Behavioral of viciv is
   signal chargen_alpha_value : unsigned(7 downto 0);
   signal postsprite_pixel_colour : unsigned(7 downto 0);
   signal postsprite_alpha_value : unsigned(7 downto 0);
+  signal alpha_blend_alpha : unsigned(7 downto 0);
   signal pixel_is_sprite : std_logic;
 
   signal sprite_fetch_drive : std_logic := '0';
@@ -951,7 +954,7 @@ architecture Behavioral of viciv is
   -- Indicates if the next 16 bit screen token will be a GOTO/GOSUB token
   signal next_token_is_goto : std_logic := '0';
 
-  signal reg_alpha_delay : unsigned(3 downto 0) := x"2";
+  signal reg_alpha_delay : unsigned(3 downto 0) := x"1";
 
   signal is_fetch_start : std_logic := '0';
   signal last_was_fetch_start : std_logic := '0';
@@ -1077,9 +1080,8 @@ begin
               b_strm0(9 downto 2) => std_logic_vector(composite_blue),
               b_strm0(1 downto 0) => (others => '0'),
               de_alpha => '1',
-              alpha_strm(9 downto 2) => std_logic_vector(postsprite_alpha_value(7 downto 0)),
-              alpha_strm(1) => postsprite_alpha_value(0),
-              alpha_strm(0) => postsprite_alpha_value(0),
+              alpha_strm(9 downto 2) => std_logic_vector(alpha_blend_alpha(7 downto 0)),
+              alpha_strm(1 downto 0) => "00",
 
               alpha_delay => reg_alpha_delay,
               
@@ -1763,11 +1765,10 @@ begin
         elsif register_number=115 then -- $D3073
           fastio_rdata(3 downto 0) <= std_logic_vector(reg_alpha_delay);
           fastio_rdata(7 downto 4) <= std_logic_vector(vicii_ycounter_scale_minus_zero(3 downto 0));
-        elsif register_number=116 then  -- $D3074 (UNUSED)
-          fastio_rdata <= std_logic_vector(raster_buffer_max_write_address_prev(7 downto 0));
-        elsif register_number=117 then  -- $D3075 (UNUSED)
-          fastio_rdata(3 downto 0) <= std_logic_vector(raster_buffer_max_write_address_prev(11 downto 8));
-          fastio_rdata(7 downto 4) <= x"0";
+        elsif register_number=116 then  -- $D3074
+          fastio_rdata <= sprite_alpha_blend_enables;
+        elsif register_number=117 then  -- $D3075
+          fastio_rdata(7 downto 0) <= std_logic_vector(sprite_alpha_blend_value);
         elsif register_number=118 then  -- $D3076 (UNUSED)
           fastio_rdata <= x"FF";
         elsif register_number=119 then  -- $D3077 (UNUSED)
@@ -2400,10 +2401,10 @@ begin
                                                     -- mode display isn't jiggly
                                                     if fastio_wdata(7)='1' then
                                                       reg_xcounter_delay <= 4;
-                                                      reg_alpha_delay <= x"2";
+                                                      reg_alpha_delay <= x"1";
                                                     else
                                                       reg_xcounter_delay <= 0;
-                                                      reg_alpha_delay <= x"2";
+                                                      reg_alpha_delay <= x"1";
                                                     end if;
 
                                                     report "LEGACY register update & PAL/NTSC mode select";
@@ -2502,11 +2503,11 @@ begin
                                         -- @IO:GS $D073.4-7 VIC-IV physical rasters per VIC-II raster (1 to 16)
                                                     vicii_ycounter_scale_minus_zero(3 downto 0) <= unsigned(fastio_wdata(7 downto 4));
                                                   elsif register_number=116 then -- $D3074
-                                                                                 -- @IO:GS $D074 VIC-IV UNUSED
-                                                    null;
+                                                    -- @IO:GS $D074 VIC-IV Sprite alpha-blend enable
+                                                    sprite_alpha_blend_enables <= fastio_wdata;
                                                   elsif register_number=117 then
-                                        -- @IO:GS $D075 VIC-IV UNUSED
-                                                    null;
+                                        -- @IO:GS $D075 VIC-IV Sprite alpha-blend value
+                                                    sprite_alpha_blend_value <= unsigned(fastio_wdata);
                                                   elsif register_number=118 then
                                         -- @IO:GS $D076 VIC-IV UNUSED
                                                     null;
@@ -3275,9 +3276,15 @@ begin
             palette_address(9 downto 8) <= palette_bank_chargen;
             alias_palette_address(9 downto 8) <= palette_bank_chargen_alt;
           end if;
+          alpha_blend_alpha <= postsprite_alpha_value;
         else
+          -- If the pixel is a sprite pixel, then apply the sprite alpha value.
+          -- XXX The video pipeline currently doesn't tell us WHICH sprite the
+          -- pixel belongs to, and we need to know this to be able to decide if
+          -- we should alpha blend the sprite pixel to whatever is behind it.
           palette_address(9 downto 8) <= palette_bank_sprites;
           alias_palette_address(9 downto 8) <= palette_bank_sprites;
+          alpha_blend_alpha <= sprite_alpha_blend_value;
         end if;          
       end if;
       rgb_is_background <= pixel_is_background_out;
