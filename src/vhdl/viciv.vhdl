@@ -3129,12 +3129,21 @@ begin
         before_y_chargen_start <= '0';
       end if;
       if before_y_chargen_start = '1' and justbefore_y_chargen_start='0' then
+        -- We have to reset the chargen Y value pipeline.
+        -- So chargen_y goes to zero, but we then need to make sure we don't
+        -- accidentally double print the top line of pixels, so we pre-advance
+        -- chargen_y_sub or chargen_y_next as appropriate.
         chargen_y <= "000";
-        chargen_y_next <= "000";
+        if chargen_y_scale = 0 then
+          chargen_y_next <= "001";
+          chargen_y_sub <= "00000";
+        else
+          chargen_y_next <= "000";
+          chargen_y_sub <= "00001";
+        end if;
         if chargen_y_sub /= 0 then
           report "LEGACY: Reseting chargen_y_sub";
         end if;
-        chargen_y_sub <= to_unsigned(0,5);
         chargen_active <= '0';
         chargen_active_soon <= '0';
         -- Force badline so that moving chargen down results in fresh loading
