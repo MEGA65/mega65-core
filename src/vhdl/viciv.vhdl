@@ -323,9 +323,10 @@ architecture Behavioral of viciv is
   -- (On powerup set to a PAL only raster so that ROM doesn't need to wait a
   -- whole frame.  This is really just to make testing through simulation quicker
   -- since a whole frame takes ~20 minutes to simulate).
-  signal vicii_ycounter : unsigned(8 downto 0) := to_unsigned(0,9); -- 263+1
-  signal vicii_ycounter_driver : unsigned(8 downto 0) := to_unsigned(0,9); -- 263+1
-  signal vicii_sprite_ycounter : unsigned(8 downto 0) := to_unsigned(0,9); -- 263+1
+  signal vicii_ycounter : unsigned(8 downto 0) := to_unsigned(0,9);
+  signal vicii_ycounter_continuous : unsigned(8 downto 0) := to_unsigned(0,9);
+  signal vicii_ycounter_driver : unsigned(8 downto 0) := to_unsigned(0,9);
+  signal vicii_sprite_ycounter : unsigned(8 downto 0) := to_unsigned(0,9);
   signal vicii_ycounter_v400 : unsigned(9 downto 0) := to_unsigned(0,10);
   signal last_vicii_ycounter : unsigned(8 downto 0) := to_unsigned(0,9);
   signal vicii_ycounter_phase : unsigned(3 downto 0) := (others => '0');
@@ -2780,9 +2781,12 @@ begin
             if vicii_ycounter_phase = vicii_ycounter_max_phase then
               if to_integer(vicii_ycounter) /= vicii_max_raster and ycounter >= vsync_delay_drive then
                 vicii_ycounter <= vicii_ycounter + 1;
-                -- We update V400 position in this case, bug also in ithe
+                -- We update V400 position in this case, bug also in the
                 -- alternate case below
                 vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;
+              end if;
+              if ycounter >= vsync_delay_drive then
+                vicii_ycounter_continuous <= vicii_ycounter_continuous + 1;
               end if;
 
               if vicii_ycounter_max_phase = 0 then
@@ -2792,7 +2796,7 @@ begin
                 if vicii_ycounter < 2 then
                   vicii_sprite_ycounter <= to_unsigned(0,9);
                 else
-                  vicii_sprite_ycounter <= vicii_ycounter - 2;
+                  vicii_sprite_ycounter <= vicii_ycounter_continuous - 2;
                 end if;
               end if;
               
@@ -2853,6 +2857,7 @@ begin
             -- have interrupts triggered on them).
             vicii_ycounter_phase <= to_unsigned(1,4);
             vicii_ycounter <= vicii_first_raster;
+            vicii_ycounter_continuous <= vicii_first_raster;
             vicii_ycounter_v400 <= (others =>'0');
             vicii_ycounter_phase_v400 <= to_unsigned(1,4);
 
