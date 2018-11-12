@@ -610,8 +610,6 @@ architecture Behavioral of viciv is
   signal pixel_is_background : std_logic;
   signal pixel_is_foreground_in : std_logic;
   signal pixel_is_background_in : std_logic;
-  signal rgb_is_background : std_logic;
-  signal rgb_is_background2 : std_logic;
   signal composite_bg_red : unsigned(7 downto 0);
   signal composite_bg_green : unsigned(7 downto 0);
   signal composite_bg_blue : unsigned(7 downto 0);
@@ -3300,7 +3298,6 @@ begin
           end if;
         end if;          
       end if;
-      rgb_is_background <= pixel_is_background_out;
 
       if xray_mode='1' then
         -- Debug mode enabled using switch 1 to show whether we think pixels
@@ -3312,6 +3309,7 @@ begin
         -- to background flag in sprite module.
         -- sprite + text = $7 (foreground, sprites and background!)
         -- text = $E (foreground and background, and not alpha sprite pixel)
+        -- sprite white fg (=+$20) on blue bg (= no +$10) = $21, as expected
         if pixel_is_sprite='0' or sprite_alpha_blend_enables(postsprite_sprite_number)='0' then
           palette_address(3) <= '1';
         else
@@ -3339,8 +3337,6 @@ begin
       --vga_buffer_red <= unsigned(postsprite_pixel_colour);
       --vga_buffer_green <= unsigned(postsprite_pixel_colour);
       --vga_buffer_blue <= unsigned(postsprite_pixel_colour);      
-
-      rgb_is_background2 <= rgb_is_background;
 
       -- The nybls have not been switched around for the alpha palette, so we
       -- have to do that here
