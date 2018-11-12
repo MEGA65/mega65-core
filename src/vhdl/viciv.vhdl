@@ -2819,7 +2819,7 @@ begin
               if vicii_ycounter < 2 then
                 vicii_sprite_ycounter <= to_unsigned(0,9);
               else
-                vicii_sprite_ycounter <= vicii_ycounter - 2;
+                vicii_sprite_ycounter <= vicii_ycounter_continuous - 2;
               end if;
               
             end if;
