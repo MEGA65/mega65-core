@@ -1705,7 +1705,7 @@ begin  -- behavioural
                   -- goes idle. This is to work around a bug we have seen where
                   -- if you don't request a read from the SD card soon enough after
                   -- reset, then no read will ever succeed.
-                  read_on_idle <= '1';
+                  read_on_idle <= '0';
                   
                   -- XXX DEBUG provision for finding out why SD card
                   -- gets jammed.
