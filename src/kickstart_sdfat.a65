@@ -66,11 +66,11 @@ sdhccheckwait:
 
 		; Normal SD (SDSC) card
 
-		; Reset after SDHC test for normal SD mode
-		jsr sd_resetsequence
-
 		lda #$00
 		sta sd_address_byte0
+
+		; Reset after SDHC test for normal SD mode
+		jsr sd_resetsequence
 
 		ldx #<msg_foundsdcard
 		ldy #>msg_foundsdcard
