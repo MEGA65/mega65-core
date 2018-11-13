@@ -756,13 +756,14 @@ architecture Behavioral of viciv is
   signal glyph_reverse : std_logic;
   signal glyph_reverse_drive : std_logic;
   signal glyph_full_colour : std_logic;
+  signal glyph_4bit : std_logic;
   signal glyph_flip_horizontal : std_logic;
   signal glyph_flip_vertical : std_logic;
   signal glyph_goto : std_logic;
-  signal glyph_width_deduct : unsigned(2 downto 0);
+  signal glyph_width_deduct : unsigned(3 downto 0);
   signal glyph_width : integer range 0 to 16;
   signal paint_glyph_width : integer range 0 to 16;
-  signal reg_fullcolour4bit : std_logic := '0';
+  signal paint_glyph_4bit : std_logic;
   signal glyph_blink : std_logic;
   signal glyph_blink_drive : std_logic;
   signal paint_blink : std_logic;
@@ -1716,8 +1717,7 @@ begin
           fastio_rdata(7 downto 6) <= "00";
           fastio_rdata(5 downto 0) <= std_logic_vector(single_side_border(13 downto 8));
         elsif register_number=94 then
-          fastio_rdata(0) <= reg_fullcolour4bit;
-          fastio_rdata(7 downto 1)  <= (others => '1');
+          fastio_rdata(7 downto 0)  <= (others => '1');
         elsif register_number=95 then
           fastio_rdata <= std_logic_vector(sprite_h640_msbs);          
         elsif register_number=96 then
@@ -2337,9 +2337,8 @@ begin
                                         -- @IO:GS $D05D VIC-IV side border width (MSB)
                                                     single_side_border(13 downto 8) <= unsigned(fastio_wdata(5 downto 0));
                                                   elsif register_number=94 then
-                                        -- @IO:GS $D05E.0 VIC-IV full colour text mode uses 4 bits per pixel / 16 pixel wide characters
-                                        -- @IO:GS $D05E.1-7 VIC-IV UNUSED
-                                                    reg_fullcolour4bit <= fastio_wdata(0);
+                                        -- @IO:GS $D05E VIC-IV UNUSED
+                                                    null;
                                                   elsif register_number=95 then
                                         -- @IO:GS $D05F VIC-IV Sprite H640 X Super-MSBs
                                                     sprite_h640_msbs <= fastio_wdata;
@@ -3770,9 +3769,7 @@ begin
           glyph_flip_horizontal <= '0';
           glyph_flip_vertical <= '0';
           glyph_with_alpha <= '0';
-          glyph_width_deduct <= to_unsigned(0,3);
-          glyph_trim_top <= 0;
-          glyph_trim_bottom <= 0;
+          glyph_width_deduct <= to_unsigned(0,4);
           glyph_goto <= '0';
           
           screen_ram_is_ff <= '0';
@@ -3814,6 +3811,7 @@ begin
             -- extended attributes.
             glyph_number(12 downto 8) <= screen_ram_buffer_dout(4 downto 0);
             glyph_width_deduct(2 downto 0) <= screen_ram_buffer_dout(7 downto 5);
+            glyph_width_deduct(3) <= '0';
             if screen_ram_buffer_dout = x"ff" then
               screen_ram_high_is_ff <= '1';
             end if;
@@ -3825,12 +3823,21 @@ begin
             -- bit 4 indicates glyph number is actually a GOTO pixel number
             -- (allows over-rendering and skipping)
             glyph_goto <= colourramdata(4);
-            
+
+            -- Enables chars to be 16x8, with 4 bits each using
+            -- full-colour painting pipeline
+            glyph_4bit <= colourramdata(3);
             if colourramdata(3)='1' then
-              glyph_trim_top <= to_integer(colourramdata(2 downto 0));
-            else
-              glyph_trim_bottom <= to_integer(colourramdata(2 downto 0));
+              glyph_full_colour <= '1';
             end if;
+            -- Because the glyphs are 16 pixels wide, we need to have an extra
+            -- bit for width trimming
+            glyph_width_deduct(3) <= colourramdata(2);
+
+            
+            -- XXX colour ram bits 0 - 1 of byte 1 were for trimming top or bottom
+            -- of rows of glyphs, but have since been reclaimed.
+            
 
             raster_fetch_State <= FetchTextCell;
           else
@@ -4009,7 +4016,11 @@ begin
           raster_fetch_state <= PaintMemWait2;
         when PaintMemWait2 =>
           glyph_colour <= glyph_colour_drive2;
-          glyph_width <= 8 - to_integer(glyph_width_deduct);
+          if glyph_4bit='0' then
+            glyph_width <= 8 - to_integer(glyph_width_deduct(2 downto 0));
+          else
+            glyph_width <= 16 - to_integer(glyph_width_deduct(3 downto 0));
+          end if;
 
           if glyph_full_colour = '1' then
             if glyph_flip_horizontal = '0' then
@@ -4079,12 +4090,9 @@ begin
             report "character rom address set to $" & to_hstring(glyph_data_address(11 downto 0)) severity note;
             -- Tell painter whether to flip horizontally or not.
             paint_flip_horizontal <= glyph_flip_horizontal;
-            if reg_fullcolour4bit='1' then
-              paint_glyph_width <= 2*glyph_width;
-            else
-              paint_glyph_width <= glyph_width;
-            end if;
+            paint_glyph_width <= glyph_width;
             paint_blink <= glyph_blink;
+            paint_glyph_4bit <= glyph_4bit;
             paint_with_alpha <= glyph_with_alpha;
 
             if glyph_goto='1' then
@@ -4411,8 +4419,8 @@ begin
           paint_ready <= '0';
           report "LEGACY: clearing paint_ready. full_colour_data=$" & to_hstring(full_colour_data);
           paint_full_colour_data <= full_colour_data;
-          paint_bits_remaining <= paint_glyph_width - 1;
-          if reg_fullcolour4bit='1' then
+          paint_bits_remaining <= paint_glyph_width - 1;          
+          if paint_glyph_4bit='1' then
             paint_fsm_state <= Paint4bitColourPixels;
           else
             paint_fsm_state <= PaintFullColourPixels;
