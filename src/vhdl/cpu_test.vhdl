@@ -22,6 +22,7 @@ architecture behavior of cpu_test is
   signal clock50mhz : std_logic := '0';
   signal clock240 : std_logic := '0';
   signal clock120 : std_logic := '0';
+  signal clock30 : std_logic := '0';
   signal clock100 : std_logic := '0';
   signal reset : std_logic := '0';
   signal irq : std_logic := '1';
@@ -236,6 +237,9 @@ begin
       cpuclock      => cpuclock,
       clock50mhz   => clock50mhz,
       ioclock      => cpuclock,
+      clock100 => clock100,
+      clock40 => cpuclock,
+      clock30 => clock30,
       clock120 => clock120,
       clock240 => clock240,
       uartclock    => ioclock,
@@ -396,6 +400,14 @@ begin
     end loop;  -- i
     assert false report "End of simulation" severity failure;
   end process;
+
+  process
+  begin
+    clock30 <= '0';
+    wait for 16.667 ns;
+    clock30 <= '1';
+    wait for 16.667 ns;
+  end process;  
 
   process
   begin
