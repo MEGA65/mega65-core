@@ -964,7 +964,7 @@ begin
       clock120 => clock120,
       clock240 => clock240,
 
-      pixel_strobe100_out => external_pixel_strobe,
+      pixel_strobe80_out => external_pixel_strobe,
       
       -- Configuration information from the VIC-IV
       hsync_invert => hsync_polarity,
@@ -995,7 +995,7 @@ begin
       lcd_hsync => lcd_hsync,
       lcd_vsync => lcd_vsync,
       lcd_display_enable => lcd_display_enable,
-      lcd_pixel_strobe => lcd_pixel_strobe
+      lcd_pixel_clock_out => lcd_pixel_strobe
 
       );
       

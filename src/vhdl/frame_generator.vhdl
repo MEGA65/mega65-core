@@ -26,7 +26,7 @@ entity frame_generator is
   generic (
     frame_width : integer := 960;
     display_width : integer := 800;
-    clock_dividor : integer := 4;
+    clock_divider : integer := 4;
     pipeline_delay : integer := 0;
     frame_height : integer := 625;
     lcd_height : integer := 480;
@@ -37,10 +37,11 @@ entity frame_generator is
     hsync_end : integer := 880
     );
   port (
+    clock240 : in std_logic;
     clock120 : in std_logic;
     clock80 : in std_logic;
 
-    -- 100MHz oriented configuration flags
+    -- 80MHz oriented configuration flags
     hsync_polarity : in std_logic;
     vsync_polarity : in std_logic;
 
@@ -49,8 +50,11 @@ entity frame_generator is
     hsync_uninverted : out std_logic := '0';
     vsync : out std_logic := '0';
     inframe : out std_logic := '0';
+    pixel_strobe_120 : out std_logic := '0';   -- used to clock read-side of
+                                               -- raster buffer fifo
 
-    pixel_strobe_120 : out std_logic := '0';    
+    lcd_pixel_clock : out std_logic := '0';    -- 50% duty cycle clock for LCD
+                                               -- panel
     lcd_vsync : out std_logic := '0';
     lcd_inframe : out std_logic := '0';
 
@@ -58,12 +62,12 @@ entity frame_generator is
     green_o : out unsigned(7 downto 0) := x"00";
     blue_o : out unsigned(7 downto 0) := x"00";
 
-    -- 100MHz oriented signals for VIC-IV
-    pixel_strobe_100 : out std_logic := '0';
-    x_zero_100 : out std_logic := '0';
+    -- 80MHz oriented signals for VIC-IV
+    pixel_strobe_80 : out std_logic := '0';
+    x_zero_80 : out std_logic := '0';
     x_zero_120 : out std_logic := '0';
     y_zero_120 : out std_logic := '0';
-    y_zero_100 : out std_logic := '0'
+    y_zero_80 : out std_logic := '0'
     
     
     );
@@ -75,12 +79,12 @@ architecture brutalist of frame_generator is
   signal x : integer := 0;
   signal x_zero_driver : std_logic := '0';
   signal x_zero_driver2 : std_logic := '0';
-  signal x_zero_driver100 : std_logic := '0';
-  signal x_zero_driver100b : std_logic := '0';
+  signal x_zero_driver80 : std_logic := '0';
+  signal x_zero_driver80b : std_logic := '0';
   signal y_zero_driver : std_logic := '0';
   signal y_zero_driver2 : std_logic := '0';
-  signal y_zero_driver100 : std_logic := '0';
-  signal y_zero_driver100b : std_logic := '0';
+  signal y_zero_driver80 : std_logic := '0';
+  signal y_zero_driver80b : std_logic := '0';
   signal y : integer := 0;
   signal inframe_internal : std_logic := '0';
 
@@ -90,41 +94,60 @@ architecture brutalist of frame_generator is
   signal hsync_driver : std_logic := '0';
   signal hsync_uninverted_driver : std_logic := '0';
 
-  signal pixel_toggle120 : std_logic := '0';
-  signal pixel_toggle100 : std_logic := '0';
-  signal last_pixel_toggle100 : std_logic := '0';
-  signal pixel_strobe_counter : integer range 0 to clock_dividor := 0;
-  signal pixel_strobe120_drive : std_logic := '0';
+  signal pixel_toggle240 : std_logic := '0';
+  signal pixel_toggle80 : std_logic := '0';
+  signal last_pixel_toggle80 : std_logic := '0';
+  signal pixel_toggle_counter : integer range 0 to clock_divider := 0;
+  signal pixel_strobe_counter : integer range 0 to clock_divider := 0;
   
 begin
 
-  process (clock120,clock80) is
+  process (clock240,clock120,clock80) is
   begin
 
     if rising_edge(clock80) then
       -- Cross from 120MHz to 80MHz clock domains for VIC-IV signals
-      x_zero_100 <= x_zero_driver100b;
-      y_zero_100 <= y_zero_driver100b;
-      x_zero_driver100b <= x_zero_driver100;
-      y_zero_driver100b <= y_zero_driver100;      
-      x_zero_driver100 <= x_zero_driver2;
-      y_zero_driver100 <= y_zero_driver2;      
+      x_zero_80 <= x_zero_driver80b;
+      y_zero_80 <= y_zero_driver80b;
+      x_zero_driver80b <= x_zero_driver80;
+      y_zero_driver80b <= y_zero_driver80;      
+      x_zero_driver80 <= x_zero_driver2;
+      y_zero_driver80 <= y_zero_driver2;      
 
       -- Pixel strobe to VIC-IV can just be a 50MHz pulse
       -- train, since it all goes into a buffer.
       -- But better is to still try to follow the 120MHz driven
       -- chain.
-      pixel_toggle100 <= pixel_toggle120;
-      last_pixel_toggle100 <= pixel_toggle100;
-      if pixel_toggle100 /= last_pixel_toggle100 then
-        pixel_strobe_100 <= '1';
+      pixel_toggle80 <= pixel_toggle240;
+      last_pixel_toggle80 <= pixel_toggle80;
+      if pixel_toggle80 /= last_pixel_toggle80 then
+        pixel_strobe_80 <= '1';
       else
-        pixel_strobe_100 <= '0';
+        pixel_strobe_80 <= '0';
       end if;
     end if;
-    
+
+    if rising_edge(clock240) then
+      -- Generate pixel strobe train
+      lcd_pixel_clock <= pixel_toggle240;
+      if pixel_toggle_counter = 0 then
+        pixel_toggle240 <= not pixel_toggle240;
+        pixel_toggle_counter <= (clock_divider - 1);
+      else
+        pixel_toggle_counter <= pixel_toggle_counter - 1;
+      end if;
+    end if;
+      
     if rising_edge(clock120) then
 
+      if pixel_strobe_counter = 0 then
+        pixel_strobe_120 <= '1';
+        pixel_strobe_counter <= (clock_divider - 1);
+      else
+        pixel_strobe_120 <= '0';
+        pixel_strobe_counter <= pixel_strobe_counter - 1;
+      end if;
+      
       x_zero_driver2 <= x_zero_driver;
       y_zero_driver2 <= y_zero_driver;
       x_zero_120 <= x_zero_driver;
@@ -133,18 +156,7 @@ begin
       vsync <= vsync_driver;
       hsync <= hsync_driver;
       hsync_uninverted <= hsync_uninverted_driver;
-      pixel_strobe_120 <= pixel_strobe120_drive;
 
-      -- Generate pixel strobe train
-      if pixel_strobe_counter = 0 then
-        pixel_strobe_counter <= (clock_dividor - 1);
-        pixel_strobe120_drive <= '1';
-        pixel_toggle120 <= not pixel_toggle120;
-      else
-        pixel_strobe120_drive <= '0';
-        pixel_strobe_counter <= pixel_strobe_counter - 1;
-      end if;
-      
       if x < frame_width then
         x <= x + 1;
         -- make the x_zero signal last a bit longer, to make sure it gets captured.

@@ -72,8 +72,8 @@ entity pixel_driver is
     inframe : out std_logic;
     
     -- Indicate when next pixel/raster is expected
-    pixel_strobe100_out : out std_logic;
-    pixel_strobe120_out : out std_logic;
+    pixel_strobe80_out : out std_logic;
+    lcd_pixel_clock_out : out std_logic;
     
     -- Similar signals to above for the LCD panel
     -- The main difference is that we only announce pixels during the 800x480
@@ -92,8 +92,8 @@ architecture greco_roman of pixel_driver is
 
   signal fifo_inuse120 : std_logic := '0';
   signal fifo_inuse120_drive : std_logic := '0';
-  signal fifo_inuse100 : std_logic := '0';
-  signal fifo_almost_empty100 : std_logic := '0';
+  signal fifo_inuse80 : std_logic := '0';
+  signal fifo_almost_empty80 : std_logic := '0';
   signal fifo_almost_empty120 : std_logic := '0';
   signal fifo_empty120 : std_logic := '0';
   signal fifo_full120 : std_logic := '0';
@@ -103,7 +103,7 @@ architecture greco_roman of pixel_driver is
   
   signal pal50_select_internal : std_logic := '0';
   signal pal50_select_internal_drive : std_logic := '0';
-  signal pal50_select_internal100 : std_logic := '0';
+  signal pal50_select_internal80 : std_logic := '0';
 
   signal wr_en : std_logic := '0';
   signal waddr : integer := 0;
@@ -135,13 +135,13 @@ architecture greco_roman of pixel_driver is
   signal test_pattern_green : unsigned(7 downto 0) := x"00";
   signal test_pattern_blue : unsigned(7 downto 0) := x"00";
 
-  signal x_zero_pal50_100 : std_logic := '0';
+  signal x_zero_pal50_80 : std_logic := '0';
   signal x_zero_pal50_120 : std_logic := '0';
-  signal y_zero_pal50_100 : std_logic := '0';
+  signal y_zero_pal50_80 : std_logic := '0';
   signal y_zero_pal50_120 : std_logic := '0';
-  signal x_zero_ntsc60_100 : std_logic := '0';
+  signal x_zero_ntsc60_80 : std_logic := '0';
   signal x_zero_ntsc60_120 : std_logic := '0';
-  signal y_zero_ntsc60_100 : std_logic := '0';
+  signal y_zero_ntsc60_80 : std_logic := '0';
   signal y_zero_ntsc60_120 : std_logic := '0';
 
   signal inframe_pal50 : std_logic := '0';
@@ -150,11 +150,14 @@ architecture greco_roman of pixel_driver is
   signal lcd_inframe_pal50 : std_logic := '0';
   signal lcd_inframe_ntsc60 : std_logic := '0';
 
+  signal lcd_pixel_clock_50 : std_logic := '0';
+  signal lcd_pixel_clock_60 : std_logic := '0';
+  
+  signal pixel_strobe80_50 : std_logic := '0';
+  signal pixel_strobe80_60 : std_logic := '0';
+
   signal pixel_strobe120_50 : std_logic := '0';
   signal pixel_strobe120_60 : std_logic := '0';
-  
-  signal pixel_strobe100_50 : std_logic := '0';
-  signal pixel_strobe100_60 : std_logic := '0';
   
   signal test_pattern_red50 : unsigned(7 downto 0) := x"00";
   signal test_pattern_green50 : unsigned(7 downto 0) := x"00";
@@ -176,9 +179,6 @@ architecture greco_roman of pixel_driver is
   
   signal y_zero_internal : std_logic := '0';
 
-  signal pixel_toggle : std_logic := '0';
-  signal toggle_counter : integer range 0 to 15 := 0;
-
 begin
 
   -- Here we generate the frames and the pixel strobe references for everything
@@ -188,7 +188,7 @@ begin
 
   frame50: entity work.frame_generator
     generic map ( frame_width => 960*4-1,
-                  clock_dividor => 4,
+                  clock_divider => 4,
                   display_width => 800,
                   frame_height => 625,
                   pipeline_delay => 0,
@@ -199,6 +199,7 @@ begin
                   hsync_end => 870*4
                   )                  
     port map ( clock120 => clock120,
+               clock240 => clock240,
                clock80 => clock80,
                hsync => hsync_pal50,
                hsync_uninverted => hsync_pal50_uninverted,
@@ -209,21 +210,22 @@ begin
                inframe => inframe_pal50,               
                lcd_vsync => lcd_vsync_pal50,
                lcd_inframe => lcd_inframe_pal50,
+               lcd_pixel_clock => lcd_pixel_clock_50,
 
-               -- 100MHz facing signals for the VIC-IV
+               -- 80MHz facing signals for the VIC-IV
                x_zero_120 => x_zero_pal50_120,
-               x_zero_100 => x_zero_pal50_100,
-               y_zero_100 => y_zero_pal50_100,
+               x_zero_80 => x_zero_pal50_80,
+               y_zero_80 => y_zero_pal50_80,
                y_zero_120 => y_zero_pal50_120,
-               pixel_strobe_120 => pixel_strobe120_50,
-               pixel_strobe_100 => pixel_strobe100_50
+               pixel_strobe_80 => pixel_strobe80_50,
+               pixel_strobe_120 => pixel_strobe120_50
 
                );
 
   frame60: entity work.frame_generator
     generic map ( frame_width => 1057*3-1,
                   display_width => 800,
-                  clock_dividor => 3,
+                  clock_divider => 3,
                   frame_height => 628,
                   display_height => 600,
                   pipeline_delay => 0,
@@ -233,6 +235,7 @@ begin
                   hsync_end => 900*3
                   )                  
     port map ( clock120 => clock120,
+               clock240 => clock240,
                clock80 => clock80,
                hsync_polarity => hsync_invert,
                vsync_polarity => vsync_invert,
@@ -242,15 +245,15 @@ begin
                inframe => inframe_ntsc60,
                lcd_vsync => lcd_vsync_ntsc60,
                lcd_inframe => lcd_inframe_ntsc60,
+               lcd_pixel_clock => lcd_pixel_clock_60,
 
-               -- 100MHz facing signals for VIC-IV
+               -- 80MHz facing signals for VIC-IV
                x_zero_120 => x_zero_ntsc60_120,
-               x_zero_100 => x_zero_ntsc60_100,               
-               y_zero_100 => y_zero_ntsc60_100,
+               x_zero_80 => x_zero_ntsc60_80,               
+               y_zero_80 => y_zero_ntsc60_80,
                y_zero_120 => y_zero_ntsc60_120,
-               pixel_strobe_120 => pixel_strobe120_60,
-               pixel_strobe_100 => pixel_strobe100_60
-               
+               pixel_strobe_80 => pixel_strobe80_60,
+               pixel_strobe_120 => pixel_strobe120_60               
                
                );               
   
@@ -311,14 +314,14 @@ begin
   inframe_internal <= inframe_pal50 when pal50_select_internal='1' else inframe_ntsc60;
   lcd_inframe <= lcd_inframe_pal50 when pal50_select_internal='1' else lcd_inframe_ntsc60;
 
-  raster_strobe <= x_zero_pal50_100 when pal50_select_internal100='1' else x_zero_ntsc60_100;
-  x_zero <= x_zero_pal50_100 when pal50_select_internal100='1' else x_zero_ntsc60_100;
-  y_zero <= y_zero_pal50_100 when pal50_select_internal100='1' else y_zero_ntsc60_100;
+  raster_strobe <= x_zero_pal50_80 when pal50_select_internal80='1' else x_zero_ntsc60_80;
+  x_zero <= x_zero_pal50_80 when pal50_select_internal80='1' else x_zero_ntsc60_80;
+  y_zero <= y_zero_pal50_80 when pal50_select_internal80='1' else y_zero_ntsc60_80;
   y_zero_internal <= y_zero_pal50_120 when pal50_select_internal='1' else y_zero_ntsc60_120;
-  pixel_strobe100_out <= pixel_strobe100_50 when pal50_select_internal100='1' else pixel_strobe100_60;
+  pixel_strobe80_out <= pixel_strobe80_50 when pal50_select_internal80='1' else pixel_strobe80_60;
   
   -- Generate output pixel strobe and signals for read-side of the FIFO
-  pixel_strobe120_out <= pixel_strobe120_50 when pal50_select_internal='1' else pixel_strobe120_60;
+  lcd_pixel_clock_out <= lcd_pixel_clock_50 when pal50_select_internal='1' else lcd_pixel_clock_60;
 
   plotting <= '0' when y_zero_internal='1' else
               plotting50 when pal50_select_internal='1'
@@ -328,27 +331,19 @@ begin
   wdata(15 downto 8) <= green_i;
   wdata(23 downto 16) <= blue_i;
 
-  x_zero_out <= x_zero_pal50_100 when pal50_select_internal100='1' else x_zero_ntsc60_100;
-  y_zero_out <= y_zero_pal50_100 when pal50_select_internal100='1' else y_zero_ntsc60_100;
+  x_zero_out <= x_zero_pal50_80 when pal50_select_internal80='1' else x_zero_ntsc60_80;
+  y_zero_out <= y_zero_pal50_80 when pal50_select_internal80='1' else y_zero_ntsc60_80;
   
   process (clock80,clock120) is
     variable waddr_unsigned : unsigned(11 downto 0) := to_unsigned(0,12);
   begin
 
     if rising_edge(clock80) then
-      pal50_select_internal100 <= pal50_select;
+      pal50_select_internal80 <= pal50_select;
       fifo_full <= fifo_full120;
-
-      if toggle_counter = 0 then
-        lcd_pixel_strobe <= not pixel_toggle;
-        pixel_toggle <= not pixel_toggle;
-        toggle_counter <= 1;
-      else
-        toggle_counter <= toggle_counter - 1;
-      end if;
     end if;        
     if rising_edge(clock120) then
-      fifo_inuse120_drive <= fifo_inuse100;
+      fifo_inuse120_drive <= fifo_inuse80;
       fifo_inuse120 <= fifo_inuse120_drive;
       pal50_select_internal_drive <= pal50_select;
       pal50_select_internal <= pal50_select_internal_drive;
@@ -356,13 +351,6 @@ begin
 
     if rising_edge(clock120) then
 
-      -- And similarly for the LCD panel to latch pixels
---      if pal50_select_internal='1' then
---        lcd_pixel_strobe <= pixel_strobe120_50;
---      else
---        lcd_pixel_strobe <= pixel_strobe120_60;
---      end if;
-      
       test_pattern_enable120 <= test_pattern_enable;
 
       if pal50_select_internal='1' then
@@ -438,7 +426,7 @@ begin
     
     -- Manage writing into the raster buffer
     if rising_edge(clock80) then
-      fifo_almost_empty100 <= fifo_almost_empty120;
+      fifo_almost_empty80 <= fifo_almost_empty120;
       if pixel_strobe_in='1' then
         waddr_unsigned := to_unsigned(waddr,12);
         waddr_out <= to_unsigned(waddr,12);
@@ -450,13 +438,13 @@ begin
 --          wdata(11 downto 0) <= waddr_unsigned;
 --        end if;
         if raster_strobe = '0' then
-          fifo_inuse100 <= not fifo_almost_empty100;
+          fifo_inuse80 <= not fifo_almost_empty80;
           if waddr < 1023 then
             waddr <= waddr + 1;
           end if;
         else
           waddr <= 0;
-          fifo_inuse100 <= '0';
+          fifo_inuse80 <= '0';
           report "Zeroing fifo waddr";
         end if;
 --        report "pixel_fifo waddr estimate = $" & to_hstring(to_unsigned(waddr,16));
