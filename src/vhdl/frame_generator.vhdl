@@ -29,8 +29,7 @@ entity frame_generator is
     clock_divider : integer := 4;
     pipeline_delay : integer := 0;
     frame_height : integer := 625;
-    lcd_height : integer := 621; -- 480; XXX temporarily make LCD almost as
-                                 -- high as display, so that letterbox is bigger
+    lcd_height : integer := 480;
     display_height : integer := 600;
     vsync_start : integer := 601;
     vsync_end : integer := 606;
