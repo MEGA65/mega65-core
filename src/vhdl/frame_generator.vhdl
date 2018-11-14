@@ -99,6 +99,8 @@ architecture brutalist of frame_generator is
   signal last_pixel_toggle80 : std_logic := '0';
   signal pixel_toggle_counter : integer range 0 to clock_divider := 0;
   signal pixel_strobe_counter : integer range 0 to clock_divider := 0;
+
+  signal pixel_strobe_120_drive : std_logic := '0';
   
 begin
 
@@ -140,11 +142,13 @@ begin
       
     if rising_edge(clock120) then
 
+      pixel_strobe_120 <= pixel_strobe_120_drive;
+      
       if pixel_strobe_counter = 0 then
-        pixel_strobe_120 <= '1';
+        pixel_strobe_120_drive <= '1';
         pixel_strobe_counter <= (clock_divider - 1);
       else
-        pixel_strobe_120 <= '0';
+        pixel_strobe_120_drive <= '0';
         pixel_strobe_counter <= pixel_strobe_counter - 1;
       end if;
       

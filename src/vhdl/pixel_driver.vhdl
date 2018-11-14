@@ -73,6 +73,7 @@ entity pixel_driver is
     
     -- Indicate when next pixel/raster is expected
     pixel_strobe80_out : out std_logic;
+    pixel_strobe120_out : out std_logic;
     lcd_pixel_clock_out : out std_logic;
     
     -- Similar signals to above for the LCD panel
@@ -321,6 +322,7 @@ begin
   pixel_strobe80_out <= pixel_strobe80_50 when pal50_select_internal80='1' else pixel_strobe80_60;
   
   -- Generate output pixel strobe and signals for read-side of the FIFO
+  pixel_strobe120_out <= pixel_strobe120_50 when pal50_select_internal='1' else pixel_strobe120_60;
   lcd_pixel_clock_out <= lcd_pixel_clock_50 when pal50_select_internal='1' else lcd_pixel_clock_60;
 
   plotting <= '0' when y_zero_internal='1' else
