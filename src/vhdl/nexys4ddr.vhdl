@@ -542,17 +542,17 @@ begin
       jalo <= std_logic_vector(buffer_vgablue(7 downto 4));
       jahi <= std_logic_vector(buffer_vgared(7 downto 4));
       jblo <= std_logic_vector(buffer_vgagreen(7 downto 4));
+      -- Push correct clock to LCD panel
+      if pal50_select = '1' then
+        jbhi(7) <= clock30;
+      else
+        jbhi(7) <= clock40;
+      end if;
       jbhi(8) <= lcd_hsync;
       jbhi(9) <= lcd_vsync;
       jbhi(10) <= lcd_display_enable;
     end if;
 
-    -- Push correct clock to LCD panel
-    jbhi(7) <= clock30 when pal50_select = '1' others clock40;
---    if rising_edge(clock240) then
---      jbhi(7) <= lcd_pixel_strobe;
---    end if;
-    
     if rising_edge(cpuclock) then
 
       -- No physical keyboard
