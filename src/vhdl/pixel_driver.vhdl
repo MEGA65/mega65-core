@@ -179,6 +179,10 @@ architecture greco_roman of pixel_driver is
   
   signal y_zero_internal : std_logic := '0';
 
+  signal display_en50 : std_logic := '0';
+  signal display_en60 : std_logic := '0';
+  signal display_en80 : std_logic := '0';
+  
 begin
 
   -- Here we generate the frames and the pixel strobe references for everything
@@ -337,8 +341,15 @@ begin
   begin
 
     if rising_edge(clock80) then
+      lcd_display_enable <= display_en80;
       pal50_select_internal80 <= pal50_select;
       fifo_full <= fifo_full120;
+      if pal50_select_internal80 = '1' then
+        display_en80 <= display_en50;
+      else
+        display_en80 <= display_en60;
+      end if;
+      
     end if;        
     if rising_edge(clock120) then
       fifo_inuse120_drive <= fifo_inuse80;
@@ -398,6 +409,11 @@ begin
           plotting50 <= '0';
         end if;
         if pixel_strobe120_50 = '1' then
+          if raddr50 = 1 then
+            display_en50 <= '1';
+          elsif raddr50 = 801 then
+            display_en50 <= '0';
+          end if;
           if raddr50 < 1023 then
             raddr50 <= raddr50 + 1;
           end if;
@@ -417,6 +433,11 @@ begin
           plotting60 <= '0';
         end if;
         if pixel_strobe120_60 = '1' then
+          if raddr60 = 1 then
+            display_en60 <= '1';
+          elsif raddr60 = 801 then
+            display_en60 <= '0';
+          end if;
           if raddr60 < 1023 then
             raddr60 <= raddr60 + 1;
           end if;

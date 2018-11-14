@@ -262,8 +262,6 @@ begin
                lcd_display_enable => lcd_display_enable
                );                              
 
-  led(0) <= pixel_strobe;
-
   vgablue <= buffer_vgablue(7 downto 4);
   vgared <= buffer_vgared(7 downto 4);
   vgagreen <= buffer_vgagreen(7 downto 4);
