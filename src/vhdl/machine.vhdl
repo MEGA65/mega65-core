@@ -101,6 +101,8 @@ entity machine is
          lcd_vsync : out std_logic;
          lcd_display_enable : out std_logic;
          lcd_pixel_strobe : out std_logic;
+         pal50_select_out : out std_logic;
+         
          vgared : out  UNSIGNED (7 downto 0);
          vgagreen : out  UNSIGNED (7 downto 0);
          vgablue : out  UNSIGNED (7 downto 0);
@@ -691,6 +693,8 @@ begin
       power_on_reset(7) <= '1';
       power_on_reset(6 downto 0) <= power_on_reset(7 downto 1);
 
+      pal50_select_out <= pal50_select;
+      
       led(0) <= irq;
       led(1) <= nmi;
       led(2) <= combinedirq;

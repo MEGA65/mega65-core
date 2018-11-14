@@ -267,6 +267,7 @@ architecture Behavioral of container is
   signal lcd_hsync : std_logic;
   signal lcd_vsync : std_logic;
   signal lcd_display_enable : std_logic;
+  signal pal50_select : std_logic;
   
 begin
   
@@ -357,6 +358,8 @@ begin
       restore_key => restore_key,
       sector_buffer_mapped => sector_buffer_mapped,
 
+      pal50_select_out => pal50_select,
+      
       -- Wire up a dummy caps_lock key on switch 8
       caps_lock_key => sw(8),
 
@@ -544,9 +547,11 @@ begin
       jbhi(10) <= lcd_display_enable;
     end if;
 
-    if rising_edge(clock240) then
-      jbhi(7) <= lcd_pixel_strobe;
-    end if;
+    -- Push correct clock to LCD panel
+    jbhi(7) <= clock30 when pal50_select = '1' others clock40;
+--    if rising_edge(clock240) then
+--      jbhi(7) <= lcd_pixel_strobe;
+--    end if;
     
     if rising_edge(cpuclock) then
 
