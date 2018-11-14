@@ -109,7 +109,7 @@ entity container is
          jalo : inout std_logic_vector(4 downto 1) := (others => 'Z');
          jahi : inout std_logic_vector(10 downto 7) := (others => 'Z');
          jblo : inout std_logic_vector(4 downto 1) := (others => 'Z');
-         jbhi : inout std_logic_vector(10 downto 7) := (others => 'Z');
+         jbhi : out std_logic_vector(10 downto 7) := (others => 'Z');
          jclo : inout std_logic_vector(4 downto 1) := (others => 'Z');
          jchi : inout std_logic_vector(10 downto 7) := (others => 'Z');
          jdlo : inout std_logic_vector(4 downto 1) := (others => 'Z');
@@ -171,8 +171,12 @@ architecture Behavioral of container is
 
   signal pixelclock : std_logic;
   signal cpuclock : std_logic;
-  signal clock200 : std_logic;
+  signal ethclock : std_logic;
+  signal clock240 : std_logic;
   signal clock120 : std_logic;
+  signal clock100 : std_logic;
+  signal clock80 : std_logic;
+  signal clock30 : std_logic;
   
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
 
@@ -207,16 +211,20 @@ begin
   
   dotclock1: entity work.dotclock100
     port map ( clk_in1 => CLK_IN,
-               clock100 => pixelclock, -- 100MHz
-               clock50 => cpuclock, -- 50MHz
-               clock120 => clock120
-
+               clock80 => pixelclock, -- 80MHz
+               clock40 => cpuclock, -- 40MHz
+               clock50 => ethclock,
+               clock30 => clock30,
+               clock100 => clock100,
+               clock120 => clock120,
+               clock240 => clock240
                );
 
   pixel0: entity work.pixel_driver
     port map (
-               clock100 => pixelclock, -- 100MHz
+               clock80 => pixelclock, -- 80MHz
                clock120 => clock120,
+               clock240 => clock240,
 
                -- Select 50/60Hz video mode
                pal50_select => sw(0),
@@ -230,7 +238,7 @@ begin
                y_zero_out => y_zero,
                fifo_full => led(4),
 
-               pixel_strobe100_out => pixel_due,
+               pixel_strobe80_out => pixel_due,
                
                -- Pixels
                pixel_strobe_in => pixel_valid,
@@ -268,10 +276,12 @@ begin
   jalo <= std_logic_vector(buffer_vgablue(7 downto 4));
   jahi <= std_logic_vector(buffer_vgared(7 downto 4));
   jblo <= std_logic_vector(buffer_vgagreen(7 downto 4));    
-  jbhi(7) <= lcd_pixel_strobe;
   jbhi(8) <= lcd_hsync;
   jbhi(9) <= lcd_vsync;
   jbhi(10) <= lcd_display_enable xor sw(15);
+
+  -- Push correct clock to LCD panel
+  jbhi(7) <= clock30 when sw(0)='1' else cpuclock;
   
   process (pixelclock) is
   begin
