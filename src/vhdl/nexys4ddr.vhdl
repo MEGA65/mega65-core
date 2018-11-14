@@ -193,7 +193,6 @@ architecture Behavioral of container is
   signal clock120 : std_logic;
   signal clock100 : std_logic;
   signal ethclock : std_logic;
-  signal clock40 : std_logic;
   signal clock30 : std_logic;
   
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
@@ -347,7 +346,7 @@ begin
       clock100 => clock100,
       clock240 => clock240,
       clock120 => clock120,
-      clock40 => clock40,
+      clock40 => cpuclock,
       clock30 => clock30,
       clock50mhz      => ethclock,
       btncpureset => btncpureset,
@@ -522,7 +521,7 @@ begin
   nmi <= not btn(4);
   restore_key <= not btn(1);
 
-  process (cpuclock,clock120)
+  process (cpuclock,clock120,clock30,cpuclock,pal50_select)
   begin
     if rising_edge(clock120) then
       if sw(7)='0' then
@@ -549,7 +548,7 @@ begin
     if pal50_select = '1' then
       jbhi(7) <= clock30;
     else
-      jbhi(7) <= clock40;
+      jbhi(7) <= cpuclock; -- 40MHz
     end if;
     
     if rising_edge(cpuclock) then
