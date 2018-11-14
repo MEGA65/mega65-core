@@ -74,7 +74,6 @@ entity pixel_driver is
     -- Indicate when next pixel/raster is expected
     pixel_strobe80_out : out std_logic;
     pixel_strobe120_out : out std_logic;
-    lcd_pixel_clock_out : out std_logic;
     
     -- Similar signals to above for the LCD panel
     -- The main difference is that we only announce pixels during the 800x480
@@ -211,7 +210,6 @@ begin
                inframe => inframe_pal50,               
                lcd_vsync => lcd_vsync_pal50,
                lcd_inframe => lcd_inframe_pal50,
-               lcd_pixel_clock => lcd_pixel_clock_50,
 
                -- 80MHz facing signals for the VIC-IV
                x_zero_120 => x_zero_pal50_120,
@@ -246,7 +244,6 @@ begin
                inframe => inframe_ntsc60,
                lcd_vsync => lcd_vsync_ntsc60,
                lcd_inframe => lcd_inframe_ntsc60,
-               lcd_pixel_clock => lcd_pixel_clock_60,
 
                -- 80MHz facing signals for VIC-IV
                x_zero_120 => x_zero_ntsc60_120,
@@ -323,7 +320,6 @@ begin
   
   -- Generate output pixel strobe and signals for read-side of the FIFO
   pixel_strobe120_out <= pixel_strobe120_50 when pal50_select_internal='1' else pixel_strobe120_60;
-  lcd_pixel_clock_out <= lcd_pixel_clock_50 when pal50_select_internal='1' else lcd_pixel_clock_60;
 
   plotting <= '0' when y_zero_internal='1' else
               plotting50 when pal50_select_internal='1'
@@ -355,6 +351,8 @@ begin
 
       test_pattern_enable120 <= test_pattern_enable;
 
+      report "rd_en_internal = " & std_logic'image(rd_en_internal);
+      
       if pal50_select_internal='1' then
         rd_en <= pixel_strobe120_50 and plotting;
         rd_en_internal <= pixel_strobe120_50;          

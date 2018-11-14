@@ -263,7 +263,6 @@ architecture Behavioral of container is
   signal sawtooth_counter : integer := 0;
   signal sawtooth_level : integer := 0;
 
-  signal lcd_pixel_strobe : std_logic;
   signal lcd_hsync : std_logic;
   signal lcd_vsync : std_logic;
   signal lcd_display_enable : std_logic;
@@ -405,7 +404,6 @@ begin
       lcd_vsync => lcd_vsync,
       lcd_hsync => lcd_hsync,
       lcd_display_enable => lcd_display_enable,
-      lcd_pixel_strobe => lcd_pixel_strobe,
       vgared(7 downto 0)          => buffer_vgared,
       vgagreen(7 downto 0)        => buffer_vgagreen,
       vgablue(7 downto 0)         => buffer_vgablue,

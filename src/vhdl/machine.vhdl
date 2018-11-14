@@ -100,7 +100,6 @@ entity machine is
          lcd_hsync : out std_logic;
          lcd_vsync : out std_logic;
          lcd_display_enable : out std_logic;
-         lcd_pixel_strobe : out std_logic;
          pal50_select_out : out std_logic;
          
          vgared : out  UNSIGNED (7 downto 0);
@@ -998,8 +997,7 @@ begin
       -- And the variations on those signals for the LCD display
       lcd_hsync => lcd_hsync,
       lcd_vsync => lcd_vsync,
-      lcd_display_enable => lcd_display_enable,
-      lcd_pixel_clock_out => lcd_pixel_strobe
+      lcd_display_enable => lcd_display_enable
 
       );
       

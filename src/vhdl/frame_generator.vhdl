@@ -53,8 +53,6 @@ entity frame_generator is
     pixel_strobe_120 : out std_logic := '0';   -- used to clock read-side of
                                                -- raster buffer fifo
 
-    lcd_pixel_clock : out std_logic := '0';    -- 50% duty cycle clock for LCD
-                                               -- panel
     lcd_vsync : out std_logic := '0';
     lcd_inframe : out std_logic := '0';
 
@@ -94,13 +92,12 @@ architecture brutalist of frame_generator is
   signal hsync_driver : std_logic := '0';
   signal hsync_uninverted_driver : std_logic := '0';
 
-  signal pixel_toggle240 : std_logic := '0';
+  signal pixel_toggle120 : std_logic := '0';
   signal pixel_toggle80 : std_logic := '0';
   signal last_pixel_toggle80 : std_logic := '0';
-  signal pixel_toggle_counter : integer range 0 to clock_divider := 0;
   signal pixel_strobe_counter : integer range 0 to clock_divider := 0;
 
-  signal pixel_strobe_120_drive : std_logic := '0';
+  signal pixel_strobe120_drive : std_logic := '0';
   
 begin
 
@@ -120,7 +117,7 @@ begin
       -- train, since it all goes into a buffer.
       -- But better is to still try to follow the 120MHz driven
       -- chain.
-      pixel_toggle80 <= pixel_toggle240;
+      pixel_toggle80 <= pixel_toggle120;
       last_pixel_toggle80 <= pixel_toggle80;
       if pixel_toggle80 /= last_pixel_toggle80 then
         pixel_strobe_80 <= '1';
@@ -129,29 +126,8 @@ begin
       end if;
     end if;
 
-    if rising_edge(clock240) then
-      -- Generate pixel strobe train
-      lcd_pixel_clock <= pixel_toggle240;
-      if pixel_toggle_counter = 0 then
-        pixel_toggle240 <= not pixel_toggle240;
-        pixel_toggle_counter <= (clock_divider - 1);
-      else
-        pixel_toggle_counter <= pixel_toggle_counter - 1;
-      end if;
-    end if;
-      
     if rising_edge(clock120) then
 
-      pixel_strobe_120 <= pixel_strobe_120_drive;
-      
-      if pixel_strobe_counter = 0 then
-        pixel_strobe_120_drive <= '1';
-        pixel_strobe_counter <= (clock_divider - 1);
-      else
-        pixel_strobe_120_drive <= '0';
-        pixel_strobe_counter <= pixel_strobe_counter - 1;
-      end if;
-      
       x_zero_driver2 <= x_zero_driver;
       y_zero_driver2 <= y_zero_driver;
       x_zero_120 <= x_zero_driver;
@@ -160,7 +136,18 @@ begin
       vsync <= vsync_driver;
       hsync <= hsync_driver;
       hsync_uninverted <= hsync_uninverted_driver;
+      pixel_strobe_120 <= pixel_strobe120_drive;
 
+      -- Generate pixel strobe train
+      if pixel_strobe_counter = 0 then
+        pixel_strobe_counter <= (clock_divider - 1);
+        pixel_strobe120_drive <= '1';
+        pixel_toggle120 <= not pixel_toggle120;
+      else
+        pixel_strobe120_drive <= '0';
+        pixel_strobe_counter <= pixel_strobe_counter - 1;
+      end if;
+      
       if x < frame_width then
         x <= x + 1;
         -- make the x_zero signal last a bit longer, to make sure it gets captured.
