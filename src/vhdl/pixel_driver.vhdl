@@ -196,7 +196,7 @@ begin
   frame50: entity work.frame_generator
     generic map ( frame_width => 960*4-1,
                   clock_divider => 4,
-                  display_width => 800,
+                  display_width => 800*4,
                   frame_height => 625,
                   pipeline_delay => 0,
                   display_height => 600,
@@ -231,7 +231,7 @@ begin
 
   frame60: entity work.frame_generator
     generic map ( frame_width => 1057*3-1,
-                  display_width => 800,
+                  display_width => 800 *3,
                   clock_divider => 3,
                   frame_height => 628,
                   display_height => 600,
@@ -350,9 +350,9 @@ begin
       pal50_select_internal80 <= pal50_select;
       fifo_full <= fifo_full120;
       if pal50_select_internal80 = '1' then
-        display_en80 <= display_en50;
+        display_en80 <= lcd_inframe_pal50;
       else
-        display_en80 <= display_en60;
+        display_en80 <= lcd_inframe_ntsc60;
       end if;
       
     end if;        

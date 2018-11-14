@@ -141,6 +141,8 @@ architecture behavior of cpu_test is
   signal f_rdata : std_logic := '1';
 
   signal pcm_modem1_data_out : std_logic := '0';
+
+  signal lcd_display_enable : std_logic := '1';
   
 begin
 
@@ -232,6 +234,8 @@ begin
       fpga_temperature => (others => '1'),
 
       portb_pins => (others => '1'),
+
+      lcd_display_enable => lcd_display_enable,
       
       pixelclock      => pixelclock,
       cpuclock      => cpuclock,
@@ -524,6 +528,14 @@ begin
       report "PCM digital audio out = " & std_logic'image(pcm_modem1_data_out);
     end if;
   end process;
+
+  process (pixelclock) is
+  begin
+    if rising_edge(pixelclock) then
+      report "lcd_display_enable = " & std_logic'image(lcd_display_enable);
+    end if;
+  end process;
+  
   
 end behavior;
 

@@ -29,7 +29,8 @@ entity frame_generator is
     clock_divider : integer := 4;
     pipeline_delay : integer := 0;
     frame_height : integer := 625;
-    lcd_height : integer := 480;
+    lcd_height : integer := 621; -- 480; XXX temporarily make LCD almost as
+                                 -- high as display, so that letterbox is bigger
     display_height : integer := 600;
     vsync_start : integer := 601;
     vsync_end : integer := 606;
@@ -167,31 +168,44 @@ begin
         end if;
       end if;
 
-      if x = hsync_start then
+      -- LCD HSYNC is expected to be just before start of pixels
+      if x = (frame_width - 200) then
         lcd_hsync <= '0';
+      end if;
+      if x = (frame_width - 400) then
+        lcd_hsync <= '1';
+      end if;
+      -- HSYNC for VGA follows the settings passed via the generics
+      if x = hsync_start then
         hsync_driver <= not hsync_polarity; 
         hsync_uninverted_driver <= '1'; 
       end if;
       if x = hsync_end then
-        lcd_hsync <= '1';
         hsync_driver <= hsync_polarity;
         hsync_uninverted_driver <= '0';
       end if;
+
       if y = ( frame_height - lcd_height ) / 2 then
+        if lcd_inletterbox='0' then
+          report "entering letter box";
+        end if;
         lcd_inletterbox <= '1';
       end if;
       if y = frame_height - (frame_height - lcd_height ) / 2 then
+        if lcd_inletterbox='1' then
+          report "leaving letter box";
+        end if;
         lcd_inletterbox <= '0';
       end if;
-      if x = pipeline_delay and lcd_inletterbox = '1' then
+      report "preparing for lcd_inframe check at (" & integer'image(x) & "," & integer'image(y) & ").";
+      if x = (1 + pipeline_delay) and lcd_inletterbox = '1' then
         lcd_inframe <= '1';
+        report "lcd_inframe=1 at x = " & integer'image(x);
       end if;
-      if x = 0 and lcd_inletterbox = '1' then
-        lcd_vsync <= '1';
-      end if;
-      if x = 0 and lcd_inletterbox = '0' then
+      if x = (1 + pipeline_delay + display_width) then
+        report "lcd_inframe=0 at x = " & integer'image(x);
+        lcd_vsync <= lcd_inletterbox;
         lcd_inframe <= '0';
-        lcd_vsync <= '0';
       end if;
       if x = pipeline_delay and y < display_height then
         inframe <= '1';
@@ -229,7 +243,6 @@ begin
       end if;
       -- Black outside of frame
       if x = display_width + pipeline_delay then
-        lcd_inframe <= '0';
         inframe <= '0';
         inframe_internal <= '0';
         red_o <= x"00";
