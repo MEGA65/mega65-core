@@ -539,10 +539,13 @@ begin
       jalo <= std_logic_vector(buffer_vgablue(7 downto 4));
       jahi <= std_logic_vector(buffer_vgared(7 downto 4));
       jblo <= std_logic_vector(buffer_vgagreen(7 downto 4));
-      jbhi(7) <= lcd_pixel_strobe;
       jbhi(8) <= lcd_hsync;
       jbhi(9) <= lcd_vsync;
       jbhi(10) <= lcd_display_enable;
+    end if;
+
+    if rising_edge(clock240) then
+      jbhi(7) <= lcd_pixel_strobe;
     end if;
     
     if rising_edge(cpuclock) then
