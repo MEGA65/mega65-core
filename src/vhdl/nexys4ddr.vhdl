@@ -521,6 +521,9 @@ begin
   nmi <= not btn(4);
   restore_key <= not btn(1);
 
+  -- Push correct clock to LCD panel
+  jbhi(7) <= clock30 when pal50_select='1' else cpuclock;
+  
   process (cpuclock,clock120,clock30,cpuclock,pal50_select)
   begin
     if rising_edge(clock120) then
@@ -544,13 +547,6 @@ begin
       jbhi(10) <= lcd_display_enable;
     end if;
 
-    -- Push correct clock to LCD panel
-    if pal50_select = '1' then
-      jbhi(7) <= clock30;
-    else
-      jbhi(7) <= cpuclock; -- 40MHz
-    end if;
-    
     if rising_edge(cpuclock) then
 
       -- No physical keyboard
