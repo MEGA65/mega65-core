@@ -25,6 +25,7 @@ set false_path -to [get_cells *pixel0/fifo_full*]
 set false_path -to [get_cells *pixel0/fifo_almost_empty*]
 set false_path -from [get_cells *fifo0/write_toggle*]
 
+set_false_path -to [get_cells *jb*]
 
 ## Switches
 set_property -dict { PACKAGE_PIN J15 IOSTANDARD LVCMOS33 } [get_ports {sw[0]}]
@@ -112,7 +113,7 @@ set_property -dict { PACKAGE_PIN D14 IOSTANDARD LVCMOS33 } [get_ports {jblo[1]}]
 set_property -dict { PACKAGE_PIN F16 IOSTANDARD LVCMOS33 } [get_ports {jblo[2]}]
 set_property -dict { PACKAGE_PIN G16 IOSTANDARD LVCMOS33 } [get_ports {jblo[3]}]
 set_property -dict { PACKAGE_PIN H14 IOSTANDARD LVCMOS33 } [get_ports {jblo[4]}]
-set_property -dict { PACKAGE_PIN E16 IOSTANDARD LVCMOS33 } [get_ports {jbhi[7]}]
+set_property -dict { PACKAGE_PIN E16 IOSTANDARD LVCMOS33 SLEW=FAST DRIVE=24 } [get_ports {jbhi[7]}]
 set_property -dict { PACKAGE_PIN F13 IOSTANDARD LVCMOS33 } [get_ports {jbhi[8]}]
 set_property -dict { PACKAGE_PIN G13 IOSTANDARD LVCMOS33 } [get_ports {jbhi[9]}]
 set_property -dict { PACKAGE_PIN H16 IOSTANDARD LVCMOS33 } [get_ports {jbhi[10]}]

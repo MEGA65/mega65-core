@@ -130,6 +130,9 @@ architecture greco_roman of pixel_driver is
 
   signal lcd_vsync_pal50 : std_logic := '0';
   signal lcd_vsync_ntsc60 : std_logic := '0';
+
+  signal lcd_hsync_pal50 : std_logic := '0';
+  signal lcd_hsync_ntsc60 : std_logic := '0';
   
   signal test_pattern_red : unsigned(7 downto 0) := x"00";
   signal test_pattern_green : unsigned(7 downto 0) := x"00";
@@ -211,7 +214,8 @@ begin
                hsync_polarity => hsync_invert,
                vsync_polarity => vsync_invert,
                
-               inframe => inframe_pal50,               
+               inframe => inframe_pal50,
+               lcd_hsync => lcd_hsync_pal50,
                lcd_vsync => lcd_vsync_pal50,
                lcd_inframe => lcd_inframe_pal50,
 
@@ -246,6 +250,7 @@ begin
                hsync => hsync_ntsc60,
                vsync => vsync_ntsc60,
                inframe => inframe_ntsc60,
+               lcd_hsync => lcd_hsync_ntsc60,
                lcd_vsync => lcd_vsync_ntsc60,
                lcd_inframe => lcd_inframe_ntsc60,
 
@@ -310,7 +315,7 @@ begin
 
   hsync <= hsync_pal50 when pal50_select_internal='1' else hsync_ntsc60;
   vsync <= vsync_pal50 when pal50_select_internal='1' else vsync_ntsc60;
-  lcd_hsync <= hsync_pal50 when pal50_select_internal='1' else hsync_ntsc60;
+  lcd_hsync <= lcd_hsync_pal50 when pal50_select_internal='1' else lcd_hsync_ntsc60;
   lcd_vsync <= lcd_vsync_pal50 when pal50_select_internal='1' else lcd_vsync_ntsc60;
   inframe <= inframe_pal50 when pal50_select_internal='1' else inframe_ntsc60;
   inframe_internal <= inframe_pal50 when pal50_select_internal='1' else inframe_ntsc60;

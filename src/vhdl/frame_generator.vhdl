@@ -53,6 +53,7 @@ entity frame_generator is
     pixel_strobe_120 : out std_logic := '0';   -- used to clock read-side of
                                                -- raster buffer fifo
 
+    lcd_hsync : out std_logic := '0';
     lcd_vsync : out std_logic := '0';
     lcd_inframe : out std_logic := '0';
 
@@ -167,10 +168,12 @@ begin
       end if;
 
       if x = hsync_start then
+        lcd_hsync <= '0';
         hsync_driver <= not hsync_polarity; 
         hsync_uninverted_driver <= '1'; 
       end if;
       if x = hsync_end then
+        lcd_hsync <= '1';
         hsync_driver <= hsync_polarity;
         hsync_uninverted_driver <= '0';
       end if;
@@ -184,11 +187,11 @@ begin
         lcd_inframe <= '1';
       end if;
       if x = 0 and lcd_inletterbox = '1' then
-        lcd_vsync <= '0';
+        lcd_vsync <= '1';
       end if;
       if x = 0 and lcd_inletterbox = '0' then
         lcd_inframe <= '0';
-        lcd_vsync <= '1';
+        lcd_vsync <= '0';
       end if;
       if x = pipeline_delay and y < display_height then
         inframe <= '1';
