@@ -131,24 +131,6 @@ re2:		jsr sd_wait_for_ready
 re2done:
 		jsr sd_map_sectorbuffer
 
-		; write $02 to $D680 to read MBR as a test of reset
-		; XXX - This must happen IMMEDIATELY after release of reset,
-		; to work around a bug in the SD low-level controller. If you wait more
-		; than a millisecond or so, then all reads will fail forever until next
-		; reset. PGS 20180829
-		;
-		lda #$02	;B#0000.0010
-		sta $D680
-		jsr sdtimeoutreset
-		
-re3:		; allow time for read to happen
-		lda $d680
-		jsr sdreadytest
-		bcs redone	; success, so return
-		bne re3		; not timed out, so keep trying
-			; timeout -- so call reset again
-		rts
-
 redone:		
 		sec
 		rts
