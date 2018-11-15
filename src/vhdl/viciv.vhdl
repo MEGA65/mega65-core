@@ -2422,7 +2422,7 @@ begin
                                                         vsync_polarity_internal <= '0';
 
                                                         single_side_border <= to_unsigned(80,14);
-                                                        sprite_first_x <= to_unsigned(1+80-(24)*(120/60),14);
+                                                        sprite_first_x <= to_unsigned(1+80+9-(24)*(120/60),14);
                                                         chargen_x_scale <= to_unsigned(120,8);
                                                         chargen_y_scale <= x"01";
                                                         
@@ -2434,7 +2434,7 @@ begin
                                                         hsync_polarity_internal <= '0';
                                                         vsync_polarity_internal <= '0';
 
-                                                        sprite_first_x <= to_unsigned(1+80-(24)*(120/60),14);
+                                                        sprite_first_x <= to_unsigned(1+80+9-(24)*(120/60),14);
                                                         chargen_x_scale <= to_unsigned(120,8);
                                                         chargen_y_scale <= x"01";
                                                         single_side_border <= to_unsigned(80,14);
@@ -2447,7 +2447,7 @@ begin
                                                         vsync_polarity_internal <= '0';
                                         -- Set 40MHz pixel clock for NTSC
                                                         
-                                                        sprite_first_x <= to_unsigned(1+80-(24-3)*(120/60),14);
+                                                        sprite_first_x <= to_unsigned(1+80+9-(24-3)*(120/60),14);
                                                         chargen_x_scale <= to_unsigned(120,8);
                                                         chargen_y_scale <= x"01";                
                                                         single_side_border <= to_unsigned(80,14);
@@ -2461,7 +2461,7 @@ begin
                                                         vsync_polarity_internal <= '0';
 
                                         -- Set 40MHz pixel clock for NTSC
-                                                        sprite_first_x <= to_unsigned(1+80-(24-3)*(120/60),14);
+                                                        sprite_first_x <= to_unsigned(1+80+9-(24-3)*(120/60),14);
                                                         chargen_x_scale <= to_unsigned(120,8);
                                                         chargen_y_scale <= x"01";                
                                                         single_side_border <= to_unsigned(80,14);
