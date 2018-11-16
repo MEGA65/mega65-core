@@ -463,7 +463,7 @@ int write_sector(const unsigned int sector_number,unsigned char *buffer)
     }
     process_waiting(fd);
     
-    printf("Commanding SD write\n");
+    printf("Commanding SD write to sector %d\n",sector_number);
     unsigned int sector_address;
     if (!sdhc) sector_address=sector_number*0x0200; else sector_address=sector_number;
     snprintf(cmd,1024,"sffd3681 %02x %02x %02x %02x\rsffd3680 3\r",
@@ -631,6 +631,7 @@ int fat_readdir(struct dirent *d)
 {
   int retVal=0;
   do {
+
     // Advance to next entry
     dir_sector_offset+=32;
     if (dir_sector_offset==512) {
@@ -720,9 +721,11 @@ int upload_file(char *name)
     }
 
     if (fat_opendir("/")) { retVal=-1; break; }
-    printf("Opened directory\n");
+    printf("Opened directory, dir_sector=%d\n",dir_sector);
     struct dirent de;
     while(!fat_readdir(&de)) {
+      if (de.d_name[0]) printf("%13s   %d\n",de.d_name,(int)de.d_off);
+      //      else dump_bytes(0,"empty dirent",&dir_sector_buffer[dir_sector_offset],32);
       if (!strcasecmp(de.d_name,name)) {
 	// Found file, so will replace it
 	printf("%s already exists on the file system, beginning at cluster %d\n",name,(int)de.d_ino);
@@ -745,11 +748,13 @@ int upload_file(char *name)
 	  bzero(dir,32);
 
 	  // Write name
+	  for(int i=0;i<11;i++) dir[i]=0x20;
 	  for(int i=0;i<8;i++)
 	    if (name[i]=='.') {
 	      // Write out extension
 	      for(int j=0;j<3;j++)
 		if (name[i+1+j]) dir[8+j]=name[i+1+j];
+	      break;
 	    } else if (!name[i]) break;
 	    else dir[i]=name[i];
 
@@ -774,7 +779,7 @@ int upload_file(char *name)
 
 	  // Copy back into directory sector, and write it
 	  bcopy(dir,&dir_sector_buffer[dir_sector_offset],32);
-	  if (write_sector(dir_sector,dir_sector_buffer)) {
+	  if (write_sector(partition_start+dir_sector,dir_sector_buffer)) {
 	    printf("Failed to write updated directory sector.\n");
 	    retVal=-1; break; }
 	  
