@@ -68,7 +68,8 @@ int serial_speed=2000000;
 char *serial_port="/dev/ttyUSB1";
 char *bitstream=NULL;
 
-int viciv_mode_report(unsigned char *viciv_regs);
+int sd_status_fresh=0;
+unsigned char sd_status[16];
 
 int process_char(unsigned char c,int live);
 
@@ -159,7 +160,7 @@ int dump_bytes(int col, char *msg,unsigned char *bytes,int length)
 
 int process_line(char *line,int live)
 {
-  //printf("[%s]\n",line);
+  printf("[%s]\n",line);
   if (!live) return 0;
   if (strstr(line,"ws h RECA8LHC")) {
      if (!new_monitor) printf("Detected new-style UART monitor.\n");
@@ -188,9 +189,9 @@ int process_line(char *line,int live)
 
       if (addr==0xffd3680) {
 	// SD card status registers
-	unsigned char bb[16];
-	for(int i=0;i<16;i++) bb[i]=b[i];
-	dump_bytes(0,"SDcard status",bb,16);
+	for(int i=0;i<16;i++) sd_status[i]=b[i];
+	dump_bytes(0,"SDcard status",sd_status,16);
+	sd_status_fresh=1;
       }
       else if(addr >= READ_SECTOR_BUFFER_ADDRESS && (addr <= (READ_SECTOR_BUFFER_ADDRESS + 0x200))) {
 	// Reading sector card buffer
@@ -307,10 +308,68 @@ int main(int argc,char **argv)
   t.c_oflag &= ~OPOST;
   if (tcsetattr(fd, TCSANOW, &t)) perror("Failed to set terminal parameters");
 
+  stop_cpu();
+  
   for(int i=optind;i<argc;i++)
     upload_file(argv[i]);
 
   return 0;
+}
+
+void wait_for_sdready(void)
+{
+  do {  
+    // Ask for SD card status
+    sd_status[0]=0xff;
+    while(sd_status[0]&3) {
+      sd_status_fresh=0;
+      slow_write(fd,"mffd3680\r",strlen("mffd3680\r"));
+      while(!sd_status_fresh) process_waiting(fd);
+      if (sd_status[0]&3) {
+	// Send reset sequence
+	printf("SD card not yet ready, so reset it.\n");
+	slow_write(fd,"sffd3680 0\rsffd3680 1\r",strlen("sffd3680 0\rsffd3680 1\r"));
+	sleep(1);
+      }
+    }
+    printf("SD Card looks ready.\n");
+  } while(0);
+  return;
+}
+
+int read_sector(const unsigned int sector_number,unsigned char *buffer)
+{
+  int retVal=0;
+  do {
+    // Clear backlog
+    printf("Clearing serial backlog\n");
+    process_waiting(fd);
+
+    printf("Getting SD card ready\n");
+    wait_for_sdready();
+
+    
+        
+  } while(0);
+  return retVal;
+     
+}
+
+int file_system_found=0;
+
+unsigned char mbr[512];
+
+int open_file_system(void)
+{
+  int retVal=0;
+  do {
+    if (read_sector(0,mbr)) {
+      fprintf(stderr,"ERROR: Could not read MBR\n");
+      retVal=-1;
+      break;
+    }
+  } while (0);
+  return retVal;
 }
 
 int upload_file(char *name)
@@ -322,6 +381,15 @@ int upload_file(char *name)
       fprintf(stderr,"ERROR: Could not stat file '%s'\n",name);
       perror("stat() failed");
     }
+    printf("File '%s' is %ld bytes long.\n",name,(long)st.st_size);
+
+    if (!file_system_found) open_file_system();
+    if (!file_system_found) {
+      fprintf(stderr,"ERROR: Could not open file system.\n");
+      retVal=-1;
+      break;
+    }
+    
   } while(0);
 
   return retVal;
