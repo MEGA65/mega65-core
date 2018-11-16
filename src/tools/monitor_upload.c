@@ -425,7 +425,7 @@ int read_sector(const unsigned int sector_number,unsigned char *buffer)
     sd_read_offset=0;
     while(sd_read_offset!=512) process_waiting(fd);
 
-    printf("Read sector %d\n",sector_number);
+    // printf("Read sector %d (0x%x)\n",sector_number,sector_number);
     
   } while(0);
   if (retVal) printf("FAIL reading sector %d\n",sector_number);
@@ -555,9 +555,10 @@ int fat_opendir(char *path)
 
     dir_cluster=first_cluster;
     dir_sector=first_cluster_sector;
-    dir_sector_offset=0;
+    dir_sector_offset=-32;
     dir_sector_in_cluster=0;
     retVal=read_sector(partition_start+dir_sector,dir_sector_buffer);
+    if (retVal) dir_sector=-1;
     
   } while(0);
   return retVal;
@@ -567,13 +568,34 @@ int fat_readdir(struct dirent *d)
 {
   int retVal=0;
   do {
+    // Advance to next entry
+    dir_sector_offset+=32;
+    if (dir_sector_offset==512) {
+      dir_sector_offset=0;
+      dir_sector++;
+      dir_sector_in_cluster++;
+      if (dir_sector_in_cluster==sectors_per_cluster) {
+	// Follow to next cluster
+	int next_cluster=get_next_cluster(dir_cluster);
+	if (next_cluster<0xFFFFFF0) {
+	  dir_cluster=next_cluster;
+	  dir_sector_in_cluster=0;
+	  dir_sector=first_cluster_sector+(next_cluster-first_cluster)*sectors_per_cluster;
+	} else {
+	  // End of directory reached
+	  dir_sector=-1;
+	  retVal=-1;
+	  break;
+	}
+      }
+      if (dir_sector!=-1) retVal=read_sector(partition_start+dir_sector,dir_sector_buffer);
+      if (retVal) dir_sector=-1;      
+    }    
+
     if (dir_sector==-1) { retVal=-1; break; }
     if (!d) { retVal=-1; break; }
 
-    retVal=read_sector(partition_start+dir_sector,dir_sector_buffer);
-    if (retVal) break;
-
-    printf("Found dirent %d %d %d\n",dir_sector,dir_sector_offset,dir_sector_in_cluster);
+    // printf("Found dirent %d %d %d\n",dir_sector,dir_sector_offset,dir_sector_in_cluster);
     
     // XXX - Support FAT32 long names!
     d->d_ino=
@@ -593,25 +615,6 @@ int fat_readdir(struct dirent *d)
     else if (d->d_off&0x10) d->d_type=DT_DIR;
     else d->d_type=DT_REG;
 
-    dir_sector_offset+=32;
-    if (dir_sector_offset==512) {
-      dir_sector_offset=0;
-      dir_sector++;
-      dir_sector_in_cluster++;
-      if (dir_sector_in_cluster==sectors_per_cluster) {
-	// Follow to next cluster
-	int next_cluster=get_next_cluster(dir_cluster);
-	if (next_cluster<0xFFFFFFF) {
-	  dir_cluster=next_cluster;
-	  dir_sector_in_cluster=0;
-	  dir_sector=first_cluster_sector+(next_cluster-first_cluster)*sectors_per_cluster;
-	} else {
-	  // End of directory reached
-	  dir_sector=-1;
-	}
-      }
-    }
-    
   } while(0);
   return retVal;
 }
@@ -638,9 +641,10 @@ int upload_file(char *name)
     printf("Opened directory\n");
     struct dirent de;
     while(!fat_readdir(&de)) {
-      printf("  '%s' %-10d\n",de.d_name,de.d_reclen);
+      if (de.d_name[0])
+	printf("  '%s' %-10d\n",de.d_name,de.d_reclen);
     }
-    printf("End of directory\n");
+    // printf("End of directory\n");
     
   } while(0);
 
