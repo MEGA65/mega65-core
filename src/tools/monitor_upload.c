@@ -596,7 +596,7 @@ int fat_readdir(struct dirent *d)
     if (!d) { retVal=-1; break; }
 
     // printf("Found dirent %d %d %d\n",dir_sector,dir_sector_offset,dir_sector_in_cluster);
-    
+
     // XXX - Support FAT32 long names!
     d->d_ino=
       (dir_sector_buffer[dir_sector_offset+0x1A]<<0)|
@@ -605,12 +605,15 @@ int fat_readdir(struct dirent *d)
       (dir_sector_buffer[dir_sector_offset+0x15]<<24);
     for(int i=0;i<11;i++) d->d_name[i]=dir_sector_buffer[dir_sector_offset+i];
     d->d_name[11]=0;
-    d->d_reclen= //  XXX As a hack we put the size here
+
+    //    if (d->d_name[0]) dump_bytes(0,"dirent raw",&dir_sector_buffer[dir_sector_offset],32);
+    
+    d->d_off= //  XXX As a hack we put the size here
       (dir_sector_buffer[dir_sector_offset+0x1C]<<0)|
       (dir_sector_buffer[dir_sector_offset+0x1D]<<8)|
       (dir_sector_buffer[dir_sector_offset+0x1E]<<16)|
       (dir_sector_buffer[dir_sector_offset+0x1F]<<24);
-    d->d_off=dir_sector_buffer[dir_sector_offset+0xb]; // XXX as a hack, we put DOS file attributes here
+    d->d_reclen=dir_sector_buffer[dir_sector_offset+0xb]; // XXX as a hack, we put DOS file attributes here
     if (d->d_off&0xC8) d->d_type=DT_UNKNOWN;
     else if (d->d_off&0x10) d->d_type=DT_DIR;
     else d->d_type=DT_REG;
@@ -642,7 +645,7 @@ int upload_file(char *name)
     struct dirent de;
     while(!fat_readdir(&de)) {
       if (de.d_name[0])
-	printf("  '%s' %-10d\n",de.d_name,de.d_reclen);
+	printf("  '%s' %-10d\n",de.d_name,(int)de.d_off);
     }
     // printf("End of directory\n");
     
