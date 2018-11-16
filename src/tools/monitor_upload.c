@@ -435,8 +435,15 @@ int read_sector(const unsigned int sector_number,unsigned char *buffer)
 int file_system_found=0;
 unsigned int partition_start=0;
 unsigned int partition_size=0;
+unsigned char sectors_per_cluster=0;
+unsigned int sectors_per_fat=0;
+unsigned int data_sectors=0;
+unsigned int first_cluster=0;
+unsigned int fsinfo_sector=0;
+unsigned int reserved_sectors=0;
 
 unsigned char mbr[512];
+unsigned char fat_mbr[512];
 
 int open_file_system(void)
 {
@@ -464,7 +471,35 @@ int open_file_system(void)
     if (!partition_size) { retVal=-1; break; }
 
     // Ok, so we know where the partition starts, so now find the FATs
-    
+    if (read_sector(partition_start,fat_mbr)) {
+      printf("ERROR: Could not read FAT MBR\n");
+      retVal=-1; break; }
+
+    if (fat_mbr[510]!=0x55) {
+      printf("ERROR: Invalid FAT MBR signature\n");
+      retVal=-1; break;
+    }
+    if (fat_mbr[511]!=0xAA) {
+      printf("ERROR: Invalid FAT MBR signature\n");
+      retVal=-1; break;
+    }
+    if (fat_mbr[12]!=2) {
+      printf("ERROR: FAT32 file system uses a sector size other than 512 bytes\n");
+      retVal=-1; break;
+    }
+    if (fat_mbr[16]!=2) {
+      printf("ERROR: FAT32 file system has more or less than 2 FATs\n");
+      retVal=-1; break;
+    }    
+    sectors_per_cluster=fat_mbr[13];
+    reserved_sectors=fat_mbr[14]+(fat_mbr[15]<<8);
+    data_sectors=(fat_mbr[0x20]<<0)|(fat_mbr[0x21]<<8)|(fat_mbr[0x22]<<16)|(fat_mbr[0x23]<<24);
+    sectors_per_fat=(fat_mbr[0x24]<<0)|(fat_mbr[0x25]<<8)|(fat_mbr[0x26]<<16)|(fat_mbr[0x27]<<24);
+    first_cluster=(fat_mbr[0x2c]<<0)|(fat_mbr[0x2d]<<8)|(fat_mbr[0x2e]<<16)|(fat_mbr[0x2f]<<24);
+    fsinfo_sector=fat_mbr[0x30]+(fat_mbr[0x31]<<8);
+
+    printf("FAT32 file system has %dMB formatted capacity, first cluster = %d, %d sectors per FAT\n",
+	   data_sectors/2048,first_cluster,sectors_per_fat);
     
     retVal=-1;
     
