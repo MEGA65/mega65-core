@@ -64,11 +64,12 @@ TOOLS=	$(TOOLDIR)/etherkick/etherkick \
 	$(TOOLDIR)/etherload/etherload \
 	$(TOOLDIR)/hotpatch/hotpatch \
 	$(TOOLDIR)/monitor_load \
+	$(TOOLDIR)/monitor_upload \
 	$(TOOLDIR)/monitor_save \
 	$(TOOLDIR)/on_screen_keyboard_gen \
 	$(TOOLDIR)/pngprepare/pngprepare
 
-all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r1.mcs $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr.mcs $(TOOLDIR)/monitor_load $(TOOLDIR)/monitor_save
+all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r1.mcs $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr.mcs $(TOOLDIR)/monitor_load $(TOOLDIR)/monitor_upload $(TOOLDIR)/monitor_save
 
 $(CBMCONVERT):
 	git submodule init
@@ -545,6 +546,9 @@ monitor_drive:	monitor_drive.c Makefile
 
 $(TOOLDIR)/monitor_load:	$(TOOLDIR)/monitor_load.c Makefile
 	$(CC) $(COPT) -o $(TOOLDIR)/monitor_load $(TOOLDIR)/monitor_load.c
+
+$(TOOLDIR)/monitor_upload:	$(TOOLDIR)/monitor_upload.c Makefile
+	$(CC) $(COPT) -o $(TOOLDIR)/monitor_upload $(TOOLDIR)/monitor_upload.c
 
 $(TOOLDIR)/monitor_save:	$(TOOLDIR)/monitor_save.c Makefile
 	$(CC) $(COPT) -o $(TOOLDIR)/monitor_save $(TOOLDIR)/monitor_save.c
