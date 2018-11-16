@@ -441,6 +441,7 @@ unsigned int data_sectors=0;
 unsigned int first_cluster=0;
 unsigned int fsinfo_sector=0;
 unsigned int reserved_sectors=0;
+unsigned int fat1_sector=0,fat2_sector=0;
 
 unsigned char mbr[512];
 unsigned char fat_mbr[512];
@@ -497,9 +498,12 @@ int open_file_system(void)
     sectors_per_fat=(fat_mbr[0x24]<<0)|(fat_mbr[0x25]<<8)|(fat_mbr[0x26]<<16)|(fat_mbr[0x27]<<24);
     first_cluster=(fat_mbr[0x2c]<<0)|(fat_mbr[0x2d]<<8)|(fat_mbr[0x2e]<<16)|(fat_mbr[0x2f]<<24);
     fsinfo_sector=fat_mbr[0x30]+(fat_mbr[0x31]<<8);
-
+    fat1_sector=reserved_sectors;
+    fat2_sector=fat1_sector+sectors_per_fat;
+    
     printf("FAT32 file system has %dMB formatted capacity, first cluster = %d, %d sectors per FAT\n",
 	   data_sectors/2048,first_cluster,sectors_per_fat);
+    printf("FATs begin at sector 0x%x and 0x%x\n",fat1_sector,fat2_sector);
     
     retVal=-1;
     
