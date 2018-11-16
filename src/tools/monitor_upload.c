@@ -163,7 +163,7 @@ int dump_bytes(int col, char *msg,unsigned char *bytes,int length)
 
 int process_line(char *line,int live)
 {
-  printf("[%s]\n",line);
+  //  printf("[%s]\n",line);
   if (!live) return 0;
   if (strstr(line,"ws h RECA8LHC")) {
      if (!new_monitor) printf("Detected new-style UART monitor.\n");
@@ -188,18 +188,18 @@ int process_line(char *line,int live)
 	       &b[8],&b[9],&b[10],&b[11],
 	       &b[12],&b[13],&b[14],&b[15])==17) gotIt=1;
     if (gotIt) {
-      printf("Read memory @ $%04x\n",addr);
+      // printf("Read memory @ $%04x\n",addr);
 
       if (addr==0xffd3680) {
 	// SD card status registers
 	for(int i=0;i<16;i++) sd_status[i]=b[i];
-	dump_bytes(0,"SDcard status",sd_status,16);
+	// dump_bytes(0,"SDcard status",sd_status,16);
 	sd_status_fresh=1;
       }
       else if(addr >= READ_SECTOR_BUFFER_ADDRESS && (addr <= (READ_SECTOR_BUFFER_ADDRESS + 0x200))) {
 	// Reading sector card buffer
 	int sector_offset=addr-READ_SECTOR_BUFFER_ADDRESS;
-	printf("Read sector buffer 0x%03x - 0x%03x\n",sector_offset,sector_offset+15);
+	// printf("Read sector buffer 0x%03x - 0x%03x\n",sector_offset,sector_offset+15);
 	for(int i=0;i<16;i++) sd_read_buffer[sector_offset+i]=b[i];
 	sd_read_offset=sector_offset+16;
       }
@@ -336,7 +336,7 @@ void wait_for_sdready(void)
 	sleep(1);
       }
     }
-    printf("SD Card looks ready.\n");
+    //     printf("SD Card looks ready.\n");
   } while(0);
   return;
 }
@@ -368,7 +368,7 @@ int read_sector(const unsigned int sector_number,unsigned char *buffer)
     printf("Getting SD card ready\n");
     wait_for_sdready();
 
-    printf("Commanding SD read\n");
+    // printf("Commanding SD read\n");
     char cmd[1024];    
     snprintf(cmd,1024,"sffd3681 %02x %02x %02x %02x\rsffd3680 2\r",
 	     (sector_number>>0)&0xff,
@@ -379,7 +379,7 @@ int read_sector(const unsigned int sector_number,unsigned char *buffer)
     wait_for_sdready_passive();
 
     // Read succeeded, so fetch sector contents
-    printf("Reading back sector contents\n");
+    // printf("Reading back sector contents\n");
     snprintf(cmd,1024,"M%x\rM%x\rM%x\rM%x\r",
 	     READ_SECTOR_BUFFER_ADDRESS,
 	     READ_SECTOR_BUFFER_ADDRESS+0x80,
