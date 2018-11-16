@@ -522,7 +522,7 @@ begin
   restore_key <= not btn(1);
 
   -- Push correct clock to LCD panel
-  jbhi(7) <= not clock30 when pal50_select='1' else not cpuclock;
+  jbhi(7) <= not clock30 when pal50_select='1' else cpuclock;
   
   process (cpuclock,clock120,clock30,cpuclock,pal50_select)
   begin
