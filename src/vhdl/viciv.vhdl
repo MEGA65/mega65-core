@@ -1278,9 +1278,11 @@ begin
 
       if reg_h640='0' then
         -- 40 column mode
+        virtual_row_width <= to_unsigned(40,16);
         display_row_width <= to_unsigned(40,8);
       elsif reg_h640='1' then
         -- 80 column mode
+        virtual_row_width <= to_unsigned(80,16);
         display_row_width <= to_unsigned(80,8);        
       end if;
 
