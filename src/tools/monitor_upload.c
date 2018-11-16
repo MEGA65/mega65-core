@@ -37,6 +37,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <dirent.h>
 
 #ifdef APPLE
 static const int B1000000 = 1000000;
@@ -441,7 +442,7 @@ unsigned int data_sectors=0;
 unsigned int first_cluster=0;
 unsigned int fsinfo_sector=0;
 unsigned int reserved_sectors=0;
-unsigned int fat1_sector=0,fat2_sector=0;
+unsigned int fat1_sector=0,fat2_sector=0,first_cluster_sector;
 
 unsigned char mbr[512];
 unsigned char fat_mbr[512];
@@ -500,14 +501,118 @@ int open_file_system(void)
     fsinfo_sector=fat_mbr[0x30]+(fat_mbr[0x31]<<8);
     fat1_sector=reserved_sectors;
     fat2_sector=fat1_sector+sectors_per_fat;
+    first_cluster_sector=fat2_sector+sectors_per_fat;
     
     printf("FAT32 file system has %dMB formatted capacity, first cluster = %d, %d sectors per FAT\n",
 	   data_sectors/2048,first_cluster,sectors_per_fat);
     printf("FATs begin at sector 0x%x and 0x%x\n",fat1_sector,fat2_sector);
-    
-    retVal=-1;
+
+    file_system_found=1;
     
   } while (0);
+  return retVal;
+}
+
+unsigned int get_next_cluster(int cluster)
+{
+  unsigned int retVal=0xFFFFFFFF;
+
+  unsigned char buf[512];
+  
+  do {
+    // Read chain entry for this cluster
+    int cluster_sector_number=cluster/(512/4);
+    int cluster_sector_offset=(cluster*4)&511;
+
+    // Read sector of cluster
+    if (read_sector(partition_start+fat1_sector+cluster_sector_number,buf)) break;
+
+    // Get value out
+    retVal=
+      (buf[cluster_sector_offset+0]<<0)|
+      (buf[cluster_sector_offset+1]<<8)|
+      (buf[cluster_sector_offset+2]<<16)|
+      (buf[cluster_sector_offset+3]<<24);
+    
+  } while(0);
+  return retVal;
+  
+}
+
+unsigned char dir_sector_buffer[512];
+unsigned int dir_sector=-1; // no dir
+int dir_cluster=0;
+int dir_sector_in_cluster=0;
+int dir_sector_offset=0;
+
+int fat_opendir(char *path)
+{
+  int retVal=0;
+  do {
+    if (strcmp(path,"/")) {
+      printf("XXX Sub-directories not implemented\n");
+    }
+
+    dir_cluster=first_cluster;
+    dir_sector=first_cluster_sector;
+    dir_sector_offset=0;
+    dir_sector_in_cluster=0;
+    retVal=read_sector(partition_start+dir_sector,dir_sector_buffer);
+    
+  } while(0);
+  return retVal;
+}
+
+int fat_readdir(struct dirent *d)
+{
+  int retVal=0;
+  do {
+    if (dir_sector==-1) { retVal=-1; break; }
+    if (!d) { retVal=-1; break; }
+
+    retVal=read_sector(partition_start+dir_sector,dir_sector_buffer);
+    if (retVal) break;
+
+    printf("Found dirent %d %d %d\n",dir_sector,dir_sector_offset,dir_sector_in_cluster);
+    
+    // XXX - Support FAT32 long names!
+    d->d_ino=
+      (dir_sector_buffer[dir_sector_offset+0x1A]<<0)|
+      (dir_sector_buffer[dir_sector_offset+0x1B]<<8)|
+      (dir_sector_buffer[dir_sector_offset+0x14]<<16)|
+      (dir_sector_buffer[dir_sector_offset+0x15]<<24);
+    for(int i=0;i<11;i++) d->d_name[i]=dir_sector_buffer[dir_sector_offset+i];
+    d->d_name[11]=0;
+    d->d_reclen= //  XXX As a hack we put the size here
+      (dir_sector_buffer[dir_sector_offset+0x1C]<<0)|
+      (dir_sector_buffer[dir_sector_offset+0x1D]<<8)|
+      (dir_sector_buffer[dir_sector_offset+0x1E]<<16)|
+      (dir_sector_buffer[dir_sector_offset+0x1F]<<24);
+    d->d_off=dir_sector_buffer[dir_sector_offset+0xb]; // XXX as a hack, we put DOS file attributes here
+    if (d->d_off&0xC8) d->d_type=DT_UNKNOWN;
+    else if (d->d_off&0x10) d->d_type=DT_DIR;
+    else d->d_type=DT_REG;
+
+    dir_sector_offset+=32;
+    if (dir_sector_offset==512) {
+      dir_sector_offset=0;
+      dir_sector++;
+      dir_sector_in_cluster++;
+      if (dir_sector_in_cluster==sectors_per_cluster) {
+	// Follow to next cluster
+	int next_cluster=get_next_cluster(dir_cluster);
+	if (next_cluster<0xFFFFFFF) {
+	  dir_cluster=next_cluster;
+	  dir_sector_in_cluster=0;
+	  dir_sector=first_cluster_sector+(next_cluster-first_cluster)*sectors_per_cluster;
+	} else {
+	  // End of directory reached
+	  dir_sector=-1;
+	}
+      }
+    }
+    
+  } while(0);
   return retVal;
 }
 
@@ -528,6 +633,14 @@ int upload_file(char *name)
       retVal=-1;
       break;
     }
+
+    if (fat_opendir("/")) { retVal=-1; break; }
+    printf("Opened directory\n");
+    struct dirent de;
+    while(!fat_readdir(&de)) {
+      printf("  '%s' %-10d\n",de.d_name,de.d_reclen);
+    }
+    printf("End of directory\n");
     
   } while(0);
 
