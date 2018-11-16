@@ -505,8 +505,8 @@ architecture Behavioral of viciv is
   -- should we skip as we advance each row.
   signal virtual_row_width : unsigned(15 downto 0) := to_unsigned(40,16);
   -- And display_row_width is how many characters to display on each row
-  signal display_row_width : unsigned(7 downto 0) := to_unsigned(40,16);
-  signal display_row_width_minus1 : unsigned(7 downto 0) := to_unsigned(40,16);
+  signal display_row_width : unsigned(7 downto 0) := to_unsigned(40,8);
+  signal display_row_width_minus1 : unsigned(7 downto 0) := to_unsigned(40,8);
   
   signal end_of_row_16 : std_logic := '0';
   signal end_of_row : std_logic := '0';
@@ -1278,10 +1278,10 @@ begin
 
       if reg_h640='0' then
         -- 40 column mode
-        display_row_width <= to_unsigned(40,16);
+        display_row_width <= to_unsigned(40,8);
       elsif reg_h640='1' then
         -- 80 column mode
-        display_row_width <= to_unsigned(80,16);        
+        display_row_width <= to_unsigned(80,8);        
       end if;
 
       if reg_v400='0' then
