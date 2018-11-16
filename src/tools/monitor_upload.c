@@ -598,6 +598,8 @@ int fat_readdir(struct dirent *d)
     // printf("Found dirent %d %d %d\n",dir_sector,dir_sector_offset,dir_sector_in_cluster);
 
     // XXX - Support FAT32 long names!
+
+    // Put cluster number in d_ino
     d->d_ino=
       (dir_sector_buffer[dir_sector_offset+0x1A]<<0)|
       (dir_sector_buffer[dir_sector_offset+0x1B]<<8)|
@@ -658,10 +660,34 @@ int upload_file(char *name)
     printf("Opened directory\n");
     struct dirent de;
     while(!fat_readdir(&de)) {
-      if (de.d_name[0])
-	printf("  '%s' %-10d\n",de.d_name,(int)de.d_off);
+      if (!strcasecmp(de.d_name,name)) {
+	// Found file, so will replace it
+	printf("%s already exists on the file system, beginning at cluster %d\n",name,(int)de.d_ino);
+	break;
+      }
     }
-    // printf("End of directory\n");
+    if (dir_sector==-1) {
+      // File does not (yet) exist, get ready to create it
+      printf("%s does not yet exist on the file system -- searching for empty directory slot to create it in.\n",name);
+
+      if (fat_opendir("/")) { retVal=-1; break; }
+      struct dirent de;
+      while(!fat_readdir(&de)) {
+	if (!de.d_name[0]) {
+	  printf("Found empty slot at dir_sector=%d, dir_sector_offset=%d\n",
+		 dir_sector,dir_sector_offset);
+
+	  // Create directory entry, and write sector back to SD card
+	  
+	  break;
+	}
+      }
+    }
+    if (dir_sector==-1) {
+      printf("ERROR: Directory is full.  Request support for extending directory into multiple clusters.\n");
+      retVal=-1;
+      break;
+    }
     
   } while(0);
 
