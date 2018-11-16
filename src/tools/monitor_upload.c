@@ -68,6 +68,9 @@ int serial_speed=2000000;
 char *serial_port="/dev/ttyUSB1";
 char *bitstream=NULL;
 
+unsigned char *sd_read_buffer=NULL;
+int sd_read_offset=0;
+
 int sd_status_fresh=0;
 unsigned char sd_status[16];
 
@@ -195,9 +198,10 @@ int process_line(char *line,int live)
       }
       else if(addr >= READ_SECTOR_BUFFER_ADDRESS && (addr <= (READ_SECTOR_BUFFER_ADDRESS + 0x200))) {
 	// Reading sector card buffer
-	printf("Read sector buffer 0x%03x - 0x%03x\n",
-	       addr-READ_SECTOR_BUFFER_ADDRESS,
-	       addr-READ_SECTOR_BUFFER_ADDRESS+15);
+	int sector_offset=addr-READ_SECTOR_BUFFER_ADDRESS;
+	printf("Read sector buffer 0x%03x - 0x%03x\n",sector_offset,sector_offset+15);
+	for(int i=0;i<16;i++) sd_read_buffer[sector_offset+i]=b[i];
+	sd_read_offset=sector_offset+16;
       }
     }
   }
@@ -337,6 +341,22 @@ void wait_for_sdready(void)
   return;
 }
 
+void wait_for_sdready_passive(void)
+{
+  do {  
+    // Ask for SD card status
+    sd_status[0]=0xff;
+    while(sd_status[0]&3) {
+      sd_status_fresh=0;
+      slow_write(fd,"mffd3680\r",strlen("mffd3680\r"));
+      while(!sd_status_fresh) process_waiting(fd);
+    }
+    printf("SD Card looks ready.\n");
+  } while(0);
+  return;
+}
+
+
 int read_sector(const unsigned int sector_number,unsigned char *buffer)
 {
   int retVal=0;
@@ -348,8 +368,29 @@ int read_sector(const unsigned int sector_number,unsigned char *buffer)
     printf("Getting SD card ready\n");
     wait_for_sdready();
 
+    printf("Commanding SD read\n");
+    char cmd[1024];    
+    snprintf(cmd,1024,"sffd3681 %02x %02x %02x %02x\rsffd3680 2\r",
+	     (sector_number>>0)&0xff,
+	     (sector_number>>8)&0xff,
+	     (sector_number>>16)&0xff,
+	     (sector_number>>24)&0xff);
+    slow_write(fd,cmd,strlen(cmd));
+    wait_for_sdready_passive();
+
+    // Read succeeded, so fetch sector contents
+    printf("Reading back sector contents\n");
+    snprintf(cmd,1024,"M%x\rM%x\rM%x\rM%x\r",
+	     READ_SECTOR_BUFFER_ADDRESS,
+	     READ_SECTOR_BUFFER_ADDRESS+0x80,
+	     READ_SECTOR_BUFFER_ADDRESS+0x100,
+	     READ_SECTOR_BUFFER_ADDRESS+0x180);
+    slow_write(fd,cmd,strlen(cmd));
+	     
+    sd_read_buffer=buffer;
+    sd_read_offset=0;
+    while(sd_read_offset!=512) process_waiting(fd);
     
-        
   } while(0);
   return retVal;
      
@@ -368,6 +409,8 @@ int open_file_system(void)
       retVal=-1;
       break;
     }
+    dump_bytes(0,"Master Boot Record",mbr,512);
+    
   } while (0);
   return retVal;
 }
