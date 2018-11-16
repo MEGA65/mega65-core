@@ -498,10 +498,16 @@ architecture Behavioral of viciv is
   -----------------------------------------------------------------------------
 
   -- New control registers
-  -- Number added to card number for each row of characters, i.e., virtual
-  -- character display width
+
+  -- These next two can be used to make a screen which is a huge playfield with
+  -- just a portion visible at any point in time.
+  -- Number added to card number for each row of characters, i.e., how many bytes
+  -- should we skip as we advance each row.
   signal virtual_row_width : unsigned(15 downto 0) := to_unsigned(40,16);
-  signal virtual_row_width_minus1 : unsigned(15 downto 0) := to_unsigned(40,16);
+  -- And display_row_width is how many characters to display on each row
+  signal display_row_width : unsigned(7 downto 0) := to_unsigned(40,16);
+  signal display_row_width_minus1 : unsigned(7 downto 0) := to_unsigned(40,16);
+  
   signal end_of_row_16 : std_logic := '0';
   signal end_of_row : std_logic := '0';
   signal chargen_x_scale_drive : unsigned(7 downto 0) := to_unsigned(0,8);
@@ -1272,10 +1278,10 @@ begin
 
       if reg_h640='0' then
         -- 40 column mode
-        virtual_row_width <= to_unsigned(40,16);
+        display_row_width <= to_unsigned(40,16);
       elsif reg_h640='1' then
         -- 80 column mode
-        virtual_row_width <= to_unsigned(80,16);        
+        display_row_width <= to_unsigned(80,16);        
       end if;
 
       if reg_v400='0' then
@@ -1717,7 +1723,7 @@ begin
           fastio_rdata(7 downto 6) <= "00";
           fastio_rdata(5 downto 0) <= std_logic_vector(single_side_border(13 downto 8));
         elsif register_number=94 then
-          fastio_rdata(7 downto 0)  <= (others => '1');
+          fastio_rdata(7 downto 0)  <= std_logic_vector(display_row_width);
         elsif register_number=95 then
           fastio_rdata <= std_logic_vector(sprite_h640_msbs);          
         elsif register_number=96 then
@@ -2337,8 +2343,8 @@ begin
                                         -- @IO:GS $D05D VIC-IV side border width (MSB)
                                                     single_side_border(13 downto 8) <= unsigned(fastio_wdata(5 downto 0));
                                                   elsif register_number=94 then
-                                        -- @IO:GS $D05E VIC-IV UNUSED
-                                                    null;
+                                        -- @IO:GS $D05E VIC-IV number of characters to display per row
+                                                    display_row_width <= unsigned(fastio_wdata);
                                                   elsif register_number=95 then
                                         -- @IO:GS $D05F VIC-IV Sprite H640 X Super-MSBs
                                                     sprite_h640_msbs <= fastio_wdata;
@@ -3557,7 +3563,7 @@ begin
                         ,17)
             );
       end if;
-      virtual_row_width_minus1 <= virtual_row_width - 1;
+      display_row_width_minus1 <= display_row_width - 1;
 
       ramaddress <= next_ramaddress;
 
@@ -3653,12 +3659,12 @@ begin
           
           -- Is this the last character in the row?
           -- (Only used when screen lines have only one character?)
-          if character_number = virtual_row_width_minus1(7 downto 0)&'1' then
+          if character_number = display_row_width_minus1&'1' then
             end_of_row_16 <= '1';
           else
             end_of_row_16 <= '0';
           end if;
-          if character_number = '0'&virtual_row_width_minus1(7 downto 0) then
+          if character_number = '0'&display_row_width_minus1 then
             end_of_row <= '1';
           else
             end_of_row <= '0';
@@ -4066,12 +4072,12 @@ begin
           -- We are counting the number characters, not the number of bytes, so
           -- no need multiply row width by two for 16-bit character mode
           -- if character_number = virtual_row_width_minus1(7 downto 0)&'0' then
-          if character_number = virtual_row_width_minus1(7 downto 0) then
+          if character_number = display_row_width_minus1 then
             end_of_row_16 <= '1';
           else
             end_of_row_16 <= '0';
           end if;
-          if character_number = '0'&virtual_row_width_minus1(7 downto 0) then
+          if character_number = '0'&display_row_width_minus1 then
             end_of_row <= '1';
           else
             end_of_row <= '0';
