@@ -603,8 +603,22 @@ int fat_readdir(struct dirent *d)
       (dir_sector_buffer[dir_sector_offset+0x1B]<<8)|
       (dir_sector_buffer[dir_sector_offset+0x14]<<16)|
       (dir_sector_buffer[dir_sector_offset+0x15]<<24);
-    for(int i=0;i<11;i++) d->d_name[i]=dir_sector_buffer[dir_sector_offset+i];
-    d->d_name[11]=0;
+
+    int namelen=0;
+    if (dir_sector_buffer[dir_sector_offset]) {
+      for(int i=0;i<8;i++)
+	if (dir_sector_buffer[dir_sector_offset+i])
+	  d->d_name[namelen++]=dir_sector_buffer[dir_sector_offset+i];
+      while(namelen&&d->d_name[namelen-1]==' ') namelen--;
+    }
+    if (dir_sector_buffer[dir_sector_offset+8]&&dir_sector_buffer[dir_sector_offset+8]!=' ') {
+      d->d_name[namelen++]='.';
+      for(int i=0;i<3;i++)
+	if (dir_sector_buffer[dir_sector_offset+8+i])
+	  d->d_name[namelen++]=dir_sector_buffer[dir_sector_offset+8+i];
+      while(namelen&&d->d_name[namelen-1]==' ') namelen--;
+    }
+    d->d_name[namelen]=0;
 
     //    if (d->d_name[0]) dump_bytes(0,"dirent raw",&dir_sector_buffer[dir_sector_offset],32);
     
