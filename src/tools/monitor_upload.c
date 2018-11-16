@@ -47,6 +47,8 @@ static const int B4000000 = 4000000;
 time_t start_time=0;
 
 int upload_file(char *name);
+int sdhc_check(void);
+int read_sector(const unsigned int sector_number,unsigned char *buffer);
 
 int osk_enable=0;
 
@@ -163,7 +165,7 @@ int dump_bytes(int col, char *msg,unsigned char *bytes,int length)
 
 int process_line(char *line,int live)
 {
-  //  printf("[%s]\n",line);
+  // printf("[%s]\n",line);
   if (!live) return 0;
   if (strstr(line,"ws h RECA8LHC")) {
      if (!new_monitor) printf("Detected new-style UART monitor.\n");
@@ -200,8 +202,10 @@ int process_line(char *line,int live)
 	// Reading sector card buffer
 	int sector_offset=addr-READ_SECTOR_BUFFER_ADDRESS;
 	// printf("Read sector buffer 0x%03x - 0x%03x\n",sector_offset,sector_offset+15);
-	for(int i=0;i<16;i++) sd_read_buffer[sector_offset+i]=b[i];
-	sd_read_offset=sector_offset+16;
+	if (sector_offset<512) {
+	  for(int i=0;i<16;i++) sd_read_buffer[sector_offset+i]=b[i];
+	  sd_read_offset=sector_offset+16;
+	}
       }
     }
   }
@@ -313,6 +317,8 @@ int main(int argc,char **argv)
   if (tcsetattr(fd, TCSANOW, &t)) perror("Failed to set terminal parameters");
 
   stop_cpu();
+
+  sdhc_check();
   
   for(int i=optind;i<argc;i++)
     upload_file(argv[i]);
@@ -341,8 +347,9 @@ void wait_for_sdready(void)
   return;
 }
 
-void wait_for_sdready_passive(void)
+int wait_for_sdready_passive(void)
 {
+  int retVal=0;
   do {  
     // Ask for SD card status
     sd_status[0]=0xff;
@@ -350,33 +357,59 @@ void wait_for_sdready_passive(void)
       sd_status_fresh=0;
       slow_write(fd,"mffd3680\r",strlen("mffd3680\r"));
       while(!sd_status_fresh) process_waiting(fd);
+      if ((sd_status[0]&3)==0x03)
+	{ // printf("SD card error 0x3 - failing\n");
+	  retVal=-1; break; }
     }
-    printf("SD Card looks ready.\n");
+    // printf("SD Card looks ready.\n");
   } while(0);
-  return;
+  return retVal;
 }
 
+int sdhc=-1;
+
+int sdhc_check(void)
+{
+  unsigned char buffer[512];
+
+  sdhc=0;
+  int r0=read_sector(0,buffer);
+  int r1=read_sector(1,buffer);
+  int r200=read_sector(0x200,buffer);
+  // printf("%d %d %d\n",r0,r1,r200);
+  if (r0||r200) {
+    fprintf(stderr,"Could not detect SD/SDHC card\n");
+    exit(-3);
+  }
+  sdhc=r1;
+  return sdhc;
+}
 
 int read_sector(const unsigned int sector_number,unsigned char *buffer)
 {
   int retVal=0;
   do {
     // Clear backlog
-    printf("Clearing serial backlog\n");
+    // printf("Clearing serial backlog in preparation for reading sector 0x%x\n",sector_number);
     process_waiting(fd);
 
-    printf("Getting SD card ready\n");
+    // printf("Getting SD card ready\n");
     wait_for_sdready();
 
     // printf("Commanding SD read\n");
-    char cmd[1024];    
+    char cmd[1024];
+    unsigned int sector_address;
+    if (!sdhc) sector_address=sector_number*0x0200; else sector_address=sector_number;
     snprintf(cmd,1024,"sffd3681 %02x %02x %02x %02x\rsffd3680 2\r",
-	     (sector_number>>0)&0xff,
-	     (sector_number>>8)&0xff,
-	     (sector_number>>16)&0xff,
-	     (sector_number>>24)&0xff);
+	     (sector_address>>0)&0xff,
+	     (sector_address>>8)&0xff,
+	     (sector_address>>16)&0xff,
+	     (sector_address>>24)&0xff);
     slow_write(fd,cmd,strlen(cmd));
-    wait_for_sdready_passive();
+    if (wait_for_sdready_passive()) {
+      printf("wait_for_sdready_passive() failed\n");
+      retVal=-1; break;
+    }
 
     // Read succeeded, so fetch sector contents
     // printf("Reading back sector contents\n");
@@ -390,8 +423,11 @@ int read_sector(const unsigned int sector_number,unsigned char *buffer)
     sd_read_buffer=buffer;
     sd_read_offset=0;
     while(sd_read_offset!=512) process_waiting(fd);
+
+    printf("Read sector %d\n",sector_number);
     
   } while(0);
+  if (retVal) printf("FAIL reading sector %d\n",sector_number);
   return retVal;
      
 }
@@ -426,6 +462,9 @@ int open_file_system(void)
 
     if (!partition_start) { retVal=-1; break; }
     if (!partition_size) { retVal=-1; break; }
+
+    // Ok, so we know where the partition starts, so now find the FATs
+    
     
     retVal=-1;
     
