@@ -166,7 +166,7 @@ int dump_bytes(int col, char *msg,unsigned char *bytes,int length)
 
 int process_line(char *line,int live)
 {
-  // printf("[%s]\n",line);
+  //  printf("[%s]\n",line);
   if (!live) return 0;
   if (strstr(line,"ws h RECA8LHC")) {
      if (!new_monitor) printf("Detected new-style UART monitor.\n");
@@ -374,6 +374,10 @@ int sdhc_check(void)
   unsigned char buffer[512];
 
   sdhc=0;
+
+  // Force early detection of old vs new uart monitor
+  slow_write(fd,"r\r",2);
+  
   int r0=read_sector(0,buffer);
   int r1=read_sector(1,buffer);
   int r200=read_sector(0x200,buffer);
@@ -432,6 +436,65 @@ int read_sector(const unsigned int sector_number,unsigned char *buffer)
   return retVal;
      
 }
+
+int write_sector(const unsigned int sector_number,unsigned char *buffer)
+{
+  int retVal=0;
+  do {
+    // Clear backlog
+    // printf("Clearing serial backlog in preparation for reading sector 0x%x\n",sector_number);
+    process_waiting(fd);
+
+    // printf("Getting SD card ready\n");
+    wait_for_sdready();
+
+    printf("Writing sector data\n");
+    char cmd[1024];
+    snprintf(cmd,1024,"l%x %x\r",
+	     WRITE_SECTOR_BUFFER_ADDRESS,(WRITE_SECTOR_BUFFER_ADDRESS+512)&0xffff);
+    slow_write(fd,cmd,strlen(cmd));
+    usleep(10000); // give uart monitor time to get ready for the data
+    process_waiting(fd);
+    int written=write(fd,buffer,512);
+    if (written!=512) {
+      printf("ERROR: Failed to write 512 bytes of sector data to serial port\n");
+      retVal=-1;
+      break;
+    }
+    process_waiting(fd);
+    
+    printf("Commanding SD write\n");
+    unsigned int sector_address;
+    if (!sdhc) sector_address=sector_number*0x0200; else sector_address=sector_number;
+    snprintf(cmd,1024,"sffd3681 %02x %02x %02x %02x\rsffd3680 3\r",
+	     (sector_address>>0)&0xff,
+	     (sector_address>>8)&0xff,
+	     (sector_address>>16)&0xff,
+	     (sector_address>>24)&0xff);
+    slow_write(fd,cmd,strlen(cmd));
+    if (wait_for_sdready_passive()) {
+      printf("wait_for_sdready_passive() failed\n");
+      retVal=-1; break;
+    }
+
+    unsigned char verify[512];
+    if (read_sector(sector_number,verify)) {
+      printf("ERROR: Failed to read sector to verify after writing to sector %d\n",sector_number);
+      retVal=-1;
+      break;
+    }
+    if (bcmp(verify,buffer,512)) {
+      printf("ERROR: Verification error: Read back different data than we wrote to sector %d\n",sector_number);
+      retVal=-1;
+      break;
+    }
+    
+  } while(0);
+  if (retVal) printf("FAIL reading sector %d\n",sector_number);
+  return retVal;
+     
+}
+
 
 int file_system_found=0;
 unsigned int partition_start=0;
@@ -678,6 +741,42 @@ int upload_file(char *name)
 		 dir_sector,dir_sector_offset);
 
 	  // Create directory entry, and write sector back to SD card
+	  unsigned char dir[32];
+	  bzero(dir,32);
+
+	  // Write name
+	  for(int i=0;i<8;i++)
+	    if (name[i]=='.') {
+	      // Write out extension
+	      for(int j=0;j<3;j++)
+		if (name[i+1+j]) dir[8+j]=name[i+1+j];
+	    } else if (!name[i]) break;
+	    else dir[i]=name[i];
+
+	  // Set file attributes (only archive bit)
+	  dir[0xb]=0x20;
+
+	  // Store create time and date
+	  time_t t=time(0);
+	  struct tm *tm=localtime(&t);
+	  dir[0xe]=(tm->tm_sec>>1)&0x1F;  // 2 second resolution
+	  dir[0xe]|=(tm->tm_min&0x7)<<5;
+	  dir[0xf]=(tm->tm_min&0x3)>>3;
+	  dir[0xf]|=(tm->tm_hour)<<2;
+	  dir[0x10]=tm->tm_mday&0x1f;
+	  dir[0x10]|=((tm->tm_mon+1)&0x7)<<5;
+	  dir[0x11]=((tm->tm_mon+1)&0x1)>>3;
+	  dir[0x11]|=(tm->tm_year-80)<<1;
+
+	  dump_bytes(0,"New directory entry",dir,32);
+	  
+	  // (Cluster and size we set after writing to the file)
+
+	  // Copy back into directory sector, and write it
+	  bcopy(dir,&dir_sector_buffer[dir_sector_offset],32);
+	  if (write_sector(dir_sector,dir_sector_buffer)) {
+	    printf("Failed to write updated directory sector.\n");
+	    retVal=-1; break; }
 	  
 	  break;
 	}
