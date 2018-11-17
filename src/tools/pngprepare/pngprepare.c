@@ -175,7 +175,7 @@ struct rgb {
   int b;
 };
 
-struct rgb palette[256];
+struct rgb palette[2560];
 int palette_first=16;
 int palette_index=16; // only use upper half of palette
 
@@ -192,11 +192,11 @@ int palette_lookup(int r,int g, int b)
   
   // new colour
   if (palette_index>255) {
-    fprintf(stderr,"Too many colours in image: Must be <= %d\n",
-	    256-palette_first);
-    exit(-1);
+    fprintf(stderr,"Too many colours in image: Must be < 256, now up to %d\n",
+	    palette_index);
   }
-
+  if (palette_index>2559) exit(-1);
+  
   // allocate it
   palette[palette_index].r=r;
   palette[palette_index].g=g;
@@ -240,27 +240,39 @@ void process_file(int mode, char *outputfilename)
     printf("mode=0 (logo)\n");
     // Logo mode
 
-    int size=-1;
-    #define SIZE_LOGO 1
-    #define SIZE_BANNER 2
-    if (height==64&&width==64) size=SIZE_LOGO;
-    if (height==64&&width==320) size=SIZE_BANNER;
+    // Pre-load in C64 palette, so that those colours can be re-used if required
     
-    if (size==-1) {
-      fprintf(stderr,"Logo images must be 64x64 or 320x64\n");
-      exit(-1);
-    }
+    palette[0]=(struct rgb){.r=0,.g=0,.b=0};
+    palette[1]=(struct rgb){.r=0xff,.g=0xff,.b=0xff};
+    palette[2]=(struct rgb){.r=0xab,.g=0x31,.b=0x26};
+    palette[3]=(struct rgb){.r=0x66,.g=0xda,.b=0xff};
+    palette[4]=(struct rgb){.r=0xbb,.g=0x3f,.b=0xb8};
+    palette[5]=(struct rgb){.r=0x55,.g=0xce,.b=0x58};
+    palette[6]=(struct rgb){.r=0x1d,.g=0x0e,.b=0x97};
+    palette[7]=(struct rgb){.r=0xea,.g=0xf5,.b=0x7c};
+    palette[8]=(struct rgb){.r=0xb9,.g=0x74,.b=0x18};
+    palette[9]=(struct rgb){.r=0x78,.g=0x73,.b=0x00};
+    palette[10]=(struct rgb){.r=0xdd,.g=0x93,.b=0x87};
+    palette[11]=(struct rgb){.r=0x5b,.g=0x5b,.b=0x5b};
+    palette[12]=(struct rgb){.r=0x8b,.g=0x8b,.b=0x8b};
+    palette[13]=(struct rgb){.r=0xb0,.g=0xf4,.b=0xac};
+    palette[14]=(struct rgb){.r=0xaa,.g=0x9d,.b=0xef};
+    palette[15]=(struct rgb){.r=0xb8,.g=0xb8,.b=0xb8};
+    
+    
     for (y=0; y<height; y++) {
       png_byte* row = row_pointers[y];
       for (x=0; x<width; x++) {
 	png_byte* ptr = &(row[x*multiplier]);
-	int r=ptr[0],g=ptr[1],b=ptr[2]; // a=ptr[3];
+	int r,g,b;
+	if (ptr)
+	  { r=ptr[0]; g=ptr[1]; b=ptr[2]; // a=ptr[3];
+	  } else { r=0; g=0; b=0; }
 
-	// Compute colour cube colour
-	unsigned char c=(r&0xe0)|((g>>5)<<2)|(b>>6);
+	int c=palette_lookup(r,g,b);
 
-	c=palette_lookup(r,g,b);
-
+	if (c>255) printf("Too many colours at (%d,%d)\n",x,y);
+	
 	/* work out where in logo file it must be written.
 	   image is made of 8x8 blocks.  So every 8 pixels across increases address
 	   by 64, and every 8 pixels down increases pixel count by (64*8), and every
@@ -270,10 +282,10 @@ void process_file(int mode, char *outputfilename)
 	address+=0x300; // space for palettes
 	address+=(x&7)+(y&7)*8;
 	address+=(x>>3)*64;
-	if (size==SIZE_LOGO)
-	  address+=(y>>3)*64*8;
-	else
-	  address+=(y>>3)*64*40;
+	//	if (size==SIZE_LOGO)
+	  address+=(y>>3)*64*(width/8);
+	  //	else
+	  //	  address+=(y>>3)*64*40;
 
 	fseek(outfile,address,SEEK_SET);
 	int n=fwrite(&c,1,1,outfile);
@@ -501,7 +513,12 @@ void process_file(int mode, char *outputfilename)
 	  png_byte* row = row_pointers[yy];
 	  for(xx=x;xx<x+8;xx++) {
 	    png_byte* ptr = &(row[xx*multiplier]);
-	    int r=ptr[0], g=ptr[1],b=ptr[2]; // , a=ptr[3];
+	    int r,g,b;
+	    if (ptr&&(yy<height)&&(xx<width)) {
+	      r=ptr[0]; g=ptr[1]; b=ptr[2];
+	    } else {
+	      r=0; g=0; b=0;
+	    }
 	    int c=r+256*g+65536*b;
 	    this_tile[yy-y][xx-x]=c;
 	    for(i=0;i<colour_count;i++) if (c==colours[i]) break;
