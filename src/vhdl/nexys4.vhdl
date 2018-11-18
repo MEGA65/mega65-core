@@ -96,7 +96,7 @@ entity container is
          tmpSCL : inout std_logic;
          tmpInt : in std_logic;
          tmpCT : in std_logic;
-        
+
          ----------------------------------------------------------------------
          -- PS/2 keyboard interface
          ----------------------------------------------------------------------
@@ -104,20 +104,17 @@ entity container is
          ps2data : in std_logic;
 
          ----------------------------------------------------------------------
-         -- PMOD B for input PCB
-         ----------------------------------------------------------------------
-         jblo : inout std_logic_vector(4 downto 1) := (others => 'Z');
-         jbhi : inout std_logic_vector(10 downto 7) := (others => 'Z');
-         
-         ----------------------------------------------------------------------
-         -- PMOD A for general IO while debugging and testing
+         -- PMODs for LCD screen and associated things during testing
          ----------------------------------------------------------------------
          jalo : inout std_logic_vector(4 downto 1) := (others => 'Z');
          jahi : inout std_logic_vector(10 downto 7) := (others => 'Z');
-         jdlo : inout std_logic_vector(4 downto 1) := (others => 'Z');
-         jdhi : inout std_logic_vector(10 downto 7) := (others => 'Z');
+         jblo : inout std_logic_vector(4 downto 1) := (others => 'Z');
+         jbhi : inout std_logic_vector(10 downto 7) := (others => 'Z');
          jclo : inout std_logic_vector(4 downto 1) := (others => 'Z');
          jchi : inout std_logic_vector(10 downto 7) := (others => 'Z');
+         jdlo : inout std_logic_vector(4 downto 1) := (others => 'Z');
+         jdhi : inout std_logic_vector(10 downto 7) := (others => 'Z');
+         jxadc : inout std_logic_vector(7 downto 0) := (others => 'Z');
          
          ----------------------------------------------------------------------
          -- Flash RAM for holding config
@@ -186,19 +183,16 @@ architecture Behavioral of container is
   signal cpu_game : std_logic := '1';
   signal cpu_exrom : std_logic := '1';
   
-  signal dummy_vgared : unsigned(3 downto 0);
-  signal dummy_vgagreen : unsigned(3 downto 0);
-  signal dummy_vgablue : unsigned(3 downto 0);
-
   signal buffer_vgared : unsigned(7 downto 0);
   signal buffer_vgagreen : unsigned(7 downto 0);
   signal buffer_vgablue : unsigned(7 downto 0);
   
   signal pixelclock : std_logic;
   signal cpuclock : std_logic;
-  signal clock200 : std_logic;
-  signal clock40 : std_logic;
-  signal clock33 : std_logic;
+  signal clock240 : std_logic;
+  signal clock120 : std_logic;
+  signal clock100 : std_logic;
+  signal ethclock : std_logic;
   signal clock30 : std_logic;
   
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
@@ -268,21 +262,22 @@ architecture Behavioral of container is
   signal sawtooth_counter : integer := 0;
   signal sawtooth_level : integer := 0;
 
-  signal lcd_pixel_strobe : std_logic;
   signal lcd_hsync : std_logic;
   signal lcd_vsync : std_logic;
   signal lcd_display_enable : std_logic;
+  signal pal50_select : std_logic;
   
 begin
   
   dotclock1: entity work.dotclock100
     port map ( clk_in1 => CLK_IN,
-               clock100 => pixelclock, -- 100MHz
-               clock50 => cpuclock, -- 50MHz
-               clock40 => clock40,
-               clock33 => clock33,
+               clock80 => pixelclock, -- 80MHz
+               clock40 => cpuclock, -- 40MHz
+               clock50 => ethclock,
                clock30 => clock30,
-               clock200 => clock200
+               clock100 => clock100,
+               clock120 => clock120,
+               clock240 => clock240
                );
 
   fpgatemp0: fpgatemp
@@ -342,17 +337,18 @@ begin
       );
   
   machine0: entity work.machine
-    generic map (cpufrequency => 50)
+    generic map (cpufrequency => 40)
     port map (
       pixelclock      => pixelclock,
       cpuclock        => cpuclock,
-      clock200 => clock200,
-      clock40 => clock40,
-      clock33 => clock33,
-      clock30 => clock30,
-      clock50mhz      => cpuclock,
       uartclock       => cpuclock, -- Match CPU clock
       ioclock         => cpuclock, -- Match CPU clock
+      clock100 => clock100,
+      clock240 => clock240,
+      clock120 => clock120,
+      clock40 => cpuclock,
+      clock30 => clock30,
+      clock50mhz      => ethclock,
       btncpureset => btncpureset,
       reset_out => reset_out,
       irq => irq,
@@ -360,6 +356,8 @@ begin
       restore_key => restore_key,
       sector_buffer_mapped => sector_buffer_mapped,
 
+      pal50_select_out => pal50_select,
+      
       -- Wire up a dummy caps_lock key on switch 8
       caps_lock_key => sw(8),
 
@@ -405,7 +403,6 @@ begin
       lcd_vsync => lcd_vsync,
       lcd_hsync => lcd_hsync,
       lcd_display_enable => lcd_display_enable,
-      lcd_pixel_strobe => lcd_pixel_strobe,
       vgared(7 downto 0)          => buffer_vgared,
       vgagreen(7 downto 0)        => buffer_vgagreen,
       vgablue(7 downto 0)         => buffer_vgablue,
@@ -444,12 +441,11 @@ begin
       aclInt2 => aclInt2,
       
       micData0 => micData,
-      micData1 => micData,
+      micData1 => '0', -- This board has only one microphone
       micClk => micClk,
       micLRSel => micLRSel,
 
-      ampPWM => ampPWM_internal,
-      ampPWM_l => led(13),
+      ampPWM_l => ampPWM_internal,
       ampPWM_r => led(14),
       ampSD => ampSD,
       
@@ -458,8 +454,20 @@ begin
       tmpInt => tmpInt,
       tmpCT => tmpCT,
 
-      i2c1SDA => jdlo(1),
-      i2c1SCL => jdlo(2),         
+      touchSDA => jdlo(2),
+      touchSCL => jdlo(1),
+      lcdpwm => jdlo(3),
+      -- This is for modem as PCM master:
+      pcm_modem_clk_in => jdhi(7),
+      pcm_modem_sync_in => jdhi(8),
+      -- This is for modem as PCM slave:
+      -- (note that the EC25AU firmware we have doesn't work properly as a PCM
+      -- slave).
+      -- pcm_modem_clk => jdhi(7),
+      -- pcm_modem_sync => jdhi(8),
+      
+      pcm_modem1_data_out => jdhi(9),
+      pcm_modem1_data_in => jdhi(10),
       
       ps2data =>      ps2data,
       ps2clock =>     ps2clk,
@@ -507,34 +515,43 @@ begin
       sseg_ca => sseg_ca,
       sseg_an => sseg_an
       );
-
-    vgared <= buffer_vgablue(7 downto 4);
-    vgagreen <= buffer_vgablue(7 downto 4);
-    vgablue <= buffer_vgablue(7 downto 4);
-  
---  if lcd_panel_enable='1' then
-    jalo <= std_logic_vector(buffer_vgablue(7 downto 4));
-    jahi <= std_logic_vector(buffer_vgared(7 downto 4));
-    jblo <= std_logic_vector(buffer_vgagreen(7 downto 4));
-    jbhi(7) <= lcd_pixel_strobe;
-    jbhi(8) <= lcd_hsync;
-    jbhi(9) <= lcd_vsync;
-    jbhi(10) <= lcd_display_enable;
---  else
---    -- XXX Not bidirectional! Widget board will most likely
---    -- not work with this.
---    pmoda_hi <= jahi(10 downto 7);
---    pmoda_lo <= jalo(4 downto 1);
---  end if;    
-  
+    
   -- Hardware buttons for triggering IRQ & NMI
   irq <= not btn(0);
   nmi <= not btn(4);
   restore_key <= not btn(1);
 
-  process (cpuclock)
+  -- Push correct clock to LCD panel
+  jbhi(7) <= not clock30 when pal50_select='1' else not cpuclock;
+  
+  process (cpuclock,clock120,clock30,cpuclock,pal50_select)
   begin
+    if rising_edge(clock120) then
+      if sw(7)='0' then
+        -- VGA direct output
+        vgared <= buffer_vgared(7 downto 4);
+        vgagreen <= buffer_vgagreen(7 downto 4);
+        vgablue <= buffer_vgablue(7 downto 4);
+      else
+        vgared <= (others => not (lcd_hsync or lcd_vsync));
+        vgagreen <= to_unsigned(sawtooth_counter,4);
+        vgablue <= to_unsigned(sawtooth_counter,4);
+      end if;
+
+      -- VGA out on LCD panel
+      jalo <= std_logic_vector(buffer_vgablue(7 downto 4));
+      jahi <= std_logic_vector(buffer_vgared(7 downto 4));
+      jblo <= std_logic_vector(buffer_vgagreen(7 downto 4));
+      jbhi(8) <= lcd_hsync;
+      jbhi(9) <= lcd_vsync;
+      jbhi(10) <= lcd_display_enable;
+    end if;
+
     if rising_edge(cpuclock) then
+
+      -- No physical keyboard
+      portb_pins <= (others => '1');
+      
       -- Debug audio output
       if sw(7) = '0' then
         ampPWM <= ampPWM_internal;
