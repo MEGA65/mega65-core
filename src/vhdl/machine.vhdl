@@ -550,10 +550,8 @@ architecture Behavioral of machine is
   signal matrix_fetch_address : unsigned(11 downto 0) := to_unsigned(0,12);
   signal matrix_rdata : unsigned(7 downto 0);
 
-  signal lcd_display_enable1 : std_logic := '0';
-  signal lcd_hsync1 : std_logic := '0';
-  signal lcd_vsync1 : std_logic := '0';
   signal lcd_in_letterbox : std_logic := '0';
+  signal lcd_display_enable_internal : std_logic := '0';
 
   signal pal50_select : std_logic := '0';
   signal hsync_polarity : std_logic := '0';
@@ -633,9 +631,12 @@ architecture Behavioral of machine is
   signal shadow_address_state_dbg_out : std_logic_vector(3 downto 0);
 
   signal test_pattern_enable : std_logic := '0';
+
   
 begin
 
+  lcd_display_enable <= lcd_display_enable_internal;
+  
   xcounter_viciv_u <= to_unsigned(xcounter_viciv,12);
   ycounter_viciv_u <= to_unsigned(ycounter_viciv,12);
   
@@ -997,7 +998,7 @@ begin
       -- And the variations on those signals for the LCD display
       lcd_hsync => lcd_hsync,
       lcd_vsync => lcd_vsync,
-      lcd_display_enable => lcd_display_enable
+      lcd_display_enable => lcd_display_enable_internal
 
       );
       
@@ -1125,9 +1126,13 @@ begin
       pixel_y_scale_400 => to_unsigned(0,4),
       pixel_y_scale_200 => to_unsigned(1,4),
       
-      xcounter_in => xcounter_viciv,
       ycounter_in => ycounter_viciv,
 
+      -- Used as proxy for whether there we are in frame vs in border
+      -- (visual keyboard is only for LCD display, so this makes sense
+      -- here).
+      lcd_display_enable => lcd_display_enable_internal,
+      
       -- Pixels from video pipeline
       pixel_strobe_in => pixel_strobe_viciv,
       vgared_in => vgared_rain,

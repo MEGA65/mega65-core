@@ -12,8 +12,8 @@ entity visual_keyboard is
     y_start : in unsigned(11 downto 0);
     x_start : in unsigned(11 downto 0);
 
-    xcounter_in : in integer;
     ycounter_in : in integer;
+    lcd_display_enable : in std_logic; -- is pixel in frame?
     pixel_strobe_in : in std_logic;
     vgared_in : in  unsigned (7 downto 0);
     vgagreen_in : in  unsigned (7 downto 0);
@@ -102,6 +102,7 @@ architecture behavioural of visual_keyboard is
   signal last_was_800 : std_logic := '0';
   signal active : std_logic := '0';
   signal last_ycounter_in : integer := 0;
+  signal xcounter : integer := 0;
   signal key_box_counter : integer := 1;
   signal key_same_as_last : std_logic := '0';
   
@@ -115,7 +116,6 @@ architecture behavioural of visual_keyboard is
   signal char_pixels_remaining : integer range 0 to 8 := 0;
   signal first_column : std_logic := '0';
 
-  signal pixel_x_relative : integer := 0;
   signal osk_in_position_lower : std_logic := '1';
   signal last_visual_keyboard_enable : std_logic := '0';
   signal max_y : integer := 0;
@@ -230,6 +230,14 @@ begin
     if rising_edge(pixelclock) then
 
       pixel_strobe_out <= pixel_strobe_in;
+
+      if lcd_display_enable='0' then
+        xcounter <= 0;
+      else
+        if pixel_strobe_in = '1' then
+          xcounter <= xcounter + 1;
+        end if;
+      end if;
       
       -- Export the current position of the OSK, so that we can move things around
       -- to match it. In particular, we adjust the serial monitor interface, so
@@ -245,13 +253,15 @@ begin
       last_ycounter_in <= ycounter_in;
       
       if alternate_keyboard='1' then
+        -- Dial-pad / alert notification
         double_width <= '1';
         double_height <= '1';
         keyboard_text_start <= alt_keyboard_text_start;
         alt_offset <= 7*16;
       else
+        -- Normal keyboard
         double_width <= '0';
-        double_height <= '1';
+        double_height <= '0';
         keyboard_text_start <= to_unsigned(2048+256,12);
         alt_offset <= 0;
       end if;
@@ -290,7 +300,7 @@ begin
       end if;
 
       -- Work out when to record for zoom display
-      if xcounter_in = zoom_origin_x then
+      if xcounter = zoom_origin_x then
         zoom_recording <= 32;
         zoom_record_x <= to_unsigned(0,5);
       end if;
@@ -334,7 +344,7 @@ begin
       end if;
 
       -- And similarly for playing back the zoomed display
-      if xcounter_in = zoom_display_x then
+      if xcounter = zoom_display_x then
         zoom_play_x <= "000000";
         zoom_playback_enx <= '1';
       end if;
@@ -379,23 +389,17 @@ begin
       
       -- Check if current touch events correspond to any key
       if visual_keyboard_enable='1' then
-        if xcounter_in = touch1_x and ycounter_in = touch1_y and touch1_valid='1' then
+        if xcounter = touch1_x and ycounter_in = touch1_y and touch1_valid='1' then
           touch1_key_internal <= current_matrix_id;
 --          report "touch1 key = $" & to_hstring(current_matrix_id);
         end if;
-        if xcounter_in = touch2_x and ycounter_in = touch2_y and touch2_valid='1' then
+        if xcounter = touch2_x and ycounter_in = touch2_y and touch2_valid='1' then
           touch2_key_internal <= current_matrix_id;
 --          report "touch2 key = $" & to_hstring(current_matrix_id);
         end if;
       end if;
       
-      if xcounter_in < x_start_current then
-        pixel_x_relative <= 800;
-      else
-        pixel_x_relative <= xcounter_in - to_integer(x_start_current);
-      end if;
-      
-      if xcounter_in = 799 then
+      if xcounter = 799 then
         last_was_800 <= '1';
         space_repeat <= 0;
         char_pixels_remaining <= 0;
@@ -489,7 +493,7 @@ begin
       end if;
 
       
-      if pixel_strobe_in='1' and active='1' and pixel_x_relative < 799 then
+      if pixel_strobe_in='1' and active='1' and xcounter < 799 then
 
         -- Calculate character pixel
         char_pixel <= char_data(7);
@@ -506,7 +510,7 @@ begin
             end if;
           end if;
         else
-          if (text_delay = 0) and (pixel_x_relative > 3) then
+          if (text_delay = 0) and (xcounter > 3) then
             char_pixels_remaining <= 7;
             char_data <= next_char_data;
           else
@@ -584,7 +588,7 @@ begin
                 and (next_matrix_id(6 downto 1) = "111111")) then
             null;
           else
-            if pixel_x_relative < 799 then
+            if xcounter < 799 then
               box_pixel <= '1';
             else
               box_pixel <= '0';
@@ -602,7 +606,7 @@ begin
           fetch_state <= FetchNextMatrix;
         else
           -- Draw left edge of keyboard as required (all rows except SPACE bar row)
-          if pixel_x_relative=0 and y_row /= 5 and active='1' and alternate_keyboard='0' then
+          if xcounter=0 and y_row /= 5 and active='1' and alternate_keyboard='0' then
             box_pixel <= '1';
           else
             box_pixel <= '0';
@@ -763,13 +767,13 @@ begin
         vk_pixel <= "00";
       end if;
 
-      if touch1_y = ycounter_in and touch1_x = xcounter_in then
+      if touch1_y = ycounter_in and touch1_x = xcounter then
 --        report "touch1 @ " & integer'image(to_integer(touch1_x))
 --          & "," & integer'image(to_integer(touch1_y));
         vgared_out <= x"00";
         vgagreen_out <= x"00";
         vgablue_out <= x"00";
-      elsif touch2_y = ycounter_in and touch2_x = xcounter_in then
+      elsif touch2_y = ycounter_in and touch2_x = xcounter then
 --        report "touch2 @ " & integer'image(to_integer(touch2_x))
 --          & "," & integer'image(to_integer(touch2_y));
         vgared_out <= x"FF";
@@ -1029,8 +1033,8 @@ begin
       last_visual_keyboard_enable <= visual_keyboard_enable;
 
       -- Work out where to place keyboard to centre it
-      if pixel_x_relative > max_x then
-        max_x <= pixel_x_relative;
+      if xcounter > max_x then
+        max_x <= xcounter;
       end if;
       -- Must start at atleast 1, because starting at 0 causes the display to
       -- be double height.
