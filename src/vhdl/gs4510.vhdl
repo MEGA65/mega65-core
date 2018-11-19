@@ -3591,6 +3591,9 @@ begin
               end if;
               stack_push := '1';
               state <= InterruptPushPCL;
+
+              -- Charge the 7 cycles for the interrupt
+              phi_add_backlog <= '1'; phi_new_backlog <= 7;          
             when InterruptPushPCL =>
               pc_inc := '0';
               stack_push := '1';
@@ -6384,7 +6387,6 @@ begin
           stack_push := '1';
           memory_access_wdata := reg_pc(15 downto 8);
           -- Interrupts take 7 cycles
-          phi_add_backlog <= '1'; phi_new_backlog <= 7;          
         when InterruptPushPCL =>
           stack_push := '1';
           memory_access_wdata := reg_pc(7 downto 0);
