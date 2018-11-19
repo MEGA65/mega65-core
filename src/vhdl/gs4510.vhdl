@@ -6383,6 +6383,8 @@ begin
         when Interrupt =>
           stack_push := '1';
           memory_access_wdata := reg_pc(15 downto 8);
+          -- Interrupts take 7 cycles
+          phi_add_backlog <= '1'; phi_new_backlog <= 7;          
         when InterruptPushPCL =>
           stack_push := '1';
           memory_access_wdata := reg_pc(7 downto 0);
