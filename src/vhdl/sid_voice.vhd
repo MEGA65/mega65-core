@@ -94,7 +94,9 @@ architecture Behavioral of sid_voice is
 	signal	env_cnt_up					: std_logic := '0';
 	signal	env_cnt_clear				: std_logic := '0';
 
+        signal	signal_clamp_max			        : unsigned(11 downto 0) := (others => '0');
         signal	signal_mux_clamped			        : unsigned(11 downto 0) := (others => '0');
+	signal	signal_mux_last					: unsigned(11 downto 0) := (others => '0');
 	signal	signal_mux					: unsigned(11 downto 0) := (others => '0');
 	signal	signal_vol					: unsigned(19 downto 0) := (others => '0');
 
@@ -305,20 +307,28 @@ begin
                   -- an audible click.  Not really sure how the same effect occurs
                   -- in a real SID. Maybe the D/A being analog has a slow response
                   -- as well?  PGS 20181119
-                  if Control(7 downto 4) = "0000" then
---                    if signal_clamp_max /= "000000000000" then
---                      signal_clamp_max <= signal_clamp_max - 1;
---                    end if;
-                    signal_clamp_max <= "000000000000";
-                  else
+                  if Control(7 downto 4) /= "0000" then
+                    -- Channel has a waveform, so slowly increase clamp value
                     if signal_clamp_max /= "111111111111" then
                       signal_clamp_max <= signal_clamp_max + 1;
                     end if;
-                  end if;
-                  if signal_mux < signal_clamp_max then
-                    signal_mux_clamped <= signal_mux;
+                    -- If the value is less than the clamp, let it through, or
+                    -- else clamp it.
+                    if signal_mux < signal_clamp_max then
+                      signal_mux_clamped <= signal_mux;
+                      signal_mux_last <= signal_mux;
+                    else
+                      signal_mux_clamped <= signal_clamp_max;
+                      signal_mux_last <= signal_clamp_max;
+                    end if;
                   else
-                    signal_mux_clamped <= signal_clamp_max;
+                    -- If channel is turned off, then sink clamp value,
+                    -- and decay over 4ms the last value we produced
+                    if signal_mux_last /= "000000000000" then
+                      signal_mux_last <= signal_mux_last - 1;
+                    end if;
+                    signal_clamp_max <= signal_mux_last;
+                    signal_mux_clamped <= signal_mux_last;
                   end if;
 
                   --calculate the resulting volume (due to the envelope generator) of the
