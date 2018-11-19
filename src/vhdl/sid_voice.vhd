@@ -514,11 +514,15 @@ begin
 				if ((env_count_hold_A = '1') or (env_count_hold_B = '1'))then
 					env_counter <= env_counter;			
 				else
-					if (env_cnt_up = '1') then
-							env_counter <= env_counter + 1;
-					else
-							env_counter <= env_counter - 1;
-					end if;
+                                  if (env_cnt_up = '1') then
+                                    if env_counter /= "11111111" then
+                                      env_counter <= env_counter + 1;
+                                    end if;
+                                  else
+                                    if env_counter /= "00000000" then
+                                      env_counter <= env_counter - 1;
+                                    end if;
+                                  end if;
 				end if;
 			end if;
 		end if;
