@@ -582,13 +582,6 @@ reset_entry:
 
 normalboot:
 
-	; check for ALT key to jump to utility menu
-	lda buckykey_status
-	and #$10
-	bne utility_menu
-
-nokey1:
-
 	jsr dump_disk_count	; debugging to Checkpoint
 	jsr dumpcurrentfd	; debugging to Checkpoint
 
@@ -1997,6 +1990,9 @@ l41a:
 		lda buckykey_status
 		and #$10
 		bne utility_menu
+		lda buckykey_status
+		cmp #$03
+		beq utility_menu
 
 		; and otherwise wait until CTRL is released
 		lda buckykey_status
