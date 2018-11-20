@@ -204,7 +204,9 @@ int process_line(char *line,int live)
 	int sector_offset=addr-READ_SECTOR_BUFFER_ADDRESS;
 	// printf("Read sector buffer 0x%03x - 0x%03x\n",sector_offset,sector_offset+15);
 	if (sector_offset<512) {
-	  for(int i=0;i<16;i++) sd_read_buffer[sector_offset+i]=b[i];
+	  if (sd_read_buffer) {
+	    for(int i=0;i<16;i++) sd_read_buffer[sector_offset+i]=b[i];
+	  }
 	  sd_read_offset=sector_offset+16;
 	}
       }
@@ -390,6 +392,7 @@ int sdhc_check(void)
   return sdhc;
 }
 
+// XXX - DO NOT USE A BUFFER THAT IS ON THE STACK OR BAD BAD THINGS WILL HAPPEN
 int read_sector(const unsigned int sector_number,unsigned char *buffer)
 {
   int retVal=0;
@@ -428,14 +431,16 @@ int read_sector(const unsigned int sector_number,unsigned char *buffer)
     sd_read_buffer=buffer;
     sd_read_offset=0;
     while(sd_read_offset!=512) process_waiting(fd);
-
-    // printf("Read sector %d (0x%x)\n",sector_number,sector_number);
+    sd_read_buffer=NULL;
+        // printf("Read sector %d (0x%x)\n",sector_number,sector_number);
     
   } while(0);
   if (retVal) printf("FAIL reading sector %d\n",sector_number);
   return retVal;
      
 }
+
+unsigned char verify[512];
 
 int write_sector(const unsigned int sector_number,unsigned char *buffer)
 {
@@ -477,7 +482,6 @@ int write_sector(const unsigned int sector_number,unsigned char *buffer)
       retVal=-1; break;
     }
 
-    unsigned char verify[512];
     if (read_sector(sector_number,verify)) {
       printf("ERROR: Failed to read sector to verify after writing to sector %d\n",sector_number);
       retVal=-1;
@@ -576,11 +580,11 @@ int open_file_system(void)
   return retVal;
 }
 
+unsigned char buf[512];
+
 unsigned int get_next_cluster(int cluster)
 {
   unsigned int retVal=0xFFFFFFFF;
-
-  unsigned char buf[512];
   
   do {
     // Read chain entry for this cluster
@@ -804,10 +808,11 @@ int allocate_cluster(unsigned int cluster)
   return retVal;
 }
 
+unsigned char fat_sector[512];
+
 unsigned int find_free_cluster(void)
 {
   unsigned int cluster=0;
-  unsigned char fat_sector[512];
 
   int retVal=0;
 
@@ -848,6 +853,7 @@ unsigned int find_free_cluster(void)
 
 int upload_file(char *name)
 {
+  struct dirent de;
   int retVal=0;
   do {
     struct stat st;
@@ -866,7 +872,6 @@ int upload_file(char *name)
 
     if (fat_opendir("/")) { retVal=-1; break; }
     printf("Opened directory, dir_sector=%d\n",dir_sector);
-    struct dirent de;
     while(!fat_readdir(&de)) {
       if (de.d_name[0]) printf("%13s   %d\n",de.d_name,(int)de.d_off);
       //      else dump_bytes(0,"empty dirent",&dir_sector_buffer[dir_sector_offset],32);
