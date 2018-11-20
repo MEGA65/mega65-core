@@ -3592,17 +3592,23 @@ begin
               stack_push := '1';
               state <= InterruptPushPCL;
 
-              -- Charge the 7 cycles for the interrupt
-              phi_add_backlog <= '1'; phi_new_backlog <= 7;          
             when InterruptPushPCL =>
               pc_inc := '0';
               stack_push := '1';
-              state <= InterruptPushP;    
+              state <= InterruptPushP;
+
+              if cpuspeed_internal(7 downto 4) = "0000" then
+                -- Charge the 7 cycles for the interrupt when CPU is not at
+                -- full speed
+                phi_add_backlog <= '1'; phi_new_backlog <= 7;          
+              end if;
+              
             when InterruptPushP =>
                                         -- Push flags to stack (already put in reg_t a few cycles earlier)
               stack_push := '1';
               state <= VectorRead;
               vector_read_stage <= 0;
+
             when RTI =>
               stack_pop := '1';
               state <= RTI2;
