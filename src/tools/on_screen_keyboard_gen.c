@@ -79,7 +79,7 @@ int main(int argc,char **argv)
     
     // Remove boxes around characters
     int y=0;
-    for(int x=0;line[x];x++) {
+    for(int x=1;line[x+1];x++) {
       if (line[x]=='|'
 	  ||(line[x]=='+'&&(line[x-1]=='-'||line[x+1]=='-'))
 	  ||(line[x]=='-'&&(line[x-1]=='-'||line[x+1]=='-'))
