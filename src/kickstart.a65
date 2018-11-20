@@ -1204,6 +1204,7 @@ loaddiskmenu:
 	jsr dumpcurrentfd	; debugging to Checkpoint
 
 	; check for keyboard input to jump to utility menu
+	jsr utility_menu_check
 	jsr scankeyboard
 	bcs nokey4
 	cmp #$20
@@ -1987,12 +1988,7 @@ l41:		lda buckykey_status
 
 l41a:
 		; check for ALT key to jump to utility menu
-		lda buckykey_status
-		and #$10
-		bne utility_menu
-		lda buckykey_status
-		cmp #$03
-		beq utility_menu
+		jsr utility_menu_check
 
 		; and otherwise wait until CTRL is released
 		lda buckykey_status
@@ -2213,15 +2209,25 @@ l1:		; Enable VIC-IV / MEGA65 IO
 ;	========================
 		.include "kickstart_keyboard.a65"
 
+utility_menu_check:
+  		lda buckykey_status
+		cmp #$03
+		beq utility_menu
+		and #$10
+		bne utility_menu
+		rts
+
 keyboardread:
 
 ; Check for keyboard activity, and change which ROM we intend to read
 ; based on that, i.e., holding any key down during boot will load MEGA65<that character>.ROM instead of MEGA65.ROM
 
+  	   	 jsr utility_menu_check
+
 		jsr scankeyboard		
 		bcs kr2  ; if an error occured
 		cmp #$20
-		beq utility_menu
+		beq utility_menu		
 		cmp #$30
 		bcc kr2
 		cmp #$39
