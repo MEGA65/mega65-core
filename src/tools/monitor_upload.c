@@ -704,14 +704,80 @@ int fat_readdir(struct dirent *d)
 
 int allocate_cluster(unsigned int cluster)
 {
-  return -1;
+  int retVal=0;
+
+  do {
+    int fat_sector_num=cluster/(512/4);
+    int fat_sector_offset=(cluster*4)&0x1FF;
+    if (fat_sector_num>=sectors_per_fat) {
+      printf("ERROR: cluster number too large.\n");
+      retVal=-1; break;
+    }
+
+    // Read in the sector of FAT1
+    unsigned char fat_sector[512];
+    if (read_sector(partition_start+fat1_sector+fat_sector_num,fat_sector)) {
+      printf("ERROR: Failed to read sector $%x of first FAT\n",fat_sector_num);
+      retVal=-1; break;
+    }
+    
+    // Set the bytes for this cluster to $0FFFFFF to mark end of chain and in use
+    fat_sector[fat_sector_offset+0]=0xff;
+    fat_sector[fat_sector_offset+1]=0xff;
+    fat_sector[fat_sector_offset+2]=0xff;
+    fat_sector[fat_sector_offset+3]=0x0f;
+
+    // Write sector back to FAT1
+    if (write_sector(partition_start+fat1_sector+fat_sector_num,fat_sector)) {
+      printf("ERROR: Failed to write updated FAT sector $%x to FAT1\n",fat_sector_num);
+      retVal=-1; break; }
+
+    // Write sector back to FAT2
+    if (write_sector(partition_start+fat2_sector+fat_sector_num,fat_sector)) {
+      printf("ERROR: Failed to write updated FAT sector $%x to FAT1\n",fat_sector_num);
+      retVal=-1; break; }
+
+    
+  } while(0);
+  
+  return retVal;
 }
 
 unsigned int find_free_cluster(void)
 {
   unsigned int cluster=0;
+  unsigned char fat_sector[512];
 
-  return cluster;
+  int retVal=0;
+
+  do {
+    int i;
+    
+    for(i=0;i<sectors_per_fat;i++) {
+      // Read FAT sector
+      if (read_sector(partition_start+fat1_sector+i,fat_sector)) {
+	printf("ERROR: Failed to read sector $%x of first FAT\n",i);
+	retVal=-1; break;
+      }
+    }
+
+    if (retVal) break;
+    
+    // Search for free sectors
+    for(int o=0;o<512;o+=4) {
+      if (!(fat_sector[o]|fat_sector[o+1]|fat_sector[o+2]|fat_sector[o+3]))
+	{
+	  // Found a free cluster.
+	  cluster = i*(512/4)+(o/4);
+	}
+    }
+    
+    if (cluster||retVal) break;
+      
+    retVal=cluster;
+  } while(0);
+  
+  return retVal;
 }
 
 int upload_file(char *name)
