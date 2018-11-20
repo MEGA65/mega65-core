@@ -702,6 +702,57 @@ int fat_readdir(struct dirent *d)
   return retVal;
 }
 
+int chain_cluster(unsigned int cluster,unsigned int next_cluster)
+{
+  int retVal=0;
+
+  do {
+    int fat_sector_num=cluster/(512/4);
+    int fat_sector_offset=(cluster*4)&0x1FF;
+    if (fat_sector_num>=sectors_per_fat) {
+      printf("ERROR: cluster number too large.\n");
+      retVal=-1; break;
+    }
+
+    // Read in the sector of FAT1
+    unsigned char fat_sector[512];
+    if (read_sector(partition_start+fat1_sector+fat_sector_num,fat_sector)) {
+      printf("ERROR: Failed to read sector $%x of first FAT\n",fat_sector_num);
+      retVal=-1; break;
+    }
+
+    dump_bytes(0,"FAT sector",fat_sector,512);
+    
+    printf("Marking cluster $%x in use by writing to offset $%x of FAT sector $%x\n",
+	   cluster,fat_sector_offset,fat_sector_num);
+    
+    // Set the bytes for this cluster to $0FFFFF8 to mark end of chain and in use
+    fat_sector[fat_sector_offset+0]=(next_cluster>>0)&0xff;
+    fat_sector[fat_sector_offset+1]=(next_cluster>>8)&0xff;
+    fat_sector[fat_sector_offset+2]=(next_cluster>>16)&0xff;
+    fat_sector[fat_sector_offset+3]=(next_cluster>>24)&0x0f;
+
+    printf("Marking cluster in use in FAT1\n");
+
+    // Write sector back to FAT1
+    if (write_sector(partition_start+fat1_sector+fat_sector_num,fat_sector)) {
+      printf("ERROR: Failed to write updated FAT sector $%x to FAT1\n",fat_sector_num);
+      retVal=-1; break; }
+
+    printf("Marking cluster in use in FAT2\n");
+
+    // Write sector back to FAT2
+    if (write_sector(partition_start+fat2_sector+fat_sector_num,fat_sector)) {
+      printf("ERROR: Failed to write updated FAT sector $%x to FAT1\n",fat_sector_num);
+      retVal=-1; break; }
+
+    printf("Done allocating cluster\n");
+    
+  } while(0);
+  
+  return retVal;
+}
+
 int allocate_cluster(unsigned int cluster)
 {
   int retVal=0;
@@ -920,6 +971,58 @@ int upload_file(char *name)
       
       
     } else printf("First cluster of file is $%x\n",first_cluster);
+
+    // Now write the file out sector by sector, and allocate new clusters as required
+    int remaining_length=st.st_size;
+    int sector_in_cluster=0;
+    int file_cluster=first_cluster;
+    unsigned int sector_number;
+    FILE *f=fopen(name,"r");
+
+    if (!f) {
+      printf("ERROR: Could not open file '%s' for reading.\n",name);
+      retVal=-1; break;
+    }
+    
+    while(remaining_length) {
+      if (sector_in_cluster>=sectors_per_cluster) {
+	// Advance to next cluster
+	// If we are currently the last cluster, then allocate a new one, and chain it in
+
+	int next_cluster=find_free_cluster();
+	if (!next_cluster) {
+	  printf("ERROR: Could not find a free cluster\n");
+	  retVal=-1; break;
+	}
+	if (allocate_cluster(next_cluster)) {
+	  printf("ERROR: Could not allocate cluster $%x\n",next_cluster);
+	  retVal=-1; break;
+	}
+	if (chain_cluster(file_cluster,next_cluster)) {
+	  printf("ERROR: Could not chain cluster $%x to $%x\n",file_cluster,next_cluster);
+	  retVal=-1; break;
+	}
+	
+	file_cluster=next_cluster;
+	sector_in_cluster=0;
+      }
+
+      // Write sector
+      unsigned char buffer[512];
+      bzero(buffer,512);
+      int bytes=fread(buffer,1,512,f);
+      printf("Read %d bytes from file\n",bytes);
+
+      if (write_sector(partition_start+first_cluster_sector+(sectors_per_cluster*(file_cluster-first_cluster))+sector_in_cluster,buffer)) {
+	printf("ERROR: Failed to write to sector %d\n",
+	       partition_start+first_cluster_sector+(sectors_per_cluster*(file_cluster-first_cluster))+sector_in_cluster);
+	retVal=-1;
+	break;
+      }
+
+      sector_in_cluster++;
+      remaining_length-=512;
+    }
     
   } while(0);
 
