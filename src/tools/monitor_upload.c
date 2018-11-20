@@ -702,6 +702,18 @@ int fat_readdir(struct dirent *d)
   return retVal;
 }
 
+int allocate_cluster(unsigned int cluster)
+{
+  return -1;
+}
+
+unsigned int find_free_cluster(void)
+{
+  unsigned int cluster=0;
+
+  return cluster;
+}
+
 int upload_file(char *name)
 {
   int retVal=0;
@@ -791,7 +803,42 @@ int upload_file(char *name)
       printf("ERROR: Directory is full.  Request support for extending directory into multiple clusters.\n");
       retVal=-1;
       break;
+    } else {
+      printf("Directory entry is at offset $%03x of sector $%x\n",dir_sector_offset,dir_sector);
     }
+
+    // Read out the first cluster. If zero, then we need to allocate a first cluster.
+    // After that, we can allocate and chain clusters in a constant manner
+    unsigned int first_cluster=
+      (dir_sector_buffer[dir_sector_offset+0x1A]<<0)
+      |(dir_sector_buffer[dir_sector_offset+0x1B]<<8)
+      |(dir_sector_buffer[dir_sector_offset+0x14]<<16)
+      |(dir_sector_buffer[dir_sector_offset+0x15]<<24);
+    if (!first_cluster) {
+      printf("File currently has no first cluster allocated.\n");
+
+      int a_cluster=find_free_cluster();
+      if (!a_cluster) {
+	printf("ERROR: Failed to find a free cluster.\n");
+	retVal=-1; break;
+      }
+      if (allocate_cluster(a_cluster)) {
+	printf("ERROR: Could not allocate cluster $%x\n",a_cluster);
+	retVal=-1; break;	
+      }
+
+      // Write cluster number into directory entry
+      dir_sector_buffer[dir_sector_offset+0x1A]=(a_cluster>>0)&0xff;
+      dir_sector_buffer[dir_sector_offset+0x1B]=(a_cluster>>8)&0xff;
+      dir_sector_buffer[dir_sector_offset+0x14]=(a_cluster>>16)&0xff;
+      dir_sector_buffer[dir_sector_offset+0x15]=(a_cluster>>24)&0xff;
+      
+      if (write_sector(partition_start+dir_sector,dir_sector_buffer)) {
+	printf("ERROR: Failed to write updated directory sector after allocating first cluster.\n");
+	retVal=-1; break; }
+      
+      
+    } else printf("First cluster of file is $%x\n",first_cluster);
     
   } while(0);
 
