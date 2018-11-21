@@ -49,7 +49,7 @@ time_t start_time=0;
 
 int upload_file(char *name);
 int sdhc_check(void);
-int read_sector(const unsigned int sector_number,unsigned char *buffer);
+int read_sector(const unsigned int sector_number,unsigned char *buffer, int noCacheP);
 
 int osk_enable=0;
 
@@ -380,9 +380,9 @@ int sdhc_check(void)
   // Force early detection of old vs new uart monitor
   slow_write(fd,"r\r",2);
   
-  int r0=read_sector(0,buffer);
-  int r1=read_sector(1,buffer);
-  int r200=read_sector(0x200,buffer);
+  int r0=read_sector(0,buffer,1);
+  int r1=read_sector(1,buffer,1);
+  int r200=read_sector(0x200,buffer,1);
   // printf("%d %d %d\n",r0,r1,r200);
   if (r0||r200) {
     fprintf(stderr,"Could not detect SD/SDHC card\n");
@@ -392,11 +392,30 @@ int sdhc_check(void)
   return sdhc;
 }
 
+#define SECTOR_CACHE_SIZE 4096
+int sector_cache_count=0;
+unsigned char sector_cache[SECTOR_CACHE_SIZE][512];
+unsigned int sector_cache_sectors[SECTOR_CACHE_SIZE];
+
 // XXX - DO NOT USE A BUFFER THAT IS ON THE STACK OR BAD BAD THINGS WILL HAPPEN
-int read_sector(const unsigned int sector_number,unsigned char *buffer)
+int read_sector(const unsigned int sector_number,unsigned char *buffer,int noCacheP)
 {
   int retVal=0;
   do {
+
+    int cachedRead=0;
+    
+    if (!noCacheP) {
+      for(int i=0;i<sector_cache_count;i++) {
+	if (sector_cache_sectors[i]==sector_number) {
+	  bcopy(sector_cache[i],buffer,512);
+	  retVal=0; cachedRead=1; break;
+	}
+      }
+    }
+
+    if (cachedRead) break;
+    
     // Clear backlog
     // printf("Clearing serial backlog in preparation for reading sector 0x%x\n",sector_number);
     process_waiting(fd);
@@ -433,6 +452,16 @@ int read_sector(const unsigned int sector_number,unsigned char *buffer)
     while(sd_read_offset!=512) process_waiting(fd);
     sd_read_buffer=NULL;
         // printf("Read sector %d (0x%x)\n",sector_number,sector_number);
+
+    // Store in cache / update cache
+    int i;
+    for(i=0;i<sector_cache_count;i++) 
+      if (sector_cache_sectors[i]==sector_number) break;
+    if (i<SECTOR_CACHE_SIZE) {
+      bcopy(buffer,sector_cache[i],512);
+      sector_cache_sectors[i]=sector_number;
+    }
+    if (sector_cache_count<(i+1)) sector_cache_count=i+1;
     
   } while(0);
   if (retVal) printf("FAIL reading sector %d\n",sector_number);
@@ -482,7 +511,7 @@ int write_sector(const unsigned int sector_number,unsigned char *buffer)
       retVal=-1; break;
     }
 
-    if (read_sector(sector_number,verify)) {
+    if (read_sector(sector_number,verify,1)) {
       printf("ERROR: Failed to read sector to verify after writing to sector %d\n",sector_number);
       retVal=-1;
       break;
@@ -518,7 +547,7 @@ int open_file_system(void)
 {
   int retVal=0;
   do {
-    if (read_sector(0,mbr)) {
+    if (read_sector(0,mbr,0)) {
       fprintf(stderr,"ERROR: Could not read MBR\n");
       retVal=-1;
       break;
@@ -540,7 +569,7 @@ int open_file_system(void)
     if (!partition_size) { retVal=-1; break; }
 
     // Ok, so we know where the partition starts, so now find the FATs
-    if (read_sector(partition_start,fat_mbr)) {
+    if (read_sector(partition_start,fat_mbr,0)) {
       printf("ERROR: Could not read FAT MBR\n");
       retVal=-1; break; }
 
@@ -592,7 +621,7 @@ unsigned int get_next_cluster(int cluster)
     int cluster_sector_offset=(cluster*4)&511;
 
     // Read sector of cluster
-    if (read_sector(partition_start+fat1_sector+cluster_sector_number,buf)) break;
+    if (read_sector(partition_start+fat1_sector+cluster_sector_number,buf,0)) break;
 
     // Get value out
     retVal=
@@ -624,7 +653,7 @@ int fat_opendir(char *path)
     dir_sector=first_cluster_sector;
     dir_sector_offset=-32;
     dir_sector_in_cluster=0;
-    retVal=read_sector(partition_start+dir_sector,dir_sector_buffer);
+    retVal=read_sector(partition_start+dir_sector,dir_sector_buffer,0);
     if (retVal) dir_sector=-1;
     
   } while(0);
@@ -656,7 +685,7 @@ int fat_readdir(struct dirent *d)
 	  break;
 	}
       }
-      if (dir_sector!=-1) retVal=read_sector(partition_start+dir_sector,dir_sector_buffer);
+      if (dir_sector!=-1) retVal=read_sector(partition_start+dir_sector,dir_sector_buffer,0);
       if (retVal) dir_sector=-1;      
     }    
 
@@ -720,7 +749,7 @@ int chain_cluster(unsigned int cluster,unsigned int next_cluster)
 
     // Read in the sector of FAT1
     unsigned char fat_sector[512];
-    if (read_sector(partition_start+fat1_sector+fat_sector_num,fat_sector)) {
+    if (read_sector(partition_start+fat1_sector+fat_sector_num,fat_sector,0)) {
       printf("ERROR: Failed to read sector $%x of first FAT\n",fat_sector_num);
       retVal=-1; break;
     }
@@ -771,7 +800,7 @@ int allocate_cluster(unsigned int cluster)
 
     // Read in the sector of FAT1
     unsigned char fat_sector[512];
-    if (read_sector(partition_start+fat1_sector+fat_sector_num,fat_sector)) {
+    if (read_sector(partition_start+fat1_sector+fat_sector_num,fat_sector,0)) {
       printf("ERROR: Failed to read sector $%x of first FAT\n",fat_sector_num);
       retVal=-1; break;
     }
@@ -822,7 +851,7 @@ unsigned int chained_cluster(unsigned int cluster)
 
     // Read in the sector of FAT1
     unsigned char fat_sector[512];
-    if (read_sector(partition_start+fat1_sector+fat_sector_num,fat_sector)) {
+    if (read_sector(partition_start+fat1_sector+fat_sector_num,fat_sector,0)) {
       printf("ERROR: Failed to read sector $%x of first FAT\n",fat_sector_num);
       retVal=-1; break;
     }
@@ -855,7 +884,7 @@ unsigned int find_free_cluster(void)
     for(i=0;i<sectors_per_fat;i++) {
       // Read FAT sector
       printf("Checking FAT sector $%x for free clusters.\n",i);
-      if (read_sector(partition_start+fat1_sector+i,fat_sector)) {
+      if (read_sector(partition_start+fat1_sector+i,fat_sector,0)) {
 	printf("ERROR: Failed to read sector $%x of first FAT\n",i);
 	retVal=-1; break;
       }
