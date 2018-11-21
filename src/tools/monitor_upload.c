@@ -725,7 +725,7 @@ int chain_cluster(unsigned int cluster,unsigned int next_cluster)
       retVal=-1; break;
     }
 
-    //    dump_bytes(0,"FAT sector",fat_sector,512);
+    dump_bytes(0,"FAT sector",fat_sector,512);
     
     printf("Marking cluster $%x in use by writing to offset $%x of FAT sector $%x\n",
 	   cluster,fat_sector_offset,fat_sector_num);
@@ -776,7 +776,7 @@ int allocate_cluster(unsigned int cluster)
       retVal=-1; break;
     }
 
-    //    dump_bytes(0,"FAT sector",fat_sector,512);
+    dump_bytes(0,"FAT sector",fat_sector,512);
     
     printf("Marking cluster $%x in use by writing to offset $%x of FAT sector $%x\n",
 	   cluster,fat_sector_offset,fat_sector_num);
@@ -1028,20 +1028,22 @@ int upload_file(char *name)
 	// If we are currently the last cluster, then allocate a new one, and chain it in
 
 	int next_cluster=chained_cluster(file_cluster);
-	if (next_cluster==0||next_cluster>=0xffffff8)
+	if (next_cluster==0||next_cluster>=0xffffff8) {
 	  next_cluster=find_free_cluster();
+	  if (allocate_cluster(next_cluster)) {
+	    printf("ERROR: Could not allocate cluster $%x\n",next_cluster);
+	    retVal=-1; break;
+	  }
+	  if (chain_cluster(file_cluster,next_cluster)) {
+	    printf("ERROR: Could not chain cluster $%x to $%x\n",file_cluster,next_cluster);
+	    retVal=-1; break;
+	  }
+	}
 	if (!next_cluster) {
 	  printf("ERROR: Could not find a free cluster\n");
 	  retVal=-1; break;
 	}
-	if (allocate_cluster(next_cluster)) {
-	  printf("ERROR: Could not allocate cluster $%x\n",next_cluster);
-	  retVal=-1; break;
-	}
-	if (chain_cluster(file_cluster,next_cluster)) {
-	  printf("ERROR: Could not chain cluster $%x to $%x\n",file_cluster,next_cluster);
-	  retVal=-1; break;
-	}
+	
 	
 	file_cluster=next_cluster;
 	sector_in_cluster=0;
