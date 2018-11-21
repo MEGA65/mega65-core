@@ -47,6 +47,7 @@ static const int B2000000 = 2000000;
 static const int B4000000 = 4000000;
 #endif
 time_t start_time=0;
+long long start_usec=0;
 
 int upload_file(char *name);
 int sdhc_check(void);
@@ -136,8 +137,9 @@ int slow_write(int fd,char *d,int l,int preWait)
 	w=write(fd,&d[i],1);
       }
       // Only control characters can cause us whole line delays,
-      if (d[i]<' ') usleep(2000); else usleep(40);
+      if (d[i]<' ') usleep(2000); else usleep(0);
     }
+  tcdrain(fd);
   return 0;
 }
 
@@ -312,6 +314,7 @@ void set_speed(int fd,int serial_speed)
 int main(int argc,char **argv)
 {
   start_time=time(0);
+  start_usec=gettime_us();
   
   int opt;
   while ((opt = getopt(argc, argv, "b:s:l:")) != -1) {
@@ -390,11 +393,13 @@ int main(int argc,char **argv)
 void wait_for_sdready(void)
 {
   do {  
+    long long start=gettime_us();
+
     // Ask for SD card status
     sd_status[0]=0xff;
     while(sd_status[0]&3) {
       sd_status_fresh=0;
-      slow_write(fd,"mffd3680\r",strlen("mffd3680\r"),100);
+      slow_write(fd,"mffd3680\r",strlen("mffd3680\r"),0);
       while(!sd_status_fresh) process_waiting(fd);
       if (sd_status[0]&3) {
 	// Send reset sequence
@@ -404,6 +409,7 @@ void wait_for_sdready(void)
       }
     }
     //     printf("SD Card looks ready.\n");
+    printf("wait_for_sdready() took %lld usec\n",gettime_us()-start);
   } while(0);
   return;
 }
@@ -468,7 +474,8 @@ int read_sector(const unsigned int sector_number,unsigned char *buffer,int noCac
   do {
 
     int cachedRead=0;
-    
+        printf("T+%lld : CHECKPOINT : %s:%d %s()\n",gettime_us()-start_usec,__FILE__,__LINE__,__FUNCTION__);
+
     if (!noCacheP) {
       for(int i=0;i<sector_cache_count;i++) {
 	if (sector_cache_sectors[i]==sector_number) {
@@ -477,6 +484,7 @@ int read_sector(const unsigned int sector_number,unsigned char *buffer,int noCac
 	}
       }
     }
+    printf("T+%lld : CHECKPOINT : %s:%d %s()\n",gettime_us()-start_usec,__FILE__,__LINE__,__FUNCTION__);
 
     if (cachedRead) break;
     
@@ -484,8 +492,12 @@ int read_sector(const unsigned int sector_number,unsigned char *buffer,int noCac
     // printf("Clearing serial backlog in preparation for reading sector 0x%x\n",sector_number);
     process_waiting(fd);
 
+        printf("T+%lld : CHECKPOINT : %s:%d %s()\n",gettime_us()-start_usec,__FILE__,__LINE__,__FUNCTION__);
+
     // printf("Getting SD card ready\n");
     wait_for_sdready();
+
+        printf("T+%lld : CHECKPOINT : %s:%d %s()\n",gettime_us()-start_usec,__FILE__,__LINE__,__FUNCTION__);
 
     // printf("Commanding SD read\n");
     char cmd[1024];
@@ -502,6 +514,8 @@ int read_sector(const unsigned int sector_number,unsigned char *buffer,int noCac
       retVal=-1; break;
     }
 
+    printf("T+%lld : CHECKPOINT : %s:%d %s()\n",gettime_us()-start_usec,__FILE__,__LINE__,__FUNCTION__);
+
     // Read succeeded, so fetch sector contents
     // printf("Reading back sector contents\n");
     sd_read_buffer=buffer;
@@ -509,11 +523,15 @@ int read_sector(const unsigned int sector_number,unsigned char *buffer,int noCac
     snprintf(cmd,1024,"M%x\r",READ_SECTOR_BUFFER_ADDRESS);
     slow_write(fd,cmd,strlen(cmd),0);
     while(sd_read_offset!=256) process_waiting(fd);
+    printf("T+%lld : CHECKPOINT : %s:%d %s()\n",gettime_us()-start_usec,__FILE__,__LINE__,__FUNCTION__);
+
     snprintf(cmd,1024,"M%x\r",READ_SECTOR_BUFFER_ADDRESS+0x100);
     slow_write(fd,cmd,strlen(cmd),0);
     while(sd_read_offset!=512) process_waiting(fd);
     sd_read_buffer=NULL;
         // printf("Read sector %d (0x%x)\n",sector_number,sector_number);
+
+        printf("T+%lld : CHECKPOINT : %s:%d %s()\n",gettime_us()-start_usec,__FILE__,__LINE__,__FUNCTION__);
 
     // Store in cache / update cache
     int i;
@@ -524,7 +542,9 @@ int read_sector(const unsigned int sector_number,unsigned char *buffer,int noCac
       sector_cache_sectors[i]=sector_number;
     }
     if (sector_cache_count<(i+1)) sector_cache_count=i+1;
-    
+
+        printf("T+%lld : CHECKPOINT : %s:%d %s()\n",gettime_us()-start_usec,__FILE__,__LINE__,__FUNCTION__);
+
   } while(0);
   if (retVal) printf("FAIL reading sector %d\n",sector_number);
   return retVal;
@@ -539,7 +559,9 @@ int write_sector(const unsigned int sector_number,unsigned char *buffer)
   do {
     int sectorUnchanged=0;
     // Force sector into read buffer
+    printf("T+%lld : CHECKPOINT : %s:%d %s()\n",gettime_us()-start_usec,__FILE__,__LINE__,__FUNCTION__);
     read_sector(sector_number,verify,0);
+    printf("T+%lld : CHECKPOINT : %s:%d %s()\n",gettime_us()-start_usec,__FILE__,__LINE__,__FUNCTION__);
     // See if it matches what we are writing, if so, don't write it!
     for(int i=0;i<sector_cache_count;i++) {
       if (sector_number==sector_cache_sectors[i]) {
@@ -549,6 +571,7 @@ int write_sector(const unsigned int sector_number,unsigned char *buffer)
 	}
       }
     }
+    printf("T+%lld : CHECKPOINT : %s:%d %s()\n",gettime_us()-start_usec,__FILE__,__LINE__,__FUNCTION__);
     if (sectorUnchanged) {
       printf("Skipping physical write\n");
       break;
@@ -1140,7 +1163,7 @@ int upload_file(char *name)
       printf("ERROR: Could not open file '%s' for reading.\n",name);
       retVal=-1; break;
     }
-    
+
     while(remaining_length) {
       if (sector_in_cluster>=sectors_per_cluster) {
 	// Advance to next cluster
@@ -1173,15 +1196,15 @@ int upload_file(char *name)
       bzero(buffer,512);
       int bytes=fread(buffer,1,512,f);
       sector_number=partition_start+first_cluster_sector+(sectors_per_cluster*(file_cluster-first_cluster))+sector_in_cluster;
-      printf("Read %d bytes from file, writing to sector $%x (%d) for cluster %d\n",bytes,sector_number,sector_number,file_cluster);
+      printf("T+%lld : Read %d bytes from file, writing to sector $%x (%d) for cluster %d\n",
+	     gettime_us()-start_usec,bytes,sector_number,sector_number,file_cluster);
 
-      #if 1
       if (write_sector(sector_number,buffer)) {
 	printf("ERROR: Failed to write to sector %d\n",sector_number);
 	retVal=-1;
 	break;
       }
-      #endif
+      printf("T+%lld : after write.\n",gettime_us()-start_usec);
 
       sector_in_cluster++;
       remaining_length-=512;
