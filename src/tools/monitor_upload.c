@@ -99,14 +99,16 @@ int slow_write(int fd,char *d,int l)
   // writing. 100 chars x 0.5usec = 500usec. So 1ms between chars should be ok.
   // printf("Writing [%s]\n",d);
   int i;
+  usleep(5000);
   for(i=0;i<l;i++)
     {
-      usleep(2000);
       int w=write(fd,&d[i],1);
       while (w<1) {
 	usleep(1000);
 	w=write(fd,&d[i],1);
       }
+      // Only control characters can cause us whole line delays,
+      if (d[i]<' ') usleep(2000); else usleep(50);
     }
   return 0;
 }
