@@ -97,9 +97,9 @@ int slow_write(int fd,char *d,int l)
 {
   // UART is at 2Mbps, but we need to allow enough time for a whole line of
   // writing. 100 chars x 0.5usec = 500usec. So 1ms between chars should be ok.
-  // printf("Writing [%s]\n",d);
+  printf("Writing [%s]\n",d);
   int i;
-  usleep(5000);
+  usleep(2500);
   for(i=0;i<l;i++)
     {
       int w=write(fd,&d[i],1);
@@ -108,7 +108,7 @@ int slow_write(int fd,char *d,int l)
 	w=write(fd,&d[i],1);
       }
       // Only control characters can cause us whole line delays,
-      if (d[i]<' ') usleep(2000); else usleep(50);
+      if (d[i]<' ') usleep(2000); else usleep(40);
     }
   return 0;
 }
@@ -168,7 +168,7 @@ int dump_bytes(int col, char *msg,unsigned char *bytes,int length)
 
 int process_line(char *line,int live)
 {
-  //  printf("[%s]\n",line);
+  printf("[%s]\n",line);
   if (!live) return 0;
   if (strstr(line,"ws h RECA8LHC")) {
      if (!new_monitor) printf("Detected new-style UART monitor.\n");
@@ -372,6 +372,7 @@ int wait_for_sdready_passive(void)
 }
 
 int sdhc=-1;
+int onceOnly=1;
 
 int sdhc_check(void)
 {
@@ -380,7 +381,8 @@ int sdhc_check(void)
   sdhc=0;
 
   // Force early detection of old vs new uart monitor
-  slow_write(fd,"r\r",2);
+  if (onceOnly) slow_write(fd,"r\r",2);
+  onceOnly=0;
   
   int r0=read_sector(0,buffer,1);
   int r1=read_sector(1,buffer,1);
@@ -442,15 +444,13 @@ int read_sector(const unsigned int sector_number,unsigned char *buffer,int noCac
 
     // Read succeeded, so fetch sector contents
     // printf("Reading back sector contents\n");
-    snprintf(cmd,1024,"M%x\rM%x\rM%x\rM%x\r",
-	     READ_SECTOR_BUFFER_ADDRESS,
-	     READ_SECTOR_BUFFER_ADDRESS+0x80,
-	     READ_SECTOR_BUFFER_ADDRESS+0x100,
-	     READ_SECTOR_BUFFER_ADDRESS+0x180);
-    slow_write(fd,cmd,strlen(cmd));
-	     
     sd_read_buffer=buffer;
     sd_read_offset=0;
+    snprintf(cmd,1024,"M%x\r",READ_SECTOR_BUFFER_ADDRESS);
+    slow_write(fd,cmd,strlen(cmd));
+    while(sd_read_offset!=256) process_waiting(fd);
+    snprintf(cmd,1024,"M%x\r",READ_SECTOR_BUFFER_ADDRESS+0x100);
+    slow_write(fd,cmd,strlen(cmd));
     while(sd_read_offset!=512) process_waiting(fd);
     sd_read_buffer=NULL;
         // printf("Read sector %d (0x%x)\n",sector_number,sector_number);
@@ -523,6 +523,16 @@ int write_sector(const unsigned int sector_number,unsigned char *buffer)
       retVal=-1;
       break;
     }
+
+    // Store in cache / update cache
+    int i;
+    for(i=0;i<sector_cache_count;i++) 
+      if (sector_cache_sectors[i]==sector_number) break;
+    if (i<SECTOR_CACHE_SIZE) {
+      bcopy(buffer,sector_cache[i],512);
+      sector_cache_sectors[i]=sector_number;
+    }
+    if (sector_cache_count<(i+1)) sector_cache_count=i+1;
     
   } while(0);
   if (retVal) printf("FAIL reading sector %d\n",sector_number);
