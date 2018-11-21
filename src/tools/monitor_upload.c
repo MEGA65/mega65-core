@@ -405,7 +405,7 @@ int main(int argc,char **argv)
 void wait_for_sdready(void)
 {
   do {  
-    long long start=gettime_us();
+  //    long long start=gettime_us();
 
     // Ask for SD card status
     sd_status[0]=0xff;
@@ -421,7 +421,7 @@ void wait_for_sdready(void)
       }
     }
     //     printf("SD Card looks ready.\n");
-    printf("wait_for_sdready() took %lld usec\n",gettime_us()-start);
+    //    printf("wait_for_sdready() took %lld usec\n",gettime_us()-start);
   } while(0);
   return;
 }
@@ -430,7 +430,7 @@ int wait_for_sdready_passive(void)
 {
   int retVal=0;
   do {
-    long long start=gettime_us();
+  //    long long start=gettime_us();
     
     // Ask for SD card status
     sd_status[0]=0xff;
@@ -444,7 +444,7 @@ int wait_for_sdready_passive(void)
 	  retVal=-1; break; }
     }
     // printf("SD Card looks ready.\n");
-    printf("wait_for_sdready_passive() took %lld usec\n",gettime_us()-start);
+    //    printf("wait_for_sdready_passive() took %lld usec\n",gettime_us()-start);
   } while(0);
   return retVal;
 }
@@ -563,13 +563,13 @@ int write_sector(const unsigned int sector_number,unsigned char *buffer)
     for(int i=0;i<sector_cache_count;i++) {
       if (sector_number==sector_cache_sectors[i]) {
 	if (!bcmp(sector_cache[i],buffer,512)) {
-	  printf("Writing unchanged sector -- skipping physical write\n");
+	  //	  printf("Writing unchanged sector -- skipping physical write\n");
 	  sectorUnchanged=1; break;
 	}
       }
     }
     if (sectorUnchanged) {
-      printf("Skipping physical write\n");
+      //      printf("Skipping physical write\n");
       break;
     }
     else printf("Proceeding with physical write\n");
@@ -1200,7 +1200,7 @@ int upload_file(char *name)
 	retVal=-1;
 	break;
       }
-      printf("T+%lld : after write.\n",gettime_us()-start_usec);
+      //      printf("T+%lld : after write.\n",gettime_us()-start_usec);
 
       sector_in_cluster++;
       remaining_length-=512;
