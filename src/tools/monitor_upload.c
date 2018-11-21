@@ -249,6 +249,38 @@ int process_waiting(int fd)
   return 0;
 }
 
+void set_speed(int fd,int serial_speed)
+{
+  struct termios t;
+  if (serial_speed==230400) {
+    if (cfsetospeed(&t, B230400)) perror("Failed to set output baud rate");
+    if (cfsetispeed(&t, B230400)) perror("Failed to set input baud rate");
+  } else if (serial_speed==2000000) {
+    if (cfsetospeed(&t, B2000000)) perror("Failed to set output baud rate");
+    if (cfsetispeed(&t, B2000000)) perror("Failed to set input baud rate");
+  } else if (serial_speed==1000000) {
+    if (cfsetospeed(&t, B1000000)) perror("Failed to set output baud rate");
+    if (cfsetispeed(&t, B1000000)) perror("Failed to set input baud rate");
+  } else if (serial_speed==1500000) {
+    if (cfsetospeed(&t, B1500000)) perror("Failed to set output baud rate");
+    if (cfsetispeed(&t, B1500000)) perror("Failed to set input baud rate");
+  } else {
+    if (cfsetospeed(&t, B4000000)) perror("Failed to set output baud rate");
+    if (cfsetispeed(&t, B4000000)) perror("Failed to set input baud rate");
+  }
+  t.c_cflag &= ~PARENB;
+  t.c_cflag &= ~CSTOPB;
+  t.c_cflag &= ~CSIZE;
+  t.c_cflag &= ~CRTSCTS;
+  t.c_cflag |= CS8 | CLOCAL;
+  t.c_lflag &= ~(ICANON | ISIG | IEXTEN | ECHO | ECHOE);
+  t.c_iflag &= ~(BRKINT | ICRNL | IGNBRK | IGNCR | INLCR |
+                 INPCK | ISTRIP | IXON | IXOFF | IXANY | PARMRK);
+  t.c_oflag &= ~OPOST;
+  if (tcsetattr(fd, TCSANOW, &t)) perror("Failed to set terminal parameters");
+
+}
+
 int main(int argc,char **argv)
 {
   start_time=time(0);
@@ -293,34 +325,12 @@ int main(int argc,char **argv)
     exit(-1);
   }
   fcntl(fd,F_SETFL,fcntl(fd, F_GETFL, NULL)|O_NONBLOCK);
-  struct termios t;
-  if (serial_speed==230400) {
-    if (cfsetospeed(&t, B230400)) perror("Failed to set output baud rate");
-    if (cfsetispeed(&t, B230400)) perror("Failed to set input baud rate");
-  } else if (serial_speed==2000000) {
-    if (cfsetospeed(&t, B2000000)) perror("Failed to set output baud rate");
-    if (cfsetispeed(&t, B2000000)) perror("Failed to set input baud rate");
-  } else if (serial_speed==1000000) {
-    if (cfsetospeed(&t, B1000000)) perror("Failed to set output baud rate");
-    if (cfsetispeed(&t, B1000000)) perror("Failed to set input baud rate");
-  } else if (serial_speed==1500000) {
-    if (cfsetospeed(&t, B1500000)) perror("Failed to set output baud rate");
-    if (cfsetispeed(&t, B1500000)) perror("Failed to set input baud rate");
-  } else {
-    if (cfsetospeed(&t, B4000000)) perror("Failed to set output baud rate");
-    if (cfsetispeed(&t, B4000000)) perror("Failed to set input baud rate");
-  }
-  t.c_cflag &= ~PARENB;
-  t.c_cflag &= ~CSTOPB;
-  t.c_cflag &= ~CSIZE;
-  t.c_cflag &= ~CRTSCTS;
-  t.c_cflag |= CS8 | CLOCAL;
-  t.c_lflag &= ~(ICANON | ISIG | IEXTEN | ECHO | ECHOE);
-  t.c_iflag &= ~(BRKINT | ICRNL | IGNBRK | IGNCR | INLCR |
-                 INPCK | ISTRIP | IXON | IXOFF | IXANY | PARMRK);
-  t.c_oflag &= ~OPOST;
-  if (tcsetattr(fd, TCSANOW, &t)) perror("Failed to set terminal parameters");
 
+  // Set higher speed on serial interface to improve throughput
+  set_speed(fd,2000000);
+  slow_write(fd,"\r+9\r",4,5000);
+  set_speed(fd,4000000);
+  
   stop_cpu();
 
   sdhc_check();
