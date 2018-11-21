@@ -478,6 +478,24 @@ int write_sector(const unsigned int sector_number,unsigned char *buffer)
 {
   int retVal=0;
   do {
+    int sectorUnchanged=0;
+    // Force sector into read buffer
+    read_sector(sector_number,verify,0);
+    // See if it matches what we are writing, if so, don't write it!
+    for(int i=0;i<sector_cache_count;i++) {
+      if (sector_number==sector_cache_sectors[i]) {
+	if (!bcmp(sector_cache[i],buffer,512)) {
+	  printf("Writing unchanged sector -- skipping physical write\n");
+	  sectorUnchanged=1; break;
+	}
+      }
+    }
+    if (sectorUnchanged) {
+      printf("Skipping physical write\n");
+      break;
+    }
+    else printf("Proceeding with physical write\n");
+    
     // Clear backlog
     // printf("Clearing serial backlog in preparation for reading sector 0x%x\n",sector_number);
     process_waiting(fd);
@@ -508,7 +526,7 @@ int write_sector(const unsigned int sector_number,unsigned char *buffer)
 	     (sector_address>>8)&0xff,
 	     (sector_address>>16)&0xff,
 	     (sector_address>>24)&0xff);
-    slow_write(fd,cmd,strlen(cmd),0);
+    slow_write(fd,cmd,strlen(cmd),2500);
     if (wait_for_sdready_passive()) {
       printf("wait_for_sdready_passive() failed\n");
       retVal=-1; break;
