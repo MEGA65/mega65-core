@@ -45,6 +45,10 @@ static const int B1000000 = 1000000;
 static const int B1500000 = 1500000;
 static const int B2000000 = 2000000;
 static const int B4000000 = 4000000;
+#else
+#include <sys/ioctl.h>
+#include <linux/serial.h>
+
 #endif
 time_t start_time=0;
 long long start_usec=0;
@@ -348,6 +352,7 @@ int main(int argc,char **argv)
     fprintf(stderr,"[T+%lldsec] Bitstream loaded\n",(long long)time(0)-start_time);
   }
 
+#ifndef APPLE
   // Try to set USB serial port to low latency
   {
     char latency_timer[1024];
@@ -366,6 +371,13 @@ int main(int argc,char **argv)
     }
   }
 
+  // And also another way
+  struct serial_struct serial;
+  ioctl(fd, TIOCGSERIAL, &serial); 
+  serial.flags |= ASYNC_LOW_LATENCY;
+  ioctl(fd, TIOCSSERIAL, &serial);
+#endif
+  
   errno=0;
   fd=open(serial_port,O_RDWR);
   if (fd==-1) {
@@ -474,7 +486,6 @@ int read_sector(const unsigned int sector_number,unsigned char *buffer,int noCac
   do {
 
     int cachedRead=0;
-        printf("T+%lld : CHECKPOINT : %s:%d %s()\n",gettime_us()-start_usec,__FILE__,__LINE__,__FUNCTION__);
 
     if (!noCacheP) {
       for(int i=0;i<sector_cache_count;i++) {
@@ -484,7 +495,6 @@ int read_sector(const unsigned int sector_number,unsigned char *buffer,int noCac
 	}
       }
     }
-    printf("T+%lld : CHECKPOINT : %s:%d %s()\n",gettime_us()-start_usec,__FILE__,__LINE__,__FUNCTION__);
 
     if (cachedRead) break;
     
@@ -492,12 +502,8 @@ int read_sector(const unsigned int sector_number,unsigned char *buffer,int noCac
     // printf("Clearing serial backlog in preparation for reading sector 0x%x\n",sector_number);
     process_waiting(fd);
 
-        printf("T+%lld : CHECKPOINT : %s:%d %s()\n",gettime_us()-start_usec,__FILE__,__LINE__,__FUNCTION__);
-
     // printf("Getting SD card ready\n");
     wait_for_sdready();
-
-        printf("T+%lld : CHECKPOINT : %s:%d %s()\n",gettime_us()-start_usec,__FILE__,__LINE__,__FUNCTION__);
 
     // printf("Commanding SD read\n");
     char cmd[1024];
@@ -514,8 +520,6 @@ int read_sector(const unsigned int sector_number,unsigned char *buffer,int noCac
       retVal=-1; break;
     }
 
-    printf("T+%lld : CHECKPOINT : %s:%d %s()\n",gettime_us()-start_usec,__FILE__,__LINE__,__FUNCTION__);
-
     // Read succeeded, so fetch sector contents
     // printf("Reading back sector contents\n");
     sd_read_buffer=buffer;
@@ -523,15 +527,12 @@ int read_sector(const unsigned int sector_number,unsigned char *buffer,int noCac
     snprintf(cmd,1024,"M%x\r",READ_SECTOR_BUFFER_ADDRESS);
     slow_write(fd,cmd,strlen(cmd),0);
     while(sd_read_offset!=256) process_waiting(fd);
-    printf("T+%lld : CHECKPOINT : %s:%d %s()\n",gettime_us()-start_usec,__FILE__,__LINE__,__FUNCTION__);
 
     snprintf(cmd,1024,"M%x\r",READ_SECTOR_BUFFER_ADDRESS+0x100);
     slow_write(fd,cmd,strlen(cmd),0);
     while(sd_read_offset!=512) process_waiting(fd);
     sd_read_buffer=NULL;
         // printf("Read sector %d (0x%x)\n",sector_number,sector_number);
-
-        printf("T+%lld : CHECKPOINT : %s:%d %s()\n",gettime_us()-start_usec,__FILE__,__LINE__,__FUNCTION__);
 
     // Store in cache / update cache
     int i;
@@ -542,8 +543,6 @@ int read_sector(const unsigned int sector_number,unsigned char *buffer,int noCac
       sector_cache_sectors[i]=sector_number;
     }
     if (sector_cache_count<(i+1)) sector_cache_count=i+1;
-
-        printf("T+%lld : CHECKPOINT : %s:%d %s()\n",gettime_us()-start_usec,__FILE__,__LINE__,__FUNCTION__);
 
   } while(0);
   if (retVal) printf("FAIL reading sector %d\n",sector_number);
@@ -559,9 +558,7 @@ int write_sector(const unsigned int sector_number,unsigned char *buffer)
   do {
     int sectorUnchanged=0;
     // Force sector into read buffer
-    printf("T+%lld : CHECKPOINT : %s:%d %s()\n",gettime_us()-start_usec,__FILE__,__LINE__,__FUNCTION__);
     read_sector(sector_number,verify,0);
-    printf("T+%lld : CHECKPOINT : %s:%d %s()\n",gettime_us()-start_usec,__FILE__,__LINE__,__FUNCTION__);
     // See if it matches what we are writing, if so, don't write it!
     for(int i=0;i<sector_cache_count;i++) {
       if (sector_number==sector_cache_sectors[i]) {
@@ -571,7 +568,6 @@ int write_sector(const unsigned int sector_number,unsigned char *buffer)
 	}
       }
     }
-    printf("T+%lld : CHECKPOINT : %s:%d %s()\n",gettime_us()-start_usec,__FILE__,__LINE__,__FUNCTION__);
     if (sectorUnchanged) {
       printf("Skipping physical write\n");
       break;
