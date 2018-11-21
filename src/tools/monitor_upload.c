@@ -725,7 +725,7 @@ int chain_cluster(unsigned int cluster,unsigned int next_cluster)
       retVal=-1; break;
     }
 
-    dump_bytes(0,"FAT sector",fat_sector,512);
+    //    dump_bytes(0,"FAT sector",fat_sector,512);
     
     printf("Marking cluster $%x in use by writing to offset $%x of FAT sector $%x\n",
 	   cluster,fat_sector_offset,fat_sector_num);
@@ -776,7 +776,7 @@ int allocate_cluster(unsigned int cluster)
       retVal=-1; break;
     }
 
-    dump_bytes(0,"FAT sector",fat_sector,512);
+    //    dump_bytes(0,"FAT sector",fat_sector,512);
     
     printf("Marking cluster $%x in use by writing to offset $%x of FAT sector $%x\n",
 	   cluster,fat_sector_offset,fat_sector_num);
@@ -871,7 +871,7 @@ int upload_file(char *name)
     }
 
     if (fat_opendir("/")) { retVal=-1; break; }
-    printf("Opened directory, dir_sector=%d\n",dir_sector);
+    printf("Opened directory, dir_sector=%d (absolute sector = %d)\n",dir_sector,partition_start+dir_sector);
     while(!fat_readdir(&de)) {
       if (de.d_name[0]) printf("%13s   %d\n",de.d_name,(int)de.d_off);
       //      else dump_bytes(0,"empty dirent",&dir_sector_buffer[dir_sector_offset],32);
@@ -946,12 +946,12 @@ int upload_file(char *name)
 
     // Read out the first cluster. If zero, then we need to allocate a first cluster.
     // After that, we can allocate and chain clusters in a constant manner
-    unsigned int first_cluster=
+    unsigned int first_cluster_of_file=
       (dir_sector_buffer[dir_sector_offset+0x1A]<<0)
       |(dir_sector_buffer[dir_sector_offset+0x1B]<<8)
       |(dir_sector_buffer[dir_sector_offset+0x14]<<16)
       |(dir_sector_buffer[dir_sector_offset+0x15]<<24);
-    if (!first_cluster) {
+    if (!first_cluster_of_file) {
       printf("File currently has no first cluster allocated.\n");
 
       int a_cluster=find_free_cluster();
@@ -974,13 +974,13 @@ int upload_file(char *name)
 	printf("ERROR: Failed to write updated directory sector after allocating first cluster.\n");
 	retVal=-1; break; }
       
-      
-    } else printf("First cluster of file is $%x\n",first_cluster);
+      first_cluster_of_file=a_cluster;
+    } else printf("First cluster of file is $%x\n",first_cluster_of_file);
 
     // Now write the file out sector by sector, and allocate new clusters as required
     int remaining_length=st.st_size;
     int sector_in_cluster=0;
-    int file_cluster=first_cluster;
+    int file_cluster=first_cluster_of_file;
     unsigned int sector_number;
     FILE *f=fopen(name,"r");
 
@@ -1016,14 +1016,16 @@ int upload_file(char *name)
       unsigned char buffer[512];
       bzero(buffer,512);
       int bytes=fread(buffer,1,512,f);
-      printf("Read %d bytes from file\n",bytes);
+      sector_number=partition_start+first_cluster_sector+(sectors_per_cluster*(file_cluster-first_cluster))+sector_in_cluster;
+      printf("Read %d bytes from file, writing to sector $%x (%d) for cluster %d\n",bytes,sector_number,sector_number,file_cluster);
 
-      if (write_sector(partition_start+first_cluster_sector+(sectors_per_cluster*(file_cluster-first_cluster))+sector_in_cluster,buffer)) {
-	printf("ERROR: Failed to write to sector %d\n",
-	       partition_start+first_cluster_sector+(sectors_per_cluster*(file_cluster-first_cluster))+sector_in_cluster);
+      #if 1
+      if (write_sector(sector_number,buffer)) {
+	printf("ERROR: Failed to write to sector %d\n",sector_number);
 	retVal=-1;
 	break;
       }
+      #endif
 
       sector_in_cluster++;
       remaining_length-=512;
