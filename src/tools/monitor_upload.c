@@ -27,6 +27,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <unistd.h>
 #include <fcntl.h>
 #include <termios.h>
+#include <sys/time.h>
 #include <time.h>
 #include <strings.h>
 #include <string.h>
@@ -73,6 +74,33 @@ char *bitstream=NULL;
 
 unsigned char *sd_read_buffer=NULL;
 int sd_read_offset=0;
+
+// From os.c in serval-dna
+long long gettime_us()
+{
+  long long retVal = -1;
+
+  do 
+  {
+    struct timeval nowtv;
+
+    // If gettimeofday() fails or returns an invalid value, all else is lost!
+    if (gettimeofday(&nowtv, NULL) == -1)
+    {
+      break;
+    }
+
+    if (nowtv.tv_sec < 0 || nowtv.tv_usec < 0 || nowtv.tv_usec >= 1000000)
+    {
+      break;
+    }
+
+    retVal = nowtv.tv_sec * 1000000LL + nowtv.tv_usec;
+  }
+  while (0);
+
+  return retVal;
+}
 
 int sd_status_fresh=0;
 unsigned char sd_status[16];
@@ -316,7 +344,25 @@ int main(int argc,char **argv)
     system(cmd);
     fprintf(stderr,"[T+%lldsec] Bitstream loaded\n",(long long)time(0)-start_time);
   }
-  
+
+  // Try to set USB serial port to low latency
+  {
+    char latency_timer[1024];
+    int offset=strlen(serial_port);
+    while(offset&&serial_port[offset-1]!='/') offset--;
+    snprintf(latency_timer,1024,"/sys/bus/usb-serial/devices/%s/latency_timer",
+	     &serial_port[offset]);
+    int old_latency=999;
+    FILE *f=fopen(latency_timer,"r");
+    if (f) { fscanf(f,"%d",&old_latency); fclose(f); }
+    if (old_latency!=1) {
+      snprintf(latency_timer,1024,"echo 1 | sudo tee /sys/bus/usb-serial/devices/%s/latency_timer",
+	       &serial_port[offset]);
+      printf("Attempting to reduce USB latency via '%s'\n",latency_timer);
+      system(latency_timer);
+    }
+  }
+
   errno=0;
   fd=open(serial_port,O_RDWR);
   if (fd==-1) {
@@ -365,7 +411,9 @@ void wait_for_sdready(void)
 int wait_for_sdready_passive(void)
 {
   int retVal=0;
-  do {  
+  do {
+    long long start=gettime_us();
+    
     // Ask for SD card status
     sd_status[0]=0xff;
     process_waiting(fd);
@@ -378,6 +426,7 @@ int wait_for_sdready_passive(void)
 	  retVal=-1; break; }
     }
     // printf("SD Card looks ready.\n");
+    printf("wait_for_sdready_passive() took %lld usec\n",gettime_us()-start);
   } while(0);
   return retVal;
 }
