@@ -137,9 +137,9 @@ int slow_write(int fd,char *d,int l,int preWait)
 	w=write(fd,&d[i],1);
       }
       // Only control characters can cause us whole line delays,
-      if (d[i]<' ') usleep(2000); else usleep(0);
+      if (d[i]<' ') { usleep(2000); } else usleep(0);
     }
-  tcdrain(fd);
+    tcdrain(fd);
   return 0;
 }
 
