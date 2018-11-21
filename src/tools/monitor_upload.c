@@ -93,13 +93,13 @@ void usage(void)
   exit(-3);
 }
 
-int slow_write(int fd,char *d,int l)
+int slow_write(int fd,char *d,int l,int preWait)
 {
   // UART is at 2Mbps, but we need to allow enough time for a whole line of
   // writing. 100 chars x 0.5usec = 500usec. So 1ms between chars should be ok.
-  printf("Writing [%s]\n",d);
+  //  printf("Writing [%s]\n",d);
   int i;
-  usleep(2500);
+  usleep(preWait);
   for(i=0;i<l;i++)
     {
       int w=write(fd,&d[i],1);
@@ -131,7 +131,7 @@ int stop_cpu(void)
 {
   // Stop CPU
   usleep(50000);
-  slow_write(fd,"t1\r",3);
+  slow_write(fd,"t1\r",3,2500);
   return 0;
 }
 
@@ -140,9 +140,9 @@ int restart_kickstart(void)
   // Start executing in new kickstart
   if (!halt) {
     usleep(50000);
-    slow_write(fd,"g8100\r",6);
+    slow_write(fd,"g8100\r",6,2500);
     usleep(10000);
-    slow_write(fd,"t0\r",3);
+    slow_write(fd,"t0\r",3,2500);
   }
   return 0;
 }
@@ -168,7 +168,7 @@ int dump_bytes(int col, char *msg,unsigned char *bytes,int length)
 
 int process_line(char *line,int live)
 {
-  printf("[%s]\n",line);
+  //  printf("[%s]\n",line);
   if (!live) return 0;
   if (strstr(line,"ws h RECA8LHC")) {
      if (!new_monitor) printf("Detected new-style UART monitor.\n");
@@ -338,12 +338,12 @@ void wait_for_sdready(void)
     sd_status[0]=0xff;
     while(sd_status[0]&3) {
       sd_status_fresh=0;
-      slow_write(fd,"mffd3680\r",strlen("mffd3680\r"));
+      slow_write(fd,"mffd3680\r",strlen("mffd3680\r"),100);
       while(!sd_status_fresh) process_waiting(fd);
       if (sd_status[0]&3) {
 	// Send reset sequence
 	printf("SD card not yet ready, so reset it.\n");
-	slow_write(fd,"sffd3680 0\rsffd3680 1\r",strlen("sffd3680 0\rsffd3680 1\r"));
+	slow_write(fd,"sffd3680 0\rsffd3680 1\r",strlen("sffd3680 0\rsffd3680 1\r"),2500);
 	sleep(1);
       }
     }
@@ -358,9 +358,10 @@ int wait_for_sdready_passive(void)
   do {  
     // Ask for SD card status
     sd_status[0]=0xff;
+    process_waiting(fd);
     while(sd_status[0]&3) {
       sd_status_fresh=0;
-      slow_write(fd,"mffd3680\r",strlen("mffd3680\r"));
+      slow_write(fd,"mffd3680\r",strlen("mffd3680\r"),0);
       while(!sd_status_fresh) process_waiting(fd);
       if ((sd_status[0]&3)==0x03)
 	{ // printf("SD card error 0x3 - failing\n");
@@ -381,7 +382,7 @@ int sdhc_check(void)
   sdhc=0;
 
   // Force early detection of old vs new uart monitor
-  if (onceOnly) slow_write(fd,"r\r",2);
+  if (onceOnly) slow_write(fd,"r\r",2,2500);
   onceOnly=0;
   
   int r0=read_sector(0,buffer,1);
@@ -436,7 +437,7 @@ int read_sector(const unsigned int sector_number,unsigned char *buffer,int noCac
 	     (sector_address>>8)&0xff,
 	     (sector_address>>16)&0xff,
 	     (sector_address>>24)&0xff);
-    slow_write(fd,cmd,strlen(cmd));
+    slow_write(fd,cmd,strlen(cmd),0);
     if (wait_for_sdready_passive()) {
       printf("wait_for_sdready_passive() failed\n");
       retVal=-1; break;
@@ -447,10 +448,10 @@ int read_sector(const unsigned int sector_number,unsigned char *buffer,int noCac
     sd_read_buffer=buffer;
     sd_read_offset=0;
     snprintf(cmd,1024,"M%x\r",READ_SECTOR_BUFFER_ADDRESS);
-    slow_write(fd,cmd,strlen(cmd));
+    slow_write(fd,cmd,strlen(cmd),0);
     while(sd_read_offset!=256) process_waiting(fd);
     snprintf(cmd,1024,"M%x\r",READ_SECTOR_BUFFER_ADDRESS+0x100);
-    slow_write(fd,cmd,strlen(cmd));
+    slow_write(fd,cmd,strlen(cmd),0);
     while(sd_read_offset!=512) process_waiting(fd);
     sd_read_buffer=NULL;
         // printf("Read sector %d (0x%x)\n",sector_number,sector_number);
@@ -488,7 +489,7 @@ int write_sector(const unsigned int sector_number,unsigned char *buffer)
     char cmd[1024];
     snprintf(cmd,1024,"l%x %x\r",
 	     WRITE_SECTOR_BUFFER_ADDRESS,(WRITE_SECTOR_BUFFER_ADDRESS+512)&0xffff);
-    slow_write(fd,cmd,strlen(cmd));
+    slow_write(fd,cmd,strlen(cmd),500);
     usleep(10000); // give uart monitor time to get ready for the data
     process_waiting(fd);
     int written=write(fd,buffer,512);
@@ -507,7 +508,7 @@ int write_sector(const unsigned int sector_number,unsigned char *buffer)
 	     (sector_address>>8)&0xff,
 	     (sector_address>>16)&0xff,
 	     (sector_address>>24)&0xff);
-    slow_write(fd,cmd,strlen(cmd));
+    slow_write(fd,cmd,strlen(cmd),0);
     if (wait_for_sdready_passive()) {
       printf("wait_for_sdready_passive() failed\n");
       retVal=-1; break;
