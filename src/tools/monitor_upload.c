@@ -808,6 +808,39 @@ int allocate_cluster(unsigned int cluster)
   return retVal;
 }
 
+unsigned int chained_cluster(unsigned int cluster)
+{
+  unsigned int retVal=0;
+
+  do {
+    int fat_sector_num=cluster/(512/4);
+    int fat_sector_offset=(cluster*4)&0x1FF;
+    if (fat_sector_num>=sectors_per_fat) {
+      printf("ERROR: cluster number too large.\n");
+      retVal=-1; break;
+    }
+
+    // Read in the sector of FAT1
+    unsigned char fat_sector[512];
+    if (read_sector(partition_start+fat1_sector+fat_sector_num,fat_sector)) {
+      printf("ERROR: Failed to read sector $%x of first FAT\n",fat_sector_num);
+      retVal=-1; break;
+    }
+
+    // Set the bytes for this cluster to $0FFFFF8 to mark end of chain and in use
+    retVal=fat_sector[fat_sector_offset+0];
+    retVal|=fat_sector[fat_sector_offset+1]<<8;
+    retVal|=fat_sector[fat_sector_offset+2]<<16;
+    retVal|=fat_sector[fat_sector_offset+3]<<24;
+
+    printf("Cluster %d chains to cluster %d ($%x)\n",cluster,retVal,retVal);
+    
+  } while(0);
+  
+  return retVal;
+}
+
+
 unsigned char fat_sector[512];
 
 unsigned int find_free_cluster(void)
@@ -994,7 +1027,9 @@ int upload_file(char *name)
 	// Advance to next cluster
 	// If we are currently the last cluster, then allocate a new one, and chain it in
 
-	int next_cluster=find_free_cluster();
+	int next_cluster=chained_cluster(file_cluster);
+	if (next_cluster==0||next_cluster>=0xffffff8)
+	  next_cluster=find_free_cluster();
 	if (!next_cluster) {
 	  printf("ERROR: Could not find a free cluster\n");
 	  retVal=-1; break;
