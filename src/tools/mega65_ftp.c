@@ -527,7 +527,8 @@ int wait_for_sdready_passive(void)
   do {
   //    long long start=gettime_us();
 
-    int tries=32;
+    int tries=16;
+    int sleep_time=1;
     
     // Ask for SD card status
     sd_status[0]=0xff;
@@ -538,8 +539,9 @@ int wait_for_sdready_passive(void)
       while(!sd_status_fresh) process_waiting(fd);
       if ((sd_status[0]&3)==0x03)
 	{ // printf("SD card error 0x3 - failing\n");
-	  tries--; if (tries) usleep(10000); else {
+	  tries--; if (tries) usleep(sleep_time); else {
 	    retVal=-1; break; }
+	  sleep_time*=2;
 	}
     }
     // printf("SD Card looks ready.\n");
