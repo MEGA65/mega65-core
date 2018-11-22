@@ -806,7 +806,8 @@ int process_line(char *line,int live)
       slow_write(fd,cmd,strlen(cmd));      
     }
     if (do_go64) {
-      char *cmd="s34a 47 4f 36 34 d 59 d\rsd0 7\r";
+      // PGS 20181123 - Keyboard buffer has moved in newer C65 ROMs from $34A to $2D0
+      char *cmd="s2b0 47 4f 36 34 d 59 d\rsd0 7\r";
       slow_write(fd,cmd,strlen(cmd));
       if (first_go64) fprintf(stderr,"[T+%lldsec] GO64\nY\n",(long long)time(0)-start_time);
       first_go64=0;
