@@ -2118,7 +2118,8 @@ longpoke:
 		lsr
 		lsr
 		sta longpokedmalist_dest_mb ; DMAgic destination MB
-		; and disable F108B enhanced mode
+		; and enable F108B enhanced mode by default
+		lda #$01
 		sta $d703
 
 		; Set DMA list address
