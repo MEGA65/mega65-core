@@ -39,6 +39,9 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <sys/stat.h>
 #include <unistd.h>
 #include <dirent.h>
+#include <stdio.h>
+#include <readline/readline.h>
+#include <readline/history.h>
 
 #ifdef APPLE
 static const int B1000000 = 1000000;
@@ -115,13 +118,12 @@ int process_char(unsigned char c,int live);
 
 void usage(void)
 {
-  fprintf(stderr,"MEGA65 cross-development tool for uploading files onto the SD card of a MEGA65.\n");
-  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b bitstream] <file1 ...>\n");
+  fprintf(stderr,"MEGA65 cross-development tool for remote access to MEGA65 SD card via serial monitor interface\n");
+  fprintf(stderr,"usage: mega65_ftp [-l <serial port>] [-s <230400|2000000|4000000>]  [-b bitstream] [[-c command] ...]\n");
   fprintf(stderr,"  -l - Name of serial port to use, e.g., /dev/ttyUSB1\n");
   fprintf(stderr,"  -s - Speed of serial port in bits per second. This must match what your bitstream uses.\n");
   fprintf(stderr,"       (Older bitstream use 230400, and newer ones 2000000 or 4000000).\n");
   fprintf(stderr,"  -b - Name of bitstream file to load.\n");
-  fprintf(stderr,"  filename - Upload this file onto the SD card of a MEGA65.\n");
   fprintf(stderr,"\n");
   exit(-3);
 }
@@ -315,13 +317,33 @@ void set_speed(int fd,int serial_speed)
 
 }
 
+int queued_command_count=0;
+#define MAX_QUEUED_COMMANDS 64
+char *queued_commands[MAX_QUEUED_COMMANDS];
+
+int queue_command(char *c)
+{
+  if (queued_command_count<MAX_QUEUED_COMMANDS)
+    queued_commands[queued_command_count++]=c;
+  else {
+    fprintf(stderr,"ERROR: Too many commands queued via -c\n");
+  }
+  return 0;
+}
+
+int execute_command(char *cmd)
+{
+  printf("'%s'\n",cmd);
+  return 0;
+}
+
 int main(int argc,char **argv)
 {
   start_time=time(0);
   start_usec=gettime_us();
   
   int opt;
-  while ((opt = getopt(argc, argv, "b:s:l:")) != -1) {
+  while ((opt = getopt(argc, argv, "b:s:l:c:")) != -1) {
     switch (opt) {
     case 'l': strcpy(serial_port,optarg); break;
     case 's':
@@ -336,12 +358,14 @@ int main(int argc,char **argv)
       break;
     case 'b':
       bitstream=strdup(optarg); break;
+    case 'c':
+      queue_command(optarg); break;
     default: /* '?' */
       usage();
     }
   }  
 
-  if (argc-optind<1) usage();
+  if (argc-optind==1) usage();
   
   // Load bitstream if file provided
   if (bitstream) {
@@ -396,9 +420,16 @@ int main(int argc,char **argv)
 
   sdhc_check();
   
-  for(int i=optind;i<argc;i++)
-    upload_file(argv[i],argv[i]);
-
+  if (queued_command_count) {
+    for(int i=0;i<queued_command_count;i++) execute_command(queued_commands[i]);
+    return 0;
+  } else {
+    char *cmd=NULL;
+    while((cmd=readline("MEGA65 SD-card> "))!=NULL) {
+      execute_command(cmd);
+    }
+  }
+  
   return 0;
 }
 
