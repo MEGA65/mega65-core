@@ -345,8 +345,14 @@ int execute_command(char *cmd)
   }
   else if (sscanf(cmd,"put %s",src)==1) {
     upload_file(src,src);
+  } else if (!strcasecmp(cmd,"help")) {
+    printf("MEGA65 File Transfer Program Command Reference:\n");
+    printf("\n");
+    printf("put <file> [destination name] - upload file to SD card, and optionally rename it destination file.\n");
+    printf("exit - leave this programme.\n");
+    printf("quit - leave this programme.\n");
   } else {
-    fprintf(stderr,"ERROR: Unknown command or invalid syntax.\n");
+    fprintf(stderr,"ERROR: Unknown command or invalid syntax. Type help for help.\n");
     return -1;
   }
   return 0;
