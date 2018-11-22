@@ -333,8 +333,21 @@ int queue_command(char *c)
   return 0;
 }
 
+unsigned char show_buf[512];
+int show_sector(unsigned int sector_num)
+{
+  if (read_sector(sector_num,show_buf,0)) {
+    printf("ERROR: Could not read sector %d ($%x)\n",sector_num,sector_num);
+    return -1;
+  }
+  dump_bytes(0,"Sector contents",show_buf,512);
+  return 0;
+}
+
 int execute_command(char *cmd)
 {
+  unsigned int sector_num;
+  
   if (strlen(cmd)>1000) {
     fprintf(stderr,"ERROR: Command too long\n");
     return -1;
@@ -352,6 +365,12 @@ int execute_command(char *cmd)
   }
   else if (sscanf(cmd,"put %s %s",src,dst)==2) {
     upload_file(src,dst);
+  }
+  else if (sscanf(cmd,"sector %d",&sector_num)==1) {
+    show_sector(sector_num);
+  }
+  else if (sscanf(cmd,"sector $%x",&sector_num)==1) {
+    show_sector(sector_num);
   }
   else if (sscanf(cmd,"dir %s",src)==1) {
     show_directory(src);
@@ -507,6 +526,8 @@ int wait_for_sdready_passive(void)
   int retVal=0;
   do {
   //    long long start=gettime_us();
+
+    int tries=32;
     
     // Ask for SD card status
     sd_status[0]=0xff;
@@ -517,7 +538,9 @@ int wait_for_sdready_passive(void)
       while(!sd_status_fresh) process_waiting(fd);
       if ((sd_status[0]&3)==0x03)
 	{ // printf("SD card error 0x3 - failing\n");
-	  retVal=-1; break; }
+	  tries--; if (tries) usleep(10000); else {
+	    retVal=-1; break; }
+	}
     }
     // printf("SD Card looks ready.\n");
     //    printf("wait_for_sdready_passive() took %lld usec\n",gettime_us()-start);
@@ -532,7 +555,7 @@ int sdhc_check(void)
 {
   unsigned char buffer[512];
 
-  sdhc=0;
+  sdhc=-1;
 
   // Force early detection of old vs new uart monitor
   if (onceOnly) slow_write(fd,"r\r",2,2500);
@@ -541,12 +564,12 @@ int sdhc_check(void)
   int r0=read_sector(0,buffer,1);
   int r1=read_sector(1,buffer,1);
   int r200=read_sector(0x200,buffer,1);
-  // printf("%d %d %d\n",r0,r1,r200);
+  //  printf("%d %d %d\n",r0,r1,r200);
   if (r0||r200) {
     fprintf(stderr,"Could not detect SD/SDHC card\n");
     exit(-3);
   }
-  sdhc=r1;
+  if (r1) sdhc=0; else sdhc=1;
   return sdhc;
 }
 
@@ -585,12 +608,14 @@ int read_sector(const unsigned int sector_number,unsigned char *buffer,int noCac
     char cmd[1024];
     unsigned int sector_address;
     if (!sdhc) sector_address=sector_number*0x0200; else sector_address=sector_number;
-    snprintf(cmd,1024,"sffd3681 %02x %02x %02x %02x\rsffd3680 2\r",
+    snprintf(cmd,1024,"sffd3681 %02x %02x %02x %02x\r",
 	     (sector_address>>0)&0xff,
 	     (sector_address>>8)&0xff,
 	     (sector_address>>16)&0xff,
 	     (sector_address>>24)&0xff);
     slow_write(fd,cmd,strlen(cmd),0);
+    snprintf(cmd,1024,"sffd3680 2\r");
+    slow_write(fd,cmd,strlen(cmd),0);    
     if (wait_for_sdready_passive()) {
       printf("wait_for_sdready_passive() failed\n");
       retVal=-1; break;
@@ -744,7 +769,7 @@ int open_file_system(void)
       if (part_ent[4]==0x0c||part_ent[4]==0x0b) {
 	partition_start=part_ent[8]+(part_ent[9]<<8)+(part_ent[10]<<16)+(part_ent[11]<<24);
 	partition_size=part_ent[12]+(part_ent[13]<<8)+(part_ent[14]<<16)+(part_ent[15]<<24);
-	printf("Found FAT32 partition in partition slot %d : start=0x%x, size=%d MB\n",
+	printf("Found FAT32 partition in partition slot %d : start sector=$%x, size=%d MB\n",
 	       i,partition_start,partition_size/2048);
 	break;
       }
@@ -759,11 +784,12 @@ int open_file_system(void)
       retVal=-1; break; }
 
     if (fat_mbr[510]!=0x55) {
-      printf("ERROR: Invalid FAT MBR signature\n");
+      printf("ERROR: Invalid FAT MBR signature in sector %d ($%x)\n",partition_start,partition_start);
       retVal=-1; break;
     }
     if (fat_mbr[511]!=0xAA) {
-      printf("ERROR: Invalid FAT MBR signature\n");
+      printf("ERROR: Invalid FAT MBR signature in sector %d ($%x)\n",partition_start,partition_start);
+      dump_bytes(0,"fat_mbr",fat_mbr,512);
       retVal=-1; break;
     }
     if (fat_mbr[12]!=2) {
