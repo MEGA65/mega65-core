@@ -1059,7 +1059,7 @@ unsigned int find_free_cluster(unsigned int first_cluster)
     
     for(;i<sectors_per_fat;i++) {
       // Read FAT sector
-      printf("Checking FAT sector $%x for free clusters.\n",i);
+      //      printf("Checking FAT sector $%x for free clusters.\n",i);
       if (read_sector(partition_start+fat1_sector+i,fat_sector,0)) {
 	printf("ERROR: Failed to read sector $%x of first FAT\n",i);
 	retVal=-1; break;
@@ -1082,7 +1082,7 @@ unsigned int find_free_cluster(unsigned int first_cluster)
       if (cluster||retVal) break;
     }
 
-    printf("I believe cluster $%x is free.\n",cluster);
+    // printf("I believe cluster $%x is free.\n",cluster);
     
     retVal=cluster;
   } while(0);
