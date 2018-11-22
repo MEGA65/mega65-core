@@ -56,6 +56,7 @@ static const int B4000000 = 4000000;
 time_t start_time=0;
 long long start_usec=0;
 
+int show_directory(char *path);
 int upload_file(char *name,char *dest_name);
 int sdhc_check(void);
 int read_sector(const unsigned int sector_number,unsigned char *buffer, int noCacheP);
@@ -343,11 +344,18 @@ int execute_command(char *cmd)
   if (sscanf(cmd,"put %s %s",src,dst)==2) {
     upload_file(src,dst);
   }
+  else if (sscanf(cmd,"dir %s",src)==1) {
+    show_directory(src);
+  }
+  else if (!strcmp(cmd,"dir")) {
+    show_directory("/");
+  }
   else if (sscanf(cmd,"put %s",src)==1) {
     upload_file(src,src);
   } else if (!strcasecmp(cmd,"help")) {
     printf("MEGA65 File Transfer Program Command Reference:\n");
     printf("\n");
+    printf("dir [directory] - show contents of current or specified directory.\n");
     printf("put <file> [destination name] - upload file to SD card, and optionally rename it destination file.\n");
     printf("exit - leave this programme.\n");
     printf("quit - leave this programme.\n");
@@ -1083,6 +1091,29 @@ unsigned int find_free_cluster(unsigned int first_cluster)
   return retVal;
 }
 
+int show_directory(char *path)
+{
+  struct dirent de;
+  int retVal=0;
+  do {
+    if (!file_system_found) open_file_system();
+    if (!file_system_found) {
+      fprintf(stderr,"ERROR: Could not open file system.\n");
+      retVal=-1;
+      break;
+    }
+
+    if (fat_opendir(path)) { retVal=-1; break; }
+    //    printf("Opened directory, dir_sector=%d (absolute sector = %d)\n",dir_sector,partition_start+dir_sector);
+    while(!fat_readdir(&de)) {
+      if (de.d_name[0]&&(de.d_off>=0))
+	printf("%12d %s\n",(int)de.d_off,de.d_name);
+    }
+  } while(0);
+
+  return retVal;
+}
+
 int upload_file(char *name,char *dest_name)
 {
   struct dirent de;
@@ -1285,8 +1316,8 @@ int upload_file(char *name,char *dest_name)
       retVal=-1; break; }
 
     if (time(0)==upload_start) upload_start=time(0)-1;
-    printf("\rUploaded %d bytes in %d seconds (%.1fKB/sec)\n",
-	   (long)st.st_size,time(0)-upload_start,st.st_size*1.0/1024/(time(0)-upload_start));
+    printf("\rUploaded %lld bytes in %lld seconds (%.1fKB/sec)\n",
+	   (long long)st.st_size,(long long)time(0)-upload_start,st.st_size*1.0/1024/(time(0)-upload_start));
     
   } while(0);
 
