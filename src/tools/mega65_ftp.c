@@ -629,7 +629,7 @@ int write_sector(const unsigned int sector_number,unsigned char *buffer)
       //      printf("Skipping physical write\n");
       break;
     }
-    else printf("Proceeding with physical write\n");
+    //    else printf("Proceeding with physical write\n");
     
     // Clear backlog
     // printf("Clearing serial backlog in preparation for reading sector 0x%x\n",sector_number);
@@ -638,7 +638,7 @@ int write_sector(const unsigned int sector_number,unsigned char *buffer)
     // printf("Getting SD card ready\n");
     wait_for_sdready();
 
-    printf("Writing sector data\n");
+    //    printf("Writing sector data\n");
     char cmd[1024];
     snprintf(cmd,1024,"l%x %x\r",
 	     WRITE_SECTOR_BUFFER_ADDRESS,(WRITE_SECTOR_BUFFER_ADDRESS+512)&0xffff);
@@ -653,7 +653,7 @@ int write_sector(const unsigned int sector_number,unsigned char *buffer)
     }
     process_waiting(fd);
     
-    printf("Commanding SD write to sector %d\n",sector_number);
+    //    printf("Commanding SD write to sector %d\n",sector_number);
     unsigned int sector_address;
     if (!sdhc) sector_address=sector_number*0x0200; else sector_address=sector_number;
     snprintf(cmd,1024,"sffd3681 %02x %02x %02x %02x\rsffd3680 3\r",
@@ -920,7 +920,7 @@ int chain_cluster(unsigned int cluster,unsigned int next_cluster)
       retVal=-1; break;
     }
 
-    dump_bytes(0,"FAT sector",fat_sector,512);
+    //    dump_bytes(0,"FAT sector",fat_sector,512);
     
     printf("Marking cluster $%x in use by writing to offset $%x of FAT sector $%x\n",
 	   cluster,fat_sector_offset,fat_sector_num);
@@ -971,7 +971,7 @@ int allocate_cluster(unsigned int cluster)
       retVal=-1; break;
     }
 
-    dump_bytes(0,"FAT sector",fat_sector,512);
+    //    dump_bytes(0,"FAT sector",fat_sector,512);
     
     printf("Marking cluster $%x in use by writing to offset $%x of FAT sector $%x\n",
 	   cluster,fat_sector_offset,fat_sector_num);
@@ -1028,7 +1028,7 @@ unsigned int chained_cluster(unsigned int cluster)
     retVal|=fat_sector[fat_sector_offset+2]<<16;
     retVal|=fat_sector[fat_sector_offset+3]<<24;
 
-    printf("Cluster %d chains to cluster %d ($%x)\n",cluster,retVal,retVal);
+    //    printf("Cluster %d chains to cluster %d ($%x)\n",cluster,retVal,retVal);
     
   } while(0);
   
@@ -1088,12 +1088,15 @@ int upload_file(char *name,char *dest_name)
   struct dirent de;
   int retVal=0;
   do {
+
+    time_t upload_start=time(0);
+    
     struct stat st;
     if (stat(name,&st)) {
       fprintf(stderr,"ERROR: Could not stat file '%s'\n",name);
       perror("stat() failed");
     }
-    printf("File '%s' is %ld bytes long.\n",name,(long)st.st_size);
+    //    printf("File '%s' is %ld bytes long.\n",name,(long)st.st_size);
 
     if (!file_system_found) open_file_system();
     if (!file_system_found) {
@@ -1103,13 +1106,13 @@ int upload_file(char *name,char *dest_name)
     }
 
     if (fat_opendir("/")) { retVal=-1; break; }
-    printf("Opened directory, dir_sector=%d (absolute sector = %d)\n",dir_sector,partition_start+dir_sector);
+    //    printf("Opened directory, dir_sector=%d (absolute sector = %d)\n",dir_sector,partition_start+dir_sector);
     while(!fat_readdir(&de)) {
-      if (de.d_name[0]) printf("%13s   %d\n",de.d_name,(int)de.d_off);
+      // if (de.d_name[0]) printf("%13s   %d\n",de.d_name,(int)de.d_off);
       //      else dump_bytes(0,"empty dirent",&dir_sector_buffer[dir_sector_offset],32);
       if (!strcasecmp(de.d_name,dest_name)) {
 	// Found file, so will replace it
-	printf("%s already exists on the file system, beginning at cluster %d\n",name,(int)de.d_ino);
+	//	printf("%s already exists on the file system, beginning at cluster %d\n",name,(int)de.d_ino);
 	break;
       }
     }
@@ -1121,8 +1124,8 @@ int upload_file(char *name,char *dest_name)
       struct dirent de;
       while(!fat_readdir(&de)) {
 	if (!de.d_name[0]) {
-	  printf("Found empty slot at dir_sector=%d, dir_sector_offset=%d\n",
-		 dir_sector,dir_sector_offset);
+	  if (0) printf("Found empty slot at dir_sector=%d, dir_sector_offset=%d\n",
+			dir_sector,dir_sector_offset);
 
 	  // Create directory entry, and write sector back to SD card
 	  unsigned char dir[32];
@@ -1154,7 +1157,7 @@ int upload_file(char *name,char *dest_name)
 	  dir[0x11]=((tm->tm_mon+1)&0x1)>>3;
 	  dir[0x11]|=(tm->tm_year-80)<<1;
 
-	  dump_bytes(0,"New directory entry",dir,32);
+	  //	  dump_bytes(0,"New directory entry",dir,32);
 	  
 	  // (Cluster and size we set after writing to the file)
 
@@ -1173,7 +1176,7 @@ int upload_file(char *name,char *dest_name)
       retVal=-1;
       break;
     } else {
-      printf("Directory entry is at offset $%03x of sector $%x\n",dir_sector_offset,dir_sector);
+      //      printf("Directory entry is at offset $%03x of sector $%x\n",dir_sector_offset,dir_sector);
     }
 
     // Read out the first cluster. If zero, then we need to allocate a first cluster.
@@ -1184,7 +1187,7 @@ int upload_file(char *name,char *dest_name)
       |(dir_sector_buffer[dir_sector_offset+0x14]<<16)
       |(dir_sector_buffer[dir_sector_offset+0x15]<<24);
     if (!first_cluster_of_file) {
-      printf("File currently has no first cluster allocated.\n");
+      //      printf("File currently has no first cluster allocated.\n");
 
       int a_cluster=find_free_cluster(0);
       if (!a_cluster) {
@@ -1207,7 +1210,7 @@ int upload_file(char *name,char *dest_name)
 	retVal=-1; break; }
       
       first_cluster_of_file=a_cluster;
-    } else printf("First cluster of file is $%x\n",first_cluster_of_file);
+    } // else printf("First cluster of file is $%x\n",first_cluster_of_file);
 
     // Now write the file out sector by sector, and allocate new clusters as required
     int remaining_length=st.st_size;
@@ -1253,9 +1256,11 @@ int upload_file(char *name,char *dest_name)
       bzero(buffer,512);
       int bytes=fread(buffer,1,512,f);
       sector_number=partition_start+first_cluster_sector+(sectors_per_cluster*(file_cluster-first_cluster))+sector_in_cluster;
-      printf("T+%lld : Read %d bytes from file, writing to sector $%x (%d) for cluster %d\n",
-	     gettime_us()-start_usec,bytes,sector_number,sector_number,file_cluster);
-
+      if (0) printf("T+%lld : Read %d bytes from file, writing to sector $%x (%d) for cluster %d\n",
+		    gettime_us()-start_usec,bytes,sector_number,sector_number,file_cluster);
+      printf("\rUploaded %lld bytes.",(long long)st.st_size-remaining_length);
+      fflush(stdout);
+      
       if (write_sector(sector_number,buffer)) {
 	printf("ERROR: Failed to write to sector %d\n",sector_number);
 	retVal=-1;
@@ -1279,6 +1284,9 @@ int upload_file(char *name,char *dest_name)
       printf("ERROR: Failed to write updated directory sector after updating file length.\n");
       retVal=-1; break; }
 
+    if (time(0)==upload_start) upload_start=time(0)-1;
+    printf("\rUploaded %d bytes in %d seconds (%.1fKB/sec)\n",
+	   (long)st.st_size,time(0)-upload_start,st.st_size*1.0/1024/(time(0)-upload_start));
     
   } while(0);
 
