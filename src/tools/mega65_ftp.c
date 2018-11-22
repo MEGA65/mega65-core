@@ -56,6 +56,7 @@ static const int B4000000 = 4000000;
 time_t start_time=0;
 long long start_usec=0;
 
+int download_file(char *dest_name,char *local_name);
 int show_directory(char *path);
 int upload_file(char *name,char *dest_name);
 int sdhc_check(void);
@@ -340,7 +341,16 @@ int execute_command(char *cmd)
   }
   char src[1024];
   char dst[1024];
-  if (sscanf(cmd,"put %s %s",src,dst)==2) {
+  if ((!strcmp(cmd,"exit"))||(!strcmp(cmd,"quit"))) {
+    printf("Reseting MEGA65 and exiting.\n");
+    restart_kickstart();
+    exit(0);
+  }
+  
+  if (sscanf(cmd,"get %s %s",src,dst)==2) {
+    download_file(src,dst);
+  }
+  else if (sscanf(cmd,"put %s %s",src,dst)==2) {
     upload_file(src,dst);
   }
   else if (sscanf(cmd,"dir %s",src)==1) {
@@ -351,11 +361,15 @@ int execute_command(char *cmd)
   }
   else if (sscanf(cmd,"put %s",src)==1) {
     upload_file(src,src);
+  }
+  else if (sscanf(cmd,"get %s",src)==1) {
+    download_file(src,src);
   } else if (!strcasecmp(cmd,"help")) {
     printf("MEGA65 File Transfer Program Command Reference:\n");
     printf("\n");
     printf("dir [directory] - show contents of current or specified directory.\n");
     printf("put <file> [destination name] - upload file to SD card, and optionally rename it destination file.\n");
+    printf("get <file> [destination name] - download file from SD card, and optionally rename it destination file.\n");
     printf("exit - leave this programme.\n");
     printf("quit - leave this programme.\n");
   } else {
@@ -455,8 +469,6 @@ int main(int argc,char **argv)
     char *cmd=NULL;
     using_history();
     while((cmd=readline("MEGA65 SD-card> "))!=NULL) {
-      if (!strcmp(cmd,"exit")) exit(0);
-      if (!strcmp(cmd,"quit")) exit(0);
       execute_command(cmd);
       add_history(cmd);
       free(cmd);
@@ -1317,6 +1329,112 @@ int upload_file(char *name,char *dest_name)
     if (time(0)==upload_start) upload_start=time(0)-1;
     printf("\rUploaded %lld bytes in %lld seconds (%.1fKB/sec)\n",
 	   (long long)st.st_size,(long long)time(0)-upload_start,st.st_size*1.0/1024/(time(0)-upload_start));
+    
+  } while(0);
+
+  return retVal;
+}
+
+unsigned char download_buffer[512];
+
+int download_file(char *dest_name,char *local_name)
+{
+  struct dirent de;
+  int retVal=0;
+  do {
+
+    time_t upload_start=time(0);
+    
+    if (!file_system_found) open_file_system();
+    if (!file_system_found) {
+      fprintf(stderr,"ERROR: Could not open file system.\n");
+      retVal=-1;
+      break;
+    }
+
+    if (fat_opendir("/")) { retVal=-1; break; }
+    //    printf("Opened directory, dir_sector=%d (absolute sector = %d)\n",dir_sector,partition_start+dir_sector);
+    while(!fat_readdir(&de)) {
+      // if (de.d_name[0]) printf("%13s   %d\n",de.d_name,(int)de.d_off);
+      //      else dump_bytes(0,"empty dirent",&dir_sector_buffer[dir_sector_offset],32);
+      if (!strcasecmp(de.d_name,dest_name)) {
+	// Found file, so will replace it
+	//	printf("%s already exists on the file system, beginning at cluster %d\n",name,(int)de.d_ino);
+	break;
+      }
+    }
+    if (dir_sector==-1) {
+      printf("?  FILE NOT FOUND ERROR FOR \"%s\"\n",dest_name);
+      retVal=-1; break; 
+    }
+
+    // Read out the first cluster. If zero, then we need to allocate a first cluster.
+    // After that, we can allocate and chain clusters in a constant manner
+    unsigned int first_cluster_of_file=
+      (dir_sector_buffer[dir_sector_offset+0x1A]<<0)
+      |(dir_sector_buffer[dir_sector_offset+0x1B]<<8)
+      |(dir_sector_buffer[dir_sector_offset+0x14]<<16)
+      |(dir_sector_buffer[dir_sector_offset+0x15]<<24);
+
+    // Now write the file out sector by sector, and allocate new clusters as required
+    int remaining_bytes=de.d_off;
+    int sector_in_cluster=0;
+    int file_cluster=first_cluster_of_file;
+    unsigned int sector_number;
+    FILE *f=fopen(local_name,"w");
+
+    if (!f) {
+      printf("ERROR: Could not open file '%s' for writing.\n",local_name);
+      retVal=-1; break;
+    }
+
+    while(remaining_bytes) {
+      if (sector_in_cluster>=sectors_per_cluster) {
+	// Advance to next cluster
+	// If we are currently the last cluster, then allocate a new one, and chain it in
+
+	int next_cluster=chained_cluster(file_cluster);	
+	if (next_cluster==0||next_cluster>=0xffffff8) {
+	  printf("?  PREMATURE END OF FILE ERROR\n");
+	  fclose(f);
+	  retVal=-1; break;
+	}
+	
+	file_cluster=next_cluster;
+	sector_in_cluster=0;
+      }
+
+      // Read sector
+      sector_number=partition_start+first_cluster_sector+(sectors_per_cluster*(file_cluster-first_cluster))+sector_in_cluster;
+
+      if (read_sector(sector_number,download_buffer,0)) {
+	printf("ERROR: Failed to read to sector %d\n",sector_number);
+	retVal=-1;
+	fclose(f);
+	break;
+      }
+
+      if (remaining_bytes>=512)
+	fwrite(download_buffer,512,1,f);
+      else
+	fwrite(download_buffer,remaining_bytes,1,f);
+      
+      if (0) printf("T+%lld : Read %d bytes from file, writing to sector $%x (%d) for cluster %d\n",
+		    gettime_us()-start_usec,(int)de.d_off,sector_number,sector_number,file_cluster);
+      printf("\rDownloaded %lld bytes.",(long long)de.d_off-remaining_bytes);
+      fflush(stdout);
+      
+      //      printf("T+%lld : after write.\n",gettime_us()-start_usec);
+
+      sector_in_cluster++;
+      remaining_bytes-=512;
+    }
+
+    fclose(f);
+    
+    if (time(0)==upload_start) upload_start=time(0)-1;
+    printf("\rDownloaded %lld bytes in %lld seconds (%.1fKB/sec)\n",
+	   (long long)de.d_off,(long long)time(0)-upload_start,de.d_off*1.0/1024/(time(0)-upload_start));
     
   } while(0);
 
