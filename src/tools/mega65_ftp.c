@@ -980,8 +980,8 @@ int allocate_cluster(unsigned int cluster)
 
     //    dump_bytes(0,"FAT sector",fat_sector,512);
     
-    printf("Marking cluster $%x in use by writing to offset $%x of FAT sector $%x\n",
-	   cluster,fat_sector_offset,fat_sector_num);
+    if (0) printf("Marking cluster $%x in use by writing to offset $%x of FAT sector $%x\n",
+		  cluster,fat_sector_offset,fat_sector_num);
     
     // Set the bytes for this cluster to $0FFFFF8 to mark end of chain and in use
     fat_sector[fat_sector_offset+0]=0xf8;
@@ -989,21 +989,21 @@ int allocate_cluster(unsigned int cluster)
     fat_sector[fat_sector_offset+2]=0xff;
     fat_sector[fat_sector_offset+3]=0x0f;
 
-    printf("Marking cluster in use in FAT1\n");
+    if (0) printf("Marking cluster in use in FAT1\n");
 
     // Write sector back to FAT1
     if (write_sector(partition_start+fat1_sector+fat_sector_num,fat_sector)) {
       printf("ERROR: Failed to write updated FAT sector $%x to FAT1\n",fat_sector_num);
       retVal=-1; break; }
 
-    printf("Marking cluster in use in FAT2\n");
+    if (0) printf("Marking cluster in use in FAT2\n");
 
     // Write sector back to FAT2
     if (write_sector(partition_start+fat2_sector+fat_sector_num,fat_sector)) {
       printf("ERROR: Failed to write updated FAT sector $%x to FAT1\n",fat_sector_num);
       retVal=-1; break; }
 
-    printf("Done allocating cluster\n");
+    if (0) printf("Done allocating cluster\n");
     
   } while(0);
   
