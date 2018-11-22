@@ -2354,7 +2354,6 @@ begin  -- behavioural
               -- Still more bytes to read.
               sd_state <= WritingSector;
 
-              f011_buffer_disk_pointer_advance <= '1';
               -- Abort CPU buffer read if in progess, since we are reading the buffer
               sb_cpu_reading <= '0';              
             end if;
