@@ -5,7 +5,7 @@
 
   1. If an optional file name is provided, then we stuff the keyboard buffer
   with the LOAD command.  We check if we are in C65 mode, and if so, do GO64
-  (look for "THE" at $086d for C65 ROM detection).  Keyboard buffer @ $34A, 
+  (look for reversed spaces at $0800 for C65 ROM detection).  Keyboard buffer @ $34A, 
   buffer length @ $D0 in C65 mode, same as C128.  Then buffer is $277 in C64
   mode, buffer length @ $C6 in C64 mode.
   
@@ -757,8 +757,8 @@ int process_line(char *line,int live)
       }
     }
   }
-  if ((!strcmp(line," :000086D 14 08 05 20 03 0F 0D 0D 0F 04 0F 12 05 20 03 36"))
-      ||(!strcmp(line,":0000086D:14080520030F0D0D0F040F1205200336")))
+  if ((!strcmp(line," :0000800 A0 A0 A0 A0 A0 A0 A0 A0 A0 A0 A0 A0 A0 A0 A0 A0"))
+      ||(!strcmp(line,":00000800:A0A0A0A0A0A0A0A0A0A0A0A0A0A0A0A0")))
     {
 
     if (modeline_cmd[0]) {
@@ -1359,7 +1359,7 @@ int main(int argc,char **argv)
 	    if (state==99) printf("sending R command to sync @ %dpbs.\n",serial_speed);
 	    switch (phase%(4+hypervisor_paused)) {
 	    case 0: slow_write(fd,"r\r",2); break; // PC check
-	    case 1: slow_write(fd,"m86d\r",5); break; // C65 Mode check
+	    case 1: slow_write(fd,"m800\r",5); break; // C65 Mode check
 	    case 2: slow_write(fd,"m42c\r",5); break; // C64 mode check
             case 3: slow_write(fd,"mffd3077\r",9); break; 
 	    case 4: slow_write(fd,"mffd3659\r",9); break; // Hypervisor virtualisation/security mode flag check
