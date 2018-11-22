@@ -1,8 +1,10 @@
 .SUFFIXES: .bin .prg 
 .PRECIOUS:	%.ngd %.ncd %.twx vivado/%.xpr bin/%.bit bin/%.mcs bin/%.M65 bin/%.BIN
 
-COPT=	-Wall -g -std=gnu99 -fsanitize=address -fno-omit-frame-pointer -fsanitize-address-use-after-scope
-CC=	clang
+#COPT=	-Wall -g -std=gnu99 -fsanitize=address -fno-omit-frame-pointer -fsanitize-address-use-after-scope
+#CC=	clang
+COPT=	-Wall -g -std=gnu99
+CC=	gcc
 OPHIS=	Ophis/bin/ophis
 OPHISOPT=	-4
 OPHIS_MON= Ophis/bin/ophis -c
