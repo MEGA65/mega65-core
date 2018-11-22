@@ -53,7 +53,7 @@ static const int B4000000 = 4000000;
 time_t start_time=0;
 long long start_usec=0;
 
-int upload_file(char *name);
+int upload_file(char *name,char *dest_name);
 int sdhc_check(void);
 int read_sector(const unsigned int sector_number,unsigned char *buffer, int noCacheP);
 
@@ -397,7 +397,7 @@ int main(int argc,char **argv)
   sdhc_check();
   
   for(int i=optind;i<argc;i++)
-    upload_file(argv[i]);
+    upload_file(argv[i],argv[i]);
 
   return 0;
 }
@@ -981,16 +981,19 @@ unsigned int chained_cluster(unsigned int cluster)
 
 unsigned char fat_sector[512];
 
-unsigned int find_free_cluster(void)
+unsigned int find_free_cluster(unsigned int first_cluster)
 {
   unsigned int cluster=0;
 
   int retVal=0;
 
   do {
-    int i;
+    int i,o;
+
+    i = first_cluster / (512/4);
+    o = (first_cluster % (512/4)) * 4;
     
-    for(i=0;i<sectors_per_fat;i++) {
+    for(;i<sectors_per_fat;i++) {
       // Read FAT sector
       printf("Checking FAT sector $%x for free clusters.\n",i);
       if (read_sector(partition_start+fat1_sector+i,fat_sector,0)) {
@@ -1001,7 +1004,7 @@ unsigned int find_free_cluster(void)
       if (retVal) break;
       
       // Search for free sectors
-      for(int o=0;o<512;o+=4) {
+      for(;o<512;o+=4) {
 	if (!(fat_sector[o]|fat_sector[o+1]|fat_sector[o+2]|fat_sector[o+3]))
 	  {
 	    // Found a free cluster.
@@ -1010,6 +1013,7 @@ unsigned int find_free_cluster(void)
 	    break;
 	  }
       }
+      o=0;
     
       if (cluster||retVal) break;
     }
@@ -1022,7 +1026,7 @@ unsigned int find_free_cluster(void)
   return retVal;
 }
 
-int upload_file(char *name)
+int upload_file(char *name,char *dest_name)
 {
   struct dirent de;
   int retVal=0;
@@ -1046,7 +1050,7 @@ int upload_file(char *name)
     while(!fat_readdir(&de)) {
       if (de.d_name[0]) printf("%13s   %d\n",de.d_name,(int)de.d_off);
       //      else dump_bytes(0,"empty dirent",&dir_sector_buffer[dir_sector_offset],32);
-      if (!strcasecmp(de.d_name,name)) {
+      if (!strcasecmp(de.d_name,dest_name)) {
 	// Found file, so will replace it
 	printf("%s already exists on the file system, beginning at cluster %d\n",name,(int)de.d_ino);
 	break;
@@ -1070,13 +1074,13 @@ int upload_file(char *name)
 	  // Write name
 	  for(int i=0;i<11;i++) dir[i]=0x20;
 	  for(int i=0;i<8;i++)
-	    if (name[i]=='.') {
+	    if (dest_name[i]=='.') {
 	      // Write out extension
 	      for(int j=0;j<3;j++)
-		if (name[i+1+j]) dir[8+j]=name[i+1+j];
+		if (dest_name[i+1+j]) dir[8+j]=dest_name[i+1+j];
 	      break;
-	    } else if (!name[i]) break;
-	    else dir[i]=name[i];
+	    } else if (!dest_name[i]) break;
+	    else dir[i]=dest_name[i];
 
 	  // Set file attributes (only archive bit)
 	  dir[0xb]=0x20;
@@ -1125,7 +1129,7 @@ int upload_file(char *name)
     if (!first_cluster_of_file) {
       printf("File currently has no first cluster allocated.\n");
 
-      int a_cluster=find_free_cluster();
+      int a_cluster=find_free_cluster(0);
       if (!a_cluster) {
 	printf("ERROR: Failed to find a free cluster.\n");
 	retVal=-1; break;
@@ -1167,7 +1171,7 @@ int upload_file(char *name)
 
 	int next_cluster=chained_cluster(file_cluster);
 	if (next_cluster==0||next_cluster>=0xffffff8) {
-	  next_cluster=find_free_cluster();
+	  next_cluster=find_free_cluster(file_cluster);
 	  if (allocate_cluster(next_cluster)) {
 	    printf("ERROR: Could not allocate cluster $%x\n",next_cluster);
 	    retVal=-1; break;
@@ -1205,6 +1209,19 @@ int upload_file(char *name)
       sector_in_cluster++;
       remaining_length-=512;
     }
+
+    // XXX check for orphan clusters at the end, and if present, free them.
+
+    // Write file size into directory entry
+    dir_sector_buffer[dir_sector_offset+0x1C]=(st.st_size>>0)&0xff;
+    dir_sector_buffer[dir_sector_offset+0x1D]=(st.st_size>>8)&0xff;
+    dir_sector_buffer[dir_sector_offset+0x1E]=(st.st_size>>16)&0xff;
+    dir_sector_buffer[dir_sector_offset+0x1F]=(st.st_size>>24)&0xff;
+
+    if (write_sector(partition_start+dir_sector,dir_sector_buffer)) {
+      printf("ERROR: Failed to write updated directory sector after updating file length.\n");
+      retVal=-1; break; }
+
     
   } while(0);
 
