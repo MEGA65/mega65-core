@@ -2332,7 +2332,7 @@ begin  -- behavioural
               -- Byte has been accepted, write next one
               sd_state <= WritingSectorAckByte;
 
-              f011_buffer_disk_pointer_advance <= '1';
+--              f011_buffer_disk_pointer_advance <= '1';
               sd_buffer_offset <= sd_buffer_offset + 1;
 
               sd_wrote_byte <= '1';
@@ -2354,6 +2354,7 @@ begin  -- behavioural
               -- Still more bytes to read.
               sd_state <= WritingSector;
 
+              f011_buffer_disk_pointer_advance <= '1';
               -- Abort CPU buffer read if in progess, since we are reading the buffer
               sb_cpu_reading <= '0';              
             end if;
