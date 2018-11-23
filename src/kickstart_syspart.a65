@@ -211,6 +211,9 @@ splf3:	lda mult48_result0,x
 	dex
 	bpl splf3
 
+	; Fix sector number for non-SDHC cards
+	jsr sd_fix_sectornumber
+
 	sec
 	rts
 
@@ -305,7 +308,17 @@ maccopy:
 	STA    mac_addr_0, X
 	DEX
 	BPL    maccopy
-	
+
+	; Copy default disk image name
+	LDA    $DE10
+	BEQ    nodiskname
+	LDX    #$0F
+disknamecopy:
+	LDA	$DE10, X
+	STA	txt_MEGA65D81, X
+	DEX
+	BPL	disknamecopy
+nodiskname:
 	sec
 	rts
 
