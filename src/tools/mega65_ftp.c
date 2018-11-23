@@ -427,42 +427,7 @@ int main(int argc,char **argv)
   }  
 
   if (argc-optind==1) usage();
-  
-  // Load bitstream if file provided
-  if (bitstream) {
-    char cmd[1024];
-    snprintf(cmd,1024,"fpgajtag -a %s",bitstream);
-    fprintf(stderr,"%s\n",cmd);
-    system(cmd);
-    fprintf(stderr,"[T+%lldsec] Bitstream loaded\n",(long long)time(0)-start_time);
-  }
 
-#ifndef APPLE
-  // Try to set USB serial port to low latency
-  {
-    char latency_timer[1024];
-    int offset=strlen(serial_port);
-    while(offset&&serial_port[offset-1]!='/') offset--;
-    snprintf(latency_timer,1024,"/sys/bus/usb-serial/devices/%s/latency_timer",
-	     &serial_port[offset]);
-    int old_latency=999;
-    FILE *f=fopen(latency_timer,"r");
-    if (f) { fscanf(f,"%d",&old_latency); fclose(f); }
-    if (old_latency!=1) {
-      snprintf(latency_timer,1024,"echo 1 | sudo tee /sys/bus/usb-serial/devices/%s/latency_timer",
-	       &serial_port[offset]);
-      printf("Attempting to reduce USB latency via '%s'\n",latency_timer);
-      system(latency_timer);
-    }
-  }
-
-  // And also another way
-  struct serial_struct serial;
-  ioctl(fd, TIOCGSERIAL, &serial); 
-  serial.flags |= ASYNC_LOW_LATENCY;
-  ioctl(fd, TIOCSSERIAL, &serial);
-#endif
-  
   errno=0;
   fd=open(serial_port,O_RDWR);
   if (fd==-1) {
@@ -471,7 +436,39 @@ int main(int argc,char **argv)
     exit(-1);
   }
   fcntl(fd,F_SETFL,fcntl(fd, F_GETFL, NULL)|O_NONBLOCK);
+  
+#ifndef APPLE
 
+  // And also another way
+  struct serial_struct serial;
+  ioctl(fd, TIOCGSERIAL, &serial); 
+  serial.flags |= ASYNC_LOW_LATENCY;
+  ioctl(fd, TIOCSSERIAL, &serial);
+
+  {
+    char latency_timer[1024];
+    int offset=strlen(serial_port);
+    while(offset&&serial_port[offset-1]!='/') offset--;
+    snprintf(latency_timer,1024,"/sys/bus/usb-serial/devices/%s/latency_timer",
+	     &serial_port[offset]);
+    int new_latency=999;
+    FILE *f=fopen(latency_timer,"r");
+    if (f) { fscanf(f,"%d",&new_latency); fclose(f); }
+    if (new_latency==1) printf("Successfully set USB serial port to low-latency\n");
+    else printf("WARNING: Could not set USB serial port to low latency.  Transfers will be (even) slower.\n");
+  }
+
+#endif
+
+  // Load bitstream if file provided
+  if (bitstream) {
+    char cmd[1024];
+    snprintf(cmd,1024,"fpgajtag -a %s",bitstream);
+    fprintf(stderr,"%s\n",cmd);
+    system(cmd);
+    fprintf(stderr,"[T+%lldsec] Bitstream loaded\n",(long long)time(0)-start_time);
+  }
+  
   // Set higher speed on serial interface to improve throughput
   set_speed(fd,2000000);
   slow_write(fd,"\r+9\r",4,5000);
