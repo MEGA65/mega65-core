@@ -61,6 +61,7 @@ $003.7 - Select DAC mode: 0=PDM, 1=PWM
 $004.0 - 0=F011 will use disk images from SD card, 1=F011 will use 3.5" internal floppy drive
 $005.0 - 0=Disable transparent 1351 emulation for Amiga mouses, 1=Enable use of Amiga mouses as though they were 1351 mouses.
 $006-$00B - Ethernet MAC address
+$010-$01F - Default disk image to mount
 
 ## Boot Logo
 
