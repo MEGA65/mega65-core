@@ -151,12 +151,42 @@ task_asblankslate:
 ;	========================
 
 restore_press_trap:
+
 	; Freeze to slot 0
 	ldx #$00
 	ldy #$00
 	jsr freeze_to_slot
 
-	; return from hypervisor
+	; Load freeze program
+	jsr attempt_loadcharrom
+	jsr attempt_loadc65rom
+
+	ldx #<txt_MEGA65ROM
+	ldy #>txt_MEGA65ROM
+	jsr dos_setname
+
+	; Prepare 32-bit pointer for loading freezer program ($000007FF)
+	; (i.e. $0801 - 2 byte header, so we can use a normal PRG file)
+	;
+	lda #$00
+	sta <dos_file_loadaddress+2
+	sta <dos_file_loadaddress+3
+	lda #$07
+	sta <dos_file_loadaddress+1
+	lda #$ff
+	sta <dos_file_loadaddress+0
+
+	jsr dos_readfileintomemory
+	jsr task_set_c64_memorymap
+	jsr task_dummy_nmi_vector
+	
+	; set entry point and memory config
+	lda #<2061
+	sta hypervisor_pcl
+	lda #>2061
+	sta hypervisor_pch
+
+	; return from hypervisor, causing freeze menu to start
 	;
 	sta hypervisor_enterexit_trigger
 
