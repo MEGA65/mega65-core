@@ -227,7 +227,8 @@ MEMVHDL=		$(VHDLSRCDIR)/ghdl_chipram8bit.vhdl \
 			$(VHDLSRCDIR)/ghdl_ram9x4k.vhdl \
 			$(VHDLSRCDIR)/ghdl_screen_ram_buffer.vhdl \
 			$(VHDLSRCDIR)/ghdl_videobuffer.vhdl \
-			$(VHDLSRCDIR)/ghdl_ram36x1k.vhdl
+			$(VHDLSRCDIR)/ghdl_ram36x1k.vhdl \
+			$(VHDLSRCDIR)/asym_bram.vhdl
 
 NEXYSVHDL=		$(VHDLSRCDIR)/slowram.vhdl \
 			$(VHDLSRCDIR)/sdcard.vhdl \

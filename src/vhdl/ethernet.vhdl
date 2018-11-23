@@ -1,6 +1,6 @@
 --
 -- Written by
---    Paul Gardner-Stephen <hld@c64.org>  2013-2014
+--    Paul Gardner-Stephen <hld@c64.org>  2013-2018
 --
 -- *  This program is free software; you can redistribute it and/or modify
 -- *  it under the terms of the GNU Lesser General Public License as
@@ -208,6 +208,7 @@ architecture behavioural of ethernet is
   signal eth_tx_state : ethernet_state := Idle;
   signal eth_tx_bit_count : integer range 0 to 6;
   signal eth_tx_viciv : std_logic := '0';
+  signal eth_tx_dump : std_logic := '0';
   signal txbuffer_writeaddress : integer range 0 to 4095;
   signal txbuffer_readaddress : integer range 0 to 4095;
   signal txbuffer_write : std_logic := '0';
@@ -273,6 +274,32 @@ architecture behavioural of ethernet is
  signal miim_read_value : unsigned(15 downto 0) := to_unsigned(0,16);
  signal miim_write_value : unsigned(15 downto 0) := to_unsigned(0,16);
  signal miim_ready : std_logic := '0'; 
+
+ -- BRAM controls for real-time CPU / bus activity dumping
+ -- Interface is 64 bit write, 8-bit read.
+ -- For Bus monitoring, this means we can provide:
+ -- address (32 bits), write data (8 bits), read data (8 bits), read/write
+ -- plus IO mode flags (4 bits packed in a byte)
+ -- For CPU monitoring:
+ -- PC (16 bits), last instruction (24 bits), flags (8 bits), SP low byte (8 bits)
+ -- and A (8 bits)
+ -- As we write 8 bytes at a time at 40MHz, but the ethernet interface only outputs
+ -- 2 bits at a time at 50MHz, this means that we can only log with a duty cycle
+ -- of 2*50 / 64*40 = 100 / 2560 = 1/25.6 ~= 4%.  At 1MHz the CPU runs at only
+ -- 2.5% speed, so we should be able to do full real-time instruction capture,
+ -- except that we need to hold the buffer unmodified while sending, or else
+ -- send while filling. For now, we will do the easy path of blocking writes
+ -- once the buffer is full, and until such time as it has been emptied through
+ -- transmission.  We could improve this by sending it in 1KB or 2KB pieces, and
+ -- effectively double-buffering it.
+ signal dumpram_raddr : std_logic_vector(11 downto 0) := (others => '0');
+ signal dumpram_waddr : std_logic_vector(8 downto 0) := (others => '0');
+ signal dumpram_wdata : std_logic_vector(63 downto 0) := (others => '0');
+ signal dumpram_rdata : std_logic_vector(7 downto 0) := (others => '0');
+ signal dumpram_write : std_logic := '0';
+ signal activity_dump_ready_toggle : std_logic := '0';
+ signal last_activity_dump_ready_toggle : std_logic := '0';
+ signal activity_dump : std_logic := '1';
  
  -- Reverse the input vector.
  function reversed(slv: std_logic_vector) return std_logic_vector is
@@ -357,7 +384,26 @@ begin  -- behavioural
     miim_write_value => miim_write_value,
     miim_ready => miim_ready
     );
-  
+
+  -- asymmetric SDP BRAM used for high-speed data dumps out of the MEGA65.
+  -- In particular, this is to give the CPU a nice way to be able to dump
+  -- full instruction streams or bus activity reports via ethernet, to help
+  -- debug problems that are dependent on dynamic timing, and thus only
+  -- show up when the CPU is free running.
+  cpulogram: entity work.asym_ram_sdp_write_wider port map (
+    -- Read interface
+    clkA => clock50mhz,
+    addrA => dumpram_raddr,
+    doA => dumpram_rdata,
+    enA => '1',
+    
+    clkB => clock,
+    enB => '1',
+    weB => dumpram_write,
+    addrB => dumpram_waddr,
+    diB => dumpram_wdata
+    );
+
   -- Look after CPU side of mapping of RX buffer
   process(eth_rx_buffer_moby,fastio_addr,fastio_read) is
   begin    
@@ -457,6 +503,24 @@ begin  -- behavioural
             eth_txd_int <= "01";
             eth_tx_state <= WaitBeforeTX;
             eth_tx_viciv <= '0';
+            eth_tx_dump <= '0';
+          elsif (activity_dump='1') and activity_dump_ready_toggle /= last_activity_dump_ready_toggle then
+            -- start sending an IPv6 multicast packet containing the compressed
+            -- video.
+            report "ACTIVITY DUMPER: Sending next packet ("
+              & std_logic'image(activity_dump_ready_toggle) & " vs " &
+              std_logic'image(last_activity_dump_ready_toggle) & ")"
+              severity note;
+            last_activity_dump_ready_toggle <= activity_dump_ready_toggle;
+            dumpram_raddr <= (not activity_dump_ready_toggle) & "00000000000";
+            eth_tx_commenced <= '1';
+            eth_tx_complete <= '0';
+            tx_preamble_count <= 29;
+            eth_txen_int <= '1';
+            eth_txd_int <= "01";
+            eth_tx_state <= WaitBeforeTX;
+            eth_tx_viciv <= '0';
+            eth_tx_dump <= '1';
           elsif (eth_videostream='1') and (buffer_moby_toggle /= last_buffer_moby_toggle) then            
             -- start sending an IPv6 multicast packet containing the compressed
             -- video.
@@ -473,6 +537,7 @@ begin  -- behavioural
             eth_txd_int <= "01";
             eth_tx_state <= WaitBeforeTX;
             eth_tx_viciv <= '1';
+            eth_tx_dump <= '0';
           end if;
         when WaitBeforeTX =>
           if eth_tx_packet_count /= "111111" then
@@ -499,7 +564,7 @@ begin  -- behavioural
             tx_fcs_crc_d_valid <= '1';
             tx_fcs_crc_calc_en <= '1';
             report "TX CRC announcing input";
-            if eth_tx_viciv='0' then
+            if eth_tx_viciv='0' and eth_tx_dump='0' then
               eth_tx_bits <= txbuffer_rdata;
               tx_fcs_crc_data_in <= std_logic_vector(txbuffer_rdata);
               report "Feeding TX CRC $" & to_hstring(txbuffer_rdata);
@@ -526,7 +591,17 @@ begin  -- behavioural
             tx_fcs_crc_d_valid <= '1';
             tx_fcs_crc_calc_en <= '1';
             report "TX CRC announcing input";
-            if eth_tx_viciv='0' then
+            if eth_tx_dump='1' then
+              if txbuffer_readaddress < video_packet_header'length then
+                report "FRAMEPACKER: Sending packet header byte " & integer'image(txbuffer_readaddress) & " = $" & to_hstring(unsigned(video_packet_header(txbuffer_readaddress)));
+                eth_tx_bits <= unsigned(video_packet_header(txbuffer_readaddress));
+                tx_fcs_crc_data_in <= video_packet_header(txbuffer_readaddress);
+              else
+                report "FRAMEPACKER: Sending compressed video byte " & integer'image(txbuffer_readaddress - video_packet_header'length) & " = $" & to_hstring(buffer_rdata);
+                eth_tx_bits <= unsigned(dumpram_rdata);
+                tx_fcs_crc_data_in <= dumpram_rdata;
+              end if;              
+            elsif eth_tx_viciv='0' then
               if eth_tx_padding = '1' then
                report "PADDING: writing padding byte @ "
                  & integer'image(txbuffer_readaddress) & " (and adding to CRC)";
@@ -552,7 +627,17 @@ begin  -- behavioural
               end if;
             end if;
 
-            if ((eth_tx_viciv='0')
+            if (eth_tx_dump='1')
+                and (to_unsigned(txbuffer_readaddress,12) /=
+                     (2048 + video_packet_header'length - 1)) then
+              -- Not yet at end of CPU/BUS log dump, so advance read address
+              -- pointer for dump buffer
+              if (to_unsigned(txbuffer_readaddress,12) >= video_packet_header'length) then
+                dumpram_raddr(10 downto 0) <= std_logic_vector(to_unsigned(txbuffer_readaddress - video_packet_header'length,11));
+              else
+                dumpram_raddr(10 downto 0) <= std_logic_vector(to_unsigned(0,12));
+              end if;
+            elsif ((eth_tx_viciv='0')
                 and (to_unsigned(txbuffer_readaddress,12) /= eth_tx_size_padded))
               or
               ((eth_tx_viciv='1')
@@ -614,7 +699,7 @@ begin  -- behavioural
           -- Wait for eth_tx_trigger to go low, unless it is
           -- a VIC-IV video frame, in which case immediately clear.
           eth_tx_complete <= '1';
-          if eth_tx_trigger='0' or eth_tx_viciv = '1' then
+          if eth_tx_trigger='0' or eth_tx_viciv = '1' or eth_tx_dump='1' then
             eth_tx_commenced <= '0';
             eth_tx_state <= IdleWait;
           end if;
@@ -1013,7 +1098,7 @@ begin  -- behavioural
       -- Automatically de-assert transmit trigger once the FSM has caught the signal.
       -- (but don't accidently de-assert when sending compressed video.)
       if (eth_tx_complete = '1')
-        and (eth_tx_viciv='0') then
+        and (eth_tx_viciv='0') and (eth_tx_dump='0') then
         eth_tx_trigger <= '0';
       end if;
       
@@ -1085,9 +1170,11 @@ begin  -- behavioural
               eth_irq_rx <= '0';
               eth_irq_tx <= '0';
 
-              -- @IO:GS $D6E1.3 Enable real-time video streaming via ethernet
+              -- @IO:GS $D6E1.3 Enable real-time video streaming via ethernet (or CPU is CPU/bus monitoring enabled)
               eth_videostream <= fastio_wdata(3);
-
+              -- @IO:GS $D6E1.2 WRITE ONLY Enable real-time CPU/BUS monitoring via ethernet
+              activity_dump <= fastio_wdata(2);
+              
               -- @IO:GS $D6E1.1 - Set which RX buffer is memory mapped
               eth_rx_buffer_moby <= fastio_wdata(1);
 

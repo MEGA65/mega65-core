@@ -146,6 +146,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/ghdl_chipram8bit.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ghdl_alpha_blend.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/framepacker.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/asym_ram.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ethernet.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ethernet_miim.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/cia6526.vhdl"]"\
@@ -324,6 +325,10 @@ set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
 set file "vhdl/ghdl_ram8x512.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/asym_ram.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
