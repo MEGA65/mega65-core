@@ -2851,7 +2851,7 @@ txt_MEGA65ROM:		.byte "MEGA65.ROM",0,0
 
 			; filename of 1581 disk image we mount by default
 			;
-txt_MEGA65D81:		.byte "MEGA65.D81",0
+txt_MEGA65D81:		.byte "MEGA65.D81",0,0,0,0,0,0,0
 
 			; filename of kickstart update file
 			;
