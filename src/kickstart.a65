@@ -968,21 +968,7 @@ nokey3:
 
 ;	========================
 
-loadrom:
-
-	jsr dumpcurrentfd	; debugging to Checkpoint
-
-		; ROMs are not loaded, so try to load them, or prompt
-		; for user to insert SD card
-		;
-		ldx #<msg_rombad
-		ldy #>msg_rombad
-		jsr printmessage
-
-		; print debug message
-		;
-		.invoke checkpoint "  try-loading CHAR-ROM"
-
+attempt_loadcharrom:
 		; Load CHARROM.M65 into character ROM
 		;
 		ldx #<txt_CHARROMM65
@@ -1000,7 +986,41 @@ loadrom:
 		lda #$0F
 		sta <dos_file_loadaddress+3
 
-		jsr dos_readfileintomemory
+		jmp dos_readfileintomemory
+
+attempt_loadc65rom:
+		ldx #<txt_MEGA65ROM
+		ldy #>txt_MEGA65ROM
+		jsr dos_setname
+
+		; Prepare 32-bit pointer for loading whole ROM ($0020000)
+		;
+		lda #$00
+		sta <dos_file_loadaddress+0
+		sta <dos_file_loadaddress+1
+		sta <dos_file_loadaddress+3
+		lda #$02
+		sta <dos_file_loadaddress+2
+
+		jmp dos_readfileintomemory
+
+
+loadrom:
+
+	jsr dumpcurrentfd	; debugging to Checkpoint
+
+		; ROMs are not loaded, so try to load them, or prompt
+		; for user to insert SD card
+		;
+		ldx #<msg_rombad
+		ldy #>msg_rombad
+		jsr printmessage
+
+		; print debug message
+		;
+		.invoke checkpoint "  try-loading CHAR-ROM"
+
+		jsr attempt_loadcharrom
 		bcs loadedcharromok
 
 ;	========================
@@ -1048,20 +1068,7 @@ loadc65rom:
 		;
 		.invoke checkpoint "  try-loading MEGA65-ROM"
 
-		ldx #<txt_MEGA65ROM
-		ldy #>txt_MEGA65ROM
-		jsr dos_setname
-
-		; Prepare 32-bit pointer for loading whole ROM ($0020000)
-		;
-		lda #$00
-		sta <dos_file_loadaddress+0
-		sta <dos_file_loadaddress+1
-		sta <dos_file_loadaddress+3
-		lda #$02
-		sta <dos_file_loadaddress+2
-
-		jsr dos_readfileintomemory
+		jsr attempt_loadc65rom
 		bcs loadedok
 
 ;	========================
