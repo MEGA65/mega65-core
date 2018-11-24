@@ -4,7 +4,7 @@
 branch=`git status -b -s | head -n 1`
 # get from charpos3, for 6 chars
 branch2=${branch:3:6}
-version=`git describe --always --abbrev=7 --dirty=+DIRTY`
+version=`git describe --always --abbrev=7 --dirty=+DIRTY | sed -e 's/(//g' -e 's/)//g'`
 
 datetime=`date +%Y%m%d.%H`
 stringout="${datetime}-${branch2}-${version}"
