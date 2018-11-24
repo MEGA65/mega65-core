@@ -74,6 +74,7 @@ entity framepacker is
 
     -- CPU state signals for real-time ethernet debug output
     -- from the CPU
+    monitor_instruction_strobe : in std_logic;
     monitor_pc : in unsigned(15 downto 0);
     monitor_opcode : in unsigned(7 downto 0);        
     monitor_arg1 : in unsigned(7 downto 0);        
@@ -92,7 +93,7 @@ entity framepacker is
     buffer_address : in unsigned(11 downto 0);
     buffer_rdata : out unsigned(7 downto 0);    
 
-    debug_vector : out unsigned(31 downto 0);
+    debug_vector : out unsigned(63 downto 0);
   
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at CPU clock).
@@ -672,15 +673,24 @@ begin  -- behavioural
         end if;                                       
       end if;
 
-      debug_vector(5 downto 0) <= to_unsigned(bit_queue_len,6);
-      debug_vector(6) <= next_byte_valid;
-      debug_vector(7) <= output_write;      
-      debug_vector(13 downto 8) <= to_unsigned(bits_appended,6);
-      debug_vector(14) <= output_address(11);
-      debug_vector(15) <= pixel_valid_out;
-      debug_vector(23 downto 16) <= output_address(7 downto 0);
-      debug_vector(31 downto 24) <= to_unsigned(rle_count,8);
+--      debug_vector(5 downto 0) <= to_unsigned(bit_queue_len,6);
+--      debug_vector(6) <= next_byte_valid;
+--      debug_vector(7) <= output_write;      
+--      debug_vector(13 downto 8) <= to_unsigned(bits_appended,6);
+--      debug_vector(14) <= output_address(11);
+--      debug_vector(15) <= pixel_valid_out;
+--      debug_vector(23 downto 16) <= output_address(7 downto 0);
+--      debug_vector(31 downto 24) <= to_unsigned(rle_count,8);
 
+      -- Build CPU state vector
+      debug_vector(15 downto 0) <= monitor_pc;
+      debug_vector(23 downto 16) <= monitor_opcode;
+      debug_vector(31 downto 24) <= monitor_arg1;
+      debug_vector(39 downto 32) <= monitor_arg2;
+      debug_vector(47 downto 40) <= monitor_p;
+      debug_vector(55 downto 48) <= monitor_sp(7 downto 0);
+      debug_vector(63 downto 56) <= monitor_a;
+      
       if next_byte_valid = '1' then
         -- XXX Need to detect when we get close to full, so that we can
         -- consciously flip buffer halves, and reset the move to front coder.

@@ -322,7 +322,7 @@ architecture Behavioral of machine is
   
       fastio_read : in std_logic;
       fastio_write : in std_logic;
-  
+      
       monitor_proceed : in std_logic;
       monitor_waitstates : in unsigned(7 downto 0);
       monitor_request_reflected : in std_logic;
@@ -459,6 +459,7 @@ architecture Behavioral of machine is
   signal colour_ram_cs : std_logic := '0';
   signal charrom_write_cs : std_logic := '0';
 
+  signal monitor_instruction_strobe : std_logic;
   signal monitor_pc : unsigned(15 downto 0);
   signal monitor_hypervisor_mode : std_logic;
   signal monitor_state : unsigned(15 downto 0);
@@ -632,6 +633,7 @@ architecture Behavioral of machine is
 
   signal test_pattern_enable : std_logic := '0';
 
+  signal ethernet_cpu_arrest : std_logic := '0';
   
 begin
 
@@ -846,6 +848,7 @@ begin
       speed_gate_enable => speed_gate_enable,
       cpuis6502 => cpuis6502,
       cpuspeed => cpuspeed,
+      ethernet_cpu_arrest => ethernet_cpu_arrest,
       secure_mode_out => secure_mode_flag,
       secure_mode_from_monitor => secure_mode_from_monitor,
       clear_matrix_mode_toggle => clear_matrix_mode_toggle,
@@ -885,6 +888,7 @@ begin
       monitor_char_toggle => monitor_char_toggle,
       monitor_char_busy => monitor_char_busy,
 
+      monitor_instruction_strobe => monitor_instruction_strobe,
       monitor_proceed => monitor_proceed,
 --    monitor_debug_memory_access => monitor_debug_memory_access,
       monitor_waitstates => monitor_waitstates,
@@ -1245,6 +1249,7 @@ begin
       cpu_hypervisor_mode => cpu_hypervisor_mode,
       speed_gate => speed_gate,
       speed_gate_enable => speed_gate_enable,
+      ethernet_cpu_arrest => ethernet_cpu_arrest,
 
       buffereduart_rx => buffereduart_rx,
       buffereduart_tx => buffereduart_tx,
@@ -1311,6 +1316,7 @@ begin
 
       -- CPU status for sending to ethernet frame packer
       
+    monitor_instruction_strobe => monitor_instruction_strobe,
     monitor_pc => monitor_pc,
     monitor_opcode => monitor_opcode,
     monitor_arg1 => monitor_arg1,

@@ -81,7 +81,9 @@ entity ethernet is
     buffer_address : out unsigned(11 downto 0);
     buffer_rdata : in unsigned(7 downto 0);
 
-    debug_vector : in unsigned(31 downto 0);
+    instruction_strobe : in std_logic;
+    debug_vector : in unsigned(63 downto 0);
+    cpu_arrest : out std_logic := '0';
     
     ---------------------------------------------------------------------------
     -- keyboard event capture via ethernet
@@ -300,6 +302,9 @@ architecture behavioural of ethernet is
  signal activity_dump_ready_toggle : std_logic := '0';
  signal last_activity_dump_ready_toggle : std_logic := '0';
  signal activity_dump : std_logic := '1';
+ signal eth_tx_idle : std_logic := '0';
+ signal eth_tx_idle_cpuside : std_logic := '0';
+ signal cpu_arrest_internal : std_logic := '0';
  
  -- Reverse the input vector.
  function reversed(slv: std_logic_vector) return std_logic_vector is
@@ -466,6 +471,12 @@ begin  -- behavioural
       eth_rx_buffer_moby_50mhz <= eth_rx_buffer_moby_int2;
       
       -- Ethernet TX FSM
+      if eth_tx_state = Idle then
+        eth_tx_idle <= '1';
+      else
+        eth_tx_idle <= '0';
+      end if;
+      
       case eth_tx_state is
         when IdleWait =>
           -- Wait for 0.96usec before allowing transmission of next frame.
@@ -507,7 +518,7 @@ begin  -- behavioural
           elsif (activity_dump='1') and activity_dump_ready_toggle /= last_activity_dump_ready_toggle then
             -- start sending an IPv6 multicast packet containing the compressed
             -- video.
-            report "ACTIVITY DUMPER: Sending next packet ("
+            report "ETHERDUMP: Sending next packet ("
               & std_logic'image(activity_dump_ready_toggle) & " vs " &
               std_logic'image(last_activity_dump_ready_toggle) & ")"
               severity note;
@@ -597,7 +608,7 @@ begin  -- behavioural
                 eth_tx_bits <= unsigned(video_packet_header(txbuffer_readaddress));
                 tx_fcs_crc_data_in <= video_packet_header(txbuffer_readaddress);
               else
-                report "FRAMEPACKER: Sending compressed video byte " & integer'image(txbuffer_readaddress - video_packet_header'length) & " = $" & to_hstring(buffer_rdata);
+                report "ETHERDUMP: Sending byte " & integer'image(txbuffer_readaddress - video_packet_header'length) & " = $" & to_hstring(dumpram_rdata) & " dumpram_raddr=$" & to_hstring(dumpram_raddr);
                 eth_tx_bits <= unsigned(dumpram_rdata);
                 tx_fcs_crc_data_in <= dumpram_rdata;
               end if;              
@@ -608,7 +619,7 @@ begin  -- behavioural
                 tx_fcs_crc_data_in <= x"00";
                 eth_tx_bits <= x"00";
               else
-                report "PADDING: writing actual byte $"
+                report "ETHTX: writing actual byte $"
                   & to_hstring(txbuffer_rdata) & 
                   " @ "
                   & integer'image(txbuffer_readaddress) & " (and adding to CRC)";
@@ -632,12 +643,18 @@ begin  -- behavioural
                      (2048 + video_packet_header'length - 1)) then
               -- Not yet at end of CPU/BUS log dump, so advance read address
               -- pointer for dump buffer
+              txbuffer_readaddress <= txbuffer_readaddress + 1;
+              if txbuffer_readaddress = eth_tx_size then
+                eth_tx_padding <= '1';
+              end if;
+              report "ETHERDUMP: txbuffer_readaddress = $" & to_hstring(to_unsigned(txbuffer_readaddress,12));
               if (to_unsigned(txbuffer_readaddress,12) >= video_packet_header'length) then
                 dumpram_raddr(10 downto 0) <= std_logic_vector(to_unsigned(txbuffer_readaddress - video_packet_header'length,11));
+                report "ETHERDUMP: dumpram_raddr = $" & to_hstring(dumpram_raddr);
               else
-                dumpram_raddr(10 downto 0) <= std_logic_vector(to_unsigned(0,12));
+                dumpram_raddr(10 downto 0) <= std_logic_vector(to_unsigned(0,11));
               end if;
-            elsif ((eth_tx_viciv='0')
+            elsif ((eth_tx_dump='0') and (eth_tx_viciv='0')
                 and (to_unsigned(txbuffer_readaddress,12) /= eth_tx_size_padded))
               or
               ((eth_tx_viciv='1')
@@ -1093,6 +1110,31 @@ begin  -- behavioural
 
     if rising_edge(clock) then
 
+      eth_tx_idle_cpuside <= eth_tx_idle;
+      
+      if instruction_strobe='1' then
+        report "ETHERDUMP: Instruction spotted: " & to_hstring(debug_vector) & ", writing to $" & to_hstring(dumpram_waddr);
+        dumpram_wdata <= std_logic_vector(debug_vector);
+        dumpram_waddr <= std_logic_vector(to_unsigned(to_integer(unsigned(dumpram_waddr)) + 1,9));
+        dumpram_write <= '1';
+        activity_dump_ready_toggle <= dumpram_waddr(8);
+        if dumpram_waddr(7 downto 0) = "11110000" then
+          -- Check if we are about to run out of buffer space
+          if eth_tx_idle_cpuside = '0' then
+            cpu_arrest_internal <= '1';
+            report "ETHERDUMP: Arresting CPU";
+          end if;
+        end if;
+      else
+        dumpram_write <= '0';
+      end if;
+      if cpu_arrest_internal='1' and eth_tx_idle_cpuside = '1' then
+        cpu_arrest_internal <= '0';
+        report "ETHERDUMP: Resuming CPU";
+      end if;
+      cpu_arrest <= cpu_arrest_internal;
+      
+      
       miim_request <= '0';
       
       -- Automatically de-assert transmit trigger once the FSM has caught the signal.

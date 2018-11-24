@@ -172,6 +172,7 @@ entity iomapper is
         pixel_newframe : in std_logic;
         pixel_newraster : in std_logic;
 
+        monitor_instruction_strobe : in std_logic;
         monitor_pc : in unsigned(15 downto 0);
         monitor_opcode : in unsigned(7 downto 0);        
         monitor_arg1 : in unsigned(7 downto 0);        
@@ -197,6 +198,8 @@ entity iomapper is
     eth_rxer : in std_logic;
     eth_interrupt : in std_logic;
 
+    ethernet_cpu_arrest : out std_logic;
+    
     ----------------------------------------------------------------------
     -- Flash RAM for holding config
     ----------------------------------------------------------------------
@@ -360,7 +363,7 @@ architecture behavioral of iomapper is
   signal buffer_offset : unsigned(11 downto 0);
   signal buffer_address : unsigned(11 downto 0);
   signal buffer_rdata : unsigned(7 downto 0);
-  signal debug_vector : unsigned(31 downto 0);
+  signal debug_vector : unsigned(63 downto 0);
 
   signal eth_keycode_toggle : std_logic;
   signal eth_keycode : unsigned(15 downto 0);
@@ -473,6 +476,7 @@ begin
     pixel_newraster => pixel_newraster,
 
     -- CPU status log for real-time debug
+    monitor_instruction_strobe => monitor_instruction_strobe,
     monitor_pc => monitor_pc,
     monitor_opcode => monitor_opcode,
     monitor_arg1 => monitor_arg1,
@@ -817,6 +821,8 @@ begin
     buffer_address => buffer_address,
     buffer_rdata => buffer_rdata,
     debug_vector => debug_vector,
+    instruction_strobe => monitor_instruction_strobe,
+    cpu_arrest => ethernet_cpu_arrest,
     
     eth_keycode_toggle => eth_keycode_toggle,
     eth_keycode => eth_keycode,

@@ -110,6 +110,7 @@ entity gs4510 is
     monitor_waitstates : out unsigned(7 downto 0);
     monitor_request_reflected : out std_logic;
     monitor_hypervisor_mode : out std_logic;
+    monitor_instruction_strobe : out std_logic := '0';
     monitor_pc : out unsigned(15 downto 0);
     monitor_state : out unsigned(15 downto 0);
     monitor_instruction : out unsigned(7 downto 0);
@@ -135,6 +136,9 @@ entity gs4510 is
     monitor_memory_access_address : out unsigned(31 downto 0);
     monitor_cpuport : out unsigned(2 downto 0);
 
+    -- Used to pause CPU when ethernet dumping of instruction stream is active.
+    ethernet_cpu_arrest : in std_logic;
+    
     ---------------------------------------------------------------------------
     -- Memory access interface used by monitor
     ---------------------------------------------------------------------------
@@ -3462,7 +3466,10 @@ begin
           watchdog_countdown <= watchdog_countdown - 1;
         end if;
       end if;
-      
+
+      monitor_instruction_strobe <= '0';
+--      report "monitor_instruction_strobe CLEARED";    
+
                                         -- report "reset = " & std_logic'image(reset) severity note;
       reset_drive <= reset;
       if reset_drive='0' or watchdog_reset='1' then
@@ -3538,13 +3545,13 @@ begin
         monitor_request_reflected <= monitor_mem_attention_request_drive;
 
         report "CPU state : proceed=" & std_logic'image(proceed);
-        if proceed='1' then
+        if proceed='1' and ethernet_cpu_arrest='0' then
                                         -- Main state machine for CPU
           report "CPU state = " & processor_state'image(state) & ", PC=$" & to_hstring(reg_pc) severity note;
 
           pop_a <= '0'; pop_x <= '0'; pop_y <= '0'; pop_z <= '0';
           pop_p <= '0';
-          
+
           case state is
             when ResetLow =>
                                         -- Reset now maps kickstart at $8000-$BFFF, and enters through $8000
@@ -3647,6 +3654,8 @@ begin
                 report "Pre-incrementing PC for immediate dispatch" severity note;
               end if;
               state <= fast_fetch_state;
+              monitor_instruction_strobe <= '1';
+              report "monitor_instruction_strobe assert";
             when ProcessorHold =>
                                         -- Hold CPU while blocked by monitor
 
@@ -3782,6 +3791,8 @@ begin
               hypervisor_mode <= '1';
                                         -- start fetching next instruction
               state <= normal_fetch_state;
+              report "monitor_instruction_strobe assert (TrapToHypervisor)";
+              monitor_instruction_strobe <= '1';
             when ReturnFromHypervisor =>
                                         -- Copy all registers back into place,
               iomode_set <= std_logic_vector(hyper_iomode(1 downto 0));
@@ -3812,6 +3823,8 @@ begin
               hypervisor_mode <= '0';
                                         -- start fetching next instruction
               state <= normal_fetch_state;
+              report "monitor_instruction_strobe assert (ReturnFromHypervisor)";
+              monitor_instruction_strobe <= '1';
             when DMAgicTrigger =>
                                         -- Clear DMA pending flag
               report "DMAgic: Processing DMA request";
@@ -3979,6 +3992,8 @@ begin
                 when others =>
                                         -- swap and mix not yet implemented
                   state <= normal_fetch_state;
+                  report "monitor_instruction_strobe assert (DMA swap/mix unimplemented function abort)";
+                  monitor_instruction_strobe <= '1';
               end case;
                                         -- XXX Potential security issue: Ideally we should not allow a DMA to
                                         -- write to Hypervisor memory, so as to make it harder to overwrite
@@ -4029,6 +4044,8 @@ begin
                 cpuport_value(2 downto 0) <= pre_dma_cpuport_bits;
                 if dmagic_cmd(2) = '0' then
                                         -- Last DMA job in chain, go back to executing instructions
+                  report "monitor_instruction_strobe assert (end of DMA job)";
+                  monitor_instruction_strobe <= '1';
                   state <= normal_fetch_state;
                                         -- Reset DMAgic options to normal at the end of the last DMA job
                                         -- in a chain.
@@ -4103,6 +4120,8 @@ begin
                   cpuport_value(2 downto 0) <= pre_dma_cpuport_bits;
                   if dmagic_cmd(2) = '0' then
                                         -- Last DMA job in chain, go back to executing instructions
+                    report "monitor_instruction_strobe assert (end of DMA job)";
+                    monitor_instruction_strobe <= '1';
                     state <= normal_fetch_state;
                                         -- Reset DMAgic options to normal at the end of the last DMA job
                                         -- in a chain.
@@ -4335,9 +4354,13 @@ begin
                   no_interrupt <= '1';
                                         -- Allow monitor to trace through single-cycle instructions
                   if monitor_mem_trace_mode='1' or debugging_single_stepping='1' then
+                    report "monitor_instruction_strobe assert (4510 single cycle instruction, single-stepped)";
                     state <= normal_fetch_state;
                     pc_inc := '0';
+                  else
+                    report "monitor_instruction_strobe assert (4510 single cycle instruction)";                    
                   end if;
+                  monitor_instruction_strobe <= '1';
                 end if;
                 
                 monitor_instruction <= to_unsigned(instruction'pos(instruction_lut(to_integer(emu6502&memory_read_value))),8);
@@ -4512,11 +4535,15 @@ begin
                   end if;
                 else
                   no_interrupt <= '1';
-                                        -- Allow monitor to trace through single-cycle instructions
+                  -- Allow monitor to trace through single-cycle instructions
                   if monitor_mem_trace_mode='1' or debugging_single_stepping='1' then
+                    report "monitor_instruction_strobe assert (6502 single cycle instruction, single stepped)";
                     state <= normal_fetch_state;
                     pc_inc := '0';
+                  else
+                    report "monitor_instruction_strobe assert (6502 single cycle instruction)";
                   end if;
+                  monitor_instruction_strobe <= '1';
                 end if;
                 
                 monitor_instruction <= to_unsigned(instruction'pos(instruction_lut(to_integer(emu6502&memory_read_value))),8);
@@ -4665,6 +4692,8 @@ begin
                     (reg_instruction=I_BVC and flag_v='1') or
                     (reg_instruction=I_BMI and flag_n='0') or
                     (reg_instruction=I_BPL and flag_n='1') then
+                    report "monitor_instruction_strobe assert (8-bit branch not taken)";
+                    monitor_instruction_strobe <= '1';
                     state <= fast_fetch_state;
                     if fast_fetch_state = InstructionDecode then pc_inc := '1'; end if;
                   end if;
@@ -4721,6 +4750,8 @@ begin
                 state <= Flat32Dereference1;
               else
                                         -- unknown mode
+                report "monitor_instruction_strobe assert (unknown mode in 32-bit flat addressed instruction)";
+                monitor_instruction_strobe <= '1';
                 state <= normal_fetch_state;
               end if;
             when Flat32Byte3 =>
@@ -4880,6 +4911,8 @@ begin
                                         -- MAP upper 16KB of lower 32KB of address space
               reg_map_low <= "1100";
                                         -- Now we can start fetching the instruction.
+              report "monitor_instruction_strobe assert (Flat32 dispatch)";
+              monitor_instruction_strobe <= '1';
               state <= normal_fetch_state;
             when Cycle3 =>
                                         -- Show serial monitor what we are doing.
@@ -4993,12 +5026,16 @@ begin
                                         -- poor timing due to memory-to-memory activity in a
                                         -- single cycle.
 
+                      report "monitor_instruction_strobe assert (8-bit branch taken)";
+                      monitor_instruction_strobe <= '1';
                       state <= normal_fetch_state;
 
                     else
                       report "NOT Taking 8-bit branch" severity note;
                                         -- Branch will not be taken.
                                         -- fetch next instruction now to save a cycle
+                      report "monitor_instruction_strobe assert (8-bit branch not taken)";
+                      monitor_instruction_strobe <= '1';
                       state <= fast_fetch_state;
                       if fast_fetch_state = InstructionDecode then pc_inc := '1'; end if;
                     end if;   
@@ -5026,6 +5063,8 @@ begin
                                         -- Branch will not be taken.
                                         -- Skip second byte and proceed directly to
                                         -- fetching next instruction
+                      report "monitor_instruction_strobe assert (16-bit branch not taken)";
+                      monitor_instruction_strobe <= '1';
                       state <= normal_fetch_state;
                     end if;
                   when M_nnX =>
@@ -5125,6 +5164,8 @@ begin
                 report "Setting PC in JSR/BSR (normal dispatch)";
                 reg_pc <= reg_addr;
               end if;
+              report "monitor_instruction_strobe assert (JSR/BSR)";
+              monitor_instruction_strobe <= '1';
               state <= fast_fetch_state;
             when JumpAbsXReadArg2 =>
               last_byte3 <= memory_read_value;
@@ -5140,6 +5181,8 @@ begin
                         to_integer(reg_t(7)&reg_t(7)&reg_t(7)&reg_t(7)&
                                    reg_t(7)&reg_t(7)&reg_t(7)&reg_t(7)&
                                    reg_t);
+              report "monitor_instruction_strobe assert (TakeBranch8)";
+              monitor_instruction_strobe <= '1';
               state <= normal_fetch_state;
             when Pull =>
                                         -- Also used for immediate mode loading
@@ -5154,6 +5197,8 @@ begin
               end if;
 
                                         -- ... and fetch next instruction
+              report "monitor_instruction_strobe assert (Stack pull instruction)";
+              monitor_instruction_strobe <= '1';
               state <= fast_fetch_state;
               if fast_fetch_state = InstructionDecode then pc_inc := '1'; end if;
             when B16TakeBranch =>
@@ -5162,6 +5207,8 @@ begin
                                         -- Charge one cycle for branches that are taken
               phi_new_backlog <= 1;
               phi_add_backlog <= charge_for_branches_taken;
+              report "monitor_instruction_strobe assert (take 16-bit branch)";
+              monitor_instruction_strobe <= '1';
               state <= normal_fetch_state;
             when InnXReadVectorLow =>
               reg_addr(7 downto 0) <= memory_read_value;
@@ -5288,6 +5335,8 @@ begin
                 state <= TakeBranch8;
               else
                                         -- Don't take branch, so just skip over branch byte
+              report "monitor_instruction_strobe assert (don't take ZP bit check branch)";
+                monitor_instruction_strobe <= '1';
                 state <= normal_fetch_state;
               end if;
             when JumpDereference =>
@@ -5306,6 +5355,8 @@ begin
               report "Setting PC: Finished dereferencing JMP";
               reg_pc <= memory_read_value&reg_t;
               if reg_instruction=I_JMP then
+              report "monitor_instruction_strobe assert (JMP indirect)";
+                monitor_instruction_strobe <= '1';
                 state <= normal_fetch_state;
               else
                 report "MAP: Doing JSR ($nnnn) to $"&to_hstring(memory_read_value&reg_t);
@@ -5315,6 +5366,8 @@ begin
             when DummyWrite =>
               state <= WriteCommit;
             when WriteCommit =>
+              report "monitor_instruction_strobe assert (WriteCommit)";
+              monitor_instruction_strobe <= '1';
               state <= normal_fetch_state;
             when LoadTarget =>
               -- If an instruction was preceeded with NEG / NEG, then the load
@@ -5516,6 +5569,8 @@ begin
                   state <= StoreTarget32;
                 when others =>
                   -- XXX: Don't lock CPU up if we get something odd here
+                  report "monitor_instruction_strobe assert (unknown instruction in Execute32)";
+                  monitor_instruction_strobe <= '1';
                   state <= normal_fetch_state;
               end case;
               if is_rmw = '0' then
@@ -5527,6 +5582,8 @@ begin
                   pc_inc := '0';
                 end if;
                 pc_dec := reg_microcode.mcDecPC;
+                report "monitor_instruction_strobe assert (Execute32 non-RMW)";
+                monitor_instruction_strobe <= '1';
                 if reg_microcode.mcInstructionFetch='1' then
                   report "Fast dispatch for next instruction by order of microcode";
                   state <= fast_fetch_state;
@@ -5548,6 +5605,8 @@ begin
                   pc_inc := '0';
                 end if;
                 pc_dec := reg_microcode.mcDecPC;
+                report "monitor_instruction_strobe assert (StoreTarget32)";
+                monitor_instruction_strobe <= '1';
                 if reg_microcode.mcInstructionFetch='1' then
                   report "Fast dispatch for next instruction by order of microcode";
                   state <= fast_fetch_state;
@@ -5579,6 +5638,8 @@ begin
                 end if;
                 pc_dec := reg_microcode.mcDecPC;
                 if reg_microcode.mcInstructionFetch='1' then
+                  report "monitor_instruction_strobe assert (MicrocodeInterpret mcInstructionFetch=1)";
+                  monitor_instruction_strobe <= '1';
                   report "Fast dispatch for next instruction by order of microcode";
                   state <= fast_fetch_state;
                 else
@@ -5783,6 +5844,11 @@ begin
                 reg_t <= memory_read_value;
                 state <= WordOpReadHigh;
               end if;
+              if (reg_microcode.mcWordOp or reg_microcode.mcDelayedWrite or
+                  reg_microcode.mcPop or reg_microcode.mcBRK) = '0' then
+                report "monitor_instruction_strobe assert (MicrocodeInterpret -- no special)";
+                monitor_instruction_strobe <= '1';
+              end if;               
             when WordOpReadHigh =>
               state <= WordOpWriteLow;
               case reg_instruction is
@@ -5829,6 +5895,8 @@ begin
                   reg_t_high <= temp_addr(15 downto 8);
                   reg_t <= temp_addr(7 downto 0);
                 when others =>
+                  report "monitor_instruction_strobe assert (invalid WordOp instruction)";
+                  monitor_instruction_strobe <= '1';
                   state <= normal_fetch_state;
               end case;
             when PushWordLow =>
@@ -5838,11 +5906,15 @@ begin
             when PushWordHigh =>
                                         -- Push reg_t_high
               stack_push := '1';
+              report "monitor_instruction_strobe assert (PushWordHigh)";
+              monitor_instruction_strobe <= '1';
               state <= normal_fetch_state;
             when WordOpWriteLow =>
               reg_addr <= reg_addr + 1;
               state <= WordOpWriteHigh;
             when WordOpWriteHigh =>
+              report "monitor_instruction_strobe assert (WordOpWriteHigh)";
+              monitor_instruction_strobe <= '1';
               state <= normal_fetch_state;
             when Pop =>
               report "Pop" severity note;
@@ -5861,8 +5933,12 @@ begin
               else
                 set_nz(memory_read_value);
               end if;
+              report "monitor_instruction_strobe assert (Pop)";
+              monitor_instruction_strobe <= '1';
               state <= normal_fetch_state;
             when others =>
+              report "monitor_instruction_strobe assert (unknown CPU state)";
+              monitor_instruction_strobe <= '1';
               state <= normal_fetch_state;
           end case;
 
@@ -6370,7 +6446,7 @@ begin
       end if;
     end if;
     
-    if proceed = '1' then
+    if proceed = '1' and ethernet_cpu_arrest='0' then
       
       -- By default read next byte in instruction stream.
       memory_access_read := '1';
