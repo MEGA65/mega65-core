@@ -3545,7 +3545,7 @@ begin
         monitor_request_reflected <= monitor_mem_attention_request_drive;
 
         report "CPU state : proceed=" & std_logic'image(proceed);
-        if proceed='1' and ethernet_cpu_arrest='0' then
+        if proceed='1' then
                                         -- Main state machine for CPU
           report "CPU state = " & processor_state'image(state) & ", PC=$" & to_hstring(reg_pc) severity note;
 
@@ -6425,10 +6425,13 @@ begin
       -- initially, even though it gets initialised to '0' explicitly
       if (hyper_protected_hardware(7)='1' and secure_mode_from_monitor='0')
         or (hyper_protected_hardware(7)='0' and secure_mode_from_monitor='1')
+        or (ethernet_cpu_arrest='1')
       then
         -- Hold CPU completely paused if CPU and monitor disagree on whether we
         -- are in secure mode or not.  This is how the CPU is held when switching
         -- to and from secure mode.
+        -- We use the same approach for also holding the CPU when dumping
+        -- instruction stream in real-time via ethernet.
         report "SECUREMODE: Holding CPU paused because cpusecure=" & std_logic'image(hyper_protected_hardware(7))
           & ", but monitorsecure=" & std_logic'image(secure_mode_from_monitor);
         io_settle_delay <= '1';
@@ -6446,7 +6449,7 @@ begin
       end if;
     end if;
     
-    if proceed = '1' and ethernet_cpu_arrest='0' then
+    if proceed = '1' then
       
       -- By default read next byte in instruction stream.
       memory_access_read := '1';
