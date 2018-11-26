@@ -391,10 +391,10 @@ int decode_instruction(const unsigned char *b)
   instruction_address = (b[1]<<8)+b[0];
   // JSR passes PC+1 instead of PC of next instruction, so adjust
   switch (opcode) {
-  case 0x6c:
-    // indirect jump leaves correct address
+  case 0x6c: case 0x4c:
+    // jump leaves correct address
     break;
-  case 0xf0:
+  case 0xf0: case 0xd0:
     // Branches taken leave correct address, but
     // untaken branches do not.
     if (instruction_address!=(load_address+2))
