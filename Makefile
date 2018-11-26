@@ -590,6 +590,9 @@ $(BINDIR)/%.mcs:	$(BINDIR)/%.bit
 	mkdir -p $(SDCARD_DIR)
 	$(VIVADO) -mode batch -source vivado/run_mcs.tcl -tclargs $< $@
 
+$(BINDIR)/ethermon:	$(TOOLDIR)/ethermon.c
+	$(CC) $(COPT) -o $(BINDIR)/ethermon $(TOOLDIR)/ethermon.c -I/usr/local/include -lpcap
+
 $(BINDIR)/videoproxy:	$(TOOLDIR)/videoproxy.c
 	$(CC) $(COPT) -o $(BINDIR)/videoproxy $(TOOLDIR)/videoproxy.c -I/usr/local/include -lpcap
 
