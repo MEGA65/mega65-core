@@ -428,6 +428,29 @@ reset_machine_state:
 		cld
 		see
 
+		; Disable reset watchdog (this happens simply by writing anything to
+		; this register)
+		; Enable /EXROM and /GAME from cartridge port (bit 0)
+		; enable flat 32-bit addressing (bit 1)
+		; do not engage ROM write protect (yet) (bit 2)
+		; do make ASC/DIN / CAPS LOCK control CPU speed (bit 3)
+		; do not force CPU to full speed (bit 4)
+		; also force 4502 CPU personality (6502 personality is still incomplete) (bit 5)
+		; and clear any pending IRQ or NMI event (bit 6)
+		;
+		; (The watchdog was added to catch reset problems where the machine
+		; would run off somewhere odd instead of resetting properly. Now it
+		; will auto-reset after 65535 cycles if the watchdog is not cleared).
+		;
+		
+		lda #$6b    ; 01101011
+		sta hypervisor_feature_enables
+
+		jsr audiomix_setup
+		; enable audio amplifier
+		lda #$01
+		sta audioamp_ctl
+
 		; Clear system partition present flag
 		lda #$00
 		sta syspart_present
@@ -484,32 +507,10 @@ reset_machine_state:
 		lda #$00
 		sta $D01A
 
-		; enable audio amplifier
-		lda #$01
-		sta audioamp_ctl
-
 		; We DO NOT need to mess with $01, because
 		; the 4510 starts up with kickstart mapped at $8000-$BFFF 
 		; enhanced ($FFD3xxx) IO page mapped at $D000,
 		; and fast RAM elsewhere.
-
-		; Disable reset watchdog (this happens simply by writing anything to
-		; this register)
-		; Enable /EXROM and /GAME from cartridge port (bit 0)
-		; enable flat 32-bit addressing (bit 1)
-		; do not engage ROM write protect (yet) (bit 2)
-		; do make ASC/DIN / CAPS LOCK control CPU speed (bit 3)
-		; do not force CPU to full speed (bit 4)
-		; also force 4502 CPU personality (6502 personality is still incomplete) (bit 5)
-		; and clear any pending IRQ or NMI event (bit 6)
-		;
-		; (The watchdog was added to catch reset problems where the machine
-		; would run off somewhere odd instead of resetting properly. Now it
-		; will auto-reset after 65535 cycles if the watchdog is not cleared).
-		;
-		
-		lda #$6b    ; 01101011
-		sta hypervisor_feature_enables
 
 		; Map SD card sector buffer to SD card, not floppy drive
 		lda #$80
@@ -539,8 +540,6 @@ reset_entry:
 		sei
 
 		.include "kickstart_debugtests.a65"
-
-		jsr audiomix_setup
 
 		jsr reset_machine_state
 
