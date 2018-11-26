@@ -60,7 +60,7 @@
 -- CLK_OUT4___120.000______0.000______50.0______139.033_____87.180
 -- CLK_OUT5____80.000______0.000______50.0______147.931_____87.180
 -- CLK_OUT6____40.000______0.000______50.0______144.570_____87.180
--- CLK_OUT7____30.000______0.000______50.0______107.567_____87.180
+-- CLK_OUT7___200.000______0.000______50.0______107.567_____87.180
 --
 ------------------------------------------------------------------------------
 -- "Input Clock   Freq (MHz)    Input Jitter (UI)"
@@ -79,7 +79,7 @@ port
   clock200          : out    std_logic;
   clock50          : out    std_logic;
   clock120          : out    std_logic;
-  clock30          : out    std_logic;
+  clock200          : out    std_logic;
   clock33          : out    std_logic;
   clock150          : out    std_logic;
   -- Status and control signals
@@ -103,7 +103,7 @@ your_instance_name : dotclock100
     clock120 => clock120,
     clock80 => clock80,
     clock40 => clock40,
-    clock30 => clock30,
+    clock200 => clock200,
     -- Status and control signals
     RESET  => RESET,
     LOCKED => LOCKED);

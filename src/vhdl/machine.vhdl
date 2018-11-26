@@ -56,11 +56,10 @@ entity machine is
   Port ( pixelclock : in STD_LOGIC;
          cpuclock : in std_logic;
          clock50mhz : in std_logic;  -- normal ethernet clock
-         clock100 : in std_logic;    -- double ethernet clock
+         clock200 : in std_logic;    -- 4x ethernet clock
          clock120 : in std_logic;
          clock240 : in std_logic;
          clock40 : in std_logic;
-         clock30 : in std_logic;
          ioclock : std_logic;
          uartclock : std_logic;
          btnCpuReset : in  STD_LOGIC;
@@ -1234,7 +1233,7 @@ begin
   iomapper0: entity work.iomapper
     port map (
       clk => ioclock,
-      clock100 => clock100,
+      clock200mhz => clock200,
       protected_hardware_in => protected_hardware_sig,
       virtualised_hardware_in => virtualised_hardware_sig,
       chipselect_enables => chipselect_enables,

@@ -61,7 +61,7 @@
 -- CLK_OUT4___120.000______0.000______50.0______139.033_____87.180
 -- CLK_OUT5____80.000______0.000______50.0______147.931_____87.180
 -- CLK_OUT6____40.000______0.000______50.0______144.570_____87.180
--- CLK_OUT7____30.000______0.000______50.0______107.567_____87.180
+-- CLK_OUT7___200.000______0.000______50.0______107.567_____87.180
 --
 ------------------------------------------------------------------------------
 -- "Input Clock   Freq (MHz)    Input Jitter (UI)"
@@ -88,7 +88,7 @@ port
   clock120          : out    std_logic;
   clock80           : out    std_logic;
   clock40           : out    std_logic;
-  clock30           : out    std_logic;
+  clock200          : out    std_logic;
   -- Status and control signals
   LOCKED            : out    std_logic
  );
@@ -180,8 +180,8 @@ begin
     CLKOUT5_PHASE        => 0.000,
     CLKOUT5_DUTY_CYCLE   => 0.500,
     CLKOUT5_USE_FINE_PS  => FALSE,
-    -- CLKOUT6 = CLK_OUT7 = clock30 - 1200MHZ/40
-    CLKOUT6_DIVIDE       => 40,
+    -- CLKOUT6 = CLK_OUT7 = clock200 - 1200MHZ/6
+    CLKOUT6_DIVIDE       => 6,
     CLKOUT6_PHASE        => 0.000,
     CLKOUT6_DUTY_CYCLE   => 0.500,
     CLKOUT6_USE_FINE_PS  => FALSE,
@@ -270,7 +270,7 @@ begin
 
   clkout7_buf : BUFG
   port map
-   (O   => clock30,
+   (O   => clock200,
     I   => clkout6);
 
 end xilinx;

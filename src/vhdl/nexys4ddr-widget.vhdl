@@ -193,7 +193,7 @@ architecture Behavioral of container is
   signal clock120 : std_logic;
   signal clock100 : std_logic;
   signal ethclock : std_logic;
-  signal clock30 : std_logic;
+  signal clock200 : std_logic;
   
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
 
@@ -274,7 +274,7 @@ begin
                clock80 => pixelclock, -- 80MHz
                clock40 => cpuclock, -- 40MHz
                clock50 => ethclock,
-               clock30 => clock30,
+               clock200 => clock200,
                clock100 => clock100,
                clock120 => clock120,
                clock240 => clock240
