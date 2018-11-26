@@ -343,11 +343,10 @@ begin
       cpuclock        => cpuclock,
       uartclock       => cpuclock, -- Match CPU clock
       ioclock         => cpuclock, -- Match CPU clock
-      clock100 => clock100,
       clock240 => clock240,
       clock120 => clock120,
       clock40 => cpuclock,
-      clock30 => clock30,
+      clock200 => clock200,
       clock50mhz      => ethclock,
       btncpureset => btncpureset,
       reset_out => reset_out,
@@ -522,10 +521,7 @@ begin
   nmi <= not btn(4);
   restore_key <= not btn(1);
 
-  -- Push correct clock to LCD panel
-  -- jbhi(7) <= not clock30 when pal50_select='1' else not cpuclock;
-  
-  process (cpuclock,clock120,clock30,cpuclock,pal50_select)
+  process (cpuclock,clock120,cpuclock,pal50_select)
   begin
     if rising_edge(clock120) then
       if sw(7)='0' then
@@ -582,7 +578,6 @@ begin
     end if;
   end process;
 
-  -- Ethernet clock is now just the CPU clock, since both are on 50MHz
-  eth_clock <= cpuclock;
+  eth_clock <= ethclock;
   
 end Behavioral;

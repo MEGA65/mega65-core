@@ -502,7 +502,9 @@ begin
 
     -- VGA output at full pixel clock
     vdac_clk <= pixelclock;
-    eth_clock <= cpuclock;
+
+    -- Ethernet clock at 50MHz
+    eth_clock <= ethclock;
 
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then
