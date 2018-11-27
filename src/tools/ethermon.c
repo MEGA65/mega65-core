@@ -421,6 +421,41 @@ int decode_instruction(const unsigned char *b)
   return 0;
 }
 
+int decode_busaccess(const unsigned char *b)
+{
+  int fastio_write=b[6]&0x80;
+  int fastio_read=b[6]&0x40;
+  int instruction_strobe=b[6]&0x20;
+  int fastio_addr=b[4]+(b[5]<<8)+((b[6]&0xf)<<16);
+
+  int instruction_address=b[0]+(b[1]<<8);
+  
+  // Don't say anything when the bus is idle
+  if (!(fastio_write|fastio_read|instruction_strobe)) return 0;
+  
+  if (1||instruction_strobe) {
+    char wvalue[8]="      ";
+    //    if (fastio_write)
+      snprintf(wvalue,8,"<= $%02X",b[7]);
+    printf("%s %s $%05x %s : $%04X : %s",
+	   fastio_write?"WRITE":"     ",
+	   fastio_read?"READ":"    ",
+	   fastio_addr,wvalue,
+	   instruction_address,oplist[b[2]]);
+  } else {
+    char wvalue[8]="       ";
+    //if (fastio_write)
+    snprintf(wvalue,8,"<= $%02X",b[7]);
+    printf("%s %s $%05x %s\n",
+	   fastio_write?"WRITE":"     ",
+	   fastio_read?"READ":"    ",
+	   fastio_addr,wvalue);
+  }
+  
+  return 0;
+}
+
+
 #define MAX_LINES 65536
 struct source_file {
   char *name;
@@ -584,6 +619,8 @@ int main(int argc,char **argv)
 
     printf("Started.\n"); fflush(stdout);
 
+    int bit52set=0;
+    
     while(1) {
 
       struct pcap_pkthdr hdr;
@@ -591,8 +628,25 @@ int main(int argc,char **argv)
       const unsigned char *packet = pcap_next(descr,&hdr);
       if (packet) {
 	if (hdr.caplen == 2132) {
-	  for(int offset=0x48+14;offset<hdr.caplen;offset+=8) {
-	    decode_instruction(&packet[offset]);
+	  bit52set=0;
+	  for(int offset=0x48+14;(offset+6)<hdr.caplen;offset+=8) {
+	    if (packet[offset+6]&0x10) {
+#if 0
+	      printf(">>> Bit52 set at offset $%X+6\n",offset-14);
+	      for(int j=0;j<8;j++) printf(" %02X",packet[offset+j]);
+	      printf("\n");
+#endif
+	      bit52set=1;
+	      break; }
+	  }
+	  if (bit52set) {
+	    for(int offset=0x48+14;offset<hdr.caplen;offset+=8) {
+	      decode_instruction(&packet[offset]);
+	    }
+	  } else {
+	    for(int offset=0x48+14;offset<hdr.caplen;offset+=8) {
+	      decode_busaccess(&packet[offset]);	    
+	    }
 	  }
 	}
       }
