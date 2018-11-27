@@ -252,7 +252,7 @@ architecture Behavioral of viciv is
   -- things get started.
   -- (Sprite fetching should happen as soon as the border begins, so that we have
   -- maximum time to do the fetch.)
-  constant display_fetch_start : unsigned(11 downto 0) := to_unsigned(10,12);
+  constant display_fetch_start : unsigned(11 downto 0) := to_unsigned(800,12);
   constant display_height : unsigned(11 downto 0) := to_unsigned(600,12);
   signal raster_buffer_half_toggle : std_logic := '0';
   signal vsync_delay : unsigned(7 downto 0) := to_unsigned(18,8);
@@ -271,7 +271,11 @@ architecture Behavioral of viciv is
   -- PAL/NTSC raster layout
   signal vertical_flyback : std_logic := '0';
   signal vicii_first_raster : unsigned(8 downto 0) := to_unsigned(0,9);
-  constant ntsc_max_raster : unsigned(8 downto 0) := to_unsigned(262,9);
+  -- We use full number of PAL rasters in NTSC mode, so that PAL programs will
+  -- run correctly, even if at 60Hz video / interrupt rate.  The only problem I
+  -- can imagine with doing this, is that PAL/NTSC detection routines will
+  -- always think the system is PAL.
+  constant ntsc_max_raster : unsigned(8 downto 0) := to_unsigned(312,9); -- to_unsigned(262,9);
   constant pal_max_raster : unsigned(8 downto 0) := to_unsigned(312,9);
   signal vicii_max_raster : unsigned(8 downto 0) := pal_max_raster;
   -- Setting this value positive causes the chargen and screen to move down the
