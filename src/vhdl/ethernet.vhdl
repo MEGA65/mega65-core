@@ -1115,15 +1115,15 @@ begin  -- behavioural
       if eth_videostream='1' and activity_dump='1' then
         report "ETHERDUMP: Logging FastIO bus activity, writing to $" & to_hstring(dumpram_waddr);
         -- Log PC and opcode to make it easier to match things up
-        dumpram_wdata(23 downto 0) <= debug_vector(23 downto 0);
+        dumpram_wdata(23 downto 0) <= std_logic_vector(debug_vector(23 downto 0));
         -- Address and read/write signals of fastio IO bus, plus instruction strobe
-        dumpram_wdata(51 downto 32) <= fastio_addr;
+        dumpram_wdata(51 downto 32) <= std_logic_vector(fastio_addr);
         dumpram_wdata(55) <= fastio_write;
         dumpram_wdata(54) <= fastio_read;
         dumpram_wdata(53) <= instruction_strobe;
         dumpram_wdata(52) <= '0';  -- unused bit
         -- Whatever is being written
-        dumpram_wdata(63 downto 56) <= fastio_wdata;
+        dumpram_wdata(63 downto 56) <= std_logic_vector(fastio_wdata);
         
         dumpram_waddr <= std_logic_vector(to_unsigned(to_integer(unsigned(dumpram_waddr)) + 1,9));
         dumpram_write <= '1';
