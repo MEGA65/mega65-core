@@ -301,6 +301,12 @@ char *oplist[]={
   NULL
 };
 
+struct annotation {
+  char *text;
+  struct annotation *next;
+};
+
+struct annotation *annotations[0x10000]={NULL};
 
 char *opnames[256]={NULL};
 char *modes[256]={NULL};
@@ -384,8 +390,16 @@ int decode_instruction(const unsigned char *b)
   }
   args[o]=0;
   while(c<9) { printf(" "); c++; }
-  printf("%s %s\n",opnames[opcode],args);      
-  c+=strlen(opnames[opcode])+1+strlen(args); 
+  printf("%s %s",opnames[opcode],args);      
+  c+=strlen(opnames[opcode])+1+strlen(args);
+  while(c<20) { printf(" "); c++; }
+  struct annotation *a=annotations[load_address];
+  while(a) {
+    printf("%s\n",a->text);
+    if (a->next) printf("                                       ");
+    a=a->next;
+  }
+  printf("\n");
 
   // Remember instruction address for next display
   instruction_address = (b[1]<<8)+b[0];
@@ -407,6 +421,97 @@ int decode_instruction(const unsigned char *b)
   return 0;
 }
 
+#define MAX_LINES 65536
+struct source_file {
+  char *name;
+  int line_count;
+  char *lines[MAX_LINES];
+};
+
+#define MAX_SOURCES 256
+struct source_file source_files[MAX_SOURCES];
+int source_file_count=0;
+
+char *find_source_line(char *file,int line)
+{
+  int num;
+  line--; 
+  for(num=0;num<source_file_count;num++) {
+    if (!strcmp(source_files[num].name,file)) break;
+  }
+  if (num==source_file_count) {
+    FILE *f=fopen(file,"r");
+    if (!f) return NULL;
+    char l[1024];
+    int line_count=0;
+    l[0]=0; fgets(l,1024,f);    
+    while(l[0]) {
+      if (line_count==MAX_LINES) break;
+      // Trim CRLF etc
+      while(l[0]&&(l[strlen(l)-1]<' ')) l[strlen(l)-1]=0;
+      // Store line
+      source_files[num].lines[line_count++]=strdup(l);
+      source_files[num].line_count=line_count;
+      l[0]=0; fgets(l,1024,f);    
+    }
+    source_files[num].name=strdup(file);
+    source_file_count++;
+  }
+  if (num==source_file_count) return NULL;
+  if (source_files[num].line_count<line) return NULL;
+  return source_files[num].lines[line];
+}
+
+int record_address_annotation(int addr,char *source,int line)
+{
+  if (addr<0||addr>0xffff) return -1;
+  
+  char *source_line=find_source_line(source,line);
+  char annotation[8192];
+  if (source_line)
+    snprintf(annotation,8192,"%s:%d: %s",source,line,source_line);
+  else
+    snprintf(annotation,8192,"%s:%d",source,line);
+
+  //  printf("  %s\n",annotation);
+  
+  struct annotation *a=calloc(sizeof(struct annotation), 1);
+  a->text=strdup(annotation);
+  a->next=annotations[addr];
+  annotations[addr]=a;
+  return 0;
+}
+
+int read_annotation_file(char *an)
+{
+  FILE *f=fopen(an,"r");
+  if (!f) {
+    fprintf(stderr,"Could not open '%s' for reading.\n",an);
+    exit(-3);
+  }
+  char line[1024];
+  line[0]=0; fgets(line,1024,f);
+  while(line[0])
+    {
+      // Trim CR/LF etc from end
+      while(line[0]&&line[strlen(line)-1]<' ') line[strlen(line)-1]=0;
+
+      int addr;
+      int source_line;
+      char source_file[1024];
+      
+      if (sscanf(line,"%x %*[^|]| %[^:]:%d",&addr,source_file,&source_line)==3) {
+	//	printf("Addr $%X = %s:%d\n",addr,source_file,source_line);
+	record_address_annotation(addr,source_file,source_line);
+      }
+      
+      line[0]=0; fgets(line,1024,f);
+    }
+  
+  fclose(f);
+  return 0;
+}
+
 int main(int argc,char **argv)
 {
     char *dev;
@@ -417,6 +522,15 @@ int main(int argc,char **argv)
     bpf_u_int32 pNet;             /* ip address*/
     pcap_if_t *alldevs;
 
+    for(int i=0;i<0x10000;i++) annotations[i]=NULL;
+    
+    if (argc<1) {
+      fprintf(stderr,"usage: ethermon <network interface> [.list, .map or other supported memory annotation files]\n");
+      exit(-3);
+    }
+    
+    for(int i=2;i<argc;i++) read_annotation_file(argv[i]);
+    
     int i;
     for(i=0;oplist[i];i++) {
       int n;
@@ -484,7 +598,7 @@ int main(int argc,char **argv)
       }
     }
     printf("Exiting.\n");
-
+    
     return 0;
 }
 
