@@ -301,7 +301,7 @@ architecture behavioural of ethernet is
  signal dumpram_write : std_logic := '0';
  signal activity_dump_ready_toggle : std_logic := '0';
  signal last_activity_dump_ready_toggle : std_logic := '0';
- signal activity_dump : std_logic := '1';
+ signal activity_dump : std_logic := '0';
  signal eth_tx_idle : std_logic := '0';
  signal eth_tx_idle_cpuside : std_logic := '0';
  signal cpu_arrest_internal : std_logic := '0';
