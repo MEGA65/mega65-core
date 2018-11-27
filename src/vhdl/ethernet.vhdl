@@ -532,7 +532,7 @@ begin  -- behavioural
             eth_tx_state <= WaitBeforeTX;
             eth_tx_viciv <= '0';
             eth_tx_dump <= '1';
-          elsif (eth_videostream='1') and (buffer_moby_toggle /= last_buffer_moby_toggle) then            
+          elsif (eth_videostream='1') and (activity_dump='0') and (buffer_moby_toggle /= last_buffer_moby_toggle) then            
             -- start sending an IPv6 multicast packet containing the compressed
             -- video.
             report "FRAMEPACKER: Sending next packet ("
@@ -918,7 +918,7 @@ begin  -- behavioural
                     &", but saw $" & to_hstring(eth_rxd & eth_rxbits);
                   end if;
                 end if;
-                if rx_keyinput='1' and eth_videostream='1' then
+                if rx_keyinput='1' and eth_videostream='1' and activity_dump='0' then
                   if to_integer(frame_length(10 downto 0)) = 110 then
                     eth_keycode(7 downto 0) <= eth_rxd & eth_rxbits;
                   end if;
