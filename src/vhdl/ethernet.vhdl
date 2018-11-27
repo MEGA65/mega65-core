@@ -1111,8 +1111,32 @@ begin  -- behavioural
     if rising_edge(clock) then
 
       eth_tx_idle_cpuside <= eth_tx_idle;
-      
-      if instruction_strobe='1' then
+
+      if eth_videostream='1' and activity_dump='1' then
+        report "ETHERDUMP: Logging FastIO bus activity, writing to $" & to_hstring(dumpram_waddr);
+        -- Log PC and opcode to make it easier to match things up
+        dumpram_wdata(23 downto 0) <= debug_vector(23 downto 0);
+        -- Address and read/write signals of fastio IO bus, plus instruction strobe
+        dumpram_wdata(51 downto 32) <= fastio_addr;
+        dumpram_wdata(55) <= fastio_write;
+        dumpram_wdata(54) <= fastio_read;
+        dumpram_wdata(53) <= instruction_strobe;
+        dumpram_wdata(52) <= '0';  -- unused bit
+        -- Whatever is being written
+        dumpram_wdata(63 downto 56) <= fastio_wdata;
+        
+        dumpram_waddr <= std_logic_vector(to_unsigned(to_integer(unsigned(dumpram_waddr)) + 1,9));
+        dumpram_write <= '1';
+        activity_dump_ready_toggle <= dumpram_waddr(8);
+        if dumpram_waddr(7 downto 0) = "11110000" then
+          -- Check if we are about to run out of buffer space
+          if eth_tx_idle_cpuside = '0' then
+            cpu_arrest_internal <= '1';
+            report "ETHERDUMP: Arresting CPU";
+          end if;
+        end if;
+
+      elsif instruction_strobe='1' then
         report "ETHERDUMP: Instruction spotted: " & to_hstring(debug_vector) & ", writing to $" & to_hstring(dumpram_waddr);
         dumpram_wdata <= std_logic_vector(debug_vector);
         dumpram_waddr <= std_logic_vector(to_unsigned(to_integer(unsigned(dumpram_waddr)) + 1,9));
@@ -1128,7 +1152,7 @@ begin  -- behavioural
       else
         dumpram_write <= '0';
       end if;
-      if cpu_arrest_internal='1' and eth_tx_idle_cpuside = '1' then
+      if (cpu_arrest_internal='1') and ((eth_tx_idle_cpuside = '1') or (activity_dump='0') )then
         cpu_arrest_internal <= '0';
         report "ETHERDUMP: Resuming CPU";
       end if;
@@ -1212,7 +1236,7 @@ begin  -- behavioural
               eth_irq_rx <= '0';
               eth_irq_tx <= '0';
 
-              -- @IO:GS $D6E1.3 Enable real-time video streaming via ethernet (or CPU is CPU/bus monitoring enabled)
+              -- @IO:GS $D6E1.3 Enable real-time video streaming via ethernet (or fast IO bus if CPU/bus monitoring enabled)
               eth_videostream <= fastio_wdata(3);
               -- @IO:GS $D6E1.2 WRITE ONLY Enable real-time CPU/BUS monitoring via ethernet
               activity_dump <= fastio_wdata(2);
