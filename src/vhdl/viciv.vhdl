@@ -2777,6 +2777,24 @@ begin
         chargen_active <= '0';
         chargen_active_soon <= '0';
 
+        -- Make VIC-II triggered raster interrupts edge triggered, since one
+        -- emulated VIC-II raster is ~63*48 = ~3,000 cycles, and many C64
+        -- raster routines may finish in that time, and might get confused if
+        -- a raster interrupt gets retriggered too soon.  This will also cause
+        -- some problems for software that really expects multiple interrupts
+        -- on the same raster line, but that should be really quite rare.
+        -- We could allow multiple triggerings per raster when CPU is at <= 3.5MHz,
+        -- and only edge trigger it when at full speed?
+        if (vicii_is_raster_source='1') and (vicii_ycounter = vicii_raster_compare(8 downto 0)) and last_vicii_ycounter /= vicii_ycounter then
+          irq_raster <= '1';
+        end if;
+        last_vicii_ycounter <= vicii_ycounter;
+        -- However, if a raster interrupt is being triggered from a VIC-IV
+        -- physical raster, then there is no need to make raster IRQs edge triggered
+        if (vicii_is_raster_source='0') and (ycounter = vicii_raster_compare) then
+          irq_raster <= '1';
+        end if;
+        
         -- If we got far along the last line to make it look real, and ...
         if xcounter > 255 then
           -- ... it isn't VSYNC time, then update Y position
@@ -2835,20 +2853,6 @@ begin
                 vicii_sprite_ycounter <= vicii_ycounter_continuous - 2;
               end if;
               
-            end if;
-
-            -- Make VIC-II triggered raster interrupts edge triggered, since one
-            -- emulated VIC-II raster is ~63*48 = ~3,000 cycles, and many C64
-            -- raster routines may finish in that time, and might get confused if
-            -- a raster interrupt gets retriggered too soon.
-            if (vicii_is_raster_source='1') and (vicii_ycounter = vicii_raster_compare(8 downto 0)) and last_vicii_ycounter /= vicii_ycounter then
-              irq_raster <= '1';
-            end if;
-            last_vicii_ycounter <= vicii_ycounter;
-            -- However, if a raster interrupt is being triggered from a VIC-IV
-            -- physical raster, then there is no need to make raster IRQs edge triggered
-            if (vicii_is_raster_source='0') and (ycounter = vicii_raster_compare) then
-              irq_raster <= '1';
             end if;
           else
             -- Start of next frame
