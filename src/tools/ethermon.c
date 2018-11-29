@@ -41,6 +41,9 @@
 #include <time.h>
 #include <pcap.h>
 
+char *match_string=NULL;
+int num_instructions=999999999;
+
 char *oplist[]={
   "00   BRK\n",
   "01   ORA ($nn,X)\n",
@@ -315,17 +318,24 @@ int instruction_address=0xFFFF;
 
 int decode_instruction(const unsigned char *b)
 {
-  printf("%c%c%c%c%c%c%c%c($%02X), SP=$xx%02X, A=$%02X : $%04X : %02X",
-	 b[5]&0x80?'N':'-',
-	 b[5]&0x40?'V':'-',
-	 b[5]&0x20?'E':'-',
-	 b[5]&0x10?'B':'-',
-	 b[5]&0x08?'D':'-',
-	 b[5]&0x04?'I':'-',
-	 b[5]&0x02?'Z':'-',
-	 b[5]&0x01?'C':'-',
-	 b[5],b[6],b[7],instruction_address,b[2]);
-
+  // Limit number of instructions shown
+  if (!match_string) {
+    if (!num_instructions) match_string="WILL NOT EVER SHOW UP";
+    num_instructions--;
+  }
+  
+  if (!match_string) 
+    printf("%c%c%c%c%c%c%c%c($%02X), SP=$xx%02X, A=$%02X : $%04X : %02X",
+	   b[5]&0x80?'N':'-',
+	   b[5]&0x40?'V':'-',
+	   b[5]&0x20?'E':'-',
+	   b[5]&0x10?'B':'-',
+	   b[5]&0x08?'D':'-',
+	   b[5]&0x04?'I':'-',
+	   b[5]&0x02?'Z':'-',
+	   b[5]&0x01?'C':'-',
+	   b[5],b[6],b[7],instruction_address,b[2]);
+  
   int opcode=b[2];
   int mem[3]={b[2],b[3],b[4]};
   char args[1024];
@@ -346,14 +356,16 @@ int decode_instruction(const unsigned char *b)
       while (modes[opcode][j++]=='n') { digits++; } j--;
       if (digits==2) {
 	value=mem[i];
-	printf(" %02X",mem[i++]);
+	if (!match_string) printf(" %02X",mem[i++]);
 	sprintf(&args[o],"%02X",value); o+=2;
 	c+=3;
       }
       if (digits==4) {
 	value=mem[i]+(mem[i+1]<<8);
-	printf(" %02X",mem[i++]);
-	printf(" %02X",mem[i++]);
+	if (!match_string) {
+	  printf(" %02X",mem[i++]);
+	  printf(" %02X",mem[i++]);
+	}
 	sprintf(&args[o],"%04X",value); o+=4;
 	c+=6;
       }
@@ -364,7 +376,7 @@ int decode_instruction(const unsigned char *b)
       if (digits==2) {
 	value=mem[i];
 	if (value&0x80) value-=0x100;
-	printf(" %02X",mem[i++]);
+	if (!match_string) printf(" %02X",mem[i++]);
 	value+=load_address+i;
 	sprintf(&args[o],"%04X",value); o+=4;
 	c+=3;
@@ -372,11 +384,11 @@ int decode_instruction(const unsigned char *b)
       if (digits==4) {
 	value=mem[i]+(mem[i+1]<<8);
 	if (value&0x8000) value-=0x10000;
-	printf(" %02X",mem[i++]);
+	if (!match_string) printf(" %02X",mem[i++]);
 	// 16 bit branches are still relative to the same point as 8-bit ones,
 	// i.e., after the 2nd of the 3 bytes
 	value+=load_address+i;        
-	printf(" %02X",mem[i++]);
+	if (!match_string) printf(" %02X",mem[i++]);
 	sprintf(&args[o],"%04X",value); o+=4;
 	c+=6;
       }
@@ -389,18 +401,28 @@ int decode_instruction(const unsigned char *b)
     // printf("[%s]\n",args);
   }
   args[o]=0;
-  while(c<9) { printf(" "); c++; }
-  printf("%s %s",opnames[opcode],args);      
-  c+=strlen(opnames[opcode])+1+strlen(args);
-  while(c<20) { printf(" "); c++; }
-  struct annotation *a=annotations[load_address];
-  while(a) {
-    printf("%s\n",a->text);
-    if (a->next) printf("                                       ");
-    a=a->next;
+  if (!match_string) {
+    while(c<9) { printf(" "); c++; }
+    printf("%s %s",opnames[opcode],args);      
+    c+=strlen(opnames[opcode])+1+strlen(args);
+    while(c<20) { printf(" "); c++; }
+    struct annotation *a=annotations[load_address];
+    while(a) {
+      printf("%s\n",a->text);
+      if (a->next) printf("                                       ");
+      a=a->next;
+    }
+    printf("\n");
   }
-  printf("\n");
 
+  // Begin showing instructions once we find the match string
+  if (match_string&&strstr(args,match_string)) {
+    printf("Found '%s'\n",match_string);
+    match_string=NULL;
+    decode_instruction(b);
+    return 0;
+  }
+  
   // Remember instruction address for next display
   instruction_address = (b[1]<<8)+b[0];
   // JSR passes PC+1 instead of PC of next instruction, so adjust
@@ -432,7 +454,7 @@ int decode_busaccess(const unsigned char *b)
   
   // Don't say anything when the bus is idle
   if (!(fastio_write|fastio_read|instruction_strobe)) return 0;
-  
+
   if (1||instruction_strobe) {
     char wvalue[8]="      ";
     //    if (fastio_write)
@@ -547,24 +569,45 @@ int read_annotation_file(char *an)
   return 0;
 }
 
+int usage(void)
+{
+  fprintf(stderr,"usage: ethermon [-n num instructions] [-m match string] <network interface> [.list, .map or other supported memory annotation files]\n");
+  fprintf(stderr,"If -m is specified, then no instructions are displayed until <match string> appears in the output.\n");
+  exit(-3);
+}
+
+
 int main(int argc,char **argv)
 {
-    char *dev;
-    char errbuf[PCAP_ERRBUF_SIZE];
-    pcap_t* descr;
-    //    struct bpf_program fp;        /* to hold compiled program */
-    bpf_u_int32 pMask;            /* subnet mask */
-    bpf_u_int32 pNet;             /* ip address*/
-    pcap_if_t *alldevs;
-
-    for(int i=0;i<0x10000;i++) annotations[i]=NULL;
-    
-    if (argc<1) {
-      fprintf(stderr,"usage: ethermon <network interface> [.list, .map or other supported memory annotation files]\n");
-      exit(-3);
+  char *dev;
+  char errbuf[PCAP_ERRBUF_SIZE];
+  pcap_t* descr;
+  //    struct bpf_program fp;        /* to hold compiled program */
+  bpf_u_int32 pMask;            /* subnet mask */
+  bpf_u_int32 pNet;             /* ip address*/
+  pcap_if_t *alldevs;
+  
+  for(int i=0;i<0x10000;i++) annotations[i]=NULL;
+  
+  int opt;
+  while ((opt = getopt(argc, argv, "m:n:")) != -1) {
+    switch (opt) {
+    case 'm': match_string=optarg; break;
+    case 'n': num_instructions=atoi(optarg); break;
+    default:
+      usage();
     }
+  }
+				       
+  if (optind>=argc) usage();
+
     
-    for(int i=2;i<argc;i++) read_annotation_file(argv[i]);
+    if (argv[optind]) dev=argv[optind]; else {
+      fprintf(stderr,"You must specify the interface to listen on.\n");
+      exit(-1);
+    }
+
+    for(int i=optind+1;i<argc;i++) read_annotation_file(argv[i]);
     
     int i;
     for(i=0;oplist[i];i++) {
@@ -590,11 +633,6 @@ int main(int argc,char **argv)
     {
         fprintf(stderr,"Error in pcap_findalldevs: %s\n", errbuf);
         exit(1);
-    }
-
-    if (argv[1]) dev=argv[1]; else {
-      fprintf(stderr,"You must specify the interface to listen on.\n");
-      exit(-1);
     }
 
     // If something was not provided
