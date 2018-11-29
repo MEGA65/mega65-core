@@ -653,7 +653,7 @@ architecture Behavioral of viciv is
   -- Compatibility registers
   signal twentyfourlines : std_logic := '0';
   signal thirtyeightcolumns : std_logic := '0';
-  signal vicii_raster_compare : unsigned(10 downto 0);
+  signal vicii_raster_compare : unsigned(10 downto 0) := to_unsigned(256,11);
   signal vicii_x_smoothscroll : unsigned(2 downto 0);
   signal vicii_y_smoothscroll : unsigned(2 downto 0);
   -- NOTE: these are here for reading. the actual used VIC-II sprite
@@ -1781,10 +1781,12 @@ begin
           fastio_rdata <= sprite_alpha_blend_enables;
         elsif register_number=117 then  -- $D3075
           fastio_rdata(7 downto 0) <= std_logic_vector(sprite_alpha_blend_value);
-        elsif register_number=118 then  -- $D3076 (UNUSED)
-          fastio_rdata <= x"FF";
-        elsif register_number=119 then  -- $D3077 (UNUSED)
-          fastio_rdata <= x"FF";
+        elsif register_number=118 then  -- $D3076 (UNUSED) TEMPORARY DEBUG vicii_raster_compare(7 downto 0)
+          fastio_rdata <= std_logic_vector(vicii_raster_compare(7 downto 0));
+        elsif register_number=119 then  -- $D3077 (UNUSED) TEMPORARY DEBUG vicii_raster_compare(8), vicii_is_raster_source
+          fastio_rdata(7) <= vicii_is_raster_source;
+          fastio_rdata(6 downto 3) <= "0000";
+          fastio_rdata(2 downto 0) <= std_logic_vector(vicii_raster_compare(10 downto 8));
         elsif register_number=120 then  -- $D3078 (was display_height, now free)
 	  fastio_rdata <= X"FF"; -- UNUSED
         elsif register_number=121 then  -- $D3079 (was frame_height, now free)
