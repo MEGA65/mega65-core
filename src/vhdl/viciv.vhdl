@@ -1854,7 +1854,7 @@ begin
     end if;
     
     if rising_edge(ioclock) then
-
+      
       hsync_polarity <= hsync_polarity_internal;
       vsync_polarity <= vsync_polarity_internal;
 
@@ -3533,9 +3533,15 @@ begin
         vgablue_driver <= x"00";
       else
         drive_led_out <= '0';
-        vgared_driver <= vga_out_red(7 downto 0);
-        vgagreen_driver <= vga_out_green(7 downto 0);
-        vgablue_driver <= vga_out_blue(7 downto 0);
+        if display_active = '1' then
+          vgared_driver <= vga_out_red(7 downto 0);
+          vgagreen_driver <= vga_out_green(7 downto 0);
+          vgaablue_driver <= vga_out_blue(7 downto 0);
+        else
+          vgared_driver <= (others => '0');
+          vgagreen_driver <= (others => '0');
+          vgablue_driver <= (others => '0');
+        end if;
       end if;
 
       --------------------------------------------------------------------------
