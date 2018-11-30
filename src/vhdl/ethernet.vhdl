@@ -1140,7 +1140,7 @@ begin  -- behavioural
       elsif instruction_strobe='1' then
         report "ETHERDUMP: Instruction spotted: " & to_hstring(debug_vector) & ", writing to $" & to_hstring(dumpram_waddr);
         dumpram_wdata(62 downto 0) <= std_logic_vector(debug_vector(62 downto 0));
-        dumpram_wdata(32) <= d031_write_toggle; -- find out which instructions
+        dumpram_wdata(63) <= d031_write_toggle; -- find out which instructions
                                                 -- are causing $D031 writes
         dumpram_waddr <= std_logic_vector(to_unsigned(to_integer(unsigned(dumpram_waddr)) + 1,9));
         dumpram_write <= '1';

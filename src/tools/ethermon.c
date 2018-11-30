@@ -316,6 +316,8 @@ char *modes[256]={NULL};
 
 int instruction_address=0xFFFF;
 
+int last_d031_toggle=0;
+
 int decode_instruction(const unsigned char *b)
 {
   // Limit number of instructions shown
@@ -323,9 +325,17 @@ int decode_instruction(const unsigned char *b)
     if (!num_instructions) match_string="WILL NOT EVER SHOW UP";
     num_instructions--;
   }
+
+  int d031_toggle=b[7]&0x80;
+  
+  if (d031_toggle!=last_d031_toggle) {
+    printf("[$D031 written to!] ");
+  }
+  last_d031_toggle=d031_toggle;
   
   if (!match_string) 
-    printf("%c%c%c%c%c%c%c%c($%02X), SP=$xx%02X, A=$%02X : $%04X : %02X",
+    printf("%c %c%c%c%c%c%c%c%c($%02X), SP=$xx%02X, A=$%02X* : $%04X : %02X",
+	   d031_toggle?'Y':'N',
 	   b[5]&0x80?'N':'-',
 	   b[5]&0x40?'V':'-',
 	   b[5]&0x20?'E':'-',
@@ -449,11 +459,15 @@ int decode_busaccess(const unsigned char *b)
   int fastio_read=b[6]&0x40;
   int instruction_strobe=b[6]&0x20;
   int fastio_addr=b[4]+(b[5]<<8)+((b[6]&0xf)<<16);
-
+  int d031_toggle=b[6]&0x40;
+  
   int instruction_address=b[0]+(b[1]<<8);
+
+  if (last_d031_toggle!=d031_toggle) printf("[$D031 written!] ");
+  last_d031_toggle=d031_toggle;
   
   // Don't say anything when the bus is idle
-  if (!(fastio_write|fastio_read|instruction_strobe)) return 0;
+  //  if (!(fastio_write|fastio_read|instruction_strobe)) return 0;
 
   if (1||instruction_strobe) {
     char wvalue[8]="      ";
