@@ -11,7 +11,8 @@ _install_irq:
 	rts
 	
 _irq_handler:
-	lda #$35
+	;; Upper-case text, screen at $0800
+	lda #$25
 	sta $d018
 
 	lda #$01
@@ -21,7 +22,8 @@ _irq_handler:
 loop:	dex
 	bne loop
 
-	lda #$15
+	;;  lower case text, screen back at $0400
+	lda #$17
 	sta $d018
 
 	lda #$00

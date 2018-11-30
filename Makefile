@@ -14,7 +14,7 @@ VIVADO=	./vivado_wrapper
 CC65=	cc65/bin/cc65
 CA65=  cc65/bin/ca65 --cpu 4510
 LD65=  cc65/bin/ld65 -t none
-CL65=  cc65/bin/cl65 -t c64
+CL65=  cc65/bin/cl65 --config src/tests/vicii.cfg 
 GHDL=  ghdl/build/bin/ghdl
 
 CBMCONVERT=	cbmconvert/cbmconvert
