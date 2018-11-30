@@ -200,8 +200,8 @@ begin
                   frame_height => 625,
                   pipeline_delay => 128,
                   display_height => 600,
-                  vsync_start => 13,
-                  vsync_end => 18,
+                  vsync_start => 625-18-5,
+                  vsync_end => 625-18,
                   hsync_start => 834*4,
                   hsync_end => 870*4
                   )                  
@@ -236,8 +236,8 @@ begin
                   frame_height => 628,
                   display_height => 600,
                   pipeline_delay => 96,
-                  vsync_start => 18,
-                  vsync_end => 22,
+                  vsync_start => 628-22-4,
+                  vsync_end => 628-22,
                   hsync_start => 840*3,
                   hsync_end => 900*3
                   )                  
