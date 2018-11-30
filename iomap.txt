@@ -165,7 +165,9 @@ GS $D059 VIC-IV characters per logical text row (MSB)
 GS $D05A VIC-IV horizontal hardware scale setting (pixel 120ths)
 GS $D05B VIC-IV vertical hardware scale setting
 GS $D05C VIC-IV side border width (LSB)
-GS $D05D VIC-IV side border width (MSB)
+GS $D05D.0-5 VIC-IV side border width (MSB)
+GS $D05D.6 VIC-IV UNUSED
+GS $D05D.7 VIC-IV Enable VIC-II hot registers
 GS $D05E VIC-IV number of characters to display per row
 GS $D05F VIC-IV Sprite H640 X Super-MSBs
 GS $D060 VIC-IV screen RAM precise base address (bits 0 - 7)
@@ -519,7 +521,8 @@ GS $D6E0 Ethernet control
 GS $D6E1.0 reset ethernet PHY
 GS $D6E1.1 - Set which RX buffer is memory mapped
 GS $D6E1.2 - Indicate which RX buffer was most recently used
-GS $D6E1.3 Enable real-time video streaming via ethernet
+GS $D6E1.2 WRITE ONLY Enable real-time CPU/BUS monitoring via ethernet
+GS $D6E1.3 Enable real-time video streaming via ethernet (or fast IO bus if CPU/bus monitoring enabled)
 GS $D6E1.4 - Ethernet TX IRQ status
 GS $D6E1.5 - Ethernet RX IRQ status
 GS $D6E1.6 - Enable ethernet TX IRQ

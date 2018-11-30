@@ -196,7 +196,8 @@ architecture Behavioral of viciv is
   
   -- last value written to key register
   signal reg_key : unsigned(7 downto 0) := x"00";
-  
+
+  signal vicii_hot_regs_enable : std_logic := '1';
   signal viciv_legacy_mode_registers_touched : std_logic := '0';
   signal reg_d018_screen_addr : unsigned(3 downto 0) := x"1";
 
@@ -1742,7 +1743,8 @@ begin
         elsif register_number=92 then
           fastio_rdata <= std_logic_vector(single_side_border(7 downto 0));
         elsif register_number=93 then
-          fastio_rdata(7 downto 6) <= "00";
+          fastio_rdata(7) <= vicii_hot_regs_enable;
+          fastio_rdata(6) <= '0';
           fastio_rdata(5 downto 0) <= std_logic_vector(single_side_border(13 downto 8));
         elsif register_number=94 then
           fastio_rdata(7 downto 0)  <= std_logic_vector(display_row_width);
@@ -1874,6 +1876,9 @@ begin
         -- Allow kickstart ROM to be visible on reset.
         rom_at_e000 <= '0';
 
+        -- Enable VIC-II/III registers to force video mode settings when touched
+        vicii_hot_regs_enable <= '1';
+        
         -- Set CPU to 48MHz
         viciv_fast_internal <= '1';
         viciii_fast_internal <= '1';
@@ -1910,7 +1915,7 @@ begin
       ycounter_drive <= ycounter;
       xfrontporch_drive <= xfrontporch;
       
-      if viciv_legacy_mode_registers_touched='1' then
+      if viciv_legacy_mode_registers_touched='1' and vicii_hot_regs_enable='1' then
         viciv_interpret_legacy_mode_registers;
         viciv_legacy_mode_registers_touched <= '0';
       end if;
@@ -1940,11 +1945,11 @@ begin
       
       -- $DD00 video bank bits
       if fastio_write='1'
-        -- Fastio IO addresses D{0,1,2,3}Dx0
+        and vicii_hot_regs_enable='1'
         and (fastio_addr(19 downto 16)=x"D")
-        and (fastio_addr(11 downto  8)=x"D")
-        and (fastio_addr(3 downto 0) = x"0")
         and (fastio_addr(15 downto 14) = "00")
+        and (fastio_addr(11 downto 8)=x"D")
+        and (fastio_addr(3 downto 0) = x"0")
         and (colourram_at_dc00_internal = '0')
       then
         report "Caught write to $DD00" severity note;
@@ -2367,8 +2372,11 @@ begin
                                         -- @IO:GS $D05C VIC-IV side border width (LSB)
                                                     single_side_border(7 downto 0) <= unsigned(fastio_wdata);
                                                   elsif register_number=93 then
-                                        -- @IO:GS $D05D VIC-IV side border width (MSB)
+                                        -- @IO:GS $D05D.0-5 VIC-IV side border width (MSB)
                                                     single_side_border(13 downto 8) <= unsigned(fastio_wdata(5 downto 0));
+                                        -- @IO:GS $D05D.6 VIC-IV UNUSED
+                                        -- @IO:GS $D05D.7 VIC-IV Enable VIC-II hot registers
+                                                    vicii_hot_regs_enable <= fastio_wdata(7);
                                                   elsif register_number=94 then
                                         -- @IO:GS $D05E VIC-IV number of characters to display per row
                                                     display_row_width <= unsigned(fastio_wdata);
