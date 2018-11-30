@@ -1160,7 +1160,7 @@ begin
               -- x1280 mode is deprecated
               x1280_in => to_xposition(vicii_xcounter_640),
               y_in => to_yposition(vicii_sprite_ycounter),
-              border_in => inborder,
+              border_in => inborder_drive,
               pixel_in => chargen_pixel_colour,
               alpha_in => chargen_alpha_value,
               pixel_out => postsprite_pixel_colour,
