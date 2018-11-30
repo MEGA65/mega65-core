@@ -83,6 +83,7 @@ entity ethernet is
 
     instruction_strobe : in std_logic;
     debug_vector : in unsigned(63 downto 0);
+    d031_write_toggle : in std_logic;
     cpu_arrest : out std_logic := '0';
     
     ---------------------------------------------------------------------------
@@ -1119,7 +1120,7 @@ begin  -- behavioural
         -- Address and read/write signals of fastio IO bus, plus instruction strobe
         dumpram_wdata(51 downto 32) <= std_logic_vector(fastio_addr);
         dumpram_wdata(55) <= fastio_write;
-        dumpram_wdata(54) <= fastio_read;
+        dumpram_wdata(54) <= d031_write_toggle;
         dumpram_wdata(53) <= instruction_strobe;
         dumpram_wdata(52) <= '0';  -- unused bit
         -- Whatever is being written
@@ -1138,7 +1139,9 @@ begin  -- behavioural
 
       elsif instruction_strobe='1' then
         report "ETHERDUMP: Instruction spotted: " & to_hstring(debug_vector) & ", writing to $" & to_hstring(dumpram_waddr);
-        dumpram_wdata <= std_logic_vector(debug_vector);
+        dumpram_wdata(62 downto 0) <= std_logic_vector(debug_vector(62 downto 0));
+        dumpram_wdata(32) <= d031_write_toggle; -- find out which instructions
+                                                -- are causing $D031 writes
         dumpram_waddr <= std_logic_vector(to_unsigned(to_integer(unsigned(dumpram_waddr)) + 1,9));
         dumpram_write <= '1';
         activity_dump_ready_toggle <= dumpram_waddr(8);

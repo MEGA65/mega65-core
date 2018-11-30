@@ -88,6 +88,7 @@ entity viciv is
     viciii_fast : out std_logic;
     viciv_fast : out std_logic;     
 
+    d031_written : out std_logic;
     xray_mode : in std_logic;
     test_pattern_enable : out std_logic := '0';
 
@@ -971,6 +972,7 @@ architecture Behavioral of viciv is
   signal last_was_fetch_start : std_logic := '0';
 
   signal d031_writes : unsigned(7 downto 0) := x"00";
+  signal d031_written_internal : std_logic := '0';
   
 begin
   
@@ -2216,6 +2218,7 @@ begin
         elsif register_number=49 then
           if d031_writes /= x"FF" then
             d031_writes <= d031_writes + 1;
+            d031_written_internal <= not d031_written_internal;
           else
             d031_writes <= x"00";
           end if;
@@ -4902,6 +4905,10 @@ begin
   process (pixelclock) is
   begin
     if rising_edge(pixelclock) then
+
+      -- XXX Export $D031 mystery writes debug signal
+      d031_written <= d031_written_internal;
+      
       --Route out position counters for compositor
       --But delay them for the video pipeline depth.
       --1 pixel stage + 8 sprite + 8 bitplane = 17 cycles 

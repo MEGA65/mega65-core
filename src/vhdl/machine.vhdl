@@ -633,6 +633,8 @@ architecture Behavioral of machine is
   signal test_pattern_enable : std_logic := '0';
 
   signal ethernet_cpu_arrest : std_logic := '0';
+
+  signal d031_write_toggle : std_logic;
   
 begin
 
@@ -1044,6 +1046,7 @@ begin
       drive_led_out => drive_led_out,
 
       xray_mode => xray_mode,
+      d031_written => d031_write_toggle,
 
       dat_offset => dat_offset,
       dat_bitplane_addresses => dat_bitplane_addresses,
@@ -1314,7 +1317,8 @@ begin
       sector_buffer_mapped => sector_buffer_mapped,
 
       -- CPU status for sending to ethernet frame packer
-      
+
+      d031_write_toggle => d031_write_toggle,
     monitor_instruction_strobe => monitor_instruction_strobe,
     monitor_pc => monitor_pc,
     monitor_opcode => monitor_opcode,

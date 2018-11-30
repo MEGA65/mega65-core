@@ -183,7 +183,8 @@ entity iomapper is
         monitor_y : in unsigned(7 downto 0);        
         monitor_z : in unsigned(7 downto 0);        
         monitor_sp : in unsigned(15 downto 0);        
-        monitor_p : in unsigned(7 downto 0);        
+        monitor_p : in unsigned(7 downto 0);
+        d031_write_toggle : in std_logic;
         
     ---------------------------------------------------------------------------
     -- IO lines to the ethernet controller
@@ -821,6 +822,7 @@ begin
     buffer_address => buffer_address,
     buffer_rdata => buffer_rdata,
     debug_vector => debug_vector,
+    d031_write_toggle => d031_write_toggle,
     instruction_strobe => monitor_instruction_strobe,
     cpu_arrest => ethernet_cpu_arrest,
     
