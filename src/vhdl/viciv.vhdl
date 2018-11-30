@@ -968,6 +968,8 @@ architecture Behavioral of viciv is
 
   signal is_fetch_start : std_logic := '0';
   signal last_was_fetch_start : std_logic := '0';
+
+  signal d031_writes : unsigned(7 downto 0) := x"00";
   
 begin
   
@@ -1795,12 +1797,10 @@ begin
           fastio_rdata <= sprite_alpha_blend_enables;
         elsif register_number=117 then  -- $D3075
           fastio_rdata(7 downto 0) <= std_logic_vector(sprite_alpha_blend_value);
-        elsif register_number=118 then  -- $D3076 (UNUSED) TEMPORARY DEBUG vicii_raster_compare(7 downto 0)
-          fastio_rdata <= std_logic_vector(vicii_raster_compare(7 downto 0));
-        elsif register_number=119 then  -- $D3077 (UNUSED) TEMPORARY DEBUG vicii_raster_compare(8), vicii_is_raster_source
-          fastio_rdata(7) <= vicii_is_raster_source;
-          fastio_rdata(6 downto 3) <= "0000";
-          fastio_rdata(2 downto 0) <= std_logic_vector(vicii_raster_compare(10 downto 8));
+        elsif register_number=118 then  -- $D3076 (UNUSED) TEMPORARY DEBUG $D031 write count
+          fastio_rdata <= std_logic_vector(d031_writes);
+        elsif register_number=119 then  -- $D3077 (UNUSED)
+	  fastio_rdata <= X"FF"; -- UNUSED
         elsif register_number=120 then  -- $D3078 (was display_height, now free)
 	  fastio_rdata <= X"FF"; -- UNUSED
         elsif register_number=121 then  -- $D3079 (was frame_height, now free)
@@ -2208,7 +2208,12 @@ begin
           -- @IO:C65 $D030.0 2nd KB of colour RAM @ $DC00-$DFFF
           colourram_at_dc00_internal<= fastio_wdata(0);
           colourram_at_dc00<= fastio_wdata(0);
-        elsif register_number=49 then 
+        elsif register_number=49 then
+          if d031_writes /= x"FF" then
+            d031_writes <= d031_writes + 1;
+          else
+            d031_writes <= x"00";
+          end if;
           -- @IO:C65 $D031 VIC-III Control Register B
           -- @IO:C65 $D031.7 VIC-III H640 (640 horizontal pixels)
           reg_h640 <= fastio_wdata(7);
