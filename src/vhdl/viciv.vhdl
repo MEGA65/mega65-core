@@ -1253,22 +1253,33 @@ begin
         border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border),14);
         if reg_h640='0' then
           border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
-                                        -to_integer(single_side_border)+2,14);
+                                        -to_integer(single_side_border)+2,14),14);
         else
+          -- 40/40 col mode had 3 physical pixels too many on right, so +2
+          -- changed to -1 
           border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
-                                        -to_integer(single_side_border)+2,14);
+                                        -to_integer(single_side_border)-1,14);
         end if;
-      else  
+      else
+        -- 38/40 col mode has one phyical pixel too few on the left (only one
+        -- physical pixel of left most pixel shows when $D016 = $00)
+        -- 78/80 col mode correctly has one physical pixel showing on the left
+        
+        -- 78/80 col mode has right border one pixel too late
+        -- 38/40 col mode has right border one logical pixel too late
+        -- (rightmost pixel of last char is not truncated)
+        -- Thus +2 on both the border_x_right calculations has been reduced by
+        -- 1 or 2 for H640 and H320 modes
         border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border)
                                      +(7*2),14);
         if reg_h640='0' then
           border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
                                         -to_integer(single_side_border)
-                                        +2-(9*2),14);
+                                        -(9*2),14);
         else
           border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
                                         -to_integer(single_side_border)
-                                        +2-(9*2),14);
+                                        -(9*2)+1,14);
         end if;
       end if;
       x_chargen_start
