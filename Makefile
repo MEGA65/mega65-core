@@ -14,6 +14,7 @@ VIVADO=	./vivado_wrapper
 CC65=	cc65/bin/cc65
 CA65=  cc65/bin/ca65 --cpu 4510
 LD65=  cc65/bin/ld65 -t none
+CL65=  cc65/bin/cl65 -t c64
 GHDL=  ghdl/build/bin/ghdl
 
 CBMCONVERT=	cbmconvert/cbmconvert
@@ -22,6 +23,7 @@ ASSETS=		assets
 SRCDIR=		src
 BINDIR=		bin
 UTILDIR=	$(SRCDIR)/utilities
+TESTDIR=	$(SRCDIR)/tests
 VHDLSRCDIR=	$(SRCDIR)/vhdl
 VERILOGSRCDIR=	$(SRCDIR)/verilog
 
@@ -409,6 +411,9 @@ $(SDCARD_DIR)/MEGA65.D81:	$(UTILITIES) $(CBMCONVERT)
 
 $(UTILDIR)/mega65_config.o:      $(UTILDIR)/mega65_config.s $(UTILDIR)/mega65_config.inc $(CC65)
 	$(CA65) $< -l $*.list
+
+$(TESTDIR)/vicii.prg:       $(TESTDIR)/vicii.c $(TESTDIR)/vicii_asm.s $(CC65)
+	$(CL65) -O -o $*.prg --mapfile $*.map $< $(TESTDIR)/vicii_asm.s 
 
 $(UTILDIR)/mega65_config.prg:       $(UTILDIR)/mega65_config.o $(CC65)
 	$(LD65) $< --mapfile $*.map -o $*.prg

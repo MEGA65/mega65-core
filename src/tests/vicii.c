@@ -1,6 +1,6 @@
 /*
   Test program for VIC-II.
-  (C) Copyright Paul Gardner-Stephen, 2017.
+  (C) Copyright Paul Gardner-Stephen, 2017 - 2018.
   Released under the GNU General Public License, v3.
 
   The purpose of this program is to test as many functions of
@@ -386,6 +386,42 @@ void sprite_sprite_collide_tests(void)
   }
 }
 
+extern void install_irq(void);
+
+void d018_timing_tests(void)
+{
+  /* CC65 puts a stack at $0800-$0FFF, so we can
+     be a bit hacky, and use the first few bytes of $0800 as an alternate screen.
+     What we then want to do, is change $D018 during raster line 50, and confirm
+     that the newly indicated row of text is displayed.  We can verify this through
+     sprite colission, by having one of the rows with blank characters, and the other
+     with non-blank ones.  Then we change it during raster line 51, and confirm that the
+     original row of text is displayed, by using the same methodology.  
+  */
+
+  stash_screen(); clear_screen();
+  // Draw a horizontal bar at top of alternate screen
+  for(v=0;v<40;v++) POKE(0x0800+v,0x63);
+  // Draw a solid sprite overlapping with it
+  sprite_setxy(0,90,40); sprite_erase(0); sprite_reverse(0); sprites_on(1);
+
+  // Disable interrupts, and setup our raster interrupt handler
+  __asm__("sei");
+  POKE(0xD01AU,0x81U); // enable raster interrupts
+  POKE(0xDC0DU,0x7fU); // Disable CIA timer interrupts
+  install_irq();
+
+  // Set raster interrupt for raster 50
+  POKE(0xD012U,50); POKE(0xd011U,0x1b);
+  // allow interrupt to happen
+  __asm__("cli");
+
+
+  while(1) continue;
+  
+  restore_screen(); sprites_on(0);
+}
+
 int main(int argc,char **argv)
 {
   
@@ -398,7 +434,7 @@ int main(int argc,char **argv)
   // Prepare sprites
   setup();  
 
-  sprite_sprite_collide_tests();
+  //  sprite_sprite_collide_tests();
   
   /* At this point, we know that sprite collisions work to some basic degree.
      What we don't know is if the sprites are displayed at the correct location, or 
@@ -412,7 +448,18 @@ int main(int argc,char **argv)
      to collide with. Char $65 is a vertical bar 2 pixels wide on the left edge of a character.
      
   */
-  sprite_y_tests();
-  sprite_x_tests();
+  //  sprite_y_tests();
+  //  sprite_x_tests();
 
+  /*
+    Okay. Now we know that sprites appear in the correct places, and can collide with
+    character data properly. So we can do some more sophisticated tests.
+    The next one makes sure that changes to $D018 have the correct timing.
+    On a real C64, if you change the screen RAM address during raster 50, the first
+    row of text will be displayed with the change, but if it is done in raster 51, then
+    it is too late, and the first row of text will come from wherever $D018 previously
+    indicated.
+  */
+  d018_timing_tests();
+  
 }
