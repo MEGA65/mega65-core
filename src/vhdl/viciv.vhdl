@@ -255,8 +255,8 @@ architecture Behavioral of viciv is
   constant display_fetch_start : unsigned(11 downto 0) := to_unsigned(800,12);
   constant display_height : unsigned(11 downto 0) := to_unsigned(600,12);
   signal raster_buffer_half_toggle : std_logic := '0';
-  signal vsync_delay : unsigned(7 downto 0) := to_unsigned(18,8);
-  signal vsync_delay_drive : unsigned(7 downto 0) := to_unsigned(18,8);
+  signal vsync_delay : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal vsync_delay_drive : unsigned(7 downto 0) := to_unsigned(0,8);
   signal vicii_ycounter_scale_minus_zero : unsigned(3 downto 0) := to_unsigned(2-1,4);
   signal chargen_x_scale : unsigned(7 downto 0) := to_unsigned(120,8);  
   signal sprite_first_x : unsigned(13 downto 0) := to_unsigned(1+80-(24)*(120/60),14);
@@ -2427,7 +2427,7 @@ begin
                                                     
                                                     case fastio_wdata(7 downto 6) is
                                                       when "00" => -- PAL, 800x600 @ 50Hz
-                                                        vsync_delay <= to_unsigned(18,8);
+                                                        vsync_delay <= to_unsigned(0,8);
                                                         vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                                                         vicii_max_raster <= pal_max_raster;
                                         -- Set 30MHz pixel clock for PAL
@@ -2441,7 +2441,7 @@ begin
                                                         chargen_y_scale <= x"01";
                                                         
                                                       when "01" => -- PAL, 800x600 50Hz, NTSC max raster
-                                                        vsync_delay <= to_unsigned(18,8);
+                                                        vsync_delay <= to_unsigned(0,8);
                                                         vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                                                         vicii_max_raster <= ntsc_max_raster;
                                         -- Set 30MHz pixel clock for PAL
@@ -2454,7 +2454,7 @@ begin
                                                         single_side_border <= to_unsigned(80,14);
 
                                                       when "10" => -- NTSC, 800x600 @ 60Hz
-                                                        vsync_delay <= to_unsigned(22,8);
+                                                        vsync_delay <= to_unsigned(0,8);
                                                         vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                                                         vicii_max_raster <= ntsc_max_raster;
                                                         hsync_polarity_internal <= '0';
@@ -2467,7 +2467,7 @@ begin
                                                         single_side_border <= to_unsigned(80,14);
 
                                                       when "11" => -- NTSC 800x600 60Hz
-                                                        vsync_delay <= to_unsigned(22,8);
+                                                        vsync_delay <= to_unsigned(0,8);
                                                         vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                                         -- NTSC but with PAL max raster
                                                         vicii_max_raster <= pal_max_raster;
@@ -2481,7 +2481,7 @@ begin
                                                         single_side_border <= to_unsigned(80,14);
 
                                                       when others => -- Default to NTSC 800x600 60Hz
-                                                        vsync_delay <= to_unsigned(22,8);
+                                                        vsync_delay <= to_unsigned(0,8);
                                                         vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                                                         hsync_polarity_internal <= '0';
                                                         vsync_polarity_internal <= '0';
