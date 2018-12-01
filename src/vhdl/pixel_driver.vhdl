@@ -378,7 +378,7 @@ begin
       end if;
       
       -- Output the pixels or else the test pattern
-      if plotting='0' or inframe='0' then        
+      if plotting='0' or inframe_internal='0' then        
         red_o <= x"00";
         green_o <= x"00";
         blue_o <= x"00";
