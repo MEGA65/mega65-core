@@ -349,7 +349,6 @@ architecture Behavioral of viciv is
 
   -- Actual pixel positions in the frame
   signal displayy : unsigned(11 downto 0) := to_unsigned(0,12);
-  signal display_active : std_logic := '0';
   -- Mark if we are in the top line of display
   -- (used for overlaying drive LED on first row of pixels)
   signal displayline0 : std_logic := '1';
@@ -2832,7 +2831,7 @@ begin
           if external_frame_y_zero='0' then
             report "XZERO: incrementing ycounter from " & integer'image(to_integer(ycounter));
             ycounter_driver <= ycounter_driver + 1;
-
+            
             displaycolumn0 <= '1';
             displayy <= displayy + 1;
             if displayy(4)='1' then
@@ -3222,8 +3221,7 @@ begin
       else
         row_advance <= to_integer(virtual_row_width);
       end if;
-      
-      display_active <= indisplay;
+
       viciv_outofframe <= (not indisplay_t3);
       
 --      if indisplay_t3='1' then
@@ -3537,15 +3535,9 @@ begin
         vgablue_driver <= x"00";
       else
         drive_led_out <= '0';
-        if display_active = '1' then
-          vgared_driver <= vga_out_red(7 downto 0);
-          vgagreen_driver <= vga_out_green(7 downto 0);
-          vgablue_driver <= vga_out_blue(7 downto 0);
-        else
-          vgared_driver <= (others => '0');
-          vgagreen_driver <= (others => '0');
-          vgablue_driver <= (others => '0');
-        end if;
+        vgared_driver <= vga_out_red(7 downto 0);
+        vgagreen_driver <= vga_out_green(7 downto 0);
+        vgablue_driver <= vga_out_blue(7 downto 0);
       end if;
 
       --------------------------------------------------------------------------
