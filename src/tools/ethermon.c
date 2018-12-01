@@ -317,6 +317,7 @@ char *modes[256]={NULL};
 int instruction_address=0xFFFF;
 
 int last_d031_toggle=0;
+unsigned int instruction_count=0;
 
 int decode_instruction(const unsigned char *b)
 {
@@ -327,14 +328,17 @@ int decode_instruction(const unsigned char *b)
   }
 
   int d031_toggle=b[7]&0x80;
-  
-  if (d031_toggle!=last_d031_toggle) {
-    printf("[$D031 written to!] ");
+
+  if (!match_string) {
+    printf("%08x ",instruction_count++);
+    if (d031_toggle!=last_d031_toggle) {
+      printf("[$D031 written to!] ");
+    }
   }
   last_d031_toggle=d031_toggle;
   
   if (!match_string) 
-    printf("%c %c%c%c%c%c%c%c%c($%02X), SP=$xx%02X, A=$%02X* : $%04X : %02X",
+    printf("%c %c%c%c%c%c%c%c%c($%02X) SP=$xx%02X, A=$%02X : $%04X : %02X",
 	   d031_toggle?'Y':'N',
 	   b[5]&0x80?'N':'-',
 	   b[5]&0x40?'V':'-',
@@ -539,10 +543,14 @@ int record_address_annotation(int addr,char *source,int line)
   
   char *source_line=find_source_line(source,line);
   char annotation[8192];
-  if (source_line)
-    snprintf(annotation,8192,"%s:%d: %s",source,line,source_line);
+  int source_offset=0;
+  for(int i=0;source[i];i++) if (source[i]=='/') source_offset=i+1;
+  if (source_line) {
+    while(source_line[0]=='\t'||source_line[0]==' ') source_line++;
+    snprintf(annotation,8192,"%s:%d: %s",&source[source_offset],line,source_line);
+  }
   else
-    snprintf(annotation,8192,"%s:%d",source,line);
+    snprintf(annotation,8192,"%s:%d",&source[source_offset],line);
 
   //  printf("  %s\n",annotation);
   
