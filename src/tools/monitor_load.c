@@ -70,7 +70,7 @@ int process_char(unsigned char c,int live);
 void usage(void)
 {
   fprintf(stderr,"MEGA65 cross-development tool for booting the MEGA65 using a custom bitstream and/or KICKUP file.\n");
-  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <kickup file>] [-R romfile] [-C charromfile]] [-c COLOURRAM.BIN] [-B breakpoint] [-m modeline] [-o] [-d diskimage.d81] [[-1] [<-t|-T> <text>] [-f FPGA serial ID] [filename]] [-H]\n");
+  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <kickup file>] [-R romfile] [-C charromfile]] [-c COLOURRAM.BIN] [-B breakpoint] [-m modeline] [-o] [-d diskimage.d81] [[-1] [<-t|-T> <text>] [-f FPGA serial ID] [filename]] [-H] [-E|-L]\n");
   fprintf(stderr,"  -l - Name of serial port to use, e.g., /dev/ttyUSB1\n");
   fprintf(stderr,"  -s - Speed of serial port in bits per second. This must match what your bitstream uses.\n");
   fprintf(stderr,"       (Older bitstream use 230400, and newer ones 2000000 or 4000000).\n");
@@ -93,6 +93,7 @@ void usage(void)
   fprintf(stderr,"  -T - As above, but also provide carriage return\n");
   fprintf(stderr,"  -B - Set a breakpoint on synchronising, and then immediately exit.\n");
   fprintf(stderr,"  -E - Enable streaming of video via ethernet.\n");
+  fprintf(stderr,"  -L - Enable streaming of CPU instruction log via ethernet.\n");
   fprintf(stderr,"  -f - Specify which FPGA to reconfigure when calling fpgajtag\n");
   fprintf(stderr,"  filename - Load and run this file in C64 mode before exiting.\n");
   fprintf(stderr,"\n");
@@ -129,6 +130,7 @@ int do_go64=0;
 int do_run=0;
 int comma_eight_comma_one=0;
 int ethernet_video=0;
+int ethernet_cpulog=0;
 int virtual_f011=0;
 int virtual_f011_pending=0;
 char *d81file=NULL;
@@ -368,6 +370,10 @@ int process_line(char *line,int live)
 	if (ntsc_mode) { slow_write(fd,"sffd306f 80\r",12); usleep(20000); }
 	if (ethernet_video) {
 	  slow_write(fd,"sffd36e1 29\r",12); // turn on video streaming over ethernet
+	  usleep(20000);
+	}
+	if (ethernet_cpulog) {
+	  slow_write(fd,"sffd36e1 05\r",12); // turn on cpu instruction log streaming over ethernet
 	  usleep(20000);
 	}
 	printf("Synchronised with monitor.\n");
@@ -1223,10 +1229,11 @@ int main(int argc,char **argv)
   start_time=time(0);
   
   int opt;
-  while ((opt = getopt(argc, argv, "14B:b:c:C:dEFHf:k:l:m:MnoprR:s:t:T:")) != -1) {
+  while ((opt = getopt(argc, argv, "14B:b:c:C:dEFHf:k:Ll:m:MnoprR:s:t:T:")) != -1) {
     switch (opt) {
     case 'B': sscanf(optarg,"%x",&break_point); break;
-    case 'E': ethernet_video=1; break;
+    case 'L': if (ethernet_video) { usage(); } else { ethernet_cpulog=1; } break;
+    case 'E': if (ethernet_cpulog) { usage(); } else { ethernet_video=1; } break;
     case 'R': romfile=strdup(optarg); break;
     case 'H': halt=1; break;
     case 'C': charromfile=strdup(optarg); break;
