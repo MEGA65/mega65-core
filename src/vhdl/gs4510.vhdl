@@ -2931,14 +2931,8 @@ begin
                                         -- accuracy at 1MHz and 3.5MHz
                                         -- XXX Add NTSC speed emulation option as well
 
-      if badline_toggle /= last_badline_toggle then
-        phi_add_backlog <= '1';
-        phi_new_backlog <= 40;
-        last_badline_toggle <= badline_toggle;
-      else
-        phi_add_backlog <= '0';
-        phi_new_backlog <= 0;
-      end if;
+      phi_add_backlog <= '0';
+      phi_new_backlog <= 0;
       last_phi16 <= phi_counter(16);
       case cpuspeed_internal is
         when x"01" =>          
@@ -2956,9 +2950,20 @@ begin
                                         -- phi2 cycle has passed
           if phi_backlog = 1 or phi_backlog=0 then
             if phi_add_backlog = '0' then
-                                        -- We have just finished our backlog, allow CPU to proceed
-              phi_backlog <= 0;
-              phi_pause <= '0';
+              -- We have just finished our backlog, allow CPU to proceed,
+              -- unless there is a pending VIC-II badline.
+              -- By applying the badlines here, we approximate the behaviour
+              -- of the 6502 in a C64, but only approximate it, as we allow
+              -- whatever instruction was running to complete, rather than stopping
+              -- as soon as there is a read operation.
+              if badline_toggle /= last_badline_toggle then
+                phi_pause <= '1';
+                phi_backlog <= 40;
+                last_badline_toggle <= badline_toggle;
+              else
+                phi_backlog <= 0;
+                phi_pause <= '0';
+              end if;
             else
                                         -- We would have finished the back log, but we have new backlog
                                         -- to process
