@@ -88,6 +88,9 @@ entity viciv is
     viciii_fast : out std_logic;
     viciv_fast : out std_logic;     
 
+    -- Used to tell the CPU when to steal cycles to simulate badlines
+    badline_toggle : out std_logic := '0';
+    
     d031_written : out std_logic;
     xray_mode : in std_logic;
     test_pattern_enable : out std_logic := '0';
@@ -349,6 +352,7 @@ architecture Behavioral of viciv is
 
   -- Actual pixel positions in the frame
   signal displayy : unsigned(11 downto 0) := to_unsigned(0,12);
+
   -- Mark if we are in the top line of display
   -- (used for overlaying drive LED on first row of pixels)
   signal displayline0 : std_logic := '1';
@@ -973,6 +977,8 @@ architecture Behavioral of viciv is
 
   signal d031_writes : unsigned(7 downto 0) := x"00";
   signal d031_written_internal : std_logic := '0';
+
+  signal badline_toggle_internal : std_logic := '0';
   
 begin
   
@@ -3009,6 +3015,8 @@ begin
         -- Finally decide which way we should go
         if to_integer(first_card_of_row) /= to_integer(prev_first_card_of_row) then          
           raster_fetch_state <= FetchScreenRamLine;
+          badline_toggle_internal <= not badline_toggle_internal;
+          badline_toggle <= not badline_toggle_internal;
           report "BADLINE @ y = " & integer'image(to_integer(displayy)) severity note;
           report "BADLINE first_card_of_row = %" & to_string(std_logic_vector(first_card_of_row)) severity note;
           report "BADLINE prev_first_card_of_row = %" & to_string(std_logic_vector(prev_first_card_of_row)) severity note;

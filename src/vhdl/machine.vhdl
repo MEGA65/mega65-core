@@ -404,6 +404,7 @@ architecture Behavioral of machine is
   signal viciv_fast : std_logic;
   signal speed_gate : std_logic;
   signal speed_gate_enable : std_logic;
+  signal badline_toggle : std_logic;
   
   signal drive_led : std_logic;
   signal motor : std_logic;
@@ -884,6 +885,7 @@ begin
       vicii_2mhz => vicii_2mhz,
       viciii_fast => viciii_fast,
       viciv_fast => viciv_fast,
+      badline_toggle => badline_toggle,
 
       monitor_char => monitor_char,
       monitor_char_toggle => monitor_char_toggle,
@@ -1079,6 +1081,7 @@ begin
       vicii_2mhz => vicii_2mhz,
       viciii_fast => viciii_fast,
       viciv_fast => viciv_fast,
+      badline_toggle => badline_toggle,
       
       colourram_at_dc00 => colourram_at_dc00,
       rom_at_e000 => rom_at_e000,

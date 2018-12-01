@@ -192,6 +192,10 @@ entity gs4510 is
     viciv_fast : in std_logic;
     speed_gate : in std_logic;
     speed_gate_enable : out std_logic := '1';
+    -- When badline_toggle toggles, we need to act as though 40-43 clock cycles
+    -- are being stolen from us (we should vary this based on sprite activity,
+    -- but this should be enough for fixing many programs).
+    badline_toggle : in std_logic;
     
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
@@ -257,6 +261,8 @@ architecture Behavioural of gs4510 is
   signal speed_gate_enable_internal : std_logic := '1';
   signal speed_gate_drive : std_logic := '1';
 
+  signal last_badline_toggle : std_logic := '0';
+  
   signal iomode_set_toggle_internal : std_logic := '0';
   signal rom_writeprotect : std_logic := '0';
 
@@ -360,7 +366,7 @@ architecture Behavioural of gs4510 is
   signal phi_backlog : integer range 0 to 127 := 0;
   signal phi_add_backlog : std_logic := '0';
   signal charge_for_branches_taken : std_logic := '1';
-  signal phi_new_backlog : integer range 0 to 15 := 0;
+  signal phi_new_backlog : integer range 0 to 127 := 0;
   signal last_phi16 : std_logic := '0';
   signal phi0_export : std_logic := '0';
 
@@ -2924,8 +2930,15 @@ begin
                                         -- Count slow clock ticks for applying instruction-level 6502/4510 timing
                                         -- accuracy at 1MHz and 3.5MHz
                                         -- XXX Add NTSC speed emulation option as well
-      phi_add_backlog <= '0';
-      phi_new_backlog <= 0;
+
+      if badline_toggle /= last_badline_toggle then
+        phi_add_backlog <= '1';
+        phi_new_backlog <= 40;
+        last_badline_toggle <= badline_toggle;
+      else
+        phi_add_backlog <= '0';
+        phi_new_backlog <= 0;
+      end if;
       last_phi16 <= phi_counter(16);
       case cpuspeed_internal is
         when x"01" =>          
