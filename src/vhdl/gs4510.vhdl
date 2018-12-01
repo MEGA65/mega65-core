@@ -3563,7 +3563,16 @@ begin
         monitor_request_reflected <= monitor_mem_attention_request_drive;
 
         report "CPU state : proceed=" & std_logic'image(proceed);
-        if proceed='1' then
+        if proceed='0' then
+
+          -- Temporarily pick up memory access signals from combinatorial code
+          memory_access_address :=  memory_access_address_next;
+          memory_access_read := memory_access_read_next;
+          memory_access_write := memory_access_write_next;
+          memory_access_resolve_address := memory_access_resolve_address_next;
+          memory_access_wdata := memory_access_wdata_next;
+          
+        else
                                         -- Main state machine for CPU
           report "CPU state = " & processor_state'image(state) & ", PC=$" & to_hstring(reg_pc) severity note;
 
