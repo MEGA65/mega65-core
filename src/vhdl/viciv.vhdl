@@ -3540,7 +3540,7 @@ begin
         if display_active = '1' then
           vgared_driver <= vga_out_red(7 downto 0);
           vgagreen_driver <= vga_out_green(7 downto 0);
-          vgaablue_driver <= vga_out_blue(7 downto 0);
+          vgablue_driver <= vga_out_blue(7 downto 0);
         else
           vgared_driver <= (others => '0');
           vgagreen_driver <= (others => '0');
