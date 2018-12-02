@@ -2956,7 +2956,7 @@ begin
               -- of the 6502 in a C64, but only approximate it, as we allow
               -- whatever instruction was running to complete, rather than stopping
               -- as soon as there is a read operation.
-              if badline_toggle /= last_badline_toggle then
+              if (badline_toggle /= last_badline_toggle) and (monitor_mem_attention_request_drive='0') then
                 phi_pause <= '1';
                 phi_backlog <= 40;
                 last_badline_toggle <= badline_toggle;
