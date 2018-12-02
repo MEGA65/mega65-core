@@ -659,6 +659,7 @@ architecture Behavioral of viciv is
   signal twentyfourlines : std_logic := '0';
   signal thirtyeightcolumns : std_logic := '0';
   signal vicii_raster_compare : unsigned(10 downto 0) := to_unsigned(256,11);
+  signal vicii_raster_compare_plus_one : unsigned(10 downto 0) := to_unsigned(256,11);
   signal vicii_x_smoothscroll : unsigned(2 downto 0);
   signal vicii_y_smoothscroll : unsigned(2 downto 0);
   -- NOTE: these are here for reading. the actual used VIC-II sprite
@@ -712,8 +713,6 @@ architecture Behavioral of viciv is
   -- so the MSBs are irrelevant.
   signal colour_ram_base : unsigned(15 downto 0) := x"0000";
   -- Screen RAM offset ( @ $1000 on boot for debug purposes)
-  -- We have a one-raster-line delayed version of this, so that we can match VIC-II behaviour
-  signal screen_ram_base_delayed : unsigned(27 downto 0) := x"0000400";
   signal screen_ram_base : unsigned(27 downto 0) := x"0000400";
   -- Pointer to the VIC-II compatibility sprite source vector, usually
   -- screen+$3F8 in 40 column mode, or +$7F8 in VIC-III 80 column mode
@@ -2821,13 +2820,17 @@ begin
         -- on the same raster line, but that should be really quite rare.
         -- We could allow multiple triggerings per raster when CPU is at <= 3.5MHz,
         -- and only edge trigger it when at full speed?
-        if (vicii_is_raster_source='1') and (vicii_ycounter = vicii_raster_compare(8 downto 0)) and last_vicii_ycounter /= vicii_ycounter then
+        -- As we have a one raster line delay in display, we delay the raster
+        -- interrupt by one line also, so that it better matches what we see on
+        -- a VIC-II.
+        vicii_raster_compare_plus_one <= vicii_raster_compare + 1;
+        if (vicii_is_raster_source='1') and (vicii_ycounter = vicii_raster_compare_plus_one(8 downto 0)) and last_vicii_ycounter /= vicii_ycounter then
           irq_raster <= '1';
         end if;
         last_vicii_ycounter <= vicii_ycounter;
         -- However, if a raster interrupt is being triggered from a VIC-IV
         -- physical raster, then there is no need to make raster IRQs edge triggered
-        if (vicii_is_raster_source='0') and (ycounter = vicii_raster_compare) then
+        if (vicii_is_raster_source='0') and (ycounter = vicii_raster_compare_plus_one) then
           irq_raster <= '1';
         end if;
         
@@ -2996,16 +2999,15 @@ begin
 
         -- Delay application of screen_ram_base address changes by one raster line
         -- so match behaviour of VIC-II
-        screen_ram_base_delayed <= screen_ram_base;
         if (text_mode='0') and (sixteenbit_charset='1') then
           -- bitmap mode in sixteen bit char mode uses 2 screen RAM bytes per
           -- card, but not two bitmap bytes, so we have to increment double
           screen_row_current_address
-            <= to_unsigned(to_integer(screen_ram_base_delayed(19 downto 0))
+            <= to_unsigned(to_integer(screen_ram_base(19 downto 0))
                            + to_integer(first_card_of_row) + to_integer(first_card_of_row),20);
         else
           screen_row_current_address
-            <= to_unsigned(to_integer(screen_ram_base_delayed(19 downto 0))
+            <= to_unsigned(to_integer(screen_ram_base(19 downto 0))
                            + to_integer(first_card_of_row),20);
         end if;
         card_of_row <= (others =>'0');
@@ -3059,9 +3061,9 @@ begin
             -- 16bit charset mode + bitmap mode = 2 bytes screen memory per card,
             -- so that we can pick foreground and background colours from full
             -- 256-colour palette.
-            screen_row_address <= screen_ram_base_delayed(19 downto 0) + first_card_of_row;
+            screen_row_address <= screen_ram_base(19 downto 0) + first_card_of_row;
           else
-            screen_row_address <= screen_ram_base_delayed(19 downto 0) + first_card_of_row;
+            screen_row_address <= screen_ram_base(19 downto 0) + first_card_of_row;
           end if;
           
           if before_y_chargen_start='0' then
