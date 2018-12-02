@@ -3565,12 +3565,12 @@ begin
         report "CPU state : proceed=" & std_logic'image(proceed);
         if proceed='0' then
 
-          -- Temporarily pick up memory access signals from combinatorial code
-          memory_access_address :=  memory_access_address_next;
-          memory_access_read := memory_access_read_next;
-          memory_access_write := memory_access_write_next;
-          memory_access_resolve_address := memory_access_resolve_address_next;
-          memory_access_wdata := memory_access_wdata_next;
+          -- Make bus idle while waiting
+          memory_access_address := (others => '1');
+          memory_access_read := '0';
+          memory_access_write := '0';
+          memory_access_resolve_address := '0';
+          memory_access_wdata := (others => '1');
           
         else
                                         -- Main state machine for CPU
@@ -6476,7 +6476,15 @@ begin
       end if;
     end if;
     
-    if proceed = '1' then
+    if proceed = '0' then
+
+      -- Do nothing while CPU is held
+      memory_access_read := '0';
+      memory_access_write := '0';
+      memory_access_address := x"000"&reg_pc;
+      memory_access_resolve_address := '1';
+
+    else
       
       -- By default read next byte in instruction stream.
       memory_access_read := '1';
