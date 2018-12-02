@@ -2945,9 +2945,9 @@ begin
                                         -- Full speed = 1 clock tick per cycle
           phi_counter(16) <= phi_counter(16) xor '1';
       end case;
-      if cpuspeed_internal /= x"40" then
+      if cpuspeed_internal /= x"40" and monitor_mem_attention_request_drive='0' then
         if last_phi16 /= phi_counter(16) then
-                                        -- phi2 cycle has passed
+          -- phi2 cycle has passed
           if phi_backlog = 1 or phi_backlog=0 then
             if phi_add_backlog = '0' then
               -- We have just finished our backlog, allow CPU to proceed,
@@ -2965,8 +2965,8 @@ begin
                 phi_pause <= '0';
               end if;
             else
-                                        -- We would have finished the back log, but we have new backlog
-                                        -- to process
+              -- We would have finished the back log, but we have new backlog
+              -- to process
               phi_backlog <= phi_new_backlog;
               phi_pause <= '1';
             end if;            
