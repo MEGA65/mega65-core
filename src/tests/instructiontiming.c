@@ -286,7 +286,7 @@ char *instruction_descriptions[256]={
 unsigned char opcode;
 
 // Measured cycle counts. Values are 256ths of a cycle
-unsigned short cycle_counts[256]={0xFFFF};
+unsigned short measured_cycles[256]={0xFFFF};
 
 // Should be a table of cycle counts of the various
 // instructions
@@ -307,6 +307,8 @@ unsigned char selected_opcode=0;
 
 unsigned short addr;
 
+unsigned char overhead=0;
+
 void indicate_display_mode(void)
 {
   printf("%c%c%c",0x13,0x11,0x11);
@@ -315,6 +317,24 @@ void indicate_display_mode(void)
   
 }
 
+void update_selected_opcode(void)
+{
+  addr=0x0400 + 40 * 4 + selected_opcode + selected_opcode;
+  POKE(addr,PEEK(addr)|0x80);
+  POKE(addr+1,PEEK(addr+1)|0x80);
+  
+  printf("\023\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"); // home cursor + 20x down
+  // blank row, and cursor back up onto it
+  addr=0x0400 + 40 * 21;
+  for(v=0;v<40;v++) POKE(addr+v,' ');
+  // Display expected cycle count
+  printf("                 %d cycles (6502 = %d)\n%c",
+	 measured_cycles[selected_opcode]>>8,
+	 expected_cycles_6502[selected_opcode]>>8,0x91);
+  // print the opcode description, and cursor back up
+  printf("$%02x %s\n",selected_opcode,instruction_descriptions[selected_opcode]);
+}  
+  
 void main(void)
 {
   printf("%c%c%cM.E.G.A. 6502 Performance Benchmark v0.1%c%c\n",0x93,0x05,0x12,0x92,0x9a);
@@ -331,22 +351,13 @@ void main(void)
       addr=0x0400 + 40 * 4 + selected_opcode + selected_opcode;
       POKE(addr,PEEK(addr)&0x7f);
       POKE(addr+1,PEEK(addr+1)&0x7f);
+
       if (v==0x11) selected_opcode+=20;
       if (v==0x91) selected_opcode-=20;
       if (v==0x1d) selected_opcode+=1;
       if (v==0x9d) selected_opcode-=1;
-      addr=0x0400 + 40 * 4 + selected_opcode + selected_opcode;
-      POKE(addr,PEEK(addr)|0x80);
-      POKE(addr+1,PEEK(addr+1)|0x80);
 
-      printf("\023\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"); // home cursor + 20x down
-      // blank row, and cursor back up onto it
-      addr=0x0400 + 40 * 21;
-      for(v=0;v<40;v++) POKE(addr+v,' ');
-      // Display expected cycle count
-      printf("                 %d cycles\n%c",expected_cycles_6502[selected_opcode]>>8,0x91);
-      // print the opcode description, and cursor back up
-      printf("$%02x %s\n",selected_opcode,instruction_descriptions[selected_opcode]);
+      update_selected_opcode();
       
       break;
     }
@@ -354,7 +365,57 @@ void main(void)
     if (!opcode) screen_addr=0x0400 + 40 * 4;
     
     expected_cycles=expected_cycles_6502[opcode];
-    actual_cycles=0;
+
+    // Use CIA timer b
+    // Disable interrupts and blank screen during test to prevent messed up timing
+    __asm__("sei");
+
+    // For PHA/PHP we have to pop something from the stack after
+    // For PLA/PLP we have to push something to the stack first
+    // For JSR we have to pull 2 bytes from stack after
+    // For RTS we have to first push a dummy return address to the stack
+    // For branches we need to make the branch land on the next instruction
+    // (we also have to set/clear the appropriate flags to either force the branch
+    // taken or not, so that we can differentiate between the cycle timings for both)
+    // For branches we also have to test page crossing versus non-page-crossing timing.
+    // We just don't test BRK or JAM instructions.
+    // For ,X and ,Y indexed modes, we need to test page crossing versus non-crossing.
+    // XXX - Maybe add keyboard options to toggle between taken/not taken and
+    // page-crossing versus non-page-crossing, and have four sets of the expected
+    // cycle counts.
+
+    POKE(0xDC0FU,0x08); // one-shot, don't start, count cpu clock
+    POKE(0xDC07U,0x00); POKE(0xDC06U,0xFF);   // set counter to 255
+
+    // Make sure we aren't on a badline
+    while(PEEK(0xD012)&7) continue;
+
+    // Do dry-run without instruction to calculate overhead
+    // (we do this each time, since someone might change the CPU speed
+    // while it is running);
+    POKE(0xDC0FU,0x11); // load timer, start counter
+    POKE(0xDC0FU,0x08); // stop counter again
+    overhead=0xff-PEEK(0xDC06U);
+    
+    // setup instructions go here
+    POKE(0xDC0FU,0x11); // load timer, start counter
+
+    
+    // instruction goes here
+    __asm__("nop");
+
+    POKE(0xDC0FU,0x08); // stop counter again
+    // fixup instructions go here
+
+    // Now get cycle count
+    actual_cycles=0xff-PEEK(0xDC06U);
+    actual_cycles-=overhead; // subtract overhead
+    if (actual_cycles>99) actual_cycles=99;
+    // Scale it up
+    actual_cycles=actual_cycles<<8;
+    measured_cycles[opcode]=actual_cycles;
+
+    __asm__("cli");
 
     // Update colour
     if (expected_cycles<actual_cycles) colour=8; // orange for slow instructions
@@ -423,7 +484,7 @@ void main(void)
       POKE(screen_addr+1,PEEK(screen_addr+1)|0x80);
 
       //Draw info about this opcode further down on the screen
-      
+      update_selected_opcode();
     }
 
     // Advance to the next opcode
