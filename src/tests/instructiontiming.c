@@ -313,6 +313,42 @@ unsigned char overhead=0;
 unsigned char offset=0;
 unsigned char test_routine[256];
 
+unsigned char legal_and_runnable_6502_opcode(unsigned char op)
+{
+  switch(op&0xf) {
+    // First deal with the columns that are all illegal
+  case 0x3: case 0x7: case 0xb: case 0xf: return 0;
+    // Then with the columns that are all legal
+  case 0x1: case 0x5: case 0x6: case 0x8: case 0xd: return 1;
+    // Now in order:
+  case 0x0:
+    // Column zero has BRK $00 and illegal on $80
+    if (op&0x70) return 1; else return 0;
+  case 0x2: if (op==0xa0) return 1; else return 0;
+  case 0x4:
+    switch(op) {
+    case 0x24: case 0x84: case 0x94: case 0xa4: case 0xb4: case 0xc4: case 0xe4: return 1;
+    default: return 0;
+    }
+  case 0x9:
+    if (op==0x89) return 0; else return 1;
+  case 0xa:
+    if (!(op&0x10)) return 1;
+    if (op==0x9a||op==0xba) return 1;
+    return 0;
+  case 0xc:
+    if (op&0xf0) {
+      if (!(op&0x10)) return 1;
+      if (op==0xBC) return 1;
+    }
+    return 0;
+  case 0xe:
+    if (op==0x9e) return 0; else return 1;
+  }
+  printf("Uncaught opcode $%02x\n",op);
+  while(1) continue;
+}
+
 void indicate_display_mode(void)
 {
   printf("%c%c%c",0x13,0x11,0x11);
@@ -394,20 +430,31 @@ void main(void)
     // Now build the routine to call
     offset=0;
 
-    // ---------  Setup instructions
+    // ---------  Setup instructions go here
+    if ((instruction_descriptions[opcode][0]=='P')&&(instruction_descriptions[opcode][1]=='L')) {
+      // Push something safe on the stack for pull instructions to yank
+      //      test_routine[offset++]=0x08; // PHP
+    }
     // ---------  Start timer
     // LDA #$11
     test_routine[offset++]=0xA9; test_routine[offset++]=0x11;
     // STA $DC0F
     test_routine[offset++]=0x8D; test_routine[offset++]=0x0F; test_routine[offset++]=0xDC;
     // ---------  Instruction goes here
-
+    if (legal_and_runnable_6502_opcode(opcode)) {
+      test_routine[offset++]=0xea; // dummy NOP for now
+    }
     // ---------  Stop the timer
     // LDA #$08
     test_routine[offset++]=0xA9; test_routine[offset++]=0x08;
     // STA $DC0F
     test_routine[offset++]=0x8D; test_routine[offset++]=0x0F; test_routine[offset++]=0xDC;
-    // ---------  Fixup instructions
+    // ---------  Fixup instructions go here
+    if ((instruction_descriptions[opcode][0]=='P')&&(instruction_descriptions[opcode][1]=='H')) {
+      // Remove whatever push instruction put on the stack
+      //      test_routine[offset++]=0x68; // PLA
+    }
+
     // ---------  Return from routine
     test_routine[offset++]=0x60; // RTS
     
