@@ -313,6 +313,10 @@ unsigned char overhead=0;
 unsigned char offset=0;
 unsigned char test_routine[256];
 
+unsigned char rts_lo_offset,rts_hi_offset;
+
+char *mode;
+
 unsigned char legal_and_runnable_6502_opcode(unsigned char op)
 {
   switch(op&0xf) {
@@ -383,8 +387,12 @@ void main(void)
   
   while(1) {
 
-    __asm__("jsr $ffe4");
-    __asm__("sta %v",v);
+    v=0;
+    while(!v) {
+      __asm__("jsr $ffe4");
+      __asm__("sta %v",v);
+    }
+    selected_opcode=opcode;
     switch(v) {
     case ' ': display_mode^=1; indicate_display_mode(); break;
     case 0x11: case 0x91: case 0x1d: case 0x9d:
@@ -406,143 +414,239 @@ void main(void)
     
     expected_cycles=expected_cycles_6502[opcode];
 
-    // Use CIA timer b
-    // Disable interrupts and blank screen during test to prevent messed up timing
-    __asm__("sei");
-
-    // For PHA/PHP we have to pop something from the stack after
-    // For PLA/PLP we have to push something to the stack first
-    // For JSR we have to pull 2 bytes from stack after
-    // For RTS we have to first push a dummy return address to the stack
-    // For branches we need to make the branch land on the next instruction
-    // (we also have to set/clear the appropriate flags to either force the branch
-    // taken or not, so that we can differentiate between the cycle timings for both)
-    // For branches we also have to test page crossing versus non-page-crossing timing.
-    // We just don't test BRK or JAM instructions.
-    // For ,X and ,Y indexed modes, we need to test page crossing versus non-crossing.
-    // XXX - Maybe add keyboard options to toggle between taken/not taken and
-    // page-crossing versus non-page-crossing, and have four sets of the expected
-    // cycle counts.
-
-    POKE(0xDC0FU,0x08); // one-shot, don't start, count cpu clock
-    POKE(0xDC07U,0x00); POKE(0xDC06U,0xFF);   // set counter to 255
-
-    // Now build the routine to call
-    offset=0;
-
-    // ---------  Setup instructions go here
-    if ((instruction_descriptions[opcode][0]=='P')&&(instruction_descriptions[opcode][1]=='L')) {
-      // Push something safe on the stack for pull instructions to yank
-      //      test_routine[offset++]=0x08; // PHP
-    }
-    // ---------  Start timer
-    // LDA #$11
-    test_routine[offset++]=0xA9; test_routine[offset++]=0x11;
-    // STA $DC0F
-    test_routine[offset++]=0x8D; test_routine[offset++]=0x0F; test_routine[offset++]=0xDC;
-    // ---------  Instruction goes here
     if (legal_and_runnable_6502_opcode(opcode)) {
-      test_routine[offset++]=0xea; // dummy NOP for now
-    }
-    // ---------  Stop the timer
-    // LDA #$08
-    test_routine[offset++]=0xA9; test_routine[offset++]=0x08;
-    // STA $DC0F
-    test_routine[offset++]=0x8D; test_routine[offset++]=0x0F; test_routine[offset++]=0xDC;
-    // ---------  Fixup instructions go here
-    if ((instruction_descriptions[opcode][0]=='P')&&(instruction_descriptions[opcode][1]=='H')) {
-      // Remove whatever push instruction put on the stack
-      //      test_routine[offset++]=0x68; // PLA
-    }
-
-    // ---------  Return from routine
-    test_routine[offset++]=0x60; // RTS
     
-    
-    // Make sure we aren't on a badline
-    while(PEEK(0xD012)&7) continue;
-
-    // Do dry-run without instruction to calculate overhead
-    // (we do this each time, since someone might change the CPU speed
-    // while it is running);
-    POKE(0xDC0FU,0x11); // load timer, start counter
-    POKE(0xDC0FU,0x08); // stop counter again
-    overhead=0xff-PEEK(0xDC06U);
-
-    // Call the routine
-    __asm__("jsr %v",test_routine);
-    
-    // Now get cycle count
-    actual_cycles=0xff-PEEK(0xDC06U);
-    actual_cycles-=overhead; // subtract overhead
-    if (actual_cycles>99) actual_cycles=99;
-    // Scale it up
-    actual_cycles=actual_cycles<<8;
-    measured_cycles[opcode]=actual_cycles;
-
-    __asm__("cli");
-
-    // Update colour
-    if (expected_cycles<actual_cycles) colour=8; // orange for slow instructions
-    if (expected_cycles>actual_cycles) colour=5; // green for fast instructions
-    if (expected_cycles==actual_cycles) colour=14; // light blue for normal speed
-
-    POKE(0xD800U-0x0400U+screen_addr,colour);
-    POKE(0xD800U-0x0400U+1+screen_addr,colour);
-
-    // Draw 2-character speed report
-    if (display_mode==0) display_value=actual_cycles;
-    if (display_mode==1) display_value=actual_cycles-expected_cycles;
-    if (display_value<0) {
-      // Display negative variance as -<digit> for upto -9.
-      // worse than -9 is displayed as -!
-      display_value=-display_value;
-      POKE(screen_addr+0,'-');
-      v=display_value>>8;
-      if (v>9)
-	{ v='!'; }
-      else {
-	v+='0';
+      // Use CIA timer b
+      // Disable interrupts and blank screen during test to prevent messed up timing
+      __asm__("sei");
+      
+      // For PHA/PHP we have to pop something from the stack after
+      // For PLA/PLP we have to push something to the stack first
+      // For JSR we have to pull 2 bytes from stack after
+      // For RTS we have to first push a dummy return address to the stack
+      // For branches we need to make the branch land on the next instruction
+      // (we also have to set/clear the appropriate flags to either force the branch
+      // taken or not, so that we can differentiate between the cycle timings for both)
+      // For branches we also have to test page crossing versus non-page-crossing timing.
+      // We just don't test BRK or JAM instructions.
+      // For ,X and ,Y indexed modes, we need to test page crossing versus non-crossing.
+      // XXX - Maybe add keyboard options to toggle between taken/not taken and
+      // page-crossing versus non-page-crossing, and have four sets of the expected
+      // cycle counts.
+      
+      POKE(0xDC0FU,0x08); // one-shot, don't start, count cpu clock
+      POKE(0xDC07U,0x00); POKE(0xDC06U,0xFF);   // set counter to 255
+      
+      // Now build the routine to call
+      offset=0;
+      
+      // ---------  Setup instructions go here
+      if (!strcmp(instruction_descriptions[opcode],"RTS")) {
+	// Push two bytes to the stack for return address
+	// (the actual return address will be re-written later
+	test_routine[offset++]=0xA9; // LDA #$nn
+	rts_hi_offset=offset++;
+	test_routine[offset++]=0x48; // PHA
+	test_routine[offset++]=0xA9; // LDA #$nn
+	rts_lo_offset=offset++;
+	test_routine[offset++]=0x48; // PHA
       }
-      POKE(screen_addr+1,v);      
-    } else if (display_value==0) {
-      POKE(screen_addr+0,' ');
-      if (display_mode==0) {
-	POKE(screen_addr+1,'0');
+      if (!strcmp(instruction_descriptions[opcode],"RTI")) {
+	test_routine[offset++]=0xA9; // LDA #$nn
+	rts_lo_offset=offset++;
+	test_routine[offset++]=0x48; // PHA
+	test_routine[offset++]=0xA9; // LDA #$nn
+	rts_hi_offset=offset++;
+	test_routine[offset++]=0x48; // PHA
+	test_routine[offset++]=0x08; // PHP
+      }      
+      
+      test_routine[offset++]=0xA2; test_routine[offset++]=0x00;  // LDX #$00
+      test_routine[offset++]=0xA0; test_routine[offset++]=0x00;  // LDY #$00
+      if ((instruction_descriptions[opcode][0]=='P')&&(instruction_descriptions[opcode][1]=='L')) {
+	// Push something safe on the stack for pull instructions to yank
+	test_routine[offset++]=0x08; // PHP
+      }
+      if (opcode==0x9A) // TXS
+	test_routine[offset++]=0xBA; // TSX, so SP stays same
+
+      // ---------  Start timer
+      // LDA #$11
+      test_routine[offset++]=0xA9; test_routine[offset++]=0x11;
+      // STA $DC0F
+      test_routine[offset++]=0x8D; test_routine[offset++]=0x0F; test_routine[offset++]=0xDC;
+      // ---------  Instruction goes here
+      test_routine[offset++]=opcode;
+      // Now work out the arguments to go with instruction
+      mode=&instruction_descriptions[opcode][3];
+      if (!mode[0]) {
+	// Implied mode instruction -- nothing to do
+	// XXX - Note that CLI can get executed, so there is a small risk of the CLI
+	// instruction then getting billed for the cost of an entire interrupt!
+      } else if (!strcmp(mode," A")) {
+	// Accumulator mode -- so no args
+      } else if ((!strcmp(mode," $nn"))
+	  ||(!strcmp(mode," $nn,X"))
+	  ||(!strcmp(mode," $nn,Y"))) {
+	  // ZP
+	  test_routine[offset++]=0xFD;
+      } else if (!strcmp(mode," #$nn")) {
+	// Immediate mode
+	test_routine[offset++]=0xFD;
+      } else if ((!strcmp(mode," ($nnnn)"))
+		 ||(!strcmp(mode," ($nnnn,X)"))) {
+	// Absolute indirect -- only exists for JMP and JSR
+	// so point to an address that will jump to next instruction
+	// We use the variable addr to fulfill this role
+	test_routine[offset++]=((unsigned short)&addr)&0xff;
+	test_routine[offset++]=((unsigned short)&addr)>>8;
+	// Set destination of jump/jsr to the following instruction
+	addr=(unsigned short)&test_routine[offset];
+      } else if ((!strcmp(mode," $nnnn"))
+		 ||(!strcmp(mode," $nnnn,X"))
+		 ||(!strcmp(mode," $nnnn,Y"))) {
+	// Absolute.  It could be a load, a store or a JMP/JSR
+	// For JMP/JSR, we need to give it the address of the following
+	// instruction. That would also be fine for loads, but not RMWs
+	// or stores.  So we will instead use somewhere else for everything
+	// that is not a JMP or JSR
+	if (instruction_descriptions[opcode][0]=='J') {
+	  addr=(unsigned short)&test_routine[offset+2];
+	  test_routine[offset++]=addr&0xff;
+	  test_routine[offset++]=addr>>8;
+	} else {
+	  test_routine[offset++]=((unsigned short)&addr)&0xff;
+	  test_routine[offset++]=((unsigned short)&addr)>>8;
+	}
+      } else if (!strcmp(mode," $rr")) {
+	// Branch instruction.
+	// So provide argument that causes branch to continue to next instruction
+	test_routine[offset++]=0x00;
+      } else if ((!strcmp(mode," ($nn,X)"))
+		 ||(!strcmp(mode," ($nn),Y"))) {
+	// ZP indirect.
+	// Write a valid pointer to ZP and use that
+	test_routine[offset++]=0xFD;
+	POKE(0xFDU,((unsigned short)&addr)&0xFF);
+	POKE(0xFEU,((unsigned short)&addr)>>8);
       } else {
-	POKE(screen_addr+1,'=');
+	printf("Unhandled addressing mode '%s'\n",mode);
+	while(1) continue;
       }
-    } else {
-      // display_value >0
-      if (display_mode==1) {
-	POKE(screen_addr+0,'+');
+
+      // If instruction was RTS or RTI, rewrite the pushed PC to correctly point here
+      if (!strcmp(instruction_descriptions[opcode],"RTS")) {
+	addr=(unsigned short)(&test_routine[offset-1]);
+	test_routine[rts_lo_offset]=addr&0xff;
+	test_routine[rts_hi_offset]=addr>>8;
+      }
+      if (!strcmp(instruction_descriptions[opcode],"RTI")) {
+	addr=(unsigned short)(&test_routine[offset]);
+	test_routine[rts_lo_offset]=addr&0xff;
+	test_routine[rts_hi_offset]=addr>>8;
+      }
+      
+      // ---------  Stop the timer
+      // LDA #$08
+      test_routine[offset++]=0xA9; test_routine[offset++]=0x08;
+      // STA $DC0F
+      test_routine[offset++]=0x8D; test_routine[offset++]=0x0F; test_routine[offset++]=0xDC;
+      // ---------  Fixup instructions go here
+      test_routine[offset++]=0xD8; // CLD
+      if ((instruction_descriptions[opcode][0]=='P')&&(instruction_descriptions[opcode][1]=='H')) {
+	// Remove whatever push instruction put on the stack
+	test_routine[offset++]=0x68; // PLA
+      }
+      
+      // ---------  Return from routine
+      test_routine[offset++]=0x60; // RTS
+      
+      
+      // Make sure we aren't on a badline
+      while(PEEK(0xD012)&7) continue;
+      
+      // Do dry-run without instruction to calculate overhead
+      // (we do this each time, since someone might change the CPU speed
+      // while it is running);
+      POKE(0xDC0FU,0x11); // load timer, start counter
+      POKE(0xDC0FU,0x08); // stop counter again
+      overhead=0xff-PEEK(0xDC06U);
+      
+      // Call the routine
+      __asm__("jsr %v",test_routine);
+      
+      // Now get cycle count
+      actual_cycles=0xff-PEEK(0xDC06U);
+      actual_cycles-=overhead; // subtract overhead
+      if (actual_cycles>99) actual_cycles=99;
+      // Scale it up
+      actual_cycles=actual_cycles<<8;
+      measured_cycles[opcode]=actual_cycles;
+      
+      __asm__("cli");
+      
+      // Update colour
+      if (expected_cycles<actual_cycles) colour=8; // orange for slow instructions
+      if (expected_cycles>actual_cycles) colour=5; // green for fast instructions
+      if (expected_cycles==actual_cycles) colour=14; // light blue for normal speed
+      
+      POKE(0xD800U-0x0400U+screen_addr,colour);
+      POKE(0xD800U-0x0400U+1+screen_addr,colour);
+      
+      // Draw 2-character speed report
+      if (display_mode==0) display_value=actual_cycles;
+      if (display_mode==1) display_value=actual_cycles-expected_cycles;
+      if (display_value<0) {
+	// Display negative variance as -<digit> for upto -9.
+	// worse than -9 is displayed as -!
+	display_value=-display_value;
+	POKE(screen_addr+0,'-');
 	v=display_value>>8;
-	if (v>9) { v='!'; }
-	else v+='0';
-	POKE(screen_addr+1,v);
-      } else {
-	// Display exact cycle count
-	// fractional cycle counts show as .<digit>
-	if (display_value<0x0100) {
-	  // <1cycle
-	  // Rescale 0-256 to 0-1, but using integer math.
-	  // This ends up close enough
-	  v=display_value/25;
-	  if (v>9) v=9;
+	if (v>9)
+	  { v='!'; }
+	else {
 	  v+='0';
-	  POKE(screen_addr+0,'.');
+	}
+	POKE(screen_addr+1,v);      
+      } else if (display_value==0) {
+	POKE(screen_addr+0,' ');
+	if (display_mode==0) {
+	  POKE(screen_addr+1,'0');
+	} else {
+	  POKE(screen_addr+1,'=');
+	}
+      } else {
+	// display_value >0
+	if (display_mode==1) {
+	  POKE(screen_addr+0,'+');
+	  v=display_value>>8;
+	  if (v>9) { v='!'; }
+	  else v+='0';
 	  POKE(screen_addr+1,v);
 	} else {
-	  // at least 1 cycle
-	  v=(display_value>>8)/10;
-	  if (v>0) POKE(screen_addr+0,v+'0');
-	  else POKE(screen_addr+0,' ');
-	  v=(display_value>>8)%10;
-	  POKE(screen_addr+1,v+'0');
+	  // Display exact cycle count
+	  // fractional cycle counts show as .<digit>
+	  if (display_value<0x0100) {
+	    // <1cycle
+	    // Rescale 0-256 to 0-1, but using integer math.
+	    // This ends up close enough
+	    v=display_value/25;
+	    if (v>9) v=9;
+	    v+='0';
+	    POKE(screen_addr+0,'.');
+	    POKE(screen_addr+1,v);
+	  } else {
+	    // at least 1 cycle
+	    v=(display_value>>8)/10;
+	    if (v>0) POKE(screen_addr+0,v+'0');
+	    else POKE(screen_addr+0,' ');
+	    v=(display_value>>8)%10;
+	    POKE(screen_addr+1,v+'0');
+	  }
 	}
       }
     }
-
+    
     // Highlight currently selected result for more details
     if (selected_opcode==opcode) {
       POKE(screen_addr+0,PEEK(screen_addr+0)|0x80);
