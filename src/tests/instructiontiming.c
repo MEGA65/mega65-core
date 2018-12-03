@@ -309,6 +309,10 @@ unsigned short addr;
 
 unsigned char overhead=0;
 
+// Where we build the instruction test routine
+unsigned char offset=0;
+unsigned char test_routine[256];
+
 void indicate_display_mode(void)
 {
   printf("%c%c%c",0x13,0x11,0x11);
@@ -387,6 +391,27 @@ void main(void)
     POKE(0xDC0FU,0x08); // one-shot, don't start, count cpu clock
     POKE(0xDC07U,0x00); POKE(0xDC06U,0xFF);   // set counter to 255
 
+    // Now build the routine to call
+    offset=0;
+
+    // ---------  Setup instructions
+    // ---------  Start timer
+    // LDA #$11
+    test_routine[offset++]=0xA9; test_routine[offset++]=0x11;
+    // STA $DC0F
+    test_routine[offset++]=0x8D; test_routine[offset++]=0x0F; test_routine[offset++]=0xDC;
+    // ---------  Instruction goes here
+
+    // ---------  Stop the timer
+    // LDA #$08
+    test_routine[offset++]=0xA9; test_routine[offset++]=0x08;
+    // STA $DC0F
+    test_routine[offset++]=0x8D; test_routine[offset++]=0x0F; test_routine[offset++]=0xDC;
+    // ---------  Fixup instructions
+    // ---------  Return from routine
+    test_routine[offset++]=0x60; // RTS
+    
+    
     // Make sure we aren't on a badline
     while(PEEK(0xD012)&7) continue;
 
@@ -396,17 +421,10 @@ void main(void)
     POKE(0xDC0FU,0x11); // load timer, start counter
     POKE(0xDC0FU,0x08); // stop counter again
     overhead=0xff-PEEK(0xDC06U);
+
+    // Call the routine
+    __asm__("jsr %v",test_routine);
     
-    // setup instructions go here
-    POKE(0xDC0FU,0x11); // load timer, start counter
-
-    
-    // instruction goes here
-    __asm__("nop");
-
-    POKE(0xDC0FU,0x08); // stop counter again
-    // fixup instructions go here
-
     // Now get cycle count
     actual_cycles=0xff-PEEK(0xDC06U);
     actual_cycles-=overhead; // subtract overhead
