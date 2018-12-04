@@ -20,10 +20,11 @@ architecture behavior of cpu_test is
   signal cpuclock : std_logic := '0';
   signal ioclock : std_logic := '0';
   signal clock50mhz : std_logic := '0';
+  signal clock200 : std_logic := '0';
   signal clock240 : std_logic := '0';
   signal clock120 : std_logic := '0';
   signal clock30 : std_logic := '0';
-  signal clock100 : std_logic := '0';
+  signal clock80 : std_logic := '0';
   signal reset : std_logic := '0';
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
@@ -237,14 +238,13 @@ begin
 
       lcd_display_enable => lcd_display_enable,
       
-      pixelclock      => pixelclock,
+      pixelclock      => clock80,
       cpuclock      => cpuclock,
       clock50mhz   => clock50mhz,
       ioclock      => cpuclock,
-      clock100 => clock100,
       clock40 => cpuclock,
-      clock30 => clock30,
       clock120 => clock120,
+      clock200 => clock200,
       clock240 => clock240,
       uartclock    => ioclock,
       btnCpuReset      => reset,
@@ -420,19 +420,36 @@ begin
     clock120 <= '1';
     wait for 4.167 ns;
   end process;
-  
+
+  process
+  begin
+    clock80 <= '0';
+    wait for 6.25 ns;
+    clock80 <= '1';
+    wait for 6.25 ns;
+  end process;
+
+  process
+  begin
+    clock240 <= '0';
+    wait for 2.0833 ns;
+    clock240 <= '1';
+    wait for 2.0833 ns;
+  end process;
+
+  process
+  begin
+    clock200 <= '0';
+    wait for 2.5 ns;
+    clock200 <= '1';
+    wait for 2.5 ns;
+  end process;
+
   -- Deliver dummy ethernet frames
   process
     procedure eth_clock_tick is
     begin
       -- XXX Doesn't tick the 120 or 240 MHz clocks
-      clock100 <= '0';
-      clock50mhz <= '0';
-      wait for 10 ns;
-      clock50mhz <= '1';
-      wait for 10 ns;
-
-      clock100 <= '1';
       clock50mhz <= '0';
       wait for 10 ns;
       clock50mhz <= '1';
