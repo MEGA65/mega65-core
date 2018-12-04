@@ -285,6 +285,9 @@ char *instruction_descriptions[256]={
 
 unsigned char opcode;
 
+int speed;
+int fractional_speed;
+
 // Measured cycle counts. Values are 256ths of a cycle
 unsigned short measured_cycles[256]={0xFFFF};
 
@@ -310,6 +313,68 @@ unsigned short expected_cycles_6502[256]={
   0x200,0x500,0x000,0x800,0x400,0x400,0x600,0x600,0x200,0x400,0x200,0x700,0x400,0x400,0x700,0x700
 };
 
+#define FREQ_FLAT 0
+#define FREQ_BASIC 1
+#define FREQ_IMPOSSIBLEMISSION 2
+#define FREQ_MAX 3
+char *freq_descriptions[FREQ_MAX]={"FLAT      ","C64 BASIC ","I.MISSION "};
+unsigned char instruction_frequencies[FREQ_MAX][256]={
+  // FREQ_FLAT
+  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+  // FREQ_BASIC
+  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
+  // FREQ_IMPOSSIBLEMISSION
+  {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+   1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}
+};
+
+unsigned long total_cycles;
+unsigned long expected_total_cycles;
+  
 // Address on screen of next opcode speed
 unsigned short screen_addr;
 
@@ -386,9 +451,9 @@ void update_selected_opcode(void)
   POKE(addr,PEEK(addr)|0x80);
   POKE(addr+1,PEEK(addr+1)|0x80);
   
-  printf("\023\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"); // home cursor + 20x down
+  printf("\023\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"); // home cursor + 17x down
   // blank row, and cursor back up onto it
-  addr=0x0400 + 40 * 21;
+  addr=0x0400 + 40 * 17;
   for(v=0;v<40;v++) POKE(addr+v,' ');
   // Display expected cycle count
   printf("                 %d cycles (6502 = %d)\n%c",
@@ -397,16 +462,48 @@ void update_selected_opcode(void)
   // print the opcode description, and cursor back up
   printf("$%02x %s\n",selected_opcode,instruction_descriptions[selected_opcode]);
 }  
-  
+
+void update_speed_estimates(void)
+{
+  printf("\023\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"); // home cursor + 19x down
+  for(v=0;v<FREQ_MAX;v++) printf("%s",freq_descriptions[v]);
+  if (v%4) printf("\n");
+
+  addr=0x0400 + 40 * 19;
+  for(v=0;v<40;v++) POKE(addr+v,' ');
+
+  for(v=0;v<FREQ_MAX;v++) {
+    printf("          %c%c%c%c%c%c%c%c%c",0x9d,0x9d,0x9d,0x9d,0x9d,0x9d,0x9d,0x9d,0x9d);
+    total_cycles=0L;
+    expected_total_cycles=0L;
+    opcode=0;
+    do {
+      if (legal_and_runnable_6502_opcode(opcode)) {
+	total_cycles+= ((long)instruction_frequencies[v][opcode])*(long)measured_cycles[opcode];
+	expected_total_cycles+=((long)instruction_frequencies[v][opcode])*(long)expected_cycles_6502[opcode];
+      }      
+    } while(++opcode);
+
+    // Calculate speed
+    if (total_cycles)
+      speed=((long)expected_total_cycles*(long)100L)/(long)total_cycles;
+    else
+      speed=9999;
+    if (speed>9999) speed=9999;
+    fractional_speed=speed%100;
+    speed=speed/100;
+    printf("%2d.%02dx    ",speed,fractional_speed);
+
+  }
+}
+
 void main(void)
 {
   printf("%c%c%cM.E.G.A. 6502 Performance Benchmark v0.1%c%c\n",0x93,0x05,0x12,0x92,0x9a);
 
   indicate_display_mode();
 
-  //  opcode=0x40;
-
-  // Catch BRK instructions
+  // Catch BRK instructions to aid debugging
   POKE(0xc800U,0xee);
   POKE(0xc801U,0x20);
   POKE(0xc802U,0xd0);
@@ -421,6 +518,8 @@ void main(void)
   while(1) {
 
     POKE(0xc100U,opcode);
+
+    if (!opcode) update_speed_estimates();
     
     v=0;
     //    while(!v) {
@@ -618,9 +717,12 @@ void main(void)
       POKE(0xDC0FU,0x08); // stop counter again
       overhead=0xff-PEEK(0xDC06U);
 
+      POKE(0xdc0d,0x7f);
+      v=PEEK(0xdc0d);
+      
       // Make sure we aren't on a badline
       while((PEEK(0xD012)&7)!=1) continue;
-      
+
       // Call the routine
       __asm__("jsr $c000");
 
@@ -629,9 +731,10 @@ void main(void)
       actual_cycles-=overhead; // subtract overhead
       if (actual_cycles>99) actual_cycles=99;
       // Scale it up
-      actual_cycles=actual_cycles<<8;
-      measured_cycles[opcode]=actual_cycles;
-      
+      actual_cycles=actual_cycles<<8U;
+      measured_cycles[opcode]= actual_cycles;
+
+      POKE(0xdc0d,0x81);
       __asm__("cli");
 
       // Update colour
