@@ -393,7 +393,7 @@ unsigned short addr;
 unsigned char overhead=0;
 
 // Where we build the instruction test routine
-unsigned char offset=0;
+unsigned short offset=0;
 // unsigned char test_routine[256];
 unsigned char *test_routine=(unsigned char *)0xc000U;
 
@@ -463,6 +463,7 @@ void update_selected_opcode(void)
   printf("$%02x %s\n",selected_opcode,instruction_descriptions[selected_opcode]);
 }  
 
+unsigned char *freqs;
 void update_speed_estimates(void)
 {
   printf("\023\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"); // home cursor + 19x down
@@ -473,14 +474,16 @@ void update_speed_estimates(void)
   for(v=0;v<40;v++) POKE(addr+v,' ');
 
   for(v=0;v<FREQ_MAX;v++) {
-    printf("          %c%c%c%c%c%c%c%c%c",0x9d,0x9d,0x9d,0x9d,0x9d,0x9d,0x9d,0x9d,0x9d);
+    printf(" .....    %c%c%c%c%c%c%c%c%c",0x9d,0x9d,0x9d,0x9d,0x9d,0x9d,0x9d,0x9d,0x9d);
     total_cycles=0L;
     expected_total_cycles=0L;
     opcode=0;
+    freqs=instruction_frequencies[v];
     do {
       if (legal_and_runnable_6502_opcode(opcode)) {
-	total_cycles+= ((long)instruction_frequencies[v][opcode])*(long)measured_cycles[opcode];
-	expected_total_cycles+=((long)instruction_frequencies[v][opcode])*(long)expected_cycles_6502[opcode];
+	total_cycles+= ((long)*freqs)*(long)measured_cycles[opcode];
+	expected_total_cycles+=((long)*freqs)*(long)expected_cycles_6502[opcode];
+	freqs++;
       }      
     } while(++opcode);
 
@@ -517,8 +520,6 @@ void main(void)
   
   while(1) {
 
-    POKE(0xc100U,opcode);
-
     if (!opcode) update_speed_estimates();
     
     v=0;
@@ -544,20 +545,19 @@ void main(void)
       break;
     }
 
-    POKE(0xc101U,opcode);
-
     
     if (!opcode) screen_addr=0x0400 + 40 * 4;
     
     expected_cycles=expected_cycles_6502[opcode];
-    POKE(0xc102U,opcode);
 
     v= legal_and_runnable_6502_opcode(opcode);
-    POKE(0xc103U,opcode);
 
     if (v) {
-      POKE(0xc104U,opcode);
 
+      // Mark instruction black while running test
+      POKE(0xD800U-0x0400U+screen_addr,0);
+      POKE(0xD800U-0x0400U+1+screen_addr,0);
+      
       // Use CIA timer b
       // Disable interrupts and blank screen during test to prevent messed up timing
       __asm__("sei");
@@ -604,7 +604,6 @@ void main(void)
 	test_routine[offset++]=0x08; // PHP
       }      
 
-    POKE(0xc105U,opcode);
       
       test_routine[offset++]=0xA2; test_routine[offset++]=0x00;  // LDX #$00
       test_routine[offset++]=0xA0; test_routine[offset++]=0x00;  // LDY #$00
@@ -800,7 +799,6 @@ void main(void)
 
     }
 
-    POKE(0xc106U,opcode);
     
     // Highlight currently selected result for more details
     if (selected_opcode==opcode) {
