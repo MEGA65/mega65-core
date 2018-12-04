@@ -3017,11 +3017,15 @@ begin
         -- Finally decide which way we should go
         if to_integer(first_card_of_row) /= to_integer(prev_first_card_of_row) then          
           raster_fetch_state <= FetchScreenRamLine;
-          badline_toggle_internal <= not badline_toggle_internal;
-          badline_toggle <= not badline_toggle_internal;
-          report "BADLINE @ y = " & integer'image(to_integer(displayy)) severity note;
-          report "BADLINE first_card_of_row = %" & to_string(std_logic_vector(first_card_of_row)) severity note;
-          report "BADLINE prev_first_card_of_row = %" & to_string(std_logic_vector(prev_first_card_of_row)) severity note;
+          if vertical_border='0' then
+            badline_toggle_internal <= not badline_toggle_internal;
+            badline_toggle <= not badline_toggle_internal;
+            report "BADLINE @ y = " & integer'image(to_integer(displayy)) severity note;
+            report "BADLINE first_card_of_row = %" & to_string(std_logic_vector(first_card_of_row)) severity note;
+            report "BADLINE prev_first_card_of_row = %" & to_string(std_logic_vector(prev_first_card_of_row)) severity note;
+          else
+            report "BADLINE in vertical border suppressed @ y = " & integer'image(to_integer(displayy)) severity note;            
+          end if;    
         else
           report "noBADLINE" severity note;
           raster_fetch_state <= FetchFirstCharacter;
