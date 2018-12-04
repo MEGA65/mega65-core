@@ -1165,18 +1165,26 @@ begin  -- behavioural
         dumpram_wdata(23 downto 0) <= x"FFFFFF";   -- special marker for raster
                                                    -- information
         -- Are we reporting a raster line step?
-        dumpram_wdata(63) <= raster_toggle;
+        if (raster_toggle /= last_raster_toggle) then
+          dumpram_wdata(63) <= '1';
+        else
+          dumpram_wdata(63) <= '0';
+        end if;
         -- Are we reporting a badline?
-        dumpram_wdata(62) <= badline_toggle;
+        if (badline_toggle /= last_badline_toggle) then
+          dumpram_wdata(62) <= '1';
+        else
+          dumpram_wdata(62) <= '0';
+        end if;
+        last_raster_toggle <= raster_toggle;
+        last_badline_toggle <= badline_toggle;
+        
         -- Report the VIC-IV physical raster number
         dumpram_wdata(35 downto 24) <= std_logic_vector(raster_number);
         -- Report the VIC-II raster number
         dumpram_wdata(47 downto 36) <= std_logic_vector(vicii_raster);
         -- Fill in other bits as zeroes
         dumpram_wdata(61 downto 48) <= (others => '0');
-        
-        last_raster_toggle <= raster_toggle;
-        last_badline_toggle <= badline_toggle;
       else
         dumpram_write <= '0';
       end if;
@@ -1185,11 +1193,6 @@ begin  -- behavioural
         report "ETHERDUMP: Resuming CPU";
       end if;
       cpu_arrest <= cpu_arrest_internal;
-      if raster_number /= last_raster_number then
-        raster_toggle <= not raster_toggle;
-        last_raster_number <= raster_number;
-      end if;
-      
       
       miim_request <= '0';
       
