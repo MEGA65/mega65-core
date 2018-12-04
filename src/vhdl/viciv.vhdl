@@ -90,6 +90,7 @@ entity viciv is
 
     -- Used to tell the CPU when to steal cycles to simulate badlines
     badline_toggle : out std_logic := '0';
+    vicii_raster_out : out unsigned(11 downto 0) := to_unsigned(0,12);
     
     d031_written : out std_logic;
     xray_mode : in std_logic;
@@ -1859,6 +1860,9 @@ begin
     end if;
     
     if rising_edge(ioclock) then
+
+      vicii_raster_out(8 downto 0) <= vicii_ycounter_driver;
+      vicii_raster_out(11 downto 9) <= "000";
       
       hsync_polarity <= hsync_polarity_internal;
       vsync_polarity <= vsync_polarity_internal;

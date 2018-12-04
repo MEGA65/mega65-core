@@ -163,6 +163,9 @@ entity iomapper is
         uart_rx : inout std_logic := 'H';
         uart_tx : out std_logic;
 
+        raster_number : in unsigned(11 downto 0);
+        vicii_raster : in unsigned(11 downto 0);
+        badline_toggle : in std_logic;
         pixel_stream_in : in unsigned (7 downto 0);
         pixel_red_in : in unsigned (7 downto 0);
         pixel_green_in : in unsigned (7 downto 0);
@@ -822,6 +825,9 @@ begin
     buffer_address => buffer_address,
     buffer_rdata => buffer_rdata,
     debug_vector => debug_vector,
+    raster_number => raster_number,
+    vicii_raster => vicii_raster,
+    badline_toggle => badline_toggle,
     d031_write_toggle => d031_write_toggle,
     instruction_strobe => monitor_instruction_strobe,
     cpu_arrest => ethernet_cpu_arrest,

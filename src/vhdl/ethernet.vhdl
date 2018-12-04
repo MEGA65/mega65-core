@@ -82,6 +82,9 @@ entity ethernet is
     buffer_rdata : in unsigned(7 downto 0);
 
     instruction_strobe : in std_logic;
+    raster_number : in unsigned(11 downto 0);
+    vicii_raster : in unsigned(11 downto 0);
+    badline_toggle : in std_logic;
     debug_vector : in unsigned(63 downto 0);
     d031_write_toggle : in std_logic;
     cpu_arrest : out std_logic := '0';
@@ -306,6 +309,11 @@ architecture behavioural of ethernet is
  signal eth_tx_idle : std_logic := '0';
  signal eth_tx_idle_cpuside : std_logic := '0';
  signal cpu_arrest_internal : std_logic := '0';
+
+ signal last_badline_toggle : std_logic := '0'; 
+ signal last_raster_toggle : std_logic := '0';
+ signal raster_toggle : std_logic := '0';
+ signal last_raster_number : unsigned(11 downto 0) := (others => '0');
  
  -- Reverse the input vector.
  function reversed(slv: std_logic_vector) return std_logic_vector is
@@ -1139,9 +1147,9 @@ begin  -- behavioural
 
       elsif instruction_strobe='1' then
         report "ETHERDUMP: Instruction spotted: " & to_hstring(debug_vector) & ", writing to $" & to_hstring(dumpram_waddr);
-        dumpram_wdata(62 downto 0) <= std_logic_vector(debug_vector(62 downto 0));
-        dumpram_wdata(63) <= d031_write_toggle; -- find out which instructions
-                                                -- are causing $D031 writes
+        dumpram_wdata(63 downto 0) <= std_logic_vector(debug_vector(63 downto 0));
+        -- dumpram_wdata(63) <= d031_write_toggle; -- find out which instructions
+        --                                         -- are causing $D031 writes
         dumpram_waddr <= std_logic_vector(to_unsigned(to_integer(unsigned(dumpram_waddr)) + 1,9));
         dumpram_write <= '1';
         activity_dump_ready_toggle <= dumpram_waddr(8);
@@ -1152,6 +1160,23 @@ begin  -- behavioural
             report "ETHERDUMP: Arresting CPU";
           end if;
         end if;
+      elsif (raster_toggle /= last_raster_toggle) or (badline_toggle /= last_badline_toggle) then
+        report "ETHERDUMP: Indicating rasterline advance";
+        dumpram_wdata(23 downto 0) <= x"FFFFFF";   -- special marker for raster
+                                                   -- information
+        -- Are we reporting a raster line step?
+        dumpram_wdata(63) <= raster_toggle;
+        -- Are we reporting a badline?
+        dumpram_wdata(62) <= badline_toggle;
+        -- Report the VIC-IV physical raster number
+        dumpram_wdata(35 downto 24) <= std_logic_vector(raster_number);
+        -- Report the VIC-II raster number
+        dumpram_wdata(47 downto 36) <= std_logic_vector(vicii_raster);
+        -- Fill in other bits as zeroes
+        dumpram_wdata(61 downto 48) <= (others => '0');
+        
+        last_raster_toggle <= raster_toggle;
+        last_badline_toggle <= badline_toggle;
       else
         dumpram_write <= '0';
       end if;
@@ -1160,6 +1185,10 @@ begin  -- behavioural
         report "ETHERDUMP: Resuming CPU";
       end if;
       cpu_arrest <= cpu_arrest_internal;
+      if raster_number /= last_raster_number then
+        raster_toggle <= not raster_toggle;
+        last_raster_number <= raster_number;
+      end if;
       
       
       miim_request <= '0';

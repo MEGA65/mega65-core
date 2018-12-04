@@ -534,6 +534,7 @@ architecture Behavioral of machine is
   signal pixel_green : unsigned (7 downto 0);
   signal pixel_blue : unsigned (7 downto 0);
   signal pixel_y : unsigned (11 downto 0);
+  signal vicii_raster : unsigned (11 downto 0);
   signal pixel_newframe : std_logic;
   signal pixel_newraster : std_logic;
 
@@ -1061,6 +1062,7 @@ begin
       pixel_y => pixel_y,
       pixel_newframe => pixel_newframe,
       pixel_newraster => pixel_newraster,
+      vicii_raster_out => vicii_raster,
 
       --chipram_we => chipram_we,
       chipram_address => chipram_address,
@@ -1397,7 +1399,10 @@ begin
       amiga_mouse_enable_b => amiga_mouse_enable_b,
       amiga_mouse_assume_a => amiga_mouse_assume_a,
       amiga_mouse_assume_b => amiga_mouse_assume_b,
-      
+
+      badline_toggle => badline_toggle,
+      raster_number => pixel_y,
+      vicii_raster => vicii_raster,
       pixel_stream_in => pixel_stream,
       pixel_red_in => pixel_red,
       pixel_green_in => pixel_green,
