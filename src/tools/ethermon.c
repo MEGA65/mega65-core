@@ -319,12 +319,25 @@ int instruction_address=0xFFFF;
 int last_d031_toggle=0;
 unsigned int instruction_count=0;
 
+int one_frame=0;
+
 int decode_instruction(const unsigned char *b)
 {
   // Limit number of instructions shown
   if (!match_string) {
     if (!num_instructions) match_string="WILL NOT EVER SHOW UP";
     num_instructions--;
+  }
+
+  if ((b[0]&b[1]&b[2])==0xff) {
+    // Raster / badline marker
+    int vicii_raster=b[3]|((b[4]&0xf)<<4);
+    int viciv_raster=(b[4]>>4)+(b[5]<<8);
+    int raster=b[7]&0x80;
+    int badline=b[7]&0x40;
+    printf("VIC-II raster $%03x (VIC-IV raster $%03x)%s%s\n",
+	   vicii_raster,viciv_raster,raster?" [NEW RASTER]":"",badline?" [BADLINE TRIGGERED]":"");
+    return 0;
   }
 
   int d031_toggle=b[7]&0x80;
@@ -593,8 +606,9 @@ int read_annotation_file(char *an)
 
 int usage(void)
 {
-  fprintf(stderr,"usage: ethermon [-n num instructions] [-m match string] <network interface> [.list, .map or other supported memory annotation files]\n");
+  fprintf(stderr,"usage: ethermon [-F] [-n num instructions] [-m match string] <network interface> [.list, .map or other supported memory annotation files]\n");
   fprintf(stderr,"If -m is specified, then no instructions are displayed until <match string> appears in the output.\n");
+  fprintf(stderr,"If -F is specified, the instruction stream is collected for a single frame of video display.\n");
   exit(-3);
 }
 
@@ -612,8 +626,9 @@ int main(int argc,char **argv)
   for(int i=0;i<0x10000;i++) annotations[i]=NULL;
   
   int opt;
-  while ((opt = getopt(argc, argv, "m:n:")) != -1) {
+  while ((opt = getopt(argc, argv, "F:m:n:")) != -1) {
     switch (opt) {
+    case 'F': one_frame=1; break;
     case 'm': match_string=optarg; break;
     case 'n': num_instructions=atoi(optarg); break;
     default:
