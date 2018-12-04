@@ -510,6 +510,9 @@ void main(void)
 
   indicate_display_mode();
 
+  // No sprites to mess up timing
+  POKE(0xd015U,0);
+  
   // Catch BRK instructions to aid debugging
   POKE(0xc800U,0xee);
   POKE(0xc801U,0x20);
@@ -560,6 +563,8 @@ void main(void)
       // (except PLA, since the stack will end up back where it was)
       // (in theory, PLP as well, except CPU might end up with interrupts
       // enabled for a short while)
+      // (except it sometimes crashes if either PLA or PLP is used here, presumably
+      // because some interrupt happens)
       single_run_opcode=0;
       switch(opcode) {
       case 0x40: // RTI
@@ -569,7 +574,7 @@ void main(void)
       case 0x08: // PHP
       case 0x48: // PHA
       case 0x6c: // JMP ($nnnn) since we would need 256 pointers
-	//      case 0x68: // PLA
+      case 0x68: // PLA
 	single_run_opcode=1;
       }
       
@@ -579,6 +584,9 @@ void main(void)
       
       // Use CIA timer b
       // Disable interrupts and blank screen during test to prevent messed up timing
+      // Disable CIA interrupt before SEI so that any pending IRQ gets handled
+      POKE(0xdc0d,0x7f);
+      v=PEEK(0xdc0d);      
       __asm__("sei");
       
       // For PHA/PHP we have to pop something from the stack after
@@ -633,9 +641,41 @@ void main(void)
       if (opcode==0x9A) // TXS
 	test_routine[offset++]=0xBA; // TSX, so SP stays same
 
-      // ---------  Start timer
+      // ---------  Start timer and make sure branches are not taken
       // LDA #$11
       test_routine[offset++]=0xA9; test_routine[offset++]=0x11;
+      switch(opcode) {
+      case 0x10:
+	// BPL set N via CMP #$90 
+	test_routine[offset++]=0xC9; test_routine[offset++]=0x90;
+	break;
+      case 0x30:
+	// BMI -- nothing to do as N cleared by LDA #$11
+	break;
+      case 0x50:
+	// BVC -- set V flag via LDA #$80 + CLC + ADC #$91
+	test_routine[offset-1]=0x80;
+	test_routine[offset++]=0x18;
+	test_routine[offset++]=0x69; test_routine[offset++]=0x91;
+	break;
+      case 0x70:
+	// BVS -- clear V flag via CLV
+	test_routine[offset++]=0xb8;
+	break;
+      case 0x90:
+	// BCC -- set carry flag via SEC
+	test_routine[offset++]=0x38;
+	break;
+      case 0xb0:
+	// BCS -- clear carry flag via CLC
+	test_routine[offset++]=0x18;
+	break;
+      case 0xd0:
+	// BNE so clear Z via CMP #$11
+	test_routine[offset++]=0xC9; test_routine[offset++]=0x11;
+	break;
+      }
+      
       // STA $DC0F
       test_routine[offset++]=0x8D; test_routine[offset++]=0x0F; test_routine[offset++]=0xDC;
       // ---------  Instruction goes here
@@ -700,7 +740,7 @@ void main(void)
 
       if (!single_run_opcode) {
 	// Repeat instruction 256x
-	v=0;
+	v=1;
 	byte_count=offset-instruction_offset;
 	do {
 	  test_routine[offset++]=test_routine[instruction_offset];
@@ -755,17 +795,22 @@ void main(void)
       POKE(0xDC0FU,0x08); // stop counter again
       overhead=0xff-PEEK(0xDC06U);
 
-      POKE(0xdc0d,0x7f);
-      v=PEEK(0xdc0d);
-      
-      // Make sure we aren't on a badline
-      while((PEEK(0xD012)&7)!=1) continue;
+      // Make sure a bad line isn't due for a long time
+      // the job can finish in time, without badline interference
+      while(PEEK(0xD012)!=0xff) continue;
 
+      POKE(0xd020U,1);
+
+      POKE(0xD011U,0x0b);
+      
       // Call the routine
       __asm__("jsr $c000");
 
+      POKE(0xd020U,14);
+      POKE(0xD011U,0x1b);
+
       // Now get cycle count
-      actual_cycles=PEEK(0xDC06U)+((PEEK(0xDC07)<<8U));
+      actual_cycles=PEEK(0xDC06U)+((PEEK(0xDC07U)<<8U));
       actual_cycles=0xffff-actual_cycles;
       actual_cycles-=overhead; // subtract overhead
       if (actual_cycles>0x6300) actual_cycles=0x6300;  // max 99 cycles per instruction
