@@ -311,7 +311,8 @@ unsigned char overhead=0;
 
 // Where we build the instruction test routine
 unsigned char offset=0;
-unsigned char test_routine[256];
+// unsigned char test_routine[256];
+unsigned char *test_routine=0xc000U;
 
 unsigned char rts_lo_offset,rts_hi_offset;
 
@@ -328,7 +329,7 @@ unsigned char legal_and_runnable_6502_opcode(unsigned char op)
   case 0x0:
     // Column zero has BRK $00 and illegal on $80
     if (op&0x70) return 1; else return 0;
-  case 0x2: if (op==0xa0) return 1; else return 0;
+  case 0x2: if (op==0xa2) return 1; else return 0;
   case 0x4:
     switch(op) {
     case 0x24: case 0x84: case 0x94: case 0xa4: case 0xb4: case 0xc4: case 0xe4: return 1;
@@ -349,7 +350,7 @@ unsigned char legal_and_runnable_6502_opcode(unsigned char op)
   case 0xe:
     if (op==0x9e) return 0; else return 1;
   }
-  printf("Uncaught opcode $%02x\n",op);
+   printf("Uncaught opcode $%02x\n",op);
   while(1) continue;
 }
 
@@ -384,15 +385,31 @@ void main(void)
   printf("%c%c%cM.E.G.A. 6502 Performance Benchmark v0.1%c%c\n",0x93,0x05,0x12,0x92,0x9a);
 
   indicate_display_mode();
+
+  //  opcode=0x40;
+
+  // Catch BRK instructions
+  POKE(0xc800U,0xee);
+  POKE(0xc801U,0x20);
+  POKE(0xc802U,0xd0);
+  POKE(0xc803U,0x4c);
+  POKE(0xc804U,0x00);
+  POKE(0xc805U,0xc8);
+  POKE(0x316U,0x00);
+  POKE(0x317U,0xc8);
+  POKE(0x318U,0x00);
+  POKE(0x319U,0xc8);
   
   while(1) {
 
+    POKE(0xc100U,opcode);
+    
     v=0;
-    while(!v) {
+    //    while(!v) {
       __asm__("jsr $ffe4");
       __asm__("sta %v",v);
-    }
-    selected_opcode=opcode;
+      //    }
+    //    selected_opcode=opcode;
     switch(v) {
     case ' ': display_mode^=1; indicate_display_mode(); break;
     case 0x11: case 0x91: case 0x1d: case 0x9d:
@@ -409,13 +426,21 @@ void main(void)
       
       break;
     }
+
+    POKE(0xc101U,opcode);
+
     
     if (!opcode) screen_addr=0x0400 + 40 * 4;
     
     expected_cycles=expected_cycles_6502[opcode];
+    POKE(0xc102U,opcode);
 
-    if (legal_and_runnable_6502_opcode(opcode)) {
-    
+    v= legal_and_runnable_6502_opcode(opcode);
+    POKE(0xc103U,opcode);
+
+    if (v) {
+      POKE(0xc104U,opcode);
+
       // Use CIA timer b
       // Disable interrupts and blank screen during test to prevent messed up timing
       __asm__("sei");
@@ -439,6 +464,7 @@ void main(void)
       
       // Now build the routine to call
       offset=0;
+
       
       // ---------  Setup instructions go here
       if (!strcmp(instruction_descriptions[opcode],"RTS")) {
@@ -453,13 +479,15 @@ void main(void)
       }
       if (!strcmp(instruction_descriptions[opcode],"RTI")) {
 	test_routine[offset++]=0xA9; // LDA #$nn
-	rts_lo_offset=offset++;
+	rts_hi_offset=offset++;
 	test_routine[offset++]=0x48; // PHA
 	test_routine[offset++]=0xA9; // LDA #$nn
-	rts_hi_offset=offset++;
+	rts_lo_offset=offset++;
 	test_routine[offset++]=0x48; // PHA
 	test_routine[offset++]=0x08; // PHP
       }      
+
+    POKE(0xc105U,opcode);
       
       test_routine[offset++]=0xA2; test_routine[offset++]=0x00;  // LDX #$00
       test_routine[offset++]=0xA0; test_routine[offset++]=0x00;  // LDY #$00
@@ -545,7 +573,7 @@ void main(void)
 	test_routine[rts_lo_offset]=addr&0xff;
 	test_routine[rts_hi_offset]=addr>>8;
       }
-      
+
       // ---------  Stop the timer
       // LDA #$08
       test_routine[offset++]=0xA9; test_routine[offset++]=0x08;
@@ -563,7 +591,7 @@ void main(void)
       
       
       // Make sure we aren't on a badline
-      while(PEEK(0xD012)&7) continue;
+      while((PEEK(0xD012)&7)!=1) continue;
       
       // Do dry-run without instruction to calculate overhead
       // (we do this each time, since someone might change the CPU speed
@@ -571,10 +599,13 @@ void main(void)
       POKE(0xDC0FU,0x11); // load timer, start counter
       POKE(0xDC0FU,0x08); // stop counter again
       overhead=0xff-PEEK(0xDC06U);
+
+      // Make sure we aren't on a badline
+      while((PEEK(0xD012)&7)!=1) continue;
       
       // Call the routine
-      __asm__("jsr %v",test_routine);
-      
+      __asm__("jsr $c000");
+
       // Now get cycle count
       actual_cycles=0xff-PEEK(0xDC06U);
       actual_cycles-=overhead; // subtract overhead
@@ -584,7 +615,7 @@ void main(void)
       measured_cycles[opcode]=actual_cycles;
       
       __asm__("cli");
-      
+
       // Update colour
       if (expected_cycles<actual_cycles) colour=8; // orange for slow instructions
       if (expected_cycles>actual_cycles) colour=5; // green for fast instructions
@@ -645,7 +676,10 @@ void main(void)
 	  }
 	}
       }
+
     }
+
+    POKE(0xc106U,opcode);
     
     // Highlight currently selected result for more details
     if (selected_opcode==opcode) {
