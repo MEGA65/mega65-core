@@ -320,6 +320,7 @@ int last_d031_toggle=0;
 unsigned int instruction_count=0;
 
 int one_frame=0;
+int one_frame_active=0;
 
 int decode_instruction(const unsigned char *b)
 {
@@ -335,11 +336,32 @@ int decode_instruction(const unsigned char *b)
     int viciv_raster=(b[4]>>4)+(b[5]<<8);
     int raster=b[7]&0x80;
     int badline=b[7]&0x40;
+
+    if (one_frame&&(one_frame_active)) {
+      if (raster&&(!viciv_raster)) {
+	// Start of next frame after single raster display, so stop
+	exit(0);
+      }
+    }    
+    
+    if (one_frame&&(!one_frame_active)) {
+      if (raster&&(!viciv_raster)) {
+	// Start of single frame to display
+	one_frame_active=1;
+      }
+    }
+
+    // Don't display anything if we are not yet in the active frame to be displayed
+    if (one_frame&&(!one_frame_active)) return 0;
+    
     printf("VIC-II raster $%03x (VIC-IV raster $%03x)%s%s\n",
 	   vicii_raster,viciv_raster,raster?" [NEW RASTER]":"",badline?" [BADLINE TRIGGERED]":"");
     return 0;
   }
 
+  // Don't display anything if we are not yet in the active frame to be displayed
+  if (one_frame&&(!one_frame_active)) return 0;
+  
   int d031_toggle=b[7]&0x80;
 
   if (!match_string) {
