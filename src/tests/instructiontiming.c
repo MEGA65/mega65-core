@@ -500,6 +500,10 @@ void update_speed_estimates(void)
   }
 }
 
+unsigned char single_run_opcode;
+unsigned char byte_count;
+unsigned char instruction_offset;
+
 void main(void)
 {
   printf("%c%c%cM.E.G.A. 6502 Performance Benchmark v0.1%c%c\n",0x93,0x05,0x12,0x92,0x9a);
@@ -520,8 +524,6 @@ void main(void)
   
   while(1) {
 
-    if (!opcode) update_speed_estimates();
-    
     v=0;
     //    while(!v) {
       __asm__("jsr $ffe4");
@@ -554,6 +556,23 @@ void main(void)
 
     if (v) {
 
+      // Instructions that touch the stack cannot be run 256x
+      // (except PLA, since the stack will end up back where it was)
+      // (in theory, PLP as well, except CPU might end up with interrupts
+      // enabled for a short while)
+      single_run_opcode=0;
+      switch(opcode) {
+      case 0x40: // RTI
+      case 0x60: // RTS
+      case 0x20: case 0x22: // JSR
+      case 0x28: // PLP
+      case 0x08: // PHP
+      case 0x48: // PHA
+      case 0x6c: // JMP ($nnnn) since we would need 256 pointers
+	//      case 0x68: // PLA
+	single_run_opcode=1;
+      }
+      
       // Mark instruction black while running test
       POKE(0xD800U-0x0400U+screen_addr,0);
       POKE(0xD800U-0x0400U+1+screen_addr,0);
@@ -577,7 +596,7 @@ void main(void)
       // cycle counts.
       
       POKE(0xDC0FU,0x08); // one-shot, don't start, count cpu clock
-      POKE(0xDC07U,0x00); POKE(0xDC06U,0xFF);   // set counter to 255
+      POKE(0xDC07U,0xFF); POKE(0xDC06U,0xFF);   // set counter to 65535
       
       // Now build the routine to call
       offset=0;
@@ -620,6 +639,7 @@ void main(void)
       // STA $DC0F
       test_routine[offset++]=0x8D; test_routine[offset++]=0x0F; test_routine[offset++]=0xDC;
       // ---------  Instruction goes here
+      instruction_offset=offset;
       test_routine[offset++]=opcode;
       // Now work out the arguments to go with instruction
       mode=&instruction_descriptions[opcode][3];
@@ -678,6 +698,25 @@ void main(void)
 	while(1) continue;
       }
 
+      if (!single_run_opcode) {
+	// Repeat instruction 256x
+	v=0;
+	byte_count=offset-instruction_offset;
+	do {
+	  test_routine[offset++]=test_routine[instruction_offset];
+	  if (opcode==0x4c) {
+	    // JMP $nnnn -- so point to next address
+	    addr=0xc000 + offset+2;
+	    test_routine[offset++]=addr&0xff;
+	    test_routine[offset++]=addr>>8;
+	  } else {
+	    if (byte_count>1) test_routine[offset++]=test_routine[instruction_offset+1];
+	    if (byte_count>2) test_routine[offset++]=test_routine[instruction_offset+2];
+	  }
+	} while(++v);
+      }
+      
+      
       // If instruction was RTS or RTI, rewrite the pushed PC to correctly point here
       if (!strcmp(instruction_descriptions[opcode],"RTS")) {
 	addr=(unsigned short)(&test_routine[offset-1]);
@@ -726,11 +765,13 @@ void main(void)
       __asm__("jsr $c000");
 
       // Now get cycle count
-      actual_cycles=0xff-PEEK(0xDC06U);
+      actual_cycles=PEEK(0xDC06U)+((PEEK(0xDC07)<<8U));
+      actual_cycles=0xffff-actual_cycles;
       actual_cycles-=overhead; // subtract overhead
-      if (actual_cycles>99) actual_cycles=99;
-      // Scale it up
-      actual_cycles=actual_cycles<<8U;
+      if (actual_cycles>0x6300) actual_cycles=0x6300;  // max 99 cycles per instruction
+      // Scale it up for those few instructions we can't
+      // run 256x, primarily RTS, RTI and JSR
+      if (single_run_opcode) actual_cycles=actual_cycles<<8;
       measured_cycles[opcode]= actual_cycles;
 
       POKE(0xdc0d,0x81);
@@ -812,7 +853,9 @@ void main(void)
     // Advance to the next opcode
     opcode++;
     screen_addr+=2;
-    
+
+    if (!opcode) update_speed_estimates();
+        
   }
 }
 
