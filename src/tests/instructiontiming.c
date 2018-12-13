@@ -535,6 +535,12 @@ void main(void)
     //    selected_opcode=opcode;
     switch(v) {
     case ' ': display_mode^=1; indicate_display_mode(); break;
+    case 'p':
+      POKE(0xD02FU,0x47); POKE(0xD02FU,0x53); POKE(0xD06FU,0); POKE(0xD02FU,0);
+      break;
+    case 'n':
+      POKE(0xD02FU,0x47); POKE(0xD02FU,0x53); POKE(0xD06FU,0x80); POKE(0xD02FU,0);
+      break;
     case 0x11: case 0x91: case 0x1d: case 0x9d:
       addr=0x0400 + 40 * 4 + selected_opcode + selected_opcode;
       POKE(addr,PEEK(addr)&0x7f);
