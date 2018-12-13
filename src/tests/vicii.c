@@ -403,7 +403,7 @@ void d018_timing_tests(void)
 
   stash_screen(); clear_screen();
   // Draw a horizontal bar at top of alternate screen
-  for(v=0;v<40;v++) POKE(0x0800+v,0xA0);
+  for(v=0;v<80;v++) POKE(0x0800+v,0xA0);
   // Draw a solid sprite overlapping with it
   sprite_setxy(0,90,33); sprite_erase(0); sprite_reverse(0); sprites_on(1);
   POKE(0xbf8U,PEEK(0x7f8U)); // set sprite data area on alternate screen
@@ -415,8 +415,8 @@ void d018_timing_tests(void)
   v=PEEK(0xDC0DU); // clear any stale CIA timer interrupt
   install_irq();
 
-  // Set raster interrupt for raster 49
-  POKE(0xD012U,49); POKE(0xd011U,0x1b);
+  // Set raster interrupt for raster 57
+  POKE(0xD012U,57); POKE(0xd011U,0x1b);
   // allow interrupt to happen
   __asm__("cli");
 
@@ -429,13 +429,13 @@ void d018_timing_tests(void)
   v=PEEK(0xD01FU);
   if (v!=0x01) {
     restore_screen(); sprites_on(0);
-    printf("\nFAIL: Changing $D018 at raster 49 should switch first row to alternate screen, but original screen appeared to be there.\n");
+    printf("\nFAIL: Changing $D018 at raster 57 should switch first row to alternate screen, but original screen appeared to be there.\n");
     printf("\nFAIL: *$D01F != $01: Saw $%x\n",v);
     fatal();
   }
 
-  // Set raster interrupt for raster 50, and do the same
-  POKE(0xD012U,50); POKE(0xd011U,0x1b);
+  // Set raster interrupt for raster 58, and do the same
+  POKE(0xD012U,58); POKE(0xd011U,0x1b);
   // Wait for end of frame
   wait_for_vsync();
   // Wait for end of next frame, clear any stale sprite colission
@@ -445,13 +445,13 @@ void d018_timing_tests(void)
   v=PEEK(0xD01FU);
   if (v!=0x01) {
     restore_screen(); sprites_on(0);
-    printf("\nFAIL: Changing $D018 at raster 50 should switch first row to alternate screen, but original screen appeared to be there.\n");
+    printf("\nFAIL: Changing $D018 at raster 58 should switch first row to alternate screen, but original screen appeared to be there.\n");
     printf("\nFAIL: *$D01F != $01: Saw $%x\n",v);
     fatal();
   }
 
   // Set raster interrupt for raster 51, and this should now be too late
-  POKE(0xD012U,51); POKE(0xd011U,0x1b);
+  POKE(0xD012U,59); POKE(0xd011U,0x1b);
   // Wait for end of frame
   wait_for_vsync();
   // Wait for end of next frame, clear any stale sprite colission
@@ -461,7 +461,7 @@ void d018_timing_tests(void)
   v=PEEK(0xD01FU);
   if (v!=0x00) {
     restore_screen(); sprites_on(0);    
-    printf("\nFAIL: Changing $D018 at raster 51 should NOT switch first row to alternate screen, but alternate screen appeared to be there.\n");
+    printf("\nFAIL: Changing $D018 at raster 59 should NOT switch first row to alternate screen, but alternate screen appeared to be there.\n");
     printf("\nFAIL: *$D01F != $00: Saw $%x\n",v);
     fatal();
   }
