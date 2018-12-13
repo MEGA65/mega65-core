@@ -58,6 +58,7 @@ long long start_usec=0;
 
 int download_file(char *dest_name,char *local_name);
 int show_directory(char *path);
+int rename_file(char *name,char *dest_name);
 int upload_file(char *name,char *dest_name);
 int sdhc_check(void);
 int read_sector(const unsigned int sector_number,unsigned char *buffer, int noCacheP);
@@ -365,6 +366,9 @@ int execute_command(char *cmd)
   }
   else if (sscanf(cmd,"put %s %s",src,dst)==2) {
     upload_file(src,dst);
+  }
+  else if (sscanf(cmd,"rename %s %s",src,dst)==2) {
+    rename_file(src,dst);
   }
   else if (sscanf(cmd,"sector %d",&sector_num)==1) {
     show_sector(sector_num);
@@ -1149,6 +1153,64 @@ int show_directory(char *path)
 
   return retVal;
 }
+
+int rename_file(char *name,char *dest_name)
+{
+  struct dirent de;
+  int retVal=0;
+  do {
+
+    struct stat st;
+    if (stat(name,&st)) {
+      fprintf(stderr,"ERROR: Could not stat file '%s'\n",name);
+      perror("stat() failed");
+    }
+    //    printf("File '%s' is %ld bytes long.\n",name,(long)st.st_size);
+
+    if (!file_system_found) open_file_system();
+    if (!file_system_found) {
+      fprintf(stderr,"ERROR: Could not open file system.\n");
+      retVal=-1;
+      break;
+    }
+
+    if (fat_opendir("/")) { retVal=-1; break; }
+    //    printf("Opened directory, dir_sector=%d (absolute sector = %d)\n",dir_sector,partition_start+dir_sector);
+    while(!fat_readdir(&de)) {
+      // if (de.d_name[0]) printf("%13s   %d\n",de.d_name,(int)de.d_off);
+      //      else dump_bytes(0,"empty dirent",&dir_sector_buffer[dir_sector_offset],32);
+      if (!strcasecmp(de.d_name,dest_name)) {
+	// Found file, so will replace it
+	//	printf("%s already exists on the file system, beginning at cluster %d\n",name,(int)de.d_ino);
+	break;
+      }
+    }
+    if (dir_sector==-1) {
+      printf("File %s does not exist.\n",name);
+      retVal=-1; break;
+    }
+
+    // Write name
+    for(int i=0;i<11;i++) dir_sector_buffer[dir_sector_offset+i]=0x20;
+    for(int i=0;i<8;i++)
+      if (dest_name[i]=='.') {
+	// Write out extension
+	for(int j=0;j<3;j++)
+	  if (dest_name[i+1+j]) dir_sector_buffer[dir_sector_offset+8+j]=dest_name[i+1+j];
+	break;
+      } else if (!dest_name[i]) break;
+      else dir_sector_buffer[dir_sector_offset+i]=dest_name[i];
+    
+    // Write modified directory entry back to disk
+    if (write_sector(partition_start+dir_sector,dir_sector_buffer)) {
+      printf("Failed to write updated directory sector.\n");
+      retVal=-1; break; }
+    
+  } while(0);
+
+  return retVal;
+}
+
 
 int upload_file(char *name,char *dest_name)
 {
