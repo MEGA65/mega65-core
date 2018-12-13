@@ -51,6 +51,23 @@ task_set_c64_memorymap:
 	lda #$01
 	trb $d030
 
+	; 40 column mode normal C64 screen
+	lda #$00
+	sta $d030
+	sta $d031
+	sta $d054
+	lda $dd00
+	ora #$03
+	sta $dd00
+	lda #$80
+	sta $d05d
+	lda #$1b
+	sta $d011
+	lda #$c8
+	sta $d016
+	lda #$14
+	sta $d018
+
 	; XXX - disable C65 ROM maps
 	rts
 	
