@@ -1346,7 +1346,7 @@ int upload_file(char *name,char *dest_name)
       retVal=-1; break;
     }
 
-    while(remaining_length) {
+    while(remaining_length>0) {
       if (sector_in_cluster>=sectors_per_cluster) {
 	// Advance to next cluster
 	// If we are currently the last cluster, then allocate a new one, and chain it in
