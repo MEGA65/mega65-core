@@ -2860,6 +2860,9 @@ txt_KICKUPM65:		.byte "KICKUP.M65",0
 			;
 txt_BOOTLOGOM65:	.byte "BANNER.M65",0
 
+			; filename containing freeze menu
+txt_FREEZER:		.byte "FREEZER.M65",0
+
 			; If this file is present, then machine starts up with video
 			; mode set to NTSC (60Hz), else as PAL (50Hz).
 			; This is to allow us to boot in PAL by default, except for

@@ -4,10 +4,8 @@ freeze_to_slot:
 	; Slot in XXYY
 
 	jsr syspart_locate_freezeslot
-	bcc ffail
-	jmp freeze_save_to_sdcard_immediate
-ffail:	rts
-
+	bcs freeze_save_to_sdcard_immediate
+	rts
 
 freeze_save_to_sdcard_immediate:
 
@@ -83,12 +81,9 @@ unfreeze_read_sector_and_wait:
 
 freeze_write_sector_and_wait:
 
-	lda $d681
-	lda $d682
-	lda $d683
-	lda $d684
+	inc $d020
 
-	; Require SHIFT press and release between every sector
+;	; Require SHIFT press and release between every sector
 ;fww1:	lda $d611
 ;	beq fww1
 ;fww2:	lda $d611
@@ -99,22 +94,41 @@ freeze_write_sector_and_wait:
 	sta freeze_write_tries+0
 	sta freeze_write_tries+1
 
-	lda $d681
-	pha
-	lda $d682
-	pha
-	lda $d683
-	pha
-	lda $d684
-	pha
-
 @retryWrite:
+
+	inc $08f0
+
 	jsr sd_wait_for_ready_reset_if_required
+
+	phx
+	ldx #$9e
+*	lda $07ff,x
+	sta $0800,x
+	dex
+	bne -
+	plx
+	lda $d680
+	sta $0800
+
 	; Trigger the write
 	lda #$03
 	sta $d680
-	jsr sd_wait_for_ready
-	bcs @wroteOk
+
+	; Give SD card time to go busy
+*	lda $d680
+	and #$03
+	beq -
+
+
+*	inc $d020
+	lda $d680
+	sta $0850
+	and #$03
+	bne -
+
+;	jsr sd_wait_for_ready
+;	bcs @wroteOk
+	jmp @wroteOk
 
 	inc freeze_write_tries+0
 	bne @retryWrite
@@ -122,15 +136,6 @@ freeze_write_sector_and_wait:
 	bne @retryWrite
 
 @wroteOk:
-
-	pla
-	sta $d684
-	pla
-	sta $d683
-	pla
-	sta $d682
-	pla
-	sta $d681
 
 	; Increment freeze slot sector number
 	jsr sd_inc_fixedsectornumber
