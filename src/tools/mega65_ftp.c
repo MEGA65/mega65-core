@@ -1160,13 +1160,6 @@ int rename_file(char *name,char *dest_name)
   int retVal=0;
   do {
 
-    struct stat st;
-    if (stat(name,&st)) {
-      fprintf(stderr,"ERROR: Could not stat file '%s'\n",name);
-      perror("stat() failed");
-    }
-    //    printf("File '%s' is %ld bytes long.\n",name,(long)st.st_size);
-
     if (!file_system_found) open_file_system();
     if (!file_system_found) {
       fprintf(stderr,"ERROR: Could not open file system.\n");
