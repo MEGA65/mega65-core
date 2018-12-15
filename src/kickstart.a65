@@ -3032,6 +3032,7 @@ dos_requested_filename:
 		; Details about current DOS request
 		;
 dos_sectorsread:		.word 0
+dos_bytes_remaining:		.word 0,0
 dos_current_sector:		.word 0,0
 dos_current_cluster:		.word 0,0
 dos_current_sector_in_cluster:	.byte 0

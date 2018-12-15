@@ -51,7 +51,6 @@ noHyperMsg:
 
 
 onmega65:
-		ldz	#$0a   ; filename length
 		LDA 	#$2E
 		; scratch_fileName must be on a page boundary
 		LDY 	#>scratch_fileName
@@ -76,6 +75,7 @@ onmega65:
 
 
 	*
+	inc $0427
 	jmp -
 
 	cli
@@ -129,5 +129,5 @@ atc4:
 	.checkpc $4000
 	.advance $4000
 scratch_fileName:
-	.byte "MEGA65.D81",0
+	.byte "FOO.TXT",0
 

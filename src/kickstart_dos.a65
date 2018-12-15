@@ -280,6 +280,8 @@ trap_dos_loadfile:
 
 trap_dos_setname:
 
+	inc $d020
+
 	; read file name from any where in bottom 32KB of RAM, as mapped on entry
 	; to the hypervisor (this prevents the user from setting the filename to some
 	; piece of the hypervisor, and thus leaking hypervisor data to user-land if the
@@ -290,46 +292,19 @@ trap_dos_setname:
 	jsr hypervisor_setup_copy_region
 	bcc tdsnfailure
 
-	inc $0500
-
-	ldy #$3f
-tdsn1:	lda (<hypervisor_userspace_copy_vector),y
-	sta dos_requested_filename,y
-	dey
-	bpl tdsn1
-
-	inc $0501
-
-	; now set length
-	;
-	lda hypervisor_z
-	cmp #$3f
-	bcc tdsn2
-	lda #dos_errorcode_name_too_long
-	sta dos_error_code
-	jmp return_from_trap_with_failure
-
-tdsn2:
-	sta dos_requested_filename_len
-	inc $0502
-
+	ldx <hypervisor_userspace_copy_vector
+	ldy 1+<hypervisor_userspace_copy_vector
 	jsr dos_setname
 	bcc tdsnfailure
 
 	; setname succeeded
 	;
-	stz dos_requested_filename_len
-
-	; upper case the filename for comparison
-	;
-	jsr dos_requested_filename_to_uppercase
 
 	jmp return_from_trap_with_success
 
 ;	========================
 
 tdsnfailure:
-
 	lda dos_error_code
 	jmp return_from_trap_with_failure
 
@@ -1656,14 +1631,12 @@ dos_requested_filename_to_uppercase:
 	lda #dos_errorcode_name_too_long
 	bcc drftu1
 	jmp dos_return_error	
-
 drftu1:
 	lda dos_requested_filename,x
 	jsr toupper
 	sta dos_requested_filename,x
-	inx
-	cpx dos_requested_filename_len
-	bne drftu1
+	dex
+	bpl drftu1
 	sec
 	rts
 
@@ -3086,8 +3059,6 @@ dos_readfileintomemory:
 	;
 	;	jsr dos_print_current_cluster
 
-	inc $0400
-
 	; Clear number of sectors read
 	ldx #$00
 	stx dos_sectorsread
@@ -3096,25 +3067,27 @@ dos_readfileintomemory:
 	jsr dos_findfirst
 	php
 
-	inc $0401
-
 	; close directory now that we have what we were looking for ...
 	;
 	jsr dos_closefile
 	plp
 
-	inc $0402
+
+	; Have directory entry.  Get length of file, so that we can
+	; limit load to reported length of file, instead assuming cluster
+	; chain is correct length, and file ends on a cluster boundary
+	ldx #$03
+*	lda dos_dirent_length,x
+	sta dos_bytes_remaining,x
+	dex
+	bpl -	
 
 	; ... but report if we hit an error
 	;
 	bcc dos_return_error_already_set
 
-	inc $0403
-
 	jsr dos_openfile
 	bcc dos_return_error_already_set
-
-	inc $0404
 
 	jsr sd_map_sectorbuffer
 
@@ -3129,22 +3102,31 @@ drfim_sector_loop:
 	;
 	ldx #$00
 	ldz #$00
+
+	; Work out how many bytes of this page we need to read
+	jsr dos_load_y_based_on_dos_bytes_remaining
+
 drfim_rr1:
 	lda sd_sectorbuffer,x		; is $DE00
 	nop ; 32-bit pointer access follows
 	sta (<dos_file_loadaddress),z
-	inz
-	inx
+	inz ; dest offset
+	inx ; src offset
+	dey ; bytes in page to copy
 	bne drfim_rr1
 
 	inw <dos_file_loadaddress+1
+
+	; Work out how many bytes of this page we need to read
+	jsr dos_load_y_based_on_dos_bytes_remaining
 
 drfim_rr1b:
 	lda sd_sectorbuffer+$100,x	; is $DF00
 	nop ; 32-bit pointer access follows
 	sta (<dos_file_loadaddress),z
-	inz
-	inx
+	inz ; dest offset
+	inx ; src offset
+	dey ; bytes in page to copy
 	bne drfim_rr1b
 
 	jsr dos_file_advance_to_next_sector
@@ -3177,16 +3159,45 @@ drfim_rr1b:
 
 ;	========================
 
+drfim_eof_pop_pc:
+	pla
+	pla
+
 drfim_eof:
 
 	jsr dos_closefile
 	jmp dos_return_success
 
+dos_load_y_based_on_dos_bytes_remaining:
+	ldy #$00
+	lda dos_bytes_remaining+1
+	ora dos_bytes_remaining+2
+	ora dos_bytes_remaining+3
+	bne +
+	lda dos_bytes_remaining+0
+	; If no more bytes to read, then jump to EOF
+	beq drfim_eof_pop_pc
+	ldy dos_bytes_remaining+0
+	lda #$00
+	sta  dos_bytes_remaining+0
+	rts
+*
+
+	lda dos_bytes_remaining+1
+	sec
+	sbc #$01
+	sta dos_bytes_remaining+1
+	lda dos_bytes_remaining+2
+	sbc #0
+	sta dos_bytes_remaining+2
+	lda dos_bytes_remaining+3
+	sbc #0
+	sta dos_bytes_remaining+3
+	rts
+
 ;	========================
 
 dos_setname:
-
-	inc $0460
 
 	; INPUT: .X .Y = pointer to filename,
 	;		filename string must be terminated with $00
@@ -3198,7 +3209,6 @@ dos_setname:
 
 lr11:	lda (<dos_scratch_vector),y
 	sta dos_requested_filename,y
-	sta $0428,y
 	beq dsn_eon
 	iny
 	cpy #$40
@@ -3206,14 +3216,12 @@ lr11:	lda (<dos_scratch_vector),y
 
 	lda #0
 	sta dos_requested_filename_len
-	sta $0450
 	lda #dos_errorcode_name_too_long
 	clc
 	rts
 
 dsn_eon:
 	sty dos_requested_filename_len
-	sty $0450
 	
 	sec
 	rts
