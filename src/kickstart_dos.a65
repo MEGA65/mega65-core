@@ -265,13 +265,13 @@ trap_dos_loadfile:
 	; over hypervisor
 	;
 	lda hypervisor_x
-	sta dos_file_loadaddress
+	sta <dos_file_loadaddress
 	lda hypervisor_y
-	sta dos_file_loadaddress+1
+	sta <dos_file_loadaddress+1
 	lda hypervisor_z
-	sta dos_file_loadaddress+2
+	sta <dos_file_loadaddress+2
 	lda #$00
-	sta dos_file_loadaddress+3
+	sta <dos_file_loadaddress+3
 
 	jsr dos_readfileintomemory
 	jmp return_from_trap_with_carry_flag
@@ -290,11 +290,15 @@ trap_dos_setname:
 	jsr hypervisor_setup_copy_region
 	bcc tdsnfailure
 
+	inc $0500
+
 	ldy #$3f
 tdsn1:	lda (<hypervisor_userspace_copy_vector),y
 	sta dos_requested_filename,y
 	dey
 	bpl tdsn1
+
+	inc $0501
 
 	; now set length
 	;
@@ -306,6 +310,12 @@ tdsn1:	lda (<hypervisor_userspace_copy_vector),y
 	jmp return_from_trap_with_failure
 
 tdsn2:
+	sta dos_requested_filename_len
+	inc $0502
+
+	jsr dos_setname
+	bcc tdsnfailure
+
 	; setname succeeded
 	;
 	stz dos_requested_filename_len
@@ -3076,6 +3086,8 @@ dos_readfileintomemory:
 	;
 	;	jsr dos_print_current_cluster
 
+	inc $0400
+
 	; Clear number of sectors read
 	ldx #$00
 	stx dos_sectorsread
@@ -3084,17 +3096,25 @@ dos_readfileintomemory:
 	jsr dos_findfirst
 	php
 
+	inc $0401
+
 	; close directory now that we have what we were looking for ...
 	;
 	jsr dos_closefile
 	plp
 
+	inc $0402
+
 	; ... but report if we hit an error
 	;
 	bcc dos_return_error_already_set
 
+	inc $0403
+
 	jsr dos_openfile
 	bcc dos_return_error_already_set
+
+	inc $0404
 
 	jsr sd_map_sectorbuffer
 
@@ -3166,6 +3186,8 @@ drfim_eof:
 
 dos_setname:
 
+	inc $0460
+
 	; INPUT: .X .Y = pointer to filename,
 	;		filename string must be terminated with $00
 	;		filename string must be <= $3F chars
@@ -3176,6 +3198,7 @@ dos_setname:
 
 lr11:	lda (<dos_scratch_vector),y
 	sta dos_requested_filename,y
+	sta $0428,y
 	beq dsn_eon
 	iny
 	cpy #$40
@@ -3183,13 +3206,15 @@ lr11:	lda (<dos_scratch_vector),y
 
 	lda #0
 	sta dos_requested_filename_len
+	sta $0450
 	lda #dos_errorcode_name_too_long
 	clc
 	rts
 
 dsn_eon:
 	sty dos_requested_filename_len
-
+	sty $0450
+	
 	sec
 	rts
 
