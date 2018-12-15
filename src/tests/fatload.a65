@@ -1,0 +1,133 @@
+         .org $07ff
+
+	 .byte 1,8
+
+         .byte $4c,$16,$08,$00,$97,$32
+         .byte $2c,$30,$3a,$9e,$32,$30
+         .byte $37,$30,$00,$00,$00,$a9
+         .byte $01,$85,$02
+
+	 ; fast cpu
+	 lda #65
+	 sta 0
+
+	 lda #$47
+	 sta $d02f
+	 lda #$53
+	 sta $d02f
+
+	 ; no interrupts
+	 sei
+
+	 jsr $e544
+	 
+		LDA 	#$00			;Hypervisor, who are you?
+		STA 	$D640
+;***	Work around bug in hypervisor traps, where the byte after a trap may or 
+;	may not get executed	 
+		NOP
+		
+;***	On a C64, this becomes LAX ($00, X) which shouldn't be a problem
+		LDZ 	#$00			
+		CLI
+
+		CMP 	#$00
+		BNE 	onmega65
+
+;	No hypervisor.  Not on a Mega65?
+		LDX 	#39			;Output an error message
+ll15:	 
+		LDA 	noHyperMsg, X
+		JSR 	asciiToCharROM
+		STA 	$05E0, X
+		DEX
+		BPL 	ll15
+ll16:	 
+		JMP 	ll16			;Freeze
+
+
+noHyperMsg:
+	.byte		"No reply from Hypervisor - not a MEGA65?",0
+
+
+onmega65:
+		ldz	#$0a   ; filename length
+		LDA 	#$2E
+		; scratch_fileName must be on a page boundary
+		LDY 	#>scratch_fileName
+		STA 	$D640			;Hypervisor set file name
+		NOP
+	
+		LDZ 	#$00			;Restore Z page location
+
+		; close all files to work around kickstart file descriptor leak bug
+		lda #$22
+		sta $d640
+		nop
+
+		; Now load the file to $0400 over the screen
+		lda #$36
+		ldx #$00
+		ldy #$04
+		ldz #$00
+		sta $d640
+		nop
+		ldz	#$00
+
+
+	*
+	jmp -
+
+	cli
+	rts
+
+;-------------------------------------------------------------------------------
+asciiToCharROM:
+;-------------------------------------------------------------------------------
+; 	NUL ($00) becomes a space
+		CMP 	#0
+		BNE 	atc0
+		LDA 	#$20
+atc0:
+;	@ becomes $00
+		CMP 	#$40
+		BNE 	atc1
+		LDA 	#0
+		RTS
+atc1:
+		CMP 	#$5B
+		BCS 	atc2
+;	A to Z -> leave unchanged
+		RTS
+atc2:
+		CMP 	#$5B
+		BCC 	atc3
+		CMP 	#$60
+		BCS 	atc3
+;	[ \ ] ^ _ -> subtract $40
+;dengland
+;		AND 	#$1F
+		SEC
+		SBC	#$40
+
+		RTS
+atc3:
+		CMP 	#$61
+		BCC 	atc4
+		CMP 	#$7B
+		BCS 	atc4
+;	a - z -> subtract $60
+;dengland
+;		AND 	#$1F
+		SEC
+		SBC	#$60
+atc4:		
+		RTS
+
+
+
+	.checkpc $4000
+	.advance $4000
+scratch_fileName:
+	.byte "MEGA65.D81",0
+
