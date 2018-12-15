@@ -1119,6 +1119,12 @@ begin  -- behavioural
 
     if rising_edge(clock) then
 
+      -- Notice when we change raster lines
+      if last_raster_number /= raster_number then
+        last_raster_number = raster_number;
+        raster_toggle <= not raster_toggle;
+      end if;
+      
       eth_tx_idle_cpuside <= eth_tx_idle;
 
       if eth_videostream='1' and activity_dump='1' then
