@@ -1121,7 +1121,7 @@ begin  -- behavioural
 
       -- Notice when we change raster lines
       if last_raster_number /= raster_number then
-        last_raster_number = raster_number;
+        last_raster_number <= raster_number;
         raster_toggle <= not raster_toggle;
       end if;
       
