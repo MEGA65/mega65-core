@@ -1185,6 +1185,9 @@ begin  -- behavioural
         dumpram_wdata(47 downto 36) <= std_logic_vector(vicii_raster);
         -- Fill in other bits as zeroes
         dumpram_wdata(61 downto 48) <= (others => '0');
+
+        dumpram_waddr <= std_logic_vector(to_unsigned(to_integer(unsigned(dumpram_waddr)) + 1,9));
+        dumpram_write <= '1';
       else
         dumpram_write <= '0';
       end if;
