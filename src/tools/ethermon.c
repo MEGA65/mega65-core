@@ -44,6 +44,8 @@
 char *match_string=NULL;
 int num_instructions=999999999;
 
+int wait_for_break=0;
+
 char *oplist[]={
   "00   BRK\n",
   "01   ORA ($nn,X)\n",
@@ -330,6 +332,9 @@ int decode_instruction(const unsigned char *b)
     num_instructions--;
   }
 
+  printf("INSTRUCTION: %02x %02x %02x %02x %02x %02x %02x %02x\n",
+	 b[0],b[1],b[2],b[3],b[4],b[5],b[6],b[7]);
+  
   if ((b[0]&b[1]&b[2])==0xff) {
     // Raster / badline marker
     int vicii_raster=b[3]|((b[4]&0xf)<<4);
@@ -395,6 +400,11 @@ int decode_instruction(const unsigned char *b)
   int digits;
   
   int load_address=instruction_address;
+
+  // Display until 32 instructions after BRK instruction if requested
+  // XXX -- We should also just cache instructions before the BRK, so we just display the period when things
+  // go wrong.
+  if ((!b[2])&&wait_for_break) num_instructions=32;
   
   for(int j=0;modes[opcode][j];) {
     args[o]=0;
@@ -502,6 +512,9 @@ int decode_busaccess(const unsigned char *b)
   
   int instruction_address=b[0]+(b[1]<<8);
 
+  printf("BUS ACCESS: %02x %02x %02x %02x %02x %02x %02x %02x\n",
+	 b[0],b[1],b[2],b[3],b[4],b[5],b[6],b[7]);
+  
   if (last_d031_toggle!=d031_toggle) printf("[$D031 written!] ");
   last_d031_toggle=d031_toggle;
   
@@ -648,8 +661,9 @@ int main(int argc,char **argv)
   for(int i=0;i<0x10000;i++) annotations[i]=NULL;
   
   int opt;
-  while ((opt = getopt(argc, argv, "F:m:n:")) != -1) {
+  while ((opt = getopt(argc, argv, "bF:m:n:")) != -1) {
     switch (opt) {
+    case 'b': wait_for_break=1; break;
     case 'F': one_frame=1; break;
     case 'm': match_string=optarg; break;
     case 'n': num_instructions=atoi(optarg); break;
@@ -736,7 +750,8 @@ int main(int argc,char **argv)
 	      bit52set=1;
 	      break; }
 	  }
-	  if (bit52set) {
+	  // For now only support instruction decode
+	  if (1||bit52set) {
 	    for(int offset=0x48+14;offset<hdr.caplen;offset+=8) {
 	      decode_instruction(&packet[offset]);
 	    }
