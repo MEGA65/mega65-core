@@ -287,12 +287,8 @@ trap_dos_setname:
 
 	.invoke checkpoint "trap_dos_setname"
 
-	inc $0400
-
 	jsr hypervisor_setup_copy_region
 	bcc tdsnfailure
-
-	inc $0401
 
 	ldy #$3f
 tdsn1:	lda (<hypervisor_userspace_copy_vector),y
@@ -300,8 +296,6 @@ tdsn1:	lda (<hypervisor_userspace_copy_vector),y
 	dey
 	bpl tdsn1
 
-	inc $0402
-	
 	; now set length
 	;
 	lda hypervisor_z
@@ -312,8 +306,6 @@ tdsn1:	lda (<hypervisor_userspace_copy_vector),y
 	jmp return_from_trap_with_failure
 
 tdsn2:
-	inc $0403
-
 	; setname succeeded
 	;
 	stz dos_requested_filename_len
@@ -321,8 +313,6 @@ tdsn2:
 	; upper case the filename for comparison
 	;
 	jsr dos_requested_filename_to_uppercase
-
-	inc $0406
 
 	jmp return_from_trap_with_success
 
