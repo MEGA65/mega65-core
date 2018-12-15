@@ -1188,6 +1188,14 @@ begin  -- behavioural
 
         dumpram_waddr <= std_logic_vector(to_unsigned(to_integer(unsigned(dumpram_waddr)) + 1,9));
         dumpram_write <= '1';
+        activity_dump_ready_toggle <= dumpram_waddr(8);
+        if dumpram_waddr(7 downto 0) = "11110000" then
+          -- Check if we are about to run out of buffer space
+          if eth_tx_idle_cpuside = '0' then
+            cpu_arrest_internal <= '1';
+            report "ETHERDUMP: Arresting CPU";
+          end if;
+        end if;
       else
         dumpram_write <= '0';
       end if;
