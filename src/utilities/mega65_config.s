@@ -184,7 +184,7 @@ headerColours:
 	.byte		$02, $02, $07, $07, $05, $05, $06, $06
 	
 menuLine:
-	.byte		"systemBdiskBvideoBaudioBnetwork     save"
+	.byte		"inputBchipsetBvideoBaudioBnetwork  save"
 footerLine:
 	.byte		"                                page  / "
 
@@ -599,14 +599,14 @@ readDefaultOpts:
 		STA	ptrOptionBase0 + 1
 
 		LDX	#$00
-@loopSystem:
+@loopInput:
 		STX	readTemp3
 		TXA
 		ASL
 		TAX
-		LDA	systemPageIndex, X
+		LDA	inputPageIndex, X
 		STA	ptrOptsTemp
-		LDA	systemPageIndex + 1, X
+		LDA	inputPageIndex + 1, X
 		STA	ptrOptsTemp + 1
 
 		JSR	doReadOptList
@@ -616,19 +616,19 @@ readDefaultOpts:
 @cont:
 		LDX	readTemp3
 		INX
-		CPX	#systemPageCnt
-		BNE	@loopSystem
+		CPX	#inputPageCnt
+		BNE	@loopInput
 		
 
 		LDX	#$00
-@loopDisk:
+@loopChipset:
 		STX	readTemp3
 		TXA
 		ASL
 		TAX
-		LDA	diskPageIndex, X
+		LDA	chipsetPageIndex, X
 		STA	ptrOptsTemp
-		LDA	diskPageIndex + 1, X
+		LDA	chipsetPageIndex + 1, X
 		STA	ptrOptsTemp + 1
 
 		JSR	doReadOptList
@@ -636,8 +636,8 @@ readDefaultOpts:
 		
 		LDX	readTemp3
 		INX
-		CPX	#diskPageCnt
-		BNE	@loopDisk
+		CPX	#inputPageCnt
+		BNE	@loopChipset
 
 
 		LDX	#$00
@@ -941,14 +941,14 @@ saveDefaultOpts:
 doSaveOptions:
 ;-------------------------------------------------------------------------------
 		LDX	#$00
-@loopSystem:
+@loopInput:
 		STX	readTemp3
 		TXA
 		ASL
 		TAX
-		LDA	systemPageIndex, X
+		LDA	inputPageIndex, X
 		STA	ptrOptsTemp
-		LDA	systemPageIndex + 1, X
+		LDA	inputPageIndex + 1, X
 		STA	ptrOptsTemp + 1
 
 		JSR	doSaveOptList
@@ -958,19 +958,19 @@ doSaveOptions:
 @cont:
 		LDX	readTemp3
 		INX
-		CPX	#systemPageCnt
-		BNE	@loopSystem
+		CPX	#inputPageCnt
+		BNE	@loopInput
 
 
 		LDX	#$00
-@loopDisk:
+@loopChipset:
 		STX	readTemp3
 		TXA
 		ASL
 		TAX
-		LDA	diskPageIndex, X
+		LDA	chipsetPageIndex, X
 		STA	ptrOptsTemp
-		LDA	diskPageIndex + 1, X
+		LDA	chipsetPageIndex + 1, X
 		STA	ptrOptsTemp + 1
 
 		JSR	doSaveOptList
@@ -978,8 +978,8 @@ doSaveOptions:
 		
 		LDX	readTemp3
 		INX
-		CPX	#diskPageCnt
-		BNE	@loopDisk
+		CPX	#chipsetPageCnt
+		BNE	@loopChipset
 
 		LDX	#$00
 @loopVideo:
@@ -1802,14 +1802,14 @@ setupSelectedTab:
 		CMP	#$00
 		BNE	@tstDisk
 		
-		JSR	setupSystemPage0
+		JSR	setupInputPage0
 		RTS
 		
 @tstDisk:
 		CMP	#$01
 		BNE	@tstVideo
 		
-		JSR	setupDiskPage0
+		JSR	setupChipsetPage0
 		RTS
 		
 @tstVideo:
@@ -1843,16 +1843,16 @@ highlightSelectedTab:
 ;-------------------------------------------------------------------------------
 		LDA	tabSelected
 		CMP	#$00
-		BNE	@tstDisk
+		BNE	@tstChipset
 		
-		JSR	highlightSystemTab
+		JSR	highlightInputTab
 		RTS
 		
-@tstDisk:
+@tstChipset:
 		CMP	#$01
 		BNE	@tstVideo
 		
-		JSR	highlightDiskTab
+		JSR	highlightChipsetTab
 		RTS
 		
 @tstVideo:
@@ -1882,22 +1882,22 @@ highlightSelectedTab:
 
 
 ;-------------------------------------------------------------------------------
-setupSystemPage0:
+setupInputPage0:
 ;-------------------------------------------------------------------------------
 		LDA	#$00
 		STA	pgeSelected
-		LDA	#systemPageCnt
+		LDA	#inputPageCnt
 		STA	currPageCnt
 		
-		LDA	#<systemPageIndex
+		LDA	#<inputPageIndex
 		STA	ptrPageIndx
-		LDA	#>systemPageIndex
+		LDA	#>inputPageIndex
 		STA	ptrPageIndx + 1
 		
 		RTS
 
 ;-------------------------------------------------------------------------------
-highlightSystemTab:
+highlightInputTab:
 ;-------------------------------------------------------------------------------
 		LDX	#$01
 		LDA	colourRowsLo, X		;Get colour RAM ptr for line #
@@ -1910,30 +1910,30 @@ highlightSystemTab:
 @loop:
 		STA	(ptrTempData), Y
 		INY
-		CPY	#$07
+		CPY	#$06
 		BNE	@loop
 
 		RTS
 
 
 ;-------------------------------------------------------------------------------
-setupDiskPage0:
+setupChipsetPage0:
 ;-------------------------------------------------------------------------------
 		LDA	#$00
 		STA	pgeSelected
-		LDA	#diskPageCnt
+		LDA	#chipsetPageCnt
 		STA	currPageCnt
 		
-		LDA	#<diskPageIndex
+		LDA	#<chipsetPageIndex
 		STA	ptrPageIndx
-		LDA	#>diskPageIndex
+		LDA	#>chipsetPageIndex
 		STA	ptrPageIndx + 1
 		
 		RTS
 
 
 ;-------------------------------------------------------------------------------
-highlightDiskTab:
+highlightChipsetTab:
 ;-------------------------------------------------------------------------------
 		LDX	#$01
 		LDA	colourRowsLo, X		;Get colour RAM ptr for line #
@@ -1941,12 +1941,12 @@ highlightDiskTab:
 		LDA	colourRowsHi, X
 		STA	ptrTempData + 1		
 		
-		LDY	#$07
+		LDY	#$06
 		LDA	#$01
 @loop:
 		STA	(ptrTempData), Y
 		INY
-		CPY	#$0C
+		CPY	#$0E
 		BNE	@loop
 		
 		RTS
@@ -1977,12 +1977,12 @@ highlightVideoTab:
 		LDA	colourRowsHi, X
 		STA	ptrTempData + 1		
 		
-		LDY	#$0C
+		LDY	#$0E
 		LDA	#$01
 @loop:
 		STA	(ptrTempData), Y
 		INY
-		CPY	#$12
+		CPY	#$14
 		BNE	@loop
 		
 		RTS
@@ -2013,12 +2013,12 @@ highlightAudioTab:
 		LDA	colourRowsHi, X
 		STA	ptrTempData + 1		
 		
-		LDY	#$12
+		LDY	#$14
 		LDA	#$01
 @loop:
 		STA	(ptrTempData), Y
 		INY
-		CPY	#$18
+		CPY	#$1A
 		BNE	@loop
 		
 		RTS
@@ -2049,12 +2049,12 @@ highlightNetworkTab:
 		LDA	colourRowsHi, X
 		STA	ptrTempData + 1		
 		
-		LDY	#$18
+		LDY	#$1A
 		LDA	#$01
 @loop:
 		STA	(ptrTempData), Y
 		INY
-		CPY	#$1F
+		CPY	#$21
 		BNE	@loop
 		
 		RTS
@@ -2387,41 +2387,41 @@ doClickMenu:
 ;-------------------------------------------------------------------------------
 		LDA	mouseXCol
 		CMP	#$08
-		BCS	@tstDiskTab
+		BCS	@tstChipsetTab
 		
 		LDA	#$00
 		JMP	@tstUpdate
 		
-@tstDiskTab:
-		CMP	#$0C
+@tstChipsetTab:
+		CMP	#$0F
 		BCS	@tstVideoTab
 		
 		LDA	#$01
 		JMP	@tstUpdate
 		
 @tstVideoTab:
-		CMP	#$12
+		CMP	#$15
 		BCS	@tstAudioTab
 		
 		LDA	#$02
 		JMP	@tstUpdate
 		
 @tstAudioTab:
-		CMP	#$18
+		CMP	#$1B
 		BCS	@tstNetworkTab
 		
 		LDA	#$03
 		JMP	@tstUpdate
 
 @tstNetworkTab:
-		CMP	#$1F
+		CMP	#$22
 		BCS	@tstSaveTab
 		
 		LDA	#$04
 		JMP	@tstUpdate
 		
 @tstSaveTab:
-		CMP	#$24
+		CMP	#$27
 		BCC	@exit
 		
 		LDA	#$05
@@ -2849,13 +2849,13 @@ doToggleOption:
 		
 		LDA	#$D1
 		PHA
-		LDA	#$D7
+		LDA	#$A0
 		PHA
 		
 		JMP	@update
 		
 @isUnSet:
-		LDA	#$D7
+		LDA	#$A0
 		PHA
 		LDA	#$D1
 		PHA
@@ -3690,7 +3690,7 @@ doDispOptTogLbl:
 		CMP	#$01
 		BEQ	@optIsSet
 
-		LDA	#$D7			;unset opt indicator
+		LDA	#$A0			;unset opt indicator
 		JMP	@cont
 
 @optIsSet:

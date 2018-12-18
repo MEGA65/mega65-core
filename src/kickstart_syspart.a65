@@ -278,6 +278,10 @@ syspart_configsector_apply:
 	cmp #$01
 	bne syspart_config_invalid
 
+	; Set DMAgic revision
+	lda $de20
+	sta $d703
+
 	; Set PAL/NTSC mode (keeping $D058 value)
 	LDX $D058
 	lda $d06f

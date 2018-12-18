@@ -58,11 +58,12 @@ configMagicByte1	=	$01
 
 
 ;-------------------------------------------------------------------------------
-;System tab
+;Input tab
 ;-------------------------------------------------------------------------------
-systemPageCnt	=	1
+inputPageCnt	=	1
 	
-systemOptions0:
+inputOptions0:
+
 	.byte		$20			;option input type
 	.word		$0005			;offset into config table
 	.byte		$02			;bits for testing/setting
@@ -93,19 +94,26 @@ systemOptions0:
 
 
 	.byte		$00			;end of list type
-systemOptions0_end:
-	.assert		(systemOptions0_end - systemOptions0) < 256, error, "System Options too large!"
+inputOptions0_end:
+	.assert		(inputOptions0_end - inputOptions0) < 256, error, "Input Options too large!"
 
-systemPageIndex:
-	.word		systemOptions0
+inputPageIndex:
+	.word		inputOptions0
 	
 
 ;-------------------------------------------------------------------------------
-;Disk tab
+;Chipset tab
 ;-------------------------------------------------------------------------------
-diskPageCnt 	=	1
+chipsetPageCnt 	=	1
 
-diskOptions0:
+chipsetOptions0:
+	.byte		$20			;option input type
+	.word		$0020			;offset into config table
+	.byte		$01			;bits for testing/setting
+	.defPStr	"dmagic revision:"	;label
+	.defPStr	'f018 (c65 roms < 910523)'		;option unset
+	.defPStr	"f018b (c65 roms >= 910523)"	;option set
+
 	.byte		$20			;option input type
 	.word		$0004			;offset into config table
 	.byte		$01			;bits for testing/setting
@@ -124,11 +132,11 @@ diskOptions0:
 	.byte		$00, $00, $00, $00
 
 	.byte		$00			;end of list type
-diskOptions0_end:
-	.assert		(diskOptions0_end - diskOptions0) < 256, error, "Disk Options 0 too large!"
+chipsetOptions0_end:
+	.assert		(chipsetOptions0_end - chipsetOptions0) < 256, error, "Chipset Options 0 too large!"
 
-diskPageIndex:
-	.word		diskOptions0
+chipsetPageIndex:
+	.word		chipsetOptions0
 	
 	
 ;-------------------------------------------------------------------------------
