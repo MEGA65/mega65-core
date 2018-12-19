@@ -329,11 +329,12 @@ int decode_instruction(const unsigned char *b)
   // Limit number of instructions shown
   if (!match_string) {
     if (!num_instructions) match_string="WILL NOT EVER SHOW UP";
-    num_instructions--;
   }
-
-  printf("INSTRUCTION: %02x %02x %02x %02x %02x %02x %02x %02x\n",
-	 b[0],b[1],b[2],b[3],b[4],b[5],b[6],b[7]);
+  if (num_instructions) num_instructions--; else {
+    exit(-1);
+  }
+  if (0) printf("INSTRUCTION: %02x %02x %02x %02x %02x %02x %02x %02x\n",
+		b[0],b[1],b[2],b[3],b[4],b[5],b[6],b[7]);
   
   if ((b[0]&b[1]&b[2])==0xff) {
     // Raster / badline marker
@@ -371,9 +372,9 @@ int decode_instruction(const unsigned char *b)
 
   if (!match_string) {
     printf("%08x ",instruction_count++);
-    if (d031_toggle!=last_d031_toggle) {
-      printf("[$D031 written to!] ");
-    }
+    //    if (d031_toggle!=last_d031_toggle) {
+    //      printf("[$D031 written to!] ");
+    //    }
   }
   last_d031_toggle=d031_toggle;
   
