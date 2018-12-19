@@ -335,6 +335,7 @@ architecture Behavioral of viciv is
   signal vicii_ycounter : unsigned(8 downto 0) := to_unsigned(0,9);
   signal vicii_ycounter_continuous : unsigned(8 downto 0) := to_unsigned(0,9);
   signal vicii_ycounter_driver : unsigned(8 downto 0) := to_unsigned(0,9);
+  signal vicii_ycounter_minus_one : unsigned(8 downto 0) := to_unsigned(0,9);
   signal vicii_sprite_ycounter : unsigned(8 downto 0) := to_unsigned(0,9);
   signal vicii_ycounter_v400 : unsigned(9 downto 0) := to_unsigned(0,10);
   signal last_vicii_ycounter : unsigned(8 downto 0) := to_unsigned(0,9);
@@ -1526,14 +1527,14 @@ begin
                                         -- compatibility sprite x position MSB
           fastio_rdata <= vicii_sprite_xmsbs;
         elsif register_number=17 then             -- $D011
-          fastio_rdata(7) <= vicii_ycounter_driver(8);  -- MSB of raster
+          fastio_rdata(7) <= vicii_ycounter_minus_one(8);  -- MSB of raster
           fastio_rdata(6) <= extended_background_mode;
           fastio_rdata(5) <= not text_mode;
           fastio_rdata(4) <= not blank;
           fastio_rdata(3) <= not twentyfourlines;
           fastio_rdata(2 downto 0) <= std_logic_vector(vicii_y_smoothscroll);
         elsif register_number=18 then          -- $D012 current raster low 8 bits
-          fastio_rdata <= std_logic_vector(vicii_ycounter_driver(7 downto 0));
+          fastio_rdata <= std_logic_vector(vicii_ycounter_minus_one(7 downto 0));
         elsif register_number=19 then          -- $D013 lightpen X (coarse rasterX)
           fastio_rdata <= std_logic_vector(xcounter_drive(11 downto 4));
         elsif register_number=20 then          -- $D014 lightpen Y (coarse rasterY)
@@ -1868,6 +1869,13 @@ begin
       vsync_polarity <= vsync_polarity_internal;
 
       vicii_ycounter_driver <= vicii_ycounter;
+      -- We need a delayed version of the VICII ycounter to display in $D011/$D012,
+      -- as raster interrupts actually happen one raster line later than expected,
+      -- to offset the fact that we have a 1 raster line delay in output of the
+      -- video pipeline.
+      -- That is, we trigger the interrupt when the raster is actually being DISPLAYED,
+      -- and make the contents of $D012/$D011 match this.
+      vicii_ycounter_minus_one <= vicii_ycounter_driver - 1;
       
       viciv_calculate_modeline_dimensions;            
 
