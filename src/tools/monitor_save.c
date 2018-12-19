@@ -63,7 +63,7 @@ int slow_write(int fd,char *d,int l)
   // characters back, meaning we need a 1 char gap between successive
   // characters.  This means >=1/23040sec delay. We'll allow roughly
   // double that at 100usec.
-  printf("Writing [%s]\n",d);
+  //   printf("Writing [%s]\n",d);
   int i;
   for(i=0;i<l;i++)
     {
@@ -143,6 +143,7 @@ int process_line(char *line,int live)
 	printf("Using C65 BASIC pointers\n");
 	// Probably C65 mode
 	start_addr=end_addr;
+	if (start_addr==0x2000) start_addr=0x2001;
 	end_addr=end_addr_c65;
 	// Need to get end_addr from $82
       }
@@ -163,6 +164,7 @@ int process_line(char *line,int live)
 	printf("Using C65 BASIC pointers\n");
 	// Probably C65 mode
 	start_addr=end_addr;
+	if (start_addr==0x2000) start_addr=0x2001;
 	end_addr=end_addr_c65;
 	// Need to get end_addr from $82
       }
