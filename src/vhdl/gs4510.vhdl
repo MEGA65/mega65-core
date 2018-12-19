@@ -1227,6 +1227,9 @@ architecture Behavioural of gs4510 is
   -- # of math cycles to trigger end of job / math interrupt
   signal reg_math_cycle_compare : unsigned(31 downto 0) := to_unsigned(0,32);
 
+  signal badline_enable : std_logic := '1';
+  signal slow_interrupts : std_logic := '1';
+  
 begin
 
   monitor_cpuport <= cpuport_value(2 downto 0);
@@ -2225,6 +2228,11 @@ begin
       elsif (long_address = x"FFD3705") or (long_address = x"FFD1705") then
         -- @IO:GS $D705 Set low-order byte of DMA list address, and trigger Enhanced DMA job (uses DMA option list)
         reg_dmagic_addr(7 downto 0) <= value;
+      elsif (long_address = x"FFD3710") or (long_address = x"FFD1710") then
+        -- @IO:GS $D710.0 - Enable badline emulation
+        -- @IO:GS $D710.1 - Enable 6502-style slow (7 cycle) interrupts
+        badline_enable <= value(0);
+        slow_interrupts <= value(1);
       -- @IO:GS $D770-3 25-bit multiplier input A
       elsif (long_address = x"FFD3770") or (long_address = x"FFD1770") then
         reg_mult_a(7 downto 0) <= value;
@@ -2956,7 +2964,7 @@ begin
               -- of the 6502 in a C64, but only approximate it, as we allow
               -- whatever instruction was running to complete, rather than stopping
               -- as soon as there is a read operation.
-              if (badline_toggle /= last_badline_toggle) and (monitor_mem_attention_request_drive='0') then
+              if (badline_toggle /= last_badline_toggle) and (monitor_mem_attention_request_drive='0') and (badline_enable='1') then
                 phi_pause <= '1';
                 phi_backlog <= 40;
                 last_badline_toggle <= badline_toggle;
@@ -3631,7 +3639,7 @@ begin
               stack_push := '1';
               state <= InterruptPushP;
 
-              if cpuspeed_internal(7 downto 4) = "0000" then
+              if cpuspeed_internal(7 downto 4) = "0000" and (slow_interrupts='1') then
                 -- Charge the 7 cycles for the interrupt when CPU is not at
                 -- full speed
                 phi_add_backlog <= '1'; phi_new_backlog <= 7;          
