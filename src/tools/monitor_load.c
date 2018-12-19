@@ -108,7 +108,7 @@ int slow_write(int fd,char *d,int l)
   // UART is at 2Mbps, but we need to allow enough time for a whole line of
   // writing. 100 chars x 0.5usec = 500usec. So 1ms between chars should be ok.
   int i;
-#if 1
+#if 0
   printf("Writing ");
   for(i=0;i<l;i++)
     {
