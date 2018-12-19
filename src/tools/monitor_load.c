@@ -65,7 +65,8 @@ int new_monitor=0;
 int viciv_mode_report(unsigned char *viciv_regs);
 
 int process_char(unsigned char c,int live);
-
+int process_line(char *line,int live);
+int process_waiting(int fd);
 
 void usage(void)
 {
@@ -100,12 +101,22 @@ void usage(void)
   exit(-3);
 }
 
+int cpu_stopped=0;
+
 int slow_write(int fd,char *d,int l)
 {
   // UART is at 2Mbps, but we need to allow enough time for a whole line of
   // writing. 100 chars x 0.5usec = 500usec. So 1ms between chars should be ok.
-  //  printf("Writing [%s]\n",d);
   int i;
+#if 1
+  printf("Writing ");
+  for(i=0;i<l;i++)
+    {
+      if (d[i]>=' ') printf("%c",d[i]); else printf("[$%02X]",d[i]);
+    }
+  printf("\n");
+#endif
+  
   for(i=0;i<l;i++)
     {
       usleep(2000);
@@ -115,6 +126,24 @@ int slow_write(int fd,char *d,int l)
 	w=write(fd,&d[i],1);
       }
     }
+  return 0;
+}
+
+int slow_write_safe(int fd,char *d,int l)
+{
+  // There is a bug at the time of writing that causes problems
+  // with the CPU's correct operation if various monitor commands
+  // are run when the CPU is running.
+  // Stopping the CPU before and then resuming it after running a
+  // command solves the problem.
+  // The only problem then is if we have a breakpoint set (like when
+  // getting ready to load a program), because we might accidentally
+  // resume the CPU when it should be stopping.
+  // (We can work around this by using the fact that the new UART
+  // monitor tells us when a breakpoint has been reached.
+  slow_write(fd,"t1\r",3);
+  slow_write(fd,d,l);
+  if (!cpu_stopped) slow_write(fd,"t0\r",3);
   return 0;
 }
 
@@ -176,8 +205,19 @@ unsigned long long gettime_ms()
 int stop_cpu(void)
 {
   // Stop CPU
+  printf("Stopping CPU\n");
   usleep(50000);
   slow_write(fd,"t1\r",3);
+  cpu_stopped=1;
+  return 0;
+}
+int start_cpu(void)
+{
+  // Stop CPU
+  printf("Starting CPU\n");
+  usleep(50000);
+  slow_write(fd,"t0\r",3);
+  cpu_stopped=0;
   return 0;
 }
 
@@ -269,6 +309,7 @@ int restart_kickstart(void)
     slow_write(fd,"g8100\r",6);
     usleep(10000);
     slow_write(fd,"t0\r",3);
+    cpu_stopped=0;
   }
   return 0;
 }
@@ -307,6 +348,25 @@ int read_and_print(int fd)
   return 0;
 }
 
+int stuff_keybuffer(char *s)
+{
+  int buffer_addr=0x277;
+  int buffer_len_addr=0xc6;
+
+  if (saw_c65_mode) {
+    buffer_addr=0x2b0;
+    buffer_len_addr=0xd0;
+  }
+
+  printf("Injecting string '%s' into key buffer at $%04X\n",s,buffer_addr);
+  
+  char cmd[1024];
+  snprintf(cmd,1024,"s%x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x\rs%x %d\r",
+	   buffer_addr,s[0],s[1],s[2],s[3],s[4],s[5],s[6],s[7],s[8],s[9],
+	   buffer_len_addr,(int)strlen(s));
+  return slow_write(fd,cmd,strlen(cmd));
+}
+
 int process_line(char *line,int live)
 {
   int pc,a,x,y,sp,p;
@@ -318,8 +378,8 @@ int process_line(char *line,int live)
   }
   if (sscanf(line,"%04x %02x %02x %02x %02x %02x",
 	     &pc,&a,&x,&y,&sp,&p)==6) {
-    printf("PC=$%04x\n",pc);
-    if (pc==0xf4a5||pc==0xf4a2||pc==0xf66b) {
+    //    printf("PC=$%04x\n",pc);
+    if (pc==0xf4a5||pc==0xf4a2||pc==0xf666) {
       // Intercepted LOAD command
       printf("LOAD vector intercepted\n");
       state=1;
@@ -362,8 +422,7 @@ int process_line(char *line,int live)
 	usleep(50000);
 	slow_write(fd,"\r",1);
 	if (!halt) {
-	  usleep(50000);
-	  slow_write(fd,"t0\r",3); // and set CPU going
+	  start_cpu();
 	}
 	usleep(20000);
 	if (reset_first) { slow_write(fd,"!\r",2); sleep(1); }
@@ -569,7 +628,7 @@ int process_line(char *line,int live)
 	for(int i=0;i<16;i++) { fname[i]=b[i]; } fname[16]=0;
 	fname[name_len]=0;
 	printf("Request to load '%s'\n",fname);
-	if (fname[0]=='!') {
+	if (fname[0]=='!'||(!strcmp(fname,"0:!"))) {
 	  // we use this form in case junk gets typed while we are doing it
 	  if (not_already_loaded)
 	    state=2; // load specified file
@@ -657,8 +716,7 @@ int process_line(char *line,int live)
 	  virtual_f011_pending = 1;
           snprintf(cmd,1024,"sffd3086 %02x\n",side);
 	  slow_write(fd,cmd,strlen(cmd));
-          //slow_write(fd,"t0\r",3);
-          slow_write(fd,"t1\rmffd3077\rt0\r",3+9+3);
+          slow_write_safe(fd,"mffd3077\r",9);
         }
 
 	else if ((b[6+9] & 0x40) && !virtual_f011_pending) {
@@ -739,7 +797,7 @@ int process_line(char *line,int live)
 	  virtual_f011_pending = 1;
           snprintf(cmd,1024,"sffd3086 %02x\n",saved_side);
 	  slow_write(fd,cmd,strlen(cmd));
-          if (!halt) slow_write(fd,"t0\r",3);
+          if (!halt) start_cpu();
           slow_write(fd,"mffd3077\r",9);
         }
       }
@@ -814,8 +872,8 @@ int process_line(char *line,int live)
     }
     if (do_go64) {
       // PGS 20181123 - Keyboard buffer has moved in newer C65 ROMs from $34A to $2D0
-      char *cmd="s2b0 47 4f 36 34 d 59 d\rsd0 7\r";
-      slow_write(fd,cmd,strlen(cmd));
+      saw_c65_mode=1; stuff_keybuffer("GO64\rY\r");
+      saw_c65_mode=0;
       if (first_go64) fprintf(stderr,"[T+%lldsec] GO64\nY\n",(long long)time(0)-start_time);
       first_go64=0;
     } else {
@@ -824,12 +882,16 @@ int process_line(char *line,int live)
       if ((!do_go64)&&filename&&not_already_loaded) {
 	printf("XXX Trying to load from C65 mode\n");
 	char *cmd;
-	cmd="bf66b\r";
+	cmd="bf664\r";
 	slow_write(fd,cmd,strlen(cmd));
-	cmd="s2b0 44 4c 6f 22 21 0d\rsd0 06\r";
-	slow_write(fd,cmd,strlen(cmd));
+	stuff_keybuffer("DLo\"!\r");
 	if (first_load) fprintf(stderr,"[T+%lldsec] Injecting LOAD\"!\n",(long long)time(0)-start_time);
 	first_load=0;
+
+	while(state!=1) {
+	  process_waiting(fd);
+	}
+	
       } else if ((!mode_report)&&(!virtual_f011)&&(!type_text)) {
         if (do_run) {
           // C65 mode stuff keyboard buffer
@@ -853,9 +915,9 @@ int process_line(char *line,int live)
     char *cmd;
     if (filename&&not_already_loaded) {
       cmd="bf4a5\r";
+      saw_c64_mode=1;
       slow_write(fd,cmd,strlen(cmd));
-      cmd="s277 4c 6f 22 21 22 2c 38 2c 31 d\rsc6 0a\r";
-      slow_write(fd,cmd,strlen(cmd));
+      stuff_keybuffer("Lo\"!\",8,1\r");
       if (first_load) fprintf(stderr,"[T+%lldsec] LOAD\"!\n",(long long)time(0)-start_time);
       first_load=0;
     } else {
@@ -878,8 +940,11 @@ int process_line(char *line,int live)
 	int load_addr=fgetc(f);
 	load_addr|=fgetc(f)<<8;
 	if (!comma_eight_comma_one) {
-	  load_addr=0x0801;
-	  printf("Forcing load address to $0801\n");
+	  if (saw_c64_mode)
+	    load_addr=0x0801;
+	  else
+	    load_addr=0x2001;
+	  printf("Forcing load address to $%04X\n",load_addr);
 	}
 	else
 	  printf("Load address is $%04x\n",load_addr);	
@@ -913,8 +978,12 @@ int process_line(char *line,int live)
 	// jump to end of load routine, resume CPU at a CLC, RTS
 	usleep(50000);
 
-	sprintf(cmd,"sc6 0\r");
+	// Clear keyboard input buffer
+	if (saw_c64_mode) sprintf(cmd,"sc6 0\r");
+	else sprintf(cmd,"sd0 0\r");
 	slow_write(fd,cmd,strlen(cmd));	usleep(20000);
+
+	// Remove breakpoint
 	sprintf(cmd,"b\r");
 	slow_write(fd,cmd,strlen(cmd));	usleep(20000);
 
@@ -922,19 +991,18 @@ int process_line(char *line,int live)
 	// returning: LDX #$ll / LDY #$yy / CLC / RTS
 	sprintf(cmd,"s380 a2 %x a0 %x 18 60\r",
 		load_addr&0xff,(load_addr>>8)&0xff);
+	printf("Returning top of load address = $%04X\n",load_addr);
 	slow_write(fd,cmd,strlen(cmd));	usleep(20000);
 
 	sprintf(cmd,"g0380\r");
 	slow_write(fd,cmd,strlen(cmd));	usleep(20000);
 
 	if (!halt) {
-	  sprintf(cmd,"t0\r");
-	  slow_write(fd,cmd,strlen(cmd));	usleep(20000);
+	  start_cpu();
 	}
 
 	if (do_run) {
-	  sprintf(cmd,"s277 52 55 4e d\rsc6 4\r");
-	  slow_write(fd,cmd,strlen(cmd));
+	  stuff_keybuffer("RUN\r");
 	  fprintf(stderr,"[T+%lldsec] RUN\n",(long long)time(0)-start_time);
 	}
 
@@ -1364,24 +1432,23 @@ int main(int argc,char **argv)
 
         fast_mode = saw_c65_mode || saw_c64_mode;
 	if (gettime_ms()>last_check) {
-          if(fast_mode) {
-          
-	    //            slow_write(fd,"mffd3077\r",9);
+          if(fast_mode) {         
 	    if( sdbuf_request_addr != 0) {
 	      char cmd[1024];
 	      sprintf(cmd,"M%x\r",WRITE_SECTOR_BUFFER_ADDRESS);
 	      slow_write(fd,cmd,strlen(cmd));
             } else {
-	      slow_write(fd,"t1\rmffd3077\rt0\r",3+9+3);
+	      if (virtual_f011)
+		slow_write_safe(fd,"mffd3077\r",9);
             }
 	  } else {	    
 	    if (state==99) printf("sending R command to sync @ %dpbs.\n",serial_speed);
 	    switch (phase%(4+hypervisor_paused)) {
-	    case 0: slow_write(fd,"t1\rr\rt0\r",3+2+3); break; // PC check
-	    case 1: slow_write(fd,"t1\rm800\rt0\r",3+5+3); break; // C65 Mode check
-	    case 2: slow_write(fd,"t1\rm42c\rt0\r",3+5+3); break; // C64 mode check
-            case 3: slow_write(fd,"t1\rmffd3077\rt0\r",3+9+3); break; 
-	    case 4: slow_write(fd,"t1\rmffd3659\rt0\r",3+9+3); break; // Hypervisor virtualisation/security mode flag check
+	    case 0: slow_write_safe(fd,"r\r",2); break; // PC check
+	    case 1: slow_write_safe(fd,"m800\r",5); break; // C65 Mode check
+	    case 2: slow_write_safe(fd,"m42c\r",5); break; // C64 mode check
+            case 3: slow_write_safe(fd,"mffd3077\r",9); break; 
+	    case 4: slow_write_safe(fd,"mffd3659\r",9); break; // Hypervisor virtualisation/security mode flag check
 	    default: phase=0;
 	    }
           } 
