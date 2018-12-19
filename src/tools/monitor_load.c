@@ -104,7 +104,7 @@ int slow_write(int fd,char *d,int l)
 {
   // UART is at 2Mbps, but we need to allow enough time for a whole line of
   // writing. 100 chars x 0.5usec = 500usec. So 1ms between chars should be ok.
-  // printf("Writing [%s]\n",d);
+  //  printf("Writing [%s]\n",d);
   int i;
   for(i=0;i<l;i++)
     {
@@ -318,9 +318,10 @@ int process_line(char *line,int live)
   }
   if (sscanf(line,"%04x %02x %02x %02x %02x %02x",
 	     &pc,&a,&x,&y,&sp,&p)==6) {
-    // printf("PC=$%04x\n",pc);
-    if (pc==0xf4a5||pc==0xf4a2) {
+    printf("PC=$%04x\n",pc);
+    if (pc==0xf4a5||pc==0xf4a2||pc==0xf66b) {
       // Intercepted LOAD command
+      printf("LOAD vector intercepted\n");
       state=1;
     } else if (pc>=0x8000&&pc<0xc000
 	       &&(kickstart)) {
@@ -657,7 +658,7 @@ int process_line(char *line,int live)
           snprintf(cmd,1024,"sffd3086 %02x\n",side);
 	  slow_write(fd,cmd,strlen(cmd));
           //slow_write(fd,"t0\r",3);
-          slow_write(fd,"mffd3077\r",9);
+          slow_write(fd,"t1\rmffd3077\rt0\r",3+9+3);
         }
 
 	else if ((b[6+9] & 0x40) && !virtual_f011_pending) {
@@ -820,10 +821,20 @@ int process_line(char *line,int live)
     } else {
       if (!saw_c65_mode) fprintf(stderr,"MEGA65 is in C65 mode.\n");
       saw_c65_mode=1;
-      if ((!mode_report)&&(!virtual_f011)&&(!type_text)) {
+      if ((!do_go64)&&filename&&not_already_loaded) {
+	printf("XXX Trying to load from C65 mode\n");
+	char *cmd;
+	cmd="bf66b\r";
+	slow_write(fd,cmd,strlen(cmd));
+	cmd="s2b0 44 4c 6f 22 21 0d\rsd0 06\r";
+	slow_write(fd,cmd,strlen(cmd));
+	if (first_load) fprintf(stderr,"[T+%lldsec] Injecting LOAD\"!\n",(long long)time(0)-start_time);
+	first_load=0;
+      } else if ((!mode_report)&&(!virtual_f011)&&(!type_text)) {
         if (do_run) {
           // C65 mode stuff keyboard buffer
-
+	  printf("XXX - Do C65 keyboard buffer stuffing\n");
+	  
         } else {
   	  fprintf(stderr,"Exiting now that we are in C65 mode.\n");
 	  exit(0);
@@ -843,7 +854,7 @@ int process_line(char *line,int live)
     if (filename&&not_already_loaded) {
       cmd="bf4a5\r";
       slow_write(fd,cmd,strlen(cmd));
-      cmd="s277 4c 6f 22 21 22 2c 38 2c 31 d\rsc6 10\r";
+      cmd="s277 4c 6f 22 21 22 2c 38 2c 31 d\rsc6 0a\r";
       slow_write(fd,cmd,strlen(cmd));
       if (first_load) fprintf(stderr,"[T+%lldsec] LOAD\"!\n",(long long)time(0)-start_time);
       first_load=0;
@@ -1361,16 +1372,16 @@ int main(int argc,char **argv)
 	      sprintf(cmd,"M%x\r",WRITE_SECTOR_BUFFER_ADDRESS);
 	      slow_write(fd,cmd,strlen(cmd));
             } else {
-	      slow_write(fd,"mffd3077\r",9);
+	      slow_write(fd,"t1\rmffd3077\rt0\r",3+9+3);
             }
 	  } else {	    
 	    if (state==99) printf("sending R command to sync @ %dpbs.\n",serial_speed);
 	    switch (phase%(4+hypervisor_paused)) {
-	    case 0: slow_write(fd,"r\r",2); break; // PC check
-	    case 1: slow_write(fd,"m800\r",5); break; // C65 Mode check
-	    case 2: slow_write(fd,"m42c\r",5); break; // C64 mode check
-            case 3: slow_write(fd,"mffd3077\r",9); break; 
-	    case 4: slow_write(fd,"mffd3659\r",9); break; // Hypervisor virtualisation/security mode flag check
+	    case 0: slow_write(fd,"t1\rr\rt0\r",3+2+3); break; // PC check
+	    case 1: slow_write(fd,"t1\rm800\rt0\r",3+5+3); break; // C65 Mode check
+	    case 2: slow_write(fd,"t1\rm42c\rt0\r",3+5+3); break; // C64 mode check
+            case 3: slow_write(fd,"t1\rmffd3077\rt0\r",3+9+3); break; 
+	    case 4: slow_write(fd,"t1\rmffd3659\rt0\r",3+9+3); break; // Hypervisor virtualisation/security mode flag check
 	    default: phase=0;
 	    }
           } 
