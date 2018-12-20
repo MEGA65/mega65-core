@@ -1166,13 +1166,11 @@ begin
               -- VIC-II sprites care only about VIC-II coordinates
               -- XXX 40 and 80 column displays should have the same aspect
               -- ratio for this to really work.
---              x320_in => to_xposition(vicii_xcounter_320),
---              x640_in => to_xposition(vicii_xcounter_640),
-              x320_in => to_xposition(to_unsigned(xcounter_pipeline_delayed,11)),
-              x640_in => to_xposition(to_unsigned(xcounter_pipeline_delayed,11)),
+              pipeline_delay => reg_xcounter_delay,
+              x320_in => to_xposition(vicii_xcounter_320),
+              x640_in => to_xposition(vicii_xcounter_640),
               -- x1280 mode is deprecated
---              x1280_in => to_xposition(vicii_xcounter_640),
-              x1280_in => to_xposition(to_unsigned(xcounter_pipeline_delayed,11)),
+              x1280_in => to_xposition(vicii_xcounter_640),
               y_in => to_yposition(vicii_sprite_ycounter),
               border_in => inborder_drive,
               pixel_in => chargen_pixel_colour,

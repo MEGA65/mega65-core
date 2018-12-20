@@ -89,6 +89,7 @@ entity vicii_sprites is
     signal x320_in : in xposition;
     signal x640_in : in xposition;
     signal x1280_in : in xposition;
+    signal pipeline_delay : in integer range 0 to 31;
 
     signal y_in : in yposition;
     signal border_in : in std_logic;
@@ -125,6 +126,8 @@ architecture behavioural of vicii_sprites is
 
   type sprite_vector_8 is array(0 to 7) of unsigned(7 downto 0);
 
+  signal pipeline_delay_latched : integer range 0 to 31 := 0;
+  
   -- Description of VIC-II sprites
   signal sprite_x : sprite_vector_8  := (others => x"02");
   signal vicii_sprite_enables : std_logic_vector(7 downto 0) := (others => '1');
@@ -346,6 +349,7 @@ begin
              is_foreground_in => is_foreground_in,
              is_background_in => is_background_in,
              sprite_h640 => sprite_h640,
+             pipeline_delay => pipeline_delay_latched,
              x320_in => x320_in,
              x640_in => x640_in,
              y_in => y_in,
@@ -416,6 +420,7 @@ begin
              is_foreground_in => is_foreground_7_6,
              is_background_in => is_background_7_6,
              sprite_h640 => sprite_h640,
+             pipeline_delay => pipeline_delay,
              x320_in => x320_7_6,
              x640_in => x640_7_6,
              y_in => y_7_6,
@@ -487,6 +492,7 @@ begin
              is_foreground_in => is_foreground_6_5,
              is_background_in => is_background_6_5,
              sprite_h640 => sprite_h640,
+             pipeline_delay => pipeline_delay,
              x320_in => x320_6_5,
              x640_in => x640_6_5,
              y_in => y_6_5,
@@ -558,6 +564,7 @@ begin
              is_foreground_in => is_foreground_5_4,
              is_background_in => is_background_5_4,
              sprite_h640 => sprite_h640,
+             pipeline_delay => pipeline_delay,
              x320_in => x320_5_4,
              x640_in => x640_5_4,
              y_in => y_5_4,
@@ -629,6 +636,7 @@ begin
              is_foreground_in => is_foreground_4_3,
              is_background_in => is_background_4_3,
              sprite_h640 => sprite_h640,
+             pipeline_delay => pipeline_delay,
              x320_in => x320_4_3,
              x640_in => x640_4_3,
              y_in => y_4_3,
@@ -700,6 +708,7 @@ begin
              is_foreground_in => is_foreground_3_2,
              is_background_in => is_background_3_2,
              sprite_h640 => sprite_h640,
+             pipeline_delay => pipeline_delay,
              x320_in => x320_3_2,
              x640_in => x640_3_2,
              y_in => y_3_2,
@@ -771,6 +780,7 @@ begin
              is_foreground_in => is_foreground_2_1,
              is_background_in => is_background_2_1,
              sprite_h640 => sprite_h640,
+             pipeline_delay => pipeline_delay,
              x320_in => x320_2_1,
              x640_in => x640_2_1,
              y_in => y_2_1,
@@ -842,6 +852,7 @@ begin
              is_foreground_in => is_foreground_1_0,
              is_background_in => is_background_1_0,
              sprite_h640 => sprite_h640,
+             pipeline_delay => pipeline_delay,
              x320_in => x320_1_0,
              x640_in => x640_1_0,
              y_in => y_1_0,
@@ -995,6 +1006,10 @@ begin
       end if;
     end if;
 
+    if rising_edge(pixelclock) then
+      pipeline_delay_latched <= pipeline_delay;
+    end if;   
+    
     -- Snoop fastio bus to obtain sprite register values.
     -- (We also have to snoop $D02F and $D031 so that we know if VIC-III
     -- extended attributes are enabled.  If so, sprite colour registers are

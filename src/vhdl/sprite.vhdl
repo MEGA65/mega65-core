@@ -70,6 +70,7 @@ entity sprite is
     -- and what is the colour of the bitmap pixel?
     signal x320_in : in xposition;
     signal x640_in : in xposition;
+    signal pipeline_delay : integer range 0 to 31;
     signal y_in : in yposition;
     signal border_in : in std_logic;
     signal pixel_in : in unsigned(7 downto 0);
@@ -130,6 +131,9 @@ architecture behavioural of sprite is
 
   signal x_in : xposition := 0;
 
+  signal pixel_strobe : std_logic := '0';
+  signal pixel_strobe_history : std_logic_vector(31 downto 0) := (others => '0');
+  
 begin  -- behavioural
   
   -- purpose: sprite drawing
@@ -176,6 +180,15 @@ begin  -- behavioural
       
       y_last <= y_in;
       x_last <= x_in;
+
+      if (x_last /= x_in) then
+        pixel_strobe_history(0) <= '1';
+      else
+        pixel_strobe_history(0) <= '0';
+      end if;
+      pixel_strobe_history(31 downto 1) <= pixel_strobe_history(30 downto 0);
+      pixel_strobe <= pixel_strobe_history(pipeline_delay);
+
       
       if sprite_datavalid_in='1' then
         report "SPRITE: fetching sprite #"
@@ -351,7 +364,7 @@ begin  -- behavioural
       end if;
       
       -- Advance X position of sprite
-      if (x_last /= x_in) and (x_in_sprite = '1') then
+      if (pixel_strobe='1') and (x_in_sprite = '1') then
         -- X position has advanced while drawing a sprite
         report "SPRITE: drawing next pixel";
         if (x_expand_toggle = '1') or (sprite_stretch_x/='1') then
