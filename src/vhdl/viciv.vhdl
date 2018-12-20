@@ -2466,7 +2466,7 @@ begin
                                                     -- Make sure that matrix
                                                     -- mode display isn't jiggly
                                                     if fastio_wdata(7)='1' then
-                                                      reg_xcounter_delay <= 4;
+                                                      reg_xcounter_delay <= 1;
                                                       reg_alpha_delay <= x"1";
                                                     else
                                                       reg_xcounter_delay <= 0;
