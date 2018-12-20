@@ -980,6 +980,7 @@ architecture Behavioral of viciv is
   signal d031_written_internal : std_logic := '0';
 
   signal badline_toggle_internal : std_logic := '0';
+  signal enable_raster_delay : std_logic := '0';
   
 begin
   
@@ -1753,7 +1754,7 @@ begin
           fastio_rdata <= std_logic_vector(single_side_border(7 downto 0));
         elsif register_number=93 then
           fastio_rdata(7) <= vicii_hot_regs_enable;
-          fastio_rdata(6) <= '0';
+          fastio_rdata(6) <= enable_raster_delay;
           fastio_rdata(5 downto 0) <= std_logic_vector(single_side_border(13 downto 8));
         elsif register_number=94 then
           fastio_rdata(7 downto 0)  <= std_logic_vector(display_row_width);
@@ -1875,7 +1876,11 @@ begin
       -- video pipeline.
       -- That is, we trigger the interrupt when the raster is actually being DISPLAYED,
       -- and make the contents of $D012/$D011 match this.
-      vicii_ycounter_minus_one <= vicii_ycounter_driver - 1;
+      if enable_raster_delay='1' then
+        vicii_ycounter_minus_one <= vicii_ycounter_driver - 1;
+      else
+        vicii_ycounter_minus_one <= vicii_ycounter_driver;
+      end if;
       
       viciv_calculate_modeline_dimensions;            
 
@@ -2394,7 +2399,8 @@ begin
                                                   elsif register_number=93 then
                                         -- @IO:GS $D05D.0-5 VIC-IV side border width (MSB)
                                                     single_side_border(13 downto 8) <= unsigned(fastio_wdata(5 downto 0));
-                                        -- @IO:GS $D05D.6 VIC-IV UNUSED
+                                        -- @IO:GS $D05D.6 VIC-IV Enable raster delay (delays raster counter and interrupts by one line to match output pipeline latency)
+                                                    enable_raster_delay <= fastio_wdata(6);
                                         -- @IO:GS $D05D.7 VIC-IV Enable VIC-II hot registers
                                                     vicii_hot_regs_enable <= fastio_wdata(7);
                                                   elsif register_number=94 then
@@ -2835,7 +2841,11 @@ begin
         -- As we have a one raster line delay in display, we delay the raster
         -- interrupt by one line also, so that it better matches what we see on
         -- a VIC-II.
-        vicii_raster_compare_plus_one <= vicii_raster_compare + 1;
+        if enable_raster_delay='1' then
+          vicii_raster_compare_plus_one <= vicii_raster_compare + 1;
+        else
+          vicii_raster_compare_plus_one <= vicii_raster_compare;
+        end if;
         if (vicii_is_raster_source='1') and (vicii_ycounter = vicii_raster_compare_plus_one(8 downto 0)) and last_vicii_ycounter /= vicii_ycounter then
           irq_raster <= '1';
         end if;
