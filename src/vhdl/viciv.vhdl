@@ -2984,16 +2984,16 @@ begin
       -- Work out where in the current character we seem to be
       -- (and allowing for smooth scrolling etc during drawing of the frame)
       if reg_v400='1' then
-        if y_chargen_start > vicii_ycounter_v400 then
+        if y_chargen_start > displayy then
           pixels_since_last_char <= "000";
         else
-          pixels_since_last_char <= to_unsigned(to_integer(vicii_ycounter_v400) - to_integer(y_chargen_start),3);
+          pixels_since_last_char <= to_unsigned(to_integer(displayy) - to_integer(y_chargen_start),3);
         end if;
       else
-        if y_chargen_start > vicii_ycounter then
+        if y_chargen_start > displayy(11 downto 1) then
           pixels_since_last_char <= "000";
         else
-          pixels_since_last_char <= to_unsigned(to_integer(vicii_ycounter) - to_integer(y_chargen_start),3);
+          pixels_since_last_char <= to_unsigned(to_integer(displayy(11 downto 1)) - to_integer(y_chargen_start),3);
         end if;
       end if;
 
