@@ -1144,7 +1144,7 @@ int show_directory(char *path)
     }
 
     if (fat_opendir(path)) { retVal=-1; break; }
-    //    printf("Opened directory, dir_sector=%d (absolute sector = %d)\n",dir_sector,partition_start+dir_sector);
+    // printf("Opened directory, dir_sector=%d (absolute sector = %d)\n",dir_sector,partition_start+dir_sector);
     while(!fat_readdir(&de)) {
       if (de.d_name[0]&&(de.d_off>=0))
 	printf("%12d %s\n",(int)de.d_off,de.d_name);
@@ -1168,13 +1168,13 @@ int rename_file(char *name,char *dest_name)
     }
 
     if (fat_opendir("/")) { retVal=-1; break; }
-    //    printf("Opened directory, dir_sector=%d (absolute sector = %d)\n",dir_sector,partition_start+dir_sector);
+    // printf("Opened directory, dir_sector=%d (absolute sector = %d)\n",dir_sector,partition_start+dir_sector);
     while(!fat_readdir(&de)) {
-      // if (de.d_name[0]) printf("%13s   %d\n",de.d_name,(int)de.d_off);
-      //      else dump_bytes(0,"empty dirent",&dir_sector_buffer[dir_sector_offset],32);
-      if (!strcasecmp(de.d_name,dest_name)) {
+      // if (de.d_name[0]) printf("'%s'   %d\n",de.d_name,(int)de.d_off);
+      // else dump_bytes(0,"empty dirent",&dir_sector_buffer[dir_sector_offset],32);
+      if (!strcasecmp(de.d_name,name)) {
 	// Found file, so will replace it
-	//	printf("%s already exists on the file system, beginning at cluster %d\n",name,(int)de.d_ino);
+	printf("%s already exists on the file system, beginning at cluster %d\n",name,(int)de.d_ino);
 	break;
       }
     }
