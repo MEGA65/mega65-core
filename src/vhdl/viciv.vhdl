@@ -981,6 +981,7 @@ architecture Behavioral of viciv is
 
   signal badline_toggle_internal : std_logic := '0';
   signal enable_raster_delay : std_logic := '1';
+  signal pixels_since_last_char : unsigned(2 downto 0) := "000";
   
 begin
   
@@ -2979,7 +2980,22 @@ begin
         chargen_active <= '0';
         chargen_active_soon <= '0';
       end if;
-      
+
+      -- Work out where in the current character we seem to be
+      -- (and allowing for smooth scrolling etc during drawing of the frame)
+      if reg_v400='1' then
+        if y_chargen_start > vicii_ycounter_v400 then
+          pixels_since_last_char <= "000";
+        else
+          pixels_since_last_char <= to_unsigned(to_integer(vicii_ycounter_v400) - to_integer(y_chargen_start),3);
+        end if;
+      else
+        if y_chargen_start > vicii_ycounter then
+          pixels_since_last_char <= "000";
+        else
+          pixels_since_last_char <= to_unsigned(to_integer(vicii_ycounter) - to_integer(y_chargen_start),3);
+        end if;
+      end if;
 
       last_was_fetch_start <= is_fetch_start;
       if xcounter=(to_integer(frame_h_front)+display_fetch_start) then
@@ -3062,7 +3078,7 @@ begin
           chargen_y_next <= chargen_y_next + 1;
           report "bumping chargen_y to " & integer'image(to_integer(chargen_y)) severity note;
           if chargen_y_scale /= 0 then
-            if chargen_y = "111" then
+            if pixels_since_last_char = "111" then
               bump_screen_row_address<='1';
             end if;
           else
