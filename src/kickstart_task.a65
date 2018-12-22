@@ -59,7 +59,7 @@ task_set_c64_memorymap:
 	lda $dd00
 	ora #$03
 	sta $dd00
-	lda #$80
+	lda #$c0    ; also enable raster delay to match rendering with interrupts more correctly
 	sta $d05d
 	lda #$1b
 	sta $d011
