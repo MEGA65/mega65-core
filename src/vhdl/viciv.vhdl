@@ -3082,7 +3082,7 @@ begin
               bump_screen_row_address<='1';
             end if;
           else
-            if chargen_y = "110" then
+            if pixels_since_last_char = "110" then
               report "LEGACY: Bumping screen row address one raster early for V400";
               bump_screen_row_address<='1';
             end if;
