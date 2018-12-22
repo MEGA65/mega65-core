@@ -3078,12 +3078,12 @@ begin
           chargen_y_next <= chargen_y_next + 1;
           report "bumping chargen_y to " & integer'image(to_integer(chargen_y)) severity note;
           if chargen_y_scale /= 0 then
-            if pixels_since_last_char = "111" then
+            if pixels_since_last_char = "011" then
               bump_screen_row_address<='1';
               chargen_y_next <= "000";
             end if;
           else
-            if pixels_since_last_char = "110" then
+            if pixels_since_last_char = "010" then
               report "LEGACY: Bumping screen row address one raster early for V400";
               bump_screen_row_address<='1';
               chargen_y_next <= "000";
