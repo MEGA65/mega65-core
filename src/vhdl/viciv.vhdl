@@ -3080,11 +3080,13 @@ begin
           if chargen_y_scale /= 0 then
             if pixels_since_last_char = "111" then
               bump_screen_row_address<='1';
+              chargen_y_next <= "000";
             end if;
           else
             if pixels_since_last_char = "110" then
               report "LEGACY: Bumping screen row address one raster early for V400";
               bump_screen_row_address<='1';
+              chargen_y_next <= "000";
             end if;
           end if;
           if (chargen_y_scale=x"02") and (chargen_y(0)='1') then
