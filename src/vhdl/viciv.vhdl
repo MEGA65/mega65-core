@@ -2039,7 +2039,7 @@ begin
           vicii_is_raster_source <= '1';
           -- @IO:C64 $D011.6 VIC-II extended background mode
           extended_background_mode <= fastio_wdata(6);
-          -- @IO:C64 $D011.5 VIC-II text mode
+          -- @IO:C64 $D011.5 VIC-II bitmap mode
           text_mode <= not fastio_wdata(5);
           -- @IO:C64 $D011.4 VIC-II disable display
           blank <= not fastio_wdata(4);
@@ -4230,18 +4230,19 @@ begin
                 -- Multicolour mode
                 paint_background <= screen_colour;
                 if text_mode='1' then
-                  paint_mc1 <= multi2_colour;
-                  paint_mc2 <= multi1_colour;
-                  -- multi-colour text mode masks bit 3 of the foreground
-                  -- colour to select whether the character is multi-colour or
-                  -- not.
-                  -- We allow the previously unused MCM+EBC mode to let us pick
-                  -- the background from high-nybl of colour RAM byte.
-                  -- i.e., it really is extended background colour mode in multi-colour
-                  -- mode.
-                  paint_foreground <= "00000"&glyph_colour(2 downto 0);
                   if extended_background_mode='1' then
-                    paint_background <= "0000"&glyph_colour(7 downto 4);
+                    -- Illegal video mode that shows all black
+                    paint_background <= x"00";
+                    paint_mc1 <= x"00";
+                    paint_mc2 <= x"00";
+                    paint_foreground <= x"00";
+                  else
+                    -- multi-colour text mode masks bit 3 of the foreground
+                    -- colour to select whether the character is multi-colour or
+                    -- not.
+                    paint_foreground <= "00000"&glyph_colour(2 downto 0);
+                    paint_mc1 <= multi2_colour;
+                    paint_mc2 <= multi1_colour;
                   end if;
                 else
                   paint_mc2 <= bitmap_colour_foreground;
