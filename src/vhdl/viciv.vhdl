@@ -4245,9 +4245,17 @@ begin
                     paint_mc2 <= multi1_colour;
                   end if;
                 else
-                  paint_mc2 <= bitmap_colour_foreground;
-                  paint_mc1 <= bitmap_colour_background;
-                  paint_foreground <= glyph_colour;
+                  if extended_background_mode='1' then                  
+                    -- Illegal video mode that shows all black
+                    paint_background <= x"00";
+                    paint_mc1 <= x"00";
+                    paint_mc2 <= x"00";
+                    paint_foreground <= x"00";
+                  else
+                    paint_mc2 <= bitmap_colour_foreground;
+                    paint_mc1 <= bitmap_colour_background;
+                    paint_foreground <= glyph_colour;
+                  end if;
                 end if;       
                 if text_mode='1' and glyph_colour(3)='0' then
                   -- Multi-colour text mode only applies to colours 8-15,
