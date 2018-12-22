@@ -1350,6 +1350,7 @@ begin
                                        +to_integer(vicii_y_smoothscroll)
                                        +to_integer(vicii_y_smoothscroll)
                                        ,12);
+
       else
         -- V400 mode : as above, but with the different constants
         chargen_y_scale <= to_unsigned(to_integer(chargen_y_scale_400)-1,8);
@@ -2048,6 +2049,7 @@ begin
           -- @IO:C64 $D011.2-0 VIC-II 24/25 vertical smooth scroll
           vicii_y_smoothscroll <= unsigned(fastio_wdata(2 downto 0));
           viciv_legacy_mode_registers_touched <= '1';
+          
         elsif register_number=18 then
           -- @IO:C64 $D012 VIC-II raster compare bits 0 to 7
           vicii_raster_compare(7 downto 0) <= unsigned(fastio_wdata);
@@ -3131,7 +3133,7 @@ begin
         inborder_t1 <= '1';
         inborder_t2 <= '1';
       else
-        inborder<='0';
+        inborder<=blank;
         viciv_flyback <= '0';
       end if;
 
@@ -3262,7 +3264,7 @@ begin
       viciv_outofframe <= (not indisplay_t3);
       
 --      if indisplay_t3='1' then
-        if inborder_t2='1' or blank='1' or (bitplane_mode='1' and viciv_bitplane_chargen_on='0') then
+        if inborder_t2='1' or (bitplane_mode='1' and viciv_bitplane_chargen_on='0') then
           pixel_colour <= border_colour;
           pixel_alpha <= x"FF";
           report "VICIV: Drawing border" severity note;
