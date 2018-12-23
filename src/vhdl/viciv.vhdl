@@ -2987,13 +2987,16 @@ begin
         if y_chargen_start > displayy then
           pixels_since_last_char <= "000";
         else
-          pixels_since_last_char <= to_unsigned(to_integer(displayy) - to_integer(y_chargen_start),3);
+          pixels_since_last_char <= to_unsigned(to_integer(displayy) - to_integer(y_chargen_start),3) + 1;
         end if;
       else
         if y_chargen_start > displayy then
           pixels_since_last_char <= "000";
         else
-          pixels_since_last_char <= to_unsigned(to_integer(displayy(11 downto 1)) - to_integer(y_chargen_start),3);
+          pixels_since_last_char <= to_unsigned(to_integer(displayy(11 downto 1)) - to_integer(y_chargen_start),3)
+                                    -- Magic fudge factor to get everything
+                                    -- lining up correctly
+                                    + to_unsigned(to_integer(y_chargen_start(3 downto 1)) + 1,3);
         end if;
       end if;
 
@@ -3078,12 +3081,12 @@ begin
           chargen_y_next <= chargen_y_next + 1;
           report "bumping chargen_y to " & integer'image(to_integer(chargen_y)) severity note;
           if chargen_y_scale /= 0 then
-            if pixels_since_last_char = "011" then
+            if pixels_since_last_char = "111" then
               bump_screen_row_address<='1';
               chargen_y_next <= "000";
             end if;
           else
-            if pixels_since_last_char = "010" then
+            if pixels_since_last_char = "110" then
               report "LEGACY: Bumping screen row address one raster early for V400";
               bump_screen_row_address<='1';
               chargen_y_next <= "000";
