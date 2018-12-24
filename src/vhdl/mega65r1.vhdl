@@ -187,12 +187,13 @@ architecture Behavioral of container is
   signal pixelclock : std_logic;
   signal ethclock : std_logic;
   signal cpuclock : std_logic;
-  signal clock30 : std_logic;
   signal clock40 : std_logic;
   signal clock120 : std_logic;
   signal clock100 : std_logic := '0';
   signal clock200 : std_logic;
   signal clock240 : std_logic;
+
+  
   
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
 
@@ -257,6 +258,8 @@ architecture Behavioral of container is
   signal flopled_drive : std_logic;
   signal flopmotor_drive : std_logic;
 
+  signal joy3 : std_logic_vector(4 downto 0);
+  signal joy4 : std_logic_vector(4 downto 0);
 
   signal cart_access_count : unsigned(7 downto 0);
   
@@ -267,7 +270,6 @@ begin
                clock80 => pixelclock, -- 80MHz
                clock40 => cpuclock, -- 40MHz
                clock50 => ethclock,
-               clock30 => clock30,
                clock100 => clock100,
                clock120 => clock120,
                clock240 => clock240
@@ -293,6 +295,9 @@ begin
       qspicsn => qspicsn,      
 --      qspisck => '1',
 
+      joya => joy3,
+      joyb => joy4,
+      
       cart_busy => led,
       cart_access_count => cart_access_count,
       
@@ -346,7 +351,6 @@ begin
       clock240 => clock240,
       clock120 => clock120,
       clock40 => clock40,
-      clock30 => clock30,
       clock50mhz      => ethclock,
 
       btncpureset => btncpureset,
@@ -356,6 +360,9 @@ begin
       restore_key => restore_key,
       sector_buffer_mapped => sector_buffer_mapped,
 
+      joy3 => joy3,
+      joy4 => joy4,
+      
       no_kickstart => '0',
       
       vsync           => v_vsync,
