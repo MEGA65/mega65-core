@@ -338,8 +338,8 @@ int decode_instruction(const unsigned char *b)
   
   if ((b[0]&b[1]&b[2])==0xff) {
     // Raster / badline marker
-    int vicii_raster=b[3]|((b[4]&0xf)<<4);
-    int viciv_raster=(b[4]>>4)+(b[5]<<8);
+    int viciv_raster=b[3]|((b[4]&0xf)<<4);
+    int vicii_raster=(b[4]>>4)+(b[5]<<4);
     int raster=b[7]&0x80;
     int badline=b[7]&0x40;
 
@@ -662,7 +662,7 @@ int main(int argc,char **argv)
   for(int i=0;i<0x10000;i++) annotations[i]=NULL;
   
   int opt;
-  while ((opt = getopt(argc, argv, "bF:m:n:")) != -1) {
+  while ((opt = getopt(argc, argv, "bFm:n:")) != -1) {
     switch (opt) {
     case 'b': wait_for_break=1; break;
     case 'F': one_frame=1; break;
