@@ -443,8 +443,8 @@ architecture behavioral of iomapper is
   signal touch_key1_driver : unsigned(7 downto 0);
   signal touch_key2_driver : unsigned(7 downto 0);
 
-  signal userport_in : unsigned(7 downto 0) := x"FF";
-  signal userport_out : unsigned(7 downto 0) := x"FF";
+  signal userport_in : std_logic_vector(7 downto 0) := x"FF";
+  signal userport_out : std_logic_vector(7 downto 0) := x"FF";
   
 begin
 
