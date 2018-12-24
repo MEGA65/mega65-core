@@ -340,17 +340,16 @@ begin
       );
   
   machine0: entity work.machine
-    generic map (
-      cpufrequency => 40)
+    generic map (cpufrequency => 40)
     port map (
       pixelclock      => pixelclock,
       cpuclock        => cpuclock,
       uartclock       => cpuclock, -- Match CPU clock
       ioclock         => cpuclock, -- Match CPU clock
-      clock100 => clock100,
       clock240 => clock240,
       clock120 => clock120,
-      clock40 => clock40,
+      clock40 => cpuclock,
+      clock200 => clock200,
       clock50mhz      => ethclock,
 
       btncpureset => btncpureset,
