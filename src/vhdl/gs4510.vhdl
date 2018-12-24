@@ -6484,7 +6484,7 @@ begin
       end if;
     end if;
     
-    if proceed = '0' then
+    if proceed = '0' or phi_pause='1' then
 
       -- Do nothing while CPU is held
       memory_access_read := '0';
