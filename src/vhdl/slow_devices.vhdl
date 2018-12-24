@@ -50,6 +50,12 @@ ENTITY slow_devices IS
     QspiSCK : out std_logic := '1';
     QspiDB : inout std_logic_vector(3 downto 0) := (others => 'H');
     QspiCSn : out std_logic := '1';
+
+    ------------------------------------------------------------------------
+    -- 3rd and 4th joystick ports
+    ------------------------------------------------------------------------
+    joya : out std_logic_vector(4 downto 0);
+    joyb : out std_logic_vector(4 downto 0);
     
     ------------------------------------------------------------------------
     -- C64-compatible cartridge/expansion port
@@ -116,6 +122,8 @@ begin
     cpu_game => cpu_game,
     cpu_exrom => cpu_exrom,
     sector_buffer_mapped => sector_buffer_mapped,
+    joya => joya,
+    joyb => joyb,
 
     cart_access_request => cart_access_request,
     cart_access_read => cart_access_read,

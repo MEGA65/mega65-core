@@ -33,6 +33,9 @@ entity iomapper is
         hyper_trap_f011_read : out std_logic;
         hyper_trap_f011_write : out std_logic;
         hyper_trap_count : out unsigned(7 downto 0);
+
+        joy3 : in std_logic_vector(4 downto 0);
+        joy4 : in std_logic_vector(4 downto 0);
         
         uart_char : out unsigned(7 downto 0);
         uart_char_valid : out std_logic := '0';
@@ -439,6 +442,9 @@ architecture behavioral of iomapper is
 
   signal touch_key1_driver : unsigned(7 downto 0);
   signal touch_key2_driver : unsigned(7 downto 0);
+
+  signal userport_in : unsigned(7 downto 0) := x"FF";
+  signal userport_out : unsigned(7 downto 0) := x"FF";
   
 begin
 
@@ -571,8 +577,13 @@ begin
     portaddr(5) => iec_data_en,
     portaddr(7 downto 6) => dummy(10 downto 9),
     
-    -- CIA port b (user port) not connected by default
-    portbin => x"ff",
+    -- CIA port b (user port)
+    -- As the MEGA65 has no user port, we don't connect this normally
+    -- Instead, we support a cartridge that emulates one of those joy3/4
+    -- adapters
+    
+    portbin => userport_in,
+    portbout => userport_out,
     flagin => '1',
     spin => '1',
     countin => '1'
@@ -1022,6 +1033,18 @@ begin
   begin
     if rising_edge(clk) then
 
+      -- User port is only emulated to provide joy3 and joy4 as though a
+      -- CGA/Protovision joystick adapter were connected.
+      -- This is implemented by a special cartridge (since MEGA65 has no
+      -- userport): Tie DMA to GND, and then use data and address pins 0 - 4
+      -- for the two joysticks -- even simpler than the original!
+      -- (and from a software perspective, it works exactly as the original)
+      if userport_out(7)='1' then
+        userport_in(4 downto 0) <= joy3;
+      else
+        userport_in(4 downto 0) <= joy4;
+      end if;
+      
       touch_key1_driver <= touch_key1;
       touch_key2_driver <= touch_key2;
 

@@ -90,6 +90,9 @@ entity machine is
          cart_access_count : in unsigned(7 downto 0) := x"00";
 
          sector_buffer_mapped : inout std_logic;
+
+         joy3 : in std_logic_vector(4 downto 0) := "11111";
+         joy4 : in std_logic_vector(4 downto 0) := "11111";
          
          ----------------------------------------------------------------------
          -- VGA output
@@ -1258,6 +1261,9 @@ begin
       speed_gate_enable => speed_gate_enable,
       ethernet_cpu_arrest => ethernet_cpu_arrest,
 
+      joy3 => joy3,
+      joy4 => joy4,
+      
       buffereduart_rx => buffereduart_rx,
       buffereduart_tx => buffereduart_tx,
       buffereduart_ringindicate => buffereduart_ringindicate,

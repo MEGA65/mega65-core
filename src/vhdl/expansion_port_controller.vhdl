@@ -28,6 +28,12 @@ ENTITY expansion_port_controller IS
     cpu_game : out std_logic := '1';
 
     ------------------------------------------------------------------------
+    -- Expansion port can host special simplified 4-port joystick adapter
+    ------------------------------------------------------------------------
+    joya : out std_logic_vector(4 downto 0) := "11111";
+    joyb : out std_logic_vector(4 downto 0) := "11111";
+    
+    ------------------------------------------------------------------------
     -- Suppress mapping of IO at $DE00-$DFFF if sector buffer mapped
     ------------------------------------------------------------------------
     sector_buffer_mapped : in std_logic;
@@ -91,6 +97,9 @@ ENTITY expansion_port_controller IS
 end expansion_port_controller;
 
 architecture behavioural of expansion_port_controller is
+
+  signal not_joystick_cartridge : std_logic := '0';
+
   -- XXX - Allow varying the bus speed if we know we have a fast
   -- peripheral
   -- Workout
@@ -124,9 +133,35 @@ begin
   process (pixelclock)
   begin
     if rising_edge(pixelclock) then
+
+      ----------------------------------------------------------------------
+      -- Support for simple passive cartridge with 3rd and 4th joystick ports
+      ----------------------------------------------------------------------      
+      
+      -- If DMA line is ever high, then it is not the joystick cartridge.
+      -- Put another way: The joystick cartridge works by tying DMA to GND.
+      if cart_dma='1' then
+        not_joystick_cartridge <= '1';
+      end if;
+
+      if not_joystick_cartridge = '0' then
+        -- Set data lines to input
+        cart_data_dir <= '0';
+        cart_data_en <= '0';
+        cart_laddr_dir <= '0';
+        cart_addr_en <= '0';
+        cart_a <= (others => 'Z');
+        -- Read data pins for joya, and lower address bits for joyb
+        joya <= std_logic_vector(cart_d_in(4 downto 0));
+        joyb <= std_logic_vector(cart_a(4 downto 0));
+        
+      ----------------------------------------------------------------------
+      -- Normal cartridge port functions
+      ----------------------------------------------------------------------      
+      
       -- Generate phi2 and dotclock signals at 1Mhz and 8MHz respectively.
       -- We approximate these based on the pixel clock
-      if reset = '0' then
+      elsif reset = '0' then
         report "Asserting RESET on cartridge port";
         cart_reset <= '0';
         reset_counter <= 15;

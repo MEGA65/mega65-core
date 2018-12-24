@@ -271,6 +271,9 @@ architecture Behavioral of container is
   signal lcd_vsync : std_logic;
   signal lcd_display_enable : std_logic;
   signal pal50_select : std_logic;
+
+  signal joy3 : std_logic_vector(4 downto 0);
+  signal joy4 : std_logic_vector(4 downto 0);
   
 begin
   
@@ -299,6 +302,9 @@ begin
       cpu_exrom => cpu_exrom,
       cpu_game => cpu_game,
       sector_buffer_mapped => sector_buffer_mapped,
+
+      joya => joy3,
+      joyb => joy4,
       
       qspidb => qspidb,
       qspicsn => qspicsn,      
@@ -359,6 +365,9 @@ begin
       restore_key => restore_key,
       sector_buffer_mapped => sector_buffer_mapped,
 
+      joy3 => joy3,
+      joy4 => joy4,
+      
       pal50_select_out => pal50_select,
       
       -- Wire up a dummy caps_lock key on switch 8
