@@ -22,6 +22,9 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
 
+library unisim;
+use unisim.vcomponents.all;
+
 
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
@@ -191,9 +194,11 @@ architecture Behavioral of container is
   signal cpuclock : std_logic;
   signal clock240 : std_logic;
   signal clock120 : std_logic;
-  signal clock100 : std_logic;
   signal ethclock : std_logic;
+  signal clock200 : std_logic;
   signal clock30 : std_logic;
+  signal clock30in : std_logic := '0';
+  signal clock30count : integer range 0 to 2 := 0;
   
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
 
@@ -274,8 +279,7 @@ begin
                clock80 => pixelclock, -- 80MHz
                clock40 => cpuclock, -- 40MHz
                clock50 => ethclock,
-               clock30 => clock30,
-               clock100 => clock100,
+               clock200 => clock200,
                clock120 => clock120,
                clock240 => clock240
                );
@@ -343,11 +347,10 @@ begin
       cpuclock        => cpuclock,
       uartclock       => cpuclock, -- Match CPU clock
       ioclock         => cpuclock, -- Match CPU clock
-      clock100 => clock100,
       clock240 => clock240,
       clock120 => clock120,
       clock40 => cpuclock,
-      clock30 => clock30,
+      clock200 => clock200,
       clock50mhz      => ethclock,
       btncpureset => btncpureset,
       reset_out => reset_out,
@@ -523,6 +526,26 @@ begin
 
   -- Push correct clock to LCD panel
   jbhi(7) <= not clock30 when pal50_select='1' else not cpuclock;
+
+
+  -- Create BUFG'd 30MHz clock for LCD panel
+  --------------------------------------
+  clkin30_buf : IBUFG
+  port map
+   (O => clock30,
+    I => clock30in);
+  
+  process (clock240)
+  begin
+    if rising_edge(clock240) then
+      if (clock30count /= 2 ) then
+        clock30count <= clock30count + 1;
+      else
+        clock30in <= not clock30in;
+        clock30count <= 0;
+      end if;
+    end if;
+  end process;
   
   process (cpuclock,clock120,clock30,cpuclock,pal50_select)
   begin
@@ -582,6 +605,6 @@ begin
   end process;
 
   -- Ethernet clock is now just the CPU clock, since both are on 50MHz
-  eth_clock <= ethclock;
+  eth_clock <= cpuclock;
   
 end Behavioral;
