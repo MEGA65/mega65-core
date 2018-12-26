@@ -91,8 +91,8 @@ entity machine is
 
          sector_buffer_mapped : inout std_logic;
 
-         joy3 : in std_logic_vector(4 downto 0) := "11111";
-         joy4 : in std_logic_vector(4 downto 0) := "11111";
+         joy3 : in std_logic_vector(4 downto 0) := "11011";
+         joy4 : in std_logic_vector(4 downto 0) := "10111";
          
          ----------------------------------------------------------------------
          -- VGA output

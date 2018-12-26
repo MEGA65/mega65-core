@@ -1040,10 +1040,12 @@ begin
       -- for the two joysticks -- even simpler than the original!
       -- (and from a software perspective, it works exactly as the original)
       if userport_out(7)='1' then
-        userport_in(4 downto 0) <= joy3;
+        userport_in(3 downto 0) <= joy3(3 downto 0);
       else
-        userport_in(4 downto 0) <= joy4;
+        userport_in(3 downto 0) <= joy4(3 downto 0);
       end if;
+      userport_in(4) <= joy3(4);
+      userport_in(5) <= joy4(4);
       
       touch_key1_driver <= touch_key1;
       touch_key2_driver <= touch_key2;

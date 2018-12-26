@@ -99,7 +99,11 @@ end expansion_port_controller;
 architecture behavioural of expansion_port_controller is
 
   signal not_joystick_cartridge : std_logic := '0';
-
+  signal force_joystick_cartridge : std_logic := '0';
+  signal joy_read_toggle : std_logic := '0';
+  signal invert_joystick : std_logic := '0';
+  signal joy_counter : integer range 0 to 50 := 0;
+  
   -- XXX - Allow varying the bus speed if we know we have a fast
   -- peripheral
   -- Workout
@@ -144,16 +148,41 @@ begin
         not_joystick_cartridge <= '1';
       end if;
 
-      if not_joystick_cartridge = '0' then
+      if not_joystick_cartridge = '0' or force_joystick_cartridge='1' then
         -- Set data lines to input
-        cart_data_dir <= '0';
-        cart_data_en <= '0';
-        cart_laddr_dir <= '0';
-        cart_addr_en <= '0';
+        cart_data_en <= '0'; -- negative sense on these lines: low = enable
+        cart_addr_en <= '0'; -- negative sense on these lines: low = enable
         cart_a <= (others => 'Z');
-        -- Read data pins for joya, and lower address bits for joyb
-        joya <= std_logic_vector(cart_d_in(4 downto 0));
-        joyb <= std_logic_vector(cart_a(4 downto 0));
+
+        if joy_counter = 50 then
+          joy_counter <= 0;
+          joy_read_toggle <= not joy_read_toggle;
+        else
+          joy_counter <= joy_counter + 1;
+        end if;
+
+        if joy_counter = 0 then
+          if invert_joystick='0' then
+            joya <= std_logic_vector(cart_d_in(4 downto 0));
+            joyb <= std_logic_vector(cart_a(4 downto 0));
+          else
+            joya <= std_logic_vector(cart_d_in(4 downto 0)) xor "11111";
+            joyb <= std_logic_vector(cart_a(4 downto 0)) xor "11111";
+          end if;
+          -- Precharge lines read for next reading
+          cart_d <= (others => '1');
+          cart_data_dir <= '1';
+          cart_laddr_dir <= '1';
+          cart_a(7 downto 0) <= (others => '1');
+        end if;
+        if joy_counter = 5 then
+          -- Tristate lines to allow time for them to be pulled low again if
+          -- required
+          cart_data_dir <= '0';
+          cart_d <= (others => 'Z');
+          cart_laddr_dir <= '0';
+          cart_a(7 downto 0) <= (others => 'Z');
+        end if;
         
       ----------------------------------------------------------------------
       -- Normal cartridge port functions
@@ -167,6 +196,7 @@ begin
         reset_counter <= 15;
         reprobe_exrom <= '1';
       end if;
+      
       ticker <= ('0'&ticker(15 downto 0)) + dotclock_increment;
       if ticker(16) = '0' then
         cart_access_read_strobe <= '0';
@@ -207,6 +237,11 @@ begin
               cart_access_rdata(7 downto 6) <= unsigned(cart_flags);
               cart_access_rdata(5) <= cart_force_reset;
               cart_access_rdata(4 downto 0) <= cart_probe_count(4 downto 0);
+            elsif cart_access_address(15 downto 0) = x"0001" then
+              cart_access_rdata(7) <= not_joystick_cartridge;
+              cart_access_rdata(6) <= force_joystick_cartridge;
+              cart_access_rdata(5) <= joy_read_toggle;
+              cart_access_rdata(4 downto 0) <= cart_d_in(4 downto 0);
             else
               cart_access_rdata <= cart_d_in;
             end if;
@@ -266,6 +301,10 @@ begin
               if cart_access_address(15 downto 0) = x"0000" then
                 -- @ IO:GS $7010000.5 - Force assertion of /RESET on cartridge port
                 cart_force_reset <= cart_access_wdata(5);
+              elsif cart_access_address(15 downto 0) = x"0001" then
+                -- @ IO:GS $7010001.6 - Force enabling of joystick expander cartridge
+                force_joystick_cartridge <= cart_access_wdata(6);
+                invert_joystick <= cart_access_wdata(0);
               end if;
             end if;
             cart_busy <= '1';
@@ -273,65 +312,75 @@ begin
             -- Count number of cartridge accesses to aid debugging
             cart_access_count <= cart_access_count_internal + 1;
             cart_access_count_internal <= cart_access_count_internal + 1;
-            
+
             cart_access_accept_strobe <= '1';
-            cart_a <= cart_access_address(15 downto 0);
-            cart_rw <= cart_access_read;
-            cart_data_dir <= not cart_access_read;
-            cart_data_en <= '0';
-            cart_addr_en <= '0';
-            -- Reprobe /EXROM and /GAME lines after accesses to IO areas, in
-            -- case the cartridge has banked things in response to IO access
-            if cart_access_address(15 downto 8) = x"DE" and sector_buffer_mapped='0' then
-              cart_io1 <= '0';
-              reprobe_exrom <= '1';
-            else
-              cart_io1 <= '1';
-            end if;
-            if cart_access_address(15 downto 8) = x"DF" and sector_buffer_mapped='0' then
-              cart_io2 <= '0';
-              reprobe_exrom <= '1';
-            else
-              cart_io2 <= '1';
-            end if;
+            
+            if not_joystick_cartridge = '1' and force_joystick_cartridge='0' then
+            
+              cart_a <= cart_access_address(15 downto 0);
+              cart_rw <= cart_access_read;
+              cart_data_dir <= not cart_access_read;
+              cart_data_en <= '0'; -- negative sense on these lines: low = enable
+              cart_addr_en <= '0'; -- negative sense on these lines: low = enable
+              -- Reprobe /EXROM and /GAME lines after accesses to IO areas, in
+              -- case the cartridge has banked things in response to IO access
+              if cart_access_address(15 downto 8) = x"DE" and sector_buffer_mapped='0' then
+                cart_io1 <= '0';
+                reprobe_exrom <= '1';
+              else
+                cart_io1 <= '1';
+              end if;
+              if cart_access_address(15 downto 8) = x"DF" and sector_buffer_mapped='0' then
+                cart_io2 <= '0';
+                reprobe_exrom <= '1';
+              else
+                cart_io2 <= '1';
+              end if;
 
-            -- Drive ROML and ROMH
-            -- (Note here we are operating after the CPU has decided if something
-            -- is mapped, therefore we assert /ROML and /ROMH based on address
-            -- requested).
-            if (cart_access_address(15 downto 12) = x"8")
-              or (cart_access_address(15 downto 12) = x"9") then
-              cart_roml <= '0';
-            else
-              cart_roml <= '1';
+              -- Drive ROML and ROMH
+              -- (Note here we are operating after the CPU has decided if something
+              -- is mapped, therefore we assert /ROML and /ROMH based on address
+              -- requested).
+              if (cart_access_address(15 downto 12) = x"8")
+                or (cart_access_address(15 downto 12) = x"9") then
+                cart_roml <= '0';
+              else
+                cart_roml <= '1';
+              end if;
+              if (cart_access_address(15 downto 12) = x"A")
+                or (cart_access_address(15 downto 12) = x"B") 
+                or (cart_access_address(15 downto 12) = x"E")
+                or (cart_access_address(15 downto 12) = x"F") then
+                cart_romh <= '0';
+              else
+                cart_romh <= '1';
+              end if;
             end if;
-            if (cart_access_address(15 downto 12) = x"A")
-              or (cart_access_address(15 downto 12) = x"B") 
-              or (cart_access_address(15 downto 12) = x"E")
-              or (cart_access_address(15 downto 12) = x"F") then
-              cart_romh <= '0';
-            else
-              cart_romh <= '1';
-            end if;
-
+              
             if cart_access_read='1' then
               read_in_progress <= '1';
-              -- Tri-state with pull-up
-              report "Tristating cartridge port data lines.";
-              cart_d <= (others => 'H');
+              if not_joystick_cartridge = '1' and force_joystick_cartridge='0' then
+                -- Tri-state with pull-up
+                report "Tristating cartridge port data lines.";
+                cart_d <= (others => 'H');
+              end if;
             else
               read_in_progress <= '0';
-              cart_d <= cart_access_wdata;
-              report "Write data is $" & to_hstring(cart_access_wdata);
+              if not_joystick_cartridge = '1' and force_joystick_cartridge='0' then
+                cart_d <= cart_access_wdata;
+                report "Write data is $" & to_hstring(cart_access_wdata);
+              end if;
             end if;
           else
-            cart_access_accept_strobe <= '0';
-            cart_a <= (others => 'H');
-            cart_roml <= '1';
-            cart_romh <= '1';
-            cart_io1 <= '1';
-            cart_io2 <= '1';
-            cart_rw <= '1';
+            if not_joystick_cartridge = '1' and force_joystick_cartridge='0' then
+              cart_access_accept_strobe <= '0';
+              cart_a <= (others => 'H');
+              cart_roml <= '1';
+              cart_romh <= '1';
+              cart_io1 <= '1';
+              cart_io2 <= '1';
+              cart_rw <= '1';
+            end if;
             read_in_progress <= '0';
             cart_busy <= '0';            
           end if;      
