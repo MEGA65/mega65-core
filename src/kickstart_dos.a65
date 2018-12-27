@@ -215,6 +215,8 @@ trap_task_toggle_rom_writeprotect:
 	LDA	hypervisor_feature_enables
 	EOR	#$04
 	STA	hypervisor_feature_enables
+	; Pass updated state back out to caller, so they know the result
+	STA	hypervisor_a
 	jmp	return_from_trap_with_success
 
 trap_dos_getversion:
