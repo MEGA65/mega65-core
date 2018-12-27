@@ -839,13 +839,9 @@ void main(void)
       // while it is running);
       // Run 16 times and average overhead, so that we can get more reliable
       // results on fast CPUs
-      overhead=0;
-      for(v=0;v<64;v++) {
-	POKE(0xDC0FU,0x11); // load timer, start counter
-	POKE(0xDC0FU,0x08); // stop counter again
-	overhead=0xff-PEEK(0xDC06U);
-      }
-      //      overhead=overhead>>6;
+      POKE(0xDC0FU,0x11); // load timer, start counter
+      POKE(0xDC0FU,0x08); // stop counter again
+      overhead=0xff-PEEK(0xDC06U);
 
       // Make sure a bad line isn't due for a long time
       // the job can finish in time, without badline interference
@@ -861,7 +857,7 @@ void main(void)
       // Now get cycle count
       actual_cycles=PEEK(0xDC06U)+((PEEK(0xDC07U)<<8U));
       actual_cycles=0xffff-actual_cycles;
-      actual_cycles-=overhead; // subtract overhead
+      if (actual_cycles) actual_cycles-=overhead; // subtract overhead
       if (actual_cycles>0x6300) actual_cycles=0x6300;  // max 99 cycles per instruction
 
       // For single run opcodes, our inner loop tests it only once,
@@ -872,6 +868,13 @@ void main(void)
 	v=1;
 	do {
 
+	  POKE(0xDC0FU,0x08); // one-shot, don't start, count cpu clock
+	  POKE(0xDC07U,0xFF); POKE(0xDC06U,0xFF);   // set counter to 65535
+	  
+	  POKE(0xDC0FU,0x11); // load timer, start counter
+	  POKE(0xDC0FU,0x08); // stop counter again
+	  overhead=0xff-PEEK(0xDC06U);
+	  
 	  POKE(0xDC0FU,0x08); // one-shot, don't start, count cpu clock
 	  POKE(0xDC07U,0xFF); POKE(0xDC06U,0xFF);   // set counter to 65535
 
@@ -889,8 +892,8 @@ void main(void)
 	  // Now get cycle count
 	  actual_cycles=PEEK(0xDC06U)+((PEEK(0xDC07U)<<8U));
 	  actual_cycles=0xffff-actual_cycles;
-	  actual_cycles-=overhead; // subtract overhead
-	  if (actual_cycles>0x6300) actual_cycles=0x6300;  // max 99 cycles per instruction
+	  if (actual_cycles) actual_cycles-=overhead; // subtract overhead
+	  if (actual_cycles>99) actual_cycles=99; // max 99 cycles per instruction
 
 	  total_cycles += actual_cycles;
 	  
