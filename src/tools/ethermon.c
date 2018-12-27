@@ -46,6 +46,27 @@ int num_instructions=999999999;
 
 int wait_for_break=0;
 
+int instruction_counts[256]={0};
+int instruction_frequency=0;
+
+int report_instruction_frequencies(void)
+{
+  // Work out what our scaling factor is
+  int max_count=0;
+  for(int i=0;i<256;i++) if (instruction_counts[i]>max_count) max_count=instruction_counts[i];
+  printf(" {");
+  for(int i=0;i<256;i++) {
+    int relative_frequency=instruction_counts[i]*255/max_count;
+    if (relative_frequency<1) relative_frequency=1;
+    if (relative_frequency>255) relative_frequency=255;
+    printf("%d",relative_frequency);
+    if (i<255) printf(","); else printf("}");
+    if ((i&0xf)==0xf) printf("\n");
+  }
+  printf("\n");
+  return 0;
+}
+
 char *oplist[]={
   "00   BRK\n",
   "01   ORA ($nn,X)\n",
@@ -662,8 +683,9 @@ int main(int argc,char **argv)
   for(int i=0;i<0x10000;i++) annotations[i]=NULL;
   
   int opt;
-  while ((opt = getopt(argc, argv, "bFm:n:")) != -1) {
+  while ((opt = getopt(argc, argv, "bfFm:n:")) != -1) {
     switch (opt) {
+    case 'f': instruction_frequency=1; num_instructions=0; break;
     case 'b': wait_for_break=1; break;
     case 'F': one_frame=1; break;
     case 'm': match_string=optarg; break;
@@ -754,6 +776,15 @@ int main(int argc,char **argv)
 	  // For now only support instruction decode
 	  if (1||bit52set) {
 	    for(int offset=0x48+14;offset<hdr.caplen;offset+=8) {
+	      if (instruction_frequency) {
+		if ((packet[offset+0]&packet[offset+1]&packet[offset+2])!=0xff) {
+		  instruction_counts[packet[offset+2]]++;
+		  num_instructions++;
+		  if (!(num_instructions&0xffff)) {
+		    report_instruction_frequencies();
+		  }
+		}
+	      } else
 	      decode_instruction(&packet[offset]);
 	    }
 	  } else {
@@ -763,6 +794,7 @@ int main(int argc,char **argv)
 	  }
 	}
       }
+      
     }
     printf("Exiting.\n");
     
