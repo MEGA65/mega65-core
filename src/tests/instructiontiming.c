@@ -464,6 +464,13 @@ void indicate_display_mode(void)
   
 }
 
+unsigned short byte_to_percent(unsigned char v)
+{
+  if (v<250) return (v*4)/10; else return 99;
+}
+
+unsigned short measured;
+
 void update_selected_opcode(void)
 {
   addr=0x0400 + 40 * 4 + selected_opcode + selected_opcode;
@@ -475,9 +482,17 @@ void update_selected_opcode(void)
   addr=0x0400 + 40 * 17;
   for(v=0;v<40;v++) POKE(addr+v,' ');
   // Display expected cycle count
-  printf("                 %d cycles (6502 = %d)\n%c",
-	 measured_cycles[selected_opcode]>>8,
-	 expected_cycles_6502[selected_opcode]>>8,0x91);
+  measured=measured_cycles[selected_opcode]>>8;
+  if (measured>9)
+    printf("                 %4d cycles (6502 = %d)\n%c",
+	   measured,
+	   expected_cycles_6502[selected_opcode]>>8,0x91);
+  else {
+    printf("                 %1d.%02d cycles (6502 = %d)\n%c",
+	   measured_cycles[selected_opcode]>>8,
+	   byte_to_percent(measured_cycles[selected_opcode]&0xff),
+	   expected_cycles_6502[selected_opcode]>>8,0x91);
+  }
   // print the opcode description, and cursor back up
   printf("$%02x %s\n",selected_opcode,instruction_descriptions[selected_opcode]);
 }  
