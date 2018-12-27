@@ -391,6 +391,7 @@ unsigned char instruction_frequencies[FREQ_MAX][256]={
 
 };
 
+unsigned long this_cycles;
 unsigned long total_cycles;
 unsigned long expected_total_cycles;
   
@@ -513,12 +514,14 @@ void update_speed_estimates(void)
     expected_total_cycles=0L;
     opcode=0;
     freqs=instruction_frequencies[v];
+    __asm__("cld");
     do {
-      if (legal_and_runnable_6502_opcode(opcode)) {
-	total_cycles+= ((long)*freqs)*(long)measured_cycles[opcode];
-	expected_total_cycles+=((long)*freqs)*(long)expected_cycles_6502[opcode];
-	freqs++;
-      }      
+	if (legal_and_runnable_6502_opcode(opcode)) {
+	  this_cycles=((long)*freqs)* ((long)measured_cycles[opcode]);
+	  total_cycles+=this_cycles;
+	  expected_total_cycles+=((long)*freqs)*(long)expected_cycles_6502[opcode];
+	  freqs++;
+	}
     } while(++opcode);
 
     // Calculate speed
@@ -530,6 +533,7 @@ void update_speed_estimates(void)
     fractional_speed=speed%100;
     speed=speed/100;
     printf("%2d.%02dx    ",speed,fractional_speed);
+    // printf("%08lx ",total_cycles);
 
   }
 }
@@ -548,19 +552,21 @@ void main(void)
   POKE(0xd015U,0);
   
   // Catch BRK instructions to aid debugging
-  POKE(0xc800U,0xee);
-  POKE(0xc801U,0x20);
-  POKE(0xc802U,0xd0);
-  POKE(0xc803U,0x4c);
-  POKE(0xc804U,0x00);
-  POKE(0xc805U,0xc8);
+  POKE(0xcf00U,0xee);
+  POKE(0xcf01U,0x20);
+  POKE(0xcf02U,0xd0);
+  POKE(0xcf03U,0x4c);
+  POKE(0xcf04U,0x00);
+  POKE(0xcf05U,0xc8);
   POKE(0x316U,0x00);
-  POKE(0x317U,0xc8);
+  POKE(0x317U,0xcf);
   POKE(0x318U,0x00);
-  POKE(0x319U,0xc8);
+  POKE(0x319U,0xcf);
   
   while(1) {
 
+    //    POKE(0x0400U,opcode);
+    
     v=0;
     //    while(!v) {
       __asm__("jsr $ffe4");
@@ -831,9 +837,15 @@ void main(void)
       // Do dry-run without instruction to calculate overhead
       // (we do this each time, since someone might change the CPU speed
       // while it is running);
-      POKE(0xDC0FU,0x11); // load timer, start counter
-      POKE(0xDC0FU,0x08); // stop counter again
-      overhead=0xff-PEEK(0xDC06U);
+      // Run 16 times and average overhead, so that we can get more reliable
+      // results on fast CPUs
+      overhead=0;
+      for(v=0;v<64;v++) {
+	POKE(0xDC0FU,0x11); // load timer, start counter
+	POKE(0xDC0FU,0x08); // stop counter again
+	overhead=0xff-PEEK(0xDC06U);
+      }
+      //      overhead=overhead>>6;
 
       // Make sure a bad line isn't due for a long time
       // the job can finish in time, without badline interference
@@ -851,9 +863,42 @@ void main(void)
       actual_cycles=0xffff-actual_cycles;
       actual_cycles-=overhead; // subtract overhead
       if (actual_cycles>0x6300) actual_cycles=0x6300;  // max 99 cycles per instruction
-      // Scale it up for those few instructions we can't
-      // run 256x, primarily RTS, RTI and JSR
-      if (single_run_opcode) actual_cycles=actual_cycles<<8;
+
+      // For single run opcodes, our inner loop tests it only once,
+      // so to smooth things out, we should run it some number of times
+      if (single_run_opcode) {
+	total_cycles=actual_cycles;
+
+	v=1;
+	do {
+
+	  POKE(0xDC0FU,0x08); // one-shot, don't start, count cpu clock
+	  POKE(0xDC07U,0xFF); POKE(0xDC06U,0xFF);   // set counter to 65535
+
+	  // Make sure a bad line isn't due for a long time
+	  // the job can finish in time, without badline interference
+	  while(!(PEEK(0xD011)&0x80)) continue;
+	  
+	  POKE(0xd020U,2);
+	  
+	  // Call the routine
+	  __asm__("jsr $c000");
+	  
+	  POKE(0xd020U,14);
+	  
+	  // Now get cycle count
+	  actual_cycles=PEEK(0xDC06U)+((PEEK(0xDC07U)<<8U));
+	  actual_cycles=0xffff-actual_cycles;
+	  actual_cycles-=overhead; // subtract overhead
+	  if (actual_cycles>0x6300) actual_cycles=0x6300;  // max 99 cycles per instruction
+
+	  total_cycles += actual_cycles;
+	  
+	} while(++v);
+
+	actual_cycles = total_cycles;
+      }
+	
       measured_cycles[opcode]= actual_cycles;
 
       POKE(0xdc0d,0x81);
