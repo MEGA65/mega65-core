@@ -11,7 +11,7 @@ OPHIS_MON= Ophis/bin/ophis -c
 
 VIVADO=	./vivado_wrapper
 
-CC65=	cc65/bin/cc65
+CC65=  cc65/bin/cc65
 CA65=  cc65/bin/ca65 --cpu 4510
 LD65=  cc65/bin/ld65 -t none
 CL65=  cc65/bin/cl65 --config src/tests/vicii.cfg 
@@ -414,6 +414,9 @@ $(UTILDIR)/mega65_config.o:      $(UTILDIR)/mega65_config.s $(UTILDIR)/mega65_co
 
 $(TESTDIR)/vicii.prg:       $(TESTDIR)/vicii.c $(TESTDIR)/vicii_asm.s $(CC65)
 	$(CL65) -O -o $*.prg --mapfile $*.map $< $(TESTDIR)/vicii_asm.s 
+
+$(TESTDIR)/unicorns.prg:       $(TESTDIR)/unicorns.c $(CC65)
+	$(CL65) -O -o $*.prg --mapfile $*.map $< 
 
 $(TESTDIR)/instructiontiming.prg:       $(TESTDIR)/instructiontiming.c $(TESTDIR)/instructiontiming_asm.s $(CC65)
 	$(CL65) -O -o $*.prg --mapfile $*.map $< $(TESTDIR)/instructiontiming_asm.s 
