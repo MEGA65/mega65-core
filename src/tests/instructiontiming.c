@@ -479,9 +479,7 @@ void update_selected_opcode(void)
   POKE(addr+1,PEEK(addr+1)|0x80);
   
   printf("\023\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                      "); // home cursor + 17x down
-  // blank row, and cursor back up onto it
-  addr=0x0400 + 40 * 17;
-  for(v=0;v<40;v++) POKE(addr+v,' ');
+
   // Display expected cycle count
   measured=measured_cycles[selected_opcode]>>8;
   if (measured>9)
@@ -514,9 +512,6 @@ void update_speed_estimates(void)
   printf("\023\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"); // home cursor + 19x down
   for(v=0;v<FREQ_MAX;v++) printf("%s",freq_descriptions[v]);
   if (v%4) printf("\n");
-
-  addr=0x0400 + 40 * 19;
-  for(v=0;v<40;v++) POKE(addr+v,' ');
 
   for(v=0;v<FREQ_MAX;v++) {
     printf(" .....    %c%c%c%c%c%c%c%c%c",0x9d,0x9d,0x9d,0x9d,0x9d,0x9d,0x9d,0x9d,0x9d);
@@ -887,7 +882,7 @@ void main(void)
 	  
 	  POKE(0xDC0FU,0x11); // load timer, start counter
 	  POKE(0xDC0FU,0x08); // stop counter again
-	  overhead+=0xff-PEEK(0xDC06U);
+	  total_cycles-=0xff-PEEK(0xDC06U);
 	  
 	  POKE(0xDC0FU,0x08); // one-shot, don't start, count cpu clock
 	  POKE(0xDC07U,0xFF); POKE(0xDC06U,0xFF);   // set counter to 65535
@@ -913,7 +908,6 @@ void main(void)
 	} while(++v);
 
 	actual_cycles = total_cycles;
-	if (actual_cycles>=overhead) actual_cycles-=overhead; else actual_cycles=0;
       }
 	
       measured_cycles[opcode]= actual_cycles;
