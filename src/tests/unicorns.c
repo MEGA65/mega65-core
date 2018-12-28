@@ -277,21 +277,24 @@ void main(void)
       // Move based on new joystick position
       if (b&1) { if (player_y[a]) player_y[a]--; flash(0); }
       if (b&2) { if (player_y[a]<49) player_y[a]++; flash(1); }
-      if (b&4) { if (player_x[a]) player_y[a]--; flash(2); }
+      if (b&4) { if (player_x[a]) player_x[a]--; flash(2); }
       if (b&8) { if (player_x[a]<79) player_x[a]++; flash(3); }
 
+      POKE(0x8008U + (a*8)+0,player_x[a]);
+      POKE(0x8008U + (a*8)+1,player_y[a]);
+      
       // Leave unicorn rainbow trail behind us
-      if (game_grid[player_x[a]][player_y[a]]!=a) {
+      b=game_grid[player_x[a]][player_y[a]];	
+      if (b!=(a+1)) {
 	// take over this tile
 
 	// But first, take it away from the previous owner
-	if ((game_grid[player_x[a]][player_y[a]])
-	    &&(game_grid[player_x[a]][player_y[a]]<4))
-	  if (player_tiles[(game_grid[player_x[a]][player_y[a]])])
-	    player_tiles[(game_grid[player_x[a]][player_y[a]])]--;
+	if (b&&(b<5))
+	  if (player_tiles[b-1])
+	    player_tiles[b-1]--;
 
 	// Update grid to show our ownership
-	game_grid[player_x[a]][player_y[a]]=a;
+	game_grid[player_x[a]][player_y[a]]=a+1;
 
 	// Add to our score for the take over
 	player_tiles[a]++;
