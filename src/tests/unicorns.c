@@ -207,12 +207,16 @@ void draw_pixel_char(unsigned char x,unsigned char y,
   }
 }
 
+unsigned char frame_count=0;
+
 unsigned char game_grid[80][50];
 unsigned char a,b;
 unsigned char player_x[4];
 unsigned char player_y[4];
 unsigned int player_tiles[4];
-unsigned int player_feature[4];
+unsigned int player_features[4];
+#define FEATURE_FAST 0x01
+#define FEATURE_SUPERFAST 0x02
 
 void redraw_game_grid(void)
 {
@@ -220,12 +224,6 @@ void redraw_game_grid(void)
   for(a=0;a<80;a++)
     for(b=0;b<25;b++)
       draw_pixel_char(a,b,game_grid[a][b<<1],game_grid[a][1+(b<<1)]);
-}
-
-void flash(unsigned char n)
-{
-  POKE(0x8050U+n,(PEEK(0x8050U+n)+1));
-  POKE(0xD850U+n,1);
 }
 
 void main(void)
@@ -238,7 +236,7 @@ void main(void)
     // Player initially has no tiles allocated
     player_tiles[a]=0;
     // Players have no special feature initially
-    player_feature[a]=0;    
+    player_features[a]=0;    
   }
   // Clear game grid
   for(a=0;a<80;a++)
@@ -258,6 +256,8 @@ void main(void)
 
     // Run game state update once per frame
     while(PEEK(0xD012U)<0xFE) continue;
+
+    frame_count++;
     
     // Read state of the four joysticks
     for(a=0;a<4;a++) {
@@ -271,18 +271,18 @@ void main(void)
       }
       // Make joystick data active high
       b^=0x1f;
-      POKE(0x8000U+a,b);
-      POKE(0xd800U+a,1);
 
-      // Move based on new joystick position
-      if (b&1) { if (player_y[a]) player_y[a]--; flash(0); }
-      if (b&2) { if (player_y[a]<49) player_y[a]++; flash(1); }
-      if (b&4) { if (player_x[a]) player_x[a]--; flash(2); }
-      if (b&8) { if (player_x[a]<79) player_x[a]++; flash(3); }
+      if ((!(frame_count&0x03))
+	  ||((frame_count&1)&&(player_features[a]&FEATURE_FAST))
+	  ||(player_features[a]&FEATURE_SUPERFAST))
+	{
+	  // Move based on new joystick position
+	  if (b&1) { if (player_y[a]) player_y[a]--; }
+	  if (b&2) { if (player_y[a]<49) player_y[a]++; }
+	  if (b&4) { if (player_x[a]) player_x[a]--; }
+	  if (b&8) { if (player_x[a]<79) player_x[a]++; }
+	}
 
-      POKE(0x8008U + (a*8)+0,player_x[a]);
-      POKE(0x8008U + (a*8)+1,player_y[a]);
-      
       // Leave unicorn rainbow trail behind us
       b=game_grid[player_x[a]][player_y[a]];	
       if (b!=(a+1)) {
