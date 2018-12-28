@@ -478,7 +478,7 @@ void update_selected_opcode(void)
   POKE(addr,PEEK(addr)|0x80);
   POKE(addr+1,PEEK(addr+1)|0x80);
   
-  printf("\023\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"); // home cursor + 17x down
+  printf("\023\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n                                      "); // home cursor + 17x down
   // blank row, and cursor back up onto it
   addr=0x0400 + 40 * 17;
   for(v=0;v<40;v++) POKE(addr+v,' ');
@@ -496,6 +496,16 @@ void update_selected_opcode(void)
   }
   // print the opcode description, and cursor back up
   printf("$%02x %s\n",selected_opcode,instruction_descriptions[selected_opcode]);
+  // Now print speed-up of the instruction
+  if (measured_cycles[selected_opcode]&&legal_and_runnable_6502_opcode(selected_opcode)) {
+    // Get speed up x100
+    measured=(expected_cycles_6502[selected_opcode]*(long)100)/measured_cycles[selected_opcode];
+    printf("              %2d.%02dx 6502 speed.",
+	   measured/100,measured%100);
+  }
+  else
+    printf("                                     ");
+  
 }  
 
 unsigned char *freqs;
@@ -861,11 +871,15 @@ void main(void)
       if (actual_cycles>0x6300) actual_cycles=0x6300;  // max 99 cycles per instruction
 
       // For single run opcodes, our inner loop tests it only once,
-      // so to smooth things out, we should run it some number of times
+      // so to smooth things out, we should run it some number of times.
+      // We accumulate both the overhead and used cycles so that we don't
+      // introduce any systemic bias.  The results are now reasonably stable,
+      // at least enough to be useful.
       if (single_run_opcode) {
 	total_cycles=actual_cycles;
 
 	v=1;
+	overhead=0;
 	do {
 
 	  POKE(0xDC0FU,0x08); // one-shot, don't start, count cpu clock
@@ -873,7 +887,7 @@ void main(void)
 	  
 	  POKE(0xDC0FU,0x11); // load timer, start counter
 	  POKE(0xDC0FU,0x08); // stop counter again
-	  overhead=0xff-PEEK(0xDC06U);
+	  overhead+=0xff-PEEK(0xDC06U);
 	  
 	  POKE(0xDC0FU,0x08); // one-shot, don't start, count cpu clock
 	  POKE(0xDC07U,0xFF); POKE(0xDC06U,0xFF);   // set counter to 65535
@@ -892,7 +906,6 @@ void main(void)
 	  // Now get cycle count
 	  actual_cycles=PEEK(0xDC06U)+((PEEK(0xDC07U)<<8U));
 	  actual_cycles=0xffff-actual_cycles;
-	  if (actual_cycles) actual_cycles-=overhead; // subtract overhead
 	  if (actual_cycles>99) actual_cycles=99; // max 99 cycles per instruction
 
 	  total_cycles += actual_cycles;
@@ -900,6 +913,7 @@ void main(void)
 	} while(++v);
 
 	actual_cycles = total_cycles;
+	if (actual_cycles>=overhead) actual_cycles-=overhead; else actual_cycles=0;
       }
 	
       measured_cycles[opcode]= actual_cycles;
