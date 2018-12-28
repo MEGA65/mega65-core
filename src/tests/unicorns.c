@@ -207,15 +207,103 @@ void draw_pixel_char(unsigned char x,unsigned char y,
   }
 }
 
+unsigned char game_grid[80][50];
 unsigned char a,b;
+unsigned char player_x[4];
+unsigned char player_y[4];
+unsigned int player_tiles[4];
+unsigned int player_feature[4];
+
+void redraw_game_grid(void)
+{
+  // Work out how to display all combinations of the five colours:
+  for(a=0;a<80;a++)
+    for(b=0;b<25;b++)
+      draw_pixel_char(a,b,game_grid[a][b<<1],game_grid[a][1+(b<<1)]);
+}
+
+void flash(unsigned char n)
+{
+  POKE(0x8050U+n,(PEEK(0x8050U+n)+1));
+  POKE(0xD850U+n,1);
+}
+
 void main(void)
 {
+  // Setup game state
+  for(a=0;a<4;a++) {
+    // Initial player placement
+    if (a<2) player_x[a]=0; else player_x[a]=79;
+    if (a&1) player_y[a]=49; else player_y[a]=0;
+    // Player initially has no tiles allocated
+    player_tiles[a]=0;
+    // Players have no special feature initially
+    player_feature[a]=0;    
+  }
+  // Clear game grid
+  for(a=0;a<80;a++)
+    for(b=0;b<50;b++)
+      game_grid[a][b]=0;
+  
+  // Set DDR on port for protovision/CGA joystick expander
+  POKE(0xDD03U,0x80);
+  POKE(0xDD01U,0x00); // And ready to read joystick 3 initially
+  
   videomode_game();
 
-  // Work out how to display all combinations of the five colours:
-  for(a=0;a<5;a++)
-    for(b=0;b<5;b++)
-      draw_pixel_char(a,b,a,b);
+  // then redraw it (this takes a few frames to do completely)
+  redraw_game_grid();
   
-  while(1) continue;
+  while(1) {
+
+    // Run game state update once per frame
+    while(PEEK(0xD012U)<0xFE) continue;
+    
+    // Read state of the four joysticks
+    for(a=0;a<4;a++) {
+      // Get joystick state
+      switch(a) {
+      case 0: b=PEEK(0xDC00U)&0x1f; break;
+      case 1: b=PEEK(0xDC01U)&0x1f; break;
+	// PEEK must come before POKE in the following to make sure CC65 doesn't optimise the PEEK away
+      case 2: b=PEEK(0xDD01U)&0x1f; POKE(0xDD01U,0x80); break;
+      case 3: b=(PEEK(0xDD01U)&0xf)+((PEEK(0xDD01U)>>1)&0x10); POKE(0xDD01U,0x00); break;
+      }
+      // Make joystick data active high
+      b^=0x1f;
+      POKE(0x8000U+a,b);
+      POKE(0xd800U+a,1);
+
+      // Move based on new joystick position
+      if (b&1) { if (player_y[a]) player_y[a]--; flash(0); }
+      if (b&2) { if (player_y[a]<49) player_y[a]++; flash(1); }
+      if (b&4) { if (player_x[a]) player_y[a]--; flash(2); }
+      if (b&8) { if (player_x[a]<79) player_x[a]++; flash(3); }
+
+      // Leave unicorn rainbow trail behind us
+      if (game_grid[player_x[a]][player_y[a]]!=a) {
+	// take over this tile
+
+	// But first, take it away from the previous owner
+	if ((game_grid[player_x[a]][player_y[a]])
+	    &&(game_grid[player_x[a]][player_y[a]]<4))
+	  if (player_tiles[(game_grid[player_x[a]][player_y[a]])])
+	    player_tiles[(game_grid[player_x[a]][player_y[a]])]--;
+
+	// Update grid to show our ownership
+	game_grid[player_x[a]][player_y[a]]=a;
+
+	// Add to our score for the take over
+	player_tiles[a]++;
+
+	// Update the on-screen display
+	draw_pixel_char(player_x[a],player_y[a]>>1,
+			game_grid[player_x[a]][player_y[a]&0xfe],
+			game_grid[player_x[a]][player_y[a]|0x01]);
+			
+      }
+    }
+  
+    continue;
+  }
 }
