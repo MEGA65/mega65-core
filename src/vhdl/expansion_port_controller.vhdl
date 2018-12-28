@@ -154,6 +154,14 @@ begin
         cart_addr_en <= '0'; -- negative sense on these lines: low = enable
         cart_a <= (others => 'Z');
 
+        -- Pull /RESET low on cartridge port, so that it can be the source of
+        -- GND for the joysticks.  Without this, the joysticks will effectively
+        -- be unpowered. We just have to take care that the joysticks don't
+        -- draw more power than /RESET can sink.  This might be a problem for joysticks
+        -- with auto-fire (like many on the market) or lights (like the ones I built at
+        -- home). 
+        cart_reset <= '0';
+        
         if joy_counter = 50 then
           joy_counter <= 0;
           joy_read_toggle <= not joy_read_toggle;
@@ -221,8 +229,10 @@ begin
           elsif reset_counter /= 0 then
             reset_counter <= reset_counter - 1;
           elsif reset_counter = 0 then
-            cart_reset <= reset and (not cart_force_reset);
-            report "Releasing RESET on cartridge port";            
+            if not_joystick_cartridge = '1' and force_joystick_cartridge='0' then
+              cart_reset <= reset and (not cart_force_reset);
+              report "Releasing RESET on cartridge port";
+            end if;
           end if;
           
             
