@@ -13,6 +13,17 @@
 
 #include "horses.h"
 
+unsigned char player_names[4][10]={
+  // Fluffy
+  {6,12,21,6,6,25,46,46,46,46},
+  // Misty
+  {13,9,19,20,25,46,46,46,46,46},
+  // Puff Puff
+  {16,21,6,6,32,16,21,6,6,46},
+  // Breeze
+  {2,18,5,5,26,5,46,46,46,46}
+};
+
 unsigned short i;
 
 struct dmagic_dmalist {
@@ -333,13 +344,41 @@ void redraw_game_grid(void)
   // Work out how to display all combinations of the five colours:
   for(a=0;a<80;a++)
     for(b=0;b<25;b++)
-      draw_pixel_char(a,b,game_grid[a][b<<1],game_grid[a][1+(b<<1)]);
+      if (game_grid[a][b<<1]!=0xff)
+	// Normal character
+	draw_pixel_char(a,b,game_grid[a][b<<1],game_grid[a][1+(b<<1)]);
+      else {
+	// Score box character.  Will be drawn separately
+	continue;
+      }
+
+  lcopy(player_names[0],0xF000U,10);
+  lcopy(player_names[1],0xF000U+22*80,10);
+  lcopy(player_names[2],0xF000U+70,10);
+  lcopy(player_names[3],0xF000U+22*80+70,10);
+  lfill(0x1F800U,2,10);
+  lfill(0x1F800U+22*80,5,10);
+  lfill(0x1F800U+70,6,10);
+  lfill(0x1F800U+22*80+70,7,10);  
+
+  lfill(0x1F800U+80,1,10);
+  lfill(0x1F800U+22*80+80,1,10);
+  lfill(0x1F800U+70+80,1,10);
+  lfill(0x1F800U+22*80+70+80,1,10);  
+
+  lfill(0x1F800U+2*80,1,10);
+  lfill(0x1F800U+22*80+2*80,1,10);
+  lfill(0x1F800U+70+2*80,1,10);
+  lfill(0x1F800U+22*80+70+2*80,1,10);  
+  
 }
 
 unsigned char sprite_y;
 unsigned short sprite_x;
 
 unsigned char colour_phase=0;
+
+char score_string[11];
 
 void main(void)
 {
@@ -375,6 +414,12 @@ void main(void)
   for(a=0;a<80;a++)
     for(b=0;b<50;b++)
       game_grid[a][b]=0;
+  // Mark score boxes off-limits
+  for(a=0;a<10;a++) for(b=0;b<6;b++) game_grid[a][b]=0xff;
+  for(a=70;a<80;a++) for(b=0;b<6;b++) game_grid[a][b]=0xff;
+  for(a=0;a<10;a++) for(b=44;b<50;b++) game_grid[a][b]=0xff;
+  for(a=70;a<80;a++) for(b=44;b<50;b++) game_grid[a][b]=0xff;
+  
   
   // Set DDR on port for protovision/CGA joystick expander
   POKE(0xDD03U,0x80);
@@ -384,6 +429,7 @@ void main(void)
 
   // then redraw it (this takes a few frames to do completely)
   redraw_game_grid();
+  
   
   while(1) {
 
@@ -398,6 +444,14 @@ void main(void)
       if (colour_phase>25) colour_phase=0;
       if (colour_phase<14) { POKE(0xD10Fu,2+colour_phase); POKE(0xD20FU,2+colour_phase); POKE(0xD30FU,2+colour_phase); }
       else { POKE(0xD10FU,2+25-colour_phase); POKE(0xD20FU,2+25-colour_phase); POKE(0xD30FU,2+25-colour_phase); }
+    }
+
+    // Update score displays
+    for(a=0;a<4;a++) {
+      snprintf(score_string,11,"%10d",player_tiles[a]);
+      lcopy(score_string,0xF000U+80
+	    +((a&1)?70:0)
+	    +((a&2)?(22*80):0),10);
     }
     
     // Read state of the four joysticks
