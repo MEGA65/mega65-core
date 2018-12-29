@@ -119,7 +119,8 @@ unsigned char flipped[256];
 unsigned char frame_count=0;
 
 unsigned char game_grid[80][50];
-unsigned char a,b;
+unsigned short addr;
+unsigned char a,b,c,d,v;
 unsigned char player_x[4];
 unsigned char player_y[4];
 unsigned int player_tiles[4];
@@ -130,7 +131,7 @@ unsigned int player_animation_frame[4];
 #define FEATURE_SUPERFAST 0x02
 
 void prepare_sprites(void)
-{
+{  
   // Enable all sprites.
   POKE(0xD015U,0xFF);
 
@@ -172,10 +173,39 @@ void prepare_sprites(void)
 	   +a*64+b*3+2,flipped[PEEK(0xC000U+a*64+b*3+0)]);
     }
   }
+  
+  
+  // Now make 90 degree rotated versions
+  for(a=0;a<64;a++) {
+    {
+      for(b=0;b<21;b++)   // y in destination
+	for(c=0;c<3;c++)  // x BYTE in destination
+	  {
+	    // Work out which bit of bytes to read
+	    v=0;
+	    d=b&7; d=1<<d;
+	    addr=a*64+(c*24)+(2-(b>>3));
+	    
+	    if (horse_sprites[addr]&d) { v|=0x80; } addr+=3;
+	    if (horse_sprites[addr]&d) { v|=0x40; } addr+=3;
+	    if (horse_sprites[addr]&d) { v|=0x20; } addr+=3;
+	    if (horse_sprites[addr]&d) { v|=0x10; } addr+=3;
+	    if (horse_sprites[addr]&d) { v|=0x08; } addr+=3;
+	    if (horse_sprites[addr]&d) { v|=0x04; } addr+=3;	
+	    if (horse_sprites[addr]&d) { v|=0x02; } addr+=3;
+	    if (horse_sprites[addr]&d) { v|=0x01; } addr+=3;
 
-  // XXX Now make 90 degree rotated versions
-  
-  
+	    if (a<32) 
+	      lpoke(0xC000U+64*64+a*64+b*3+c,v);
+	    else
+	      lpoke(0xC000U+64*64+a*64+(63-b*3)+c,v);
+	  }
+      
+      POKE(0xD020U,a&0xf);
+    }
+  }
+  POKE(0xD020U,0xa);
+
 }
 
 void videomode_game(void)
