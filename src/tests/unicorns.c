@@ -123,6 +123,7 @@ unsigned char a,b;
 unsigned char player_x[4];
 unsigned char player_y[4];
 unsigned int player_tiles[4];
+unsigned int player_direction[4];
 unsigned int player_features[4];
 unsigned int player_animation_frame[4]; 
 #define FEATURE_FAST 0x01
@@ -132,6 +133,19 @@ void prepare_sprites(void)
 {
   // Enable all sprites.
   POKE(0xD015U,0xFF);
+
+  // Set first four sprites to light grey for unicorn outlines
+  POKE(0xD027U,0x2);
+  POKE(0xD028U,0x5);
+  POKE(0xD029U,0x6);
+  POKE(0xD02AU,0x7);
+  // And second four sprites to player colours for unicorn bodies
+  POKE(0xD027U,0xf);
+  POKE(0xD028U,0xf);
+  POKE(0xD029U,0xf);
+  POKE(0xD02AU,0xf);
+  
+  // Set second four sprites to player colours
   
   // Make horizontally flipped sprites
   a=0;
@@ -207,6 +221,7 @@ void videomode_game(void)
   // So that makes 88 sprites, which easily fits
   // We copy the sprites into place, and then make the horizontally flipped
   // and 90 degree rotated versions
+  lfill(0xC000U,0,0x2800U); // Erase all sprites first
   lcopy((long)&horse_sprites[0],0xC000U,sizeof(horse_sprites));  
   prepare_sprites();
   
@@ -286,7 +301,7 @@ void main(void)
   // Setup game state
   for(a=0;a<4;a++) {
     // Initial player placement
-    if (a<2) player_x[a]=0; else player_x[a]=79;
+    if (a<2) { player_x[a]=0; player_direction[a]=0; } else { player_x[a]=79; player_direction[a]=0x20; }
     if (a&1) player_y[a]=49; else player_y[a]=0;
     // Player initially has no tiles allocated
     player_tiles[a]=0;
@@ -345,16 +360,20 @@ void main(void)
 	  } else
 	    // Stationary player, so show standing unicorn
 	    player_animation_frame[a]=11;
+	  if (player_animation_frame[a]>11) player_animation_frame[a]=0;
 	  // Work out which direction, and from that, the position of the
 	  // sprite
 	  if (b&1) {
 	    // Moving up
+	    player_direction[a]=0x60;
 	  }
 	  if (b&2) {
 	    // Moving down
+	    player_direction[a]=0x40;
 	  }
 	  if (b&4) {
 	    // Moving left
+	    player_direction[a]=0x20;
 	    POKE(0xF7F8U+a,32+player_animation_frame[a]);      // outline sprite
 	    POKE(0xF7F8U+4+a,32+16+player_animation_frame[a]); // colour sprite
 	    sprite_x=8+player_x[a]*4;
@@ -362,17 +381,24 @@ void main(void)
 	  }
 	  if (b&8) {
 	    // Moving right
+	    player_direction[a]=0x00;
 	    POKE(0xF7F8U+a,player_animation_frame[a]);      // outline sprite
 	    POKE(0xF7F8U+4+a,16+player_animation_frame[a]); // colour sprite
 	    sprite_x=19+player_x[a]*4;
 	    sprite_y=40+player_y[a]*4;
 	  }
-	  POKE(0xD000U+a*2,sprite_x&0xff);
-	  POKE(0xD001U+a*2,sprite_y);
-	  POKE(0xD008U+a*2,sprite_x&0xff);
-	  POKE(0xD009U+a*2,sprite_y);
-	  if (sprite_x&0x100) POKE(0xD010U,PEEK(0xD010U)|(0x11<<a));
-	  else POKE(0xD010U,PEEK(0xD010U)&(0xFF-(0x11<<a)));
+	  if (b&0xf) {
+	    POKE(0xD000U+a*2,sprite_x&0xff);
+	    POKE(0xD001U+a*2,sprite_y);
+	    POKE(0xD008U+a*2,sprite_x&0xff);
+	    POKE(0xD009U+a*2,sprite_y);
+	    if (sprite_x&0x100) POKE(0xD010U,PEEK(0xD010U)|(0x11<<a));
+	    else POKE(0xD010U,PEEK(0xD010U)&(0xFF-(0x11<<a)));
+	  } else {
+	    // No movement, just switch to stationary unicorn pose
+	    POKE(0xF7F8U+a,player_direction[a]+player_animation_frame[a]);      // outline sprite
+	    POKE(0xF7F8U+4+a,player_direction[a]+player_animation_frame[a]); // colour sprite
+	  }
 	}
 
       // Leave unicorn rainbow trail behind us
