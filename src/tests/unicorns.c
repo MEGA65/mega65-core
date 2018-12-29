@@ -191,9 +191,11 @@ void prepare_sprites(void)
 	    if (horse_sprites[addr]&d) { v|=0x20; } addr+=3;
 	    if (horse_sprites[addr]&d) { v|=0x10; } addr+=3;
 	    if (horse_sprites[addr]&d) { v|=0x08; } addr+=3;
-	    if (horse_sprites[addr]&d) { v|=0x04; } addr+=3;	
-	    if (horse_sprites[addr]&d) { v|=0x02; } addr+=3;
-	    if (horse_sprites[addr]&d) { v|=0x01; } addr+=3;
+	    if (c<2) {
+	      if (horse_sprites[addr]&d) { v|=0x04; } addr+=3;	
+	      if (horse_sprites[addr]&d) { v|=0x02; } addr+=3;
+	      if (horse_sprites[addr]&d) { v|=0x01; } addr+=3;
+	    } else addr+=3*3;
 
 	    if (a<32) 
 	      lpoke(0xC000U+64*64+a*64+b*3+c,v);
@@ -344,8 +346,24 @@ void main(void)
   // Setup game state
   for(a=0;a<4;a++) {
     // Initial player placement
-    if (a<2) { player_x[a]=0; player_direction[a]=0; } else { player_x[a]=79; player_direction[a]=0x20; }
-    if (a&1) player_y[a]=49; else player_y[a]=0;
+    if (a<2) {
+      POKE(0xD000U+a*2,21); POKE(0xD008U+a*2,21);
+      player_x[a]=0; player_direction[a]=0;
+    } else {
+      POKE(0xD000U+a*2,8+79*4); POKE(0xD008U+a*2,8+79*4);
+      POKE(0xD010U,PEEK(0xD010U)|(0x11<<a));
+      player_x[a]=79; player_direction[a]=0x20;
+    }
+    // Start player clear of score boxes
+    if (a&1) {
+      POKE(0xD001U+a*2,43+40*4); POKE(0xD009U+a*2,43+40*4);
+      player_y[a]=40; }
+    else {
+      POKE(0xD001U+a*2,43+10*4); POKE(0xD009U+a*2,43+10*4);
+      player_y[a]=10;
+    }
+
+    
     // Player initially has no tiles allocated
     player_tiles[a]=0;
     // Players have no special feature initially
@@ -400,10 +418,10 @@ void main(void)
 	  ||(player_features[a]&FEATURE_SUPERFAST))
 	{
 	  // Move based on new joystick position
-	  if (b&1) { if (player_y[a]) player_y[a]--; }
-	  if (b&2) { if (player_y[a]<49) player_y[a]++; }
-	  if (b&4) { if (player_x[a]) player_x[a]--; }
-	  if (b&8) { if (player_x[a]<79) player_x[a]++; }
+	  if (b&1) { if (player_y[a]&&(game_grid[player_x[a]][player_y[a]-1]!=0xff)) player_y[a]--; }
+	  if (b&2) { if (player_y[a]<49&&(game_grid[player_x[a]][player_y[a]+1]!=0xff)) player_y[a]++; }
+	  if (b&4) { if (player_x[a]&&(game_grid[player_x[a]-1][player_y[a]]!=0xff)) player_x[a]--; }
+	  if (b&8) { if (player_x[a]<79&&(game_grid[player_x[a]+2][player_y[a]]!=0xff)) player_x[a]++; }
 	  if (b&0xf) {
 	    // Player is being moved, so update animation frame
 	    player_animation_frame[a]++;
@@ -443,7 +461,7 @@ void main(void)
 	    player_direction[a]=0x00;
 	    POKE(0xF7F8U+a,16+player_animation_frame[a]);      // colour sprite
 	    POKE(0xF7F8U+4+a,0+player_animation_frame[a]);     // outline sprite
-	    sprite_x=19+player_x[a]*4;
+	    sprite_x=21+player_x[a]*4;
 	    sprite_y=43+player_y[a]*4;
 	  }
 	  if (b&0xf) {
