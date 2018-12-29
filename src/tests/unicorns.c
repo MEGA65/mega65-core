@@ -87,12 +87,12 @@ void lcopy(long source_address, long destination_address,
   dmalist.modulo=0;
   dmalist.source_addr=source_address&0xffff;
   dmalist.source_bank=(source_address>>16)&0x0f;
-  if (source_address>=0xd000 && source_address<0xe000)
-    dmalist.source_bank|=0x80;  
+  //  if (source_address>=0xd000 && source_address<0xe000)
+  //    dmalist.source_bank|=0x80;  
   dmalist.dest_addr=destination_address&0xffff;
   dmalist.dest_bank=(destination_address>>16)&0x0f;
-  if (destination_address>=0xd000 && destination_address<0xe000)
-    dmalist.dest_bank|=0x80;
+  //  if (destination_address>=0xd000 && destination_address<0xe000)
+  //    dmalist.dest_bank|=0x80;
 
   do_dma();
   return;
@@ -176,7 +176,7 @@ void prepare_sprites(void)
   
   
   // Now make 90 degree rotated versions
-  for(a=0;a<64;a++) {
+  for(a=0;a<32;a++) {
     {
       for(b=0;b<21;b++)   // y in destination
 	for(c=0;c<3;c++)  // x BYTE in destination
@@ -204,6 +204,17 @@ void prepare_sprites(void)
       POKE(0xD020U,a&0xf);
     }
   }
+  // And then the vertical flipped copies of them
+  lcopy(0xD000U,0xD800U,2048);
+  for(a=0;a<32;a++) {
+    for(b=0;b<21;b++)   // y in destination
+      for(c=0;c<3;c++)  // x BYTE in destination
+	{
+	  lcopy(0xD800U+a*64+(63-b*3),0xD000U+a*64+b*3,3);
+	}
+      POKE(0xD020U,a&0xf);
+  }
+  
   POKE(0xD020U,0xa);
 
 }
@@ -406,26 +417,34 @@ void main(void)
 	  if (b&1) {
 	    // Moving up
 	    player_direction[a]=0x60;
+	    POKE(0xF7F8U+a,0x60+16+player_animation_frame[a]); // colour sprite
+	    POKE(0xF7F8U+4+a,0x60+player_animation_frame[a]);  // outline sprite
+	    sprite_x=18+player_x[a]*4;
+	    sprite_y=33+player_y[a]*4;
 	  }
 	  if (b&2) {
 	    // Moving down
 	    player_direction[a]=0x40;
+	    POKE(0xF7F8U+a,0x40+16+player_animation_frame[a]); // colour sprite
+	    POKE(0xF7F8U+4+a,0x40+player_animation_frame[a]);  // outline sprite
+	    sprite_x=18+player_x[a]*4;
+	    sprite_y=49+player_y[a]*4;
 	  }
 	  if (b&4) {
 	    // Moving left
 	    player_direction[a]=0x20;
-	    POKE(0xF7F8U+a,32+16+player_animation_frame[a]);      // colour sprite
-	    POKE(0xF7F8U+4+a,32+player_animation_frame[a]); // outline sprite
+	    POKE(0xF7F8U+a,32+16+player_animation_frame[a]);   // colour sprite
+	    POKE(0xF7F8U+4+a,32+player_animation_frame[a]);    // outline sprite
 	    sprite_x=8+player_x[a]*4;
-	    sprite_y=40+player_y[a]*4;
+	    sprite_y=43+player_y[a]*4;
 	  }
 	  if (b&8) {
 	    // Moving right
 	    player_direction[a]=0x00;
 	    POKE(0xF7F8U+a,16+player_animation_frame[a]);      // colour sprite
-	    POKE(0xF7F8U+4+a,0+player_animation_frame[a]); // outline sprite
+	    POKE(0xF7F8U+4+a,0+player_animation_frame[a]);     // outline sprite
 	    sprite_x=19+player_x[a]*4;
-	    sprite_y=40+player_y[a]*4;
+	    sprite_y=43+player_y[a]*4;
 	  }
 	  if (b&0xf) {
 	    POKE(0xD000U+a*2,sprite_x&0xff);
