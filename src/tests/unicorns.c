@@ -53,7 +53,7 @@ void lpoke(long address, unsigned char value)
   dmalist.source_addr=(unsigned int)&dma_byte;
   dmalist.source_bank=0;
   dmalist.dest_addr=address&0xffff;
-  dmalist.dest_bank=(address>>16)&0x7f;
+  dmalist.dest_bank=(address>>16);
 
   do_dma(); 
   return;
@@ -135,15 +135,15 @@ void prepare_sprites(void)
   POKE(0xD015U,0xFF);
 
   // Set first four sprites to light grey for unicorn outlines
+  POKE(0xD02BU,0xf);
+  POKE(0xD02CU,0xf);
+  POKE(0xD02DU,0xf);
+  POKE(0xD02EU,0xf);
+  // And second four sprites to player colours for unicorn bodies
   POKE(0xD027U,0x2);
   POKE(0xD028U,0x5);
   POKE(0xD029U,0x6);
   POKE(0xD02AU,0x7);
-  // And second four sprites to player colours for unicorn bodies
-  POKE(0xD027U,0xf);
-  POKE(0xD028U,0xf);
-  POKE(0xD029U,0xf);
-  POKE(0xD02AU,0xf);
   
   // Set second four sprites to player colours
   
@@ -162,7 +162,7 @@ void prepare_sprites(void)
   } while(++a);
 
   // Make horizontally flipped sprites
-  for(a=0;a<16;a++) {
+  for(a=0;a<32;a++) {
     for(b=0;b<21;b++) {
       POKE(0xC000U+32*64
 	   +a*64+b*3+0,flipped[PEEK(0xC000U+a*64+b*3+2)]);
@@ -296,6 +296,8 @@ void redraw_game_grid(void)
 unsigned char sprite_y;
 unsigned short sprite_x;
 
+unsigned char colour_phase=0;
+
 void main(void)
 {
   // Setup game state
@@ -330,6 +332,14 @@ void main(void)
     while(PEEK(0xD012U)<0xFE) continue;
 
     frame_count++;
+
+    // Pulse grey of the unicorns
+    if (!(frame_count&3)) {
+      colour_phase++;
+      if (colour_phase>25) colour_phase=0;
+      if (colour_phase<14) { POKE(0xD10Fu,2+colour_phase); POKE(0xD20FU,2+colour_phase); POKE(0xD30FU,2+colour_phase); }
+      else { POKE(0xD10FU,2+25-colour_phase); POKE(0xD20FU,2+25-colour_phase); POKE(0xD30FU,2+25-colour_phase); }
+    }
     
     // Read state of the four joysticks
     for(a=0;a<4;a++) {
@@ -374,16 +384,16 @@ void main(void)
 	  if (b&4) {
 	    // Moving left
 	    player_direction[a]=0x20;
-	    POKE(0xF7F8U+a,32+player_animation_frame[a]);      // outline sprite
-	    POKE(0xF7F8U+4+a,32+16+player_animation_frame[a]); // colour sprite
+	    POKE(0xF7F8U+a,32+16+player_animation_frame[a]);      // colour sprite
+	    POKE(0xF7F8U+4+a,32+player_animation_frame[a]); // outline sprite
 	    sprite_x=8+player_x[a]*4;
 	    sprite_y=40+player_y[a]*4;
 	  }
 	  if (b&8) {
 	    // Moving right
 	    player_direction[a]=0x00;
-	    POKE(0xF7F8U+a,player_animation_frame[a]);      // outline sprite
-	    POKE(0xF7F8U+4+a,16+player_animation_frame[a]); // colour sprite
+	    POKE(0xF7F8U+a,16+player_animation_frame[a]);      // colour sprite
+	    POKE(0xF7F8U+4+a,0+player_animation_frame[a]); // outline sprite
 	    sprite_x=19+player_x[a]*4;
 	    sprite_y=40+player_y[a]*4;
 	  }
@@ -396,8 +406,8 @@ void main(void)
 	    else POKE(0xD010U,PEEK(0xD010U)&(0xFF-(0x11<<a)));
 	  } else {
 	    // No movement, just switch to stationary unicorn pose
-	    POKE(0xF7F8U+a,player_direction[a]+player_animation_frame[a]);      // outline sprite
-	    POKE(0xF7F8U+4+a,player_direction[a]+player_animation_frame[a]); // colour sprite
+	    POKE(0xF7F8U+a,player_direction[a]+16+player_animation_frame[a]);      // colour sprite
+	    POKE(0xF7F8U+4+a,player_direction[a]+player_animation_frame[a]); // outline sprite
 	  }
 	}
 
