@@ -5,6 +5,7 @@
 */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
 
@@ -132,8 +133,23 @@ unsigned char frame_count=0;
 unsigned short addr;
 unsigned char a,b,c,d,v;
 
-// Play grid
+// Play grid. Contains 0x00 for blank, 0x01-0x04 for
+// trail from a given player, or 0x10-0xFF for special poop
 unsigned char game_grid[80][50];
+#define SPECIAL_FAST 0x00
+#define SPECIAL_SUPERFAST 0x01
+#define SPECIAL_LONGERTAIL 0x02
+#define SPECIAL_SHORTERTAIL 0x03
+#define SPECIAL_GLOWWORM0 0x04
+#define SPECIAL_GLOWWORM1 0x05
+#define SPECIAL_GLOWWORM2 0x06
+#define SPECIAL_GLOWWORM3 0x07
+#define SPECIAL_RAINBOWPOOP 0x08
+#define SPECIAL_LESSMAGIC 0x09
+#define SPECIAL_MOREMAGIC 0x0a
+#define SPECIAL_MAGICSQUIRTS 0x0b
+#define SPECIAL_SLOW 0x0c
+#define SPECIAL_MAX 0x0d
 
 // Position of players on the grid
 unsigned char player_x[4];
@@ -159,8 +175,15 @@ unsigned char player_tail_length[4];
 unsigned short player_features[4];
 #define FEATURE_FAST 0x01
 #define FEATURE_SUPERFAST 0x02
+#define FEATURE_RAINBOWPOOP 0x03
 // How many frames before the powerup on each player times out
 unsigned short player_feature_timeouts[4];
+
+// Which colour do we paint our tail in?
+unsigned char player_paint_colour[4];
+
+// bitmask used with rand() to decide if we are pooping something special each movement
+unsigned char player_poop_mask[4];
 
 // Which frame of the running/standing unicorn should we display for each player?
 unsigned int player_animation_frame[4]; 
@@ -345,8 +368,12 @@ void draw_pixel_char(unsigned char x,unsigned char y,
 {
   if (y>24) return;
   if (x>79) return;
-  if (c_lower>4) return;
-  if (c_upper>4) return;
+
+  // For special poop, we have more or less random colours allocated for it.
+  // XXX - Make sure to distribute the good and bad things evenly among the four colours!
+  if (c_lower>4) c_lower=1+(c_lower&0x03);
+  if (c_upper>4) c_upper=1+(c_upper&0x03);
+  
   screen_offset=y*80+x;
   if (c_upper<4) {
     // Use half-char block with active pixels in bottom half.
@@ -435,6 +462,11 @@ void main(void)
     // Begin with unicorns in stationary pose
     player_animation_frame[a]=11;
 
+    // By default paint in the correct colour
+    player_paint_colour[a]=a;
+    // Only produce magic poop relatively rarely
+    player_poop_mask[a]=0x1f;
+    
     // Clear powerups, and reset maximum tail lengths etc
     player_features[a]=0;
     player_tail_max_lengths[a]=8;
@@ -451,7 +483,9 @@ void main(void)
   for(a=70;a<80;a++) for(b=0;b<6;b++) game_grid[a][b]=0xff;
   for(a=0;a<10;a++) for(b=44;b<50;b++) game_grid[a][b]=0xff;
   for(a=70;a<80;a++) for(b=44;b<50;b++) game_grid[a][b]=0xff;
-  
+
+  // See random number generator
+  srand(PEEK(0xD012U));
   
   // Set DDR on port for protovision/CGA joystick expander
   POKE(0xDD03U,0x80);
@@ -484,6 +518,20 @@ void main(void)
       lcopy((long)score_string,0xF000U+80
 	    +((a&2)?70:0)
 	    +((a&1)?(22*80):0),10);
+
+      // Timeout specials
+      if (player_feature_timeouts[a]) {
+	player_feature_timeouts[a]--;
+      } else {
+	// Immediately go back to painting in your own colour
+	player_paint_colour[a]=a;
+	// Clear fast/super fast/rainbow painting etc
+	player_features[a]=0;
+	// stop magic diarrhoea / slow down rate of pooping extra stuff
+	if (!player_poop_mask[a]) player_poop_mask[a]=0x1f;
+	else if (player_poop_mask[a]<0x1f)
+	  player_poop_mask[a]=(player_poop_mask[a]<<1)|0x01;
+      }
     }
     
     // Read state of the four joysticks
@@ -581,30 +629,96 @@ void main(void)
 
 	  // Leave unicorn rainbow trail behind us
 	  if (b&0xf) {
-	    player_tail_start[a]++;
-	    player_tail_history_x[a][player_tail_start[a]]=player_x[a];
-	    player_tail_history_y[a][player_tail_start[a]]=player_y[a];
-	    player_tail_length[a]++;
 
 	    b=game_grid[player_x[a]][player_y[a]];	
-	    if (b!=(a+1)) {
-	      // take over this tile
-	      
-	      // But first, take it away from the previous owner
-	      if (b&&(b<5))
-		if (player_tiles[b-1])
-		  player_tiles[b-1]--;
-	      
-	      // Update grid to show our ownership
-	      game_grid[player_x[a]][player_y[a]]=a+1;
-	      
-	      // Add to our score for the take over
-	      player_tiles[a]++;
-	      
+
+	    if (b>=0x10) {
+	      // There is something special here!
+	      // You get 10 points for each special, regardless of what it is
+	      player_tiles[a]+=10;
+
+	      // Consume the special
+	      game_grid[player_x[a]][player_y[a]]=0;	
 	      // Update the on-screen display
 	      draw_pixel_char(player_x[a],player_y[a]>>1,
 			      game_grid[player_x[a]][player_y[a]&0xfe],
 			      game_grid[player_x[a]][player_y[a]|0x01]);
+
+	      // The special things are really quite random as to what they do, and whether
+	      // they are helpful or not
+	      switch(b-0x10) {
+	      case SPECIAL_SLOW:
+		player_features[a]=0; // back to normal speed
+		break;
+	      case SPECIAL_FAST:       // you go fast for a while
+		player_features[a]=FEATURE_FAST;
+		player_feature_timeouts[a]=480;
+		break;
+	      case SPECIAL_SUPERFAST:  // you go super fast for a while
+		player_features[a]=FEATURE_SUPERFAST;
+		player_feature_timeouts[a]=300;
+		break;
+	      case SPECIAL_LONGERTAIL:  // your rainbow trail is forced to be a bit shorter
+		if (player_tail_max_lengths[a]<0xf7) player_tail_max_lengths[a]+=8;
+		break;
+	      case SPECIAL_SHORTERTAIL:  // your rainbow trail can be a bit longer
+		if (player_tail_max_lengths[a]>48)
+		  player_tail_max_lengths[a]-=32;
+		else if (player_tail_max_lengths[a]>16)
+		  player_tail_max_lengths[a]-=8;
+		break;
+	      case SPECIAL_GLOWWORM0:  // you paint player 0's colour for a while
+		player_paint_colour[a]=3; player_feature_timeouts[a]=300; break;
+	      case SPECIAL_GLOWWORM1:  // you paint player 1's colour for a while
+		player_paint_colour[a]=3; player_feature_timeouts[a]=300; break;
+	      case SPECIAL_GLOWWORM2:  // you paint player 2's colour for a while
+		player_paint_colour[a]=3; player_feature_timeouts[a]=300; break;
+	      case SPECIAL_GLOWWORM3:  // you paint player 3's colour for a while
+		player_paint_colour[a]=3; player_feature_timeouts[a]=300; break;
+	      case SPECIAL_RAINBOWPOOP:
+		player_features[a]=FEATURE_RAINBOWPOOP;
+		break;
+	      case SPECIAL_LESSMAGIC:  // you poop stuff less often
+		player_poop_mask[a]=0x01|(player_poop_mask[a]<<1); break;
+	      case SPECIAL_MOREMAGIC:  // you poop stuff more often
+		player_poop_mask[a]=(player_poop_mask[a]>>1)|0x03; break;
+	      case SPECIAL_MAGICSQUIRTS: // you poop only stuff for a while
+		player_poop_mask[a]=0; player_feature_timeouts[a]=120; break;
+	      }
+	    } else if (!(rand()&player_poop_mask[a])) {
+	      // Poop something special!
+	      b=rand()%SPECIAL_MAX; b+=0x10;
+	      game_grid[player_x[a]][player_y[a]]=b;	      
+	      // Update the on-screen display
+	      draw_pixel_char(player_x[a],player_y[a]>>1,
+			      game_grid[player_x[a]][player_y[a]&0xfe],
+			      game_grid[player_x[a]][player_y[a]|0x01]);
+	    } else {
+	      // Leave trail as per normal
+	      player_tail_start[a]++;
+	      player_tail_history_x[a][player_tail_start[a]]=player_x[a];
+	      player_tail_history_y[a][player_tail_start[a]]=player_y[a];
+	      player_tail_length[a]++;
+	      
+	      if (b!=(a+1)) {
+		// take over this tile
+		
+		// But first, take it away from the previous owner
+		if (b&&(b<5))
+		  if (player_tiles[b-1])
+		    player_tiles[b-1]--;
+		
+		// Update grid to show our ownership
+		game_grid[player_x[a]][player_y[a]]=a+1;
+		
+		// Add to our score for the take over
+		player_tiles[a]++;
+		
+		// Update the on-screen display
+		draw_pixel_char(player_x[a],player_y[a]>>1,
+				game_grid[player_x[a]][player_y[a]&0xfe],
+				game_grid[player_x[a]][player_y[a]|0x01]);
+	      }
 	    }
 	  }
 	}
