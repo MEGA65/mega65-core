@@ -508,11 +508,17 @@ void main(void)
 
     // Clear some magic poop each frame
     // This stops magic items building up too much.
-    cx+=10; if (cx>=80) { cx=0; cy++; } if (cy>=50) cy=0;
-    for(a=cx;a<(cx+10);a++)
-      if ((game_grid[a][cy]>=0x10)&&(game_grid[a][cy]!=0xff)) {
-	game_grid[a][cy]=0; draw_pixel_char(a,cy>>1,game_grid[a][cy&0xfe],game_grid[a][cy|0x01]);
+    for(a=0;a<10;a++) {
+      // Do pseudo-random cleanup
+      cx+=23;
+      if (cx>79) { cx-=80; cy++; }
+      if (cy>49) cy=0;
+
+      // clear and re-draw the cell if required
+      if ((game_grid[cx][cy]>=0x10)&&(game_grid[cx][cy]!=0xff)) {
+	game_grid[cx][cy]=0; draw_pixel_char(cx,cy>>1,game_grid[cx][cy&0xfe],game_grid[cx][cy|0x01]);
       }
+    }
     
     // Pulse grey of the unicorns
     if (!(frame_count&3)) {
@@ -534,13 +540,21 @@ void main(void)
 	player_feature_timeouts[a]--;
       } else {
 	// Immediately go back to painting in your own colour
-	player_paint_colour[a]=a;
+
+	player_paint_colour[a]=a; POKE(0xD02BU+a,0x0f);
+	lfill(0x1F800U+((a&1)?22*80:0)+((a&2)?70:0),(!a)?2:(a==1)?5:(a==2)?6:7,10);  
+	
 	// Clear fast/super fast/rainbow painting etc
 	player_features[a]=0;
 	// stop magic diarrhoea / slow down rate of pooping extra stuff
 	if (!player_poop_mask[a]) player_poop_mask[a]=0x1f;
-	else if (player_poop_mask[a]<0x1f)
+	else if (player_poop_mask[a]<0x1f) {
 	  player_poop_mask[a]=(player_poop_mask[a]<<1)|0x01;
+	  player_feature_timeouts[a]=120;
+        } else if (player_poop_mask[a]>0x3f) {
+	  player_poop_mask[a]=player_poop_mask[a]>>1;
+	  player_feature_timeouts[a]=120;
+	}
       }
     }
     
@@ -567,12 +581,15 @@ void main(void)
       case 0: b=PEEK(0xDC00U)&0x1f; break;
       case 1: b=PEEK(0xDC01U)&0x1f; break;
 	// PEEK must come before POKE in the following to make sure CC65 doesn't optimise the PEEK away
-      case 2: b=PEEK(0xDD01U)&0x1f; POKE(0xDD01U,0x80); break;
-      case 3: b=(PEEK(0xDD01U)&0xf)+((PEEK(0xDD01U)>>1)&0x10); POKE(0xDD01U,0x00); break;
+      case 2: b=(PEEK(0xDD01U)&0xf)+((PEEK(0xDD01U)>>1)&0x10); POKE(0xDD01U,0x80); break;
+      case 3: b=PEEK(0xDD01U)&0x1f; POKE(0xDD01U,0x00); break;
       }
       // Make joystick data active high
       b^=0x1f;
 
+      // XXX DEBUG firebutton makes us poop lots of magic things while held
+      if (b&0x10) { player_poop_mask[a]=0; player_feature_timeouts[a]=16; }
+      
       if ((!(frame_count&0x03))
 	  ||((frame_count&1)&&(player_features[a]&FEATURE_FAST))
 	  ||(player_features[a]&FEATURE_SUPERFAST))
@@ -658,7 +675,10 @@ void main(void)
 	      // they are helpful or not
 
 	      // Flash border so we know magic has happened
-	      POKE(0xD020U,(PEEK(0xD020U)+1)&0x0f);
+	      if (PEEK(0xD020U)!=0xe) // don't use colour 15 that we are cycling the brightness of
+		POKE(0xD020U,(PEEK(0xD020U)+1)&0x0f);
+	      else
+		POKE(0xD020U,0);
 	      
 	      switch(b-0x10) {
 	      case SPECIAL_SLOW:
@@ -682,13 +702,29 @@ void main(void)
 		  player_tail_max_lengths[a]-=8;
 		break;
 	      case SPECIAL_GLOWWORM0:  // you paint player 0's colour for a while
-		player_paint_colour[a]=3; player_feature_timeouts[a]=300; break;
+		POKE(0xD02BU+a,2); // Make unicorn go the colour it is painting
+		lfill(0x1F800U+((a&1)?22*80:0)+((a&2)?70:0),2,10);  
+		player_poop_mask[a]=0xff; // and only draw in the other player's colour, instead of pooping lots
+		player_paint_colour[a]=0;
+		player_feature_timeouts[a]=300; break;
 	      case SPECIAL_GLOWWORM1:  // you paint player 1's colour for a while
-		player_paint_colour[a]=3; player_feature_timeouts[a]=300; break;
+		POKE(0xD02BU+a,5); // Make unicorn go the colour it is painting
+		lfill(0x1F800U+((a&1)?22*80:0)+((a&2)?70:0),5,10);  
+		player_poop_mask[a]=0xff; // and only draw in the other player's colour, instead of pooping lots
+		player_paint_colour[a]=1;
+		player_feature_timeouts[a]=300; break;
 	      case SPECIAL_GLOWWORM2:  // you paint player 2's colour for a while
-		player_paint_colour[a]=3; player_feature_timeouts[a]=300; break;
+		POKE(0xD02BU+a,6); // Make unicorn go the colour it is painting
+		lfill(0x1F800U+((a&1)?22*80:0)+((a&2)?70:0),6,10);  
+		player_poop_mask[a]=0xff; // and only draw in the other player's colour, instead of pooping lots
+		player_paint_colour[a]=2;
+		player_feature_timeouts[a]=300; break;
 	      case SPECIAL_GLOWWORM3:  // you paint player 3's colour for a while
-		player_paint_colour[a]=3; player_feature_timeouts[a]=300; break;
+		POKE(0xD02BU+a,7); // Make unicorn go the colour it is painting
+		lfill(0x1F800U+((a&1)?22*80:0)+((a&2)?70:0),7,10);  
+		player_poop_mask[a]=0xff; // and only draw in the other player's colour, instead of pooping lots
+		player_paint_colour[a]=3;
+		player_feature_timeouts[a]=300; break;
 	      case SPECIAL_RAINBOWPOOP:
 		player_features[a]=FEATURE_RAINBOWPOOP;
 		break;
@@ -697,7 +733,10 @@ void main(void)
 	      case SPECIAL_MOREMAGIC:  // you poop stuff more often
 		player_poop_mask[a]=(player_poop_mask[a]>>1)|0x03; break;
 	      case SPECIAL_MAGICSQUIRTS: // you poop only stuff for a while
-		player_poop_mask[a]=0; player_feature_timeouts[a]=120; break;
+		player_poop_mask[a]=0;
+		player_features[a]=FEATURE_SUPERFAST;   // the squirts makes you go fast!
+		player_feature_timeouts[a]=60;
+		break;
 	      }
 	    } else if (!(rand()&player_poop_mask[a])) {
 	      // Poop something special!
@@ -709,12 +748,15 @@ void main(void)
 			      game_grid[player_x[a]][player_y[a]|0x01]);
 	    } else {
 	      // Leave trail as per normal
-	      player_tail_start[a]++;
-	      player_tail_history_x[a][player_tail_start[a]]=player_x[a];
-	      player_tail_history_y[a][player_tail_start[a]]=player_y[a];
-	      player_tail_length[a]++;
+	      if (player_paint_colour[a]==a) {
+		// Only delete trails left for ourselves.  When painting for others it just helpss them until deleted
+		player_tail_start[a]++;
+		player_tail_history_x[a][player_tail_start[a]]=player_x[a];
+		player_tail_history_y[a][player_tail_start[a]]=player_y[a];
+		player_tail_length[a]++;
+	      }
 	      
-	      if (b!=(a+1)) {
+	      if (b!=(player_paint_colour[a]+1)) {
 		// take over this tile
 		
 		// But first, take it away from the previous owner
@@ -722,11 +764,11 @@ void main(void)
 		  if (player_tiles[b-1])
 		    player_tiles[b-1]--;
 		
-		// Update grid to show our ownership
-		game_grid[player_x[a]][player_y[a]]=a+1;
+		// Update grid to show our ownership (or that of whoever's colour we are now drawing in)
+		game_grid[player_x[a]][player_y[a]]=1+player_paint_colour[a];
 		
 		// Add to our score for the take over
-		player_tiles[a]++;
+		player_tiles[player_paint_colour[a]]++;
 		
 		// Update the on-screen display
 		draw_pixel_char(player_x[a],player_y[a]>>1,
