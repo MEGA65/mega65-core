@@ -129,17 +129,43 @@ unsigned char flipped[256];
 
 unsigned char frame_count=0;
 
-unsigned char game_grid[80][50];
 unsigned short addr;
 unsigned char a,b,c,d,v;
+
+// Play grid
+unsigned char game_grid[80][50];
+
+// Position of players on the grid
 unsigned char player_x[4];
 unsigned char player_y[4];
+
+// How many tiles does the player have to their credit?
 unsigned int player_tiles[4];
-unsigned int player_direction[4];
-unsigned int player_features[4];
-unsigned int player_animation_frame[4]; 
+
+// How long the player's tails are allowed to grow to
+unsigned char player_tail_max_lengths[4];
+// History of player tails, so that we can erase them 
+unsigned char player_tail_history_x[4][256];
+unsigned char player_tail_history_y[4][256];
+// Start (head) and end (tail) of player trails
+// start is advanced when drawing a new piece
+// end is advanced when erasing the end of a tail
+unsigned char player_tail_start[4];
+unsigned char player_tail_end[4];
+// For convenience we track the length, so we can apply max_length as required
+unsigned char player_tail_length[4];
+
+// Indicates what powerups etc that each player currently has
+unsigned short player_features[4];
 #define FEATURE_FAST 0x01
 #define FEATURE_SUPERFAST 0x02
+// How many frames before the powerup on each player times out
+unsigned short player_feature_timeouts[4];
+
+// Which frame of the running/standing unicorn should we display for each player?
+unsigned int player_animation_frame[4]; 
+// Which direction did the player last move in? (so we can show the correct standing unicorn frame)
+unsigned int player_direction[4];
 
 void prepare_sprites(void)
 {  
@@ -352,10 +378,10 @@ void redraw_game_grid(void)
 	continue;
       }
 
-  lcopy(player_names[0],0xF000U,10);
-  lcopy(player_names[1],0xF000U+22*80,10);
-  lcopy(player_names[2],0xF000U+70,10);
-  lcopy(player_names[3],0xF000U+22*80+70,10);
+  lcopy((long)player_names[0],0xF000U,10);
+  lcopy((long)player_names[1],0xF000U+22*80,10);
+  lcopy((long)player_names[2],0xF000U+70,10);
+  lcopy((long)player_names[3],0xF000U+22*80+70,10);
   lfill(0x1F800U,2,10);
   lfill(0x1F800U+22*80,5,10);
   lfill(0x1F800U+70,6,10);
@@ -401,7 +427,6 @@ void main(void)
       POKE(0xD001U+a*2,43+10*4); POKE(0xD009U+a*2,43+10*4);
       player_y[a]=10;
     }
-
     
     // Player initially has no tiles allocated
     player_tiles[a]=0;
@@ -409,6 +434,13 @@ void main(void)
     player_features[a]=0;
     // Begin with unicorns in stationary pose
     player_animation_frame[a]=11;
+
+    // Clear powerups, and reset maximum tail lengths etc
+    player_features[a]=0;
+    player_tail_max_lengths[a]=8;
+    player_tail_start[a]=0;
+    player_tail_end[a]=0;
+    player_tail_length[a]=0;
   }
   // Clear game grid
   for(a=0;a<80;a++)
@@ -449,13 +481,29 @@ void main(void)
     // Update score displays
     for(a=0;a<4;a++) {
       snprintf(score_string,11,"%10d",player_tiles[a]);
-      lcopy(score_string,0xF000U+80
-	    +((a&1)?70:0)
-	    +((a&2)?(22*80):0),10);
+      lcopy((long)score_string,0xF000U+80
+	    +((a&2)?70:0)
+	    +((a&1)?(22*80):0),10);
     }
     
     // Read state of the four joysticks
     for(a=0;a<4;a++) {
+
+      // If tail is longer than allowed, then make it quickly zip back up to the correct length
+      if (player_tail_length[a]>player_tail_max_lengths[a]) {
+	b=player_tail_end[a];
+	c=player_tail_history_x[a][b];
+	d=player_tail_history_y[a][b];
+	b=game_grid[c][d];
+	if (b&&(b<5))
+	  if (player_tiles[b-1])
+	    player_tiles[b-1]--;
+	game_grid[c][d]=0;
+	draw_pixel_char(c,d>>1,game_grid[c][d&0xfe],game_grid[c][d|0x01]);
+	player_tail_end[a]++;
+	player_tail_length[a]--;
+      }
+      
       // Get joystick state
       switch(a) {
       case 0: b=PEEK(0xDC00U)&0x1f; break;
@@ -530,32 +578,38 @@ void main(void)
 	    POKE(0xF7F8U+a,player_direction[a]+16+player_animation_frame[a]);      // colour sprite
 	    POKE(0xF7F8U+4+a,player_direction[a]+player_animation_frame[a]); // outline sprite
 	  }
+
+	  // Leave unicorn rainbow trail behind us
+	  if (b&0xf) {
+	    player_tail_start[a]++;
+	    player_tail_history_x[a][player_tail_start[a]]=player_x[a];
+	    player_tail_history_y[a][player_tail_start[a]]=player_y[a];
+	    player_tail_length[a]++;
+
+	    b=game_grid[player_x[a]][player_y[a]];	
+	    if (b!=(a+1)) {
+	      // take over this tile
+	      
+	      // But first, take it away from the previous owner
+	      if (b&&(b<5))
+		if (player_tiles[b-1])
+		  player_tiles[b-1]--;
+	      
+	      // Update grid to show our ownership
+	      game_grid[player_x[a]][player_y[a]]=a+1;
+	      
+	      // Add to our score for the take over
+	      player_tiles[a]++;
+	      
+	      // Update the on-screen display
+	      draw_pixel_char(player_x[a],player_y[a]>>1,
+			      game_grid[player_x[a]][player_y[a]&0xfe],
+			      game_grid[player_x[a]][player_y[a]|0x01]);
+	    }
+	  }
 	}
-
-      // Leave unicorn rainbow trail behind us
-      b=game_grid[player_x[a]][player_y[a]];	
-      if (b!=(a+1)) {
-	// take over this tile
-
-	// But first, take it away from the previous owner
-	if (b&&(b<5))
-	  if (player_tiles[b-1])
-	    player_tiles[b-1]--;
-
-	// Update grid to show our ownership
-	game_grid[player_x[a]][player_y[a]]=a+1;
-
-	// Add to our score for the take over
-	player_tiles[a]++;
-
-	// Update the on-screen display
-	draw_pixel_char(player_x[a],player_y[a]>>1,
-			game_grid[player_x[a]][player_y[a]&0xfe],
-			game_grid[player_x[a]][player_y[a]|0x01]);
-			
-      }
     }
-  
+    
     continue;
   }
 }
