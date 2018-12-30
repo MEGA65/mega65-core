@@ -433,6 +433,8 @@ unsigned char colour_phase=0;
 
 char score_string[11];
 
+unsigned char cx,cy;
+
 void main(void)
 {
   // Setup game state
@@ -504,6 +506,14 @@ void main(void)
 
     frame_count++;
 
+    // Clear some magic poop each frame
+    // This stops magic items building up too much.
+    cx+=10; if (cx>=80) { cx=0; cy++; } if (cy>=50) cy=0;
+    for(a=cx;a<(cx+10);a++)
+      if ((game_grid[a][cy]>=0x10)&&(game_grid[a][cy]!=0xff)) {
+	game_grid[a][cy]=0; draw_pixel_char(a,cy>>1,game_grid[a][cy&0xfe],game_grid[a][cy|0x01]);
+      }
+    
     // Pulse grey of the unicorns
     if (!(frame_count&3)) {
       colour_phase++;
@@ -646,6 +656,10 @@ void main(void)
 
 	      // The special things are really quite random as to what they do, and whether
 	      // they are helpful or not
+
+	      // Flash border so we know magic has happened
+	      POKE(0xD020U,(PEEK(0xD020U)+1)&0x0f);
+	      
 	      switch(b-0x10) {
 	      case SPECIAL_SLOW:
 		player_features[a]=0; // back to normal speed
