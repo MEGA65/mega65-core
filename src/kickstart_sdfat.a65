@@ -55,6 +55,11 @@ l7:
 		; Work out if SD card or SDHC card
 		; SD cards only read on 512 byte aligned addresses.
 		; SDHC addresses by sector, so all addresses are valid
+
+		; Clear SDHC flag to begin with (flag persists through reset)
+		lda #$40
+		sta $d680
+
 		; Attempt non-aligned read		
 		lda #$02
 		sta sd_address_byte0
@@ -111,10 +116,6 @@ sd_wait_for_ready_reset_if_required:
 sd_resetsequence:
 		; write $00 to $D680 to start reset
 		;
-
-		; Clear SDHC flag
-		lda #$40
-		sta $d680
 
 		; Assert and release reset
 		lda #$00
