@@ -756,10 +756,10 @@ freeze_mem_list:
 
 	; XXX - Other IO chips!
 
-	; 128KB RAM + 128KB "ROM"
+	; 384KB RAM (includes the 128KB "ROM" area)
 	.dword $0000000
 	.word $0000      
-	.byte 4          ; =4x64K blocks = 128K + 128K
+	.byte 6          ; =6x64K blocks = 384KB
 	.byte freeze_prep_none	
 
 	; $D700-$D7FF CPU registers
