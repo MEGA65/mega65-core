@@ -1274,9 +1274,9 @@ begin
         else
           -- XXX should we just move chargen left one pixel in H640 mode
           -- instead of fiddling with the border?
-          border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border)+1,14);
+          border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border)-1,14);
           border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
-                                        -to_integer(single_side_border)+2,14);
+                                        -to_integer(single_side_border),14);
         end if;
       else
         -- 38/40 col mode has one phyical pixel too few on the left (only one
