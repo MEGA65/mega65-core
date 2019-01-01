@@ -101,7 +101,8 @@ issdhc:
 
 sd_wait_for_ready:
 		jsr sdtimeoutreset
-		jsr sdreadytest
+@loop:		jsr sdreadytest
+		bcc @loop
 		rts
 		
 sd_wait_for_ready_reset_if_required:
