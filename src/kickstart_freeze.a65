@@ -56,11 +56,8 @@ unfreeze_next_region:
 
 unfreeze_read_sector_and_wait:
 
-	; Require SHIFT press and release between every sector
-;ufrw1:	lda $d611
-;	beq ufrw1
-;ufrw2:	lda $d611
-;	bne ufrw2
+	; Require SHIFT press and release between every sector for debug
+;	jsr wait_on_shift_key
 
 @retryRead:
 	jsr sd_wait_for_ready_reset_if_required
@@ -88,13 +85,6 @@ unfreeze_read_sector_and_wait:
 freeze_write_sector_and_wait:
 
 	inc $d020
-
-;	; Require SHIFT press and release between every sector
-;fww1:	lda $d611
-;	beq fww1
-;fww2:	lda $d611
-;	bne fww2
-
 
 	lda #$00
 	sta freeze_write_tries+0
@@ -429,6 +419,15 @@ unfreeze_region_dma_loop:
 	lda #$02
 	sta freeze_region_dmalist_count+1
 not_too_big_unfreeze:
+	; Execute DMA job
+	lda #$ff
+	sta $d702
+	sta $d704
+	lda #>freeze_region_dmalist
+	sta $d701
+	lda #<freeze_region_dmalist
+	sta $d705
+
 	; DMA count is set, subtract from remaining length
 	sec
 	lda freeze_dma_length_remaining+0
@@ -444,24 +443,16 @@ not_too_big_unfreeze:
 	lda freeze_region_dmalist_count+0
 	lda freeze_region_dmalist_count+1
 
-	; advance source address
-	lda freeze_region_dmalist_source_start+1
+	; advance destination address
+	lda freeze_region_dmalist_dest_start+1
 	clc
 	adc #$02
-	sta freeze_region_dmalist_source_start+1
-	lda freeze_region_dmalist_source_bank
+	sta freeze_region_dmalist_dest_start+1
+	lda freeze_region_dmalist_dest_bank
 	adc #$00
-	sta freeze_region_dmalist_source_bank
+	sta freeze_region_dmalist_dest_bank
 	
 
-	; Execute DMA job
-	lda #$ff
-	sta $d702
-	sta $d704
-	lda #>freeze_region_dmalist
-	sta $d701
-	lda #<freeze_region_dmalist
-;	sta $d705		
 
 	jmp unfreeze_region_dma_loop
 
@@ -470,7 +461,7 @@ unfreeze_region_dma_done:
 	; Call postfix routine for the region just loaded
 	phx
 	tax
-;	jsr	dispatch_unfreeze_post
+	jsr	dispatch_unfreeze_post
 	plx
 
 	; And increase screen colour after reading each region
@@ -675,7 +666,15 @@ do_freeze_prep_palette_select:
 	ora #$3f  ; keep displaying the default palette
 	sta $d070
 	rts
-	
+
+wait_on_shift_key:
+	lda $d611
+	beq wait_on_shift_key
+*	lda $d611
+	bne -
+	rts
+
+
 
 
 
@@ -705,61 +704,62 @@ freeze_mem_list:
 	; (the DMAgic registers at $DDF370x have to get copied manually,
 	; so that we don't mess up the DMA state.  Also, when restoring
 	; we have to take some care putting them back exactly.)
-	.dword $ffd6000
-	.word $0290
-	.byte 0
-	.byte freeze_prep_stash_sd_buffer_and_regs
-
-	; SDcard sector buffer (F011)
-	.dword $ffd6c00
-	.word $0200
-	.byte 0
-	.byte freeze_prep_none
-
-	; VIC-IV palette block 0
-	.dword $ffd3100
-	.word $0300
-	.byte 0
-	.byte freeze_prep_palette0
-
-	; VIC-IV palette block 1
-	.dword $ffd3100
-	.word $0300
-	.byte 0
-	.byte freeze_prep_palette1
-
-	; VIC-IV palette block 2
-	.dword $ffd3100
-	.word $0300
-	.byte 0
-	.byte freeze_prep_palette2
-
-	; VIC-IV palette block 3
-	.dword $ffd3100
-	.word $0300
-	.byte 0
-	.byte freeze_prep_palette3	
-
-	; Process scratch space
-	.dword currenttask_block
-	.word $0100
-	.byte 0
-	.byte freeze_prep_none
-	
-	; $D640-$D67E hypervisor state registers
-	; XXX - These can't be read by DMA, so we need to have a
-	; prep routine that copies them out first?
-	.dword $ffd3640
-	.word $003F
-	.byte 0
-	.byte freeze_prep_none
-
-	; VIC-IV, F011 $D000-$D0FF
-	.dword $ffd3000
-	.word $0100
-	.byte 0
-	.byte freeze_prep_none
-
+; XXX - DEBUG don't save SD register state for now
+;	.dword $ffd6000
+;	.word $0290
+;	.byte 0
+;	.byte freeze_prep_stash_sd_buffer_and_regs
+;
+;	; SDcard sector buffer (F011)
+;	.dword $ffd6c00
+;	.word $0200
+;	.byte 0
+;	.byte freeze_prep_none
+;
+;	; VIC-IV palette block 0
+;	.dword $ffd3100
+;	.word $0300
+;	.byte 0
+;	.byte freeze_prep_palette0
+;
+;	; VIC-IV palette block 1
+;	.dword $ffd3100
+;	.word $0300
+;	.byte 0
+;	.byte freeze_prep_palette1
+;
+;	; VIC-IV palette block 2
+;	.dword $ffd3100
+;	.word $0300
+;	.byte 0
+;	.byte freeze_prep_palette2
+;
+;	; VIC-IV palette block 3
+;	.dword $ffd3100
+;	.word $0300
+;	.byte 0
+;	.byte freeze_prep_palette3	
+;
+;	; Process scratch space
+;	.dword currenttask_block
+;	.word $0100
+;	.byte 0
+;	.byte freeze_prep_none
+;	
+;	; $D640-$D67E hypervisor state registers
+;	; XXX - These can't be read by DMA, so we need to have a
+;	; prep routine that copies them out first?
+;	.dword $ffd3640
+;	.word $003F
+;	.byte 0
+;	.byte freeze_prep_none
+;
+;	; VIC-IV, F011 $D000-$D0FF
+;	.dword $ffd3000
+;	.word $0100
+;	.byte 0
+;	.byte freeze_prep_none
+;
 	; XXX - Other IO chips!
 
 	; 384KB RAM (includes the 128KB "ROM" area)
