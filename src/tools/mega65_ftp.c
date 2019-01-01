@@ -1498,7 +1498,9 @@ int download_slot(int slot_number,char *dest_name)
 	  retVal=-1;
 	  break;
 	}
+      fwrite(sector,512,1,f);
     }
+    fclose(f);
     
   } while(0);
 
