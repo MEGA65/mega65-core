@@ -56,6 +56,8 @@ static const int B4000000 = 4000000;
 time_t start_time=0;
 long long start_usec=0;
 
+int open_file_system(void);
+int download_slot(int sllot,char *dest_name);
 int download_file(char *dest_name,char *local_name);
 int show_directory(char *path);
 int rename_file(char *name,char *dest_name);
@@ -85,6 +87,34 @@ char *bitstream=NULL;
 
 unsigned char *sd_read_buffer=NULL;
 int sd_read_offset=0;
+
+int file_system_found=0;
+unsigned int partition_start=0;
+unsigned int partition_size=0;
+unsigned char sectors_per_cluster=0;
+unsigned int sectors_per_fat=0;
+unsigned int data_sectors=0;
+unsigned int first_cluster=0;
+unsigned int fsinfo_sector=0;
+unsigned int reserved_sectors=0;
+unsigned int fat1_sector=0,fat2_sector=0,first_cluster_sector;
+
+unsigned int syspart_start=0;
+unsigned int syspart_size=0;
+unsigned int syspart_freeze_area=0;
+unsigned int syspart_freeze_program_size=0;
+unsigned int syspart_slot_size=0;
+unsigned int syspart_slot_count=0;
+unsigned int syspart_slotdir_sectors=0;
+unsigned int syspart_service_area=0;
+unsigned int syspart_service_area_size=0;
+unsigned int syspart_service_slot_size=0;
+unsigned int syspart_service_slot_count=0;
+unsigned int syspart_service_slotdir_sectors=0;
+
+unsigned char mbr[512];
+unsigned char fat_mbr[512];
+unsigned char syspart_sector0[512];
 
 // From os.c in serval-dna
 long long gettime_us()
@@ -353,6 +383,7 @@ int execute_command(char *cmd)
     fprintf(stderr,"ERROR: Command too long\n");
     return -1;
   }
+  int slot=0;
   char src[1024];
   char dst[1024];
   if ((!strcmp(cmd,"exit"))||(!strcmp(cmd,"quit"))) {
@@ -387,12 +418,15 @@ int execute_command(char *cmd)
   }
   else if (sscanf(cmd,"get %s",src)==1) {
     download_file(src,src);
+  } else if (sscanf(cmd,"get %d %s",&slot,dst)==1) {
+    download_slot(slot,dst);
   } else if (!strcasecmp(cmd,"help")) {
     printf("MEGA65 File Transfer Program Command Reference:\n");
     printf("\n");
     printf("dir [directory] - show contents of current or specified directory.\n");
     printf("put <file> [destination name] - upload file to SD card, and optionally rename it destination file.\n");
     printf("get <file> [destination name] - download file from SD card, and optionally rename it destination file.\n");
+    printf("getslot <slot> <destination name> - download a freeze slot.\n");
     printf("exit - leave this programme.\n");
     printf("quit - leave this programme.\n");
   } else {
@@ -481,6 +515,8 @@ int main(int argc,char **argv)
   stop_cpu();
 
   sdhc_check();
+
+  if (!file_system_found) open_file_system();
   
   if (queued_command_count) {
     for(int i=0;i<queued_command_count;i++) execute_command(queued_commands[i]);
@@ -740,35 +776,6 @@ int write_sector(const unsigned int sector_number,unsigned char *buffer)
   return retVal;
      
 }
-
-
-int file_system_found=0;
-unsigned int partition_start=0;
-unsigned int partition_size=0;
-unsigned char sectors_per_cluster=0;
-unsigned int sectors_per_fat=0;
-unsigned int data_sectors=0;
-unsigned int first_cluster=0;
-unsigned int fsinfo_sector=0;
-unsigned int reserved_sectors=0;
-unsigned int fat1_sector=0,fat2_sector=0,first_cluster_sector;
-
-unsigned int syspart_start=0;
-unsigned int syspart_size=0;
-unsigned int syspart_freeze_area=0;
-unsigned int syspart_freeze_program_size=0;
-unsigned int syspart_slot_size=0;
-unsigned int syspart_slot_count=0;
-unsigned int syspart_slotdir_sectors=0;
-unsigned int syspart_service_area=0;
-unsigned int syspart_service_area_size=0;
-unsigned int syspart_service_slot_size=0;
-unsigned int syspart_service_slot_count=0;
-unsigned int syspart_service_slotdir_sectors=0;
-
-unsigned char mbr[512];
-unsigned char fat_mbr[512];
-unsigned char syspart_sector0[512];
 
 int open_file_system(void)
 {
@@ -1457,6 +1464,46 @@ int upload_file(char *name,char *dest_name)
 }
 
 unsigned char download_buffer[512];
+
+int download_slot(int slot_number,char *dest_name)
+{
+  int retVal=0;
+  do {
+
+    if (!syspart_start) {
+      printf("ERROR: No system partition detected.\n");
+      retVal=-1;
+      break;
+    }
+    
+    if (slot_number<0||slot_number>=syspart_slot_count) {
+      printf("ERROR: Invalid slot number (valid range is 0 -- %d)\n",syspart_slot_count);
+      retVal=-1;
+      break;
+    }
+    
+    FILE *f=fopen(dest_name,"w");
+    if (!f) {
+      printf("ERROR: Could not open file '%s' for writing\n",dest_name);
+      retVal=-1;
+      break;
+    }
+
+    for(int i=0;i<syspart_slot_size;i++) {
+      unsigned char sector[512];
+      if (read_sector(syspart_start+syspart_freeze_area+slot_number*syspart_slot_size+i,sector,0))
+	{
+	  printf("ERROR: Could not read sector %d/%d of freeze slot %d (absolute sector %d)\n",
+		 i,syspart_slot_size,slot_number,syspart_start+syspart_freeze_area+slot_number*syspart_slot_size+i);
+	  retVal=-1;
+	  break;
+	}
+    }
+    
+  } while(0);
+
+  return retVal;
+}
 
 int download_file(char *dest_name,char *local_name)
 {
