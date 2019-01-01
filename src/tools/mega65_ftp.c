@@ -753,8 +753,22 @@ unsigned int fsinfo_sector=0;
 unsigned int reserved_sectors=0;
 unsigned int fat1_sector=0,fat2_sector=0,first_cluster_sector;
 
+unsigned int syspart_start=0;
+unsigned int syspart_size=0;
+unsigned int syspart_freeze_area=0;
+unsigned int syspart_freeze_program_size=0;
+unsigned int syspart_slot_size=0;
+unsigned int syspart_slot_count=0;
+unsigned int syspart_slotdir_sectors=0;
+unsigned int syspart_service_area=0;
+unsigned int syspart_service_area_size=0;
+unsigned int syspart_service_slot_size=0;
+unsigned int syspart_service_slot_count=0;
+unsigned int syspart_service_slotdir_sectors=0;
+
 unsigned char mbr[512];
 unsigned char fat_mbr[512];
+unsigned char syspart_sector0[512];
 
 int open_file_system(void)
 {
@@ -776,8 +790,35 @@ int open_file_system(void)
 	       i,partition_start,partition_size/2048);
 	break;
       }
+      if (part_ent[4]==0x41) {
+	syspart_start=part_ent[8]+(part_ent[9]<<8)+(part_ent[10]<<16)+(part_ent[11]<<24);
+	syspart_size=part_ent[12]+(part_ent[13]<<8)+(part_ent[14]<<16)+(part_ent[15]<<24);
+	printf("Found MEGA65 system partition in partition slot %d : start sector=$%x, size=%d MB\n",
+	       i,syspart_start,syspart_size/2048);	
+      }
     }
 
+    if (syspart_start) {
+      // Ok, so we know where the partition starts, so now find the FATs
+      if (read_sector(syspart_start,syspart_sector0,0)) {
+	printf("ERROR: Could not read system partition sector 0\n");
+	retVal=-1; break; }
+      if (strncmp("MEGA65SYS00",(char *)&syspart_sector0[0],10)) {
+	printf("ERROR: MEGA65 System Partition is missing MEGA65SYS00 marker.\n");
+	retVal=-1; break;
+      }
+      syspart_freeze_area=syspart_sector0[0x10]+(syspart_sector0[0x11]<<8)+(syspart_sector0[0x12]<<16)+(syspart_sector0[0x13]<<24);
+      syspart_freeze_program_size=syspart_sector0[0x14]+(syspart_sector0[0x15]<<8)+(syspart_sector0[0x16]<<16)+(syspart_sector0[0x17]<<24);
+      syspart_slot_size=syspart_sector0[0x18]+(syspart_sector0[0x19]<<8)+(syspart_sector0[0x1a]<<16)+(syspart_sector0[0x1b]<<24);
+      syspart_slot_count=syspart_sector0[0x1c]+(syspart_sector0[0x1d]<<8);
+      syspart_slotdir_sectors=syspart_sector0[0x1e]+(syspart_sector0[0x1f]<<8);
+      syspart_service_area=syspart_sector0[0x20]+(syspart_sector0[0x21]<<8)+(syspart_sector0[0x22]<<16)+(syspart_sector0[0x23]<<24);
+      syspart_service_area_size=syspart_sector0[0x24]+(syspart_sector0[0x25]<<8)+(syspart_sector0[0x26]<<16)+(syspart_sector0[0x27]<<24);
+      syspart_service_slot_size=syspart_sector0[0x28]+(syspart_sector0[0x29]<<8)+(syspart_sector0[0x2a]<<16)+(syspart_sector0[0x2b]<<24);
+      syspart_service_slot_count=syspart_sector0[0x2c]+(syspart_sector0[0x2d]<<8);
+      syspart_service_slotdir_sectors=syspart_sector0[0x2e]+(syspart_sector0[0x2f]<<8);
+    }
+    
     if (!partition_start) { retVal=-1; break; }
     if (!partition_size) { retVal=-1; break; }
 
