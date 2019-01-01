@@ -52,12 +52,14 @@ unfreeze_next_region:
 	cmp #$ff
 	bne unfreeze_next_region
 
+	; XXX - Fix mounted D81, in case it has moved on the SD card since program was frozen
+
 	rts
 
 unfreeze_read_sector_and_wait:
 
 	; Require SHIFT press and release between every sector for debug
-;	jsr wait_on_shift_key
+	jsr wait_on_shift_key
 
 @retryRead:
 	jsr sd_wait_for_ready_reset_if_required
