@@ -1271,12 +1271,29 @@ begin
           -- changed to -1 
           border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
                                         -to_integer(single_side_border)-1,14);
+          x_chargen_start
+            <= to_unsigned(to_integer(frame_h_front)
+                           +to_integer(single_side_border)
+                           -- VIC-II smooth scrolling is based on H320/400 and real
+                           -- pixels are H640/800, so add double
+                           +to_integer(vicii_x_smoothscroll)
+                           +to_integer(vicii_x_smoothscroll)
+                           ,14);          
         else
           -- XXX should we just move chargen left one pixel in H640 mode
           -- instead of fiddling with the border?
           border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border)-1,14);
           border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
                                         -to_integer(single_side_border),14);
+          x_chargen_start
+            <= to_unsigned(to_integer(frame_h_front)
+                           +to_integer(single_side_border)
+                           -- VIC-II smooth scrolling is based on H320/400 and real
+                           -- pixels are H640/800, so add double
+                           +to_integer(vicii_x_smoothscroll)
+                           +to_integer(vicii_x_smoothscroll)
+                           -1
+                           ,14);
         end if;
       else
         -- 38/40 col mode has one phyical pixel too few on the left (only one
