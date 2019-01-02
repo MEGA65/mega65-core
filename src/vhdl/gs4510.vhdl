@@ -1775,6 +1775,19 @@ begin
               end if;            
             end if;
 
+            -- Palette RAM access (requires extra wait state, just like colour
+            -- RAM, because it comes from a BRAM)
+            if (long_address(11 downto 8) = x"1")
+              or (long_address(11 downto 8) = x"2")
+              or (long_address(11 downto 8) = x"3") then
+                wait_states <= colourram_read_wait_states;
+                if colourram_read_wait_states /= x"00" then
+                  wait_states_non_zero <= '1';
+                else
+                  wait_states_non_zero <= '0';
+                end if;
+            end if;
+            
             -- Colour RAM at $D800-$DBFF and optionally $DC00-$DFFF
             if long_address(11)='1' then
               if (long_address(10)='0') or (colourram_at_dc00='1') then
