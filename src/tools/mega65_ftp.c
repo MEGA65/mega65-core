@@ -378,7 +378,7 @@ int show_sector(unsigned int sector_num)
 int execute_command(char *cmd)
 {
   unsigned int sector_num;
-  
+
   if (strlen(cmd)>1000) {
     fprintf(stderr,"ERROR: Command too long\n");
     return -1;
@@ -391,8 +391,12 @@ int execute_command(char *cmd)
     restart_kickstart();
     exit(0);
   }
+
+  printf("cmd = '%s'\n",cmd);
   
-  if (sscanf(cmd,"get %s %s",src,dst)==2) {
+  if (sscanf(cmd,"getslot %d %s",&slot,dst)==2) {
+    download_slot(slot,dst);
+  } else if (sscanf(cmd,"get %s %s",src,dst)==2) {
     download_file(src,dst);
   }
   else if (sscanf(cmd,"put %s %s",src,dst)==2) {
@@ -418,8 +422,6 @@ int execute_command(char *cmd)
   }
   else if (sscanf(cmd,"get %s",src)==1) {
     download_file(src,src);
-  } else if (sscanf(cmd,"get %d %s",&slot,dst)==1) {
-    download_slot(slot,dst);
   } else if (!strcasecmp(cmd,"help")) {
     printf("MEGA65 File Transfer Program Command Reference:\n");
     printf("\n");
@@ -1488,19 +1490,23 @@ int download_slot(int slot_number,char *dest_name)
       retVal=-1;
       break;
     }
+    printf("Saving slot %d into '%s'\n",slot_number,dest_name);
 
     for(int i=0;i<syspart_slot_size;i++) {
       unsigned char sector[512];
-      if (read_sector(syspart_start+syspart_freeze_area+slot_number*syspart_slot_size+i,sector,0))
+      unsigned int sector_num=syspart_start+syspart_freeze_area+syspart_slotdir_sectors+slot_number*syspart_slot_size+i;
+      if (read_sector(sector_num,sector,0))
 	{
 	  printf("ERROR: Could not read sector %d/%d of freeze slot %d (absolute sector %d)\n",
-		 i,syspart_slot_size,slot_number,syspart_start+syspart_freeze_area+slot_number*syspart_slot_size+i);
+		 i,sector_num);
 	  retVal=-1;
 	  break;
 	}
       fwrite(sector,512,1,f);
+      printf("."); fflush(stdout);
     }
     fclose(f);
+    printf("\n");
     
   } while(0);
 
