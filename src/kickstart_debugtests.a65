@@ -4,6 +4,54 @@
 	; It is used for debugging various things using GHDL simulation,
 	; because the simulation is so slow, we want things to run instantly.
 
+.macro dmapalettetest
+
+       ; put some values in the palette area to make it obvious
+       ldx #$00
+*      stx $d100
+       inx
+       bne -
+
+       ; Copy from $FFD3100
+       lda #$0f
+       sta kickupdmalist+2
+       lda #<$FD3100
+       sta kickupdmalist+9
+       lda #>$FD3100
+       sta kickupdmalist+10
+       lda #$FD
+       sta kickupdmalist+11
+
+       ; Copy to $1100
+       lda #$00
+       sta kickupdmalist+4
+       lda #<$001100
+       sta kickupdmalist+12
+       lda #>$001100
+       sta kickupdmalist+13
+       lda #$00
+       sta kickupdmalist+14
+
+       ;Copy $300 bytes
+       lda #<$0300
+       sta kickupdmalist+7
+       lda #>$0300
+       sta kickupdmalist+8
+
+       lda #$ff
+       sta $d702
+       sta $d704
+       lda #>kickupdmalist
+       sta $d701
+       lda #<kickupdmalist
+       sta $d705
+
+*      inc $d020
+       jmp -
+
+.macend
+;.invoke dmapalettetest
+
 .macro alphatest
        ; 16-bit text mode, alpha blend enable
        lda #$85
