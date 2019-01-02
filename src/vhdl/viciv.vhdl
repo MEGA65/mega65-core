@@ -1288,26 +1288,37 @@ begin
         -- (rightmost pixel of last char is not truncated)
         -- Thus +2 on both the border_x_right calculations has been reduced by
         -- 1 or 2 for H640 and H320 modes
-        border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border)
-                                     +(7*2),14);
         if reg_h640='0' then
+          border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border)
+                                       +(7*2),14);
           border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
                                         -to_integer(single_side_border)
                                         -(9*2),14);
+          x_chargen_start
+            <= to_unsigned(to_integer(frame_h_front)
+                           +to_integer(single_side_border)
+                           -- VIC-II smooth scrolling is based on H320/400 and real
+                           -- pixels are H640/800, so add double
+                           +to_integer(vicii_x_smoothscroll)
+                           +to_integer(vicii_x_smoothscroll)
+                           ,14);          
         else
+          border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border)
+                                       +(7*2)+1,14);
           border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
                                         -to_integer(single_side_border)
-                                        -(9*2)+1,14);
+                                        -(9*2),14);
+          x_chargen_start
+            <= to_unsigned(to_integer(frame_h_front)
+                           +to_integer(single_side_border)
+                           -- VIC-II smooth scrolling is based on H320/400 and real
+                           -- pixels are H640/800, so add double
+                           +to_integer(vicii_x_smoothscroll)
+                           +to_integer(vicii_x_smoothscroll)
+                           -1
+                           ,14);
         end if;
       end if;
-      x_chargen_start
-        <= to_unsigned(to_integer(frame_h_front)
-                       +to_integer(single_side_border)
-                       -- VIC-II smooth scrolling is based on H320/400 and real
-                       -- pixels are H640/800, so add double
-                       +to_integer(vicii_x_smoothscroll)
-                       +to_integer(vicii_x_smoothscroll)
-                       ,14);
 
       if reg_h640='0' then
         -- 40 column mode
