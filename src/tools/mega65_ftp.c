@@ -392,8 +392,6 @@ int execute_command(char *cmd)
     exit(0);
   }
 
-  printf("cmd = '%s'\n",cmd);
-  
   if (sscanf(cmd,"getslot %d %s",&slot,dst)==2) {
     download_slot(slot,dst);
   } else if (sscanf(cmd,"get %s %s",src,dst)==2) {
@@ -938,7 +936,7 @@ int fat_readdir(struct dirent *d)
       if (dir_sector_in_cluster==sectors_per_cluster) {
 	// Follow to next cluster
 	int next_cluster=get_next_cluster(dir_cluster);
-	if (next_cluster<0xFFFFFF0) {
+	if (next_cluster<0xFFFFFF0&&next_cluster) {
 	  dir_cluster=next_cluster;
 	  dir_sector_in_cluster=0;
 	  dir_sector=first_cluster_sector+(next_cluster-first_cluster)*sectors_per_cluster;
@@ -1494,11 +1492,11 @@ int download_slot(int slot_number,char *dest_name)
 
     for(int i=0;i<syspart_slot_size;i++) {
       unsigned char sector[512];
-      unsigned int sector_num=syspart_start+syspart_freeze_area+syspart_slotdir_sectors+slot_number*syspart_slot_size+i;
+      int sector_num=syspart_start+syspart_freeze_area+syspart_slotdir_sectors+slot_number*syspart_slot_size+i;
       if (read_sector(sector_num,sector,0))
 	{
 	  printf("ERROR: Could not read sector %d/%d of freeze slot %d (absolute sector %d)\n",
-		 i,sector_num);
+		 i,syspart_slot_size,slot_number,sector_num);
 	  retVal=-1;
 	  break;
 	}
