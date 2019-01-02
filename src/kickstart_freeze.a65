@@ -40,6 +40,11 @@ unfreeze_load_from_sdcard_immediate:
 	; Stash SD card registers to scratch area
 	jsr do_freeze_prep_sdcard_regs_to_scratch
 
+	; Skip the first sector of the frozen program which is the
+	; contents of the SD card sector buffer prior to freezing.
+	; (We will load it in as the very last thing)
+	jsr sd_inc_fixedsectornumber	
+
 	; Save each region in the list
 	ldx #$00
 unfreeze_next_region:
@@ -59,7 +64,7 @@ unfreeze_next_region:
 unfreeze_read_sector_and_wait:
 
 	; Require SHIFT press and release between every sector for debug
-	jsr wait_on_shift_key
+;	jsr wait_on_shift_key
 
 @retryRead:
 	jsr sd_wait_for_ready_reset_if_required
@@ -88,6 +93,9 @@ freeze_write_sector_and_wait:
 
 	inc $d020
 
+	; Require SHIFT press and release between every sector for debug
+;	jsr wait_on_shift_key
+
 	lda #$00
 	sta freeze_write_tries+0
 	sta freeze_write_tries+1
@@ -98,15 +106,11 @@ freeze_write_sector_and_wait:
 
 	jsr sd_wait_for_ready_reset_if_required
 
-	phx
-	ldx #$9e
-*	lda $07ff,x
-	sta $0800,x
-	dex
-	bne -
-	plx
-	lda $d680
-	sta $0800
+	; XXX DEBUG
+	LDA $d681
+	LDA $d682
+	LDA $d683
+	LDA $d684
 
 	; Trigger the write
 	lda #$03
@@ -120,7 +124,6 @@ freeze_write_sector_and_wait:
 
 *	inc $d020
 	lda $d680
-	sta $0850
 	and #$03
 	bne -
 
@@ -228,6 +231,23 @@ fsr1:
 
 freeze_region_dma_loop:
 
+	; Execute DMA job
+	lda #$ff
+	sta $d702
+	sta $d704
+	lda #>freeze_region_dmalist
+	sta $d701
+	lda #<freeze_region_dmalist
+	sta $d705		
+
+	; Write SD-card direct sector buffer to freeze slot
+	; Flash a different colour while actually writing sector
+	inc $d020
+
+	jsr freeze_write_sector_and_wait
+
+	dec $d020
+
 	lda freeze_dma_length_remaining
 	lda freeze_dma_length_remaining+1
 	lda freeze_dma_length_remaining+2
@@ -277,24 +297,6 @@ not_too_big:
 	adc #$00
 	sta freeze_region_dmalist_source_bank
 	
-
-	; Execute DMA job
-	lda #$ff
-	sta $d702
-	sta $d704
-	lda #>freeze_region_dmalist
-	sta $d701
-	lda #<freeze_region_dmalist
-	sta $d705		
-
-	; Write SD-card direct sector buffer to freeze slot
-	; Flash a different colour while actually writing sector
-	inc $d020
-
-	jsr freeze_write_sector_and_wait
-
-	dec $d020
-
 	jmp freeze_region_dma_loop
 
 freeze_region_dma_done:
@@ -706,42 +708,54 @@ freeze_mem_list:
 	; (the DMAgic registers at $DDF370x have to get copied manually,
 	; so that we don't mess up the DMA state.  Also, when restoring
 	; we have to take some care putting them back exactly.)
-; XXX - DEBUG don't save SD register state for now
-;	.dword $ffd6000
-;	.word $0290
-;	.byte 0
-;	.byte freeze_prep_stash_sd_buffer_and_regs
-;
+
+	.dword $ffd6000
+	.word $0290
+	.byte 0
+	.byte freeze_prep_stash_sd_buffer_and_regs
+
+	; 384KB RAM (includes the 128KB "ROM" area)
+	.dword $0000000
+	.word $0000      
+	.byte 6          ; =6x64K blocks = 384KB
+	.byte freeze_prep_none	
+
+	; 32KB colour RAM
+	.dword $ff80000
+	.word $8000
+	.byte $00
+	.byte freeze_prep_none
+
 ;	; SDcard sector buffer (F011)
 ;	.dword $ffd6c00
 ;	.word $0200
 ;	.byte 0
 ;	.byte freeze_prep_none
 ;
-;	; VIC-IV palette block 0
-;	.dword $ffd3100
-;	.word $0300
-;	.byte 0
-;	.byte freeze_prep_palette0
-;
-;	; VIC-IV palette block 1
-;	.dword $ffd3100
-;	.word $0300
-;	.byte 0
-;	.byte freeze_prep_palette1
-;
-;	; VIC-IV palette block 2
-;	.dword $ffd3100
-;	.word $0300
-;	.byte 0
-;	.byte freeze_prep_palette2
-;
-;	; VIC-IV palette block 3
-;	.dword $ffd3100
-;	.word $0300
-;	.byte 0
-;	.byte freeze_prep_palette3	
-;
+	; VIC-IV palette block 0
+	.dword $ffd3100
+	.word $0300
+	.byte 0
+	.byte freeze_prep_palette0
+
+	; VIC-IV palette block 1
+	.dword $ffd3100
+	.word $0300
+	.byte 0
+	.byte freeze_prep_palette1
+
+	; VIC-IV palette block 2
+	.dword $ffd3100
+	.word $0300
+	.byte 0
+	.byte freeze_prep_palette2
+
+	; VIC-IV palette block 3
+	.dword $ffd3100
+	.word $0300
+	.byte 0
+	.byte freeze_prep_palette3	
+
 ;	; Process scratch space
 ;	.dword currenttask_block
 ;	.word $0100
@@ -756,31 +770,19 @@ freeze_mem_list:
 ;	.byte 0
 ;	.byte freeze_prep_none
 ;
-;	; VIC-IV, F011 $D000-$D0FF
-;	.dword $ffd3000
-;	.word $0100
-;	.byte 0
-;	.byte freeze_prep_none
-;
-	; XXX - Other IO chips!
-
-	; 384KB RAM (includes the 128KB "ROM" area)
-	.dword $0000000
-	.word $0000      
-	.byte 6          ; =6x64K blocks = 384KB
-	.byte freeze_prep_none	
-
-	; $D700-$D7FF CPU registers
-	.dword $ffd3700
+	; VIC-IV, F011 $D000-$D0FF
+	.dword $ffd3000
 	.word $0100
 	.byte 0
 	.byte freeze_prep_none
-	
-	; 32KB colour RAM
-	.dword $ff80000
-	.word $8000
-	.byte $00
-	.byte freeze_prep_none
+;
+;	; $D700-$D7FF CPU registers
+;	.dword $ffd3700
+;	.word $0100
+;	.byte 0
+;	.byte freeze_prep_none
+
+	; XXX - Other IO chips!
 
 	; End of list
 	.dword $FFFFFFFF
