@@ -345,16 +345,21 @@ unsigned int instruction_count=0;
 int one_frame=0;
 int one_frame_active=0;
 
+int logged_instruction_count=0;
+char *logged_instructions[16]={NULL};
+
 int decode_instruction(const unsigned char *b)
 {
+  char out[8192]="";
+  int out_len=0;
+  
   // Limit number of instructions shown
-  if (!match_string) {
-    if (!num_instructions) match_string="WILL NOT EVER SHOW UP";
-  }
+  // (unless we have a match string, in which case we display 16 instructions before and after each match)
   if (num_instructions) num_instructions--; else {
-    exit(-1);
+    if (!match_string)
+      exit(-1);
   }
-  if (0) printf("INSTRUCTION: %02x %02x %02x %02x %02x %02x %02x %02x\n",
+  if (0) out_len+=snprintf(&out[out_len],8192-out_len,"INSTRUCTION: %02x %02x %02x %02x %02x %02x %02x %02x\n",
 		b[0],b[1],b[2],b[3],b[4],b[5],b[6],b[7]);
   
   if ((b[0]&b[1]&b[2])==0xff) {
@@ -381,8 +386,8 @@ int decode_instruction(const unsigned char *b)
     // Don't display anything if we are not yet in the active frame to be displayed
     if (one_frame&&(!one_frame_active)) return 0;
     
-    printf("VIC-II raster $%03x (VIC-IV raster $%03x)%s%s\n",
-	   vicii_raster,viciv_raster,raster?" [NEW RASTER]":"",badline?" [BADLINE TRIGGERED]":"");
+    out_len+=snprintf(&out[out_len],8192-out_len,"VIC-II raster $%03x (VIC-IV raster $%03x)%s%s\n",
+		      vicii_raster,viciv_raster,raster?" [NEW RASTER]":"",badline?" [BADLINE TRIGGERED]":"");
     return 0;
   }
 
@@ -391,26 +396,23 @@ int decode_instruction(const unsigned char *b)
   
   int d031_toggle=b[7]&0x80;
 
-  if (!match_string) {
-    printf("%08x ",instruction_count++);
-    //    if (d031_toggle!=last_d031_toggle) {
-    //      printf("[$D031 written to!] ");
-    //    }
-  }
+  out_len+=snprintf(&out[out_len],8192-out_len,"%08x ",instruction_count++);
+  //    if (d031_toggle!=last_d031_toggle) {
+  //      out_len+=snprintf(&out[out_len],8192-out_len,"[$D031 written to!] ");
+  //    }
   last_d031_toggle=d031_toggle;
   
-  if (!match_string) 
-    printf("%c %c%c%c%c%c%c%c%c($%02X) SP=$xx%02X, A=$%02X : $%04X : %02X",
-	   d031_toggle?'Y':'N',
-	   b[5]&0x80?'N':'-',
-	   b[5]&0x40?'V':'-',
-	   b[5]&0x20?'E':'-',
-	   b[5]&0x10?'B':'-',
-	   b[5]&0x08?'D':'-',
-	   b[5]&0x04?'I':'-',
-	   b[5]&0x02?'Z':'-',
-	   b[5]&0x01?'C':'-',
-	   b[5],b[6],b[7],instruction_address,b[2]);
+  out_len+=snprintf(&out[out_len],8192-out_len,"%c %c%c%c%c%c%c%c%c($%02X) SP=$xx%02X, A=$%02X : $%04X : %02X",
+		    d031_toggle?'Y':'N',
+		    b[5]&0x80?'N':'-',
+		    b[5]&0x40?'V':'-',
+		    b[5]&0x20?'E':'-',
+		    b[5]&0x10?'B':'-',
+		    b[5]&0x08?'D':'-',
+		    b[5]&0x04?'I':'-',
+		    b[5]&0x02?'Z':'-',
+		    b[5]&0x01?'C':'-',
+		    b[5],b[6],b[7],instruction_address,b[2]);
   
   int opcode=b[2];
   int mem[3]={b[2],b[3],b[4]};
@@ -430,23 +432,21 @@ int decode_instruction(const unsigned char *b)
   
   for(int j=0;modes[opcode][j];) {
     args[o]=0;
-    // printf("j=%d, args=[%s], template=[%s]\n",j,args,modes[opcode]);
+    // out_len+=snprintf(&out[out_len],8192-out_len,"j=%d, args=[%s], template=[%s]\n",j,args,modes[opcode]);
     switch(modes[opcode][j]) {
     case 'n': // normal argument
       digits=0;
       while (modes[opcode][j++]=='n') { digits++; } j--;
       if (digits==2) {
 	value=mem[i];
-	if (!match_string) printf(" %02X",mem[i++]);
+	out_len+=snprintf(&out[out_len],8192-out_len," %02X",mem[i++]);
 	sprintf(&args[o],"%02X",value); o+=2;
 	c+=3;
       }
       if (digits==4) {
 	value=mem[i]+(mem[i+1]<<8);
-	if (!match_string) {
-	  printf(" %02X",mem[i++]);
-	  printf(" %02X",mem[i++]);
-	}
+	out_len+=snprintf(&out[out_len],8192-out_len," %02X",mem[i++]);
+	out_len+=snprintf(&out[out_len],8192-out_len," %02X",mem[i++]);
 	sprintf(&args[o],"%04X",value); o+=4;
 	c+=6;
       }
@@ -457,7 +457,7 @@ int decode_instruction(const unsigned char *b)
       if (digits==2) {
 	value=mem[i];
 	if (value&0x80) value-=0x100;
-	if (!match_string) printf(" %02X",mem[i++]);
+	out_len+=snprintf(&out[out_len],8192-out_len," %02X",mem[i++]);
 	value+=load_address+i;
 	sprintf(&args[o],"%04X",value); o+=4;
 	c+=3;
@@ -465,11 +465,11 @@ int decode_instruction(const unsigned char *b)
       if (digits==4) {
 	value=mem[i]+(mem[i+1]<<8);
 	if (value&0x8000) value-=0x10000;
-	if (!match_string) printf(" %02X",mem[i++]);
+	out_len+=snprintf(&out[out_len],8192-out_len," %02X",mem[i++]);
 	// 16 bit branches are still relative to the same point as 8-bit ones,
 	// i.e., after the 2nd of the 3 bytes
 	value+=load_address+i;        
-	if (!match_string) printf(" %02X",mem[i++]);
+	out_len+=snprintf(&out[out_len],8192-out_len," %02X",mem[i++]);
 	sprintf(&args[o],"%04X",value); o+=4;
 	c+=6;
       }
@@ -479,31 +479,22 @@ int decode_instruction(const unsigned char *b)
       break;
     }
     args[o]=0;
-    // printf("[%s]\n",args);
+    // out_len+=snprintf(&out[out_len],8192-out_len,"[%s]\n",args);
   }
   args[o]=0;
-  if (!match_string) {
-    while(c<9) { printf(" "); c++; }
-    printf("%s %s",opnames[opcode],args);      
-    c+=strlen(opnames[opcode])+1+strlen(args);
-    while(c<20) { printf(" "); c++; }
-    struct annotation *a=annotations[load_address];
-    while(a) {
-      printf("%s\n",a->text);
-      if (a->next) printf("                                       ");
-      a=a->next;
-    }
-    printf("\n");
-  }
 
-  // Begin showing instructions once we find the match string
-  if (match_string&&strstr(args,match_string)) {
-    printf("Found '%s'\n",match_string);
-    match_string=NULL;
-    decode_instruction(b);
-    return 0;
+  while(c<9) { out_len+=snprintf(&out[out_len],8192-out_len," "); c++; }
+  out_len+=snprintf(&out[out_len],8192-out_len,"%s %s",opnames[opcode],args);      
+  c+=strlen(opnames[opcode])+1+strlen(args);
+  while(c<20) { out_len+=snprintf(&out[out_len],8192-out_len," "); c++; }
+  struct annotation *a=annotations[load_address];
+  while(a) {
+    out_len+=snprintf(&out[out_len],8192-out_len,"%s\n",a->text);
+    if (a->next) out_len+=snprintf(&out[out_len],8192-out_len,"                                       ");
+    a=a->next;
   }
-  
+  out_len+=snprintf(&out[out_len],8192-out_len,"\n");
+
   // Remember instruction address for next display
   instruction_address = (b[1]<<8)+b[0];
   // JSR passes PC+1 instead of PC of next instruction, so adjust
@@ -520,6 +511,38 @@ int decode_instruction(const unsigned char *b)
   default:
     instruction_address--;
   }
+
+  if (match_string) {
+    if (strstr(out,match_string))
+      {
+	// Output contains a string we are watching for, so begin
+	// displaying instructions if we were not already.
+	// If we weren't already displaying instructions, then
+	// show the instruction back log.
+	num_instructions=16;
+      }
+  }
+  if (num_instructions&&logged_instruction_count) {
+    // Dump recently logged instructions
+    printf("...\n");
+    for(int i=logged_instruction_count-1;i>-1;i--) {
+      printf("    %s",logged_instructions[i]);
+      logged_instructions[i][0]=0;
+    }
+    logged_instruction_count=0;
+  }
+  if (!num_instructions) {
+    // Log instructions if we are not currently displaying them
+    char *next_in_ring=logged_instructions[15];
+    for(int i=15;i;i--)
+      logged_instructions[i]=logged_instructions[i-1];
+    logged_instructions[0]=next_in_ring;
+    if (!logged_instructions[0]) logged_instructions[0]=calloc(8192,1);
+    strcpy(logged_instructions[0],out);
+    if (logged_instruction_count<16) logged_instruction_count++;
+  }
+  if (num_instructions||(!match_string))
+    printf("%s %s",(match_string&&strstr(out,match_string))?">>>":"   ",out);
   
   return 0;
 }
@@ -688,8 +711,14 @@ int main(int argc,char **argv)
     case 'f': instruction_frequency=1; num_instructions=0; break;
     case 'b': wait_for_break=1; break;
     case 'F': one_frame=1; break;
-    case 'm': match_string=optarg; break;
-    case 'n': num_instructions=atoi(optarg); break;
+    case 'm':
+      match_string=optarg;
+      num_instructions=0;
+      break;
+    case 'n':
+      num_instructions=atoi(optarg);
+      if (match_string) { fprintf(stderr,"ERROR: -n and -m cannot be combined.\n"); exit(-1); }
+      break;
     default:
       usage();
     }
