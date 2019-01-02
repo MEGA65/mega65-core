@@ -3018,7 +3018,7 @@ begin
           pixels_since_last_char <= to_unsigned(to_integer(displayy) - to_integer(y_chargen_start),3) + 1;
         end if;
       else
-        if y_chargen_start > displayy then
+        if to_integer(y_chargen_start) > to_integer(displayy(11 downto 1)) then
           pixels_since_last_char <= "000";
         else
           pixels_since_last_char <= to_unsigned(to_integer(displayy(11 downto 1)) - to_integer(y_chargen_start),3)
