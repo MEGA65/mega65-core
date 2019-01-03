@@ -386,7 +386,7 @@ architecture Behavioural of gs4510 is
   signal shadow_wait_states : unsigned(7 downto 0) := shadow_48mhz;
   signal io_read_wait_states : unsigned(7 downto 0) := ioread_48mhz;
   signal colourram_read_wait_states : unsigned(7 downto 0) := colourread_48mhz;
-  signal palette_read_wait_states : unsigned(7 downto 0) := colourread_48mhz;
+  signal palette_read_wait_states : unsigned(7 downto 0) := palette_48mhz;
   signal io_write_wait_states : unsigned(7 downto 0) := iowrite_48mhz;
 
   -- Interface to slow device address space
