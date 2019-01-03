@@ -1493,6 +1493,8 @@ int download_slot(int slot_number,char *dest_name)
     for(int i=0;i<syspart_slot_size;i++) {
       unsigned char sector[512];
       int sector_num=syspart_start+syspart_freeze_area+syspart_slotdir_sectors+slot_number*syspart_slot_size+i;
+      if (!i) printf("Downloading %d sectors beginning at sector $%08x\n",
+		     syspart_slot_size,sector_num);
       if (read_sector(sector_num,sector,0))
 	{
 	  printf("ERROR: Could not read sector %d/%d of freeze slot %d (absolute sector %d)\n",
