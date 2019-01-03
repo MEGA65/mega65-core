@@ -1267,8 +1267,6 @@ begin
       if thirtyeightcolumns='0' then
         if reg_h640='0' then
           border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border),14);
-          -- 40/40 col mode had 3 physical pixels too many on right, so +2
-          -- changed to -1 
           border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
                                         -to_integer(single_side_border)-1,14);
           x_chargen_start
@@ -1280,11 +1278,9 @@ begin
                            +to_integer(vicii_x_smoothscroll)
                            ,14);          
         else
-          -- XXX should we just move chargen left one pixel in H640 mode
-          -- instead of fiddling with the border?
-          border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border)-1,14);
+          border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border),14);
           border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
-                                        -to_integer(single_side_border),14);
+                                        -to_integer(single_side_border)+1,14);
           x_chargen_start
             <= to_unsigned(to_integer(frame_h_front)
                            +to_integer(single_side_border)
@@ -1876,14 +1872,17 @@ begin
                                         -- C65 style palette registers
         elsif register_number>=256 and register_number<512 then
           -- red palette
+          report "Outputting RED palette read value $" & to_hstring(palette_fastio_rdata(31 downto 24));
           palette_fastio_address <= palette_bank_fastio & std_logic_vector(register_number(7 downto 0));
           fastio_rdata <= palette_fastio_rdata(31 downto 24);
         elsif register_number>=512 and register_number<768 then
           -- green palette
+          report "Outputting GREEN palette read value $" & to_hstring(palette_fastio_rdata(23 downto 16));
           palette_fastio_address <= palette_bank_fastio & std_logic_vector(register_number(7 downto 0));
           fastio_rdata <= palette_fastio_rdata(23 downto 16);
         elsif register_number>=768 and register_number<1024 then
           -- blue palette
+          report "Outputting BLUE palette read value $" & to_hstring(palette_fastio_rdata(15 downto 8));
           palette_fastio_address <= palette_bank_fastio & std_logic_vector(register_number(7 downto 0));
           fastio_rdata <= palette_fastio_rdata(15 downto 8);
         else
