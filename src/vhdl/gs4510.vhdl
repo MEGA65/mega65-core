@@ -374,14 +374,18 @@ architecture Behavioural of gs4510 is
   -- (Reading incurrs an extra waitstate due to read_data_copy)
   -- XXX An extra wait state seems to be necessary when reading from dual-port
   -- memories like colour ram.
+  -- XXX The palette RAMs take even longer, because the access is first latched
+  -- by the VIC-IV before being passed out.
   constant ioread_48mhz : unsigned(7 downto 0) := x"01";
   constant colourread_48mhz : unsigned(7 downto 0) := x"02";
+  constant palette_48mhz : unsigned(7 downto 0) := x"03";
   constant iowrite_48mhz : unsigned(7 downto 0) := x"00";
   constant shadow_48mhz :  unsigned(7 downto 0) := x"00";
 
   signal shadow_wait_states : unsigned(7 downto 0) := shadow_48mhz;
   signal io_read_wait_states : unsigned(7 downto 0) := ioread_48mhz;
   signal colourram_read_wait_states : unsigned(7 downto 0) := colourread_48mhz;
+  signal palette_read_wait_states : unsigned(7 downto 0) := colourread_48mhz;
   signal io_write_wait_states : unsigned(7 downto 0) := iowrite_48mhz;
 
   -- Interface to slow device address space
@@ -1780,8 +1784,8 @@ begin
             if (long_address(11 downto 8) = x"1")
               or (long_address(11 downto 8) = x"2")
               or (long_address(11 downto 8) = x"3") then
-                wait_states <= colourram_read_wait_states;
-                if colourram_read_wait_states /= x"00" then
+                wait_states <= palette_read_wait_states;
+                if palette_read_wait_states /= x"00" then
                   wait_states_non_zero <= '1';
                 else
                   wait_states_non_zero <= '0';
