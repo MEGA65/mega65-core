@@ -378,7 +378,8 @@ architecture Behavioural of gs4510 is
   -- by the VIC-IV before being passed out.
   constant ioread_48mhz : unsigned(7 downto 0) := x"01";
   constant colourread_48mhz : unsigned(7 downto 0) := x"02";
-  constant palette_48mhz : unsigned(7 downto 0) := x"03";
+  -- XXX Try outrageously many waitstates on palette
+  constant palette_48mhz : unsigned(7 downto 0) := x"07";
   constant iowrite_48mhz : unsigned(7 downto 0) := x"00";
   constant shadow_48mhz :  unsigned(7 downto 0) := x"00";
 
