@@ -282,8 +282,6 @@ trap_dos_loadfile:
 
 trap_dos_setname:
 
-	inc $d020
-
 	; read file name from any where in bottom 32KB of RAM, as mapped on entry
 	; to the hypervisor (this prevents the user from setting the filename to some
 	; piece of the hypervisor, and thus leaking hypervisor data to user-land if the
