@@ -9,11 +9,11 @@ freeze_to_slot:
 
 freeze_save_to_sdcard_immediate:
 
-	; Save the current process to the SD card. $D681-4 are expecxted to
+	; Save the current process to the SD card. $D681-4 are expected to
 	; already be pointing to the first sector of the freeze slot
 
 	; Stash SD card registers to scratch area
-	jsr do_freeze_prep_sdcard_regs_to_scratch
+	jsr copy_sdcard_regs_to_scratch
 
 	; Save current SD card sector buffer contents
 	jsr freeze_write_sector_and_wait
@@ -36,9 +36,6 @@ unfreeze_load_from_sdcard_immediate:
 
 	; Save the current process to the SD card. $D681-4 are expecxted to
 	; already be pointing to the first sector of the freeze slot
-
-	; Stash SD card registers to scratch area
-	jsr do_freeze_prep_sdcard_regs_to_scratch
 
 	; Skip the first sector of the frozen program which is the
 	; contents of the SD card sector buffer prior to freezing.
@@ -564,12 +561,13 @@ do_freeze_prep_stash_sd_buffer_and_regs:
 	lda #<freeze_region_dmalist
 	sta $d705
 
+do_freeze_prep_none:
 	rts
 
 ; Jump table of routines to be called before saving specific regions
 freeze_prep_jump_table:
 	.alias freeze_prep_none 0
-	.word do_freeze_prep_sdcard_regs_to_scratch
+	.word do_freeze_prep_none
 	.alias freeze_prep_palette0 2
 	.alias freeze_prep_palette1 4
 	.alias freeze_prep_palette2 6
@@ -615,7 +613,7 @@ do_unfreeze_post_scratch_to_sdcard_regs:
 	; XXX - Not implemented
 	RTS
 
-do_freeze_prep_sdcard_regs_to_scratch:
+copy_sdcard_regs_to_scratch:
 	; Copy the main SD card access registers to a
 	; scratch area, so that we can save them, and thus restore
 	; them after unfreezing.
