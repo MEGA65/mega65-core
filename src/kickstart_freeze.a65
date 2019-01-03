@@ -492,13 +492,13 @@ do_unfreeze_post_restore_sd_buffer_and_regs:
 	; be at $FFD6000-$FFD61FF
 
 	LDA    #<$6200
-	STA    dos_scratch_vector+0
+	STA    <dos_scratch_vector+0
 	LDA    #>$6200
-	STA    dos_scratch_vector+1
+	STA    <dos_scratch_vector+1
 	LDA    #<$0FFD
-	STA    dos_scratch_vector+2
+	STA    <dos_scratch_vector+2
 	LDA    #>$0FFD
-	STA    dos_scratch_vector+3
+	STA    <dos_scratch_vector+3
 
 	; Copy $D680 - $D70F, which covers both regions of interest
 	LDZ    #$8F
@@ -530,19 +530,45 @@ do_unfreeze_prep_restore_sd_buffer_and_regs:
 	; such a region, so just tie it to an RTS
 	RTS
 
+do_freeze_prep_thumbnail:
+	; Read the 4KB hardware thumbnail from $D630 and write it to $1000-$1FFF
+	; We can in principle use a fixed-source DMA to do this.
+
+	; First, make sure the read pointer is at the start of the thumbnail
+	sta $d630 ; any write here resets the read pointer
+
+	; set up our pointer for writing
+	lda #<$1000
+	sta <dos_scratch_vector+0
+	lda #>$1000
+	sta <dos_scratch_vector+1
+	ldy #$00
+	ldx #$10
+
+@thumbfetchloop:
+	lda $d630
+	sta (<dos_scratch_vector),y
+	iny
+	bne @thumbfetchloop
+	inc <dos_scratch_vector+1
+	dex
+	bne @thumbfetchloop
+
+	RTS
+
 do_freeze_prep_stash_sd_buffer_and_regs:
 	; Stash the SD and DMAgic registers we use to actually save
 	; the machine state.
 	; DMAgic registers have to get copied without using DMA, so
 	; that we don't corrupt the registers.
 	LDA    #<$6200
-	STA    dos_scratch_vector+0
+	STA    <dos_scratch_vector+0
 	LDA    #>$6200
-	STA    dos_scratch_vector+1
+	STA    <dos_scratch_vector+1
 	LDA    #<$0FFD
-	STA    dos_scratch_vector+2
+	STA    <dos_scratch_vector+2
 	LDA    #>$0FFD
-	STA    dos_scratch_vector+3
+	STA    <dos_scratch_vector+3
 
 	; Copy $D680 - $D70F, which covers both regions of interest
 	LDZ    #$8F
@@ -606,6 +632,8 @@ freeze_prep_jump_table:
 	.word do_freeze_prep_palette_select
 	.alias freeze_prep_stash_sd_buffer_and_regs 10
 	.word do_freeze_prep_stash_sd_buffer_and_regs
+	.alias freeze_prep_thumbnail 12
+	.word do_freeze_prep_thumbnail
 
 ; Jump table of routines to be called before restoring specific regions
 ; (the same region list is used for freeze and unfreeze, so the jump
@@ -622,6 +650,8 @@ unfreeze_prep_jump_table:
 	.word do_unfreeze_prep_palette_select
 	; SD card buffer and regs get restored in post routine
 	.word do_unfreeze_prep_none
+	; thumbnail doesn't get restored at all
+	.word do_unfreeze_prep_none
 
 unfreeze_post_jump_table:
 	.word do_unfreeze_post_scratch_to_sdcard_regs
@@ -629,7 +659,8 @@ unfreeze_post_jump_table:
 	.word do_unfreeze_post_none
 	.word do_unfreeze_post_none
 	.word do_unfreeze_post_none
-	.word do_unfreeze_post_restore_sd_buffer_and_regs	
+	.word do_unfreeze_post_restore_sd_buffer_and_regs
+	.word do_unfreeze_post_none
 
 do_unfreeze_prep_none:
 do_unfreeze_post_none:
@@ -796,6 +827,14 @@ freeze_mem_list:
 	.byte $00
 	.byte freeze_prep_none
 
+	; 4KB thumbnail of screen
+	; The prep routine copies this down to $1000-$1FFF, so we have to have saved the rest of RAM
+	; first
+	.dword $0001000
+	.word $1000
+	.byte $00
+	.byte freeze_prep_thumbnail
+
 	; Process scratch space
 	.dword currenttask_block
 	.word $0100
@@ -816,7 +855,15 @@ freeze_mem_list:
 	.byte 0
 	.byte freeze_prep_none
 
+	; CIAs
+	.dword $ffd3c00
+	.word $0200
+	.byte 0
+	.byte freeze_prep_none
+
 	; VIC-IV, F011 $D000-$D0FF
+	; This should be last since it is not a whole sector worth, and there is a bug
+	; that gets tickled sometimes if a region is not an integer number of sectors.
 	.dword $ffd3000
 	.word $0100
 	.byte 0
