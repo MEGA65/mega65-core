@@ -6257,7 +6257,11 @@ begin
               -- C64/C65/C65GS I/O is based on which secret knock has been applied
               -- to $D02F
               temp_address(27 downto 12) := x"FFD3";
-              temp_address(13 downto 12) := unsigned(viciii_iomode);          
+              if hypervisor_mode='0' then
+                temp_address(13 downto 12) := unsigned(viciii_iomode);
+              else
+                temp_address(13 downto 12) := "11";
+              end if;
               -- Optionally map SIDs to expansion port
               if (short_address(11 downto 8) = x"4") and hyper_iomode(2)='1' then
                 temp_address(27 downto 12) := x"7FFD";
@@ -6274,7 +6278,11 @@ begin
           end case;
         else
           temp_address(27 downto 12) := x"FFD3";
-          temp_address(13 downto 12) := unsigned(viciii_iomode);          
+          if hypervisor_mode='0' then
+            temp_address(13 downto 12) := unsigned(viciii_iomode);
+          else
+            temp_address(13 downto 12) := "11";
+          end if;
           if sector_buffer_mapped='0' and colourram_at_dc00='0' then
             -- Map $DE00-$DFFF IO expansion areas to expansion port
             -- (but only if SD card sector buffer is not mapped, and
@@ -6606,7 +6614,11 @@ begin
           if dmagic_dest_addr(23 downto 20) = x"d" and dmagic_dest_io='1' then
             memory_access_address(27 downto 16) := x"FFD";
             memory_access_address(15 downto 14) := "00";
-            memory_access_address(13 downto 12)  := unsigned(viciii_iomode);
+            if hypervisor_mode='0' then
+              memory_access_address(13 downto 12) := unsigned(viciii_iomode);
+            else
+              memory_access_address(13 downto 12) := "11";
+            end if;
           end if;
           
         when DMAgicCopyRead =>
@@ -6619,7 +6631,11 @@ begin
           if dmagic_src_addr(23 downto 20) = x"d" and dmagic_src_io='1' then
             memory_access_address(27 downto 16) := x"FFD";
             memory_access_address(15 downto 14) := "00";
-            memory_access_address(13 downto 12)  := unsigned(viciii_iomode);
+            if hypervisor_mode='0' then
+              memory_access_address(13 downto 12) := unsigned(viciii_iomode);
+            else
+              memory_access_address(13 downto 12) := "11";
+            end if;
           end if;
           
         when DMAgicCopyWrite =>
@@ -6640,7 +6656,11 @@ begin
             if dmagic_dest_addr(15 downto 12) = x"d" and dmagic_dest_io='1' then
               memory_access_address(27 downto 16) := x"FFD";
               memory_access_address(15 downto 14) := "00";
-              memory_access_address(13 downto 12)  := unsigned(viciii_iomode);
+              if hypervisor_mode='0' then
+                memory_access_address(13 downto 12) := unsigned(viciii_iomode);
+              else
+                memory_access_address(13 downto 12) := "11";
+              end if;
             end if;
           end if;
         when Cycle2 =>
