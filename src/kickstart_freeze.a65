@@ -757,25 +757,25 @@ freeze_mem_list:
 
 	; VIC-IV palette block 0
 	.dword $ffd3100
-	.word $0300
+	.word $0400    ; only need $300, but this causes a bug during freezing, so round out to whole sector
 	.byte 0
 	.byte freeze_prep_palette0
 
 	; VIC-IV palette block 1
 	.dword $ffd3100
-	.word $0300
+	.word $0400    ; only need $300, but this causes a bug during freezing, so round out to whole sector
 	.byte 0
 	.byte freeze_prep_palette1
 
 	; VIC-IV palette block 2
 	.dword $ffd3100
-	.word $0300
+	.word $0400    ; only need $300, but this causes a bug during freezing, so round out to whole sector
 	.byte 0
 	.byte freeze_prep_palette2
 
 	; VIC-IV palette block 3
 	.dword $ffd3100
-	.word $0300
+	.word $0400    ; only need $300, but this causes a bug during freezing, so round out to whole sector
 	.byte 0
 	.byte freeze_prep_palette3	
 
