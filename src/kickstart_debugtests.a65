@@ -6,11 +6,24 @@
 
 .macro dmapalettetest
 
+       lda $d1ff
+       lda $d1fe
+       lda $d1fd
+       lda $d1fc
+       
+       lda $d100
+       lda $d101
+       lda $d102
+       lda $d103
+
        ; put some values in the palette area to make it obvious
        ldx #$00
-*      stx $d100
+*      txa
+       sta $d100,x
        inx
        bne -
+
+
 
        ; Copy from $FFD3100
        lda #$0f
