@@ -114,19 +114,7 @@ freeze_write_sector_and_wait:
 	lda #$03
 	sta $d680
 
-	; Give SD card time to go busy
-;*	lda $d680
-;	and #$03
-;	beq -
-
-
-*	inc $d020
-	lda $d680
-	and #$03
-	bne -
-
-;	jsr sd_wait_for_ready
-;	bcs @wroteOk
+	jsr sd_wait_for_ready
 	jmp @wroteOk
 
 	inc freeze_write_tries+0
@@ -135,6 +123,7 @@ freeze_write_sector_and_wait:
 	bne @retryWrite
 
 @wroteOk:
+	dec $d020
 
 	; Increment freeze slot sector number
 	jsr sd_inc_fixedsectornumber
@@ -298,9 +287,6 @@ not_too_big:
 	jmp freeze_region_dma_loop
 
 freeze_region_dma_done:
-
-	; And increase screen colour after writing each region
-;	inc $d020
 
 	rts
 
@@ -466,10 +452,6 @@ unfreeze_region_dma_done:
 	jsr	dispatch_unfreeze_post
 	plx
 
-	; And increase screen colour after reading each region
-;	inc $d020
-
-
 	rts
 
 
@@ -496,7 +478,48 @@ dispatch_unfreeze_post:
 
 
 do_unfreeze_post_restore_sd_buffer_and_regs:
-	; XXX - Not implemented, should reverse the following
+	; Copy back the registers from $D680 - $D70F *excluding*
+	; $D700 and $D705 (which would trigger a DMA)
+	; $D680 (which could trigger an SD read or write)
+
+	; The data should have been put for us at $FFD6200-$FFD628F
+	; The contents of the SD sector buffer for restoration should
+	; be at $FFD6000-$FFD61FF
+
+	LDA    #<$6200
+	STA    dos_scratch_vector+0
+	LDA    #>$6200
+	STA    dos_scratch_vector+1
+	LDA    #<$0FFD
+	STA    dos_scratch_vector+2
+	LDA    #>$0FFD
+	STA    dos_scratch_vector+3
+
+	; Copy $D680 - $D70F, which covers both regions of interest
+	LDZ    #$8F
+@zz2:	TZA
+	TAX
+	NOP
+	NOP
+	LDA	(<dos_scratch_vector) ,Z
+	cpx #$00  ; $D680
+	beq @dontWriteHotRegister
+	cpx #$80  ; $D700
+	beq @dontWriteHotRegister
+	cpx #$85  ; $D705
+	beq @dontWriteHotRegister
+
+	STA $D680,x
+@dontWriteHotRegister:
+	
+	DEX
+	DEZ
+	CPZ #$FF
+	BNE	@zz2
+	LDZ	#$00
+	
+
+
 do_unfreeze_prep_restore_sd_buffer_and_regs:
 	; But there is nothing we need to do in preparation to unfreezing
 	; such a region, so just tie it to an RTS
