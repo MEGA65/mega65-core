@@ -103,50 +103,6 @@ void usage(void)
 
 int cpu_stopped=0;
 
-int slow_write(int fd,char *d,int l)
-{
-  // UART is at 2Mbps, but we need to allow enough time for a whole line of
-  // writing. 100 chars x 0.5usec = 500usec. So 1ms between chars should be ok.
-  int i;
-#if 0
-  printf("Writing ");
-  for(i=0;i<l;i++)
-    {
-      if (d[i]>=' ') printf("%c",d[i]); else printf("[$%02X]",d[i]);
-    }
-  printf("\n");
-#endif
-  
-  for(i=0;i<l;i++)
-    {
-      usleep(2000);
-      int w=write(fd,&d[i],1);
-      while (w<1) {
-	usleep(1000);
-	w=write(fd,&d[i],1);
-      }
-    }
-  return 0;
-}
-
-int slow_write_safe(int fd,char *d,int l)
-{
-  // There is a bug at the time of writing that causes problems
-  // with the CPU's correct operation if various monitor commands
-  // are run when the CPU is running.
-  // Stopping the CPU before and then resuming it after running a
-  // command solves the problem.
-  // The only problem then is if we have a breakpoint set (like when
-  // getting ready to load a program), because we might accidentally
-  // resume the CPU when it should be stopping.
-  // (We can work around this by using the fact that the new UART
-  // monitor tells us when a breakpoint has been reached.
-  slow_write(fd,"t1\r",3);
-  slow_write(fd,d,l);
-  if (!cpu_stopped) slow_write(fd,"t0\r",3);
-  return 0;
-}
-
 int pal_mode=0;
 int ntsc_mode=0;
 int reset_first=0;
@@ -192,6 +148,50 @@ unsigned char sd_sector_buf[512];
 int saved_track = 0;
 int saved_sector = 0;
 int saved_side = 0;
+
+int slow_write(int fd,char *d,int l)
+{
+  // UART is at 2Mbps, but we need to allow enough time for a whole line of
+  // writing. 100 chars x 0.5usec = 500usec. So 1ms between chars should be ok.
+  int i;
+#if 0
+  printf("Writing ");
+  for(i=0;i<l;i++)
+    {
+      if (d[i]>=' ') printf("%c",d[i]); else printf("[$%02X]",d[i]);
+    }
+  printf("\n");
+#endif
+  
+  for(i=0;i<l;i++)
+    {
+      if (serial_speed==4000000) usleep(1000); else usleep(2000);
+      int w=write(fd,&d[i],1);
+      while (w<1) {
+	if (serial_speed==4000000) usleep(500); else usleep(1000);
+	w=write(fd,&d[i],1);
+      }
+    }
+  return 0;
+}
+
+int slow_write_safe(int fd,char *d,int l)
+{
+  // There is a bug at the time of writing that causes problems
+  // with the CPU's correct operation if various monitor commands
+  // are run when the CPU is running.
+  // Stopping the CPU before and then resuming it after running a
+  // command solves the problem.
+  // The only problem then is if we have a breakpoint set (like when
+  // getting ready to load a program), because we might accidentally
+  // resume the CPU when it should be stopping.
+  // (We can work around this by using the fact that the new UART
+  // monitor tells us when a breakpoint has been reached.
+  slow_write(fd,"t1\r",3);
+  slow_write(fd,d,l);
+  if (!cpu_stopped) slow_write(fd,"t0\r",3);
+  return 0;
+}
 
 unsigned long long gettime_ms()
 {
@@ -367,6 +367,12 @@ int stuff_keybuffer(char *s)
   return slow_write(fd,cmd,strlen(cmd));
 }
 
+long long last_virtual_time=0;
+int last_virtual_writep=0;
+int last_virtual_track=-1;
+int last_virtual_sector=-1;
+int last_virtual_side=-1;
+
 int virtual_f011_read(int device,int track,int sector,int side)
 {
   char cmd[1024];
@@ -375,7 +381,7 @@ int virtual_f011_read(int device,int track,int sector,int side)
   
   fprintf(stderr,"T+%lld ms : Servicing hypervisor request for F011 FDC sector read.\n",
 	  gettime_ms()-start);
-  fprintf(stderr, "device: %d  track: %d  sector: %d  side: %d", device, track, sector, side);
+  fprintf(stderr, "device: %d  track: %d  sector: %d  side: %d\n", device, track, sector, side);
 
   if(fd81 == NULL) {
 
@@ -386,46 +392,62 @@ int virtual_f011_read(int device,int track,int sector,int side)
       exit(-1);
     }
   }
-  /* read the block */
-  unsigned char buf[512];
-  int b=-1;
-  int physical_sector=( side==0 ? sector-1 : sector+9 );
-  int result = fseek(fd81, (track*20+physical_sector)*512, SEEK_SET);
-  if(result) {
-    
-    fprintf(stderr, "Error finding D81 sector %d @ 0x%x\n", result, (track*20+physical_sector)*512);
-    exit(-2);
-  }
-  else {
-    b=fread(buf,1,512,fd81);
-    fprintf(stderr, " bytes read: %d @ 0x%x\n", b,(track*20+physical_sector)*512);
-    if(b==512) {
 
-      //      dump_bytes(0,"The sector",buf,512);
+  // Only actually load new sector contents if we don't think it is a duplicate request
+  if (((gettime_ms()-last_virtual_time)>100)
+      ||(last_virtual_writep)
+      ||(last_virtual_track!=track)
+      ||(last_virtual_sector!=sector)
+      ||(last_virtual_side!=side)
+      )
+  {
+    last_virtual_time=gettime_ms();
+    last_virtual_track=track;
+    last_virtual_sector=sector;
+    last_virtual_side=side;
+    
+    /* read the block */
+    unsigned char buf[512];
+    int b=-1;
+    int physical_sector=( side==0 ? sector-1 : sector+9 );
+    int result = fseek(fd81, (track*20+physical_sector)*512, SEEK_SET);
+    if(result) {
       
-      char cmd[1024];
-      
-      /* send block to m65 memory */
-      if (new_monitor) 
-	sprintf(cmd,"l%x %x\r",READ_SECTOR_BUFFER_ADDRESS,
-		(READ_SECTOR_BUFFER_ADDRESS+0x200)&0xffff);
-      else
-	sprintf(cmd,"l%x %x\r",READ_SECTOR_BUFFER_ADDRESS-1,
-		READ_SECTOR_BUFFER_ADDRESS+0x200-1);
-      slow_write(fd,cmd,strlen(cmd));
-      usleep(1000);
-      int n=0x200;
-      unsigned char *p=buf;
-      //	      fprintf(stderr,"%s\n",cmd);
-      //	      dump_bytes(0,"F011 virtual sector data",p,512);
-      while(n>0) {
-	int w=write(fd,p,n);
-	if (w>0) { p+=w; n-=w; } else usleep(1000);
-      }
-      printf("T+%lld ms : Block sent.\n",gettime_ms()-start);
+      fprintf(stderr, "Error finding D81 sector %d @ 0x%x\n", result, (track*20+physical_sector)*512);
+      exit(-2);
     }
+    else {
+      b=fread(buf,1,512,fd81);
+      fprintf(stderr, " bytes read: %d @ 0x%x\n", b,(track*20+physical_sector)*512);
+      if(b==512) {
+	
+	//      dump_bytes(0,"The sector",buf,512);
+	
+	char cmd[1024];
+	
+	/* send block to m65 memory */
+	if (new_monitor) 
+	  sprintf(cmd,"l%x %x\r",READ_SECTOR_BUFFER_ADDRESS,
+		  (READ_SECTOR_BUFFER_ADDRESS+0x200)&0xffff);
+	else
+	  sprintf(cmd,"l%x %x\r",READ_SECTOR_BUFFER_ADDRESS-1,
+		  READ_SECTOR_BUFFER_ADDRESS+0x200-1);
+	slow_write(fd,cmd,strlen(cmd));
+	usleep(1000);
+	int n=0x200;
+	unsigned char *p=buf;
+	//	      fprintf(stderr,"%s\n",cmd);
+	//	      dump_bytes(0,"F011 virtual sector data",p,512);
+	while(n>0) {
+	  int w=write(fd,p,n);
+	  if (w>0) { p+=w; n-=w; } else usleep(1000);
+	}
+	printf("T+%lld ms : Block sent.\n",gettime_ms()-start);
+      }
+    }
+
   }
-  
+
   /* signal done/result */
   snprintf(cmd,1024,"sffd3086 %x\n",side);
   slow_write(fd,cmd,strlen(cmd));
@@ -1032,7 +1054,7 @@ int process_char(unsigned char c, int live)
   // Remember recent chars for virtual FDC access, as the Hypervisor tells
   // us which track, sector and side, before it sends the marker
   if (c==0x21&&virtual_f011) {
-    printf("[T+%lldsec] : V-FDC request from UART monitor: Track:%d, Sector:%d, Side:%d.\n",
+    printf("[T+%ldsec] : V-FDC request from UART monitor: Track:%d, Sector:%d, Side:%d.\n",
 	   time(0)-start_time,vfdc_track,vfdc_sector,vfdc_side);
     // We have all we need, so just read the sector from disk, upload it, and mark the job done
     virtual_f011_read(0,vfdc_track,vfdc_sector,vfdc_side);
@@ -1321,6 +1343,39 @@ int prepare_modeline(char *modeline)
   return 0;
 }
 
+void set_serial_speed(int fd,int serial_speed)
+{
+  fcntl(fd,F_SETFL,fcntl(fd, F_GETFL, NULL)|O_NONBLOCK);
+  struct termios t;
+  if (serial_speed==230400) {
+    if (cfsetospeed(&t, B230400)) perror("Failed to set output baud rate");
+    if (cfsetispeed(&t, B230400)) perror("Failed to set input baud rate");
+  } else if (serial_speed==2000000) {
+    if (cfsetospeed(&t, B2000000)) perror("Failed to set output baud rate");
+    if (cfsetispeed(&t, B2000000)) perror("Failed to set input baud rate");
+  } else if (serial_speed==1000000) {
+    if (cfsetospeed(&t, B1000000)) perror("Failed to set output baud rate");
+    if (cfsetispeed(&t, B1000000)) perror("Failed to set input baud rate");
+  } else if (serial_speed==1500000) {
+    if (cfsetospeed(&t, B1500000)) perror("Failed to set output baud rate");
+    if (cfsetispeed(&t, B1500000)) perror("Failed to set input baud rate");
+  } else {
+    if (cfsetospeed(&t, B4000000)) perror("Failed to set output baud rate");
+    if (cfsetispeed(&t, B4000000)) perror("Failed to set input baud rate");
+  }
+  t.c_cflag &= ~PARENB;
+  t.c_cflag &= ~CSTOPB;
+  t.c_cflag &= ~CSIZE;
+  t.c_cflag &= ~CRTSCTS;
+  t.c_cflag |= CS8 | CLOCAL;
+  t.c_lflag &= ~(ICANON | ISIG | IEXTEN | ECHO | ECHOE);
+  t.c_iflag &= ~(BRKINT | ICRNL | IGNBRK | IGNCR | INLCR |
+                 INPCK | ISTRIP | IXON | IXOFF | IXANY | PARMRK);
+  t.c_oflag &= ~OPOST;
+  if (tcsetattr(fd, TCSANOW, &t)) perror("Failed to set terminal parameters");
+  
+}
+
 int main(int argc,char **argv)
 {
   start_time=time(0);
@@ -1406,35 +1461,16 @@ int main(int argc,char **argv)
     perror("open");
     exit(-1);
   }
-  fcntl(fd,F_SETFL,fcntl(fd, F_GETFL, NULL)|O_NONBLOCK);
-  struct termios t;
-  if (serial_speed==230400) {
-    if (cfsetospeed(&t, B230400)) perror("Failed to set output baud rate");
-    if (cfsetispeed(&t, B230400)) perror("Failed to set input baud rate");
-  } else if (serial_speed==2000000) {
-    if (cfsetospeed(&t, B2000000)) perror("Failed to set output baud rate");
-    if (cfsetispeed(&t, B2000000)) perror("Failed to set input baud rate");
-  } else if (serial_speed==1000000) {
-    if (cfsetospeed(&t, B1000000)) perror("Failed to set output baud rate");
-    if (cfsetispeed(&t, B1000000)) perror("Failed to set input baud rate");
-  } else if (serial_speed==1500000) {
-    if (cfsetospeed(&t, B1500000)) perror("Failed to set output baud rate");
-    if (cfsetispeed(&t, B1500000)) perror("Failed to set input baud rate");
-  } else {
-    if (cfsetospeed(&t, B4000000)) perror("Failed to set output baud rate");
-    if (cfsetispeed(&t, B4000000)) perror("Failed to set input baud rate");
-  }
-  t.c_cflag &= ~PARENB;
-  t.c_cflag &= ~CSTOPB;
-  t.c_cflag &= ~CSIZE;
-  t.c_cflag &= ~CRTSCTS;
-  t.c_cflag |= CS8 | CLOCAL;
-  t.c_lflag &= ~(ICANON | ISIG | IEXTEN | ECHO | ECHOE);
-  t.c_iflag &= ~(BRKINT | ICRNL | IGNBRK | IGNCR | INLCR |
-                 INPCK | ISTRIP | IXON | IXOFF | IXANY | PARMRK);
-  t.c_oflag &= ~OPOST;
-  if (tcsetattr(fd, TCSANOW, &t)) perror("Failed to set terminal parameters");
 
+  set_serial_speed(fd,serial_speed);
+
+  if (virtual_f011&&serial_speed==2000000) {
+    // Try bumping up to 4mbit
+    slow_write(fd,"\r+9\r",4);
+    set_serial_speed(fd,4000000);
+    serial_speed=4000000;
+  }
+  
   unsigned long long last_check = gettime_ms();
   int phase=0;
 
