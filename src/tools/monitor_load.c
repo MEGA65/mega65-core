@@ -1308,7 +1308,7 @@ int main(int argc,char **argv)
   start_time=time(0);
   
   int opt;
-  while ((opt = getopt(argc, argv, "14B:b:c:C:dEFHf:k:Ll:m:MnoprR:s:t:T:")) != -1) {
+  while ((opt = getopt(argc, argv, "14B:b:c:C:d:EFHf:k:Ll:m:MnoprR:s:t:T:")) != -1) {
     switch (opt) {
     case 'B': sscanf(optarg,"%x",&break_point); break;
     case 'L': if (ethernet_video) { usage(); } else { ethernet_cpulog=1; } break;
@@ -1370,6 +1370,15 @@ int main(int argc,char **argv)
     fprintf(stderr,"%s\n",cmd);
     system(cmd);
     fprintf(stderr,"[T+%lldsec] Bitstream loaded\n",(long long)time(0)-start_time);
+  }
+
+  if (virtual_f011) {
+    if ((!bitstream)||(!kickstart)) {
+      fprintf(stderr,"ERROR: -d requires -b and -k to also be specified.\n");
+      exit(-1);
+    }
+    fprintf(stderr,"[T+%lldsec] Remote access to disk image '%s' requested\n",(long long)time(0)-start_time,d81file);
+    
   }
   
   errno=0;
