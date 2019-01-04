@@ -367,6 +367,73 @@ int stuff_keybuffer(char *s)
   return slow_write(fd,cmd,strlen(cmd));
 }
 
+int virtual_f011_read(int device,int track,int sector,int side)
+{
+  char cmd[1024];
+
+  long long start=gettime_ms();
+  
+  fprintf(stderr,"T+%lld ms : Servicing hypervisor request for F011 FDC sector read.\n",
+	  gettime_ms()-start);
+  fprintf(stderr, "device: %d  track: %d  sector: %d  side: %d", device, track, sector, side);
+
+  if(fd81 == NULL) {
+
+    fd81 = fopen(d81file, "rb+");
+    if(!fd81) {
+      
+      fprintf(stderr, "Could not open D81 file: '%s'\n", d81file);
+      exit(-1);
+    }
+  }
+  /* read the block */
+  unsigned char buf[512];
+  int b=-1;
+  int physical_sector=( side==0 ? sector-1 : sector+9 );
+  int result = fseek(fd81, (track*20+physical_sector)*512, SEEK_SET);
+  if(result) {
+    
+    fprintf(stderr, "Error finding D81 sector %d @ 0x%x\n", result, (track*20+physical_sector)*512);
+    exit(-2);
+  }
+  else {
+    b=fread(buf,1,512,fd81);
+    fprintf(stderr, " bytes read: %d @ 0x%x\n", b,(track*20+physical_sector)*512);
+    if(b==512) {
+
+      //      dump_bytes(0,"The sector",buf,512);
+      
+      char cmd[1024];
+      
+      /* send block to m65 memory */
+      if (new_monitor) 
+	sprintf(cmd,"l%x %x\r",READ_SECTOR_BUFFER_ADDRESS,
+		(READ_SECTOR_BUFFER_ADDRESS+0x200)&0xffff);
+      else
+	sprintf(cmd,"l%x %x\r",READ_SECTOR_BUFFER_ADDRESS-1,
+		READ_SECTOR_BUFFER_ADDRESS+0x200-1);
+      slow_write(fd,cmd,strlen(cmd));
+      usleep(1000);
+      int n=0x200;
+      unsigned char *p=buf;
+      //	      fprintf(stderr,"%s\n",cmd);
+      //	      dump_bytes(0,"F011 virtual sector data",p,512);
+      while(n>0) {
+	int w=write(fd,p,n);
+	if (w>0) { p+=w; n-=w; } else usleep(1000);
+      }
+      printf("T+%lld ms : Block sent.\n",gettime_ms()-start);
+    }
+  }
+  
+  /* signal done/result */
+  snprintf(cmd,1024,"sffd3086 %x\n",side);
+  slow_write(fd,cmd,strlen(cmd));
+  
+  printf("T+%lld ms : Finished V-FDC read.\n",gettime_ms()-start);
+  return 0;
+}
+
 int process_line(char *line,int live)
 {
   int pc,a,x,y,sp,p;
@@ -648,75 +715,11 @@ int process_line(char *line,int live)
 	}
       }
       if (addr==0xffd3077) {
+	printf("%lldms : Got FDC registers. Serving V-FDC request.\n",gettime_ms());
 	//      fprintf(stderr,"$D086 = $%02X, virtual_f011_pending=%d\n",b[6+9],virtual_f011_pending);
-        if((b[6+9] & 0x80) && !virtual_f011_pending) {  /* virtual f011 read request issued */
+        if((b[6+9] & 0x80)) {  /* virtual f011 read request issued */
 	  
-          char cmd[1024];
-
-          int device, track, sector, side;
-          device = b[0+9] & 0x7;
-          track = b[4+9];
-          sector = b[5+9];
-          side = b[6+9] & 0x3F;
-
-	  fprintf(stderr,"[T+%lldsec] Servicing hypervisor request for F011 FDC sector read.\n",
-		    (long long)time(0)-start_time);
-	  fprintf(stderr, "device: %d  track: %d  sector: %d  side: %d", device, track, sector, side);
-
-	  if(fd81 == NULL) {
-
-	    fd81 = fopen(d81file, "rb+");
-	    if(!fd81) {
-
-              fprintf(stderr, "Could not open D81 file: '%s'\n", d81file);
-	      exit(-1);
-	    }
-	  }
-	  /* read the block */
-	  unsigned char buf[512];
-	  int b=-1;
-	  int physical_sector=( side==0 ? sector-1 : sector+9 );
-	  int result = fseek(fd81, (track*20+physical_sector)*512, SEEK_SET);
-	  if(result) {
-
-	    fprintf(stderr, "Error finding D81 sector %d @ 0x%x\n", result, (track*20+physical_sector)*512);
-	    exit(-2);
-	  }
-	  else {
-	    b=fread(buf,1,512,fd81);
-	    fprintf(stderr, " bytes read: %d @ 0x%x\n", b,(track*20+physical_sector)*512);
-	    if(b==512) {
-	      
-              //fprintf(stderr, "%02x %02x %02x %02x\n", buf[0], buf[1], buf[2], buf[3]);
-
-              char cmd[1024];
-
-              /* send block to m65 memory */
-	      if (new_monitor) 
-		sprintf(cmd,"l%x %x\r",READ_SECTOR_BUFFER_ADDRESS,
-			(READ_SECTOR_BUFFER_ADDRESS+0x200)&0xffff);
-	      else
-		sprintf(cmd,"l%x %x\r",READ_SECTOR_BUFFER_ADDRESS-1,
-			READ_SECTOR_BUFFER_ADDRESS+0x200-1);
-              slow_write(fd,cmd,strlen(cmd));
-              usleep(1000);
-              int n=0x200;
-              unsigned char *p=buf;
-	      //	      fprintf(stderr,"%s\n",cmd);
-	      //	      dump_bytes(0,"F011 virtual sector data",p,512);
-              while(n>0) {
-                int w=write(fd,p,n);
-                if (w>0) { p+=w; n-=w; } else usleep(1000);
-	      }
-	    }
-	  }
-	    
-	  /* signal done/result */
-          //stop_cpu();
-	  virtual_f011_pending = 1;
-          snprintf(cmd,1024,"sffd3086 %02x\n",side);
-	  slow_write(fd,cmd,strlen(cmd));
-          slow_write_safe(fd,"mffd3077\r",9);
+	  // XXX Now handled by fast-track code path
         }
 
 	else if ((b[6+9] & 0x40) && !virtual_f011_pending) {
@@ -1020,9 +1023,24 @@ int process_line(char *line,int live)
 char line[1024];
 int line_len=0;
 
+int vfdc_track,vfdc_sector,vfdc_side;
+
 int process_char(unsigned char c, int live)
 {
   //printf("char $%02x\n",c);
+
+  // Remember recent chars for virtual FDC access, as the Hypervisor tells
+  // us which track, sector and side, before it sends the marker
+  if (c==0x21&&virtual_f011) {
+    printf("[T+%lldsec] : V-FDC request from UART monitor: Track:%d, Sector:%d, Side:%d.\n",
+	   time(0)-start_time,vfdc_track,vfdc_sector,vfdc_side);
+    // We have all we need, so just read the sector from disk, upload it, and mark the job done
+    virtual_f011_read(0,vfdc_track,vfdc_sector,vfdc_side);
+  }
+  vfdc_track=vfdc_sector;
+  vfdc_sector=vfdc_side;
+  vfdc_side=c&0x7f;
+
   if (c=='\r'||c=='\n') {
     line[line_len]=0;
     if (line_len>0) process_line(line,live);
@@ -1447,8 +1465,8 @@ int main(int argc,char **argv)
 	      sprintf(cmd,"M%x\r",WRITE_SECTOR_BUFFER_ADDRESS);
 	      slow_write(fd,cmd,strlen(cmd));
             } else {
-	      if (virtual_f011)
-		slow_write_safe(fd,"mffd3077\r",9);
+	      //	      if (virtual_f011)
+	      //		slow_write_safe(fd,"mffd3077\r",9);
             }
 	  } else {	    
 	    if (state==99) printf("sending R command to sync @ %dpbs.\n",serial_speed);
