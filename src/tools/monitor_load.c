@@ -117,7 +117,6 @@ int comma_eight_comma_one=0;
 int ethernet_video=0;
 int ethernet_cpulog=0;
 int virtual_f011=0;
-int virtual_f011_pending=0;
 char *d81file=NULL;
 char *filename=NULL;
 char *romfile=NULL;
@@ -712,7 +711,7 @@ int process_line(char *line,int live)
 	       &b[12],&b[13],&b[14],&b[15])==17) gotIt=1;
     if (gotIt) {
       char fname[17];
-      // printf("Read memory @ $%04x\n",addr);
+      printf("Read memory @ $%04x\n",addr);
       if (addr==name_addr) {
 	for(int i=0;i<16;i++) { fname[i]=b[i]; } fname[16]=0;
 	fname[name_len]=0;
@@ -736,61 +735,22 @@ int process_line(char *line,int live)
 	  state=0;
 	}
       }
-      if (addr==0xffd3077) {
-	printf("%lldms : Got FDC registers. Serving V-FDC request.\n",gettime_ms());
-	//      fprintf(stderr,"$D086 = $%02X, virtual_f011_pending=%d\n",b[6+9],virtual_f011_pending);
-        if((b[6+9] & 0x80)) {  /* virtual f011 read request issued */
-	  
-	  // XXX Now handled by fast-track code path
-        }
-
-	else if ((b[6+9] & 0x40) && !virtual_f011_pending) {
-
-          int device, track, sector, side;
-          device = b[0+9] & 0x7;
-          track = b[4+9];
-          sector = b[5+9];
-          side = b[6+9] & 0x3F;
-
-	  fprintf(stderr,"[T+%lldsec] Servicing hypervisor request for F011 FDC sector write.\n",
-		    (long long)time(0)-start_time);
-	  fprintf(stderr, "device: %d  track: %d  sector: %d  side: %d", device, track, sector, side);
-
-	  if(fd81 == NULL) {
-
-	    fd81 = fopen(d81file, "rb+");
-	    if(!fd81) {
-
-              fprintf(stderr, "Could not open D81 file: '%s'\n", d81file);
-	      exit(-1);
-	    }
-	  }
-          // fetch buffer from M65 memory
-          sdbuf_request_addr = WRITE_SECTOR_BUFFER_ADDRESS;
-	  stop_cpu();
-	  { char  cmd[1024];
-	    sprintf(cmd,"M%x\r",sdbuf_request_addr);
-	    slow_write(fd,cmd,strlen(cmd));
-	  }
-
-	  /* signal done/result */
-          //stop_cpu();
-	  virtual_f011_pending = 1;
-          saved_side = side;
-          saved_sector = sector;
-          saved_track = track;
-        }		
-        else {
-          virtual_f011_pending = 0;
-	}
-      }
      else if(addr == sdbuf_request_addr) {
-  
+       printf("Saw data for write buffer @ $%x\n",addr);
+       
 	int i;
 	for(i=0;i<16;i++)
 	    sd_sector_buf[sdbuf_request_addr-WRITE_SECTOR_BUFFER_ADDRESS+i]=b[i];
         sdbuf_request_addr += 16;
 
+        if(sdbuf_request_addr == (WRITE_SECTOR_BUFFER_ADDRESS+0x100)) {
+	  // Request next $100 of buffer
+	  char cmd[1024];
+	  sprintf(cmd,"M%x\r",sdbuf_request_addr);
+	  printf("Requesting reading of second half of sector buffer: %s",cmd);
+	  slow_write(fd,cmd,strlen(cmd));
+	}
+	
         if(sdbuf_request_addr == (WRITE_SECTOR_BUFFER_ADDRESS+0x200)) {
 
 	  dump_bytes(0,"Sector to write",sd_sector_buf,512);
@@ -818,12 +778,9 @@ int process_line(char *line,int live)
           // block loaded save it now
           sdbuf_request_addr = 0;
 
-          //stop_cpu();
-	  virtual_f011_pending = 1;
           snprintf(cmd,1024,"sffd3086 %02x\n",saved_side);
 	  slow_write(fd,cmd,strlen(cmd));
           if (!halt) start_cpu();
-          slow_write(fd,"mffd3077\r",9);
         }
       }
       if (addr==0xffd3659) {
@@ -1053,11 +1010,26 @@ int process_char(unsigned char c, int live)
 
   // Remember recent chars for virtual FDC access, as the Hypervisor tells
   // us which track, sector and side, before it sends the marker
-  if (c==0x21&&virtual_f011) {
-    printf("[T+%ldsec] : V-FDC request from UART monitor: Track:%d, Sector:%d, Side:%d.\n",
+  if (c=='!'&&virtual_f011) {
+    printf("[T+%ldsec] : V-FDC read request from UART monitor: Track:%d, Sector:%d, Side:%d.\n",
 	   time(0)-start_time,vfdc_track,vfdc_sector,vfdc_side);
     // We have all we need, so just read the sector from disk, upload it, and mark the job done
     virtual_f011_read(0,vfdc_track,vfdc_sector,vfdc_side);
+  }
+  if (c=='\\'&&virtual_f011) {
+    printf("[T+%ldsec] : V-FDC write request from UART monitor: Track:%d, Sector:%d, Side:%d.\n",
+	   time(0)-start_time,vfdc_track,vfdc_sector,vfdc_side);
+    // We have all we need, so just read the sector from disk, upload it, and mark the job done
+    sdbuf_request_addr = WRITE_SECTOR_BUFFER_ADDRESS;
+    { char  cmd[1024];
+      sprintf(cmd,"M%x\r",sdbuf_request_addr);
+      printf("Requesting reading of sector buffer: %s",cmd);
+      slow_write(fd,cmd,strlen(cmd));
+    }
+    saved_side=vfdc_side&0x3f;
+    saved_track=vfdc_track;
+    saved_sector=vfdc_sector;
+    
   }
   vfdc_track=vfdc_sector;
   vfdc_sector=vfdc_side;
@@ -1496,14 +1468,6 @@ int main(int argc,char **argv)
         fast_mode = saw_c65_mode || saw_c64_mode;
 	if (gettime_ms()>last_check) {
           if(fast_mode) {         
-	    if( sdbuf_request_addr != 0) {
-	      char cmd[1024];
-	      sprintf(cmd,"M%x\r",WRITE_SECTOR_BUFFER_ADDRESS);
-	      slow_write(fd,cmd,strlen(cmd));
-            } else {
-	      //	      if (virtual_f011)
-	      //		slow_write_safe(fd,"mffd3077\r",9);
-            }
 	  } else {	    
 	    if (state==99) printf("sending R command to sync @ %dpbs.\n",serial_speed);
 	    switch (phase%(4+hypervisor_paused)) {

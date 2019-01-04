@@ -56,17 +56,35 @@ fvr_same_as_last_time:
 
 f011_virtual_write:
 
-; Bit 6 and 7 in $D086 (FDC side register) are used to communicate with
-; monitor_load. We set bit 6, and wait for it to be cleared by monitor_load.
-; Other than that, all the hard work happens in monitor_load
-
 	; Reset buffer pointers and stop SD card from reading
 	; from card and overwriting what we load
 	LDA	#$01
 	STA	$D081
 
-	LDA	#$40
-        TSB	$D086
+	LDA       #$40  
+        TSB      $D086
+
+	; We write the job details to the uart monitor interface.
+	; Assume uart monitor interface is at 2mbits = 20 cycles
+	; per char, so we need to add a short delay between each char
+
+	LDA     $d084
+	ora	#$80
+	STA	$d67C
+	
+	jsr     @wait5usec
+	LDA     $d085
+	ora	#$80
+	STA	$D67C
+
+	jsr     @wait5usec
+	LDA	$D086
+	ora 	#$80
+	STA	$D67C
+	
+	jsr     @wait5usec
+	LDA 	#'\\
+	STA	$D67C
 
 fvw1:
         lda $d086
