@@ -167,8 +167,8 @@ begin  -- behavioural
         -- XXX For debugging have 32 registers, and map
         -- reg_porta_read and portain (and same for port b)
         -- to extra registers for debugging.
-        register_number(7 downto 5) := (others => '0');
-        register_number(4 downto 0) := fastio_address(4 downto 0);
+        register_number(7 downto 4) := (others => '0');
+        register_number(3 downto 0) := fastio_address(3 downto 0);
 
         -- Reading of registers
         if fastio_write='1' then
@@ -186,8 +186,6 @@ begin  -- behavioural
             -- @IO:64 $DD03 CIA2 Port B DDR
             when x"00" => fastio_rdata <= unsigned(reg_porta_read); -- reg_porta_read;
             when x"01" => fastio_rdata <= unsigned(reg_portb_read); -- reg_portb_read;
-            when x"10" => fastio_rdata <= unsigned(portain); -- reg_porta_read;
-            when x"11" => fastio_rdata <= unsigned(portbin); -- reg_portb_read;
             when x"02" => fastio_rdata <= unsigned(reg_porta_ddr);
             when x"03" => fastio_rdata <= unsigned(reg_portb_ddr);
                           
