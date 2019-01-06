@@ -12,11 +12,11 @@ freeze_save_to_sdcard_immediate:
 	; Save the current process to the SD card. $D681-4 are expected to
 	; already be pointing to the first sector of the freeze slot
 
-;	; Stash SD card registers to scratch area
-;	jsr copy_sdcard_regs_to_scratch
-;
-;	; Save current SD card sector buffer contents
-;	jsr freeze_write_sector_and_wait
+	; Stash SD card registers to scratch area
+	jsr copy_sdcard_regs_to_scratch
+
+	; Save current SD card sector buffer contents
+	jsr freeze_write_sector_and_wait
 
 	; Save each region in the list
 	ldx #$00
@@ -795,11 +795,12 @@ freeze_mem_list:
 	; core SDcard registers we need to be ready to start writing
 	; sectors. We copy these out and in manually at the start
 	; and end of the freeze and unfreeze routines, respectively.
-	; So they are not done here
-	;	.dword freezer_scratch_area
-	;       .byte 0
-	;	.word $0010
-	;	.byte freeze_prep_none
+	; So they are not done here.
+	; (the +$FFF0000 is to rebase the pointer into the hypervisor memory area)
+	.dword freeze_scratch_area+$fff0000
+	.word $0010
+	.byte 0
+	.byte freeze_prep_none
 
 	; SDcard sector buffer + SD card registers
 	; We have to save this before anything much else, because
@@ -811,15 +812,9 @@ freeze_mem_list:
 	; we have to take some care putting them back exactly.)
 
 	.dword $ffd6000
-	.word $0290
+	.word $0090
 	.byte 0
 	.byte freeze_prep_stash_sd_buffer_and_regs
-
-	; XXX DEBUG test to try to track down bugs
-	.dword $0000400
-	.word $0290
-	.byte 0
-	.byte freeze_prep_none
 
 	; SDcard sector buffer (F011)
 	.dword $ffd6c00
