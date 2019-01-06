@@ -301,9 +301,14 @@ unfreeze_load_region:
 	; Check if end of list, if so, do nothing and return
 	lda freeze_mem_list+7,x
 	cmp #$ff
-	bne ufsr1
+	beq @dontUnfreeze
+	; If it is the thumbnail, also don't unfreeze, as it doesn't make sense,
+	; and the way we freeze the thumbnail means unfreezing would corrupt $1000-$1FFF
+	cmp freeze_prep_thumbnail
+	bne @doUnfreeze
+@dontUnfreeze:
 	rts
-ufsr1:
+@doUnfreeze:
 
 	; Call setup routine to make any special preparations
 	; (eg copying data out of non-memory mapped areas, or collecting
@@ -750,10 +755,22 @@ debug_show_sector:
 	sta $0803
 	rts
 
+syspart_read_freeze_region_list_trap:
 
-
-
-
+	; Copy freeze_mem_list out to user memory
+	LDX    hypervisor_x
+	STX    <dos_scratch_vector+0
+	LDA    hypervisor_y    
+	AND    #$7f ; don't allow writing over hypervisor or IO when copying it out
+	STA    <dos_scratch_vector+1
+	LDX    #freeze_mem_list_end-freeze_mem_list
+	LDY    #$00
+*	LDA    freeze_mem_list,y
+	STA    (<dos_scratch_vector),y
+	INY
+	DEX
+	BNE	-
+	JMP	return_from_trap_with_success	
 
 freeze_mem_list:
 	; start address (4 bytes), length (3 bytes),
@@ -793,25 +810,25 @@ freeze_mem_list:
 
 	; VIC-IV palette block 0
 	.dword $ffd3100
-	.word $0400    ; only need $300, but this causes a bug during freezing, so round out to whole sector
+	.word $0300
 	.byte 0
 	.byte freeze_prep_palette0
 
 	; VIC-IV palette block 1
 	.dword $ffd3100
-	.word $0400    ; only need $300, but this causes a bug during freezing, so round out to whole sector
+	.word $0300
 	.byte 0
 	.byte freeze_prep_palette1
 
 	; VIC-IV palette block 2
 	.dword $ffd3100
-	.word $0400    ; only need $300, but this causes a bug during freezing, so round out to whole sector
+	.word $0300
 	.byte 0
 	.byte freeze_prep_palette2
 
 	; VIC-IV palette block 3
 	.dword $ffd3100
-	.word $0400    ; only need $300, but this causes a bug during freezing, so round out to whole sector
+	.word $0300
 	.byte 0
 	.byte freeze_prep_palette3	
 
@@ -827,6 +844,20 @@ freeze_mem_list:
 	.byte $00
 	.byte freeze_prep_none
 
+	; CIAs
+	.dword $ffd3c00
+	.word $0200
+	.byte 0
+	.byte freeze_prep_none
+
+	; VIC-IV, F011 $D000-$D0FF
+	; This should be last since it is not a whole sector worth, and there is a bug
+	; that gets tickled sometimes if a region is not an integer number of sectors.
+	.dword $ffd3000
+	.word $0200  ; round out to whole sector to avoid bug in freeze/unfreeze
+	.byte 0
+	.byte freeze_prep_none
+
 	; 4KB thumbnail of screen
 	; The prep routine copies this down to $1000-$1FFF, so we have to have saved the rest of RAM
 	; first
@@ -840,7 +871,7 @@ freeze_mem_list:
 	.word $0100
 	.byte 0
 	.byte freeze_prep_none
-	
+
 	; $D640-$D67E hypervisor state registers
 	; XXX - These can't be read by DMA, so we need to have a
 	; prep routine that copies them out first?
@@ -855,20 +886,6 @@ freeze_mem_list:
 	.byte 0
 	.byte freeze_prep_none
 
-	; CIAs
-	.dword $ffd3c00
-	.word $0200
-	.byte 0
-	.byte freeze_prep_none
-
-	; VIC-IV, F011 $D000-$D0FF
-	; This should be last since it is not a whole sector worth, and there is a bug
-	; that gets tickled sometimes if a region is not an integer number of sectors.
-	.dword $ffd3000
-	.word $0100
-	.byte 0
-	.byte freeze_prep_none
-
 	; XXX - Other IO chips!
 
 	; End of list
@@ -876,6 +893,8 @@ freeze_mem_list:
 	.word $FFFF
 	.byte $FF
 	.byte $FF
+
+freeze_mem_list_end:
 
 freeze_dma_length_remaining:
 	.byte 0,0,0
