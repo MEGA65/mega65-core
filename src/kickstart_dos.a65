@@ -197,7 +197,7 @@ dos_and_process_trap_table:
 	; $70 - $7E
 	;
 	.word trap_task_toggle_rom_writeprotect
-	.word invalid_subfunction
+	.word trap_task_toggle_force_4502
 	.word invalid_subfunction
 	.word invalid_subfunction
 	.word invalid_subfunction
@@ -211,10 +211,17 @@ trap_serial_monitor_write:
 
 ;	========================
 
+trap_task_toggle_force_4502:
+	lda	hypervisor_feature_enables
+	EOR	#$20
+	STA	hypervisor_feature_enables
+	jmp	@returnFeatureState
+
 trap_task_toggle_rom_writeprotect:
 	LDA	hypervisor_feature_enables
 	EOR	#$04
 	STA	hypervisor_feature_enables
+@returnFeatureState:
 	; Pass updated state back out to caller, so they know the result
 	STA	hypervisor_a
 	jmp	return_from_trap_with_success
