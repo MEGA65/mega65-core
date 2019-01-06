@@ -1494,6 +1494,10 @@ resetdisplay:
 		lda #$80
 		sta $d06f
 
+		; disable test pattern
+		lda #$80
+		trb $d066
+
 		; We use VIC-II style registers as this resets video frame in
 		; least instructions, and 40 columns is fine for us.
 		;
