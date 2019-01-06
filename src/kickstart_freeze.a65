@@ -12,11 +12,11 @@ freeze_save_to_sdcard_immediate:
 	; Save the current process to the SD card. $D681-4 are expected to
 	; already be pointing to the first sector of the freeze slot
 
-	; Stash SD card registers to scratch area
-	jsr copy_sdcard_regs_to_scratch
-
-	; Save current SD card sector buffer contents
-	jsr freeze_write_sector_and_wait
+;	; Stash SD card registers to scratch area
+;	jsr copy_sdcard_regs_to_scratch
+;
+;	; Save current SD card sector buffer contents
+;	jsr freeze_write_sector_and_wait
 
 	; Save each region in the list
 	ldx #$00
@@ -223,6 +223,32 @@ fsr1:
 
 freeze_region_dma_loop:
 
+	lda freeze_dma_length_remaining+1
+	and #$fe
+	ora freeze_dma_length_remaining+2
+	beq @freezePartialSector
+
+	; Freeze whole sector
+	lda #$00
+	sta freeze_region_dmalist_count+0
+	lda #$02
+	sta freeze_region_dmalist_count+1
+	jmp @freezeExecuteDMA
+
+@freezePartialSector:
+	; Set DMA size to remaining bytes
+	lda freeze_dma_length_remaining+0
+	sta freeze_region_dmalist_count+0
+	lda freeze_dma_length_remaining+1
+	sta freeze_region_dmalist_count+1
+
+	; Then make sure that there are still bytes to copy.
+	; If not, then we are done with this block.
+	ora freeze_dma_length_remaining+0
+	ora freeze_dma_length_remaining+2
+	beq freeze_region_dma_done
+
+@freezeExecuteDMA:
 	; Execute DMA job
 	lda #$ff
 	sta $d702
@@ -240,10 +266,6 @@ freeze_region_dma_loop:
 
 	dec $d020
 
-	lda freeze_dma_length_remaining
-	lda freeze_dma_length_remaining+1
-	lda freeze_dma_length_remaining+2
-
 	; Check if remaining length is negative or zero. If so, stop
 	lda freeze_dma_length_remaining+2
 	bmi freeze_region_dma_done
@@ -251,20 +273,6 @@ freeze_region_dma_loop:
 	ora freeze_dma_length_remaining+0
 	beq freeze_region_dma_done
 
-	lda freeze_dma_length_remaining+0
-	sta freeze_region_dmalist_count+0
-	ora freeze_dma_length_remaining+1
-	beq @multipleOf64KRemaining
-	lda freeze_dma_length_remaining+1
-	sta freeze_region_dmalist_count+1
-	cmp #$02
-	bcc not_too_big
-@multipleOf64KRemaining:
-	; remaining length too great, or
-	; bottom 16 bits = 0, i.e., multiple of 64KB remaining
-	lda #$02
-	sta freeze_region_dmalist_count+1
-not_too_big:
 	; DMA count is set, subtract from remaining length
 	sec
 	lda freeze_dma_length_remaining+0
@@ -277,8 +285,13 @@ not_too_big:
 	sbc #$00
 	sta freeze_dma_length_remaining+2
 
-	lda freeze_region_dmalist_count+0
-	lda freeze_region_dmalist_count+1
+	; Check if remaining length is negative or zero after subtracting bytes from this sector. If so, stop
+	lda freeze_dma_length_remaining+2
+	bmi freeze_region_dma_done
+	ora freeze_dma_length_remaining+1
+	ora freeze_dma_length_remaining+0
+	beq freeze_region_dma_done
+
 
 	; advance source address
 	lda freeze_region_dmalist_source_start+1
@@ -801,6 +814,12 @@ freeze_mem_list:
 	.word $0290
 	.byte 0
 	.byte freeze_prep_stash_sd_buffer_and_regs
+
+	; XXX DEBUG test to try to track down bugs
+	.dword $0000400
+	.word $0290
+	.byte 0
+	.byte freeze_prep_none
 
 	; SDcard sector buffer (F011)
 	.dword $ffd6c00
