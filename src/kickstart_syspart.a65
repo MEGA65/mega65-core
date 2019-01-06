@@ -372,7 +372,7 @@ syspart_trap_table:
 	; $10-$1E
 	.word syspart_locate_freezeslot_trap
 	.word syspart_unfreze_from_slot_trap
-	.word invalid_subfunction
+	.word syspart_read_freeze_region_list_trap
 	.word invalid_subfunction
 	.word invalid_subfunction
 	.word invalid_subfunction
