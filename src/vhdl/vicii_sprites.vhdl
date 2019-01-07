@@ -52,6 +52,7 @@ entity vicii_sprites is
     ioclock : in std_logic;
 
     signal sprite_h640 : in std_logic;
+    signal sprite_v400s : in std_logic_vector(7 downto 0);
     signal bitplane_h640 : in std_logic;
     signal bitplane_h1280 : in std_logic;
     signal bitplanes_x_start : in unsigned(7 downto 0);
@@ -349,6 +350,7 @@ begin
              is_foreground_in => is_foreground_in,
              is_background_in => is_background_in,
              sprite_h640 => sprite_h640,
+             sprite_v400 => sprite_v400s(7),
              pipeline_delay => pipeline_delay_latched,
              x320_in => x320_in,
              x640_in => x640_in,
@@ -420,6 +422,7 @@ begin
              is_foreground_in => is_foreground_7_6,
              is_background_in => is_background_7_6,
              sprite_h640 => sprite_h640,
+             sprite_v400 => sprite_v400s(6),
              pipeline_delay => pipeline_delay,
              x320_in => x320_7_6,
              x640_in => x640_7_6,
@@ -492,6 +495,7 @@ begin
              is_foreground_in => is_foreground_6_5,
              is_background_in => is_background_6_5,
              sprite_h640 => sprite_h640,
+             sprite_v400 => sprite_v400s(5),
              pipeline_delay => pipeline_delay,
              x320_in => x320_6_5,
              x640_in => x640_6_5,
@@ -564,6 +568,7 @@ begin
              is_foreground_in => is_foreground_5_4,
              is_background_in => is_background_5_4,
              sprite_h640 => sprite_h640,
+             sprite_v400 => sprite_v400s(4),
              pipeline_delay => pipeline_delay,
              x320_in => x320_5_4,
              x640_in => x640_5_4,
@@ -636,6 +641,7 @@ begin
              is_foreground_in => is_foreground_4_3,
              is_background_in => is_background_4_3,
              sprite_h640 => sprite_h640,
+             sprite_v400 => sprite_v400s(3),
              pipeline_delay => pipeline_delay,
              x320_in => x320_4_3,
              x640_in => x640_4_3,
@@ -708,6 +714,7 @@ begin
              is_foreground_in => is_foreground_3_2,
              is_background_in => is_background_3_2,
              sprite_h640 => sprite_h640,
+             sprite_v400 => sprite_v400s(2),
              pipeline_delay => pipeline_delay,
              x320_in => x320_3_2,
              x640_in => x640_3_2,
@@ -780,6 +787,7 @@ begin
              is_foreground_in => is_foreground_2_1,
              is_background_in => is_background_2_1,
              sprite_h640 => sprite_h640,
+             sprite_v400 => sprite_v400s(1),
              pipeline_delay => pipeline_delay,
              x320_in => x320_2_1,
              x640_in => x640_2_1,
@@ -852,6 +860,7 @@ begin
              is_foreground_in => is_foreground_1_0,
              is_background_in => is_background_1_0,
              sprite_h640 => sprite_h640,
+             sprite_v400 => sprite_v400s(0),
              pipeline_delay => pipeline_delay,
              x320_in => x320_1_0,
              x640_in => x640_1_0,

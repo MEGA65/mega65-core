@@ -195,6 +195,7 @@ architecture Behavioral of viciv is
   signal xcounter_pipeline_delayed : integer := 0;
   signal external_pixel_strobe_log : std_logic_vector(31 downto 0) := (others => '0');
   signal sprite_h640_delayed : std_logic := '0';
+  signal sprite_v400s_delayed : std_logic_vector(7 downto 0) := x"00";
   signal reg_h640_delayed : std_logic := '0';
   signal reg_h1280_delayed : std_logic := '0';
   signal external_frame_x_zero_latched : std_logic := '0';
@@ -838,6 +839,7 @@ architecture Behavioral of viciv is
   signal reg_h1280 : std_logic := '0';
   signal reg_v400 : std_logic := '0';
   signal sprite_h640 : std_logic := '1';
+  signal sprite_v400s : std_logic_vector(7 downto 0) := x"00";
   
   type rgb is
   record
@@ -1137,6 +1139,7 @@ begin
               ioclock => ioclock,
 
               sprite_h640 => sprite_h640_delayed,
+              sprite_v400s => sprite_v400s_delayed,
               bitplane_h640 => reg_h640_delayed,
               bitplane_h1280 => reg_h1280_delayed,
               bitplane_mode_in => bitplane_mode,
@@ -1841,8 +1844,8 @@ begin
           fastio_rdata <= sprite_alpha_blend_enables;
         elsif register_number=117 then  -- $D3075
           fastio_rdata(7 downto 0) <= std_logic_vector(sprite_alpha_blend_value);
-        elsif register_number=118 then  -- $D3076 (UNUSED) TEMPORARY DEBUG $D031 write count
-          fastio_rdata <= std_logic_vector(d031_writes);
+        elsif register_number=118 then  -- $D3076 Sprite V400 enables
+          fastio_rdata <= std_logic_vector(sprite_v400s);
         elsif register_number=119 then  -- $D3077 (UNUSED)
 	  fastio_rdata <= X"FF"; -- UNUSED
         elsif register_number=120 then  -- $D3078 (was display_height, now free)
@@ -2613,8 +2616,8 @@ begin
                                         -- @IO:GS $D075 VIC-IV Sprite alpha-blend value
                                                     sprite_alpha_blend_value <= unsigned(fastio_wdata);
                                                   elsif register_number=118 then
-                                        -- @IO:GS $D076 VIC-IV UNUSED
-                                                    null;
+                                        -- @IO:GS $D076 Sprite V400 enables
+                                                    sprite_v400s <= fastio_wdata;
                                                   elsif register_number=119 then  -- $D3077
                                                                                   -- @IO:GS $D077 VIC-IV UNUSED
                                                     null;
@@ -5050,6 +5053,7 @@ begin
       xcounter_out <= xcounter_pipeline_delayed;
 
       sprite_h640_delayed <= sprite_h640;
+      sprite_v400s_delayed <= sprite_v400s;
       reg_h640_delayed <= reg_h640;
       reg_h1280_delayed <= reg_h1280;
       external_frame_x_zero_latched <= external_frame_x_zero;

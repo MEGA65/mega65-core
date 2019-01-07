@@ -35,6 +35,7 @@ entity sprite is
     signal sprite_number : in spritenumber;
 
     signal sprite_h640 : in std_logic;
+    signal sprite_v400 : in std_logic;
 
     signal sprite_sixteen_colour_mode : in std_logic;
     
@@ -343,7 +344,11 @@ begin  -- behavioural
             report "sprite_pixel_bits (from _last)";
             sprite_pixel_bits <= sprite_pixel_bits_last;
           end if;
-          y_expand_toggle <= not y_expand_toggle;
+          if sprite_v400='0' then
+            y_expand_toggle <= not y_expand_toggle;
+          else
+            y_expand_toggle <= '1';
+          end if;
         else
           y_offset <= 0;
         end if;
