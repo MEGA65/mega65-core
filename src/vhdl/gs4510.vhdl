@@ -5397,7 +5397,11 @@ begin
                                         -- from for a JMP or JSR.
                                         -- XXX should this only step the bottom 8 bits for ($nn,X)
                                         -- dereferencing?
-              reg_addr(7 downto 0) <= reg_addr(7 downto 0) + 1;
+              if emu6502='1' then
+                reg_addr(7 downto 0) <= reg_addr(7 downto 0) + 1;
+              else
+                reg_addr <= reg_addr + 1;
+              end if;
               state <= JumpDereference2;
             when JumpDereference2 =>
               reg_t <= memory_read_value;
