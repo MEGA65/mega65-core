@@ -73,6 +73,7 @@ entity sprite is
     signal x640_in : in xposition;
     signal pipeline_delay : integer range 0 to 31;
     signal y_in : in yposition;
+    signal yfine_in : in yposition;
     signal border_in : in std_logic;
     signal pixel_in : in unsigned(7 downto 0);
     signal alpha_in : in unsigned(7 downto 0);
@@ -89,6 +90,7 @@ entity sprite is
     signal x320_out : out xposition;
     signal x640_out : out xposition;
     signal y_out : out yposition;
+    signal yfine_out : out yposition;
     signal border_out : out std_logic;
     signal pixel_out : out unsigned(7 downto 0);
     signal alpha_out : out unsigned(7 downto 0);
@@ -100,7 +102,7 @@ entity sprite is
     
     signal sprite_enable : in std_logic;
     signal sprite_x : in unsigned(9 downto 0);
-    signal sprite_y : in unsigned(7 downto 0);
+    signal sprite_y : in unsigned(8 downto 0);
     signal sprite_colour : in unsigned(7 downto 0);
     signal sprite_multi0_colour : in unsigned(7 downto 0);
     signal sprite_multi1_colour : in unsigned(7 downto 0);
@@ -178,8 +180,12 @@ begin  -- behavioural
       end if;
       
       sprite_color16_bits := sprite_pixel_bits(63 downto 60);
-      
-      y_last <= y_in;
+
+      if sprite_v400 = '1' then
+        y_last <= yfine_in;
+      else
+        y_last <= y_in;
+      end if;
       x_last <= x_in;
 
       if (x_last /= x_in) then
@@ -231,6 +237,7 @@ begin  -- behavioural
       x320_out <= x320_in;
       x640_out <= x640_in;
       y_out <= y_in;
+      yfine_out <= yfine_in;
       border_out <= border_in;
       is_foreground_out <= is_foreground_in;
       is_background_out <= is_background_in;
@@ -254,13 +261,16 @@ begin  -- behavioural
           sprite_data_offset <= 8 + (y_offset * 8);
         end if;
       end if;
-      if (y_in = sprite_y) then
+      if ((y_in = sprite_y) and (sprite_v400='0'))
+         or ((yfine_in = sprite_y) and (sprite_v400='1')) then
         if y_top='0' then
           report "SPRITE: y_top set";
         end if;
         y_top <= '1';
         check_collisions <= '1';
-        if y_last /= y_in then
+        if ((sprite_v400='0') and (y_last /= y_in))
+          or ((sprite_v400='1') and (y_last /= yfine_in))
+        then
           sprite_pixel_bits <= std_logic_vector(sprite_data_64bits);
           sprite_pixel_bits_last <= std_logic_vector(sprite_data_64bits);
           report "sprite_pixel_bits (from _mc/_mono)";
@@ -312,9 +322,14 @@ begin  -- behavioural
         end if;
       end if;
       -- Advance Y position of sprite
-      if y_last /= y_in then
+      if ((sprite_v400='0') and (y_last /= y_in))
+        or ((sprite_v400='1') and (y_last /= yfine_in)) then
         report "stop drawing to to y_in advance to " & integer'image(y_in);
-        y_last <= y_in;
+        if sprite_v400='0' then
+          y_last <= y_in;
+        else
+          y_last <= yfine_in;
+        end if;
         x_in_sprite <= '0';
         if (sprite_drawing = '1') or (y_top='1') then
           -- Check collisions whenever we start a new logical sprite pixel row, even
@@ -344,11 +359,7 @@ begin  -- behavioural
             report "sprite_pixel_bits (from _last)";
             sprite_pixel_bits <= sprite_pixel_bits_last;
           end if;
-          if sprite_v400='0' then
-            y_expand_toggle <= not y_expand_toggle;
-          else
-            y_expand_toggle <= '1';
-          end if;
+          y_expand_toggle <= not y_expand_toggle;
         else
           y_offset <= 0;
         end if;

@@ -840,6 +840,7 @@ architecture Behavioral of viciv is
   signal reg_v400 : std_logic := '0';
   signal sprite_h640 : std_logic := '1';
   signal sprite_v400s : std_logic_vector(7 downto 0) := x"00";
+  signal sprite_v400_msbs : std_logic_vector(7 downto 0) := x"00";
   
   type rgb is
   record
@@ -1179,6 +1180,7 @@ begin
               -- x1280 mode is deprecated
               x1280_in => to_xposition(vicii_xcounter_640),
               y_in => to_yposition(vicii_sprite_ycounter),
+              yfine_in => to_yposition(vicii_ycounter_v400),
               border_in => inborder_drive,
               pixel_in => chargen_pixel_colour,
               alpha_in => chargen_alpha_value,
@@ -1846,8 +1848,8 @@ begin
           fastio_rdata(7 downto 0) <= std_logic_vector(sprite_alpha_blend_value);
         elsif register_number=118 then  -- $D3076 Sprite V400 enables
           fastio_rdata <= std_logic_vector(sprite_v400s);
-        elsif register_number=119 then  -- $D3077 (UNUSED)
-	  fastio_rdata <= X"FF"; -- UNUSED
+        elsif register_number=119 then  -- $D3077 Sprite V400 Y position MSBs
+	  fastio_rdata <= sprite_v400_msbs;
         elsif register_number=120 then  -- $D3078 (was display_height, now free)
 	  fastio_rdata <= X"FF"; -- UNUSED
         elsif register_number=121 then  -- $D3079 (was frame_height, now free)
@@ -2619,8 +2621,8 @@ begin
                                         -- @IO:GS $D076 Sprite V400 enables
                                                     sprite_v400s <= fastio_wdata;
                                                   elsif register_number=119 then  -- $D3077
-                                                                                  -- @IO:GS $D077 VIC-IV UNUSED
-                                                    null;
+                                                    -- @IO:GS $D077 Sprite V400 Y position MSBs
+                                                    sprite_v400_msbs <= fastio_wdata;
                                                   elsif register_number=120 then  -- $D3078
                                                                                   -- @IO:GS $D078 VIC-IV UNUSED
                                                     null;

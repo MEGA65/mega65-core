@@ -93,6 +93,7 @@ entity vicii_sprites is
     signal pipeline_delay : in integer range 0 to 31;
 
     signal y_in : in yposition;
+    signal yfine_in : in yposition;
     signal border_in : in std_logic;
     signal pixel_in : in unsigned(7 downto 0);
     signal alpha_in : in unsigned(7 downto 0);
@@ -134,7 +135,8 @@ architecture behavioural of vicii_sprites is
   signal vicii_sprite_enables : std_logic_vector(7 downto 0) := (others => '1');
   signal vicii_sprite_xmsbs : std_logic_vector(7 downto 0) := (others => '0');
   signal sprite_h640_msbs : std_logic_vector(7 downto 0) := (others => '0');
-  signal sprite_y : sprite_vector_8 := (others => x"02");
+  signal sprite_v400_msbs : std_logic_vector(7 downto 0) := (others => '0');
+  signal sprite_y : sprite_vector_8 := (others => to_unsigned(2,8));
   signal sprite_colours : sprite_vector_8 := (others => x"00");
   signal vicii_sprite_priority_bits : std_logic_vector(7 downto 0) := (others => '0');
   signal sprite_multi0_colour : unsigned(7 downto 0) := x"04";
@@ -261,6 +263,13 @@ architecture behavioural of vicii_sprites is
   signal y_2_1 : yposition;
   signal y_1_0 : yposition;
   signal y_0_bp : yposition;
+  signal yfine_7_6 : yposition;
+  signal yfine_6_5 : yposition;
+  signal yfine_5_4 : yposition;
+  signal yfine_4_3 : yposition;
+  signal yfine_3_2 : yposition;
+  signal yfine_2_1 : yposition;
+  signal yfine_1_0 : yposition;
   signal border_7_6 : std_logic;
   signal border_6_5 : std_logic;
   signal border_5_4 : std_logic;
@@ -355,6 +364,7 @@ begin
              x320_in => x320_in,
              x640_in => x640_in,
              y_in => y_in,
+             yfine_in => yfine_in,
              border_in => border_in,
              pixel_in => pixel_in,
              alpha_in => alpha_in,
@@ -366,6 +376,7 @@ begin
              x320_out => x320_7_6,
              x640_out => x640_7_6,
              y_out => y_7_6,
+             yfine_out => yfine_7_6,
              border_out => border_7_6,
              pixel_out => pixel_7_6,
              alpha_out => alpha_7_6,
@@ -378,7 +389,8 @@ begin
              sprite_x(9) => sprite_h640_msbs(7),
              sprite_x(8) => vicii_sprite_xmsbs(7),
              sprite_x(7 downto 0) => sprite_x(7),
-             sprite_y => sprite_y(7),
+             sprite_y(7 downto 0) => sprite_y(7),
+             sprite_y(8) => sprite_v400_msbs(7),
              sprite_colour => sprite_colours(7),
              sprite_enable => vicii_sprite_enables(7),
              sprite_priority => vicii_sprite_priority_bits(7),
@@ -427,6 +439,7 @@ begin
              x320_in => x320_7_6,
              x640_in => x640_7_6,
              y_in => y_7_6,
+             yfine_in => yfine_7_6,
              border_in => border_7_6,
              pixel_in => pixel_7_6,
              alpha_in => alpha_7_6,
@@ -438,6 +451,7 @@ begin
              x320_out => x320_6_5,
              x640_out => x640_6_5,
              y_out => y_6_5,
+             yfine_out => yfine_6_5,
              border_out => border_6_5,
              pixel_out => pixel_6_5,
              alpha_out => alpha_6_5,
@@ -450,7 +464,8 @@ begin
              sprite_x(9) => sprite_h640_msbs(6),
              sprite_x(8) => vicii_sprite_xmsbs(6),
              sprite_x(7 downto 0) => sprite_x(6),
-             sprite_y => sprite_y(6),
+             sprite_y(7 downto 0) => sprite_y(6),
+             sprite_y(8) => sprite_v400_msbs(6),
              sprite_colour => sprite_colours(6),
              sprite_enable => vicii_sprite_enables(6),
              sprite_priority => vicii_sprite_priority_bits(6),
@@ -500,6 +515,7 @@ begin
              x320_in => x320_6_5,
              x640_in => x640_6_5,
              y_in => y_6_5,
+             yfine_in => yfine_6_5,
              border_in => border_6_5,
              pixel_in => pixel_6_5,
              alpha_in => alpha_6_5,
@@ -511,6 +527,7 @@ begin
              x320_out => x320_5_4,
              x640_out => x640_5_4,
              y_out => y_5_4,
+             yfine_out => yfine_5_4,
              border_out => border_5_4,
              pixel_out => pixel_5_4,
              alpha_out => alpha_5_4,
@@ -523,7 +540,8 @@ begin
              sprite_x(9) => sprite_h640_msbs(5),
              sprite_x(8) => vicii_sprite_xmsbs(5),
              sprite_x(7 downto 0) => sprite_x(5),
-             sprite_y => sprite_y(5),
+             sprite_y(7 downto 0) => sprite_y(5),
+             sprite_y(8) => sprite_v400_msbs(5),
              sprite_colour => sprite_colours(5),
              sprite_enable => vicii_sprite_enables(5),
              sprite_priority => vicii_sprite_priority_bits(5),
@@ -573,6 +591,7 @@ begin
              x320_in => x320_5_4,
              x640_in => x640_5_4,
              y_in => y_5_4,
+             yfine_in => yfine_5_4,
              border_in => border_5_4,
              pixel_in => pixel_5_4,
              alpha_in => alpha_5_4,
@@ -584,6 +603,7 @@ begin
              x320_out => x320_4_3,
              x640_out => x640_4_3,
              y_out => y_4_3,
+             yfine_out => yfine_4_3,
              border_out => border_4_3,
              pixel_out => pixel_4_3,
              alpha_out => alpha_4_3,
@@ -596,7 +616,8 @@ begin
              sprite_x(9) => sprite_h640_msbs(4),
              sprite_x(8) => vicii_sprite_xmsbs(4),
              sprite_x(7 downto 0) => sprite_x(4),
-             sprite_y => sprite_y(4),
+             sprite_y(7 downto 0) => sprite_y(4),
+             sprite_y(8) => sprite_v400_msbs(4),
              sprite_colour => sprite_colours(4),
              sprite_enable => vicii_sprite_enables(4),
              sprite_priority => vicii_sprite_priority_bits(4),
@@ -646,6 +667,7 @@ begin
              x320_in => x320_4_3,
              x640_in => x640_4_3,
              y_in => y_4_3,
+             yfine_in => yfine_4_3,
              border_in => border_4_3,
              pixel_in => pixel_4_3,
              alpha_in => alpha_4_3,
@@ -657,6 +679,7 @@ begin
              x320_out => x320_3_2,
              x640_out => x640_3_2,
              y_out => y_3_2,
+             yfine_out => yfine_3_2,
              border_out => border_3_2,
              pixel_out => pixel_3_2,
              alpha_out => alpha_3_2,
@@ -669,7 +692,8 @@ begin
              sprite_x(9) => sprite_h640_msbs(3),
              sprite_x(8) => vicii_sprite_xmsbs(3),
              sprite_x(7 downto 0) => sprite_x(3),
-             sprite_y => sprite_y(3),
+             sprite_y(7 downto 0) => sprite_y(3),
+             sprite_y(8) => sprite_v400_msbs(3),
              sprite_colour => sprite_colours(3),
              sprite_enable => vicii_sprite_enables(3),
              sprite_priority => vicii_sprite_priority_bits(3),
@@ -719,6 +743,7 @@ begin
              x320_in => x320_3_2,
              x640_in => x640_3_2,
              y_in => y_3_2,
+             yfine_in => yfine_3_2,
              border_in => border_3_2,
              pixel_in => pixel_3_2,
              alpha_in => alpha_3_2,
@@ -730,6 +755,7 @@ begin
              x320_out => x320_2_1,
              x640_out => x640_2_1,
              y_out => y_2_1,
+             yfine_out => yfine_2_1,
              border_out => border_2_1,
              pixel_out => pixel_2_1,
              alpha_out => alpha_2_1,
@@ -742,7 +768,8 @@ begin
              sprite_x(9) => sprite_h640_msbs(2),
              sprite_x(8) => vicii_sprite_xmsbs(2),
              sprite_x(7 downto 0) => sprite_x(2),
-             sprite_y => sprite_y(2),
+             sprite_y(7 downto 0) => sprite_y(2),
+             sprite_y(8) => sprite_v400_msbs(2),
              sprite_colour => sprite_colours(2),
              sprite_enable => vicii_sprite_enables(2),
              sprite_priority => vicii_sprite_priority_bits(2),
@@ -792,6 +819,7 @@ begin
              x320_in => x320_2_1,
              x640_in => x640_2_1,
              y_in => y_2_1,
+             yfine_in => yfine_2_1,
              border_in => border_2_1,
              pixel_in => pixel_2_1,
              alpha_in => alpha_2_1,
@@ -803,6 +831,7 @@ begin
              x320_out => x320_1_0,
              x640_out => x640_1_0,
              y_out => y_1_0,
+             yfine_out => yfine_1_0,
              border_out => border_1_0,
              pixel_out => pixel_1_0,
              alpha_out => alpha_1_0,
@@ -815,7 +844,8 @@ begin
              sprite_x(9) => sprite_h640_msbs(1),
              sprite_x(8) => vicii_sprite_xmsbs(1),
              sprite_x(7 downto 0) => sprite_x(1),
-             sprite_y => sprite_y(1),
+             sprite_y(7 downto 0) => sprite_y(1),
+             sprite_y(8) => sprite_v400_msbs(1),
              sprite_colour => sprite_colours(1),
              sprite_enable => vicii_sprite_enables(1),
              sprite_priority => vicii_sprite_priority_bits(1),
@@ -865,6 +895,7 @@ begin
              x320_in => x320_1_0,
              x640_in => x640_1_0,
              y_in => y_1_0,
+             yfine_in => yfine_1_0,
              border_in => border_1_0,
              pixel_in => pixel_1_0,
              alpha_in => alpha_1_0,
@@ -888,7 +919,8 @@ begin
              sprite_x(9) => sprite_h640_msbs(0),
              sprite_x(8) => vicii_sprite_xmsbs(0),
              sprite_x(7 downto 0) => sprite_x(0),
-             sprite_y => sprite_y(0),
+             sprite_y(7 downto 0) => sprite_y(0),
+             sprite_y(8) => sprite_v400_msbs(0),
              sprite_colour => sprite_colours(0),
              sprite_enable => vicii_sprite_enables(0),
              sprite_priority => vicii_sprite_priority_bits(0),
