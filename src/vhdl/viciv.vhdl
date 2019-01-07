@@ -94,7 +94,7 @@ entity viciv is
     
     d031_written : out std_logic;
     xray_mode : in std_logic;
-    test_pattern_enable : out std_logic := '0';
+    test_pattern_enable : inout std_logic := '0';
 
     dat_offset : out unsigned(15 downto 0);
     dat_bitplane_addresses : out sprite_vector_eight;
@@ -982,6 +982,9 @@ architecture Behavioral of viciv is
   signal badline_toggle_internal : std_logic := '0';
   signal enable_raster_delay : std_logic := '1';
   signal pixels_since_last_char : unsigned(2 downto 0) := "000";
+
+  signal render_activity : std_logic_vector(2 downto 0) := "000";
+  signal show_render_activity : std_logic := '0';
   
 begin
   
@@ -1801,7 +1804,9 @@ begin
         elsif register_number=101 then
           fastio_rdata <= std_logic_vector(colour_ram_base(15 downto 8));
         elsif register_number=102 then -- $D3066 xcounter_pipeline_delayed delay
-          fastio_rdata <= std_logic_vector(to_unsigned(reg_xcounter_delay,8));
+          fastio_rdata(5 downto 0) <= std_logic_vector(to_unsigned(reg_xcounter_delay,6));
+          fastio_rdata(6) <= show_render_activity;
+          fastio_rdata(7) <= test_pattern_enable;
         elsif register_number=103 then  -- $D3067
           fastio_rdata <= std_logic_vector(sprite_first_x(7 downto 0));
         elsif register_number=104 then  -- $D068
@@ -2460,8 +2465,10 @@ begin
                                                     colour_ram_base(15 downto 8) <= unsigned(fastio_wdata);
                                                   elsif register_number=102 then -- $D3066
                                         -- @IO:GS $D066.0-4 VIC-IV xcounter pipeline delay DEBUG WILL BE REMOVED
-                                        -- @IO:GS $D066.7 VIC-IV test pattern enable DEBUG WILL BE REMOVED
+                                        -- @IO:GS $D066.6 VIC-IV render activity display enable DEBUG WILL BE REMOVED
+                                        -- @IO:GS $D066.7 VIC-IV test pattern display enable DEBUG WILL BE REMOVED
                                                     reg_xcounter_delay <= to_integer(unsigned(fastio_wdata(4 downto 0)));
+                                                    show_render_activity <= fastio_wdata(6);
                                                     test_pattern_enable <= fastio_wdata(7);
                                                   elsif register_number=103 then  -- $D3067
                                                                                   -- @IO:GS $D067 VIC-IV Sprite/bitplane first X DEBUG WILL BE REMOVED
@@ -3626,9 +3633,15 @@ begin
         vgablue_driver <= x"00";
       else
         drive_led_out <= '0';
-        vgared_driver <= vga_out_red(7 downto 0);
-        vgagreen_driver <= vga_out_green(7 downto 0);
-        vgablue_driver <= vga_out_blue(7 downto 0);
+        if show_render_activity='1' then
+          vgared_driver <= (others => render_activity(0));
+          vgagreen_driver <= (others => render_activity(1));
+          vgablue_driver <= (others => render_activity(2));
+        else
+          vgared_driver <= vga_out_red(7 downto 0);
+          vgagreen_driver <= vga_out_green(7 downto 0);
+          vgablue_driver <= vga_out_blue(7 downto 0);
+        end if;
       end if;
 
       --------------------------------------------------------------------------
@@ -3705,16 +3718,20 @@ begin
       report "raster_fetch_state = " & vic_chargen_fsm'image(raster_fetch_state);
       case raster_fetch_state is
         when Idle => null;
+            -- Show what we are doing in debug display mode
+            render_activity <= "000";                     
         when FetchScreenRamLine =>
           -- Make sure that painting is not in progress
           if paint_ready='1' then
-            -- Set FSM state so that no painting occurrs, and so that we
+            -- Set FSM state so that no painting occurs, and so that we
             -- continue to fetch the screen row.  Note that here we just
             -- schedule the memory reads.  The data is written elsewhere.  This
             -- helps to simplify the logic in terms of number of states in the
             -- machine, as well as for accepting the data when it has been read.
             paint_fsm_state <= Idle;
             raster_fetch_state <= FetchScreenRamLine2;
+            -- Show what we are doing in debug display mode
+            render_activity <= "001";
 
             -- Reset screen row (bad line) state 
             character_number <= to_unsigned(1,9);
@@ -3831,6 +3848,9 @@ begin
             end if;
           end if;
         when FetchFirstCharacter =>
+          -- Show what we are doing in debug display mode
+          render_activity <= "010";
+
           next_ramaccess_is_screen_row_fetch <= '0';
           next_ramaccess_is_glyph_data_fetch <= '0';
           next_ramaccess_is_sprite_data_fetch <= '0';
@@ -4049,6 +4069,9 @@ begin
           end if;
           raster_fetch_state <= FetchTextCellColourAndSource;
         when FetchBitmapData =>
+          -- Show what we are doing in debug display mode
+          render_activity <= "011";
+
           if character_data_from_rom = '1' then
             if glyph_data_address(19 downto 12) = "0000"&x"1"
               or glyph_data_address(19 downto 12) = "0000"&x"9" then
@@ -4175,6 +4198,9 @@ begin
             raster_fetch_state <= PaintMemWait3;
           end if;
         when PaintFullColourFetch =>
+          -- Show what we are doing in debug display mode
+          render_activity <= "100";
+
           -- Read and store the 8 bytes of data we need for a full-colour character
           report "LEGACY: glyph reading full-colour pixel value $" & to_hstring(ramdata); 
           full_colour_data(63 downto 56) <= ramdata;
@@ -4342,6 +4368,7 @@ begin
             raster_fetch_state <= FetchNextCharacter;
           end if;
         when EndOfChargen =>
+          
           -- Idle the painter, and then start drawing VIC-II sprites
           if paint_ready='1' then
             paint_fsm_state <= Idle;
@@ -4353,6 +4380,9 @@ begin
             sprite_fetch_byte_number <= 0;
           end if;
         when SpritePointerFetch =>
+          -- Show what we are doing in debug display mode
+          render_activity <= "101";
+
           sprite_datavalid <= '0';
           if sprite_fetch_sprite_number = 16 then
             -- Done fetching sprites
@@ -4501,6 +4531,9 @@ begin
           sprite_data_address(19 downto 14) <= ramdata_drive(5 downto 0);
           raster_fetch_state <= SpriteDataFetch;          
         when SpriteDataFetch =>
+          -- Show what we are doing in debug display mode
+          render_activity <= "110";
+          
           report "SPRITE: fetching sprite #"
             & integer'image(sprite_fetch_sprite_number)
             & " data from $" & to_hstring(sprite_data_address(19 downto 0));
