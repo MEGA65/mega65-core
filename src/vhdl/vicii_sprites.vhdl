@@ -1087,6 +1087,9 @@ begin
           viciii_extended_attributes <= fastio_wdata(5);
         elsif register_number=95 then
           sprite_h640_msbs <= fastio_wdata;
+        elsif register_number=119 then  -- $D3077
+          -- $D077 Sprite V400 Y position MSBs
+          sprite_v400_msbs <= fastio_wdata;          
         end if;
       end if;
     end if;

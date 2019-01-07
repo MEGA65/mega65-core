@@ -13,6 +13,7 @@ C65 $003C000-$003CFFF - 4KB C65 KERNAL/INTERFACE ROM
 C65 $003E000-$003FFFF - 8KB C65 KERNAL ROM
 GS $4000000 - $7FFFFFF Slow Device memory (64MB)
 GS $7010000.5 - Force assertion of /RESET on cartridge port
+GS $7010001.6 - Force enabling of joystick expander cartridge
 GS $8000000 - $FEFFFFF Slow Device memory (127MB)
 C64 $D000 VIC-II sprite 0 horizontal position
 C64 $D001 VIC-II sprite 1 horizontal position
@@ -34,7 +35,7 @@ C64 $D010 VIC-II sprite horizontal position MSBs
 C64 $D011.2-0 VIC-II 24/25 vertical smooth scroll
 C64 $D011.3 VIC-II 24/25 row select
 C64 $D011.4 VIC-II disable display
-C64 $D011.5 VIC-II text mode
+C64 $D011.5 VIC-II bitmap mode
 C64 $D011.6 VIC-II extended background mode
 C64 $D011.7 VIC-II raster compare bit 8
 C64 $D011 VIC-II control register
@@ -166,7 +167,7 @@ GS $D05A VIC-IV horizontal hardware scale setting (pixel 120ths)
 GS $D05B VIC-IV vertical hardware scale setting
 GS $D05C VIC-IV side border width (LSB)
 GS $D05D.0-5 VIC-IV side border width (MSB)
-GS $D05D.6 VIC-IV UNUSED
+GS $D05D.6 VIC-IV Enable raster delay (delays raster counter and interrupts by one line to match output pipeline latency)
 GS $D05D.7 VIC-IV Enable VIC-II hot registers
 GS $D05E VIC-IV number of characters to display per row
 GS $D05F VIC-IV Sprite H640 X Super-MSBs
@@ -177,7 +178,8 @@ GS $D063 VIC-IV screen RAM precise base address (bits 31 - 24)
 GS $D064 VIC-IV colour RAM base address (bits 0 - 7)
 GS $D065 VIC-IV colour RAM base address (bits 15 - 8)
 GS $D066.0-4 VIC-IV xcounter pipeline delay DEBUG WILL BE REMOVED
-GS $D066.7 VIC-IV test pattern enable DEBUG WILL BE REMOVED
+GS $D066.6 VIC-IV render activity display enable DEBUG WILL BE REMOVED
+GS $D066.7 VIC-IV test pattern display enable DEBUG WILL BE REMOVED
 GS $D067 VIC-IV Sprite/bitplane first X DEBUG WILL BE REMOVED
 GS $D068 VIC-IV character set precise base address (bits 0 - 7)
 GS $D069 VIC-IV character set precise base address (bits 15 - 8)
@@ -200,8 +202,8 @@ GS $D073.0-3 VIC-IV Alpha delay for compositor
 GS $D073.4-7 VIC-IV physical rasters per VIC-II raster (1 to 16)
 GS $D074 VIC-IV Sprite alpha-blend enable
 GS $D075 VIC-IV Sprite alpha-blend value
-GS $D076 VIC-IV UNUSED
-GS $D077 VIC-IV UNUSED
+GS $D076 Sprite V400 enables
+GS $D077 Sprite V400 Y position MSBs
 GS $D078 VIC-IV UNUSED
 GS $D079 VIC-IV UNUSED
 GS $D07A VIC-IV UNUSED
