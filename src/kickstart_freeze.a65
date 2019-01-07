@@ -40,7 +40,7 @@ unfreeze_load_from_sdcard_immediate:
 	; Skip the first sector of the frozen program which is the
 	; contents of the SD card sector buffer prior to freezing.
 	; (We will load it in as the very last thing)
-	jsr sd_inc_fixedsectornumber	
+	jsr sd_inc_fixedsectornumber
 
 	; Save each region in the list
 	ldx #$00
@@ -223,24 +223,7 @@ fsr1:
 
 freeze_region_dma_loop:
 
-	lda freeze_dma_length_remaining+1
-	and #$fe
-	ora freeze_dma_length_remaining+2
-	beq @freezePartialSector
-
-	; Freeze whole sector
-	lda #$00
-	sta freeze_region_dmalist_count+0
-	lda #$02
-	sta freeze_region_dmalist_count+1
-	jmp @freezeExecuteDMA
-
-@freezePartialSector:
-	; Set DMA size to remaining bytes
-	lda freeze_dma_length_remaining+0
-	sta freeze_region_dmalist_count+0
-	lda freeze_dma_length_remaining+1
-	sta freeze_region_dmalist_count+1
+	jsr set_dma_length_based_on_freeze_dma_length_remaining
 
 	; Then make sure that there are still bytes to copy.
 	; If not, then we are done with this block.
@@ -249,6 +232,7 @@ freeze_region_dma_loop:
 	beq freeze_region_dma_done
 
 @freezeExecuteDMA:
+
 	; Execute DMA job
 	lda #$ff
 	sta $d702
@@ -267,13 +251,41 @@ freeze_region_dma_loop:
 	dec $d020
 
 	; Check if remaining length is negative or zero. If so, stop
-	lda freeze_dma_length_remaining+2
-	bmi freeze_region_dma_done
-	ora freeze_dma_length_remaining+1
-	ora freeze_dma_length_remaining+0
+	jsr is_freeze_dma_length_remaining_zero_or_negative
 	beq freeze_region_dma_done
 
 	; DMA count is set, subtract from remaining length
+	jsr subtract_freeze_dma_size_from_length_remaining
+
+	jsr is_freeze_dma_length_remaining_zero_or_negative
+	beq freeze_region_dma_done
+
+	; advance source address
+	lda freeze_region_dmalist_source_start+1
+	clc
+	adc #$02
+	sta freeze_region_dmalist_source_start+1
+	lda freeze_region_dmalist_source_bank
+	adc #$00
+	sta freeze_region_dmalist_source_bank
+
+	jmp freeze_region_dma_loop
+
+freeze_region_dma_done:
+
+	rts
+
+is_freeze_dma_length_remaining_zero_or_negative:
+	lda freeze_dma_length_remaining+2
+	bmi @negativeSize
+	ora freeze_dma_length_remaining+1
+	ora freeze_dma_length_remaining+0
+	rts
+@negativeSize:
+	lda #$00
+	rts
+
+subtract_freeze_dma_size_from_length_remaining:
 	sec
 	lda freeze_dma_length_remaining+0
 	sbc freeze_region_dmalist_count+0
@@ -284,28 +296,27 @@ freeze_region_dma_loop:
 	lda freeze_dma_length_remaining+2
 	sbc #$00
 	sta freeze_dma_length_remaining+2
+	rts
 
-	; Check if remaining length is negative or zero after subtracting bytes from this sector. If so, stop
-	lda freeze_dma_length_remaining+2
-	bmi freeze_region_dma_done
-	ora freeze_dma_length_remaining+1
-	ora freeze_dma_length_remaining+0
-	beq freeze_region_dma_done
+set_dma_length_based_on_freeze_dma_length_remaining:
+	lda freeze_dma_length_remaining+1
+	and #$fe
+	ora freeze_dma_length_remaining+2
+	beq @isPartialSector
 
+	; At least a whole sector remains
+	lda #$00
+	sta freeze_region_dmalist_count+0
+	lda #$02
+	sta freeze_region_dmalist_count+1
+	rts
 
-	; advance source address
-	lda freeze_region_dmalist_source_start+1
-	clc
-	adc #$02
-	sta freeze_region_dmalist_source_start+1
-	lda freeze_region_dmalist_source_bank
-	adc #$00
-	sta freeze_region_dmalist_source_bank
-	
-	jmp freeze_region_dma_loop
-
-freeze_region_dma_done:
-
+@isPartialSector:
+	; Set DMA size to remaining bytes
+	lda freeze_dma_length_remaining+0
+	sta freeze_region_dmalist_count+0
+	lda freeze_dma_length_remaining+1
+	sta freeze_region_dmalist_count+1
 	rts
 
 unfreeze_load_region:
@@ -405,31 +416,15 @@ unfreeze_region_dma_loop:
 
 	dec $d020
 
-	lda freeze_dma_length_remaining
-	lda freeze_dma_length_remaining+1
-	lda freeze_dma_length_remaining+2
+	jsr set_dma_length_based_on_freeze_dma_length_remaining
 
-	; Check if remaining length is negative or zero. If so, stop
-	lda freeze_dma_length_remaining+2
-	bmi unfreeze_region_dma_done
-	ora freeze_dma_length_remaining+1
+	; Then make sure that there are still bytes to copy.
+	; If not, then we are done with this block.
 	ora freeze_dma_length_remaining+0
+	ora freeze_dma_length_remaining+2
 	beq unfreeze_region_dma_done
 
-	lda freeze_dma_length_remaining+0
-	sta freeze_region_dmalist_count+0
-	ora freeze_dma_length_remaining+1
-	beq @multipleOf64KRemainingUnfreeze
-	lda freeze_dma_length_remaining+1
-	sta freeze_region_dmalist_count+1
-	cmp #$02
-	bcc not_too_big_unfreeze
-@multipleOf64KRemainingUnfreeze:
-	; remaining length too great, or
-	; bottom 16 bits = 0, i.e., multiple of 64KB remaining
-	lda #$02
-	sta freeze_region_dmalist_count+1
-not_too_big_unfreeze:
+@unfreezeExecuteDMA:
 	; Execute DMA job
 	lda #$ff
 	sta $d702
@@ -439,20 +434,15 @@ not_too_big_unfreeze:
 	lda #<freeze_region_dmalist
 	sta $d705
 
-	; DMA count is set, subtract from remaining length
-	sec
-	lda freeze_dma_length_remaining+0
-	sbc freeze_region_dmalist_count+0
-	sta freeze_dma_length_remaining+0
-	lda freeze_dma_length_remaining+1
-	sbc freeze_region_dmalist_count+1
-	sta freeze_dma_length_remaining+1
-	lda freeze_dma_length_remaining+2
-	sbc #$00
-	sta freeze_dma_length_remaining+2
+	; Check if remaining length is negative or zero. If so, stop
+	jsr is_freeze_dma_length_remaining_zero_or_negative
+	beq unfreeze_region_dma_done
 
-	lda freeze_region_dmalist_count+0
-	lda freeze_region_dmalist_count+1
+	; DMA count is set, subtract from remaining length
+	jsr subtract_freeze_dma_size_from_length_remaining
+
+	jsr is_freeze_dma_length_remaining_zero_or_negative
+	beq unfreeze_region_dma_done
 
 	; advance destination address
 	lda freeze_region_dmalist_dest_start+1
@@ -462,8 +452,6 @@ not_too_big_unfreeze:
 	lda freeze_region_dmalist_dest_bank
 	adc #$00
 	sta freeze_region_dmalist_dest_bank
-	
-
 
 	jmp unfreeze_region_dma_loop
 
@@ -677,7 +665,11 @@ unfreeze_post_jump_table:
 	.word do_unfreeze_post_none
 	.word do_unfreeze_post_none
 	.word do_unfreeze_post_none
-	.word do_unfreeze_post_restore_sd_buffer_and_regs
+	; Don't actually restore the SD card registers until the very end.
+	; For a start, it will result in totally the wrong SD sector address being there
+	; when we go to read the next sector!
+;	.word do_unfreeze_post_restore_sd_buffer_and_regs
+	.word do_unfreeze_post_none
 	.word do_unfreeze_post_none
 
 do_unfreeze_prep_none:
