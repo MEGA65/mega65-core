@@ -258,8 +258,9 @@ trap_dos_selectdrive:
 
 return_from_trap_with_carry_flag:
 
-	bcs return_from_trap_with_success
-	bcc return_from_trap_with_failure
+	bcs +
+	jmp return_from_trap_with_failure
+*  	jmp return_from_trap_with_success
 
 trap_dos_closeall:
 
@@ -625,7 +626,7 @@ dos_read_partitiontable:
 	jsr dos_initialise_disklist
 
 	jsr dos_read_mbr
-	bcc drpt_fail
+	bcc l_drpt_fail
 
 	; Make the sector buffer visible
 	;
@@ -638,10 +639,10 @@ dos_read_partitiontable:
 	;
 	lda [sd_sectorbuffer+$1FE]
 	cmp #$55
-	bne drpt_fail
+	bne l_drpt_fail
 	lda [sd_sectorbuffer+$1FF]
 	cmp #$AA
-	bne drpt_fail
+	bne l_drpt_fail
 
 	; yes, $55AA MBR signature was found
 
@@ -663,22 +664,24 @@ dos_read_partitiontable:
 	jsr dos_consider_partition_entry
 	
 	jsr dos_read_mbr
-	bcc drpt_fail
+	bcc l_drpt_fail
 	lda #<[sd_sectorbuffer+$1CE]
 	sta dos_scratch_vector
 		.invoke checkpoint "=== Checking Partition #2 at $01CE"
 	jsr dos_consider_partition_entry
 
 	jsr dos_read_mbr
-	bcc drpt_fail
+	bcc l_drpt_fail
 	lda #<[sd_sectorbuffer+$1DE]
 	sta dos_scratch_vector
 		.invoke checkpoint "=== Checking Partition #3 at $01DE"
 	jsr dos_consider_partition_entry
 
 	jsr dos_read_mbr
-	bcc drpt_fail
-	lda #<[sd_sectorbuffer+$1EE]
+	bcs +
+l_drpt_fail:
+	jmp drpt_fail
+*	lda #<[sd_sectorbuffer+$1EE]
 	sta dos_scratch_vector
 		.invoke checkpoint "=== Checking Partition #4 at $01EE"
 	jsr dos_consider_partition_entry
@@ -706,8 +709,9 @@ dos_read_mbr:
 	; Read sector
 	;
 	jsr sd_readsector
-	bcc drpt_fail
-	rts
+	bcs +
+	jmp drpt_fail
+*	rts
 
 ;	========================
 
@@ -760,8 +764,9 @@ partitionisinteresting_mega65sys:
 
 	; Only one system partition
 	lda syspart_present
-	bne partitionerror
-
+	beq +
+	jmp partitionerror
+*
 	; Store start and length of System partition
 	; (These are the first two fields of the syspart structure
 	;  to facilitate a simple copy here)
@@ -798,8 +803,9 @@ partitionisinteresting:
 	; Make sure we have a spare disk slot
 	lda dos_disk_count
 	cmp #dos_max_disks
-	beq partitionerror	
-
+	bne +
+	jmp partitionerror	
+*
 	; Partition is FAT32 (either 0B or 0C), so add it to the list
 
 	; Disk structures in dos_disk_table are 32 bytes long, so shift count left
@@ -1234,10 +1240,12 @@ ddop2:	lda dos_disk_table,y
 	; BG #FATs should be sourced from dos_disk_table[17], not from buffer+$10
 
 	ldz [sd_sectorbuffer+$10]     ; # of FAT copies
-	beq partitionerror ; There must be at least one copy of the FAT!
+	beq l_partitionerror ; There must be at least one copy of the FAT!
 	cpz #2
-	bne partitionerror
-
+	beq +
+l_partitionerror:
+	jmp partitionerror
+*
 ddop_addnextfatsectors:
 
 	lda dos_disk_table_offset
@@ -1415,8 +1423,9 @@ ddop_gotclustercount:
 
 	lda dos_disk_table+3,y	; BG this seems to creep-out-of-bounds from +16 to +19
 	ora dos_disk_table+2,y
-	beq partitionerror
-
+	bne +
+	jmp partitionerror
+*
 	; Now get cluster of root directory.
 	;
 	lda dos_disk_table_offset
@@ -1511,7 +1520,9 @@ dos_set_current_disk:
 	sta dos_error_code
 
 	cpx dos_disk_count
-	bcs partitionerror	; BG shouldnt this be bmi?
+	bcc +
+	jmp partitionerror	; BG shouldnt this be bmi?
+*
 
 	stx dos_disk_current_disk
 	txa
@@ -1775,7 +1786,7 @@ dos_openfile:
 dof_not_a_directory:
 
 	jsr dos_set_current_file_from_dirent
-	bcc dos_return_error_already_set
+	bcc l3_dos_return_error_already_set
 
 	jmp dos_open_current_file
 
@@ -1790,7 +1801,7 @@ dos_findfile:
 	php
 	jsr dos_closefile
 	plp
-	bcc dos_return_error_already_set
+	bcc l3_dos_return_error_already_set
 	sec
 	rts
 
@@ -1803,11 +1814,13 @@ dos_findfirst:
 	; Convert name to upper case for searching
 	;
 	jsr dos_requested_filename_to_uppercase
-	bcc dos_return_error_already_set
+	bcc l3_dos_return_error_already_set
 
 	jsr dos_opendir
-	bcc dos_return_error_already_set
-
+	bcs +
+l3_dos_return_error_already_set:
+	jmp dos_return_error_already_set
+*
 	; Directory is now open, and we can now iterate through directory entries
 	;
 	jmp dos_findnext
@@ -1839,7 +1852,7 @@ dff_have_next_entry:
 	; no match? try next entry
 	;
 	bcc dff_try_next_entry
-	
+
 	; we have a match, so return success
 	; (we don't close the file handle for the directory search, because the
 	; caller may want to find multiple matches)
@@ -1854,8 +1867,9 @@ dos_opendir:
 	; Open the current directory as a file
 	;
 	jsr dos_get_free_descriptor
-	bcc dos_return_error_already_set
-
+	bcs +
+	jmp dos_return_error_already_set
+*
 	; get offset in file descriptor table
 	;
 	txa
@@ -1889,8 +1903,9 @@ dff1:	lda dos_disk_cwd_cluster,x
 	sta [dos_file_descriptors + dos_filedescriptor_offset_mode],x
 
 	jsr dos_open_current_file
-	bcc dos_return_error_already_set
-	rts
+	bcs +
+	jmp dos_return_error_already_set
+*	rts
 
 ;	========================
 
@@ -1978,8 +1993,9 @@ drce1:	sta dos_dirent_longfilename,x
 	; Read current sector
 	;
 	jsr dos_file_read_current_sector
-	bcc dos_return_error_already_set
-
+	bcs +
+	jmp dos_return_error_already_set
+*
 	jsr sd_map_sectorbuffer
 	
 drce_next_piece:
@@ -2050,12 +2066,14 @@ eight3char1:	.byte "xx",0
 	ldy #fs_fat32_dirent_offset_shortname	; Y=0 (first char of entry)
 	lda (<dos_scratch_vector),y
 	cmp #$00
-	beq drd_end_of_directory
-
+	bne +
+	jmp drd_end_of_directory
+*
 	; then check if the entry begins with $E5, suggesting deleted
 	cmp #$e5
-	beq drd_deleted_or_invalid_entry
-
+	bne +
+	jmp drd_deleted_or_invalid_entry
+*
 	; now check the attrib
 
 	ldy #fs_fat32_dirent_offset_attributes	; = 0x0B
@@ -2154,8 +2172,9 @@ drce_longname:
 	;
 	ldy #fs_fat32_dirent_offset_lfn_type
 	lda (<dos_scratch_vector),y
-	bne drce_normalrecord
-	
+	beq +
+	jmp drce_normalrecord
+*
 	; verify checksum of long name
 	; XXX - Actually, we need to keep the checksum, and then compare it with the
 	; checksum we compute on the short name to check if this is the right long
@@ -2298,8 +2317,9 @@ drce_no_more_pieces:
 drce_cont_next_part:
 
 	jsr dos_readdir_advance_to_next_entry
-	bcs dos_readdir
-	jmp dos_return_error_already_set
+	bcc +
+	jmp dos_readdir
+*	jmp dos_return_error_already_set
 
 ;	========================
 
@@ -2461,15 +2481,17 @@ drce_not_eof:
 	;
 	lda dos_dirent_longfilename_length
 	cmp #0
-	beq dos_readdir
+	beq l_dos_readdir
 
 	.invoke checkpoint  "drce_not_eof CHECK<2/3>"
 
 	lda dos_dirent_shortfilename
-	beq dos_readdir
+	beq l_dos_readdir
 	cmp #$20
-	beq dos_readdir
-
+	bne +
+l_dos_readdir:
+	jmp dos_readdir
+*
 	.invoke checkpoint  "drce_not_eof CHECK<3/3>"
 
 	ldx dos_dirent_longfilename_length
@@ -2523,7 +2545,9 @@ drd_deleted_or_invalid_entry:
 ddie:	.byte "xx drd_deleted_or_invalid_entry",0
 
 	jsr dos_readdir_advance_to_next_entry
-	bcs dos_readdir
+	bcc +
+	jmp dos_readdir
+*
 	jmp dos_return_error_already_set
 
 ;	========================
@@ -2614,8 +2638,9 @@ dos_set_current_file_from_dirent:
 	;
 	jsr dos_get_free_descriptor
 	jsr dos_get_file_descriptor_offset
-	bcc dos_return_error_already_set
-
+	bcs +
+	jmp dos_return_error_already_set
+*
 	; set disk id
 	;
 	lda dos_disk_current_disk
@@ -2634,7 +2659,9 @@ dscffd1:
 	bne dscffd1
 
 	jsr dos_get_file_descriptor_offset
-	bcc dos_return_error_already_set
+	bcs +
+	jmp dos_return_error_already_set
+*
 
 	; set disk id
 	;
@@ -2666,8 +2693,9 @@ dos_open_current_file:
 	; copy start cluster to current cluster, and zero position in file
 	;
 	jsr dos_get_file_descriptor_offset
-	bcc dos_return_error_already_set
-
+	bcs +
+	jmp dos_return_error_already_set
+*
 	; Copy start cluster to current cluster
 	;
 	ldy #3
@@ -2726,7 +2754,7 @@ dos_set_current_cluster_from_file:
 	; copy cluster number in file to current cluster
 	;
 	jsr dos_get_file_descriptor_offset
-	bcc dos_return_error_already_set
+	bcc @l2_dos_return_error_already_set
 
 	ldy #$00
 dfrcs1:	lda dos_file_descriptors+dos_filedescriptor_offset_currentcluster,x
@@ -2748,7 +2776,10 @@ dos_file_read_current_sector:
 	; Add sector within cluster
 	;
 	jsr dos_get_file_descriptor_offset
-	bcc dos_return_error_already_set
+	bcs @gotFDOffset
+@l2_dos_return_error_already_set:
+	jmp dos_return_error_already_set
+@gotFDOffset:
 
 	; Set A to the offset of the sectorincluster field of the current
 	; file descriptor
@@ -2868,7 +2899,9 @@ dfanc44:
 	; read FAT sector
 	;
 	jsr sd_readsector
-	bcc dos_return_error_already_set
+	bcs @readSectorOk
+	jmp dos_return_error_already_set
+@readSectorOk:
 
 	jsr sd_map_sectorbuffer
 
@@ -3079,7 +3112,6 @@ dos_readfileintomemory:
 	jsr dos_closefile
 	plp
 
-
 	; Have directory entry.  Get length of file, so that we can
 	; limit load to reported length of file, instead assuming cluster
 	; chain is correct length, and file ends on a cluster boundary
@@ -3091,12 +3123,17 @@ dos_readfileintomemory:
 
 	; ... but report if we hit an error
 	;
-	bcc dos_return_error_already_set
+	bcc l_dos_return_error_already_set
 
 	jsr dos_openfile
-	bcc dos_return_error_already_set
+	bcc l_dos_return_error_already_set
 
 	jsr sd_map_sectorbuffer
+
+	jmp drfim_sector_loop
+
+l_dos_return_error_already_set:
+	jmp dos_return_error_already_set
 
 ;	========================
 
@@ -3259,10 +3296,13 @@ d81a1:		; XXX - Why do we call closefile here?
 		; Start by opening the file
 		;
 		jsr dos_set_current_file_from_dirent
-		bcc nod81
+		bcc @fileNotOpenedOk
 
 		jsr dos_openfile
-		bcc nod81
+		bcs @fileOpenedOk
+@fileNotOpenedOk:
+		jmp nod81
+@fileOpenedOk:
 		
 		; work out how many clusters we need
 		; We need 1600 sectors, so halve for every zero tail

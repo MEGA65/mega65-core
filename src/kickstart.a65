@@ -598,7 +598,8 @@ tryreadmbr:
 	jsr scankeyboard
 	bcs nokey2
 	cmp #$20
-	beq utility_menu
+	bne nokey2
+	jmp utility_menu
 nokey2:
 
 		; Oops, cant read MBR
@@ -651,8 +652,9 @@ gotmbr:
 
 		; If we have no disks, offer the utility menu
 		lda dos_disk_count
-		beq utility_menu
-
+		bne @thereIsADisk
+		jmp utility_menu
+@thereIsADisk:
 
 		; Go to root directory on default disk
 		;
@@ -890,7 +892,9 @@ f011Virtualised:
 		;
 		ldx dos_default_disk
 		jsr dos_cdroot
-		bcc sdcarderror
+		bcs @notSDCardError
+		jmp sdcarderror
+@notSDCardError:
 
 		; Re-set virtual screen row length after touching $D06F
 		lda #80
@@ -959,7 +963,8 @@ findrom:
 	jsr scankeyboard
 	bcs nokey3
 	cmp #$20
-	beq utility_menu
+	bne nokey3
+	jmp utility_menu
 nokey3:
 
 
@@ -1104,13 +1109,19 @@ loadedok:
 		; i.e., that we have loaded $0200 x $100 = $20000 = 128KiB
 		lda file_pagesread+1
 		cmp #$00
-		beq romfiletooshort
+		bne @romFileNotTooShort
+@romFileIsTooShort:
+		jmp romfiletooshort
+@romFileNotTooShort:
 		cmp #$01
-		beq romfiletooshort
+		beq @romFileIsTooShort
 		cmp #$02
-		bne romfiletoolong
+		bne @romFileIsTooLong
 		lda file_pagesread
-		bne romfiletoolong		
+		beq @romFileNotTooLong
+@romFileIsTooLong:
+		jmp romfiletoolong
+@romFileNotTooLong:
 
 		; the loaded ROM was OK in size
 
@@ -1214,7 +1225,8 @@ loaddiskmenu:
 	jsr scankeyboard
 	bcs nokey4
 	cmp #$20
-	beq utility_menu
+	bne nokey4
+	jmp utility_menu
 nokey4:
 
 		jmp go64		
@@ -1494,9 +1506,12 @@ resetdisplay:
 		lda #$80
 		sta $d06f
 
-		; disable test pattern
+		; disable test pattern and various other strange video things that might be hanging around		
 		lda #$80
 		trb $d066
+		lda #$00
+		sta $d06a
+		sta $d06b
 
 		; We use VIC-II style registers as this resets video frame in
 		; least instructions, and 40 columns is fine for us.
@@ -2223,10 +2238,11 @@ l1:		; Enable VIC-IV / MEGA65 IO
 utility_menu_check:
   		lda buckykey_status
 		cmp #$03
-		beq utility_menu
+		beq @startUtilMenu
 		and #$10
-		bne utility_menu
+		bne @startUtilMenu
 		rts
+@startUtilMenu: jmp utility_menu
 
 keyboardread:
 
@@ -2238,7 +2254,9 @@ keyboardread:
 		jsr scankeyboard		
 		bcs kr2  ; if an error occured
 		cmp #$20
-		beq utility_menu		
+		bne @notUtilMenu
+		jmp utility_menu
+@notUtilMenu:
 		cmp #$30
 		bcc kr2
 		cmp #$39
