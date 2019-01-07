@@ -139,7 +139,7 @@ unsigned char game_grid[80][50];
 #define SPECIAL_FAST 0x00
 #define SPECIAL_SUPERFAST 0x01
 #define SPECIAL_LONGERTAIL 0x02
-#define SPECIAL_SHORTERTAIL 0x03
+#define SPECIAL_DETACHTAIL 0x03
 #define SPECIAL_GLOWWORM0 0x04
 #define SPECIAL_GLOWWORM1 0x05
 #define SPECIAL_GLOWWORM2 0x06
@@ -181,6 +181,7 @@ unsigned short player_feature_timeouts[4];
 
 // Which colour do we paint our tail in?
 unsigned char player_paint_colour[4];
+unsigned char player_fire_action_timeout[4];
 
 // bitmask used with rand() to decide if we are pooping something special each movement
 unsigned char player_poop_mask[4];
@@ -466,6 +467,8 @@ void main(void)
 
     // By default paint in the correct colour
     player_paint_colour[a]=a;
+    // Immediately be primed to drop a trap
+    player_fire_action_timeout[a]=0;
     // Only produce magic poop relatively rarely
     player_poop_mask[a]=0x1f;
     
@@ -587,9 +590,6 @@ void main(void)
       // Make joystick data active high
       b^=0x1f;
 
-      // XXX DEBUG firebutton makes us poop lots of magic things while held
-      if (b&0x10) { player_poop_mask[a]=0; player_feature_timeouts[a]=16; }
-      
       if ((!(frame_count&0x03))
 	  ||((frame_count&1)&&(player_features[a]&FEATURE_FAST))
 	  ||(player_features[a]&FEATURE_SUPERFAST))
@@ -654,7 +654,32 @@ void main(void)
 	    POKE(0xF7F8U+4+a,player_direction[a]+player_animation_frame[a]); // outline sprite
 	  }
 
+	  if (player_fire_action_timeout[a])
+	    player_fire_action_timeout[a]--;
+	  
 	  // Leave unicorn rainbow trail behind us
+	  if (b&0x10)
+	    {
+	      // XXX DEBUG firebutton makes us poop lots of magic things while held
+	      // player_poop_mask[a]=0; player_feature_timeouts[a]=16;
+	      
+	      // Pressing button let's us poop traps for the other players.
+	      // For now, just making them paint our colour.
+	      // We should limit how often this can be done.
+	      if (!player_fire_action_timeout[a]) {
+		// Can only do every so often
+		player_fire_action_timeout[a]=60;
+		// Drop a special that causes anyone who runs over it to paint in our colour
+		// ... well, actually, to paint in whatever colour we are painting!  So it's
+		// bad to hold the button down if you step on someone else's trap
+		game_grid[player_x[a]][player_y[a]]=0x10+SPECIAL_GLOWWORM0+player_paint_colour[a];			
+		// Update the on-screen display
+		draw_pixel_char(player_x[a],player_y[a]>>1,
+				game_grid[player_x[a]][player_y[a]&0xfe],
+				game_grid[player_x[a]][player_y[a]|0x01]);
+	      } else b&=0x0f;
+	    }
+
 	  if (b&0xf) {
 
 	    b=game_grid[player_x[a]][player_y[a]];	
@@ -695,11 +720,10 @@ void main(void)
 	      case SPECIAL_LONGERTAIL:  // your rainbow trail is forced to be a bit shorter
 		if (player_tail_max_lengths[a]<0xf7) player_tail_max_lengths[a]+=8;
 		break;
-	      case SPECIAL_SHORTERTAIL:  // your rainbow trail can be a bit longer
-		if (player_tail_max_lengths[a]>48)
-		  player_tail_max_lengths[a]-=32;
-		else if (player_tail_max_lengths[a]>16)
-		  player_tail_max_lengths[a]-=8;
+	      case SPECIAL_DETACHTAIL:  // your tail that is currently drawn stays for others to run over
+		player_tail_length[a]=0;
+		player_tail_start[a]=0;
+		player_tail_end[a]=0;
 		break;
 	      case SPECIAL_GLOWWORM0:  // you paint player 0's colour for a while
 		POKE(0xD02BU+a,2); // Make unicorn go the colour it is painting
@@ -761,8 +785,11 @@ void main(void)
 		
 		// But first, take it away from the previous owner
 		if (b&&(b<5))
-		  if (player_tiles[b-1])
+		  if (player_tiles[b-1]) {
 		    player_tiles[b-1]--;
+		    // and we get extra points when running over other people's tails
+		    player_tiles[a]++;
+		  }
 		
 		// Update grid to show our ownership (or that of whoever's colour we are now drawing in)
 		game_grid[player_x[a]][player_y[a]]=1+player_paint_colour[a];
