@@ -3115,7 +3115,7 @@ begin
               chargen_y_next <= "000";
             end if;
           else
-            if chargen_y_next = "110" then
+            if chargen_y_next = "111" then
               report "LEGACY: Bumping screen row address one raster early for V400";
               bump_screen_row_address<='1';
             end if;
