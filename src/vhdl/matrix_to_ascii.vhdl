@@ -562,6 +562,8 @@ begin
               else
                 ascii_key_valid <= '1';
               end if;
+            else
+              ascii_key_valid <= '0';
             end if;
           else
             ascii_key_valid <= '0';
