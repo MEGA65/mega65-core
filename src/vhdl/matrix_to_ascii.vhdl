@@ -44,7 +44,7 @@ architecture behavioral of matrix_to_ascii is
   constant repeat_start_timer : integer := clock_frequency/scan_frequency/2; -- 0.5 sec
   constant repeat_again_timer : integer := clock_frequency/scan_frequency/10; -- 0.1 sec
 
-  signal ascii_key_valid_countdown : integer range 0 to 255 := 0;
+  signal ascii_key_valid_countdown : integer range 0 to 65535 := 0;
 
   signal repeat_key_timer : integer range 0 to repeat_start_timer := 0;
 
@@ -557,11 +557,12 @@ begin
             -- lines will be detected as firmly down.            
             if (repeat_key /= key_num) or (suppress_key_retrigger='0') then
               repeat_key_timer <= repeat_start_timer;
-              if key_matrix(key_num) = x"11" or key_matrix(key_num) = x"1D" then
-                ascii_key_valid_countdown <= 255;
-              else
-                ascii_key_valid <= '1';
-              end if;
+--              if key_matrix(key_num) = x"11" or key_matrix(key_num) = x"1D" then
+              ascii_key_valid_countdown <= 511;
+              ascii_key_valid <= '0';
+--              else
+--                ascii_key_valid <= '1';
+--              end if;
             else
               ascii_key_valid <= '0';
             end if;
