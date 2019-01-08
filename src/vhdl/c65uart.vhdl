@@ -536,10 +536,10 @@ begin  -- behavioural
           fastio_rdata(7 downto 0) <= unsigned(porth);
         when x"1d" =>
           -- @IO:GS $D61D DEBUG ASCII key event counter LSB
-          -- @IO:GS $D61E DEBUG ASCII key event counter LSB
+          -- @IO:GS $D61E DEBUG ASCII key event counter MSB
           fastio_rdata(7 downto 0) <= ascii_key_event_count(7 downto 0);
         when x"1e" =>
-          fastio_rdata(7 downto 0) <= ascii_key_event_count(7 downto 0);
+          fastio_rdata(7 downto 0) <= ascii_key_event_count(15 downto 8);
         when x"1F" =>
           -- @IO:GS $D61F DUPLICATE Modifier key state (hardware accelerated keyboard scanner).
           fastio_rdata(7 downto 0) <= unsigned(porti);

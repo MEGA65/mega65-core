@@ -378,6 +378,7 @@ architecture behavioral of iomapper is
   signal keyboard_column8_select : std_logic;
 
   signal ascii_key_valid : std_logic := '0';
+  signal last_ascii_key_valid : std_logic := '0';
   signal ascii_key : unsigned(7 downto 0) := x"00";
   signal bucky_key : std_logic_vector(7 downto 0) := (others => '0');
   signal ascii_key_buffered : unsigned(7 downto 0) := x"00";
@@ -1142,7 +1143,8 @@ begin
       end if;
 
       -- UART char for monitor/matrix mode
-      if ascii_key_valid='1' and protected_hardware_in(6)='1' then
+      last_ascii_key_valid <= ascii_key_valid;
+      if ascii_key_valid='1' and last_ascii_key_valid='0' and protected_hardware_in(6)='1' then
         uart_monitor_char <= ascii_key;
         uart_monitor_char_valid <= '1';
       else
@@ -1151,7 +1153,7 @@ begin
       
       -- UART char for user mode
       uart_char_valid <= '0';
-      if ascii_key_valid='1' then
+      if ascii_key_valid='1' and last_ascii_key_valid='0' then
         if protected_hardware_in(6)='0' then
           -- Not in matrix mode, so push character out normal path
           uart_char <= ascii_key;
