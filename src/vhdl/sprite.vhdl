@@ -102,7 +102,7 @@ entity sprite is
     
     signal sprite_enable : in std_logic;
     signal sprite_x : in unsigned(9 downto 0);
-    signal sprite_y : in unsigned(8 downto 0);
+    signal sprite_y : in unsigned(9 downto 0);
     signal sprite_colour : in unsigned(7 downto 0);
     signal sprite_multi0_colour : in unsigned(7 downto 0);
     signal sprite_multi1_colour : in unsigned(7 downto 0);

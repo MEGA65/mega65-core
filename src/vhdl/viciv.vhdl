@@ -841,6 +841,7 @@ architecture Behavioral of viciv is
   signal sprite_h640 : std_logic := '1';
   signal sprite_v400s : std_logic_vector(7 downto 0) := x"00";
   signal sprite_v400_msbs : std_logic_vector(7 downto 0) := x"00";
+  signal sprite_v400_super_msbs : std_logic_vector(7 downto 0) := x"00";
   
   type rgb is
   record
@@ -1850,8 +1851,8 @@ begin
           fastio_rdata <= std_logic_vector(sprite_v400s);
         elsif register_number=119 then  -- $D3077 Sprite V400 Y position MSBs
 	  fastio_rdata <= sprite_v400_msbs;
-        elsif register_number=120 then  -- $D3078 (was display_height, now free)
-	  fastio_rdata <= X"FF"; -- UNUSED
+        elsif register_number=120 then  -- $D3078 Sprite V400 Y position super MSBs
+	  fastio_rdata <= sprite_v400_super_msbs;
         elsif register_number=121 then  -- $D3079 (was frame_height, now free)
           fastio_rdata <= x"FF";
         elsif register_number=122 then  -- $D307A
@@ -2624,8 +2625,8 @@ begin
                                                     -- @IO:GS $D077 Sprite V400 Y position MSBs
                                                     sprite_v400_msbs <= fastio_wdata;
                                                   elsif register_number=120 then  -- $D3078
-                                                                                  -- @IO:GS $D078 VIC-IV UNUSED
-                                                    null;
+                                                    -- @IO:GS $D078 Sprite V400 Y position super MSBs
+                                                    sprite_v400_super_msbs <= fastio_wdata;
                                                   elsif register_number=121 then  -- $D3079
                                                                                   -- @IO:GS $D079 VIC-IV UNUSED
                                                     null;

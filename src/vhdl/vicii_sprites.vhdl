@@ -136,6 +136,7 @@ architecture behavioural of vicii_sprites is
   signal vicii_sprite_xmsbs : std_logic_vector(7 downto 0) := (others => '0');
   signal sprite_h640_msbs : std_logic_vector(7 downto 0) := (others => '0');
   signal sprite_v400_msbs : std_logic_vector(7 downto 0) := (others => '0');
+  signal sprite_v400_super_msbs : std_logic_vector(7 downto 0) := (others => '0');
   signal sprite_y : sprite_vector_8 := (others => to_unsigned(2,8));
   signal sprite_colours : sprite_vector_8 := (others => x"00");
   signal vicii_sprite_priority_bits : std_logic_vector(7 downto 0) := (others => '0');
@@ -391,6 +392,7 @@ begin
              sprite_x(7 downto 0) => sprite_x(7),
              sprite_y(7 downto 0) => sprite_y(7),
              sprite_y(8) => sprite_v400_msbs(7),
+             sprite_y(9) => sprite_v400_msbs(7),
              sprite_colour => sprite_colours(7),
              sprite_enable => vicii_sprite_enables(7),
              sprite_priority => vicii_sprite_priority_bits(7),
@@ -466,6 +468,7 @@ begin
              sprite_x(7 downto 0) => sprite_x(6),
              sprite_y(7 downto 0) => sprite_y(6),
              sprite_y(8) => sprite_v400_msbs(6),
+             sprite_y(9) => sprite_v400_msbs(6),
              sprite_colour => sprite_colours(6),
              sprite_enable => vicii_sprite_enables(6),
              sprite_priority => vicii_sprite_priority_bits(6),
@@ -542,6 +545,7 @@ begin
              sprite_x(7 downto 0) => sprite_x(5),
              sprite_y(7 downto 0) => sprite_y(5),
              sprite_y(8) => sprite_v400_msbs(5),
+             sprite_y(9) => sprite_v400_msbs(5),
              sprite_colour => sprite_colours(5),
              sprite_enable => vicii_sprite_enables(5),
              sprite_priority => vicii_sprite_priority_bits(5),
@@ -618,6 +622,7 @@ begin
              sprite_x(7 downto 0) => sprite_x(4),
              sprite_y(7 downto 0) => sprite_y(4),
              sprite_y(8) => sprite_v400_msbs(4),
+             sprite_y(9) => sprite_v400_msbs(4),
              sprite_colour => sprite_colours(4),
              sprite_enable => vicii_sprite_enables(4),
              sprite_priority => vicii_sprite_priority_bits(4),
@@ -694,6 +699,7 @@ begin
              sprite_x(7 downto 0) => sprite_x(3),
              sprite_y(7 downto 0) => sprite_y(3),
              sprite_y(8) => sprite_v400_msbs(3),
+             sprite_y(9) => sprite_v400_msbs(3),
              sprite_colour => sprite_colours(3),
              sprite_enable => vicii_sprite_enables(3),
              sprite_priority => vicii_sprite_priority_bits(3),
@@ -770,6 +776,7 @@ begin
              sprite_x(7 downto 0) => sprite_x(2),
              sprite_y(7 downto 0) => sprite_y(2),
              sprite_y(8) => sprite_v400_msbs(2),
+             sprite_y(9) => sprite_v400_msbs(2),
              sprite_colour => sprite_colours(2),
              sprite_enable => vicii_sprite_enables(2),
              sprite_priority => vicii_sprite_priority_bits(2),
@@ -846,6 +853,7 @@ begin
              sprite_x(7 downto 0) => sprite_x(1),
              sprite_y(7 downto 0) => sprite_y(1),
              sprite_y(8) => sprite_v400_msbs(1),
+             sprite_y(9) => sprite_v400_msbs(1),
              sprite_colour => sprite_colours(1),
              sprite_enable => vicii_sprite_enables(1),
              sprite_priority => vicii_sprite_priority_bits(1),
@@ -921,6 +929,7 @@ begin
              sprite_x(7 downto 0) => sprite_x(0),
              sprite_y(7 downto 0) => sprite_y(0),
              sprite_y(8) => sprite_v400_msbs(0),
+             sprite_y(9) => sprite_v400_msbs(0),
              sprite_colour => sprite_colours(0),
              sprite_enable => vicii_sprite_enables(0),
              sprite_priority => vicii_sprite_priority_bits(0),
@@ -1090,6 +1099,9 @@ begin
         elsif register_number=119 then  -- $D3077
           -- $D077 Sprite V400 Y position MSBs
           sprite_v400_msbs <= fastio_wdata;          
+        elsif register_number=119 then  -- $D3078
+          -- $D078 Sprite V400 Y position superMSBs
+          sprite_v400_super_msbs <= fastio_wdata;          
         end if;
       end if;
     end if;
