@@ -593,7 +593,6 @@ begin
         if ascii_key_valid_countdown = 1 then
           ascii_key_valid_countdown <= 0;
           ascii_key_valid <= '1';
-          ascii_key(7) <= bucky_key_internal(1);
         elsif ascii_key_valid_countdown /= 0 then
           ascii_key_valid_countdown <= ascii_key_valid_countdown - 1;
         else
