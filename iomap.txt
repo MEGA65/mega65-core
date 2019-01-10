@@ -204,7 +204,7 @@ GS $D074 VIC-IV Sprite alpha-blend enable
 GS $D075 VIC-IV Sprite alpha-blend value
 GS $D076 Sprite V400 enables
 GS $D077 Sprite V400 Y position MSBs
-GS $D078 VIC-IV UNUSED
+GS $D078 Sprite V400 Y position super MSBs
 GS $D079 VIC-IV UNUSED
 GS $D07A VIC-IV UNUSED
 GS $D07B VIC-IV UNUSED
@@ -324,7 +324,7 @@ GS $D61B.7 WRITEONLY DEBUG disable ASCII key glitch suppression
 GS $D61B READ 1351/amiga mouse auto detection DEBUG
 GS $D61C DEBUG DUPLICATE Last key press as ASCII (hardware accelerated keyboard scanner). Write to clear event ready for next.
 GS $D61D DEBUG ASCII key event counter LSB
-GS $D61E DEBUG ASCII key event counter LSB
+GS $D61E DEBUG ASCII key event counter MSB
 GS $D61F DUPLICATE Modifier key state (hardware accelerated keyboard scanner).
 GS $D620 Read Port A paddle X
 GS $D621 Read Port A paddle Y

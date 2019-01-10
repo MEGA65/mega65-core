@@ -81,13 +81,14 @@ The 16-bit character mode is enabled by setting bit 0 in $D054 (remember to enab
 | --- | --- |
 | Screen RAM byte 0 | Lower 8 bits of character number, the same as the VIC-II and VIC-III |
 | Screen RAM byte 1, bits 0 - 4 | Upper 5 bits of character number, allowing addressing of 8,192 unique characters |
-| Screen RAM byte 1, bits 5 - 7 | Trim pixels from right side of character | 
+| Screen RAM byte 1, bits 5 - 7 | Trim pixels from right side of character (bits 0 - 2) | 
 | Colour RAM byte 0, bit 7 | Vertically flip the character |
 | Colour RAM byte 0, bit 6 | Horizontally flip the character |
 | Colour RAM byte 0, bit 5 | Alpha blend mode (leave 0, discussed later) |
 | Colour RAM byte 0, bit 4 | GOTO X (allows repositioning of characters along a raster, discussed later) |
-| Colour RAM byte 0, bits 3 | Trim top or trim bottom of character (for variable height characters ) |
-| Colour RAM byte 0, bits 0 - 2 | Number of pixels to trim from top or bottom of character |
+| Colour RAM byte 0, bits 3 | 4-bits per pixel for 16 pixel wide characters (less right side trim bits) |
+| Colour RAM byte 0, bits 2 | Trim pixels from right side of character (bit 3) |
+| Colour RAM byte 0, bits 0 - 1 | Number of pixels to trim from top or bottom of character |
 | Colour RAM byte 1, bits 0 - 3 | Low 4 bits of colour of character |
 | Colour RAM byte 1, bit 4 | Hardware blink of character (if VIC-III extended attributes are enabled) |
 | Colour RAM byte 1, bit 5 | Hardware reverse video enable of character (if VIC-III extended attributes are enabled)* |

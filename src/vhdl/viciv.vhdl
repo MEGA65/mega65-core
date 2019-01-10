@@ -4615,7 +4615,7 @@ begin
             paint_fsm_state <= PaintFullColourPixels;
           end if;
         when Paint4bitColourPixels =>
-          if paint_full_colour_data(3 downto 0) = x"00" then
+          if paint_full_colour_data(3 downto 0) = x"0" then
             -- background pixel
             raster_buffer_write_data(16 downto 9) <= x"FF";  -- solid alpha
             raster_buffer_write_data(8) <= '0';
