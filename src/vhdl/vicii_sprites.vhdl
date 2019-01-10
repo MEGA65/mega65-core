@@ -1099,7 +1099,7 @@ begin
         elsif register_number=119 then  -- $D3077
           -- $D077 Sprite V400 Y position MSBs
           sprite_v400_msbs <= fastio_wdata;          
-        elsif register_number=119 then  -- $D3078
+        elsif register_number=120 then  -- $D3078
           -- $D078 Sprite V400 Y position superMSBs
           sprite_v400_super_msbs <= fastio_wdata;          
         end if;
