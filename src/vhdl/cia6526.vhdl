@@ -17,6 +17,8 @@ entity cia6526 is
     reset : in std_logic;
     irq : out std_logic := 'H';
 
+    hypervisor_mode : in std_logic;
+    
     seg_led : out unsigned(31 downto 0);
 
     reg_isr_out : out unsigned(7 downto 0);
@@ -167,7 +169,12 @@ begin  -- behavioural
         -- XXX For debugging have 32 registers, and map
         -- reg_porta_read and portain (and same for port b)
         -- to extra registers for debugging.
-        register_number(7 downto 4) := (others => '0');
+        register_number(7 downto 5) := (others => '0');
+        if hypervisor_mode='1' then
+          register_number(4) := fastio_address(4);
+        else
+          register_number(4) := '0';
+        end if;
         register_number(3 downto 0) := fastio_address(3 downto 0);
 
         -- Reading of registers
@@ -296,6 +303,28 @@ begin  -- behavioural
                                        & reg_timerb_toggle_or_pulse
                                        & reg_timerb_pb7_out
                                        & reg_timerb_start);
+
+              -- To make freezing easier, CIAs decode 32 registers when in
+              -- freezing mode.  This allows us to directly read and set some internal
+              -- state, that would otherwise be a real pain to handle.
+            when x"10" => fastio_rdata <= reg_timera_latch(7 downto 0);
+            when x"11" => fastio_rdata <= reg_timera_latch(15 downto 8);
+            when x"12" => fastio_rdata <= reg_timerb_latch(7 downto 0);
+            when x"13" => fastio_rdata <= reg_timerb_latch(15 downto 8);
+            when x"14" => fastio_rdata <= reg_timera(7 downto 0);
+            when x"15" => fastio_rdata <= reg_timera(15 downto 8);
+            when x"16" => fastio_rdata <= reg_timerb(7 downto 0);
+            when x"17" => fastio_rdata <= reg_timerb(15 downto 8);
+
+            when x"18" => fastio_rdata <= reg_tod_dsecs;
+            when x"19" => fastio_rdata <= reg_tod_secs;
+            when x"1a" => fastio_rdata <= reg_tod_mins;
+            when x"1b" => fastio_rdata <= reg_tod_ampm & reg_tod_hours;
+            when x"1c" => fastio_rdata <= reg_alarm_dsecs;
+            when x"1d" => fastio_rdata <= reg_alarm_secs;
+            when x"1e" => fastio_rdata <= reg_alarm_mins;
+            when x"1f" => fastio_rdata <= reg_alarm_ampm & reg_alarm_hours;
+                          
             when others => fastio_rdata <= (others => 'Z');
           end case;
         end if;
@@ -325,7 +354,7 @@ begin  -- behavioural
     return result;
   end ddr_pick;
 
-  variable register_number : unsigned(3 downto 0);
+  variable register_number : unsigned(7 downto 0);
   begin
     if rising_edge(cpuclock) then
 
@@ -340,7 +369,13 @@ begin  -- behavioural
 
       portbddr <= reg_portb_ddr;
       
-      register_number := fastio_address(3 downto 0);
+      register_number(7 downto 5) := "000";
+      if hypervisor_mode='1' then
+        register_number(4) := fastio_address(4);
+      else
+        register_number(4) := '0';
+      end if;
+      register_number(3 downto 0) := fastio_address(3 downto 0);
 
       reg_isr_out(7) <= reg_isr(7);
       reg_isr_out(0) <= reg_isr(0);
@@ -354,7 +389,9 @@ begin  -- behavioural
       -- the second cycle.
       -- This can create a race condition, if any new events happen while waiting
       -- for it to clear.  So we only clear the bits that were set last time.
-      if clear_isr='1' then
+      -- We don't clear this bit if in the hypervisor, so that its state can be
+      -- properly preserved when freezing/unfreezing.
+      if clear_isr='1' and hypervisor_mode='0' then
         for i in 0 to 7 loop
           if clear_isr_bits(i)='1' then
             reg_isr(i) <= '0';
@@ -381,7 +418,7 @@ begin  -- behavioural
       end if;
       
       prev_todclock <= todclock;
-      if todclock='0' and prev_todclock='1' then
+      if todclock='0' and prev_todclock='1' and hypervisor_mode='0' then
         if todcounter = 5 then
           todcounter <= 0;
           if( reg_tod_dsecs(3 downto 0) = 9) then
@@ -430,7 +467,9 @@ begin  -- behavioural
             reg_tod_dsecs(3 downto 0) <= reg_tod_dsecs(3 downto 0) + 1;
           end if;
         else
-          todcounter <= todcounter + 1;
+          if hypervisor_mode='0' then
+            todcounter <= todcounter + 1;
+          end if;
         end if;
       end if;
 
@@ -439,7 +478,7 @@ begin  -- behavioural
       prev_countin <= countin;
       reg_timera_underflow <= '0';
 --      report "CIA reg_timera_start=" & std_logic'image(reg_timera_start) & ", phi0=" & std_logic'image(phi0);
-      if reg_timera_start='1' then
+      if reg_timera_start='1' and hypervisor_mode='0' then
         if reg_timera = x"FFFF" and reg_timera_has_ticked='1' then
           -- underflow
           report "CIA" & to_hstring(unit) & " timera underflow (reg_serialport_direction="
@@ -498,7 +537,7 @@ begin  -- behavioural
           when others => null;
         end case;
       end if;
-      if reg_timerb_start='1' then
+      if reg_timerb_start='1' and hypervisor_mode='0' then
         report "CIA" & to_hstring(unit) & " timerb running. reg_timerb = $" & to_hstring(reg_timerb);
         if reg_timerb = x"FFFF" and reg_timerb_has_ticked='1' then
           -- underflow
@@ -562,21 +601,27 @@ begin  -- behavioural
       end if;
 
       -- Check for register read side effects
-      if fastio_write='0' and cs='1' then
+      if fastio_write='0' and cs='1' and hypervisor_mode='0' then
         --report "Performing side-effects of reading from CIA register $" & to_hstring(register_number) severity note;
-        register_number := fastio_address(3 downto 0);
+        register_number(7 downto 5) := "000";
+        if hypervisor_mode='1' then
+          register_number(4) := fastio_address(4);
+        else
+          register_number(4) := '0';
+        end if;
+        register_number(3 downto 0) := fastio_address(3 downto 0);
         case register_number is
-          when x"1" =>
+          when x"01" =>
             -- Reading or writing port B strobes PC high for 1 cycle
             pcout <= '1';
             strobe_pc <= '1';
-          when x"8" => read_tod_latched <='0';
-          when x"b" =>
+          when x"08" => read_tod_latched <='0';
+          when x"0b" =>
             read_tod_latched <='1';
             read_tod_mins <= reg_tod_mins;
             read_tod_secs <= reg_tod_secs;
             read_tod_dsecs <= reg_tod_dsecs;
-          when x"d" =>
+          when x"0d" =>
             -- Reading ICR/ISR clears all interrupts
             clear_isr <= '1';
             clear_isr_bits <= reg_isr;
@@ -593,47 +638,53 @@ begin  -- behavioural
       if fastio_write='1' and cs='1' then
         --report "writing $" & to_hstring(fastio_wdata)
         --  & " to CIA register $" & to_hstring(register_number) severity note;
-        register_number := fastio_address(3 downto 0);
+        register_number(7 downto 5) := "000";
+        if hypervisor_mode='1' then
+          register_number(4) := fastio_address(4);
+        else
+          register_number(4) := '0';
+        end if;
+        register_number(3 downto 0) := fastio_address(3 downto 0);
         case register_number is
-          when x"0" => 
+          when x"00" => 
                        reg_porta_out<=std_logic_vector(fastio_wdata);
-          when x"1" =>  
+          when x"01" =>  
             
             reg_portb_out<=std_logic_vector(fastio_wdata);
-          when x"2" => reg_porta_ddr<=std_logic_vector(fastio_wdata);
-          when x"3" => reg_portb_ddr<=std_logic_vector(fastio_wdata);
-          when x"4" => reg_timera_latch(7 downto 0) <= fastio_wdata;
-          when x"5" => reg_timera_latch(15 downto 8) <= fastio_wdata;
+          when x"02" => reg_porta_ddr<=std_logic_vector(fastio_wdata);
+          when x"03" => reg_portb_ddr<=std_logic_vector(fastio_wdata);
+          when x"04" => reg_timera_latch(7 downto 0) <= fastio_wdata;
+          when x"05" => reg_timera_latch(15 downto 8) <= fastio_wdata;
                        if reg_timera_start='0' then
                          -- load timer value now (CIA datasheet, page 6)
                          reg_timera <= fastio_wdata & reg_timera_latch(7 downto 0);
                        end if;
-          when x"6" => reg_timerb_latch(7 downto 0) <= fastio_wdata;
-          when x"7" => reg_timerb_latch(15 downto 8) <= fastio_wdata;
+          when x"06" => reg_timerb_latch(7 downto 0) <= fastio_wdata;
+          when x"07" => reg_timerb_latch(15 downto 8) <= fastio_wdata;
                        if reg_timerb_start='0' then
                          -- load timer value now (CIA datasheet, page 6)
                          reg_timerb <= fastio_wdata & reg_timerb_latch(7 downto 0);
                          report "timerb high byte set via $Dx07";
                        end if;
-          when x"8" =>
+          when x"08" =>
             if reg_tod_alarm_edit ='0' then
               reg_tod_dsecs <= fastio_wdata; tod_running<='1';
             else
               reg_alarm_dsecs <= fastio_wdata;
             end if;
-          when x"9" => 
+          when x"09" => 
             if reg_tod_alarm_edit ='0' then
               reg_tod_secs <= fastio_wdata;
             else
               reg_alarm_secs <= fastio_wdata;
             end if;
-          when x"a" => 
+          when x"0a" => 
             if reg_tod_alarm_edit ='0' then
               reg_tod_mins <= fastio_wdata;
             else
               reg_alarm_mins <= fastio_wdata;
             end if;
-          when x"b" => 
+          when x"0b" => 
             if reg_tod_alarm_edit ='0' then
               tod_running <= '0';
               reg_tod_hours <= fastio_wdata(6 downto 0);
@@ -642,13 +693,13 @@ begin  -- behavioural
               reg_alarm_hours <= fastio_wdata(6 downto 0);
               reg_alarm_ampm <= fastio_wdata(7);
             end if;
-          when x"c" =>
+          when x"0c" =>
             -- Begin shifting data in or out on shift register
             report "CIA" & to_hstring(unit) & " Loading shift register";
             reg_sdr_data <= std_logic_vector(fastio_wdata);
             sdr_bits_remaining <= 8;
             sdr_bit_alternate <= '1';
-          when x"d" =>
+          when x"0d" =>
             if fastio_wdata(7)='1' then
               -- Set interrupt mask bits
               imask_flag <= imask_flag or fastio_wdata(4);
@@ -666,7 +717,7 @@ begin  -- behavioural
               imask_tb <= imask_tb and (not fastio_wdata(1));
               imask_ta <= imask_ta and (not fastio_wdata(0));                 
             end if;
-          when x"e" =>
+          when x"0e" =>
             reg_60hz <= fastio_wdata(7);
             reg_serialport_direction <= fastio_wdata(6);
             report "CIA" & to_hstring(unit) & " reg_serialport_direction = " & std_logic'image(fastio_wdata(6));
@@ -680,7 +731,7 @@ begin  -- behavioural
             reg_timera_toggle_or_pulse <= fastio_wdata(2);
             reg_timera_pb6_out <= fastio_wdata(1);
             reg_timera_start <= fastio_wdata(0);
-          when x"f" =>
+          when x"0f" =>
             reg_tod_alarm_edit <= std_logic(fastio_wdata(7));
             reg_timerb_tick_source <= std_logic_vector(fastio_wdata(6 downto 5));
             if fastio_wdata(4)='1' then
@@ -694,6 +745,60 @@ begin  -- behavioural
             reg_timerb_pb7_out <= std_logic(fastio_wdata(1));
             reg_timerb_start <= std_logic(fastio_wdata(0));
             report "setting reg_timerb_start to " & std_logic'image(fastio_wdata(0));
+
+              -- To make freezing easier, CIAs decode 32 registers when in
+              -- freezing mode.  This allows us to directly read and set some internal
+            -- state, that would otherwise be a real pain to handle.
+            -- @IO:C64 - $DC10 HYPERVISOR MODE ONLY CIA1 internal state access: reg_timera_latch LSB 
+            -- @IO:C64 - $DC11 HYPERVISOR MODE ONLY CIA1 internal state access: reg_timera_latch MSB 
+            -- @IO:C64 - $DC12 HYPERVISOR MODE ONLY CIA1 internal state access: reg_timerb_latch LSB 
+            -- @IO:C64 - $DC13 HYPERVISOR MODE ONLY CIA1 internal state access: reg_timerb_latch MSB 
+            -- @IO:C64 - $DC14 HYPERVISOR MODE ONLY CIA1 internal state access: reg_timera current value LSB 
+            -- @IO:C64 - $DC15 HYPERVISOR MODE ONLY CIA1 internal state access: reg_timera current value MSB 
+            -- @IO:C64 - $DC16 HYPERVISOR MODE ONLY CIA1 internal state access: reg_timerb current value LSB 
+            -- @IO:C64 - $DC17 HYPERVISOR MODE ONLY CIA1 internal state access: reg_timerb current value MSB 
+            -- @IO:C64 - $DD10 HYPERVISOR MODE ONLY CIA2 internal state access: reg_timera_latch LSB 
+            -- @IO:C64 - $DD11 HYPERVISOR MODE ONLY CIA2 internal state access: reg_timera_latch MSB 
+            -- @IO:C64 - $DD12 HYPERVISOR MODE ONLY CIA2 internal state access: reg_timerb_latch LSB 
+            -- @IO:C64 - $DD13 HYPERVISOR MODE ONLY CIA2 internal state access: reg_timerb_latch MSB 
+            -- @IO:C64 - $DD14 HYPERVISOR MODE ONLY CIA2 internal state access: reg_timera current value LSB 
+            -- @IO:C64 - $DD15 HYPERVISOR MODE ONLY CIA2 internal state access: reg_timera current value MSB 
+            -- @IO:C64 - $DD16 HYPERVISOR MODE ONLY CIA2 internal state access: reg_timerb current value LSB 
+            -- @IO:C64 - $DD17 HYPERVISOR MODE ONLY CIA2 internal state access: reg_timerb current value MSB 
+          when x"10" => reg_timera_latch(7 downto 0) <= fastio_wdata;
+          when x"11" => reg_timera_latch(15 downto 8) <= fastio_wdata;
+          when x"12" => reg_timerb_latch(7 downto 0) <= fastio_wdata;
+          when x"13" => reg_timerb_latch(15 downto 8) <= fastio_wdata;
+          when x"14" => reg_timera(7 downto 0) <= fastio_wdata;
+          when x"15" => reg_timera(15 downto 8) <= fastio_wdata;
+          when x"16" => reg_timerb(7 downto 0) <= fastio_wdata;
+          when x"17" => reg_timerb(15 downto 8) <= fastio_wdata;
+            -- @IO:C64 - $DC18 HYPERVISOR MODE ONLY CIA1 internal state access: reg_tod_dsecs
+            -- @IO:C64 - $DC19 HYPERVISOR MODE ONLY CIA1 internal state access: reg_tod_secs
+            -- @IO:C64 - $DC1A HYPERVISOR MODE ONLY CIA1 internal state access: reg_tod_mins
+            -- @IO:C64 - $DC1B HYPERVISOR MODE ONLY CIA1 internal state access: reg_tod_hours
+            -- @IO:C64 - $DC1C HYPERVISOR MODE ONLY CIA1 internal state access: reg_alarm_dsecs
+            -- @IO:C64 - $DC1D HYPERVISOR MODE ONLY CIA1 internal state access: reg_alarm_secs
+            -- @IO:C64 - $DC1E HYPERVISOR MODE ONLY CIA1 internal state access: reg_alarm_mins
+            -- @IO:C64 - $DC1F HYPERVISOR MODE ONLY CIA1 internal state access: reg_alarm_hours
+            -- @IO:C64 - $DD18 HYPERVISOR MODE ONLY CIA2 internal state access: reg_tod_dsecs
+            -- @IO:C64 - $DD19 HYPERVISOR MODE ONLY CIA2 internal state access: reg_tod_secs
+            -- @IO:C64 - $DD1A HYPERVISOR MODE ONLY CIA2 internal state access: reg_tod_mins
+            -- @IO:C64 - $DD1B HYPERVISOR MODE ONLY CIA2 internal state access: reg_tod_hours
+            -- @IO:C64 - $DD1C HYPERVISOR MODE ONLY CIA2 internal state access: reg_alarm_dsecs
+            -- @IO:C64 - $DD1D HYPERVISOR MODE ONLY CIA2 internal state access: reg_alarm_secs
+            -- @IO:C64 - $DD1E HYPERVISOR MODE ONLY CIA2 internal state access: reg_alarm_mins
+            -- @IO:C64 - $DD1F HYPERVISOR MODE ONLY CIA2 internal state access: reg_alarm_hours
+          when x"18" => reg_tod_dsecs <= fastio_wdata;
+          when x"19" => reg_tod_secs <= fastio_wdata;
+          when x"1a" => reg_tod_mins <= fastio_wdata;
+          when x"1b" => reg_tod_hours <= fastio_wdata(6 downto 0);
+                        reg_tod_ampm <= fastio_wdata(7);
+          when x"1c" => reg_alarm_dsecs <= fastio_wdata;
+          when x"1d" => reg_alarm_secs <= fastio_wdata;
+          when x"1e" => reg_alarm_mins <= fastio_wdata;
+          when x"1f" => reg_alarm_hours <= fastio_wdata(6 downto 0);
+                        reg_alarm_ampm <= fastio_wdata(7);
           when others => null;
         end case;
       end if;

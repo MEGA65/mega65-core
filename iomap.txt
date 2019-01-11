@@ -648,6 +648,22 @@ C64 $DC0F.3 CIA1 Timer B one-shot mode
 C64 $DC0F.4 CIA1 Strobe
 C64 $DC0F.5-6 CIA1 Timer B Timer A tick source
 C64 $DC0F.7 CIA2 TOD alarm edit
+C64 - $DC10 HYPERVISOR MODE ONLY CIA1 internal state access: reg_timera_latch LSB 
+C64 - $DC11 HYPERVISOR MODE ONLY CIA1 internal state access: reg_timera_latch MSB 
+C64 - $DC12 HYPERVISOR MODE ONLY CIA1 internal state access: reg_timerb_latch LSB 
+C64 - $DC13 HYPERVISOR MODE ONLY CIA1 internal state access: reg_timerb_latch MSB 
+C64 - $DC14 HYPERVISOR MODE ONLY CIA1 internal state access: reg_timera current value LSB 
+C64 - $DC15 HYPERVISOR MODE ONLY CIA1 internal state access: reg_timera current value MSB 
+C64 - $DC16 HYPERVISOR MODE ONLY CIA1 internal state access: reg_timerb current value LSB 
+C64 - $DC17 HYPERVISOR MODE ONLY CIA1 internal state access: reg_timerb current value MSB 
+C64 - $DC18 HYPERVISOR MODE ONLY CIA1 internal state access: reg_tod_dsecs
+C64 - $DC19 HYPERVISOR MODE ONLY CIA1 internal state access: reg_tod_secs
+C64 - $DC1A HYPERVISOR MODE ONLY CIA1 internal state access: reg_tod_mins
+C64 - $DC1B HYPERVISOR MODE ONLY CIA1 internal state access: reg_tod_hours
+C64 - $DC1C HYPERVISOR MODE ONLY CIA1 internal state access: reg_alarm_dsecs
+C64 - $DC1D HYPERVISOR MODE ONLY CIA1 internal state access: reg_alarm_secs
+C64 - $DC1E HYPERVISOR MODE ONLY CIA1 internal state access: reg_alarm_mins
+C64 - $DC1F HYPERVISOR MODE ONLY CIA1 internal state access: reg_alarm_hours
 C64 $DD00 CIA2 Port A 
 C64 $DD01 CIA2 Port B
 C64 $DD02 CIA2 Port A DDR
@@ -682,6 +698,22 @@ C64 $DD0F.3 CIA2 Timer B one-shot mode
 C64 $DD0F.4 CIA2 Strobe
 C64 $DD0F.5-6 CIA2 Timer B Timer A tick source
 C64 $DD0F.7 CIA2 TOD alarm edit
+C64 - $DD10 HYPERVISOR MODE ONLY CIA2 internal state access: reg_timera_latch LSB 
+C64 - $DD11 HYPERVISOR MODE ONLY CIA2 internal state access: reg_timera_latch MSB 
+C64 - $DD12 HYPERVISOR MODE ONLY CIA2 internal state access: reg_timerb_latch LSB 
+C64 - $DD13 HYPERVISOR MODE ONLY CIA2 internal state access: reg_timerb_latch MSB 
+C64 - $DD14 HYPERVISOR MODE ONLY CIA2 internal state access: reg_timera current value LSB 
+C64 - $DD15 HYPERVISOR MODE ONLY CIA2 internal state access: reg_timera current value MSB 
+C64 - $DD16 HYPERVISOR MODE ONLY CIA2 internal state access: reg_timerb current value LSB 
+C64 - $DD17 HYPERVISOR MODE ONLY CIA2 internal state access: reg_timerb current value MSB 
+C64 - $DD18 HYPERVISOR MODE ONLY CIA2 internal state access: reg_tod_dsecs
+C64 - $DD19 HYPERVISOR MODE ONLY CIA2 internal state access: reg_tod_secs
+C64 - $DD1A HYPERVISOR MODE ONLY CIA2 internal state access: reg_tod_mins
+C64 - $DD1B HYPERVISOR MODE ONLY CIA2 internal state access: reg_tod_hours
+C64 - $DD1C HYPERVISOR MODE ONLY CIA2 internal state access: reg_alarm_dsecs
+C64 - $DD1D HYPERVISOR MODE ONLY CIA2 internal state access: reg_alarm_secs
+C64 - $DD1E HYPERVISOR MODE ONLY CIA2 internal state access: reg_alarm_mins
+C64 - $DD1F HYPERVISOR MODE ONLY CIA2 internal state access: reg_alarm_hours
 GS $FF7Exxx VIC-IV CHARROM write area
 GS $FF8xxxx - Colour RAM (32KB or 64KB)
 GS $FFD6C00-DFF - F011 floppy controller sector buffer
