@@ -256,7 +256,20 @@ begin  -- behavioural
               -- @IO:C64 $DD0D.4 CIA2 FLAG edge detected
               -- @IO:C64 $DC0D CIA1 ISR : Reading clears events
               -- @IO:C64 $DD0D CIA2 ISR : Reading clears events
-              fastio_rdata <= reg_isr;
+              if hypervisor_mode='0' then
+                fastio_rdata <= reg_isr;
+              else
+                -- In hypervisor mode, we read instead which things are
+                -- enabled, so that when we freeze and unfreeze, the CIA
+                -- timers etc are left in the correct state.
+                fastio_rdata(7) <= '1';
+                fastio_rdata(7 downto 6) <= "00";
+                fastio_rdata(4) <= imask_flag;
+                fastio_rdata(3) <= imask_serialport;
+                fastio_rdata(2) <= imask_alarm;
+                fastio_rdata(1) <= imask_tb;
+                fastio_rdata(0) <= imask_ta;
+              end if;
             when x"0e" =>
               -- @IO:C64 $DC0E.0 CIA1 Timer A start
               -- @IO:C64 $DC0E.1 CIA1 Timer A PB6 out
