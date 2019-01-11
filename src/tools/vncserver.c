@@ -179,6 +179,7 @@ static void dokey(rfbBool down,rfbKeySym key,rfbClientPtr cl)
 int updateFrameBuffer(rfbScreenInfoPtr screen)
 {  
   // Tell VNC that everything has changed, and let it do the optimisation.
+
   rfbMarkRectAsModified(screen,0,0,maxx-1,maxy-1);
 
   return 0;
@@ -405,6 +406,7 @@ int openSerialPort(char *port)
 
 int setPixel(rfbScreenInfoPtr screen,int x,int y,uint32_t v)
 {
+  //  printf("(%d,%d) = %08x\n",x,y,v);
   if (y>=0&&y<maxy&&x>=0&&x<maxx) {  
     ((unsigned char *)screen->frameBuffer)[(y*maxx*4)+x*4+3]=0;
     ((unsigned char *)screen->frameBuffer)[(y*maxx*4)+x*4+2]=v&0xff;
@@ -413,6 +415,20 @@ int setPixel(rfbScreenInfoPtr screen,int x,int y,uint32_t v)
   }
   return 0;
 }
+
+int setRaster(rfbScreenInfoPtr screen,int y,uint32_t v)
+{
+  if (y>=0&&y<maxy) {
+    unsigned char *raster=&((unsigned char *)screen->frameBuffer)[y*maxx*4];
+    raster[3]=0;
+    raster[2]=v&0xff;
+    raster[1]=(v>>8)&0xff;
+    raster[0]=(v>>16)&0xff;
+    bcopy(&raster[0],&raster[4],maxx*4-1);
+  }
+  return 0;
+}
+
 
 int dump_bytes(char *msg,unsigned char *bytes,int length)
 {
@@ -498,7 +514,10 @@ int main(int argc,char** argv)
       // probably a C65GS compressed video frame.
       // printf("."); fflush(stdout);
 
-      if (debug&2) printf("--------------- Packet.\n");
+      if (debug&2) {
+	printf("--------------- Packet.\n");
+	dump_bytes("packet",packet,len);
+      }
       
       // Packet consists solely of bit-packed data
 
@@ -548,18 +567,20 @@ int main(int argc,char** argv)
 	  } else if (!strncmp("111110",bit_sequence,6)) {
 	    // Indicate raster (10 bits)
 	    int s=bit_sequence[16]; bit_sequence[16]=0;
-	    if (x!=-1) for(;x<maxx;x++) setPixel(rfbScreen,x,y,colour0);	    
+	    setRaster(rfbScreen,y,colour0);
+	    // if (x!=-1) for(;x<maxx;x++) setPixel(rfbScreen,x,y,colour0);	    
 	    y=strtol(&bit_sequence[6],NULL,2);
 	    if (lasty==-1) { lasty=y; y=-1; } else {
-	      if (y!=(1+lasty)) {
-		// Non successive raster linese, block drawing
+	      if ((y!=(1+lasty))&&(y!=lasty)) {
+		// Non successive raster lines, block drawing
+		if (debug&2) printf("lasty was %d, new y = %d\n",lasty,y);
 		lasty=y;
 		y=-1;
 	      } else lasty=y;
 	    }
 	    
 	    bit_sequence[16]=s;
-	    if (debug&2) printf("Raster #%d (x got to %d)\n",y,x);
+	    if (debug&2) printf("Raster #%d (MAX X value seen was %d)\n",y,x);
 	    x=0;
 	    colour0=0x000000;
 	    colour1=0xf0f0f0;
@@ -582,7 +603,8 @@ int main(int argc,char** argv)
 	  } else if (!strncmp("11111100",bit_sequence,8)) {
 	    // New frame
 	    if (debug&1) printf("New frame (y got to %d)\n",y);
-	    if (x!=-1) for(;x<maxx;x++) setPixel(rfbScreen,x,y,colour0);	    
+	    if (y!=-1) setRaster(rfbScreen,y,colour0);
+	    // if (x!=-1) for(;x<maxx;x++) setPixel(rfbScreen,x,y,colour0);	    
 	    y=-1; x=-1;
 	    memset(bit_sequence,'.',8);
 	    colour0=0x000000;

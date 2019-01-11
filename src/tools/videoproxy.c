@@ -143,7 +143,6 @@ int main(int argc,char **argv)
       const unsigned char *packet = pcap_next(descr,&hdr);
       if (packet) {
 	if (hdr.caplen == 2132) {
-	  //	  printf("."); fflush(stdout);
 	  // probably a C65GS compressed video frame.
 	  if (client_sock!=-1) write(client_sock,packet,2132);
 	}
