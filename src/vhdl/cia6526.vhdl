@@ -176,79 +176,79 @@ begin  -- behavioural
           fastio_rdata <= (others => 'Z');
         else
           case register_number is
-            -- @IO:64 $DC00 CIA1 Port A 
-            -- @IO:64 $DC01 CIA1 Port B
-            -- @IO:64 $DC02 CIA1 Port A DDR
-            -- @IO:64 $DC03 CIA1 Port B DDR
-            -- @IO:64 $DD00 CIA2 Port A 
-            -- @IO:64 $DD01 CIA2 Port B
-            -- @IO:64 $DD02 CIA2 Port A DDR
-            -- @IO:64 $DD03 CIA2 Port B DDR
+            -- @IO:C64 $DC00 CIA1 Port A 
+            -- @IO:C64 $DC01 CIA1 Port B
+            -- @IO:C64 $DC02 CIA1 Port A DDR
+            -- @IO:C64 $DC03 CIA1 Port B DDR
+            -- @IO:C64 $DD00 CIA2 Port A 
+            -- @IO:C64 $DD01 CIA2 Port B
+            -- @IO:C64 $DD02 CIA2 Port A DDR
+            -- @IO:C64 $DD03 CIA2 Port B DDR
             when x"00" => fastio_rdata <= unsigned(reg_porta_read); -- reg_porta_read;
             when x"01" => fastio_rdata <= unsigned(reg_portb_read); -- reg_portb_read;
             when x"02" => fastio_rdata <= unsigned(reg_porta_ddr);
             when x"03" => fastio_rdata <= unsigned(reg_portb_ddr);
                           
-            -- @IO:64 $DC04 CIA1 Timer A counter (LSB)
-            -- @IO:64 $DC05 CIA1 Timer A counter (MSB)
-            -- @IO:64 $DC06 CIA1 Timer B counter (LSB)
-            -- @IO:64 $DC07 CIA1 Timer B counter (MSB)
-            -- @IO:64 $DD04 CIA2 Timer A counter (LSB)
-            -- @IO:64 $DD05 CIA2 Timer A counter (MSB)
-            -- @IO:64 $DD06 CIA2 Timer B counter (LSB)
-            -- @IO:64 $DD07 CIA2 Timer B counter (MSB)
+            -- @IO:C64 $DC04 CIA1 Timer A counter (LSB)
+            -- @IO:C64 $DC05 CIA1 Timer A counter (MSB)
+            -- @IO:C64 $DC06 CIA1 Timer B counter (LSB)
+            -- @IO:C64 $DC07 CIA1 Timer B counter (MSB)
+            -- @IO:C64 $DD04 CIA2 Timer A counter (LSB)
+            -- @IO:C64 $DD05 CIA2 Timer A counter (MSB)
+            -- @IO:C64 $DD06 CIA2 Timer B counter (LSB)
+            -- @IO:C64 $DD07 CIA2 Timer B counter (MSB)
             when x"04" => fastio_rdata <= reg_timera(7 downto 0);
             when x"05" => fastio_rdata <= reg_timera(15 downto 8);
             when x"06" => fastio_rdata <= reg_timerb(7 downto 0);
             when x"07" => fastio_rdata <= reg_timerb(15 downto 8);
             when x"08" =>
-              -- @IO:64 $DC08.0-3 CIA1 TOD tenths of seconds
-              -- @IO:64 $DD08.0-3 CIA2 TOD tenths of seconds
+              -- @IO:C64 $DC08.0-3 CIA1 TOD tenths of seconds
+              -- @IO:C64 $DD08.0-3 CIA2 TOD tenths of seconds
               if read_tod_latched='1' then
                 fastio_rdata <= read_tod_dsecs;
               else
                 fastio_rdata <= reg_tod_dsecs;
               end if;
             when x"09" =>   
-              -- @IO:64 $DC09.0-5 CIA1 TOD seconds
-              -- @IO:64 $DD09.0-5 CIA2 TOD seconds
+              -- @IO:C64 $DC09.0-5 CIA1 TOD seconds
+              -- @IO:C64 $DD09.0-5 CIA2 TOD seconds
               if read_tod_latched='1' then
                 fastio_rdata <= read_tod_secs;
               else
                 fastio_rdata <= reg_tod_secs;
               end if;
             when x"0a" =>   
-              -- @IO:64 $DC0A.0-5 CIA1 TOD minutes
-              -- @IO:64 $DD0A.0-5 CIA2 TOD minutes
+              -- @IO:C64 $DC0A.0-5 CIA1 TOD minutes
+              -- @IO:C64 $DD0A.0-5 CIA2 TOD minutes
               if read_tod_latched='1' then
                 fastio_rdata <= read_tod_mins;
               else
                 fastio_rdata <= reg_tod_mins;
               end if;
             when x"0b" =>
-              -- @IO:64 $DC0B.7 CIA1 TOD PM flag
-              -- @IO:64 $DC0B.0-4 CIA1 TOD hours
-              -- @IO:64 $DD0B.7 CIA2 TOD PM flag
-              -- @IO:64 $DD0B.0-4 CIA2 TOD hours
+              -- @IO:C64 $DC0B.7 CIA1 TOD PM flag
+              -- @IO:C64 $DC0B.0-4 CIA1 TOD hours
+              -- @IO:C64 $DD0B.7 CIA2 TOD PM flag
+              -- @IO:C64 $DD0B.0-4 CIA2 TOD hours
               fastio_rdata <= reg_tod_ampm & reg_tod_hours;
             when x"0c" =>
-              -- @IO:64 $DC0C CIA1 shift register data register(writing starts sending)
-              -- @IO:64 $DD0C CIA2 shift register data register(writing starts sending)
+              -- @IO:C64 $DC0C CIA1 shift register data register(writing starts sending)
+              -- @IO:C64 $DD0C CIA2 shift register data register(writing starts sending)
               fastio_rdata <= unsigned(reg_read_sdr);
             when x"0d" =>
-              -- @IO:64 $DC0D.0 CIA1 Timer A underflow
-              -- @IO:64 $DC0D.1 CIA1 Timer B underflow
-              -- @IO:64 $DC0D.2 CIA1 TOD alarm
-              -- @IO:64 $DC0D.3 CIA1 shift register full/empty
-              -- @IO:64 $DC0D.4 CIA1 FLAG edge detected
-              -- @IO:64 $DC0D.7 CIA1 Interrupt flag
-              -- @IO:64 $DD0D.0 CIA2 Timer A underflow
-              -- @IO:64 $DD0D.1 CIA2 Timer B underflow
-              -- @IO:64 $DD0D.2 CIA2 TOD alarm
-              -- @IO:64 $DD0D.3 CIA2 shift register full/empty
-              -- @IO:64 $DD0D.4 CIA2 FLAG edge detected
-              -- @IO:64 $DC0D CIA1 ISR : Reading clears events
-              -- @IO:64 $DD0D CIA2 ISR : Reading clears events
+              -- @IO:C64 $DC0D.0 CIA1 Timer A underflow
+              -- @IO:C64 $DC0D.1 CIA1 Timer B underflow
+              -- @IO:C64 $DC0D.2 CIA1 TOD alarm
+              -- @IO:C64 $DC0D.3 CIA1 shift register full/empty
+              -- @IO:C64 $DC0D.4 CIA1 FLAG edge detected
+              -- @IO:C64 $DC0D.7 CIA1 Interrupt flag
+              -- @IO:C64 $DD0D.0 CIA2 Timer A underflow
+              -- @IO:C64 $DD0D.1 CIA2 Timer B underflow
+              -- @IO:C64 $DD0D.2 CIA2 TOD alarm
+              -- @IO:C64 $DD0D.3 CIA2 shift register full/empty
+              -- @IO:C64 $DD0D.4 CIA2 FLAG edge detected
+              -- @IO:C64 $DC0D CIA1 ISR : Reading clears events
+              -- @IO:C64 $DD0D CIA2 ISR : Reading clears events
               fastio_rdata <= reg_isr;
             when x"0e" => 
               fastio_rdata <= reg_60hz

@@ -613,6 +613,47 @@ GS $D7FB.0 DEBUG 1=charge extra cycle(s) for branches taken
 GS $D7FC DEBUG chip-select enables for various devices
 GS $D7FD.6 Override for /GAME : set to 0 to enable
 GS $D7FD.7 Override for /EXROM : set to 0 to enable
+C64 $DC00 CIA1 Port A 
+C64 $DC01 CIA1 Port B
+C64 $DC02 CIA1 Port A DDR
+C64 $DC03 CIA1 Port B DDR
+C64 $DC04 CIA1 Timer A counter (LSB)
+C64 $DC05 CIA1 Timer A counter (MSB)
+C64 $DC06 CIA1 Timer B counter (LSB)
+C64 $DC07 CIA1 Timer B counter (MSB)
+C64 $DC08.0-3 CIA1 TOD tenths of seconds
+C64 $DC09.0-5 CIA1 TOD seconds
+C64 $DC0A.0-5 CIA1 TOD minutes
+C64 $DC0B.0-4 CIA1 TOD hours
+C64 $DC0B.7 CIA1 TOD PM flag
+C64 $DC0C CIA1 shift register data register(writing starts sending)
+C64 $DC0D.0 CIA1 Timer A underflow
+C64 $DC0D.1 CIA1 Timer B underflow
+C64 $DC0D.2 CIA1 TOD alarm
+C64 $DC0D.3 CIA1 shift register full/empty
+C64 $DC0D.4 CIA1 FLAG edge detected
+C64 $DC0D.7 CIA1 Interrupt flag
+C64 $DC0D CIA1 ISR : Reading clears events
+C64 $DD00 CIA2 Port A 
+C64 $DD01 CIA2 Port B
+C64 $DD02 CIA2 Port A DDR
+C64 $DD03 CIA2 Port B DDR
+C64 $DD04 CIA2 Timer A counter (LSB)
+C64 $DD05 CIA2 Timer A counter (MSB)
+C64 $DD06 CIA2 Timer B counter (LSB)
+C64 $DD07 CIA2 Timer B counter (MSB)
+C64 $DD08.0-3 CIA2 TOD tenths of seconds
+C64 $DD09.0-5 CIA2 TOD seconds
+C64 $DD0A.0-5 CIA2 TOD minutes
+C64 $DD0B.0-4 CIA2 TOD hours
+C64 $DD0B.7 CIA2 TOD PM flag
+C64 $DD0C CIA2 shift register data register(writing starts sending)
+C64 $DD0D.0 CIA2 Timer A underflow
+C64 $DD0D.1 CIA2 Timer B underflow
+C64 $DD0D.2 CIA2 TOD alarm
+C64 $DD0D.3 CIA2 shift register full/empty
+C64 $DD0D.4 CIA2 FLAG edge detected
+C64 $DD0D CIA2 ISR : Reading clears events
 GS $FF7Exxx VIC-IV CHARROM write area
 GS $FF8xxxx - Colour RAM (32KB or 64KB)
 GS $FFD6C00-DFF - F011 floppy controller sector buffer
