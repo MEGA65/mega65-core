@@ -256,20 +256,7 @@ begin  -- behavioural
               -- @IO:C64 $DD0D.4 CIA2 FLAG edge detected
               -- @IO:C64 $DC0D CIA1 ISR : Reading clears events
               -- @IO:C64 $DD0D CIA2 ISR : Reading clears events
-              if hypervisor_mode='0' then
-                fastio_rdata <= reg_isr;
-              else
-                -- In hypervisor mode, we read instead which things are
-                -- enabled, so that when we freeze and unfreeze, the CIA
-                -- timers etc are left in the correct state.
-                fastio_rdata(7) <= '1';
-                fastio_rdata(7 downto 6) <= "00";
-                fastio_rdata(4) <= imask_flag;
-                fastio_rdata(3) <= imask_serialport;
-                fastio_rdata(2) <= imask_alarm;
-                fastio_rdata(1) <= imask_tb;
-                fastio_rdata(0) <= imask_ta;
-              end if;
+              fastio_rdata <= reg_isr;
             when x"0e" =>
               -- @IO:C64 $DC0E.0 CIA1 Timer A start
               -- @IO:C64 $DC0E.1 CIA1 Timer A PB6 out
@@ -329,8 +316,15 @@ begin  -- behavioural
             when x"16" => fastio_rdata <= reg_timerb(7 downto 0);
             when x"17" => fastio_rdata <= reg_timerb(15 downto 8);
 
-            when x"18" => fastio_rdata <= reg_tod_dsecs;
-            when x"19" => fastio_rdata <= reg_tod_secs;
+            when x"18" => fastio_rdata(3 downto 0) <= reg_tod_dsecs(3 downto 0);
+                          -- Also the flags needed to exactly restore the CIA settings
+                          fastio_rdata(7) <= imask_flag;
+                          fastio_rdata(6) <= imask_serialport;
+                          fastio_rdata(5) <= imask_alarm;
+                          fastio_rdata(4) <= imask_tb;
+            when x"19" => fastio_rdata(6 downto 0) <= reg_tod_secs(6 downto 0);
+                          -- Also the flags needed to exactly restore the CIA settings
+                          fastio_rdata(7) <= imask_ta;
             when x"1a" => fastio_rdata <= reg_tod_mins;
             when x"1b" => fastio_rdata <= reg_tod_ampm & reg_tod_hours;
             when x"1c" => fastio_rdata <= reg_alarm_dsecs;
@@ -786,8 +780,8 @@ begin  -- behavioural
           when x"15" => reg_timera(15 downto 8) <= fastio_wdata;
           when x"16" => reg_timerb(7 downto 0) <= fastio_wdata;
           when x"17" => reg_timerb(15 downto 8) <= fastio_wdata;
-            -- @IO:C64 - $DC18 HYPERVISOR MODE ONLY CIA1 internal state access: reg_tod_dsecs
-            -- @IO:C64 - $DC19 HYPERVISOR MODE ONLY CIA1 internal state access: reg_tod_secs
+            -- @IO:C64 - $DC18 HYPERVISOR MODE ONLY CIA1 internal state access: reg_tod_dsecs, imask_flag,serialport,alarm,tb
+            -- @IO:C64 - $DC19 HYPERVISOR MODE ONLY CIA1 internal state access: reg_tod_secs, imask_ta
             -- @IO:C64 - $DC1A HYPERVISOR MODE ONLY CIA1 internal state access: reg_tod_mins
             -- @IO:C64 - $DC1B HYPERVISOR MODE ONLY CIA1 internal state access: reg_tod_hours
             -- @IO:C64 - $DC1C HYPERVISOR MODE ONLY CIA1 internal state access: reg_alarm_dsecs
@@ -802,8 +796,13 @@ begin  -- behavioural
             -- @IO:C64 - $DD1D HYPERVISOR MODE ONLY CIA2 internal state access: reg_alarm_secs
             -- @IO:C64 - $DD1E HYPERVISOR MODE ONLY CIA2 internal state access: reg_alarm_mins
             -- @IO:C64 - $DD1F HYPERVISOR MODE ONLY CIA2 internal state access: reg_alarm_hours
-          when x"18" => reg_tod_dsecs <= fastio_wdata;
-          when x"19" => reg_tod_secs <= fastio_wdata;
+          when x"18" => reg_tod_dsecs(3 downto 0) <= fastio_wdata(3 downto 0);
+                        imask_flag <= fastio_wdata(7);
+                        imask_serialport <= fastio_wdata(6);
+                        imask_alarm <= fastio_wdata(5);
+                        imask_tb <= fastio_wdata(4);
+          when x"19" => reg_tod_secs(6 downto 0) <= fastio_wdata(6 downto 0);
+                        imask_ta <= fastio_wdata(7);
           when x"1a" => reg_tod_mins <= fastio_wdata;
           when x"1b" => reg_tod_hours <= fastio_wdata(6 downto 0);
                         reg_tod_ampm <= fastio_wdata(7);
