@@ -634,6 +634,20 @@ C64 $DC0D.3 CIA1 shift register full/empty
 C64 $DC0D.4 CIA1 FLAG edge detected
 C64 $DC0D.7 CIA1 Interrupt flag
 C64 $DC0D CIA1 ISR : Reading clears events
+C64 $DC0E.0 CIA1 Timer A start
+C64 $DC0E.1 CIA1 Timer A PB6 out
+C64 $DC0E.2 CIA1 Timer A toggle or pulse
+C64 $DC0E.3 CIA1 Timer A one-shot mode
+C64 $DC0E.5 CIA1 Timer A Timer A tick source
+C64 $DC0E.6 CIA1 Serial port direction
+C64 $DC0E.7 CIA1 50/60Hz select for TOD clock
+C64 $DC0F.0 CIA1 Timer B start
+C64 $DC0F.1 CIA1 Timer B PB7 out
+C64 $DC0F.2 CIA1 Timer B toggle or pulse
+C64 $DC0F.3 CIA1 Timer B one-shot mode
+C64 $DC0F.4 CIA1 Strobe
+C64 $DC0F.5-6 CIA1 Timer B Timer A tick source
+C64 $DC0F.7 CIA2 TOD alarm edit
 C64 $DD00 CIA2 Port A 
 C64 $DD01 CIA2 Port B
 C64 $DD02 CIA2 Port A DDR
@@ -654,6 +668,20 @@ C64 $DD0D.2 CIA2 TOD alarm
 C64 $DD0D.3 CIA2 shift register full/empty
 C64 $DD0D.4 CIA2 FLAG edge detected
 C64 $DD0D CIA2 ISR : Reading clears events
+C64 $DD0E.0 CIA2 Timer A start
+C64 $DD0E.1 CIA2 Timer A PB6 out
+C64 $DD0E.2 CIA2 Timer A toggle or pulse
+C64 $DD0E.3 CIA2 Timer A one-shot mode
+C64 $DD0E.5 CIA2 Timer A Timer A tick source
+C64 $DD0E.6 CIA2 Serial port direction
+C64 $DD0E.7 CIA2 50/60Hz select for TOD clock
+C64 $DD0F.0 CIA2 Timer B start
+C64 $DD0F.1 CIA2 Timer B PB7 out
+C64 $DD0F.2 CIA2 Timer B toggle or pulse
+C64 $DD0F.3 CIA2 Timer B one-shot mode
+C64 $DD0F.4 CIA2 Strobe
+C64 $DD0F.5-6 CIA2 Timer B Timer A tick source
+C64 $DD0F.7 CIA2 TOD alarm edit
 GS $FF7Exxx VIC-IV CHARROM write area
 GS $FF8xxxx - Colour RAM (32KB or 64KB)
 GS $FFD6C00-DFF - F011 floppy controller sector buffer

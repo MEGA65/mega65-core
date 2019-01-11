@@ -250,7 +250,21 @@ begin  -- behavioural
               -- @IO:C64 $DC0D CIA1 ISR : Reading clears events
               -- @IO:C64 $DD0D CIA2 ISR : Reading clears events
               fastio_rdata <= reg_isr;
-            when x"0e" => 
+            when x"0e" =>
+              -- @IO:C64 $DC0E.0 CIA1 Timer A start
+              -- @IO:C64 $DC0E.1 CIA1 Timer A PB6 out
+              -- @IO:C64 $DC0E.2 CIA1 Timer A toggle or pulse
+              -- @IO:C64 $DC0E.3 CIA1 Timer A one-shot mode
+              -- @IO:C64 $DC0E.5 CIA1 Timer A Timer A tick source
+              -- @IO:C64 $DC0E.6 CIA1 Serial port direction
+              -- @IO:C64 $DC0E.7 CIA1 50/60Hz select for TOD clock
+              -- @IO:C64 $DD0E.0 CIA2 Timer A start
+              -- @IO:C64 $DD0E.1 CIA2 Timer A PB6 out
+              -- @IO:C64 $DD0E.2 CIA2 Timer A toggle or pulse
+              -- @IO:C64 $DD0E.3 CIA2 Timer A one-shot mode
+              -- @IO:C64 $DD0E.5 CIA2 Timer A Timer A tick source
+              -- @IO:C64 $DD0E.6 CIA2 Serial port direction
+              -- @IO:C64 $DD0E.7 CIA2 50/60Hz select for TOD clock
               fastio_rdata <= reg_60hz
                               & reg_serialport_direction
                               & reg_timera_tick_source
@@ -261,6 +275,20 @@ begin  -- behavioural
                               & reg_timera_start;
               
             when x"0f" =>
+              -- @IO:C64 $DC0F.0 CIA1 Timer B start
+              -- @IO:C64 $DC0F.1 CIA1 Timer B PB7 out
+              -- @IO:C64 $DC0F.2 CIA1 Timer B toggle or pulse
+              -- @IO:C64 $DC0F.3 CIA1 Timer B one-shot mode
+              -- @IO:C64 $DC0F.4 CIA1 Strobe
+              -- @IO:C64 $DC0F.5-6 CIA1 Timer B Timer A tick source
+              -- @IO:C64 $DC0F.7 CIA2 TOD alarm edit
+              -- @IO:C64 $DD0F.0 CIA2 Timer B start
+              -- @IO:C64 $DD0F.1 CIA2 Timer B PB7 out
+              -- @IO:C64 $DD0F.2 CIA2 Timer B toggle or pulse
+              -- @IO:C64 $DD0F.3 CIA2 Timer B one-shot mode
+              -- @IO:C64 $DD0F.4 CIA2 Strobe
+              -- @IO:C64 $DD0F.5-6 CIA2 Timer B Timer A tick source
+              -- @IO:C64 $DD0F.7 CIA2 TOD alarm edit
               fastio_rdata <= unsigned(reg_tod_alarm_edit
                                        & reg_timerb_tick_source
                                        & '0'  -- strobe always reads as 0
