@@ -44,7 +44,14 @@ unfreeze_load_from_sdcard_immediate:
 
 	; Save each region in the list
 	ldx #$00
+	
 unfreeze_next_region:
+
+	; Require SHIFT press and release between every sector for debug
+	; XXX - Works when this is enabled, and not when not!???
+;	jsr wait_on_shift_key
+	jsr sd_wait_for_ready_reset_if_required
+
 	jsr unfreeze_load_region
 
 	; Re-enable M65 IO in case we wrote over the key register during the region unfreeze
@@ -72,8 +79,6 @@ unfreeze_next_region:
 
 unfreeze_read_sector_and_wait:
 
-	; Require SHIFT press and release between every sector for debug
-;	jsr wait_on_shift_key
 
 ;	jsr debug_show_sector
 
@@ -82,10 +87,6 @@ unfreeze_read_sector_and_wait:
 
 	lda #$02
 	sta $d680
-;@waitForBusy:
-;	lda $d680
-;	and #$03
-;	beq @waitForBusy
 
 	jsr sd_wait_for_ready
 	bcc @retryRead
