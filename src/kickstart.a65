@@ -460,7 +460,7 @@ reset_machine_state:
 		sta $DC0D
 		sta $DD0D
 		LDA #$00
-		STA $D019
+		STA $D01A
 
 		sec
 		; determine VIC mode and set it accordingly in VICIV_MAGIC
