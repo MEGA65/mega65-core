@@ -404,7 +404,7 @@ begin  -- behavioural
       -- for it to clear.  So we only clear the bits that were set last time.
       -- We don't clear this bit if in the hypervisor, so that its state can be
       -- properly preserved when freezing/unfreezing.
-      if clear_isr='1' and hypervisor_mode='0' then
+      if clear_isr='1' then
         for i in 0 to 7 loop
           if clear_isr_bits(i)='1' then
             reg_isr(i) <= '0';
@@ -614,7 +614,7 @@ begin  -- behavioural
       end if;
 
       -- Check for register read side effects
-      if fastio_write='0' and cs='1' and hypervisor_mode='0' then
+      if fastio_write='0' and cs='1' then
         --report "Performing side-effects of reading from CIA register $" & to_hstring(register_number) severity note;
         register_number(7 downto 5) := "000";
         if hypervisor_mode='1' then
