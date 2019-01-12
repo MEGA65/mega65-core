@@ -1291,9 +1291,11 @@ begin
         end case;
       else
         c65uart_cs <= '0';
+        report "THUMB: CS consideration for $FFD363x";
         -- $D630-$D63F is thumbnail generator
-        if address(19 downto 8) = x"D363" then
+        if address(19 downto 4) = x"D363" then
           thumbnail_cs <= c65uart_en;
+          report "THUMB: Trying to assert thumbnail_cs";
         else
           thumbnail_cs <= '0';
         end if;
