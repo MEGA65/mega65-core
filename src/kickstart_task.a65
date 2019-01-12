@@ -232,6 +232,13 @@ restore_press_trap:
 	LDA #>$EA81
 	STA $03FE
 
+	; Disable IRQ/NMI sources
+	LDA #$7f
+	STA $DC0D
+	STA $DD0D
+	LDA #$00
+	STA $D01A
+
 	; return from hypervisor, causing freeze menu to start
 	;
 	sta hypervisor_enterexit_trigger
