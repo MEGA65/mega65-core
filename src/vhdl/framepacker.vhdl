@@ -283,16 +283,16 @@ begin  -- behavioural
         else
           x_counter <= x_counter + 1;
         end if;
-        if thumbnail_x_counter < 9 then
+        if thumbnail_x_counter /= 9 then
           -- Make sure it doesn't wrap around within a frame if things go wrong.
-          if thumbnail_x_counter< 4000 then
-            thumbnail_x_counter <= thumbnail_x_counter + 1;
-          end if;
+          thumbnail_x_counter <= thumbnail_x_counter + 1;
           thumbnail_active_pixel <= '0';
         else
           thumbnail_x_counter <= 0;
           thumbnail_active_pixel <= thumbnail_active_row;
         end if;
+      else
+        thumbnail_active_pixel <= '0';
       end if;
       if thumbnail_active_pixel='1' then
         thumbnail_write_address
