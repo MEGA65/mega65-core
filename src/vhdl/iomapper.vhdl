@@ -1276,13 +1276,13 @@ begin
 
       -- $D500 - $D5FF is not currently used.  Probably use some for FPU.
       
-      -- $D600 - $D62F is reserved for C65 serial UART emulation for C65
+      -- $D600 - $D63F is reserved for C65 serial UART emulation for C65
       -- compatibility (C65 UART actually only has 7 registers).
       -- 6551 is not currently implemented, so this is just unmapped for now,
       -- except for any read values required to allow the C65 ROM to function.
       temp(15 downto 2) := unsigned(address(19 downto 6));
       temp(1 downto 0) := "00";
-      if address(7 downto 4) /= x"3" then
+      if address(7 downto 6) = "00" then  -- Mask out $FFDx6[4-7]x
         case temp(15 downto 0) is
           when x"D160" => c65uart_cs <= c65uart_en;
           when x"D260" => c65uart_cs <= c65uart_en;
@@ -1291,9 +1291,9 @@ begin
         end case;
       else
         c65uart_cs <= '0';
-        report "THUMB: CS consideration for $FFD363x";
-        -- $D630-$D63F is thumbnail generator
-        if address(19 downto 4) = x"D363" then
+        report "THUMB: CS consideration for $FFD364x";
+        -- $D640-$D64F is thumbnail generator
+        if address(19 downto 4) = x"D364" then
           thumbnail_cs <= c65uart_en;
           report "THUMB: Trying to assert thumbnail_cs";
         else
