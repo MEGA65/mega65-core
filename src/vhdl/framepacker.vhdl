@@ -186,17 +186,17 @@ begin  -- behavioural
     -- another process.
     if fastio_read='1' and (thumbnail_cs='1') then
       if fastio_addr(3 downto 0) = x"2" then
-        -- @IO:GS $D632 - Lower 8 bits of thumbnail buffer read address (TEMPORARY DEBUG REGISTER)
+        -- @IO:GS $D642 - Lower 8 bits of thumbnail buffer read address (TEMPORARY DEBUG REGISTER)
         fastio_rdata <= thumbnail_read_address(7 downto 0);
       elsif fastio_addr(3 downto 0) = x"1" then
-        -- @IO:GS $D631 - Read port for thumbnail generator
+        -- @IO:GS $D641 - Read port for thumbnail generator
         fastio_rdata <= thumbnail_rdata;
       elsif fastio_addr(3 downto 0) = x"0" then
-        -- @IO:GS $D630-$D631 - Read-only hardware-generated thumbnail of display (accessible only in hypervisor mode)
-        -- @IO:GS $D630 - Write to reset port address for thumbnail generator
-        -- @IO:GS $D630 - Read to obtain status of thumbnail generator.
-        -- @IO:GS $D630.7 - Thumbnail is valid if 1.  Else there has not been a complete frame since elapsed without a trap to hypervisor mode, in which case the thumbnail may not reflect the current process.
-        -- @IO:GS $D630.6 - Thumbnail drawing was in progress.
+        -- @IO:GS $D640-$D641 - Read-only hardware-generated thumbnail of display (accessible only in hypervisor mode)
+        -- @IO:GS $D640 - Write to reset port address for thumbnail generator
+        -- @IO:GS $D640 - Read to obtain status of thumbnail generator.
+        -- @IO:GS $D640.7 - Thumbnail is valid if 1.  Else there has not been a complete frame since elapsed without a trap to hypervisor mode, in which case the thumbnail may not reflect the current process.
+        -- @IO:GS $D640.6 - Thumbnail drawing was in progress.
         thumbnail_read_address <= (others => '0');
         fastio_rdata(7) <= thumbnail_valid;
         fastio_rdata(6) <= thumbnail_started;
@@ -276,13 +276,9 @@ begin  -- behavioural
       end if;
       if pixel_newraster='1' then
         x_counter <= 0;
-      end if;
-      if pixel_valid_out = '1' then
-        if pixel_newraster='1' then
-          x_counter <= 0;
-        else
-          x_counter <= x_counter + 1;
-        end if;
+        thumbnail_x_counter <= 0;
+      elsif pixel_valid_out = '1' then
+        x_counter <= x_counter + 1;
         if thumbnail_x_counter /= 9 then
           -- Make sure it doesn't wrap around within a frame if things go wrong.
           thumbnail_x_counter <= thumbnail_x_counter + 1;
