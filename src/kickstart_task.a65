@@ -203,6 +203,35 @@ restore_press_trap:
 	lda #>2061
 	sta hypervisor_pch
 
+	; Make $FFD2 vector at $0326 point to an RTS, so that if the freezer
+	; is built using CC65's C64 profile, the call to $FFD2 to set lower-case mode
+	; doesn't do something terrible.
+	LDA #<$03FF
+	STA $0326
+	LDA #>$03FF
+	STA $0327
+	LDA #$60 ; = RTS
+	STA $03FF
+	
+	; Similarly neuter IRQ/BRK and NMI vectors, in part because the call to $FFD2 above
+	; will do a CLI, and thus any pending IRQ will immediately trigger, and since the freezer
+	; is running without the kernal initialising things, it would otherwise use the IRQ
+	; vector from whatever was being frozen.  Clearly this is a bad thing.
+	LDA #<$03FC
+	STA $0314
+	STA $0316
+	STA $0318
+	LDA #>$03FC
+	STA $0315
+	STA $0317
+	STA $0319
+	LDA #$4C   ; JMP $EA81
+	STA $03FC
+	LDA #<$EA81
+	STA $03FD
+	LDA #>$EA81
+	STA $03FE
+
 	; return from hypervisor, causing freeze menu to start
 	;
 	sta hypervisor_enterexit_trigger
@@ -229,4 +258,4 @@ matrix_mode_toggle:
 	eor #$40
         sta hypervisor_secure_mode_flags
 
-	sta hypervisor_enterexit_trigger
+		sta hypervisor_enterexit_trigger

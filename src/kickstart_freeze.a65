@@ -222,6 +222,7 @@ fsr1:
 	lda freeze_mem_list+5,x
 	sta freeze_dma_length_remaining+1	
 	lda freeze_mem_list+6,x
+	and #$7f                              ; mask out bottom 7 bits, since bit 7 indicates if a region should be skipped in unfreezing
 	sta freeze_dma_length_remaining+2
 
 freeze_region_dma_loop:
@@ -407,6 +408,8 @@ unfreeze_load_region:
 	lda freeze_mem_list+5,x
 	sta freeze_dma_length_remaining+1	
 	lda freeze_mem_list+6,x
+	sta unfreeze_skip
+	and #$7f                              ; mask out bottom 7 bits, since bit 7 indicates if a region should be skipped in unfreezing
 	sta freeze_dma_length_remaining+2
 
 unfreeze_region_dma_loop:
@@ -427,6 +430,9 @@ unfreeze_region_dma_loop:
 	ora freeze_dma_length_remaining+2
 	beq unfreeze_region_dma_done
 
+	bit unfreeze_skip
+	bmi @skipDMA
+
 @unfreezeExecuteDMA:
 	; Execute DMA job
 	lda #$ff
@@ -437,6 +443,7 @@ unfreeze_region_dma_loop:
 	lda #<freeze_region_dmalist
 	sta $d705
 
+@skipDMA:
 	; Check if remaining length is negative or zero. If so, stop
 	jsr is_freeze_dma_length_remaining_zero_or_negative
 	beq unfreeze_region_dma_done
@@ -869,12 +876,20 @@ freeze_mem_list:
 	.byte 0
 	.byte freeze_prep_none
 
+	; 384KB RAM (includes the 128KB "ROM" area)
+	; Must be saved before doing the thumbnail, which re-uses $1000-$1FFF to store the thumbnail image
+	.dword $0000000
+	.word $0000      
+	.byte 6          ; =6x64K blocks = 384KB
+	.byte freeze_prep_none	
+
+
 	; 4KB thumbnail of screen
 	; The prep routine copies this down to $1000-$1FFF, so we have to have saved the rest of RAM
 	; first
 	.dword $0001000
 	.word $1000
-	.byte $00
+	.byte $80                              ; bit 7 set in # banks tells unfreezer to ignore it.
 	.byte freeze_prep_thumbnail
 
 	; Process scratch space
@@ -889,12 +904,6 @@ freeze_mem_list:
 	.byte 0
 	.byte freeze_prep_none
 
-	; 384KB RAM (includes the 128KB "ROM" area)
-	.dword $0000000
-	.word $0000      
-	.byte 6          ; =6x64K blocks = 384KB
-	.byte freeze_prep_none	
-
 	; XXX - Other IO chips!
 
 	; End of list
@@ -907,4 +916,8 @@ freeze_mem_list_end:
 
 freeze_dma_length_remaining:
 	.byte 0,0,0
+
+	; If bit 7 set, then don't DMA the region into place on unfreezing
+unfreeze_skip:
+	.byte 0
 
