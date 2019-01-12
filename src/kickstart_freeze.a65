@@ -48,8 +48,10 @@ unfreeze_load_from_sdcard_immediate:
 unfreeze_next_region:
 
 	; Require SHIFT press and release between every sector for debug
-	; XXX - Works when this is enabled, and not when not!???
 ;	jsr wait_on_shift_key
+
+	; Not sure why this delay is necessary, but it is.
+	; Maybe restoring SD card IO registers causes it to go busy for a while?
 	jsr sd_wait_for_ready_reset_if_required
 
 	jsr unfreeze_load_region
@@ -815,6 +817,14 @@ freeze_mem_list:
 	.byte 0
 	.byte freeze_prep_none
 
+	; $D640-$D67E hypervisor state registers
+	; XXX - These can't be read by DMA, so we need to have a
+	; prep routine that copies them out first?
+	.dword $ffd3640
+	.word $003f
+	.byte 0
+	.byte freeze_prep_none
+
 	; VIC-IV palette block 0
 	.dword $ffd3100
 	.word $0300
@@ -839,12 +849,6 @@ freeze_mem_list:
 	.byte 0
 	.byte freeze_prep_palette3	
 
-	; 384KB RAM (includes the 128KB "ROM" area)
-	.dword $0000000
-	.word $0000      
-	.byte 6          ; =6x64K blocks = 384KB
-	.byte freeze_prep_none	
-
 	; 32KB colour RAM
 	.dword $ff80000
 	.word $8000
@@ -861,7 +865,7 @@ freeze_mem_list:
 	; This should be last since it is not a whole sector worth, and there is a bug
 	; that gets tickled sometimes if a region is not an integer number of sectors.
 	.dword $ffd3000
-	.word $0200  ; round out to whole sector to avoid bug in freeze/unfreeze
+	.word $0080  ; round out to whole sector to avoid bug in freeze/unfreeze
 	.byte 0
 	.byte freeze_prep_none
 
@@ -879,19 +883,17 @@ freeze_mem_list:
 	.byte 0
 	.byte freeze_prep_none
 
-	; $D640-$D67E hypervisor state registers
-	; XXX - These can't be read by DMA, so we need to have a
-	; prep routine that copies them out first?
-	.dword $ffd3640
-	.word $003f
-	.byte 0
-	.byte freeze_prep_none
-
 	; $D700-$D7FF CPU registers (excluding DMAgic registers, which we save/restore along with SD card registers)
 	.dword $ffd3710
 	.word $00F0
 	.byte 0
 	.byte freeze_prep_none
+
+	; 384KB RAM (includes the 128KB "ROM" area)
+	.dword $0000000
+	.word $0000      
+	.byte 6          ; =6x64K blocks = 384KB
+	.byte freeze_prep_none	
 
 	; XXX - Other IO chips!
 
