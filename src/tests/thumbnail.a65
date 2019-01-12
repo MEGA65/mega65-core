@@ -19,6 +19,10 @@ iter1:	 .byte 0
 	 lda #$53
 	 sta $d02f
 
+	 ; FAST cpu
+	 LDA #65
+	 sta 0
+
 	 sei
 
 	 jsr set_palette
@@ -58,6 +62,8 @@ l7:	 sta $2d00,y
 	 rts
 
 irq_a0:
+	inc $d020
+
 	 ; wait a bit to clear raster line
 	 ldx #$00
 l5:	 nop
@@ -84,6 +90,16 @@ l5:	 nop
 	 jmp $ea81
 
 irq_00:
+ 	 dec $d020
+
+	 ldx #0
+*	 lda $d630,x
+	 sta $0400,x
+	 inx
+	 cpx #5
+	 bne -
+	 
+
 	 ; disable full-colour mode
 	 lda #$00
 	 sta $d054
