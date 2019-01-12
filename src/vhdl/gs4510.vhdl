@@ -1944,6 +1944,8 @@ begin
             when x"ea" => return reg_math_cycle_compare(23 downto 16);
             when x"eb" => return reg_math_cycle_compare(31 downto 24);
 
+            when x"fa" => return to_unsigned(cpu_speed_bias,8);
+            when x"fb" => return "0000000" & charge_for_branches_taken;
             when x"fc" => return unsigned(chipselect_enables);
             when x"fd" =>
               report "Reading $D7FD";
