@@ -276,7 +276,8 @@ begin  -- behavioural
       end if;
       if pixel_newraster='1' then
         x_counter <= 0;
-        thumbnail_x_counter <= 0;
+        -- Sample first pixel, so we get all 80 pixels across the screen
+        thumbnail_x_counter <= 9;
       elsif pixel_valid_out = '1' then
         x_counter <= x_counter + 1;
         if thumbnail_x_counter /= 9 then
