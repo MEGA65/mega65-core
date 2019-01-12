@@ -872,7 +872,13 @@ freeze_mem_list:
 	; This should be last since it is not a whole sector worth, and there is a bug
 	; that gets tickled sometimes if a region is not an integer number of sectors.
 	.dword $ffd3000
-	.word $0080  ; round out to whole sector to avoid bug in freeze/unfreeze
+	.word $0080 
+	.byte 0
+	.byte freeze_prep_none
+
+	; VIC-IV C128 2MHz enable emulation register
+	.dword $ffd0030
+	.word $0001
 	.byte 0
 	.byte freeze_prep_none
 
