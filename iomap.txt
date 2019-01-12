@@ -656,8 +656,8 @@ C64 - $DC14 HYPERVISOR MODE ONLY CIA1 internal state access: reg_timera current 
 C64 - $DC15 HYPERVISOR MODE ONLY CIA1 internal state access: reg_timera current value MSB 
 C64 - $DC16 HYPERVISOR MODE ONLY CIA1 internal state access: reg_timerb current value LSB 
 C64 - $DC17 HYPERVISOR MODE ONLY CIA1 internal state access: reg_timerb current value MSB 
-C64 - $DC18 HYPERVISOR MODE ONLY CIA1 internal state access: reg_tod_dsecs
-C64 - $DC19 HYPERVISOR MODE ONLY CIA1 internal state access: reg_tod_secs
+C64 - $DC18 HYPERVISOR MODE ONLY CIA1 internal state access: reg_tod_dsecs, imask_flag,serialport,alarm,tb
+C64 - $DC19 HYPERVISOR MODE ONLY CIA1 internal state access: reg_tod_secs, imask_ta
 C64 - $DC1A HYPERVISOR MODE ONLY CIA1 internal state access: reg_tod_mins
 C64 - $DC1B HYPERVISOR MODE ONLY CIA1 internal state access: reg_tod_hours
 C64 - $DC1C HYPERVISOR MODE ONLY CIA1 internal state access: reg_alarm_dsecs
