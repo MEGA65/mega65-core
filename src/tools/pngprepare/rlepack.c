@@ -158,6 +158,8 @@ int main(int argc,char **argv)
 	else
 	  fwrite(queue[i]->raw_region,queue[i]->code_byte&0x7f,1,o);
       }
+    // Terminate with $00 char to mark end of packed data
+    fputc(0x00,o);
     fclose(o);
 
     // Now verify
@@ -173,7 +175,7 @@ int main(int argc,char **argv)
     unsigned char unpacked[MAX_RAW_SIZE];
     int unpacked_len=0;
     offset=0;
-    while(offset<packed_len&&unpacked_len<raw_size) {
+    while(offset<=packed_len&&unpacked_len<raw_size) {
       int count=packed[offset]&0x7f;
       if (packed[offset]==0x80) {
 	count=packed[offset+1];
@@ -192,7 +194,9 @@ int main(int argc,char **argv)
 	unpacked_len+=count;
       }
     }
-
+    // Skip end $00 marker
+    if (!packed[offset]) offset++;
+    
     if (unpacked_len!=raw_size) {
       fprintf(stderr,"ERROR: Unpacked len = %d during verification. Should have been %d\n",
 	      unpacked_len,raw_size);
