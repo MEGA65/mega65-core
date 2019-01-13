@@ -5,8 +5,14 @@
   follows.  The lower bits are the count of bytes.  If raw, then the bytes
   follow. If RLE, then the single byte value follows.
 
-  Ideally we should implement a dynamic programming algorithm to optimise
-  this.
+  Since tilesets have repeating 00 ff motifs, we also allow for repeating
+  double char seqences, by using code byte 0x80 which will never otherwise
+  get used, followed by 2 bytes of repeat.  This also allows us to encode
+  upto 512 bytes using only 4 bytes, instead of needing 10 bytes if we 
+  use the normal 0 - 127 count RLE.
+
+  Dynamic programming is used to select optimal (i.e., shortest) encoding,
+  so it will automatically pick which combination of tokens is best.
 */
 
 #define MAX_RAW_SIZE (128*1024)
@@ -20,6 +26,7 @@ int raw_size;
 
 typedef struct dp_item {
   unsigned char code_byte;
+  unsigned char code_byte2;
   unsigned char *raw_region;
   int cumulative_cost;
   int parent;
@@ -94,6 +101,22 @@ int main(int argc,char **argv)
 	      dp_list[end].parent=start;
 	    }	    
 	  }
+
+	// Now try RLE of pairs of bytes
+	for(int end=start+2;
+	    (raw[end-2]==raw[start])&&(raw[end-1]==raw[start+1])
+	      &&end<=raw_size&&(end-start)<512;end+=2)
+	  {
+	    int this_cost=1+1+2;
+	    if (this_cost+cumulative_cost<dp_list[end].cumulative_cost) {
+	      // This is a superior option to what is currently recorded.
+	      dp_list[end].code_byte=0x80;
+	      dp_list[end].code_byte2=(end-start)>>1;
+	      dp_list[end].cumulative_cost=this_cost+cumulative_cost;
+	      dp_list[end].raw_region=&raw[start];
+	      dp_list[end].parent=start;
+	    }	    
+	  }
 	
       }
 
@@ -125,7 +148,12 @@ int main(int argc,char **argv)
     for(int i=queue_len-1;i>=0;i--)
       {
 	fputc(queue[i]->code_byte,o);
-	if (queue[i]->code_byte&0x80) 
+	if (queue[i]->code_byte==0x80) {
+	  fputc(queue[i]->code_byte2,o);
+	  fputc(queue[i]->raw_region[0],o);
+	  fputc(queue[i]->raw_region[1],o);
+	}
+	else if (queue[i]->code_byte&0x80) 
 	  fputc(*queue[i]->raw_region,o);
 	else
 	  fwrite(queue[i]->raw_region,queue[i]->code_byte&0x7f,1,o);
@@ -147,7 +175,14 @@ int main(int argc,char **argv)
     offset=0;
     while(offset<packed_len&&unpacked_len<raw_size) {
       int count=packed[offset]&0x7f;
-      if (packed[offset]&0x80) {
+      if (packed[offset]==0x80) {
+	count=packed[offset+1];
+	for(int i=0;i<count;i++) {
+	  unpacked[unpacked_len++]=packed[offset+2];
+	  unpacked[unpacked_len++]=packed[offset+3];
+	}
+	offset+=4;
+      } else if (packed[offset]&0x80) {
 	// Decode RLE
 	for(int i=0;i<count;i++) unpacked[unpacked_len++]=packed[offset+1];
 	offset+=2;
@@ -162,12 +197,17 @@ int main(int argc,char **argv)
       fprintf(stderr,"ERROR: Unpacked len = %d during verification. Should have been %d\n",
 	      unpacked_len,raw_size);
       retVal=1;
+      o=fopen("verify.out","w");
+      if (o) { fwrite(unpacked,unpacked_len,1,o); fclose(o); }
+      
       break;
     }
 
     if (offset!=packed_len) {
       fprintf(stderr,"ERROR: Only used %d of %d bytes during unpacking.\n",
 	      offset,packed_len);
+      o=fopen("verify.out","w");
+      if (o) { fwrite(unpacked,unpacked_len,1,o); fclose(o); }
       retVal=1;
       break;
     }
@@ -177,6 +217,10 @@ int main(int argc,char **argv)
 	fprintf(stderr,"ERROR: Verification error at offset %d : saw 0x%02x instead of 0x%02x\n",
 		i,unpacked[i],raw[i]);
 	retVal=1;
+
+	o=fopen("verify.out","w");
+	if (o) { fwrite(unpacked,unpacked_len,1,o); fclose(o); }
+	
 	break;
       }
     }
