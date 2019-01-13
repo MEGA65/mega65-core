@@ -158,15 +158,16 @@ iter1:	 .byte 0
 	dew $fd
 	bne @patchTileNumberLoop
 
-	lda $f9
-	sta $0402
-	lda $fa
-	sta $0403
-	lda $fb
-	sta $0404
-	lda $fc
-	sta $0405
-
+	; Copy palette into place using DMA
+	; (and clear colour RAM at the same time)
+	lda #>palette_dmalist
+	sta $d701
+	lda #$00
+	sta $D702
+	sta $d703
+	sta $d704
+	lda #<palette_dmalist
+	sta $D705
 
 	 ; Set border and screen to black
 	 LDA #$00
@@ -207,11 +208,11 @@ iter1:	 .byte 0
 	 STA $D04F
 
 	 ; Logical and physical line lengths
-	 LDA #<100
+	 LDA #<200     ; 100 x 2 bytes
 	 STA $D058
-	 LDA #>100
+	 LDA #>200
 	 STA $D059
-	 LDA #100
+	 LDA #100      ; draw 100 chars 
 	 STA $D05E
 
 	 ; Screen memory start
@@ -226,6 +227,39 @@ iter1:	 .byte 0
 
 tilecount:	.word 0
 screen_addr:	.word 0,0
+
+palette_dmalist:
+		; copy palette
+
+		; MEGA65 Enhanced DMA options
+		.byte $0A      ; Request format is F018A
+		.byte $80,$00 ; source MB is $00xxxxx
+		.byte $81,$FF ; dest MB $FFxxxxx
+		.byte $00 ; end of options marker
+		; F018A format request follows
+		.byte $04 ; COPY + chain
+		.word $0300 ; 3x$100 palettes = $300
+		; source address
+		.word $0040
+		.byte $04
+		; destination address ($xxD3100)
+		.word $3100
+		.byte $0D 
+		.byte $00,00 ; Modulo
+
+		; Clear colour RAM
+		;
+		; MEGA65 DMA options
+		.byte $00     ; no more options
+		; F018A dma list
+		.byte $03     ; FILL + not chained
+		.word 12000   ; 100x60x2 bytes per char
+		.byte $00     ; fill with $00
+		.byte $00,$00 ; rest of source address is ignored in fill
+		.word $0000   ;
+		.byte $08     ; 
+		.word $0000   ; modulo (unused)
+
 
 unpack:
 
