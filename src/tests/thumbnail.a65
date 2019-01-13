@@ -93,7 +93,7 @@ irq_00:
  	 dec $d020
 
 	 ldx #0
-*	 lda $d630,x
+*	 lda $d640,x
 	 sta $0400,x
 	 inx
 	 cpx #5
@@ -112,8 +112,8 @@ irq_00:
 	 jsr redraw_fullcolour_area
 
 	 ; copy thumbnail data into our full-colour display
-	 ; read $D630 to reset read pointer
-	 lda $d630
+	 ; read $D640 to reset read pointer
+	 lda $d640
 	 ; now read 4000 bytes out and store into the grid at $2000.
 	 ; thumbnail data is written linearly, so every 8 pixels we need to add
 	 ; 64-8 bytes, and at the end of every row, i.e., every 80 bytes, we need
@@ -131,7 +131,7 @@ irq_00:
 twloop:
 	; get thumbnail byte, and do palette lookup
 	phy
-	ldy $d631
+	ldy $d641
 	lda colour_table,y
 	ply
 
