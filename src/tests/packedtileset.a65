@@ -23,10 +23,218 @@ iter1:	 .byte 0
 	 LDA #65
 	 sta 0
 
+	 ; Unpack the tile set
 	 jsr unpack
+
+	 ; How many tiles do we have?
+	 lda #<$0010
+	 sta $f9
+	 lda #>$0010
+	 sta $fa
+	 lda #<$0004
+	 sta $fb
+	 lda #>$0004
+	 sta $fc
+	 nop
+	 nop
+	 lda ($f9),z
+	 sta tilecount+0
+	 inz
+	 nop
+	 nop
+	 lda ($f9),z
+	 sta tilecount+1
+	 ldz #$00
+
+	 ; screen address = $040040 + (24 bit address at $4003d )
+	 LDA #<$003d
+	 sta $f9
+	 LDA #>$003d
+	 sta $fa
+	 lda #<$0004
+	 sta $fb
+	 lda #>$0004
+	 sta $fc
+
+	 ldz #$00
+
+	 nop
+	 nop
+	 lda ($f9),z
+	 sta $0400
+	 inz
+	 nop
+	 nop
+	 lda ($f9),z
+	 sta $0401
+	 inz
+	 nop
+	 nop
+	 lda ($f9),z
+	 sta $0402
+	 inz
+	 nop
+	 nop
+	 lda ($f9),z
+	 sta $0403
+	 inz
+
+	 ldz #$00
+
+	 lda #<$0040
+	 clc
+	 nop
+	 nop
+	 adc ($f9),z
+	 sta screen_addr+0
+	 lda #>$0040
+	 inz
+	 nop
+	 nop
+	 adc ($f9),z
+	 sta screen_addr+1
+	 lda #$04
+	 inz
+	 nop
+	 nop
+	 adc ($f9),z
+	 sta screen_addr+2
+
+	 ldz #$00
+	 
+	 ; Patch tile numbers ($40000 / $40 = $1000 as constant offset to add to tile numbers)
+
+	 ; Get pointer to screen memory lists
+	 ldx #3
+*	 lda screen_addr,x
+	 sta $f9,x
+	 dex
+	 bpl -
+
+	 ; We assume 800x480 = 100x60 chars = 6000 screen char byte pairs to patch
+	 lda #<6000
+	 sta $fd
+	 lda #>6000
+	 sta $fe
+
+	 lda #$00
+	 sta $0400
+	 sta $0401
+
+@patchTileNumberLoop:
+	; read high byte
+	ldz #$00	
+	nop
+	nop
+	lda ($f9),z
+	clc
+	adc #<$100d           ; $0340 / $40 = $0D
+	nop
+	nop
+	sta ($f9),z
+
+	inz
+	nop
+	nop
+	lda ($f9),z
+	adc #>$100d           ; $40000 / $40 = $1000
+	nop
+	nop
+	sta ($f9),z
+	
+	ldz #$00
+
+	; advance pointer
+	inw $f9
+	inw $f9
+	bne +
+	inw $fb
+*
+	; Have we done it all yet?
+	inc $0400
+	bne +
+	inc $0401
+*
+	dew $fd
+	bne @patchTileNumberLoop
+
+	lda $f9
+	sta $0402
+	lda $fa
+	sta $0403
+	lda $fb
+	sta $0404
+	lda $fc
+	sta $0405
+
+
+	 ; Set border and screen to black
+	 LDA #$00
+	 STA $D020
+	 STA $D021
+
+	 ; Switch to the appropriate video mode
+	 LDA #$00     ; No side borders
+	 STA $D05C
+	 LDA #$C8     ; V400, H640
+	 STA $D031
+
+	 ; Cause hot-register update
+	 LDA #$1B
+	 STA $D011
+
+	 ; Post hot register changes
+
+	 LDA #$45     ; full colour mode, full speed CPU
+	 STA $D054
+	 LDA #<60     ; Top border position
+	 STA $D048
+	 LDA #>60
+	 STA $D049
+	 LDA #<[60+480] ; Bottom border position
+	 STA $D04A
+	 LDA #>[60+480]
+	 STA $D04B
+
+	 ; Chargen X and Y positions
+	 LDA #<16
+	 STA $D04C
+	 LDA #>16
+	 STA $D04D
+	 LDA #<60
+	 STA $D04E
+	 LDA #>60
+	 STA $D04F
+
+	 ; Logical and physical line lengths
+	 LDA #<100
+	 STA $D058
+	 LDA #>100
+	 STA $D059
+	 LDA #100
+	 STA $D05E
+
+	 ; Screen memory start
+	 ldx #3
+*	 lda screen_addr,x
+	 STA $D060,x
+	 dex
+	 bpl -
+	 
+
 	 rts
 
+tilecount:	.word 0
+screen_addr:	.word 0,0
+
 unpack:
+
+	; Save the bits of screen we use for displaying what we are doing
+	lda $d020
+	pha
+	lda $0427
+	pha
+
 	 ; setup pointer to packed data
 	 lda #<packed_data
 	 sta $fd
@@ -52,6 +260,13 @@ unpack_loop:
 	sta $0427
 	; $00 code byte = end of packed stream
 	bne +
+
+	; Restore bits of screen we used to show unpack activity
+	pla
+	sta $0427
+	pla
+	sta $d020
+
 	rts
 *	bmi @isRLEToken
 
