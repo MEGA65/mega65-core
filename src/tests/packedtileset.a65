@@ -1,0 +1,147 @@
+	.outfile "packedtileset.prg"
+
+	 .word $0801
+	 .org $0801
+
+	 .scope
+	 .word _next, 10                       ; Next line and current line number
+	 .byte $97, "2,0:", $9e, " 2014", $AA, "65",0      ; POKE 2,0 : SYS 2014+65
+_next:	 .word 0
+
+iter1:	 .byte 0
+
+	 .checkpc 2079
+	 .advance 2079
+
+	 ; C65GS IO
+	 lda #$47
+	 sta $d02f
+	 lda #$53
+	 sta $d02f
+
+	 ; FAST cpu
+	 LDA #65
+	 sta 0
+
+	 jsr unpack
+	 rts
+
+unpack:
+	 ; setup pointer to packed data
+	 lda #<packed_data
+	 sta $fd
+	 lda #>packed_data
+	 sta $fe
+
+	 ; setup pointer for uncompression at $40000
+	 ; (i.e., the chip ram after the ROM area)
+	 lda #$00
+	 sta $f9
+	 sta $fa
+	 sta $fc
+	 lda #$04
+	 sta $fb
+
+	 ldy #$00
+
+unpack_loop:
+	; 
+	lda ($fd),y
+	; show we are doing something
+	sta $d020
+	sta $0427
+	; $00 code byte = end of packed stream
+	bne +
+	rts
+*	bmi @isRLEToken
+
+	; Literal string: copy A bytes
+	inw $fd
+	tax
+@literalCopyLoop:
+	lda ($fd),y
+	nop
+	nop
+	sta ($f9),z
+
+	; Update source and destination addresses
+	inw $fd
+	inw $f9
+	bne +
+	inw $fb
+*
+	dex
+	bne @literalCopyLoop
+	jmp unpack_loop
+@isRLEToken:
+	cmp #$80
+	beq @isRLE2Token
+	; Get number of copies of the byte
+	and #$7f
+	tax
+	; Advance source pointer to the byte to fill with
+	inw $fd
+	; Read the fill byte
+	lda ($fd),y
+	inw $fd
+@RLEFillLoop:
+	nop
+	nop
+	sta ($f9),z
+
+	; Update destination address
+	inw $f9
+	bne +
+	inw $fb
+*
+	; more bytes to go?
+	dex
+	bne @RLEFillLoop
+	jmp unpack_loop
+	
+@isRLE2Token:
+	; get number of iterations
+	inw $fd
+	lda ($fd),y
+	tax
+	inw $fd
+	; get the two bytes to fill with
+	lda ($fd),y
+	sta byte1
+	inw $fd
+	lda ($fd),y
+	sta byte2
+	inw $fd
+
+@RLE2FillLoop:
+
+	lda byte1
+	nop
+	nop
+	sta ($f9),z
+
+	; Update destination address
+	inw $f9
+	bne +
+	inw $fb
+*
+	lda byte2
+	nop
+	nop
+	sta ($f9),z
+
+	; Update destination address
+	inw $f9
+	bne +
+	inw $fb
+*
+	; more bytes to go?
+	dex
+	bne @RLE2FillLoop
+	jmp unpack_loop
+
+byte1:	.byte 0
+byte2: 	.byte 0
+
+packed_data:
+	 .scend
