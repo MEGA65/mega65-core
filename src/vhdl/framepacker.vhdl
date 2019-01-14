@@ -269,7 +269,8 @@ begin  -- behavioural
           thumbnail_valid <= thumbnail_started;
           thumbnail_started <= '1';
           thumbnail_y_counter <= 0;
-          thumbnail_active_row <= '1';
+          -- Thumbnail generation does not happen when in hypervisor mode
+          thumbnail_active_row <= not last_hypervisor_mode;
           report "THUMB: active_row asserted on row "
             & to_string(std_logic_vector(pixel_y));
         end if;
