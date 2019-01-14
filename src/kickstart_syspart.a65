@@ -146,7 +146,7 @@ syspart_configsector_apply_trap:
 	jsr syspart_configsector_apply
 	sta hypervisor_enterexit_trigger
 
-syspart_unfreze_from_slot_trap:
+syspart_unfreeze_from_slot_trap:
 	ldx hypervisor_x
 	jsr syspart_locate_freezeslot
 	jsr unfreeze_load_from_sdcard_immediate
@@ -371,7 +371,7 @@ syspart_trap_table:
 
 	; $10-$1E
 	.word syspart_locate_freezeslot_trap
-	.word syspart_unfreze_from_slot_trap
+	.word syspart_unfreeze_from_slot_trap
 	.word syspart_read_freeze_region_list_trap
 	.word invalid_subfunction
 	.word invalid_subfunction
