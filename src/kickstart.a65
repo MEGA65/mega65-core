@@ -679,13 +679,13 @@ gotmbr:
 mountsystemdiskok:
 
 		; Load and display boot logo
-		; Prepare 32-bit pointer for loading boot logo @ $0003D00
-		; (palette is $3D00-$3FFF, logo $4000-$8FFF)
-		lda #$3d
+		; Prepare 32-bit pointer for loading boot logo @ $0057D00
+		; (palette is $57D00-$57FFF, logo $58000-$5CFFF)
+		lda #$7d
 		sta <dos_file_loadaddress+1
 		lda #$00
 		sta <dos_file_loadaddress+0
-		; lda #$00
+		; lda #$05
 		sta <dos_file_loadaddress+2
 		; lda #$00
 		sta <dos_file_loadaddress+3
@@ -1757,7 +1757,7 @@ logo1b:		sta $0600,y
 		; $100-$140. $100 x $40 = $4000-$4FFF
 		;
 		ldx #$00
-		lda #$01		
+		lda #$16     ; $1600 x $40 = $58000 where banner tiles sit
 logo2:		sta $0401,x
 		inc
 		sta $0581,x
@@ -1767,19 +1767,37 @@ logo2:		sta $0401,x
 		inx		
 		bne logo2
 
-		; finally set palette for banner using contents of memory at $3D00-$3FFF
+		; finally set palette for banner using contents of memory at $57D00-$57FFF
 setbannerpalette:
-		ldx #$10
-lo1:		lda $3d00,x
-		sta $D100,x
-		lda $3e00,x
-		sta $d200,x
-		lda $3f00,x
-		sta $d300,x
-		inx
-		bne lo1
-		; put nothing else here, as setbannerpalette also gets called after loading banner file
+		; Set DMA list address
+		;
+		lda #>bannerpalettedmalist
+		sta $d701
+		lda #$0f
+		sta $d702 ; DMA list address is $xxFxxxx
+		lda #$ff
+		sta $d704 ; DMA list address is $FFxxxxx
+
+		; set bottom bits of DMA list address and trigger enhanced DMA
+		;
+		lda #<bannerpalettedmalist
+		sta $d705				
 		rts
+
+bannerpalettedmalist:
+		; MEGA65 enhanced DMA options
+		.byte $0A      ; Request format is F018A
+		.byte $80,$00,$81,$FF ; src = $00xxxxx, dst=$FFxxxxx
+		.byte $00 ; no more options
+		; F018A DMA list
+		.byte $04   ; COPY + chained request
+		.word $0300
+		.word $7D00 ;
+		.byte $05   ; source bank 05
+		.word $3100 ; ; $xxx3100
+		.byte $0D   ; ; $xxDxxxx
+		.word $0000 ; modulo (unused)
+	
 
 
 ;	========================
