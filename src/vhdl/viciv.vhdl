@@ -205,6 +205,7 @@ architecture Behavioral of viciv is
 
   signal vicii_hot_regs_enable : std_logic := '1';
   signal viciv_legacy_mode_registers_touched : std_logic := '0';
+  signal viciv_single_side_border_width_touched : std_logic := '0';
   signal reg_d018_screen_addr : unsigned(3 downto 0) := x"1";
 
   signal bump_screen_row_address : std_logic := '0';
@@ -1447,6 +1448,46 @@ begin
       colour_ram_base <= (others => '0');
       
     end procedure viciv_interpret_legacy_mode_registers;
+    procedure viciv_update_side_border_dimensions is
+    begin      
+      -- set horizontal borders based on 40/38 columns
+      report "LEGACY register update";
+      if thirtyeightcolumns='0' then
+        if reg_h640='0' then
+          border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border),14);
+          border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
+                                        -to_integer(single_side_border),14);
+        else
+          border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border),14);
+          border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
+                                        -to_integer(single_side_border)+1,14);
+        end if;
+      else
+        -- 38/40 col mode has one phyical pixel too few on the left (only one
+        -- physical pixel of left most pixel shows when $D016 = $00)
+        -- 78/80 col mode correctly has one physical pixel showing on the left
+        
+        -- 78/80 col mode has right border one pixel too late
+        -- 38/40 col mode has right border one logical pixel too late
+        -- (rightmost pixel of last char is not truncated)
+        -- Thus +2 on both the border_x_right calculations has been reduced by
+        -- 1 or 2 for H640 and H320 modes
+        if reg_h640='0' then
+          border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border)
+                                       +(7*2),14);
+          border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
+                                        -to_integer(single_side_border)
+                                        -(9*2),14);
+        else
+          border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border)
+                                       +(7*2)+1,14);
+          border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
+                                        -to_integer(single_side_border)
+                                        -(9*2),14);
+        end if;
+      end if;
+    end procedure viciv_update_side_border_dimensions;
+
     
     variable register_bank : unsigned(7 downto 0);
     variable register_page : unsigned(3 downto 0);
@@ -1982,7 +2023,12 @@ begin
       
       if viciv_legacy_mode_registers_touched='1' and vicii_hot_regs_enable='1' then
         viciv_interpret_legacy_mode_registers;
+        viciv_update_side_border_dimensions;
         viciv_legacy_mode_registers_touched <= '0';
+      end if;
+      if viciv_single_side_border_width_touched='1' then
+        viciv_update_side_border_dimensions;
+        viciv_single_side_border_width_touched <= '0';
       end if;
       
       ack_collisionspritesprite <= '0';
@@ -2438,9 +2484,11 @@ begin
                                                   elsif register_number=92 then
                                         -- @IO:GS $D05C VIC-IV side border width (LSB)
                                                     single_side_border(7 downto 0) <= unsigned(fastio_wdata);
+                                                    viciv_single_side_border_width_touched <= '1';
                                                   elsif register_number=93 then
                                         -- @IO:GS $D05D.0-5 VIC-IV side border width (MSB)
                                                     single_side_border(13 downto 8) <= unsigned(fastio_wdata(5 downto 0));
+                                                    viciv_single_side_border_width_touched <= '1';
                                         -- @IO:GS $D05D.6 VIC-IV Enable raster delay (delays raster counter and interrupts by one line to match output pipeline latency)
                                                     enable_raster_delay <= fastio_wdata(6);
                                         -- @IO:GS $D05D.7 VIC-IV Enable VIC-II hot registers
