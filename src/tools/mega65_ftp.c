@@ -789,13 +789,12 @@ int open_file_system(void)
 
     for(int i=0;i<4;i++) {
       unsigned char *part_ent = &mbr[0x1be + (i*0x10)];
-      //      dump_bytes(0,"partent",part_ent,16);
+      dump_bytes(0,"partent",part_ent,16);
       if (part_ent[4]==0x0c||part_ent[4]==0x0b) {
 	partition_start=part_ent[8]+(part_ent[9]<<8)+(part_ent[10]<<16)+(part_ent[11]<<24);
 	partition_size=part_ent[12]+(part_ent[13]<<8)+(part_ent[14]<<16)+(part_ent[15]<<24);
 	printf("Found FAT32 partition in partition slot %d : start sector=$%x, size=%d MB\n",
 	       i,partition_start,partition_size/2048);
-	break;
       }
       if (part_ent[4]==0x41) {
 	syspart_start=part_ent[8]+(part_ent[9]<<8)+(part_ent[10]<<16)+(part_ent[11]<<24);
