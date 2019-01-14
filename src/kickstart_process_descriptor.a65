@@ -19,6 +19,23 @@ currenttask_id:
 currenttask_name:
 	.byte "OPERATING SYSTEM"
 
+	.alias d81_image_max_namelen 32
+	.alias d81_image_flag_mounted 1
+	.alias d81_image_flag_write_en 4
+currenttask_d81_image0_flags:
+	.byte 0
+currenttask_d81_image1_flags:
+	.byte 0
+	; File names of currently mounted disk images (32 character max length)
+currenttask_d81_image0_namelen:
+	.byte 0
+currenttask_d81_image1_namelen:
+	.byte 0
+currenttask_d81_image0_name:
+	.byte "                                "
+currenttask_d81_image1_name:
+	.byte "                                "
+
 ; Make sure we don't over-flow the available space
 	.checkpc currenttask_block+[$80]
 	.advance currenttask_block+[$80],$00

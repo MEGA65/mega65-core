@@ -70,8 +70,41 @@ unfreeze_next_region:
 	cmp #$ff
 	bne unfreeze_next_region
 
-	; XXX - Fix mounted D81, in case it has moved on the SD card since program was frozen
+	; Fix mounted D81, in case it has moved on the SD card since program was frozen
 
+	; 1. Detach
+	jsr dos_d81detach
+
+	; 2. Copy filename
+	ldx currenttask_d81_image0_namelen
+	beq @noD81ImageToRemount
+	ldx #0
+*	lda currenttask_d81_image0_name,x
+	sta dos_requested_filename,x
+	inx
+	cpx currenttask_d81_image0_namelen
+	bne -
+	lda #0
+	sta dos_requested_filename,x
+	stx dos_requested_filename_len
+
+	; 3. Remember write-enable flag
+	lda currenttask_d81_image0_flags
+	and #d81_image_flag_write_en
+	pha
+
+	; 4. Try to reattach it
+	jsr dos_d81attach
+
+	; 5. Mark write enabled if required
+	pla
+	cmp #$00
+	beq @noD81ImageToRemount
+
+	; 6. Re-enable write access on the disk image
+	jsr dos_d81write_en
+
+@noD81ImageToRemount:
 	rts
 
 unfreeze_read_sector_and_wait:

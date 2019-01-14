@@ -165,7 +165,7 @@ dos_and_process_trap_table:
 	;
 	.word trap_dos_d81attach
 	.word trap_dos_d81detach
-	.word trap_dos_d81writeen
+	.word trap_dos_d81write_en
 	.word invalid_subfunction
 	.word invalid_subfunction
 	.word invalid_subfunction
@@ -520,31 +520,42 @@ trap_dos_d81attach:
 
 trap_dos_d81detach:
 
-	lda #$00
-	sta $d68b
+	jsr dos_d81detach
+
 	jmp return_from_trap_with_success
 
 ;	========================
 	
-trap_dos_d81writeen:	
+trap_dos_d81write_en:	
 
+	jsr dos_d81write_en	
+	jmp return_from_trap_with_carry_flag
+
+dos_d81write_en:
 	lda $d68b
 	and #$03
 	cmp #$03
 	bne td81we1
  	ora #$04
 	sta $d68b
-	jmp return_from_trap_with_success
+	
+	; Mark disk image write-enabled in proces descriptor
+	lda currenttask_d81_image0_flags
+	ora #d81_image_flag_write_en
+
+	sec
+	rts
 
 td81we1:
 	; No disk image mounted
 	;
 
-	.invoke checkpoint "trap_dos_d81writen-FAIL"
+	.invoke checkpoint "dos_d81writ_en-FAIL"
 
 	lda #dos_errorcode_no_such_disk
 	sta dos_error_code
-	jmp return_from_trap_with_failure
+	clc
+	rts
 
 ;	========================
 
@@ -3272,9 +3283,23 @@ dsn_eon:
 
 ;	========================
 
-dos_d81attach:
+dos_d81detach:
+	lda #$00
+	sta $d68b
 
-	.invoke checkpoint "dos_d81attach <checking>"
+	; Mark it as unmounted (but preserve other flags for remounting, e.g., if it should be write-enabled)
+	lda currenttask_d81_image0_flags
+	ora #d81_image_flag_mounted
+	eor #d81_image_flag_mounted
+	sta currenttask_d81_image0_flags
+
+	; But we leave the file name there, in case someone wants to re-mount the image.
+	; This is exactly what happens when a process is unfrozen: dos_d81detach is called,
+	; followed by dos_d81attach, after first retrieving the filename
+	sec
+	rts
+
+dos_d81attach:
 
 	; Assumes only that D81 file name has been set with dos_setname.
 		;
@@ -3445,8 +3470,38 @@ l94d:		lda $d681,x
 
 		.invoke checkpoint "dos_d81attach <success>"
 
+		; Save name and set mount flag for disk image in process descriptor block
+		lda #d81_image_flag_mounted
+		sta currenttask_d81_image0_flags
+
+		LDX dos_requested_filename_len
+
+		; Check if the filename of the disk image is too long
+		cpx #d81_image_max_namelen
+		bcs @d81NameTooLongForProcessDescriptor
+
+		; Name not too long, save name and length
+		stx currenttask_d81_image0_namelen
+		ldx #0
+*		lda dos_requested_filename,x
+		sta currenttask_d81_image0_name,x
+		inx
+		cpx currenttask_d81_image0_namelen
+		bne -
+		
 		sec
 		rts
+
+@d81NameTooLongForProcessDescriptor:
+		; Name is too long, so don't save it.
+		; This means that the disk image will unmount on freeze, and will not re-mount after
+		; XXX - This should probably be an error.
+		lda #0
+		sta currenttask_d81_image0_namelen
+		
+		sec
+		rts
+		
 
 ;	========================
 		

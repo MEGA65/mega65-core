@@ -6,7 +6,7 @@
 COPT=	-Wall -g -std=gnu99
 CC=	gcc
 OPHIS=	Ophis/bin/ophis
-OPHISOPT=	-4 --no-branch-extend
+OPHISOPT=	-4
 OPHIS_MON= Ophis/bin/ophis -c
 
 VIVADO=	./vivado_wrapper
