@@ -460,7 +460,7 @@ architecture Behavioral of viciv is
   signal paint_buffer_hflip_ramdata : unsigned(7 downto 0) := to_unsigned(0,8);
   signal paint_buffer_noflip_ramdata : unsigned(7 downto 0) := to_unsigned(0,8);
   signal paint_buffer : unsigned(7 downto 0) := to_unsigned(0,8);
-  signal paint_bits_remaining : integer range 0 to 8 := 0;
+  signal paint_bits_remaining : integer range 0 to 16 := 0;
   signal paint_chardata : unsigned(7 downto 0) := to_unsigned(0,8);
   signal paint_ramdata : unsigned(7 downto 0) := to_unsigned(0,8);
 
@@ -2591,8 +2591,6 @@ begin
                                                         single_side_border <= to_unsigned(80,14);
 
                                                     end case;
-                                        -- Update screen and border positions
-                                                    viciv_legacy_mode_registers_touched <= '1';
                                                   elsif register_number=112 then
                                         -- @IO:GS $D070 VIC-IV palette bank selection
                                         -- @IO:GS $D070.7-6 VIC-IV palette bank mapped at $D100-$D3FF
