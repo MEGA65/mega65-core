@@ -2520,7 +2520,9 @@ begin
                                                     report "LEGACY register update & PAL/NTSC mode select";
                                                     
                                         -- Recompute screen and border positions
-                                                    viciv_legacy_mode_registers_touched <= '1';
+                                                    -- Actually dont, as this
+                                                    -- messes up freezing and unfreezing
+                                                    -- viciv_legacy_mode_registers_touched <= '1';
                                                     
                                                     case fastio_wdata(7 downto 6) is
                                                       when "00" => -- PAL, 800x600 @ 50Hz
