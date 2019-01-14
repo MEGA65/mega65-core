@@ -338,16 +338,16 @@ GS $D624.5 fa_poty line
 GS $D624.6 fb_potx line
 GS $D624.7 fb_poty line          
 GS $D624 READ ONLY
-GS $D630.6 - Thumbnail drawing was in progress.
-GS $D630.7 - Thumbnail is valid if 1.  Else there has not been a complete frame since elapsed without a trap to hypervisor mode, in which case the thumbnail may not reflect the current process.
-GS $D630-$D631 - Read-only hardware-generated thumbnail of display (accessible only in hypervisor mode)
-GS $D630 - Read to obtain status of thumbnail generator.
-GS $D630 - Write to reset port address for thumbnail generator
-GS $D631 - Read port for thumbnail generator
-GS $D632 - Lower 8 bits of thumbnail buffer read address (TEMPORARY DEBUG REGISTER)
+GS $D640.6 - Thumbnail drawing was in progress.
+GS $D640.7 - Thumbnail is valid if 1.  Else there has not been a complete frame since elapsed without a trap to hypervisor mode, in which case the thumbnail may not reflect the current process.
+GS $D640-$D641 - Read-only hardware-generated thumbnail of display (accessible only in hypervisor mode)
 GS $D640 - Hypervisor A register storage
+GS $D640 - Read to obtain status of thumbnail generator.
+GS $D640 - Read to reset port address for thumbnail generator
 GS $D641 - Hypervisor X register storage
+GS $D641 - Read port for thumbnail generator
 GS $D642 - Hypervisor Y register storage
+GS $D642 - Lower 8 bits of thumbnail buffer read address (TEMPORARY DEBUG REGISTER)
 GS $D643 - Hypervisor Z register storage
 GS $D644 - Hypervisor B register storage
 GS $D645 - Hypervisor SPL register storage

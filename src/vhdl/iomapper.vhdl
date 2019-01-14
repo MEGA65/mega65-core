@@ -1293,7 +1293,8 @@ begin
         c65uart_cs <= '0';
         report "THUMB: CS consideration for $FFD364x";
         -- $D640-$D64F is thumbnail generator
-        if address(19 downto 4) = x"D364" then
+        if address(19 downto 4) = x"D264" 
+          or address(19 downto 4) = x"D364" then
           thumbnail_cs <= c65uart_en;
           report "THUMB: Trying to assert thumbnail_cs";
         else

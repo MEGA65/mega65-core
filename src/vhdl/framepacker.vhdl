@@ -193,7 +193,7 @@ begin  -- behavioural
         fastio_rdata <= thumbnail_rdata;
       elsif fastio_addr(3 downto 0) = x"0" then
         -- @IO:GS $D640-$D641 - Read-only hardware-generated thumbnail of display (accessible only in hypervisor mode)
-        -- @IO:GS $D640 - Write to reset port address for thumbnail generator
+        -- @IO:GS $D640 - Read to reset port address for thumbnail generator
         -- @IO:GS $D640 - Read to obtain status of thumbnail generator.
         -- @IO:GS $D640.7 - Thumbnail is valid if 1.  Else there has not been a complete frame since elapsed without a trap to hypervisor mode, in which case the thumbnail may not reflect the current process.
         -- @IO:GS $D640.6 - Thumbnail drawing was in progress.

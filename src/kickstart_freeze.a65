@@ -547,11 +547,8 @@ do_unfreeze_prep_restore_sd_buffer_and_regs:
 	RTS
 
 do_freeze_prep_thumbnail:
-	; Read the 4KB hardware thumbnail from $D630 and write it to $1000-$1FFF
+	; Read the 4KB hardware thumbnail from $D640 and write it to $1000-$1FFF
 	; We can in principle use a fixed-source DMA to do this.
-
-	; First, make sure the read pointer is at the start of the thumbnail
-	sta $d630 ; any write here resets the read pointer
 
 	; set up our pointer for writing
 	lda #<$1000
@@ -561,8 +558,34 @@ do_freeze_prep_thumbnail:
 	ldy #$00
 	ldx #$10
 
+	; Set pointer to $FFD2640 to access thumbnail generator.
+	; This is because the thumbnail generator lives at $D640 which overlaps
+	; with the hypervisor trap registers when in hypervisor mode.
+	; We previously had the thumbnail generator mapped at $D63x, but that
+	; was causing CS glitching that was messing up reading from the C65 UART
+	; registers.  So now we have moved it to this magic space
+	lda #<$2640
+	sta zptempv32+0
+	lda #>$2640
+	sta zptempv32+1
+	lda #<$0FFD
+	sta zptempv32+2
+	lda #>$0FFD
+	sta zptempv32+3
+
+	; First, make sure the read pointer is at the start of the thumbnail
+	ldz #$00
+	nop
+	nop
+	; Then advance pointer address to $D641 
+	lda (<zptempv32),z
+	lda #<$2640
+	sta zptempv32+0
+
 @thumbfetchloop:
-	lda $d630
+	nop
+	nop
+	lda (<zptempv32),z
 	sta (<dos_scratch_vector),y
 	iny
 	bne @thumbfetchloop
