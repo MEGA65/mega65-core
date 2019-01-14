@@ -579,7 +579,7 @@ do_freeze_prep_thumbnail:
 	nop
 	; Then advance pointer address to $D641 
 	lda (<zptempv32),z
-	lda #<$2640
+	lda #<$2641
 	sta zptempv32+0
 
 @thumbfetchloop:
