@@ -301,6 +301,7 @@ begin  -- behavioural
       end if;
       pixel_drive <= pixel_stream_in;
 
+      last_hypervisor_mode <= hypervisor_mode;
       if hypervisor_mode = '0' and last_hypervisor_mode = '1' then
         thumbnail_started <= '0';
         thumbnail_valid <= '0';
