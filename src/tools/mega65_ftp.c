@@ -1232,7 +1232,7 @@ int rename_file(char *name,char *dest_name)
 
     // Write name
     for(int i=0;i<11;i++) dir_sector_buffer[dir_sector_offset+i]=0x20;
-    for(int i=0;i<8;i++)
+    for(int i=0;i<9;i++)
       if (dest_name[i]=='.') {
 	// Write out extension
 	for(int j=0;j<3;j++)
@@ -1302,7 +1302,7 @@ int upload_file(char *name,char *dest_name)
 
 	  // Write name
 	  for(int i=0;i<11;i++) dir[i]=0x20;
-	  for(int i=0;i<8;i++)
+	  for(int i=0;i<9;i++)
 	    if (dest_name[i]=='.') {
 	      // Write out extension
 	      for(int j=0;j<3;j++)
