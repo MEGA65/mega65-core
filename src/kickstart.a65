@@ -522,7 +522,9 @@ reset_machine_state:
 		lda $df00
 
 		jsr resetdisplay
+
 		jsr erasescreen
+
 		jsr resetpalette
 
 		;note that this first message does not get displayed correctly
@@ -1513,6 +1515,12 @@ resetdisplay:
 		sta $d06a
 		sta $d06b
 
+		; point VIC-IV to bottom 16KB of display memory
+		;
+		lda #$ff
+		sta $DD01
+		sta $DD00
+
 		; We use VIC-II style registers as this resets video frame in
 		; least instructions, and 40 columns is fine for us.
 		;
@@ -1524,12 +1532,6 @@ resetdisplay:
 
 		lda #$C8	; 1100 1000
 		sta $D016	; VIC-II Control Register
-
-		; point VIC-IV to bottom 16KB of display memory
-		;
-		lda #$ff
-		sta $DD01
-		sta $DD00
 
 		; Now switch to 16-bit text mode so that we can use proportional
 		; characters and full-colour characters for chars >$FF for the logo
@@ -1543,7 +1545,7 @@ resetdisplay:
 		sta $d058
 		lda #>80
 		sta $d059
-		
+
 		rts
 
 ;	========================
@@ -1781,7 +1783,9 @@ setbannerpalette:
 		; set bottom bits of DMA list address and trigger enhanced DMA
 		;
 		lda #<bannerpalettedmalist
-		sta $d705				
+		sta $d705
+
+
 		rts
 
 bannerpalettedmalist:
@@ -1790,7 +1794,7 @@ bannerpalettedmalist:
 		.byte $80,$00,$81,$FF ; src = $00xxxxx, dst=$FFxxxxx
 		.byte $00 ; no more options
 		; F018A DMA list
-		.byte $04   ; COPY + chained request
+		.byte $00   ; COPY + no chained request
 		.word $0300
 		.word $7D00 ;
 		.byte $05   ; source bank 05
@@ -1820,27 +1824,17 @@ erasescreendmalist:
 		; Clear colour RAM
 		;
 		; MEGA65 DMA options
+		.byte $81,$FF ; Destination is $FFxxxxx
 		.byte $00     ; no more options
 		; F018A dma list
-		.byte $07     ; FILL + chained request
+		.byte $03     ; FILL + no more chained requests
 		.word 2000    ; 40x25x2 = 2000
 		.byte $01     ; fill with white = $01
 		.byte $00,$00 ; rest of source address is ignored in fill
-		.word $d800   ; screen is at $0400
-		.byte $80     ; screen is in IO, so bank IO in to DMA context
+		.word $0000   ; destination address
+		.byte $08     ; destination bank
 		.word $0000   ; modulo (unused)
 
-		; Copy shadow RAM logo to chip RAM
-		; XXX - We can get rid of this by preinitialising CHIPRAM as well as shadow RAM
-		;
-		.byte $00   ; no more options
-		.byte $00   ; COPY + end of chain
-		.word $6000 ; 320x64 = $6000
-		.word $4000 ; fill with white = $01
-		.byte $00   ; rest of source address is ignored in fill
-		.word $4000 ; screen is at $0400
-		.byte $00   ; screen is in IO, so bank IO in to DMA context
-		.word $0000 ; modulo (unused)
 
 ;	========================
 
