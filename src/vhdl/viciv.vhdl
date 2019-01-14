@@ -1853,12 +1853,12 @@ begin
 	  fastio_rdata <= sprite_v400_msbs;
         elsif register_number=120 then  -- $D3078 Sprite V400 Y position super MSBs
 	  fastio_rdata <= sprite_v400_super_msbs;
-        elsif register_number=121 then  -- $D3079 (was frame_height, now free)
-          fastio_rdata <= x"FF";
+        elsif register_number=121 then  -- $D3079 raster compare direct access
+          fastio_rdata <= std_logic_vector(vicii_raster_compare(7 downto 0));
         elsif register_number=122 then  -- $D307A
-          fastio_rdata(3 downto 0) <= std_logic_vector(display_height(11 downto 8));
-	  fastio_rdata(7 downto 4) <= x"F"; -- was frame_height MSBs, now free
-          
+          fastio_rdata(2 downto 0) <= std_logic_vector(vicii_raster_compare(10 downto 8));
+          fastio_rdata(6 downto 3) <= (others => '0');
+	  fastio_rdata(7) <= vicii_is_raster_source;
         elsif register_number=123 then  -- $D307B
           fastio_rdata <= x"FF";
         elsif register_number=124 then  -- $D307C
@@ -2628,10 +2628,13 @@ begin
                                                     -- @IO:GS $D078 Sprite V400 Y position super MSBs
                                                     sprite_v400_super_msbs <= fastio_wdata;
                                                   elsif register_number=121 then  -- $D3079
-                                                                                  -- @IO:GS $D079 VIC-IV UNUSED
-                                                    null;
+                                                    -- @IO:GS $D079 VIC-IV Raster compare direct access LSB
+                                                    vicii_raster_compare(7 downto 0) <= unsigned(fastio_wdata);
                                                   elsif register_number=122 then  -- $D307A
-                                                                                  -- @IO:GS $D07A VIC-IV UNUSED
+                                                    -- @IO:GS $D07A.0-2 VIC-IV Raster compare direct access MSBs
+                                                    -- @IO:GS $D07A.7 VIC-IV Raster compare source (1=VIC-IV fine raster, 0=VIC-II raster)
+                                                    vicii_raster_compare(10 downto 8) <= unsigned(fastio_wdata(2 downto 0));
+                                                    vicii_is_raster_source <= fastio_wdata(7);
                                                     null;
                                                   elsif register_number=123 then
                                         -- @IO:GS $D07B VIC-IV UNUSED

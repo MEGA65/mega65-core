@@ -205,8 +205,9 @@ GS $D075 VIC-IV Sprite alpha-blend value
 GS $D076 Sprite V400 enables
 GS $D077 Sprite V400 Y position MSBs
 GS $D078 Sprite V400 Y position super MSBs
-GS $D079 VIC-IV UNUSED
-GS $D07A VIC-IV UNUSED
+GS $D079 VIC-IV Raster compare direct access LSB
+GS $D07A.0-2 VIC-IV Raster compare direct access MSBs
+GS $D07A.7 VIC-IV Raster compare source (1=VIC-IV fine raster, 0=VIC-II raster)
 GS $D07B VIC-IV UNUSED
 GS $D07C.0-3 UNUSED BITS
 GS $D07C.4 VIC-IV hsync polarity
