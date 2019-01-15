@@ -875,6 +875,12 @@ freeze_mem_list:
 	.byte 0
 	.byte freeze_prep_none
 
+	; Process decriptor
+	.dword $fffbd00
+	.word $0100
+	.byte 0
+	.byte freeze_prep_none
+
 	; $D640-$D67E hypervisor state registers
 	; XXX - These can't be read by DMA, so we need to have a
 	; prep routine that copies them out first?
