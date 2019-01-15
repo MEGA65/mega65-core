@@ -157,7 +157,7 @@ dos_and_process_trap_table:
 	.word trap_dos_findfile
 	.word trap_dos_loadfile
 	.word trap_dos_geterrorcode
-	.word invalid_subfunction
+	.word trap_dos_setup_transfer_area
 	.word invalid_subfunction
 	.word invalid_subfunction
 
@@ -288,6 +288,12 @@ trap_dos_loadfile:
 
 ;	========================
 
+trap_dos_setup_transfer_area:
+
+	jsr hypervisor_setup_copy_region
+
+	jmp return_from_trap_with_carry_flag
+
 trap_dos_setname:
 
 	; read file name from any where in bottom 32KB of RAM, as mapped on entry
@@ -349,6 +355,9 @@ trap_dos_getcurrentdrive:
 
 trap_dos_opendir:
 
+	; X = File descriptor
+	; Y = Page of memory to write dirent into
+
 	; Open the current working directory for iteration.
 	;
 	jsr dos_opendir
@@ -402,6 +411,8 @@ trap_dos_readdir:
 	;
 	ldy #dos_dirent_structure_length-1
 tdrd2:
+	; This loop actually copies the whole dirent.
+	; XXX dos_dirent_longfilename must be first in the dirent structure
 	lda dos_dirent_longfilename,y
 	sta (<hypervisor_userspace_copy_vector),y
 	dey
@@ -415,7 +426,7 @@ tdrd2:
 
 tdrd1:
 	.invoke checkpoint "trap_dos_readdir <failure>"
-	
+
 	lda dos_error_code
 	jmp return_from_trap_with_failure
 	
