@@ -152,9 +152,16 @@ syspart_unfreeze_from_slot_trap:
 	jsr unfreeze_load_from_sdcard_immediate
 	sta hypervisor_enterexit_trigger
 
+syspart_get_slot_count_trap:
+	ldx	syspart_freeze_slot_count+0
+	stx	hypervisor_x
+	ldy	syspart_freeze_slot_count+1
+	sty	hypervisor_y
+	jmp	return_from_trap_with_success
 
 syspart_locate_freezeslot_trap:
 	ldx hypervisor_x
+	ldy hypervisor_y
 	jsr syspart_locate_freezeslot
 	sta hypervisor_enterexit_trigger
 
@@ -195,11 +202,34 @@ slotnumok:
 	; Use hardware multiplier to work out slot address
 
 	; Set multiplicant inputs to multiplier
+
+	lda $d680
+	and #$10
+	bne @isSDHC
+
+	; SD card, so unit is bytes
 	ldx #$03
 splf4:	lda syspart_freeze_slot_size_in_bytes,x
 	sta mult48_d0,x
 	dex
 	bpl splf4
+	jmp @multiplierSet
+@isSDHC:
+	; SDHC, so unit is sectors
+	; Start by shifting down by 1 byte = /256
+	ldx #$02
+splf4b:	lda syspart_freeze_slot_size_in_bytes+1,x
+	sta mult48_d0,x
+	dex
+	bpl splf4b
+	lda #$00
+	sta mult48_d0+3
+	; Now divide it all by 2 to get /512
+	lsr mult48_d0+2
+	ror mult48_d0+1
+	ror mult48_d0+0
+
+@multiplierSet:
 
 	plx
 	stx mult48_e0
@@ -373,7 +403,7 @@ syspart_trap_table:
 	.word syspart_locate_freezeslot_trap
 	.word syspart_unfreeze_from_slot_trap
 	.word syspart_read_freeze_region_list_trap
-	.word invalid_subfunction
+	.word syspart_get_slot_count_trap
 	.word invalid_subfunction
 	.word invalid_subfunction
 	.word invalid_subfunction
