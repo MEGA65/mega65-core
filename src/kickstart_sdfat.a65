@@ -200,6 +200,11 @@ sd_map_sectorbuffer:
 
 ; BG this clobbers .A, maybe we should protect .A as the UNMAP-function does? (see below)
 
+     	  	; Clear colour RAM at $DC00 flag, as this prevents mapping of sector buffer at $DE00
+     	  	lda #$01
+		TRB $D030
+
+		; Actually map the sector buffer
 		lda #$81
 		sta $D680
 		sec

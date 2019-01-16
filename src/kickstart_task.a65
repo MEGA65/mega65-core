@@ -169,6 +169,10 @@ task_asblankslate:
 
 restore_press_trap:
 
+	; Clear colour RAM at $DC00 flag, as it causes no end of trouble
+	LDA #$01
+	TRB $D030
+
 	; Freeze to slot 0
 	ldx #$00
 	ldy #$00
@@ -193,7 +197,12 @@ restore_press_trap:
 	lda #$ff
 	sta <dos_file_loadaddress+0
 
+@tryAgain:
 	jsr dos_readfileintomemory
+	inc $d020
+	bcc @tryAgain
+	dec $d020
+	
 	jsr task_set_c64_memorymap
 	jsr task_dummy_nmi_vector
 	
