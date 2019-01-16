@@ -37,8 +37,12 @@ entity audio_complex is
     audio_mix_rdata : out unsigned(15 downto 0) := x"FFFF";
     audio_loopback : out unsigned(15 downto 0) := x"FFFF";
     
+    -- Bypass the audio mixer, and just pass the sids straight out if set
+    -- to compare if the audio mixer is the problem causing dodgy sid audio
+    rawsid_mode : in std_logic;
+  
     -- The various audio busses and interfaces:
-
+    
     -- Audio in from digital SIDs
     leftsid_audio : in unsigned(17 downto 0);
     rightsid_audio : in unsigned(17 downto 0);
@@ -164,6 +168,9 @@ architecture elizabethan of audio_complex is
   -- Use PWM instead of PDM for digital output to speakers
   -- on boards using 1-wire DAC
   signal pwm_mode : std_logic := '0';
+
+  signal ampPWM_l_in : unsigned(15 downto 0);
+  signal ampPWM_r_in : unsigned(15 downto 0);
   
 begin
 
@@ -285,8 +292,8 @@ begin
   pwm0: entity work.pcm_to_pdm
     port map (
       clock50mhz => clock50mhz,
-      pcm_left => spkr_left,
-      pcm_right => spkr_right,
+      pcm_left => ampPWM_l_in,
+      pcm_right => ampPWM_r_in,
 
       pdm_left => ampPWM_l,
       pdm_right => ampPWM_r,
@@ -354,6 +361,16 @@ begin
   begin
     if rising_edge(clock50mhz) then
 
+      -- Allow passing raw SID audio to the Nexys4DDR board headphone jack for
+      -- debugging
+      if rawsid_mode='1' then
+        ampPWM_l_in <= leftsid_audio(16 downto 1);
+        ampPWM_r_in <= rightsid_audio(16 downto 1);
+      else
+        ampPWM_l_in <= spkr_left;
+        ampPWM_r_in <= spkr_right;
+      end if;
+      
       -- Propagate I2S and PCM clocks
       if modem_is_pcm_master='0' then
         -- Use internally generated clock
