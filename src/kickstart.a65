@@ -1512,8 +1512,10 @@ resetdisplay:
 		lda #$80
 		trb $d066
 		lda #$00
-		sta $d06a
-		sta $d06b
+		sta $d06a ; bank# for screen address
+		sta $d06b ; 16-colour sprites
+		sta $d078 ; sprite Y super MSBs
+		sta $d05f ; sprite X super MSBs
 
 		; point VIC-IV to bottom 16KB of display memory
 		;
