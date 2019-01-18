@@ -363,9 +363,14 @@ begin
 
       -- Allow passing raw SID audio to the Nexys4DDR board headphone jack for
       -- debugging
-      if rawsid_mode='1' then
-        ampPWM_l_in <= leftsid_audio(16 downto 1);
-        ampPWM_r_in <= rightsid_audio(16 downto 1);
+      if rawsid_mode='0' then
+        ampPWM_l_in(15 downto 14) <= "00";
+        ampPWM_r_in(15 downto 14) <= "00";
+        -- Invert MSB to flip from signed to unsigned
+        ampPWM_l_in(13) <= not rightsid_audio(15);        
+        ampPWM_r_in(13) <= not leftsid_audio(15);
+        ampPWM_l_in(12 downto 0) <= rightsid_audio(14 downto 2);
+        ampPWM_r_in(12 downto 0) <= leftsid_audio(14 downto 2);
       else
         ampPWM_l_in <= spkr_left;
         ampPWM_r_in <= spkr_right;
