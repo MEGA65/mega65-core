@@ -1516,6 +1516,8 @@ resetdisplay:
 		sta $d06b ; 16-colour sprites
 		sta $d078 ; sprite Y super MSBs
 		sta $d05f ; sprite X super MSBs
+		lda #$78
+		sta $d05a ; correct horizontal scaling
 
 		; point VIC-IV to bottom 16KB of display memory
 		;
