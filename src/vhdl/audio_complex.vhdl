@@ -37,10 +37,6 @@ entity audio_complex is
     audio_mix_rdata : out unsigned(15 downto 0) := x"FFFF";
     audio_loopback : out unsigned(15 downto 0) := x"FFFF";
     
-    -- Bypass the audio mixer, and just pass the sids straight out if set
-    -- to compare if the audio mixer is the problem causing dodgy sid audio
-    rawsid_mode : in std_logic;
-  
     -- The various audio busses and interfaces:
     
     -- Audio in from digital SIDs
@@ -361,20 +357,8 @@ begin
   begin
     if rising_edge(clock50mhz) then
 
-      -- Allow passing raw SID audio to the Nexys4DDR board headphone jack for
-      -- debugging
---      if rawsid_mode='0' then
---        ampPWM_l_in(15 downto 14) <= "00";
---        ampPWM_r_in(15 downto 14) <= "00";
---        -- Invert MSB to flip from signed to unsigned
---        ampPWM_l_in(13) <= not rightsid_audio(15);        
---        ampPWM_r_in(13) <= not leftsid_audio(15);
---        ampPWM_l_in(12 downto 0) <= rightsid_audio(14 downto 2);
---        ampPWM_r_in(12 downto 0) <= leftsid_audio(14 downto 2);
---      else
-        ampPWM_l_in <= spkr_left;
-        ampPWM_r_in <= spkr_right;
---      end if;
+      ampPWM_l_in <= spkr_left;
+      ampPWM_r_in <= spkr_right;
       
       -- Propagate I2S and PCM clocks
       if modem_is_pcm_master='0' then

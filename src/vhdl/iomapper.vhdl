@@ -447,8 +447,6 @@ architecture behavioral of iomapper is
   signal userport_in : std_logic_vector(7 downto 0) := x"FF";
   signal userport_out : std_logic_vector(7 downto 0) := x"FF";
 
-  signal rawsid_mode : std_logic := '0';
-  
 begin
 
   block1: block
@@ -612,8 +610,7 @@ begin
       -- Port E is used for extra keys on C65 keyboard:
       -- bit0 = caps lock (input only)
       -- bit1 = column 8 select (output only)
-      porte(7 downto 3) => dummy_e(7 downto 3),
-      porte(2) => rawsid_mode,
+      porte(7 downto 2) => dummy_e(7 downto 2),
       porte(1) => keyboard_column8_select,
       porte(0) => capslock_from_keymapper,
       -- Port G is M65 only, and has bit-bash interfaces
@@ -885,8 +882,6 @@ begin
   audio0: entity work.audio_complex port map (
     clock50mhz => clk,
 
-    rawsid_mode => rawsid_mode,
-    
     audio_mix_reg => audio_mix_reg,
     audio_mix_write => audio_mix_write,
     audio_mix_wdata => audio_mix_wdata,
