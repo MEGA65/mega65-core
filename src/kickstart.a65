@@ -1518,6 +1518,10 @@ resetdisplay:
 		sta $d05f ; sprite X super MSBs
 		lda #$78
 		sta $d05a ; correct horizontal scaling
+		LDA #$C0
+		STA $D05D ; enable hot registers, raster delay
+		LDA #80
+		STA $D05C ; Side border width LSB
 
 		; point VIC-IV to bottom 16KB of display memory
 		;
