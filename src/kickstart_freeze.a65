@@ -722,6 +722,10 @@ unfreeze_prep_jump_table:
 
 unfreeze_post_jump_table:
 	.word do_unfreeze_post_scratch_to_sdcard_regs
+;	.word do_unfreeze_post_palette_select
+;	.word do_unfreeze_post_palette_select
+;	.word do_unfreeze_post_palette_select
+;	.word do_unfreeze_post_palette_select
 	.word do_unfreeze_post_none
 	.word do_unfreeze_post_none
 	.word do_unfreeze_post_none
