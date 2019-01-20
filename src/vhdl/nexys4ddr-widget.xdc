@@ -3,6 +3,11 @@
 ## - uncomment the lines corresponding to used pins
 ## - rename the used ports (in each line, after get_ports) according to the top level signal names in the project
 
+set_property BITSTREAM.CONFIG.SPI_32BIT_ADDR Yes [current_design]
+set_property BITSTREAM.CONFIG.CONFIGRATE 33 [current_design]
+set_property BITSTREAM.CONFIG.SPI_BUSWIDTH 4 [current_design]
+#set_property CONFIG_MODE SPIx4 [current_design]
+
 # Ignore false paths crossing clock domains in pixel output stage
 
 ## Clock signal
