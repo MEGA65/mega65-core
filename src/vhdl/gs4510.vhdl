@@ -6502,6 +6502,10 @@ begin
         report "SECUREMODE: Holding CPU paused because cpusecure=" & std_logic'image(hyper_protected_hardware(7))
           & ", but monitorsecure=" & std_logic'image(secure_mode_from_monitor);
         io_settle_delay <= '1';
+        -- Stop any active memory writes, so that we don't, for example, keep
+        -- writing to the $D02F key register if we happen to pausse on opening
+        -- VIC-III/IV IO
+        memory_access_write := '0';
       elsif io_settle_counter = x"00" then
         io_settle_delay <= '0';
         report "clearing io_settle_delay due to io_settle_counter=$00";
