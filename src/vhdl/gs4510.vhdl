@@ -6511,8 +6511,9 @@ begin
         io_settle_delay <= '1';
       end if;
       if io_settle_trigger /= io_settle_trigger_last then
-        io_settle_counter <= x"7f";
+        io_settle_counter <= x"ff";
         io_settle_trigger_last <= io_settle_trigger;
+        io_settle_delay <= '1';
       end if;
     end if;
     
