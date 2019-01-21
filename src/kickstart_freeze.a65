@@ -13,6 +13,7 @@ freeze_save_to_sdcard_immediate:
 	; already be pointing to the first sector of the freeze slot
 
 	; Stash SD card registers to scratch area
+	; (also stashed $D070 which gets mushed by palette saving)
 	jsr copy_sdcard_regs_to_scratch
 
 	; Save current SD card sector buffer contents
@@ -701,6 +702,8 @@ freeze_prep_jump_table:
 	.word do_freeze_prep_stash_sd_buffer_and_regs
 	.alias freeze_prep_thumbnail 12
 	.word do_freeze_prep_thumbnail
+	.alias freeze_prep_viciv 14
+	.word do_freeze_prep_viciv
 
 ; Jump table of routines to be called before restoring specific regions
 ; (the same region list is used for freeze and unfreeze, so the jump
@@ -719,13 +722,11 @@ unfreeze_prep_jump_table:
 	.word do_unfreeze_prep_none
 	; thumbnail doesn't get restored at all
 	.word do_unfreeze_prep_none
+	; VIC-IV regs need nothing special before unfreezing
+	.word do_unfreeze_prep_none
 
 unfreeze_post_jump_table:
 	.word do_unfreeze_post_scratch_to_sdcard_regs
-;	.word do_unfreeze_post_palette_select
-;	.word do_unfreeze_post_palette_select
-;	.word do_unfreeze_post_palette_select
-;	.word do_unfreeze_post_palette_select
 	.word do_unfreeze_post_none
 	.word do_unfreeze_post_none
 	.word do_unfreeze_post_none
@@ -734,6 +735,7 @@ unfreeze_post_jump_table:
 	; For a start, it will result in totally the wrong SD sector address being there
 	; when we go to read the next sector!
 ;	.word do_unfreeze_post_restore_sd_buffer_and_regs
+	.word do_unfreeze_post_none
 	.word do_unfreeze_post_none
 	.word do_unfreeze_post_none
 
@@ -758,10 +760,23 @@ dfp1:	lda $d680,x
 	sta freeze_scratch_area,x
 	dex
 	bpl dfp1
+	; Also save $D070 (palette select register)
+	; since it gets stomped while saving palettes
+	lda $d070
+	sta freeze_d070
 	rts
 
 freeze_scratch_area:
 	.byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+freeze_d070:
+	.byte 0
+
+do_freeze_prep_viciv:
+	; Restore saved $D070 value to fix that $D070 will have been
+	; stomped over by the palette saving routines
+	lda freeze_d070
+	sta $d070
+	rts
 
 freeze_region_dmalist:
 	.byte $0A ; F011A format DMA list
@@ -935,7 +950,7 @@ freeze_mem_list:
 	.dword $ffd3000
 	.word $0080 
 	.byte 0
-	.byte freeze_prep_none
+	.byte freeze_prep_viciv
 
 	; VIC-IV C128 2MHz enable emulation register
 	.dword $ffd0030
