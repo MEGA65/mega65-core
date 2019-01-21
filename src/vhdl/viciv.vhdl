@@ -3974,6 +3974,7 @@ begin
           glyph_with_alpha <= '0';
           glyph_width_deduct <= to_unsigned(0,4);
           glyph_goto <= '0';
+          glyph_4bit <= '0';
           
           screen_ram_is_ff <= '0';
           screen_ram_high_is_ff <= '0';
