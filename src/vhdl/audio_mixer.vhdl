@@ -3,7 +3,7 @@
 -- gain, and which are combined to produce the composited audio for a
 -- given audio output channel.  Each output also has a master volume that
 -- is applied at the end.  We allow 15 inputs + master volume and 16 outputs.
--- This requires 256 x 16 bits = 512 bytes of volume registers.
+-- This requires (16 inputs x 2 bytes) x (8 outputs) x 16 bits = 512 bytes of volume registers.
 -- The reason for having a full cross-bar mixer is so that it is possible to
 -- do all sorts of unusual audio routings, such as patching a call between
 -- the two cellular modems, and then also allowing the mixing in of the local
