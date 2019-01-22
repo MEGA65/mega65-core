@@ -1,7 +1,7 @@
 
 audiomix_setup:
 
-		; Set all audio mixer coefficients to something sensible
+		; Set all audio mixer coefficients to maximum by default
 		ldx #$00
 		lda #$30
 aml1:
@@ -18,14 +18,18 @@ aml1:
 		ldx #$1f
 		lda #$ff
 		jsr audiomix_setcoefficient
-
+		
 		; For modem1 output, just have the SIDs at a reasonable volume
+
+		; Zero out all inputs for modem1 output
 		ldx #$40
 		lda #$00
 aml2:		jsr audiomix_setcoefficient
 		inx
 		cpx #$60
 		bne aml2
+
+		; Then put the SID inputs to a good level
 		ldx #$40		
 		lda #$5f
 		jsr audiomix_setcoefficient
@@ -36,7 +40,7 @@ aml2:		jsr audiomix_setcoefficient
 		inx
 		jsr audiomix_setcoefficient
 
-		; Set microphones to full gain
+		; Set microphones to full gain for cellular output
 		ldx #$54
 		lda #$ff
 		jsr audiomix_setcoefficient
