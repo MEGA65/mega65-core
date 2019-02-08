@@ -5,6 +5,13 @@
 	 .word $0801
 	 .org $0801
 
+	; $D60E bit 7 = DDR SDA
+	; $D60E bit 6 = DDR SCL
+	; $D60D bit 7 = SDA
+	; $D60D bit 6 = SCL
+	 .alias data_bit  128
+	 .alias clock_bit 64
+
 	 .scope
 	 .word _next, 10                       ; Next line and current line number
 	 .byte $97, "2,0:", $9e, " 2014", $AA, "65",0      ; POKE 2,0 : SYS 2014+65
@@ -44,12 +51,15 @@ programentrypoint:
 
 	; Try reading an HDMI I2C register
 
-	lda #$00  ; I2C address
+	; Confirmed that address $72 finds the device
+	; (The alternate address of $7A does not)
+	; There is also something on $70, $78, $7C and $7E
+	lda #$72
 
 nextaddr:
 	pha
 
-	ldy #$00
+	ldy #$43   ; EDID Memory Address register, should be neither $00 nor $FF
 	jsr readregister
 	pha
 	lda #$0d
@@ -65,7 +75,7 @@ nextaddr:
 
 	pla
 	inc 
-	bne nextaddr
+;	bne nextaddr
 
 	jmp endloop
 
@@ -79,13 +89,8 @@ l:	inc $d020
 
 	
 endloop:
+	inc $0427
 	jmp endloop
-
-
-	; $D607 bit 6 = DDR SDA
-	; $D607 bit 7 = DDR SCL
-	; $D60D bit 6 = SDA
-	; $D60D bit 7 = SCL
 
 ; Read a register on the I2C bus
 	; A = I2C address of device
@@ -95,15 +100,16 @@ readregister:
 	phy
 	pha
 	jsr i2cstart
-	; Send I2C address with read bit set
+	; Send I2C address with read bit clear 
 	pla
-	ora #$01
+	and #$fe  ; clear read bit
 	jsr i2ctxbyte
 	; Send register number
 	pla
 	jsr i2ctxbyte
-	; Read result
+	; Send repeated start
 	jsr i2cstart
+	; Read result
 	jsr i2crxbyte
 	pha
 	jsr i2cstop
@@ -138,7 +144,7 @@ clockstretchwait:
 	jsr delay10usec
 
 	jsr sdaread
-	cmp #$00
+																																								cmp #$00
 	beq rx0
 	pla
 	ora #$01
@@ -224,7 +230,17 @@ delay10usec:
 	; This loop should be more than sufficient
 	phx
 	ldx #$00
-d1:	inx
+d1:	lda ($12),y
+	lda ($12),y
+	lda ($12),y
+	lda ($12),y
+	lda ($12),y
+	lda ($12),y
+	lda ($12),y
+	lda ($12),y
+	lda ($12),y
+	lda ($12),y
+	inx
 	bne d1
 	plx
 	
@@ -256,8 +272,8 @@ i2cstop:
 	rts
 
 sclhigh:
-	lda #$80
-	trb $d607
+	lda #clock_bit
+	trb $d60E
 	tsb $d60d
 
 	lda #$63
@@ -265,8 +281,8 @@ sclhigh:
 
 	rts
 scllow:
-	lda #$80
-	tsb $d607
+	lda #clock_bit
+	tsb $d60e
 	trb $d60d
 
 	lda #$43
@@ -275,28 +291,28 @@ scllow:
 	rts
 
 sclread:
-	lda #$80
-	trb $d607
-	tsb $d607
+	lda #clock_bit
+	trb $d60e
+	tsb $d60d
 	lda $d60d
-	and #$80
-	rol
-	rol
-	and #$01
+	and #clock_bit
+	beq sclread0
+	lda #$01
+sclread0:
 	rts
 
 
 sdahigh:
-	lda #$40
-	trb $d607
+	lda #data_bit
+	trb $d60e
 	tsb $d60d
 
 	lda #$64
 	jsr $ffd2
 	rts
 sdalow:
-	lda #$40
-	tsb $d607
+	lda #data_bit
+	tsb $d60e
 	trb $d60d
 
 	lda #$44
@@ -304,21 +320,17 @@ sdalow:
 	rts
 
 sdaread:
-	lda #$40
-	trb $d607
-	tsb $d607
+	lda #data_bit
+	trb $d60e
+	tsb $d60d
 	lda $d60d
-	and #$40
-	lsr
-	lsr
-	lsr
-	lsr
-	lsr
-	lsr
-
+	and #data_bit
+	beq sdaread0
+	lda #$01
+sdaread0:
 	rts
 	
 
 	.scend
 
-	.outfile "utilities/floptest.prg"
+	.outfile "hdmitest.prg"
