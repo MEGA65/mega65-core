@@ -97,18 +97,23 @@ endloop:
 	; Y = register number to read
 
 readregister:
-	phy
 	pha
 	jsr i2cstart
 	; Send I2C address with read bit clear 
 	pla
+	pha
 	and #$fe  ; clear read bit
 	jsr i2ctxbyte
 	; Send register number
-	pla
+	tya
 	jsr i2ctxbyte
+
 	; Send repeated start
 	jsr i2cstart
+	; Send I2C address with read bit set
+	pla
+	ora #$01      ; set read bit
+	jsr i2ctxbyte
 	; Read result
 	jsr i2crxbyte
 	pha
@@ -119,6 +124,8 @@ readregister:
 ; Receive a byte on the I2C bus
 ;   Y = (N)ACK bit to send
 i2crxbyte:
+	lda #$72
+	jsr $ffd2
 
 	jsr sdahigh
 	ldx #$00
@@ -133,6 +140,7 @@ rxbit:
 	asl
 	pha
 	
+	jsr delay10usec
 	jsr sclhigh
 
 clockstretchwait:
@@ -144,7 +152,8 @@ clockstretchwait:
 	jsr delay10usec
 
 	jsr sdaread
-																																								cmp #$00
+
+	cmp #$00
 	beq rx0
 	pla
 	ora #$01
@@ -328,6 +337,10 @@ sdaread:
 	beq sdaread0
 	lda #$01
 sdaread0:
+	pha
+	ora #$30
+	jsr $ffd2
+	pla 
 	rts
 	
 
