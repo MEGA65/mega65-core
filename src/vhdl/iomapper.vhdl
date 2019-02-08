@@ -403,7 +403,7 @@ architecture behavioral of iomapper is
   signal virtual_key2 : std_logic_vector(7 downto 0);
   signal virtual_key3 : std_logic_vector(7 downto 0);
 
-  signal keyboard_scan_mode : std_logic_vector(1 downto 0);
+  signal keyboard_scan_mode : std_logic_vector(1 downto 0) := "11";
   signal keyboard_scan_rate : unsigned(7 downto 0);
 
   signal ef_latch : std_logic := '0';
@@ -620,7 +620,8 @@ begin
       portg(4) => sd_bitbash_cs_bo,
       portg(3) => sd_bitbash_sclk_o,
       portg(2) => sd_bitbash_mosi_o,
-      portg(1 downto 0) => keyboard_scan_mode,
+--      portg(1 downto 0) => keyboard_scan_mode,
+      portg(1 downto 0) => "11",
       key_debug => key_debug,
       widget_disable => widget_disable,
       ps2_disable => ps2_disable,
