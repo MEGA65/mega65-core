@@ -1,4 +1,4 @@
-; 3.5" floppy drive test program for MEGA65
+; HDMI I2C setup / test program
 
 ; Include C64 BASIC program load header
 
@@ -54,12 +54,13 @@ programentrypoint:
 	; Confirmed that address $72 finds the device
 	; (The alternate address of $7A does not)
 	; There is also something on $70, $78, $7C and $7E
-	lda #$72
+
+	ldy #$00
+	sta regnum
 
 nextaddr:
-	pha
-
-	ldy #$43   ; EDID Memory Address register, should be neither $00 nor $FF
+	lda #$72
+	ldy regnum
 	jsr readregister
 	pha
 	lda #$0d
@@ -71,26 +72,19 @@ nextaddr:
 
 	lda txackresult
 	cmp #$70
-	beq foundaddr
+	beq readok
 
-	pla
-	inc 
-;	bne nextaddr
+	; indicate error reading I2C bus?
 
-	jmp endloop
+readok:
+	inc regnum
+	bne nextaddr
 
-foundaddr:
-	pla
-	sta $0400
-l:	inc $d020
-	jmp l
-	
-
-
-	
 endloop:
-	inc $0427
+	inc $d020
 	jmp endloop
+
+regnum: .byte 0
 
 ; Read a register on the I2C bus
 	; A = I2C address of device
@@ -125,8 +119,9 @@ readregister:
 ; Receive a byte on the I2C bus
 ;   Y = (N)ACK bit to send
 i2crxbyte:
-	lda #$72
-	jsr $ffd2
+
+;	lda #$72
+;	jsr $ffd2
 
 	jsr sdahigh
 	ldx #$00
@@ -237,9 +232,9 @@ txbitsent:
 	ora #$70
 	sta txackresult
 
-	jsr $ffd2
-	lda #$0d
-	jsr $ffd2
+;	jsr $ffd2
+;	lda #$0d
+;	jsr $ffd2
 	pla
 
 	rts
@@ -266,15 +261,15 @@ d1:	lda ($12),y
 	bne d1
 	plx
 	
-	lda #$2d
-	jsr $ffd2
+;	lda #$2d
+;	jsr $ffd2
 
 	rts
 
 i2cstart:
 
-	lda #$28
-	jsr $ffd2
+;	lda #$28
+;	jsr $ffd2
 
 	jsr sdalow
 	jsr delay10usec
@@ -288,8 +283,8 @@ i2cstop:
 	jsr sdahigh
 	jsr delay10usec
 
-	lda #$29
-	jsr $ffd2
+;	lda #$29
+;	jsr $ffd2
 
 	rts
 
@@ -298,8 +293,8 @@ sclhigh:
 	trb $d60E
 	tsb $d60d
 
-	lda #$63
-	jsr $ffd2
+;	lda #$63
+;	jsr $ffd2
 
 	rts
 scllow:
@@ -307,8 +302,8 @@ scllow:
 	tsb $d60e
 	trb $d60d
 
-	lda #$43
-	jsr $ffd2
+;	lda #$43
+;	jsr $ffd2
 
 	rts
 
@@ -329,16 +324,16 @@ sdahigh:
 	trb $d60e
 	tsb $d60d
 
-	lda #$64
-	jsr $ffd2
+;	lda #$64
+;	jsr $ffd2
 	rts
 sdalow:
 	lda #data_bit
 	tsb $d60e
 	trb $d60d
 
-	lda #$44
-	jsr $ffd2
+;	lda #$44
+;	jsr $ffd2
 	rts
 
 sdaread:
@@ -350,10 +345,10 @@ sdaread:
 	beq sdaread0
 	lda #$01
 sdaread0:
-	pha
-	ora #$30
-	jsr $ffd2
-	pla 
+;	pha
+;	ora #$30
+;	jsr $ffd2
+;	pla 
 	rts
 	
 
