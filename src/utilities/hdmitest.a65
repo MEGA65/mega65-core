@@ -109,6 +109,7 @@ readregister:
 	jsr i2ctxbyte
 
 	; Send repeated start
+	jsr i2cidlebus
 	jsr i2cstart
 	; Send I2C address with read bit set
 	pla
@@ -181,7 +182,19 @@ rxackclk:
 	pla
 	rts
 
+; Wait for I2C bus to go idle
+	
+i2cidlebus:
 
+	; get bus back to idle position after TXing byte
+	jsr sdahigh
+waitforsdatofloat:
+	jsr sdaread
+	cmp #$00
+	beq waitforsdatofloat
+	jsr sclhigh
+
+	rts
 
 ; Send a byte on the I2C bus
 
