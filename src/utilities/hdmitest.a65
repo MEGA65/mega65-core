@@ -45,23 +45,53 @@ programentrypoint:
 
 	jsr i2cstop
 
-
-	; Set register $98 to $03
-	lda #$72
-	ldy #$98
-	ldx #$03
+	; Enable replacing SPD memory
+	lda #$70
+	ldy #$1f
+	ldx #$80
 	jsr writeregister
 
-	; Try reading an HDMI I2C register
+	; Set HDMI Source Product Description string to "M.E.G.A. 65 Computer"
+	ldy #$00
+@spd_next_char:
+	lda spd_string,y
+	tax
+	phy
+	lda #$70 ; I2C address for packet memory
+	jsr writeregister
+	ply
+	iny
+	cpy #$20
+	bne @spd_next_char
 
-	; Confirmed that address $72 finds the device
-	; (The alternate address of $7A does not)
-	; There is also something on $70, $78, $7C and $7E
+	; Initialise various registers according to the documentation.
+	ldx #$00
+@setup_next_reg:
+	lda hdmi_register_setup_table,x
+	cmp #$FF
+	beq  @done_setup
+	tay
+	inx
+	lda hdmi_register_setup_table,x
+	inx
+	phx
+	tax
+	lda #$72
+	jsr writeregister
+	plx
+	jmp @setup_next_reg
 
+@done_setup:
+
+	; Dump values of all registers
+	
 	lda #$00
 	sta regnum
 
 nextaddr:
+	; Read out registers of device $70 = packet memory map
+	; $72 = normal registers (change by setting normal register $45)
+	; $7E = EDID ( change by setting normal register $43)
 	lda #$72
 	ldy regnum
 	jsr readregister
@@ -96,6 +126,67 @@ endloop:
 	jmp endloop
 
 regnum: .byte 0
+
+spd_string:
+	; See: https://ez.analog.com/video/f/q-a/9162/adv7511-source-product-description-infoframe-spd
+	.byte $83 ; Type 3
+	.byte $01 ; No idea why this value here
+	.byte 25  ; Length of frame???
+	.byte "@M.E.G.A.",0
+	.byte "MEGA65 Computer",0
+	.byte 0,0,0,0,0,0,0,0,0,0,0 ; Make sure we have at least 32 bytes, the 32nd of which must be $00
+
+hdmi_register_setup_table:
+	; Table of registers and values to setup
+	; Taken from Section 3 - Quick Setup Guide for the 7511 HDMI transceiver
+
+	; Power up the TX
+	.byte $41,$00 ; power up (section 4.8)
+
+	; Fixed register that must be set on power up
+	.byte $98,$03 ; (section 4.2.9)
+	.byte $9A,$E0 ; (section 4.2.9)
+	.byte $9c,$30 ; (section 4.2.9)
+	.byte $9d,$01 ; (section 4.2.9) (but what about bits 2 - 7 ?)
+	.byte $A2,$A4 ; (section 4.2.9)
+	.byte $A3,$A4 ; (section 4.2.9)
+	.byte $E0,$D0 ; (section 4.2.9)
+	.byte $F9,$00 ; (section 4.2.9)
+
+	; Setup the video input mode
+	; Register maps are around page 157 of the 7511 programming guide
+	.byte $15,$00 ; (section 4.3.2) Video input mode in bits 0 - 3 : mode 0 = Non-DDR RGB, 8 - 12 bits per colour channel, separate syncs
+	      	      ; Bits 4 - 7 = audio sample rate: 0b0000 = 44.1KHz audio. 0b1110 = 192KHz, 0b1010 = 96KHz, 0b010 = 48KHz, 0b0011 = 32KHz
+		
+	.byte $16,$00 ; (sections 4.3.2 and 4.3.5) Video input and output information
+	      	      ; bits 5 - 4 = input colour depth: 11 = 8 bits per channel
+		      ; bits 3 - 2 = input video style: 
+		      ; bits 7 - 6 = output style: 0b00 = 4:4:4
+		      ; bit 1 = ddr input edge (not used as we are not using DDR)
+		      ; bit 0 = RGB/YCbCr select: 0 = RGB
+
+	; 4:3 aspect ratio, positive sync polarities
+	.byte $17,$00   ; Aspect ratio etc
+	      		; bit 7 must be clear
+			; bit 6 = VSYNC polarity
+			; bit 5 = HSYNC polarity
+			; bits 4 - 3 must be clear
+			; bit 2 = 4:2:2 to 4:4:4 interpolation. 0 = use zero order interpolation ,1 = use first order interpolation
+			; bit 1 = aspect ratio. 0 = 4:3, 1 = 16:9
+			; bit 0 = enable DE generator (see registers $35 - $3A). Probably should be 0?
+
+	.byte $18,$00	; Disable colour space conversion
+	.byte $AF,$02  	; bit 1 : Manual HDMI/DVI select (1 = HDMI, required for audio?)
+	      		; bit 7 = Enable HDCP (1 = enable. so set to 0 for no DRM)
+	.byte $40,$80  ; bit 7 = Enable GC (General Control?)
+	      	       ; bit 6 = Source Product Description, allows sending a name of the video source for display on the
+		       ; receiver.  If we set this up correctly, we can have it display "M.E.G.A. 65 Computer" or similar
+	      	       ; other bits enable various other packets. Leave others disabled.
+	.byte $4C,$00  ; Output colour depth and general control colour depth
+	.byte $97,$40  ; Set BKSV interrupt flag (but bit 6 must be set, before writing 1 to bit 6  according to page 15 ???)
+
+	; End of list
+	.byte $FF,$FF
 
 ; Write a register on the I2C bus
 	; A = I2C address of device
