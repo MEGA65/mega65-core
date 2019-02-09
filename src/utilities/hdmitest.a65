@@ -42,12 +42,15 @@ programentrypoint:
 	jsr $ffd2
 	lda #$0e
 	jsr $ffd2
-	lda #$41
-	jsr $ffd2
-	lda #$61
-	jsr $ffd2
 
 	jsr i2cstop
+
+
+	; Set register $98 to $03
+	lda #$72
+	ldy #$98
+	ldx #$03
+	jsr writeregister
 
 	; Try reading an HDMI I2C register
 
@@ -55,7 +58,7 @@ programentrypoint:
 	; (The alternate address of $7A does not)
 	; There is also something on $70, $78, $7C and $7E
 
-	ldy #$00
+	lda #$00
 	sta regnum
 
 nextaddr:
@@ -63,7 +66,14 @@ nextaddr:
 	ldy regnum
 	jsr readregister
 	pha
+	lda regnum
+	and #$0f
+	bne @printcomma
 	lda #$0d
+	jmp @printnewline
+@printcomma:
+	lda #$2c
+@printnewline:
 	jsr $ffd2
 	plx
 	lda #$00
@@ -78,6 +88,7 @@ nextaddr:
 
 readok:
 	inc regnum
+	lda regnum
 	bne nextaddr
 
 endloop:
@@ -85,6 +96,26 @@ endloop:
 	jmp endloop
 
 regnum: .byte 0
+
+; Write a register on the I2C bus
+	; A = I2C address of device
+	; Y = register number to write
+	; X = value to write
+
+writeregister:
+	phx
+	pha
+	jsr i2cstart
+	; Send I2C address with read bit clear 
+	pla
+	and #$fe  ; clear read bit
+	jsr i2ctxbyte
+	; Send register number
+	tya
+	jsr i2ctxbyte
+	pla
+	jsr i2ctxbyte
+	rts	
 
 ; Read a register on the I2C bus
 	; A = I2C address of device
@@ -247,17 +278,7 @@ delay10usec:
 	; This loop should be more than sufficient
 	phx
 	ldx #$00
-d1:	lda ($12),y
-	lda ($12),y
-	lda ($12),y
-	lda ($12),y
-	lda ($12),y
-	lda ($12),y
-	lda ($12),y
-	lda ($12),y
-	lda ($12),y
-	lda ($12),y
-	inx
+d1:	inx
 	bne d1
 	plx
 	
