@@ -621,7 +621,7 @@ begin
       portg(3) => sd_bitbash_sclk_o,
       portg(2) => sd_bitbash_mosi_o,
 --      portg(1 downto 0) => keyboard_scan_mode,
-      portg(1 downto 0) => "11",
+      portg(1 downto 0) => dummy_g(1 downto 0),
       key_debug => key_debug,
       widget_disable => widget_disable,
       ps2_disable => ps2_disable,
