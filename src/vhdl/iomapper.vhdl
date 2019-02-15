@@ -333,6 +333,8 @@ architecture behavioral of iomapper is
   signal clock50hz : std_logic := '1';
   constant divisor50hz : integer := 480000; -- 48MHz/50Hz/2;
   signal counter50hz : integer := 0;
+
+  signal vfpga_cs : std_logic;
   
   signal cia1cs : std_logic;
   signal cia2cs : std_logic;
@@ -812,6 +814,23 @@ begin
     audio_data => rightsid_audio);
   end block;
 
+  vfpga:        entity work.vfpga_wrapper_8bit port map (
+    pixel_clock => pixelclk,
+    clock => clk,
+    cs_vfpga => vfpga_cs,
+
+    fastio_address => unsigned(address(19 downto 0)),
+    fastio_write => w,
+    std_logic_vector(fastio_rdata) => data_o,
+    fastio_read => r,
+    fastio_wdata => unsigned(data_i),
+    
+    -- XXX PGS 20190215: Tie some inputs and outputs to some other registers with
+    -- automatic read/write strobe trip wires back into the FPGA?
+    -- outputs => ...
+    inputs => (others => '1')
+    );
+  
   ethernet0 : entity work.ethernet port map (
     clock50mhz => clock50mhz,
     clock200 => clock200mhz,
@@ -1367,20 +1386,26 @@ begin
       cia2cs <='0';
       if colourram_at_dc00='0' then
         case address(19 downto 8) is
-          when x"D0C" => cia1cs <=cia1cs_en;
-          when x"D1C" => cia1cs <=cia1cs_en;
-          when x"D2C" => cia1cs <=cia1cs_en;
-          when x"D3C" => cia1cs <=cia1cs_en;
-          when x"D0D" => cia2cs <=cia2cs_en;
-          when x"D1D" => cia2cs <=cia2cs_en;
-          when x"D2D" => cia2cs <=cia2cs_en;
-          when x"D3D" => cia2cs <=cia2cs_en;
+          when x"D0C" => cia1cs <= cia1cs_en;
+          when x"D1C" => cia1cs <= cia1cs_en;
+          when x"D2C" => cia1cs <= cia1cs_en;
+          when x"D3C" => cia1cs <= cia1cs_en;
+          when x"D0D" => cia2cs <= cia2cs_en;
+          when x"D1D" => cia2cs <= cia2cs_en;
+          when x"D2D" => cia2cs <= cia2cs_en;
+          when x"D3D" => cia2cs <= cia2cs_en;
           when others => null;
         end case;
       end if;
 
+      if address(19 downto 8) = x"DF0" then
+        vfpga_cs <= '1';
+      else
+        vfpga_cs <= '0';
+      end if;
+      
     report "CS lines: "
-      & to_string(cia1cs&cia2cs&kickstartcs&sectorbuffercs&leftsid_cs&rightsid_cs&c65uart_cs&sdcardio_cs&thumbnail_cs);
+      & to_string(cia1cs&cia2cs&kickstartcs&sectorbuffercs&leftsid_cs&rightsid_cs&c65uart_cs&sdcardio_cs&thumbnail_cs&vfpga_cs);
   end process;
 
 end behavioral;
