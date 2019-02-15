@@ -15391,6 +15391,9 @@ entity ARCH8X6W16N4I10K4FCI4FCO8PFI8PFO8IOPB2_wrapper is
 	       snap_save    : in  std_ulogic;
 	       snap_restore : in  std_ulogic;
 	       --------------------------------------------------
+               -- PGS 20190215 - Export shifted out config, so that we can
+               -- freeze the VFPGA
+	       config_out    : out  std_ulogic_vector(31 downto 0);
 	       config_in    : in  std_ulogic_vector(31 downto 0);
 	       config_valid : in  std_ulogic;
 	       --------------------------------------------------
@@ -15455,8 +15458,16 @@ begin
 		if rising_edge(clk) then
 			old_config_valid <= config_valid;
 			if config_valid = '1' and old_config_valid = '0' then
-				config(11623 downto 11592) <= config_in;
+                                config(11623 downto 11592) <= config_in;
 				config(11591 downto 0) <= config(11623 downto 32);
+                                -- PGS 20190215: Allow reading back of config
+                                -- as well, to make freezing possible.
+                                -- We output the word that will be shifted out
+                                -- next time, so that we can see the first word
+                                -- of config after the last has been loaded, so
+                                -- that it is possible to read and write the
+                                -- config in a continuous loop.
+                                config_out <= config(63 downto 32);
 			end if;
 		end if;
 	end process;
