@@ -36,7 +36,8 @@ architecture Behavioral of VFPGA_WRAPPER_8BIT is
   -- saving/resuming state, only for bitstream compatibility)
   constant K : integer := 4;  -- # of inputs per LUT
 
-  constant BITSTREAM_BYTES : integer := to_integer("00000000010110101101000")/8;
+  constant BITSTREAM_BITS : std_logic_vector(22 downto 0) := "00000000010110101101000";
+  constant BITSTREAM_BYTES : integer := to_integer(unsigned(BITSTREAM_BITS))/8;
   constant SNAPSHOT_BYTES : integer := (WIDTH*HEIGHT*K)/8;
   constant NUM_IO : integer := 56;         
 
@@ -99,7 +100,6 @@ begin
   process (pixel_clock)
   begin
     if rising_edge(pixel_clock) then
-      INTERRUPT_u <= global_interrupt and global_interrupt_IE;
       global_interrupt <= (clk_cycle_counter_done and clk_done_IE);
     end if;
   end process;
