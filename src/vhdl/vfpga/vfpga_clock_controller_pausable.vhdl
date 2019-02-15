@@ -14,7 +14,7 @@ entity vFPGA_clock_controller_pausable is
         clk_cont_out      : out std_ulogic_vector(23 downto 0); -- The remaining clock cycles
         done              : out std_ulogic;                     -- Is set to one when the virtual clock is stoped (clk_count_out == 0)
         clk_app           : out std_ulogic);                    -- The virtual clock, active for one physical clock cycle
-end vFPGA_clock_controler;
+end vFPGA_clock_controller_pausable;
 
 
 architecture Behavioral of vFPGA_clock_controller_pausable is

@@ -172,10 +172,10 @@ begin
           when x"15" =>
             -- Write a byte of the config
             case config_access_phase is
-              when 0 <= vfpga_config_in(7 downto 0) <= fastio_wdata;
-              when 1 <= vfpga_config_in(15 downto 8) <= fastio_wdata;
-              when 2 <= vfpga_config_in(23 downto 16) <= fastio_wdata;
-              when 3 <= vfpga_config_in(31 downto 24) <= fastio_wdata;
+              when 0 => vfpga_config_in(7 downto 0) <= fastio_wdata;
+              when 1 => vfpga_config_in(15 downto 8) <= fastio_wdata;
+              when 2 => vfpga_config_in(23 downto 16) <= fastio_wdata;
+              when 3 => vfpga_config_in(31 downto 24) <= fastio_wdata;
             end case;
             if config_access_phase = 3 then
               config_access_phase <= 0;
@@ -187,10 +187,10 @@ begin
           when x"16" =>
             -- Read a byte of the snapshot
             case snapshot_access_phase is
-              when 0 <= vfpga_snap_in(7 downto 0) <= fastio_wdata;
-              when 1 <= vfpga_snap_in(15 downto 8) <= fastio_wdata;
-              when 2 <= vfpga_snap_in(23 downto 16) <= fastio_wdata;
-              when 3 <= vfpga_snap_in(31 downto 24) <= fastio_wdata;
+              when 0 => vfpga_snap_in(7 downto 0) <= fastio_wdata;
+              when 1 => vfpga_snap_in(15 downto 8) <= fastio_wdata;
+              when 2 => vfpga_snap_in(23 downto 16) <= fastio_wdata;
+              when 3 => vfpga_snap_in(31 downto 24) <= fastio_wdata;
             end case;
 
             if snapshot_access_phase = 3 then
@@ -249,10 +249,10 @@ begin
           when x"15" =>
             -- Read a byte of the config
             case config_access_phase is
-              when 0 <= fastio_rdata <= vfpga_config_out(7 downto 0);
-              when 1 <= fastio_rdata <= vfpga_config_out(15 downto 8);
-              when 2 <= fastio_rdata <= vfpga_config_out(23 downto 16);
-              when 3 <= fastio_rdata <= vfpga_config_out(31 downto 24);
+              when 0 => fastio_rdata <= vfpga_config_out(7 downto 0);
+              when 1 => fastio_rdata <= vfpga_config_out(15 downto 8);
+              when 2 => fastio_rdata <= vfpga_config_out(23 downto 16);
+              when 3 => fastio_rdata <= vfpga_config_out(31 downto 24);
             end case;
             if config_access_phase = 3 then
               config_access_phase <= 0;
@@ -269,10 +269,10 @@ begin
           when x"16" =>
             -- Read a byte of the snapshot
             case snapshot_access_phase is
-              when 0 <= fastio_rdata <= vfpga_snap_out(7 downto 0);
-              when 1 <= fastio_rdata <= vfpga_snap_out(15 downto 8);
-              when 2 <= fastio_rdata <= vfpga_snap_out(23 downto 16);
-              when 3 <= fastio_rdata <= vfpga_snap_out(31 downto 24);
+              when 0 => fastio_rdata <= vfpga_snap_out(7 downto 0);
+              when 1 => fastio_rdata <= vfpga_snap_out(15 downto 8);
+              when 2 => fastio_rdata <= vfpga_snap_out(23 downto 16);
+              when 3 => fastio_rdata <= vfpga_snap_out(31 downto 24);
             end case;
 
             if snapshot_access_phase = 3 then
