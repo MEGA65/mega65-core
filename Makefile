@@ -159,6 +159,15 @@ AUDIOVHDL=		$(VHDLSRCDIR)/audio_complex.vhdl \
 			$(VHDLSRCDIR)/pcm_clock.vhdl \
 			$(VHDLSRCDIR)/pcm_transceiver.vhdl
 
+VFPGAVHDL=		$(VHDLSRCDIR)/vfpga/overlay_IP.vhdl \
+			$(VHDLSRCDIR)/vfpga/spi_rxtx.vhdl \
+			$(VHDLSRCDIR)/vfpga/spi_to_wishbone.vhdl \
+			$(VHDLSRCDIR)/vfpga/testbench.vhdl \
+			$(VHDLSRCDIR)/vfpga/top_level.vhdl \
+			$(VHDLSRCDIR)/vfpga/vfpga_clock_controller_pausable.vhdl \
+			$(VHDLSRCDIR)/vfpga/vfpga_wrapper_8bit.vhdl \
+			$(VHDLSRCDIR)/vfpga/wishbone_fsm.vhdl
+
 
 PERIPHVHDL=		$(VHDLSRCDIR)/sdcardio.vhdl \
 			$(VHDLSRCDIR)/touch.vhdl \
@@ -207,6 +216,7 @@ M65VHDL=		$(VHDLSRCDIR)/machine.vhdl \
 			$(C65VHDL) \
 			$(VICIVVHDL) \
 			$(PERIPHVHDL) \
+			$(VFPGAVHDL) \
 			$(SERMONVHDL) \
 			$(MEMVHDL) \
 			$(SUPPORTVHDL)
