@@ -824,12 +824,8 @@ begin
     fastio_write => w,
     std_logic_vector(fastio_rdata) => data_o,
     fastio_read => r,
-    fastio_wdata => unsigned(data_i),
+    fastio_wdata => unsigned(data_i)
     
-    -- XXX PGS 20190215: Tie some inputs and outputs to some other registers with
-    -- automatic read/write strobe trip wires back into the FPGA?
-    -- outputs => ...
-    inputs => (others => '1')
     );
   
   ethernet0 : entity work.ethernet port map (

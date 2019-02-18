@@ -22,9 +22,8 @@ entity VFPGA_WRAPPER_8BIT is
 
     -- VFPGA external connections in case we want to plumb them into something,
     -- like a hardware multiplier
-    VFPGA_CLK      : out std_logic;	
-    INPUTS         : in  std_logic_vector(55 downto 0);
-    OUTPUTS        : out std_logic_vector(55 downto 0));
+    VFPGA_CLK      : out std_logic
+    );
 end VFPGA_WRAPPER_8BIT;
 
 architecture Behavioral of VFPGA_WRAPPER_8BIT is
@@ -427,7 +426,7 @@ begin
   -- when reading from a register
   vFPGA_inputs <= std_ulogic_vector(vfpga_input_buffer);
   
-  OUTPUTS <= std_logic_vector(vFPGA_outputs);
+--  OUTPUTS <= std_logic_vector(vFPGA_outputs);
   vfpga_output_buffer <= unsigned(vfpga_outputs);
 
 end Behavioral;
