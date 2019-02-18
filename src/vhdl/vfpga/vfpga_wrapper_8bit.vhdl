@@ -11,10 +11,12 @@ entity VFPGA_WRAPPER_8BIT is
     -- instead are using 80MHz on MEGA65
     cs_vfpga : in std_logic;    -- chip select for this device on fastio bus
 
+    hypervisor_mode_in : in std_logic;
+    
     -- Fastio memory interface
     fastio_read : in std_logic;
     fastio_write : in std_logic;
-    fastio_address : in unsigned(27 downto 0);
+    fastio_address : in unsigned(19 downto 0);
     fastio_rdata : out unsigned(7 downto 0);
     fastio_wdata : in unsigned(7 downto 0);
 
@@ -41,6 +43,9 @@ architecture Behavioral of VFPGA_WRAPPER_8BIT is
   constant SNAPSHOT_BYTES : integer := (WIDTH*HEIGHT*K)/8;
   constant NUM_IO : integer := 56;         
 
+  signal hypervisor_mode : std_logic;
+  signal last_hypervisor_mode : std_logic;
+  
   signal vfpga_reset             : std_ulogic := '0';
   signal vfpga_vclock            : std_ulogic := '0';
   signal vFPGA_snap_save         : std_ulogic := '0';
@@ -146,6 +151,8 @@ begin
   begin
     if rising_edge(clock) then
 
+      hypervisor_mode <= hypervisor_mode_in;
+      
       vFPGA_config_valid <= '0';
       vFPGA_snap_shift <= '0';
       
@@ -173,14 +180,14 @@ begin
             vfpga_reset <= fastio_wdata(4);              
             clk_done_IE <= fastio_wdata(5);              
             global_interrupt_IE <= fastio_wdata(6);              
-            global_interrupt <= fastio_wdata(7);              
+            -- global_interrupt <= fastio_wdata(7);              
           when x"15" =>
             -- Write a byte of the config
             case config_access_phase is
-              when 0 => vfpga_config_in(7 downto 0) <= fastio_wdata;
-              when 1 => vfpga_config_in(15 downto 8) <= fastio_wdata;
-              when 2 => vfpga_config_in(23 downto 16) <= fastio_wdata;
-              when 3 => vfpga_config_in(31 downto 24) <= fastio_wdata;
+              when 0 => vfpga_config_in(7 downto 0) <= std_ulogic_vector(fastio_wdata);
+              when 1 => vfpga_config_in(15 downto 8) <= std_ulogic_vector(fastio_wdata);
+              when 2 => vfpga_config_in(23 downto 16) <= std_ulogic_vector(fastio_wdata);
+              when 3 => vfpga_config_in(31 downto 24) <= std_ulogic_vector(fastio_wdata);
             end case;
             if config_access_phase = 3 then
               config_access_phase <= 0;
@@ -192,10 +199,10 @@ begin
           when x"16" =>
             -- Read a byte of the snapshot
             case snapshot_access_phase is
-              when 0 => vfpga_snap_in(7 downto 0) <= fastio_wdata;
-              when 1 => vfpga_snap_in(15 downto 8) <= fastio_wdata;
-              when 2 => vfpga_snap_in(23 downto 16) <= fastio_wdata;
-              when 3 => vfpga_snap_in(31 downto 24) <= fastio_wdata;
+              when 0 => vfpga_snap_in(7 downto 0) <= std_ulogic_vector(fastio_wdata);
+              when 1 => vfpga_snap_in(15 downto 8) <= std_ulogic_vector(fastio_wdata);
+              when 2 => vfpga_snap_in(23 downto 16) <= std_ulogic_vector(fastio_wdata);
+              when 3 => vfpga_snap_in(31 downto 24) <= std_ulogic_vector(fastio_wdata);
             end case;
 
             if snapshot_access_phase = 3 then
@@ -269,20 +276,20 @@ begin
           -- Now we allow setting/getting the logical clock divisor and #
           -- of logical cycles the vFPGA should run before
           -- triggering an interrupt
-          when x"10" => fastio_rdata <= reg_clk_div(7 downto 0);
-          when x"11" => fastio_rdata <= reg_clk_div(9 downto 8);
-          when x"12" => fastio_rdata <= clk_cycle_counter_remainder(7 downto 0);
-          when x"13" => fastio_rdata <= clk_cycle_counter_remainder(15 downto 8);
-          when x"14" => fastio_rdata <= clk_cycle_counter_remainder(23 downto 16);
+          when x"10" => fastio_rdata <= unsigned(reg_clk_div(7 downto 0));
+          when x"11" => fastio_rdata <= unsigned(reg_clk_div(9 downto 8));
+          when x"12" => fastio_rdata <= unsigned(clk_cycle_counter_remainder(7 downto 0));
+          when x"13" => fastio_rdata <= unsigned(clk_cycle_counter_remainder(15 downto 8));
+          when x"14" => fastio_rdata <= unsigned(clk_cycle_counter_remainder(23 downto 16));
 
         -- @IO:GS $FFDF015 - VFPGA config access register: Reads or writes single byte of bitstream
           when x"15" =>
             -- Read a byte of the config
             case config_access_phase is
-              when 0 => fastio_rdata <= vfpga_config_out(7 downto 0);
-              when 1 => fastio_rdata <= vfpga_config_out(15 downto 8);
-              when 2 => fastio_rdata <= vfpga_config_out(23 downto 16);
-              when 3 => fastio_rdata <= vfpga_config_out(31 downto 24);
+              when 0 => fastio_rdata <= unsigned(vfpga_config_out(7 downto 0));
+              when 1 => fastio_rdata <= unsigned(vfpga_config_out(15 downto 8));
+              when 2 => fastio_rdata <= unsigned(vfpga_config_out(23 downto 16));
+              when 3 => fastio_rdata <= unsigned(vfpga_config_out(31 downto 24));
             end case;
             if config_access_phase = 3 then
               config_access_phase <= 0;
@@ -300,10 +307,10 @@ begin
           when x"16" =>
             -- Read a byte of the snapshot
             case snapshot_access_phase is
-              when 0 => fastio_rdata <= vfpga_snap_out(7 downto 0);
-              when 1 => fastio_rdata <= vfpga_snap_out(15 downto 8);
-              when 2 => fastio_rdata <= vfpga_snap_out(23 downto 16);
-              when 3 => fastio_rdata <= vfpga_snap_out(31 downto 24);
+              when 0 => fastio_rdata <= unsigned(vfpga_snap_out(7 downto 0));
+              when 1 => fastio_rdata <= unsigned(vfpga_snap_out(15 downto 8));
+              when 2 => fastio_rdata <= unsigned(vfpga_snap_out(23 downto 16));
+              when 3 => fastio_rdata <= unsigned(vfpga_snap_out(31 downto 24));
             end case;
 
             if snapshot_access_phase = 3 then
@@ -339,10 +346,10 @@ begin
         reg_clk_div <= (others => '1');
         -- @IO:GS $FFDF010 - VFPGA logical clock divisor (LSB)
       elsif fastio_write='1' and cs_vfpga='1' and fastio_address(7 downto 0) = x"10" then
-        reg_clk_div(7 downto 0) <= fastio_wdata;
+        reg_clk_div(7 downto 0) <= std_ulogic_vector(fastio_wdata);
         -- @IO:GS $FFDF011 - VFPGA logical clock divisor (MSB)
       elsif fastio_write='1' and cs_vfpga='1' and fastio_address(7 downto 0) = x"11" then
-        reg_clk_div(9 downto 8) <= fastio_wdata(1 downto 0);
+        reg_clk_div(9 downto 8) <= std_ulogic_vector(fastio_wdata(1 downto 0));
       end if;
     end if;
   end process;
@@ -361,13 +368,13 @@ begin
         -- @IO:GS $FFDF013 - VFPGA cycle clock counter (SSB)
         -- @IO:GS $FFDF014 - VFPGA cycle clock counter (MSB)
       elsif fastio_write='1' and cs_vfpga='1' and fastio_address(7 downto 0) = x"12" then
-        reg_clk_cycle_couonter(7 downto 0) <= fastio_wdata(7 downto 0);
+        reg_clk_cycle_counter(7 downto 0) <= std_ulogic_vector(fastio_wdata(7 downto 0));
         write_clkcnt <= '1';
       elsif fastio_write='1' and cs_vfpga='1' and fastio_address(7 downto 0) = x"13" then
-        reg_clk_cycle_couonter(15 downto 8) <= fastio_wdata(7 downto 0);
+        reg_clk_cycle_counter(15 downto 8) <= std_ulogic_vector(fastio_wdata(7 downto 0));
         write_clkcnt <= '1';
       elsif fastio_write='1' and cs_vfpga='1' and fastio_address(7 downto 0) = x"14" then
-        reg_clk_cycle_couonter(23 downto 16) <= fastio_wdata(7 downto 0);
+        reg_clk_cycle_counter(23 downto 16) <= std_ulogic_vector(fastio_wdata(7 downto 0));
         write_clkcnt <= '1';
       else
         write_clkcnt <= '0';

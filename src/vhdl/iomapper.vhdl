@@ -818,6 +818,7 @@ begin
     pixel_clock => pixelclk,
     clock => clk,
     cs_vfpga => vfpga_cs,
+    hypervisor_mode_in => cpu_hypervisor_mode,
 
     fastio_address => unsigned(address(19 downto 0)),
     fastio_write => w,
