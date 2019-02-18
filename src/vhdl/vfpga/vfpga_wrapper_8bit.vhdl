@@ -96,6 +96,9 @@ architecture Behavioral of VFPGA_WRAPPER_8BIT is
 
   signal snapshot_access_phase : integer range 0 to 3 := 0;
   signal config_access_phase : integer range 0 to 3 := 0;
+
+  signal vfpga_output_buffer : unsigned(55 downto 0) := (others => '0');
+  signal vfpga_input_buffer : unsigned(55 downto 0) := (others => '0');
   
 begin
 
@@ -212,6 +215,28 @@ begin
             else
               snapshot_access_phase <= snapshot_access_phase + 1;
             end if;
+
+          -- @IO:GS $FFDF03x - vFPGA input registers, with auto acknowledgement of reads by toggling input bits 0-6 when $FFDF030-$FFD036 are read
+          -- Writing will cause auto-toggling of the corresponding handshaking line
+            -- $FFDF030 is special, because it corresponds to the byte of
+            -- inputs where the handshaking lines are, so only toggles the
+            -- handshaking line
+          when x"30" => -- vfpga_input_buffer(7 downto 0) <= fastio_wdata;
+                        vfpga_input_buffer(0) <= not vfpga_input_buffer(0);
+          when x"31" => vfpga_input_buffer(15 downto 8) <= fastio_wdata;
+                        vfpga_input_buffer(1) <= not vfpga_input_buffer(1);
+          when x"32" => vfpga_input_buffer(23 downto 16) <= fastio_wdata;
+                        vfpga_input_buffer(2) <= not vfpga_input_buffer(2);
+          when x"33" => vfpga_input_buffer(31 downto 24) <= fastio_wdata;
+                        vfpga_input_buffer(3) <= not vfpga_input_buffer(3);
+          when x"34" => vfpga_input_buffer(39 downto 32) <= fastio_wdata;
+                        vfpga_input_buffer(4) <= not vfpga_input_buffer(4);
+          when x"35" => vfpga_input_buffer(47 downto 40) <= fastio_wdata;
+                        vfpga_input_buffer(5) <= not vfpga_input_buffer(5);
+          when x"36" => vfpga_input_buffer(55 downto 48) <= fastio_wdata;
+                        vfpga_input_buffer(6) <= not vfpga_input_buffer(6);
+            
+            
           when others => null;
         end case;
         
@@ -321,6 +346,22 @@ begin
             else
               snapshot_access_phase <= snapshot_access_phase + 1;
             end if;
+
+            -- @IO:GS $FFDF02x - VFPGA read output pins, with automatic ACK to FPGA on input bits 8-14 for $FFDF020-$FFDF026
+          when x"20" => fastio_rdata <= vfpga_output_buffer(7 downto 0);
+                        vfpga_input_buffer(8) <= not vfpga_input_buffer(8);
+          when x"21" => fastio_rdata <= vfpga_output_buffer(15 downto 8);
+                        vfpga_input_buffer(9) <= not vfpga_input_buffer(9);
+          when x"22" => fastio_rdata <= vfpga_output_buffer(23 downto 16);
+                        vfpga_input_buffer(10) <= not vfpga_input_buffer(10);
+          when x"23" => fastio_rdata <= vfpga_output_buffer(31 downto 24);
+                        vfpga_input_buffer(11) <= not vfpga_input_buffer(11);
+          when x"24" => fastio_rdata <= vfpga_output_buffer(39 downto 32);
+                        vfpga_input_buffer(12) <= not vfpga_input_buffer(12);
+          when x"25" => fastio_rdata <= vfpga_output_buffer(47 downto 40);
+                        vfpga_input_buffer(13) <= not vfpga_input_buffer(13);
+          when x"26" => fastio_rdata <= vfpga_output_buffer(55 downto 48);
+                        vfpga_input_buffer(14) <= not vfpga_input_buffer(14);
             
           when others =>
             null;
@@ -382,7 +423,11 @@ begin
     end if;
   end process;
 
-  vFPGA_inputs <= std_ulogic_vector(INPUTS);
+  -- Supply inputs to FPGA, including the automatic read ack toggles generated
+  -- when reading from a register
+  vFPGA_inputs <= std_ulogic_vector(vfpga_input_buffer);
+  
   OUTPUTS <= std_logic_vector(vFPGA_outputs);
+  vfpga_output_buffer <= unsigned(vfpga_outputs);
 
 end Behavioral;
