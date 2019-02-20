@@ -56,7 +56,7 @@ entity iomapper is
         r : in std_logic;
         w : in std_logic;
         data_i : in std_logic_vector(7 downto 0);
-        data_o : out std_logic_vector(7 downto 0);
+        data_o : out std_logic_vector(7 downto 0) := (others => 'Z');
         kickstart_rdata : out std_logic_vector(7 downto 0);
         sector_buffer_mapped : out std_logic;
 
@@ -1079,7 +1079,7 @@ begin
       sbcs_en <= chipselect_enables(5);
       c65uart_en <= chipselect_enables(6);
       sdcardio_en <= chipselect_enables(7);
-
+      
       -- Switch POTs between the two SIDs, based on the CIA port A upper
       -- bits.
       case cia1portb_out(7 downto 6) is
@@ -1219,8 +1219,6 @@ begin
     variable temp : unsigned(19 downto 0);
   begin  -- process
 
---    data_o <= (others => 'H');
-    
       -- @IO:GS $FFF8000-$FFFBFFF 16KB Kickstart/hypervisor ROM
       -- @IO:GS $FFF8000-$FFF80FC Hypervisor entry point when $D640-$D67F is written
       -- @IO:GS $FFF8100 Hypervisor entry point on reset (trap $40)

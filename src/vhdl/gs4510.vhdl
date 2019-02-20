@@ -1748,6 +1748,9 @@ begin
         -- registers from all other IO registers, partly to work around some bugs,
         -- and partly because the banking of the VIC registers is the fiddliest part.
 
+        report "Checking if address requires vfpga waitstates: $" & to_hstring(long_address);
+
+        
         -- @IO:GS $FF8xxxx - Colour RAM (32KB or 64KB)
         if long_address(19 downto 16) = x"8" then
           report "VIC 64KB colour RAM access from VIC fastio" severity note;
@@ -1786,12 +1789,12 @@ begin
             if (long_address(11 downto 8) = x"1")
               or (long_address(11 downto 8) = x"2")
               or (long_address(11 downto 8) = x"3") then
-                wait_states <= palette_read_wait_states;
-                if palette_read_wait_states /= x"00" then
-                  wait_states_non_zero <= '1';
-                else
-                  wait_states_non_zero <= '0';
-                end if;
+              wait_states <= palette_read_wait_states;
+              if palette_read_wait_states /= x"00" then
+                wait_states_non_zero <= '1';
+              else
+                wait_states_non_zero <= '0';
+              end if;
             end if;
             
             -- Colour RAM at $D800-$DBFF and optionally $DC00-$DFFF
@@ -1810,7 +1813,16 @@ begin
                 end if;
               end if;
             end if;
-          end if;                         -- $D{0,1,2,3}XXX
+          elsif long_address(19 downto 12) = x"DF" then
+            -- VFPGA interface
+            report "Adding wait-states for vfpga interface";
+            wait_states <= colourram_read_wait_states;
+            if colourram_read_wait_states /= x"00" then
+              wait_states_non_zero <= '1';
+            else
+              wait_states_non_zero <= '0';
+            end if;
+          end if;
         end if;                           -- $DXXXX
       elsif (long_address(27) = '1' or long_address(26)='1') and hyper_protected_hardware(7)='0' then
         -- @IO:GS $4000000 - $7FFFFFF Slow Device memory (64MB)
@@ -2312,7 +2324,7 @@ begin
         -- @IO:GS $D7FB.0 DEBUG 1=charge extra cycle(s) for branches taken
         charge_for_branches_taken <= value(0);
       elsif (long_address = x"FFD37FC") then
-        -- @IO:GS $D7FC DEBUG chip-select enables for various devices
+      -- @IO:GS $D7FC DEBUG chip-select enables for various devices
 --        chipselect_enables <= std_logic_vector(value);
       elsif (long_address = x"FFD37FD") then
         -- @IO:GS $D7FD.7 Override for /EXROM : set to 0 to enable
@@ -2749,7 +2761,7 @@ begin
       if hyper_protected_hardware(7)='1' then
         cartridge_enable <= '0';
         chipselect_enables <= x"84"; -- SD card/multi IO controller and SIDs
-        -- (we disable the undesirable parts of the SD card interface separately)
+      -- (we disable the undesirable parts of the SD card interface separately)
       else
         chipselect_enables <= x"EF";
       end if;
@@ -5391,7 +5403,7 @@ begin
                 state <= TakeBranch8;
               else
                                         -- Don't take branch, so just skip over branch byte
-              report "monitor_instruction_strobe assert (don't take ZP bit check branch)";
+                report "monitor_instruction_strobe assert (don't take ZP bit check branch)";
                 monitor_instruction_strobe <= '1';
                 state <= normal_fetch_state;
               end if;
@@ -5415,7 +5427,7 @@ begin
               report "Setting PC: Finished dereferencing JMP";
               reg_pc <= memory_read_value&reg_t;
               if reg_instruction=I_JMP then
-              report "monitor_instruction_strobe assert (JMP indirect)";
+                report "monitor_instruction_strobe assert (JMP indirect)";
                 monitor_instruction_strobe <= '1';
                 state <= normal_fetch_state;
               else
@@ -6172,7 +6184,7 @@ begin
            dmagic_first_read,is_rmw,reg_arg1,reg_sp,reg_addr_msbs,reg_a,reg_x,reg_y,reg_z,reg_pageactive,shadow_rdata,proceed,
            reg_mult_a,read_data,shadow_wdata,shadow_address,kickstart_address,
            reg_pageid,rom_writeprotect,georam_page,
-           kickstart_address_next,clock
+           kickstart_address_next,clock,fastio_rdata
            )
     variable memory_access_address : unsigned(27 downto 0) := x"FFFFFFF";
     variable memory_access_read : std_logic := '0';
@@ -6490,6 +6502,8 @@ begin
 
     if rising_edge(clock) then
 
+      report "fastio_rdata = $" & to_hstring(fastio_rdata);
+      
       reg_math_config_drive <= reg_math_config;
       
       -- We this awkward comparison because GHDL seems to think secure_mode_from_monitor='U'
@@ -6555,7 +6569,7 @@ begin
         when Interrupt =>
           stack_push := '1';
           memory_access_wdata := reg_pc(15 downto 8);
-          -- Interrupts take 7 cycles
+        -- Interrupts take 7 cycles
         when InterruptPushPCL =>
           stack_push := '1';
           memory_access_wdata := reg_pc(7 downto 0);

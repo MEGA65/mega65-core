@@ -2,6 +2,8 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
+use Std.TextIO.all;
+use work.debugtools.all;
 
 entity VFPGA_WRAPPER_8BIT is
   Port (
@@ -112,23 +114,23 @@ begin
   end process;
 
 
-   vFPGA: entity work.ARCH8X6W16N4I10K4FCI4FCO8PFI8PFO8IOPB2_wrapper
-     port map ( clk          => pixel_clock,
-                rst          => vfpga_reset,               -- vFPGA runs if rst = 0
-                clk_app      => vfpga_vclock,
-                rst_app      => vfpga_reset,
-                snap_save    => vFPGA_snap_save,
-                snap_restore => vFPGA_snap_restore,
-                config_out   => vFPGA_config_out,
-                config_in    => vFPGA_config_in,       -- 32 bit config word
-                config_valid => vFPGA_config_valid,    -- config word is
-                                                       -- accepted if this line
-                                                       -- is high
-                snap_in      => vFPGA_snap_in,
-                snap_out     => vFPGA_snap_out,
-                snap_shift   => vFPGA_snap_shift,
-                inputs       => vFPGA_inputs,
-                outputs      => vFPGA_outputs);
+  vFPGA: entity work.ARCH8X6W16N4I10K4FCI4FCO8PFI8PFO8IOPB2_wrapper
+    port map ( clk          => pixel_clock,
+               rst          => vfpga_reset,               -- vFPGA runs if rst = 0
+               clk_app      => vfpga_vclock,
+               rst_app      => vfpga_reset,
+               snap_save    => vFPGA_snap_save,
+               snap_restore => vFPGA_snap_restore,
+               config_out   => vFPGA_config_out,
+               config_in    => vFPGA_config_in,       -- 32 bit config word
+               config_valid => vFPGA_config_valid,    -- config word is
+                                                      -- accepted if this line
+                                                      -- is high
+               snap_in      => vFPGA_snap_in,
+               snap_out     => vFPGA_snap_out,
+               snap_shift   => vFPGA_snap_shift,
+               inputs       => vFPGA_inputs,
+               outputs      => vFPGA_outputs);
 
 
   CLK_CTRL: entity work.vFPGA_clock_controller_pausable
@@ -149,8 +151,9 @@ begin
 
 
   -- Read process --
-  process(clock)
+  process(clock,fastio_read,cs_vfpga)
   begin
+
     if rising_edge(clock) then
 
       hypervisor_mode <= hypervisor_mode_in;
@@ -158,8 +161,6 @@ begin
       vFPGA_config_valid <= '0';
       vFPGA_snap_shift <= '0';
       
-      fastio_rdata <= (others => 'Z');
-
       -- XXX: We need to support freezing even if the access phases
       -- for the bitstream or snapshot data are not 0
       -- This is a royal pain to actually do, as we need to expose
@@ -175,14 +176,147 @@ begin
         config_access_phase <= 0;
         snapshot_access_phase <= 0;
       end if;
-      
+
+      if fastio_read='1' and cs_vfpga='1' then
+        report "Reading from VFPGA control register $" & to_hstring(fastio_address(7 downto 0));
+        case fastio_address(7 downto 0) is
+          -- VFPGA characteristics
+
+          -- @IO:GS $FFDF000 - VFPGA width of CLB array (READ ONLY)
+          -- @IO:GS $FFDF001 - VFPGA height of CLB array (READ ONLY)
+          -- @IO:GS $FFDF002 - VFPGA Logical wire cardinality (READ ONLY)
+          -- @IO:GS $FFDF003 - VFPGA number of LUTs per CLB (READ ONLY)
+          -- @IO:GS $FFDF004 - VFPGA number of inputs per CLB (READ ONLY)
+          -- @IO:GS $FFDF005 - VFPGA number of inputs per LUT (READ ONLY)
+          -- @IO:GS $FFDF006 - VFPGA number of IO pins (READ ONLY)
+          -- @IO:GS $FFDF007 - VFPGA number of bytes in bitstream (LSB) (READ ONLY)
+          -- @IO:GS $FFDF008 - VFPGA number of bytes in bitstream (MSB) (READ ONLY)
+          -- @IO:GS $FFDF009 - VFPGA number of bytes in snapshot (LSB) (READ ONLY)
+          -- @IO:GS $FFDF00A - VFPGA number of bytes in snapshot (MSB) (READ ONLY)
+          
+          when x"00" => fastio_rdata <= to_unsigned(WIDTH,8); -- width of VFPGA
+                        report "Outputting WIDTH = $" & to_hstring(to_unsigned(WIDTH,8));
+          when x"01" => fastio_rdata <= to_unsigned(HEIGHT,8); -- height of VFPGA
+          when x"02" => fastio_rdata <= to_unsigned(WIDTH/2,8); -- Logical wire cardinality (= W/2)
+          when x"03" => fastio_rdata <= to_unsigned(N,8); -- N
+          when x"04" => fastio_rdata <= to_unsigned(I,8); -- I
+          when x"05" => fastio_rdata <= to_unsigned(K,8); -- K
+          when x"06" => fastio_rdata <= to_unsigned(NUM_IO,8);
+          when x"07" => fastio_rdata <= to_unsigned(BITSTREAM_BYTES,8);
+          when x"08" => fastio_rdata <= to_unsigned(BITSTREAM_BYTES/256,8);
+          when x"09" => fastio_rdata <= to_unsigned(SNAPSHOT_BYTES,8);
+          when x"0a" => fastio_rdata <= to_unsigned(SNAPSHOT_BYTES/256,8);
+
+          -- @IO:GS $FFDF00B.0 - VFPGA DMA engine present flag (READ ONLY)
+          -- @IO:GS $FFDF00B.1 - VFPGA memory access engine present flag (READ ONLY)
+          -- @IO:GS $FFDF00B.2 - VFPGA interrupt pin present flag (READ ONLY)
+          -- @IO:GS $FFDF00B.3 - VFPGA cycle count done flag (READ ONLY)
+          -- @IO:GS $FFDF00B.4 - VFPGA reset (1= VFPGA is held under reset)
+          -- @IO:GS $FFDF00B.5 - VFPGA clk_done_IE flag
+          -- @IO:GS $FFDF00B.6 - VFPGA global_interrupt_IE flag 
+          -- @IO:GS $FFDF00B.7 - VFPGA global_interrupt flag (READ ONLY)
+          when x"0b" =>
+            fastio_rdata(0) <= '0'; -- With DMA ?
+            fastio_rdata(1) <= '0'; -- With MEM access ?
+            fastio_rdata(2) <= '0'; -- With interrupt pin ?
+            fastio_rdata(3) <= clk_cycle_counter_done;
+            fastio_rdata(4) <= vfpga_reset;
+            fastio_rdata(5) <= clk_done_IE;
+            fastio_rdata(6) <= global_interrupt_IE;
+            fastio_rdata(7) <= global_interrupt;
+
+          -- @IO:GS $FFDF00C - VFPGA SHA1 hash of architecture LSBs
+          -- @IO:GS $FFDF00D - VFPGA SHA1 hash of architecture LSBs
+          -- @IO:GS $FFDF00E - VFPGA SHA1 hash of architecture LSBs
+          -- @IO:GS $FFDF00F - VFPGA SHA1 hash of architecture LSBs
+          -- XXX PGS: 20190215: We only had 11 of the 32 bits in the 
+          when x"0c" => fastio_rdata <= x"CA"; -- Architecture file SHA1 LSB 
+          when x"0d" => fastio_rdata <= x"04"; -- Architecture file SHA1 LSB
+          when x"0e" => fastio_rdata <= x"00"; -- Architecture file SHA1 LSB
+          when x"0f" => fastio_rdata <= x"00"; -- Architecture file SHA1 LSB
+
+          -- Now we allow setting/getting the logical clock divisor and #
+          -- of logical cycles the vFPGA should run before
+          -- triggering an interrupt
+          when x"10" => fastio_rdata <= unsigned(reg_clk_div(7 downto 0));
+          when x"11" => fastio_rdata(1 downto 0) <= unsigned(reg_clk_div(9 downto 8));
+          when x"12" => fastio_rdata <= unsigned(clk_cycle_counter_remainder(7 downto 0));
+          when x"13" => fastio_rdata <= unsigned(clk_cycle_counter_remainder(15 downto 8));
+          when x"14" => fastio_rdata <= unsigned(clk_cycle_counter_remainder(23 downto 16));
+
+          -- @IO:GS $FFDF015 - VFPGA config access register: Reads or writes single byte of bitstream
+          when x"15" =>
+            -- Read a byte of the config
+            case config_access_phase is
+              when 0 => fastio_rdata <= unsigned(vfpga_config_out(7 downto 0));
+              when 1 => fastio_rdata <= unsigned(vfpga_config_out(15 downto 8));
+              when 2 => fastio_rdata <= unsigned(vfpga_config_out(23 downto 16));
+              when 3 => fastio_rdata <= unsigned(vfpga_config_out(31 downto 24));
+            end case;
+            if config_access_phase = 3 then
+              config_access_phase <= 0;
+              -- Write the read word back to rotate it through and make the
+              -- next visible.  this is safe to do only when the FPGA is paused,
+              -- either normally, or because the machine is in hypervisor mode,
+              -- which automatically pauses the FPGA.
+              vFPGA_config_valid <= '1';
+              vFPGA_config_in <= vFPGA_config_out;
+            else
+              config_access_phase <= config_access_phase + 1;
+            end if;
+
+          -- @IO:GS $FFDF015 - VFPGA config access register: Reads or writes single byte of state snapshot vector
+          when x"16" =>
+            -- Read a byte of the snapshot
+            case snapshot_access_phase is
+              when 0 => fastio_rdata <= unsigned(vfpga_snap_out(7 downto 0));
+              when 1 => fastio_rdata <= unsigned(vfpga_snap_out(15 downto 8));
+              when 2 => fastio_rdata <= unsigned(vfpga_snap_out(23 downto 16));
+              when 3 => fastio_rdata <= unsigned(vfpga_snap_out(31 downto 24));
+            end case;
+
+            if snapshot_access_phase = 3 then
+              snapshot_access_phase <= 0;
+              -- Similar to the above, we rotate the state around
+              vFPGA_snap_shift <= '1';
+              vFPGA_snap_in <= vFPGA_snap_out;
+            else
+              snapshot_access_phase <= snapshot_access_phase + 1;
+            end if;
+
+          -- @IO:GS $FFDF02x - VFPGA read output pins, with automatic ACK to FPGA on input bits 8-14 for $FFDF020-$FFDF026
+          when x"20" => fastio_rdata <= vfpga_output_buffer(7 downto 0);
+                        vfpga_input_buffer(8) <= not vfpga_input_buffer(8);
+          when x"21" => fastio_rdata <= vfpga_output_buffer(15 downto 8);
+                        vfpga_input_buffer(9) <= not vfpga_input_buffer(9);
+          when x"22" => fastio_rdata <= vfpga_output_buffer(23 downto 16);
+                        vfpga_input_buffer(10) <= not vfpga_input_buffer(10);
+          when x"23" => fastio_rdata <= vfpga_output_buffer(31 downto 24);
+                        vfpga_input_buffer(11) <= not vfpga_input_buffer(11);
+          when x"24" => fastio_rdata <= vfpga_output_buffer(39 downto 32);
+                        vfpga_input_buffer(12) <= not vfpga_input_buffer(12);
+          when x"25" => fastio_rdata <= vfpga_output_buffer(47 downto 40);
+                        vfpga_input_buffer(13) <= not vfpga_input_buffer(13);
+          when x"26" => fastio_rdata <= vfpga_output_buffer(55 downto 48);
+                        vfpga_input_buffer(14) <= not vfpga_input_buffer(14);
+                        
+          when others =>
+            fastio_rdata <= (others => 'Z');
+        end case;
+      else
+--        report "tri-stating fastio_rdata";
+--        fastio_rdata <= (others => 'Z');
+        null;
+      end if;
+            
       if fastio_write='1' and cs_vfpga='1' then
+        report "Writing to VFPGA control register $" & to_hstring(fastio_address(7 downto 0));
         case fastio_address(7 downto 0) is
           when x"0b" =>
             vfpga_reset <= fastio_wdata(4);              
             clk_done_IE <= fastio_wdata(5);              
             global_interrupt_IE <= fastio_wdata(6);              
-            -- global_interrupt <= fastio_wdata(7);              
+          -- global_interrupt <= fastio_wdata(7);              
           when x"15" =>
             -- Write a byte of the config
             case config_access_phase is
@@ -217,11 +351,11 @@ begin
 
           -- @IO:GS $FFDF03x - vFPGA input registers, with auto acknowledgement of reads by toggling input bits 0-6 when $FFDF030-$FFD036 are read
           -- Writing will cause auto-toggling of the corresponding handshaking line
-            -- $FFDF030 is special, because it corresponds to the byte of
-            -- inputs where the handshaking lines are, so only toggles the
-            -- handshaking line
+          -- $FFDF030 is special, because it corresponds to the byte of
+          -- inputs where the handshaking lines are, so only toggles the
+          -- handshaking line
           when x"30" => -- vfpga_input_buffer(7 downto 0) <= fastio_wdata;
-                        vfpga_input_buffer(0) <= not vfpga_input_buffer(0);
+            vfpga_input_buffer(0) <= not vfpga_input_buffer(0);
           when x"31" => vfpga_input_buffer(15 downto 8) <= fastio_wdata;
                         vfpga_input_buffer(1) <= not vfpga_input_buffer(1);
           when x"32" => vfpga_input_buffer(23 downto 16) <= fastio_wdata;
@@ -234,139 +368,15 @@ begin
                         vfpga_input_buffer(5) <= not vfpga_input_buffer(5);
           when x"36" => vfpga_input_buffer(55 downto 48) <= fastio_wdata;
                         vfpga_input_buffer(6) <= not vfpga_input_buffer(6);
-            
-            
+                        
+                        
           when others => null;
         end case;
         
       end if;
       
-      if fastio_read='1' and cs_vfpga='1' then
-        case fastio_address(7 downto 0) is
-          -- VFPGA characteristics
-
-        -- @IO:GS $FFDF000 - VFPGA width of CLB array (READ ONLY)
-        -- @IO:GS $FFDF001 - VFPGA height of CLB array (READ ONLY)
-        -- @IO:GS $FFDF002 - VFPGA Logical wire cardinality (READ ONLY)
-        -- @IO:GS $FFDF003 - VFPGA number of LUTs per CLB (READ ONLY)
-        -- @IO:GS $FFDF004 - VFPGA number of inputs per CLB (READ ONLY)
-        -- @IO:GS $FFDF005 - VFPGA number of inputs per LUT (READ ONLY)
-        -- @IO:GS $FFDF006 - VFPGA number of IO pins (READ ONLY)
-        -- @IO:GS $FFDF007 - VFPGA number of bytes in bitstream (LSB) (READ ONLY)
-        -- @IO:GS $FFDF008 - VFPGA number of bytes in bitstream (MSB) (READ ONLY)
-        -- @IO:GS $FFDF009 - VFPGA number of bytes in snapshot (LSB) (READ ONLY)
-        -- @IO:GS $FFDF00A - VFPGA number of bytes in snapshot (MSB) (READ ONLY)
-          
-          when x"00" => fastio_rdata <= to_unsigned(WIDTH,8); -- width of VFPGA
-          when x"01" => fastio_rdata <= to_unsigned(HEIGHT,8); -- height of VFPGA
-          when x"02" => fastio_rdata <= to_unsigned(WIDTH/2,8); -- Logical wire cardinality (= W/2)
-          when x"03" => fastio_rdata <= to_unsigned(N,8); -- N
-          when x"04" => fastio_rdata <= to_unsigned(I,8); -- I
-          when x"05" => fastio_rdata <= to_unsigned(K,8); -- K
-          when x"06" => fastio_rdata <= to_unsigned(NUM_IO,8);
-          when x"07" => fastio_rdata <= to_unsigned(BITSTREAM_BYTES,8);
-          when x"08" => fastio_rdata <= to_unsigned(BITSTREAM_BYTES/256,8);
-          when x"09" => fastio_rdata <= to_unsigned(SNAPSHOT_BYTES,8);
-          when x"0a" => fastio_rdata <= to_unsigned(SNAPSHOT_BYTES/256,8);
-
-        -- @IO:GS $FFDF00B.0 - VFPGA DMA engine present flag (READ ONLY)
-        -- @IO:GS $FFDF00B.1 - VFPGA memory access engine present flag (READ ONLY)
-        -- @IO:GS $FFDF00B.2 - VFPGA interrupt pin present flag (READ ONLY)
-        -- @IO:GS $FFDF00B.3 - VFPGA cycle count done flag (READ ONLY)
-        -- @IO:GS $FFDF00B.4 - VFPGA reset (1= VFPGA is held under reset)
-        -- @IO:GS $FFDF00B.5 - VFPGA clk_done_IE flag
-        -- @IO:GS $FFDF00B.6 - VFPGA global_interrupt_IE flag 
-        -- @IO:GS $FFDF00B.7 - VFPGA global_interrupt flag (READ ONLY)
-          when x"0b" =>
-            fastio_rdata(0) <= '0'; -- With DMA ?
-            fastio_rdata(1) <= '0'; -- With MEM access ?
-            fastio_rdata(2) <= '0'; -- With interrupt pin ?
-            fastio_rdata(3) <= clk_cycle_counter_done;
-            fastio_rdata(4) <= vfpga_reset;
-            fastio_rdata(5) <= clk_done_IE;
-            fastio_rdata(6) <= global_interrupt_IE;
-            fastio_rdata(7) <= global_interrupt;
-
-        -- @IO:GS $FFDF00C - VFPGA SHA1 hash of architecture LSBs
-        -- @IO:GS $FFDF00D - VFPGA SHA1 hash of architecture LSBs
-        -- @IO:GS $FFDF00E - VFPGA SHA1 hash of architecture LSBs
-        -- @IO:GS $FFDF00F - VFPGA SHA1 hash of architecture LSBs
-          -- XXX PGS: 20190215: We only had 11 of the 32 bits in the 
-          when x"0c" => fastio_rdata <= x"CA"; -- Architecture file SHA1 LSB 
-          when x"0d" => fastio_rdata <= x"04"; -- Architecture file SHA1 LSB
-          when x"0e" => fastio_rdata <= x"00"; -- Architecture file SHA1 LSB
-          when x"0f" => fastio_rdata <= x"00"; -- Architecture file SHA1 LSB
-
-          -- Now we allow setting/getting the logical clock divisor and #
-          -- of logical cycles the vFPGA should run before
-          -- triggering an interrupt
-          when x"10" => fastio_rdata <= unsigned(reg_clk_div(7 downto 0));
-          when x"11" => fastio_rdata(1 downto 0) <= unsigned(reg_clk_div(9 downto 8));
-          when x"12" => fastio_rdata <= unsigned(clk_cycle_counter_remainder(7 downto 0));
-          when x"13" => fastio_rdata <= unsigned(clk_cycle_counter_remainder(15 downto 8));
-          when x"14" => fastio_rdata <= unsigned(clk_cycle_counter_remainder(23 downto 16));
-
-        -- @IO:GS $FFDF015 - VFPGA config access register: Reads or writes single byte of bitstream
-          when x"15" =>
-            -- Read a byte of the config
-            case config_access_phase is
-              when 0 => fastio_rdata <= unsigned(vfpga_config_out(7 downto 0));
-              when 1 => fastio_rdata <= unsigned(vfpga_config_out(15 downto 8));
-              when 2 => fastio_rdata <= unsigned(vfpga_config_out(23 downto 16));
-              when 3 => fastio_rdata <= unsigned(vfpga_config_out(31 downto 24));
-            end case;
-            if config_access_phase = 3 then
-              config_access_phase <= 0;
-              -- Write the read word back to rotate it through and make the
-              -- next visible.  this is safe to do only when the FPGA is paused,
-              -- either normally, or because the machine is in hypervisor mode,
-              -- which automatically pauses the FPGA.
-              vFPGA_config_valid <= '1';
-              vFPGA_config_in <= vFPGA_config_out;
-            else
-              config_access_phase <= config_access_phase + 1;
-            end if;
-
-        -- @IO:GS $FFDF015 - VFPGA config access register: Reads or writes single byte of state snapshot vector
-          when x"16" =>
-            -- Read a byte of the snapshot
-            case snapshot_access_phase is
-              when 0 => fastio_rdata <= unsigned(vfpga_snap_out(7 downto 0));
-              when 1 => fastio_rdata <= unsigned(vfpga_snap_out(15 downto 8));
-              when 2 => fastio_rdata <= unsigned(vfpga_snap_out(23 downto 16));
-              when 3 => fastio_rdata <= unsigned(vfpga_snap_out(31 downto 24));
-            end case;
-
-            if snapshot_access_phase = 3 then
-              snapshot_access_phase <= 0;
-              -- Similar to the above, we rotate the state around
-              vFPGA_snap_shift <= '1';
-              vFPGA_snap_in <= vFPGA_snap_out;
-            else
-              snapshot_access_phase <= snapshot_access_phase + 1;
-            end if;
-
-            -- @IO:GS $FFDF02x - VFPGA read output pins, with automatic ACK to FPGA on input bits 8-14 for $FFDF020-$FFDF026
-          when x"20" => fastio_rdata <= vfpga_output_buffer(7 downto 0);
-                        vfpga_input_buffer(8) <= not vfpga_input_buffer(8);
-          when x"21" => fastio_rdata <= vfpga_output_buffer(15 downto 8);
-                        vfpga_input_buffer(9) <= not vfpga_input_buffer(9);
-          when x"22" => fastio_rdata <= vfpga_output_buffer(23 downto 16);
-                        vfpga_input_buffer(10) <= not vfpga_input_buffer(10);
-          when x"23" => fastio_rdata <= vfpga_output_buffer(31 downto 24);
-                        vfpga_input_buffer(11) <= not vfpga_input_buffer(11);
-          when x"24" => fastio_rdata <= vfpga_output_buffer(39 downto 32);
-                        vfpga_input_buffer(12) <= not vfpga_input_buffer(12);
-          when x"25" => fastio_rdata <= vfpga_output_buffer(47 downto 40);
-                        vfpga_input_buffer(13) <= not vfpga_input_buffer(13);
-          when x"26" => fastio_rdata <= vfpga_output_buffer(55 downto 48);
-                        vfpga_input_buffer(14) <= not vfpga_input_buffer(14);
-            
-          when others =>
-            null;
-        end case;
-      end if;
     end if;
+
   end process;
 
   -- Snap save --
@@ -384,10 +394,10 @@ begin
     if rising_edge(clock) then
       if vFPGA_reset = '1' then
         reg_clk_div <= (others => '1');
-        -- @IO:GS $FFDF010 - VFPGA logical clock divisor (LSB)
+      -- @IO:GS $FFDF010 - VFPGA logical clock divisor (LSB)
       elsif fastio_write='1' and cs_vfpga='1' and fastio_address(7 downto 0) = x"10" then
         reg_clk_div(7 downto 0) <= std_ulogic_vector(fastio_wdata);
-        -- @IO:GS $FFDF011 - VFPGA logical clock divisor (MSB)
+      -- @IO:GS $FFDF011 - VFPGA logical clock divisor (MSB)
       elsif fastio_write='1' and cs_vfpga='1' and fastio_address(7 downto 0) = x"11" then
         reg_clk_div(9 downto 8) <= std_ulogic_vector(fastio_wdata(1 downto 0));
       end if;
@@ -404,9 +414,9 @@ begin
       if vFPGA_reset = '1' then
         reg_clk_cycle_counter <= (others => '0');
         write_clkcnt <= '0';
-        -- @IO:GS $FFDF012 - VFPGA cycle clock counter (LSB)
-        -- @IO:GS $FFDF013 - VFPGA cycle clock counter (SSB)
-        -- @IO:GS $FFDF014 - VFPGA cycle clock counter (MSB)
+      -- @IO:GS $FFDF012 - VFPGA cycle clock counter (LSB)
+      -- @IO:GS $FFDF013 - VFPGA cycle clock counter (SSB)
+      -- @IO:GS $FFDF014 - VFPGA cycle clock counter (MSB)
       elsif fastio_write='1' and cs_vfpga='1' and fastio_address(7 downto 0) = x"12" then
         reg_clk_cycle_counter(7 downto 0) <= std_ulogic_vector(fastio_wdata(7 downto 0));
         write_clkcnt <= '1';
