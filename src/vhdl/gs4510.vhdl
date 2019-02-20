@@ -1202,6 +1202,7 @@ architecture Behavioural of gs4510 is
   type math_config_array is array(0 to math_unit_count - 1) of math_unit_config;
   signal reg_math_regs : math_reg_array;
   signal reg_math_config : math_config_array;
+  signal reg_math_config_drive : math_config_array;
   signal reg_math_latch_counter : unsigned(7 downto 0) := x"00";
   signal reg_math_latch_interval : unsigned(7 downto 0) := x"00";
 
@@ -1243,9 +1244,9 @@ begin
     mult_unit : entity work.multiply32 port map (
       clock => mathclock,
       unit => unit,
-      do_add => reg_math_config(unit).do_add,
-      input_a => reg_math_config(unit).source_a,
-      input_b => reg_math_config(unit).source_b,
+      do_add => reg_math_config_drive(unit).do_add,
+      input_a => reg_math_config_drive(unit).source_a,
+      input_b => reg_math_config_drive(unit).source_b,
       input_value_number => math_input_number,
       input_value => math_input_value,
       output_select => math_output_counter,
@@ -1258,9 +1259,9 @@ begin
     mult_unit : entity work.shifter32 port map (
       clock => mathclock,
       unit => unit,
-      do_add => reg_math_config(unit).do_add,
-      input_a => reg_math_config(unit).source_a,
-      input_b => reg_math_config(unit).source_b,
+      do_add => reg_math_config_drive(unit).do_add,
+      input_a => reg_math_config_drive(unit).source_a,
+      input_b => reg_math_config_drive(unit).source_b,
       input_value_number => math_input_number,
       input_value => math_input_value,
       output_select => math_output_counter,
@@ -1273,9 +1274,9 @@ begin
     mult_unit : entity work.divider32 port map (
       clock => mathclock,
       unit => unit,
-      do_add => reg_math_config(unit).do_add,
-      input_a => reg_math_config(unit).source_a,
-      input_b => reg_math_config(unit).source_b,
+      do_add => reg_math_config_drive(unit).do_add,
+      input_a => reg_math_config_drive(unit).source_a,
+      input_b => reg_math_config_drive(unit).source_b,
       input_value_number => math_input_number,
       input_value => math_input_value,
       output_select => math_output_counter,
@@ -2833,9 +2834,9 @@ begin
       end if;
 
       if math_unit_flags(1) = '1' then
-        if (reg_math_config(prev_math_output_counter).latched='0') or (reg_math_latch_counter = x"00") then
-          if reg_math_config(prev_math_output_counter).output_high = '0' then
-            if reg_math_config(prev_math_output_counter).output_low = '0' then
+        if (reg_math_config_drive(prev_math_output_counter).latched='0') or (reg_math_latch_counter = x"00") then
+          if reg_math_config_drive(prev_math_output_counter).output_high = '0' then
+            if reg_math_config_drive(prev_math_output_counter).output_low = '0' then
               -- No output being kept, so nothing to do.
               null;
             else
@@ -2846,7 +2847,7 @@ begin
               reg_math_regs(reg_math_config(prev_math_output_counter).output) <= math_output_value_low;
             end if;
           else
-            if reg_math_config(prev_math_output_counter).output_low = '0' then          
+            if reg_math_config_drive(prev_math_output_counter).output_low = '0' then          
               -- Only high half of output is being kept, so stash it
               report "MATH: Setting reg_math_regs(" & integer'image(reg_math_config(prev_math_output_counter).output)
                 & ") from output of math unit #" & integer'image(prev_math_output_counter);
@@ -2856,8 +2857,8 @@ begin
               report "MATH: Setting reg_math_regs(" & integer'image(reg_math_config(prev_math_output_counter).output)
                 & ") (and next) from output of math unit #" & integer'image(prev_math_output_counter);
               reg_math_regs(reg_math_config(prev_math_output_counter).output) <= math_output_value_low;
-              if reg_math_config(prev_math_output_counter).output /= 15 then
-                reg_math_regs(reg_math_config(prev_math_output_counter).output + 1) <= math_output_value_high;
+              if reg_math_config_drive(prev_math_output_counter).output /= 15 then
+                reg_math_regs(reg_math_config_drive(prev_math_output_counter).output + 1) <= math_output_value_high;
               else
                 reg_math_regs(0) <= math_output_value_high;
               end if;
@@ -6488,6 +6489,9 @@ begin
     reg_pages_dirty_var(3) := '0';
 
     if rising_edge(clock) then
+
+      reg_math_config_drive <= reg_math_config;
+      
       -- We this awkward comparison because GHDL seems to think secure_mode_from_monitor='U'
       -- initially, even though it gets initialised to '0' explicitly
       if (hyper_protected_hardware(7)='1' and secure_mode_from_monitor='0')
