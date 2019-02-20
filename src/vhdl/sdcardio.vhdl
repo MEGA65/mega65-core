@@ -659,7 +659,7 @@ begin  -- behavioural
       sector_buffer_fastio_address <= to_integer(fastio_addr_fast(11 downto 0));
     end if;
     
-    fastio_rdata <= x"00";
+    fastio_rdata <= (others => 'Z');
     
     if fastio_read='1' and sectorbuffercs='0' then
 
@@ -1116,10 +1116,12 @@ begin  -- behavioural
 
     -- output select
     fastio_rdata_sel <= (others => 'Z');
-    if fastio_read='1' and sectorbuffercs='0' then
-      fastio_rdata_sel <= fastio_rdata;
-    elsif sectorbuffercs='1' then
-      fastio_rdata_sel <= fastio_rdata_ram;
+    if f011_cs='1' and sdcardio_cs='0' and secure_mode='0' then
+      if fastio_read='1' and sectorbuffercs='0' then
+        fastio_rdata_sel <= fastio_rdata;
+      elsif sectorbuffercs='1' then
+        fastio_rdata_sel <= fastio_rdata_ram;
+      end if;
     end if;
         
     -- ==================================================================
