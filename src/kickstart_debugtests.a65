@@ -4,6 +4,29 @@
 	; It is used for debugging various things using GHDL simulation,
 	; because the simulation is so slow, we want things to run instantly.
 
+.macro vfpga_addressing
+
+       ; Create pointer to $FFDF000
+       lda #<$F000
+       sta $02+0
+       lda #>$F000
+       sta $02+1
+       lda #<$0FFD
+       sta $02+2
+       lda #>$0FFD
+       sta $02+3
+
+       ; Try reading and writing a register
+       ldz #$00
+       nop
+       lda ($02),z
+       ldz #$05
+       nop
+       sta ($02),z
+       ldz #$00
+.macend
+; .invoke vfpga_addressing
+
 .macro dmapalettetest
 
        lda $d1ff
