@@ -100,7 +100,8 @@ set_property -dict {PACKAGE_PIN D14 IOSTANDARD LVCMOS33} [get_ports {jblo[1]}]
 set_property -dict {PACKAGE_PIN F16 IOSTANDARD LVCMOS33} [get_ports {jblo[2]}]
 set_property -dict {PACKAGE_PIN G16 IOSTANDARD LVCMOS33} [get_ports {jblo[3]}]
 set_property -dict {PACKAGE_PIN H14 IOSTANDARD LVCMOS33} [get_ports {jblo[4]}]
-set_property -dict {PACKAGE_PIN E16 IOSTANDARD LVCMOS33 SLEW=FAST DRIVE=24} [get_ports {jbhi[7]}]
+set_property PACKAGE_PIN E16 [get_ports {jbhi[7]}]
+set_property IOSTANDARD LVCMOS33 [get_ports {jbhi[7]}]
 set_property -dict {PACKAGE_PIN F13 IOSTANDARD LVCMOS33} [get_ports {jbhi[8]}]
 set_property -dict {PACKAGE_PIN G13 IOSTANDARD LVCMOS33} [get_ports {jbhi[9]}]
 set_property -dict {PACKAGE_PIN H16 IOSTANDARD LVCMOS33} [get_ports {jbhi[10]}]
@@ -232,4 +233,6 @@ set_false_path -from [get_pins {machine0/viciv0/vicii_sprites0/bitplanes0/v_bitp
 set_false_path -from [get_pins {machine0/viciv0/vicii_sprites0/bitplanes0/v_bitplane_y_start_reg[5]/C}] -to [get_pins {machine0/viciv0/vicii_sprites0/bitplanes0/p_0_out/A[14]}]
 set_false_path -from [get_pins {machine0/viciv0/vicii_sprites0/bitplanes0/v_bitplane_y_start_reg[5]/C}] -to [get_pins {machine0/viciv0/vicii_sprites0/bitplanes0/p_0_out/A[5]}]
 set_false_path -from [get_pins {machine0/viciv0/vicii_sprites0/bitplanes0/v_bitplane_y_start_reg[5]/C}] -to [get_pins {machine0/viciv0/vicii_sprites0/bitplanes0/p_0_out/A[10]}]
-set_false_path -through [get_pints {machine0/iomapper0/ethernet0/eth_tx_trigger_reg/C}]
+
+
+set_false_path -from [get_pins machine0/iomapper0/block2.framepacker0/buffer_moby_toggle_reg/C] -to [get_pins {machine0/iomapper0/ethernet0/FSM_onehot_eth_tx_state_reg[0]/CE}]
