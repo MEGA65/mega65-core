@@ -412,7 +412,7 @@ architecture behavioral of iomapper is
   signal ef_timeout : integer range 0 to 31 := 0;
   
   signal dummy_e : std_logic_vector(7 downto 0);
-  signal dummy_g : std_logic_vector(7 downto 0);
+  signal dummy_g : std_logic_vector(7 downto 0) := x"FF";
   signal dummy : std_logic_vector(10 downto 0);
 
   signal joya_rotate : std_logic;
