@@ -112,23 +112,23 @@ begin
   end process;
 
 
-  -- vFPGA: entity work.ARCH8X6W16N4I10K4FCI4FCO8PFI8PFO8IOPB2_wrapper
-  --   port map ( clk          => pixel_clock,
-  --              rst          => vfpga_reset,               -- vFPGA runs if rst = 0
-  --              clk_app      => vfpga_vclock,
-  --              rst_app      => vfpga_reset,
-  --              snap_save    => vFPGA_snap_save,
-  --              snap_restore => vFPGA_snap_restore,
-  --              config_out   => vFPGA_config_out,
-  --              config_in    => vFPGA_config_in,       -- 32 bit config word
-  --              config_valid => vFPGA_config_valid,    -- config word is
-  --                                                     -- accepted if this line
-  --                                                     -- is high
-  --              snap_in      => vFPGA_snap_in,
-  --              snap_out     => vFPGA_snap_out,
-  --              snap_shift   => vFPGA_snap_shift,
-  --              inputs       => vFPGA_inputs,
-  --              outputs      => vFPGA_outputs);
+   vFPGA: entity work.ARCH8X6W16N4I10K4FCI4FCO8PFI8PFO8IOPB2_wrapper
+     port map ( clk          => pixel_clock,
+                rst          => vfpga_reset,               -- vFPGA runs if rst = 0
+                clk_app      => vfpga_vclock,
+                rst_app      => vfpga_reset,
+                snap_save    => vFPGA_snap_save,
+                snap_restore => vFPGA_snap_restore,
+                config_out   => vFPGA_config_out,
+                config_in    => vFPGA_config_in,       -- 32 bit config word
+                config_valid => vFPGA_config_valid,    -- config word is
+                                                       -- accepted if this line
+                                                       -- is high
+                snap_in      => vFPGA_snap_in,
+                snap_out     => vFPGA_snap_out,
+                snap_shift   => vFPGA_snap_shift,
+                inputs       => vFPGA_inputs,
+                outputs      => vFPGA_outputs);
 
 
   CLK_CTRL: entity work.vFPGA_clock_controller_pausable
