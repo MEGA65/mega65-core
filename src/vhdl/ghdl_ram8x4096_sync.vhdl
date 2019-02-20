@@ -8,7 +8,8 @@ use work.debugtools.all;
 
 ENTITY ram8x4096_sync IS
   PORT (
-    clk : IN STD_LOGIC;
+    clkr : IN STD_LOGIC;
+    clkw : IN STD_LOGIC;
     cs : IN STD_LOGIC;
     w : IN std_logic;
     write_address : IN integer;
@@ -26,20 +27,26 @@ architecture behavioural of ram8x4096_sync is
 
 begin  -- behavioural
 
-  process(clk)
+  process(clkr)
   begin
-    if(rising_edge(Clk)) then
+    if(rising_edge(Clkr)) then
 
       if cs='1' then
         rdata <= ram(address);
       end if;
+    end if;
+  end process;
 
+  process(clkw)
+  begin
+    if(rising_edge(clkw)) then
+      if cs='1' then
         if w='1' then
           ram(write_address) <= wdata;
           report "writing $" & to_hstring(wdata) & " to sector buffer offset $"
             & to_hstring(to_unsigned(write_address,12)) severity note;
         end if;
-      
+      end if;
     end if;    
   end process;
 

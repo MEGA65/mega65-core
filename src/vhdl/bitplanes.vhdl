@@ -129,7 +129,8 @@ architecture behavioural of bitplanes is
 
   component ram8x4096 IS
     PORT (
-      clk : IN STD_LOGIC;
+      clkr : IN STD_LOGIC;
+      clkw : IN STD_LOGIC;
       cs : IN STD_LOGIC;
       w : IN std_logic;
       write_address : IN integer range 0 to 4095;
@@ -206,7 +207,8 @@ begin  -- behavioural
   -- (800 pixel wide mode) per
   -- line (actually upto 400 bytes per line when using bitplanes in 16-colour mode)
   bitplanedatabuffer: component ram8x4096
-    port map (clk => pixelclock,
+    port map (clkr => pixelclock,
+              clkw => pixelclock,
               w => bitplanedatabuffer_write,
               wdata => bitplanedatabuffer_wdata,
               write_address => bitplanedatabuffer_waddress,

@@ -554,7 +554,8 @@ begin  -- behavioural
   -- CPU direct-readable sector buffer, so that it can be memory mapped
   sb_memorymapped0: entity work.ram8x4096_sync
     port map (
-      clk => clock,
+      clkr => clock,
+      clkw => clock,
 
       -- CPU side read access
       cs => sectorbuffercs_fast,
@@ -573,7 +574,8 @@ begin  -- behavioural
   -- to SD card or floppy drive
   sb_workcopy: entity work.ram8x4096_sync
     port map (
-      clk => clock,
+      clkr => clock,
+      clkw => clock,
 
       cs => '1',
       address => to_integer(f011_buffer_read_address),

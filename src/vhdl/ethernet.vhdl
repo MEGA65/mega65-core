@@ -340,8 +340,11 @@ begin  -- behavioural
   -- RX buffer is written from ethernet side, so use 50MHz clock.
   -- reads are fully asynchronous, so no need for a read-side clock for the CPU
   -- side.
+
+  -- XXX: Need to have separate read and write clocks
   rxbuffer0: entity work.ram8x4096 port map (
-    clk => clock50mhz,
+    clkw => clock50mhz,
+    clkr => clock,
     cs => rxbuffer_cs,
     w => rxbuffer_write,
     write_address => rxbuffer_writeaddress,
@@ -350,7 +353,8 @@ begin  -- behavioural
     rdata => fastio_rdata);  
 
   txbuffer0: entity work.ram8x4096 port map (
-    clk => clock50mhz,
+    clkr => clock50mhz,
+    clkw => clock50mhz,
     cs => '1',
     w => txbuffer_write,
     write_address => txbuffer_writeaddress,

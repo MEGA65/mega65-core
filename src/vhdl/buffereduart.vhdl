@@ -175,7 +175,8 @@ begin  -- behavioural
 
   buffer0: entity work.ram8x4096
     port map (
-    clk => clock,
+    clkr => clock,
+    clkw => clock,
     cs => '1',
     w => buffer_write,
     write_address => buffer_writeaddress,
