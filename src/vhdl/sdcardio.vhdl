@@ -1116,7 +1116,7 @@ begin  -- behavioural
 
     -- output select
     fastio_rdata_sel <= (others => 'Z');
-    if f011_cs='1' and sdcardio_cs='0' and secure_mode='0' then
+    if (f011_cs='1' or sdcardio_cs='1' or sectorbuffercs='1') and secure_mode='0' then
       if fastio_read='1' and sectorbuffercs='0' then
         fastio_rdata_sel <= fastio_rdata;
       elsif sectorbuffercs='1' then
