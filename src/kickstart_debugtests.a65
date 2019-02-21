@@ -208,6 +208,10 @@ theroutine_end:
 		stx $de02
 		inx
 		stx $de03
+		lda $de00
+		lda $de01
+		lda $de02
+
 		; Issue write block command
 		lda #$03
 		sta sd_ctrl
