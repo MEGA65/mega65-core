@@ -7,6 +7,9 @@ use Std.TextIO.all;
 use work.debugtools.all;
 
 ENTITY ram8x4096_sync IS
+ generic (    
+    unit : in unsigned(3 downto 0) := x"0"
+    );
   PORT (
     clkr : IN STD_LOGIC;
     clkw : IN STD_LOGIC;
@@ -27,12 +30,13 @@ architecture behavioural of ram8x4096_sync is
 
 begin  -- behavioural
 
-  process(clkr)
+  process(clkr,clkw,ram,address,cs,w)
   begin
     if(rising_edge(Clkr)) then
 
       if cs='1' then
-        rdata <= ram(address);
+       report "Unit " & to_hstring(unit) & ": Reading $" & to_hstring(ram(address)) & " from address $" & to_hstring(to_unsigned(address,12));
+       rdata <= ram(address);
       end if;
     end if;
   end process;
@@ -43,7 +47,7 @@ begin  -- behavioural
       if cs='1' then
         if w='1' then
           ram(write_address) <= wdata;
-          report "writing $" & to_hstring(wdata) & " to sector buffer offset $"
+          report "Unit " & to_hstring(unit) & ": writing $" & to_hstring(wdata) & " to sector buffer offset $"
             & to_hstring(to_unsigned(write_address,12)) severity note;
         end if;
       end if;

@@ -553,12 +553,15 @@ begin  -- behavioural
 
   -- CPU direct-readable sector buffer, so that it can be memory mapped
   sb_memorymapped0: entity work.ram8x4096_sync
+    generic map (
+      unit => x"0"
+      )
     port map (
       clkr => clock,
       clkw => clock,
 
       -- CPU side read access
-      cs => sectorbuffercs_fast,
+      cs => '1',
 --      cs => sectorbuffercs,
       address => sector_buffer_fastio_address,
       rdata => fastio_rdata_ram,
@@ -573,6 +576,9 @@ begin  -- behavioural
   -- Locally readable copy of the same data, so that we can read it when writing
   -- to SD card or floppy drive
   sb_workcopy: entity work.ram8x4096_sync
+    generic map (
+      unit => x"1"
+      )
     port map (
       clkr => clock,
       clkw => clock,
@@ -779,7 +785,7 @@ begin  -- behavioural
             fastio_rdata(7 downto 3) <= (others => '0');
 
           when others =>
-            fastio_rdata <= (others => '0');
+            fastio_rdata <= (others => 'Z');
         end case;
 
         -- ==================================================================
@@ -1108,18 +1114,21 @@ begin  -- behavioural
         end case;
       else
         -- Otherwise tristate output
-        fastio_rdata <= (others => '0');
+        fastio_rdata <= (others => 'Z');
       end if;
     else
-      fastio_rdata <= (others => '0');
+      fastio_rdata <= (others => 'Z');
     end if;
 
     -- output select
     fastio_rdata_sel <= (others => 'Z');
-    if (f011_cs='1' or sdcardio_cs='1' or sectorbuffercs='1') and secure_mode='0' then
+    if (f011_cs='1' or sdcardio_cs='1' or sectorbuffercs='1' or sectorbuffercs_fast='1') and secure_mode='0' and fastio_read='1' then
+      report "Exporting value to fastio_read";
       if fastio_read='1' and sectorbuffercs='0' then
         fastio_rdata_sel <= fastio_rdata;
+        report "fastio_rdata(_sel) <= $" & to_hstring(fastio_rdata) & "(from register read)";
       elsif sectorbuffercs='1' then
+        report "fastio_rdata(_sel) <= $" & to_hstring(fastio_rdata_ram) & " (from BRAM)";
         fastio_rdata_sel <= fastio_rdata_ram;
       end if;
     end if;
@@ -1141,6 +1150,9 @@ begin  -- behavioural
     
     if rising_edge(clock) then    
 
+      report "sectorbuffercs = " & std_logic'image(sectorbuffercs) & ", sectorbuffercs_fast=" & std_logic'image(sectorbuffercs_fast)
+        & ", fastio_rdata_ram=$" & to_hstring(fastio_rdata_ram) & ", sector buffer raddr=$" & to_hstring(to_unsigned(sector_buffer_fastio_address,12));
+      
       audio_mix_write <= '0';      
       
       -- Drive LCD panel PWM brightness control
