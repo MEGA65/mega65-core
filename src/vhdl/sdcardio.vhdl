@@ -1121,7 +1121,6 @@ begin  -- behavioural
     end if;
 
     -- output select
-    fastio_rdata_sel <= (others => 'Z');
     if (f011_cs='1' or sdcardio_cs='1' or sectorbuffercs='1' or sectorbuffercs_fast='1') and secure_mode='0' and fastio_read='1' then
       report "Exporting value to fastio_read";
       if fastio_read='1' and sectorbuffercs='0' then
@@ -1130,7 +1129,13 @@ begin  -- behavioural
       elsif sectorbuffercs='1' then
         report "fastio_rdata(_sel) <= $" & to_hstring(fastio_rdata_ram) & " (from BRAM)";
         fastio_rdata_sel <= fastio_rdata_ram;
+      else
+        report "tri-stating fastio_read(_sel)";
+        fastio_rdata_sel <= (others => 'Z');        
       end if;
+    else
+        report "tri-stating fastio_read(_sel)";
+      fastio_rdata_sel <= (others => 'Z');
     end if;
         
     -- ==================================================================

@@ -305,7 +305,7 @@ begin
         end case;
       else
 --        report "tri-stating fastio_rdata";
---        fastio_rdata <= (others => 'Z');
+        fastio_rdata <= (others => 'Z');
         null;
       end if;
             
