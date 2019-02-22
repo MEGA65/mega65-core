@@ -253,6 +253,14 @@ begin
                         vfpga_input_buffer(13) <= not vfpga_input_buffer(13);
           when x"26" => fastio_rdata <= vfpga_output_buffer(55 downto 48);
                         vfpga_input_buffer(14) <= not vfpga_input_buffer(14);
+
+          when x"30" => fastio_rdata <= vfpga_input_buffer(7 downto 0);
+          when x"31" => fastio_rdata <= vfpga_input_buffer(15 downto 8);
+          when x"32" => fastio_rdata <= vfpga_input_buffer(23 downto 16);
+          when x"33" => fastio_rdata <= vfpga_input_buffer(31 downto 24);
+          when x"34" => fastio_rdata <= vfpga_input_buffer(39 downto 32);
+          when x"35" => fastio_rdata <= vfpga_input_buffer(47 downto 40);
+          when x"36" => fastio_rdata <= vfpga_input_buffer(55 downto 48);
                         
           when others =>
             fastio_rdata <= (others => 'Z');
