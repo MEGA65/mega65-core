@@ -45,16 +45,15 @@ architecture Behavioral of VFPGA_WRAPPER_8BIT is
   constant NUM_IO : integer := 56;         
 
   signal hypervisor_mode : std_logic;
-  signal last_hypervisor_mode : std_logic;
   
   signal vfpga_reset             : std_ulogic := '0';
   signal vfpga_vclock            : std_ulogic := '0';
   signal vFPGA_snap_save         : std_ulogic := '0';
   signal vFPGA_snap_restore      : std_ulogic := '0';
-  signal vFPGA_snap_in           : std_ulogic_vector(31 downto 0) := (others => '0');
-  signal vFPGA_snap_out          : std_ulogic_vector(31 downto 0) := (others => '0');
+  signal vFPGA_snap_in           : std_ulogic_vector(7 downto 0) := (others => '0');
+  signal vFPGA_snap_out          : std_ulogic_vector(7 downto 0) := (others => '0');
   signal vFPGA_snap_shift        : std_ulogic := '0';
-  signal vFPGA_config_in         : std_ulogic_vector(31 downto 0) := (others => '0');
+  signal vFPGA_config_in         : std_ulogic_vector(7 downto 0) := (others => '0');
   signal vFPGA_config_valid      : std_ulogic := '0';  -- Rising edge causes
                                                        -- vFPGA_config_in to be
                                                        -- shifted into config,
@@ -62,7 +61,7 @@ architecture Behavioral of VFPGA_WRAPPER_8BIT is
                                                        -- config out
   -- When shifing config in, we shift the old config out, so that we can
   -- recover the bitstream from a running unit when freezing
-  signal vFPGA_config_out         : std_ulogic_vector(31 downto 0) := (others => '0');
+  signal vFPGA_config_out         : std_ulogic_vector(7 downto 0) := (others => '0');
   signal vFPGA_inputs            : std_ulogic_vector(55 downto 0) := (others => '0');
   signal vFPGA_outputs           : std_ulogic_vector(55 downto 0) := (others => '0');
   signal clk_done_IE             : std_logic := '0';
@@ -95,9 +94,6 @@ architecture Behavioral of VFPGA_WRAPPER_8BIT is
   signal write_clkcnt            : std_ulogic := '0';
   signal old_write_clkcnt        : std_ulogic := '0';
 
-  signal snapshot_access_phase : integer range 0 to 3 := 0;
-  signal config_access_phase : integer range 0 to 3 := 0;
-
   signal vfpga_output_buffer : unsigned(55 downto 0) := (others => '0');
   signal vfpga_input_buffer : unsigned(55 downto 0) := (others => '0');
   
@@ -114,7 +110,7 @@ begin
   end process;
 
 
-  vFPGA: entity work.ARCH8X6W16N4I10K4FCI4FCO8PFI8PFO8IOPB2_wrapper
+  vFPGA: entity work.ARCH8X6W16N4I10K4FCI4FCO8PFI8PFO8IOPB2_wrapper_8bit
     port map ( clk          => pixel_clock,
                rst          => vfpga_reset,               -- vFPGA runs if rst = 0
                clk_app      => vfpga_vclock,
@@ -161,22 +157,6 @@ begin
       vFPGA_config_valid <= '0';
       vFPGA_snap_shift <= '0';
       
-      -- XXX: We need to support freezing even if the access phases
-      -- for the bitstream or snapshot data are not 0
-      -- This is a royal pain to actually do, as we need to expose
-      -- the contents of the partially read/written words etc.
-      -- For now, we are just going to ignore this, on the basis
-      -- that freezing happens only rarely, and the probability of
-      -- a sensible program leaving things in this state when a freeze
-      -- occurs is low. We really should solve it in the long-term
-      -- however, so that freezing is truly safe and exact.
-      last_hypervisor_mode <= hypervisor_mode;
-      if hypervisor_mode = '1' and last_hypervisor_mode='0' then
-        -- XXX Read the above about how we should really do this better!
-        config_access_phase <= 0;
-        snapshot_access_phase <= 0;
-      end if;
-
       if fastio_read='1' and cs_vfpga='1' then
         report "Reading from VFPGA control register $" & to_hstring(fastio_address(7 downto 0));
         case fastio_address(7 downto 0) is
@@ -247,42 +227,16 @@ begin
           -- @IO:GS $FFDF015 - VFPGA config access register: Reads or writes single byte of bitstream
           when x"15" =>
             -- Read a byte of the config
-            case config_access_phase is
-              when 0 => fastio_rdata <= unsigned(vfpga_config_out(7 downto 0));
-              when 1 => fastio_rdata <= unsigned(vfpga_config_out(15 downto 8));
-              when 2 => fastio_rdata <= unsigned(vfpga_config_out(23 downto 16));
-              when 3 => fastio_rdata <= unsigned(vfpga_config_out(31 downto 24));
-            end case;
-            if config_access_phase = 3 then
-              config_access_phase <= 0;
-              -- Write the read word back to rotate it through and make the
-              -- next visible.  this is safe to do only when the FPGA is paused,
-              -- either normally, or because the machine is in hypervisor mode,
-              -- which automatically pauses the FPGA.
-              vFPGA_config_valid <= '1';
-              vFPGA_config_in <= vFPGA_config_out;
-            else
-              config_access_phase <= config_access_phase + 1;
-            end if;
-
+            fastio_rdata <= unsigned(vfpga_config_out);
+            vFPGA_config_valid <= '1';
+            vFPGA_config_in <= vFPGA_config_out;
           -- @IO:GS $FFDF015 - VFPGA config access register: Reads or writes single byte of state snapshot vector
           when x"16" =>
             -- Read a byte of the snapshot
-            case snapshot_access_phase is
-              when 0 => fastio_rdata <= unsigned(vfpga_snap_out(7 downto 0));
-              when 1 => fastio_rdata <= unsigned(vfpga_snap_out(15 downto 8));
-              when 2 => fastio_rdata <= unsigned(vfpga_snap_out(23 downto 16));
-              when 3 => fastio_rdata <= unsigned(vfpga_snap_out(31 downto 24));
-            end case;
-
-            if snapshot_access_phase = 3 then
-              snapshot_access_phase <= 0;
-              -- Similar to the above, we rotate the state around
-              vFPGA_snap_shift <= '1';
-              vFPGA_snap_in <= vFPGA_snap_out;
-            else
-              snapshot_access_phase <= snapshot_access_phase + 1;
-            end if;
+            fastio_rdata <= unsigned(vfpga_snap_out);
+            -- Similar to the above, we rotate the state around
+            vFPGA_snap_shift <= '1';
+            vFPGA_snap_in <= vFPGA_snap_out;
 
           -- @IO:GS $FFDF02x - VFPGA read output pins, with automatic ACK to FPGA on input bits 8-14 for $FFDF020-$FFDF026
           when x"20" => fastio_rdata <= vfpga_output_buffer(7 downto 0);
@@ -319,35 +273,14 @@ begin
           -- global_interrupt <= fastio_wdata(7);              
           when x"15" =>
             -- Write a byte of the config
-            case config_access_phase is
-              when 0 => vfpga_config_in(7 downto 0) <= std_ulogic_vector(fastio_wdata);
-              when 1 => vfpga_config_in(15 downto 8) <= std_ulogic_vector(fastio_wdata);
-              when 2 => vfpga_config_in(23 downto 16) <= std_ulogic_vector(fastio_wdata);
-              when 3 => vfpga_config_in(31 downto 24) <= std_ulogic_vector(fastio_wdata);
-            end case;
-            if config_access_phase = 3 then
-              config_access_phase <= 0;
-              vFPGA_config_valid <= '1';
-            else
-              config_access_phase <= config_access_phase + 1;
-            end if;
+            vfpga_config_in <= std_ulogic_vector(fastio_wdata);
+            vFPGA_config_valid <= '1';
 
           when x"16" =>
             -- Read a byte of the snapshot
-            case snapshot_access_phase is
-              when 0 => vfpga_snap_in(7 downto 0) <= std_ulogic_vector(fastio_wdata);
-              when 1 => vfpga_snap_in(15 downto 8) <= std_ulogic_vector(fastio_wdata);
-              when 2 => vfpga_snap_in(23 downto 16) <= std_ulogic_vector(fastio_wdata);
-              when 3 => vfpga_snap_in(31 downto 24) <= std_ulogic_vector(fastio_wdata);
-            end case;
-
-            if snapshot_access_phase = 3 then
-              snapshot_access_phase <= 0;
-              -- Similar to the above
-              vFPGA_snap_shift <= '1';
-            else
-              snapshot_access_phase <= snapshot_access_phase + 1;
-            end if;
+            vfpga_snap_in <= std_ulogic_vector(fastio_wdata);
+            -- Similar to the above
+            vFPGA_snap_shift <= '1';
 
           -- @IO:GS $FFDF03x - vFPGA input registers, with auto acknowledgement of reads by toggling input bits 0-6 when $FFDF030-$FFD036 are read
           -- Writing will cause auto-toggling of the corresponding handshaking line
