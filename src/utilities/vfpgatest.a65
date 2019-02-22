@@ -157,10 +157,46 @@ programentrypoint:
 
 	jsr load_bitstream
 
+	jsr start_vfpga
+
 done:
-	jsr read_bitstream
+	; show clock count down
+	ldz #$12
+	nop
+	lda ($a5),z
+	sta $0400
+	
 	jsr show_vfpga_io
 	jmp done
+
+start_vfpga:
+
+	; Clear VFPGA reset
+	lda #$00
+	ldz #$0b
+	nop
+	sta ($a5),z
+
+	; Set clock dividor to zero
+	lda #$00
+	ldz #$10
+	nop
+	sta ($a5),z
+	ldz #$11
+	nop
+	sta ($a5),z
+
+	; Set a large number of remaining cycles for debugging
+	lda #$FF
+	ldz #$12
+	nop
+	sta ($a5),z
+	ldz #$13
+	nop
+	sta ($a5),z
+	ldz #$14
+	nop
+	sta ($a5),z
 
 show_vfpga_io:
 
