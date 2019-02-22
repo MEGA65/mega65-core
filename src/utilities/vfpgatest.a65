@@ -179,9 +179,12 @@ done:
 
 start_vfpga:
 
-	; Clear VFPGA reset
-	lda #$00
+	; Clear VFPGA reset, enable app clock
+	lda #$12
 	ldz #$0b
+	nop
+	sta ($a5),z
+	lda #$02
 	nop
 	sta ($a5),z
 
@@ -195,7 +198,7 @@ start_vfpga:
 	sta ($a5),z
 
 	; Set a large number of remaining cycles for debugging, but NOT $FFFFFF or clock won't go
-	lda #$Fe
+	lda #$FE
 	ldz #$12
 	nop
 	sta ($a5),z
