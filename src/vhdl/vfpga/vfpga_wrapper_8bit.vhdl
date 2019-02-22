@@ -154,6 +154,18 @@ begin
     if rising_edge(clock) then
 
       hypervisor_mode <= hypervisor_mode_in;
+
+      -- Snap restore --
+      -- XXX - We should also allow user program to do this?
+      -- (But could we then reliably freeze the program, since we would have to
+      -- stop the VFPGA, back up the already snapshotted state, and then snapshot
+      -- again, and save that, and then reverse all that when unfreezing.
+      if hypervisor_mode = '0' and hypervisor_mode_in='1' then
+        -- restore snapshot when leaving hypervisor mode
+        vFPGA_snap_restore <= '1';
+      else
+        vFPGA_snap_restore <= '0';
+      endif;
       
       vFPGA_config_valid <= '0';
       vFPGA_snap_shift <= '0';
@@ -348,10 +360,6 @@ begin
   -- This is super simple: The rising edge of the hypervisor mode transition
   -- can be used to pull the data out.
   vFPGA_snap_save <= hypervisor_mode;
-
-  -- Snap restore --
-  -- This is simply the opposite of the above
-  vFPGA_snap_restore <= not hypervisor_mode;
 
   -- Supply inputs to FPGA, including the automatic read ack toggles generated
   -- when reading from a register
