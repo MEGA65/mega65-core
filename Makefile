@@ -60,6 +60,7 @@ UTILITIES=	$(UTILDIR)/ethertest.prg \
 		$(UTILDIR)/c65test02prg.prg \
 		$(UTILDIR)/c65-rom-910111-fastload-patch.prg \
 		$(UTILDIR)/hdmitest.prg \
+		$(UTILDIR)/vfpgatest.prg \
 		d81-files/* \
 		$(UTILDIR)/diskmenu.prg
 

@@ -1,0 +1,192 @@
+; HDMI I2C setup / test program
+
+; Include C64 BASIC program load header
+
+	 .word $0801
+	 .org $0801
+
+	.alias bitstream_length bitstream_end-bitstream_start
+
+	 .scope
+	 .word _next, 10                       ; Next line and current line number
+	 .byte $97, "2,0:", $9e, " 2014", $AA, "65",0      ; POKE 2,0 : SYS 2014+65
+_next:	 .word 0
+
+iter1:	 .byte 0
+
+	 .checkpc 2079
+	 .advance 2079
+
+programentrypoint:
+
+	; disable interrupts so we can single-step more easily
+	sei
+	
+	; Enable C65GS io
+	lda #$47
+	sta $d02f
+	lda #$53
+	sta $D02f
+
+	; Full CPU speed
+	lda #65
+	sta 0
+
+	; clear screen, lower case
+	lda #$93
+	jsr $ffd2
+	lda #$0e
+	jsr $ffd2
+
+	; Set pointer at $00A5 (some free Zero-Page/Pointer memory bytes) to $FFDF000 for VFPGA register access
+	lda #<$F000
+	sta $a5
+	lda #>$F000
+	sta $a6
+	lda #<$0FFD
+	sta $a7 
+	lda #>$0FFD
+	sta $a8
+
+	; Display VFPGA parameters
+	jsr print_string_inline
+	.byte "                 vfpga WIDTH: ",0
+	ldz #$00
+	nop
+	lda ($a5),z
+	tax
+	lda #$00
+	ldz #$00
+	jsr $bdcd
+
+	jsr print_string_inline
+	.byte 13,"                vfpga HEIGHT: ",0
+	ldz #$01
+	nop
+	lda ($a5),z
+	tax
+	lda #$00
+	ldz #$00
+	jsr $bdcd
+
+	jsr print_string_inline
+	.byte 13,"      lOGIC WIRE CARDINALITY: ",0
+	ldz #$02
+	nop
+	lda ($a5),z
+	tax
+	lda #$00
+	ldz #$00
+	jsr $bdcd
+
+	jsr print_string_inline
+	.byte 13,"                lutS PER clb: ",0
+	ldz #$03
+	nop
+	lda ($a5),z
+	tax
+	lda #$00
+	ldz #$00
+	jsr $bdcd
+
+	jsr print_string_inline
+	.byte 13,"              iNPUTS PER clb: ",0
+	ldz #$04
+	nop
+	lda ($a5),z
+	tax
+	lda #$00
+	ldz #$00
+	jsr $bdcd
+
+	jsr print_string_inline
+	.byte 13,"              iNPUTS PER lut: ",0
+	ldz #$05
+	nop
+	lda ($a5),z
+	tax
+	lda #$00
+	ldz #$00
+	jsr $bdcd
+
+	jsr print_string_inline
+	.byte 13,"           nUMBER OF io PINS: ",0
+	ldz #$06
+	nop
+	lda ($a5),z
+	tax
+	lda #$00
+	ldz #$00
+	jsr $bdcd
+
+	jsr print_string_inline
+	.byte 13,"     cONFIG BITSTREAM LENGTH: ",0
+	ldz #$07
+	nop
+	lda ($a5),z
+	tax
+	inz
+	nop
+	lda ($a5),z
+	ldz #$00
+	jsr $bdcd
+
+	jsr print_string_inline
+	.byte 13,"   sNAPSHOT BITSTREAM LENGTH: ",0
+	ldz #$09
+	nop
+	lda ($a5),z
+	tax
+	inz
+	nop
+	lda ($a5),z
+	ldz #$00
+	jsr $bdcd
+
+
+	; Display length of embedded bitstream
+	jsr print_string_inline
+	.byte 13,13,5,"lENGTH OF SUPPLIED BITSTREAM: ",0
+	lda #>bitstream_length
+	ldx #<bitstream_length
+	jsr $bdcd
+	lda #$0d
+	jsr $ffd2
+
+done:
+	jmp done
+
+print_string_inline:
+	; Pull return address from stack,
+	; add one, and it is the address of the string
+	pla
+	sta $fd
+	pla
+	sta $fe
+@loop:
+	ldy #$00
+	lda ($fd),y
+	beq @done
+	jsr $ffd2
+	inc $fd
+	lda $fd
+	bne @loop
+	inc $fe
+	jmp @loop
+@done:
+	lda $fe
+	pha
+	lda $fd
+	pha
+	rts
+	
+
+bitstream_start:
+	.incbin "../../assets/vfpga-bitstream.bin"
+bitstream_end:
+
+msg_bitstream_len:	.byte "bITSTREAM LENGTH: ",0
+
+	.scend
+
+	.outfile "vfpgatest.prg"
