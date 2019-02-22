@@ -158,6 +158,7 @@ programentrypoint:
 	jsr load_bitstream
 
 done:
+;	jsr read_bitstream
 	jsr show_vfpga_io
 	jmp done
 
@@ -172,7 +173,7 @@ show_vfpga_io:
 	sta $fd+1
 @shownextreg:
 	nop
-	lda ($02),z
+	lda ($a5),z
 	pha
 	lsr
 	lsr
@@ -208,6 +209,37 @@ show_vfpga_io:
 hexdigit: .byte $30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$01,$2,$3,$4,$5,$6
 
 
+read_bitstream:
+	; Work out how many bytes to go
+	lda #<bitstream_length-1
+	sta bytes_remaining+0
+	lda #>bitstream_length-1
+	sta bytes_remaining+1
+
+	ldy #$00
+
+@rbitstreamnextbyte:
+	; Read byte of bitstream from memory
+	ldz #$00
+	lda ($fd),z
+
+	; read it from $FFDF015
+	ldz #$15
+	nop
+	lda ($a5),z
+	sta $0400,y
+	iny
+
+	dec bytes_remaining
+	lda bytes_remaining
+	cmp #$ff
+	bne @rbitstreamnextbyte
+	dec bytes_remaining+1
+	lda bytes_remaining+1
+	cmp #$ff
+	bne @rbitstreamnextbyte
+
+	rts
 
 load_bitstream:
 	; Work out how many bytes to go
@@ -228,10 +260,13 @@ load_bitstream:
 	ldz #$00
 	lda ($fd),z
 
+	; XXX DEBUG write all $FFs instead
+	lda #$FF
+	
 	; Write it to $FFDF015
 	ldz #$15
 	nop
-	sta ($02),z
+	sta ($a5),z
 
 	dec bytes_remaining
 	lda bytes_remaining
