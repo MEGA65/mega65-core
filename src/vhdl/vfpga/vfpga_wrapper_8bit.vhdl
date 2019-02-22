@@ -69,6 +69,7 @@ architecture Behavioral of VFPGA_WRAPPER_8BIT is
   signal vfpga_rest              : std_ulogic := '0';
   signal reg_clk_div             : std_ulogic_vector(9 downto 0) := (others => '0');
   signal reg_clk_cycle_counter   : std_ulogic_vector(23 downto 0) := (others => '0');
+  signal reg_continue_clk_app    : std_logic := '1';
 
   signal clk_cycle_counter_valid : std_ulogic := '0';
 
@@ -140,7 +141,7 @@ begin
                clk_div           => reg_clk_div,
                clk_cont_in       => reg_clk_cycle_counter,
                clk_cont_in_valid => clk_cycle_counter_valid,
-               continue_clk_app  => '0',
+               continue_clk_app  => reg_continue_clk_app,
                clk_cont_out      => clk_cycle_counter_remainder,
                done              => clk_cycle_counter_done,
                clk_app           => vfpga_vclock);
@@ -198,7 +199,7 @@ begin
           when x"0b" =>
             fastio_rdata(0) <= 	clk_cycle_counter_valid; -- Indicate if clock
                                                          -- is valid for the VFPGA
-            fastio_rdata(1) <= '0'; -- With MEM access ?
+            fastio_rdata(1) <= reg_continue_clk_app;
             fastio_rdata(2) <= '0'; -- With interrupt pin ?
             fastio_rdata(3) <= clk_cycle_counter_done;
             fastio_rdata(4) <= vfpga_reset;
@@ -276,6 +277,7 @@ begin
         report "Writing to VFPGA control register $" & to_hstring(fastio_address(7 downto 0));
         case fastio_address(7 downto 0) is
           when x"0b" =>
+            reg_continue_clk_app <= fastio_wdata(1);
             vfpga_reset <= fastio_wdata(4);              
             clk_done_IE <= fastio_wdata(5);              
             global_interrupt_IE <= fastio_wdata(6);              
