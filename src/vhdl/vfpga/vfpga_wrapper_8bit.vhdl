@@ -165,7 +165,7 @@ begin
         vFPGA_snap_restore <= '1';
       else
         vFPGA_snap_restore <= '0';
-      endif;
+      end if;
       
       vFPGA_config_valid <= '0';
       vFPGA_snap_shift <= '0';
