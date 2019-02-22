@@ -196,7 +196,8 @@ begin
           -- @IO:GS $FFDF00B.6 - VFPGA global_interrupt_IE flag 
           -- @IO:GS $FFDF00B.7 - VFPGA global_interrupt flag (READ ONLY)
           when x"0b" =>
-            fastio_rdata(0) <= '0'; -- With DMA ?
+            fastio_rdata(0) <= 	clk_cycle_counter_valid; -- Indicate if clock
+                                                         -- is valid for the VFPGA
             fastio_rdata(1) <= '0'; -- With MEM access ?
             fastio_rdata(2) <= '0'; -- With interrupt pin ?
             fastio_rdata(3) <= clk_cycle_counter_done;
