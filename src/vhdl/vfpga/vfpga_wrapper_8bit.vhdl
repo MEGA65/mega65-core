@@ -275,7 +275,7 @@ begin
 
       write_clkcnt <= '0';
       if fastio_write='1' and cs_vfpga='1' then
-        report "Writing to VFPGA control register $" & to_hstring(fastio_address(7 downto 0));
+        report "Writing $" & to_hstring(fastio_wdata) & " to VFPGA control register $" & to_hstring(fastio_address(7 downto 0));
         case fastio_address(7 downto 0) is
           when x"0b" =>
             reg_continue_clk_app <= fastio_wdata(1);
