@@ -1,0 +1,90 @@
+; SD card bit-bash test program for the MEGA65
+
+; Include C64 BASIC program load header
+
+	 .word $0801
+	 .org $0801
+
+	 .scope
+	 .word _next, 10                       ; Next line and current line number
+	 .byte $97, "2,0:", $9e, " 2014", $AA, "65",0      ; POKE 2,0 : SYS 2014+65
+_next:	 .word 0
+
+iter1:	 .byte 0
+
+	 .checkpc 2079
+	 .advance 2079
+
+programentrypoint:
+	
+	; Enable C65GS io
+	lda #$47
+	sta $d02f
+	lda #$53
+	sta $D02f
+
+	; 50MHz CPU
+	lda #65
+	sta 0
+
+	ldy #$00
+	lda #$20
+l4:	sta $0400,y
+	sta $0500,y
+	sta $0600,y
+	sta $0700,y
+	iny
+	bne l4
+
+	; enable bitbash mode for SD interface
+	lda #$20
+	sta $d60d
+
+mainloop:
+
+	; Display current bit bash
+	lda $d60d
+	ldy #$00
+@bitloop:
+	pha
+	and #$80
+	rol
+	rol
+	and #$01
+	ora #$20
+	sta $0400,y
+	pla
+	asl
+	iny
+	cpy #$08
+	bne @bitloop
+
+	jsr $ffe4
+	cmp #$31
+	bne @not1
+	lda $d60d
+	eor #$04
+	sta $d60d
+	jmp mainloop
+@not1:
+	cmp #$32
+	bne @not1
+	lda $d60d
+	eor #$08
+	sta $d60d
+	jmp mainloop
+@not2:
+	cmp #$33
+	bne @not1
+	lda $d60d
+	eor #$10
+	sta $d60d
+	jmp mainloop
+@not3:
+	inc $d020
+	jmp mainloop
+
+
+	.scend
+
+	.outfile "utilities/sdbitbash.prg"
