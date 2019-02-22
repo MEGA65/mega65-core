@@ -245,6 +245,11 @@ read_bitstream:
 	sbc #$00
 	sta bytes_remaining+1
 
+	lda #$12
+	sta $4000
+	lda #$34
+	sta $4001
+
 
 	; place in memory to store it
 	lda #<$4000
@@ -261,13 +266,12 @@ read_bitstream:
 	ldz #$15
 	nop
 	lda ($a5),z
-	sta $0400,y
-	iny
 
 	; store in memory
 	ldz #$00
 	sta ($fd),z
 
+	; update memory write pointer
 	lda $fd
 	clc
 	adc #$01
@@ -276,6 +280,7 @@ read_bitstream:
 	adc #$00
 	sta $fe
 
+	; decrement number of bytes remaining to extract
 	dec bytes_remaining
 	lda bytes_remaining
 	cmp #$ff
@@ -289,9 +294,9 @@ read_bitstream:
 
 load_bitstream:
 	; Work out how many bytes to go
-	lda #<bitstream_length-1
+	lda #<[bitstream_length-1]
 	sta bytes_remaining+0
-	lda #>bitstream_length-1
+	lda #>[bitstream_length-1]
 	sta bytes_remaining+1
 
 	; Get pointer to read from
@@ -358,11 +363,11 @@ print_string_inline:
 	rts
 	
 
+	.byte "BITSTREAM BEGINS<<<"
 bitstream_start:
 	.incbin "../../assets/vfpga-bitstream.bin"
 bitstream_end:
-
-msg_bitstream_len:	.byte "bITSTREAM LENGTH: ",0
+	.byte ">>>BITSTREAM ENDS"
 
 	.scend
 
