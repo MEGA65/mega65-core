@@ -158,7 +158,56 @@ programentrypoint:
 	jsr load_bitstream
 
 done:
+	jsr show_vfpga_io
 	jmp done
+
+show_vfpga_io:
+
+	; first VFPGA register we want to read, i.e., $FFDF000+$20
+	ldz #$20
+	; setup pointer to area on screen
+	lda #<[$0400+13*40]
+	sta $fd
+	lda #>[$0400+13*40]
+	sta $fd+1
+@shownextreg:
+	nop
+	lda ($02),z
+	pha
+	lsr
+	lsr
+	lsr
+	lsr
+	tay
+	lda hexdigit,y
+	ldy #$00
+	sta ($fd),y
+	pla
+	and #$0f
+	tay
+	lda hexdigit,y
+	ldy #$01
+	sta ($fd),y
+
+	; Add 3 to write address
+	lda $fd
+	clc
+	adc #$03
+	sta $fd
+	lda $fe
+	adc #$00
+	sta $fe
+
+	inz
+	cpz #$40
+	bne @shownextreg
+
+	ldz #$00
+	rts
+
+hexdigit: .byte $30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$01,$2,$3,$4,$5,$6
+
+
 
 load_bitstream:
 	; Work out how many bytes to go
