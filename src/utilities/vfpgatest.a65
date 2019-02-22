@@ -226,17 +226,36 @@ hexdigit: .byte $30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$01,$2,$3,$4,$5,$6
 
 read_bitstream:
 	; Work out how many bytes to go
-	lda #<bitstream_length-1
+
+	ldz #$07
+	nop
+	lda ($a5),z
 	sta bytes_remaining+0
-	lda #>bitstream_length-1
+	inz
+	nop
+	lda ($a5),z
 	sta bytes_remaining+1
+	ldz #$00
+
+	lda bytes_remaining
+	sec
+	sbc #$01
+	sta bytes_remaining
+	lda bytes_remaining+1
+	sbc #$00
+	sta bytes_remaining+1
+
+
+	; place in memory to store it
+	lda #<$4000
+	sta $fd
+	lda #>$4000
+	sta $fe
 
 	ldy #$00
 
 @rbitstreamnextbyte:
 	; Read byte of bitstream from memory
-	ldz #$00
-	lda ($fd),z
 
 	; read it from $FFDF015
 	ldz #$15
@@ -244,6 +263,18 @@ read_bitstream:
 	lda ($a5),z
 	sta $0400,y
 	iny
+
+	; store in memory
+	ldz #$00
+	sta ($fd),z
+
+	lda $fd
+	clc
+	adc #$01
+	sta $fd
+	lda $fe
+	adc #$00
+	sta $fe
 
 	dec bytes_remaining
 	lda bytes_remaining
@@ -275,13 +306,19 @@ load_bitstream:
 	ldz #$00
 	lda ($fd),z
 
-	; XXX DEBUG write all $FFs instead
-	lda #$FF
-	
 	; Write it to $FFDF015
 	ldz #$15
 	nop
 	sta ($a5),z
+
+	; Advance to next byte of bitstream
+	lda $fd
+	clc
+	adc #$01
+	sta $fd
+	lda $fe
+	adc #$00
+	sta $fe
 
 	dec bytes_remaining
 	lda bytes_remaining
