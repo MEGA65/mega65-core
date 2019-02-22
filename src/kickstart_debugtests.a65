@@ -23,6 +23,16 @@
        ldz #$05
        nop
        sta ($02),z
+
+       ; Try writing bitstream config
+       lda #$12
+       ldz #$15
+       nop
+       sta ($02),z
+       lda #$34
+       nop
+       sta ($02),z
+
        ldz #$00
 .macend
 ; .invoke vfpga_addressing
