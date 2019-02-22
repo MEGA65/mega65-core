@@ -153,8 +153,49 @@ programentrypoint:
 	lda #$0d
 	jsr $ffd2
 
+	; Load the bitstream
+
+	jsr load_bitstream
+
 done:
 	jmp done
+
+load_bitstream:
+	; Work out how many bytes to go
+	lda #<bitstream_length-1
+	sta bytes_remaining+0
+	lda #>bitstream_length-1
+	sta bytes_remaining+1
+
+	; Get pointer to read from
+	lda #<bitstream_start
+	sta $fd+0
+	lda #>bitstream_start
+	sta $fd+1
+
+
+@bitstreamnextbyte:
+	; Read byte of bitstream from memory
+	ldz #$00
+	lda ($fd),z
+
+	; Write it to $FFDF015
+	ldz #$15
+	nop
+	sta ($02),z
+
+	dec bytes_remaining
+	lda bytes_remaining
+	cmp #$ff
+	bne @bitstreamnextbyte
+	dec bytes_remaining+1
+	lda bytes_remaining+1
+	cmp #$ff
+	bne @bitstreamnextbyte
+
+	rts
+
+bytes_remaining:	.byte 0,0
 
 print_string_inline:
 	; Pull return address from stack,
