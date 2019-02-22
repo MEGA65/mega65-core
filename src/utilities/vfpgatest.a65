@@ -165,6 +165,14 @@ done:
 	nop
 	lda ($a5),z
 	sta $0400
+	inz
+	nop
+	lda ($a5),z
+	sta $0401
+	inz
+	nop
+	lda ($a5),z
+	sta $0402
 	
 	jsr show_vfpga_io
 	jmp done
@@ -177,8 +185,8 @@ start_vfpga:
 	nop
 	sta ($a5),z
 
-	; Set clock dividor to zero
-	lda #$00
+	; Set clock dividor to something non-zero, or clock won't go
+	lda #$01
 	ldz #$10
 	nop
 	sta ($a5),z
@@ -186,11 +194,12 @@ start_vfpga:
 	nop
 	sta ($a5),z
 
-	; Set a large number of remaining cycles for debugging
-	lda #$FF
+	; Set a large number of remaining cycles for debugging, but NOT $FFFFFF or clock won't go
+	lda #$Fe
 	ldz #$12
 	nop
 	sta ($a5),z
+	lda #$FF
 	ldz #$13
 	nop
 	sta ($a5),z
