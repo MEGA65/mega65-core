@@ -60,9 +60,8 @@ mainloop:
 	cpy #$08
 	bne @bitloop
 
-	inc $0426
-
 	jsr $ffe4
+	
 	cmp #$31
 	bne @not1
 	lda $d60d
@@ -71,21 +70,20 @@ mainloop:
 	jmp mainloop
 @not1:
 	cmp #$32
-	bne @not1
+	bne @not2
 	lda $d60d
 	eor #$08
 	sta $d60d
 	jmp mainloop
 @not2:
 	cmp #$33
-	bne @not1
+	bne @not3
 	lda $d60d
 	eor #$10
 	sta $d60d
 	jmp mainloop
 @not3:
-	inc $d020
-	jmp mainloop
+ 	jmp mainloop
 
 
 	.scend
