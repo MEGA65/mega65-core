@@ -158,7 +158,7 @@ programentrypoint:
 	jsr load_bitstream
 
 done:
-;	jsr read_bitstream
+	jsr read_bitstream
 	jsr show_vfpga_io
 	jmp done
 
@@ -200,7 +200,22 @@ show_vfpga_io:
 	sta $fe
 
 	inz
-	cpz #$40
+	cpz #$27
+	bne @noskip
+
+	; advance to next line
+	lda $fd
+	clc
+	adc #$13
+	sta $fd
+	lda $fe
+	adc #$00
+	sta $fe
+
+	ldz #$30
+	
+@noskip:
+	cpz #$37
 	bne @shownextreg
 
 	ldz #$00
