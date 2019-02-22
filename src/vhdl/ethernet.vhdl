@@ -342,6 +342,10 @@ begin  -- behavioural
   -- side.
 
   -- XXX: Need to have separate read and write clocks
+  -- XXX: Without the _sync version, we in reality have only one clock,
+  -- and so we still get cross-clock timing violations with this.
+  -- We could use _sync, in which case we just need to make sure that we
+  -- have the right number of waitstates in the CPU.
   rxbuffer0: entity work.ram8x4096 port map (
     clkw => clock50mhz,
     clkr => clock,
