@@ -284,8 +284,7 @@ begin
         fastio_rdata <= (others => 'Z');
         null;
       end if;
-
-      write_clkcnt <= '0';
+            
       if fastio_write='1' and cs_vfpga='1' then
         report "Writing $" & to_hstring(fastio_wdata) & " to VFPGA control register $" & to_hstring(fastio_address(7 downto 0));
         case fastio_address(7 downto 0) is
@@ -294,27 +293,7 @@ begin
             vfpga_reset <= fastio_wdata(4);              
             clk_done_IE <= fastio_wdata(5);              
             global_interrupt_IE <= fastio_wdata(6);              
-            -- global_interrupt <= fastio_wdata(7);
-          when x"10" =>
-            -- @IO:GS $FFDF010 - VFPGA logical clock divisor (LSB)
-            reg_clk_div(7 downto 0) <= std_ulogic_vector(fastio_wdata);
-            write_clkcnt <= '1';
-          when x"11" =>
-            -- @IO:GS $FFDF011 - VFPGA logical clock divisor (MSB)
-            reg_clk_div(9 downto 8) <= std_ulogic_vector(fastio_wdata(1 downto 0));
-            write_clkcnt <= '1';
-          when x"12" =>
-            -- @IO:GS $FFDF012 - VFPGA cycle clock counter (LSB)
-            -- @IO:GS $FFDF013 - VFPGA cycle clock counter (SSB)
-            -- @IO:GS $FFDF014 - VFPGA cycle clock counter (MSB)
-            reg_clk_cycle_counter(7 downto 0) <= std_ulogic_vector(fastio_wdata(7 downto 0));
-            write_clkcnt <= '1';
-          when x"13" =>
-            reg_clk_cycle_counter(15 downto 8) <= std_ulogic_vector(fastio_wdata(7 downto 0));
-            write_clkcnt <= '1';
-          when x"14" => 
-            reg_clk_cycle_counter(23 downto 16) <= std_ulogic_vector(fastio_wdata(7 downto 0));
-            write_clkcnt <= '1';
+          -- global_interrupt <= fastio_wdata(7);              
           when x"15" =>
             -- Write a byte of the config
             vfpga_config_in <= std_ulogic_vector(fastio_wdata);
@@ -360,6 +339,50 @@ begin
   -- This is super simple: The rising edge of the hypervisor mode transition
   -- can be used to pull the data out.
   vFPGA_snap_save <= hypervisor_mode;
+
+  -- Write vclk divisor --
+  process(pixel_clock)
+  begin
+    if rising_edge(clock) then
+      if vFPGA_reset = '1' then
+        reg_clk_div <= (others => '1');
+      -- @IO:GS $FFDF010 - VFPGA logical clock divisor (LSB)
+      elsif fastio_write='1' and cs_vfpga='1' and fastio_address(7 downto 0) = x"10" then
+        reg_clk_div(7 downto 0) <= std_ulogic_vector(fastio_wdata);
+      -- @IO:GS $FFDF011 - VFPGA logical clock divisor (MSB)
+      elsif fastio_write='1' and cs_vfpga='1' and fastio_address(7 downto 0) = x"11" then
+        reg_clk_div(9 downto 8) <= std_ulogic_vector(fastio_wdata(1 downto 0));
+      end if;
+    end if;
+  end process;
+
+
+  -- Write vclk cycle counter --
+  process(pixel_clock)
+  begin
+    if rising_edge(pixel_clock) then
+      old_write_clkcnt <= write_clkcnt;
+      clk_cycle_counter_valid <= write_clkcnt and not(old_write_clkcnt);
+      if vFPGA_reset = '1' then
+        reg_clk_cycle_counter <= (others => '0');
+        write_clkcnt <= '0';
+      -- @IO:GS $FFDF012 - VFPGA cycle clock counter (LSB)
+      -- @IO:GS $FFDF013 - VFPGA cycle clock counter (SSB)
+      -- @IO:GS $FFDF014 - VFPGA cycle clock counter (MSB)
+      elsif fastio_write='1' and cs_vfpga='1' and fastio_address(7 downto 0) = x"12" then
+        reg_clk_cycle_counter(7 downto 0) <= std_ulogic_vector(fastio_wdata(7 downto 0));
+        write_clkcnt <= '1';
+      elsif fastio_write='1' and cs_vfpga='1' and fastio_address(7 downto 0) = x"13" then
+        reg_clk_cycle_counter(15 downto 8) <= std_ulogic_vector(fastio_wdata(7 downto 0));
+        write_clkcnt <= '1';
+      elsif fastio_write='1' and cs_vfpga='1' and fastio_address(7 downto 0) = x"14" then
+        reg_clk_cycle_counter(23 downto 16) <= std_ulogic_vector(fastio_wdata(7 downto 0));
+        write_clkcnt <= '1';
+      else
+        write_clkcnt <= '0';
+      end if;
+    end if;
+  end process;
 
   -- Supply inputs to FPGA, including the automatic read ack toggles generated
   -- when reading from a register
