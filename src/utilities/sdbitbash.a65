@@ -41,6 +41,7 @@ l4:	sta $0400,y
 	sta $d60d
 
 mainloop:
+	inc $0427
 
 	; Display current bit bash
 	lda $d60d
@@ -58,6 +59,8 @@ mainloop:
 	iny
 	cpy #$08
 	bne @bitloop
+
+	inc $0426
 
 	jsr $ffe4
 	cmp #$31
