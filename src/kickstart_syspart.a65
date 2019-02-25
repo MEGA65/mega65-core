@@ -52,7 +52,6 @@ spo1:	lda syspart_start_sector,x
 	sta $d681,x
 	dex
 	bpl spo1
-	jsr sd_fix_sectornumber
 	
 	lda #syspart_error_readerror
 	sta syspart_error_code
@@ -96,6 +95,16 @@ spo3:	lda $de00,x
 	jsr printhex
 	ldz syspart_service_slot_count+0
 	jsr printhex
+
+	; Show size of freeze slots
+	ldz syspart_freeze_slot_size_in_sectors+3
+	jsr printhex
+	ldz syspart_freeze_slot_size_in_sectors+2
+	jsr printhex
+	ldz syspart_freeze_slot_size_in_sectors+1
+	jsr printhex
+	ldz syspart_freeze_slot_size_in_sectors+0
+	jsr printhex	
 
 	lda #$01
 	sta syspart_present
@@ -203,31 +212,15 @@ slotnumok:
 
 	; Set multiplicant inputs to multiplier
 
-	lda $d680
-	and #$10
-	bne @isSDHC
+	; XXX - Works only with SD HC cards!
 
-	; SD card, so unit is bytes
-	ldx #$03
-splf4:	lda syspart_freeze_slot_size_in_bytes,x
-	sta mult48_d0,x
-	dex
-	bpl splf4
-	jmp @multiplierSet
-@isSDHC:
-	; SDHC, so unit is sectors
+	; SDHC, so unit is sectors, and so is just a case of copying the bytes
 	; Start by shifting down by 1 byte = /256
-	ldx #$02
-splf4b:	lda syspart_freeze_slot_size_in_bytes+1,x
+	ldx #$03
+splf4b:	lda syspart_freeze_slot_size_in_sectors,x
 	sta mult48_d0,x
 	dex
 	bpl splf4b
-	lda #$00
-	sta mult48_d0+3
-	; Now divide it all by 2 to get /512
-	lsr mult48_d0+2
-	ror mult48_d0+1
-	ror mult48_d0+0
 
 @multiplierSet:
 
@@ -247,9 +240,6 @@ splf3:	lda mult48_result0,x
 	sta $d681,x
 	dex
 	bpl splf3
-
-	; Fix sector number for non-SDHC cards
-	jsr sd_fix_sectornumber
 
 	sec
 	rts
@@ -292,8 +282,7 @@ spcr1:	lda syspart_start_sector,x
 	sta $d681,x
 	dex
 	bpl spcr1
-	jsr sd_fix_sectornumber
-	jmp sd_inc_fixedsectornumber
+	jmp sd_inc_sectornumber
 
 syspart_configsector_read:
 	jsr syspart_configsector_set
@@ -376,7 +365,7 @@ msg_syspart_open_error:
 msg_syspart_ok:
 	.byte "SYSTEM PARTITION OK",0
 msg_syspart_info:
-	.byte "SYSPART: $$$$ FREEZE, $$$$ SERVICE SLOTS",0
+	.byte "SYS: $$$$ FRZ + $$$$ SVC X $$$$$$$$",0
 msg_syspart_config_invalid:
 	.byte "SYSPART CONFIG INVALID. PLEASE SET.",0
 

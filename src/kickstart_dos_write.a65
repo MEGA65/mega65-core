@@ -98,7 +98,7 @@ dos_find_contiguous_free_space:
 	STA    $D681, X
 	DEX
 	BPL	@ll83
-	JSR	sd_fix_sectornumber
+
 	; Finally, do the read
 	LDA	#dos_errorcode_read_error
 	STA	dos_error_code

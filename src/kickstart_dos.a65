@@ -1051,14 +1051,6 @@ ddop1:	lda dos_disk_table,y
 
 jsr dumpsectoraddress	; debugging
 
-	; Convert sector number to byte offset for non-HC SD cards
-	;
-	; BG does not support/understand this routine
-	;
-	jsr sd_fix_sectornumber
-
-jsr dumpsectoraddress	; debugging
-
 	jsr sd_readsector
 	bcc partitionerror
 
@@ -2819,7 +2811,6 @@ dos_file_read_current_sector:
 	;
 	jsr sdsector_add_uint8
 	
-	jsr sd_fix_sectornumber
 	jmp sd_readsector
 
 ;	========================
@@ -2913,10 +2904,6 @@ dfanc44:
 	bne dfanc44
 
 	plp
-
-	; turn sector number into byte address for non-SDHC cards
-	;
-	jsr sd_fix_sectornumber
 
 	; read FAT sector
 	;
@@ -3463,7 +3450,6 @@ l94c:		lda dos_file_descriptors+dos_filedescriptor_offset_startcluster,x
 		bne l94c
 
 		jsr dos_cluster_to_sector
-		jsr sd_fix_sectornumber
 
 		; copy sector number from $D681 to $D68c
 		;

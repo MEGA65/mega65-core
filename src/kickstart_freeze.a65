@@ -41,7 +41,7 @@ unfreeze_load_from_sdcard_immediate:
 	; Skip the first sector of the frozen program which is the
 	; contents of the SD card sector buffer prior to freezing.
 	; (We will load it in as the very last thing)
-	jsr sd_inc_fixedsectornumber
+	jsr sd_inc_sectornumber
 
 	; Save each region in the list
 	ldx #$00
@@ -126,7 +126,7 @@ unfreeze_read_sector_and_wait:
 	; success
 
 	; Increment freeze slot sector number
-	jsr sd_inc_fixedsectornumber
+	jsr sd_inc_sectornumber
 
 	sec
 
@@ -163,7 +163,7 @@ freeze_write_sector_and_wait:
 	dec $d020
 
 	; Increment freeze slot sector number
-	jsr sd_inc_fixedsectornumber
+	jsr sd_inc_sectornumber
 
 	sec
 	rts

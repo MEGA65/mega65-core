@@ -77,11 +77,16 @@ sdhccheckwait:
 		; Reset after SDHC test for normal SD mode
 		jsr sd_resetsequence
 
+		; XXX - We no longer support standard SD cards, so
+		; we display an error and infinite loop.
+
 		ldx #<msg_foundsdcard
 		ldy #>msg_foundsdcard
 		jsr printmessage
 
-		jmp sd_readsector
+@unsupportedcard:
+		inc $D020
+		jmp @unsupportedcard
 
 issdhc:
 		ldx #<msg_foundsdhccard
@@ -319,35 +324,12 @@ rsbusyfail:     ; fail
 ;====above function is self-contained==================================================
 ;======================================================================================
 
-sd_inc_fixedsectornumber:
+sd_inc_sectornumber:
 
-		; increment fixed sector number.
-		; if SDHC, then increment is simple.
-		; if SD, then we add $200
-		;
-		lda $D680
-		and #$10	;B#0001.0000
-		bne sdhc1	;branch if clear
 
-		; sd card mode: add $200
-		;
-		lda sd_address_byte1 ;d682
-		clc
-		adc #$02
-		sta sd_address_byte1 ;d682
+	; PGS 20190225 - SD SC card support deprecated. Only SD HC supported.
 
-		lda sd_address_byte2 ;d683
-		adc #$00
-		sta sd_address_byte2 ;d683
-
-		lda sd_address_byte3 ;d684
-		adc #$00
-		sta sd_address_byte3 ;d684
-		rts
-
-;	========================
-
-sdhc1:		; SDHC card mode: add 1
+		; SDHC card mode: add 1
 		;
 
 		inc sd_address_byte0
@@ -357,72 +339,8 @@ sdhc1:		; SDHC card mode: add 1
 		inc sd_address_byte2
 		bne s1
 		inc sd_address_byte3
-s1:		
-		rts
+s1:		rts
 
 ;	========================
-
-sd_fix_sectornumber:
-		; assumes sector number has been loaded into 
-		; $D681 - $D684
-		;
-		; We need to check if the card is SDHC or SD.
-		; - If SD, we need to shift sector number left 9 bits,
-		;   as SD cards address by byte, not sector.
-		; - If card is SD, then shift it all left nine bits.
-		;
-		; We detect SD versus SDHC by reading whether SD controller is
-		; in SDHC or SD mode.
-		;
-		lda $D680
-		and #$10
-		beq sdcardmode
-
-		; SDHC mode, so nothing to do
-		;
-
-		rts
-
-;	========================
-
-sdcardmode:
-		; multiply the current address by $200
-
-		;	jsr checkpoint
-		;	.byte 0,"SDcard mode, ie not SDHC, so x$200",0
-     
-		; shift right 8 bits first
-		;
-		lda $D683
-		sta $D684
-		lda $D682
-		sta $D683
-		lda $D681
-		sta $D682
-		lda #$00
-		sta $D681
-
-		; now shift it all left one bit
-		;
-		lda $D682
-		asl
-		sta $D682
-		lda $D683
-		rol
-		sta $D683
-		lda $D684
-		rol
-		sta $D684
-		rts
-
-
-
-
-
-
-;	========================
-
-
-
 
 

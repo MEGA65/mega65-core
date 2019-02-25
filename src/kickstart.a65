@@ -2835,7 +2835,7 @@ msg_charrombad:	      .byte "COULD NOT LOAD CHARROM.M65",0
 msg_charromloaded:    .byte "LOADED CHARROM.M65 ($$$$ PAGES)",0
 msg_megaromloaded:    .byte "LOADED MEGA65ROM.M65 ($$$$ PAGES)",0
 msg_tryingsdcard:     .byte "LOOKING FOR SDCARD...",0
-msg_foundsdcard:      .byte "FOUND AND RESET SD CARD",0
+msg_foundsdcard:      .byte "SD CARD IS NOT SDHC. REPLACE WITH SDHC CARD.",0
 msg_foundsdhccard:    .byte "FOUND AND RESET SDHC CARD",0
 msg_sdcarderror:      .byte "ERROR READING FROM SD CARD",0
 msg_sdredoread:       .byte "RE-READING SDCARD",0
@@ -2947,9 +2947,9 @@ syspart_reserved:
 ; about the frozen program.
 syspart_freeze_area_start:
 		.byte 0,0,0,0
-syspart_freeze_area_size_in_bytes:
+syspart_freeze_area_size_in_sectors:
 		.byte 0,0,0,0
-syspart_freeze_slot_size_in_bytes:
+syspart_freeze_slot_size_in_sectors:
 		.byte 0,0,0,0
 syspart_freeze_slot_count:
 		.byte 0,0
