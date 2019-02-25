@@ -208,7 +208,7 @@ slotnumok:
 
 	jsr syspart_locate_freezeslot_0
 	; Now add freeze slot size x (YYXX) bytes
-	; Use hardware multiplier to work out slot address
+	; Use hardware multiplier to work out slot address	
 
 	; Set multiplicant inputs to multiplier
 
@@ -233,12 +233,14 @@ splf4b:	lda syspart_freeze_slot_size_in_sectors,x
 	sta mult48_e3
 
 	; Read out answer, and add it to slot 0 address
-	ldx #3
+	ldx #0
+	ldy #3
 	clc
 splf3:	lda mult48_result0,x
 	adc $d681,x
 	sta $d681,x
-	dex
+	inx
+	dey
 	bpl splf3
 
 	sec
