@@ -189,10 +189,11 @@ start_vfpga:
 	sta ($a5),z
 
 	; Set clock dividor to something non-zero, or clock won't go
-	lda #$01
+	lda #<13
 	ldz #$10
 	nop
 	sta ($a5),z
+	lda #>13
 	ldz #$11
 	nop
 	sta ($a5),z
