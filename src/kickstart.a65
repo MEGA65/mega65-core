@@ -2834,7 +2834,7 @@ msg_rombad:	      .byte "ROM CHECKSUM FAIL - LOADING ROMS",0
 msg_charrombad:	      .byte "COULD NOT LOAD CHARROM.M65",0
 msg_charromloaded:    .byte "LOADED CHARROM.M65 ($$$$ PAGES)",0
 msg_megaromloaded:    .byte "LOADED MEGA65ROM.M65 ($$$$ PAGES)",0
-msg_tryingsdcard:     .byte "LOOKING FOR SDCARD...",0
+msg_tryingsdcard:     .byte "LOOKING FOR SDHC CARD >=4GB...",0
 msg_foundsdcard:      .byte "SD CARD IS NOT SDHC. REPLACE WITH SDHC CARD.",0
 msg_foundsdhccard:    .byte "FOUND AND RESET SDHC CARD",0
 msg_sdcarderror:      .byte "ERROR READING FROM SD CARD",0
