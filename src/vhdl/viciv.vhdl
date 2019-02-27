@@ -579,8 +579,8 @@ architecture Behavioral of viciv is
   signal bitplanes_y_start : unsigned(7 downto 0) := to_unsigned(0,8);
   signal bitplanes_x_start_drive : unsigned(7 downto 0) := to_unsigned(0,8);
   signal bitplanes_y_start_drive : unsigned(7 downto 0) := to_unsigned(0,8);
-  signal dat_x : unsigned(7 downto 0) := x"00";
-  signal dat_y : unsigned(7 downto 0) := x"00";
+  signal dat_x : unsigned(6 downto 0) := to_unsigned(0,7);
+  signal dat_y : unsigned(8 downto 0) := to_unsigned(0,9);
   signal dat_bitplane_offset : unsigned(15 downto 0) := x"0000";
   signal bitplane_addresses : sprite_vector_eight;
   signal max_sprite_fetch_byte_number : integer range 0 to 399 := 0;
@@ -1505,16 +1505,16 @@ begin
     -- XXX currently ignores V400 mode
     if reg_h640 = '0' then
       dat_bitplane_offset <=
-        ("000" & dat_y(7 downto 3) & "00000000")
-        + ("00000" & dat_y(7 downto 3) & "000000")
+        ("00" & dat_y(8 downto 3) & "00000000")
+        + ("0000" & dat_y(8 downto 3) & "000000")
         + ("0000000000000" & dat_y(2 downto 0))
-        + ("00000" & dat_x & "000");
+        + ("000000" & dat_x & "000");
     else
       dat_bitplane_offset <=
-        ("00" & dat_y(7 downto 3) & "000000000")
-        + ("0000" & dat_y(7 downto 3) & "0000000")
+        ("0" & dat_y(8 downto 3) & "000000000")
+        + ("000" & dat_y(8 downto 3) & "0000000")
         + ("0000000000000" & dat_y(2 downto 0))
-        + ("00000" & dat_x & "000");
+        + ("000000" & dat_x & "000");
     end if;
     -- Export this and bitplane addresses to the CPU
     dat_offset <= dat_bitplane_offset;
@@ -1735,10 +1735,11 @@ begin
           fastio_rdata <= bitplane_complements;
         -- @IO:C65 $D03C - Bitplane X
         elsif register_number=60 then
-          fastio_rdata <= std_logic_vector(dat_x);
+          fastio_rdata(6 downto 0) <= std_logic_vector(dat_x(6 downto 0));
+          fastio_rdata(7) <= dat_y(8);
         -- @IO:C65 $D03D - Bitplane Y
         elsif register_number=61 then
-          fastio_rdata <= std_logic_vector(dat_y);
+          fastio_rdata <= std_logic_vector(dat_y(7 downto 0));
         -- @IO:C65 $D03E - Horizontal position (screen verniers?)
         elsif register_number=62 then
           fastio_rdata <= std_logic_vector(bitplanes_x_start);
@@ -2367,10 +2368,12 @@ begin
           bitplane_complements <= fastio_wdata;
         -- @IO:C65 $D03C - Bitplane X
         elsif register_number=60 then
-          dat_x <= unsigned(fastio_wdata);
+          dat_x <= unsigned(fastio_wdata(6 downto 0));
+          dat_y(8) <= fastio_wdata(7);
         -- @IO:C65 $D03D - Bitplane Y
         elsif register_number=61 then
-          dat_y <= unsigned(fastio_wdata);        elsif register_number=64 then
+          dat_y(7 downto 0) <= unsigned(fastio_wdata);
+        elsif register_number=64 then
                                         -- @IO:C65 $D03E - Bitplane X Offset
                                                   elsif register_number=62 then
                                                     bitplanes_x_start <= unsigned(fastio_wdata);
