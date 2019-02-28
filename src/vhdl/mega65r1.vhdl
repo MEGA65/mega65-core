@@ -144,6 +144,9 @@ entity container is
          sdMOSI : out std_logic;      
          sdMISO : in  std_logic;
 
+         sd2MOSI : out std_logic;
+         sd2MISO : in std_logic;
+
          -- Left and right audio
          pwm_l : out std_logic;
          pwm_r : out std_logic;
@@ -447,6 +450,8 @@ begin
       sclk_o => sdClock,
       mosi_o => sdMOSI,
       miso_i => sdMISO,
+      mosi2_o => sd2MOSI,
+      miso2_i => sd2MISO,
 
       slow_access_request_toggle => slow_access_request_toggle,
       slow_access_ready_toggle => slow_access_ready_toggle,

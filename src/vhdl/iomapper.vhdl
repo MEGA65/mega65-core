@@ -221,6 +221,8 @@ entity iomapper is
     sclk_o : out std_logic;
     mosi_o : out std_logic;
     miso_i : in  std_logic;
+    mosi2_o : out std_logic;
+    miso2_i : in  std_logic;
 
     ---------------------------------------------------------------------------
     -- Lines for other devices that we handle here
@@ -391,6 +393,7 @@ architecture behavioral of iomapper is
   signal ascii_key_next : std_logic := '0';
 
   signal sd_bitbash : std_logic;
+  signal sd_interface_select : std_logic;
   signal sd_bitbash_cs_bo : std_logic;
   signal sd_bitbash_sclk_o : std_logic;
   signal sd_bitbash_mosi_o : std_logic;
@@ -398,6 +401,7 @@ architecture behavioral of iomapper is
   signal cs_bo_sd : std_logic;
   signal sclk_o_sd : std_logic;
   signal mosi_o_sd : std_logic;  
+  signal miso_i_sd : std_logic;  
 
   signal matrix_segment_num : std_logic_vector(7 downto 0) := (others => '0');
   signal matrix_segment_out : std_logic_vector(7 downto 0);
@@ -622,8 +626,9 @@ begin
       portg(4) => sd_bitbash_cs_bo,
       portg(3) => sd_bitbash_sclk_o,
       portg(2) => sd_bitbash_mosi_o,
+      portg(0) => sd_interface_select,
 --      portg(1 downto 0) => keyboard_scan_mode,
-      portg(1 downto 0) => dummy_g(1 downto 0),
+      portg(1) => dummy_g(1),
       key_debug => key_debug,
       widget_disable => widget_disable,
       ps2_disable => ps2_disable,
@@ -993,7 +998,7 @@ begin
     cs_bo => cs_bo_sd,
     sclk_o => sclk_o_sd,
     mosi_o => mosi_o_sd,
-    miso_i => miso_i,
+    miso_i => miso_i_sd,
 
     aclMISO => aclMISO,
     aclMOSI => aclMOSI,
@@ -1045,7 +1050,9 @@ begin
   -- Allow taking over of SD interface for bitbashing and debugging
   cs_bo <= cs_bo_sd when sd_bitbash='0' else sd_bitbash_cs_bo;
   sclk_o <= sclk_o_sd when sd_bitbash='0' else sd_bitbash_sclk_o;
-  mosi_o <= mosi_o_sd when sd_bitbash='0' else sd_bitbash_mosi_o;
+  miso_i_sd <= miso_i when sd_interface_select='0' else miso2_i;
+  mosi_o <= mosi_o_sd and (not sd_interface_select) when sd_bitbash='0' else sd_bitbash_mosi_o;
+  mosi2_o <= mosi_o_sd and sd_interface_select when sd_bitbash='0' else sd_bitbash_mosi_o;
   
   scancode_out<=last_scan_code;
   process(clk,sbcs_en,lscs_en,c65uart_en,ethernetcs_en,sdcardio_en,

@@ -155,6 +155,8 @@ entity machine is
          sclk_o : out std_logic;
          mosi_o : out std_logic;
          miso_i : in  std_logic;
+         mosi2_o : out std_logic;
+         miso2_i : in  std_logic;
 
          ----------------------------------------------------------------------
          -- Floppy drive interface
@@ -1435,6 +1437,8 @@ begin
       sclk_o => sclk_o,
       mosi_o => mosi_o,
       miso_i => miso_i,
+      mosi2_o => mosi2_o,
+      miso2_i => miso2_i,
       
       aclMISO => aclMISO,
       aclMOSI => aclMOSI,

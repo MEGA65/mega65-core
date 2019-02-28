@@ -182,6 +182,11 @@ set_property -dict {PACKAGE_PIN V14 IOSTANDARD LVCMOS33} [get_ports vsync]
 set_property -dict {PACKAGE_PIN T3 IOSTANDARD LVCMOS33} [get_ports hdmi_scl]
 set_property -dict {PACKAGE_PIN U7 IOSTANDARD LVCMOS33} [get_ports hdmi_sda]
 
+# HDMI D0 being repurposed to fix Falk's broken R1 PCB's SD Card interface
+set_property -dict {PACKAGE_PIN T5 IOSTANDARD LVCMOS33} [get_ports {sd2MOSI}] 
+# HDMI D13 being repurposed to fix Falk's broken R1 PCB's SD Card interface
+set_property -dict {PACKAGE_PIN V5 IOSTANDARD LVCMOS33} [get_ports {sd2MISO}]
+
 set_property -dict {PACKAGE_PIN T6 IOSTANDARD LVCMOS33} [get_ports {hdmired[0]}]
 set_property -dict {PACKAGE_PIN U1 IOSTANDARD LVCMOS33} [get_ports {hdmired[1]}]
 set_property -dict {PACKAGE_PIN U5 IOSTANDARD LVCMOS33} [get_ports {hdmired[2]}]
