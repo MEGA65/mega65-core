@@ -1052,7 +1052,7 @@ begin
   sclk_o <= sclk_o_sd when sd_bitbash='0' else sd_bitbash_sclk_o;
   miso_i_sd <= miso_i when sd_interface_select='0' else miso2_i;
   mosi_o <= mosi_o_sd and (not sd_interface_select) when sd_bitbash='0' else sd_bitbash_mosi_o;
-  mosi2_o <= mosi_o_sd and sd_interface_select when sd_bitbash='0' else sd_bitbash_mosi_o;
+  mosi2_o <= (mosi_o_sd and sd_interface_select) when sd_bitbash='0' else sd_bitbash_mosi_o;
   
   scancode_out<=last_scan_code;
   process(clk,sbcs_en,lscs_en,c65uart_en,ethernetcs_en,sdcardio_en,
