@@ -302,6 +302,7 @@ begin  -- behavioural
       if (x_in = to_integer(sprite_x))
         and (x_in /= x_last)
         and (sprite_enable='1')
+        and (pixel_strobe = '1') 
         and ((y_top='1') or (sprite_drawing = '1')) then
         x_in_sprite <= '1';
         x_expand_toggle <= '0';
