@@ -4,6 +4,30 @@
 	; It is used for debugging various things using GHDL simulation,
 	; because the simulation is so slow, we want things to run instantly.
 
+.macro bitplane_test
+       lda #$22
+       sta $d033
+       sta $d034
+       lda #$44
+       sta $d035
+       sta $d036
+       lda #$66
+       sta $d037
+       sta $d038
+       lda #$88
+       sta $d039
+       sta $d03a
+       lda #$ff
+       sta $d032
+       lda #$10
+       tsb $d031
+
+@bploop:
+	inc $d020
+	jmp @bploop
+.macend
+;.invoke bitplane_test
+
 .macro vfpga_addressing
 
        ; Create pointer to $FFDF000
