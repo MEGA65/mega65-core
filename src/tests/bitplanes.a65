@@ -50,18 +50,18 @@
 	 ; $2000, $4000, $6000, $8000, $12000,$14000,$16000,$18000
 	 lda #%00100010    ; upper 3 bits of each nybl = address x 8KB
 	 sta $d033
-	 sta $d037
-	 clc
-	 adc #%00100010
 	 sta $d034
-	 sta $d038
 	 clc
 	 adc #%00100010
 	 sta $d035
-	 sta $d039
+	 sta $d036
 	 clc
 	 adc #%00100010
-	 sta $d036
+	 sta $d037
+	 sta $d038
+	 clc
+	 adc #%00100010
+	 sta $d039
 	 sta $d03a
 
 	 ; no inverting of bitplanes
@@ -178,25 +178,6 @@ donemessage:
 	 ldx #$00
 bitplaneloop:
 
-	 lda bp32+0
-	 clc
-	 adc #<320
-	 sta bp32+0
-	 lda bp32+1
-	 adc #>310
-	 sta bp32+1
-	 lda bp32+2
-	 eor #$01
-	 sta bp32+2
-	 bne nextbitplaneisodd
-
-	 ; next bitplane is even, so add $2000
-	 lda #$20
-	 clc
-	 adc bp32+1
-	 sta bp32+1
- nextbitplaneisodd:
-
 	; so now bp32 points to the start of the line we want in the bitplane
 	; We can now copy the 11x8 = 88 bytes of rendered stuff, followed by copying the
 	; single digit character we need to identify the bitplane
@@ -234,7 +215,28 @@ digitloop:
 	inz
 	cpz #80
 	bne digitloop
-	
+
+	; Advance address for next bitplane
+	 lda bp32+0
+	 clc
+	 adc #<320
+	 sta bp32+0
+	 lda bp32+1
+	 adc #>320
+	 sta bp32+1
+	 lda bp32+2
+	 eor #$01
+	 sta bp32+2
+	 bne nextbitplaneisodd
+
+	 ; next bitplane is even, so add $2000
+	 lda #$20
+	 clc
+	 adc bp32+1
+	 sta bp32+1
+ nextbitplaneisodd:
+
+
 
 	; Done. See if there are more bitplanes to do?
 	 inx
