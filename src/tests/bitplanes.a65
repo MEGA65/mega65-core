@@ -1,0 +1,320 @@
+
+	; Test correct positioning of the 8 bitplanes
+
+	.alias ptr32 $a5
+	.alias bp32 $a9
+
+	.org $07ff
+
+	 .byte 1,8
+
+         .byte $4c,$16,$08,$00,$97,$32
+         .byte $2c,$30,$3a,$9e,$32,$30
+         .byte $37,$30,$00,$00,$00,$a9
+         .byte $01,$85,$02
+
+	 ; Fast CPU
+	 LDA #$47
+	 STA $D02F
+	 LDA #$53
+	 STA $D02F
+	 LDA #65
+	 STA 0
+
+	 SEI
+
+	 ; Clear bitplane memory by DMA
+	 lda #$00
+	 sta $d702
+	 sta $d703
+	 sta $d704
+	 lda #>clearplanesdmalist
+	 sta $d701
+	 lda #<clearplanesdmalist
+	 sta $d705
+
+
+	 ; Set bitplane mode,
+
+	 ; Put some text on each of the bitplanes, so we can see what is going on
+
+	 ; Enable bitplane mode
+	 lda #$10
+	 tsb $d031
+
+	 ; Enable all bitplanes
+	 lda #$ff
+	 sta $d032
+
+	 ; Set bit plane addresses to
+	 ; $2000, $4000, $6000, $8000, $12000,$14000,$16000,$18000
+	 lda #%00100010    ; upper 3 bits of each nybl = address x 8KB
+	 sta $d033
+	 sta $d037
+	 clc
+	 adc #%00100010
+	 sta $d034
+	 sta $d038
+	 clc
+	 adc #%00100010
+	 sta $d035
+	 sta $d039
+	 clc
+	 adc #%00100010
+	 sta $d036
+	 sta $d03a
+
+	 ; no inverting of bitplanes
+	 lda #$00
+	 sta $d03b
+
+	 ; Bit plane position on screen (for DAT?)
+	 lda #$00
+	 sta $d03c
+	 sta $d03d
+
+	 ; Bit plane screen position verniers set to normal position
+	 lda #$00
+	 sta $d03e
+	 sta $d03f
+
+	 lda #$00
+	 sta $d100
+	 sta $d200
+	 sta $d300
+
+	 ; Initialise palette to black in colour 0, else white, so bitplanes on top of each other all appear as white
+	 lda #$ff
+	 ldx #$1
+@cloop:
+	 sta $d100,x
+	 txa
+	 lsr
+	 lsr
+	 lsr
+	 lsr
+	 sta $d200,x
+	 txa
+	 sta $d300,x
+	 lda #$FF
+	 inx
+	 bne @cloop
+
+	 ; Now draw strings using char ROM on each bitplane, one under the other.
+	 ; We need to copy the chars from $2Dxxx to the right place
+
+	 ; First, let's setup the pointer to $2D000.  Then we can use Z to select anywhere
+	 ; in the first 64 chars, which should be enough for us.
+	 lda #$00
+	 sta ptr32+0
+	 sta ptr32+3
+	 lda #$d0
+	 sta ptr32+1
+	 lda #$02
+	 sta ptr32+2
+
+	 lda #<rendered_message
+	 sta $fd
+	 lda #>rendered_message
+	 sta $fe
+
+	 ; Now lets pre-render the "bitplane " part of the message into a little buffer to make
+	 ; our lives easier later
+	 ldx #$00
+messagerenderloop:
+	 lda bitplane_message,x
+	 beq donemessage
+	 ; work out offset to this char in the character ROM
+	 asl
+	 asl
+	 asl
+	 taz
+
+	 ; Now copy 8 bytes
+	 ldy #$00
+charcopyloop:
+	nop
+	lda (ptr32),z
+	sta ($fd),y
+	inz
+	iny
+	cpy #$08
+	bne charcopyloop
+	ldz #$00
+	; advance to next char in render buffer
+	lda $fd
+	clc
+	adc #$08
+	sta $fd
+
+	inx
+	jmp messagerenderloop
+
+donemessage:
+
+	 ; Point to '0' character in char rom.
+	 ; $30 x $08 = $180
+	 lda #$80
+	 sta ptr32+0
+	 lda #$d1
+	 sta ptr32+1
+	 lda #$02
+	 sta ptr32+2
+	 lda #$00
+	 sta ptr32+3
+
+	 ; Now we need to get the address for the bitplanes
+	 ; We start with bitplane 0 at $02000, then we add $2000 every second bitplane,
+	 ; while toggling bit 16 every bit plane.
+	 ; We also add 320 each time, so that the messages appear on successive lines
+	 ; on each bitplane
+	 lda #$00
+	 sta bp32+3
+	 sta bp32+2
+	 sta bp32+0
+	 lda #$20
+	 sta bp32+1
+
+	 ldx #$00
+bitplaneloop:
+
+	 lda bp32+0
+	 clc
+	 adc #<320
+	 sta bp32+0
+	 lda bp32+1
+	 adc #>310
+	 sta bp32+1
+	 lda bp32+2
+	 eor #$01
+	 sta bp32+2
+	 bne nextbitplaneisodd
+
+	 ; next bitplane is even, so add $2000
+	 lda #$20
+	 clc
+	 adc bp32+1
+	 sta bp32+1
+ nextbitplaneisodd:
+
+	; so now bp32 points to the start of the line we want in the bitplane
+	; We can now copy the 11x8 = 88 bytes of rendered stuff, followed by copying the
+	; single digit character we need to identify the bitplane
+	ldy #$00
+	ldz #$00
+
+msgcopyloop:
+	lda rendered_message,y
+	nop
+	sta (bp32),z
+	inz
+	iny
+	cpy #64
+	bne msgcopyloop
+
+	; Now get the address of the digit to show the bitplane number
+	txa
+	asl
+	asl
+	asl
+	tay
+
+	ldz #72
+
+digitloop:
+	phz
+	tya
+	taz
+	nop
+	lda (ptr32),z
+	plz
+	nop
+	sta (bp32),z
+	iny
+	inz
+	cpz #80
+	bne digitloop
+	
+
+	; Done. See if there are more bitplanes to do?
+	 inx
+	 cpx #$08
+	 bne bitplaneloop
+
+loop:
+	inc $d020
+	jmp loop
+
+bitplane_message:	.byte 2,9,20,16,12,1,14,5,32,0   ; "BITPLANE " in screen codes
+
+rendered_message:
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+	.byte 0,0,0,0,0,0,0
+
+clearplanesdmalist:
+		; MEGA65 Enhanced DMA options
+		.byte $0A  ; Request format is F018A
+		.byte $80,$00 ; Source is $00xxxxx
+		.byte $81,$00 ; Destination is $00xxxxx
+		.byte $00  ; No more options
+		; Fill $2000-$9FFF and $12000-$19FFF
+		; F018A DMA list
+		; (MB offsets get set in routine)
+		.byte $07 ; fill + not end of chain
+		.word $8000 ; size of copy is 16KB
+		.word $0000 ; fill value is $00
+		.byte $00   ; of bank $0
+		.word $2000 ; destination address is $8000
+		.byte $00   ; of bank $0
+		.word $0000 ; modulo (unused)
+
+		.byte $0A,$00 ; F018A + no more options
+		; Fill $2000-$9FFF and $12000-$19FFF
+		; F018A DMA list
+		; (MB offsets get set in routine)
+		.byte $03 ; fill + last request in chain
+		.word $8000 ; size of copy is 16KB
+		.word $0000 ; fill value is $00
+		.byte $00   ; of bank $0
+		.word $2000 ; destination address is $8000
+		.byte $01   ; of bank $1
+		.word $0000 ; modulo (unused)
+
+
+	.outfile "tests/bitplanes.prg"
