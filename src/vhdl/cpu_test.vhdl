@@ -326,6 +326,7 @@ begin
       uart_tx => pmodc(2),
 
       miso_i => '1',
+      miso2_i => '1',
 
       aclsck => aclsck,
       aclMISO => '1',
