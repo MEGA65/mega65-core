@@ -124,6 +124,7 @@ architecture behavioural of sprite is
   signal y_offset : integer range 0 to 255 := 0;
   signal x_offset : integer range 0 to 64 := 0;
   signal x_in_sprite : std_logic := '0';
+  signal x_in_sprite_soon : std_logic := '0';
   signal sprite_drawing : std_logic := '0';
   signal x_expand_toggle : std_logic := '0';
   signal y_expand_toggle : std_logic := '0';
@@ -299,12 +300,19 @@ begin  -- behavioural
 --      else
 --        report "x_in = " & integer'image(x_in) & ", != sprite_x = " & integer'image(to_integer(sprite_x));
 --      end if;
+
+      -- Make sure we don't start a sprite edge except on an output pixel edge,
+      -- to stop the left pixel column being trimmed by one clock tick
+      if (x_in_sprite_soon= '1') and (pixel_strobe = '1')  then
+        x_in_sprite_soon <= '0';
+        x_in_sprite <= '1';
+      end if;
+
       if (x_in = to_integer(sprite_x))
         and (x_in /= x_last)
         and (sprite_enable='1')
-        and (pixel_strobe = '1') 
         and ((y_top='1') or (sprite_drawing = '1')) then
-        x_in_sprite <= '1';
+        x_in_sprite_soon <= '1';
         x_expand_toggle <= '0';
         report "SPRITE: drawing row " & integer'image(y_offset)
           & " of sprite " & integer'image(sprite_number)
