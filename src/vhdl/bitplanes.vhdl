@@ -145,6 +145,7 @@ architecture behavioural of bitplanes is
   signal x_left : std_logic := '0';
   signal y_top : std_logic := '0';
   signal x_in_bitplanes : std_logic := '0';
+  signal last_x_in_bitplanes : std_logic := '0';  
   signal bitplane_drawing : std_logic := '0';
   signal bitplane_drawing_next : std_logic := '0';
   signal bitplane_x_start : xposition := 23;
@@ -417,8 +418,9 @@ begin  -- behavioural
           x_in_bitplanes <= '0';
         end if;
       end if;
-      -- Clear bitplane byte numbers at the start of each raster.
-      if v_x_in = 0 then
+      -- Clear bitplane byte numbers at the end of each raster
+      last_x_in_bitplanes <= x_in_bitplanes;
+      if x_in_bitplanes = '0' and last_x_in_bitplanes = '1' then
         for i in 7 downto 0 loop
           bitplanes_byte_numbers(i) <= 0; 
           if y_in <= (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start)))) then
