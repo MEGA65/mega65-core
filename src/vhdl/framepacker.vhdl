@@ -478,9 +478,12 @@ begin  -- behavioural
               next_byte := bit_queue(31 downto 24);
               next_byte_valid := '1';
               bit_queue(31 downto 8) <= bit_queue(23 downto 0);
-              bit_queue(31 - (bit_queue_len - 8) downto 0)
-                <= new_bits(31 downto (bit_queue_len - 8));
-              bit_queue_len <= bit_queue_len - 8 + bits_appended;
+              -- Only stuff bits if they fit
+              if (bit_queue_len - 8 + bits_appended) < 31 then
+                bit_queue(31 - (bit_queue_len - 8) downto 0)
+                  <= new_bits(31 downto (bit_queue_len - 8));
+                bit_queue_len <= bit_queue_len - 8 + bits_appended;
+              end if;
             elsif (bit_queue_len + bits_appended) > 7 then
               -- New token plus existing queue is >= 1 byte, so output mashed byte
               report "Appending " & integer'image(bits_appended) & " to " & integer'image(bit_queue_len)
