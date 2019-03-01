@@ -393,7 +393,7 @@ architecture behavioral of iomapper is
   signal ascii_key_next : std_logic := '0';
 
   signal sd_bitbash : std_logic;
-  signal sd_interface_select : std_logic;
+  signal sd_interface_select : std_logic := '1';
   signal sd_bitbash_cs_bo : std_logic;
   signal sd_bitbash_sclk_o : std_logic;
   signal sd_bitbash_mosi_o : std_logic;
@@ -626,9 +626,9 @@ begin
       portg(4) => sd_bitbash_cs_bo,
       portg(3) => sd_bitbash_sclk_o,
       portg(2) => sd_bitbash_mosi_o,
-      portg(0) => sd_interface_select,
+--      portg(0) => sd_interface_select,
 --      portg(1 downto 0) => keyboard_scan_mode,
-      portg(1) => dummy_g(1),
+      portg(1 downto 0) => dummy_g(1 downto 0),
       key_debug => key_debug,
       widget_disable => widget_disable,
       ps2_disable => ps2_disable,
