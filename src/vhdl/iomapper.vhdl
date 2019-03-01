@@ -1051,9 +1051,6 @@ begin
   -- Allow taking over of SD interface for bitbashing and debugging
   cs_bo <= cs_bo_sd when sd_bitbash='0' else sd_bitbash_cs_bo;
   sclk_o <= sclk_o_sd when sd_bitbash='0' else sd_bitbash_sclk_o;
-  miso_i_sd <= miso_i when sd_interface_select='0' else miso2_i;
-  mosi_o <= mosi_o_sd and (not sd_interface_select) when sd_bitbash='0' else sd_bitbash_mosi_o;
-  mosi2_o <= (mosi_o_sd and sd_interface_select) when sd_bitbash='0' else sd_bitbash_mosi_o;
   
   scancode_out<=last_scan_code;
   process(clk,sbcs_en,lscs_en,c65uart_en,ethernetcs_en,sdcardio_en,
@@ -1061,6 +1058,20 @@ begin
   begin
     if rising_edge(clk) then
 
+      -- Implement SD card switching
+      if sd_bitbash='1' then
+        mosi_o <= sd_bitbash_mosi_o;
+        mosi2_o <= sd_bitbash_mosi_o;
+      elsif sd_interface_select='0' then
+        miso_i_sd <= miso_i;
+        mosi_o <= mosi_o_sd;
+        mosi2_o <= '1';
+      else
+        miso_i_sd <= miso2_i;
+        mosi2_o <= mosi_o_sd;
+        mosi_o <= '1';
+      end if;
+      
       -- User port is only emulated to provide joy3 and joy4 as though a
       -- CGA/Protovision joystick adapter were connected.
       -- This is implemented by a special cartridge (since MEGA65 has no
