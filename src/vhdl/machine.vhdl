@@ -375,6 +375,10 @@ architecture Behavioral of machine is
       );
   end component;
 
+  signal clock2mhz : std_logic := '0';
+  signal clock2mhz_i : std_logic := '0';
+  signal clock2mhz_counter : integer := 0;
+  
   signal pmodb_in_buffer : std_logic_vector(5 downto 0);
   signal pmodb_out_buffer : std_logic_vector(1 downto 0);
 
@@ -1247,6 +1251,7 @@ begin
     port map (
       clk => ioclock,
       clock200mhz => clock200,
+      clock2mhz => clock2mhz,
       protected_hardware_in => protected_hardware_sig,
       virtualised_hardware_in => virtualised_hardware_sig,
       chipselect_enables => chipselect_enables,
@@ -1612,9 +1617,20 @@ begin
       pmod_data_out <= pmodb_out_buffer;
       flopled <= drive_led_out;
       flopmotor <= motor;
+
+      -- Generate 2MHz for SIDs from CPUCLOCK / 20
+      if clock2mhz_counter = 19 then
+        clock2mhz_counter <= 0;
+        clock2mhz_i <= not clock2mhz_i;
+      else
+        clock2mhz_counter <= clock2mhz_counter + 1;
+      end if;
+      clock2mhz <= clock2mhz_i;
+      
     end if;
   end process;
 
+  
   debug8_state_out <= std_logic_vector(monitor_state(15 downto 8));
 --  debug4_state_out <= (others => '0');
 

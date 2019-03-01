@@ -17,6 +17,7 @@ entity iomapper is
         pixelclk : in std_logic;
         uartclock : in std_logic;
         clock50mhz : in std_logic;
+        clock2mhz : in std_logic;
         phi0 : in std_logic;
         reset : in std_logic;
         reset_out : out std_logic;
@@ -791,8 +792,10 @@ begin
 
   block6: block
   begin
-  leftsid: entity work.sid6581 port map (
-    clk_1MHz => phi0,
+    leftsid: entity work.sid6581 port map (
+    -- The SIDs think they need 1MHz, but then are 1 octave too low, and ADSR
+    -- is too slow, so we feed them 2MHz instead
+    clk_1MHz => clock2mhz,
     clk32 => clk,
     reset => reset_high,
     cs => leftsid_cs,
@@ -808,7 +811,9 @@ begin
   block7: block
   begin
   rightsid: entity work.sid6581 port map (
-    clk_1MHz => phi0,
+    -- The SIDs think they need 1MHz, but then are 1 octave too low, and ADSR
+    -- is too slow, so we feed them 2MHz instead
+    clk_1MHz => clock2mhz,
     clk32 => clk,
     reset => reset_high,
     cs => rightsid_cs,
