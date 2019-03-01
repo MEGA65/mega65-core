@@ -105,6 +105,7 @@ entity sdcardio is
     -------------------------------------------------------------------------
     -- Lines for the SDcard interface itself
     -------------------------------------------------------------------------
+    sd_interface_select : out std_logic := '0';
     cs_bo : out std_logic;
     sclk_o : out std_logic;
     mosi_o : out std_logic;
@@ -175,6 +176,8 @@ end sdcardio;
 
 architecture behavioural of sdcardio is
 
+  signal sd_interface_select_internal : std_logic := '0';
+  
   signal read_on_idle : std_logic := '0';
   
   signal audio_mix_reg_int : unsigned(7 downto 0) := x"FF";
@@ -803,12 +806,12 @@ begin  -- behavioural
           -- @IO:GS $D680.4 - SD controller SDHC mode flag
           -- @IO:GS $D680.5 - SD controller SDIO FSM ERROR flag
           -- @IO:GS $D680.6 - SD controller SDIO error flag
-          -- @IO:GS $D680.7 - SD controller half speed flag
+          -- @IO:GS $D680.7 - SD controller primary / secondary SD card 
           when x"80" =>
             -- status / command register
             -- error status in bit 6 so that V flag can be used for check
             report "reading $D680 SDCARD status register" severity note;
-            fastio_rdata(7) <= '0';
+            fastio_rdata(7) <= sd_interface_select_internal;
             fastio_rdata(6) <= sdio_error;
             fastio_rdata(5) <= sdio_fsm_error;
             fastio_rdata(4) <= sdhc_mode;
@@ -1793,6 +1796,13 @@ begin  -- behavioural
                 -- the sector buffer.              
                 when x"83" => sd_fill_mode <= '1';
                 when x"84" => sd_fill_mode <= '0';
+
+                -- Switch between the two SD cards by writing $C0 or $C1 to $D680
+                -- i.e. "[C]ard 0" or "[C]ard 1"              
+                when x"C0" => sd_interface_select <= '0';
+                              sd_interface_select_internal <= '0';
+                when x"C1" => sd_interface_select <= '1';
+                              sd_interface_select_internal <= '1';
                               
                 when others =>
                   sdio_error <= '1';

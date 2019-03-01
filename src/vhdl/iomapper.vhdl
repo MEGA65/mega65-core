@@ -995,6 +995,7 @@ begin
     btn => btn,
 
     -- SD card interface
+    sd_interface_select => sd_interface_select,
     cs_bo => cs_bo_sd,
     sclk_o => sclk_o_sd,
     mosi_o => mosi_o_sd,
