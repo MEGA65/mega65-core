@@ -453,6 +453,8 @@ architecture behavioral of iomapper is
   signal userport_in : std_logic_vector(7 downto 0) := x"FF";
   signal userport_out : std_logic_vector(7 downto 0) := x"FF";
 
+  signal sd_interface_select_internal : std_logic := '0';
+  
 begin
 
   block1: block
@@ -1054,15 +1056,14 @@ begin
   
   scancode_out<=last_scan_code;
   process(clk,sbcs_en,lscs_en,c65uart_en,ethernetcs_en,sdcardio_en,
-          cia1cs_en,cia2cs_en)
+          cia1cs_en,cia2cs_en,sd_interface_select_internal,sd_interface_select,sd_interface_select_internal,
+          miso_i,sd_bitbash_mosi_o,mosi_o_sd,miso2_i)
   begin
-    if rising_edge(clk) then
-
       -- Implement SD card switching
       if sd_bitbash='1' then
         mosi_o <= sd_bitbash_mosi_o;
         mosi2_o <= sd_bitbash_mosi_o;
-      elsif sd_interface_select='0' then
+      elsif sd_interface_select_internal='0' then
         miso_i_sd <= miso_i;
         mosi_o <= mosi_o_sd;
         mosi2_o <= '1';
@@ -1071,6 +1072,11 @@ begin
         mosi2_o <= mosi_o_sd;
         mosi_o <= '1';
       end if;
+      
+
+    if rising_edge(clk) then
+
+      sd_interface_select_internal <= sd_interface_select;
       
       -- User port is only emulated to provide joy3 and joy4 as though a
       -- CGA/Protovision joystick adapter were connected.
