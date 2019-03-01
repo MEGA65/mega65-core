@@ -597,19 +597,38 @@ normalboot:
 		; First try resetting card 0
 		lda #$c0
 		sta $d680
-		lda #$01
-		sta $d680
 		lda #$00
 		sta $d680
+		lda #$01
+		sta $d680
 
+		ldx #$0f
+@morewaiting:
 		jsr sdwaitawhile
 
 		lda $d680
 		and #$03
-		beq tryreadmbr
+		bne trybus1
+
+		phx
+
+		ldx #<msg_usingcard0
+		ldy #>msg_usingcard0
+		jsr printmessage
+
+		plx		
+
+		jmp tryreadmbr
+trybus1:
+		dex
+		bne @morewaiting
+
 		lda #$c1
 		sta $d680
 
+		ldx #<msg_tryingcard1
+		ldy #>msg_tryingcard1
+		jsr printmessage
 
 tryreadmbr:
 		jsr readmbr
@@ -2886,6 +2905,8 @@ msg_lookingfornextsector:
 		      .byte "LOOKING FOR NEXT SECTOR OF FILE",0
 msg_nologo:	      .byte "COULD NOT LOAD BANNER.M65 (ERRNO:$$)",0
 msg_cdrootfailed:     .byte "COULD NOT CHDIR TO / (ERRNO:$$)",0
+msg_tryingcard1:      .byte "TRYING SDCARD BUS 1",0
+msg_usingcard0:	      .byte "USING SDCARD BUS 0",0
 
 			; include the GIT-STRING as a message
 			;
