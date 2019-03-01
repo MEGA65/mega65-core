@@ -609,7 +609,6 @@ normalboot:
 		beq tryreadmbr
 		lda #$c1
 		sta $d680
-		inc $0400
 
 
 tryreadmbr:
