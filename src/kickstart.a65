@@ -590,7 +590,27 @@ normalboot:
 		;
 		ldx #<msg_tryingsdcard
 		ldy #>msg_tryingsdcard
-		jsr printmessage
+		jsr printmessage		
+
+		; Work out if we are using primary or secondard SD card
+
+		; First try resetting card 0
+		lda #$c0
+		sta $d680
+		lda #$01
+		sta $d680
+		lda #$00
+		sta $d680
+
+		jsr sdwaitawhile
+
+		lda $d680
+		and #$03
+		beq tryreadmbr
+		lda #$c1
+		sta $d680
+		inc $0400
+
 
 tryreadmbr:
 		jsr readmbr
