@@ -1165,6 +1165,8 @@ loadedok:
 
 		; the loaded ROM was OK in size
 
+		jsr syspart_dmagic_autoset
+
 		; Store checksum of ROM
 		;
 		jsr storeromsum
@@ -2907,6 +2909,8 @@ msg_nologo:	      .byte "COULD NOT LOAD BANNER.M65 (ERRNO:$$)",0
 msg_cdrootfailed:     .byte "COULD NOT CHDIR TO / (ERRNO:$$)",0
 msg_tryingcard1:      .byte "TRYING SDCARD BUS 1",0
 msg_usingcard0:	      .byte "USING SDCARD BUS 0",0
+msg_dmagica:	      .byte "DMAGIC REV A MODE",0
+msg_dmagicb:	      .byte "DMAGIC REV B MODE",0
 
 			; include the GIT-STRING as a message
 			;

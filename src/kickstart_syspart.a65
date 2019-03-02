@@ -358,6 +358,92 @@ syspart_config_invalid:
 	clc
 	rts
 
+syspart_dmagic_autoset_trap:
+	jsr syspart_dmagic_autoset
+	sta hypervisor_enterexit_trigger
+
+syspart_dmagic_autoset:
+		; Set DMAgic revision based on ROM version
+		; $20017-$2001D = "V9xxxxx" version string.
+		; If it is 900000 - 910522, then DMAgic revA, else revB
+		lda #$16
+		sta zptempv32
+		lda #$00
+		sta zptempv32+1
+		sta zptempv32+3	
+		lda #$02
+		sta zptempv32+2
+		ldz #$00
+		nop
+		lda (<zptempv32),z
+		cmp #$56
+		beq @hasC65ROMVersion
+		rts
+@hasC65ROMVersion:
+		; Check first digit is 9
+		inz
+		nop
+		lda (<zptempv32),z
+		cmp #$39
+		bne @useDMAgicRevB
+		; check if second digit is 0, if so, revA
+		inz
+		nop
+		lda (<zptempv32),z
+		cmp #$30
+		beq @useDMAgicRevA
+		; check if second digit != 1, if so, revB
+		cmp #$31
+		bne @useDMAgicRevB
+		; check 3rd digit is 0, if not, revB
+		inz
+		nop
+		lda (<zptempv32),z
+		cmp #$30
+		bne @useDMAgicRevB
+		; check 4th digit is >5, if so, revB
+		inz
+		nop
+		lda (<zptempv32),z
+		cmp #$36
+		bcs @useDMAgicRevB
+		; check 4th digit is <5, if so, revA
+		cmp #$35
+		bcc @useDMAgicRevA
+		; check 5th digit <=> 2
+		inz
+		nop
+		lda (<zptempv32),z
+		cmp #$32
+		bcc @useDMAgicRevA
+		cmp #$33
+		bcs @useDMAgicRevB
+		; check 6th digit <3
+		inz
+		nop
+		lda (<zptempv32),z
+		cmp #$33
+		bcc @useDMAgicRevA
+@useDMAgicRevB:
+		ldz #$00
+		lda #$01
+		tsb $d703
+
+		ldx #<msg_dmagicb
+		ldy #>msg_dmagicb
+		jmp printmessage
+
+@useDMAgicRevA:
+		ldz #$00
+		lda #$01
+		trb $d703
+		
+		ldx #<msg_dmagica
+		ldy #>msg_dmagica
+		jmp printmessage
+
+
+
 ; Magic string that identifies a MEGA65 system partition
 syspart_magic:
 	.byte "MEGA65SYS00"
@@ -385,7 +471,7 @@ syspart_trap_table:
 	.word syspart_configsector_write_trap
 	.word syspart_configsector_apply_trap
 	.word syspart_configsector_set_trap
-	.word invalid_subfunction
+	.word syspart_dmagic_autoset_trap
 	.word invalid_subfunction
 	.word invalid_subfunction
 	.word invalid_subfunction
