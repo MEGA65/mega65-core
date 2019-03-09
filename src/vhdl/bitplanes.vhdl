@@ -419,8 +419,9 @@ begin  -- behavioural
         end if;
       end if;
       -- Clear bitplane byte numbers at the end of each raster
-      last_x_in_bitplanes <= x_in_bitplanes;
-      if x_in_bitplanes = '0' and last_x_in_bitplanes = '1' then
+      -- last_x_in_bitplanes <= x_in_bitplanes;
+      -- if x_in_bitplanes = '0' and last_x_in_bitplanes = '1' then
+      if v_x_in = 0 then
         report "Hit right border. Flushing buffered bytes in all bitplanes";
         for i in 7 downto 0 loop
           bitplanes_byte_numbers(i) <= 0;
