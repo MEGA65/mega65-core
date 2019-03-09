@@ -820,9 +820,9 @@ allowkickup:	; BG was label nextdirectoryentry3:
 		.invoke checkpoint "  loaded OK KICKUP"
 
 
-		ldx #<msg_kickuploaded
-		ldy #>msg_kickuploaded
-		jsr printmessage
+;		ldx #<msg_kickuploaded
+;		ldy #>msg_kickuploaded
+;		jsr printmessage
 
 		ldy #$00
 		ldz <zptempv32+3	; BG what is in this register? Where is the data set?
@@ -903,9 +903,9 @@ kickupdmalist:
 couldntopenkickup:
 
 nokickup:
-		ldx #<msg_nokickup
-		ldy #>msg_nokickup
-		jsr printmessage
+;		ldx #<msg_nokickup
+;		ldy #>msg_nokickup
+;		jsr printmessage
 
 postkickup:
 
@@ -1056,9 +1056,9 @@ loadrom:
 		; ROMs are not loaded, so try to load them, or prompt
 		; for user to insert SD card
 		;
-		ldx #<msg_rombad
-		ldy #>msg_rombad
-		jsr printmessage
+;		ldx #<msg_rombad
+;		ldy #>msg_rombad
+;		jsr printmessage
 
 		; print debug message
 		;
@@ -1070,9 +1070,9 @@ loadrom:
 ;	========================
 
 		; FAILED
-		ldx #<msg_charrombad
-		ldy #>msg_charrombad
-		jsr printmessage
+;		ldx #<msg_charrombad
+;		ldy #>msg_charrombad
+;		jsr printmessage
 
 		; print debug message
 		;
@@ -2870,8 +2870,8 @@ msg_retryreadmbr:     .byte "RE-TRYING TO READ MBR",0
 msg_kickstart:        .byte "MEGA65 MEGAOS HYPERVISOR V00.12",0
 msg_kickstarthelp:    .byte "ALT=UTIL MENU CTRL=HOLD-BOOT SHIFT=DEBUG",0
 msg_romok:            .byte "ROM CHECKSUM OK - BOOTING",0
-msg_rombad:	      .byte "ROM CHECKSUM FAIL - LOADING ROMS",0
-msg_charrombad:	      .byte "COULD NOT LOAD CHARROM.M65",0
+;msg_rombad:	      .byte "ROM CHECKSUM FAIL - LOADING ROMS",0
+;msg_charrombad:	      .byte "COULD NOT LOAD CHARROM.M65",0
 msg_charromloaded:    .byte "LOADED CHARROM.M65 ($$$$ PAGES)",0
 msg_megaromloaded:    .byte "LOADED MEGA65ROM.M65 ($$$$ PAGES)",0
 msg_tryingsdcard:     .byte "LOOKING FOR SDHC CARD >=4GB...",0
@@ -2884,8 +2884,8 @@ msg_badformat:	      .byte "BAD MBR OR DOS BOOT SECTOR.",0
 msg_sdcardfound:      .byte "READ PARTITION TABLE FROM SDCARD",0
 msg_foundromfile:     .byte "FOUND ROM FILE. START CLUSTER = $$$$$$$$",0
 msg_diskcount:	      .byte "DISK-COUNT=$$, DEFAULT-DISK=$$",0
-msg_diskdata0:	      .byte "DISK-TABLE:",0
-msg_diskdata:	      .byte "BB$$:$$.$$.$$.$$.$$.$$.$$.$$",0
+;msg_diskdata0:	      .byte "DISK-TABLE:",0
+;msg_diskdata:	      .byte "BB$$:$$.$$.$$.$$.$$.$$.$$.$$",0
 
 msg_filelengths:      .byte "LOOKING FOR $$ BYTES, I SEE $$ BYTES",0
 
@@ -2900,8 +2900,8 @@ msg_d81mounted:	      .byte "MEGA65.D81 SUCCESSFULLY MOUNTED",0
 msg_releasectrl:      .byte "RELEASE CONTROL TO CONTINUE BOOTING.",0
 msg_romnotfound:      .byte "COULD NOT FIND ROM MEGA65XXROM",0
 msg_foundkickup:      .byte "LOADING KICKUP.M65 INTO HYPERVISOR",0
-msg_nokickup:         .byte "NO KICKUP.M65 TO LOAD (OR BROKEN)",0
-msg_kickuploaded:     .byte "KICKUP LOADED TO 00004000 - $$$$$$$$",0
+;msg_nokickup:         .byte "NO KICKUP.M65 TO LOAD (OR BROKEN)",0
+;msg_kickuploaded:     .byte "KICKUP LOADED TO 00004000 - $$$$$$$$",0
 msg_alreadykicked:    .byte "RUNNING KICKED HYPERVISOR",0
 msg_lookingfornextsector:
 		      .byte "LOOKING FOR NEXT SECTOR OF FILE",0

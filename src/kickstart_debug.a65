@@ -195,115 +195,115 @@ printsectoraddress:
 
 ;	========================
 
-print_disk_table:
-
-		; HELPER routine, for debug to screen
-
-		ldx #<msg_diskdata0
-		ldy #>msg_diskdata0
-		jsr printmessage
-
-		ldx #<msg_diskdata
-		ldy #>msg_diskdata
-		jsr printmessage
-
-		ldy #$00
-		ldz #$00		; offset
-		jsr printhex
-		ldy #$00
-		ldz dos_disk_table+0
-		jsr printhex
-		ldz dos_disk_table+1
-		jsr printhex
-		ldz dos_disk_table+2
-		jsr printhex
-		ldz dos_disk_table+3
-		jsr printhex
-		ldz dos_disk_table+4
-		jsr printhex
-		ldz dos_disk_table+5
-		jsr printhex
-		ldz dos_disk_table+6
-		jsr printhex
-		ldz dos_disk_table+7
-		jsr printhex
-
-		ldx #<msg_diskdata
-		ldy #>msg_diskdata
-		jsr printmessage
-
-		ldy #$00
-		ldz #$08		; offset
-		jsr printhex
-		ldy #$00
-		ldz dos_disk_table+8
-		jsr printhex
-		ldz dos_disk_table+9
-		jsr printhex
-		ldz dos_disk_table+10
-		jsr printhex
-		ldz dos_disk_table+11
-		jsr printhex
-		ldz dos_disk_table+12
-		jsr printhex
-		ldz dos_disk_table+13
-		jsr printhex
-		ldz dos_disk_table+14
-		jsr printhex
-		ldz dos_disk_table+15
-		jsr printhex
-
-		ldx #<msg_diskdata
-		ldy #>msg_diskdata
-		jsr printmessage
-
-		ldy #$00
-		ldz #$10		; offset
-		jsr printhex
-		ldy #$00
-		ldz dos_disk_table+16
-		jsr printhex
-		ldz dos_disk_table+17
-		jsr printhex
-		ldz dos_disk_table+18
-		jsr printhex
-		ldz dos_disk_table+19
-		jsr printhex
-		ldz dos_disk_table+20
-		jsr printhex
-		ldz dos_disk_table+21
-		jsr printhex
-		ldz dos_disk_table+22
-		jsr printhex
-		ldz dos_disk_table+23
-		jsr printhex
-
-		ldx #<msg_diskdata
-		ldy #>msg_diskdata
-		jsr printmessage
-
-		ldy #$00
-		ldz #$18		 ; offset
-		jsr printhex
-		ldy #$00
-		ldz dos_disk_table+24
-		jsr printhex
-		ldz dos_disk_table+25
-		jsr printhex
-		ldz dos_disk_table+26
-		jsr printhex
-		ldz dos_disk_table+27
-		jsr printhex
-		ldz dos_disk_table+28
-		jsr printhex
-		ldz dos_disk_table+29
-		jsr printhex
-		ldz dos_disk_table+30
-		jsr printhex
-		ldz dos_disk_table+31
-		jsr printhex
-
-		rts
+;print_disk_table:
+;
+;		; HELPER routine, for debug to screen
+;
+;		ldx #<msg_diskdata0
+;		ldy #>msg_diskdata0
+;		jsr printmessage
+;
+;		ldx #<msg_diskdata
+;		ldy #>msg_diskdata
+;		jsr printmessage
+;
+;		ldy #$00
+;		ldz #$00		; offset
+;		jsr printhex
+;		ldy #$00
+;		ldz dos_disk_table+0
+;		jsr printhex
+;		ldz dos_disk_table+1
+;		jsr printhex
+;		ldz dos_disk_table+2
+;		jsr printhex
+;		ldz dos_disk_table+3
+;		jsr printhex
+;		ldz dos_disk_table+4
+;		jsr printhex
+;		ldz dos_disk_table+5
+;		jsr printhex
+;		ldz dos_disk_table+6
+;		jsr printhex
+;		ldz dos_disk_table+7
+;		jsr printhex
+;
+;		ldx #<msg_diskdata
+;		ldy #>msg_diskdata
+;		jsr printmessage
+;
+;		ldy #$00
+;		ldz #$08		; offset
+;		jsr printhex
+;		ldy #$00
+;		ldz dos_disk_table+8
+;		jsr printhex
+;		ldz dos_disk_table+9
+;		jsr printhex
+;		ldz dos_disk_table+10
+;		jsr printhex
+;		ldz dos_disk_table+11
+;		jsr printhex
+;		ldz dos_disk_table+12
+;		jsr printhex
+;		ldz dos_disk_table+13
+;		jsr printhex
+;		ldz dos_disk_table+14
+;		jsr printhex
+;		ldz dos_disk_table+15
+;		jsr printhex
+;
+;		ldx #<msg_diskdata
+;		ldy #>msg_diskdata
+;		jsr printmessage
+;
+;		ldy #$00
+;		ldz #$10		; offset
+;		jsr printhex
+;		ldy #$00
+;		ldz dos_disk_table+16
+;		jsr printhex
+;		ldz dos_disk_table+17
+;		jsr printhex
+;		ldz dos_disk_table+18
+;		jsr printhex
+;		ldz dos_disk_table+19
+;		jsr printhex
+;		ldz dos_disk_table+20
+;		jsr printhex
+;		ldz dos_disk_table+21
+;		jsr printhex
+;		ldz dos_disk_table+22
+;		jsr printhex
+;		ldz dos_disk_table+23
+;		jsr printhex
+;
+;		ldx #<msg_diskdata
+;		ldy #>msg_diskdata
+;		jsr printmessage
+;
+;		ldy #$00
+;		ldz #$18		 ; offset
+;		jsr printhex
+;		ldy #$00
+;		ldz dos_disk_table+24
+;		jsr printhex
+;		ldz dos_disk_table+25
+;		jsr printhex
+;		ldz dos_disk_table+26
+;		jsr printhex
+;		ldz dos_disk_table+27
+;		jsr printhex
+;		ldz dos_disk_table+28
+;		jsr printhex
+;		ldz dos_disk_table+29
+;		jsr printhex
+;		ldz dos_disk_table+30
+;		jsr printhex
+;		ldz dos_disk_table+31
+;		jsr printhex
+;
+;		rts
 
 ;	========================
 
