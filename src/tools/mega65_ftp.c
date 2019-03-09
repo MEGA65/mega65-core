@@ -431,7 +431,10 @@ int execute_command(char *cmd)
     show_directory("/");
   }
   else if (sscanf(cmd,"put %s",src)==1) {
-    upload_file(src,src);
+    char *dest=src;
+    // Set destination name to last element of source name, if no destination name provided
+    for(int i=0;src[i];i++) if (src[i]=='/') dest=&src[i+1];
+    upload_file(src,dest);
   }
   else if (sscanf(cmd,"get %s",src)==1) {
     download_file(src,src);
