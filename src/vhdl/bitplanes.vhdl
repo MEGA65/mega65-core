@@ -360,7 +360,7 @@ begin  -- behavioural
 
         bitplanedata_fetching <= '1';
         bitplanedata_fetch_bitplane <= 7;
-        bitplanedatabuffer_address <= (7)*512 + bitplanes_byte_number(0);
+        bitplanedatabuffer_address <= (7)*512 + bitplanes_byte_numbers(0);
         bitplanedata_fetch_column <= bitplanes_byte_number;
 	current_data_fetch <= 7;
 
