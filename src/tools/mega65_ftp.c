@@ -736,7 +736,7 @@ int write_sector(const unsigned int sector_number,unsigned char *buffer)
     // Write sector data at $0900-$0AFF
     char cmd[1024];
     snprintf(cmd,1024,"l900 B00\r");
-    slow_write(fd,cmd,strlen(cmd),500);
+    slow_write(fd,cmd,strlen(cmd),200);
     usleep(10000); // give uart monitor time to get ready for the data
     process_waiting(fd);
     int written=write(fd,buffer,512);
@@ -759,11 +759,9 @@ int write_sector(const unsigned int sector_number,unsigned char *buffer)
       '\r'
     };
 
-    //    slow_write(fd,"\r",1,5000);
-    
     // Send command to do write
     snprintf(cmd,1024,"l0f00 0f07\r");
-    slow_write(fd,cmd,strlen(cmd),2000);
+    slow_write(fd,cmd,strlen(cmd),1500);
     usleep(10000); // give uart monitor time to get ready for the data
     process_waiting(fd);
     written=write(fd,job_info,8);
@@ -774,15 +772,15 @@ int write_sector(const unsigned int sector_number,unsigned char *buffer)
     }
     process_waiting(fd);
     // Then dispatch job
-    slow_write(fd,"\rgc00\r",6,1000);
-    slow_write(fd,"t0\r",3,2000);
+    slow_write(fd,"\rgc00\r",6,500);
+    slow_write(fd,"t0\r",3,500);
     process_waiting(fd);
     
     // Now wait for job done flag to be set, and also read back the written sectors count
     job_done=0;
     sectors_written=0;
     while(!job_done) {
-      int tries=16;
+      int tries=20;
       int sleep_time=1;
       
       // Ask for job completion status
@@ -811,7 +809,7 @@ int write_sector(const unsigned int sector_number,unsigned char *buffer)
 	      process_waiting(fd);
 
 	      sleep_time=1;
-	      tries=16;
+	      tries=20;
 	      
 	      sleep_time*=2;
 	    }
@@ -887,6 +885,8 @@ int write_sector(const unsigned int sector_number,unsigned char *buffer)
       break;
     }
 
+#endif
+    
     // Store in cache / update cache
     int i;
     for(i=0;i<sector_cache_count;i++) 
@@ -897,7 +897,6 @@ int write_sector(const unsigned int sector_number,unsigned char *buffer)
     }
     if (sector_cache_count<(i+1)) sector_cache_count=i+1;
 
-#endif
     
   } while(0);
   if (retVal) printf("FAIL reading sector %d\n",sector_number);
