@@ -7,9 +7,8 @@
 ;  This is really just to reduce the turn-around time of commanding via the serial
 ;  interface all the time
 
-   ; Sector data starts here. We can have upto $6000 space, so 24 K = 48 sectors
-   ; at a time, if we want
-   .alias sector_data $1000
+   ; Sector data starts here. 
+   .alias sector_data $0900
 
    ; 32-bit sector number
    .alias sector_number $0f00
@@ -21,9 +20,13 @@
    .alias job_done $0f05          ; set non-zero when done. 
    .alias sectors_written $0f06   ; set to count of sectors successfully written
 
-   .org $7000
+   .org $0c00
 
 entry:
+
+	sei
+
+	inc $0800
 
 	; Fast CPU
 	lda #65
@@ -34,6 +37,14 @@ entry:
 	sta $D02f
 	lda #$53
 	sta $D02f
+
+	; Disable funny memory maps
+	LDA #$00
+	TAX
+	TAY
+	TAZ
+	MAP
+	EOM
 
 	; setup pointer to sector data
 	lda #<sector_data
@@ -93,13 +104,13 @@ vfail:
 	; Verify failed, so write sector
 
 cloop1:
-	lda $de00,y
-	sta ($fd),y
+	lda ($fd),y
+	sta $de00,y
 	iny
 	bne cloop1
 cloop2:
-	lda $df00,y
-	sta ($fd),y
+	lda ($fd),y
+	sta $df00,y
 	iny
 	bne cloop2
 
@@ -107,13 +118,14 @@ cloop2:
 	sta $d680
 
 	; Wait for write to complete
-	inc $d021
 cardbusy2:
+	inc $d021
 	lda $d680
 	and #$03
 	bne cardbusy2
 
-	dec $d021
+	lda #$00
+	sta $d021
 
 	jmp sector_loop
 

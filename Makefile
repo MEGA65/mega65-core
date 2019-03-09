@@ -568,8 +568,14 @@ monitor_drive:	monitor_drive.c Makefile
 $(TOOLDIR)/monitor_load:	$(TOOLDIR)/monitor_load.c Makefile
 	$(CC) $(COPT) -o $(TOOLDIR)/monitor_load $(TOOLDIR)/monitor_load.c
 
-$(TOOLDIR)/mega65_ftp:	$(TOOLDIR)/mega65_ftp.c Makefile
-	$(CC) $(COPT) -o $(TOOLDIR)/mega65_ftp $(TOOLDIR)/mega65_ftp.c -lreadline
+$(BINDIR)/ftphelper.bin:	src/ftphelper.a65
+	$(OPHIS) $(OPHISOPT) src/ftphelper.a65
+
+$(TOOLDIR)/ftphelper.c:	$(BINDIR)/ftphelper.bin $(TOOLDIR)/bin2c
+	$(TOOLDIR)/bin2c $(BINDIR)/ftphelper.bin helperroutine $(TOOLDIR)/ftphelper.c	
+
+$(TOOLDIR)/mega65_ftp:	$(TOOLDIR)/mega65_ftp.c Makefile $(TOOLDIR)/ftphelper.c
+	$(CC) $(COPT) -o $(TOOLDIR)/mega65_ftp $(TOOLDIR)/mega65_ftp.c $(TOOLDIR)/ftphelper.c -lreadline
 
 $(TOOLDIR)/monitor_save:	$(TOOLDIR)/monitor_save.c Makefile
 	$(CC) $(COPT) -o $(TOOLDIR)/monitor_save $(TOOLDIR)/monitor_save.c

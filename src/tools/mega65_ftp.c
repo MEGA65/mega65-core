@@ -69,6 +69,10 @@ int read_sector(const unsigned int sector_number,unsigned char *buffer, int noCa
 // Helper routine for faster sector writing
 extern unsigned int helperroutine_len;
 extern unsigned char helperroutine[];
+int helper_installed=0;
+int job_done;
+int sectors_written;
+int job_status_fresh=0;
 
 int osk_enable=0;
 
@@ -270,6 +274,11 @@ int process_line(char *line,int live)
     if (gotIt) {
       // printf("Read memory @ $%04x\n",addr);
 
+      if (addr==0xf05) {
+	job_done=b[0];
+	sectors_written=b[1];
+	job_status_fresh=1;
+      }
       if (addr==0xffd3680) {
 	// SD card status registers
 	for(int i=0;i<16;i++) sd_status[i]=b[i];
@@ -643,7 +652,7 @@ int read_sector(const unsigned int sector_number,unsigned char *buffer,int noCac
     if (cachedRead) break;
     
     // Clear backlog
-    // printf("Clearing serial backlog in preparation for reading sector 0x%x\n",sector_number);
+    //    printf("Clearing serial backlog in preparation for reading sector 0x%x\n",sector_number);
     process_waiting(fd);
 
     // printf("Getting SD card ready\n");
@@ -702,6 +711,117 @@ int write_sector(const unsigned int sector_number,unsigned char *buffer)
 {
   int retVal=0;
   do {
+
+#ifndef NO_HELPER
+    if (!helper_installed) {
+      // Install helper routine
+      char cmd[1024];
+      snprintf(cmd,1024,"lc00 %x\r",0xc00+helperroutine_len);
+      slow_write(fd,cmd,strlen(cmd),500);
+      usleep(10000); // give uart monitor time to get ready for the data
+      process_waiting(fd);
+      int written=write(fd,helperroutine,helperroutine_len);
+      if (written!=helperroutine_len) {
+	printf("ERROR: Failed to write %d bytes of helper routine to serial port\n",
+	       helperroutine_len);
+	retVal=-1;
+	break;
+      }
+      slow_write(fd,"\r",1,500);
+      process_waiting(fd);
+      helper_installed=1;
+      printf("\nNOTE: Fast sector write helper routine installed.\n");
+    }
+
+    // Write sector data at $0900-$0AFF
+    char cmd[1024];
+    snprintf(cmd,1024,"l900 B00\r");
+    slow_write(fd,cmd,strlen(cmd),500);
+    usleep(10000); // give uart monitor time to get ready for the data
+    process_waiting(fd);
+    int written=write(fd,buffer,512);
+    if (written!=512) {
+      printf("ERROR: Failed to write 512 bytes of sector data to serial port\n");
+      retVal=-1;
+      break;
+    }
+    process_waiting(fd);
+
+    // Now write job information at $0F00
+    unsigned char job_info[8]={
+      (sector_number>>0)&0xff,
+      (sector_number>>8)&0xff,
+      (sector_number>>16)&0xff,
+      (sector_number>>24)&0xff,
+      0x01, // only one sector
+      0x00, // clear job done flag
+      0x00, // clear sectors written flag
+      '\r'
+    };
+
+    //    slow_write(fd,"\r",1,5000);
+    
+    // Send command to do write
+    snprintf(cmd,1024,"l0f00 0f07\r");
+    slow_write(fd,cmd,strlen(cmd),2000);
+    usleep(10000); // give uart monitor time to get ready for the data
+    process_waiting(fd);
+    written=write(fd,job_info,8);
+    if (written!=8) {
+      printf("ERROR: Failed to write 8 bytes of job info\n");
+      retVal=-1;
+      break;
+    }
+    process_waiting(fd);
+    // Then dispatch job
+    slow_write(fd,"\rgc00\r",6,1000);
+    slow_write(fd,"t0\r",3,2000);
+    process_waiting(fd);
+    
+    // Now wait for job done flag to be set, and also read back the written sectors count
+    job_done=0;
+    sectors_written=0;
+    while(!job_done) {
+      int tries=16;
+      int sleep_time=1;
+      
+      // Ask for job completion status
+      sd_status[0]=0xff;
+      process_waiting(fd);
+      while(!job_done) {
+	job_status_fresh=0;
+	slow_write(fd,"mf05\r",strlen("mf05\r"),0);
+	while(!job_status_fresh) process_waiting(fd);
+	if (!job_done)
+	  { 
+	    tries--;
+	    if (tries) usleep(sleep_time); else {
+	      printf("ERROR: Timeout!\n");
+	      slow_write(fd,"t1\r",3,5000);
+
+	      // Send reset sequence
+	      printf("SD card not yet ready, so reset it.\n");
+	      slow_write(fd,"sffd3680 0\rsffd3680 1\r",strlen("sffd3680 0\rsffd3680 1\r"),2500);
+	      sleep(1);
+	      wait_for_sdready();	      
+
+	      // Restart job
+	      slow_write(fd,"\rgc00\r",6,1000);
+	      slow_write(fd,"t0\r",3,2000);
+	      process_waiting(fd);
+
+	      sleep_time=1;
+	      tries=16;
+	      
+	      sleep_time*=2;
+	    }
+	  }
+      }
+    }
+    // printf("job_done=%d, sectors_written=%d\n",job_done,sectors_written);        
+    slow_write(fd,"t1\r",3,1000);
+    
+#else
     int sectorUnchanged=0;
     // Force sector into read buffer
     read_sector(sector_number,verify,0);
@@ -776,6 +896,8 @@ int write_sector(const unsigned int sector_number,unsigned char *buffer)
       sector_cache_sectors[i]=sector_number;
     }
     if (sector_cache_count<(i+1)) sector_cache_count=i+1;
+
+#endif
     
   } while(0);
   if (retVal) printf("FAIL reading sector %d\n",sector_number);
