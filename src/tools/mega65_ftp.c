@@ -65,6 +65,11 @@ int upload_file(char *name,char *dest_name);
 int sdhc_check(void);
 int read_sector(const unsigned int sector_number,unsigned char *buffer, int noCacheP);
 
+
+// Helper routine for faster sector writing
+extern unsigned int helperroutine_len;
+extern unsigned char helperroutine[];
+
 int osk_enable=0;
 
 int not_already_loaded=1;
@@ -115,6 +120,7 @@ unsigned int syspart_service_slotdir_sectors=0;
 unsigned char mbr[512];
 unsigned char fat_mbr[512];
 unsigned char syspart_sector0[512];
+unsigned char syspart_configsector[512];
 
 // From os.c in serval-dna
 long long gettime_us()

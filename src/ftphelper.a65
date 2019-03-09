@@ -1,0 +1,140 @@
+;  Little helper routine for speeding up mega65_ftp
+;  Basically it checks if the sector data provided matches what is on the
+;  SD-card at the correct address. If it matches, then it doesn't write anything.
+;  If it doesn't match, then it tries to write it, and indicates if the write
+;  was successful.
+;  To further help things along, we support bulk writing of sectors in this way.
+;  This is really just to reduce the turn-around time of commanding via the serial
+;  interface all the time
+
+   ; Sector data starts here. We can have upto $6000 space, so 24 K = 48 sectors
+   ; at a time, if we want
+   .alias sector_data $1000
+
+   ; 32-bit sector number
+   .alias sector_number $0f00
+
+   ; Single byte count of sectors
+   .alias sector_count $0f04
+
+   ; Handshaking addresses
+   .alias job_done $0f05          ; set non-zero when done. 
+   .alias sectors_written $0f06   ; set to count of sectors successfully written
+
+   .org $7000
+
+entry:
+
+	; Fast CPU
+	lda #65
+	sta $0
+
+	; M65 IO
+	lda #$47
+	sta $D02f
+	lda #$53
+	sta $D02f
+
+	; setup pointer to sector data
+	lda #<sector_data
+	sta $fd
+	lda #>sector_data
+	sta $fe
+
+	; Map sector buffer at $DE00-$DFFF
+
+	; Clear colour RAM at $DC00 flag, as this prevents mapping of sector buffer at $DE00
+     	lda #$01
+	TRB $D030
+
+	; Actually map the sector buffer
+	lda #$81
+	sta $D680	
+
+	; Set first sector address
+	lda sector_number+0
+	sta $d681
+	lda sector_number+1
+	sta $d682
+	lda sector_number+2
+	sta $d683
+	lda sector_number+3
+	sta $d684
+
+sector_loop:
+	; Read sector
+	lda #$02
+	sta $d680
+
+cardbusy:
+	lda $d680
+	and #$03
+	bne cardbusy
+
+	; Assume read is complete.
+	; Verify sector
+	ldy #$00
+vloop1:
+	lda $de00,y
+	cmp ($fd),y
+	bne vfail
+	iny
+	bne vloop1
+vloop2:
+	lda $df00,y
+	cmp ($fd),y
+	bne vfail
+	iny
+	bne vloop2
+
+	jmp verifyok
+
+vfail:
+	; Verify failed, so write sector
+
+cloop1:
+	lda $de00,y
+	sta ($fd),y
+	iny
+	bne cloop1
+cloop2:
+	lda $df00,y
+	sta ($fd),y
+	iny
+	bne cloop2
+
+	lda #$03
+	sta $d680
+
+	; Wait for write to complete
+	inc $d021
+cardbusy2:
+	lda $d680
+	and #$03
+	bne cardbusy2
+
+	dec $d021
+
+	jmp sector_loop
+
+
+verifyok:
+	inc sectors_written
+
+	; Advance to next sector
+	lda $fe
+	clc
+	adc #$02
+
+	; If there are more to do, continue
+	dec sector_count
+	bne sector_loop
+
+	; Done
+	lda #$01
+	sta job_done
+endloop:
+	inc $d020
+	jmp endloop
+
+	.outfile "bin/ftphelper.bin"
