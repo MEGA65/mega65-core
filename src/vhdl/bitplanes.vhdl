@@ -475,6 +475,9 @@ begin  -- behavioural
       -- lower border).
       if y_in = (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start))) + 200) then
         bitplane_drawing <= '0';
+        for i in 7 downto 0 loop
+          bitplane_data_offsets_next(i) <= 0;
+        end loop;
         report "bitplane_drawing cleared.";
       end if;
 
