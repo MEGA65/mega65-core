@@ -419,9 +419,8 @@ begin  -- behavioural
         end if;
       end if;
       -- Clear bitplane byte numbers at the end of each raster
-      -- last_x_in_bitplanes <= x_in_bitplanes;
-      -- if x_in_bitplanes = '0' and last_x_in_bitplanes = '1' then
-      if v_x_in = 0 then
+      last_x_in_bitplanes <= x_in_bitplanes;
+      if x_in_bitplanes = '0' and last_x_in_bitplanes = '1' then
         report "Hit right border. Flushing buffered bytes in all bitplanes";
         for i in 7 downto 0 loop
           bitplanes_byte_numbers(i) <= 0;
@@ -446,6 +445,13 @@ begin  -- behavioural
 	fetch_ongoing <= '0';
       else
         bitplanes_reset <= "00000000";
+      end if;
+      if v_x_in = 0 then
+        x_in_bitplanes <= '0';
+        bitplanes_reset <= "11111111";           -- flushes bitplane byte buffers
+        bitplanes_data_in_valid <= "00000000";
+        bitplanes_advance_pixel <= "11111111";
+        fetch_ongoing <= '0';
       end if;
 
       -- Start drawing once we hit the top of the bitplanes.
