@@ -396,7 +396,9 @@ begin  -- behavioural
         and (y_top='1' or bitplane_drawing='1') then
         x_left <= '1';
         x_in_bitplanes <= '1';
-        bitplanes_advance_pixel <= "11111111";
+        if (v_x_in /= x_last)
+          bitplanes_advance_pixel <= "11111111";
+        end if;
         report "asserting x_left and x_in_bitplanes";
       else
         x_left <= '0';
