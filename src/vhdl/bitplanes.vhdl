@@ -446,13 +446,16 @@ begin  -- behavioural
       else
         bitplanes_reset <= "00000000";
       end if;
-      -- if v_x_in = 0 then
-        -- x_in_bitplanes <= '0';
-        -- bitplanes_reset <= "11111111";           -- flushes bitplane byte buffers
-        -- bitplanes_data_in_valid <= "00000000";
-        -- bitplanes_advance_pixel <= "11111111";
-        -- fetch_ongoing <= '0';
-      -- end if;
+      if v_x_in = 0 then
+        for i in 7 downto 0 loop
+          bitplanes_byte_numbers(i) <= 0;
+        end loop;
+        x_in_bitplanes <= '0';
+        bitplanes_reset <= "11111111";           -- flushes bitplane byte buffers
+        bitplanes_data_in_valid <= "00000000";
+        bitplanes_advance_pixel <= "11111111";
+        fetch_ongoing <= '0';
+      end if;
 
       -- Start drawing once we hit the top of the bitplanes.
       -- Note: the logic here means that bitplanes must be enabled at this
