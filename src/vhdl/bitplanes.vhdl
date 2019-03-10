@@ -252,14 +252,14 @@ begin  -- behavioural
       bitplane_data_offsets <= bitplane_data_offsets_next;
 
       -- Pre-calculate some things to improve timing
-      if y_in+1 >= (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive)))) then
+      if y_in >= (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive)))) then
 --        report "y_in = " & integer'image(y_in);
 --        report "v_bitplane_y_start = " & integer'image(v_bitplane_y_start);
 --        report "bitplane_y_start_drive = " & integer'image(to_integer(signed(std_logic_vector(bitplanes_y_start_drive))));
         bitplane_y_card_position
-          <= integer((y_in+1 - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive))))) mod 8);
+          <= integer((y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive))))) mod 8);
         bitplane_y_card_number_drive
-          <= integer(((y_in+1 - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive))))) / 8));
+          <= integer(((y_in - (v_bitplane_y_start + to_integer(signed(std_logic_vector(bitplanes_y_start_drive))))) / 8));
       else
         bitplane_y_card_position <= 0;
         bitplane_y_card_number_drive <= 0;
@@ -403,19 +403,19 @@ begin  -- behavioural
       end if;
 
       if bitplane_h640 = '1' and bitplane_h1280 = '1' then
-        if v_x_in > (v_bitplane_x_start + to_integer(signed(std_logic_vector(bitplanes_x_start))) + 800) then
+        if v_x_in >= (v_bitplane_x_start + to_integer(signed(std_logic_vector(bitplanes_x_start))) + 800) then
           x_in_bitplanes <= '0';
         end if;
       elsif bitplane_h640 = '1' then
-        if v_x_in > (v_bitplane_x_start + to_integer(signed(std_logic_vector(bitplanes_x_start))) + 640) then
+        if v_x_in >= (v_bitplane_x_start + to_integer(signed(std_logic_vector(bitplanes_x_start))) + 640) then
           x_in_bitplanes <= '0';
         end if;
       elsif bitplane_h1280 = '1' then
-        if v_x_in > (v_bitplane_x_start + to_integer(signed(std_logic_vector(bitplanes_x_start))) + 1280) then
+        if v_x_in >= (v_bitplane_x_start + to_integer(signed(std_logic_vector(bitplanes_x_start))) + 1280) then
           x_in_bitplanes <= '0';
         end if;
       else
-        if v_x_in > (v_bitplane_x_start + to_integer(signed(std_logic_vector(bitplanes_x_start))) + 320) then
+        if v_x_in >= (v_bitplane_x_start + to_integer(signed(std_logic_vector(bitplanes_x_start))) + 320) then
           x_in_bitplanes <= '0';
         end if;
       end if;
