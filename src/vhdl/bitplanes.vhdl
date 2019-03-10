@@ -405,19 +405,19 @@ begin  -- behavioural
       end if;
 
       if bitplane_h640 = '1' and bitplane_h1280 = '1' then
-        if v_x_in >= (v_bitplane_x_start + to_integer(signed(std_logic_vector(bitplanes_x_start))) + 799) then
+        if v_x_in >= (v_bitplane_x_start + to_integer(signed(std_logic_vector(bitplanes_x_start))) + 800) then
           x_in_bitplanes <= '0';
         end if;
       elsif bitplane_h640 = '1' then
-        if v_x_in >= (v_bitplane_x_start + to_integer(signed(std_logic_vector(bitplanes_x_start))) + 639) then
+        if v_x_in >= (v_bitplane_x_start + to_integer(signed(std_logic_vector(bitplanes_x_start))) + 640) then
           x_in_bitplanes <= '0';
         end if;
       elsif bitplane_h1280 = '1' then
-        if v_x_in >= (v_bitplane_x_start + to_integer(signed(std_logic_vector(bitplanes_x_start))) + 1279) then
+        if v_x_in >= (v_bitplane_x_start + to_integer(signed(std_logic_vector(bitplanes_x_start))) + 1280) then
           x_in_bitplanes <= '0';
         end if;
       else
-        if v_x_in >= (v_bitplane_x_start + to_integer(signed(std_logic_vector(bitplanes_x_start))) + 319) then
+        if v_x_in >= (v_bitplane_x_start + to_integer(signed(std_logic_vector(bitplanes_x_start))) + 320) then
           x_in_bitplanes <= '0';
         end if;
       end if;
