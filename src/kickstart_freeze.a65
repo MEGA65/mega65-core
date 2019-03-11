@@ -17,7 +17,7 @@ freeze_save_to_sdcard_immediate:
 	jsr copy_sdcard_regs_to_scratch
 
 	; Save current SD card sector buffer contents
-	jsr freeze_write_sector_and_wait
+	jsr freeze_write_first_sector_and_wait
 
 	; Save each region in the list
 	ldx #$00
@@ -30,6 +30,8 @@ freeze_next_region:
 	lda freeze_mem_list+7,x
 	cmp #$ff
 	bne freeze_next_region
+
+	jsr freeze_end_multi_block_write
 
 	rts
 
@@ -132,6 +134,42 @@ unfreeze_read_sector_and_wait:
 
 	rts
 
+freeze_write_first_sector_and_wait:
+
+	inc $d020
+
+	; Require SHIFT press and release between every sector for debug
+;	jsr wait_on_shift_key
+
+	lda #$00
+	sta freeze_write_tries+0
+	sta freeze_write_tries+1
+
+@retryWrite1:
+
+	jsr sd_wait_for_ready_reset_if_required
+
+	; Trigger the write of the first sector of a multi-sector write
+	lda #$04
+	sta $d680
+
+	jsr sd_wait_for_ready
+	jmp @wroteOk1
+
+	inc freeze_write_tries+0
+	bne @retryWrite1
+	inc freeze_write_tries+1
+	bne @retryWrite1
+
+@wroteOk1:
+	dec $d020
+
+	; Increment freeze slot sector number
+	jsr sd_inc_sectornumber
+
+	sec
+	rts
+
 freeze_write_sector_and_wait:
 
 	inc $d020
@@ -147,8 +185,8 @@ freeze_write_sector_and_wait:
 
 	jsr sd_wait_for_ready_reset_if_required
 
-	; Trigger the write
-	lda #$03
+	; Trigger the write (subsequent sector of multi-sector write)
+	lda #$05
 	sta $d680
 
 	jsr sd_wait_for_ready
@@ -166,6 +204,13 @@ freeze_write_sector_and_wait:
 	jsr sd_inc_sectornumber
 
 	sec
+	rts
+
+freeze_end_multi_block_write:
+	jsr sd_wait_for_ready
+	lda #$06
+	sta $d680
+	jsr sd_wait_for_ready
 	rts
 
 freeze_write_tries:
