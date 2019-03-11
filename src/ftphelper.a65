@@ -85,6 +85,11 @@ cardbusy:
 	; Assume read is complete.
 	; Verify sector
 	ldy #$00
+
+	lda #<sector_data
+	sta $fd
+	lda #>sector_data
+	sta $fe
 vloop1:
 	lda $de00,y
 	cmp ($fd),y
@@ -98,21 +103,28 @@ vloop2:
 	iny
 	bne vloop2
 
+	
 	jmp verifyok
 
 vfail:
 	; Verify failed, so write sector
+
+	lda #<sector_data
+	sta $fd
+	lda #>sector_data
+	sta $fe
 
 cloop1:
 	lda ($fd),y
 	sta $de00,y
 	iny
 	bne cloop1
-cloop2:
+cloop2: inc $fe
 	lda ($fd),y
 	sta $df00,y
 	iny
 	bne cloop2
+	dec $fe
 
 	lda #$03
 	sta $d680
