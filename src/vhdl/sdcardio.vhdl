@@ -1772,6 +1772,9 @@ begin  -- behavioural
 
                 when x"02" =>
                   -- Read sector
+                  sd_write_multi <= '0';
+                  sd_write_multi_first <= '0';
+                  sd_write_multi_last <= '0';
                   if sdio_busy='1' then
                     sdio_error <= '1';
                     sdio_fsm_error <= '1';
@@ -1786,6 +1789,9 @@ begin  -- behavioural
 
                 when x"03" =>
                   -- Write sector
+                  sd_write_multi <= '0';
+                  sd_write_multi_first <= '0';
+                  sd_write_multi_last <= '0';
                   if sdio_busy='1' then
                     report "SDWRITE: sdio_busy is set, not writing";
                     sdio_error <= '1';
