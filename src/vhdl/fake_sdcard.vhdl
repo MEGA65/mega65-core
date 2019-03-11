@@ -312,17 +312,8 @@ begin
             getCmdResponse_v := true;  -- Get R1 response to any commands issued to the SD card.
             if rd_i = '1' then  -- send READ command and address to the SD card.
               cs_bo <= '0';              -- Enable the SD card.
-              if continue_i = '1' then  -- Multi-block read. Use stored address.
-                if CARD_TYPE_G = SD_CARD_E then  -- SD cards use byte-addressing, 
-                  addr_v := addr_v + BLOCK_SIZE_G;  -- so add block-size to get next block address.
-                else                    -- SDHC cards use block-addressing,
-                  addr_v := addr_v + 1;  -- so just increment current block address.
-                end if;
-                txCmd_v := READ_BLK_CMD_C & std_logic_vector(addr_v) & FAKE_CRC_C;
-              else                      -- Single-block read.
-                txCmd_v := READ_BLK_CMD_C & addr_i & FAKE_CRC_C;  -- Use address supplied by host.
-                addr_v  := unsigned(addr_i);  -- Store address for multi-block operations.
-              end if;
+              txCmd_v := READ_BLK_CMD_C & addr_i & FAKE_CRC_C;  -- Use address supplied by host.
+              addr_v  := unsigned(addr_i);  -- Store address for multi-block operations.
               bitCnt_v   := txCmd_v'length;  -- Set bit counter to the size of the command.
               byteCnt_v  := RD_BLK_SZ_C;
               state_v    := START_TX;  -- Go to FSM subroutine to send the command.
@@ -330,17 +321,8 @@ begin
             elsif wr_i = '1' then  -- send WRITE command and address to the SD card.
               report "FAKE-SDCARD: Saw write request.";
               cs_bo <= '0';              -- Enable the SD card.
-              if continue_i = '1' then  -- Multi-block write. Use stored address.
-                if CARD_TYPE_G = SD_CARD_E then  -- SD cards use byte-addressing, 
-                  addr_v := addr_v + BLOCK_SIZE_G;  -- so add block-size to get next block address.
-                else                    -- SDHC cards use block-addressing,
-                  addr_v := addr_v + 1;  -- so just increment current block address.
-                end if;
-                txCmd_v := WRITE_BLK_CMD_C & std_logic_vector(addr_v) & FAKE_CRC_C;
-              else                      -- Single-block write.
-                txCmd_v := WRITE_BLK_CMD_C & addr_i & FAKE_CRC_C;  -- Use address supplied by host.
-                addr_v  := unsigned(addr_i);  -- Store address for multi-block operations.
-              end if;
+              txCmd_v := WRITE_BLK_CMD_C & addr_i & FAKE_CRC_C;  -- Use address supplied by host.
+              addr_v  := unsigned(addr_i);  -- Store address for multi-block operations.
               bitCnt_v   := txCmd_v'length;  -- Set bit counter to the size of the command.
               byteCnt_v  := WR_BLK_SZ_C;    -- Set number of bytes to write.
               state_v    := START_TX;  -- Go to this FSM subroutine to send the command ...
