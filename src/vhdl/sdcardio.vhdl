@@ -200,12 +200,15 @@ architecture behavioural of sdcardio is
   signal fastio_rdata_ram : unsigned(7 downto 0);
   signal fastio_rdata : unsigned(7 downto 0);
   
-  signal skip : integer range 0 to 2;
-  signal read_data_byte : std_logic := '0';
-  signal sd_doread       : std_logic := '0';
-  signal sd_dowrite      : std_logic := '0';
-  signal sd_data_ready : std_logic := '0';
-  signal sd_handshake : std_logic := '0';
+  signal skip                  : integer range 0 to 2;
+  signal read_data_byte        : std_logic := '0';
+  signal sd_doread             : std_logic := '0';
+  signal sd_dowrite            : std_logic := '0';
+  signal sd_write_multi        : std_logic := '0';
+  signal sd_write_multi_first  : std_logic := '0';
+  signal sd_write_multi_last   : std_logic := '0';
+  signal sd_data_ready         : std_logic := '0';
+  signal sd_handshake          : std_logic := '0';
   signal sd_handshake_internal : std_logic := '0';
 
   -- Signals to communicate with SD controller core
@@ -545,7 +548,9 @@ begin  -- behavioural
       sdhc_i => sdhc_mode,
       rd_i =>  sd_doread,
       wr_i =>  sd_dowrite,
-      continue_i => '0',
+      write_multi => sd_write_multi,
+      write_multi_first => sd_write_multi_first,      
+      write_multi_last => sd_write_multi_last,      
       reset_i => sd_reset,
       hndshk_o => sd_data_ready,
       hndshk_i => sd_handshake,
@@ -1697,7 +1702,10 @@ begin  -- behavioural
                   sd_handshake <= '1';
                   sd_handshake_internal <= '1';
                   sd_doread <= '0';
-                  sd_dowrite <= '0';                  
+                  sd_dowrite <= '0';
+                  sd_write_multi <= '0';
+                  sd_write_multi_first <= '0';
+                  sd_write_multi_last <= '0';
                   sdio_error <= '0';
                   sdio_fsm_error <= '0';
                   -- Don't reset sector number on reset                
@@ -1712,6 +1720,9 @@ begin  -- behavioural
                   sdio_fsm_error <= '0';
                   sd_doread <= '0';
                   sd_dowrite <= '0';
+                  sd_write_multi <= '0';
+                  sd_write_multi_first <= '0';
+                  sd_write_multi_last <= '0';
                   sdio_busy <= '0';
 
                   read_on_idle <= '0';
@@ -1777,7 +1788,63 @@ begin  -- behavioural
                     sd_wrote_byte <= '0';
                     sd_buffer_offset <= (others => '0');
                   end if;
+                when x"04" =>
+                  -- Multi-sector write: first sector
+                  sd_write_multi <= '1';
+                  sd_write_multi_first <= '1';
+                  sd_write_multi_last <= '0';
+                  if sdio_busy='1' then
+                    report "SDWRITE: sdio_busy is set, not writing";
+                    sdio_error <= '1';
+                    sdio_fsm_error <= '1';
+                  else
+                    report "SDWRITE: Commencing write";
+                    sd_state <= WriteSector;
+                    sdio_error <= '0';
+                    sdio_fsm_error <= '0';
+                    f011_sector_fetch <= '0';
 
+                    sd_wrote_byte <= '0';
+                    sd_buffer_offset <= (others => '0');
+                  end if;
+                when x"05" =>
+                  -- Multi-sector write: neither first nor last sector
+                  sd_write_multi <= '1';
+                  sd_write_multi_first <= '0';
+                  sd_write_multi_last <= '0';
+                  if sdio_busy='1' then
+                    report "SDWRITE: sdio_busy is set, not writing";
+                    sdio_error <= '1';
+                    sdio_fsm_error <= '1';
+                  else
+                    report "SDWRITE: Commencing write";
+                    sd_state <= WriteSector;
+                    sdio_error <= '0';
+                    sdio_fsm_error <= '0';
+                    f011_sector_fetch <= '0';
+
+                    sd_wrote_byte <= '0';
+                    sd_buffer_offset <= (others => '0');
+                  end if;
+                when x"06" =>
+                  -- Multi-sector write: final sector
+                  sd_write_multi <= '1';
+                  sd_write_multi_first <= '0';
+                  sd_write_multi_last <= '1';                  
+                  if sdio_busy='1' then
+                    report "SDWRITE: sdio_busy is set, not writing";
+                    sdio_error <= '1';
+                    sdio_fsm_error <= '1';
+                  else
+                    report "SDWRITE: Commencing write";
+                    sd_state <= WriteSector;
+                    sdio_error <= '0';
+                    sdio_fsm_error <= '0';
+                    f011_sector_fetch <= '0';
+
+                    sd_wrote_byte <= '0';
+                    sd_buffer_offset <= (others => '0');
+                  end if;
                 when x"40" => sdhc_mode <= '0';
                 when x"41" => sdhc_mode <= '1';
 
