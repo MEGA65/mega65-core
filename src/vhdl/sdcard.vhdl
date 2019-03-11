@@ -298,7 +298,7 @@ begin
     constant NO_TOKEN_C         : Token_t    := x"FF";  -- Received before the SD card responds to a block read command.
     constant START_TOKEN_C      : Token_t    := x"FE";  -- Starting byte preceding a data block.
     constant START_TOKEN_MULTI_C      : Token_t    := x"FC";  -- Starting byte preceding a data block.
-    constant START_TOKEN_MULTILAST_C      : Token_t    := x"FB";  -- Starting byte preceding a data block.
+    constant START_TOKEN_MULTIEND_C      : Token_t    := x"FD";  -- Byte that tells SD card we are done with mult-sector write
 
     -- Flags that are set/cleared to affect the operation of the FSM.
     variable getCmdResponse_v : boolean;  -- When true, get R1 response to command sent to SD card.
@@ -516,7 +516,7 @@ begin
               if write_multi = '0' then
                 txData_v := START_TOKEN_C;   -- Starting token for data block.
               elsif write_multi_last = '1' then
-                txData_v := START_TOKEN_MULTILAST_C;   -- Starting token for
+                txData_v := START_TOKEN_MULTIEND_C;   -- Starting token for
                                                        -- last data block of
                                                        -- multi write
               else
