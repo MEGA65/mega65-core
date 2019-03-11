@@ -516,9 +516,8 @@ begin
               if write_multi = '0' then
                 txData_v := START_TOKEN_C;   -- Starting token for data block.
               elsif write_multi_last = '1' then
-                txData_v := START_TOKEN_MULTIEND_C;   -- Starting token for
-                                                       -- last data block of
-                                                       -- multi write
+                txData_v := START_TOKEN_MULTIEND_C;   -- End of write token (we
+                                                      -- ignore the data that follows)
               else
                 txData_v := START_TOKEN_MULTI_C;   -- Starting token for all
                                                    -- but last block of
