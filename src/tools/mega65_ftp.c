@@ -718,6 +718,7 @@ int write_sector(const unsigned int sector_number,unsigned char *buffer)
   int retVal=0;
   do {
 
+#define NO_HELPER
 #ifndef NO_HELPER
     if (!helper_installed) {
       // Install helper routine
