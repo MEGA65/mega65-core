@@ -1744,10 +1744,10 @@ begin  -- behavioural
                   
                   -- XXX DEBUG provision for finding out why SD card
                   -- gets jammed.
-                when x"04" =>
+                when x"0e" =>
                   sd_handshake <= '0';
                   sd_handshake_internal <= '0';
-                when x"05" =>
+                when x"0f" =>
                   sd_handshake <= '1';
                   sd_handshake_internal <= '1';
 
