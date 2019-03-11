@@ -431,7 +431,14 @@ begin
           when WAIT_FOR_HOST_RW =>  -- Wait for the host to read or write a block of data from the SD card.
             clkDivider_v     := SCLK_PHASE_PERIOD_C - 1;  -- Set SPI clock frequency for normal operation.
             getCmdResponse_v := true;  -- Get R1 response to any commands issued to the SD card.
-            if rd_i = '1' then  -- send READ command and address to the SD card.
+            if rd_i = '1' and wr_i = '1' then
+              -- Flush cache
+              addr_v  := unsigned(addr_i);  -- Store address for multi-block operations.
+              bitCnt_v   := txCmd_v'length;  -- Set bit counter to the size of the command.
+              txCmd_v := FLUSH_CACHE_CMD_C & addr_i & FAKE_CRC_C;  -- Use address supplied by host.
+              state_v := START_TX;
+              rtnState_v := WAIT_FOR_HOST_RW;
+            elsif rd_i = '1' then  -- send READ command and address to the SD card.
               cs_bo <= '0';              -- Enable the SD card.
               txCmd_v := READ_BLK_CMD_C & addr_i & FAKE_CRC_C;  -- Use address supplied by host.
               addr_v  := unsigned(addr_i);  -- Store address for multi-block operations.

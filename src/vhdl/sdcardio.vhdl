@@ -1741,6 +1741,18 @@ begin  -- behavioural
                   -- if you don't request a read from the SD card soon enough after
                   -- reset, then no read will ever succeed.
                   read_on_idle <= '0';
+
+                when x"0c" =>
+                  -- Request flush of write cache on SD card
+                  if sdio_busy='0' then
+                    sd_doread <= '1';
+                    sd_dowrite <= '1';
+                    sd_handshake <= '0';
+                    sd_handshake_internal <= '0';
+                  else
+                    sd_doread <= '0';
+                    sd_dowrite <= '0';
+                  end if;
                   
                   -- XXX DEBUG provision for finding out why SD card
                   -- gets jammed.
