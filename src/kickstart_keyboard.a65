@@ -11,5 +11,9 @@ nokey:	; no key currently down, so set carry and return
 
 scankeyboard:
 	jsr peekkeyboard
-	sta ascii_key_in ; clear key from buffer
+	cmp #$00
+	beq nokey
+        ; clear key from buffer	
+yeskey:	sta ascii_key_in
+	clc
 	rts
