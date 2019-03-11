@@ -58,7 +58,7 @@ long long start_usec=0;
 
 int open_file_system(void);
 int download_slot(int sllot,char *dest_name);
-int download_file(char *dest_name,char *local_name);
+int download_file(char *dest_name,char *local_name,int showClusters);
 int show_directory(char *path);
 int rename_file(char *name,char *dest_name);
 int upload_file(char *name,char *dest_name);
@@ -410,7 +410,7 @@ int execute_command(char *cmd)
   if (sscanf(cmd,"getslot %d %s",&slot,dst)==2) {
     download_slot(slot,dst);
   } else if (sscanf(cmd,"get %s %s",src,dst)==2) {
-    download_file(src,dst);
+    download_file(src,dst,0);
   }
   else if (sscanf(cmd,"put %s %s",src,dst)==2) {
     upload_file(src,dst);
@@ -437,13 +437,16 @@ int execute_command(char *cmd)
     upload_file(src,dest);
   }
   else if (sscanf(cmd,"get %s",src)==1) {
-    download_file(src,src);
+    download_file(src,src,0);
+  } else if (sscanf(cmd,"clusters %s",src)==1) {
+    download_file(src,src,1);
   } else if (!strcasecmp(cmd,"help")) {
     printf("MEGA65 File Transfer Program Command Reference:\n");
     printf("\n");
     printf("dir [directory] - show contents of current or specified directory.\n");
     printf("put <file> [destination name] - upload file to SD card, and optionally rename it destination file.\n");
     printf("get <file> [destination name] - download file from SD card, and optionally rename it destination file.\n");
+    printf("clusters <file> - show cluster chain of specified file.\n");
     printf("getslot <slot> <destination name> - download a freeze slot.\n");
     printf("exit - leave this programme.\n");
     printf("quit - leave this programme.\n");
@@ -1642,7 +1645,7 @@ int download_slot(int slot_number,char *dest_name)
   return retVal;
 }
 
-int download_file(char *dest_name,char *local_name)
+int download_file(char *dest_name,char *local_name,int showClusters)
 {
   struct dirent de;
   int retVal=0;
@@ -1686,12 +1689,15 @@ int download_file(char *dest_name,char *local_name)
     int sector_in_cluster=0;
     int file_cluster=first_cluster_of_file;
     unsigned int sector_number;
-    FILE *f=fopen(local_name,"w");
+    FILE *f=NULL;
 
-    if (!f) {
-      printf("ERROR: Could not open file '%s' for writing.\n",local_name);
-      retVal=-1; break;
-    }
+    if (!showClusters) {
+      f=fopen(local_name,"w");
+      if (!f) {
+	printf("ERROR: Could not open file '%s' for writing.\n",local_name);
+	retVal=-1; break;
+      }
+    } else printf("Clusters: %d",file_cluster);
 
     while(remaining_bytes) {
       if (sector_in_cluster>=sectors_per_cluster) {
@@ -1700,33 +1706,38 @@ int download_file(char *dest_name,char *local_name)
 
 	int next_cluster=chained_cluster(file_cluster);	
 	if (next_cluster==0||next_cluster>=0xffffff8) {
-	  printf("?  PREMATURE END OF FILE ERROR\n");
-	  fclose(f);
+	  printf("\n?  PREMATURE END OF FILE ERROR\n");
+	  if (f) fclose(f);
 	  retVal=-1; break;
 	}
-	
+	if (showClusters) {
+	  if (next_cluster==(file_cluster+1)) printf("."); else printf("%d, %d",file_cluster,next_cluster);
+	}
+	  
 	file_cluster=next_cluster;
 	sector_in_cluster=0;
       }
 
-      // Read sector
-      sector_number=partition_start+first_cluster_sector+(sectors_per_cluster*(file_cluster-first_cluster))+sector_in_cluster;
+      if (f) {
+	// Read sector
+	sector_number=partition_start+first_cluster_sector+(sectors_per_cluster*(file_cluster-first_cluster))+sector_in_cluster;
+	
+	if (read_sector(sector_number,download_buffer,0)) {
+	  printf("ERROR: Failed to read to sector %d\n",sector_number);
+	  retVal=-1;
+	  if (f) fclose(f);
+	  break;
+	}
 
-      if (read_sector(sector_number,download_buffer,0)) {
-	printf("ERROR: Failed to read to sector %d\n",sector_number);
-	retVal=-1;
-	fclose(f);
-	break;
+	if (remaining_bytes>=512)
+	  fwrite(download_buffer,512,1,f);
+	else
+	  fwrite(download_buffer,remaining_bytes,1,f);
       }
-
-      if (remaining_bytes>=512)
-	fwrite(download_buffer,512,1,f);
-      else
-	fwrite(download_buffer,remaining_bytes,1,f);
       
       if (0) printf("T+%lld : Read %d bytes from file, writing to sector $%x (%d) for cluster %d\n",
 		    gettime_us()-start_usec,(int)de.d_off,sector_number,sector_number,file_cluster);
-      printf("\rDownloaded %lld bytes.",(long long)de.d_off-remaining_bytes);
+      if (!showClusters) printf("\rDownloaded %lld bytes.",(long long)de.d_off-remaining_bytes);
       fflush(stdout);
       
       //      printf("T+%lld : after write.\n",gettime_us()-start_usec);
@@ -1735,11 +1746,13 @@ int download_file(char *dest_name,char *local_name)
       remaining_bytes-=512;
     }
 
-    fclose(f);
+    if (f) fclose(f);
     
     if (time(0)==upload_start) upload_start=time(0)-1;
-    printf("\rDownloaded %lld bytes in %lld seconds (%.1fKB/sec)\n",
-	   (long long)de.d_off,(long long)time(0)-upload_start,de.d_off*1.0/1024/(time(0)-upload_start));
+    if (!showClusters) {
+      printf("\rDownloaded %lld bytes in %lld seconds (%.1fKB/sec)\n",
+	     (long long)de.d_off,(long long)time(0)-upload_start,de.d_off*1.0/1024/(time(0)-upload_start));
+    } else printf("\n");
     
   } while(0);
 
