@@ -127,7 +127,9 @@ wire [7:0] vector_lo;
 
   flags_decode flags_decode(load_flags, load_flag_decode);
 
-  assign ready_i = ready | write_next;
+  // PGS 20190316 - Following Kenneth's advice to allow the CPU to be single stepped via a clock tick strobe on the ready line
+  // assign ready_i = ready | write_next;
+  assign ready_i = ready;
 
   branch_control branch_control(reg_p, ir[7:5], taken_branch);
   
