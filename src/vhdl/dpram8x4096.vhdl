@@ -51,10 +51,10 @@ begin
 			if ena = '1' then	
 		 		for i in 0 to NB_COL-1 loop
 					if wea(i) = '1' then
-						RAM(conv_integer(addra))((i+1)*COL_WIDTH-1 downto i*COL_WIDTH)	 := dina((i+1)*COL_WIDTH-1 downto i*COL_WIDTH);
+						RAM(to_integer(unsigned(addra(13 downto 0))))((i+1)*COL_WIDTH-1 downto i*COL_WIDTH)	 := dina((i+1)*COL_WIDTH-1 downto i*COL_WIDTH);
 					end if;			 
 				end loop;
-				douta <= RAM(conv_integer(addra));				
+				douta <= RAM(to_integer(unsigned(addra(13 downto 0))));				
 			end if;
 		end if;
 		
@@ -67,10 +67,10 @@ begin
 			--if enb = '1' then
 				for i in 0 to NB_COL-1 loop
 					if web(i) = '1' then
-						RAM(conv_integer(addrb))((i+1)*COL_WIDTH-1 downto i*COL_WIDTH)	 := dinb((i+1)*COL_WIDTH-1 downto i*COL_WIDTH);
+						RAM(to_integer(unsigned(addrb(13 downto 0))))((i+1)*COL_WIDTH-1 downto i*COL_WIDTH)	 := dinb((i+1)*COL_WIDTH-1 downto i*COL_WIDTH);
 					end if;			 
 				end loop;
-				doutb <= RAM(conv_integer(addrb));
+				doutb <= RAM(to_integer(unsigned(addrb(13 downto 0))));
 			--end if;
 		end if;
 	end process;
