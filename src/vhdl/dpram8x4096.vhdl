@@ -54,7 +54,9 @@ begin
 						RAM(to_integer(unsigned(addra(11 downto 0))))((i+1)*COL_WIDTH-1 downto i*COL_WIDTH)	 := dina((i+1)*COL_WIDTH-1 downto i*COL_WIDTH);
 					end if;			 
 				end loop;
-				douta <= RAM(to_integer(unsigned(addra(11 downto 0))));				
+				douta <= RAM(to_integer(unsigned(addra(11 downto 0))));
+                        else
+                                douta <= (others => 'Z');
 			end if;
 		end if;
 		
