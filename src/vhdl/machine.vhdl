@@ -833,7 +833,7 @@ begin
       
     end if;
   end process;
-  
+
   cpu0: entity work.gs4510
     generic map(
       cpufrequency => cpufrequency)

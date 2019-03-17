@@ -5,14 +5,14 @@ use ieee.numeric_std.all;
 --
 entity driverom is
   port (ClkA : in std_logic;
-        addressa : in integer range 0 to 16383;
+        addressa : in integer; -- range 0 to 16383;
         wea : in std_logic;
         dia : in unsigned(7 downto 0);
         writes : out unsigned(7 downto 0);
         no_writes : out unsigned(7 downto 0);
         doa : out unsigned(7 downto 0);
         ClkB : in std_logic;
-        addressb : in unsigned(19 downto 0);
+        addressb : in integer;
         dob : out unsigned(7 downto 0)
         );
 end driverom;
@@ -44,7 +44,7 @@ begin
 PROCESS(ClkB)
 BEGIN
   if(rising_edge(ClkB)) then
-      dob <= ram(to_integer(addressb));
+      dob <= ram(addressb);
   end if;
 END PROCESS;
 

@@ -310,12 +310,22 @@ architecture behavioral of iomapper is
   signal c65uart_en : std_logic := '1';
   signal sdcardio_en : std_logic := '1';
   signal ethernetcs_en : std_logic := '1';
-
   
   signal potl_x : unsigned(7 downto 0);
   signal potl_y : unsigned(7 downto 0);
   signal potr_x : unsigned(7 downto 0);
   signal potr_y : unsigned(7 downto 0);
+
+  signal cs_driverom : std_logic;
+  signal cs_driveram : std_logic;
+  signal drive_clock_cycle_strobe : std_logic := '0';
+  signal drive_reset : std_logic := '1';
+  signal drive_connect : std_logic := '1';
+  signal sd1541_data : unsigned(7 downto 0);
+  signal sd1541_ready_toggle : std_logic := '0';
+  signal sd1541_request_toggle : std_logic;
+  signal sd1541_enable : std_logic;
+  signal sd1541_track : unsigned(5 downto 0);
   
   signal kickstartcs : std_logic;
 
@@ -523,6 +533,27 @@ begin
     );
   end block;
 
+  drive1541: entity work.internal1541
+    port map (
+      clock => cpuclock,
+      fastio_read => r,
+      fastio_write => w,
+      fastio_address => unsigned(address(19 downto 0)),
+      fastio_wdata => unsigned(data_i),
+      std_logic_vector(fastio_rdata) => data_o,
+      cs_driverom => cs_driverom,
+      cs_driveram => cs_driveram,
+      drive_clock_cycle_strobe => drive_clock_cycle_strobe,
+      drive_reset => drive_reset,
+      drive_suspend => cpu_hypervisor_mode,
+
+      sd_data_byte => sd1541_data,
+      sd_data_ready_toggle => sd1541_ready_toggle,
+      sd_data_request_toggle => sd1541_request_toggle,
+      sd_1541_enable => sd1541_enable,
+      sd_1541_track => sd1541_track
+      );  
+  
   block3: block
   begin
     cia1: entity work.cia6526
@@ -571,6 +602,7 @@ begin
     fastio_wdata => unsigned(data_i),
 
     -- CIA port a (VIC-II bank select + IEC serial port)
+    -- XXX Implement connection to internal 1541 drive if drive_connect is asserted
     portain(2 downto 0) => (others => '1'),   
     portain(3) => iec_atn_reflect, -- IEC serial ATN
     -- We reflect the output values for CLK and DATA straight back in,
@@ -631,7 +663,10 @@ begin
       portg(2) => sd_bitbash_mosi_o,
 --      portg(0) => sd_interface_select,
 --      portg(1 downto 0) => keyboard_scan_mode,
-      portg(1 downto 0) => dummy_g(1 downto 0),
+      -- @IO:GS $D60D.1 - Internal 1541 drive reset
+      -- @IO:GS $D60D.0 - Internal 1541 drive connect (1= use internal 1541 instead of IEC drive connector)                        
+      portg(1) => drive_reset,
+      portg(0) => drive_connect,
       key_debug => key_debug,
       widget_disable => widget_disable,
       ps2_disable => ps2_disable,
@@ -1001,6 +1036,13 @@ begin
     sw => sw,
     btn => btn,
 
+    -- Internal virtual 1541 interface
+    sd1541_data => sd1541_data,
+    sd1541_ready_toggle => sd1541_ready_toggle,
+    sd1541_request_toggle => sd1541_request_toggle,
+    sd1541_enable => sd1541_enable,
+    sd1541_track => sd1541_track,
+    
     -- SD card interface
     sd_interface_select => sd_interface_select,
     cs_bo => cs_bo_sd,
@@ -1285,6 +1327,19 @@ begin
         sectorbuffercs <= sbcs_en;
       end if;
 
+      cs_driveram <= '0';
+      cs_driverom <= '0';
+      if address(19 downto 16) = x"D" then
+        if address(15 downto 14) = "10" then
+          -- @ IO:GS $FFD8000-$FFDBFFF - Internal 1541 ROM access
+          cs_driverom <= '1';
+        end if;
+        if address(15 downto 12) = x"C" then
+          -- @ IO:GS $FFDC000-$FFDCFFF - Internal 1541 ROM access
+          cs_driveram <= '1';
+        end if;
+      end if;
+      
       -- Same thing as above, but for the addr_fast bus, which is usually one clock ahead.
       if addr_fast(19 downto 16) = x"D"
         and addr_fast(15 downto 14) = "00"

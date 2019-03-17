@@ -127,6 +127,13 @@ entity sdcardio is
     f_writeprotect : in std_logic;
     f_rdata : in std_logic;
     f_diskchanged : in std_logic;
+
+    sd1541_data : out unsigned(7 downto 0) := x"FF";
+    sd1541_ready_toggle : out std_logic := '0';
+    sd1541_request_toggle : in std_logic;
+    sd1541_enable : in std_logic;
+    sd1541_track : in unsigned(5 downto 0);
+
     
     ---------------------------------------------------------------------------
     -- Lines for other devices that we handle here

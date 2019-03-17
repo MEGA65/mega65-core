@@ -201,6 +201,10 @@ OVERLAYVHDL=		$(VHDLSRCDIR)/rain.vhdl \
 			$(VHDLSRCDIR)/oskmem.vhdl \
 			$(VHDLSRCDIR)/termmem.vhdl \
 
+1541VHDL=		$(VHDLSRCDIR)/internal1541.vhdl \
+			$(VHDLSRCDIR)/driverom.vhdl \
+			$(VHDLSRCDIR)/dpram8x4096.vhdl \
+
 SERMONVHDL=		$(VHDLSRCDIR)/ps2_to_uart.vhdl \
 			$(VHDLSRCDIR)/dummy_uart_monitor.vhdl \
 			$(VHDLSRCDIR)/uart_rx.vhdl \
@@ -213,6 +217,7 @@ M65VHDL=		$(VHDLSRCDIR)/machine.vhdl \
 			$(C65VHDL) \
 			$(VICIVVHDL) \
 			$(PERIPHVHDL) \
+			$(1541VHDL) \
 			$(VFPGAVHDL) \
 			$(SERMONVHDL) \
 			$(MEMVHDL) \

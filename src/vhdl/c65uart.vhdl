@@ -338,12 +338,14 @@ begin  -- behavioural
             clock709375 <= fastio_wdata(0);
           when x"0b" => reg_portf_out <= std_logic_vector(fastio_wdata);
           when x"0c" => reg_portf_ddr <= std_logic_vector(fastio_wdata);
+          -- @IO:GS $D60D.1 - Internal 1541 drive reset
+          -- @IO:GS $D60D.0 - Internal 1541 drive connect (1= use internal 1541 instead of IEC drive connector)                        
           when x"0d" => reg_portg_out <= std_logic_vector(fastio_wdata);
           when x"0e" => reg_portg_ddr <= std_logic_vector(fastio_wdata);
           when x"10" => porth_write_strobe <= '1';
           when x"11" =>
             -- bucky keys readonly
-            -- IO:GS $D611.0 WRITE ONLY Connect POT lines to IEC port (for r1 PCB only)
+            -- @IO:GS $D611.0 WRITE ONLY Connect POT lines to IEC port (for r1 PCB only)
             pot_via_iec <= fastio_wdata(0);
           when x"12" =>
             widget_enable_internal <= std_logic(fastio_wdata(0));
