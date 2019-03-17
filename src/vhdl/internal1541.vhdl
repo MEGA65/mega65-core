@@ -60,7 +60,13 @@ architecture romanesque_revival of internal1541 is
   signal irq : std_logic := '1';
   signal cpu_write : std_logic := '0';
 
- component cpu6502 is
+  -- Internal CS lines for the 1541
+  signal cs_ram : std_logic;
+  signal cs_rom : std_logic;
+  signal cs_via1 : std_logic;
+  signal cs_via2 : std_logic;
+  
+  component cpu6502 is
     port (
       address : buffer unsigned(15 downto 0);
       address_next : out unsigned(15 downto 0);
@@ -129,8 +135,27 @@ begin
     data_o => wdata   
     );
   
-  process(clock)
+  process(clock,address)
   begin
+
+    -- Decode ROM, RAM and IO addresses
+    if address(15)='1' then
+      -- ROM is repeated twice at $8000 and $C000
+      cs_rom <= '1'; cs_ram <= '0'; cs_via1 <= '0'; cs_via2 <= '0';
+    else
+      cs_rom <= '0';
+      case address(12 downto 10) is
+        when "000" | "001" | "010" | "011" => -- $0000-$0FFF = RAM
+          cs_ram <= '1'; cs_via1 <= '0'; cs_via2 <= '0';
+        when "100" | "101" => -- $1000-$17FF = nothing
+          cs_ram <= '0'; cs_via1 <= '0'; cs_via2 <= '0';
+        when "110" => -- $1800-$1BFF = VIA1
+          cs_ram <= '0'; cs_via1 <= '1'; cs_via2 <= '0';
+        when "111" => -- $1C00-$1FFF = VIA2
+          cs_ram <= '0'; cs_via1 <= '0'; cs_via2 <= '1';
+      end case;
+    end if;
+    
   end process;
 
 end romanesque_revival;
