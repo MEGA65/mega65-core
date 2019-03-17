@@ -186,6 +186,9 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/widget_to_matrix.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ps2_to_matrix.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/termmem.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/internal1541.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/driverom.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/dpram8x4096.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/lfsr16.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ram32x1024.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/kb_matrix_ram.vhdl"]"\

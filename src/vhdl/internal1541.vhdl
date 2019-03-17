@@ -92,7 +92,7 @@ begin
     wea(0) => fastio_write,
     addra => std_logic_vector(fastio_address(11 downto 0)),
     dina => std_logic_vector(fastio_wdata),
-    unsigned(douta) => fastio_rdata,
+--    unsigned(douta) => fastio_rdata,
 
     clkb => clock,
     web(0) => ram_write_enable,
@@ -107,7 +107,7 @@ begin
     addressa => to_integer(fastio_address(13 downto 0)),
     wea => fastio_write,
     dia => fastio_wdata,
-    doa => fastio_rdata,
+--    doa => fastio_rdata,
 
     -- CPU interface
     clkb => clock,
