@@ -39,11 +39,11 @@ begin
       else
         no_write_count <= no_write_count + 1;        
       end if;
-      if csa='1' then
-        doa <= ram(addressa);
-      else
-        doa <= (others => 'Z');
-      end if;
+    end if;
+    if csa='1' then
+      doa <= ram(addressa);
+    else
+      doa <= (others => 'Z');
     end if;
   END PROCESS;
 PROCESS(ClkB)
