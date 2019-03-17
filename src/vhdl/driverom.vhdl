@@ -7,6 +7,7 @@ entity driverom is
   port (ClkA : in std_logic;
         addressa : in integer; -- range 0 to 16383;
         wea : in std_logic;
+        csa : in std_logic;
         dia : in unsigned(7 downto 0);
         writes : out unsigned(7 downto 0);
         no_writes : out unsigned(7 downto 0);
@@ -38,7 +39,11 @@ begin
       else
         no_write_count <= no_write_count + 1;        
       end if;
+      if csa='1' then
         doa <= ram(addressa);
+      else
+        doa <= (others => 'Z');
+      end if;
     end if;
   END PROCESS;
 PROCESS(ClkB)
