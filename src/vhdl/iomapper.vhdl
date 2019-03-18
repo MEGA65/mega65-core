@@ -1327,15 +1327,19 @@ begin
         sectorbuffercs <= sbcs_en;
       end if;
 
+      -- I have no idea how the following is true, but it was discovered while
+      -- trying to add 1541 ROM access
+      -- @ IO:GS $FFDB000-$FFDB7FF - Shadow of 2KB colour RAM
+      
       cs_driveram <= '0';
       cs_driverom <= '0';
       if address(19 downto 16) = x"D" then
-        if address(15 downto 14) = "10" then
-          -- @ IO:GS $FFD8000-$FFDBFFF - Internal 1541 ROM access
+        if address(15 downto 14) = "11" then
+          -- @ IO:GS $FFDC000-$FFDFFFF - Internal 1541 ROM access
           cs_driverom <= '1';
         end if;
-        if address(15 downto 12) = x"C" then
-          -- @ IO:GS $FFDC000-$FFDCFFF - Internal 1541 ROM access
+        if address(15 downto 12) = x"B" then
+          -- @ IO:GS $FFDB000-$FFDBFFF - Internal 1541 ROM access
           cs_driveram <= '1';
         end if;
       end if;

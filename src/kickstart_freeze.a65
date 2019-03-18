@@ -1033,7 +1033,7 @@ freeze_mem_list:
 
 	; Internal 1541 16KB ROM + 4KB RAM
 	; XXX - Need to also save state of VIAs
-	.dword $ffd8000
+	.dword $ffdB000
 	.word $5000
 	.byte 0
 	.byte freeze_prep_none
