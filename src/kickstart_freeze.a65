@@ -1010,15 +1010,6 @@ freeze_mem_list:
 	.byte 6          ; =6x64K blocks = 384KB
 	.byte freeze_prep_none	
 
-
-	; 4KB thumbnail of screen
-	; The prep routine copies this down to $1000-$1FFF, so we have to have saved the rest of RAM
-	; first
-	.dword $0001000
-	.word $1000
-	.byte $80                              ; bit 7 set in # banks tells unfreezer to ignore it.
-	.byte freeze_prep_thumbnail
-
 	; Process scratch space
 	.dword currenttask_block
 	.word $0100
@@ -1031,12 +1022,22 @@ freeze_mem_list:
 	.byte 0
 	.byte freeze_prep_none
 
-	; Internal 1541 16KB ROM + 4KB RAM
+	; Internal 1541 4KB RAM + 16KB ROM
 	; XXX - Need to also save state of VIAs
-	.dword $ffdB000
+	.dword $FFDB000
 	.word $5000
 	.byte 0
 	.byte freeze_prep_none
+
+	; XXX - Thumbnail must be saved last, because something about freezing this causes
+	; the freezing of the remaining regions to fail.
+	; 4KB thumbnail of screen
+	; The prep routine copies this down to $1000-$1FFF, so we have to have saved the rest of RAM
+	; first
+	.dword $0001000
+	.word $1000
+	.byte $80                              ; bit 7 set in # banks tells unfreezer to ignore it.
+	.byte freeze_prep_thumbnail
 
 	; XXX - Other IO chips!
 
