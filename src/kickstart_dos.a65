@@ -3153,12 +3153,40 @@ drfim_sector_loop:
 
 	; copy sector to memory
 	;
-	ldx #$00
-	ldz #$00
 
 	; Work out how many bytes of this page we need to read
 	jsr dos_load_y_based_on_dos_bytes_remaining
 
+;	phy
+;	
+;	ldx <dos_file_loadaddress+3
+;	jsr checkpoint_bytetohex
+;	sty loadingaddr+0
+;	stx loadingaddr+1
+;	ldx <dos_file_loadaddress+2
+;	jsr checkpoint_bytetohex
+;	sty loadingaddr+2
+;	stx loadingaddr+3
+;	ldx <dos_file_loadaddress+1
+;	jsr checkpoint_bytetohex
+;	sty loadingaddr+4
+;	stx loadingaddr+5
+;	ldx <dos_file_loadaddress+0
+;	jsr checkpoint_bytetohex
+;	sty loadingaddr+6
+;	stx loadingaddr+7
+;
+;	jsr checkpoint
+;	.byte 0,"Loading @ "
+;loadingaddr:
+;	.byte "$$$$$$$$",13,10,0	
+;
+;	ply
+
+	ldx #$00
+	ldz #$00
+
+	; Actually write the bytes to memory that have been loaded
 drfim_rr1:
 	lda sd_sectorbuffer,x		; is $DE00
 	nop ; 32-bit pointer access follows
@@ -3173,6 +3201,7 @@ drfim_rr1:
 	; Work out how many bytes of this page we need to read
 	jsr dos_load_y_based_on_dos_bytes_remaining
 
+	; Actually write the bytes to memory that have been loaded
 drfim_rr1b:
 	lda sd_sectorbuffer+$100,x	; is $DF00
 	nop ; 32-bit pointer access follows
@@ -3185,12 +3214,13 @@ drfim_rr1b:
 	jsr dos_file_advance_to_next_sector
 	bcc drfim_eof
 
-	; BG: this comment does not belong here, as here does not do actual checking
 	; We only allow loading into a 16MB space
 	; Provided that we check the load address before starting,
 	; this ensures that a user-land request cannot load a huge file
 	; that eventually overwrites the hypervisor and results in privilege
 	; escalation.
+	; This restriction to a 16MB space is implemented by only incrementing the middle 2 bytes of
+	; the address, instead of all 3 upper bytes.
 	;
 	inw <dos_file_loadaddress+1
 
