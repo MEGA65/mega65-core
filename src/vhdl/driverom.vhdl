@@ -33,7 +33,7 @@ begin
   PROCESS(ClkA)
   BEGIN
     if(rising_edge(ClkA)) then 
-      if wea /= '0' then
+      if wea /= '0' and csa='1' then
         write_count <= write_count + 1;        
           ram(addressa) := dia;
       else

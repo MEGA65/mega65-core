@@ -1327,10 +1327,6 @@ begin
         sectorbuffercs <= sbcs_en;
       end if;
 
-      -- I have no idea how the following is true, but it was discovered while
-      -- trying to add 1541 ROM access
-      -- @ IO:GS $FFDB000-$FFDB7FF - Shadow of 2KB colour RAM
-      
       cs_driveram <= '0';
       cs_driverom <= '0';
       if address(19 downto 16) = x"D" then
