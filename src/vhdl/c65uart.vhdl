@@ -338,8 +338,6 @@ begin  -- behavioural
             clock709375 <= fastio_wdata(0);
           when x"0b" => reg_portf_out <= std_logic_vector(fastio_wdata);
           when x"0c" => reg_portf_ddr <= std_logic_vector(fastio_wdata);
-          -- @IO:GS $D60D.1 - Internal 1541 drive reset
-          -- @IO:GS $D60D.0 - Internal 1541 drive connect (1= use internal 1541 instead of IEC drive connector)                        
           when x"0d" => reg_portg_out <= std_logic_vector(fastio_wdata);
           when x"0e" => reg_portg_ddr <= std_logic_vector(fastio_wdata);
           when x"10" => porth_write_strobe <= '1';
@@ -467,7 +465,8 @@ begin  -- behavioural
           -- @IO:GS $D60D.4 SD card CS_BO
           -- @IO:GS $D60D.3 SD card SCLK
           -- @IO:GS $D60D.2 SD card MOSI/MISO
-          -- @IO:GS $D60D.0 Select active SD card (0=primary is active, 1= secondary is active)          
+          -- @IO:GS $D60D.1 - Internal 1541 drive reset
+          -- @IO:GS $D60D.0 - Internal 1541 drive connect (1= use internal 1541 instead of IEC drive connector)                        
           fastio_rdata(7 downto 0) <= reg_portg_read;
         when x"0e" =>
           -- @IO:GS $D60E Bit bashing port DDR
