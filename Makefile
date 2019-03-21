@@ -253,6 +253,7 @@ NEXYSVHDL=		$(VHDLSRCDIR)/slowram.vhdl \
 SIMULATIONVHDL=		$(VHDLSRCDIR)/cpu_test.vhdl \
 			$(VHDLSRCDIR)/fake_expansion_port.vhdl \
 			$(VHDLSRCDIR)/fake_sdcard.vhdl \
+			$(VHDLSRCDIR)/uart_monitor.vhdl.tmp \
 			$(CPUVHDL) \
 			$(M65VHDL)
 
