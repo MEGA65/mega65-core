@@ -72,6 +72,7 @@ entity c65uart is
     portn_out : out unsigned(7 downto 0);
     porto_out : out unsigned(7 downto 0);
     portp_out : out unsigned(7 downto 0);
+    portq_in : in unsigned(7 downto 0);
 
     suppress_key_glitches : out std_logic := '1';
     suppress_key_retrigger : out std_logic := '0';
@@ -532,8 +533,8 @@ begin  -- behavioural
           -- @IO:GS $D622 Read Port B paddle X
           -- @IO:GS $D623 Read Port B paddle Y          
         when x"1c" =>
-          -- @IO:GS $D61C DEBUG DUPLICATE Last key press as ASCII (hardware accelerated keyboard scanner). Write to clear event ready for next.
-          fastio_rdata(7 downto 0) <= unsigned(porth);
+          -- @IO:GS $D61C DEBUG internal 1541 PC LSB
+          fastio_rdata(7 downto 0) <= unsigned(portq_in);
         when x"1d" =>
           -- @IO:GS $D61D DEBUG ASCII key event counter LSB
           -- @IO:GS $D61E DEBUG ASCII key event counter MSB

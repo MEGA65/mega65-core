@@ -21,6 +21,8 @@ entity internal1541 is
     fastio_rdata : out unsigned(7 downto 0);
     cs_driverom : in std_logic;
     cs_driveram : in std_logic;
+
+    address_next : out unsigned(15 downto 0);
     
     -- Drive CPU clock strobes.
     -- This allows us to accelerate the 1541 at the same ratio as the CPU,
@@ -131,6 +133,7 @@ begin
     write => cpu_write,
 --    sync => cpu_sync,
     address => address,
+    address_next => address_next,
     data_i => rdata,
     data_o => wdata   
     );
@@ -153,6 +156,8 @@ begin
           cs_ram <= '0'; cs_via1 <= '1'; cs_via2 <= '0';
         when "111" => -- $1C00-$1FFF = VIA2
           cs_ram <= '0'; cs_via1 <= '0'; cs_via2 <= '1';
+        when others =>
+          cs_ram <= '0'; cs_via1 <= '0'; cs_via2 <= '0';          
       end case;
     end if;
     

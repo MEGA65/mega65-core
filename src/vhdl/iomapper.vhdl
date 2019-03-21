@@ -465,6 +465,8 @@ architecture behavioral of iomapper is
   signal userport_out : std_logic_vector(7 downto 0) := x"FF";
 
   signal sd_interface_select_internal : std_logic := '0';
+
+  signal address_next_1541 : unsigned(15 downto 0);
   
 begin
 
@@ -547,6 +549,9 @@ begin
       drive_reset => drive_reset,
       drive_suspend => cpu_hypervisor_mode,
 
+      -- Debug output of 1541 CPU next address
+      address_next => address_next_1541,
+      
       sd_data_byte => sd1541_data,
       sd_data_ready_toggle => sd1541_ready_toggle,
       sd_data_request_toggle => sd1541_request_toggle,
@@ -667,6 +672,7 @@ begin
       -- @IO:GS $D60D.0 - Internal 1541 drive connect (1= use internal 1541 instead of IEC drive connector)                        
       portg(1) => drive_reset,
       portg(0) => drive_connect,
+      
       key_debug => key_debug,
       widget_disable => widget_disable,
       ps2_disable => ps2_disable,
@@ -700,6 +706,7 @@ begin
       portn_out => keyboard_scan_rate,
       porto_out => osk_x(7 downto 0),
       portp_out => osk_y(11 downto 4),
+      portq_in => address_next_1541(7 downto 0),
       joya_rotate => joya_rotate,
       joyb_rotate => joyb_rotate,
       mouse_debug => mouse_debug,
@@ -1123,6 +1130,8 @@ begin
 
     if rising_edge(clk) then
 
+      report "1541 address_next = $" & to_hstring(address_next_1541);
+      
       sd_interface_select_internal <= sd_interface_select;
       
       -- User port is only emulated to provide joy3 and joy4 as though a
