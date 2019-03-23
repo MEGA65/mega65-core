@@ -2166,15 +2166,15 @@ begin
         elsif register_number=24 then
           -- @IO:C64 $D018 VIC-II RAM addresses
           -- Character set source address for user-generated character sets.
-          -- @IO:C64 $D018.3-1 VIC-II:CB character set address location (*1KB)
+          -- @IO:C64 $D018.3-1 VIC-II:CB character set address location ($\times$ 1KiB)
           character_set_address(13 downto 11) <= unsigned(fastio_wdata(3 downto 1));
           character_set_address(10 downto 0) <= (others => '0');
-          -- This one is for the internal charrom in the VIC-IV.
--- XXX          charaddress(11) <= fastio_wdata(1);
           -- Bits 14 and 15 get set by writing to $DD00, as the VIC-IV sniffs
           -- that CIA register being written on the fastio bus.
+          -- Writing here also automatically clears the bank select bits for
+          -- the screen RAM address, so that writing to $D018 always works as expected.
           screen_ram_base(19 downto 16) <= "0000";
-          -- @IO:C64 $D018.7-4 VIC-II:VS screen address (*1KB)
+          -- @IO:C64 $D018.7-4 VIC-II:VS screen address ($\times$ 1KiB)
           reg_d018_screen_addr <= unsigned(fastio_wdata(7 downto 4));
           viciv_legacy_mode_registers_touched <= '1';
         elsif register_number=25 then
