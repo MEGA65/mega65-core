@@ -2474,9 +2474,9 @@ begin
           sprite_h640 <= fastio_wdata(4);
           -- @IO:GS $D054.3 VIC-IV:SMTHEN video output horizontal smoothing enable
           horizontal_filter <= fastio_wdata(3);
-          -- @IO:GS $D054.2 VIC-IV:FCCHRHI enable full-colour mode for character numbers >$FF
+          -- @IO:GS $D054.2 VIC-IV:FCCHRHI enable full-colour mode for character numbers >\$FF
           fullcolour_extendedchars <= fastio_wdata(2);
-          -- @IO:GS $D054.1 VIC-IV:FCCHRLO enable full-colour mode for character numbers <=$FF
+          -- @IO:GS $D054.1 VIC-IV:FCCHRLO enable full-colour mode for character numbers <=\$FF
           fullcolour_8bitchars <= fastio_wdata(1);
           -- @IO:GS $D054.0 VIC-IV:CHR16EN enable 16-bit character numbers (two screen bytes per character)
           sixteenbit_charset <= fastio_wdata(0);
@@ -2645,7 +2645,7 @@ begin
           end case;
         elsif register_number=112 then
           -- @IO:GS $D070 NONE:VIC-IV palette bank selection
-          -- @IO:GS $D070.7-6 VIC-IV:MAPEDPAL palette bank mapped at $D100-$D3FF
+          -- @IO:GS $D070.7-6 VIC-IV:MAPEDPAL palette bank mapped at \$D100-\$D3FF
           palette_bank_fastio <= fastio_wdata(7 downto 6);
           -- @IO:GS $D070.5-4 VIC-IV:BTPALSEL bitmap/text palette bank
           palette_bank_chargen <= fastio_wdata(5 downto 4);
