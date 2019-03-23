@@ -23,7 +23,7 @@
 -- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
 -- *  02111-1307  USA.
 
--- @IO:C65 $D0A0-$D0FF - Reserved for C65 RAM Expansion Controller.
+-- @IO:C65 $D0A0-$D0FF SUMMARY:REC Reserved for C65 RAM Expansion Controller.
 
 use WORK.ALL;
 
@@ -1633,8 +1633,8 @@ begin
       shadow_write_flags(1) <= '1';
 
       report "MEMORY long_address = $" & to_hstring(long_address);
-      -- @IO:C64 $0000000 6510/45GS10 CPU port DDR
-      -- @IO:C64 $0000001 6510/45GS10 CPU port data
+      -- @IO:C64 $0000000 CPU:PORTDDR 6510/45GS10 CPU port DDR
+      -- @IO:C64 $0000001 CPU:PORT 6510/45GS10 CPU port data
       if long_address(27 downto 6)&"00" = x"FFD364" and hypervisor_mode='1' then
         report "Preparing for reading hypervisor register";
         read_source <= HypervisorRegister;
@@ -1751,7 +1751,7 @@ begin
         report "Checking if address requires vfpga waitstates: $" & to_hstring(long_address);
 
         
-        -- @IO:GS $FF8xxxx - Colour RAM (32KB or 64KB)
+        -- @IO:GS $FF80000-$FF87FFF SUMMARY:COLOURRAM Colour RAM (32KB or 64KB)
         if long_address(19 downto 16) = x"8" then
           report "VIC 64KB colour RAM access from VIC fastio" severity note;
           accessing_colour_ram_fastio <= '1';
@@ -1765,7 +1765,7 @@ begin
             wait_states_non_zero <= '0';
           end if;
         end if;
-        -- @IO:GS $FFF8000-$FFFBFFF 16KB Kickstart/Hypervisor ROM
+        -- @IO:GS $FFF8000-$FFFBFFF SUMMARY:HYPERVISOR 16KB Kickstart/Hypervisor ROM
         if long_address(19 downto 14)&"00" = x"F8" then
           accessing_fastio <= '0';
           fastio_read <= '0';
@@ -1825,8 +1825,8 @@ begin
           end if;
         end if;                           -- $DXXXX
       elsif (long_address(27) = '1' or long_address(26)='1') and hyper_protected_hardware(7)='0' then
-        -- @IO:GS $4000000 - $7FFFFFF Slow Device memory (64MB)
-        -- @IO:GS $8000000 - $FEFFFFF Slow Device memory (127MB)
+        -- @IO:GS $4000000 - $7FFFFFF SUMMARY:SLOWDEV Slow Device memory (64MB)
+        -- @IO:GS $8000000 - $FEFFFFF SUMMARY:SLOWDEV Slow Device memory (127MB)
         -- (But not accessible in secure compartment)
         report "Preparing to read from SlowRAM";
         read_source <= SlowRAM;
@@ -1891,7 +1891,21 @@ begin
             when x"75" => return reg_mult_b(15 downto 8);
             when x"76" => return to_unsigned(to_integer(reg_mult_b(17 downto 16)),8);
             when x"77" => return x"00";
-            -- @IO:GS $D778-$D77F - 48-bit multiplication output
+            -- @IO:GS $D770 MATH:MULTINA Multiplier input A (25 bit)
+            -- @IO:GS $D771 MATH:MULTINA Multiplier input A (25 bit)
+            -- @IO:GS $D772 MATH:MULTINA Multiplier input A (25 bit)
+            -- @IO:GS $D773.0 MATH:MULTINA Multiplier input A (25 bit)
+            -- @IO:GS $D774 MATH:MULTINB Multiplier input A (18 bit)
+            -- @IO:GS $D775 MATH:MULTINB Multiplier input A (18 bit)
+            -- @IO:GS $D776.0-1 MATH:MULTINB Multiplier input A (18 bit)
+            -- @IO:GS $D778 MATH:MULTOUT 48-bit output of MULTINA $\times$ MULTINB
+            -- @IO:GS $D779 MATH:MULTOUT 48-bit output of MULTINA $\times$ MULTINB
+            -- @IO:GS $D77A MATH:MULTOUT 48-bit output of MULTINA $\times$ MULTINB
+            -- @IO:GS $D77B MATH:MULTOUT 48-bit output of MULTINA $\times$ MULTINB
+            -- @IO:GS $D77C MATH:MULTOUT 48-bit output of MULTINA $\times$ MULTINB
+            -- @IO:GS $D77D MATH:MULTOUT 48-bit output of MULTINA $\times$ MULTINB
+            -- @IO:GS $D77E MATH:MULTOUT 48-bit output of MULTINA $\times$ MULTINB
+
             when x"78" => return reg_mult_p(7 downto 0);
             when x"79" => return reg_mult_p(15 downto 8);
             when x"7a" => return reg_mult_p(23 downto 16);
@@ -1900,7 +1914,71 @@ begin
             when x"7d" => return reg_mult_p(47 downto 40);
             when x"7e" => return x"00";
             when x"7f" => return x"00";
-            --@IO:GS $D780-$D7BF - 16 x 32 bit Math Unit values
+            -- @IO:GS $D780-$D7BF - 16 x 32 bit Math Unit values
+            -- @IO:GS $D780 MATH:MATHIN0 Math unit 32-bit input 0
+            -- @IO:GS $D781 MATH:MATHIN0 Math unit 32-bit input 0
+            -- @IO:GS $D782 MATH:MATHIN0 Math unit 32-bit input 0
+            -- @IO:GS $D783 MATH:MATHIN0 Math unit 32-bit input 0
+            -- @IO:GS $D784 MATH:MATHIN1 Math unit 32-bit input 1
+            -- @IO:GS $D785 MATH:MATHIN1 Math unit 32-bit input 1
+            -- @IO:GS $D786 MATH:MATHIN1 Math unit 32-bit input 1
+            -- @IO:GS $D787 MATH:MATHIN1 Math unit 32-bit input 1
+            -- @IO:GS $D788 MATH:MATHIN2 Math unit 32-bit input 2
+            -- @IO:GS $D789 MATH:MATHIN2 Math unit 32-bit input 2
+            -- @IO:GS $D78A MATH:MATHIN2 Math unit 32-bit input 2
+            -- @IO:GS $D78B MATH:MATHIN2 Math unit 32-bit input 2
+            -- @IO:GS $D78C MATH:MATHIN3 Math unit 32-bit input 3
+            -- @IO:GS $D78D MATH:MATHIN3 Math unit 32-bit input 3
+            -- @IO:GS $D78E MATH:MATHIN3 Math unit 32-bit input 3
+            -- @IO:GS $D78F MATH:MATHIN3 Math unit 32-bit input 3
+            -- @IO:GS $D790 MATH:MATHIN4 Math unit 32-bit input 4
+            -- @IO:GS $D791 MATH:MATHIN4 Math unit 32-bit input 4
+            -- @IO:GS $D792 MATH:MATHIN4 Math unit 32-bit input 4
+            -- @IO:GS $D793 MATH:MATHIN4 Math unit 32-bit input 4
+            -- @IO:GS $D794 MATH:MATHIN5 Math unit 32-bit input 5
+            -- @IO:GS $D795 MATH:MATHIN5 Math unit 32-bit input 5
+            -- @IO:GS $D796 MATH:MATHIN5 Math unit 32-bit input 5
+            -- @IO:GS $D797 MATH:MATHIN5 Math unit 32-bit input 5
+            -- @IO:GS $D798 MATH:MATHIN6 Math unit 32-bit input 6
+            -- @IO:GS $D799 MATH:MATHIN6 Math unit 32-bit input 6
+            -- @IO:GS $D79A MATH:MATHIN6 Math unit 32-bit input 6
+            -- @IO:GS $D79B MATH:MATHIN6 Math unit 32-bit input 6
+            -- @IO:GS $D79C MATH:MATHIN7 Math unit 32-bit input 7
+            -- @IO:GS $D79D MATH:MATHIN7 Math unit 32-bit input 7
+            -- @IO:GS $D79E MATH:MATHIN7 Math unit 32-bit input 7
+            -- @IO:GS $D79F MATH:MATHIN7 Math unit 32-bit input 7
+            -- @IO:GS $D7A0 MATH:MATHIN8 Math unit 32-bit input 8
+            -- @IO:GS $D7A1 MATH:MATHIN8 Math unit 32-bit input 8
+            -- @IO:GS $D7A2 MATH:MATHIN8 Math unit 32-bit input 8
+            -- @IO:GS $D7A3 MATH:MATHIN8 Math unit 32-bit input 8
+            -- @IO:GS $D7A4 MATH:MATHIN9 Math unit 32-bit input 9
+            -- @IO:GS $D7A5 MATH:MATHIN9 Math unit 32-bit input 9
+            -- @IO:GS $D7A6 MATH:MATHIN9 Math unit 32-bit input 9
+            -- @IO:GS $D7A7 MATH:MATHIN9 Math unit 32-bit input 9
+            -- @IO:GS $D7A8 MATH:MATHIN10 Math unit 32-bit input 10
+            -- @IO:GS $D7A9 MATH:MATHIN10 Math unit 32-bit input 10
+            -- @IO:GS $D7AA MATH:MATHIN10 Math unit 32-bit input 10
+            -- @IO:GS $D7AB MATH:MATHIN10 Math unit 32-bit input 10
+            -- @IO:GS $D7AC MATH:MATHIN11 Math unit 32-bit input 11
+            -- @IO:GS $D7AD MATH:MATHIN11 Math unit 32-bit input 11
+            -- @IO:GS $D7AE MATH:MATHIN11 Math unit 32-bit input 11
+            -- @IO:GS $D7AF MATH:MATHIN11 Math unit 32-bit input 11
+            -- @IO:GS $D7B0 MATH:MATHIN12 Math unit 32-bit input 12
+            -- @IO:GS $D7B1 MATH:MATHIN12 Math unit 32-bit input 12
+            -- @IO:GS $D7B2 MATH:MATHIN12 Math unit 32-bit input 12
+            -- @IO:GS $D7B3 MATH:MATHIN12 Math unit 32-bit input 12
+            -- @IO:GS $D7B4 MATH:MATHIN13 Math unit 32-bit input 13
+            -- @IO:GS $D7B5 MATH:MATHIN13 Math unit 32-bit input 13
+            -- @IO:GS $D7B6 MATH:MATHIN13 Math unit 32-bit input 13
+            -- @IO:GS $D7B7 MATH:MATHIN13 Math unit 32-bit input 13
+            -- @IO:GS $D7B8 MATH:MATHIN14 Math unit 32-bit input 14
+            -- @IO:GS $D7B9 MATH:MATHIN14 Math unit 32-bit input 14
+            -- @IO:GS $D7BA MATH:MATHIN14 Math unit 32-bit input 14
+            -- @IO:GS $D7BB MATH:MATHIN14 Math unit 32-bit input 14
+            -- @IO:GS $D7BC MATH:MATHIN15 Math unit 32-bit input 15
+            -- @IO:GS $D7BD MATH:MATHIN15 Math unit 32-bit input 15
+            -- @IO:GS $D7BE MATH:MATHIN15 Math unit 32-bit input 15
+            -- @IO:GS $D7BF MATH:MATHIN15 Math unit 32-bit input 15
             when
               x"80"|x"81"|x"82"|x"83"|x"84"|x"85"|x"86"|x"87"|
               x"88"|x"89"|x"8A"|x"8B"|x"8C"|x"8D"|x"8E"|x"8F"|
@@ -1919,17 +1997,140 @@ begin
               end case;
             when
               --@IO:GS $D7C0-$D7CF - 16 Math function unit input A (3-0) and input B (7-4) selects
+              -- @IO:GS $D7C0.0-3 MATH:UNIT0INA Select which of the 16 32-bit math registers is input A for Math Function Unit 0.
+              -- @IO:GS $D7C0.4-7 MATH:UNIT0INB Select which of the 16 32-bit math registers is input B for Math Function Unit 0.
+              -- @IO:GS $D7C1.0-3 MATH:UNIT1INA Select which of the 16 32-bit math registers is input A for Math Function Unit 1.
+              -- @IO:GS $D7C1.4-7 MATH:UNIT1INB Select which of the 16 32-bit math registers is input B for Math Function Unit 1.
+              -- @IO:GS $D7C2.0-3 MATH:UNIT2INA Select which of the 16 32-bit math registers is input A for Math Function Unit 2.
+              -- @IO:GS $D7C2.4-7 MATH:UNIT2INB Select which of the 16 32-bit math registers is input B for Math Function Unit 2.
+              -- @IO:GS $D7C3.0-3 MATH:UNIT3INA Select which of the 16 32-bit math registers is input A for Math Function Unit 3.
+              -- @IO:GS $D7C3.4-7 MATH:UNIT3INB Select which of the 16 32-bit math registers is input B for Math Function Unit 3.
+              -- @IO:GS $D7C4.0-3 MATH:UNIT4INA Select which of the 16 32-bit math registers is input A for Math Function Unit 4.
+              -- @IO:GS $D7C4.4-7 MATH:UNIT4INB Select which of the 16 32-bit math registers is input B for Math Function Unit 4.
+              -- @IO:GS $D7C5.0-3 MATH:UNIT5INA Select which of the 16 32-bit math registers is input A for Math Function Unit 5.
+              -- @IO:GS $D7C5.4-7 MATH:UNIT5INB Select which of the 16 32-bit math registers is input B for Math Function Unit 5.
+              -- @IO:GS $D7C6.0-3 MATH:UNIT6INA Select which of the 16 32-bit math registers is input A for Math Function Unit 6.
+              -- @IO:GS $D7C6.4-7 MATH:UNIT6INB Select which of the 16 32-bit math registers is input B for Math Function Unit 6.
+              -- @IO:GS $D7C7.0-3 MATH:UNIT7INA Select which of the 16 32-bit math registers is input A for Math Function Unit 7.
+              -- @IO:GS $D7C7.4-7 MATH:UNIT7INB Select which of the 16 32-bit math registers is input B for Math Function Unit 7.
+              -- @IO:GS $D7C8.0-3 MATH:UNIT8INA Select which of the 16 32-bit math registers is input A for Math Function Unit 8.
+              -- @IO:GS $D7C8.4-7 MATH:UNIT8INB Select which of the 16 32-bit math registers is input B for Math Function Unit 8.
+              -- @IO:GS $D7C9.0-3 MATH:UNIT9INA Select which of the 16 32-bit math registers is input A for Math Function Unit 9.
+              -- @IO:GS $D7C9.4-7 MATH:UNIT9INB Select which of the 16 32-bit math registers is input B for Math Function Unit 9.
+              -- @IO:GS $D7CA.0-3 MATH:UNIT10INA Select which of the 16 32-bit math registers is input A for Math Function Unit 10.
+              -- @IO:GS $D7CA.4-7 MATH:UNIT10INB Select which of the 16 32-bit math registers is input B for Math Function Unit 10.
+              -- @IO:GS $D7CB.0-3 MATH:UNIT11INA Select which of the 16 32-bit math registers is input A for Math Function Unit 11.
+              -- @IO:GS $D7CB.4-7 MATH:UNIT11INB Select which of the 16 32-bit math registers is input B for Math Function Unit 11.
+              -- @IO:GS $D7CC.0-3 MATH:UNIT12INA Select which of the 16 32-bit math registers is input A for Math Function Unit 12.
+              -- @IO:GS $D7CC.4-7 MATH:UNIT12INB Select which of the 16 32-bit math registers is input B for Math Function Unit 12.
+              -- @IO:GS $D7CD.0-3 MATH:UNIT13INA Select which of the 16 32-bit math registers is input A for Math Function Unit 13.
+              -- @IO:GS $D7CD.4-7 MATH:UNIT13INB Select which of the 16 32-bit math registers is input B for Math Function Unit 13.
+              -- @IO:GS $D7CE.0-3 MATH:UNIT14INA Select which of the 16 32-bit math registers is input A for Math Function Unit 14.
+              -- @IO:GS $D7CE.4-7 MATH:UNIT14INB Select which of the 16 32-bit math registers is input B for Math Function Unit 14.
+              -- @IO:GS $D7CF.0-3 MATH:UNIT15INA Select which of the 16 32-bit math registers is input A for Math Function Unit 15.
+              -- @IO:GS $D7CF.4-7 MATH:UNIT15INB Select which of the 16 32-bit math registers is input B for Math Function Unit 15.
               x"C0"|x"C1"|x"C2"|x"C3"|x"C4"|x"C5"|x"C6"|x"C7"|
               x"C8"|x"C9"|x"CA"|x"CB"|x"CC"|x"CD"|x"CE"|x"CF" =>
               return
                 to_unsigned(reg_math_config(to_integer(the_read_address(3 downto 0))).source_b,4)
                 &to_unsigned(reg_math_config(to_integer(the_read_address(3 downto 0))).source_a,4);
             when
-              --@IO:GS $D7D0-$D7DF.0-3 - 16 Math function unit output selects
-              --@IO:GS $D7D0-$D7DF.4 - 16 Math function unit output low half of result
-              --@IO:GS $D7D0-$D7DF.5 - 16 Math function unit output high half of result
-              --@IO:GS $D7D0-$D7DF.6 - 16 Math function unit select adder mode instead of special function
-              --@IO:GS $D7D0-$D7DF.7 - 16 Math function unit latch output
+              -- @IO:GS $D7D0.0-3 MATH:UNIT0OUT Select which of the 16 32-bit math registers receives the output of Math Function Unit 0
+              -- @IO:GS $D7D0.4 - MATH:U0LOWOUT If set, the low-half of the output of Math Function Unit 0 is written to math register UNIT0OUT.
+              -- @IO:GS $D7D0.5 - MATH:U0HIOUT If set, the high-half of the output of Math Function Unit 0 is written to math register UNIT0OUT.
+              -- @IO:GS $D7D0.6 - MATH:U0ADD If set, Math Function Unit 0 acts as a 32-bit adder instead of 32-bit multiplier.
+              -- @IO:GS $D7D0.7 - MATH:U0LATCH If set, Math Function Unit 0's output is latched.
+              
+              -- @IO:GS $D7D1.0-3 MATH:UNIT1OUT Select which of the 16 32-bit math registers receives the output of Math Function Unit 1
+              -- @IO:GS $D7D1.4 - MATH:U1LOWOUT If set, the low-half of the output of Math Function Unit 1 is written to math register UNIT1OUT.
+              -- @IO:GS $D7D1.5 - MATH:U1HIOUT If set, the high-half of the output of Math Function Unit 1 is written to math register UNIT1OUT.
+              -- @IO:GS $D7D1.6 - MATH:U1ADD If set, Math Function Unit 1 acts as a 32-bit adder instead of 32-bit multiplier.
+              -- @IO:GS $D7D1.7 - MATH:U1LATCH If set, Math Function Unit 1's output is latched.
+              
+              -- @IO:GS $D7D2.0-3 MATH:UNIT2OUT Select which of the 16 32-bit math registers receives the output of Math Function Unit 2
+              -- @IO:GS $D7D2.4 - MATH:U2LOWOUT If set, the low-half of the output of Math Function Unit 2 is written to math register UNIT2OUT.
+              -- @IO:GS $D7D2.5 - MATH:U2HIOUT If set, the high-half of the output of Math Function Unit 2 is written to math register UNIT2OUT.
+              -- @IO:GS $D7D2.6 - MATH:U2ADD If set, Math Function Unit 2 acts as a 32-bit adder instead of 32-bit multiplier.
+              -- @IO:GS $D7D2.7 - MATH:U2LATCH If set, Math Function Unit 2's output is latched.
+              
+              -- @IO:GS $D7D3.0-3 MATH:UNIT3OUT Select which of the 16 32-bit math registers receives the output of Math Function Unit 3
+              -- @IO:GS $D7D3.4 - MATH:U3LOWOUT If set, the low-half of the output of Math Function Unit 3 is written to math register UNIT3OUT.
+              -- @IO:GS $D7D3.5 - MATH:U3HIOUT If set, the high-half of the output of Math Function Unit 3 is written to math register UNIT3OUT.
+              -- @IO:GS $D7D3.6 - MATH:U3ADD If set, Math Function Unit 3 acts as a 32-bit adder instead of 32-bit multiplier.
+              -- @IO:GS $D7D3.7 - MATH:U3LATCH If set, Math Function Unit 3's output is latched.
+              
+              -- @IO:GS $D7D4.0-3 MATH:UNIT4OUT Select which of the 16 32-bit math registers receives the output of Math Function Unit 4
+              -- @IO:GS $D7D4.4 - MATH:U4LOWOUT If set, the low-half of the output of Math Function Unit 4 is written to math register UNIT4OUT.
+              -- @IO:GS $D7D4.5 - MATH:U4HIOUT If set, the high-half of the output of Math Function Unit 4 is written to math register UNIT4OUT.
+              -- @IO:GS $D7D4.6 - MATH:U4ADD If set, Math Function Unit 4 acts as a 32-bit adder instead of 32-bit multiplier.
+              -- @IO:GS $D7D4.7 - MATH:U4LATCH If set, Math Function Unit 4's output is latched.
+              
+              -- @IO:GS $D7D5.0-3 MATH:UNIT5OUT Select which of the 16 32-bit math registers receives the output of Math Function Unit 5
+              -- @IO:GS $D7D5.4 - MATH:U5LOWOUT If set, the low-half of the output of Math Function Unit 5 is written to math register UNIT5OUT.
+              -- @IO:GS $D7D5.5 - MATH:U5HIOUT If set, the high-half of the output of Math Function Unit 5 is written to math register UNIT5OUT.
+              -- @IO:GS $D7D5.6 - MATH:U5ADD If set, Math Function Unit 5 acts as a 32-bit adder instead of 32-bit multiplier.
+              -- @IO:GS $D7D5.7 - MATH:U5LATCH If set, Math Function Unit 5's output is latched.
+              
+              -- @IO:GS $D7D6.0-3 MATH:UNIT6OUT Select which of the 16 32-bit math registers receives the output of Math Function Unit 6
+              -- @IO:GS $D7D6.4 - MATH:U6LOWOUT If set, the low-half of the output of Math Function Unit 6 is written to math register UNIT6OUT.
+              -- @IO:GS $D7D6.5 - MATH:U6HIOUT If set, the high-half of the output of Math Function Unit 6 is written to math register UNIT6OUT.
+              -- @IO:GS $D7D6.6 - MATH:U6ADD If set, Math Function Unit 6 acts as a 32-bit adder instead of 32-bit multiplier.
+              -- @IO:GS $D7D6.7 - MATH:U6LATCH If set, Math Function Unit 6's output is latched.
+              
+              -- @IO:GS $D7D7.0-3 MATH:UNIT7OUT Select which of the 16 32-bit math registers receives the output of Math Function Unit 7
+              -- @IO:GS $D7D7.4 - MATH:U7LOWOUT If set, the low-half of the output of Math Function Unit 7 is written to math register UNIT7OUT.
+              -- @IO:GS $D7D7.5 - MATH:U7HIOUT If set, the high-half of the output of Math Function Unit 7 is written to math register UNIT7OUT.
+              -- @IO:GS $D7D7.6 - MATH:U7ADD If set, Math Function Unit 7 acts as a 32-bit adder instead of 32-bit multiplier.
+              -- @IO:GS $D7D7.7 - MATH:U7LATCH If set, Math Function Unit 7's output is latched.
+              
+              -- @IO:GS $D7D8.0-3 MATH:UNIT8OUT Select which of the 16 32-bit math registers receives the output of Math Function Unit 8
+              -- @IO:GS $D7D8.4 - MATH:U8LOWOUT If set, the low-half of the output of Math Function Unit 8 is written to math register UNIT8OUT.
+              -- @IO:GS $D7D8.5 - MATH:U8HIOUT If set, the high-half of the output of Math Function Unit 8 is written to math register UNIT8OUT.
+              -- @IO:GS $D7D8.6 - MATH:U8ADD If set, Math Function Unit 8 acts as a 32-bit adder instead of 32-bit barrel-shifter.
+              -- @IO:GS $D7D8.7 - MATH:U8LATCH If set, Math Function Unit 8's output is latched.
+              
+              -- @IO:GS $D7D9.0-3 MATH:UNIT9OUT Select which of the 16 32-bit math registers receives the output of Math Function Unit 9
+              -- @IO:GS $D7D9.4 - MATH:U9LOWOUT If set, the low-half of the output of Math Function Unit 9 is written to math register UNIT9OUT.
+              -- @IO:GS $D7D9.5 - MATH:U9HIOUT If set, the high-half of the output of Math Function Unit 9 is written to math register UNIT9OUT.
+              -- @IO:GS $D7D9.6 - MATH:U9ADD If set, Math Function Unit 9 acts as a 32-bit adder instead of 32-bit barrel-shifter.
+              -- @IO:GS $D7D9.7 - MATH:U9LATCH If set, Math Function Unit 9's output is latched.
+              
+              -- @IO:GS $D7DA.0-3 MATH:UNITAOUT Select which of the 16 32-bit math registers receives the output of Math Function Unit A
+              -- @IO:GS $D7DA.4 - MATH:UALOWOUT If set, the low-half of the output of Math Function Unit A is written to math register UNITAOUT.
+              -- @IO:GS $D7DA.5 - MATH:UAHIOUT If set, the high-half of the output of Math Function Unit A is written to math register UNITAOUT.
+              -- @IO:GS $D7DA.6 - MATH:UAADD If set, Math Function Unit A acts as a 32-bit adder instead of 32-bit barrel-shifter.
+              -- @IO:GS $D7DA.7 - MATH:UALATCH If set, Math Function Unit A's output is latched.
+              
+              -- @IO:GS $D7DB.0-3 MATH:UNITBOUT Select which of the 16 32-bit math registers receives the output of Math Function Unit B
+              -- @IO:GS $D7DB.4 - MATH:UBLOWOUT If set, the low-half of the output of Math Function Unit B is written to math register UNITBOUT.
+              -- @IO:GS $D7DB.5 - MATH:UBHIOUT If set, the high-half of the output of Math Function Unit B is written to math register UNITBOUT.
+              -- @IO:GS $D7DB.6 - MATH:UBADD If set, Math Function Unit B acts as a 32-bit adder instead of 32-bit barrel-shifter.
+              -- @IO:GS $D7DB.7 - MATH:UBLATCH If set, Math Function Unit B's output is latched.
+              
+              -- @IO:GS $D7DC.0-3 MATH:UNITCOUT Select which of the 16 32-bit math registers receives the output of Math Function Unit C
+              -- @IO:GS $D7DC.4 - MATH:UCLOWOUT If set, the low-half of the output of Math Function Unit C is written to math register UNITCOUT.
+              -- @IO:GS $D7DC.5 - MATH:UCHIOUT If set, the high-half of the output of Math Function Unit C is written to math register UNITCOUT.
+              -- @IO:GS $D7DC.6 - MATH:UCADD If set, Math Function Unit C acts as a 32-bit adder instead of 32-bit divider.
+              -- @IO:GS $D7DC.7 - MATH:UCLATCH If set, Math Function Unit C's output is latched.
+              
+              -- @IO:GS $D7DD.0-3 MATH:UNITDOUT Select which of the 16 32-bit math registers receives the output of Math Function Unit D
+              -- @IO:GS $D7DD.4 - MATH:UDLOWOUT If set, the low-half of the output of Math Function Unit D is written to math register UNITDOUT.
+              -- @IO:GS $D7DD.5 - MATH:UDHIOUT If set, the high-half of the output of Math Function Unit D is written to math register UNITDOUT.
+              -- @IO:GS $D7DD.6 - MATH:UDADD If set, Math Function Unit D acts as a 32-bit adder instead of 32-bit divider.
+              -- @IO:GS $D7DD.7 - MATH:UDLATCH If set, Math Function Unit D's output is latched.
+              
+              -- @IO:GS $D7DE.0-3 MATH:UNITEOUT Select which of the 16 32-bit math registers receives the output of Math Function Unit E
+              -- @IO:GS $D7DE.4 - MATH:UELOWOUT If set, the low-half of the output of Math Function Unit E is written to math register UNITEOUT.
+              -- @IO:GS $D7DE.5 - MATH:UEHIOUT If set, the high-half of the output of Math Function Unit E is written to math register UNITEOUT.
+              -- @IO:GS $D7DE.6 - MATH:UEADD If set, Math Function Unit E acts as a 32-bit adder instead of 32-bit divider.
+              -- @IO:GS $D7DE.7 - MATH:UELATCH If set, Math Function Unit E's output is latched.
+              
+              -- @IO:GS $D7DF.0-3 MATH:UNITFOUT Select which of the 16 32-bit math registers receives the output of Math Function Unit F
+              -- @IO:GS $D7DF.4 - MATH:UFLOWOUT If set, the low-half of the output of Math Function Unit F is written to math register UNITFOUT.
+              -- @IO:GS $D7DF.5 - MATH:UFHIOUT If set, the high-half of the output of Math Function Unit F is written to math register UNITFOUT.
+              -- @IO:GS $D7DF.6 - MATH:UFADD If set, Math Function Unit F acts as a 32-bit adder instead of 32-bit divider.
+              -- @IO:GS $D7DF.7 - MATH:UFLATCH If set, Math Function Unit F's output is latched.
+              
               x"D0"|x"D1"|x"D2"|x"D3"|x"D4"|x"D5"|x"D6"|x"D7"|
               x"D8"|x"D9"|x"DA"|x"DB"|x"DC"|x"DD"|x"DE"|x"DF" =>
               return
@@ -1938,20 +2139,24 @@ begin
                 &reg_math_config(to_integer(the_read_address(3 downto 0))).output_high
                 &reg_math_config(to_integer(the_read_address(3 downto 0))).output_low
                 &to_unsigned(reg_math_config(to_integer(the_read_address(3 downto 0))).output,4);
+              -- @IO:GS $D7E0 MATH:LATCHINT Latch interval for latched outputs (in CPU cycles)
+              -- $D7E1 is documented higher up
             when x"E0" => return reg_math_latch_interval;
             when x"E1" => return math_unit_flags;
-            --@IO:GS $D7E4 - Math iteration counter (bits 0 - 7)
-            --@IO:GS $D7E5 - Math iteration counter (bits 8 - 15)
-            --@IO:GS $D7E6 - Math iteration counter (bits 16 - 23)
-            --@IO:GS $D7E7 - Math iteration counter (bits 24 - 31)
+            -- @IO:GS $D7E2 MATH:RESERVED Reserved
+            -- @IO:GS $D7E3 MATH:RESERVED Reserved
+            --@IO:GS $D7E4 MATH:ITERCNT Iteration Counter (32 bit)
+            --@IO:GS $D7E5 MATH:ITERCNT Iteration Counter (32 bit)
+            --@IO:GS $D7E6 MATH:ITERCNT Iteration Counter (32 bit)
+            --@IO:GS $D7E7 MATH:ITERCNT Iteration Counter (32 bit)
             when x"e4" => return reg_math_cycle_counter(7 downto 0);
             when x"e5" => return reg_math_cycle_counter(15 downto 8);
             when x"e6" => return reg_math_cycle_counter(23 downto 16);
             when x"e7" => return reg_math_cycle_counter(31 downto 24);
-            --@IO:GS $D7E8 - Math iteration comparison (bits 0 - 7)
-            --@IO:GS $D7E9 - Math iteration comparison (bits 8 - 15)
-            --@IO:GS $D7EA - Math iteration comparison (bits 16 - 23)
-            --@IO:GS $D7EB - Math iteration comparison (bits 24 - 31)
+            --@IO:GS $D7E8 MATH:ITERCMP Math iteration counter comparator (32 bit)
+            --@IO:GS $D7E9 MATH:ITERCMP Math iteration counter comparator (32 bit)
+            --@IO:GS $D7EA MATH:ITERCMP Math iteration counter comparator (32 bit)
+            --@IO:GS $D7EB MATH:ITERCMP Math iteration counter comparator (32 bit)
             when x"e8" => return reg_math_cycle_compare(7 downto 0);
             when x"e9" => return reg_math_cycle_compare(15 downto 8);
             when x"ea" => return reg_math_cycle_compare(23 downto 16);
@@ -2305,8 +2510,8 @@ begin
         reg_math_latch_interval <= value;
       elsif (long_address = x"FFD37E1") or (long_address = x"FFD17E1") then
         -- @IO:GS $D7E1 - Math unit general settings (writing also clears math cycle counter)
-        -- @IO:GS $D7E1.0 - Enable setting of math registers (must normally be set)
-        -- @IO:GS $D7E1.1 - Enable committing of output values from math units back to math registers (clearing effectively pauses iterative formulae)
+        -- @IO:GS $D7E1.0 MATH:WREN Enable setting of math registers (must normally be set)
+        -- @IO:GS $D7E1.1 MATH:CALCEN Enable committing of output values from math units back to math registers (clearing effectively pauses iterative formulae)
         math_unit_flags <= value;
         reg_math_cycle_counter <= to_unsigned(0,32);        
       elsif (long_address = x"FFD37E8") or (long_address = x"FFD17E8") then
@@ -2318,17 +2523,17 @@ begin
       elsif (long_address = x"FFD37EB") or (long_address = x"FFD17EB") then
         reg_math_cycle_compare(31 downto 24) <= value;
       elsif (long_address = x"FFD37FA") then
-        -- @IO:GS $D7FA.0 DEBUG 1/2/3.5MHz CPU speed fine adjustment
+        -- @IO:GS $D7FA CPU:SPEEDBIAS 1/2/3.5MHz CPU speed fine adjustment
         cpu_speed_bias <= to_integer(value);
       elsif (long_address = x"FFD37FB") then
-        -- @IO:GS $D7FB.0 DEBUG 1=charge extra cycle(s) for branches taken
+        -- @IO:GS $D7FB.0 CPU:BRCOST 1=charge extra cycle(s) for branches taken
         charge_for_branches_taken <= value(0);
       elsif (long_address = x"FFD37FC") then
       -- @IO:GS $D7FC DEBUG chip-select enables for various devices
 --        chipselect_enables <= std_logic_vector(value);
       elsif (long_address = x"FFD37FD") then
-        -- @IO:GS $D7FD.7 Override for /EXROM : set to 0 to enable
-        -- @IO:GS $D7FD.6 Override for /GAME : set to 0 to enable
+        -- @IO:GS $D7FD.7 CPU:NOEXROM Override for /EXROM : Must be 0 to enable /EXROM signal
+        -- @IO:GS $D7FD.6 CPU:NOGAME Override for /GAME : Must be 0 to enable /GAME signal
         force_exrom <= value(7);
         force_game <= value(6);
       elsif (long_address = x"FFD37ff") or (long_address = x"FFD17ff") then
@@ -2396,7 +2601,7 @@ begin
         last_write_value <= value;
         last_write_pending <= '1';
         
-        -- @IO:GS $FF7Exxx VIC-IV CHARROM write area
+        -- @IO:GS $FF7E000-$FF7EFFF SUMMARY:CHARWRITE VIC-IV CHARROM write area
         if long_address(19 downto 12) = x"7E" then
           charrom_write_cs <= '1';
         end if;
@@ -3115,112 +3320,112 @@ begin
       if last_write_pending = '1' then
         last_write_pending <= '0';
         
-                                        -- @IO:GS $D640 - Hypervisor A register storage
+                                        -- @IO:GS $D640 HCPU:REGA Hypervisor A register storage
         if last_write_address = x"FFD3640" and hypervisor_mode='1' then
           hyper_a <= last_value;
         end if;
-                                        -- @IO:GS $D641 - Hypervisor X register storage
+                                        -- @IO:GS $D641 HCPU:REGX Hypervisor X register storage
         if last_write_address = x"FFD3641" and hypervisor_mode='1' then
           hyper_x <= last_value;
         end if;
-                                        -- @IO:GS $D642 - Hypervisor Y register storage
+                                        -- @IO:GS $D642 HCPU_REGY Hypervisor Y register storage
         if last_write_address = x"FFD3642" and hypervisor_mode='1' then
           hyper_y <= last_value;
         end if;
-                                        -- @IO:GS $D643 - Hypervisor Z register storage
+                                        -- @IO:GS $D643 HCPU:REGZ Hypervisor Z register storage
         if last_write_address = x"FFD3643" and hypervisor_mode='1' then
           hyper_z <= last_value;
         end if;
-                                        -- @IO:GS $D644 - Hypervisor B register storage
+                                        -- @IO:GS $D644 HCPU:REGB Hypervisor B register storage
         if last_write_address = x"FFD3644" and hypervisor_mode='1' then
           hyper_b <= last_value;
         end if;
-                                        -- @IO:GS $D645 - Hypervisor SPL register storage
+                                        -- @IO:GS $D645 HCPU;SPL Hypervisor SPL register storage
         if last_write_address = x"FFD3645" and hypervisor_mode='1' then
           hyper_sp <= last_value;
         end if;
-                                        -- @IO:GS $D646 - Hypervisor SPH register storage
+                                        -- @IO:GS $D646 HCPU:SPH Hypervisor SPH register storage
         if last_write_address = x"FFD3646" and hypervisor_mode='1' then
           hyper_sph <= last_value;
         end if;
-                                        -- @IO:GS $D647 - Hypervisor P register storage
+                                        -- @IO:GS $D647 HCPU:PFLAGS Hypervisor P register storage
         if last_write_address = x"FFD3647" and hypervisor_mode='1' then
           hyper_p <= last_value;
         end if;
-                                        -- @IO:GS $D648 - Hypervisor PC-low register storage
+                                        -- @IO:GS $D648 HCPU:PCL Hypervisor PC-low register storage
         if last_write_address = x"FFD3648" and hypervisor_mode='1' then
           hyper_pc(7 downto 0) <= last_value;
         end if;
-                                        -- @IO:GS $D649 - Hypervisor PC-high register storage
+                                        -- @IO:GS $D649 HCPU:PCH Hypervisor PC-high register storage
         if last_write_address = x"FFD3649" and hypervisor_mode='1' then
           hyper_pc(15 downto 8) <= last_value;
         end if;
-                                        -- @IO:GS $D64A - Hypervisor MAPLO register storage (high bits)
+                                        -- @IO:GS $D64A HCPU:MAPLO Hypervisor MAPLO register storage (high bits)
         if last_write_address = x"FFD364A" and hypervisor_mode='1' then
           hyper_map_low <= std_logic_vector(last_value(7 downto 4));
           hyper_map_offset_low(11 downto 8) <= last_value(3 downto 0);
         end if;
-                                        -- @IO:GS $D64B - Hypervisor MAPLO register storage (low bits)
+                                        -- @IO:GS $D64B HCPU:MAPLO Hypervisor MAPLO register storage (low bits)
         if last_write_address = x"FFD364B" and hypervisor_mode='1' then
           hyper_map_offset_low(7 downto 0) <= last_value;
         end if;
-                                        -- @IO:GS $D64C - Hypervisor MAPHI register storage (high bits)
+                                        -- @IO:GS $D64C HCPU:MAPHI Hypervisor MAPHI register storage (high bits)
         if last_write_address = x"FFD364C" and hypervisor_mode='1' then
           hyper_map_high <= std_logic_vector(last_value(7 downto 4));
           hyper_map_offset_high(11 downto 8) <= last_value(3 downto 0);
         end if;
-                                        -- @IO:GS $D64D - Hypervisor MAPHI register storage (low bits)
+                                        -- @IO:GS $D64D HCPU:MAPHI Hypervisor MAPHI register storage (low bits)
         if last_write_address = x"FFD364D" and hypervisor_mode='1' then
           hyper_map_offset_high(7 downto 0) <= last_value;
         end if;
-                                        -- @IO:GS $D64E - Hypervisor MAPLO mega-byte number register storage
+                                        -- @IO:GS $D64E HCPU:MAPLOMB Hypervisor MAPLO mega-byte number register storage
         if last_write_address = x"FFD364E" and hypervisor_mode='1' then
           hyper_mb_low <= last_value;
         end if;
-                                        -- @IO:GS $D64F - Hypervisor MAPHI mega-byte number register storage
+                                        -- @IO:GS $D64F HCPU:MAPHIMB Hypervisor MAPHI mega-byte number register storage
         if last_write_address = x"FFD364F" and hypervisor_mode='1' then
           hyper_mb_high <= last_value;
         end if;
-                                        -- @IO:GS $D650 - Hypervisor CPU port $00 value
+                                        -- @IO:GS $D650 HCPU:PORT00 Hypervisor CPU port \$00 value
         if last_write_address = x"FFD3650" and hypervisor_mode='1' then
           hyper_port_00 <= last_value;
         end if;
-                                        -- @IO:GS $D651 - Hypervisor CPU port $01 value
+                                        -- @IO:GS $D651 HCPU:PORT01 Hypervisor CPU port \$01 value
         if last_write_address = x"FFD3651" and hypervisor_mode='1' then
           hyper_port_01 <= last_value;
         end if;
                                         -- @IO:GS $D652 - Hypervisor VIC-IV IO mode
-                                        -- @IO:GS $D652.0-1 - VIC-II/VIC-III/VIC-IV mode select
-                                        -- @IO:GS $D652.2 - Use internal(0) or external(1) SIDs
+                                        -- @IO:GS $D652.0-1 HCPU:VICMODE VIC-II/VIC-III/VIC-IV mode select
+                                        -- @IO:GS $D652.2 HCPU:EXSID 0=Use internal SIDs, 1=Use external(1) SIDs
         if last_write_address = x"FFD3652" and hypervisor_mode='1' then
           hyper_iomode <= last_value;
         end if;
-                                        -- @IO:GS $D653 - Hypervisor DMAgic source MB
+                                        -- @IO:GS $D653 HCPU:DMASRCMB Hypervisor DMAgic source MB
         if last_write_address = x"FFD3653" and hypervisor_mode='1' then
           hyper_dmagic_src_mb <= last_value;
         end if;
-                                        -- @IO:GS $D654 - Hypervisor DMAgic destination MB
+                                        -- @IO:GS $D654 HCPU:DMADSTMB Hypervisor DMAgic destination MB
         if last_write_address = x"FFD3654" and hypervisor_mode='1' then
           hyper_dmagic_dst_mb <= last_value;
         end if;
-                                        -- @IO:GS $D655 - Hypervisor DMAGic list address bits 0-7
+                                        -- @IO:GS $D655 HCPU:DMALADDR Hypervisor DMAGic list address bits 0-7
         if last_write_address = x"FFD3655" and hypervisor_mode='1' then
           hyper_dmagic_list_addr(7 downto 0) <= last_value;
         end if;
-                                        -- @IO:GS $D656 - Hypervisor DMAGic list address bits 15-8
+                                        -- @IO:GS $D656 HCPU:DMALADDR Hypervisor DMAGic list address bits 15-8
         if last_write_address = x"FFD3656" and hypervisor_mode='1' then
           hyper_dmagic_list_addr(15 downto 8) <= last_value;
         end if;
-                                        -- @IO:GS $D657 - Hypervisor DMAGic list address bits 23-16
+                                        -- @IO:GS $D657 HCPU:DMALADDR Hypervisor DMAGic list address bits 23-16
         if last_write_address = x"FFD3657" and hypervisor_mode='1' then
           hyper_dmagic_list_addr(23 downto 16) <= last_value;
         end if;
-                                        -- @IO:GS $D658 - Hypervisor DMAGic list address bits 27-24
+                                        -- @IO:GS $D658 HCPU:DMALADDR Hypervisor DMAGic list address bits 27-24
         if last_write_address = x"FFD3658" and hypervisor_mode='1' then
           hyper_dmagic_list_addr(27 downto 24) <= last_value(3 downto 0);
         end if;
                                         -- @IO:GS $D659 - Hypervisor virtualise hardware flags
-                                        -- @IO:GS $D659.0 - Virtualise SD/Floppy access
+                                        -- @IO:GS $D659.0 HCPU:VFLOP 1=Virtualise SD/Floppy access (usually for access via serial debugger interface)
         if last_write_address = x"FFD3659" and hypervisor_mode='1' then
           virtualise_sd <= last_value(0);
         end if;
@@ -3304,17 +3509,17 @@ begin
           reg_page3_physical(15 downto 8) <= last_value;
         end if;
 
-                                        -- @IO:GS $D670 - Hypervisor GeoRAM base address (x MB)
+                                        -- @IO:GS $D670 HCPU:GEORAMBASE Hypervisor GeoRAM base address (x MB)
         if last_write_address = x"FFD3670" and hypervisor_mode='1' then
           georam_page(19 downto 12) <= last_value;
         end if;
-                                        -- @IO:GS $D671 - Hypervisor GeoRAM address mask (applied to GeoRAM block register)
+                                        -- @IO:GS $D671 HCPU:GEORAMMASK Hypervisor GeoRAM address mask (applied to GeoRAM block register)
         if last_write_address = x"FFD3671" and hypervisor_mode='1' then
           georam_blockmask <= last_value;
         end if;   
         
                                         -- @IO:GS $D672 - Protected Hardware configuration
-                                        -- @IO:GS $D672.6 - Enable composited Matrix Mode, and disable UART access to serial monitor.
+                                        -- @IO:GS $D672.6 HCPU:MATRIXEN Enable composited Matrix Mode, and disable UART access to serial monitor.
         if last_write_address = x"FFD3672" and hypervisor_mode='1' then
           hyper_protected_hardware <= last_value;
           if last_value(7)='1' then
@@ -3329,7 +3534,7 @@ begin
           end if;
         end if; 
 
-                                        -- @IO:GS $D67C.0-7 - (write) Hypervisor write serial output to UART monitor
+                                        -- @IO:GS $D67C.0-7 HCPU:UARTDATA (write) Hypervisor write serial output to UART monitor
         if last_write_address = x"FFD367C" and hypervisor_mode='1' then
           monitor_char <= last_value;
           monitor_char_toggle <= monitor_char_toggle_internal;
@@ -3340,16 +3545,16 @@ begin
           immediate_monitor_char_busy <= '1';
         end if;
 
-                                        -- @IO:GS $D67D.0 - Hypervisor enable /EXROM and /GAME from cartridge
-                                        -- @IO:GS $D67D.1 - Hypervisor enable 32-bit JMP/JSR etc
-                                        -- @IO:GS $D67D.2 - Hypervisor write protect C65 ROM $20000-$3FFFF
-                                        -- @IO:GS $D67D.3 - Hypervisor enable ASC/DIN CAPS LOCK key to enable/disable CPU slow-down in C64/C128/C65 modes
-                                        -- @IO:GS $D67D.4 - Hypervisor force CPU to 48MHz for userland (userland can override via POKE0)
-                                        -- @IO:GS $D67D.5 - Hypervisor force CPU to 4502 personality, even in C64 IO mode.
-                                        -- @IO:GS $D67D.6 - Hypervisor flag to indicate if an IRQ is pending on exit from the hypervisor / set 1 to force IRQ/NMI deferal for 1,024 cycles on exit from hypervisor.
-                                        -- @IO:GS $D67D.7 - Hypervisor flag to indicate if an NMI is pending on exit from the hypervisor.
+                                        -- @IO:GS $D67D.0 HCPU:CARTEN Hypervisor enable /EXROM and /GAME from cartridge
+                                        -- @IO:GS $D67D.1 HCPU:JMP32EN Hypervisor enable 32-bit JMP/JSR etc
+                                        -- @IO:GS $D67D.2 HCPU:ROMPROT Hypervisor write protect C65 ROM \$20000-\$3FFFF
+                                        -- @IO:GS $D67D.3 HCPU:ASCFAST Hypervisor enable ASC/DIN CAPS LOCK key to enable/disable CPU slow-down in C64/C128/C65 modes
+                                        -- @IO:GS $D67D.4 HCPU:CPUFAST Hypervisor force CPU to 48MHz for userland (userland can override via POKE0)
+                                        -- @IO:GS $D67D.5 HCPU:F4502 Hypervisor force CPU to 4502 personality, even in C64 IO mode.
+                                        -- @IO:GS $D67D.6 HCPU:PIRQ Hypervisor flag to indicate if an IRQ is pending on exit from the hypervisor / set 1 to force IRQ/NMI deferal for 1,024 cycles on exit from hypervisor.
+                                        -- @IO:GS $D67D.7 HCPU:PNMI Hypervisor flag to indicate if an NMI is pending on exit from the hypervisor.
         
-                                        -- @IO:GS $D67D - Hypervisor watchdog register: writing any value clears the watch dog
+                                        -- @IO:GS $D67D HCPU:WATCHDOG Hypervisor watchdog register: writing any value clears the watch dog
         if last_write_address = x"FFD367D" and hypervisor_mode='1' then
           cartridge_enable <= last_value(0);
           flat32_enabled <= last_value(1);
@@ -3364,7 +3569,7 @@ begin
             & "," & std_logic'image(last_value(7));
           watchdog_fed <= '1';
         end if;
-                                        -- @IO:GS $D67E - Hypervisor already-upgraded bit (sets permanently)
+                                        -- @IO:GS $D67E HCPU:KICKED Hypervisor already-upgraded bit (writing sets permanently)
         if last_write_address = x"FFD367E" and hypervisor_mode='1' then
           hypervisor_upgraded <= '1';
         end if;
@@ -6128,7 +6333,75 @@ begin
             reg_pc <= reg_pc;
           end if;
 
-                                        -- @IO:GS $D67F - Trigger trap to hypervisor
+          -- @IO:GS $D640 CPU:HTRAP00 Writing triggers hypervisor trap \$00
+          -- @IO:GS $D641 CPU:HTRAP01 Writing triggers hypervisor trap \$01
+          -- @IO:GS $D642 CPU:HTRAP02 Writing triggers hypervisor trap \$02
+          -- @IO:GS $D643 CPU:HTRAP03 Writing triggers hypervisor trap \$03
+          -- @IO:GS $D644 CPU:HTRAP04 Writing triggers hypervisor trap \$04
+          -- @IO:GS $D645 CPU:HTRAP05 Writing triggers hypervisor trap \$05
+          -- @IO:GS $D646 CPU:HTRAP06 Writing triggers hypervisor trap \$06
+          -- @IO:GS $D647 CPU:HTRAP07 Writing triggers hypervisor trap \$07
+          -- @IO:GS $D648 CPU:HTRAP08 Writing triggers hypervisor trap \$08
+          -- @IO:GS $D649 CPU:HTRAP09 Writing triggers hypervisor trap \$09
+          -- @IO:GS $D64A CPU:HTRAP0A Writing triggers hypervisor trap \$0A
+          -- @IO:GS $D64B CPU:HTRAP0B Writing triggers hypervisor trap \$0B
+          -- @IO:GS $D64C CPU:HTRAP0C Writing triggers hypervisor trap \$0C
+          -- @IO:GS $D64D CPU:HTRAP0D Writing triggers hypervisor trap \$0D
+          -- @IO:GS $D64E CPU:HTRAP0E Writing triggers hypervisor trap \$0E
+          -- @IO:GS $D64F CPU:HTRAP0F Writing triggers hypervisor trap \$0F
+
+          -- @IO:GS $D650 CPU:HTRAP10 Writing triggers hypervisor trap \$10
+          -- @IO:GS $D651 CPU:HTRAP11 Writing triggers hypervisor trap \$11
+          -- @IO:GS $D652 CPU:HTRAP12 Writing triggers hypervisor trap \$12
+          -- @IO:GS $D653 CPU:HTRAP13 Writing triggers hypervisor trap \$13
+          -- @IO:GS $D654 CPU:HTRAP14 Writing triggers hypervisor trap \$14
+          -- @IO:GS $D655 CPU:HTRAP15 Writing triggers hypervisor trap \$15
+          -- @IO:GS $D656 CPU:HTRAP16 Writing triggers hypervisor trap \$16
+          -- @IO:GS $D657 CPU:HTRAP17 Writing triggers hypervisor trap \$17
+          -- @IO:GS $D658 CPU:HTRAP18 Writing triggers hypervisor trap \$18
+          -- @IO:GS $D659 CPU:HTRAP19 Writing triggers hypervisor trap \$19
+          -- @IO:GS $D65A CPU:HTRAP1A Writing triggers hypervisor trap \$1A
+          -- @IO:GS $D65B CPU:HTRAP1B Writing triggers hypervisor trap \$1B
+          -- @IO:GS $D65C CPU:HTRAP1C Writing triggers hypervisor trap \$1C
+          -- @IO:GS $D65D CPU:HTRAP1D Writing triggers hypervisor trap \$1D
+          -- @IO:GS $D65E CPU:HTRAP1E Writing triggers hypervisor trap \$1E
+          -- @IO:GS $D65F CPU:HTRAP1F Writing triggers hypervisor trap \$1F
+
+          -- @IO:GS $D660 CPU:HTRAP20 Writing triggers hypervisor trap \$20
+          -- @IO:GS $D661 CPU:HTRAP21 Writing triggers hypervisor trap \$21
+          -- @IO:GS $D662 CPU:HTRAP22 Writing triggers hypervisor trap \$22
+          -- @IO:GS $D663 CPU:HTRAP23 Writing triggers hypervisor trap \$23
+          -- @IO:GS $D664 CPU:HTRAP24 Writing triggers hypervisor trap \$24
+          -- @IO:GS $D665 CPU:HTRAP25 Writing triggers hypervisor trap \$25
+          -- @IO:GS $D666 CPU:HTRAP26 Writing triggers hypervisor trap \$26
+          -- @IO:GS $D667 CPU:HTRAP27 Writing triggers hypervisor trap \$27
+          -- @IO:GS $D668 CPU:HTRAP28 Writing triggers hypervisor trap \$28
+          -- @IO:GS $D669 CPU:HTRAP29 Writing triggers hypervisor trap \$29
+          -- @IO:GS $D66A CPU:HTRAP2A Writing triggers hypervisor trap \$2A
+          -- @IO:GS $D66B CPU:HTRAP2B Writing triggers hypervisor trap \$2B
+          -- @IO:GS $D66C CPU:HTRAP2C Writing triggers hypervisor trap \$2C
+          -- @IO:GS $D66D CPU:HTRAP2D Writing triggers hypervisor trap \$2D
+          -- @IO:GS $D66E CPU:HTRAP2E Writing triggers hypervisor trap \$2E
+          -- @IO:GS $D66F CPU:HTRAP2F Writing triggers hypervisor trap \$2F
+
+          -- @IO:GS $D670 CPU:HTRAP30 Writing triggers hypervisor trap \$30
+          -- @IO:GS $D671 CPU:HTRAP31 Writing triggers hypervisor trap \$31
+          -- @IO:GS $D672 CPU:HTRAP32 Writing triggers hypervisor trap \$32
+          -- @IO:GS $D673 CPU:HTRAP33 Writing triggers hypervisor trap \$33
+          -- @IO:GS $D674 CPU:HTRAP34 Writing triggers hypervisor trap \$34
+          -- @IO:GS $D675 CPU:HTRAP35 Writing triggers hypervisor trap \$35
+          -- @IO:GS $D676 CPU:HTRAP36 Writing triggers hypervisor trap \$36
+          -- @IO:GS $D677 CPU:HTRAP37 Writing triggers hypervisor trap \$37
+          -- @IO:GS $D678 CPU:HTRAP38 Writing triggers hypervisor trap \$38
+          -- @IO:GS $D679 CPU:HTRAP39 Writing triggers hypervisor trap \$39
+          -- @IO:GS $D67A CPU:HTRAP3A Writing triggers hypervisor trap \$3A
+          -- @IO:GS $D67B CPU:HTRAP3B Writing triggers hypervisor trap \$3B
+          -- @IO:GS $D67C CPU:HTRAP3C Writing triggers hypervisor trap \$3C
+          -- @IO:GS $D67D CPU:HTRAP3D Writing triggers hypervisor trap \$3D
+          -- @IO:GS $D67E CPU:HTRAP3E Writing triggers hypervisor trap \$3E
+          -- @IO:GS $D67F CPU:HTRAP3F Writing triggers hypervisor trap \$3F
+          
+          -- @IO:GS $D67F HCPU:ENTEREXIT Writing trigger return from hypervisor
           if memory_access_address(27 downto 6)&"111111" = x"FFD367F" then
             hypervisor_trap_port(5 downto 0) <= memory_access_address(5 downto 0);
             hypervisor_trap_port(6) <= '0';
