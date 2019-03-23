@@ -1899,7 +1899,7 @@ begin
         elsif register_number=120 then  -- $D3078 Sprite V400 Y position super MSBs
 	  fastio_rdata <= sprite_v400_super_msbs;
         elsif register_number=121 then  -- $D3079 Read raster compare LSB
-          fastio_rdata(2 downto 0) <= std_logic_vector(vicii_raster_compare(7 downto 0));
+          fastio_rdata <= std_logic_vector(vicii_raster_compare(7 downto 0));
         elsif register_number=122 then  -- $D307A Read raster compare MSB / raster compare source
           fastio_rdata(2 downto 0) <= std_logic_vector(vicii_raster_compare(10 downto 8));
           fastio_rdata(6 downto 3) <= (others => '0');
