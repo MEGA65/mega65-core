@@ -2152,6 +2152,7 @@ begin
           vicii_sprite_enables <= fastio_wdata;
         elsif register_number=22 then
           -- @IO:C64 $D016 VIC-II control register
+          -- @IO:C64 $D016.5 VIC-II:RST Disables video output on MAX Machine(tm) VIC-II 6566.  Ignored on normal C64s and the MEGA65
           -- @IO:C64 $D016.4 VIC-II:MCM Multi-colour mode
           multicolour_mode <= fastio_wdata(4);
           -- @IO:C64 $D016.3 VIC-II:CSEL 38/40 column select
