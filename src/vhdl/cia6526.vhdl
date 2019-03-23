@@ -183,95 +183,95 @@ begin  -- behavioural
           fastio_rdata <= (others => 'Z');
         else
           case register_number is
-            -- @IO:C64 $DC00 CIA1 Port A 
-            -- @IO:C64 $DC01 CIA1 Port B
-            -- @IO:C64 $DC02 CIA1 Port A DDR
-            -- @IO:C64 $DC03 CIA1 Port B DDR
-            -- @IO:C64 $DD00 CIA2 Port A 
-            -- @IO:C64 $DD01 CIA2 Port B
-            -- @IO:C64 $DD02 CIA2 Port A DDR
-            -- @IO:C64 $DD03 CIA2 Port B DDR
+            -- @IO:C64 $DC00 CIA1:PORTA Port A 
+            -- @IO:C64 $DC01 CIA1:PORTB Port B
+            -- @IO:C64 $DC02 CIA1:DDRA Port A DDR
+            -- @IO:C64 $DC03 CIA1:DDRB Port B DDR
+            -- @IO:C64 $DD00 CIA2:PORTA Port A 
+            -- @IO:C64 $DD01 CIA2:PORTB Port B
+            -- @IO:C64 $DD02 CIA2:DDRA Port A DDR
+            -- @IO:C64 $DD03 CIA2:DDRB Port B DDR
             when x"00" => fastio_rdata <= unsigned(reg_porta_read); -- reg_porta_read;
             when x"01" => fastio_rdata <= unsigned(reg_portb_read); -- reg_portb_read;
             when x"02" => fastio_rdata <= unsigned(reg_porta_ddr);
             when x"03" => fastio_rdata <= unsigned(reg_portb_ddr);
                           
-            -- @IO:C64 $DC04 CIA1 Timer A counter (LSB)
-            -- @IO:C64 $DC05 CIA1 Timer A counter (MSB)
-            -- @IO:C64 $DC06 CIA1 Timer B counter (LSB)
-            -- @IO:C64 $DC07 CIA1 Timer B counter (MSB)
-            -- @IO:C64 $DD04 CIA2 Timer A counter (LSB)
-            -- @IO:C64 $DD05 CIA2 Timer A counter (MSB)
-            -- @IO:C64 $DD06 CIA2 Timer B counter (LSB)
-            -- @IO:C64 $DD07 CIA2 Timer B counter (MSB)
+            -- @IO:C64 $DC04 CIA1:TIMERA Timer A counter (16 bit)
+            -- @IO:C64 $DC05 CIA1:TIMERA Timer A counter (16 bit)
+            -- @IO:C64 $DC06 CIA1:TIMERB Timer B counter (16 bit)
+            -- @IO:C64 $DC07 CIA1:TIMERB Timer B counter (16 bit)
+            -- @IO:C64 $DD04 CIA2:TIMERA Timer A counter (16 bit)
+            -- @IO:C64 $DD05 CIA2:TIMERA Timer A counter (16 bit)
+            -- @IO:C64 $DD06 CIA2:TIMERB Timer B counter (16 bit)
+            -- @IO:C64 $DD07 CIA2:TIMERB Timer B counter (16 bit)
             when x"04" => fastio_rdata <= reg_timera(7 downto 0);
             when x"05" => fastio_rdata <= reg_timera(15 downto 8);
             when x"06" => fastio_rdata <= reg_timerb(7 downto 0);
             when x"07" => fastio_rdata <= reg_timerb(15 downto 8);
             when x"08" =>
-              -- @IO:C64 $DC08.0-3 CIA1 TOD tenths of seconds
-              -- @IO:C64 $DD08.0-3 CIA2 TOD tenths of seconds
+              -- @IO:C64 $DC08.0-3 CIA1:TODJIF TOD tenths of seconds
+              -- @IO:C64 $DD08.0-3 CIA2:TODJIF TOD tenths of seconds
               if read_tod_latched='1' then
                 fastio_rdata <= read_tod_dsecs;
               else
                 fastio_rdata <= reg_tod_dsecs;
               end if;
             when x"09" =>   
-              -- @IO:C64 $DC09.0-5 CIA1 TOD seconds
-              -- @IO:C64 $DD09.0-5 CIA2 TOD seconds
+              -- @IO:C64 $DC09.0-5 CIA1:TODSEC TOD seconds
+              -- @IO:C64 $DD09.0-5 CIA2:TODSEC TOD seconds
               if read_tod_latched='1' then
                 fastio_rdata <= read_tod_secs;
               else
                 fastio_rdata <= reg_tod_secs;
               end if;
             when x"0a" =>   
-              -- @IO:C64 $DC0A.0-5 CIA1 TOD minutes
-              -- @IO:C64 $DD0A.0-5 CIA2 TOD minutes
+              -- @IO:C64 $DC0A.0-5 CIA1:TODSEC TOD minutes
+              -- @IO:C64 $DD0A.0-5 CIA2:TODSEC TOD minutes
               if read_tod_latched='1' then
                 fastio_rdata <= read_tod_mins;
               else
                 fastio_rdata <= reg_tod_mins;
               end if;
             when x"0b" =>
-              -- @IO:C64 $DC0B.7 CIA1 TOD PM flag
-              -- @IO:C64 $DC0B.0-4 CIA1 TOD hours
-              -- @IO:C64 $DD0B.7 CIA2 TOD PM flag
-              -- @IO:C64 $DD0B.0-4 CIA2 TOD hours
+              -- @IO:C64 $DC0B.7 CIA1:TODAMPM TOD PM flag
+              -- @IO:C64 $DC0B.0-4 CIA1:TODHOUR TOD hours
+              -- @IO:C64 $DD0B.7 CIA2:TODAMPM TOD PM flag
+              -- @IO:C64 $DD0B.0-4 CIA2:TODHOUR TOD hours
               fastio_rdata <= reg_tod_ampm & reg_tod_hours;
             when x"0c" =>
-              -- @IO:C64 $DC0C CIA1 shift register data register(writing starts sending)
-              -- @IO:C64 $DD0C CIA2 shift register data register(writing starts sending)
+              -- @IO:C64 $DC0C CIA1:SDR shift register data register(writing starts sending)
+              -- @IO:C64 $DD0C CIA2:SDR shift register data register(writing starts sending)
               fastio_rdata <= unsigned(reg_read_sdr);
             when x"0d" =>
-              -- @IO:C64 $DC0D.0 CIA1 Timer A underflow
-              -- @IO:C64 $DC0D.1 CIA1 Timer B underflow
-              -- @IO:C64 $DC0D.2 CIA1 TOD alarm
-              -- @IO:C64 $DC0D.3 CIA1 shift register full/empty
-              -- @IO:C64 $DC0D.4 CIA1 FLAG edge detected
-              -- @IO:C64 $DC0D.7 CIA1 Interrupt flag
-              -- @IO:C64 $DD0D.0 CIA2 Timer A underflow
-              -- @IO:C64 $DD0D.1 CIA2 Timer B underflow
-              -- @IO:C64 $DD0D.2 CIA2 TOD alarm
-              -- @IO:C64 $DD0D.3 CIA2 shift register full/empty
-              -- @IO:C64 $DD0D.4 CIA2 FLAG edge detected
+              -- @IO:C64 $DC0D.0 CIA1:TA Timer A underflow
+              -- @IO:C64 $DC0D.1 CIA1:TB Timer B underflow
+              -- @IO:C64 $DC0D.2 CIA1:ALRM TOD alarm
+              -- @IO:C64 $DC0D.3 CIA1:SP shift register full/empty
+              -- @IO:C64 $DC0D.4 CIA1:FLG FLAG edge detected
+              -- @IO:C64 $DC0D.7 CIA1:IR Interrupt flag
+              -- @IO:C64 $DD0D.0 CIA2:TA Timer A underflow
+              -- @IO:C64 $DD0D.1 CIA2:TB Timer B underflow
+              -- @IO:C64 $DD0D.2 CIA2:ALRM TOD alarm
+              -- @IO:C64 $DD0D.3 CIA2:SP shift register full/empty
+              -- @IO:C64 $DD0D.4 CIA2:FLG FLAG edge detected
               -- @IO:C64 $DC0D CIA1 ISR : Reading clears events
               -- @IO:C64 $DD0D CIA2 ISR : Reading clears events
               fastio_rdata <= reg_isr;
             when x"0e" =>
-              -- @IO:C64 $DC0E.0 CIA1 Timer A start
-              -- @IO:C64 $DC0E.1 CIA1 Timer A PB6 out
-              -- @IO:C64 $DC0E.2 CIA1 Timer A toggle or pulse
-              -- @IO:C64 $DC0E.3 CIA1 Timer A one-shot mode
-              -- @IO:C64 $DC0E.5 CIA1 Timer A Timer A tick source
-              -- @IO:C64 $DC0E.6 CIA1 Serial port direction
-              -- @IO:C64 $DC0E.7 CIA1 50/60Hz select for TOD clock
-              -- @IO:C64 $DD0E.0 CIA2 Timer A start
-              -- @IO:C64 $DD0E.1 CIA2 Timer A PB6 out
-              -- @IO:C64 $DD0E.2 CIA2 Timer A toggle or pulse
-              -- @IO:C64 $DD0E.3 CIA2 Timer A one-shot mode
-              -- @IO:C64 $DD0E.5 CIA2 Timer A Timer A tick source
-              -- @IO:C64 $DD0E.6 CIA2 Serial port direction
-              -- @IO:C64 $DD0E.7 CIA2 50/60Hz select for TOD clock
+              -- @IO:C64 $DC0E.0 CIA1:STARTA Timer A start
+              -- @IO:C64 $DC0E.1 CIA1:PBONA Timer A PB6 out
+              -- @IO:C64 $DC0E.2 CIA1:OUTMODEA Timer A toggle or pulse
+              -- @IO:C64 $DC0E.3 CIA1:RUNMODEA Timer A one-shot mode
+              -- @IO:C64 $DC0E.5 CIA1:INMODEA Timer A Timer A tick source
+              -- @IO:C64 $DC0E.6 CIA1:SPMODE Serial port direction
+              -- @IO:C64 $DC0E.7 CIA1:TOD50 50/60Hz select for TOD clock
+              -- @IO:C64 $DD0E.0 CIA2:STARTA Timer A start
+              -- @IO:C64 $DD0E.1 CIA2:PBONA Timer A PB6 out
+              -- @IO:C64 $DD0E.2 CIA2:OUTMODEA Timer A toggle or pulse
+              -- @IO:C64 $DD0E.3 CIA2:RUNMODEA Timer A one-shot mode
+              -- @IO:C64 $DD0E.5 CIA2:INMODEA Timer A Timer A tick source
+              -- @IO:C64 $DD0E.6 CIA2:SPMODE Serial port direction
+              -- @IO:C64 $DD0E.7 CIA2:TOD50 50/60Hz select for TOD clock
               fastio_rdata <= reg_60hz
                               & reg_serialport_direction
                               & reg_timera_tick_source
@@ -282,20 +282,20 @@ begin  -- behavioural
                               & reg_timera_start;
               
             when x"0f" =>
-              -- @IO:C64 $DC0F.0 CIA1 Timer B start
-              -- @IO:C64 $DC0F.1 CIA1 Timer B PB7 out
-              -- @IO:C64 $DC0F.2 CIA1 Timer B toggle or pulse
-              -- @IO:C64 $DC0F.3 CIA1 Timer B one-shot mode
-              -- @IO:C64 $DC0F.4 CIA1 Strobe
-              -- @IO:C64 $DC0F.5-6 CIA1 Timer B Timer A tick source
-              -- @IO:C64 $DC0F.7 CIA2 TOD alarm edit
-              -- @IO:C64 $DD0F.0 CIA2 Timer B start
-              -- @IO:C64 $DD0F.1 CIA2 Timer B PB7 out
-              -- @IO:C64 $DD0F.2 CIA2 Timer B toggle or pulse
-              -- @IO:C64 $DD0F.3 CIA2 Timer B one-shot mode
-              -- @IO:C64 $DD0F.4 CIA2 Strobe
-              -- @IO:C64 $DD0F.5-6 CIA2 Timer B Timer A tick source
-              -- @IO:C64 $DD0F.7 CIA2 TOD alarm edit
+              -- @IO:C64 $DC0F.0 CIA1:STARTB Timer B start
+              -- @IO:C64 $DC0F.1 CIA1:PBONB Timer B PB7 out
+              -- @IO:C64 $DC0F.2 CIA1:OUTMODEB Timer B toggle or pulse
+              -- @IO:C64 $DC0F.3 CIA1:RUNMODEB Timer B one-shot mode
+              -- @IO:C64 $DC0F.4 CIA1:LOAD Strobe input to force-load timers
+              -- @IO:C64 $DC0F.5-6 CIA1:INMODEB Timer B Timer A tick source
+              -- @IO:C64 $DC0F.7 CIA2:TODEDIT TOD alarm edit
+              -- @IO:C64 $DD0F.0 CIA2:STARTB Timer B start
+              -- @IO:C64 $DD0F.1 CIA2:PBONB Timer B PB7 out
+              -- @IO:C64 $DD0F.2 CIA2:OUTMODEB Timer B toggle or pulse
+              -- @IO:C64 $DD0F.3 CIA2:RUNMODEB Timer B one-shot mode
+              -- @IO:C64 $DD0F.4 CIA2:LOAD Strobe input to force-load timers
+              -- @IO:C64 $DD0F.5-6 CIA2:INMODEB Timer B Timer A tick source
+              -- @IO:C64 $DD0F.7 CIA2:TODEDIT TOD alarm edit
               fastio_rdata <= unsigned(reg_tod_alarm_edit
                                        & reg_timerb_tick_source
                                        & '0'  -- strobe always reads as 0
@@ -304,12 +304,9 @@ begin  -- behavioural
                                        & reg_timerb_pb7_out
                                        & reg_timerb_start);
 
-              -- To make freezing easier, CIAs decode 32 registers when in
-              -- freezing mode.  This allows us to directly read and set some internal
-              -- state, that would otherwise be a real pain to handle.
             when x"10" => fastio_rdata <= reg_timera_latch(7 downto 0);
             when x"11" => fastio_rdata <= reg_timera_latch(15 downto 8);
-            when x"12" => fastio_rdata <= reg_timerb_latch(7 downto 0);
+
             when x"13" => fastio_rdata <= reg_timerb_latch(15 downto 8);
             when x"14" => fastio_rdata <= reg_timera(7 downto 0);
             when x"15" => fastio_rdata <= reg_timera(15 downto 8);
@@ -753,25 +750,59 @@ begin  -- behavioural
             reg_timerb_start <= std_logic(fastio_wdata(0));
             report "setting reg_timerb_start to " & std_logic'image(fastio_wdata(0));
 
-              -- To make freezing easier, CIAs decode 32 registers when in
-              -- freezing mode.  This allows us to directly read and set some internal
+            -- To make freezing easier, CIAs decode 32 registers when in
+            -- freezing mode.  This allows us to directly read and set some internal
             -- state, that would otherwise be a real pain to handle.
-            -- @IO:C64 - $DC10 HYPERVISOR MODE ONLY CIA1 internal state access: reg_timera_latch LSB 
-            -- @IO:C64 - $DC11 HYPERVISOR MODE ONLY CIA1 internal state access: reg_timera_latch MSB 
-            -- @IO:C64 - $DC12 HYPERVISOR MODE ONLY CIA1 internal state access: reg_timerb_latch LSB 
-            -- @IO:C64 - $DC13 HYPERVISOR MODE ONLY CIA1 internal state access: reg_timerb_latch MSB 
-            -- @IO:C64 - $DC14 HYPERVISOR MODE ONLY CIA1 internal state access: reg_timera current value LSB 
-            -- @IO:C64 - $DC15 HYPERVISOR MODE ONLY CIA1 internal state access: reg_timera current value MSB 
-            -- @IO:C64 - $DC16 HYPERVISOR MODE ONLY CIA1 internal state access: reg_timerb current value LSB 
-            -- @IO:C64 - $DC17 HYPERVISOR MODE ONLY CIA1 internal state access: reg_timerb current value MSB 
-            -- @IO:C64 - $DD10 HYPERVISOR MODE ONLY CIA2 internal state access: reg_timera_latch LSB 
-            -- @IO:C64 - $DD11 HYPERVISOR MODE ONLY CIA2 internal state access: reg_timera_latch MSB 
-            -- @IO:C64 - $DD12 HYPERVISOR MODE ONLY CIA2 internal state access: reg_timerb_latch LSB 
-            -- @IO:C64 - $DD13 HYPERVISOR MODE ONLY CIA2 internal state access: reg_timerb_latch MSB 
-            -- @IO:C64 - $DD14 HYPERVISOR MODE ONLY CIA2 internal state access: reg_timera current value LSB 
-            -- @IO:C64 - $DD15 HYPERVISOR MODE ONLY CIA2 internal state access: reg_timera current value MSB 
-            -- @IO:C64 - $DD16 HYPERVISOR MODE ONLY CIA2 internal state access: reg_timerb current value LSB 
-            -- @IO:C64 - $DD17 HYPERVISOR MODE ONLY CIA2 internal state access: reg_timerb current value MSB 
+
+            -- To make freezing easier, CIAs decode 32 registers when in
+            -- freezing mode.  This allows us to directly read and set some internal
+            -- state, that would otherwise be a real pain to handle.
+            -- @IO:GS $DC10 CIA1:TALATCH Timer A latch value (16 bit)
+            -- @IO:GS $DC11 CIA1:TALATCH Timer A latch value (16 bit)
+            -- @IO:GS $DC12 CIA1:TALATCH Timer B latch value (16 bit)
+            -- @IO:GS $DC13 CIA1:TALATCH Timer B latch value (16 bit)
+            -- @IO:GS $DC14 CIA1:TALATCH Timer A current value (16 bit)
+            -- @IO:GS $DC15 CIA1:TALATCH Timer A current value (16 bit)
+            -- @IO:GS $DC16 CIA1:TALATCH Timer B current value (16 bit)
+            -- @IO:GS $DC17 CIA1:TALATCH Timer B current value (16 bit)
+            -- @IO:GS $DC18.0-3 CIA1:TODJIF TOD 10ths of seconds value
+            -- @IO:GS $DC18.4 CIA1:IMTB Interrupt mask for Timer B
+            -- @IO:GS $DC18.5 CIA1:IMALRM Interrupt mask for TOD alarm
+            -- @IO:GS $DC18.6 CIA1:IMSP Interrupt mask for shift register (serial port)
+            -- @IO:GS $DC18.7 CIA1:IMFLG Interrupt mask for FLAG line
+            -- @IO:GS $DC19 CIA1:TODSEC TOD Alarm seconds value
+            -- @IO:GS $DC1A CIA1:TODMIN TOD Alarm minutes value
+            -- @IO:GS $DC1B.0-6 CIA1:TODHOUR TOD hours value
+            -- @IO:GS $DC1B.7 CIA1:TODAMPM TOD AM/PM flag
+            -- @IO:GS $DC1C CIA1:ALRMJIF TOD Alarm 10ths of seconds value
+            -- @IO:GS $DC1D CIA1:ALRMSEC TOD Alarm seconds value
+            -- @IO:GS $DC1E CIA1:ALRMMIN TOD Alarm minutes value
+            -- @IO:GS $DC1F.0-6 CIA1:ALRMHOUR TOD Alarm hours value
+            -- @IO:GS $DC1F.7 CIA1:ALRMAMPM TOD Alarm AM/PM flag
+
+            -- @IO:GS $DD10 CIA2:TALATCH Timer A latch value (16 bit)
+            -- @IO:GS $DD11 CIA2:TALATCH Timer A latch value (16 bit)
+            -- @IO:GS $DD12 CIA2:TALATCH Timer B latch value (16 bit)
+            -- @IO:GS $DD13 CIA2:TALATCH Timer B latch value (16 bit)
+            -- @IO:GS $DD14 CIA2:TALATCH Timer A current value (16 bit)
+            -- @IO:GS $DD15 CIA2:TALATCH Timer A current value (16 bit)
+            -- @IO:GS $DD16 CIA2:TALATCH Timer B current value (16 bit)
+            -- @IO:GS $DD17 CIA2:TALATCH Timer B current value (16 bit)
+            -- @IO:GS $DD18.0-3 CIA2:TODJIF TOD 10ths of seconds value
+            -- @IO:GS $DD18.4 CIA2:IMTB Interrupt mask for Timer B
+            -- @IO:GS $DD18.5 CIA2:IMALRM Interrupt mask for TOD alarm
+            -- @IO:GS $DD18.6 CIA2:IMSP Interrupt mask for shift register (serial port)
+            -- @IO:GS $DD18.7 CIA2:IMFLG Interrupt mask for FLAG line
+            -- @IO:GS $DD19 CIA2:TODSEC TOD Alarm seconds value
+            -- @IO:GS $DD1A CIA2:TODMIN TOD Alarm minutes value
+            -- @IO:GS $DD1B.0-6 CIA2:TODHOUR TOD hours value
+            -- @IO:GS $DD1B.7 CIA2:TODAMPM TOD AM/PM flag
+            -- @IO:GS $DD1C CIA2:ALRMJIF TOD Alarm 10ths of seconds value
+            -- @IO:GS $DD1D CIA2:ALRMSEC TOD Alarm seconds value
+            -- @IO:GS $DD1E CIA2:ALRMMIN TOD Alarm minutes value
+            -- @IO:GS $DD1F.0-6 CIA2:ALRMHOUR TOD Alarm hours value
+            -- @IO:GS $DD1F.7 CIA2:ALRMAMPM TOD Alarm AM/PM flag
+            
           when x"10" => reg_timera_latch(7 downto 0) <= fastio_wdata;
           when x"11" => reg_timera_latch(15 downto 8) <= fastio_wdata;
           when x"12" => reg_timerb_latch(7 downto 0) <= fastio_wdata;
@@ -780,22 +811,6 @@ begin  -- behavioural
           when x"15" => reg_timera(15 downto 8) <= fastio_wdata;
           when x"16" => reg_timerb(7 downto 0) <= fastio_wdata;
           when x"17" => reg_timerb(15 downto 8) <= fastio_wdata;
-            -- @IO:C64 - $DC18 HYPERVISOR MODE ONLY CIA1 internal state access: reg_tod_dsecs, imask_flag,serialport,alarm,tb
-            -- @IO:C64 - $DC19 HYPERVISOR MODE ONLY CIA1 internal state access: reg_tod_secs, imask_ta
-            -- @IO:C64 - $DC1A HYPERVISOR MODE ONLY CIA1 internal state access: reg_tod_mins
-            -- @IO:C64 - $DC1B HYPERVISOR MODE ONLY CIA1 internal state access: reg_tod_hours
-            -- @IO:C64 - $DC1C HYPERVISOR MODE ONLY CIA1 internal state access: reg_alarm_dsecs
-            -- @IO:C64 - $DC1D HYPERVISOR MODE ONLY CIA1 internal state access: reg_alarm_secs
-            -- @IO:C64 - $DC1E HYPERVISOR MODE ONLY CIA1 internal state access: reg_alarm_mins
-            -- @IO:C64 - $DC1F HYPERVISOR MODE ONLY CIA1 internal state access: reg_alarm_hours
-            -- @IO:C64 - $DD18 HYPERVISOR MODE ONLY CIA2 internal state access: reg_tod_dsecs
-            -- @IO:C64 - $DD19 HYPERVISOR MODE ONLY CIA2 internal state access: reg_tod_secs
-            -- @IO:C64 - $DD1A HYPERVISOR MODE ONLY CIA2 internal state access: reg_tod_mins
-            -- @IO:C64 - $DD1B HYPERVISOR MODE ONLY CIA2 internal state access: reg_tod_hours
-            -- @IO:C64 - $DD1C HYPERVISOR MODE ONLY CIA2 internal state access: reg_alarm_dsecs
-            -- @IO:C64 - $DD1D HYPERVISOR MODE ONLY CIA2 internal state access: reg_alarm_secs
-            -- @IO:C64 - $DD1E HYPERVISOR MODE ONLY CIA2 internal state access: reg_alarm_mins
-            -- @IO:C64 - $DD1F HYPERVISOR MODE ONLY CIA2 internal state access: reg_alarm_hours
           when x"18" => reg_tod_dsecs(3 downto 0) <= fastio_wdata(3 downto 0);
                         imask_flag <= fastio_wdata(7);
                         imask_serialport <= fastio_wdata(6);
