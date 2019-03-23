@@ -2431,306 +2431,304 @@ begin
           -- @IO:GS $D04B.7-4 VIC-IV:SPRBPMEN Sprite bitplane-modify-mode enables
           sprite_bitplane_enables(7 downto 4) <= fastio_wdata(7 downto 4);
         elsif register_number=76 then
-                                        -- @IO:GS $D04C VIC-IV:TEXTXPOS character generator horizontal position
-                                                    x_chargen_start(7 downto 0) <= unsigned(fastio_wdata);
-                                                  elsif register_number=77 then
-                                        -- @IO:GS $D04D.3-0 VIC-IV:TEXTXPOS character generator horizontal position
-                                                    x_chargen_start(11 downto 8) <= unsigned(fastio_wdata(3 downto 0));
-                                        -- @IO:GS $D04D.7-4 VIC-IV:SPRTILEN Sprite horizontal tile enables.
-                                                    sprite_horizontal_tile_enables(3 downto 0) <= fastio_wdata(7 downto 4);
-                                                  elsif register_number=78 then
-                                        -- @IO:GS $D04E VIC-IV:TEXTYPOS Character generator vertical position
-                                                    y_chargen_start(7 downto 0) <= unsigned(fastio_wdata);
-                                                  elsif register_number=79 then
-                                        -- @IO:GS $D04F.3-0 VIC-IV:TEXTYPOS Character generator vertical position
-                                                    y_chargen_start(11 downto 8) <= unsigned(fastio_wdata(3 downto 0));
-                                        -- @IO:GS $D04F.7-4 VIC-IV:SPRTILEN Sprite 7-4 horizontal tile enables
-                                                    sprite_horizontal_tile_enables(7 downto 4) <= fastio_wdata(7 downto 4);
-                                                  elsif register_number=80 then
-                                        -- @IO:GS $D050.0-5 VIC-IV:XPOS Read horizontal raster scan position
-                                                    null;
-                                                  elsif register_number=81 then
-                                        -- @IO:GS $D051 VIC-IV:XPOS Read horizontal raster scan position
-                                                    null;
-                                                  elsif register_number=82 then
-                                        -- @IO:GS $D052 VIC-IV:FNRASTER Read physical raster position
-                                        -- Allow setting of fine raster for IRQ (low bits)
-                                                    -- vicii_raster_compare(7 downto 0) <= unsigned(fastio_wdata);
---                                                    vicii_is_raster_source <= '0';
-                                                  elsif register_number=83 then
-                                        -- @IO:GS $D053.0-2 VIC-IV:FNRASTER Read physical raster position
-                                        -- Allow setting of fine raster for IRQ (high bits)
-                                                    -- vicii_raster_compare(10 downto 8) <= unsigned(fastio_wdata(2 downto 0));
-                                                    -- @IO:GS $D053.7 VIC-IV:RSTCMPFN Raster compare source (1=VIC-IV fine raster, 0=VIC-II raster)
-                                                  elsif register_number=84 then
-                                        -- @IO:GS $D054 SUMMARY:VIC-IV Control register C
-                                        -- @IO:GS $D054.7 VIC-IV:ALPHAEN Alpha compositor enable
-                                                    compositer_enable <= fastio_wdata(7);
-                                        -- @IO:GS $D054.6 VIC-IV:VFAST C65GS FAST mode (48MHz)
-                                                    viciv_fast_internal <= fastio_wdata(6);
-                                        -- @IO:GS $D054.5 VIC-IV:PALEMU video output pal simulation
-                                                    pal_simulate <= fastio_wdata(5);
-                                        -- @IO:GS $D054.4 VIC-IV:SPR640EN Sprite H640 enable;
-                                                    sprite_h640 <= fastio_wdata(4);
-                                        -- @IO:GS $D054.3 VIC-IV:SMTHEN video output horizontal smoothing enable
-                                                    horizontal_filter <= fastio_wdata(3);
-                                        -- @IO:GS $D054.2 VIC-IV:FCCHRHI enable full-colour mode for character numbers >$FF
-                                                    fullcolour_extendedchars <= fastio_wdata(2);
-                                        -- @IO:GS $D054.1 VIC-IV:FCCHRLO enable full-colour mode for character numbers <=$FF
-                                                    fullcolour_8bitchars <= fastio_wdata(1);
-                                        -- @IO:GS $D054.0 VIC-IV:CHR16EN enable 16-bit character numbers (two screen bytes per character)
-                                                    sixteenbit_charset <= fastio_wdata(0);
-                                                  elsif register_number=85 then
-                                        -- @IO:GS $D055 VIC-IV:SPRHGTEN sprite extended height enable (one bit per sprite)
-                                                    sprite_extended_height_enables <= fastio_wdata;
-                                                  elsif register_number=86 then
-                                        -- @IO:GS $D056 VIC-IV:SPRHGHT Sprite extended height size (sprite pixels high)
-                                                    sprite_extended_height_size <= unsigned(fastio_wdata);
-                                                  elsif register_number=87 then
-                                        -- @IO:GS $D057 VIC-IV:SPRX64EN Sprite extended width enables (8 bytes per sprite row = 64 pixels wide for normal sprites or 16 pixels wide for 16-colour sprite mode)
-                                                    sprite_extended_width_enables <= fastio_wdata;
-                                                  elsif register_number=88 then
-                                        -- @IO:GS $D058 VIC-IV:CHARSTEP characters per logical text row (LSB)
-                                                    virtual_row_width(7 downto 0) <= unsigned(fastio_wdata);
-                                                  elsif register_number=89 then
-                                        -- @IO:GS $D059 VIC-IV:CHARSTEP characters per logical text row (MSB)
-                                                    virtual_row_width(15 downto 8) <= unsigned(fastio_wdata);
-                                                  elsif register_number=90 then
-                                        -- @IO:GS $D05A VIC-IV:CHRXSCL Horizontal hardware scale of text mode (pixel 120ths per pixel)
-                                                    chargen_x_scale <= unsigned(fastio_wdata);
-                                                  elsif register_number=91 then
-                                        -- @IO:GS $D05B VIC-IV:CHRYSCL Vertical scaling of text mode (number of physical rasters per char text row)
-                                                    chargen_y_scale <= unsigned(fastio_wdata);
-                                                  elsif register_number=92 then
-                                        -- @IO:GS $D05C VIC-IV:SIDBDRWD Width of single side border
-                                                    single_side_border(7 downto 0) <= unsigned(fastio_wdata);
-                                                    viciv_single_side_border_width_touched <= '1';
-                                                  elsif register_number=93 then
-                                        -- @IO:GS $D05D.0-5 VIC-IV:SIDBDRWD side border width (MSB)
-                                                    single_side_border(13 downto 8) <= unsigned(fastio_wdata(5 downto 0));
-                                                    viciv_single_side_border_width_touched <= '1';
-                                        -- @IO:GS $D05D.6 VIC-IV:RSTDELEN Enable raster delay (delays raster counter and interrupts by one line to match output pipeline latency)
-                                                    enable_raster_delay <= fastio_wdata(6);
-                                        -- @IO:GS $D05D.7 VIC-IV:HOTREGEN Enable VIC-II hot registers
-                                                    vicii_hot_regs_enable <= fastio_wdata(7);
-                                                  elsif register_number=94 then
-                                        -- @IO:GS $D05E VIC-IV:CHRCOUNT Number of characters to display per row
-                                                    display_row_width <= unsigned(fastio_wdata);
-                                                  elsif register_number=95 then
-                                        -- @IO:GS $D05F VIC-IV:SPRXSMSBS Sprite H640 X Super-MSBs
-                                                    sprite_h640_msbs <= fastio_wdata;
-                                                  elsif register_number=96 then
-                                        -- @IO:GS $D060 VIC-IV:SCRNPTR screen RAM precise base address (bits 0 - 7)
-                                                    screen_ram_base(7 downto 0) <= unsigned(fastio_wdata);
-                                                  elsif register_number=97 then
-                                        -- @IO:GS $D061 VIC-IV:SCRNPTR screen RAM precise base address (bits 15 - 8)
-                                                    screen_ram_base(15 downto 8) <= unsigned(fastio_wdata);
-                                                  elsif register_number=98 then
-                                        -- @IO:GS $D062 VIC-IV:SCRNPTR screen RAM precise base address (bits 23 - 16)
-                                                    screen_ram_base(23 downto 16) <= unsigned(fastio_wdata);
-                                                  elsif register_number=99 then
-                                        -- @IO:GS $D063 VIC-IV:SCRNPTR screen RAM precise base address (bits 31 - 24)
-                                                    screen_ram_base(27 downto 24) <= unsigned(fastio_wdata(3 downto 0));
-                                                  elsif register_number=100 then
-                                        -- @IO:GS $D064 VIC-IV:COLPTR colour RAM base address (bits 0 - 7)
-                                                    colour_ram_base(7 downto 0) <= unsigned(fastio_wdata);
-                                                  elsif register_number=101 then
-                                        -- @IO:GS $D065 VIC-IV:COLPTR colour RAM base address (bits 15 - 8)
-                                                    colour_ram_base(15 downto 8) <= unsigned(fastio_wdata);
-                                                  elsif register_number=102 then -- $D3066
-                                        -- @IO:GS $D066.0-4 VIC-IV xcounter pipeline delay DEBUG WILL BE REMOVED
-                                        -- @IO:GS $D066.6 VIC-IV render activity display enable DEBUG WILL BE REMOVED
-                                        -- @IO:GS $D066.7 VIC-IV test pattern display enable DEBUG WILL BE REMOVED
-                                                    reg_xcounter_delay <= to_integer(unsigned(fastio_wdata(4 downto 0)));
-                                                    show_render_activity <= fastio_wdata(6);
-                                                    test_pattern_enable <= fastio_wdata(7);
-                                                  elsif register_number=103 then  -- $D3067
-                                         -- @IO:GS $D067 DEBUG:SBPDEBUG Sprite/bitplane first X DEBUG WILL BE REMOVED
-                                                    sprite_first_x(7 downto 0) <= unsigned(fastio_wdata);
-                                                  elsif register_number=104 then
-                                        -- @IO:GS $D068 VIC-IV:CHARPTR Character set precise base address (bits 0 - 7)
-                                                    character_set_address(7 downto 0) <= unsigned(fastio_wdata);
-                                                  elsif register_number=105 then
-                                        -- @IO:GS $D069 VIC-IV:CHRPTR Character set precise base address (bits 15 - 8)
-                                                    character_set_address(15 downto 8) <= unsigned(fastio_wdata);
-                                                  elsif register_number=106 then
-                                        -- @IO:GS $D06A VIC-IV:CHRPTR Character set precise base address (bits 23 - 16)
-                                                    character_set_address(23 downto 16) <= unsigned(fastio_wdata);
-                                                  elsif register_number=107 then
-                                        -- @IO:GS $D06B VIC-IV:SPR16EN sprite 16-colour mode enables
-                                                    sprite_sixteen_colour_enables <= fastio_wdata;
-                                                  elsif register_number=108 then
-                                        -- @IO:GS $D06C VIC-IV:SPRPTRADR sprite pointer address (bits 7 - 0)
-                                                    vicii_sprite_pointer_address(7 downto 0) <= unsigned(fastio_wdata);
-                                                  elsif register_number=109 then
-                                        -- @IO:GS $D06D VIC-IV:SPRPTRADR sprite pointer address (bits 15 - 8)
-                                                    vicii_sprite_pointer_address(15 downto 8) <= unsigned(fastio_wdata);
-                                                  elsif register_number=110 then
-                                        -- @IO:GS $D06E.0-6 VIC-IV:SPRPTRBNK sprite pointer address (bits 22 - 16)
-                                        -- @IO:GS $D06E.7 VIC-IV:SPRPTR16 16-bit sprite pointer mode (allows sprites to be located on any 64 byte boundary in chip RAM)
-                                                    vicii_sprite_pointer_address(23 downto 16) <= unsigned(fastio_wdata);
-                                                  elsif register_number=111 then
-                                        -- @IO:GS $D06F.5-0 VIC-IV:RASLINE0 first VIC-II raster line
-                                                    vicii_first_raster(5 downto 0) <= unsigned(fastio_wdata(5 downto 0));
-                                        -- @IO:GS $D06F.7 VIC-IV:PALNTSC NTSC emulation mode (max raster = 262)
-                                                    vicii_ntsc <= fastio_wdata(7);
-                                                    pal50_select <= not fastio_wdata(7);
-                                                    -- Make sure that matrix
-                                                    -- mode display isn't jiggly
-                                                    if fastio_wdata(7)='1' then
-                                                      reg_xcounter_delay <= 1;
-                                                      reg_alpha_delay <= x"1";
-                                                    else
-                                                      reg_xcounter_delay <= 0;
-                                                      reg_alpha_delay <= x"1";
-                                                    end if;
+          -- @IO:GS $D04C VIC-IV:TEXTXPOS character generator horizontal position
+          x_chargen_start(7 downto 0) <= unsigned(fastio_wdata);
+        elsif register_number=77 then
+          -- @IO:GS $D04D.3-0 VIC-IV:TEXTXPOS character generator horizontal position
+          x_chargen_start(11 downto 8) <= unsigned(fastio_wdata(3 downto 0));
+          -- @IO:GS $D04D.7-4 VIC-IV:SPRTILEN Sprite horizontal tile enables.
+          sprite_horizontal_tile_enables(3 downto 0) <= fastio_wdata(7 downto 4);
+        elsif register_number=78 then
+          -- @IO:GS $D04E VIC-IV:TEXTYPOS Character generator vertical position
+          y_chargen_start(7 downto 0) <= unsigned(fastio_wdata);
+        elsif register_number=79 then
+          -- @IO:GS $D04F.3-0 VIC-IV:TEXTYPOS Character generator vertical position
+          y_chargen_start(11 downto 8) <= unsigned(fastio_wdata(3 downto 0));
+          -- @IO:GS $D04F.7-4 VIC-IV:SPRTILEN Sprite 7-4 horizontal tile enables
+          sprite_horizontal_tile_enables(7 downto 4) <= fastio_wdata(7 downto 4);
+        elsif register_number=80 then
+          -- @IO:GS $D050.0-5 VIC-IV:XPOS Read horizontal raster scan position
+          null;
+        elsif register_number=81 then
+          -- @IO:GS $D051 VIC-IV:XPOS Read horizontal raster scan position
+          null;
+        elsif register_number=82 then
+          -- @IO:GS $D052 VIC-IV:FNRASTER Read physical raster position
+          -- Allow setting of fine raster for IRQ (low bits)
+          -- vicii_raster_compare(7 downto 0) <= unsigned(fastio_wdata);
+--        vicii_is_raster_source <= '0';
+        elsif register_number=83 then
+          -- @IO:GS $D053.0-2 VIC-IV:FNRASTER Read physical raster position
+          -- Allow setting of fine raster for IRQ (high bits)
+          -- vicii_raster_compare(10 downto 8) <= unsigned(fastio_wdata(2 downto 0));
+          -- @IO:GS $D053.7 VIC-IV:RSTCMPFN Raster compare source (1=VIC-IV fine raster, 0=VIC-II raster)
+        elsif register_number=84 then
+          -- @IO:GS $D054 SUMMARY:VIC-IV Control register C
+          -- @IO:GS $D054.7 VIC-IV:ALPHAEN Alpha compositor enable
+          compositer_enable <= fastio_wdata(7);
+          -- @IO:GS $D054.6 VIC-IV:VFAST C65GS FAST mode (48MHz)
+          viciv_fast_internal <= fastio_wdata(6);
+          -- @IO:GS $D054.5 VIC-IV:PALEMU video output pal simulation
+          pal_simulate <= fastio_wdata(5);
+          -- @IO:GS $D054.4 VIC-IV:SPR640EN Sprite H640 enable;
+          sprite_h640 <= fastio_wdata(4);
+          -- @IO:GS $D054.3 VIC-IV:SMTHEN video output horizontal smoothing enable
+          horizontal_filter <= fastio_wdata(3);
+          -- @IO:GS $D054.2 VIC-IV:FCCHRHI enable full-colour mode for character numbers >$FF
+          fullcolour_extendedchars <= fastio_wdata(2);
+          -- @IO:GS $D054.1 VIC-IV:FCCHRLO enable full-colour mode for character numbers <=$FF
+          fullcolour_8bitchars <= fastio_wdata(1);
+          -- @IO:GS $D054.0 VIC-IV:CHR16EN enable 16-bit character numbers (two screen bytes per character)
+          sixteenbit_charset <= fastio_wdata(0);
+        elsif register_number=85 then
+          -- @IO:GS $D055 VIC-IV:SPRHGTEN sprite extended height enable (one bit per sprite)
+          sprite_extended_height_enables <= fastio_wdata;
+        elsif register_number=86 then
+          -- @IO:GS $D056 VIC-IV:SPRHGHT Sprite extended height size (sprite pixels high)
+          sprite_extended_height_size <= unsigned(fastio_wdata);
+        elsif register_number=87 then
+          -- @IO:GS $D057 VIC-IV:SPRX64EN Sprite extended width enables (8 bytes per sprite row = 64 pixels wide for normal sprites or 16 pixels wide for 16-colour sprite mode)
+          sprite_extended_width_enables <= fastio_wdata;
+        elsif register_number=88 then
+          -- @IO:GS $D058 VIC-IV:CHARSTEP characters per logical text row (LSB)
+          virtual_row_width(7 downto 0) <= unsigned(fastio_wdata);
+        elsif register_number=89 then
+          -- @IO:GS $D059 VIC-IV:CHARSTEP characters per logical text row (MSB)
+          virtual_row_width(15 downto 8) <= unsigned(fastio_wdata);
+        elsif register_number=90 then
+          -- @IO:GS $D05A VIC-IV:CHRXSCL Horizontal hardware scale of text mode (pixel 120ths per pixel)
+          chargen_x_scale <= unsigned(fastio_wdata);
+        elsif register_number=91 then
+          -- @IO:GS $D05B VIC-IV:CHRYSCL Vertical scaling of text mode (number of physical rasters per char text row)
+          chargen_y_scale <= unsigned(fastio_wdata);
+        elsif register_number=92 then
+          -- @IO:GS $D05C VIC-IV:SIDBDRWD Width of single side border
+          single_side_border(7 downto 0) <= unsigned(fastio_wdata);
+          viciv_single_side_border_width_touched <= '1';
+        elsif register_number=93 then
+          -- @IO:GS $D05D.0-5 VIC-IV:SIDBDRWD side border width (MSB)
+          single_side_border(13 downto 8) <= unsigned(fastio_wdata(5 downto 0));
+          viciv_single_side_border_width_touched <= '1';
+          -- @IO:GS $D05D.6 VIC-IV:RSTDELEN Enable raster delay (delays raster counter and interrupts by one line to match output pipeline latency)
+          enable_raster_delay <= fastio_wdata(6);
+          -- @IO:GS $D05D.7 VIC-IV:HOTREGEN Enable VIC-II hot registers
+          vicii_hot_regs_enable <= fastio_wdata(7);
+        elsif register_number=94 then
+          -- @IO:GS $D05E VIC-IV:CHRCOUNT Number of characters to display per row
+          display_row_width <= unsigned(fastio_wdata);
+        elsif register_number=95 then
+          -- @IO:GS $D05F VIC-IV:SPRXSMSBS Sprite H640 X Super-MSBs
+          sprite_h640_msbs <= fastio_wdata;
+        elsif register_number=96 then
+          -- @IO:GS $D060 VIC-IV:SCRNPTR screen RAM precise base address (bits 0 - 7)
+          screen_ram_base(7 downto 0) <= unsigned(fastio_wdata);
+        elsif register_number=97 then
+          -- @IO:GS $D061 VIC-IV:SCRNPTR screen RAM precise base address (bits 15 - 8)
+          screen_ram_base(15 downto 8) <= unsigned(fastio_wdata);
+        elsif register_number=98 then
+          -- @IO:GS $D062 VIC-IV:SCRNPTR screen RAM precise base address (bits 23 - 16)
+          screen_ram_base(23 downto 16) <= unsigned(fastio_wdata);
+        elsif register_number=99 then
+          -- @IO:GS $D063 VIC-IV:SCRNPTR screen RAM precise base address (bits 31 - 24)
+          screen_ram_base(27 downto 24) <= unsigned(fastio_wdata(3 downto 0));
+        elsif register_number=100 then
+          -- @IO:GS $D064 VIC-IV:COLPTR colour RAM base address (bits 0 - 7)
+          colour_ram_base(7 downto 0) <= unsigned(fastio_wdata);
+        elsif register_number=101 then
+          -- @IO:GS $D065 VIC-IV:COLPTR colour RAM base address (bits 15 - 8)
+          colour_ram_base(15 downto 8) <= unsigned(fastio_wdata);
+        elsif register_number=102 then -- $D3066
+          -- @IO:GS $D066.0-4 VIC-IV xcounter pipeline delay DEBUG WILL BE REMOVED
+          -- @IO:GS $D066.6 VIC-IV render activity display enable DEBUG WILL BE REMOVED
+          -- @IO:GS $D066.7 VIC-IV test pattern display enable DEBUG WILL BE REMOVED
+          reg_xcounter_delay <= to_integer(unsigned(fastio_wdata(4 downto 0)));
+          show_render_activity <= fastio_wdata(6);
+          test_pattern_enable <= fastio_wdata(7);
+        elsif register_number=103 then  -- $D3067
+          -- @IO:GS $D067 DEBUG:SBPDEBUG Sprite/bitplane first X DEBUG WILL BE REMOVED
+          sprite_first_x(7 downto 0) <= unsigned(fastio_wdata);
+        elsif register_number=104 then
+          -- @IO:GS $D068 VIC-IV:CHARPTR Character set precise base address (bits 0 - 7)
+          character_set_address(7 downto 0) <= unsigned(fastio_wdata);
+        elsif register_number=105 then
+          -- @IO:GS $D069 VIC-IV:CHRPTR Character set precise base address (bits 15 - 8)
+          character_set_address(15 downto 8) <= unsigned(fastio_wdata);
+        elsif register_number=106 then
+          -- @IO:GS $D06A VIC-IV:CHRPTR Character set precise base address (bits 23 - 16)
+          character_set_address(23 downto 16) <= unsigned(fastio_wdata);
+        elsif register_number=107 then
+          -- @IO:GS $D06B VIC-IV:SPR16EN sprite 16-colour mode enables
+          sprite_sixteen_colour_enables <= fastio_wdata;
+        elsif register_number=108 then
+          -- @IO:GS $D06C VIC-IV:SPRPTRADR sprite pointer address (bits 7 - 0)
+          vicii_sprite_pointer_address(7 downto 0) <= unsigned(fastio_wdata);
+        elsif register_number=109 then
+          -- @IO:GS $D06D VIC-IV:SPRPTRADR sprite pointer address (bits 15 - 8)
+          vicii_sprite_pointer_address(15 downto 8) <= unsigned(fastio_wdata);
+        elsif register_number=110 then
+          -- @IO:GS $D06E.0-6 VIC-IV:SPRPTRBNK sprite pointer address (bits 22 - 16)
+          -- @IO:GS $D06E.7 VIC-IV:SPRPTR16 16-bit sprite pointer mode (allows sprites to be located on any 64 byte boundary in chip RAM)
+          vicii_sprite_pointer_address(23 downto 16) <= unsigned(fastio_wdata);
+        elsif register_number=111 then
+          -- @IO:GS $D06F.5-0 VIC-IV:RASLINE0 first VIC-II raster line
+          vicii_first_raster(5 downto 0) <= unsigned(fastio_wdata(5 downto 0));
+          -- @IO:GS $D06F.7 VIC-IV:PALNTSC NTSC emulation mode (max raster = 262)
+          vicii_ntsc <= fastio_wdata(7);
+          pal50_select <= not fastio_wdata(7);
+          -- Make sure that matrix
+          -- mode display isn't jiggly
+          if fastio_wdata(7)='1' then
+            reg_xcounter_delay <= 1;
+            reg_alpha_delay <= x"1";
+          else
+            reg_xcounter_delay <= 0;
+            reg_alpha_delay <= x"1";
+          end if;
+          report "LEGACY register update & PAL/NTSC mode select";
+          
+          -- Recompute screen and border positions
+          -- Actually dont, as this
+          -- messes up freezing and unfreezing
+          -- viciv_legacy_mode_registers_touched <= '1';
 
-                                                    report "LEGACY register update & PAL/NTSC mode select";
+          case fastio_wdata(7 downto 6) is
+            when "00" => -- PAL, 800x600 @ 50Hz
+              vsync_delay <= to_unsigned(0,8);
+              vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
+              vicii_max_raster <= pal_max_raster;
+              -- Set 30MHz pixel clock for PAL
+              -- VSYNC is negative for 50Hz (required for some monitors)
+              hsync_polarity_internal <= '0';
+              vsync_polarity_internal <= '0';
 
-                                        -- Recompute screen and border positions
-                                                    -- Actually dont, as this
-                                                    -- messes up freezing and unfreezing
-                                                    -- viciv_legacy_mode_registers_touched <= '1';
+              sprite_first_x <= to_unsigned(1+80+9-(24-3)*(120/60),14);
 
-                                                    case fastio_wdata(7 downto 6) is
-                                                      when "00" => -- PAL, 800x600 @ 50Hz
-                                                        vsync_delay <= to_unsigned(0,8);
-                                                        vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
-                                                        vicii_max_raster <= pal_max_raster;
-                                        -- Set 30MHz pixel clock for PAL
-                                        -- VSYNC is negative for 50Hz (required for some monitors)
-                                                        hsync_polarity_internal <= '0';
-                                                        vsync_polarity_internal <= '0';
+            when "01" => -- PAL, 800x600 50Hz, NTSC max raster
+              vsync_delay <= to_unsigned(0,8);
+              vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
+              vicii_max_raster <= ntsc_max_raster;
+              -- Set 30MHz pixel clock for PAL
+              hsync_polarity_internal <= '0';
+              vsync_polarity_internal <= '0';
+              
+              sprite_first_x <= to_unsigned(1+80+9-(24-3)*(120/60),14);
+              
+            when "10" => -- NTSC, 800x600 @ 60Hz
+              vsync_delay <= to_unsigned(0,8);
+              vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
+              vicii_max_raster <= ntsc_max_raster;
+              hsync_polarity_internal <= '0';
+              vsync_polarity_internal <= '0';
+              -- Set 40MHz pixel clock for NTSC
 
-                                                        sprite_first_x <= to_unsigned(1+80+9-(24-3)*(120/60),14);
+              sprite_first_x <= to_unsigned(1+80+9-(24-3)*(120/60),14);
 
-                                                      when "01" => -- PAL, 800x600 50Hz, NTSC max raster
-                                                        vsync_delay <= to_unsigned(0,8);
-                                                        vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
-                                                        vicii_max_raster <= ntsc_max_raster;
-                                        -- Set 30MHz pixel clock for PAL
-                                                        hsync_polarity_internal <= '0';
-                                                        vsync_polarity_internal <= '0';
+            when "11" => -- NTSC 800x600 60Hz
+              vsync_delay <= to_unsigned(0,8);
+              vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
+              -- NTSC but with PAL max raster
+              vicii_max_raster <= pal_max_raster;
+              hsync_polarity_internal <= '0';
+              vsync_polarity_internal <= '0';
+              
+              -- Set 40MHz pixel clock for NTSC
+              sprite_first_x <= to_unsigned(1+80+9-(24-3)*(120/60),14);
 
-                                                        sprite_first_x <= to_unsigned(1+80+9-(24-3)*(120/60),14);
+            when others => -- Default to NTSC 800x600 60Hz
+              vsync_delay <= to_unsigned(0,8);
+              vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
+              hsync_polarity_internal <= '0';
+              vsync_polarity_internal <= '0';
 
-                                                      when "10" => -- NTSC, 800x600 @ 60Hz
-                                                        vsync_delay <= to_unsigned(0,8);
-                                                        vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
-                                                        vicii_max_raster <= ntsc_max_raster;
-                                                        hsync_polarity_internal <= '0';
-                                                        vsync_polarity_internal <= '0';
-                                        -- Set 40MHz pixel clock for NTSC
+              -- Set 40MHz pixel clock for NTSC
 
-                                                        sprite_first_x <= to_unsigned(1+80+9-(24-3)*(120/60),14);
-
-                                                      when "11" => -- NTSC 800x600 60Hz
-                                                        vsync_delay <= to_unsigned(0,8);
-                                                        vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
-                                        -- NTSC but with PAL max raster
-                                                        vicii_max_raster <= pal_max_raster;
-                                                        hsync_polarity_internal <= '0';
-                                                        vsync_polarity_internal <= '0';
-
-                                        -- Set 40MHz pixel clock for NTSC
-                                                        sprite_first_x <= to_unsigned(1+80+9-(24-3)*(120/60),14);
-
-                                                      when others => -- Default to NTSC 800x600 60Hz
-                                                        vsync_delay <= to_unsigned(0,8);
-                                                        vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
-                                                        hsync_polarity_internal <= '0';
-                                                        vsync_polarity_internal <= '0';
-
-                                        -- Set 40MHz pixel clock for NTSC
-
-                                                    end case;
-                                                  elsif register_number=112 then
-                                        -- @IO:GS $D070 NONE:VIC-IV palette bank selection
-                                        -- @IO:GS $D070.7-6 VIC-IV:MAPEDPAL palette bank mapped at $D100-$D3FF
-                                                    palette_bank_fastio <= fastio_wdata(7 downto 6);
-                                        -- @IO:GS $D070.5-4 VIC-IV:BTPALSEL bitmap/text palette bank
-                                                    palette_bank_chargen <= fastio_wdata(5 downto 4);
-                                        -- @IO:GS $D070.3-2 VIC-IV:SPRPALSEL sprite palette bank
-                                                    palette_bank_sprites <= fastio_wdata(3 downto 2);
-                                        -- @IO:GS $D070.1-0 VIC-IV:ABTPALSEL VIC-IV bitmap/text palette bank (alternate palette)
-                                                    palette_bank_chargen_alt <= fastio_wdata(1 downto 0);
-                                                  elsif register_number=113 then -- $D3071
-                                                    -- @IO:GS $D071 VIC-IV:BP16ENS VIC-IV 16-colour bitplane enable flags
-                                                    bitplane_sixteen_colour_mode_flags <= fastio_wdata;
-                                                  elsif register_number=114 then -- $D3072
-                                                    -- @IO:GS $D072 VIC-IV:VSYNDEL VIC-IV VSYNC delay
-                                                    vsync_delay <= unsigned(fastio_wdata);
-                                                  elsif register_number=115 then -- $D3073
-                                        -- @IO:GS $D073.0-3 VIC-IV:ALPHADELAY Alpha delay for compositor
-                                                    reg_alpha_Delay <= unsigned(fastio_wdata(3 downto 0));
-                                        -- @IO:GS $D073.4-7 VIC-IV:RASTERHEIGHT physical rasters per VIC-II raster (1 to 16)
-                                                    vicii_ycounter_scale_minus_zero(3 downto 0) <= unsigned(fastio_wdata(7 downto 4));
-                                                  elsif register_number=116 then -- $D3074
-                                                    -- @IO:GS $D074 VIC-IV:SPRENALPHA Sprite alpha-blend enable
-                                                    sprite_alpha_blend_enables <= fastio_wdata;
-                                                  elsif register_number=117 then
-                                        -- @IO:GS $D075 VIC-IV:SPRALPHAVAL Sprite alpha-blend value
-                                                    sprite_alpha_blend_value <= unsigned(fastio_wdata);
-                                                  elsif register_number=118 then
-                                        -- @IO:GS $D076 VIC-IV:SPRENV400 Sprite V400 enables
-                                                    sprite_v400s <= fastio_wdata;
-                                                  elsif register_number=119 then  -- $D3077
-                                                    -- @IO:GS $D077 VIC-IV:SRPYMSBS Sprite V400 Y position MSBs
-                                                    sprite_v400_msbs <= fastio_wdata;
-                                                  elsif register_number=120 then  -- $D3078
-                                                    -- @IO:GS $D078 VIC-IV:SPRYSMSBS Sprite V400 Y position super MSBs
-                                                    sprite_v400_super_msbs <= fastio_wdata;
-                                                  elsif register_number=121 then  -- $D3079
-                                                    -- @IO:GS $D079 VIC-IV:RESERVED
-                                                    -- $D052 already does this!
-                                                    vicii_raster_compare(7 downto 0) <= unsigned(fastio_wdata);
-                                                  elsif register_number=122 then  -- $D307A
-                                                    -- @IO:GS $D07A.0-2 VIC-IV:RSTCMP Raster compare value MSB
-                                                    -- @IO:GS $D07A.3-6 VIC-IV:RESERVED 
-                                                    -- @IO:GS $D07A.7 VIC-IV:FNRSTCMP Raster compare is in physical rasters if set, or VIC-II raster if clear
-                                                    vicii_raster_compare(10 downto 8) <= unsigned(fastio_wdata(2 downto 0));
-                                                    vicii_is_raster_source <= fastio_wdata(7);
-                                                  elsif register_number=123 then
-                                        -- @IO:GS $D07B VIC-IV:RESERVED UNUSED
-                                                    null;
-                                                  elsif register_number=124 then
-                                        -- @IO:GS $D07C.0-3 VIC-IV:RESERVED UNUSED BITS
-                                                    null;
-                                        -- @IO:GS $D07C.4 VIC-IV:HSYNCPOL hsync polarity
-                                                    hsync_polarity_internal <= fastio_wdata(4);
-                                        -- @IO:GS $D07C.5 VIC-IV:VSYNCPOL vsync polarity
-                                                    vsync_polarity_internal <= fastio_wdata(5);
-                                        -- @IO:GS $D07C.6-7 VIC-IV:RESERVED UNUSED BITS
-                                                  elsif register_number=125 then
-                                        -- @IO:GS $D07D DEBUG:DEBUGX VIC-IV debug X position (LSB)
-                                                    debug_x(7 downto 0) <= unsigned(fastio_wdata);
-                                                  elsif register_number=126 then
-                                        -- @IO:GS $D07E DEBUG:DEBUGY VIC-IV debug Y position (LSB)
-                                                    debug_y(7 downto 0) <= unsigned(fastio_wdata);
-                                                  elsif register_number=127 then
-                                        -- @IO:GS $D07F.0-5 DEBUG:DEBUGX VIC-IV debug X position (MSB)
-                                        -- @IO:GS $D07F.7 DEBUG:DEBUGOOF VIC-IV debug out-of-frame signal enable
-                                                    debug_x(13 downto 8) <= unsigned(fastio_wdata(5 downto 0));
-                                        -- @IO:GS $D07F.4-7 DEBUG:DEBUGY VIC-IV debug Y position (MSB)
-                                                    debug_y(11 downto 8) <= unsigned(fastio_wdata(7 downto 4));
-                                                  elsif register_number<255 then
-                                        -- reserved register, FDC and RAM expansion controller
-                                                    null;
-                                                  elsif register_number>=256 and register_number<512 then
-                                        -- @IO:C65 $D100-$D1FF VIC-III:PALRED red palette values (reversed nybl order)
-                                                    palette_fastio_address <= palette_bank_fastio & std_logic_vector(register_number(7 downto 0));
-                                                    palette_we(3) <= '1';
-                                                  elsif register_number>=512 and register_number<768 then
-                                        -- @IO:C65 $D200-$D2FF VIC-III:PALGREEN green palette values (reversed nybl order)
-                                                    palette_fastio_address <= palette_bank_fastio & std_logic_vector(register_number(7 downto 0));
-                                                    palette_we(2) <= '1';
-                                                  elsif register_number>=768 and register_number<1024 then
-                                        -- @IO:C65 $D300-$D3FF VIC-III:PALBLUE blue palette values (reversed nybl order)
-                                                    palette_fastio_address <= palette_bank_fastio & std_logic_vector(register_number(7 downto 0));
-                                                    palette_we(1) <= '1';
-                                                  else
-                                                    null;
-                                                  end if;
+          end case;
+        elsif register_number=112 then
+          -- @IO:GS $D070 NONE:VIC-IV palette bank selection
+          -- @IO:GS $D070.7-6 VIC-IV:MAPEDPAL palette bank mapped at $D100-$D3FF
+          palette_bank_fastio <= fastio_wdata(7 downto 6);
+          -- @IO:GS $D070.5-4 VIC-IV:BTPALSEL bitmap/text palette bank
+          palette_bank_chargen <= fastio_wdata(5 downto 4);
+          -- @IO:GS $D070.3-2 VIC-IV:SPRPALSEL sprite palette bank
+          palette_bank_sprites <= fastio_wdata(3 downto 2);
+          -- @IO:GS $D070.1-0 VIC-IV:ABTPALSEL VIC-IV bitmap/text palette bank (alternate palette)
+          palette_bank_chargen_alt <= fastio_wdata(1 downto 0);
+        elsif register_number=113 then -- $D3071
+          -- @IO:GS $D071 VIC-IV:BP16ENS VIC-IV 16-colour bitplane enable flags
+          bitplane_sixteen_colour_mode_flags <= fastio_wdata;
+        elsif register_number=114 then -- $D3072
+          -- @IO:GS $D072 VIC-IV:VSYNDEL VIC-IV VSYNC delay
+          vsync_delay <= unsigned(fastio_wdata);
+        elsif register_number=115 then -- $D3073
+          -- @IO:GS $D073.0-3 VIC-IV:ALPHADELAY Alpha delay for compositor
+          reg_alpha_Delay <= unsigned(fastio_wdata(3 downto 0));
+          -- @IO:GS $D073.4-7 VIC-IV:RASTERHEIGHT physical rasters per VIC-II raster (1 to 16)
+          vicii_ycounter_scale_minus_zero(3 downto 0) <= unsigned(fastio_wdata(7 downto 4));
+        elsif register_number=116 then -- $D3074
+          -- @IO:GS $D074 VIC-IV:SPRENALPHA Sprite alpha-blend enable
+          sprite_alpha_blend_enables <= fastio_wdata;
+        elsif register_number=117 then
+          -- @IO:GS $D075 VIC-IV:SPRALPHAVAL Sprite alpha-blend value
+          sprite_alpha_blend_value <= unsigned(fastio_wdata);
+        elsif register_number=118 then
+          -- @IO:GS $D076 VIC-IV:SPRENV400 Sprite V400 enables
+          sprite_v400s <= fastio_wdata;
+        elsif register_number=119 then  -- $D3077
+          -- @IO:GS $D077 VIC-IV:SRPYMSBS Sprite V400 Y position MSBs
+          sprite_v400_msbs <= fastio_wdata;
+        elsif register_number=120 then  -- $D3078
+          -- @IO:GS $D078 VIC-IV:SPRYSMSBS Sprite V400 Y position super MSBs
+          sprite_v400_super_msbs <= fastio_wdata;
+        elsif register_number=121 then  -- $D3079
+          -- @IO:GS $D079 VIC-IV:RSTCOMP Raster compare value
+          vicii_raster_compare(7 downto 0) <= unsigned(fastio_wdata);
+        elsif register_number=122 then  -- $D307A
+          -- @IO:GS $D07A.0-2 VIC-IV:RSTCMP Raster compare value MSB
+          -- @IO:GS $D07A.3-6 VIC-IV:RESERVED 
+          -- @IO:GS $D07A.7 VIC-IV:FNRSTCMP Raster compare is in physical rasters if set, or VIC-II raster if clear
+          vicii_raster_compare(10 downto 8) <= unsigned(fastio_wdata(2 downto 0));
+          vicii_is_raster_source <= fastio_wdata(7);
+        elsif register_number=123 then
+          -- @IO:GS $D07B VIC-IV:RESERVED UNUSED
+          null;
+        elsif register_number=124 then
+          -- @IO:GS $D07C.0-3 VIC-IV:RESERVED UNUSED BITS
+          null;
+          -- @IO:GS $D07C.4 VIC-IV:HSYNCPOL hsync polarity
+          hsync_polarity_internal <= fastio_wdata(4);
+          -- @IO:GS $D07C.5 VIC-IV:VSYNCPOL vsync polarity
+          vsync_polarity_internal <= fastio_wdata(5);
+        -- @IO:GS $D07C.6-7 VIC-IV:RESERVED UNUSED BITS
+        elsif register_number=125 then
+          -- @IO:GS $D07D DEBUG:DEBUGX VIC-IV debug X position (LSB)
+          debug_x(7 downto 0) <= unsigned(fastio_wdata);
+        elsif register_number=126 then
+          -- @IO:GS $D07E DEBUG:DEBUGY VIC-IV debug Y position (LSB)
+          debug_y(7 downto 0) <= unsigned(fastio_wdata);
+        elsif register_number=127 then
+          -- @IO:GS $D07F.0-5 DEBUG:DEBUGX VIC-IV debug X position (MSB)
+          -- @IO:GS $D07F.7 DEBUG:DEBUGOOF VIC-IV debug out-of-frame signal enable
+          debug_x(13 downto 8) <= unsigned(fastio_wdata(5 downto 0));
+          -- @IO:GS $D07F.4-7 DEBUG:DEBUGY VIC-IV debug Y position (MSB)
+          debug_y(11 downto 8) <= unsigned(fastio_wdata(7 downto 4));
+        elsif register_number<255 then
+          -- reserved register, FDC and RAM expansion controller
+          null;
+        elsif register_number>=256 and register_number<512 then
+          -- @IO:C65 $D100-$D1FF VIC-III:PALRED red palette values (reversed nybl order)
+          palette_fastio_address <= palette_bank_fastio & std_logic_vector(register_number(7 downto 0));
+          palette_we(3) <= '1';
+        elsif register_number>=512 and register_number<768 then
+          -- @IO:C65 $D200-$D2FF VIC-III:PALGREEN green palette values (reversed nybl order)
+          palette_fastio_address <= palette_bank_fastio & std_logic_vector(register_number(7 downto 0));
+          palette_we(2) <= '1';
+        elsif register_number>=768 and register_number<1024 then
+          -- @IO:C65 $D300-$D3FF VIC-III:PALBLUE blue palette values (reversed nybl order)
+          palette_fastio_address <= palette_bank_fastio & std_logic_vector(register_number(7 downto 0));
+          palette_we(1) <= '1';
+        else
+          null;
+        end if;
       end if;
     end if;
 
