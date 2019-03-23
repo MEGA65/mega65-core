@@ -2418,7 +2418,7 @@ begin
           -- @IO:GS $D048 VIC-IV:TBDRPOS top border position
           border_y_top(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=73 then
-          -- @IO:GS $D049.3-0 VIC-IV:TBDRPOS top border position
+          -- @IO:GS $D049.3-0 VIC-IV:TBDRPOS top border position MSB
           border_y_top(11 downto 8) <= unsigned(fastio_wdata(3 downto 0));
           -- @IO:GS $D049.7-4 VIC-IV:SPRBPMEN Sprite bitplane-modify-mode enables
           sprite_bitplane_enables(3 downto 0) <= fastio_wdata(7 downto 4);
@@ -2461,24 +2461,24 @@ begin
           -- @IO:GS $D053.0-2 VIC-IV:FNRASTER Read physical raster position
           -- Allow setting of fine raster for IRQ (high bits)
           -- vicii_raster_compare(10 downto 8) <= unsigned(fastio_wdata(2 downto 0));
-          -- @IO:GS $D053.7 VIC-IV:RSTCMPFN Raster compare source (1=VIC-IV fine raster, 0=VIC-II raster)
+          -- @IO:GS $D053.7 VIC-IV:FNRST Raster compare source (1=VIC-IV fine raster, 0=VIC-II raster)
         elsif register_number=84 then
           -- @IO:GS $D054 SUMMARY:VIC-IV Control register C
-          -- @IO:GS $D054.7 VIC-IV:ALPHAEN Alpha compositor enable
+          -- @IO:GS $D054.7 VIC-IV:ALPHEN Alpha compositor enable
           compositer_enable <= fastio_wdata(7);
           -- @IO:GS $D054.6 VIC-IV:VFAST C65GS FAST mode (48MHz)
           viciv_fast_internal <= fastio_wdata(6);
           -- @IO:GS $D054.5 VIC-IV:PALEMU video output pal simulation
           pal_simulate <= fastio_wdata(5);
-          -- @IO:GS $D054.4 VIC-IV:SPR640EN Sprite H640 enable;
+          -- @IO:GS $D054.4 VIC-IV:SPR640 Sprite H640 enable;
           sprite_h640 <= fastio_wdata(4);
-          -- @IO:GS $D054.3 VIC-IV:SMTHEN video output horizontal smoothing enable
+          -- @IO:GS $D054.3 VIC-IV:SMTH video output horizontal smoothing enable
           horizontal_filter <= fastio_wdata(3);
-          -- @IO:GS $D054.2 VIC-IV:FCCHRHI enable full-colour mode for character numbers >\$FF
+          -- @IO:GS $D054.2 VIC-IV:FCLRHI enable full-colour mode for character numbers >\$FF
           fullcolour_extendedchars <= fastio_wdata(2);
-          -- @IO:GS $D054.1 VIC-IV:FCCHRLO enable full-colour mode for character numbers <=\$FF
+          -- @IO:GS $D054.1 VIC-IV:FCLRLO enable full-colour mode for character numbers <=\$FF
           fullcolour_8bitchars <= fastio_wdata(1);
-          -- @IO:GS $D054.0 VIC-IV:CHR16EN enable 16-bit character numbers (two screen bytes per character)
+          -- @IO:GS $D054.0 VIC-IV:CHR16 enable 16-bit character numbers (two screen bytes per character)
           sixteenbit_charset <= fastio_wdata(0);
         elsif register_number=85 then
           -- @IO:GS $D055 VIC-IV:SPRHGTEN sprite extended height enable (one bit per sprite)
@@ -2511,7 +2511,7 @@ begin
           viciv_single_side_border_width_touched <= '1';
           -- @IO:GS $D05D.6 VIC-IV:RSTDELEN Enable raster delay (delays raster counter and interrupts by one line to match output pipeline latency)
           enable_raster_delay <= fastio_wdata(6);
-          -- @IO:GS $D05D.7 VIC-IV:HOTREGEN Enable VIC-II hot registers
+          -- @IO:GS $D05D.7 VIC-IV:HOTREG Enable VIC-II hot registers. When enabled, touching many VIC-II registers causes the VIC-IV to recalculate display parameters, such as border positions and sizes
           vicii_hot_regs_enable <= fastio_wdata(7);
         elsif register_number=94 then
           -- @IO:GS $D05E VIC-IV:CHRCOUNT Number of characters to display per row
@@ -2694,9 +2694,9 @@ begin
         elsif register_number=124 then
           -- @IO:GS $D07C.0-3 VIC-IV:RESERVED UNUSED BITS
           null;
-          -- @IO:GS $D07C.4 VIC-IV:HSYNCPOL hsync polarity
+          -- @IO:GS $D07C.4 VIC-IV:HSYNCP hsync polarity
           hsync_polarity_internal <= fastio_wdata(4);
-          -- @IO:GS $D07C.5 VIC-IV:VSYNCPOL vsync polarity
+          -- @IO:GS $D07C.5 VIC-IV:VSYNCP vsync polarity
           vsync_polarity_internal <= fastio_wdata(5);
         -- @IO:GS $D07C.6-7 VIC-IV:RESERVED UNUSED BITS
         elsif register_number=125 then
