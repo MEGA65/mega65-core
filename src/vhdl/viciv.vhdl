@@ -2309,18 +2309,18 @@ begin
           vicii_2mhz_internal <= fastio_wdata(0);
         elsif register_number=48 then
           -- @IO:C65 $D030 SUMMARY:VIC-III Control Register A
-          -- @IO:C65 $D030.7 VIC-III:ROM\@E000 Map C65 ROM \@ \$E000
+          -- @IO:C65 $D030.7 VIC-III:ROME Map C65 ROM \@ \$E000
           rom_at_e000 <= fastio_wdata(7);
           reg_rom_e000 <= fastio_wdata(7);
-          -- @IO:C65 $D030.6 VIC-III:CROM9000 Select between C64 and C65 charset.
+          -- @IO:C65 $D030.6 VIC-III:CROM9 Select between C64 and C65 charset.
           reg_c65_charset <= fastio_wdata(6);
-          -- @IO:C65 $D030.5 VIC-III:ROM\@C000 Map C65 ROM \@ \$C000
+          -- @IO:C65 $D030.5 VIC-III:ROMC Map C65 ROM \@ \$C000
           rom_at_c000 <= fastio_wdata(5);
           reg_rom_c000 <= fastio_wdata(5);
-          -- @IO:C65 $D030.4 VIC-III:ROM\@A000 Map C65 ROM \@ \$A000
+          -- @IO:C65 $D030.4 VIC-III:ROMA Map C65 ROM \@ \$A000
           rom_at_a000 <= fastio_wdata(4);
           reg_rom_a000 <= fastio_wdata(4);
-          -- @IO:C65 $D030.3 VIC-III:ROM\@8000 Map C65 ROM \@ $8000
+          -- @IO:C65 $D030.3 VIC-III:ROM8 Map C65 ROM \@ \$8000
           rom_at_8000 <= fastio_wdata(3);
           reg_rom_8000 <= fastio_wdata(3);
           -- @IO:C65 $D030.2 VIC-III:PAL Use PALETTE ROM or RAM entries for colours 0 - 15
@@ -2374,14 +2374,7 @@ begin
           -- @IO:C65 $D033-$D03A - VIC-III Bitplane addresses
           --bitplane_number := to_integer(register_number(3 downto 0)) - 3;
           bitplane_addresses(to_integer(register_number)-51) <= unsigned(fastio_wdata);
-        -- @IO:C65 $D03B.0 VIC-III:BP0COMP Complement bitplane 0 data
-        -- @IO:C65 $D03B.1 VIC-III:BP1COMP Complement bitplane 1 data
-        -- @IO:C65 $D03B.2 VIC-III:BP2COMP Complement bitplane 2 data
-        -- @IO:C65 $D03B.3 VIC-III:BP3COMP Complement bitplane 3 data
-        -- @IO:C65 $D03B.4 VIC-III:BP4COMP Complement bitplane 4 data
-        -- @IO:C65 $D03B.5 VIC-III:BP5COMP Complement bitplane 5 data
-        -- @IO:C65 $D03B.6 VIC-III:BP6COMP Complement bitplane 6 data
-        -- @IO:C65 $D03B.7 VIC-III:BP7COMP Complement bitplane 7 data
+        -- @IO:C65 $D03B VIC-III:BPCOMP Complement bitplane flags
         elsif register_number=59 then
           bitplane_complements <= fastio_wdata;
         -- @IO:C65 $D03C VIC-III:BPX Bitplane X
