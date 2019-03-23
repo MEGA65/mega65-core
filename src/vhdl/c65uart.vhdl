@@ -401,14 +401,14 @@ begin  -- behavioural
       report "Reading C65 UART controller register";
       case register_number is
         when x"00" =>
-          -- @IO:C65 $D600 C65 UART data register (read or write)
+          -- @IO:C65 $D600 UART:DATA UART data register (read or write)
           fastio_rdata <= unsigned(reg_data_rx_drive);            
         when x"01" =>
           -- @IO:C65 $D601 C65 UART status register
-          -- @IO:C65 $D601.0 C65 UART RX byte ready flag (clear by reading $D600)
-          -- @IO:C65 $D601.1 C65 UART RX overrun flag (clear by reading $D600)
-          -- @IO:C65 $D601.2 C65 UART RX parity error flag (clear by reading $D600)
-          -- @IO:C65 $D601.3 C65 UART RX framing error flag (clear by reading $D600)
+          -- @IO:C65 $D601.0 UART:RXRDY UART RX byte ready flag (clear by reading \$D600)
+          -- @IO:C65 $D601.1 UART:RXOVRRUN UART RX overrun flag (clear by reading \$D600)
+          -- @IO:C65 $D601.2 UART:PTYERR UART RX parity error flag (clear by reading \$D600)
+          -- @IO:C65 $D601.3 UART:FRMERR UART RX framing error flag (clear by reading \$D600)
           fastio_rdata(0) <= reg_status0_rx_full_drive;
           fastio_rdata(1) <= reg_status1_rx_overrun_drive;
           fastio_rdata(2) <= reg_status2_rx_parity_error_drive;
@@ -419,6 +419,12 @@ begin  -- behavioural
           fastio_rdata(7) <= reg_status7_xmit_on_drive;              
         when x"02" =>
           -- @IO:C65 $D602 C65 UART control register
+          -- @IO:C65 $D602.0 UART:PTYEVEN UART Parity: 1=even, 0=odd
+          -- @IO:C65 $D602.1 UART:PTYEN UART Parity enable: 1=enabled
+          -- @IO:C65 $D602.2-3 UART:CHARSZ UART character size: 00=8, 01=7, 10=6, 11=5 bits per byte
+          -- @IO:C65 $D602.4-5 UART:SYNCMOD UART synchronisation mode flags (00=RX \& TX both async, 01=RX sync, TX async, 1x=TX sync, RX async (unused on the MEGA65)
+          -- @IO:C65 $D602.6 UART:RXEN UART enable receive
+          -- @IO:C65 $D602.7 UART:TXEN UART enable transmit
           fastio_rdata(0) <= reg_ctrl0_parity_even;
           fastio_rdata(1) <= reg_ctrl1_parity_enable;
           fastio_rdata(3 downto 2) <= reg_ctrl23_char_length_deduct;
@@ -426,130 +432,147 @@ begin  -- behavioural
           fastio_rdata(6) <= reg_ctrl6_rx_enable;
           fastio_rdata(7) <= reg_ctrl7_tx_enable;
         when x"03" =>
-          -- @IO:C65 $D603 C65 UART baud rate divisor (low byte)
+          -- @IO:C65 $D603 UART:DIVISOR UART baud rate divisor (16 bit). Baud rate = 7.09375MHz / DIVISOR, unless MEGA65 fast UART mode is enabled, in which case baud rate = 80MHz / DIVISOR
           fastio_rdata <= reg_divisor(7 downto 0);
         when x"04" =>
-          -- @IO:C65 $D604 C65 UART baud rate divisor (high byte)
+          -- @IO:C65 $D604 UART:DIVISOR UART baud rate divisor (16 bit). Baud rate = 7.09375MHz / DIVISOR, unless MEGA65 fast UART mode is enabled, in which case baud rate = 80MHz / DIVISOR
           fastio_rdata <= reg_divisor(15 downto 8);
         when x"05" =>
-          -- @IO:C65 $D605 C65 UART interrupt mask register              
+          -- @IO:C65 $D605.7 UART:IMTXIRQ UART interrupt mask: IRQ on TX (not yet implemented on the MEGA65)
+          -- @IO:C65 $D605.6 UART:IMRXIRQ UART interrupt mask: IRQ on RX (not yet implemented on the MEGA65)
+          -- @IO:C65 $D605.5 UART:IMTXNMI UART interrupt mask: NMI on TX (not yet implemented on the MEGA65)
+          -- @IO:C65 $D605.4 UART:IMRXNMI UART interrupt mask: NMI on RX (not yet implemented on the MEGA65)
           fastio_rdata <= unsigned(reg_intmask);
         when x"06" =>
           -- @IO:C65 $D606 C65 UART interrupt flag register              
+          -- @IO:C65 $D606.7 UART:IFTXIRQ UART interrupt flag: IRQ on TX (not yet implemented on the MEGA65)
+          -- @IO:C65 $D606.6 UART:IFRXIRQ UART interrupt flag: IRQ on RX (not yet implemented on the MEGA65)
+          -- @IO:C65 $D606.5 UART:IFTXNMI UART interrupt flag: NMI on TX (not yet implemented on the MEGA65)
+          -- @IO:C65 $D606.4 UART:IFRXNMI UART interrupt flag: NMI on RX (not yet implemented on the MEGA65)
           fastio_rdata <= unsigned(reg_intflag);
         when x"07" =>
           -- @IO:C65 $D607 C65 UART 2-bit port data register (used for C65 keyboard)
-          -- @IO:GS $D607.1 C65 keyboard column 8 select
-          -- @IO:GS $D607.0 C65 capslock key sense
+          -- @IO:GS $D607.1 UART:KEYCOL8 C65 keyboard column 8 select
+          -- @IO:GS $D607.0 UART:CAPLOCK C65 capslock key sense
           fastio_rdata(7 downto 0) <= reg_porte_read;
         when x"08" =>
-          -- @IO:C65 $D607 C65 UART data direction register (used for C65 keyboard, HDMI and SD card I2C/SPI)
+          -- @IO:C65 $D608 C65 UART data direction register (used for C65 keyboard)
+          -- @IO:GS $D608.0-1 UART:PORTEDDR C65 keyboard extra lines Data Direction Register (DDR)
           fastio_rdata(7 downto 0) <= unsigned(reg_porte_ddr);
         when x"09" =>
           -- @IO:GS $D609 MEGA65 extended UART control register
-          -- @IO:GS $D609.0 UART BAUD clock source: 1 = 7.09375MHz, 0 = 150MHz
+          -- @IO:GS $D609.0 UARTMISC:UFAST C65 UART BAUD clock source: 1 = 7.09375MHz, 0 = 80MHz (VIC-IV pixel clock)
           fastio_rdata(0) <= clock709375;
           fastio_rdata(7 downto 1) <= (others => '1');
         when x"0b" =>
-          -- @IO:GS $D60B.7 Display hardware zoom of region under first touch point for on-screen keyboard
-          -- @IO:GS $D60B.6 Display hardware zoom of region under first touch point always
-          -- @IO:GS $D60B.5-0 PMOD port A on FPGA board (data)
+          -- @IO:GS $D60B.7 UARTMISC:OSKZEN Display hardware zoom of region under first touch point for on-screen keyboard
+          -- @IO:GS $D60B.6 UARTMISC:OSKZON Display hardware zoom of region under first touch point always
+          -- @IO:GS $D60B.5-0 UARTMISC:PORTF PMOD port A on FPGA board (data) (Nexys4 boards only)
           fastio_rdata(7 downto 0) <= unsigned(reg_portf_read);
         when x"0c" =>
-          -- @IO:GS $D60C PMOD port A on FPGA board (DDR)
+          -- @IO:GS $D60C.0-5 UARTMISC:PORTFDDR PMOD port A on FPGA board (DDR)
+          -- @IO:GS $D60C.6-7 UARTMISC:PORTFDDR On Screen Keyboard (OSK) Zoom Control Data Direction Register (DDR). Must be set to output to control these features.
           fastio_rdata(7 downto 0) <= unsigned(reg_portf_ddr);
         when x"0d" =>
           -- @IO:GS $D60D Bit bashing port
-          -- @IO:GS $D60D.7 HDMI SPI control interface SCL clock 
-          -- @IO:GS $D60D.6 HDMI SPI control interface SDA data line 
-          -- @IO:GS $D60D.5 Enable SD card bitbash mode
-          -- @IO:GS $D60D.4 SD card CS_BO
-          -- @IO:GS $D60D.3 SD card SCLK
-          -- @IO:GS $D60D.2 SD card MOSI/MISO
-          -- @IO:GS $D60D.1 - Internal 1541 drive reset
-          -- @IO:GS $D60D.0 - Internal 1541 drive connect (1= use internal 1541 instead of IEC drive connector)                        
+          -- @IO:GS $D60D.7 UARTMISC:HDSCL HDMI SPI control interface SCL clock 
+          -- @IO:GS $D60D.6 UARTMISC:HDSPI HDMI SPI control interface SDA data line 
+          -- @IO:GS $D60D.5 UARTMISC:SDBSH Enable SD card bitbash mode
+          -- @IO:GS $D60D.4 UARTMISC:SDCS SD card CS_BO
+          -- @IO:GS $D60D.3 UARTMISC:SDCLK SD card SCLK
+          -- @IO:GS $D60D.2 UARTMISC:SDDATA SD card MOSI/MISO
+          -- @IO:GS $D60D.1 UARTMISC:RST41 Internal 1541 drive reset (1=reset, 0=operate)
+          -- @IO:GS $D60D.0 UARTMISC:CONN41 Internal 1541 drive connect (1=connect internal 1541 drive to IEC bus)                        
           fastio_rdata(7 downto 0) <= reg_portg_read;
         when x"0e" =>
-          -- @IO:GS $D60E Bit bashing port DDR
+          -- @IO:GS $D60E UARTMISC:BASHDDR Data Direction Register (DDR) for \$D60D bit bashing port.
           fastio_rdata(7 downto 0) <= unsigned(reg_portg_ddr);
         when x"0f" =>
-          -- @IO:GS $D60F.0 C65 Cursor left key
-          -- @IO:GS $D60F.0 C65 Cursor up key
+          -- @IO:GS $D60F.0 UARTMISC:KEYLEFT Directly read C65 Cursor left key
+          -- @IO:GS $D60F.1 UARTMISC:KEYUP Directly read C65 Cursor up key
           fastio_rdata(0) <= key_left;
           fastio_rdata(1) <= key_up;
         when x"10" =>
-          -- @IO:GS $D610 Last key press as ASCII (hardware accelerated keyboard scanner). Write to clear event ready for next.
+          -- @IO:GS $D610 UARTMISC:ASCIIKEY Last key press as ASCII (hardware accelerated keyboard scanner). Write to clear event ready for next.
           fastio_rdata(7 downto 0) <= unsigned(porth);
         when x"11" =>
           -- @IO:GS $D611 Modifier key state (hardware accelerated keyboard scanner).
+          -- @IO:GS $D611.4 UARTMISC:MALT ALT key state (hardware accelerated keyboard scanner).
+          -- @IO:GS $D611.5 UARTMISC:MSCRL NOSCRL key state (hardware accelerated keyboard scanner).
+          -- @IO:GS $D611.3 UARTMISC:MMEGA MEGA/C= key state (hardware accelerated keyboard scanner).
+          -- @IO:GS $D611.2 UARTMISC:MCTRL CTRL key state (hardware accelerated keyboard scanner).
+          -- @IO:GS $D611.1 UARTMISC:MLSHFT Left shift key state (hardware accelerated keyboard scanner).
+          -- @IO:GS $D611.0 UARTMISC:MRSHFT Right shift key state (hardware accelerated keyboard scanner).
           fastio_rdata(7 downto 0) <= unsigned(porti);
         when x"12" =>
-          -- @IO:GS $D612.0 Enable widget board keyboard/joystick input
+          -- @IO:GS $D612.0 UARTMISC:WGTKEY Enable widget board keyboard/joystick input
           fastio_rdata(0) <= widget_enable_internal;
-          -- @IO:GS $D612.1 Enable ps2 keyboard/joystick input
+          -- @IO:GS $D612.1 UARTMISC:PS2KEY Enable ps2 keyboard/joystick input
           fastio_rdata(1) <= ps2_enable_internal;
-          -- @IO:GS $D612.2 Enable physical keyboard input
+          -- @IO:GS $D612.2 UARTMISC:PHYKEY Enable physical keyboard input
           fastio_rdata(2) <= physkey_enable_internal;
-          -- @IO:GS $D612.3 Enable virtual keyboard input
+          -- @IO:GS $D612.3 UARTMISC:VRTKEY Enable virtual/snythetic keyboard input
           fastio_rdata(3) <= virtual_enable_internal;
-          -- @IO:GS $D612.4 Enable PS/2 / USB keyboard simulated joystick input
+          -- @IO:GS $D612.4 UARTMISC:PS2JOY Enable PS/2 / USB keyboard simulated joystick input
           fastio_rdata(4) <= joykey_enable_internal;
-          -- @IO:GS $D612.5 Enable physical joystick input
+          -- @IO:GS $D612.5 UARTMISC:PHYJOY Enable physical joystick input
           fastio_rdata(5) <= joyreal_enable_internal;
-          -- @IO:GS $D612.6 Rotate inputs of joystick A by 180 degrees
+          -- @IO:GS $D612.6 UARTMISC:LJOYA Rotate inputs of joystick A by 180 degrees (for left handed use)
           fastio_rdata(6) <= joya_rotate_internal;
-          -- @IO:GS $D612.7 Rotate inputs of joystick B by 180 degrees
+          -- @IO:GS $D612.7 UARTMISC:LJOYB Rotate inputs of joystick B by 180 degrees (for left handed use)
           fastio_rdata(7) <= joyb_rotate_internal;
         when x"13" =>
-          -- @IO:GS $D613 DEBUG: Count of cartridge port memory accesses (read only)
+          -- @IO:GS $D613 DEBUG:CRTACSCNT Count of cartridge port memory accesses (read only)
           fastio_rdata <= unsigned(portj_in);
         when x"14" =>
-          -- @IO:GS $D614 DEBUG: 8-bit segment of combined keyboard matrix (READ)
+          -- @IO:GS $D614 DEBUG:KEYMATRIXPEEK 8-bit segment of combined keyboard matrix (READ)
           fastio_rdata <= unsigned(portj_internal);
         when x"15" =>
-          -- @IO:GS $D615.0-6 ID of key #1 held down on virtual keyboard
-          -- @IO:GS $D615.7 Enable visual keyboard composited overlay
+          -- @IO:GS $D615.0-6 UARTMISC:VIRTKEY1 Set to \$7F for no key down, else specify virtual key press.
+          -- @IO:GS $D615.7 UARTMISC:OSKEN Enable display of on-screen keyboard composited overlay
           fastio_rdata <= unsigned(portk_internal);
         when x"16" =>
-          -- @IO:GS $D616 ID of key #2 held down on virtual keyboard
+          -- @IO:GS $D616.0-6 UARTMISC:VIRTKEY2 Set to \$7F for no key down, else specify 2nd virtual key press.
+          -- @IO:GS $D616.7 UARTMISC:OSKALT Display alternate on-screen keyboard layout (typically dial pad for MEGA65 telephone)
           fastio_rdata <= unsigned(portl_internal);
         when x"17" =>
-          -- @IO:GS $D617 ID of key #3 held down on virtual keyboard
+          -- @IO:GS $D617.0-6 UARTMISC:VIRTKEY3 Set to \$7F for no key down, else specify 3nd virtual key press.
+          -- @IO:GS $D617.7 UARTMISC:OSKTOP 1=Display on-screen keyboard at top, 0=Disply on-screen keyboard at bottom of screen.
           fastio_rdata <= unsigned(portm_internal);
         when x"18" =>
-          -- @IO:GS $D618 Keyboard scan rate ($00=50MHz, $FF=~200KHz)
+          -- @IO:GS $D618 UARTMISC:KSCNRATE Physical keyboard scan rate (\$00=50MHz, \$FF=~200KHz)
           fastio_rdata <= unsigned(portn_internal);
         when x"19" =>
-          -- @IO:GS $D619 On-screen keyboard X position (x4 640H pixels)
+          -- @IO:GS $D619 UARTMISC:OSKXPOS Set on-screen keyboard X position (x4 640H pixels)
           fastio_rdata <= unsigned(porto_internal);
         when x"1a" =>
-          -- @IO:GS $D61A On-screen keyboard Y position (x4 physical pixels)
+          -- @IO:GS $D61A UARTMISC:OSKYPOS Set on-screen keyboard Y position (x4 physical pixels)
           fastio_rdata <= unsigned(portp_internal);
         when x"1b" =>
-          -- @IO:GS $D61B READ 1351/amiga mouse auto detection DEBUG
+          -- @IO:GS $D61B DEBUG:AMIMOUSDETECT READ 1351/amiga mouse auto detection DEBUG
           fastio_rdata <= mouse_debug;
-          -- @IO:GS $D620 Read Port A paddle X
-          -- @IO:GS $D621 Read Port A paddle Y
-          -- @IO:GS $D622 Read Port B paddle X
-          -- @IO:GS $D623 Read Port B paddle Y          
+          -- @IO:GS $D620 UARTMISC:POTAX Read Port A paddle X, without having to fiddle with SID/CIA settings.
+          -- @IO:GS $D621 UARTMISC:POTAY Read Port A paddle Y, without having to fiddle with SID/CIA settings.
+          -- @IO:GS $D622 UARTMISC:POTBX Read Port B paddle X, without having to fiddle with SID/CIA settings.
+          -- @IO:GS $D623 UARTMISC:POTBY Read Port B paddle Y, without having to fiddle with SID/CIA settings.
         when x"1c" =>
-          -- @IO:GS $D61C DEBUG internal 1541 PC LSB
+          -- @IO:GS $D61C DEBUG:1541PCLSB internal 1541 PC LSB
           fastio_rdata(7 downto 0) <= unsigned(portq_in);
         when x"1d" =>
-          -- @IO:GS $D61D DEBUG ASCII key event counter LSB
-          -- @IO:GS $D61E DEBUG ASCII key event counter MSB
+          -- @IO:GS $D61D DEBUG:ASCKEYCNT ASCII key event counter LSB
+          -- @IO:GS $D61E DEBUG:ASCKEYCNT ASCII key event counter MSB
           fastio_rdata(7 downto 0) <= ascii_key_event_count(7 downto 0);
         when x"1e" =>
           fastio_rdata(7 downto 0) <= ascii_key_event_count(15 downto 8);
         when x"1F" =>
-          -- @IO:GS $D61F DUPLICATE Modifier key state (hardware accelerated keyboard scanner).
+          -- @IO:GS $D61F DEBUG:BUCKYCOPY DUPLICATE Modifier key state (hardware accelerated keyboard scanner).
           fastio_rdata(7 downto 0) <= unsigned(porti);
         when x"20" => fastio_rdata <= pota_x;
         when x"21" => fastio_rdata <= pota_y;
         when x"22" => fastio_rdata <= potb_x;
         when x"23" => fastio_rdata <= potb_y;
         when x"24" =>
-          -- @IO:GS $D624 READ ONLY
+          -- @IO:GS $D624 DEBUG:POTDEBUG READ ONLY flags for paddles. See c65uart.vhdl for more information.
           -- @IO:GS $D624.0 Paddles connected via IEC port (rev1 PCB debug)
           -- @IO:GS $D624.1 pot_drain signal
           -- @IO:GS $D624.3-2 CIA porta bits 7-6 for POT multiplexor

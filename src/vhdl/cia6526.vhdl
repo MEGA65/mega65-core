@@ -258,19 +258,19 @@ begin  -- behavioural
               -- @IO:C64 $DD0D CIA2 ISR : Reading clears events
               fastio_rdata <= reg_isr;
             when x"0e" =>
-              -- @IO:C64 $DC0E.0 CIA1:STARTA Timer A start
+              -- @IO:C64 $DC0E.0 CIA1:STRTA Timer A start
               -- @IO:C64 $DC0E.1 CIA1:PBONA Timer A PB6 out
-              -- @IO:C64 $DC0E.2 CIA1:OUTMODEA Timer A toggle or pulse
-              -- @IO:C64 $DC0E.3 CIA1:RUNMODEA Timer A one-shot mode
-              -- @IO:C64 $DC0E.5 CIA1:INMODEA Timer A Timer A tick source
-              -- @IO:C64 $DC0E.6 CIA1:SPMODE Serial port direction
+              -- @IO:C64 $DC0E.2 CIA1:OMODA Timer A toggle or pulse
+              -- @IO:C64 $DC0E.3 CIA1:RMODA Timer A one-shot mode
+              -- @IO:C64 $DC0E.5 CIA1:IMODA Timer A Timer A tick source
+              -- @IO:C64 $DC0E.6 CIA1:SPMOD Serial port direction
               -- @IO:C64 $DC0E.7 CIA1:TOD50 50/60Hz select for TOD clock
-              -- @IO:C64 $DD0E.0 CIA2:STARTA Timer A start
+              -- @IO:C64 $DD0E.0 CIA2:STRTA Timer A start
               -- @IO:C64 $DD0E.1 CIA2:PBONA Timer A PB6 out
-              -- @IO:C64 $DD0E.2 CIA2:OUTMODEA Timer A toggle or pulse
-              -- @IO:C64 $DD0E.3 CIA2:RUNMODEA Timer A one-shot mode
-              -- @IO:C64 $DD0E.5 CIA2:INMODEA Timer A Timer A tick source
-              -- @IO:C64 $DD0E.6 CIA2:SPMODE Serial port direction
+              -- @IO:C64 $DD0E.2 CIA2:OMODA Timer A toggle or pulse
+              -- @IO:C64 $DD0E.3 CIA2:RMODA Timer A one-shot mode
+              -- @IO:C64 $DD0E.5 CIA2:IMODA Timer A Timer A tick source
+              -- @IO:C64 $DD0E.6 CIA2:SPMOD Serial port direction
               -- @IO:C64 $DD0E.7 CIA2:TOD50 50/60Hz select for TOD clock
               fastio_rdata <= reg_60hz
                               & reg_serialport_direction
@@ -282,19 +282,19 @@ begin  -- behavioural
                               & reg_timera_start;
               
             when x"0f" =>
-              -- @IO:C64 $DC0F.0 CIA1:STARTB Timer B start
+              -- @IO:C64 $DC0F.0 CIA1:STRTB Timer B start
               -- @IO:C64 $DC0F.1 CIA1:PBONB Timer B PB7 out
-              -- @IO:C64 $DC0F.2 CIA1:OUTMODEB Timer B toggle or pulse
-              -- @IO:C64 $DC0F.3 CIA1:RUNMODEB Timer B one-shot mode
+              -- @IO:C64 $DC0F.2 CIA1:OMODB Timer B toggle or pulse
+              -- @IO:C64 $DC0F.3 CIA1:RMODB Timer B one-shot mode
               -- @IO:C64 $DC0F.4 CIA1:LOAD Strobe input to force-load timers
-              -- @IO:C64 $DC0F.5-6 CIA1:INMODEB Timer B Timer A tick source
+              -- @IO:C64 $DC0F.5-6 CIA1:IMODB Timer B Timer A tick source
               -- @IO:C64 $DC0F.7 CIA2:TODEDIT TOD alarm edit
-              -- @IO:C64 $DD0F.0 CIA2:STARTB Timer B start
+              -- @IO:C64 $DD0F.0 CIA2:STRTB Timer B start
               -- @IO:C64 $DD0F.1 CIA2:PBONB Timer B PB7 out
-              -- @IO:C64 $DD0F.2 CIA2:OUTMODEB Timer B toggle or pulse
-              -- @IO:C64 $DD0F.3 CIA2:RUNMODEB Timer B one-shot mode
+              -- @IO:C64 $DD0F.2 CIA2:OMODB Timer B toggle or pulse
+              -- @IO:C64 $DD0F.3 CIA2:RMODB Timer B one-shot mode
               -- @IO:C64 $DD0F.4 CIA2:LOAD Strobe input to force-load timers
-              -- @IO:C64 $DD0F.5-6 CIA2:INMODEB Timer B Timer A tick source
+              -- @IO:C64 $DD0F.5-6 CIA2:IMODB Timer B Timer A tick source
               -- @IO:C64 $DD0F.7 CIA2:TODEDIT TOD alarm edit
               fastio_rdata <= unsigned(reg_tod_alarm_edit
                                        & reg_timerb_tick_source
