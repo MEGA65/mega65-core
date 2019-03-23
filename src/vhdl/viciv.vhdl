@@ -2275,19 +2275,12 @@ begin
           else
             sprite_colours(to_integer(register_number)-39) <= unsigned(fastio_wdata);
           end if;
-        -- Skip $D02F - $D03F to avoid real C65/C128 programs trying to
+        -- Skip $D02F - $D047 to avoid real C65/C128 programs trying to
         -- fiddle with registers in this range.
         -- NEW VIDEO REGISTERS
-        -- ($D040 - $D047 is the same as VIC-III DAT ports on C65.
-        --  This is tolerable, since the registers most likely used to detect a
-        --  C65 are made non-functional.  See:
-        -- http://www.devili.iki.fi/Computers/Commodore/C65/System_Specification/Chapter_2/page101.html
-        -- http://www.devili.iki.fi/Computers/Commodore/C65/System_Specification/Chapter_2/page102.html
-        -- That said, we are changing the VIC-IV so that $D040-$D047 are not
-        -- overloaded, allowing us to eventually support the bitplane DAT.
         elsif register_number=47 then
           -- @IO:C65 $D02F VIC-III KEY register for unlocking extended registers.
-          -- @IO:C65 $D02F Write $A5 then $96 to enable C65/VIC-III IO registers
+          -- @IO:C65 $D02F VIC-III:KEY Write $A5 then $96 to enable C65/VIC-III IO registers
           -- @IO:C65 $D02F Write anything else to return to C64/VIC-II IO map
           viciii_iomode <= "00"; -- by default go back to VIC-II mode
           if reg_key=x"a5" then
@@ -2295,7 +2288,7 @@ begin
               -- C65 VIC-III mode
               viciii_iomode <= "01";
             end if;
-          -- @IO:GS $D02F Write $47 then $53 to enable C65GS/VIC-IV IO registers
+          -- @IO:GS $D02F VIC-IV:KEY Write $47 then $53 to enable C65GS/VIC-IV IO registers
           elsif reg_key=x"47" then
             if fastio_wdata=x"53" then
               -- C65GS VIC-IV mode
