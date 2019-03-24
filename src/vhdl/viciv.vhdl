@@ -2395,21 +2395,21 @@ begin
         elsif register_number=63 then
           bitplanes_y_start <= unsigned(fastio_wdata);
         elsif register_number=64 then
-        -- @IO:65 $D040 VIC-III:B0PIX Display Address Translater (DAT) Bitplane 0 port
+        -- @IO:C65 $D040 VIC-III:B0PIX Display Address Translater (DAT) Bitplane 0 port
         elsif register_number=65 then
-        -- @IO:65 $D041 VIC-III:B1PIX Display Address Translater (DAT) Bitplane 1 port
+        -- @IO:C65 $D041 VIC-III:B1PIX Display Address Translater (DAT) Bitplane 1 port
         elsif register_number=66 then
-        -- @IO:65 $D042 VIC-III:B2PIX Display Address Translater (DAT) Bitplane 2 port
+        -- @IO:C65 $D042 VIC-III:B2PIX Display Address Translater (DAT) Bitplane 2 port
         elsif register_number=67 then
-        -- @IO:65 $D043 VIC-III:B3PIX Display Address Translater (DAT) Bitplane 3 port
+        -- @IO:C65 $D043 VIC-III:B3PIX Display Address Translater (DAT) Bitplane 3 port
         elsif register_number=68 then
-        -- @IO:65 $D044 VIC-III:B4PIX Display Address Translater (DAT) Bitplane 4 port
+        -- @IO:C65 $D044 VIC-III:B4PIX Display Address Translater (DAT) Bitplane 4 port
         elsif register_number=69 then
-        -- @IO:65 $D045 VIC-III:B5PIX Display Address Translater (DAT) Bitplane 5 port
+        -- @IO:C65 $D045 VIC-III:B5PIX Display Address Translater (DAT) Bitplane 5 port
         elsif register_number=70 then
-        -- @IO:65 $D046 VIC-III:B6PIX Display Address Translater (DAT) Bitplane 6 port
+        -- @IO:C65 $D046 VIC-III:B6PIX Display Address Translater (DAT) Bitplane 6 port
         elsif register_number=71 then
-        -- @IO:65 $D047 VIC-III:B7PIX Display Address Translater (DAT) Bitplane 7 port
+        -- @IO:C65 $D047 VIC-III:B7PIX Display Address Translater (DAT) Bitplane 7 port
         elsif register_number=72 then
           -- @IO:GS $D048 VIC-IV:TBDRPOS top border position
           border_y_top(7 downto 0) <= unsigned(fastio_wdata);

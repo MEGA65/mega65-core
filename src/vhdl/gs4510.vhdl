@@ -2410,7 +2410,7 @@ begin
         cache_flush_counter <= (others => '0');
       -- Write to DMAgic registers if required
       elsif (long_address = x"FFD30A0") or (long_address = x"FFD10A0") then
-        -- @ IO:65 $D0A0 - C65 RAM Expansion controller
+        -- @ IO:C65 $D0A0 - C65 RAM Expansion controller
         -- The specifications of this interface is VERY under-documented.
         -- There are two versions: 512KB and 1MB - 8MB
 
@@ -2439,7 +2439,7 @@ begin
       elsif (long_address = x"FFD3700") or (long_address = x"FFD1700") then        
         -- Set low order bits of DMA list address
         reg_dmagic_addr(7 downto 0) <= value;
-        -- @ IO:65 $D700 - DMA:ADDRLSBTRIG DMAgic DMA list address LSB, and trigger DMA (when written)
+        -- @IO:C65 $D700 DMA:ADDRLSBTRIG DMAgic DMA list address LSB, and trigger DMA (when written)
         -- DMA gets triggered when we write here. That actually happens through
         -- memory_access_write.
         -- We also clear out the upper address bits in case an enhanced job had
@@ -2450,10 +2450,10 @@ begin
         -- @IO:GS $D70E DMA:ADDRLSB DMA list address low byte (address bits 0 -- 7) WITHOUT STARTING A DMA JOB (used by Hypervisor for unfreezing DMA-using tasks)
         reg_dmagic_addr(7 downto 0) <= value;
       elsif (long_address = x"FFD3701") or (long_address = x"FFD1701") then
-        -- @IO:65 $D701 DMA:ADDRMSB DMA list address high byte (address bits 8 -- 15).
+        -- @IO:C65 $D701 DMA:ADDRMSB DMA list address high byte (address bits 8 -- 15).
         reg_dmagic_addr(15 downto 8) <= value;
       elsif (long_address = x"FFD3702") or (long_address = x"FFD1702") then
-        -- @IO:65 $D702 DMA:ADDRBANK DMA list address bank (address bits 16 -- 22). Writing clears $D704.
+        -- @IO:C65 $D702 DMA:ADDRBANK DMA list address bank (address bits 16 -- 22). Writing clears \$D704.
         reg_dmagic_addr(22 downto 16) <= value(6 downto 0);
         reg_dmagic_addr(27 downto 23) <= (others => '0');
         reg_dmagic_withio <= value(7);
