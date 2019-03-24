@@ -2439,7 +2439,7 @@ begin
       elsif (long_address = x"FFD3700") or (long_address = x"FFD1700") then        
         -- Set low order bits of DMA list address
         reg_dmagic_addr(7 downto 0) <= value;
-        -- @ IO:GS $D700 - DMAgic DMA list address LSB, and trigger DMA (when written)
+        -- @ IO:65 $D700 - DMA:ADDRLSBTRIG DMAgic DMA list address LSB, and trigger DMA (when written)
         -- DMA gets triggered when we write here. That actually happens through
         -- memory_access_write.
         -- We also clear out the upper address bits in case an enhanced job had
@@ -2447,28 +2447,28 @@ begin
         reg_dmagic_addr(27 downto 23) <= (others => '0');        
       elsif (long_address = x"FFD370E") or (long_address = x"FFD170E") then
         -- Set low order bits of DMA list address, without starting
-        -- @IO:GS $D70E DMA list address low byte (address bits 0 -- 7) WITHOUT STARTING A DMA JOB (used by Hypervisor for unfreezing DMA-using tasks)
+        -- @IO:GS $D70E DMA:ADDRLSB DMA list address low byte (address bits 0 -- 7) WITHOUT STARTING A DMA JOB (used by Hypervisor for unfreezing DMA-using tasks)
         reg_dmagic_addr(7 downto 0) <= value;
       elsif (long_address = x"FFD3701") or (long_address = x"FFD1701") then
-        -- @IO:GS $D701 DMA list address high byte (address bits 8 -- 15).
+        -- @IO:65 $D701 DMA:ADDRMSB DMA list address high byte (address bits 8 -- 15).
         reg_dmagic_addr(15 downto 8) <= value;
       elsif (long_address = x"FFD3702") or (long_address = x"FFD1702") then
-        -- @IO:GS $D702 DMA list address bank (address bits 16 -- 22). Writing clears $D704.
+        -- @IO:65 $D702 DMA:ADDRBANK DMA list address bank (address bits 16 -- 22). Writing clears $D704.
         reg_dmagic_addr(22 downto 16) <= value(6 downto 0);
         reg_dmagic_addr(27 downto 23) <= (others => '0');
         reg_dmagic_withio <= value(7);
       elsif (long_address = x"FFD3703") or (long_address = x"FFD1703") then
-        -- @IO:GS $D703.0 DMA enable F018B mode (adds sub-command byte)
+        -- @IO:GS $D703.0 DMA:EN018B DMA enable F018B mode (adds sub-command byte)
         support_f018b <= value(0);	-- setable dmagic mode
       elsif (long_address = x"FFD3704") or (long_address = x"FFD1704") then
-        -- @IO:GS $D704 DMA list address mega-byte
+        -- @IO:GS $D704 DMA:ADDRMB DMA list address mega-byte
         reg_dmagic_addr(27 downto 20) <= value;
       elsif (long_address = x"FFD3705") or (long_address = x"FFD1705") then
-        -- @IO:GS $D705 Set low-order byte of DMA list address, and trigger Enhanced DMA job (uses DMA option list)
+        -- @IO:GS $D705 DMA:ETRIG Set low-order byte of DMA list address, and trigger Enhanced DMA job (uses DMA option list)
         reg_dmagic_addr(7 downto 0) <= value;
       elsif (long_address = x"FFD3710") or (long_address = x"FFD1710") then
-        -- @IO:GS $D710.0 - Enable badline emulation
-        -- @IO:GS $D710.1 - Enable 6502-style slow (7 cycle) interrupts
+        -- @IO:GS $D710.0 - MISC:BADLEN Enable badline emulation
+        -- @IO:GS $D710.1 - MISC:SLIEN Enable 6502-style slow (7 cycle) interrupts
         badline_enable <= value(0);
         slow_interrupts <= value(1);
       -- @IO:GS $D770-3 25-bit multiplier input A
@@ -4126,6 +4126,7 @@ begin
                   & " $" & to_hstring(memory_read_value);
                 dmagic_option_id <= (others => '0');
                 case dmagic_option_id is
+                  -- XXX - Convert this information to an info block?
                                         -- @ IO:GS $D705 - Enhanced DMAgic job option $80 $xx = Set MB of source address
                   
                   when x"80" => reg_dmagic_src_mb <= memory_read_value;
