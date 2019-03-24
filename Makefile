@@ -549,7 +549,7 @@ iverilog/driver/iverilog:
 	git submodule update
 	cd iverilog ; autoconf ; ./configure ; make
 
-$(VHDLSRCDIR)/uart_monitor.vhdl:	$(VERILOGSRCDIR)/* iverilog/driver/iverilog Makefile
+$(VHDLSRCDIR)/uart_monitor.vhdl.tmp,$(VHDLSRCDIR)/uart_monitor.vhdl:	$(VERILOGSRCDIR)/* iverilog/driver/iverilog Makefile
 	( cd $(VERILOGSRCDIR) ; ../../iverilog/driver/iverilog  -tvhdl -o ../../$(VHDLSRCDIR)/uart_monitor.vhdl.tmp monitor_*.v asym_ram_sdp.v 6502_*.v UART_TX_CTRL.v uart_rx.v )
 	# Now remove the dummy definitions of UART_TX_CTRL and uart_rx, as we will use the actual VHDL implementations of them.
 	cat $(VHDLSRCDIR)/uart_monitor.vhdl.tmp | awk 'BEGIN { echo=1; } {if ($$1=="--"&&$$2=="Generated"&&$$3=="from"&&$$4=="Verilog") { if ($$6=="UART_TX_CTRL"||$$6=="uart_rx") echo=0; else echo=1; } if (echo) print; }' > $(VHDLSRCDIR)/uart_monitor.vhdl
