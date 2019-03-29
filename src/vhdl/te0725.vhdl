@@ -59,10 +59,10 @@ entity container is
          -------------------------------------------------------------------------
          -- Lines for the SDcard interface itself
          -------------------------------------------------------------------------
---         sdReset : out std_logic := '0';  -- must be 0 to power SD controller (cs_bo)
---         sdClock : out std_logic;       -- (sclk_o)
---         sdMOSI : out std_logic;      
---         sdMISO : in  std_logic;
+         sdReset : out std_logic := '0';  -- must be 0 to power SD controller (cs_bo)
+         sdClock : out std_logic := 'Z';       -- (sclk_o)
+         sdMOSI : out std_logic := 'Z';      
+         sdMISO : in  std_logic;
 
          ----------------------------------------------------------------------
          -- Flash RAM for holding config
@@ -78,10 +78,13 @@ entity container is
          ----------------------------------------------------------------------
          -- Debug interfaces on TE0725
          ----------------------------------------------------------------------
-         led : out std_logic
+         led : out std_logic;
 
---         UART_TXD : out std_logic;
---         RsRx : in std_logic;
+         ----------------------------------------------------------------------
+         -- UART monitor interface
+         ----------------------------------------------------------------------
+         monitor_tx : out std_logic;
+         monitor_rx : in std_logic
          
          );
 end container;
@@ -136,7 +139,7 @@ begin
     port map ( clock240 => clock240,
                clock120 => clock120,
                clock80 => pixelclock,
-               hsync_polarity => '0',
+               hsync_polarity => '1',
                vsync_polarity => '0',
 
                hsync => vga_hsync,
@@ -169,6 +172,9 @@ begin
   begin
     if rising_edge(cpuclock) then
 
+      -- Echo monitor UART input to output
+      monitor_tx <= monitor_rx;
+      
       vga_red <= video_red(7 downto 4);
       vga_green <= video_red(7 downto 4);
       vga_blue <= video_red(7 downto 4);

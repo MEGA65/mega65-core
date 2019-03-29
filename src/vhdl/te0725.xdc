@@ -38,6 +38,16 @@ set_property -dict {PACKAGE_PIN N4 IOSTANDARD LVCMOS33} [get_ports {vga_blue[1]}
 set_property -dict {PACKAGE_PIN M4 IOSTANDARD LVCMOS33} [get_ports {vga_blue[2]}]
 set_property -dict {PACKAGE_PIN P4 IOSTANDARD LVCMOS33} [get_ports {vga_blue[3]}]
 
+#USB-RS232 Interface
+set_property -dict {PACKAGE_PIN L18 IOSTANDARD LVCMOS33} [get_ports monitor_rx]
+set_property -dict {PACKAGE_PIN M18 IOSTANDARD LVCMOS33} [get_ports monitor_tx]
+
+##Micro SD Connector
+set_property -dict {PACKAGE_PIN H2 IOSTANDARD LVCMOS33} [get_ports sdReset]
+set_property -dict {PACKAGE_PIN K2 IOSTANDARD LVCMOS33} [get_ports sdClock]
+set_property -dict {PACKAGE_PIN K1 IOSTANDARD LVCMOS33} [get_ports sdMOSI]
+set_property -dict {PACKAGE_PIN G2 IOSTANDARD LVCMOS33} [get_ports sdMISO]
+
 
 set_property BITSTREAM.GENERAL.COMPRESS TRUE [current_design]
 set_property BITSTREAM.CONFIG.CONFIGRATE 66 [current_design]
