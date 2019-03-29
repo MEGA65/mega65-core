@@ -22,8 +22,9 @@ set_property -dict {PACKAGE_PIN D8 IOSTANDARD LVCMOS33} [get_ports wifitx]
 set_property -dict {PACKAGE_PIN F6 IOSTANDARD LVCMOS33} [get_ports wifirx]
 
 # VGA port
-set_property -dict {PACKAGE_PIN P5 IOSTANDARD LVCMOS33} [get_ports vga_hsync]
-set_property -dict {PACKAGE_PIN T1 IOSTANDARD LVCMOS33} [get_ports vga_vsync]
+# XXX - HSYNC and VSYNC pins are swapped on MEGAphone schematic of 20190326
+set_property -dict {PACKAGE_PIN P3 IOSTANDARD LVCMOS33} [get_ports vga_vsync]
+set_property -dict {PACKAGE_PIN T1 IOSTANDARD LVCMOS33} [get_ports vga_hsync]
 set_property -dict {PACKAGE_PIN M3 IOSTANDARD LVCMOS33} [get_ports {vga_red[0]}]
 set_property -dict {PACKAGE_PIN M2 IOSTANDARD LVCMOS33} [get_ports {vga_red[1]}]
 set_property -dict {PACKAGE_PIN M1 IOSTANDARD LVCMOS33} [get_ports {vga_red[2]}]

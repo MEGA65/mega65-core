@@ -120,7 +120,19 @@ architecture Behavioral of container is
   
 begin
 
+  -- 60Hz VGA frame
   frame0:       entity work.frame_generator
+    generic map ( frame_width => 1057*3-1,
+                  display_width => 800 *3,
+                  clock_divider => 3,
+                  frame_height => 628,
+                  display_height => 600,
+                  pipeline_delay => 96,
+                  vsync_start => 628-22-4,
+                  vsync_end => 628-22,
+                  hsync_start => 840*3,
+                  hsync_end => 900*3
+                  )                  
     port map ( clock240 => clock240,
                clock120 => clock120,
                clock80 => pixelclock,
