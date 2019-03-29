@@ -98,6 +98,17 @@ architecture Behavioral of container is
            temp : out  STD_LOGIC_VECTOR (11 downto 0));
   end component;
 
+  signal irq : std_logic := '1';
+  signal nmi : std_logic := '1';
+  signal restore_key : std_logic := '1';
+  signal reset_out : std_logic := '1';
+  signal cpu_game : std_logic := '1';
+  signal cpu_exrom : std_logic := '1';
+  
+  signal buffer_vgared : unsigned(7 downto 0);
+  signal buffer_vgagreen : unsigned(7 downto 0);
+  signal buffer_vgablue : unsigned(7 downto 0);
+  
   signal pixelclock : std_logic;
   signal cpuclock : std_logic;
   signal clock240 : std_logic;
@@ -105,51 +116,88 @@ architecture Behavioral of container is
   signal clock100 : std_logic;
   signal ethclock : std_logic;
   signal clock200 : std_logic;
-
-  signal fpga_temperature : std_logic_vector(11 downto 0) := (others => '0');
   
-  signal counter : integer range 0 to 100000000 := 0;
-  signal led_internal : std_logic := '0';
+  signal segled_counter : unsigned(31 downto 0) := (others => '0');
 
-  signal counter2 : integer range 0 to 10000000 := 0;
-  signal wifirx_internal : std_logic := '0';
+  signal slow_access_request_toggle : std_logic;
+  signal slow_access_ready_toggle : std_logic;
+  signal slow_access_write : std_logic;
+  signal slow_access_address : unsigned(27 downto 0);
+  signal slow_access_wdata : unsigned(7 downto 0);
+  signal slow_access_rdata : unsigned(7 downto 0);
 
-  signal counter3 : integer range 0 to 50000000 := 0;
-  signal wifitx_internal : std_logic := '0';
+  signal sector_buffer_mapped : std_logic;
 
-  signal video_red : unsigned(7 downto 0);
-  signal video_green : unsigned(7 downto 0);
-  signal video_blue : unsigned(7 downto 0);
+  
+  signal vgaredignore : unsigned(3 downto 0);
+  signal vgagreenignore : unsigned(3 downto 0);
+  signal vgablueignore : unsigned(3 downto 0);
+
+  signal porta_pins : std_logic_vector(7 downto 0) := (others => '1');
+  signal portb_pins : std_logic_vector(7 downto 0) := (others => '1');
+
+  signal cart_ctrl_dir : std_logic := 'Z';
+  signal cart_haddr_dir : std_logic := 'Z';
+  signal cart_laddr_dir : std_logic := 'Z';
+  signal cart_data_dir : std_logic := 'Z';
+  signal cart_phi2 : std_logic := 'Z';
+  signal cart_dotclock : std_logic := 'Z';
+  signal cart_reset : std_logic := 'Z';
+
+  signal cart_nmi : std_logic := 'Z';
+  signal cart_irq : std_logic := 'Z';
+  signal cart_dma : std_logic := 'Z';
+
+  signal cart_exrom : std_logic := 'Z';
+  signal cart_ba : std_logic := 'Z';
+  signal cart_rw : std_logic := 'Z';
+  signal cart_roml : std_logic := 'Z';
+  signal cart_romh : std_logic := 'Z';
+  signal cart_io1 : std_logic := 'Z';
+  signal cart_game : std_logic := 'Z';
+  signal cart_io2 : std_logic := 'Z';
+
+  signal cart_d : unsigned(7 downto 0) := (others => 'Z');
+  signal cart_d_read : unsigned(7 downto 0) := (others => 'Z');
+  signal cart_a : unsigned(15 downto 0) := (others => 'Z');
+  
+  ----------------------------------------------------------------------
+  -- CBM floppy serial port
+  ----------------------------------------------------------------------
+  signal iec_clk_en : std_logic := 'Z';
+  signal iec_data_en : std_logic := 'Z';
+  signal iec_data_o : std_logic := 'Z';
+  signal iec_reset : std_logic := 'Z';
+  signal iec_clk_o : std_logic := 'Z';
+  signal iec_data_i : std_logic := '1';
+  signal iec_clk_i : std_logic := '1';
+  signal iec_atn : std_logic := 'Z';  
+
+  
+  -- XXX We should read the real temperature and feed this to the DDR controller
+  -- so that it can update timing whenever the temperature changes too much.
+  signal fpga_temperature : std_logic_vector(11 downto 0) := (others => '0');
+
+  signal ampPWM_internal : std_logic;
+  signal dummy : std_logic_vector(2 downto 0);
+  signal sawtooth_phase : integer := 0;
+  signal sawtooth_counter : integer := 0;
+  signal sawtooth_level : integer := 0;
+
+  signal lcd_hsync : std_logic;
+  signal lcd_vsync : std_logic;
+  signal lcd_display_enable : std_logic;
+  signal pal50_select : std_logic;
+
+  -- Dummy signals for stub / not yet implemented interfaces
+  signal eth_mdio : std_logic := '0';
+  signal touchSDA : std_logic := '1';
+  signal c65uart_rx : std_logic := '1';
+  signal buffereduart_rx : std_logic := '1';
+  signal buffereduart2_rx : std_logic := '1';
   
 begin
 
-  -- 60Hz VGA frame
-  frame0:       entity work.frame_generator
-    generic map ( frame_width => 1057*3-1,
-                  display_width => 800 *3,
-                  clock_divider => 3,
-                  frame_height => 628,
-                  display_height => 600,
-                  pipeline_delay => 96,
-                  vsync_start => 628-22-4,
-                  vsync_end => 628-22,
-                  hsync_start => 840*3,
-                  hsync_end => 900*3
-                  )                  
-    port map ( clock240 => clock240,
-               clock120 => clock120,
-               clock80 => pixelclock,
-               hsync_polarity => '1',
-               vsync_polarity => '0',
-
-               hsync => vga_hsync,
-               vsync => vga_vsync,
-               red_o => video_red,
-               green_o => video_green,
-               blue_o => video_blue
-               );
-               
-  
   dotclock1: entity work.dotclock100
     port map ( clk_in1 => CLK_IN,
                clock80 => pixelclock, -- 80MHz
@@ -167,41 +215,265 @@ begin
       rst => '0',
       clk => cpuclock,
       temp => fpga_temperature);
+
+  slow_devices0: entity work.slow_devices
+    port map (
+      cpuclock => cpuclock,
+      pixelclock => pixelclock,
+      reset => reset_out,
+      cpu_exrom => cpu_exrom,
+      cpu_game => cpu_game,
+      sector_buffer_mapped => sector_buffer_mapped,
+      
+      qspidb => qspidb,
+      qspicsn => qspicsn,      
+--      qspisck => '1',
+
+      slow_access_request_toggle => slow_access_request_toggle,
+      slow_access_ready_toggle => slow_access_ready_toggle,
+      slow_access_write => slow_access_write,
+      slow_access_address => slow_access_address,
+      slow_access_wdata => slow_access_wdata,
+      slow_access_rdata => slow_access_rdata,
+      
+      ----------------------------------------------------------------------
+      -- Expansion/cartridge port
+      ----------------------------------------------------------------------
+      cart_ctrl_dir => cart_ctrl_dir,
+      cart_haddr_dir => cart_haddr_dir,
+      cart_laddr_dir => cart_laddr_dir,
+      cart_data_dir => cart_data_dir,
+      cart_phi2 => cart_phi2,
+      cart_dotclock => cart_dotclock,
+      cart_reset => cart_reset,
+      
+      cart_nmi => cart_nmi,
+      cart_irq => cart_irq,
+      cart_dma => cart_dma,
+      
+      cart_exrom => cart_exrom,
+      cart_ba => cart_ba,
+      cart_rw => cart_rw,
+      cart_roml => cart_roml,
+      cart_romh => cart_romh,
+      cart_io1 => cart_io1,
+      cart_game => cart_game,
+      cart_io2 => cart_io2,
+      
+      cart_d_in => cart_d_read,
+      cart_d => cart_d,
+      cart_a => cart_a
+      );
   
-  process (cpuclock)
+  machine0: entity work.machine
+    generic map (cpufrequency => 40)
+    port map (
+      pixelclock      => pixelclock,
+      cpuclock        => cpuclock,
+      uartclock       => cpuclock, -- Match CPU clock
+      ioclock         => cpuclock, -- Match CPU clock
+      clock240 => clock240,
+      clock120 => clock120,
+      clock40 => cpuclock,
+      clock200 => clock200,
+      clock50mhz      => ethclock,
+      btncpureset => '1',
+      reset_out => reset_out,
+      irq => irq,
+      nmi => nmi,
+      restore_key => restore_key,
+      sector_buffer_mapped => sector_buffer_mapped,
+
+      pal50_select_out => pal50_select,
+      
+      -- Wire up a dummy caps_lock key on switch 8
+      caps_lock_key => '1',
+
+      fa_fire => '1',
+      fa_up =>  '1',
+      fa_left => '1',
+      fa_down => '1',
+      fa_right => '1',
+
+      fb_fire => '1',
+      fb_up => '1',
+      fb_left => '1',
+      fb_down => '1',
+      fb_right => '1',
+
+      fa_potx => '0',
+      fa_poty => '0',
+      fb_potx => '0',
+      fb_poty => '0',
+
+      f_index => '1',
+      f_track0 => '1',
+      f_writeprotect => '1',
+      f_rdata => '1',
+      f_diskchanged => '1',
+      
+      ----------------------------------------------------------------------
+      -- CBM floppy serial port stub
+      ----------------------------------------------------------------------
+      iec_clk_en => iec_clk_en,
+      iec_data_en => iec_data_en,
+      iec_data_o => iec_data_o,
+      iec_reset => iec_reset,
+      iec_clk_o => iec_clk_o,
+      iec_atn_o => iec_atn,
+      iec_data_external => '1',
+      iec_clk_external => '1',
+      
+      no_kickstart => '0',
+      
+      vsync           => vga_vsync,
+      hsync           => vga_hsync,
+--      lcd_vsync => lcd_vsync,
+--      lcd_hsync => lcd_hsync,
+--      lcd_display_enable => lcd_display_enable,
+      vgared(7 downto 0)          => buffer_vgared,
+      vgagreen(7 downto 0)        => buffer_vgagreen,
+      vgablue(7 downto 0)         => buffer_vgablue,
+
+      porta_pins => porta_pins,
+      portb_pins => portb_pins,
+      keyleft => '0',
+      keyup => '0',
+      
+      ---------------------------------------------------------------------------
+      -- IO lines to the ethernet controller (stub)
+      ---------------------------------------------------------------------------
+      eth_mdio => eth_mdio,
+--      eth_mdc => eth_mdc,
+--      eth_reset => eth_reset,
+      eth_rxd => "11",
+--      eth_txd => eth_txd,
+--      eth_txen => eth_txen,
+      eth_rxer => '1',
+      eth_rxdv => '0',
+      eth_interrupt => '1',
+      
+      -------------------------------------------------------------------------
+      -- Lines for the SDcard interface itself
+      -------------------------------------------------------------------------
+      cs_bo => sdReset,
+      sclk_o => sdClock,
+      mosi_o => sdMOSI,
+      miso_i => sdMISO,
+      miso2_i => '1',
+
+      -- Accelerometer (currently not connected)
+      aclMISO => '1',
+--      aclMOSI => aclMOSI,
+--      aclSS => aclSS,
+--      aclSCK => aclSCK,
+      aclInt1 => '0',
+      aclInt2 => '0',
+
+      -- Microphones (currently not connected)
+      micData0 => '0',
+      micData1 => '0',
+--      micClk => micClk,
+--      micLRSel => micLRSel,
+
+      -- Audio output
+      ampPWM_l => ampPWM_internal,
+--      ampPWM_r => led(14),
+--      ampSD => ampSD,
+
+    -- No nexys4 temperature sensor
+--      tmpSDA => tmpSDA,
+--      tmpSCL => tmpSCL,
+      tmpInt => '0',
+      tmpCT => '0',
+
+      -- Touch screen
+      touchSDA => touchSDA,
+--      touchSCL => '1',
+--      lcdpwm => ,
+      
+      -- This is for modem as PCM master:
+      pcm_modem_clk_in => '0',
+      pcm_modem_sync_in => '0',
+        
+--      pcm_modem1_data_out => jdhi(9),
+      pcm_modem1_data_in => '1',
+      
+      ps2data =>      '1',
+      ps2clock =>     '1',
+
+      -- Widget board interface stub
+      pmod_start_of_sequence => '0',
+      pmod_data_in => "1111",
+      pmod_clock => '0',
+      
+      -- C65 UART
+      uart_rx => c65uart_rx,
+--      uart_tx => jclo(2),
+
+      -- Buffered UARTs for cellular modems etc
+      buffereduart_rx => buffereduart_rx,
+--      buffereduart_tx => jclo(4),
+      buffereduart2_rx => buffereduart2_rx,
+--      buffereduart2_tx => jchi(10),
+      buffereduart_ringindicate => '0',
+      
+      slow_access_request_toggle => slow_access_request_toggle,
+      slow_access_ready_toggle => slow_access_ready_toggle,
+      slow_access_address => slow_access_address,
+      slow_access_write => slow_access_write,
+      slow_access_wdata => slow_access_wdata,
+      slow_access_rdata => slow_access_rdata,
+--      cpu_exrom => cpu_exrom,      
+--      cpu_game => cpu_game,      
+      -- enable/disable cartridge with sw(8)
+      cpu_exrom => '1',
+      cpu_game => '1',
+      cart_access_count => x"00",
+
+      fpga_temperature => fpga_temperature,
+
+--      led(12 downto 0) => led(12 downto 0),
+--      led(15 downto 13) => dummy,
+      sw => (others => '0'),
+      btn => (others => '0'),
+
+      UART_TXD => monitor_tx,
+      RsRx => monitor_rx
+      
+--      sseg_ca => sseg_ca,
+--      sseg_an => sseg_an
+      );
+    
+  process (cpuclock,clock120,cpuclock,pal50_select)
   begin
+    if rising_edge(clock120) then
+      -- VGA direct output
+      vga_red <= buffer_vgared(7 downto 4);
+      vga_green <= buffer_vgagreen(7 downto 4);
+      vga_blue <= buffer_vgablue(7 downto 4);
+
+      -- VGA out on LCD panel
+--      jalo <= std_logic_vector(buffer_vgablue(7 downto 4));
+--      jahi <= std_logic_vector(buffer_vgared(7 downto 4));
+--      jblo <= std_logic_vector(buffer_vgagreen(7 downto 4));
+--      jbhi(8) <= lcd_hsync;
+--      jbhi(9) <= lcd_vsync;
+--      jbhi(10) <= lcd_display_enable;
+    end if;
+
     if rising_edge(cpuclock) then
 
-      -- Echo monitor UART input to output
-      monitor_tx <= monitor_rx;
+      -- No physical keyboard
+      portb_pins <= (others => '1');
       
-      vga_red <= video_red(7 downto 4);
-      vga_green <= video_red(7 downto 4);
-      vga_blue <= video_red(7 downto 4);
-      
-      if counter /= 0 then
-        counter <= counter - 1;
-      else
-        counter <= 25000000;
-        led_internal <= not led_internal;
-        led <= led_internal;
-      end if;
-      if counter2 /= 0 then
-        counter2 <= counter2 - 1;
-      else
-        counter2 <= 5000;
-        wifirx_internal <= not wifirx_internal;
-        wifirx <= wifirx_internal;
-      end if;
-      if counter3 /= 0 then
-        counter3 <= counter3 - 1;
-      else
-        counter3 <= 1000;
-        wifitx_internal <= not wifitx_internal;
-        wifitx <= wifitx_internal;
-      end if;
+      -- Audio output (not yet connected)
+--      ampPWM <= ampPWM_internal;
+
     end if;
   end process;
+
+  
 
   -- XXX Ethernet should be 250Mbit fibre port on this board  
   -- eth_clock <= cpuclock;
