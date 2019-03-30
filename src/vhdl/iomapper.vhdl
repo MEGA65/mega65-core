@@ -14,6 +14,7 @@ entity iomapper is
         chipselect_enables : in std_logic_vector(7 downto 0) := x"FF";
 
         cpuclock : in std_logic;
+        cpuspeed : in unsigned(7 downto 0);
         pixelclk : in std_logic;
         uartclock : in std_logic;
         clock50mhz : in std_logic;
@@ -318,7 +319,7 @@ architecture behavioral of iomapper is
 
   signal cs_driverom : std_logic;
   signal cs_driveram : std_logic;
-  signal drive_clock_cycle_strobe : std_logic := '0';
+  signal drive_clock_cycle_strobe : std_logic := '1';
   signal drive_reset : std_logic := '1';
   signal drive_connect : std_logic := '1';
   signal sd1541_data : unsigned(7 downto 0);
@@ -467,6 +468,10 @@ architecture behavioral of iomapper is
   signal sd_interface_select_internal : std_logic := '0';
 
   signal address_next_1541 : unsigned(15 downto 0);
+
+  -- Used to divide 40MHz cpuclock down to get 1541 CPU clock
+  signal drive_cycle_interval : integer range 0 to 40 := 40;
+  signal drive_cycle_countdown : integer range 0 to 40 := 0;
   
 begin
 
@@ -1130,6 +1135,31 @@ begin
 
     if rising_edge(clk) then
 
+      -- Generate 1541 drive clock at exactly 1MHz, 2MHz, 3.5MHz or 40MHz,
+      -- depending on CPU speed setting.
+      -- This allows fastloading at fast CPU speeds, without (hopefully) messing
+      -- up Computer to drive CPU synchronisation.
+      if cpuspeed = x"01" then
+        drive_cycle_interval <= 40;
+      elsif cpuspeed = x"02" then
+        -- XXX Does any 2MHz code try to talk to the drive?  If so, then this should
+        -- be 40.
+        drive_cycle_interval <= 20;
+      elsif cpuspeed = x"04" then
+        -- XXX Does the C65 ROM talk to the drive at 3.5MHz? If so, then this
+        -- should be 40
+        drive_cycle_interval <= 10;
+      elsif cpuspeed = x"40" then
+        drive_cycle_interval <= 0;
+      end if;
+      if drive_cycle_countdown = 0 then
+        drive_clock_cycle_strobe <= '1';
+        drive_cycle_countdown <= drive_cycle_interval;
+      else
+        drive_clock_cycle_strobe <= '0';
+        drive_cycle_countdown <= drive_cycle_countdown - 1;
+      end if;
+      
       report "1541 address_next = $" & to_hstring(address_next_1541);
       
       sd_interface_select_internal <= sd_interface_select;

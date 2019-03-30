@@ -24,7 +24,18 @@ architecture Behavioral of driverom is
   signal no_write_count : unsigned(7 downto 0) := x"00";
   
   type ram_t is array (0 to 16383) of unsigned(7 downto 0);
-  shared variable ram : ram_t;
+  shared variable ram : ram_t := (
+    16383 => x"FE",
+    16382 => x"FD",
+    16381 => x"FC",
+    16380 => x"FB",
+    16379 => x"FA",
+    16378 => x"F9",
+    16377 => x"F8",
+    16376 => x"F7",
+    others => x"42"
+    )
+    ;
 begin
 
   writes <= write_count;

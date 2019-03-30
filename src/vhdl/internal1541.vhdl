@@ -67,6 +67,8 @@ architecture romanesque_revival of internal1541 is
   signal cs_rom : std_logic;
   signal cs_via1 : std_logic;
   signal cs_via2 : std_logic;
+
+  signal address_next_internal : unsigned(15 downto 0);
   
   component cpu6502 is
     port (
@@ -126,14 +128,15 @@ begin
 
   cpu: component cpu6502 port map (
     clk => clock,
-    reset => drive_reset,
+--    reset => drive_reset,
+    reset => '0',
     nmi => nmi,
     irq => irq,
     ready => drive_clock_cycle_strobe,
     write => cpu_write,
 --    sync => cpu_sync,
     address => address,
-    address_next => address_next,
+    address_next => address_next_internal,
     data_i => rdata,
     data_o => wdata   
     );
@@ -141,6 +144,13 @@ begin
   process(clock,address)
   begin
 
+    if rising_edge(clock) then
+      report "1541TICK: address_next = $" & to_hstring(address_next_internal) & ", drive_cycle = "
+        & std_logic'image(drive_clock_cycle_strobe) & ", reset=" & std_logic'image(drive_reset);
+    end if;
+    
+    address_next <= address_next_internal;
+    
     -- Decode ROM, RAM and IO addresses
     if address(15)='1' then
       -- ROM is repeated twice at $8000 and $C000

@@ -1252,6 +1252,7 @@ begin
       clk => ioclock,
       clock200mhz => clock200,
       clock2mhz => clock2mhz,
+      cpuspeed => cpuspeed,      
       protected_hardware_in => protected_hardware_sig,
       virtualised_hardware_in => virtualised_hardware_sig,
       chipselect_enables => chipselect_enables,
