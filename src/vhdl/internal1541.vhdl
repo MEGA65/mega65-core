@@ -58,8 +58,11 @@ architecture romanesque_revival of internal1541 is
   signal rdata : unsigned(7 downto 0);
   signal wdata : unsigned(7 downto 0);
   signal ram_write_enable : std_logic := '0';
-  signal nmi : std_logic := '1';
-  signal irq : std_logic := '1';
+
+  -- XXX Active high in the verilog 6502?
+  signal nmi : std_logic := '0';
+  signal irq : std_logic := '0';
+  
   signal cpu_write : std_logic := '0';
 
   -- Internal CS lines for the 1541
@@ -108,7 +111,7 @@ begin
     web(0) => ram_write_enable,
     addrb => std_logic_vector(address(11 downto 0)),
     dinb => std_logic_vector(wdata),
-    unsigned(doutb) => rdata
+    unsigned(doutb) => ram_rdata
     );
 
   rom: entity work.driverom port map (
@@ -123,7 +126,7 @@ begin
     -- CPU interface
     clkb => clock,
     addressb => to_integer(address),
-    dob => rdata
+    dob => rom_rdata
     );
 
   cpu: component cpu6502 port map (
@@ -145,7 +148,7 @@ begin
   begin
 
     if rising_edge(clock) then
-      report "1541TICK: address_next = $" & to_hstring(address_next_internal) & ", drive_cycle = "
+      report "1541TICK: address = $" & to_hstring(address) & ", drive_cycle = "
         & std_logic'image(drive_clock_cycle_strobe) & ", reset=" & std_logic'image(drive_reset);
     end if;
     
@@ -169,6 +172,12 @@ begin
         when others =>
           cs_ram <= '0'; cs_via1 <= '0'; cs_via2 <= '0';          
       end case;
+    end if;
+
+    if cs_ram='1' then
+      rdata <= ram_rdata;
+    elsif cs_rom='1' then
+      rdata <= rom_rdata;
     end if;
     
   end process;
