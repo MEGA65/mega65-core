@@ -71,6 +71,9 @@ architecture romanesque_revival of internal1541 is
   signal cs_via1 : std_logic;
   signal cs_via2 : std_logic;
 
+  signal ram_rdata : unsigned(7 downto 0);
+  signal rom_rdata : unsigned(7 downto 0);
+  
   signal address_next_internal : unsigned(15 downto 0);
   
   component cpu6502 is
