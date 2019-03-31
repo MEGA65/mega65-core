@@ -60,8 +60,8 @@ architecture romanesque_revival of internal1541 is
   signal ram_write_enable : std_logic := '0';
 
   -- XXX Active high in the verilog 6502?
-  signal nmi : std_logic := '0';
-  signal irq : std_logic := '0';
+  signal nmi : std_logic := '1';
+  signal irq : std_logic := '1';
   
   signal cpu_write : std_logic := '0';
 

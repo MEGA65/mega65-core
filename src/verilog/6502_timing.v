@@ -46,21 +46,26 @@ parameter T0 = 3'b000,
 
 `ifdef CMOS
 assign decimal_extra_cycle = (t == 7 && load_sbz);
+   
 assign sync = (t == 1 && ~(decimal_cycle)) | decimal_extra_cycle;
 // Disable PC increment when processing a BRK with recognized IRQ/NMI, or when about to perform the extra decimal correction cycle
 assign pc_hold = intg | decimal_cycle;
 `else
 assign decimal_extra_cycle = 0;
+   
 assign sync = (t == 1);
 assign pc_hold = intg;
 `endif
 
 always @(posedge clk)
-begin
+  begin
+     $display("Setting CMOS sync would use decimal_cycle = %d, decimal_extra_cycle = %d (result = %d)",
+	      decimal_cycle,decimal_extra_cycle,(t == 1 && ~(decimal_cycle)) | decimal_extra_cycle);
+     
   if(reset)       t <= T2;
   else if(ready) begin
     t <= t_next;
-    //$display("T: %d t_next: %d",t,t_next);
+    $display("T: %d t_next: %d",t,t_next);
   end
 end
 

@@ -223,9 +223,13 @@ decoder3to8 dec3to8(ir[6:4], ir_dec);
   // synthesis translate off
   reg [15:0] last_fetch_addr;
   always @(posedge clk)
-  begin
-    if(sync & ready_i)
     begin
+       $display("sync = %d, ready_i = %d, reset = %d",sync,ready_i,reset);
+       
+    if(sync & ready_i)
+      begin
+	 $display("Sync & ready_i asserted");
+	 
       if(last_fetch_addr == address)
       begin
         $display("Halting, branch to self detected: %04x   A: %02x X: %02x Y: %02x S: %02x P: %02x ",last_fetch_addr,
@@ -235,7 +239,7 @@ decoder3to8 dec3to8(ir[6:4], ir_dec);
       if(pc_hold == 0)
         last_fetch_addr <= address;
     
-    //$display("FETCH ADDR: %04x byte: %02x  1C: %d 2C: %d  pc_hold: %d intg: %g",address,ir_next,onecycle,twocycle,pc_hold, intg);
+      $display("FETCH ADDR: %04x byte: %02x  1C: %d 2C: %d  pc_hold: %d intg: %g",address,ir_next,onecycle,twocycle,pc_hold, intg);
     end
   end
   // synthesis translate on
