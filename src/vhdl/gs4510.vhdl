@@ -6716,8 +6716,7 @@ begin
         temp_address(27 downto 17) := (others => '0');
         temp_address(16) := temp_address(0); -- odd/even bitplane bank select
         -- Bit plane address
-        -- XXX only uses the address from upper nybl -- doesn't pick based on
-        -- odd/even line/frame.
+        -- (VIC-III tells us if it is an odd or even frame if using V400+INT bits)
         if dat_even='1' then
           temp_address(15 downto 13) :=
             dat_bitplane_addresses(to_integer(temp_address(2 downto 0)))(7 downto 5);
