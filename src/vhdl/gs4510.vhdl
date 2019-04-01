@@ -6723,7 +6723,7 @@ begin
             dat_bitplane_addresses(to_integer(temp_address(2 downto 0)))(7 downto 5);
         else
           temp_address(15 downto 13) :=
-            dat_bitplane_addresses(to_integer(temp_address(2 downto 0)))(4 downto 1);
+            dat_bitplane_addresses(to_integer(temp_address(2 downto 0)))(3 downto 1);
         end if;
         -- Bitplane offset
         temp_address(12 downto 0) := dat_offset_drive(12 downto 0);
