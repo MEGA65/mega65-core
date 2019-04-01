@@ -149,15 +149,17 @@ architecture behavioural of framepacker is
   
 begin  -- behavioural
 
-  videobuffer0: entity work.videobuffer port map (
-    clka => pixelclock,
-    wea(0) => output_write,
-    addra => std_logic_vector(output_address),
-    dina => std_logic_vector(output_data),
-    clkb => ethclock,
-    addrb => std_logic_vector(buffer_address),
-    unsigned(doutb) => buffer_rdata
-    );
+  -- PGS 20190401 - Disable frame packer to save a BRAM, since we ran out
+  -- adding the internal 1541.
+--  videobuffer0: entity work.videobuffer port map (
+--    clka => pixelclock,
+--    wea(0) => output_write,
+--    addra => std_logic_vector(output_address),
+--    dina => std_logic_vector(output_data),
+--    clkb => ethclock,
+--    addrb => std_logic_vector(buffer_address),
+--    unsigned(doutb) => buffer_rdata
+--    );
 
   thumnailbuffer0: entity work.videobuffer port map (
     clka => pixelclock,
