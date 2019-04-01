@@ -96,6 +96,7 @@ entity viciv is
     xray_mode : in std_logic;
     test_pattern_enable : inout std_logic := '0';
 
+    dat_even : out std_logic;
     dat_offset : out unsigned(15 downto 0);
     dat_bitplane_addresses : out sprite_vector_eight;
 
@@ -839,6 +840,7 @@ architecture Behavioral of viciv is
   signal reg_h640 : std_logic := '0';
   signal reg_h1280 : std_logic := '0';
   signal reg_v400 : std_logic := '0';
+  signal reg_interlace : std_logic := '0';
   signal sprite_h640 : std_logic := '1';
   signal sprite_v400s : std_logic_vector(7 downto 0) := x"00";
   signal sprite_v400_msbs : std_logic_vector(7 downto 0) := x"00";
@@ -1232,7 +1234,7 @@ begin
           debug_chargen_active_soon,palette_bank_sprites,
           vicii_ycounter,reg_rom_e000,reg_rom_c000,
           reg_rom_a000,reg_c65_charset,reg_rom_8000,reg_palrom,
-          reg_h640,reg_h1280,reg_v400,xcounter_drive,ycounter_drive,
+          reg_h640,reg_h1280,reg_v400,reg_interlace,xcounter_drive,ycounter_drive,
           horizontal_filter,xfrontporch_drive,chargen_active_drive,
           inborder_drive,chargen_active_soon_drive,card_number_drive,
           bitplanes_x_start,bitplanes_y_start,dat_y,dat_x,dat_bitplane_offset,
@@ -1503,18 +1505,40 @@ begin
 
     -- Calculate DAT bitplane offset
     -- XXX currently ignores V400 mode
-    if reg_h640 = '0' then
-      dat_bitplane_offset <=
-        ("00" & dat_y(8 downto 3) & "00000000")
-        + ("0000" & dat_y(8 downto 3) & "000000")
-        + ("0000000000000" & dat_y(2 downto 0))
-        + ("000000" & dat_x & "000");
+    if reg_v400 = '0' or reg_interlace = '0' then
+      if reg_h640 = '0' then
+        dat_bitplane_offset <=
+          ("00" & dat_y(8 downto 3) & "00000000")
+          + ("0000" & dat_y(8 downto 3) & "000000")
+          + ("0000000000000" & dat_y(2 downto 0))
+          + ("000000" & dat_x & "000");
+      else
+        dat_bitplane_offset <=
+          ("0" & dat_y(8 downto 3) & "000000000")
+          + ("000" & dat_y(8 downto 3) & "0000000")
+          + ("0000000000000" & dat_y(2 downto 0))
+          + ("000000" & dat_x & "000");
+      end if;
+      dat_even <= '1';
     else
-      dat_bitplane_offset <=
-        ("0" & dat_y(8 downto 3) & "000000000")
-        + ("000" & dat_y(8 downto 3) & "0000000")
-        + ("0000000000000" & dat_y(2 downto 0))
-        + ("000000" & dat_x & "000");
+      -- For V400 + Interlace, we need to pick even/odd frame
+      -- This must mean that the bottom bit of dat_y indicates
+      -- the odd/even frame, and all the other bits of dat_y are
+      -- shifted right a bit to exclude it.
+      if reg_h640 = '0' then
+        dat_bitplane_offset <=
+          ("000" & dat_y(8 downto 4) & "00000000")
+          + ("0000" & dat_y(8 downto 3) & "000000")
+          + ("0000000000000" & dat_y(3 downto 1))
+          + ("000000" & dat_x & "000");
+      else
+        dat_bitplane_offset <=
+          ("00" & dat_y(8 downto 4) & "000000000")
+          + ("000" & dat_y(8 downto 3) & "0000000")
+          + ("0000000000000" & dat_y(3 downto 1))
+          + ("000000" & dat_x & "000");
+      end if;
+      dat_even <= not dat_y(0);
     end if;
     -- Export this and bitplane addresses to the CPU
     dat_offset <= dat_bitplane_offset;
@@ -1704,7 +1728,7 @@ begin
             & reg_v400                         -- V400
             & reg_h1280                         -- H1280
             & "0"                         -- MONO
-            & "1";                        -- INT(erlaced?)
+            & reg_interlace;                   -- INT(erlaced?)
 
 
                                         -- Skip $D02F - $D03F to avoid real C65/C128 programs trying to
@@ -2354,6 +2378,7 @@ begin
           reg_h1280 <= fastio_wdata(2);
           -- @IO:C65 $D031.1 VIC-III:MONO Enable VIC-III MONO video output (not implemented)
           -- @IO:C65 $D031.0 VIC-III:INT Enable VIC-III interlaced mode
+          reg_interlace <= fastio_wdata(0);
           viciv_legacy_mode_registers_touched <= '1';
         elsif register_number=50 then
           bitplane_enables <= fastio_wdata;

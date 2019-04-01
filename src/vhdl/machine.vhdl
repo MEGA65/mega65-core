@@ -624,6 +624,7 @@ architecture Behavioral of machine is
   
   signal all_pause : std_logic := '0';
 
+  signal dat_even : std_logic;
   signal dat_offset : unsigned(15 downto 0);
   signal dat_bitplane_addresses : sprite_vector_eight;  
 
@@ -866,6 +867,7 @@ begin
       clear_matrix_mode_toggle => clear_matrix_mode_toggle,
       matrix_rain_seed => matrix_rain_seed,
       dat_offset => dat_offset,
+      dat_even => dat_even,
       dat_bitplane_addresses => dat_bitplane_addresses,
 
       debug_address_w_dbg_out => debug_address_w_dbg_out,
@@ -1060,6 +1062,7 @@ begin
       xray_mode => xray_mode,
       d031_written => d031_write_toggle,
 
+      dat_even => dat_even,
       dat_offset => dat_offset,
       dat_bitplane_addresses => dat_bitplane_addresses,
      

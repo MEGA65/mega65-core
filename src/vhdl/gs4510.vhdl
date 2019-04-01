@@ -79,6 +79,7 @@ entity gs4510 is
     iomode_set_toggle : out std_logic := '0';
 
     dat_offset : in unsigned(15 downto 0);
+    dat_even : in std_logic;
     dat_bitplane_addresses : in sprite_vector_eight;
     
     cpuis6502 : out std_logic := '0';
@@ -270,6 +271,7 @@ architecture Behavioural of gs4510 is
 
   signal dat_bitplane_addresses_drive : sprite_vector_eight;
   signal dat_offset_drive : unsigned(15 downto 0) := to_unsigned(0,16);
+  signal dat_even_drive : std_logic := '1';
 
   -- Instruction log
   signal last_instruction_pc : unsigned(15 downto 0) := x"FFFF";
@@ -3134,6 +3136,7 @@ begin
       
       dat_bitplane_addresses_drive <= dat_bitplane_addresses;
       dat_offset_drive <= dat_offset;
+      dat_even_drive <= dat_even;
       
       cycle_counter <= cycle_counter + 1;
       
@@ -6715,8 +6718,13 @@ begin
         -- Bit plane address
         -- XXX only uses the address from upper nybl -- doesn't pick based on
         -- odd/even line/frame.
-        temp_address(15 downto 13) :=
-          dat_bitplane_addresses(to_integer(temp_address(2 downto 0)))(7 downto 5);
+        if dat_even='1' then
+          temp_address(15 downto 13) :=
+            dat_bitplane_addresses(to_integer(temp_address(2 downto 0)))(7 downto 5);
+        else
+          temp_address(15 downto 13) :=
+            dat_bitplane_addresses(to_integer(temp_address(2 downto 0)))(4 downto 1);
+        end if;
         -- Bitplane offset
         temp_address(12 downto 0) := dat_offset_drive(12 downto 0);
         report "C65 VIC-III DAT: Address translated to $" & to_hstring(temp_address);
