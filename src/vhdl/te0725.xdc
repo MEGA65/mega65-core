@@ -43,10 +43,10 @@ set_property -dict {PACKAGE_PIN L18 IOSTANDARD LVCMOS33} [get_ports monitor_rx]
 set_property -dict {PACKAGE_PIN M18 IOSTANDARD LVCMOS33} [get_ports monitor_tx]
 
 ##Micro SD Connector
-set_property -dict {PACKAGE_PIN U9 IOSTANDARD LVCMOS33} [get_ports sdReset]
-set_property -dict {PACKAGE_PIN R8 IOSTANDARD LVCMOS33} [get_ports sdClock]
-set_property -dict {PACKAGE_PIN T8 IOSTANDARD LVCMOS33} [get_ports sdMOSI]
-set_property -dict {PACKAGE_PIN V9 IOSTANDARD LVCMOS33} [get_ports sdMISO]
+set_property -dict {PACKAGE_PIN U9 IOSTANDARD LVCMOS33} [get_ports sdMISO]
+set_property -dict {PACKAGE_PIN V9 IOSTANDARD LVCMOS33} [get_ports sdReset]
+set_property -dict {PACKAGE_PIN T8 IOSTANDARD LVCMOS33} [get_ports sdClock]
+set_property -dict {PACKAGE_PIN R8 IOSTANDARD LVCMOS33} [get_ports sdMOSI]
 
 
 set_property BITSTREAM.GENERAL.COMPRESS TRUE [current_design]
