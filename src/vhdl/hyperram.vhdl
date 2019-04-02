@@ -187,6 +187,7 @@ begin
               if ram_reading = '1' then
               -- Reading: We can just wait until hr_rwds has gone low, and then
                 -- goes high again to indicate the first data byte
+                countdown <= 99;
                 state <= HyperRAMReadWait;
               else
                 -- Writing, so count down the correct number of cycles;
@@ -244,6 +245,15 @@ begin
           state <= Idle;
         when HyperRAMReadWait =>
           hr_rwds <= 'Z';
+          if countdown = 0 then
+            -- Timed out waiting for read -- so return anyway, rather
+            -- than locking the machine hard forever.
+            rdata <= x"DE";
+            data_ready_toggle <= not data_ready_toggle;
+            state <= Idle;
+          else
+            countdown <= countdown - 1;
+          end if;
           next_is_data <= not next_is_data;
           if next_is_data = '0' then
             -- Toggle clock while data steady
