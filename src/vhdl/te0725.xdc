@@ -48,6 +48,10 @@ set_property -dict {PACKAGE_PIN V9 IOSTANDARD LVCMOS33} [get_ports sdReset]
 set_property -dict {PACKAGE_PIN T8 IOSTANDARD LVCMOS33} [get_ports sdClock]
 set_property -dict {PACKAGE_PIN R8 IOSTANDARD LVCMOS33} [get_ports sdMOSI]
 
+##PWM Audio Amplifier
+set_property -dict {PACKAGE_PIN D4 IOSTANDARD LVCMOS33} [get_ports headphone_left]
+set_property -dict {PACKAGE_PIN D5 IOSTANDARD LVCMOS33} [get_ports headphone_right]
+
 ## Hyper RAM : 1.8V allows for higher speed, but requires differential clock pair
 set_property -dict {PACKAGE_PIN E17 IOSTANDARD LVCMOS18} [get_ports {hr_d[0]}]
 set_property -dict {PACKAGE_PIN B17 IOSTANDARD LVCMOS18} [get_ports {hr_d[1]}]
@@ -110,8 +114,8 @@ set_property -dict {PACKAGE_PIN B3 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[25
 set_property -dict {PACKAGE_PIN B2 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[26]}]
 set_property -dict {PACKAGE_PIN A3 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[27]}]
 set_property -dict {PACKAGE_PIN A4 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[28]}]
-set_property -dict {PACKAGE_PIN D4 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[29]}]
-set_property -dict {PACKAGE_PIN D5 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[30]}]
+#set_property -dict {PACKAGE_PIN D4 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[29]}]
+#set_property -dict {PACKAGE_PIN D5 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[30]}]
 set_property -dict {PACKAGE_PIN A5 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[31]}]
 set_property -dict {PACKAGE_PIN A6 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[32]}]
 set_property -dict {PACKAGE_PIN B6 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[33]}]

@@ -84,8 +84,11 @@ entity container is
          QspiCSn : out std_logic;
          
          ----------------------------------------------------------------------
-         -- Hyper RAM interface for Slow RAM
+         -- Analog headphone jack output
+         -- (amplifier enable is on an IO expander)
          ----------------------------------------------------------------------
+         headphone_left : out std_logic;
+         headphone_right : out std_logic;
          
          ----------------------------------------------------------------------
          -- Debug interfaces on TE0725
@@ -190,7 +193,6 @@ architecture Behavioral of container is
   -- so that it can update timing whenever the temperature changes too much.
   signal fpga_temperature : std_logic_vector(11 downto 0) := (others => '0');
 
-  signal ampPWM_internal : std_logic;
   signal dummy : std_logic_vector(2 downto 0);
   signal sawtooth_phase : integer := 0;
   signal sawtooth_counter : integer := 0;
@@ -439,8 +441,8 @@ begin
 --      micLRSel => micLRSel,
 
       -- Audio output
-      ampPWM_l => ampPWM_internal,
---      ampPWM_r => led(14),
+      ampPWM_l => headphone_left,
+      ampPWM_r => headphone_right,
 --      ampSD => ampSD,
 
     -- No nexys4 temperature sensor
@@ -530,7 +532,7 @@ begin
       portb_pins <= (others => '1');
       
       -- Audio output (not yet connected)
---      ampPWM <= ampPWM_internal;
+      ampPWM <= ampPWM_internal;
 
     end if;
   end process;
