@@ -28,9 +28,9 @@ entity hyperram is
 
          hr_d : inout unsigned(7 downto 0) := (others => 'Z'); -- Data/Address
          hr_rwds : inout std_logic := 'Z'; -- RW Data strobe
-         hr_rsto : in std_logic; -- Unknown PIN
+--         hr_rsto : in std_logic; -- Unknown PIN
          hr_reset : out std_logic := '1'; -- Active low RESET line to HyperRAM
-         hr_int : in std_logic; -- Interrupt?
+--         hr_int : in std_logic; -- Interrupt?
          hr_clk_n : out std_logic := '0';
          hr_clk_p : out std_logic := '1';
          hr_cs : out std_logic := '0'
@@ -42,24 +42,41 @@ architecture gothic of hyperram is
   type state_t is (
     Idle,
     ReadSetup,
-    WriteSetup
+    WriteSetup,
+    HyperRAMCSStrobe,
+    HyperRAMOutputCommand,
+    HyperRAMLatencyWait,
+    HyperRAMFinishWriting,
+    HyperRAMReadWait
     );
   
   signal state : state_t := Idle;
   signal busy_internal : std_logic := '0';
-  signal hr_command : std_logic_vector(47 downto 0);
-  signal ram_address : unsigned(22 downto 0);
+  signal hr_command : unsigned(47 downto 0);
+  signal ram_address : unsigned(26 downto 0);
   signal ram_wdata : unsigned(7 downto 0);
+  signal ram_reading : std_logic := '1';
+  
+  signal countdown : integer := 0;
+  signal extra_latency : std_logic := '0';
+
+  signal next_is_data : std_logic := '1';
+  signal hr_clock : std_logic := '0';
+
+  signal data_ready_toggle : std_logic := '0';
+  signal last_data_ready_toggle : std_logic := '0';
   
 begin
   process (cpuclock,clock240) is
   begin
     if rising_edge(cpuclock) then
+      data_ready_strobe <= '0';
       if read_request='1' and busy_internal='0' then
         -- Begin read request
         state <= ReadSetup;
         -- Latch address
         ram_address <= address;
+        ram_reading <= '1';
         null;
       elsif write_request='1' and busy_internal='0' then
         -- Begin write request
@@ -67,10 +84,14 @@ begin
         -- Latch address and data 
         ram_address <= address;
         ram_wdata <= wdata;
+        ram_reading <= '0';
         null;
       else
         -- Nothing new to do
-        null;
+        if data_ready_toggle /= last_data_ready_toggle then
+          last_data_ready_toggle <= data_ready_toggle;
+          data_ready_strobe <= '1';
+        end if;
       end if;
     end if;
 
@@ -78,14 +99,159 @@ begin
       -- HyperRAM state machine
       case state is
         when Idle =>
-          null;
+          -- Mark us ready for a new job
+          -- (CPU side will updat
+          busy_internal <= '0';
+        when ReadSetup =>
+          -- Prepare command vector
+          hr_command(47) <= '1'; -- READ
+          hr_command(46) <= '0'; -- Memory address space
+          hr_command(45) <= '1'; -- Linear access (not wrapped)
+          hr_command(44 downto 40) <= (others => '0'); -- unused upper address bits
+          hr_command(39 downto 16) <= ram_address(26 downto 3);
+          hr_command(15 downto 3) <= (others => '0'); -- reserved bits
+          hr_command(2 downto 0) <= ram_address(2 downto 0);
+
+          -- Call HyperRAM to attention
+          hr_cs <= '1';
+          hr_clk_n <= '0';
+          hr_clk_p <= '1';
+          hr_reset <= '1'; -- active low reset
+          countdown <= 6;
+
+          state <= HyperRAMCSStrobe;
+          
+        when WriteSetup =>
+          -- Prepare command vector
+          hr_command(47) <= '0'; -- WRITE
+          hr_command(46) <= '0'; -- Memory address space
+          hr_command(45) <= '1'; -- Linear access (not wrapped)
+          hr_command(44 downto 40) <= (others => '0'); -- unused upper address bits
+          hr_command(39 downto 16) <= ram_address(26 downto 3);
+          hr_command(15 downto 3) <= (others => '0'); -- reserved bits
+          hr_command(2 downto 0) <= ram_address(2 downto 0);
+
+          -- Call HyperRAM to attention
+          hr_cs <= '1';
+          hr_clk_n <= '0';
+          hr_clk_p <= '1';
+          hr_clock <= '1';
+          hr_reset <= '1'; -- active low reset
+          countdown <= 6;
+
+          state <= HyperRAMCSStrobe;
+
+        when HyperRAMCSStrobe =>
+          if countdown = 3 then
+            hr_cs <= '0';
+          end if;
+          if countdown /= 0 then
+            countdown <= countdown - 1;
+          else
+            state <= HyperRAMOutputCommand;
+            countdown <= 6; -- 48 bits = 6 x 8 bits
+          end if;
+
+        when HyperRAMOutputCommand =>
+          hr_rwds <= 'Z';
+          next_is_data <= not next_is_data;
+          if next_is_data = '0' then
+            -- Toggle clock while data steady
+            hr_clk_n <= not hr_clock;
+            hr_clk_p <= hr_clock;
+            hr_clock <= not hr_clock;
+          else
+            -- Toggle data while clock steady
+            hr_d <= hr_command(47 downto 40);
+            hr_command(47 downto 8) <= hr_command(39 downto 0);
+
+            if countdown = 3 then
+              extra_latency <= hr_rwds;
+            end if;
+            if countdown /= 0 then
+              countdown <= countdown - 1;
+            else
+              -- Finished shifting out
+              if ram_reading = '1' then
+              -- Reading: We can just wait until hr_rwds has gone low, and then
+                -- goes high again to indicate the first data byte
+                state <= HyperRAMReadWait;
+              else
+                -- Writing, so count down the correct number of cycles;
+                -- Initial latency is reduced by 3 cycles for the last bytes
+                -- of the access command
+                countdown <= 6 - 3;
+                state <= HyperRAMLatencyWait;
+              end if;
+            end if;
+          end if;
+        when HyperRAMLatencyWait =>
+          hr_rwds <= 'Z';
+          next_is_data <= not next_is_data;
+          if next_is_data = '0' then
+            -- Toggle clock while data steady
+            hr_clk_n <= not hr_clock;
+            hr_clk_p <= hr_clock;
+            hr_clock <= not hr_clock;
+          else
+            if countdown /= 0 then
+              countdown <= countdown - 1;
+            else
+              if extra_latency='1' then
+                -- If we were asked to wait for extra latency,
+                -- then wait another 6 cycles.
+                extra_latency <= '0';
+                countdown <= 6;
+              else
+                -- Latency countdown for writing is over, we can now
+                -- begin writing bytes.
+                -- XXX It is possible we will have mis-timed this by a cycle or
+                -- two, in which case, we will write to the wrong address.
+                -- If it is too high an address, then we are late.
+                -- If it is not written at all, then we are too early.
+
+                -- Write byte
+                hr_rwds <= '1';
+                hr_d <= ram_wdata;
+                state <= HyperRAMFinishWriting;
+              end if;
+            end if;
+          end if;
+        when HyperRAMFinishWriting =>
+          -- Last cycle was data, so next cycle is clock.
+
+          -- Indicate no more bytes to write
+          hr_rwds <= '0';
+
+          -- Toggle clock
+          hr_clk_n <= not hr_clock;
+          hr_clk_p <= hr_clock;
+          hr_clock <= not hr_clock;
+
+          -- Go back to waiting
+          state <= Idle;
+        when HyperRAMReadWait =>
+          hr_rwds <= 'Z';
+          next_is_data <= not next_is_data;
+          if next_is_data = '0' then
+            -- Toggle clock while data steady
+            hr_clk_n <= not hr_clock;
+            hr_clk_p <= hr_clock;
+            hr_clock <= not hr_clock;
+          else
+            if hr_rwds = '1' then
+              -- Data has arrived
+              rdata <= hr_d;
+              data_ready_toggle <= not data_ready_toggle;
+              state <= Idle;
+            end if;
+          end if;
         when others =>
           state <= Idle;
       end case;      
     end if;
-        
-    end if;
+
   end process;
 end gothic;
 
-         
+

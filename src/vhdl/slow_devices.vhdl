@@ -274,7 +274,7 @@ begin
               -- Write can be delivered, and then ignored, since we aren't
               -- waiting for anything. So just return to the Idle state;
               state <= Idle;
-            elsif slow_access_read='1' then
+            elsif slow_access_write='0' then
               -- Read from expansion RAM -- here we need to wait for a response
               -- from the expansion RAM
               state <= ExpansionRAMReadWait;

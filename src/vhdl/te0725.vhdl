@@ -58,6 +58,16 @@ entity container is
          vga_green : out  UNSIGNED (3 downto 0);
          vga_blue : out  UNSIGNED (3 downto 0);
 
+         ----------------------------------------------------------------------
+         -- HyperRAM as expansion RAM
+         ----------------------------------------------------------------------
+         hr_d : inout unsigned(7 downto 0);
+         hr_rwds : inout std_logic;
+         hr_reset : out std_logic;
+         hr_clk_n : out std_logic;
+         hr_clk_p : out std_logic;
+         hr_cs : out std_logic;
+                  
          -------------------------------------------------------------------------
          -- Lines for the SDcard interface itself
          -------------------------------------------------------------------------
