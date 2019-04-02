@@ -39,13 +39,16 @@ ENTITY slow_devices IS
     cart_access_count : out unsigned(7 downto 0);
     
     ------------------------------------------------------------------------
-    -- PSRAM (Nexys4 "slowram")
+    -- Expansion RAM (upto 128MB)
     ------------------------------------------------------------------------
-
-    ------------------------------------------------------------------------
-    -- HyperRAM (M65 PCB r2 onwards)
-    ------------------------------------------------------------------------
-
+    expansionram_read : out std_logic := '0';
+    expansionram_write : out std_logic := '0';
+    expansionram_rdata : in unsigned(7 downto 0) := x"FF";
+    expansionram_wdata : out unsigned(7 downto 0) := x"FF";
+    expansionram_address : out unsigned(26 downto 0);
+    expansionram_data_ready_strobe : in std_logic;
+    expansionram_busy : in std_logic := '1';    
+    
     ----------------------------------------------------------------------
     -- Flash RAM for holding FPGA config
     ----------------------------------------------------------------------
@@ -104,9 +107,12 @@ architecture behavioural of slow_devices is
 
   signal slow_access_last_request_toggle : std_logic := '1';
 
+  signal expansionram_eternally_busy : std_logic := '1';
+  
   type slow_state is (
     Idle,
     ExpansionRAMRequest,
+    ExpansionRAMReadWait,
     CartridgePortRequest,
     CartridgePortAcceptWait
     );
@@ -175,8 +181,17 @@ begin
   begin
     if rising_edge(pixelclock) then
 
+      -- Mark expansion RAM as present if the busy flag ever clears
+      if expansionram_busy='0' then
+        expansionram_eternally_busy <= '0';
+      end if;
+      
       case state is
-        when Idle =>    
+        when Idle =>
+          -- Clear flags for expansion RAM access request
+          expansionram_read <= '0';
+          expansionram_write <= '0';
+          
           if slow_access_last_request_toggle /= slow_access_request_toggle then
             report "Access request for $" & to_hstring(slow_access_address) & ", toggle=" & std_logic'image(slow_access_request_toggle);
             -- XXX do job, and acknowledge when done.
@@ -234,21 +249,49 @@ begin
         -- Note toggle state
         slow_access_last_request_toggle <= slow_access_request_toggle;
       when ExpansionRAMRequest =>
-        -- XXX Currently not implemented.
-        -- Unmapped address space: Content = "ExtraRAM"
-        case to_integer(slow_access_address(2 downto 0)) is
-          when 0 => slow_access_rdata <= x"45";
-          when 1 => slow_access_rdata <= x"78";
-          when 2 => slow_access_rdata <= x"74";
-          when 3 => slow_access_rdata <= x"72";
-          when 4 => slow_access_rdata <= x"61";
-          when 5 => slow_access_rdata <= x"52";
-          when 6 => slow_access_rdata <= x"41";
-          when 7 => slow_access_rdata <= x"4D";
-          when others => slow_access_rdata <= x"45";
-        end case;
-        state <= Idle;
-        slow_access_ready_toggle <= slow_access_request_toggle;
+          if expansionram_eternally_busy='1' then
+            -- Unmapped address space: Content = "ExtraRAM"
+            case to_integer(slow_access_address(2 downto 0)) is
+              when 0 => slow_access_rdata <= x"45";
+              when 1 => slow_access_rdata <= x"78";
+              when 2 => slow_access_rdata <= x"74";
+              when 3 => slow_access_rdata <= x"72";
+              when 4 => slow_access_rdata <= x"61";
+              when 5 => slow_access_rdata <= x"52";
+              when 6 => slow_access_rdata <= x"41";
+              when 7 => slow_access_rdata <= x"4D";
+              when others => slow_access_rdata <= x"45";
+            end case;
+            state <= Idle;
+            slow_access_ready_toggle <= slow_access_request_toggle;
+          elsif expansionram_busy = '0' then
+            -- Prepare request to HyperRAM
+            expansionram_address <= slow_access_address(26 downto 0);
+            expansionram_wdata <= slow_access_wdata;
+            expansionram_read <= not slow_access_write;
+            expansionram_write <= slow_access_write;
+            if slow_access_write='1' then
+              -- Write can be delivered, and then ignored, since we aren't
+              -- waiting for anything. So just return to the Idle state;
+              state <= Idle;
+            elsif slow_access_read='1' then
+              -- Read from expansion RAM -- here we need to wait for a response
+              -- from the expansion RAM
+              state <= ExpansionRAMReadWait;
+            end if;
+          else
+            -- Expansion RAM is busy, wait for it to become idle
+          end if;
+      when ExpansionRAMReadWait =>
+        -- Clear request flags
+        expansionram_read <= '0';
+        expansionram_write <= '0';
+        if expansionram_data_ready_strobe = '1' then
+          state <= Idle;
+          slow_access_rdata <= expansionram_rdata;
+          slow_access_ready_toggle <= slow_access_request_toggle;            
+        end if;
+        
       when CartridgePortRequest =>
           report "Starting cartridge port access request, w="
             & std_logic'image(slow_access_write);
