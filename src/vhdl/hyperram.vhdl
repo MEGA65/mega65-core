@@ -65,6 +65,9 @@ architecture gothic of hyperram is
 
   signal data_ready_toggle : std_logic := '0';
   signal last_data_ready_toggle : std_logic := '0';
+
+  signal request_toggle : std_logic := '0';
+  signal last_request_toggle : std_logic := '0';
   
 begin
   process (cpuclock,clock240) is
@@ -73,14 +76,14 @@ begin
       data_ready_strobe <= '0';
       if read_request='1' and busy_internal='0' then
         -- Begin read request
-        state <= ReadSetup;
+        request_toggle <= not request_toggle;
         -- Latch address
         ram_address <= address;
         ram_reading <= '1';
         null;
       elsif write_request='1' and busy_internal='0' then
         -- Begin write request
-        state <= WriteSetup;
+        request_toggle <= not request_toggle;
         -- Latch address and data 
         ram_address <= address;
         ram_wdata <= wdata;
@@ -99,9 +102,18 @@ begin
       -- HyperRAM state machine
       case state is
         when Idle =>
-          -- Mark us ready for a new job
-          -- (CPU side will updat
-          busy_internal <= '0';
+          -- Mark us ready for a new job, or pick up a new job
+          if request_toggle /= last_request_toggle then
+            last_request_toggle <= request_toggle;
+            if ram_reading = '1' then
+              state <= ReadSetup;
+            else
+              state <= WriteSetup;
+            end if;
+            busy_internal <= '1';
+          else
+            busy_internal <= '0';
+          end IF;
         when ReadSetup =>
           -- Prepare command vector
           hr_command(47) <= '1'; -- READ
