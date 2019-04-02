@@ -25,6 +25,8 @@ ENTITY slow_devices IS
     cpu_game : out std_logic;
     sector_buffer_mapped : in std_logic;
 
+    pin_number : out integer;
+    
     slow_access_request_toggle : in std_logic;
     slow_access_ready_toggle : out std_logic := '0';
     slow_access_write : in std_logic;
@@ -209,6 +211,9 @@ begin
             report "Preparing to access from C64 cartridge port";
             state <= CartridgePortRequest;
           else
+            -- XXX - DEBUG: Also pick which pin to drive a pulse train on
+            pin_number <= to_integer(slow_access_wdata);
+            
             -- Unmapped address space: Content = "Unmapped"
             case to_integer(slow_access_address(2 downto 0)) is
               when 0 => slow_access_rdata <= x"55";

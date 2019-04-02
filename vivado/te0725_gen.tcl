@@ -161,6 +161,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/viciv.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/iomapper.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/gs4510.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/pinprober.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/vfpga/overlay_IP.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/vfpga/vfpga_clock_controller_pausable.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/vfpga/vfpga_wrapper_8bit.vhdl"]"\

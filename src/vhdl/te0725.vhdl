@@ -195,6 +195,8 @@ architecture Behavioral of container is
   signal c65uart_rx : std_logic := '1';
   signal buffereduart_rx : std_logic := '1';
   signal buffereduart2_rx : std_logic := '1';
+
+  signal pin_number : integer;
   
 begin
 
@@ -209,6 +211,12 @@ begin
                clock240 => clock240
                );
 
+  probe0: entity work.pinprober
+    port map (clk_in1 => cpuclock,
+              pins => fpga_pins,
+              pin_number => pin_number
+              );
+  
   fpgatemp0: fpgatemp
     generic map (DELAY_CYCLES => 480)
     port map (
@@ -229,6 +237,8 @@ begin
       qspicsn => qspicsn,      
 --      qspisck => '1',
 
+      pin_number => pin_number,
+      
       slow_access_request_toggle => slow_access_request_toggle,
       slow_access_ready_toggle => slow_access_ready_toggle,
       slow_access_write => slow_access_write,
