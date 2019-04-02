@@ -38,6 +38,8 @@ entity container is
 --         irq : in  STD_LOGIC;
 --         nmi : in  STD_LOGIC;
 
+         fpga_pins : out std_logic(1 to 100);
+         
          wifirx : out std_logic;
          wifitx : out std_logic;
          

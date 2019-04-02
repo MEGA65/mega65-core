@@ -25,7 +25,7 @@ ENTITY slow_devices IS
     cpu_game : out std_logic;
     sector_buffer_mapped : in std_logic;
 
-    pin_number : out integer;
+    pin_number : out integer := 255;
     
     slow_access_request_toggle : in std_logic;
     slow_access_ready_toggle : out std_logic := '0';
