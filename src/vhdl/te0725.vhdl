@@ -214,7 +214,7 @@ begin
                );
 
   probe0: entity work.pinprober
-    port map (clk_in1 => cpuclock,
+    port map (clk => cpuclock,
               pins => fpga_pins,
               pin_number => pin_number
               );
