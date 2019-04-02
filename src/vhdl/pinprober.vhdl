@@ -7,7 +7,7 @@ use work.debugtools.all;
 
 entity pinprober is
   port (Clk : in std_logic;
-        pins : out std_logic_vector(1 to 100);
+        pins : out std_logic_vector(1 to 82);
         pin_number : in integer 
         );
 
@@ -27,7 +27,7 @@ begin
       else
         counter <= counter + 1;
       end if;
-      if pin_number >= 1 and pin_number <= 100 then
+      if pin_number >= 1 and pin_number <= 82 then
         pins(pin_number) <= toggle;
       end if;
     end if;

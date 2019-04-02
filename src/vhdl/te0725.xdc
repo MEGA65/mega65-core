@@ -125,22 +125,22 @@ set_property -dict {PACKAGE_PIN E6 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[40
 set_property -dict {PACKAGE_PIN D7 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[41]}]
 set_property -dict {PACKAGE_PIN E7 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[42]}]
 set_property -dict {PACKAGE_PIN G6 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[43]}]
-set_property -dict {PACKAGE_PIN R18 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[44]}]    # Real pin = F6
-set_property -dict {PACKAGE_PIN N14 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[45]}]
-set_property -dict {PACKAGE_PIN P14 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[46]}]
+set_property -dict {PACKAGE_PIN G14 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[44]}]    # Real pin = F6
+set_property -dict {PACKAGE_PIN C14 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[45]}]
+set_property -dict {PACKAGE_PIN B13 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[46]}]
 set_property -dict {PACKAGE_PIN C7 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[47]}]
-set_property -dict {PACKAGE_PIN N17 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[48]}] # Real pin = D8
+set_property -dict {PACKAGE_PIN B14 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[48]}] # Real pin = D8
 set_property -dict {PACKAGE_PIN P18 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[49]}]
 set_property -dict {PACKAGE_PIN N15 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[50]}]
 set_property -dict {PACKAGE_PIN N16 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[51]}]
 set_property -dict {PACKAGE_PIN P15 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[52]}]
-set_property -dict {PACKAGE_PIN R15 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[53]}] # Real pin T8
-set_property -dict {PACKAGE_PIN T14 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[54]}] # Real pin R8
+set_property -dict {PACKAGE_PIN C12 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[53]}] # Real pin T8
+set_property -dict {PACKAGE_PIN B12 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[54]}] # Real pin R8
 set_property -dict {PACKAGE_PIN T15 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[55]}]
 set_property -dict {PACKAGE_PIN R16 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[56]}]
-set_property -dict {PACKAGE_PIN T16 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[57]}] # Real pin V9
-set_property -dict {PACKAGE_PIN V15 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[58]}] # Real pin U9
-set_property -dict {PACKAGE_PIN V16 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[59]}] # Real pin T1
+set_property -dict {PACKAGE_PIN B11 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[57]}] # Real pin V9
+set_property -dict {PACKAGE_PIN A11 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[58]}] # Real pin U9
+set_property -dict {PACKAGE_PIN F13 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[59]}] # Real pin T1
 set_property -dict {PACKAGE_PIN M6 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[60]}]
 set_property -dict {PACKAGE_PIN U6 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[61]}]
 set_property -dict {PACKAGE_PIN U7 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[62]}]
@@ -164,24 +164,24 @@ set_property -dict {PACKAGE_PIN T5 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[79
 set_property -dict {PACKAGE_PIN T4 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[80]}]
 set_property -dict {PACKAGE_PIN T3 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[81]}]
 set_property -dict {PACKAGE_PIN R3 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[82]}]
-set_property -dict {PACKAGE_PIN U16 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[83]}] # Real pin P4
-set_property -dict {PACKAGE_PIN V17 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[84]}] # Real pin P3
-set_property -dict {PACKAGE_PIN T11 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[85]}] # Real pin N4
-set_property -dict {PACKAGE_PIN U11 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[86]}] # Real pin M4
-set_property -dict {PACKAGE_PIN U12 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[87]}] # Real pin T1
-set_property -dict {PACKAGE_PIN V12 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[88]}] # Real pin R1
-set_property -dict {PACKAGE_PIN V11 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[89]}] # Real pin R2
-set_property -dict {PACKAGE_PIN U14 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[90]}] # Real pin P2
-set_property -dict {PACKAGE_PIN V14 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[91]}] # Real pin N1
-set_property -dict {PACKAGE_PIN T13 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[92]}] # Real pin N2
-set_property -dict {PACKAGE_PIN U13 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[93]}] # Real pin M1
-set_property -dict {PACKAGE_PIN T10 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[94]}] # Real pin L1
-set_property -dict {PACKAGE_PIN C11 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[95]}]
-set_property -dict {PACKAGE_PIN C10 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[96]}]
-set_property -dict {PACKAGE_PIN D10 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[97]}] # Real pin M3
-set_property -dict {PACKAGE_PIN R10 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[98]}] # Real pin M2
-set_property -dict {PACKAGE_PIN G13 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[99]}]
-set_property -dict {PACKAGE_PIN G14 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[100]}]
+#set_property -dict {PACKAGE_PIN U16 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[83]}] # Real pin P4
+#set_property -dict {PACKAGE_PIN V17 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[84]}] # Real pin P3
+#set_property -dict {PACKAGE_PIN T11 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[85]}] # Real pin N4
+#set_property -dict {PACKAGE_PIN U11 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[86]}] # Real pin M4
+#set_property -dict {PACKAGE_PIN U12 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[87]}] # Real pin T1
+#set_property -dict {PACKAGE_PIN V12 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[88]}] # Real pin R1
+#set_property -dict {PACKAGE_PIN V11 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[89]}] # Real pin R2
+#set_property -dict {PACKAGE_PIN U14 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[90]}] # Real pin P2
+#set_property -dict {PACKAGE_PIN V14 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[91]}] # Real pin N1
+#set_property -dict {PACKAGE_PIN T13 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[92]}] # Real pin N2
+#set_property -dict {PACKAGE_PIN U13 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[93]}] # Real pin M1
+#set_property -dict {PACKAGE_PIN T10 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[94]}] # Real pin L1
+#set_property -dict {PACKAGE_PIN C11 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[95]}]
+#set_property -dict {PACKAGE_PIN C10 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[96]}]
+#set_property -dict {PACKAGE_PIN D10 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[97]}] # Real pin M3
+#set_property -dict {PACKAGE_PIN R10 IOSTANDARD LVCMOS18} [get_ports {fpga_pins[98]}] # Real pin M2
+#set_property -dict {PACKAGE_PIN G13 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[99]}]
+#set_property -dict {PACKAGE_PIN G14 IOSTANDARD LVCMOS33} [get_ports {fpga_pins[100]}]
 
 set_property BITSTREAM.GENERAL.COMPRESS TRUE [current_design]
 set_property BITSTREAM.CONFIG.CONFIGRATE 66 [current_design]
