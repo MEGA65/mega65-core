@@ -38,7 +38,12 @@ entity container is
 --         irq : in  STD_LOGIC;
 --         nmi : in  STD_LOGIC;
 
-         fpga_pins : out std_logic_vector(1 to 82);
+         fpga_pins : out std_logic_vector(1 to 28);
+         fpga_pins31 : out std_logic_vector(31 to 43);
+         fpga_pins45 : out std_logic_vector(45 to 47);
+         fpga_pins49 : out std_logic_vector(49 to 52);
+         fpga_pins55 : out std_logic_vector(55 to 56);
+         fpga_pins60 : out std_logic_vector(60 to 82);
          
          wifirx : out std_logic;
          wifitx : out std_logic;
@@ -220,6 +225,7 @@ architecture Behavioral of container is
   signal expansionram_data_ready_strobe : std_logic;
   signal expansionram_busy : std_logic;
 
+  signal dummypins : std_logic_vector(1 to 100) := (others => '0');
   
 begin
 
@@ -236,7 +242,18 @@ begin
 
   probe0: entity work.pinprober
     port map (clk => cpuclock,
-              pins => fpga_pins,
+              pins(1 to 28)  => fpga_pins(1 to 28),
+              pins(29 to 30) => dummypins(29 to 30),
+              pins(31 to 43)  => fpga_pins31(31 to 43),
+              pins(44) => dummypins(44),
+              pins(45 to 47)  => fpga_pins45(45 to 47),
+              pins(48) => dummypins(48),
+              pins(49 to 52)  => fpga_pins49(49 to 52),
+              pins(53) => dummypins(53),
+              pins(54) => dummypins(54),
+              pins(55 to 56)  => fpga_pins55(55 to 56),
+              pins(57 to 59) => dummypins(57 to 59),
+              pins(60 to 82)  => fpga_pins60(60 to 82),
               pin_number => pin_number
               );
   
