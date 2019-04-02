@@ -531,9 +531,6 @@ begin
       -- No physical keyboard
       portb_pins <= (others => '1');
       
-      -- Audio output (not yet connected)
-      ampPWM <= ampPWM_internal;
-
     end if;
   end process;
 
