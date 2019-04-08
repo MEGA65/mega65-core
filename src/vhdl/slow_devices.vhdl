@@ -108,6 +108,7 @@ architecture behavioural of slow_devices is
   signal slow_access_last_request_toggle : std_logic := '1';
 
   signal expansionram_eternally_busy : std_logic := '1';
+  signal expansionram_read_timeout : integer := 0;
   
   type slow_state is (
     Idle,
@@ -278,6 +279,7 @@ begin
               -- Read from expansion RAM -- here we need to wait for a response
               -- from the expansion RAM
               state <= ExpansionRAMReadWait;
+              expansionram_read_timeout <= 99;
             end if;
           else
             -- Expansion RAM is busy, wait for it to become idle
@@ -289,7 +291,15 @@ begin
         if expansionram_data_ready_strobe = '1' then
           state <= Idle;
           slow_access_rdata <= expansionram_rdata;
-          slow_access_ready_toggle <= slow_access_request_toggle;            
+          slow_access_ready_toggle <= slow_access_request_toggle;
+        end if;
+        if expansionram_read_timeout /= 0 then
+          expansionram_read_timeout <= expansionram_read_timeout - 1;
+        else
+          -- Time out if no reply from expansion RAM
+          state <= Idle;
+          slow_access_rdata <= x"99";
+          slow_access_ready_toggle <= slow_access_request_toggle;
         end if;
         
       when CartridgePortRequest =>
