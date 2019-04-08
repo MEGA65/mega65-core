@@ -12,16 +12,16 @@ architecture foo of test_hyperram is
   signal cpuclock : std_logic := '1';
   signal clock240 : std_logic := '1';
 
-  signal expansionram_read : std_logic;
-  signal expansionram_write : std_logic;
+  signal expansionram_read : std_logic := '0';
+  signal expansionram_write : std_logic := '0';
   signal expansionram_rdata : unsigned(7 downto 0);
   signal expansionram_wdata : unsigned(7 downto 0);
-  signal expansionram_address : unsigned(26 downto 0);
+  signal expansionram_address : unsigned(26 downto 0) := (others => '0');
   signal expansionram_data_ready_strobe : std_logic;
   signal expansionram_busy : std_logic;
 
   signal hr_d : unsigned(7 downto 0) := (others => '0');
-  signal hr_rwds : std_logic := '1';
+  signal hr_rwds : std_logic := '0';
   signal hr_reset : std_logic := '1';
   signal hr_clk_n : std_logic := '0';
   signal hr_clk_p : std_logic := '0';
@@ -51,6 +51,17 @@ begin
   -- 240MHz fast clock and 40MHz cpu clock
   process is
   begin
+
+    report "expansionram_data_ready_strobe=" & std_logic'image(expansionram_data_ready_strobe) 
+      & ", expansionram_busy=" & std_logic'image(expansionram_busy);
+
+    if expansionram_busy='0' then
+      report "Requesting hyperram write";
+      expansionram_write <= '1';
+    else
+      expansionram_write <= '0';
+    end if;
+    
     cpuclock <= '0';
     clock240 <= '0';
     wait for 2 ns;
@@ -79,7 +90,7 @@ begin
     clock240 <= '1';
     wait for 2 ns;
 
-    report "40MHz CPU clock cycle finished";
+--    report "40MHz CPU clock cycle finished";
     
   end process;
 
