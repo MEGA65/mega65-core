@@ -73,6 +73,10 @@ begin
   process (cpuclock,clock240) is
   begin
     if rising_edge(cpuclock) then
+      report "read_request=" & std_logic'image(read_request) & ", busy_internal=" & std_logic'image(busy_internal);
+
+      busy <= busy_internal;
+      
       data_ready_strobe <= '0';
       if read_request='1' and busy_internal='0' then
         -- Begin read request
@@ -100,6 +104,7 @@ begin
 
     if rising_edge(clock240) then
       -- HyperRAM state machine
+      report "State = " & state_t'image(state);
       case state is
         when Idle =>
           -- Mark us ready for a new job, or pick up a new job
@@ -111,7 +116,9 @@ begin
               state <= WriteSetup;
             end if;
             busy_internal <= '1';
+            report "Accepting job";
           else
+            report "Clearing busy_internal";
             busy_internal <= '0';
           end IF;
         when ReadSetup =>
