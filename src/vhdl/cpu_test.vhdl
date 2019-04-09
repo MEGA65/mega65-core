@@ -200,7 +200,9 @@ begin
       slow_access_address => slow_access_address,
       slow_access_wdata => slow_access_wdata,
       slow_access_rdata => slow_access_rdata,
-      
+  
+      expansionram_data_ready_strobe => '0',
+    
       ----------------------------------------------------------------------
       -- Expansion/cartridge port
       ----------------------------------------------------------------------
