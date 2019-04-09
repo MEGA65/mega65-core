@@ -127,8 +127,8 @@ begin
           hr_command(47) <= '1'; -- READ
           hr_command(46) <= '0'; -- Memory address space
           hr_command(45) <= '1'; -- Linear access (not wrapped)
-          hr_command(44 downto 40) <= (others => '0'); -- unused upper address bits
-          hr_command(39 downto 16) <= ram_address(26 downto 3);
+          hr_command(44 downto 37) <= (others => '0'); -- unused upper address bits
+          hr_command(36 downto 16) <= ram_address(23 downto 3);
           hr_command(15 downto 3) <= (others => '0'); -- reserved bits
           hr_command(2 downto 0) <= ram_address(2 downto 0);
 
@@ -148,8 +148,8 @@ begin
           hr_command(47) <= '0'; -- WRITE
           hr_command(46) <= '0'; -- Memory address space
           hr_command(45) <= '1'; -- Linear access (not wrapped)
-          hr_command(44 downto 40) <= (others => '0'); -- unused upper address bits
-          hr_command(39 downto 16) <= ram_address(26 downto 3);
+          hr_command(44 downto 37) <= (others => '0'); -- unused upper address bits
+          hr_command(36 downto 16) <= ram_address(23 downto 3);
           hr_command(15 downto 3) <= (others => '0'); -- reserved bits
           hr_command(2 downto 0) <= ram_address(2 downto 0);
 
