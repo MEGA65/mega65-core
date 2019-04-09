@@ -33,8 +33,8 @@ entity hyperram is
 --         hr_int : in std_logic; -- Interrupt?
          hr_clk_n : out std_logic := '0';
          hr_clk_p : out std_logic := '1';
-         hr_cs0 : out std_logic := '0';
-         hr_cs1 : out std_logic := '0'
+         hr_cs0 : out std_logic := '1';
+         hr_cs1 : out std_logic := '1'
          );
 end hyperram;
 
@@ -132,9 +132,10 @@ begin
           hr_command(15 downto 3) <= (others => '0'); -- reserved bits
           hr_command(2 downto 0) <= ram_address(2 downto 0);
 
-          -- Call HyperRAM to attention
-          hr_cs0 <= '1';
-          hr_cs1 <= '1';
+          -- Call HyperRAM to attention (Each 8MB half has a separate CS line,
+          -- so we gate them on address line 23 = 8MB point)
+          hr_cs0 <= ram_address(23);
+          hr_cs1 <= not ram_address(23);
           hr_clk_n <= '0';
           hr_clk_p <= '1';
           hr_reset <= '1'; -- active low reset
@@ -153,8 +154,8 @@ begin
           hr_command(2 downto 0) <= ram_address(2 downto 0);
 
           -- Call HyperRAM to attention
-          hr_cs0 <= '1';
-          hr_cs1 <= '1';
+          hr_cs0 <= ram_address(23);
+          hr_cs1 <= not ram_address(23);
           hr_clk_n <= '0';
           hr_clk_p <= '1';
           hr_clock <= '1';
@@ -165,8 +166,9 @@ begin
 
         when HyperRAMCSStrobe =>
           if countdown = 3 then
-            hr_cs0 <= '0';
-            hr_cs1 <= '0';
+            -- Release CS line
+            hr_cs0 <= '1';
+            hr_cs1 <= '1';
           end if;
           if countdown /= 0 then
             countdown <= countdown - 1;
