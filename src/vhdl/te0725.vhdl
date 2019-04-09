@@ -71,7 +71,8 @@ entity container is
          hr_reset : out std_logic;
          hr_clk_n : out std_logic;
          hr_clk_p : out std_logic;
-         hr_cs : out std_logic;
+         hr_cs0 : out std_logic;
+         hr_cs1 : out std_logic := '1';
                   
          -------------------------------------------------------------------------
          -- Lines for the SDcard interface itself
@@ -280,7 +281,7 @@ begin
       hr_reset => hr_reset,
       hr_clk_n => hr_clk_n,
       hr_clk_p => hr_clk_p,
-      hr_cs => hr_cs
+      hr_cs => hr_cs0
       );
   
   slow_devices0: entity work.slow_devices
