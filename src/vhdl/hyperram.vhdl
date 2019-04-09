@@ -33,7 +33,8 @@ entity hyperram is
 --         hr_int : in std_logic; -- Interrupt?
          hr_clk_n : out std_logic := '0';
          hr_clk_p : out std_logic := '1';
-         hr_cs : out std_logic := '0'
+         hr_cs0 : out std_logic := '0';
+         hr_cs1 : out std_logic := '0'
          );
 end hyperram;
 
@@ -132,7 +133,8 @@ begin
           hr_command(2 downto 0) <= ram_address(2 downto 0);
 
           -- Call HyperRAM to attention
-          hr_cs <= '1';
+          hr_cs0 <= '1';
+          hr_cs1 <= '1';
           hr_clk_n <= '0';
           hr_clk_p <= '1';
           hr_reset <= '1'; -- active low reset
@@ -151,7 +153,8 @@ begin
           hr_command(2 downto 0) <= ram_address(2 downto 0);
 
           -- Call HyperRAM to attention
-          hr_cs <= '1';
+          hr_cs0 <= '1';
+          hr_cs1 <= '1';
           hr_clk_n <= '0';
           hr_clk_p <= '1';
           hr_clock <= '1';
@@ -162,7 +165,8 @@ begin
 
         when HyperRAMCSStrobe =>
           if countdown = 3 then
-            hr_cs <= '0';
+            hr_cs0 <= '0';
+            hr_cs1 <= '0';
           end if;
           if countdown /= 0 then
             countdown <= countdown - 1;
