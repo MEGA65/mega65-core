@@ -200,7 +200,6 @@ architecture Behavioral of container is
   
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
 
-
   signal slow_access_request_toggle : std_logic;
   signal slow_access_ready_toggle : std_logic;
   signal slow_access_write : std_logic;
@@ -310,6 +309,8 @@ begin
       slow_access_address => slow_access_address,
       slow_access_wdata => slow_access_wdata,
       slow_access_rdata => slow_access_rdata,
+
+      expansionram_data_ready_strobe => '1',
   
       ----------------------------------------------------------------------
       -- Expansion/cartridge port
