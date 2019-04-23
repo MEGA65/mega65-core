@@ -125,7 +125,8 @@ begin
         when ReadSetup =>
           -- Prepare command vector
           hr_command(47) <= '1'; -- READ
-          hr_command(46) <= '0'; -- Memory address space
+          hr_command(46) <= ram_address(24); -- Memory address space (1) / Register
+                                             -- address space select (0) ?
           hr_command(45) <= '1'; -- Linear access (not wrapped)
           hr_command(44 downto 37) <= (others => '0'); -- unused upper address bits
           hr_command(36 downto 16) <= ram_address(23 downto 3);
