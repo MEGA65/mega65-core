@@ -459,6 +459,11 @@ begin
       touchSDA => jdlo(2),
       touchSCL => jdlo(1),
       lcdpwm => jdlo(3),
+
+      -- Add second I2C bus we can connect to external things for testing.
+      i2c1sda => jdlo(4),
+      i2c1scl => jchi(7),
+      
       -- This is for modem as PCM master:
       pcm_modem_clk_in => jdhi(7),
       pcm_modem_sync_in => jdhi(8),
