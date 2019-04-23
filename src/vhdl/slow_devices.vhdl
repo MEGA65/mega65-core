@@ -219,6 +219,10 @@ begin
           -- All we have to do is direct access requests based on whether they
           -- are handled by the cartridge/expansion port, or by on-board
           -- expansion RAM of some sort.
+
+            -- XXX - DEBUG: Also pick which pin to drive a pulse train on
+            pin_number <= to_integer(slow_access_wdata);            
+            
           if slow_access_address(27)='1' then
             -- $8000000-$FFFFFFF = expansion RAM
             state <= ExpansionRAMRequest;
@@ -227,8 +231,6 @@ begin
             report "Preparing to access from C64 cartridge port";
             state <= CartridgePortRequest;
           else
-            -- XXX - DEBUG: Also pick which pin to drive a pulse train on
-            pin_number <= to_integer(slow_access_wdata);
             
             -- Unmapped address space: Content = "Unmapped"
             case to_integer(slow_access_address(2 downto 0)) is
