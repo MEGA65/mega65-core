@@ -3,7 +3,7 @@
 <!--                                                         -->
 <!-- Copyright 1986-2017 Xilinx, Inc. All Rights Reserved.   -->
 
-<Project Version="7" Minor="35" Path="/home/paul/Projects/mega65/mega65-core/vivado/te0725.xpr">
+<Project Version="7" Minor="35" Path="/home/paul/Projects/mega65/mega65-core/vivado/megaphoner1.xpr">
   <DefaultLaunch Dir="$PRUNDIR"/>
   <Configuration>
     <Option Name="Id" Val="f007b543bd9a4086899b9b27df53b5c9"/>
@@ -544,7 +544,7 @@
           <Attr Name="UsedIn" Val="simulation"/>
         </FileInfo>
       </File>
-      <File Path="$PPRDIR/../src/vhdl/te0725.vhdl">
+      <File Path="$PPRDIR/../src/vhdl/megaphoner1.vhdl">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="simulation"/>
@@ -748,7 +748,7 @@
     </FileSet>
     <FileSet Name="constrs_1" Type="Constrs" RelSrcDir="$PSRCDIR/constrs_1">
       <Filter Type="Constrs"/>
-      <File Path="$PPRDIR/../src/vhdl/te0725.xdc">
+      <File Path="$PPRDIR/../src/vhdl/megaphoner1.xdc">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
