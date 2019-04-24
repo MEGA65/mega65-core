@@ -554,6 +554,11 @@ iverilog/driver/iverilog:
 	git submodule init
 	git submodule update
 	cd iverilog ; autoconf ; ./configure ; make
+	mkdir -p iverilog/lib/ivl
+	ln -s ../../ivlpp/ivlpp iverilog/lib/ivl/ivlpp
+	ln -s ../../ivl iverilog/lib/ivl/ivl
+	ln -s ../../tgt-vhdl/vhdl.conf iverilog/lib/ivl/vhdl.conf
+	ln -s ../../tgt-vhdl/vhdl.tgt iverilog/lib/ivl/vhdl.tgt
 
 $(VHDLSRCDIR)/uart_monitor.vhdl.tmp $(VHDLSRCDIR)/uart_monitor.vhdl:	$(VERILOGSRCDIR)/* iverilog/driver/iverilog Makefile
 	( cd $(VERILOGSRCDIR) ; ../../iverilog/driver/iverilog  -tvhdl -o ../../$(VHDLSRCDIR)/uart_monitor.vhdl.tmp monitor_*.v asym_ram_sdp.v 6502_*.v UART_TX_CTRL.v uart_rx.v )
