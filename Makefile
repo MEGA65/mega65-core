@@ -541,7 +541,7 @@ $(TOOLDIR)/utilpacker/utilpacker:	$(TOOLDIR)/utilpacker/utilpacker.c Makefile
 # version information is updated.
 # for now we will always update the version info whenever we do a make.
 .PHONY: version.vhdl version.a65
-$(VHDLSRCDIR)/version.vhdl src/version.a65 $(BINDIR)/matrix_banner.txt:	.git	./src/version.sh $(ASSETS)/matrix_banner.txt $(TOOLDIR)/format_banner
+$(VHDLSRCDIR)/version.vhdl src/monitor/version.a65 src/version.a65 $(BINDIR)/matrix_banner.txt:	.git	./src/version.sh $(ASSETS)/matrix_banner.txt $(TOOLDIR)/format_banner
 	./src/version.sh
 
 # i think 'charrom' is used to put the pngprepare file into a special mode that
@@ -560,7 +560,7 @@ iverilog/driver/iverilog:
 	ln -s ../../tgt-vhdl/vhdl.conf iverilog/lib/ivl/vhdl.conf
 	ln -s ../../tgt-vhdl/vhdl.tgt iverilog/lib/ivl/vhdl.tgt
 
-$(VHDLSRCDIR)/uart_monitor.vhdl.tmp $(VHDLSRCDIR)/uart_monitor.vhdl:	$(VERILOGSRCDIR)/* iverilog/driver/iverilog Makefile
+$(VHDLSRCDIR)/uart_monitor.vhdl.tmp $(VHDLSRCDIR)/uart_monitor.vhdl:	$(VERILOGSRCDIR)/* iverilog/driver/iverilog Makefile $(VERILOGSRCDIR)/monitor_mem.v
 	( cd $(VERILOGSRCDIR) ; ../../iverilog/driver/iverilog  -tvhdl -o ../../$(VHDLSRCDIR)/uart_monitor.vhdl.tmp monitor_*.v asym_ram_sdp.v 6502_*.v UART_TX_CTRL.v uart_rx.v )
 	# Now remove the dummy definitions of UART_TX_CTRL and uart_rx, as we will use the actual VHDL implementations of them.
 	cat $(VHDLSRCDIR)/uart_monitor.vhdl.tmp | awk 'BEGIN { echo=1; } {if ($$1=="--"&&$$2=="Generated"&&$$3=="from"&&$$4=="Verilog") { if ($$6=="UART_TX_CTRL"||$$6=="uart_rx") echo=0; else echo=1; } if (echo) print; }' > $(VHDLSRCDIR)/uart_monitor.vhdl
