@@ -6,6 +6,9 @@
 # backup files
 *.*~
 
+# bin directory
+bin/*
+
 # files generated using make
 src/KICKUP.M65
 src/*.prg
@@ -13,6 +16,8 @@ src/diskmenu_c000.bin
 src/tests/*.prg
 src/tools/*.prg
 src/utilities/*.prg
+src/monitor/gen_dis
+src/tools/ftphelper.c
 
 # ophis
 src/*.list
@@ -23,27 +28,49 @@ src/tools/*.list
 src/tools/*.map
 src/utilities/*.list
 src/utilities/*.map
+kickstart.list
+kickstart.map
+monitor.list
+monitor.map
 
 # generated vhdl
+src/verilog/monitor_mem.v
 src/vhdl/charrom.vhdl
+src/vhdl/colourram.vhdl
 src/vhdl/kickstart.vhdl
+src/vhdl/oskmem.vhdl
+src/vhdl/shadowram.vhdl
+src/vhdl/termmem.vhdl
+src/vhdl/uart_monitor.vhdl
+src/vhdl/uart_monitor.vhdl.tmp
 src/vhdl/version.vhdl
+
 
 # generated ASM
 src/version.a65
+src/monitor/monitor_dis.a65
+src/monitor/version.a65
+
 
 # executables
+src/tools/bin2c
 src/tools/etherkick/etherkick
 src/tools/etherload/etherload
+src/tools/format_banner
 src/tools/hotpatch/hotpatch
+src/tools/mega65_ftp
+src/tools/mempacker/mempacker
+src/tools/mempacker/mempacker_new
+src/tools/mempacker/mempacker_v
+src/tools/monitor_load
+src/tools/monitor_save
+src/tools/on_screen_keyboard_gen
 src/tools/pngprepare/pngprepare
+src/tools/utilpacker/utilpacker
+
 
 # outputs
-sdcard-files/BOOTLOGO.M65
-sdcard-files/CHARROM.M65
-sdcard-files/MEGA65.D81
-sdcard-files/MEGA65.ROM
-sdcard-files/old-bitfiles/*
+sdcard-files/*
 
 # files generated during compilation using ./compile.sh script
 build-logs/compile-*.log
