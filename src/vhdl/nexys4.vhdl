@@ -446,6 +446,7 @@ begin
       sclk_o => sdClock,
       mosi_o => sdMOSI,
       miso_i => sdMISO,
+      miso2_i => '1',
 
       aclMISO => aclMISO,
       aclMOSI => aclMOSI,
