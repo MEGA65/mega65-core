@@ -152,7 +152,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/c65uart.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/mouse_input.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/version.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/kickstart.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/hyppo.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/charrom.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/frame_generator.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/pixel_driver.vhdl"]"\
@@ -380,7 +380,7 @@ set file "vhdl/lfsr16.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
-set file "vhdl/kickstart.vhdl"
+set file "vhdl/hyppo.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
