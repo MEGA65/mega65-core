@@ -6,13 +6,13 @@ VHDLSRCDIR=	vhdl
 
 SDCARD_DIR=	../sdcard-files
 
-KICKSTARTSRCS = kickstart.a65 \
-		kickstart_machine.a65 \
-		kickstart_process_descriptor.a65 \
-		kickstart_dos.a65 \
-		kickstart_task.a65 \
-		kickstart_virtual_f011.a65 \
-		kickstart_mem.a65
+HYPPOSRCS = hyppo.a65 \
+		hyppo_machine.a65 \
+		hyppo_process_descriptor.a65 \
+		hyppo_dos.a65 \
+		hyppo_task.a65 \
+		hyppo_virtual_f011.a65 \
+		hyppo_mem.a65
 
 # if you want your PRG to appear on "MEGA65.D81", then put your PRG in "./src/utilities/userPRGs"
 # ie: COMMANDO.PRG
@@ -31,7 +31,7 @@ UTILITIES=	utilities/ethertest.prg \
 		tests/test_fdc_equal_flag.prg \
 		diskmenu.prg \
 
-TOOLS=	tools/etherkick/etherkick \
+TOOLS=	tools/etherhick/etherhick \
 	tools/etherload/etherload \
 	tools/hotpatch/hotpatch \
 	tools/monitor_load \
@@ -50,7 +50,7 @@ fpga:
 	$(warning ~~~~~~~~~~~~~~~~> The 'fpga'-target is not implemented in the makefile yet, refer to ./../compile.sh)
 	$(warning ISE build to go here, ie xst, ngdbuild, map, par, bitgen)
 
-generated_vhdl:	$(VHDLSRCDIR)/kickstart.vhdl \
+generated_vhdl:	$(VHDLSRCDIR)/hyppo.vhdl \
 		$(VHDLSRCDIR)/charrom.vhdl \
 		$(VHDLSRCDIR)/version.vhdl \
 		$(VHDLSRCDIR)/shadowram.vhdl \
@@ -60,7 +60,7 @@ generated_vhdl:	$(VHDLSRCDIR)/kickstart.vhdl \
 
 # files destined to go on the SD-card to serve as firmware for the MEGA65
 firmware:	$(SDCARD_DIR)/BANNER.M65 \
-		KICKUP.M65 \
+		HICKUP.M65 \
 		COLOURRAM.BIN \
 		$(SDCARD_DIR)/MEGA65.D81 \
 		$(SDCARD_DIR)/C000UTIL.BIN
@@ -83,7 +83,7 @@ SIMULATIONFILES=	vhdl/UART_TX_CTRL.vhd vhdl/bitplane.vhdl vhdl/bitplanes.vhdl \
 	vhdl/ghdl_ram128x1k.vhdl vhdl/ghdl_ram18x2k.vhdl vhdl/colourram.vhdl \
 	vhdl/ghdl_ram8x4096.vhdl vhdl/ghdl_ram8x512.vhdl vhdl/ghdl_ram9x4k.vhdl \
 	vhdl/ghdl_screen_ram_buffer.vhdl vhdl/ghdl_videobuffer.vhdl vhdl/gs4510.vhdl \
-	vhdl/iomapper.vhdl vhdl/keymapper.vhdl vhdl/kickstart.vhdl vhdl/machine.vhdl \
+	vhdl/iomapper.vhdl vhdl/keymapper.vhdl vhdl/hyppo.vhdl vhdl/machine.vhdl \
 	vhdl/ramlatch64.vhdl vhdl/sd.vhdl vhdl/sdcardio.vhdl vhdl/shadowram.vhdl \
 	vhdl/sid_6581.vhd vhdl/sid_coeffs.vhd vhdl/sid_components.vhd vhdl/sid_filters.vhd \
 	vhdl/sid_voice.vhd vhdl/slowram.vhdl vhdl/sprite.vhdl vhdl/uart_monitor.vhdl \
@@ -208,10 +208,10 @@ diskchooser:	diskchooser.a65
 
 # ============================ done moved, print-warn, clean-target
 #??? diskmenu_c000.bin yet b0rken
-KICKUP.M65:	$(KICKSTARTSRCS) diskmenu_c000.bin version.a65
+HICKUP.M65:	$(HYPPOSRCS) diskmenu_c000.bin version.a65
 	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: KICKUP.M65 and kickstart.list)
-	./../../Ophis/bin/ophis -4 kickstart.a65 -l kickstart.list -m kickstart.map
+	$(warning ~~~~~~~~~~~~~~~~> Making: HICKUP.M65 and hyppo.list)
+	./../../Ophis/bin/ophis -4 hyppo.a65 -l hyppo.list -m hyppo.map
 
 
 # ============================ done moved, print-warn, clean-target
@@ -281,13 +281,13 @@ textmodetest.prg:	textmodetest.a65 textmodetest-dejavus.f65
 
 # ============================ done moved, print-warn, clean-target
 # makerom is a python script that reads two files (arg[1,2]) and generates one (arg[3]).
-# the line below would generate the kickstart.vhdl file, (note no file extention on arg[3])
+# the line below would generate the hyppo.vhdl file, (note no file extention on arg[3])
 # two files are read (arg[1] and arg[2]) and somehow compared, looking for THEROM and ROMDATA
-$(VHDLSRCDIR)/kickstart.vhdl:	tools/makerom/rom_template.vhdl KICKUP.M65 tools/makerom/makerom
+$(VHDLSRCDIR)/hyppo.vhdl:	tools/makerom/rom_template.vhdl HICKUP.M65 tools/makerom/makerom
 	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: $(VHDLSRCDIR)/kickstart.vhdl)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $(VHDLSRCDIR)/hyppo.vhdl)
 #       script                arg[1]                          arg[2]     arg[3]                  arg[4]
-	tools/makerom/makerom tools/makerom/rom_template.vhdl KICKUP.M65 $(VHDLSRCDIR)/kickstart kickstart
+	tools/makerom/makerom tools/makerom/rom_template.vhdl HICKUP.M65 $(VHDLSRCDIR)/hyppo hyppo
 
 $(VHDLSRCDIR)/colourram.vhdl:	tools/makerom/colourram_template.vhdl COLOURRAM.BIN tools/makerom/makerom
 	$(warning =============================================================)
@@ -337,10 +337,10 @@ tools/etherload/etherload:	tools/etherload/etherload.c Makefile
 # ============================ done moved, print-warn, clean-target
 # c-code that makes and executable that seems to read a file and transferrs that file
 # to the fpga via ethernet
-tools/etherkick/etherkick:	tools/etherkick/etherkick.c Makefile
+tools/etherhick/etherhick:	tools/etherhick/etherhick.c Makefile
 	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: tools/etherkick/etherkick)
-	$(CC) $(COPT) -o tools/etherkick/etherkick ./tools/etherkick/etherkick.c $(SOCKLIBS)
+	$(warning ~~~~~~~~~~~~~~~~> Making: tools/etherhick/etherhick)
+	$(CC) $(COPT) -o tools/etherhick/etherhick ./tools/etherhick/etherhick.c $(SOCKLIBS)
 
 
 # ============================ print-warn, clean-target
@@ -404,7 +404,7 @@ $(SDCARD_DIR)/BANNER.M65:	tools/pngprepare/pngprepare mega65_320x64.png
 	/usr/bin/convert -colors 128 -depth 8 +dither mega65_320x64.png mega65_320x64_128colour.png
 	tools/pngprepare/pngprepare logo mega65_320x64_128colour.png $(SDCARD_DIR)/BANNER.M65
 
-# disk menu program for loading from SD card to $C000 on boot by kickstart
+# disk menu program for loading from SD card to $C000 on boot by hyppo
 $(SDCARD_DIR)/C000UTIL.BIN:	diskmenu_c000.bin
 	cp diskmenu_c000.bin $(SDCARD_DIR)/C000UTIL.BIN
 
@@ -526,10 +526,10 @@ modeline:	Makefile modeline.c
 	$(CC) $(COPT) -o modeline modeline.c $(LOPT)
 
 clean:
-	rm -f KICKUP.M65 kickstart.list kickstart.map
+	rm -f HICKUP.M65 hyppo.list hyppo.map
 	rm -f diskmenu.prg diskmenuprg.list diskmenuprg.map
 	rm -f diskmenu_c000.bin diskmenuc000.list diskmenuc000.map
-	rm -f tools/etherkick/etherkick
+	rm -f tools/etherhick/etherhick
 	rm -f tools/etherload/etherload
 	rm -f tools/hotpatch/hotpatch
 	rm -f tools/pngprepare/pngprepare
@@ -541,7 +541,7 @@ clean:
 	rm -f utility.d81
 	rm -f tests/test_fdc_equal_flag.prg tests/test_fdc_equal_flag.list tests/test_fdc_equal_flag.map
 	rm -rf $(SDCARD_DIR)
-	rm -f $(VHDLSRCDIR)/kickstart.vhdl $(VHDLSRCDIR)/charrom.vhdl $(VHDLSRCDIR)/version.vhdl version.a65
+	rm -f $(VHDLSRCDIR)/hyppo.vhdl $(VHDLSRCDIR)/charrom.vhdl $(VHDLSRCDIR)/version.vhdl version.a65
 	rm -f monitor_drive monitor_load read_mem ghdl-frame-gen chargen_debug dis4510 em4510 4510tables
 	rm -f c65-rom-911001.txt c65-911001-rom-annotations.txt c65-dos-context.bin c65-911001-dos-context.bin
 	rm -f thumbnail.prg
@@ -549,4 +549,4 @@ clean:
 	rm -f videoproxy
 
 cleangen:
-	rm $(VHDLSRCDIR)/kickstart.vhdl $(VHDLSRCDIR)/charrom.vhdl *.M65
+	rm $(VHDLSRCDIR)/hyppo.vhdl $(VHDLSRCDIR)/charrom.vhdl *.M65

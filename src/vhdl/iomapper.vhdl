@@ -59,7 +59,7 @@ entity iomapper is
         w : in std_logic;
         data_i : in std_logic_vector(7 downto 0);
         data_o : out std_logic_vector(7 downto 0) := (others => 'Z');
-        kickstart_rdata : out std_logic_vector(7 downto 0);
+        hyppo_rdata : out std_logic_vector(7 downto 0);
         sector_buffer_mapped : out std_logic;
 
         key_scancode : in unsigned(15 downto 0);
@@ -292,7 +292,7 @@ entity iomapper is
     
     viciii_iomode : in std_logic_vector(1 downto 0);
     
-    kickstart_address : in std_logic_vector(13 downto 0);
+    hyppo_address : in std_logic_vector(13 downto 0);
         
     colourram_at_dc00 : in std_logic
     
@@ -328,7 +328,7 @@ architecture behavioral of iomapper is
   signal sd1541_enable : std_logic;
   signal sd1541_track : unsigned(5 downto 0);
   
-  signal kickstartcs : std_logic;
+  signal hyppocs : std_logic;
 
   signal reset_high : std_logic;
 
@@ -477,13 +477,13 @@ begin
 
   block1: block
   begin
-  kickstartrom : entity work.kickstart port map (
+  hypporom : entity work.hyppo port map (
     clk     => clk,
-    address => kickstart_address,
+    address => hyppo_address,
     address_i => address(13 downto 0),
     we      => w,
-    cs      => kickstartcs,
-    data_o  => kickstart_rdata,
+    cs      => hyppocs,
+    data_o  => hyppo_rdata,
     data_i  => data_i
     );
   end block;
@@ -1330,7 +1330,7 @@ begin
     variable temp : unsigned(19 downto 0);
   begin  -- process
 
-      -- @IO:GS $FFF8000-$FFFBFFF 16KB Kickstart/hypervisor ROM
+      -- @IO:GS $FFF8000-$FFFBFFF 16KB Hyppo/hypervisor ROM
       -- @IO:GS $FFF8000-$FFF80FC Hypervisor entry point when $D640-$D67F is written
       -- @IO:GS $FFF8100 Hypervisor entry point on reset (trap $40)
       -- @IO:GS $FFF8104 Hypervisor entry point on page fault (trap $41)
@@ -1340,9 +1340,9 @@ begin
       -- @IO:GS $FFF8114 Hypervisor entry point on FDC write (when virtualised) (trap $45)
       
       if address(19 downto 14)&"00" = x"F8" then
-        kickstartcs <= cpu_hypervisor_mode;
+        hyppocs <= cpu_hypervisor_mode;
       else
-        kickstartcs <='0';
+        hyppocs <='0';
       end if;
 
       -- sdcard sector buffer: only mapped if no colour ram @ $DC00, and if
@@ -1524,7 +1524,7 @@ begin
       end if;
       
     report "CS lines: "
-      & to_string(cia1cs&cia2cs&kickstartcs&sectorbuffercs&leftsid_cs&rightsid_cs&c65uart_cs&sdcardio_cs&thumbnail_cs&vfpga_cs);
+      & to_string(cia1cs&cia2cs&hyppocs&sectorbuffercs&leftsid_cs&rightsid_cs&c65uart_cs&sdcardio_cs&thumbnail_cs&vfpga_cs);
   end process;
 
 end behavioral;

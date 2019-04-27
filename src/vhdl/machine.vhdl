@@ -70,7 +70,7 @@ entity machine is
          cpu_exrom : in std_logic;
          cpu_game : in std_logic;
 
-         no_kickstart : in std_logic;
+         no_hyppo : in std_logic;
 
          flopled : out std_logic;
          flopmotor : out std_logic;
@@ -449,8 +449,8 @@ architecture Behavioral of machine is
   signal fastio_write : std_logic;
   signal fastio_wdata : std_logic_vector(7 downto 0);
   signal fastio_rdata : std_logic_vector(7 downto 0);
-  signal kickstart_rdata : std_logic_vector(7 downto 0);
-  signal kickstart_address : std_logic_vector(13 downto 0);
+  signal hyppo_rdata : std_logic_vector(7 downto 0);
+  signal hyppo_address : std_logic_vector(13 downto 0);
   
   signal fastio_vic_rdata : std_logic_vector(7 downto 0);
   signal colour_ram_fastio_rdata : std_logic_vector(7 downto 0);
@@ -882,14 +882,14 @@ begin
       
       irq_hypervisor => sw(4 downto 2),    -- JBM
       
-      -- Hypervisor signals: we need to tell kickstart memory whether
+      -- Hypervisor signals: we need to tell hyppo memory whether
       -- to map or not, and we also need to be able to set the VIC-III
       -- IO mode.
       cpu_hypervisor_mode => cpu_hypervisor_mode,
       iomode_set => iomode_set,
       iomode_set_toggle => iomode_set_toggle,
       
-      no_kickstart => no_kickstart,
+      no_hyppo => no_hyppo,
       
       reg_isr_out => reg_isr_out,
       imask_ta_out => imask_ta_out,
@@ -966,8 +966,8 @@ begin
       sector_buffer_mapped => sector_buffer_mapped,
       fastio_vic_rdata => fastio_vic_rdata,
       fastio_colour_ram_rdata => colour_ram_fastio_rdata,
-      kickstart_rdata => kickstart_rdata,
-      kickstart_address_out => kickstart_address,
+      hyppo_rdata => hyppo_rdata,
+      hyppo_address_out => hyppo_address,
       colour_ram_cs => colour_ram_cs,
       charrom_write_cs => charrom_write_cs,
 
@@ -1326,8 +1326,8 @@ begin
       addr_fast => fastio_addr_fast,
       r => fastio_read, w => fastio_write,
       data_i => fastio_wdata, data_o => fastio_rdata,
-      kickstart_rdata => kickstart_rdata,
-      kickstart_address => kickstart_address,
+      hyppo_rdata => hyppo_rdata,
+      hyppo_address => hyppo_address,
       colourram_at_dc00 => colourram_at_dc00,
       drive_led => drive_led,
       motor => motor,

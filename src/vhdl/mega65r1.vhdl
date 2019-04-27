@@ -366,7 +366,7 @@ begin
       joy3 => joy3,
       joy4 => joy4,
       
-      no_kickstart => '0',
+      no_hyppo => '0',
       
       vsync           => v_vsync,
       hsync           => v_hsync,

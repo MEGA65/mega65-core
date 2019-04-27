@@ -2007,7 +2007,7 @@ begin
 
       reset_drive <= reset;
       if reset_drive='0' then
-        -- Allow kickstart ROM to be visible on reset.
+        -- Allow hyppo ROM to be visible on reset.
         rom_at_e000 <= '0';
 
         -- Enable VIC-II/III registers to force video mode settings when touched

@@ -534,7 +534,7 @@ begin
       iec_data_external => iec_data_i,
       iec_clk_external => iec_clk_i,
       
-      no_kickstart => '0',
+      no_hyppo => '0',
       
       vsync           => vsync,
       hsync           => hsync,

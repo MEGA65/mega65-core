@@ -98,7 +98,7 @@ entity gs4510 is
     
     matrix_rain_seed : out unsigned(15 downto 0) := (others => '0');
     
-    no_kickstart : in std_logic;
+    no_hyppo : in std_logic;
 
     reg_isr_out : in unsigned(7 downto 0);
     imask_ta_out : in std_logic;
@@ -207,8 +207,8 @@ entity gs4510 is
     fastio_write : inout std_logic := '0';
     fastio_wdata : inout std_logic_vector(7 downto 0);
     fastio_rdata : in std_logic_vector(7 downto 0);
-    kickstart_rdata : in std_logic_vector(7 downto 0);
-    kickstart_address_out : out std_logic_vector(13 downto 0);
+    hyppo_rdata : in std_logic_vector(7 downto 0);
+    hyppo_address_out : out std_logic_vector(13 downto 0);
     
     sector_buffer_mapped : in std_logic;
     fastio_vic_rdata : in std_logic_vector(7 downto 0);
@@ -299,8 +299,8 @@ architecture Behavioural of gs4510 is
   signal shadow_write : std_logic := '0';
   signal shadow_write_next : std_logic := '0';
 
-  signal kickstart_address : std_logic_vector(13 downto 0);
-  signal kickstart_address_next : std_logic_vector(13 downto 0);
+  signal hyppo_address : std_logic_vector(13 downto 0);
+  signal hyppo_address_next : std_logic_vector(13 downto 0);
   
   signal fastio_addr_next : std_logic_vector(19 downto 0);
   
@@ -482,7 +482,7 @@ architecture Behavioural of gs4510 is
   signal hypervisor_mode : std_logic := '1';
   signal hypervisor_trap_port : unsigned (6 downto 0)  := (others => '0');
   -- Have we ever replaced the hypervisor with another?
-  -- (used to allow once-only update of hypervisor by kick-up file)
+  -- (used to allow once-only update of hypervisor by hick-up file)
   signal hypervisor_upgraded : std_logic := '0';
   
   -- Duplicates of all CPU registers to hold user-space contents when trapping
@@ -597,7 +597,7 @@ architecture Behavioural of gs4510 is
   signal accessing_rom : std_logic;
   signal accessing_fastio : std_logic;
   signal accessing_vic_fastio : std_logic;
-  signal accessing_kickstart_fastio : std_logic;
+  signal accessing_hyppo_fastio : std_logic;
   signal accessing_colour_ram_fastio : std_logic;
 --  signal accessing_ram : std_logic;
   signal accessing_slowram : std_logic;
@@ -681,7 +681,7 @@ architecture Behavioural of gs4510 is
     FastIO,                 -- 0x04
     ColourRAM,              -- 0x05
     VICIV,                  -- 0x06
-    Kickstart,              -- 0x07
+    Hyppo,              -- 0x07
     SlowRAM,                -- 0x08
     Unmapped                -- 0x09
     );
@@ -1499,10 +1499,10 @@ begin
       report "Setting PC to $8100 on reset";
       reg_pc <= x"8100";
 
-      -- Clear CPU MMU registers, and bank in kickstart ROM
+      -- Clear CPU MMU registers, and bank in hyppo ROM
       -- XXX Need to update this for hypervisor mode
-      if no_kickstart='1' then
-        -- no kickstart
+      if no_hyppo='1' then
+        -- no hyppo
         reg_offset_high <= x"000";
         reg_map_high <= "0000";
         reg_offset_low <= x"000";
@@ -1510,7 +1510,7 @@ begin
         reg_mb_high <= x"00";
         reg_mb_low <= x"00";
       else
-        -- with kickstart
+        -- with hyppo
         reg_offset_high <= x"F00";
         reg_map_high <= "1000";
         reg_offset_low <= x"000";
@@ -1718,7 +1718,7 @@ begin
         accessing_fastio <= '1';
         accessing_vic_fastio <= '0';
         accessing_colour_ram_fastio <= '0';
-        accessing_kickstart_fastio <= '0';
+        accessing_hyppo_fastio <= '0';
 
         fastio_addr <= fastio_addr_next;
         last_fastio_addr <= fastio_addr_next;
@@ -1767,13 +1767,13 @@ begin
             wait_states_non_zero <= '0';
           end if;
         end if;
-        -- @IO:GS $FFF8000-$FFFBFFF SUMMARY:HYPERVISOR 16KB Kickstart/Hypervisor ROM
+        -- @IO:GS $FFF8000-$FFFBFFF SUMMARY:HYPERVISOR 16KB Hyppo/Hypervisor ROM
         if long_address(19 downto 14)&"00" = x"F8" then
           accessing_fastio <= '0';
           fastio_read <= '0';
-          accessing_kickstart_fastio <= '1';
-          read_source <= Kickstart;
-          kickstart_address <= kickstart_address_next;          
+          accessing_hyppo_fastio <= '1';
+          read_source <= Hyppo;
+          hyppo_address <= hyppo_address_next;          
         end if;
         if long_address(19 downto 16) = x"D" then
           if long_address(15 downto 14) = "00" then    --   $D{0,1,2,3}XXX
@@ -2294,9 +2294,9 @@ begin
         when FastIO =>
           report "reading normal fastio byte $" & to_hstring(fastio_rdata) severity note;
           return unsigned(fastio_rdata);
-        when Kickstart =>
-          report "reading kickstart fastio byte $" & to_hstring(kickstart_rdata) severity note;
-          return unsigned(kickstart_rdata);
+        when Hyppo =>
+          report "reading hyppo fastio byte $" & to_hstring(hyppo_rdata) severity note;
+          return unsigned(hyppo_rdata);
         when SlowRAM =>
           report "reading slow RAM data. Word is $" & to_hstring(slow_access_rdata) severity note;
           return unsigned(slow_access_rdata);
@@ -2317,7 +2317,7 @@ begin
       
       accessing_fastio <= '0'; accessing_vic_fastio <= '0';
       accessing_cpuport <= '0'; accessing_colour_ram_fastio <= '0';
-      accessing_shadow <= '0'; accessing_kickstart_fastio <= '0';
+      accessing_shadow <= '0'; accessing_hyppo_fastio <= '0';
       accessing_rom <= '0';
       accessing_slowram <= '0';
       slow_access_write_drive <= '0';
@@ -3572,7 +3572,7 @@ begin
             & "," & std_logic'image(last_value(7));
           watchdog_fed <= '1';
         end if;
-                                        -- @IO:GS $D67E HCPU:KICKED Hypervisor already-upgraded bit (writing sets permanently)
+                                        -- @IO:GS $D67E HCPU:HICKED Hypervisor already-upgraded bit (writing sets permanently)
         if last_write_address = x"FFD367E" and hypervisor_mode='1' then
           hypervisor_upgraded <= '1';
         end if;
@@ -3830,7 +3830,7 @@ begin
 
           case state is
             when ResetLow =>
-                                        -- Reset now maps kickstart at $8000-$BFFF, and enters through $8000
+                                        -- Reset now maps hyppo at $8000-$BFFF, and enters through $8000
                                         -- by triggering the hypervisor.
                                         -- XXX indicate source of hypervisor entry
               reset_cpu_state;
@@ -4275,8 +4275,8 @@ begin
                                         -- XXX Potential security issue: Ideally we should not allow a DMA to
                                         -- write to Hypervisor memory, so as to make it harder to overwrite
                                         -- hypervisor memory.  However, we currently use it to do exactly
-                                        -- that in the kickup routine.  Thus before we implement such
-                                        -- protection, we need to change kickup to use a simple copy
+                                        -- that in the hickup routine.  Thus before we implement such
+                                        -- protection, we need to change hickup to use a simple copy
                                         -- routine. We then need to get a bit creative about how we
                                         -- implement the restriction, as the hypervisor memory doesnt
                                         -- exist in its own 1MB off address space, so we can't easily
@@ -4292,7 +4292,7 @@ begin
                                         -- significant bug in the hypervisor.  We could just disable
                                         -- chained DMA in the hypevisor as a simple safety catch, as this
                                         -- will provide the main value, without a burdonsome change. But
-                                        -- even that gets used in kickstart when clearing the screen on
+                                        -- even that gets used in hyppo when clearing the screen on
                                         -- boot.
             when DMAgicFill =>
                                         -- Fill memory at dmagic_dest_addr with dmagic_src_addr(7 downto
@@ -6459,9 +6459,9 @@ begin
            reg_dmagic_use_transparent_value,reg_addressingmode,is_load,reg_pagenumber,reg_addr32save,reg_addr,reg_instruction,
            reg_sph,reg_pc_jsr,reg_b,absolute32_addressing_enabled,reg_microcode,reg_t_high,dmagic_dest_io,dmagic_src_io,
            dmagic_first_read,is_rmw,reg_arg1,reg_sp,reg_addr_msbs,reg_a,reg_x,reg_y,reg_z,reg_pageactive,shadow_rdata,proceed,
-           reg_mult_a,read_data,shadow_wdata,shadow_address,kickstart_address,
+           reg_mult_a,read_data,shadow_wdata,shadow_address,hyppo_address,
            reg_pageid,rom_writeprotect,georam_page,
-           kickstart_address_next,clock,fastio_rdata
+           hyppo_address_next,clock,fastio_rdata
            )
     variable memory_access_address : unsigned(27 downto 0) := x"FFFFFFF";
     variable memory_access_read : std_logic := '0';
@@ -6474,7 +6474,7 @@ begin
     variable shadow_read_var : std_logic := '0';
     variable shadow_wdata_var : unsigned(7 downto 0) := x"FF";
 
-    variable kickstart_address_var : std_logic_vector(13 downto 0);
+    variable hyppo_address_var : std_logic_vector(13 downto 0);
     variable fastio_addr_var : std_logic_vector(19 downto 0);
 
     variable long_address_read_var : unsigned(27 downto 0) := x"FFFFFFF";
@@ -6764,14 +6764,14 @@ begin
     shadow_wdata_var := shadow_wdata;
     shadow_address_next <= shadow_address;
     shadow_wdata_next <= shadow_wdata;
-    kickstart_address_next <= kickstart_address;
+    hyppo_address_next <= hyppo_address;
 
     shadow_address_var := shadow_address;
 
     long_address_write_var := x"FFFFFFF";
     long_address_read_var := x"FFFFFFF";
 
-    kickstart_address_var := kickstart_address;
+    hyppo_address_var := hyppo_address;
 
     memory_access_address := x"0000000";
     memory_access_wdata := x"00";
@@ -7483,7 +7483,7 @@ begin
         end if;
         
         if long_address(19 downto 14)&"00" = x"F8" then
-          kickstart_address_var := std_logic_vector(long_address(13 downto 0));
+          hyppo_address_var := std_logic_vector(long_address(13 downto 0));
         end if;
         
         if long_address(27 downto 20) = x"FF" then
@@ -7498,7 +7498,7 @@ begin
       end if;
 
       shadow_address_next <= shadow_address_var;
-      kickstart_address_next <= kickstart_address_var;
+      hyppo_address_next <= hyppo_address_var;
       
     end if;
 
@@ -7529,7 +7529,7 @@ begin
     
     proceed_dbg_out <= proceed;
 
-    kickstart_address_out <= kickstart_address_next;
+    hyppo_address_out <= hyppo_address_next;
     fastio_addr_fast <= fastio_addr_next;
     
   end process;

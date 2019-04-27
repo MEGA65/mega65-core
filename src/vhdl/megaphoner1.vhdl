@@ -407,7 +407,7 @@ begin
       iec_data_external => '1',
       iec_clk_external => '1',
       
-      no_kickstart => '0',
+      no_hyppo => '0',
       
       vsync           => vga_vsync,
       hsync           => vga_hsync,
