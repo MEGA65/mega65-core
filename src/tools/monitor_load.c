@@ -71,12 +71,12 @@ int process_waiting(int fd);
 void usage(void)
 {
   fprintf(stderr,"MEGA65 cross-development tool for booting the MEGA65 using a custom bitstream and/or KICKUP file.\n");
-  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <kickup file>] [-R romfile] [-C charromfile]] [-c COLOURRAM.BIN] [-B breakpoint] [-m modeline] [-o] [-d diskimage.d81] [[-1] [<-t|-T> <text>] [-f FPGA serial ID] [filename]] [-H] [-E|-L]\n");
+  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <hickup file>] [-R romfile] [-C charromfile]] [-c COLOURRAM.BIN] [-B breakpoint] [-m modeline] [-o] [-d diskimage.d81] [[-1] [<-t|-T> <text>] [-f FPGA serial ID] [filename]] [-H] [-E|-L]\n");
   fprintf(stderr,"  -l - Name of serial port to use, e.g., /dev/ttyUSB1\n");
   fprintf(stderr,"  -s - Speed of serial port in bits per second. This must match what your bitstream uses.\n");
   fprintf(stderr,"       (Older bitstream use 230400, and newer ones 2000000 or 4000000).\n");
   fprintf(stderr,"  -b - Name of bitstream file to load.\n");
-  fprintf(stderr,"  -k - Name of kickup file to forcibly use instead of the kickstart in the bitstream.\n");
+  fprintf(stderr,"  -k - Name of hickup file to forcibly use instead of the hyppo in the bitstream.\n");
   fprintf(stderr,"  -R - ROM file to preload at $20000-$3FFFF.\n");
   fprintf(stderr,"  -C - Character ROM file to preload.\n");
   fprintf(stderr,"  -c - Colour RAM contents to preload.\n");
@@ -126,7 +126,7 @@ FILE *f=NULL;
 FILE *fd81=NULL;
 char *search_path=".";
 char *bitstream=NULL;
-char *kickstart=NULL;
+char *hyppo=NULL;
 char *fpga_serial=NULL;
 char serial_port[1024]="/dev/ttyUSB1"; // XXX do a better job auto-detecting this
 int serial_speed=2000000;
@@ -220,7 +220,7 @@ int start_cpu(void)
   return 0;
 }
 
-int load_file(char *filename,int load_addr,int patchKickstart)
+int load_file(char *filename,int load_addr,int patchHyppo)
 {
   char cmd[1024];
 
@@ -238,7 +238,7 @@ int load_file(char *filename,int load_addr,int patchKickstart)
   if (max_bytes>byte_limit) max_bytes=byte_limit;
   int b=fread(buf,1,max_bytes,f);
   while(b>0) {
-    if (patchKickstart) {
+    if (patchHyppo) {
       printf("patching...\n");
       // Look for BIT $nnnn / BIT $1234, and change to JMP $nnnn to skip
       // all SD card activities
@@ -248,7 +248,7 @@ int load_file(char *filename,int load_addr,int patchKickstart)
 	      &&(buf[i+3]==0x2c)
 	      &&(buf[i+4]==0x34)
 	      &&(buf[i+5]==0x12)) {
-	    fprintf(stderr,"Patching Kickstart @ $%04x to skip SD card and ROM checks.\n",
+	    fprintf(stderr,"Patching Hyppo @ $%04x to skip SD card and ROM checks.\n",
 		    0x8000+i);
 	    buf[i]=0x4c;
 	  }
@@ -300,9 +300,9 @@ int load_file(char *filename,int load_addr,int patchKickstart)
   return 0;
 }
 
-int restart_kickstart(void)
+int restart_hyppo(void)
 {
-  // Start executing in new kickstart
+  // Start executing in new hyppo
   if (!halt) {
     usleep(50000);
     slow_write(fd,"g8100\r",6);
@@ -472,14 +472,14 @@ int process_line(char *line,int live)
       printf("LOAD vector intercepted\n");
       state=1;
     } else if (pc>=0x8000&&pc<0xc000
-	       &&(kickstart)) {
+	       &&(hyppo)) {
       int patchKS=0;
       if (romfile) patchKS=1;
-      fprintf(stderr,"[T+%lldsec] Replacing %skickstart...\n",
+      fprintf(stderr,"[T+%lldsec] Replacing %shyppo...\n",
 	      (long long)time(0)-start_time,
 	      patchKS?"and patching ":"");
       stop_cpu();
-      if (kickstart) { load_file(kickstart,0xfff8000,patchKS); } kickstart=NULL;
+      if (hyppo) { load_file(hyppo,0xfff8000,patchKS); } hyppo=NULL;
       if (romfile) { load_file(romfile,0x20000,0); } romfile=NULL;
       if (charromfile) load_file(charromfile,0xFF7E000,0);
       if (colourramfile) load_file(colourramfile,0xFF80000,0);
@@ -497,7 +497,7 @@ int process_line(char *line,int live)
       }
       charromfile=NULL;
       colourramfile=NULL;
-      if (!virtual_f011) restart_kickstart();
+      if (!virtual_f011) restart_hyppo();
       else {
 	hypervisor_paused=1;
 	printf("hypervisor paused\n");
@@ -785,7 +785,7 @@ int process_line(char *line,int live)
       }
       if (addr==0xffd3659) {
 	fprintf(stderr,"Hypervisor virtualisation flags = $%02x\n",b[0]);
-	if (virtual_f011&&hypervisor_paused) restart_kickstart();
+	if (virtual_f011&&hypervisor_paused) restart_hyppo();
 	hypervisor_paused=0;
         printf("hyperv not paused\n");
       }
@@ -1386,7 +1386,7 @@ int main(int argc,char **argv)
       break;
     case 'b':
       bitstream=strdup(optarg); break;
-    case 'k': kickstart=strdup(optarg); break;
+    case 'k': hyppo=strdup(optarg); break;
     case 't': case 'T':
       type_text=strdup(optarg);
       if (opt=='T') type_text_cr=1;
@@ -1396,7 +1396,7 @@ int main(int argc,char **argv)
     }
   }  
 
-  if ((romfile||charromfile)&&(!kickstart)) {
+  if ((romfile||charromfile)&&(!hyppo)) {
     fprintf(stderr,"-k is required with -R or -C\n");
     usage();
   }
@@ -1418,7 +1418,7 @@ int main(int argc,char **argv)
   }
 
   if (virtual_f011) {
-    if ((!bitstream)||(!kickstart)) {
+    if ((!bitstream)||(!hyppo)) {
       fprintf(stderr,"ERROR: -d requires -b and -k to also be specified.\n");
       exit(-1);
     }

@@ -214,9 +214,9 @@ int stop_cpu(void)
   return 0;
 }
 
-int restart_kickstart(void)
+int restart_hyppo(void)
 {
-  // Start executing in new kickstart
+  // Start executing in new hyppo
   if (!halt) {
     usleep(50000);
     slow_write(fd,"g8100\r",6,2500);
@@ -403,7 +403,7 @@ int execute_command(char *cmd)
   char dst[1024];
   if ((!strcmp(cmd,"exit"))||(!strcmp(cmd,"quit"))) {
     printf("Reseting MEGA65 and exiting.\n");
-    restart_kickstart();
+    restart_hyppo();
     exit(0);
   }
 
