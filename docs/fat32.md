@@ -140,7 +140,7 @@ The 5x registers used to interface the SDCARD controller are ```$D680-$D684```.
 To perform a read from the SDCARD, you setup the 4x "sd_address_bytes" to the sector you want, and toggle a bit on the $D680 register. When the SDCARD CONTROLLER is done, a bit in $D680 becomes clearer (or set, i forget).
 Then, you need to switch the 512-buffer, performed by calling the "sd_map_sectorbuffer" subroutine.  
 
-Upon startup, basically the KICKUP code performs the following:  
+Upon startup, basically the HICKUP code performs the following:  
 
 1. resets the SDCARD
 1. reads the Master Boot Record (very first chunk of the card)
@@ -709,7 +709,7 @@ FAT#2 location + sectors_per_FAT = $0E1E + $03e6
 ```
 00240800  4c 4f 55 44 2d 31 47 20  20 20 20 08 00 00 00 00  |LOUD-1G    .....|
 00240810  00 00 00 00 00 00 d1 74  28 49 00 00 00 00 00 00  |.......t(I......|
-00240820  4b 49 43 4b 55 50 20 20  4d 36 35 20 00 00 fd 28  |KICKUP  M65 ...(|
+00240820  4b 49 43 4b 55 50 20 20  4d 36 35 20 00 00 fd 28  |HICKUP  M65 ...(|
 00240830  28 49 28 49 00 00 1c 27  28 49 03 00 00 40 00 00  |(I(I...'(I...@..|
 00240840  4d 45 47 41 36 35 20 20  52 4f 4d 20 00 a6 d4 74  |MEGA65  ROM ...t|
 00240850  28 49 28 49 00 00 02 63  22 45 07 00 00 00 02 00  |(I(I...c"E......|

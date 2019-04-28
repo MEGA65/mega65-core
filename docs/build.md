@@ -143,7 +143,7 @@ also be used to auto-switch to C64 mode on start (-4 option), and/or to load and
 a user-supplied program on boot (see the usage text for monitor_load for details), providing a
 greatly simplified work-flow.
 
-```src/tools/monitor_load -b bin/nexys4ddr.bit -k bin/KICKUP.M65```
+```src/tools/monitor_load -b bin/nexys4ddr.bit -k bin/HICKUP.M65```
 
 (This assumes you are running the command from the ```mega65-core``` directory.
 

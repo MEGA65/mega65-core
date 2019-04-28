@@ -161,7 +161,7 @@ Upon startup, basically the MEGA65 core operating system performs the following:
   1. if it is FAT32, accepts this partition and records information about it.
 1. displays on-screen some information about the SDCARD,
 1. loads some files from SDCARD into memory, if present:
-  1. KICKUP.M65 - upgrades the core operating system ROM of the MEGA65
+  1. HICKUP.M65 - upgrades the core operating system ROM of the MEGA65
   1. CHARROM.M65 - replaces the built in default character set with the provided one
   1. MEGA65.ROM - provides a 128KB C65-style ROM file to be loaded
 1. optionally mounts a disk-image is it if found

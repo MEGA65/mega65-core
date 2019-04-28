@@ -765,7 +765,7 @@ logook:
 		jsr setbannerpalette
 
 		; iterate through directory entries looking for ordinary file 
-		; KICKUP.M65 to load into hypervisor memory ...
+		; HICKUP.M65 to load into hypervisor memory ...
 		; ... but only if we are not running a kick-up'd kickstart now.
 		;
 		lda hypervisor_kickedup_flag	;$d67e = register for kickup-state (00=virgin, else already-kicked)
@@ -799,13 +799,13 @@ allowkickup:	; BG was label nextdirectoryentry3:
 		lda #$00
 		sta <dos_file_loadaddress+3
 
-		ldx #<txt_KICKUPM65
-		ldy #>txt_KICKUPM65
+		ldx #<txt_HICKUPM65
+		ldy #>txt_HICKUPM65
 		jsr dos_setname
 
 		; print debug message
 		;
-		.invoke checkpoint "  try-loading KICKUP"
+		.invoke checkpoint "  try-loading HICKUP"
 
 		jsr dos_readfileintomemory
 		bcc nokickup
@@ -817,7 +817,7 @@ allowkickup:	; BG was label nextdirectoryentry3:
 
 		; print debug message
 		;
-		.invoke checkpoint "  loaded OK KICKUP"
+		.invoke checkpoint "  loaded OK HICKUP"
 
 
 ;		ldx #<msg_kickuploaded
@@ -915,7 +915,7 @@ postkickup:
 
 		; print debug message
 		;
-		.invoke checkpoint "  Here we are POST-KICKUP"
+		.invoke checkpoint "  Here we are POST-HICKUP"
 
 	jsr dumpcurrentfd	; debugging to Checkpoint
 		
@@ -2898,10 +2898,10 @@ msg_nod81:	      .byte "CANNOT MOUNT MEGA65.D81 - (ERRNO: $$)",0
 msg_d81mounted:	      .byte "MEGA65.D81 SUCCESSFULLY MOUNTED",0
 msg_releasectrl:      .byte "RELEASE CONTROL TO CONTINUE BOOTING.",0
 msg_romnotfound:      .byte "COULD NOT FIND ROM MEGA65XXROM",0
-msg_foundkickup:      .byte "LOADING KICKUP.M65 INTO HYPERVISOR",0
+msg_foundkickup:      .byte "LOADING HICKUP.M65 INTO HYPERVISOR",0
 msg_no1541rom:	      .byte "COULD NOT LOAD 1541ROM.M65",0
-;msg_nokickup:         .byte "NO KICKUP.M65 TO LOAD (OR BROKEN)",0
-;msg_kickuploaded:     .byte "KICKUP LOADED TO 00004000 - $$$$$$$$",0
+;msg_nokickup:         .byte "NO HICKUP.M65 TO LOAD (OR BROKEN)",0
+;msg_kickuploaded:     .byte "HICKUP LOADED TO 00004000 - $$$$$$$$",0
 msg_alreadykicked:    .byte "RUNNING KICKED HYPERVISOR",0
 msg_lookingfornextsector:
 		      .byte "LOOKING FOR NEXT SECTOR OF FILE",0
@@ -2938,7 +2938,7 @@ txt_MEGA65D81:		.byte "MEGA65.D81",0,0,0,0,0,0,0
 
 			; filename of kickstart update file
 			;
-txt_KICKUPM65:		.byte "KICKUP.M65",0
+txt_HICKUPM65:		.byte "HICKUP.M65",0
 
 			; filename containing boot logo
 			;
@@ -3233,11 +3233,11 @@ checkpoint_pch:	      .byte 0
 sdcounter:		.byte 0,0,0
 
 ;;; ----------------------------------------------------------------------------
-;;; end of KICKUP-rom
+;;; end of HICKUP-rom
 ;;; ----------------------------------------------------------------------------
 
 			.checkpc $C000
 			.advance $C000, $3f
 
-			.outfile "bin/KICKUP.M65"
+			.outfile "bin/HICKUP.M65"
 

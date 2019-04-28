@@ -110,7 +110,7 @@ Unsure if we need "G65" or "M65", to do [  ].
 
 * ```MEGA65.ROM``` -- c65 kernal ROM, renamed from 911001.bin (or 910111 ???) which is the original ROM file extracted from one of the real c65 machines. Search for it on the internet.
 * ```MEGA65x.ROM``` -- (optional) as above, but with ```x``` in the filename where ```x``` is a digit, unsure if this is still implemented, need to look into the kickstart.a65 code to see.
-* ```KICKUP.M65``` -- (optional) an updated version of the kickup-code (ie kickup.a65, which is compiled into the bitstream), but this ```KICKUP.M65``` is loaded at boot-up and replaces the code in the bitstream. This is useful for developing the kickup-code without having to recompile the entire design/bitstream.
+* ```HICKUP.M65``` -- (optional) an updated version of the kickup-code (ie kickup.a65, which is compiled into the bitstream), but this ```HICKUP.M65``` is loaded at boot-up and replaces the code in the bitstream. This is useful for developing the kickup-code without having to recompile the entire design/bitstream.
 * ```CHARROM.M65``` -- (optional) the proprietary CBM character ROM, which is the original ROM file, cannot determine how this is built or sourced  
 * ```BOOTLOGO.M65``` -- (optional) image displayed on kickstart screen, refer ```/precomp/Makefile```   
 * ```MEGA65.D81``` -- (optional) disk-image automatically mounted at boot-up

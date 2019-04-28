@@ -155,7 +155,7 @@ ie: ```$GIT_ROOT/xemu/targets/mega65$> make```
 
 ## setup
 
-The current version of the emulator has a built-in KICKSTART file. If you want to have the emulator execute your own local version of KICKSTART, then place a copy of ```KICKUP.M65``` in one of the directories searched (view the console-output).  
+The current version of the emulator has a built-in KICKSTART file. If you want to have the emulator execute your own local version of KICKSTART, then place a copy of ```HICKUP.M65``` in one of the directories searched (view the console-output).  
 
 You may also like to embed KICKSTART into the SD-Card image-file called ```mega65.img```. Details of this are not provided at this stage.
 

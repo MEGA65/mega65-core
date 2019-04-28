@@ -70,7 +70,7 @@ int process_waiting(int fd);
 
 void usage(void)
 {
-  fprintf(stderr,"MEGA65 cross-development tool for booting the MEGA65 using a custom bitstream and/or KICKUP file.\n");
+  fprintf(stderr,"MEGA65 cross-development tool for booting the MEGA65 using a custom bitstream and/or HICKUP file.\n");
   fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <hickup file>] [-R romfile] [-C charromfile]] [-c COLOURRAM.BIN] [-B breakpoint] [-m modeline] [-o] [-d diskimage.d81] [[-1] [<-t|-T> <text>] [-f FPGA serial ID] [filename]] [-H] [-E|-L]\n");
   fprintf(stderr,"  -l - Name of serial port to use, e.g., /dev/ttyUSB1\n");
   fprintf(stderr,"  -s - Speed of serial port in bits per second. This must match what your bitstream uses.\n");
