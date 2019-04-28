@@ -242,7 +242,7 @@ SYS58552 in C64 mode will take you back to C65 mode, without un-mounting the las
 
 ## 3.2 Simple D81 Chooser for the SD Card
                    
-This chooser reuses much of the FAT32 code from the kickstart ROM, and allows you to say Y or N to each image in turn. Once you say Y to an image, it makes it available for use. It is included in the Kickstart ROM, which then copies the program to $C000, so that it can be entered with SYS49152 from C64 mode.
+This chooser reuses much of the FAT32 code from the hyppo ROM, and allows you to say Y or N to each image in turn. Once you say Y to an image, it makes it available for use. It is included in the Hyppo ROM, which then copies the program to $C000, so that it can be entered with SYS49152 from C64 mode.
 
 One of Paul’s students is working on an improved menu-based disk chooser.
 
@@ -391,7 +391,7 @@ First, we need the supervisor/hypervisor CPU mode that maps some extra registers
 
 Second, to make hypervisor calls fast, the CPU should save all CPU registers and automatically switch the memory map when entering and leaving the hypervisor.  I have already implemented this, so that a call-up into the hypervisor takes just one cycle, as does returning from the hypervisor.
 
-Third, we need to make the hypervisor programme memory only visible from in hypervisor mode.  I have already implemented this.  The hypervisor program is mapped at $8000-$BFFF, with the last 1KB reserved as scratch space, relocated zero-page (using the 4510's B register), and relocated stack (again, using the 4510's SPH register).  The KickStart ROM starts in hypervisor mode, loads the target operating system, prepares the CPU state for the target, including reading the reset entry vector from $FFFC-D of the target ROM, and then exits hypervisor mode, causing the target operating system to start.
+Third, we need to make the hypervisor programme memory only visible from in hypervisor mode.  I have already implemented this.  The hypervisor program is mapped at $8000-$BFFF, with the last 1KB reserved as scratch space, relocated zero-page (using the 4510's B register), and relocated stack (again, using the 4510's SPH register).  The Hyppo ROM starts in hypervisor mode, loads the target operating system, prepares the CPU state for the target, including reading the reset entry vector from $FFFC-D of the target ROM, and then exits hypervisor mode, causing the target operating system to start.
 
 ### 4.5.3 Task Registers               
 

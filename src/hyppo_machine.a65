@@ -82,7 +82,7 @@
 	.alias hypervisor_write_char_to_serial_monitor $d67c
 
 	.alias hypervisor_feature_enables $d67d
-	.alias hypervisor_kickedup_flag $d67e
+	.alias hypervisor_hickedup_flag $d67e
 	.alias hypervisor_cartridge_flags $d67e
 	.alias hypervisor_enterexit_trigger $d67f
 

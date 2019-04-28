@@ -58,7 +58,7 @@ audiomix_setcoefficient:
 		; to give time to audio mixer to fetch the 16-bit coefficient, before
 		; we write to half of it (which requires the other half loaded, so that the
 		; write to the 16-bit register gets the correct other half).
-		; note that bit $1234 gets replaced in kickstart by monitor_load when doing
+		; note that bit $1234 gets replaced in hyppo by monitor_load when doing
 		; hot-patching, so we can't use that instruction for the delay
 
 		; simple solution: write to address register several times to spend the time.

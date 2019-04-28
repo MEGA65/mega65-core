@@ -1,5 +1,5 @@
 
-	; This file is included in kickstart.a65 in the reset_entry routine.
+	; This file is included in hyppo.a65 in the reset_entry routine.
 	; i.e., anything put here is executed before reset resumes.
 	; It is used for debugging various things using GHDL simulation,
 	; because the simulation is so slow, we want things to run instantly.
@@ -84,36 +84,36 @@
 
        ; Copy from $FFD3100
        lda #$0f
-       sta kickupdmalist+2
+       sta hickupdmalist+2
        lda #<$FD3100
-       sta kickupdmalist+9
+       sta hickupdmalist+9
        lda #>$FD3100
-       sta kickupdmalist+10
+       sta hickupdmalist+10
        lda #$FD
-       sta kickupdmalist+11
+       sta hickupdmalist+11
 
        ; Copy to $1100
        lda #$00
-       sta kickupdmalist+4
+       sta hickupdmalist+4
        lda #<$001100
-       sta kickupdmalist+12
+       sta hickupdmalist+12
        lda #>$001100
-       sta kickupdmalist+13
+       sta hickupdmalist+13
        lda #$00
-       sta kickupdmalist+14
+       sta hickupdmalist+14
 
        ;Copy $300 bytes
        lda #<$0300
-       sta kickupdmalist+7
+       sta hickupdmalist+7
        lda #>$0300
-       sta kickupdmalist+8
+       sta hickupdmalist+8
 
        lda #$ff
        sta $d702
        sta $d704
-       lda #>kickupdmalist
+       lda #>hickupdmalist
        sta $d701
-       lda #<kickupdmalist
+       lda #<hickupdmalist
        sta $d705
 
 *      inc $d020
@@ -170,7 +170,7 @@ debugdmalist:
 		; (MB offsets get set in routine)
 		.byte $00 ; copy + last request in chain
 		.word theroutine_len ; size of copy
-		.word theroutine ; source is in kickstart
+		.word theroutine ; source is in hyppo
 		.byte $0F   ; of bank $F
 		.word $4000 ; destination address is $4000
 		.byte $00   ; of bank $0

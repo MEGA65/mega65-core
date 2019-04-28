@@ -1,4 +1,4 @@
-; MEGA65 Kick Start ROM.
+; MEGA65 Hyppo ROM.
 ; Paul Gardner-Stephen, 2014-2016.
 ;
 ; Purpose: 
@@ -6,15 +6,15 @@
 ; 1. If checksum fails, load complete ROM from SD card.
 ; 2. Select default disk image for F011 emulation.
 ;
-; The kickstart ROM is 16KB in length, and maps at $8000-$BFFF
+; The hyppo ROM is 16KB in length, and maps at $8000-$BFFF
 ; in hypervisor mode.
 ;
-; Kickstart modifies RAM from $0000-$07FFF (ZP, stack, 40-column
+; Hyppo modifies RAM from $0000-$07FFF (ZP, stack, 40-column
 ; screen, 16-bit text mode) during normal boot.
 ;
 ;
 ; BG: is the below true still, I dont think so.
-; If Kickstart needs to load the ROM from SD card, then it may
+; If Hyppo needs to load the ROM from SD card, then it may
 ; modify the first 64KB of fast ram.
 ;
 ;
@@ -38,7 +38,7 @@
 ;
 ; scratch space in ZP space usually used by kernel
 ; we try to use address space not normally used by C64 kernel, so that
-; it is possible to make calls to kickstart after boot.  Eventually
+; it is possible to make calls to hyppo after boot.  Eventually
 ; the desire is to have an SYS call that brings up a menu that lets
 ; you choose a disk image from a list.
 ;
@@ -508,7 +508,7 @@ reset_machine_state:
 		sta $D01A
 
 		; We DO NOT need to mess with $01, because
-		; the 4510 starts up with kickstart mapped at $8000-$BFFF 
+		; the 4510 starts up with hyppo mapped at $8000-$BFFF 
 		; enhanced ($FFD3xxx) IO page mapped at $D000,
 		; and fast RAM elsewhere.
 
@@ -547,11 +547,11 @@ reset_entry:
 
 		; display welcome screen
 		;
-		ldx #<msg_kickstart
-		ldy #>msg_kickstart
+		ldx #<msg_hyppo
+		ldy #>msg_hyppo
 		jsr printmessage
 
-		; leave a blank line below kickstart banner
+		; leave a blank line below hyppo banner
 		;
 		ldx #<msg_blankline
 		ldy #>msg_blankline
@@ -565,8 +565,8 @@ reset_entry:
 
 		; Display help text
 		;
-		ldx #<msg_kickstarthelp
-		ldy #>msg_kickstarthelp
+		ldx #<msg_hyppohelp
+		ldy #>msg_hyppohelp
 		jsr printmessage
 
 		; check keyboard for 0-9 down to select alternate rom
@@ -766,28 +766,28 @@ logook:
 
 		; iterate through directory entries looking for ordinary file 
 		; HICKUP.M65 to load into hypervisor memory ...
-		; ... but only if we are not running a kick-up'd kickstart now.
+		; ... but only if we are not running a hick-up'd hyppo now.
 		;
-		lda hypervisor_kickedup_flag	;$d67e = register for kickup-state (00=virgin, else already-kicked)
-		bpl allowkickup
+		lda hypervisor_hickedup_flag	;$d67e = register for hickup-state (00=virgin, else already-hicked)
+		bpl allowhickup
 
-		; already kicked
+		; already hicked
 		;
-		ldx #<msg_alreadykicked
-		ldy #>msg_alreadykicked
+		ldx #<msg_alreadyhicked
+		ldy #>msg_alreadyhicked
 		jsr printmessage
 
-		jmp postkickup
+		jmp posthickup
 
 ;	========================
 
-allowkickup:	; BG was label nextdirectoryentry3:
+allowhickup:	; BG was label nextdirectoryentry3:
 
-		; Prepare 32-bit pointer for loading kickup @ $0004000
+		; Prepare 32-bit pointer for loading hickup @ $0004000
 		;
 		; We load it at $4000, which is mapped to first 64KB RAM, and then
 		; have a routine also in RAM that we use to copy the loaded data
-		; back onto the Kickstart "ROM" space, so that there are no problems
+		; back onto the Hyppo "ROM" space, so that there are no problems
 		; with the copying code being changed while it being replaced.
 		;
 		lda #$00
@@ -808,11 +808,11 @@ allowkickup:	; BG was label nextdirectoryentry3:
 		.invoke checkpoint "  try-loading HICKUP"
 
 		jsr dos_readfileintomemory
-		bcc nokickup
+		bcc nohickup
 
 ;	========================
 
-		; We have loaded a kickup file, so jump into it.
+		; We have loaded a hickup file, so jump into it.
 
 
 		; print debug message
@@ -820,8 +820,8 @@ allowkickup:	; BG was label nextdirectoryentry3:
 		.invoke checkpoint "  loaded OK HICKUP"
 
 
-;		ldx #<msg_kickuploaded
-;		ldy #>msg_kickuploaded
+;		ldx #<msg_hickuploaded
+;		ldy #>msg_hickuploaded
 ;		jsr printmessage
 
 		ldy #$00
@@ -834,12 +834,12 @@ allowkickup:	; BG was label nextdirectoryentry3:
 		ldz <zptempv32+0
 		jsr printhex
 
-dokickup:
+dohickup:
 		; Use DMAgic to copy $0004000-$0007FFF to $FFF8000-$FFFBFFF
 		; (We have to copy the routine to do this to RAM, since we will
 		; be replacing ourselves)
 		ldx #$00
-krc:		lda kickuproutine,x
+krc:		lda hickuproutine,x
 		sta $3000,x
 		inx
 		bne krc
@@ -847,27 +847,27 @@ krc:		lda kickuproutine,x
 
 ;	========================
 
-kickuproutine:
+hickuproutine:
 		; The following routine gets copied as-is to $3000 and run from there.
-		; The DMA list is still available in the kickstart ROM when it gets
+		; The DMA list is still available in the hyppo ROM when it gets
 		; called, so we can just use it there, instead of working out where
 		; it gets copied to
 
-		; NOTE that only 256-bytes are copied, so the kickuproutine and kickupdmalist
+		; NOTE that only 256-bytes are copied, so the hickuproutine and hickupdmalist
 		;      cannot exceed this limit, else revise the krc routine.
 
 		; Set bottom 22 bits of DMA list address as for C65
-		; (8MB address range).  Kickstart ROM is at $FFF8000, so $FF goes
+		; (8MB address range).  Hyppo ROM is at $FFF8000, so $FF goes
 		; in high-byte area
 		;
 		lda #$ff
 		sta $d702
 		lda #$ff   
 		sta $d704  ; dma list is in top MB of address space
-		lda #>kickupdmalist
+		lda #>hickupdmalist
 		sta $d701
 		; Trigger enhanced DMA 
-		lda #<kickupdmalist
+		lda #<hickupdmalist
 		sta $d705
 
 		; copy complete, so mark ourselves upgraded, and jump into hypervisor
@@ -876,12 +876,12 @@ kickuproutine:
 		; (it doesn't matter what gets written to this register, it is just the fact that it has been
 		; written to, that sets the flag).
 		;
-		sta hypervisor_kickedup_flag	; mark ourselves as having kicked up, (00=virgin, else already-kicked)
+		sta hypervisor_hickedup_flag	; mark ourselves as having hicked up, (00=virgin, else already-hicked)
 		jmp $8100
 
 ;	========================
 
-kickupdmalist:
+hickupdmalist:
 		; MEGA65 Enhanced DMA options
 		.byte $0A  ; Request format is F018A
 		.byte $80,$00 ; Source is $00xxxxx
@@ -900,14 +900,14 @@ kickupdmalist:
 
 ;	========================
 
-couldntopenkickup:
+couldntopenhickup:
 
-nokickup:
-;		ldx #<msg_nokickup
-;		ldy #>msg_nokickup
+nohickup:
+;		ldx #<msg_nohickup
+;		ldy #>msg_nohickup
 ;		jsr printmessage
 
-postkickup:
+posthickup:
 
 		; MILESTONE: Have file system properties.
 
@@ -1397,7 +1397,7 @@ mapromchecksumrecord:
 		;
 		lda #$80
 		ldx #$0f
-		ldy #$00   ; keep kickstart mapped at $8000-$BFFF
+		ldy #$00   ; keep hyppo mapped at $8000-$BFFF
 		ldz #$3f
 
 		map
@@ -1406,7 +1406,7 @@ mapromchecksumrecord:
 		;
 		lda #$c0
 		ldx #$cf
-		ldy #$00   ; keep kickstart mapped at $8000-$BFFF
+		ldy #$00   ; keep hyppo mapped at $8000-$BFFF
 		ldz #$3f
 		map
 		eom
@@ -1488,7 +1488,7 @@ sumslab:
 		asl
 		asl
 		asl
-		ldy #$00   ; keep kickstart mapped at $8000-$BFFF
+		ldy #$00   ; keep hyppo mapped at $8000-$BFFF
 		ldz #$3f
 
 		map
@@ -1751,7 +1751,7 @@ erasescreen:
 		lda #$ff
 		sta $d702
 
-		; Kickstart ROM is at $FFFE000 - $FFFFFFF, so
+		; Hyppo ROM is at $FFFE000 - $FFFFFFF, so
 		; we need to tell DMAgic that DMA list is in $FFxxxxx.
 		; this has to be done AFTER writing to $d702, as $d702
 		; clears bits 27 - 22 of the DMA list address to help with
@@ -2089,7 +2089,7 @@ l42:
 		; C64 memory map and enter via reset
 		; vector.  
 	
-		; erase kickstart ROM copy from RAM
+		; erase hyppo ROM copy from RAM
 		; (well, at least enough so that BASIC doesn't get upset)
 		; XXX - use DMA
 		;
@@ -2128,7 +2128,7 @@ g61:		sta $0800,x
 
 ;	========================
 
-; BG: the longpeek subroutine does not get called from kickstart,
+; BG: the longpeek subroutine does not get called from hyppo,
 ;     it gets called only from the hyppo_task file,
 ;     so i suggest moving this subroutine to that file.
 
@@ -2251,7 +2251,7 @@ resetmemmap:
 		;
 		lda #$00
 		ldx #$0f
-		ldy #$00   ; keep kickstart mapped at $8000-$BFFF
+		ldy #$00   ; keep hyppo mapped at $8000-$BFFF
 		ldz #$3f
 
 		map
@@ -2259,7 +2259,7 @@ resetmemmap:
 		; and clear all mapping
 		;
 		tax
-		ldy #$00   ; keep kickstart mapped at $8000-$BFFF
+		ldy #$00   ; keep hyppo mapped at $8000-$BFFF
 		ldz #$3f
 
 		map
@@ -2866,8 +2866,8 @@ msg_checkpoint_eom:
 ; messages all have to be <=40 bytes long
 
 msg_retryreadmbr:     .byte "RE-TRYING TO READ MBR",0
-msg_kickstart:        .byte "MEGA65 MEGAOS HYPERVISOR V00.12",0
-msg_kickstarthelp:    .byte "ALT=UTIL MENU CTRL=HOLD-BOOT SHIFT=DEBUG",0
+msg_hyppo:        .byte "MEGA65 MEGAOS HYPERVISOR V00.12",0
+msg_hyppohelp:    .byte "ALT=UTIL MENU CTRL=HOLD-BOOT SHIFT=DEBUG",0
 msg_romok:            .byte "ROM CHECKSUM OK - BOOTING",0
 ;msg_rombad:	      .byte "ROM CHECKSUM FAIL - LOADING ROMS",0
 ;msg_charrombad:	      .byte "COULD NOT LOAD CHARROM.M65",0
@@ -2898,11 +2898,11 @@ msg_nod81:	      .byte "CANNOT MOUNT MEGA65.D81 - (ERRNO: $$)",0
 msg_d81mounted:	      .byte "MEGA65.D81 SUCCESSFULLY MOUNTED",0
 msg_releasectrl:      .byte "RELEASE CONTROL TO CONTINUE BOOTING.",0
 msg_romnotfound:      .byte "COULD NOT FIND ROM MEGA65XXROM",0
-msg_foundkickup:      .byte "LOADING HICKUP.M65 INTO HYPERVISOR",0
+msg_foundhickup:      .byte "LOADING HICKUP.M65 INTO HYPERVISOR",0
 msg_no1541rom:	      .byte "COULD NOT LOAD 1541ROM.M65",0
-;msg_nokickup:         .byte "NO HICKUP.M65 TO LOAD (OR BROKEN)",0
-;msg_kickuploaded:     .byte "HICKUP LOADED TO 00004000 - $$$$$$$$",0
-msg_alreadykicked:    .byte "RUNNING KICKED HYPERVISOR",0
+;msg_nohickup:         .byte "NO HICKUP.M65 TO LOAD (OR BROKEN)",0
+;msg_hickuploaded:     .byte "HICKUP LOADED TO 00004000 - $$$$$$$$",0
+msg_alreadyhicked:    .byte "RUNNING HICKED HYPERVISOR",0
 msg_lookingfornextsector:
 		      .byte "LOOKING FOR NEXT SECTOR OF FILE",0
 msg_nologo:	      .byte "COULD NOT LOAD BANNER.M65 (ERRNO:$$)",0
@@ -2936,7 +2936,7 @@ txt_MEGA65ROM:		.byte "MEGA65.ROM",0,0
 			;
 txt_MEGA65D81:		.byte "MEGA65.D81",0,0,0,0,0,0,0
 
-			; filename of kickstart update file
+			; filename of hyppo update file
 			;
 txt_HICKUPM65:		.byte "HICKUP.M65",0
 
@@ -3185,14 +3185,14 @@ syspart_present:
 		.include "hyppo_process_descriptor.a65"
 
 ;;; ----------------------------------------------------------------------------
-;;; reserved space for Kickstart stack (8-bit) $BE00-$BEFF
+;;; reserved space for Hyppo stack (8-bit) $BE00-$BEFF
 ;;; ----------------------------------------------------------------------------
 
 		.checkpc $BE00
 		.advance $BE00,$3d
 
 ;;; ----------------------------------------------------------------------------
-;;; reserved space for Kickstart ZP at $BF00-$BFFF
+;;; reserved space for Hyppo ZP at $BF00-$BFFF
 ;;; ----------------------------------------------------------------------------
 
 		.checkpc $BF00
@@ -3208,7 +3208,7 @@ dos_scratch_byte_2: .byte 0
 		;
 hypervisor_userspace_copy_vector:    .word 0
     
-		; general kickstart temporary variables
+		; general hyppo temporary variables
 		;
 zptempv:		.word 0
 zptempv2:		.word 0

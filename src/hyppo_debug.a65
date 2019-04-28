@@ -1,7 +1,7 @@
 ;======================================================================================
 ;======================================================================================
 ;======================================================================================
-; These routines are included in the kickup-build-process primarily for debug purposes.
+; These routines are included in the hickup-build-process primarily for debug purposes.
 ; It is anticipated that these routines will become removed as the code is verified.
 ;
 ;	========================

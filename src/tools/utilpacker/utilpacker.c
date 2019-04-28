@@ -1,6 +1,6 @@
 /*
   Utility packer:  Takes one or more program files and attaches them with a header
-  block in the format that Kickstart expects them to be found in the 32KB colour RAM.
+  block in the format that Hyppo expects them to be found in the 32KB colour RAM.
   These are the utilities that the hypervisor can launch, without needing to load
   anything from SD card or other storage.
 
