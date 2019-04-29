@@ -75,7 +75,13 @@ TOOLS=	$(TOOLDIR)/etherkick/etherkick \
 	$(TOOLDIR)/on_screen_keyboard_gen \
 	$(TOOLDIR)/pngprepare/pngprepare
 
-all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r1.mcs $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr.mcs $(TOOLDIR)/monitor_load $(TOOLDIR)/mega65_ftp $(TOOLDIR)/monitor_save
+all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r1.mcs $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr.mcs $(TOOLDIR)/monitor_load $(TOOLDIR)/mega65_ftp $(TOOLDIR)/monitor_save $(SDCARD_DIR)/FREEZER.M65
+
+$(SDCARD_DIR)/FREEZER.M65:
+	git submodule init
+	git submodule update
+	( cd src/mega65-freezemenu && make FREEZER.M65 )
+	cp src/mega65-freezemenu/FREEZER.M65 $(SDCARD_DIR)
 
 $(CBMCONVERT):
 	git submodule init
