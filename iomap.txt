@@ -546,7 +546,7 @@ GS $D67E.5 (read) Hypervisor read /GAME signal from cartridge.
 GS $D67E.6 (read) Hypervisor read /EXROM signal from cartridge.
 GS $D67E.7 (read) Hypervisor upgraded flag. Writing any value here sets this bit until next power on (i.e., it surives reset).
 GS $D67E CPU:HTRAP3E Writing triggers hypervisor trap \$3E
-GS $D67E HCPU:KICKED Hypervisor already-upgraded bit (writing sets permanently)
+GS $D67E HCPU:HICKED Hypervisor already-upgraded bit (writing sets permanently)
 GS $D67F CPU:HTRAP3F Writing triggers hypervisor trap \$3F
 GS $D67F HCPU:ENTEREXIT Writing trigger return from hypervisor
 GS $D680.0 - SD controller BUSY flag
@@ -1091,9 +1091,9 @@ GS $FFDF015 - VFPGA config access register: Reads or writes single byte of state
 GS $FFDF02x - VFPGA read output pins, with automatic ACK to FPGA on input bits 8-14 for $FFDF020-$FFDF026
 GS $FFDF03x - vFPGA input registers, with auto acknowledgement of reads by toggling input bits 0-6 when $FFDF030-$FFD036 are read
 GS $FFF8000-$FFF80FC Hypervisor entry point when $D640-$D67F is written
-GS $FFF8000-$FFFBFFF 16KB Kickstart/hypervisor ROM
-GS $FFF8000-$FFFBFFF 16KB Kickstart/Hypervisor ROM
-GS $FFF8000-$FFFBFFF SUMMARY:HYPERVISOR 16KB Kickstart/Hypervisor ROM
+GS $FFF8000-$FFFBFFF 16KB Hyppo/hypervisor ROM
+GS $FFF8000-$FFFBFFF 16KB Hyppo/Hypervisor ROM
+GS $FFF8000-$FFFBFFF SUMMARY:HYPERVISOR 16KB Hyppo/Hypervisor ROM
 GS $FFF8100 Hypervisor entry point on reset (trap $40)
 GS $FFF8104 Hypervisor entry point on page fault (trap $41)
 GS $FFF8108 Hypervisor entry point on RESTORE long-press (trap $42)

@@ -1,13 +1,13 @@
 ## This is the 'how to contribute' documentation file.
 
-# Introduction  
-This page describes some etiquette and guidelines for contributing to this project.  
+# Introduction
+This page describes some etiquette and guidelines for contributing to this project.
 Can other developers please add to this file.
 
 # Etiquette
 Paul to define...
 
-# How to make a branch  
+# How to make a branch
 
 Basically what I did was:
 clone the repo and the default branch checked out on your local version is the MASTER branch.
@@ -54,7 +54,7 @@ dell960:~/dev/mega65-core$ git branch
 * master
                     <- unsure why sdcard is not listed here until it is checked out
 
-dell960:~/dev/mega65-core$ git checkout sdcard 
+dell960:~/dev/mega65-core$ git checkout sdcard
 Branch sdcard set up to track remote branch sdcard from origin.
 Switched to a new branch 'sdcard'
 
@@ -65,7 +65,7 @@ dell960:~/dev/mega65-core$ git branch
 
 So now I can happily go about developing in this feature-branch called 'sdcard'
 without messing up the online 'master/default' branch that other people may clone.
-Yes, if you clone the repo you get the 'master' branch AND the 'sdcard' branch, 
+Yes, if you clone the repo you get the 'master' branch AND the 'sdcard' branch,
 but by default the 'master' is checked out.
 As shown below, its easy to switch between branches.
 

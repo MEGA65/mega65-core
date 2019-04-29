@@ -2,11 +2,11 @@
 
 # Table of Contents:
 
-[Introduction](#introduction)  
-[Downloading Repository](#downloading-repository)  
-[Compiling](#compiling)  
-[Modifying the design using ISE](#modifying-the-design-using-ise)  
-[Programming the FPGA via USB](#programming-the-fpga-via-usb)  
+[Introduction](#introduction)
+[Downloading Repository](#downloading-repository)
+[Compiling](#compiling)
+[Modifying the design using ISE](#modifying-the-design-using-ise)
+[Programming the FPGA via USB](#programming-the-fpga-via-usb)
 [Programming the FPGA via sdcard](#programming-the-fpga-via-sdcard)
 
 ## Introduction
@@ -40,7 +40,7 @@ $> cd $GIT_ROOT
 Clone the following two git repositories into your working directory
 ```
 $GIT_ROOT$> git clone https://github.com/MEGA65/mega65-core.git
-$GIT_ROOT$> 
+$GIT_ROOT$>
 ```
 You should now have a directory in your working directory called ```mega65-core```.
 
@@ -58,8 +58,8 @@ $GIT_ROOT$> cd mega65-core
 $GIT_ROOT$/mega65-core>
 ```
 
-Currently, the ```development``` branch is what you should compile.  
-So, checkout that branch:  
+Currently, the ```development``` branch is what you should compile.
+So, checkout that branch:
 ```
 $GIT_ROOT$/mega65-core> git checkout development
 Branch px100mhz set up to track remote branch development from origin.
@@ -67,14 +67,14 @@ Switched to a new branch 'development'
 $GIT_ROOT$/mega65-core>
 ```
 
-If you want to try a different (development) branch, do the following:  
-e.g., to see/use the example ```banana``` branch, type ```$GIT_ROOT$/mega65-core> git checkout banana```.  
+If you want to try a different (development) branch, do the following:
+e.g., to see/use the example ```banana``` branch, type ```$GIT_ROOT$/mega65-core> git checkout banana```.
 To change to the ```MASTER``` branch, type ```git checkout master```.
 
-You may want to type ```git status``` or ```git branch``` to check what branch you have checked out.  
+You may want to type ```git status``` or ```git branch``` to check what branch you have checked out.
 
 To make sure that you have the latest files, if you wish to repeat this after the MEGA65 team have updated the source code, all you have to do is type:
-``` 
+```
 $GIT_ROOT$/mega65-core> git pull
 ```
 
@@ -85,7 +85,7 @@ Previously it was necessary to checkout several sub-modules before building. Thi
 ## 3rd-party programs
 
 You need ```fpgajtag``` installed to make use of the improved tool-chain.
-See below for info:  
+See below for info:
 ```
 $ cd .. (to get out of the $git_root dir)
 $ git clone https://github.com/cambridgehackers/fpgajtag.git
@@ -105,9 +105,9 @@ If it is correct, you should get a meaningful response from the following comman
 $ fpgajtag --version
 ```
 
-See below for other dependencies.  
+See below for other dependencies.
 
-You are now ready to compile the design.  
+You are now ready to compile the design.
 
 ## Compiling
 
@@ -120,21 +120,21 @@ The following is assumed:
 1. you have ```cbmconvert``` installed (I have ver 2.1.2) (to make a D81 image) (refer to ./using.md)
 1. you have a recent version of Xilinx Vivado WebPACK edition installed, with a valid licence
 
-Overview of the compile process:  
+Overview of the compile process:
 
 1. ```make```,
 
-The following instructions are for running in the fpga.  
+The following instructions are for running in the fpga.
 
-* As there are many end-use cases, i will not cover them all here, just the one that suits me.  
-Someone else please document how the simulate function(s) work and what compile options etc.  
+* As there are many end-use cases, i will not cover them all here, just the one that suits me.
+Someone else please document how the simulate function(s) work and what compile options etc.
 
 ## Programming the FPGA using fpga-board and the monitor_load command
 
 The monitor_load program is compiled as part of the build process. This can be used to
-load a bitstream and/or custom Kickstart/Hypervisor version, among other functions.
+load a bitstream and/or custom Hyppo/Hypervisor version, among other functions.
 
-A command like the following will load and start the desired bitstream and Kickstart/Hypervisor
+A command like the following will load and start the desired bitstream and Hyppo/Hypervisor
 files you provide. You must have the USB programming cable connected for this to work. This
 procedure works on Nexys4 as well as MEGA65 prototype main boards with the FPGA programming
 module attached.  It is much faster (~3 seconds versus ~13 - 30 seconds) than loading a bitstream
@@ -143,7 +143,7 @@ also be used to auto-switch to C64 mode on start (-4 option), and/or to load and
 a user-supplied program on boot (see the usage text for monitor_load for details), providing a
 greatly simplified work-flow.
 
-```src/tools/monitor_load -b bin/nexys4ddr.bit -k bin/KICKUP.M65```
+```src/tools/monitor_load -b bin/nexys4ddr.bit -k bin/HICKUP.M65```
 
 (This assumes you are running the command from the ```mega65-core``` directory.
 

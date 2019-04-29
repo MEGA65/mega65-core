@@ -16,7 +16,7 @@ VHDLSRCDIR=	$(SRCDIR)/vhdl
 
 SDCARD_DIR=	sdcard-files
 
-KICKSTARTSRCS = $(SRCDIR)/hyppo.a65 \
+HYPPOSTARTSRCS = $(SRCDIR)/hyppo.a65 \
 		$(SRCDIR)/hyppo_machine.a65 \
 		$(SRCDIR)/hyppo_process_descriptor.a65 \
 		$(SRCDIR)/hyppo_dos.a65 \
@@ -48,7 +48,7 @@ UTILITIES=	$(UTILDIR)/ethertest.prg \
 		$(UTILDIR)/diskmenu.prg
 
 TOOLDIR=	$(SRCDIR)/tools
-TOOLS=	$(TOOLDIR)/etherkick/etherkick \
+TOOLS=	$(TOOLDIR)/etherhyppo/etherhyppo \
 	$(TOOLDIR)/etherload/etherload \
 	$(TOOLDIR)/hotpatch/hotpatch \
 	$(TOOLDIR)/monitor_load \
@@ -63,7 +63,7 @@ generated_vhdl:	$(SIMULATIONVHDL)
 
 # files destined to go on the SD-card to serve as firmware for the MEGA65
 firmware:	$(SDCARD_DIR)/BANNER.M65 \
-		$(BINDIR)/KICKUP.M65 \
+		$(BINDIR)/HICKUP.M65 \
 		$(BINDIR)/COLOURRAM.BIN \
 		$(SDCARD_DIR)/MEGA65.D81 \
 		$(SDCARD_DIR)/C000UTIL.BIN
@@ -346,7 +346,7 @@ $(BINDIR)/border.prg: 	$(SRCDIR)/border.a65
 
 # ============================ done moved, print-warn, clean-target
 #??? diskmenu_c000.bin yet b0rken
-$(BINDIR)/KICKUP.M65:	$(KICKSTARTSRCS) $(SRCDIR)/version.a65
+$(BINDIR)/HICKUP.M65:	$(HYPPOSTARTSRCS) $(SRCDIR)/version.a65
 	$(OPHIS) $< -l hyppo.list -m hyppo.map
 
 # ============================ done moved, print-warn, clean-target
@@ -364,9 +364,9 @@ $(BINDIR)/etherload.prg:	$(UTILDIR)/etherload.a65
 # makerom is a python script that reads two files (arg[1,2]) and generates one (arg[3]).
 # the line below would generate the hyppo.vhdl file, (note no file extention on arg[3])
 # two files are read (arg[1] and arg[2]) and somehow compared, looking for THEROM and ROMDATA
-$(VHDLSRCDIR)/hyppo.vhdl:	$(TOOLDIR)/makerom/rom_template.vhdl $(BINDIR)/KICKUP.M65 $(TOOLDIR)/makerom/makerom
+$(VHDLSRCDIR)/hyppo.vhdl:	$(TOOLDIR)/makerom/rom_template.vhdl $(BINDIR)/HICKUP.M65 $(TOOLDIR)/makerom/makerom
 #       script                arg[1]                          arg[2]     arg[3]                  arg[4]
-	$(TOOLDIR)/makerom/makerom $(TOOLDIR)/makerom/rom_template.vhdl $(BINDIR)/KICKUP.M65 $(VHDLSRCDIR)/hyppo hyppo
+	$(TOOLDIR)/makerom/makerom $(TOOLDIR)/makerom/rom_template.vhdl $(BINDIR)/HICKUP.M65 $(VHDLSRCDIR)/hyppo hyppo
 
 $(VHDLSRCDIR)/colourram.vhdl:	$(TOOLDIR)/makerom/colourram_template.vhdl $(BINDIR)/COLOURRAM.BIN $(TOOLDIR)/makerom/makerom
 	$(TOOLDIR)/makerom/makerom $(TOOLDIR)/makerom/colourram_template.vhdl $(BINDIR)/COLOURRAM.BIN $(VHDLSRCDIR)/colourram ram8x32k
@@ -506,11 +506,11 @@ bin/%.bit:	isework/%.ncd
 
 
 clean:
-	rm -f $(BINDIR)/KICKUP.M65 hyppo.list hyppo.map
+	rm -f $(BINDIR)/HICKUP.M65 hyppo.list hyppo.map
 	rm -f $(UTILDIR)/diskmenu.prg $(UTILDIR)/diskmenuprg.list $(UTILDIR)/diskmenu.map $(UTILDIR)/diskmenuprg.o
 	rm -f $(UTILDIR)/mega65_config.prg $(UTILDIR)/mega65_config.list $(UTILDIR)/mega65_config.map $(UTILDIR)/mega65_config.o
 	rm -f $(BINDIR)/diskmenu_c000.bin $(UTILDIR)/diskmenuc000.list $(BINDIR)/diskmenu_c000.map $(UTILDIR)/diskmenuc000.o
-	rm -f $(TOOLDIR)/etherkick/etherkick
+	rm -f $(TOOLDIR)/etherhyppo/etherhyppo
 	rm -f $(TOOLDIR)/etherload/etherload
 	rm -f $(TOOLDIR)/hotpatch/hotpatch
 	rm -f $(TOOLDIR)/pngprepare/pngprepare

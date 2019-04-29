@@ -12,7 +12,7 @@
 #include <fcntl.h>
 
 unsigned char all_done_routine[128]={  
-  0xa9, 0x00,       // LDA #$00 so that kickstart recognises packet
+  0xa9, 0x00,       // LDA #$00 so that hyppo recognises packet
   0x8d, 0x54, 0xd0, // Clear 16-bit character mode etc, just to be sure
   0xee,0x27,0x04,   // increment $0427 for visual debug indicator  
   0x4c, 0x1f, 0x08  // jmp to $081F, which should be mapped to $000081F.
@@ -21,8 +21,8 @@ unsigned char all_done_routine[128]={
 // Routine to copy memory from $0004000-$0007FFF to $FFF8000-$FFFBFFF,
 // and then jump to $8100 to simulate reset.
 // Actually, we jump to $8200, which by convention must have a reset entry point
-// that disables etherkick until next boot, so that no switch fiddling is required.
-unsigned char kickstart_replace_routine[128]={
+// that disables etherhyppo until next boot, so that no switch fiddling is required.
+unsigned char hyppo_replace_routine[128]={
   0xa9, 0x00, 0x5b, 0xa9, 0x00, 0x85, 0x80, 0xa9,
   0x40, 0x85, 0x81, 0xa9, 0x00, 0x85, 0x82, 0xa9,
   0x00, 0x85, 0x83, 0xa9, 0x00, 0x85, 0x84, 0xa9,
@@ -69,8 +69,8 @@ unsigned char test_routine[64]={
 
 int usage()
 {
-  printf("usage:  etherkick <run|kickup> <IP address> <programme>\n");
-  printf("        etherkick push <IP address> <file> <28-bit address (hex)>\n");
+  printf("usage:  etherhyppo <run|hickup> <IP address> <programme>\n");
+  printf("        etherhyppo push <IP address> <file> <28-bit address (hex)>\n");
   exit(1);
 }
 
@@ -89,7 +89,7 @@ int main(int argc, char**argv)
    int address=-1;
 
    if (!strcmp(argv[1],"run")) runmode=1;
-   else if (!strcmp(argv[1],"kickup")) runmode=0;
+   else if (!strcmp(argv[1],"hickup")) runmode=0;
    else if (!strcmp(argv[1],"push")) {
      runmode=2;
      if (argc<5) {
@@ -132,7 +132,7 @@ int main(int argc, char**argv)
      address=buffer[0]+256*buffer[1];
      printf("Load address of programme is $%04x\n",address);
    } else if (runmode==0) {
-     printf("Upgrading kickstart: load address fixed at $4000\n");
+     printf("Upgrading hyppo: load address fixed at $4000\n");
      address=0x4000;
    } else {
      printf("Load address is $%07x\n",address);
@@ -171,14 +171,14 @@ int main(int argc, char**argv)
      }
    } else if (runmode==0) {
      int i;
-     printf("Telling kickstart to upgrade ...\n");
+     printf("Telling hyppo to upgrade ...\n");
      for(i=0;i<10;i++) {
-     sendto(sockfd,kickstart_replace_routine,sizeof kickstart_replace_routine,0,
+     sendto(sockfd,hyppo_replace_routine,sizeof hyppo_replace_routine,0,
 	    (struct sockaddr *)&servaddr,sizeof(servaddr));
      usleep(150);
      }
    } else {
-     printf("Push mode -- leaving C65GS in etherkick.\n");
+     printf("Push mode -- leaving C65GS in etherhyppo.\n");
    }
      
 

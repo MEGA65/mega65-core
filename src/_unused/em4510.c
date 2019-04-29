@@ -141,11 +141,11 @@ int resolve_address_to_long(unsigned short short_address,int writeP,struct ctx45
       temp_address(27 downto 12) := x"0038";
     end if;
     
-    -- Kickstart ROM (takes precedence over all else if enabled)
-    if (blocknum=14) and (kickstart_en='1') and (writeP=false) then
+    -- Hyppo ROM (takes precedence over all else if enabled)
+    if (blocknum=14) and (hyppo_en='1') and (writeP=false) then
       temp_address(27 downto 12) := x"FFFE";      
     end if;
-    if (blocknum=15) and (kickstart_en='1') and (writeP=false) then
+    if (blocknum=15) and (hyppo_en='1') and (writeP=false) then
       temp_address(27 downto 12) := x"002F";      
       temp_address(27 downto 12) := x"FFFF";      
     end if;

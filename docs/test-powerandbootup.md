@@ -1,39 +1,39 @@
 ## Power and BOOT-up
 
-* Power up the board:  
-ensure that the host-PC is providing power through the USB cable, and that the POWER switch is ON.  
--> Host-PC should show some output generated from the SerialDebugger.  
--> Boot sequence is: approx 3-secs of boot-display (black screen with white text), then falls into c65 mode.  
--> verify that the VGA screen shows the same as below:  
-![alt tag](https://raw.githubusercontent.com/Ben-401/mega65pics/master/c65mode.jpg)  
+* Power up the board:
+ensure that the host-PC is providing power through the USB cable, and that the POWER switch is ON.
+-> Host-PC should show some output generated from the SerialDebugger.
+-> Boot sequence is: approx 3-secs of boot-display (black screen with white text), then falls into c65 mode.
+-> verify that the VGA screen shows the same as below:
+![alt tag](https://raw.githubusercontent.com/Ben-401/mega65pics/master/c65mode.jpg)
 
-* Reset the board:  
-press and release the "CPU_RESET" button.  
--> during the approx 3-secs of boot-display, the LCD should display ``5000 0000``.  
--> when in c65 mode, the LCD should display ``0400 4502``.  
+* Reset the board:
+press and release the "CPU_RESET" button.
+-> during the approx 3-secs of boot-display, the LCD should display ``5000 0000``.
+-> when in c65 mode, the LCD should display ``0400 4502``.
 
-* reprogram the board:  
-press and release the "PROG" button.  
--> (results are the same as the above test)  
--> during the approx 3-secs of boot-display, the LCD should display ``5000 0000``.  
--> when in c65 mode, the LCD should display ``0400 4502``.  
+* reprogram the board:
+press and release the "PROG" button.
+-> (results are the same as the above test)
+-> during the approx 3-secs of boot-display, the LCD should display ``5000 0000``.
+-> when in c65 mode, the LCD should display ``0400 4502``.
 
-* hold the boot-screen:  
-assert SW-15 (switch 15 on the far LHS) by pushing it UP,  
-press and release the "PROG" button.  
--> boot screen should be displayed,  
--> after boot-up, a message at the top of the screen should be displayed "RELEASE SW-15 TO CONTINUE BOOTING."  
--> verify the text of the boot-screen is similar to the below:  
-![alt tag](https://raw.githubusercontent.com/Ben-401/mega65pics/master/bootscreen.jpg)  
+* hold the boot-screen:
+assert SW-15 (switch 15 on the far LHS) by pushing it UP,
+press and release the "PROG" button.
+-> boot screen should be displayed,
+-> after boot-up, a message at the top of the screen should be displayed "RELEASE SW-15 TO CONTINUE BOOTING."
+-> verify the text of the boot-screen is similar to the below:
+![alt tag](https://raw.githubusercontent.com/Ben-401/mega65pics/master/bootscreen.jpg)
 
-* display debug output:  
-assert SW-15 and SW-12 by pushing them UP/ON,  
-press and release the "PROG" button.  
--> boot screen should be displayed,  
--> during boot, a number of text lines will be displayed (and sent via serial-cooms to the host-PC),  
--> after boot-up, a message at the top of the screen should be displayed "RELEASE SW-15 TO CONTINUE BOOTING."  
--> verify the text of the boot-screen is similar to the above:  
--> verify the text of the serial-comms is similar to the below:  
+* display debug output:
+assert SW-15 and SW-12 by pushing them UP/ON,
+press and release the "PROG" button.
+-> boot screen should be displayed,
+-> during boot, a number of text lines will be displayed (and sent via serial-cooms to the host-PC),
+-> after boot-up, a message at the top of the screen should be displayed "RELEASE SW-15 TO CONTINUE BOOTING."
+-> verify the text of the boot-screen is similar to the above:
+-> verify the text of the serial-comms is similar to the below:
 ```
 MEGA65 Serial Monitor
 build merge-,550ca13+DIRTY,0316-1352
@@ -140,7 +140,7 @@ Checkpoint @ $AD18 A:$30, X:$30, Y:$30, Z:$00, P:$34 :sd_sector: $d681=005E9400.
 Checkpoint @ $AD18 A:$30, X:$30, Y:$30, Z:$00, P:$34 :sd_sector: $d681=005E9600.
 Checkpoint @ $AD18 A:$30, X:$30, Y:$30, Z:$00, P:$34 :sd_sector: $d681=00147E00.
 Checkpoint @ $92FC A:$0F, X:$AC, Y:$0A, Z:$04, P:$37 :WARN: PRINTHEX in dfanc_check
-Checkpoint @ $9B75 A:$00, X:$8A, Y:$0A, Z:$00, P:$37 :  try-loading KICKUP
+Checkpoint @ $9B75 A:$00, X:$8A, Y:$0A, Z:$00, P:$37 :  try-loading HICKUP
 Checkpoint @ $AD18 A:$30, X:$30, Y:$30, Z:$00, P:$34 :sd_sector: $d681=00240800.
 Checkpoint @ $8C3F A:$02, X:$30, Y:$30, Z:$00, P:$37 :-
 Checkpoint @ $8C67 A:$30, X:$30, Y:$30, Z:$00, P:$34 :dos_readdir[0000]==========================================
@@ -174,15 +174,15 @@ Checkpoint @ $9E1D A:$03, X:$CF, Y:$00, Z:$3F, P:$35 :  OK-loading CHARROM
 Checkpoint @ $9E61 A:$00, X:$00, Y:$19, Z:$00, P:$37 :  OK-loading MEGA65-ROM
 Checkpoint @ $9E7D A:$00, X:$00, Y:$19, Z:$00, P:$35 :JUMPing into ROM-code
 
-```  
-release SW-15 by pushing it DOWN/OFF,  
--> boot-screen should disappear and c65 mode presented.  
+```
+release SW-15 by pushing it DOWN/OFF,
+-> boot-screen should disappear and c65 mode presented.
 
 * RUN-STOP and RESTORE
 press and hold the CBM/RUNSTOP key (on USB-KB this is the ESC key),
 -> with ESC key pressed, the cursor will flash fast,
 with ESC pressed, tap CBM/RESTORE (on USB-KB this is the PG-UP key).
--> the screen will clear,  
+-> the screen will clear,
 -> the colors of the background and border will return to their default values,
 -> cursor will go to the top-left, with a ```READY.``` prompt.
 release the ESC key.
@@ -191,7 +191,7 @@ release the ESC key.
 press and hold the CBM/RUNSTOP key (on USB-KB this is the ESC key),
 -> with ESC key pressed, the cursor will flash fast,
 with ESC pressed, press and hold CBM/RESTORE for at least 1-second,
--> the machine will reboot,  
+-> the machine will reboot,
 release the ESC key.
 
 The End.

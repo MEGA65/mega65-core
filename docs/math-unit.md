@@ -45,7 +45,7 @@ This is all a bit theoretical, so lets make this concrete with an
 example that is particularly well suited to this approach: Calculating
 Mandelbrot pixels.  The simplest way to calculate pixels of the
 Mandelbrot fractal is something like the following (from
-https://en.wikipedia.org/wiki/Mandelbrot_set): 
+https://en.wikipedia.org/wiki/Mandelbrot_set):
 
 ```
 For each pixel (Px, Py) on the screen, do:
@@ -95,7 +95,7 @@ multiplication, addition and subtraction (division is coming soon) can
 be implemented in the MEGA65 math unit.
 
 Going through the spreadsheet above, cells A1 through D1 contain the
-inputs of the calculation.  Cell A1 
+inputs of the calculation.  Cell A1
 calculates x*x, B2 calculates y*y, B3 x*y, and B4 2*x*y, taking the
 result of the calculation of x*y from B3 as input.  A3 then calculates
 x*x-y*y using the result of the calculations of A2 and B2, i.e., x*x
@@ -272,7 +272,7 @@ will contain the result of the comparison. Note that because of
 parallelism, this still takes only three steps, even though there are
 now 10 calculations being performed.
 (We could rearrange the layout of the spreadsheet
-somewhat to make it more efficient to reload 
+somewhat to make it more efficient to reload
 between successive pixels, however, we leave this as an exercise for
 the reader.)
 

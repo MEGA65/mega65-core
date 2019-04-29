@@ -81,8 +81,8 @@
 
 “...rather a bit of reimagining the C65 for the 21st century with good backward compatibility.” - Paul (1 Feb 2014)
 
-The MEGA65 is a re-imagination of the C65/C64DX computer using a modern FPGA to implement most functions.  It differs from the C65 in that it aims to offer a near 100% C64-compatible mode by providing a dedicated 6510+VIC-II emulation independent of the additional more capable processor and video chips. That plan is that both functions operate in parallel, and input and output is switched dynamically between the two under programmer control. Dedicated VIC-II is currently unlikely due to space constraints.  6510/6502 emulation, with illegal instructions, however is still planned. This will be implemented by the GS4510 emulating a 6502, using a little dedicated hardware support. 
- 
+The MEGA65 is a re-imagination of the C65/C64DX computer using a modern FPGA to implement most functions.  It differs from the C65 in that it aims to offer a near 100% C64-compatible mode by providing a dedicated 6510+VIC-II emulation independent of the additional more capable processor and video chips. That plan is that both functions operate in parallel, and input and output is switched dynamically between the two under programmer control. Dedicated VIC-II is currently unlikely due to space constraints.  6510/6502 emulation, with illegal instructions, however is still planned. This will be implemented by the GS4510 emulating a 6502, using a little dedicated hardware support.
+
 The designer, Dr. Paul Gardner-Stephen, intends to create “the most powerful 8-bit computer to date by various measures”:
 
 Better graphics than the Apple IIgs, Atari 800 or Plus/4: 1920x1200 @ 60Hz, 256 colour palette from 4,096 colours (and later from 24-bit colour palette with HDMI output) via the VIC-IV video controller.
@@ -102,7 +102,7 @@ More backward compatible than the C65 or any 65C816 based machine. The main issu
 Sufficiently C65 compatible to be able to run a stock C65 ROM.
 
 Note that perfect C65 compatibility is not high on the list, given the relative lack of software available for it anyway. There is no intention of implementing the bit-planar graphics modes, as they were never really a good idea for an 8-bit computer, requiring way too many cycles to edit individual pixels, and the C65’s bitplanes lacking the features necessary to allow efficient scrolling.
- 
+
 Instead, the new graphics modes are enhanced forms of character mode. Enhancements to  text mode include:
 
 16-bit character set mode, where two screen RAM and two colour RAM bytes describe each character, allowing up to 8,192 distinct characters in a character set.
@@ -123,20 +123,20 @@ Terminate character generator token ($FFFF) in 16-bit character set mode to save
 
 Anti-aliased text mode where 64-byte character definitions are composed of alpha-values to blend between the current foreground and background colour, allowing multi-colour anti-aliased text without consuming extra palette entries (work in progress).
 
-High-resolution bi-colour and multi-colour modes will also be available.  
+High-resolution bi-colour and multi-colour modes will also be available.
 
-As with the VIC-II, these modes can be mixed and matched on the same display. 
+As with the VIC-II, these modes can be mixed and matched on the same display.
 
-Enhanced sprites are also planned that will feature their own 4KB sprite data memory, allowing up to 64x64 256-colour sprites (work in progress).  
+Enhanced sprites are also planned that will feature their own 4KB sprite data memory, allowing up to 64x64 256-colour sprites (work in progress).
 
 The new and enhanced features of the VIC-IV will be described more fully in the appropriate section of this document.
 
 In short, this project aims to preserve most of the fun elements of an 8-bit computer, while providing some 21st century improvements that will make the machine fun to program and use, and who knows, maybe help foster new life in the demo scene.
- 
+
 From a hardware perspective, the MEGA65 is purposely being implemented using an off-the-shelf FPGA development board designed for university students (Nexys4 FPGA board and a 2 giga-byte SD card) for several reasons. First, the boards are relatively cheap for their performance, and the price will only reduce over time. Second, the Nexys4 board has many built-in peripherals, like ethernet, VGA output, USB keyboard input. Finally, availability of the MEGA65 will not be based on community production runs.
 
 ## 1.2 Get Involved
-                   
+
 You can follow Dr. Paul's blog at: http://c65gs.blogspot.com/, where he posts regular progress reports.
 
 If you're a hardware hacker and into VHDL, you can tinker with the programming itself at: https://github.com/MEGA65/mega65-core. Equipment you need:
@@ -159,11 +159,11 @@ KEYS
  | | |                                  | |  |   |
 ++-+-+++++++                            | |  |   |-+
 |          |                            | |  |   | +------> RGBA
-|          +---------------------------+------+   |     
+|          +---------------------------+------+   |
 |  GS4510  +----------------------------------+   |
 |          |                             | |  |   |
 |     +---+|  +---+  +---+  +---+  +---+ | |  | V |
-|     |   ||  |   |  |   |  |   |  |   | | |  | I |     
+|     |   ||  |   |  |   |  |   |  |   | | |  | I |
 |     | D ++--+ F +--+ S +--+ S +--+ R +-+----+ C |  +--+  +--+  +--+  +--+
 |     | M ++--+ D +--+ I +--+ I +--+ O +------+ | |  |  |  |  |  |  |  |  |
 |     | A ||  | C |  | D |  | D |  | M |   |  | I +--+  +--+  +--+  +--+  |
@@ -202,23 +202,23 @@ Compatibility cores for 1541 emulation (not yet implemented, likely to be create
 
 * On the prototype Nexys4 FPGA and some other FPGA boards the colour depth of the VIC-IV is limited to 12-bit due to limitations in the VGA interface hardware.
 
-## 2.2 Power-on/Reset Via The MEGA65 Hypervisor 
-                   
+## 2.2 Power-on/Reset Via The MEGA65 Hypervisor
+
 On reset MEGA65 switches the CPU to hypervisor mode, maps the 16KB hypervisor ROM at $8000-$BFFF, and jumps to $8100.  In hypervisor mode all CPU registers, including the normally inaccessible memory mapping registers are exposed at $D640-$D67F, allowing the hypervisor to freely manipulate the state of the computer.  In this mode, it initialises the SD card interface, uses a simple FAT32 implementation to find the 128KB C65 ROM which must be called MEGA65.ROM and be located in the root directory, loads it into fastram at $20000-$3FFFF, configures the machine state to act as though it had just reset and loaded the reset vector from the ROM. The hypervisor then exits and transfers control to the loaded rom by writing to $D67F.
 
 To provide further convenience, the hypervisor code checks if any of the numbers 0 through 9 are held down on reset, and if so, loads MEGA65x.ROM instead of MEGA65.ROM, where x is the number that was held down.  This allows easy selection between 11 different ROMs.
 
-The hypervisor also attempts to find a D81 disk image named MEGA65.D81 in the root directory of the SD card, and then mount it using the F011 emulation hardware. 
+The hypervisor also attempts to find a D81 disk image named MEGA65.D81 in the root directory of the SD card, and then mount it using the F011 emulation hardware.
 
-The final convenience that the hypervisor provides is to load two utility programs into memory between $C000 and $CFFF, so that they can be easily accessed from C64 mode.  
-A D81 image selector is loaded at $C000 (SYS 49152), allowing mounting of any D81 file from the root directory of the SD card.  A simple ethernet loading programme is loaded 
-at $CF80 (SYS 53120) that can be used to execute special UDP packets.  The etherload programme from the MEGA65 github repository uses this to provide a very fast loader, 
+The final convenience that the hypervisor provides is to load two utility programs into memory between $C000 and $CFFF, so that they can be easily accessed from C64 mode.
+A D81 image selector is loaded at $C000 (SYS 49152), allowing mounting of any D81 file from the root directory of the SD card.  A simple ethernet loading programme is loaded
+at $CF80 (SYS 53120) that can be used to execute special UDP packets.  The etherload programme from the MEGA65 github repository uses this to provide a very fast loader,
 achieving typical load speeds of around 2,000KB/second.  Typical 40KB C64 programmes appear to load instantaneously.
 
 ## 2.3 C65/C64 KERNAL & BASIC
-                   
-The MEGA65 currently uses a stock C65 ROM (currently version 910111) to operate C65 and C64 mode.  This has several benefits.  First, it provides the most convenient path for C65 compatibility.  Second, it is also convenient for a reasonable level of C64 compatibility, while still providing access to the SD card interface via the C65 internal drive DOS. 
- 
+
+The MEGA65 currently uses a stock C65 ROM (currently version 910111) to operate C65 and C64 mode.  This has several benefits.  First, it provides the most convenient path for C65 compatibility.  Second, it is also convenient for a reasonable level of C64 compatibility, while still providing access to the SD card interface via the C65 internal drive DOS.
+
 This is supported by the GS4510 implementing all 4510 instructions and addressing modes, and by the MEGA65’s SD card controller providing C65 F011 floppy-controler emulation registers.
 
 For the curious, the differences between the C64 KERNAL and the C65 one is primarily the removal of the cassette routines and putting in sufficient intercepts to allow the C65 DOS to be used from C64 mode. Other smaller changes include making 8 the default device number, and changing the shift-RUN/STOP text so that it loads the first file from disk and runs it. Also, unlike the C128, the C65 boots first into C64 mode, and the CPU’s reset vector is pointed to a small routine at $E4B8 that initialises DOS for the internal drive, and then checks for a C64 cartridge or if the C= key is being held down.  If there is no reason to remain in C64 mode, then it switches to C65 mode.
@@ -230,7 +230,7 @@ Memory banking, including to switch between C64, C65 and DOS memory contexts inv
 # 3.0 Getting Started
 
 ## 3.1 Switching Modes, Mounting Disks and Loading Files via Ethernet
-                   
+
 GO64 will get you from C65 mode into C64 mode.
 
 SYS49152 ($C000) in C64 mode will give you a crude menu to select a D81 disk image to mount from the SD card storage.
@@ -241,8 +241,8 @@ SYS58552 in C64 mode will take you back to C65 mode, without un-mounting the las
 
 
 ## 3.2 Simple D81 Chooser for the SD Card
-                   
-This chooser reuses much of the FAT32 code from the kickstart ROM, and allows you to say Y or N to each image in turn. Once you say Y to an image, it makes it available for use. It is included in the Kickstart ROM, which then copies the program to $C000, so that it can be entered with SYS49152 from C64 mode.
+
+This chooser reuses much of the FAT32 code from the hyppo ROM, and allows you to say Y or N to each image in turn. Once you say Y to an image, it makes it available for use. It is included in the Hyppo ROM, which then copies the program to $C000, so that it can be entered with SYS49152 from C64 mode.
 
 One of Paul’s students is working on an improved menu-based disk chooser.
 
@@ -324,7 +324,7 @@ f<addr> <addr> <value> - fill memory
 ## 4.4 VIC-IV
 
 ### 4.4.1 Enhanced Sprites
-               
+
 The basic design of the new VIC-IV sprites, is that each sprite will have a dedicated 4KB memory buffer, and will be strictly one byte per pixel.  This allows for sprites of up to 64x64 256 colour pixels. It is likely that different sizes and shapes will be selectable.
 
 Like with the VIC-II, one physical sprite can be used multiple times on a frame without reloading the data by altering the data offset within the 4KB block, and possibly the height and width of the sprite.  I am also thinking about allowing sprites to be much wider.
@@ -365,9 +365,9 @@ $D7xE-$D7xF - Enhanced sprite 2x2 linear transform matrix 1,1 (5.11 bits)
 
 The attentive reader will note that nowhere does this address the 4KB data blocks for each sprite.  This will be direct mapped in the 28-bit address space.  I am tossing around the idea of over-mapping it with the 64KB colour RAM at $FF80000 (the first 1KB of which is also available at $D800 for C64 compatibility).  The reason for this is that the 4KB sprite RAM will probably be write-only to simplify the data plumbing.  However, to allow for freezing (and hence multi-tasking), I really do want some way to read the sprite data.  The trade-off of course is that this means that you wouldn't be able to use all 64KB for colour RAM if it also being used as a proxy to the sprite RAM data.
 
-## 4.5 Task Switcher               
+## 4.5 Task Switcher
 
-### 4.5.1 Overview 
+### 4.5.1 Overview
 
 One of the features I have wanted to include in the MEGA65 from early on is some sort of task switching and rudimentary multi-tasking.
 
@@ -386,14 +386,14 @@ Thus, what we really want is something like VirtualBox that can run a hypervisor
 This doesn't actually need much extra hardware to do in a simplistic manner.
 
 ### 4.5.2 Hypervisor
-                   
+
 First, we need the supervisor/hypervisor CPU mode that maps some extra registers.  I have already implemented this with registers at $D640-$D67F.
 
 Second, to make hypervisor calls fast, the CPU should save all CPU registers and automatically switch the memory map when entering and leaving the hypervisor.  I have already implemented this, so that a call-up into the hypervisor takes just one cycle, as does returning from the hypervisor.
 
-Third, we need to make the hypervisor programme memory only visible from in hypervisor mode.  I have already implemented this.  The hypervisor program is mapped at $8000-$BFFF, with the last 1KB reserved as scratch space, relocated zero-page (using the 4510's B register), and relocated stack (again, using the 4510's SPH register).  The KickStart ROM starts in hypervisor mode, loads the target operating system, prepares the CPU state for the target, including reading the reset entry vector from $FFFC-D of the target ROM, and then exits hypervisor mode, causing the target operating system to start.
+Third, we need to make the hypervisor programme memory only visible from in hypervisor mode.  I have already implemented this.  The hypervisor program is mapped at $8000-$BFFF, with the last 1KB reserved as scratch space, relocated zero-page (using the 4510's B register), and relocated stack (again, using the 4510's SPH register).  The Hyppo ROM starts in hypervisor mode, loads the target operating system, prepares the CPU state for the target, including reading the reset entry vector from $FFFC-D of the target ROM, and then exits hypervisor mode, causing the target operating system to start.
 
-### 4.5.3 Task Registers               
+### 4.5.3 Task Registers
 
 Fourth, we need some registers that allow us to control which address lines on the 16MB RAM are available to a given task, and what the value of the other address lines should be.  This would allow us to allocate any power-of-two number of 64KB memory blocks to a task.  When a task is suspended, it's 128KB chipram and 64KB colour RAM and IO status can be saved into other 64KB memory blocks that are not addressable by the task when it is running.  This I have yet to do.
 
@@ -401,7 +401,7 @@ Fifth, we need to be able to control what events result in a hypervisor trap, so
 
 By finishing these things, and then writing the appropriate software for the hypervisor, it shouldn't be too hard to get task switching running on the MEGA65.
 
-### 4.5.4 Thumbnail                   
+### 4.5.4 Thumbnail
 
 For a task-switcher to be nice, it would be really handy to be able to show a low-res screen-shot of the last state of each task so that the user can visually select which one they want.  In other words, to have something that is not too unlike the Windows and OSX window/task switcher interfaces.
 
@@ -414,7 +414,7 @@ So I set about implementing a little 4KB thumbnail buffer which is automatically
 Because the VIC-IV writes the thumbnail data directly from the pixel stream, it occurs after palette selection, sprites and all raster effects.  That is, the thumbnails it generates should be "true".
 
 ## 4.6 Colour RAM
-                   
+
 The $DFFx memory accesses are not to the CIAs, but to the end of screen RAM.  Setting bit 0 in $D030 replaces $DC00-$DFFF with an extra 1KB of colour RAM, which is in fact the last 2KB of the 128KB of main RAM of a C65, and hence is 8 bit RAM, unlike the 4-bit colour RAM on the C64.
 
 The $D030 flag is primarily for making the 2KB colour RAM conveniently available to the kernel when working with an 80-column, and hence 2,000 byte screen.  Of course this leaves a few bytes spare at the end that are nicely used here to save and restore registers when the stack cannot be used because memory is being remapped.
@@ -452,13 +452,13 @@ bit 7 = flip character vertically
 
 bit 6 = flip character horizontally
 
-bits 3 - 5 = number of rows of pixels to trim from top of character    
+bits 3 - 5 = number of rows of pixels to trim from top of character
 
 bits 0 - 2 = number of rows of pixels to trim from bottom of character
 
 NOTE: These bit assignments are likely to change!
 
-The ability to flip characters is designed to be used with full-colour text mode, where (some or all) characters on the screen consist of 64 8-bit pixels, providing a graphics mode that can be quickly scrolled.  Flipping characters in such a mode allows 64-byte characters to be reused in a graphical display without too much obvious repetition, e.g., for in textures in games.  
+The ability to flip characters is designed to be used with full-colour text mode, where (some or all) characters on the screen consist of 64 8-bit pixels, providing a graphics mode that can be quickly scrolled.  Flipping characters in such a mode allows 64-byte characters to be reused in a graphical display without too much obvious repetition, e.g., for in textures in games.
 
 Combining this with variable width characters introduces even more opportunity to reuse characters, and thus allow more interesting and complex high-resolution graphics within the limits of the 128KB of chipram.
 
@@ -468,7 +468,7 @@ Combining this with variable width characters introduces even more opportunity t
 # 5.0 Memory Maps
 
 ## 5.1 Banking Memory
-                   
+
 The $0000/$0001 CPU register only appears in bank 0, and the MAP and $D030 methods of banking take precedence over it, except for controlling the appearance of IO at $D000.
 
 ## 5.2 Addressing 32-bit Locations
@@ -485,11 +485,11 @@ The experience of the 65816 led me to think that a global flag was not a good id
 
 So I decided to go for a bit of an ugly hack: If an instruction that uses the ($nn),Z addressing mode immediately follows and EOM instruction (which is what NOP is called on the 4502), then the pointer would be 32-bits instead of 16-bits.
 
-While ugly, it seems to me that it should be safe, because no 6502 code uses ($nn),Z, because it doesn't exist. Similarly, there is so little C65 software that it is unlikely that any even uses ($nn),Z, and even less of it should have an EOM just before such an instruction.  
+While ugly, it seems to me that it should be safe, because no 6502 code uses ($nn),Z, because it doesn't exist. Similarly, there is so little C65 software that it is unlikely that any even uses ($nn),Z, and even less of it should have an EOM just before such an instruction.
 
 In fact, in the process of implementing 32-bit pointers, I discovered that ($nn),Z on the 4510 was actually doing ($nn),Y, among other bugs.  So clearly the C65 ROM mustn't have even been using the addressing mode at all!
 
-Here is the summary of how this new addressing mode works in practise. 
+Here is the summary of how this new addressing mode works in practise.
 
 32-bit Memory Addresses using 32-bit indirect zero-page indexed addressing
 
@@ -573,7 +573,7 @@ C65 $D300-$D3FF blue palette values (reversed nybl order)
 
 ## 5.6 GS Locations
 
-```                 
+```
 $0000000        6510/45GS10 CPU port DDR
 $0000001        6510/45GS10 CPU port data
 $0400-            Screen RAM
@@ -771,7 +771,7 @@ eom
 
 Now looking at the $DE800 address within the mega-byte, we use the normal 4502/C65 MAP instruction semantic.  The Accumulator (A) contains four bits to select whether mapping happens at $0000, $2000, $4000 and/or $6000. We want to map only at $6000, so we only set bit 7. The bottom four bits of A are bits 8 to 11 of the mapping offset, which in this case is zero.  X has bits 12 to 19, which needs to be $D8, so that the offset all together is $D8000.  We use this value, and not $DE000, because it is an offset, and $D8000 + $6000 = $DE000, our target address.  It's all a bit weird until you get used to it.
 
-## 6.3 Character Mode          
+## 6.3 Character Mode
 
 $F4 is the C65 BASIC/KERNEL reverse flag, distinct from the VIC-III/IV reverse glyph flag. Setting and clearing reverse character mode is done by setting bit 7 in $F4. On the C64 or C128 this would require an LDA / ORA / STA or LDA / AND / STA instruction sequence, requiring six bytes and a dozen or so cycles.
 
@@ -783,7 +783,7 @@ The C65's 4510 on the other hand has instructions for setting and clearing bits 
 INC $D019
 ```
 
-## 6.5 Clearing bits in a byte         
+## 6.5 Clearing bits in a byte
 
 ```
 LDA #01
@@ -814,13 +814,13 @@ Memory accesses made using 32-bit indirect zero-page indexed addressing require 
 
 This makes it fairly easy to access any byte of memory in the full 28-bit address space.  The upper four bits should be zeroes for now, so that in future we can expand the MEGA65 to 4GB address space.
 
-## 6.7 Sending an Ethernet Frame     
+## 6.7 Sending an Ethernet Frame
 
 To send a frame, you write the bytes to $FFDE800 - $FFDEFFF, write the frame length to $DE043/$DE044, and then write $01 to $DE045. $D6Ex provides access to some of these registers so that ethernet operations can be more easily performed without having to bank things.
 
 Note that the TX buffer is mapped to the same address range as the RX buffer. In other words, the TX buffer is write-only, while the RX buffers are read-only. When you transmit a frame, the ethernet adapter automatically calculates and appends the ethernet CRC to the end of the frame.
 
-##6.8 Loading Data Via Ethernet              
+##6.8 Loading Data Via Ethernet
 
 Note: The ethernet controller will not load a packet to the buffer that the CPU is watching, so the CPU needs to make sure that it is not watching the buffer that the ethernet controller wants to write to next. It is just a few lines of code to do this.
 
@@ -954,7 +954,7 @@ When the server reaches the end of the file, the server sends a packet with a li
 
 ## 7.2 Emulated NMOS Read-Modify-Write Behaviour for C64 Compatibility
 
-One of the greatest incompatibilities between the C65 and the C64 was the move to the CMOS 4502 processor, which lacked the dummy write in read-modify-write (RMW) instructions. The RMW instructions are those that both read and write a memory location, and include INCrement, DECrement, Arithmetic Shift Left and several others.  
+One of the greatest incompatibilities between the C65 and the C64 was the move to the CMOS 4502 processor, which lacked the dummy write in read-modify-write (RMW) instructions. The RMW instructions are those that both read and write a memory location, and include INCrement, DECrement, Arithmetic Shift Left and several others.
 
 On the NMOS 6502, which is the heart of the C64’s 6510, these instructions read the target memory location, write the original value that was in that location back, and then write back the updated value.  So, for example, INC $D019, where $D019 contains $81 would do the following three memory accesses:
 ```
@@ -972,7 +972,7 @@ On the CMOS 6502 and derivatives, memory access #2 doesn’t happen, instead it 
 
 This is normally a good thing, because the faster internal logic of the CMOS implementation allows that extra cycle to be avoided, and so INC on a CMOS 6502, like the 4502 or 65816, is one cycle faster than on the C64’s NMOS 6502.
 
-However, there is a lot of software for the C64 that assumes that the dummy write occurs, even if the people writing the software didn’t realise that this was the case.  This is because INC $D019, DEC $D019, ASL $D019, LSR $D019 or some other RMW instruction is commonly used to clear VIC-II raster interrupts.  This works because to clear an interrupt on the VIC-II you need to write back the bits that are set in $D019.  
+However, there is a lot of software for the C64 that assumes that the dummy write occurs, even if the people writing the software didn’t realise that this was the case.  This is because INC $D019, DEC $D019, ASL $D019, LSR $D019 or some other RMW instruction is commonly used to clear VIC-II raster interrupts.  This works because to clear an interrupt on the VIC-II you need to write back the bits that are set in $D019.
 
 As in the example above, when a raster interrupt occurs, $D019 will contain $81.  Writing $81 back, as happens in the extra memory access of the NMOS 6502 accomplishes this -- the final writing of $82 to $D019, which is what the instruction is supposed to do, has absolutely no effect!
 
@@ -988,7 +988,7 @@ TODO: PGS plans to add 32-bit indirect indexed modes, so that ($nn),Z addressing
 
 The above is now implemented for ($nn),Z only.
 
-TODO: PGS plans to add 32-bit absolute addressing modes to JMP and JSR to make JMPF and JSRF, and a matching RTSF (Return from Far Subroutine).  These will work by mapping $4000-$7FFF to the relevant 16KB block of RAM, and then setting PC to $4000 + (address & $3FFF).  The current CPU map and PC will be pushed to the stack (8 bytes total).  RTSF will pop the CPU memory map and PC from the stack.  
+TODO: PGS plans to add 32-bit absolute addressing modes to JMP and JSR to make JMPF and JSRF, and a matching RTSF (Return from Far Subroutine).  These will work by mapping $4000-$7FFF to the relevant 16KB block of RAM, and then setting PC to $4000 + (address & $3FFF).  The current CPU map and PC will be pushed to the stack (8 bytes total).  RTSF will pop the CPU memory map and PC from the stack.
 
 (The “Far” instructions will probably be implemented internally as CLD+CLD+JMP, CLD+CLD+JSR, CLD+CLD+RTS, since all opcodes are currently allocated.  These Decimal mode fiddles were chosen as being highly unlikely constructions with no legitimate function.  This means that the far operations will require two extra cycles for the decimal fiddle, plus the two extra cycles for popping the CPU map state off the stack.)
 
@@ -1001,7 +1001,7 @@ These changes allow programs to be arbitrarily large, with the only caveat that 
 
 
 # 8. 4502 Opcodes
-                   
+
 TODO: Double check the new opcodes with 64NET.OPC on github, as I have a vague recollection that one or more opcodes have been moved or renamed.
 
 Overview
@@ -1060,7 +1060,7 @@ SBC (ZP),Z
 C2 CPZ IMM Compare Z register with memory immediate,
 D4 CP2 ZP zero page, and
 DC CPZ ABS absolute.
-Loads, Stores, Pushes, Pulls and Transfers    
+Loads, Stores, Pushes, Pulls and Transfers
 LDA (ZP),Z formerly (ZP)
 
 A3 LDZ IMM Load Z register immediate,
@@ -1187,7 +1187,7 @@ P Processor status
 SP Stack pointer
 PC Program counter
 ```
-            
+
 Accumulator
 
 The accumulator is the only general purpose computational register. It can be used for arithmetic functions add, subtract, shift, rotate, negate, and for Boolean functions and, or, exclusive-or, and bit operations. It cannot, however, be used as an index register.
@@ -1195,12 +1195,12 @@ The accumulator is the only general purpose computational register. It can be us
 Index X
 
 The index register X has the largest number of opcodes pertaining to, or using it. It can be incremented, decremented, or compared, but not used for arithmetic or logical (Boolean) operations. It differs from other index registers in that it is the only register that can be used in indexed-indirect or (bp,X) operations. It cannot be used in indirect-indexed or (bp),Y mode.
-        
-Index Y        
+
+Index Y
 
 The index register Y has the same computational constraints as the X register, but finds itself in a lot less of the opcodes, making it less generally used. But the index Y has one advantage over index X, in that it can be used in indirect-indexed operations or (bp),Y mode.
 
-Index Z        
+Index Z
 
 The index register Z is the most unique, in that it is used in the smallest number of opcodes. It also has the same computation limitations as the X and Y registers, but has an extra feature. Upon reset, the Z register is cleared so that the STZ (store zero) opcodes and non-indexed indirect opcodes from previous 65C02 designs are emulated. The Z register can also be used in indirect-indexed or (bp),Z operations.
 
@@ -1239,7 +1239,7 @@ To select the 16-bit stack pointer mode, the user must execute a CLE (for CLear 
 ```
 *************************************************************
 * WARNING *
-* 
+*
 * If you are using Non-Maskable-Interrupts, or Interrupt *
 * Request is enabled, and you want to change BOTH stack *
 * pointer bytes, do not put any code between the TXS and *
