@@ -27,9 +27,9 @@ that are recognised are $0B and $0C, and addressing must use Logical Block Addre
 not Cylinder Heads Sectors (CHS) addressing or extreme data corruption and general failure
 to work WILL result.  Partitions may consist of upto 2^32 512 byte sectors, i.e., a maximum
 size of 2 TB.  This really should be plenty for an 8-bit computer, and currently exceeds the
-maximum capacity of an SD HC card.  SD XC cards would be required to reach this limit, but 
+maximum capacity of an SD HC card.  SD XC cards would be required to reach this limit, but
 are not yet supported at the hardware layer, although we would like to add such support once
-we have the appropriate technical information.  
+we have the appropriate technical information.
 While there is initial
 support for up to four partitions to be mounted at the same time, potentially from multiple SD cards, this is not yet
 supported in practice.
@@ -46,7 +46,7 @@ In addition to data storage partitions, the MEGA65 also has the concept of a sys
 The partition type for this partition is, naturally, 65 (= $41).  This partition contains
 an area to store configuration data, e.g., whether the video signal should default to 50Hz
 or 60Hz.  By storing this data in a special partition, it is not necessary to first mount
-the FAT file system, which considerably speeds up access.  
+the FAT file system, which considerably speeds up access.
 
 This partition also holds two other
 important and related storage areas: frozen programs and installed service programs.
@@ -67,7 +67,7 @@ and helping to keep the individual programs small and simple.
 
 The MEGA65 is known to be a bit picky about its FAT32 file system requirements.
 It is a bit hit-and-miss to create a file system that the MEGA65 will accept from Windows
-or Macintosh computers, although it can be done.  The best approach is to use the 
+or Macintosh computers, although it can be done.  The best approach is to use the
 utility menu on the MEGA65 (hold down the ALT or CONTROL keys when powering the MEGA65 on),
 and selecting the "FDISK AND FORMAT" utility. This will let you prepare an SD card for use
 by typing DELETE EVERYTHING, which will do exactly what it says.  It can take a number of
@@ -83,7 +83,7 @@ truncated.  There is also a problem where the long names of files is being ignor
 14 characters, which is on our list to fix.
 
 At present, there is no way to change the current directory on a mounted FAT file system.
-This will change as soon as we have time to implement it.  
+This will change as soon as we have time to implement it.
 The built-in FAT32 system support is also currently unable to create or even modify existing files.
 It is likely that we will add the ability to modify existing files into the core operating system,
 while the creation of files may require use of a service program.  Stay tuned for news on this front.
@@ -91,13 +91,13 @@ while the creation of files may require use of a service program.  Stay tuned fo
 
 Some documentation about the FAT file system can be found din the following links. These are relevant
 in that they are the documents we have followed in creating our implemenation.
-https://www.pjrc.com/tech/8051/ide/fat32.html  
-https://en.wikipedia.org/wiki/Design_of_the_FAT_file_system  
-https://www.win.tue.nl/~aeb/linux/fs/fat/fat-1.html (LFN)  
+https://www.pjrc.com/tech/8051/ide/fat32.html
+https://en.wikipedia.org/wiki/Design_of_the_FAT_file_system
+https://www.win.tue.nl/~aeb/linux/fs/fat/fat-1.html (LFN)
 
 ## Accessing files
 
-There are two principal ways to access files on an SD card on a MEGA65. 
+There are two principal ways to access files on an SD card on a MEGA65.
 
 ### 1581 Disk Images (D81 files)
 
@@ -115,7 +115,7 @@ that D64 files can be used (and potentially real disks with the floppy disk inte
 
 NOTE: The disk image files must be contiguous on the SD card, i.e., they cannot be fragmented.  If you can't
 mount a disk image, try putting the SD card in another computer and (after making a backup in case there are
-compatibility problems between the MEGA65 and your computer's FAT32 file system implementations), run a 
+compatibility problems between the MEGA65 and your computer's FAT32 file system implementations), run a
 "de-frag" program.  A cheat's approach here is to simply copy the D81 file to another name, delete the original,
 and rename the copy to the original.  On most modern computers the operating system will try to allocate a
 contiguous region of disk as part of this process, unless the file system is relatively full.
@@ -130,7 +130,7 @@ early versions of DOS.  There are a total of four file descriptors available for
 
 ## Low-level SD card access
 
-It is also possible to access the SD card interface on a low-level basis.  But note that we will soon 
+It is also possible to access the SD card interface on a low-level basis.  But note that we will soon
 be implementing IO protection on the MEGA65. This will mean that if your program has not asked the Hypervisor
 for permission to directly modify the SD card, the SD card registers will not be accessible.
 
@@ -140,7 +140,7 @@ The short version of how to access the SD card directly is as follows:
 1. Before first access, or if the SD card has been changed or reported an error condition, write $00 followed by $01 to $D680.  Then wait until when reading $D680 the bottom two bits are clear.
 2. To read or write a sector, you need to first put the sector number (if SDHC card) or sector number x 512 (if SDSC card) to $D681, $D682, $D683 and $D684,
 with the lowest order byte going into $D681.  You can tell if an SDHC card is in use by checking bit 4 of the value of $D680. If it is a 1,
-then it is an SDHC card. 
+then it is an SDHC card.
 3. To read a sector, write $02 to $D680, and then read $D680 until the bottom two bits are clear.  If they haven't cleared after a couple of seconds, you can be sure that some error has occurred.
 4. To write a sector, write $03 to $D680, and otherwise follow the same process as for reading a sector.
 
@@ -149,7 +149,7 @@ either use 32-bit ZP indirect operationsi or the DMA controller to access it. Ho
 
 ## SD card access on power-up
 
-Upon startup, basically the MEGA65 core operating system performs the following:  
+Upon startup, basically the MEGA65 core operating system performs the following:
 
 1. resets the SDCARD
 1. reads the Master Boot Record (very first sector of the card)
@@ -165,7 +165,7 @@ Upon startup, basically the MEGA65 core operating system performs the following:
   1. CHARROM.M65 - replaces the built in default character set with the provided one
   1. MEGA65.ROM - provides a 128KB C65-style ROM file to be loaded
 1. optionally mounts a disk-image is it if found
-  1. MEGA65.D81 - if present, is automatically mounted.  This can be overriden by running the MEGA65 configuration utility which is 
+  1. MEGA65.D81 - if present, is automatically mounted.  This can be overriden by running the MEGA65 configuration utility which is
 available when you hold down the ALT or CONTROL keys when powering the MEGA65 on.
 1. then JUMPs to the reset-vector within the Kernal.
 

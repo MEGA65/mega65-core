@@ -2,22 +2,22 @@
 
 # Table of Contents:
 
-[Introduction](#introduction)  
+[Introduction](#introduction)
 
 ## Introduction
 
 This file is a work in progresss, and should not be used/read yet.
 
 ```
-ce00-ceff  
- possibly scratch space  
+ce00-ceff
+ possibly scratch space
 
-8000  
- trap_entry_points  
+8000
+ trap_entry_points
 
-81f8  
- relocated cpu vectors  
-81ff  
+81f8
+ relocated cpu vectors
+81ff
 
 8200
  hypervisor trap entry points

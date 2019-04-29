@@ -3,7 +3,7 @@
 ## Introduction
 
 The MEGA65 includes an out-of-band memory and processor state investiation tool which is typically refered to as either
-'the monitor' or 'matrix mode'.  
+'the monitor' or 'matrix mode'.
 The monitor was originally written in VHDL (see uart_monitor.vhdl), but has since been replaced with a Verilog implementation,
 making it the only part of the MEGA65 written in Verilog instead of VHDL at the time of writing.
 
@@ -46,7 +46,7 @@ sudo cu -s 2000000 -fl /dev/cu.usbserial<???>
 ```
 to exit: ```~.```
 
-* use the m65dbg program (suggested option)  
+* use the m65dbg program (suggested option)
 refer to [https://github.com/MEGA65/m65dbg](https://github.com/MEGA65/m65dbg) for install instructions
  ```
 git clone https://github.com/MEGA65/m65dbg.git
@@ -58,7 +58,7 @@ make
 NOTE: The m65dbg program may require updating to cater to the latest changes to the formatting of the output of
 the monitor.
 
-For all the above options, the following settings are required:  
+For all the above options, the following settings are required:
 
 1. 2000000 baud rate
 1. 8 data bits
@@ -67,7 +67,7 @@ For all the above options, the following settings are required:
 
 ## How to use
 
-Below are some instructions on how to use the monitor:  
+Below are some instructions on how to use the monitor:
 (It is assumed that you are connected, using cygwin/picocom)
 
 ### Examining and modifying memory
@@ -96,9 +96,9 @@ To modify memory, use the s or S command, followed by the first address to modif
  1. Also note that the instruction shown under the ```LAST-OP``` field will display the last instruction processed by the CPU.
  1. holding ```<enter>``` will continue to STEP the CPU one instruction at a time, and if you hold ENTER for long enough, you may see the CURSOR blink ON or OFF.
 
-### Breakpoint 
+### Breakpoint
 
-1. SETTING A BREAKPOINT  
+1. SETTING A BREAKPOINT
 The following will set a breakpoint at a memory location just before the cursors BLINK-routine. The user can then STEP through the instructions to see the actual BLINK instruction processed by the CPU, followed by resuming the CPU, followed by removing the breakpoint.
 1. With the CPU free running (ie: cursor is blinking), set a breakpoint at address $EA5A by typing ```bea5a```. Soon after typing this command, the cursor will stop blinking.
 1. Pressing ```<enter>``` will bring up the status-display of the registers showing that the CPU has now just processed the instruction at address ```$EA5E``` which is two addresses after the breakpoint. Why this is two addresses AFTER the breakpoint is not explained here.
@@ -113,7 +113,7 @@ The following will set a breakpoint at a memory location just before the cursors
 1. typing ```tc``` seems to STEP the CPU one instruction at a time, and after each instruction, the status-display of the registers are displayed to the screen. Pressing any key will exit from "tc" mode.
 1. when in "tc"-mode, you will notice that LEDs 4 and 2 continue to BLINK ON and OFF, and that the CURSOR will BLINK ON and OFF about every 18 seconds.
 1. to remove the BREAKPOINT, type ```b``` followed by return.
-1. unsure how to display the list of current BREAKPOINTS, 
+1. unsure how to display the list of current BREAKPOINTS,
 1. unsure if multiple BREAKPOINTS can be set.
 
 The End.

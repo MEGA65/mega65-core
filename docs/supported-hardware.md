@@ -35,10 +35,10 @@ This board contains no built-in expansion memory.  The PMOD and 50-pin expansion
 connectors are place-holders only.  Cartridge port has some limitations due to lack
 of direction control on some IO lines.
 
-## Monitors 
+## Monitors
 
 The MEGA65 requires a monitor that can do 800x600 at both 50Hz and 60Hz.
-If the monitor will do only one of those modes, it is possible to configure the MEGA65 
+If the monitor will do only one of those modes, it is possible to configure the MEGA65
 to use exactly one of those modes.  Note that the MEGA65 does not (currently) query
 a monitor for EDID information. This might change in the future.
 
