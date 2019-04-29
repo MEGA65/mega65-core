@@ -132,9 +132,9 @@ Someone else please document how the simulate function(s) work and what compile 
 ## Programming the FPGA using fpga-board and the monitor_load command
 
 The monitor_load program is compiled as part of the build process. This can be used to
-load a bitstream and/or custom Kickstart/Hypervisor version, among other functions.
+load a bitstream and/or custom Hyppo/Hypervisor version, among other functions.
 
-A command like the following will load and start the desired bitstream and Kickstart/Hypervisor
+A command like the following will load and start the desired bitstream and Hyppo/Hypervisor
 files you provide. You must have the USB programming cable connected for this to work. This
 procedure works on Nexys4 as well as MEGA65 prototype main boards with the FPGA programming
 module attached.  It is much faster (~3 seconds versus ~13 - 30 seconds) than loading a bitstream
@@ -143,7 +143,7 @@ also be used to auto-switch to C64 mode on start (-4 option), and/or to load and
 a user-supplied program on boot (see the usage text for monitor_load for details), providing a
 greatly simplified work-flow.
 
-```src/tools/monitor_load -b bin/nexys4ddr.bit -k bin/KICKUP.M65```
+```src/tools/monitor_load -b bin/nexys4ddr.bit -k bin/HICKUP.M65```
 
 (This assumes you are running the command from the ```mega65-core``` directory.
 

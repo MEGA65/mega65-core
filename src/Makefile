@@ -31,7 +31,7 @@ UTILITIES=	utilities/ethertest.prg \
 		tests/test_fdc_equal_flag.prg \
 		diskmenu.prg \
 
-TOOLS=	tools/etherhick/etherhick \
+TOOLS=	tools/etherhyppo/etherhyppo \
 	tools/etherload/etherload \
 	tools/hotpatch/hotpatch \
 	tools/monitor_load \
@@ -337,10 +337,10 @@ tools/etherload/etherload:	tools/etherload/etherload.c Makefile
 # ============================ done moved, print-warn, clean-target
 # c-code that makes and executable that seems to read a file and transferrs that file
 # to the fpga via ethernet
-tools/etherhick/etherhick:	tools/etherhick/etherhick.c Makefile
+tools/etherhyppo/etherhyppo:	tools/etherhyppo/etherhyppo.c Makefile
 	$(warning =============================================================)
-	$(warning ~~~~~~~~~~~~~~~~> Making: tools/etherhick/etherhick)
-	$(CC) $(COPT) -o tools/etherhick/etherhick ./tools/etherhick/etherhick.c $(SOCKLIBS)
+	$(warning ~~~~~~~~~~~~~~~~> Making: tools/etherhyppo/etherhyppo)
+	$(CC) $(COPT) -o tools/etherhyppo/etherhyppo ./tools/etherhyppo/etherhyppo.c $(SOCKLIBS)
 
 
 # ============================ print-warn, clean-target
@@ -529,7 +529,7 @@ clean:
 	rm -f HICKUP.M65 hyppo.list hyppo.map
 	rm -f diskmenu.prg diskmenuprg.list diskmenuprg.map
 	rm -f diskmenu_c000.bin diskmenuc000.list diskmenuc000.map
-	rm -f tools/etherhick/etherhick
+	rm -f tools/etherhyppo/etherhyppo
 	rm -f tools/etherload/etherload
 	rm -f tools/hotpatch/hotpatch
 	rm -f tools/pngprepare/pngprepare

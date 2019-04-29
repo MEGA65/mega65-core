@@ -86,7 +86,7 @@
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="80"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="86"/>
     </file>
-    <file xil_pn:name="kickstart.vhdl" xil_pn:type="FILE_VHDL">
+    <file xil_pn:name="hyppo.vhdl" xil_pn:type="FILE_VHDL">
       <association xil_pn:name="BehavioralSimulation" xil_pn:seqID="75"/>
       <association xil_pn:name="Implementation" xil_pn:seqID="68"/>
     </file>

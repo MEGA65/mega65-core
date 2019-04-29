@@ -11,7 +11,7 @@ The following components are currently documented (at least in part):
 * [container/ddrwrapper](#ddrwrapper) - **now removed**
 * [container/machine](#machine)
 * [container/machine/iomapper](#iomapper)
-* [container/machine/iomapper/kickstart](#kickstart)
+* [container/machine/iomapper/hyppo](#hyppo)
 * [container/machine/iomapper/framepacker](#framepacker)
 * [container/machine/iomapper/cia](#cia)
 * [container/machine/iomapper/c65uart](#c65uart)
@@ -72,7 +72,7 @@ This components includes the following functionality:
 * provides multiple external interfaces: keyboard, uart, SDcard, ethernet, etc.
 
 Sub-components include:  
-* "[kickstart](#kickstart)"  
+* "[hyppo](#hyppo)"  
 * "[framepacker](#framepacker)"  
 * "[cia](#cia)"  
 * "[c65uart](#c65uart)"  
@@ -84,7 +84,7 @@ Sub-components include:
 [![iomapper](./images/iomapper-small.jpg)](./images/iomapper.jpg)  
 Click the image above for a hi-res JPG, else the [PDF link](./images/iomapper.pdf).
 
-## kickstart
+## hyppo
 This component is basically just a ROM, and is just implemented using processes, ie no sub-components.
 
 ## framepacker

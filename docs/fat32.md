@@ -1,7 +1,7 @@
 ## This is the 'fat32 / sdcard' documentation file.
 
 This file is out of date.  The most valuable information it contains 
-is the internal FAT32 and partition handling within the Hypervisor (kickstart)
+is the internal FAT32 and partition handling within the Hypervisor (hyppo)
 code, to help others with extending those routines and functionality
 
 # Table of Contents:
@@ -97,7 +97,7 @@ $D684 - $1B
 ```
 ```$D685-$D68F``` - are not currently understood, but seem to be related to the sdcard.
 
-As specified in "kickstart.a65", memory location ```$BB00-$BBFF``` contains data describing the file systems collected. This data is stored in the dos_disk_table.  
+As specified in "hyppo.a65", memory location ```$BB00-$BBFF``` contains data describing the file systems collected. This data is stored in the dos_disk_table.  
 This table is #$FF bytes in size, divided into 8x sections.  
 Each section is therefore #$20 bytes in size.  
 Refer to [dos_disk_table](#dos_disk_table) below for details.  
@@ -115,7 +115,7 @@ dos_error_code
 ```
 <i>The next 2x pages in memory is ```$BDxx-$BExx```, which are not relevant to the FAT32 file system.</i>
 
-The last page in KICKSTART-memory is ```$BFxx-$BFxx```, which is the Zero-Page (ZP) for the Hypervisor. Entries include:
+The last page in HYPPO-memory is ```$BFxx-$BFxx```, which is the Zero-Page (ZP) for the Hypervisor. Entries include:
 ```
 dos_scratch_vector
 dos_scratch_byte_1
@@ -129,9 +129,9 @@ The 512-byte buffer is mapped to ```$DE00``` and aliased as "sd_sectorbuffer". T
 
 ## SDCARD FAT32 Overview
 
-There is assembly code in kickstart.a65 that is executed during boot, and this code is also accessible when the machine starts up.  
-The kickstart assembly code is processes by the processor just like any other normal program running on the machine.  
-The kickstart assembly code interfaces to the SDCARD controller using just 5x memory-mapped registers and a 512-byte shared buffer.  
+There is assembly code in hyppo.a65 that is executed during boot, and this code is also accessible when the machine starts up.  
+The hyppo assembly code is processes by the processor just like any other normal program running on the machine.  
+The hyppo assembly code interfaces to the SDCARD controller using just 5x memory-mapped registers and a 512-byte shared buffer.  
 The 5x registers used to interface the SDCARD controller are ```$D680-$D684```.  
 
 ```D680``` seems not aliased, but is found in the iomap.txt, and is a control/status register between assembly code and the VHDL SDCARD firmware.
@@ -140,7 +140,7 @@ The 5x registers used to interface the SDCARD controller are ```$D680-$D684```.
 To perform a read from the SDCARD, you setup the 4x "sd_address_bytes" to the sector you want, and toggle a bit on the $D680 register. When the SDCARD CONTROLLER is done, a bit in $D680 becomes clearer (or set, i forget).
 Then, you need to switch the 512-buffer, performed by calling the "sd_map_sectorbuffer" subroutine.  
 
-Upon startup, basically the KICKUP code performs the following:  
+Upon startup, basically the HICKUP code performs the following:  
 
 1. resets the SDCARD
 1. reads the Master Boot Record (very first chunk of the card)
@@ -186,7 +186,7 @@ When the "dos_readfileintomemory" function is called, the following things happe
 -------------------------------------------
 ## sdreset
 
-The SD-card reset function (sdreset:) is situated in the kickstart code.  
+The SD-card reset function (sdreset:) is situated in the hyppo code.  
 Basically, it tries to see if the sdcard is high-capacity (SDHC) or not (SD).  
 Currently SDHC is not working. Currently SD is working.  
 Basically, it clears the reset-bit in $D680 then delays for a number of clock-cycles (sdtimeoutreset:). It then checks to see if the sd-controller is ready (sdreadytest:) by checking if bit-0 and bit-1 are set in $d680. Then, it sets the reset-bit in $D680 then again delays, and waits for the sd-controller to become ready.  
@@ -196,7 +196,7 @@ Before returning, it sets the carry flag to indicate success.
 Ben-401 suggests that the sdcard-resetting should be auto-performed by the sd-controller.
 
 ## readmbr
-The "readmbr:" routine is only called during the kickstart process. It is likely that this routine will be called more-than-once to allow hot-swap of sdcards.  
+The "readmbr:" routine is only called during the hyppo process. It is likely that this routine will be called more-than-once to allow hot-swap of sdcards.  
 This routine first calls "sdreset:", followed by setting the sd_address to $00000000. It then jumps to the "sd_readsector:" routine below.  
 Also please refer to the "dos_read_mbr:" routine.  
 
@@ -216,7 +216,7 @@ Basically, the most direct path (without errors is):
 During the above routine, many errors/abnomalities may occur and the execution path may branch to a delay because the sdcard was not ready, or if the incorrent number of chars read was returned.
 
 At this point, the MBR (sector $00000000) would be in the sector_buffer.
-Continuing on through the kickstart boot-process, execution would continue at "gotmbr:".
+Continuing on through the hyppo boot-process, execution would continue at "gotmbr:".
 
 ## gotmbr
 Calls "dos_clearall:" which marks the four file-descriptors as empty. Refer to ##file-descriptors.  
@@ -224,10 +224,10 @@ Then calls "dos_read_partitiontable:" which is described in detail below.
 At this point, the four primary-partitions on the sdcard would have been examined, and their details stored in the "dos_disk_table:" (see below).  
 Then this routine attempts to change-directory-into the "dos_default_disk" by calling "dos_cdroot" function. This is described in detail below.  
 
-If the "dos_cdroot:" function returns true, then the MEGA65 has file-system properties and files etc can be loaded (and 'saved' in the future). In this case, the kickstart execution continues at "mountsystemdiskok:" where files are loaded from the FAT32 partition marked as the "dos_default_disk".  
+If the "dos_cdroot:" function returns true, then the MEGA65 has file-system properties and files etc can be loaded (and 'saved' in the future). In this case, the hyppo execution continues at "mountsystemdiskok:" where files are loaded from the FAT32 partition marked as the "dos_default_disk".  
 
-This concludes the *toplevel* description of the kickstart-code with respect to the fat32/sdcard implementation.  
-Details below are for the *lower-level* description of the kickstart-code with respect to the fat32/sdcard implementation.  
+This concludes the *toplevel* description of the hyppo-code with respect to the fat32/sdcard implementation.  
+Details below are for the *lower-level* description of the hyppo-code with respect to the fat32/sdcard implementation.  
 
 ===================================================================
 ===================================================================
@@ -333,7 +333,7 @@ The "dos_disk_openpartition" function then returns.
 ## dos_disk_table
 Each section of the dos_disk_table is $20 bytes, allowing for 8 entries. (Q: why 8x when there are only four primary partitions on a sdcard?, A:to allow other devices to appear like /dev/sdc3 and /dev/sdd1 for example).  
 
-Each section is made up as follows: (sourced from the "kickstart.a65 file describing $BB00)  
+Each section is made up as follows: (sourced from the "hyppo.a65 file describing $BB00)  
 
 When accessing one-of-the-eight entries, you first need to get the value in "dos_disk_table_offset:", then multiply that value by $20 (left-shift 5x times). Then add to that result the desired offset specified in an alias located at "fs_dos_disk_table_offsets:".  
 
@@ -709,7 +709,7 @@ FAT#2 location + sectors_per_FAT = $0E1E + $03e6
 ```
 00240800  4c 4f 55 44 2d 31 47 20  20 20 20 08 00 00 00 00  |LOUD-1G    .....|
 00240810  00 00 00 00 00 00 d1 74  28 49 00 00 00 00 00 00  |.......t(I......|
-00240820  4b 49 43 4b 55 50 20 20  4d 36 35 20 00 00 fd 28  |KICKUP  M65 ...(|
+00240820  4b 49 43 4b 55 50 20 20  4d 36 35 20 00 00 fd 28  |HICKUP  M65 ...(|
 00240830  28 49 28 49 00 00 1c 27  28 49 03 00 00 40 00 00  |(I(I...'(I...@..|
 00240840  4d 45 47 41 36 35 20 20  52 4f 4d 20 00 a6 d4 74  |MEGA65  ROM ...t|
 00240850  28 49 28 49 00 00 02 63  22 45 07 00 00 00 02 00  |(I(I...c"E......|

@@ -9,7 +9,7 @@ XXX - Note that this document is out of date
 * [using](./using.md) - how to use the architecture when it is running in the fpga  
   * [monitor](./monitor.md) - how to interface with the FPGA using a serial port monitor  
 * [supported-hardware](./supported-hardware.md) - Which FPGA boards can be used, and what modes do monitors need to support?
-* [kickup](./kickup.md) - firmware description and boot code  
+* [hickup](./hickup.md) - firmware description and boot code  
   * [fat32](./fat32.md) - implementation of fat32 file system  
 * [viciv](./viciv-modes.md) - information on the viciv (VIC-4) video chip (unsure if this is accurate)  
 * [User Manual](./usermanual0.md) - user manual sourced from  

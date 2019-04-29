@@ -18,13 +18,13 @@ When the bitstream has been loaded into the fpga (refer to the [build](./build.m
 
 The following is a basic list of the startup:
 
-1. "MEGA65 KICKSTART Vxx.xx".
+1. "MEGA65 HYPPO Vxx.xx".
  1. insert photo of screen (todo)
-1. The above kickstart screen:
+1. The above hyppo screen:
  1. shows the git-version
  1. SDcard: looks for it, resets it, and mounts it
  1. attempts to load "BOOTLOGO.M65", if so, displays logo in top left
- 1. runs the kicked hypervisor (if it exists on sdcard)
+ 1. runs the custom hyppo hypervisor image (if it exists on sdcard, otherwise uses embedded version)
  1. mounts a disk image (MEGA65.D81) from SDcard (if it exists)
  1. seems to check for a ROM, does not find it so attempts to load it from the SDcard.
 1. The system then drops into MEGA65 (c65) mode.
@@ -109,10 +109,10 @@ Unsure if UPPER/LOWER case of filenames is important, to do [  ].
 Unsure if we need "G65" or "M65", to do [  ].  
 
 * ```MEGA65.ROM``` -- c65 kernal ROM, renamed from 911001.bin (or 910111 ???) which is the original ROM file extracted from one of the real c65 machines. Search for it on the internet.
-* ```MEGA65x.ROM``` -- (optional) as above, but with ```x``` in the filename where ```x``` is a digit, unsure if this is still implemented, need to look into the kickstart.a65 code to see.
-* ```KICKUP.M65``` -- (optional) an updated version of the kickup-code (ie kickup.a65, which is compiled into the bitstream), but this ```KICKUP.M65``` is loaded at boot-up and replaces the code in the bitstream. This is useful for developing the kickup-code without having to recompile the entire design/bitstream.
+* ```MEGA65x.ROM``` -- (optional) as above, but with ```x``` in the filename where ```x``` is a digit, unsure if this is still implemented, need to look into the hyppo.a65 code to see.
+* ```HICKUP.M65``` -- (optional) an updated version of the hickup-code (ie hickup.a65, which is compiled into the bitstream), but this ```HICKUP.M65``` is loaded at boot-up and replaces the code in the bitstream. This is useful for developing the hickup-code without having to recompile the entire design/bitstream.
 * ```CHARROM.M65``` -- (optional) the proprietary CBM character ROM, which is the original ROM file, cannot determine how this is built or sourced  
-* ```BOOTLOGO.M65``` -- (optional) image displayed on kickstart screen, refer ```/precomp/Makefile```   
+* ```BOOTLOGO.M65``` -- (optional) image displayed on hyppo screen, refer ```/precomp/Makefile```   
 * ```MEGA65.D81``` -- (optional) disk-image automatically mounted at boot-up
 * ```user.bit``` -- (optional) place a bitstream on the SDcard as a fallback when no "*.bit" file is found on the USB
 

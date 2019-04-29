@@ -140,7 +140,7 @@ Checkpoint @ $AD18 A:$30, X:$30, Y:$30, Z:$00, P:$34 :sd_sector: $d681=005E9400.
 Checkpoint @ $AD18 A:$30, X:$30, Y:$30, Z:$00, P:$34 :sd_sector: $d681=005E9600.
 Checkpoint @ $AD18 A:$30, X:$30, Y:$30, Z:$00, P:$34 :sd_sector: $d681=00147E00.
 Checkpoint @ $92FC A:$0F, X:$AC, Y:$0A, Z:$04, P:$37 :WARN: PRINTHEX in dfanc_check
-Checkpoint @ $9B75 A:$00, X:$8A, Y:$0A, Z:$00, P:$37 :  try-loading KICKUP
+Checkpoint @ $9B75 A:$00, X:$8A, Y:$0A, Z:$00, P:$37 :  try-loading HICKUP
 Checkpoint @ $AD18 A:$30, X:$30, Y:$30, Z:$00, P:$34 :sd_sector: $d681=00240800.
 Checkpoint @ $8C3F A:$02, X:$30, Y:$30, Z:$00, P:$37 :-
 Checkpoint @ $8C67 A:$30, X:$30, Y:$30, Z:$00, P:$34 :dos_readdir[0000]==========================================

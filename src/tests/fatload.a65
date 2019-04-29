@@ -59,7 +59,7 @@ onmega65:
 	
 		LDZ 	#$00			;Restore Z page location
 
-		; close all files to work around kickstart file descriptor leak bug
+		; close all files to work around hyppo file descriptor leak bug
 		lda #$22
 		sta $d640
 		nop
