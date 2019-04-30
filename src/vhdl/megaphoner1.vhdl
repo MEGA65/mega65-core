@@ -43,6 +43,15 @@ entity container is
         
          i2c1sda : inout std_logic;
          i2c1scl : inout std_logic;         
+
+         modem1_pcm_clk_in : in std_logic;
+         modem1_pcm_sync_in : in std_logic;
+         modem1_pcm_data_in : in std_logic;
+         modem1_pcm_data_out : out std_logic;
+         modem1_uart_rx : inout std_logic;
+         modem1_uart_tx : out std_logic;
+         modem1_uart2_rx : inout std_logic;
+         modem1_uart2_tx : out std_logic;
          
          ----------------------------------------------------------------------
          -- CIA1 ports for keyboard/joystick 
@@ -209,8 +218,6 @@ architecture Behavioral of container is
   signal eth_mdio : std_logic := '0';
   signal touchSDA : std_logic := '1';
   signal c65uart_rx : std_logic := '1';
-  signal buffereduart_rx : std_logic := '1';
-  signal buffereduart2_rx : std_logic := '1';
 
   signal pin_number : integer;
 
@@ -458,11 +465,11 @@ begin
       i2c1scl => i2c1scl,
       
       -- This is for modem as PCM master:
-      pcm_modem_clk_in => '0',
-      pcm_modem_sync_in => '0',
+      pcm_modem_clk_in => modem1_pcm_clk_in,
+      pcm_modem_sync_in => modem1_pcm_sync_in,
         
---      pcm_modem1_data_out => jdhi(9),
-      pcm_modem1_data_in => '1',
+      pcm_modem1_data_out => modem1_pcm_data_out,
+      pcm_modem1_data_in => modem1_pcm_data_in,
       
       ps2data =>      '1',
       ps2clock =>     '1',
@@ -477,10 +484,10 @@ begin
 --      uart_tx => jclo(2),
 
       -- Buffered UARTs for cellular modems etc
-      buffereduart_rx => buffereduart_rx,
---      buffereduart_tx => jclo(4),
-      buffereduart2_rx => buffereduart2_rx,
---      buffereduart2_tx => jchi(10),
+      buffereduart_rx => modem1_uart_rx,
+      buffereduart_tx => modem1_uart_tx,
+      buffereduart2_rx => modem1_uart2_rx,
+      buffereduart2_tx => modem1_uart2_tx,
       buffereduart_ringindicate => '0',
       
       slow_access_request_toggle => slow_access_request_toggle,
