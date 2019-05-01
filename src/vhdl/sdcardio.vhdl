@@ -2022,7 +2022,7 @@ begin  -- behavioural
               -- @IO:GS $D6D1.0 - I2C reset
               -- @IO:GS $D6D1.1 - I2C command latch write strobe (write 1 to trigger command)
               -- @IO:GS $D6D1.2 - I2C Select read (1) or write (0)
-              
+              -- @IO:GS $D6D1.5 - I2C bus 1 swap SDA/SCL pins
               -- @IO:GS $D6D1.6 - I2C busy flag
               -- @IO:GS $D6D1.7 - I2C ack error
               if i2c_bus_id = x"00" then
