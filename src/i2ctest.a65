@@ -3,6 +3,9 @@
 	 .word $0801
 	 .org $0801
 
+	; $20 to swap pins, $00 to not swap
+	.alias swapp $00
+
 	 .scope
 	 .word _next, 10                       ; Next line and current line number
 	 .byte $97, "2,0:", $9e, " 2014", $AA, "65",0      ; POKE 2,0 : SYS 2014+65
@@ -31,7 +34,7 @@ _next:	 .word 0
 
 	jsr i2c_busscan
 
-	jsr test_touchscreen
+;	jsr test_touchscreen
 	
 ;	jsr test_touch2
 	
@@ -41,29 +44,70 @@ i2c_busscan:
 	; Start on bus 0, address 0
 	 LDA #0
 	 sta $d6d0
+nextbus:
+	 LDA #$fe
 	 sta $d6d2
 
-try:
+	lda #<scanbusmsg
+	ldy #>scanbusmsg
+	jsr $ab1e
+	lda #0
+	ldx $d6d0
+	jsr $bdcd
+	lda #$d
+	jsr $ffd2
+
+nextaddress:
+
+	 lda $d6d2
+	 clc
+	 adc #$02
+	 sta $d6d2
+	cmp #$fe
+	 beq consider_next_bus
+	
+	; Display progress so far
+;	lda #0
+;	ldx $d6d2
+;	jsr $bdcd
+;	lda #$2c
+;	jsr $ffd2
 	
 	 ; reset I2C bus
 	 lda #$08
+	 ora #swapp
 	 sta $d6d1
 	 lda #$09
+	 ora #swapp
 	 sta $d6d1
 
+	ldx #$ff
 l6:     
 	 lda $d6d1
 	 and #$c7
 	 cmp #$01
+	 beq +
+	dex
 	 bne l6
+	jmp nextaddress
+*
+	inc $0424
 
 	 ; wait for busy to assert
 	 LDA #$f
+	 ora #swapp
 	 sta $d6d1
+
+	ldx #$ff
 l1:     
 	 lda $d6d1
 	 and #$40
-	 beq l1
+	 bne +
+	 dex
+	 bne l1
+	 jmp nextaddress	
+*
+	inc $0420
 
 	 ; make sure error flag clears
 l2:     
@@ -71,36 +115,40 @@ l2:
 	 tax
 	 and #$80
 	 bne l2
+	inc $0421
 
 	 ; wait for busy to clear
 l7:     
 	 lda $d6d1
 	 and #$40
 	 bne l7
+	inc $0422
 
 	 ; check if succeeded or not
 	 lda $d6d1
 	 bpl gotit
+	inc $0423
 
 resume:
-	 lda $d6d2
-	 clc
-	 adc #$02
-	 sta $d6d2
 l3:     
 	 cmp $d6d2
 ;	 bne l3
 	 cmp #$00
-	 bne try
+	 bne nextaddress
+
+         inc $0427
 
 notfound:
+consider_next_bus:
 	; no devices found on this bus, so try next bus.
 	; so far, we have only bus 0 and bus 1
 	inc $d6d0
 	lda $d6d0
-	cmp #1   ; only check bus 0, now that touch screen bus is wrapped     
-	bne try
+	cmp #2   ; only check bus 0, now that touch screen bus is wrapped     
+	beq +
+	jmp nextbus
 
+*
 	lda #<donemsg
 	ldy #>donemsg
 	jsr $ab1e
@@ -483,12 +531,15 @@ i2c_read_registers:
 	sty $d6d3
 	; reset bus and lodge request (leaving touch panel enabled)
 	lda #$08
+	ora #swapp
 	sta $d6d1
 	lda #$09
-	sta $d6d1
+	ora #swapp
+ 	sta $d6d1
 
 	; Write to set register number we want to read
 	lda #$0b
+	ora #swapp
 	sta $d6d1
 
 	; Wait for busy to set
@@ -506,6 +557,7 @@ rr2:
 rloop:
 	; Then read
 	lda #$0f
+	ora #swapp
 	sta $d6d1
 
 	; Wait for busy to set
@@ -540,5 +592,8 @@ rerror:
 
 regs:
 	.byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+
+scanbusmsg:
+	.byte "SCANNING I2C BUS #",0
 
 	.scend
