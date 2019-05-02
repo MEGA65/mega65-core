@@ -261,7 +261,7 @@ begin
 
       caps_lock_key => '1',
       
-      no_hickstart => '0',
+      no_hyppo => '0',
 
 --      buffereduart_rx => '1',
       buffereduart_ringindicate => '1',
