@@ -173,6 +173,11 @@ gotit:
 	lda #<msg3
 	ldy #>msg3
 	jsr $ab1e
+
+	ldx $d6d4
+	lda #$00
+	jsr $bdcd
+
 	ply
 	plx
 
