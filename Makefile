@@ -449,6 +449,9 @@ $(TESTDIR)/instructiontiming.prg:       $(TESTDIR)/instructiontiming.c $(TESTDIR
 $(UTILDIR)/mega65_config.prg:       $(UTILDIR)/mega65_config.o $(CC65)
 	$(LD65) $< --mapfile $*.map -o $*.prg
 
+$(UTILDIR)/i2clist.prg:       $(UTILDIR)/i2clist.c $(CC65)
+	$(CL65) $< --mapfile $*.map -o $*.prg
+
 $(UTILDIR)/tiles.prg:       $(UTILDIR)/tiles.o $(CC65)
 	$(LD65) $< --mapfile $*.map -o $*.prg
 
