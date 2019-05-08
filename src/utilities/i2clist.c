@@ -19,7 +19,6 @@ unsigned char read_register(const unsigned char bus,const unsigned char addr, co
   // Wait for bus to go ready?
   do {
     if ((i2c_master[1]&0xc7)==0x01) break;
-    *(unsigned char *)0x0400 = i2c_master[1];
   } while(1);
 
   /*
@@ -77,7 +76,6 @@ void probe_address(const unsigned char bus,const unsigned char addr)
   // Wait for bus to go ready?
   do {
     if ((i2c_master[1]&0xc7)==0x01) break;
-    *(unsigned char *)0x0400 = i2c_master[1];
   } while(1);
 
   /*
@@ -117,7 +115,7 @@ void probe_address(const unsigned char bus,const unsigned char addr)
   }
 #pragma optimize(pop)
 
-  printf(" Found dev $%02x (%d)\n  ",
+  printf("Found dev $%02x (%d)\n  ",
 	 addr,addr);
 
   // Get back to start of 16 byte slab of registers
