@@ -15,8 +15,6 @@ void probe_address(const unsigned char bus,const unsigned char addr)
   i2c_master[1]=0x08;
   i2c_master[1]=0x09;
 
-  __asm__("inc $0410");  
-  
 #pragma optimize(push, off)
   // Wait for bus to go ready?
   do {
@@ -24,30 +22,24 @@ void probe_address(const unsigned char bus,const unsigned char addr)
     *(unsigned char *)0x0400 = i2c_master[1];
   } while(1);
 
-  __asm__("inc $0411");  
-  
   // Ask bus to do something?
   i2c_master[1]=0x0f;
 
+  // At 1MHz the I2C transaction happens so fast, that
+  // we just wait for BUSY to clear.
+  
   // Wait for busy to assert
   //  while(!(i2c_master[1]&0x40)) continue;
 
-  __asm__("inc $0412");  
-  
   // Wait for error flag to clear
   //  while((i2c_master[1]&0x80)) continue;
 
-  __asm__("inc $0413");  
-  
   // Wait for busy to clear
   while((i2c_master[1]&0x40)) continue;
 
-  __asm__("inc $0414");  
-  
   // Check success by checking error bit
   if (i2c_master[1]&0x80) {
     // Error -- so do no more on this address;
-    __asm__("inc $0415");  
     return;
   }
 #pragma optimize(pop)
