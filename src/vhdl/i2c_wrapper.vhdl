@@ -99,7 +99,13 @@ begin
     if rising_edge(clock) then
 
       if cs='1' and fastio_read='1' then
-        fastio_rdata <= bytes(to_integer(fastio_addr(4 downto 0)));
+        if fastio_addr(7 downto 5) = "000" then
+          fastio_rdata <= bytes(to_integer(fastio_addr(4 downto 0)));
+        elsif fastio_addr(7 downto 5) = "111" then
+          fastio_rdata <= x"42";
+        else
+          fastio_rdata <= to_unsigned(busy_count,8);
+        end if;
       else
         fastio_rdata <= (others => 'Z');
       end if; 
