@@ -1377,13 +1377,13 @@ begin
       end if;
       -- Also map SD card sector buffer at $FFD6000 - $FFD61FF regardless of
       -- VIC-IV IO mode and mapping of colour RAM
-      -- @ IO:GS $FFD6E00-FFF - SD card direct access sector buffer
-      -- @ IO:GS $FFD6C00-DFF - F011 floppy controller sector buffer
+      -- @IO:GS $FFD6E00-FFF - SD card direct access sector buffer
+      -- @IO:GS $FFD6C00-DFF - F011 floppy controller sector buffer
       if address(19 downto 12) = x"D6" then
         sectorbuffercs <= sbcs_en;
       end if;
 
-      -- @ IO:GS $FFD7000-FF - I2C Peripherals
+      -- @IO:GS $FFD7000-FF - I2C Peripherals
       i2cperipherals_cs <= '0';
       if address(19 downto 8) = x"D70" then
         i2cperipherals_cs <= '1';
@@ -1393,11 +1393,11 @@ begin
       cs_driverom <= '0';
       if address(19 downto 16) = x"D" then
         if address(15 downto 14) = "11" then
-          -- @ IO:GS $FFDC000-$FFDFFFF - Internal 1541 ROM access
+          -- @IO:GS $FFDC000-$FFDFFFF - Internal 1541 ROM access
           cs_driverom <= '1';
         end if;
         if address(15 downto 12) = x"B" then
-          -- @ IO:GS $FFDB000-$FFDBFFF - Internal 1541 ROM access
+          -- @IO:GS $FFDB000-$FFDBFFF - Internal 1541 ROM access
           cs_driveram <= '1';
         end if;
       end if;
@@ -1412,8 +1412,8 @@ begin
       end if;
       -- Also map SD card sector buffer at $FFD6000 - $FFD61FF regardless of
       -- VIC-IV IO mode and mapping of colour RAM
-      -- @ IO:GS $FFD6E00-FFF - SD card direct access sector buffer
-      -- @ IO:GS $FFD6C00-DFF - F011 floppy controller sector buffer
+      -- @IO:GS $FFD6E00-FFF - SD card direct access sector buffer
+      -- @IO:GS $FFD6C00-DFF - F011 floppy controller sector buffer
       if addr_fast(19 downto 12) = x"D6" then
         sectorbuffercs_fast <= sbcs_en;
       end if;
