@@ -1010,11 +1010,10 @@ begin
     scl => i2c1SCL,
     
     fastio_addr => unsigned(address),
-    fastio_addr_fast => unsigned(addr_fast),
     fastio_write => w,
     fastio_read => r,
     fastio_wdata => unsigned(data_i),
-    std_logic_vector(fastio_rdata_sel) => data_o
+    std_logic_vector(fastio_rdata) => data_o
 
     );
     
