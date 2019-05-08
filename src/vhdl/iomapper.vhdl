@@ -353,6 +353,7 @@ architecture behavioral of iomapper is
   signal cia1cs : std_logic;
   signal cia2cs : std_logic;
 
+  signal i2cperipherals_cs : std_logic;
   signal sectorbuffercs : std_logic;
   signal sectorbuffercs_fast : std_logic;
   signal sector_buffer_mapped_read : std_logic;
@@ -1000,6 +1001,23 @@ begin
     i2s_bt_data_out => i2s_bt_data_out
 
     );
+
+  i2cperiph: entity work.i2c_wrapper port map (
+    clock => clk,
+    cs => i2cperipherals_cs,
+
+    sda => i2c1SDA,
+    scl => i2c1SCL,
+    
+    fastio_addr => unsigned(address),
+    fastio_addr_fast => unsigned(addr_fast),
+    fastio_write => w,
+    fastio_read => r,
+    fastio_wdata => unsigned(data_i),
+    std_logic_vector(fastio_rdata_sel) => data_o
+
+    );
+    
   
   sdcard0 : entity work.sdcardio port map (
     pixelclk => pixelclk,
@@ -1074,8 +1092,8 @@ begin
     tmpInt => tmpInt,
     tmpCT => tmpCT,
 
-    i2c1SDA => i2c1SDA,
-    i2c1SCL => i2c1SCL,
+--    i2c1SDA => i2c1SDA,
+--    i2c1SCL => i2c1SCL,
 
     audio_mix_reg => audio_mix_reg,
     audio_mix_write => audio_mix_write,
@@ -1366,6 +1384,11 @@ begin
         sectorbuffercs <= sbcs_en;
       end if;
 
+      i2cperipherals_cs <= '0';
+      if address(19 downto 12) = x"D6" then
+        i2cperipherals_cs <= '1';
+      end if;
+      
       cs_driveram <= '0';
       cs_driverom <= '0';
       if address(19 downto 16) = x"D" then
