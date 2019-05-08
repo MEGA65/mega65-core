@@ -175,6 +175,7 @@ VFPGAVHDL=		$(VHDLSRCDIR)/vfpga/overlay_IP.vhdl \
 PERIPHVHDL=		$(VHDLSRCDIR)/sdcardio.vhdl \
 			$(VHDLSRCDIR)/touch.vhdl \
 			$(VHDLSRCDIR)/i2c_master.vhdl \
+			$(VHDLSRCDIR)/i2c_wrapper.vhdl \
 			$(VHDLSRCDIR)/buffereduart.vhdl \
 			$(VHDLSRCDIR)/mfm_bits_to_bytes.vhdl \
 			$(VHDLSRCDIR)/mfm_decoder.vhdl \

@@ -42,7 +42,7 @@ entity i2c_wrapper is
     -- FastIO interface
     cs : in std_logic;
     fastio_read : in std_logic;
-    fastio_write : out std_logic;
+    fastio_write : in std_logic;
     fastio_rdata : out unsigned(7 downto 0);
     fastio_wdata : in unsigned(7 downto 0);
     fastio_addr : in unsigned(19 downto 0)    
@@ -99,7 +99,7 @@ begin
     if rising_edge(clock) then
 
       if cs='1' and fastio_read='1' then
-        fastio_rdata <= bytes(fastio_addr(4 downto 0);
+        fastio_rdata <= bytes(to_integer(fastio_addr(4 downto 0)));
       else
         fastio_rdata <= (others => 'Z');
       end if; 
@@ -161,6 +161,8 @@ begin
             end if;
           when 14 =>
             i2c1_command_en <= '0';
+          when others =>
+            null;
         end case;
         
       end if;
