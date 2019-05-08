@@ -1385,7 +1385,7 @@ begin
 
       -- @ IO:GS $FFD7000-FF - I2C Peripherals
       i2cperipherals_cs <= '0';
-      if address(19 downto 12) = x"D70" then
+      if address(19 downto 8) = x"D70" then
         i2cperipherals_cs <= '1';
       end if;
       
