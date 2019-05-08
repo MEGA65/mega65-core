@@ -94,22 +94,27 @@ begin
       debug_scl => '0'      
       ); 
   
-  process (clock) is
+  process (clock,cs,fastio_read,fastio_addr) is
   begin
-    if rising_edge(clock) then
 
-      if cs='1' and fastio_read='1' then
-        if fastio_addr(7 downto 5) = "000" then
-          fastio_rdata <= bytes(to_integer(fastio_addr(4 downto 0)));
-        elsif fastio_addr(7 downto 5) = "111" then
-          fastio_rdata <= x"42";
-        else
-          fastio_rdata <= to_unsigned(busy_count,8);
-        end if;
+    if cs='1' and fastio_read='1' then
+      if fastio_addr(7 downto 5) = "000" then
+        report "reading buffered I2C data";
+        fastio_rdata <= bytes(to_integer(fastio_addr(4 downto 0)));
+      elsif fastio_addr(7 downto 5) = "111" then
+        report "reading busy count";
+        fastio_rdata <= to_unsigned(busy_count,8);
       else
-        fastio_rdata <= (others => 'Z');
-      end if; 
+        report "reading 42";
+        fastio_rdata <= x"42";
+      end if;
+    else
+      report "tristating";
+      fastio_rdata <= (others => 'Z');
+    end if; 
 
+    if rising_edge(clock) then
+    
       i2c1_reset <= '1';
 
       -- State machine for reading registers from the various

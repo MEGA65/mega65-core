@@ -1387,6 +1387,7 @@ begin
       i2cperipherals_cs <= '0';
       if address(19 downto 8) = x"D70" then
         i2cperipherals_cs <= '1';
+        report "i2cperipherals_cs asserted";
       end if;
       
       cs_driveram <= '0';
