@@ -4,6 +4,28 @@
 	; It is used for debugging various things using GHDL simulation,
 	; because the simulation is so slow, we want things to run instantly.
 
+
+.macro i2cperiph
+
+       lda #$00
+       sta $f0
+       lda #$70
+       sta $f1
+       lda #$FD
+       sta $f2
+       lda #$0F
+       sta $F3
+
+       ldz #$00
+i2cl1:
+       nop
+       lda ($f0),z
+       inz
+       bne i2cl1
+
+.macend
+;.invoke i2cperiph
+
 .macro bitplane_test
        lda #$22
        sta $d033
