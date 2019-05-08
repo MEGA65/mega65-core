@@ -3651,7 +3651,9 @@ begin
                                         -- Catch the CPU when it goes to the next instruction if single stepping.
       if ((monitor_mem_trace_mode='0' or
            monitor_mem_trace_toggle_last /= monitor_mem_trace_toggle)
-          and (monitor_mem_attention_request_drive='0')) then
+          and (monitor_mem_attention_request_drive='0'))
+        or ( monitor_mem_trace_toggle = 'U' or monitor_mem_attention_request_drive = 'U' )
+      then
         monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
         normal_fetch_state <= InstructionFetch;
 
@@ -3706,12 +3708,19 @@ begin
           cpuspeed_internal <= x"40";
         end if;
       else
+        report "Forcing processor hold: trace_mode="
+          & std_logic'image(monitor_mem_trace_mode)
+          & " toggle_last=" & std_logic'image(monitor_mem_trace_toggle_last)
+          & " toggle=" & std_logic'image(monitor_mem_trace_toggle)
+          & " attn_req_drive=" & std_logic'image(monitor_mem_attention_request_drive);
+        
         normal_fetch_state <= ProcessorHold;
         fast_fetch_state <= ProcessorHold;
       end if;
 
                                         -- Force single step while I debug it.
       if debugging_single_stepping='1' then
+        report "Forcing processor hold due to debugging_single_step";
         normal_fetch_state <= ProcessorHold;
         fast_fetch_state <= ProcessorHold;
       end if;
@@ -3979,6 +3988,7 @@ begin
               else
                 monitor_mem_attention_granted <= '0';
                 monitor_mem_attention_granted_internal <= '0';
+                report "Holding processor due to monitor memory access";
                 state <= ProcessorHold;
               end if;
             when TrapToHypervisor =>
