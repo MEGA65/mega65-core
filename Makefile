@@ -73,7 +73,8 @@ TOOLS=	$(TOOLDIR)/etherhyppo/etherhyppo \
 	$(TOOLDIR)/mega65_ftp \
 	$(TOOLDIR)/monitor_save \
 	$(TOOLDIR)/on_screen_keyboard_gen \
-	$(TOOLDIR)/pngprepare/pngprepare
+	$(TOOLDIR)/pngprepare/pngprepare \
+	$(TOOLDIR)/i2cstatemapper
 
 all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r1.mcs $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr.mcs $(TOOLDIR)/monitor_load $(TOOLDIR)/mega65_ftp $(TOOLDIR)/monitor_save $(SDCARD_DIR)/FREEZER.M65
 

@@ -114,7 +114,6 @@ begin
         fastio_rdata <= to_unsigned(busy_count,8);
       end if;
     else
-      report "tristating";
       fastio_rdata <= (others => 'Z');
     end if; 
 
@@ -156,110 +155,236 @@ begin
       if i2c1_busy='1' and last_busy='0' then
 
         -- Sequence through the list of transactions endlessly
-        if (busy_count < 135) or (write_job_pending='1' and busy_count < (135+3)) then
+        if (busy_count < 153) or (write_job_pending='1' and busy_count < (153+3)) then
           busy_count <= busy_count + 1;
         else
           busy_count <= 0;
         end if;
       end if;
-        
+      
       case busy_count is
+        -- The body for this case statement can be automatically generated
+        -- using src/tools/i2cstatemapper.c
+
+        --------------------------------------------------------------------
+        -- Start of Auto-Generated Content
+        --------------------------------------------------------------------        
         when 0 =>
-          -- Begin IO expander 0 read sequence
-          i2c1_command_en <= '1';
-          i2c1_address <= "0111001"; -- 0x72/2 = I2C address of expander
-          i2c1_wdata <= x"00"; -- begin reading from register 0
-          i2c1_rw <= '0';
-        when 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9  =>
-          -- Read the 8 bytes of inputs from the IO expander
-          i2c1_rw <= '1';
-          i2c1_command_en <= '1';
-          if busy_count > 1 then
-            bytes(busy_count - 1 - 1) <= i2c1_rdata;
-          end if;
-        when 10 =>
-          -- Begin IO expander 1 read sequence
-          i2c1_command_en <= '1';
-          i2c1_address <= "0111010"; -- 0x74/2 = I2C address of expander
-          i2c1_wdata <= x"00"; -- begin reading from register 0
-          i2c1_rw <= '0';
-        when 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19  =>
-          -- Read the 8 bytes of inputs from the IO expander
-          i2c1_rw <= '1';
-          i2c1_command_en <= '1';
-          if busy_count > 11 then
-            bytes(busy_count - 11 - 1 + 8) <= i2c1_rdata;
-          end if;
+        report "IO Expander #0 regs 0-1";
+        i2c1_command_en <= '1';
+        i2c1_address <= "0111001"; -- 0x72/2 = I2C address of device;
+        i2c1_wdata <= x"00";
+        i2c1_rw <= '0';
+        when 1 | 2 | 3 =>
+        -- Read the 2 bytes from the device
+        i2c1_rw <= '1';
+        i2c1_command_en <= '1';
+        if busy_count > 1 then
+          bytes(busy_count - 1 - 1 + 0) <= i2c1_rdata;
+        end if;
+        report "IO Expander #0 regs 2-3";
+        when 4 =>
+        i2c1_command_en <= '1';
+        i2c1_address <= "0111001"; -- 0x72/2 = I2C address of device;
+        i2c1_wdata <= x"02";
+        i2c1_rw <= '0';
+        when 5 | 6 | 7 =>
+        -- Read the 2 bytes from the device
+        i2c1_rw <= '1';
+        i2c1_command_en <= '1';
+        if busy_count > 5 then
+          bytes(busy_count - 1 - 5 + 2) <= i2c1_rdata;
+        end if;
+        report "IO Expander #0 regs 4-5";
+        when 8 =>
+        i2c1_command_en <= '1';
+        i2c1_address <= "0111001"; -- 0x72/2 = I2C address of device;
+        i2c1_wdata <= x"04";
+        i2c1_rw <= '0';
+        when 9 | 10 | 11 =>
+        -- Read the 2 bytes from the device
+        i2c1_rw <= '1';
+        i2c1_command_en <= '1';
+        if busy_count > 9 then
+          bytes(busy_count - 1 - 9 + 4) <= i2c1_rdata;
+        end if;
+        report "IO Expander #0 regs 6-7";
+        when 12 =>
+        i2c1_command_en <= '1';
+        i2c1_address <= "0111001"; -- 0x72/2 = I2C address of device;
+        i2c1_wdata <= x"06";
+        i2c1_rw <= '0';
+        when 13 | 14 | 15 =>
+        -- Read the 2 bytes from the device
+        i2c1_rw <= '1';
+        i2c1_command_en <= '1';
+        if busy_count > 13 then
+          bytes(busy_count - 1 - 13 + 6) <= i2c1_rdata;
+        end if;
+        report "IO Expander #1 regs 0-1";
+        when 16 =>
+        i2c1_command_en <= '1';
+        i2c1_address <= "0111010"; -- 0x74/2 = I2C address of device;
+        i2c1_wdata <= x"00";
+        i2c1_rw <= '0';
+        when 17 | 18 | 19 =>
+        -- Read the 2 bytes from the device
+        i2c1_rw <= '1';
+        i2c1_command_en <= '1';
+        if busy_count > 17 then
+          bytes(busy_count - 1 - 17 + 8) <= i2c1_rdata;
+        end if;
+        report "IO Expander #1 regs 2-3";
         when 20 =>
-          -- Begin IO expander 2 read sequence
-          i2c1_command_en <= '1';
-          i2c1_address <= "0111011"; -- 0x76/2 = I2C address of expander
-          i2c1_wdata <= x"00"; -- begin reading from register 0
-          i2c1_rw <= '0';
-        when 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29  =>
-          -- Read the two bytes of inputs from the IO expander
-          i2c1_rw <= '1';
-          i2c1_command_en <= '1';
-          if busy_count > 21 then
-            bytes(busy_count - 21 - 1  + 16) <= i2c1_rdata;
-          end if;
-        when 30 =>
-          -- Begin RTC read sequence
-          i2c1_command_en <= '1';
-          i2c1_address <= "1010001"; -- 0xA2/2 = I2C address of RTC
-          i2c1_wdata <= x"00"; -- begin reading from register 0
-          i2c1_rw <= '0';
-        when 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 | 48 | 49 =>
-          -- Read the 19 bytes of inputs from the IO expander
-          i2c1_rw <= '1';
-          i2c1_command_en <= '1';
-          if busy_count > 31 then
-            bytes(busy_count - 31 - 1 + 24) <= i2c1_rdata;
-          end if;
-        when 50 =>
-          -- Begin SSM2518 amplifier read sequence of 19 registers
-          i2c1_command_en <= '1';
-          i2c1_address <= "0110100"; -- 0x68/2 = I2C address of amplifier
-          i2c1_wdata <= x"00"; -- begin reading from register 0
-          i2c1_rw <= '0';
-        when 51 | 52 | 53 | 54 | 55 | 56 | 57 | 58 | 59 | 60 | 61 | 62 | 63 | 64 | 65 | 66 | 67 | 68 | 69 | 70 =>
-          -- Read the 16 bytes of inputs from the IO expander
-          i2c1_rw <= '1';
-          i2c1_command_en <= '1';
-          if busy_count > 51 then
-            bytes(busy_count - 51 - 1 + 40) <= i2c1_rdata;
-          end if;
-        when 71 =>
-          -- Begin LIS3DH accelerometer read sequence of 64 registers
-          i2c1_command_en <= '1';
-          i2c1_address <= "0011001"; -- 0x32/2 = I2C address of accelerometer
-          i2c1_wdata <= x"00"; -- begin reading from register 0
-          i2c1_rw <= '0';
-        when 72 | 73 | 74 | 75 | 76 | 77 | 78 | 79 | 80 | 81 | 82 | 83 | 84 | 85 | 86 | 87 | 88 | 89 | 90 | 91 | 92 | 93 | 94 | 95 | 96 | 97 | 98 | 99 | 100 | 101 | 102 | 103 | 104 | 105 | 106 | 107 | 108 | 109 | 110 | 111 | 112 | 113 | 114 | 115 | 116 | 117 | 118 | 119 | 120 | 121 | 122 | 123 | 124 | 125 | 126 | 127 | 128 | 129 | 130 | 131 | 132 | 133 | 134 | 135 =>
-          -- Read the 16 bytes of inputs from the IO expander
-          i2c1_rw <= '1';
-          i2c1_command_en <= '1';
-          if busy_count > 72 then
-            bytes(busy_count - 72 - 1 + 64) <= i2c1_rdata;
-          end if;
-        when 136 =>
-          -- Write to a register, if a request is pending:
-          -- First, write the address and register number.
-          i2c1_rw <= '0';
-          i2c1_command_en <= '1';
-          i2c1_address <= write_addr(7 downto 1);
-          i2c1_wdata <= write_reg;
-        when 137 =>
-          -- Second, write the actual value into the register
-          i2c1_rw <= '0';
-          i2c1_command_en <= '1';
-          i2c1_wdata <= write_val;
-          write_job_pending <= '0';
+        i2c1_command_en <= '1';
+        i2c1_address <= "0111010"; -- 0x74/2 = I2C address of device;
+        i2c1_wdata <= x"02";
+        i2c1_rw <= '0';
+        when 21 | 22 | 23 =>
+        -- Read the 2 bytes from the device
+        i2c1_rw <= '1';
+        i2c1_command_en <= '1';
+        if busy_count > 21 then
+          bytes(busy_count - 1 - 21 + 10) <= i2c1_rdata;
+        end if;
+        report "IO Expander #1 regs 4-5";
+        when 24 =>
+        i2c1_command_en <= '1';
+        i2c1_address <= "0111010"; -- 0x74/2 = I2C address of device;
+        i2c1_wdata <= x"04";
+        i2c1_rw <= '0';
+        when 25 | 26 | 27 =>
+        -- Read the 2 bytes from the device
+        i2c1_rw <= '1';
+        i2c1_command_en <= '1';
+        if busy_count > 25 then
+          bytes(busy_count - 1 - 25 + 12) <= i2c1_rdata;
+        end if;
+        report "IO Expander #1 regs 6-7";
+        when 28 =>
+        i2c1_command_en <= '1';
+        i2c1_address <= "0111010"; -- 0x74/2 = I2C address of device;
+        i2c1_wdata <= x"06";
+        i2c1_rw <= '0';
+        when 29 | 30 | 31 =>
+        -- Read the 2 bytes from the device
+        i2c1_rw <= '1';
+        i2c1_command_en <= '1';
+        if busy_count > 29 then
+          bytes(busy_count - 1 - 29 + 14) <= i2c1_rdata;
+        end if;
+        report "IO Expander #2 regs 0-1";
+        when 32 =>
+        i2c1_command_en <= '1';
+        i2c1_address <= "0111011"; -- 0x76/2 = I2C address of device;
+        i2c1_wdata <= x"00";
+        i2c1_rw <= '0';
+        when 33 | 34 | 35 =>
+        -- Read the 2 bytes from the device
+        i2c1_rw <= '1';
+        i2c1_command_en <= '1';
+        if busy_count > 33 then
+          bytes(busy_count - 1 - 33 + 16) <= i2c1_rdata;
+        end if;
+        report "IO Expander #2 regs 2-3";
+        when 36 =>
+        i2c1_command_en <= '1';
+        i2c1_address <= "0111011"; -- 0x76/2 = I2C address of device;
+        i2c1_wdata <= x"02";
+        i2c1_rw <= '0';
+        when 37 | 38 | 39 =>
+        -- Read the 2 bytes from the device
+        i2c1_rw <= '1';
+        i2c1_command_en <= '1';
+        if busy_count > 37 then
+          bytes(busy_count - 1 - 37 + 18) <= i2c1_rdata;
+        end if;
+        report "IO Expander #2 regs 4-5";
+        when 40 =>
+        i2c1_command_en <= '1';
+        i2c1_address <= "0111011"; -- 0x76/2 = I2C address of device;
+        i2c1_wdata <= x"04";
+        i2c1_rw <= '0';
+        when 41 | 42 | 43 =>
+        -- Read the 2 bytes from the device
+        i2c1_rw <= '1';
+        i2c1_command_en <= '1';
+        if busy_count > 41 then
+          bytes(busy_count - 1 - 41 + 20) <= i2c1_rdata;
+        end if;
+        report "IO Expander #2 regs 6-7";
+        when 44 =>
+        i2c1_command_en <= '1';
+        i2c1_address <= "0111011"; -- 0x76/2 = I2C address of device;
+        i2c1_wdata <= x"06";
+        i2c1_rw <= '0';
+        when 45 | 46 | 47 =>
+        -- Read the 2 bytes from the device
+        i2c1_rw <= '1';
+        i2c1_command_en <= '1';
+        if busy_count > 45 then
+          bytes(busy_count - 1 - 45 + 22) <= i2c1_rdata;
+        end if;
+        report "Real Time clock regs 0 -- 18";
+        when 48 =>
+        i2c1_command_en <= '1';
+        i2c1_address <= "1010001"; -- 0xA2/2 = I2C address of device;
+        i2c1_wdata <= x"00";
+        i2c1_rw <= '0';
+        when 49 | 50 | 51 | 52 | 53 | 54 | 55 | 56 | 57 | 58 | 59 | 60 | 61 | 62 | 63 | 64 | 65 | 66 | 67 | 68 =>
+        -- Read the 19 bytes from the device
+        i2c1_rw <= '1';
+        i2c1_command_en <= '1';
+        if busy_count > 49 then
+          bytes(busy_count - 1 - 49 + 24) <= i2c1_rdata;
+        end if;
+        report "Audio amplifier regs 0 - 15";
+        when 69 =>
+        i2c1_command_en <= '1';
+        i2c1_address <= "0110100"; -- 0x68/2 = I2C address of device;
+        i2c1_wdata <= x"00";
+        i2c1_rw <= '0';
+        when 70 | 71 | 72 | 73 | 74 | 75 | 76 | 77 | 78 | 79 | 80 | 81 | 82 | 83 | 84 | 85 | 86 =>
+        -- Read the 16 bytes from the device
+        i2c1_rw <= '1';
+        i2c1_command_en <= '1';
+        if busy_count > 70 then
+          bytes(busy_count - 1 - 70 + 48) <= i2c1_rdata;
+        end if;
+        report "Acclerometer regs 0 - 63";
+        when 87 =>
+        i2c1_command_en <= '1';
+        i2c1_address <= "0011001"; -- 0x32/2 = I2C address of device;
+        i2c1_wdata <= x"01"; -- Auto-increment register number
+        i2c1_rw <= '0';
+        when 88 | 89 | 90 | 91 | 92 | 93 | 94 | 95 | 96 | 97 | 98 | 99 | 100 | 101 | 102 | 103 | 104 | 105 | 106 | 107 | 108 | 109 | 110 | 111 | 112 | 113 | 114 | 115 | 116 | 117 | 118 | 119 | 120 | 121 | 122 | 123 | 124 | 125 | 126 | 127 | 128 | 129 | 130 | 131 | 132 | 133 | 134 | 135 | 136 | 137 | 138 | 139 | 140 | 141 | 142 | 143 | 144 | 145 | 146 | 147 | 148 | 149 | 150 | 151 | 152 =>
+        -- Read the 64 bytes from the device
+        i2c1_rw <= '1';
+        i2c1_command_en <= '1';
+        if busy_count > 88 then
+          bytes(busy_count - 1 - 88 + 64) <= i2c1_rdata;
+        end if;
+        --------------------------------------------------------------------
+        -- End of Auto-Generated Content
+        --------------------------------------------------------------------        
+        when 153 =>
+        -- Write to a register, if a request is pending:
+        -- First, write the address and register number.
+        i2c1_rw <= '0';
+        i2c1_command_en <= '1';
+        i2c1_address <= write_addr(7 downto 1);
+        i2c1_wdata <= write_reg;
+        when 154 =>
+        -- Second, write the actual value into the register
+        i2c1_rw <= '0';
+        i2c1_command_en <= '1';
+        i2c1_wdata <= write_val;
+        write_job_pending <= '0';
         when others =>
-          -- Make sure we can't get stuck.
-          i2c1_command_en <= '0';
-          busy_count <= 0;
-          last_busy <= '1';
+        -- Make sure we can't get stuck.
+        i2c1_command_en <= '0';
+        busy_count <= 0;
+        last_busy <= '1';
       end case;
       
     end if;

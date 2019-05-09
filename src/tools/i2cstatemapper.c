@@ -40,7 +40,9 @@ struct entry e[]={
   {0x68,0x00,0x0F,0x30,"Audio amplifier regs 0 - 15"},
 
   // Accelerometer
-  {0x32,0x00,0x3F,0x40,"Acclerometer regs 0 - 63"},
+  // (Reg nums here are the lower 7 bits, the upper bit indicating auto-increment of
+  // register address, which we set, so that we can read all the regs in one go.)
+  {0x32,0x80,0xBF,0x40,"Acclerometer regs 0 - 63"},
   
   {-1,-1,-1,-1}
 };
@@ -51,12 +53,14 @@ int main(int argc,char **argv)
 
 
   for(int i=0;e[i].addr>-1;i++) {
-    printf("report \"%s\";\n"
-	   "when %d =>\n"
+    printf("when %d =>\n"
+	   "report \"%s\";\n"	   
 	   "  i2c1_command_en <= '1';\n"
 	   "  i2c1_address <= \"%c%c%c%c%c%c%c\"; -- 0x%02X/2 = I2C address of device;\n"
+	   "  i2c1_wdata <= x\"%02X\";\n"
 	   "  i2c1_rw <= '0';\n",
-	   e[i].desc,busy_count,
+	   busy_count,
+	   e[i].desc,
 	   (e[i].addr&0x80)?'1':'0',
 	   (e[i].addr&0x40)?'1':'0',
 	   (e[i].addr&0x20)?'1':'0',
@@ -64,7 +68,8 @@ int main(int argc,char **argv)
 	   (e[i].addr&0x8)?'1':'0',
 	   (e[i].addr&0x4)?'1':'0',
 	   (e[i].addr&0x2)?'1':'0',
-	   e[i].addr);
+	   e[i].addr,
+	   e[i].reg_low);
     busy_count++;
     int first=busy_count;
     printf(" when");
