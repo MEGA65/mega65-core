@@ -73,6 +73,11 @@ architecture behavioural of i2c_wrapper is
   subtype uint8 is unsigned(7 downto 0);
   type byte_array is array (0 to 127) of uint8;
   signal bytes : byte_array := (others => x"00");
+
+  signal write_job_pending : std_logic := '0';
+  signal write_addr : unsigned(7 downto 0);
+  signal write_reg : unsigned(7 downto 0);
+  signal write_val : unsigned(7 downto 0);
   
 begin
 
@@ -100,13 +105,13 @@ begin
     if cs='1' and fastio_read='1' then
       if fastio_addr(7) = '0' then
         report "reading buffered I2C data";
-        fastio_rdata <= bytes(to_integer(fastio_addr(5 downto 0)));
-      elsif fastio_addr(7 downto 5) = "111" then
-        report "reading busy count";
-        fastio_rdata <= to_unsigned(busy_count,8);
+        fastio_rdata <= bytes(to_integer(fastio_addr(6 downto 0)));
+      elsif fastio_addr(7 downto 0) = "11111111" then
+        -- Show busy status for writing
+        fastio_rdata <= (others => write_job_pending);
       else
-        report "reading 42";
-        fastio_rdata <= x"42";
+        -- Else for debug show busy count
+        fastio_rdata <= to_unsigned(busy_count,8);
       end if;
     else
       report "tristating";
@@ -114,7 +119,35 @@ begin
     end if; 
 
     if rising_edge(clock) then
-    
+
+      -- Write to registers as required
+      if cs='1' and fastio_write='1' then
+        case fastio_addr(7 downto 0) is
+          when 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 =>
+            write_reg <= fastio_addr(7 downto 0) - 0;
+            write_addr <= x"72";
+            write_job_pending <= '1';
+          when 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 =>
+            write_reg <= fastio_addr(7 downto 0) - 8;
+            write_addr <= x"74";            
+            write_job_pending <= '1';
+          when 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 =>
+            write_reg <= fastio_addr(7 downto 0) - 16;
+            write_addr <= x"76";
+            write_job_pending <= '1';
+          when 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 =>
+            write_reg <= fastio_addr(7 downto 0) - 24;
+            write_addr <= x"A2";
+            write_job_pending <= '1';
+          when 64 | 65 | 66 | 67 | 68 | 69 | 70 | 71 | 72 | 73 | 74 | 75 | 76 | 77 | 78 | 79 | 80 | 81 | 82 | 83 | 84 | 85 | 86 | 87 | 88 | 89 | 90 | 91 | 92 | 93 | 94 | 95 | 96 | 97 | 98 | 99 | 100 | 101 | 102 | 103 | 104 | 105 | 106 | 107 | 108 | 109 | 110 | 111 | 112 | 113 | 114 | 115 | 116 | 117 | 118 | 119 | 120 | 121 | 122 | 123 | 124 | 125 | 126 | 127 =>
+            write_reg <= fastio_addr(7 downto 0) - 64;
+            write_addr <= x"32";
+            write_job_pending <= '1';            
+          when others =>
+        end case;
+        write_val <= fastio_wdata;
+      end if;
+      
       i2c1_reset <= '1';
 
       -- State machine for reading registers from the various
@@ -123,7 +156,7 @@ begin
       if i2c1_busy='0' and last_busy='1' then
 
         -- Sequence through the list of transactions endlessly
-        if busy_count < 70 then
+        if (busy_count < 135) or (write_job_pending='1' and busy_count < (135+3)) then
           busy_count <= busy_count + 1;
         else
           busy_count <= 0;
@@ -176,7 +209,7 @@ begin
             i2c1_wdata <= x"00"; -- begin reading from register 0
             i2c1_rw <= '0';
           when 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 | 48 | 49 =>
-            -- Read the 16 bytes of inputs from the IO expander
+            -- Read the 19 bytes of inputs from the IO expander
             i2c1_rw <= '1';
             i2c1_command_en <= '1';
             if busy_count > 31 then
@@ -208,6 +241,19 @@ begin
             if busy_count > 72 then
               bytes(busy_count - 72 - 1 + 64) <= i2c1_rdata;
             end if;
+          when 136 =>
+            -- Write to a register, if a request is pending:
+            -- First, write the address and register number.
+            i2c1_rw <= '0';
+            i2c1_command_en <= '1';
+            i2c1_address <= write_addr(7 downto 1);
+            i2c1_wdata <= write_reg;
+          when 137 =>
+            -- Second, write the actual value into the register
+            i2c1_rw <= '0';
+            i2c1_command_en <= '1';
+            i2c1_wdata <= write_val;
+            write_job_pending <= '0';
           when others =>
             -- Make sure we can't get stuck.
             i2c1_command_en <= '0';
