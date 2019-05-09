@@ -57,7 +57,7 @@ unsigned char lpeek(long address)
   dmalist.command=0x00; // copy
   dmalist.count=1;
   dmalist.source_addr=address&0xffff;
-  dmalist.source_bank=(address>>16)&0x7f;
+  dmalist.source_bank=(address>>16)&0x0f;
   dmalist.dest_addr=(unsigned int)&dma_byte;
   dmalist.dest_bank=0;
 
@@ -150,8 +150,9 @@ void main(void)
 {
   //m65_io_enable();
   //printf("Hello world");
-  unsigned char seconds = lpeek(0xffd7026);
+  unsigned char seconds = 0;
   unsigned char minutes = 0;
+  unsigned char hours = 0;
 
   //Function to display current time from Real Time Clock
   while(1){
@@ -161,12 +162,14 @@ void main(void)
     // Only update when every second, otherwise wait
     // while(seconds==lpeek(0xffd7026)){};
 
-    seconds = lpeek(0xffd7026);
-    minutes = lpeek(0xffd7027);
-    m65_io_enable();
+    seconds = lpeek(0xffd701a);
+    minutes = lpeek(0xffd701b);
+    hours = lpeek(0xffd701c);
+    printf("%02x:",hours&0x3f);
+    printf("%02x.",minutes&0x7f);
     printf("%02x",seconds&0x7f); //Prints BCD byte
     //Since bit 7 is always set, mask it off with 0x7f
-    printf("%02x",minutes&0x7f);
-    // printf(\n);
+
+    printf("\n");
   }
 }
