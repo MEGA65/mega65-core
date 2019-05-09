@@ -71,7 +71,7 @@ architecture behavioural of i2c_wrapper is
   signal last_busy : std_logic := '1';
   
   subtype uint8 is unsigned(7 downto 0);
-  type byte_array is array (0 to 63) of uint8;
+  type byte_array is array (0 to 127) of uint8;
   signal bytes : byte_array := (others => x"00");
   
 begin
@@ -98,7 +98,7 @@ begin
   begin
 
     if cs='1' and fastio_read='1' then
-      if fastio_addr(7 downto 6) = "00" then
+      if fastio_addr(7) = '0' then
         report "reading buffered I2C data";
         fastio_rdata <= bytes(to_integer(fastio_addr(5 downto 0)));
       elsif fastio_addr(7 downto 5) = "111" then
@@ -123,7 +123,7 @@ begin
       if i2c1_busy='0' and last_busy='1' then
 
         -- Sequence through the list of transactions endlessly
-        if busy_count < 49 then
+        if busy_count < 70 then
           busy_count <= busy_count + 1;
         else
           busy_count <= 0;
@@ -179,8 +179,34 @@ begin
             -- Read the 16 bytes of inputs from the IO expander
             i2c1_rw <= '1';
             i2c1_command_en <= '1';
-            if busy_count > 13 then
+            if busy_count > 31 then
               bytes(busy_count - 31 - 1 + 24) <= i2c1_rdata;
+            end if;
+          when 50 =>
+            -- Begin SSM2518 amplifier read sequence of 19 registers
+            i2c1_command_en <= '1';
+            i2c1_address <= "0110100"; -- 0x68/2 = I2C address of amplifier
+            i2c1_wdata <= x"00"; -- begin reading from register 0
+            i2c1_rw <= '0';
+          when 51 | 52 | 53 | 54 | 55 | 56 | 57 | 58 | 59 | 60 | 61 | 62 | 63 | 64 | 65 | 66 | 67 | 68 | 69 | 70 =>
+            -- Read the 16 bytes of inputs from the IO expander
+            i2c1_rw <= '1';
+            i2c1_command_en <= '1';
+            if busy_count > 51 then
+              bytes(busy_count - 51 - 1 + 40) <= i2c1_rdata;
+            end if;
+          when 71 =>
+            -- Begin LIS3DH accelerometer read sequence of 64 registers
+            i2c1_command_en <= '1';
+            i2c1_address <= "0011001"; -- 0x32/2 = I2C address of accelerometer
+            i2c1_wdata <= x"00"; -- begin reading from register 0
+            i2c1_rw <= '0';
+          when 72 | 73 | 74 | 75 | 76 | 77 | 78 | 79 | 80 | 81 | 82 | 83 | 84 | 85 | 86 | 87 | 88 | 89 | 90 | 91 | 92 | 93 | 94 | 95 | 96 | 97 | 98 | 99 | 100 | 101 | 102 | 103 | 104 | 105 | 106 | 107 | 108 | 109 | 110 | 111 | 112 | 113 | 114 | 115 | 116 | 117 | 118 | 119 | 120 | 121 | 122 | 123 | 124 | 125 | 126 | 127 | 128 | 129 | 130 | 131 | 132 | 133 | 134 | 135 =>
+            -- Read the 16 bytes of inputs from the IO expander
+            i2c1_rw <= '1';
+            i2c1_command_en <= '1';
+            if busy_count > 72 then
+              bytes(busy_count - 72 - 1 + 64) <= i2c1_rdata;
             end if;
           when others =>
             -- Make sure we can't get stuck.
