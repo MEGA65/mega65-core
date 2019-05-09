@@ -121,11 +121,14 @@ begin
       -- devices.
       last_busy <= i2c1_busy;
       if i2c1_busy='0' and last_busy='1' then
-        if busy_count < 255 then
+
+        -- Sequence through the list of transactions endlessly
+        if busy_count < 29 then
           busy_count <= busy_count + 1;
         else
           busy_count <= 0;
         end if;
+
         case busy_count is
           when 0 =>
             -- Begin IO expander 0 read sequence
@@ -141,54 +144,49 @@ begin
               bytes(busy_count - 2) <= i2c1_rdata;
             end if;
           when 4 =>
-            i2c1_command_en <= '0';
-          when 5 =>
             -- Begin IO expander 1 read sequence
             i2c1_command_en <= '1';
             i2c1_address <= "0111010"; -- 0x74/2 = I2C address of expander
             i2c1_wdata <= x"00"; -- begin reading from register 0
             i2c1_rw <= '0';
-          when 6 | 7 | 8  =>
+          when 5 | 6 | 7  =>
             -- Read the two bytes of inputs from the IO expander
             i2c1_rw <= '1';
             i2c1_command_en <= '1';
-            if busy_count > 6 then
-              bytes(busy_count - 7 + 2) <= i2c1_rdata;
+            if busy_count > 5 then
+              bytes(busy_count - 6 + 2) <= i2c1_rdata;
             end if;
-          when 9 =>
-            i2c1_command_en <= '0';
-          when 10 =>
+          when 8 =>
             -- Begin IO expander 2 read sequence
             i2c1_command_en <= '1';
             i2c1_address <= "0111011"; -- 0x76/2 = I2C address of expander
             i2c1_wdata <= x"00"; -- begin reading from register 0
             i2c1_rw <= '0';
-          when 11 | 12 | 13  =>
+          when 9 | 10 | 11  =>
             -- Read the two bytes of inputs from the IO expander
             i2c1_rw <= '1';
             i2c1_command_en <= '1';
-            if busy_count > 11 then
-              bytes(busy_count - 12 + 2 + 2) <= i2c1_rdata;
+            if busy_count > 9 then
+              bytes(busy_count - 10 + 2 + 2) <= i2c1_rdata;
             end if;
-          when 14 =>
-            i2c1_command_en <= '0';
-          when 15 =>
+          when 12 =>
             -- Begin RTC read sequence
             i2c1_command_en <= '1';
             i2c1_address <= "1010001"; -- 0xA2/2 = I2C address of RTC
             i2c1_wdata <= x"00"; -- begin reading from register 0
             i2c1_rw <= '0';
-          when 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32  =>
+          when 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29  =>
             -- Read the 16 bytes of inputs from the IO expander
             i2c1_rw <= '1';
             i2c1_command_en <= '1';
-            if busy_count > 16 then
-              bytes(busy_count - 17 + 16) <= i2c1_rdata;
+            if busy_count > 13 then
+              bytes(busy_count - 17 + 13) <= i2c1_rdata;
             end if;
-          when 14 =>
-            i2c1_command_en <= '0';
           when others =>
-            null;
+            -- Make sure we can't get stuck.
+            i2c1_command_en <= '0';
+            busy_count <= 0;
+            last_busy <= '1';
         end case;
         
       end if;
