@@ -191,99 +191,99 @@ begin
         --------------------------------------------------------------------        
         when 0 =>
         report "IO Expander #0 regs 0-1";
-        i2c1_command_en <= '0';
-        delayed_en <= '1';
+        i2c1_command_en <= '1';
         i2c1_address <= "0111001"; -- 0x72/2 = I2C address of device;
         i2c1_wdata <= x"00";
         i2c1_rw <= '0';
         when 1 | 2 | 3 =>
         -- Read the 2 bytes from the device
         i2c1_rw <= '1';
-        i2c1_command_en <= '1';
+        i2c1_command_en <= '0';
+        delayed_en <= '1';
         if busy_count > 1 then
           bytes(busy_count - 1 - 1 + 0) <= i2c1_rdata;
         end if;
         report "IO Expander #0 regs 2-3";
         when 4 =>
-        i2c1_command_en <= '0';
-        delayed_en <= '1';
+        i2c1_command_en <= '1';
         i2c1_address <= "0111001"; -- 0x72/2 = I2C address of device;
         i2c1_wdata <= x"02";
         i2c1_rw <= '0';
         when 5 | 6 | 7 =>
         -- Read the 2 bytes from the device
         i2c1_rw <= '1';
-        i2c1_command_en <= '1';
+        i2c1_command_en <= '0';
+        delayed_en <= '1';
         if busy_count > 5 then
           bytes(busy_count - 1 - 5 + 2) <= i2c1_rdata;
         end if;
         report "IO Expander #0 regs 4-5";
         when 8 =>
-        i2c1_command_en <= '0';
-        delayed_en <= '1';
+        i2c1_command_en <= '1';
         i2c1_address <= "0111001"; -- 0x72/2 = I2C address of device;
         i2c1_wdata <= x"04";
         i2c1_rw <= '0';
         when 9 | 10 | 11 =>
         -- Read the 2 bytes from the device
         i2c1_rw <= '1';
-        i2c1_command_en <= '1';
+        i2c1_command_en <= '0';
+        delayed_en <= '1';
         if busy_count > 9 then
           bytes(busy_count - 1 - 9 + 4) <= i2c1_rdata;
         end if;
         report "IO Expander #0 regs 6-7";
         when 12 =>
-        i2c1_command_en <= '0';
-        delayed_en <= '1';
+        i2c1_command_en <= '1';
         i2c1_address <= "0111001"; -- 0x72/2 = I2C address of device;
         i2c1_wdata <= x"06";
         i2c1_rw <= '0';
         when 13 | 14 | 15 =>
         -- Read the 2 bytes from the device
         i2c1_rw <= '1';
-        i2c1_command_en <= '1';
+        i2c1_command_en <= '0';
+        delayed_en <= '1';
         if busy_count > 13 then
           bytes(busy_count - 1 - 13 + 6) <= i2c1_rdata;
         end if;
         report "IO Expander #1 regs 0-1";
         when 16 =>
-        i2c1_command_en <= '0';
-        delayed_en <= '1';
+        i2c1_command_en <= '1';
         i2c1_address <= "0111010"; -- 0x74/2 = I2C address of device;
         i2c1_wdata <= x"00";
         i2c1_rw <= '0';
         when 17 | 18 | 19 =>
         -- Read the 2 bytes from the device
         i2c1_rw <= '1';
-        i2c1_command_en <= '1';
+        i2c1_command_en <= '0';
+        delayed_en <= '1';
         if busy_count > 17 then
           bytes(busy_count - 1 - 17 + 8) <= i2c1_rdata;
         end if;
         report "IO Expander #1 regs 2-3";
         when 20 =>
-        i2c1_command_en <= '0';
-        delayed_en <= '1';
+        i2c1_command_en <= '1';
         i2c1_address <= "0111010"; -- 0x74/2 = I2C address of device;
         i2c1_wdata <= x"02";
         i2c1_rw <= '0';
         when 21 | 22 | 23 =>
         -- Read the 2 bytes from the device
         i2c1_rw <= '1';
-        i2c1_command_en <= '1';
+        i2c1_command_en <= '0';
+        delayed_en <= '1';
         if busy_count > 21 then
           bytes(busy_count - 1 - 21 + 10) <= i2c1_rdata;
         end if;
         report "IO Expander #1 regs 4-5";
         when 24 =>
-        i2c1_command_en <= '0';
-        delayed_en <= '1';
+        i2c1_command_en <= '1';
         i2c1_address <= "0111010"; -- 0x74/2 = I2C address of device;
         i2c1_wdata <= x"04";
         i2c1_rw <= '0';
         when 25 | 26 | 27 =>
         -- Read the 2 bytes from the device
         i2c1_rw <= '1';
-        i2c1_command_en <= '1';
+        i2c1_command_en <= '0';
+        delayed_en <= '1';
         if busy_count > 25 then
           bytes(busy_count - 1 - 25 + 12) <= i2c1_rdata;
         end if;
