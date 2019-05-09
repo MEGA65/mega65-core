@@ -148,7 +148,25 @@ void m65_io_enable(void)
 
 void main(void)
 {
-  m65_io_enable();
-  
-  printf("Hello world");
+  //m65_io_enable();
+  //printf("Hello world");
+  unsigned char seconds = lpeek(0xffd7026);
+  unsigned char minutes = 0;
+
+  //Function to display current time from Real Time Clock
+  while(1){
+    // 0xffd7026 is the base address for all bytes read from the RTC
+    // The I2C Master places them in these memory locations
+
+    // Only update when every second, otherwise wait
+    // while(seconds==lpeek(0xffd7026)){};
+
+    seconds = lpeek(0xffd7026);
+    minutes = lpeek(0xffd7027);
+    m65_io_enable();
+    printf("%02x",seconds&0x7f); //Prints BCD byte
+    //Since bit 7 is always set, mask it off with 0x7f
+    printf("%02x",minutes&0x7f);
+    // printf(\n);
+  }
 }
