@@ -355,7 +355,7 @@ begin
         when 87 =>
         i2c1_command_en <= '1';
         i2c1_address <= "0011001"; -- 0x32/2 = I2C address of device;
-        i2c1_wdata <= x"01"; -- Auto-increment register number
+        i2c1_wdata <= x"80"; -- Auto-increment register number
         i2c1_rw <= '0';
         when 88 | 89 | 90 | 91 | 92 | 93 | 94 | 95 | 96 | 97 | 98 | 99 | 100 | 101 | 102 | 103 | 104 | 105 | 106 | 107 | 108 | 109 | 110 | 111 | 112 | 113 | 114 | 115 | 116 | 117 | 118 | 119 | 120 | 121 | 122 | 123 | 124 | 125 | 126 | 127 | 128 | 129 | 130 | 131 | 132 | 133 | 134 | 135 | 136 | 137 | 138 | 139 | 140 | 141 | 142 | 143 | 144 | 145 | 146 | 147 | 148 | 149 | 150 | 151 | 152 =>
         -- Read the 64 bytes from the device
