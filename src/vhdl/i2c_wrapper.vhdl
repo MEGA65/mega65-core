@@ -78,6 +78,8 @@ architecture behavioural of i2c_wrapper is
   signal write_addr : unsigned(7 downto 0);
   signal write_reg : unsigned(7 downto 0);
   signal write_val : unsigned(7 downto 0);
+
+  signal delayed_en : std_logic := '0';
   
 begin
 
@@ -135,10 +137,17 @@ begin
             write_addr <= x"76";
             write_job_pending <= '1';
           when 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 =>
+            -- RTC
             write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 24,8);
             write_addr <= x"A2";
             write_job_pending <= '1';
+          when 48 | 49 | 50 | 51 | 52 | 53 | 54 | 55 | 56 | 57 | 58 | 59 | 60 | 61 | 62 | 63 =>
+            -- Amplifier
+            write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 32,8);
+            write_addr <= x"68";
+            write_job_pending <= '1';            
           when 64 | 65 | 66 | 67 | 68 | 69 | 70 | 71 | 72 | 73 | 74 | 75 | 76 | 77 | 78 | 79 | 80 | 81 | 82 | 83 | 84 | 85 | 86 | 87 | 88 | 89 | 90 | 91 | 92 | 93 | 94 | 95 | 96 | 97 | 98 | 99 | 100 | 101 | 102 | 103 | 104 | 105 | 106 | 107 | 108 | 109 | 110 | 111 | 112 | 113 | 114 | 115 | 116 | 117 | 118 | 119 | 120 | 121 | 122 | 123 | 124 | 125 | 126 | 127 =>
+            -- Accelerometer
             write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 64, 8);
             write_addr <= x"32";
             write_job_pending <= '1';            
@@ -161,6 +170,17 @@ begin
           busy_count <= 0;
         end if;
       end if;
+
+      -- XXX Annoying problem with the IO expanders is that to select
+      -- a register for reading, you have to send a STOP before trying to
+      -- read from the new address.  The problem is that our state-machine
+      -- here requires back-to-back commands.  Solution is to add a delayed
+      -- command_en line, that gets checked and copied to i2c1_command_en
+      -- when busy is low.
+      if i2c1_busy = '0' and delayed_en='1' then
+        delayed_en <= '0';
+        i2c1_command_en <= delayed_en;
+      end if;
       
       case busy_count is
         -- The body for this case statement can be automatically generated
@@ -171,7 +191,8 @@ begin
         --------------------------------------------------------------------        
         when 0 =>
         report "IO Expander #0 regs 0-1";
-        i2c1_command_en <= '1';
+        i2c1_command_en <= '0';
+        delayed_en <= '1';
         i2c1_address <= "0111001"; -- 0x72/2 = I2C address of device;
         i2c1_wdata <= x"00";
         i2c1_rw <= '0';
@@ -184,7 +205,8 @@ begin
         end if;
         report "IO Expander #0 regs 2-3";
         when 4 =>
-        i2c1_command_en <= '1';
+        i2c1_command_en <= '0';
+        delayed_en <= '1';
         i2c1_address <= "0111001"; -- 0x72/2 = I2C address of device;
         i2c1_wdata <= x"02";
         i2c1_rw <= '0';
@@ -197,7 +219,8 @@ begin
         end if;
         report "IO Expander #0 regs 4-5";
         when 8 =>
-        i2c1_command_en <= '1';
+        i2c1_command_en <= '0';
+        delayed_en <= '1';
         i2c1_address <= "0111001"; -- 0x72/2 = I2C address of device;
         i2c1_wdata <= x"04";
         i2c1_rw <= '0';
@@ -210,7 +233,8 @@ begin
         end if;
         report "IO Expander #0 regs 6-7";
         when 12 =>
-        i2c1_command_en <= '1';
+        i2c1_command_en <= '0';
+        delayed_en <= '1';
         i2c1_address <= "0111001"; -- 0x72/2 = I2C address of device;
         i2c1_wdata <= x"06";
         i2c1_rw <= '0';
@@ -223,7 +247,8 @@ begin
         end if;
         report "IO Expander #1 regs 0-1";
         when 16 =>
-        i2c1_command_en <= '1';
+        i2c1_command_en <= '0';
+        delayed_en <= '1';
         i2c1_address <= "0111010"; -- 0x74/2 = I2C address of device;
         i2c1_wdata <= x"00";
         i2c1_rw <= '0';
@@ -236,7 +261,8 @@ begin
         end if;
         report "IO Expander #1 regs 2-3";
         when 20 =>
-        i2c1_command_en <= '1';
+        i2c1_command_en <= '0';
+        delayed_en <= '1';
         i2c1_address <= "0111010"; -- 0x74/2 = I2C address of device;
         i2c1_wdata <= x"02";
         i2c1_rw <= '0';
@@ -249,7 +275,8 @@ begin
         end if;
         report "IO Expander #1 regs 4-5";
         when 24 =>
-        i2c1_command_en <= '1';
+        i2c1_command_en <= '0';
+        delayed_en <= '1';
         i2c1_address <= "0111010"; -- 0x74/2 = I2C address of device;
         i2c1_wdata <= x"04";
         i2c1_rw <= '0';
@@ -262,7 +289,8 @@ begin
         end if;
         report "IO Expander #1 regs 6-7";
         when 28 =>
-        i2c1_command_en <= '1';
+        i2c1_command_en <= '0';
+        delayed_en <= '1';
         i2c1_address <= "0111010"; -- 0x74/2 = I2C address of device;
         i2c1_wdata <= x"06";
         i2c1_rw <= '0';
@@ -275,7 +303,8 @@ begin
         end if;
         report "IO Expander #2 regs 0-1";
         when 32 =>
-        i2c1_command_en <= '1';
+        i2c1_command_en <= '0';
+        delayed_en <= '1';
         i2c1_address <= "0111011"; -- 0x76/2 = I2C address of device;
         i2c1_wdata <= x"00";
         i2c1_rw <= '0';
@@ -288,7 +317,8 @@ begin
         end if;
         report "IO Expander #2 regs 2-3";
         when 36 =>
-        i2c1_command_en <= '1';
+        i2c1_command_en <= '0';
+        delayed_en <= '1';
         i2c1_address <= "0111011"; -- 0x76/2 = I2C address of device;
         i2c1_wdata <= x"02";
         i2c1_rw <= '0';
@@ -301,7 +331,8 @@ begin
         end if;
         report "IO Expander #2 regs 4-5";
         when 40 =>
-        i2c1_command_en <= '1';
+        i2c1_command_en <= '0';
+        delayed_en <= '1';
         i2c1_address <= "0111011"; -- 0x76/2 = I2C address of device;
         i2c1_wdata <= x"04";
         i2c1_rw <= '0';
@@ -314,7 +345,8 @@ begin
         end if;
         report "IO Expander #2 regs 6-7";
         when 44 =>
-        i2c1_command_en <= '1';
+        i2c1_command_en <= '0';
+        delayed_en <= '1';
         i2c1_address <= "0111011"; -- 0x76/2 = I2C address of device;
         i2c1_wdata <= x"06";
         i2c1_rw <= '0';
