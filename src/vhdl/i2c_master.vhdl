@@ -123,9 +123,11 @@ BEGIN
       data_rd <= "00000000";               --clear data read port
     ELSIF(clk'EVENT AND clk = '1') THEN
       IF(data_clk = '1' AND data_clk_prev = '0') THEN  --data clock rising edge
+        report "state = " & machine'image(state);
         CASE state IS
           WHEN ready =>                      --idle state
             IF(ena = '1') THEN               --transaction requested
+              report "Accepting job";
               busy <= '1';                   --flag busy
               addr_rw <= addr & rw;          --collect requested slave address and command
               data_tx <= data_wr;            --collect requested data to write
@@ -199,9 +201,11 @@ BEGIN
                 report "re-trigging byte write, because ena is still high";
                 state <= wr;                 --go to write byte
               ELSE                           --continue transaction with a read or new slave
+                report "repeating start";
                 state <= start;              --go to repeated start
               END IF;
             ELSE                             --complete transaction
+              report "stopping";
               state <= stop;                 --go to stop bit
             END IF;
           WHEN mstr_ack =>                   --master acknowledge bit after a read
@@ -215,9 +219,11 @@ BEGIN
                 state <= rd;                 --go to read byte
               ELSE                           --continue transaction with a write or new slave
                 state <= start;              --repeated start
+                report "Repeating start";
               END IF;    
             ELSE                             --complete transaction
               state <= stop;                 --go to stop bit
+              report "Stopping";
             END IF;
           WHEN stop =>                       --stop bit of transaction
             busy <= '0';                     --unflag busy
