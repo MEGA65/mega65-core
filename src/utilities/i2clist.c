@@ -32,6 +32,28 @@ unsigned char read_register(const unsigned char bus,const unsigned char addr, co
     Bit 6 = BUSY
   */
 
+  // Issue WRITE command to set the register to read from
+  i2c_master[3]=regnum;
+  i2c_master[1]
+    =0x01   // Release from reset
+    |0x02   // Issue a command
+    |0x00;  // WRITE
+
+  // At 1MHz the I2C transaction happens so fast, that
+  // we just wait for BUSY to clear.
+
+  // Wait for busy to assert
+  while(!(i2c_master[1]&0x40)) continue;
+  
+  // Wait for busy to clear
+  while((i2c_master[1]&0x40)) continue;
+
+  // Check success by checking error bit
+  if (i2c_master[1]&0x80) {
+    // Error -- so do no more on this address;
+    return 0xFF;
+  }
+  
   // Issue READ command 
   i2c_master[3]=regnum;
   i2c_master[1]
@@ -126,7 +148,7 @@ void probe_address(const unsigned char bus,const unsigned char addr)
   for(i=0;i<12;i++)
     printf("%02X ",read_register(bus,addr,i));
   printf("\n  ");
-  for(i=12;i<16;i++)
+  for(i=12;i<24;i++)
     printf("%02X ",read_register(bus,addr,i));
   printf("\n");
 
