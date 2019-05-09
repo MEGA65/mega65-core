@@ -68,7 +68,7 @@ architecture behavioural of i2c_wrapper is
   signal i2c1_command_en_internal : std_logic := '0';  
 
   signal busy_count : integer range 0 to 255 := 0;
-  signal last_busy : std_logic := '0';
+  signal last_busy : std_logic := '1';
   
   subtype uint8 is unsigned(7 downto 0);
   type byte_array is array (0 to 31) of uint8;
