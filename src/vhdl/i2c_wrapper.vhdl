@@ -122,25 +122,25 @@ begin
 
       -- Write to registers as required
       if cs='1' and fastio_write='1' then
-        case fastio_addr(7 downto 0) is
+        case to_integer(fastio_addr(7 downto 0)) is
           when 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 =>
-            write_reg <= fastio_addr(7 downto 0) - 0;
+            write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 0,8);
             write_addr <= x"72";
             write_job_pending <= '1';
           when 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 =>
-            write_reg <= fastio_addr(7 downto 0) - 8;
+            write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 8,8);
             write_addr <= x"74";            
             write_job_pending <= '1';
           when 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 =>
-            write_reg <= fastio_addr(7 downto 0) - 16;
+            write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 16,8);
             write_addr <= x"76";
             write_job_pending <= '1';
           when 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 =>
-            write_reg <= fastio_addr(7 downto 0) - 24;
+            write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 24,8);
             write_addr <= x"A2";
             write_job_pending <= '1';
           when 64 | 65 | 66 | 67 | 68 | 69 | 70 | 71 | 72 | 73 | 74 | 75 | 76 | 77 | 78 | 79 | 80 | 81 | 82 | 83 | 84 | 85 | 86 | 87 | 88 | 89 | 90 | 91 | 92 | 93 | 94 | 95 | 96 | 97 | 98 | 99 | 100 | 101 | 102 | 103 | 104 | 105 | 106 | 107 | 108 | 109 | 110 | 111 | 112 | 113 | 114 | 115 | 116 | 117 | 118 | 119 | 120 | 121 | 122 | 123 | 124 | 125 | 126 | 127 =>
-            write_reg <= fastio_addr(7 downto 0) - 64;
+            write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 64, 8);
             write_addr <= x"32";
             write_job_pending <= '1';            
           when others =>
