@@ -71,7 +71,7 @@ architecture behavioural of i2c_wrapper is
   signal last_busy : std_logic := '1';
   
   subtype uint8 is unsigned(7 downto 0);
-  type byte_array is array (0 to 31) of uint8;
+  type byte_array is array (0 to 63) of uint8;
   signal bytes : byte_array := (others => x"00");
   
 begin
@@ -98,9 +98,9 @@ begin
   begin
 
     if cs='1' and fastio_read='1' then
-      if fastio_addr(7 downto 5) = "000" then
+      if fastio_addr(7 downto 6) = "00" then
         report "reading buffered I2C data";
-        fastio_rdata <= bytes(to_integer(fastio_addr(4 downto 0)));
+        fastio_rdata <= bytes(to_integer(fastio_addr(5 downto 0)));
       elsif fastio_addr(7 downto 5) = "111" then
         report "reading busy count";
         fastio_rdata <= to_unsigned(busy_count,8);
@@ -123,7 +123,7 @@ begin
       if i2c1_busy='0' and last_busy='1' then
 
         -- Sequence through the list of transactions endlessly
-        if busy_count < 29 then
+        if busy_count < 49 then
           busy_count <= busy_count + 1;
         else
           busy_count <= 0;
@@ -136,51 +136,51 @@ begin
             i2c1_address <= "0111001"; -- 0x72/2 = I2C address of expander
             i2c1_wdata <= x"00"; -- begin reading from register 0
             i2c1_rw <= '0';
-          when 1 | 2 | 3  =>
-            -- Read the two bytes of inputs from the IO expander
+          when 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9  =>
+            -- Read the 8 bytes of inputs from the IO expander
             i2c1_rw <= '1';
             i2c1_command_en <= '1';
             if busy_count > 1 then
-              bytes(busy_count - 2) <= i2c1_rdata;
+              bytes(busy_count - 1 - 1) <= i2c1_rdata;
             end if;
-          when 4 =>
+          when 10 =>
             -- Begin IO expander 1 read sequence
             i2c1_command_en <= '1';
             i2c1_address <= "0111010"; -- 0x74/2 = I2C address of expander
             i2c1_wdata <= x"00"; -- begin reading from register 0
             i2c1_rw <= '0';
-          when 5 | 6 | 7  =>
-            -- Read the two bytes of inputs from the IO expander
+          when 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19  =>
+            -- Read the 8 bytes of inputs from the IO expander
             i2c1_rw <= '1';
             i2c1_command_en <= '1';
-            if busy_count > 5 then
-              bytes(busy_count - 6 + 2) <= i2c1_rdata;
+            if busy_count > 11 then
+              bytes(busy_count - 11 - 1 + 8) <= i2c1_rdata;
             end if;
-          when 8 =>
+          when 20 =>
             -- Begin IO expander 2 read sequence
             i2c1_command_en <= '1';
             i2c1_address <= "0111011"; -- 0x76/2 = I2C address of expander
             i2c1_wdata <= x"00"; -- begin reading from register 0
             i2c1_rw <= '0';
-          when 9 | 10 | 11  =>
+          when 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29  =>
             -- Read the two bytes of inputs from the IO expander
             i2c1_rw <= '1';
             i2c1_command_en <= '1';
-            if busy_count > 9 then
-              bytes(busy_count - 10 + 2 + 2) <= i2c1_rdata;
+            if busy_count > 21 then
+              bytes(busy_count - 21 - 1  + 16) <= i2c1_rdata;
             end if;
-          when 12 =>
+          when 30 =>
             -- Begin RTC read sequence
             i2c1_command_en <= '1';
             i2c1_address <= "1010001"; -- 0xA2/2 = I2C address of RTC
             i2c1_wdata <= x"00"; -- begin reading from register 0
             i2c1_rw <= '0';
-          when 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29  =>
+          when 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 | 43 | 44 | 45 | 46 | 47 | 48 | 49 =>
             -- Read the 16 bytes of inputs from the IO expander
             i2c1_rw <= '1';
             i2c1_command_en <= '1';
             if busy_count > 13 then
-              bytes(busy_count - 17 + 13) <= i2c1_rdata;
+              bytes(busy_count - 31 - 1 + 24) <= i2c1_rdata;
             end if;
           when others =>
             -- Make sure we can't get stuck.
