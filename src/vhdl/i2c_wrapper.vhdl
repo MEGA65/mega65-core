@@ -164,7 +164,7 @@ begin
       if i2c1_busy='1' and last_busy='0' then
 
         -- Sequence through the list of transactions endlessly
-        if (busy_count < 153) or (write_job_pending='1' and busy_count < (153+3)) then
+        if (busy_count < 153) or (write_job_pending='1' and busy_count < (153+4)) then
           busy_count <= busy_count + 1;
         else
           busy_count <= 0;
@@ -433,6 +433,13 @@ begin
         i2c1_command_en <= '1';
         i2c1_wdata <= write_val;
         write_job_pending <= '0';
+        when 155 =>
+          -- Do dummy read of some nonsence, so that the write above doesn't
+          -- get carried over into the access of the first IO expander
+          -- (which it was, and was naturally causing problems as a result).
+          i2c1_rw <= '1';
+          i2c1_command_en <= '1';
+          i2c1_address <= (others <= '1');
         when others =>
         -- Make sure we can't get stuck.
         i2c1_command_en <= '0';
