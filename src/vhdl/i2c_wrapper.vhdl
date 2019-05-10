@@ -67,17 +67,17 @@ architecture behavioural of i2c_wrapper is
   signal i2c1_command_en : std_logic := '0';  
   signal i2c1_command_en_internal : std_logic := '0';  
 
-  signal busy_count : integer range 0 to 255 := 0;
+  signal busy_count : integer range 0 to 255 := 150;
   signal last_busy : std_logic := '1';
   
   subtype uint8 is unsigned(7 downto 0);
   type byte_array is array (0 to 127) of uint8;
   signal bytes : byte_array := (others => x"00");
 
-  signal write_job_pending : std_logic := '0';
-  signal write_addr : unsigned(7 downto 0);
-  signal write_reg : unsigned(7 downto 0);
-  signal write_val : unsigned(7 downto 0);
+  signal write_job_pending : std_logic := '1';
+  signal write_addr : unsigned(7 downto 0) := x"48";
+  signal write_reg : unsigned(7 downto 0) := x"02";
+  signal write_val : unsigned(7 downto 0) := x"99";
 
   signal delayed_en : integer range 0 to 255 := 0;
   
@@ -192,11 +192,7 @@ begin
           delayed_en <= 250;
         end if;
         if busy_count > 1 then
-          if i2c1_error='1' then
-            bytes(busy_count - 1 - 1 + 0) <= x"EE";
-          else
-            bytes(busy_count - 1 - 1 + 0) <= i2c1_rdata;
-          end if;
+          bytes(busy_count - 1 - 1 + 0) <= i2c1_rdata;
         end if;
         when 4 =>
         i2c1_command_en <= '1';
@@ -212,11 +208,7 @@ begin
           delayed_en <= 250;
         end if;
         if busy_count > 5 then
-          if i2c1_error='1' then
-            bytes(busy_count - 1 - 5 + 2) <= x"EE";
-          else
-            bytes(busy_count - 1 - 5 + 2) <= i2c1_rdata;
-          end if;
+          bytes(busy_count - 1 - 5 + 2) <= i2c1_rdata;
         end if;
         report "IO Expander #0 regs 4-5";
         when 8 =>
@@ -436,15 +428,17 @@ begin
           -- Do dummy read of some nonsence, so that the write above doesn't
           -- get carried over into the access of the first IO expander
           -- (which it was, and was naturally causing problems as a result).
+          report "Doing dummy read";
           i2c1_rw <= '1';
           i2c1_command_en <= '1';
           i2c1_address <= (others => '1');
-          write_job_pending <= '0';
         when others =>
+          report "in others";
         -- Make sure we can't get stuck.
         i2c1_command_en <= '0';
         busy_count <= 0;
         last_busy <= '1';
+          write_job_pending <= '0';
       end case;
 
       -- XXX Annoying problem with the IO expanders is that to select
