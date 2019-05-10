@@ -126,15 +126,15 @@ begin
         case to_integer(fastio_addr(7 downto 0)) is
           when 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 =>
             write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 0,8);
-            write_addr <= x"72";
+            write_addr <= x"48";
             write_job_pending <= '1';
           when 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 =>
             write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 8,8);
-            write_addr <= x"74";            
+            write_addr <= x"4A";            
             write_job_pending <= '1';
           when 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 =>
             write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 16,8);
-            write_addr <= x"76";
+            write_addr <= x"4C";
             write_job_pending <= '1';
           when 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 =>
             -- RTC
@@ -180,7 +180,7 @@ begin
         --------------------------------------------------------------------        
         when 0 =>
         i2c1_command_en <= '1';
-        i2c1_address <= "0111001"; -- 0x72/2 = I2C address of device;
+        i2c1_address <= "0100100"; -- 0x48/2 = I2C address of device;
         i2c1_wdata <= x"00";
         i2c1_rw <= '0';
         when 1 | 2 | 3 =>
@@ -200,7 +200,7 @@ begin
         end if;
         when 4 =>
         i2c1_command_en <= '1';
-        i2c1_address <= "0111001"; -- 0x72/2 = I2C address of device;
+        i2c1_address <= "0100100"; -- 0x48/2 = I2C address of device;
         i2c1_wdata <= x"02";
         i2c1_rw <= '0';
         when 5 | 6 | 7 =>
@@ -221,7 +221,7 @@ begin
         report "IO Expander #0 regs 4-5";
         when 8 =>
         i2c1_command_en <= '1';
-        i2c1_address <= "0111001"; -- 0x72/2 = I2C address of device;
+        i2c1_address <= "0100100"; -- 0x48/2 = I2C address of device;
         i2c1_wdata <= x"04";
         i2c1_rw <= '0';
         when 9 | 10 | 11 =>
@@ -237,7 +237,7 @@ begin
         report "IO Expander #0 regs 6-7";
         when 12 =>
         i2c1_command_en <= '1';
-        i2c1_address <= "0111001"; -- 0x72/2 = I2C address of device;
+        i2c1_address <= "0100100"; -- 0x48/2 = I2C address of device;
         i2c1_wdata <= x"06";
         i2c1_rw <= '0';
         when 13 | 14 | 15 =>
@@ -253,7 +253,7 @@ begin
         report "IO Expander #1 regs 0-1";
         when 16 =>
         i2c1_command_en <= '1';
-        i2c1_address <= "0111010"; -- 0x74/2 = I2C address of device;
+        i2c1_address <= "0100101"; -- 0x4A/2 = I2C address of device;
         i2c1_wdata <= x"00";
         i2c1_rw <= '0';
         when 17 | 18 | 19 =>
@@ -269,7 +269,7 @@ begin
         report "IO Expander #1 regs 2-3";
         when 20 =>
         i2c1_command_en <= '1';
-        i2c1_address <= "0111010"; -- 0x74/2 = I2C address of device;
+        i2c1_address <= "0100101"; -- 0x4A/2 = I2C address of device;
         i2c1_wdata <= x"02";
         i2c1_rw <= '0';
         when 21 | 22 | 23 =>
@@ -285,7 +285,7 @@ begin
         report "IO Expander #1 regs 4-5";
         when 24 =>
         i2c1_command_en <= '1';
-        i2c1_address <= "0111010"; -- 0x74/2 = I2C address of device;
+        i2c1_address <= "0100101"; -- 0x4A/2 = I2C address of device;
         i2c1_wdata <= x"04";
         i2c1_rw <= '0';
         when 25 | 26 | 27 =>
@@ -304,7 +304,7 @@ begin
           i2c1_command_en <= '0';
           delayed_en <= 250;
         end if;
-        i2c1_address <= "0111010"; -- 0x74/2 = I2C address of device;
+        i2c1_address <= "0100101"; -- 0x4A/2 = I2C address of device;
         i2c1_wdata <= x"06";
         i2c1_rw <= '0';
         when 29 | 30 | 31 =>
@@ -320,7 +320,7 @@ begin
           i2c1_command_en <= '0';
           delayed_en <= 250;
         end if;
-        i2c1_address <= "0111011"; -- 0x76/2 = I2C address of device;
+        i2c1_address <= "0100110"; -- 0x4C/2 = I2C address of device;
         i2c1_wdata <= x"00";
         i2c1_rw <= '0';
         when 33 | 34 | 35 =>
@@ -336,7 +336,7 @@ begin
           i2c1_command_en <= '0';
           delayed_en <= 250;
         end if;
-        i2c1_address <= "0111011"; -- 0x76/2 = I2C address of device;
+        i2c1_address <= "0100110"; -- 0x4C/2 = I2C address of device;
         i2c1_wdata <= x"02";
         i2c1_rw <= '0';
         when 37 | 38 | 39 =>
@@ -352,7 +352,7 @@ begin
           i2c1_command_en <= '0';
           delayed_en <= 250;
         end if;
-        i2c1_address <= "0111011"; -- 0x76/2 = I2C address of device;
+        i2c1_address <= "0100110"; -- 0x4C/2 = I2C address of device;
         i2c1_wdata <= x"04";
         i2c1_rw <= '0';
         when 41 | 42 | 43 =>
@@ -368,7 +368,7 @@ begin
           i2c1_command_en <= '0';
           delayed_en <= 250;
         end if;
-        i2c1_address <= "0111011"; -- 0x76/2 = I2C address of device;
+        i2c1_address <= "0100110"; -- 0x4C/2 = I2C address of device;
         i2c1_wdata <= x"06";
         i2c1_rw <= '0';
         when 45 | 46 | 47 =>
