@@ -79,7 +79,7 @@ architecture behavioural of i2c_wrapper is
   signal write_reg : unsigned(7 downto 0);
   signal write_val : unsigned(7 downto 0);
 
-  signal delayed_en : std_logic := '0';
+  signal delayed_en : integer range 0 to 255 := 0;
   
 begin
 
@@ -171,17 +171,6 @@ begin
         end if;
       end if;
 
-      -- XXX Annoying problem with the IO expanders is that to select
-      -- a register for reading, you have to send a STOP before trying to
-      -- read from the new address.  The problem is that our state-machine
-      -- here requires back-to-back commands.  Solution is to add a delayed
-      -- command_en line, that gets checked and copied to i2c1_command_en
-      -- when busy is low.
-      if i2c1_busy = '0' and delayed_en='1' then
-        delayed_en <= '0';
-        i2c1_command_en <= delayed_en;
-      end if;
-      
       case busy_count is
         -- The body for this case statement can be automatically generated
         -- using src/tools/i2cstatemapper.c
@@ -190,7 +179,6 @@ begin
         -- Start of Auto-Generated Content
         --------------------------------------------------------------------        
         when 0 =>
-        report "IO Expander #0 regs 0-1";
         i2c1_command_en <= '1';
         i2c1_address <= "0111001"; -- 0x72/2 = I2C address of device;
         i2c1_wdata <= x"00";
@@ -198,12 +186,14 @@ begin
         when 1 | 2 | 3 =>
         -- Read the 2 bytes from the device
         i2c1_rw <= '1';
-        i2c1_command_en <= '0';
-        delayed_en <= '1';
+        if delayed_en = 0 then
+          report "IO Expander #0 regs 0-1";
+          i2c1_command_en <= '0';
+          delayed_en <= 250;
+        end if;
         if busy_count > 1 then
           bytes(busy_count - 1 - 1 + 0) <= i2c1_rdata;
         end if;
-        report "IO Expander #0 regs 2-3";
         when 4 =>
         i2c1_command_en <= '1';
         i2c1_address <= "0111001"; -- 0x72/2 = I2C address of device;
@@ -212,8 +202,11 @@ begin
         when 5 | 6 | 7 =>
         -- Read the 2 bytes from the device
         i2c1_rw <= '1';
-        i2c1_command_en <= '0';
-        delayed_en <= '1';
+        if delayed_en = 0 then
+          report "IO Expander #0 regs 2-3";
+          i2c1_command_en <= '0';
+          delayed_en <= 250;
+        end if;
         if busy_count > 5 then
           bytes(busy_count - 1 - 5 + 2) <= i2c1_rdata;
         end if;
@@ -226,8 +219,10 @@ begin
         when 9 | 10 | 11 =>
         -- Read the 2 bytes from the device
         i2c1_rw <= '1';
-        i2c1_command_en <= '0';
-        delayed_en <= '1';
+        if delayed_en = 0 then
+          i2c1_command_en <= '0';
+          delayed_en <= 250;
+        end if;
         if busy_count > 9 then
           bytes(busy_count - 1 - 9 + 4) <= i2c1_rdata;
         end if;
@@ -240,8 +235,10 @@ begin
         when 13 | 14 | 15 =>
         -- Read the 2 bytes from the device
         i2c1_rw <= '1';
-        i2c1_command_en <= '0';
-        delayed_en <= '1';
+        if delayed_en = 0 then
+          i2c1_command_en <= '0';
+          delayed_en <= 250;
+        end if;
         if busy_count > 13 then
           bytes(busy_count - 1 - 13 + 6) <= i2c1_rdata;
         end if;
@@ -254,8 +251,10 @@ begin
         when 17 | 18 | 19 =>
         -- Read the 2 bytes from the device
         i2c1_rw <= '1';
-        i2c1_command_en <= '0';
-        delayed_en <= '1';
+        if delayed_en = 0 then
+          i2c1_command_en <= '0';
+          delayed_en <= 250;
+        end if;
         if busy_count > 17 then
           bytes(busy_count - 1 - 17 + 8) <= i2c1_rdata;
         end if;
@@ -268,8 +267,10 @@ begin
         when 21 | 22 | 23 =>
         -- Read the 2 bytes from the device
         i2c1_rw <= '1';
-        i2c1_command_en <= '0';
-        delayed_en <= '1';
+        if delayed_en = 0 then
+          i2c1_command_en <= '0';
+          delayed_en <= 250;
+        end if;
         if busy_count > 21 then
           bytes(busy_count - 1 - 21 + 10) <= i2c1_rdata;
         end if;
@@ -282,15 +283,19 @@ begin
         when 25 | 26 | 27 =>
         -- Read the 2 bytes from the device
         i2c1_rw <= '1';
-        i2c1_command_en <= '0';
-        delayed_en <= '1';
+        if delayed_en = 0 then
+          i2c1_command_en <= '0';
+          delayed_en <= 250;
+        end if;
         if busy_count > 25 then
           bytes(busy_count - 1 - 25 + 12) <= i2c1_rdata;
         end if;
         report "IO Expander #1 regs 6-7";
         when 28 =>
-        i2c1_command_en <= '0';
-        delayed_en <= '1';
+        if delayed_en = 0 then
+          i2c1_command_en <= '0';
+          delayed_en <= 250;
+        end if;
         i2c1_address <= "0111010"; -- 0x74/2 = I2C address of device;
         i2c1_wdata <= x"06";
         i2c1_rw <= '0';
@@ -303,8 +308,10 @@ begin
         end if;
         report "IO Expander #2 regs 0-1";
         when 32 =>
-        i2c1_command_en <= '0';
-        delayed_en <= '1';
+        if delayed_en = 0 then
+          i2c1_command_en <= '0';
+          delayed_en <= 250;
+        end if;
         i2c1_address <= "0111011"; -- 0x76/2 = I2C address of device;
         i2c1_wdata <= x"00";
         i2c1_rw <= '0';
@@ -317,8 +324,10 @@ begin
         end if;
         report "IO Expander #2 regs 2-3";
         when 36 =>
-        i2c1_command_en <= '0';
-        delayed_en <= '1';
+        if delayed_en = 0 then
+          i2c1_command_en <= '0';
+          delayed_en <= 250;
+        end if;
         i2c1_address <= "0111011"; -- 0x76/2 = I2C address of device;
         i2c1_wdata <= x"02";
         i2c1_rw <= '0';
@@ -331,8 +340,10 @@ begin
         end if;
         report "IO Expander #2 regs 4-5";
         when 40 =>
-        i2c1_command_en <= '0';
-        delayed_en <= '1';
+        if delayed_en = 0 then
+          i2c1_command_en <= '0';
+          delayed_en <= 250;
+        end if;
         i2c1_address <= "0111011"; -- 0x76/2 = I2C address of device;
         i2c1_wdata <= x"04";
         i2c1_rw <= '0';
@@ -345,8 +356,10 @@ begin
         end if;
         report "IO Expander #2 regs 6-7";
         when 44 =>
-        i2c1_command_en <= '0';
-        delayed_en <= '1';
+        if delayed_en = 0 then
+          i2c1_command_en <= '0';
+          delayed_en <= 250;
+        end if;
         i2c1_address <= "0111011"; -- 0x76/2 = I2C address of device;
         i2c1_wdata <= x"06";
         i2c1_rw <= '0';
@@ -418,6 +431,30 @@ begin
         busy_count <= 0;
         last_busy <= '1';
       end case;
+
+      -- XXX Annoying problem with the IO expanders is that to select
+      -- a register for reading, you have to send a STOP before trying to
+      -- read from the new address.  The problem is that our state-machine
+      -- here requires back-to-back commands.  Solution is to add a delayed
+      -- command_en line, that gets checked and copied to i2c1_command_en
+      -- when busy is low.
+
+      -- This has to come last, so that it overrides the clearing of
+      -- i2c1_command_en above.
+      if i2c1_busy = '0' then
+        if delayed_en= 1 then
+          report "Activating delayed command";
+          i2c1_command_en <= '1';
+        elsif delayed_en > 1 then
+          delayed_en <= delayed_en - 1;
+        end if;
+      else
+        if delayed_en = 1 then
+          delayed_en <= 0;
+        end if;
+      end if;
+      
+
       
     end if;
   end process;
