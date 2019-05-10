@@ -192,7 +192,11 @@ begin
           delayed_en <= 250;
         end if;
         if busy_count > 1 then
-          bytes(busy_count - 1 - 1 + 0) <= i2c1_rdata;
+          if i2c1_error='1' then
+            bytes(busy_count - 1 - 1 + 0) <= x"EE";
+          else
+            bytes(busy_count - 1 - 1 + 0) <= i2c1_rdata;
+          end if;
         end if;
         when 4 =>
         i2c1_command_en <= '1';
@@ -208,7 +212,11 @@ begin
           delayed_en <= 250;
         end if;
         if busy_count > 5 then
-          bytes(busy_count - 1 - 5 + 2) <= i2c1_rdata;
+          if i2c1_error='1' then
+            bytes(busy_count - 1 - 5 + 2) <= x"EE";
+          else
+            bytes(busy_count - 1 - 5 + 2) <= i2c1_rdata;
+          end if;
         end if;
         report "IO Expander #0 regs 4-5";
         when 8 =>
