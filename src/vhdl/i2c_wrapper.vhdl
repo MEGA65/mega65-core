@@ -439,7 +439,7 @@ begin
           -- (which it was, and was naturally causing problems as a result).
           i2c1_rw <= '1';
           i2c1_command_en <= '1';
-          i2c1_address <= (others <= '1');
+          i2c1_address <= (others => '1');
         when others =>
         -- Make sure we can't get stuck.
         i2c1_command_en <= '0';
