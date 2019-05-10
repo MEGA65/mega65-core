@@ -432,7 +432,6 @@ begin
         i2c1_rw <= '0';
         i2c1_command_en <= '1';
         i2c1_wdata <= write_val;
-        write_job_pending <= '0';
         when 155 =>
           -- Do dummy read of some nonsence, so that the write above doesn't
           -- get carried over into the access of the first IO expander
@@ -440,6 +439,7 @@ begin
           i2c1_rw <= '1';
           i2c1_command_en <= '1';
           i2c1_address <= (others => '1');
+          write_job_pending <= '0';
         when others =>
         -- Make sure we can't get stuck.
         i2c1_command_en <= '0';
