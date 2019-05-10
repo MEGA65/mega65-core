@@ -108,17 +108,21 @@ unsigned char read_register(const unsigned char bus,const unsigned char addr, co
   // Wait for busy to assert
   while(!(i2c_master[1]&0x40)) continue;
   
-  // Wait for busy to clear
-  while((i2c_master[1]&0x40)) continue;
-
   // Check success by checking error bit
-  if (i2c_master[1]&0x80) {
+  //  if (i2c_master[1]&0x80) {
     // Error -- so do no more on this address;
-    return 0xFF;
-  }
+  //   return 0xFF;
+  // }
   
   // Issue READ command 
   i2c_master[3]=regnum;
+
+  // Wait for busy to clear before issuing read
+  // (This is required to correctly read from the IO expanders,
+  // since they actually don't change address on request unless there
+  // is a STOP between the set address and the actual read.
+  while((i2c_master[1]&0x40)) continue;
+
   i2c_master[1]
     =0x01   // Release from reset
     |0x02   // Issue a command
