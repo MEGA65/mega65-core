@@ -125,16 +125,20 @@ begin
       if cs='1' and fastio_write='1' then
         case to_integer(fastio_addr(7 downto 0)) is
           when 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 =>
-            write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 0,8);
-            write_addr <= x"48";
-            write_job_pending <= '1';
+            -- First IO expander is the inputs for buttons etc, so doesn't need
+            -- any config changes or writes, so we put it first, so that we
+            -- don't have to solve the bug with writing to the first device on
+            -- the list/
+            -- write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 0,8);
+            -- write_addr <= x"4C";
+            -- write_job_pending <= '1';
           when 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 =>
             write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 8,8);
             write_addr <= x"4A";            
             write_job_pending <= '1';
           when 16 | 17 | 18 | 19 | 20 | 21 | 22 | 23 =>
             write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 16,8);
-            write_addr <= x"4C";
+            write_addr <= x"48";
             write_job_pending <= '1';
           when 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 =>
             -- RTC
@@ -180,7 +184,7 @@ begin
         --------------------------------------------------------------------        
         when 0 =>
         i2c1_command_en <= '1';
-        i2c1_address <= "0100100"; -- 0x48/2 = I2C address of device;
+        i2c1_address <= "0100110"; -- 0x4C/2 = I2C address of device;
         i2c1_wdata <= x"00";
         i2c1_rw <= '0';
         when 1 | 2 | 3 =>
@@ -196,7 +200,7 @@ begin
         end if;
         when 4 =>
         i2c1_command_en <= '1';
-        i2c1_address <= "0100100"; -- 0x48/2 = I2C address of device;
+        i2c1_address <= "0100110"; -- 0x4C/2 = I2C address of device;
         i2c1_wdata <= x"02";
         i2c1_rw <= '0';
         when 5 | 6 | 7 =>
@@ -213,7 +217,7 @@ begin
         report "IO Expander #0 regs 4-5";
         when 8 =>
         i2c1_command_en <= '1';
-        i2c1_address <= "0100100"; -- 0x48/2 = I2C address of device;
+        i2c1_address <= "0100110"; -- 0x4C/2 = I2C address of device;
         i2c1_wdata <= x"04";
         i2c1_rw <= '0';
         when 9 | 10 | 11 =>
@@ -229,7 +233,7 @@ begin
         report "IO Expander #0 regs 6-7";
         when 12 =>
         i2c1_command_en <= '1';
-        i2c1_address <= "0100100"; -- 0x48/2 = I2C address of device;
+        i2c1_address <= "0100110"; -- 0x4C/2 = I2C address of device;
         i2c1_wdata <= x"06";
         i2c1_rw <= '0';
         when 13 | 14 | 15 =>
@@ -312,7 +316,7 @@ begin
           i2c1_command_en <= '0';
           delayed_en <= 250;
         end if;
-        i2c1_address <= "0100110"; -- 0x4C/2 = I2C address of device;
+        i2c1_address <= "0100100"; -- 0x48/2 = I2C address of device;
         i2c1_wdata <= x"00";
         i2c1_rw <= '0';
         when 33 | 34 | 35 =>
@@ -328,7 +332,7 @@ begin
           i2c1_command_en <= '0';
           delayed_en <= 250;
         end if;
-        i2c1_address <= "0100110"; -- 0x4C/2 = I2C address of device;
+        i2c1_address <= "0100100"; -- 0x48/2 = I2C address of device;
         i2c1_wdata <= x"02";
         i2c1_rw <= '0';
         when 37 | 38 | 39 =>
@@ -344,7 +348,7 @@ begin
           i2c1_command_en <= '0';
           delayed_en <= 250;
         end if;
-        i2c1_address <= "0100110"; -- 0x4C/2 = I2C address of device;
+        i2c1_address <= "0100100"; -- 0x48/2 = I2C address of device;
         i2c1_wdata <= x"04";
         i2c1_rw <= '0';
         when 41 | 42 | 43 =>
@@ -360,7 +364,7 @@ begin
           i2c1_command_en <= '0';
           delayed_en <= 250;
         end if;
-        i2c1_address <= "0100110"; -- 0x4C/2 = I2C address of device;
+        i2c1_address <= "0100100"; -- 0x48/2 = I2C address of device;
         i2c1_wdata <= x"06";
         i2c1_rw <= '0';
         when 45 | 46 | 47 =>
