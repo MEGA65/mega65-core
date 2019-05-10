@@ -154,6 +154,20 @@ void main(void)
   unsigned char minutes = 0;
   unsigned char hours = 0;
 
+  short x,y,z;
+  short a1,a2,a3;
+  
+  // Enable acceleromter, 10Hz sampling
+  lpoke(0xFFD7060L,0x27);
+
+  // Enable ADCs
+  lpoke(0xFFD7023L,0x80);
+  lpoke(0xFFD701fL,0x80);
+
+  
+  // Clear screen
+  printf("%c",0x93);
+  
   //Function to display current time from Real Time Clock
   while(1){
     // 0xffd7026 is the base address for all bytes read from the RTC
@@ -162,6 +176,9 @@ void main(void)
     // Only update when every second, otherwise wait
     // while(seconds==lpeek(0xffd7026)){};
 
+    // Home cursor
+    printf("%c",0x13);
+    
     seconds = lpeek(0xffd701a);
     minutes = lpeek(0xffd701b);
     hours = lpeek(0xffd701c);
@@ -171,5 +188,24 @@ void main(void)
     //Since bit 7 is always set, mask it off with 0x7f
 
     printf("\n");
+
+
+    // Also read Accelerometer status
+    x=lpeek(0xffd7068L)+(lpeek(0xffd7069L)<<8L);
+    y=lpeek(0xffd706AL)+(lpeek(0xffd706BL)<<8L);
+    z=lpeek(0xffd706CL)+(lpeek(0xffd706DL)<<8L);
+    printf("Accel: X:%5d Y:%5d Z:%5d      \n",
+	   x,y,z);
+
+    // And ADC values of the three volume wheels
+    a1=lpeek(0xffd7048L)+(lpeek(0xffd7049L)<<8);
+    a2=lpeek(0xffd704AL)+(lpeek(0xffd704BL)<<8);
+    a3=lpeek(0xffd704CL)+(lpeek(0xffd704DL)<<8);
+    a1=a1>>6; a1+=512;
+    a2=a2>>6; a2+=512;
+    a3=a3>>6; a3+=512;
+    printf("ADCs: 1:%5d 2:%5d 3:%5d      \n",a1,a2,a3);
+    
+    
   }
 }
