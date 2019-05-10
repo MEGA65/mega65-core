@@ -81,7 +81,7 @@ void lpoke(long address, unsigned char value)
   dmalist.source_addr=(unsigned int)&dma_byte;
   dmalist.source_bank=0;
   dmalist.dest_addr=address&0xffff;
-  dmalist.dest_bank=(address>>16)&0x7f;
+  dmalist.dest_bank=(address>>16)&0x0f;
 
   do_dma(); 
   return;
@@ -146,23 +146,45 @@ void m65_io_enable(void)
   POKE(0,65);
 }
 
+void wait_10ms(void)
+{
+  // 16 x ~64usec raster lines = ~1ms
+  int c=160;
+  unsigned char b;
+  while(c--) {
+    b=PEEK(0xD012U);    
+    while (b==PEEK(0xD012U))
+      continue;
+  }
+}
+
 void main(void)
 {
-  //m65_io_enable();
-  //printf("Hello world");
+  
   unsigned char seconds = 0;
   unsigned char minutes = 0;
   unsigned char hours = 0;
 
   short x,y,z;
   short a1,a2,a3;
+
+  m65_io_enable();
+
   
   // Enable acceleromter, 10Hz sampling
-  lpoke(0xFFD7060L,0x27);
-
+  while(lpeek(0xffd70ffL)) continue;
+  lpoke(0xFFD7060L,0x27);    
+  wait_10ms();
+  
   // Enable ADCs
-  lpoke(0xFFD7023L,0x80);
-  lpoke(0xFFD701fL,0x80);
+  while(lpeek(0xffd70ffL)) continue;
+
+  lpoke(0xFFD7063L,0x80);
+  wait_10ms();
+
+  while(lpeek(0xffd70ffL)) continue;
+
+  lpoke(0xFFD705fL,0x80);
 
   
   // Clear screen
@@ -205,7 +227,26 @@ void main(void)
     a2=a2>>6; a2+=512;
     a3=a3>>6; a3+=512;
     printf("ADCs: 1:%5d 2:%5d 3:%5d      \n",a1,a2,a3);
-    
-    
+
+    // Show joypad and button status
+    a1=lpeek(0xffd7010L);
+    a1=a1^0xff;
+    if (a1&1) printf("up        ");
+    else if (a1&2) printf("left        ");
+    else if (a1&4) printf("right        ");
+    else if (a1&8) printf("down        ");
+    else if (a1&0x10) printf("b1        ");
+    else if (a1&0x20) printf("b2        ");
+    else if (a1&0x40) printf("b3        ");
+    else if (a1&0x80) printf("b4        ");
+    printf("\n");
+
+    // Show black button status
+    a1=lpeek(0xffd7011L);
+    a1=a1^0xff;
+    if (a1&1) printf("black2        ");
+    else if (a1&2) printf("black3        ");
+    else if (a1&4) printf("black4        ");
+    printf("\n");
   }
 }
