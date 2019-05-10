@@ -229,7 +229,7 @@ void main(void)
     printf("ADCs: 1:%5d 2:%5d 3:%5d      \n",a1,a2,a3);
 
     // Show joypad and button status
-    a1=lpeek(0xffd7010L);
+    a1=lpeek(0xffd7000L);
     a1=a1^0xff;
     if (a1&1) printf("up        ");
     else if (a1&2) printf("left        ");
@@ -242,7 +242,7 @@ void main(void)
     printf("\n");
 
     // Show black button status
-    a1=lpeek(0xffd7011L);
+    a1=lpeek(0xffd7001L);
     a1=a1^0xff;
     if (a1&1) printf("black2        ");
     else if (a1&2) printf("black3        ");
