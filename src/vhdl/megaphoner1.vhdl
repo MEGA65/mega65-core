@@ -127,6 +127,8 @@ architecture Behavioral of container is
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
   signal restore_key : std_logic := '1';
+  signal osk_toggle_key : std_logic := '1';
+  signal joyswap_key : std_logic := '1';
   signal reset_out : std_logic := '1';
   signal cpu_game : std_logic := '1';
   signal cpu_exrom : std_logic := '1';
@@ -230,6 +232,13 @@ architecture Behavioral of container is
   signal expansionram_busy : std_logic;
 
   signal dummypins : std_logic_vector(1 to 100) := (others => '0');
+
+  signal i2c_button2 : std_logic;
+  signal i2c_button3 : std_logic;
+  signal i2c_button4 : std_logic;
+  signal i2c_black2 : std_logic;
+  signal i2c_black3 : std_logic;
+  signal i2c_black4 : std_logic;
   
 begin
 
@@ -351,6 +360,8 @@ begin
       irq => irq,
       nmi => nmi,
       restore_key => restore_key,
+      joyswap_key => joyswap_key,
+      osk_toggle_key => osk_toggle_key,
       sector_buffer_mapped => sector_buffer_mapped,
 
       pal50_select_out => pal50_select,
@@ -358,23 +369,40 @@ begin
       -- Wire up a dummy caps_lock key on switch 8
       caps_lock_key => '1',
 
-      fa_fire => '1',
-      fa_up =>  '1',
-      fa_left => '1',
-      fa_down => '1',
-      fa_right => '1',
+      fa_fire => i2c_joya_fire,
+      fa_up => i2c_joya_up,
+      fa_left => i2c_joya_left,
+      fa_down => i2c_joya_down,
+      fa_right => i2c_joya_right,
 
-      fb_fire => '1',
-      fb_up => '1',
-      fb_left => '1',
-      fb_down => '1',
-      fb_right => '1',
+      fb_fire => i2c_joyb_fire,
+      fb_up => i2c_joyb_up,
+      fb_left => i2c_joyb_left,
+      fb_down => i2c_joyb_down,
+      fb_right => i2c_joyb_right,
 
       fa_potx => '0',
       fa_poty => '0',
       fb_potx => '0',
       fb_poty => '0',
 
+      i2c_joya_fire => i2c_joya_fire,
+      i2c_joya_up => i2c_joya_up,
+      i2c_joya_down => i2c_joya_down,
+      i2c_joya_left => i2c_joya_left,
+      i2c_joya_right => i2c_joya_right,
+      i2c_joyb_fire => i2c_joyb_fire,
+      i2c_joyb_up => i2c_joyb_up,
+      i2c_joyb_down => i2c_joyb_down,
+      i2c_joyb_left => i2c_joyb_left,
+      i2c_joyb_right => i2c_joyb_right,
+      -- XXX Come up with better button assignments
+      i2c_button2 => i2c_button2,
+      i2c_button3 => i2c_button3,
+      i2c_button4 => joyswap_key,
+      i2c_black3 => osk_toggle_key,
+      i2c_black4 => restore_key,
+      
       f_index => '1',
       f_track0 => '1',
       f_writeprotect => '1',

@@ -9,10 +9,10 @@ entity keymapper is
     ioclock : in std_logic;
     reset_in : in std_logic;
     matrix_mode_in : in std_logic; -- Is the system displaying matrix mode (not
-                                   -- to be confused with the keyboard matrix).
-    
+                                   -- to be confused with the keyboard matrix).    
     joya_rotate : in std_logic;
     joyb_rotate : in std_logic;
+    joyswap : in std_logic;
     
     -- Which inputs shall we incorporate
     virtual_disable : in std_logic;
@@ -217,10 +217,17 @@ begin  -- behavioural
         else
           n2 := n;
         end if;
-        joya(n) <= '1' and (joya_physkey(n2) or joykey_disable)
-                   and (joya_widget(n2) or widget_disable)
-                   and (joya_real(n2) or joyreal_disable)
-                   and (joya_ps2(n2) or ps2_disable);
+        if joyswap='0' then
+          joya(n) <= '1' and (joya_physkey(n2) or joykey_disable)
+                     and (joya_widget(n2) or widget_disable)
+                     and (joya_real(n2) or joyreal_disable)
+                     and (joya_ps2(n2) or ps2_disable);
+        else
+          joyb(n) <= '1' and (joya_physkey(n2) or joykey_disable)
+                     and (joya_widget(n2) or widget_disable)
+                     and (joya_real(n2) or joyreal_disable)
+                     and (joya_ps2(n2) or ps2_disable);
+        end if;
         if joyb_rotate = '1' then
           if n = 0 then
             n2 := 1;
@@ -234,19 +241,37 @@ begin  -- behavioural
         else
           n2 := n;
         end if;
-        joyb(n) <= '1' and (joyb_physkey(n2) or joykey_disable)
-                   and (joyb_widget(n2) or widget_disable)
-                   and (joyb_real(n2) or joyreal_disable)
-                   and (joyb_ps2(n2) or ps2_disable);
+        if joyswap='0' then
+          joyb(n) <= '1' and (joyb_physkey(n2) or joykey_disable)
+                     and (joyb_widget(n2) or widget_disable)
+                     and (joyb_real(n2) or joyreal_disable)
+                     and (joyb_ps2(n2) or ps2_disable);
+        else
+          joya(n) <= '1' and (joyb_physkey(n2) or joykey_disable)
+                     and (joyb_widget(n2) or widget_disable)
+                     and (joyb_real(n2) or joyreal_disable)
+                     and (joyb_ps2(n2) or ps2_disable);
+        end if;
       end loop;
-      joya(4) <= '1' and (joya_physkey(4) or joykey_disable)
-                 and (joya_widget(4) or widget_disable)
-                 and (joya_real(4) or joyreal_disable)
-                 and (joya_ps2(4) or ps2_disable);
-      joyb(4) <= '1' and (joyb_physkey(4) or joykey_disable)
-                 and (joyb_widget(4) or widget_disable)
-                 and (joyb_real(4) or joyreal_disable)
-                 and (joyb_ps2(4) or ps2_disable);
+      if joyswap='0' then
+        joya(4) <= '1' and (joya_physkey(4) or joykey_disable)
+                   and (joya_widget(4) or widget_disable)
+                   and (joya_real(4) or joyreal_disable)
+                   and (joya_ps2(4) or ps2_disable);
+        joyb(4) <= '1' and (joyb_physkey(4) or joykey_disable)
+                   and (joyb_widget(4) or widget_disable)
+                   and (joyb_real(4) or joyreal_disable)
+                   and (joyb_ps2(4) or ps2_disable);
+      else
+        joyb(4) <= '1' and (joya_physkey(4) or joykey_disable)
+                   and (joya_widget(4) or widget_disable)
+                   and (joya_real(4) or joyreal_disable)
+                   and (joya_ps2(4) or ps2_disable);
+        joya(4) <= '1' and (joyb_physkey(4) or joykey_disable)
+                   and (joyb_widget(4) or widget_disable)
+                   and (joyb_real(4) or joyreal_disable)
+                   and (joyb_ps2(4) or ps2_disable);
+      end if;
 
       
       if reset_in = '0' then

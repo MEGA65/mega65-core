@@ -14,6 +14,9 @@ entity c65uart is
     reset : in std_logic;
     irq : out std_logic := 'Z';
     c65uart_cs : in std_logic;
+
+    osk_toggle_key : in std_logic;
+    joyswap_key : in std_logic;
     
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
@@ -39,6 +42,7 @@ entity c65uart is
     virtual_disable : out std_logic;
     joya_rotate : out std_logic := '0';
     joyb_rotate : out std_logic := '0';
+    joyswap : out std_logic := '0';
 
     -- Paddle/analog mouse inputs and debugging
     cia1portb_out : in std_logic_vector(7 downto 6);
@@ -199,12 +203,18 @@ architecture behavioural of c65uart is
   signal porto_internal : std_logic_vector(7 downto 0) := x"14";
   signal portp_internal : std_logic_vector(7 downto 0) := x"34";
 
+  signal joyswap_internal : std_logic := '0';
   signal joya_rotate_internal : std_logic := '0';
   signal joyb_rotate_internal : std_logic := '0';
   signal amiga_mouse_enable_a_internal : std_logic := '0';
   signal amiga_mouse_enable_b_internal : std_logic := '0';
   signal amiga_mouse_assume_a_internal : std_logic := '0';
   signal amiga_mouse_assume_b_internal : std_logic := '0';
+
+  signal last_osk_toggle_key : std_logic := '1';
+  signal osk_toggle_countdown : integer range 0 to 1023 := 0;
+  signal last_joyswap_key : std_logic := '1';
+  signal joyswap_countdown : integer range 0 to 1023 := 0;
   
 begin  -- behavioural
   
@@ -236,6 +246,43 @@ begin  -- behavioural
 
     if rising_edge(cpuclock) then
 
+      -- Monitor OSK toggle key input for MEGAphone, and cycle through the
+      -- various OSK states (off, bottom and top position).
+      last_osk_toggle_key <= osk_toggle_key;
+      -- We have a countdown to effectively de-bounce the key
+      if osk_toggle_key='0' and last_osk_toggle_key='1' and osk_toggle_countdown = 0 then
+        -- Toggle between off, bottom and top position for visual keyboard
+        if portk_internal(7) = '0' then
+          portk_internal(7) <= '1';
+        elsif portl_internal(7) = '0' then
+          portl_internal(7) <= '1';
+        else
+          portk_internal(7) <= '0';
+          portl_internal(7) <= '0';
+        end if;
+        osk_toggle_countdown <= 1023;
+      else
+        if osk_toggle_countdown /= 0 then
+          osk_toggle_countdown <= osk_toggle_countdown - 1;
+        end if;
+      end if;
+
+      -- Swap joysticks 1 & 2 when requested.
+      -- XXX For now, this is only wired up for the MEGAphone, but it would
+      -- be nice to have some bit that controls it on the normal machine as well.
+      last_joyswap_key <= joyswap_key;
+      -- We have a countdown to effectively de-bounce the key
+      if joyswap_key='0' and last_joyswap_key='1' and joyswap_countdown = 0 then
+        joyswap_internal <= not joyswap_internal;
+        joyswap <= not joyswap_internal;
+        joyswap_countdown <= 1023;
+      else
+        if joyswap_countdown /= 0 then
+          joyswap_countdown <= joyswap_countdown - 1;
+        end if;        
+      end if;      
+
+      
       reg_data_rx_drive <= reg_data_rx;
       
       widget_disable <= not widget_enable_internal;
@@ -352,7 +399,8 @@ begin  -- behavioural
             physkey_enable_internal <= std_logic(fastio_wdata(2));
             virtual_enable_internal <= std_logic(fastio_wdata(3));
             joykey_enable_internal <= std_logic(fastio_wdata(4));
-            joyreal_enable_internal <= std_logic(fastio_wdata(5));
+            joyswap <= fastio_wdata(5);
+            joyswap_internal <= std_logic(fastio_wdata(5));
             joya_rotate <= fastio_wdata(6);
             joya_rotate_internal <= fastio_wdata(6);
             joyb_rotate <= fastio_wdata(7);
@@ -515,8 +563,8 @@ begin  -- behavioural
           fastio_rdata(3) <= virtual_enable_internal;
           -- @IO:GS $D612.4 UARTMISC:PS2JOY Enable PS/2 / USB keyboard simulated joystick input
           fastio_rdata(4) <= joykey_enable_internal;
-          -- @IO:GS $D612.5 UARTMISC:PHYJOY Enable physical joystick input
-          fastio_rdata(5) <= joyreal_enable_internal;
+          -- @IO:GS $D612.5 UARTMISC:JOYSWAP Exchange joystick ports 1 & 2
+          fastio_rdata(5) <= joyswap_internal;
           -- @IO:GS $D612.6 UARTMISC:LJOYA Rotate inputs of joystick A by 180 degrees (for left handed use)
           fastio_rdata(6) <= joya_rotate_internal;
           -- @IO:GS $D612.7 UARTMISC:LJOYB Rotate inputs of joystick B by 180 degrees (for left handed use)

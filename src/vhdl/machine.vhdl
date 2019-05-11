@@ -67,6 +67,8 @@ entity machine is
          irq : in  STD_LOGIC;
          nmi : in  STD_LOGIC;
          restore_key : in std_logic;
+         osk_toggle_key : in std_logic := '1';
+         joyswap_key : in std_logic := '1';
          cpu_exrom : in std_logic;
          cpu_game : in std_logic;
 
@@ -135,6 +137,23 @@ entity machine is
          fb_poty : in std_logic;
          pot_drain : buffer std_logic;
          pot_via_iec : buffer std_logic;
+
+        i2c_joya_fire : out std_logic;
+        i2c_joya_up : out std_logic;
+        i2c_joya_down : out std_logic;
+        i2c_joya_left : out std_logic;
+        i2c_joya_right : out std_logic;
+        i2c_joyb_fire : out std_logic;
+        i2c_joyb_up : out std_logic;
+        i2c_joyb_down : out std_logic;
+        i2c_joyb_left : out std_logic;
+        i2c_joyb_right : out std_logic;
+        i2c_button2 : out std_logic;
+        i2c_button3 : out std_logic;
+        i2c_button4 : out std_logic;
+        i2c_black2 : out std_logic;
+        i2c_black3 : out std_logic;
+        i2c_black4 : out std_logic;
          
          ----------------------------------------------------------------------
          -- CBM floppy serial port
@@ -1306,6 +1325,8 @@ begin
       fpga_temperature => fpga_temperature,
 
       restore_key => restore_key,
+      osk_toggle_key => osk_toggle_key,
+      joyswap_key => joyswap_key,
       
       reg_isr_out => reg_isr_out,
       imask_ta_out => imask_ta_out,    
@@ -1411,6 +1432,23 @@ begin
       pot_drain => pot_drain,
       pot_via_iec => pot_via_iec,
 
+      i2c_joya_fire => i2c_joya_fire,
+      i2c_joya_up => i2c_joya_up,
+      i2c_joya_down => i2c_joya_down,
+      i2c_joya_left => i2c_joya_left,
+      i2c_joya_right => i2c_joya_right,
+      i2c_joyb_fire => i2c_joyb_fire,
+      i2c_joyb_up => i2c_joyb_up,
+      i2c_joyb_down => i2c_joyb_down,
+      i2c_joyb_left => i2c_joyb_left,
+      i2c_joyb_right => i2c_joyb_right,
+      i2c_button2 => i2c_button2,
+      i2c_button3 => i2c_button3,
+      i2c_button4 => i2c_button4,
+      i2c_black2 => i2c_black2,
+      i2c_black3 => i2c_black3,
+      i2c_black4 => i2c_black4,
+      
       mouse_debug => mouse_debug,
       amiga_mouse_enable_a => amiga_mouse_enable_a,
       amiga_mouse_enable_b => amiga_mouse_enable_b,

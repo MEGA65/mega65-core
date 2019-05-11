@@ -38,6 +38,24 @@ entity i2c_wrapper is
     -- I2C bus
     sda : inout std_logic;
     scl : inout std_logic;
+
+    -- Buttons etc outputs
+    i2c_joya_fire : out std_logic := '1';
+    i2c_joya_up : out std_logic := '1';
+    i2c_joya_down : out std_logic := '1';
+    i2c_joya_left : out std_logic := '1';
+    i2c_joya_right : out std_logic := '1';
+    i2c_joyb_fire : out std_logic := '1';
+    i2c_joyb_up : out std_logic := '1';
+    i2c_joyb_down : out std_logic := '1';
+    i2c_joyb_left : out std_logic := '1';
+    i2c_joyb_right : out std_logic := '1';
+    i2c_button2 : out std_logic := '1';
+    i2c_button3 : out std_logic := '1';
+    i2c_button4 : out std_logic := '1';
+    i2c_black2 : out std_logic := '1';
+    i2c_black3 : out std_logic := '1';
+    i2c_black4 : out std_logic := '1';
     
     -- FastIO interface
     cs : in std_logic;
@@ -197,6 +215,32 @@ begin
         end if;
         if busy_count > 1 then
           bytes(busy_count - 1 - 1 + 0) <= i2c1_rdata;
+        end if;
+        if busy_count = 2 then
+          i2c_joya_up <= i2c1_rdata(0);
+          i2c_joya_left <= i2c1_rdata(1);
+          i2c_joya_right <= i2c1_rdata(2);
+          i2c_joya_down <= i2c1_rdata(3);
+          i2c_joya_fire <= i2c1_rdata(4);
+          i2c_button2 <= i2c1_rdata(5);
+          i2c_button3 <= i2c1_rdata(6);
+          i2c_button4 <= i2c1_rdata(7);
+        end if;
+        if busy_count = 3 then
+          i2c_black3 <= i2c1_rdata(0);
+          i2c_black4 <= i2c1_rdata(1);
+          -- Black button 2 combined with interrupt
+          -- input that also wakes the FPGA up.
+          i2c_black2 <= i2c1_rdata(2);
+          -- XXX joyb is on the other pins, but
+          -- the port currently lacks pull-ups, so all lines
+          -- are currently active.  Uncomment below when fixed.
+          -- XXX also ensure correct line asignments.
+          i2c_joyb_up <= i2c1_rdata(3);
+          i2c_joyb_left <= i2c1_rdata(4);
+          i2c_joyb_right <= i2c1_rdata(5);
+          i2c_joyb_down <= i2c1_rdata(6);
+          i2c_joyb_fire <= i2c1_rdata(7);
         end if;
         when 4 =>
         i2c1_command_en <= '1';
