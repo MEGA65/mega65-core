@@ -66,7 +66,7 @@ end visual_keyboard;
 architecture behavioural of visual_keyboard is
 
   signal y_start_current : unsigned(11 downto 0) :=
-    to_unsigned(0,12);
+    to_unsigned(1,12);
   signal x_start_current : unsigned(13 downto 0) :=
     to_unsigned(0,14);
   signal max_x : integer := 0;
@@ -116,7 +116,7 @@ architecture behavioural of visual_keyboard is
   signal char_pixels_remaining : integer range 0 to 8 := 0;
   signal first_column : std_logic := '0';
 
-  signal osk_in_position_lower : std_logic := '1';
+  signal osk_in_position_lower : std_logic := '0';
   signal last_visual_keyboard_enable : std_logic := '0';
   signal max_y : integer := 0;
   signal ycounter_last : integer := 0;
@@ -418,7 +418,7 @@ begin
           if ycounter_in = y_start_current then
             active <= '1';
             
---            report "x_start_current = " & integer'image(to_integer(x_start_current));
+            report "x_start_current = " & integer'image(to_integer(x_start_current));
 
             -- Packed text starts at $0900 in OSKmem
             current_address <= to_integer(keyboard_text_start);
@@ -807,8 +807,15 @@ begin
 
       y_start_current_upabit <= y_start_current - y_start_current(11 downto 3) - y_start_minimum - 2;
 
-      report "ycounter_in = " & integer'image(ycounter_in);
+      report "ycounter_in = " & integer'image(ycounter_in)
+        & ", y_start_current = " & integer'image(to_integer(y_start_current))
+        & ", y_lower_start = " & integer'image(to_integer(y_lower_start))
+        & ", y_start_minimum = " & integer'image(y_start_minimum);
+        
       if ycounter_in = 0 and ycounter_last /= 0 then
+
+        report "XXX Top of frame";
+        
         max_y <= ycounter_last;
         max_x <= 0;
         box_pixel_h <= '0';
@@ -993,7 +1000,9 @@ begin
             -- the OSK has been moved to the top for some reason.
             -- Thus we want to mirror the motion that we used to move from
             -- bottom to top (a 1/8th + 2 pixel Xeno step function)
-            if y_start_current < y_lower_start then
+            if y_start_current < y_start_minimum then
+              y_start_current <= to_unsigned(y_start_minimum,12);
+            elsif y_start_current < y_lower_start then
               y_gap := y_lower_start - y_start_current;
               y_start_current <= y_start_current + y_gap(11 downto 3) + 2;
             else

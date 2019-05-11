@@ -3037,6 +3037,8 @@ begin
             end if;
           else
             -- Start of next frame
+            report "Starting new frame. ycounter_driver <= 0";
+            
             ycounter_driver <= (others =>'0');
             report "LEGACY: chargen_y_sub = 0, first_card_of_row = 0 due to start of frame";
             chargen_y_sub <= (others => '0');
