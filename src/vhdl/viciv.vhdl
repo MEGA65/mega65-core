@@ -117,7 +117,7 @@ entity viciv is
     pal50_select : out std_logic := '0';
 
     lcd_pixel_strobe : out std_logic;
-    lcd_in_letterbox : out std_logic;
+    lcd_in_frame : in std_logic;
     vgared : out  UNSIGNED (7 downto 0);
     vgagreen : out  UNSIGNED (7 downto 0);
     vgablue : out  UNSIGNED (7 downto 0);
@@ -252,7 +252,9 @@ architecture Behavioral of viciv is
   -- Video mode definition
   -- NOTE: These get overwritten by $D06F PAL/NTSC flags
   -- The values here are simply those that apply on power up.
-  signal frame_h_front : unsigned(7 downto 0) := to_unsigned(16,8);
+  -- NOTE: frame_h_front is deprecated due to the pixel_driver now?
+  -- In any case, it seems to cause the trimming of frame_h_front pixels
+  signal frame_h_front : unsigned(7 downto 0) := to_unsigned(0,8);
   -- 800x480 @ 50Hz for 100MHz pixelclock
   signal single_side_border : unsigned(13 downto 0) := to_unsigned(80,14);
   constant display_width : unsigned(11 downto 0) := to_unsigned(800,12);
@@ -297,8 +299,6 @@ architecture Behavioral of viciv is
   signal vicii_ycounter_scale : unsigned(3 downto 0) := to_unsigned(0,4);
 
   constant frame_v_front : integer := 1;
-
-  signal lcd_in_letterbox_internal : std_logic := '1';
 
   -- Frame generator counters
   -- DEBUG: Start frame at a point that will soon trigger a badline
@@ -2765,8 +2765,6 @@ begin
   begin
     if rising_edge(pixelclock) and all_pause='0' then
 
-      lcd_in_letterbox <= lcd_in_letterbox_internal;
-
       report "ycounter = $" & to_hstring(ycounter) & ", ycounter_driver = $" & to_hstring(ycounter_driver);
       ycounter <= ycounter_driver;
       vgared <= vgared_driver;
@@ -2908,7 +2906,7 @@ begin
         xcounter_pipeline_delayed <= 0;
       end if;
 
-      if external_frame_x_zero_latched='0' and external_pixel_strobe_log(0)='1' then
+      if external_frame_x_zero_latched='0' and external_pixel_strobe_log(0)='1' and lcd_in_frame='1' then
         raster_buffer_read_address(9 downto 0) <= raster_buffer_read_address_next(9 downto 0);
         raster_buffer_read_address_sub <= raster_buffer_read_address_sub_next;
         xcounter <= xcounter + 1;
@@ -3280,7 +3278,7 @@ begin
         viciv_flyback <= '0';
       end if;
 
-      if xfrontporch='1' or xbackporch='1' then
+      if lcd_in_frame = '0' then
         indisplay := '0';
         report "clearing indisplay because of horizontal porch" severity note;
       end if;
@@ -3310,13 +3308,7 @@ begin
         end if;
 
       end if;
-      -- LCD letter box starts after half the excess raster lines are gone, so
-      -- that it is vertically centred on the 800x480 display.
-      if to_integer(ycounter) = (to_integer(vsync_delay_drive) + (to_integer(display_height) - 480)/2) then
-        lcd_in_letterbox_internal <= '1';
-      elsif vertical_flyback = '1' then
-        lcd_in_letterbox_internal <= '0';
-      end if;
+
       -- Generate pixel clock based on x640 clock
       last_vicii_xcounter_640 <= vicii_xcounter_640;
       if vicii_xcounter_640 /= last_vicii_xcounter_640 then
@@ -3699,6 +3691,8 @@ begin
         if xcounter /= xcounter_last then
           -- XXX pixel_strobe_in should be fed through the pipeline and delayed
           -- to match, so that the correct pixels get latched.
+          report "pixel = " & std_logic'image(indisplay)
+            & ", xcounter = " & integer'image(to_integer(xcounter));
           pixel_strobe_out <= indisplay;
         else
           pixel_strobe_out <= '0';

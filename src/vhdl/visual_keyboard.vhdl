@@ -179,6 +179,8 @@ architecture behavioural of visual_keyboard is
   signal zoom_border_colour : unsigned(7 downto 0) := x"00";
   
   -- Keep OSK in region that fits on 800x480 LCD panel
+  -- XXX Tie in to use lcd_inletterbox signal from pixel_driver instead of
+  -- computing it here?
   constant y_start_minimum : integer := (600-480)/2 + 19 ;
   constant y_end_maximum : integer := 600 + 19 + 19 - y_start_minimum;
   
@@ -198,8 +200,7 @@ architecture behavioural of visual_keyboard is
     GotNextMatrix
     );
   signal fetch_state : fetch_state_t := FetchInitial;
-  
-  
+
 begin
 
   km0: entity work.oskmem
@@ -235,6 +236,7 @@ begin
         xcounter <= 0;
       else
         if pixel_strobe_in = '1' then
+          report "pixel_strobe seen";
           xcounter <= xcounter + 1;
         end if;
       end if;
@@ -417,6 +419,7 @@ begin
 
           if ycounter_in = y_start_current then
             active <= '1';
+            report "Asserting active";
             
             report "x_start_current = " & integer'image(to_integer(x_start_current));
 
@@ -429,6 +432,7 @@ begin
             y_pixel_counter <= 0;
             y_phase <= 0;
           elsif ycounter_in = 0 then
+            report "Clearing active";
             active <= '0';
             current_matrix_id <= (others => '1');            
           elsif active='1' then
@@ -446,6 +450,7 @@ begin
               if y_row = 6 then
                 -- We draw only the top line for row 6 to cap
                 -- off row 5
+                report "Clearing active";
                 active <= '0';
                 -- We have reached the bottom of the OSD, so check if it fits
                 -- entirely on screen or not.
@@ -476,6 +481,7 @@ begin
                   if y_row /= 6 then
                     y_row <= y_row + 1;
                   else
+                    report "Clearing active";
                     active <= '0';
                   end if;
                 end if;
@@ -810,7 +816,8 @@ begin
       report "ycounter_in = " & integer'image(ycounter_in)
         & ", y_start_current = " & integer'image(to_integer(y_start_current))
         & ", y_lower_start = " & integer'image(to_integer(y_lower_start))
-        & ", y_start_minimum = " & integer'image(y_start_minimum);
+        & ", y_start_minimum = " & integer'image(y_start_minimum)
+        & ", xcounter = " & integer'image(xcounter);
         
       if ycounter_in = 0 and ycounter_last /= 0 then
 
