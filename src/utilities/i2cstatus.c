@@ -244,9 +244,9 @@ void main(void)
     // Show black button status
     a1=lpeek(0xffd7001L);
     a1=a1^0xff;
-    if (a1&1) printf("black2        ");
-    else if (a1&2) printf("black3        ");
-    else if (a1&4) printf("black4        ");
+    if (a1&1) printf("black3        ");
+    else if (a1&2) printf("black4        ");
+    else if (a1&4) printf("black2/int        ");
     printf("\n");
   }
 }

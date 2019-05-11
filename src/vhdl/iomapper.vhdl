@@ -30,6 +30,8 @@ entity iomapper is
         hyper_trap : out std_logic;
         matrix_mode_trap : out std_logic;
         restore_key : in std_logic;
+        osk_toggle_key : in std_logic;
+        joyswap_key : in std_logic;
         restore_nmi : out std_logic;
         cpu_hypervisor_mode : in std_logic;
         hyper_trap_f011_read : out std_logic;
@@ -115,12 +117,29 @@ entity iomapper is
 
         pot_drain : in std_logic;
         pot_via_iec : buffer std_logic;
-        
+
         mouse_debug : in unsigned(7 downto 0);
         amiga_mouse_enable_a : out std_logic;
         amiga_mouse_enable_b : out std_logic;
         amiga_mouse_assume_a : out std_logic;
         amiga_mouse_assume_b : out std_logic;
+
+        i2c_joya_fire : out std_logic;
+        i2c_joya_up : out std_logic;
+        i2c_joya_down : out std_logic;
+        i2c_joya_left : out std_logic;
+        i2c_joya_right : out std_logic;
+        i2c_joyb_fire : out std_logic;
+        i2c_joyb_up : out std_logic;
+        i2c_joyb_down : out std_logic;
+        i2c_joyb_left : out std_logic;
+        i2c_joyb_right : out std_logic;
+        i2c_button2 : out std_logic;
+        i2c_button3 : out std_logic;
+        i2c_button4 : out std_logic;
+        i2c_black2 : out std_logic;
+        i2c_black3 : out std_logic;
+        i2c_black4 : out std_logic;
         
         ----------------------------------------------------------------------
         -- CBM floppy serial port
@@ -340,6 +359,7 @@ architecture behavioral of iomapper is
   signal joyreal_disable : std_logic;
   signal virtual_disable : std_logic;
   signal physkey_disable : std_logic;
+  signal joyswap : std_logic;
 
   signal restore_up_count : unsigned(7 downto 0) := x"00";
   signal restore_down_count : unsigned(7 downto 0) := x"00";
@@ -651,6 +671,8 @@ begin
       pixelclock => pixelclk,
       cpuclock => clk,
       c65uart_cs => c65uart_cs,
+      osk_toggle_key => osk_toggle_key,
+      joyswap_key => joyswap_key,
       phi0 => phi0,
       reset => reset,
 --      irq => nmi,
@@ -715,6 +737,7 @@ begin
       portq_in => address_next_1541(7 downto 0),
       joya_rotate => joya_rotate,
       joyb_rotate => joyb_rotate,
+      joyswap => joyswap,
       mouse_debug => mouse_debug,
       amiga_mouse_enable_a => amiga_mouse_enable_a,
       amiga_mouse_enable_b => amiga_mouse_enable_b,
@@ -756,6 +779,8 @@ begin
     physkey_disable => physkey_disable,
     virtual_disable => virtual_disable,
 
+      joyswap => joyswap,
+      
       joya_rotate => joya_rotate,
       joyb_rotate => joyb_rotate,
       
@@ -1008,6 +1033,23 @@ begin
 
     sda => i2c1SDA,
     scl => i2c1SCL,
+
+    i2c_joya_fire => i2c_joya_fire,
+    i2c_joya_up => i2c_joya_up,
+    i2c_joya_down => i2c_joya_down,
+    i2c_joya_left => i2c_joya_left,
+    i2c_joya_right => i2c_joya_right,
+    i2c_joyb_fire => i2c_joyb_fire,
+    i2c_joyb_up => i2c_joyb_up,
+    i2c_joyb_down => i2c_joyb_down,
+    i2c_joyb_left => i2c_joyb_left,
+    i2c_joyb_right => i2c_joyb_right,
+    i2c_button2 => i2c_button2,
+    i2c_button3 => i2c_button3,
+    i2c_button4 => i2c_button4,
+    i2c_black2 => i2c_black2,
+    i2c_black3 => i2c_black3,
+    i2c_black4 => i2c_black4,
     
     fastio_addr => unsigned(address),
     fastio_write => w,

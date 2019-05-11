@@ -25,6 +25,8 @@ entity keyboard_complex is
 
     joya_rotate : in std_logic;
     joyb_rotate : in std_logic;
+
+    joyswap : in std_logic;
     
     -- Joysticks
     joya : in std_logic_vector(4 downto 0);
@@ -223,6 +225,8 @@ begin
 
     -- Which inputs shall we incorporate
 
+    joyswap => joyswap,
+    
     joya_rotate => joya_rotate,
     joyb_rotate => joyb_rotate,
     
