@@ -84,7 +84,7 @@ architecture brutalist of frame_generator is
   signal y_zero_driver2 : std_logic := '0';
   signal y_zero_driver80 : std_logic := '0';
   signal y_zero_driver80b : std_logic := '0';
-  signal y : integer := 0;
+  signal y : integer := frame_height - 3;
   signal inframe_internal : std_logic := '0';
 
   signal lcd_inletterbox : std_logic := '0';
@@ -109,6 +109,12 @@ begin
       -- Cross from 120MHz to 80MHz clock domains for VIC-IV signals
       x_zero_80 <= x_zero_driver80b;
       y_zero_80 <= y_zero_driver80b;
+      if y_zero_driver80b='1' then
+        report "y_zero asserted";
+      end if;
+      if x_zero_driver80b='1' then
+        report "x_zero asserted";
+      end if;
       x_zero_driver80b <= x_zero_driver80;
       y_zero_driver80b <= y_zero_driver80;      
       x_zero_driver80 <= x_zero_driver2;

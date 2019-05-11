@@ -1054,7 +1054,7 @@ begin
       -- Configuration information for pixel_driver
       pal50_select => pal50_select,
       vsync_polarity => vsync_polarity,
-      hsync_polarity => hsync_polarity,
+     hsync_polarity => hsync_polarity,
 
       -- Framing information from pixel_driver
       external_pixel_strobe_in => external_pixel_strobe,
