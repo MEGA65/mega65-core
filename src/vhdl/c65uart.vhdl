@@ -246,6 +246,9 @@ begin  -- behavioural
     variable register_number : unsigned(7 downto 0);
   begin
 
+    register_number(7 downto 6) := "00";
+    register_number(5 downto 0) := fastio_address(5 downto 0);
+    
     if rising_edge(cpuclock) then
 
       -- Monitor OSK toggle key input for MEGAphone, and cycle through the
@@ -269,22 +272,6 @@ begin  -- behavioural
         end if;
       end if;
 
-      -- Swap joysticks 1 & 2 when requested.
-      -- XXX For now, this is only wired up for the MEGAphone, but it would
-      -- be nice to have some bit that controls it on the normal machine as well.
-      last_joyswap_key <= joyswap_key;
-      -- We have a countdown to effectively de-bounce the key
-      if joyswap_key='0' and last_joyswap_key='1' and joyswap_countdown = 0 then
-        joyswap_internal <= not joyswap_internal;
-        joyswap <= not joyswap_internal;
-        joyswap_countdown <= 1023;
-      else
-        if joyswap_countdown /= 0 then
-          joyswap_countdown <= joyswap_countdown - 1;
-        end if;        
-      end if;      
-
-      
       reg_data_rx_drive <= reg_data_rx;
       
       widget_disable <= not widget_enable_internal;
@@ -308,13 +295,22 @@ begin  -- behavioural
           rx_clear_flags <= '1';
         end if;
       end if;
-    end if;
 
-    register_number(7 downto 6) := "00";
-    register_number(5 downto 0) := fastio_address(5 downto 0);
-    
-    if rising_edge(cpuclock) then
-
+      -- Swap joysticks 1 & 2 when requested.
+      -- XXX For now, this is only wired up for the MEGAphone, but it would
+      -- be nice to have some bit that controls it on the normal machine as well.
+      last_joyswap_key <= joyswap_key;
+      -- We have a countdown to effectively de-bounce the key
+      if joyswap_key='0' and last_joyswap_key='1' and joyswap_countdown = 0 then
+        joyswap_internal <= not joyswap_internal;
+        joyswap <= not joyswap_internal;
+        joyswap_countdown <= 1023;
+      else
+        if joyswap_countdown /= 0 then
+          joyswap_countdown <= joyswap_countdown - 1;
+        end if;        
+      end if;      
+      
       -- Make copies of registers from pixelclock domain
       reg_status0_rx_full_drive <= reg_status0_rx_full;
       reg_status1_rx_overrun_drive <= reg_status1_rx_overrun;
