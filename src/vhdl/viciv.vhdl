@@ -2023,7 +2023,7 @@ begin
         mask_collisionspritesprite <= '0';
         mask_raster <= '0';
 
-        -- Also turn sprites off on reset
+      -- Also turn sprites off on reset
 --        vicii_sprite_enables <= (others => '0');
       end if;
 
@@ -2474,15 +2474,15 @@ begin
           -- @IO:GS $D051 VIC-IV:XPOS Read horizontal raster scan position
           null;
         elsif register_number=82 then
-          -- @IO:GS $D052 VIC-IV:FNRASTER Read physical raster position
-          -- Allow setting of fine raster for IRQ (low bits)
-          -- vicii_raster_compare(7 downto 0) <= unsigned(fastio_wdata);
+        -- @IO:GS $D052 VIC-IV:FNRASTER Read physical raster position
+        -- Allow setting of fine raster for IRQ (low bits)
+        -- vicii_raster_compare(7 downto 0) <= unsigned(fastio_wdata);
 --        vicii_is_raster_source <= '0';
         elsif register_number=83 then
-          -- @IO:GS $D053.0-2 VIC-IV:FNRASTER Read physical raster position
-          -- Allow setting of fine raster for IRQ (high bits)
-          -- vicii_raster_compare(10 downto 8) <= unsigned(fastio_wdata(2 downto 0));
-          -- @IO:GS $D053.7 VIC-IV:FNRST Raster compare source (1=VIC-IV fine raster, 0=VIC-II raster)
+        -- @IO:GS $D053.0-2 VIC-IV:FNRASTER Read physical raster position
+        -- Allow setting of fine raster for IRQ (high bits)
+        -- vicii_raster_compare(10 downto 8) <= unsigned(fastio_wdata(2 downto 0));
+        -- @IO:GS $D053.7 VIC-IV:FNRST Raster compare source (1=VIC-IV fine raster, 0=VIC-II raster)
         elsif register_number=84 then
           -- @IO:GS $D054 SUMMARY:VIC-IV Control register C
           -- @IO:GS $D054.7 VIC-IV:ALPHEN Alpha compositor enable
@@ -2974,33 +2974,7 @@ begin
           irq_raster <= '1';
         end if;
 
-        -- If we got far along the last line to make it look real, and ...
-        if external_frame_y_zero = '1' then
-          -- Start of next frame
-          report "Starting new frame. ycounter_driver <= 0";
-          
-          ycounter_driver <= (others =>'0');
-          report "LEGACY: chargen_y_sub = 0, first_card_of_row = 0 due to start of frame";
-          chargen_y_sub <= (others => '0');
-          first_card_of_row <= (others => '0');
-
-          displayy <= (others => '0');
-          vertical_flyback <= '0';
-          displayline0 <= '1';
-          indisplay := '0';
-          report "clearing indisplay because xcounter=0" severity note;
-          screen_row_address <= screen_ram_base(19 downto 0);
-
-          -- Reset VIC-II raster counter to first raster for top of frame
-          -- (the preceeding rasters occur during vertical flyback, in case they
-          -- have interrupts triggered on them).
-          vicii_ycounter_phase <= to_unsigned(1,4);
-          vicii_ycounter <= vicii_first_raster;
-          vicii_ycounter_continuous <= vicii_first_raster;
-          vicii_ycounter_v400 <= (others =>'0');
-          vicii_ycounter_phase_v400 <= to_unsigned(1,4);
-
-        elsif xcounter > 255 then
+        if xcounter > 255 then
           -- ... it isn't VSYNC time, then update Y position
           report "XZERO: incrementing ycounter from " & integer'image(to_integer(ycounter));
           ycounter_driver <= ycounter_driver + 1;
@@ -3058,6 +3032,34 @@ begin
             
           end if;
         end if;
+      end if;
+      
+      -- If we got far along the last line to make it look real, and ...
+      if external_frame_y_zero = '1' then
+        -- Start of next frame
+        report "Starting new frame. ycounter_driver <= 0";
+        
+        ycounter_driver <= (others =>'0');
+        report "LEGACY: chargen_y_sub = 0, first_card_of_row = 0 due to start of frame";
+        chargen_y_sub <= (others => '0');
+        first_card_of_row <= (others => '0');
+
+        displayy <= (others => '0');
+        vertical_flyback <= '0';
+        displayline0 <= '1';
+        indisplay := '0';
+        report "clearing indisplay because xcounter=0" severity note;
+        screen_row_address <= screen_ram_base(19 downto 0);
+
+        -- Reset VIC-II raster counter to first raster for top of frame
+        -- (the preceeding rasters occur during vertical flyback, in case they
+        -- have interrupts triggered on them).
+        vicii_ycounter_phase <= to_unsigned(1,4);
+        vicii_ycounter <= vicii_first_raster;
+        vicii_ycounter_continuous <= vicii_first_raster;
+        vicii_ycounter_v400 <= (others =>'0');
+        vicii_ycounter_phase_v400 <= to_unsigned(1,4);
+
       end if;
 
       if xcounter<frame_h_front then
@@ -3397,30 +3399,30 @@ begin
       viciv_outofframe <= (not indisplay_t3);
 
 --      if indisplay_t3='1' then
-        if inborder_t2='1' or (bitplane_mode='1' and viciv_bitplane_chargen_on='0') then
-          pixel_colour <= border_colour;
-          pixel_alpha <= x"FF";
-          report "VICIV: Drawing border" severity note;
-        elsif chargen_active='0' then
-          pixel_colour <= screen_colour;
-          report "VICIV: no character pixel data as chargen_active=0" severity note;
-        else
-          -- Otherwise read pixel data from raster buffer
-          if raster_buffer_read_address(9 downto 0) = to_unsigned(0,10) then
-            report "LEGACY: Painting pixels from raster buffer";
-          end if;
-          report "VICIV: raster buffer reading next from = $" & to_hstring(raster_buffer_read_address)
-            & "/$" & to_hstring(raster_buffer_max_write_address_prev)
-            & ", pixel_colour = $" & to_hstring(raster_buffer_read_data(7 downto 0))
-            & ", pixel_alpha = $" & to_hstring(raster_buffer_read_data(16 downto 9))
-            & ", pixel_is_foreground = " & std_logic'image(raster_buffer_read_data(8))
-            severity note;
-          pixel_colour <= raster_buffer_read_data(7 downto 0);
-          pixel_alpha <= raster_buffer_read_data(16 downto 9);
-          -- 9th bit indicates foreground for sprite collission handling
-          pixel_is_background <= not raster_buffer_read_data(8);
-          pixel_is_foreground <= raster_buffer_read_data(8);
+      if inborder_t2='1' or (bitplane_mode='1' and viciv_bitplane_chargen_on='0') then
+        pixel_colour <= border_colour;
+        pixel_alpha <= x"FF";
+        report "VICIV: Drawing border" severity note;
+      elsif chargen_active='0' then
+        pixel_colour <= screen_colour;
+        report "VICIV: no character pixel data as chargen_active=0" severity note;
+      else
+        -- Otherwise read pixel data from raster buffer
+        if raster_buffer_read_address(9 downto 0) = to_unsigned(0,10) then
+          report "LEGACY: Painting pixels from raster buffer";
         end if;
+        report "VICIV: raster buffer reading next from = $" & to_hstring(raster_buffer_read_address)
+          & "/$" & to_hstring(raster_buffer_max_write_address_prev)
+          & ", pixel_colour = $" & to_hstring(raster_buffer_read_data(7 downto 0))
+          & ", pixel_alpha = $" & to_hstring(raster_buffer_read_data(16 downto 9))
+          & ", pixel_is_foreground = " & std_logic'image(raster_buffer_read_data(8))
+          severity note;
+        pixel_colour <= raster_buffer_read_data(7 downto 0);
+        pixel_alpha <= raster_buffer_read_data(16 downto 9);
+        -- 9th bit indicates foreground for sprite collission handling
+        pixel_is_background <= not raster_buffer_read_data(8);
+        pixel_is_foreground <= raster_buffer_read_data(8);
+      end if;
 
       -- Make delayed versions of card number and x position so that we have time
       -- to fetch character row data.
@@ -3796,8 +3798,8 @@ begin
       report "raster_fetch_state = " & vic_chargen_fsm'image(raster_fetch_state);
       case raster_fetch_state is
         when Idle => null;
-            -- Show what we are doing in debug display mode
-            render_activity <= "000";
+                     -- Show what we are doing in debug display mode
+                     render_activity <= "000";
         when FetchScreenRamLine =>
           -- Make sure that painting is not in progress
           if paint_ready='1' then
@@ -5134,8 +5136,8 @@ begin
       reg_h1280_delayed <= reg_h1280;
       external_frame_x_zero_latched <= external_frame_x_zero;
 
-      -- ycounter we can watch for changes and count down, instead of having to have
-      -- 17 copies of it
+    -- ycounter we can watch for changes and count down, instead of having to have
+    -- 17 copies of it
 --      if ycounter /= ycounter_last then
 --        ycounter_export_countdown <= 17;
 --      else
