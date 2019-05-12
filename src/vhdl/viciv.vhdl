@@ -2975,89 +2975,87 @@ begin
         end if;
 
         -- If we got far along the last line to make it look real, and ...
-        if xcounter > 255 then
-          -- ... it isn't VSYNC time, then update Y position
-          if external_frame_y_zero='0' then
-            report "XZERO: incrementing ycounter from " & integer'image(to_integer(ycounter));
-            ycounter_driver <= ycounter_driver + 1;
+        if external_frame_y_zero = '1' then
+          -- Start of next frame
+          report "Starting new frame. ycounter_driver <= 0";
+          
+          ycounter_driver <= (others =>'0');
+          report "LEGACY: chargen_y_sub = 0, first_card_of_row = 0 due to start of frame";
+          chargen_y_sub <= (others => '0');
+          first_card_of_row <= (others => '0');
 
-            displaycolumn0 <= '1';
-            displayy <= displayy + 1;
-            if displayy(4)='1' then
-              displayline0 <= '0';
+          displayy <= (others => '0');
+          vertical_flyback <= '0';
+          displayline0 <= '1';
+          indisplay := '0';
+          report "clearing indisplay because xcounter=0" severity note;
+          screen_row_address <= screen_ram_base(19 downto 0);
+
+          -- Reset VIC-II raster counter to first raster for top of frame
+          -- (the preceeding rasters occur during vertical flyback, in case they
+          -- have interrupts triggered on them).
+          vicii_ycounter_phase <= to_unsigned(1,4);
+          vicii_ycounter <= vicii_first_raster;
+          vicii_ycounter_continuous <= vicii_first_raster;
+          vicii_ycounter_v400 <= (others =>'0');
+          vicii_ycounter_phase_v400 <= to_unsigned(1,4);
+
+        elsif xcounter > 255 then
+          -- ... it isn't VSYNC time, then update Y position
+          report "XZERO: incrementing ycounter from " & integer'image(to_integer(ycounter));
+          ycounter_driver <= ycounter_driver + 1;
+          
+          displaycolumn0 <= '1';
+          displayy <= displayy + 1;
+          if displayy(4)='1' then
+            displayline0 <= '0';
+          end if;
+          
+          if vicii_ycounter_phase = vicii_ycounter_max_phase then
+            if to_integer(vicii_ycounter) /= vicii_max_raster and ycounter >= vsync_delay_drive then
+              vicii_ycounter <= vicii_ycounter + 1;
+              -- We update V400 position in this case, bug also in the
+              -- alternate case below
+              vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;
+            end if;
+            if ycounter >= vsync_delay_drive then
+              vicii_ycounter_continuous <= vicii_ycounter_continuous + 1;
             end if;
 
-            if vicii_ycounter_phase = vicii_ycounter_max_phase then
-              if to_integer(vicii_ycounter) /= vicii_max_raster and ycounter >= vsync_delay_drive then
-                vicii_ycounter <= vicii_ycounter + 1;
-                -- We update V400 position in this case, bug also in the
-                -- alternate case below
-                vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;
-              end if;
-              if ycounter >= vsync_delay_drive then
-                vicii_ycounter_continuous <= vicii_ycounter_continuous + 1;
-              end if;
-
-              if vicii_ycounter_max_phase = 0 then
-                -- Calculate raster number for sprites.
-                -- The -2 is an adjustment factor to make the sprites line up correctly
-                -- on the screen.
-                if vicii_ycounter < 2 then
-                  vicii_sprite_ycounter <= to_unsigned(0,9);
-                else
-                  vicii_sprite_ycounter <= vicii_ycounter_continuous - 2;
-                end if;
-              end if;
-
-              vicii_ycounter_phase <= (others => '0');
-              -- All visible rasters are now equal height
-              -- (we take up the slack using vertical_flyback fast raster stepping,
-              -- and allow arbitrary setting of first raster of the VGA frame).
-              vicii_ycounter_max_phase <= vicii_ycounter_scale;
-            else
-              -- In the middle of a VIC-II logical raster, so just increase phase.
-              vicii_ycounter_phase <= vicii_ycounter_phase + 1;
-              -- But also bump V400 raster if required
-              if to_integer(vicii_ycounter_phase) =  to_integer(vicii_ycounter_max_phase(3 downto 1)) then
-                vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;
-              end if;
-
+            if vicii_ycounter_max_phase = 0 then
               -- Calculate raster number for sprites.
               -- The -2 is an adjustment factor to make the sprites line up correctly
               -- on the screen.
-              -- This is done on an "off" line, so that the sprites line up properly
               if vicii_ycounter < 2 then
                 vicii_sprite_ycounter <= to_unsigned(0,9);
               else
                 vicii_sprite_ycounter <= vicii_ycounter_continuous - 2;
               end if;
-
             end if;
-          else
-            -- Start of next frame
-            report "Starting new frame. ycounter_driver <= 0";
             
-            ycounter_driver <= (others =>'0');
-            report "LEGACY: chargen_y_sub = 0, first_card_of_row = 0 due to start of frame";
-            chargen_y_sub <= (others => '0');
-            first_card_of_row <= (others => '0');
-
-            displayy <= (others => '0');
-            vertical_flyback <= '0';
-            displayline0 <= '1';
-            indisplay := '0';
-            report "clearing indisplay because xcounter=0" severity note;
-            screen_row_address <= screen_ram_base(19 downto 0);
-
-            -- Reset VIC-II raster counter to first raster for top of frame
-            -- (the preceeding rasters occur during vertical flyback, in case they
-            -- have interrupts triggered on them).
-            vicii_ycounter_phase <= to_unsigned(1,4);
-            vicii_ycounter <= vicii_first_raster;
-            vicii_ycounter_continuous <= vicii_first_raster;
-            vicii_ycounter_v400 <= (others =>'0');
-            vicii_ycounter_phase_v400 <= to_unsigned(1,4);
-
+            vicii_ycounter_phase <= (others => '0');
+            -- All visible rasters are now equal height
+            -- (we take up the slack using vertical_flyback fast raster stepping,
+            -- and allow arbitrary setting of first raster of the VGA frame).
+            vicii_ycounter_max_phase <= vicii_ycounter_scale;
+          else
+            -- In the middle of a VIC-II logical raster, so just increase phase.
+            vicii_ycounter_phase <= vicii_ycounter_phase + 1;
+            -- But also bump V400 raster if required
+            if to_integer(vicii_ycounter_phase) =  to_integer(vicii_ycounter_max_phase(3 downto 1)) then
+              vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;
+            end if;
+            
+            -- Calculate raster number for sprites.
+            -- The -2 is an adjustment factor to make the sprites line up correctly
+            -- on the screen.
+            -- This is done on an "off" line, so that the sprites line up properly
+            if vicii_ycounter < 2 then
+              vicii_sprite_ycounter <= to_unsigned(0,9);
+            else
+              vicii_sprite_ycounter <= vicii_ycounter_continuous - 2;
+            end if;
+            
           end if;
         end if;
       end if;
