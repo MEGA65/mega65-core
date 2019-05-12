@@ -333,7 +333,7 @@ begin
   y_zero <= y_zero_pal50_80 when pal50_select_internal80='1' else y_zero_ntsc60_80;
   y_zero_internal <= y_zero_pal50_120 when pal50_select_internal='1' else y_zero_ntsc60_120;
   pixel_strobe80_out <= pixel_strobe80_50 when pal50_select_internal80='1' else pixel_strobe80_60;
-  
+
   -- Generate output pixel strobe and signals for read-side of the FIFO
   pixel_strobe120_out <= pixel_strobe120_50 when pal50_select_internal='1' else pixel_strobe120_60;
 
@@ -353,6 +353,15 @@ begin
   begin
 
     if rising_edge(clock80) then
+
+  if pal50_select_internal80='1' then
+    report "x_zero=" & std_logic'image(x_zero_pal50_80)
+      & ", y_zero=" & std_logic'image(y_zero_pal50_80);
+  else
+    report "x_zero = " & std_logic'image(x_zero_ntsc60_80)
+      & ", y_zero = " & std_logic'image(y_zero_ntsc60_80);
+  end if;
+      
       lcd_display_enable <= display_en80;
       pal50_select_internal80 <= pal50_select;
       fifo_full <= fifo_full120;
