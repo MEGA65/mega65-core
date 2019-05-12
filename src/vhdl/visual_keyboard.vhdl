@@ -501,6 +501,8 @@ begin
       
       if pixel_strobe_in='1' and active='1' and xcounter < 799 then
 
+        report "Rendering OSK pixel";
+        
         -- Calculate character pixel
         char_pixel <= char_data(7);
         if char_pixels_remaining /= 0 then
@@ -509,7 +511,7 @@ begin
             char_data(0) <= '0';
             char_pixels_remaining <= char_pixels_remaining - 1;
             double_width_phase <= '0';
---          report "char_pixels_remaining = " & integer'image(char_pixels_remaining);
+          report "char_pixels_remaining = " & integer'image(char_pixels_remaining);
           else
             if double_width='1' then
               double_width_phase <= '1';
@@ -528,9 +530,9 @@ begin
           first_column <= '0';
           
           if next_char_data /= x"00" then
---            report "clearing next_char_ready, char_data=$" & to_hstring(next_char_data);
+            report "clearing next_char_ready, char_data=$" & to_hstring(next_char_data);
           else
---            report "clearing next_char_ready";
+            report "clearing next_char_ready";
           end if;
         end if;
 
@@ -644,9 +646,9 @@ begin
         end if;
       end if;
 
---      if fetch_state /= FetchIdle and fetch_state /= MatrixFetch then
---        report "fetch_state = " & fetch_state_t'image(fetch_state);
---      end if;
+      if fetch_state /= FetchIdle and fetch_state /= MatrixFetch then
+        report "fetch_state = " & fetch_state_t'image(fetch_state);
+      end if;
       matrix_fetching <= '0';
       if matrix_fetching = '1' then
         matrix_rdata <= rdata;
@@ -797,6 +799,7 @@ begin
           vgablue_out <= zoom_rdata(23 downto 16);
         end if;
       elsif visual_keyboard_enable='1' and active='1' then
+        report "Painting OSK pixel " & std_logic'image(vk_pixel(1)) & ", char_pixel = " & std_logic'image(char_pixel);
         vgagreen_out <= vk_pixel(1)&vgagreen_in(7 downto 1);
         if key_real='0' then
           vgared_out <= vk_pixel(1)&vgared_in(7 downto 1);
