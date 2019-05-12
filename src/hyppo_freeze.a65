@@ -108,6 +108,13 @@ unfreeze_next_region:
 	jsr dos_d81write_en
 
 @noD81ImageToRemount:
+
+	; Turn SID volume registers back on, as those registers
+	; cannot be frozen.
+	lda #$0f
+	sta $D418
+	sta $D458
+
 	rts
 
 unfreeze_read_sector_and_wait:
