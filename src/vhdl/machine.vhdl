@@ -582,6 +582,7 @@ architecture Behavioral of machine is
 
   signal lcd_in_letterbox : std_logic := '0';
   signal lcd_in_frame : std_logic := '0';
+  signal vga_in_frame : std_logic := '0';
   signal lcd_display_enable_internal : std_logic := '0';
 
   signal pal50_select : std_logic := '0';
@@ -1039,6 +1040,7 @@ begin
       lcd_vsync => lcd_vsync,
       lcd_display_enable => lcd_display_enable_internal,
       lcd_inletterbox => lcd_in_letterbox,
+      inframe => vga_in_frame,
       lcd_inframe => lcd_in_frame
 
       );
@@ -1063,7 +1065,7 @@ begin
       external_pixel_strobe_in => external_pixel_strobe,
       external_frame_x_zero => external_frame_x_zero,
       external_frame_y_zero => external_frame_y_zero,
-      lcd_in_frame => lcd_in_frame,
+      vga_in_frame => vga_in_frame,
 
       -- Pixels output for the video pipeline
       pixel_strobe_out => pixel_strobe_viciv,

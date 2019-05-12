@@ -117,7 +117,7 @@ entity viciv is
     pal50_select : out std_logic := '0';
 
     lcd_pixel_strobe : out std_logic;
-    lcd_in_frame : in std_logic;
+    vga_in_frame : in std_logic;
     vgared : out  UNSIGNED (7 downto 0);
     vgagreen : out  UNSIGNED (7 downto 0);
     vgablue : out  UNSIGNED (7 downto 0);
@@ -2906,7 +2906,7 @@ begin
         xcounter_pipeline_delayed <= 0;
       end if;
 
-      if external_frame_x_zero_latched='0' and external_pixel_strobe_log(0)='1' and lcd_in_frame='1' then
+      if external_frame_x_zero_latched='0' and external_pixel_strobe_log(0)='1' and vga_in_frame='1' then
         raster_buffer_read_address(9 downto 0) <= raster_buffer_read_address_next(9 downto 0);
         raster_buffer_read_address_sub <= raster_buffer_read_address_sub_next;
         xcounter <= xcounter + 1;
@@ -3278,7 +3278,7 @@ begin
         viciv_flyback <= '0';
       end if;
 
-      if lcd_in_frame = '0' then
+      if vga_in_frame = '0' then
         indisplay := '0';
         report "clearing indisplay because of horizontal porch" severity note;
       end if;
@@ -3481,6 +3481,8 @@ begin
         & to_hstring(postsprite_pixel_colour)
         & ", RGBA = $" &to_hstring(palette_rdata)
         & ", alpha = $" & to_hstring(postsprite_alpha_value)
+        & ", vga_in_frame = " & std_logic'image(vga_in_frame)
+        & ", external_pixel_strobe = " & std_logic'image(external_pixel_strobe_in)
         severity note;
 
       -- 1. From pixel colour lookup RGB
