@@ -3278,7 +3278,8 @@ begin
         viciv_flyback <= '0';
       end if;
 
-      if lcd_in_frame = '0' then
+--      if lcd_in_frame = '0' then
+      if xfrontporch = '1' or xbackporch='1' then
         indisplay := '0';
         report "clearing indisplay because of horizontal porch" severity note;
       end if;
