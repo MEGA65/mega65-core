@@ -233,6 +233,17 @@ architecture Behavioral of container is
 
   signal dummypins : std_logic_vector(1 to 100) := (others => '0');
 
+  signal i2c_joya_fire : std_logic;
+  signal i2c_joya_left : std_logic;
+  signal i2c_joya_right : std_logic;
+  signal i2c_joya_up : std_logic;
+  signal i2c_joya_down : std_logic;
+  signal i2c_joyb_fire : std_logic;
+  signal i2c_joyb_left : std_logic;
+  signal i2c_joyb_right : std_logic;
+  signal i2c_joyb_up : std_logic;
+  signal i2c_joyb_down : std_logic;
+  
   signal i2c_button2 : std_logic;
   signal i2c_button3 : std_logic;
   signal i2c_button4 : std_logic;
