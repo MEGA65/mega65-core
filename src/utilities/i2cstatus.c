@@ -186,6 +186,14 @@ void main(void)
 
   lpoke(0xFFD705fL,0x80);
 
+  while(lpeek(0xffd70ffL)) continue;
+
+  // Setup power control IO expander
+  
+  lpoke(0xFFD7016L,0x00);
+  while(lpeek(0xffd70ffL)) continue;
+  lpoke(0xFFD7012L,0x00);
+  while(lpeek(0xffd70ffL)) continue;
   
   // Clear screen
   printf("%c",0x93);
@@ -242,11 +250,50 @@ void main(void)
     printf("\n");
 
     // Show black button status
-    a1=lpeek(0xffd7001L);
+    a1=lpeek(0xffd7000L);
+    POKE(0x608+a1,PEEK(0x608+a1)+1);
     a1=a1^0xff;
     if (a1&1) printf("black3        ");
     else if (a1&2) printf("black4        ");
     else if (a1&4) printf("black2/int        ");
     printf("\n");
+
+    a1=lpeek(0xffd7010L);
+    printf("Power status: %02X\n",a1);
+    
+    __asm__("jsr $ffe4");
+    __asm__("sta $0427");
+    a1=PEEK(0x427);
+    if (a1) {
+      POKE(0x426,a1);
+      a2=lpeek(0xffd7012L);
+      switch(a1) {
+      case '1':
+	lpoke(0xffd7012L,a2^0x01);
+	break;
+      case '2':
+	lpoke(0xffd7012L,a2^0x02);
+	break;
+      case '3':
+	lpoke(0xffd7012L,a2^0x04);
+	break;
+      case '4':
+	lpoke(0xffd7012L,a2^0x08);
+	break;
+      case '5':
+	lpoke(0xffd7012L,a2^0x10);
+	break;
+      case '6':
+	lpoke(0xffd7012L,a2^0x20);
+	break;
+      case '7':
+	lpoke(0xffd7012L,a2^0x40);
+	break;
+      case '8':
+	lpoke(0xffd7012L,a2^0x80);
+	break;
+      }
+    }
+    
   }
 }
