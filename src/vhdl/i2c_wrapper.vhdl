@@ -106,6 +106,8 @@ architecture behavioural of i2c_wrapper is
   -- Used to de-glitch I2C IP expander inputs
   signal last_value_2 : unsigned(7 downto 0) := x"FF";
   signal last_value_3 : unsigned(7 downto 0) := x"FF";
+  signal last_value_2b : unsigned(7 downto 0) := x"FF";
+  signal last_value_3b : unsigned(7 downto 0) := x"FF";
   
 begin
 
@@ -226,7 +228,8 @@ begin
         end if;
         if busy_count = 2 then
           last_value_2 <= i2c1_rdata;
-          if i2c1_rdata = last_value_2 then
+          last_value_2b <= last_value_2;
+          if (i2c1_rdata = last_value_2) and (i2c1_rdata=last_value_2b) then
             i2c_joya_up <= i2c1_rdata(0);
             i2c_joya_left <= i2c1_rdata(1);
             i2c_joya_right <= i2c1_rdata(2);
@@ -239,7 +242,8 @@ begin
         end if;
         if busy_count = 3 then
           last_value_3 <= i2c1_rdata;
-          if i2c1_rdata = last_value_3 then
+          last_value_3b <= last_value_3;
+          if (i2c1_rdata = last_value_3) and (i2c1_rdata=last_value_3b) then
             i2c_black3 <= i2c1_rdata(0);
             i2c_black4 <= i2c1_rdata(1);
             -- Black button 2 combined with interrupt
