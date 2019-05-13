@@ -836,6 +836,7 @@ begin
         & ", y_start_minimum = " & integer'image(y_start_minimum)
         & ", xcounter = " & integer'image(xcounter);
         
+      ycounter_last <= ycounter_in;
       if ycounter_in = 0 and ycounter_last /= 0 then
 
         report "XXX Top of frame";
@@ -1046,7 +1047,6 @@ begin
           & ", max_x = " &
           integer'image(max_x);
       end if;
-      ycounter_last <= ycounter_in;
       if visual_keyboard_enable='1'
         and last_visual_keyboard_enable='0' then
         -- Visual keyboard has just been enabled, so start it
