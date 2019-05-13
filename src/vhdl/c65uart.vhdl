@@ -43,6 +43,7 @@ entity c65uart is
     joya_rotate : out std_logic := '0';
     joyb_rotate : out std_logic := '0';
     joyswap : out std_logic := '0';
+    osk_debug_display : out std_logic := '0';
 
     -- Paddle/analog mouse inputs and debugging
     cia1portb_out : in std_logic_vector(7 downto 6);
@@ -193,7 +194,7 @@ architecture behavioural of c65uart is
   signal virtual_enable_internal : std_logic := '1';
 
   -- XXX for debugging, make OSK visible from startup
-  signal portk_internal : std_logic_vector(7 downto 0) := x"7F"; -- visual
+  signal portk_internal : std_logic_vector(7 downto 0) := x"FF"; -- visual
                                                                  -- keyboard
                                                                  -- off by default
   
@@ -392,11 +393,12 @@ begin  -- behavioural
             -- @IO:GS $D611.0 WRITE ONLY Connect POT lines to IEC port (for r1 PCB only)
             pot_via_iec <= fastio_wdata(0);
           when x"12" =>
-            widget_enable_internal <= std_logic(fastio_wdata(0));
-            ps2_enable_internal <= std_logic(fastio_wdata(1));
-            physkey_enable_internal <= std_logic(fastio_wdata(2));
-            virtual_enable_internal <= std_logic(fastio_wdata(3));
-            joykey_enable_internal <= std_logic(fastio_wdata(4));
+--            widget_enable_internal <= std_logic(fastio_wdata(0));
+--            ps2_enable_internal <= std_logic(fastio_wdata(1));
+--            physkey_enable_internal <= std_logic(fastio_wdata(2));
+--            virtual_enable_internal <= std_logic(fastio_wdata(3));
+--            joykey_enable_internal <= std_logic(fastio_wdata(4));
+            osk_debug_display <= fastio_wdata(4);
             joyswap <= fastio_wdata(5);
             joyswap_internal <= std_logic(fastio_wdata(5));
             joya_rotate <= fastio_wdata(6);
@@ -551,16 +553,17 @@ begin  -- behavioural
           -- @IO:GS $D611.0 UARTMISC:MRSHFT Right shift key state (hardware accelerated keyboard scanner).
           fastio_rdata(7 downto 0) <= unsigned(porti);
         when x"12" =>
-          -- @IO:GS $D612.0 UARTMISC:WGTKEY Enable widget board keyboard/joystick input
-          fastio_rdata(0) <= widget_enable_internal;
-          -- @IO:GS $D612.1 UARTMISC:PS2KEY Enable ps2 keyboard/joystick input
-          fastio_rdata(1) <= ps2_enable_internal;
-          -- @IO:GS $D612.2 UARTMISC:PHYKEY Enable physical keyboard input
-          fastio_rdata(2) <= physkey_enable_internal;
-          -- @IO:GS $D612.3 UARTMISC:VRTKEY Enable virtual/snythetic keyboard input
-          fastio_rdata(3) <= virtual_enable_internal;
-          -- @IO:GS $D612.4 UARTMISC:PS2JOY Enable PS/2 / USB keyboard simulated joystick input
-          fastio_rdata(4) <= joykey_enable_internal;
+          -- @   IO:GS $D612.0 UARTMISC:WGTKEY Enable widget board keyboard/joystick input
+--          fastio_rdata(0) <= widget_enable_internal;
+          -- @   IO:GS $D612.1 UARTMISC:PS2KEY Enable ps2 keyboard/joystick input
+--          fastio_rdata(1) <= ps2_enable_internal;
+          -- @   IO:GS $D612.2 UARTMISC:PHYKEY Enable physical keyboard input
+--          fastio_rdata(2) <= physkey_enable_internal;
+          -- @   IO:GS $D612.3 UARTMISC:VRTKEY Enable virtual/snythetic keyboard input
+--          fastio_rdata(3) <= virtual_enable_internal;
+          -- @   IO:GS $D612.4 UARTMISC:PS2JOY Enable PS/2 / USB keyboard simulated joystick input
+--          fastio_rdata(4) <= joykey_enable_internal;
+          -- @IO:GS $D612.4 UARTMISC:OSKDEBUG Debug OSK overlay (WRITE ONLY)
           -- @IO:GS $D612.5 UARTMISC:JOYSWAP Exchange joystick ports 1 & 2
           fastio_rdata(5) <= joyswap_internal;
           -- @IO:GS $D612.6 UARTMISC:LJOYA Rotate inputs of joystick A by 180 degrees (for left handed use)
