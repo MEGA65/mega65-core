@@ -814,10 +814,17 @@ begin
         vgagreen_out <= vgagreen_in;
         vgablue_out <= vgablue_in;
       else
+        -- y_start_current looks okay, too
         vgared_out(7) <= active;
         vgared_out(6 downto 0) <= y_start_current(11 downto 5);
+
+        -- We see no hint of the xcounter progressing, however.
         vgagreen_out(7 downto 0) <= to_unsigned(xcounter,8);
-        vgablue_out(7 downto 0) <= to_unsigned(ycounter_in,8);
+
+        -- Is it due to a lack of lcd_display_enable signal?
+        vgablue_out(7) <= lcd_display_enable;
+        -- Y counter seems fine
+        vgablue_out(6 downto 0) <= to_unsigned(ycounter_in,7);
       end if;
 
       y_start_current_upabit <= y_start_current - y_start_current(11 downto 3) - y_start_minimum - 2;
