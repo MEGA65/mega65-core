@@ -222,7 +222,7 @@ begin
                lcd_hsync => lcd_hsync_pal50,
                lcd_vsync => lcd_vsync_pal50,
                lcd_inframe => lcd_inframe_pal50,
-               lcd_inletterbox => lcd_inframe_pal50,
+               lcd_inletterbox => lcd_inletterbox_pal50,
 
                -- 80MHz facing signals for the VIC-IV
                x_zero_120 => x_zero_pal50_120,
@@ -258,7 +258,7 @@ begin
                lcd_hsync => lcd_hsync_ntsc60,
                lcd_vsync => lcd_vsync_ntsc60,
                lcd_inframe => lcd_inframe_ntsc60,
-               lcd_inletterbox => lcd_inframe_ntsc60,
+               lcd_inletterbox => lcd_inletterbox_ntsc60,
 
                -- 80MHz facing signals for VIC-IV
                x_zero_120 => x_zero_ntsc60_120,
@@ -360,7 +360,7 @@ begin
   else
     report "x_zero = " & std_logic'image(x_zero_ntsc60_80)
       & ", y_zero = " & std_logic'image(y_zero_ntsc60_80);
-  end if;
+  end if;       
       
       lcd_display_enable <= display_en80;
       pal50_select_internal80 <= pal50_select;
