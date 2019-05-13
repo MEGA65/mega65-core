@@ -68,6 +68,7 @@ entity iomapper is
         key_scancode_toggle : in std_logic;
 
         visual_keyboard_enable : out std_logic;
+        osk_debug_display : out std_logic;
         zoom_en_osk : inout std_logic;
         zoom_en_always : inout std_logic;
         keyboard_at_top : out std_logic;
@@ -737,6 +738,7 @@ begin
       portq_in => address_next_1541(7 downto 0),
       joya_rotate => joya_rotate,
       joyb_rotate => joyb_rotate,
+      osk_debug_display => osk_debug_display,
       joyswap => joyswap,
       mouse_debug => mouse_debug,
       amiga_mouse_enable_a => amiga_mouse_enable_a,

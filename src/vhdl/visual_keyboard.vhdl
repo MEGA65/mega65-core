@@ -23,9 +23,10 @@ entity visual_keyboard is
     vgared_out : out  unsigned (7 downto 0);
     vgagreen_out : out  unsigned (7 downto 0);
     vgablue_out : out  unsigned (7 downto 0);
-
+    
     
     -- Configuration of display
+    osk_debug_display : in std_logic := '0';
     visual_keyboard_enable : in std_logic := '0';
     keyboard_at_top : in std_logic;
     alternate_keyboard : in std_logic;
@@ -808,10 +809,15 @@ begin
           vgared_out <= '0'&vgared_in(7 downto 1);
           vgablue_out <= '0'&vgablue_in(7 downto 1);
         end if;
-      else
+      elsif osk_debug_display='0' then
         vgared_out <= vgared_in;
         vgagreen_out <= vgagreen_in;
         vgablue_out <= vgablue_in;
+      else
+        vgared_out(7) <= active;
+        vgared_out(6 downto 0) <= y_start_current(11 downto 5);
+        vgagreen_out(7 downto 0) <= to_unsigned(xcounter,8);
+        vgablue_out(7 downto 0) <= to_unsigned(ycounter_in,8);
       end if;
 
       y_start_current_upabit <= y_start_current - y_start_current(11 downto 3) - y_start_minimum - 2;
