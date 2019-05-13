@@ -1,6 +1,10 @@
 --
 -- Written by
---    Paul Gardner-Stephen <hld@c64.org>  2018
+--    Paul Gardner-Stephen, Flinders University <paul.gardner-stephen@flinders.edu.au>  2018-2019
+--
+-- XXX - We are reading rubbish sometimes from the I2C devices.
+-- It is being worked-around by using a de-glitch/de-bounce algorithm,
+-- but we should really find out the real cause and fix it at some point.
 --
 -- *  This program is free software; you can redistribute it and/or modify
 -- *  it under the terms of the GNU Lesser General Public License as
@@ -98,6 +102,10 @@ architecture behavioural of i2c_wrapper is
   signal write_val : unsigned(7 downto 0) := x"99";
 
   signal delayed_en : integer range 0 to 255 := 0;
+
+  -- Used to de-glitch I2C IP expander inputs
+  signal last_value_2 : unsigned(7 downto 0) := x"FF";
+  signal last_value_3 : unsigned(7 downto 0) := x"FF";
   
 begin
 
@@ -217,30 +225,52 @@ begin
           bytes(busy_count - 1 - 1 + 0) <= i2c1_rdata;
         end if;
         if busy_count = 2 then
-          i2c_joya_up <= i2c1_rdata(0);
-          i2c_joya_left <= i2c1_rdata(1);
-          i2c_joya_right <= i2c1_rdata(2);
-          i2c_joya_down <= i2c1_rdata(3);
-          i2c_joya_fire <= i2c1_rdata(4);
-          i2c_button2 <= i2c1_rdata(5);
-          i2c_button3 <= i2c1_rdata(6);
-          i2c_button4 <= i2c1_rdata(7);
+          last_value_2 <= i2c1_rdata;
+          if i2c1_rdata = last_value_2 then
+            i2c_joya_up <= i2c1_rdata(0);
+            i2c_joya_left <= i2c1_rdata(1);
+            i2c_joya_right <= i2c1_rdata(2);
+            i2c_joya_down <= i2c1_rdata(3);
+            i2c_joya_fire <= i2c1_rdata(4);
+            i2c_button2 <= i2c1_rdata(5);
+            i2c_button3 <= i2c1_rdata(6);
+            i2c_button4 <= i2c1_rdata(7);
+          end if;
         end if;
         if busy_count = 3 then
-          i2c_black3 <= i2c1_rdata(0);
-          i2c_black4 <= i2c1_rdata(1);
-          -- Black button 2 combined with interrupt
-          -- input that also wakes the FPGA up.
-          i2c_black2 <= i2c1_rdata(2);
-          -- XXX joyb is on the other pins, but
-          -- the port currently lacks pull-ups, so all lines
-          -- are currently active.  Uncomment below when fixed.
-          -- XXX also ensure correct line asignments.
-          i2c_joyb_up <= i2c1_rdata(3);
-          i2c_joyb_left <= i2c1_rdata(4);
-          i2c_joyb_right <= i2c1_rdata(5);
-          i2c_joyb_down <= i2c1_rdata(6);
-          i2c_joyb_fire <= i2c1_rdata(7);
+          last_value_3 <= i2c1_rdata;
+          if i2c1_rdata = last_value_3 then
+            i2c_black3 <= i2c1_rdata(0);
+            i2c_black4 <= i2c1_rdata(1);
+            -- Black button 2 combined with interrupt
+            -- input that also wakes the FPGA up.
+            i2c_black2 <= i2c1_rdata(2);
+            -- XXX joyb is on the other pins, but
+            -- the port currently lacks pull-ups, so all lines
+            -- are currently active.  Uncomment below when fixed.
+            -- XXX also ensure correct line asignments.
+            if i2c1_rdata(7 downto 3) /= "00000" then
+              -- Only set joy port inputs if they are not all low.
+              -- This should only be able to happen if the joyport is NOT
+              -- powered, or otherwise only very rarely when an Amiga mouse is
+              -- plugged in and the left-button pressed.
+              -- (We can solve this problem by later having the joy port powered
+              -- on its own rail, if joy input is required while microphone power
+              -- rail is off).
+              i2c_joyb_up <= i2c1_rdata(3);
+              i2c_joyb_left <= i2c1_rdata(4);
+              i2c_joyb_right <= i2c1_rdata(5);
+              i2c_joyb_down <= i2c1_rdata(6);
+              i2c_joyb_fire <= i2c1_rdata(7);
+            else
+              -- Float joystick inputs if the joy port is not currently powered
+              i2c_joyb_up <= '1';
+              i2c_joyb_left <= '1';
+              i2c_joyb_right <= '1';
+              i2c_joyb_down <= '1';
+              i2c_joyb_fire <= '1';
+            end if;
+          end if;
         end if;
         when 4 =>
         i2c1_command_en <= '1';
