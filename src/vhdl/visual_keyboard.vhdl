@@ -822,6 +822,7 @@ begin
         vgagreen_out(7 downto 0) <= to_unsigned(xcounter,8);
 
         -- Is it due to a lack of lcd_display_enable signal?
+        -- We seem to not get any lcd_display_enable signal
         vgablue_out(7) <= lcd_display_enable;
         -- Y counter seems fine
         vgablue_out(6 downto 0) <= to_unsigned(ycounter_in,7);
