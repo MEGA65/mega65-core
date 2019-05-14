@@ -24,6 +24,8 @@ int main(int argc,char **argv)
 
   printf("Read pixels...\n");
 
+  int last_y=-1;
+  
   line [0]=0; fgets(line,1024,stdin);
   while(line[0]) {
     if (sscanf(line,"%*[^\\.].vhdl:%*[^:]:%*d:%*[^:]:(report note): PIXEL:%d:%d:%x:%x:%x",
@@ -33,12 +35,16 @@ int main(int argc,char **argv)
 	frame[y][x*4+1]=g;
 	frame[y][x*4+2]=b;
 	frame[y][x*4+3]=0xff;
+	if (y!=last_y) {
+	  printf("y=%d\n",y);
+	  last_y=y;
+	}
       }
-      if (x==800&&y==480) {
+      if (x==800&&y==600) {
 	printf("Writing image %d\n",++image_number);
 	write_image(image_number);
       }
-    } else printf("%s",line);      
+    } // else printf("%s",line);      
 
     line [0]=0; fgets(line,1024,stdin);
   }
