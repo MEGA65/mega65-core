@@ -250,6 +250,10 @@ architecture Behavioral of container is
   signal i2c_black2 : std_logic;
   signal i2c_black3 : std_logic;
   signal i2c_black4 : std_logic;
+
+  signal micdata0 : std_logic;
+  signal micdata1 : std_logic;
+  signal micclk : std_logic;
   
 begin
 
@@ -447,6 +451,15 @@ begin
       portb_pins => portb_pins,
       keyleft => '0',
       keyup => '0',
+
+
+      ---------------------------------------------------------------------------
+      -- IO lines to the ethernet controller (stub)
+      ---------------------------------------------------------------------------
+      micData0 => micData0,
+      micData1 => micData1,
+      micClk => micClk,
+--      micLRSel => micLRSel,
       
       ---------------------------------------------------------------------------
       -- IO lines to the ethernet controller (stub)
@@ -477,11 +490,6 @@ begin
 --      aclSCK => aclSCK,
       aclInt1 => '0',
       aclInt2 => '0',
-
-      -- Microphones
-      micData0 => micData0,
-      micData1 => micData1,
-      micClk => micClk,
 
       -- Audio output
       ampPWM_l => headphone_left,
