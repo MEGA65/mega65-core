@@ -64,6 +64,8 @@ architecture behavioral of test_osk is
   signal lcd_vsync : std_logic := '0';
 
   signal pixel_strobe_viciv : std_logic := '0';
+
+  signal i : integer := 0;
   
 begin
   pixel0: entity work.pixel_driver
@@ -167,12 +169,14 @@ begin
     
   process 
   begin
-    for i in 1 to 200000000 loop
+    while true loop
 
       pixel_strobe_viciv <= '0';
 
       if i = 1000 then
         visual_keyboard_enable <= '1';
+      else
+        i <= i + 1;
       end if;        
 
       -- 240MHz, 120MHz and 80MHz clocks means clocks toggle every 1, 2 and 3 iterations
@@ -235,7 +239,7 @@ begin
         & ":" & to_hstring(vgablue_out);
       key1 <= touch1_key;
       key2 <= touch2_key;
-    end loop;  -- i
+    end loop; 
     assert false report "End of simulation" severity note;
   end process;
 
