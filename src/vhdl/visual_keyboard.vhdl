@@ -240,7 +240,7 @@ begin
       
       pixel_strobe_out <= pixel_strobe_in;
 
-      if lcd_display_enable='0' or last_ycounter_in /= ycounter_in then
+      if last_ycounter_in /= ycounter_in then
         xcounter <= 0;
       else
         if pixel_strobe_in = '1' then
