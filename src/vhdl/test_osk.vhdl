@@ -145,7 +145,7 @@ begin
       vgablue_out => vgablue_osk
     );
 
-  process
+  process (pixelclock)
   begin
     if rising_edge(pixelclock) then
       last_external_frame_y_zero <= external_frame_y_zero;
@@ -156,15 +156,24 @@ begin
         xcounter <= 0;
         ycounter_in <= ycounter_in + 1;
       elsif pixel_strobe_viciv='1' then
+        report "pixel strobe";
         xcounter <= xcounter + 1;
+      else
+        report "not a pixel";
       end if;
       
     end if;
+  end process;
     
+  process 
+  begin
     for i in 1 to 200000000 loop
 
       pixel_strobe_viciv <= '0';
-      
+
+      if i = 1000 then
+        visual_keyboard_enable <= '1';
+      end if;        
 
       -- 240MHz, 120MHz and 80MHz clocks means clocks toggle every 1, 2 and 3 iterations
       clock240 <= '1';

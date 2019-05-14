@@ -66,6 +66,8 @@ end visual_keyboard;
 
 architecture behavioural of visual_keyboard is
 
+  signal last_y_start_current : unsigned(11 downto 0) :=
+    to_unsigned(999,12);
   signal y_start_current : unsigned(11 downto 0) :=
     to_unsigned(1,12);
   signal x_start_current : unsigned(13 downto 0) :=
@@ -119,7 +121,7 @@ architecture behavioural of visual_keyboard is
 
   signal osk_in_position_lower : std_logic := '0';
   signal last_visual_keyboard_enable : std_logic := '0';
-  signal max_y : integer := 0;
+  signal max_y : integer := 600;
   signal ycounter_last : integer := 0;
   signal y_lower_start : unsigned(11 downto 0) :=
     to_unsigned(0,12);
@@ -231,6 +233,11 @@ begin
   begin
     if rising_edge(pixelclock) then
 
+      last_y_start_current <= y_start_current;
+      if y_start_current /= last_y_start_current then
+        report "y_start_current = " & integer'image(to_integer(y_start_current));
+      end if;
+      
       pixel_strobe_out <= pixel_strobe_in;
 
       if lcd_display_enable='0' or last_ycounter_in /= ycounter_in then
@@ -830,11 +837,11 @@ begin
 
       y_start_current_upabit <= y_start_current - y_start_current(11 downto 3) - y_start_minimum - 2;
 
-      report "ycounter_in = " & integer'image(ycounter_in)
-        & ", y_start_current = " & integer'image(to_integer(y_start_current))
-        & ", y_lower_start = " & integer'image(to_integer(y_lower_start))
-        & ", y_start_minimum = " & integer'image(y_start_minimum)
-        & ", xcounter = " & integer'image(xcounter);
+--      report "ycounter_in = " & integer'image(ycounter_in)
+--        & ", y_start_current = " & integer'image(to_integer(y_start_current))
+--        & ", y_lower_start = " & integer'image(to_integer(y_lower_start))
+--        & ", y_start_minimum = " & integer'image(y_start_minimum)
+--        & ", xcounter = " & integer'image(xcounter);
         
       ycounter_last <= ycounter_in;
       if ycounter_in = 0 and ycounter_last /= 0 then
@@ -980,7 +987,7 @@ begin
         
         if visual_keyboard_enable = '0' then
           if max_y /= 0 then
-            report "Visual keyboard disabled -- pushing to bottom of screen";
+            report "Visual keyboard disabled -- pushing to bottom of screen. y_start_current reset";
             if ycounter_last > max_y then
               y_start_current <= to_unsigned(ycounter_last,12);
               y_lower_start <= to_unsigned(ycounter_last,12);
@@ -989,7 +996,7 @@ begin
               y_lower_start <= to_unsigned(0,12);
             end if;
           else
-            report "Visual keyboard disabled: guessing end of screen";
+            report "Visual keyboard disabled: guessing end of screen. y_start_current = all 1s";
             y_start_current <= (others => '1');
           end if;
         elsif keyboard_at_top='1' then
@@ -997,11 +1004,11 @@ begin
           -- the remaining distance, plus one pixel.  Thus we follow a Xeno's Paradox
           -- like curve to spring the keyboard to the top
           if y_start_current > (y_start_minimum+3) and instant_at_top='0' then
-            report "Xeno-walking keyboard to top a bit. new position = "
+            report "Xeno-walking keyboard to top a bit. new y_start_current = "
               & integer'image(to_integer(y_start_current) - to_integer(y_start_current(11 downto 3)) - y_start_minimum - 2);
             y_start_current <= y_start_current_upabit;
           else
-            report "Jumping keyboard to y_start_minimum = " & integer'image(y_start_minimum);
+            report "Jumping keyboard to y_start_minimum. y_start_current = " & integer'image(y_start_minimum);
             y_start_current <= to_unsigned(y_start_minimum,12);
           end if;
           -- OSK is no longer in the correct position for at the bottom of the
@@ -1012,7 +1019,7 @@ begin
           and last_visual_keyboard_enable='1' then
           report "y_lower_start = " & integer'image(to_integer(y_lower_start));
           if y_start_current > y_lower_start and y_start_current > y_start_minimum then
-            report "Sliding visual keyboard up a bit";
+            report "Sliding visual keyboard up a bit from y_start_current = " & integer'image(to_integer(y_start_current));
             -- We slide in with linear speed fairly quickly, as this is the
             -- default position for the OSK, so we want a non-annoying entrance
             -- animation.
@@ -1020,23 +1027,25 @@ begin
               <= y_start_current(11 downto 3)
               - pixel_y_scale_200;
           else
-            report "Xeno-Walking visual keyboard back down a bit";
+            report "Xeno-Walking visual keyboard y_start_current back down a bit";
             -- When sliding from top to bottom, this is always returning after
             -- the OSK has been moved to the top for some reason.
             -- Thus we want to mirror the motion that we used to move from
             -- bottom to top (a 1/8th + 2 pixel Xeno step function)
             if y_start_current < y_start_minimum then
+              report "y_start_current <= y_start_minimum";
               y_start_current <= to_unsigned(y_start_minimum,12);
             elsif y_start_current < y_lower_start then
               y_gap := y_lower_start - y_start_current;
               y_start_current <= y_start_current + y_gap(11 downto 3) + 2;
             else
+              report "y_start_current <= y_lower_start";
               y_start_current <= y_lower_start;
               osk_in_position_lower <= '1';
             end if;            
           end if;
           if y_start_current > y_end_maximum then
-            report "Resetting visual keyboard to bottom edge";
+            report "Resetting visual keyboard y_start_current to bottom edge (y_end_maximum)";
             y_start_current <= to_unsigned(y_end_maximum,12);
           end if;
         end if;
@@ -1055,11 +1064,11 @@ begin
         osk_in_position_lower <= '0';
         if ycounter_last > max_y then
           y_start_current <= to_unsigned(ycounter_last,12);
-          report "Setting visual keyboard to ycounter_last as it has just been enabled (="
+          report "Setting visual keyboard y_start_current to ycounter_last as it has just been enabled (="
             & integer'image(ycounter_last) & ")";
         else
           y_start_current <= to_unsigned(max_y,12);
-          report "Setting visual keyboard to max_y as it has just been enabled (="
+          report "Setting visual keyboard y_start_current to max_y as it has just been enabled (="
             & integer'image(max_y) & ")";
         end if;
       end if;
