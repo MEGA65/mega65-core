@@ -194,7 +194,7 @@ architecture behavioural of c65uart is
   signal virtual_enable_internal : std_logic := '1';
 
   -- XXX for debugging, make OSK visible from startup
-  signal portk_internal : std_logic_vector(7 downto 0) := x"FF"; -- visual
+  signal portk_internal : std_logic_vector(7 downto 0) := x"7F"; -- visual
                                                                  -- keyboard
                                                                  -- off by default
   
