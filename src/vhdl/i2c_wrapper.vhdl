@@ -223,10 +223,10 @@ begin
           i2c1_command_en <= '0';
           delayed_en <= 250;
         end if;
-        if busy_count > 1 then
+        if busy_count > 1 and i2c1_error='0' then
           bytes(busy_count - 1 - 1 + 0) <= i2c1_rdata;
         end if;
-        if busy_count = 2 then
+        if busy_count = 2  and i2c1_error='0' then
           last_value_2 <= i2c1_rdata;
           last_value_2b <= last_value_2;
           if (i2c1_rdata = last_value_2) and (i2c1_rdata=last_value_2b) then
@@ -243,7 +243,7 @@ begin
         if busy_count = 3 then
           last_value_3 <= i2c1_rdata;
           last_value_3b <= last_value_3;
-          if (i2c1_rdata = last_value_3) and (i2c1_rdata=last_value_3b) then
+          if (i2c1_rdata = last_value_3) and (i2c1_rdata=last_value_3b) and i2c1_error='0' then
             i2c_black3 <= i2c1_rdata(0);
             i2c_black4 <= i2c1_rdata(1);
             -- Black button 2 combined with interrupt
@@ -289,7 +289,7 @@ begin
           i2c1_command_en <= '0';
           delayed_en <= 250;
         end if;
-        if busy_count > 5 then
+        if busy_count > 5 and i2c1_error='0' then
           bytes(busy_count - 1 - 5 + 2) <= i2c1_rdata;
         end if;
         report "IO Expander #0 regs 4-5";
@@ -305,7 +305,7 @@ begin
           i2c1_command_en <= '0';
           delayed_en <= 250;
         end if;
-        if busy_count > 9 then
+        if busy_count > 9 and i2c1_error='0' then
           bytes(busy_count - 1 - 9 + 4) <= i2c1_rdata;
         end if;
         report "IO Expander #0 regs 6-7";
@@ -321,7 +321,7 @@ begin
           i2c1_command_en <= '0';
           delayed_en <= 250;
         end if;
-        if busy_count > 13 then
+        if busy_count > 13 and i2c1_error='0' then
           bytes(busy_count - 1 - 13 + 6) <= i2c1_rdata;
         end if;
         report "IO Expander #1 regs 0-1";
@@ -337,7 +337,7 @@ begin
           i2c1_command_en <= '0';
           delayed_en <= 250;
         end if;
-        if busy_count > 17 then
+        if busy_count > 17 and i2c1_error='0' then
           bytes(busy_count - 1 - 17 + 8) <= i2c1_rdata;
         end if;
         report "IO Expander #1 regs 2-3";
@@ -353,7 +353,7 @@ begin
           i2c1_command_en <= '0';
           delayed_en <= 250;
         end if;
-        if busy_count > 21 then
+        if busy_count > 21 and i2c1_error='0' then
           bytes(busy_count - 1 - 21 + 10) <= i2c1_rdata;
         end if;
         report "IO Expander #1 regs 4-5";
@@ -369,7 +369,7 @@ begin
           i2c1_command_en <= '0';
           delayed_en <= 250;
         end if;
-        if busy_count > 25 then
+        if busy_count > 25 and i2c1_error='0' then
           bytes(busy_count - 1 - 25 + 12) <= i2c1_rdata;
         end if;
         report "IO Expander #1 regs 6-7";
@@ -385,7 +385,7 @@ begin
         -- Read the 2 bytes from the device
         i2c1_rw <= '1';
         i2c1_command_en <= '1';
-        if busy_count > 29 then
+        if busy_count > 29 and i2c1_error='0' then
           bytes(busy_count - 1 - 29 + 14) <= i2c1_rdata;
         end if;
         report "IO Expander #2 regs 0-1";
@@ -401,7 +401,7 @@ begin
         -- Read the 2 bytes from the device
         i2c1_rw <= '1';
         i2c1_command_en <= '1';
-        if busy_count > 33 then
+        if busy_count > 33 and i2c1_error='0' then
           bytes(busy_count - 1 - 33 + 16) <= i2c1_rdata;
         end if;
         report "IO Expander #2 regs 2-3";
@@ -417,7 +417,7 @@ begin
         -- Read the 2 bytes from the device
         i2c1_rw <= '1';
         i2c1_command_en <= '1';
-        if busy_count > 37 then
+        if busy_count > 37 and i2c1_error='0' then
           bytes(busy_count - 1 - 37 + 18) <= i2c1_rdata;
         end if;
         report "IO Expander #2 regs 4-5";
@@ -433,7 +433,7 @@ begin
         -- Read the 2 bytes from the device
         i2c1_rw <= '1';
         i2c1_command_en <= '1';
-        if busy_count > 41 then
+        if busy_count > 41 and i2c1_error='0' then
           bytes(busy_count - 1 - 41 + 20) <= i2c1_rdata;
         end if;
         report "IO Expander #2 regs 6-7";
@@ -449,7 +449,7 @@ begin
         -- Read the 2 bytes from the device
         i2c1_rw <= '1';
         i2c1_command_en <= '1';
-        if busy_count > 45 then
+        if busy_count > 45 and i2c1_error='0' then
           bytes(busy_count - 1 - 45 + 22) <= i2c1_rdata;
         end if;
         report "Real Time clock regs 0 -- 18";
@@ -462,7 +462,7 @@ begin
         -- Read the 19 bytes from the device
         i2c1_rw <= '1';
         i2c1_command_en <= '1';
-        if busy_count > 49 then
+        if busy_count > 49 and i2c1_error='0' then
           bytes(busy_count - 1 - 49 + 24) <= i2c1_rdata;
         end if;
         report "Audio amplifier regs 0 - 15";
@@ -475,7 +475,7 @@ begin
         -- Read the 16 bytes from the device
         i2c1_rw <= '1';
         i2c1_command_en <= '1';
-        if busy_count > 70 then
+        if busy_count > 70 and i2c1_error='0' then
           bytes(busy_count - 1 - 70 + 48) <= i2c1_rdata;
         end if;
         report "Acclerometer regs 0 - 63";
@@ -488,7 +488,7 @@ begin
         -- Read the 64 bytes from the device
         i2c1_rw <= '1';
         i2c1_command_en <= '1';
-        if busy_count > 88 then
+        if busy_count > 88 and i2c1_error='0' then
           bytes(busy_count - 1 - 88 + 64) <= i2c1_rdata;
         end if;
         --------------------------------------------------------------------
