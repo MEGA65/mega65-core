@@ -120,3 +120,13 @@ When run, the programme shows several successive displays, advancing to the next
 5. 16-bit character mode: colour byte 1. This gives a similar effect to the VIC-III attribute display of the first screen, because this byte has the same function as the sole colour byte per character in VIC-III text mode.
 
 6. 16-bit character mod: double character set. Here the 9th character select bit (screen byte 1, bit 0) is used to allow simultaneous display of characters from both standard character sets, clearly demonstrating the ability to have more than 256 characters on the screen simultaneously.
+
+
+Using GOTO tokens to over-write the display
+-------
+
+If the GOTO bit is set, instead of painting a character, the position on the raster is back-tracked (or advanced forward to) the
+pixel position specified in the low 10 bits of the screen memory bytes.  If the vertical flip bit is set, then this has the alternate
+meaning of preventing the background colour from being painted.  This combination can be used to print text material over the top of
+other text material, providing a crude supplement to the 8 hardware sprites.  The amount of material is limted only by the raster
+time of the VIC-IV. Some experimentation will be required to determine how much can be achieved in PAL and NTSC modes.  

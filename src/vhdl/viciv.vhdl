@@ -3935,6 +3935,11 @@ begin
           next_ramaccess_is_glyph_data_fetch <= '0';
           next_ramaccess_is_sprite_data_fetch <= '0';
 
+          -- By default glyphs do paint the background when required.
+          -- (This can be turned off for the rest of a line by using a tab-stop
+          -- token).
+          glyph_paint_background <= '1';
+
           report "ZEROing screen_ram_buffer_read_address" severity note;
           screen_ram_buffer_read_address <= to_unsigned(0,9);
 
@@ -4342,7 +4347,7 @@ begin
             paint_blink <= glyph_blink;
             paint_glyph_4bit <= glyph_4bit;
             paint_with_alpha <= glyph_with_alpha;
-
+            
             if glyph_goto='1' then
               -- Glyph is tab-stop glyph
               -- Set screen ram buffer write address to 10 bit
@@ -4351,6 +4356,11 @@ begin
                 <= screen_ram_buffer_dout(1 downto 0);
               raster_buffer_write_address(7 downto 0)
                 <= glyph_number(7 downto 0);
+
+              -- Also note whether the glyph painting should now not paint
+              -- background pixels, to allow masked over writing
+              glyph_paint_background <= not glyph_flip_vertical;
+              
             -- ... and don't paint anything, because it is just
             -- a tab stop.
             elsif glyph_full_colour='1' then
@@ -4728,7 +4738,11 @@ begin
           paint_full_colour_data(59 downto 0) <= paint_full_colour_data(63 downto 4);
           raster_buffer_write_address(9 downto 0) <= raster_buffer_write_address(9 downto 0) + 1;
           raster_buffer_max_write_address <= raster_buffer_write_address(9 downto 0) + 1;
-          raster_buffer_write <= '1';
+          if paint_full_colour_data(3 downto 0) /= x"0" or glyph_paint_background='1' then
+            raster_buffer_write <= '1';
+          else
+            raster_buffer_write <= '0';
+          end if;
           report "LEGACY: full colour glyph paint_bits_remaining=" & integer'image(paint_bits_remaining) severity note;
           if paint_bits_remaining > 0 then
             paint_bits_remaining <= paint_bits_remaining - 1;
@@ -4776,7 +4790,11 @@ begin
           paint_full_colour_data(55 downto 0) <= paint_full_colour_data(63 downto 8);
           raster_buffer_write_address(9 downto 0) <= raster_buffer_write_address(9 downto 0) + 1;
           raster_buffer_max_write_address <= raster_buffer_write_address(9 downto 0) + 1;
-          raster_buffer_write <= '1';
+          if glyph_paint_background='1' or paint_full_colour_data(7 downto 0) = x"00" then
+            raster_buffer_write <= '1';
+          else
+            raster_buffer_write <= '0';
+          end if;
           report "LEGACY: full colour glyph paint_bits_remaining=" & integer'image(paint_bits_remaining) severity note;
           if paint_bits_remaining > 0 then
             paint_bits_remaining <= paint_bits_remaining - 1;
@@ -4859,6 +4877,7 @@ begin
           end if;
           paint_bits_remaining <= paint_glyph_width;
           paint_ready <= '0';
+          raster_buffer_write <= '0';
           report "LEGACY: clearing paint_ready";
           paint_fsm_state <= PaintMonoBits;
         when PaintMonoBits =>
@@ -4879,7 +4898,11 @@ begin
             end if;
             raster_buffer_write_address(9 downto 0) <= raster_buffer_write_address(9 downto 0) + 1;
             raster_buffer_max_write_address <= raster_buffer_write_address(9 downto 0) + 1;
-            raster_buffer_write <= '1';
+            if paint_buffer(0)='1' or glyph_paint_background='1' then
+              raster_buffer_write <= '1';
+            else
+              raster_buffer_write <= '0';
+            end if;
             report "paint_bits_remaining=" & integer'image(paint_bits_remaining) severity note;
             paint_bits_remaining <= paint_bits_remaining - 1;
           end if;
@@ -4984,7 +5007,11 @@ begin
             end case;
             raster_buffer_write_address(9 downto 0) <= raster_buffer_write_address(9 downto 0) + 1;
             raster_buffer_max_write_address <= raster_buffer_write_address(9 downto 0) + 1;
-            raster_buffer_write <= '1';
+            if paint_buffer(1 downto 0) /= "00" or glyph_paint_background='1' then
+              raster_buffer_write <= '1';
+            else
+              raster_buffer_write <= '0';
+            end if;
             report "paint_bits_remaining=" & integer'image(paint_bits_remaining) severity note;
             paint_bits_remaining <= paint_bits_remaining - 1;
           end if;
@@ -4993,7 +5020,11 @@ begin
         when PaintMultiColourHold =>
           raster_buffer_write_address(9 downto 0) <= raster_buffer_write_address(9 downto 0) + 1;
           raster_buffer_max_write_address <= raster_buffer_write_address(9 downto 0) + 1;
-          raster_buffer_write <= '1';
+          if paint_buffer(1 downto 0) /= "00" or glyph_paint_background='1' then
+            raster_buffer_write <= '1';
+          else
+            raster_buffer_write <= '0';
+          end if;
           if paint_bits_remaining = 0 then
             paint_fsm_state <= Idle;
           else
