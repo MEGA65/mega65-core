@@ -54,6 +54,11 @@ set_property -dict {PACKAGE_PIN P4 IOSTANDARD LVCMOS33} [get_ports {vga_blue[3]}
 # LCD display
 
 
+# MEMS microphones
+set_property -dict {PACKAGE_PIN N4 IOSTANDARD LVCMOS33} [get_ports micData0]
+set_property -dict {PACKAGE_PIN A5 IOSTANDARD LVCMOS33} [get_ports micData1]
+set_property -dict {PACKAGE_PIN A6 IOSTANDARD LVCMOS33} [get_ports micClk]
+
 #USB-RS232 Interface
 set_property -dict {PACKAGE_PIN L18 IOSTANDARD LVCMOS33} [get_ports monitor_rx]
 set_property -dict {PACKAGE_PIN M18 IOSTANDARD LVCMOS33} [get_ports monitor_tx]

@@ -478,11 +478,10 @@ begin
       aclInt1 => '0',
       aclInt2 => '0',
 
-      -- Microphones (currently not connected)
-      micData0 => '0',
-      micData1 => '0',
---      micClk => micClk,
---      micLRSel => micLRSel,
+      -- Microphones
+      micData0 => micData0,
+      micData1 => micData1,
+      micClk => micClk,
 
       -- Audio output
       ampPWM_l => headphone_left,
