@@ -170,6 +170,8 @@ void main(void)
 
   m65_io_enable();
 
+  // Disable OSK
+  lpoke(0xFFD3615L,0x7F);  
   
   // Enable acceleromter, 10Hz sampling
   while(lpeek(0xffd70ffL)) continue;
@@ -237,6 +239,10 @@ void main(void)
     printf("ADCs: 1:%5d 2:%5d 3:%5d      \n",a1,a2,a3);
 
     // Show joypad and button status
+    a1=lpeek(0xffd7000L);
+    printf("%02X,",a1);
+    a1=lpeek(0xffd7001L);
+    printf("%02X : ",a1);
     a1=lpeek(0xffd7000L);
     a1=a1^0xff;
     if (a1&1) printf("up        ");
