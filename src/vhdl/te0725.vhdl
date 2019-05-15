@@ -140,6 +140,66 @@ architecture Behavioral of container is
   
 begin
 
+  gen_pin:
+  for i in 1 to 28 generate
+    pin: entity work.pin_id
+      port map (
+        clock => CLK_IN,
+        pin_number => i,
+        pin => fpga_pins(i)
+        );
+  end generate gen_pin;
+
+  gen_pin31:
+  for i in 31 to 43 generate
+    pin31: entity work.pin_id
+      port map (
+        clock => CLK_IN,
+        pin_number => i,
+        pin => fpga_pins31(i)
+        );
+  end generate gen_pin31;
+    
+  gen_pin45:
+  for i in 45 to 47 generate
+    pin45: entity work.pin_id
+      port map (
+        clock => CLK_IN,
+        pin_number => i,
+        pin => fpga_pins45(i)
+        );
+  end generate gen_pin45;
+
+  gen_pin49:
+  for i in 49 to 52 generate
+    pin49: entity work.pin_id
+      port map (
+        clock => CLK_IN,
+        pin_number => i,
+        pin => fpga_pins49(i)
+        );
+  end generate gen_pin49;
+
+  gen_pin55:
+  for i in 55 to 56 generate
+    pin55: entity work.pin_id
+      port map (
+        clock => CLK_IN,
+        pin_number => i,
+        pin => fpga_pins55(i)
+        );
+  end generate gen_pin55;
+
+  gen_pin60:
+  for i in 60 to 82 generate
+    pin60: entity work.pin_id
+      port map (
+        clock => CLK_IN,
+        pin_number => i,
+        pin => fpga_pins60(i)
+        );
+  end generate gen_pin60;
+
   dotclock1: entity work.dotclock100
     port map ( clk_in1 => CLK_IN,
                clock80 => pixelclock, -- 80MHz
