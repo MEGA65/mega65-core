@@ -73,8 +73,6 @@ entity iomapper is
         zoom_en_always : inout std_logic;
         keyboard_at_top : out std_logic;
         alternate_keyboard : out std_logic;
-        osk_x : out unsigned(11 downto 0) := (others => '0');
-        osk_y : out unsigned(11 downto 0);
         osk_key1 : out unsigned(7 downto 0);
         osk_key2 : out unsigned(7 downto 0);
         osk_key3 : out unsigned(7 downto 0);
@@ -733,8 +731,8 @@ begin
       portm_out(6 downto 0) => virtual_key3(6 downto 0),
       portm_out(7) => alternate_keyboard,
       portn_out => keyboard_scan_rate,
-      porto_out => osk_x(7 downto 0),
-      portp_out => osk_y(11 downto 4),
+--      porto_out => ,
+--      portp_out => ,
       portq_in => address_next_1541(7 downto 0),
       joya_rotate => joya_rotate,
       joyb_rotate => joyb_rotate,

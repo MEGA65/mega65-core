@@ -7,11 +7,6 @@ entity visual_keyboard is
   port (
     pixelclock : in std_logic;
 
-    pixel_y_scale_200 : in unsigned(3 downto 0);
-    pixel_y_scale_400 : in unsigned(3 downto 0);
-    y_start : in unsigned(11 downto 0);
-    x_start : in unsigned(11 downto 0);
-
     ycounter_in : in integer;
     xcounter_in : in integer;
     
@@ -73,8 +68,7 @@ architecture behavioural of visual_keyboard is
   signal y_start_current : unsigned(11 downto 0) :=
     to_unsigned(1,12);
   signal x_start_current : unsigned(13 downto 0) :=
-    to_unsigned(0,14);
-  signal max_x : integer := 0;
+    to_unsigned(32,14);
 
   signal y_start_current_upabit : unsigned(11 downto 0) :=
     to_unsigned(0,12);
@@ -122,7 +116,6 @@ architecture behavioural of visual_keyboard is
   signal char_pixel : std_logic := '0';
   signal char_pixel_delay : std_logic := '0';
   signal char_pixels_remaining : integer range 0 to 8 := 0;
-  signal first_column : std_logic := '0';
   signal end_of_line : std_logic := '0';
   signal char_column : integer := 0;
   
@@ -421,7 +414,6 @@ begin
         last_was_800 <= '1';
         space_repeat <= 0;
         char_pixels_remaining <= 0;
-        first_column <= '0';
         char_pixel <= '0';
         box_pixel <= '0';
         box_pixel_h <= '0';
@@ -439,8 +431,6 @@ begin
             active <= '1';
             report "Asserting active";
             
-            report "x_start_current = " & integer'image(to_integer(x_start_current));
-
             -- Packed text starts at $0900 in OSKmem
             current_address <= to_integer(keyboard_text_start);
             last_row_address <= to_integer(keyboard_text_start);
@@ -516,11 +506,12 @@ begin
         last_was_800 <= '0';
       end if;
 
-      if char_column = 80 then
+      -- XXX Disable clipping for now while debugging X positioning
+      if char_column = 81 then
         end_of_line <= '1';
       end if;
     
-      if pixel_strobe_in='1' and active='1' and xcounter < 799 then
+      if pixel_strobe_in='1' and active='1' and (xcounter < 799) and (xcounter >= x_start_current) then
 
         report "Rendering OSK pixel";
         
@@ -539,18 +530,19 @@ begin
             end if;
           end if;
         else
-          -- Make text offset 2 pixels to the right
-          if (text_delay = 0) and (xcounter > (3 + 2)) then
-            char_pixels_remaining <= 7;
+          if text_delay=0 then
+            -- Add extra blank pixel between chars to space things out a bit more
+            -- to take up more of the 800 pixel wide display
+            -- This still allows us to have 88 characters wide.
+            char_pixels_remaining <= 7 + 1;
             char_data <= next_char_data;
-            char_column <= char_column + 1;
           else
             char_pixels_remaining <= 3;
             char_data(7 downto 4) <= next_char_data(3 downto 0);
           end if;
+          char_column <= char_column + 1;
           text_delay <= 0;
           next_char_ready <= '0';
-          first_column <= '0';
           
           if next_char_data /= x"00" then
             report "clearing next_char_ready, char_data=$" & to_hstring(next_char_data);
@@ -627,28 +619,23 @@ begin
           end if;
           if next_matrix_id(7) = '1' then
             -- Next key is 1.5 times width, so set counter accordingly
-            key_box_counter <= 7*8+4;
+            key_box_counter <= 7*9+4;
             text_delay <= 4;
           else
             -- Next key is normal width
-            key_box_counter <= 5*8;
+            key_box_counter <= 5*9;
           end if;
           -- Pre-fetch the next key matrix id
           fetch_state <= FetchNextMatrix;
         else
-          -- Draw left edge of keyboard as required (all rows except SPACE bar row)
-          if xcounter=0 and y_row /= 5 and active='1' and alternate_keyboard='0' then
-            box_pixel <= '1';
-          else
-            box_pixel <= '0';
-          end if;
+          box_pixel <= '0';
           if double_width='0' or double_width_phase='0' then
             if key_box_counter /= 0 then
               key_box_counter <= key_box_counter - 1;
             end if;
           end if;
         end if;
-
+            
         -- Horizontal lines:
         -- These are a bit trickier, because we need to know the key above and
         -- below to do this completely cleanly.
@@ -659,18 +646,30 @@ begin
 --            report "box_pixel set x = " & integer'image(pixel_x_relative);
             box_pixel_h <= not end_of_line;
           else
---            report "box_pixel not set: x = " & integer'image(pixel_x_relative)
---              & ", y = " & integer'image(to_integer(ycounter_in))
---              & ", current_matrix_id=$" & to_hstring(current_matrix_id);
+--          report "box_pixel not set: x = " & integer'image(pixel_x_relative)
+--                 & ", y = " & integer'image(to_integer(ycounter_in))
+--                 & ", current_matrix_id=$" & to_hstring(current_matrix_id);
             box_pixel_h <= '0';
           end if;
         else
           box_pixel_h <= '0';
         end if;
       end if;
+      -- Fudge factor to fix uneven line lengths caused by 1.5 width characters
+      if (y_char_in_row = 0)  and (y_pixel_counter = 0) and xcounter > 720 and xcounter < 753 then
+        box_pixel_h <= '1';
+      end if;
+      if xcounter = 752 and y_row < 4 then
+        box_pixel <= '1';
+      end if;
+      -- Draw left edge of keyboard as required (all rows except SPACE bar row)
+      -- Also down the right hand side.
+      if (xcounter=31 and y_row < 5 and active='1' and alternate_keyboard='0') then
+        box_pixel <= '1';
+      end if;
 
       if fetch_state /= FetchIdle and fetch_state /= MatrixFetch then
-        report "fetch_state = " & fetch_state_t'image(fetch_state);
+--        report "fetch_state = " & fetch_state_t'image(fetch_state);
       end if;
       matrix_fetching <= '0';
       if matrix_fetching = '1' then
@@ -754,10 +753,10 @@ begin
           next_matrix_id <= rdata;
           -- Work out width of first key box of row
           if current_matrix_id(7)='1' then
-            key_box_counter <= 7*8+4;
+            key_box_counter <= 7*9+4;
             text_delay <= 4;
           else
-            key_box_counter <= 5*8;
+            key_box_counter <= 5*9;
           end if;
           matrix_pos <= 0;
           fetch_state <= FetchIdle;
@@ -809,7 +808,7 @@ begin
 --        vgagreen_out <= x"FF";
 --        vgablue_out <= x"FF";        
 --        els
-        if touch1_y = ycounter_in and touch1_x = xcounter then
+      if touch1_y = ycounter_in and touch1_x = xcounter then
 --        report "touch1 @ " & integer'image(to_integer(touch1_x))
 --          & "," & integer'image(to_integer(touch1_y));
         vgared_out <= x"00";
@@ -833,7 +832,7 @@ begin
           vgablue_out <= zoom_rdata(23 downto 16);
         end if;
       elsif visual_keyboard_enable='1' and active='1' then
-        report "Painting OSK pixel " & std_logic'image(vk_pixel(1)) & ", char_pixel = " & std_logic'image(char_pixel);
+--        report "Painting OSK pixel " & std_logic'image(vk_pixel(1)) & ", char_pixel = " & std_logic'image(char_pixel);
         vgagreen_out <= vk_pixel(1)&vgagreen_in(7 downto 1);
         if key_real='0' then
           vgared_out <= vk_pixel(1)&vgared_in(7 downto 1);
@@ -880,7 +879,6 @@ begin
         report "XXX Top of frame";
         
         max_y <= ycounter_last;
-        max_x <= 0;
         box_pixel_h <= '0';
         box_pixel <= '0';
         text_delay <= 0;
@@ -1005,20 +1003,20 @@ begin
         touch1_key_internal <= (others => '1');
         touch2_key_internal <= (others => '1');
         
-        report "setting max_y to "
-          & integer'image(ycounter_last);
+--        report "setting max_y to "
+--          & integer'image(ycounter_last);
         -- Move visual keyboard up one a bit each frame
         -- visual keyboard disabled, so push it back off the bottom
         -- of the screen
 
-        report "osk_in_position_lower = " & std_logic'image(osk_in_position_lower) &
-          ", visual_keyboard_enable = " & std_logic'image(visual_keyboard_enable) &
-          ", keyboard_at_top = " & std_logic'image(keyboard_at_top) &
-          ", last_visual_keyboard_enable = " & std_logic'image(last_visual_keyboard_enable);
+--        report "osk_in_position_lower = " & std_logic'image(osk_in_position_lower) &
+--          ", visual_keyboard_enable = " & std_logic'image(visual_keyboard_enable) &
+--          ", keyboard_at_top = " & std_logic'image(keyboard_at_top) &
+--          ", last_visual_keyboard_enable = " & std_logic'image(last_visual_keyboard_enable);
         
         if visual_keyboard_enable = '0' then
           if max_y /= 0 then
-            report "Visual keyboard disabled -- pushing to bottom of screen. y_start_current reset";
+--            report "Visual keyboard disabled -- pushing to bottom of screen. y_start_current reset";
             if ycounter_last > max_y then
               y_start_current <= to_unsigned(ycounter_last,12);
               y_lower_start <= to_unsigned(ycounter_last,12);
@@ -1027,7 +1025,7 @@ begin
               y_lower_start <= to_unsigned(0,12);
             end if;
           else
-            report "Visual keyboard disabled: guessing end of screen. y_start_current = all 1s";
+--            report "Visual keyboard disabled: guessing end of screen. y_start_current = all 1s";
             y_start_current <= (others => '1');
           end if;
         elsif keyboard_at_top='1' then
@@ -1056,7 +1054,7 @@ begin
             -- animation.
             y_start_current(11 downto 3)
               <= y_start_current(11 downto 3)
-              - pixel_y_scale_200;
+              - 2;
           else
             report "Xeno-Walking visual keyboard y_start_current back down a bit";
             -- When sliding from top to bottom, this is always returning after
@@ -1080,12 +1078,6 @@ begin
             y_start_current <= to_unsigned(y_end_maximum,12);
           end if;
         end if;
-        report "y_start_current = " &
-          integer'image(to_integer(y_start_current))
-          & ", x_start_current = " &
-          integer'image(to_integer(x_start_current))
-          & ", max_x = " &
-          integer'image(max_x);
       end if;
       if visual_keyboard_enable='1'
         and last_visual_keyboard_enable='0' then
@@ -1105,14 +1097,6 @@ begin
       end if;
       last_visual_keyboard_enable <= visual_keyboard_enable;
 
-      -- Work out where to place keyboard to centre it
-      if xcounter > max_x then
-        max_x <= xcounter;
-      end if;
-      -- Must start at atleast 1, because starting at 0 causes the display to
-      -- be double height.
-      x_start_current(12 downto 0) <= to_unsigned(to_integer(x_start) + 1,13); 
-      x_start_current(13) <= '0';
     end if;
   end process;
   

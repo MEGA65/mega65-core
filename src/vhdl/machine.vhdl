@@ -1170,9 +1170,6 @@ begin
     port map(
       pixelclock => pixelclock,
 
-      pixel_y_scale_400 => to_unsigned(0,4),
-      pixel_y_scale_200 => to_unsigned(1,4),
-      
       ycounter_in => ycounter_viciv,
       xcounter_in => xcounter_viciv,
       
@@ -1194,8 +1191,6 @@ begin
       vgablue_out => vgablue_osk,
 
       -- Configuration for the visual keyboard
-      y_start => osk_y,
-      x_start => osk_x,      
       visual_keyboard_enable => visual_keyboard_enable,
       osk_debug_display => osk_debug_display,
       zoom_en_osk => zoom_en_osk,
@@ -1313,8 +1308,6 @@ begin
       zoom_en_always => zoom_en_always,
       keyboard_at_top => keyboard_at_top,
       alternate_keyboard => alternate_keyboard,
-      osk_x => osk_x,
-      osk_y => osk_y,
       osk_key1 => osk_key1,
       osk_key2 => osk_key2,
       osk_key3 => osk_key3,
