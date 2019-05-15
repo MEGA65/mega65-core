@@ -104,10 +104,8 @@ architecture behavioural of i2c_wrapper is
   signal delayed_en : integer range 0 to 255 := 0;
 
   -- Used to de-glitch I2C IP expander inputs
-  signal last_value_2 : unsigned(7 downto 0) := x"FF";
-  signal last_value_3 : unsigned(7 downto 0) := x"FF";
-  signal last_value_2b : unsigned(7 downto 0) := x"FF";
-  signal last_value_3b : unsigned(7 downto 0) := x"FF";
+  signal black3history : std_logic_vector(15 downto 0) := (others => '1');
+  signal black4history : std_logic_vector(15 downto 0) := (others => '1');
   
 begin
 
@@ -234,9 +232,6 @@ begin
         -- This should actually remove the need to otherwise de-glitch these lines,
         -- thus helpfully reducing their latency.
         if busy_count = 2  and i2c1_error='0' and i2c1_rdata(5 downto 0) /= "000000" then
---          last_value_2 <= i2c1_rdata;
---          last_value_2b <= last_value_2;
---          if (i2c1_rdata = last_value_2) and (i2c1_rdata=last_value_2b) then
             i2c_joya_up <= i2c1_rdata(0);
             i2c_joya_left <= i2c1_rdata(1);
             i2c_joya_right <= i2c1_rdata(2);
@@ -245,18 +240,32 @@ begin
             i2c_button2 <= i2c1_rdata(5);
             i2c_button3 <= i2c1_rdata(6);
             i2c_button4 <= i2c1_rdata(7);
---          end if;
         end if;
         if busy_count = 3 then
           -- Similarly reject glitching on these input lines
---          last_value_3 <= i2c1_rdata;
---          last_value_3b <= last_value_3;
           if -- (i2c1_rdata = last_value_3) and (i2c1_rdata=last_value_3b) and
             i2c1_error='0' and i2c1_rdata(2 downto 0) /= "000" then
-            i2c_black3 <= i2c1_rdata(0);
-            i2c_black4 <= i2c1_rdata(1);
+            black3history(15 downto 1) <= black3history(14 downto 0);
+            black3history(0) <= i2c1_rdata(0);
+            if black3_history = (others => '1') then
+              i2c_black3 <= '1';
+            end if;
+            if black3_history = (others => '0') then
+              i2c_black3 <= '0';
+            end if;
+
+            black4history(15 downto 1) <= black4history(14 downto 0);
+            black4history(0) <= i2c1_rdata(1);
+            if black4_history = (others => '1') then
+              i2c_black4 <= '1';
+            end if;
+            if black4_history = (others => '0') then
+              i2c_black4 <= '0';
+            end if;
+
             -- Black button 2 combined with interrupt
             -- input that also wakes the FPGA up.
+            -- (so needs no de-bouncing)
             i2c_black2 <= i2c1_rdata(2);
             -- XXX joyb is on the other pins, but
             -- the port currently lacks pull-ups, so all lines
