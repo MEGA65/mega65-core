@@ -247,19 +247,19 @@ begin
             i2c1_error='0' and i2c1_rdata(2 downto 0) /= "000" then
             black3history(15 downto 1) <= black3history(14 downto 0);
             black3history(0) <= i2c1_rdata(0);
-            if black3_history = (others => '1') then
+            if black3history = "1111111111111111" then
               i2c_black3 <= '1';
             end if;
-            if black3_history = (others => '0') then
+            if black3history = "0000000000000000" then
               i2c_black3 <= '0';
             end if;
 
             black4history(15 downto 1) <= black4history(14 downto 0);
             black4history(0) <= i2c1_rdata(1);
-            if black4_history = (others => '1') then
+            if black4history = "1111111111111111" then
               i2c_black4 <= '1';
             end if;
-            if black4_history = (others => '0') then
+            if black4history = "0000000000000000" then
               i2c_black4 <= '0';
             end if;
 
