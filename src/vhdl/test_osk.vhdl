@@ -13,7 +13,7 @@ architecture behavioral of test_osk is
   signal frames : integer := 0;
   signal xcounter : integer := 0;
   signal ycounter_in : integer := 0;
-  signal x_start : unsigned(11 downto 0) := to_unsigned(0,12);
+  signal x_start : unsigned(11 downto 0) := to_unsigned(10,12);
   signal y_start : unsigned(11 downto 0) := to_unsigned(479-290,12);
   signal visual_keyboard_enable : std_logic := '0';
   signal keyboard_at_top : std_logic := '0';

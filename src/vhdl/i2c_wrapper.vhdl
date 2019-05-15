@@ -233,7 +233,7 @@ begin
         -- possible values.  These situations should also be rejected.
         -- This should actually remove the need to otherwise de-glitch these lines,
         -- thus helpfully reducing their latency.
-        if busy_count = 2  and i2c1_error='0' and ic21_rdata(5 downto 0) /= "000000" then
+        if busy_count = 2  and i2c1_error='0' and i2c1_rdata(5 downto 0) /= "000000" then
 --          last_value_2 <= i2c1_rdata;
 --          last_value_2b <= last_value_2;
 --          if (i2c1_rdata = last_value_2) and (i2c1_rdata=last_value_2b) then
