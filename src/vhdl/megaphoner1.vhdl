@@ -56,9 +56,9 @@ entity container is
          ----------------------------------------------------------------------
          -- MEMS microphones
          ----------------------------------------------------------------------
-         micdata0 : in std_logic;
-         micdata1 : in std_logic;
-         micclk : out std_logic;
+         micData0 : in std_logic;
+         micData1 : in std_logic;
+         micClk : out std_logic;
          
          ----------------------------------------------------------------------
          -- CIA1 ports for keyboard/joystick 
