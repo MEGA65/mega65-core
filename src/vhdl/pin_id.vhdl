@@ -21,18 +21,19 @@ begin
   begin
     if rising_edge(clock) then
       if tick = 15 then
-        tick <= 0;
+        tick <= tick + 1;
         -- Mark each bit with a pulse
         pin <= '1';
       elsif tick /= 16 then
         tick <= tick + 1;
       else
+        tick <= 0;
         if counter < 8 then
           pin <= '1';
         elsif counter < 16 then
           pin <= '0';
         elsif counter > 15 and counter < 24 then
-          pin <= std_logic(pin_number(counter - 3));
+          pin <= std_logic(pin_number(counter - 16));
         else
           pin <= '0';
         end if;
