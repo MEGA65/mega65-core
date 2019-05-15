@@ -13,6 +13,8 @@ entity visual_keyboard is
     x_start : in unsigned(11 downto 0);
 
     ycounter_in : in integer;
+    xcounter_in : in integer;
+    
     lcd_display_enable : in std_logic; -- is pixel in frame?
     pixel_strobe_in : in std_logic;
     vgared_in : in  unsigned (7 downto 0);
@@ -240,14 +242,15 @@ begin
       
       pixel_strobe_out <= pixel_strobe_in;
 
-      if last_ycounter_in /= ycounter_in then
-        xcounter <= 0;
-      else
-        if pixel_strobe_in = '1' then
-          report "pixel_strobe seen";
-          xcounter <= xcounter + 1;
-        end if;
-      end if;
+      xcounter <= xcounter_in;
+--      if last_ycounter_in /= ycounter_in then
+--        xcounter <= 0;
+--      else
+--        if pixel_strobe_in = '1' then
+--          report "pixel_strobe seen";
+--          xcounter <= xcounter + 1;
+--        end if;
+--      end if;
       
       -- Export the current position of the OSK, so that we can move things around
       -- to match it. In particular, we adjust the serial monitor interface, so
@@ -783,7 +786,12 @@ begin
         vk_pixel <= "00";
       end if;
 
-      if touch1_y = ycounter_in and touch1_x = xcounter then
+--      if xcounter = 64 then
+--        vgared_out <= x"FF";
+--        vgagreen_out <= x"FF";
+--        vgablue_out <= x"FF";        
+--        els
+        if touch1_y = ycounter_in and touch1_x = xcounter then
 --        report "touch1 @ " & integer'image(to_integer(touch1_x))
 --          & "," & integer'image(to_integer(touch1_y));
         vgared_out <= x"00";

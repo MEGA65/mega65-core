@@ -1174,7 +1174,8 @@ begin
       pixel_y_scale_200 => to_unsigned(1,4),
       
       ycounter_in => ycounter_viciv,
-
+      xcounter_in => xcounter_viciv,
+      
       -- Used as proxy for whether there we are in frame vs in border
       -- (visual keyboard is only for LCD display, so this makes sense
       -- here).
