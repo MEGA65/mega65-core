@@ -123,7 +123,8 @@ architecture behavioural of visual_keyboard is
   signal char_pixel_delay : std_logic := '0';
   signal char_pixels_remaining : integer range 0 to 8 := 0;
   signal first_column : std_logic := '0';
-
+  signal end_of_line : std_logic := '0';
+  
   signal osk_in_position_lower : std_logic := '0';
   signal last_visual_keyboard_enable : std_logic := '0';
   signal max_y : integer := 600;
@@ -424,6 +425,7 @@ begin
         box_pixel <= '0';
         box_pixel_h <= '0';
         box_inverse <= '0';
+        end_of_line <= '0';
 
         if last_was_800 = '0' then
           -- End of line, prepare for next
@@ -532,8 +534,8 @@ begin
             end if;
           end if;
         else
-          -- Make text offset 4 pixels to the right
-          if (text_delay = 0) and (xcounter > (3 + 4)) then
+          -- Make text offset 2 pixels to the right
+          if (text_delay = 0) and (xcounter > (3 + 2)) then
             char_pixels_remaining <= 7;
             char_data <= next_char_data;
           else
@@ -612,7 +614,7 @@ begin
             null;
           else
             if xcounter < 799 then
-              box_pixel <= '1';
+              box_pixel <= not end_of_line;
             else
               box_pixel <= '0';
             end if;
@@ -708,6 +710,7 @@ begin
             next_char <= x"20";
             space_repeat <= 99;
             next_char_ready <= '1';
+            end_of_line <= '1';
           elsif rdata(7 downto 4) = x"9" then
             -- RLE encoded spaces
             space_repeat <= 1+to_integer(rdata(3 downto 0));
