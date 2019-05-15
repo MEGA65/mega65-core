@@ -226,10 +226,17 @@ begin
         if busy_count > 1 and i2c1_error='0' then
           bytes(busy_count - 1 - 1 + 0) <= i2c1_rdata;
         end if;
-        if busy_count = 2  and i2c1_error='0' then
-          last_value_2 <= i2c1_rdata;
-          last_value_2b <= last_value_2;
-          if (i2c1_rdata = last_value_2) and (i2c1_rdata=last_value_2b) then
+        -- If power is off to various peripherals, then the joypad etc can end
+        -- up being read as all zeroes.  In that case, we want to ignore it.
+        -- Also, in general, we see situations where the joypad lines and button2 all go low
+        -- for no apparent reason, and the upper two lines take any of the four
+        -- possible values.  These situations should also be rejected.
+        -- This should actually remove the need to otherwise de-glitch these lines,
+        -- thus helpfully reducing their latency.
+        if busy_count = 2  and i2c1_error='0' and ic21_rdata(5 downto 0) /= "000000" then
+--          last_value_2 <= i2c1_rdata;
+--          last_value_2b <= last_value_2;
+--          if (i2c1_rdata = last_value_2) and (i2c1_rdata=last_value_2b) then
             i2c_joya_up <= i2c1_rdata(0);
             i2c_joya_left <= i2c1_rdata(1);
             i2c_joya_right <= i2c1_rdata(2);
@@ -238,12 +245,14 @@ begin
             i2c_button2 <= i2c1_rdata(5);
             i2c_button3 <= i2c1_rdata(6);
             i2c_button4 <= i2c1_rdata(7);
-          end if;
+--          end if;
         end if;
         if busy_count = 3 then
-          last_value_3 <= i2c1_rdata;
-          last_value_3b <= last_value_3;
-          if (i2c1_rdata = last_value_3) and (i2c1_rdata=last_value_3b) and i2c1_error='0' then
+          -- Similarly reject glitching on these input lines
+--          last_value_3 <= i2c1_rdata;
+--          last_value_3b <= last_value_3;
+          if -- (i2c1_rdata = last_value_3) and (i2c1_rdata=last_value_3b) and
+            i2c1_error='0' and i2c1_rdata(2 downto 0) /= "000" then
             i2c_black3 <= i2c1_rdata(0);
             i2c_black4 <= i2c1_rdata(1);
             -- Black button 2 combined with interrupt
