@@ -52,6 +52,13 @@ entity container is
          modem1_uart_tx : out std_logic;
          modem1_uart2_rx : inout std_logic;
          modem1_uart2_tx : out std_logic;
+
+         ----------------------------------------------------------------------
+         -- MEMS microphones
+         ----------------------------------------------------------------------
+         micdata0 : in std_logic;
+         micdata1 : in std_logic;
+         micclk : out std_logic;
          
          ----------------------------------------------------------------------
          -- CIA1 ports for keyboard/joystick 
@@ -251,10 +258,6 @@ architecture Behavioral of container is
   signal i2c_black3 : std_logic;
   signal i2c_black4 : std_logic;
 
-  signal micdata0 : std_logic;
-  signal micdata1 : std_logic;
-  signal micclk : std_logic;
-  
 begin
 
   dotclock1: entity work.dotclock100
