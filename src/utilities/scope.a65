@@ -1,4 +1,10 @@
 
+	; $D6Fx - mostly audio interfaces
+	.alias audiomix_addr $d6f4
+	.alias audiomix_data $d6f5
+	.alias audioamp_ctl $d6fe
+
+
 ; Include C64 BASIC program load header
 
          .word $0801
@@ -28,6 +34,8 @@ iter1:   .byte 0
 ;	 lda #$36
 	 dec
 	 sta $1
+
+	 jsr microphones_on
 
 waitfortouchtoend:
 	 lda $d6b0
@@ -354,6 +362,40 @@ clearscreen:
 	sta $d705
 
          rts
+
+microphones_on:
+	ldx #$14
+	lda #$7f
+	jsr audiomix_setcoefficient
+	inx
+	jsr audiomix_setcoefficient
+	inx
+	jsr audiomix_setcoefficient
+	inx
+	jsr audiomix_setcoefficient
+	rts
+
+audiomix_setcoefficient:
+		STX audiomix_addr
+
+		; wait 17 cycles before writing (16 + start of read instruction)
+		; to give time to audio mixer to fetch the 16-bit coefficient, before
+		; we write to half of it (which requires the other half loaded, so that the
+		; write to the 16-bit register gets the correct other half).
+		; note that bit $1234 gets replaced in hyppo by monitor_load when doing
+		; hot-patching, so we can't use that instruction for the delay
+
+		; simple solution: write to address register several times to spend the time.
+		; 16 cycles here. then the sta of the data gives us 3 more cycles, so we are fine.
+		stx audiomix_addr
+		stx audiomix_addr
+		stx audiomix_addr
+		stx audiomix_addr
+
+		; update coefficient
+		sta audiomix_data
+		rts
+
 
 dmalist:
 		; MEGA65 Enhanced DMA options
