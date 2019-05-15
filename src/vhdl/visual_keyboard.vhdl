@@ -124,6 +124,7 @@ architecture behavioural of visual_keyboard is
   signal char_pixels_remaining : integer range 0 to 8 := 0;
   signal first_column : std_logic := '0';
   signal end_of_line : std_logic := '0';
+  signal char_column : integer := 0;
   
   signal osk_in_position_lower : std_logic := '0';
   signal last_visual_keyboard_enable : std_logic := '0';
@@ -426,6 +427,7 @@ begin
         box_pixel_h <= '0';
         box_inverse <= '0';
         end_of_line <= '0';
+        char_column <= 0;
 
         if last_was_800 = '0' then
           -- End of line, prepare for next
@@ -514,7 +516,10 @@ begin
         last_was_800 <= '0';
       end if;
 
-      
+      if char_column = 80 then
+        end_of_line <= '1';
+      end if;
+    
       if pixel_strobe_in='1' and active='1' and xcounter < 799 then
 
         report "Rendering OSK pixel";
@@ -538,6 +543,7 @@ begin
           if (text_delay = 0) and (xcounter > (3 + 2)) then
             char_pixels_remaining <= 7;
             char_data <= next_char_data;
+            char_column <= char_column + 1;
           else
             char_pixels_remaining <= 3;
             char_data(7 downto 4) <= next_char_data(3 downto 0);
@@ -651,7 +657,7 @@ begin
         if (y_char_in_row = 0)  and (y_pixel_counter = 0) then
           if (current_matrix_id(6 downto 0) /= x"7f") then
 --            report "box_pixel set x = " & integer'image(pixel_x_relative);
-            box_pixel_h <= '1';
+            box_pixel_h <= not end_of_line;
           else
 --            report "box_pixel not set: x = " & integer'image(pixel_x_relative)
 --              & ", y = " & integer'image(to_integer(ycounter_in))
@@ -686,6 +692,7 @@ begin
         when FetchIdle =>
           -- Get the next character to display, if we
           -- don't already have one
+          
           if next_char_ready = '0' then
             if space_repeat /= 0 then
               space_repeat <= space_repeat - 1;
@@ -710,7 +717,6 @@ begin
             next_char <= x"20";
             space_repeat <= 99;
             next_char_ready <= '1';
-            end_of_line <= '1';
           elsif rdata(7 downto 4) = x"9" then
             -- RLE encoded spaces
             space_repeat <= 1+to_integer(rdata(3 downto 0));
