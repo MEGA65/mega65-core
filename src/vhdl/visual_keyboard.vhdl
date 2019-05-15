@@ -861,7 +861,12 @@ begin
         vgablue_out(6 downto 0) <= to_unsigned(ycounter_in,7);
       end if;
 
-      y_start_current_upabit <= y_start_current - y_start_current(11 downto 3) - y_start_minimum - 2;
+      -- Work out next position up, and clip at y_start_minimum if required.
+      if y_start_current - y_start_current(11 downto 3) - 2 < y_start_minimum then
+        y_start_current_upabit <= y_start_current - y_start_current(11 downto 3) - 2;
+      else
+        y_start_current_upabit <= to_unsigned(y_start_minimum,12);
+      end if;
 
 --      report "ycounter_in = " & integer'image(ycounter_in)
 --        & ", y_start_current = " & integer'image(to_integer(y_start_current))
