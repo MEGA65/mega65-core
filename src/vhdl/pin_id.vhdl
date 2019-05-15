@@ -31,7 +31,7 @@ begin
       if counter /= 255 then
         counter <= counter + 1;
       else
-        counter <= '0';
+        counter <= 0;
       end if;
     end if;    
   end process;
