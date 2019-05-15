@@ -592,10 +592,10 @@ begin  -- behavioural
           -- @IO:GS $D618 UARTMISC:KSCNRATE Physical keyboard scan rate (\$00=50MHz, \$FF=~200KHz)
           fastio_rdata <= unsigned(portn_internal);
         when x"19" =>
-          -- @IO:GS $D619 UARTMISC:OSKXPOS Set on-screen keyboard X position (x4 640H pixels)
+          -- @IO:GS $D619 UARTMISC:UNUSED port o output value
           fastio_rdata <= unsigned(porto_internal);
         when x"1a" =>
-          -- @IO:GS $D61A UARTMISC:OSKYPOS Set on-screen keyboard Y position (x4 physical pixels)
+          -- @IO:GS $D61A UARTMISC:UNUSED port p output value
           fastio_rdata <= unsigned(portp_internal);
         when x"1b" =>
           -- @IO:GS $D61B DEBUG:AMIMOUSDETECT READ 1351/amiga mouse auto detection DEBUG

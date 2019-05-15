@@ -40,7 +40,7 @@ int main(int argc,char **argv)
 	  last_y=y;
 	}
       }
-      if (x==800&&y==600) {
+      if (x==800&&y==400) {
 	printf("Writing image %d\n",++image_number);
 	write_image(image_number);
       }
