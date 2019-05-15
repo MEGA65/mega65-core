@@ -22,7 +22,7 @@ begin
     if rising_edge(clock) then
       if tick = 15 then
         tick <= 0;
-        // Mark each bit with a pulse
+        -- Mark each bit with a pulse
         pin <= '1';
       elsif tick /= 16 then
         tick <= tick + 1;
