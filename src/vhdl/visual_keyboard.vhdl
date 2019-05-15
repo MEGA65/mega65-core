@@ -90,8 +90,10 @@ architecture behavioural of visual_keyboard is
   
   signal vk_pixel : unsigned(1 downto 0) := "00";
   signal box_pixel : std_logic := '0';
+  signal box_pixel_delay : std_logic := '0';
   signal box_pixel_h : std_logic := '0';
   signal box_inverse : std_logic := '0';
+  signal box_inverse_delay : std_logic := '0';
   
   signal address : integer range 0 to 4095 := 0;
   signal rdata : unsigned(7 downto 0);
@@ -118,6 +120,7 @@ architecture behavioural of visual_keyboard is
   signal char_data : std_logic_vector(7 downto 0);
   signal next_char_data : std_logic_vector(7 downto 0);
   signal char_pixel : std_logic := '0';
+  signal char_pixel_delay : std_logic := '0';
   signal char_pixels_remaining : integer range 0 to 8 := 0;
   signal first_column : std_logic := '0';
 
@@ -529,7 +532,8 @@ begin
             end if;
           end if;
         else
-          if (text_delay = 0) and (xcounter > 3) then
+          -- Make text offset 4 pixels to the right
+          if (text_delay = 0) and (xcounter > (3 + 4)) then
             char_pixels_remaining <= 7;
             char_data <= next_char_data;
           else
@@ -779,9 +783,14 @@ begin
 
 
       -- Draw keyboard matrix boxes
+      -- horizontal lines draw one pixel late, so delay vertical bars and other
+      -- elements, so that it all lines up nicely.
+      box_pixel_delay <= box_pixel;
+      box_inverse_delay <= box_inverse;
+      char_pixel_delay <= char_pixel;
       if active='1' then
-        vk_pixel(1) <= box_pixel or box_pixel_h or (box_inverse xor char_pixel);
-        vk_pixel(0) <= box_pixel or box_pixel_h or (box_inverse xor char_pixel);
+        vk_pixel(1) <= box_pixel_delay or box_pixel_h or (box_inverse_delay xor char_pixel_delay);
+        vk_pixel(0) <= box_pixel_delay or box_pixel_h or (box_inverse_delay xor char_pixel_delay);
       else
         vk_pixel <= "00";
       end if;
