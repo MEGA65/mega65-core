@@ -13,27 +13,36 @@ end pin_id;
 architecture homestead  of pin_id is
 
   signal counter : integer range 0 to 255 := 0;
+  signal tick : integer range 0 to 255 := 0;
   
 begin
 
   process(clock) is
   begin
     if rising_edge(clock) then
-      if counter < 8 then
+      if tick = 15 then
+        tick <= 0;
+        // Mark each bit with a pulse
         pin <= '1';
-      elsif counter < 16 then
-        pin <= '0';
-      elsif counter > 15 and counter < 24 then
-        pin <= std_logic(pin_number(counter - 3));
+      elsif tick /= 16 then
+        tick <= tick + 1;
       else
-        pin <= '0';
+        if counter < 8 then
+          pin <= '1';
+        elsif counter < 16 then
+          pin <= '0';
+        elsif counter > 15 and counter < 24 then
+          pin <= std_logic(pin_number(counter - 3));
+        else
+          pin <= '0';
+        end if;
+        if counter /= 255 then
+          counter <= counter + 1;
+        else
+          counter <= 0;
+        end if;
       end if;
-      if counter /= 255 then
-        counter <= counter + 1;
-      else
-        counter <= 0;
-      end if;
-    end if;    
-  end process;
-  
-end homestead;
+    end if;
+    end process;
+      
+    end homestead;
