@@ -79,7 +79,7 @@ int main(int argc,char **argv)
     
     // Remove boxes around characters
     int y=0;
-    for(int x=1;line[x+1];x++) {
+    for(int x=0;line[x+1];x++) {
       if (line[x]=='|'
 	  ||(line[x]=='+'&&(line[x-1]=='-'||line[x+1]=='-'))
 	  ||(line[x]=='-'&&(line[x-1]=='-'||line[x+1]=='-'))
@@ -100,7 +100,7 @@ int main(int argc,char **argv)
     out[y]=0;
     
     // Trim CR/LF from end
-    if (out[0]) out[strlen(out)-1]=0;
+    if (out[0]&&out[strlen(out)-1]=='\n') out[strlen(out)-1]=0;
 
     // Trim spaces from end
     while(out[0]&&out[strlen(out)-1]==' ') out[strlen(out)-1]=0;
