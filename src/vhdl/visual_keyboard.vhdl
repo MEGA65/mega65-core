@@ -67,8 +67,8 @@ architecture behavioural of visual_keyboard is
     to_unsigned(999,12);
   signal y_start_current : unsigned(11 downto 0) :=
     to_unsigned(1,12);
-  signal x_start_current : unsigned(13 downto 0) :=
-    to_unsigned(32,14);
+  constant x_start_current : unsigned(13 downto 0) :=
+    to_unsigned(80,14);
 
   signal y_start_current_upabit : unsigned(11 downto 0) :=
     to_unsigned(0,12);
@@ -656,15 +656,15 @@ begin
         end if;
       end if;
       -- Fudge factor to fix uneven line lengths caused by 1.5 width characters
-      if (y_char_in_row = 0)  and (y_pixel_counter = 0) and xcounter > 720 and xcounter < 753 then
+      if (y_char_in_row = 0)  and (y_pixel_counter = 0) and xcounter > (688 + x_start_current) and xcounter < (721 + x_start_current) then
         box_pixel_h <= '1';
       end if;
-      if xcounter = 752 and y_row < 4 then
+      if xcounter = (720 + x_start_current) and y_row < 4 then
         box_pixel <= '1';
       end if;
       -- Draw left edge of keyboard as required (all rows except SPACE bar row)
       -- Also down the right hand side.
-      if (xcounter=31 and y_row < 5 and active='1' and alternate_keyboard='0') then
+      if (xcounter=(x_start_current-1) and y_row < 5 and active='1' and alternate_keyboard='0') then
         box_pixel <= '1';
       end if;
 
