@@ -29,8 +29,8 @@ use Std.TextIO.all;
 
 -- Uncomment the following library declaration if instantiating
 -- any Xilinx primitives in this code.
---library UNISIM;
---use UNISIM.VComponents.all;
+library UNISIM;
+use UNISIM.VComponents.all;
 
 entity container is
   Port ( CLK_IN : STD_LOGIC;         
