@@ -215,7 +215,7 @@ architecture behavioural of c65uart is
   signal amiga_mouse_assume_b_internal : std_logic := '0';
 
   signal last_osk_toggle_key : std_logic := '1';
-  signal osk_toggle_counter : integer range 0 to 1048575 := 0;
+  signal osk_toggle_counter : integer range 0 to 20000000 := 0;
   signal last_joyswap_key : std_logic := '1';
   signal joyswap_countdown : integer range 0 to 1023 := 0;
   
@@ -256,14 +256,12 @@ begin  -- behavioural
       -- various OSK states (off, bottom and top position).
       last_osk_toggle_key <= osk_toggle_key;
       -- We have a countdown to effectively de-bounce the key
-      if osk_toggle_key='0' then
-        if osk_toggle_counter /= 1048575 then
-          osk_toggle_counter <= osk_toggle_counter + 1;
-        end if;
-      else
-        osk_toggle_counter <= 0;
+      if osk_toggle_counter /= 0 then
+        osk_toggle_counter <= osk_toggle_counter - 1;
       end if;
-      if osk_toggle_key='0' and last_osk_toggle_key='1' and osk_toggle_counter = 1048575 then
+      if osk_toggle_key='0' and last_osk_toggle_key='1' and osk_toggle_counter = 0 then
+        -- Only allow one event per 1/4 second
+        osk_toggle_counter <= 10000000;
         -- Toggle between off, bottom and top position for visual keyboard
         if portk_internal(7) = '0' then
           portk_internal(7) <= '1';
