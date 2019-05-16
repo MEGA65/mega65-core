@@ -124,6 +124,13 @@ entity container is
          ----------------------------------------------------------------------
          headphone_left : out std_logic;
          headphone_right : out std_logic;
+
+         ----------------------------------------------------------------------
+         -- I2S speaker audio output
+         ----------------------------------------------------------------------
+         i2s_bclk : out std_logic;
+         i2s_sync : out std_logic;
+         i2s_speaker : out std_logic;
          
          ----------------------------------------------------------------------
          -- Debug interfaces on TE0725
@@ -515,6 +522,10 @@ begin
       ampPWM_r => headphone_right,
 --      ampSD => ampSD,
 
+      i2s_master_clk => i2s_bclk,
+      i2s_master_sync => i2s_sync,
+      i2s_speaker_data_out => i2s_speaker,
+      
       -- No nexys4 temperature sensor
 --      tmpSDA => tmpSDA,
 --      tmpSCL => tmpSCL,
