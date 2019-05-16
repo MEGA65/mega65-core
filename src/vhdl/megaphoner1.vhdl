@@ -59,6 +59,12 @@ entity container is
          micData0 : in std_logic;
          micData1 : in std_logic;
          micClk : out std_logic;
+
+         ----------------------------------------------------------------------
+         -- Touch screen interface
+         ----------------------------------------------------------------------
+         touch_sda : inout std_logic := '1';
+         touch_scl : inout std_logic := '1';
          
          ----------------------------------------------------------------------
          -- CIA1 ports for keyboard/joystick 
@@ -74,6 +80,17 @@ entity container is
          vga_red : out  UNSIGNED (3 downto 0);
          vga_green : out  UNSIGNED (3 downto 0);
          vga_blue : out  UNSIGNED (3 downto 0);
+
+         ----------------------------------------------------------------------
+         -- LCD output
+         ----------------------------------------------------------------------
+         lcd_vsync : out STD_LOGIC;
+         lcd_hsync : out  STD_LOGIC;
+         lcd_display_enable : out std_logic;
+         lcd_dclk : out std_logic;
+         lcd_red : out  UNSIGNED (5 downto 0);
+         lcd_green : out  UNSIGNED (5 downto 0);
+         lcd_blue : out  UNSIGNED (5 downto 0);
 
          ----------------------------------------------------------------------
          -- HyperRAM as expansion RAM
@@ -218,14 +235,10 @@ architecture Behavioral of container is
   signal sawtooth_counter : integer := 0;
   signal sawtooth_level : integer := 0;
 
-  signal lcd_hsync : std_logic;
-  signal lcd_vsync : std_logic;
-  signal lcd_display_enable : std_logic;
   signal pal50_select : std_logic;
 
   -- Dummy signals for stub / not yet implemented interfaces
   signal eth_mdio : std_logic := '0';
-  signal touchSDA : std_logic := '1';
   signal c65uart_rx : std_logic := '1';
 
   signal pin_number : integer;
@@ -443,9 +456,10 @@ begin
       
       vsync           => vga_vsync,
       hsync           => vga_hsync,
---      lcd_vsync => lcd_vsync,
---      lcd_hsync => lcd_hsync,
---      lcd_display_enable => lcd_display_enable,
+      lcd_vsync => lcd_vsync,
+      lcd_hsync => lcd_hsync,
+      lcd_display_enable => lcd_display_enable,
+      lcd_dclk => lcd_dclk,
       vgared(7 downto 0)          => buffer_vgared,
       vgagreen(7 downto 0)        => buffer_vgagreen,
       vgablue(7 downto 0)         => buffer_vgablue,
@@ -506,8 +520,8 @@ begin
       tmpCT => '0',
 
       -- Touch screen
-      touchSDA => touchSDA,
---      touchSCL => '1',
+      touchSDA => touch_SDA,
+      touchSCL => touch_scl,
 --      lcdpwm => ,
 
       i2c1sda => i2c1sda,
@@ -568,6 +582,9 @@ begin
     
   process (cpuclock,clock120,cpuclock,pal50_select)
   begin
+
+    lcd_dclk <= not clock30 when pal50_select='1' else not cpuclock;
+    
     if rising_edge(clock120) then
       -- VGA direct output
       vga_red <= buffer_vgared(7 downto 4);
@@ -575,16 +592,14 @@ begin
       vga_blue <= buffer_vgablue(7 downto 4);
 
       -- VGA out on LCD panel
---      jalo <= std_logic_vector(buffer_vgablue(7 downto 4));
---      jahi <= std_logic_vector(buffer_vgared(7 downto 4));
---      jblo <= std_logic_vector(buffer_vgagreen(7 downto 4));
---      jbhi(8) <= lcd_hsync;
---      jbhi(9) <= lcd_vsync;
---      jbhi(10) <= lcd_display_enable;
+      lcd_blue <= buffer_vgablue(7 downto 2);
+      lcd_red <= buffer_vgared(7 downto 2);
+      lcd_green <= buffer_vgagreen(7 downto 2);
+
     end if;
 
     if rising_edge(cpuclock) then
-
+     
       -- No physical keyboard
       portb_pins <= (others => '1');
       

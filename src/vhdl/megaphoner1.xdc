@@ -52,7 +52,36 @@ set_property -dict {PACKAGE_PIN M4 IOSTANDARD LVCMOS33} [get_ports {vga_blue[2]}
 set_property -dict {PACKAGE_PIN P4 IOSTANDARD LVCMOS33} [get_ports {vga_blue[3]}]
 
 # LCD display
+set_property -dict {PACKAGE_PIN A6 IOSTANDARD LVCMOS33} [get_ports {lcd_red[0]}] #32
+set_property -dict {PACKAGE_PIN A5 IOSTANDARD LVCMOS33} [get_ports {lcd_red[1]}] #31
+set_property -dict {PACKAGE_PIN D5 IOSTANDARD LVCMOS33} [get_ports {lcd_red[2]}] #30
+set_property -dict {PACKAGE_PIN D4 IOSTANDARD LVCMOS33} [get_ports {lcd_red[3]}] #29
+set_property -dict {PACKAGE_PIN A4 IOSTANDARD LVCMOS33} [get_ports {lcd_red[4]}] #28
+set_property -dict {PACKAGE_PIN A3 IOSTANDARD LVCMOS33} [get_ports {lcd_red[5]}] #27
 
+set_property -dict {PACKAGE_PIN B2 IOSTANDARD LVCMOS33} [get_ports {lcd_green[0]}] #26
+set_property -dict {PACKAGE_PIN B3 IOSTANDARD LVCMOS33} [get_ports {lcd_green[1]}] #25
+set_property -dict {PACKAGE_PIN B1 IOSTANDARD LVCMOS33} [get_ports {lcd_green[2]}] #24
+set_property -dict {PACKAGE_PIN A1 IOSTANDARD LVCMOS33} [get_ports {lcd_green[3]}] #23
+set_property -dict {PACKAGE_PIN C1 IOSTANDARD LVCMOS33} [get_ports {lcd_green[4]}] #22
+set_property -dict {PACKAGE_PIN C2 IOSTANDARD LVCMOS33} [get_ports {lcd_green[5]}] #21
+
+set_property -dict {PACKAGE_PIN E2 IOSTANDARD LVCMOS33} [get_ports {lcd_blue[0]}] #20
+set_property -dict {PACKAGE_PIN D2 IOSTANDARD LVCMOS33} [get_ports {lcd_blue[1]}] #19
+set_property -dict {PACKAGE_PIN F1 IOSTANDARD LVCMOS33} [get_ports {lcd_blue[2]}] #18
+set_property -dict {PACKAGE_PIN E1 IOSTANDARD LVCMOS33} [get_ports {lcd_blue[3]}] #17
+set_property -dict {PACKAGE_PIN H1 IOSTANDARD LVCMOS33} [get_ports {lcd_blue[4]}] #16
+set_property -dict {PACKAGE_PIN G1 IOSTANDARD LVCMOS33} [get_ports {lcd_blue[5]}] #15
+
+set_property -dict {PACKAGE_PIN J2 IOSTANDARD LVCMOS33} [get_ports lcd_dclk] #14
+set_property -dict {PACKAGE_PIN J3 IOSTANDARD LVCMOS33} [get_ports lcd_hsync] #13
+set_property -dict {PACKAGE_PIN E3 IOSTANDARD LVCMOS33} [get_ports lcd_vsync] #12
+set_property -dict {PACKAGE_PIN D3 IOSTANDARD LVCMOS33} [get_ports lcd_display_en] #11
+
+
+# Touch interface I2C bus
+set_property -dict {PACKAGE_PIN E6 IOSTANDARD LVCMOS33} [get_ports touch_sda]
+set_property -dict {PACKAGE_PIN E7 IOSTANDARD LVCMOS33} [get_ports touch_scl]
 
 # MEMS microphones
 set_property -dict {PACKAGE_PIN B4 IOSTANDARD LVCMOS33} [get_ports micData0]
