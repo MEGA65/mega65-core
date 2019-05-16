@@ -601,11 +601,11 @@ begin
       end if;
     end if;
   end process;
+
+  lcd_dclk <= not clock30 when pal50_select='1' else not cpuclock;
   
   process (cpuclock,clock120,clock240,cpuclock,pal50_select)
   begin
-
-    lcd_dclk <= not clock30 when pal50_select='1' else not cpuclock;
 
     if rising_edge(clock120) then
       -- VGA direct output
