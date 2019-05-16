@@ -40,6 +40,34 @@ void do_dma(void)
   POKE(0xd705U,((unsigned int)&dmalist)&0xff); // triggers enhanced DMA
 }
 
+unsigned char lpeek_toscreen(long address)
+{
+  // Read the byte at <address> in 28-bit address space
+  // XXX - Optimise out repeated setup etc
+  // (separate DMA lists for peek, poke and copy should
+  // save space, since most fields can stay initialised).
+
+  dmalist.option_0b=0x0b;
+  dmalist.option_80=0x80;
+  dmalist.source_mb=(address>>20);
+  dmalist.option_81=0x81;
+  dmalist.dest_mb=0x00; // dma_byte lives in 1st MB
+  dmalist.end_of_options=0x00;
+  dmalist.sub_cmd=0x02; // Hold source address
+  
+  dmalist.command=0x00; // copy
+  dmalist.count=1000;
+  dmalist.source_addr=address&0xffff;
+  dmalist.source_bank=((address>>16)&0x0f);
+  dmalist.dest_addr=0x0400;
+  dmalist.dest_bank=0;
+
+  do_dma();
+   
+  return dma_byte;
+}
+
+
 unsigned char lpeek(long address)
 {
   // Read the byte at <address> in 28-bit address space
@@ -53,6 +81,7 @@ unsigned char lpeek(long address)
   dmalist.option_81=0x81;
   dmalist.dest_mb=0x00; // dma_byte lives in 1st MB
   dmalist.end_of_options=0x00;
+  dmalist.sub_cmd=0x00;
   
   dmalist.command=0x00; // copy
   dmalist.count=1;
@@ -65,6 +94,7 @@ unsigned char lpeek(long address)
    
   return dma_byte;
 }
+
 void lpoke(long address, unsigned char value)
 {  
 
@@ -167,6 +197,7 @@ void main(void)
 
   short x,y,z;
   short a1,a2,a3;
+  unsigned char n=0;
 
   m65_io_enable();
 
@@ -199,6 +230,17 @@ void main(void)
   
   // Clear screen
   printf("%c",0x93);
+
+  /* For debugging I2C bus glitching:
+     It writes the entire screen with the value read from the I2C register.
+     This has confirmed that the error persist for hundreds of CPU clock cycles,
+     even when the value is being read by DMA repeatedly.  This suggests very
+     strongly that the problem is an I2C bus glitch, not a problem with the fastio
+     bus. */
+  //  while(1) {
+  //  lpeek_toscreen(0xffd7001L);
+  //  for(n=0;n<50;n++) wait_10ms();    
+  //}
   
   //Function to display current time from Real Time Clock
   while(1){
@@ -243,6 +285,9 @@ void main(void)
     printf("%02X,",a1);
     a1=lpeek(0xffd7001L);
     printf("%02X : ",a1);
+    POKE(0x0500+n,a1);
+    n++;
+    
     a1=lpeek(0xffd7000L);
     a1=a1^0xff;
     if (a1&1) printf("up        ");
