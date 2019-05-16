@@ -116,7 +116,7 @@ architecture elizabethan of audio_complex is
   -- should get 2 extra bits of audio resolution. To do that we need to shift
   -- the filter cut-off down by a factor of 4 as well.
   signal mic_divider_max : unsigned(7 downto 0) := to_unsigned(8,8);
-  signal mic_sample_trigger : unsigned(7 downto 0) := to_unsigned(1,8);
+  signal mic_sample_trigger : unsigned(7 downto 0) := to_unsigned(3,8);
 
   signal mic_do_sample_left : std_logic := '0';
   signal mic_do_sample_right : std_logic := '0';
