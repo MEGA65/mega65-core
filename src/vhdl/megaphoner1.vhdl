@@ -462,7 +462,6 @@ begin
       lcd_vsync => lcd_vsync,
       lcd_hsync => lcd_hsync,
       lcd_display_enable => lcd_display_enable,
-      lcd_dclk => lcd_dclk,
       vgared(7 downto 0)          => buffer_vgared,
       vgagreen(7 downto 0)        => buffer_vgagreen,
       vgablue(7 downto 0)         => buffer_vgablue,
