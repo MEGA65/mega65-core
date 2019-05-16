@@ -28,6 +28,10 @@ iter1:   .byte 0
 	lda #$53
 	sta $d02f
 
+	; Fast CPU
+	lda #65
+	sta $00
+
 	 ; set CPU port DDR
 	 lda #$37
 	 sta $0
@@ -130,23 +134,34 @@ nextsample:
 wait:	cmp $d012
 	beq wait
 
-	; select cell modem1 audio in
-        lda #$02
+	; $0a - $0d = microphones 1 - 4
+
+	; select microphone 4 audio
+        lda #$0d
         sta $d6f4
         ; get msb of audio sample
 
 	; shift it left a few bits
         lda $d6fc
-	sta samplelo
-	lda $d6fd
-	sta samplehi
+	ldy $d6fd
+	sta samplelo	
+	sty samplehi
+
+	asl samplelo
+	rol samplehi
+
+	asl samplelo
+	rol samplehi
+
+	asl samplelo
+	rol samplehi
 
         lda samplehi
 	clc
-	adc #$a0
+	adc #$00
 	sta previoussamples2,x
 
-        ; select microphone audio
+        ; select microphone 1 audio
         lda #$0a
         sta $d6f4
 
@@ -364,6 +379,7 @@ clearscreen:
          rts
 
 microphones_on:
+rts
 	ldx #$14
 	lda #$7f
 	jsr audiomix_setcoefficient
