@@ -55,7 +55,7 @@ set_property -dict {PACKAGE_PIN P4 IOSTANDARD LVCMOS33} [get_ports {vga_blue[3]}
 
 
 # MEMS microphones
-set_property -dict {PACKAGE_PIN B6 IOSTANDARD LVCMOS33} [get_ports micData0]
+set_property -dict {PACKAGE_PIN B4 IOSTANDARD LVCMOS33} [get_ports micData0]
 set_property -dict {PACKAGE_PIN T3 IOSTANDARD LVCMOS33} [get_ports micData1]
 set_property -dict {PACKAGE_PIN R3 IOSTANDARD LVCMOS33} [get_ports micClk]
 
