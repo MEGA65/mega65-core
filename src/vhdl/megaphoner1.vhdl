@@ -40,7 +40,7 @@ entity container is
          
          wifirx : out std_logic;
          wifitx : out std_logic;
-        
+         
          i2c1sda : inout std_logic;
          i2c1scl : inout std_logic;         
 
@@ -102,7 +102,7 @@ entity container is
          hr_clk_p : out std_logic;
          hr_cs0 : out std_logic;
          hr_cs1 : out std_logic := '1';
-                  
+         
          -------------------------------------------------------------------------
          -- Lines for the SDcard interface itself
          -------------------------------------------------------------------------
@@ -168,6 +168,9 @@ architecture Behavioral of container is
   signal clock100 : std_logic;
   signal ethclock : std_logic;
   signal clock200 : std_logic;
+  signal clock30 : std_logic;
+  signal clock30in : std_logic := '0';
+  signal clock30count : integer range 0 to 2 := 0;
   
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
 
@@ -513,7 +516,7 @@ begin
       ampPWM_r => headphone_right,
 --      ampSD => ampSD,
 
-    -- No nexys4 temperature sensor
+      -- No nexys4 temperature sensor
 --      tmpSDA => tmpSDA,
 --      tmpSCL => tmpSCL,
       tmpInt => '0',
@@ -530,7 +533,7 @@ begin
       -- This is for modem as PCM master:
       pcm_modem_clk_in => modem1_pcm_clk_in,
       pcm_modem_sync_in => modem1_pcm_sync_in,
-        
+      
       pcm_modem1_data_out => modem1_pcm_data_out,
       pcm_modem1_data_in => modem1_pcm_data_in,
       
@@ -579,12 +582,31 @@ begin
 --      sseg_ca => sseg_ca,
 --      sseg_an => sseg_an
       );
-    
-  process (cpuclock,clock120,cpuclock,pal50_select)
+  
+  process (cpuclock,clock120,clock240,cpuclock,pal50_select)
   begin
 
-    lcd_dclk <= not clock30 when pal50_select='1' else not cpuclock;
+    -- Create BUFG'd 30MHz clock for LCD panel
+    --------------------------------------
+    clkin30_buf : IBUFG
+      port map
+      (O => clock30,
+       I => clock30in);
     
+    process (clock240)
+    begin
+      if rising_edge(clock240) then
+        if (clock30count /= 2 ) then
+          clock30count <= clock30count + 1;
+        else
+          clock30in <= not clock30in;
+          clock30count <= 0;
+        end if;
+      end if;
+    end process;
+
+    lcd_dclk <= not clock30 when pal50_select='1' else not cpuclock;
+
     if rising_edge(clock120) then
       -- VGA direct output
       vga_red <= buffer_vgared(7 downto 4);
@@ -599,7 +621,7 @@ begin
     end if;
 
     if rising_edge(cpuclock) then
-     
+      
       -- No physical keyboard
       portb_pins <= (others => '1');
       
