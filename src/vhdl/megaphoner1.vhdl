@@ -582,28 +582,28 @@ begin
 --      sseg_ca => sseg_ca,
 --      sseg_an => sseg_an
       );
+
+  -- Create BUFG'd 30MHz clock for LCD panel
+  --------------------------------------
+  clkin30_buf : IBUFG
+    port map
+    (O => clock30,
+     I => clock30in);
+  
+  process (clock240)
+  begin
+    if rising_edge(clock240) then
+      if (clock30count /= 2 ) then
+        clock30count <= clock30count + 1;
+      else
+        clock30in <= not clock30in;
+        clock30count <= 0;
+      end if;
+    end if;
+  end process;
   
   process (cpuclock,clock120,clock240,cpuclock,pal50_select)
   begin
-
-    -- Create BUFG'd 30MHz clock for LCD panel
-    --------------------------------------
-    clkin30_buf : IBUFG
-      port map
-      (O => clock30,
-       I => clock30in);
-    
-    process (clock240)
-    begin
-      if rising_edge(clock240) then
-        if (clock30count /= 2 ) then
-          clock30count <= clock30count + 1;
-        else
-          clock30in <= not clock30in;
-          clock30count <= 0;
-        end if;
-      end if;
-    end process;
 
     lcd_dclk <= not clock30 when pal50_select='1' else not cpuclock;
 
