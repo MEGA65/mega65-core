@@ -511,7 +511,7 @@ begin
         end_of_line <= '1';
       end if;
     
-      if pixel_strobe_in='1' and active='1' and (xcounter < 799) and (xcounter >= x_start_current) then
+      if pixel_strobe_in='1' and active='1' and (xcounter /= 0) and (xcounter >= x_start_current) then
 
         report "Rendering OSK pixel";
         
@@ -611,7 +611,7 @@ begin
                 and (next_matrix_id(6 downto 1) = "111111")) then
             null;
           else
-            if xcounter < 799 then
+            if xcounter /= 0 then
               box_pixel <= not end_of_line;
             else
               box_pixel <= '0';
