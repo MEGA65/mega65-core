@@ -861,7 +861,7 @@ begin
       end if;
 
       -- Work out next position up, and clip at y_start_minimum if required.
-      if y_start_current - y_start_current(11 downto 3) - 2 < y_start_minimum then
+      if y_start_current - y_start_current(11 downto 3) - 2 > y_start_minimum then
         y_start_current_upabit <= y_start_current - y_start_current(11 downto 3) - 2;
       else
         y_start_current_upabit <= to_unsigned(y_start_minimum,12);
@@ -1034,7 +1034,7 @@ begin
           -- like curve to spring the keyboard to the top
           if y_start_current > (y_start_minimum+3) and instant_at_top='0' then
             report "Xeno-walking keyboard to top a bit. new y_start_current = "
-              & integer'image(to_integer(y_start_current) - to_integer(y_start_current(11 downto 3)) - y_start_minimum - 2);
+              & integer'image(to_integer(y_start_current_upabit));
             y_start_current <= y_start_current_upabit;
           else
             report "Jumping keyboard to y_start_minimum. y_start_current = " & integer'image(y_start_minimum);
