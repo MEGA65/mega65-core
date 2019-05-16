@@ -44,13 +44,13 @@ entity container is
          i2c1sda : inout std_logic;
          i2c1scl : inout std_logic;         
 
-         modem1_pcm_clk_in : in std_logic;
-         modem1_pcm_sync_in : in std_logic;
-         modem1_pcm_data_in : in std_logic;
-         modem1_pcm_data_out : out std_logic;
+--         modem1_pcm_clk_in : in std_logic;
+--         modem1_pcm_sync_in : in std_logic;
+--         modem1_pcm_data_in : in std_logic;
+--         modem1_pcm_data_out : out std_logic;
+--         modem1_uart2_rx : inout std_logic;
          modem1_uart_rx : inout std_logic;
          modem1_uart_tx : out std_logic;
-         modem1_uart2_rx : inout std_logic;
          modem1_uart2_tx : out std_logic;
 
          ----------------------------------------------------------------------
@@ -98,6 +98,7 @@ entity container is
          hr_d : inout unsigned(7 downto 0);
          hr_rwds : inout std_logic;
          hr_reset : out std_logic;
+         hr_rsto : out std_logic := '1';
          hr_clk_n : out std_logic;
          hr_clk_p : out std_logic;
          hr_cs0 : out std_logic;
@@ -155,6 +156,13 @@ architecture Behavioral of container is
            temp : out  STD_LOGIC_VECTOR (11 downto 0));
   end component;
 
+  signal modem1_pcm_clk_in : std_logic;
+  signal modem1_pcm_sync_in : std_logic;
+  signal modem1_pcm_data_in : std_logic;
+  signal modem1_pcm_data_out : std_logic;
+  signal modem1_uart2_rx : std_logic;
+
+  
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
   signal restore_key : std_logic := '1';
