@@ -410,7 +410,7 @@ begin
         end if;
       end if;
       
-      if xcounter = 799 then
+      if xcounter = 0 then
         last_was_800 <= '1';
         space_repeat <= 0;
         char_pixels_remaining <= 0;
