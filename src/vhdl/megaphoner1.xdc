@@ -31,13 +31,13 @@ set_property -dict {PACKAGE_PIN C4 IOSTANDARD LVCMOS33} [get_ports i2c1scl]
 #set_property -dict {PACKAGE_PIN C4 IOSTANDARD LVCMOS33} [get_ports i2s_speaker] # 21
 
 # MiniPCIe modem port 1
-set_property -dict {PACKAGE_PIN F1 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_clk_in]
-set_property -dict {PACKAGE_PIN J3 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_sync_in]
-set_property -dict {PACKAGE_PIN J2 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_data_in]
-set_property -dict {PACKAGE_PIN G1 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_data_out]
+#set_property -dict {PACKAGE_PIN F1 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_clk_in]
+#set_property -dict {PACKAGE_PIN J3 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_sync_in]
+#set_property -dict {PACKAGE_PIN J2 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_data_in]
+#set_property -dict {PACKAGE_PIN G1 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_data_out]
 set_property -dict {PACKAGE_PIN F4 IOSTANDARD LVCMOS33} [get_ports modem1_uart_rx]
 set_property -dict {PACKAGE_PIN F3 IOSTANDARD LVCMOS33} [get_ports modem1_uart_tx]
-set_property -dict {PACKAGE_PIN E3 IOSTANDARD LVCMOS33} [get_ports modem1_uart2_rx]
+#set_property -dict {PACKAGE_PIN E3 IOSTANDARD LVCMOS33} [get_ports modem1_uart2_rx]
 set_property -dict {PACKAGE_PIN D3 IOSTANDARD LVCMOS33} [get_ports modem1_uart2_tx]
 
 # VGA port
@@ -81,7 +81,7 @@ set_property -dict {PACKAGE_PIN G1 IOSTANDARD LVCMOS33} [get_ports {lcd_blue[5]}
 set_property -dict {PACKAGE_PIN J2 IOSTANDARD LVCMOS33} [get_ports lcd_dclk]
 set_property -dict {PACKAGE_PIN J3 IOSTANDARD LVCMOS33} [get_ports lcd_hsync]
 set_property -dict {PACKAGE_PIN E3 IOSTANDARD LVCMOS33} [get_ports lcd_vsync]
-set_property -dict {PACKAGE_PIN D3 IOSTANDARD LVCMOS33} [get_ports lcd_display_en]
+set_property -dict {PACKAGE_PIN D3 IOSTANDARD LVCMOS33} [get_ports lcd_display_enable]
 
 
 # Touch interface I2C bus
@@ -119,7 +119,7 @@ set_property -dict {PACKAGE_PIN A16 IOSTANDARD LVCMOS18} [get_ports {hr_d[7]}]
 set_property -dict {PACKAGE_PIN E18 IOSTANDARD LVCMOS18} [get_ports hr_rwds]
 set_property -dict {PACKAGE_PIN C17 IOSTANDARD LVCMOS18} [get_ports hr_rsto]
 set_property -dict {PACKAGE_PIN J17 IOSTANDARD LVCMOS18} [get_ports hr_reset]
-set_property -dict {PACKAGE_PIN J18 IOSTANDARD LVCMOS18} [get_ports hr_int]
+#set_property -dict {PACKAGE_PIN J18 IOSTANDARD LVCMOS18} [get_ports hr_int]
 set_property -dict {PACKAGE_PIN A13 IOSTANDARD LVCMOS18} [get_ports hr_clk_p]
 set_property -dict {PACKAGE_PIN A14 IOSTANDARD LVCMOS18} [get_ports hr_clk_n]
 set_property -dict {PACKAGE_PIN A18 IOSTANDARD LVCMOS18} [get_ports hr_cs0]
