@@ -1,0 +1,47 @@
+	; Setup functions for MEGAphone.
+	; Basically setup the I2C IO expanders with sensible values, turning
+	; all peripherals on.
+
+megaphone_setup:
+	lda #<$7100
+	sta zptempv32+0
+	lda #>$7100
+	sta zptempv32+1
+	lda #<$0FFD
+	sta zptempv32+2
+	lda #>$0FFD
+	sta zptempv32+3
+
+	ldy #$00
+mps_loop:
+	lda megaphone_i2c_settings,y
+	cmp #$ff
+	bne +
+	rts
+*
+	taz
+	iny
+	lda megaphone_i2c_settings,y
+	iny
+	
+	nop
+	sta (<zptempv32),z
+
+	; Wait for I2C register to get written
+	ldz #$ff
+mps_busy_wait_loop:
+	nop
+	lda (<zptempv32),z
+	cmp #$00
+	bne mps_busy_wait_loop
+
+	jmp mps_loop
+
+
+megaphone_i2c_settings:
+	.byte $16,$00 ; Port to input
+	.byte $17,$00 ; Port to input
+	.byte $12,$FF ; Enable power to all sub-systems
+	.byte $13,$4B ; Power LCD backlight, assert DTR to modems, power up headphones amplifier
+
+	.byte $FF,$FF ; End of list marker

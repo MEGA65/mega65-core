@@ -33,6 +33,7 @@ HYPPOSRCS = $(SRCDIR)/hyppo.a65 \
 		$(SRCDIR)/hyppo_machine.a65 \
 		$(SRCDIR)/hyppo_audiomix.a65 \
 		$(SRCDIR)/hyppo_process_descriptor.a65 \
+		$(SRCDIR)/hyppo_megaphone.a65 \
 		$(SRCDIR)/hyppo_dos.a65 \
 		$(SRCDIR)/hyppo_securemode.a65 \
 		$(SRCDIR)/hyppo_dos_write.a65 \
