@@ -38,25 +38,8 @@ entity container is
 --         irq : in  STD_LOGIC;
 --         nmi : in  STD_LOGIC;
 
-         fpga_pins : out std_logic_vector(1 to 28) := (others => '1');
-         fpga_pins31 : out std_logic_vector(31 to 43) := (others => '1');
-         fpga_pins45 : out std_logic_vector(45 to 47) := (others => '1');
-         fpga_pins49 : out std_logic_vector(49 to 52) := (others => '1');
-         fpga_pins55 : out std_logic_vector(55 to 56) := (others => '1');
-         fpga_pins60 : out std_logic_vector(60 to 82) := (others => '1');
+         fpga_pins : out std_logic_vector(1 to 100) := (others => '1');
          
-         wifirx : out std_logic := '1';
-         wifitx : out std_logic := '1';
-         
-         ----------------------------------------------------------------------
-         -- VGA output
-         ----------------------------------------------------------------------
-         vga_vsync : out STD_LOGIC := '1';
-         vga_hsync : out  STD_LOGIC := '1';
-         vga_red : out  UNSIGNED (3 downto 0) := (others => '1');
-         vga_green : out  UNSIGNED (3 downto 0) := (others => '1');
-         vga_blue : out  UNSIGNED (3 downto 0) := (others => '1');
-
          ----------------------------------------------------------------------
          -- HyperRAM as expansion RAM
          ----------------------------------------------------------------------
@@ -68,27 +51,12 @@ entity container is
          hr_cs0 : out std_logic := '1';
          hr_cs1 : out std_logic := '1';
                   
-         -------------------------------------------------------------------------
-         -- Lines for the SDcard interface itself
-         -------------------------------------------------------------------------
-         sdReset : out std_logic := '0';  -- must be 0 to power SD controller (cs_bo)
-         sdClock : out std_logic := 'Z';       -- (sclk_o)
-         sdMOSI : out std_logic := 'Z';      
-         sdMISO : in  std_logic;
-
          ----------------------------------------------------------------------
          -- Flash RAM for holding config
          ----------------------------------------------------------------------
 --         QspiSCK : out std_logic := '1';
          QspiDB : inout std_logic_vector(3 downto 0) := (others => 'Z');
          QspiCSn : out std_logic := '1';
-         
-         ----------------------------------------------------------------------
-         -- Analog headphone jack output
-         -- (amplifier enable is on an IO expander)
-         ----------------------------------------------------------------------
-         headphone_left : out std_logic := '1';
-         headphone_right : out std_logic := '1';
          
          ----------------------------------------------------------------------
          -- Debug interfaces on TE0725
@@ -120,9 +88,6 @@ architecture Behavioral of container is
   signal cpu_game : std_logic := '1';
   signal cpu_exrom : std_logic := '1';
   
-  signal buffer_vgared : unsigned(7 downto 0);
-  signal buffer_vgagreen : unsigned(7 downto 0);
-  signal buffer_vgablue : unsigned(7 downto 0);
   
   signal pixelclock : std_logic;
   signal cpuclock : std_logic;
@@ -132,16 +97,10 @@ architecture Behavioral of container is
   signal ethclock : std_logic;
   signal clock200 : std_logic;
   
-  signal vgaredignore : unsigned(3 downto 0);
-  signal vgagreenignore : unsigned(3 downto 0);
-  signal vgablueignore : unsigned(3 downto 0);
-
-  signal dummypins : std_logic_vector(1 to 100) := (others => '0');
-  
 begin
 
   gen_pin:
-  for i in 1 to 28 generate
+  for i in 1 to 100 generate
     pin: entity work.pin_id
       port map (
         clock => pixelclock,
@@ -149,56 +108,6 @@ begin
         pin => fpga_pins(i)
         );
   end generate gen_pin;
-
-  gen_pin31:
-  for i in 31 to 43 generate
-    pin31: entity work.pin_id
-      port map (
-        clock => pixelclock,
-        pin_number => to_unsigned(i,8),
-        pin => fpga_pins31(i)
-        );
-  end generate gen_pin31;
-    
-  gen_pin45:
-  for i in 45 to 47 generate
-    pin45: entity work.pin_id
-      port map (
-        clock => pixelclock,
-        pin_number => to_unsigned(i,8),
-        pin => fpga_pins45(i)
-        );
-  end generate gen_pin45;
-
-  gen_pin49:
-  for i in 49 to 52 generate
-    pin49: entity work.pin_id
-      port map (
-        clock => pixelclock,
-        pin_number => to_unsigned(i,8),
-        pin => fpga_pins49(i)
-        );
-  end generate gen_pin49;
-
-  gen_pin55:
-  for i in 55 to 56 generate
-    pin55: entity work.pin_id
-      port map (
-        clock => pixelclock,
-        pin_number => to_unsigned(i,8),
-        pin => fpga_pins55(i)
-        );
-  end generate gen_pin55;
-
-  gen_pin60:
-  for i in 60 to 82 generate
-    pin60: entity work.pin_id
-      port map (
-        clock => pixelclock,
-        pin_number => to_unsigned(i,8),
-        pin => fpga_pins60(i)
-        );
-  end generate gen_pin60;
 
   dotclock1: entity work.dotclock100
     port map ( clk_in1 => CLK_IN,
@@ -210,22 +119,5 @@ begin
                clock120 => clock120,
                clock240 => clock240
                );
-  
-  process (cpuclock,clock120,cpuclock)
-  begin
-    if rising_edge(clock120) then
-      -- VGA direct output
-      vga_red <= buffer_vgared(7 downto 4);
-      vga_green <= buffer_vgagreen(7 downto 4);
-      vga_blue <= buffer_vgablue(7 downto 4);
-
-    end if;
-
-  end process;
-
-  
-
-  -- XXX Ethernet should be 250Mbit fibre port on this board  
-  -- eth_clock <= cpuclock;
   
 end Behavioral;
