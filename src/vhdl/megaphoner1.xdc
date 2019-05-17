@@ -26,9 +26,9 @@ set_property -dict {PACKAGE_PIN B7 IOSTANDARD LVCMOS33} [get_ports i2c1sda]
 set_property -dict {PACKAGE_PIN C4 IOSTANDARD LVCMOS33} [get_ports i2c1scl]
 
 # I2S Audio data for speakers
-#set_property -dict {PACKAGE_PIN B7 IOSTANDARD LVCMOS33} [get_ports i2s_bclk] # 23
-#set_property -dict {PACKAGE_PIN C4 IOSTANDARD LVCMOS33} [get_ports i2s_sync] # 
-#set_property -dict {PACKAGE_PIN C4 IOSTANDARD LVCMOS33} [get_ports i2s_speaker] # 21
+set_property -dict {PACKAGE_PIN B7 IOSTANDARD LVCMOS33} [get_ports i2s_bclk] # 23
+set_property -dict {PACKAGE_PIN C4 IOSTANDARD LVCMOS33} [get_ports i2s_sync] # 
+set_property -dict {PACKAGE_PIN C4 IOSTANDARD LVCMOS33} [get_ports i2s_speaker] # 21
 
 # MiniPCIe modem port 1
 #set_property -dict {PACKAGE_PIN F1 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_clk_in]
@@ -38,7 +38,7 @@ set_property -dict {PACKAGE_PIN C4 IOSTANDARD LVCMOS33} [get_ports i2c1scl]
 set_property -dict {PACKAGE_PIN F4 IOSTANDARD LVCMOS33} [get_ports modem1_uart_rx]
 set_property -dict {PACKAGE_PIN F3 IOSTANDARD LVCMOS33} [get_ports modem1_uart_tx]
 #set_property -dict {PACKAGE_PIN E3 IOSTANDARD LVCMOS33} [get_ports modem1_uart2_rx]
-set_property -dict {PACKAGE_PIN D3 IOSTANDARD LVCMOS33} [get_ports modem1_uart2_tx]
+#set_property -dict {PACKAGE_PIN D3 IOSTANDARD LVCMOS33} [get_ports modem1_uart2_tx]
 
 # VGA port
 set_property -dict {PACKAGE_PIN P3 IOSTANDARD LVCMOS33} [get_ports vga_vsync]

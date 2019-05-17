@@ -49,9 +49,9 @@ entity container is
 --         modem1_pcm_data_in : in std_logic;
 --         modem1_pcm_data_out : out std_logic;
 --         modem1_uart2_rx : inout std_logic;
+--         modem1_uart2_tx : out std_logic;
          modem1_uart_rx : inout std_logic;
          modem1_uart_tx : out std_logic;
-         modem1_uart2_tx : out std_logic;
 
          ----------------------------------------------------------------------
          -- MEMS microphones
@@ -161,6 +161,7 @@ architecture Behavioral of container is
   signal modem1_pcm_data_in : std_logic;
   signal modem1_pcm_data_out : std_logic;
   signal modem1_uart2_rx : std_logic;
+  signal modem1_uart2_tx : std_logic;
 
   
   signal irq : std_logic := '1';
