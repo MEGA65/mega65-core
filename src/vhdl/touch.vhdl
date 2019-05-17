@@ -217,7 +217,7 @@ begin
         report "busy de-asserted: dispatching next command";
          case busy_count is
           when 0 =>
-            if touch_enabled='1' and i2c0_error='0' then
+            if touch_enabled='1' then
               report "Beginning touch panel scan";
               -- send initial command
               i2c0_command_en <= '1';
