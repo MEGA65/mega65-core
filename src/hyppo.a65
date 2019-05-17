@@ -483,6 +483,9 @@ reset_machine_state:
 		lda #$c5
 		sta $d054
 
+		; Setup I2C peripherals on the MEGAphone platform
+		jsr megaphone_setup
+
 		; sprites off, and normal mode
 		lda #$00
 		sta $d015
