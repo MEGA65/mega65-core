@@ -94,6 +94,8 @@ set_property -dict {PACKAGE_PIN D3 IOSTANDARD LVCMOS33} [get_ports lcd_display_e
 # Touch interface I2C bus
 set_property -dict {PACKAGE_PIN E6 IOSTANDARD LVCMOS33} [get_ports touch_sda]
 set_property -dict {PACKAGE_PIN E7 IOSTANDARD LVCMOS33} [get_ports touch_scl]
+set_property PULLUP true [get_ports touch_sda]
+set_property PULLUP true [get_ports touch_scl]
 
 # MEMS microphones
 set_property -dict {PACKAGE_PIN B4 IOSTANDARD LVCMOS33} [get_ports micData0]
