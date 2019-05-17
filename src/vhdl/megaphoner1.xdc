@@ -32,14 +32,20 @@ set_property -dict {PACKAGE_PIN U3 IOSTANDARD LVCMOS33} [get_ports i2s_sync]
 set_property -dict {PACKAGE_PIN U4 IOSTANDARD LVCMOS33} [get_ports i2s_speaker]
 
 # MiniPCIe modem port 1
-#set_property -dict {PACKAGE_PIN F1 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_clk_in]
-#set_property -dict {PACKAGE_PIN J3 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_sync_in]
-#set_property -dict {PACKAGE_PIN J2 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_data_in]
-#set_property -dict {PACKAGE_PIN G1 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_data_out]
-set_property -dict {PACKAGE_PIN F4 IOSTANDARD LVCMOS33} [get_ports modem1_uart_rx]
-set_property -dict {PACKAGE_PIN F3 IOSTANDARD LVCMOS33} [get_ports modem1_uart_tx]
-#set_property -dict {PACKAGE_PIN E3 IOSTANDARD LVCMOS33} [get_ports modem1_uart2_rx]
-#set_property -dict {PACKAGE_PIN D3 IOSTANDARD LVCMOS33} [get_ports modem1_uart2_tx]
+set_property -dict {PACKAGE_PIN R7 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_clk_in]
+set_property -dict {PACKAGE_PIN V6 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_sync_in]
+set_property -dict {PACKAGE_PIN V7 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_data_in]
+set_property -dict {PACKAGE_PIN T6 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_data_out]
+set_property -dict {PACKAGE_PIN M6 IOSTANDARD LVCMOS33} [get_ports modem1_uart_rx] 
+set_property -dict {PACKAGE_PIN N6 IOSTANDARD LVCMOS33} [get_ports modem1_uart_tx]
+
+# MiniPCIe modem port 2
+set_property -dict {PACKAGE_PIN V4 IOSTANDARD LVCMOS33} [get_ports modem2_pcm_clk_in]
+set_property -dict {PACKAGE_PIN R5 IOSTANDARD LVCMOS33} [get_ports modem2_pcm_sync_in]
+set_property -dict {PACKAGE_PIN R6 IOSTANDARD LVCMOS33} [get_ports modem2_pcm_data_in]
+set_property -dict {PACKAGE_PIN V5 IOSTANDARD LVCMOS33} [get_ports modem2_pcm_data_out]
+set_property -dict {PACKAGE_PIN U7 IOSTANDARD LVCMOS33} [get_ports modem2_uart_rx] 
+set_property -dict {PACKAGE_PIN U6 IOSTANDARD LVCMOS33} [get_ports modem2_uart_tx]
 
 # VGA port
 set_property -dict {PACKAGE_PIN P3 IOSTANDARD LVCMOS33} [get_ports vga_vsync]
