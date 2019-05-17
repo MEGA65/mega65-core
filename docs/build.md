@@ -116,7 +116,7 @@ The following is assumed:
 1. you have ```gcc``` installed (I have ver 5.2.1) (for compiling c.*)
 1. you have ```make``` installed (I have 4.0) (for the makefile)
 1. you have ```python``` installed (I have ver 2.7.10) (for some scripts)
-1. you have ```libpng12-dev``` installed (for the image manipulation)
+1. you have ```libpng12-dev``` installed (for the image manipulation) (use libpng-dev to install)
 1. you have ```cbmconvert``` installed (I have ver 2.1.2) (to make a D81 image) (refer to ./using.md)
 1. you have a recent version of Xilinx Vivado WebPACK edition installed, with a valid licence
 
