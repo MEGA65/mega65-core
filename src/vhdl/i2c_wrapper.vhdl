@@ -110,6 +110,10 @@ architecture behavioural of i2c_wrapper is
 begin
 
   i2c1: entity work.i2c_master
+    generic map (
+      input_clk => 40_000_000,
+      bus_clk => 100_000
+      )
     port map (
       clk => clock,
       reset_n => i2c1_reset,

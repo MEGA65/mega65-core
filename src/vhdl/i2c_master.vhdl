@@ -34,6 +34,10 @@ USE ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
 ENTITY i2c_master IS
+  generic (
+    input_clk : INTEGER := 50_000_000; --input clock speed from user logic in Hz
+    bus_clk   : INTEGER := 400_000   --speed the i2c bus (scl) will run at in Hz
+    );
   PORT(
     clk       : IN     STD_LOGIC;                    --system clock
     reset_n   : IN     STD_LOGIC;                    --active low reset
@@ -55,8 +59,6 @@ ENTITY i2c_master IS
 END i2c_master;
 
 ARCHITECTURE logic OF i2c_master IS
-  constant input_clk : INTEGER := 50_000_000; --input clock speed from user logic in Hz
-  constant bus_clk   : INTEGER := 400_000;   --speed the i2c bus (scl) will run at in Hz
   CONSTANT divider  :  INTEGER := (input_clk/bus_clk)/4; --number of clocks in 1/4 cycle of scl
   
   TYPE machine IS(ready, start, command, slv_ack1, wr, rd, slv_ack2, mstr_ack, stop); --needed states
