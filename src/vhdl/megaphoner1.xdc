@@ -85,10 +85,8 @@ set_property -dict {PACKAGE_PIN E1 IOSTANDARD LVCMOS33} [get_ports {lcd_blue[3]}
 set_property -dict {PACKAGE_PIN H1 IOSTANDARD LVCMOS33} [get_ports {lcd_blue[4]}]
 set_property -dict {PACKAGE_PIN G1 IOSTANDARD LVCMOS33} [get_ports {lcd_blue[5]}]
 
-set_property -dict {PACKAGE_PIN J2 IOSTANDARD LVCMOS33} [get_ports lcd_dclk]
 # Try to improve integrity of the pixel clock for the LCD panel
-set_property -dict {PACKAGE_PIN J2 SLEW FAST} [get_ports lcd_dclk]
-set_property -dict {PACKAGE_PIN J2 DRIVE 24} [get_ports lcd_dclk]
+set_property -dict {PACKAGE_PIN J2 IOSTANDARD LVCMOS33 SLEW FAST DRIVE 24} [get_ports lcd_dclk]
 set_property -dict {PACKAGE_PIN J3 IOSTANDARD LVCMOS33} [get_ports lcd_hsync]
 set_property -dict {PACKAGE_PIN E3 IOSTANDARD LVCMOS33} [get_ports lcd_vsync]
 set_property -dict {PACKAGE_PIN D3 IOSTANDARD LVCMOS33} [get_ports lcd_display_enable]

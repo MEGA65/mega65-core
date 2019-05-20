@@ -187,7 +187,7 @@ architecture Behavioral of container is
   signal clock200 : std_logic;
   signal clock30 : std_logic;
   signal clock30in : std_logic := '0';
-  signal clock30count : integer range 0 to 2 := 0;
+  signal clock30count : integer range 0 to 3 := 0;
   
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
 
@@ -613,7 +613,7 @@ begin
   process (clock240)
   begin
     if rising_edge(clock240) then
-      if (clock30count /= 2 ) then
+      if (clock30count /= 3 ) then
         clock30count <= clock30count + 1;
       else
         clock30in <= not clock30in;
