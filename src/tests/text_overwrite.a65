@@ -36,6 +36,10 @@ iter1:	 .byte 0
 	 lda #>160
 	 sta $d059
 
+	 ; Draw 80 characters per line (even if most end up invisible)
+	 lda #80
+	 sta $d05e
+
 	 ;Set screen RAM to $00008000
 	 lda #<$8000
 	 sta $d060
@@ -49,10 +53,19 @@ iter1:	 .byte 0
 	 ; Clear colour RAM
 	 lda #$00
 	 tax
-*	 sta $d800,x
+*
+	 lda #$00
+	 sta $d800,x
 	 sta $d900,x
 	 sta $da00,x
 	 sta $db00,x
+	 dex
+	 lda #$0e
+	 sta $d800,x
+	 sta $d900,x
+	 sta $da00,x
+	 sta $db00,x
+	 
 	 dex
 	 bne -
 
@@ -115,9 +128,56 @@ linecopy:
 
 donecopy:
 
+	;Now setup some simple overlap on the 2nd line
+
+	; GOTO token, moving render point to X=45+1
+	lda #<45
+	sta $80F0
+	lda #>45
+	sta $80F1
+	lda #$90 ; GOTO ($10) + transparent background ($80)
+	sta $d8F0
+	lda #$00
+	sta $d8F1
+
+	;XXX for now there is a bug where the lower 2 bits of this char must be 0, or
+	;else it gets used as the high byte of the position
+	ldx #0
+	ldy #0
+*
+	lda message,x
+	and #$3f
+	beq loop
+	sta $80F2,y
+	lda #$00
+	sta $80F3,y
+	lda #$00
+	sta $d8F2,y
+	lda colours,x
+	sta $d8F3,y
+	iny
+	iny
+	inx
+	bne -	
+	
+
 loop:
-	inc $d020
+	lda $d012
+	cmp #$fc
+	bne loop
+
+	inc $80f0
+	bne +
+	inc $80f1
+
+*	lda $d012
+	cmp #$fc
+	beq -
+
 	jmp loop
 
+
+message: .byte "THIS IS ACTUALLY TEXT                  ",0
+colours: .byte 1,2,3,4,5,7,8,9,10,11,12,13,14,15,1,2,3,4,5,7,8,9,10
 
 	.scend
