@@ -75,7 +75,7 @@ architecture Behavioral of container is
   signal clock200 : std_logic;
   signal clock30 : std_logic;
   signal clock30in : std_logic := '0';
-  signal clock30count : integer range 0 to 2 := 0;
+  signal clock30count : integer range 0 to 3 := 0;
   
   signal pal50_select : std_logic;
 
@@ -91,17 +91,6 @@ begin
                clock240 => clock240
                );
 
-  -- Expose clock on pins with different settings
-  jblo(1) <= not clock30 when pal50_select='1' else not cpuclock;
-  jblo(2) <= not clock30 when pal50_select='1' else not cpuclock;
-  jblo(3) <= not clock30 when pal50_select='1' else not cpuclock;
-  jblo(4) <= not clock30 when pal50_select='1' else not cpuclock;
-  jalo(1) <= not clock30in when pal50_select='1' else not cpuclock;
-  jalo(2) <= not clock30in when pal50_select='1' else not cpuclock;
-  jalo(3) <= not clock30in when pal50_select='1' else not cpuclock;
-  jalo(4) <= not clock30in when pal50_select='1' else not cpuclock;
-  pal50_select <= btnCpuReset;
-  
 
   -- Create BUFG'd 30MHz clock for LCD panel
   --------------------------------------
@@ -109,11 +98,28 @@ begin
   port map
    (O => clock30,
     I => clock30in);
+
+  jalo(4 downto 1) <= (others => clock30) when pal50_select='1' else (others => cpuclock);
+  jblo(4 downto 1) <= (others => clock30in) when pal50_select='1' else (others => cpuclock);
   
-  process (clock240)
+  process (clock240,pal50_select,clock30,clock30in)
   begin
+
+--    if pal50_select='1' then
+--      -- Expose clock on pins with different settings
+--      jblo(4 downto 1) <= (others => clock30);
+--      jalo(4 downto 1) <= (others => clock30in);
+--    else
+--      jblo(4 downto 1) <= (others => cpuclock);
+--      jalo(4 downto 1) <= (others => cpuclock);
+--    end if;
+    
     if rising_edge(clock240) then
-      if (clock30count /= 2 ) then
+      pal50_select <= btnCpuReset;
+
+      led(15 downto 0) <= (others => pal50_select);
+      
+      if (clock30count /= 3 ) then
         clock30count <= clock30count + 1;
       else
         clock30in <= not clock30in;
