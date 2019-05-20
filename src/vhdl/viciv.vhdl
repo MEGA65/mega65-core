@@ -4353,10 +4353,7 @@ begin
               -- Glyph is tab-stop glyph
               -- Set screen ram buffer write address to 10 bit
               -- offset indicated by glyph number bits
-              raster_buffer_write_address(9 downto 8)
-                <= screen_ram_buffer_dout(1 downto 0);
-              raster_buffer_write_address(7 downto 0)
-                <= glyph_number(7 downto 0);
+              raster_buffer_write_address(9 downto 0) <= glyph_number(9 downto 0);
 
               -- Also note whether the glyph painting should now not paint
               -- background pixels, to allow masked over writing
