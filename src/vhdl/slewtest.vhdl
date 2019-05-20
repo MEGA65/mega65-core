@@ -99,23 +99,14 @@ begin
    (O => clock30,
     I => clock30in);
 
+  pal50_select <= btnCpuReset;
   jalo(4 downto 1) <= (others => clock30) when pal50_select='1' else (others => cpuclock);
   jblo(4 downto 1) <= (others => clock30in) when pal50_select='1' else (others => cpuclock);
   
   process (clock240,pal50_select,clock30,clock30in)
   begin
 
---    if pal50_select='1' then
---      -- Expose clock on pins with different settings
---      jblo(4 downto 1) <= (others => clock30);
---      jalo(4 downto 1) <= (others => clock30in);
---    else
---      jblo(4 downto 1) <= (others => cpuclock);
---      jalo(4 downto 1) <= (others => cpuclock);
---    end if;
-    
     if rising_edge(clock240) then
-      pal50_select <= btnCpuReset;
 
       led(15 downto 0) <= (others => pal50_select);
       
