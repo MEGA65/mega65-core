@@ -1,0 +1,123 @@
+	.outfile "thumbnail.prg"
+
+	 .word $0801
+	 .org $0801
+
+	 .scope
+	 .word _next, 10                       ; Next line and current line number
+	 .byte $97, "2,0:", $9e, " 2019", $AA, "60",0      ; POKE 2,0 : SYS 2019+60
+_next:	 .word 0
+
+iter1:	 .byte 0
+
+	 .checkpc 2079
+	 .advance 2079
+
+	 ; C65GS IO
+	 lda #$47
+	 sta $d02f
+	 lda #$53
+	 sta $d02f
+
+	 ; FAST cpu
+	 LDA #65
+	 sta 0
+
+	 sei
+
+	 ; enable 16-bit text mode (but normal chars)
+	 lda #$01
+	 sta $d054
+
+	 ; Use 160 bytes per text line = 2x40 for normal +
+	 ; 2x40 for extras for overwriting
+	 lda #<160
+	 sta $d058
+	 lda #>160
+	 sta $d059
+
+	 ;Set screen RAM to $00008000
+	 lda #<$8000
+	 sta $d060
+	 lda #>$8000
+	 sta $d061
+	 lda #<$0000
+	 sta $D062
+	 lda #>$0000
+	 sta $d063
+
+	 ; Clear colour RAM
+	 lda #$00
+	 tax
+*	 sta $d800,x
+	 sta $d900,x
+	 sta $da00,x
+	 sta $db00,x
+	 dex
+	 bne -
+
+	 ;Copy existing screen to $8000
+	 lda #<$0400
+	 sta $fb
+	 lda #>$0400
+	 sta $fc
+	 lda #<$8000
+	 sta $fd
+	 lda #>$8000
+	 sta $fe
+
+copyloop:
+	lda $fc
+	cmp #$08
+	beq donecopy
+
+	ldx #40
+linecopy:
+
+	ldy #$00
+	lda ($fb),y
+	sta ($fd),y
+	iny
+	lda #$00
+	sta ($fd),y
+
+	inc $fb
+	bne +
+	inc $fc
+*
+	inc $fd
+	bne +
+	inc $fe
+*
+	inc $fd
+	bne +
+	inc $fe
+*
+	dex
+	bne linecopy
+	
+	ldy #79
+	lda #$00
+*	sta ($fd),y
+	dey
+	bpl -
+	lda $fd
+	clc
+	adc #80
+	sta $fd
+	lda $fe
+	adc #0
+	sta $fe
+	
+
+
+	jmp copyloop
+
+donecopy:
+
+loop:
+	inc $d020
+	jmp loop
+
+
+	.scend
