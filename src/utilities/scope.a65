@@ -158,11 +158,11 @@ wait:	cmp $d012
 
         lda samplehi
 	clc
-	adc #$00
+	adc #$80
 	sta previoussamples2,x
 
         ; select microphone 1 audio
-        lda #$0a
+        lda #$0b
         sta $d6f4
 
 	; shift it left a few bits
@@ -180,6 +180,9 @@ wait:	cmp $d012
 	lda samplehi
 	clc
 	adc #$80
+
+	; XXX Ignofre sample for now
+	lda #$00
 
 	sta previoussamples,x
 
