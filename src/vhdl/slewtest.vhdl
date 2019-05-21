@@ -42,15 +42,15 @@ entity container is
          ----------------------------------------------------------------------
          -- PMODs for LCD screen and associated things during testing
          ----------------------------------------------------------------------
-         jalo : inout std_logic_vector(4 downto 1) := (others => 'Z');
-         jahi : inout std_logic_vector(10 downto 7) := (others => 'Z');
-         jblo : inout std_logic_vector(4 downto 1) := (others => 'Z');
-         jbhi : inout std_logic_vector(10 downto 7) := (others => 'Z');
-         jclo : inout std_logic_vector(4 downto 1) := (others => 'Z');
-         jchi : inout std_logic_vector(10 downto 7) := (others => 'Z');
-         jdlo : inout std_logic_vector(4 downto 1) := (others => 'Z');
-         jdhi : inout std_logic_vector(10 downto 7) := (others => 'Z');
-         jxadc : inout std_logic_vector(7 downto 0) := (others => 'Z');
+         jalo : out std_logic_vector(4 downto 1) := (others => 'Z');
+         jahi : out std_logic_vector(10 downto 7) := (others => 'Z');
+         jblo : out std_logic_vector(4 downto 1) := (others => 'Z');
+         jbhi : out std_logic_vector(10 downto 7) := (others => 'Z');
+         jclo : out std_logic_vector(4 downto 1) := (others => 'Z');
+         jchi : out std_logic_vector(10 downto 7) := (others => 'Z');
+         jdlo : out std_logic_vector(4 downto 1) := (others => 'Z');
+         jdhi : out std_logic_vector(10 downto 7) := (others => 'Z');
+         jxadc : out std_logic_vector(7 downto 0) := (others => 'Z');
          
          ----------------------------------------------------------------------
          -- Debug interfaces on Nexys4 board
