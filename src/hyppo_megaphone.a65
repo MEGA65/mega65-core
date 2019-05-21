@@ -43,7 +43,7 @@ mps_busy_wait_loop:
 megaphone_i2c_settings:
 	.byte $16,$00 ; Port 0 to input
 	.byte $17,$00 ; Port 1 to input
-	.byte $12,$df ; Enable power to all sub-systems, except LCD backlight
+	.byte $12,$ff ; Enable power to all sub-systems, including LCD backlight
 	.byte $13,$20 ; Power up headphones amplifier
 
 	.byte $FF,$FF ; End of list marker
