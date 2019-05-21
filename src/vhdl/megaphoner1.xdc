@@ -90,6 +90,7 @@ set_property -dict {PACKAGE_PIN J2 IOSTANDARD LVCMOS33 SLEW FAST DRIVE 24} [get_
 set_property -dict {PACKAGE_PIN J3 IOSTANDARD LVCMOS33} [get_ports lcd_hsync]
 set_property -dict {PACKAGE_PIN E3 IOSTANDARD LVCMOS33} [get_ports lcd_vsync]
 set_property -dict {PACKAGE_PIN D3 IOSTANDARD LVCMOS33} [get_ports lcd_display_enable]
+set_property -dict {PACKAGE_PIN H2 IOSTANDARD LVCMOS33} [get_ports lcd_pwm]
 
 # Touch interface I2C bus
 set_property -dict {PACKAGE_PIN E6 IOSTANDARD LVCMOS33} [get_ports touch_sda]
