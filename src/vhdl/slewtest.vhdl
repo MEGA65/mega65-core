@@ -41,7 +41,7 @@ entity container is
          ----------------------------------------------------------------------
          -- PMODs for LCD screen and associated things during testing
          ----------------------------------------------------------------------
-         lcd_dclk : out std_logic := '0';
+         lcd_dclk : out std_logic := '0'
          
          );
 end container;
