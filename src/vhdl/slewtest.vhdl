@@ -37,30 +37,11 @@ use unisim.vcomponents.all;
 
 entity container is
   Port ( CLK_IN : STD_LOGIC;         
-         btnCpuReset : in  STD_LOGIC;
          
          ----------------------------------------------------------------------
          -- PMODs for LCD screen and associated things during testing
          ----------------------------------------------------------------------
-         jalo : out std_logic_vector(4 downto 1) := (others => 'Z');
-         jahi : out std_logic_vector(10 downto 7) := (others => 'Z');
-         jblo : out std_logic_vector(4 downto 1) := (others => 'Z');
-         jbhi : out std_logic_vector(10 downto 7) := (others => 'Z');
-         jclo : out std_logic_vector(4 downto 1) := (others => 'Z');
-         jchi : out std_logic_vector(10 downto 7) := (others => 'Z');
-         jdlo : out std_logic_vector(4 downto 1) := (others => 'Z');
-         jdhi : out std_logic_vector(10 downto 7) := (others => 'Z');
-         jxadc : out std_logic_vector(7 downto 0) := (others => 'Z');
-         
-         ----------------------------------------------------------------------
-         -- Debug interfaces on Nexys4 board
-         ----------------------------------------------------------------------
-         led : out std_logic_vector(15 downto 0) := (others => '1');
-         sw : in std_logic_vector(15 downto 0);
-         btn : in std_logic_vector(4 downto 0);
-
-         UART_TXD : out std_logic := '1';
-         RsRx : in std_logic
+         lcd_dclk : out std_logic := '0';
          
          );
 end container;
@@ -76,8 +57,8 @@ architecture Behavioral of container is
   signal clock30 : std_logic;
   signal clock30in : std_logic := '0';
   signal clock30count : integer range 0 to 3 := 0;
-  
-  signal pal50_select : std_logic;
+
+  signal pal50_select : std_logic := '0';
 
 begin
   
@@ -99,7 +80,6 @@ begin
    (O => clock30,
     I => clock30in);
 
-  pal50_select <= btnCpuReset;
   jalo(4 downto 1) <= (others => clock30) when pal50_select='1' else (others => cpuclock);
   jblo(4 downto 1) <= (others => clock30in) when pal50_select='1' else (others => cpuclock);
   
