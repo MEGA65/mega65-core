@@ -80,16 +80,13 @@ begin
    (O => clock30,
     I => clock30in);
 
-  jalo(4 downto 1) <= (others => clock30) when pal50_select='1' else (others => cpuclock);
-  jblo(4 downto 1) <= (others => clock30in) when pal50_select='1' else (others => cpuclock);
+  lcd_dclk <= clock30 when pal50_select='1' else cpuclock;
   
   process (clock240,pal50_select,clock30,clock30in)
   begin
 
     if rising_edge(clock240) then
 
-      led(15 downto 0) <= (others => pal50_select);
-      
       if (clock30count /= 3 ) then
         clock30count <= clock30count + 1;
       else
