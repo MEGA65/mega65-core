@@ -545,7 +545,7 @@ begin
       -- Touch screen
       touchSDA => touch_SDA,
       touchSCL => touch_scl,
---      lcdpwm => ,
+      lcdpwm =>  lcd_pwm,
 
       i2c1sda => i2c1sda,
       i2c1scl => i2c1scl,
