@@ -96,6 +96,7 @@ entity container is
          lcd_vsync : out STD_LOGIC;
          lcd_hsync : out  STD_LOGIC;
          lcd_display_enable : out std_logic;
+         lcd_pwm : out std_logic;
          lcd_dclk : out std_logic;
          lcd_red : out  UNSIGNED (5 downto 0);
          lcd_green : out  UNSIGNED (5 downto 0);
