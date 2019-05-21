@@ -50,26 +50,191 @@ iter1:	 .byte 0
 	 lda #>$0000
 	 sta $d063
 
-	 ; Clear colour RAM
-	 lda #$00
-	 tax
-*
-	 lda #$00
-	 sta $d800,x
-	 sta $d900,x
-	 sta $da00,x
-	 sta $db00,x
-	 dex
-	 lda #$0e
-	 sta $d800,x
-	 sta $d900,x
-	 sta $da00,x
-	 sta $db00,x
-	 
-	 dex
-	 bne -
+	 ; Colour RAM offset $0800
+	 lda #<$0800
+	 sta $d064
+	 lda #>$0800
+	 sta $d065
 
-	 ;Copy existing screen to $8000
+	 jsr copy_screen_ram
+	 jsr copy_colour_ram
+
+	;Now setup some simple overlap on the 2nd line
+
+	; Get pointer to colour RAM
+	lda #<$0800
+	sta $02
+	lda #>$0800
+	sta $03
+	lda #<$0ff8
+	sta $04
+	lda #>$0ff8
+	sta $05
+
+	; GOTO token, moving render point to X=45+1
+	lda #<45
+	sta $80F0
+	lda #>45
+	sta $80F1
+	lda #$90 ; GOTO ($10) + transparent background ($80)
+	ldz #$f0
+	nop
+	sta ($02),z
+	lda #$00
+	inz
+	nop
+	sta ($02),z
+	ldz #$00
+
+	;XXX for now there is a bug where the lower 2 bits of this char must be 0, or
+	;else it gets used as the high byte of the position
+	ldx #0
+	ldy #0
+*
+	lda message,x
+	and #$3f
+	beq loop
+	sta $80F2,y
+	lda #$00
+	sta $80F3,y
+
+	; Update pointer into colour RAM
+	lda #<$08f2
+	sta $02
+
+	; Get current offset into Z ready for 32-bit addressing mode
+	tya
+	taz
+
+	lda #$00
+	nop
+	sta ($02),z
+	lda colours,x
+	inz
+	nop
+	sta ($02),z
+	ldz #$00
+	iny
+	iny
+	inx
+	bne -	
+	
+
+loop:
+	lda $d012
+	cmp #$fc
+	bne loop
+
+	inc $80f0
+	bne +
+	inc $80f1
+	lda $80f1
+	and #$01
+	sta $80f1
+
+*	lda $d012
+	cmp #$fc
+	beq -
+
+	jmp loop
+
+copy_colour_ram:
+	; Expand colour RAM out and copy to destination.
+	; We make our life easier by moving start of colour RAM when done
+	lda #<$d800
+	sta $fb
+	lda #>$d800
+	sta $fc
+	lda #<$0801   ; colour bits goes in 2nd colour byte
+	sta $02
+	lda #>$0801
+	sta $03
+	lda #<$0ff8
+	sta $04
+	lda #>$0ff8
+	sta $05
+
+	; Start by filling with $00's, so that there are no attributes etc
+	lda #$00
+	sta $d702
+	sta $d704
+	lda #>dmalist_colour_clear
+	sta $d701
+	lda #<dmalist_colour_clear
+	sta $d705
+
+	; Now copy the existing colour RAM bytes
+
+copyloop2:
+	lda $fc
+	cmp #$dc
+	beq donecopy2
+
+	ldz #$00
+	ldx #40
+linecopy2:
+
+	ldy #$00
+	lda ($fb),y
+	nop
+	sta ($02),z
+	iny
+
+	inc $fb
+	bne +
+	inc $fc
+*
+	inc $02
+	bne +
+	inc $03
+*
+	inc $02
+	bne +
+	inc $03
+*
+	dex
+	bne linecopy2
+	
+	lda $02
+	clc
+	adc #80
+	sta $02
+	lda $03
+	adc #0
+	sta $03
+	
+
+
+	jmp copyloop2
+
+donecopy2:
+	rts
+
+
+	rts
+
+dmalist_colour_clear:
+	; Fill colour RAM with $00s
+	
+		; MEGA65 Enhanced DMA options
+		.byte $0A  ; Request format is F018A (instead of F018B)
+		.byte $80,$FF ; Source is $FFxxxxx
+		.byte $81,$FF ; Destination is $FFxxxxx
+		.byte $00  ; No more options
+		; F018A DMA list
+		; (MB offsets get set in routine)
+		.byte $03 ; fill + last request in chain
+		.word 4000 ; size of copy is 25*80*2
+		.word $0000 ; fill with $00
+		.byte $08   ; of bank $8
+		.word $0800 ; destination address is $305A
+		.byte $08   ; of bank $8
+		.word $0000 ; modulo (unused)
+
+
+copy_screen_ram:
+	 ; Copy existing screen to $8000
+	 
 	 lda #<$0400
 	 sta $fb
 	 lda #>$0400
@@ -127,54 +292,9 @@ linecopy:
 	jmp copyloop
 
 donecopy:
+	rts
 
-	;Now setup some simple overlap on the 2nd line
 
-	; GOTO token, moving render point to X=45+1
-	lda #<45
-	sta $80F0
-	lda #>45
-	sta $80F1
-	lda #$90 ; GOTO ($10) + transparent background ($80)
-	sta $d8F0
-	lda #$00
-	sta $d8F1
-
-	;XXX for now there is a bug where the lower 2 bits of this char must be 0, or
-	;else it gets used as the high byte of the position
-	ldx #0
-	ldy #0
-*
-	lda message,x
-	and #$3f
-	beq loop
-	sta $80F2,y
-	lda #$00
-	sta $80F3,y
-	lda #$00
-	sta $d8F2,y
-	lda colours,x
-	sta $d8F3,y
-	iny
-	iny
-	inx
-	bne -	
-	
-
-loop:
-	lda $d012
-	cmp #$fc
-	bne loop
-
-	inc $80f0
-	bne +
-	inc $80f1
-
-*	lda $d012
-	cmp #$fc
-	beq -
-
-	jmp loop
 
 
 message: .byte "THIS IS ACTUALLY TEXT                  ",0
