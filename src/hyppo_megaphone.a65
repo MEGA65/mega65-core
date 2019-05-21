@@ -13,6 +13,20 @@ megaphone_setup:
 	lda #>$0FFD
 	sta zptempv32+3
 
+	; Detect if we have MEGAphone I2C perihperals or not
+	ldz #$1f
+	lda #$00
+*
+	nop
+	lda (<zptempv32),z
+	bne have_i2cperipherals
+	dez
+	bne -
+	rts
+
+have_i2cperipherals:
+	lda #$00
+	sta $d020
 	ldy #$00
 mps_loop:
 	lda megaphone_i2c_settings,y
