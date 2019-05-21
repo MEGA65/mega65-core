@@ -241,7 +241,7 @@ entity machine is
          i2c1SDA : inout std_logic;
          i2c1SCL : inout std_logic;
 
-         lcdpwm : inout std_logic := '1';
+         lcdpwm : out std_logic := '1';
          touchSDA : inout std_logic := '1';
          touchSCL : inout std_logic := '1';
          

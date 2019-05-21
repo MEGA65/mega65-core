@@ -157,7 +157,7 @@ entity sdcardio is
     i2c1SCL : inout std_logic;    
 
     -- PWM brightness control for LCD panel
-    lcdpwm : inout std_logic;
+    lcdpwm : out std_logic;
 
     -- Touch pad I2C bus
     touchSDA : inout std_logic;
