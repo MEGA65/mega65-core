@@ -554,7 +554,7 @@ begin
       lcdpwm =>  lcd_pwm,
 
       i2c1sda => touch_SDA,
-      i2c1scl => touc_SCL,
+      i2c1scl => touch_SCL,
 
       i2c_perif_SDA => i2c_perif_SDA,
       i2c_perif_SCL => i2c_perif_SCL,
