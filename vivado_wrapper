@@ -1,5 +1,10 @@
 #!/bin/bash
-vivadodir=`ls -1d /opt/Xilinx/Vivado/* | tail -1`
-. ${vivadodir}/settings64.sh
+
+# Check if VIVADODIR is empty or undefined and detect version instead
+if [ -z "$VIVADODIR" ]; then
+    VIVADODIR=`ls -1d /opt/Xilinx/Vivado/* | tail -1`
+fi
+
+. ${VIVADODIR}/settings64.sh
 echo vivado $*
 vivado $*
