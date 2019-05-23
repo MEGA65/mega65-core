@@ -546,15 +546,17 @@ begin
       tmpCT => '0',
 
       -- Touch screen
---      touchSDA => touch_SDA,
---      touchSCL => touch_SCL,
-      touchSDA => i2c1sda,
-      touchSCL => i2c1scl,
+      touchSDA => touch_SDA,
+      touchSCL => touch_SCL,
+--      touchSDA => i2c1sda,
+--      touchSCL => i2c1scl,
       
       lcdpwm =>  lcd_pwm,
 
-      i2c1sda => touch_SDA,
-      i2c1scl => touch_SCL,
+--      i2c1sda => touch_SDA,
+--      i2c1scl => touch_SCL,
+      i2c1sda => i2c1sda,
+      i2c1scl => i2c1scl,
 
       i2c_perif_SDA => i2c_perif_SDA,
       i2c_perif_SCL => i2c_perif_SCL,
