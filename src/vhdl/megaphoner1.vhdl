@@ -41,8 +41,8 @@ entity container is
          wifirx : out std_logic;
          wifitx : out std_logic;
          
-         i2c1sda : inout std_logic;
-         i2c1scl : inout std_logic;         
+         i2c_perif_SDA : inout std_logic;
+         i2c_perif_SCL : inout std_logic;
 
          modem1_pcm_clk_in : in std_logic;
          modem1_pcm_sync_in : in std_logic;
@@ -201,6 +201,8 @@ architecture Behavioral of container is
 
   signal sector_buffer_mapped : std_logic;
 
+  signal i2c1sda : std_logic;
+  signal i2c1scl : std_logic;  
   
   signal vgaredignore : unsigned(3 downto 0);
   signal vgagreenignore : unsigned(3 downto 0);
@@ -544,12 +546,18 @@ begin
       tmpCT => '0',
 
       -- Touch screen
-      touchSDA => touch_SDA,
-      touchSCL => touch_scl,
+--      touchSDA => touch_SDA,
+--      touchSCL => touch_SCL,
+      touchSDA => i2c1sda,
+      touchSCL => i2c1scl,
+      
       lcdpwm =>  lcd_pwm,
 
-      i2c1sda => i2c1sda,
-      i2c1scl => i2c1scl,
+      i2c1sda => touch_SDA,
+      i2c1scl => touc_SCL,
+
+      i2c_perif_SDA => i2c_perif_SDA,
+      i2c_perif_SCL => i2c_perif_SCL,
       
       -- This is for modem as PCM master:
       pcm_modem_clk_in => modem2_pcm_clk_in,
