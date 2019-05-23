@@ -1176,7 +1176,8 @@ begin  -- behavioural
       audio_mix_write <= '0';      
       
       -- Drive LCD panel PWM brightness control
-      if lcd_pwm_divider /= 255 then
+      -- Pulse train should be ~1KHz
+      if lcd_pwm_divider /= 127 then
         lcd_pwm_divider <= lcd_pwm_divider + 1;
       else
         lcd_pwm_divider <= 0;        
