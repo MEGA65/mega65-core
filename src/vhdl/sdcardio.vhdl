@@ -1180,11 +1180,16 @@ begin  -- behavioural
       if lcd_pwm_divider /= 127 then
         lcd_pwm_divider <= lcd_pwm_divider + 1;
       else
-        lcd_pwm_divider <= 0;        
-        if lcd_pwm_counter >= to_integer(lcdpwm_value) then
+        lcd_pwm_divider <= 0;
+        -- PWM line is always high if maximum value selected
+        if lcd_pwm_counter >= to_integer(lcdpwm_value) and lcdpwm_value /= x"FF" then
           lcdpwm <= '0';
         else
           lcdpwm <= '1';
+        end if;
+        -- Allow tri-stating of LCD PWM brightness
+        if lcdpwm_value = x"00" then
+          lcdpwm <= 'Z';
         end if;
         if lcd_pwm_counter = 255 then
           lcd_pwm_counter <= 0;
