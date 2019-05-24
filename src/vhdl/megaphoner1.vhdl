@@ -558,8 +558,8 @@ begin
       i2c1sda => i2c1sda,
       i2c1scl => i2c1scl,
 
-      i2c_perif_SDA => i2cperif_SDA,
-      i2c_perif_SCL => i2cperif_SCL,
+      i2c_perif_SDA => i2c_perif_SDA,
+      i2c_perif_SCL => i2c_perif_SCL,
       
       -- This is for modem as PCM master:
       pcm_modem_clk_in => modem2_pcm_clk_in,
