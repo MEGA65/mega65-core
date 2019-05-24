@@ -241,8 +241,8 @@ entity machine is
          i2c1SDA : inout std_logic := 'Z';
          i2c1SCL : inout std_logic := 'Z';
 
-         i2c_perif_SDA : inout std_logic;
-         i2c_perif_SCL : inout std_logic;
+         i2c_perif_SDA : inout std_logic := 'Z';
+         i2c_perif_SCL : inout std_logic := 'Z';
 
          lcdpwm : out std_logic := '1';
          touchSDA : inout std_logic := '1';
