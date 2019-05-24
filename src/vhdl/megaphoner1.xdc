@@ -22,8 +22,8 @@ set_property -dict {PACKAGE_PIN D8 IOSTANDARD LVCMOS33} [get_ports wifitx]
 set_property -dict {PACKAGE_PIN F6 IOSTANDARD LVCMOS33} [get_ports wifirx]
 
 # I2C bus for IO expanders, accelerometer and speaker amplifier controller
-set_property -dict {PACKAGE_PIN B7 IOSTANDARD LVCMOS33} [get_ports i2c1sda]
-set_property -dict {PACKAGE_PIN C4 IOSTANDARD LVCMOS33} [get_ports i2c1scl]
+set_property -dict {PACKAGE_PIN B7 IOSTANDARD LVCMOS33} [get_ports i2c_perif_sda]
+set_property -dict {PACKAGE_PIN C4 IOSTANDARD LVCMOS33} [get_ports i2c_perif_scl]
 
 # I2S Audio data for speakers
 set_property -dict {PACKAGE_PIN U2 IOSTANDARD LVCMOS33} [get_ports i2s_mclk]
