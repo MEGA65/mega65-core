@@ -41,8 +41,8 @@ entity container is
          wifirx : out std_logic;
          wifitx : out std_logic;
          
-         i2c_perif_SDA : inout std_logic;
-         i2c_perif_SCL : inout std_logic;
+         i2c_perif_SDA : inout std_logic := '1';
+         i2c_perif_SCL : inout std_logic := '1';
 
          modem1_pcm_clk_in : in std_logic;
          modem1_pcm_sync_in : in std_logic;
@@ -558,8 +558,8 @@ begin
       i2c1sda => i2c1sda,
       i2c1scl => i2c1scl,
 
-      i2c_perif_SDA => i2c_perif_SDA,
-      i2c_perif_SCL => i2c_perif_SCL,
+      i2c_perif_SDA => i2cperif_SDA,
+      i2c_perif_SCL => i2cperif_SCL,
       
       -- This is for modem as PCM master:
       pcm_modem_clk_in => modem2_pcm_clk_in,
