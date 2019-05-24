@@ -291,9 +291,6 @@ entity iomapper is
 
     i2c1SDA : inout std_logic;
     i2c1SCL : inout std_logic;
-
-    i2c_perif_SDA : inout std_logic;
-    i2c_perif_SCL : inout std_logic;
     
     lcdpwm : out std_logic;
     touchSDA : inout std_logic;
@@ -1034,8 +1031,8 @@ begin
     clock => clk,
     cs => i2cperipherals_cs,
 
-    sda => i2c_perif_SDA,
-    scl => i2c_perif_SCL,
+    sda => i2c1SDA,
+    scl => i2c1SCL,
 
     i2c_joya_fire => i2c_joya_fire,
     i2c_joya_up => i2c_joya_up,
@@ -1136,8 +1133,8 @@ begin
     tmpInt => tmpInt,
     tmpCT => tmpCT,
 
-    i2c1SDA => i2c1SDA,
-    i2c1SCL => i2c1SCL,
+--    i2c1SDA => i2c1SDA,
+--    i2c1SCL => i2c1SCL,
 
     audio_mix_reg => audio_mix_reg,
     audio_mix_write => audio_mix_write,

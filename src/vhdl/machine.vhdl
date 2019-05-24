@@ -238,11 +238,8 @@ entity machine is
          tmpInt : in std_logic;
          tmpCT : in std_logic;
 
-         i2c1SDA : inout std_logic := 'Z';
-         i2c1SCL : inout std_logic := 'Z';
-
-         i2c_perif_SDA : inout std_logic := 'Z';
-         i2c_perif_SCL : inout std_logic := 'Z';
+         i2c1SDA : inout std_logic;
+         i2c1SCL : inout std_logic;
 
          lcdpwm : out std_logic := '1';
          touchSDA : inout std_logic := '1';
@@ -1533,11 +1530,8 @@ begin
       tmpInt => tmpInt,
       tmpCT => tmpCT,
 
-      i2c1SDA => i2c1SDA,      
+      i2c1SDA => i2c1SDA,
       i2c1SCL => i2c1SCL,
-
-      i2c_perif_SDA => i2c_perif_SDA,
-      i2c_perif_SCL => i2c_perif_SCL,
 
       lcdpwm => lcdpwm,
       touchSDA => touchSDA,
