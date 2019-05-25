@@ -40,16 +40,20 @@ mps_loop:
 	lda megaphone_i2c_settings,y
 	iny
 
+	
+	; Keep writing it until it gets written
+*
 	nop
 	sta (<zptempv32),z
 
 	; Wait for I2C register to get written
-	ldz #$ff
-mps_busy_wait_loop:
+
+	inc $d020
+
 	nop
-	lda (<zptempv32),z
-	cmp #$00
-	bne mps_busy_wait_loop
+	cmp (<zptempv32),z
+	bne -
+
 
 	jmp mps_loop
 
@@ -57,7 +61,7 @@ mps_busy_wait_loop:
 megaphone_i2c_settings:
 	.byte $16,$40 ; Port 0 to output, except LCD backlight line, that we now control via an FPGA pin
 	.byte $17,$00 ; Port 1 to output
-	.byte $12,$bf ; Enable power to all sub-systems, excluding LCD backlight
+	.byte $12,$bf ; Enable power to all sub-systems ($BF = $FF - $40)
 	.byte $13,$20 ; Power up headphones amplifier
 
 	.byte $FF,$FF ; End of list marker
