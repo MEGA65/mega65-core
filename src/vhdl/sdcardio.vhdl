@@ -1179,10 +1179,12 @@ begin  -- behavioural
       -- Pulse train should be ~1KHz
       -- But that makes acoustic noise from some component, which sounds nasty
       -- due to the square wave. So we will instead try ~250KHz
+      -- Nope, high speed doesn't work. So we have to find some way to fix the
+      -- 1KHz squarewave audio squeal
       
---      if lcd_pwm_divider /= 127 then
---        lcd_pwm_divider <= lcd_pwm_divider + 1;
---      else
+      if lcd_pwm_divider /= 127 then
+        lcd_pwm_divider <= lcd_pwm_divider + 1;
+      else
         lcd_pwm_divider <= 0;
         -- PWM line is always high if maximum value selected
         if lcd_pwm_counter >= to_integer(lcdpwm_value) and lcdpwm_value /= x"FF" then
@@ -1199,7 +1201,7 @@ begin  -- behavioural
         else
           lcd_pwm_counter <= lcd_pwm_counter + 1;
         end if;
---      end if;
+      end if;
       
       -- Pass current touch events to the on-screen keyboard
       touch1_valid <= touch1_active;
