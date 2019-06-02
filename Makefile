@@ -75,6 +75,7 @@ TOOLS=	$(TOOLDIR)/etherhyppo/etherhyppo \
 	$(TOOLDIR)/monitor_save \
 	$(TOOLDIR)/on_screen_keyboard_gen \
 	$(TOOLDIR)/pngprepare/pngprepare \
+	$(TOOLDIR)/pngprepare/giftotiles \
 	$(TOOLDIR)/i2cstatemapper
 
 all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r1.mcs $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr.mcs $(TOOLDIR)/monitor_load $(TOOLDIR)/mega65_ftp $(TOOLDIR)/monitor_save $(SDCARD_DIR)/FREEZER.M65
@@ -532,6 +533,10 @@ $(BINDIR)/matrixfont.bin:	$(TOOLDIR)/pngprepare/pngprepare $(ASSETS)/matrix.png
 # c-code that makes an executable that processes images, and can make a vhdl file
 $(TOOLDIR)/pngprepare/pngprepare:	$(TOOLDIR)/pngprepare/pngprepare.c Makefile
 	$(CC) $(COPT) -I/usr/local/include -L/usr/local/lib -o $(TOOLDIR)/pngprepare/pngprepare $(TOOLDIR)/pngprepare/pngprepare.c -lpng
+
+$(TOOLDIR)/pngprepare/giftotiles:	$(TOOLDIR)/pngprepare/giftotiles.c Makefile
+	$(CC) $(COPT) -I/usr/local/include -L/usr/local/lib -o $(TOOLDIR)/pngprepare/giftotiles $(TOOLDIR)/pngprepare/giftotiles.c -lgif
+
 
 # ============================ done *deleted*, Makefile-dep, print-warn, clean-target
 # unix command to generate the 'iomap.txt' file that represents the registers
