@@ -230,8 +230,9 @@ begin
               busy_count <= 0;
             end if;
           when 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 =>
+            busy_count <= busy_count + 1;
             if i2c0_error='1' then
-              i2c0_command_en <= '0';
+              i2c0_command_en <= '1';
               busy_count <= 0;
               report "I2C error: Restarting job.";
             else
@@ -242,7 +243,6 @@ begin
               report "Setting byte(" & integer'image(busy_count - 2) & ") to $" & to_hstring(i2c0_rdata);
               bytes(busy_count - 2) <= i2c0_rdata;
             end if;
-            busy_count <= busy_count + 1;
           when others =>
             report "Setting byte(" & integer'image(busy_count - 2) & ") to $" & to_hstring(i2c0_rdata);
             bytes(busy_count - 2) <= i2c0_rdata;
