@@ -69,6 +69,7 @@ architecture foo of touch is
 
   signal last_busy : std_logic := '1';
   signal busy_count : integer := 0;
+  signal error_countdown : integer range 0 to 255 := 0;
 
   subtype uint8 is unsigned(7 downto 0);
   type byte_array is array (0 to 15) of uint8;
@@ -125,11 +126,15 @@ begin
   begin
     if rising_edge(clock50mhz) then
 
-      if i2c0_error = '0' and touch_enabled='1' then
+      if i2c0_error = '0' and touch_enabled='1' and (error_countdown /= 1) then
         last_busy <= i2c0_busy;
       else
         last_busy <= '1';
       end if;
+      if error_countdown /= 0 then
+        error_countdown <= error_countdown - 1;
+      end if;
+      
 --      report "busy=" & std_logic'image(i2c0_busy) & "last_busy = " & std_logic'image(last_busy);
 
       touch1_active <= touch1_active_internal;
@@ -220,7 +225,7 @@ begin
             if touch_enabled='1' then
               report "Beginning touch panel scan";
               -- send initial command
-              i2c0_command_en <= '1';
+              i2c0_command_en <= '0';
               i2c0_address <= "0111000";  -- 0x70 = I2C address of touch panel
               -- Write register zero to set starting point for read
               i2c0_wdata <= x"00";
@@ -234,6 +239,7 @@ begin
             if i2c0_error='1' then
               i2c0_command_en <= '1';
               busy_count <= 0;
+              error_countdown <= 255;
               report "I2C error: Restarting job.";
             else
               i2c0_rw <= '1';
