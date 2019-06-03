@@ -19,6 +19,15 @@ megaphone_setup:
 	sta zptempv32+3
 
 	; Detect if we have MEGAphone I2C perihperals or not
+	; NOTE: It takes a little while for the I2C controller to
+	; start up.  So we should wait a few milliseconds before
+	; deciding.
+	; (This is also why it works when replacing the hypervisor on boot,
+	; as the replaced version has started late enough.
+*	lda $d012
+	cmp #$ff
+	bne -
+
 	ldz #$1f
 	lda #$00
 *
@@ -27,6 +36,11 @@ megaphone_setup:
 	bne have_i2cperipherals
 	dez
 	bne -
+
+	; Restore full screen brightness
+	lda #$ff
+	sta $d6f0
+
 	rts	
 
 have_i2cperipherals:
@@ -42,7 +56,6 @@ mps_loop:
 	; Set full brightness on LCD on exit
 	lda #$ff
 	sta $d6f0
-	
 
 	rts
 *
