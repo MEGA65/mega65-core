@@ -4,6 +4,11 @@
 
 megaphone_setup:
 
+	; Start with backscreen very dim, to avoid inrush current
+	; causing FGPA power rail to sag.
+	lda #$01
+	sta $d6f0
+
 	lda #<$7000
 	sta zptempv32+0
 	lda #>$7000
@@ -22,7 +27,7 @@ megaphone_setup:
 	bne have_i2cperipherals
 	dez
 	bne -
-	rts
+	rts	
 
 have_i2cperipherals:
 	lda #$00
@@ -33,6 +38,12 @@ mps_loop:
 	cmp #$ff
 	bne +
 	ldz #$00
+
+	; Set full brightness on LCD on exit
+	lda #$ff
+	sta $d6f0
+	
+
 	rts
 *
 	taz
