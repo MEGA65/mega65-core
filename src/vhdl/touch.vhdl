@@ -69,7 +69,6 @@ architecture foo of touch is
 
   signal last_busy : std_logic := '1';
   signal busy_count : integer := 0;
-  signal error_countdown : integer range 0 to 255 := 0;
 
   subtype uint8 is unsigned(7 downto 0);
   type byte_array is array (0 to 15) of uint8;
@@ -126,13 +125,10 @@ begin
   begin
     if rising_edge(clock50mhz) then
 
-      if i2c0_error = '0' and touch_enabled='1' and (error_countdown /= 1) then
+      if i2c0_error = '0' and touch_enabled='1' then
         last_busy <= i2c0_busy;
       else
         last_busy <= '1';
-      end if;
-      if error_countdown /= 0 then
-        error_countdown <= error_countdown - 1;
       end if;
       
 --      report "busy=" & std_logic'image(i2c0_busy) & "last_busy = " & std_logic'image(last_busy);
@@ -236,15 +232,8 @@ begin
             end if;
           when 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 =>
             busy_count <= busy_count + 1;
-            if i2c0_error='1' then
-              i2c0_command_en <= '1';
-              busy_count <= 0;
-              error_countdown <= 255;
-              report "I2C error: Restarting job.";
-            else
-              i2c0_rw <= '1';
-              i2c0_command_en <= '1';
-            end if;
+            i2c0_rw <= '1';
+            i2c0_command_en <= '1';
             if busy_count>1 then
               report "Setting byte(" & integer'image(busy_count - 2) & ") to $" & to_hstring(i2c0_rdata);
               bytes(busy_count - 2) <= i2c0_rdata;
