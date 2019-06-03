@@ -221,7 +221,7 @@ begin
             if touch_enabled='1' then
               report "Beginning touch panel scan";
               -- send initial command
-              i2c0_command_en <= '0';
+              i2c0_command_en <= '1';
               i2c0_address <= "0111000";  -- 0x70 = I2C address of touch panel
               -- Write register zero to set starting point for read
               i2c0_wdata <= x"00";
