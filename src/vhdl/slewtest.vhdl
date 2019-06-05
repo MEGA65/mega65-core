@@ -78,6 +78,7 @@ architecture Behavioral of container is
   signal pal50_select : std_logic := '0';
 
   signal pixel_strobe : std_logic := '0';
+  signal lcd_in_frame : std_logic := '0';
   
 begin
   
@@ -138,10 +139,10 @@ begin
       -- And the variations on those signals for the LCD display
       lcd_hsync => lcd_hsync,
       lcd_vsync => lcd_vsync,
-      lcd_display_enable => lcd_display_enable
+      lcd_display_enable => lcd_display_enable,
 --      lcd_inletterbox => lcd_in_letterbox,
 --      inframe => vga_in_frame,
---      lcd_inframe => lcd_in_frame
+      lcd_inframe => lcd_in_frame
 
       );
 
