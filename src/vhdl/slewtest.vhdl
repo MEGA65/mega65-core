@@ -147,7 +147,7 @@ begin
       );
 
   
-  lcd_dclk <= (clock30 and (not lcd_in_frame)) when pal50_select='1' else (cpuclock and (not lcd_in_frame));
+  lcd_dclk <= (clock30 ) when pal50_select='1' else (cpuclock);
   
   process (clock240,pal50_select,clock30,clock30in)
   begin
