@@ -159,9 +159,9 @@ begin
             -- any config changes or writes, so we put it first, so that we
             -- don't have to solve the bug with writing to the first device on
             -- the list/
-            -- write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 0,8);
-            -- write_addr <= x"4C";
-            -- write_job_pending <= '1';
+            write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 0,8);
+            write_addr <= x"4C";
+            write_job_pending <= '1';
           when 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 =>
             write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 8,8);
             write_addr <= x"4A";            
