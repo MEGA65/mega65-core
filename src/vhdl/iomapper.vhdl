@@ -260,7 +260,7 @@ entity iomapper is
     micClk : out std_logic;
     micLRSel : out std_logic;
 
-    -- PDM audio output
+    -- PDM audio output for headphones/line-out
     ampPWM_l : out std_logic;
     ampPWM_r : out std_logic;
     ampSD : out std_logic;
@@ -274,8 +274,6 @@ entity iomapper is
     pcm_modem_sync_in : in std_logic := '0';
     pcm_modem_clk_in : in std_logic := '0';
     pcm_modem_sync : out std_logic := '0';
-    i2s_headphones_data_out : out std_logic := '0';
-    i2s_headphones_data_in : in std_logic := '0';
     i2s_speaker_data_out : out std_logic := '0';
     pcm_modem1_data_in : in std_logic := '0';
     pcm_modem2_data_in : in std_logic := '0';
@@ -1015,8 +1013,6 @@ begin
     pcm_modem_sync => pcm_modem_sync,
     pcm_modem_clk_in => pcm_modem_clk_in,
     pcm_modem_sync_in => pcm_modem_sync_in,
-    i2s_headphones_data_out => i2s_headphones_data_out,
-    i2s_headphones_data_in => i2s_headphones_data_in,
     i2s_speaker_data_out => i2s_speaker_data_out,
     pcm_modem1_data_in => pcm_modem1_data_in,
     pcm_modem2_data_in => pcm_modem2_data_in,

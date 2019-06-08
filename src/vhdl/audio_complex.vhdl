@@ -48,19 +48,10 @@ entity audio_complex is
 
     -- I2S PCM Audio interfaces (portable devices only)
 
-    -- Master I2S clock (used for the following peripherals):
+    -- Master I2S clock (used for all i2s audio devices):
     i2s_master_clk : out std_logic := '0';
     i2s_master_sync : out std_logic := '0';
     
-    -- Headphones interface is intended to be a
-    -- http://www.ti.com/lit/ds/symlink/tlv320aic3104.pdf
-    -- which doesn't need a MCLK signal (it can derive it from BCLK),
-    -- thus saving an FPGA pin.
-    -- Headphones L/R I2S out
-    i2s_headphones_data_out : out std_logic := '0';
-    -- Microphone on headphones I2S in
-    i2s_headphones_data_in : in std_logic := '0';
-
     -- I2S output for the speakers
     -- Expected to be an SSM2518
     -- http://www.analog.com/media/en/technical-documentation/data-sheets/ssm2518.pdf
@@ -225,27 +216,13 @@ begin
     i2s_clk => i2s_master_clk_int,
     i2s_sync => i2s_master_sync_int);
   
-  -- I2S interface headphones input and output
-  i2s3: entity work.i2s_transceiver port map (
-    clock50mhz => clock50mhz,
-    i2s_clk => i2s_master_clk_int,
-    i2s_sync => i2s_master_sync_int,
-    pcm_out => i2s_headphones_data_out,
-    pcm_in => i2s_headphones_data_in,
-    tx_sample_left => headphones_left_out,
-    tx_sample_right => headphones_right_out,
-    rx_sample_left => headphones_1_in,
-    rx_sample_right => headphones_2_in
-    );
-    
-
-  -- I2S master for headphones speaker
+  -- I2S master for stereo speakers
   i2s4: entity work.i2s_transceiver port map (
     clock50mhz => clock50mhz,
     i2s_clk => i2s_master_clk_int,
     i2s_sync => i2s_master_sync_int,
-    pcm_out => i2s_headphones_data_out,
-    pcm_in => i2s_headphones_data_in,
+    pcm_out => i2s_speaker_data_out,
+    pcm_in => '0',
     tx_sample_left => spkr_left,
     tx_sample_right => spkr_right
 --    rx_sample_left =>
@@ -283,8 +260,6 @@ begin
 
   -- PWM/PDM digital audio output for Nexys4 series boards
   -- and on the MEGA65 PCB.
-  -- This is logically considered to be the speaker, even
-  -- on such boards that have only a line out.
   pwm0: entity work.pcm_to_pdm
     port map (
       clock50mhz => clock50mhz,
@@ -357,8 +332,8 @@ begin
   begin
     if rising_edge(clock50mhz) then
 
-      ampPWM_l_in <= spkr_left;
-      ampPWM_r_in <= spkr_right;
+      ampPWM_l_in <= headphones_left_out;
+      ampPWM_r_in <= headphones_right_out;
       
       -- Propagate I2S and PCM clocks
       if modem_is_pcm_master='0' then
