@@ -223,10 +223,10 @@ begin
     i2s_sync => i2s_master_sync_int,
     pcm_out => i2s_speaker_data_out,
     pcm_in => '0',
---    tx_sample_left => spkr_left,
---    tx_sample_right => spkr_right
-    tx_sample_left => x"1234",
-    tx_sample_right => x"5678"
+    tx_sample_left => spkr_left,
+    tx_sample_right => spkr_right
+--    tx_sample_left => x"1234",
+--    tx_sample_right => x"5678"
 --    rx_sample_left =>
 --    rx_sample_right =>
     );
