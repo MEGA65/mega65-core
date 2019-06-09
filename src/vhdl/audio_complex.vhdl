@@ -221,7 +221,7 @@ begin
     clock50mhz => clock50mhz,
     i2s_clk => i2s_master_clk_int,
     i2s_sync => i2s_master_sync_int,
---    pcm_out => i2s_speaker_data_out,
+    pcm_out => i2s_speaker_data_out,
     pcm_in => '0',
 --    tx_sample_left => spkr_left,
 --    tx_sample_right => spkr_right
@@ -379,7 +379,7 @@ begin
         mic_divider <= mic_divider + 1;
       else
         -- XXX Debug that we are correctly plumbed to pin U4
-        i2s_speaker_data_out <= micclkinternal;
+        -- i2s_speaker_data_out <= micclkinternal;
 
         
         micCLK <= not micclkinternal;
