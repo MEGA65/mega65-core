@@ -139,7 +139,7 @@ entity container is
          ----------------------------------------------------------------------
          -- I2S speaker audio output
          ----------------------------------------------------------------------
-         i2s_bclk : out std_logic;
+         i2s_mclk : out std_logic;
          i2s_sync : out std_logic;
          i2s_speaker : out std_logic;
          
@@ -533,7 +533,7 @@ begin
       ampPWM_r => headphone_right,
 --      ampSD => ampSD,
 
-      i2s_master_clk => i2s_bclk,
+      i2s_master_clk => i2s_mclk,
       i2s_master_sync => i2s_sync,
       i2s_speaker_data_out => i2s_speaker,
       
