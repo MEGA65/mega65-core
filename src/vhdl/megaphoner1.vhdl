@@ -142,6 +142,8 @@ entity container is
          i2s_mclk : out std_logic;
          i2s_sync : out std_logic;
          i2s_speaker : out std_logic;
+         i2c_bclk : out std_logic := '1'; -- Force 16 cycles per sample,
+                                          -- instead of 32
          
          ----------------------------------------------------------------------
          -- Debug interfaces on TE0725
