@@ -55,7 +55,7 @@ entity audio_complex is
     -- I2S output for the speakers
     -- Expected to be an SSM2518
     -- http://www.analog.com/media/en/technical-documentation/data-sheets/ssm2518.pdf
-    i2s_speaker_data_out : out std_logic := '0';
+    i2s_speaker_data_out : out std_logic := '1';
     
     -- Master PCM clock for the modems (1.8V and 8KHz instead)
     pcm_modem_clk : out std_logic := '0';
@@ -221,10 +221,12 @@ begin
     clock50mhz => clock50mhz,
     i2s_clk => i2s_master_clk_int,
     i2s_sync => i2s_master_sync_int,
-    pcm_out => i2s_speaker_data_out,
+--    pcm_out => i2s_speaker_data_out,
     pcm_in => '0',
-    tx_sample_left => spkr_left,
-    tx_sample_right => spkr_right
+--    tx_sample_left => spkr_left,
+--    tx_sample_right => spkr_right
+    tx_sample_left => x"1234",
+    tx_sample_right => x"5678"
 --    rx_sample_left =>
 --    rx_sample_right =>
     );
@@ -334,7 +336,7 @@ begin
 
       ampPWM_l_in <= headphones_left_out;
       ampPWM_r_in <= headphones_right_out;
-      
+
       -- Propagate I2S and PCM clocks
       if modem_is_pcm_master='0' then
         -- Use internally generated clock
@@ -376,6 +378,10 @@ begin
       if mic_divider < mic_divider_max then
         mic_divider <= mic_divider + 1;
       else
+        -- XXX Debug that we are correctly plumbed to pin U4
+        i2s_speaker_data_out <= micclkinternal;
+
+        
         micCLK <= not micclkinternal;
         micclkinternal <= not micclkinternal;
         mic_divider <= to_unsigned(0,8);
