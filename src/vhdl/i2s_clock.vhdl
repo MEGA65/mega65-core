@@ -43,13 +43,9 @@ end i2s_clock;
 
 architecture brutalist of i2s_clock is
 
-  -- How many clock ticks per half I2S clock tick
-  constant clockdivider : integer := 25000000/2000000;
-  signal pcmclock_counter : integer range 0 to (clockdivider - 1) := 0;
-
   -- How many I2S clock ticks per half sample rate
-  constant sampleratedivider : integer := 1000000/sample_rate;
-  signal eightkhz_counter : integer range 0 to (sampleratedivider - 1) := 0;
+  constant sampleratedivider : integer := 25000000/sample_rate;
+  signal sample_counter : integer range 0 to (sampleratedivider - 1) := 0;
 
   signal i2s_clk_int : std_logic := '0';
   signal i2s_sync_int : std_logic := '0';
@@ -59,20 +55,16 @@ begin
   process (clock50mhz) is
   begin
     if rising_edge(clock50mhz) then
-      if pcmclock_counter /= (clockdivider - 1) then
-        pcmclock_counter <= pcmclock_counter + 1;
-      else
-        pcmclock_counter <= 0;
 
         i2s_clk <= not i2s_clk_int;
         i2s_clk_int <= not i2s_clk_int;
         
         -- Check if it is time for a new sample
-        if eightkhz_counter /= (sampleratedivider - 1) then
-          eightkhz_counter <= eightkhz_counter + 1;
+        if sample_counter /= (sampleratedivider - 1) then
+          sample_counter <= sample_counter + 1;
         else
           -- Time for a new sample
-          eightkhz_counter <= 0;
+          sample_counter <= 0;
 
           i2s_sync <= not i2s_sync_int;
           i2s_sync_int <= not i2s_sync_int;
