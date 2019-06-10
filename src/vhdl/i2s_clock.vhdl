@@ -47,7 +47,7 @@ architecture brutalist of i2s_clock is
 --  constant sampleratedivider : integer := 25000000/sample_rate;
   -- SSM2518 requires certain fixed values here, so pick the fastest one
   -- of 64 clocks per sample = 32 clocks per half-sample
-  constant sampleratedivider : integer := 32;
+  constant sampleratedivider : integer := 64;
   signal sample_counter : integer range 0 to (sampleratedivider - 1) := 0;
 
   signal i2s_clk_int : std_logic := '0';
