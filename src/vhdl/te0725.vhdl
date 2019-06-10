@@ -38,7 +38,7 @@ entity container is
 --         irq : in  STD_LOGIC;
 --         nmi : in  STD_LOGIC;
 
-         fpga_pins : out std_logic_vector(1 to 100) := (others => '1');
+         fpga_pins : out std_logic_vector(1 to 100) := (others => '0');
          
          ----------------------------------------------------------------------
          -- HyperRAM as expansion RAM
