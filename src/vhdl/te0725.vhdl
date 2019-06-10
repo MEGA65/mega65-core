@@ -101,12 +101,12 @@ architecture Behavioral of container is
   signal i2s_master_clk : std_logic := '0';
   signal i2s_sync : std_logic := '0';
   signal i2s_sync_int : std_logic := '0';
-  signal sample : unsigned(15 downto 0) := x"0000";
+  signal sample : unsigned(15 downto 0) := x"0001";
   signal table_offset : integer range 0 to 255 := 0;
   signal table_dir : std_logic := '1';
   signal table_neg : std_logic := '0';
   signal divisor : integer := 0;
-  constant divisor_max : integer := 40000000/(256*4)/100;
+  constant divisor_max : integer := 40000000/(256*4)/1;  -- proceed it really slowly
 
   constant max_table_value: integer := 255;
   subtype table_value_type is integer range 0 to 255;
@@ -152,7 +152,7 @@ begin
     clock50mhz => ethclock,
     i2s_clk => i2s_master_clk_int,
     i2s_sync => i2s_sync_int,
-    pcm_out => fpga_pins(71),
+--    pcm_out => fpga_pins(71),
     pcm_in => '0',
     tx_sample_left => sample,
     tx_sample_right => sample
@@ -160,7 +160,8 @@ begin
 
   fpga_pins(74) <= i2s_master_clk;
   fpga_pins(72) <= i2s_sync;
-
+  -- Debug test of using clock as fake audio
+  fpga_pins(71) <= i2s_master_clk;
   
   dotclock1: entity work.dotclock100
     port map ( clk_in1 => CLK_IN,
@@ -720,7 +721,8 @@ begin
           end if;
         end if;
       end if;
-      sample <= to_unsigned(get_table_value(table_offset)*256,16);
+--      sample <= to_unsigned(get_table_value(table_offset)*256,16);
+      sample <= sample(0) & sample(15 downto 1);
     end if;
   end process;
   
