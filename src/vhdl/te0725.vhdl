@@ -720,7 +720,7 @@ begin
           end if;
         end if;
       end if;
-      sample <= to_unsigned(get_table_value(table_offset)*255,16);
+      sample <= to_unsigned(get_table_value(table_offset)*256,16);
     end if;
   end process;
   
