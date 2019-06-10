@@ -152,7 +152,7 @@ begin
     clock50mhz => ethclock,
     i2s_clk => i2s_master_clk_int,
     i2s_sync => i2s_sync_int,
---    pcm_out => fpga_pins(71),
+    pcm_out => fpga_pins(71),
     pcm_in => '0',
     tx_sample_left => sample,
     tx_sample_right => sample
@@ -160,8 +160,6 @@ begin
 
   fpga_pins(74) <= i2s_master_clk;
   fpga_pins(72) <= i2s_sync;
-  -- Debug test of using clock as fake audio
-  fpga_pins(71) <= i2s_master_clk;
   
   dotclock1: entity work.dotclock100
     port map ( clk_in1 => CLK_IN,
