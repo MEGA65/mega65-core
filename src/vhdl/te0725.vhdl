@@ -61,7 +61,7 @@ entity container is
          ----------------------------------------------------------------------
          -- Debug interfaces on TE0725
          ----------------------------------------------------------------------
-         led : out std_logic := '1';
+         led : inout std_logic := '1';
 
          ----------------------------------------------------------------------
          -- UART monitor interface
@@ -101,7 +101,7 @@ architecture Behavioral of container is
   signal i2s_master_clk : std_logic := '0';
   signal i2s_sync : std_logic := '0';
   signal i2s_sync_int : std_logic := '0';
-  signal sample : unsigned(15 downto 0) := x"8000";
+  signal sample : unsigned(15 downto 0) := x"0000";
   signal table_offset : integer range 0 to 255 := 0;
   signal table_dir : std_logic := '1';
   signal table_neg : std_logic := '0';
@@ -716,6 +716,7 @@ begin
           else
             table_dir <= '1';
             table_neg <= not table_neg;
+            led <= not led;
           end if;
         end if;
       end if;
