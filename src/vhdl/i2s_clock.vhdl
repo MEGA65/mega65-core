@@ -55,21 +55,19 @@ begin
   process (clock50mhz) is
   begin
     if rising_edge(clock50mhz) then
+      i2s_clk <= not i2s_clk_int;
+      i2s_clk_int <= not i2s_clk_int;
+      
+      -- Check if it is time for a new sample
+      if sample_counter /= (sampleratedivider - 1) then
+        sample_counter <= sample_counter + 1;
+      else
+        -- Time for a new sample
+        sample_counter <= 0;
 
-        i2s_clk <= not i2s_clk_int;
-        i2s_clk_int <= not i2s_clk_int;
-        
-        -- Check if it is time for a new sample
-        if sample_counter /= (sampleratedivider - 1) then
-          sample_counter <= sample_counter + 1;
-        else
-          -- Time for a new sample
-          sample_counter <= 0;
+        i2s_sync <= not i2s_sync_int;
+        i2s_sync_int <= not i2s_sync_int;
 
-          i2s_sync <= not i2s_sync_int;
-          i2s_sync_int <= not i2s_sync_int;
-
-        end if;
       end if;
     end if;
   end process;
