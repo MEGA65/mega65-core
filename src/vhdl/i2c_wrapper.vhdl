@@ -251,13 +251,21 @@ begin
               v1 <= x"FF";
             end if;
           end if;
-          if busy_count = 4 and i2c1_error='0' and i2c1_rdata = x"00" then
-            -- Only process I2C IO inputs when we are sure we have read the
-            -- registers correctly. We do this by making sure that register 2
-            -- is $00.  If it isn't, it might be the bug we are seeing where the
-            -- register n-1 is being read.
+        when 4 =>          
+          i2c1_command_en <= '1';
+          i2c1_address <= "0100110"; -- 0x4C/2 = I2C address of device;
+          i2c1_wdata <= x"02";
+          i2c1_rw <= '0';
+          
+          -- There are weird problems with reading the I2C bus
+          -- Basically we sometimes read the wrong register, or the wrong value
+          -- on the I2C IO expanders.  For now the solution is just to use some
+          -- known properties of the lines we have connected, to try to filter
+          -- out the weirdnesses.
 
-            if v0(5 downto 0) /= "000000" then
+          -- This filter is to stop values of $00,$40,$80 and $C0 being
+          -- interpretted as real values. We have no idea why they happen.
+          if v0(5 downto 0) /= "000000" then
             i2c_joya_up <= v0(0);
             i2c_joya_left <= v0(1);
             i2c_joya_right <= v0(2);
@@ -266,7 +274,11 @@ begin
             i2c_button2 <= v0(5);
             i2c_button3 <= v0(6);
             i2c_button4 <= v0(7);
+          end if;
 
+          -- Then for the 2nd set of lines, we make sure we dont have $FF
+          -- or the value of the other port showing up by mistake
+          if v1(7)='0' then
             black3history(15 downto 1) <= black3history(14 downto 0);
             black3history(0) <= v1(0);
             if black3history = "1111111111111111" then
@@ -315,11 +327,7 @@ begin
               i2c_joyb_fire <= '1';
             end if;
           end if;
-        when 4 =>
-          i2c1_command_en <= '1';
-          i2c1_address <= "0100110"; -- 0x4C/2 = I2C address of device;
-          i2c1_wdata <= x"02";
-          i2c1_rw <= '0';
+          
         when 5 | 6 | 7 =>
           -- Read the 2 bytes from the device
           i2c1_rw <= '1';
