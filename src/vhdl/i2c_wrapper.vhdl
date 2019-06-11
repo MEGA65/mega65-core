@@ -88,6 +88,8 @@ architecture behavioural of i2c_wrapper is
   signal i2c1_reset_internal : std_logic := '1';
   signal i2c1_command_en : std_logic := '0';  
   signal i2c1_command_en_internal : std_logic := '0';  
+  signal v0 : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal v1 : unsigned(7 downto 0) := to_unsigned(0,8);
 
   signal busy_count : integer range 0 to 255 := 150;
   signal last_busy : std_logic := '1';
@@ -213,44 +215,60 @@ begin
         -- Start of Auto-Generated Content
         --------------------------------------------------------------------        
         when 0 =>
-        i2c1_command_en <= '1';
-        i2c1_address <= "0100110"; -- 0x4C/2 = I2C address of device;
-        i2c1_wdata <= x"00";
-        i2c1_rw <= '0';
+          i2c1_command_en <= '1';
+          i2c1_address <= "0100110"; -- 0x4C/2 = I2C address of device;
+          i2c1_wdata <= x"00";
+          i2c1_rw <= '0';
         when 1 | 2 | 3 =>
-        -- Read the 2 bytes from the device
-        i2c1_rw <= '1';
-        if delayed_en = 0 then
-          report "IO Expander #0 regs 0-1";
-          i2c1_command_en <= '0';
-          delayed_en <= 250;
-        end if;
-        if busy_count > 1 and i2c1_error='0' then
-          bytes(busy_count - 1 - 1 + 0) <= i2c1_rdata;
-        end if;
-        -- If power is off to various peripherals, then the joypad etc can end
-        -- up being read as all zeroes.  In that case, we want to ignore it.
-        -- Also, in general, we see situations where the joypad lines and button2 all go low
-        -- for no apparent reason, and the upper two lines take any of the four
-        -- possible values.  These situations should also be rejected.
-        -- This should actually remove the need to otherwise de-glitch these lines,
-        -- thus helpfully reducing their latency.
-        if busy_count = 2  and i2c1_error='0' and i2c1_rdata(5 downto 0) /= "000000" then
-            i2c_joya_up <= i2c1_rdata(0);
-            i2c_joya_left <= i2c1_rdata(1);
-            i2c_joya_right <= i2c1_rdata(2);
-            i2c_joya_down <= i2c1_rdata(3);
-            i2c_joya_fire <= i2c1_rdata(4);
-            i2c_button2 <= i2c1_rdata(5);
-            i2c_button3 <= i2c1_rdata(6);
-            i2c_button4 <= i2c1_rdata(7);
-        end if;
-        if busy_count = 3 then
-          -- Similarly reject glitching on these input lines
-          if -- (i2c1_rdata = last_value_3) and (i2c1_rdata=last_value_3b) and
-            i2c1_error='0' and i2c1_rdata(2 downto 0) /= "000" then
+          -- Read the 2 bytes from the device
+          i2c1_rw <= '1';
+          if delayed_en = 0 then
+            report "IO Expander #0 regs 0-1";
+            i2c1_command_en <= '0';
+            delayed_en <= 250;
+          end if;
+          if busy_count > 1 and i2c1_error='0' then
+            bytes(busy_count - 1 - 1 + 0) <= i2c1_rdata;
+          end if;
+          -- If power is off to various peripherals, then the joypad etc can end
+          -- up being read as all zeroes.  In that case, we want to ignore it.
+          -- Also, in general, we see situations where the joypad lines and button2 all go low
+          -- for no apparent reason, and the upper two lines take any of the four
+          -- possible values.  These situations should also be rejected.
+          -- This should actually remove the need to otherwise de-glitch these lines,
+          -- thus helpfully reducing their latency.
+          if busy_count = 2 then
+            if i2c1_error='0' then
+              v0 <= i2c1_rdata;
+            else
+              v0 <= x"FF";
+            end if;
+          end if;
+          if busy_count = 3 then
+            if i2c1_error='0' then
+              v1 <= i2c1_rdata;
+            else
+              v1 <= x"FF";
+            end if;
+          end if;
+          if busy_count = 4 and i2c1_error='0' and i2c1_rdata = x"00" then
+            -- Only process I2C IO inputs when we are sure we have read the
+            -- registers correctly. We do this by making sure that register 2
+            -- is $00.  If it isn't, it might be the bug we are seeing where the
+            -- register n-1 is being read.
+
+            if v0(5 downto 0) /= "000000" then
+            i2c_joya_up <= v0(0);
+            i2c_joya_left <= v0(1);
+            i2c_joya_right <= v0(2);
+            i2c_joya_down <= v0(3);
+            i2c_joya_fire <= v0(4);
+            i2c_button2 <= v0(5);
+            i2c_button3 <= v0(6);
+            i2c_button4 <= v0(7);
+
             black3history(15 downto 1) <= black3history(14 downto 0);
-            black3history(0) <= i2c1_rdata(0);
+            black3history(0) <= v1(0);
             if black3history = "1111111111111111" then
               i2c_black3 <= '1';
             end if;
@@ -259,23 +277,23 @@ begin
             end if;
 
             black4history(15 downto 1) <= black4history(14 downto 0);
-            black4history(0) <= i2c1_rdata(1);
+            black4history(0) <= v1(1);
             if black4history = "1111111111111111" then
               i2c_black4 <= '1';
             end if;
             if black4history = "0000000000000000" then
               i2c_black4 <= '0';
             end if;
-
+            
             -- Black button 2 combined with interrupt
             -- input that also wakes the FPGA up.
             -- (so needs no de-bouncing)
-            i2c_black2 <= i2c1_rdata(2);
+            i2c_black2 <= v1(2);
             -- XXX joyb is on the other pins, but
             -- the port currently lacks pull-ups, so all lines
             -- are currently active.  Uncomment below when fixed.
             -- XXX also ensure correct line asignments.
-            if i2c1_rdata(7 downto 3) /= "00000" then
+            if v1(7 downto 3) /= "00000" then
               -- Only set joy port inputs if they are not all low.
               -- This should only be able to happen if the joyport is NOT
               -- powered, or otherwise only very rarely when an Amiga mouse is
@@ -283,11 +301,11 @@ begin
               -- (We can solve this problem by later having the joy port powered
               -- on its own rail, if joy input is required while microphone power
               -- rail is off).
-              i2c_joyb_up <= i2c1_rdata(3);
-              i2c_joyb_left <= i2c1_rdata(4);
-              i2c_joyb_right <= i2c1_rdata(5);
-              i2c_joyb_down <= i2c1_rdata(6);
-              i2c_joyb_fire <= i2c1_rdata(7);
+              i2c_joyb_up <= v1(3);
+              i2c_joyb_left <= v1(4);
+              i2c_joyb_right <= v1(5);
+              i2c_joyb_down <= v1(6);
+              i2c_joyb_fire <= v1(7);
             else
               -- Float joystick inputs if the joy port is not currently powered
               i2c_joyb_up <= '1';
@@ -297,237 +315,236 @@ begin
               i2c_joyb_fire <= '1';
             end if;
           end if;
-        end if;
         when 4 =>
-        i2c1_command_en <= '1';
-        i2c1_address <= "0100110"; -- 0x4C/2 = I2C address of device;
-        i2c1_wdata <= x"02";
-        i2c1_rw <= '0';
+          i2c1_command_en <= '1';
+          i2c1_address <= "0100110"; -- 0x4C/2 = I2C address of device;
+          i2c1_wdata <= x"02";
+          i2c1_rw <= '0';
         when 5 | 6 | 7 =>
-        -- Read the 2 bytes from the device
-        i2c1_rw <= '1';
-        if delayed_en = 0 then
-          report "IO Expander #0 regs 2-3";
-          i2c1_command_en <= '0';
-          delayed_en <= 250;
-        end if;
-        if busy_count > 5 and i2c1_error='0' then
-          bytes(busy_count - 1 - 5 + 2) <= i2c1_rdata;
-        end if;
-        report "IO Expander #0 regs 4-5";
+          -- Read the 2 bytes from the device
+          i2c1_rw <= '1';
+          if delayed_en = 0 then
+            report "IO Expander #0 regs 2-3";
+            i2c1_command_en <= '0';
+            delayed_en <= 250;
+          end if;
+          if busy_count > 5 and i2c1_error='0' then
+            bytes(busy_count - 1 - 5 + 2) <= i2c1_rdata;
+          end if;
+          report "IO Expander #0 regs 4-5";
         when 8 =>
-        i2c1_command_en <= '1';
-        i2c1_address <= "0100110"; -- 0x4C/2 = I2C address of device;
-        i2c1_wdata <= x"04";
-        i2c1_rw <= '0';
+          i2c1_command_en <= '1';
+          i2c1_address <= "0100110"; -- 0x4C/2 = I2C address of device;
+          i2c1_wdata <= x"04";
+          i2c1_rw <= '0';
         when 9 | 10 | 11 =>
-        -- Read the 2 bytes from the device
-        i2c1_rw <= '1';
-        if delayed_en = 0 then
-          i2c1_command_en <= '0';
-          delayed_en <= 250;
-        end if;
-        if busy_count > 9 and i2c1_error='0' then
-          bytes(busy_count - 1 - 9 + 4) <= i2c1_rdata;
-        end if;
-        report "IO Expander #0 regs 6-7";
+          -- Read the 2 bytes from the device
+          i2c1_rw <= '1';
+          if delayed_en = 0 then
+            i2c1_command_en <= '0';
+            delayed_en <= 250;
+          end if;
+          if busy_count > 9 and i2c1_error='0' then
+            bytes(busy_count - 1 - 9 + 4) <= i2c1_rdata;
+          end if;
+          report "IO Expander #0 regs 6-7";
         when 12 =>
-        i2c1_command_en <= '1';
-        i2c1_address <= "0100110"; -- 0x4C/2 = I2C address of device;
-        i2c1_wdata <= x"06";
-        i2c1_rw <= '0';
+          i2c1_command_en <= '1';
+          i2c1_address <= "0100110"; -- 0x4C/2 = I2C address of device;
+          i2c1_wdata <= x"06";
+          i2c1_rw <= '0';
         when 13 | 14 | 15 =>
-        -- Read the 2 bytes from the device
-        i2c1_rw <= '1';
-        if delayed_en = 0 then
-          i2c1_command_en <= '0';
-          delayed_en <= 250;
-        end if;
-        if busy_count > 13 and i2c1_error='0' then
-          bytes(busy_count - 1 - 13 + 6) <= i2c1_rdata;
-        end if;
-        report "IO Expander #1 regs 0-1";
+          -- Read the 2 bytes from the device
+          i2c1_rw <= '1';
+          if delayed_en = 0 then
+            i2c1_command_en <= '0';
+            delayed_en <= 250;
+          end if;
+          if busy_count > 13 and i2c1_error='0' then
+            bytes(busy_count - 1 - 13 + 6) <= i2c1_rdata;
+          end if;
+          report "IO Expander #1 regs 0-1";
         when 16 =>
-        i2c1_command_en <= '1';
-        i2c1_address <= "0100101"; -- 0x4A/2 = I2C address of device;
-        i2c1_wdata <= x"00";
-        i2c1_rw <= '0';
+          i2c1_command_en <= '1';
+          i2c1_address <= "0100101"; -- 0x4A/2 = I2C address of device;
+          i2c1_wdata <= x"00";
+          i2c1_rw <= '0';
         when 17 | 18 | 19 =>
-        -- Read the 2 bytes from the device
-        i2c1_rw <= '1';
-        if delayed_en = 0 then
-          i2c1_command_en <= '0';
-          delayed_en <= 250;
-        end if;
-        if busy_count > 17 and i2c1_error='0' then
-          bytes(busy_count - 1 - 17 + 8) <= i2c1_rdata;
-        end if;
-        report "IO Expander #1 regs 2-3";
+          -- Read the 2 bytes from the device
+          i2c1_rw <= '1';
+          if delayed_en = 0 then
+            i2c1_command_en <= '0';
+            delayed_en <= 250;
+          end if;
+          if busy_count > 17 and i2c1_error='0' then
+            bytes(busy_count - 1 - 17 + 8) <= i2c1_rdata;
+          end if;
+          report "IO Expander #1 regs 2-3";
         when 20 =>
-        i2c1_command_en <= '1';
-        i2c1_address <= "0100101"; -- 0x4A/2 = I2C address of device;
-        i2c1_wdata <= x"02";
-        i2c1_rw <= '0';
+          i2c1_command_en <= '1';
+          i2c1_address <= "0100101"; -- 0x4A/2 = I2C address of device;
+          i2c1_wdata <= x"02";
+          i2c1_rw <= '0';
         when 21 | 22 | 23 =>
-        -- Read the 2 bytes from the device
-        i2c1_rw <= '1';
-        if delayed_en = 0 then
-          i2c1_command_en <= '0';
-          delayed_en <= 250;
-        end if;
-        if busy_count > 21 and i2c1_error='0' then
-          bytes(busy_count - 1 - 21 + 10) <= i2c1_rdata;
-        end if;
-        report "IO Expander #1 regs 4-5";
+          -- Read the 2 bytes from the device
+          i2c1_rw <= '1';
+          if delayed_en = 0 then
+            i2c1_command_en <= '0';
+            delayed_en <= 250;
+          end if;
+          if busy_count > 21 and i2c1_error='0' then
+            bytes(busy_count - 1 - 21 + 10) <= i2c1_rdata;
+          end if;
+          report "IO Expander #1 regs 4-5";
         when 24 =>
-        i2c1_command_en <= '1';
-        i2c1_address <= "0100101"; -- 0x4A/2 = I2C address of device;
-        i2c1_wdata <= x"04";
-        i2c1_rw <= '0';
+          i2c1_command_en <= '1';
+          i2c1_address <= "0100101"; -- 0x4A/2 = I2C address of device;
+          i2c1_wdata <= x"04";
+          i2c1_rw <= '0';
         when 25 | 26 | 27 =>
-        -- Read the 2 bytes from the device
-        i2c1_rw <= '1';
-        if delayed_en = 0 then
-          i2c1_command_en <= '0';
-          delayed_en <= 250;
-        end if;
-        if busy_count > 25 and i2c1_error='0' then
-          bytes(busy_count - 1 - 25 + 12) <= i2c1_rdata;
-        end if;
-        report "IO Expander #1 regs 6-7";
+          -- Read the 2 bytes from the device
+          i2c1_rw <= '1';
+          if delayed_en = 0 then
+            i2c1_command_en <= '0';
+            delayed_en <= 250;
+          end if;
+          if busy_count > 25 and i2c1_error='0' then
+            bytes(busy_count - 1 - 25 + 12) <= i2c1_rdata;
+          end if;
+          report "IO Expander #1 regs 6-7";
         when 28 =>
-        if delayed_en = 0 then
-          i2c1_command_en <= '0';
-          delayed_en <= 250;
-        end if;
-        i2c1_address <= "0100101"; -- 0x4A/2 = I2C address of device;
-        i2c1_wdata <= x"06";
-        i2c1_rw <= '0';
+          if delayed_en = 0 then
+            i2c1_command_en <= '0';
+            delayed_en <= 250;
+          end if;
+          i2c1_address <= "0100101"; -- 0x4A/2 = I2C address of device;
+          i2c1_wdata <= x"06";
+          i2c1_rw <= '0';
         when 29 | 30 | 31 =>
-        -- Read the 2 bytes from the device
-        i2c1_rw <= '1';
-        i2c1_command_en <= '1';
-        if busy_count > 29 and i2c1_error='0' then
-          bytes(busy_count - 1 - 29 + 14) <= i2c1_rdata;
-        end if;
-        report "IO Expander #2 regs 0-1";
+          -- Read the 2 bytes from the device
+          i2c1_rw <= '1';
+          i2c1_command_en <= '1';
+          if busy_count > 29 and i2c1_error='0' then
+            bytes(busy_count - 1 - 29 + 14) <= i2c1_rdata;
+          end if;
+          report "IO Expander #2 regs 0-1";
         when 32 =>
-        if delayed_en = 0 then
-          i2c1_command_en <= '0';
-          delayed_en <= 250;
-        end if;
-        i2c1_address <= "0100100"; -- 0x48/2 = I2C address of device;
-        i2c1_wdata <= x"00";
-        i2c1_rw <= '0';
+          if delayed_en = 0 then
+            i2c1_command_en <= '0';
+            delayed_en <= 250;
+          end if;
+          i2c1_address <= "0100100"; -- 0x48/2 = I2C address of device;
+          i2c1_wdata <= x"00";
+          i2c1_rw <= '0';
         when 33 | 34 | 35 =>
-        -- Read the 2 bytes from the device
-        i2c1_rw <= '1';
-        i2c1_command_en <= '1';
-        if busy_count > 33 and i2c1_error='0' then
-          bytes(busy_count - 1 - 33 + 16) <= i2c1_rdata;
-        end if;
-        report "IO Expander #2 regs 2-3";
+          -- Read the 2 bytes from the device
+          i2c1_rw <= '1';
+          i2c1_command_en <= '1';
+          if busy_count > 33 and i2c1_error='0' then
+            bytes(busy_count - 1 - 33 + 16) <= i2c1_rdata;
+          end if;
+          report "IO Expander #2 regs 2-3";
         when 36 =>
-        if delayed_en = 0 then
-          i2c1_command_en <= '0';
-          delayed_en <= 250;
-        end if;
-        i2c1_address <= "0100100"; -- 0x48/2 = I2C address of device;
-        i2c1_wdata <= x"02";
-        i2c1_rw <= '0';
+          if delayed_en = 0 then
+            i2c1_command_en <= '0';
+            delayed_en <= 250;
+          end if;
+          i2c1_address <= "0100100"; -- 0x48/2 = I2C address of device;
+          i2c1_wdata <= x"02";
+          i2c1_rw <= '0';
         when 37 | 38 | 39 =>
-        -- Read the 2 bytes from the device
-        i2c1_rw <= '1';
-        i2c1_command_en <= '1';
-        if busy_count > 37 and i2c1_error='0' then
-          bytes(busy_count - 1 - 37 + 18) <= i2c1_rdata;
-        end if;
-        report "IO Expander #2 regs 4-5";
+          -- Read the 2 bytes from the device
+          i2c1_rw <= '1';
+          i2c1_command_en <= '1';
+          if busy_count > 37 and i2c1_error='0' then
+            bytes(busy_count - 1 - 37 + 18) <= i2c1_rdata;
+          end if;
+          report "IO Expander #2 regs 4-5";
         when 40 =>
-        if delayed_en = 0 then
-          i2c1_command_en <= '0';
-          delayed_en <= 250;
-        end if;
-        i2c1_address <= "0100100"; -- 0x48/2 = I2C address of device;
-        i2c1_wdata <= x"04";
-        i2c1_rw <= '0';
+          if delayed_en = 0 then
+            i2c1_command_en <= '0';
+            delayed_en <= 250;
+          end if;
+          i2c1_address <= "0100100"; -- 0x48/2 = I2C address of device;
+          i2c1_wdata <= x"04";
+          i2c1_rw <= '0';
         when 41 | 42 | 43 =>
-        -- Read the 2 bytes from the device
-        i2c1_rw <= '1';
-        i2c1_command_en <= '1';
-        if busy_count > 41 and i2c1_error='0' then
-          bytes(busy_count - 1 - 41 + 20) <= i2c1_rdata;
-        end if;
-        report "IO Expander #2 regs 6-7";
+          -- Read the 2 bytes from the device
+          i2c1_rw <= '1';
+          i2c1_command_en <= '1';
+          if busy_count > 41 and i2c1_error='0' then
+            bytes(busy_count - 1 - 41 + 20) <= i2c1_rdata;
+          end if;
+          report "IO Expander #2 regs 6-7";
         when 44 =>
-        if delayed_en = 0 then
-          i2c1_command_en <= '0';
-          delayed_en <= 250;
-        end if;
-        i2c1_address <= "0100100"; -- 0x48/2 = I2C address of device;
-        i2c1_wdata <= x"06";
-        i2c1_rw <= '0';
+          if delayed_en = 0 then
+            i2c1_command_en <= '0';
+            delayed_en <= 250;
+          end if;
+          i2c1_address <= "0100100"; -- 0x48/2 = I2C address of device;
+          i2c1_wdata <= x"06";
+          i2c1_rw <= '0';
         when 45 | 46 | 47 =>
-        -- Read the 2 bytes from the device
-        i2c1_rw <= '1';
-        i2c1_command_en <= '1';
-        if busy_count > 45 and i2c1_error='0' then
-          bytes(busy_count - 1 - 45 + 22) <= i2c1_rdata;
-        end if;
-        report "Real Time clock regs 0 -- 18";
+          -- Read the 2 bytes from the device
+          i2c1_rw <= '1';
+          i2c1_command_en <= '1';
+          if busy_count > 45 and i2c1_error='0' then
+            bytes(busy_count - 1 - 45 + 22) <= i2c1_rdata;
+          end if;
+          report "Real Time clock regs 0 -- 18";
         when 48 =>
-        i2c1_command_en <= '1';
-        i2c1_address <= "1010001"; -- 0xA2/2 = I2C address of device;
-        i2c1_wdata <= x"00";
-        i2c1_rw <= '0';
+          i2c1_command_en <= '1';
+          i2c1_address <= "1010001"; -- 0xA2/2 = I2C address of device;
+          i2c1_wdata <= x"00";
+          i2c1_rw <= '0';
         when 49 | 50 | 51 | 52 | 53 | 54 | 55 | 56 | 57 | 58 | 59 | 60 | 61 | 62 | 63 | 64 | 65 | 66 | 67 | 68 =>
-        -- Read the 19 bytes from the device
-        i2c1_rw <= '1';
-        i2c1_command_en <= '1';
-        if busy_count > 49 and i2c1_error='0' then
-          bytes(busy_count - 1 - 49 + 24) <= i2c1_rdata;
-        end if;
-        report "Audio amplifier regs 0 - 15";
+          -- Read the 19 bytes from the device
+          i2c1_rw <= '1';
+          i2c1_command_en <= '1';
+          if busy_count > 49 and i2c1_error='0' then
+            bytes(busy_count - 1 - 49 + 24) <= i2c1_rdata;
+          end if;
+          report "Audio amplifier regs 0 - 15";
         when 69 =>
-        i2c1_command_en <= '1';
-        i2c1_address <= "0110100"; -- 0x68/2 = I2C address of device;
-        i2c1_wdata <= x"00";
-        i2c1_rw <= '0';
+          i2c1_command_en <= '1';
+          i2c1_address <= "0110100"; -- 0x68/2 = I2C address of device;
+          i2c1_wdata <= x"00";
+          i2c1_rw <= '0';
         when 70 | 71 | 72 | 73 | 74 | 75 | 76 | 77 | 78 | 79 | 80 | 81 | 82 | 83 | 84 | 85 | 86 =>
-        -- Read the 16 bytes from the device
-        i2c1_rw <= '1';
-        i2c1_command_en <= '1';
-        if busy_count > 70 and i2c1_error='0' then
-          bytes(busy_count - 1 - 70 + 48) <= i2c1_rdata;
-        end if;
-        report "Acclerometer regs 0 - 63";
+          -- Read the 16 bytes from the device
+          i2c1_rw <= '1';
+          i2c1_command_en <= '1';
+          if busy_count > 70 and i2c1_error='0' then
+            bytes(busy_count - 1 - 70 + 48) <= i2c1_rdata;
+          end if;
+          report "Acclerometer regs 0 - 63";
         when 87 =>
-        i2c1_command_en <= '1';
-        i2c1_address <= "0011001"; -- 0x32/2 = I2C address of device;
-        i2c1_wdata <= x"80"; -- Auto-increment register number
-        i2c1_rw <= '0';
+          i2c1_command_en <= '1';
+          i2c1_address <= "0011001"; -- 0x32/2 = I2C address of device;
+          i2c1_wdata <= x"80"; -- Auto-increment register number
+          i2c1_rw <= '0';
         when 88 | 89 | 90 | 91 | 92 | 93 | 94 | 95 | 96 | 97 | 98 | 99 | 100 | 101 | 102 | 103 | 104 | 105 | 106 | 107 | 108 | 109 | 110 | 111 | 112 | 113 | 114 | 115 | 116 | 117 | 118 | 119 | 120 | 121 | 122 | 123 | 124 | 125 | 126 | 127 | 128 | 129 | 130 | 131 | 132 | 133 | 134 | 135 | 136 | 137 | 138 | 139 | 140 | 141 | 142 | 143 | 144 | 145 | 146 | 147 | 148 | 149 | 150 | 151 | 152 =>
-        -- Read the 64 bytes from the device
-        i2c1_rw <= '1';
-        i2c1_command_en <= '1';
-        if busy_count > 88 and i2c1_error='0' then
-          bytes(busy_count - 1 - 88 + 64) <= i2c1_rdata;
-        end if;
+          -- Read the 64 bytes from the device
+          i2c1_rw <= '1';
+          i2c1_command_en <= '1';
+          if busy_count > 88 and i2c1_error='0' then
+            bytes(busy_count - 1 - 88 + 64) <= i2c1_rdata;
+          end if;
         --------------------------------------------------------------------
         -- End of Auto-Generated Content
         --------------------------------------------------------------------        
         when 153 =>
-        -- Write to a register, if a request is pending:
-        -- First, write the address and register number.
-        i2c1_rw <= '0';
-        i2c1_command_en <= '1';
-        i2c1_address <= write_addr(7 downto 1);
-        i2c1_wdata <= write_reg;
+          -- Write to a register, if a request is pending:
+          -- First, write the address and register number.
+          i2c1_rw <= '0';
+          i2c1_command_en <= '1';
+          i2c1_address <= write_addr(7 downto 1);
+          i2c1_wdata <= write_reg;
         when 154 =>
-        -- Second, write the actual value into the register
-        i2c1_rw <= '0';
-        i2c1_command_en <= '1';
-        i2c1_wdata <= write_val;
+          -- Second, write the actual value into the register
+          i2c1_rw <= '0';
+          i2c1_command_en <= '1';
+          i2c1_wdata <= write_val;
         when 155 =>
           -- Do dummy read of some nonsence, so that the write above doesn't
           -- get carried over into the access of the first IO expander
@@ -538,10 +555,10 @@ begin
           i2c1_address <= (others => '1');
         when others =>
           report "in others";
-        -- Make sure we can't get stuck.
-        i2c1_command_en <= '0';
-        busy_count <= 0;
-        last_busy <= '1';
+          -- Make sure we can't get stuck.
+          i2c1_command_en <= '0';
+          busy_count <= 0;
+          last_busy <= '1';
           write_job_pending <= '0';
       end case;
 
