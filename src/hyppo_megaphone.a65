@@ -83,9 +83,25 @@ mps_loop:
 
 
 megaphone_i2c_settings:
+	; LCD panel
 	.byte $16,$40 ; Port 0 to output, except LCD backlight line, that we now control via an FPGA pin
 	.byte $17,$00 ; Port 1 to output
 	.byte $12,$bf ; Enable power to all sub-systems ($BF = $FF - $40)
 	.byte $13,$20 ; Power up headphones amplifier
+
+	; Speaker amplifier configuration
+	.byte $35,$FF   ; Left volume initial mute
+	.byte $36,$FF   ; Right volume initial mute
+	.byte $30,$20
+	.byte $31,$00
+	.byte $32,$02
+	.byte $33,$00
+	.byte $34,$10
+	.byte $37,$80
+	.byte $38,$0C
+	.byte $39,$99
+	.byte $35,$40   ; Left volume set
+	.byte $36,$ff   ; Right volume set (mute for now, while we have only one speaker)
+	
 
 	.byte $FF,$FF ; End of list marker
