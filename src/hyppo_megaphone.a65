@@ -100,7 +100,7 @@ megaphone_i2c_settings:
 	.byte $37,$80
 	.byte $38,$0C
 	.byte $39,$99
-	.byte $35,$40   ; Left volume set
+	.byte $35,$80   ; Left volume set
 	.byte $36,$ff   ; Right volume set (mute for now, while we have only one speaker)
 	
 
