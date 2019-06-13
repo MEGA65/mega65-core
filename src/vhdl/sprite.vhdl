@@ -394,10 +394,10 @@ begin  -- behavioural
         report "SPRITE: drawing next pixel";
         if (x_expand_toggle = '1') or (sprite_stretch_x/='1') then
           if (
-              ((x_offset = 23) and (sprite_extended_width_enable='0'))
-              or ((x_offset = 63) and (sprite_extended_width_enable='1'))
+              ((x_offset = (23-1)) and (sprite_extended_width_enable='0'))
+              or ((x_offset = (63-1)) and (sprite_extended_width_enable='1'))
               -- 16 colour sprites are always 16 pixels wide
-              or ((x_offset = 15) and (sprite_sixteen_colour_mode='1')))            
+              or ((x_offset = (15-1)) and (sprite_sixteen_colour_mode='1')))            
             and (sprite_horizontal_tile_enable='0')
           then
             report "SPRITE: right edge of sprite encountered. stopping drawing.";
