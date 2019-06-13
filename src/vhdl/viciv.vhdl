@@ -270,7 +270,7 @@ architecture Behavioral of viciv is
   signal vsync_delay_drive : unsigned(7 downto 0) := to_unsigned(0,8);
   signal vicii_ycounter_scale_minus_zero : unsigned(3 downto 0) := to_unsigned(2-1,4);
   signal chargen_x_scale : unsigned(7 downto 0) := to_unsigned(120,8);
-  signal sprite_first_x : unsigned(13 downto 0) := to_unsigned(1+80-8-(24)*(120/60),14);
+  signal sprite_first_x : unsigned(13 downto 0) := to_unsigned(31,14); 
   signal sprite_x_counting : std_logic := '0';
   signal sprite_x_scale_toggle : std_logic := '0';
   -- Each character pixel will be (n+1) pixels high
@@ -2623,7 +2623,7 @@ begin
               hsync_polarity_internal <= '0';
               vsync_polarity_internal <= '0';
 
-              sprite_first_x <= to_unsigned(1+80+9-(24-3)*(120/60),14);
+--              sprite_first_x <= to_unsigned(1+80+1-(24-3)*(120/60),14);
 
             when "01" => -- PAL, 800x600 50Hz, NTSC max raster
               vsync_delay <= to_unsigned(0,8);
@@ -2633,7 +2633,7 @@ begin
               hsync_polarity_internal <= '0';
               vsync_polarity_internal <= '0';
               
-              sprite_first_x <= to_unsigned(1+80+9-(24-3)*(120/60),14);
+--              sprite_first_x <= to_unsigned(1+80+1-(24-3)*(120/60),14);
               
             when "10" => -- NTSC, 800x600 @ 60Hz
               vsync_delay <= to_unsigned(0,8);
@@ -2643,7 +2643,7 @@ begin
               vsync_polarity_internal <= '0';
               -- Set 40MHz pixel clock for NTSC
 
-              sprite_first_x <= to_unsigned(1+80+9-(24-3)*(120/60),14);
+--              sprite_first_x <= to_unsigned(1+80+1-(24-3)*(120/60),14);
 
             when "11" => -- NTSC 800x600 60Hz
               vsync_delay <= to_unsigned(0,8);
@@ -2654,7 +2654,7 @@ begin
               vsync_polarity_internal <= '0';
               
               -- Set 40MHz pixel clock for NTSC
-              sprite_first_x <= to_unsigned(1+80+9-(24-3)*(120/60),14);
+--              sprite_first_x <= to_unsigned(1+80+1-(24-3)*(120/60),14);
 
             when others => -- Default to NTSC 800x600 60Hz
               vsync_delay <= to_unsigned(0,8);
