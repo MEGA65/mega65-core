@@ -60,7 +60,7 @@ int main(int argc,char **argv)
 
   // Start with empty memory
   // Some C compilers don't seem to have bzero on mingw, so just work around it.
-  for (i=0;i<ar_size;i++) archive[i]=0;
+  for (int i=0;i<ar_size;i++) archive[i]=0;
  //  bzero(archive,ar_size);
 
   int opt;
