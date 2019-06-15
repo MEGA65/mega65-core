@@ -198,6 +198,12 @@ architecture Behavioral of container is
   signal clock200 : std_logic;
   signal clock240 : std_logic;
 
+  -- XXX Actually connect to new keyboard
+  signal restore_key : std_logic := '1';
+  signal column : std_logic_vector(8 downto 0) := (others => '1');
+  signal row : std_logic_vector(8 downto 0) := (others => '1');
+  signal keyleft : std_logic := '1';
+  signal keyup : std_logic := '1';
   
   
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
