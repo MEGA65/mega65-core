@@ -87,50 +87,15 @@ set_property -dict {PACKAGE_PIN K19 IOSTANDARD LVCMOS33} [get_ports {cart_a[0]}]
 # C65 Keyboard
 #
 
-set_property -dict {PACKAGE_PIN M17 IOSTANDARD LVCMOS33} [get_ports restore_key]
-
-set_property -dict {PACKAGE_PIN M18 IOSTANDARD LVCMOS33 DRIVE 16} [get_ports {column[8]}]
-set_property -dict {PACKAGE_PIN L18 IOSTANDARD LVCMOS33 DRIVE 16} [get_ports {column[0]}]
-set_property -dict {PACKAGE_PIN N18 IOSTANDARD LVCMOS33 DRIVE 16} [get_ports {column[1]}]
-set_property -dict {PACKAGE_PIN N19 IOSTANDARD LVCMOS33 DRIVE 16} [get_ports {column[2]}]
-set_property -dict {PACKAGE_PIN N20 IOSTANDARD LVCMOS33 DRIVE 16} [get_ports {column[3]}]
-set_property -dict {PACKAGE_PIN M20 IOSTANDARD LVCMOS33 DRIVE 16} [get_ports {column[4]}]
-set_property -dict {PACKAGE_PIN K13 IOSTANDARD LVCMOS33 DRIVE 16} [get_ports {column[5]}]
-set_property -dict {PACKAGE_PIN K14 IOSTANDARD LVCMOS33 DRIVE 16} [get_ports {column[6]}]
-set_property -dict {PACKAGE_PIN M13 IOSTANDARD LVCMOS33 DRIVE 16} [get_ports {column[7]}]
-set_property PACKAGE_PIN L13 [get_ports {row[8]}]
-set_property IOSTANDARD LVCMOS33 [get_ports {row[8]}]
-set_property PULLUP true [get_ports {row[8]}]
-set_property PACKAGE_PIN K17 [get_ports {row[7]}]
-set_property IOSTANDARD LVCMOS33 [get_ports {row[7]}]
-set_property PULLUP true [get_ports {row[7]}]
-set_property PACKAGE_PIN J17 [get_ports {row[6]}]
-set_property IOSTANDARD LVCMOS33 [get_ports {row[6]}]
-set_property PULLUP true [get_ports {row[6]}]
-set_property PACKAGE_PIN L14 [get_ports {row[5]}]
-set_property IOSTANDARD LVCMOS33 [get_ports {row[5]}]
-set_property PULLUP true [get_ports {row[5]}]
-set_property PACKAGE_PIN L15 [get_ports {row[4]}]
-set_property IOSTANDARD LVCMOS33 [get_ports {row[4]}]
-set_property PULLUP true [get_ports {row[4]}]
-set_property PACKAGE_PIN L16 [get_ports {row[3]}]
-set_property IOSTANDARD LVCMOS33 [get_ports {row[3]}]
-set_property PULLUP true [get_ports {row[3]}]
-set_property PACKAGE_PIN K16 [get_ports {row[2]}]
-set_property IOSTANDARD LVCMOS33 [get_ports {row[2]}]
-set_property PULLUP true [get_ports {row[2]}]
-set_property PACKAGE_PIN M15 [get_ports {row[1]}]
-set_property IOSTANDARD LVCMOS33 [get_ports {row[1]}]
-set_property PULLUP true [get_ports {row[1]}]
-set_property PACKAGE_PIN M16 [get_ports {row[0]}]
-set_property IOSTANDARD LVCMOS33 [get_ports {row[0]}]
-set_property PULLUP true [get_ports {row[0]}]
-set_property PACKAGE_PIN N22 [get_ports keyleft]
-set_property IOSTANDARD LVCMOS33 [get_ports keyleft]
-set_property PULLDOWN true [get_ports keyleft]
-set_property PACKAGE_PIN M22 [get_ports keyup]
-set_property IOSTANDARD LVCMOS33 [get_ports keyup]
-set_property PULLDOWN true [get_ports keyup]
+set_property -dict {PACKAGE_PIN E13 IOSTANDARD LVCMOS33} [get_ports kb_tck]
+set_property -dict {PACKAGE_PIN E14 IOSTANDARD LVCMOS33} [get_ports kb_tdo]
+set_property -dict {PACKAGE_PIN D14 IOSTANDARD LVCMOS33} [get_ports kb_tms]
+set_property -dict {PACKAGE_PIN D15 IOSTANDARD LVCMOS33} [get_ports kb_tdi]
+set_property -dict {PACKAGE_PIN C13 IOSTANDARD LVCMOS33} [get_ports kb_io0]
+set_property -dict {PACKAGE_PIN A14 IOSTANDARD LVCMOS33} [get_ports kb_io1]
+set_property -dict {PACKAGE_PIN A13 IOSTANDARD LVCMOS33} [get_ports kb_io2]
+set_property -dict {PACKAGE_PIN C13 IOSTANDARD LVCMOS33} [get_ports kb_io3]
+set_property -dict {PACKAGE_PIN B13 IOSTANDARD LVCMOS33} [get_ports kb_jtagen]
 
 # Joystick port A
 set_property -dict {PACKAGE_PIN F16 IOSTANDARD LVCMOS33} [get_ports fa_down]
@@ -140,11 +105,11 @@ set_property -dict {PACKAGE_PIN F13 IOSTANDARD LVCMOS33} [get_ports fa_right]
 set_property -dict {PACKAGE_PIN E17 IOSTANDARD LVCMOS33} [get_ports fa_fire]
 
 # Joystick port B
-set_property -dict {PACKAGE_PIN P17 IOSTANDARD LVCMOS33} [get_ports fb_down]
+set_property -dict {PACKAGE_PIN F16 IOSTANDARD LVCMOS33} [get_ports fb_down]
 set_property -dict {PACKAGE_PIN W19 IOSTANDARD LVCMOS33} [get_ports fb_up]
 set_property -dict {PACKAGE_PIN F21 IOSTANDARD LVCMOS33} [get_ports fb_left]
-set_property -dict {PACKAGE_PIN F15 IOSTANDARD LVCMOS33} [get_ports fb_right]
-set_property -dict {PACKAGE_PIN C15 IOSTANDARD LVCMOS33} [get_ports fb_fire]
+set_property -dict {PACKAGE_PIN C15 IOSTANDARD LVCMOS33} [get_ports fb_right]
+set_property -dict {PACKAGE_PIN F15 IOSTANDARD LVCMOS33} [get_ports fb_fire]
 
 ##VGA Connector
 
@@ -188,10 +153,13 @@ set_property -dict {PACKAGE_PIN V14 IOSTANDARD LVCMOS33} [get_ports vsync]
 set_property -dict {PACKAGE_PIN T3 IOSTANDARD LVCMOS33} [get_ports hdmi_scl]
 set_property -dict {PACKAGE_PIN U7 IOSTANDARD LVCMOS33} [get_ports hdmi_sda]
 
-# HDMI D0 being repurposed to fix Falk's broken R1 PCB's SD Card interface
-set_property -dict {PACKAGE_PIN T5 IOSTANDARD LVCMOS33} [get_ports sd2MOSI]
-# HDMI D13 being repurposed to fix Falk's broken R1 PCB's SD Card interface
-set_property -dict {PACKAGE_PIN V5 IOSTANDARD LVCMOS33} [get_ports sd2MISO]
+# I2C busses for peripherals
+set_property -dict {PACKAGE_PIN A15 IOSTANDARD LVCMOS33} [get_ports fpga_scl]
+set_property -dict {PACKAGE_PIN A16 IOSTANDARD LVCMOS33} [get_ports fpga_sda]
+
+set_property -dict {PACKAGE_PIN G21 IOSTANDARD LVCMOS33} [get_ports grove_scl0]
+set_property -dict {PACKAGE_PIN G22 IOSTANDARD LVCMOS33} [get_ports grove_sda0]
+
 
 set_property -dict {PACKAGE_PIN T6 IOSTANDARD LVCMOS33} [get_ports {hdmired[0]}]
 set_property -dict {PACKAGE_PIN U1 IOSTANDARD LVCMOS33} [get_ports {hdmired[1]}]
@@ -232,8 +200,10 @@ set_property -dict {PACKAGE_PIN AA8 IOSTANDARD LVCMOS33} [get_ports hdmi_spdif_o
 
 # PWM Audio
 #
-set_property -dict {PACKAGE_PIN L6 IOSTANDARD LVCMOS33} [get_ports pwm_l]
+set_property -dict {PACKAGE_PIN E16 IOSTANDARD LVCMOS33} [get_ports pwm_l]
 set_property -dict {PACKAGE_PIN F4 IOSTANDARD LVCMOS33} [get_ports pwm_r]
+set_property -dict {PACKAGE_PIN F18 IOSTANDARD LVCMOS33} [get_ports speaker_mute_n]
+
 
 ##USB HID (PS/2)
 # XXX - Not currently wired on the first prototypes: May break this out on a PMOD or expansion header?
@@ -246,6 +216,25 @@ set_property -dict {PACKAGE_PIN F4 IOSTANDARD LVCMOS33} [get_ports pwm_r]
 #set_property -dict { PACKAGE_PIN xx IOSTANDARD LVCMOS33 } [get_ports {QspiDB[1]}]
 #set_property -dict { PACKAGE_PIN xx IOSTANDARD LVCMOS33 } [get_ports {QspiDB[2]}]
 #set_property -dict { PACKAGE_PIN xx IOSTANDARD LVCMOS33 } [get_ports {QspiDB[3]}]
+
+## Hyper RAM : 1.8V allows for higher speed, but requires differential clock pair
+set_property -dict {PACKAGE_PIN A21 IOSTANDARD LVCMOS18} [get_ports {hr_d[0]}]
+set_property -dict {PACKAGE_PIN B17 IOSTANDARD LVCMOS18} [get_ports {hr_d[1]}]
+set_property -dict {PACKAGE_PIN C20 IOSTANDARD LVCMOS18} [get_ports {hr_d[2]}]
+set_property -dict {PACKAGE_PIN A20 IOSTANDARD LVCMOS18} [get_ports {hr_d[3]}]
+set_property -dict {PACKAGE_PIN B20 IOSTANDARD LVCMOS18} [get_ports {hr_d[4]}]
+set_property -dict {PACKAGE_PIN A19 IOSTANDARD LVCMOS18} [get_ports {hr_d[5]}]
+set_property -dict {PACKAGE_PIN B18 IOSTANDARD LVCMOS18} [get_ports {hr_d[6]}]
+set_property -dict {PACKAGE_PIN E22 IOSTANDARD LVCMOS18} [get_ports {hr_d[7]}]
+set_property -dict {PACKAGE_PIN E18 IOSTANDARD LVCMOS18} [get_ports hr_rwds]
+set_property -dict {PACKAGE_PIN C17 IOSTANDARD LVCMOS18} [get_ports hr_rsto]
+set_property -dict {PACKAGE_PIN B22 IOSTANDARD LVCMOS18} [get_ports hr_reset]
+#set_property -dict {PACKAGE_PIN J18 IOSTANDARD LVCMOS18} [get_ports hr_int]
+set_property -dict {PACKAGE_PIN A13 IOSTANDARD LVCMOS18} [get_ports hr_clk_p]
+set_property -dict {PACKAGE_PIN A14 IOSTANDARD LVCMOS18} [get_ports hr_clk_n]
+set_property -dict {PACKAGE_PIN C22 IOSTANDARD LVCMOS18} [get_ports hr_cs0]
+set_property -dict {PACKAGE_PIN D17 IOSTANDARD LVCMOS18} [get_ports hr_cs1]
+
 
 ##SMSC Ethernet PHY
 #
@@ -267,9 +256,7 @@ set_property -dict {PACKAGE_PIN M6 IOSTANDARD LVCMOS33} [get_ports eth_rxer]
 set_property -dict {PACKAGE_PIN L13 IOSTANDARD LVCMOS33} [get_ports UART_TXD]
 set_property -dict {PACKAGE_PIN L14 IOSTANDARD LVCMOS33} [get_ports RsRx]
 
-##Micro SD Connector
-# XXX - No microSD connector on first revision PCBs.  Break out on an expansion connector somewhere?
-# Broken out on TestPad1-TestPad5
+##Micro SD Connector (x2 on r2 PCB)
 set_property -dict {PACKAGE_PIN T16 IOSTANDARD LVCMOS33} [get_ports sdClock]
 set_property -dict {PACKAGE_PIN U16 IOSTANDARD LVCMOS33} [get_ports sdReset]
 set_property -dict {PACKAGE_PIN W16 IOSTANDARD LVCMOS33} [get_ports sdMISO]
@@ -278,6 +265,16 @@ set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports sdMOSI]
 #set_property -dict { PACKAGE_PIN xx IOSTANDARD LVCMOS33 } [get_ports {sd_dat[1]}]
 #set_property -dict { PACKAGE_PIN xx IOSTANDARD LVCMOS33 } [get_ports {sd_dat[2]}]
 #set_property -dict { PACKAGE_PIN xx IOSTANDARD LVCMOS33 } [get_ports {sd_dat[3]}]
+
+set_property -dict {PACKAGE_PIN B17 IOSTANDARD LVCMOS33} [get_ports sd2Clock]
+set_property -dict {PACKAGE_PIN D17 IOSTANDARD LVCMOS33} [get_ports sd2Reset]
+set_property -dict {PACKAGE_PIN W16 IOSTANDARD LVCMOS33} [get_ports sd2MISO]
+set_property -dict {PACKAGE_PIN B16 IOSTANDARD LVCMOS33} [get_ports sd2MOSI]
+set_property -dict {PACKAGE_PIN C17 IOSTANDARD LVCMOS33} [get_ports sd2WP]
+#set_property -dict { PACKAGE_PIN B18 IOSTANDARD LVCMOS33 } [get_ports {sd2_dat[0]}]
+#set_property -dict { PACKAGE_PIN C18 IOSTANDARD LVCMOS33 } [get_ports {sd2_dat[1]}]
+#set_property -dict { PACKAGE_PIN C19 IOSTANDARD LVCMOS33 } [get_ports {sd2_dat[2]}]
+set_property -dict { PACKAGE_PIN B15 IOSTANDARD LVCMOS33 } [get_ports {sd2_dat[3]}]
 
 ## Pmod Header JA
 #set_property -dict { PACKAGE_PIN xx IOSTANDARD LVCMOS33 } [get_ports {jalo[1]}]
