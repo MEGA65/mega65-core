@@ -40,11 +40,13 @@ entity container is
          ----------------------------------------------------------------------
          -- CIA1 ports for keyboard/joystick 
          ----------------------------------------------------------------------
-         restore_key : in std_logic;
-         column : inout  std_logic_vector(8 downto 0) := (others => 'Z');
-         row : in  std_logic_vector(8 downto 0);
-         keyleft : inout std_logic := 'Z';
-         keyup : inout std_logic := 'Z';
+         -- XXX Replace with new 8-pin keyboard interface
+--         restore_key : in std_logic;
+--         column : inout  std_logic_vector(8 downto 0) := (others => 'Z');
+--         row : in  std_logic_vector(8 downto 0);
+--         keyleft : inout std_logic := 'Z';
+--         keyup : inout std_logic := 'Z';
+         
          fa_left : in std_logic;
          fa_right : in std_logic;
          fa_up : in std_logic;
