@@ -59,7 +59,9 @@ int main(int argc,char **argv)
   unsigned char archive[ar_size];
 
   // Start with empty memory
-  bzero(archive,ar_size);
+  // Some C compilers don't seem to have bzero on mingw, so just work around it.
+  for (i=0;i<ar_size;i++) archive[i]=0;
+ //  bzero(archive,ar_size);
 
   int opt;
   while ((opt = getopt(argc, argv, "f:n:s:")) != -1) {
