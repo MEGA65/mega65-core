@@ -627,7 +627,9 @@ vivado/%.xpr: 	vivado/%_gen.tcl | $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(SIM
 	echo MOOSE $@ from $<
 	$(VIVADO) -mode batch -source $<
 
-$(BINDIR)/%.bit: 	vivado/%.xpr $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(SIMULATIONVHDL)  $(VERILOGSRCDIR)/*.v $(MONITORVERILOG)
+preliminaries: $(VERILOGSRCDIR)/monitor_mem.v $(M65VHDL)
+
+$(BINDIR)/%.bit: 	vivado/%.xpr $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(SIMULATIONVHDL) $(VERILOGSRCDIR)/*.v preliminaries
 	echo MOOSE $@ from $<
 #	@rm -f $@
 #	@echo "---------------------------------------------------------"
