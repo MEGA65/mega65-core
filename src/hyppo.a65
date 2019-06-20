@@ -648,10 +648,13 @@ trybus1:
 
 		lda $d680
 		and #$03
-		bne tryreadmbr
+		beq tryreadmbr
 
 		; No working SD card -- we can just try booting to BASIC, since we
 		; now include our open-source ROM
+		ldx #<msg_nosdcard
+		ldy #>msg_nosdcard
+		jsr printmessage
 		jmp go64
 
 tryreadmbr:
@@ -2902,6 +2905,7 @@ msg_foundsdcard:      .byte "SD CARD IS NOT SDHC. REPLACE WITH SDHC CARD.",0
 msg_foundsdhccard:    .byte "FOUND AND RESET SDHC CARD",0
 msg_sdcarderror:      .byte "ERROR READING FROM SD CARD",0
 msg_sdredoread:       .byte "RE-READING SDCARD",0
+msg_nosdcard:	      .byte "NO SDCARD, TRYING BUILT-IN ROM",0
 
 msg_badformat:	      .byte "BAD MBR OR DOS BOOT SECTOR.",0
 msg_sdcardfound:      .byte "READ PARTITION TABLE FROM SDCARD",0
