@@ -638,6 +638,22 @@ trybus1:
 		ldy #>msg_tryingcard1
 		jsr printmessage
 
+		; Try resetting card 1
+		lda #$00
+		sta $d680
+		lda #$01
+		sta $d680
+
+		jsr sdwaitawhile
+
+		lda $d680
+		and #$03
+		bne tryreadmbr
+
+		; No working SD card -- we can just try booting to BASIC, since we
+		; now include our open-source ROM
+		jmp go64
+
 tryreadmbr:
 		jsr readmbr
 		bcs gotmbr
