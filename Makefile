@@ -512,7 +512,7 @@ $(SRCDIR)/open-roms/newc65:	$(SRCDIR)/open-roms/assets/8x8font.png
 
 $(SRCDIR)/open-roms/assets/8x8font.png:
 	git submodule init
-	git submomdule update
+	git submodule update
 	( cd $(SRCDIR)/open-roms ; git submodule init ; git submodule update )
 
 $(VHDLSRCDIR)/shadowram.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65 $(ASSETS)/alphatest.bin Makefile $(SDCARD_DIR)/FREEZER.M65  $(SRCDIR)/open-roms/newc65
