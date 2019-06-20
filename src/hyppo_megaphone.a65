@@ -31,6 +31,7 @@ megaphone_setup:
 	ldz #$1f
 	lda #$00
 *
+	lda (<zptempv32),y
 	nop
 	lda (<zptempv32),z
 	bne have_i2cperipherals
@@ -100,8 +101,8 @@ megaphone_i2c_settings:
 	.byte $37,$80
 	.byte $38,$0C
 	.byte $39,$99
-	.byte $35,$80   ; Left volume set
-	.byte $36,$ff   ; Right volume set (mute for now, while we have only one speaker)
+	.byte $35,$60   ; Left volume set ($FF = mute, $40 = full volume)
+	.byte $36,$60   ; Right volume set ($FF = mute, $40 = full volume)
 	
 
 	.byte $FF,$FF ; End of list marker
