@@ -221,12 +221,7 @@ void main(void)
 
   while(lpeek(0xffd70ffL)) continue;
 
-  // Setup power control IO expander
-  
-  lpoke(0xFFD7016L,0x00);
-  while(lpeek(0xffd70ffL)) continue;
-  lpoke(0xFFD7012L,0x00);
-  while(lpeek(0xffd70ffL)) continue;
+  // Power control IO expander now gets setup by Hypervisor
   
   // Clear screen
   printf("%c",0x93);
@@ -281,12 +276,36 @@ void main(void)
     printf("ADCs: 1:%5d 2:%5d 3:%5d      \n",a1,a2,a3);
 
     // Show joypad and button status
+
     a1=lpeek(0xffd7000L);
-    printf("%02X,",a1);
+    POKE(0x420,a1);
+    POKE(0xD020U,a1&0xf);
+    if (a1!=0xff) POKE(0x41F,a1);
+	  
     a1=lpeek(0xffd7001L);
-    printf("%02X : ",a1);
+    POKE(0x421,a1);
+    a1&=0x3f;
+    POKE(0x0720U+a1,PEEK(0x0720U+a1)+1);
+    
+    a1=lpeek(0xffd7000L);
+    printf("%02X",a1);
+    a1=lpeek(0xffd7001L);
+    printf(",%02X",a1);
     POKE(0x0500+n,a1);
     n++;
+    a1=lpeek(0xffd7002L);
+    printf(",%02X",a1);
+    a1=lpeek(0xffd7003L);
+    printf(",%02X",a1);
+    a1=lpeek(0xffd7004L);
+    printf(",%02X",a1);
+    a1=lpeek(0xffd7005L);
+    printf(",%02X",a1);
+    a1=lpeek(0xffd7006L);
+    printf(",%02X",a1);
+    a1=lpeek(0xffd7007L);
+    printf(",%02X : ",a1);
+
     
     a1=lpeek(0xffd7000L);
     a1=a1^0xff;
@@ -298,15 +317,18 @@ void main(void)
     else if (a1&0x20) printf("b2        ");
     else if (a1&0x40) printf("b3        ");
     else if (a1&0x80) printf("b4        ");
+    else printf("          ");
     printf("\n");
 
     // Show black button status
-    a1=lpeek(0xffd7000L);
+    a1=lpeek(0xffd7000);
     POKE(0x608+a1,PEEK(0x608+a1)+1);
+    a1=lpeek(0xffd7001);
     a1=a1^0xff;
     if (a1&1) printf("black3        ");
     else if (a1&2) printf("black4        ");
     else if (a1&4) printf("black2/int        ");
+    else printf("               ");
     printf("\n");
 
     a1=lpeek(0xffd7010L);
