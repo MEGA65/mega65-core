@@ -19,3 +19,6 @@
 [submodule "src/mega65-freezemenu"]
 	path = src/mega65-freezemenu
 	url = https://github.com/MEGA65/mega65-freezemenu.git
+[submodule "open-roms"]
+	path = src/open-roms
+	url = git@github.com:MEGA65/open-roms.git
