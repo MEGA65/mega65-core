@@ -38,7 +38,7 @@ entity container is
 --         irq : in  STD_LOGIC;
 --         nmi : in  STD_LOGIC;
 
-         fpga_pins : out std_logic_vector(1 to 100) := (others => '0');
+         fpga_pins : out std_logic_vector(1 to 100) := (others => '1');
          
          ----------------------------------------------------------------------
          -- HyperRAM as expansion RAM
@@ -719,8 +719,12 @@ begin
           end if;
         end if;
       end if;
+      if sample = x"fFFF" then
+        sample <= x"0000";
+      else
+        sample <= sample(14 downto 0)&'1';
+      end if;
 --      sample <= to_unsigned(get_table_value(table_offset)*256,16);
-      sample <= sample(0) & sample(15 downto 1);
     end if;
   end process;
   
