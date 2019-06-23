@@ -76,10 +76,15 @@ entity viciv is
 
     reset : in std_logic;
 
+    -- Touch event to simulate light pen
+    touch_x : in unsigned(13 downto 0);
+    touch_y : in unsigned(11 downto 0);
+    touch_active : in std_logic := '0';
+    
     -- Internal drive LED status for OSD
     led : in std_logic;
     motor : in std_logic;
-
+   
     -- Actual drive LED (including blink status) for keyboard
     -- (the F011 does this on a real C65)
     drive_led_out : out std_logic;
@@ -687,12 +692,15 @@ architecture Behavioral of viciv is
   signal vicii_sprite_bitmap_collisions : std_logic_vector(7 downto 0);
 
   signal viciii_extended_attributes : std_logic := '1';
+  signal irq_lightpen : std_logic := '0';
   signal irq_collisionspritesprite : std_logic := '0';
   signal irq_collisionspritebitmap : std_logic := '0';
   signal irq_raster : std_logic := '0';
+  signal ack_lightpen : std_logic := '0';
   signal ack_collisionspritesprite : std_logic := '0';
   signal ack_collisionspritebitmap : std_logic := '0';
   signal ack_raster : std_logic := '0';
+  signal mask_lightpen : std_logic := '0';
   signal mask_collisionspritesprite : std_logic := '0';
   signal mask_collisionspritebitmap : std_logic := '0';
   signal mask_raster : std_logic := '0';
@@ -1639,7 +1647,7 @@ begin
         elsif register_number=18 then          -- $D012 current raster low 8 bits
           fastio_rdata <= std_logic_vector(vicii_ycounter_minus_one(7 downto 0));
         elsif register_number=19 then          -- $D013 lightpen X (coarse rasterX)
-          fastio_rdata <= std_logic_vector(xcounter_drive(11 downto 4));
+          fastio_rdata <= std_logic_vector(lightpen_x_latch);xcounter_drive(11 downto 4));
         elsif register_number=20 then          -- $D014 lightpen Y (coarse rasterY)
           fastio_rdata <= std_logic_vector(displayy(10 downto 3));
         elsif register_number=21 then          -- $D015 compatibility sprite enable
@@ -1663,7 +1671,7 @@ begin
           fastio_rdata(6) <= '1';       -- NC
           fastio_rdata(5) <= '1';       -- NC
           fastio_rdata(4) <= '1';       -- NC
-          fastio_rdata(3) <= '0';       -- lightpen
+          fastio_rdata(3) <= irq_lightpen;
           fastio_rdata(2) <= irq_collisionspritesprite;
           fastio_rdata(1) <= irq_collisionspritebitmap;
           fastio_rdata(0) <= irq_raster;
@@ -1672,7 +1680,7 @@ begin
           fastio_rdata(6) <= '1';       -- NC
           fastio_rdata(5) <= '1';       -- NC
           fastio_rdata(4) <= '1';       -- NC
-          fastio_rdata(3) <= '1';       -- lightpen
+          fastio_rdata(3) <= mask_lightpen;
           fastio_rdata(2) <= mask_collisionspritesprite;
           fastio_rdata(1) <= mask_collisionspritebitmap;
           fastio_rdata(0) <= mask_raster;
@@ -2060,6 +2068,7 @@ begin
         viciv_single_side_border_width_touched <= '0';
       end if;
 
+      ack_lightpen <= '0';
       ack_collisionspritesprite <= '0';
       ack_collisionspritebitmap <= '0';
       ack_raster <= '0';
@@ -2100,7 +2109,7 @@ begin
         vicii_sprite_pointer_address(15) <= not fastio_wdata(1);
         vicii_sprite_pointer_address(14) <= not fastio_wdata(0);
       end if;
-
+      
       -- Reading some registers clears IRQ flags
       clear_collisionspritebitmap_1 <= '0';
       clear_collisionspritesprite_1 <= '0';
@@ -2206,6 +2215,8 @@ begin
           -- @IO:C64 $D019 VIC-II IRQ control
           -- Acknowledge IRQs
           -- (we need to pass this to the dotclock side to avoide multiple drivers)
+          -- @IO:C64 $D019.3 VIC-II:ILP light pen indicate or acknowledge
+          ack_lightpen <= fastio_wdata(3);
           -- @IO:C64 $D019.2 VIC-II:ISSC sprite:sprite collision indicate or acknowledge
           ack_collisionspritesprite <= fastio_wdata(2);
           -- @IO:C64 $D019.1 VIC-II:ISBC sprite:bitmap collision indicate or acknowledge
@@ -2859,13 +2870,22 @@ begin
 
       -- Acknowledge IRQs after reading $D019
       irq_raster <= irq_raster and (not ack_raster);
+      irq_lightpen <= irq_lightpen and (not ack_lightpen);
       irq_collisionspritebitmap <= irq_collisionspritebitmap and (not ack_collisionspritebitmap);
       irq_collisionspritesprite <= irq_collisionspritesprite and (not ack_collisionspritesprite);
       -- Set IRQ line status to CPU
       irq_drive <= not ((irq_raster and mask_raster)
+                        or (irq_lightpen and mask_lightpen)
                         or (irq_collisionspritebitmap and mask_collisionspritebitmap)
                         or (irq_collisionspritesprite and mask_collisionspritesprite));
 
+      -- Detect lightpen event (must appear above irq_lightpen assignment above)
+      if touch_active='1' and xcounter_drive(11 downto 0) = touch_x and displayy = touch_y then
+        irq_lightpen <= '1';
+      end if;
+      
+
+      
       -- reset masks IRQs immediately
       if irq_drive = '0' then
         irq <= '0';

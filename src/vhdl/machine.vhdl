@@ -1053,6 +1053,10 @@ begin
 
       irq             => vic_irq,
       reset           => reset_combined,
+
+      touch_active => osk_touch1_valid,
+      touch_x => osk_touch1_x,    
+      touch_y => osk_touch1_y,
       
       -- Configuration information for pixel_driver
       pal50_select => pal50_select,
