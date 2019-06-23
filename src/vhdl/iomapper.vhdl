@@ -479,6 +479,7 @@ architecture behavioral of iomapper is
 
   signal touch_key1_driver : unsigned(7 downto 0);
   signal touch_key2_driver : unsigned(7 downto 0);
+  signal touch1_valid_int : std_logic := '0';
 
   signal userport_in : std_logic_vector(7 downto 0) := x"FF";
   signal userport_out : std_logic_vector(7 downto 0) := x"FF";
@@ -1143,7 +1144,7 @@ begin
     lcdpwm => lcdpwm,
     touchSDA => touchSDA,
     touchSCL => touchSCL,
-    touch1_valid => touch1_valid,
+    touch1_valid => touch1_valid_int,
     touch1_x => touch1_x,
     touch1_y => touch1_y,
     touch2_valid => touch2_valid,
@@ -1190,6 +1191,8 @@ begin
 
     if rising_edge(clk) then
 
+      touch1_valid <= touch1_valid_int;
+      
       -- Generate 1541 drive clock at exactly 1MHz, 2MHz, 3.5MHz or 40MHz,
       -- depending on CPU speed setting.
       -- This allows fastloading at fast CPU speeds, without (hopefully) messing
@@ -1253,7 +1256,12 @@ begin
           potl_x <= pota_x;
           potl_y <= pota_y;
           potr_x <= potb_x;
-          potr_y <= potb_y;
+          -- Simulate light gun with touch screen
+          if touch1_valid_int='0' then
+            potr_y <= potb_y;
+          else
+            potr_y <= x"00";
+          end if;
         when others =>
           potr_x <= pota_x;
           potr_y <= pota_y;
