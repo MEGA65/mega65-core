@@ -709,6 +709,9 @@ architecture Behavioral of viciv is
   signal clear_collisionspritesprite : std_logic := '0';
   signal clear_collisionspritesprite_1 : std_logic := '0';
 
+  signal lightpen_x_latch : unsigned(7 downto 0);
+  signal lightpen_y_latch : unsigned(7 downto 0);
+  
   -- Used for hardware character blinking ala C65
   signal viciii_blink_phase : std_logic := '0';
   -- 60 frames = 1 second, and means no tearing.
@@ -1647,9 +1650,9 @@ begin
         elsif register_number=18 then          -- $D012 current raster low 8 bits
           fastio_rdata <= std_logic_vector(vicii_ycounter_minus_one(7 downto 0));
         elsif register_number=19 then          -- $D013 lightpen X (coarse rasterX)
-          fastio_rdata <= std_logic_vector(lightpen_x_latch);xcounter_drive(11 downto 4));
+          fastio_rdata <= std_logic_vector(lightpen_x_latch);
         elsif register_number=20 then          -- $D014 lightpen Y (coarse rasterY)
-          fastio_rdata <= std_logic_vector(displayy(10 downto 3));
+          fastio_rdata <= std_logic_vector(lightpen_y_latch);
         elsif register_number=21 then          -- $D015 compatibility sprite enable
           fastio_rdata <= vicii_sprite_enables;
         elsif register_number=22 then          -- $D016
@@ -2882,6 +2885,8 @@ begin
       -- Detect lightpen event (must appear above irq_lightpen assignment above)
       if touch_active='1' and xcounter_drive(11 downto 0) = touch_x and displayy = touch_y then
         irq_lightpen <= '1';
+        lightpen_x_latch <= touch_x(11 downto 4);
+        lightpen_y_latch <= touch_y(9 downto 2);
       end if;
       
 
