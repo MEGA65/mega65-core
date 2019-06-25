@@ -176,7 +176,7 @@ entity container is
          -- Debug interfaces on Nexys4 board
          ----------------------------------------------------------------------
          UART_TXD : out std_logic;
-         RsRx : in std_logic
+         RsRx : out std_logic
          
          );
 end container;
@@ -285,6 +285,21 @@ begin
                clock240 => clock240
                );
 
+  pin8: entity work.pin_id
+    port map (
+      clock => pixelclock,
+      pin_number => to_unsigned(8,8),
+      pin => uart_txd
+      );
+
+  pin9: entity work.pin_id
+    port map (
+      clock => pixelclock,
+      pin_number => to_unsigned(9,8),
+      pin => rsrx
+      );
+
+  
   process (pixelclock) is
   begin
     vdac_sync_n <= '0';  -- no sync on green
@@ -300,7 +315,7 @@ begin
     if rising_edge(cpuclock) then
 
       -- Connect UART RX and TX
-      uart_txd <= rsrx;
+--      uart_txd <= rsrx;
       
       fa_left_drive <= fa_left;
       fa_right_drive <= fa_right;
