@@ -272,8 +272,8 @@ set_property -dict {PACKAGE_PIN M6 IOSTANDARD LVCMOS33} [get_ports eth_rxer]
 
 ##USB-RS232 Interface
 #
-set_property -dict {PACKAGE_PIN L13 IOSTANDARD LVCMOS33} [get_ports UART_TXD]
-set_property -dict {PACKAGE_PIN L14 IOSTANDARD LVCMOS33} [get_ports RsRx]
+set_property -dict {PACKAGE_PIN L14 IOSTANDARD LVCMOS33} [get_ports UART_TXD]
+set_property -dict {PACKAGE_PIN L13 IOSTANDARD LVCMOS33} [get_ports RsRx]
 
 ##Micro SD Connector (x2 on r2 PCB)
 set_property -dict {PACKAGE_PIN G2 IOSTANDARD LVCMOS33} [get_ports sdClock]
