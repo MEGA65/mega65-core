@@ -314,7 +314,7 @@ begin
 
       matrix_col => widget_matrix_col,
       matrix_col_idx => widget_matrix_col_idx,
-      restore => widget_restore,
+      restore => widget_restore
 
       );
   
