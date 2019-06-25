@@ -38,15 +38,16 @@ entity container is
 --         nmi : in  STD_LOGIC;
          
          ----------------------------------------------------------------------
-         -- CIA1 ports for keyboard/joystick 
+         -- keyboard/joystick 
          ----------------------------------------------------------------------
-         -- XXX Replace with new 8-pin keyboard interface
---         restore_key : in std_logic;
---         column : inout  std_logic_vector(8 downto 0) := (others => 'Z');
---         row : in  std_logic_vector(8 downto 0);
---         keyleft : inout std_logic := 'Z';
---         keyup : inout std_logic := 'Z';
-         
+
+         -- Interface for physical keyboard
+         kb_tck : out std_logic;
+         kb_tms : out std_logic;
+         kb_tdi : out std_logic;
+         kb_tdo : in std_logic;
+
+         -- Direct joystick lines
          fa_left : in std_logic;
          fa_right : in std_logic;
          fa_up : in std_logic;
@@ -272,6 +273,13 @@ architecture Behavioral of container is
   signal joy4 : std_logic_vector(4 downto 0);
 
   signal cart_access_count : unsigned(7 downto 0);
+
+  signal widget_matrix_col_idx : integer range 0 to 8 := 0;
+  signal widget_matrix_col : std_logic_vector(7 downto 0);
+  signal widget_restore : std_logic;
+  signal widget_capslock : std_logic;
+  signal widget_joya : std_logic_vector(4 downto 0);
+  signal widget_joyb : std_logic_vector(4 downto 0);
   
 begin
 
@@ -292,6 +300,24 @@ begin
       clk => cpuclock,
       temp => fpga_temperature);
 
+  kbd0: entity work.mega65kbd_to_matrix
+    port map (
+      ioclock => cpuclock,
+
+      powerled => '1',
+      flopled => flopled_drive,
+            
+      tck => kb_tck,
+      tms => kb_tms,
+      tdi => kb_tdi,
+      tdo => kb_tdo,
+
+      matrix_col => widget_matrix_col,
+      matrix_col_idx => widget_matrix_col_idx,
+      restore => widget_restore,
+
+      );
+  
   slow_devices0: entity work.slow_devices
     port map (
       cpuclock => cpuclock,
@@ -504,11 +530,15 @@ begin
       -- Ignore widget board interface and other things
       tmpint => '1',
       tmpct => '1',
+
+      -- Connect MEGA65 smart keyboard via JTAG-like remote GPIO interface
+      widget_matrix_col_idx => widget_matrix_col_idx,
+      widget_matrix_col => widget_matrix_col,
+      widget_restore => widget_restore,
+      widget_capslock => widget_capslock,
+      widget_joya => (others => '1'),
+      widget_joyb => (others => '1'),      
       
-      pmod_clock => '1',
-      pmod_start_of_sequence => '0',
-      pmod_data_in => (others => '1'),
-      pmoda => pmoda_dummy,
       sw => (others => '0'),
 --      uart_rx => '1',
       btn => (others => '1')
