@@ -266,6 +266,13 @@ architecture Behavioral of container is
   signal lcd_vsync : std_logic;
   signal lcd_display_enable : std_logic;
   signal pal50_select : std_logic;
+
+  signal widget_matrix_col_idx : integer range 0 to 8 := 0;
+  signal widget_matrix_col : std_logic_vector(7 downto 0);
+  signal widget_restore : std_logic;
+  signal widget_capslock : std_logic;
+  signal widget_joya : std_logic_vector(4 downto 0);
+  signal widget_joyb : std_logic_vector(4 downto 0);
   
 begin
   
@@ -287,6 +294,23 @@ begin
       clk => cpuclock,
       temp => fpga_temperature);
 
+  widget0: entity work.widget_to_matrix port map(
+    ioclock => cpuclock,
+
+    pmod_clock => jblo(1),
+    pmod_start_of_sequence => jblo(2),
+    pmod_data_in(1 downto 0) => jblo(4 downto 3),
+    pmod_data_in(3 downto 2) => jbhi(8 downto 7),
+    pmod_data_out => jbhi(10 downto 9),
+
+    matrix_col => widget_matrix_col,
+    matrix_col_idx => widget_matrix_col_idx,
+    restore => widget_restore,
+    capslock_out => widget_capslock,
+    joya => widget_joya,
+    joyb => widget_joyb
+    );  
+  
   slow_devices0: entity work.slow_devices
     port map (
       cpuclock => cpuclock,
@@ -479,15 +503,13 @@ begin
       ps2data =>      ps2data,
       ps2clock =>     ps2clk,
 
-      -- Widget board interface
-      pmod_clock => jblo(1),
-      pmod_start_of_sequence => jblo(2),
-      pmod_data_in(1 downto 0) => jblo(4 downto 3),
-      pmod_data_in(3 downto 2) => jbhi(8 downto 7),
-      pmod_data_out => jbhi(10 downto 9),
-      pmoda(3 downto 0) => jalo(4 downto 1),
-      pmoda(7 downto 4) => jahi(10 downto 7),
-
+      widget_matrix_col_idx => widget_matrix_col_idx,
+      widget_matrix_col => widget_matrix_col,
+      widget_restore => widget_restore,
+      widget_capslock => widget_capslock,
+      widget_joya => widget_joya,
+      widget_joyb => widget_joyb,      
+      
       uart_rx => jclo(1),
       uart_tx => jclo(2),
 

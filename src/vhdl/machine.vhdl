@@ -266,13 +266,16 @@ entity machine is
          ps2clock : in std_logic;
 
          ----------------------------------------------------------------------
-         -- PMOD interface for keyboard, joystick, expansion port etc board.
+         -- PMOD and related interfaces for keyboard, joystick, expansion port etc board.
          ----------------------------------------------------------------------
-         pmod_clock : in std_logic;
-         pmod_start_of_sequence : in std_logic;
-         pmod_data_in : in std_logic_vector(3 downto 0);
-         pmod_data_out : out std_logic_vector(1 downto 0);
-         pmoda : inout std_logic_vector(7 downto 0);
+
+        -- Widget board / MEGA65R2 keyboard
+        widget_matrix_col_idx : out integer range 0 to 8 := 0;
+        widget_matrix_col : in std_logic_vector(7 downto 0);
+        widget_restore : in std_logic;
+        widget_capslock : in std_logic;
+        widget_joya : in std_logic_vector(4 downto 0);
+        widget_joyb : in std_logic_vector(4 downto 0);
 
          uart_rx : inout std_logic;
          uart_tx : out std_logic;
@@ -1470,13 +1473,13 @@ begin
       pixel_newframe => pixel_newframe,
       pixel_newraster => pixel_newraster,
 
-      pmod_clock => pmodb_in_buffer(0),
-      pmod_start_of_sequence => pmodb_in_buffer(1),
-      pmod_data_in => pmodb_in_buffer(5 downto 2),
-      pmod_data_out => pmodb_out_buffer(1 downto 0),
+      widget_matrix_col_idx => widget_matrix_col_idx,
+      widget_matrix_col => widget_matrix_col,
+      widget_restore => widget_restore,
+      widget_capslock => widget_capslock,
+      widget_joya => widget_joya,
+      widget_joyb => widget_joyb,     
       
-      pmoda => pmoda,
-
       hdmi_sda => hdmi_sda,
       hdmi_scl => hdmi_scl,    
 
@@ -1654,10 +1657,6 @@ begin
       osk_touch1_key <= osk_touch1_key_driver;
       osk_touch2_key <= osk_touch2_key_driver;
       
-      pmodb_in_buffer(0) <= pmod_clock;
-      pmodb_in_buffer(1) <= pmod_start_of_sequence;
-      pmodb_in_buffer(5 downto 2) <= pmod_data_in;
-      pmod_data_out <= pmodb_out_buffer;
       flopled <= drive_led_out;
       flopmotor <= motor;
 

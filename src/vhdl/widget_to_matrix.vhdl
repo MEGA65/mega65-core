@@ -7,7 +7,6 @@ use work.debugtools.all;
 entity widget_to_matrix is
   port (
     ioclock : in std_logic;
-    reset_in : in std_logic;
 
     pmod_clock : in std_logic;
     pmod_start_of_sequence : in std_logic;

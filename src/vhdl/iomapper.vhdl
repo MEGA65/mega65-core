@@ -174,10 +174,15 @@ entity iomapper is
         ps2data : in std_logic;
         ps2clock : in std_logic;
         scancode_out : out std_logic_vector(12 downto 0); 												  
-        pmod_clock : in std_logic;
-        pmod_start_of_sequence : in std_logic;
-        pmod_data_in : in std_logic_vector(3 downto 0);
-        pmod_data_out : out std_logic_vector(1 downto 0);
+        -- Widget board / MEGA65R2 keyboard
+        widget_matrix_col_idx : out integer range 0 to 8 := 0;
+        widget_matrix_col : in std_logic_vector(7 downto 0);
+        widget_restore : in std_logic;
+        widget_capslock : in std_logic;
+        widget_joya : in std_logic_vector(4 downto 0);
+        widget_joyb : in std_logic_vector(4 downto 0);
+
+
         pmoda : inout std_logic_vector(7 downto 0);
 
         hdmi_scl : inout std_logic := '1';
@@ -841,11 +846,15 @@ begin
     capslock_out => capslock_from_keymapper,
     keyboard_column8_out => keyboard_column8_out,
     keyboard_column8_select_in => keyboard_column8_select,
-    pmod_clock => pmod_clock,
-    pmod_start_of_sequence => pmod_start_of_sequence,
-    pmod_data_in => pmod_data_in,
-    pmod_data_out => pmod_data_out,
-    
+
+    widget_matrix_col_idx => widget_matrix_col_idx,
+    widget_matrix_col => widget_matrix_col,
+    widget_restore => widget_restore,
+    widget_capslock => widget_capslock,
+    widget_joya => widget_joya,
+    widget_joyb => widget_joyb,
+      
+      
     -- remote keyboard input via ethernet
 --    eth_keycode_toggle => eth_keycode_toggle,
 --    eth_keycode => eth_keycode
