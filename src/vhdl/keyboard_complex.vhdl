@@ -31,11 +31,15 @@ entity keyboard_complex is
     -- Joysticks
     joya : in std_logic_vector(4 downto 0);
     joyb : in std_logic_vector(4 downto 0);
-    -- Widget board
-    pmod_clock : in std_logic;
-    pmod_start_of_sequence : in std_logic;
-    pmod_data_in : in std_logic_vector(3 downto 0);
-    pmod_data_out : out std_logic_vector(1 downto 0) := "ZZ";
+
+    -- Widget board / MEGA65R2 keyboard
+    widget_matrix_col_idx : out integer range 0 to 8 := 0;
+    widget_matrix_col : in std_logic_vector(7 downto 0);
+    widget_restore : in std_logic;
+    widget_capslock : in std_logic;
+    widget_joya : in std_logic_vector(4 downto 0);
+    widget_joyb : in std_logic_vector(4 downto 0);
+
     -- PS/2 keyboard
     ps2clock  : in  std_logic;
     ps2data   : in  std_logic;    
@@ -111,12 +115,6 @@ architecture behavioural of keyboard_complex is
   signal keyboard_joya : std_logic_vector(4 downto 0) := (others => '1');
   signal keyboard_joyb : std_logic_vector(4 downto 0) := (others => '1');
   
-  signal widget_matrix_col : std_logic_vector(7 downto 0);
-  signal widget_restore : std_logic;
-  signal widget_capslock : std_logic;
-  signal widget_joya : std_logic_vector(4 downto 0);
-  signal widget_joyb : std_logic_vector(4 downto 0);
-
   signal ps2_matrix_col : std_logic_vector(7 downto 0);
   signal ps2_restore : std_logic;
   signal ps2_capslock : std_logic;
@@ -175,23 +173,6 @@ begin
       matrix_col_idx => matrix_col_idx
       );
 
-  widget0: entity work.widget_to_matrix port map(
-    ioclock => ioclock,
-    reset_in => reset_in,
-
-    pmod_clock => pmod_clock,
-    pmod_start_of_sequence => pmod_start_of_sequence,
-    pmod_data_in => pmod_data_in,
-    pmod_data_out => pmod_data_out,
-
-    matrix_col => widget_matrix_col,
-    matrix_col_idx => matrix_col_idx,
-    restore => widget_restore,
-    capslock_out => widget_capslock,
-    joya => widget_joya,
-    joyb => widget_joyb
-    );
-  
   ps2: entity work.ps2_to_matrix port map(
     ioclock => ioclock,
     reset_in => reset_in,
@@ -353,7 +334,9 @@ begin
   process (ioclock)
     variable num : integer;
   begin
-        
+
+    widget_matrix_col_idx <= matrix_col_idx;
+    
     if rising_edge(ioclock) then
 
       capslock_out <= capslock_combined;
