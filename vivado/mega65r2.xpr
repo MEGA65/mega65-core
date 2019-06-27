@@ -882,13 +882,13 @@
           <ReportConfigOption Name="dummy_option" Type="string"/>
           <ReportConfigOutputOption Name="rpx" Type="string" Value=""/>
         </ReportConfig>
-        <ReportConfig Name="impl_1_route_report_incremental_reuse_0" Spec="report_incremental_reuse" RunStep="route_design" Version="1" Minor="0">
+        <ReportConfig Name="impl_1_route_report_incremental_reuse_0" Spec="report_incremental_reuse" RunStep="route_design" ReportFile="container_incremental_reuse_routed.rpt" Version="1" Minor="0">
           <ReportConfigOption Name="dummy_option" Type="string"/>
         </ReportConfig>
         <ReportConfig Name="impl_1_route_report_clock_utilization_0" Spec="report_clock_utilization" RunStep="route_design" Version="1" Minor="0">
           <ReportConfigOption Name="dummy_option" Type="string"/>
         </ReportConfig>
-        <ReportConfig Name="impl_1_route_implementation_log_0" Spec="" RunStep="route_design">
+        <ReportConfig Name="impl_1_route_implementation_log_0" Spec="" RunStep="route_design" ReportFile="container.vdi">
           <ReportConfigOption Name="dummy_option" Type="string"/>
         </ReportConfig>
         <ReportConfig Name="impl_1_post_route_phys_opt_report_timing_summary_0" Spec="report_timing_summary" RunStep="post_route_phys_opt_design" Version="1" Minor="0">
