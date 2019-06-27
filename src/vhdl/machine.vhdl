@@ -436,7 +436,6 @@ architecture Behavioral of machine is
   
   signal drive_led : std_logic;
   signal motor : std_logic;
-  signal drive_led_out : std_logic;
   
   signal seg_led_data : unsigned(31 downto 0);
 
@@ -741,7 +740,7 @@ begin
       led(6) <= external_pixel_strobe;
       led(7) <= external_frame_x_zero;      
       led(8) <= external_frame_y_zero;      
-      led(9) <= drive_led_out;
+      led(9) <= drive_led;
       led(10) <= cpu_hypervisor_mode;
       led(11) <= hyper_trap;
       led(12) <= hyper_trap_combined;
@@ -1084,9 +1083,8 @@ begin
 
       test_pattern_enable => test_pattern_enable,
       
-      led => drive_led,
+      led => '0',
       motor => motor,
-      drive_led_out => drive_led_out,
 
       xray_mode => xray_mode,
       d031_written => d031_write_toggle,
@@ -1358,7 +1356,7 @@ begin
       colourram_at_dc00 => colourram_at_dc00,
       drive_led => drive_led,
       motor => motor,
-      drive_led_out => drive_led_out,
+      drive_led_out => '0',
       sw => sw,
       btn => btn,
 --    seg_led => seg_led_data,
@@ -1657,7 +1655,7 @@ begin
       osk_touch1_key <= osk_touch1_key_driver;
       osk_touch2_key <= osk_touch2_key_driver;
       
-      flopled <= drive_led_out;
+      flopled <= drive_led;
       flopmotor <= motor;
 
       -- Generate 2MHz for SIDs from CPUCLOCK / 20
