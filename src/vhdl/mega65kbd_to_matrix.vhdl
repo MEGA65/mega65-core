@@ -11,10 +11,9 @@ entity mega65kbd_to_matrix is
     flopled : in std_logic;
     powerled : in std_logic;
     
-    tck : out std_logic;
-    tms : out std_logic;
-    tdi : out std_logic;
-    tdo : in std_logic;
+    kio8 : out std_logic; -- clock to keyboard
+    kio9 : out std_logic; -- data output to keyboard
+    kio10 : in std_logic; -- data input from keyboard
 
     matrix_col : out std_logic_vector(7 downto 0) := (others => '1');
     matrix_col_idx : in integer range 0 to 8;
@@ -40,6 +39,7 @@ architecture behavioural of mega65kbd_to_matrix is
   signal clock_divider : integer range 0 to 255 := 0;
   signal kbd_clock : std_logic := '0';
   signal phase : integer range 0 to 255 := 0;
+  signal sync_pulse : std_logic := '0';
   
   signal output_vector : std_logic_vector(127 downto 0);
   
@@ -79,13 +79,12 @@ begin  -- behavioural
         clock_divider <= 0;
 
         kbd_clock <= not kbd_clock;
-        tck <= not kbd_clock;
+        kio8 <= kbd_clock or sync_pulse;
         
         if kbd_clock='0' then
           if phase = 127 then
             -- Reset to start
-            phase <= 0;
-            tms <= '1';
+            sync_pulse <= '1';
             output_vector <= (others => '0');
             if flopled='1' then
               output_vector(23 downto 0) <= x"0000FF";
@@ -95,17 +94,20 @@ begin  -- behavioural
               output_vector(71 downto 48) <= x"0000FF";
               output_vector(95 downto 72) <= x"0000FF";
             end if;
+          elsif phase = 140 then
+            sync_pulse <= '0';
+            phase <= 0;
           else
             -- Output/input next bit
             phase <= phase + 1;
-            tms <= '0';
 
-            tdi <= output_vector(0);
+            kio9 <= output_vector(0);
             output_vector(126 downto 0) <= output_vector(127 downto 1);
             output_vector(127) <= '0';
 
             matrix_offset <= phase/8;
-            matrix_dia <= (others => tdo);
+            matrix_dia <= (others => kio10); -- present byte of input bits to
+                                             -- ram for writing
             
             case (phase mod 8) is
               when 0 => keyram_write_enable := x"01";
