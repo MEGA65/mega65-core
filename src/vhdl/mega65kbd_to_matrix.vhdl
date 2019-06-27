@@ -27,8 +27,6 @@ end entity mega65kbd_to_matrix;
 
 architecture behavioural of mega65kbd_to_matrix is
 
-  signal matrix_offset : integer range 0 to 255 := 252;
-
   signal matrix_ram_offset : integer range 0 to 15 := 0;
   signal keyram_wea : std_logic_vector(7 downto 0);
   signal keyram_dia : std_logic_vector(7 downto 0);
@@ -108,9 +106,11 @@ begin  -- behavioural
             output_vector(126 downto 0) <= output_vector(127 downto 1);
             output_vector(127) <= '0';
 
-            matrix_offset <= phase/8;
+            keyram_offset := phase/8;
             matrix_dia <= (others => kio10); -- present byte of input bits to
                                              -- ram for writing
+
+            report "Writing received bit " & std_logic'image(kio10) & " to bit position " & integer'image(phase);
             
             case (phase mod 8) is
               when 0 => keyram_write_enable := x"01";
