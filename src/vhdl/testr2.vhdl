@@ -143,15 +143,18 @@ entity container is
          eth_clock : out std_logic;
          
          -------------------------------------------------------------------------
-         -- Lines for the SDcard interface itself
+         -- Lines for the SDcard interfaces
          -------------------------------------------------------------------------
-         sdReset : out std_logic := '0';  -- must be 0 to power SD controller (cs_bo)
-         sdClock : out std_logic;       -- (sclk_o)
+         sdReset : out std_logic;
+         sdClock : out std_logic;
          sdMOSI : out std_logic;      
          sdMISO : in  std_logic;
 
+         sd2Reset : out std_logic;
+         sd2Clock : out std_logic;
          sd2MOSI : out std_logic;
-         sd2MISO : in std_logic;
+         sd2MISO : out std_logic;
+         sd2_dat : out std_logic_vector(3 downto 0);
 
          -- Left and right audio
          pwm_l : out std_logic;
@@ -315,16 +318,61 @@ begin
     port map (
       clock => pixelclock,
       pin_number => to_unsigned(8,8),
-      pin => uart_txd
+      pin => sd2clock
       );
 
+  -- DAT0 on connector ?
   pin9: entity work.pin_id
     port map (
       clock => pixelclock,
       pin_number => to_unsigned(9,8),
-      pin => rsrx
+      pin => sd2reset
       );
 
+  -- CLK on connector ?
+  pin10: entity work.pin_id
+    port map (
+      clock => pixelclock,
+      pin_number => to_unsigned(10,8),
+      pin => sd2miso
+      );
+
+  -- CMD on connector ?
+  pin11: entity work.pin_id
+    port map (
+      clock => pixelclock,
+      pin_number => to_unsigned(11,8),
+      pin => sd2mosi
+      );
+
+  pin12: entity work.pin_id
+    port map (
+      clock => pixelclock,
+      pin_number => to_unsigned(12,8),
+      pin => sd2_dat(0)
+      );
+  
+  pin13: entity work.pin_id
+    port map (
+      clock => pixelclock,
+      pin_number => to_unsigned(13,8),
+      pin => sd2_dat(1)
+      );
+  
+  pin14: entity work.pin_id
+    port map (
+      clock => pixelclock,
+      pin_number => to_unsigned(14,8),
+      pin => sd2_dat(2)
+      );
+  
+  pin15: entity work.pin_id
+    port map (
+      clock => pixelclock,
+      pin_number => to_unsigned(15,8),
+      pin => sd2_dat(3)
+      );
+  
   
   process (pixelclock) is
   begin
