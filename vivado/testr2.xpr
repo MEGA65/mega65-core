@@ -6,7 +6,7 @@
 <Project Version="7" Minor="35" Path="/home/paul/Projects/mega65/mega65-core/vivado/testr2.xpr">
   <DefaultLaunch Dir="$PRUNDIR"/>
   <Configuration>
-    <Option Name="Id" Val="44d21d4e345c4523b274711207e63b2b"/>
+    <Option Name="Id" Val="39e3324600a04fb1828d008019d32ce1"/>
     <Option Name="Part" Val="xc7a100tfgg484-1"/>
     <Option Name="CompiledLibDir" Val="$PCACHEDIR/compile_simlib"/>
     <Option Name="CompiledLibDirXSim" Val=""/>
@@ -575,6 +575,12 @@
         </FileInfo>
       </File>
       <File Path="$PPRDIR/../src/vhdl/pin_id.vhdl">
+        <FileInfo>
+          <Attr Name="UsedIn" Val="synthesis"/>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
+      <File Path="$PPRDIR/../src/vhdl/mega65kbd_to_matrix.vhdl">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="simulation"/>
