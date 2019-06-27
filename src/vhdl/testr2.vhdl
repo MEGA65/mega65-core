@@ -46,6 +46,11 @@ entity container is
 --         row : in  std_logic_vector(8 downto 0);
 --         keyleft : inout std_logic := 'Z';
 --         keyup : inout std_logic := 'Z';
+
+         kb_tck : out std_logic;
+         kb_tms : out std_logic;
+         kb_tdi : out std_logic;
+         kb_tdo : in std_logic;
          
          fa_left : in std_logic;
          fa_right : in std_logic;
@@ -265,13 +270,17 @@ architecture Behavioral of container is
   signal pwm_l_drive : std_logic;
   signal pwm_r_drive : std_logic;
 
-  signal flopled_drive : std_logic;
-  signal flopmotor_drive : std_logic;
+  signal powerled : std_logic := '1';
+  signal flopled_drive : std_logic := '1';
+  signal flopmotor_drive : std_logic := '0';
 
   signal joy3 : std_logic_vector(4 downto 0);
   signal joy4 : std_logic_vector(4 downto 0);
 
   signal cart_access_count : unsigned(7 downto 0);
+
+  signal counter : integer := 0;
+  signal ktoggle : std_logic := '0';
   
 begin
 
@@ -285,6 +294,25 @@ begin
                clock240 => clock240
                );
 
+  kbd0: entity work.mega65kbd_to_matrix
+    port map (
+      ioclock => cpuclock,
+
+      powerled => powerled,
+      flopled => flopled_drive,
+            
+      tck => kb_tck,
+      tms => kb_tms,
+      tdi => kb_tdi,
+      tdo => kb_tdo,
+
+--      matrix_col => widget_matrix_col,
+     matrix_col_idx => 0 -- widget_matrix_col_idx,
+--      restore => widget_restore
+
+      );
+
+  
   pin8: entity work.pin_id
     port map (
       clock => pixelclock,
@@ -311,12 +339,22 @@ begin
     -- Ethernet clock at 50MHz
     eth_clock <= ethclock;
 
+    
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then
 
+      -- Try to debug keyboard interface
+      if counter /= 65535 then
+        counter <= counter + 1;
+      else
+        counter <= 0;
+        ktoggle <= not ktoggle;
+--        kb_tck <= ktoggle;
+      end if;
+      
       -- Connect UART RX and TX
 --      uart_txd <= rsrx;
-      
+
       fa_left_drive <= fa_left;
       fa_right_drive <= fa_right;
       fa_up_drive <= fa_up;

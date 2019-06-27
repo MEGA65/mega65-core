@@ -180,6 +180,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/ddrwrapper.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/testr2.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/pin_id.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/mega65kbd_to_matrix.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/keyboard_complex.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/virtual_to_matrix.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/keyboard_to_matrix.vhdl"]"\
