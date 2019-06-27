@@ -79,9 +79,15 @@ begin  -- behavioural
         clock_divider <= 0;
 
         kbd_clock <= not kbd_clock;
-        kio8 <= kbd_clock or sync_pulse;
+        kio8 <= kbd_clock; -- or sync_pulse;
         
         if kbd_clock='0' then
+          report "phase = " & integer'image(phase);
+          if phase /= 140 then
+            phase <= phase + 1;
+          else
+            phase <= 0;
+          end if;
           if phase = 127 then
             -- Reset to start
             sync_pulse <= '1';
@@ -96,11 +102,8 @@ begin  -- behavioural
             end if;
           elsif phase = 140 then
             sync_pulse <= '0';
-            phase <= 0;
-          else
+          elsif phase < 127 then
             -- Output/input next bit
-            phase <= phase + 1;
-
             kio9 <= output_vector(0);
             output_vector(126 downto 0) <= output_vector(127 downto 1);
             output_vector(127) <= '0';
