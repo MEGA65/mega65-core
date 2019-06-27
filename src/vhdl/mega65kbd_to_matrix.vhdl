@@ -78,6 +78,28 @@ begin  -- behavioural
 
         kbd_clock <= not kbd_clock;
         kio8 <= kbd_clock or sync_pulse;
+
+        if kbd_clock='1' and phase < 128 then
+          keyram_offset := phase/8;
+          matrix_dia <= (others => kio10); -- present byte of input bits to
+                                           -- ram for writing
+
+          report "Writing received bit " & std_logic'image(kio10) & " to bit position " & integer'image(phase);
+          
+          case (phase mod 8) is
+            when 0 => keyram_write_enable := x"01";
+            when 1 => keyram_write_enable := x"02";
+            when 2 => keyram_write_enable := x"04";
+            when 3 => keyram_write_enable := x"08";
+            when 4 => keyram_write_enable := x"10";
+            when 5 => keyram_write_enable := x"20";
+            when 6 => keyram_write_enable := x"40";
+            when 7 => keyram_write_enable := x"80";
+            when others => null;
+          end case;
+        end if;        
+        matrix_ram_offset <= keyram_offset;
+        keyram_wea <= keyram_write_enable;
         
         if kbd_clock='0' then
           report "phase = " & integer'image(phase) & ", sync=" & std_logic'image(sync_pulse);
@@ -101,32 +123,12 @@ begin  -- behavioural
           elsif phase = 140 then
             sync_pulse <= '0';
           elsif phase < 127 then
-            -- Output/input next bit
+            -- Output next bit
             kio9 <= output_vector(0);
             output_vector(126 downto 0) <= output_vector(127 downto 1);
             output_vector(127) <= '0';
 
-            keyram_offset := phase/8;
-            matrix_dia <= (others => kio10); -- present byte of input bits to
-                                             -- ram for writing
-
-            report "Writing received bit " & std_logic'image(kio10) & " to bit position " & integer'image(phase);
-            
-            case (phase mod 8) is
-              when 0 => keyram_write_enable := x"01";
-              when 1 => keyram_write_enable := x"02";
-              when 2 => keyram_write_enable := x"04";
-              when 3 => keyram_write_enable := x"08";
-              when 4 => keyram_write_enable := x"10";
-              when 5 => keyram_write_enable := x"20";
-              when 6 => keyram_write_enable := x"40";
-              when 7 => keyram_write_enable := x"80";
-              when others => null;
-            end case;
           end if;
-          
-          matrix_ram_offset <= keyram_offset;
-          keyram_wea <= keyram_write_enable;
         end if;
       end if;
     end if;
