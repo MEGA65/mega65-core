@@ -42,10 +42,9 @@ entity container is
          ----------------------------------------------------------------------
 
          -- Interface for physical keyboard
-         kb_tck : out std_logic;
-         kb_tms : out std_logic;
-         kb_tdi : out std_logic;
-         kb_tdo : in std_logic;
+         kb_io0 : out std_logic;
+         kb_io1 : out std_logic;
+         kb_io2 : in std_logic;
 
          -- Direct joystick lines
          fa_left : in std_logic;
@@ -307,10 +306,9 @@ begin
       powerled => '1',
       flopled => flopled_drive,
             
-      tck => kb_tck,
-      tms => kb_tms,
-      tdi => kb_tdi,
-      tdo => kb_tdo,
+      kio8 => kb_io0,
+      kio9 => kb_io1,
+      kio10 => kb_io2,
 
       matrix_col => widget_matrix_col,
       matrix_col_idx => widget_matrix_col_idx,
