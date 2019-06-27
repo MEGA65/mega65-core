@@ -71,7 +71,7 @@ begin  -- behavioural
       keyram_write_enable := x"00";
       keyram_offset := 0;
 
-      if clock_divider /= 15 then
+      if clock_divider /= 64 then
         clock_divider <= clock_divider + 1;
       else
         clock_divider <= 0;
