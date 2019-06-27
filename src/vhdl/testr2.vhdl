@@ -154,7 +154,7 @@ entity container is
          sd2Clock : out std_logic;
          sd2MOSI : out std_logic;
          sd2MISO : out std_logic;
-         sd2_dat : out std_logic_vector(3 downto 0);
+         sd2_dat : out std_logic_vector(3 downto 3);
 
          -- Left and right audio
          pwm_l : out std_logic;
@@ -343,27 +343,6 @@ begin
       clock => pixelclock,
       pin_number => to_unsigned(11,8),
       pin => sd2mosi
-      );
-
-  pin12: entity work.pin_id
-    port map (
-      clock => pixelclock,
-      pin_number => to_unsigned(12,8),
-      pin => sd2_dat(0)
-      );
-  
-  pin13: entity work.pin_id
-    port map (
-      clock => pixelclock,
-      pin_number => to_unsigned(13,8),
-      pin => sd2_dat(1)
-      );
-  
-  pin14: entity work.pin_id
-    port map (
-      clock => pixelclock,
-      pin_number => to_unsigned(14,8),
-      pin => sd2_dat(2)
       );
   
   pin15: entity work.pin_id

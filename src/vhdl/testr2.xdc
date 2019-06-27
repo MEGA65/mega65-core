@@ -250,7 +250,7 @@ set_property -dict {PACKAGE_PIN B22 IOSTANDARD LVCMOS18} [get_ports hr_reset]
 set_property -dict {PACKAGE_PIN A13 IOSTANDARD LVCMOS18} [get_ports hr_clk_p]
 set_property -dict {PACKAGE_PIN A14 IOSTANDARD LVCMOS18} [get_ports hr_clk_n]
 set_property -dict {PACKAGE_PIN C22 IOSTANDARD LVCMOS18} [get_ports hr_cs0]
-set_property -dict {PACKAGE_PIN D17 IOSTANDARD LVCMOS18} [get_ports hr_cs1]
+#set_property -dict {PACKAGE_PIN D17 IOSTANDARD LVCMOS18} [get_ports hr_cs1]
 
 
 ##SMSC Ethernet PHY
@@ -292,7 +292,7 @@ set_property -dict {PACKAGE_PIN C17 IOSTANDARD LVCMOS33} [get_ports sd2WP]
 #set_property -dict { PACKAGE_PIN B18 IOSTANDARD LVCMOS33 } [get_ports {sd2_dat[0]}]
 #set_property -dict { PACKAGE_PIN C18 IOSTANDARD LVCMOS33 } [get_ports {sd2_dat[1]}]
 #set_property -dict { PACKAGE_PIN C19 IOSTANDARD LVCMOS33 } [get_ports {sd2_dat[2]}]
-#set_property -dict { PACKAGE_PIN B15 IOSTANDARD LVCMOS33 } [get_ports {sd2_dat[3]}]
+set_property -dict { PACKAGE_PIN B15 IOSTANDARD LVCMOS33 } [get_ports {sd2_dat[3]}]
 
 ## Pmod Header JA
 #set_property -dict { PACKAGE_PIN xx IOSTANDARD LVCMOS33 } [get_ports {jalo[1]}]
