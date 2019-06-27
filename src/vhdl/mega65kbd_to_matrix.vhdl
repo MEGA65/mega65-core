@@ -79,10 +79,10 @@ begin  -- behavioural
         clock_divider <= 0;
 
         kbd_clock <= not kbd_clock;
-        kio8 <= kbd_clock; -- or sync_pulse;
+        kio8 <= kbd_clock or sync_pulse;
         
         if kbd_clock='0' then
-          report "phase = " & integer'image(phase);
+          report "phase = " & integer'image(phase) & ", sync=" & std_logic'image(sync_pulse);
           if phase /= 140 then
             phase <= phase + 1;
           else
