@@ -300,8 +300,8 @@ begin
       powerled => powerled,
       flopled => flopled_drive,
             
-      kio8 => kb_io0,
-      kio9 => kb_io1,
+--      kio8 => kb_io0,
+--      kio9 => kb_io1,
       kio10 => kb_io2,
 
 --      matrix_col => widget_matrix_col,
@@ -347,7 +347,7 @@ begin
       else
         counter <= 0;
         ktoggle <= not ktoggle;
---        kb_tck <= ktoggle;
+        kb_io0 <= ktoggle;
       end if;
       
       -- Connect UART RX and TX
