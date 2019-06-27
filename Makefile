@@ -356,6 +356,12 @@ i2csimulate: $(GHDL) $(VHDLSRCDIR)/test_i2c.vhdl $(VHDLSRCDIR)/i2c_master.vhdl $
 	$(GHDL) -m test_i2c
 	( ./test_i2c || $(GHDL) -r test_i2c ) 
 
+k2simulate: $(GHDL) $(VHDLSRCDIR)/testkey.vhdl $(VHDLSRCDIR)/mega65kbd_to_matrix.vhdl
+	$(GHDL) -i $(VHDLSRCDIR)/testkey.vhdl $(VHDLSRCDIR)/mega65kbd_to_matrix.vhdl
+	$(GHDL) -m testkey
+	( ./testkey || $(GHDL) -r testkey ) 
+
+
 fpacksimulate: $(GHDL) $(VHDLSRCDIR)/test_framepacker.vhdl $(VHDLSRCDIR)/framepacker.vhdl
 	$(GHDL) -i $(VHDLSRCDIR)/test_framepacker.vhdl $(VHDLSRCDIR)/framepacker.vhdl
 	$(GHDL) -m test_framepacker
