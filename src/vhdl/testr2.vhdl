@@ -300,8 +300,8 @@ begin
       powerled => powerled,
       flopled => flopled_drive,
             
---      kio8 => kb_io0,
---      kio9 => kb_io1,
+      kio8 => kb_io0,
+      kio9 => kb_io1,
       kio10 => kb_io2,
 
 --      matrix_col => widget_matrix_col,
@@ -342,12 +342,12 @@ begin
     if rising_edge(cpuclock) then
 
       -- Try to debug keyboard interface
-      if counter /= 65535 then
+      if counter /= 10000000 then
         counter <= counter + 1;
       else
         counter <= 0;
         ktoggle <= not ktoggle;
-        kb_io0 <= ktoggle;
+        powerled <= ktoggle;
       end if;
       
       -- Connect UART RX and TX

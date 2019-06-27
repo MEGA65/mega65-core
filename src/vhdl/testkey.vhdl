@@ -10,8 +10,8 @@ end entity;
 architecture foo of testkey is
 
   signal ioclock : std_logic := '1';
-  signal flopled : std_logic := '0';
-  signal powerled : std_logic := '0';
+  signal flopled : std_logic := '1';
+  signal powerled : std_logic := '1';
   signal kio8 : std_logic := '1';
   signal kio9 : std_logic := '1';
   signal kio10 : std_logic := '1';
