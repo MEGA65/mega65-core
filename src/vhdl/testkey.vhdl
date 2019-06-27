@@ -20,9 +20,11 @@ architecture foo of testkey is
   signal restore : std_logic := '1';
   signal capslock_out : std_logic := '1';
 
+  signal counter : unsigned(31 downto 0) := x"00000000";
+  
 begin
 
-  kbd0: entity work.mega65kbd_to_matrix
+  kbdctl0: entity work.mega65kbd_to_matrix
     port map (
       ioclock => ioclock,
 
@@ -39,12 +41,19 @@ begin
 
       );
 
+  kio10 <= counter(5);
+  matrix_col_idx <= to_integer(counter(10 downto 8));
+  
   process is
   begin
     ioclock <= '1';
     wait for 20 ns;
     ioclock <= '0';
     wait for 20 ns;
+
+    counter <= counter + 1;
+
+    report "matrix_col = " & to_string(matrix_col);
   end process;
 
 end foo;
