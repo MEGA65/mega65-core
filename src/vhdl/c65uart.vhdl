@@ -278,7 +278,7 @@ begin  -- behavioural
       widget_disable <= not widget_enable_internal;
       ps2_disable <= not ps2_enable_internal;
       joykey_disable <= not joykey_enable_internal;
-      joyreal_disable <= not joykey_enable_internal;
+      joyreal_disable <= not joyreal_enable_internal;
       physkey_disable <= not physkey_enable_internal;
       virtual_disable <= not virtual_enable_internal;
 
