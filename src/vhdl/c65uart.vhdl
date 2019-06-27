@@ -392,6 +392,8 @@ begin  -- behavioural
             -- bucky keys readonly
             -- @IO:GS $D611.0 WRITE ONLY Connect POT lines to IEC port (for r1 PCB only)
             pot_via_iec <= fastio_wdata(0);
+            -- @IO:GS $D611.1 WRITE ONLY enable real joystick ports (for r2 PCB only)
+            joyreal_enable_internal <= fastio_wdata(1);
           when x"12" =>
 --            widget_enable_internal <= std_logic(fastio_wdata(0));
 --            ps2_enable_internal <= std_logic(fastio_wdata(1));
@@ -554,15 +556,15 @@ begin  -- behavioural
           fastio_rdata(7 downto 0) <= unsigned(porti);
         when x"12" =>
           -- @   IO:GS $D612.0 UARTMISC:WGTKEY Enable widget board keyboard/joystick input
---          fastio_rdata(0) <= widget_enable_internal;
+          fastio_rdata(0) <= widget_enable_internal;
           -- @   IO:GS $D612.1 UARTMISC:PS2KEY Enable ps2 keyboard/joystick input
---          fastio_rdata(1) <= ps2_enable_internal;
+          fastio_rdata(1) <= ps2_enable_internal;
           -- @   IO:GS $D612.2 UARTMISC:PHYKEY Enable physical keyboard input
---          fastio_rdata(2) <= physkey_enable_internal;
+          fastio_rdata(2) <= physkey_enable_internal;
           -- @   IO:GS $D612.3 UARTMISC:VRTKEY Enable virtual/snythetic keyboard input
---          fastio_rdata(3) <= virtual_enable_internal;
+          fastio_rdata(3) <= virtual_enable_internal;
           -- @   IO:GS $D612.4 UARTMISC:PS2JOY Enable PS/2 / USB keyboard simulated joystick input
---          fastio_rdata(4) <= joykey_enable_internal;
+          fastio_rdata(4) <= joykey_enable_internal;
           -- @IO:GS $D612.4 UARTMISC:OSKDEBUG Debug OSK overlay (WRITE ONLY)
           -- @IO:GS $D612.5 UARTMISC:JOYSWAP Exchange joystick ports 1 & 2
           fastio_rdata(5) <= joyswap_internal;
