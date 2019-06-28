@@ -203,10 +203,14 @@ architecture Behavioral of container is
 
   -- XXX Actually connect to new keyboard
   signal restore_key : std_logic := '1';
+  -- XXX Note that left and up are active HIGH!
+  -- XXX Plumb these into the MEGA65R2 keyboard protocol receiver
+  signal keyleft : std_logic := '0';
+  signal keyup : std_logic := '0';
+  -- On the R2, we don't use the "real" keyboard interface, but instead the
+  -- widget board interface, so just have these as dummy all-high place holders
   signal column : std_logic_vector(8 downto 0) := (others => '1');
   signal row : std_logic_vector(8 downto 0) := (others => '1');
-  signal keyleft : std_logic := '1';
-  signal keyup : std_logic := '1';
   
   
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
