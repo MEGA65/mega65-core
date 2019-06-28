@@ -94,13 +94,16 @@ entity container is
          ----------------------------------------------------------------------
          -- CBM floppy serial port
          ----------------------------------------------------------------------
-         iec_clk_en : out std_logic;
-         iec_data_en : out std_logic;
+         iec_clk_en : out std_logic := '0';
+         iec_data_en : out std_logic := '0';
          iec_data_o : out std_logic;
          iec_reset : out std_logic;
          iec_clk_o : out std_logic;
          iec_data_i : in std_logic;
          iec_clk_i : in std_logic;
+         iec_srq_o : out std_logic;
+         iec_srq_en : out std_logic := '0';
+         iec_src_i : in std_logic;
          iec_atn : out std_logic;
          
          ----------------------------------------------------------------------
@@ -302,6 +305,7 @@ begin
 
       powerled => powerled,
       flopled => flopled_drive,
+      flopmotor => flopmotor_drive,
             
       kio8 => kb_io0,
       kio9 => kb_io1,
@@ -374,7 +378,7 @@ begin
       else
         counter <= 0;
         ktoggle <= not ktoggle;
-        powerled <= ktoggle;
+--        flop <= ktoggle;
       end if;
       
       -- Connect UART RX and TX
