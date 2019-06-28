@@ -286,7 +286,12 @@ architecture Behavioral of container is
 
   signal counter : integer := 0;
   signal ktoggle : std_logic := '0';
-  
+
+  signal restore : std_logic := '0';
+  signal capslock : std_logic := '0';
+  signal leftkey : std_logic := '0';
+  signal upkey : std_logic := '0';
+
 begin
 
   dotclock1: entity work.dotclock100
@@ -306,14 +311,20 @@ begin
       powerled => powerled,
       flopled => flopled_drive,
       flopmotor => flopmotor_drive,
-            
+
+      powerled => capslock,
+      flopled => restore,
+      flopmotor => upkey,
+      
       kio8 => kb_io0,
       kio9 => kb_io1,
       kio10 => kb_io2,
 
---      matrix_col => widget_matrix_col,
-     matrix_col_idx => 0 -- widget_matrix_col_idx,
---      restore => widget_restore
+      matrix_col_idx => 0,
+      restore => restore,
+      capslock_out => capslock,
+      leftkey => leftkey,
+      upkey => upkey
 
       );
 

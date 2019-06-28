@@ -18,9 +18,14 @@ entity mega65kbd_to_matrix is
 
     matrix_col : out std_logic_vector(7 downto 0) := (others => '1');
     matrix_col_idx : in integer range 0 to 8;
-    
+
+    -- RESTORE and capslock are active low
     restore : out std_logic := '1';
     capslock_out : out std_logic := '1'
+
+    -- LEFT and UP cursor keys are active HIGH
+    leftkey : out std_logic := '0';
+    upkey : out std_logic := '0';
     
     );
 
@@ -87,6 +92,21 @@ begin  -- behavioural
 
         if kbd_clock='1' and phase < 128 then
           keyram_offset := phase/8;
+
+          -- Receive keys with dedicated lines
+          if phase = 72 then
+            capslock_out <= kio10;
+          end if;
+          if phase = 73 then
+            restore <= kio10;
+          end if
+          if phase = 74 then
+            leftkey <= not kio10;
+          end if
+          if phase = 75 then
+            upkey <= not kio10;
+          end if;
+          
           -- Work around the data arriving 2 cycles late from the keyboard controller
           if phase = 80 or phase = 81 then
             keyram_offset := 0;
