@@ -118,8 +118,8 @@ begin  -- behavioural
             -- Reset to start
             sync_pulse <= '1';
             output_vector <= (others => '0');
-            if flopmotor='1' or (flopled='1' and counter(26)='1') then
-              output_vector(23 downto 0) <= x"000FF000";
+            if flopmotor='1' or (flopled='1' and counter(24)='1') then
+              output_vector(23 downto 0) <= x"00FF00";
               output_vector(47 downto 24) <= x"00FF00";
             end if;
             if powerled='1' then
@@ -130,9 +130,9 @@ begin  -- behavioural
             sync_pulse <= '0';
           elsif phase < 127 then
             -- Output next bit
-            kio9 <= output_vector(0);
-            output_vector(126 downto 0) <= output_vector(127 downto 1);
-            output_vector(127) <= '0';
+            kio9 <= output_vector(127);
+            output_vector(127 downto 1) <= output_vector(126 downto 0);
+            output_vector(0) <= '0';
 
           end if;
         end if;
