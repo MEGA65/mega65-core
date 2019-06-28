@@ -287,8 +287,6 @@ architecture Behavioral of container is
   signal widget_matrix_col : std_logic_vector(7 downto 0);
   signal widget_restore : std_logic := '1';
   signal widget_capslock : std_logic := '0';
-  signal widget_up : std_logic := '0';
-  signal widget_left : std_logic := '0';
   signal widget_joya : std_logic_vector(4 downto 0);
   signal widget_joyb : std_logic_vector(4 downto 0);
   
@@ -325,11 +323,11 @@ begin
 
       matrix_col => widget_matrix_col,
       matrix_col_idx => widget_matrix_col_idx,
-      restore => widget_restore
+      restore => widget_restore,
       capslock_out => widget_capslock,
-      upkey => widget_up,
-      leftkey => widget_left
-
+      upkey => keyup,
+      leftkey => keyleft
+      
       );
   
   slow_devices0: entity work.slow_devices
