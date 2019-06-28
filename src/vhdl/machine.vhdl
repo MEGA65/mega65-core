@@ -1084,7 +1084,7 @@ begin
       test_pattern_enable => test_pattern_enable,
       
       led => '0',
-      motor => motor,
+      motor => '0',
 
       xray_mode => xray_mode,
       d031_written => d031_write_toggle,
@@ -1356,7 +1356,6 @@ begin
       colourram_at_dc00 => colourram_at_dc00,
       drive_led => drive_led,
       motor => motor,
-      drive_led_out => '0',
       sw => sw,
       btn => btn,
 --    seg_led => seg_led_data,
