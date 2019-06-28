@@ -308,9 +308,9 @@ begin
     port map (
       ioclock => cpuclock,
 
-      powerled => powerled,
-      flopled => flopled_drive,
-      flopmotor => flopmotor_drive,
+--      powerled => powerled,
+--      flopled => flopled_drive,
+--      flopmotor => flopmotor_drive,
 
       powerled => capslock,
       flopled => restore,

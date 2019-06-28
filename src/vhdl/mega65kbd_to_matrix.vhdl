@@ -21,11 +21,11 @@ entity mega65kbd_to_matrix is
 
     -- RESTORE and capslock are active low
     restore : out std_logic := '1';
-    capslock_out : out std_logic := '1'
+    capslock_out : out std_logic := '1';
 
     -- LEFT and UP cursor keys are active HIGH
     leftkey : out std_logic := '0';
-    upkey : out std_logic := '0';
+    upkey : out std_logic := '0'
     
     );
 
@@ -99,10 +99,10 @@ begin  -- behavioural
           end if;
           if phase = 73 then
             restore <= kio10;
-          end if
+          end if;
           if phase = 74 then
             leftkey <= not kio10;
-          end if
+          end if;
           if phase = 75 then
             upkey <= not kio10;
           end if;
