@@ -292,6 +292,11 @@ architecture Behavioral of container is
   signal leftkey : std_logic := '0';
   signal upkey : std_logic := '0';
 
+  signal delete_out : std_logic := '0';
+  signal return_out : std_logic := '0';
+  
+  signal matrix_col : std_logic_vector(7 downto 0);
+  
 begin
 
   dotclock1: entity work.dotclock100
@@ -312,19 +317,25 @@ begin
 --      flopled => flopled_drive,
 --      flopmotor => flopmotor_drive,
 
-      powerled => capslock,
-      flopled => restore,
-      flopmotor => upkey,
-      
+      powerled => matrix_col(0),
+      flopled => matrix_col(1),
+
+--      powerled => delete_out,
+--      flopled => return_out,
+      flopmotor => matrix_col(2),
+
       kio8 => kb_io0,
       kio9 => kb_io1,
       kio10 => kb_io2,
 
       matrix_col_idx => 0,
+      matrix_col => matrix_col,
       restore => restore,
       capslock_out => capslock,
       leftkey => leftkey,
-      upkey => upkey
+      upkey => upkey,
+      delete_out => delete_out,
+      return_out => return_out
 
       );
 
