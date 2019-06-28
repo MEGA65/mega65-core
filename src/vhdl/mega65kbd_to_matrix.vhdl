@@ -119,12 +119,12 @@ begin  -- behavioural
             sync_pulse <= '1';
             output_vector <= (others => '0');
             if flopmotor='1' or (flopled='1' and counter(26)='1') then
-              output_vector(23 downto 0) <= x"0000FF";
-              output_vector(47 downto 24) <= x"0000FF";
+              output_vector(23 downto 0) <= x"000FF000";
+              output_vector(47 downto 24) <= x"00FF00";
             end if;
             if powerled='1' then
-              output_vector(71 downto 48) <= x"0000FF";
-              output_vector(95 downto 72) <= x"0000FF";
+              output_vector(71 downto 48) <= x"00FF00";
+              output_vector(95 downto 72) <= x"00FF00";
             end if;
           elsif phase = 140 then
             sync_pulse <= '0';
