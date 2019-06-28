@@ -8,8 +8,9 @@ entity mega65kbd_to_matrix is
   port (
     ioclock : in std_logic;
 
+    flopmotor : in std_logic;
     flopled : in std_logic;
-    powerled : in std_logic;
+    powerled : in std_logic;    
     
     kio8 : out std_logic; -- clock to keyboard
     kio9 : out std_logic; -- data output to keyboard
@@ -38,6 +39,8 @@ architecture behavioural of mega65kbd_to_matrix is
   signal kbd_clock : std_logic := '0';
   signal phase : integer range 0 to 255 := 0;
   signal sync_pulse : std_logic := '0';
+
+  signal counter : unsigned(26 downto 0) := to_unsigned(0,27);
   
   signal output_vector : std_logic_vector(127 downto 0);
   
@@ -66,7 +69,10 @@ begin  -- behavioural
       -- Process is to run a clock at a modest rate, and periodically send
       -- a sync pulse, and clock in the key states, while clocking out the
       -- LED states.
-      
+
+      -- Counter is for working out drive LED blink phase
+      counter <= counter + 1;
+    
       -- Default is no write nothing at offset zero into the matrix ram.
       keyram_write_enable := x"00";
       keyram_offset := 0;
@@ -112,7 +118,7 @@ begin  -- behavioural
             -- Reset to start
             sync_pulse <= '1';
             output_vector <= (others => '0');
-            if flopled='1' then
+            if flopmotor='1' or (flopled='1' and counter(26)='1') then
               output_vector(23 downto 0) <= x"0000FF";
               output_vector(47 downto 24) <= x"0000FF";
             end if;

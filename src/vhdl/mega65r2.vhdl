@@ -97,6 +97,9 @@ entity container is
          iec_clk_o : out std_logic;
          iec_data_i : in std_logic;
          iec_clk_i : in std_logic;
+         iec_srq_o : out std_logic;
+         iec_srq_en : out std_logic;
+         iec_src_i : in std_logic;
          iec_atn : out std_logic;
          
          ----------------------------------------------------------------------
@@ -255,11 +258,14 @@ architecture Behavioral of container is
   
   signal iec_clk_en_drive : std_logic;
   signal iec_data_en_drive : std_logic;
+  signal iec_srq_en_drive : std_logic;
   signal iec_data_o_drive : std_logic;
   signal iec_reset_drive : std_logic;
   signal iec_clk_o_drive : std_logic;
+  signal iec_srq_o_drive : std_logic;
   signal iec_data_i_drive : std_logic;
   signal iec_clk_i_drive : std_logic;
+  signal iec_srq_i_drive : std_logic;
   signal iec_atn_drive : std_logic;
 
   signal pwm_l_drive : std_logic;
@@ -305,6 +311,7 @@ begin
 
       powerled => '1',
       flopled => flopled_drive,
+      flopmotor => flopmotor_drive,
             
       kio8 => kb_io0,
       kio9 => kb_io1,
