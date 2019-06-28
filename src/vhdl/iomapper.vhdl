@@ -86,7 +86,6 @@ entity iomapper is
 
         drive_led : out std_logic := '0';
         motor : out std_logic := '0';
-        drive_led_out : in std_logic;
 
         porta_pins : inout  std_logic_vector(7 downto 0) := (others => 'Z');
         portb_pins : in  std_logic_vector(7 downto 0);
