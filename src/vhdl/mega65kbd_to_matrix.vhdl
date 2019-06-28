@@ -98,13 +98,13 @@ begin  -- behavioural
             capslock_out <= kio10;
           end if;
           if phase = 73 then
-            restore <= kio10;
+            upkey <= not kio10;
           end if;
           if phase = 74 then
             leftkey <= not kio10;
           end if;
           if phase = 75 then
-            upkey <= not kio10;
+            restore <= kio10;
           end if;
           
           -- Work around the data arriving 2 cycles late from the keyboard controller
