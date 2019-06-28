@@ -19,6 +19,9 @@ entity mega65kbd_to_matrix is
     matrix_col : out std_logic_vector(7 downto 0) := (others => '1');
     matrix_col_idx : in integer range 0 to 8;
 
+    delete_out : out std_logic;
+    return_out : out std_logic;
+    
     -- RESTORE and capslock are active low
     restore : out std_logic := '1';
     capslock_out : out std_logic := '1';
@@ -48,6 +51,9 @@ architecture behavioural of mega65kbd_to_matrix is
   signal counter : unsigned(26 downto 0) := to_unsigned(0,27);
   
   signal output_vector : std_logic_vector(127 downto 0);
+
+  signal deletekey : std_logic := '1';
+  signal returnkey : std_logic := '1';
   
 begin  -- behavioural
 
@@ -75,6 +81,9 @@ begin  -- behavioural
       -- a sync pulse, and clock in the key states, while clocking out the
       -- LED states.
 
+      delete_out <= deletekey;
+      return_out <= returnkey;
+      
       -- Counter is for working out drive LED blink phase
       counter <= counter + 1;
     
@@ -106,15 +115,24 @@ begin  -- behavioural
           if phase = 75 then
             restore <= kio10;
           end if;
-          
-          -- Work around the data arriving 2 cycles late from the keyboard controller
-          if phase = 80 or phase = 81 then
-            keyram_offset := 0;
+          if phase = 76 then
+            deletekey <= kio10;
+          end if;
+          if phase = 77 then
+            returnkey <= kio10;
           end if;
           
-          matrix_dia <= (others => kio10); -- present byte of input bits to
-                                           -- ram for writing
-
+          -- Work around the data arriving 2 cycles late from the keyboard controller
+          if phase = 0 then
+            matrix_dia <= (others => deletekey);
+          elsif phase = 1 then
+            matrix_dia <= (others => returnkey);
+          else
+            matrix_dia <= (others => kio10); -- present byte of input bits to
+                                             -- ram for writing
+          end if;
+          
+          
           report "Writing received bit " & std_logic'image(kio10) & " to bit position " & integer'image(phase);
           
           case (phase mod 8) is
