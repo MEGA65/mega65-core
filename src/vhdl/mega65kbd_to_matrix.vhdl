@@ -87,6 +87,11 @@ begin  -- behavioural
 
         if kbd_clock='1' and phase < 128 then
           keyram_offset := phase/8;
+          -- Work around the data arriving 2 cycles late from the keyboard controller
+          if phase = 80 or phase = 81 then
+            keyram_offset := 0;
+          end if;
+          
           matrix_dia <= (others => kio10); -- present byte of input bits to
                                            -- ram for writing
 
