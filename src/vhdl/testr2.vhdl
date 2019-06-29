@@ -21,6 +21,7 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
+use work.cputypes.all;
 
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
@@ -296,6 +297,8 @@ architecture Behavioral of container is
   signal return_out : std_logic := '0';
   
   signal matrix_col : std_logic_vector(7 downto 0);
+
+--  signal dummy : std_logic := '0';
   
 begin
 
@@ -339,45 +342,68 @@ begin
 
       );
 
-  
-  pin8: entity work.pin_id
+  slow_devices0: entity work.slow_devices
+    generic map (
+      target => mega65r2
+      )
     port map (
-      clock => pixelclock,
-      pin_number => to_unsigned(8,8),
-      pin => sd2clock
-      );
+      cpuclock => cpuclock,
+      pixelclock => pixelclock,
+      reset => iec_reset_drive,
+      cpu_exrom => cpu_exrom,
+      cpu_game => cpu_game,
+      sector_buffer_mapped => sector_buffer_mapped,
+      
+      qspidb => qspidb,
+      qspicsn => qspicsn,      
+--      qspisck => '1',
 
-  -- DAT0 on connector ?
-  pin9: entity work.pin_id
-    port map (
-      clock => pixelclock,
-      pin_number => to_unsigned(9,8),
-      pin => sd2reset
-      );
+      joya => joy3,
+      joyb => joy4,
+      
+--      cart_busy => led,
+      cart_access_count => cart_access_count,
+      
+      slow_access_request_toggle => slow_access_request_toggle,
+      slow_access_ready_toggle => slow_access_ready_toggle,
+      slow_access_write => slow_access_write,
+      slow_access_address => slow_access_address,
+      slow_access_wdata => slow_access_wdata,
+      slow_access_rdata => slow_access_rdata,
 
-  -- CLK on connector ?
-  pin10: entity work.pin_id
-    port map (
-      clock => pixelclock,
-      pin_number => to_unsigned(10,8),
-      pin => sd2miso
-      );
-
-  -- CMD on connector ?
-  pin11: entity work.pin_id
-    port map (
-      clock => pixelclock,
-      pin_number => to_unsigned(11,8),
-      pin => sd2mosi
-      );
+      expansionram_data_ready_strobe => '1',
   
-  pin15: entity work.pin_id
-    port map (
-      clock => pixelclock,
-      pin_number => to_unsigned(15,8),
-      pin => sd2_dat(3)
+      ----------------------------------------------------------------------
+      -- Expansion/cartridge port
+      ----------------------------------------------------------------------
+      cart_ctrl_dir => cart_ctrl_dir,
+      cart_haddr_dir => cart_haddr_dir,
+      cart_laddr_dir => cart_laddr_dir,
+      cart_data_dir => cart_data_dir,
+      cart_data_en => cart_data_en,
+      cart_addr_en => cart_addr_en,
+      cart_phi2 => cart_phi2,
+      cart_dotclock => cart_dotclock,
+      cart_reset => cart_reset,
+      
+      cart_nmi => cart_nmi,
+      cart_irq => cart_irq,
+      cart_dma => cart_dma,
+      
+      cart_exrom => cart_exrom,
+--      cart_exrom => dummy,
+      cart_ba => cart_ba,
+      cart_rw => cart_rw,
+      cart_roml => cart_roml,
+      cart_romh => cart_romh,
+      cart_io1 => cart_io1,
+      cart_game => cart_game,
+      cart_io2 => cart_io2,
+      
+      cart_d_in => cart_d,
+      cart_d => cart_d,
+      cart_a => cart_a
       );
-  
   
   process (pixelclock) is
   begin
@@ -394,6 +420,8 @@ begin
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then
 
+      led <= cpu_exrom;
+      
       -- Try to debug keyboard interface
       if counter /= 10000000 then
         counter <= counter + 1;
