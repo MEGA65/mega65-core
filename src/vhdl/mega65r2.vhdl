@@ -21,6 +21,7 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
+use work.cputypes.all;
 
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
@@ -331,6 +332,9 @@ begin
       );
   
   slow_devices0: entity work.slow_devices
+    generic map (
+      target => mega65r2
+      )
     port map (
       cpuclock => cpuclock,
       pixelclock => pixelclock,
@@ -390,7 +394,9 @@ begin
       );
   
   machine0: entity work.machine
-    generic map (cpufrequency => 40)
+    generic map (cpufrequency => 40,
+                 target => mega65r2
+                 )                 
     port map (
       pixelclock      => pixelclock,
       cpuclock        => cpuclock,
