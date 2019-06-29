@@ -496,11 +496,13 @@ begin
       -- Ignore widget board interface and other things
       tmpint => '1',
       tmpct => '1',
-      
-      pmod_clock => '1',
-      pmod_start_of_sequence => '0',
-      pmod_data_in => (others => '1'),
-      pmoda => pmoda_dummy,
+
+     widget_matrix_col => (others => '1'),
+      widget_restore => '1',
+      widget_capslock => '1',
+      widget_joya => (others => '1'),
+      widget_joyb => (others => '1'),      
+
       sw => (others => '0'),
 --      uart_rx => '1',
       btn => (others => '1')
