@@ -231,7 +231,7 @@ begin
         report "dotclock tick";
         cart_dotclock <= not cart_dotclock_internal;
         cart_dotclock_internal <= not cart_dotclock_internal;
-        if phi2_ticker /= 4 then
+        if phi2_ticker /= 7 then
           phi2_ticker <= phi2_ticker + 1;
           cart_access_read_strobe <= '0';
           cart_access_accept_strobe <= '0';

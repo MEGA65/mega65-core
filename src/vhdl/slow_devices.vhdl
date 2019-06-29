@@ -124,7 +124,7 @@ architecture behavioural of slow_devices is
   
 begin
   cartport0: entity work.expansion_port_controller
-    generic map ( pixelclock_frequency => 100,
+    generic map ( pixelclock_frequency => 80,
                   target => target
                   )
     port map (
