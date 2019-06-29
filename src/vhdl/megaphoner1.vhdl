@@ -294,6 +294,8 @@ architecture Behavioral of container is
   signal i2c_black3 : std_logic;
   signal i2c_black4 : std_logic;
 
+  signal widget_matrix_col : std_logic_vector(7 downto 0) := (others => '1');
+  
 begin
 
   dotclock1: entity work.dotclock100
@@ -563,10 +565,11 @@ begin
       ps2data =>      '1',
       ps2clock =>     '1',
 
-      -- Widget board interface stub
-      pmod_start_of_sequence => '0',
-      pmod_data_in => "1111",
-      pmod_clock => '0',
+      widget_matrix_col => (others => '1'),
+      widget_restore => '1',
+      widget_capslock => '1',
+      widget_joya => (others => '1'),
+      widget_joyb => (others => '1'),      
       
       -- C65 UART
       uart_rx => c65uart_rx,
