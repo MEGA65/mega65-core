@@ -83,13 +83,13 @@ ENTITY expansion_port_controller IS
     cart_irq : in std_logic;
     cart_dma : in std_logic;
     
-    cart_exrom : inout std_logic := 'H';
+    cart_exrom : in std_logic;
     cart_ba : inout std_logic := 'H';
     cart_rw : inout std_logic := 'H';
     cart_roml : inout std_logic := 'H';
     cart_romh : inout std_logic := 'H';
     cart_io1 : inout std_logic := 'H';
-    cart_game : inout std_logic := 'H';
+    cart_game : in std_logic;
     cart_io2 : inout std_logic := 'H';
     
     cart_d_in : in unsigned(7 downto 0);
@@ -213,17 +213,19 @@ begin
         else
           reprobe_exrom <= '0';
         end if;
+        cpu_exrom <= '1';
+        cpu_game <= '1';
       end if;
 
       -- Only the R1 PCB needs to probe the /EXROM and /GAME pins dynamically because
       -- the lines were put through birectional buffer, so we had to set to output
       if target /= mega65r1 then
         reprobe_exrom <= '0';
-        cart_exrom <= 'Z';
-        cart_game <= 'Z';
-        cpu_exrom <= cart_exrom;
-        cpu_game <= cart_game;
+--        cart_exrom <= 'Z';
+--        cart_game <= 'Z';
       end if;
+      cpu_exrom <= cart_exrom;
+      cpu_game <= cart_game;
       
       ticker <= ('0'&ticker(15 downto 0)) + dotclock_increment;
       if ticker(16) = '0' then
@@ -315,8 +317,8 @@ begin
             report "EXROM: Tri-stating cart_exrom,game, setting cart_ctrl_dir=0";
             reprobe_exrom <= '0';
             cart_ctrl_dir <= '0';
-            cart_exrom <= 'H';
-            cart_game <= 'H';
+--            cart_exrom <= 'H';
+--            cart_game <= 'H';
             probing_exrom <= '1';
           elsif (cart_access_request='1') and (reset_counter = 0)
             -- Check that clock will be high during this request, i.e.,

@@ -350,7 +350,7 @@ begin
       joya => joy3,
       joyb => joy4,
       
-      cart_busy => led,
+--      cart_busy => led,
       cart_access_count => cart_access_count,
       
       slow_access_request_toggle => slow_access_request_toggle,
@@ -576,6 +576,8 @@ begin
 
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then
+
+      led <= cart_exrom;
       
       fa_left_drive <= fa_left;
       fa_right_drive <= fa_right;

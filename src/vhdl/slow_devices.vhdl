@@ -82,13 +82,13 @@ ENTITY slow_devices IS
     cart_irq : in std_logic;
     cart_dma : in std_logic;
     
-    cart_exrom : inout std_logic := 'H';
+    cart_exrom : in std_logic;
     cart_ba : inout std_logic := 'H';
     cart_rw : inout std_logic := 'H';
     cart_roml : inout std_logic := 'H';
     cart_romh : inout std_logic := 'H';
     cart_io1 : inout std_logic := 'H';
-    cart_game : inout std_logic := 'H';
+    cart_game : in std_logic;
     cart_io2 : inout std_logic := 'H';
     
     cart_d_in : in unsigned(7 downto 0);
