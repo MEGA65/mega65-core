@@ -450,8 +450,8 @@ reset_machine_state:
 		
 		lda #$6b    ; 01101011
 		sta hypervisor_feature_enables
-		; Also don't force /EXROM and /GAME high from userland side
-		lda #$00
+
+		lda #$ff
 		sta $d7fd
 
 		jsr audiomix_setup
@@ -2083,6 +2083,7 @@ phd1:		sta (<zptempp2),y
 
 go64:
 
+
 ; Transfer control to C64 kernel.
 ; (This also allows entry to C65 mode, because the
 ;  C64-mode kernel on the C65 checks if C65 mode
@@ -2150,6 +2151,13 @@ g61:		sta $0800,x
 		; This must happen last, so that the ultimax cartridge
 		; reset vector is used, instead of the one in the loaded ROM
 		jsr setup_for_ultimax_cartridge
+
+		; Apply RESET to cartridge for a little while so that cartridges
+		; with capacitors tied to EXROM or GAME are visible.
+		; Do this last, because some cartridges remain visible for as little
+		; as 512 usec.
+
+		jsr reset_cartridge
 
 		; exit from hypervisor to start machine
 		sta hypervisor_enterexit_trigger
