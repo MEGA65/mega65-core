@@ -210,14 +210,17 @@ begin
         reset_counter <= 15;
         if target = mega65r1 then
           reprobe_exrom <= '1';
+        else
+          reprobe_exrom <= '0';
         end if;
       end if;
 
       -- Only the R1 PCB needs to probe the /EXROM and /GAME pins dynamically because
       -- the lines were put through birectional buffer, so we had to set to output
       if target /= mega65r1 then
-        cart_exrom <= 'H';
-        cart_game <= 'H';
+        reprobe_exrom <= '0';
+        cart_exrom <= 'Z';
+        cart_game <= 'Z';
         cpu_exrom <= cart_exrom;
         cpu_game <= cart_game;
       end if;
@@ -284,7 +287,7 @@ begin
           cart_addr_en <= '1';
 
           -- Present next bus request if we have one
-          if probing_exrom = '1' and reprobe_exrom='0' then
+          if probing_exrom = '1' and reprobe_exrom='0' and target = mega65r1 then
             -- Update CPU's view of cartridge config lines
 --            report "EXROM: Read exrom as " & std_logic'image(cart_exrom)
 --              & " and game as " & std_logic'image(cart_game)
