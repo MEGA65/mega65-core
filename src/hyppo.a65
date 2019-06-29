@@ -450,6 +450,9 @@ reset_machine_state:
 		
 		lda #$6b    ; 01101011
 		sta hypervisor_feature_enables
+		; Also don't force /EXROM and /GAME high from userland side
+		lda #$00
+		sta $d7fd
 
 		jsr audiomix_setup
 		; enable audio amplifier
