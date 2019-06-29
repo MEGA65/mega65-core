@@ -1476,7 +1476,7 @@ begin
 
       -- Enable chipselect for all peripherals and memories
       chipselect_enables <= x"EF";
-      cartridge_enable <= '0';
+--      cartridge_enable <= '0';
       hyper_protected_hardware <= x"00";
       
       -- CPU starts in hypervisor
@@ -2166,7 +2166,7 @@ begin
             when x"eb" => return reg_math_cycle_compare(31 downto 24);
 
             when x"fa" => return to_unsigned(cpu_speed_bias,8);
-            when x"fb" => return "0000000" & charge_for_branches_taken;
+            when x"fb" => return "000000" & cartridge_enable & charge_for_branches_taken;
             when x"fc" => return unsigned(chipselect_enables);
             when x"fd" =>
               report "Reading $D7FD";
@@ -2255,7 +2255,7 @@ begin
                 & monitor_char_busy;
 
             when "111101" =>
-              -- this section
+              -- this section $D67D
               return "11"
                 & force_4502
                 & force_fast
@@ -2530,7 +2530,9 @@ begin
         cpu_speed_bias <= to_integer(value);
       elsif (long_address = x"FFD37FB") then
         -- @IO:GS $D7FB.0 CPU:BRCOST 1=charge extra cycle(s) for branches taken
+        -- @IO:GS $D7FB.1 CPU:CARTEN 1= enable cartridges
         charge_for_branches_taken <= value(0);
+        cartridge_enable <= '1';
       elsif (long_address = x"FFD37FC") then
       -- @IO:GS $D7FC DEBUG chip-select enables for various devices
 --        chipselect_enables <= std_logic_vector(value);
@@ -2967,7 +2969,7 @@ begin
 
       -- Disable all non-essential IO devices from memory map when in secure mode.
       if hyper_protected_hardware(7)='1' then
-        cartridge_enable <= '0';
+--        cartridge_enable <= '0';
         chipselect_enables <= x"84"; -- SD card/multi IO controller and SIDs
       -- (we disable the undesirable parts of the SD card interface separately)
       else
