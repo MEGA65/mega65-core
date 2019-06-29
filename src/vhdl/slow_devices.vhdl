@@ -5,6 +5,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
+use work.cputypes.all;
 
 ENTITY slow_devices IS
   generic (
@@ -12,7 +13,8 @@ ENTITY slow_devices IS
     has_psram : std_logic := '0';
     has_hyperram : std_logic := '0';
     has_c64_cartridge_port : std_logic := '0';
-    has_fakecartridge : std_logic := '0'
+    has_fakecartridge : std_logic := '0';
+    target : mega65_target_t := mega65r1
     );
   PORT (
     ------------------------------------------------------------------------
@@ -122,7 +124,8 @@ architecture behavioural of slow_devices is
   
 begin
   cartport0: entity work.expansion_port_controller
-    generic map ( pixelclock_frequency => 100
+    generic map ( pixelclock_frequency => 100,
+                  target => target
                   )
     port map (
     cpuclock => cpuclock,

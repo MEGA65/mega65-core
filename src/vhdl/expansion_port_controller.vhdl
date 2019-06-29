@@ -8,10 +8,12 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
+use work.cputypes.all;
 
 ENTITY expansion_port_controller IS
   generic (
-    pixelclock_frequency : in integer
+    pixelclock_frequency : in integer;
+    target : mega65_target_t
     );
   PORT (
     ------------------------------------------------------------------------
@@ -177,8 +179,12 @@ begin
             joya <= std_logic_vector(cart_d_in(4 downto 0)) xor "11111";
             joyb <= std_logic_vector(cart_a(4 downto 0)) xor "11111";
           end if;
-          -- Precharge lines read for next reading
-          cart_d <= (others => '1');
+          if target = mega65r1 then
+            -- Precharge lines read for next reading on M65R1 that lacks pull-ups
+            cart_d <= (others => '1');
+          else
+            cart_d <= (others => 'Z');
+          end if;
           cart_data_dir <= '1';
           cart_laddr_dir <= '1';
           cart_a(7 downto 0) <= (others => '1');
@@ -202,7 +208,18 @@ begin
         report "Asserting RESET on cartridge port";
         cart_reset <= '0';
         reset_counter <= 15;
-        reprobe_exrom <= '1';
+        if target = mega65r1 then
+          reprobe_exrom <= '1';
+        end if;
+      end if;
+
+      -- Only the R1 PCB needs to probe the /EXROM and /GAME pins dynamically because
+      -- the lines were put through birectional buffer, so we had to set to output
+      if target /= mega65r1 then
+        cart_exrom <= 'H';
+        cart_game <= 'H';
+        cpu_exrom <= cart_exrom;
+        cpu_game <= cart_game;
       end if;
       
       ticker <= ('0'&ticker(15 downto 0)) + dotclock_increment;
@@ -336,13 +353,17 @@ begin
               -- case the cartridge has banked things in response to IO access
               if cart_access_address(15 downto 8) = x"DE" and sector_buffer_mapped='0' then
                 cart_io1 <= '0';
-                reprobe_exrom <= '1';
+                if target = mega65r1 then
+                  reprobe_exrom <= '1';
+                end if;
               else
                 cart_io1 <= '1';
               end if;
               if cart_access_address(15 downto 8) = x"DF" and sector_buffer_mapped='0' then
                 cart_io2 <= '0';
-                reprobe_exrom <= '1';
+                if target = mega65r1 then
+                  reprobe_exrom <= '1';
+                end if;
               else
                 cart_io2 <= '1';
               end if;
@@ -372,7 +393,11 @@ begin
               if not_joystick_cartridge = '1' and force_joystick_cartridge='0' then
                 -- Tri-state with pull-up
                 report "Tristating cartridge port data lines.";
-                cart_d <= (others => 'H');
+                if target = mega65r1 then
+                  cart_d <= (others => 'H');
+                else
+                  cart_d <= (others => 'Z');
+                end if;
               end if;
             else
               read_in_progress <= '0';
@@ -384,7 +409,11 @@ begin
           else
             if not_joystick_cartridge = '1' and force_joystick_cartridge='0' then
               cart_access_accept_strobe <= '0';
-              cart_a <= (others => 'H');
+              if target = mega65r1 then
+                cart_a <= (others => 'H');
+              else
+                cart_a <= (others => 'Z');
+              end if;              
               cart_roml <= '1';
               cart_romh <= '1';
               cart_io1 <= '1';

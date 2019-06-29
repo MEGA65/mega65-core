@@ -41,6 +41,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.victypes.all;
+use work.cputypes.all;
 
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
@@ -52,7 +53,8 @@ use work.victypes.all;
 --use UNISIM.VComponents.all;
 
 entity machine is
-  generic (cpufrequency : integer := 50);
+  generic (cpufrequency : integer := 50;
+           target : mega65_target_t := mega65r1);
   Port ( pixelclock : in STD_LOGIC;
          cpuclock : in std_logic;
          clock50mhz : in std_logic;  -- normal ethernet clock
@@ -858,7 +860,8 @@ begin
 
   cpu0: entity work.gs4510
     generic map(
-      cpufrequency => cpufrequency)
+      cpufrequency => cpufrequency,
+      target => target)
     port map(
       phi0 => phi0,
       all_pause => all_pause,
