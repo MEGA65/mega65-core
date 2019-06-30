@@ -24,7 +24,7 @@ use work.debugtools.all;
   
 entity mfm_decoder is
   port (
-    clock50mhz : in std_logic;
+    clock40mhz : in std_logic;
 
     f_rdata : in std_logic;
     invalidate : in std_logic;
@@ -121,7 +121,7 @@ architecture behavioural of mfm_decoder is
 begin
 
   gaps0: entity work.mfm_gaps port map (
-    clock50mhz => clock50mhz,
+    clock40mhz => clock40mhz,
 
     packed_rdata => packed_rdata,
     
@@ -132,7 +132,7 @@ begin
     );
 
   quantise0: entity work.mfm_quantise_gaps port map (
-    clock50mhz => clock50mhz,
+    clock40mhz => clock40mhz,
 
     cycles_per_interval => cycles_per_interval,
 
@@ -144,7 +144,7 @@ begin
     );
 
   bits0: entity work.mfm_gaps_to_bits port map (
-    clock50mhz => clock50mhz,
+    clock40mhz => clock40mhz,
 
     gap_valid => gap_size_valid,
     gap_size => gap_size,
@@ -155,7 +155,7 @@ begin
     );
 
   bytes0: entity work.mfm_bits_to_bytes port map (
-    clock50mhz => clock50mhz,
+    clock40mhz => clock40mhz,
 
     sync_in => sync_in,
     bit_in => bit_in,
@@ -167,7 +167,7 @@ begin
     );
 
   crc0: entity work.crc1581 port map (
-    clock50mhz => clock50mhz,
+    clock40mhz => clock40mhz,
     crc_byte => crc_byte,
     crc_feed => crc_feed,
     crc_reset => crc_reset,
@@ -176,9 +176,9 @@ begin
     crc_value => crc_value
     );
   
-  process (clock50mhz,f_rdata) is
+  process (clock40mhz,f_rdata) is
   begin
-    if rising_edge(clock50mhz) then
+    if rising_edge(clock40mhz) then
 
       mfm_last_byte <= byte_in;
       mfm_state <= to_unsigned(MFMState'pos(state),8);
