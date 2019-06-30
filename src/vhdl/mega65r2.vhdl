@@ -95,7 +95,6 @@ entity container is
          hr_rwds : inout std_logic;
          hr_reset : out std_logic;
          hr_rsto : out std_logic := '1';
-         hr_clk_n : out std_logic;
          hr_clk_p : out std_logic;
          hr_cs0 : out std_logic;
          hr_cs1 : out std_logic := '1';
@@ -369,7 +368,6 @@ begin
       hr_d => hr_d,
       hr_rwds => hr_rwds,
       hr_reset => hr_reset,
-      hr_clk_n => hr_clk_n,
       hr_clk_p => hr_clk_p,
       hr_cs0 => hr_cs0,
       hr_cs1 => hr_cs1

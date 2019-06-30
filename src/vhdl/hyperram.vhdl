@@ -35,7 +35,6 @@ entity hyperram is
 --         hr_rsto : in std_logic; -- Unknown PIN
          hr_reset : out std_logic := '1'; -- Active low RESET line to HyperRAM
 --         hr_int : in std_logic; -- Interrupt?
-         hr_clk_n : out std_logic := '0';
          hr_clk_p : out std_logic := '1';
          hr_cs0 : out std_logic := '1';
          hr_cs1 : out std_logic := '1'

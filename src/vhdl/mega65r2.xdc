@@ -231,23 +231,18 @@ set_property -dict {PACKAGE_PIN E16 IOSTANDARD LVCMOS33} [get_ports internal_spe
 #set_property -dict { PACKAGE_PIN xx IOSTANDARD LVCMOS33 } [get_ports {QspiDB[3]}]
 
 ## Hyper RAM : 1.8V allows for higher speed, but requires differential clock pair
-set_property -dict {PACKAGE_PIN A21 IOSTANDARD LVCMOS18} [get_ports {hr_d[0]}]
-set_property -dict {PACKAGE_PIN B17 IOSTANDARD LVCMOS18} [get_ports {hr_d[1]}]
-set_property -dict {PACKAGE_PIN C20 IOSTANDARD LVCMOS18} [get_ports {hr_d[2]}]
-set_property -dict {PACKAGE_PIN A20 IOSTANDARD LVCMOS18} [get_ports {hr_d[3]}]
-set_property -dict {PACKAGE_PIN B20 IOSTANDARD LVCMOS18} [get_ports {hr_d[4]}]
-set_property -dict {PACKAGE_PIN A19 IOSTANDARD LVCMOS18} [get_ports {hr_d[5]}]
-set_property -dict {PACKAGE_PIN B18 IOSTANDARD LVCMOS18} [get_ports {hr_d[6]}]
-set_property -dict {PACKAGE_PIN E22 IOSTANDARD LVCMOS18} [get_ports {hr_d[7]}]
-set_property -dict {PACKAGE_PIN E18 IOSTANDARD LVCMOS18} [get_ports hr_rwds]
-set_property -dict {PACKAGE_PIN C17 IOSTANDARD LVCMOS18} [get_ports hr_rsto]
-set_property -dict {PACKAGE_PIN B22 IOSTANDARD LVCMOS18} [get_ports hr_reset]
-#set_property -dict {PACKAGE_PIN J18 IOSTANDARD LVCMOS18} [get_ports hr_int]
-set_property -dict {PACKAGE_PIN A13 IOSTANDARD LVCMOS18} [get_ports hr_clk_p]
-set_property -dict {PACKAGE_PIN A14 IOSTANDARD LVCMOS18} [get_ports hr_clk_n]
-set_property -dict {PACKAGE_PIN C22 IOSTANDARD LVCMOS18} [get_ports hr_cs0]
-set_property -dict {PACKAGE_PIN D17 IOSTANDARD LVCMOS18} [get_ports hr_cs1]
-
+set_property -dict {PACKAGE_PIN A21 IOSTANDARD LVCMOS33} [get_ports {hr_d[0]}]
+set_property -dict {PACKAGE_PIN D21 IOSTANDARD LVCMOS33} [get_ports {hr_d[1]}]
+set_property -dict {PACKAGE_PIN C20 IOSTANDARD LVCMOS33} [get_ports {hr_d[2]}]
+set_property -dict {PACKAGE_PIN A20 IOSTANDARD LVCMOS33} [get_ports {hr_d[3]}]
+set_property -dict {PACKAGE_PIN B20 IOSTANDARD LVCMOS33} [get_ports {hr_d[4]}]
+set_property -dict {PACKAGE_PIN A19 IOSTANDARD LVCMOS33} [get_ports {hr_d[5]}]
+set_property -dict {PACKAGE_PIN E21 IOSTANDARD LVCMOS33} [get_ports {hr_d[6]}]
+set_property -dict {PACKAGE_PIN E22 IOSTANDARD LVCMOS33} [get_ports {hr_d[7]}]
+set_property -dict {PACKAGE_PIN B21 IOSTANDARD LVCMOS33} [get_ports hr_rwds]
+set_property -dict {PACKAGE_PIN B22 IOSTANDARD LVCMOS33} [get_ports hr_reset]
+set_property -dict {PACKAGE_PIN D23 IOSTANDARD LVCMOS33} [get_ports hr_clk_p]
+set_property -dict {PACKAGE_PIN C22 IOSTANDARD LVCMOS33} [get_ports hr_cs0]
 
 ##SMSC Ethernet PHY
 #
