@@ -52,7 +52,7 @@ use work.debugtools.all;
 entity sdcardio is
   generic (
     cpu_frequency : integer := 40000000
-    )
+    );
   port (
     clock : in std_logic;
     pixelclk : in std_logic;
