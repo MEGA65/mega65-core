@@ -290,6 +290,14 @@ architecture Behavioral of container is
   signal widget_capslock : std_logic := '0';
   signal widget_joya : std_logic_vector(4 downto 0);
   signal widget_joyb : std_logic_vector(4 downto 0);
+
+  signal expansionram_read : std_logic;
+  signal expansionram_write : std_logic;
+  signal expansionram_rdata : unsigned(7 downto 0);
+  signal expansionram_wdata : unsigned(7 downto 0);
+  signal expansionram_address : unsigned(26 downto 0);
+  signal expansionram_data_ready_strobe : std_logic;
+  signal expansionram_busy : std_logic;
   
 begin
 
@@ -330,6 +338,26 @@ begin
       leftkey => keyleft
       
       );
+
+  hyperram0: entity work.hyperram
+    port map (
+      cpuclock => cpuclock,
+      clock240 => clock240,
+      address => expansionram_address,
+      wdata => expansionram_wdata,
+      read_request => expansionram_read,
+      write_request => expansionram_write,
+      rdata => expansionram_rdata,
+      data_ready_strobe => expansionram_data_ready_strobe,
+      busy => expansionram_busy,
+      hr_d => hr_d,
+      hr_rwds => hr_rwds,
+      hr_reset => hr_reset,
+      hr_clk_n => hr_clk_n,
+      hr_clk_p => hr_clk_p,
+      hr_cs0 => hr_cs0,
+      hr_cs1 => hr_cs1
+      );
   
   slow_devices0: entity work.slow_devices
     generic map (
@@ -362,6 +390,17 @@ begin
 
       expansionram_data_ready_strobe => '1',
   
+      ----------------------------------------------------------------------
+      -- Expansion RAM interface (upto 127MB)
+      ----------------------------------------------------------------------
+      expansionram_read => expansionram_read,
+      expansionram_write => expansionram_write,
+      expansionram_rdata => expansionram_rdata,
+      expansionram_wdata => expansionram_wdata,
+      expansionram_address => expansionram_address,
+      expansionram_data_ready_strobe => expansionram_data_ready_strobe,
+      expansionram_busy => expansionram_busy,
+      
       ----------------------------------------------------------------------
       -- Expansion/cartridge port
       ----------------------------------------------------------------------
