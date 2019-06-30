@@ -94,7 +94,7 @@ entity container is
          hr_d : inout unsigned(7 downto 0);
          hr_rwds : inout std_logic;
          hr_reset : out std_logic;
-         hr_clk_p : out std_logic;
+--         hr_clk_p : out std_logic;
          hr_cs0 : out std_logic;
          
          ----------------------------------------------------------------------
@@ -195,6 +195,8 @@ entity container is
 end container;
 
 architecture Behavioral of container is
+
+  signal hr_clk_p : std_logic;
   
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
