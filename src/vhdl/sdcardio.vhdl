@@ -50,6 +50,9 @@ use Std.TextIO.all;
 use work.debugtools.all;
 
 entity sdcardio is
+  generic (
+    cpu_frequency : integer := 40000000
+    )
   port (
     clock : in std_logic;
     pixelclk : in std_logic;
@@ -337,11 +340,11 @@ architecture behavioural of sdcardio is
   signal f011_reg_step : unsigned(7 downto 0) := x"80"; -- 8ms steps
   signal f011_reg_pcode : unsigned(7 downto 0) := x"00";
   signal counter_16khz : integer := 0;
-  constant cycles_per_16khz : integer :=  (50000000/16000);
+  constant cycles_per_16khz : integer :=  (cpu_frequency/16000);
   signal busy_countdown : unsigned(15 downto 0) := x"0000";
   
   signal cycles_per_interval : unsigned(7 downto 0)
-    := to_unsigned(100,8);
+    := to_unsigned(cpu_frequency/500000,8);
   signal fdc_read_invalidate : std_logic := '0';
   signal target_track : unsigned(7 downto 0) := x"00";
   signal target_sector : unsigned(7 downto 0) := x"00";
@@ -611,7 +614,7 @@ begin  -- behavioural
 
   -- Reader for real floppy drive
   mfm0: entity work.mfm_decoder port map (
-    clock50mhz => clock,
+    clock40mhz => clock,
     f_rdata => f_rdata,
     packed_rdata => packed_rdata,
     cycles_per_interval => cycles_per_interval,

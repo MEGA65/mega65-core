@@ -8,7 +8,7 @@ use work.debugtools.all;
   
 entity crc1581 is
   port (
-    clock50mhz : in std_logic;
+    clock40mhz : in std_logic;
 
     crc_byte : in unsigned(7 downto 0);
     crc_feed : in std_logic;
@@ -28,11 +28,11 @@ architecture foo of crc1581 is
   signal bits_left : integer range 0 to 8 := 0;
   signal byte : unsigned(7 downto 0) := x"00";
 begin
-  process (clock50mhz) is
+  process (clock40mhz) is
     variable last_crc : unsigned(15 downto 0);
   begin
     
-    if rising_edge(clock50mhz) then
+    if rising_edge(clock40mhz) then
       crc_ready <= ready;
       crc_value <= value;
       if ready='1' and (last_crc /= value) then

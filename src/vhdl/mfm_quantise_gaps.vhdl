@@ -9,7 +9,7 @@ use work.debugtools.all;
   
 entity mfm_quantise_gaps is
   port (
-    clock50mhz : in std_logic;
+    clock40mhz : in std_logic;
 
     cycles_per_interval : in unsigned(7 downto 0);
   
@@ -30,9 +30,9 @@ architecture behavioural of mfm_quantise_gaps is
   
 begin
 
-  process (clock50mhz) is
+  process (clock40mhz) is
   begin
-    if rising_edge(clock50mhz) then
+    if rising_edge(clock40mhz) then
       -- Calculate thresholds for 1.0, 1.5 and 2.0 interval gaps
       threshold_10_low <= to_unsigned(to_integer(cycles_per_interval(7 downto 0)),16);  -- 0.5 intervals
       threshold_10_high <= to_unsigned(to_integer(cycles_per_interval&'0') + to_integer(cycles_per_interval(7 downto 1)),16);
