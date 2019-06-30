@@ -323,7 +323,22 @@ syspart_configsector_apply:
 
 	; Set audio options
 	lda $de03
+	and #$01
 	sta audioamp_ctl
+	lda $de03
+	and #$40
+	beq is_stereo
+	jsr audio_set_mono
+	jmp done_audio
+is_stereo:
+	lda $de03
+	and #$20
+	bne is_mirrored
+	jsr audio_set_stereo
+	jmp done_audio
+is_mirrored:
+	jsr audio_set_stereomirrored
+done_audio:
 
 	; Set F011 to use 3.5" drive or disk images
 	lda $de04

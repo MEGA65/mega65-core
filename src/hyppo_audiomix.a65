@@ -3,53 +3,66 @@ audiomix_setup:
 
 		; Set all audio mixer coefficients to maximum by default
 		ldx #$00
-		lda #$30
+		txa ; A=$00 = all coefficients zero
 aml1:
 		jsr audiomix_setcoefficient
 		inx
 		bne aml1
 
-		; Enable audio amplifier for Nexys4 series boards
+		; Set master volume to max for L & R channels on M65R2
 		ldx #$fe
-		lda #$01
-		jsr audiomix_setcoefficient
-
-		; For modem1 output, just have the SIDs at a reasonable volume, plus microphone
-
-		; Zero out all inputs for line out, but set to max for modem1 output
-		ldx #$40
-		lda #$00
-aml2:		jsr audiomix_setcoefficient
-		inx
-		cpx #$60
-		bne aml2
-
-		; Then put the SID inputs to a good level for both line out and cellular modem
-		ldx #$00		
-		lda #$80
-		jsr audiomix_set4coefficients
-		ldx #$40 ; and for the cellular modem
-		jsr audiomix_set4coefficients
-
-		; Set microphones off for computer (we can make the dialer in the handheld turn them on, or it manually)
-		ldx #$14
-		lda #$00
-		jsr audiomix_set4coefficients
-		; but on for the cellular modem
-		ldx #$54
 		lda #$ff
-		jsr audiomix_set4coefficients
-		
-		; and set master volume gain for line out to something sensible
-		ldx #$1e
+		jsr audiomix_set2coefficients
+		ldx #$de
 		lda #$ff
 		jsr audiomix_set2coefficients
 
-		; and set master volume gain for cellular modem to something sensible
-		ldx #$5e
-		lda #$ff ; bit 0 must be set for coefficient $5e, to allow modem to be PCM audio master
+		jmp audio_set_stereo
+
+audio_set_mono:
+		; Left and right SID volume levels
+		; for stereo operation
+		ldx #$c0
+		lda #$BE
+		jsr audiomix_set2coefficients
+		ldx #$e2
+		jsr audiomix_set2coefficients
+		ldx #$c2
+		jsr audiomix_set2coefficients
+		ldx #$e0
 		jsr audiomix_set2coefficients
 		rts
+audio_set_stereo:
+		; Left and right SID volume levels
+		; for stereo operation
+		ldx #$c0
+		lda #$BE
+		jsr audiomix_set2coefficients
+		ldx #$e2
+		jsr audiomix_set2coefficients
+		ldx #$c2
+		lda #$40
+		jsr audiomix_set2coefficients
+		ldx #$e0
+		jsr audiomix_set2coefficients
+				
+		rts
+audio_set_stereomirrored:
+		; Left and right SID volume levels
+		; for stereo operation
+		ldx #$c0
+		lda #$40
+		jsr audiomix_set2coefficients
+		ldx #$e2
+		jsr audiomix_set2coefficients
+		ldx #$c2
+		lda #$BE
+		jsr audiomix_set2coefficients
+		ldx #$e0
+		jsr audiomix_set2coefficients
+				
+		rts
+		
 
 audiomix_setcoefficient:
 		STX audiomix_addr
