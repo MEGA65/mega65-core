@@ -16,7 +16,11 @@ use Std.TextIO.all;
 entity hyperram is
   Port ( cpuclock : in STD_LOGIC; -- For slow devices bus interface
          clock240 : in std_logic; -- Used for fast clock for HyperRAM
+         reset : in std_logic;
 
+         latency_1x : in Unsigned(7 downto 0);
+         latency_2x : in Unsigned(7 downto 0);
+         
          read_request : in std_logic;
          write_request : in std_logic;
          address : in unsigned(26 downto 0);
@@ -55,8 +59,8 @@ architecture gothic of hyperram is
       rd_rdy : out std_logic;
       busy : out std_logic;
       burst_wr_rdy : out std_logic;
-      latency_x1 : in unsigned(7 downto 0);
-      latency_x2 : in unsigned(7 downto 0);
+      latency_1x : in unsigned(7 downto 0);
+      latency_2x : in unsigned(7 downto 0);
 
       dram_dq_in : in unsigned(7 downto 0);
       dram_dq_out : out unsigned(7 downto 0);
@@ -72,29 +76,12 @@ architecture gothic of hyperram is
       sump_dbg : out unsigned(7 downto 0)
       );
   end component;
-  
-  type state_t is (
-    Idle,
-    ReadSetup,
-    WriteSetup,
-    HyperRAMCSStrobe,
-    HyperRAMOutputCommand,
-    HyperRAMLatencyWait,
-    HyperRAMFinishWriting,
-    HyperRAMReadWait
-    );
-  
-  signal state : state_t := Idle;
-  signal busy_internal : std_logic := '0';
-  signal hr_command : unsigned(47 downto 0);
-  signal ram_address : unsigned(26 downto 0);
-  signal ram_wdata : unsigned(7 downto 0);
-  signal ram_reading : std_logic := '1';
-  
-  signal countdown : integer := 0;
-  signal extra_latency : std_logic := '0';
 
-  signal next_is_data : std_logic := '1';
+  signal reset_hi : std_logic;
+  
+  signal address_latched : unsigned(26 downto 0);
+  signal wdata_latched : unsigned(7 downto 0);
+  
   signal hr_clock : std_logic := '0';
 
   signal data_ready_toggle : std_logic := '0';
@@ -109,32 +96,51 @@ architecture gothic of hyperram is
   signal dram_rwds_in : std_logic := '1';
   signal dram_rwds_out : std_logic := '1';
   signal dram_rwds_oe_l : std_logic := '1';
+
+  signal rd_req : std_logic := '0';
+  signal wr_req : std_logic := '0';
+  signal mem_or_reg : std_logic := '1';
+  signal wr_byte_en : std_logic_vector(3 downto 0);
+  signal rd_num_dwords : unsigned(5 downto 0) := to_unsigned(1,6);
+  signal address_dummy : unsigned(4 downto 0) := (others => '0');
+  signal rd_d : unsigned(31 downto 0);
+  signal rd_rdy : std_logic;
+  signal burst_wr_rdy : std_logic;
+  signal byte_pick : unsigned(1 downto 0);
   
+  type state_t is (
+    Idle,
+    Reading,
+    Writing);
+  signal state : state_t := Idle;
+
+  signal mem_busy : std_logic;
+
   
 begin
 
-  hyper0: hyper_xface(
-
+  hyper0: component hyper_xface
+    port map(
     -- Access interface
-    reset => reset,
+    reset => reset_hi,  -- active high
     clk => cpuclock,
     rd_req => rd_req,
     wr_req => wr_req,
     mem_or_reg => mem_or_reg,
     wr_byte_en => wr_byte_en,
     rd_num_dwords => rd_num_dwords,
-    addr(26 downto 0) => address,
+    addr(26 downto 0) => address_latched,
     addr(31 downto 27) => address_dummy,
-    wr_d(31 downto 24) => wdata,
-    wr_d(23 downto 16) => wdata,
-    wr_d(15 downto 8) => wdata,
-    wr_d(7 downto 0) => wdata,
+    wr_d(31 downto 24) => wdata_latched,
+    wr_d(23 downto 16) => wdata_latched,
+    wr_d(15 downto 8) => wdata_latched,
+    wr_d(7 downto 0) => wdata_latched,
     rd_d => rd_d,
     rd_rdy => rd_rdy,
-    busy => busy_int,
+    busy => mem_busy,
     burst_wr_rdy => burst_wr_rdy,
-    latency_x1 => to_unsigned(7,8),
-    latency_x2 => to_unsigned(14,8),
+    latency_1x => latency_1x,
+    latency_2x => latency_2x,
 
     -- Hyperram pins
     dram_dq_in => dram_dq_in,
@@ -142,16 +148,19 @@ begin
     dram_dq_oe_l => dram_dq_oe_l,
     dram_rwds_in => dram_rwds_in,
     dram_rwds_out => dram_rwds_out,
-    dram_rwda_oe_l => dram_rwds_oe_l,
+    dram_rwds_oe_l => dram_rwds_oe_l,
 
     dram_ck => hr_clk_p,
     dram_rst_l => hr_reset,
     dram_cs_l => hr_cs0
     );
 
-  process is (dram_dq_in,dram_dq_out,dram_dq_oe_l,
-              dram_rwds_in,dram_rwds_out,dram_rwds_oe_l)
+  reset_hi <= not reset;
+  
+  process (dram_dq_in,dram_dq_out,dram_dq_oe_l,
+           dram_rwds_in,dram_rwds_out,dram_rwds_oe_l) is
   begin
+    -- Control direction of bi-directional signals
     if dram_dq_oe_l = '0' then
       hr_d <= (others => 'Z');
       dram_dq_in <= hr_d;
@@ -170,33 +179,57 @@ begin
   process (cpuclock,clock240) is
   begin
     if rising_edge(cpuclock) then
-      report "read_request=" & std_logic'image(read_request) & ", busy_internal=" & std_logic'image(busy_internal);
-
-      busy <= busy_internal;
-      
       data_ready_strobe <= '0';
-      if read_request='1' and busy_internal='0' then
-        -- Begin read request
-        request_toggle <= not request_toggle;
-        -- Latch address
-        ram_address <= address;
-        ram_reading <= '1';
-        null;
-      elsif write_request='1' and busy_internal='0' then
-        -- Begin write request
-        request_toggle <= not request_toggle;
-        -- Latch address and data 
-        ram_address <= address;
-        ram_wdata <= wdata;
-        ram_reading <= '0';
-        null;
-      else
-        -- Nothing new to do
-        if data_ready_toggle /= last_data_ready_toggle then
-          last_data_ready_toggle <= data_ready_toggle;
-          data_ready_strobe <= '1';
-        end if;
-      end if;
+
+      case state is
+        when Idle =>
+          case address(1 downto 0) is
+            when "00" => wr_byte_en <= "0001";
+            when "01" => wr_byte_en <= "0010";
+            when "10" => wr_byte_en <= "0100";
+            when "11" => wr_byte_en <= "1000";
+            when others => null;
+          end case;
+          byte_pick <= address(1 downto 0);
+          rd_req <= '0';
+          wr_req <= '0';
+          if mem_busy='1' then
+            null;
+          elsif read_request='1' then
+            address_latched <= address;
+            byte_pick <= address(1 downto 0);
+            state <= Reading;
+            rd_req <= '1';
+            busy <= '1';
+          elsif write_request='1' then
+            address_latched <= address;
+            wdata_latched <= wdata;
+            busy <= '1';
+            wr_req <= '1';
+          else
+            busy <= '0';
+          end if;
+        when Writing =>
+          -- We just allow one cycle for busy to go high, then writing
+          -- happens in the background
+          state <= Idle;
+        when Reading =>
+          if rd_rdy='1' then
+            -- We have the read data
+            data_ready_strobe <= '1';
+            case byte_pick is
+              when "00" => rdata <= rd_d(7 downto 0);
+              when "01" => rdata <= rd_d(15 downto 8);
+              when "10" => rdata <= rd_d(23 downto 16);
+              when "11" => rdata <= rd_d(31 downto 24);
+              when others => null;
+            end case;
+            state <= Idle;
+          end if;
+        when others =>
+          state <= Idle;
+      end case;
+      
     end if;
 
 
