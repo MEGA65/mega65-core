@@ -94,10 +94,8 @@ entity container is
          hr_d : inout unsigned(7 downto 0);
          hr_rwds : inout std_logic;
          hr_reset : out std_logic;
-         hr_rsto : out std_logic := '1';
          hr_clk_p : out std_logic;
          hr_cs0 : out std_logic;
-         hr_cs1 : out std_logic := '1';
          
          ----------------------------------------------------------------------
          -- CBM floppy serial port
@@ -369,8 +367,7 @@ begin
       hr_rwds => hr_rwds,
       hr_reset => hr_reset,
       hr_clk_p => hr_clk_p,
-      hr_cs0 => hr_cs0,
-      hr_cs1 => hr_cs1
+      hr_cs0 => hr_cs0
       );
   
   slow_devices0: entity work.slow_devices

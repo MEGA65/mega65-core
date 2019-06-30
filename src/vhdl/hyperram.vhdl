@@ -36,8 +36,7 @@ entity hyperram is
          hr_reset : out std_logic := '1'; -- Active low RESET line to HyperRAM
 --         hr_int : in std_logic; -- Interrupt?
          hr_clk_p : out std_logic := '1';
-         hr_cs0 : out std_logic := '1';
-         hr_cs1 : out std_logic := '1'
+         hr_cs0 : out std_logic := '1'
          );
 end hyperram;
 
