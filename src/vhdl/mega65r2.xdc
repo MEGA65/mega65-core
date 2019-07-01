@@ -231,7 +231,7 @@ set_property -dict {PACKAGE_PIN E16 IOSTANDARD LVCMOS33} [get_ports internal_spe
 #set_property -dict { PACKAGE_PIN xx IOSTANDARD LVCMOS33 } [get_ports {QspiDB[3]}]
 
 ## Hyper RAM
-set_property -dict {PACKAGE_PIN D23 IOSTANDARD LVCMOS33} [get_ports hr_clk_p]
+set_property -dict {PACKAGE_PIN D23 IOSTANDARD LVCMOS33} [get_ports hr_clk_p_renamed]
 set_property -dict {PACKAGE_PIN A21 IOSTANDARD LVCMOS33} [get_ports {hr_d[0]}]
 set_property -dict {PACKAGE_PIN D21 IOSTANDARD LVCMOS33} [get_ports {hr_d[1]}]
 set_property -dict {PACKAGE_PIN C20 IOSTANDARD LVCMOS33} [get_ports {hr_d[2]}]
@@ -251,7 +251,6 @@ set_property -dict {PACKAGE_PIN L1 IOSTANDARD LVCMOS33} [get_ports {eth_rxd[1]}]
 set_property -dict {PACKAGE_PIN L3 IOSTANDARD LVCMOS33} [get_ports {eth_txd[0]}]
 set_property -dict {PACKAGE_PIN K3 IOSTANDARD LVCMOS33} [get_ports {eth_txd[1]}]
 set_property -dict {PACKAGE_PIN K4 IOSTANDARD LVCMOS33} [get_ports eth_rxdv]
-# set_property -dict { PACKAGE_PIN xx IOSTANDARD LVCMOS33 } [get_ports eth_Interrupt]
 set_property -dict {PACKAGE_PIN J6 IOSTANDARD LVCMOS33} [get_ports eth_mdc]
 set_property -dict {PACKAGE_PIN L5 IOSTANDARD LVCMOS33} [get_ports eth_mdio]
 set_property -dict {PACKAGE_PIN L4 IOSTANDARD LVCMOS33} [get_ports eth_clock]
