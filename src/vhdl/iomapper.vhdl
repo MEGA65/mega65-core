@@ -7,7 +7,7 @@ use work.debugtools.all;
 use work.cputypes.all;
 
 entity iomapper is
-  generate ( target : mega65_target_t
+  generic ( target : mega65_target_t
              );
   port (Clk : in std_logic;
         clock200mhz : in std_logic;
