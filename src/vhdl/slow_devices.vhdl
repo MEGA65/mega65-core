@@ -110,7 +110,7 @@ architecture behavioural of slow_devices is
   signal slow_access_last_request_toggle : std_logic := '1';
 
   signal expansionram_eternally_busy : std_logic := '1';
-  signal expansionram_read_timeout : integer := 0;
+  signal expansionram_read_timeout : unsigned(7 downto 0) := x"00";
   
   type slow_state is (
     Idle,
@@ -228,10 +228,12 @@ begin
             
           if slow_access_address(27)='1' then
             -- $8000000-$FFFFFFF = expansion RAM
+            expansionram_read_timeout <= to_unsigned(99,8);
             state <= ExpansionRAMRequest;
           elsif slow_access_address(26)='1' then
             -- $4000000-$7FFFFFF = cartridge port
             report "Preparing to access from C64 cartridge port";
+            expansionram_read_timeout <= to_unsigned(99,8);
             state <= CartridgePortRequest;
           else
             
@@ -285,7 +287,6 @@ begin
               -- Read from expansion RAM -- here we need to wait for a response
               -- from the expansion RAM
               state <= ExpansionRAMReadWait;
-              expansionram_read_timeout <= 99;
             end if;
           else
             -- Expansion RAM is busy, wait for it to become idle
@@ -297,14 +298,6 @@ begin
         if expansionram_data_ready_strobe = '1' then
           state <= Idle;
           slow_access_rdata <= expansionram_rdata;
-          slow_access_ready_toggle <= slow_access_request_toggle;
-        end if;
-        if expansionram_read_timeout /= 0 then
-          expansionram_read_timeout <= expansionram_read_timeout - 1;
-        else
-          -- Time out if no reply from expansion RAM
-          state <= Idle;
-          slow_access_rdata <= x"99";
           slow_access_ready_toggle <= slow_access_request_toggle;
         end if;
         
@@ -338,6 +331,18 @@ begin
           state <= Idle;
         end if;
       end case;
+
+      if state /= Idle then
+        if expansionram_read_timeout /= to_unsigned(0,8) then
+          expansionram_read_timeout <= expansionram_read_timeout - 1;
+        else
+          -- Time out if stuck for too long
+          state <= Idle;
+          slow_access_rdata <= x"99";
+          slow_access_ready_toggle <= slow_access_request_toggle;
+        end if;
+      end if;
+      
     end if;
   end process;
   
