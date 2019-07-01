@@ -590,8 +590,8 @@ begin
       ampPWM_l => pwm_l_drive,
       ampPWM_r => pwm_r_drive,
 
-      i2c1sda => fpga_sda,
-      i2c1scl => fpga_scl,
+      tmpsda => fpga_sda,
+      tmpscl => fpga_scl,
       
       -- No PS/2 keyboard for now
       ps2data =>      '1',
