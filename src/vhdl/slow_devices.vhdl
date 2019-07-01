@@ -110,7 +110,7 @@ architecture behavioural of slow_devices is
   signal slow_access_last_request_toggle : std_logic := '1';
 
   signal expansionram_eternally_busy : std_logic := '1';
-  signal expansionram_read_timeout : unsigned(7 downto 0) := x"00";
+  signal expansionram_read_timeout : unsigned(11 downto 0) := x"000";
   
   type slow_state is (
     Idle,
@@ -228,12 +228,12 @@ begin
             
           if slow_access_address(27)='1' then
             -- $8000000-$FFFFFFF = expansion RAM
-            expansionram_read_timeout <= to_unsigned(99,8);
+            expansionram_read_timeout <= to_unsigned(99,12);
             state <= ExpansionRAMRequest;
           elsif slow_access_address(26)='1' then
             -- $4000000-$7FFFFFF = cartridge port
             report "Preparing to access from C64 cartridge port";
-            expansionram_read_timeout <= to_unsigned(99,8);
+            expansionram_read_timeout <= to_unsigned(1000,12);
             state <= CartridgePortRequest;
           else
             
@@ -333,7 +333,7 @@ begin
       end case;
 
       if state /= Idle then
-        if expansionram_read_timeout /= to_unsigned(0,8) then
+        if expansionram_read_timeout /= to_unsigned(0,12) then
           expansionram_read_timeout <= expansionram_read_timeout - 1;
         else
           -- Time out if stuck for too long
