@@ -181,7 +181,7 @@ begin
       if i2c1_busy='1' and last_busy='0' then
 
         -- Sequence through the list of transactions endlessly
-        if (busy_count < 153) or (write_job_pending='1' and busy_count < (153+4)) then
+        if (busy_count < 126) or (write_job_pending='1' and busy_count < (126+4)) then
           busy_count <= busy_count + 1;
         else
           busy_count <= 0;
@@ -237,19 +237,19 @@ begin
         --------------------------------------------------------------------
         -- End of Auto-Generated Content
         --------------------------------------------------------------------        
-        when 153 =>
+        when 126 =>
           -- Write to a register, if a request is pending:
           -- First, write the address and register number.
           i2c1_rw <= '0';
           i2c1_command_en <= '1';
           i2c1_address <= write_addr(7 downto 1);
           i2c1_wdata <= write_reg;
-        when 154 =>
+        when 127 =>
           -- Second, write the actual value into the register
           i2c1_rw <= '0';
           i2c1_command_en <= '1';
           i2c1_wdata <= write_val;
-        when 155 =>
+        when 128 =>
           -- Do dummy read of some nonsence, so that the write above doesn't
           -- get carried over into the access of the first IO expander
           -- (which it was, and was naturally causing problems as a result).
@@ -265,13 +265,6 @@ begin
           last_busy <= '1';
           write_job_pending <= '0';
       end case;
-
-      -- XXX Annoying problem with the IO expanders is that to select
-      -- a register for reading, you have to send a STOP before trying to
-      -- read from the new address.  The problem is that our state-machine
-      -- here requires back-to-back commands.  Solution is to add a delayed
-      -- command_en line, that gets checked and copied to i2c1_command_en
-      -- when busy is low.
 
       -- This has to come last, so that it overrides the clearing of
       -- i2c1_command_en above.
