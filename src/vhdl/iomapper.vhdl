@@ -1072,7 +1072,7 @@ begin
   
   i2cperiph_mega65r2:
   if target = mega65r2 generate
-    i2c1: entity work.mega65_i2c port map (
+    i2c1: entity work.mega65r2_i2c port map (
       clock => clk,
       cs => i2cperipherals_cs,
 
@@ -1086,7 +1086,7 @@ begin
       std_logic_vector(fastio_rdata) => data_o
 
     );
-  end generate mega65_i2c;
+  end generate i2cperiph_mega65r2;
   
   
   sdcard0 : entity work.sdcardio port map (
