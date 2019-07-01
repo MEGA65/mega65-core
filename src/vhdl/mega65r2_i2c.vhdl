@@ -40,6 +40,11 @@
 -- 8-bit read addresses:
 -- 0xA9, 0xA1, 0xDF, 0xAF
 
+-- @IO:GS $FFD7100-07 UUID:UUID64 64-bit UUID. Can be used to seed ethernet MAC address
+-- @IO:GS $FFD7110-3F RTC:RTC Real-time Clock
+-- @IO:GS $FFD7140-7F RTC:NVRAM 64-bytes of non-volatile RAM. Can be used for storing machine configuration.
+
+
 use WORK.ALL;
 
 library IEEE;
