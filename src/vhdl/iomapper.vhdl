@@ -4,8 +4,11 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use work.debugtools.all;
+use work.cputypes.all;
 
 entity iomapper is
+  generate ( target : mega65_target_t
+             );
   port (Clk : in std_logic;
         clock200mhz : in std_logic;
         protected_hardware_in : in unsigned(7 downto 0);
@@ -1032,38 +1035,59 @@ begin
 
     );
 
-  i2cperiph: entity work.i2c_wrapper port map (
-    clock => clk,
-    cs => i2cperipherals_cs,
+  i2cperiph_megaphone:
+  if target = megaphoner1 generate
+    i2c1: entity work.i2c_wrapper port map (
+      clock => clk,
+      cs => i2cperipherals_cs,
 
-    sda => i2c1SDA,
-    scl => i2c1SCL,
+      sda => i2c1SDA,
+      scl => i2c1SCL,
 
-    i2c_joya_fire => i2c_joya_fire,
-    i2c_joya_up => i2c_joya_up,
-    i2c_joya_down => i2c_joya_down,
-    i2c_joya_left => i2c_joya_left,
-    i2c_joya_right => i2c_joya_right,
-    i2c_joyb_fire => i2c_joyb_fire,
-    i2c_joyb_up => i2c_joyb_up,
-    i2c_joyb_down => i2c_joyb_down,
-    i2c_joyb_left => i2c_joyb_left,
-    i2c_joyb_right => i2c_joyb_right,
-    i2c_button2 => i2c_button2,
-    i2c_button3 => i2c_button3,
-    i2c_button4 => i2c_button4,
-    i2c_black2 => i2c_black2,
-    i2c_black3 => i2c_black3,
-    i2c_black4 => i2c_black4,
+      i2c_joya_fire => i2c_joya_fire,
+      i2c_joya_up => i2c_joya_up,
+      i2c_joya_down => i2c_joya_down,
+      i2c_joya_left => i2c_joya_left,
+      i2c_joya_right => i2c_joya_right,
+      i2c_joyb_fire => i2c_joyb_fire,
+      i2c_joyb_up => i2c_joyb_up,
+      i2c_joyb_down => i2c_joyb_down,
+      i2c_joyb_left => i2c_joyb_left,
+      i2c_joyb_right => i2c_joyb_right,
+      i2c_button2 => i2c_button2,
+      i2c_button3 => i2c_button3,
+      i2c_button4 => i2c_button4,
+      i2c_black2 => i2c_black2,
+      i2c_black3 => i2c_black3,
+      i2c_black4 => i2c_black4,
     
-    fastio_addr => unsigned(address),
-    fastio_write => w,
-    fastio_read => r,
-    fastio_wdata => unsigned(data_i),
-    std_logic_vector(fastio_rdata) => data_o
+      fastio_addr => unsigned(address),
+      fastio_write => w,
+      fastio_read => r,
+      fastio_wdata => unsigned(data_i),
+      std_logic_vector(fastio_rdata) => data_o
 
     );
+  end generate i2cperiph_megaphone;
+  
+  i2cperiph_mega65r2:
+  if target = mega65r2 generate
+    i2c1: entity work.mega65_i2c port map (
+      clock => clk,
+      cs => i2cperipherals_cs,
+
+      sda => i2c1SDA,
+      scl => i2c1SCL,
     
+      fastio_addr => unsigned(address),
+      fastio_write => w,
+      fastio_read => r,
+      fastio_wdata => unsigned(data_i),
+      std_logic_vector(fastio_rdata) => data_o
+
+    );
+  end generate mega65_i2c;
+  
   
   sdcard0 : entity work.sdcardio port map (
     pixelclk => pixelclk,
@@ -1437,11 +1461,18 @@ begin
         sectorbuffercs <= sbcs_en;
       end if;
 
-      -- @IO:GS $FFD7000-FF - I2C Peripherals
+      -- @IO:GS $FFD7000-FF - I2C Peripherals     
       i2cperipherals_cs <= '0';
-      if address(19 downto 8) = x"D70" then
-        i2cperipherals_cs <= '1';
-        report "i2cperipherals_cs asserted";
+      if target = megaphoner1 then
+        if address(19 downto 8) = x"D70" then
+          i2cperipherals_cs <= '1';
+          report "i2cperipherals_cs for MEGAphone asserted";
+        end if;
+      else
+        if address(19 downto 8) = x"D71" then
+          i2cperipherals_cs <= '1';
+          report "i2cperipherals_cs for MEGA65R2 asserted";
+        end if;
       end if;
       
       cs_driveram <= '0';

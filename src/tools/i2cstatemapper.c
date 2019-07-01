@@ -1,5 +1,8 @@
 #include <stdio.h>
 
+// #define MEGAPHONER1
+#define MEGA65R2
+
 struct entry {
   int addr;
   int reg_low;
@@ -14,7 +17,8 @@ struct entry e[]={
 
   // The IO expanders can only be read one register pair at a time,
   // so we have to schedule multiple jobs.
-  
+
+#ifdef MEGAPHONER1
   // First IO expander
   {0x72,0x00,0x01,0x00,"IO Expander #0 regs 0-1"},
   {0x72,0x02,0x03,0x02,"IO Expander #0 regs 2-3"},
@@ -43,6 +47,20 @@ struct entry e[]={
   // (Reg nums here are the lower 7 bits, the upper bit indicating auto-increment of
   // register address, which we set, so that we can read all the regs in one go.)
   {0x32,0x80,0xBF,0x40,"Acclerometer regs 0 - 63"},
+#endif
+
+#ifdef MEGA65R2
+  // UUID
+  // XXX - We could also map some EEPROM space
+  {0xA1,0xF8,0xFF,0x00,"Serial EEPROM UUID"},
+  
+  // Real Time Clock
+  {0xDF,0x00,0x2F,0x10,"Real Time clock regs 0 -- 2F"},
+
+  // RTC SRAM
+  {0xAF,0x00,0x3F,0x40,"RTC SRAM (64 of 128 bytes)"},
+#endif
+
   
   {-1,-1,-1,-1}
 };

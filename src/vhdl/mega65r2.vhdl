@@ -184,9 +184,15 @@ entity container is
          f_diskchanged : in std_logic;
 
          led : out std_logic;
+
+         ----------------------------------------------------------------------
+         -- I2C on-board peripherals
+         ----------------------------------------------------------------------
+         fpga_sda : inout std_logic;
+         fpga_scl : inout std_logic;         
          
          ----------------------------------------------------------------------
-         -- Debug interfaces on Nexys4 board
+         -- Serial monitor interface
          ----------------------------------------------------------------------
          UART_TXD : out std_logic;
          RsRx : in std_logic
@@ -586,6 +592,9 @@ begin
       ampPWM_l => pwm_l_drive,
       ampPWM_r => pwm_r_drive,
 
+      i2c1sda => fpga_sda,
+      i2c1scl => fpga_scl,
+      
       -- No PS/2 keyboard for now
       ps2data =>      '1',
       ps2clock =>     '1',
