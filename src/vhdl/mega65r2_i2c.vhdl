@@ -159,12 +159,12 @@ begin
 
       -- Write to registers as required
       if cs='1' and fastio_write='1' then
-        if fastio_addr(7 downto 0) >= 16 and fastio_addr(7 downto 0) < 64 then
+        if to_integer(fastio_addr(7 downto 0)) >= 16 and to_integer(fastio_addr(7 downto 0)) < 64 then
           -- RTC
           write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 16,8);
           write_addr <= x"DE";
           write_job_pending <= '1';
-        elsif fastio_addr(7 downto 0) >= 64 and fastio_addr(7 downto 0) < 128 then
+        elsif to_integer(fastio_addr(7 downto 0)) >= 64 and to_integer(fastio_addr(7 downto 0)) < 128 then
           -- RTC SRAM
           write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 64,8);
           write_addr <= x"AE";            
