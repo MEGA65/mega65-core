@@ -2301,15 +2301,23 @@ begin
             multi3_colour <= unsigned(fastio_wdata);
           end if;
         elsif register_number=37 then
-          -- @IO:C64 $D025 VIC-II:SPRMC0 Sprite multi-colour 0 (always 256 colour)
+          -- @IO:C64 $D025 VIC-II:SPRMC0 Sprite multi-colour 0
           -- @IO:C65 $D025 VIC-III:SPRMC0 Sprite multi-colour 0 (8-bit for selection of any palette colour)
           -- @IO:GS $D025 VIC-IV:SPRMC0 Sprite multi-colour 0 (8-bit for selection of any palette colour)
-          sprite_multi0_colour <= unsigned(fastio_wdata);
+          if (register_bank=x"D0" or register_bank=x"D2") then
+            sprite_multi0_colour <= unsigned("0000"&fastio_wdata(3 downto 0));
+          else
+            sprite_multi0_colour <= unsigned(fastio_wdata);
+          end if;
         elsif register_number=38 then
-          -- @IO:C64 $D026 VIC-II:SPRMC1 Sprite multi-colour 1 (always 256 colour)
+          -- @IO:C64 $D026 VIC-II:SPRMC1 Sprite multi-colour 1
           -- @IO:C65 $D026 VIC-III:SPRMC1 Sprite multi-colour 1 (8-bit for selection of any palette colour)
           -- @IO:GS $D026 VIC-IV:SPRMC1 Sprite multi-colour 1 (8-bit for selection of any palette colour)
-          sprite_multi1_colour <= unsigned(fastio_wdata);
+          if (register_bank=x"D0" or register_bank=x"D2") then
+            sprite_multi1_colour <= unsigned("0000"&fastio_wdata(3 downto 0));
+          else
+            sprite_multi1_colour <= unsigned(fastio_wdata);
+          end if;
         elsif register_number>=39 and register_number<=46 then
           -- @IO:C64 $D027 VIC-II:SPR0COL sprite 0 colour / 16-colour sprite transparency colour (lower nybl)
           -- @IO:C64 $D028 VIC-II:SPR1COL sprite 1 colour / 16-colour sprite transparency colour (lower nybl)
