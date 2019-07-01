@@ -22,43 +22,59 @@ aml1:
 audio_set_mono:
 		; Left and right SID volume levels
 		; for stereo operation
-		ldx #$c0
 		lda #$BE
-		jsr audiomix_set2coefficients
-		ldx #$e2
-		jsr audiomix_set2coefficients
-		ldx #$c2
-		jsr audiomix_set2coefficients
+		ldx #$c0
+		jsr audiomix_set4coefficients
+		ldx #$d0
+		jsr audiomix_set4coefficients
+		ldx #$f0
+		jsr audiomix_set4coefficients
 		ldx #$e0
-		jsr audiomix_set2coefficients
+		jsr audiomix_set4coefficients
 		rts
 audio_set_stereo:
 		; Left and right SID volume levels
 		; for stereo operation
-		ldx #$c0
 		lda #$BE
+		ldx #$c0
+		jsr audiomix_set2coefficients
+		ldx #$d0
 		jsr audiomix_set2coefficients
 		ldx #$e2
 		jsr audiomix_set2coefficients
-		ldx #$c2
+		ldx #$f2
+		jsr audiomix_set2coefficients
 		lda #$40
+		ldx #$c2
+		jsr audiomix_set2coefficients
+		ldx #$d2
 		jsr audiomix_set2coefficients
 		ldx #$e0
+		jsr audiomix_set2coefficients
+		ldx #$f0
 		jsr audiomix_set2coefficients
 				
 		rts
 audio_set_stereomirrored:
 		; Left and right SID volume levels
 		; for stereo operation
-		ldx #$c0
 		lda #$40
+		ldx #$c0
+		jsr audiomix_set2coefficients
+		ldx #$d0
 		jsr audiomix_set2coefficients
 		ldx #$e2
 		jsr audiomix_set2coefficients
-		ldx #$c2
+		ldx #$f2
+		jsr audiomix_set2coefficients
 		lda #$BE
+		ldx #$c2
+		jsr audiomix_set2coefficients
+		ldx #$d2
 		jsr audiomix_set2coefficients
 		ldx #$e0
+		jsr audiomix_set2coefficients
+		ldx #$f0
 		jsr audiomix_set2coefficients
 				
 		rts
