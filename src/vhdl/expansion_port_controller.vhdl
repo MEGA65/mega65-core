@@ -133,6 +133,8 @@ architecture behavioural of expansion_port_controller is
   signal cart_flags : std_logic_vector(1 downto 0) := "00";
 
   signal cart_force_reset : std_logic := '0';
+
+  signal fake_reset_sequence_phase : integer range 0 to 10 := 0;
   
 begin
 
@@ -320,6 +322,31 @@ begin
 --            cart_exrom <= 'H';
 --            cart_game <= 'H';
             probing_exrom <= '1';
+          elsif (fake_reset_sequence_phase < 8 ) and (cart_phi2_internal='0') then
+            -- Provide fake power-on reset
+            -- Sequence from: https://www.pagetable.com/?p=410
+            case fake_reset_sequence_phase is
+              when 0 | 1 | 2 => cart_a(15 downto 0) <= x"00FF";
+              when 3 => cart_a(15 downto 0) <= x"0100";
+              when 4 => cart_a(15 downto 0) <= x"01FF";
+              when 5 => cart_a(15 downto 0) <= x"01FE";
+              when 6 => cart_a(15 downto 0) <= x"FFFC";
+              when 7 => cart_a(15 downto 0) <= x"FFFD";
+              when others => null;
+            end case;
+            fake_reset_sequence_phase <= fake_reset_sequence_phase + 1;
+
+            cart_busy <= '1';
+            cart_a <= cart_access_address(15 downto 0);
+            cart_rw <= '1';
+            cart_data_dir <= not '1';
+            cart_data_en <= '0'; -- negative sense on these lines: low = enable
+            cart_addr_en <= '0'; -- negative sense on these lines: low = enable
+
+            -- Count number of cartridge accesses to aid debugging
+            cart_access_count <= cart_access_count_internal + 1;
+            cart_access_count_internal <= cart_access_count_internal + 1;
+            
           elsif (cart_access_request='1') and (reset_counter = 0)
             -- Check that clock will be high during this request, i.e.,
             -- currently low.
@@ -333,6 +360,13 @@ begin
               if cart_access_address(15 downto 0) = x"0000" then
                 -- @ IO:GS $7010000.5 - Force assertion of /RESET on cartridge port
                 cart_force_reset <= cart_access_wdata(5);
+                if cart_force_reset <= '1' and cart_access_wdata(5) = '0' then
+                  -- Release of reset
+                  -- Some cartridges need to see the CPU do a reset sequence,
+                  -- before they will work.  So we will now schedule a fake
+                  -- reset sequence.
+                  fake_reset_sequence_phase <= 0;
+                end if;
               elsif cart_access_address(15 downto 0) = x"0001" then
                 -- @ IO:GS $7010001.6 - Force enabling of joystick expander cartridge
                 force_joystick_cartridge <= cart_access_wdata(6);
