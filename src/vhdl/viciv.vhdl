@@ -526,6 +526,7 @@ architecture Behavioral of viciv is
   -- And display_row_width is how many characters to display on each row
   signal display_row_width : unsigned(7 downto 0) := to_unsigned(40,8);
   signal display_row_width_minus1 : unsigned(7 downto 0) := to_unsigned(40,8);
+  signal display_row_count : unsigned(7 downto 0) := to_unsigned(25,8);
 
   signal end_of_row_16 : std_logic := '0';
   signal end_of_row : std_logic := '0';
@@ -1368,6 +1369,7 @@ begin
       end if;
 
       if reg_v400='0' then
+        display_row_count <= to_unsigned(25,8);        
         chargen_y_scale <= to_unsigned(to_integer(chargen_y_scale_200)-1,8);
         -- set vertical borders based on twentyfourlines
         if twentyfourlines='0' then
@@ -1402,6 +1404,7 @@ begin
 
       else
         -- V400 mode : as above, but with the different constants
+        display_row_count <= to_unsigned(50,8);        
         chargen_y_scale <= to_unsigned(to_integer(chargen_y_scale_400)-1,8);
         -- set vertical borders based on twentyfourlines
         if twentyfourlines='0' then
@@ -1941,7 +1944,7 @@ begin
           fastio_rdata(6 downto 3) <= (others => '0');
 	  fastio_rdata(7) <= vicii_is_raster_source;
         elsif register_number=123 then  -- $D307B
-          fastio_rdata <= x"FF";
+          fastio_rdata <= std_logic_vector(display_row_count);
         elsif register_number=124 then  -- $D307C
           fastio_rdata(3 downto 0) <= x"F";
           fastio_rdata(4) <= hsync_polarity_internal;
@@ -2733,8 +2736,8 @@ begin
           vicii_raster_compare(10 downto 8) <= unsigned(fastio_wdata(2 downto 0));
           vicii_is_raster_source <= fastio_wdata(7);
         elsif register_number=123 then
-          -- @IO:GS $D07B VIC-IV:RESERVED UNUSED
-          null;
+          -- @IO:GS $D07B VIC-IV:Number of text rows to display
+          display_row_count <= unsigned(fastio_wdata);
         elsif register_number=124 then
           -- @IO:GS $D07C.0-3 VIC-IV:RESERVED UNUSED BITS
           null;
