@@ -191,7 +191,9 @@ architecture Behavioral of viciv is
 
   signal before_y_chargen_start : std_logic := '1';
   signal justbefore_y_chargen_start : std_logic := '0';
-
+  signal stop_chargen_next_raster : std_logic := '0';
+  signal stop_chargen_next_raster2 : std_logic := '0';
+  
   signal vicii_2mhz_internal : std_logic := '1';
   signal viciii_fast_internal : std_logic := '1';
   signal viciv_fast_internal : std_logic := '1';
@@ -205,6 +207,7 @@ architecture Behavioral of viciv is
   signal reg_h640_delayed : std_logic := '0';
   signal reg_h1280_delayed : std_logic := '0';
   signal external_frame_x_zero_latched : std_logic := '0';
+  signal last_external_frame_x_zero_latched : std_logic := '0';
 
   -- last value written to key register
   signal reg_key : unsigned(7 downto 0) := x"00";
@@ -2962,6 +2965,7 @@ begin
         end if;
       end if;
 
+      last_external_frame_x_zero_latched <= external_frame_x_zero_latched;
       if external_frame_x_zero_latched = '1' then
         -- End of raster reached.
         -- Bump raster number and start next raster.
@@ -2969,6 +2973,19 @@ begin
         xcounter <= (others => '0');
         sprite_x_counting <= '0';
         sprite_x_scale_toggle <= '0';
+
+        -- Make delayed stopping of chargen rendering take effect
+        -- (this has to happen on the following raster, because we determine
+        -- end of screen when we pre-compute the next row address)
+        if last_external_frame_x_zero_latched = '0' then
+          stop_chargen_next_raster2 <= stop_chargen_next_raster;
+        end if;
+        if stop_chargen_next_raster2 = '1' then
+          before_y_chargen_start <= '1';
+          stop_chargen_next_raster <= '0';
+          stop_chargen_next_raster2 <= '0';
+        end if;
+                                 
         vicii_ycounter_scale <= vicii_ycounter_scale_minus_zero;
         report "LEGACY vicii_ycounter_scale = " & integer'image(to_integer(vicii_ycounter_scale))
           & ", vicii_ycounter_max_phase = " & integer'image(to_integer(vicii_ycounter_max_phase))
@@ -3281,8 +3298,8 @@ begin
             first_card_of_row <= to_unsigned(to_integer(first_card_of_row) + row_advance,16);
             display_row_number <= display_row_number + 1;
             if display_row_number = display_row_count then
-              -- Stop chargen
-              before_y_chargen_start <= '1';
+              -- Stop chargen on next raster
+              stop_chargen_next_raster <= '1';
             end if;
           else
             report "LEGACY: NOT advancing first_card_of_row due to end of character (before_y_chargen_start=1)";
