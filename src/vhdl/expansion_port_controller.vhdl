@@ -23,6 +23,14 @@ ENTITY expansion_port_controller IS
     cpuclock : in std_logic;
     reset : in std_logic;
 
+    
+    ------------------------------------------------------------------------
+    -- Let cartridge try to do things
+    ------------------------------------------------------------------------    
+    nmi_out : out std_logic;
+    irq_out : out std_logic;
+    dma_out : out std_logic;
+    
     ------------------------------------------------------------------------
     -- Tell the CPU what the current cartridge state is
     ------------------------------------------------------------------------    
@@ -135,6 +143,14 @@ architecture behavioural of expansion_port_controller is
   signal cart_force_reset : std_logic := '0';
 
   signal fake_reset_sequence_phase : integer range 0 to 10 := 0;
+
+  signal nmi_count : unsigned(7 downto 0) := x"00";
+  signal irq_count : unsigned(7 downto 0) := x"00";
+  signal dma_count : unsigned(7 downto 0) := x"00";
+
+  signal last_cart_irq : std_logic := '1';
+  signal last_cart_nmi : std_logic := '1';
+  signal last_cart_dma : std_logic := '1';
   
 begin
 
@@ -142,10 +158,35 @@ begin
   begin
     if rising_edge(pixelclock) then
 
+
+      ----------------------------------------------------------------------
+      -- Allow cartridges to cause interrupts or DMA
+      ----------------------------------------------------------------------      
+      -- (note DMA is not really implemented)
+      
+      nmi_out <= cart_nmi;
+      irq_out <= cart_irq;
+      dma_out <= cart_dma;
+      
+      last_cart_nmi <= cart_nmi;
+      last_cart_irq <= cart_irq;
+      last_cart_dma <= cart_dma;
+      
+      if cart_nmi = '0' and last_cart_nmi = '1' then
+        nmi_count <= nmi_count + 1;
+      end if;
+      if cart_irq = '0' and last_cart_irq = '1' then
+        irq_count <= irq_count + 1;
+      end if;
+      if cart_dma = '0' and last_cart_dma = '1' then
+        dma_count <= dma_count + 1;
+      end if;
+      
+      
       ----------------------------------------------------------------------
       -- Support for simple passive cartridge with 3rd and 4th joystick ports
       ----------------------------------------------------------------------      
-      
+
       -- If DMA line is ever high, then it is not the joystick cartridge.
       -- Put another way: The joystick cartridge works by tying DMA to GND.
       if cart_dma='1' then
@@ -267,18 +308,36 @@ begin
           -- Record data from bus if we are waiting on it
           if read_in_progress='1' then
             -- XXX Debug: show stats on probing cartridge flags
-            if cart_access_address(15 downto 0) = x"0000" then
-              cart_access_rdata(7 downto 6) <= unsigned(cart_flags);
-              cart_access_rdata(5) <= cart_force_reset;
-              cart_access_rdata(4 downto 0) <= cart_probe_count(4 downto 0);
-            elsif cart_access_address(15 downto 0) = x"0001" then
-              cart_access_rdata(7) <= not_joystick_cartridge;
-              cart_access_rdata(6) <= force_joystick_cartridge;
-              cart_access_rdata(5) <= joy_read_toggle;
-              cart_access_rdata(4 downto 0) <= cart_d_in(4 downto 0);
-            else
+            case cart_access_address(15 downto 0) is
+              when x"0000" =>
+                -- @IO:GS $7010000.7 - Read cartridge /EXROM flag
+                -- @IO:GS $7010000.6 - Read cartridge /EXROM flag
+                cart_access_rdata(7 downto 6) <= unsigned(cart_flags);
+                -- @IO:GS $7010000.5 - Read cartridge force reset (1=reset)
+                cart_access_rdata(5) <= cart_force_reset;
+                -- @IO:GS $7010000.4-0 - Read /EXROM & /GAME signal probe count (MEGA65 R1 PCB only)
+                cart_access_rdata(4 downto 0) <= cart_probe_count(4 downto 0);
+              when x"0001" =>
+                -- @IO:GS $7010001.7 - Expansion port mode: 1=normal mode, 0=joystick expansion mode
+                cart_access_rdata(7) <= not_joystick_cartridge;
+                -- @IO:GS $7010001.6 - 1=force joystick expansion mode.
+                cart_access_rdata(6) <= force_joystick_cartridge;
+                -- @IO:GS $7010001.5 - Joystick read toggle flag DEBUG
+                cart_access_rdata(5) <= joy_read_toggle;
+                -- @IO:GS $7010001.0-4 - Directly read lower 5 bits of cartridge port data lines.
+                cart_access_rdata(4 downto 0) <= cart_d_in(4 downto 0);
+              when x"0002" =>
+                -- @IO:GS $7010002 - Counter of /IRQ triggers from cartridge
+                cart_access_rdata <= irq_count;
+              when x"0003" =>
+                -- @IO:GS $7010003 - Counter of /NMI triggers from cartridge
+                cart_access_rdata <= nmi_count;
+              when x"0004" =>
+                -- @IO:GS $7010004 - Counter of /DMA triggers from cartridge
+                cart_access_rdata <= dma_count;
+              when others =>
               cart_access_rdata <= cart_d_in;
-            end if;
+            end case;
             cart_access_read_strobe <= '1';
             cart_access_read_toggle <= not cart_access_read_toggle_internal;
             cart_access_read_toggle_internal <= not cart_access_read_toggle_internal;
@@ -380,7 +439,7 @@ begin
             cart_access_count_internal <= cart_access_count_internal + 1;
 
             cart_access_accept_strobe <= '1';
-            
+                  
             if not_joystick_cartridge = '1' and force_joystick_cartridge='0' then
             
               cart_a <= cart_access_address(15 downto 0);
