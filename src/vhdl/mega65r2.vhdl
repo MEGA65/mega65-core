@@ -204,6 +204,10 @@ architecture Behavioral of container is
 
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
+  signal irq_combined : std_logic := '1';
+  signal nmi_combined : std_logic := '1';
+  signal irq_out : std_logic := '1';
+  signal nmi_out : std_logic := '1';
   signal reset_out : std_logic := '1';
   signal cpu_game : std_logic := '1';
   signal cpu_exrom : std_logic := '1';
@@ -387,6 +391,9 @@ begin
       cpu_exrom => cpu_exrom,
       cpu_game => cpu_game,
       sector_buffer_mapped => sector_buffer_mapped,
+
+      irq_out => irq_out,
+      nmi_out => nmi_out,
       
       qspidb => qspidb,
       qspicsn => qspicsn,      
@@ -464,8 +471,8 @@ begin
 
       btncpureset => btncpureset,
       reset_out => reset_out,
-      irq => irq,
-      nmi => nmi,
+      irq => irq_combined,
+      nmi => nmi_combined,
       restore_key => restore_key,
       sector_buffer_mapped => sector_buffer_mapped,
 
@@ -631,6 +638,10 @@ begin
     -- Ethernet clock at 50MHz
     eth_clock <= ethclock;
 
+    -- Use both real and cartridge IRQ and NMI signals
+    irq_combined <= irq and irq_out;
+    nmi_combined <= nmi and nmi_out;
+    
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then
 
