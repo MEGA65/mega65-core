@@ -203,7 +203,6 @@ architecture Behavioral of container is
   signal pixelclock : std_logic;
   signal ethclock : std_logic;
   signal cpuclock : std_logic;
-  signal clock40 : std_logic;
   signal clock120 : std_logic;
   signal clock100 : std_logic := '0';
   signal clock200 : std_logic;
@@ -312,6 +311,35 @@ begin
                clock240 => clock240
                );
 
+  frame60: entity work.frame_generator
+    generic map ( frame_width => 1057*3-1,
+                  display_width => 800 *3,
+                  clock_divider => 3,
+                  frame_height => 628,
+                  display_height => 600,
+                  pipeline_delay => 96,
+                  vsync_start => 628-22-4,
+                  vsync_end => 628-22,
+                  hsync_start => 840*3,
+                  hsync_end => 900*3
+                  )                  
+    port map ( clock240 => clock240,
+               clock120 => clock120,
+               clock80 => pixelclock,
+               hsync => v_hsync,
+               vsync => v_vsync,
+               hsync_polarity => '1',
+               vsync_polarity => '1',
+--               inframe => inframe_pal50,
+--               x_zero => x_zero50,
+
+               -- Get test pattern
+               red_o => v_red,
+               green_o => v_green,
+               blue_o => v_blue
+               );
+
+  
   kbd0: entity work.mega65kbd_to_matrix
     port map (
       ioclock => cpuclock,
