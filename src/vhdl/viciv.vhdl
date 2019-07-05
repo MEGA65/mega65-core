@@ -527,6 +527,7 @@ architecture Behavioral of viciv is
   signal display_row_width : unsigned(7 downto 0) := to_unsigned(40,8);
   signal display_row_width_minus1 : unsigned(7 downto 0) := to_unsigned(40,8);
   signal display_row_count : unsigned(7 downto 0) := to_unsigned(25,8);
+  signal display_row_number : unsigned(7 downto 0) := to_unsigned(25,8);
 
   signal end_of_row_16 : std_logic := '0';
   signal end_of_row : std_logic := '0';
@@ -3087,6 +3088,7 @@ begin
         indisplay := '0';
         report "clearing indisplay because xcounter=0" severity note;
         screen_row_address <= screen_ram_base(19 downto 0);
+        display_row_number <= to_unsigned(0,8);
 
         -- Reset VIC-II raster counter to first raster for top of frame
         -- (the preceeding rasters occur during vertical flyback, in case they
@@ -3277,6 +3279,11 @@ begin
             -- Increment card number every "bad line"
             report "LEGACY: Advancing first_card_of_row due to end of character";
             first_card_of_row <= to_unsigned(to_integer(first_card_of_row) + row_advance,16);
+            display_row_number <= display_row_number + 1;
+            if display_row_number = display_row_count then
+              -- Stop chargen
+              before_y_chargen_start <= '1';
+            end if;
           else
             report "LEGACY: NOT advancing first_card_of_row due to end of character (before_y_chargen_start=1)";
           end if;
