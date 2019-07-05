@@ -147,10 +147,14 @@ architecture behavioural of expansion_port_controller is
   signal nmi_count : unsigned(7 downto 0) := x"00";
   signal irq_count : unsigned(7 downto 0) := x"00";
   signal dma_count : unsigned(7 downto 0) := x"00";
+  signal exrom_count : unsigned(7 downto 0) := x"00";
+  signal game_count : unsigned(7 downto 0) := x"00";
 
   signal last_cart_irq : std_logic := '1';
   signal last_cart_nmi : std_logic := '1';
   signal last_cart_dma : std_logic := '1';
+  signal last_cart_exrom : std_logic := '1';
+  signal last_cart_game : std_logic := '1';
   
 begin
 
@@ -171,6 +175,8 @@ begin
       last_cart_nmi <= cart_nmi;
       last_cart_irq <= cart_irq;
       last_cart_dma <= cart_dma;
+      last_cart_exrom <= cart_exrom;
+      last_cart_game <= cart_game;
       
       if cart_nmi = '0' and last_cart_nmi = '1' then
         nmi_count <= nmi_count + 1;
@@ -180,6 +186,12 @@ begin
       end if;
       if cart_dma = '0' and last_cart_dma = '1' then
         dma_count <= dma_count + 1;
+      end if;
+      if cart_exrom = '0' and last_cart_exrom = '1' then
+        exrom_count <= exrom_count + 1;
+      end if;
+      if cart_game = '0' and last_cart_game = '1' then
+        game_count <= game_count + 1;
       end if;
       
       
@@ -335,6 +347,12 @@ begin
               when x"0004" =>
                 -- @IO:GS $7010004 - Counter of /DMA triggers from cartridge
                 cart_access_rdata <= dma_count;
+              when x"0005" =>
+                -- @IO:GS $7010005 - Counter of /GAME triggers from cartridge
+                cart_access_rdata <= game_count;
+              when x"0006" =>
+                -- @IO:GS $7010006 - Counter of /EXROM triggers from cartridge
+                cart_access_rdata <= exrom_count;
               when others =>
               cart_access_rdata <= cart_d_in;
             end case;
