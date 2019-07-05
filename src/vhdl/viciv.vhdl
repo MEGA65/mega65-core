@@ -526,7 +526,7 @@ architecture Behavioral of viciv is
   -- And display_row_width is how many characters to display on each row
   signal display_row_width : unsigned(7 downto 0) := to_unsigned(40,8);
   signal display_row_width_minus1 : unsigned(7 downto 0) := to_unsigned(40,8);
-  signal display_row_count : unsigned(7 downto 0) := to_unsigned(25,8);
+  signal display_row_count : unsigned(7 downto 0) := to_unsigned(25-1,8);
   signal display_row_number : unsigned(7 downto 0) := to_unsigned(25,8);
 
   signal end_of_row_16 : std_logic := '0';
@@ -1370,7 +1370,7 @@ begin
       end if;
 
       if reg_v400='0' then
-        display_row_count <= to_unsigned(25,8);        
+        display_row_count <= to_unsigned(25-1,8);
         chargen_y_scale <= to_unsigned(to_integer(chargen_y_scale_200)-1,8);
         -- set vertical borders based on twentyfourlines
         if twentyfourlines='0' then
@@ -1405,7 +1405,7 @@ begin
 
       else
         -- V400 mode : as above, but with the different constants
-        display_row_count <= to_unsigned(50,8);        
+        display_row_count <= to_unsigned(50-1,8);        
         chargen_y_scale <= to_unsigned(to_integer(chargen_y_scale_400)-1,8);
         -- set vertical borders based on twentyfourlines
         if twentyfourlines='0' then
@@ -3216,7 +3216,7 @@ begin
         -- Finally decide which way we should go
         if to_integer(first_card_of_row) /= to_integer(prev_first_card_of_row) then
           raster_fetch_state <= FetchScreenRamLine;
-          if vertical_border='0' then
+          if vertical_border='0' or justbefore_y_chargen_start='1' then
             badline_toggle_internal <= not badline_toggle_internal;
             badline_toggle <= not badline_toggle_internal;
             report "BADLINE @ y = " & integer'image(to_integer(displayy)) severity note;
