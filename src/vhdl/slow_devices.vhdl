@@ -27,6 +27,10 @@ ENTITY slow_devices IS
     cpu_game : out std_logic;
     sector_buffer_mapped : in std_logic;
 
+    irq_out : out std_logic := '1';
+    nmi_out : out std_logic := '1';
+    dma_out : out std_logic := '1';
+    
     pin_number : out integer := 255;
     
     slow_access_request_toggle : in std_logic;
@@ -161,6 +165,10 @@ begin
     cart_nmi => cart_nmi,
     cart_irq => cart_irq,
     cart_dma => cart_dma,
+
+    irq_out => irq_out,
+    nmi_out => nmi_out,
+    dma_out => dma_out,
     
     cart_exrom => cart_exrom,
     cart_ba => cart_ba,
