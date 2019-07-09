@@ -231,7 +231,7 @@ architecture Behavioral of container is
   signal v_hsync : std_logic;
   signal v_vsync : std_logic;
   signal v_red : unsigned(7 downto 0);
-  signal v_green : unsigned(7 downto 0);
+  signal v_green : unsigned(7 downto 0) := x"00";
   signal v_blue : unsigned(7 downto 0);
   signal v_de : std_logic;
   
@@ -317,28 +317,42 @@ begin
                clock240 => clock240
                );
 
-  frame60: entity work.frame_generator
-    generic map ( frame_width => 1265*3-1,   -- 65 cycles x 16 pixels = 1040,
-                                             -- but with 526 lines, we need it
-                                             -- wider.
-                  display_width => 800 *3,
-                  clock_divider => 3,
-                  frame_height => 526,       -- NTSC frame is 263 lines x 2 frames
-                  display_height => 526-4,
-                  pipeline_delay => 96,
-                  vsync_start => 526-4,
-                  vsync_end => 526,
-                  hsync_start => 1204*3,
-                  hsync_end => 1264*3
+  frame50: entity work.frame_generator
+    generic map ( frame_width => 968*4-1,    -- 63 cycles x 16 pixels per clock
+                  clock_divider => 4,
+                  display_width => 800*4,
+                  frame_height => 624,        -- 312 lines x 2 fields
+                  pipeline_delay => 128,
+                  display_height => 600,
+                  vsync_start => 624-18-5,
+                  vsync_end => 624-18,
+                  hsync_start => (968-46-1)*4,
+                  hsync_end => (968-1)*4
                   )                  
+--    generic map ( frame_width => 1265*3-1,   -- 65 cycles x 16 pixels = 1040,
+--                                             -- but with 526 lines, we need it
+--                                             -- wider.
+--                  display_width => 800 *3,
+--                  clock_divider => 3,
+--                  frame_height => 526,       -- NTSC frame is 263 lines x 2 frames
+--                  display_height => 526-4,
+--                  pipeline_delay => 96,
+--                  vsync_start => 526-4,
+--                  vsync_end => 526,
+--                  hsync_start => 1204*3,
+--                  hsync_end => 1264*3
+--                  )                  
     port map ( clock240 => clock240,
                clock120 => clock120,
                clock80 => pixelclock,
+               clock40 => cpuclock,
                hsync => v_hsync,
                vsync => v_vsync,
                hsync_polarity => '1',
                vsync_polarity => '1',
 
+               phi2_out => phi2_out,
+               
                x_zero_80 => x_zero,
                y_zero_80 => y_zero
 --               inframe => inframe_pal50,
@@ -484,8 +498,13 @@ begin
       else
         v_blue <= x"00";
       end if;
-      v_green <= x"00";
       
+    end if;
+
+    if rising_edge(cpuclock) then
+      if phi2_out = '1' then
+        v_green <= not v_green;
+      end if;
     end if;
     
     -- Drive most ports, to relax timing
