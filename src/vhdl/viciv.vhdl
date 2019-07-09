@@ -191,8 +191,8 @@ architecture Behavioral of viciv is
 
   signal before_y_chargen_start : std_logic := '1';
   signal justbefore_y_chargen_start : std_logic := '0';
-  signal stop_chargen_next_raster : std_logic := '0';
-  signal stop_chargen_next_raster2 : std_logic := '0';
+  signal stop_chargen_raster_counter : unsigned(7 downto 0) := x"00";
+  signal stop_chargen_delay : unsigned(7 downto 0) := to_unsigned(2,8);
   
   signal vicii_2mhz_internal : std_logic := '1';
   signal viciii_fast_internal : std_logic := '1';
@@ -2753,6 +2753,7 @@ begin
         elsif register_number=125 then
           -- @IO:GS $D07D DEBUG:DEBUGX VIC-IV debug X position (LSB)
           debug_x(7 downto 0) <= unsigned(fastio_wdata);
+          stop_chargen_delay <= unsigned(fastio_wdata);
         elsif register_number=126 then
           -- @IO:GS $D07E DEBUG:DEBUGY VIC-IV debug Y position (LSB)
           debug_y(7 downto 0) <= unsigned(fastio_wdata);
@@ -2978,12 +2979,12 @@ begin
         -- (this has to happen on the following raster, because we determine
         -- end of screen when we pre-compute the next row address)
         if last_external_frame_x_zero_latched = '0' then
-          stop_chargen_next_raster2 <= stop_chargen_next_raster;
+          if stop_chargen_raster_counter /= 0 then
+            stop_chargen_raster_counter <= stop_chargen_raster_counter - 1;
+          end if;
         end if;
-        if stop_chargen_next_raster2 = '1' then
+        if stop_chargen_raster_counter = 1 then
           before_y_chargen_start <= '1';
-          stop_chargen_next_raster <= '0';
-          stop_chargen_next_raster2 <= '0';
         end if;
                                  
         vicii_ycounter_scale <= vicii_ycounter_scale_minus_zero;
@@ -3299,7 +3300,7 @@ begin
             display_row_number <= display_row_number + 1;
             if display_row_number = display_row_count then
               -- Stop chargen on next raster
-              stop_chargen_next_raster <= '1';
+              stop_chargen_raster_counter <= stop_chargen_delay;
             end if;
           else
             report "LEGACY: NOT advancing first_card_of_row due to end of character (before_y_chargen_start=1)";
