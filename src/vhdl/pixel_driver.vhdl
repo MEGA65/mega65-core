@@ -27,6 +27,7 @@ entity pixel_driver is
 
   port (
     -- The various clocks we need
+    cpuclock : in std_logic;
     clock80 : in std_logic;
     clock120 : in std_logic;
     clock240 : in std_logic;
@@ -198,7 +199,9 @@ begin
   -- for the video mode.  Video mode selection is via a simple PAL/NTSC input.
 
   frame50: entity work.frame_generator
-    generic map ( frame_width => 1008*4-1,    -- 63 cycles x 16 pixels per clock
+    generic map ( frame_width => 968*4-1,    -- 63 cycles x 16 pixels per clock
+                                             -- = 1008, but then it's only 48
+                                             -- frames per second.
                   clock_divider => 4,
                   display_width => 800*4,
                   frame_height => 624,        -- 312 lines x 2 fields
@@ -206,12 +209,13 @@ begin
                   display_height => 600,
                   vsync_start => 624-18-5,
                   vsync_end => 624-18,
-                  hsync_start => 834*4,
-                  hsync_end => 870*4
+                  hsync_start => (968-46-1)*4,
+                  hsync_end => (968-1)*4
                   )                  
     port map ( clock120 => clock120,
                clock240 => clock240,
                clock80 => clock80,
+               clock40 => cpuclock,
                hsync => hsync_pal50,
                hsync_uninverted => hsync_pal50_uninverted,
                vsync => vsync_pal50,
@@ -249,6 +253,7 @@ begin
     port map ( clock120 => clock120,
                clock240 => clock240,
                clock80 => clock80,
+               clock40 => cpuclock,
                hsync_polarity => hsync_invert,
                vsync_polarity => vsync_invert,
                hsync_uninverted => hsync_ntsc60_uninverted,
