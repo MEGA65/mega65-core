@@ -198,14 +198,14 @@ begin
   -- for the video mode.  Video mode selection is via a simple PAL/NTSC input.
 
   frame50: entity work.frame_generator
-    generic map ( frame_width => 960*4-1,
+    generic map ( frame_width => 1008*4-1,    -- 63 cycles x 16 pixels per clock
                   clock_divider => 4,
                   display_width => 800*4,
-                  frame_height => 625,
+                  frame_height => 624,        -- 312 lines x 2 fields
                   pipeline_delay => 128,
                   display_height => 600,
-                  vsync_start => 625-18-5,
-                  vsync_end => 625-18,
+                  vsync_start => 624-18-5,
+                  vsync_end => 624-18,
                   hsync_start => 834*4,
                   hsync_end => 870*4
                   )                  
@@ -235,14 +235,14 @@ begin
                );
 
   frame60: entity work.frame_generator
-    generic map ( frame_width => 1057*3-1,
+    generic map ( frame_width => 1040*3-1,   -- 65 cycles x 16 pixels
                   display_width => 800 *3,
                   clock_divider => 3,
-                  frame_height => 628,
-                  display_height => 600,
+                  frame_height => 526,       -- NTSC frame is 263 lines x 2 frames
+                  display_height => 526-4,
                   pipeline_delay => 96,
-                  vsync_start => 628-22-4,
-                  vsync_end => 628-22,
+                  vsync_start => 526-4,
+                  vsync_end => 526,
                   hsync_start => 840*3,
                   hsync_end => 900*3
                   )                  
