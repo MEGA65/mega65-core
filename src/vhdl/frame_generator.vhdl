@@ -34,12 +34,14 @@ entity frame_generator is
     vsync_start : integer := 601;
     vsync_end : integer := 606;
     hsync_start : integer := 814;
-    hsync_end : integer := 880
+    hsync_end : integer := 880;
+    cycles_per_raster : integer := 63
     );
   port (
     clock240 : in std_logic;
     clock120 : in std_logic;
     clock80 : in std_logic;
+    clock40 : in std_logic;
 
     -- 80MHz oriented configuration flags
     hsync_polarity : in std_logic;
@@ -53,6 +55,10 @@ entity frame_generator is
     pixel_strobe_120 : out std_logic := '0';   -- used to clock read-side of
                                                -- raster buffer fifo
 
+
+    -- 40MHz oriented signal that strobes for each CPU tick
+    phi2_out : out std_logic;  
+    
     lcd_hsync : out std_logic := '0';
     lcd_vsync : out std_logic := '0';
     lcd_inframe : out std_logic := '0';
@@ -76,6 +82,16 @@ end frame_generator;
 
 architecture brutalist of frame_generator is
 
+  -- Work out what we need to add so that 16th bit (bit 15) will flip every time
+  -- a phi2 cycle has occurred
+  signal ticks_per_128_phi2 : integer := 128*32768*cycles_per_raster/frame_width;
+  signal ticks_per_phi2 : unsigned(15 downto 0) := to_unsigned(ticks_per_128_phi2,16);
+
+  signal phi2_accumulator : unsigned(15 downto 0) := to_unsigned(0,16);
+  signal last_phi2 : std_logic := '0';
+  signal phi2_toggle : std_logic := '0';
+  signal last_phi2_toggle : std_logic := '0';
+  
   signal x : integer := 0;
   signal x_zero_driver : std_logic := '0';
   signal x_zero_driver2 : std_logic := '0';
@@ -134,8 +150,22 @@ begin
       end if;
     end if;
 
+    if rising_edge(clock40) then
+      last_phi2_toggle <= phi2_toggle;
+      if phi2_toggle /= last_phi2_toggle then
+        phi2_out <= '1';
+      else
+        phi2_out <= '0';
+      end if;
+    end if;
+    
     if rising_edge(clock120) then
 
+      phi2_accumulator <= phi2_accumulator + ticks_per_128_phi2;
+      if phi2_accumulator(15) /= last_phi2 then
+        phi2_toggle <= not phi2_toggle;
+      end if;
+      
       x_zero_driver2 <= x_zero_driver;
       y_zero_driver2 <= y_zero_driver;
       x_zero_120 <= x_zero_driver;
