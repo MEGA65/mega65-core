@@ -192,7 +192,7 @@ architecture Behavioral of viciv is
   signal before_y_chargen_start : std_logic := '1';
   signal justbefore_y_chargen_start : std_logic := '0';
   signal stop_chargen_raster_counter : unsigned(7 downto 0) := x"00";
-  signal stop_chargen_delay : unsigned(7 downto 0) := to_unsigned(2,8);
+  signal stop_chargen_delay : unsigned(7 downto 0) := to_unsigned(3,8);
   
   signal vicii_2mhz_internal : std_logic := '1';
   signal viciii_fast_internal : std_logic := '1';
@@ -2759,7 +2759,6 @@ begin
         elsif register_number=125 then
           -- @IO:GS $D07D DEBUG:DEBUGX VIC-IV debug X position (LSB)
           debug_x(7 downto 0) <= unsigned(fastio_wdata);
-          stop_chargen_delay <= unsigned(fastio_wdata);
         elsif register_number=126 then
           -- @IO:GS $D07E DEBUG:DEBUGY VIC-IV debug Y position (LSB)
           debug_y(7 downto 0) <= unsigned(fastio_wdata);
