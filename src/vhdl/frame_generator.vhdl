@@ -84,7 +84,7 @@ architecture brutalist of frame_generator is
 
   -- Work out what we need to add so that 16th bit (bit 15) will flip every time
   -- a phi2 cycle has occurred
-  signal ticks_per_128_phi2 : integer := 128*32768*cycles_per_raster/frame_width;
+  signal ticks_per_128_phi2 : integer := 32768*cycles_per_raster/frame_width;
   signal ticks_per_phi2 : unsigned(15 downto 0) := to_unsigned(ticks_per_128_phi2,16);
 
   signal phi2_accumulator : unsigned(15 downto 0) := to_unsigned(0,16);
@@ -201,6 +201,7 @@ begin
         else
           y <= 0;
           y_zero_driver <= '1';
+          phi2_accumulator <= to_unsigned(0,16);
         end if;
       end if;
 
