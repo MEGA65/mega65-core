@@ -297,6 +297,12 @@ architecture Behavioral of container is
   
   signal matrix_col : std_logic_vector(7 downto 0);
 
+  signal x_zero : std_logic;
+  signal y_zero : std_logic;
+
+  signal x_pos : unsigned(11 downto 0) := to_unsigned(0,12);
+  signal y_pos : unsigned(11 downto 0) := to_unsigned(0,12);
+  
 --  signal dummy : std_logic := '0';
   
 begin
@@ -312,16 +318,18 @@ begin
                );
 
   frame60: entity work.frame_generator
-    generic map ( frame_width => 1057*3-1,
+    generic map ( frame_width => 1265*3-1,   -- 65 cycles x 16 pixels = 1040,
+                                             -- but with 526 lines, we need it
+                                             -- wider.
                   display_width => 800 *3,
                   clock_divider => 3,
-                  frame_height => 628,
-                  display_height => 600,
+                  frame_height => 526,       -- NTSC frame is 263 lines x 2 frames
+                  display_height => 526-4,
                   pipeline_delay => 96,
-                  vsync_start => 628-22-4,
-                  vsync_end => 628-22,
-                  hsync_start => 840*3,
-                  hsync_end => 900*3
+                  vsync_start => 526-4,
+                  vsync_end => 526,
+                  hsync_start => 1204*3,
+                  hsync_end => 1264*3
                   )                  
     port map ( clock240 => clock240,
                clock120 => clock120,
@@ -330,13 +338,16 @@ begin
                vsync => v_vsync,
                hsync_polarity => '1',
                vsync_polarity => '1',
+
+               x_zero_80 => x_zero,
+               y_zero_80 => y_zero
 --               inframe => inframe_pal50,
 --               x_zero => x_zero50,
 
-               -- Get test pattern
-               red_o => v_red,
-               green_o => v_green,
-               blue_o => v_blue
+     -- Get test pattern
+--               red_o => v_red,
+--               green_o => v_green,
+--               blue_o => v_blue
                );
 
   
@@ -400,7 +411,7 @@ begin
       slow_access_rdata => slow_access_rdata,
 
       expansionram_data_ready_strobe => '1',
-  
+      
       ----------------------------------------------------------------------
       -- Expansion/cartridge port
       ----------------------------------------------------------------------
@@ -444,6 +455,38 @@ begin
     -- Ethernet clock at 50MHz
     eth_clock <= ethclock;
 
+    if rising_edge(pixelclock) then
+      hsync <= v_hsync;
+      vsync <= v_vsync;
+      vgared <= v_red;
+      vgagreen <= v_green;
+      vgablue <= v_blue;
+
+      if x_zero = '1' then
+        x_pos <= to_unsigned(0,12);
+        y_pos <= y_pos + 1;
+      else
+        x_pos <= x_pos + 1;
+      end if;
+      if y_zero = '1' then
+        y_pos <= to_unsigned(0,12);
+        x_pos <= to_unsigned(0,12);
+      end if;
+
+
+      if x_pos(6)='1' then
+        v_red <= x"FF";
+      else
+        v_red <= x"00";
+      end if;
+      if y_pos(5)='1' then
+        v_blue <= x"FF";
+      else
+        v_blue <= x"00";
+      end if;
+      v_green <= x"00";
+      
+    end if;
     
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then
@@ -476,14 +519,6 @@ begin
     end if;
 
     if rising_edge(pixelclock) then
-      hsync <= v_hsync;
-      vsync <= v_vsync;
-      vgared <= v_red;
-      vgagreen <= v_green;
-      vgablue <= v_blue;
-    end if;
-    
-    if rising_edge(pixelclock) then
 
       hdmi_hsync <= v_hsync;
       hdmi_vsync <= v_vsync;
@@ -494,9 +529,9 @@ begin
       hdmi_de <= not (v_hsync or v_vsync);
       -- no hdmi audio yet
       hdmi_spdif_out <= 'Z';
-      -- HDMI control interface
-      -- XXX We need to send some commands via I2C to configure the HDMI
-      -- interface, which we don't yet do, so HDMI output will not yet work.
+    -- HDMI control interface
+    -- XXX We need to send some commands via I2C to configure the HDMI
+    -- interface, which we don't yet do, so HDMI output will not yet work.
 --      hdmi_scl <= hdmi_scl;
 --      hdmi_sda <= hdmi_sda;
     end if;
