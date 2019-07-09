@@ -272,7 +272,9 @@ architecture Behavioral of viciv is
   -- (Sprite fetching should happen as soon as the border begins, so that we have
   -- maximum time to do the fetch.)
   constant display_fetch_start : unsigned(11 downto 0) := to_unsigned(800,12);
-  constant display_height : unsigned(11 downto 0) := to_unsigned(600,12);
+  constant display_height_pal : unsigned(11 downto 0) := to_unsigned(600,12);
+  constant display_height_ntsc : unsigned(11 downto 0) := to_unsigned(470,12);
+  signal display_height : unsigned(11 downto 0);
   signal raster_buffer_half_toggle : std_logic := '0';
   signal vsync_delay : unsigned(7 downto 0) := to_unsigned(0,8);
   signal vsync_delay_drive : unsigned(7 downto 0) := to_unsigned(0,8);
@@ -1992,6 +1994,12 @@ begin
 
     if rising_edge(ioclock) then
 
+      if vicii_ntsc='1' then
+        display_height <= display_height_ntsc;
+      else
+        display_height <= display_height_pal;
+      end if;
+      
       vicii_raster_out(8 downto 0) <= vicii_ycounter_driver;
       vicii_raster_out(11 downto 9) <= "000";
 
