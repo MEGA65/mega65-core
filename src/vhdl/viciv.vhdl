@@ -290,7 +290,6 @@ architecture Behavioral of viciv is
   signal x_chargen_start : unsigned(13 downto 0) := to_unsigned(to_integer(frame_h_front),14);
 
   -- PAL/NTSC raster layout
-  signal vertical_flyback : std_logic := '0';
   signal vicii_first_raster : unsigned(8 downto 0) := to_unsigned(0,9);
   -- We use full number of PAL rasters in NTSC mode, so that PAL programs will
   -- run correctly, even if at 60Hz video / interrupt rate.  The only problem I
@@ -1264,7 +1263,7 @@ begin
           sprite_extended_height_size,sprite_extended_width_enables,
           chargen_x_scale_drive,single_side_border,
           sprite_first_x,sprite_sixteen_colour_enables,
-          vicii_ntsc,vicii_first_raster,vertical_flyback,
+          vicii_ntsc,vicii_first_raster,
           palette_bank_chargen_alt,bitplane_sixteen_colour_mode_flags,
           vsync_delay,vicii_ycounter_scale_minus_zero,
           hsync_polarity_internal,vsync_polarity_internal
@@ -1923,8 +1922,7 @@ begin
         elsif register_number=111 then
           fastio_rdata(7) <= vicii_ntsc;
           fastio_rdata(6) <= '0';
-          fastio_rdata(5 downto 1) <= std_logic_vector(vicii_first_raster(5 downto 1));
-          fastio_rdata(0) <= vertical_flyback;
+          fastio_rdata(5 downto 0) <= std_logic_vector(vicii_first_raster(5 downto 0));
         elsif register_number=112 then -- $D3070
           fastio_rdata <= palette_bank_fastio & palette_bank_chargen & palette_bank_sprites & palette_bank_chargen_alt;
         elsif register_number=113 then -- $D3071
@@ -3117,7 +3115,6 @@ begin
         first_card_of_row <= (others => '0');
 
         displayy <= (others => '0');
-        vertical_flyback <= '0';
         displayline0 <= '1';
         indisplay := '0';
         report "clearing indisplay because xcounter=0" severity note;
@@ -3368,11 +3365,10 @@ begin
         null;
       elsif ycounter=frame_v_front then
         vert_in_frame <= '1';
-      elsif ycounter=vsync_start then
+      elsif ycounter=0 then
         -- Start of vertical flyback
         indisplay := '0';
         report "clearing indisplay because of vertical porch";
-        vertical_flyback <= '1';
 
         vert_in_frame <= '0';
         -- Send a 1 cycle pulse at the end of each frame for
