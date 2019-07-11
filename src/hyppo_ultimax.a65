@@ -11,8 +11,11 @@ reset_cartridge:
 		lda #$20
 		nop
 		sta (<zptempv32),z
+		ldy #$00
 charge_delay:
 		inz
+		bne charge_delay
+		iny
 		bne charge_delay
 		tza
 		nop
