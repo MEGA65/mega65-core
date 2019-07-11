@@ -521,7 +521,10 @@ reset_machine_state:
 		; Access cartridge IO area to force EXROM probe on R1 PCBs
 		; XXX DONT READ $DExx ! This is a known crash causer for Action Replay
 		; cartridges.  $DF00 should be okay, however.
-		lda $df00
+		; XXX $DFxx can also be a problem for other cartridges, so we shouldn't do either.
+		; this will mean cartridges don't work on the R1 PCB, but as that is no longer being
+		; developed for, we can just ignore that now, and not touch anything.
+;		lda $df00
 
 		jsr resetdisplay
 
