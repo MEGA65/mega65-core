@@ -207,10 +207,10 @@ begin
                   frame_height => 624,        -- 312 lines x 2 fields
                   pipeline_delay => 128,
                   display_height => 600,
-                  vsync_start => 624-18-5,
-                  vsync_end => 624-18,
-                  hsync_start => (968-46-1)*4,
-                  hsync_end => (968-1)*4
+                  vsync_start => 624-36-5,
+                  vsync_end => 624-36,
+                  hsync_start => (968-64-46-1)*4,
+                  hsync_end => (968-64-1)*4
                   )                  
     port map ( clock120 => clock120,
                clock240 => clock240,
@@ -247,8 +247,8 @@ begin
                   pipeline_delay => 96,
                   vsync_start => 526-4,
                   vsync_end => 526,
-                  hsync_start => 840*3,
-                  hsync_end => 900*3
+                  hsync_start => 860*3,
+                  hsync_end => 20*3
                   )                  
     port map ( clock120 => clock120,
                clock240 => clock240,
