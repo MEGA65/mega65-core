@@ -234,6 +234,8 @@ architecture Behavioral of container is
   signal v_green : unsigned(7 downto 0) := x"00";
   signal v_blue : unsigned(7 downto 0);
   signal v_de : std_logic;
+
+  signal phi2_out : std_logic;
   
   -- XXX We should read the real temperature and feed this to the DDR controller
   -- so that it can update timing whenever the temperature changes too much.
