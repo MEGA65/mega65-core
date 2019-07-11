@@ -207,8 +207,8 @@ begin
                   frame_height => 624,        -- 312 lines x 2 fields
                   pipeline_delay => 128,
                   display_height => 600,
-                  vsync_start => 624-48-5,
-                  vsync_end => 624-48,
+                  vsync_start => 624-32-5,
+                  vsync_end => 624-32,
                   hsync_start => (968-44-46-1)*4,
                   hsync_end => (968-44-1)*4
                   )                  
