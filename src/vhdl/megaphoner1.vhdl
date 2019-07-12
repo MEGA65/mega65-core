@@ -558,11 +558,11 @@ begin
       i2c1scl => i2c1scl,
       
       -- This is for modem as PCM master:
-      pcm_modem_clk_in => modem2_pcm_clk_in,
-      pcm_modem_sync_in => modem2_pcm_sync_in,
+      pcm_modem_clk_in => modem1_pcm_clk_in,
+      pcm_modem_sync_in => modem1_pcm_sync_in,
       
-      pcm_modem1_data_out => modem2_pcm_data_out,
-      pcm_modem1_data_in => modem2_pcm_data_in,
+      pcm_modem1_data_out => modem1_pcm_data_out,
+      pcm_modem1_data_in => modem1_pcm_data_in,
       
       ps2data =>      '1',
       ps2clock =>     '1',
@@ -578,10 +578,10 @@ begin
 --      uart_tx => jclo(2),
 
       -- Buffered UARTs for cellular modems etc
-      buffereduart_rx => modem2_uart_rx,
-      buffereduart_tx => modem2_uart_tx,
-      buffereduart2_rx => modem1_uart_rx,
-      buffereduart2_tx => modem1_uart_tx,
+      buffereduart_rx => modem1_uart_rx,
+      buffereduart_tx => modem1_uart_tx,
+      buffereduart2_rx => modem2_uart_rx,
+      buffereduart2_tx => modem2_uart_tx,
       buffereduart_ringindicate => '0',
       
       slow_access_request_toggle => slow_access_request_toggle,
