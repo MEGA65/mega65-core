@@ -318,6 +318,8 @@ begin
 
   hyperram0: entity work.hyperram
     port map (
+      latency_1x => to_unsigned(4,8),
+      latency_2x => to_unsigned(8,8),
       reset => reset_out,
       cpuclock => cpuclock,
       clock240 => clock240,
