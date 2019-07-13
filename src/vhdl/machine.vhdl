@@ -54,7 +54,7 @@ use work.cputypes.all;
 
 entity machine is
   generic (cpufrequency : integer := 50;
-           target : mega65_target_t := mega65r1);
+           target : mega65_target_t );
   Port ( pixelclock : in STD_LOGIC;
          cpuclock : in std_logic;
          clock50mhz : in std_logic;  -- normal ethernet clock

@@ -400,7 +400,8 @@ begin
       );
   
   machine0: entity work.machine
-    generic map (cpufrequency => 40)
+    generic map (cpufrequency => 40,
+                 target => megaphoner1)
     port map (
       pixelclock      => pixelclock,
       cpuclock        => cpuclock,
