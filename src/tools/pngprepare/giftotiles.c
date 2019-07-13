@@ -12,8 +12,13 @@ int main(int argc,char **argv)
     fprintf(stderr,"Could not read GIF file '%s'\n",argv[1]);
     exit(-1);
   }
-  fprintf(stderr,"Read GIF of %d x %d pixels.\n",
-	  gif->SWidth,gif->SHeight);
-
+  fprintf(stderr,"Read GIF of %d x %d pixels, %d frames\n",
+	  gif->SWidth,gif->SHeight,gif->ImageCount);
+  if (DGifSlurp(gif)!=GIF_OK) {
+    fprintf(stderr,"DGifSlurp() failed.\n");
+    exit(-1);
+  }
+  
+  
   return 0;
 }
