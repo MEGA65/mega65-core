@@ -5702,13 +5702,19 @@ begin
                 state <= Execute32;                    
               end if;
             when Execute32 =>
-              report "VAL32: reg_val32 = $" & to_hstring(reg_val32);
+              report "VAL32: reg_val32 = $" & to_hstring(reg_val32) & ", reg_instruction = " & instruction'image(reg_instruction);
               case reg_instruction is
                 when I_LDA =>
                   reg_a <= reg_val32(7 downto 0);
                   reg_x <= reg_val32(15 downto 8);
                   reg_y <= reg_val32(23 downto 16);
                   reg_z <= reg_val32(31 downto 24);
+                  if reg_val32 = to_unsigned(0,32) then
+                    flag_z <= '1';
+                  else
+                    flag_z <= '0';
+                  end if;
+                  flag_n <= reg_val32(31);
                 when I_CMP =>
                   vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
                   vreg33 := vreg33 - reg_val32;
@@ -5763,7 +5769,7 @@ begin
                   reg_z <= vreg33(31 downto 24);
                 when I_EOR =>
                   vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
-                  vreg33(31 downto 0) := vreg33(31 downto 0) or reg_val32;
+                  vreg33(31 downto 0) := vreg33(31 downto 0) xor reg_val32;
                   if vreg33(31 downto 0) = to_unsigned(0,32) then
                     flag_z <= '1';
                   else
@@ -5776,7 +5782,7 @@ begin
                   reg_z <= vreg33(31 downto 24);
                 when I_AND =>
                   vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
-                  vreg33(31 downto 0) := vreg33(31 downto 0) or reg_val32;
+                  vreg33(31 downto 0) := vreg33(31 downto 0) and reg_val32;
                   if vreg33(31 downto 0) = to_unsigned(0,32) then
                     flag_z <= '1';
                   else
