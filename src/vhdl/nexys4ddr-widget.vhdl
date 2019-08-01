@@ -363,7 +363,8 @@ begin
       );
   
   machine0: entity work.machine
-    generic map (cpufrequency => 40)
+    generic map (cpufrequency => 40,
+                 target => nexys4ddr_widget)
     port map (
       pixelclock      => pixelclock,
       cpuclock        => cpuclock,
