@@ -509,15 +509,6 @@ reset_machine_state:
 		sta $d04f
 		
 
-		; disable CIA interrupts		
-		lda #$7f
-		sta $DC0D
-		sta $DD0D
-
-		; disable video interrupts
-		lda #$00
-		sta $D01A
-
 		; We DO NOT need to mess with $01, because
 		; the 4510 starts up with hyppo mapped at $8000-$BFFF 
 		; enhanced ($FFD3xxx) IO page mapped at $D000,
