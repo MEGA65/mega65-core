@@ -5727,7 +5727,11 @@ begin
                   flag_n <= vreg33(31);
                 when I_SBC =>
                   vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
-                  vreg33 := vreg33 - reg_val32;
+                  if flag_c='0' then
+                    vreg33 := vreg33 - reg_val32 - 1;
+                  else
+                    vreg33 := vreg33 - reg_val32;
+                  end if;
                   if vreg33(31 downto 0) = to_unsigned(0,32) then
                     flag_z <= '1';
                   else
@@ -5742,7 +5746,11 @@ begin
                 when I_ADC =>
                   -- Note: No decimal mode for 32-bit add!
                   vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
-                  vreg33 := vreg33 + reg_val32;
+                  if flag_c='0' then
+                    vreg33 := vreg33 + reg_val32;
+                  else
+                    vreg33 := vreg33 + reg_val32 + 1;
+                  end if;
                   if vreg33(31 downto 0) = to_unsigned(0,32) then
                     flag_z <= '1';
                   else
