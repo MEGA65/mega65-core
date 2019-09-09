@@ -450,6 +450,9 @@ $(UTILDIR)/mega65_config.o:      $(UTILDIR)/mega65_config.s $(UTILDIR)/mega65_co
 $(TESTDIR)/vicii.prg:       $(TESTDIR)/vicii.c $(TESTDIR)/vicii_asm.s $(CC65)
 	$(CL65) -O -o $*.prg --mapfile $*.map $< $(TESTDIR)/vicii_asm.s 
 
+$(TESTDIR)/pulseoxy.prg:       $(TESTDIR)/pulseoxy.c $(CC65)
+	$(CL65) -O -o $*.prg --mapfile $*.map $< 
+
 $(TESTDIR)/unicorns.prg:       $(TESTDIR)/unicorns.c $(CC65)
 	$(CL65) -O -o $*.prg --mapfile $*.map $< 
 
