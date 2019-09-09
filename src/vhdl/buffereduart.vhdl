@@ -291,7 +291,7 @@ begin  -- behavioural
           when x"0" => fastio_rdata <= uart0_rx_byte;
           when x"1" =>
             fastio_rdata(7) <= uart0_irq;
-            fastio_rdata(6) <= not uart0_rx_byte_ready;
+            fastio_rdata(6) <= uart0_rx_empty;
             fastio_rdata(5) <= uart0_tx_empty;
             fastio_rdata(4) <= uart0_rx_full;
             fastio_rdata(3) <= uart0_tx_full;
@@ -308,7 +308,7 @@ begin  -- behavioural
           when x"8" => fastio_rdata <= uart2_rx_byte;
           when x"9" =>
             fastio_rdata(7) <= uart2_irq;
-            fastio_rdata(6) <= not uart2_rx_byte_ready;
+            fastio_rdata(6) <= uart2_rx_empty;
             fastio_rdata(5) <= uart2_tx_empty;
             fastio_rdata(4) <= uart2_rx_full;
             fastio_rdata(3) <= uart2_tx_full;
