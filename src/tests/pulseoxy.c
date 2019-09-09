@@ -157,14 +157,6 @@ void main(void)
 	      flast=fnum;
 	      if (frame[1]&1) {
 		fnum=0;
-#if 0
-		// Flush the serial port
-		for(j=0;j<65535;j++)
-		  v=PEEK(0xd0e0U);
-		
-		// Then wait >1/3 of a second 
-		for(j=0;j<1000000;j++) continue;
-#endif		
 	      } else fnum++;
 
 	      switch(fnum) {
@@ -183,17 +175,6 @@ void main(void)
 		  printf("spo2 = %d\n",spo2);
 		break;
 	      }
-	    
-#if 0
-	      POKE(0x0400+offset,fnum);	      
-	      offset++;
-
-	      POKE(0x0680,frame[0]);
-	      POKE(0x0681,frame[1]);
-	      POKE(0x0682,frame[2]);
-	      POKE(0x0683,frame[3]);
-	      POKE(0x0684,frame[4]);
-#endif	      
 	    }
       }
       
