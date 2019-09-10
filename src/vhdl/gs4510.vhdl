@@ -3346,7 +3346,7 @@ begin
         if last_write_address = x"FFD3644" and hypervisor_mode='1' then
           hyper_b <= last_value;
         end if;
-                                        -- @IO:GS $D645 HCPU;SPL Hypervisor SPL register storage
+                                        -- @IO:GS $D645 HCPU:SPL Hypervisor SPL register storage
         if last_write_address = x"FFD3645" and hypervisor_mode='1' then
           hyper_sp <= last_value;
         end if;
