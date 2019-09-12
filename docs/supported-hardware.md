@@ -54,7 +54,7 @@ This board requires a significant amount of re-work to function correctly, and t
 is not recommended for future work.  The latest revision of the MEGAphone prototype
 board should be used in preference.
 
-### MEGAphone rev1 prototype board
+### MEGAphone rev2 prototype board
 
 This board is in the process of being assembled, and thus has not yet been tested.
 It corrects many of the problems with the revision 1 MEGAphone board.
