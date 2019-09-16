@@ -61,9 +61,9 @@ entity i2c_wrapper is
     i2c_black3 : out std_logic := '1';
     i2c_black4 : out std_logic := '1';
 
-    adc0_out : out unsigned(15 downto 0);
     adc1_out : out unsigned(15 downto 0);
     adc2_out : out unsigned(15 downto 0);
+    adc3_out : out unsigned(15 downto 0);
     
     -- FastIO interface
     cs : in std_logic;
@@ -113,12 +113,12 @@ architecture behavioural of i2c_wrapper is
   signal black3history : std_logic_vector(15 downto 0) := (others => '1');
   signal black4history : std_logic_vector(15 downto 0) := (others => '1');
 
-  signal adc0_new : unsigned(15 downto 0) := x"8000";
   signal adc1_new : unsigned(15 downto 0) := x"8000";
   signal adc2_new : unsigned(15 downto 0) := x"8000";
-  signal adc0_smooth : unsigned(15 downto 0) := x"8000";
+  signal adc3_new : unsigned(15 downto 0) := x"8000";
   signal adc1_smooth : unsigned(15 downto 0) := x"8000";
   signal adc2_smooth : unsigned(15 downto 0) := x"8000";
+  signal adc3_smooth : unsigned(15 downto 0) := x"8000";
   
 begin
 
@@ -152,17 +152,23 @@ begin
         report "reading buffered I2C data";
         fastio_rdata <= bytes(to_integer(fastio_addr(6 downto 0)));
       elsif fastio_addr(7 downto 0) = x"f0" then
-        fastio_rdata <= adc0_smooth(7 downto 0);
-      elsif fastio_addr(7 downto 0) = x"f1" then
-        fastio_rdata <= adc0_smooth(15 downto 8);
-      elsif fastio_addr(7 downto 0) = x"f2" then
+        -- @IO:GS $FFD70F0 - ADC1 smoothed value (LSB)
         fastio_rdata <= adc1_smooth(7 downto 0);
-      elsif fastio_addr(7 downto 0) = x"f3" then
+      elsif fastio_addr(7 downto 0) = x"f1" then
+        -- @IO:GS $FFD70F1 - ADC1 smoothed value (MSB)
         fastio_rdata <= adc1_smooth(15 downto 8);
-      elsif fastio_addr(7 downto 0) = x"f4" then
+      elsif fastio_addr(7 downto 0) = x"f2" then
+        -- @IO:GS $FFD70F2 - ADC2 smoothed value (LSB)
         fastio_rdata <= adc2_smooth(7 downto 0);
-      elsif fastio_addr(7 downto 0) = x"f5" then
+      elsif fastio_addr(7 downto 0) = x"f3" then
+        -- @IO:GS $FFD70F3 - ADC2 smoothed value (MSB)
         fastio_rdata <= adc2_smooth(15 downto 8);
+      elsif fastio_addr(7 downto 0) = x"f4" then
+        -- @IO:GS $FFD70F4 - ADC3 smoothed value (LSB)
+        fastio_rdata <= adc3_smooth(7 downto 0);
+      elsif fastio_addr(7 downto 0) = x"f5" then
+        -- @IO:GS $FFD70F5 - ADC3 smoothed value (MSB)
+        fastio_rdata <= adc3_smooth(15 downto 8);
       elsif fastio_addr(7 downto 0) = "11111111" then
         -- Show busy status for writing
         fastio_rdata <= (others => write_job_pending);
@@ -177,9 +183,15 @@ begin
     if rising_edge(clock) then
 
       -- Export smoothed adc values
-      adc0_out <= adc0_smooth;
-      adc1_out <= adc1_smooth;
-      adc2_out <= adc2_smooth;
+      -- (inverted so that limited range results in zero line being max,
+      -- and upper limit being near zero, instead of upper limit being
+      -- near, but only near, max volume level).
+      adc1_out(14 downto 0) <= not adc1_smooth(14 downto 0);
+      adc2_out(14 downto 0) <= not adc2_smooth(14 downto 0);
+      adc3_out(14 downto 0) <= not adc3_smooth(14 downto 0);
+      adc1_out(15) <= '0';
+      adc2_out(15) <= '0';
+      adc3_out(15) <= '0';
       
       -- Write to registers as required
       if cs='1' and fastio_write='1' then
@@ -566,22 +578,22 @@ begin
           if busy_count > 88 and i2c1_error='0' then
             bytes(busy_count - 1 - 88 + 64) <= i2c1_rdata;
             if busy_count = 97 then
-              adc0_new(7 downto 0) <= i2c1_rdata;
-            end if;
-            if busy_count = 98 then
-              adc0_new(15 downto 8) <= i2c1_rdata;
-            end if;
-            if busy_count = 99 then
               adc1_new(7 downto 0) <= i2c1_rdata;
             end if;
-            if busy_count = 100 then
+            if busy_count = 98 then
               adc1_new(15 downto 8) <= i2c1_rdata;
             end if;
-            if busy_count = 101 then
+            if busy_count = 99 then
               adc2_new(7 downto 0) <= i2c1_rdata;
             end if;
+            if busy_count = 100 then
+              adc2_new(15 downto 8) <= i2c1_rdata;
+            end if;
+            if busy_count = 101 then
+              adc3_new(7 downto 0) <= i2c1_rdata;
+            end if;
             if busy_count = 102 then
-              adc4_new(15 downto 8) <= i2c1_rdata;
+              adc3_new(15 downto 8) <= i2c1_rdata;
             end if;
             -- Make sure ADC values are between $0000 - $7FFF
             if busy_count = 103 then
@@ -602,19 +614,6 @@ begin
               end if;
             end if;
             if busy_count = 105 then
-              if adc0_new > adc0_smooth then
-                if (adc0_new - adc0_smooth) > 64 then
-                  adc0_smooth <= adc0_smooth + 64;
-                else
-                  adc0_smooth <= adc0_smooth + 1;
-                end if;
-              elsif adc0_new < adc0_smooth then
-                if (adc0_smooth - adc0_new) > 64 then
-                  adc0_smooth <= adc0_smooth - 64;
-                else
-                  adc0_smooth <= adc0_smooth - 1;
-                end if;
-              end if;
               if adc1_new > adc1_smooth then
                 if (adc1_new - adc1_smooth) > 64 then
                   adc1_smooth <= adc1_smooth + 64;
@@ -639,6 +638,19 @@ begin
                   adc2_smooth <= adc2_smooth - 64;
                 else
                   adc2_smooth <= adc2_smooth - 1;
+                end if;
+              end if;
+              if adc3_new > adc3_smooth then
+                if (adc3_new - adc3_smooth) > 64 then
+                  adc3_smooth <= adc3_smooth + 64;
+                else
+                  adc3_smooth <= adc3_smooth + 1;
+                end if;
+              elsif adc3_new < adc3_smooth then
+                if (adc3_smooth - adc3_new) > 64 then
+                  adc3_smooth <= adc3_smooth - 64;
+                else
+                  adc3_smooth <= adc3_smooth - 1;
                 end if;
               end if;
             end if;
