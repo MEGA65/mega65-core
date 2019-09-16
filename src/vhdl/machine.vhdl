@@ -74,6 +74,8 @@ entity machine is
          cpu_exrom : in std_logic;
          cpu_game : in std_logic;
 
+         power_down : out std_logic := '1';
+         
          no_hyppo : in std_logic;
 
          flopled : out std_logic;

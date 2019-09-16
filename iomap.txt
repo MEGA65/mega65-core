@@ -15,8 +15,21 @@ C65 $003C000-$003CFFF - 4KB C65 KERNAL/INTERFACE ROM
 C65 $003E000-$003FFFF - 8KB C65 KERNAL ROM
 GS $4000000 - $7FFFFFF Slow Device memory (64MB)
 GS $4000000 - $7FFFFFF SUMMARY:SLOWDEV Slow Device memory (64MB)
+GS $7010000.4-0 - Read /EXROM & /GAME signal probe count (MEGA65 R1 PCB only)
 GS $7010000.5 - Force assertion of /RESET on cartridge port
+GS $7010000.5 - Read cartridge force reset (1=reset)
+GS $7010000.6 - Read cartridge /EXROM flag
+GS $7010000.7 - Read cartridge /EXROM flag
+GS $7010001.0-4 - Directly read lower 5 bits of cartridge port data lines.
+GS $7010001.5 - Joystick read toggle flag DEBUG
+GS $7010001.6 - 1=force joystick expansion mode.
 GS $7010001.6 - Force enabling of joystick expander cartridge
+GS $7010001.7 - Expansion port mode: 1=normal mode, 0=joystick expansion mode
+GS $7010002 - Counter of /IRQ triggers from cartridge
+GS $7010003 - Counter of /NMI triggers from cartridge
+GS $7010004 - Counter of /DMA triggers from cartridge
+GS $7010005 - Counter of /GAME triggers from cartridge
+GS $7010006 - Counter of /EXROM triggers from cartridge
 GS $8000000 - $FEFFFFF Slow Device memory (127MB)
 GS $8000000 - $FEFFFFF SUMMARY:SLOWDEV Slow Device memory (127MB)
 C64 $D000 VIC-II:S0X sprite 0 horizontal position
@@ -59,6 +72,7 @@ C64 $D018 VIC-II RAM addresses
 C64 $D019.0 VIC-II:RIRQ raster compare indicate or acknowledge
 C64 $D019.1 VIC-II:ISBC sprite:bitmap collision indicate or acknowledge
 C64 $D019.2 VIC-II:ISSC sprite:sprite collision indicate or acknowledge
+C64 $D019.3 VIC-II:ILP light pen indicate or acknowledge
 C64 $D019 VIC-II IRQ control
 C64 $D01A.0 VIC-II:MRIRQ mask raster IRQ
 C64 $D01A.1 VIC-II:MISBC mask sprite:bitmap collision IRQ
@@ -92,10 +106,10 @@ C65 $D024.7-0 VIC-III:MC3 multi-colour 3 (256 colour)
 GS $D024.7-0 VIC-IV:MC3 multi-colour 3 (256 colour)
 C64 $D024 VIC-II multi-colour 3
 C65 $D025 VIC-III:SPRMC0 Sprite multi-colour 0 (8-bit for selection of any palette colour)
-C64 $D025 VIC-II:SPRMC0 Sprite multi-colour 0 (always 256 colour)
+C64 $D025 VIC-II:SPRMC0 Sprite multi-colour 0
 GS $D025 VIC-IV:SPRMC0 Sprite multi-colour 0 (8-bit for selection of any palette colour)
 C65 $D026 VIC-III:SPRMC1 Sprite multi-colour 1 (8-bit for selection of any palette colour)
-C64 $D026 VIC-II:SPRMC1 Sprite multi-colour 1 (always 256 colour)
+C64 $D026 VIC-II:SPRMC1 Sprite multi-colour 1
 GS $D026 VIC-IV:SPRMC1 Sprite multi-colour 1 (8-bit for selection of any palette colour)
 C64 $D027 VIC-II:SPR0COL sprite 0 colour / 16-colour sprite transparency colour (lower nybl)
 C64 $D028 VIC-II:SPR1COL sprite 1 colour / 16-colour sprite transparency colour (lower nybl)
@@ -250,7 +264,7 @@ GS $D079 VIC-IV:RSTCOMP Raster compare value
 GS $D07A.0-2 VIC-IV:RSTCMP Raster compare value MSB
 GS $D07A.3-6 VIC-IV:RESERVED 
 GS $D07A.7 VIC-IV:FNRSTCMP Raster compare is in physical rasters if set, or VIC-II raster if clear
-GS $D07B VIC-IV:RESERVED UNUSED
+GS $D07B VIC-IV:Number of text rows to display
 GS $D07C.0-3 VIC-IV:RESERVED UNUSED BITS
 GS $D07C.4 VIC-IV:HSYNCP hsync polarity
 GS $D07C.5 VIC-IV:VSYNCP vsync polarity
@@ -362,6 +376,7 @@ GS $D610 UARTMISC:ASCIIKEY Last key press as ASCII (hardware accelerated keyboar
 GS $D611.0 UARTMISC:MRSHFT Right shift key state (hardware accelerated keyboard scanner).
 GS $D611.0 WRITE ONLY Connect POT lines to IEC port (for r1 PCB only)
 GS $D611.1 UARTMISC:MLSHFT Left shift key state (hardware accelerated keyboard scanner).
+GS $D611.1 WRITE ONLY enable real joystick ports (for r2 PCB only)
 GS $D611.2 UARTMISC:MCTRL CTRL key state (hardware accelerated keyboard scanner).
 GS $D611.3 UARTMISC:MMEGA MEGA/C= key state (hardware accelerated keyboard scanner).
 GS $D611.4 UARTMISC:MALT ALT key state (hardware accelerated keyboard scanner).
@@ -428,7 +443,7 @@ GS $D643 HCPU:REGZ Hypervisor Z register storage
 GS $D644 CPU:HTRAP04 Writing triggers hypervisor trap \$04
 GS $D644 HCPU:REGB Hypervisor B register storage
 GS $D645 CPU:HTRAP05 Writing triggers hypervisor trap \$05
-GS $D645 HCPU;SPL Hypervisor SPL register storage
+GS $D645 HCPU:SPL Hypervisor SPL register storage
 GS $D646 CPU:HTRAP06 Writing triggers hypervisor trap \$06
 GS $D646 HCPU:SPH Hypervisor SPH register storage
 GS $D647 CPU:HTRAP07 Writing triggers hypervisor trap \$07
@@ -934,8 +949,10 @@ GS $D7EA MATH:ITERCMP Math iteration counter comparator (32 bit)
 GS $D7EB MATH:ITERCMP Math iteration counter comparator (32 bit)
 GS $D7FA CPU:SPEEDBIAS 1/2/3.5MHz CPU speed fine adjustment
 GS $D7FB.0 CPU:BRCOST 1=charge extra cycle(s) for branches taken
+GS $D7FB.1 CPU:CARTEN 1= enable cartridges
 GS $D7FC DEBUG chip-select enables for various devices
 GS $D7FD.6 CPU:NOGAME Override for /GAME : Must be 0 to enable /GAME signal
+GS $D7FD.6 CPU:POWEREN Set to zero to power off computer on supported systems. WRITE ONLY.
 GS $D7FD.7 CPU:NOEXROM Override for /EXROM : Must be 0 to enable /EXROM signal
 C64 $DC00 CIA1:PORTA Port A 
 C64 $DC01 CIA1:PORTB Port B
@@ -1056,7 +1073,16 @@ GS $FF80000-$FF87FFF SUMMARY:COLOURRAM Colour RAM (32KB or 64KB)
 GS $FF8xxxx - Colour RAM (32KB or 64KB)
 GS $FFD6C00-DFF - F011 floppy controller sector buffer
 GS $FFD6E00-FFF - SD card direct access sector buffer
-GS $FFD7000-FF - I2C Peripherals
+GS $FFD7000-FF - I2C Peripherals     
+GS $FFD7100-07 UUID:UUID64 64-bit UUID. Can be used to seed ethernet MAC address
+GS $FFD7110-3F RTC:RTC Real-time Clock
+GS $FFD7110 RTC:RTCSEC Real-time Clock seconds value (binary coded decimal)
+GS $FFD7111 RTC:RTCMIN Real-time Clock minutes value (binary coded decimal)
+GS $FFD7112 RTC:RTCHOUR Real-time Clock hours value (binary coded decimal)
+GS $FFD7113 RTC:RTCDAY Real-time Clock day of month value (binary coded decimal)
+GS $FFD7114 RTC:RTCMONTH Real-time Clock month value (binary coded decimal)
+GS $FFD7115 RTC:RTCYEAR Real-time Clock year value (binary coded decimal)
+GS $FFD7140-7F RTC:NVRAM 64-bytes of non-volatile RAM. Can be used for storing machine configuration.
 GS $FFDB000-$FFDBFFF - Internal 1541 ROM access
 GS $FFDC000-$FFDFFFF - Internal 1541 ROM access
 GS $FFDE800 - $FFDEFFF Ethernet RX buffer (read only)
