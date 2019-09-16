@@ -36,6 +36,11 @@ entity audio_complex is
     audio_mix_wdata : in unsigned(15 downto 0) := x"FFFF";
     audio_mix_rdata : out unsigned(15 downto 0) := x"FFFF";
     audio_loopback : out unsigned(15 downto 0) := x"FFFF";
+
+    -- Volume knobs
+    volume_knob1 : in unsigned(15 downto 0) := x"FFFF";
+    volume_knob2 : in unsigned(15 downto 0) := x"FFFF";
+    volume_knob3 : in unsigned(15 downto 0) := x"FFFF";   
     
     -- The various audio busses and interfaces:
     
@@ -285,6 +290,10 @@ begin
     modem_is_pcm_master => modem_is_pcm_master,
     amplifier_enable => ampSD,
 
+    volume_knob1 => volume_knob1,
+    volume_knob2 => volume_knob2,
+    volume_knob3 => volume_knob3,    
+    
     -- SID outputs
     sources(0) => leftsid_audio(17 downto 2),
     sources(1) => rightsid_audio(17 downto 2),

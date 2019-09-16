@@ -76,6 +76,11 @@ entity sdcardio is
     secure_mode : in std_logic := '0';
     
     fpga_temperature : in std_logic_vector(11 downto 0);
+
+    pwm_knob : in unsigned(15 downto 0);
+    volume_knob1_target : inout unsigned(3 downto 0) := x"F";
+    volume_knob2_target : inout unsigned(3 downto 0) := x"F";
+    volume_knob3_target : inout unsigned(3 downto 0) := x"F";
     
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
@@ -772,16 +777,16 @@ begin  -- behavioural
             -- DATA    |  D7   |  D6   |  D5   |  D4   |  D3   |  D2   |  D1   |  D0   | 7 RW
             fastio_rdata <= sb_cpu_rdata;
             
-          when "01000" =>
+          when "01000" => -- $D088
             -- CLOCK   |  C7   |  C6   |  C5   |  C4   |  C3   |  C2   |  C1   |  C0   | 8 RW
             fastio_rdata <= f011_reg_clock;
             
-          when "01001" =>
+          when "01001" => -- $D089
             -- @IO:65 $D089 - F011 FDC step time (x62.5 micro seconds)
             -- STEP    |  S7   |  S6   |  S5   |  S4   |  S3   |  S2   |  S1   |  S0   | 9 RW
             fastio_rdata <= f011_reg_step;
             
-          when "01010" =>
+          when "01010" => -- $D08A
             -- P CODE  |  P7   |  P6   |  P5   |  P4   |  P3   |  P2   |  P1   |  P0   | A R
             fastio_rdata <= f011_reg_pcode;
           when "11011" => -- @IO:GS $D09B - FSM state of low-level SD controller (DEBUG)
@@ -941,11 +946,16 @@ begin  -- behavioural
             -- @IO:GS $D6AC - DEBUG FDC last quantised gap
             fastio_rdata <= unsigned(fdc_quantised_gap);
           when x"ad" =>
-            -- @IO:GS $D6AD - DEBUG FDC bytes read counter (LSB)
-            fastio_rdata <= unsigned(fdc_bytes_read(7 downto 0));
+            -- @IO:GS $D6AD.0-3 - PHONE:Volume knob 1 audio target
+            -- @IO:GS $D6AD.4-7 - PHONE:Volume knob 2 audio target
+            fastio_rdata(3 downto 0) <= volume_knob1_target;
+            fastio_rdata(7 downto 4) <= volume_knob2_target;
           when x"ae" =>
-            -- @IO:GS $D6AE - DEBUG FDC bytes read counter (MSB)
-            fastio_rdata <= unsigned(fdc_bytes_read(15 downto 8));
+            -- @IO:GS $D6AE.0-3 - PHONE:Volume knob 3 audio target
+            -- @IO:GS $D6AE.7 - PHONE:Volume knob 3 controls LCD panel brightness
+            fastio_rdata(3 downto 0) <= volume_knob3_target;
+            fastio_rdata(6 downto 4) <= "000";
+            fastio_rdata(7) <= pwm_knob_en;
           when x"B0" =>
             -- @IO:GS $D6B0 - Touch pad control / status
             -- @IO:GS $D6B0.0 - Touch event 1 is valid
@@ -1184,6 +1194,11 @@ begin  -- behavioural
       -- due to the square wave. So we will instead try ~250KHz
       -- Nope, high speed doesn't work. So we have to find some way to fix the
       -- 1KHz squarewave audio squeal
+
+      -- Allow volume knob 3 to control LCD panel brightness
+      if pwm_knob_en='1' then
+        lcdpwm_value <= volume_knob3(14 downto 7);
+      end if;
       
       if lcd_pwm_divider /= 127 then
         lcd_pwm_divider <= lcd_pwm_divider + 1;
@@ -1981,6 +1996,12 @@ begin  -- behavioural
             when x"a2" =>
               cycles_per_interval <= fastio_wdata;
               -- @IO:GS $D6F3 - Accelerometer bit-bashing port
+            when x"ad" => 
+              volume_knob1_target <= unsigned(fastio_wdata(3 downto 0));
+              volume_knob2_target <= unsigned(fastio_wdata(7 downto 4));
+            when x"ae" =>
+              volume_knob3_target <= unsigned(fastio_wdata(3 downto 0));
+              pwm_knob_en <= fastio_wdata(7);
             when x"af" =>
               -- @IO:GS $D6AF - Directly set F011 flags (intended for virtual F011 mode) WRITE ONLY
               -- @IO:GS $D6AF.0 - f011_rsector_found
