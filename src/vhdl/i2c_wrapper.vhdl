@@ -603,13 +603,13 @@ begin
               adc3_new(15) <= not adc3_new(15);
             end if;
             if busy_count = 104 then
-              if adc1_new(15) then
+              if adc1_new(15)='1' then
                 adc1_new <= x"7FFF";
               end if;
-              if adc2_new(15) then
+              if adc2_new(15)='1' then
                 adc2_new <= x"7FFF";
               end if;
-              if adc3_new(15) then
+              if adc3_new(15)='1' then
                 adc3_new <= x"7FFF";
               end if;
             end if;
