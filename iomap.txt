@@ -616,8 +616,10 @@ GS $D6A9 - DEBUG FDC last gap interval (LSB)
 GS $D6AA - DEBUG FDC last gap interval (MSB)
 GS $D6AB - DEBUG FDC last 7 rdata bits (packed by mfm_gaps)
 GS $D6AC - DEBUG FDC last quantised gap
-GS $D6AD - DEBUG FDC bytes read counter (LSB)
-GS $D6AE - DEBUG FDC bytes read counter (MSB)
+GS $D6AD.0-3 - PHONE:Volume knob 1 audio target
+GS $D6AD.4-7 - PHONE:Volume knob 2 audio target
+GS $D6AE.0-3 - PHONE:Volume knob 3 audio target
+GS $D6AE.7 - PHONE:Volume knob 3 controls LCD panel brightness
 GS $D6AF.0 - f011_rsector_found
 GS $D6AF.1 - f011_wsector_found
 GS $D6AF.2 - f011_eq_inhibit
