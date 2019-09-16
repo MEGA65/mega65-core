@@ -86,6 +86,8 @@ entity gs4510 is
     cpuis6502 : out std_logic := '0';
     cpuspeed : out unsigned(7 downto 0);
 
+    power_down : out std_logic := '1';
+    
     irq_hypervisor : in std_logic_vector(2 downto 0) := "000";    -- JBM
 
     -- Asserted when CPU is in secure mode: Activates secure mode matrix mode interface

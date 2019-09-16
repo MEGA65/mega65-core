@@ -430,6 +430,8 @@ begin
       osk_toggle_key => osk_toggle_key,
       sector_buffer_mapped => sector_buffer_mapped,
 
+      power_down => power_down,
+      
       pal50_select_out => pal50_select,
       
       -- Wire up a dummy caps_lock key on switch 8
