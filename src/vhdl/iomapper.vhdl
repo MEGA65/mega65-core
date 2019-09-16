@@ -1059,9 +1059,9 @@ begin
       sda => i2c1SDA,
       scl => i2c1SCL,
 
-      adc1_smooth => volume_knob1,
-      adc2_smooth => volume_knob2,
-      adc3_smooth => volume_knob3,
+      adc1_out => volume_knob1,
+      adc2_out => volume_knob2,
+      adc3_out => volume_knob3,
       
       i2c_joya_fire => i2c_joya_fire,
       i2c_joya_up => i2c_joya_up,
@@ -1138,7 +1138,7 @@ begin
     drive_led => drive_led,
     motor => motor,
 
-    pcm_knob => volume_knob1,
+    pwm_knob => volume_knob1,
     volume_knob1_target => volume_knob1_target,
     volume_knob2_target => volume_knob2_target,
     volume_knob3_target => volume_knob3_target,
