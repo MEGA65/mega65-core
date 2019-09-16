@@ -60,6 +60,10 @@ entity i2c_wrapper is
     i2c_black2 : out std_logic := '1';
     i2c_black3 : out std_logic := '1';
     i2c_black4 : out std_logic := '1';
+
+    adc0_out : out unsigned(15 downto 0);
+    adc1_out : out unsigned(15 downto 0);
+    adc2_out : out unsigned(15 downto 0);
     
     -- FastIO interface
     cs : in std_logic;
@@ -108,6 +112,13 @@ architecture behavioural of i2c_wrapper is
   -- Used to de-glitch I2C IP expander inputs
   signal black3history : std_logic_vector(15 downto 0) := (others => '1');
   signal black4history : std_logic_vector(15 downto 0) := (others => '1');
+
+  signal adc0_new : unsigned(15 downto 0) := x"8000";
+  signal adc1_new : unsigned(15 downto 0) := x"8000";
+  signal adc2_new : unsigned(15 downto 0) := x"8000";
+  signal adc0_smooth : unsigned(15 downto 0) := x"8000";
+  signal adc1_smooth : unsigned(15 downto 0) := x"8000";
+  signal adc2_smooth : unsigned(15 downto 0) := x"8000";
   
 begin
 
@@ -140,6 +151,18 @@ begin
       if fastio_addr(7) = '0' then
         report "reading buffered I2C data";
         fastio_rdata <= bytes(to_integer(fastio_addr(6 downto 0)));
+      elsif fastio_addr(7 downto 0) = x"f0" then
+        fastio_rdata <= adc0_smooth(7 downto 0);
+      elsif fastio_addr(7 downto 0) = x"f1" then
+        fastio_rdata <= adc0_smooth(15 downto 8);
+      elsif fastio_addr(7 downto 0) = x"f2" then
+        fastio_rdata <= adc1_smooth(7 downto 0);
+      elsif fastio_addr(7 downto 0) = x"f3" then
+        fastio_rdata <= adc1_smooth(15 downto 8);
+      elsif fastio_addr(7 downto 0) = x"f4" then
+        fastio_rdata <= adc2_smooth(7 downto 0);
+      elsif fastio_addr(7 downto 0) = x"f5" then
+        fastio_rdata <= adc2_smooth(15 downto 8);
       elsif fastio_addr(7 downto 0) = "11111111" then
         -- Show busy status for writing
         fastio_rdata <= (others => write_job_pending);
@@ -153,6 +176,11 @@ begin
 
     if rising_edge(clock) then
 
+      -- Export smoothed adc values
+      adc0_out <= adc0_smooth;
+      adc1_out <= adc1_smooth;
+      adc2_out <= adc2_smooth;
+      
       -- Write to registers as required
       if cs='1' and fastio_write='1' then
         case to_integer(fastio_addr(7 downto 0)) is
@@ -537,6 +565,65 @@ begin
           i2c1_command_en <= '1';
           if busy_count > 88 and i2c1_error='0' then
             bytes(busy_count - 1 - 88 + 64) <= i2c1_rdata;
+            if busy_count = 97 then
+              adc0_new(7 downto 0) <= i2c1_rdata;
+            end if;
+            if busy_count = 98 then
+              adc0_new(15 downto 8) <= i2c1_rdata;
+            end if;
+            if busy_count = 99 then
+              adc1_new(7 downto 0) <= i2c1_rdata;
+            end if;
+            if busy_count = 100 then
+              adc1_new(15 downto 8) <= i2c1_rdata;
+            end if;
+            if busy_count = 101 then
+              adc2_new(7 downto 0) <= i2c1_rdata;
+            end if;
+            if busy_count = 102 then
+              adc2_new(15 downto 8) <= i2c1_rdata;
+            end if;
+            if busy_count = 103 then
+              if adc0_new > adc0_smooth then
+                if (adc0_new - adc0_smooth) > 64 then
+                  adc0_smooth <= adc0_smooth + 64;
+                else
+                  adc0_smooth <= adc0_smooth + 1;
+                end if;
+              elsif adc0_new < adc0_smooth then
+                if (adc0_smooth - adc0_new) > 64 then
+                  adc0_smooth <= adc0_smooth - 64;
+                else
+                  adc0_smooth <= adc0_smooth - 1;
+                end if;
+              end if;
+              if adc1_new > adc1_smooth then
+                if (adc1_new - adc1_smooth) > 64 then
+                  adc1_smooth <= adc1_smooth + 64;
+                else
+                  adc1_smooth <= adc1_smooth + 1;
+                end if;
+              elsif adc1_new < adc1_smooth then
+                if (adc1_smooth - adc1_new) > 64 then
+                  adc1_smooth <= adc1_smooth - 64;
+                else
+                  adc1_smooth <= adc1_smooth - 1;
+                end if;
+              end if;
+              if adc2_new > adc2_smooth then
+                if (adc2_new - adc2_smooth) > 64 then
+                  adc2_smooth <= adc2_smooth + 64;
+                else
+                  adc2_smooth <= adc2_smooth + 1;
+                end if;
+              elsif adc2_new < adc2_smooth then
+                if (adc2_smooth - adc2_new) > 64 then
+                  adc2_smooth <= adc2_smooth - 64;
+                else
+                  adc2_smooth <= adc2_smooth - 1;
+                end if;
+              end if;
+            end if;
           end if;
         --------------------------------------------------------------------
         -- End of Auto-Generated Content
