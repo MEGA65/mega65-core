@@ -2177,7 +2177,7 @@ begin
               value(3) := exrom;
               value(2) := game;
               value(1) := cartridge_enable;              
-              value(0) := '0';
+              value(0) := '1'; -- Set if power is on, clear if power is off
               return value;
             when others => return x"ff";
           end case;
@@ -2539,8 +2539,10 @@ begin
       elsif (long_address = x"FFD37FD") then
         -- @IO:GS $D7FD.7 CPU:NOEXROM Override for /EXROM : Must be 0 to enable /EXROM signal
         -- @IO:GS $D7FD.6 CPU:NOGAME Override for /GAME : Must be 0 to enable /GAME signal
+        -- @IO:GS $D7FD.6 CPU:POWEREN Set to zero to power off computer on supported systems. WRITE ONLY.
         force_exrom <= value(7);
         force_game <= value(6);
+        power_down <= value(0);
       elsif (long_address = x"FFD37ff") or (long_address = x"FFD17ff") then
         null;
       end if;

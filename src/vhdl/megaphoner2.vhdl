@@ -122,12 +122,7 @@ entity container is
          sdClock : out std_logic := 'Z';       -- (sclk_o)
          sdMOSI : out std_logic := 'Z';      
          sdMISO : in  std_logic;
-         
-         ----------------------------------------------------------------------
-         -- Allow the FPGA to turn itself off
-         ----------------------------------------------------------------------
-         power_down : out std_logic := '1';
-         
+
          ----------------------------------------------------------------------
          -- Flash RAM for holding config
          ----------------------------------------------------------------------
