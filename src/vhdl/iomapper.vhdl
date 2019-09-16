@@ -498,6 +498,13 @@ architecture behavioral of iomapper is
   -- Used to divide 40MHz cpuclock down to get 1541 CPU clock
   signal drive_cycle_interval : integer range 0 to 40 := 40;
   signal drive_cycle_countdown : integer range 0 to 40 := 0;
+
+  signal volume_knob1 : unsigned(15 downto 0);
+  signal volume_knob2 : unsigned(15 downto 0);
+  signal volume_knob3 : unsigned(15 downto 0);
+  signal volume_knob1_target : unsigned(3 downto 0);
+  signal volume_knob2_target : unsigned(3 downto 0);
+  signal volume_knob3_target : unsigned(3 downto 0);
   
 begin
 
@@ -994,6 +1001,14 @@ begin
   audio0: entity work.audio_complex port map (
     clock50mhz => clk,
 
+    volume_knob1_target => volume_knob1_target,
+    volume_knob2_target => volume_knob2_target,
+    volume_knob3_target => volume_knob3_target,
+    
+    volume_knob1 => volume_knob1,
+    volume_knob2 => volume_knob2,
+    volume_knob3 => volume_knob3,
+    
     audio_mix_reg => audio_mix_reg,
     audio_mix_write => audio_mix_write,
     audio_mix_wdata => audio_mix_wdata,
@@ -1119,6 +1134,11 @@ begin
     drive_led => drive_led,
     motor => motor,
 
+    pcm_knob => volume_knob1,
+    volume_knob1_target => volume_knob1_target,
+    volume_knob2_target => volume_knob2_target,
+    volume_knob3_target => volume_knob3_target,
+    
     f_density => f_density,
     f_motor => f_motor,
     f_select => f_select,

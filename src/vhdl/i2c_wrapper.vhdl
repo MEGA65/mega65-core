@@ -581,9 +581,27 @@ begin
               adc2_new(7 downto 0) <= i2c1_rdata;
             end if;
             if busy_count = 102 then
-              adc2_new(15 downto 8) <= i2c1_rdata;
+              adc4_new(15 downto 8) <= i2c1_rdata;
             end if;
+            -- Make sure ADC values are between $0000 - $7FFF
             if busy_count = 103 then
+              -- Fix sign of ADC values
+              adc1_new(15) <= not adc1_new(15);
+              adc2_new(15) <= not adc2_new(15);
+              adc3_new(15) <= not adc3_new(15);
+            end if;
+            if busy_count = 104 then
+              if adc1_new(15) then
+                adc1_new <= x"7FFF";
+              end if;
+              if adc2_new(15) then
+                adc2_new <= x"7FFF";
+              end if;
+              if adc3_new(15) then
+                adc3_new <= x"7FFF";
+              end if;
+            end if;
+            if busy_count = 105 then
               if adc0_new > adc0_smooth then
                 if (adc0_new - adc0_smooth) > 64 then
                   adc0_smooth <= adc0_smooth + 64;
