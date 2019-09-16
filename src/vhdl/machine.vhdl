@@ -879,6 +879,7 @@ begin
       irq => combinedirq,
       nmi => combinednmi,
       exrom => cpu_exrom,
+      power_down => power_down,
       game => cpu_game,
       hyper_trap => hyper_trap_combined,
       hyper_trap_f011_read => hyper_trap_f011_read,
