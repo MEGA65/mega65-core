@@ -463,6 +463,8 @@ architecture behavioural of sdcardio is
   signal gesture_event_id : unsigned(3 downto 0) := x"0";
   signal gesture_event : unsigned(3 downto 0) := x"0";
 
+  signal pwm_knob_en : std_logic := '0';
+  
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
   begin
@@ -1197,7 +1199,7 @@ begin  -- behavioural
 
       -- Allow volume knob 3 to control LCD panel brightness
       if pwm_knob_en='1' then
-        lcdpwm_value <= volume_knob3(14 downto 7);
+        lcdpwm_value <= pwm_knob(14 downto 7);
       end if;
       
       if lcd_pwm_divider /= 127 then

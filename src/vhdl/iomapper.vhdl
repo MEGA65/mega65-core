@@ -1059,6 +1059,10 @@ begin
       sda => i2c1SDA,
       scl => i2c1SCL,
 
+      adc1_smooth => volume_knob1,
+      adc2_smooth => volume_knob2,
+      adc3_smooth => volume_knob3,
+      
       i2c_joya_fire => i2c_joya_fire,
       i2c_joya_up => i2c_joya_up,
       i2c_joya_down => i2c_joya_down,
