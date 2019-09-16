@@ -41,6 +41,10 @@ entity audio_complex is
     volume_knob1 : in unsigned(15 downto 0) := x"FFFF";
     volume_knob2 : in unsigned(15 downto 0) := x"FFFF";
     volume_knob3 : in unsigned(15 downto 0) := x"FFFF";   
+    -- Which output do the knobs apply to?
+    volume_knob1_target : in unsigned(3 downto 0) := "1111";
+    volume_knob2_target : in unsigned(3 downto 0) := "1111";
+    volume_knob3_target : in unsigned(3 downto 0) := "1111";
     
     -- The various audio busses and interfaces:
     
@@ -293,6 +297,10 @@ begin
     volume_knob1 => volume_knob1,
     volume_knob2 => volume_knob2,
     volume_knob3 => volume_knob3,    
+
+    volume_knob1_target => volume_knob1_target,
+    volume_knob2_target => volume_knob2_target,
+    volume_knob3_target => volume_knob3_target,
     
     -- SID outputs
     sources(0) => leftsid_audio(17 downto 2),
