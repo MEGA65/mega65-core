@@ -1,0 +1,99 @@
+; Ethernet controller test program for the C65GS
+
+; Include C64 BASIC program load header
+
+	 .word $0801
+	 .org $0801
+
+	 .scope
+	 .word _next, 10                       ; Next line and current line number
+	 .byte $97, "2,0:", $9e, " 2014", $AA, "65",0      ; POKE 2,0 : SYS 2014+65
+_next:	 .word 0
+
+iter1:	 .byte 0
+
+	 .checkpc 2079
+	 .advance 2079
+
+programentrypoint:
+	
+	; Enable C65GS io
+	lda #$47
+	sta $d02f
+	lda #$53
+	sta $D02f
+
+	; Map ethernet registers at $6000 - $7FFF
+
+	; Ethernet controller really lives $FFDE000 - $FFDEFFF, so select $FF megabyte section for MAP LO
+	lda #$ff
+	ldx #$0f
+	ldy #$00
+	ldz #$00
+	map
+	eom
+
+	; now enable mapping of $DE000-$DFFFF at $6000
+	; MAPs are offset based, so we need to subtract $6000 from the target address
+	; $DE000 - $6000 = $D8000
+	lda #$80
+	ldx #$8d
+	ldy #$00
+	ldz #$00
+	map
+	eom
+
+	; Ethernet buffer now visible at $6800 - $6FFF
+
+	; make sure ethernet transceiver is on and not generating IRQs
+	; (we will poll it).
+	; also make sure that we acknowledge the last received packet so that the
+	; ethernet controller knows it can receive.
+	lda $d6e1
+	lsr
+	and #$02
+	ora #$01
+	sta $d6e1
+
+packetloop:
+	jsr $ffe4
+	cmp #$00
+	beq packetloop
+
+	; set packet length
+	lda #<packet_length
+	sta $d6e2
+	lda #>packet_length
+	sta $d6e3
+
+	; copy packet body
+	ldx #$00
+l1:	lda sample_packet,x
+	sta $6800,x
+	inx
+	bne l1
+
+	; Change single byte in frame
+	lda $d012
+	sta $6830
+
+	; TX packet
+	lda #$01
+	sta $d6e4
+
+	inc $d020
+
+	jmp packetloop
+
+	.alias packet_length 66
+
+sample_packet:
+	.byte $ff,$ff,$ff,$ff,$ff,$ff,$41,$41,$41,$41,$41,$41,$08,$00,$0f,$10
+	.byte $11,$12,$13,$14,$15,$16,$17,$18,$19,$1a,$1b,$1c,$1d,$1e,$1f,$20
+	.byte $21,$22,$23,$24,$25,$26,$27,$28,$29,$2a,$2b,$2c,$2d,$2e,$2f,$30
+	.byte $31,$32,$33,$34,$00,$01,8,5,12,12,15,32,23,15,18,12
+	.byte 4,33
+
+	.scend
+
+	.outfile "utilities/ethertxtest.prg"
