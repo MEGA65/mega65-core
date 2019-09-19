@@ -1,0 +1,60 @@
+#importonce
+
+//------------------------------------
+// Basic commands
+//------------------------------------
+.pseudocommand mov arg1:arg2 {
+	lda arg1
+	sta arg2
+}
+
+.pseudocommand incLim tar:lim {
+	inc tar
+	lda tar
+	cmp lim
+	bne exit
+	lda #0
+	sta tar	
+exit:
+}
+
+
+
+.pseudocommand mov16 src:tar {
+	lda src
+	sta tar
+	lda _16bit_nextArgument(src)
+	sta _16bit_nextArgument(tar)
+}
+
+.function _16bit_nextArgument(arg) {
+	.if (arg.getType()==AT_IMMEDIATE) .return CmdArgument(arg.getType(),>arg.getValue())
+	.return CmdArgument(arg.getType(),arg.getValue()+1)
+}
+
+
+
+
+//------------------------------------
+// Irq commands
+//------------------------------------
+.pseudocommand irqStart {
+		pha
+		txa
+		pha
+		tya
+		pha
+		mov #$ff : $d019
+}
+
+.pseudocommand irqEnd line : addr {
+		.if (line.getType()!=AT_NONE) 	mov line : $d012
+		.if (addr.getType()!=AT_NONE) 	mov addr : $fffe
+		pla
+		tay
+		pla
+		tax
+		pla
+		rti
+}
+

@@ -1,0 +1,79 @@
+#importonce							// <-- This is a library, we only want it included once
+.filenamespace MyPseudoCommands		// <-- Sets up a 'MyMacros' namespace for this file
+
+
+//-----------------------------
+// Help functions 
+//-----------------------------
+.function _16bit_nextArgument(arg) { // <-- Not visible in root scope
+	.if (arg.getType()==AT_IMMEDIATE) .return CmdArgument(arg.getType(),>arg.getValue())
+	.return CmdArgument(arg.getType(),arg.getValue()+1)
+}
+
+.macro ensureImmediateArgument(arg) {
+	.if (arg.getType()!=AT_IMMEDIATE)	.error "The argument must be immediate!" 
+}
+
+
+//-----------------------------
+// Library PseudoCommands 
+//-----------------------------
+.pseudocommand @mov arg1:arg2 {   //<-- @ puts it in the root scope
+	lda arg1
+	sta arg2
+}
+
+.pseudocommand @mov16 src:tar {   
+	lda src
+	sta tar
+	lda _16bit_nextArgument(src)
+	sta _16bit_nextArgument(tar)
+}
+
+.pseudocommand @lsr16 arg {
+	lsr _16bit_nextArgument(arg)
+	ror arg
+}
+.pseudocommand @asl16 arg {
+	asl arg
+	rol _16bit_nextArgument(arg)
+}
+
+.pseudocommand @pause cycles {
+	ensureImmediateArgument(cycles)
+	.var x = floor(cycles.getValue())
+	.if (x<2) .error "Cant make a pause on " + x + " cycles"
+
+	// Make a delay loop
+	.if (x>=11) {
+		.const cfirst = 6	// cycles for first loop
+		.const cextra = 5	// cycles for extra loops
+		.var noOfLoops = 1+floor([x-cfirst]/cextra)
+		.eval x = x - cfirst - [noOfLoops-1]*cextra
+		.if (x==1){
+			.eval x=x+cextra
+			.eval noOfLoops--	
+		}
+		ldy #noOfLoops
+m1:		dey
+m2:		bne *-1
+		.if (m1>>8 !=  m2>>8) .error "Pause loop is crossing page. Invalid cycle count!"
+	}
+
+	// Take care of odd cyclecount	
+	.if ([x&1]==1) {
+		bit $00
+		.eval x=x-3
+	}	
+	
+	// Take care of the rest
+	.if (x>0)
+		nop #x/2
+}
+.pseudocommand @nop x {
+	ensureImmediateArgument(x)
+	.for (var i=0; i<x.getValue(); i++) nop
+}
+
+
+

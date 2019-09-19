@@ -1,0 +1,41 @@
+#importonce 
+#import "MyPseudoCommands.lib"
+.filenamespace DemoSetup
+
+
+//-----------------------------
+// IrqHelp functions 
+//-----------------------------
+.pseudocommand @setupIrq line : address {
+		sei
+		mov #$35 : $01            
+		mov16 address : $fffe		 
+		mov #$1b : $d011
+		mov line : $d012
+		mov #$81 : $d01a
+		mov #$7f : $dc0d
+		mov #$7f : $dd0d
+		lda $dc0d
+		lda $dd0d
+		mov #$ff : $d019
+		cli
+}
+.pseudocommand @irqStart {
+		pha
+		txa
+		pha
+		tya
+		pha
+		mov #$ff : $d019
+}
+
+.pseudocommand @irqEnd line : addr {
+		.if (line.getType()!=AT_NONE) 	mov line : $d012
+		.if (addr.getType()!=AT_NONE) 	mov addr : $fffe
+		pla
+		tay
+		pla
+		tax
+		pla
+		rti
+}

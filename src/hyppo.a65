@@ -1,7 +1,7 @@
 ; MEGA65 "HYPPOBOOT" Combined boot and hypervisor ROM.
 ; Paul Gardner-Stephen, 2014-2019.
 ;
-; Purpose: 
+; Purpose:
 ; 1. Verify checksum of ROM area of slow RAM.
 ; 1. If checksum fails, load complete ROM from SD card.
 ; 2. Select default disk image for F011 emulation.
@@ -31,8 +31,8 @@
 ; Convenient macro for checkpoints. Uncomment the body to activate it
 
 .macro checkpoint
-;       jsr checkpoint
-;       .byte 0,_1,0
+;      	jsr checkpoint
+;      	.byte 0,_1,0
 .macend
 
 ;
@@ -42,14 +42,14 @@
 ; the desire is to have an SYS call that brings up a menu that lets
 ; you choose a disk image from a list.
 ;
-	.data 
+	.data
 
 ;	========================
 	.org $ce00
 ;	========================
 
 	.space romslab 1
-	.space screenrow 1 
+	.space screenrow 1
 
 	.space checksum 4
 	.space file_pagesread 2
@@ -199,7 +199,7 @@ trap_entry_points:
 	jmp nosuchtrap
 	nop
 
-	jmp protected_hardware_config	; Trap #$32 (Protected Hardware Configuration) 
+	jmp protected_hardware_config	; Trap #$32 (Protected Hardware Configuration)
 	nop			  	; refer: hyppo_task
 
 
@@ -297,7 +297,7 @@ trap_entry_points:
 ;;; ----------------------------------------------------------------------------
 ;;; Hypervisor traps
 ;;; ----------------------------------------------------------------------------
-	
+
 
 ;;; ----------------------------------------------------------------------------
 ;;; Illegal trap / trap sub-function handlers
@@ -333,7 +333,7 @@ return_from_trap_with_success:
 
 	; Return from trap with C flag clear to indicate success
 
-	jsr sd_unmap_sectorbuffer	
+	jsr sd_unmap_sectorbuffer
 
 	; set C flag for caller to indicate success
 	;
@@ -350,7 +350,7 @@ return_from_trap_with_success:
 
 return_from_trap_with_failure:
 
-	jsr sd_unmap_sectorbuffer	
+	jsr sd_unmap_sectorbuffer
 
 	; report error in A
 	;
@@ -362,7 +362,7 @@ return_from_trap_with_failure:
 	.invoke checkpoint "return_from_trap_with_failure"
 
 	; return from hypervisor
-	sta hypervisor_enterexit_trigger	
+	sta hypervisor_enterexit_trigger
 
 ;	========================
 
@@ -442,7 +442,7 @@ reset_machine_state:
 		; would run off somewhere odd instead of resetting properly. Now it
 		; will auto-reset after 65535 cycles if the watchdog is not cleared).
 		;
-		
+
 		lda #$6b    ; 01101011
 		sta hypervisor_feature_enables
 
@@ -496,9 +496,9 @@ reset_machine_state:
 		lda $d04f
 		and #$f
 		sta $d04f
-		
 
-		; disable CIA interrupts		
+
+		; disable CIA interrupts
 		lda #$7f
 		sta $DC0D
 		sta $DD0D
@@ -508,7 +508,7 @@ reset_machine_state:
 		sta $D01A
 
 		; We DO NOT need to mess with $01, because
-		; the 4510 starts up with hyppo mapped at $8000-$BFFF 
+		; the 4510 starts up with hyppo mapped at $8000-$BFFF
 		; enhanced ($FFD3xxx) IO page mapped at $D000,
 		; and fast RAM elsewhere.
 
@@ -590,7 +590,7 @@ normalboot:
 		;
 		ldx #<msg_tryingsdcard
 		ldy #>msg_tryingsdcard
-		jsr printmessage		
+		jsr printmessage
 
 		; Work out if we are using primary or secondard SD card
 
@@ -616,7 +616,7 @@ normalboot:
 		ldy #>msg_usingcard0
 		jsr printmessage
 
-		plx		
+		plx
 
 		jmp tryreadmbr
 trybus1:
@@ -661,7 +661,7 @@ nokey2:
 		jmp tryreadmbr
 
 ;	========================
-		
+
 gotmbr:
 		; good, was able to read the MBR
 
@@ -715,7 +715,7 @@ gotmbr:
 		;
 		; BG: should probably JMP to reset or something, and not fall through
 
-		
+
 mountsystemdiskok:
 
 		; Load and display boot logo
@@ -737,10 +737,10 @@ mountsystemdiskok:
 		; print debug message
 		;
 		.invoke checkpoint "  try-loading BOOTLOGO"
-	
+
 		jsr dos_readfileintomemory
 		bcs logook
-		
+
 ;	========================
 
 		; FAILED: print debug message
@@ -764,7 +764,7 @@ logook:
 		; Loaded banner, so copy palette into place
 		jsr setbannerpalette
 
-		; iterate through directory entries looking for ordinary file 
+		; iterate through directory entries looking for ordinary file
 		; HICKUP.M65 to load into hypervisor memory ...
 		; ... but only if we are not running a hick-up'd hyppo now.
 		;
@@ -862,11 +862,11 @@ hickuproutine:
 		;
 		lda #$ff
 		sta $d702
-		lda #$ff   
+		lda #$ff
 		sta $d704  ; dma list is in top MB of address space
 		lda #>hickupdmalist
 		sta $d701
-		; Trigger enhanced DMA 
+		; Trigger enhanced DMA
 		lda #<hickupdmalist
 		sta $d705
 
@@ -918,7 +918,7 @@ posthickup:
 		.invoke checkpoint "  Here we are POST-HICKUP"
 
 	jsr dumpcurrentfd	; debugging to Checkpoint
-		
+
 		; for now indicate that there is no disk in drive
 		; (unless we notice that floppy access has been virtualised)
 		LDA	hypervisor_hardware_virtualisation
@@ -956,7 +956,7 @@ f011Virtualised:
 
 		jsr dos_d81attach
 		bcc d81attachfail
-		
+
 		ldx #<msg_d81mounted
 		ldy #>msg_d81mounted
 		jsr printmessage
@@ -1018,7 +1018,7 @@ attempt_loadcharrom:
 		ldx #<txt_CHARROMM65
 		ldy #>txt_CHARROMM65
 		jsr dos_setname
-		
+
 		; Prepare 32-bit pointer for loading whole ROM ($FF7E000)
 		;
 		lda #$00
@@ -1217,7 +1217,7 @@ charromdmalist:
 		.word $E000
 		.byte $07
 		.word $0000
-		
+
 
 loadedmegaromok:
 
@@ -1237,7 +1237,7 @@ loadedmegaromok:
 		jsr printhex
 		ldz file_pagesread
 		jsr printhex
-		
+
 		; ROM file loaded, transfer control
 		;
 		ldx #<msg_romok
@@ -1270,7 +1270,7 @@ loaded1541rom:
 	jmp utility_menu
 nokey4:
 
-		jmp go64		
+		jmp go64
 
 ;	========================
 
@@ -1336,7 +1336,7 @@ checkromok:
 		lda txt_MEGA65ROM+6
 		cmp #'.
 		bne checksumfails
-	
+
 		; calculate checksum of loaded ROM ...
 		;
 		jsr calcromsum
@@ -1392,7 +1392,7 @@ mapromchecksumrecord:
 		; we ask for $FC000 to be mapped at $0000, which means that
 		; $4000 will correspond to $0000 (MAP instruction address
 		; space wraps around at the 1MB mark)
-		
+
 		; select 128MB mark for mapping lower 32KB of address space
 		;
 		lda #$80
@@ -1410,13 +1410,13 @@ mapromchecksumrecord:
 		ldz #$3f
 		map
 		eom
-		
+
 		rts
 
 ;	========================
 
 calcromsum:	; calculate checksum of 128KB ROM
-		
+
 		; use MAP to map C65 ROM address space in 16KB
 		; slabs at $4000-$7FFF.  Check sum each, and
 		; then compare checksum to ROM load record.
@@ -1437,10 +1437,10 @@ calcromsum:	; calculate checksum of 128KB ROM
 		; $F0000 - $FFF00 to set the "super page" register for that 32KB
 		; moby to bits 8 to 15 of the offset.  In practice, this means
 		; to allow mapping of memory above 1MB, the MB of memory being
-		; selected is chosen by the contents of A and Y registers when 
+		; selected is chosen by the contents of A and Y registers when
 		; X and Z = $0F.
-		; 
-				
+		;
+
 		; reset checksum
 		; checksum is not all zeroes, so that if RAM initialises with
 		; all zeroes, including in the checksum field, the checksum will
@@ -1473,7 +1473,7 @@ sumslab:
 		; this is easy -- we just sbc #$01 from romslab before using it.
 		;
 		lda romslab
-		sec 
+		sec
 		sbc #$01
 		lsr
 		lsr
@@ -1493,14 +1493,14 @@ sumslab:
 
 		map
 		eom
-		
+
 		; sum contents of 16KB slab
 		;
 		lda #$00
 		sta <zptempv
 		lda #$40
 		sta <zptempv+1
-		
+
 sumpage:	ldy #$00
 sumbyte:	lda checksum
 		clc
@@ -1516,7 +1516,7 @@ l6:		iny
 		lda <zptempv+1
 		cmp #$80
 		bne sumpage
-		
+
 		inc romslab
 		lda romslab
 		cmp #$10
@@ -1547,7 +1547,7 @@ resetdisplay:
 		lda #$80
 		sta $d06f
 
-		; disable test pattern and various other strange video things that might be hanging around		
+		; disable test pattern and various other strange video things that might be hanging around
 		lda #$80
 		trb $d066
 		lda #$00
@@ -1583,7 +1583,7 @@ resetdisplay:
 		; Now switch to 16-bit text mode so that we can use proportional
 		; characters and full-colour characters for chars >$FF for the logo
 		;
-		lda #$c5	
+		lda #$c5
 		lda $d054	; VIC-IV Control Register C
 
 		; and 80 bytes (40 16-bit characters) per row.
@@ -1744,7 +1744,7 @@ erasescreen:
 		lda #$00
 		sta $0401
 		sta $0403
-		
+
 		; Set bottom 22 bits of DMA list address as for C65
 		; (8MB address range)
 		;
@@ -1789,7 +1789,7 @@ logo1:		sta $0400,y
 		inc
 		iny
 		iny
-		bne logo1		
+		bne logo1
 logo1a:		sta $0500,y
 		inc
 		iny
@@ -1813,7 +1813,7 @@ logo2:		sta $0401,x
 		dec
 		sta $0501,x
 		inx
-		inx		
+		inx
 		bne logo2
 
 		; finally set palette for banner using contents of memory at $57D00-$57FFF
@@ -1848,7 +1848,7 @@ bannerpalettedmalist:
 		.word $3100 ; ; $xxx3100
 		.byte $0D   ; ; $xxDxxxx
 		.word $0000 ; modulo (unused)
-	
+
 
 
 ;	========================
@@ -1940,7 +1940,7 @@ pm2:		cpx #$00
 		lda <zptempp2
 		cmp #$d0
 		bcc pm5
-	
+
 		lda #$80
 		sta <zptempp2
 		lda #$06
@@ -1956,10 +1956,10 @@ pm1b:		lda #$20
 		sta (<zptempp2),y
 		iny
 		lda #$00
-		sta (<zptempp2),y		
+		sta (<zptempp2),y
 		iny
 		cpy #$50
-		bne pm1b		
+		bne pm1b
 
 writestring:
 		phz
@@ -2005,10 +2005,10 @@ printbanner:
 		rts
 
 ;	========================
-		
+
 printhex:
 		; helper function
-		;	
+		;
 		; seems to want to print the value if the z-reg onto the previous line written to the screen,
 		; so currently the screen consists of say "mounted $$ images"
 		; and this routine will go and change the "$$" to the value in the z-reg
@@ -2023,7 +2023,7 @@ printhex:
 		lsr
 		lsr
 		lsr
-		jsr printhexdigit		
+		jsr printhexdigit
 		tza
 		and #$0f
 printhexdigit:
@@ -2062,7 +2062,7 @@ go64:
 		;
 l41:		lda buckykey_status
 		and #$14
-		beq l42      ; no, so continue		
+		beq l42      ; no, so continue
 
 		; yes, display message
 		;
@@ -2087,8 +2087,8 @@ l42:
 
 		; copy routine to stack to switch to
 		; C64 memory map and enter via reset
-		; vector.  
-	
+		; vector.
+
 		; erase hyppo ROM copy from RAM
 		; (well, at least enough so that BASIC doesn't get upset)
 		; XXX - use DMA
@@ -2097,7 +2097,7 @@ l42:
 		txa
 g61:		sta $0800,x
 		inx
-		bne g61		
+		bne g61
 
 		; reset video mode to normal
 		; and return CPU to slow speed for exit
@@ -2124,7 +2124,7 @@ g61:		sta $0800,x
 		; exit from hypervisor to start machine
 		sta hypervisor_enterexit_trigger
 
-		.include "hyppo_ultimax.a65"		
+		.include "hyppo_ultimax.a65"
 
 ;	========================
 
@@ -2142,7 +2142,7 @@ longpeek:
 		stx longpeekdmalist_src_lsb
 		sty longpeekdmalist_src_2sb
 		stz longpeekdmalist_src_msb
-		sta longpeekdmalist_src_mb 
+		sta longpeekdmalist_src_mb
 
 		; Set DMA list address
 		;
@@ -2180,7 +2180,7 @@ longpeekdmalist_src_msb:
 		.byte $00
 		; destination address ($xxFBC00)
 		.word hyppo_scratchbyte0
-		.byte $0F 
+		.byte $0F
 		.byte $00,00 ; Modulo
 
 longpoke:
@@ -2239,12 +2239,12 @@ longpokevalue:	.byte $00
 		; destination address
 longpokeaddress:
 		.word $0000
-		.byte $0F 
+		.byte $0F
 		.byte $00,00 ; Modulo
 
 
 ;	========================
-		
+
 ; reset memory map to default
 resetmemmap:
 		; clear memory MAP MB offset register
@@ -2310,7 +2310,7 @@ keyboardread:
 
   	   	 jsr utility_menu_check
 
-		jsr scankeyboard		
+		jsr scankeyboard
 		bcs kr2  ; if an error occured
 		cmp #$20
 		bne @notUtilMenu
@@ -2344,7 +2344,7 @@ default_rom:
 		sta txt_MEGA65ROM,x
 		inx
 		lda #0
-		sta txt_MEGA65ROM,x    
+		sta txt_MEGA65ROM,x
 
 		rts
 
@@ -2365,7 +2365,7 @@ hypervisor_setup_copy_region:
 	; XXX - We should also return an error if there is an IO
 	; region mapped there, so that the hypervisor can't be tricked
 	; into doing privileged IO operations as part of the copy-back
-	
+
 	lda hypervisor_y
 	bmi hscr1
 	cmp #$7f
@@ -2383,7 +2383,7 @@ hscr1:
 	.invoke checkpoint "hypervisor_setup_copy_region <failure>"
 
 	lda #dos_errorcode_invalid_address
-	jmp dos_return_error		
+	jmp dos_return_error
 
 ;	========================
 
@@ -2492,17 +2492,17 @@ cp44:	lda (<checkpoint_pcl),y
 	beq endofcheckpointmessage
 	iny
 	bra cp44
-	
+
 
 endofcheckpointmessage:
 	; Skip $00 at end of message
 	iny
-	
+
 nocheckpointmessage:
 
 	; Advance return address following any checkpoint message
 	tya
-	clc	
+	clc
 	adc checkpoint_pcl
 	sta checkpoint_pcl
 	lda checkpoint_pch
@@ -2543,7 +2543,7 @@ checkpoint_return:
 	ldz checkpoint_z
 	plp
 
-	; return by jumping to the 
+	; return by jumping to the
 	jmp (checkpoint_pcl)
 
 ;	========================
@@ -2567,7 +2567,7 @@ checkpoint_bytetohex:
 	txa
 	and #$0f
 	jsr checkpoint_nybltohex
-	tax	
+	tax
 	rts
 
 ;	========================
@@ -2595,7 +2595,7 @@ utility_menu:
 	; First utility will be number 1
 	lda #$30
 	sta zptempv
-	
+
 	jsr utillist_rewind
 um1:
 	jsr utillist_validity_check
@@ -2610,7 +2610,7 @@ um2:	sta msg_utility_item,y
 	bne um2
 	iny
 	inc zptempv
-	lda zptempv	
+	lda zptempv
 	sta msg_utility_item
 	ldz #4
 um4:	nop
@@ -2629,7 +2629,7 @@ um3:
 	jsr utillist_next
 
 	bra um1
-	
+
 
 utility_end_of_list:
 	; XXX Get input from user (accept only numbers 1 - 9)
@@ -2653,7 +2653,7 @@ ueol2:	jsr utillist_validity_check
 	bmi ueol1
 	jsr utillist_next
 	bra ueol2
-ueol1:	
+ueol1:
 
 	inc $d021
 
@@ -2681,7 +2681,7 @@ ueol1:
 	lda <zptempv32+1
 	adc #0
 	sta utility_dmalist_srcaddr+1
-		
+
 	; load address is always $07FF (to skip $0801 header)
 	; start @ zptempv32 + 44
 	; DMA list is from Hypervisor ROM, so DMA list address MB also = $FF
@@ -2736,7 +2736,7 @@ ueol1:
 	; Next instruction exits hypervisor to user mode
 	sta hypervisor_enterexit_trigger
 
-utility_dmalist:	
+utility_dmalist:
 		; copy $FF8xxxx-$FF8yyyy to $00007FF-$000xxxx
 
 		; MEGA65 Enhanced DMA options
@@ -2842,7 +2842,7 @@ serialwrite:
 	; write character to serial port
 	; XXX - Have some kind of permission control on this
 	; XXX - $D67C should not work when matrix mode is enabled at all?
-	sta	hypervisor_write_char_to_serial_monitor	
+	sta	hypervisor_write_char_to_serial_monitor
 	sta	hypervisor_enterexit_trigger
 
 ;	========================
@@ -3008,7 +3008,7 @@ syspart_freeze_directory_sector_count:
 	; Freeze slots 1 - 63 are currently reserved
 	; They will likely get used for a service call-stack
 	; among other purposes.
-		
+
 
 ; We then have a similar area for system services, which are stored
 ; using much the same representation, but are used as helper
@@ -3089,7 +3089,7 @@ dos_dirent_longfilename_length:
 		.byte 0
 
 dos_dirent_shortfilename:
-		.byte "FILENAME.EXT",0		
+		.byte "FILENAME.EXT",0
 
 dos_dirent_cluster:
 		.byte 0,0,0,0
@@ -3132,9 +3132,9 @@ dos_current_sector_in_cluster:	.byte 0
 ;   file offset / $100 : 3 bytes
 ;
     .alias dos_filedescriptor_max 4
-    .alias dos_filedescriptor_offset_diskid 0    
-    .alias dos_filedescriptor_offset_mode 1    
-    .alias dos_filedescriptor_offset_startcluster 2    
+    .alias dos_filedescriptor_offset_diskid 0
+    .alias dos_filedescriptor_offset_mode 1
+    .alias dos_filedescriptor_offset_startcluster 2
     .alias dos_filedescriptor_offset_currentcluster 6
 ;
 ; These last three fields must be contiguous, as dos_open_current_file
@@ -3207,7 +3207,7 @@ dos_scratch_byte_2: .byte 0
 		; Vectors for copying data between hypervisor and user-space
 		;
 hypervisor_userspace_copy_vector:    .word 0
-    
+
 		; general hyppo temporary variables
 		;
 zptempv:		.word 0

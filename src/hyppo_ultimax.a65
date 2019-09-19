@@ -21,7 +21,7 @@ is_ultimax_cartridge:
 		; (We  use one list 4x with different destination,
 		; as it uses less bytes than a chained DMA list
 		; with all four.)
-		
+
 		lda reset_vector
 		sta hypervisor_pcl
 		lda reset_vector+1

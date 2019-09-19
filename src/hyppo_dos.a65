@@ -1,4 +1,4 @@
-		
+
 
 ; XXX - Track down why 2nd and subsequent LFN blocks are not used.
 
@@ -89,7 +89,7 @@
 	; 256-byte fixed size records for REL emulaton
 	;
 	.alias dos_filemode_relative 2
-	
+
 ;	========================
 
 dos_and_process_trap:
@@ -175,7 +175,7 @@ dos_and_process_trap_table:
 	; $50 - $5E
 	;
 	.word trap_dos_gettasklist		; not currently implememted
-	.word trap_dos_sendmessage		; not currently implememted	
+	.word trap_dos_sendmessage		; not currently implememted
 	.word trap_dos_receivemessage		; not currently implememted
 	.word trap_dos_writeintotask		; not currently implememted
 	.word trap_dos_readoutoftask		; not currently implememted
@@ -207,7 +207,7 @@ dos_and_process_trap_table:
 
 trap_serial_monitor_write:
 	sty hypervisor_write_char_to_serial_monitor
-	jmp return_from_trap_with_success	
+	jmp return_from_trap_with_success
 
 ;	========================
 
@@ -265,7 +265,7 @@ return_from_trap_with_carry_flag:
 trap_dos_closeall:
 
 	jsr dos_clear_filedescriptors
-	jmp return_from_trap_with_success	
+	jmp return_from_trap_with_success
 
 ;	========================
 
@@ -429,7 +429,7 @@ tdrd1:
 
 	lda dos_error_code
 	jmp return_from_trap_with_failure
-	
+
 ;	========================
 
 trap_dos_closedir:
@@ -442,7 +442,7 @@ trap_dos_openfile:
 	; Opens file in current dirent structure
 	; XXX - This means we must preserve the dirent struct when
 	; context-switching to avoid a race-condition
-	
+
 	jsr dos_openfile
 	bcc tdof1
 
@@ -452,7 +452,7 @@ trap_dos_openfile:
 
 tdof1:
 	.invoke checkpoint "trap_dos_openfile <failure>"
-	
+
 	lda dos_error_code
 	jmp return_from_trap_with_failure
 
@@ -473,7 +473,7 @@ trap_dos_closefile:
 	jmp return_from_trap_with_success
 tdcf1:
 	.invoke checkpoint "trap_dos_closefile <failure>"
-	
+
 	lda dos_error_code
 	jmp return_from_trap_with_failure
 
@@ -490,7 +490,7 @@ trap_dos_findfirst:
 
 	jsr dos_findfirst
 	jmp return_from_trap_with_carry_flag
-	
+
 ;	========================
 
 trap_dos_findnext:
@@ -526,7 +526,7 @@ trap_dos_d81attach:
 	sta $d68b
 	jsr dos_d81attach
 	jmp return_from_trap_with_carry_flag
-	
+
 ;	========================
 
 trap_dos_d81detach:
@@ -536,10 +536,10 @@ trap_dos_d81detach:
 	jmp return_from_trap_with_success
 
 ;	========================
-	
-trap_dos_d81write_en:	
 
-	jsr dos_d81write_en	
+trap_dos_d81write_en:
+
+	jsr dos_d81write_en
 	jmp return_from_trap_with_carry_flag
 
 dos_d81write_en:
@@ -549,7 +549,7 @@ dos_d81write_en:
 	bne td81we1
  	ora #$04
 	sta $d68b
-	
+
 	; Mark disk image write-enabled in proces descriptor
 	lda currenttask_d81_image0_flags
 	ora #d81_image_flag_write_en
@@ -684,7 +684,7 @@ dos_read_partitiontable:
 	sta dos_scratch_vector+1
 		.invoke checkpoint "=== Checking Partition #1 at $01BE"
 	jsr dos_consider_partition_entry
-	
+
 	jsr dos_read_mbr
 	bcc l_drpt_fail
 	lda #<[sd_sectorbuffer+$1CE]
@@ -804,7 +804,7 @@ spc1:	lda (<dos_scratch_vector),y
 
 	jsr syspart_open
 	sec
-	rts	
+	rts
 
 partitionisinteresting_lba:
 
@@ -826,7 +826,7 @@ partitionisinteresting:
 	lda dos_disk_count
 	cmp #dos_max_disks
 	bne +
-	jmp partitionerror	
+	jmp partitionerror
 *
 	; Partition is FAT32 (either 0B or 0C), so add it to the list
 
@@ -994,7 +994,7 @@ fs_dos_disk_table_offsets:
 ; Offset $0F - reserved clusters (1 byte)
   	 .alias fs_fat32_reserved_clusters $0F
 
-; Offset $10 - root dir cluster (2 bytes) 
+; Offset $10 - root dir cluster (2 bytes)
   	 .alias fs_fat32_root_dir_cluster $10
 
 ; Offset $12 - cluster count (4 bytes)
@@ -1071,7 +1071,7 @@ jsr dumpsectoraddress	; debugging
 	beq ddop1a
 	jmp partitionerror
 ddop1a:
-	lda [sd_sectorbuffer+$1FF]	
+	lda [sd_sectorbuffer+$1FF]
 	cmp #$AA
 	beq ddop1b
 	jmp partitionerror
@@ -1123,11 +1123,11 @@ ddop1b:
 	; = $77232 clusters
 
 	; BG does not like the above reasoning, ie fixed number of reserved sectors.
-	
+
 	; Reserved sector field on disk is only 2 bytes!
 	;
 	lda dos_disk_table_offset
-	ora #fs_fat32_system_sectors	;is $0D	
+	ora #fs_fat32_system_sectors	;is $0D
 	tay
 	ldx #$00
 
@@ -1161,7 +1161,7 @@ ddop11:	lda [sd_sectorbuffer+$24],x	; sectors_per_fat
 	;
 	; BG: why only 255 reserved clusters? and isnt it reserved sectors instead?
 	; and seems to be looking at the root_dir_first_cluster
-	; 
+	;
 	lda #dos_errorcode_too_many_reserved_clusters
 	sta dos_error_code
 
@@ -1328,7 +1328,7 @@ ddop12:	plp	; pull processor-status
 
 get_sec_per_cluster:
 	; Get sectors per cluster (and store in dos_disk_table entry)
-	; (this gets destoryed below, so we have to re-read it again after) 
+	; (this gets destoryed below, so we have to re-read it again after)
 	;
 	lda dos_disk_table_offset
 	ora #fs_fat32_sectors_per_cluster	; is $16
@@ -1343,7 +1343,7 @@ get_sec_per_cluster:
 ; dos_disk_table[08-0F] = 00,E6,03,00,00,38,02,02
 ; dos_disk_table[10-17] = 00,00,FC,95,0F,00,08,02 -> new data appears
 ; dos_disk_table[18-1F] = 04,0A,00,00,xx,xx,xx,xx
- 
+
 
 ;	========================
 
@@ -1375,8 +1375,8 @@ ddop14:
 
 	; get offset of last byte in this field
 	;
-	clc 
-	adc #$03  
+	clc
+	adc #$03
 	tay
 
 	ldx #$03
@@ -1557,7 +1557,7 @@ dos_set_current_disk:
 		jsr checkpoint
 		.byte 0,"dos_set_current_disk="
 dscd:		.byte "xx",0
-	
+
 	sec
 	rts
 
@@ -1613,10 +1613,10 @@ dcts0:	lda dos_current_cluster,x
 	taz
 	lda #$fe
 	jsr sdsector_add_uint32
-	
+
 	; now shift it left according to fs_sectors_per_cluster
 	;
-	ldx dos_disk_table_offset	
+	ldx dos_disk_table_offset
 	lda dos_disk_table+fs_fat32_sectors_per_cluster,x
 	tay
 	and #$fe
@@ -1662,7 +1662,7 @@ dos_requested_filename_to_uppercase:
 	cpx #$3f
 	lda #dos_errorcode_name_too_long
 	bcc drftu1
-	jmp dos_return_error	
+	jmp dos_return_error
 drftu1:
 	lda dos_requested_filename,x
 	jsr toupper
@@ -1741,7 +1741,7 @@ dca1:	sta dos_disk_table,x
 	inx
 	bne dca1
 	sec
-	rts	
+	rts
 
 ;	========================
 
@@ -1823,7 +1823,7 @@ dos_findfile:
 
 dos_findfirst:
 
-	; Search for file in current directory	
+	; Search for file in current directory
 
 	; Convert name to upper case for searching
 	;
@@ -2003,7 +2003,7 @@ drd_isdir:
 drce1:	sta dos_dirent_longfilename,x
 	dex
 	bpl drce1
-	
+
 	; Read current sector
 	;
 	jsr dos_file_read_current_sector
@@ -2011,7 +2011,7 @@ drce1:	sta dos_dirent_longfilename,x
 	jmp dos_return_error_already_set
 *
 	jsr sd_map_sectorbuffer
-	
+
 drce_next_piece:
 
 	; Offset in sector correctly indicates where we need to read.
@@ -2135,7 +2135,7 @@ drce_cont1:
 
 drce_cont2:
 	tya	;from safe keeping
-	
+
 	;check for bits 2 or 1 asserted
 	; we should ignore these hidden/system files (for now)
 	;
@@ -2201,7 +2201,7 @@ drce_longname:
 	; Each piece has 13 16-bit unicode values.
 	; For now, we will only use the lower byte.  later we should gather the
 	; long filenames as UTF-16, and then convert them to UTF-8.
-	
+
 	ldy #fs_fat32_dirent_offset_lfn_part_number
 	lda (<dos_scratch_vector),y
 	and #$3f ; mask out end of LFN indicator
@@ -2217,7 +2217,7 @@ drce_longname:
 	tax
 
 	.invoke checkpoint  "found LFN piece <start>"
-	
+
 	; Copy first part of LFN
 	;
 	ldy #fs_fat32_dirent_offset_lfn_part1_start
@@ -2272,7 +2272,7 @@ drce4:	lda (<dos_scratch_vector),y
 drce_eot_in_filename:
 
 	.invoke checkpoint "BGOK drce_eot_in_filename"
-	
+
 	; got all characters from this LFN piece
 	;
 	cpx dos_dirent_longfilename_length
@@ -2294,7 +2294,7 @@ drce_piece_didnt_grow_name_length:
 drce_ignore_lfn_piece:
 
 	.invoke checkpoint "BGOK drce_ignore_lfn_piece"
-    
+
 	; We have finished processing this piece of long name.
 	; bump directory entry, read next sector if required, and re-enter loop
 	; above to keep accumulating
@@ -2342,7 +2342,7 @@ drce_normalrecord:
 
 
 	.invoke checkpoint  "processing SHORT-name"
-	
+
 	; store short name
 	;
 	ldy #fs_fat32_dirent_offset_shortname
@@ -2523,7 +2523,7 @@ lfndebug:
 	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
 	sty fnmsg1-5
 	stx fnmsg1-4
-	
+
 	; Show what we have in the filename so far
 	;
 	phx	;safekeep
@@ -2553,7 +2553,7 @@ drd_deleted_or_invalid_entry:
 	jsr checkpoint_bytetohex	; returns: .X and .Y (Y is MSB, X is LSB, print YX)
 	sty ddie+0
 	stx ddie+1
-	
+
 	jsr checkpoint
 	.byte 0
 ddie:	.byte "xx drd_deleted_or_invalid_entry",0
@@ -2613,7 +2613,7 @@ dff3:
 dos_readdir_advance_to_next_entry:
 
 	ldy dos_current_file_descriptor_offset
-	
+
 	clc
 	lda dos_file_descriptors + dos_filedescriptor_offset_offsetinsector +0,y
 	adc #$20 ; length of FAT32/VFAT directory entry
@@ -2810,7 +2810,7 @@ dos_file_read_current_sector:
         ; start of the cluster)
 	;
 	jsr sdsector_add_uint8
-	
+
 	jmp sd_readsector
 
 ;	========================
@@ -2830,7 +2830,7 @@ dos_file_advance_to_next_sector:
 	bne dfatns1
 	inc dos_file_descriptors + dos_filedescriptor_offset_fileoffset+2 ,x
 dfatns1:
-	
+
 	; increase sector
 	;
 	inc dos_file_descriptors + dos_filedescriptor_offset_sectorincluster ,x
@@ -2864,7 +2864,7 @@ dos_file_advance_to_next_cluster:
 	; cluster entry, we thus need to shift the cluster number
 	; right 7 bits.  Then we add the start sector number of the FAT.
 
-	jsr dos_set_current_cluster_from_file	
+	jsr dos_set_current_cluster_from_file
 
 	; copy cluster to sector number
 	;
@@ -2938,7 +2938,7 @@ dfanc44:
 	; so that we can write the new cluster number in there.
 	;
 	ldy dos_scratch_byte_2
-	
+
 	ldz #$00
 	lda dos_scratch_byte_1
 	and #$40
@@ -3025,7 +3025,7 @@ dos_cluster_to_fat_sector:
 	; shift right 7 times = divide by 128
 	;
 	ldy #$07
-dfanc2:	clc		
+dfanc2:	clc
 	ror dos_current_cluster+3
 	ror dos_current_cluster+2
 	ror dos_current_cluster+1
@@ -3067,7 +3067,7 @@ dfanc4:	plp
 	bne dfanc4
 
 	plp
-	
+
 	RTS
 
 ;	========================
@@ -3094,10 +3094,10 @@ dos_print_current_cluster:
 	rts
 
 ;	========================
-	
+
 dos_readfileintomemory:
 
-	; assumes that filename is already set using "dos_setname", which 
+	; assumes that filename is already set using "dos_setname", which
 	; copies filename string into "dos_requested_filename",
 	;        and sets length into "dos_requested_filename_length".
 	;
@@ -3128,7 +3128,7 @@ dos_readfileintomemory:
 *	lda dos_dirent_length,x
 	sta dos_bytes_remaining,x
 	dex
-	bpl -	
+	bpl -
 
 	; ... but report if we hit an error
 	;
@@ -3158,7 +3158,7 @@ drfim_sector_loop:
 	jsr dos_load_y_based_on_dos_bytes_remaining
 
 ;	phy
-;	
+;
 ;	ldx <dos_file_loadaddress+3
 ;	jsr checkpoint_bytetohex
 ;	sty loadingaddr+0
@@ -3179,7 +3179,7 @@ drfim_sector_loop:
 ;	jsr checkpoint
 ;	.byte 0,"Loading @ "
 ;loadingaddr:
-;	.byte "$$$$$$$$",13,10,0	
+;	.byte "$$$$$$$$",13,10,0
 ;
 ;	ply
 
@@ -3305,7 +3305,7 @@ lr11:	lda (<dos_scratch_vector),y
 
 dsn_eon:
 	sty dos_requested_filename_len
-	
+
 	sec
 	rts
 
@@ -3339,7 +3339,7 @@ dos_d81attach:
 		rts
 
 ;	========================
-		
+
 d81a1:		; XXX - Why do we call closefile here?
 		jsr dos_closefile
 
@@ -3356,14 +3356,14 @@ d81a1:		; XXX - Why do we call closefile here?
 @fileNotOpenedOk:
 		jmp nod81
 @fileOpenedOk:
-		
+
 		; work out how many clusters we need
 		; We need 1600 sectors, so halve for every zero tail
 		; bit in sectors per cluster.  we can do this because
 		; clusters in FAT must be 2^n sectors.
 		;
 		lda #$00
-		sta d81_clustercount 
+		sta d81_clustercount
 		sta d81_clustercount+1
 		lda #<1600
 		sta d81_clustersneeded
@@ -3384,7 +3384,7 @@ l94:		tza
 		taz
 		lsr d81_clustersneeded+1
 		ror d81_clustersneeded
-		jmp l94				
+		jmp l94
 
 d81firstcluster:
 		; Get current cluster of D81 file, so that
@@ -3459,7 +3459,7 @@ l96:
 		lda d81_clustersneeded
 		cmp d81_clustercount
 		bne d81wronglength
-		
+
 		lda d81_clustersneeded+1
 		cmp d81_clustercount+1
 		bne d81wronglength
@@ -3488,7 +3488,7 @@ l94d:		lda $d681,x
 		sta $d68c,x
 		dex
 		bpl l94d
-		
+
 
 		; Set flags to indicate it is mounted (and read-write)
 		;
@@ -3515,7 +3515,7 @@ l94d:		lda $d681,x
 		inx
 		cpx currenttask_d81_image0_namelen
 		bne -
-		
+
 		sec
 		rts
 
@@ -3525,20 +3525,20 @@ l94d:		lda $d681,x
 		; XXX - This should probably be an error.
 		lda #0
 		sta currenttask_d81_image0_namelen
-		
+
 		sec
 		rts
-		
+
 
 ;	========================
-		
+
 d81wronglength:
 		.invoke checkpoint "dos_d81attach <wrong length>"
 
 		lda #dos_errorcode_image_wrong_length
 		sta dos_error_code
 		clc
-		rts		
+		rts
 
 ;	========================
 
@@ -3594,8 +3594,8 @@ sdsector_add_uint32:
 
 sdsector_add_uint32_from_disktable:
 
-		ora dos_disk_table_offset	
-		tay	
+		ora dos_disk_table_offset
+		tay
 		ldx #$00
 		clc
 		php
@@ -3608,7 +3608,7 @@ l23:		plp
 		inx
 		cpx #$04
 		bne l23
-		plp	
+		plp
 		rts
 
 ;	========================

@@ -1,0 +1,27 @@
+#importonce					// <-- This is a library, we only want it included once
+.filenamespace MyFunctions	// <-- Sets up a 'MyFunctions' namespace for this file
+
+//-----------------------------
+// Help functions 
+//-----------------------------
+
+.function failOnOverflow(x, limit) { //<-- This function can only be seen within the MyFunctions namespace
+	.if (x>=limit)
+		.error("value too high: " + x) 
+
+	.if (x<0)
+		.error("value too low:x " + x) 
+}
+
+//-----------------------------
+// Library functions 
+//-----------------------------
+.function @toSpritePtr(addr) { 		// <-- @ puts this function in the root scope so everyone can see it
+	.eval failOnOverflow(addr,$10000)
+	.return (addr&$3fff)/$40
+}
+
+
+
+
+ 

@@ -1,0 +1,22 @@
+#importonce					// <-- This is a library, we only want it included once
+.filenamespace MyMacros		// <-- Sets up a 'MyMacros' namespace for this file
+
+//-----------------------------
+// Library Macros 
+//-----------------------------
+.macro @ClearScreen(target, clearByte) {  
+	ldx #0
+	lda #clearByte
+loop:
+	sta target,x
+	sta target+$100,x
+	sta target+$200,x
+	sta target+40*25-$100,x
+	inx
+	bne loop
+}
+
+
+
+
+ 
