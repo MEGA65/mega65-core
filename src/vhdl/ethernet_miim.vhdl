@@ -13,7 +13,7 @@ entity ethernet_miim is
     clock : in std_logic;
 
     -- Ethernet MIIM lines
-    eth_mdio : inout std_logic := '1';
+    eth_mdio : inout std_logic;
     eth_mdc : out std_logic := '1';
 
     -- Access interface
