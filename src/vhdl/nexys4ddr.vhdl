@@ -616,7 +616,7 @@ begin
     end if;
   end process;
 
-  -- Ethernet clock is now just the CPU clock, since both are on 50MHz
-  eth_clock <= cpuclock;
+  -- 50MHz clock to ethernet controller
+  eth_clock <= ethclock;
   
 end Behavioral;
