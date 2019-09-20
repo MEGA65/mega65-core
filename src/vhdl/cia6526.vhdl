@@ -556,25 +556,21 @@ begin  -- behavioural
           end if;
           reg_timerb_has_ticked <= '0';
         end if;
-        case reg_timerb_tick_source(0) is
-          when '0' =>
-            -- phi2 pulses
-            if reg_timera_underflow='1' or reg_timerb_tick_source(1)='0' then
-              -- NOTE: MEGA65 clocks phi on transitions, not pulses
-              if phi0 /= prev_phi0 then
-                if reg_timerb /= x"0000" then
-                  report "CIA" & to_hstring(unit) & " timerb ticking down to $" & to_hstring(to_unsigned(to_integer(reg_timerb) - 1,16))
-                    & " from $" & to_hstring(reg_timerb);
-                  reg_timerb <= to_unsigned(to_integer(reg_timerb) - 1,16);
-                else
-                  report "CIA" & to_hstring(unit) & " timerb ticking down to -1"
-                    & " from $" & to_hstring(reg_timerb);
-                  reg_timerb <= (others => '1');
-                end if;
-                reg_timerb_has_ticked <= '1';
-              end if;                
-            end if;
-          when '1' =>
+        case reg_timerb_tick_source is
+          when "00" => -- phi2 pulses
+            if phi0 /= prev_phi0 then
+              if reg_timerb /= x"0000" then
+                report "CIA" & to_hstring(unit) & " timerb ticking down to $" & to_hstring(to_unsigned(to_integer(reg_timerb) - 1,16))
+                  & " from $" & to_hstring(reg_timerb);
+                reg_timerb <= to_unsigned(to_integer(reg_timerb) - 1,16);
+              else
+                report "CIA" & to_hstring(unit) & " timerb ticking down to -1"
+                  & " from $" & to_hstring(reg_timerb);
+                reg_timerb <= (others => '1');
+              end if;
+              reg_timerb_has_ticked <= '1';
+            end if;                
+          when "01" => -- CNT transitions
             -- positive CNT transitions
             if reg_timera_underflow='1' or reg_timerb_tick_source(1)='0' then
               if countin='1' and prev_countin='0' then
@@ -583,6 +579,21 @@ begin  -- behavioural
                 reg_timerb_has_ticked <= '1';
               end if;
             end if; 
+          when "10" => -- Timer A underflows
+            if reg_timera_underflow='1' then
+              report "CIA" & to_hstring(unit) & " timerb ticking down to $" & to_hstring(reg_timerb);
+              reg_timerb <= reg_timerb - 1;
+              reg_timerb_has_ticked <= '1';
+            end if;
+          when "11" => -- Timer A underflows, but only while CNT is high
+            if reg_timera_underflow='1' and countin='1' then
+              report "CIA" & to_hstring(unit) & " timerb ticking down to $" & to_hstring(reg_timerb);
+              reg_timerb <= reg_timerb - 1;
+              reg_timerb_has_ticked <= '1';
+            end if;
+            
+            -- phi2 pulses
+          when '1' =>
           when others => null;
         end case;
       end if;
