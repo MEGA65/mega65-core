@@ -489,7 +489,7 @@ begin
       ps2data =>      ps2data,
       ps2clock =>     ps2clk,
 
-      widget_matrix_col => "11111111",
+      widget_matrix_col => "00000000",
       widget_restore => '1',
       widget_capslock => '1',
       widget_joya => "11111",
