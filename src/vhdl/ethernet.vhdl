@@ -314,6 +314,9 @@ architecture behavioural of ethernet is
  signal last_raster_toggle : std_logic := '0';
  signal raster_toggle : std_logic := '0';
  signal last_raster_number : unsigned(11 downto 0) := (others => '0');
+
+ signal eth_buffer_blocked_50mhz : std_logic := '0';
+ signal eth_buffer_blocked : std_logic := '0';
  
  -- Reverse the input vector.
  function reversed(slv: std_logic_vector) return std_logic_vector is
@@ -742,6 +745,12 @@ begin  -- behavioural
       end case;
     
       -- Ethernet RX FSM
+      if eth_rx_buffer_last_used_50mhz /= eth_rx_buffer_moby_50mhz then
+        eth_buffer_blocked_50mhz <= '1';
+      else
+        eth_buffer_blocked_50mhz <= '0';
+      end if;
+      
       frame_length := to_unsigned(eth_frame_len,12);
       case eth_state is
         when Idle =>
@@ -1032,8 +1041,9 @@ begin  -- behavioural
         case fastio_addr(3 downto 0) is
           -- @IO:GS $D6E0 Ethernet control
           when x"0" =>
-            -- @IO:GS $D6E0.7 ETH_MDIO
-            fastio_rdata(7) <= eth_mdio;
+            -- @IO:GS $D6E0.7 Indicate if ethernet RX is blocked until RX buffers rotated
+            fastio_rdata(6) <= eth_buffer_blocked;
+          -- @IO:GS $D6E0.4 Allow remote keyboard input via magic ethernet frames
           -- @IO:GS $D6E0.4 Allow remote keyboard input via magic ethernet frames
             fastio_rdata(4) <= eth_keycode_toggle_internal;
           -- @IO:GS $D6E0.3 Read ethernet RX data valid
@@ -1127,6 +1137,8 @@ begin  -- behavioural
 
     if rising_edge(clock) then
 
+      eth_buffer_blocked <= eth_buffer_blocked_50mhz;
+      
       -- Notice when we change raster lines
       if last_raster_number /= raster_number then
         last_raster_number <= raster_number;
