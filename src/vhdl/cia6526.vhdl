@@ -591,9 +591,6 @@ begin  -- behavioural
               reg_timerb <= reg_timerb - 1;
               reg_timerb_has_ticked <= '1';
             end if;
-            
-            -- phi2 pulses
-          when '1' =>
           when others => null;
         end case;
       end if;
