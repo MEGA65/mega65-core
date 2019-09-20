@@ -468,6 +468,9 @@ $(UTILDIR)/i2clist.prg:       $(UTILDIR)/i2clist.c $(CC65)
 $(UTILDIR)/i2cstatus.prg:       $(UTILDIR)/i2cstatus.c $(CC65)
 	$(CL65) $< --mapfile $*.map -o $*.prg
 
+$(UTILDIR)/floppystatus.prg:       $(UTILDIR)/floppystatus.c $(CC65)
+	$(CL65) $< --mapfile $*.map -o $*.prg
+
 $(UTILDIR)/tiles.prg:       $(UTILDIR)/tiles.o $(CC65)
 	$(LD65) $< --mapfile $*.map -o $*.prg
 
