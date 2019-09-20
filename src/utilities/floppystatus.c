@@ -203,6 +203,9 @@ void main(void)
 
   // Disable OSK
   lpoke(0xFFD3615L,0x7F);  
+
+  // FDC motor on
+  lpoke(0xFFD3080L,0x30);
   
   // Clear screen
   printf("%c",0x93);
