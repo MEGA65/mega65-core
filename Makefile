@@ -456,6 +456,9 @@ $(TESTDIR)/pulseoxy.prg:       $(TESTDIR)/pulseoxy.c $(CC65)
 $(TESTDIR)/unicorns.prg:       $(TESTDIR)/unicorns.c $(CC65)
 	$(CL65) -O -o $*.prg --mapfile $*.map $< 
 
+$(TESTDIR)/eth_mdio.prg:       $(TESTDIR)/eth_mdio.c $(CC65)
+	$(CL65) -O -o $*.prg --mapfile $*.map $< 
+
 $(TESTDIR)/instructiontiming.prg:       $(TESTDIR)/instructiontiming.c $(TESTDIR)/instructiontiming_asm.s $(CC65)
 	$(CL65) -O -o $*.prg --mapfile $*.map $< $(TESTDIR)/instructiontiming_asm.s 
 
