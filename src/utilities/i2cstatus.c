@@ -247,11 +247,18 @@ void main(void)
 
     // Home cursor
     printf("%c",0x13);
+
+
+    x=lpeek(0xffd36b9);
+    x|=(lpeek(0xffd36bb)&3)<<8;
+    y=lpeek(0xffd36ba);
+    y|=(lpeek(0xffd36bb)&0x30)<<4;
+    printf("touch1: %d,%d\n",x,y);
     
     seconds = lpeek(0xffd701a);
     minutes = lpeek(0xffd701b);
     hours = lpeek(0xffd701c);
-    printf("%02x:",hours&0x3f);
+    printf("real-time clock: %02x:",hours&0x3f);
     printf("%02x.",minutes&0x7f);
     printf("%02x",seconds&0x7f); //Prints BCD byte
     //Since bit 7 is always set, mask it off with 0x7f
@@ -273,7 +280,15 @@ void main(void)
     a1=a1>>6; a1+=512;
     a2=a2>>6; a2+=512;
     a3=a3>>6; a3+=512;
-    printf("ADCs: 1:%5d 2:%5d 3:%5d      \n",a1,a2,a3);
+    printf("    ADCs: 1:%5d 2:%5d 3:%5d      \n",a1,a2,a3);
+    // And ADC values of the three volume wheels
+    a1=lpeek(0xffd70f0L)+(lpeek(0xffd70f1L)<<8);
+    a2=lpeek(0xffd70f2L)+(lpeek(0xffd70f3L)<<8);
+    a3=lpeek(0xffd70f4L)+(lpeek(0xffd70f5L)<<8);
+    a1=a1>>6; a1+=512;
+    a2=a2>>6; a2+=512;
+    a3=a3>>6; a3+=512;
+    printf("smoothed: 1:%5d 2:%5d 3:%5d      \n",a1,a2,a3);
 
     // Show joypad and button status
 
@@ -333,6 +348,9 @@ void main(void)
 
     a1=lpeek(0xffd7010L);
     printf("Power status: %02X\n",a1);
+
+    // Set all pins on power control port to output
+    lpoke(0xffd7016L,0);
     
     __asm__("jsr $ffe4");
     __asm__("sta $0427");
