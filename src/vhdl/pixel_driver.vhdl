@@ -202,6 +202,10 @@ begin
     generic map ( frame_width => 968*4-1,    -- 63 cycles x 16 pixels per clock
                                              -- = 1008, but then it's only 48
                                              -- frames per second.
+                                             -- so what we have here is
+                                             -- nominally 60.5 cycles per
+                                             -- raster which is wrong. How does
+                                             -- the calculation go wrong?
                   clock_divider => 4,
                   display_width => 800*4,
                   frame_height => 624,        -- 312 lines x 2 fields
@@ -239,7 +243,7 @@ begin
                );
 
   frame60: entity work.frame_generator
-    generic map ( frame_width => 1040*3-1,   -- 65 cycles x 16 pixels
+    generic map ( frame_width => (65*16)*4-1,   -- 65 cycles x 16 pixels
                   display_width => 800 *3,
                   clock_divider => 3,
                   frame_height => 526,       -- NTSC frame is 263 lines x 2 frames
@@ -247,8 +251,8 @@ begin
                   pipeline_delay => 96,
                   vsync_start => 526-32-4,
                   vsync_end => 526-32,
-                  hsync_start => 840*3,
-                  hsync_end => 1039*3
+                  hsync_start => (60*16)*4-1,
+                  hsync_end => (65*16)*4-1,
                   )                  
     port map ( clock120 => clock120,
                clock240 => clock240,
