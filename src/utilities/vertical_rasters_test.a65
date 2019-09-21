@@ -1,0 +1,376 @@
+; Simple ethernet programme loader for C65GS.
+; Reads and checks packets, and then runs code contained in the packets.
+; This keeps the programme VERY small.
+; Now supports ARP replies to make life easier.
+
+      ; make it start with SYS53000
+      .word $c000
+      .org $c000
+      .scope
+
+;	 .word $0801
+;	 .org $0801
+;	 .scope
+;
+;	 .word _next, 10                       ; Next line and current line number
+;	 .byte $97, "2,0:", $9e, " 2014", $AA, "65",0      ; POKE 2,0 : SYS 2014+65
+;_next:	 .word 0
+;
+;iter1:	 .byte 0
+;
+;	 .checkpc 2079
+;	 .advance 2079
+
+programentrypoint:
+
+
+	; C65GS io
+	lda #$47
+	sta $d02f
+	lda #$53
+	sta $D02f
+
+	; 40MHz
+	lda #65
+	sta $0
+	
+	sei
+
+	; Disable screen to show only border
+	lda #$00
+	sta $d011
+
+	lda #>dmalist
+	sta $d701
+	lda #$00
+	sta $d702
+
+	; Synchronise to within a few cycles to start of raster line
+l1:	lda $d012
+	cmp #$ff
+	bne l1
+l2:	lda $d012
+	cmp #$ff
+	beq l2
+
+	ldx #$01
+l3:	dex
+	bne l3
+
+dloop:
+	; trigger dma job
+	lda #<dmalist
+	sta $d705
+	nop
+	jmp dloop
+
+cloop:
+	lda $d050
+	sta $d020
+	nop
+	jmp cloop
+	
+	inc $0427
+	lda $d051
+	sta $d021
+	cmp #$10
+	bcs c1
+	cmp #$08
+	bcs c2
+	jmp cloop
+c1:
+	lda #0
+	sta $d020
+	jmp cloop
+c2:
+	lda #1
+	sta $d020
+	jmp cloop
+
+
+	; Reset ethernet controller
+	lda #0
+	sta $d6e0
+	lda #1
+	sta $d6e0
+
+	; Map ethernet registers at $6000 - $7FFF
+	
+	; Ethernet controller really lives $FFDE000 - $FFDEFFF, so select $FF megabyte section for MAP LO
+	lda #$ff
+	ldx #$0f
+	ldy #$00
+	ldz #$00
+	map
+	eom
+
+	; now enable mapping of $DE000-$DFFFF at $6000
+	; MAPs are offset based, so we need to subtract $6000 from the target address
+	; $DE000 - $6000 = $D8000
+	lda #$80
+	ldx #$8d
+	ldy #$00
+	ldz #$00
+	map
+	eom
+
+	; Ethernet registers should now be visible from $6000 - $6FFF
+	; read buffer will be at $6800 - $6FFF
+	; length of frame is in $6FFE / $6FFF in little-endian byte order
+	; so LDA $6FFE ; LDX $6FFF ; jsr $BDCD should print packet length to screen
+
+	; make sure ethernet transceiver is on and not generating IRQs
+	; (we will poll it).
+	; also make sure that we acknowledge the last received packet so that the
+	; ethernet controller knows it can receive.
+
+loop:
+
+waitingforpacket:
+
+fliptest:
+	lda $d6e0
+	sta $0410
+	and #$40
+	sta $0410
+	beq noflip
+
+
+	; make sure ethernet transceiver is on and not generating IRQs
+	; (we will poll it).
+	; also make sure that we acknowledge the last received packet so that the
+	; ethernet controller knows it can receive.
+	lda $d6e1
+	lsr
+	and #$02
+	ora #$01
+	sta $d6e1
+	jmp fliptest
+
+noflip:
+
+	; do something so that we know it has not crashed
+	inc $0427
+
+	lda $d6e1
+	and #$20
+	beq waitingforpacket
+
+	; we have detected that we have recieved a packet
+	; so, clear eth RX signal, and leave ethernet tranceiver on
+	; and make last used RX buffer visible
+	lda $d6e1
+	and #$04
+	lsr
+	ora #$01
+	sta $d6e1
+
+	; Got a packet.
+	; check whether it is UDP port 4510
+	; or whether it is an ARP request
+
+;	inc $d020 ; XXX for debug
+
+	; show packet on screen
+	ldx #0
+copyloop:
+	lda $6800,x
+	sta $0680,x
+	inx
+	bne copyloop
+
+	; Here we want to check that $680E - $6817 =
+	; 08 06 00 01 08 00 06 04 00 01
+	;
+
+	ldx #9
+arpdloop:
+	lda arptemplate,x
+	sta $0450,x
+	lda $680e,x
+	sta $0428,x
+	dex
+	bpl arpdloop
+
+	ldx #$09
+arploop0:
+	lda $680e,x
+	cmp arptemplate,x
+	bne notarp
+	dex
+	bpl arploop0
+
+	; yes, we have ARP
+	; check that IP address asked for ends in .65
+	;
+	lda $682b
+	cmp #65
+	bne notarp
+
+	; ok, so we have an ARP request.
+	; now we need to build the ARP reply and send it.
+	; We should copy the sender's 
+
+	inc $0426 ; XXX for debug
+
+	; set output packet size
+	; 6+6+2 bytes ethernet header + 28 bytes of ARP reply = 42
+	lda #<42
+	sta $d6e2
+	lda #>42
+	sta $d6e3
+
+	; copy fixed ARP fields (we will overwrite some later)
+	; (note that TX buffer lacks 2 byte RX buffer header)
+	ldx #$14
+arploop1:
+	lda $6802,x
+	sta $6800,x
+	dex
+	bpl arploop1
+	; Copy ethernet source to ethernet destination in TX buffer
+	; Set our mac address in ethernet source address field in TX buffer
+	ldx #$05
+arploop2:
+	lda $6808,x    ; requestors mac from RX ethernet header
+	sta $6800,x    ; requestors mac into TX ethernet header
+	lda #$40
+	sta $6806,x    ; our mac in ethernet header
+	sta $6816,x    ; our mac in ARP payload
+	dex
+	bpl arploop2
+	; set packet as ARP reply
+	lda #$02     ; $02 = reply, $01 = request
+	sta $6815
+
+	ldx #$03
+	; copy requested IP address into reply IP address field
+arploop3:
+	lda $6828,x
+	sta $681c,x
+	dex
+	bpl arploop3
+	; copy requestors MAC+IP into target MAC+IP fields
+	ldx #9
+arploop4:
+	lda $6818,x
+	sta $6820,x
+	dex
+	bpl arploop4
+	
+	; packet should now all be ready - hit TX button
+	lda #$01
+	sta $d6e4	
+
+	; Fall through to rest of packet parser (even though it won't pass
+	; these tests -- it just saves a few bytes of code).
+
+notarp:
+	; is it IPv4?
+	;
+	lda $6810
+	sta $04a0
+	cmp #$45
+	bne waitingforpacket
+
+	; is it UDP?
+	;
+	lda $6819
+	cmp #$11
+	bne waitingforpacket
+
+	; UDP port #4510
+	;
+	lda $6826
+	cmp #>4510
+	bne waitingforpacket
+	lda $6827
+	cmp #<4510
+	bne waitingforpacket
+
+	; packet body begins at $0444 / $682C.
+	; if it begins with $A9 = LDA immediate, then jsr to the packet body.
+	; packet body can do whatever is required to load data, keeping this
+	; programme very simple.
+	;
+	lda $682c
+	cmp #$a9
+	bne loop
+
+	; packet does begin with A9, so JSR there
+	;
+	jsr $682C
+
+	; BG i think the above should be a JMP,
+	; BG or the below an RTS
+	;
+	jmp loop
+
+arptemplate:
+	.byte $08,$06,$00,$01,$08,$00,$06,$04,$00,$01
+
+
+dmalist:
+		; MEGA65 Enhanced DMA options
+		.byte $0A  ; Request format is F018A
+		.byte $80,$00 ; Source is $00xxxxx
+		.byte $81,$FF ; Destination is $FF
+		.byte $00  ; No more options
+		; copy $0004000-$0007FFF to $FFF8000-$FFFBFFF
+		; F018A DMA list
+		; (MB offsets get set in routine)
+		.byte $00 ; copy + last request in chain
+		.word 503 ; size of copy is 400
+		.word colours ; starting at $4000
+		.byte $00   ; of bank $0
+		.word $3020 ; destination address is $8000
+		.byte $1d   ; of bank $D, hold dest address
+		.word $0000 ; modulo (unused)
+
+colours:
+		.byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+		
+		.byte 0,1,2,3,4,5,6,7,8,9,$a,$b,$c,$d,$e,$f
+		.byte 0,1,2,3,4,5,6,7,8,9,$a,$b,$c,$d,$e,$f
+		.byte 0,1,2,3,4,5,6,7,8,9,$a,$b,$c,$d,$e,$f
+
+		.byte 0,1,2,3,4,5,6,7,8,9,$a,$b,$c,$d,$e,$f
+		.byte 0,1,2,3,4,5,6,7,8,9,$a,$b,$c,$d,$e,$f
+		.byte 0,1,2,3,4,5,6,7,8,9,$a,$b,$c,$d,$e,$f
+		.byte 0,1,2,3,4,5,6,7,8,9,$a,$b,$c,$d,$e,$f
+
+		.byte 0,1,2,3,4,5,6,7,8,9,$a,$b,$c,$d,$e,$f
+		.byte 0,1,2,3,4,5,6,7,8,9,$a,$b,$c,$d,$e,$f
+		.byte 0,1,2,3,4,5,6,7,8,9,$a,$b,$c,$d,$e,$f
+		.byte 0,1,2,3,4,5,6,7,8,9,$a,$b,$c,$d,$e,$f
+
+		.byte 0,1,2,3,4,5,6,7,8,9,$a,$b,$c,$d,$e,$f
+		.byte 0,1,2,3,4,5,6,7,8,9,$a,$b,$c,$d,$e,$f
+		.byte 0,1,2,3,4,5,6,7,8,9,$a,$b,$c,$d,$e,$f
+		.byte 0,1,2,3,4,5,6,7,8,9,$a,$b,$c,$d,$e,$f
+
+		.byte 0,1,2,3,4,5,6,7,8,9,$a,$b,$c,$d,$e,$f
+		.byte 0,1,2,3,4,5,6,7,8,9,$a,$b,$c,$d,$e,$f
+		.byte 0,1,2,3,4,5,6,7,8,9,$a,$b,$c,$d,$e,$f
+		.byte 0,1,2,3,4,5,6,7,8,9,$a,$b,$c,$d,$e,$f
+		
+		.byte 0,1,2,3,4,5,6,7,8,9,$a,$b,$c,$d,$e,$f
+		.byte 0,1,2,3,4,5,6,7,8,9,$a,$b,$c,$d,$e,$f
+		.byte 0,1,2,3,4,5,6,7,8,9,$a,$b,$c,$d,$e,$f
+		.byte 0,1,2,3,4,5,6,7,8,9,$a,$b,$c,$d,$e,$f
+		
+		.byte 0,1,2,3,4,5,6,7,8,9,$a,$b,$c,$d,$e,$f
+		.byte 0,1,2,3,4,5,6,7,8,9,$a,$b,$c,$d,$e,$f
+		.byte 0,1,2,3,4,5,6,7,8,9,$a,$b,$c,$d,$e,$f
+		.byte 0,1,2,3,4,5,6,7,8,9,$a,$b,$c,$d,$e,$f
+		
+		.byte 0,1,2,3,4,5,6,7,8,9,$a,$b,$c,$d,$e,$f
+		.byte 0,1,2,3,4,5,6,7,8,9,$a,$b,$c,$d,$e,$f
+		.byte 0,1,2,3,4,5,6,7,8,9,$a,$b,$c,$d,$e,$f
+		.byte 0,1,2,3,4,5,0
+		
+
+	.checkpc $CFFF
+	.scend
+
+	.outfile "bin/etherload.prg"
