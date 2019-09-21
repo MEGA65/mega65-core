@@ -257,7 +257,7 @@ begin
                   vsync_start => 526-32-4,
                   vsync_end => 526-32,
                   hsync_start => (60*16)*4-1,
-                  hsync_end => (65*16)*4-1,
+                  hsync_end => (65*16)*4-1
                   )                  
     port map ( clock120 => clock120,
                clock240 => clock240,
