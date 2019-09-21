@@ -21,6 +21,7 @@ entity mega65kbd_to_matrix is
 
     delete_out : out std_logic;
     return_out : out std_logic;
+    fastkey_out : out std_logic;
     
     -- RESTORE and capslock are active low
     restore : out std_logic := '1';
@@ -54,6 +55,7 @@ architecture behavioural of mega65kbd_to_matrix is
 
   signal deletekey : std_logic := '1';
   signal returnkey : std_logic := '1';
+  signal fastkey : std_logic := '1';
   
 begin  -- behavioural
 
@@ -83,6 +85,7 @@ begin  -- behavioural
 
       delete_out <= deletekey;
       return_out <= returnkey;
+      fastkey_out <= fastkey;
       
       -- Counter is for working out drive LED blink phase
       counter <= counter + 1;
@@ -120,6 +123,9 @@ begin  -- behavioural
           end if;
           if phase = 77 then
             returnkey <= kio10;
+          end if;
+          if phase = 78 then
+            fastkey <= kio10;
           end if;
           
           -- Work around the data arriving 2 cycles late from the keyboard controller

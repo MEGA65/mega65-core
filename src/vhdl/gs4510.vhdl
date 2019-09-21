@@ -100,7 +100,10 @@ entity gs4510 is
     clear_matrix_mode_toggle : in std_logic;
     
     matrix_rain_seed : out unsigned(15 downto 0) := (others => '0');
-    
+
+    -- Active low key that forces CPU to 40MHz
+    fast_key : in std_logic;
+  
     no_hyppo : in std_logic;
 
     reg_isr_out : in unsigned(7 downto 0);
@@ -3683,7 +3686,7 @@ begin
           when others =>
             cpuspeed_external <= x"04";
         end case;
-        if hypervisor_mode='0' and ((speed_gate_drive='1') and (force_fast='0')) then
+        if hypervisor_mode='0' and ((speed_gate_drive='1') and (force_fast='0')) and (fast_key='1') then
           case cpu_speed is
             when "100" => -- 1mhz
               cpuspeed <= x"01";
