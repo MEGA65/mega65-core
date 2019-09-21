@@ -30,6 +30,10 @@ programentrypoint:
 	lda #$53
 	sta $D02f
 
+	; Fast CPU
+	lda #65
+	sta 0
+
 	; Reset ethernet controller
 	lda #0
 	sta $d6e0
@@ -240,6 +244,7 @@ notarp:
 
 	; packet does begin with A9, so JSR there
 	;
+	inc $d020
 	jsr $682C
 
 	; BG i think the above should be a JMP,
