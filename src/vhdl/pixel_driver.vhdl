@@ -209,8 +209,8 @@ begin
                   display_height => 600,
                   vsync_start => 624-32-5,
                   vsync_end => 624-32,
-                  hsync_start => (968-64-46-1)*4,
-                  hsync_end => (968-64-1)*4
+                  hsync_start => (968-0-46-1)*4,
+                  hsync_end => (968-0-1)*4
                   )                  
     port map ( clock120 => clock120,
                clock240 => clock240,
@@ -247,8 +247,8 @@ begin
                   pipeline_delay => 96,
                   vsync_start => 526-32-4,
                   vsync_end => 526-32,
-                  hsync_start => 900*3,
-                  hsync_end => 60*3
+                  hsync_start => 840*3,
+                  hsync_end => 1039*3
                   )                  
     port map ( clock120 => clock120,
                clock240 => clock240,
