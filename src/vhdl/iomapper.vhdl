@@ -1501,13 +1501,13 @@ begin
       
       cs_driveram <= '0';
       cs_driverom <= '0';
-      if address(19 downto 16) = x"D" then
+      if address(19 downto 16) = x"C" then
         if address(15 downto 14) = "11" then
-          -- @IO:GS $FFDC000-$FFDFFFF - Internal 1541 ROM access
+          -- @IO:GS $FFCC000-$FFCFFFF - Internal 1541 ROM access
           cs_driverom <= '1';
         end if;
         if address(15 downto 12) = x"B" then
-          -- @IO:GS $FFDB000-$FFDBFFF - Internal 1541 ROM access
+          -- @IO:GS $FFcB000-$FFcBFFF - Internal 1541 ROM access
           cs_driveram <= '1';
         end if;
       end if;

@@ -672,7 +672,7 @@ GS $D6E0.0 Clear to reset ethernet PHY
 GS $D6E0.1-2 Read ethernet TX bits currently on the wire
 GS $D6E0.3 Read ethernet RX data valid
 GS $D6E0.4 Allow remote keyboard input via magic ethernet frames
-GS $D6E0.7 ETH_MDIO
+GS $D6E0.7 Indicate if ethernet RX is blocked until RX buffers rotated
 GS $D6E0 Ethernet control
 GS $D6E1.0 reset ethernet PHY
 GS $D6E1.1 - Set which RX buffer is memory mapped
@@ -1073,9 +1073,17 @@ GS $FF7E000-$FF7EFFF SUMMARY:CHARWRITE VIC-IV CHARROM write area
 GS $FF7Exxx VIC-IV CHARROM write area
 GS $FF80000-$FF87FFF SUMMARY:COLOURRAM Colour RAM (32KB or 64KB)
 GS $FF8xxxx - Colour RAM (32KB or 64KB)
+GS $FFcB000-$FFcBFFF - Internal 1541 ROM access
+GS $FFCC000-$FFCFFFF - Internal 1541 ROM access
 GS $FFD6C00-DFF - F011 floppy controller sector buffer
 GS $FFD6E00-FFF - SD card direct access sector buffer
 GS $FFD7000-FF - I2C Peripherals     
+GS $FFD70F0 - ADC1 smoothed value (LSB)
+GS $FFD70F1 - ADC1 smoothed value (MSB)
+GS $FFD70F2 - ADC2 smoothed value (LSB)
+GS $FFD70F3 - ADC2 smoothed value (MSB)
+GS $FFD70F4 - ADC3 smoothed value (LSB)
+GS $FFD70F5 - ADC3 smoothed value (MSB)
 GS $FFD7100-07 UUID:UUID64 64-bit UUID. Can be used to seed ethernet MAC address
 GS $FFD7110-3F RTC:RTC Real-time Clock
 GS $FFD7110 RTC:RTCSEC Real-time Clock seconds value (binary coded decimal)
@@ -1085,8 +1093,6 @@ GS $FFD7113 RTC:RTCDAY Real-time Clock day of month value (binary coded decimal)
 GS $FFD7114 RTC:RTCMONTH Real-time Clock month value (binary coded decimal)
 GS $FFD7115 RTC:RTCYEAR Real-time Clock year value (binary coded decimal)
 GS $FFD7140-7F RTC:NVRAM 64-bytes of non-volatile RAM. Can be used for storing machine configuration.
-GS $FFDB000-$FFDBFFF - Internal 1541 ROM access
-GS $FFDC000-$FFDFFFF - Internal 1541 ROM access
 GS $FFDE800 - $FFDEFFF Ethernet RX buffer (read only)
 GS $FFDE800 - $FFDEFFF Ethernet TX buffer (write only)
 GS $FFDF000 - VFPGA width of CLB array (READ ONLY)
