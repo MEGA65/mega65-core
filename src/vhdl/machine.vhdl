@@ -899,6 +899,8 @@ begin
       dat_even => dat_even,
       dat_bitplane_addresses => dat_bitplane_addresses,
 
+      fast_key => fast_key,
+      
       debug_address_w_dbg_out => debug_address_w_dbg_out,
       debug_address_r_dbg_out => debug_address_r_dbg_out,
       debug_rdata_dbg_out => debug_rdata_dbg_out,
@@ -1597,7 +1599,6 @@ begin
     terminal_emulator_ready => terminal_emulator_ready,
     terminal_emulator_ack => terminal_emulator_ack,
 
-    fast_key => fast_key,
     force_single_step => sw(11),
 
     secure_mode_from_cpu => secure_mode_flag,
