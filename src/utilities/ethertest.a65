@@ -23,6 +23,12 @@ programentrypoint:
 	lda #$53
 	sta $D02f
 
+	; Reset ethernet
+	lda #$0
+	sta $d6e0
+	lda #1
+	sta $d6e0
+
 	; Map ethernet registers at $6000 - $7FFF
 
 	; Ethernet controller really lives $FFDE000 - $FFDEFFF, so select $FF megabyte section for MAP LO
@@ -45,6 +51,13 @@ programentrypoint:
 
 	; Ethernet registers should now be visible from $6000 - $6FFF
 	; read buffer will be at $6800 - $6FFF
+fliptest:
+	lda $d6e0
+	sta $0410
+	and #$40
+	sta $0410
+	beq noflip
+
 
 	; make sure ethernet transceiver is on and not generating IRQs
 	; (we will poll it).
@@ -55,6 +68,9 @@ programentrypoint:
 	and #$02
 	ora #$01
 	sta $d6e1
+	jmp fliptest
+
+noflip:
 
 	lda #$17
 	sta $d018
