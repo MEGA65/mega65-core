@@ -580,14 +580,14 @@ do_unfreeze_post_restore_sd_buffer_and_regs:
         // The contents of the SD sector buffer for restoration should
         // be at $FFD6000-$FFD61FF
 
-        lda    #<$6200
-        sta    <dos_scratch_vector+0
-        lda    #>$6200
-        sta    <dos_scratch_vector+1
-        lda    #<$0FFD
-        sta    <dos_scratch_vector+2
-        lda    #>$0FFD
-        sta    <dos_scratch_vector+3
+        lda #<$6200
+        sta <dos_scratch_vector+0
+        lda #>$6200
+        sta <dos_scratch_vector+1
+        lda #<$0FFD
+        sta <dos_scratch_vector+2
+        lda #>$0FFD
+        sta <dos_scratch_vector+3
 
         // Copy $D680 - $D70F, which covers both regions of interest
         ldz    #$8F
@@ -607,7 +607,7 @@ do_unfreeze_post_restore_sd_buffer_and_regs:
 @dontWriteHotRegister:
 
         dex
-        dex
+        dez
         cpz #$ff
         bne @zz2
         ldz #$00
@@ -732,21 +732,13 @@ do_freeze_prep_none:
 
 // Jump table of routines to be called before saving specific regions
 freeze_prep_jump_table:
-        .label freeze_prep_none = 0
         .word do_freeze_prep_none
-        .label freeze_prep_palette0 = 2
-        .label freeze_prep_palette1 = 4
-        .label freeze_prep_palette2 = 6
-        .label freeze_prep_palette3 = 8
         .word do_freeze_prep_palette_select
         .word do_freeze_prep_palette_select
         .word do_freeze_prep_palette_select
         .word do_freeze_prep_palette_select
-        .label freeze_prep_stash_sd_buffer_and_regs = 10
         .word do_freeze_prep_stash_sd_buffer_and_regs
-        .label freeze_prep_thumbnail = 12
         .word do_freeze_prep_thumbnail
-        .label freeze_prep_viciv = 14
         .word do_freeze_prep_viciv
 
 // Jump table of routines to be called before restoring specific regions

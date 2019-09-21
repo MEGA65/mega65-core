@@ -20,9 +20,6 @@ currenttask_id:
 currenttask_name:
 	.text "OPERATING SYSTEM"
 
-	.label d81_image_max_namelen = 32
-	.label d81_image_flag_mounted = 1
-	.label d81_image_flag_write_en = 4
 currenttask_d81_image0_flags:
 	.byte 0
 currenttask_d81_image1_flags:

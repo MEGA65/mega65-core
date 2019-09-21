@@ -33,7 +33,22 @@ VERILOGSRCDIR=	$(SRCDIR)/verilog
 
 SDCARD_DIR=	sdcard-files
 
-HYPPOSRCS = $(SRCDIR)/hyppo.asm
+HYPPOSRCS = $(SRCDIR)/hyppo.a65 \
+	$(SRCDIR)/hyppo_machine.a65 \
+	$(SRCDIR)/hyppo_audiomix.a65 \
+	$(SRCDIR)/hyppo_process_descriptor.a65 \
+	$(SRCDIR)/hyppo_dos.a65 \
+	$(SRCDIR)/hyppo_securemode.a65 \
+	$(SRCDIR)/hyppo_dos_write.a65 \
+	$(SRCDIR)/hyppo_syspart.a65 \
+	$(SRCDIR)/hyppo_freeze.a65 \
+	$(SRCDIR)/hyppo_sdfat.a65 \
+	$(SRCDIR)/hyppo_task.a65 \
+	$(SRCDIR)/hyppo_virtual_f011.a65 \
+	$(SRCDIR)/hyppo_debug.a65 \
+	$(SRCDIR)/hyppo_ultimax.a65 \
+	$(SRCDIR)/hyppo_debugtests.a65 \
+	$(SRCDIR)/hyppo_mem.a65
 
 # if you want your PRG to appear on "MEGA65.D81", then put your PRG in "./d81-files"
 # ie: COMMANDO.PRG
@@ -455,8 +470,11 @@ $(BINDIR)/border.prg: 	$(SRCDIR)/border.a65 $(OPHIS)
 
 # ============================ done moved, print-warn, clean-target
 #??? diskmenu_c000.bin yet b0rken
-$(BINDIR)/HICKUP.M65: $(HYPPOSRCS)
-	$(JAVA) -jar $(KICKASS_JAR) $<
+$(BINDIR)/HICKUP.M65: $(HYPPOSRCS) $(SRCDIR)/version.a65 $(OPHIS)
+	$(OPHIS) $(OPHISOPT) $< -l hyppo.list -m hyppo.map
+
+$(BINDIR)/KICKUP.M65: $(SRCDIR)/hyppo.asm
+	$(JAVA) -jar $(KICKASS_JAR) $< -afo -asminfo all -asminfofile hyppo.list
 
 $(SRCDIR)/monitor/monitor_dis.a65: $(SRCDIR)/monitor/gen_dis
 	$(SRCDIR)/monitor/gen_dis >$(SRCDIR)/monitor/monitor_dis.a65
@@ -536,7 +554,7 @@ $(TOOLDIR)/utilpacker/utilpacker:	$(TOOLDIR)/utilpacker/utilpacker.c Makefile
 # version information is updated.
 # for now we will always update the version info whenever we do a make.
 .PHONY: version.vhdl version.a65
-$(VHDLSRCDIR)/version.vhdl src/monitor/version.a65 src/version.a65 $(BINDIR)/matrix_banner.txt:	.git	./src/version.sh $(ASSETS)/matrix_banner.txt $(TOOLDIR)/format_banner
+$(VHDLSRCDIR)/version.vhdl src/monitor/version.a65 src/version.a65 src/version.asm $(BINDIR)/matrix_banner.txt:	.git ./src/version.sh $(ASSETS)/matrix_banner.txt $(TOOLDIR)/format_banner
 	./src/version.sh
 
 # i think 'charrom' is used to put the pngprepare file into a special mode that

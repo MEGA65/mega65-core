@@ -1,96 +1,4 @@
-
-
 // XXX - Track down why 2nd and subsequent LFN blocks are not used.
-
-	.label os_version  = $0102
-	.label dos_version = $0102
-	.label constant_partition_type_fat32_chs = $0b
-	.label constant_partition_type_fat32_lba = $0c
-	.label constant_partition_type_megea65_sys = $41
-
-	// DOS error codes
-	//
-	.label dos_errorcode_partition_not_interesting = $01
-	.label dos_errorcode_bad_signature = $02
-	.label dos_errorcode_is_small_fat = $03
-	.label dos_errorcode_too_many_reserved_clusters = $04
-	.label dos_errorcode_not_two_fats = $05
-	.label dos_errorcode_too_few_clusters = $06
-	.label dos_errorcode_read_timeout = $07
-	.label dos_errorcode_partition_error = $08
-
-	.label dos_errorcode_invalid_address = $10
-	.label dos_errorcode_illegal_value = $11
-
-	.label dos_errorcode_read_error	   = $20
-	.label dos_errorcode_write_error   = $21
-
-	.label dos_errorcode_no_such_disk = $80
-	.label dos_errorcode_name_too_long = $81
-	.label dos_errorcode_not_implemented = $82
-	.label dos_errorcode_file_too_long = $83
-	.label dos_errorcode_too_many_open_files = $84
-	.label dos_errorcode_invalid_cluster = $85
-	.label dos_errorcode_is_a_directory = $86
-	.label dos_errorcode_not_a_directory = $87
-	.label dos_errorcode_file_not_found = $88
-	.label dos_errorcode_invalid_file_descriptor = $89
-	.label dos_errorcode_image_wrong_length = $8A
-	.label dos_errorcode_image_fragmented = $8B
-	.label dos_errorcode_no_space	      = $8C
-
-	.label dos_errorcode_eof = $FF
-
-	// FAT directory entry constants
-	//
-	// these seem to be offsets into the STANDARD FAT32 header (DO NOT CHANGE)
-	//
-	.label fs_fat32_dirent_offset_attributes = 11
-	.label fs_fat32_dirent_offset_shortname = 0
-	.label fs_fat32_dirent_offset_create_tenthsofseconds = 13
-	.label fs_fat32_dirent_offset_create_time = 14
-	.label fs_fat32_dirent_offset_create_date = 16
-	.label fs_fat32_dirent_offset_access_date = 18
-	.label fs_fat32_dirent_offset_clusters_high = 20
-	.label fs_fat32_dirent_offset_modify_time = 22
-	.label fs_fat32_dirent_offset_modify_date = 24
-	.label fs_fat32_dirent_offset_clusters_low = 26
-	.label fs_fat32_dirent_offset_file_length = 28
-
-	// VFAT long file name entry constants
-	//
-	// These are the offsets of the various fields in a directory entry, when
-	// used to store a long-file-name fragment.
-	//
-	.label fs_fat32_dirent_offset_lfn_part_number = 0
-	.label fs_fat32_dirent_offset_lfn_type = 12
-	.label fs_fat32_dirent_offset_lfn_checksum = 13
-	.label fs_fat32_dirent_offset_lfn_part1_chars = 5
-	.label fs_fat32_dirent_offset_lfn_part1_start = 1
-	.label fs_fat32_dirent_offset_lfn_part2_chars = 6
-	.label fs_fat32_dirent_offset_lfn_part2_start = 14
-	.label fs_fat32_dirent_offset_lfn_part3_chars = 2
-	.label fs_fat32_dirent_offset_lfn_part3_start = 28
-
-	.label fs_fat32_attribute_isreadonly = $01
-	.label fs_fat32_attribute_ishidden = $02
-	.label fs_fat32_attribute_issystem = $04
-	.label fs_fat32_attribute_isvolumelabel = $08
-	.label fs_fat32_attribute_isdirectory = $10
-	.label fs_fat32_attribute_archiveset = $20
-
-	// Possible file modes
-	//
-	.label dos_filemode_directoryaccess = $80
-	.label dos_filemode_end_of_directory = $81
-	.label dos_filemode_readonly = 0
-	.label dos_filemode_readwrite = 1
-
-	// 256-byte fixed size records for REL emulaton
-	//
-	.label dos_filemode_relative = 2
-
-// 	========================
 
 dos_and_process_trap:
 
@@ -511,8 +419,8 @@ trap_dos_geterrorcode:
 
 	jsr checkpoint
 	.byte 0
-        .text "dos_geterrorcode <=$"
-tdgec1:	.text "%%>"
+        ascii("dos_geterrorcode <=$")
+tdgec1:	ascii("%%>")
         .byte 0
 
 	jmp return_from_trap_with_success
@@ -893,8 +801,8 @@ makethispartitionthedefault:
 
 	jsr checkpoint
 	.byte 0
-        .text "dos_default_disk = "
-mtptd:  .text "xx"
+        ascii("dos_default_disk = ")
+mtptd:  ascii("xx")
         .byte 0
 
 // jsr dump_disk_table
@@ -919,8 +827,8 @@ dontmakethispartitionthedefault:
 
 	jsr checkpoint
 	.byte 0
-        .text "Part#"
-mtptd2: .text "x NOT set to the default_disk"
+        ascii("Part#")
+mtptd2: ascii("x NOT set to the default_disk")
         .byte 0
 
 // jsr dump_disk_table
@@ -960,63 +868,12 @@ partitionerror:
 
 	jsr checkpoint
 	.byte 0
-        .text "partitionerror="
-perr:	.text "xx"
+        ascii("partitionerror=")
+perr:	ascii("xx")
         .byte 0
 
 	clc
 	rts
-
-// ;; ----------------------------------------------------------------------------
-
-		// Examine a partition to see if we can mount it.
-		// This routine fills in the missing fields for the disk entry as required.
-		// It assumes that fs_start_sector and fs_sector_count have been correctly set.
-		//
-
-fs_dos_disk_table_offsets:
-
-// Each disk entry consists of;
-//
-// Offset $00 - starting sector (4 bytes)
-  	 .label fs_start_sector = $00
-
-// Offset $04 - sector count (4 bytes)
-  	 .label fs_sector_count = $04
-
-// Offset $08 - Filesystem type & media source ($0x = FAT32, $xF = SD card, others reserved for now)
-  	 .label fs_type_and_source = $08
-
-		// Remaining bytes are filesystem dependent:
-		// For FAT32:
-		//
-// Offset $09 - length of fat (4 bytes) (FAT starts at fs_fat32_system_sectors)
-  	 .label fs_fat32_length_of_fat = $09
-
-// Offset $0D - system sectors (2 bytes)
-  	 .label fs_fat32_system_sectors = $0D
-
-// Offset $0F - reserved clusters (1 byte)
-  	 .label fs_fat32_reserved_clusters = $0F
-
-// Offset $10 - root dir cluster (2 bytes)
-  	 .label fs_fat32_root_dir_cluster = $10
-
-// Offset $12 - cluster count (4 bytes)
-  	 .label fs_fat32_cluster_count = $12
-
-// Offset $16 - sectors per cluster
-  	 .label fs_fat32_sectors_per_cluster = $16
-
-// Offset $17 - copies of FAT
-  	 .label fs_fat32_fat_copies = $17
-
-// Offset $18 - first sector of cluster zero (4 bytes)
-  	 .label fs_fat32_cluster0_sector = $18
-
-// Offset $1C - Four spare bytes.
-
-// 	========================
 
 dos_disk_openpartition:
 
@@ -1099,9 +956,7 @@ ddop1b:
 	// for fat32, the 11'th entry is unused, http://www.easeus.com/resource/fat32-disk-structure.htm
 	//
 	lda [sd_sectorbuffer+$11]	// this is NOT the MBSyte of the number of FATs
-        beq !+
-	jmp partitionerror
-!:
+        bne partitionerror
 
 // 	========================
 
@@ -1559,8 +1414,8 @@ dos_set_current_disk:
         //
         jsr checkpoint
         .byte 0
-        .text "dos_set_current_disk="
-dscd:	.text "xx"
+        ascii("dos_set_current_disk=")
+dscd:	ascii("xx")
         .byte 0
 
 	sec
@@ -1970,8 +1825,8 @@ dos_readdir:
 
 	jsr checkpoint
 	.byte 0
-        .text "dos_readdir["
-drdcp0:	.text "xxyy]"
+        ascii("dos_readdir[")
+drdcp0:	ascii("xxyy]")
         .byte 0
 
 jsr dumpsectoraddress	// debug
@@ -2075,12 +1930,12 @@ eight31:
 
 	jsr checkpoint
 	.byte 0
-        .text " (8.3)+(ATTRIB)+(NAME[0]) = "
-eight3:	.text "FILENAMEEXT "
+        ascii(" (8.3)+(ATTRIB)+(NAME[0]) = ")
+eight3:	ascii("FILENAMEEXT ")
 eight3attrib:
-        .text "xx "
+        ascii("xx ")
 eight3char1:
-        .text "xx"
+        ascii("xx")
         .byte 0
 
 	plx	// as the code above clobbers X
@@ -2551,8 +2406,8 @@ drce23:	lda dos_dirent_longfilename,x
 
 	jsr checkpoint
 	.byte 0
-        .text "LFN(xx): " // the "xx" can be replaced with the name_length
-fnmsg1: .text ".............................." // BG: why only 30 chars?
+        ascii("LFN(xx): ") // the "xx" can be replaced with the name_length
+fnmsg1: ascii("..............................") // BG: why only 30 chars?
         .byte 0
 
 	rts
@@ -2569,7 +2424,7 @@ drd_deleted_or_invalid_entry:
 
 	jsr checkpoint
 	.byte 0
-ddie:	.text "xx drd_deleted_or_invalid_entry"
+ddie:	ascii("xx drd_deleted_or_invalid_entry")
         .byte 0
 
 	jsr dos_readdir_advance_to_next_entry
@@ -3424,10 +3279,7 @@ d81nextcluster:
 
 l94a:		lda dos_file_descriptors+dos_filedescriptor_offset_currentcluster,x
 		cmp d81_clusternumber,y
-		//bne d81isfragged // @todo
-                beq !+
-                jmp d81isfragged
-!:
+		bnel d81isfragged
 		inx
 		iny
 		cpy #4

@@ -31,9 +31,9 @@ dumpcurrentfd:
 
 	jsr checkpoint
 	.byte 0
-        .text "current file desc="
-dcfd0:	.text "xx, and offset="
-dcfd1:	.text "xx."
+        ascii("current file desc=")
+dcfd0:	ascii("xx, and offset=")
+dcfd1:	ascii("xx.")
         .byte 0
 
 	rts
@@ -114,24 +114,24 @@ dumpfddata:
 
 	jsr checkpoint
 	.byte 0
-        .text "FileDesc<="
-dfdd0:	.text	"xx,"
-dfdd1:	.text	"xx,"
-dfdd2:	.text	"xx,"
-dfdd3:	.text	"xx,"
-dfdd4:	.text	"xx,"
-dfdd5:	.text	"xx,"
-dfdd6:	.text	"xx,"
-dfdd7:	.text	"xx - "
+        ascii("FileDesc<=")
+dfdd0:	ascii("xx,")
+dfdd1:	ascii("xx,")
+dfdd2:	ascii("xx,")
+dfdd3:	ascii("xx,")
+dfdd4:	ascii("xx,")
+dfdd5:	ascii("xx,")
+dfdd6:	ascii("xx,")
+dfdd7:	ascii("xx - ")
 
-dfdd8:	.text	"xx,"
-dfdd9:	.text	"xx,"
-dfdda:	.text	"xx,"
-dfddb:	.text	"xx,"
-dfddc:	.text	"xx,"
-dfddd:	.text	"xx,"
-dfdde:	.text	"xx,"
-dfddf:	.text	"xx"
+dfdd8:	ascii("xx,")
+dfdd9:	ascii("xx,")
+dfdda:	ascii("xx,")
+dfddb:	ascii("xx,")
+dfddc:	ascii("xx,")
+dfddd:	ascii("xx,")
+dfdde:	ascii("xx,")
+dfddf:	ascii("xx")
 	.byte 0
 
 	rts
@@ -165,11 +165,11 @@ dumpsectoraddress:
 
 	jsr checkpoint
 	.byte 0
-        .text "sd_sector: $d681="
-sdrscp3:	.text "xx"
-sdrscp2:	.text "xx"
-sdrscp1:	.text "xx"
-sdrscp0:	.text "xx."
+        ascii("sd_sector: $d681=")
+sdrscp3:ascii("xx")
+sdrscp2:ascii("xx")
+sdrscp1:ascii("xx")
+sdrscp0:ascii("xx.")
         .byte 0
 
 	rts
@@ -318,7 +318,7 @@ dump_disk_table:
 
 	jsr checkpoint
 	.byte 0
-        .text "dos_disk_table"
+        ascii("dos_disk_table")
 	.byte 0
 
 	ldx dos_disk_table+0		// convert .X to char-representation for display
@@ -356,14 +356,14 @@ dump_disk_table:
 
 	jsr checkpoint
 	.byte 0
-ddt00:	.text	"xx,"
-ddt01:	.text	"xx,"
-ddt02:	.text	"xx,"
-ddt03:	.text	"xx,"
-ddt04:	.text	"xx,"
-ddt05:	.text	"xx,"
-ddt06:	.text	"xx,"
-ddt07:	.text	"xx"
+ddt00:	ascii("xx,")
+ddt01:	ascii("xx,")
+ddt02:	ascii("xx,")
+ddt03:	ascii("xx,")
+ddt04:	ascii("xx,")
+ddt05:	ascii("xx,")
+ddt06:	ascii("xx,")
+ddt07:	ascii("xx")
 	.byte 0
 
 	ldx dos_disk_table+8		// convert .X to char-representation for display
@@ -401,14 +401,14 @@ ddt07:	.text	"xx"
 
 	jsr checkpoint
 	.byte 0
-ddt08:	.text	"xx,"
-ddt09:	.text	"xx,"
-ddt0a:	.text	"xx,"
-ddt0b:	.text	"xx,"
-ddt0c:	.text	"xx,"
-ddt0d:	.text	"xx,"
-ddt0e:	.text	"xx,"
-ddt0f:	.text	"xx"
+ddt08:	ascii("xx,")
+ddt09:	ascii("xx,")
+ddt0a:	ascii("xx,")
+ddt0b:	ascii("xx,")
+ddt0c:	ascii("xx,")
+ddt0d:	ascii("xx,")
+ddt0e:	ascii("xx,")
+ddt0f:	ascii("xx")
 	.byte 0
 
 	ldx dos_disk_table+0+16		// convert .X to char-representation for display
@@ -446,14 +446,14 @@ ddt0f:	.text	"xx"
 
 	jsr checkpoint
 	.byte 0
-ddt10:	.text	"xx,"
-ddt11:	.text	"xx,"
-ddt12:	.text	"xx,"
-ddt13:	.text	"xx,"
-ddt14:	.text	"xx,"
-ddt15:	.text	"xx,"
-ddt16:	.text	"xx,"
-ddt17:	.text	"xx"
+ddt10:	ascii("xx,")
+ddt11:	ascii("xx,")
+ddt12:	ascii("xx,")
+ddt13:	ascii("xx,")
+ddt14:	ascii("xx,")
+ddt15:	ascii("xx,")
+ddt16:	ascii("xx,")
+ddt17:	ascii("xx")
 	.byte 0
 
 	ldx dos_disk_table+8+16		// convert .X to char-representation for display
@@ -491,14 +491,14 @@ ddt17:	.text	"xx"
 
 	jsr checkpoint
 	.byte 0
-ddt18:	.text	"xx,"
-ddt19:	.text	"xx,"
-ddt1a:	.text	"xx,"
-ddt1b:	.text	"xx,"
-ddt1c:	.text	"xx,"
-ddt1d:	.text	"xx,"
-ddt1e:	.text	"xx,"
-ddt1f:	.text	"xx"
+ddt18:	ascii("xx,")
+ddt19:	ascii("xx,")
+ddt1a:	ascii("xx,")
+ddt1b:	ascii("xx,")
+ddt1c:	ascii("xx,")
+ddt1d:	ascii("xx,")
+ddt1e:	ascii("xx,")
+ddt1f:	ascii("xx")
 	.byte 0
 
 	rts
@@ -517,8 +517,8 @@ dump_disk_count:
 	stx ddc+1
 	jsr checkpoint
 	.byte 0
-        .text "dos_disk_count = "
-ddc:	.text "xx"
+        ascii("dos_disk_count = ")
+ddc:	ascii("xx")
         .byte 0
 
 	rts
@@ -599,11 +599,11 @@ debug_show_cluster_number:
 
 	jsr checkpoint
 	.byte 0
-        .text "File Desc #"
+        ascii("File Desc #")
 dfanc_fd:
-	.text "$: curr_cluster=$"
+	ascii("$: curr_cluster=$")
 dfanc_hex:
-	.text "$$$$$$$$"
+	ascii("$$$$$$$$")
         .byte 0
 
 	rts

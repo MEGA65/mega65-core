@@ -36,14 +36,14 @@ readmbr:
 
 	jsr checkpoint
         .byte 0
-	.text "Resetting SDCARD"
+	ascii("Resetting SDCARD")
         .byte 0
 
 		jsr sd_resetsequence
 		bcs l7
 	jsr checkpoint
 	.byte 0
-        .text "FAILED resetting SDCARD"
+        ascii("FAILED resetting SDCARD")
         .byte 0
 		rts
 
@@ -272,7 +272,7 @@ redoread:
 
 	jsr checkpoint			// we never want to do a redo-read
 	.byte 0
-        .text "ERROR redoread:"
+        ascii("ERROR redoread:")
         .byte 0
 
 		ldx #$f0
@@ -312,7 +312,7 @@ rereadsector:
 
 		jsr checkpoint			// we should never get here
 		.byte 0
-                .text "ERROR rereadsector:"
+                ascii("ERROR rereadsector:")
                 .byte 0
 
 		jsr sd_resetsequence
@@ -324,7 +324,7 @@ rsbusyfail:     // fail
 		sta dos_error_code
 		jsr checkpoint			// we should not ever get here
 		.byte 0
-                .text "ERROR rsbusyfail:"
+                ascii("ERROR rsbusyfail:")
                 .byte 0
 
 		clc

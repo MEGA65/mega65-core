@@ -25,13 +25,15 @@
     it also suggests some memory-map definitions
     ---------------------------------------------------------------- */
 
+#import "hyppo_constants.asm"
 #import "hyppo_macros.asm"
 #import "hyppo_machine.asm"
 
 .label TrapEntryPoints_Start        = $8000
 .label RelocatedCPUVectors_Start    = $81f8
 .label Traps_Start                  = $8200
-.label DOSDiskTable_Start           = $bbc0
+.label DOSDiskTable_Start           = $bb00
+.label SysPartStructure_Start       = $bbc0
 .label DOSWorkArea_Start            = $bc00
 .label ProcessDescriptors_Start     = $bd00
 .label HyppoStack_Start             = $be00
@@ -39,17 +41,58 @@
 .label Hyppo_End                    = $bfff
 .label Data_Start                   = $ce00
 
-.file [name="hyppo.bin", type="bin", segments="TrapEntryPoints,RelocatedCPUVectors,Traps,DOSDiskTable,DOSWorkArea,ProcessDescriptors,HyppoStack,HyppoZP"]
+.file [name="../bin/KICKUP.M65", type="bin", segments="TrapEntryPoints,RelocatedCPUVectors,Traps,DOSDiskTable,SysPartStructure,DOSWorkArea,ProcessDescriptors,HyppoStack,HyppoZP"]
 
 .segmentdef TrapEntryPoints        [min=TrapEntryPoints_Start,     max=RelocatedCPUVectors_Start-1                         ]
 .segmentdef RelocatedCPUVectors    [min=RelocatedCPUVectors_Start, max=Traps_Start-1                                       ]
 .segmentdef Traps                  [min=Traps_Start,               max=DOSDiskTable_Start-1                                ]
-.segmentdef DOSDiskTable           [min=DOSDiskTable_Start,        max=DOSWorkArea_Start-1                                 ]
+.segmentdef DOSDiskTable           [min=DOSDiskTable_Start,        max=SysPartStructure_Start-1,                           ]
+.segmentdef SysPartStructure       [min=SysPartStructure_Start,    max=DOSWorkArea_Start-1                                 ]
 .segmentdef DOSWorkArea            [min=DOSWorkArea_Start,         max=ProcessDescriptors_Start-1                          ]
-.segmentdef ProcessDescriptors     [min=ProcessDescriptors_Start,  max=HyppoStack_Start-1,         fill, fillByte=$3d      ]
+.segmentdef ProcessDescriptors     [min=ProcessDescriptors_Start,  max=HyppoStack_Start-1                                  ]
 .segmentdef HyppoStack             [min=HyppoStack_Start,          max=HyppoZP_Start-1,            fill, fillByte=$3e      ]
 .segmentdef HyppoZP                [min=HyppoZP_Start,             max=Hyppo_End,                  fill, fillByte=$3f      ]
 .segmentdef Data                   [min=Data_Start,                max=$ffff                                               ]
+
+/*  -------------------------------------------------------------------
+    Reserved space for Hyppo ZP at $BF00-$BFFF
+    ---------------------------------------------------------------- */
+        .segment HyppoZP
+        * = HyppoZP_Start
+
+        // Temporary vector storage for DOS
+        //
+dos_scratch_vector:     .word 0,0
+dos_scratch_byte_1:     .byte 0
+dos_scratch_byte_2:     .byte 0
+
+        // Vectors for copying data between hypervisor and user-space
+        //
+hypervisor_userspace_copy_vector:    .word 0
+
+        // general hyppo temporary variables
+        //
+zptempv:		        .word 0
+zptempv2:		        .word 0
+zptempp:		        .word 0
+zptempp2:		        .word 0
+zptempv32:		        .word 0,0
+zptempv32b:		        .word 0,0
+dos_file_loadaddress:	.word 0,0
+
+        // Used for checkpoint debug system of hypervisor
+        //
+checkpoint_a:	        .byte 0
+checkpoint_x:	        .byte 0
+checkpoint_y:	        .byte 0
+checkpoint_z:	        .byte 0
+checkpoint_p:	        .byte 0
+checkpoint_pcl:	        .byte 0
+checkpoint_pch:	        .byte 0
+
+        // SD card timeout handling
+        //
+sdcounter:		        .byte 0,0,0
 
 /*  -------------------------------------------------------------------
     Scratch space in ZP space usually used by kernel
@@ -68,7 +111,7 @@ screenrow:
 checksum:
         .dword 0
 file_pagesread:
-        .dword 0
+        .word 0
 
         // Variables for testing of D81 boot image
 d81_clusternumber:
@@ -2906,7 +2949,7 @@ msg_badformat:	        .text "BAD MBR OR DOS BOOT SECTOR."
                         .byte 0
 msg_sdcardfound:        .text "READ PARTITION TABLE FROM SDCARD"
                         .byte 0
-msg_foundromfile:       .text "FOUND ROM FILE. staRT CLUSTER = $$$$$$$$"
+msg_foundromfile:       .text "FOUND ROM FILE. START CLUSTER = $$$$$$$$"
                         .byte 0
 msg_diskcount:	        .text "DISK-COUNT=$$, DEFAULT-DISK=$$"
                         .byte 0
@@ -2963,7 +3006,7 @@ msg_dmagicb:	        .text "DMAGIC REV B MODE"
                         .byte 0
 
 // Include the GIT Message as a string
-#import "version.a65"
+#import "version.asm"
 
 msg_blankline:	      .byte 0
 
@@ -3025,9 +3068,12 @@ txt_NTSC:	        .text "NTSC"
         //
         .label dos_max_disks = 6
 
-dos_disk_table:
         .segment DOSDiskTable
         * = DOSDiskTable_Start
+dos_disk_table:
+
+        .segment SysPartStructure
+        * = SysPartStructure_Start
 
 syspart_structure:
 
@@ -3136,8 +3182,8 @@ dos_opendir_entry:
         // Current long filename (max 64 bytes)
         //
 dos_dirent_longfilename:
-        .text "Venezualen casaba melon productio" // 33-chars
-        .text "n statistics (2012-2015).txt  "    // 30-chars
+        ascii("Venezualen casaba melon productio") // 33-chars
+        ascii("n statistics (2012-2015).txt  ")    // 30-chars
         .byte 0
 
 dos_dirent_longfilename_length:
@@ -3164,8 +3210,8 @@ dos_requested_filename_len:
         .byte 0
 
 dos_requested_filename:
-        .text "Venezualen casaba melon productio"
-        .text "n statistics (2007-2011).txt     "
+        ascii("Venezualen casaba melon productio")
+        ascii("n statistics (2007-2011).txt     ")
 
 // 	========================
 
@@ -3237,51 +3283,3 @@ syspart_present:
         .segment ProcessDescriptors
         * = ProcessDescriptors_Start
 #import "hyppo_process_descriptor.asm"
-
-/*  -------------------------------------------------------------------
-    Reserved space for Hyppo stack (8-bit) $BE00-$BEFF
-    ---------------------------------------------------------------- */
-        .segment HyppoStack
-        * = HyppoStack_Start
-
-/*  -------------------------------------------------------------------
-    Reserved space for Hyppo ZP at $BF00-$BFFF
-    ---------------------------------------------------------------- */
-        .segment HyppoZP
-        * = HyppoZP_Start
-
-        // Temporary vector storage for DOS
-        //
-dos_scratch_vector:     .word 0,0
-dos_scratch_byte_1:     .byte 0
-dos_scratch_byte_2:     .byte 0
-
-        // Vectors for copying data between hypervisor and user-space
-        //
-hypervisor_userspace_copy_vector:    .word 0
-
-        // general hyppo temporary variables
-        //
-zptempv:		        .word 0
-zptempv2:		        .word 0
-zptempp:		        .word 0
-zptempp2:		        .word 0
-zptempv32:		        .word 0,0
-zptempv32b:		        .word 0,0
-dos_file_loadaddress:	.word 0,0
-
-        // Used for checkpoint debug system of hypervisor
-        //
-checkpoint_a:	        .byte 0
-checkpoint_x:	        .byte 0
-checkpoint_y:	        .byte 0
-checkpoint_z:	        .byte 0
-checkpoint_p:	        .byte 0
-checkpoint_pcl:	        .byte 0
-checkpoint_pch:	        .byte 0
-
-        // SD card timeout handling
-        //
-sdcounter:		        .byte 0,0,0
-
-        * = Hyppo_End

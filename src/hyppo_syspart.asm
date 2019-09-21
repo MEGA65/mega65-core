@@ -14,11 +14,6 @@
 //    header.
 //
 
-        .label syspart_error_readerror = $01
-        .label syspart_error_badslotnum = $02
-        .label syspart_error_badmagic  = $42
-        .label syspart_error_nosyspart = $ff
-
 // HEADER - First sector of partition
 // $000-$00A "MEGA65SYS00" - Magic string and version indication
 // $010-$017 Start and size (in sectors) of frozen program area
