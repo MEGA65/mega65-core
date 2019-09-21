@@ -74,6 +74,8 @@ entity machine is
          cpu_exrom : in std_logic;
          cpu_game : in std_logic;
 
+         fast_key : in std_logic := '1';
+         
          power_down : out std_logic := '1';
          
          no_hyppo : in std_logic;
@@ -1594,7 +1596,8 @@ begin
     monitor_char_valid => monitor_char_out_valid,
     terminal_emulator_ready => terminal_emulator_ready,
     terminal_emulator_ack => terminal_emulator_ack,
-    
+
+    fast_key => fast_key,
     force_single_step => sw(11),
 
     secure_mode_from_cpu => secure_mode_flag,

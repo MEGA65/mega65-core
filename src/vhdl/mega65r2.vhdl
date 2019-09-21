@@ -310,6 +310,8 @@ architecture Behavioral of container is
   signal widget_joya : std_logic_vector(4 downto 0);
   signal widget_joyb : std_logic_vector(4 downto 0);
 
+  signal fastkey : std_logic;
+  
   signal expansionram_read : std_logic;
   signal expansionram_write : std_logic;
   signal expansionram_rdata : unsigned(7 downto 0);
@@ -352,6 +354,7 @@ begin
       matrix_col => widget_matrix_col,
       matrix_col_idx => widget_matrix_col_idx,
       restore => widget_restore,
+      fastkey_out => fastkey,
       capslock_out => widget_capslock,
       upkey => keyup,
       leftkey => keyleft
@@ -469,6 +472,8 @@ begin
       clock200 => clock200,
       clock50mhz      => ethclock,
 
+      fast_key => fastkey,
+      
       btncpureset => btncpureset,
       reset_out => reset_out,
       irq => irq_combined,
