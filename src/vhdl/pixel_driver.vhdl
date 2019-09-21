@@ -211,6 +211,7 @@ begin
                                              -- nominally 60.5 cycles per
                                              -- raster which is wrong. How does
                                              -- the calculation go wrong?
+                                             -- Is it 27/30MHz pixel clock?
                   clock_divider => 4,
                   display_width => 800*4,
                   frame_height => 624,        -- 312 lines x 2 fields
@@ -248,16 +249,16 @@ begin
                );
 
   frame60: entity work.frame_generator
-    generic map ( frame_width => (65*16)*4-1,   -- 65 cycles x 16 pixels
+    generic map ( frame_width => (60*16)*4-1,   -- 65 cycles x 16 pixels
                   display_width => 800 *3,
-                  clock_divider => 3,
+                  clock_divider => 4,
                   frame_height => 526,       -- NTSC frame is 263 lines x 2 frames
                   display_height => 526-4,
                   pipeline_delay => 96,
                   vsync_start => 526-32-4,
                   vsync_end => 526-32,
-                  hsync_start => (60*16)*4-1,
-                  hsync_end => (65*16)*4-1
+                  hsync_start => (55*16)*4-1,
+                  hsync_end => (60*16)*4-1
                   )                  
     port map ( clock120 => clock120,
                clock240 => clock240,
