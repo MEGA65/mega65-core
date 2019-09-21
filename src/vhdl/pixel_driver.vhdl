@@ -198,6 +198,11 @@ begin
   -- in an async FIFO, and then emit the pixels at the appropriate clock rate
   -- for the video mode.  Video mode selection is via a simple PAL/NTSC input.
 
+  -- We are trying to use the 720x560 / 720x480 PAL / NTSC HDMI TV modes, since
+  -- they are supported by HDMI, and should match the frame cycle timing of the
+  -- C64 properly.
+  -- They also use a common 27MHz pixel clock, which we don't 
+  
   frame50: entity work.frame_generator
     generic map ( frame_width => 968*4-1,    -- 63 cycles x 16 pixels per clock
                                              -- = 1008, but then it's only 48
