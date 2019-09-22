@@ -28,9 +28,9 @@ entity pixel_driver is
   port (
     -- The various clocks we need
     cpuclock : in std_logic;
-    clock80 : in std_logic;
-    clock120 : in std_logic;
-    clock240 : in std_logic;
+    clock81 : in std_logic;
+    clock162 : in std_logic;
+    clock27 : in std_logic;
 
     -- Inform VIC-IV of new rasters and new frames
     x_zero_out : out std_logic;
@@ -50,7 +50,7 @@ entity pixel_driver is
     vsync_invert : in std_logic;
     
     -- Incoming video, e.g., from VIC-IV and rain compositer
-    -- Clocked at clock80 (aka pixelclock)
+    -- Clocked at clock81 (aka pixelclock)
     pixel_strobe_in : in std_logic;
     red_i : in unsigned(7 downto 0);
     green_i : in unsigned(7 downto 0);
@@ -201,10 +201,10 @@ begin
   -- We are trying to use the 720x560 / 720x480 PAL / NTSC HDMI TV modes, since
   -- they are supported by HDMI, and should match the frame cycle timing of the
   -- C64 properly.
-  -- They also use a common 27MHz pixel clock, which we don't 
+  -- They also use a common 27MHz pixel clock, which makes our life simpler
   
   frame50: entity work.frame_generator
-    generic map ( frame_width => 968*4-1,    -- 63 cycles x 16 pixels per clock
+    generic map ( frame_width => 968*6-1,    -- 63 cycles x 16 pixels per clock
                                              -- = 1008, but then it's only 48
                                              -- frames per second.
                                              -- so what we have here is
@@ -212,20 +212,20 @@ begin
                                              -- raster which is wrong. How does
                                              -- the calculation go wrong?
                                              -- Is it 27/30MHz pixel clock?
-                  clock_divider => 4,
-                  display_width => 800*4,
+                  clock_divider => 6,
+                  display_width => 800*6,
                   frame_height => 624,        -- 312 lines x 2 fields
                   pipeline_delay => 128,
                   display_height => 600,
                   vsync_start => 624-32-5,
                   vsync_end => 624-32,
-                  hsync_start => (968-0-46-1)*4,
-                  hsync_end => (968-0-1)*4
+                  hsync_start => (968-0-46-1)*6,
+                  hsync_end => (968-0-1)*6
                   )                  
-    port map ( clock120 => clock120,
-               clock240 => clock240,
-               clock80 => clock80,
-               clock40 => cpuclock,
+    port map ( clock162 => clock162,
+               clock27 => clock27,
+               clock81 => clock81,
+               clock41 => cpuclock,
                hsync => hsync_pal50,
                hsync_uninverted => hsync_pal50_uninverted,
                vsync => vsync_pal50,
@@ -249,21 +249,21 @@ begin
                );
 
   frame60: entity work.frame_generator
-    generic map ( frame_width => (60*16)*4-1,   -- 65 cycles x 16 pixels
-                  display_width => 800 *3,
-                  clock_divider => 4,
+    generic map ( frame_width => (60*16)*6-1,   -- 65 cycles x 16 pixels
+                  display_width => 800 *6,
+                  clock_divider => 6,
                   frame_height => 526,       -- NTSC frame is 263 lines x 2 frames
                   display_height => 526-4,
                   pipeline_delay => 96,
-                  vsync_start => 526-32-4,
-                  vsync_end => 526-32,
-                  hsync_start => (55*16)*4-1,
-                  hsync_end => (60*16)*4-1
+                  vsync_start => 526-1-4,
+                  vsync_end => 526-1,
+                  hsync_start => (55*16)*6-1,
+                  hsync_end => (60*16)*6-1
                   )                  
-    port map ( clock120 => clock120,
-               clock240 => clock240,
-               clock80 => clock80,
-               clock40 => cpuclock,
+    port map ( clock162 => clock162,
+               clock27 => clock27,
+               clock81 => clock81,
+               clock41 => cpuclock,
                hsync_polarity => hsync_invert,
                vsync_polarity => vsync_invert,
                hsync_uninverted => hsync_ntsc60_uninverted,
@@ -315,7 +315,7 @@ begin
                                     -- the number of words written into the FIFO.
       din=>wdata,                   -- WRITE_DATA_WIDTH-bit input : WriteData :
                                     -- The input data bus used when writing the FIFO.
-      rd_clk=>clock120,             -- 1-bit input : Read clock : Used for read
+      rd_clk=>clock162,              -- 1-bit input : Read clock : Used for read
                                     -- operation. rd_clk must be a
                                     -- free running clock.
       rd_en=>rd_en,                 -- 1-bit input : Read Enable : If the FIFO
@@ -323,7 +323,7 @@ begin
                                     -- signal causes data (on dout) to be read
                                     -- from the FIFO. Must be held
                                     -- active-low when rd_rst_busy is active high..
-      wr_clk=>clock80,             -- 1-bit input : Write clock : Used for
+      wr_clk=>clock81,             -- 1-bit input : Write clock : Used for
                                     -- write operation. wr_clk must be a
                                     -- free running clock.
       wr_en=>wr_en                  -- 1-bit input : Write Enable : If the FIFO
@@ -363,11 +363,11 @@ begin
   x_zero_out <= x_zero_pal50_80 when pal50_select_internal80='1' else x_zero_ntsc60_80;
   y_zero_out <= y_zero_pal50_80 when pal50_select_internal80='1' else y_zero_ntsc60_80;
   
-  process (clock80,clock120) is
+  process (clock81,clock162) is
     variable waddr_unsigned : unsigned(11 downto 0) := to_unsigned(0,12);
   begin
 
-    if rising_edge(clock80) then
+    if rising_edge(clock81) then
 
   if pal50_select_internal80='1' then
     report "x_zero=" & std_logic'image(x_zero_pal50_80)
@@ -387,14 +387,14 @@ begin
       end if;
       
     end if;        
-    if rising_edge(clock120) then
+    if rising_edge(clock162) then
       fifo_inuse120_drive <= fifo_inuse80;
       fifo_inuse120 <= fifo_inuse120_drive;
       pal50_select_internal_drive <= pal50_select;
       pal50_select_internal <= pal50_select_internal_drive;
     end if;
 
-    if rising_edge(clock120) then
+    if rising_edge(clock162) then
 
       test_pattern_enable120 <= test_pattern_enable;
 
@@ -482,7 +482,7 @@ begin
     end if;
     
     -- Manage writing into the raster buffer
-    if rising_edge(clock80) then
+    if rising_edge(clock81) then
       fifo_almost_empty80 <= fifo_almost_empty120;
       if pixel_strobe_in='1' then
         waddr_unsigned := to_unsigned(waddr,12);
