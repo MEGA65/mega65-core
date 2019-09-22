@@ -1,40 +1,48 @@
-//
-// MEGA65 System Partition functions
-//
-// The system partition (type = $41 = 65) holds several major data areas:
-//
-// 1. Header, that identifies the version and structure of the system partition.
-//
-// 2. Frozen programs for task switching.
-//    (Some of which may be reserved by the operating system, e.g., for alarms
-//     and other special purposes.)
-//
-// 3. Installed services that can be requested via the Hypervisor.
-//    These are internally just frozen programs with a valid service description
-//    header.
-//
+/*  -------------------------------------------------------------------
+    MEGA65 "HYPPOBOOT" Combined boot and hypervisor ROM.
+    Paul Gardner-Stephen, 2014-2019.
 
-// HEADER - First sector of partition
-// $000-$00A "MEGA65SYS00" - Magic string and version indication
-// $010-$017 Start and size (in sectors) of frozen program area
-// $018-$01b Size of each frozen program slot
-// $01c-$01d Number of frozen program slots
-// $01e-$01f Number of sectors used for frozen program directory
-// $020-$027 Start and size (in sectors) or installed services
-// $028-$02b Size of each installed service slot
-// $02c-$02d Number of service slots
-// $02e-$02f Number of sectors used for slot directory
-// $030-$1ff RESERVED
-//
-// Basically we have two main areas in the system partition for frozen programs,
-// and for each we have a directory that allows for quick scanning of the lists.
-// Thee goal is to reduce the number of random seeks (which still have a cost on
-// SD cards, because commencing a read is much slower than continuing one), and
-// also the amount of data required.
-// To this end the directory entries consist of a 64 byte name field and a 64
-// byte reserved field, so that each is 128 bytes in total, allowing 4 per 512
-// byte sector.
-// If the first byte of a direectory is $00, then the entry is assumed to be free.
+   MEGA65 System Partition functions
+
+    The system partition (type = $41 = 65) holds several major data
+    areas:
+
+    1. Header, that identifies the version and structure of the system
+       partition.
+
+    2. Frozen programs for task switching.
+       (Some of which may be reserved by the operating system, e.g., for
+        alarms and other special purposes.)
+
+    3. Installed services that can be requested via the Hypervisor.
+       These are internally just frozen programs with a valid service
+       description header.
+
+    HEADER - First sector of partition
+
+    $000-$00A "MEGA65SYS00" - Magic string and version indication
+    $010-$017 Start and size (in sectors) of frozen program area
+    $018-$01b Size of each frozen program slot
+    $01c-$01d Number of frozen program slots
+    $01e-$01f Number of sectors used for frozen program directory
+    $020-$027 Start and size (in sectors) or installed services
+    $028-$02b Size of each installed service slot
+    $02c-$02d Number of service slots
+    $02e-$02f Number of sectors used for slot directory
+    $030-$1ff RESERVED
+
+    Basically we have two main areas in the system partition for frozen
+    programs, and for each we have a directory that allows for quick
+    scanning of the lists. Thee goal is to reduce the number of random
+    seeks (which still have a cost on SD cards, because commencing a
+    read is much slower than continuing one), and also the amount of
+    data required. To this end the directory entries consist of a 64
+    byte name field and a 64 byte reserved field, so that each is 128
+    bytes in total, allowing 4 per 512 byte sector.
+
+    If the first byte of a directory is $00, then the entry is assumed
+    to be free.
+    ---------------------------------------------------------------- */
 
 syspart_open:
         // Open a system partition.
@@ -133,7 +141,7 @@ syspart_openerror:
         clc
         rts
 
-// XXX These should return success/failure indication
+        // XXX These should return success/failure indication
 syspart_configsector_read_trap:
         jsr syspart_configsector_read
         sta hypervisor_enterexit_trigger
@@ -438,8 +446,7 @@ syspart_dmagic_autoset:
         jmp printmessage
 
 
-
-// Magic string that identifies a MEGA65 system partition
+        // Magic string that identifies a MEGA65 system partition
 syspart_magic:
         .text "MEGA65SYS00"
 msg_syspart_open_error:
@@ -454,7 +461,6 @@ msg_syspart_info:
 msg_syspart_config_invalid:
         .text "SYSPART CONFIG INVALID. PLEASE SET."
         .byte 0
-
 
 syspart_trap:
         sei

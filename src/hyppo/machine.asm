@@ -1,3 +1,7 @@
+/*  -------------------------------------------------------------------
+    MEGA65 "HYPPOBOOT" Combined boot and hypervisor ROM.
+    Paul Gardner-Stephen, 2014-2019.
+    ---------------------------------------------------------------- */
 
         .label reset_vector = $fffc
         .label irq_vector = $fffe

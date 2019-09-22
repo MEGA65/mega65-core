@@ -1,3 +1,8 @@
+/*  -------------------------------------------------------------------
+    MEGA65 "HYPPOBOOT" Combined boot and hypervisor ROM.
+    Paul Gardner-Stephen, 2014-2019.
+    ---------------------------------------------------------------- */
+
 // Display error and infinite loop on page fault
 page_fault:
         jsr reset_machine_state
@@ -18,18 +23,18 @@ page_fault:
         ldz $d649
         jsr printhex
 
-pf1:	inc $d020
+pf1:    inc $d020
         jmp pf1
 
 msg_pagefault:
         .text "PAGE FAULT: PC=$$$$, MAP=$$.$$$$.00     "
 
 memory_trap:
-	sei
-	cld
-	and #$fe
-	tax
-	jmp_zp_x(memory_trap_table)
+        sei
+        cld
+        and #$fe
+        tax
+        jmp_zp_x(memory_trap_table)
 
 memory_trap_table:
         // $00-$0E

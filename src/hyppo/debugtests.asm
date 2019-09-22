@@ -1,8 +1,12 @@
+/*  -------------------------------------------------------------------
+    MEGA65 "HYPPOBOOT" Combined boot and hypervisor ROM.
+    Paul Gardner-Stephen, 2014-2019.
 
-	// This file is included in hyppo.a65 in the reset_entry routine.
-	// i.e., anything put here is executed before reset resumes.
-	// It is used for debugging various things using GHDL simulation,
-	// because the simulation is so slow, we want things to run instantly.
+    This file is included in hyppo.a65 in the reset_entry routine.
+    i.e., anything put here is executed before reset resumes.
+    It is used for debugging various things using GHDL simulation,
+    because the simulation is so slow, we want things to run instantly.
+    ---------------------------------------------------------------- */
 
 .macro bitplane_test() {
         lda #$22
@@ -126,24 +130,24 @@
 
 .macro cpupersonalitytest() {
         // Set up a little routine to run in 6502 CPU personality
-        lda   #<$4000
-        sta   hypervisor_pcl
-        lda   #>$4000
-        sta   hypervisor_pch
-        lda   #$00
-        sta   hypervisor_maplohi
+        lda #<$4000
+        sta hypervisor_pcl
+        lda #>$4000
+        sta hypervisor_pch
+        lda #$00
+        sta hypervisor_maplohi
 
         // DMA copy the routine into place
-       	//
-	lda #$ff
-	sta $d702
-	lda #$ff
-	sta $d704  // dma list is in top MB of address space
-	lda #>debugdmalist
-	sta $d701
-	// Trigger enhanced DMA
-	lda #<debugdmalist
-	sta $d705
+        //
+        lda #$ff
+        sta $d702
+        lda #$ff
+        sta $d704  // dma list is in top MB of address space
+        lda #>debugdmalist
+        sta $d701
+        // Trigger enhanced DMA
+        lda #<debugdmalist
+        sta $d705
 
         // Exit to hypervisor
         sta hypervisor_enterexit_trigger
@@ -173,37 +177,37 @@ theroutine:
         beq theroutine
 
 theroutine_end:
-	.label theroutine_len = theroutine_end - theroutine
+        .label theroutine_len = theroutine_end - theroutine
 }
 // cpupersonalitytest()
 
-.macro	buffereduarttest() {
+.macro buffereduarttest() {
         // 115200 bps for both
-        lda	#$b2
-        sta	$D0E6
-        sta	$D0EE
-        lda	#$01
-        sta	$D0EF
-        sta	$D0E7
+        lda #$b2
+        sta $D0E6
+        sta $D0EE
+        lda #$01
+        sta $D0EF
+        sta $D0E7
         // Hook the two UARTs together
-        lda    #$11
-        sta	$D0E2
-        sta	$D0EA
+        lda #$11
+        sta $D0E2
+        sta $D0EA
         // Write a bunch of bytes
-        lda	#$11
-@ll:    sta	$D0E8
+        lda #$11
+@ll:    sta $D0E8
         clc
-        adc	#$11
-        cmp	#$10
-        bne	@ll
-        lda	#$00
+        adc #$11
+        cmp #$10
+        bne @ll
+        lda #$00
         tax
         tay
         taz
         // See if they get read correctly
-@ll2:	ldx	$D0E1
-	lda	$D0E0
-	jmp	@ll2
+@ll2:   ldx $D0E1
+        lda $D0E0
+        jmp @ll2
 }
 // buffereduarttest()
 
@@ -213,7 +217,6 @@ theroutine_end:
         sta sd_ctrl
         lda #$01
         sta sd_ctrl
-
 
         // map sector buffer
         lda #$81
@@ -234,7 +237,7 @@ theroutine_end:
         // Issue write block command
         lda #$03
         sta sd_ctrl
-foo:	jmp foo
+foo:    jmp foo
 }
 // sdtest()
 

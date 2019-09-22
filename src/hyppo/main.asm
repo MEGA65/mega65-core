@@ -25,9 +25,9 @@
     it also suggests some memory-map definitions
     ---------------------------------------------------------------- */
 
-#import "hyppo_constants.asm"
-#import "hyppo_macros.asm"
-#import "hyppo_machine.asm"
+#import "constants.asm"
+#import "macros.asm"
+#import "machine.asm"
 
 .label TrapEntryPoints_Start        = $8000
 .label RelocatedCPUVectors_Start    = $81f8
@@ -41,7 +41,7 @@
 .label Hyppo_End                    = $bfff
 .label Data_Start                   = $ce00
 
-.file [name="../bin/KICKUP.M65", type="bin", segments="TrapEntryPoints,RelocatedCPUVectors,Traps,DOSDiskTable,SysPartStructure,DOSWorkArea,ProcessDescriptors,HyppoStack,HyppoZP"]
+.file [name="../../bin/HICKUP.M65", type="bin", segments="TrapEntryPoints,RelocatedCPUVectors,Traps,DOSDiskTable,SysPartStructure,DOSWorkArea,ProcessDescriptors,HyppoStack,HyppoZP"]
 
 .segmentdef TrapEntryPoints        [min=TrapEntryPoints_Start,     max=RelocatedCPUVectors_Start-1                         ]
 .segmentdef RelocatedCPUVectors    [min=RelocatedCPUVectors_Start, max=Traps_Start-1                                       ]
@@ -62,37 +62,56 @@
 
         // Temporary vector storage for DOS
         //
-dos_scratch_vector:     .word 0,0
-dos_scratch_byte_1:     .byte 0
-dos_scratch_byte_2:     .byte 0
+dos_scratch_vector:
+        .word 0,0
+dos_scratch_byte_1:
+        .byte 0
+dos_scratch_byte_2:
+        .byte 0
 
         // Vectors for copying data between hypervisor and user-space
         //
-hypervisor_userspace_copy_vector:    .word 0
+hypervisor_userspace_copy_vector:
+        .word 0
 
         // general hyppo temporary variables
         //
-zptempv:		        .word 0
-zptempv2:		        .word 0
-zptempp:		        .word 0
-zptempp2:		        .word 0
-zptempv32:		        .word 0,0
-zptempv32b:		        .word 0,0
-dos_file_loadaddress:	.word 0,0
+zptempv:
+        .word 0
+zptempv2:
+        .word 0
+zptempp:
+        .word 0
+zptempp2:
+        .word 0
+zptempv32:
+        .word 0,0
+zptempv32b:
+        .word 0,0
+dos_file_loadaddress:
+        .word 0,0
 
         // Used for checkpoint debug system of hypervisor
         //
-checkpoint_a:	        .byte 0
-checkpoint_x:	        .byte 0
-checkpoint_y:	        .byte 0
-checkpoint_z:	        .byte 0
-checkpoint_p:	        .byte 0
-checkpoint_pcl:	        .byte 0
-checkpoint_pch:	        .byte 0
+checkpoint_a:
+        .byte 0
+checkpoint_x:
+        .byte 0
+checkpoint_y:
+        .byte 0
+checkpoint_z:
+        .byte 0
+checkpoint_p:
+        .byte 0
+checkpoint_pcl:
+        .byte 0
+checkpoint_pch:
+        .byte 0
 
         // SD card timeout handling
         //
-sdcounter:		        .byte 0,0,0
+sdcounter:
+        .byte 0,0,0
 
 /*  -------------------------------------------------------------------
     Scratch space in ZP space usually used by kernel
@@ -134,14 +153,14 @@ trap_entry_points:
 
         // Traps $00-$07 (user callable)
         //
-        jmp dos_and_process_trap	        // Trap #$00 (unsure what to call it)
-        nop				        // refer: hyppo_dos.asm
+        jmp dos_and_process_trap                // Trap #$00 (unsure what to call it)
+        nop                                     // refer: hyppo_dos.asm
         jmp memory_trap                         // Trap #$01
         nop                                     // refer: hyppo_mem.asm
-        jmp syspart_trap		        // Trap #$02
+        jmp syspart_trap                        // Trap #$02
         nop                                     // refer: hyppo_syspart.asm
-        jmp serialwrite			        // Trap #$03
-        nop 				        // refer serialwrite in this file
+        jmp serialwrite                         // Trap #$03
+        nop                                     // refer serialwrite in this file
         jmp nosuchtrap
         nop
         jmp nosuchtrap
@@ -253,8 +272,8 @@ trap_entry_points:
         jmp nosuchtrap
         nop
 
-        jmp protected_hardware_config	// Trap #$32 (Protected Hardware Configuration)
-        nop			  	                // refer: hyppo_task
+        jmp protected_hardware_config           // Trap #$32 (Protected Hardware Configuration)
+        nop                                     // refer: hyppo_task
 
 
         jmp nosuchtrap
@@ -288,26 +307,26 @@ trap_entry_points:
         nop
 
         // Traps $40-$4F (reset, page fault and other system-generated traps)
-        jmp reset_entry			        // Trap #$40 (power on / reset)
-        nop				                // refer: below in this file
+        jmp reset_entry                         // Trap #$40 (power on / reset)
+        nop                                     // refer: below in this file
 
-        jmp page_fault			        // Trap #$41 (page fault)
-        nop				                // refer: hyppo_mem
+        jmp page_fault                          // Trap #$41 (page fault)
+        nop                                     // refer: hyppo_mem
 
-        jmp restore_press_trap		    // Trap #$42 (press RESTORE for 0.5 - 1.99 seconds)
-        nop				                // refer: hyppo_task "1000010" x"42"
+        jmp restore_press_trap                  // Trap #$42 (press RESTORE for 0.5 - 1.99 seconds)
+        nop                                     // refer: hyppo_task "1000010" x"42"
 
-        jmp matrix_mode_toggle          // Trap #$43 (C= + TAB combination)
-        nop				                // refer: hyppo_task
+        jmp matrix_mode_toggle                  // Trap #$43 (C= + TAB combination)
+        nop                                     // refer: hyppo_task
 
-        jmp f011_virtual_read           // Trap #$44 (virtualised F011 sector read)
+        jmp f011_virtual_read                   // Trap #$44 (virtualised F011 sector read)
         nop
 
-        jmp f011_virtual_write	        // Trap #$45 (virtualised F011 sector write)
+        jmp f011_virtual_write                  // Trap #$45 (virtualised F011 sector write)
         nop
 
-        jmp nosuchtrap			        // common-trap (catch all)
-        nop				                // refer: below in this file
+        jmp nosuchtrap                          // common-trap (catch all)
+        nop                                     // refer: below in this file
         jmp nosuchtrap
         nop
         jmp nosuchtrap
@@ -376,7 +395,7 @@ nosuchtrap:
         //
         sta hypervisor_enterexit_trigger
 
-// 	========================
+//         ========================
 
 return_from_trap_with_success:
 
@@ -395,7 +414,7 @@ return_from_trap_with_success:
         // return from hypervisor
         sta hypervisor_enterexit_trigger
 
-// 	========================
+//         ========================
 
 return_from_trap_with_failure:
 
@@ -413,59 +432,59 @@ return_from_trap_with_failure:
         // return from hypervisor
         sta hypervisor_enterexit_trigger
 
-// 	========================
+//         ========================
 
 invalid_subfunction:
 
         jmp nosuchtrap
 
-// 	========================
+//         ========================
 
 /*  -------------------------------------------------------------------
     System Partition functions
     ---------------------------------------------------------------- */
-#import "hyppo_syspart.asm"
+#import "syspart.asm"
 
 /*  -------------------------------------------------------------------
     Freeze/Unfreeze functions
     ---------------------------------------------------------------- */
-#import "hyppo_freeze.asm"
+#import "freeze.asm"
 
 /*  -------------------------------------------------------------------
     DOS, process control and related functions trap
     ---------------------------------------------------------------- */
-#import "hyppo_dos.asm"
-#import "hyppo_dos_write.asm"
+#import "dos.asm"
+#import "dos_write.asm"
 
 /*  -------------------------------------------------------------------
     Virtual memory and memory management
     ---------------------------------------------------------------- */
-#import "hyppo_mem.asm"
+#import "mem.asm"
 
 /*  -------------------------------------------------------------------
     Task (process) management
     ---------------------------------------------------------------- */
-#import "hyppo_task.asm"
+#import "task.asm"
 
 /*  -------------------------------------------------------------------
     Secure mode / compartmentalised operation management
     ---------------------------------------------------------------- */
-#import "hyppo_securemode.asm"
+#import "securemode.asm"
 
 /*  -------------------------------------------------------------------
     SD-Card and FAT related functions
     ---------------------------------------------------------------- */
-#import "hyppo_sdfat.asm"
+#import "sdfat.asm"
 
 /*  -------------------------------------------------------------------
     Virtualised F011 access (used for disk over serial monitor)
     ---------------------------------------------------------------- */
-#import "hyppo_virtual_f011.asm"
+#import "virtual_f011.asm"
 
 /*  -------------------------------------------------------------------
     Audio mixer control functions
     ---------------------------------------------------------------- */
-#import "hyppo_audiomix.asm"
+#import "audiomix.asm"
 
 /*  -------------------------------------------------------------------
     CPU Hypervisor Entry Point on reset
@@ -586,7 +605,7 @@ reset_machine_state:
 reset_entry:
         sei
 
-#import "hyppo_debugtests.asm"
+#import "debugtests.asm"
 
         jsr reset_machine_state
 
@@ -624,12 +643,12 @@ reset_entry:
         bit go64
         bit $1234
 
-// 	========================
+//         ========================
 
 normalboot:
 
-        jsr dump_disk_count	// debugging to Checkpoint
-        jsr dumpcurrentfd	// debugging to Checkpoint
+        jsr dump_disk_count        // debugging to Checkpoint
+        jsr dumpcurrentfd        // debugging to Checkpoint
 
         // Try to read the MBR from the SD card to ensure SD card is happy
         //
@@ -705,7 +724,7 @@ nokey2:
 
         jmp tryreadmbr
 
-// 	========================
+//         ========================
 
 gotmbr:
         // good, was able to read the MBR
@@ -729,11 +748,11 @@ gotmbr:
         ldz dos_default_disk
         jsr printhex
 
-        jsr dump_disk_count	// debugging to Checkpoint
-        jsr dumpcurrentfd	// debugging to Checkpoint
-// 	    jsr print_disk_table	; debugging to Screen
+        jsr dump_disk_count     // debugging to Checkpoint
+        jsr dumpcurrentfd       // debugging to Checkpoint
+//             jsr print_disk_table        ; debugging to Screen
 
-// 	========================
+//         ========================
 
         // If we have no disks, offer the utility menu
         lda dos_disk_count
@@ -786,7 +805,7 @@ mountsystemdiskok:
         jsr dos_readfileintomemory
         bcs logook
 
-// 	========================
+//         ========================
 
         // FAILED: print debug message
         //
@@ -803,7 +822,7 @@ mountsystemdiskok:
 
         Checkpoint("FAILED loading BOOTLOGO")
 
-// 	========================
+//         ========================
 
 logook:
         // Loaded banner, so copy palette into place
@@ -813,7 +832,7 @@ logook:
         // HICKUP.M65 to load into hypervisor memory ...
         // ... but only if we are not running a hick-up'd hyppo now.
         //
-        lda hypervisor_hickedup_flag	// $d67e = register for hickup-state (00=virgin, else already-hicked)
+        lda hypervisor_hickedup_flag        // $d67e = register for hickup-state (00=virgin, else already-hicked)
         bpl allowhickup
 
         // already hicked
@@ -824,9 +843,9 @@ logook:
 
         jmp posthickup
 
-// 	========================
+//         ========================
 
-allowhickup:	// BG was label nextdirectoryentry3:
+allowhickup:        // BG was label nextdirectoryentry3:
 
         // Prepare 32-bit pointer for loading hickup @ $0004000
         //
@@ -855,7 +874,7 @@ allowhickup:	// BG was label nextdirectoryentry3:
         jsr dos_readfileintomemory
         bcc nohickup
 
-// 	========================
+//         ========================
 
         // We have loaded a hickup file, so jump into it.
 
@@ -863,12 +882,12 @@ allowhickup:	// BG was label nextdirectoryentry3:
         //
         Checkpoint("  loaded OK HICKUP")
 
-// 		ldx #<msg_hickuploaded
-// 		ldy #>msg_hickuploaded
-// 		jsr printmessage
+//                 ldx #<msg_hickuploaded
+//                 ldy #>msg_hickuploaded
+//                 jsr printmessage
 
         ldy #$00
-        ldz <zptempv32+3	// BG what is in this register? Where is the data set?
+        ldz <zptempv32+3        // BG what is in this register? Where is the data set?
         jsr printhex
         ldz <zptempv32+2
         jsr printhex
@@ -882,13 +901,13 @@ dohickup:
         // (We have to copy the routine to do this to RAM, since we will
         // be replacing ourselves)
         ldx #$00
-krc:	lda hickuproutine,x
+krc:        lda hickuproutine,x
         sta $3000,x
         inx
         bne krc
         jmp $3000
 
-// 	========================
+//         ========================
 
 hickuproutine:
         // The following routine gets copied as-is to $3000 and run from there.
@@ -919,10 +938,10 @@ hickuproutine:
         // (it doesn't matter what gets written to this register, it is just the fact that it has been
         // written to, that sets the flag).
         //
-        sta hypervisor_hickedup_flag	// mark ourselves as having hicked up, (00=virgin, else already-hicked)
+        sta hypervisor_hickedup_flag        // mark ourselves as having hicked up, (00=virgin, else already-hicked)
         jmp $8100
 
-// 	========================
+//         ========================
 
 hickupdmalist:
         // MEGA65 Enhanced DMA options
@@ -941,14 +960,14 @@ hickupdmalist:
         .byte $0F   // of bank $F
         .word $0000 // modulo (unused)
 
-// 	========================
+//         ========================
 
 couldntopenhickup:
 
 nohickup:
-// 		ldx #<msg_nohickup
-// 		ldy #>msg_nohickup
-// 		jsr printmessage
+//                 ldx #<msg_nohickup
+//                 ldy #>msg_nohickup
+//                 jsr printmessage
 
 posthickup:
 
@@ -960,15 +979,15 @@ posthickup:
         //
         Checkpoint("  Here we are POST-HICKUP")
 
-        jsr dumpcurrentfd	// debugging to Checkpoint
+        jsr dumpcurrentfd        // debugging to Checkpoint
 
         // for now indicate that there is no disk in drive
         // (unless we notice that floppy access has been virtualised)
-        lda	hypervisor_hardware_virtualisation
-        and	#$01
-        bne	f011Virtualised
+        lda hypervisor_hardware_virtualisation
+        and #$01
+        bne f011Virtualised
         lda #$00
-        sta sd_f011_en	// f011 emulation
+        sta sd_f011_en        // f011 emulation
 f011Virtualised:
 
         // Go to root directory on default disk
@@ -1010,10 +1029,9 @@ f011Virtualised:
 
         // all done, move on to loading the ROM
         //
-
         jmp findrom
 
-// 	========================
+//         ========================
 
 d81attachfail:
         // we couldn't find the D81 file, so tell the user
@@ -1048,12 +1066,9 @@ findrom:
         cmp #$20
         bne nokey3
         jmp utility_menu
-nokey3:
+nokey3: jmp go64
 
-
-        jmp go64
-
-// 	========================
+//         ========================
 
 attempt_loadcharrom:
         // Load CHARROM.M65 into character ROM
@@ -1109,18 +1124,16 @@ attempt_load1541rom:
 
         jmp dos_readfileintomemory
 
-
-
 loadrom:
 
-        jsr dumpcurrentfd	// debugging to Checkpoint
+        jsr dumpcurrentfd        // debugging to Checkpoint
 
         // ROMs are not loaded, so try to load them, or prompt
         // for user to insert SD card
         //
-// 		ldx #<msg_rombad
-// 		ldy #>msg_rombad
-// 		jsr printmessage
+//                 ldx #<msg_rombad
+//                 ldy #>msg_rombad
+//                 jsr printmessage
 
         // print debug message
         //
@@ -1129,20 +1142,20 @@ loadrom:
         jsr attempt_loadcharrom
         bcs loadedcharromok
 
-// 	========================
+//         ========================
 
         // FAILED
-// 		ldx #<msg_charrombad
-// 		ldy #>msg_charrombad
-// 		jsr printmessage
+//                 ldx #<msg_charrombad
+//                 ldy #>msg_charrombad
+//                 jsr printmessage
 
         // print debug message
         //
-// 		Checkpoint(" couldnt load CHARROM.M65")
+//                 Checkpoint(" couldnt load CHARROM.M65")
 
         jmp loadc65rom
 
-// 	========================
+//         ========================
 
 loadedcharromok:
         // print debug message
@@ -1168,7 +1181,7 @@ loadedcharromok:
 
 loadc65rom:
 
-        jsr dumpcurrentfd	// debugging to Checkpoint
+        jsr dumpcurrentfd        // debugging to Checkpoint
 
         // print debug message
         //
@@ -1177,12 +1190,12 @@ loadc65rom:
         jsr attempt_loadc65rom
         bcs loadedok
 
-// 	========================
+//         ========================
 
         // ROM not found: indicate which ROM we were looking for
         //
         ldx #$0b
-l17d:	lda txt_MEGA65ROM,x
+l17d:   lda txt_MEGA65ROM,x
         sta msg_romnotfound+19,x
         dex
         bne l17d
@@ -1197,7 +1210,7 @@ l17d:	lda txt_MEGA65ROM,x
 
         jmp sdcarderror
 
-// 	========================
+//         ========================
 
         // ROM was found and loaded
 loadedok:
@@ -1261,7 +1274,6 @@ charromdmalist:
         .byte $07
         .word $0000
 
-
 loadedmegaromok:
 
         // prepare debug message
@@ -1301,8 +1313,7 @@ loadedmegaromok:
         jsr printmessage
 
 loaded1541rom:
-
-        jsr dumpcurrentfd	// debugging to Checkpoint
+        jsr dumpcurrentfd        // debugging to Checkpoint
 
         // check for keyboard input to jump to utility menu
         jsr utility_menu_check
@@ -1315,7 +1326,7 @@ nokey4:
 
         jmp go64
 
-// 	========================
+//         ========================
 
 romfiletoolong:
         ldx #<msg_romfilelongerror
@@ -1339,21 +1350,22 @@ romfiletooshort:
         jsr sdwaitawhile
         jmp reset_entry
 
-// 	========================
+//         ========================
 
 fileopenerror:
         ldx #<msg_fileopenerror
         ldy #>msg_fileopenerror
         jsr printmessage
 
-sdcarderror:	ldx #<msg_sdcarderror
+sdcarderror:
+        ldx #<msg_sdcarderror
         ldy #>msg_sdcarderror
         jsr printmessage
 
         jsr sdwaitawhile
         jmp reset_entry
 
-// 	========================
+//         ========================
 
 badfs:
         ldx #<msg_badformat
@@ -1405,13 +1417,14 @@ testromsum:
         sec
         rts
 
-// 	========================
+//         ========================
 
         // check failed
-checksumfails:	clc
+checksumfails:
+        clc
         rts
 
-// 	========================
+//         ========================
 
 storeromsum:
         jsr mapromchecksumrecord
@@ -1424,7 +1437,7 @@ storeromsum:
         sta $4002
         rts
 
-// 	========================
+//         ========================
 
 mapromchecksumrecord:
 
@@ -1457,9 +1470,9 @@ mapromchecksumrecord:
 
         rts
 
-// 	========================
+//         ========================
 
-calcromsum:	// calculate checksum of 128KB ROM
+calcromsum:        // calculate checksum of 128KB ROM
 
         // use MAP to map C65 ROM address space in 16KB
         // slabs at $4000-$7FFF.  Check sum each, and
@@ -1556,7 +1569,7 @@ sumbyte:
         inc checksum+1
         bcc l6
         inc checksum+2
-l6:		iny
+l6:     iny
         bne sumbyte
         inc <zptempv+1
         lda <zptempv+1
@@ -1577,16 +1590,16 @@ l6:		iny
 resetdisplay:
         // reset screen
         //
-        lda #$40	// 0100 0000 = choose charset
-        sta $d030	// VIC-III Control Register A
+        lda #$40        // 0100 0000 = choose charset
+        sta $d030        // VIC-III Control Register A
 
-        lda $d031	// VIC-III Control Register B
-        and #$40	// bit-6 is 4mhz
+        lda $d031        // VIC-III Control Register B
+        and #$40        // bit-6 is 4mhz
         sta $d031
 
-        lda #$00	// black
-        sta $D020	// border
-        sta $D021	// background
+        lda #$00        // black
+        sta $D020        // border
+        sta $D021        // background
 
         // Start in 60Hz mode, since most monitors support it
         // (Also required to make sure matrix mode pixels aren't ragged on first boot).
@@ -1617,20 +1630,20 @@ resetdisplay:
         // We use VIC-II style registers as this resets video frame in
         // least instructions, and 40 columns is fine for us.
         //
-        lda #$14	// 0001 0100
-        sta $D018	// VIC-II Character/Screen location
+        lda #$14        // 0001 0100
+        sta $D018        // VIC-II Character/Screen location
 
-        lda #$1B	// 0001 1011
-        sta $D011	// VIC-II Control Register
+        lda #$1B        // 0001 1011
+        sta $D011        // VIC-II Control Register
 
-        lda #$C8	// 1100 1000
-        sta $D016	// VIC-II Control Register
+        lda #$C8        // 1100 1000
+        sta $D016        // VIC-II Control Register
 
         // Now switch to 16-bit text mode so that we can use proportional
         // characters and full-colour characters for chars >$FF for the logo
         //
         lda #$c5
-        lda $d054	// VIC-IV Control Register C
+        lda $d054        // VIC-IV Control Register C
 
         // and 80 bytes (40 16-bit characters) per row.
         //
@@ -1641,7 +1654,7 @@ resetdisplay:
 
         rts
 
-// 	========================
+//         ========================
 
 resetpalette:
         // reset VIC-IV palette to sensible defaults.
@@ -1649,18 +1662,18 @@ resetpalette:
         // PAL bit in $D030 is set.
         //
         lda #$04
-        tsb $D030	// enable PAL bit in $D030
+        tsb $D030        // enable PAL bit in $D030
 
         lda #$ff
-        sta $D070	// select palette bank 3 for display and edit
+        sta $D070        // select palette bank 3 for display and edit
 
         // C64 colours designed to look like C65 colours on an
         // RGBI screen.
         //
         // formatted in ASM to help visualise what each code is for.
         //
-                lda #$00
-                    sta $D100
+        lda #$00
+            sta $D100
             sta $D200
             sta $D300
 
@@ -1764,7 +1777,7 @@ resetpalette:
 
     rts
 
-// 	========================
+//         ========================
 
 // erase standard 40-column screen
 //
@@ -1819,7 +1832,7 @@ erasescreen:
         lda #$01
         trb $D030
 
-// 	========================
+//         ========================
 
         // move cursor back to top of the screen
         // (but leave 8 rows for logo and banner text)
@@ -1882,7 +1895,6 @@ setbannerpalette:
         lda #<bannerpalettedmalist
         sta $d705
 
-
         rts
 
 bannerpalettedmalist:
@@ -1901,7 +1913,7 @@ bannerpalettedmalist:
 
 
 
-// 	========================
+//         ========================
 
 erasescreendmalist:
         // Clear screen RAM
@@ -1933,26 +1945,26 @@ erasescreendmalist:
         .word $0000   // modulo (unused)
 
 
-// 	========================
+//         ========================
 
-printmessage:	// HELPER routine
+printmessage:        // HELPER routine
         //
         // This subroutine takes inputs from the X and Y registers,
         // so set these registers before calling this subroutine,
         // The X and Y registers need to point to a message as shown below:
         //
-        // 	ldx #<msg_foundsdcard
-        // 	ldy #>msg_foundsdcard
-        // 	jsr printmessage
+        //         ldx #<msg_foundsdcard
+        //         ldy #>msg_foundsdcard
+        //         jsr printmessage
         //
         // Ie: the X is the high-byte of the 16-bit address, and
         //     the Y is the low-byte  of the 16-bit address.
 
-        stx <zptempp	// zptempp is 16-bit pointer to message
+        stx <zptempp        // zptempp is 16-bit pointer to message
         sty <zptempp+1
 
         lda #$00
-        sta <zptempp2	// zptempp2 is 16-bit pointer to screen
+        sta <zptempp2        // zptempp2 is 16-bit pointer to screen
         lda #$04
         sta <zptempp2+1
 
@@ -1973,7 +1985,7 @@ pm22:
 
         // work out the screen address
         //
-pm2:		cpx #$00
+pm2:    cpx #$00
         beq pm1
         clc
         lda <zptempp2
@@ -1995,14 +2007,14 @@ pm2:		cpx #$00
         sta <zptempp2
         lda #$06
         sta <zptempp2+1
-pm5:		dex
+pm5:    dex
         bne pm2
 pm1:
 
         // Clear line (16-bit chars, so write #$0020 to each word
         //
         ldy #$00
-pm1b:		lda #$20
+pm1b:   lda #$20
         sta (<zptempp2),y
         iny
         lda #$00
@@ -2015,7 +2027,7 @@ writestring:
         phz
         ldy #$00
         ldz #$00
-pm3:		lda (<zptempp),y
+pm3:    lda (<zptempp),y
         beq endofmessage
 
         // convert ASCII/PETSCII to screen codes
@@ -2024,7 +2036,7 @@ pm3:		lda (<zptempp),y
         bcc pm4
         and #$1f
 
-pm4:		// write 16-bit character code
+pm4:                // write 16-bit character code
         //
         sta_bp_z(<zptempp2)
         inz
@@ -2041,7 +2053,7 @@ endofmessage:
         plz
         rts
 
-// 	========================
+//         ========================
 
 printbanner:
         stx <zptempp
@@ -2054,7 +2066,7 @@ printbanner:
         dec screenrow
         rts
 
-// 	========================
+//         ========================
 
 printhex:
         // helper function
@@ -2080,8 +2092,7 @@ printhexdigit:
         // find next $ sign to replace with hex digit
         //
         tax
-phd3:
-        lda (<zptempp2),y
+phd3:   lda (<zptempp2),y
         cmp #$24
         beq phd2
         iny
@@ -2090,19 +2101,17 @@ phd3:
         bne phd3
         rts
 
-phd2:
-        txa
+phd2:   txa
         ora #$30
         cmp #$3a
         bcc phd1
         sbc #$39
-phd1:
-        sta (<zptempp2),y
+phd1:   sta (<zptempp2),y
         iny
         iny
         rts
 
-// 	========================
+//         ========================
 
 go64:
 
@@ -2113,8 +2122,7 @@ go64:
 
         // Check if hold boot switch is set (control-key)
         //
-l41:
-        lda buckykey_status
+l41:    lda buckykey_status
         and #$14
         beq l42      // no, so continue
 
@@ -2133,7 +2141,6 @@ l41a:
         and #$04
         bne l41a
 l42:
-
         // unmap sector buffer so C64 can see CIAs
         //
         lda #$82
@@ -2149,7 +2156,7 @@ l42:
         //
         ldx #$00
         txa
-g61:	sta $0800,x
+g61:    sta $0800,x
         inx
         bne g61
 
@@ -2178,9 +2185,9 @@ g61:	sta $0800,x
         // exit from hypervisor to start machine
         sta hypervisor_enterexit_trigger
 
-#import "hyppo_ultimax.asm"
+#import "ultimax.asm"
 
-// 	========================
+//         ========================
 
 // BG: the longpeek subroutine does not get called from hyppo,
 //     it gets called only from the hyppo_task file,
@@ -2298,7 +2305,7 @@ longpokeaddress:
         .byte $00,00 // Modulo
 
 
-// 	========================
+//         ========================
 
 // reset memory map to default
 resetmemmap:
@@ -2322,7 +2329,7 @@ resetmemmap:
 
         rts
 
-// 	========================
+//         ========================
 
 enhanced_io:
 
@@ -2337,7 +2344,7 @@ enhanced_io:
         sta viciv_magic
         rts
 
-l1:		// Enable VIC-IV / MEGA65 IO
+l1:                // Enable VIC-IV / MEGA65 IO
         //
         lda #$47
         sta viciv_magic
@@ -2346,11 +2353,11 @@ l1:		// Enable VIC-IV / MEGA65 IO
         rts
 
 
-// 	========================
-#import "hyppo_keyboard.asm"
+//         ========================
+#import "keyboard.asm"
 
 utility_menu_check:
-          lda buckykey_status
+        lda buckykey_status
         cmp #$03
         beq @startUtilMenu
         and #$10
@@ -2364,7 +2371,7 @@ keyboardread:
 // Check for keyboard activity, and change which ROM we intend to read
 // based on that, i.e., holding any key down during boot will load MEGA65<that character>.ROM instead of MEGA65.ROM
 
-             jsr utility_menu_check
+        jsr utility_menu_check
 
         jsr scankeyboard
         bcs kr2  // if an error occured
@@ -2376,7 +2383,7 @@ keyboardread:
         bcc kr2
         cmp #$39
         bcs kr2
-kr2:	lda #$20 // default to space
+kr2:        lda #$20 // default to space
 kr1:
         // put character into 6th byte position of ROM file name.
         // so no key looks for MEGA65.ROM, where as 0-9 will look
@@ -2404,7 +2411,7 @@ default_rom:
 
         rts
 
-// 	========================
+//         ========================
 
 hypervisor_nmi:
 hypervisor_irq:
@@ -2441,7 +2448,7 @@ hscr1:
         lda #dos_errorcode_invalid_address
         jmp dos_return_error
 
-// 	========================
+//         ========================
 
 checkpoint:
 
@@ -2514,7 +2521,7 @@ checkpoint:
         // Clear out checkpoint message
         ldx #59
         lda #$20
-cp4:	sta msg_checkpointmsg,x
+cp4:    sta msg_checkpointmsg,x
         dex
         bpl cp4
 cp9:
@@ -2535,7 +2542,7 @@ cp9:
         // Copy null-terminated checkpoint string
         ldx #$00
         iny
-cp3:	lda (<checkpoint_pcl),y
+cp3:    lda (<checkpoint_pcl),y
         beq endofcheckpointmessage
         sta msg_checkpointmsg,x
         inx
@@ -2544,11 +2551,10 @@ cp3:	lda (<checkpoint_pcl),y
         bne cp3
 
         // flush out any excess bytes at end of message
-cp44:	lda (<checkpoint_pcl),y
+cp44:   lda (<checkpoint_pcl),y
         beq endofcheckpointmessage
         iny
         bra cp44
-
 
 endofcheckpointmessage:
         // Skip $00 at end of message
@@ -2575,15 +2581,15 @@ nocheckpointmessage:
         // do not adjust x-reg until label "checkpoint_return"
 cp5:
         // wait for uart to be not busy
-        lda hypervisor_write_char_to_serial_monitor	// LSB is busy status
-        bne cp5		// branch if busy (LSB=1)
+        lda hypervisor_write_char_to_serial_monitor        // LSB is busy status
+        bne cp5                // branch if busy (LSB=1)
 
         // uart is not busy, so write the char
         lda msg_checkpoint,x
         sta hypervisor_write_char_to_serial_monitor
         inx
 
-        cmp #10		// compare A-reg with "LineFeed"
+        cmp #10                // compare A-reg with "LineFeed"
         bne cp5
 
 checkpoint_return:
@@ -2599,7 +2605,7 @@ checkpoint_return:
         // return by jumping to the
         jmp (checkpoint_pcl)
 
-// 	========================
+//         ========================
 
 checkpoint_bytetohex:
 
@@ -2608,7 +2614,6 @@ checkpoint_bytetohex:
         //
         //     input ".X", containing a HEX-byte to convert
         //   outputs ".X" & ".Y", Y is MSB, X is LSB, print YX
-
         txa
         and #$f0
         lsr
@@ -2623,7 +2628,7 @@ checkpoint_bytetohex:
         tax
         rts
 
-// 	========================
+//         ========================
 
 checkpoint_nybltohex:
 
@@ -2633,10 +2638,10 @@ checkpoint_nybltohex:
         bcs cpnth1
         rts
 
-cpnth1:	adc #$06
+cpnth1: adc #$06
         rts
 
-// 	========================
+//         ========================
 //       Scan the 32KB colour RAM looking for pre-loaded utilities.
 //       Offer for the user to be able to launch one of them
 
@@ -2657,7 +2662,7 @@ um1:
         // Display utility and assign number
         ldy #39
         lda #$20
-um2:	sta msg_utility_item,y
+um2:    sta msg_utility_item,y
         dey
         cpy #2
         bne um2
@@ -2666,15 +2671,14 @@ um2:	sta msg_utility_item,y
         lda zptempv
         sta msg_utility_item
         ldz #4
-um4:	nop
+um4:    nop
         lda_bp_z(<zptempv32)
         sta msg_utility_item,y
         beq um3
         iny
         inz
         bra um4
-um3:
-        ldx #<msg_utility_item
+um3:    ldx #<msg_utility_item
         ldy #>msg_utility_item
         jsr printmessage
 
@@ -2698,7 +2702,7 @@ utility_end_of_list:
         tax
         dex // input is 1-9, so subtract one for list beginning at 0
         jsr utillist_rewind
-ueol2:	jsr utillist_validity_check
+ueol2:  jsr utillist_validity_check
         // Select again if first choice invalid
         bcc utility_end_of_list
         dex
@@ -2743,11 +2747,11 @@ ueol1:
         lda #>utility_dmalist
         sta $d701
         lda #<utility_dmalist
-        sta $d705  // Trigger enhanced DMA
+        sta $d705       // Trigger enhanced DMA
 
         // clear 16-bit char mode
-        lda #$05	// 0000 0101
-        trb $d054	// VIC-IV Control Register C
+        lda #$05        // 0000 0101
+        trb $d054       // VIC-IV Control Register C
 
         // and 40 bytes (40 8-bit characters) per row.
         lda #<40
@@ -2758,7 +2762,6 @@ ueol1:
         // screen at $0800 for debug
         lda #$25
         sta $d018
-
 
         // Exit hypervisor, with PC set to entry point of utility
         ldz #38
@@ -2896,24 +2899,24 @@ serialwrite:
         // write character to serial port
         // XXX - Have some kind of permission control on this
         // XXX - $D67C should not work when matrix mode is enabled at all?
-        sta	hypervisor_write_char_to_serial_monitor
-        sta	hypervisor_enterexit_trigger
+        sta hypervisor_write_char_to_serial_monitor
+        sta hypervisor_enterexit_trigger
 
-// 	========================
+//         ========================
 
 // checkpoint message
 
-msg_checkpoint:	      .text "$"
-msg_checkpoint_pc:    .text "%%%% A:"
-msg_checkpoint_a:     .text "%%, X:"
-msg_checkpoint_x:     .text "%%, Y:"
-msg_checkpoint_y:     .text "%%, Z:"
-msg_checkpoint_z:     .text "%%, P:"
-msg_checkpoint_p:     .text "%% :"
-msg_checkpointmsg:    .text "                                                             " // END_OF_STRING
-                      .byte 13,10  // CR/LF
+msg_checkpoint:         .text "$"
+msg_checkpoint_pc:      .text "%%%% A:"
+msg_checkpoint_a:       .text "%%, X:"
+msg_checkpoint_x:       .text "%%, Y:"
+msg_checkpoint_y:       .text "%%, Z:"
+msg_checkpoint_z:       .text "%%, P:"
+msg_checkpoint_p:       .text "%% :"
+msg_checkpointmsg:      .text "                                                             " // END_OF_STRING
+                        .byte 13,10  // CR/LF
 
-// 	========================
+//         ========================
 
 msg_checkpoint_eom:
 
@@ -2927,7 +2930,7 @@ msg_hyppohelp:          .text "ALT=UTIL MENU CTRL=HOLD-BOOT SHIFT=DEBUG"
                         .byte 0
 msg_romok:              .text "ROM CHECKSUM OK - BOOTING"
                         .byte 0
-// msg_rombad:	        .text "ROM CHECKSUM FAIL - LOADING ROMS"
+// msg_rombad:          .text "ROM CHECKSUM FAIL - LOADING ROMS"
 //                      .byte 0
 // msg_charrombad:      .text "COULD NOT LOAD CHARROM.M65"
 //                      .byte 0
@@ -2945,13 +2948,13 @@ msg_sdcarderror:        .text "ERROR READING FROM SD CARD"
                         .byte 0
 msg_sdredoread:         .text "RE-READING SDCARD"
                         .byte 0
-msg_badformat:	        .text "BAD MBR OR DOS BOOT SECTOR."
+msg_badformat:          .text "BAD MBR OR DOS BOOT SECTOR."
                         .byte 0
 msg_sdcardfound:        .text "READ PARTITION TABLE FROM SDCARD"
                         .byte 0
 msg_foundromfile:       .text "FOUND ROM FILE. START CLUSTER = $$$$$$$$"
                         .byte 0
-msg_diskcount:	        .text "DISK-COUNT=$$, DEFAULT-DISK=$$"
+msg_diskcount:          .text "DISK-COUNT=$$, DEFAULT-DISK=$$"
                         .byte 0
 // msg_diskdata0:       .text "DISK-TABLE:"
 //                      .byte 0
@@ -2971,9 +2974,9 @@ msg_clusternumber:      .text "CURRENT CLUSTER=$$$$$$$$"
                         .byte 0
 msg_sectoraddress:      .text "CURRENT SECTOR= $$$$$$$$"
                         .byte 0
-msg_nod81:	        .text "CANNOT MOUNT MEGA65.D81 - (ERRNO: $$)"
+msg_nod81:              .text "CANNOT MOUNT MEGA65.D81 - (ERRNO: $$)"
                         .byte 0
-msg_d81mounted:	        .text "MEGA65.D81 SUCCESSFULLY MOUNTED"
+msg_d81mounted:         .text "MEGA65.D81 SUCCESSFULLY MOUNTED"
                         .byte 0
 msg_releasectrl:        .text "RELEASE CONTROL TO CONTINUE BOOTING."
                         .byte 0
@@ -2981,7 +2984,7 @@ msg_romnotfound:        .text "COULD NOT FIND ROM MEGA65XXROM"
                         .byte 0
 msg_foundhickup:        .text "LOADING HICKUP.M65 INTO HYPERVISOR"
                         .byte 0
-msg_no1541rom:	        .text "COULD NOT LOAD 1541ROM.M65"
+msg_no1541rom:          .text "COULD NOT LOAD 1541ROM.M65"
                         .byte 0
 // msg_nohickup:        .text "NO HICKUP.M65 TO LOAD (OR BROKEN)"
 //                      .byte 0
@@ -2992,31 +2995,31 @@ msg_alreadyhicked:      .text "RUNNING HICKED HYPERVISOR"
 msg_lookingfornextsector:
                         .text "LOOKING FOR NEXT SECTOR OF FILE"
                         .byte 0
-msg_nologo:	        .text "COULD NOT LOAD BANNER.M65 (ERRNO:$$)"
+msg_nologo:             .text "COULD NOT LOAD BANNER.M65 (ERRNO:$$)"
                         .byte 0
 msg_cdrootfailed:       .text "COULD NOT CHDIR TO / (ERRNO:$$)"
                         .byte 0
 msg_tryingcard1:        .text "TRYING SDCARD BUS 1"
                         .byte 0
-msg_usingcard0:	        .text "USING SDCARD BUS 0"
+msg_usingcard0:         .text "USING SDCARD BUS 0"
                         .byte 0
-msg_dmagica:	        .text "DMAGIC REV A MODE"
+msg_dmagica:            .text "DMAGIC REV A MODE"
                         .byte 0
-msg_dmagicb:	        .text "DMAGIC REV B MODE"
+msg_dmagicb:            .text "DMAGIC REV B MODE"
                         .byte 0
 
 // Include the GIT Message as a string
-#import "version.asm"
+#import "../version.asm"
 
-msg_blankline:	      .byte 0
+msg_blankline:          .byte 0
 
-// 	========================
+//         ========================
             // filename of 1541 ROM
-txt_1541ROM:		.text "1541ROM.M65"
+txt_1541ROM:            .text "1541ROM.M65"
                         .byte 0
 
             // filename of character ROM
-txt_CHARROMM65:		.text "CHARROM.M65"
+txt_CHARROMM65:         .text "CHARROM.M65"
                         .byte 0
 
             // filename of ROM we want to load in FAT directory format
@@ -3024,40 +3027,40 @@ txt_CHARROMM65:		.text "CHARROM.M65"
             // the 5, when a user presses a key, so that they can choose a
             // different ROM to load).
             //
-txt_MEGA65ROM:		.text "MEGA65.ROM"
+txt_MEGA65ROM:          .text "MEGA65.ROM"
                         .byte 0,0
 
             // filename of 1581 disk image we mount by default
             //
-txt_MEGA65D81:		.text "MEGA65.D81"
+txt_MEGA65D81:          .text "MEGA65.D81"
                         .byte 0,0,0,0,0,0,0
 
             // filename of hyppo update file
             //
-txt_HICKUPM65:		.text "HICKUP.M65"
+txt_HICKUPM65:          .text "HICKUP.M65"
                         .byte 0
 
             // filename containing boot logo
             //
-txt_BOOTLOGOM65:	.text "BANNER.M65"
+txt_BOOTLOGOM65:        .text "BANNER.M65"
                         .byte 0
 
             // filename containing freeze menu
-txt_FREEZER:		.text "FREEZER.M65"
+txt_FREEZER:            .text "FREEZER.M65"
                         .byte 0
 
             // If this file is present, then machine starts up with video
             // mode set to NTSC (60Hz), else as PAL (50Hz).
             // This is to allow us to boot in PAL by default, except for
             // those who have a monitor that cannot do 50Hz.
-txt_NTSC:	        .text "NTSC"
+txt_NTSC:               .text "NTSC"
                         .byte 0
 
-// 	========================
+//         ========================
 
-#import "hyppo_debug.asm"
+#import "debug.asm"
 
-// 	========================
+//         ========================
 
         // Table of available disks.
         // Include native FAT32 disks, as well as (in the future at least)
@@ -3161,7 +3164,7 @@ dos_disk_table_offset:
 dos_disk_cwd_cluster:
         .byte 0,0,0,0
 
-// 	========================
+//         ========================
 
         // Current point in open directory
         //
@@ -3172,7 +3175,7 @@ dos_opendir_sector:
 dos_opendir_entry:
         .byte 0
 
-// 	========================
+//         ========================
 
         // WARNING: dos_readdir_read_next_entry uses carnal knowledge about the following
         //          structure, particularly the length as calculated here:
@@ -3202,7 +3205,7 @@ dos_dirent_length:
 dos_dirent_type_and_attribs:
         .byte 0
 
-// 	========================
+//         ========================
 
         // Requested file name and length
         //
@@ -3213,15 +3216,15 @@ dos_requested_filename:
         ascii("Venezualen casaba melon productio")
         ascii("n statistics (2007-2011).txt     ")
 
-// 	========================
+//         ========================
 
         // Details about current DOS request
         //
-dos_sectorsread:		        .word 0
-dos_bytes_remaining:		    .word 0,0
-dos_current_sector:		        .word 0,0
-dos_current_cluster:		    .word 0,0
-dos_current_sector_in_cluster:	.byte 0
+dos_sectorsread:                .word 0
+dos_bytes_remaining:            .word 0,0
+dos_current_sector:             .word 0,0
+dos_current_cluster:            .word 0,0
+dos_current_sector_in_cluster:  .byte 0
 
 // Current file descriptors
 // Each descriptor has:
@@ -3247,7 +3250,7 @@ dos_current_sector_in_cluster:	.byte 0
         .label dos_filedescriptor_offset_fileoffset = 13
 
 dos_file_descriptors:
-        .byte $FF,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0	// each is 16 bytes
+        .byte $FF,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0        // each is 16 bytes
         .byte $FF,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
         .byte $FF,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
         .byte $FF,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
@@ -3262,7 +3265,7 @@ dos_current_file_descriptor:
 dos_current_file_descriptor_offset:
         .byte 0
 
-// 	========================
+//         ========================
 
     // For providing feedback on why DOS calls have failed
     // There is a set of error codes defined in hyppo_dos.asm
@@ -3282,4 +3285,4 @@ syspart_present:
     ---------------------------------------------------------------- */
         .segment ProcessDescriptors
         * = ProcessDescriptors_Start
-#import "hyppo_process_descriptor.asm"
+#import "process_descriptor.asm"

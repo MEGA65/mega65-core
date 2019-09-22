@@ -1,3 +1,8 @@
+/*  -------------------------------------------------------------------
+    MEGA65 "HYPPOBOOT" Combined boot and hypervisor ROM.
+    Paul Gardner-Stephen, 2014-2019.
+    ---------------------------------------------------------------- */
+
 freeze_to_slot:
         // Freeze current running process to the specified slot
 
@@ -51,7 +56,7 @@ unfreeze_load_from_sdcard_immediate:
 unfreeze_next_region:
 
         // Require SHIFT press and release between every sector for debug
-// 	jsr wait_on_shift_key
+//         jsr wait_on_shift_key
 
         // Not sure why this delay is necessary, but it is.
         // Maybe restoring SD card IO registers causes it to go busy for a while?
@@ -82,7 +87,7 @@ unfreeze_next_region:
         ldx currenttask_d81_image0_namelen
         beq @noD81ImageToRemount
         ldx #0
-copy:	lda currenttask_d81_image0_name,x
+copy:   lda currenttask_d81_image0_name,x
         sta dos_requested_filename,x
         inx
         cpx currenttask_d81_image0_namelen
@@ -113,7 +118,7 @@ copy:	lda currenttask_d81_image0_name,x
 unfreeze_read_sector_and_wait:
 
 
-// 	jsr debug_show_sector
+//         jsr debug_show_sector
 
 @retryRead:
         jsr sd_wait_for_ready_reset_if_required
@@ -139,7 +144,7 @@ freeze_write_first_sector_and_wait:
         inc $d020
 
         // Require SHIFT press and release between every sector for debug
-// 	jsr wait_on_shift_key
+//         jsr wait_on_shift_key
 
         lda #$00
         sta freeze_write_tries+0
@@ -175,7 +180,7 @@ freeze_write_sector_and_wait:
         inc $d020
 
         // Require SHIFT press and release between every sector for debug
-// 	jsr wait_on_shift_key
+//         jsr wait_on_shift_key
 
         lda #$00
         sta freeze_write_tries+0
@@ -231,7 +236,7 @@ fsr1:
         // various groups of data together)
         phx
         tax
-        jsr	dispatch_freeze_prep
+        jsr dispatch_freeze_prep
         plx
 
         // Get address of region
@@ -350,7 +355,6 @@ freeze_region_dma_loop:
         jmp freeze_region_dma_loop
 
 freeze_region_dma_done:
-
         rts
 
 is_freeze_dma_length_remaining_zero_or_negative:
@@ -417,7 +421,7 @@ unfreeze_load_region:
         // various groups of data together)
         phx
         tax
-        jsr	dispatch_unfreeze_prep
+        jsr dispatch_unfreeze_prep
         plx
 
         // Get address of region
@@ -544,7 +548,7 @@ unfreeze_region_dma_done:
         // Call postfix routine for the region just loaded
         phx
         tax
-        jsr	dispatch_unfreeze_post
+        jsr dispatch_unfreeze_post
         plx
 
         rts
@@ -590,8 +594,8 @@ do_unfreeze_post_restore_sd_buffer_and_regs:
         sta <dos_scratch_vector+3
 
         // Copy $D680 - $D70F, which covers both regions of interest
-        ldz    #$8F
-@zz2:	tza
+        ldz #$8F
+@zz2:   tza
         tax
         nop
         nop
@@ -604,15 +608,13 @@ do_unfreeze_post_restore_sd_buffer_and_regs:
         beq @dontWriteHotRegister
 
         sta $d680,x
-@dontWriteHotRegister:
 
+@dontWriteHotRegister:
         dex
         dez
         cpz #$ff
         bne @zz2
         ldz #$00
-
-
 
 do_unfreeze_prep_restore_sd_buffer_and_regs:
         // But there is nothing we need to do in preparation to unfreezing
@@ -677,46 +679,46 @@ do_freeze_prep_stash_sd_buffer_and_regs:
         sta <dos_scratch_vector+0
         lda #>$6200
         sta <dos_scratch_vector+1
-        lda #<$0FFD
+        lda #<$0ffd
         sta <dos_scratch_vector+2
-        lda #>$0FFD
+        lda #>$0ffd
         sta <dos_scratch_vector+3
 
         // Copy $D680 - $D70F, which covers both regions of interest
-        ldz #$8F
-@zz:	tza
+        ldz #$8f
+@zz:    tza
         tax
-        lda $D680,X
+        lda $d680,x
         nop
         nop
         sta_bp_z(<dos_scratch_vector)
         dex
         dez
-        cpz #$FF
+        cpz #$ff
         bne @zz
         ldz #$00
 
         // Now DMA copy the SD sector buffer from $FFD6e00 to
         // $FFD6000.
         // XXX Replace this (And the above!) with a fixed DMA list. It will be shorter and faster
-        lda	#$ff
-        sta	freeze_region_dmalist_source_mb
-        sta	freeze_region_dmalist_dest_mb
-        lda	#$8d
-        sta	freeze_region_dmalist_source_bank
-        sta	freeze_region_dmalist_dest_bank
-        lda	#<$6e00
-        sta	freeze_region_dmalist_source_start+0
-        lda	#>$6e00
-        sta	freeze_region_dmalist_source_start+1
-        lda	#<$6000
-        sta	freeze_region_dmalist_dest_start+0
-        lda	#>$6000
-        sta	freeze_region_dmalist_dest_start+1
-        lda	#<$0200
-        sta	freeze_region_dmalist_count+0
-        lda	#>$0200
-        sta	freeze_region_dmalist_count+1
+        lda #$ff
+        sta freeze_region_dmalist_source_mb
+        sta freeze_region_dmalist_dest_mb
+        lda #$8d
+        sta freeze_region_dmalist_source_bank
+        sta freeze_region_dmalist_dest_bank
+        lda #<$6e00
+        sta freeze_region_dmalist_source_start+0
+        lda #>$6e00
+        sta freeze_region_dmalist_source_start+1
+        lda #<$6000
+        sta freeze_region_dmalist_dest_start+0
+        lda #>$6000
+        sta freeze_region_dmalist_dest_start+1
+        lda #<$0200
+        sta freeze_region_dmalist_count+0
+        lda #>$0200
+        sta freeze_region_dmalist_count+1
 
         // Execute DMA job
         lda #$ff
@@ -770,7 +772,7 @@ unfreeze_post_jump_table:
         // Don't actually restore the SD card registers until the very end.
         // For a start, it will result in totally the wrong SD sector address being there
         // when we go to read the next sector!
-// 	.word do_unfreeze_post_restore_sd_buffer_and_regs
+//         .word do_unfreeze_post_restore_sd_buffer_and_regs
         .word do_unfreeze_post_none
         .word do_unfreeze_post_none
         .word do_unfreeze_post_none
@@ -792,7 +794,7 @@ copy_sdcard_regs_to_scratch:
         // (This is done outside of the automatic loop, because
         // it has to be handled specially.)
         ldx #$0f
-dfp1:	lda $d680,x
+dfp1:   lda $d680,x
         sta freeze_scratch_area,x
         dex
         bpl dfp1
@@ -856,13 +858,12 @@ do_freeze_prep_palette_select:
         sta $d070
         rts
 
-wait_on_shift_key: {
+wait_on_shift_key:
         lda $d611
         beq wait_on_shift_key
-loop:   lda $d611
-        bne loop
+!:      lda $d611
+        bne !-
         rts
-}
 
 debug_show_sector:
         // XXX DEBUG
@@ -876,8 +877,7 @@ debug_show_sector:
         sta $0803
         rts
 
-syspart_read_freeze_region_list_trap: {
-
+syspart_read_freeze_region_list_trap:
         // Copy freeze_mem_list out to user memory
         ldx hypervisor_x
         stx <dos_scratch_vector+0
@@ -886,13 +886,12 @@ syspart_read_freeze_region_list_trap: {
         sta <dos_scratch_vector+1
         ldx #freeze_mem_list_end-freeze_mem_list
         ldy #$00
-loop:	lda freeze_mem_list,y
+!:      lda freeze_mem_list,y
         sta (<dos_scratch_vector),y
         iny
         dex
-        bne loop
+        bne !-
         jmp return_from_trap_with_success
-}
 
 freeze_mem_list:
         // start address (4 bytes), length (3 bytes),
