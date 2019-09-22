@@ -38,16 +38,19 @@ entity frame_generator is
     cycles_per_raster : integer := 63
     );
   port (
-    clock240 : in std_logic;
-    clock120 : in std_logic;
-    clock80 : in std_logic;
-    clock40 : in std_logic;
+    -- Pixel oriented clocks
+    clock162 : in std_logic;
+    clock27 : in std_logic;
+
+    -- Processor and VIC-IV oriented clocks
+    clock41 : in std_logic;
+    clock81 : in std_logic;
 
     -- 80MHz oriented configuration flags
     hsync_polarity : in std_logic;
     vsync_polarity : in std_logic;
 
-    -- 120MHz video output oriented signals
+    -- Video output oriented signals
     hsync : out std_logic := '0';
     hsync_uninverted : out std_logic := '0';
     vsync : out std_logic := '0';
@@ -119,10 +122,10 @@ architecture brutalist of frame_generator is
   
 begin
 
-  process (clock240,clock120,clock80) is
+  process (clock162,clock41,clock81) is
   begin
 
-    if rising_edge(clock80) then
+    if rising_edge(clock81) then
       -- Cross from 120MHz to 80MHz clock domains for VIC-IV signals
       x_zero_80 <= x_zero_driver80b;
       y_zero_80 <= y_zero_driver80b;
@@ -150,7 +153,7 @@ begin
       end if;
     end if;
 
-    if rising_edge(clock40) then
+    if rising_edge(clock41) then
       last_phi2_toggle <= phi2_toggle;
       if phi2_toggle /= last_phi2_toggle then
         phi2_out <= '1';
@@ -159,7 +162,7 @@ begin
       end if;
     end if;
     
-    if rising_edge(clock120) then
+    if rising_edge(clock162) then
 
       phi2_accumulator <= phi2_accumulator + ticks_per_128_phi2;
       if phi2_accumulator(15) /= last_phi2 then
