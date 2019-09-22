@@ -10,7 +10,7 @@ entity iomapper is
   generic ( target : mega65_target_t
              );
   port (Clk : in std_logic;
-        clock200mhz : in std_logic;
+        clock100mhz : in std_logic;
         protected_hardware_in : in unsigned(7 downto 0);
         virtualised_hardware_in : in unsigned(7 downto 0);
         -- Enables for the various chip select lines
@@ -932,7 +932,7 @@ begin
   
   ethernet0 : entity work.ethernet port map (
     clock50mhz => clock50mhz,
-    clock200 => clock200mhz,
+    clock100 => clock100mhz,
     clock => clk,
     reset => reset,
     irq => ethernet_irq,
