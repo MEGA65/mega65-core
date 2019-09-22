@@ -215,11 +215,13 @@ architecture Behavioral of container is
   signal pixelclock : std_logic;
   signal ethclock : std_logic;
   signal cpuclock : std_logic;
-  signal clock40 : std_logic;
+  signal clock41 : std_logic;
+  signal clock27 : std_logic;
+  signal clock81 : std_logic;
   signal clock120 : std_logic;
-  signal clock100 : std_logic := '0';
-  signal clock200 : std_logic;
-  signal clock240 : std_logic;
+  signal clock100 : std_logic;
+  signal clock162 : std_logic;
+  signal clock163 : std_logic;
 
   -- XXX Actually connect to new keyboard
   signal restore_key : std_logic := '1';
@@ -324,12 +326,13 @@ begin
 
   dotclock1: entity work.dotclock100
     port map ( clk_in1 => CLK_IN,
-               clock80 => pixelclock, -- 80MHz
-               clock40 => cpuclock, -- 40MHz
-               clock50 => ethclock,
                clock100 => clock100,
-               clock120 => clock120,
-               clock240 => clock240
+               clock81 => pixelclock, -- 80MHz
+               clock41 => cpuclock, -- 40MHz
+               clock50 => ethclock,
+               clock162 => clock162,
+               clock27 => clock27
+--               clock54 => clock54
                );
 
   fpgatemp0: entity work.fpgatemp
@@ -364,7 +367,7 @@ begin
   hyperram0: entity work.hyperram
     port map (
       cpuclock => cpuclock,
-      clock240 => clock240,
+      clock240 => clock163,
       reset => reset_out,
       address => expansionram_address,
       wdata => expansionram_wdata,
@@ -466,10 +469,9 @@ begin
       cpuclock        => cpuclock,
       uartclock       => cpuclock, -- Match CPU clock
       ioclock         => cpuclock, -- Match CPU clock
-      clock240 => clock240,
-      clock120 => clock120,
-      clock40 => cpuclock,
-      clock200 => clock200,
+      clock162 => clock162,
+      clock100 => clock100,
+      clock27 => clock27,
       clock50mhz      => ethclock,
 
       fast_key => fastkey,
