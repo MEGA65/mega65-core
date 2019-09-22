@@ -539,6 +539,27 @@ begin
       else
         if raddrvga60 < 800 then
           plottingvga60 <= '1';
+    end if;
+    
+    -- Manage writing into the raster buffer
+    if rising_edge(clock81) then
+      fifo_almost_empty80 <= fifo_almost_empty120;
+      if pixel_strobe_in='1' then
+        waddr_unsigned := to_unsigned(waddr,12);
+        waddr_out <= to_unsigned(waddr,12);
+--        if waddr_unsigned(0)='1' then
+--          wdata(31 downto 12) <= (others => '1');
+--          wdata(11 downto 0) <= waddr_unsigned;
+--        else
+--          wdata(31 downto 12) <= (others => '0');
+--          wdata(11 downto 0) <= waddr_unsigned;
+--        end if;
+        if raster_strobe = '0' then
+          fifo_inuse80 <= not fifo_almost_empty80;
+          if waddr < 1023 then
+            waddr <= waddr + 1;
+          end if;
+>>>>>>> first cut at moving to HDMI compatible video modes.
         else
           plottingvga60 <= '0';
         end if;
