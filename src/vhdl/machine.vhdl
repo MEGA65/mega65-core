@@ -58,10 +58,9 @@ entity machine is
   Port ( pixelclock : in STD_LOGIC;
          cpuclock : in std_logic;
          clock50mhz : in std_logic;  -- normal ethernet clock
-         clock200 : in std_logic;    -- 4x ethernet clock
-         clock120 : in std_logic;
-         clock240 : in std_logic;
-         clock40 : in std_logic;
+         clock100 : in std_logic;    -- Must be 2x ethernet clock
+         clock27 : in std_logic;
+         clock162 : in std_logic;
          ioclock : std_logic;
          uartclock : std_logic;
          btnCpuReset : in  STD_LOGIC;
@@ -1014,10 +1013,13 @@ begin
 
   pixel0: entity work.pixel_driver
     port map (
-      cpuclock => cpuclock,
-      clock80 => pixelclock,
-      clock120 => clock120,
-      clock240 => clock240,
+               clock81 => pixelclock, -- 80MHz
+               clock162 => clock162,
+               clock27 => clock27,
+
+               cpuclock => cpuclock,
+
+
 
       pixel_strobe80_out => external_pixel_strobe,
       
@@ -1289,7 +1291,7 @@ begin
     generic map ( target => target )
     port map (
       clk => ioclock,
-      clock200mhz => clock200,
+      clock100mhz => clock100,
       clock2mhz => clock2mhz,
       cpuspeed => cpuspeed,      
       protected_hardware_in => protected_hardware_sig,
