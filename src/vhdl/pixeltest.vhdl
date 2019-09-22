@@ -172,11 +172,9 @@ architecture Behavioral of container is
   signal pixelclock : std_logic;
   signal cpuclock : std_logic;
   signal ethclock : std_logic;
-  signal clock240 : std_logic;
-  signal clock120 : std_logic;
-  signal clock100 : std_logic;
-  signal clock80 : std_logic;
-  signal clock30 : std_logic;
+  signal clock162 : std_logic;
+  signal clock27 : std_logic;
+  signal clock54 : std_logic;
   
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
 
@@ -211,20 +209,21 @@ begin
   
   dotclock1: entity work.dotclock100
     port map ( clk_in1 => CLK_IN,
-               clock80 => pixelclock, -- 80MHz
-               clock40 => cpuclock, -- 40MHz
+               clock81 => pixelclock, -- 80MHz
+               clock41 => cpuclock, -- 40MHz
                clock50 => ethclock,
-               clock30 => clock30,
-               clock100 => clock100,
-               clock120 => clock120,
-               clock240 => clock240
+               clock162 => clock162,
+               clock27 => clock27,
+               clock54 => clock54
                );
 
   pixel0: entity work.pixel_driver
     port map (
-               clock80 => pixelclock, -- 80MHz
-               clock120 => clock120,
-               clock240 => clock240,
+               clock81 => pixelclock, -- 80MHz
+               clock162 => clock162,
+               clock27 => clock27,
+
+               cpuclock => cpuclock,
 
                -- Select 50/60Hz video mode
                pal50_select => sw(0),
@@ -279,7 +278,7 @@ begin
   jbhi(10) <= lcd_display_enable xor sw(15);
 
   -- Push correct clock to LCD panel
-  jbhi(7) <= clock30 when sw(0)='1' else cpuclock;
+--  jbhi(7) <= clock30 when sw(0)='1' else cpuclock;
   
   process (pixelclock) is
   begin
