@@ -198,7 +198,7 @@ begin
   -- They also use a common 27MHz pixel clock, which makes our life simpler
   
   frame50: entity work.frame_generator
-    generic map ( frame_width => 968*6-1,    -- 63 cycles x 16 pixels per clock
+    generic map ( frame_width => 968,    -- 63 cycles x 16 pixels per clock
                                              -- = 1008, but then it's only 48
                                              -- frames per second.
                                              -- so what we have here is
@@ -206,15 +206,14 @@ begin
                                              -- raster which is wrong. How does
                                              -- the calculation go wrong?
                                              -- Is it 27/30MHz pixel clock?
-                  clock_divider => 6,
-                  display_width => 800*6,
+                  display_width => 800,
                   frame_height => 624,        -- 312 lines x 2 fields
                   pipeline_delay => 128,
                   display_height => 600,
                   vsync_start => 581,
                   vsync_end => 586,
-                  hsync_start => 864*6,
-                  hsync_end => 932*6
+                  hsync_start => 864,
+                  hsync_end => 932
                   )                  
     port map ( clock162 => clock162,
                clock27 => clock27,
@@ -243,16 +242,16 @@ begin
                );
 
   frame60: entity work.frame_generator
-    generic map ( frame_width => 854*6-1,   -- 65 cycles x 16 pixels
-                  display_width => 720 *6,
+    generic map ( frame_width => 854-1,   -- 65 cycles x 16 pixels
+                  display_width => 720,
                   clock_divider => 6,
                   frame_height => 526,       -- NTSC frame is 263 lines x 2 frames
                   display_height => 526-4,
                   pipeline_delay => 96,
                   vsync_start => 489,
                   vsync_end => 495,
-                  hsync_start => 736*6-1,
-                  hsync_end => 798*6-1
+                  hsync_start => 736-1,
+                  hsync_end => 798-1
                   )                  
     port map ( clock162 => clock162,
                clock27 => clock27,
@@ -378,9 +377,11 @@ begin
         blue_o(7) <= pixel_strobe120_50;
       else
         if rd_en_internal='1' then
-          red_o <= unsigned(rdata(7 downto 0));
+--          red_o <= unsigned(rdata(7 downto 0));
+          red_o <= to_unsigned(raddr50,8);
           green_o <= unsigned(rdata(15 downto 8));
-          blue_o <= unsigned(rdata(23 downto 16));
+--          blue_o <= unsigned(rdata(23 downto 16));
+          blue_o <= to_unsigned(raddr60,8);
         end if;
       end if;
       
