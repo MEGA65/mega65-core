@@ -267,9 +267,8 @@ begin
   vgared <= buffer_vgared(7 downto 4);
   vgagreen <= buffer_vgagreen(7 downto 4);
 
-  red_in <= x"00" when (pixel_counter < 800 ) else x"FF";
+  red_in <= x"00" when (pixel_counter < 720 ) else x"FF";
   blue_in <= x"00" when (pixel_counter /= 1 ) else x"FF";
-  green_in <= (others => spot);
   
   -- VGA out on LCD panel
   jalo <= std_logic_vector(buffer_vgablue(7 downto 4));
@@ -304,6 +303,7 @@ begin
             end if;
             pixel_valid <= '1';
             pixel_x <= pixel_counter;
+            green_in <= (others => spot);  
           else
             pixel_valid <= '0';
           end if;
