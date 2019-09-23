@@ -100,13 +100,13 @@ architecture greco_roman of pixel_driver is
   signal pal50_select_internal80 : std_logic := '0';
 
   signal wr_en : std_logic_vector := "0000";
-  signal wdata : unsigned(31 downto 0);
+  signal wdata : std_logic_vector(31 downto 0);
 
   signal raddr50 : integer := 0;
   signal raddr60 : integer := 0;
   signal rd_en : std_logic := '0';
   signal rd_en_internal : std_logic := '0';
-  signal rdata : unsigned(31 downto 0);  
+  signal rdata : std_logic_vector(31 downto 0);  
   
   signal raster_toggle : std_logic := '0';
   signal raster_toggle_last : std_logic := '0';
@@ -181,6 +181,9 @@ architecture greco_roman of pixel_driver is
   signal display_en50 : std_logic := '0';
   signal display_en60 : std_logic := '0';
   signal display_en80 : std_logic := '0';
+
+  signal raddr : std_logic_vector(9 downto 0);
+  signal waddr : std_logic_vector(9 downto 0);
   
 begin
 
@@ -310,13 +313,15 @@ begin
   -- Generate output pixel strobe and signals for read-side of the FIFO
   pixel_strobe120_out <= pixel_strobe120_50 when pal50_select_internal='1' else pixel_strobe120_60;
 
+  raddr <= std_logic_vector(to_unsigned(raddr50,10)) when pal50_select_internal='1' else std_logic_vector(to_unsigned(raddr60,10));
+  
   plotting <= '0' when y_zero_internal='1' else
               plotting50 when pal50_select_internal='1'
               else plotting60;
   
-  wdata(7 downto 0) <= red_i;
-  wdata(15 downto 8) <= green_i;
-  wdata(23 downto 16) <= blue_i;
+  wdata(7 downto 0) <= std_logic_vector(red_i);
+  wdata(15 downto 8) <= std_logic_vector(green_i);
+  wdata(23 downto 16) <= std_logic_vector(blue_i);
   wdata(31 downto 0) <= (others => '0');
 
   x_zero_out <= x_zero_pal50_80 when pal50_select_internal80='1' else x_zero_ntsc60_80;
@@ -373,9 +378,9 @@ begin
         blue_o(7) <= pixel_strobe120_50;
       else
         if rd_en_internal='1' then
-          red_o <= rdata(7 downto 0);
-          green_o <= rdata(15 downto 8);
-          blue_o <= rdata(23 downto 16);
+          red_o <= unsigned(rdata(7 downto 0));
+          green_o <= unsigned(rdata(15 downto 8));
+          blue_o <= unsigned(rdata(23 downto 16));
         end if;
       end if;
       
