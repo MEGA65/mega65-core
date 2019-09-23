@@ -54,7 +54,7 @@ entity frame_generator is
     hsync_uninverted : out std_logic := '0';
     vsync : out std_logic := '0';
     inframe : out std_logic := '0';
-    pixel_strobe_120 : out std_logic := '0';   -- used to clock read-side of
+    pixel_strobe_27 : out std_logic := '0';   -- used to clock read-side of
                                                -- raster buffer fifo
 
 
@@ -73,8 +73,8 @@ entity frame_generator is
     -- 80MHz oriented signals for VIC-IV
     pixel_strobe_80 : out std_logic := '0';
     x_zero_80 : out std_logic := '0';
-    x_zero_120 : out std_logic := '0';
-    y_zero_120 : out std_logic := '0';
+    x_zero_27 : out std_logic := '0';
+    y_zero_27 : out std_logic := '0';
     y_zero_80 : out std_logic := '0'
     
     
@@ -112,11 +112,11 @@ architecture brutalist of frame_generator is
   signal hsync_driver : std_logic := '0';
   signal hsync_uninverted_driver : std_logic := '0';
 
-  signal pixel_toggle120 : std_logic := '0';
+  signal pixel_toggle27 : std_logic := '0';
   signal pixel_toggle80 : std_logic := '0';
   signal last_pixel_toggle80 : std_logic := '0';
 
-  signal pixel_strobe120_drive : std_logic := '0';
+  signal pixel_strobe27_drive : std_logic := '0';
   
 begin
 
@@ -124,7 +124,7 @@ begin
   begin
 
     if rising_edge(clock81) then
-      -- Cross from 120MHz to 80MHz clock domains for VIC-IV signals
+      -- Cross from 27MHz to 80MHz clock domains for VIC-IV signals
       x_zero_80 <= x_zero_driver80b;
       y_zero_80 <= y_zero_driver80b;
       if y_zero_driver80b='1' then
@@ -140,9 +140,9 @@ begin
 
       -- Pixel strobe to VIC-IV can just be a 50MHz pulse
       -- train, since it all goes into a buffer.
-      -- But better is to still try to follow the 120MHz driven
+      -- But better is to still try to follow the 27MHz driven
       -- chain.
-      pixel_toggle80 <= pixel_toggle120;
+      pixel_toggle80 <= pixel_toggle27;
       last_pixel_toggle80 <= pixel_toggle80;
       if pixel_toggle80 /= last_pixel_toggle80 then
         pixel_strobe_80 <= '1';
@@ -169,17 +169,18 @@ begin
       
       x_zero_driver2 <= x_zero_driver;
       y_zero_driver2 <= y_zero_driver;
-      x_zero_120 <= x_zero_driver;
-      y_zero_120 <= y_zero_driver;
+      x_zero_27 <= x_zero_driver;
+      y_zero_27 <= y_zero_driver;
       
       vsync <= vsync_driver;
       hsync <= hsync_driver;
       hsync_uninverted <= hsync_uninverted_driver;
-      pixel_strobe_120 <= pixel_strobe120_drive;
+      pixel_strobe_27 <= pixel_strobe27_drive;
 
-      -- Generate pixel strobe train
-      pixel_strobe120_drive <= '1';
-      pixel_toggle120 <= not pixel_toggle120;
+      -- Generate pixel strobe train, one pixel every cycle, since we are at
+      -- natural pixel clock rate
+      pixel_strobe27_drive <= '1';
+      pixel_toggle27 <= not pixel_toggle27;
       
       if x < frame_width then
         x <= x + 1;

@@ -132,13 +132,13 @@ architecture greco_roman of pixel_driver is
   signal test_pattern_blue : unsigned(7 downto 0) := x"00";
 
   signal x_zero_pal50_80 : std_logic := '0';
-  signal x_zero_pal50_120 : std_logic := '0';
+  signal x_zero_pal50_27 : std_logic := '0';
   signal y_zero_pal50_80 : std_logic := '0';
-  signal y_zero_pal50_120 : std_logic := '0';
+  signal y_zero_pal50_27 : std_logic := '0';
   signal x_zero_ntsc60_80 : std_logic := '0';
-  signal x_zero_ntsc60_120 : std_logic := '0';
+  signal x_zero_ntsc60_27 : std_logic := '0';
   signal y_zero_ntsc60_80 : std_logic := '0';
-  signal y_zero_ntsc60_120 : std_logic := '0';
+  signal y_zero_ntsc60_27 : std_logic := '0';
 
   signal inframe_pal50 : std_logic := '0';
   signal inframe_ntsc60 : std_logic := '0';
@@ -232,12 +232,12 @@ begin
                lcd_inletterbox => lcd_inletterbox_pal50,
 
                -- 80MHz facing signals for the VIC-IV
-               x_zero_120 => x_zero_pal50_120,
+               x_zero_27 => x_zero_pal50_27,
                x_zero_80 => x_zero_pal50_80,
                y_zero_80 => y_zero_pal50_80,
-               y_zero_120 => y_zero_pal50_120,
+               y_zero_27 => y_zero_pal50_27,
                pixel_strobe_80 => pixel_strobe80_50,
-               pixel_strobe_120 => pixel_strobe120_50
+               pixel_strobe_27 => pixel_strobe120_50
 
                );
 
@@ -268,12 +268,12 @@ begin
                lcd_inletterbox => lcd_inletterbox_ntsc60,
 
                -- 80MHz facing signals for VIC-IV
-               x_zero_120 => x_zero_ntsc60_120,
+               x_zero_27 => x_zero_ntsc60_27,
                x_zero_80 => x_zero_ntsc60_80,               
                y_zero_80 => y_zero_ntsc60_80,
-               y_zero_120 => y_zero_ntsc60_120,
+               y_zero_27 => y_zero_ntsc60_27,
                pixel_strobe_80 => pixel_strobe80_60,
-               pixel_strobe_120 => pixel_strobe120_60               
+               pixel_strobe_27 => pixel_strobe120_60               
                
                );               
 
@@ -286,7 +286,7 @@ begin
       addra => waddr,
       dina => wdata,
 
-      clkb => clock162,
+      clkb => clock27,
       web => "0000",
       addrb => raddr,
       dinb => (others => '0'),
@@ -305,7 +305,7 @@ begin
   raster_strobe <= x_zero_pal50_80 when pal50_select_internal80='1' else x_zero_ntsc60_80;
   x_zero <= x_zero_pal50_80 when pal50_select_internal80='1' else x_zero_ntsc60_80;
   y_zero <= y_zero_pal50_80 when pal50_select_internal80='1' else y_zero_ntsc60_80;
-  y_zero_internal <= y_zero_pal50_120 when pal50_select_internal='1' else y_zero_ntsc60_120;
+  y_zero_internal <= y_zero_pal50_27 when pal50_select_internal='1' else y_zero_ntsc60_27;
   pixel_strobe80_out <= pixel_strobe80_50 when pal50_select_internal80='1' else pixel_strobe80_60;
 
   -- Generate output pixel strobe and signals for read-side of the FIFO
@@ -317,11 +317,6 @@ begin
               plotting50 when pal50_select_internal='1'
               else plotting60;
   
-  wdata(7 downto 0) <= std_logic_vector(red_i);
-  wdata(15 downto 8) <= std_logic_vector(green_i);
-  wdata(23 downto 16) <= std_logic_vector(blue_i);
-  wdata(31 downto 0) <= (others => '0');
-
   x_zero_out <= x_zero_pal50_80 when pal50_select_internal80='1' else x_zero_ntsc60_80;
   y_zero_out <= y_zero_pal50_80 when pal50_select_internal80='1' else y_zero_ntsc60_80;
   
@@ -376,15 +371,13 @@ begin
         blue_o(7) <= pixel_strobe120_50;
       else
         if rd_en_internal='1' then
---          red_o <= unsigned(rdata(7 downto 0));
-          red_o <= to_unsigned(raddr50,8);
+          red_o <= unsigned(rdata(7 downto 0));
           green_o <= unsigned(rdata(15 downto 8));
---          blue_o <= unsigned(rdata(23 downto 16));
-          blue_o <= to_unsigned(raddr60,8);
+          blue_o <= unsigned(rdata(23 downto 16));
         end if;
       end if;
       
-      if x_zero_pal50_120='1' then
+      if x_zero_pal50_27='1' then
         raddr50 <= 0;
         plotting50 <= '0';
         report "raddr = ZERO, clearing plotting50";
@@ -406,7 +399,7 @@ begin
         end if;
       end if;
 
-      if x_zero_ntsc60_120='1' then
+      if x_zero_ntsc60_27='1' then
         raddr60 <= 0;
         plotting60 <= '0';
         report "raddr = ZERO";
@@ -433,7 +426,9 @@ begin
       if pixel_strobe_in='1' then
         waddr_out <= to_unsigned(pixel_x_in,12);
         wr_en <= "1111";
-        waddr <= std_logic_vector(to_unsigned(pixel_x_in,10));
+        wdata(7 downto 0) <= std_logic_vector(red_i);
+        wdata(15 downto 8) <= std_logic_vector(green_i);
+        wdata(23 downto 16) <= std_logic_vector(blue_i);
       else
         wr_en <= "0000";
       end if;
