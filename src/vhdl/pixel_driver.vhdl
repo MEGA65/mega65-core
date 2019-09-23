@@ -249,16 +249,16 @@ begin
                );
 
   frame60: entity work.frame_generator
-    generic map ( frame_width => (60*16)*6-1,   -- 65 cycles x 16 pixels
-                  display_width => 800 *6,
+    generic map ( frame_width => 854*6-1,   -- 65 cycles x 16 pixels
+                  display_width => 720 *6,
                   clock_divider => 6,
                   frame_height => 526,       -- NTSC frame is 263 lines x 2 frames
                   display_height => 526-4,
                   pipeline_delay => 96,
                   vsync_start => 526-1-4,
                   vsync_end => 526-1,
-                  hsync_start => (55*16)*6-1,
-                  hsync_end => (60*16)*6-1
+                  hsync_start => 736*6-1,
+                  hsync_end => 798*6-1
                   )                  
     port map ( clock162 => clock162,
                clock27 => clock27,
