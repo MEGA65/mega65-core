@@ -317,6 +317,11 @@ begin
               plotting50 when pal50_select_internal='1'
               else plotting60;
   
+--  wdata(7 downto 0) <= std_logic_vector(red_i);
+--  wdata(15 downto 8) <= std_logic_vector(green_i);
+--  wdata(23 downto 16) <= std_logic_vector(blue_i);
+--  wdata(31 downto 0) <= (others => '0');
+
   x_zero_out <= x_zero_pal50_80 when pal50_select_internal80='1' else x_zero_ntsc60_80;
   y_zero_out <= y_zero_pal50_80 when pal50_select_internal80='1' else y_zero_ntsc60_80;
   
@@ -426,9 +431,8 @@ begin
       if pixel_strobe_in='1' then
         waddr_out <= to_unsigned(pixel_x_in,12);
         wr_en <= "1111";
-        wdata(7 downto 0) <= std_logic_vector(red_i);
-        wdata(15 downto 8) <= std_logic_vector(green_i);
-        wdata(23 downto 16) <= std_logic_vector(blue_i);
+        wdata <= std_logic_vector(to_unsigned(pixel_x_in,32));
+        wdata(23 downto 16) <= std_logic_vector(green_i);
       else
         wr_en <= "0000";
       end if;
