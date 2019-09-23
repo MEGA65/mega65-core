@@ -3,6 +3,9 @@
 #define PEEK(X) (*(unsigned char*)(X))
 void m65_io_enable(void);
 
+unsigned char joy_x=100;
+unsigned char joy_y=100;
+
 struct dmagic_dmalist {
   // Enhanced DMA options
   unsigned char option_0b;
@@ -188,6 +191,32 @@ void wait_10ms(void)
   }
 }
 
+unsigned char sprite_data[63]={
+  0xff,0,0,
+  0xe0,0,0,
+  0xb0,0,0,
+  0x98,0,0,
+  0x8c,0,0,
+  0x86,0,0,
+  0x83,0,0,
+  0x81,0x80,0,
+
+  0,0xc0,0,
+  0,0x60,0,
+  0,0x30,0,
+  0,0x18,0,
+  0,0,0,
+  0,0,0,
+  0,0,0,
+  0,0,0,
+
+  0,0,0,
+  0,0,0,
+  0,0,0,
+  0,0,0,
+  0,0,0
+};
+
 void main(void)
 {
   
@@ -201,6 +230,15 @@ void main(void)
 
   m65_io_enable();
 
+  // Sprite 0 on
+  lpoke(0xFFD3015L,0x01);
+  // Sprite data at $03c0
+  *(unsigned char *)2040 = 0x3c0/0x40;
+
+  for(n=0;n<64;n++) 
+    *(unsigned char*)(0x3c0+n)=
+      sprite_data[n];
+  
   // Disable OSK
   lpoke(0xFFD3615L,0x7F);  
   
@@ -304,10 +342,20 @@ void main(void)
     
     a1=lpeek(0xffd7000L);
     printf("%02X",a1);
+
+    // Joystick is here
     a1=lpeek(0xffd7001L);
     printf(",%02X",a1);
     POKE(0x0500+n,a1);
     n++;
+    if (!(a1&0x20)) joy_x--;
+    if (!(a1&0x10)) joy_x++;
+    if (!(a1&0x80)) joy_y--;
+    if (!(a1&0x40)) joy_y++;
+    if (!(a1&0x8)) POKE(0xd027U,(PEEK(0xD027U)+1)&0xf);
+    POKE(0xD000U,joy_x);
+    POKE(0xD001U,joy_y);
+    
     a1=lpeek(0xffd7002L);
     printf(",%02X",a1);
     a1=lpeek(0xffd7003L);
