@@ -219,8 +219,8 @@ begin
                   display_height => 600,
                   vsync_start => 581,
                   vsync_end => 586,
-                  hsync_start => 796*6,
-                  hsync_end => 864*6
+                  hsync_start => 864*6,
+                  hsync_end => 932*6
                   )                  
     port map ( clock162 => clock162,
                clock27 => clock27,
