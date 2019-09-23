@@ -26,7 +26,6 @@ entity frame_generator is
   generic (
     frame_width : integer := 960;
     display_width : integer := 800;
-    clock_divider : integer := 4;
     pipeline_delay : integer := 0;
     frame_height : integer := 625;
     lcd_height : integer := 480;
@@ -116,13 +115,12 @@ architecture brutalist of frame_generator is
   signal pixel_toggle120 : std_logic := '0';
   signal pixel_toggle80 : std_logic := '0';
   signal last_pixel_toggle80 : std_logic := '0';
-  signal pixel_strobe_counter : integer range 0 to clock_divider := 0;
 
   signal pixel_strobe120_drive : std_logic := '0';
   
 begin
 
-  process (clock162,clock41,clock81) is
+  process (clock27,clock41,clock81) is
   begin
 
     if rising_edge(clock81) then
@@ -162,7 +160,7 @@ begin
       end if;
     end if;
     
-    if rising_edge(clock162) then
+    if rising_edge(clock27) then
 
       phi2_accumulator <= phi2_accumulator + ticks_per_128_phi2;
       if phi2_accumulator(15) /= last_phi2 then
@@ -180,14 +178,8 @@ begin
       pixel_strobe_120 <= pixel_strobe120_drive;
 
       -- Generate pixel strobe train
-      if pixel_strobe_counter = 0 then
-        pixel_strobe_counter <= (clock_divider - 1);
-        pixel_strobe120_drive <= '1';
-        pixel_toggle120 <= not pixel_toggle120;
-      else
-        pixel_strobe120_drive <= '0';
-        pixel_strobe_counter <= pixel_strobe_counter - 1;
-      end if;
+      pixel_strobe120_drive <= '1';
+      pixel_toggle120 <= not pixel_toggle120;
       
       if x < frame_width then
         x <= x + 1;
