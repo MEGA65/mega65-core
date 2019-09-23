@@ -52,6 +52,7 @@ entity pixel_driver is
     -- Incoming video, e.g., from VIC-IV and rain compositer
     -- Clocked at clock81 (aka pixelclock)
     pixel_strobe_in : in std_logic;
+    pixel_x_in : in integer;
     red_i : in unsigned(7 downto 0);
     green_i : in unsigned(7 downto 0);
     blue_i : in unsigned(7 downto 0);
@@ -108,7 +109,6 @@ architecture greco_roman of pixel_driver is
   signal pal50_select_internal80 : std_logic := '0';
 
   signal wr_en : std_logic := '0';
-  signal waddr : integer := 0;
   signal wdata : unsigned(23 downto 0);
 
   signal raddr50 : integer := 0;
@@ -364,7 +364,6 @@ begin
   y_zero_out <= y_zero_pal50_80 when pal50_select_internal80='1' else y_zero_ntsc60_80;
   
   process (clock81,clock162) is
-    variable waddr_unsigned : unsigned(11 downto 0) := to_unsigned(0,12);
   begin
 
     if rising_edge(clock81) then
@@ -485,27 +484,12 @@ begin
     if rising_edge(clock81) then
       fifo_almost_empty80 <= fifo_almost_empty120;
       if pixel_strobe_in='1' then
-        waddr_unsigned := to_unsigned(waddr,12);
-        waddr_out <= to_unsigned(waddr,12);
---        if waddr_unsigned(0)='1' then
---          wdata(31 downto 12) <= (others => '1');
---          wdata(11 downto 0) <= waddr_unsigned;
---        else
---          wdata(31 downto 12) <= (others => '0');
---          wdata(11 downto 0) <= waddr_unsigned;
---        end if;
+        waddr_out <= to_unsigned(pixel_x_in,12);
         if raster_strobe = '0' then
           fifo_inuse80 <= not fifo_almost_empty80;
-          if waddr < 1023 then
-            waddr <= waddr + 1;
-          end if;
         else
-          waddr <= 0;
           fifo_inuse80 <= '0';
-          report "Zeroing fifo waddr";
         end if;
---        report "pixel_fifo waddr estimate = $" & to_hstring(to_unsigned(waddr,16));
---        report "pixel_fifo pixel write = R:G:B $" & to_hstring(red_i) & ":" & to_hstring(green_i) & ":" & to_hstring(blue_i);
         wr_en <= '1';
       else
         wr_en <= '0';
