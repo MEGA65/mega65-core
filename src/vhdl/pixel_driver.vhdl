@@ -37,7 +37,6 @@ entity pixel_driver is
     y_zero_out : out std_logic;
     
     waddr_out : out unsigned(11 downto 0);
-    fifo_full : out std_logic;
     rd_data_count : out std_logic_vector(9 downto 0);
     wr_data_count : out std_logic_vector(9 downto 0);
     
@@ -93,14 +92,6 @@ end pixel_driver;
 
 architecture greco_roman of pixel_driver is
 
-  signal fifo_inuse120 : std_logic := '0';
-  signal fifo_inuse120_drive : std_logic := '0';
-  signal fifo_inuse80 : std_logic := '0';
-  signal fifo_almost_empty80 : std_logic := '0';
-  signal fifo_almost_empty120 : std_logic := '0';
-  signal fifo_empty120 : std_logic := '0';
-  signal fifo_full120 : std_logic := '0';
-  
   signal raster_strobe : std_logic := '0';
   signal inframe_internal : std_logic := '0';
   
@@ -108,14 +99,14 @@ architecture greco_roman of pixel_driver is
   signal pal50_select_internal_drive : std_logic := '0';
   signal pal50_select_internal80 : std_logic := '0';
 
-  signal wr_en : std_logic := '0';
-  signal wdata : unsigned(23 downto 0);
+  signal wr_en : std_logic_vector := "0000";
+  signal wdata : unsigned(31 downto 0);
 
   signal raddr50 : integer := 0;
   signal raddr60 : integer := 0;
   signal rd_en : std_logic := '0';
   signal rd_en_internal : std_logic := '0';
-  signal rdata : unsigned(23 downto 0);  
+  signal rdata : unsigned(31 downto 0);  
   
   signal raster_toggle : std_logic := '0';
   signal raster_toggle_last : std_logic := '0';
@@ -195,7 +186,7 @@ begin
 
   -- Here we generate the frames and the pixel strobe references for everything
   -- that needs to produce pixels, and then buffer the pixels that arrive at pixelclock
-  -- in an async FIFO, and then emit the pixels at the appropriate clock rate
+  -- in a buffer, and then emit the pixels at the appropriate clock rate
   -- for the video mode.  Video mode selection is via a simple PAL/NTSC input.
 
   -- We are trying to use the 720x560 / 720x480 PAL / NTSC HDMI TV modes, since
@@ -284,56 +275,23 @@ begin
                pixel_strobe_120 => pixel_strobe120_60               
                
                );               
-  
-  fifo0:  entity work.pixel_fifo
-    port map(
-      almost_empty=>fifo_almost_empty120,   -- 1-bit output : AlmostEmpty : When
-                                    -- asserted,this signal indicates that
-                                    -- only one more read can be performed before
-                                    -- the FIFO goes to empty.
-      dout=>rdata,                  -- READ_DATA_WIDTH-bit output : ReadData : The
-                                    -- output data bus is driven
-                                    -- when reading the FIFO.
-      empty=>fifo_empty120,                 -- 1-bit output : Empty Flag : When asserted,
-                                    -- this signal indicates that
-                                    -- the FIFO is empty. Read requests are
-                                    -- ignored when the FIFO is empty,
-                                    -- initiating a read while empty is not
-                                    -- destructive to the FIFO.
-      full=>fifo_full120,                   -- 1-bit output : Full Flag : When asserted,
-                                    -- this signal indicates that the
-                                    -- FIFO is full. Write requests are ignored
-                                    -- when the FIFO is full,
-                                    -- initiating a write when the FIFO is full is
-                                    -- not destructive to the
-                                    -- contents of the FIFO.
-      rd_data_count=>rd_data_count, -- RD_DATA_COUNT_WIDTH-bit output : Read
-                                    -- Data Count : This bus indicates
-                                    -- the number of words read from the FIFO.
-      wr_data_count=>wr_data_count, -- WR_DATA_COUNT_WIDTH-bit output :
-                                    -- WriteDataCount : This bus indicates`
-                                    -- the number of words written into the FIFO.
-      din=>wdata,                   -- WRITE_DATA_WIDTH-bit input : WriteData :
-                                    -- The input data bus used when writing the FIFO.
-      rd_clk=>clock162,              -- 1-bit input : Read clock : Used for read
-                                    -- operation. rd_clk must be a
-                                    -- free running clock.
-      rd_en=>rd_en,                 -- 1-bit input : Read Enable : If the FIFO
-                                    -- is not empty, asserting this
-                                    -- signal causes data (on dout) to be read
-                                    -- from the FIFO. Must be held
-                                    -- active-low when rd_rst_busy is active high..
-      wr_clk=>clock81,             -- 1-bit input : Write clock : Used for
-                                    -- write operation. wr_clk must be a
-                                    -- free running clock.
-      wr_en=>wr_en                  -- 1-bit input : Write Enable : If the FIFO
-                                    -- is not full, asserting this
-                                    -- signal causes data (on din) to be
-                                    -- written to the FIFO. Must be held
-                                    -- active-low when rst or wr_rst_busy is
-                                    -- active high..
-      );
 
+  buffer0: entity work.ram32x1024
+    port map(
+      -- Write side of the clock
+      clka => clock81,
+      ena => '1',
+      wea => wr_en,
+      addra => waddr,
+      dina => wdata,
+
+      clkb => clock162,
+      web => "0000",
+      addrb => raddr,
+      dinb => (others => '0'),
+      doutb => rdata
+      );
+  
   hsync <= hsync_pal50 when pal50_select_internal='1' else hsync_ntsc60;
   vsync <= vsync_pal50 when pal50_select_internal='1' else vsync_ntsc60;
   lcd_hsync <= lcd_hsync_pal50 when pal50_select_internal='1' else lcd_hsync_ntsc60;
@@ -359,11 +317,12 @@ begin
   wdata(7 downto 0) <= red_i;
   wdata(15 downto 8) <= green_i;
   wdata(23 downto 16) <= blue_i;
+  wdata(31 downto 0) <= (others => '0');
 
   x_zero_out <= x_zero_pal50_80 when pal50_select_internal80='1' else x_zero_ntsc60_80;
   y_zero_out <= y_zero_pal50_80 when pal50_select_internal80='1' else y_zero_ntsc60_80;
   
-  process (clock81,clock162) is
+  process (clock81,clock27) is
   begin
 
     if rising_edge(clock81) then
@@ -378,7 +337,6 @@ begin
       
       lcd_display_enable <= display_en80;
       pal50_select_internal80 <= pal50_select;
-      fifo_full <= fifo_full120;
       if pal50_select_internal80 = '1' then
         display_en80 <= lcd_inframe_pal50;
       else
@@ -386,14 +344,10 @@ begin
       end if;
       
     end if;        
-    if rising_edge(clock162) then
-      fifo_inuse120_drive <= fifo_inuse80;
-      fifo_inuse120 <= fifo_inuse120_drive;
+
+  if rising_edge(clock27) then
       pal50_select_internal_drive <= pal50_select;
       pal50_select_internal <= pal50_select_internal_drive;
-    end if;
-
-    if rising_edge(clock162) then
 
       test_pattern_enable120 <= test_pattern_enable;
 
@@ -417,8 +371,6 @@ begin
         green_o <= to_unsigned(raddr60,8);
         blue_o <= x"FF";
         blue_o(7) <= pixel_strobe120_50;
-        blue_o(6) <= fifo_inuse120;
-        blue_o(5) <= fifo_empty120;        
       else
         if rd_en_internal='1' then
           red_o <= rdata(7 downto 0);
@@ -427,72 +379,58 @@ begin
         end if;
       end if;
       
-      if x_zero_pal50_120='1' or fifo_inuse120='0' or fifo_empty120='1' then
+      if x_zero_pal50_120='1' then
         raddr50 <= 0;
         plotting50 <= '0';
         report "raddr = ZERO, clearing plotting50";
-        report "fifo_inuse120=" & std_logic'image(fifo_inuse120)
-          & ", fifo_empty120=" & std_logic'image(fifo_empty120);
       else
         if raddr50 < 800 then
-          if fifo_almost_empty120='0' then
-            plotting50 <= '1';
-            report "FIFO is no longer almost empty, asserting plotting50";
-          end if;
+          plotting50 <= '1';
         else
           report "clearing plotting50 due to end of line";
           plotting50 <= '0';
         end if;
-        if pixel_strobe120_50 = '1' then
-          if raddr50 = 1 then
-            display_en50 <= '1';
-          elsif raddr50 = 801 then
-            display_en50 <= '0';
-          end if;
-          if raddr50 < 1023 then
-            raddr50 <= raddr50 + 1;
-          end if;
+  
+        if raddr50 = 1 then
+          display_en50 <= '1';
+        elsif raddr50 = 801 then
+          display_en50 <= '0';
+        end if;
+        if raddr50 < 1023 then
+          raddr50 <= raddr50 + 1;
         end if;
       end if;
 
-      if x_zero_ntsc60_120='1' or fifo_inuse120='0' or fifo_empty120='1' then
+      if x_zero_ntsc60_120='1' then
         raddr60 <= 0;
         plotting60 <= '0';
         report "raddr = ZERO";
       else
         if raddr60 < 800 then
-          if fifo_almost_empty120='0' then
-            plotting60 <= '1';
-          end if;
+          plotting60 <= '1';
         else
           plotting60 <= '0';
         end if;
-        if pixel_strobe120_60 = '1' then
-          if raddr60 = 1 then
-            display_en60 <= '1';
-          elsif raddr60 = 801 then
-            display_en60 <= '0';
-          end if;
-          if raddr60 < 1023 then
-            raddr60 <= raddr60 + 1;
-          end if;
+
+        if raddr60 = 1 then
+          display_en60 <= '1';
+        elsif raddr60 = 801 then
+          display_en60 <= '0';
+        end if;
+        if raddr60 < 1023 then
+          raddr60 <= raddr60 + 1;
         end if;
       end if;
     end if;
     
     -- Manage writing into the raster buffer
     if rising_edge(clock81) then
-      fifo_almost_empty80 <= fifo_almost_empty120;
       if pixel_strobe_in='1' then
         waddr_out <= to_unsigned(pixel_x_in,12);
-        if raster_strobe = '0' then
-          fifo_inuse80 <= not fifo_almost_empty80;
-        else
-          fifo_inuse80 <= '0';
-        end if;
-        wr_en <= '1';
+        wr_en <= "1111";
+        waddr <= std_logic_vector(to_unsigned(pixel_x_in,10));
       else
-        wr_en <= '0';
+        wr_en <= "0000";
       end if;
     end if;
     
