@@ -244,7 +244,6 @@ begin
   frame60: entity work.frame_generator
     generic map ( frame_width => 854-1,   -- 65 cycles x 16 pixels
                   display_width => 720,
-                  clock_divider => 6,
                   frame_height => 526,       -- NTSC frame is 263 lines x 2 frames
                   display_height => 526-4,
                   pipeline_delay => 96,
