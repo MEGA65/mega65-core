@@ -180,6 +180,7 @@ architecture Behavioral of container is
 
   signal pixel_strobe : std_logic := '0';
   signal pixel_valid : std_logic := '0';
+  signal pixel_x : integer := 0;
   
   signal lcd_pixel_strobe : std_logic;
   signal lcd_hsync : std_logic;
@@ -241,6 +242,7 @@ begin
                
                -- Pixels
                pixel_strobe_in => pixel_valid,
+               pixel_x_in => pixel_x,
                red_i => red_in,
                green_i => green_in,
                blue_i => blue_in,
@@ -301,6 +303,7 @@ begin
               pixel_counter <= pixel_counter + 1;
             end if;
             pixel_valid <= '1';
+            pixel_x <= pixel_counter;
           else
             pixel_valid <= '0';
           end if;
