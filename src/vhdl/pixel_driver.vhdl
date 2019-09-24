@@ -131,14 +131,10 @@ architecture greco_roman of pixel_driver is
   signal test_pattern_green : unsigned(7 downto 0) := x"00";
   signal test_pattern_blue : unsigned(7 downto 0) := x"00";
 
-  signal x_zero_pal50_80 : std_logic := '0';
-  signal x_zero_pal50_27 : std_logic := '0';
-  signal y_zero_pal50_80 : std_logic := '0';
-  signal y_zero_pal50_27 : std_logic := '0';
-  signal x_zero_ntsc60_80 : std_logic := '0';
-  signal x_zero_ntsc60_27 : std_logic := '0';
-  signal y_zero_ntsc60_80 : std_logic := '0';
-  signal y_zero_ntsc60_27 : std_logic := '0';
+  signal x_zero_pal50 : std_logic := '0';
+  signal y_zero_pal50 : std_logic := '0';
+  signal x_zero_ntsc60 : std_logic := '0';
+  signal y_zero_ntsc60 : std_logic := '0';
 
   signal inframe_pal50 : std_logic := '0';
   signal inframe_ntsc60 : std_logic := '0';
@@ -152,12 +148,9 @@ architecture greco_roman of pixel_driver is
   signal lcd_pixel_clock_50 : std_logic := '0';
   signal lcd_pixel_clock_60 : std_logic := '0';
   
-  signal pixel_strobe80_50 : std_logic := '0';
-  signal pixel_strobe80_60 : std_logic := '0';
+  signal pixel_strobe_50 : std_logic := '0';
+  signal pixel_strobe_60 : std_logic := '0';
 
-  signal pixel_strobe120_50 : std_logic := '0';
-  signal pixel_strobe120_60 : std_logic := '0';
-  
   signal test_pattern_red50 : unsigned(7 downto 0) := x"00";
   signal test_pattern_green50 : unsigned(7 downto 0) := x"00";
   signal test_pattern_blue50 : unsigned(7 downto 0) := x"00";
@@ -215,9 +208,7 @@ begin
                   hsync_start => 864,
                   hsync_end => 932
                   )                  
-    port map ( clock162 => clock162,
-               clock27 => clock27,
-               clock81 => clock81,
+    port map ( clock81 => clock81,
                clock41 => cpuclock,
                hsync => hsync_pal50,
                hsync_uninverted => hsync_pal50_uninverted,
@@ -232,12 +223,9 @@ begin
                lcd_inletterbox => lcd_inletterbox_pal50,
 
                -- 80MHz facing signals for the VIC-IV
-               x_zero_27 => x_zero_pal50_27,
-               x_zero_80 => x_zero_pal50_80,
-               y_zero_80 => y_zero_pal50_80,
-               y_zero_27 => y_zero_pal50_27,
-               pixel_strobe_80 => pixel_strobe80_50,
-               pixel_strobe_27 => pixel_strobe120_50
+               x_zero => x_zero_pal50,
+               y_zero => y_zero_pal50,
+               pixel_strobe => pixel_strobe_50
 
                );
 
@@ -252,9 +240,7 @@ begin
                   hsync_start => 736-1,
                   hsync_end => 798-1
                   )                  
-    port map ( clock162 => clock162,
-               clock27 => clock27,
-               clock81 => clock81,
+    port map ( clock81 => clock81,
                clock41 => cpuclock,
                hsync_polarity => hsync_invert,
                vsync_polarity => vsync_invert,
@@ -268,12 +254,9 @@ begin
                lcd_inletterbox => lcd_inletterbox_ntsc60,
 
                -- 80MHz facing signals for VIC-IV
-               x_zero_27 => x_zero_ntsc60_27,
-               x_zero_80 => x_zero_ntsc60_80,               
-               y_zero_80 => y_zero_ntsc60_80,
-               y_zero_27 => y_zero_ntsc60_27,
-               pixel_strobe_80 => pixel_strobe80_60,
-               pixel_strobe_27 => pixel_strobe120_60               
+               x_zero => x_zero_ntsc60,
+               y_zero => y_zero_ntsc60,
+               pixel_strobe => pixel_strobe_60               
                
                );               
 
@@ -317,8 +300,8 @@ begin
               plotting50 when pal50_select_internal='1'
               else plotting60;
   
---  wdata(7 downto 0) <= std_logic_vector(red_i);
---  wdata(15 downto 8) <= std_logic_vector(green_i);
+  wdata(7 downto 0) <= std_logic_vector(red_i);
+  wdata(15 downto 8) <= std_logic_vector(green_i);
 --  wdata(23 downto 16) <= std_logic_vector(blue_i);
 --  wdata(31 downto 0) <= (others => '0');
 
@@ -428,14 +411,14 @@ begin
     
     -- Manage writing into the raster buffer
     if rising_edge(clock81) then
-      if pixel_strobe_in='1' then
+--      if pixel_strobe_in='1' then
         waddr_out <= to_unsigned(pixel_x_in,12);
         wr_en <= "1111";
-        wdata <= std_logic_vector(to_unsigned(pixel_x_in,32));
+--        wdata <= std_logic_vector(to_unsigned(pixel_x_in,32));
         wdata(23 downto 16) <= std_logic_vector(green_i);
-      else
-        wr_en <= "0000";
-      end if;
+--      else
+--        wr_en <= "0000";
+--      end if;
     end if;
     
   end process;
