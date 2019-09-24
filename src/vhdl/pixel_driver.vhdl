@@ -73,8 +73,7 @@ entity pixel_driver is
     inframe : out std_logic;
     
     -- Indicate when next pixel/raster is expected
-    pixel_strobe80_out : out std_logic;
-    pixel_strobe120_out : out std_logic;
+    pixel_strobe_out : out std_logic;
     
     -- Similar signals to above for the LCD panel
     -- The main difference is that we only announce pixels during the 800x480
@@ -99,15 +98,6 @@ architecture greco_roman of pixel_driver is
   signal pal50_select_internal_drive : std_logic := '0';
   signal pal50_select_internal80 : std_logic := '0';
 
-  signal wr_en : std_logic_vector := "0000";
-  signal wdata : std_logic_vector(31 downto 0);
-
-  signal raddr50 : integer := 0;
-  signal raddr60 : integer := 0;
-  signal rd_en : std_logic := '0';
-  signal rd_en_internal : std_logic := '0';
-  signal rdata : std_logic_vector(31 downto 0);  
-  
   signal raster_toggle : std_logic := '0';
   signal raster_toggle_last : std_logic := '0';
 
@@ -177,6 +167,9 @@ architecture greco_roman of pixel_driver is
 
   signal raddr : std_logic_vector(9 downto 0);
   signal waddr : std_logic_vector(9 downto 0);
+
+  signal raddr50 : integer := 0;
+  signal raddr60 : integer := 0;
   
 begin
 
@@ -201,12 +194,12 @@ begin
                                              -- Is it 27/30MHz pixel clock?
                   display_width => 800,
                   frame_height => 624,        -- 312 lines x 2 fields
-                  pipeline_delay => 128,
+                  pipeline_delay => 0,
                   display_height => 600,
                   vsync_start => 581,
                   vsync_end => 586,
-                  hsync_start => 864,
-                  hsync_end => 932
+                  hsync_start => 864+23+16,
+                  hsync_end => 15 -- 932+23
                   )                  
     port map ( clock81 => clock81,
                clock41 => cpuclock,
@@ -231,14 +224,14 @@ begin
 
   frame60: entity work.frame_generator
     generic map ( frame_width => 854-1,   -- 65 cycles x 16 pixels
-                  display_width => 720,
+                  display_width => 800,
                   frame_height => 526,       -- NTSC frame is 263 lines x 2 frames
                   display_height => 526-4,
-                  pipeline_delay => 96,
+                  pipeline_delay => 0,
                   vsync_start => 489,
                   vsync_end => 495,
-                  hsync_start => 736-1,
-                  hsync_end => 798-1
+                  hsync_start => 853-62, -- 736+16-1,
+                  hsync_end => 853 -- 798+16-1
                   )                  
     port map ( clock81 => clock81,
                clock41 => cpuclock,
@@ -260,22 +253,6 @@ begin
                
                );               
 
-  buffer0: entity work.ram32x1024
-    port map(
-      -- Write side of the clock
-      clka => clock81,
-      ena => '1',
-      wea => wr_en,
-      addra => waddr,
-      dina => wdata,
-
-      clkb => clock27,
-      web => "0000",
-      addrb => raddr,
-      dinb => (others => '0'),
-      doutb => rdata
-      );
-  
   hsync <= hsync_pal50 when pal50_select_internal='1' else hsync_ntsc60;
   vsync <= vsync_pal50 when pal50_select_internal='1' else vsync_ntsc60;
   lcd_hsync <= lcd_hsync_pal50 when pal50_select_internal='1' else lcd_hsync_ntsc60;
@@ -285,14 +262,14 @@ begin
   lcd_inframe <= lcd_inframe_pal50 when pal50_select_internal='1' else lcd_inframe_ntsc60;
   lcd_inletterbox <= lcd_inletterbox_pal50 when pal50_select_internal='1' else lcd_inletterbox_ntsc60;
 
-  raster_strobe <= x_zero_pal50_80 when pal50_select_internal80='1' else x_zero_ntsc60_80;
-  x_zero <= x_zero_pal50_80 when pal50_select_internal80='1' else x_zero_ntsc60_80;
-  y_zero <= y_zero_pal50_80 when pal50_select_internal80='1' else y_zero_ntsc60_80;
-  y_zero_internal <= y_zero_pal50_27 when pal50_select_internal='1' else y_zero_ntsc60_27;
-  pixel_strobe80_out <= pixel_strobe80_50 when pal50_select_internal80='1' else pixel_strobe80_60;
+  raster_strobe <= x_zero_pal50 when pal50_select_internal='1' else x_zero_ntsc60;
+  x_zero <= x_zero_pal50 when pal50_select_internal='1' else x_zero_ntsc60;
+  y_zero <= y_zero_pal50 when pal50_select_internal='1' else y_zero_ntsc60;
+  y_zero_internal <= y_zero_pal50 when pal50_select_internal='1' else y_zero_ntsc60;
+  pixel_strobe_out <= pixel_strobe_50 when pal50_select_internal='1' else pixel_strobe_60;
 
   -- Generate output pixel strobe and signals for read-side of the FIFO
-  pixel_strobe120_out <= pixel_strobe120_50 when pal50_select_internal='1' else pixel_strobe120_60;
+  pixel_strobe_out <= pixel_strobe_50 when pal50_select_internal='1' else pixel_strobe_60;
 
   raddr <= std_logic_vector(to_unsigned(raddr50,10)) when pal50_select_internal='1' else std_logic_vector(to_unsigned(raddr60,10));
   
@@ -300,13 +277,8 @@ begin
               plotting50 when pal50_select_internal='1'
               else plotting60;
   
-  wdata(7 downto 0) <= std_logic_vector(red_i);
-  wdata(15 downto 8) <= std_logic_vector(green_i);
---  wdata(23 downto 16) <= std_logic_vector(blue_i);
---  wdata(31 downto 0) <= (others => '0');
-
-  x_zero_out <= x_zero_pal50_80 when pal50_select_internal80='1' else x_zero_ntsc60_80;
-  y_zero_out <= y_zero_pal50_80 when pal50_select_internal80='1' else y_zero_ntsc60_80;
+  x_zero_out <= x_zero_pal50 when pal50_select_internal80='1' else x_zero_ntsc60;
+  y_zero_out <= y_zero_pal50 when pal50_select_internal80='1' else y_zero_ntsc60;
   
   process (clock81,clock27) is
   begin
@@ -314,11 +286,11 @@ begin
     if rising_edge(clock81) then
 
   if pal50_select_internal80='1' then
-    report "x_zero=" & std_logic'image(x_zero_pal50_80)
-      & ", y_zero=" & std_logic'image(y_zero_pal50_80);
+    report "x_zero=" & std_logic'image(x_zero_pal50)
+      & ", y_zero=" & std_logic'image(y_zero_pal50);
   else
-    report "x_zero = " & std_logic'image(x_zero_ntsc60_80)
-      & ", y_zero = " & std_logic'image(y_zero_ntsc60_80);
+    report "x_zero = " & std_logic'image(x_zero_ntsc60)
+      & ", y_zero = " & std_logic'image(y_zero_ntsc60);
   end if;       
       
       lcd_display_enable <= display_en80;
@@ -336,16 +308,6 @@ begin
       pal50_select_internal <= pal50_select_internal_drive;
 
       test_pattern_enable120 <= test_pattern_enable;
-
-      report "rd_en_internal = " & std_logic'image(rd_en_internal);
-      
-      if pal50_select_internal='1' then
-        rd_en <= pixel_strobe120_50 and plotting;
-        rd_en_internal <= pixel_strobe120_50;          
-      else
-        rd_en <= pixel_strobe120_60 and plotting;
-        rd_en_internal <= pixel_strobe120_60;
-      end if;
       
       -- Output the pixels or else the test pattern
       if plotting='0' or inframe_internal='0' then        
@@ -356,16 +318,16 @@ begin
         red_o <= to_unsigned(raddr50,8);
         green_o <= to_unsigned(raddr60,8);
         blue_o <= x"FF";
-        blue_o(7) <= pixel_strobe120_50;
+        blue_o(7) <= pixel_strobe_50;
       else
-        if rd_en_internal='1' then
-          red_o <= unsigned(rdata(7 downto 0));
-          green_o <= unsigned(rdata(15 downto 8));
-          blue_o <= unsigned(rdata(23 downto 16));
-        end if;
+
+        red_o <= red_i;
+        green_o <= green_i;
+        blue_o <= blue_i;
+
       end if;
       
-      if x_zero_pal50_27='1' then
+      if x_zero_pal50='1' then
         raddr50 <= 0;
         plotting50 <= '0';
         report "raddr = ZERO, clearing plotting50";
@@ -387,7 +349,7 @@ begin
         end if;
       end if;
 
-      if x_zero_ntsc60_27='1' then
+      if x_zero_ntsc60='1' then
         raddr60 <= 0;
         plotting60 <= '0';
         report "raddr = ZERO";
@@ -408,19 +370,7 @@ begin
         end if;
       end if;
     end if;
-    
-    -- Manage writing into the raster buffer
-    if rising_edge(clock81) then
---      if pixel_strobe_in='1' then
-        waddr_out <= to_unsigned(pixel_x_in,12);
-        wr_en <= "1111";
---        wdata <= std_logic_vector(to_unsigned(pixel_x_in,32));
-        wdata(23 downto 16) <= std_logic_vector(green_i);
---      else
---        wr_en <= "0000";
---      end if;
-    end if;
-    
-  end process;
+
+end process;
   
 end greco_roman;

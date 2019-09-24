@@ -205,6 +205,8 @@ architecture Behavioral of container is
   signal x_zero_last : std_logic := '0';
 
   signal pixel_due : std_logic := '0';
+
+  signal seg_led_data : unsigned(31 downto 0);
   
 begin
   
@@ -237,7 +239,7 @@ begin
                x_zero_out => x_zero,
                y_zero_out => y_zero,
 
-               pixel_strobe80_out => pixel_due,
+               pixel_strobe_out => pixel_due,
                
                -- Pixels
                pixel_strobe_in => pixel_valid,
@@ -249,7 +251,6 @@ begin
                red_o => buffer_vgared,
                green_o => buffer_vgagreen,
                blue_o => buffer_vgablue,
-               pixel_strobe120_out => pixel_strobe,
 
                -- VGA signals
                hsync => hsync,
@@ -266,8 +267,8 @@ begin
   vgared <= buffer_vgared(7 downto 4);
   vgagreen <= buffer_vgagreen(7 downto 4);
 
-  red_in <= x"00" when (pixel_counter < 720 ) else x"FF";
-  blue_in <= x"00" when (pixel_counter /= 1 ) else x"FF";
+  red_in <= x"00" when (pixel_counter > 39 and pixel_counter < 760 ) else x"FF";
+  blue_in <= x"00" when (pixel_counter /=1 and pixel_counter /= 39 and pixel_counter/= 759 and pixel_counter/=799 ) else x"FF";
   
   -- VGA out on LCD panel
   jalo <= std_logic_vector(buffer_vgablue(7 downto 4));
@@ -281,11 +282,78 @@ begin
 --  jbhi(7) <= clock30 when sw(0)='1' else cpuclock;
   
   process (pixelclock) is
-  begin
+    variable digit : std_logic_vector(3 downto 0);
+  begin    
+    
     if rising_edge(pixelclock) then
+
+      segled_counter <= segled_counter + 1;
+
+      sseg_an <= (others => '1');
+      sseg_an(to_integer(segled_counter(17 downto 15))) <= '0';
+
+      if segled_counter(17 downto 15)=0 then
+        digit := std_logic_vector(seg_led_data(3 downto 0));
+      elsif segled_counter(17 downto 15)=1 then
+        digit := std_logic_vector(seg_led_data(7 downto 4));
+      elsif segled_counter(17 downto 15)=2 then
+        digit := std_logic_vector(seg_led_data(11 downto 8));
+      elsif segled_counter(17 downto 15)=3 then
+        digit := std_logic_vector(seg_led_data(15 downto 12));
+      elsif segled_counter(17 downto 15)=4 then
+        digit := std_logic_vector(seg_led_data(19 downto 16));
+      elsif segled_counter(17 downto 15)=5 then
+        digit := std_logic_vector(seg_led_data(23 downto 20));
+      elsif segled_counter(17 downto 15)=6 then
+        digit := std_logic_vector(seg_led_data(27 downto 24));
+      elsif segled_counter(17 downto 15)=7 then
+        digit := std_logic_vector(seg_led_data(31 downto 28));
+      end if;
+
+      seg_led_data(31 downto 16) <= to_unsigned(raster_counter,16);
+      seg_led_data(15 downto 0) <= to_unsigned(pixel_counter,16);
+
+      -- segments are:
+      -- 7 - decimal point
+      -- 6 - middle
+      -- 5 - upper left
+      -- 4 - lower left
+      -- 3 - bottom
+      -- 2 - lower right
+      -- 1 - upper right
+      -- 0 - top
+      case digit is
+        when x"0" => sseg_ca <= "11000000";
+        when x"1" => sseg_ca <= "11111001";
+        when x"2" => sseg_ca <= "10100100";
+        when x"3" => sseg_ca <= "10110000";
+        when x"4" => sseg_ca <= "10011001";
+        when x"5" => sseg_ca <= "10010010";
+        when x"6" => sseg_ca <= "10000010";
+        when x"7" => sseg_ca <= "11111000";
+        when x"8" => sseg_ca <= "10000000";
+        when x"9" => sseg_ca <= "10010000";
+        when x"A" => sseg_ca <= "10001000";
+        when x"B" => sseg_ca <= "10000011";
+        when x"C" => sseg_ca <= "11000110";
+        when x"D" => sseg_ca <= "10100001";
+        when x"E" => sseg_ca <= "10000110";
+        when x"F" => sseg_ca <= "10001110";
+        when others => sseg_ca <= "10100001";
+      end case; 
+      
+
+
+
+      
       bitnum <= raster_counter mod 16;
       spot <= to_unsigned(pixel_counter,16)(bitnum);
       x_zero_last <= x_zero;
+
+      pixel_valid <= '1';
+      pixel_x <= pixel_counter;
+      green_in <= (others => spot);  
+      
       if y_zero='1' then
         raster_counter <= 0;
         pixel_valid <= '0';
@@ -300,13 +368,8 @@ begin
             if x_zero_last = '0' then
               pixel_counter <= pixel_counter + 1;
             end if;
-            pixel_valid <= '1';
-            pixel_x <= pixel_counter;
-            green_in <= (others => spot);  
-          else
-            pixel_valid <= '0';
           end if;
-        end if;
+        end if;        
       end if;
     end if;
   end process;
