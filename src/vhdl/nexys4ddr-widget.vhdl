@@ -189,11 +189,15 @@ architecture Behavioral of container is
   
   signal pixelclock : std_logic;
   signal cpuclock : std_logic;
-  signal clock240 : std_logic;
+  signal ethclock : std_logic;
+  signal clock41 : std_logic;
+  signal clock27 : std_logic;
+  signal clock81 : std_logic;
   signal clock120 : std_logic;
   signal clock100 : std_logic;
-  signal ethclock : std_logic;
-  signal clock200 : std_logic;
+  signal clock162 : std_logic;
+  signal clock163 : std_logic;
+
   
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
 
@@ -278,13 +282,13 @@ begin
   
   dotclock1: entity work.dotclock100
     port map ( clk_in1 => CLK_IN,
-               clock80 => pixelclock, -- 80MHz
-               clock40 => cpuclock, -- 40MHz
-               clock50 => ethclock,
-               clock200 => clock200,
                clock100 => clock100,
-               clock120 => clock120,
-               clock240 => clock240
+               clock81 => pixelclock, -- 80MHz
+               clock41 => cpuclock, -- 40MHz
+               clock50 => ethclock,
+               clock162 => clock162,
+               clock27 => clock27
+--               clock54 => clock54
                );
 
   fpgatemp0: fpgatemp
@@ -370,10 +374,9 @@ begin
       cpuclock        => cpuclock,
       uartclock       => cpuclock, -- Match CPU clock
       ioclock         => cpuclock, -- Match CPU clock
-      clock240 => clock240,
-      clock120 => clock120,
-      clock40 => cpuclock,
-      clock200 => clock200,
+      clock162 => clock162,
+      clock100 => clock100,
+      clock27 => clock27,
       clock50mhz      => ethclock,
       btncpureset => btncpureset,
       reset_out => reset_out,
