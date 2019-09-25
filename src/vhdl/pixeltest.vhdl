@@ -207,6 +207,9 @@ architecture Behavioral of container is
   signal pixel_due : std_logic := '0';
 
   signal seg_led_data : unsigned(31 downto 0);
+
+  signal x0count : integer := 0;
+  signal y0count : integer := 0;
   
 begin
   
@@ -287,6 +290,16 @@ begin
     
     if rising_edge(pixelclock) then
 
+      led(0) <= x_zero;
+      led(1) <= y_zero;
+
+      if x_zero='1' then
+        x0count <= x0count + 1;
+      end if;
+      if y_zero='1' then
+        y0count <= y0count + 1;
+      end if;
+      
       segled_counter <= segled_counter + 1;
 
       sseg_an <= (others => '1');
@@ -310,8 +323,8 @@ begin
         digit := std_logic_vector(seg_led_data(31 downto 28));
       end if;
 
-      seg_led_data(31 downto 16) <= to_unsigned(raster_counter,16);
-      seg_led_data(15 downto 0) <= to_unsigned(pixel_counter,16);
+      seg_led_data(31 downto 16) <= to_unsigned(x0count,16);
+      seg_led_data(15 downto 0) <= to_unsigned(y0count,16);
 
       -- segments are:
       -- 7 - decimal point
@@ -349,6 +362,7 @@ begin
       bitnum <= raster_counter mod 16;
       spot <= to_unsigned(pixel_counter,16)(bitnum);
       x_zero_last <= x_zero;
+      
 
       if y_zero='1' then
         raster_counter <= 0;
@@ -367,7 +381,7 @@ begin
 
             pixel_valid <= '1';
             pixel_x <= pixel_counter;
-            green_in <= (others => spot);        
+            green_in <= (others => spot);
           end if;
         end if;        
       end if;
