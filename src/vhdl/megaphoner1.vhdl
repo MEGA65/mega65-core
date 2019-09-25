@@ -189,14 +189,14 @@ architecture Behavioral of container is
   
   signal pixelclock : std_logic;
   signal cpuclock : std_logic;
-  signal clock240 : std_logic;
+  signal ethclock : std_logic;
+  signal clock41 : std_logic;
+  signal clock27 : std_logic;
+  signal clock81 : std_logic;
   signal clock120 : std_logic;
   signal clock100 : std_logic;
-  signal ethclock : std_logic;
-  signal clock200 : std_logic;
-  signal clock30 : std_logic;
-  signal clock30in : std_logic := '0';
-  signal clock30count : integer range 0 to 3 := 0;
+  signal clock162 : std_logic;
+  signal clock163 : std_logic;
   
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
 
@@ -306,14 +306,15 @@ begin
 
   dotclock1: entity work.dotclock100
     port map ( clk_in1 => CLK_IN,
-               clock80 => pixelclock, -- 80MHz
-               clock40 => cpuclock, -- 40MHz
-               clock50 => ethclock,
-               clock200 => clock200,
                clock100 => clock100,
-               clock120 => clock120,
-               clock240 => clock240
+               clock81 => pixelclock, -- 80MHz
+               clock41 => cpuclock, -- 40MHz
+               clock50 => ethclock,
+               clock162 => clock162,
+               clock27 => clock27
+--               clock54 => clock54
                );
+
 
   fpgatemp0: fpgatemp
     generic map (DELAY_CYCLES => 480)
@@ -416,10 +417,9 @@ begin
       cpuclock        => cpuclock,
       uartclock       => cpuclock, -- Match CPU clock
       ioclock         => cpuclock, -- Match CPU clock
-      clock240 => clock240,
-      clock120 => clock120,
-      clock40 => cpuclock,
-      clock200 => clock200,
+      clock162 => clock162,
+      clock100 => clock100,
+      clock27 => clock27,
       clock50mhz      => ethclock,
       btncpureset => '1',
       reset_out => reset_out,
@@ -621,31 +621,12 @@ begin
 --      sseg_an => sseg_an
       );
 
-  -- Create BUFG'd 30MHz clock for LCD panel
-  --------------------------------------
-  clkin30_buf : IBUFG
-    port map
-    (O => clock30,
-     I => clock30in);
+  lcd_dclk <= clock27;
   
-  process (clock240)
-  begin
-    if rising_edge(clock240) then
-      if (clock30count /= 3 ) then
-        clock30count <= clock30count + 1;
-      else
-        clock30in <= not clock30in;
-        clock30count <= 0;
-      end if;
-    end if;
-  end process;
-
-  lcd_dclk <= not clock30 when pal50_select='1' else not cpuclock;
-  
-  process (cpuclock,clock120,clock240,cpuclock,pal50_select)
+  process (clock27)
   begin
 
-    if rising_edge(clock120) then
+    if rising_edge(clock27) then
       -- VGA direct output
       vga_red <= buffer_vgared(7 downto 4);
       vga_green <= buffer_vgagreen(7 downto 4);
