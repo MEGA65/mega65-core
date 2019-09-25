@@ -133,6 +133,7 @@ entity viciv is
     pixel_green_out : out unsigned (7 downto 0);
     pixel_blue_out : out unsigned (7 downto 0);
     pixel_y : out unsigned (11 downto 0) := (others => '0');
+    pixel_x_out : out integer := 0;
     pixel_strobe_out : out std_logic;
     pixel_newframe : out std_logic;
     pixel_newraster : out std_logic;
@@ -3770,6 +3771,7 @@ begin
           report "pixel = " & std_logic'image(indisplay)
             & ", xcounter = " & integer'image(to_integer(xcounter));
           pixel_strobe_out <= indisplay;
+          pixel_x_out <= to_integer(xcounter);
         else
           pixel_strobe_out <= '0';
         end if;
