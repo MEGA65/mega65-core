@@ -329,7 +329,7 @@ begin
       latency_2x => to_unsigned(8,8),
       reset => reset_out,
       cpuclock => cpuclock,
-      clock240 => clock240,
+      clock240 => clock163,
       address => expansionram_address,
       wdata => expansionram_wdata,
       read_request => expansionram_read,
