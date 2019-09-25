@@ -547,6 +547,7 @@ architecture Behavioral of machine is
   signal phi0 : std_logic := '0';
 
   -- Video pipeline plumbing
+  signal pixel_x_viciv : integer;
   signal pixel_strobe_viciv : std_logic := '0';
   signal vgared_viciv : unsigned(7 downto 0);
   signal vgagreen_viciv : unsigned(7 downto 0);
@@ -1021,7 +1022,7 @@ begin
 
 
 
-      pixel_strobe80_out => external_pixel_strobe,
+      pixel_strobe_out => external_pixel_strobe,
       
       -- Configuration information from the VIC-IV
       hsync_invert => hsync_polarity,
@@ -1036,6 +1037,7 @@ begin
       -- Pixel data from the video pipeline
       -- (clocked at 100MHz pixel clock)
       pixel_strobe_in => pixel_strobe_viciv,
+      pixel_x_in => pixel_x_viciv,
       red_i => vgared_osk,
       green_i => vgagreen_osk,
       blue_i => vgablue_osk,
@@ -1086,6 +1088,7 @@ begin
 
       -- Pixels output for the video pipeline
       pixel_strobe_out => pixel_strobe_viciv,
+      pixel_x_out => pixel_x_viciv,
       vgared          => vgared_viciv,
       vgagreen        => vgagreen_viciv,
       vgablue         => vgablue_viciv,
