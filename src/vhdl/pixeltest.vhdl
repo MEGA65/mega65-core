@@ -350,10 +350,6 @@ begin
       spot <= to_unsigned(pixel_counter,16)(bitnum);
       x_zero_last <= x_zero;
 
-      pixel_valid <= '1';
-      pixel_x <= pixel_counter;
-      green_in <= (others => spot);  
-      
       if y_zero='1' then
         raster_counter <= 0;
         pixel_valid <= '0';
@@ -368,6 +364,10 @@ begin
             if x_zero_last = '0' then
               pixel_counter <= pixel_counter + 1;
             end if;
+
+            pixel_valid <= '1';
+            pixel_x <= pixel_counter;
+            green_in <= (others => spot);        
           end if;
         end if;        
       end if;
