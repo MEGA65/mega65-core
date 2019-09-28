@@ -27,6 +27,9 @@ echo "wrote: src/vhdl/version.vhdl"
 echo 'msg_gitcommit: .byte "GIT: '${stringout}'",0' > src/version.a65
 echo "wrote: version.a65"
 
+echo -e 'msg_gitcommit:\n\tascii("GIT: '${stringout}'")\n\t.byte 0' > src/version.asm
+echo "wrote: version.asm"
+
 echo 'msg_gitcommit: .byte "GIT: '${stringout}'"' > src/monitor/version.a65
 echo "wrote: monitor/version.a65"
 
