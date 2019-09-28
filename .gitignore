@@ -37,6 +37,7 @@ monitor.map
 src/verilog/monitor_mem.v
 src/vhdl/charrom.vhdl
 src/vhdl/colourram.vhdl
+src/vhdl/hyppo.vhdl
 src/vhdl/kickstart.vhdl
 src/vhdl/oskmem.vhdl
 src/vhdl/shadowram.vhdl
@@ -48,6 +49,7 @@ src/vhdl/version.vhdl
 
 # generated ASM
 src/version.a65
+src/version.asm
 src/monitor/monitor_dis.a65
 src/monitor/version.a65
 
