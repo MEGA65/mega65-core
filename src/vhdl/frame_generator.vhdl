@@ -234,22 +234,28 @@ begin
         if x = display_width + pipeline_delay then
           inframe <= '0';
           inframe_internal <= '0';
-          red_o <= x"00";
-          green_o <= x"00";
-          blue_o <= x"00";        
         end if;
       end if;
+
+      -- Make sure we have nothing visible during H/VSYNC pulses, so we don't
+      -- mess up the VGA colours
+      if hsync_uninverted_driver='1' or vsync_driver = vsync_polarity then
+        red_o <= x"00";
+        green_o <= x"00";
+        blue_o <= x"00";        
+      end if;
+        
     end if;
 
-  if rising_edge(clock41) then
-    last_phi2_toggle <= phi2_toggle;
-    if phi2_toggle /= last_phi2_toggle then
-      phi2_out <= '1';
-    else
-      phi2_out <= '0';
+    if rising_edge(clock41) then
+      last_phi2_toggle <= phi2_toggle;
+      if phi2_toggle /= last_phi2_toggle then
+        phi2_out <= '1';
+      else
+        phi2_out <= '0';
+      end if;
     end if;
-  end if;
-  
-end process;
+    
+  end process;
 
 end brutalist;
