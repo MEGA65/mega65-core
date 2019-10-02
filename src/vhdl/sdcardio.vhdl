@@ -1670,7 +1670,7 @@ begin  -- behavioural
                   f011_rnf <= '1';    -- Set according to the specifications
                   busy_countdown <= to_unsigned(16000,16); -- 1 sec spin up time
                 when x"00" =>         -- cancel running command (not implemented)
-                  f_wgate <= '0';
+                  f_wgate <= '1';
                   report "Clearing fdc_read_request due to $00 command";
                   fdc_read_request <= '0';
                   fdc_bytes_read <= (others => '0');
