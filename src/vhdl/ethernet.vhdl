@@ -1041,7 +1041,7 @@ begin  -- behavioural
         case fastio_addr(3 downto 0) is
           -- @IO:GS $D6E0 Ethernet control
           when x"0" =>
-            -- @IO:GS $D6E0.7 Indicate if ethernet RX is blocked until RX buffers rotated
+            -- @IO:GS $D6E0.6 Indicate if ethernet RX is blocked until RX buffers rotated
             fastio_rdata(6) <= eth_buffer_blocked;
           -- @IO:GS $D6E0.4 Allow remote keyboard input via magic ethernet frames
           -- @IO:GS $D6E0.4 Allow remote keyboard input via magic ethernet frames
