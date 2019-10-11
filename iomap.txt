@@ -672,7 +672,7 @@ GS $D6E0.0 Clear to reset ethernet PHY
 GS $D6E0.1-2 Read ethernet TX bits currently on the wire
 GS $D6E0.3 Read ethernet RX data valid
 GS $D6E0.4 Allow remote keyboard input via magic ethernet frames
-GS $D6E0.7 Indicate if ethernet RX is blocked until RX buffers rotated
+GS $D6E0.6 Indicate if ethernet RX is blocked until RX buffers rotated
 GS $D6E0 Ethernet control
 GS $D6E1.0 reset ethernet PHY
 GS $D6E1.1 - Set which RX buffer is memory mapped
