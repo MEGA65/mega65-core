@@ -669,39 +669,49 @@ GS $D6DB - DEBUG SD card last error code MSB
 GS $D6DE - FPGA die temperature sensor (lower nybl)
 GS $D6DF - FPGA die temperature sensor (upper byte)
 GS $D6E0.0 Clear to reset ethernet PHY
-GS $D6E0.1-2 Read ethernet TX bits currently on the wire
-GS $D6E0.3 Read ethernet RX data valid
+GS $D6E0.1-2 ETH:DBGRXD Read ethernet RX bits currently on the wire
+GS $D6E0.1-2 ETH:RESETRD Read ethernet RX bits currently on the wire
+GS $D6E0.3 ETH:DBGRXDV Read ethernet RX data valid (debug)
 GS $D6E0.4 Allow remote keyboard input via magic ethernet frames
-GS $D6E0.6 Indicate if ethernet RX is blocked until RX buffers rotated
-GS $D6E0 Ethernet control
+GS $D6E0.4 ETH:ETHKEYEN Allow remote keyboard input via magic ethernet frames
+GS $D6E0.6 ETH:RXBLOCKED Indicate if ethernet RX is blocked until RX buffers rotated
 GS $D6E1.0 reset ethernet PHY
+GS $D6E1.1 ETH:RXBMAPD Set which RX buffer is memory mapped
 GS $D6E1.1 - Set which RX buffer is memory mapped
-GS $D6E1.2 - Indicate which RX buffer was most recently used
+GS $D6E1.2 ETH:RXBUSED Indicate which RX buffer was most recently used
 GS $D6E1.2 WRITE ONLY Enable real-time CPU/BUS monitoring via ethernet
 GS $D6E1.3 Enable real-time video streaming via ethernet (or fast IO bus if CPU/bus monitoring enabled)
-GS $D6E1.4 - Ethernet TX IRQ status
-GS $D6E1.5 - Ethernet RX IRQ status
-GS $D6E1.6 - Enable ethernet TX IRQ
-GS $D6E1.7 - Enable ethernet RX IRQ
+GS $D6E1.3 ETH:STREAMEN Enable streaming of CPU instruction stream or VIC-IV display on ethernet
+GS $D6E1.4 ETH:TXIRQ Ethernet TX IRQ status
+GS $D6E1.5 ETH:RXIRQ Ethernet RX IRQ status
+GS $D6E1.6 ETH:TXIRQEN Enable ethernet TX IRQ
+GS $D6E1.7 ETH:RXIRQEN Enable ethernet RX IRQ
 GS $D6E1 - Ethernet interrupt and control register
+GS $D6E2 ETH:TXSZLSB TX Packet size (low byte)
 GS $D6E2 Set low-order size of frame to TX
-GS $D6E2 - TX Packet size (low byte)
+GS $D6E3 ETH:TXSZMSB TX Packet size (high byte)
 GS $D6E3 Set high-order size of frame to TX
-GS $D6E3 - TX Packet size (high byte)
 GS $D6E4 = $00 = Clear ethernet TX trigger (debug)
 GS $D6E4 = $01 = Transmit packet
 GS $D6E4 Ethernet command
-GS $D6E5.0 - Ethernet disable promiscuous mode
+GS $D6E5.0 ETH:NOPROMISC Ethernet disable promiscuous mode
 GS $D6E5.1 Disable CRC check for received packets
+GS $D6E5.1 ETH:NOCRCCHK Disable CRC check for received packets
 GS $D6E5.2-3 Ethernet TX clock phase adjust
-GS $D6E5.4 Accept broadcast frames
-GS $D6E5.5 Accept multicast frames
-GS $D6E6.0-4 - Ethernet MIIM register number
-GS $D6E6.7-5 - Ethernet MIIM PHY number (use 0 for Nexys4, 1 for MEGA65 r1 PCBs)
-GS $D6E7 - Ethernet MIIM register value (LSB)
-GS $D6E8 - Ethernet MIIM register value (MSB)
-GS $D6E9-E - Ethernet MAC address
-GS $D6EF - DEBUG show current ethernet RX state
+GS $D6E5.2-3 ETH:TXPHSADJ Ethernet TX clock phase adjust
+GS $D6E5.4 ETH:BCASTEN Accept broadcast frames
+GS $D6E5.5 ETH:MCASTEN Accept multicast frames
+GS $D6E6.0-4 ETH:MIIMREG Ethernet MIIM register number
+GS $D6E6.7-5 ETH:MIIMPHY Ethernet MIIM PHY number (use 0 for Nexys4, 1 for MEGA65 r1 PCBs)
+GS $D6E7 ETH:MIIMVLSB Ethernet MIIM register value (LSB)
+GS $D6E8 ETH:MIIMVMSB Ethernet MIIM register value (MSB)
+GS $D6E9 ETH:MACBYTE1 Ethernet MAC address
+GS $D6EA ETH:MACBYTE2 Ethernet MAC address
+GS $D6EB ETH:MACBYTE3 Ethernet MAC address
+GS $D6EC ETH:MACBYTE4 Ethernet MAC address
+GS $D6ED ETH:MACBYTE5 Ethernet MAC address
+GS $D6EE ETH:MACBYTE6 Ethernet MAC address
+GS $D6EF ETH:DBGRXSTAT DEBUG show current ethernet RX state
 GS $D6F0 - LCD panel brightness control
 GS $D6F2 - Read FPGA five-way buttons
 GS $D6F3 - Accelerometer bit-bashing port
@@ -1069,6 +1079,7 @@ GS $DD1D CIA2:ALRMSEC TOD Alarm seconds value
 GS $DD1E CIA2:ALRMMIN TOD Alarm minutes value
 GS $DD1F.0-6 CIA2:ALRMHOUR TOD Alarm hours value
 GS $DD1F.7 CIA2:ALRMAMPM TOD Alarm AM/PM flag
+GS ETH:$D6E0 Ethernet control
 GS $FF7E000-$FF7EFFF SUMMARY:CHARWRITE VIC-IV CHARROM write area
 GS $FF7Exxx VIC-IV CHARROM write area
 GS $FF80000-$FF87FFF SUMMARY:COLOURRAM Colour RAM (32KB or 64KB)
