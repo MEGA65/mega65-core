@@ -1041,34 +1041,34 @@ begin  -- behavioural
         case fastio_addr(3 downto 0) is
           -- @IO:GS ETH:$D6E0 Ethernet control
           when x"0" =>
-            -- @IO:GS $D6E0.6 ETH:RXBLOCKED Indicate if ethernet RX is blocked until RX buffers rotated
+            -- @IO:GS $D6E0.6 ETH:RXBLKD Indicate if ethernet RX is blocked until RX buffers rotated
             fastio_rdata(6) <= eth_buffer_blocked;
-          -- @IO:GS $D6E0.4 ETH:ETHKEYEN Allow remote keyboard input via magic ethernet frames
+          -- @IO:GS $D6E0.4 ETH:KEYEN Allow remote keyboard input via magic ethernet frames
           -- @IO:GS $D6E0.4 Allow remote keyboard input via magic ethernet frames
             fastio_rdata(4) <= eth_keycode_toggle_internal;
-          -- @IO:GS $D6E0.3 ETH:DBGRXDV Read ethernet RX data valid (debug)
+          -- @IO:GS $D6E0.3 ETH:DRXDV Read ethernet RX data valid (debug)
             fastio_rdata(3) <= eth_rxdv;
-          -- @IO:GS $D6E0.1-2 ETH:DBGRXD Read ethernet RX bits currently on the wire
+          -- @IO:GS $D6E0.1-2 ETH:DRXD Read ethernet RX bits currently on the wire
             fastio_rdata(2 downto 1) <= eth_rxd;
-          -- @IO:GS $D6E0.1-2 ETH:RESETRD Read ethernet RX bits currently on the wire
+          -- @IO:GS $D6E0.0 ETH:RST Write 0 to hold ethernet controller under reset
             fastio_rdata(0) <= eth_reset_int;
           -- @IO:GS $D6E1 - Ethernet interrupt and control register
           -- (unused bits = 0 to allow expansion of number of RX buffer slots
           -- from 2 to something bigger)
           when x"1" =>
-            -- @IO:GS $D6E1.7 ETH:RXIRQEN Enable ethernet RX IRQ
+            -- @IO:GS $D6E1.7 ETH:RXQEN Enable ethernet RX IRQ
             fastio_rdata(7) <= eth_irqenable_rx;
-            -- @IO:GS $D6E1.6 ETH:TXIRQEN Enable ethernet TX IRQ
+            -- @IO:GS $D6E1.6 ETH:TXQEN Enable ethernet TX IRQ
             fastio_rdata(6) <= eth_irqenable_tx;
-            -- @IO:GS $D6E1.5 ETH:RXIRQ Ethernet RX IRQ status
+            -- @IO:GS $D6E1.5 ETH:RXQ Ethernet RX IRQ status
             fastio_rdata(5) <= eth_irq_rx;
-            -- @IO:GS $D6E1.4 ETH:TXIRQ Ethernet TX IRQ status
+            -- @IO:GS $D6E1.4 ETH:TXQ Ethernet TX IRQ status
             fastio_rdata(4) <= eth_irq_tx;
-            -- @IO:GS $D6E1.3 ETH:STREAMEN Enable streaming of CPU instruction stream or VIC-IV display on ethernet
+            -- @IO:GS $D6E1.3 ETH:STRM Enable streaming of CPU instruction stream or VIC-IV display on ethernet
             fastio_rdata(3) <= eth_videostream;
-            -- @IO:GS $D6E1.2 ETH:RXBUSED Indicate which RX buffer was most recently used
+            -- @IO:GS $D6E1.2 ETH:RXBU Indicate which RX buffer was most recently used
             fastio_rdata(2) <= eth_rx_buffer_last_used_48mhz;            
-            -- @IO:GS $D6E1.1 ETH:RXBMAPD Set which RX buffer is memory mapped
+            -- @IO:GS $D6E1.1 ETH:RXBM Set which RX buffer is memory mapped
             fastio_rdata(1) <= eth_rx_buffer_moby;
             -- $D6E1.0 - Clear to hold ethernet adapter in reset.
             fastio_rdata(0) <= eth_reset_int;
@@ -1089,15 +1089,15 @@ begin  -- behavioural
             fastio_rdata(6) <= eth_tx_viciv;
             fastio_rdata(7) <= '0';
           when x"5" =>
-            -- @IO:GS $D6E5.0 ETH:NOPROMISC Ethernet disable promiscuous mode
+            -- @IO:GS $D6E5.0 ETH:NOPROM Ethernet disable promiscuous mode
             fastio_rdata(0) <= eth_mac_filter;
-            -- @IO:GS $D6E5.1 ETH:NOCRCCHK Disable CRC check for received packets
+            -- @IO:GS $D6E5.1 ETH:NOCRC Disable CRC check for received packets
             fastio_rdata(1) <= eth_disable_crc_check;
-            -- @IO:GS $D6E5.2-3 ETH:TXPHSADJ Ethernet TX clock phase adjust
+            -- @IO:GS $D6E5.2-3 ETH:TXPH Ethernet TX clock phase adjust
             fastio_rdata(3 downto 2) <= eth_txd_phase;
-            -- @IO:GS $D6E5.4 ETH:BCASTEN Accept broadcast frames
+            -- @IO:GS $D6E5.4 ETH:BCST Accept broadcast frames
             fastio_rdata(4) <= eth_accept_broadcast;
-            -- @IO:GS $D6E5.5 ETH:MCASTEN Accept multicast frames
+            -- @IO:GS $D6E5.5 ETH:MCST Accept multicast frames
             fastio_rdata(5) <= eth_accept_multicast;
             fastio_rdata(7 downto 6) <= (others => '0');
           when x"6" =>
@@ -1111,12 +1111,12 @@ begin  -- behavioural
           when x"8" =>
             -- @IO:GS $D6E8 ETH:MIIMVMSB Ethernet MIIM register value (MSB)
             fastio_rdata <= miim_read_value(15 downto 8);
-          -- @IO:GS $D6E9 ETH:MACBYTE1 Ethernet MAC address
-          -- @IO:GS $D6EA ETH:MACBYTE2 Ethernet MAC address
-          -- @IO:GS $D6EB ETH:MACBYTE3 Ethernet MAC address
-          -- @IO:GS $D6EC ETH:MACBYTE4 Ethernet MAC address
-          -- @IO:GS $D6ED ETH:MACBYTE5 Ethernet MAC address
-          -- @IO:GS $D6EE ETH:MACBYTE6 Ethernet MAC address
+          -- @IO:GS $D6E9 ETH:MACADDR1 Ethernet MAC address
+          -- @IO:GS $D6EA ETH:MACADDR2 Ethernet MAC address
+          -- @IO:GS $D6EB ETH:MACADDR3 Ethernet MAC address
+          -- @IO:GS $D6EC ETH:MACADDR4 Ethernet MAC address
+          -- @IO:GS $D6ED ETH:MACADDR5 Ethernet MAC address
+          -- @IO:GS $D6EE ETH:MACADDR6 Ethernet MAC address
           when x"9" => fastio_rdata <= eth_mac(47 downto 40);
           when x"A" => fastio_rdata <= eth_mac(39 downto 32);
           when x"B" => fastio_rdata <= eth_mac(31 downto 24);
