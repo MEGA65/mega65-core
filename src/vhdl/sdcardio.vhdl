@@ -883,8 +883,8 @@ begin  -- behavioural
             fastio_rdata(3) <= diskimage2_enable;
             fastio_rdata(4) <= f011_disk2_present;
             fastio_rdata(5) <= not f011_disk2_write_protected;
-            -- @IO:GS $D68B.6 F011:MDISK0 Enable 32MiB ``MEGA Disk'' for F011 emulated drive 0
-            -- @IO:GS $D68B.7 F011:MDISK0 Enable 32MiB ``MEGA Disk'' for F011 emulated drive 1
+            -- @IO:GS $D68B.6 F011:MDISK0 Enable 64MiB ``MEGA Disk'' for F011 emulated drive 0
+            -- @IO:GS $D68B.7 F011:MDISK0 Enable 64MiB ``MEGA Disk'' for F011 emulated drive 1
             fastio_rdata(6) <= mega_disk0;
             fastio_rdata(7) <= mega_disk1;
           when x"8c" =>
