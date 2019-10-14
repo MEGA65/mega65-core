@@ -1414,15 +1414,16 @@ begin  -- behavioural
         physical_sector <= f011_sector + 9;  -- +10 minus 1
       end if;
       if f011_mega_disk='0' then
-        diskimage1_offset(15 downto 0) <=
+        diskimage1_offset <=
           to_unsigned(
-            to_integer(f011_track(6 downto 0) & "0000")
-            +to_integer("00" & f011_track(6 downto 0) & "00")
-            +to_integer("000" & physical_sector),11);
+            to_integer(f011_track(6 downto 0) & "0000")        -- track x 16
+            +to_integer("00" & f011_track(6 downto 0) & "00")  -- track x 4  =
+                                                               -- track x 20
+            +to_integer("000" & physical_sector),17);
         -- and don't let it point beyond the end of the disk
         if (f011_track >= 80) or (physical_sector > 20) then
           -- point to last sector if disk instead
-          diskimage1_offset <= to_unsigned(1599,11);
+          diskimage1_offset <= to_unsigned(1599,17);
         end if;
       else
         diskimage1_offset(16) <= f011_side(0);
@@ -1431,15 +1432,15 @@ begin  -- behavioural
       end if;
 
       if f011_mega_disk2='0' then
-        diskimage2_offset(16 downto 0) <=
+        diskimage2_offset <=
           to_unsigned(
             to_integer(f011_track(6 downto 0) & "0000")
             +to_integer("00" & f011_track(6 downto 0) & "00")
-            +to_integer("000" & physical_sector),11);
+            +to_integer("000" & physical_sector),17);
         -- and don't let it point beyond the end of the disk
         if (f011_track >= 80) or (physical_sector > 20) then
           -- point to last sector if disk instead
-          diskimage2_offset <= to_unsigned(1599,11);
+          diskimage2_offset <= to_unsigned(1599,17);
         end if;
       else
         diskimage2_offset(16) <= f011_side(0);
