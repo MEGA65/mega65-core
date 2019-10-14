@@ -3328,6 +3328,22 @@ l96:
         // we have read to end of D81 file, and it is contiguous
         // now check that it is the right length
 
+	// First check if we read enough for 32MiB
+	// XXX - This currently assumes 8 sectors per cluster.
+	lda d81_clustercount+1
+	cmp #$40
+	bne not_mega_floppy
+	lda d81_clustercount+0
+	ora d81_clustercount+2
+	ora d81_clustercount+3
+	bne not_mega_floppy
+
+	// Is a 32MiB MEGA Floppy
+	// (These behave as single-sided 256-track 256-sector D81s,
+	// i.e. with normal D81 directory format on side 0 of track 40.)
+	
+	
+	
         lda d81_clustersneeded
         cmp d81_clustercount
         bne d81wronglength
@@ -3336,6 +3352,8 @@ l96:
         cmp d81_clustercount+1
         bne d81wronglength
 
+
+d81_is_good:	
         // D81 is good.
 
         // Get cluster number again, convert to sector, and copy to
@@ -3367,6 +3385,16 @@ l94d:   lda $d681,x
         lda #$03
         sta $d68b
 
+	// And set the MEGAfloppy flag if the file is 32MiB long
+	lda d81_clustercount+1
+	cmp #$40
+	bne not_mega_floppy2
+
+	lda #$43
+	sta $d68b
+
+not_mega_floppy2:	
+	
         Checkpoint("dos_d81attach <success>")
 
         // Save name and set mount flag for disk image in process descriptor block
