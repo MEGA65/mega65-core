@@ -3328,21 +3328,22 @@ l96:
         // we have read to end of D81 file, and it is contiguous
         // now check that it is the right length
 
-	// First check if we read enough for 32MiB
+	// First check if we read enough for 64MiB
 	// XXX - This currently assumes 8 sectors per cluster.
 	lda d81_clustercount+1
-	cmp #$40
+	cmp #$80
 	bne not_mega_floppy
 	lda d81_clustercount+0
 	ora d81_clustercount+2
 	ora d81_clustercount+3
 	bne not_mega_floppy
 
-	// Is a 32MiB MEGA Floppy
-	// (These behave as single-sided 256-track 256-sector D81s,
-	// i.e. with normal D81 directory format on side 0 of track 40.)
-	
-	
+	// Is a 64MiB MEGA Floppy?
+	// (These behave as double-sided 256-track 256-sector disks of 512 byte sectors,
+	//  but with normal D81 directory format on side 0 of track 40.)
+	// XXX These are really quite big, much bigger than required.
+	// We should allow masking of the upper bits to allow for arbitrarily smaller sized
+	// MEGAfloppies, so that space can be more efficiently used.	
 	
         lda d81_clustersneeded
         cmp d81_clustercount
@@ -3385,9 +3386,9 @@ l94d:   lda $d681,x
         lda #$03
         sta $d68b
 
-	// And set the MEGAfloppy flag if the file is 32MiB long
+	// And set the MEGAfloppy flag if the file is 64MiB long
 	lda d81_clustercount+1
-	cmp #$40
+	cmp #$80
 	bne not_mega_floppy2
 
 	lda #$43
