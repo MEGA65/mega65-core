@@ -274,7 +274,8 @@ architecture behavioural of sdcardio is
   signal diskimage2_sector : unsigned(31 downto 0) := x"ffffffff";
   signal diskimage1_enable : std_logic := '0';
   signal diskimage2_enable : std_logic := '0';
-  signal diskimage_offset : unsigned(10 downto 0);
+  signal diskimage1_offset : unsigned(15 downto 0);
+  signal diskimage2_offset : unsigned(15 downto 0);
   signal f011_track : unsigned(7 downto 0) := x"01";
   signal f011_sector : unsigned(7 downto 0) := x"00";
   signal physical_sector : unsigned(7 downto 0) := x"00";
@@ -337,6 +338,8 @@ architecture behavioural of sdcardio is
   signal f011_write_protected : std_logic := '0';
   signal f011_disk1_write_protected : std_logic := '0';
   signal f011_disk2_write_protected : std_logic := '0';
+  signal f011_mega_disk : std_logic := '0';
+  signal f011_mega_disk2 : std_logic := '0';
 
   signal f011_led : std_logic := '0';
   signal f011_motor : std_logic := '0';
@@ -880,20 +883,35 @@ begin  -- behavioural
             fastio_rdata(3) <= diskimage2_enable;
             fastio_rdata(4) <= f011_disk2_present;
             fastio_rdata(5) <= not f011_disk2_write_protected;
+            -- @IO:GS $D68B.6 F011:MDISK0 Enable 16MiB ``MEGA Disk'' for F011 emulated drive 0
+            -- @IO:GS $D68B.7 F011:MDISK0 Enable 16MiB ``MEGA Disk'' for F011 emulated drive 1
+            fastio_rdata(6) <= mega_disk0;
+            fastio_rdata(7) <= mega_disk1;
           when x"8c" =>
-            -- @IO:GS $D68C - Diskimage sector number (bits 0-7)
+            -- @IO:GS $D68C F011:DISKADDR0 Diskimage sector number (bits 0-7)
             fastio_rdata <= diskimage_sector(7 downto 0);
           when x"8d" =>
-            -- @IO:GS $D68D - Diskimage sector number (bits 8-15)
+            -- @IO:GS $D68D F011:DISKADDR1 Diskimage sector number (bits 8-15)
             fastio_rdata <= diskimage_sector(15 downto 8);
           when x"8e" =>
-            -- @IO:GS $D68E - Diskimage sector number (bits 16-23)
+            -- @IO:GS $D68E F011:DISKADDR2 Diskimage sector number (bits 16-23)
             fastio_rdata <= diskimage_sector(23 downto 16);
           when x"8f" =>
-            -- @IO:GS $D68F - Diskimage sector number (bits 24-31)
+            -- @IO:GS $D68F F011:DISKADDR3 Diskimage sector number (bits 24-31)
             fastio_rdata <= diskimage_sector(31 downto 24);
 
-
+          when x"90" =>
+            -- @IO:GS $D68C F011:DISK2ADDR0 Diskimage 2 sector number (bits 0-7)
+            fastio_rdata <= diskimage2_sector(7 downto 0);
+          when x"91" =>
+            -- @IO:GS $D68D F011:DISK2ADDR1 Diskimage 2 sector number (bits 8-15)
+            fastio_rdata <= diskimage2_sector(15 downto 8);
+          when x"92" =>
+            -- @IO:GS $D68E F011:DISK2ADDR2 Diskimage 2 sector number (bits 16-23)
+            fastio_rdata <= diskimage2_sector(23 downto 16);
+          when x"93" =>
+            -- @IO:GS $D68F F011:DISK2ADDR3 Diskimage 2 sector number (bits 24-31)
+            fastio_rdata <= diskimage2_sector(31 downto 24);
           when x"a0" =>
             -- @IO:GS $D6A0 - DEBUG FDC read status lines
             fastio_rdata(7) <= f_index;
@@ -1395,15 +1413,36 @@ begin  -- behavioural
       else
         physical_sector <= f011_sector + 9;  -- +10 minus 1
       end if;
-      diskimage_offset(10 downto 0) <=
-        to_unsigned(
-          to_integer(f011_track(6 downto 0) & "0000")
-          +to_integer("00" & f011_track(6 downto 0) & "00")
-          +to_integer("000" & physical_sector),11);
-      -- and don't let it point beyond the end of the disk
-      if (f011_track >= 80) or (physical_sector > 20) then
-        -- point to last sector if disk instead
-        diskimage_offset <= to_unsigned(1599,11);
+      if f011_mega_disk='0' then
+        diskimage_offset1(15 downto 0) <=
+          to_unsigned(
+            to_integer(f011_track(6 downto 0) & "0000")
+            +to_integer("00" & f011_track(6 downto 0) & "00")
+            +to_integer("000" & physical_sector),11);
+        -- and don't let it point beyond the end of the disk
+        if (f011_track >= 80) or (physical_sector > 20) then
+          -- point to last sector if disk instead
+          diskimage_offset1 <= to_unsigned(1599,11);
+        end if;
+      else
+        diskimage_offset1(15 downto 8) <= f011_track;
+        diskimage_offset1(7 downto 0) <= f011_sector;
+      end if;
+
+      if f011_mega_disk2='0' then
+        diskimage_offset2(15 downto 0) <=
+          to_unsigned(
+            to_integer(f011_track(6 downto 0) & "0000")
+            +to_integer("00" & f011_track(6 downto 0) & "00")
+            +to_integer("000" & physical_sector),11);
+        -- and don't let it point beyond the end of the disk
+        if (f011_track >= 80) or (physical_sector > 20) then
+          -- point to last sector if disk instead
+          diskimage_offset2 <= to_unsigned(1599,11);
+        end if;
+      else
+        diskimage_offset2(15 downto 8) <= f011_track;
+        diskimage_offset2(7 downto 0) <= f011_sector;
       end if;
       
       -- De-map sector buffer if VIC-IV maps colour RAM at $DC00
@@ -1562,18 +1601,33 @@ begin  -- behavioural
                       f011_busy <= '1';
                       -- We use the SD-card buffer offset to count the bytes read
                       sd_buffer_offset <= (others => '0');
-                      if sdhc_mode='1' then
-                        sd_sector <= diskimage_sector + diskimage_offset;
+                      if f011_ds="000" then
+                        if sdhc_mode='1' then
+                          sd_sector <= diskimage_sector + diskimage_offset1;
+                        else
+                          sd_sector(31 downto 9) <= diskimage_sector(31 downto 9) +
+                                                    diskimage_offset1;     
+                        end if;
                       else
-                        sd_sector(31 downto 9) <= diskimage_sector(31 downto 9) +
-                                                  diskimage_offset;     
-                      end if;
+                        if sdhc_mode='1' then
+                          sd_sector <= diskimage_sector + diskimage_offset2;
+                        else
+                          sd_sector(31 downto 9) <= diskimage_sector(31 downto 9) +
+                                                    diskimage_offset2;
+                        end if;
+                      end if;                        
                     end if;
                     if virtualise_f011='1' then
                       -- Hypervisor virtualised
                       sd_state <= HyperTrapRead;
-                      sd_sector(10 downto 0) <= diskimage_offset;
-                      sd_sector(31 downto 11) <= (others => '0');
+                      if f011_ds="000" then
+                        sd_sector(15 downto 0) <= diskimage_offset1;
+                      elsif f011_ds="001" then
+                        sd_sector(15 downto 0) <= diskimage_offset2;
+                      else
+                        sd_sector(15 downto 0) <= (others => '0');
+                      end if;
+                      sd_sector(31 downto 16) <= (others => '0');
                     else
                       -- SD card
                       sd_state <= ReadSector;                      
@@ -1620,11 +1674,22 @@ begin  -- behavioural
                     sd_buffer_offset <= (others => '0');
                     -- XXX Doesn't trigger an error for bad track/sector:
                     -- just writes to sector 1599 of the disk image!
-                    if sdhc_mode='1' then
-                      sd_sector <= diskimage_sector + diskimage_offset;
+                    if f011_ds="000" then
+                      if sdhc_mode='1' then
+                        sd_sector <= diskimage_sector + diskimage_offset1;
+                      else
+                        sd_sector(31 downto 9) <= diskimage_sector(31 downto 9) +
+                                                  diskimage_offset1;     
+                      end if;
+                    elsif f011_ds="001" then
+                      if sdhc_mode='1' then
+                        sd_sector <= diskimage_sector + diskimage_offset2;
+                      else
+                        sd_sector(31 downto 9) <= diskimage_sector(31 downto 9) +
+                                                  diskimage_offset2;     
+                      end if;
                     else
-                      sd_sector(31 downto 9) <= diskimage_sector(31 downto 9) +
-                                                diskimage_offset;     
+                      sd_sector <= (others => '1');
                     end if;
                     -- XXX Writing with real floppy causes a hypervisor trap
                     -- instead of writing to disk.
@@ -1632,8 +1697,14 @@ begin  -- behavioural
                       sd_state <= F011WriteSector;
                     else
                       sd_state <= HyperTrapWrite;
-                      sd_sector(10 downto 0) <= diskimage_offset;
-                      sd_sector(31 downto 11) <= (others => '0');
+                      if f011_ds="000" then
+                        sd_sector(15 downto 0) <= diskimage_offset1;
+                      elsif f011_ds="001" then
+                        sd_sector(15 downto 0) <= diskimage_offset2;
+                      else
+                        sd_sector(15 downto 0) <= (others => '0');
+                      end if;
+                      sd_sector(31 downto 16) <= (others => '0');
                     end if;
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
@@ -1955,6 +2026,8 @@ begin  -- behavioural
 
             -- @IO:GS $D68B - F011 emulation control register
             when x"8b" =>
+              f011_mega_disk <= fastio_wdata(0);
+              f011_mega_disk2 <= fastio_wdata(1);
               -- @IO:GS $D68B.5 - F011 disk 2 write protect
               f011_disk2_write_protected <= not fastio_wdata(5);
               -- @IO:GS $D68B.4 - F011 disk 2 present
