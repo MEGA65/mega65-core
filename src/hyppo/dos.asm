@@ -3336,8 +3336,9 @@ l96:
 	lda d81_clustercount+0
 	ora d81_clustercount+2
 	ora d81_clustercount+3
-	bne not_mega_floppy
+	beq is_mega_floppy
 
+not_mega_floppy:	
 	// Is a 64MiB MEGA Floppy?
 	// (These behave as double-sided 256-track 256-sector disks of 512 byte sectors,
 	//  but with normal D81 directory format on side 0 of track 40.)
@@ -3352,7 +3353,7 @@ l96:
         lda d81_clustersneeded+1
         cmp d81_clustercount+1
         bne d81wronglength
-
+is_mega_floppy:	
 
 d81_is_good:	
         // D81 is good.
