@@ -1331,7 +1331,7 @@ begin  -- behavioural
             -- @IO:GS $D6E3 Set high-order size of frame to TX
             when x"3" =>
               eth_tx_size(11 downto 8) <= fastio_wdata(3 downto 0);
-            -- @IO:GS $D6E4 Ethernet command
+            -- @IO:GS $D6E4 ETH:COMMAND Ethernet command register
             when x"4" =>
               case fastio_wdata is
                 when x"00" =>
