@@ -1444,7 +1444,7 @@ begin  -- behavioural
       else
         diskimage2_offset(16) <= f011_side(0);
         diskimage2_offset(15 downto 8) <= f011_track;
-        diskimage2_offset2(7 downto 0) <= f011_sector;
+        diskimage2_offset(7 downto 0) <= f011_sector;
       end if;
       
       -- De-map sector buffer if VIC-IV maps colour RAM at $DC00
