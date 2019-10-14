@@ -592,13 +592,19 @@ GS $D68B.2 - F011 disk 1 write protect
 GS $D68B.3 - F011 disk 2 disk image enable
 GS $D68B.4 - F011 disk 2 present
 GS $D68B.5 - F011 disk 2 write protect
+GS $D68B.6 F011:MDISK0 Enable 16MiB ``MEGA Disk'' for F011 emulated drive 0
+GS $D68B.7 F011:MDISK0 Enable 16MiB ``MEGA Disk'' for F011 emulated drive 1
 GS $D68B - Diskimage control flags
 GS $D68B - F011 emulation control register
 GS $D68C-$D68F - F011 disk 1 disk image address on SD card
-GS $D68C - Diskimage sector number (bits 0-7)
-GS $D68D - Diskimage sector number (bits 8-15)
-GS $D68E - Diskimage sector number (bits 16-23)
-GS $D68F - Diskimage sector number (bits 24-31)
+GS $D68C F011:DISK2ADDR0 Diskimage 2 sector number (bits 0-7)
+GS $D68C F011:DISKADDR0 Diskimage sector number (bits 0-7)
+GS $D68D F011:DISK2ADDR1 Diskimage 2 sector number (bits 8-15)
+GS $D68D F011:DISKADDR1 Diskimage sector number (bits 8-15)
+GS $D68E F011:DISK2ADDR2 Diskimage 2 sector number (bits 16-23)
+GS $D68E F011:DISKADDR2 Diskimage sector number (bits 16-23)
+GS $D68F F011:DISK2ADDR3 Diskimage 2 sector number (bits 24-31)
+GS $D68F F011:DISKADDR3 Diskimage sector number (bits 24-31)
 GS $D690-$D693 - F011 disk 2 disk image address on SD card
 GS $D6A0 - 3.5" FDC control line debug access
 GS $D6A0 - DEBUG FDC read status lines
@@ -669,23 +675,23 @@ GS $D6DB - DEBUG SD card last error code MSB
 GS $D6DE - FPGA die temperature sensor (lower nybl)
 GS $D6DF - FPGA die temperature sensor (upper byte)
 GS $D6E0.0 Clear to reset ethernet PHY
-GS $D6E0.1-2 ETH:DBGRXD Read ethernet RX bits currently on the wire
-GS $D6E0.1-2 ETH:RESETRD Read ethernet RX bits currently on the wire
-GS $D6E0.3 ETH:DBGRXDV Read ethernet RX data valid (debug)
+GS $D6E0.0 ETH:RST Write 0 to hold ethernet controller under reset
+GS $D6E0.1-2 ETH:DRXD Read ethernet RX bits currently on the wire
+GS $D6E0.3 ETH:DRXDV Read ethernet RX data valid (debug)
 GS $D6E0.4 Allow remote keyboard input via magic ethernet frames
-GS $D6E0.4 ETH:ETHKEYEN Allow remote keyboard input via magic ethernet frames
-GS $D6E0.6 ETH:RXBLOCKED Indicate if ethernet RX is blocked until RX buffers rotated
+GS $D6E0.4 ETH:KEYEN Allow remote keyboard input via magic ethernet frames
+GS $D6E0.6 ETH:RXBLKD Indicate if ethernet RX is blocked until RX buffers rotated
 GS $D6E1.0 reset ethernet PHY
-GS $D6E1.1 ETH:RXBMAPD Set which RX buffer is memory mapped
+GS $D6E1.1 ETH:RXBM Set which RX buffer is memory mapped
 GS $D6E1.1 - Set which RX buffer is memory mapped
-GS $D6E1.2 ETH:RXBUSED Indicate which RX buffer was most recently used
+GS $D6E1.2 ETH:RXBU Indicate which RX buffer was most recently used
 GS $D6E1.2 WRITE ONLY Enable real-time CPU/BUS monitoring via ethernet
 GS $D6E1.3 Enable real-time video streaming via ethernet (or fast IO bus if CPU/bus monitoring enabled)
-GS $D6E1.3 ETH:STREAMEN Enable streaming of CPU instruction stream or VIC-IV display on ethernet
-GS $D6E1.4 ETH:TXIRQ Ethernet TX IRQ status
-GS $D6E1.5 ETH:RXIRQ Ethernet RX IRQ status
-GS $D6E1.6 ETH:TXIRQEN Enable ethernet TX IRQ
-GS $D6E1.7 ETH:RXIRQEN Enable ethernet RX IRQ
+GS $D6E1.3 ETH:STRM Enable streaming of CPU instruction stream or VIC-IV display on ethernet
+GS $D6E1.4 ETH:TXQ Ethernet TX IRQ status
+GS $D6E1.5 ETH:RXQ Ethernet RX IRQ status
+GS $D6E1.6 ETH:TXQEN Enable ethernet TX IRQ
+GS $D6E1.7 ETH:RXQEN Enable ethernet RX IRQ
 GS $D6E1 - Ethernet interrupt and control register
 GS $D6E2 ETH:TXSZLSB TX Packet size (low byte)
 GS $D6E2 Set low-order size of frame to TX
@@ -693,24 +699,24 @@ GS $D6E3 ETH:TXSZMSB TX Packet size (high byte)
 GS $D6E3 Set high-order size of frame to TX
 GS $D6E4 = $00 = Clear ethernet TX trigger (debug)
 GS $D6E4 = $01 = Transmit packet
-GS $D6E4 Ethernet command
-GS $D6E5.0 ETH:NOPROMISC Ethernet disable promiscuous mode
+GS $D6E4 ETH:COMMAND Ethernet command register
+GS $D6E5.0 ETH:NOPROM Ethernet disable promiscuous mode
 GS $D6E5.1 Disable CRC check for received packets
-GS $D6E5.1 ETH:NOCRCCHK Disable CRC check for received packets
+GS $D6E5.1 ETH:NOCRC Disable CRC check for received packets
 GS $D6E5.2-3 Ethernet TX clock phase adjust
-GS $D6E5.2-3 ETH:TXPHSADJ Ethernet TX clock phase adjust
-GS $D6E5.4 ETH:BCASTEN Accept broadcast frames
-GS $D6E5.5 ETH:MCASTEN Accept multicast frames
+GS $D6E5.2-3 ETH:TXPH Ethernet TX clock phase adjust
+GS $D6E5.4 ETH:BCST Accept broadcast frames
+GS $D6E5.5 ETH:MCST Accept multicast frames
 GS $D6E6.0-4 ETH:MIIMREG Ethernet MIIM register number
 GS $D6E6.7-5 ETH:MIIMPHY Ethernet MIIM PHY number (use 0 for Nexys4, 1 for MEGA65 r1 PCBs)
 GS $D6E7 ETH:MIIMVLSB Ethernet MIIM register value (LSB)
 GS $D6E8 ETH:MIIMVMSB Ethernet MIIM register value (MSB)
-GS $D6E9 ETH:MACBYTE1 Ethernet MAC address
-GS $D6EA ETH:MACBYTE2 Ethernet MAC address
-GS $D6EB ETH:MACBYTE3 Ethernet MAC address
-GS $D6EC ETH:MACBYTE4 Ethernet MAC address
-GS $D6ED ETH:MACBYTE5 Ethernet MAC address
-GS $D6EE ETH:MACBYTE6 Ethernet MAC address
+GS $D6E9 ETH:MACADDR1 Ethernet MAC address
+GS $D6EA ETH:MACADDR2 Ethernet MAC address
+GS $D6EB ETH:MACADDR3 Ethernet MAC address
+GS $D6EC ETH:MACADDR4 Ethernet MAC address
+GS $D6ED ETH:MACADDR5 Ethernet MAC address
+GS $D6EE ETH:MACADDR6 Ethernet MAC address
 GS $D6EF ETH:DBGRXSTAT DEBUG show current ethernet RX state
 GS $D6F0 - LCD panel brightness control
 GS $D6F2 - Read FPGA five-way buttons
