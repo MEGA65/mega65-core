@@ -374,7 +374,8 @@ architecture behavioural of sdcardio is
   signal fdc_mfm_byte : unsigned(7 downto 0);
   signal fdc_quantised_gap : unsigned(7 downto 0);
   
-  signal use_real_floppy : std_logic := '0';
+  signal use_real_floppy0 : std_logic := '0';
+  signal use_real_floppy2 : std_logic := '1';
   signal fdc_read_request : std_logic := '0';
   signal fdc_rotation_timeout : integer range 0 to 6 := 0;
   signal last_f_index : std_logic := '1';
@@ -673,7 +674,7 @@ begin  -- behavioural
            last_sd_state,f011_buffer_disk_address,f011_buffer_cpu_address,
            f011_flag_eq,sdcardio_cs,colourram_at_dc00,viciii_iomode,
            f_index,f_track0,f_writeprotect,f_rdata,f_diskchanged,
-           use_real_floppy,target_any,fdc_first_byte,fdc_sector_end,
+           use_real_floppy0,use_real_floppy2,target_any,fdc_first_byte,fdc_sector_end,
            fdc_sector_data_gap,fdc_sector_found,fdc_byte_valid,
            fdc_read_request,cycles_per_interval,found_track,
            found_sector,found_side,fdc_byte_out,fdc_mfm_state,
@@ -921,12 +922,13 @@ begin  -- behavioural
             fastio_rdata(3) <= f_diskchanged;
             fastio_rdata(2 downto 0) <= (others => '1');
           when x"a1" =>
-            -- @IO:GS $D6A1.0 - Use real floppy drive instead of SD card
-            fastio_rdata(0) <= use_real_floppy;
+            -- @IO:GS $D6A1.0 F011:DRV0EN Use real floppy drive instead of SD card for 1st floppy drive
+            fastio_rdata(0) <= use_real_floppy0;
+            -- @IO:GS $D6A1.0 F011:DRV2EN Use real floppy drive instead of SD card for 2nd floppy drive
+            fastio_rdata(2) <= use_real_floppy2;
             -- @IO:GS $D6A1.1 - Match any sector on a real floppy read/write
             fastio_rdata(1) <= target_any;
-            -- @IO:GS $D6A1.2-6 - FDC debug status flags
-            fastio_rdata(2) <= fdc_first_byte;
+            -- @IO:GS $D6A1.3-7 - FDC debug status flags
             fastio_rdata(3) <= fdc_sector_end;
             fastio_rdata(4) <= fdc_crc_error;
             fastio_rdata(5) <= fdc_sector_found;
@@ -1372,21 +1374,32 @@ begin  -- behavioural
         end if;
       end if;
 
-      if use_real_floppy='1' then
+      if use_real_floppy0='1' and f011_ds = "000" then
         -- PC drives use a combined RDY and DISKCHANGE signal.
         -- You can only clear the DISKCHANGE and re-assert RDY
         -- by stepping the disk (thus the ticking of 
         f011_disk_present <= '1';
         f011_write_protected <= not f_writeprotect;
-      elsif f011_ds=x"000" then
+      elsif use_real_floppy2='1' and f011_ds = "001" then
+        -- PC drives use a combined RDY and DISKCHANGE signal.
+        -- You can only clear the DISKCHANGE and re-assert RDY
+        -- by stepping the disk (thus the ticking of 
+        f011_disk_present <= '1';
+        f011_write_protected <= not f_writeprotect;
+      elsif f011_ds="000" then
         f011_write_protected <= f011_disk1_write_protected;
         f011_disk_present <= f011_disk1_present;
-      elsif f011_ds=x"001" then
+      elsif f011_ds="001" then
         f011_write_protected <= f011_disk2_write_protected;      
         f011_disk_present <= f011_disk2_present;
       end if;
       
-      if use_real_floppy='1' then
+      if use_real_floppy0='1' and f011_ds="000" then
+        -- When using the real drive, use correct index and track 0 sensors
+        f011_track0 <= not f_track0;
+        f011_over_index <= not f_index;
+        f011_disk_changed <= not f_diskchanged;
+      elsif use_real_floppy2='1' and f011_ds="001" then
         -- When using the real drive, use correct index and track 0 sensors
         f011_track0 <= not f_track0;
         f011_over_index <= not f_index;
@@ -1429,7 +1442,7 @@ begin  -- behavioural
         diskimage1_offset(16) <= f011_side(0);
         diskimage1_offset(15 downto 8) <= f011_track;
         diskimage1_offset(7 downto 0) <= f011_sector;
-      end if;
+      end if;   
 
       if f011_mega_disk2='0' then
         diskimage2_offset <=
@@ -1503,7 +1516,7 @@ begin  -- behavioural
               end if;
               f011_head_side(0) <= fastio_wdata(3);
               f011_ds <= fastio_wdata(2 downto 0);
-              if use_real_floppy='0' then
+              if not ((use_real_floppy0='1' and f011_ds="000") or (use_real_floppy2='1' and f011_ds="001"))  then
                 if fastio_wdata(2 downto 0) /= f011_ds then
                   f011_disk_changed <= '0';
                 end if;
@@ -1574,7 +1587,7 @@ begin  -- behavioural
                   -- Start reading into start of pointer
                   f011_buffer_disk_address <= (others => '0');
                   
-                  if use_real_floppy='1' and f011_ds="000" then
+                  if (use_real_floppy0='1' and f011_ds="000") or (use_real_floppy2='1' and f011_ds="001") then
                     report "Using real floppy drive, asserting fdc_read_request";
                     -- Real floppy drive request
                     fdc_read_request <= '1';
@@ -1655,12 +1668,12 @@ begin  -- behavioural
                   sb_cpu_read_request <= '1';
                   f011_buffer_disk_address <= (others => '0');
                   
-                  if f011_ds="000" and ((diskimage1_enable or use_real_floppy)='0'
+                  if f011_ds="000" and ((diskimage1_enable or use_real_floppy0)='0'
                                         or f011_disk1_present='0'
                                         or f011_disk1_write_protected='1') then
                     f011_rnf <= '1';
                     report "Drive 0 selected, but not mounted.";
-                  elsif f011_ds="001" and (diskimage2_enable='0'
+                  elsif f011_ds="001" and ((diskimage2_enable or use_real_floppy2)='0'
                                            or f011_disk2_present='0'
                                            or f011_disk2_write_protected='1') then
                     f011_rnf <= '1';
@@ -1696,7 +1709,8 @@ begin  -- behavioural
                     end if;
                     -- XXX Writing with real floppy causes a hypervisor trap
                     -- instead of writing to disk.
-                    if virtualise_f011='0' and use_real_floppy='0' then
+                    if virtualise_f011='0' and
+                      ((use_real_floppy0='0' and f011_ds="000") or (use_real_floppy2='0' and f011_ds="001")) then
                       sd_state <= F011WriteSector;
                     else
                       sd_state <= HyperTrapWrite;
@@ -2069,7 +2083,8 @@ begin  -- behavioural
               f_wgate <= fastio_wdata(1);
               f_side1 <= fastio_wdata(0);
             when x"a1" =>
-              use_real_floppy <= fastio_wdata(0);
+              use_real_floppy0 <= fastio_wdata(0);
+              use_real_floppy2 <= fastio_wdata(2);
               target_any <= fastio_wdata(1);
             when x"a2" =>
               cycles_per_interval <= fastio_wdata;
