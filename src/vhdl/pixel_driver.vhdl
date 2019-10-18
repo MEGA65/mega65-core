@@ -332,7 +332,7 @@ begin
                       inframe_vga60 when vga60_select_internal='1'
                       else inframe_ntsc60;
   lcd_inframe <= lcd_inframe_pal50 when pal50_select_internal='1' else
-                 lca_inframe_vga60 when vga60_select_internal='1'
+                 lcd_inframe_vga60 when vga60_select_internal='1'
                  else lcd_inframe_ntsc60;
   lcd_inletterbox <= lcd_inletterbox_pal50 when pal50_select_internal='1' else
                      lcd_inletterbox_vga60 when vga60_select_internal='1'
