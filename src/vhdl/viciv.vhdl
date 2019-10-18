@@ -120,6 +120,7 @@ entity viciv is
     vsync_polarity : out  STD_LOGIC := '0';
     hsync_polarity : out  STD_LOGIC := '0';
     pal50_select : out std_logic := '0';
+    vga60_select : out std_logic := '0';
 
     lcd_pixel_strobe : out std_logic;
     vga_in_frame : in std_logic;
@@ -257,6 +258,7 @@ architecture Behavioral of viciv is
 
   -- Select which of the four video modes to use at any point in time.
   signal vicii_ntsc : std_logic := '1';
+  signal vga60_select_internal : std_logic := '0';
 
   -- Video mode definition
   -- NOTE: These get overwritten by $D06F PAL/NTSC flags
@@ -1922,7 +1924,7 @@ begin
           fastio_rdata <= std_logic_vector(vicii_sprite_pointer_address(23 downto 16));
         elsif register_number=111 then
           fastio_rdata(7) <= vicii_ntsc;
-          fastio_rdata(6) <= '0';
+          fastio_rdata(6) <= vga60_select_internal;
           fastio_rdata(5 downto 0) <= std_logic_vector(vicii_first_raster(5 downto 0));
         elsif register_number=112 then -- $D3070
           fastio_rdata <= palette_bank_fastio & palette_bank_chargen & palette_bank_sprites & palette_bank_chargen_alt;
@@ -2639,9 +2641,12 @@ begin
         elsif register_number=111 then
           -- @IO:GS $D06F.5-0 VIC-IV:RASLINE0 first VIC-II raster line
           vicii_first_raster(5 downto 0) <= unsigned(fastio_wdata(5 downto 0));
+          -- @IO:GS $D06F.6 VIC-IV:VGAHDTV Select more VGA-compatible mode if set, instead of HDMI/HDTV VIC-II cycle-exact frame timing. May help to produce a functional display on older VGA monitors.
           -- @IO:GS $D06F.7 VIC-IV:PALNTSC NTSC emulation mode (max raster = 262)
           vicii_ntsc <= fastio_wdata(7);
           pal50_select <= not fastio_wdata(7);
+          vga60_select <= fastio_wdata(6);
+          vga60_select_internal <= fastio_wdata(6);
           -- Make sure that matrix
           -- mode display isn't jiggly
           if fastio_wdata(7)='1' then

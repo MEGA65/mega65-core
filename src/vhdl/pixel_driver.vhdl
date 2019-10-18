@@ -42,6 +42,9 @@ entity pixel_driver is
     
     -- 800x600@50Hz if pal50_select='1', else 800x600@60Hz
     pal50_select : in std_logic;
+    -- 640x480@64Hz if vga60_select='1' override is enabled
+    -- for monitors that can't do the HDTV modes
+    vga60_select : in std_logic := '0';
     -- Shows simple test pattern if '1', else shows normal video
     test_pattern_enable : in std_logic;
     -- Invert hsync or vsync signals if '1'
@@ -113,9 +116,11 @@ architecture greco_roman of pixel_driver is
 
   signal lcd_vsync_pal50 : std_logic := '0';
   signal lcd_vsync_ntsc60 : std_logic := '0';
+  signal lcd_vsync_vga60 : std_logic := '0';
 
   signal lcd_hsync_pal50 : std_logic := '0';
   signal lcd_hsync_ntsc60 : std_logic := '0';
+  signal lcd_hsync_vga60 : std_logic := '0';
   
   signal test_pattern_red : unsigned(7 downto 0) := x"00";
   signal test_pattern_green : unsigned(7 downto 0) := x"00";
@@ -125,21 +130,28 @@ architecture greco_roman of pixel_driver is
   signal y_zero_pal50 : std_logic := '0';
   signal x_zero_ntsc60 : std_logic := '0';
   signal y_zero_ntsc60 : std_logic := '0';
+  signal x_zero_vga60 : std_logic := '0';
+  signal y_zero_vga60 : std_logic := '0';
 
   signal inframe_pal50 : std_logic := '0';
   signal inframe_ntsc60 : std_logic := '0';
+  signal inframe_vga60 : std_logic := '0';
 
   signal lcd_inframe_pal50 : std_logic := '0';
   signal lcd_inframe_ntsc60 : std_logic := '0';
+  signal lcd_inframe_vga60 : std_logic := '0';
 
   signal lcd_inletterbox_pal50 : std_logic := '0';
   signal lcd_inletterbox_ntsc60 : std_logic := '0';
+  signal lcd_inletterbox_vga60 : std_logic := '0';
 
   signal lcd_pixel_clock_50 : std_logic := '0';
   signal lcd_pixel_clock_60 : std_logic := '0';
+  signal lcd_pixel_clock_vga60 : std_logic := '0';
   
   signal pixel_strobe_50 : std_logic := '0';
   signal pixel_strobe_60 : std_logic := '0';
+  signal pixel_strobe_vga60 : std_logic := '0';
 
   signal test_pattern_red50 : unsigned(7 downto 0) := x"00";
   signal test_pattern_green50 : unsigned(7 downto 0) := x"00";
@@ -147,15 +159,21 @@ architecture greco_roman of pixel_driver is
   signal test_pattern_red60 : unsigned(7 downto 0) := x"00";
   signal test_pattern_green60 : unsigned(7 downto 0) := x"00";
   signal test_pattern_blue60 : unsigned(7 downto 0) := x"00";
+  signal test_pattern_redvga60 : unsigned(7 downto 0) := x"00";
+  signal test_pattern_greenvga60 : unsigned(7 downto 0) := x"00";
+  signal test_pattern_bluevga60 : unsigned(7 downto 0) := x"00";
 
   signal raster_toggle50 : std_logic := '0';
   signal raster_toggle60 : std_logic := '0';
+  signal raster_togglevga60 : std_logic := '0';
   signal raster_toggle_last50 : std_logic := '0';
   signal raster_toggle_last60 : std_logic := '0';
+  signal raster_toggle_lastvga60 : std_logic := '0';
 
   signal plotting : std_logic := '0';
   signal plotting50 : std_logic := '0';
   signal plotting60 : std_logic := '0';
+  signal plottingvga60 : std_logic := '0';
 
   signal test_pattern_enable120 : std_logic := '0';
   
@@ -170,6 +188,7 @@ architecture greco_roman of pixel_driver is
 
   signal raddr50 : integer := 0;
   signal raddr60 : integer := 0;
+  signal raddrvga60 : integer := 0;
   
 begin
 
@@ -253,32 +272,99 @@ begin
                
                );               
 
-  hsync <= hsync_pal50 when pal50_select_internal='1' else hsync_ntsc60;
-  vsync <= vsync_pal50 when pal50_select_internal='1' else vsync_ntsc60;
-  lcd_hsync <= lcd_hsync_pal50 when pal50_select_internal='1' else lcd_hsync_ntsc60;
-  lcd_vsync <= lcd_vsync_pal50 when pal50_select_internal='1' else lcd_vsync_ntsc60;
-  inframe <= inframe_pal50 when pal50_select_internal='1' else inframe_ntsc60;
-  inframe_internal <= inframe_pal50 when pal50_select_internal='1' else inframe_ntsc60;
-  lcd_inframe <= lcd_inframe_pal50 when pal50_select_internal='1' else lcd_inframe_ntsc60;
-  lcd_inletterbox <= lcd_inletterbox_pal50 when pal50_select_internal='1' else lcd_inletterbox_ntsc60;
+  -- ModeLine "640x480" 25.18 640 656 752 800 480 490 492 525 -HSync -VSync 
+  frame60vga: entity work.frame_generator
+    generic map ( frame_width => 800-1,   -- 65 cycles x 16 pixels
+                  display_width => 640,
+                  frame_height => 526,       -- NTSC frame is 263 lines x 2 frames
+                  display_height => 526-4,
+                  pipeline_delay => 0,
+                  vsync_start => 489,
+                  vsync_end => 495,
+                  hsync_start => 656,
+                  hsync_end => 752
+                  )                  
+    port map ( clock81 => clock81,
+               clock41 => cpuclock,
+               hsync_polarity => hsync_invert,
+               vsync_polarity => vsync_invert,
+               hsync_uninverted => hsync_vga60_uninverted,
+               hsync => hsync_vga60,
+               vsync => vsync_vga60,
+               inframe => inframe_vga60,
+               lcd_hsync => lcd_hsync_vga60,
+               lcd_vsync => lcd_vsync_vga60,
+               lcd_inframe => lcd_inframe_vga60,
+               lcd_inletterbox => lcd_inletterbox_vga60,
 
-  raster_strobe <= x_zero_pal50 when pal50_select_internal='1' else x_zero_ntsc60;
-  x_zero <= x_zero_pal50 when pal50_select_internal='1' else x_zero_ntsc60;
-  y_zero <= y_zero_pal50 when pal50_select_internal='1' else y_zero_ntsc60;
-  y_zero_internal <= y_zero_pal50 when pal50_select_internal='1' else y_zero_ntsc60;
-  pixel_strobe_out <= pixel_strobe_50 when pal50_select_internal='1' else pixel_strobe_60;
+               -- 80MHz facing signals for VIC-IV
+               x_zero => x_zero_vga60,
+               y_zero => y_zero_vga60,
+               pixel_strobe => pixel_strobe_vga60               
+               
+               );               
+  
+  hsync <= hsync_pal50 when pal50_select_internal='1' else
+           hsync_ntsc60 when vga60_select_internal='1'
+           else hsync_vga60;
+  vsync <= vsync_pal50 when pal50_select_internal='1' else
+           vsync_vga60 when vga60_select_internal='1'
+           else vsync_ntsc60;
+  lcd_hsync <= lcd_hsync_pal50 when pal50_select_internal='1' else
+               lcd_hsync_vga60 when vga60_select_internal='1'
+               else lcd_hsync_ntsc60;
+  lcd_vsync <= lcd_vsync_pal50 when pal50_select_internal='1' else
+               lcd_vsync_vga60 when vga60_select_internal='1'
+               else lcd_vsync_ntsc60;
+  inframe <= inframe_pal50 when pal50_select_internal='1' else
+             inframe_vga60 when vga60_select_internal='1'
+             else inframe_ntsc60;
+  inframe_internal <= inframe_pal50 when pal50_select_internal='1' else
+                      inframe_vga60 when vga60_select_internal='1'
+                      else inframe_ntsc60;
+  lcd_inframe <= lcd_inframe_pal50 when pal50_select_internal='1' else
+                 lca_inframe_vga60 when vga60_select_internal='1'
+                 else lcd_inframe_ntsc60;
+  lcd_inletterbox <= lcd_inletterbox_pal50 when pal50_select_internal='1' else
+                     lcd_inletterbox_vga60 when vga60_select_internal='1'
+                     else lcd_inletterbox_ntsc60;
+
+  raster_strobe <= x_zero_pal50 when pal50_select_internal='1' else
+                   x_zero_vga60 when vga60_select_internal='1'
+                   else x_zero_ntsc60;
+  x_zero <= x_zero_pal50 when pal50_select_internal='1' else
+            x_zero_vga60 when vga60_select_internal='1'
+            else x_zero_ntsc60;
+  y_zero <= y_zero_pal50 when pal50_select_internal='1' else
+            y_zero_vga60 when vga60_select_internal='1'
+            else y_zero_ntsc60;
+  y_zero_internal <= y_zero_pal50 when pal50_select_internal='1' else
+                     y_zero_vga60 when vga60_select_internal='1'
+                     else y_zero_ntsc60;
+  pixel_strobe_out <= pixel_strobe_50 when pal50_select_internal='1' else
+                      pixel_strobe_vga60 when vga60_select_internal='1'
+                      else pixel_strobe_60;
 
   -- Generate output pixel strobe and signals for read-side of the FIFO
-  pixel_strobe_out <= pixel_strobe_50 when pal50_select_internal='1' else pixel_strobe_60;
+  pixel_strobe_out <= pixel_strobe_50 when pal50_select_internal='1' else
+                      pixel_strobe_vga60 when vga60_select_internal='1'
+                      else pixel_strobe_60;
 
-  raddr <= std_logic_vector(to_unsigned(raddr50,10)) when pal50_select_internal='1' else std_logic_vector(to_unsigned(raddr60,10));
+  raddr <= std_logic_vector(to_unsigned(raddr50,10)) when pal50_select_internal='1' else
+           std_logic_vector(to_unsigned(raddrvga60,10)) when vga60_select_internal='1'
+           else std_logic_vector(to_unsigned(raddr60,10));
   
   plotting <= '0' when y_zero_internal='1' else
-              plotting50 when pal50_select_internal='1'
+              plotting50 when pal50_select_internal='1' else
+              plottingvga60 when vga60_select_internal='1'
               else plotting60;
   
-  x_zero_out <= x_zero_pal50 when pal50_select_internal80='1' else x_zero_ntsc60;
-  y_zero_out <= y_zero_pal50 when pal50_select_internal80='1' else y_zero_ntsc60;
+  x_zero_out <= x_zero_pal50 when pal50_select_internal80='1' else
+                x_zero_vga60 when vga60_select_internal80='1'
+                else x_zero_ntsc60;
+  y_zero_out <= y_zero_pal50 when pal50_select_internal80='1' else
+                y_zero_vga60 when vga60_select_internal80='1'
+                else y_zero_ntsc60;
   
   process (clock81,clock27) is
   begin
@@ -297,6 +383,8 @@ begin
       pal50_select_internal80 <= pal50_select;
       if pal50_select_internal80 = '1' then
         display_en80 <= lcd_inframe_pal50;
+      elsif vga60_select_internal80='1' then
+        display_en80 <= lcd_inframe_vga60;
       else
         display_en80 <= lcd_inframe_ntsc60;
       end if;
@@ -306,6 +394,9 @@ begin
   if rising_edge(clock27) then
       pal50_select_internal_drive <= pal50_select;
       pal50_select_internal <= pal50_select_internal_drive;
+
+      vga60_select_internal_drive <= vga60_select;
+      vga60_select_internal <= vga60_select_internal_drive;
 
       test_pattern_enable120 <= test_pattern_enable;
       
@@ -317,14 +408,11 @@ begin
       elsif test_pattern_enable120='1' then
         red_o <= to_unsigned(raddr50,8);
         green_o <= to_unsigned(raddr60,8);
-        blue_o <= x"FF";
-        blue_o(7) <= pixel_strobe_50;
+        blue_o <= to_unsigned(raddrvga60,8);
       else
-
         red_o <= red_i;
         green_o <= green_i;
         blue_o <= blue_i;
-
       end if;
       
       if x_zero_pal50='1' then
@@ -371,6 +459,28 @@ begin
       end if;
     end if;
 
+  if x_zero_vga60='1' then
+        raddrvga60 <= 0;
+        plottingvga60 <= '0';
+        report "raddr = ZERO";
+      else
+        if raddrvga60 < 800 then
+          plottingvga60 <= '1';
+        else
+          plottingvga60 <= '0';
+        end if;
+
+        if raddrvga60 = 1 then
+          display_envga60 <= '1';
+        elsif raddrvga60 = 801 then
+          display_envga60 <= '0';
+        end if;
+        if raddrvga60 < 1023 then
+          raddrvga60 <= raddrvga60 + 1;
+        end if;
+      end if;
+    end if;
+  
 end process;
   
 end greco_roman;
