@@ -188,8 +188,6 @@ architecture greco_roman of pixel_driver is
   
   signal y_zero_internal : std_logic := '0';
 
-  signal display_en50 : std_logic := '0';
-  signal display_en60 : std_logic := '0';
   signal display_en80 : std_logic := '0';
 
   signal raddr : std_logic_vector(9 downto 0);
@@ -437,11 +435,6 @@ begin
           plotting50 <= '0';
         end if;
   
-        if raddr50 = 1 then
-          display_en50 <= '1';
-        elsif raddr50 = 801 then
-          display_en50 <= '0';
-        end if;
         if raddr50 < 1023 then
           raddr50 <= raddr50 + 1;
         end if;
@@ -458,11 +451,6 @@ begin
           plotting60 <= '0';
         end if;
 
-        if raddr60 = 1 then
-          display_en60 <= '1';
-        elsif raddr60 = 801 then
-          display_en60 <= '0';
-        end if;
         if raddr60 < 1023 then
           raddr60 <= raddr60 + 1;
         end if;
@@ -480,17 +468,11 @@ begin
           plottingvga60 <= '0';
         end if;
 
-        if raddrvga60 = 1 then
-          display_envga60 <= '1';
-        elsif raddrvga60 = 801 then
-          display_envga60 <= '0';
-        end if;
         if raddrvga60 < 1023 then
           raddrvga60 <= raddrvga60 + 1;
         end if;
       end if;
-    end if;
-  
-end process;
-  
+
+  end process;
+
 end greco_roman;
