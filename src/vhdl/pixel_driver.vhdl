@@ -101,6 +101,10 @@ architecture greco_roman of pixel_driver is
   signal pal50_select_internal_drive : std_logic := '0';
   signal pal50_select_internal80 : std_logic := '0';
 
+  signal vga60_select_internal : std_logic := '0';
+  signal vga60_select_internal_drive : std_logic := '0';
+  signal vga60_select_internal80 : std_logic := '0';
+  
   signal raster_toggle : std_logic := '0';
   signal raster_toggle_last : std_logic := '0';
 
@@ -114,6 +118,11 @@ architecture greco_roman of pixel_driver is
   signal vsync_ntsc60 : std_logic := '0';
   signal vsync_ntsc60_uninverted : std_logic := '0';
 
+  signal hsync_vga60 : std_logic := '0';
+  signal hsync_vga60_uninverted : std_logic := '0';
+  signal vsync_vga60 : std_logic := '0';
+  signal vsync_vga60_uninverted : std_logic := '0';
+  
   signal lcd_vsync_pal50 : std_logic := '0';
   signal lcd_vsync_ntsc60 : std_logic := '0';
   signal lcd_vsync_vga60 : std_logic := '0';
@@ -380,7 +389,8 @@ begin
   end if;       
       
       lcd_display_enable <= display_en80;
-      pal50_select_internal80 <= pal50_select;
+  pal50_select_internal80 <= pal50_select;
+  vga60_select_internal80 <= vga60_select;
       if pal50_select_internal80 = '1' then
         display_en80 <= lcd_inframe_pal50;
       elsif vga60_select_internal80='1' then
