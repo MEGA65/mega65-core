@@ -591,6 +591,7 @@ architecture Behavioral of machine is
   signal lcd_display_enable_internal : std_logic := '0';
 
   signal pal50_select : std_logic := '0';
+  signal vga60_select : std_logic := '0';
   signal hsync_polarity : std_logic := '0';
   signal vsync_polarity : std_logic := '0';
 
@@ -1027,7 +1028,8 @@ begin
       -- Configuration information from the VIC-IV
       hsync_invert => hsync_polarity,
       vsync_invert => vsync_polarity,
-      pal50_select => pal50_select,
+               pal50_select => pal50_select,
+               vga60_select => vga60_select,
       test_pattern_enable => test_pattern_enable,      
       
       -- Framing information for VIC-IV
@@ -1077,6 +1079,7 @@ begin
       
       -- Configuration information for pixel_driver
       pal50_select => pal50_select,
+      vga60_select => vga60_select,
       vsync_polarity => vsync_polarity,
      hsync_polarity => hsync_polarity,
 
