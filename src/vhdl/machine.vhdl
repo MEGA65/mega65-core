@@ -681,6 +681,8 @@ architecture Behavioral of machine is
   signal ethernet_cpu_arrest : std_logic := '0';
 
   signal d031_write_toggle : std_logic;
+
+  signal request_monitor_halt : std_logic;
   
 begin
 
@@ -877,6 +879,7 @@ begin
       phi0 => phi0,
       all_pause => all_pause,
       matrix_trap_in=>matrix_trap,
+      request_monitor_halt => request_monitor_halt,
       protected_hardware => protected_hardware_sig,
       virtualised_hardware => virtualised_hardware_sig,
       chipselect_enables => chipselect_enables,
@@ -1602,6 +1605,8 @@ begin
     reset => reset_combined,
     reset_out => reset_monitor,
 
+    request_monitor_halt => request_monitor_halt,
+    
     monitor_hyper_trap => monitor_hyper_trap,
     clock => uartclock,
     tx       => uart_txd_sig,--uart_txd_sig,
