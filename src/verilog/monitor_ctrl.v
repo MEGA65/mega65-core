@@ -123,7 +123,17 @@ assign reset_out = (reset_timeout != 0);
 always @(posedge clk)
   begin
      $display("reset=%b, reset_processing=%b, reset_timeoud=%u",reset,reset_processing,reset_timeout);
+
+     // Watch for CPU asking to be stopped due to an internally generated breakpoint.   
+  if (request_monitor_halt)
+    begin
+       // Enable single-step mode, i.e., stop CPU
+       mem_trace_reg[0] <= 1;
+       // Disable IRQs
+       mem_trace_reg[4] <= 1; 
+    end
      
+  
   if(reset & ~reset_processing)
   begin
     reset_processing <= 1;
