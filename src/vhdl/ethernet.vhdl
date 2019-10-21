@@ -434,8 +434,11 @@ begin  -- behavioural
   process(eth_rx_buffer_moby,fastio_addr,fastio_read) is
   begin    
     rxbuffer_readaddress <= to_integer(eth_rx_buffer_moby&fastio_addr(10 downto 0));
-    if fastio_read='1' and fastio_addr(19 downto 12) = x"DE"
-      and fastio_addr(11)='1' then
+    if fastio_read='1' and (
+      (fastio_addr(19 downto 12) = x"DE" and fastio_addr(11)='1')
+      or (fastio_addr(19 downto 12) = x"D2")
+      )
+    then
       rxbuffer_cs <= '1';
     else
       rxbuffer_cs <= '0';
@@ -1328,7 +1331,9 @@ begin  -- behavioural
       end if;
 
       if fastio_write='1' then
-        if fastio_addr(19 downto 10)&"00" = x"DE8" then
+        if (fastio_addr(19 downto 10)&"00" = x"DE8")
+          or (fastio_addr(19 downto 10)&"00" = x"D20")
+        then
           -- Writing to TX buffer
           -- (we don't need toclear the write lines, as noone else can write to
           -- the buffer.  The TX buffer cannot be read, as reading the same
