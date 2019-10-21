@@ -303,6 +303,7 @@ architecture behavioural of ethernet is
  signal dumpram_wdata : std_logic_vector(63 downto 0) := (others => '0');
  signal dumpram_rdata : std_logic_vector(7 downto 0) := (others => '0');
  signal dumpram_write : std_logic := '0';
+ signal allow_2k_log_frames : std_logic := '1';
  signal activity_dump_ready_toggle : std_logic := '0';
  signal last_activity_dump_ready_toggle : std_logic := '0';
  signal activity_dump : std_logic := '0';
@@ -537,7 +538,7 @@ begin  -- behavioural
             eth_tx_dump <= '0';
           elsif (activity_dump='1') and activity_dump_ready_toggle /= last_activity_dump_ready_toggle then
             -- start sending an IPv6 multicast packet containing the compressed
-            -- video.
+            -- video or CPU instruction trace.
             report "ETHERDUMP: Sending next packet ("
               & std_logic'image(activity_dump_ready_toggle) & " vs " &
               std_logic'image(last_activity_dump_ready_toggle) & ")"
@@ -659,8 +660,11 @@ begin  -- behavioural
             end if;
 
             if (eth_tx_dump='1')
-                and (to_unsigned(txbuffer_readaddress,12) /=
-                     (2048 + video_packet_header'length - 1)) then
+                and ((to_unsigned(txbuffer_readaddress,12) /=
+                      (2048 + video_packet_header'length - 1)) and allow_2k_log_frames='1')
+              and ((to_unsigned(txbuffer_readaddress,12) /=
+                      (1024 + video_packet_header'length - 1)) and allow_2k_log_frames='0')
+            then
               -- Not yet at end of CPU/BUS log dump, so advance read address
               -- pointer for dump buffer
               txbuffer_readaddress <= txbuffer_readaddress + 1;
@@ -678,8 +682,11 @@ begin  -- behavioural
                 and (to_unsigned(txbuffer_readaddress,12) /= eth_tx_size_padded))
               or
               ((eth_tx_viciv='1')
-                and (to_unsigned(txbuffer_readaddress,12) /=
-                     (2048 + video_packet_header'length - 1)))
+                and ((to_unsigned(txbuffer_readaddress,12) /=
+                     (2048 + video_packet_header'length - 1)) and allow_2k_log_frames='1')
+                and ((to_unsigned(txbuffer_readaddress,12) /=
+                     (1024 + video_packet_header'length - 1)) and allow_2k_log_frames='0')
+               )
             then
               txbuffer_readaddress <= txbuffer_readaddress + 1;
               if txbuffer_readaddress = eth_tx_size then
@@ -1168,14 +1175,28 @@ begin  -- behavioural
         
         dumpram_waddr <= std_logic_vector(to_unsigned(to_integer(unsigned(dumpram_waddr)) + 1,9));
         dumpram_write <= '1';
-        activity_dump_ready_toggle <= dumpram_waddr(8);
-        if dumpram_waddr(7 downto 0) = "11110000" then
-          -- Check if we are about to run out of buffer space
-          if eth_tx_idle_cpuside = '0' then
-            cpu_arrest_internal <= '1';
-            report "ETHERDUMP: Arresting CPU";
+        -- 64bits wide = 8 bytes x 2^8 = 8*256 = 2K
+        -- Some network cards etc can't handle such big packets, so allow an
+        -- option to send smaller ones
+        if allow_2k_log_frames='1' then
+          activity_dump_ready_toggle <= dumpram_waddr(8); 
+          if dumpram_waddr(7 downto 0) = "11110000" then
+            -- Check if we are about to run out of buffer space
+            if eth_tx_idle_cpuside = '0' then
+              cpu_arrest_internal <= '1';
+              report "ETHERDUMP: Arresting CPU";
+            end if;
           end if;
-        end if;
+       else
+          activity_dump_ready_toggle <= dumpram_waddr(7);
+          if dumpram_waddr(6 downto 0) = "1110000" then
+            -- Check if we are about to run out of buffer space
+            if eth_tx_idle_cpuside = '0' then
+              cpu_arrest_internal <= '1';
+              report "ETHERDUMP: Arresting CPU";
+            end if;
+          end if;
+       end if;
 
       elsif instruction_strobe='1' then
         report "ETHERDUMP: Instruction spotted: " & to_hstring(debug_vector) & ", writing to $" & to_hstring(dumpram_waddr);
@@ -1184,12 +1205,23 @@ begin  -- behavioural
         --                                         -- are causing $D031 writes
         dumpram_waddr <= std_logic_vector(to_unsigned(to_integer(unsigned(dumpram_waddr)) + 1,9));
         dumpram_write <= '1';
-        activity_dump_ready_toggle <= dumpram_waddr(8);
-        if dumpram_waddr(7 downto 0) = "11110000" then
-          -- Check if we are about to run out of buffer space
-          if eth_tx_idle_cpuside = '0' then
-            cpu_arrest_internal <= '1';
-            report "ETHERDUMP: Arresting CPU";
+        if allow_2k_log_frames='1' then
+          activity_dump_ready_toggle <= dumpram_waddr(8);
+          if dumpram_waddr(7 downto 0) = "11110000" then
+            -- Check if we are about to run out of buffer space
+            if eth_tx_idle_cpuside = '0' then
+              cpu_arrest_internal <= '1';
+              report "ETHERDUMP: Arresting CPU";
+            end if;
+          end if;          
+        else
+          activity_dump_ready_toggle <= dumpram_waddr(7);
+          if dumpram_waddr(6 downto 0) = "1110000" then
+            -- Check if we are about to run out of buffer space
+            if eth_tx_idle_cpuside = '0' then
+              cpu_arrest_internal <= '1';
+              report "ETHERDUMP: Arresting CPU";
+            end if;
           end if;
         end if;
       elsif (raster_toggle /= last_raster_toggle) or (badline_toggle /= last_badline_toggle) then
@@ -1220,12 +1252,23 @@ begin  -- behavioural
 
         dumpram_waddr <= std_logic_vector(to_unsigned(to_integer(unsigned(dumpram_waddr)) + 1,9));
         dumpram_write <= '1';
-        activity_dump_ready_toggle <= dumpram_waddr(8);
-        if dumpram_waddr(7 downto 0) = "11110000" then
-          -- Check if we are about to run out of buffer space
-          if eth_tx_idle_cpuside = '0' then
-            cpu_arrest_internal <= '1';
-            report "ETHERDUMP: Arresting CPU";
+        if allow_2k_log_frames='1' then
+          activity_dump_ready_toggle <= dumpram_waddr(8);
+          if dumpram_waddr(7 downto 0) = "11110000" then
+            -- Check if we are about to run out of buffer space
+            if eth_tx_idle_cpuside = '0' then
+              cpu_arrest_internal <= '1';
+              report "ETHERDUMP: Arresting CPU";
+            end if;
+          end if;
+        else
+          activity_dump_ready_toggle <= dumpram_waddr(7);
+          if dumpram_waddr(6 downto 0) = "1110000" then
+            -- Check if we are about to run out of buffer space
+            if eth_tx_idle_cpuside = '0' then
+              cpu_arrest_internal <= '1';
+              report "ETHERDUMP: Arresting CPU";
+            end if;
           end if;
         end if;
       else
@@ -1349,6 +1392,10 @@ begin  -- behavioural
                   debug_rx <= '1';
                 when x"d0" => -- disable rx debug
                   debug_rx <= '0';
+                when x"f1" => -- 1k frames for video/cpu debug stream frames
+                  allow_2k_log_frames <= '0';
+                when x"f2" => -- 2k frames for video/cpu debug stream frames
+                  allow_2k_log_frames <= '1';
                 when others =>
                   null;
               end case;
