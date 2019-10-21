@@ -1378,23 +1378,28 @@ begin  -- behavioural
             when x"4" =>
               case fastio_wdata is
                 when x"00" =>
-                  -- @IO:GS $00 ETHCOMMAND:STOPTX Clear ethernet TX trigger (debug)
+                  -- @IO:GS $00 ETHCOMMAND:STOPTX Immediately stop transmitting the current ethernet frame.  Will cause a partially sent frame to be received, most likely resulting in the loss of that frame.  
                   eth_tx_trigger <= '0';
                 when x"01" =>
                   -- @IO:GS $01 ETHCOMMAND:STARTTX Transmit packet
                   eth_tx_trigger <= '1';
-                when x"dc" => -- (D)ebug (C)pu - stream via ethernet ($D6E1.3 must also be set)
+                when x"dc" =>
+                  -- @IO:GS $DC ETHCOMMAND:DEBUGCPU Select CPU debug stream via ethernet when $D6E1.3 is set
                   cpu_ethernet_stream <= '1';
-                when x"d4" => -- (D)ebug VIC-IV(4) - stream via ethernet ($D6E1.3 must also be set)
+                when x"d4" =>
+                  -- @IO:GS $D4 ETHCOMMAND:DEBUGVIC Select VIC-IV debug stream via ethernet when $D6E1.3 is set
                   cpu_ethernet_stream <= '0';
                 when x"de" => -- debug rx
-                  -- Receive exactly one frame, and keep all signals states
+                  -- @IO:GS $DE ETHCOMMAND:RXONLYONE Receive exactly one ethernet frame only, and keep all signals states (for debugging ethernet sub-system)
                   debug_rx <= '1';
-                when x"d0" => -- disable rx debug
+                when x"d0" =>
+                  -- @IO:GS $D0 ETHCOMMAND:RXNORMAL Disable the effects of RXONLYONE
                   debug_rx <= '0';
-                when x"f1" => -- 1k frames for video/cpu debug stream frames
+                when x"f1" =>
+                  -- @IO:GS $F1 ETHCOMMAND:FRAME1K Select ~1KiB frames for video/cpu debug stream frames (for receivers that do not support MTUs of greater than 2KiB)
                   allow_2k_log_frames <= '0';
-                when x"f2" => -- 2k frames for video/cpu debug stream frames
+                when x"f2" =>
+                  -- @IO:GS $F2 ETHCOMMAND:FRAME2K Select ~2KiB frames for video/cpu debug stream frames, for optimal performance.
                   allow_2k_log_frames <= '1';
                 when others =>
                   null;
