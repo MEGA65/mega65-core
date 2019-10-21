@@ -338,6 +338,7 @@ architecture Behavioral of machine is
       bit_rate_divisor : out unsigned(15 downto 0);
       activity : out std_logic;
 
+      request_monitor_halt : in std_logic;
       protected_hardware_in : in unsigned(7 downto 0);
       uart_char : in unsigned(7 downto 0);
       uart_char_valid : in std_logic;
