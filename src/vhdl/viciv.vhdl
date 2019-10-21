@@ -2383,6 +2383,13 @@ begin
               viciii_iomode <= "10";
             end if;
           end if;
+          -- @IO:GS $D02F VIC-IV:KEY Write $45 then $54 to map 45E100 ethernet controller buffers to \$D000-\$DFFF
+          elsif reg_key=x"45" then
+            if fastio_wdata=x"54" then
+              -- C65GS VIC-IV mode
+              viciii_iomode <= "10";
+            end if;
+          end if;
           reg_key <= unsigned(fastio_wdata);
         elsif register_number=255 then
           -- @IO:C64 $D030 SUMMARY: C128 2MHz emulation
