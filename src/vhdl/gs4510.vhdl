@@ -1258,6 +1258,8 @@ architecture Behavioural of gs4510 is
 
   signal badline_enable : std_logic := '1';
   signal slow_interrupts : std_logic := '1';
+
+  signal request_monitor_halt_trigger : std_logic := '1';
   
 begin
 
@@ -4489,7 +4491,8 @@ begin
               end if;
             when InstructionWait =>
               state <= InstructionFetch;
-            when InstructionFetch =>
+            when InstructionFetch =>    
+              request_monitor_halt_trigger <= '0';
               if (breakpoint0_pc = reg_pc and breakpoint0_enable='1')
                 or (breakpoint1_pc = reg_pc and breakpoint1_enable='1')
                 or (breakpoint2_pc = reg_pc and breakpoint2_enable='1')
@@ -4506,9 +4509,7 @@ begin
                   -- time to stop the CPU, so we assert the flag saying we want
                   -- to be halted, and then go into the IO settle state for a while,
                   -- to give the UART monitor time to notice our request.
-                  request_monitor_halt <= '1';
-                  io_settle_delay <= '1';
-                  io_settle_counter <= x"ff";
+                  request_monitor_halt_trigger <= '1';
                 end if;
              elsif (hypervisor_mode='0')
                 and ((irq_pending='1' and flag_i='0') or nmi_pending='1')
@@ -6915,6 +6916,10 @@ begin
         -- writing to the $D02F key register if we happen to pausse on opening
         -- VIC-III/IV IO
         memory_access_write := '0';
+     elsif request_monitor_halt_trigger = '1' then
+        request_monitor_halt <= '1';
+        io_settle_delay <= '1';
+        io_settle_counter <= x"ff";
       elsif io_settle_counter = x"00" then
         io_settle_delay <= '0';
         report "clearing io_settle_delay due to io_settle_counter=$00";
