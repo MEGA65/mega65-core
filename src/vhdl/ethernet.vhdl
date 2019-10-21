@@ -1086,7 +1086,7 @@ begin  -- behavioural
           when x"3" =>
             fastio_rdata(7 downto 4) <= "0000";
             fastio_rdata(3 downto 0) <= eth_tx_size(11 downto 8);
-          -- $D6E4 ETH:DBGTXSTATE Status of frame transmitter (DEBUG ONLY)
+          -- $D6E4 ETH:DBGTXSTATE Status of frame transmitter (read only) (DEBUG ONLY. May be deprecated)
           when x"4"  =>
             fastio_rdata(0) <= eth_tx_trigger;
             fastio_rdata(1) <= eth_tx_commenced;
@@ -1374,14 +1374,14 @@ begin  -- behavioural
             -- @IO:GS $D6E3 Set high-order size of frame to TX
             when x"3" =>
               eth_tx_size(11 downto 8) <= fastio_wdata(3 downto 0);
-            -- @IO:GS $D6E4 ETH:COMMAND Ethernet command register
+            -- @IO:GS $D6E4 ETH:COMMAND Ethernet command register (write only)
             when x"4" =>
               case fastio_wdata is
                 when x"00" =>
-                  -- @IO:GS $D6E4 = $00 = Clear ethernet TX trigger (debug)
+                  -- @IO:GS $00 ETHCOMMAND:STOPTX Clear ethernet TX trigger (debug)
                   eth_tx_trigger <= '0';
                 when x"01" =>
-                  -- @IO:GS $D6E4 = $01 = Transmit packet
+                  -- @IO:GS $01 ETHCOMMAND:STARTTX Transmit packet
                   eth_tx_trigger <= '1';
                 when x"dc" => -- (D)ebug (C)pu - stream via ethernet ($D6E1.3 must also be set)
                   cpu_ethernet_stream <= '1';
