@@ -109,6 +109,8 @@ entity gs4510 is
     reg_isr_out : in unsigned(7 downto 0);
     imask_ta_out : in std_logic;
 
+    request_monitor_halt : out std_logic := '0';
+    
     monitor_char : out unsigned(7 downto 0);
     monitor_char_toggle : out std_logic;
     monitor_char_busy : in std_logic;
@@ -248,6 +250,19 @@ entity gs4510 is
 end entity gs4510;
 
 architecture Behavioural of gs4510 is
+
+  -- CPU breakpoint support
+  -- (This is the new internal-to-cpu method, rather than the old external
+  -- monitor method.)
+  signal breakpoint_hyperrupt : std_logic := '1';
+  signal breakpoint0_enable : std_logic := '0';
+  signal breakpoint1_enable : std_logic := '0';
+  signal breakpoint2_enable : std_logic := '0';
+  signal breakpoint3_enable : std_logic := '0';
+  signal breakpoint0_pc : unsigned(15 downto 0) := x"FCE2";
+  signal breakpoint1_pc : unsigned(15 downto 0) := x"FCE2";
+  signal breakpoint2_pc : unsigned(15 downto 0) := x"FCE2";
+  signal breakpoint3_pc : unsigned(15 downto 0) := x"FCE2";
   
   -- DMAgic settings
   signal support_f018b : std_logic := '0';
@@ -2170,6 +2185,26 @@ begin
             when x"ea" => return reg_math_cycle_compare(23 downto 16);
             when x"eb" => return reg_math_cycle_compare(31 downto 24);
 
+            --@IO:GS $D7F0 CPU:BPT0PCL Breakpoint 0 PC LSB
+            when x"f0" => return breakpoint0_pc(7 downto 0);
+            --@IO:GS $D7F1 CPU:BPT0PCH Breakpoint 0 PC MSB
+            when x"f1" => return breakpoint0_pc(15 downto 8);
+            --@IO:GS $D7F CPU:BPT1PCL Breakpoint 0 PC LSB
+            when x"f2" => return breakpoint0_pc(7 downto 0);
+            --@IO:GS $D7F3 CPU:BPT1PCH Breakpoint 1 PC MSB
+            when x"f3" => return breakpoint1_pc(15 downto 8);
+            --@IO:GS $D7F4 CPU:BPT2PCL Breakpoint 2 PC LSB
+            when x"f4" => return breakpoint2_pc(7 downto 0);
+            --@IO:GS $D7F5 CPU:BPT2PCH Breakpoint 2 PC MSB
+            when x"f5" => return breakpoint2_pc(15 downto 8);
+            --@IO:GS $D7F6 CPU:BPT3PCL Breakpoint 3 PC LSB
+            when x"f6" => return breakpoint3_pc(7 downto 0);
+            --@IO:GS $D7F7 CPU:BPT3PCH Breakpoint 3 PC MSB
+            when x"f7" => return breakpoint3_pc(15 downto 8);
+            --@IO:GS $D7F9.0 CPU:BPTEN Enable CPU breakpoint
+            --@IO:GS $D7F9.7 CPU:BPTHYPR CPU breakpoint triggers Hypervisor Trap \$46 if set, or UART monitor halt if clear
+            when x"f9" => return breakpoint_hyperrupt & "000" & breakpoint3_enable & breakpoint2_enable & breakpoint1_enable & breakpoint0_enable;
+                          
             when x"fa" => return to_unsigned(cpu_speed_bias,8);
             when x"fb" => return "000000" & cartridge_enable & charge_for_branches_taken;
             when x"fc" => return unsigned(chipselect_enables);
@@ -2530,6 +2565,25 @@ begin
         reg_math_cycle_compare(23 downto 16) <= value;
       elsif (long_address = x"FFD37EB") or (long_address = x"FFD17EB") then
         reg_math_cycle_compare(31 downto 24) <= value;
+      elsif (long_address = x"FFD37F0") then
+        breakpoint0_pc(7 downto 0) <= fastio_wdata;
+      elsif (long_address = x"FFD37F1") then
+        breakpoint0_pc(15 downto 8) <= fastio_wdata;
+      elsif (long_address = x"FFD37F2") then
+        breakpoint1_pc(7 downto 0) <= fastio_wdata;
+      elsif (long_address = x"FFD37F3") then
+        breakpoint1_pc(15 downto 8) <= fastio_wdata;
+      elsif (long_address = x"FFD37F4") then
+        breakpoint2_pc(7 downto 0) <= fastio_wdata;
+      elsif (long_address = x"FFD37F5") then
+        breakpoint2_pc(15 downto 8) <= fastio_wdata;
+      elsif (long_address = x"FFD37F6") then
+        breakpoint3_pc(7 downto 0) <= fastio_wdata;
+      elsif (long_address = x"FFD37F7") then
+        breakpoint3_pc(15 downto 8) <= fastio_wdata;
+      elsif (long_address = x"FFD37F9") then
+        breakpoint_hyperrupt <= fastio_wdata(7);
+        breakpoint0_enable <= fastio_wdata(0);
       elsif (long_address = x"FFD37FA") then
         -- @IO:GS $D7FA CPU:SPEEDBIAS 1/2/3.5MHz CPU speed fine adjustment
         cpu_speed_bias <= to_integer(value);
@@ -4436,7 +4490,27 @@ begin
             when InstructionWait =>
               state <= InstructionFetch;
             when InstructionFetch =>
-              if (hypervisor_mode='0')
+              if (breakpoint0_pc = reg_pc and breakpoint0_enable='1')
+                or (breakpoint1_pc = reg_pc and breakpoint1_enable='1')
+                or (breakpoint2_pc = reg_pc and breakpoint2_enable='1')
+                or (breakpoint3_pc = reg_pc and breakpoint3_enable='1')
+              then
+                -- We have hit a breakpoint.
+                if breakpoint_hyperrupt='1' then
+                  -- Hyperrupt on breakpoint (can trigger freeze menu, for example)
+                  hypervisor_trap_port <= "1000110";
+                  state <= TrapToHypervisor;
+                else
+                  -- Alternatively, do a UART monitor halt.
+                  -- But to do this, we need to signal the monitor, and give it
+                  -- time to stop the CPU, so we assert the flag saying we want
+                  -- to be halted, and then go into the IO settle state for a while,
+                  -- to give the UART monitor time to notice our request.
+                  request_monitor_halt <= '1';
+                  io_settle_delay <= '1';
+                  io_settle_counter <= x"ff";
+                end if;
+             elsif (hypervisor_mode='0')
                 and ((irq_pending='1' and flag_i='0') or nmi_pending='1')
                 and (monitor_irq_inhibit='0') then
                                         -- An interrupt has occurred
@@ -6844,6 +6918,9 @@ begin
       elsif io_settle_counter = x"00" then
         io_settle_delay <= '0';
         report "clearing io_settle_delay due to io_settle_counter=$00";
+        -- Also clear any request for the monitor interface to halt the cpu due
+        -- to a break point.
+        request_monitor_halt <= '0';
       else
         report "decrementing io_settle_counter from $" & to_hstring(io_settle_counter);
         io_settle_counter <= io_settle_counter - 1;
