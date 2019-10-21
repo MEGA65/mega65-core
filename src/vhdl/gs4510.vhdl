@@ -2186,21 +2186,21 @@ begin
             when x"eb" => return reg_math_cycle_compare(31 downto 24);
 
             --@IO:GS $D7F0 CPU:BPT0PCL Breakpoint 0 PC LSB
-            when x"f0" => return breakpoint0_pc(7 downto 0);
+            when x"f0" => return std_logic_vector(breakpoint0_pc(7 downto 0));
             --@IO:GS $D7F1 CPU:BPT0PCH Breakpoint 0 PC MSB
-            when x"f1" => return breakpoint0_pc(15 downto 8);
+            when x"f1" => return std_logic_vector(breakpoint0_pc(15 downto 8));
             --@IO:GS $D7F CPU:BPT1PCL Breakpoint 0 PC LSB
-            when x"f2" => return breakpoint0_pc(7 downto 0);
+            when x"f2" => return std_logic_vector(breakpoint1_pc(7 downto 0));
             --@IO:GS $D7F3 CPU:BPT1PCH Breakpoint 1 PC MSB
-            when x"f3" => return breakpoint1_pc(15 downto 8);
+            when x"f3" => return std_logic_vector(breakpoint1_pc(15 downto 8));
             --@IO:GS $D7F4 CPU:BPT2PCL Breakpoint 2 PC LSB
-            when x"f4" => return breakpoint2_pc(7 downto 0);
+            when x"f4" => return std_logic_vector(breakpoint2_pc(7 downto 0));
             --@IO:GS $D7F5 CPU:BPT2PCH Breakpoint 2 PC MSB
-            when x"f5" => return breakpoint2_pc(15 downto 8);
+            when x"f5" => return std_logic_vector(breakpoint2_pc(15 downto 8));
             --@IO:GS $D7F6 CPU:BPT3PCL Breakpoint 3 PC LSB
-            when x"f6" => return breakpoint3_pc(7 downto 0);
+            when x"f6" => return std_logic_vector(breakpoint3_pc(7 downto 0));
             --@IO:GS $D7F7 CPU:BPT3PCH Breakpoint 3 PC MSB
-            when x"f7" => return breakpoint3_pc(15 downto 8);
+            when x"f7" => return std_logic_vector(breakpoint3_pc(15 downto 8));
             --@IO:GS $D7F9.0 CPU:BPTEN Enable CPU breakpoint
             --@IO:GS $D7F9.7 CPU:BPTHYPR CPU breakpoint triggers Hypervisor Trap \$46 if set, or UART monitor halt if clear
             when x"f9" => return breakpoint_hyperrupt & "000" & breakpoint3_enable & breakpoint2_enable & breakpoint1_enable & breakpoint0_enable;
@@ -2566,21 +2566,21 @@ begin
       elsif (long_address = x"FFD37EB") or (long_address = x"FFD17EB") then
         reg_math_cycle_compare(31 downto 24) <= value;
       elsif (long_address = x"FFD37F0") then
-        breakpoint0_pc(7 downto 0) <= fastio_wdata;
+        breakpoint0_pc(7 downto 0) <= unsigned(fastio_wdata);
       elsif (long_address = x"FFD37F1") then
-        breakpoint0_pc(15 downto 8) <= fastio_wdata;
+        breakpoint0_pc(15 downto 8) <= unsigned(fastio_wdata);
       elsif (long_address = x"FFD37F2") then
-        breakpoint1_pc(7 downto 0) <= fastio_wdata;
+        breakpoint1_pc(7 downto 0) <= unsigned(fastio_wdata);
       elsif (long_address = x"FFD37F3") then
-        breakpoint1_pc(15 downto 8) <= fastio_wdata;
+        breakpoint1_pc(15 downto 8) <= unsigned(fastio_wdata);
       elsif (long_address = x"FFD37F4") then
-        breakpoint2_pc(7 downto 0) <= fastio_wdata;
+        breakpoint2_pc(7 downto 0) <= unsigned(fastio_wdata);
       elsif (long_address = x"FFD37F5") then
-        breakpoint2_pc(15 downto 8) <= fastio_wdata;
+        breakpoint2_pc(15 downto 8) <= unsigned(fastio_wdata);
       elsif (long_address = x"FFD37F6") then
-        breakpoint3_pc(7 downto 0) <= fastio_wdata;
+        breakpoint3_pc(7 downto 0) <= unsigned(fastio_wdata);
       elsif (long_address = x"FFD37F7") then
-        breakpoint3_pc(15 downto 8) <= fastio_wdata;
+        breakpoint3_pc(15 downto 8) <= unsigned(fastio_wdata);
       elsif (long_address = x"FFD37F9") then
         breakpoint_hyperrupt <= fastio_wdata(7);
         breakpoint0_enable <= fastio_wdata(0);
