@@ -248,6 +248,7 @@ GS $D06D VIC-IV:SPRPTRADR sprite pointer address (bits 15 - 8)
 GS $D06E.0-6 VIC-IV:SPRPTRBNK sprite pointer address (bits 22 - 16)
 GS $D06E.7 VIC-IV:SPRPTR16 16-bit sprite pointer mode (allows sprites to be located on any 64 byte boundary in chip RAM)
 GS $D06F.5-0 VIC-IV:RASLINE0 first VIC-II raster line
+GS $D06F.6 VIC-IV:VGAHDTV Select more VGA-compatible mode if set, instead of HDMI/HDTV VIC-II cycle-exact frame timing. May help to produce a functional display on older VGA monitors.
 GS $D06F.7 VIC-IV:PALNTSC NTSC emulation mode (max raster = 262)
 GS $D070.1-0 VIC-IV:ABTPALSEL VIC-IV bitmap/text palette bank (alternate palette)
 GS $D070.3-2 VIC-IV:SPRPALSEL sprite palette bank
@@ -600,8 +601,8 @@ GS $D68B.2 - F011 disk 1 write protect
 GS $D68B.3 - F011 disk 2 disk image enable
 GS $D68B.4 - F011 disk 2 present
 GS $D68B.5 - F011 disk 2 write protect
-GS $D68B.6 F011:MDISK0 Enable 16MiB ``MEGA Disk'' for F011 emulated drive 0
-GS $D68B.7 F011:MDISK0 Enable 16MiB ``MEGA Disk'' for F011 emulated drive 1
+GS $D68B.6 F011:MDISK0 Enable 64MiB ``MEGA Disk'' for F011 emulated drive 0
+GS $D68B.7 F011:MDISK0 Enable 64MiB ``MEGA Disk'' for F011 emulated drive 1
 GS $D68B - Diskimage control flags
 GS $D68B - F011 emulation control register
 GS $D68C-$D68F - F011 disk 1 disk image address on SD card
@@ -616,9 +617,10 @@ GS $D68F F011:DISKADDR3 Diskimage sector number (bits 24-31)
 GS $D690-$D693 - F011 disk 2 disk image address on SD card
 GS $D6A0 - 3.5" FDC control line debug access
 GS $D6A0 - DEBUG FDC read status lines
-GS $D6A1.0 - Use real floppy drive instead of SD card
+GS $D6A1.0 F011:DRV0EN Use real floppy drive instead of SD card for 1st floppy drive
+GS $D6A1.0 F011:DRV2EN Use real floppy drive instead of SD card for 2nd floppy drive
 GS $D6A1.1 - Match any sector on a real floppy read/write
-GS $D6A1.2-6 - FDC debug status flags
+GS $D6A1.3-7 - FDC debug status flags
 GS $D6A2 - FDC clock cycles per MFM data bit
 GS $D6A3 - FDC track number of last matching sector header
 GS $D6A4 - FDC sector number of last matching sector header
@@ -705,9 +707,7 @@ GS $D6E2 ETH:TXSZLSB TX Packet size (low byte)
 GS $D6E2 Set low-order size of frame to TX
 GS $D6E3 ETH:TXSZMSB TX Packet size (high byte)
 GS $D6E3 Set high-order size of frame to TX
-GS $D6E4 = $00 = Clear ethernet TX trigger (debug)
-GS $D6E4 = $01 = Transmit packet
-GS $D6E4 ETH:COMMAND Ethernet command register
+GS $D6E4 ETH:COMMAND Ethernet command register (write only)
 GS $D6E5.0 ETH:NOPROM Ethernet disable promiscuous mode
 GS $D6E5.1 Disable CRC check for received packets
 GS $D6E5.1 ETH:NOCRC Disable CRC check for received packets
@@ -973,10 +973,20 @@ GS $D7E8 MATH:ITERCMP Math iteration counter comparator (32 bit)
 GS $D7E9 MATH:ITERCMP Math iteration counter comparator (32 bit)
 GS $D7EA MATH:ITERCMP Math iteration counter comparator (32 bit)
 GS $D7EB MATH:ITERCMP Math iteration counter comparator (32 bit)
+GS $D7F0 CPU:BPT0PCL Breakpoint 0 PC LSB
+GS $D7F1 CPU:BPT0PCH Breakpoint 0 PC MSB
+GS $D7F3 CPU:BPT1PCH Breakpoint 1 PC MSB
+GS $D7F4 CPU:BPT2PCL Breakpoint 2 PC LSB
+GS $D7F5 CPU:BPT2PCH Breakpoint 2 PC MSB
+GS $D7F6 CPU:BPT3PCL Breakpoint 3 PC LSB
+GS $D7F7 CPU:BPT3PCH Breakpoint 3 PC MSB
+GS $D7F9.0 CPU:BPTEN Enable CPU breakpoint
+GS $D7F9.7 CPU:BPTHYPR CPU breakpoint triggers Hypervisor Trap \$46 if set, or UART monitor halt if clear
 GS $D7FA CPU:SPEEDBIAS 1/2/3.5MHz CPU speed fine adjustment
 GS $D7FB.0 CPU:BRCOST 1=charge extra cycle(s) for branches taken
 GS $D7FB.1 CPU:CARTEN 1= enable cartridges
 GS $D7FC DEBUG chip-select enables for various devices
+GS $D7F CPU:BPT1PCL Breakpoint 0 PC LSB
 GS $D7FD.6 CPU:NOGAME Override for /GAME : Must be 0 to enable /GAME signal
 GS $D7FD.6 CPU:POWEREN Set to zero to power off computer on supported systems. WRITE ONLY.
 GS $D7FD.7 CPU:NOEXROM Override for /EXROM : Must be 0 to enable /EXROM signal
