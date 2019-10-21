@@ -1384,10 +1384,10 @@ begin  -- behavioural
                   -- @IO:GS $01 ETHCOMMAND:STARTTX Transmit packet
                   eth_tx_trigger <= '1';
                 when x"dc" =>
-                  -- @IO:GS $DC ETHCOMMAND:DEBUGCPU Select CPU debug stream via ethernet when $D6E1.3 is set
+                  -- @IO:GS $DC ETHCOMMAND:DEBUGCPU Select CPU debug stream via ethernet when \$D6E1.3 is set
                   cpu_ethernet_stream <= '1';
                 when x"d4" =>
-                  -- @IO:GS $D4 ETHCOMMAND:DEBUGVIC Select VIC-IV debug stream via ethernet when $D6E1.3 is set
+                  -- @IO:GS $D4 ETHCOMMAND:DEBUGVIC Select VIC-IV debug stream via ethernet when \$D6E1.3 is set
                   cpu_ethernet_stream <= '0';
                 when x"de" => -- debug rx
                   -- @IO:GS $DE ETHCOMMAND:RXONLYONE Receive exactly one ethernet frame only, and keep all signals states (for debugging ethernet sub-system)
