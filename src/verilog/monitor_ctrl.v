@@ -56,6 +56,7 @@ module monitor_ctrl(input clk, input reset, output wire reset_out,
 				output reg [9:0]   history_write_index, output wire history_write, output reg [9:0] history_read_index,
                     
                     /* CPU Memory Interface */
+		                input request_monitor_halt,
 				output wire [27:0] mem_address, 
 				input [7:0] 	   mem_rdata, 
 				output reg [7:0]   mem_wdata,
@@ -83,7 +84,7 @@ module monitor_ctrl(input clk, input reset, output wire reset_out,
 		    /* For controling access to secure mode */
 				input 		   secure_mode_from_cpu,
 				output reg 	   secure_mode_from_monitor,
-		                output reg         clear_matrix_mode_toggle,
+		                output reg 	   clear_matrix_mode_toggle,
                                     
                     /* Watch interface */
 				output reg [27:0]  monitor_watch,
