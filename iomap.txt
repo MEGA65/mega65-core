@@ -13,6 +13,8 @@ C65 $0032000-$0035FFF - 8KB C65 BASIC ROM
 C65 $0038000-$003BFFF - 8KB C65 BASIC GRAPHICS ROM
 C65 $003C000-$003CFFF - 4KB C65 KERNAL/INTERFACE ROM
 C65 $003E000-$003FFFF - 8KB C65 KERNAL ROM
+GS $00 ETHCOMMAND:STOPTX Immediately stop transmitting the current ethernet frame.  Will cause a partially sent frame to be received, most likely resulting in the loss of that frame.  
+GS $01 ETHCOMMAND:STARTTX Transmit packet
 GS $4000000 - $7FFFFFF Slow Device memory (64MB)
 GS $4000000 - $7FFFFFF SUMMARY:SLOWDEV Slow Device memory (64MB)
 GS $7010000.4-0 - Read /EXROM & /GAME signal probe count (MEGA65 R1 PCB only)
@@ -121,6 +123,7 @@ C64 $D02D VIC-II:SPR6COL sprite 6 colour / 16-colour sprite transparency colour 
 C64 $D02E VIC-II:SPR7COL sprite 7 colour / 16-colour sprite transparency colour (lower nybl)
 C65 $D02F VIC-III KEY register for unlocking extended registers.
 C65 $D02F VIC-III:KEY Write $A5 then $96 to enable C65/VIC-III IO registers
+GS $D02F VIC-IV:KEY Write $45 then $54 to map 45E100 ethernet controller buffers to \$D000-\$DFFF
 GS $D02F VIC-IV:KEY Write $47 then $53 to enable C65GS/VIC-IV IO registers
 C65 $D02F Write anything else to return to C64/VIC-II IO map
 C64 $D030.0 VIC-II:C128FAST 2MHz select (for C128 2MHz emulation)
@@ -316,12 +319,14 @@ GS $D0E9.7 Buffered UART2 interrupt status
 GS $D0E9 Buffered UART2 Status register
 GS $D0EE Buffered UART2 frequency divisor (LSB)
 GS $D0EF Buffered UART2 frequency divisor (MSB)
+GS $D0 ETHCOMMAND:RXNORMAL Disable the effects of RXONLYONE
 C65 $D100-$D1FF VIC-III:PALRED red palette values (reversed nybl order)
 C65 $D200-$D2FF VIC-III:PALGREEN green palette values (reversed nybl order)
 C65 $D300-$D3FF VIC-III:PALBLUE blue palette values (reversed nybl order)
 C64 $D400-$D43F = right SID
 C64 $D440-$D47F = left SID
 C64 $D480-$D4FF = repeated images of SIDs
+GS $D4 ETHCOMMAND:DEBUGVIC Select VIC-IV debug stream via ethernet when \$D6E1.3 is set
 C65 $D600 UART:DATA UART data register (read or write)
 C65 $D601.0 UART:RXRDY UART RX byte ready flag (clear by reading \$D600)
 C65 $D601.1 UART:RXOVRRUN UART RX overrun flag (clear by reading \$D600)
@@ -1029,6 +1034,7 @@ GS $DC1D CIA1:ALRMSEC TOD Alarm seconds value
 GS $DC1E CIA1:ALRMMIN TOD Alarm minutes value
 GS $DC1F.0-6 CIA1:ALRMHOUR TOD Alarm hours value
 GS $DC1F.7 CIA1:ALRMAMPM TOD Alarm AM/PM flag
+GS $DC ETHCOMMAND:DEBUGCPU Select CPU debug stream via ethernet when \$D6E1.3 is set
 C64 $DD00 CIA2:PORTA Port A 
 C64 $DD01 CIA2:PORTB Port B
 C64 $DD02 CIA2:DDRA Port A DDR
@@ -1085,7 +1091,10 @@ GS $DD1D CIA2:ALRMSEC TOD Alarm seconds value
 GS $DD1E CIA2:ALRMMIN TOD Alarm minutes value
 GS $DD1F.0-6 CIA2:ALRMHOUR TOD Alarm hours value
 GS $DD1F.7 CIA2:ALRMAMPM TOD Alarm AM/PM flag
+GS $DE ETHCOMMAND:RXONLYONE Receive exactly one ethernet frame only, and keep all signals states (for debugging ethernet sub-system)
 GS ETH:$D6E0 Ethernet control
+GS $F1 ETHCOMMAND:FRAME1K Select ~1KiB frames for video/cpu debug stream frames (for receivers that do not support MTUs of greater than 2KiB)
+GS $F2 ETHCOMMAND:FRAME2K Select ~2KiB frames for video/cpu debug stream frames, for optimal performance.
 GS $FF7E000-$FF7EFFF SUMMARY:CHARWRITE VIC-IV CHARROM write area
 GS $FF7Exxx VIC-IV CHARROM write area
 GS $FF80000-$FF87FFF SUMMARY:COLOURRAM Colour RAM (32KB or 64KB)
