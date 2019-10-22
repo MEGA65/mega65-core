@@ -487,14 +487,12 @@ begin
       ps2data =>      ps2data,
       ps2clock =>     ps2clk,
 
-      pmod_clock => jblo(1),
-      pmod_start_of_sequence => jblo(2),
-      pmod_data_in(1 downto 0) => jblo(4 downto 3),
-      pmod_data_in(3 downto 2) => "00", -- jbhi(8 downto 7),
---      pmod_data_out => jbhi(10 downto 9),
---      pmoda(3 downto 0) => jalo(4 downto 1),
---      pmoda(7 downto 4) => jahi(10 downto 7),
-
+      widget_matrix_col => "11111111",
+      widget_restore => '1',
+      widget_capslock => '1',
+      widget_joya => "11111",
+      widget_joyb => "11111",     
+      
       uart_rx => jclo(1),
       uart_tx => jclo(2),
 
