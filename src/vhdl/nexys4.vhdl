@@ -21,6 +21,7 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
+use work.cputypes.all;
 
 library unisim;
 use unisim.vcomponents.all;
@@ -349,7 +350,8 @@ begin
       );
   
   machine0: entity work.machine
-    generic map (cpufrequency => 40)
+    generic map (cpufrequency => 40,
+		target => nexys4)
     port map (
       pixelclock      => pixelclock,
       cpuclock        => cpuclock,
