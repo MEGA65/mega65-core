@@ -142,7 +142,7 @@ C65 $D031.1 VIC-III:MONO Enable VIC-III MONO video output (not implemented)
 C65 $D031.2 VIC-III:H1280 Enable 1280 horizontal pixels (not implemented)
 C65 $D031.3 VIC-III:V400 Enable 400 vertical pixels
 C65 $D031.4 VIC-III:BPM Bit-Plane Mode
-C65 $D031.5 VIC-III:ADDR Enable extended attributes and 8 bit colour entries
+C65 $D031.5 VIC-III:ATTR Enable extended attributes and 8 bit colour entries
 C65 $D031.6 VIC-III:FAST Enable C65 FAST mode (\~3.5MHz)
 C65 $D031.7 VIC-III:H640 Enable C64 640 horizontal pixels / 80 column mode
 C65 $D031 SUMMARY:VIC-III Control Register B
@@ -240,8 +240,8 @@ GS $D066.6 VIC-IV render activity display enable DEBUG WILL BE REMOVED
 GS $D066.7 VIC-IV test pattern display enable DEBUG WILL BE REMOVED
 GS $D067 DEBUG:SBPDEBUG Sprite/bitplane first X DEBUG WILL BE REMOVED
 GS $D068 VIC-IV:CHARPTR Character set precise base address (bits 0 - 7)
-GS $D069 VIC-IV:CHRPTR Character set precise base address (bits 15 - 8)
-GS $D06A VIC-IV:CHRPTR Character set precise base address (bits 23 - 16)
+GS $D069 VIC-IV:CHARPTR Character set precise base address (bits 15 - 8)
+GS $D06A VIC-IV:CHARPTR Character set precise base address (bits 23 - 16)
 GS $D06B VIC-IV:SPR16EN sprite 16-colour mode enables
 GS $D06C VIC-IV:SPRPTRADR sprite pointer address (bits 7 - 0)
 GS $D06D VIC-IV:SPRPTRADR sprite pointer address (bits 15 - 8)
@@ -323,10 +323,13 @@ GS $D0 ETHCOMMAND:RXNORMAL Disable the effects of RXONLYONE
 C65 $D100-$D1FF VIC-III:PALRED red palette values (reversed nybl order)
 C65 $D200-$D2FF VIC-III:PALGREEN green palette values (reversed nybl order)
 C65 $D300-$D3FF VIC-III:PALBLUE blue palette values (reversed nybl order)
-C64 $D400-$D43F = right SID
-C64 $D440-$D47F = left SID
+C64 $D400-$D40F = right SID #1
+C64 $D420-$D43F = right SID #2
+C64 $D440-$D45F = left SID #1
+C64 $D460-$D47F = left SID #2
 C64 $D480-$D4FF = repeated images of SIDs
 GS $D4 ETHCOMMAND:DEBUGVIC Select VIC-IV debug stream via ethernet when \$D6E1.3 is set
+C64 $D500-$D5FF = repeated images of SIDs, with left/right swapped
 C65 $D600 UART:DATA UART data register (read or write)
 C65 $D601.0 UART:RXRDY UART RX byte ready flag (clear by reading \$D600)
 C65 $D601.1 UART:RXOVRRUN UART RX overrun flag (clear by reading \$D600)
