@@ -121,8 +121,8 @@ architecture elizabethan of audio_complex is
   signal mic_divider_max : unsigned(7 downto 0) := to_unsigned(8,8);
   signal mic_sample_trigger : unsigned(7 downto 0) := to_unsigned(3,8);
 
-  signal leftsid_audio_combined : in unsigned(17 downto 0);
-  signal rightsid_audio_combined : in unsigned(17 downto 0);
+  signal leftsid_audio_combined : unsigned(17 downto 0);
+  signal rightsid_audio_combined : unsigned(17 downto 0);
 
   
   signal mic_do_sample_left : std_logic := '0';
