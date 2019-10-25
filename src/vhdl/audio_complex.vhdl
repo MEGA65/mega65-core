@@ -51,6 +51,9 @@ entity audio_complex is
     -- Audio in from digital SIDs
     leftsid_audio : in unsigned(17 downto 0);
     rightsid_audio : in unsigned(17 downto 0);
+    frontsid_audio : in unsigned(17 downto 0);
+    backsid_audio : in unsigned(17 downto 0);
+    
     -- Audio in from $D6F8-B registers
     pcm_left : in unsigned(15 downto 0);
     pcm_right : in unsigned(15 downto 0);
@@ -118,6 +121,10 @@ architecture elizabethan of audio_complex is
   signal mic_divider_max : unsigned(7 downto 0) := to_unsigned(8,8);
   signal mic_sample_trigger : unsigned(7 downto 0) := to_unsigned(3,8);
 
+  signal leftsid_audio_combined : in unsigned(17 downto 0);
+  signal rightsid_audio_combined : in unsigned(17 downto 0);
+
+  
   signal mic_do_sample_left : std_logic := '0';
   signal mic_do_sample_right : std_logic := '0';
   signal mic_divider : unsigned(7 downto 0) := "00000000";
@@ -303,8 +310,8 @@ begin
     volume_knob3_target => volume_knob3_target,
     
     -- SID outputs
-    sources(0) => leftsid_audio(17 downto 2),
-    sources(1) => rightsid_audio(17 downto 2),
+    sources(0) => leftsid_audio_combined(17 downto 2),
+    sources(1) => rightsid_audio_combined(17 downto 2),
     -- Two mono I2S from communications modules
     sources(2) => modem1_in,
     sources(3) => modem2_in,
@@ -351,6 +358,10 @@ begin
   begin
     if rising_edge(clock50mhz) then
 
+      -- Combine the pairs of SIDs
+      leftsid_audio_combined <= leftsid_audio(17 downto 1) + frontsid_audio(17 downto 1);
+      rightsid_audio_combined <= rightsid_audio(17 downto 1) + backsid_audio(17 downto 1);
+      
       ampPWM_l_in <= headphones_left_out;
       ampPWM_r_in <= headphones_right_out;
 
