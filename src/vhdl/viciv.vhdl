@@ -2351,7 +2351,6 @@ begin
               -- C65GS VIC-IV mode
               viciii_iomode <= "11";
             end if;
-          end if;
           -- @IO:GS $D02F VIC-IV:KEY Write $45 then $54 to map 45E100 ethernet controller buffers to \$D000-\$DFFF
           elsif reg_key=x"45" then
             if fastio_wdata=x"54" then
