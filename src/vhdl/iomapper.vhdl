@@ -397,7 +397,7 @@ architecture behavioral of iomapper is
   signal rightsid_cs : std_logic;
   signal rightsid_audio : unsigned(17 downto 0);
   signal frontsid_cs : std_logic;
-  signal frontsid_audio : unsigned(17 downto 0);
+  signal frontsid_audio : unsigned(17 downto 0) := to_unsigned(0,18);
   signal backsid_cs : std_logic;
   signal backsid_audio : unsigned(17 downto 0);
 
@@ -919,23 +919,24 @@ begin
     audio_data => rightsid_audio);
   end block;
 
-  block6b: block
-  begin
-    frontsid: entity work.sid6581 port map (
-    -- The SIDs think they need 1MHz, but then are 1 octave too low, and ADSR
-    -- is too slow, so we feed them 2MHz instead
-    clk_1MHz => clock2mhz,
-    clk32 => clk,
-    reset => reset_high,
-    cs => frontsid_cs,
-    we => w,
-    addr => unsigned(address(4 downto 0)),
-    di => unsigned(data_i),
-    std_logic_vector(do) => data_o,
-    pot_x => potl_x,
-    pot_y => potl_y,
-    audio_data => frontsid_audio);
-  end block;
+-- We need another BRAM before we can enable this again
+--  block6b: block
+--  begin
+--    frontsid: entity work.sid6581 port map (
+--    -- The SIDs think they need 1MHz, but then are 1 octave too low, and ADSR
+--    -- is too slow, so we feed them 2MHz instead
+--    clk_1MHz => clock2mhz,
+--    clk32 => clk,
+--    reset => reset_high,
+--    cs => frontsid_cs,
+--    we => w,
+--    addr => unsigned(address(4 downto 0)),
+--    di => unsigned(data_i),
+--    std_logic_vector(do) => data_o,
+--    pot_x => potl_x,
+--    pot_y => potl_y,
+--    audio_data => frontsid_audio);
+--  end block;
 
   block7b: block
   begin
