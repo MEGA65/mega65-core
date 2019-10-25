@@ -2398,7 +2398,7 @@ begin
           reg_h640 <= fastio_wdata(7);
           -- @IO:C65 $D031.6 VIC-III:FAST Enable C65 FAST mode (\~3.5MHz)
           viciii_fast_internal <= fastio_wdata(6);
-          -- @IO:C65 $D031.5 VIC-III:ADDR Enable extended attributes and 8 bit colour entries
+          -- @IO:C65 $D031.5 VIC-III:ATTR Enable extended attributes and 8 bit colour entries
           viciii_extended_attributes <= fastio_wdata(5);
           -- @IO:C65 $D031.4 VIC-III:BPM Bit-Plane Mode
           bitplane_mode <= fastio_wdata(4);
@@ -2427,7 +2427,7 @@ begin
         -- @IO:C65 $D039.5-7 VIC-III:B6ADODD - Bitplane 6 address, odd lines
         -- @IO:C65 $D039.1-3 VIC-III:B6ADEVN - Bitplane 6 address, even lines
         -- @IO:C65 $D03A.5-7 VIC-III:B7ADODD - Bitplane 7 address, odd lines
-        -- @IO:C65 $D03A.1-3 VIC-III:B7ADEVN - Bitplane 7 address, even lines
+         -- @IO:C65 $D03A.1-3 VIC-III:B7ADEVN - Bitplane 7 address, even lines
         elsif register_number >= 51 and register_number <= 58 then
           -- @IO:C65 $D033-$D03A - VIC-III Bitplane addresses
           --bitplane_number := to_integer(register_number(3 downto 0)) - 3;
@@ -2602,10 +2602,10 @@ begin
           -- @IO:GS $D068 VIC-IV:CHARPTR Character set precise base address (bits 0 - 7)
           character_set_address(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=105 then
-          -- @IO:GS $D069 VIC-IV:CHRPTR Character set precise base address (bits 15 - 8)
+          -- @IO:GS $D069 VIC-IV:CHARPTR Character set precise base address (bits 15 - 8)
           character_set_address(15 downto 8) <= unsigned(fastio_wdata);
         elsif register_number=106 then
-          -- @IO:GS $D06A VIC-IV:CHRPTR Character set precise base address (bits 23 - 16)
+          -- @IO:GS $D06A VIC-IV:CHARPTR Character set precise base address (bits 23 - 16)
           character_set_address(23 downto 16) <= unsigned(fastio_wdata);
         elsif register_number=107 then
           -- @IO:GS $D06B VIC-IV:SPR16EN sprite 16-colour mode enables
