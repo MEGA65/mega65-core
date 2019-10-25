@@ -396,6 +396,10 @@ architecture behavioral of iomapper is
   signal leftsid_audio : unsigned(17 downto 0);
   signal rightsid_cs : std_logic;
   signal rightsid_audio : unsigned(17 downto 0);
+  signal frontsid_cs : std_logic;
+  signal frontsid_audio : unsigned(17 downto 0);
+  signal backsid_cs : std_logic;
+  signal backsid_audio : unsigned(17 downto 0);
 
   signal c65uart_cs : std_logic := '0';
   signal sdcardio_cs : std_logic := '0';
@@ -915,6 +919,42 @@ begin
     audio_data => rightsid_audio);
   end block;
 
+  block6b: block
+  begin
+    frontsid: entity work.sid6581 port map (
+    -- The SIDs think they need 1MHz, but then are 1 octave too low, and ADSR
+    -- is too slow, so we feed them 2MHz instead
+    clk_1MHz => clock2mhz,
+    clk32 => clk,
+    reset => reset_high,
+    cs => frontsid_cs,
+    we => w,
+    addr => unsigned(address(4 downto 0)),
+    di => unsigned(data_i),
+    std_logic_vector(do) => data_o,
+    pot_x => potl_x,
+    pot_y => potl_y,
+    audio_data => frontsid_audio);
+  end block;
+
+  block7b: block
+  begin
+  backsid: entity work.sid6581 port map (
+    -- The SIDs think they need 1MHz, but then are 1 octave too low, and ADSR
+    -- is too slow, so we feed them 2MHz instead
+    clk_1MHz => clock2mhz,
+    clk32 => clk,
+    reset => reset_high,
+    cs => rightsid_cs,
+    we => w,
+    addr => unsigned(address(4 downto 0)),
+    di => unsigned(data_i),
+    std_logic_vector(do) => data_o,
+    pot_x => potr_x,
+    pot_y => potr_y,
+    audio_data => backsid_audio);
+  end block;
+  
   vfpga:        entity work.vfpga_wrapper_8bit port map (
     pixel_clock => pixelclk,
     clock => clk,
@@ -1024,6 +1064,8 @@ begin
 
     leftsid_audio => leftsid_audio,
     rightsid_audio => rightsid_audio,
+    frontsid_audio => frontsid_audio,
+    backsid_audio => backsid_audio,
 
     -- PDM audio output for various boards
     ampSD => ampSD,
@@ -1528,21 +1570,19 @@ begin
       end if;
 
       -- Now map the SIDs
-      -- @IO:C64 $D440-$D47F = left SID
-      -- @IO:C64 $D400-$D43F = right SID
+      -- @IO:C64 $D400-$D40F = right SID #1
+      -- @IO:C64 $D420-$D43F = right SID #2
+      -- @IO:C64 $D440-$D45F = left SID #1
+      -- @IO:C64 $D460-$D47F = left SID #2
       -- @IO:C64 $D480-$D4FF = repeated images of SIDs
-      -- Presumably repeated through to $D5FF.  But we will repeat to $D4FF only
-      -- so that we can use $D500-$D5FF for other stuff.
+      -- @IO:C64 $D500-$D5FF = repeated images of SIDs, with left/right swapped
       case address(19 downto 8) is
-        when x"D04" => leftsid_cs <= address(6) and lscs_en; rightsid_cs <= not address(6) and rscs_en;
-        when x"D14" => leftsid_cs <= address(6) and lscs_en; rightsid_cs <= not address(6) and rscs_en;
-        when x"D24" => leftsid_cs <= address(6) and lscs_en; rightsid_cs <= not address(6) and rscs_en;
-        when x"D34" => leftsid_cs <= address(6) and lscs_en; rightsid_cs <= not address(6) and rscs_en;
-        -- Some C64 dual-sid programs expect the 2nd sid to be at $D500, so
-        -- we will make the SIDs visible at $D500 in c64 io context, and switched
-        -- sides.
-        when x"D05" => leftsid_cs <= not address(6) and lscs_en; rightsid_cs <= address(6) and rscs_en;
-        when others => leftsid_cs <= '0'; rightsid_cs <= '0';
+        when x"D04" | x"D14" | x"D34" | x"D05" =>
+          leftsid_cs <= ((address(6) and not address(5)) xor address(8)) and lscs_en;
+          rightsid_cs <= (((not address(6)) and not address(5)) xor address(8)) and rscs_en;
+          frontsid_cs <= ((address(6) and address(5)) xor address(8)) and lscs_en;
+          backsid_cs <= (((not address(6)) and address(5)) xor address(8)) and rscs_en;
+        when others => leftsid_cs <= '0'; rightsid_cs <= '0'; frontsid_cs <= '0'; backsid_cs <= '0';
       end case;
 
       -- $D500 - $D5FF is not currently used.  Probably use some for FPU.
