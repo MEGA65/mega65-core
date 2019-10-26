@@ -938,23 +938,23 @@ begin
 --    audio_data => frontsid_audio);
 --  end block;
 
-  block7b: block
-  begin
-  backsid: entity work.sid6581 port map (
-    -- The SIDs think they need 1MHz, but then are 1 octave too low, and ADSR
-    -- is too slow, so we feed them 2MHz instead
-    clk_1MHz => clock2mhz,
-    clk32 => clk,
-    reset => reset_high,
-    cs => rightsid_cs,
-    we => w,
-    addr => unsigned(address(4 downto 0)),
-    di => unsigned(data_i),
-    std_logic_vector(do) => data_o,
-    pot_x => potr_x,
-    pot_y => potr_y,
-    audio_data => backsid_audio);
-  end block;
+--  block7b: block
+--  begin
+--  backsid: entity work.sid6581 port map (
+--    -- The SIDs think they need 1MHz, but then are 1 octave too low, and ADSR
+--    -- is too slow, so we feed them 2MHz instead
+--    clk_1MHz => clock2mhz,
+--    clk32 => clk,
+--    reset => reset_high,
+--    cs => rightsid_cs,
+--    we => w,
+--    addr => unsigned(address(4 downto 0)),
+--    di => unsigned(data_i),
+--    std_logic_vector(do) => data_o,
+--    pot_x => potr_x,
+--    pot_y => potr_y,
+--    audio_data => backsid_audio);
+--  end block;
   
   vfpga:        entity work.vfpga_wrapper_8bit port map (
     pixel_clock => pixelclk,

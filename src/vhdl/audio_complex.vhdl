@@ -359,8 +359,11 @@ begin
     if rising_edge(clock50mhz) then
 
       -- Combine the pairs of SIDs
-      leftsid_audio_combined <= ("0"&leftsid_audio(17 downto 1)) + ("0"&frontsid_audio(17 downto 1));
-      rightsid_audio_combined <= ("0"&rightsid_audio(17 downto 1)) + ("0"&backsid_audio(17 downto 1));
+      -- Re-enable this when adding 4 sids
+--      leftsid_audio_combined <= ("0"&leftsid_audio(17 downto 1)) + ("0"&frontsid_audio(17 downto 1));
+--      rightsid_audio_combined <= ("0"&rightsid_audio(17 downto 1)) + ("0"&backsid_audio(17 downto 1));
+      leftsid_audio_combined <= leftsid_audio;
+      rightsid_audio_combined <= rightsid_audio;
       
       ampPWM_l_in <= headphones_left_out;
       ampPWM_r_in <= headphones_right_out;
