@@ -30,6 +30,8 @@ entity audio_complex is
   port (    
     clock50mhz : in std_logic;
 
+    sid4_enable : in std_logic := '0';
+    
     -- Interface for accessing mix table via CPU
     audio_mix_reg : in unsigned(7 downto 0) := x"FF";
     audio_mix_write : in std_logic := '0';
@@ -360,10 +362,13 @@ begin
 
       -- Combine the pairs of SIDs
       -- Re-enable this when adding 4 sids
---      leftsid_audio_combined <= ("0"&leftsid_audio(17 downto 1)) + ("0"&frontsid_audio(17 downto 1));
---      rightsid_audio_combined <= ("0"&rightsid_audio(17 downto 1)) + ("0"&backsid_audio(17 downto 1));
-      leftsid_audio_combined <= leftsid_audio;
-      rightsid_audio_combined <= rightsid_audio;
+      if sid4_enable='1' then
+        leftsid_audio_combined <= ("0"&leftsid_audio(17 downto 1)) + ("0"&frontsid_audio(17 downto 1));
+        rightsid_audio_combined <= ("0"&rightsid_audio(17 downto 1)) + ("0"&backsid_audio(17 downto 1));
+      else 
+        leftsid_audio_combined <= leftsid_audio;
+        rightsid_audio_combined <= rightsid_audio;
+      end if;
       
       ampPWM_l_in <= headphones_left_out;
       ampPWM_r_in <= headphones_right_out;

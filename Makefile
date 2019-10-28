@@ -114,6 +114,7 @@ tools:	$(TOOLS)
 utilities:	$(UTILITIES)
 
 SIDVHDL=		$(VHDLSRCDIR)/sid_6581.vhd \
+			$(VHDLSRCDIR)/sid_coeffs_mux.vhd \
 			$(VHDLSRCDIR)/sid_coeffs.vhd \
 			$(VHDLSRCDIR)/sid_components.vhd \
 			$(VHDLSRCDIR)/sid_filters.vhd \
