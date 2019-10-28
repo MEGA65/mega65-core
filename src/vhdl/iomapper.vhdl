@@ -510,6 +510,18 @@ architecture behavioral of iomapper is
   signal volume_knob1_target : unsigned(3 downto 0);
   signal volume_knob2_target : unsigned(3 downto 0);
   signal volume_knob3_target : unsigned(3 downto 0);
+
+  signal filter_table_addr0 : integer range 0 to 2047;
+  signal filter_table_val0 : unsigned(15 downto 0);
+  signal filter_table_addr1 : integer range 0 to 2047;
+  signal filter_table_val1 : unsigned(15 downto 0);
+  signal filter_table_addr2 : integer range 0 to 2047;
+  signal filter_table_val2 : unsigned(15 downto 0);
+  signal filter_table_addr3 : integer range 0 to 2047;
+  signal filter_table_val3 : unsigned(15 downto 0);
+
+  signal sid4_enable : std_logic := '0';
+  signal sid4_enable_counter : integer range 0 to 1000000 := 0;
   
 begin
 
@@ -883,6 +895,21 @@ begin
     );
   end block;
 
+  sidcblock: block
+  begin
+    sidc: entity work.sid_coeffs_mux port map (
+      clk => clk32,
+      addr0 => filter_table_addr0,
+      val0 => filter_table_val0,
+      addr1 => filter_table_addr1,
+      val1 => filter_table_val1,
+      addr2 => filter_table_addr2,
+      val2 => filter_table_val2,
+      addr3 => filter_table_addr3,
+      val3 => filter_table_val3
+      );
+    end block;
+  
   block6: block
   begin
     leftsid: entity work.sid6581 port map (
@@ -898,7 +925,10 @@ begin
     std_logic_vector(do) => data_o,
     pot_x => potl_x,
     pot_y => potl_y,
-    audio_data => leftsid_audio);
+    audio_data => leftsid_audio,
+    filter_table_addr => filter_table_addr0,
+    filter_table_val => filter_table_val0
+    );
   end block;
 
   block7: block
@@ -916,45 +946,53 @@ begin
     std_logic_vector(do) => data_o,
     pot_x => potr_x,
     pot_y => potr_y,
-    audio_data => rightsid_audio);
+    audio_data => rightsid_audio,
+    filter_table_addr => filter_table_addr1,
+    filter_table_val => filter_table_val1
+    );
   end block;
 
--- We need another BRAM before we can enable this again
---  block6b: block
---  begin
---    frontsid: entity work.sid6581 port map (
---    -- The SIDs think they need 1MHz, but then are 1 octave too low, and ADSR
---    -- is too slow, so we feed them 2MHz instead
---    clk_1MHz => clock2mhz,
---    clk32 => clk,
---    reset => reset_high,
---    cs => frontsid_cs,
---    we => w,
---    addr => unsigned(address(4 downto 0)),
---    di => unsigned(data_i),
---    std_logic_vector(do) => data_o,
---    pot_x => potl_x,
---    pot_y => potl_y,
---    audio_data => frontsid_audio);
---  end block;
+  block6b: block
+  begin
+    frontsid: entity work.sid6581 port map (
+    -- The SIDs think they need 1MHz, but then are 1 octave too low, and ADSR
+    -- is too slow, so we feed them 2MHz instead
+    clk_1MHz => clock2mhz,
+    clk32 => clk,
+    reset => reset_high,
+    cs => frontsid_cs,
+    we => w,
+    addr => unsigned(address(4 downto 0)),
+    di => unsigned(data_i),
+    std_logic_vector(do) => data_o,
+    pot_x => potl_x,
+    pot_y => potl_y,
+    audio_data => frontsid_audio,
+    filter_table_addr => filter_table_addr2,
+    filter_table_val => filter_table_val2
+    );
+  end block;
 
---  block7b: block
---  begin
---  backsid: entity work.sid6581 port map (
---    -- The SIDs think they need 1MHz, but then are 1 octave too low, and ADSR
---    -- is too slow, so we feed them 2MHz instead
---    clk_1MHz => clock2mhz,
---    clk32 => clk,
---    reset => reset_high,
---    cs => rightsid_cs,
---    we => w,
---    addr => unsigned(address(4 downto 0)),
---    di => unsigned(data_i),
---    std_logic_vector(do) => data_o,
---    pot_x => potr_x,
---    pot_y => potr_y,
---    audio_data => backsid_audio);
---  end block;
+  block7b: block
+  begin
+  backsid: entity work.sid6581 port map (
+    -- The SIDs think they need 1MHz, but then are 1 octave too low, and ADSR
+    -- is too slow, so we feed them 2MHz instead
+    clk_1MHz => clock2mhz,
+    clk32 => clk,
+    reset => reset_high,
+    cs => rightsid_cs,
+    we => w,
+    addr => unsigned(address(4 downto 0)),
+    di => unsigned(data_i),
+    std_logic_vector(do) => data_o,
+    pot_x => potr_x,
+    pot_y => potr_y,
+    audio_data => backsid_audio,
+    filter_table_addr => filter_table_addr3,
+    filter_table_val => filter_table_val3
+    );
+  end block;
   
   vfpga:        entity work.vfpga_wrapper_8bit port map (
     pixel_clock => pixelclk,
@@ -1040,6 +1078,8 @@ begin
 
   audio0: entity work.audio_complex port map (
     clock50mhz => clk,
+
+    sid4_enable => sid4_enable,
 
     volume_knob1_target => volume_knob1_target,
     volume_knob2_target => volume_knob2_target,
@@ -1289,6 +1329,24 @@ begin
 
     if rising_edge(clk) then
 
+      -- Enable 2nd two SIDs only if they are being accessed. If they are not
+      -- accessed for a couple of frames, then we remove them from the audio stream,
+      -- and leave the primary two SIDs at full volume
+      case address(19 downto 8) is
+        when x"D04" | x"D14" | x"D34" | x"D05" =>
+          if (((address(6) and address(5)) xor address(8)) and lscs_en) or
+            ((((not address(6)) and address(5)) xor address(8)) and rscs_en) then
+            sid4_enable <= '1';
+            sid4_enable_counter <= 1000000;
+          end if;
+        when others =>
+          if sid4_enable_counter=0 then
+            sid4_enable <= '0';
+          else
+            sid4_enable_counter <= sid4_enable_counter - 1;
+          end if;
+      end case;                  
+      
       touch1_valid <= touch1_valid_int;
       
       -- Generate 1541 drive clock at exactly 1MHz, 2MHz, 3.5MHz or 40MHz,

@@ -119,6 +119,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/uart_rx.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/buffereduart.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/sid_6581.vhd"]"\
+ "[file normalize "$origin_dir/src/vhdl/sid_coeffs_mux.vhd"]"\
  "[file normalize "$origin_dir/src/vhdl/shadowram.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/sdcardio.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/audio_mixer.vhdl"]"\
@@ -367,6 +368,10 @@ set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
 set file "vhdl/sid_6581.vhd"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/sid_coeffs_mux.vhd"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
