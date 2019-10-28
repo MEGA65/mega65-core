@@ -22,7 +22,8 @@ port (
 	addr7 : in  integer range 0 to 2047 := 0;
 	val7  : out unsigned(15 downto 0)
 );
-
+end entity;
+             
 architecture mayan of sid_coeffs_mux is
   signal mux_counter : integer range 0 to 7 := 0;
   signal addr : integer range 0 to 2047;
