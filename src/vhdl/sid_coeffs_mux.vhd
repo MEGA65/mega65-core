@@ -1,6 +1,7 @@
 library ieee;
 	use ieee.std_logic_1164.all;
 	use ieee.numeric_std.all;
+        use work.sid_coeffs.all;
 
 entity sid_coeffs_mux is
 port (
@@ -27,14 +28,14 @@ end entity;
 architecture mayan of sid_coeffs_mux is
   signal mux_counter : integer range 0 to 7 := 0;
   signal addr : integer range 0 to 2047;
-  signal val  : unsigned(15 downto 0)
+  signal val  : unsigned(15 downto 0);
 
-    entity work.sid_coeffs port map (
-	port map (
-		clk   => clk,
-		addr  => addr,
-		val   => val
-	);      
+  entity work.sid_coeffs port map (
+    port map (
+      clk   => clk,
+      addr  => addr,
+      val   => val
+      );      
     
 begin
   process(clk) is
