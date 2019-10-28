@@ -33,11 +33,10 @@ architecture mayan of sid_coeffs_mux is
 begin
 
   entity work.sid_coeffs port map (
-    port map (
-      clk   => clk,
-      addr  => addr,
-      val   => val
-      );      
+    clk   => clk,
+    addr  => addr,
+    val   => val
+    );      
     
 
   process(clk) is
