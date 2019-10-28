@@ -1,7 +1,7 @@
 library ieee;
 	use ieee.std_logic_1164.all;
 	use ieee.numeric_std.all;
-        use work.sid_coeffs.all;
+        use work.all;
 
 entity sid_coeffs_mux is
 port (
@@ -30,6 +30,8 @@ architecture mayan of sid_coeffs_mux is
   signal addr : integer range 0 to 2047;
   signal val  : unsigned(15 downto 0);
 
+begin
+
   entity work.sid_coeffs port map (
     port map (
       clk   => clk,
@@ -37,7 +39,7 @@ architecture mayan of sid_coeffs_mux is
       val   => val
       );      
     
-begin
+
   process(clk) is
   begin
     if rising_edge(clk) then
