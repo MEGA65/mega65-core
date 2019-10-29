@@ -898,7 +898,7 @@ begin
   sidcblock: block
   begin
     sidc: entity work.sid_coeffs_mux port map (
-      clk => clk32,
+      clk => clk,
       addr0 => filter_table_addr0,
       val0 => filter_table_val0,
       addr1 => filter_table_addr1,
@@ -1334,8 +1334,8 @@ begin
       -- and leave the primary two SIDs at full volume
       case address(19 downto 8) is
         when x"D04" | x"D14" | x"D34" | x"D05" =>
-          if (((address(6) and address(5)) xor address(8)) and lscs_en) or
-            ((((not address(6)) and address(5)) xor address(8)) and rscs_en) then
+          if ((((address(6) and address(5)) xor address(8)) and lscs_en) or
+            ((((not address(6)) and address(5)) xor address(8)) and rscs_en)) = '1' then
             sid4_enable <= '1';
             sid4_enable_counter <= 1000000;
           end if;
