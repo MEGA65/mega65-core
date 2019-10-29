@@ -57,5 +57,6 @@ begin
       else
         mux_counter <= 0;
       end if;
+    end if;
   end process;
 end mayan;
