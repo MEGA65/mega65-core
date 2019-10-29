@@ -51,7 +51,7 @@ begin
         when 5 => val5 <= val; addr <= addr7;
         when 6 => val6 <= val; addr <= addr0;
         when 7 => val7 <= val; addr <= addr1;
-      end if;
+      end case;
       if mux_counter /= 7 then
         mux_counter <= mux_counter + 1;
       else
