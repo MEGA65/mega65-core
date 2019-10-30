@@ -3905,6 +3905,8 @@ begin
           pop_a <= '0'; pop_x <= '0'; pop_y <= '0'; pop_z <= '0';
           pop_p <= '0';
 
+          request_monitor_halt_trigger <= '0';
+
           case state is
             when ResetLow =>
                                         -- Reset now maps hyppo at $8000-$BFFF, and enters through $8000
@@ -4492,7 +4494,6 @@ begin
             when InstructionWait =>
               state <= InstructionFetch;
             when InstructionFetch =>    
-              request_monitor_halt_trigger <= '0';
               if (breakpoint0_pc = reg_pc and breakpoint0_enable='1')
                 or (breakpoint1_pc = reg_pc and breakpoint1_enable='1')
                 or (breakpoint2_pc = reg_pc and breakpoint2_enable='1')
