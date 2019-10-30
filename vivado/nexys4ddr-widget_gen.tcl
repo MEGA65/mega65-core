@@ -98,6 +98,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/cputypes.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/victypes.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/sid_coeffs.vhd"]"\
+ "[file normalize "$origin_dir/src/vhdl/sid_coeffs_mux.vhd"]"\
  "[file normalize "$origin_dir/src/vhdl/ghdl_ram9x4k.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ghdl_ram36x1k.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/bitplane.vhdl"]"\
@@ -248,6 +249,10 @@ set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
 set file "vhdl/sid_coeffs.vhd"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/sid_coeffs_mux.vhd"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
