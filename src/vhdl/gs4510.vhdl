@@ -6917,7 +6917,8 @@ begin
         -- writing to the $D02F key register if we happen to pausse on opening
         -- VIC-III/IV IO
         memory_access_write := '0';
-     elsif request_monitor_halt_trigger = '1' then
+        request_monitor_halt <= '0';
+      elsif request_monitor_halt_trigger = '1' then
         request_monitor_halt <= '1';
         io_settle_delay <= '1';
         io_settle_counter <= x"ff";
