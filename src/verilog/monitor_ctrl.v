@@ -17,7 +17,6 @@
 
 `define MON_FLAG_MASK0        5'h06
 `define MON_FLAG_MASK1        5'h07
-
 `define MON_UART_RX           5'h08
 `define MON_UART_TX           5'h08         // These two registers could have the same address.  We never need to read from tx, or write to rx
 `define MON_KEYBOARD_RX       5'h09
@@ -50,7 +49,7 @@
 `define MON_CHAR_STATUS       5'h1F
 
 module monitor_ctrl(input clk, input reset, output wire reset_out, 
-                    `MARK_DEBUG input 		   write, (* mark_debug = "true" *) input read, 
+                    `MARK_DEBUG input 		   write_sig, (* mark_debug = "true" *) input read_sig, 
 						   `MARK_DEBUG input [4:0] address, 
 						   `MARK_DEBUG input [7:0] di, output reg [7:0] do,
 				output reg [9:0]   history_write_index, output wire history_write, output reg [9:0] history_read_index,
@@ -139,7 +138,7 @@ always @(posedge clk)
     reset_processing <= 1;
     reset_timeout <= 255;
   end
-  else if(address == `MON_RESET_TIMEOUT && write)
+  else if(address == `MON_RESET_TIMEOUT && write_sig)
     reset_timeout <= di;
   else if(reset_timeout != 0 && reset_processing)
     reset_timeout <= reset_timeout - 1;
@@ -225,7 +224,7 @@ begin
     // With the reduced clock speed, the error in timing was increased to the point
     // where it began causing problems.
     bit_rate_divisor_reg <= (40000000/2000000) - 1;
-  else if(write)
+  else if(write_sig)
   begin
     if(address == `MON_UART_BITRATE_LO)
       bit_rate_divisor_reg[7:0] <= di;
@@ -246,7 +245,7 @@ begin
   begin
     // tx_send is automatically set to 1 for one clock cycle whenever 
     // UART TX data register is written to.
-    if(address == `MON_UART_TX && write)
+    if(address == `MON_UART_TX && write_sig)
     begin
       tx_data <= di;
       tx_send <= 1;
@@ -264,12 +263,12 @@ begin
       uart_char_waiting <= 1;
    end
 			
-  if(address == `MON_UART_RX && read == 1)
+  if(address == `MON_UART_RX && read_sig == 1)
   begin
     rx_data_ack <= 1;
     activity <= ~activity;    // Flip activity output on each UART RX CPU read
   end
-  if(address == `MON_KEYBOARD_RX && read == 1)
+  if(address == `MON_KEYBOARD_RX && read_sig == 1)
   begin
      uart_char_waiting <= 0;     
     activity <= ~activity;    // Flip activity output on each KEYBOARD RX CPU read
@@ -284,7 +283,7 @@ always @(posedge clk)
 begin
   if(reset)
     history_read_index <= 0;
-  else if(write)
+  else if(write_sig)
     begin
       if(address == `MON_READ_IDX_LO)
         history_read_index[7:0] <= di;
@@ -322,7 +321,7 @@ begin
     monitor_watch_matched <= 0;
     monitor_break_matched <= 0;
   end
-  else if(write)
+  else if(write_sig)
   begin
     if(address == `MON_WRITE_IDX_LO)
     begin
@@ -397,7 +396,7 @@ begin
   begin
     mem_addr_reg[31:0] <= 0;
   end
-  else if(write)
+  else if(write_sig)
   begin  
     if(address == `MON_MEM_INC)
       mem_addr_reg <= mem_addr_reg + 1;    // Do we need anything but a 1 here?  Will be easy enough to change later.
@@ -470,7 +469,7 @@ begin
         mem_read <= 0;
         mem_write <= 0;
         set_pc <= 0;
-        if(address == `MON_MEM_READ && write)
+        if(address == `MON_MEM_READ && write_sig)
         begin
           set_pc <= di[7];        /* Top bit turns the read request into a set PC request */
           mem_read <= 1;
@@ -478,7 +477,7 @@ begin
           mem_state <= `MEM_STATE_WAIT;
           mem_timer_reset <= 1;
         end
-        else if(address == `MON_MEM_WRITE && write)
+        else if(address == `MON_MEM_WRITE && write_sig)
         begin
           mem_write <= 1;
           mem_error <= 0;
@@ -521,7 +520,7 @@ always @(posedge clk)
 begin
   if(reset)
     monitor_watch <= 0;
-  else if(write)
+  else if(write_sig)
   begin
     if(address == `MON_WATCH_ADDR0)
       monitor_watch[7:0] <= di;
@@ -539,7 +538,7 @@ always @(posedge clk)
 begin
   if(reset)
     monitor_break_addr <= 0;
-  else if(write)
+  else if(write_sig)
   begin
     if(address == `MON_BREAK_ADDR0)
       monitor_break_addr[7:0] <= di;
@@ -564,7 +563,7 @@ begin
   else
   begin
     // One CPU reads the character, drop busy bit
-    if(address == `MON_CHAR_INOUT && read == 1)
+    if(address == `MON_CHAR_INOUT && read_sig == 1)
     begin
       monitor_char_busy <= 0;
     end
@@ -574,7 +573,7 @@ begin
       monitor_char_toggle_last <= monitor_char_toggle;
     end
     
-    if(address == `MON_CHAR_INOUT && write == 1)
+    if(address == `MON_CHAR_INOUT && write_sig == 1)
     begin
       monitor_char_out <= di;
       monitor_char_valid <= 1;
