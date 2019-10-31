@@ -179,7 +179,8 @@
   // Will start out simple and slowly add more control outputs as needed for different features and as
   // the software monitor code is written.
     
-  monitor_ctrl monitorctrl(.clk(clock), .reset(reset_internal), .reset_out(reset_out_internal), .write(ctrl_write), .read(ctrl_read),
+  monitor_ctrl monitorctrl(.clk(clock), .reset(reset_internal), .reset_out(reset_out_internal), 
+			   .write_sig(ctrl_write), .read_sig(ctrl_read),
                            .address(cpu_address_next[4:0]), .di(cpu_do), .do(monitor_do), 
                            .history_write_index(history_write_index), .history_write(history_write),
                            .history_read_index(history_read_index),
