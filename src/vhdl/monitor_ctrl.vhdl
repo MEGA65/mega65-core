@@ -43,7 +43,7 @@ entity monitor_ctrl is
 
     -- For controlling access to secure mode
     secure_mode_from_cpu : in std_logic;
-    secure_mode_from_monitor : out std_logic;
+    secure_mode_from_monitor : out std_logic := '0';
     clear_matrix_mode_toggle : out std_logic;
 
     -- Watch interface
@@ -109,10 +109,122 @@ architecture edwardian of monitor_ctrl is
   constant MON_CHAR_STATUS : unsigned(4 downto 0) := to_unsigned(31,5);
   
   
-  -- signals
+  signal reset_timeout : unsigned(7 downto 0) := to_unsigned(255,8);
+  signal reset_processing : std_logic := 0;
 
+  signal cpu_state_was_hold : std_logic;
+  signal cpu_state_write_index_reg : unsigned(5 downto 0);
+  signal cpu_state_was_hold_next : std_logic;
+  signal cpu_state_write_index_next : unsigned(5 downto 0);  
+
+  signal bit_rate_divisor_reg : unsigned(15 downto 0);
+
+  signal tx_send : std_logic;
+  signal tx_ready : std_logic;
+  signal tx_data : unsigned(7 downto 0);
+  signal rx_data_ack : std_logic;
+  signal rx_data_ready : std_logic;
+  signal rx_data : unsigned(7 downto 0);
+  signal uart_char_waiting : std_logic;
+  
 begin
+
+  uart_tx0: entity work.tx_ctrl port map (
+    send => tx_send,
+    bit_tmr_max => bit_rate_divisor_reg,
+    data => tx_data,
+    clk => clk,
+    ready => tx_ready,
+    uart_tx => tx
+    );
+  end entity;
+
+  uart_rx0 : entity work.rx_ctrl(
+    clk => clk,
+    bit_rate_divisor => bit_rate_divisor_reg,
+    uart_rx => rx,
+    data => rx_data,
+    data_ready => rx_data_ready,
+    data_acknowledge => rx_data_ack
+    );
+  end entity;
+    
+  monitor_di <= di;
+  reset_out <= '0' when reset_timeout/=0 else '1';
+  
+  cpu_state_write_index <= cpu_state_write_index_next;
+
+  -- This is done as a separate combinatorial chunk because I need to be able to
+  -- update the value of cpu_state_write and cpu_state_write_index (output) during
+  -- the current clock cycle so the state write doesn't lag the CPU by a clock cycle.
+  if reset='1' then
+    cpu_state_write <= '0';
+    cpu_state_was_hold_next <= '0';
+    cpu_state_write_index_next <= '0';
+
+  else
+    cpu_state_write <= '0';
+    cpu_state_write_index_next <= cpu_state_write_index_reg;
+    if cpu_state != x"10" then
+      cpu_state_was_hold_next <= '0';
+      if cpu_state_was_hold='1' then
+        cpu_state_write <= '1';
+        cpu_state_write_index_next <= '0';
+      else
+        if cpu_state_write_index_reg < 16 then
+          cpu_state_write <= '1';
+          cpu_state_write_index_next <= cpu_state_write_index_reg+1;
+        end if;
+      end if;
+    else
+      cpu_state_was_hold_next <= '1';
+    end if;
+  end if;
+
+  bit_rate_divisor <= bit_rate_divisor_reg;
+  
   if rising_edge(clk) then
+    if request_monitor_halt='1' then
+      mem_trace_reg(0) <= '1'; -- force CPU into single-step mode
+      mem_trace_reg(4) <= '1'; -- disable IRQs
+    end if;
+
+    if reset='1' and reset_processing='0' then
+      reset_processing <= '1';
+      reset_timeout <= to_unsigned(255,8);
+    elsif address= MON_RESET_TIMEOUT and write_sig='1' then
+      reset_timeout <= di;
+    elsif reset_timeout /= 0 and reset_processing='1' then
+      reset_timeout <= reset_timeout - 1;
+    elsif reset='0' then
+      -- Don't clear reset_processing flop until reset has been deasserted
+      -- externally for at least one cycle
+      reset_processing <= '0';
+    end if;
+    
+    cpu_state_write_index_reg <= cpu_state_write_index_next;
+    cpu_state_was_hold <= cpu_state_was_hold_next;
+
+    if reset='1' then
+      -- PGS 20181111 - 2Mbps has problems with intermittant lost characters
+      -- with the shift to 40MHz cpu clock.  Oddly, 4Mbps works just fine.
+      -- So we will use that.
+      -- PGS 20181111 - Ah, the problem is that we need to reduce the count by one.
+      -- With the reduced clock speed, the error in timing was increased to the point
+      -- where it began causing problems.
+      bit_rate_divisor_reg <= (40000000/2000000) - 1;
+    elsif write_sig='1' then
+      case address is
+        when MON_UART_BITRATE_LO => bit_rate_divisor_reg(7 downto 0) <= di;
+        when MON_UART_BITRATE_HI => bit_rate_divisor_reg(15 downto 8) <= di;
+        when others => null;
+      end case;
+    end if;
+  
+                    
+            
+  
+    
   end if;
   
 end edwardian;
