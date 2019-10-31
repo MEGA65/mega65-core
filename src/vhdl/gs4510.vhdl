@@ -1259,7 +1259,7 @@ architecture Behavioural of gs4510 is
   signal badline_enable : std_logic := '1';
   signal slow_interrupts : std_logic := '1';
 
-  signal request_monitor_halt_trigger : std_logic := '1';
+  signal request_monitor_halt_trigger : std_logic := '0';
   
 begin
 
