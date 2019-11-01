@@ -4,6 +4,8 @@ use ieee.numeric_std.all;
 use STD.textio.all;
 use work.all;
 use work.debugtools.all;
+use work.victypes.all;
+use work.cputypes.all;
 
 entity cpu_test is
   
@@ -20,11 +22,10 @@ architecture behavior of cpu_test is
   signal cpuclock : std_logic := '0';
   signal ioclock : std_logic := '0';
   signal clock50mhz : std_logic := '0';
-  signal clock200 : std_logic := '0';
-  signal clock240 : std_logic := '0';
-  signal clock120 : std_logic := '0';
-  signal clock30 : std_logic := '0';
-  signal clock80 : std_logic := '0';
+  signal clock100 : std_logic := '0';
+  signal clock162 : std_logic := '0';
+  signal clock81 : std_logic := '0';
+  signal clock27 : std_logic := '0';
   signal reset : std_logic := '0';
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
@@ -125,6 +126,13 @@ architecture behavior of cpu_test is
   signal iec_data_external : std_logic := '0';
   signal iec_clk_external : std_logic := '1';
 
+  signal widget_matrix_col_idx : integer range 0 to 8 := 0;
+  signal widget_matrix_col : std_logic_vector(7 downto 0);
+  signal widget_restore : std_logic := '1';
+  signal widget_capslock : std_logic := '0';
+  signal widget_joya : std_logic_vector(4 downto 0);
+  signal widget_joyb : std_logic_vector(4 downto 0);
+  
   ----------------------------------------------------------------------
   -- Slow devices (cartridge port, slow RAM etc)
   ----------------------------------------------------------------------
@@ -233,6 +241,9 @@ begin
       );
   
   core0: entity work.machine
+    generic map (
+      target => mega65r2
+      )
     port map (
       fpga_temperature => (others => '1'),
 
@@ -240,16 +251,15 @@ begin
 
       lcd_dataenable => lcd_dataenable,
       
-      pixelclock      => clock80,
-      cpuclock      => cpuclock,
+      pixelclock   => clock81,
+      cpuclock     => cpuclock,
       clock50mhz   => clock50mhz,
+      clock100     => clock100,
+      clock27      => clock27,
+      clock162     => clock162,
       ioclock      => cpuclock,
-      clock40 => cpuclock,
-      clock120 => clock120,
-      clock200 => clock200,
-      clock240 => clock240,
       uartclock    => ioclock,
-      btnCpuReset      => reset,
+      btnCpuReset  => reset,
       irq => irq,
       nmi => '1',
       cpu_exrom => cpu_exrom,
@@ -266,7 +276,15 @@ begin
 --      buffereduart_rx => '1',
       buffereduart_ringindicate => '1',
 --      buffereduart2_rx => '1',
-      
+
+      -- Connect MEGA65 smart keyboard via JTAG-like remote GPIO interface
+      widget_matrix_col_idx => widget_matrix_col_idx,
+      widget_matrix_col => widget_matrix_col,
+      widget_restore => widget_restore,
+      widget_capslock => widget_capslock,
+      widget_joya => (others => '1'),
+      widget_joyb => (others => '1'),      
+
       ps2data => '1',
       ps2clock => '1',
 
@@ -319,11 +337,6 @@ begin
       iec_data_external => iec_data_external,
       iec_clk_external => iec_clk_external,
       
-      pmod_clock => '0',
-      pmod_start_of_sequence => '1',
-      pmod_data_in => "0000",
-      pmoda => pmoda,
-
       uart_rx => pmodc(1),
       uart_tx => pmodc(2),
 
@@ -408,55 +421,65 @@ begin
     assert false report "End of simulation" severity failure;
   end process;
 
-  process
-  begin
-    clock30 <= '0';
-    wait for 16.667 ns;
-    clock30 <= '1';
-    wait for 16.667 ns;
-  end process;  
 
   process
   begin
-    clock120 <= '0';
-    wait for 4.167 ns;
-    clock120 <= '1';
-    wait for 4.167 ns;
-  end process;
+    clock27 <= '0';
 
-  process
-  begin
-    clock80 <= '0';
-    wait for 6.25 ns;
-    clock80 <= '1';
-    wait for 6.25 ns;
-  end process;
+    clock81 <= '0';
+    clock162 <= '0';
+    wait for 3.12 ns;
+    clock162 <= '1';
+    wait for 3.12 ns;
 
-  process
-  begin
-    clock240 <= '0';
-    wait for 2.0833 ns;
-    clock240 <= '1';
-    wait for 2.0833 ns;
-  end process;
+    clock81 <= '1';
+    clock162 <= '0';
+    wait for 3.12 ns;
+    clock162 <= '1';
+    wait for 3.12 ns;
+    
+    clock81 <= '0';
+    clock162 <= '0';
+    wait for 3.12 ns;
+    clock162 <= '1';
+    wait for 3.12 ns;
 
-  process
-  begin
-    clock200 <= '0';
-    wait for 2.5 ns;
-    clock200 <= '1';
-    wait for 2.5 ns;
+    clock27 <= '1';    
+    clock81 <= '1';
+    clock162 <= '0';
+    wait for 3.12 ns;
+    clock162 <= '1';
+    wait for 3.12 ns;
+    
+    clock81 <= '0';
+    clock162 <= '0';
+    wait for 3.12 ns;
+    clock162 <= '1';
+    wait for 3.12 ns;
+
+    clock81 <= '1';
+    clock162 <= '0';
+    wait for 3.12 ns;
+    clock162 <= '1';
+    wait for 3.12 ns;
+    
+
   end process;
 
   -- Deliver dummy ethernet frames
   process
     procedure eth_clock_tick is
     begin
-      -- XXX Doesn't tick the 120 or 240 MHz clocks
       clock50mhz <= '0';
-      wait for 10 ns;
+      clock100 <= '0';
+      wait for 5 ns;
+      clock100 <= '1';
+      wait for 5 ns;
       clock50mhz <= '1';
-      wait for 10 ns;
+      clock100 <= '0';
+      wait for 5 ns;
+      clock100 <= '1';
+      wait for 5 ns;
     end procedure;
   begin
     for i in 1 to 20 loop

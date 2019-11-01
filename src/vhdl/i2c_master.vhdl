@@ -60,6 +60,11 @@ END i2c_master;
 
 ARCHITECTURE logic OF i2c_master IS
   CONSTANT divider  :  INTEGER := (input_clk/bus_clk)/4; --number of clocks in 1/4 cycle of scl
+  constant divider_minus_1 : integer := divider - 1;
+  constant divider2_minus_1 : integer := divider*2-1;
+  constant divider2 : integer := divider*2;
+  constant divider3_minus_1 : integer := divider*3-1;
+  constant divider3 : integer := divider*3;
   
   TYPE machine IS(ready, start, command, slv_ack1, wr, rd, slv_ack2, mstr_ack, stop); --needed states
   SIGNAL state         : machine;                        --state machine
@@ -90,25 +95,24 @@ BEGIN
       ELSIF(stretch = '0') THEN           --clock stretching from slave not detected
         count := count + 1;               --continue clock generation timing
       END IF;
-      CASE count IS
-        WHEN 0 TO divider-1 =>            --first 1/4 cycle of clocking
-          scl_clk <= '0';
-          data_clk <= '0';
-        WHEN divider TO divider*2-1 =>    --second 1/4 cycle of clocking
-          scl_clk <= '0';
-          data_clk <= '1';
-        WHEN divider*2 TO divider*3-1 =>  --third 1/4 cycle of clocking
-          scl_clk <= '1';                 --release scl
-          IF(scl = '0') THEN              --detect if slave is stretching clock
-            stretch <= '1';
-          ELSE
-            stretch <= '0';
-          END IF;
-          data_clk <= '1';
-        WHEN OTHERS =>                    --last 1/4 cycle of clocking
-          scl_clk <= '1';
-          data_clk <= '0';
-      END CASE;
+      if count >= 0 and count <= divider_minus_1 then           --first 1/4 cycle of clocking
+        scl_clk <= '0';
+        data_clk <= '0';
+      elsif count>=divider and count<=divider2_minus_1 then    --second 1/4 cycle of clocking
+        scl_clk <= '0';
+        data_clk <= '1';
+      elsif  count>=divider2 and count<=divider3_minus_1 then  --third 1/4 cycle of clocking
+        scl_clk <= '1';                 --release scl
+        IF(scl = '0') THEN              --detect if slave is stretching clock
+          stretch <= '1';
+        ELSE
+          stretch <= '0';
+        END IF;
+        data_clk <= '1';
+      else                    --last 1/4 cycle of clocking
+        scl_clk <= '1';
+        data_clk <= '0';
+      END if;
     END IF;
   END PROCESS;
 

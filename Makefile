@@ -178,6 +178,7 @@ PERIPHVHDL=		$(VHDLSRCDIR)/sdcardio.vhdl \
 			$(VHDLSRCDIR)/ghdl_fpgatemp.vhdl \
 			$(VHDLSRCDIR)/expansion_port_controller.vhdl \
 			$(VHDLSRCDIR)/slow_devices.vhdl \
+			$(VHDLSRCDIR)/mega65r2_i2c.vhdl \
 			$(AUDIOVHDL) \
 			$(KBDVHDL)
 
