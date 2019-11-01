@@ -126,7 +126,17 @@ architecture edwardian of monitor_ctrl is
   signal rx_data_ready : std_logic;
   signal rx_data : unsigned(7 downto 0);
   signal uart_char_waiting : std_logic;
-  
+
+  signal history_write_continuous : std_logic;
+  signal monitor_watch_en : std_logic;
+  signal monitor_break_en : std_logic;
+  signal monitor_flag_en : std_logic;
+  signal mem_trace_reg : unsigned(7 downto 0);
+  signal monitor_watch_match : std_logic;
+  signal monitor_break_match : std_logic;
+  signal monitor_break_addr : unsigned(15 downto 0);
+  signal flag_break_mask : unsigned(15 downto 0);
+
 begin
 
   uart_tx0: entity work.tx_ctrl port map (
@@ -154,6 +164,15 @@ begin
   
   cpu_state_write_index <= cpu_state_write_index_next;
 
+  monitor_mem_trace_mode <= mem_trace_reg(0);
+  monitor_flag_en <= mem_trace_reg(1);
+  history_write <= mem_trace_reg(2);
+  history_write_continuous <= mem_trace_reg(3);
+  monitor_irq_inhibit <= mem_trace_reg(4);
+  monitor_hyper_trap <= '1';
+  monitor_watch_en <= mem_trace_reg(6);
+  monitor_break_en <= mem_trace_reg(7);
+  
   -- This is done as a separate combinatorial chunk because I need to be able to
   -- update the value of cpu_state_write and cpu_state_write_index (output) during
   -- the current clock cycle so the state write doesn't lag the CPU by a clock cycle.
@@ -221,9 +240,96 @@ begin
       end case;
     end if;
   
-                    
+    if reset = '1' then
+      tx_data <= x"FF";
+      tx_send <= '0';
+    else
+    // tx_send is automatically set to 1 for one clock cycle whenever 
+    // UART TX data register is written to.
+    if address == MON_UART_TX && write_sig = '1' then
+      tx_data <= di;
+      tx_send <= '1';
+    else
+      tx_send <= '0';
+    end if;
             
-  
+    if uart_char_valid = '1' then
+      uart_char_waiting <= '1';
+    end if;
+    if address = MON_UART_RX and read_sig = '1' then
+      rx_data_ack <= '1';
+      activity <= not activity;
+    end if;
+
+    if address = MON_KEYBOARD_RX and read_sig = '1' then
+     uart_char_waiting <= '0';     
+     activity <=  not activity;    -- Flip activity output on each KEYBOARD RX CPU read
+    elsif rx_data_ready='0' then -- Don't reset rx_data_ack until rx_data_ready is dropped by the UART.
+      rx_data_ack <= '0';
+    end if;
+
+    if reset='1' then
+      history_read_index <= to_unsigned(0,10);
+    elsif write_sig='1' then
+      case address is
+        when MON_READ_IDX_LO => history_read_index(7 downto 0) <= di;
+        when MON_READ_IDX_HI => history_read_index(15 downto 8) <= di;
+        when others => null;
+      end case;
+    end if;
+
+    if reset='1' then
+      history_write_index <= '0';
+      mem_trace_reg  <= '0';
+      monitor_watch_matched <= '0';
+      monitor_break_matched <= '0';
+    elsif write_sig = '1' then
+      when address is
+        case MON_WRITE_IDX_LO =>
+          history_write_index(7 downto 0) <= di; mem_trace_reg(2) <= '0';
+        case MON_WRITE_IDX_HI =>
+          history_write_index(15 downto 8) <= di; mem_trace_reg(2) <= '0';
+        case MON_UART_STATUS =>
+          -- cancel matrix mode if we write to $900A
+          clear_matrix_mode_toggle <= not clear_matrix_mode_toggle;
+        case MON_STATE_CNT =>
+          secure_mode_from_monitor <= di(7);
+        case MON_TRACE_CTRL =>
+          mem_trace_reg <= di;
+          if di(6)='1' then
+            monitor_watch_matched <= '0';
+          end if;
+          if di(7)='1' then
+            monitor_break_matched <= '0';
+          end if;
+        case MON_TRACE_STEP =>
+          monitor_mem_trace_toggle <= d(0);
+        case MON_FLAG_MASK0 =>
+          flag_break_mask(7 downto 0) <= di;
+        case MON_FLAG_MASK1 =>
+          flag_break_mask(15 downto 8) <= di;
+      end case;
+    elsif monitor_watch_match = '1' and monitor_watch_en = '1' then
+      mem_trace_reg(0) <= '1'; -- Auto set trace mode on watch address match
+      monitor_watch_matched <= '1';
+    elsif monitor_break_addr = monitor_pc and monitor_break_en = '1' then
+      mem_trace_reg(0) <= '1'; -- Auto set trace mode on break address match
+      monitor_break_matched <= '1';
+    elsif (((monitor_p and flag_break_mask(15 downto 0)) /= x"00")
+           or (((not monitor_p) and flag_break_mask(15 downto 0)) /= x"00"))
+          and monitor_flag_en = '1' then
+      mem_trace_reg(0) <= '1'; -- Auto set trace mode on break address match
+      monitor_break_matched <= '1';
+    elsif history_write = '1' then
+      -- record history continuously until full.   The last slot is reserved for capturing current state.
+      if history_write_index < 1022 then
+        history_write_index <= history_write_index + 1;
+      elsif history_write_continuous='1' then
+        history_write_index <= 0; // Wrap around to 0
+      else
+        mem_trace_reg(2) <= 0; -- Disable writes (and auto increment)
+      end if;
+    end if;
     
   end if;
   
