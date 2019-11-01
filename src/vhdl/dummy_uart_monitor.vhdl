@@ -16,6 +16,8 @@ entity uart_monitor is
       bit_rate_divisor : out unsigned(15 downto 0) := to_unsigned(10,16); 
       activity : out std_logic := '0';
 
+      request_monitor_halt : in std_logic;
+      
       protected_hardware_in : in unsigned(7 downto 0);
       uart_char : in unsigned(7 downto 0);
       uart_char_valid : in std_logic;

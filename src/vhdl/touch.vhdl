@@ -236,11 +236,15 @@ begin
             i2c0_command_en <= '1';
             if busy_count>1 then
               report "Setting byte(" & integer'image(busy_count - 2) & ") to $" & to_hstring(i2c0_rdata);
-              bytes(busy_count - 2) <= i2c0_rdata;
+              if busy_count > 1 and busy_count < 18 then
+                bytes(busy_count - 2) <= i2c0_rdata;
+              end if;
             end if;
           when others =>
             report "Setting byte(" & integer'image(busy_count - 2) & ") to $" & to_hstring(i2c0_rdata);
-            bytes(busy_count - 2) <= i2c0_rdata;
+            if busy_count > 1 and busy_count < 18 then
+              bytes(busy_count - 2) <= i2c0_rdata;
+            end if;
             i2c0_command_en <= '0';
             busy_count <= 0;
             parse_touch <= 1;
