@@ -400,6 +400,9 @@ begin
     end if;        
 
   if rising_edge(clock27) then
+    report "plotting = " & std_logic'image(plotting)
+      & ", inframe_internal = " & std_logic'image(inframe_internal);
+    
       pal50_select_internal_drive <= pal50_select;
       pal50_select_internal <= pal50_select_internal_drive;
 
@@ -416,7 +419,8 @@ begin
       elsif test_pattern_enable120='1' then
         red_o <= to_unsigned(raddr50,8);
         green_o <= to_unsigned(raddr60,8);
-        blue_o <= to_unsigned(raddrvga60,8);
+        blue_o(6 downto 0) <= to_unsigned(raddrvga60,7);
+        blue_o(7) <= '1';
       else
         red_o <= red_i;
         green_o <= green_i;
@@ -457,21 +461,21 @@ begin
       end if;
     end if;
 
-  if x_zero_vga60='1' then
-        raddrvga60 <= 0;
-        plottingvga60 <= '0';
-        report "raddr = ZERO";
+    if x_zero_vga60='1' then
+      raddrvga60 <= 0;
+      plottingvga60 <= '0';
+      report "raddr = ZERO";
+    else
+      if raddrvga60 < 800 then
+        plottingvga60 <= '1';
       else
-        if raddrvga60 < 800 then
-          plottingvga60 <= '1';
-        else
-          plottingvga60 <= '0';
-        end if;
-
-        if raddrvga60 < 1023 then
-          raddrvga60 <= raddrvga60 + 1;
-        end if;
+        plottingvga60 <= '0';
       end if;
+
+      if raddrvga60 < 1023 then
+        raddrvga60 <= raddrvga60 + 1;
+      end if;
+    end if;
 
   end process;
 
