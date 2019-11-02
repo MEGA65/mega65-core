@@ -280,8 +280,8 @@ begin
                   pipeline_delay => 0,
                   vsync_start => 489+5,
                   vsync_end => 495+5,
-                  hsync_start => 706,
-                  hsync_end => 799
+                  hsync_start => 746,
+                  hsync_end => 40
                   )                  
     port map ( clock81 => clock81,
                clock41 => cpuclock,
