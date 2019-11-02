@@ -245,7 +245,6 @@ begin
                -- Control HSYNC/VSYNC polarities
                hsync_invert => sw(2),
                vsync_invert => sw(3),
-               rd_data_count => led(15 downto 6),
                x_zero => x_zero,
                y_zero => y_zero,
 

@@ -32,10 +32,6 @@ entity pixel_driver is
     clock162 : in std_logic;
     clock27 : in std_logic;
 
-    waddr_out : out unsigned(11 downto 0);
-    rd_data_count : out std_logic_vector(9 downto 0);
-    wr_data_count : out std_logic_vector(9 downto 0);
-    
     -- 720x576@50Hz if pal50_select='1', else 720x480@60Hz NTSC (or VGA 64Hz if
     -- enabled)
     pal50_select : in std_logic;
@@ -216,8 +212,8 @@ begin
                   display_height => 600,
                   vsync_start => 581,
                   vsync_end => 586,
-                  hsync_start => 851-64+32,
-                  hsync_end => 31 
+                  hsync_start => 851-74,
+                  hsync_end => 851-74+63
                   )                  
     port map ( clock81 => clock81,
                clock41 => cpuclock,
@@ -248,8 +244,8 @@ begin
                   pipeline_delay => 0,
                   vsync_start => 489,
                   vsync_end => 495,
-                  hsync_start => 878-62,
-                  hsync_end => 876
+                  hsync_start => 878-62-35,
+                  hsync_end => 878-35
                   )                  
     port map ( clock81 => clock81,
                clock41 => cpuclock,
