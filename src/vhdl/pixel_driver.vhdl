@@ -208,7 +208,7 @@ begin
   -- C64 properly.
   -- They also use a common 27MHz pixel clock, which makes our life simpler
   
-  frame50: entity work.frame_generator
+  frame50: entity work.frame_generator 
     generic map ( frame_width => 851,        
                   display_width => 800,
                   frame_height => 624,        -- 312 lines x 2 fields
@@ -241,7 +241,7 @@ begin
                );
 
   frame60: entity work.frame_generator
-    generic map ( frame_width => 878-1,   -- 65 cycles x 16 pixels
+   generic map ( frame_width => 878-1,   -- 65 cycles x 16 pixels
                   display_width => 800,
                   frame_height => 526,       -- NTSC frame is 263 lines x 2 frames
                   display_height => 526-4,
@@ -253,11 +253,12 @@ begin
                   )                  
     port map ( clock81 => clock81,
                clock41 => cpuclock,
+               hsync => hsync_ntsc60,
+               hsync_uninverted => hsync_ntsc60_uninverted,
+               vsync => vsync_ntsc60,
                hsync_polarity => hsync_invert,
                vsync_polarity => vsync_invert,
-               hsync_uninverted => hsync_ntsc60_uninverted,
-               hsync => hsync_ntsc60,
-               vsync => vsync_ntsc60,
+
                inframe => inframe_ntsc60,
                lcd_hsync => lcd_hsync_ntsc60,
                lcd_vsync => lcd_vsync_ntsc60,
@@ -304,8 +305,8 @@ begin
                );               
   
   hsync <= hsync_pal50 when pal50_select_internal='1' else
-           hsync_ntsc60 when vga60_select_internal='1'
-           else hsync_vga60;
+           hsync_vga60 when vga60_select_internal='1'
+           else hsync_ntsc60;
   vsync <= vsync_pal50 when pal50_select_internal='1' else
            vsync_vga60 when vga60_select_internal='1'
            else vsync_ntsc60;
