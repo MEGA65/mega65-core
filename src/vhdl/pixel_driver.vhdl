@@ -271,17 +271,19 @@ begin
                
                );               
 
-  -- ModeLine "640x480" 25.18 640 656 752 800 480 490 492 525 -HSync -VSync 
+  -- ModeLine "640x480" 25.18 640 656 752 800 480 490 492 525 -HSync -VSync
+  -- Ends up being 64Hz, because our dotclock is ~27MHz.  Most monitors accept
+  -- it, anyway.
   frame60vga: entity work.frame_generator
-    generic map ( frame_width => 800-1,   -- 65 cycles x 16 pixels
+    generic map ( frame_width => 800-1,
                   display_width => 640,
-                  frame_height => 526,       -- NTSC frame is 263 lines x 2 frames
+                  frame_height => 526,
                   display_height => 526-4,
                   pipeline_delay => 0,
                   vsync_start => 489+5,
                   vsync_end => 495+5,
-                  hsync_start => 746,
-                  hsync_end => 40
+                  hsync_start => 770-64,
+                  hsync_end => 770
                   )                  
     port map ( clock81 => clock81,
                clock41 => cpuclock,
