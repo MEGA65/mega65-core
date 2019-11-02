@@ -73,7 +73,8 @@ entity pixel_driver is
     xz60 : out std_logic;
     p    : out std_logic;
     ifi  : out std_logic;
-      
+    ra60 : out integer;
+    
     -- Indicate when next pixel/raster is expected
     pixel_strobe_out : out std_logic;
     
@@ -239,7 +240,7 @@ begin
                );
 
   frame60: entity work.frame_generator
-   generic map ( frame_width => 878-1,   -- 65 cycles x 16 pixels
+    generic map ( frame_width => 878-1,   -- 65 cycles x 16 pixels
                   display_width => 800,
                   frame_height => 526,       -- NTSC frame is 263 lines x 2 frames
                   display_height => 526-4,
@@ -284,11 +285,12 @@ begin
                   )                  
     port map ( clock81 => clock81,
                clock41 => cpuclock,
+               hsync => hsync_vga60,
+               hsync_uninverted => hsync_vga60_uninverted,
+               vsync => vsync_vga60,
                hsync_polarity => hsync_invert,
                vsync_polarity => vsync_invert,
-               hsync_uninverted => hsync_vga60_uninverted,
-               hsync => hsync_vga60,
-               vsync => vsync_vga60,
+
                inframe => inframe_vga60,
                lcd_hsync => lcd_hsync_vga60,
                lcd_vsync => lcd_vsync_vga60,
@@ -341,6 +343,7 @@ begin
   xz60 <= x_zero_vga60;
   p <= plotting;
   ifi <= inframe_internal;
+  ra60 <= raddrvga60;
   
   y_zero_internal <= y_zero_pal50 when pal50_select_internal='1' else
                      y_zero_vga60 when vga60_select_internal='1'
@@ -405,8 +408,7 @@ begin
       elsif test_pattern_enable120='1' then
         red_o <= to_unsigned(raddr50,8);
         green_o <= to_unsigned(raddr60,8);
-        blue_o(6 downto 0) <= to_unsigned(raddrvga60,7);
-        blue_o(7) <= '1';
+        blue_o(7 downto 0) <= to_unsigned(raddrvga60,8);
       else
         red_o <= red_i;
         green_o <= green_i;
@@ -445,21 +447,21 @@ begin
           raddr60 <= raddr60 + 1;
         end if;
       end if;
-    end if;
 
-    if x_zero_vga60='1' then
-      raddrvga60 <= 0;
-      plottingvga60 <= '0';
-      report "raddr = ZERO";
-    else
-      if raddrvga60 < 800 then
-        plottingvga60 <= '1';
-      else
+      if x_zero_vga60='1' then
+        raddrvga60 <= 0;
         plottingvga60 <= '0';
-      end if;
+        report "raddr = ZERO";
+      else
+        if raddrvga60 < 800 then
+          plottingvga60 <= '1';
+        else
+          plottingvga60 <= '0';
+        end if;
 
-      if raddrvga60 < 1023 then
-        raddrvga60 <= raddrvga60 + 1;
+        if raddrvga60 < 1023 then
+          raddrvga60 <= raddrvga60 + 1;
+        end if;
       end if;
     end if;
 

@@ -203,6 +203,7 @@ architecture Behavioral of container is
   signal xz60 : std_logic;
   signal p : std_logic;
   signal ifi : std_logic;
+  signal ra60 : integer := 0;
   
   signal spot : std_logic := '0';
   signal bitnum : integer range 0 to 16 := 0;
@@ -240,6 +241,7 @@ begin
                xz60 => xz60,
                p => p,
                ifi => ifi,
+               ra60 => ra60,
                
                -- Select 50/60Hz video mode
                pal50_select => sw(0),
@@ -305,6 +307,7 @@ begin
       led(2) <= pixel_due;
       led(3) <= p;
       led(4) <= ifi;
+      led(15 downto 6) <= std_logic_vector(to_unsigned(ra60,10));
       jclo(1) <= x_zero;
       jclo(2) <= xz60;
       jclo(3) <= p;
