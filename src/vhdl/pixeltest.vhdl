@@ -199,6 +199,9 @@ architecture Behavioral of container is
   signal x_zero : std_logic := '0';
   signal y_zero : std_logic := '0';
 
+  signal xz50 : std_logic;
+  signal xz60 : std_logic;
+  
   signal spot : std_logic := '0';
   signal bitnum : integer range 0 to 16 := 0;
   signal raster_counter : integer range 0 to 65535 := 0;
@@ -231,6 +234,9 @@ begin
 
                cpuclock => cpuclock,
 
+               xz50 => xz50,
+               xz60 => xz60,
+               
                -- Select 50/60Hz video mode
                pal50_select => sw(0),
                vga60_select => sw(4),
@@ -240,8 +246,8 @@ begin
                hsync_invert => sw(2),
                vsync_invert => sw(3),
                rd_data_count => led(15 downto 6),
-               x_zero_out => x_zero,
-               y_zero_out => y_zero,
+               x_zero => x_zero,
+               y_zero => y_zero,
 
                pixel_strobe_out => pixel_due,
                
@@ -294,6 +300,10 @@ begin
       led(0) <= x_zero;
       led(1) <= y_zero;
       led(2) <= pixel_due;
+      jclo(1) <= x_zero;
+      jclo(2) <= y_zero;
+      jclo(3) <= xz50;
+      jclo(4) <= xz60;
 
       if x_zero='1' then
         x0count <= x0count + 1;

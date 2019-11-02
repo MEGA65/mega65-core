@@ -32,17 +32,14 @@ entity pixel_driver is
     clock162 : in std_logic;
     clock27 : in std_logic;
 
-    -- Inform VIC-IV of new rasters and new frames
-    x_zero_out : out std_logic;
-    y_zero_out : out std_logic;
-    
     waddr_out : out unsigned(11 downto 0);
     rd_data_count : out std_logic_vector(9 downto 0);
     wr_data_count : out std_logic_vector(9 downto 0);
     
-    -- 800x600@50Hz if pal50_select='1', else 800x600@60Hz
+    -- 720x576@50Hz if pal50_select='1', else 720x480@60Hz NTSC (or VGA 64Hz if
+    -- enabled)
     pal50_select : in std_logic;
-    -- 640x480@64Hz if vga60_select='1' override is enabled
+    -- 640x480@64Hz if vga60_select='1' override is enabled, e
     -- for monitors that can't do the HDTV modes
     vga60_select : in std_logic := '0';
     -- Shows simple test pattern if '1', else shows normal video
@@ -68,12 +65,16 @@ entity pixel_driver is
     hsync : out std_logic;
     vsync : out std_logic;
 
+    -- Inform VIC-IV of new rasters and new frames
     -- Signals for VIC-IV etc to know what is happening
     hsync_uninverted : out std_logic;
     vsync_uninverted : out std_logic;
     y_zero : out std_logic;
     x_zero : out std_logic;
     inframe : out std_logic;
+
+    xz50 : out std_logic;
+    xz60 : out std_logic;
     
     -- Indicate when next pixel/raster is expected
     pixel_strobe_out : out std_logic;
@@ -208,14 +209,14 @@ begin
   -- They also use a common 27MHz pixel clock, which makes our life simpler
   
   frame50: entity work.frame_generator
-    generic map ( frame_width => 864,        
+    generic map ( frame_width => 851,        
                   display_width => 800,
                   frame_height => 624,        -- 312 lines x 2 fields
                   pipeline_delay => 0,
                   display_height => 600,
                   vsync_start => 581,
                   vsync_end => 586,
-                  hsync_start => 863-64+32,
+                  hsync_start => 851-64+32,
                   hsync_end => 31 
                   )                  
     port map ( clock81 => clock81,
@@ -240,15 +241,15 @@ begin
                );
 
   frame60: entity work.frame_generator
-    generic map ( frame_width => 854-1,   -- 65 cycles x 16 pixels
+    generic map ( frame_width => 878-1,   -- 65 cycles x 16 pixels
                   display_width => 800,
                   frame_height => 526,       -- NTSC frame is 263 lines x 2 frames
                   display_height => 526-4,
                   pipeline_delay => 0,
                   vsync_start => 489,
                   vsync_end => 495,
-                  hsync_start => 853-62, -- 736+16-1,
-                  hsync_end => 853 -- 798+16-1
+                  hsync_start => 878-62,
+                  hsync_end => 876
                   )                  
     port map ( clock81 => clock81,
                clock41 => cpuclock,
@@ -336,12 +337,13 @@ begin
   y_zero <= y_zero_pal50 when pal50_select_internal='1' else
             y_zero_vga60 when vga60_select_internal='1'
             else y_zero_ntsc60;
+
+  xz50 <= x_zero_pal50;
+  xz60 <= x_zero_ntsc60;
+  
   y_zero_internal <= y_zero_pal50 when pal50_select_internal='1' else
                      y_zero_vga60 when vga60_select_internal='1'
                      else y_zero_ntsc60;
-  pixel_strobe_out <= pixel_strobe_50 when pal50_select_internal='1' else
-                      pixel_strobe_vga60 when vga60_select_internal='1'
-                      else pixel_strobe_60;
 
   -- Generate output pixel strobe and signals for read-side of the FIFO
   pixel_strobe_out <= pixel_strobe_50 when pal50_select_internal='1' else
@@ -357,12 +359,6 @@ begin
               plottingvga60 when vga60_select_internal='1'
               else plotting60;
   
-  x_zero_out <= x_zero_pal50 when pal50_select_internal='1' else
-                x_zero_vga60 when vga60_select_internal='1'
-                else x_zero_ntsc60;
-  y_zero_out <= y_zero_pal50 when pal50_select_internal='1' else
-                y_zero_vga60 when vga60_select_internal='1'
-                else y_zero_ntsc60;
   
   process (clock81,clock27) is
   begin
