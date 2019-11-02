@@ -247,8 +247,8 @@ begin
                   pipeline_delay => 0,
                   vsync_start => 489,
                   vsync_end => 495,
-                  hsync_start => 878-62-40,
-                  hsync_end => 878-40
+                  hsync_start => 878-62-45,
+                  hsync_end => 878-45
                   )                  
     port map ( clock81 => clock81,
                clock41 => cpuclock,
@@ -278,10 +278,10 @@ begin
                   frame_height => 526,       -- NTSC frame is 263 lines x 2 frames
                   display_height => 526-4,
                   pipeline_delay => 0,
-                  vsync_start => 489,
-                  vsync_end => 495,
-                  hsync_start => 656,
-                  hsync_end => 752
+                  vsync_start => 489+5,
+                  vsync_end => 495+5,
+                  hsync_start => 706,
+                  hsync_end => 799
                   )                  
     port map ( clock81 => clock81,
                clock41 => cpuclock,
