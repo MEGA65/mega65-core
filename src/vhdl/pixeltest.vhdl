@@ -293,6 +293,7 @@ begin
 
       led(0) <= x_zero;
       led(1) <= y_zero;
+      led(2) <= pixel_due;
 
       if x_zero='1' then
         x0count <= x0count + 1;
