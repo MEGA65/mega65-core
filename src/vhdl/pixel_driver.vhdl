@@ -217,8 +217,8 @@ begin
                   display_height => 600,
                   vsync_start => 581,
                   vsync_end => 586,
-                  hsync_start => 732,
-                  hsync_end => 732+64 
+                  hsync_start => 863-64+32,
+                  hsync_end => 31 
                   )                  
     port map ( clock81 => clock81,
                clock41 => cpuclock,
@@ -371,17 +371,17 @@ begin
 
     if rising_edge(clock81) then
 
-  if pal50_select_internal80='1' then
-    report "x_zero=" & std_logic'image(x_zero_pal50)
-      & ", y_zero=" & std_logic'image(y_zero_pal50);
-  else
-    report "x_zero = " & std_logic'image(x_zero_ntsc60)
-      & ", y_zero = " & std_logic'image(y_zero_ntsc60);
-  end if;       
+      if pal50_select_internal80='1' then
+        report "x_zero=" & std_logic'image(x_zero_pal50)
+          & ", y_zero=" & std_logic'image(y_zero_pal50);
+      else
+        report "x_zero = " & std_logic'image(x_zero_ntsc60)
+          & ", y_zero = " & std_logic'image(y_zero_ntsc60);
+      end if;       
       
       lcd_display_enable <= display_en80;
-  pal50_select_internal80 <= pal50_select;
-  vga60_select_internal80 <= vga60_select;
+      pal50_select_internal80 <= pal50_select;
+      vga60_select_internal80 <= vga60_select;
       if pal50_select_internal80 = '1' then
         display_en80 <= lcd_inframe_pal50;
       elsif vga60_select_internal80='1' then
@@ -392,10 +392,10 @@ begin
       
     end if;        
 
-  if rising_edge(clock27) then
-    report "plotting = " & std_logic'image(plotting)
-      & ", inframe_internal = " & std_logic'image(inframe_internal);
-    
+    if rising_edge(clock27) then
+      report "plotting = " & std_logic'image(plotting)
+        & ", inframe_internal = " & std_logic'image(inframe_internal);
+      
       pal50_select_internal_drive <= pal50_select;
       pal50_select_internal <= pal50_select_internal_drive;
 
@@ -431,7 +431,7 @@ begin
           report "clearing plotting50 due to end of line";
           plotting50 <= '0';
         end if;
-  
+        
         if raddr50 < 1023 then
           raddr50 <= raddr50 + 1;
         end if;
