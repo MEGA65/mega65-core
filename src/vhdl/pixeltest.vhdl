@@ -201,6 +201,8 @@ architecture Behavioral of container is
 
   signal xz50 : std_logic;
   signal xz60 : std_logic;
+  signal p : std_logic;
+  signal ifi : std_logic;
   
   signal spot : std_logic := '0';
   signal bitnum : integer range 0 to 16 := 0;
@@ -236,6 +238,8 @@ begin
 
                xz50 => xz50,
                xz60 => xz60,
+               p => p,
+               ifi => ifi,
                
                -- Select 50/60Hz video mode
                pal50_select => sw(0),
@@ -276,7 +280,7 @@ begin
   vgared <= buffer_vgared(7 downto 4);
   vgagreen <= buffer_vgagreen(7 downto 4);
 
-  red_in <= x"00" when (pixel_counter > 39 and pixel_counter < 760 ) else x"FF";
+  red_in <= x"00" when (pixel_counter > (39+raster_counter) and pixel_counter < (760-raster_counter) ) else x"FF";
   blue_in <= x"00" when (pixel_counter /=1 and pixel_counter /= 39 and pixel_counter/= 759 and pixel_counter/=799 ) else x"FF";
   
   -- VGA out on LCD panel
@@ -299,10 +303,12 @@ begin
       led(0) <= x_zero;
       led(1) <= y_zero;
       led(2) <= pixel_due;
+      led(3) <= p;
+      led(4) <= ifi;
       jclo(1) <= x_zero;
-      jclo(2) <= y_zero;
-      jclo(3) <= xz50;
-      jclo(4) <= xz60;
+      jclo(2) <= xz60;
+      jclo(3) <= p;
+      jclo(4) <= ifi;
 
       if x_zero='1' then
         x0count <= x0count + 1;

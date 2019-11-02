@@ -71,7 +71,9 @@ entity pixel_driver is
 
     xz50 : out std_logic;
     xz60 : out std_logic;
-    
+    p    : out std_logic;
+    ifi  : out std_logic;
+      
     -- Indicate when next pixel/raster is expected
     pixel_strobe_out : out std_logic;
     
@@ -212,8 +214,8 @@ begin
                   display_height => 600,
                   vsync_start => 581,
                   vsync_end => 586,
-                  hsync_start => 851-74,
-                  hsync_end => 851-74+63
+                  hsync_start => 851-77,
+                  hsync_end => 851-77+63
                   )                  
     port map ( clock81 => clock81,
                clock41 => cpuclock,
@@ -244,8 +246,8 @@ begin
                   pipeline_delay => 0,
                   vsync_start => 489,
                   vsync_end => 495,
-                  hsync_start => 878-62-35,
-                  hsync_end => 878-35
+                  hsync_start => 878-62-40,
+                  hsync_end => 878-40
                   )                  
     port map ( clock81 => clock81,
                clock41 => cpuclock,
@@ -336,7 +338,9 @@ begin
             else y_zero_ntsc60;
 
   xz50 <= x_zero_pal50;
-  xz60 <= x_zero_ntsc60;
+  xz60 <= x_zero_vga60;
+  p <= plotting;
+  ifi <= inframe_internal;
   
   y_zero_internal <= y_zero_pal50 when pal50_select_internal='1' else
                      y_zero_vga60 when vga60_select_internal='1'
