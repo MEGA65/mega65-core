@@ -210,14 +210,7 @@ begin
   -- They also use a common 27MHz pixel clock, which makes our life simpler
   
   frame50: entity work.frame_generator
-    generic map ( frame_width => 968,    -- 63 cycles x 16 pixels per clock
-                                             -- = 1008, but then it's only 48
-                                             -- frames per second.
-                                             -- so what we have here is
-                                             -- nominally 60.5 cycles per
-                                             -- raster which is wrong. How does
-                                             -- the calculation go wrong?
-                                             -- Is it 27/30MHz pixel clock?
+    generic map ( frame_width => 864,        
                   display_width => 800,
                   frame_height => 624,        -- 312 lines x 2 fields
                   pipeline_delay => 0,
