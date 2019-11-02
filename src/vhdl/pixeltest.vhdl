@@ -233,6 +233,7 @@ begin
 
                -- Select 50/60Hz video mode
                pal50_select => sw(0),
+               vga60_select => sw(4),
                -- Show test pattern
                test_pattern_enable => sw(1),
                -- Control HSYNC/VSYNC polarities
