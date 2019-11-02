@@ -99,11 +99,9 @@ architecture greco_roman of pixel_driver is
   
   signal pal50_select_internal : std_logic := '0';
   signal pal50_select_internal_drive : std_logic := '0';
-  signal pal50_select_internal80 : std_logic := '0';
 
   signal vga60_select_internal : std_logic := '0';
   signal vga60_select_internal_drive : std_logic := '0';
-  signal vga60_select_internal80 : std_logic := '0';
   
   signal raster_toggle : std_logic := '0';
   signal raster_toggle_last : std_logic := '0';
@@ -359,11 +357,11 @@ begin
               plottingvga60 when vga60_select_internal='1'
               else plotting60;
   
-  x_zero_out <= x_zero_pal50 when pal50_select_internal80='1' else
-                x_zero_vga60 when vga60_select_internal80='1'
+  x_zero_out <= x_zero_pal50 when pal50_select_internal='1' else
+                x_zero_vga60 when vga60_select_internal='1'
                 else x_zero_ntsc60;
-  y_zero_out <= y_zero_pal50 when pal50_select_internal80='1' else
-                y_zero_vga60 when vga60_select_internal80='1'
+  y_zero_out <= y_zero_pal50 when pal50_select_internal='1' else
+                y_zero_vga60 when vga60_select_internal='1'
                 else y_zero_ntsc60;
   
   process (clock81,clock27) is
@@ -371,7 +369,7 @@ begin
 
     if rising_edge(clock81) then
 
-      if pal50_select_internal80='1' then
+      if pal50_select_internal='1' then
         report "x_zero=" & std_logic'image(x_zero_pal50)
           & ", y_zero=" & std_logic'image(y_zero_pal50);
       else
@@ -380,11 +378,9 @@ begin
       end if;       
       
       lcd_display_enable <= display_en80;
-      pal50_select_internal80 <= pal50_select;
-      vga60_select_internal80 <= vga60_select;
-      if pal50_select_internal80 = '1' then
+      if pal50_select_internal = '1' then
         display_en80 <= lcd_inframe_pal50;
-      elsif vga60_select_internal80='1' then
+      elsif vga60_select_internal='1' then
         display_en80 <= lcd_inframe_vga60;
       else
         display_en80 <= lcd_inframe_ntsc60;
