@@ -1042,7 +1042,7 @@ begin
       pixel_x_in => pixel_x_viciv,
       red_i => vgared_osk,
       green_i => vgagreen_osk,
-      blue_i => vgablue_osk,
+      blue_i => vgablue_viciv,
 
       -- The pixel for direct output to VGA pins
       -- It is clocked at the correct pixel

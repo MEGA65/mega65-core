@@ -108,7 +108,7 @@ entity viciv is
     -- Used to synchronise our frame with an external frame generator
     -- (Used to provide stable frame generation for LCD displays, as well
     -- as to support a genlock input).
-    external_frame_x_zero : in std_logic := '0';
+    external_frame_x_zero : in std_logic;
     external_frame_y_zero : in std_logic := '0';
     -- Similarly, we get told when we should be presenting a new pixel, so
     -- that we don't have to figure out all the fiddly timing ourselves
@@ -1968,10 +1968,11 @@ begin
         elsif register_number=126 then
           -- fastio_rdata <= "0000"
           -- & std_logic_vector(debug_charaddress_drive2(11 downto 8));
-          fastio_rdata <= x"FF";
+          fastio_rdata <= x"00";
           fastio_rdata(0) <= external_frame_x_zero_latched;
           fastio_rdata(1) <= external_pixel_strobe_log(0);
           fastio_rdata(2) <= vga_in_frame;
+          fastio_rdata(3) <= indisplay_t3;
         elsif register_number=127 then
           fastio_rdata <= x"FF";
         elsif register_number<256 then
@@ -2989,7 +2990,6 @@ begin
         end if;
       end if;
 
-      last_external_frame_x_zero_latched <= external_frame_x_zero_latched;
       if external_frame_x_zero_latched = '1' then
         -- End of raster reached.
         -- Bump raster number and start next raster.
@@ -5247,6 +5247,7 @@ begin
       reg_h640_delayed <= reg_h640;
       reg_h1280_delayed <= reg_h1280;
       external_frame_x_zero_latched <= external_frame_x_zero;
+      last_external_frame_x_zero_latched <= external_frame_x_zero_latched;
 
     -- ycounter we can watch for changes and count down, instead of having to have
     -- 17 copies of it
