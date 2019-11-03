@@ -1068,6 +1068,8 @@ begin
       ioclock        => ioclock,
       all_pause => all_pause,
 
+      hypervisor_mode => cpu_hypervisor_mode,
+      
       irq             => vic_irq,
       reset           => reset_combined,
 
