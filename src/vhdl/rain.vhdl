@@ -25,6 +25,8 @@ entity matrix_rain_compositor is
   port (
     -- CPU clock (typically 50MHz)
     clk : in std_logic; 
+
+    pal_mode : in std_logic;
     
     -- Whether matrix mode should be displayed or not
     matrix_mode_enable : in std_logic;
@@ -131,6 +133,7 @@ architecture rtl of matrix_rain_compositor is
   signal lfsr_advance_counter : integer range 0 to 31 := 0;
   signal last_letterbox : std_logic := '1';
   signal last_xcounter_in : integer := 0;
+  signal last_xcounter_t1 : integer := 0;
   
   signal drop_start : integer range 0 to 63 := 1;
   signal drop_end : integer range 0 to 63 := 1;
@@ -263,7 +266,13 @@ begin  -- rtl
         skip_rasters <= osk_rasters_used(3 downto 0);
       else
         -- Just do the normal skip of 1 to advance to the next row normally.
-        skip_rows <= to_unsigned(1,5);
+        -- Well, that's true if we are in PAL, and have enough raster lines.
+        -- If we are in NTSC, then we have to trim two lines from the bottom.
+        if pal_mode='0' then
+          skip_rows <= to_unsigned(1+2,5); -- NTSC skip 2 lines
+        else
+          skip_rows <= to_unsigned(1,5); -- PAL show all lines
+        end if;
         skip_rasters <= to_unsigned(0,4);
         skip_bytes <= te_line_length;
       end if;
@@ -615,7 +624,10 @@ begin  -- rtl
         end if;
       end if;
 
+      -- Delay display by one clock to re-synchronise with the VIC-IV video output
+      last_xcounter_t1 <= last_xcounter_in;
       last_xcounter_in <= xcounter_in;
+      
       last_external_frame_x_zero <= external_frame_x_zero;
       last_external_frame_y_zero <= external_frame_y_zero;
 
@@ -694,7 +706,7 @@ begin  -- rtl
           column_counter <= column_counter + 1;
         else
           -- rotate bits for terminal chargen every 2 640H pixels
-          if xcounter_in /= last_xcounter_in then
+          if last_xcounter_t1 /= last_xcounter_in then
             char_bit_stretch <= not char_bit_stretch;
             if char_bit_stretch = '1' and char_bit_count /= 1 then
               char_bits(7 downto 1) <= char_bits(6 downto 0);

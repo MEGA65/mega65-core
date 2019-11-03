@@ -1154,7 +1154,8 @@ begin
   matrix_compositor0 : entity work.matrix_rain_compositor port map(
     clk => uartclock,
     pixelclock => pixelclock,
-
+    pal_mode => pal50_select,
+    
     monitor_char_in => monitor_char_out,
     monitor_char_valid => monitor_char_out_valid,
     terminal_emulator_ready => terminal_emulator_ready,
