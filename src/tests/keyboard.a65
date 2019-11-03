@@ -15,6 +15,13 @@
 	 lda #$53
 	 sta $d02f
 
+	 ; fast cpu
+	 lda #65
+	 sta 0
+
+	 ; disable bad line emulation
+	 lda #$00
+	 sta $d710
 
 	 ; Make chars different colours
 	 ldx #$27
@@ -41,9 +48,45 @@ l3:
 	 ; Disable IRQ so we don't get interference
 	 sei
 
-	 ; Show keyboard matrix bits
-	 
+
 l2:
+	 ; Test whether the IO settle delay works or not
+	 lda #$80
+l2a:	 cmp $d012
+	 bne l2a
+
+	 ; make sure raster activity is visible
+	 ldx #7
+l2aa:    lda $1000
+	 dex
+	 bpl l2aa
+
+	 ldx #7
+	 ldy #6
+	 lda #$ff
+	 stx $d021
+	 sta $dc00
+	 sty $d021
+	 
+	 lda #$88
+l2b:	 cmp $d012
+	 bne l2b	 
+
+	 ; make sure raster activity is visible
+	 ldx #7
+l2ab:    lda $1000
+	 dex
+	 bpl l2ab
+
+	 ldx #1
+	 lda #2
+	 ldy #6
+	 stx $d021
+	 sta $d021
+	 sty $d021
+
+
+	 ; Show keyboard matrix bits
 	 lda #$ff-1
 	 sta $dc00
 	 ldx #$00
