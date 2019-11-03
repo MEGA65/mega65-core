@@ -408,11 +408,13 @@ begin
       elsif test_pattern_enable120='1' then
         red_o <= to_unsigned(raddr50,8);
         green_o <= to_unsigned(raddr60,8);
-        blue_o(7 downto 0) <= to_unsigned(raddrvga60,8);
+        blue_o(6 downto 0) <= to_unsigned(raddrvga60,7);
+        blue_o(7) <= '1';
       else
         red_o <= red_i;
         green_o <= green_i;
         blue_o <= blue_i;
+        green_o(7) <= '1';
       end if;
       
       if x_zero_pal50='1' then
