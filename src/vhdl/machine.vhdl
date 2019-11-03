@@ -1040,7 +1040,7 @@ begin
       -- (clocked at 100MHz pixel clock)
       red_i => vgared_osk,
       green_i => vgagreen_osk,
-      blue_i => vgablue_viciv,
+      blue_i => vgablue_osk,
 
       -- The pixel for direct output to VGA pins
       -- It is clocked at the correct pixel
