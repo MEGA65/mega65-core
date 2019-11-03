@@ -10,14 +10,13 @@ end test_osk;
 
 architecture behavioral of test_osk is
 
-  signal pixel_x_640 : integer := 0;
   signal frames : integer := 0;
-  signal ycounter_in : unsigned(11 downto 0) := (others => '0');
-  signal x_start : unsigned(11 downto 0) := to_unsigned(0,12);
+  signal xcounter : integer := 0;
+  signal ycounter_in : integer := 0;
+  signal x_start : unsigned(11 downto 0) := to_unsigned(10,12);
   signal y_start : unsigned(11 downto 0) := to_unsigned(479-290,12);
-  signal pixelclock : std_logic := '1';
   signal visual_keyboard_enable : std_logic := '0';
-  signal keyboard_at_top : std_logic := '0';
+  signal keyboard_at_top : std_logic := '1';
   signal alternate_keyboard : std_logic := '0';
   signal instant_at_top : std_logic := '0';
   signal key1 : unsigned(7 downto 0) := x"FF";
@@ -36,19 +35,89 @@ architecture behavioral of test_osk is
   signal vgared_in : unsigned (7 downto 0) := x"00";
   signal vgagreen_in : unsigned (7 downto 0) := x"FF";
   signal vgablue_in : unsigned (7 downto 0) := x"00";
+  signal vgared_osk : unsigned (7 downto 0);
+  signal vgagreen_osk : unsigned (7 downto 0);
+  signal vgablue_osk : unsigned (7 downto 0);
   signal vgared_out : unsigned (7 downto 0);
   signal vgagreen_out : unsigned (7 downto 0);
   signal vgablue_out : unsigned (7 downto 0);
+
+  signal lcd_display_enable : std_logic := '0';
+  signal lcd_in_letterbox : std_logic := '0';
+  signal lcd_in_frame : std_logic := '0';
+  signal vga_in_frame : std_logic := '0';
+  signal external_pixel_strobe : std_logic := '0';
+  
+  signal pixelclock : std_logic := '1';
+  signal clock120 : std_logic := '0';
+  signal clock240 : std_logic := '0';
+  signal pal50_select : std_logic := '0';
+  signal test_pattern_enable : std_logic := '0';
+  signal external_frame_x_zero : std_logic := '0';
+  signal external_frame_y_zero : std_logic := '0';
+  signal last_external_frame_x_zero : std_logic := '0';
+  signal last_external_frame_y_zero : std_logic := '0';
+
+  signal hsync : std_logic := '0';
+  signal vsync : std_logic := '0';
+  signal lcd_hsync : std_logic := '0';
+  signal lcd_vsync : std_logic := '0';
+
+  signal pixel_strobe_viciv : std_logic := '0';
+
+  signal i : integer := 0;
   
 begin
+  pixel0: entity work.pixel_driver
+    port map (
+      clock80 => pixelclock,
+      clock120 => clock120,
+      clock240 => clock240,
+
+      pixel_strobe80_out => external_pixel_strobe,
+      
+      -- Configuration information from the VIC-IV
+      hsync_invert => '0',
+      vsync_invert => '0',
+      pal50_select => pal50_select,
+      test_pattern_enable => test_pattern_enable,      
+      
+      -- Framing information for VIC-IV
+      x_zero => external_frame_x_zero,     
+      y_zero => external_frame_y_zero,     
+
+      -- Pixel data from the video pipeline
+      -- (clocked at 80MHz pixel clock)
+      pixel_strobe_in => pixel_strobe_viciv,
+      red_i => vgared_osk,
+      green_i => vgagreen_osk,
+      blue_i => vgablue_osk,
+
+      -- The pixel for direct output to VGA pins
+      -- It is clocked at the correct pixel
+      red_o => vgared_out,
+      green_o => vgagreen_out,
+      blue_o => vgablue_out,      
+      hsync => hsync,
+      vsync => vsync,
+
+      -- And the variations on those signals for the LCD display
+      lcd_hsync => lcd_hsync,
+      lcd_vsync => lcd_vsync,
+      lcd_display_enable => lcd_display_enable,
+      lcd_inletterbox => lcd_in_letterbox,
+      inframe => vga_in_frame,
+      lcd_inframe => lcd_in_frame
+
+      );
+  
   kc0: entity work.visual_keyboard
     port map(
-      pixel_x_640_in => pixel_x_640,
-      pixel_y_scale_200 => to_unsigned(2,4),
-      pixel_y_scale_400 => to_unsigned(1,4),
-      x_start => x_start,
-      y_start => y_start,
+      lcd_display_enable => lcd_display_enable,
+      pixel_strobe_in => pixel_strobe_viciv,
+
       ycounter_in => ycounter_in,
+      xcounter_in => xcounter,
       pixelclock => pixelclock,
       visual_keyboard_enable => visual_keyboard_enable,
       keyboard_at_top => keyboard_at_top,
@@ -70,61 +139,104 @@ begin
       vgared_in => vgared_in,
       vgagreen_in => vgagreen_in,
       vgablue_in => vgablue_in,
-      vgared_out => vgared_out,
-      vgagreen_out => vgagreen_out,
-      vgablue_out => vgablue_out
+      vgared_out => vgared_osk,
+      vgagreen_out => vgagreen_osk,
+      vgablue_out => vgablue_osk
     );
 
-  process
+  process (pixelclock)
   begin
-    for i in 1 to 200000000 loop
-      pixelclock <= '1';
-      wait for 10 ns;
-      pixelclock <= '0';
-      wait for 10 ns;
-      pixelclock <= '1';
-      wait for 10 ns;
-      pixelclock <= '0';
-      wait for 10 ns;
-      pixelclock <= '1';
-      wait for 10 ns;
-      pixelclock <= '0';
-      wait for 10 ns;
-      if pixel_x_640 < 810 then
-        pixel_x_640 <= pixel_x_640 + 1;
+    if rising_edge(pixelclock) then
+      last_external_frame_y_zero <= external_frame_y_zero;
+      last_external_frame_x_zero <= external_frame_x_zero;
+      if external_frame_y_zero='1' and last_external_frame_y_zero='0' then
+        ycounter_in <= 0;
+      elsif external_frame_x_zero='1' and last_external_frame_x_zero='0' then
+        xcounter <= 0;
+        ycounter_in <= ycounter_in + 1;
+      elsif pixel_strobe_viciv='1' then
+        report "pixel strobe";
+        xcounter <= xcounter + 1;
       else
-        pixel_x_640 <= 0;
-        if ycounter_in < 480 then
-          ycounter_in <= ycounter_in + 1;
-        else
-          ycounter_in <= to_unsigned(0,12);
-          if frames = 1 then
-            visual_keyboard_enable <= '1';
-            report "Setting visual_keyboard_enable";
-          end if;
-          frames <= frames + 1;
-          if frames = 24 then
-            keyboard_at_top <= '1';
-            report "Setting keyboard_at_top";
-          end if;
-          if frames = 55 then
-            keyboard_at_top <= '0';
-            report "resetting keyboard_at_top";
-          end if;
-          if frames = 90 then
-            visual_keyboard_enable <= '0';
-            report "resetting visual_keyboard_enable";
-          end if;
-        end if;
+        report "not a pixel";
       end if;
-      report "PIXEL:" & integer'image(pixel_x_640)
-        & ":" & integer'image(to_integer(ycounter_in))
+      
+    end if;
+  end process;
+    
+  process 
+  begin
+    while true loop
+
+      pixel_strobe_viciv <= '0';
+
+      if i = 1000 then
+        visual_keyboard_enable <= '1';
+      else
+        i <= i + 1;
+      end if;        
+
+      -- 240MHz, 120MHz and 80MHz clocks means clocks toggle every 1, 2 and 3 iterations
+      clock240 <= '1';
+      clock120 <= '1';
+      pixelclock <= '1';
+      wait for 4 ns;
+      clock240 <= '0';
+      clock120 <= '1';
+      pixelclock <= '1';
+      wait for 4 ns;
+      clock240 <= '1';
+      clock120 <= '0';
+      pixelclock <= '1';
+      wait for 4 ns;
+      clock240 <= '0';
+      clock120 <= '0';
+      pixelclock <= '0';
+      wait for 4 ns;
+      clock240 <= '1';
+      clock120 <= '1';
+      pixelclock <= '0';
+      wait for 4 ns;
+      clock240 <= '0';
+      clock120 <= '1';
+      pixelclock <= '0';
+      wait for 4 ns;
+
+      pixel_strobe_viciv <= '1';
+
+      clock240 <= '1';
+      clock120 <= '0';
+      pixelclock <= '1';
+      wait for 4 ns;
+      clock240 <= '0';
+      clock120 <= '0';
+      pixelclock <= '1';
+      wait for 4 ns;
+      clock240 <= '1';
+      clock120 <= '1';
+      pixelclock <= '1';
+      wait for 4 ns;
+      clock240 <= '0';
+      clock120 <= '1';
+      pixelclock <= '0';
+      wait for 4 ns;
+      clock240 <= '1';
+      clock120 <= '0';
+      pixelclock <= '0';
+      wait for 4 ns;
+      clock240 <= '0';
+      clock120 <= '0';
+      pixelclock <= '0';
+      wait for 4 ns;
+
+      report "PIXEL:" & integer'image(xcounter)
+        & ":" & integer'image(ycounter_in)
         & ":" & to_hstring(vgared_out)
         & ":" & to_hstring(vgagreen_out)
         & ":" & to_hstring(vgablue_out);
       key1 <= touch1_key;
       key2 <= touch2_key;
-    end loop;  -- i
+    end loop; 
     assert false report "End of simulation" severity note;
   end process;
 

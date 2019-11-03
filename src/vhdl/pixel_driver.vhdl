@@ -82,6 +82,7 @@ entity pixel_driver is
     lcd_vsync : out std_logic := '0';
     lcd_display_enable : out std_logic := '1';
     lcd_pixel_strobe : out std_logic := '0';     -- in 30/40MHz clock domain to match pixels
+    lcd_inletterbox : out std_logic := '0';
     lcd_inframe : out std_logic := '0'
     
     );
@@ -153,6 +154,9 @@ architecture greco_roman of pixel_driver is
   signal lcd_inframe_pal50 : std_logic := '0';
   signal lcd_inframe_ntsc60 : std_logic := '0';
 
+  signal lcd_inletterbox_pal50 : std_logic := '0';
+  signal lcd_inletterbox_ntsc60 : std_logic := '0';
+
   signal lcd_pixel_clock_50 : std_logic := '0';
   signal lcd_pixel_clock_60 : std_logic := '0';
   
@@ -218,6 +222,7 @@ begin
                lcd_hsync => lcd_hsync_pal50,
                lcd_vsync => lcd_vsync_pal50,
                lcd_inframe => lcd_inframe_pal50,
+               lcd_inletterbox => lcd_inletterbox_pal50,
 
                -- 80MHz facing signals for the VIC-IV
                x_zero_120 => x_zero_pal50_120,
@@ -253,6 +258,7 @@ begin
                lcd_hsync => lcd_hsync_ntsc60,
                lcd_vsync => lcd_vsync_ntsc60,
                lcd_inframe => lcd_inframe_ntsc60,
+               lcd_inletterbox => lcd_inletterbox_ntsc60,
 
                -- 80MHz facing signals for VIC-IV
                x_zero_120 => x_zero_ntsc60_120,
@@ -320,13 +326,14 @@ begin
   inframe <= inframe_pal50 when pal50_select_internal='1' else inframe_ntsc60;
   inframe_internal <= inframe_pal50 when pal50_select_internal='1' else inframe_ntsc60;
   lcd_inframe <= lcd_inframe_pal50 when pal50_select_internal='1' else lcd_inframe_ntsc60;
+  lcd_inletterbox <= lcd_inletterbox_pal50 when pal50_select_internal='1' else lcd_inletterbox_ntsc60;
 
   raster_strobe <= x_zero_pal50_80 when pal50_select_internal80='1' else x_zero_ntsc60_80;
   x_zero <= x_zero_pal50_80 when pal50_select_internal80='1' else x_zero_ntsc60_80;
   y_zero <= y_zero_pal50_80 when pal50_select_internal80='1' else y_zero_ntsc60_80;
   y_zero_internal <= y_zero_pal50_120 when pal50_select_internal='1' else y_zero_ntsc60_120;
   pixel_strobe80_out <= pixel_strobe80_50 when pal50_select_internal80='1' else pixel_strobe80_60;
-  
+
   -- Generate output pixel strobe and signals for read-side of the FIFO
   pixel_strobe120_out <= pixel_strobe120_50 when pal50_select_internal='1' else pixel_strobe120_60;
 
@@ -346,6 +353,15 @@ begin
   begin
 
     if rising_edge(clock80) then
+
+  if pal50_select_internal80='1' then
+    report "x_zero=" & std_logic'image(x_zero_pal50_80)
+      & ", y_zero=" & std_logic'image(y_zero_pal50_80);
+  else
+    report "x_zero = " & std_logic'image(x_zero_ntsc60_80)
+      & ", y_zero = " & std_logic'image(y_zero_ntsc60_80);
+  end if;       
+      
       lcd_display_enable <= display_en80;
       pal50_select_internal80 <= pal50_select;
       fifo_full <= fifo_full120;

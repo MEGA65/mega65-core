@@ -130,6 +130,7 @@ begin
       else
         last_busy <= '1';
       end if;
+      
 --      report "busy=" & std_logic'image(i2c0_busy) & "last_busy = " & std_logic'image(last_busy);
 
       touch1_active <= touch1_active_internal;
@@ -217,7 +218,7 @@ begin
         report "busy de-asserted: dispatching next command";
          case busy_count is
           when 0 =>
-            if touch_enabled='1' and i2c0_error='0' then
+            if touch_enabled='1' then
               report "Beginning touch panel scan";
               -- send initial command
               i2c0_command_en <= '1';
@@ -230,19 +231,13 @@ begin
               busy_count <= 0;
             end if;
           when 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 =>
-            if i2c0_error='1' then
-              i2c0_command_en <= '0';
-              busy_count <= 0;
-              report "I2C error: Restarting job.";
-            else
-              i2c0_rw <= '1';
-              i2c0_command_en <= '1';
-            end if;
+            busy_count <= busy_count + 1;
+            i2c0_rw <= '1';
+            i2c0_command_en <= '1';
             if busy_count>1 then
               report "Setting byte(" & integer'image(busy_count - 2) & ") to $" & to_hstring(i2c0_rdata);
               bytes(busy_count - 2) <= i2c0_rdata;
             end if;
-            busy_count <= busy_count + 1;
           when others =>
             report "Setting byte(" & integer'image(busy_count - 2) & ") to $" & to_hstring(i2c0_rdata);
             bytes(busy_count - 2) <= i2c0_rdata;

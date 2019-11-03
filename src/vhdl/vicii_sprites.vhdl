@@ -1087,11 +1087,23 @@ begin
         elsif register_number=29 then          -- $D01D compatibility sprite enable
           vicii_sprite_x_expand <= fastio_wdata;
         elsif register_number=37 then
-          sprite_multi0_colour <= unsigned(fastio_wdata);
+          if (fastio_addr(19 downto 12)=x"D0" or fastio_addr(19 downto 12)=x"D2") then
+            sprite_multi0_colour <= unsigned("0000"&fastio_wdata(3 downto 0));
+          else
+            sprite_multi0_colour <= unsigned(fastio_wdata);
+          end if;
         elsif register_number=38 then
-          sprite_multi1_colour <= unsigned(fastio_wdata);
+          if (fastio_addr(19 downto 12)=x"D0" or fastio_addr(19 downto 12)=x"D2") then
+            sprite_multi1_colour <= unsigned("0000"&fastio_wdata(3 downto 0));
+          else
+            sprite_multi1_colour <= unsigned(fastio_wdata);
+          end if;
         elsif register_number>=39 and register_number<=46 then
-          sprite_colours(to_integer(register_number)-39) <= unsigned(fastio_wdata);
+          if (fastio_addr(19 downto 12)=x"D0" or fastio_addr(19 downto 12)=x"D2") then
+            sprite_colours(to_integer(register_number)-39) <= unsigned("0000"&fastio_wdata(3 downto 0));
+          else
+            sprite_colours(to_integer(register_number)-39) <= unsigned(fastio_wdata);
+          end if;
         elsif register_number=49 then
           viciii_extended_attributes <= fastio_wdata(5);
         elsif register_number=95 then

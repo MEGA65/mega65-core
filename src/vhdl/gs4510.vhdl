@@ -40,7 +40,8 @@ entity gs4510 is
     math_unit_enable : boolean := false;
     chipram_1mb : std_logic := '0';
     cpufrequency : integer := 50;
-    chipram_size : integer := 393216);
+    chipram_size : integer := 393216;
+    target : mega65_target_t := mega65r2);
   port (
     mathclock : in std_logic;
     Clock : in std_logic;
@@ -85,6 +86,8 @@ entity gs4510 is
     cpuis6502 : out std_logic := '0';
     cpuspeed : out unsigned(7 downto 0);
 
+    power_down : out std_logic := '1';
+    
     irq_hypervisor : in std_logic_vector(2 downto 0) := "000";    -- JBM
 
     -- Asserted when CPU is in secure mode: Activates secure mode matrix mode interface
@@ -97,7 +100,10 @@ entity gs4510 is
     clear_matrix_mode_toggle : in std_logic;
     
     matrix_rain_seed : out unsigned(15 downto 0) := (others => '0');
-    
+
+    -- Active low key that forces CPU to 40MHz
+    fast_key : in std_logic;
+  
     no_hyppo : in std_logic;
 
     reg_isr_out : in unsigned(7 downto 0);
@@ -1475,7 +1481,7 @@ begin
 
       -- Enable chipselect for all peripherals and memories
       chipselect_enables <= x"EF";
-      cartridge_enable <= '0';
+--      cartridge_enable <= '0';
       hyper_protected_hardware <= x"00";
       
       -- CPU starts in hypervisor
@@ -2165,7 +2171,7 @@ begin
             when x"eb" => return reg_math_cycle_compare(31 downto 24);
 
             when x"fa" => return to_unsigned(cpu_speed_bias,8);
-            when x"fb" => return "0000000" & charge_for_branches_taken;
+            when x"fb" => return "000000" & cartridge_enable & charge_for_branches_taken;
             when x"fc" => return unsigned(chipselect_enables);
             when x"fd" =>
               report "Reading $D7FD";
@@ -2176,7 +2182,7 @@ begin
               value(3) := exrom;
               value(2) := game;
               value(1) := cartridge_enable;              
-              value(0) := '0';
+              value(0) := '1'; -- Set if power is on, clear if power is off
               return value;
             when others => return x"ff";
           end case;
@@ -2254,7 +2260,7 @@ begin
                 & monitor_char_busy;
 
             when "111101" =>
-              -- this section
+              -- this section $D67D
               return "11"
                 & force_4502
                 & force_fast
@@ -2529,15 +2535,19 @@ begin
         cpu_speed_bias <= to_integer(value);
       elsif (long_address = x"FFD37FB") then
         -- @IO:GS $D7FB.0 CPU:BRCOST 1=charge extra cycle(s) for branches taken
+        -- @IO:GS $D7FB.1 CPU:CARTEN 1= enable cartridges
         charge_for_branches_taken <= value(0);
+        cartridge_enable <= '1';
       elsif (long_address = x"FFD37FC") then
       -- @IO:GS $D7FC DEBUG chip-select enables for various devices
 --        chipselect_enables <= std_logic_vector(value);
       elsif (long_address = x"FFD37FD") then
         -- @IO:GS $D7FD.7 CPU:NOEXROM Override for /EXROM : Must be 0 to enable /EXROM signal
         -- @IO:GS $D7FD.6 CPU:NOGAME Override for /GAME : Must be 0 to enable /GAME signal
+        -- @IO:GS $D7FD.6 CPU:POWEREN Set to zero to power off computer on supported systems. WRITE ONLY.
         force_exrom <= value(7);
         force_game <= value(6);
+        power_down <= value(0);
       elsif (long_address = x"FFD37ff") or (long_address = x"FFD17ff") then
         null;
       end if;
@@ -2966,7 +2976,7 @@ begin
 
       -- Disable all non-essential IO devices from memory map when in secure mode.
       if hyper_protected_hardware(7)='1' then
-        cartridge_enable <= '0';
+--        cartridge_enable <= '0';
         chipselect_enables <= x"84"; -- SD card/multi IO controller and SIDs
       -- (we disable the undesirable parts of the SD card interface separately)
       else
@@ -3343,7 +3353,7 @@ begin
         if last_write_address = x"FFD3644" and hypervisor_mode='1' then
           hyper_b <= last_value;
         end if;
-                                        -- @IO:GS $D645 HCPU;SPL Hypervisor SPL register storage
+                                        -- @IO:GS $D645 HCPU:SPL Hypervisor SPL register storage
         if last_write_address = x"FFD3645" and hypervisor_mode='1' then
           hyper_sp <= last_value;
         end if;
@@ -3651,7 +3661,11 @@ begin
                                         -- Catch the CPU when it goes to the next instruction if single stepping.
       if ((monitor_mem_trace_mode='0' or
            monitor_mem_trace_toggle_last /= monitor_mem_trace_toggle)
-          and (monitor_mem_attention_request_drive='0')) then
+          and (monitor_mem_attention_request_drive='0'))
+-- PGS 20190510: Required for simulation to work, but breaks monitor memory
+-- access when synthesised.
+--        or ( monitor_mem_trace_toggle = 'U' or monitor_mem_attention_request_drive = 'U' )
+      then
         monitor_mem_trace_toggle_last <= monitor_mem_trace_toggle;
         normal_fetch_state <= InstructionFetch;
 
@@ -3672,7 +3686,7 @@ begin
           when others =>
             cpuspeed_external <= x"04";
         end case;
-        if hypervisor_mode='0' and ((speed_gate_drive='1') and (force_fast='0')) then
+        if hypervisor_mode='0' and ((speed_gate_drive='1') and (force_fast='0')) and (fast_key='1') then
           case cpu_speed is
             when "100" => -- 1mhz
               cpuspeed <= x"01";
@@ -3706,12 +3720,19 @@ begin
           cpuspeed_internal <= x"40";
         end if;
       else
+        report "Forcing processor hold: trace_mode="
+          & std_logic'image(monitor_mem_trace_mode)
+          & " toggle_last=" & std_logic'image(monitor_mem_trace_toggle_last)
+          & " toggle=" & std_logic'image(monitor_mem_trace_toggle)
+          & " attn_req_drive=" & std_logic'image(monitor_mem_attention_request_drive);
+        
         normal_fetch_state <= ProcessorHold;
         fast_fetch_state <= ProcessorHold;
       end if;
 
                                         -- Force single step while I debug it.
       if debugging_single_stepping='1' then
+        report "Forcing processor hold due to debugging_single_step";
         normal_fetch_state <= ProcessorHold;
         fast_fetch_state <= ProcessorHold;
       end if;
@@ -3979,6 +4000,7 @@ begin
               else
                 monitor_mem_attention_granted <= '0';
                 monitor_mem_attention_granted_internal <= '0';
+                report "Holding processor due to monitor memory access";
                 state <= ProcessorHold;
               end if;
             when TrapToHypervisor =>
@@ -5687,13 +5709,19 @@ begin
                 state <= Execute32;                    
               end if;
             when Execute32 =>
-              report "VAL32: reg_val32 = $" & to_hstring(reg_val32);
+              report "VAL32: reg_val32 = $" & to_hstring(reg_val32) & ", reg_instruction = " & instruction'image(reg_instruction);
               case reg_instruction is
                 when I_LDA =>
                   reg_a <= reg_val32(7 downto 0);
                   reg_x <= reg_val32(15 downto 8);
                   reg_y <= reg_val32(23 downto 16);
                   reg_z <= reg_val32(31 downto 24);
+                  if reg_val32 = to_unsigned(0,32) then
+                    flag_z <= '1';
+                  else
+                    flag_z <= '0';
+                  end if;
+                  flag_n <= reg_val32(31);
                 when I_CMP =>
                   vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
                   vreg33 := vreg33 - reg_val32;
@@ -5706,7 +5734,11 @@ begin
                   flag_n <= vreg33(31);
                 when I_SBC =>
                   vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
-                  vreg33 := vreg33 - reg_val32;
+                  if flag_c='0' then
+                    vreg33 := vreg33 - reg_val32 - 1;
+                  else
+                    vreg33 := vreg33 - reg_val32;
+                  end if;
                   if vreg33(31 downto 0) = to_unsigned(0,32) then
                     flag_z <= '1';
                   else
@@ -5721,7 +5753,11 @@ begin
                 when I_ADC =>
                   -- Note: No decimal mode for 32-bit add!
                   vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
-                  vreg33 := vreg33 + reg_val32;
+                  if flag_c='0' then
+                    vreg33 := vreg33 + reg_val32;
+                  else
+                    vreg33 := vreg33 + reg_val32 + 1;
+                  end if;
                   if vreg33(31 downto 0) = to_unsigned(0,32) then
                     flag_z <= '1';
                   else
@@ -5748,7 +5784,7 @@ begin
                   reg_z <= vreg33(31 downto 24);
                 when I_EOR =>
                   vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
-                  vreg33(31 downto 0) := vreg33(31 downto 0) or reg_val32;
+                  vreg33(31 downto 0) := vreg33(31 downto 0) xor reg_val32;
                   if vreg33(31 downto 0) = to_unsigned(0,32) then
                     flag_z <= '1';
                   else
@@ -5761,7 +5797,7 @@ begin
                   reg_z <= vreg33(31 downto 24);
                 when I_AND =>
                   vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
-                  vreg33(31 downto 0) := vreg33(31 downto 0) or reg_val32;
+                  vreg33(31 downto 0) := vreg33(31 downto 0) and reg_val32;
                   if vreg33(31 downto 0) = to_unsigned(0,32) then
                     flag_z <= '1';
                   else

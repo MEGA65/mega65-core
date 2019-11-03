@@ -71,7 +71,6 @@ begin
   begin
     if rising_edge(clock50mhz) then
 
-      last_sync <= i2s_sync;
       last_clk <= i2s_clk;
 
       if i2s_clk='1' and last_clk='0' then
@@ -103,6 +102,7 @@ begin
         end if;
 
         -- Check if it is time for a new sample
+        last_sync <= i2s_sync;
         if (last_sync /= i2s_sync) then
           -- Time for a new sample
           txbuffer_left <= std_logic_vector(tx_sample_left);

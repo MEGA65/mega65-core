@@ -35,6 +35,16 @@ entity audio_mixer is
     audio_loopback : out unsigned(15 downto 0) := x"FFFF";
     modem_is_pcm_master : out std_logic := '0';
     amplifier_enable : out std_logic := '0';
+
+    -- Read in values from audio knobs
+    volume_knob1 : in unsigned(15 downto 0) := x"FFFF";
+    volume_knob2 : in unsigned(15 downto 0) := x"FFFF";
+    volume_knob3 : in unsigned(15 downto 0) := x"FFFF";
+
+    -- Which output do the knobs apply to?
+    volume_knob1_target : in unsigned(3 downto 0) := "1111";
+    volume_knob2_target : in unsigned(3 downto 0) := "1111";
+    volume_knob3_target : in unsigned(3 downto 0) := "1111";
     
     -- Audio inputs
     sources : in sample_vector_t := (others => x"8000");
@@ -64,6 +74,10 @@ architecture elizabethan of audio_mixer is
   signal mixed_value : integer := 0;
 
   signal dummy : unsigned(15 downto 0) := x"0000";
+
+  signal volume_knob1_last : unsigned(15 downto 0) := x"8000";
+  signal volume_knob2_last : unsigned(15 downto 0) := x"8000";
+  signal volume_knob3_last : unsigned(15 downto 0) := x"8000";
   
 begin
 
@@ -107,6 +121,21 @@ begin
           amplifier_enable <= wdata(0);
         end if;
         ram_we <= '1';
+      elsif volume_knob1_target(3)='0' and volume_knob1 /= volume_knob1_last then
+        ram_waddr <= to_integer(volume_knob1_target)*16+15;
+        ram_wdata(31 downto 17) <= volume_knob1(14 downto 0);
+        ram_wdata(16) <= volume_knob1(0);
+        volume_knob1_last <= volume_knob1;
+      elsif volume_knob2_target(3)='0' and volume_knob2 /= volume_knob2_last then
+        ram_waddr <= to_integer(volume_knob2_target)*16+15;
+        ram_wdata(31 downto 17) <= volume_knob2(14 downto 0);
+        ram_wdata(16) <= volume_knob2(0);
+        volume_knob2_last <= volume_knob2;
+      elsif volume_knob3_target(3)='0' and volume_knob3 /= volume_knob3_last then
+        ram_waddr <= to_integer(volume_knob3_target)*16+15;
+        ram_wdata(31 downto 17) <= volume_knob3(14 downto 0);
+        ram_wdata(16) <= volume_knob3(0);
+        volume_knob3_last <= volume_knob3;
       else
         ram_we <= '0';
       end if;

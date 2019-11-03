@@ -34,6 +34,10 @@ USE ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
 ENTITY i2c_master IS
+  generic (
+    input_clk : INTEGER := 50_000_000; --input clock speed from user logic in Hz
+    bus_clk   : INTEGER := 400_000   --speed the i2c bus (scl) will run at in Hz
+    );
   PORT(
     clk       : IN     STD_LOGIC;                    --system clock
     reset_n   : IN     STD_LOGIC;                    --active low reset
@@ -55,8 +59,6 @@ ENTITY i2c_master IS
 END i2c_master;
 
 ARCHITECTURE logic OF i2c_master IS
-  constant input_clk : INTEGER := 50_000_000; --input clock speed from user logic in Hz
-  constant bus_clk   : INTEGER := 400_000;   --speed the i2c bus (scl) will run at in Hz
   CONSTANT divider  :  INTEGER := (input_clk/bus_clk)/4; --number of clocks in 1/4 cycle of scl
   
   TYPE machine IS(ready, start, command, slv_ack1, wr, rd, slv_ack2, mstr_ack, stop); --needed states
@@ -123,9 +125,11 @@ BEGIN
       data_rd <= "00000000";               --clear data read port
     ELSIF(clk'EVENT AND clk = '1') THEN
       IF(data_clk = '1' AND data_clk_prev = '0') THEN  --data clock rising edge
+        report "state = " & machine'image(state);
         CASE state IS
           WHEN ready =>                      --idle state
             IF(ena = '1') THEN               --transaction requested
+              report "Accepting job";
               busy <= '1';                   --flag busy
               addr_rw <= addr & rw;          --collect requested slave address and command
               data_tx <= data_wr;            --collect requested data to write
@@ -199,9 +203,11 @@ BEGIN
                 report "re-trigging byte write, because ena is still high";
                 state <= wr;                 --go to write byte
               ELSE                           --continue transaction with a read or new slave
+                report "repeating start";
                 state <= start;              --go to repeated start
               END IF;
             ELSE                             --complete transaction
+              report "stopping";
               state <= stop;                 --go to stop bit
             END IF;
           WHEN mstr_ack =>                   --master acknowledge bit after a read
@@ -215,9 +221,11 @@ BEGIN
                 state <= rd;                 --go to read byte
               ELSE                           --continue transaction with a write or new slave
                 state <= start;              --repeated start
+                report "Repeating start";
               END IF;    
             ELSE                             --complete transaction
               state <= stop;                 --go to stop bit
+              report "Stopping";
             END IF;
           WHEN stop =>                       --stop bit of transaction
             busy <= '0';                     --unflag busy

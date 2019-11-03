@@ -1,0 +1,461 @@
+
+	; $D6Fx - mostly audio interfaces
+	.alias audiomix_addr $d6f4
+	.alias audiomix_data $d6f5
+	.alias audioamp_ctl $d6fe
+
+
+; Include C64 BASIC program load header
+
+         .word $0801
+         .org $0801
+
+         .scope
+         .word _next, 10                       ; Next line and current line number
+         .byte $97, "2,0:", $9e, " 2014", $AA, "65",0      ; POKE 2,0 : SYS 2014+65
+_next:   .word 0
+
+iter1:   .byte 0
+
+         .checkpc 2079
+         .advance 2079
+
+	 ; Disable interrupts
+	 sei
+
+	lda #$47
+	sta $d02f
+	lda #$53
+	sta $d02f
+
+	; Fast CPU
+	lda #65
+	sta $00
+
+	 ; set CPU port DDR
+	 lda #$37
+	 sta $0
+;	 lda #$36
+	 dec
+	 sta $1
+
+	 jsr microphones_on
+
+waitfortouchtoend:
+	 lda $d6b0
+	 and #$03
+	 bne waitfortouchtoend
+
+	 ; also clear out ASCII key stream
+	 lda #$01
+	 sta $d610
+	 lda $d610
+	 ora $d611
+	 bne waitfortouchtoend
+	 
+entry:
+
+         jsr bitmapmode
+	 jsr clearcolour
+         jsr clearscreen
+
+         ldx #0
+loop:
+
+	lda $d610
+	ora $d611
+	bne inputeventdetected
+
+	lda $d6b0
+	and #$03
+	beq notouchyet
+
+inputeventdetected:
+	; Restore video mode, and exit back to basic
+	lda #$1b
+	sta $d011
+	; reset video bank
+	lda #$03
+	tsb $dd00
+	; character set back to $1000
+	lda #$10
+	sta $d069
+
+	; clear screen
+	ldx #0
+	lda #$20
+c1:	sta $0400,x
+	sta $0500,x
+	sta $0600,x
+	sta $0700,x
+	dex
+	bne c1
+
+	; bank BASIC ROM back in
+	inc $01
+
+	cli
+	rts
+
+notouchyet:
+
+waitingforflyback:
+	lda #$ff
+	cmp $d012
+	bne waitingforflyback
+
+	; Play music if required
+	lda $3ff
+	beq nomusic
+
+	jsr $9add
+
+nomusic:
+
+	jsr clearscreen
+
+	ldx #0
+drawloop:
+	lda previoussamples,x
+	tay
+	jsr plotpixel
+
+	lda previoussamples2,x
+	tay
+	jsr plotpixel
+
+	dex
+	bne drawloop
+
+	; Then read 256 samples
+     ;	ldx #$00
+nextsample:
+	lda $d012
+wait:	cmp $d012
+	beq wait
+
+	; $0a - $0d = microphones 1 - 4
+
+	; select microphone 4 audio
+        lda #$0d
+        sta $d6f4
+        ; get msb of audio sample
+
+	; shift it left a few bits
+        lda $d6fc
+	ldy $d6fd
+	sta samplelo	
+	sty samplehi
+
+	asl samplelo
+	rol samplehi
+
+	asl samplelo
+	rol samplehi
+
+	asl samplelo
+	rol samplehi
+
+        lda samplehi
+	clc
+	adc #$80
+	sta previoussamples2,x
+
+        ; select microphone 1 audio
+        lda #$0b
+        sta $d6f4
+
+	; shift it left a few bits
+        lda $d6fc
+	sta samplelo
+	lda $d6fd
+	sta samplehi
+
+	asl samplelo
+	rol samplehi
+
+	asl samplelo
+	rol samplehi
+
+	lda samplehi
+	clc
+	adc #$80
+
+	; XXX Ignofre sample for now
+	lda #$00
+
+	sta previoussamples,x
+
+	inx
+	bne nextsample
+	
+	jmp loop
+
+plotpixel:
+         ; use $fd and $fe as 16-bit
+         ; pointer.
+
+         stx savex
+         sty savey
+
+	 jsr calculatepixeladdr
+
+         ; work out bit of byte to set
+         lda savex
+         and #7
+         tax
+         lda bits,x
+         ldy #0
+
+	 ; set bit in byte
+         ora ($fd),y
+         sta ($fd),y
+
+         ldx savex
+
+         rts
+
+
+
+calculatepixeladdr:
+         ; reset our pointer to $0020, to centre in the frame
+         lda #<$0020
+         sta $fd
+
+         ; calculate address of pixel
+
+         ; work out 256*int(y/8)
+         lda savey
+         lsr
+         lsr
+         lsr
+         sta $fe
+
+         ; work out 64*int(y/8), and add
+         ; it.
+         lda savey
+         asl
+         asl
+         asl
+         and #%11000000
+	 clc
+	 adc $fd
+         sta $fd
+	 php
+
+         lda savey
+         lsr
+         lsr
+         lsr
+         lsr
+         lsr
+         and #%00000111
+         plp
+         adc $fe
+         sta $fe
+
+         ; work out int (x/8)*8
+         lda savex
+         and #%11111000
+         clc
+         adc $fd
+         sta $fd
+         lda $fe
+         adc #0
+         sta $fe
+
+         ; storing (y and 7)
+         lda savey
+         and #7
+	 ora $fd
+         sta $fd
+
+         ; add base of screen to address
+	 ; screen is at $A000-$BFFF
+         lda $fe
+         ora #%10100000
+         and #%10111111
+         sta $fe
+
+	 rts
+
+unplotpixel:
+         ; use $fd and $fe as 16-bit
+         ; pointer.
+
+         stx savex
+         sty savey
+
+	 jsr calculatepixeladdr
+
+         ; work out bit of byte to unset
+         lda savex
+         and #7
+         tax
+         lda bits,x
+         ; set bit in byte
+	 eor #$ff
+         ldy #0
+         and ($fd),y
+         sta ($fd),y
+
+         ldx savex
+
+         rts
+
+
+
+savea:   .byte $00
+savex:   .byte $00
+savey:   .byte $00
+
+bits:
+         .byte %10000000
+         .byte %01000000
+         .byte %00100000
+         .byte %00010000
+         .byte %00001000
+         .byte %00000100
+         .byte %00000010
+         .byte %00000001
+
+
+bitmapmode:
+
+	; Reset to normal VIC-II video mode
+	LDA #$a8
+	sta $D054
+	lda #$0
+	sta $D031
+	lda #40
+	sta $d058
+
+	; Enable bitmap mode
+         lda #$3b
+         sta $d011
+	; bitmap is at $2000 + bank address
+         lda #25
+         sta $d018
+	; bank is $8000-$BFFF
+	 lda $dd00
+	 and #$fc
+	 ora #$01
+	 sta $dd00
+	; Set screen ram back to $0400-$07FF
+	 lda #>$0400
+	 sta $d061
+	 lda #$00
+	 sta $d060
+	 sta $d062
+	 sta $d063
+	 
+         rts
+
+clearcolour:
+
+         ; clear colour memory
+         ldy #0
+  ;       ldy #<$0400
+         sty $fd
+         lda #>$0400
+         sta $fe
+         ; white pixels, black backgnd
+cl4:      lda #$10
+cl3:      sta ($fd),y
+         iny
+         bne cl3
+         inc $fe
+         lda $fe
+         cmp #>$0800
+         bne cl4
+
+clearscreen:
+
+	lda #>dmalist
+	sta $d701
+	lda #0
+	sta $d702
+	sta $d704
+	lda #<dmalist
+	sta $d705
+
+         rts
+
+microphones_on:
+rts
+	ldx #$14
+	lda #$7f
+	jsr audiomix_setcoefficient
+	inx
+	jsr audiomix_setcoefficient
+	inx
+	jsr audiomix_setcoefficient
+	inx
+	jsr audiomix_setcoefficient
+	rts
+
+audiomix_setcoefficient:
+		STX audiomix_addr
+
+		; wait 17 cycles before writing (16 + start of read instruction)
+		; to give time to audio mixer to fetch the 16-bit coefficient, before
+		; we write to half of it (which requires the other half loaded, so that the
+		; write to the 16-bit register gets the correct other half).
+		; note that bit $1234 gets replaced in hyppo by monitor_load when doing
+		; hot-patching, so we can't use that instruction for the delay
+
+		; simple solution: write to address register several times to spend the time.
+		; 16 cycles here. then the sta of the data gives us 3 more cycles, so we are fine.
+		stx audiomix_addr
+		stx audiomix_addr
+		stx audiomix_addr
+		stx audiomix_addr
+
+		; update coefficient
+		sta audiomix_data
+		rts
+
+
+dmalist:
+		; MEGA65 Enhanced DMA options
+		.byte $0A  ; Request format is F018A
+		.byte $81,$00 ; Destination is in 1st MB
+		.byte $00  ; No more options
+		; copy $0004000-$0007FFF to $FFF8000-$FFFBFFF
+		; F018A DMA list
+		; (MB offsets get set in routine)
+		.byte $03 ; fill + last request in chain
+		.word 8000 ; size of copy is 8000 bytes
+		.byte $00,$00,$00 ; starting at $4000
+		.word $A000 ; destination address is $A000
+		.byte $00   ; of bank $0
+		.word $0000 ; modulo (unused)
+
+
+samplelo:    .byte 0
+samplehi:    .byte 0
+
+previoussamples:
+		.byte "                                "
+		.byte "                                "
+		.byte "                                "
+		.byte "                                "
+		.byte "                                "
+		.byte "                                "
+		.byte "                                "
+		.byte "                                "
+previoussamples2:
+		.byte "                                "
+		.byte "                                "
+		.byte "                                "
+		.byte "                                "
+		.byte "                                "
+		.byte "                                "
+		.byte "                                "
+		.byte "                                "
+
+			.checkpc $9fff
+	.scend
+
+        .outfile "bin/scope.prg"
+

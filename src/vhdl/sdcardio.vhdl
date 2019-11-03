@@ -50,6 +50,9 @@ use Std.TextIO.all;
 use work.debugtools.all;
 
 entity sdcardio is
+  generic (
+    cpu_frequency : integer := 40000000
+    );
   port (
     clock : in std_logic;
     pixelclk : in std_logic;
@@ -73,6 +76,11 @@ entity sdcardio is
     secure_mode : in std_logic := '0';
     
     fpga_temperature : in std_logic_vector(11 downto 0);
+
+    pwm_knob : in unsigned(15 downto 0);
+    volume_knob1_target : inout unsigned(3 downto 0) := x"F";
+    volume_knob2_target : inout unsigned(3 downto 0) := x"F";
+    volume_knob3_target : inout unsigned(3 downto 0) := x"F";
     
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
@@ -157,7 +165,7 @@ entity sdcardio is
     i2c1SCL : inout std_logic;    
 
     -- PWM brightness control for LCD panel
-    lcdpwm : inout std_logic;
+    lcdpwm : out std_logic;
 
     -- Touch pad I2C bus
     touchSDA : inout std_logic;
@@ -337,11 +345,11 @@ architecture behavioural of sdcardio is
   signal f011_reg_step : unsigned(7 downto 0) := x"80"; -- 8ms steps
   signal f011_reg_pcode : unsigned(7 downto 0) := x"00";
   signal counter_16khz : integer := 0;
-  constant cycles_per_16khz : integer :=  (50000000/16000);
+  constant cycles_per_16khz : integer :=  (cpu_frequency/16000);
   signal busy_countdown : unsigned(15 downto 0) := x"0000";
   
   signal cycles_per_interval : unsigned(7 downto 0)
-    := to_unsigned(100,8);
+    := to_unsigned(cpu_frequency/500000,8);
   signal fdc_read_invalidate : std_logic := '0';
   signal target_track : unsigned(7 downto 0) := x"00";
   signal target_sector : unsigned(7 downto 0) := x"00";
@@ -424,10 +432,10 @@ architecture behavioural of sdcardio is
   signal touch_scale_x_internal : unsigned(15 downto 0 ) := to_unsigned(1024,16);
   signal touch_scale_y : unsigned(15 downto 0 ) := to_unsigned(1024,16);
   signal touch_scale_y_internal : unsigned(15 downto 0 ) := to_unsigned(1024,16);
-  signal touch_delta_x : unsigned(15 downto 0 ) := to_unsigned(62464,16);
-  signal touch_delta_x_internal : unsigned(15 downto 0 ) := to_unsigned(62464,16);
-  signal touch_delta_y : unsigned(15 downto 0 ) := to_unsigned(4096,16);
-  signal touch_delta_y_internal : unsigned(15 downto 0 ) := to_unsigned(4096,16);
+  signal touch_delta_x : unsigned(15 downto 0 ) := to_unsigned(768,16);
+  signal touch_delta_x_internal : unsigned(15 downto 0 ) := to_unsigned(768,16);
+  signal touch_delta_y : unsigned(15 downto 0 ) := to_unsigned(2048,16);
+  signal touch_delta_y_internal : unsigned(15 downto 0 ) := to_unsigned(2048,16);
   
   signal touch1_active : std_logic := '0';
   signal touch1_status : std_logic_vector(1 downto 0) := "11";
@@ -455,6 +463,8 @@ architecture behavioural of sdcardio is
   signal gesture_event_id : unsigned(3 downto 0) := x"0";
   signal gesture_event : unsigned(3 downto 0) := x"0";
 
+  signal pwm_knob_en : std_logic := '0';
+  
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
   begin
@@ -611,7 +621,7 @@ begin  -- behavioural
 
   -- Reader for real floppy drive
   mfm0: entity work.mfm_decoder port map (
-    clock50mhz => clock,
+    clock40mhz => clock,
     f_rdata => f_rdata,
     packed_rdata => packed_rdata,
     cycles_per_interval => cycles_per_interval,
@@ -769,16 +779,16 @@ begin  -- behavioural
             -- DATA    |  D7   |  D6   |  D5   |  D4   |  D3   |  D2   |  D1   |  D0   | 7 RW
             fastio_rdata <= sb_cpu_rdata;
             
-          when "01000" =>
+          when "01000" => -- $D088
             -- CLOCK   |  C7   |  C6   |  C5   |  C4   |  C3   |  C2   |  C1   |  C0   | 8 RW
             fastio_rdata <= f011_reg_clock;
             
-          when "01001" =>
+          when "01001" => -- $D089
             -- @IO:65 $D089 - F011 FDC step time (x62.5 micro seconds)
             -- STEP    |  S7   |  S6   |  S5   |  S4   |  S3   |  S2   |  S1   |  S0   | 9 RW
             fastio_rdata <= f011_reg_step;
             
-          when "01010" =>
+          when "01010" => -- $D08A
             -- P CODE  |  P7   |  P6   |  P5   |  P4   |  P3   |  P2   |  P1   |  P0   | A R
             fastio_rdata <= f011_reg_pcode;
           when "11011" => -- @IO:GS $D09B - FSM state of low-level SD controller (DEBUG)
@@ -938,11 +948,16 @@ begin  -- behavioural
             -- @IO:GS $D6AC - DEBUG FDC last quantised gap
             fastio_rdata <= unsigned(fdc_quantised_gap);
           when x"ad" =>
-            -- @IO:GS $D6AD - DEBUG FDC bytes read counter (LSB)
-            fastio_rdata <= unsigned(fdc_bytes_read(7 downto 0));
+            -- @IO:GS $D6AD.0-3 - PHONE:Volume knob 1 audio target
+            -- @IO:GS $D6AD.4-7 - PHONE:Volume knob 2 audio target
+            fastio_rdata(3 downto 0) <= volume_knob1_target;
+            fastio_rdata(7 downto 4) <= volume_knob2_target;
           when x"ae" =>
-            -- @IO:GS $D6AE - DEBUG FDC bytes read counter (MSB)
-            fastio_rdata <= unsigned(fdc_bytes_read(15 downto 8));
+            -- @IO:GS $D6AE.0-3 - PHONE:Volume knob 3 audio target
+            -- @IO:GS $D6AE.7 - PHONE:Volume knob 3 controls LCD panel brightness
+            fastio_rdata(3 downto 0) <= volume_knob3_target;
+            fastio_rdata(6 downto 4) <= "000";
+            fastio_rdata(7) <= pwm_knob_en;
           when x"B0" =>
             -- @IO:GS $D6B0 - Touch pad control / status
             -- @IO:GS $D6B0.0 - Touch event 1 is valid
@@ -1176,14 +1191,30 @@ begin  -- behavioural
       audio_mix_write <= '0';      
       
       -- Drive LCD panel PWM brightness control
-      if lcd_pwm_divider /= 255 then
+      -- Pulse train should be ~1KHz
+      -- But that makes acoustic noise from some component, which sounds nasty
+      -- due to the square wave. So we will instead try ~250KHz
+      -- Nope, high speed doesn't work. So we have to find some way to fix the
+      -- 1KHz squarewave audio squeal
+
+      -- Allow volume knob 3 to control LCD panel brightness
+      if pwm_knob_en='1' then
+        lcdpwm_value <= pwm_knob(14 downto 7);
+      end if;
+      
+      if lcd_pwm_divider /= 127 then
         lcd_pwm_divider <= lcd_pwm_divider + 1;
       else
-        lcd_pwm_divider <= 0;        
-        if lcd_pwm_counter >= to_integer(lcdpwm_value) then
+        lcd_pwm_divider <= 0;
+        -- PWM line is always high if maximum value selected
+        if lcd_pwm_counter >= to_integer(lcdpwm_value) and lcdpwm_value /= x"FF" then
           lcdpwm <= '0';
         else
           lcdpwm <= '1';
+        end if;
+        -- Allow tri-stating of LCD PWM brightness
+        if lcdpwm_value = x"00" then
+          lcdpwm <= 'Z';
         end if;
         if lcd_pwm_counter = 255 then
           lcd_pwm_counter <= 0;
@@ -1639,7 +1670,7 @@ begin  -- behavioural
                   f011_rnf <= '1';    -- Set according to the specifications
                   busy_countdown <= to_unsigned(16000,16); -- 1 sec spin up time
                 when x"00" =>         -- cancel running command (not implemented)
-                  f_wgate <= '0';
+                  f_wgate <= '1';
                   report "Clearing fdc_read_request due to $00 command";
                   fdc_read_request <= '0';
                   fdc_bytes_read <= (others => '0');
@@ -1967,6 +1998,12 @@ begin  -- behavioural
             when x"a2" =>
               cycles_per_interval <= fastio_wdata;
               -- @IO:GS $D6F3 - Accelerometer bit-bashing port
+            when x"ad" => 
+              volume_knob1_target <= unsigned(fastio_wdata(3 downto 0));
+              volume_knob2_target <= unsigned(fastio_wdata(7 downto 4));
+            when x"ae" =>
+              volume_knob3_target <= unsigned(fastio_wdata(3 downto 0));
+              pwm_knob_en <= fastio_wdata(7);
             when x"af" =>
               -- @IO:GS $D6AF - Directly set F011 flags (intended for virtual F011 mode) WRITE ONLY
               -- @IO:GS $D6AF.0 - f011_rsector_found

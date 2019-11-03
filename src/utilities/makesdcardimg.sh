@@ -36,7 +36,7 @@ p
 n
 p
 1
-
+2048
 +${psize}M
 t
 c
@@ -88,6 +88,6 @@ echo "done"
 
 echo " "
 echo "And lets display some useful info about the filesystem:"
-fsck.vfat -v -n ${1}fs
+sudo fsck.vfat -v -n ${1}fs
 hexdump -C ${1}fs | tail
 

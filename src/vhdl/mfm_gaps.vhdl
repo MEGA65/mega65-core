@@ -9,7 +9,7 @@ use work.debugtools.all;
   
 entity mfm_gaps is
   port (
-    clock50mhz : in std_logic;
+    clock40mhz : in std_logic;
     f_rdata : in std_logic;
 
     packed_rdata : out std_logic_vector(7 downto 0);
@@ -34,9 +34,9 @@ architecture behavioural of mfm_gaps is
   
 begin
 
-  process (clock50mhz,f_rdata) is
+  process (clock40mhz,f_rdata) is
   begin
-    if rising_edge(clock50mhz) then
+    if rising_edge(clock40mhz) then
       last_rdata <= f_rdata;
       last_last_rdata <= last_rdata;
 

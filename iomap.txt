@@ -13,10 +13,25 @@ C65 $0032000-$0035FFF - 8KB C65 BASIC ROM
 C65 $0038000-$003BFFF - 8KB C65 BASIC GRAPHICS ROM
 C65 $003C000-$003CFFF - 4KB C65 KERNAL/INTERFACE ROM
 C65 $003E000-$003FFFF - 8KB C65 KERNAL ROM
+GS $00 ETHCOMMAND:STOPTX Immediately stop transmitting the current ethernet frame.  Will cause a partially sent frame to be received, most likely resulting in the loss of that frame.  
+GS $01 ETHCOMMAND:STARTTX Transmit packet
 GS $4000000 - $7FFFFFF Slow Device memory (64MB)
 GS $4000000 - $7FFFFFF SUMMARY:SLOWDEV Slow Device memory (64MB)
+GS $7010000.4-0 - Read /EXROM & /GAME signal probe count (MEGA65 R1 PCB only)
 GS $7010000.5 - Force assertion of /RESET on cartridge port
+GS $7010000.5 - Read cartridge force reset (1=reset)
+GS $7010000.6 - Read cartridge /EXROM flag
+GS $7010000.7 - Read cartridge /EXROM flag
+GS $7010001.0-4 - Directly read lower 5 bits of cartridge port data lines.
+GS $7010001.5 - Joystick read toggle flag DEBUG
+GS $7010001.6 - 1=force joystick expansion mode.
 GS $7010001.6 - Force enabling of joystick expander cartridge
+GS $7010001.7 - Expansion port mode: 1=normal mode, 0=joystick expansion mode
+GS $7010002 - Counter of /IRQ triggers from cartridge
+GS $7010003 - Counter of /NMI triggers from cartridge
+GS $7010004 - Counter of /DMA triggers from cartridge
+GS $7010005 - Counter of /GAME triggers from cartridge
+GS $7010006 - Counter of /EXROM triggers from cartridge
 GS $8000000 - $FEFFFFF Slow Device memory (127MB)
 GS $8000000 - $FEFFFFF SUMMARY:SLOWDEV Slow Device memory (127MB)
 C64 $D000 VIC-II:S0X sprite 0 horizontal position
@@ -59,6 +74,7 @@ C64 $D018 VIC-II RAM addresses
 C64 $D019.0 VIC-II:RIRQ raster compare indicate or acknowledge
 C64 $D019.1 VIC-II:ISBC sprite:bitmap collision indicate or acknowledge
 C64 $D019.2 VIC-II:ISSC sprite:sprite collision indicate or acknowledge
+C64 $D019.3 VIC-II:ILP light pen indicate or acknowledge
 C64 $D019 VIC-II IRQ control
 C64 $D01A.0 VIC-II:MRIRQ mask raster IRQ
 C64 $D01A.1 VIC-II:MISBC mask sprite:bitmap collision IRQ
@@ -92,10 +108,10 @@ C65 $D024.7-0 VIC-III:MC3 multi-colour 3 (256 colour)
 GS $D024.7-0 VIC-IV:MC3 multi-colour 3 (256 colour)
 C64 $D024 VIC-II multi-colour 3
 C65 $D025 VIC-III:SPRMC0 Sprite multi-colour 0 (8-bit for selection of any palette colour)
-C64 $D025 VIC-II:SPRMC0 Sprite multi-colour 0 (always 256 colour)
+C64 $D025 VIC-II:SPRMC0 Sprite multi-colour 0
 GS $D025 VIC-IV:SPRMC0 Sprite multi-colour 0 (8-bit for selection of any palette colour)
 C65 $D026 VIC-III:SPRMC1 Sprite multi-colour 1 (8-bit for selection of any palette colour)
-C64 $D026 VIC-II:SPRMC1 Sprite multi-colour 1 (always 256 colour)
+C64 $D026 VIC-II:SPRMC1 Sprite multi-colour 1
 GS $D026 VIC-IV:SPRMC1 Sprite multi-colour 1 (8-bit for selection of any palette colour)
 C64 $D027 VIC-II:SPR0COL sprite 0 colour / 16-colour sprite transparency colour (lower nybl)
 C64 $D028 VIC-II:SPR1COL sprite 1 colour / 16-colour sprite transparency colour (lower nybl)
@@ -107,6 +123,7 @@ C64 $D02D VIC-II:SPR6COL sprite 6 colour / 16-colour sprite transparency colour 
 C64 $D02E VIC-II:SPR7COL sprite 7 colour / 16-colour sprite transparency colour (lower nybl)
 C65 $D02F VIC-III KEY register for unlocking extended registers.
 C65 $D02F VIC-III:KEY Write $A5 then $96 to enable C65/VIC-III IO registers
+GS $D02F VIC-IV:KEY Write $45 then $54 to map 45E100 ethernet controller buffers to \$D000-\$DFFF
 GS $D02F VIC-IV:KEY Write $47 then $53 to enable C65GS/VIC-IV IO registers
 C65 $D02F Write anything else to return to C64/VIC-II IO map
 C64 $D030.0 VIC-II:C128FAST 2MHz select (for C128 2MHz emulation)
@@ -125,7 +142,7 @@ C65 $D031.1 VIC-III:MONO Enable VIC-III MONO video output (not implemented)
 C65 $D031.2 VIC-III:H1280 Enable 1280 horizontal pixels (not implemented)
 C65 $D031.3 VIC-III:V400 Enable 400 vertical pixels
 C65 $D031.4 VIC-III:BPM Bit-Plane Mode
-C65 $D031.5 VIC-III:ADDR Enable extended attributes and 8 bit colour entries
+C65 $D031.5 VIC-III:ATTR Enable extended attributes and 8 bit colour entries
 C65 $D031.6 VIC-III:FAST Enable C65 FAST mode (\~3.5MHz)
 C65 $D031.7 VIC-III:H640 Enable C64 640 horizontal pixels / 80 column mode
 C65 $D031 SUMMARY:VIC-III Control Register B
@@ -223,8 +240,8 @@ GS $D066.6 VIC-IV render activity display enable DEBUG WILL BE REMOVED
 GS $D066.7 VIC-IV test pattern display enable DEBUG WILL BE REMOVED
 GS $D067 DEBUG:SBPDEBUG Sprite/bitplane first X DEBUG WILL BE REMOVED
 GS $D068 VIC-IV:CHARPTR Character set precise base address (bits 0 - 7)
-GS $D069 VIC-IV:CHRPTR Character set precise base address (bits 15 - 8)
-GS $D06A VIC-IV:CHRPTR Character set precise base address (bits 23 - 16)
+GS $D069 VIC-IV:CHARPTR Character set precise base address (bits 15 - 8)
+GS $D06A VIC-IV:CHARPTR Character set precise base address (bits 23 - 16)
 GS $D06B VIC-IV:SPR16EN sprite 16-colour mode enables
 GS $D06C VIC-IV:SPRPTRADR sprite pointer address (bits 7 - 0)
 GS $D06D VIC-IV:SPRPTRADR sprite pointer address (bits 15 - 8)
@@ -250,7 +267,7 @@ GS $D079 VIC-IV:RSTCOMP Raster compare value
 GS $D07A.0-2 VIC-IV:RSTCMP Raster compare value MSB
 GS $D07A.3-6 VIC-IV:RESERVED 
 GS $D07A.7 VIC-IV:FNRSTCMP Raster compare is in physical rasters if set, or VIC-II raster if clear
-GS $D07B VIC-IV:RESERVED UNUSED
+GS $D07B VIC-IV:Number of text rows to display
 GS $D07C.0-3 VIC-IV:RESERVED UNUSED BITS
 GS $D07C.4 VIC-IV:HSYNCP hsync polarity
 GS $D07C.5 VIC-IV:VSYNCP vsync polarity
@@ -302,12 +319,17 @@ GS $D0E9.7 Buffered UART2 interrupt status
 GS $D0E9 Buffered UART2 Status register
 GS $D0EE Buffered UART2 frequency divisor (LSB)
 GS $D0EF Buffered UART2 frequency divisor (MSB)
+GS $D0 ETHCOMMAND:RXNORMAL Disable the effects of RXONLYONE
 C65 $D100-$D1FF VIC-III:PALRED red palette values (reversed nybl order)
 C65 $D200-$D2FF VIC-III:PALGREEN green palette values (reversed nybl order)
 C65 $D300-$D3FF VIC-III:PALBLUE blue palette values (reversed nybl order)
-C64 $D400-$D43F = right SID
-C64 $D440-$D47F = left SID
+C64 $D400-$D40F = right SID #1
+C64 $D420-$D43F = right SID #2
+C64 $D440-$D45F = left SID #1
+C64 $D460-$D47F = left SID #2
 C64 $D480-$D4FF = repeated images of SIDs
+GS $D4 ETHCOMMAND:DEBUGVIC Select VIC-IV debug stream via ethernet when \$D6E1.3 is set
+C64 $D500-$D5FF = repeated images of SIDs, with left/right swapped
 C65 $D600 UART:DATA UART data register (read or write)
 C65 $D601.0 UART:RXRDY UART RX byte ready flag (clear by reading \$D600)
 C65 $D601.1 UART:RXOVRRUN UART RX overrun flag (clear by reading \$D600)
@@ -362,6 +384,7 @@ GS $D610 UARTMISC:ASCIIKEY Last key press as ASCII (hardware accelerated keyboar
 GS $D611.0 UARTMISC:MRSHFT Right shift key state (hardware accelerated keyboard scanner).
 GS $D611.0 WRITE ONLY Connect POT lines to IEC port (for r1 PCB only)
 GS $D611.1 UARTMISC:MLSHFT Left shift key state (hardware accelerated keyboard scanner).
+GS $D611.1 WRITE ONLY enable real joystick ports (for r2 PCB only)
 GS $D611.2 UARTMISC:MCTRL CTRL key state (hardware accelerated keyboard scanner).
 GS $D611.3 UARTMISC:MMEGA MEGA/C= key state (hardware accelerated keyboard scanner).
 GS $D611.4 UARTMISC:MALT ALT key state (hardware accelerated keyboard scanner).
@@ -371,8 +394,9 @@ GS $D612.0 UARTMISC:WGTKEY Enable widget board keyboard/joystick input
 GS $D612.1 UARTMISC:PS2KEY Enable ps2 keyboard/joystick input
 GS $D612.2 UARTMISC:PHYKEY Enable physical keyboard input
 GS $D612.3 UARTMISC:VRTKEY Enable virtual/snythetic keyboard input
+GS $D612.4 UARTMISC:OSKDEBUG Debug OSK overlay (WRITE ONLY)
 GS $D612.4 UARTMISC:PS2JOY Enable PS/2 / USB keyboard simulated joystick input
-GS $D612.5 UARTMISC:PHYJOY Enable physical joystick input
+GS $D612.5 UARTMISC:JOYSWAP Exchange joystick ports 1 & 2
 GS $D612.6 UARTMISC:LJOYA Rotate inputs of joystick A by 180 degrees (for left handed use)
 GS $D612.7 UARTMISC:LJOYB Rotate inputs of joystick B by 180 degrees (for left handed use)
 GS $D613 DEBUG:CRTACSCNT Count of cartridge port memory accesses (read only)
@@ -384,8 +408,8 @@ GS $D616.7 UARTMISC:OSKALT Display alternate on-screen keyboard layout (typicall
 GS $D617.0-6 UARTMISC:VIRTKEY3 Set to \$7F for no key down, else specify 3nd virtual key press.
 GS $D617.7 UARTMISC:OSKTOP 1=Display on-screen keyboard at top, 0=Disply on-screen keyboard at bottom of screen.
 GS $D618 UARTMISC:KSCNRATE Physical keyboard scan rate (\$00=50MHz, \$FF=~200KHz)
-GS $D619 UARTMISC:OSKXPOS Set on-screen keyboard X position (x4 640H pixels)
-GS $D61A UARTMISC:OSKYPOS Set on-screen keyboard Y position (x4 physical pixels)
+GS $D619 UARTMISC:UNUSED port o output value
+GS $D61A UARTMISC:UNUSED port p output value
 GS $D61B.0 WRITEONLY enable/disable Amiga mouse support (1351 emulation) on jostick 1
 GS $D61B.1 WRITEONLY enable/disable Amiga mouse support (1351 emulation) on jostick 2
 GS $D61B.2 WRITEONLY assume amiga mouse on jostick 1 if enabled
@@ -427,7 +451,7 @@ GS $D643 HCPU:REGZ Hypervisor Z register storage
 GS $D644 CPU:HTRAP04 Writing triggers hypervisor trap \$04
 GS $D644 HCPU:REGB Hypervisor B register storage
 GS $D645 CPU:HTRAP05 Writing triggers hypervisor trap \$05
-GS $D645 HCPU;SPL Hypervisor SPL register storage
+GS $D645 HCPU:SPL Hypervisor SPL register storage
 GS $D646 CPU:HTRAP06 Writing triggers hypervisor trap \$06
 GS $D646 HCPU:SPH Hypervisor SPH register storage
 GS $D647 CPU:HTRAP07 Writing triggers hypervisor trap \$07
@@ -576,13 +600,19 @@ GS $D68B.2 - F011 disk 1 write protect
 GS $D68B.3 - F011 disk 2 disk image enable
 GS $D68B.4 - F011 disk 2 present
 GS $D68B.5 - F011 disk 2 write protect
+GS $D68B.6 F011:MDISK0 Enable 16MiB ``MEGA Disk'' for F011 emulated drive 0
+GS $D68B.7 F011:MDISK0 Enable 16MiB ``MEGA Disk'' for F011 emulated drive 1
 GS $D68B - Diskimage control flags
 GS $D68B - F011 emulation control register
 GS $D68C-$D68F - F011 disk 1 disk image address on SD card
-GS $D68C - Diskimage sector number (bits 0-7)
-GS $D68D - Diskimage sector number (bits 8-15)
-GS $D68E - Diskimage sector number (bits 16-23)
-GS $D68F - Diskimage sector number (bits 24-31)
+GS $D68C F011:DISK2ADDR0 Diskimage 2 sector number (bits 0-7)
+GS $D68C F011:DISKADDR0 Diskimage sector number (bits 0-7)
+GS $D68D F011:DISK2ADDR1 Diskimage 2 sector number (bits 8-15)
+GS $D68D F011:DISKADDR1 Diskimage sector number (bits 8-15)
+GS $D68E F011:DISK2ADDR2 Diskimage 2 sector number (bits 16-23)
+GS $D68E F011:DISKADDR2 Diskimage sector number (bits 16-23)
+GS $D68F F011:DISK2ADDR3 Diskimage 2 sector number (bits 24-31)
+GS $D68F F011:DISKADDR3 Diskimage sector number (bits 24-31)
 GS $D690-$D693 - F011 disk 2 disk image address on SD card
 GS $D6A0 - 3.5" FDC control line debug access
 GS $D6A0 - DEBUG FDC read status lines
@@ -600,8 +630,10 @@ GS $D6A9 - DEBUG FDC last gap interval (LSB)
 GS $D6AA - DEBUG FDC last gap interval (MSB)
 GS $D6AB - DEBUG FDC last 7 rdata bits (packed by mfm_gaps)
 GS $D6AC - DEBUG FDC last quantised gap
-GS $D6AD - DEBUG FDC bytes read counter (LSB)
-GS $D6AE - DEBUG FDC bytes read counter (MSB)
+GS $D6AD.0-3 - PHONE:Volume knob 1 audio target
+GS $D6AD.4-7 - PHONE:Volume knob 2 audio target
+GS $D6AE.0-3 - PHONE:Volume knob 3 audio target
+GS $D6AE.7 - PHONE:Volume knob 3 controls LCD panel brightness
 GS $D6AF.0 - f011_rsector_found
 GS $D6AF.1 - f011_wsector_found
 GS $D6AF.2 - f011_eq_inhibit
@@ -639,6 +671,7 @@ GS $D6D0 - I2C bus select (bus 0 = temp sensor on Nexys4 boardS)
 GS $D6D1.0 - I2C reset
 GS $D6D1.1 - I2C command latch write strobe (write 1 to trigger command)
 GS $D6D1.2 - I2C Select read (1) or write (0)
+GS $D6D1.5 - I2C bus 1 swap SDA/SCL pins
 GS $D6D1.6 - I2C busy flag
 GS $D6D1.7 - I2C ack error
 GS $D6D1 - I2C control/status
@@ -650,39 +683,49 @@ GS $D6DB - DEBUG SD card last error code MSB
 GS $D6DE - FPGA die temperature sensor (lower nybl)
 GS $D6DF - FPGA die temperature sensor (upper byte)
 GS $D6E0.0 Clear to reset ethernet PHY
-GS $D6E0.1-2 Read ethernet TX bits currently on the wire
-GS $D6E0.3 Read ethernet RX data valid
+GS $D6E0.0 ETH:RST Write 0 to hold ethernet controller under reset
+GS $D6E0.1-2 ETH:DRXD Read ethernet RX bits currently on the wire
+GS $D6E0.3 ETH:DRXDV Read ethernet RX data valid (debug)
 GS $D6E0.4 Allow remote keyboard input via magic ethernet frames
-GS $D6E0.7 ETH_MDIO
-GS $D6E0 Ethernet control
+GS $D6E0.4 ETH:KEYEN Allow remote keyboard input via magic ethernet frames
+GS $D6E0.6 ETH:RXBLKD Indicate if ethernet RX is blocked until RX buffers rotated
 GS $D6E1.0 reset ethernet PHY
+GS $D6E1.1 ETH:RXBM Set which RX buffer is memory mapped
 GS $D6E1.1 - Set which RX buffer is memory mapped
-GS $D6E1.2 - Indicate which RX buffer was most recently used
+GS $D6E1.2 ETH:RXBU Indicate which RX buffer was most recently used
 GS $D6E1.2 WRITE ONLY Enable real-time CPU/BUS monitoring via ethernet
 GS $D6E1.3 Enable real-time video streaming via ethernet (or fast IO bus if CPU/bus monitoring enabled)
-GS $D6E1.4 - Ethernet TX IRQ status
-GS $D6E1.5 - Ethernet RX IRQ status
-GS $D6E1.6 - Enable ethernet TX IRQ
-GS $D6E1.7 - Enable ethernet RX IRQ
+GS $D6E1.3 ETH:STRM Enable streaming of CPU instruction stream or VIC-IV display on ethernet
+GS $D6E1.4 ETH:TXQ Ethernet TX IRQ status
+GS $D6E1.5 ETH:RXQ Ethernet RX IRQ status
+GS $D6E1.6 ETH:TXQEN Enable ethernet TX IRQ
+GS $D6E1.7 ETH:RXQEN Enable ethernet RX IRQ
 GS $D6E1 - Ethernet interrupt and control register
+GS $D6E2 ETH:TXSZLSB TX Packet size (low byte)
 GS $D6E2 Set low-order size of frame to TX
-GS $D6E2 - TX Packet size (low byte)
+GS $D6E3 ETH:TXSZMSB TX Packet size (high byte)
 GS $D6E3 Set high-order size of frame to TX
-GS $D6E3 - TX Packet size (high byte)
 GS $D6E4 = $00 = Clear ethernet TX trigger (debug)
 GS $D6E4 = $01 = Transmit packet
-GS $D6E4 Ethernet command
-GS $D6E5.0 - Ethernet disable promiscuous mode
+GS $D6E4 ETH:COMMAND Ethernet command register
+GS $D6E5.0 ETH:NOPROM Ethernet disable promiscuous mode
 GS $D6E5.1 Disable CRC check for received packets
+GS $D6E5.1 ETH:NOCRC Disable CRC check for received packets
 GS $D6E5.2-3 Ethernet TX clock phase adjust
-GS $D6E5.4 Accept broadcast frames
-GS $D6E5.5 Accept multicast frames
-GS $D6E6.0-4 - Ethernet MIIM register number
-GS $D6E6.7-5 - Ethernet MIIM PHY number (use 0 for Nexys4, 1 for MEGA65 r1 PCBs)
-GS $D6E7 - Ethernet MIIM register value (LSB)
-GS $D6E8 - Ethernet MIIM register value (MSB)
-GS $D6E9-E - Ethernet MAC address
-GS $D6EF - DEBUG show current ethernet RX state
+GS $D6E5.2-3 ETH:TXPH Ethernet TX clock phase adjust
+GS $D6E5.4 ETH:BCST Accept broadcast frames
+GS $D6E5.5 ETH:MCST Accept multicast frames
+GS $D6E6.0-4 ETH:MIIMREG Ethernet MIIM register number
+GS $D6E6.7-5 ETH:MIIMPHY Ethernet MIIM PHY number (use 0 for Nexys4, 1 for MEGA65 r1 PCBs)
+GS $D6E7 ETH:MIIMVLSB Ethernet MIIM register value (LSB)
+GS $D6E8 ETH:MIIMVMSB Ethernet MIIM register value (MSB)
+GS $D6E9 ETH:MACADDR1 Ethernet MAC address
+GS $D6EA ETH:MACADDR2 Ethernet MAC address
+GS $D6EB ETH:MACADDR3 Ethernet MAC address
+GS $D6EC ETH:MACADDR4 Ethernet MAC address
+GS $D6ED ETH:MACADDR5 Ethernet MAC address
+GS $D6EE ETH:MACADDR6 Ethernet MAC address
+GS $D6EF ETH:DBGRXSTAT DEBUG show current ethernet RX state
 GS $D6F0 - LCD panel brightness control
 GS $D6F2 - Read FPGA five-way buttons
 GS $D6F3 - Accelerometer bit-bashing port
@@ -932,8 +975,10 @@ GS $D7EA MATH:ITERCMP Math iteration counter comparator (32 bit)
 GS $D7EB MATH:ITERCMP Math iteration counter comparator (32 bit)
 GS $D7FA CPU:SPEEDBIAS 1/2/3.5MHz CPU speed fine adjustment
 GS $D7FB.0 CPU:BRCOST 1=charge extra cycle(s) for branches taken
+GS $D7FB.1 CPU:CARTEN 1= enable cartridges
 GS $D7FC DEBUG chip-select enables for various devices
 GS $D7FD.6 CPU:NOGAME Override for /GAME : Must be 0 to enable /GAME signal
+GS $D7FD.6 CPU:POWEREN Set to zero to power off computer on supported systems. WRITE ONLY.
 GS $D7FD.7 CPU:NOEXROM Override for /EXROM : Must be 0 to enable /EXROM signal
 C64 $DC00 CIA1:PORTA Port A 
 C64 $DC01 CIA1:PORTB Port B
@@ -992,6 +1037,7 @@ GS $DC1D CIA1:ALRMSEC TOD Alarm seconds value
 GS $DC1E CIA1:ALRMMIN TOD Alarm minutes value
 GS $DC1F.0-6 CIA1:ALRMHOUR TOD Alarm hours value
 GS $DC1F.7 CIA1:ALRMAMPM TOD Alarm AM/PM flag
+GS $DC ETHCOMMAND:DEBUGCPU Select CPU debug stream via ethernet when \$D6E1.3 is set
 C64 $DD00 CIA2:PORTA Port A 
 C64 $DD01 CIA2:PORTB Port B
 C64 $DD02 CIA2:DDRA Port A DDR
@@ -1048,14 +1094,34 @@ GS $DD1D CIA2:ALRMSEC TOD Alarm seconds value
 GS $DD1E CIA2:ALRMMIN TOD Alarm minutes value
 GS $DD1F.0-6 CIA2:ALRMHOUR TOD Alarm hours value
 GS $DD1F.7 CIA2:ALRMAMPM TOD Alarm AM/PM flag
+GS $DE ETHCOMMAND:RXONLYONE Receive exactly one ethernet frame only, and keep all signals states (for debugging ethernet sub-system)
+GS ETH:$D6E0 Ethernet control
+GS $F1 ETHCOMMAND:FRAME1K Select ~1KiB frames for video/cpu debug stream frames (for receivers that do not support MTUs of greater than 2KiB)
+GS $F2 ETHCOMMAND:FRAME2K Select ~2KiB frames for video/cpu debug stream frames, for optimal performance.
 GS $FF7E000-$FF7EFFF SUMMARY:CHARWRITE VIC-IV CHARROM write area
 GS $FF7Exxx VIC-IV CHARROM write area
 GS $FF80000-$FF87FFF SUMMARY:COLOURRAM Colour RAM (32KB or 64KB)
 GS $FF8xxxx - Colour RAM (32KB or 64KB)
+GS $FFcB000-$FFcBFFF - Internal 1541 ROM access
+GS $FFCC000-$FFCFFFF - Internal 1541 ROM access
 GS $FFD6C00-DFF - F011 floppy controller sector buffer
 GS $FFD6E00-FFF - SD card direct access sector buffer
-GS $FFDB000-$FFDBFFF - Internal 1541 ROM access
-GS $FFDC000-$FFDFFFF - Internal 1541 ROM access
+GS $FFD7000-FF - I2C Peripherals     
+GS $FFD70F0 - ADC1 smoothed value (LSB)
+GS $FFD70F1 - ADC1 smoothed value (MSB)
+GS $FFD70F2 - ADC2 smoothed value (LSB)
+GS $FFD70F3 - ADC2 smoothed value (MSB)
+GS $FFD70F4 - ADC3 smoothed value (LSB)
+GS $FFD70F5 - ADC3 smoothed value (MSB)
+GS $FFD7100-07 UUID:UUID64 64-bit UUID. Can be used to seed ethernet MAC address
+GS $FFD7110-3F RTC:RTC Real-time Clock
+GS $FFD7110 RTC:RTCSEC Real-time Clock seconds value (binary coded decimal)
+GS $FFD7111 RTC:RTCMIN Real-time Clock minutes value (binary coded decimal)
+GS $FFD7112 RTC:RTCHOUR Real-time Clock hours value (binary coded decimal)
+GS $FFD7113 RTC:RTCDAY Real-time Clock day of month value (binary coded decimal)
+GS $FFD7114 RTC:RTCMONTH Real-time Clock month value (binary coded decimal)
+GS $FFD7115 RTC:RTCYEAR Real-time Clock year value (binary coded decimal)
+GS $FFD7140-7F RTC:NVRAM 64-bytes of non-volatile RAM. Can be used for storing machine configuration.
 GS $FFDE800 - $FFDEFFF Ethernet RX buffer (read only)
 GS $FFDE800 - $FFDEFFF Ethernet TX buffer (write only)
 GS $FFDF000 - VFPGA width of CLB array (READ ONLY)

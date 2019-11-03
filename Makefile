@@ -1,20 +1,24 @@
-.SUFFIXES: .bin .prg 
+.SUFFIXES: .bin .prg
 .PRECIOUS:	%.ngd %.ncd %.twx vivado/%.xpr bin/%.bit bin/%.mcs bin/%.M65 bin/%.BIN
 
 #COPT=	-Wall -g -std=gnu99 -fsanitize=address -fno-omit-frame-pointer -fsanitize-address-use-after-scope
 #CC=	clang
 COPT=	-Wall -g -std=gnu99
 CC=	gcc
+
 OPHIS=	Ophis/bin/ophis
 OPHISOPT=	-4
 OPHIS_MON= Ophis/bin/ophis -c
+
+JAVA = java
+KICKASS_JAR = KickAss/KickAss.jar
 
 VIVADO=	./vivado_wrapper
 
 CC65=  cc65/bin/cc65
 CA65=  cc65/bin/ca65 --cpu 4510
 LD65=  cc65/bin/ld65 -t none
-CL65=  cc65/bin/cl65 --config src/tests/vicii.cfg 
+CL65=  cc65/bin/cl65 --config src/tests/vicii.cfg
 GHDL=  ghdl/build/bin/ghdl
 
 CBMCONVERT=	cbmconvert/cbmconvert
@@ -28,23 +32,6 @@ VHDLSRCDIR=	$(SRCDIR)/vhdl
 VERILOGSRCDIR=	$(SRCDIR)/verilog
 
 SDCARD_DIR=	sdcard-files
-
-HYPPOSRCS = $(SRCDIR)/hyppo.a65 \
-		$(SRCDIR)/hyppo_machine.a65 \
-		$(SRCDIR)/hyppo_audiomix.a65 \
-		$(SRCDIR)/hyppo_process_descriptor.a65 \
-		$(SRCDIR)/hyppo_dos.a65 \
-		$(SRCDIR)/hyppo_securemode.a65 \
-		$(SRCDIR)/hyppo_dos_write.a65 \
-		$(SRCDIR)/hyppo_syspart.a65 \
-		$(SRCDIR)/hyppo_freeze.a65 \
-		$(SRCDIR)/hyppo_sdfat.a65 \
-		$(SRCDIR)/hyppo_task.a65 \
-		$(SRCDIR)/hyppo_virtual_f011.a65 \
-		$(SRCDIR)/hyppo_debug.a65 \
-		$(SRCDIR)/hyppo_ultimax.a65 \
-		$(SRCDIR)/hyppo_debugtests.a65 \
-		$(SRCDIR)/hyppo_mem.a65
 
 # if you want your PRG to appear on "MEGA65.D81", then put your PRG in "./d81-files"
 # ie: COMMANDO.PRG
@@ -73,7 +60,9 @@ TOOLS=	$(TOOLDIR)/etherhyppo/etherhyppo \
 	$(TOOLDIR)/mega65_ftp \
 	$(TOOLDIR)/monitor_save \
 	$(TOOLDIR)/on_screen_keyboard_gen \
-	$(TOOLDIR)/pngprepare/pngprepare
+	$(TOOLDIR)/pngprepare/pngprepare \
+	$(TOOLDIR)/pngprepare/giftotiles \
+	$(TOOLDIR)/i2cstatemapper
 
 all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r1.mcs $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr.mcs $(TOOLDIR)/monitor_load $(TOOLDIR)/mega65_ftp $(TOOLDIR)/monitor_save $(SDCARD_DIR)/FREEZER.M65
 
@@ -175,6 +164,7 @@ VFPGAVHDL=		$(VHDLSRCDIR)/vfpga/overlay_IP.vhdl \
 PERIPHVHDL=		$(VHDLSRCDIR)/sdcardio.vhdl \
 			$(VHDLSRCDIR)/touch.vhdl \
 			$(VHDLSRCDIR)/i2c_master.vhdl \
+			$(VHDLSRCDIR)/i2c_wrapper.vhdl \
 			$(VHDLSRCDIR)/buffereduart.vhdl \
 			$(VHDLSRCDIR)/mfm_bits_to_bytes.vhdl \
 			$(VHDLSRCDIR)/mfm_decoder.vhdl \
@@ -334,28 +324,34 @@ MFMFILES=$(VHDLSRCDIR)/mfm_bits_to_bytes.vhdl \
 mfmsimulate: $(GHDL) $(MFMFILES) $(ASSETS)/synthesised-60ns.dat
 	$(GHDL) -i $(MFMFILES)
 	$(GHDL) -m test_mfm
-	( ./test_mfm || $(GHDL) -r test_mfm ) 
+	( ./test_mfm || $(GHDL) -r test_mfm )
 
 pdmsimulate: $(GHDL) $(VHDLSRCDIR)/test_pdm.vhdl $(VHDLSRCDIR)/pdm_to_pcm.vhdl
 	$(GHDL) -i $(VHDLSRCDIR)/test_pdm.vhdl $(VHDLSRCDIR)/pdm_to_pcm.vhdl
 	$(GHDL) -m test_pdm
-	( ./test_pdm || $(GHDL) -r test_pdm ) 
+	( ./test_pdm || $(GHDL) -r test_pdm )
 
 hyperramsimulate: $(GHDL) $(VHDLSRCDIR)/test_hyperram.vhdl $(VHDLSRCDIR)/hyperram.vhdl
 	$(GHDL) -i $(VHDLSRCDIR)/test_hyperram.vhdl $(VHDLSRCDIR)/hyperram.vhdl
 	$(GHDL) -m test_hyperram
-	( ./test_hyperram || $(GHDL) -r test_hyperram ) 
+	( ./test_hyperram || $(GHDL) -r test_hyperram )
 
 
 i2csimulate: $(GHDL) $(VHDLSRCDIR)/test_i2c.vhdl $(VHDLSRCDIR)/i2c_master.vhdl $(VHDLSRCDIR)/i2c_slave.vhdl $(VHDLSRCDIR)/debounce.vhdl $(VHDLSRCDIR)/touch.vhdl
 	$(GHDL) -i $(VHDLSRCDIR)/test_i2c.vhdl $(VHDLSRCDIR)/i2c_master.vhdl $(VHDLSRCDIR)/i2c_slave.vhdl $(VHDLSRCDIR)/debounce.vhdl $(VHDLSRCDIR)/touch.vhdl
 	$(GHDL) -m test_i2c
-	( ./test_i2c || $(GHDL) -r test_i2c ) 
+	( ./test_i2c || $(GHDL) -r test_i2c )
+
+k2simulate: $(GHDL) $(VHDLSRCDIR)/testkey.vhdl $(VHDLSRCDIR)/mega65kbd_to_matrix.vhdl
+	$(GHDL) -i $(VHDLSRCDIR)/testkey.vhdl $(VHDLSRCDIR)/mega65kbd_to_matrix.vhdl
+	$(GHDL) -m testkey
+	( ./testkey || $(GHDL) -r testkey ) 
+
 
 fpacksimulate: $(GHDL) $(VHDLSRCDIR)/test_framepacker.vhdl $(VHDLSRCDIR)/framepacker.vhdl
 	$(GHDL) -i $(VHDLSRCDIR)/test_framepacker.vhdl $(VHDLSRCDIR)/framepacker.vhdl
 	$(GHDL) -m test_framepacker
-	( ./test_framepacker || $(GHDL) -r test_framepacker ) 
+	( ./test_framepacker || $(GHDL) -r test_framepacker )
 
 
 MIIMFILES=	$(VHDLSRCDIR)/ethernet_miim.vhdl \
@@ -364,7 +360,7 @@ MIIMFILES=	$(VHDLSRCDIR)/ethernet_miim.vhdl \
 miimsimulate:	$(GHDL) $(MIIMFILES)
 	$(GHDL) -i $(MIIMFILES)
 	$(GHDL) -m test_miim
-	( ./test_miim || $(GHDL) -r test_miim ) 
+	( ./test_miim || $(GHDL) -r test_miim )
 
 ASCIIFILES=	$(VHDLSRCDIR)/matrix_to_ascii.vhdl \
 		$(VHDLSRCDIR)/test_ascii.vhdl
@@ -372,7 +368,7 @@ ASCIIFILES=	$(VHDLSRCDIR)/matrix_to_ascii.vhdl \
 asciisimulate:	$(GHDL) $(ASCIIFILES)
 	$(GHDL) -i $(ASCIIFILES)
 	$(GHDL) -m test_ascii
-	( ./test_ascii || $(GHDL) -r test_ascii ) 
+	( ./test_ascii || $(GHDL) -r test_ascii )
 
 SPRITEFILES=$(VHDLSRCDIR)/sprite.vhdl $(VHDLSRCDIR)/test_sprite.vhdl $(VHDLSRCDIR)/victypes.vhdl
 spritesimulate:	$(GHDL) $(SPRITEFILES)
@@ -438,16 +434,31 @@ $(UTILDIR)/mega65_config.o:      $(UTILDIR)/mega65_config.s $(UTILDIR)/mega65_co
 	$(CA65) $< -l $*.list
 
 $(TESTDIR)/vicii.prg:       $(TESTDIR)/vicii.c $(TESTDIR)/vicii_asm.s $(CC65)
-	$(CL65) -O -o $*.prg --mapfile $*.map $< $(TESTDIR)/vicii_asm.s 
+	$(CL65) -O -o $*.prg --mapfile $*.map $< $(TESTDIR)/vicii_asm.s
+
+$(TESTDIR)/pulseoxy.prg:       $(TESTDIR)/pulseoxy.c $(CC65)
+	$(CL65) -O -o $*.prg --mapfile $*.map $< 
 
 $(TESTDIR)/unicorns.prg:       $(TESTDIR)/unicorns.c $(CC65)
+	$(CL65) -O -o $*.prg --mapfile $*.map $<
+
+$(TESTDIR)/eth_mdio.prg:       $(TESTDIR)/eth_mdio.c $(CC65)
 	$(CL65) -O -o $*.prg --mapfile $*.map $< 
 
 $(TESTDIR)/instructiontiming.prg:       $(TESTDIR)/instructiontiming.c $(TESTDIR)/instructiontiming_asm.s $(CC65)
-	$(CL65) -O -o $*.prg --mapfile $*.map $< $(TESTDIR)/instructiontiming_asm.s 
+	$(CL65) -O -o $*.prg --mapfile $*.map $< $(TESTDIR)/instructiontiming_asm.s
 
 $(UTILDIR)/mega65_config.prg:       $(UTILDIR)/mega65_config.o $(CC65)
 	$(LD65) $< --mapfile $*.map -o $*.prg
+
+$(UTILDIR)/i2clist.prg:       $(UTILDIR)/i2clist.c $(CC65)
+	$(CL65) $< --mapfile $*.map -o $*.prg
+
+$(UTILDIR)/i2cstatus.prg:       $(UTILDIR)/i2cstatus.c $(CC65)
+	$(CL65) $< --mapfile $*.map -o $*.prg
+
+$(UTILDIR)/floppystatus.prg:       $(UTILDIR)/floppystatus.c $(CC65)
+	$(CL65) $< --mapfile $*.map -o $*.prg
 
 $(UTILDIR)/tiles.prg:       $(UTILDIR)/tiles.o $(CC65)
 	$(LD65) $< --mapfile $*.map -o $*.prg
@@ -458,7 +469,7 @@ $(UTILDIR)/diskmenuprg.o:      $(UTILDIR)/diskmenuprg.a65 $(UTILDIR)/diskmenu.a6
 $(UTILDIR)/diskmenu.prg:       $(UTILDIR)/diskmenuprg.o $(CC65)
 	$(LD65) $< --mapfile $*.map -o $*.prg
 
-$(SRCDIR)/mega65-fdisk/m65fdisk.prg:	
+$(SRCDIR)/mega65-fdisk/m65fdisk.prg:
 	( cd $(SRCDIR)/mega65-fdisk ; make )
 
 $(BINDIR)/border.prg: 	$(SRCDIR)/border.a65 $(OPHIS)
@@ -466,8 +477,8 @@ $(BINDIR)/border.prg: 	$(SRCDIR)/border.a65 $(OPHIS)
 
 # ============================ done moved, print-warn, clean-target
 #??? diskmenu_c000.bin yet b0rken
-$(BINDIR)/HICKUP.M65:	$(HYPPOSRCS) $(SRCDIR)/version.a65 $(OPHIS)
-	$(OPHIS) $(OPHISOPT) $< -l hyppo.list -m hyppo.map
+$(BINDIR)/HICKUP.M65: $(SRCDIR)/hyppo/main.asm $(SRCDIR)/version.asm
+	$(JAVA) -jar $(KICKASS_JAR) $< -afo
 
 $(SRCDIR)/monitor/monitor_dis.a65: $(SRCDIR)/monitor/gen_dis
 	$(SRCDIR)/monitor/gen_dis >$(SRCDIR)/monitor/monitor_dis.a65
@@ -497,9 +508,17 @@ $(VHDLSRCDIR)/hyppo.vhdl:	$(TOOLDIR)/makerom/rom_template.vhdl $(BINDIR)/HICKUP.
 $(VHDLSRCDIR)/colourram.vhdl:	$(TOOLDIR)/makerom/colourram_template.vhdl $(BINDIR)/COLOURRAM.BIN $(TOOLDIR)/makerom/makerom
 	$(TOOLDIR)/makerom/makerom $(TOOLDIR)/makerom/colourram_template.vhdl $(BINDIR)/COLOURRAM.BIN $(VHDLSRCDIR)/colourram ram8x32k
 
-$(VHDLSRCDIR)/shadowram.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65 $(ASSETS)/alphatest.bin Makefile $(SDCARD_DIR)/FREEZER.M65
+$(SRCDIR)/open-roms/newc65:	$(SRCDIR)/open-roms/assets/8x8font.png
+	( cd $(SRCDIR)/open-roms ; make newc65 )
+
+$(SRCDIR)/open-roms/assets/8x8font.png:
+	git submodule init
+	git submodule update
+	( cd $(SRCDIR)/open-roms ; git submodule init ; git submodule update )
+
+$(VHDLSRCDIR)/shadowram.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65 $(ASSETS)/alphatest.bin Makefile $(SDCARD_DIR)/FREEZER.M65  $(SRCDIR)/open-roms/newc65
 	mkdir -p $(SDCARD_DIR)
-	$(TOOLDIR)/mempacker/mempacker_new -n shadowram -s 393215 -f $(VHDLSRCDIR)/shadowram.vhdl $(SDCARD_DIR)/BANNER.M65@57D00 $(SDCARD_DIR)/FREEZER.M65@12000
+	$(TOOLDIR)/mempacker/mempacker_new -n shadowram -s 393215 -f $(VHDLSRCDIR)/shadowram.vhdl $(SDCARD_DIR)/BANNER.M65@57D00 $(SDCARD_DIR)/FREEZER.M65@12000 $(SRCDIR)/open-roms/newc65@20000
 
 $(VERILOGSRCDIR)/monitor_mem.v:	$(TOOLDIR)/mempacker/mempacker_v $(BINDIR)/monitor.m65
 	$(TOOLDIR)/mempacker/mempacker_v -n monitormem -w 12 -s 4096 -f $(VERILOGSRCDIR)/monitor_mem.v $(BINDIR)/monitor.m65@0000
@@ -519,17 +538,24 @@ $(BINDIR)/asciifont.bin:	$(TOOLDIR)/pngprepare/pngprepare $(ASSETS)/ascii00-7f.p
 $(BINDIR)/matrixfont.bin:	$(TOOLDIR)/pngprepare/pngprepare $(ASSETS)/matrix.png
 	$(TOOLDIR)/pngprepare/pngprepare charrom $(ASSETS)/matrix.png $(BINDIR)/matrixfont.bin
 
+$(BINDIR)/charrom.bin:	$(TOOLDIR)/pngprepare/pngprepare $(ASSETS)/8x8font.png
+	$(TOOLDIR)/pngprepare/pngprepare charrom $(ASSETS)/8x8font.png $(BINDIR)/charrom.bin
+
 # ============================ done moved, Makefile-dep, print-warn, clean-target
 # c-code that makes an executable that processes images, and can make a vhdl file
 $(TOOLDIR)/pngprepare/pngprepare:	$(TOOLDIR)/pngprepare/pngprepare.c Makefile
 	$(CC) $(COPT) -I/usr/local/include -L/usr/local/lib -o $(TOOLDIR)/pngprepare/pngprepare $(TOOLDIR)/pngprepare/pngprepare.c -lpng
+
+$(TOOLDIR)/pngprepare/giftotiles:	$(TOOLDIR)/pngprepare/giftotiles.c Makefile
+	$(CC) $(COPT) -I/usr/local/include -L/usr/local/lib -o $(TOOLDIR)/pngprepare/giftotiles $(TOOLDIR)/pngprepare/giftotiles.c -lgif
+
 
 # ============================ done *deleted*, Makefile-dep, print-warn, clean-target
 # unix command to generate the 'iomap.txt' file that represents the registers
 # within both the c64 and the c65gs
 # note that the iomap.txt file already comes from github.
 # note that the iomap.txt file is often recreated because version.vhdl is updated.
-iomap.txt:	$(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/vfpga/*.vhdl 
+iomap.txt:	$(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/vfpga/*.vhdl
 	# Force consistent ordering of items according to natural byte values
 	LC_ALL=C egrep "IO:C6|IO:GS" `find $(VHDLSRCDIR) -iname "*.vhdl"` | cut -f3- -d: | sort -u -k2 > iomap.txt
 
@@ -547,7 +573,7 @@ $(TOOLDIR)/utilpacker/utilpacker:	$(TOOLDIR)/utilpacker/utilpacker.c Makefile
 # version information is updated.
 # for now we will always update the version info whenever we do a make.
 .PHONY: version.vhdl version.a65
-$(VHDLSRCDIR)/version.vhdl src/monitor/version.a65 src/version.a65 $(BINDIR)/matrix_banner.txt:	.git	./src/version.sh $(ASSETS)/matrix_banner.txt $(TOOLDIR)/format_banner
+$(VHDLSRCDIR)/version.vhdl src/monitor/version.a65 src/version.a65 src/version.asm $(BINDIR)/matrix_banner.txt:	.git ./src/version.sh $(ASSETS)/matrix_banner.txt $(TOOLDIR)/format_banner
 	./src/version.sh
 
 # i think 'charrom' is used to put the pngprepare file into a special mode that
@@ -556,7 +582,7 @@ $(VHDLSRCDIR)/charrom.vhdl:	$(TOOLDIR)/pngprepare/pngprepare $(ASSETS)/8x8font.p
 #       exe          option  infile      outfile
 	$(TOOLDIR)/pngprepare/pngprepare charrom $(ASSETS)/8x8font.png $(VHDLSRCDIR)/charrom.vhdl
 
-iverilog/driver/iverilog:	
+iverilog/driver/iverilog:
 	git submodule init
 	git submodule update
 	cd iverilog ; autoconf ; ./configure ; make
@@ -570,7 +596,7 @@ $(VHDLSRCDIR)/uart_monitor.vhdl.tmp $(VHDLSRCDIR)/uart_monitor.vhdl:	$(VERILOGSR
 	( cd $(VERILOGSRCDIR) ; ../../iverilog/driver/iverilog  -tvhdl -o ../../$(VHDLSRCDIR)/uart_monitor.vhdl.tmp monitor_*.v asym_ram_sdp.v 6502_*.v UART_TX_CTRL.v uart_rx.v )
 	# Now remove the dummy definitions of UART_TX_CTRL and uart_rx, as we will use the actual VHDL implementations of them.
 	cat $(VHDLSRCDIR)/uart_monitor.vhdl.tmp | awk 'BEGIN { echo=1; } {if ($$1=="--"&&$$2=="Generated"&&$$3=="from"&&$$4=="Verilog") { if ($$6=="UART_TX_CTRL"||$$6=="uart_rx") echo=0; else echo=1; } if (echo) print; }' > $(VHDLSRCDIR)/uart_monitor.vhdl
- 
+
 
 $(SDCARD_DIR)/BANNER.M65:	$(TOOLDIR)/pngprepare/pngprepare assets/mega65_320x64.png
 	mkdir -p $(SDCARD_DIR)
@@ -578,9 +604,9 @@ $(SDCARD_DIR)/BANNER.M65:	$(TOOLDIR)/pngprepare/pngprepare assets/mega65_320x64.
 	$(TOOLDIR)/pngprepare/pngprepare logo $(BINDIR)/mega65_320x64_128colour.png $(SDCARD_DIR)/BANNER.M65
 
 # disk menu program for loading from SD card to $C000 on boot by hyppo
-$(SDCARD_DIR)/C000UTIL.BIN:	$(SRCDIR)/diskmenu_c000.bin
+$(SDCARD_DIR)/C000UTIL.BIN:	$(BINDIR)/diskmenu_c000.bin
 	mkdir -p $(SDCARD_DIR)
-	cp $(SRCDIR)/diskmenu_c000.bin $(SDCARD_DIR)/C000UTIL.BIN
+	cp $(BINDIR)/diskmenu_c000.bin $(SDCARD_DIR)/C000UTIL.BIN
 
 # ============================ done moved, Makefile-dep, print-warn, clean-target
 # c-code that makes and executable that seems to be the 'load-wedge'
@@ -595,7 +621,7 @@ $(BINDIR)/ftphelper.bin:	src/ftphelper.a65
 	$(OPHIS) $(OPHISOPT) src/ftphelper.a65
 
 $(TOOLDIR)/ftphelper.c:	$(BINDIR)/ftphelper.bin $(TOOLDIR)/bin2c
-	$(TOOLDIR)/bin2c $(BINDIR)/ftphelper.bin helperroutine $(TOOLDIR)/ftphelper.c	
+	$(TOOLDIR)/bin2c $(BINDIR)/ftphelper.bin helperroutine $(TOOLDIR)/ftphelper.c
 
 $(TOOLDIR)/mega65_ftp:	$(TOOLDIR)/mega65_ftp.c Makefile $(TOOLDIR)/ftphelper.c
 	$(CC) $(COPT) -o $(TOOLDIR)/mega65_ftp $(TOOLDIR)/mega65_ftp.c $(TOOLDIR)/ftphelper.c -lreadline
@@ -613,12 +639,14 @@ vivado/%.xpr: 	vivado/%_gen.tcl | $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(SIM
 	echo MOOSE $@ from $<
 	$(VIVADO) -mode batch -source $<
 
-$(BINDIR)/%.bit: 	vivado/%.xpr $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(SIMULATIONVHDL)  $(VERILOGSRCDIR)/*.v
+preliminaries: $(VERILOGSRCDIR)/monitor_mem.v $(M65VHDL)
+
+$(BINDIR)/%.bit: 	vivado/%.xpr $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(SIMULATIONVHDL) $(VERILOGSRCDIR)/*.v preliminaries
 	echo MOOSE $@ from $<
 #	@rm -f $@
 #	@echo "---------------------------------------------------------"
 #	@echo "Checking design for timing errors and unroutes..."
-#	@grep -i "all signals are completely routed" $(filter %.unroutes,$^) 
+#	@grep -i "all signals are completely routed" $(filter %.unroutes,$^)
 #	@grep -iq "timing errors:" $(filter %.twr,$^); \
 #	if [ $$? -eq 0 ]; then \
 #		grep -i "timing errors: 0" $(filter %.twr,$^); \

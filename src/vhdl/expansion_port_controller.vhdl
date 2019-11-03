@@ -8,10 +8,12 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
+use work.cputypes.all;
 
 ENTITY expansion_port_controller IS
   generic (
-    pixelclock_frequency : in integer
+    pixelclock_frequency : in integer;
+    target : mega65_target_t
     );
   PORT (
     ------------------------------------------------------------------------
@@ -21,6 +23,14 @@ ENTITY expansion_port_controller IS
     cpuclock : in std_logic;
     reset : in std_logic;
 
+    
+    ------------------------------------------------------------------------
+    -- Let cartridge try to do things
+    ------------------------------------------------------------------------    
+    nmi_out : out std_logic;
+    irq_out : out std_logic;
+    dma_out : out std_logic;
+    
     ------------------------------------------------------------------------
     -- Tell the CPU what the current cartridge state is
     ------------------------------------------------------------------------    
@@ -81,13 +91,13 @@ ENTITY expansion_port_controller IS
     cart_irq : in std_logic;
     cart_dma : in std_logic;
     
-    cart_exrom : inout std_logic := 'H';
+    cart_exrom : in std_logic;
     cart_ba : inout std_logic := 'H';
     cart_rw : inout std_logic := 'H';
     cart_roml : inout std_logic := 'H';
     cart_romh : inout std_logic := 'H';
     cart_io1 : inout std_logic := 'H';
-    cart_game : inout std_logic := 'H';
+    cart_game : in std_logic;
     cart_io2 : inout std_logic := 'H';
     
     cart_d_in : in unsigned(7 downto 0);
@@ -131,6 +141,20 @@ architecture behavioural of expansion_port_controller is
   signal cart_flags : std_logic_vector(1 downto 0) := "00";
 
   signal cart_force_reset : std_logic := '0';
+
+  signal fake_reset_sequence_phase : integer range 0 to 10 := 0;
+
+  signal nmi_count : unsigned(7 downto 0) := x"00";
+  signal irq_count : unsigned(7 downto 0) := x"00";
+  signal dma_count : unsigned(7 downto 0) := x"00";
+  signal exrom_count : unsigned(7 downto 0) := x"00";
+  signal game_count : unsigned(7 downto 0) := x"00";
+
+  signal last_cart_irq : std_logic := '1';
+  signal last_cart_nmi : std_logic := '1';
+  signal last_cart_dma : std_logic := '1';
+  signal last_cart_exrom : std_logic := '1';
+  signal last_cart_game : std_logic := '1';
   
 begin
 
@@ -138,10 +162,43 @@ begin
   begin
     if rising_edge(pixelclock) then
 
+
+      ----------------------------------------------------------------------
+      -- Allow cartridges to cause interrupts or DMA
+      ----------------------------------------------------------------------      
+      -- (note DMA is not really implemented)
+      
+      nmi_out <= cart_nmi;
+      irq_out <= cart_irq;
+      dma_out <= cart_dma;
+      
+      last_cart_nmi <= cart_nmi;
+      last_cart_irq <= cart_irq;
+      last_cart_dma <= cart_dma;
+      last_cart_exrom <= cart_exrom;
+      last_cart_game <= cart_game;
+      
+      if cart_nmi = '0' and last_cart_nmi = '1' then
+        nmi_count <= nmi_count + 1;
+      end if;
+      if cart_irq = '0' and last_cart_irq = '1' then
+        irq_count <= irq_count + 1;
+      end if;
+      if cart_dma = '0' and last_cart_dma = '1' then
+        dma_count <= dma_count + 1;
+      end if;
+      if cart_exrom = '0' and last_cart_exrom = '1' then
+        exrom_count <= exrom_count + 1;
+      end if;
+      if cart_game = '0' and last_cart_game = '1' then
+        game_count <= game_count + 1;
+      end if;
+      
+      
       ----------------------------------------------------------------------
       -- Support for simple passive cartridge with 3rd and 4th joystick ports
       ----------------------------------------------------------------------      
-      
+
       -- If DMA line is ever high, then it is not the joystick cartridge.
       -- Put another way: The joystick cartridge works by tying DMA to GND.
       if cart_dma='1' then
@@ -177,8 +234,12 @@ begin
             joya <= std_logic_vector(cart_d_in(4 downto 0)) xor "11111";
             joyb <= std_logic_vector(cart_a(4 downto 0)) xor "11111";
           end if;
-          -- Precharge lines read for next reading
-          cart_d <= (others => '1');
+          if target = mega65r1 then
+            -- Precharge lines read for next reading on M65R1 that lacks pull-ups
+            cart_d <= (others => '1');
+          else
+            cart_d <= (others => 'Z');
+          end if;
           cart_data_dir <= '1';
           cart_laddr_dir <= '1';
           cart_a(7 downto 0) <= (others => '1');
@@ -202,8 +263,24 @@ begin
         report "Asserting RESET on cartridge port";
         cart_reset <= '0';
         reset_counter <= 15;
-        reprobe_exrom <= '1';
+        if target = mega65r1 then
+          reprobe_exrom <= '1';
+        else
+          reprobe_exrom <= '0';
+        end if;
+        cpu_exrom <= '1';
+        cpu_game <= '1';
       end if;
+
+      -- Only the R1 PCB needs to probe the /EXROM and /GAME pins dynamically because
+      -- the lines were put through birectional buffer, so we had to set to output
+      if target /= mega65r1 then
+        reprobe_exrom <= '0';
+--        cart_exrom <= 'Z';
+--        cart_game <= 'Z';
+      end if;
+      cpu_exrom <= cart_exrom;
+      cpu_game <= cart_game;
       
       ticker <= ('0'&ticker(15 downto 0)) + dotclock_increment;
       if ticker(16) = '0' then
@@ -214,7 +291,7 @@ begin
         report "dotclock tick";
         cart_dotclock <= not cart_dotclock_internal;
         cart_dotclock_internal <= not cart_dotclock_internal;
-        if phi2_ticker /= 4 then
+        if phi2_ticker /= 7 then
           phi2_ticker <= phi2_ticker + 1;
           cart_access_read_strobe <= '0';
           cart_access_accept_strobe <= '0';
@@ -243,18 +320,42 @@ begin
           -- Record data from bus if we are waiting on it
           if read_in_progress='1' then
             -- XXX Debug: show stats on probing cartridge flags
-            if cart_access_address(15 downto 0) = x"0000" then
-              cart_access_rdata(7 downto 6) <= unsigned(cart_flags);
-              cart_access_rdata(5) <= cart_force_reset;
-              cart_access_rdata(4 downto 0) <= cart_probe_count(4 downto 0);
-            elsif cart_access_address(15 downto 0) = x"0001" then
-              cart_access_rdata(7) <= not_joystick_cartridge;
-              cart_access_rdata(6) <= force_joystick_cartridge;
-              cart_access_rdata(5) <= joy_read_toggle;
-              cart_access_rdata(4 downto 0) <= cart_d_in(4 downto 0);
-            else
+            case cart_access_address(15 downto 0) is
+              when x"0000" =>
+                -- @IO:GS $7010000.7 - Read cartridge /EXROM flag
+                -- @IO:GS $7010000.6 - Read cartridge /EXROM flag
+                cart_access_rdata(7 downto 6) <= unsigned(cart_flags);
+                -- @IO:GS $7010000.5 - Read cartridge force reset (1=reset)
+                cart_access_rdata(5) <= cart_force_reset;
+                -- @IO:GS $7010000.4-0 - Read /EXROM & /GAME signal probe count (MEGA65 R1 PCB only)
+                cart_access_rdata(4 downto 0) <= cart_probe_count(4 downto 0);
+              when x"0001" =>
+                -- @IO:GS $7010001.7 - Expansion port mode: 1=normal mode, 0=joystick expansion mode
+                cart_access_rdata(7) <= not_joystick_cartridge;
+                -- @IO:GS $7010001.6 - 1=force joystick expansion mode.
+                cart_access_rdata(6) <= force_joystick_cartridge;
+                -- @IO:GS $7010001.5 - Joystick read toggle flag DEBUG
+                cart_access_rdata(5) <= joy_read_toggle;
+                -- @IO:GS $7010001.0-4 - Directly read lower 5 bits of cartridge port data lines.
+                cart_access_rdata(4 downto 0) <= cart_d_in(4 downto 0);
+              when x"0002" =>
+                -- @IO:GS $7010002 - Counter of /IRQ triggers from cartridge
+                cart_access_rdata <= irq_count;
+              when x"0003" =>
+                -- @IO:GS $7010003 - Counter of /NMI triggers from cartridge
+                cart_access_rdata <= nmi_count;
+              when x"0004" =>
+                -- @IO:GS $7010004 - Counter of /DMA triggers from cartridge
+                cart_access_rdata <= dma_count;
+              when x"0005" =>
+                -- @IO:GS $7010005 - Counter of /GAME triggers from cartridge
+                cart_access_rdata <= game_count;
+              when x"0006" =>
+                -- @IO:GS $7010006 - Counter of /EXROM triggers from cartridge
+                cart_access_rdata <= exrom_count;
+              when others =>
               cart_access_rdata <= cart_d_in;
-            end if;
+            end case;
             cart_access_read_strobe <= '1';
             cart_access_read_toggle <= not cart_access_read_toggle_internal;
             cart_access_read_toggle_internal <= not cart_access_read_toggle_internal;
@@ -267,7 +368,7 @@ begin
           cart_addr_en <= '1';
 
           -- Present next bus request if we have one
-          if probing_exrom = '1' and reprobe_exrom='0' then
+          if probing_exrom = '1' and reprobe_exrom='0' and target = mega65r1 then
             -- Update CPU's view of cartridge config lines
 --            report "EXROM: Read exrom as " & std_logic'image(cart_exrom)
 --              & " and game as " & std_logic'image(cart_game)
@@ -295,9 +396,34 @@ begin
             report "EXROM: Tri-stating cart_exrom,game, setting cart_ctrl_dir=0";
             reprobe_exrom <= '0';
             cart_ctrl_dir <= '0';
-            cart_exrom <= 'H';
-            cart_game <= 'H';
+--            cart_exrom <= 'H';
+--            cart_game <= 'H';
             probing_exrom <= '1';
+          elsif (fake_reset_sequence_phase < 8 ) and (cart_phi2_internal='0') then
+            -- Provide fake power-on reset
+            -- Sequence from: https://www.pagetable.com/?p=410
+            case fake_reset_sequence_phase is
+              when 0 | 1 | 2 => cart_a(15 downto 0) <= x"00FF";
+              when 3 => cart_a(15 downto 0) <= x"0100";
+              when 4 => cart_a(15 downto 0) <= x"01FF";
+              when 5 => cart_a(15 downto 0) <= x"01FE";
+              when 6 => cart_a(15 downto 0) <= x"FFFC";
+              when 7 => cart_a(15 downto 0) <= x"FFFD";
+              when others => null;
+            end case;
+            fake_reset_sequence_phase <= fake_reset_sequence_phase + 1;
+
+            cart_busy <= '1';
+            cart_a <= cart_access_address(15 downto 0);
+            cart_rw <= '1';
+            cart_data_dir <= not '1';
+            cart_data_en <= '0'; -- negative sense on these lines: low = enable
+            cart_addr_en <= '0'; -- negative sense on these lines: low = enable
+
+            -- Count number of cartridge accesses to aid debugging
+            cart_access_count <= cart_access_count_internal + 1;
+            cart_access_count_internal <= cart_access_count_internal + 1;
+            
           elsif (cart_access_request='1') and (reset_counter = 0)
             -- Check that clock will be high during this request, i.e.,
             -- currently low.
@@ -311,6 +437,13 @@ begin
               if cart_access_address(15 downto 0) = x"0000" then
                 -- @ IO:GS $7010000.5 - Force assertion of /RESET on cartridge port
                 cart_force_reset <= cart_access_wdata(5);
+                if cart_force_reset <= '1' and cart_access_wdata(5) = '0' then
+                  -- Release of reset
+                  -- Some cartridges need to see the CPU do a reset sequence,
+                  -- before they will work.  So we will now schedule a fake
+                  -- reset sequence.
+                  fake_reset_sequence_phase <= 0;
+                end if;
               elsif cart_access_address(15 downto 0) = x"0001" then
                 -- @ IO:GS $7010001.6 - Force enabling of joystick expander cartridge
                 force_joystick_cartridge <= cart_access_wdata(6);
@@ -324,7 +457,7 @@ begin
             cart_access_count_internal <= cart_access_count_internal + 1;
 
             cart_access_accept_strobe <= '1';
-            
+                  
             if not_joystick_cartridge = '1' and force_joystick_cartridge='0' then
             
               cart_a <= cart_access_address(15 downto 0);
@@ -336,13 +469,17 @@ begin
               -- case the cartridge has banked things in response to IO access
               if cart_access_address(15 downto 8) = x"DE" and sector_buffer_mapped='0' then
                 cart_io1 <= '0';
-                reprobe_exrom <= '1';
+                if target = mega65r1 then
+                  reprobe_exrom <= '1';
+                end if;
               else
                 cart_io1 <= '1';
               end if;
               if cart_access_address(15 downto 8) = x"DF" and sector_buffer_mapped='0' then
                 cart_io2 <= '0';
-                reprobe_exrom <= '1';
+                if target = mega65r1 then
+                  reprobe_exrom <= '1';
+                end if;
               else
                 cart_io2 <= '1';
               end if;
@@ -372,7 +509,11 @@ begin
               if not_joystick_cartridge = '1' and force_joystick_cartridge='0' then
                 -- Tri-state with pull-up
                 report "Tristating cartridge port data lines.";
-                cart_d <= (others => 'H');
+                if target = mega65r1 then
+                  cart_d <= (others => 'H');
+                else
+                  cart_d <= (others => 'Z');
+                end if;
               end if;
             else
               read_in_progress <= '0';
@@ -384,7 +525,11 @@ begin
           else
             if not_joystick_cartridge = '1' and force_joystick_cartridge='0' then
               cart_access_accept_strobe <= '0';
-              cart_a <= (others => 'H');
+              if target = mega65r1 then
+                cart_a <= (others => 'H');
+              else
+                cart_a <= (others => 'Z');
+              end if;              
               cart_roml <= '1';
               cart_romh <= '1';
               cart_io1 <= '1';

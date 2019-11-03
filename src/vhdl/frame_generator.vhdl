@@ -56,6 +56,7 @@ entity frame_generator is
     lcd_hsync : out std_logic := '0';
     lcd_vsync : out std_logic := '0';
     lcd_inframe : out std_logic := '0';
+    lcd_inletterbox : out std_logic := '0';
 
     red_o : out unsigned(7 downto 0) := x"00";
     green_o : out unsigned(7 downto 0) := x"00";
@@ -84,10 +85,10 @@ architecture brutalist of frame_generator is
   signal y_zero_driver2 : std_logic := '0';
   signal y_zero_driver80 : std_logic := '0';
   signal y_zero_driver80b : std_logic := '0';
-  signal y : integer := 0;
+  signal y : integer := frame_height - 3;
   signal inframe_internal : std_logic := '0';
 
-  signal lcd_inletterbox : std_logic := '0';
+  signal lcd_inletterbox_internal : std_logic := '0';
 
   signal vsync_driver : std_logic := '0';
   signal hsync_driver : std_logic := '0';
@@ -109,6 +110,12 @@ begin
       -- Cross from 120MHz to 80MHz clock domains for VIC-IV signals
       x_zero_80 <= x_zero_driver80b;
       y_zero_80 <= y_zero_driver80b;
+      if y_zero_driver80b='1' then
+        report "y_zero asserted";
+      end if;
+      if x_zero_driver80b='1' then
+        report "x_zero asserted";
+      end if;
       x_zero_driver80b <= x_zero_driver80;
       y_zero_driver80b <= y_zero_driver80;      
       x_zero_driver80 <= x_zero_driver2;
@@ -184,26 +191,28 @@ begin
         hsync_uninverted_driver <= '0';
       end if;
 
-      if y = ( frame_height - lcd_height ) / 2 then
-        if lcd_inletterbox='0' then
+      if y = ( display_height - lcd_height ) / 2 then
+        if lcd_inletterbox_internal='0' then
           report "entering letter box";
         end if;
+        lcd_inletterbox_internal <= '1';
         lcd_inletterbox <= '1';
       end if;
-      if y = frame_height - (frame_height - lcd_height ) / 2 then
-        if lcd_inletterbox='1' then
+      if y = display_height - (display_height - lcd_height ) / 2 then
+        if lcd_inletterbox_internal='1' then
           report "leaving letter box";
         end if;
+        lcd_inletterbox_internal <= '0';
         lcd_inletterbox <= '0';
       end if;
       report "preparing for lcd_inframe check at (" & integer'image(x) & "," & integer'image(y) & ").";
-      if x = (1 + pipeline_delay) and lcd_inletterbox = '1' then
+      if x = (1 + pipeline_delay) and lcd_inletterbox_internal = '1' then
         lcd_inframe <= '1';
         report "lcd_inframe=1 at x = " & integer'image(x);
       end if;
       if x = (1 + pipeline_delay + display_width) then
         report "lcd_inframe=0 at x = " & integer'image(x);
-        lcd_vsync <= lcd_inletterbox;
+        lcd_vsync <= lcd_inletterbox_internal;
         lcd_inframe <= '0';
       end if;
       if x = pipeline_delay and y < display_height then

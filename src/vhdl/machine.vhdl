@@ -41,6 +41,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.victypes.all;
+use work.cputypes.all;
 
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
@@ -52,7 +53,8 @@ use work.victypes.all;
 --use UNISIM.VComponents.all;
 
 entity machine is
-  generic (cpufrequency : integer := 50);
+  generic (cpufrequency : integer := 50;
+           target : mega65_target_t );
   Port ( pixelclock : in STD_LOGIC;
          cpuclock : in std_logic;
          clock50mhz : in std_logic;  -- normal ethernet clock
@@ -67,9 +69,15 @@ entity machine is
          irq : in  STD_LOGIC;
          nmi : in  STD_LOGIC;
          restore_key : in std_logic;
+         osk_toggle_key : in std_logic := '1';
+         joyswap_key : in std_logic := '1';
          cpu_exrom : in std_logic;
          cpu_game : in std_logic;
 
+         fast_key : in std_logic := '1';
+         
+         power_down : out std_logic := '1';
+         
          no_hyppo : in std_logic;
 
          flopled : out std_logic;
@@ -135,6 +143,23 @@ entity machine is
          fb_poty : in std_logic;
          pot_drain : buffer std_logic;
          pot_via_iec : buffer std_logic;
+
+        i2c_joya_fire : out std_logic;
+        i2c_joya_up : out std_logic;
+        i2c_joya_down : out std_logic;
+        i2c_joya_left : out std_logic;
+        i2c_joya_right : out std_logic;
+        i2c_joyb_fire : out std_logic;
+        i2c_joyb_up : out std_logic;
+        i2c_joyb_down : out std_logic;
+        i2c_joyb_left : out std_logic;
+        i2c_joyb_right : out std_logic;
+        i2c_button2 : out std_logic;
+        i2c_button3 : out std_logic;
+        i2c_button4 : out std_logic;
+        i2c_black2 : out std_logic;
+        i2c_black3 : out std_logic;
+        i2c_black4 : out std_logic;
          
          ----------------------------------------------------------------------
          -- CBM floppy serial port
@@ -186,7 +211,6 @@ entity machine is
          aclInt1 : in std_logic;
          aclInt2 : in std_logic;
 
-         ampPWM :out std_logic;
          ampPWM_l : out std_logic;
          ampPWM_r : out std_logic;
          ampSD : out std_logic;
@@ -205,8 +229,6 @@ entity machine is
          pcm_modem_sync : out std_logic := '0';
          pcm_modem_clk_in : in std_logic := '0';
          pcm_modem_sync_in : in std_logic := '0';
-         i2s_headphones_data_out : out std_logic := '0';
-         i2s_headphones_data_in : in std_logic := '0';
          i2s_speaker_data_out : out std_logic := '0';
          pcm_modem1_data_in : in std_logic := '0';
          pcm_modem2_data_in : in std_logic := '0';
@@ -223,7 +245,7 @@ entity machine is
          i2c1SDA : inout std_logic;
          i2c1SCL : inout std_logic;
 
-         lcdpwm : inout std_logic := '1';
+         lcdpwm : out std_logic := '1';
          touchSDA : inout std_logic := '1';
          touchSCL : inout std_logic := '1';
          
@@ -250,13 +272,16 @@ entity machine is
          ps2clock : in std_logic;
 
          ----------------------------------------------------------------------
-         -- PMOD interface for keyboard, joystick, expansion port etc board.
+         -- PMOD and related interfaces for keyboard, joystick, expansion port etc board.
          ----------------------------------------------------------------------
-         pmod_clock : in std_logic;
-         pmod_start_of_sequence : in std_logic;
-         pmod_data_in : in std_logic_vector(3 downto 0);
-         pmod_data_out : out std_logic_vector(1 downto 0);
-         pmoda : inout std_logic_vector(7 downto 0);
+
+        -- Widget board / MEGA65R2 keyboard
+        widget_matrix_col_idx : out integer range 0 to 8 := 0;
+        widget_matrix_col : in std_logic_vector(7 downto 0);
+        widget_restore : in std_logic;
+        widget_capslock : in std_logic;
+        widget_joya : in std_logic_vector(4 downto 0);
+        widget_joyb : in std_logic_vector(4 downto 0);
 
          uart_rx : inout std_logic;
          uart_tx : out std_logic;
@@ -417,7 +442,6 @@ architecture Behavioral of machine is
   
   signal drive_led : std_logic;
   signal motor : std_logic;
-  signal drive_led_out : std_logic;
   
   signal seg_led_data : unsigned(31 downto 0);
 
@@ -562,6 +586,8 @@ architecture Behavioral of machine is
   signal matrix_rdata : unsigned(7 downto 0);
 
   signal lcd_in_letterbox : std_logic := '0';
+  signal lcd_in_frame : std_logic := '0';
+  signal vga_in_frame : std_logic := '0';
   signal lcd_display_enable_internal : std_logic := '0';
 
   signal pal50_select : std_logic := '0';
@@ -591,6 +617,7 @@ architecture Behavioral of machine is
   signal terminal_emulator_ready : std_logic := '0';
   signal terminal_emulator_ack : std_logic := '0';
 
+  signal osk_debug_display : std_logic;
   signal visual_keyboard_enable : std_logic;
   signal zoom_en_osk : std_logic;
   signal zoom_en_always : std_logic;
@@ -719,7 +746,7 @@ begin
       led(6) <= external_pixel_strobe;
       led(7) <= external_frame_x_zero;      
       led(8) <= external_frame_y_zero;      
-      led(9) <= drive_led_out;
+      led(9) <= drive_led;
       led(10) <= cpu_hypervisor_mode;
       led(11) <= hyper_trap;
       led(12) <= hyper_trap_combined;
@@ -837,7 +864,8 @@ begin
 
   cpu0: entity work.gs4510
     generic map(
-      cpufrequency => cpufrequency)
+      cpufrequency => cpufrequency,
+      target => target)
     port map(
       phi0 => phi0,
       all_pause => all_pause,
@@ -853,6 +881,7 @@ begin
       irq => combinedirq,
       nmi => combinednmi,
       exrom => cpu_exrom,
+      power_down => power_down,
       game => cpu_game,
       hyper_trap => hyper_trap_combined,
       hyper_trap_f011_read => hyper_trap_f011_read,
@@ -870,6 +899,8 @@ begin
       dat_even => dat_even,
       dat_bitplane_addresses => dat_bitplane_addresses,
 
+      fast_key => fast_key,
+      
       debug_address_w_dbg_out => debug_address_w_dbg_out,
       debug_address_r_dbg_out => debug_address_r_dbg_out,
       debug_rdata_dbg_out => debug_rdata_dbg_out,
@@ -1017,7 +1048,10 @@ begin
       -- And the variations on those signals for the LCD display
       lcd_hsync => lcd_hsync,
       lcd_vsync => lcd_vsync,
-      lcd_display_enable => lcd_display_enable_internal
+      lcd_display_enable => lcd_display_enable_internal,
+      lcd_inletterbox => lcd_in_letterbox,
+      inframe => vga_in_frame,
+      lcd_inframe => lcd_in_frame
 
       );
       
@@ -1031,17 +1065,21 @@ begin
 
       irq             => vic_irq,
       reset           => reset_combined,
+
+      touch_active => osk_touch1_valid,
+      touch_x => osk_touch1_x,    
+      touch_y => osk_touch1_y,
       
       -- Configuration information for pixel_driver
       pal50_select => pal50_select,
       vsync_polarity => vsync_polarity,
-      hsync_polarity => hsync_polarity,
+     hsync_polarity => hsync_polarity,
 
       -- Framing information from pixel_driver
       external_pixel_strobe_in => external_pixel_strobe,
       external_frame_x_zero => external_frame_x_zero,
       external_frame_y_zero => external_frame_y_zero,
-      lcd_in_letterbox => lcd_in_letterbox,
+      vga_in_frame => vga_in_frame,
 
       -- Pixels output for the video pipeline
       pixel_strobe_out => pixel_strobe_viciv,
@@ -1055,9 +1093,8 @@ begin
 
       test_pattern_enable => test_pattern_enable,
       
-      led => drive_led,
-      motor => motor,
-      drive_led_out => drive_led_out,
+      led => '0',
+      motor => '0',
 
       xray_mode => xray_mode,
       d031_written => d031_write_toggle,
@@ -1146,11 +1183,9 @@ begin
     port map(
       pixelclock => pixelclock,
 
-      pixel_y_scale_400 => to_unsigned(0,4),
-      pixel_y_scale_200 => to_unsigned(1,4),
-      
       ycounter_in => ycounter_viciv,
-
+      xcounter_in => xcounter_viciv,
+      
       -- Used as proxy for whether there we are in frame vs in border
       -- (visual keyboard is only for LCD display, so this makes sense
       -- here).
@@ -1169,9 +1204,8 @@ begin
       vgablue_out => vgablue_osk,
 
       -- Configuration for the visual keyboard
-      y_start => osk_y,
-      x_start => osk_x,      
       visual_keyboard_enable => visual_keyboard_enable,
+      osk_debug_display => osk_debug_display,
       zoom_en_osk => zoom_en_osk,
       zoom_en_always => zoom_en_always,
       keyboard_at_top => keyboard_at_top,
@@ -1251,6 +1285,7 @@ begin
       );
   
   iomapper0: entity work.iomapper
+    generic map ( target => target )
     port map (
       clk => ioclock,
       clock200mhz => clock200,
@@ -1282,12 +1317,11 @@ begin
       buffereduart2_tx => buffereduart2_tx,
       
       visual_keyboard_enable => visual_keyboard_enable,
+      osk_debug_display => osk_debug_display,
       zoom_en_osk => zoom_en_osk,
       zoom_en_always => zoom_en_always,
       keyboard_at_top => keyboard_at_top,
       alternate_keyboard => alternate_keyboard,
-      osk_x => osk_x,
-      osk_y => osk_y,
       osk_key1 => osk_key1,
       osk_key2 => osk_key2,
       osk_key3 => osk_key3,
@@ -1306,6 +1340,8 @@ begin
       fpga_temperature => fpga_temperature,
 
       restore_key => restore_key,
+      osk_toggle_key => osk_toggle_key,
+      joyswap_key => joyswap_key,
       
       reg_isr_out => reg_isr_out,
       imask_ta_out => imask_ta_out,    
@@ -1331,7 +1367,6 @@ begin
       colourram_at_dc00 => colourram_at_dc00,
       drive_led => drive_led,
       motor => motor,
-      drive_led_out => drive_led_out,
       sw => sw,
       btn => btn,
 --    seg_led => seg_led_data,
@@ -1411,6 +1446,23 @@ begin
       pot_drain => pot_drain,
       pot_via_iec => pot_via_iec,
 
+      i2c_joya_fire => i2c_joya_fire,
+      i2c_joya_up => i2c_joya_up,
+      i2c_joya_down => i2c_joya_down,
+      i2c_joya_left => i2c_joya_left,
+      i2c_joya_right => i2c_joya_right,
+      i2c_joyb_fire => i2c_joyb_fire,
+      i2c_joyb_up => i2c_joyb_up,
+      i2c_joyb_down => i2c_joyb_down,
+      i2c_joyb_left => i2c_joyb_left,
+      i2c_joyb_right => i2c_joyb_right,
+      i2c_button2 => i2c_button2,
+      i2c_button3 => i2c_button3,
+      i2c_button4 => i2c_button4,
+      i2c_black2 => i2c_black2,
+      i2c_black3 => i2c_black3,
+      i2c_black4 => i2c_black4,
+      
       mouse_debug => mouse_debug,
       amiga_mouse_enable_a => amiga_mouse_enable_a,
       amiga_mouse_enable_b => amiga_mouse_enable_b,
@@ -1429,13 +1481,13 @@ begin
       pixel_newframe => pixel_newframe,
       pixel_newraster => pixel_newraster,
 
-      pmod_clock => pmodb_in_buffer(0),
-      pmod_start_of_sequence => pmodb_in_buffer(1),
-      pmod_data_in => pmodb_in_buffer(5 downto 2),
-      pmod_data_out => pmodb_out_buffer(1 downto 0),
+      widget_matrix_col_idx => widget_matrix_col_idx,
+      widget_matrix_col => widget_matrix_col,
+      widget_restore => widget_restore,
+      widget_capslock => widget_capslock,
+      widget_joya => widget_joya,
+      widget_joyb => widget_joyb,     
       
-      pmoda => pmoda,
-
       hdmi_sda => hdmi_sda,
       hdmi_scl => hdmi_scl,    
 
@@ -1476,8 +1528,6 @@ begin
       pcm_modem_sync => pcm_modem_sync,
       pcm_modem_clk_in => pcm_modem_clk_in,
       pcm_modem_sync_in => pcm_modem_sync_in,      
-      i2s_headphones_data_out => i2s_headphones_data_out,
-      i2s_headphones_data_in => i2s_headphones_data_in,
       i2s_speaker_data_out => i2s_speaker_data_out,
       pcm_modem1_data_in => pcm_modem1_data_in,
       pcm_modem2_data_in => pcm_modem2_data_in,
@@ -1547,7 +1597,7 @@ begin
     monitor_char_valid => monitor_char_out_valid,
     terminal_emulator_ready => terminal_emulator_ready,
     terminal_emulator_ack => terminal_emulator_ack,
-    
+
     force_single_step => sw(11),
 
     secure_mode_from_cpu => secure_mode_flag,
@@ -1615,11 +1665,7 @@ begin
       osk_touch1_key <= osk_touch1_key_driver;
       osk_touch2_key <= osk_touch2_key_driver;
       
-      pmodb_in_buffer(0) <= pmod_clock;
-      pmodb_in_buffer(1) <= pmod_start_of_sequence;
-      pmodb_in_buffer(5 downto 2) <= pmod_data_in;
-      pmod_data_out <= pmodb_out_buffer;
-      flopled <= drive_led_out;
+      flopled <= drive_led;
       flopmotor <= motor;
 
       -- Generate 2MHz for SIDs from CPUCLOCK / 20

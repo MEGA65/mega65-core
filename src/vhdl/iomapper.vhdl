@@ -4,8 +4,11 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use work.debugtools.all;
+use work.cputypes.all;
 
 entity iomapper is
+  generic ( target : mega65_target_t
+             );
   port (Clk : in std_logic;
         clock200mhz : in std_logic;
         protected_hardware_in : in unsigned(7 downto 0);
@@ -30,6 +33,8 @@ entity iomapper is
         hyper_trap : out std_logic;
         matrix_mode_trap : out std_logic;
         restore_key : in std_logic;
+        osk_toggle_key : in std_logic;
+        joyswap_key : in std_logic;
         restore_nmi : out std_logic;
         cpu_hypervisor_mode : in std_logic;
         hyper_trap_f011_read : out std_logic;
@@ -66,12 +71,11 @@ entity iomapper is
         key_scancode_toggle : in std_logic;
 
         visual_keyboard_enable : out std_logic;
+        osk_debug_display : out std_logic;
         zoom_en_osk : inout std_logic;
         zoom_en_always : inout std_logic;
         keyboard_at_top : out std_logic;
         alternate_keyboard : out std_logic;
-        osk_x : out unsigned(11 downto 0) := (others => '0');
-        osk_y : out unsigned(11 downto 0);
         osk_key1 : out unsigned(7 downto 0);
         osk_key2 : out unsigned(7 downto 0);
         osk_key3 : out unsigned(7 downto 0);
@@ -85,7 +89,6 @@ entity iomapper is
 
         drive_led : out std_logic := '0';
         motor : out std_logic := '0';
-        drive_led_out : in std_logic;
 
         porta_pins : inout  std_logic_vector(7 downto 0) := (others => 'Z');
         portb_pins : in  std_logic_vector(7 downto 0);
@@ -115,12 +118,29 @@ entity iomapper is
 
         pot_drain : in std_logic;
         pot_via_iec : buffer std_logic;
-        
+
         mouse_debug : in unsigned(7 downto 0);
         amiga_mouse_enable_a : out std_logic;
         amiga_mouse_enable_b : out std_logic;
         amiga_mouse_assume_a : out std_logic;
         amiga_mouse_assume_b : out std_logic;
+
+        i2c_joya_fire : out std_logic;
+        i2c_joya_up : out std_logic;
+        i2c_joya_down : out std_logic;
+        i2c_joya_left : out std_logic;
+        i2c_joya_right : out std_logic;
+        i2c_joyb_fire : out std_logic;
+        i2c_joyb_up : out std_logic;
+        i2c_joyb_down : out std_logic;
+        i2c_joyb_left : out std_logic;
+        i2c_joyb_right : out std_logic;
+        i2c_button2 : out std_logic;
+        i2c_button3 : out std_logic;
+        i2c_button4 : out std_logic;
+        i2c_black2 : out std_logic;
+        i2c_black3 : out std_logic;
+        i2c_black4 : out std_logic;
         
         ----------------------------------------------------------------------
         -- CBM floppy serial port
@@ -156,10 +176,15 @@ entity iomapper is
         ps2data : in std_logic;
         ps2clock : in std_logic;
         scancode_out : out std_logic_vector(12 downto 0); 												  
-        pmod_clock : in std_logic;
-        pmod_start_of_sequence : in std_logic;
-        pmod_data_in : in std_logic_vector(3 downto 0);
-        pmod_data_out : out std_logic_vector(1 downto 0);
+        -- Widget board / MEGA65R2 keyboard
+        widget_matrix_col_idx : out integer range 0 to 8 := 0;
+        widget_matrix_col : in std_logic_vector(7 downto 0);
+        widget_restore : in std_logic;
+        widget_capslock : in std_logic;
+        widget_joya : in std_logic_vector(4 downto 0);
+        widget_joyb : in std_logic_vector(4 downto 0);
+
+
         pmoda : inout std_logic_vector(7 downto 0);
 
         hdmi_scl : inout std_logic := '1';
@@ -242,7 +267,7 @@ entity iomapper is
     micClk : out std_logic;
     micLRSel : out std_logic;
 
-    -- PDM audio output
+    -- PDM audio output for headphones/line-out
     ampPWM_l : out std_logic;
     ampPWM_r : out std_logic;
     ampSD : out std_logic;
@@ -256,8 +281,6 @@ entity iomapper is
     pcm_modem_sync_in : in std_logic := '0';
     pcm_modem_clk_in : in std_logic := '0';
     pcm_modem_sync : out std_logic := '0';
-    i2s_headphones_data_out : out std_logic := '0';
-    i2s_headphones_data_in : in std_logic := '0';
     i2s_speaker_data_out : out std_logic := '0';
     pcm_modem1_data_in : in std_logic := '0';
     pcm_modem2_data_in : in std_logic := '0';
@@ -274,7 +297,7 @@ entity iomapper is
     i2c1SDA : inout std_logic;
     i2c1SCL : inout std_logic;
     
-    lcdpwm : inout std_logic;
+    lcdpwm : out std_logic;
     touchSDA : inout std_logic;
     touchSCL : inout std_logic;
     
@@ -340,6 +363,7 @@ architecture behavioral of iomapper is
   signal joyreal_disable : std_logic;
   signal virtual_disable : std_logic;
   signal physkey_disable : std_logic;
+  signal joyswap : std_logic;
 
   signal restore_up_count : unsigned(7 downto 0) := x"00";
   signal restore_down_count : unsigned(7 downto 0) := x"00";
@@ -353,6 +377,7 @@ architecture behavioral of iomapper is
   signal cia1cs : std_logic;
   signal cia2cs : std_logic;
 
+  signal i2cperipherals_cs : std_logic;
   signal sectorbuffercs : std_logic;
   signal sectorbuffercs_fast : std_logic;
   signal sector_buffer_mapped_read : std_logic;
@@ -461,6 +486,7 @@ architecture behavioral of iomapper is
 
   signal touch_key1_driver : unsigned(7 downto 0);
   signal touch_key2_driver : unsigned(7 downto 0);
+  signal touch1_valid_int : std_logic := '0';
 
   signal userport_in : std_logic_vector(7 downto 0) := x"FF";
   signal userport_out : std_logic_vector(7 downto 0) := x"FF";
@@ -472,6 +498,13 @@ architecture behavioral of iomapper is
   -- Used to divide 40MHz cpuclock down to get 1541 CPU clock
   signal drive_cycle_interval : integer range 0 to 40 := 40;
   signal drive_cycle_countdown : integer range 0 to 40 := 0;
+
+  signal volume_knob1 : unsigned(15 downto 0);
+  signal volume_knob2 : unsigned(15 downto 0);
+  signal volume_knob3 : unsigned(15 downto 0);
+  signal volume_knob1_target : unsigned(3 downto 0);
+  signal volume_knob2_target : unsigned(3 downto 0);
+  signal volume_knob3_target : unsigned(3 downto 0);
   
 begin
 
@@ -650,6 +683,8 @@ begin
       pixelclock => pixelclk,
       cpuclock => clk,
       c65uart_cs => c65uart_cs,
+      osk_toggle_key => osk_toggle_key,
+      joyswap_key => joyswap_key,
       phi0 => phi0,
       reset => reset,
 --      irq => nmi,
@@ -709,11 +744,13 @@ begin
       portm_out(6 downto 0) => virtual_key3(6 downto 0),
       portm_out(7) => alternate_keyboard,
       portn_out => keyboard_scan_rate,
-      porto_out => osk_x(7 downto 0),
-      portp_out => osk_y(11 downto 4),
+--      porto_out => ,
+--      portp_out => ,
       portq_in => address_next_1541(7 downto 0),
       joya_rotate => joya_rotate,
       joyb_rotate => joyb_rotate,
+      osk_debug_display => osk_debug_display,
+      joyswap => joyswap,
       mouse_debug => mouse_debug,
       amiga_mouse_enable_a => amiga_mouse_enable_a,
       amiga_mouse_enable_b => amiga_mouse_enable_b,
@@ -755,6 +792,8 @@ begin
     physkey_disable => physkey_disable,
     virtual_disable => virtual_disable,
 
+      joyswap => joyswap,
+      
       joya_rotate => joya_rotate,
       joyb_rotate => joyb_rotate,
       
@@ -816,11 +855,15 @@ begin
     capslock_out => capslock_from_keymapper,
     keyboard_column8_out => keyboard_column8_out,
     keyboard_column8_select_in => keyboard_column8_select,
-    pmod_clock => pmod_clock,
-    pmod_start_of_sequence => pmod_start_of_sequence,
-    pmod_data_in => pmod_data_in,
-    pmod_data_out => pmod_data_out,
-    
+
+    widget_matrix_col_idx => widget_matrix_col_idx,
+    widget_matrix_col => widget_matrix_col,
+    widget_restore => widget_restore,
+    widget_capslock => widget_capslock,
+    widget_joya => widget_joya,
+    widget_joyb => widget_joyb,
+      
+      
     -- remote keyboard input via ethernet
 --    eth_keycode_toggle => eth_keycode_toggle,
 --    eth_keycode => eth_keycode
@@ -958,6 +1001,14 @@ begin
   audio0: entity work.audio_complex port map (
     clock50mhz => clk,
 
+    volume_knob1_target => volume_knob1_target,
+    volume_knob2_target => volume_knob2_target,
+    volume_knob3_target => volume_knob3_target,
+    
+    volume_knob1 => volume_knob1,
+    volume_knob2 => volume_knob2,
+    volume_knob3 => volume_knob3,
+    
     audio_mix_reg => audio_mix_reg,
     audio_mix_write => audio_mix_write,
     audio_mix_wdata => audio_mix_wdata,
@@ -989,8 +1040,6 @@ begin
     pcm_modem_sync => pcm_modem_sync,
     pcm_modem_clk_in => pcm_modem_clk_in,
     pcm_modem_sync_in => pcm_modem_sync_in,
-    i2s_headphones_data_out => i2s_headphones_data_out,
-    i2s_headphones_data_in => i2s_headphones_data_in,
     i2s_speaker_data_out => i2s_speaker_data_out,
     pcm_modem1_data_in => pcm_modem1_data_in,
     pcm_modem2_data_in => pcm_modem2_data_in,
@@ -1000,6 +1049,64 @@ begin
     i2s_bt_data_out => i2s_bt_data_out
 
     );
+
+  i2cperiph_megaphone:
+  if target = megaphoner1 generate
+    i2c1: entity work.i2c_wrapper port map (
+      clock => clk,
+      cs => i2cperipherals_cs,
+
+      sda => i2c1SDA,
+      scl => i2c1SCL,
+
+      adc1_out => volume_knob1,
+      adc2_out => volume_knob2,
+      adc3_out => volume_knob3,
+      
+      i2c_joya_fire => i2c_joya_fire,
+      i2c_joya_up => i2c_joya_up,
+      i2c_joya_down => i2c_joya_down,
+      i2c_joya_left => i2c_joya_left,
+      i2c_joya_right => i2c_joya_right,
+      i2c_joyb_fire => i2c_joyb_fire,
+      i2c_joyb_up => i2c_joyb_up,
+      i2c_joyb_down => i2c_joyb_down,
+      i2c_joyb_left => i2c_joyb_left,
+      i2c_joyb_right => i2c_joyb_right,
+      i2c_button2 => i2c_button2,
+      i2c_button3 => i2c_button3,
+      i2c_button4 => i2c_button4,
+      i2c_black2 => i2c_black2,
+      i2c_black3 => i2c_black3,
+      i2c_black4 => i2c_black4,
+    
+      fastio_addr => unsigned(address),
+      fastio_write => w,
+      fastio_read => r,
+      fastio_wdata => unsigned(data_i),
+      std_logic_vector(fastio_rdata) => data_o
+
+    );
+  end generate i2cperiph_megaphone;
+  
+  i2cperiph_mega65r2:
+  if target = mega65r2 generate
+    i2c1: entity work.mega65r2_i2c port map (
+      clock => clk,
+      cs => i2cperipherals_cs,
+
+      sda => i2c1SDA,
+      scl => i2c1SCL,
+    
+      fastio_addr => unsigned(address),
+      fastio_write => w,
+      fastio_read => r,
+      fastio_wdata => unsigned(data_i),
+      std_logic_vector(fastio_rdata) => data_o
+
+    );
+  end generate i2cperiph_mega65r2;
+  
   
   sdcard0 : entity work.sdcardio port map (
     pixelclk => pixelclk,
@@ -1031,6 +1138,11 @@ begin
     drive_led => drive_led,
     motor => motor,
 
+    pwm_knob => volume_knob1,
+    volume_knob1_target => volume_knob1_target,
+    volume_knob2_target => volume_knob2_target,
+    volume_knob3_target => volume_knob3_target,
+    
     f_density => f_density,
     f_motor => f_motor,
     f_select => f_select,
@@ -1074,8 +1186,8 @@ begin
     tmpInt => tmpInt,
     tmpCT => tmpCT,
 
-    i2c1SDA => i2c1SDA,
-    i2c1SCL => i2c1SCL,
+--    i2c1SDA => i2c1SDA,
+--    i2c1SCL => i2c1SCL,
 
     audio_mix_reg => audio_mix_reg,
     audio_mix_write => audio_mix_write,
@@ -1088,7 +1200,7 @@ begin
     lcdpwm => lcdpwm,
     touchSDA => touchSDA,
     touchSCL => touchSCL,
-    touch1_valid => touch1_valid,
+    touch1_valid => touch1_valid_int,
     touch1_x => touch1_x,
     touch1_y => touch1_y,
     touch2_valid => touch2_valid,
@@ -1135,6 +1247,8 @@ begin
 
     if rising_edge(clk) then
 
+      touch1_valid <= touch1_valid_int;
+      
       -- Generate 1541 drive clock at exactly 1MHz, 2MHz, 3.5MHz or 40MHz,
       -- depending on CPU speed setting.
       -- This allows fastloading at fast CPU speeds, without (hopefully) messing
@@ -1198,7 +1312,12 @@ begin
           potl_x <= pota_x;
           potl_y <= pota_y;
           potr_x <= potb_x;
-          potr_y <= potb_y;
+          -- Simulate light gun with touch screen
+          if touch1_valid_int='0' then
+            potr_y <= potb_y;
+          else
+            potr_y <= x"00";
+          end if;
         when others =>
           potr_x <= pota_x;
           potr_y <= pota_y;
@@ -1360,21 +1479,35 @@ begin
       end if;
       -- Also map SD card sector buffer at $FFD6000 - $FFD61FF regardless of
       -- VIC-IV IO mode and mapping of colour RAM
-      -- @ IO:GS $FFD6E00-FFF - SD card direct access sector buffer
-      -- @ IO:GS $FFD6C00-DFF - F011 floppy controller sector buffer
+      -- @IO:GS $FFD6E00-FFF - SD card direct access sector buffer
+      -- @IO:GS $FFD6C00-DFF - F011 floppy controller sector buffer
       if address(19 downto 12) = x"D6" then
         sectorbuffercs <= sbcs_en;
       end if;
 
+      -- @IO:GS $FFD7000-FF - I2C Peripherals     
+      i2cperipherals_cs <= '0';
+      if target = megaphoner1 then
+        if address(19 downto 8) = x"D70" then
+          i2cperipherals_cs <= '1';
+          report "i2cperipherals_cs for MEGAphone asserted";
+        end if;
+      else
+        if address(19 downto 8) = x"D71" then
+          i2cperipherals_cs <= '1';
+          report "i2cperipherals_cs for MEGA65R2 asserted";
+        end if;
+      end if;
+      
       cs_driveram <= '0';
       cs_driverom <= '0';
-      if address(19 downto 16) = x"D" then
+      if address(19 downto 16) = x"C" then
         if address(15 downto 14) = "11" then
-          -- @ IO:GS $FFDC000-$FFDFFFF - Internal 1541 ROM access
+          -- @IO:GS $FFCC000-$FFCFFFF - Internal 1541 ROM access
           cs_driverom <= '1';
         end if;
         if address(15 downto 12) = x"B" then
-          -- @ IO:GS $FFDB000-$FFDBFFF - Internal 1541 ROM access
+          -- @IO:GS $FFcB000-$FFcBFFF - Internal 1541 ROM access
           cs_driveram <= '1';
         end if;
       end if;
@@ -1389,8 +1522,8 @@ begin
       end if;
       -- Also map SD card sector buffer at $FFD6000 - $FFD61FF regardless of
       -- VIC-IV IO mode and mapping of colour RAM
-      -- @ IO:GS $FFD6E00-FFF - SD card direct access sector buffer
-      -- @ IO:GS $FFD6C00-DFF - F011 floppy controller sector buffer
+      -- @IO:GS $FFD6E00-FFF - SD card direct access sector buffer
+      -- @IO:GS $FFD6C00-DFF - F011 floppy controller sector buffer
       if addr_fast(19 downto 12) = x"D6" then
         sectorbuffercs_fast <= sbcs_en;
       end if;

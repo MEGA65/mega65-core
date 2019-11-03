@@ -5,6 +5,12 @@ use ieee.numeric_std.all;
 
 package cputypes is
 
+  type mega65_target_t is (
+    mega65r1, mega65r2,
+    megaphoner1,
+    nexys4, nexys4ddr, nexys4ddr_widget
+    );
+  
   type sample_vector_t is array(0 to 15) of unsigned(15 downto 0);
   type sprite_vector_8 is array(0 to 7) of unsigned(7 downto 0);
   

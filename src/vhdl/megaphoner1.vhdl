@@ -21,6 +21,7 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
+use work.cputypes.all;
 
 
 -- Uncomment the following library declaration if using
@@ -29,8 +30,8 @@ use Std.TextIO.all;
 
 -- Uncomment the following library declaration if instantiating
 -- any Xilinx primitives in this code.
---library UNISIM;
---use UNISIM.VComponents.all;
+library UNISIM;
+use UNISIM.VComponents.all;
 
 entity container is
   Port ( CLK_IN : STD_LOGIC;         
@@ -40,7 +41,7 @@ entity container is
          
          wifirx : out std_logic;
          wifitx : out std_logic;
-        
+         
          i2c1sda : inout std_logic;
          i2c1scl : inout std_logic;         
 
@@ -48,10 +49,32 @@ entity container is
          modem1_pcm_sync_in : in std_logic;
          modem1_pcm_data_in : in std_logic;
          modem1_pcm_data_out : out std_logic;
+--         modem1_uart2_rx : inout std_logic;
+--         modem1_uart2_tx : out std_logic;
          modem1_uart_rx : inout std_logic;
          modem1_uart_tx : out std_logic;
-         modem1_uart2_rx : inout std_logic;
-         modem1_uart2_tx : out std_logic;
+
+         modem2_pcm_clk_in : in std_logic;
+         modem2_pcm_sync_in : in std_logic;
+         modem2_pcm_data_in : in std_logic;
+         modem2_pcm_data_out : out std_logic;
+--         modem2_uart2_rx : inout std_logic;
+--         modem2_uart2_tx : out std_logic;
+         modem2_uart_rx : inout std_logic;
+         modem2_uart_tx : out std_logic;
+         
+         ----------------------------------------------------------------------
+         -- MEMS microphones
+         ----------------------------------------------------------------------
+         micData0 : in std_logic;
+         micData1 : in std_logic;
+         micClk : out std_logic;
+
+         ----------------------------------------------------------------------
+         -- Touch screen interface
+         ----------------------------------------------------------------------
+         touch_sda : inout std_logic := '1';
+         touch_scl : inout std_logic := '1';
          
          ----------------------------------------------------------------------
          -- CIA1 ports for keyboard/joystick 
@@ -69,16 +92,29 @@ entity container is
          vga_blue : out  UNSIGNED (3 downto 0);
 
          ----------------------------------------------------------------------
+         -- LCD output
+         ----------------------------------------------------------------------
+         lcd_vsync : out STD_LOGIC;
+         lcd_hsync : out  STD_LOGIC;
+         lcd_display_enable : out std_logic;
+         lcd_pwm : out std_logic;
+         lcd_dclk : out std_logic;
+         lcd_red : out  UNSIGNED (5 downto 0);
+         lcd_green : out  UNSIGNED (5 downto 0);
+         lcd_blue : out  UNSIGNED (5 downto 0);
+
+         ----------------------------------------------------------------------
          -- HyperRAM as expansion RAM
          ----------------------------------------------------------------------
          hr_d : inout unsigned(7 downto 0);
          hr_rwds : inout std_logic;
          hr_reset : out std_logic;
+         hr_rsto : out std_logic := '1';
          hr_clk_n : out std_logic;
          hr_clk_p : out std_logic;
          hr_cs0 : out std_logic;
          hr_cs1 : out std_logic := '1';
-                  
+         
          -------------------------------------------------------------------------
          -- Lines for the SDcard interface itself
          -------------------------------------------------------------------------
@@ -86,7 +122,12 @@ entity container is
          sdClock : out std_logic := 'Z';       -- (sclk_o)
          sdMOSI : out std_logic := 'Z';      
          sdMISO : in  std_logic;
-
+         
+         ----------------------------------------------------------------------
+         -- Allow the FPGA to turn itself off
+         ----------------------------------------------------------------------
+         power_down : out std_logic := '1';
+         
          ----------------------------------------------------------------------
          -- Flash RAM for holding config
          ----------------------------------------------------------------------
@@ -100,6 +141,15 @@ entity container is
          ----------------------------------------------------------------------
          headphone_left : out std_logic;
          headphone_right : out std_logic;
+
+         ----------------------------------------------------------------------
+         -- I2S speaker audio output
+         ----------------------------------------------------------------------
+         i2s_mclk : out std_logic;
+         i2s_sync : out std_logic;
+         i2s_speaker : out std_logic;
+         i2s_bclk : out std_logic := '1'; -- Force 16 cycles per sample,
+                                          -- instead of 32
          
          ----------------------------------------------------------------------
          -- Debug interfaces on TE0725
@@ -127,6 +177,8 @@ architecture Behavioral of container is
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
   signal restore_key : std_logic := '1';
+  signal osk_toggle_key : std_logic := '1';
+  signal joyswap_key : std_logic := '1';
   signal reset_out : std_logic := '1';
   signal cpu_game : std_logic := '1';
   signal cpu_exrom : std_logic := '1';
@@ -142,6 +194,9 @@ architecture Behavioral of container is
   signal clock100 : std_logic;
   signal ethclock : std_logic;
   signal clock200 : std_logic;
+  signal clock30 : std_logic;
+  signal clock30in : std_logic := '0';
+  signal clock30count : integer range 0 to 3 := 0;
   
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
 
@@ -209,14 +264,10 @@ architecture Behavioral of container is
   signal sawtooth_counter : integer := 0;
   signal sawtooth_level : integer := 0;
 
-  signal lcd_hsync : std_logic;
-  signal lcd_vsync : std_logic;
-  signal lcd_display_enable : std_logic;
   signal pal50_select : std_logic;
 
   -- Dummy signals for stub / not yet implemented interfaces
   signal eth_mdio : std_logic := '0';
-  signal touchSDA : std_logic := '1';
   signal c65uart_rx : std_logic := '1';
 
   signal pin_number : integer;
@@ -230,6 +281,26 @@ architecture Behavioral of container is
   signal expansionram_busy : std_logic;
 
   signal dummypins : std_logic_vector(1 to 100) := (others => '0');
+
+  signal i2c_joya_fire : std_logic;
+  signal i2c_joya_left : std_logic;
+  signal i2c_joya_right : std_logic;
+  signal i2c_joya_up : std_logic;
+  signal i2c_joya_down : std_logic;
+  signal i2c_joyb_fire : std_logic;
+  signal i2c_joyb_left : std_logic;
+  signal i2c_joyb_right : std_logic;
+  signal i2c_joyb_up : std_logic;
+  signal i2c_joyb_down : std_logic;
+  
+  signal i2c_button2 : std_logic;
+  signal i2c_button3 : std_logic;
+  signal i2c_button4 : std_logic;
+  signal i2c_black2 : std_logic;
+  signal i2c_black3 : std_logic;
+  signal i2c_black4 : std_logic;
+
+  signal widget_matrix_col : std_logic_vector(7 downto 0) := (others => '1');
   
 begin
 
@@ -253,6 +324,9 @@ begin
 
   hyperram0: entity work.hyperram
     port map (
+      latency_1x => to_unsigned(4,8),
+      latency_2x => to_unsigned(8,8),
+      reset => reset_out,
       cpuclock => cpuclock,
       clock240 => clock240,
       address => expansionram_address,
@@ -265,10 +339,10 @@ begin
       hr_d => hr_d,
       hr_rwds => hr_rwds,
       hr_reset => hr_reset,
-      hr_clk_n => hr_clk_n,
+--      hr_clk_n => hr_clk_n,
       hr_clk_p => hr_clk_p,
-      hr_cs0 => hr_cs0,
-      hr_cs1 => hr_cs1
+      hr_cs0 => hr_cs0
+--      hr_cs1 => hr_cs1
       );
   
   slow_devices0: entity work.slow_devices
@@ -335,7 +409,8 @@ begin
       );
   
   machine0: entity work.machine
-    generic map (cpufrequency => 40)
+    generic map (cpufrequency => 40,
+                 target => megaphoner1)
     port map (
       pixelclock      => pixelclock,
       cpuclock        => cpuclock,
@@ -351,30 +426,51 @@ begin
       irq => irq,
       nmi => nmi,
       restore_key => restore_key,
+      joyswap_key => joyswap_key,
+      osk_toggle_key => osk_toggle_key,
       sector_buffer_mapped => sector_buffer_mapped,
 
+      power_down => power_down,
+      
       pal50_select_out => pal50_select,
       
       -- Wire up a dummy caps_lock key on switch 8
       caps_lock_key => '1',
 
-      fa_fire => '1',
-      fa_up =>  '1',
-      fa_left => '1',
-      fa_down => '1',
-      fa_right => '1',
+      fa_fire => i2c_joya_fire,
+      fa_up => i2c_joya_up,
+      fa_left => i2c_joya_left,
+      fa_down => i2c_joya_down,
+      fa_right => i2c_joya_right,
 
-      fb_fire => '1',
-      fb_up => '1',
-      fb_left => '1',
-      fb_down => '1',
-      fb_right => '1',
+      fb_fire => i2c_joyb_fire,
+      fb_up => i2c_joyb_up,
+      fb_left => i2c_joyb_left,
+      fb_down => i2c_joyb_down,
+      fb_right => i2c_joyb_right,
 
       fa_potx => '0',
       fa_poty => '0',
       fb_potx => '0',
       fb_poty => '0',
 
+      i2c_joya_fire => i2c_joya_fire,
+      i2c_joya_up => i2c_joya_up,
+      i2c_joya_down => i2c_joya_down,
+      i2c_joya_left => i2c_joya_left,
+      i2c_joya_right => i2c_joya_right,
+      i2c_joyb_fire => i2c_joyb_fire,
+      i2c_joyb_up => i2c_joyb_up,
+      i2c_joyb_down => i2c_joyb_down,
+      i2c_joyb_left => i2c_joyb_left,
+      i2c_joyb_right => i2c_joyb_right,
+      -- XXX Come up with better button assignments
+      i2c_button2 => i2c_button2,
+      i2c_button3 => i2c_button3,
+      i2c_button4 => joyswap_key,
+      i2c_black3 => osk_toggle_key,
+      i2c_black4 => restore_key,
+      
       f_index => '1',
       f_track0 => '1',
       f_writeprotect => '1',
@@ -397,9 +493,9 @@ begin
       
       vsync           => vga_vsync,
       hsync           => vga_hsync,
---      lcd_vsync => lcd_vsync,
---      lcd_hsync => lcd_hsync,
---      lcd_display_enable => lcd_display_enable,
+      lcd_vsync => lcd_vsync,
+      lcd_hsync => lcd_hsync,
+      lcd_display_enable => lcd_display_enable,
       vgared(7 downto 0)          => buffer_vgared,
       vgagreen(7 downto 0)        => buffer_vgagreen,
       vgablue(7 downto 0)         => buffer_vgablue,
@@ -408,6 +504,15 @@ begin
       portb_pins => portb_pins,
       keyleft => '0',
       keyup => '0',
+
+
+      ---------------------------------------------------------------------------
+      -- IO lines to the ethernet controller (stub)
+      ---------------------------------------------------------------------------
+      micData0 => micData0,
+      micData1 => micData1,
+      micClk => micClk,
+--      micLRSel => micLRSel,
       
       ---------------------------------------------------------------------------
       -- IO lines to the ethernet controller (stub)
@@ -439,27 +544,25 @@ begin
       aclInt1 => '0',
       aclInt2 => '0',
 
-      -- Microphones (currently not connected)
-      micData0 => '0',
-      micData1 => '0',
---      micClk => micClk,
---      micLRSel => micLRSel,
-
       -- Audio output
       ampPWM_l => headphone_left,
       ampPWM_r => headphone_right,
 --      ampSD => ampSD,
 
-    -- No nexys4 temperature sensor
+      i2s_master_clk => i2s_mclk,
+      i2s_master_sync => i2s_sync,
+      i2s_speaker_data_out => i2s_speaker,
+      
+      -- No nexys4 temperature sensor
 --      tmpSDA => tmpSDA,
 --      tmpSCL => tmpSCL,
       tmpInt => '0',
       tmpCT => '0',
 
       -- Touch screen
-      touchSDA => touchSDA,
---      touchSCL => '1',
---      lcdpwm => ,
+      touchSDA => touch_SDA,
+      touchSCL => touch_scl,
+      lcdpwm =>  lcd_pwm,
 
       i2c1sda => i2c1sda,
       i2c1scl => i2c1scl,
@@ -467,17 +570,18 @@ begin
       -- This is for modem as PCM master:
       pcm_modem_clk_in => modem1_pcm_clk_in,
       pcm_modem_sync_in => modem1_pcm_sync_in,
-        
+      
       pcm_modem1_data_out => modem1_pcm_data_out,
       pcm_modem1_data_in => modem1_pcm_data_in,
       
       ps2data =>      '1',
       ps2clock =>     '1',
 
-      -- Widget board interface stub
-      pmod_start_of_sequence => '0',
-      pmod_data_in => "1111",
-      pmod_clock => '0',
+      widget_matrix_col => (others => '1'),
+      widget_restore => '1',
+      widget_capslock => '1',
+      widget_joya => (others => '1'),
+      widget_joyb => (others => '1'),      
       
       -- C65 UART
       uart_rx => c65uart_rx,
@@ -486,8 +590,8 @@ begin
       -- Buffered UARTs for cellular modems etc
       buffereduart_rx => modem1_uart_rx,
       buffereduart_tx => modem1_uart_tx,
-      buffereduart2_rx => modem1_uart2_rx,
-      buffereduart2_tx => modem1_uart2_tx,
+      buffereduart2_rx => modem2_uart_rx,
+      buffereduart2_tx => modem2_uart_tx,
       buffereduart_ringindicate => '0',
       
       slow_access_request_toggle => slow_access_request_toggle,
@@ -516,9 +620,31 @@ begin
 --      sseg_ca => sseg_ca,
 --      sseg_an => sseg_an
       );
-    
-  process (cpuclock,clock120,cpuclock,pal50_select)
+
+  -- Create BUFG'd 30MHz clock for LCD panel
+  --------------------------------------
+  clkin30_buf : IBUFG
+    port map
+    (O => clock30,
+     I => clock30in);
+  
+  process (clock240)
   begin
+    if rising_edge(clock240) then
+      if (clock30count /= 3 ) then
+        clock30count <= clock30count + 1;
+      else
+        clock30in <= not clock30in;
+        clock30count <= 0;
+      end if;
+    end if;
+  end process;
+
+  lcd_dclk <= not clock30 when pal50_select='1' else not cpuclock;
+  
+  process (cpuclock,clock120,clock240,cpuclock,pal50_select)
+  begin
+
     if rising_edge(clock120) then
       -- VGA direct output
       vga_red <= buffer_vgared(7 downto 4);
@@ -526,16 +652,14 @@ begin
       vga_blue <= buffer_vgablue(7 downto 4);
 
       -- VGA out on LCD panel
---      jalo <= std_logic_vector(buffer_vgablue(7 downto 4));
---      jahi <= std_logic_vector(buffer_vgared(7 downto 4));
---      jblo <= std_logic_vector(buffer_vgagreen(7 downto 4));
---      jbhi(8) <= lcd_hsync;
---      jbhi(9) <= lcd_vsync;
---      jbhi(10) <= lcd_display_enable;
+      lcd_blue <= buffer_vgablue(7 downto 2);
+      lcd_red <= buffer_vgared(7 downto 2);
+      lcd_green <= buffer_vgagreen(7 downto 2);
+
     end if;
 
     if rising_edge(cpuclock) then
-
+      
       -- No physical keyboard
       portb_pins <= (others => '1');
       

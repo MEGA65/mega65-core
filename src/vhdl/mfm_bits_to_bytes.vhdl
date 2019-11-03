@@ -9,7 +9,7 @@ use work.debugtools.all;
   
 entity mfm_bits_to_bytes is
   port (
-    clock50mhz : in std_logic;
+    clock40mhz : in std_logic;
 
     sync_in : in std_logic;
     bit_in : in std_logic;
@@ -28,9 +28,9 @@ architecture behavioural of mfm_bits_to_bytes is
 
 begin
 
-  process (clock50mhz) is
+  process (clock40mhz) is
   begin
-    if rising_edge(clock50mhz) then
+    if rising_edge(clock40mhz) then
       if sync_in='1' then
         report "Sync $A1 detected";
         sync_out <= '1';

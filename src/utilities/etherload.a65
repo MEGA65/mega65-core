@@ -4,17 +4,41 @@
 ; Now supports ARP replies to make life easier.
 
       ; make it start with SYS53000
-	 .word $CF08
-	 .org $CF08
-	 .scope
+      .word $c000
+      .org $c000
+      .scope
+
+;	 .word $0801
+;	 .org $0801
+;	 .scope
+;
+;	 .word _next, 10                       ; Next line and current line number
+;	 .byte $97, "2,0:", $9e, " 2014", $AA, "65",0      ; POKE 2,0 : SYS 2014+65
+;_next:	 .word 0
+;
+;iter1:	 .byte 0
+;
+;	 .checkpc 2079
+;	 .advance 2079
 
 programentrypoint:
-	
+
+
 	; C65GS io
 	lda #$47
 	sta $d02f
 	lda #$53
 	sta $D02f
+
+	; Fast CPU
+	lda #65
+	sta 0
+
+	; Reset ethernet controller
+	lda #0
+	sta $d6e0
+	lda #1
+	sta $d6e0
 
 	; Map ethernet registers at $6000 - $7FFF
 	
@@ -45,21 +69,34 @@ programentrypoint:
 	; (we will poll it).
 	; also make sure that we acknowledge the last received packet so that the
 	; ethernet controller knows it can receive.
+
+loop:
+
+waitingforpacket:
+
+fliptest:
+	lda $d6e0
+	sta $0410
+	and #$40
+	sta $0410
+	beq noflip
+
+
+	; make sure ethernet transceiver is on and not generating IRQs
+	; (we will poll it).
+	; also make sure that we acknowledge the last received packet so that the
+	; ethernet controller knows it can receive.
 	lda $d6e1
 	lsr
 	and #$02
 	ora #$01
 	sta $d6e1
+	jmp fliptest
 
-loop:
-	
-
-waitingforpacket:
+noflip:
 
 	; do something so that we know it has not crashed
-	lda $d020	;border
-	adc #$01
-	sta $d020
+	inc $0427
 
 	lda $d6e1
 	and #$20
@@ -78,11 +115,29 @@ waitingforpacket:
 	; check whether it is UDP port 4510
 	; or whether it is an ARP request
 
-	inc $d020 ; XXX for debug
+;	inc $d020 ; XXX for debug
+
+	; show packet on screen
+	ldx #0
+copyloop:
+	lda $6800,x
+	sta $0680,x
+	inx
+	bne copyloop
 
 	; Here we want to check that $680E - $6817 =
 	; 08 06 00 01 08 00 06 04 00 01
 	;
+
+	ldx #9
+arpdloop:
+	lda arptemplate,x
+	sta $0450,x
+	lda $680e,x
+	sta $0428,x
+	dex
+	bpl arpdloop
+
 	ldx #$09
 arploop0:
 	lda $680e,x
@@ -102,7 +157,7 @@ arploop0:
 	; now we need to build the ARP reply and send it.
 	; We should copy the sender's 
 
-	inc $0427 ; XXX for debug
+	inc $0426 ; XXX for debug
 
 	; set output packet size
 	; 6+6+2 bytes ethernet header + 28 bytes of ARP reply = 42
@@ -189,6 +244,7 @@ notarp:
 
 	; packet does begin with A9, so JSR there
 	;
+	inc $d020
 	jsr $682C
 
 	; BG i think the above should be a JMP,

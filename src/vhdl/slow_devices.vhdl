@@ -5,6 +5,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
+use work.cputypes.all;
 
 ENTITY slow_devices IS
   generic (
@@ -12,7 +13,8 @@ ENTITY slow_devices IS
     has_psram : std_logic := '0';
     has_hyperram : std_logic := '0';
     has_c64_cartridge_port : std_logic := '0';
-    has_fakecartridge : std_logic := '0'
+    has_fakecartridge : std_logic := '0';
+    target : mega65_target_t := mega65r1
     );
   PORT (
     ------------------------------------------------------------------------
@@ -25,6 +27,10 @@ ENTITY slow_devices IS
     cpu_game : out std_logic;
     sector_buffer_mapped : in std_logic;
 
+    irq_out : out std_logic := '1';
+    nmi_out : out std_logic := '1';
+    dma_out : out std_logic := '1';
+    
     pin_number : out integer := 255;
     
     slow_access_request_toggle : in std_logic;
@@ -80,13 +86,13 @@ ENTITY slow_devices IS
     cart_irq : in std_logic;
     cart_dma : in std_logic;
     
-    cart_exrom : inout std_logic := 'H';
+    cart_exrom : in std_logic;
     cart_ba : inout std_logic := 'H';
     cart_rw : inout std_logic := 'H';
     cart_roml : inout std_logic := 'H';
     cart_romh : inout std_logic := 'H';
     cart_io1 : inout std_logic := 'H';
-    cart_game : inout std_logic := 'H';
+    cart_game : in std_logic;
     cart_io2 : inout std_logic := 'H';
     
     cart_d_in : in unsigned(7 downto 0);
@@ -108,7 +114,7 @@ architecture behavioural of slow_devices is
   signal slow_access_last_request_toggle : std_logic := '1';
 
   signal expansionram_eternally_busy : std_logic := '1';
-  signal expansionram_read_timeout : integer := 0;
+  signal expansionram_read_timeout : unsigned(11 downto 0) := x"000";
   
   type slow_state is (
     Idle,
@@ -122,7 +128,8 @@ architecture behavioural of slow_devices is
   
 begin
   cartport0: entity work.expansion_port_controller
-    generic map ( pixelclock_frequency => 100
+    generic map ( pixelclock_frequency => 80,
+                  target => target
                   )
     port map (
     cpuclock => cpuclock,
@@ -158,6 +165,10 @@ begin
     cart_nmi => cart_nmi,
     cart_irq => cart_irq,
     cart_dma => cart_dma,
+
+    irq_out => irq_out,
+    nmi_out => nmi_out,
+    dma_out => dma_out,
     
     cart_exrom => cart_exrom,
     cart_ba => cart_ba,
@@ -225,10 +236,12 @@ begin
             
           if slow_access_address(27)='1' then
             -- $8000000-$FFFFFFF = expansion RAM
+            expansionram_read_timeout <= to_unsigned(99,12);
             state <= ExpansionRAMRequest;
           elsif slow_access_address(26)='1' then
             -- $4000000-$7FFFFFF = cartridge port
             report "Preparing to access from C64 cartridge port";
+            expansionram_read_timeout <= to_unsigned(1000,12);
             state <= CartridgePortRequest;
           else
             
@@ -282,7 +295,6 @@ begin
               -- Read from expansion RAM -- here we need to wait for a response
               -- from the expansion RAM
               state <= ExpansionRAMReadWait;
-              expansionram_read_timeout <= 99;
             end if;
           else
             -- Expansion RAM is busy, wait for it to become idle
@@ -294,14 +306,6 @@ begin
         if expansionram_data_ready_strobe = '1' then
           state <= Idle;
           slow_access_rdata <= expansionram_rdata;
-          slow_access_ready_toggle <= slow_access_request_toggle;
-        end if;
-        if expansionram_read_timeout /= 0 then
-          expansionram_read_timeout <= expansionram_read_timeout - 1;
-        else
-          -- Time out if no reply from expansion RAM
-          state <= Idle;
-          slow_access_rdata <= x"99";
           slow_access_ready_toggle <= slow_access_request_toggle;
         end if;
         
@@ -335,6 +339,18 @@ begin
           state <= Idle;
         end if;
       end case;
+
+      if state /= Idle then
+        if expansionram_read_timeout /= to_unsigned(0,12) then
+          expansionram_read_timeout <= expansionram_read_timeout - 1;
+        else
+          -- Time out if stuck for too long
+          state <= Idle;
+          slow_access_rdata <= x"99";
+          slow_access_ready_toggle <= slow_access_request_toggle;
+        end if;
+      end if;
+      
     end if;
   end process;
   

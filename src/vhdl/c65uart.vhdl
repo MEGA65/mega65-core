@@ -14,6 +14,9 @@ entity c65uart is
     reset : in std_logic;
     irq : out std_logic := 'Z';
     c65uart_cs : in std_logic;
+
+    osk_toggle_key : in std_logic;
+    joyswap_key : in std_logic;
     
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
@@ -39,6 +42,8 @@ entity c65uart is
     virtual_disable : out std_logic;
     joya_rotate : out std_logic := '0';
     joyb_rotate : out std_logic := '0';
+    joyswap : out std_logic := '0';
+    osk_debug_display : out std_logic := '0';
 
     -- Paddle/analog mouse inputs and debugging
     cia1portb_out : in std_logic_vector(7 downto 6);
@@ -188,9 +193,11 @@ architecture behavioural of c65uart is
   signal physkey_enable_internal : std_logic := '1';
   signal virtual_enable_internal : std_logic := '1';
 
+  -- XXX for debugging, make OSK visible from startup
   signal portk_internal : std_logic_vector(7 downto 0) := x"7F"; -- visual
                                                                  -- keyboard
                                                                  -- off by default
+  
   signal portl_internal : std_logic_vector(7 downto 0) := x"7F";
   signal portm_internal : std_logic_vector(7 downto 0) := x"7F";
   signal portn_internal : std_logic_vector(7 downto 0) := x"FF";
@@ -199,12 +206,18 @@ architecture behavioural of c65uart is
   signal porto_internal : std_logic_vector(7 downto 0) := x"14";
   signal portp_internal : std_logic_vector(7 downto 0) := x"34";
 
+  signal joyswap_internal : std_logic := '0';
   signal joya_rotate_internal : std_logic := '0';
   signal joyb_rotate_internal : std_logic := '0';
   signal amiga_mouse_enable_a_internal : std_logic := '0';
   signal amiga_mouse_enable_b_internal : std_logic := '0';
   signal amiga_mouse_assume_a_internal : std_logic := '0';
   signal amiga_mouse_assume_b_internal : std_logic := '0';
+
+  signal last_osk_toggle_key : std_logic := '1';
+  signal osk_toggle_counter : integer range 0 to 20000000 := 0;
+  signal last_joyswap_key : std_logic := '1';
+  signal joyswap_countdown : integer range 0 to 1023 := 0;
   
 begin  -- behavioural
   
@@ -234,14 +247,38 @@ begin  -- behavioural
     variable register_number : unsigned(7 downto 0);
   begin
 
+    register_number(7 downto 6) := "00";
+    register_number(5 downto 0) := fastio_address(5 downto 0);
+    
     if rising_edge(cpuclock) then
+
+      -- Monitor OSK toggle key input for MEGAphone, and cycle through the
+      -- various OSK states (off, bottom and top position).
+      last_osk_toggle_key <= osk_toggle_key;
+      -- We have a countdown to effectively de-bounce the key
+      if osk_toggle_counter /= 0 then
+        osk_toggle_counter <= osk_toggle_counter - 1;
+      end if;
+      if osk_toggle_key='0' and last_osk_toggle_key='1' and osk_toggle_counter = 0 then
+        -- Only allow one event per 1/4 second
+        osk_toggle_counter <= 10000000;
+        -- Toggle between off, bottom and top position for visual keyboard
+        if portk_internal(7) = '0' then
+          portk_internal(7) <= '1';
+        elsif portl_internal(7) = '0' then
+          portl_internal(7) <= '1';
+        else
+          portk_internal(7) <= '0';
+          portl_internal(7) <= '0';
+        end if;
+      end if;
 
       reg_data_rx_drive <= reg_data_rx;
       
       widget_disable <= not widget_enable_internal;
       ps2_disable <= not ps2_enable_internal;
       joykey_disable <= not joykey_enable_internal;
-      joyreal_disable <= not joykey_enable_internal;
+      joyreal_disable <= not joyreal_enable_internal;
       physkey_disable <= not physkey_enable_internal;
       virtual_disable <= not virtual_enable_internal;
 
@@ -259,13 +296,22 @@ begin  -- behavioural
           rx_clear_flags <= '1';
         end if;
       end if;
-    end if;
 
-    register_number(7 downto 6) := "00";
-    register_number(5 downto 0) := fastio_address(5 downto 0);
-    
-    if rising_edge(cpuclock) then
-
+      -- Swap joysticks 1 & 2 when requested.
+      -- XXX For now, this is only wired up for the MEGAphone, but it would
+      -- be nice to have some bit that controls it on the normal machine as well.
+      last_joyswap_key <= joyswap_key;
+      -- We have a countdown to effectively de-bounce the key
+      if joyswap_key='0' and last_joyswap_key='1' and joyswap_countdown = 0 then
+        joyswap_internal <= not joyswap_internal;
+        joyswap <= not joyswap_internal;
+        joyswap_countdown <= 1023;
+      else
+        if joyswap_countdown /= 0 then
+          joyswap_countdown <= joyswap_countdown - 1;
+        end if;        
+      end if;      
+      
       -- Make copies of registers from pixelclock domain
       reg_status0_rx_full_drive <= reg_status0_rx_full;
       reg_status1_rx_overrun_drive <= reg_status1_rx_overrun;
@@ -346,13 +392,17 @@ begin  -- behavioural
             -- bucky keys readonly
             -- @IO:GS $D611.0 WRITE ONLY Connect POT lines to IEC port (for r1 PCB only)
             pot_via_iec <= fastio_wdata(0);
+            -- @IO:GS $D611.1 WRITE ONLY enable real joystick ports (for r2 PCB only)
+            joyreal_enable_internal <= fastio_wdata(1);
           when x"12" =>
-            widget_enable_internal <= std_logic(fastio_wdata(0));
-            ps2_enable_internal <= std_logic(fastio_wdata(1));
-            physkey_enable_internal <= std_logic(fastio_wdata(2));
-            virtual_enable_internal <= std_logic(fastio_wdata(3));
-            joykey_enable_internal <= std_logic(fastio_wdata(4));
-            joyreal_enable_internal <= std_logic(fastio_wdata(5));
+--            widget_enable_internal <= std_logic(fastio_wdata(0));
+--            ps2_enable_internal <= std_logic(fastio_wdata(1));
+--            physkey_enable_internal <= std_logic(fastio_wdata(2));
+--            virtual_enable_internal <= std_logic(fastio_wdata(3));
+--            joykey_enable_internal <= std_logic(fastio_wdata(4));
+            osk_debug_display <= fastio_wdata(4);
+            joyswap <= fastio_wdata(5);
+            joyswap_internal <= std_logic(fastio_wdata(5));
             joya_rotate <= fastio_wdata(6);
             joya_rotate_internal <= fastio_wdata(6);
             joyb_rotate <= fastio_wdata(7);
@@ -505,18 +555,19 @@ begin  -- behavioural
           -- @IO:GS $D611.0 UARTMISC:MRSHFT Right shift key state (hardware accelerated keyboard scanner).
           fastio_rdata(7 downto 0) <= unsigned(porti);
         when x"12" =>
-          -- @IO:GS $D612.0 UARTMISC:WGTKEY Enable widget board keyboard/joystick input
+          -- @   IO:GS $D612.0 UARTMISC:WGTKEY Enable widget board keyboard/joystick input
           fastio_rdata(0) <= widget_enable_internal;
-          -- @IO:GS $D612.1 UARTMISC:PS2KEY Enable ps2 keyboard/joystick input
+          -- @   IO:GS $D612.1 UARTMISC:PS2KEY Enable ps2 keyboard/joystick input
           fastio_rdata(1) <= ps2_enable_internal;
-          -- @IO:GS $D612.2 UARTMISC:PHYKEY Enable physical keyboard input
+          -- @   IO:GS $D612.2 UARTMISC:PHYKEY Enable physical keyboard input
           fastio_rdata(2) <= physkey_enable_internal;
-          -- @IO:GS $D612.3 UARTMISC:VRTKEY Enable virtual/snythetic keyboard input
+          -- @   IO:GS $D612.3 UARTMISC:VRTKEY Enable virtual/snythetic keyboard input
           fastio_rdata(3) <= virtual_enable_internal;
-          -- @IO:GS $D612.4 UARTMISC:PS2JOY Enable PS/2 / USB keyboard simulated joystick input
+          -- @   IO:GS $D612.4 UARTMISC:PS2JOY Enable PS/2 / USB keyboard simulated joystick input
           fastio_rdata(4) <= joykey_enable_internal;
-          -- @IO:GS $D612.5 UARTMISC:PHYJOY Enable physical joystick input
-          fastio_rdata(5) <= joyreal_enable_internal;
+          -- @IO:GS $D612.4 UARTMISC:OSKDEBUG Debug OSK overlay (WRITE ONLY)
+          -- @IO:GS $D612.5 UARTMISC:JOYSWAP Exchange joystick ports 1 & 2
+          fastio_rdata(5) <= joyswap_internal;
           -- @IO:GS $D612.6 UARTMISC:LJOYA Rotate inputs of joystick A by 180 degrees (for left handed use)
           fastio_rdata(6) <= joya_rotate_internal;
           -- @IO:GS $D612.7 UARTMISC:LJOYB Rotate inputs of joystick B by 180 degrees (for left handed use)
@@ -543,10 +594,10 @@ begin  -- behavioural
           -- @IO:GS $D618 UARTMISC:KSCNRATE Physical keyboard scan rate (\$00=50MHz, \$FF=~200KHz)
           fastio_rdata <= unsigned(portn_internal);
         when x"19" =>
-          -- @IO:GS $D619 UARTMISC:OSKXPOS Set on-screen keyboard X position (x4 640H pixels)
+          -- @IO:GS $D619 UARTMISC:UNUSED port o output value
           fastio_rdata <= unsigned(porto_internal);
         when x"1a" =>
-          -- @IO:GS $D61A UARTMISC:OSKYPOS Set on-screen keyboard Y position (x4 physical pixels)
+          -- @IO:GS $D61A UARTMISC:UNUSED port p output value
           fastio_rdata <= unsigned(portp_internal);
         when x"1b" =>
           -- @IO:GS $D61B DEBUG:AMIMOUSDETECT READ 1351/amiga mouse auto detection DEBUG

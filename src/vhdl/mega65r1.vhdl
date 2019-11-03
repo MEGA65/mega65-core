@@ -21,6 +21,7 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
+use work.cputypes.all;
 
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
@@ -344,7 +345,8 @@ begin
       );
   
   machine0: entity work.machine
-    generic map (cpufrequency => 40)
+    generic map (cpufrequency => 40,
+                 target => mega65r1)
     port map (
       pixelclock      => pixelclock,
       cpuclock        => cpuclock,
@@ -496,11 +498,13 @@ begin
       -- Ignore widget board interface and other things
       tmpint => '1',
       tmpct => '1',
-      
-      pmod_clock => '1',
-      pmod_start_of_sequence => '0',
-      pmod_data_in => (others => '1'),
-      pmoda => pmoda_dummy,
+
+     widget_matrix_col => (others => '1'),
+      widget_restore => '1',
+      widget_capslock => '1',
+      widget_joya => (others => '1'),
+      widget_joyb => (others => '1'),      
+
       sw => (others => '0'),
 --      uart_rx => '1',
       btn => (others => '1')

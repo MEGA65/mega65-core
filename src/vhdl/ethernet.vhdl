@@ -303,6 +303,7 @@ architecture behavioural of ethernet is
  signal dumpram_wdata : std_logic_vector(63 downto 0) := (others => '0');
  signal dumpram_rdata : std_logic_vector(7 downto 0) := (others => '0');
  signal dumpram_write : std_logic := '0';
+ signal allow_2k_log_frames : std_logic := '1';
  signal activity_dump_ready_toggle : std_logic := '0';
  signal last_activity_dump_ready_toggle : std_logic := '0';
  signal activity_dump : std_logic := '0';
@@ -314,6 +315,9 @@ architecture behavioural of ethernet is
  signal last_raster_toggle : std_logic := '0';
  signal raster_toggle : std_logic := '0';
  signal last_raster_number : unsigned(11 downto 0) := (others => '0');
+
+ signal eth_buffer_blocked_50mhz : std_logic := '0';
+ signal eth_buffer_blocked : std_logic := '0';
  
  -- Reverse the input vector.
  function reversed(slv: std_logic_vector) return std_logic_vector is
@@ -430,8 +434,11 @@ begin  -- behavioural
   process(eth_rx_buffer_moby,fastio_addr,fastio_read) is
   begin    
     rxbuffer_readaddress <= to_integer(eth_rx_buffer_moby&fastio_addr(10 downto 0));
-    if fastio_read='1' and fastio_addr(19 downto 12) = x"DE"
-      and fastio_addr(11)='1' then
+    if fastio_read='1' and (
+      (fastio_addr(19 downto 12) = x"DE" and fastio_addr(11)='1')
+      or (fastio_addr(19 downto 12) = x"D2")
+      )
+    then
       rxbuffer_cs <= '1';
     else
       rxbuffer_cs <= '0';
@@ -534,7 +541,7 @@ begin  -- behavioural
             eth_tx_dump <= '0';
           elsif (activity_dump='1') and activity_dump_ready_toggle /= last_activity_dump_ready_toggle then
             -- start sending an IPv6 multicast packet containing the compressed
-            -- video.
+            -- video or CPU instruction trace.
             report "ETHERDUMP: Sending next packet ("
               & std_logic'image(activity_dump_ready_toggle) & " vs " &
               std_logic'image(last_activity_dump_ready_toggle) & ")"
@@ -656,8 +663,11 @@ begin  -- behavioural
             end if;
 
             if (eth_tx_dump='1')
-                and (to_unsigned(txbuffer_readaddress,12) /=
-                     (2048 + video_packet_header'length - 1)) then
+                and ((to_unsigned(txbuffer_readaddress,12) /=
+                      (2048 + video_packet_header'length - 1)) and allow_2k_log_frames='1')
+              and ((to_unsigned(txbuffer_readaddress,12) /=
+                      (1024 + video_packet_header'length - 1)) and allow_2k_log_frames='0')
+            then
               -- Not yet at end of CPU/BUS log dump, so advance read address
               -- pointer for dump buffer
               txbuffer_readaddress <= txbuffer_readaddress + 1;
@@ -675,8 +685,11 @@ begin  -- behavioural
                 and (to_unsigned(txbuffer_readaddress,12) /= eth_tx_size_padded))
               or
               ((eth_tx_viciv='1')
-                and (to_unsigned(txbuffer_readaddress,12) /=
-                     (2048 + video_packet_header'length - 1)))
+                and ((to_unsigned(txbuffer_readaddress,12) /=
+                     (2048 + video_packet_header'length - 1)) and allow_2k_log_frames='1')
+                and ((to_unsigned(txbuffer_readaddress,12) /=
+                     (1024 + video_packet_header'length - 1)) and allow_2k_log_frames='0')
+               )
             then
               txbuffer_readaddress <= txbuffer_readaddress + 1;
               if txbuffer_readaddress = eth_tx_size then
@@ -742,6 +755,12 @@ begin  -- behavioural
       end case;
     
       -- Ethernet RX FSM
+      if eth_rx_buffer_last_used_50mhz /= eth_rx_buffer_moby_50mhz then
+        eth_buffer_blocked_50mhz <= '1';
+      else
+        eth_buffer_blocked_50mhz <= '0';
+      end if;
+      
       frame_length := to_unsigned(eth_frame_len,12);
       case eth_state is
         when Idle =>
@@ -1030,45 +1049,47 @@ begin  -- behavioural
       if ethernet_cs='1' then
         report "MEMORY: Reading from ethernet register block";
         case fastio_addr(3 downto 0) is
-          -- @IO:GS $D6E0 Ethernet control
+          -- @IO:GS ETH:$D6E0 Ethernet control
           when x"0" =>
-            -- @IO:GS $D6E0.7 ETH_MDIO
-            fastio_rdata(7) <= eth_mdio;
+            -- @IO:GS $D6E0.6 ETH:RXBLKD Indicate if ethernet RX is blocked until RX buffers rotated
+            fastio_rdata(6) <= eth_buffer_blocked;
+          -- @IO:GS $D6E0.4 ETH:KEYEN Allow remote keyboard input via magic ethernet frames
           -- @IO:GS $D6E0.4 Allow remote keyboard input via magic ethernet frames
             fastio_rdata(4) <= eth_keycode_toggle_internal;
-          -- @IO:GS $D6E0.3 Read ethernet RX data valid
+          -- @IO:GS $D6E0.3 ETH:DRXDV Read ethernet RX data valid (debug)
             fastio_rdata(3) <= eth_rxdv;
-          -- @IO:GS $D6E0.1-2 Read ethernet TX bits currently on the wire
+          -- @IO:GS $D6E0.1-2 ETH:DRXD Read ethernet RX bits currently on the wire
             fastio_rdata(2 downto 1) <= eth_rxd;
+          -- @IO:GS $D6E0.0 ETH:RST Write 0 to hold ethernet controller under reset
             fastio_rdata(0) <= eth_reset_int;
           -- @IO:GS $D6E1 - Ethernet interrupt and control register
           -- (unused bits = 0 to allow expansion of number of RX buffer slots
           -- from 2 to something bigger)
           when x"1" =>
-            -- @IO:GS $D6E1.7 - Enable ethernet RX IRQ
+            -- @IO:GS $D6E1.7 ETH:RXQEN Enable ethernet RX IRQ
             fastio_rdata(7) <= eth_irqenable_rx;
-            -- @IO:GS $D6E1.6 - Enable ethernet TX IRQ
+            -- @IO:GS $D6E1.6 ETH:TXQEN Enable ethernet TX IRQ
             fastio_rdata(6) <= eth_irqenable_tx;
-            -- @IO:GS $D6E1.5 - Ethernet RX IRQ status
+            -- @IO:GS $D6E1.5 ETH:RXQ Ethernet RX IRQ status
             fastio_rdata(5) <= eth_irq_rx;
-            -- @IO:GS $D6E1.4 - Ethernet TX IRQ status
+            -- @IO:GS $D6E1.4 ETH:TXQ Ethernet TX IRQ status
             fastio_rdata(4) <= eth_irq_tx;
-            -- $D6E1.3 - Enable streaming of CPU instruction stream or VIC-IV display on ethernet
+            -- @IO:GS $D6E1.3 ETH:STRM Enable streaming of CPU instruction stream or VIC-IV display on ethernet
             fastio_rdata(3) <= eth_videostream;
-            -- @IO:GS $D6E1.2 - Indicate which RX buffer was most recently used
+            -- @IO:GS $D6E1.2 ETH:RXBU Indicate which RX buffer was most recently used
             fastio_rdata(2) <= eth_rx_buffer_last_used_48mhz;            
-            -- @IO:GS $D6E1.1 - Set which RX buffer is memory mapped
+            -- @IO:GS $D6E1.1 ETH:RXBM Set which RX buffer is memory mapped
             fastio_rdata(1) <= eth_rx_buffer_moby;
             -- $D6E1.0 - Clear to hold ethernet adapter in reset.
             fastio_rdata(0) <= eth_reset_int;
-          -- @IO:GS $D6E2 - TX Packet size (low byte)
+          -- @IO:GS $D6E2 ETH:TXSZLSB TX Packet size (low byte)
           when x"2" =>
             fastio_rdata <= eth_tx_size(7 downto 0);
-            -- @IO:GS $D6E3 - TX Packet size (high byte)
+            -- @IO:GS $D6E3 ETH:TXSZMSB TX Packet size (high byte)
           when x"3" =>
             fastio_rdata(7 downto 4) <= "0000";
             fastio_rdata(3 downto 0) <= eth_tx_size(11 downto 8);
-          -- $D6E4 - Status of frame transmitter (DEBUG ONLY)
+          -- $D6E4 ETH:DBGTXSTATE Status of frame transmitter (read only) (DEBUG ONLY. May be deprecated)
           when x"4"  =>
             fastio_rdata(0) <= eth_tx_trigger;
             fastio_rdata(1) <= eth_tx_commenced;
@@ -1078,29 +1099,34 @@ begin  -- behavioural
             fastio_rdata(6) <= eth_tx_viciv;
             fastio_rdata(7) <= '0';
           when x"5" =>
-            -- @IO:GS $D6E5.0 - Ethernet disable promiscuous mode
+            -- @IO:GS $D6E5.0 ETH:NOPROM Ethernet disable promiscuous mode
             fastio_rdata(0) <= eth_mac_filter;
-            -- @IO:GS $D6E5.1 Disable CRC check for received packets
+            -- @IO:GS $D6E5.1 ETH:NOCRC Disable CRC check for received packets
             fastio_rdata(1) <= eth_disable_crc_check;
-            -- @IO:GS $D6E5.2-3 Ethernet TX clock phase adjust
+            -- @IO:GS $D6E5.2-3 ETH:TXPH Ethernet TX clock phase adjust
             fastio_rdata(3 downto 2) <= eth_txd_phase;
-            -- @IO:GS $D6E5.4 Accept broadcast frames
+            -- @IO:GS $D6E5.4 ETH:BCST Accept broadcast frames
             fastio_rdata(4) <= eth_accept_broadcast;
-            -- @IO:GS $D6E5.5 Accept multicast frames
+            -- @IO:GS $D6E5.5 ETH:MCST Accept multicast frames
             fastio_rdata(5) <= eth_accept_multicast;
             fastio_rdata(7 downto 6) <= (others => '0');
           when x"6" =>
-            -- @IO:GS $D6E6.0-4 - Ethernet MIIM register number
-            -- @IO:GS $D6E6.7-5 - Ethernet MIIM PHY number (use 0 for Nexys4, 1 for MEGA65 r1 PCBs)
+            -- @IO:GS $D6E6.0-4 ETH:MIIMREG Ethernet MIIM register number
+            -- @IO:GS $D6E6.7-5 ETH:MIIMPHY Ethernet MIIM PHY number (use 0 for Nexys4, 1 for MEGA65 r1 PCBs)
             fastio_rdata(4 downto 0) <= miim_register;
             fastio_rdata(7 downto 5) <= miim_phyid(2 downto 0);
           when x"7" =>
-            -- @IO:GS $D6E7 - Ethernet MIIM register value (LSB)
+            -- @IO:GS $D6E7 ETH:MIIMVLSB Ethernet MIIM register value (LSB)
             fastio_rdata <= miim_read_value(7 downto 0);
           when x"8" =>
-            -- @IO:GS $D6E8 - Ethernet MIIM register value (MSB)
+            -- @IO:GS $D6E8 ETH:MIIMVMSB Ethernet MIIM register value (MSB)
             fastio_rdata <= miim_read_value(15 downto 8);
-          -- @IO:GS $D6E9-E - Ethernet MAC address
+          -- @IO:GS $D6E9 ETH:MACADDR1 Ethernet MAC address
+          -- @IO:GS $D6EA ETH:MACADDR2 Ethernet MAC address
+          -- @IO:GS $D6EB ETH:MACADDR3 Ethernet MAC address
+          -- @IO:GS $D6EC ETH:MACADDR4 Ethernet MAC address
+          -- @IO:GS $D6ED ETH:MACADDR5 Ethernet MAC address
+          -- @IO:GS $D6EE ETH:MACADDR6 Ethernet MAC address
           when x"9" => fastio_rdata <= eth_mac(47 downto 40);
           when x"A" => fastio_rdata <= eth_mac(39 downto 32);
           when x"B" => fastio_rdata <= eth_mac(31 downto 24);
@@ -1108,7 +1134,7 @@ begin  -- behavioural
           when x"D" => fastio_rdata <= eth_mac(15 downto 8);
           when x"E" => fastio_rdata <= eth_mac(7 downto 0);
           when x"f" =>
-            -- @ IO:GS $D6EF - DEBUG show current ethernet RX state
+            -- @ IO:GS $D6EF ETH:DBGRXSTAT DEBUG show current ethernet RX state
             fastio_rdata <= to_unsigned(ethernet_state'pos(eth_state),8);
           when others =>
             fastio_rdata <= (others => 'Z');
@@ -1127,6 +1153,8 @@ begin  -- behavioural
 
     if rising_edge(clock) then
 
+      eth_buffer_blocked <= eth_buffer_blocked_50mhz;
+      
       -- Notice when we change raster lines
       if last_raster_number /= raster_number then
         last_raster_number <= raster_number;
@@ -1150,14 +1178,28 @@ begin  -- behavioural
         
         dumpram_waddr <= std_logic_vector(to_unsigned(to_integer(unsigned(dumpram_waddr)) + 1,9));
         dumpram_write <= '1';
-        activity_dump_ready_toggle <= dumpram_waddr(8);
-        if dumpram_waddr(7 downto 0) = "11110000" then
-          -- Check if we are about to run out of buffer space
-          if eth_tx_idle_cpuside = '0' then
-            cpu_arrest_internal <= '1';
-            report "ETHERDUMP: Arresting CPU";
+        -- 64bits wide = 8 bytes x 2^8 = 8*256 = 2K
+        -- Some network cards etc can't handle such big packets, so allow an
+        -- option to send smaller ones
+        if allow_2k_log_frames='1' then
+          activity_dump_ready_toggle <= dumpram_waddr(8); 
+          if dumpram_waddr(7 downto 0) = "11110000" then
+            -- Check if we are about to run out of buffer space
+            if eth_tx_idle_cpuside = '0' then
+              cpu_arrest_internal <= '1';
+              report "ETHERDUMP: Arresting CPU";
+            end if;
           end if;
-        end if;
+       else
+          activity_dump_ready_toggle <= dumpram_waddr(7);
+          if dumpram_waddr(6 downto 0) = "1110000" then
+            -- Check if we are about to run out of buffer space
+            if eth_tx_idle_cpuside = '0' then
+              cpu_arrest_internal <= '1';
+              report "ETHERDUMP: Arresting CPU";
+            end if;
+          end if;
+       end if;
 
       elsif instruction_strobe='1' then
         report "ETHERDUMP: Instruction spotted: " & to_hstring(debug_vector) & ", writing to $" & to_hstring(dumpram_waddr);
@@ -1166,12 +1208,23 @@ begin  -- behavioural
         --                                         -- are causing $D031 writes
         dumpram_waddr <= std_logic_vector(to_unsigned(to_integer(unsigned(dumpram_waddr)) + 1,9));
         dumpram_write <= '1';
-        activity_dump_ready_toggle <= dumpram_waddr(8);
-        if dumpram_waddr(7 downto 0) = "11110000" then
-          -- Check if we are about to run out of buffer space
-          if eth_tx_idle_cpuside = '0' then
-            cpu_arrest_internal <= '1';
-            report "ETHERDUMP: Arresting CPU";
+        if allow_2k_log_frames='1' then
+          activity_dump_ready_toggle <= dumpram_waddr(8);
+          if dumpram_waddr(7 downto 0) = "11110000" then
+            -- Check if we are about to run out of buffer space
+            if eth_tx_idle_cpuside = '0' then
+              cpu_arrest_internal <= '1';
+              report "ETHERDUMP: Arresting CPU";
+            end if;
+          end if;          
+        else
+          activity_dump_ready_toggle <= dumpram_waddr(7);
+          if dumpram_waddr(6 downto 0) = "1110000" then
+            -- Check if we are about to run out of buffer space
+            if eth_tx_idle_cpuside = '0' then
+              cpu_arrest_internal <= '1';
+              report "ETHERDUMP: Arresting CPU";
+            end if;
           end if;
         end if;
       elsif (raster_toggle /= last_raster_toggle) or (badline_toggle /= last_badline_toggle) then
@@ -1202,12 +1255,23 @@ begin  -- behavioural
 
         dumpram_waddr <= std_logic_vector(to_unsigned(to_integer(unsigned(dumpram_waddr)) + 1,9));
         dumpram_write <= '1';
-        activity_dump_ready_toggle <= dumpram_waddr(8);
-        if dumpram_waddr(7 downto 0) = "11110000" then
-          -- Check if we are about to run out of buffer space
-          if eth_tx_idle_cpuside = '0' then
-            cpu_arrest_internal <= '1';
-            report "ETHERDUMP: Arresting CPU";
+        if allow_2k_log_frames='1' then
+          activity_dump_ready_toggle <= dumpram_waddr(8);
+          if dumpram_waddr(7 downto 0) = "11110000" then
+            -- Check if we are about to run out of buffer space
+            if eth_tx_idle_cpuside = '0' then
+              cpu_arrest_internal <= '1';
+              report "ETHERDUMP: Arresting CPU";
+            end if;
+          end if;
+        else
+          activity_dump_ready_toggle <= dumpram_waddr(7);
+          if dumpram_waddr(6 downto 0) = "1110000" then
+            -- Check if we are about to run out of buffer space
+            if eth_tx_idle_cpuside = '0' then
+              cpu_arrest_internal <= '1';
+              report "ETHERDUMP: Arresting CPU";
+            end if;
           end if;
         end if;
       else
@@ -1267,7 +1331,9 @@ begin  -- behavioural
       end if;
 
       if fastio_write='1' then
-        if fastio_addr(19 downto 10)&"00" = x"DE8" then
+        if (fastio_addr(19 downto 10)&"00" = x"DE8")
+          or (fastio_addr(19 downto 10)&"00" = x"D20")
+        then
           -- Writing to TX buffer
           -- (we don't need toclear the write lines, as noone else can write to
           -- the buffer.  The TX buffer cannot be read, as reading the same
@@ -1313,24 +1379,33 @@ begin  -- behavioural
             -- @IO:GS $D6E3 Set high-order size of frame to TX
             when x"3" =>
               eth_tx_size(11 downto 8) <= fastio_wdata(3 downto 0);
-            -- @IO:GS $D6E4 Ethernet command
+            -- @IO:GS $D6E4 ETH:COMMAND Ethernet command register (write only)
             when x"4" =>
               case fastio_wdata is
                 when x"00" =>
-                  -- @IO:GS $D6E4 = $00 = Clear ethernet TX trigger (debug)
+                  -- @IO:GS $00 ETHCOMMAND:STOPTX Immediately stop transmitting the current ethernet frame.  Will cause a partially sent frame to be received, most likely resulting in the loss of that frame.  
                   eth_tx_trigger <= '0';
                 when x"01" =>
-                  -- @IO:GS $D6E4 = $01 = Transmit packet
+                  -- @IO:GS $01 ETHCOMMAND:STARTTX Transmit packet
                   eth_tx_trigger <= '1';
-                when x"dc" => -- (D)ebug (C)pu - stream via ethernet ($D6E1.3 must also be set)
+                when x"dc" =>
+                  -- @IO:GS $DC ETHCOMMAND:DEBUGCPU Select CPU debug stream via ethernet when \$D6E1.3 is set
                   cpu_ethernet_stream <= '1';
-                when x"d4" => -- (D)ebug VIC-IV(4) - stream via ethernet ($D6E1.3 must also be set)
+                when x"d4" =>
+                  -- @IO:GS $D4 ETHCOMMAND:DEBUGVIC Select VIC-IV debug stream via ethernet when \$D6E1.3 is set
                   cpu_ethernet_stream <= '0';
                 when x"de" => -- debug rx
-                  -- Receive exactly one frame, and keep all signals states
+                  -- @IO:GS $DE ETHCOMMAND:RXONLYONE Receive exactly one ethernet frame only, and keep all signals states (for debugging ethernet sub-system)
                   debug_rx <= '1';
-                when x"d0" => -- disable rx debug
+                when x"d0" =>
+                  -- @IO:GS $D0 ETHCOMMAND:RXNORMAL Disable the effects of RXONLYONE
                   debug_rx <= '0';
+                when x"f1" =>
+                  -- @IO:GS $F1 ETHCOMMAND:FRAME1K Select ~1KiB frames for video/cpu debug stream frames (for receivers that do not support MTUs of greater than 2KiB)
+                  allow_2k_log_frames <= '0';
+                when x"f2" =>
+                  -- @IO:GS $F2 ETHCOMMAND:FRAME2K Select ~2KiB frames for video/cpu debug stream frames, for optimal performance.
+                  allow_2k_log_frames <= '1';
                 when others =>
                   null;
               end case;

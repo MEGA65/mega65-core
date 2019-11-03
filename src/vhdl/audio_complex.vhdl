@@ -36,6 +36,15 @@ entity audio_complex is
     audio_mix_wdata : in unsigned(15 downto 0) := x"FFFF";
     audio_mix_rdata : out unsigned(15 downto 0) := x"FFFF";
     audio_loopback : out unsigned(15 downto 0) := x"FFFF";
+
+    -- Volume knobs
+    volume_knob1 : in unsigned(15 downto 0) := x"FFFF";
+    volume_knob2 : in unsigned(15 downto 0) := x"FFFF";
+    volume_knob3 : in unsigned(15 downto 0) := x"FFFF";   
+    -- Which output do the knobs apply to?
+    volume_knob1_target : in unsigned(3 downto 0) := "1111";
+    volume_knob2_target : in unsigned(3 downto 0) := "1111";
+    volume_knob3_target : in unsigned(3 downto 0) := "1111";
     
     -- The various audio busses and interfaces:
     
@@ -48,23 +57,14 @@ entity audio_complex is
 
     -- I2S PCM Audio interfaces (portable devices only)
 
-    -- Master I2S clock (used for the following peripherals):
+    -- Master I2S clock (used for all i2s audio devices):
     i2s_master_clk : out std_logic := '0';
     i2s_master_sync : out std_logic := '0';
     
-    -- Headphones interface is intended to be a
-    -- http://www.ti.com/lit/ds/symlink/tlv320aic3104.pdf
-    -- which doesn't need a MCLK signal (it can derive it from BCLK),
-    -- thus saving an FPGA pin.
-    -- Headphones L/R I2S out
-    i2s_headphones_data_out : out std_logic := '0';
-    -- Microphone on headphones I2S in
-    i2s_headphones_data_in : in std_logic := '0';
-
     -- I2S output for the speakers
     -- Expected to be an SSM2518
     -- http://www.analog.com/media/en/technical-documentation/data-sheets/ssm2518.pdf
-    i2s_speaker_data_out : out std_logic := '0';
+    i2s_speaker_data_out : out std_logic := '1';
     
     -- Master PCM clock for the modems (1.8V and 8KHz instead)
     pcm_modem_clk : out std_logic := '0';
@@ -115,8 +115,8 @@ architecture elizabethan of audio_complex is
   -- Ideally we should be able to make the divider_max more like 10, which
   -- should get 2 extra bits of audio resolution. To do that we need to shift
   -- the filter cut-off down by a factor of 4 as well.
-  signal mic_divider_max : unsigned(7 downto 0) := to_unsigned(40,8);
-  signal mic_sample_trigger : unsigned(7 downto 0) := to_unsigned(1,8);
+  signal mic_divider_max : unsigned(7 downto 0) := to_unsigned(8,8);
+  signal mic_sample_trigger : unsigned(7 downto 0) := to_unsigned(3,8);
 
   signal mic_do_sample_left : std_logic := '0';
   signal mic_do_sample_right : std_logic := '0';
@@ -225,29 +225,17 @@ begin
     i2s_clk => i2s_master_clk_int,
     i2s_sync => i2s_master_sync_int);
   
-  -- I2S interface headphones input and output
-  i2s3: entity work.i2s_transceiver port map (
-    clock50mhz => clock50mhz,
-    i2s_clk => i2s_master_clk_int,
-    i2s_sync => i2s_master_sync_int,
-    pcm_out => i2s_headphones_data_out,
-    pcm_in => i2s_headphones_data_in,
-    tx_sample_left => headphones_left_out,
-    tx_sample_right => headphones_right_out,
-    rx_sample_left => headphones_1_in,
-    rx_sample_right => headphones_2_in
-    );
-    
-
-  -- I2S master for headphones speaker
+  -- I2S master for stereo speakers
   i2s4: entity work.i2s_transceiver port map (
     clock50mhz => clock50mhz,
     i2s_clk => i2s_master_clk_int,
     i2s_sync => i2s_master_sync_int,
-    pcm_out => i2s_headphones_data_out,
-    pcm_in => i2s_headphones_data_in,
+    pcm_out => i2s_speaker_data_out,
+    pcm_in => '0',
     tx_sample_left => spkr_left,
     tx_sample_right => spkr_right
+--    tx_sample_left => x"1234",
+--    tx_sample_right => x"5678"
 --    rx_sample_left =>
 --    rx_sample_right =>
     );
@@ -283,8 +271,6 @@ begin
 
   -- PWM/PDM digital audio output for Nexys4 series boards
   -- and on the MEGA65 PCB.
-  -- This is logically considered to be the speaker, even
-  -- on such boards that have only a line out.
   pwm0: entity work.pcm_to_pdm
     port map (
       clock50mhz => clock50mhz,
@@ -308,6 +294,14 @@ begin
     modem_is_pcm_master => modem_is_pcm_master,
     amplifier_enable => ampSD,
 
+    volume_knob1 => volume_knob1,
+    volume_knob2 => volume_knob2,
+    volume_knob3 => volume_knob3,    
+
+    volume_knob1_target => volume_knob1_target,
+    volume_knob2_target => volume_knob2_target,
+    volume_knob3_target => volume_knob3_target,
+    
     -- SID outputs
     sources(0) => leftsid_audio(17 downto 2),
     sources(1) => rightsid_audio(17 downto 2),
@@ -357,9 +351,9 @@ begin
   begin
     if rising_edge(clock50mhz) then
 
-      ampPWM_l_in <= spkr_left;
-      ampPWM_r_in <= spkr_right;
-      
+      ampPWM_l_in <= headphones_left_out;
+      ampPWM_r_in <= headphones_right_out;
+
       -- Propagate I2S and PCM clocks
       if modem_is_pcm_master='0' then
         -- Use internally generated clock
@@ -401,6 +395,10 @@ begin
       if mic_divider < mic_divider_max then
         mic_divider <= mic_divider + 1;
       else
+        -- XXX Debug that we are correctly plumbed to pin U4
+        -- i2s_speaker_data_out <= micclkinternal;
+
+        
         micCLK <= not micclkinternal;
         micclkinternal <= not micclkinternal;
         mic_divider <= to_unsigned(0,8);
