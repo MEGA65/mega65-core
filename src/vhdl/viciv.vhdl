@@ -59,6 +59,8 @@ entity viciv is
   Port (
     all_pause : in std_logic;
 
+    hypervisor_mode : in std_logic;
+    
     xcounter_out : out integer range 0 to 4095 := 0;
     ycounter_out : out integer range 0 to 2047 := 0;
     ----------------------------------------------------------------------
@@ -2663,9 +2665,10 @@ begin
           report "LEGACY register update & PAL/NTSC mode select";
           
           -- Recompute screen and border positions
-          -- Actually dont, as this
-          -- messes up freezing and unfreezing
-          -- viciv_legacy_mode_registers_touched <= '1';
+          -- But only if not in hypervisor mode, so that we don't mess up freezing
+          if hypervisor_mode='0' then
+            viciv_single_side_border_width_touched <= '1';
+          end if;
 
           case fastio_wdata(7 downto 6) is
             when "00" => -- PAL, 720x576 @ 50Hz
