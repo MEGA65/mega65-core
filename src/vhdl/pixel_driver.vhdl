@@ -46,8 +46,6 @@ entity pixel_driver is
     
     -- Incoming video, e.g., from VIC-IV and rain compositer
     -- Clocked at clock81 (aka pixelclock)
-    pixel_strobe_in : in std_logic;
-    pixel_x_in : in integer;
     red_i : in unsigned(7 downto 0);
     green_i : in unsigned(7 downto 0);
     blue_i : in unsigned(7 downto 0);
@@ -404,7 +402,7 @@ begin
       
       -- Output the pixels or else the test pattern
       if plotting='0' or inframe_internal='0' then        
-        red_o <= x"00";
+        red_o <= x"FF";
         green_o <= x"00";
         blue_o <= x"00";
       elsif test_pattern_enable120='1' then

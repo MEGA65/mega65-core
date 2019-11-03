@@ -1038,8 +1038,6 @@ begin
 
       -- Pixel data from the video pipeline
       -- (clocked at 100MHz pixel clock)
-      pixel_strobe_in => pixel_strobe_viciv,
-      pixel_x_in => pixel_x_viciv,
       red_i => vgared_osk,
       green_i => vgagreen_osk,
       blue_i => vgablue_viciv,
