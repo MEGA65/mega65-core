@@ -190,13 +190,9 @@ architecture Behavioral of container is
   signal pixelclock : std_logic;
   signal cpuclock : std_logic;
   signal ethclock : std_logic;
-  signal clock41 : std_logic;
   signal clock27 : std_logic;
-  signal clock81 : std_logic;
-  signal clock120 : std_logic;
   signal clock100 : std_logic;
   signal clock162 : std_logic;
-  signal clock163 : std_logic;
 
   
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
@@ -555,9 +551,9 @@ begin
   nmi <= not btn(4);
   restore_key <= not btn(1);
 
-  process (cpuclock,clock120,cpuclock,pal50_select)
+  process (cpuclock,pixelclock,cpuclock,pal50_select)
   begin
-    if rising_edge(clock120) then
+    if rising_edge(pixelclock) then
       if sw(7)='0' then
         -- VGA direct output
         vgared <= buffer_vgared(7 downto 4);
