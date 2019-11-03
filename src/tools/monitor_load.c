@@ -564,14 +564,14 @@ int process_line(char *line,int live)
 		  // control sequences
 		  switch (type_text[i+1])
 		    {
-		    case 'C': c1=0x3f; break;
-		    case 'D': c1=0x07; break;
-		    case 'U': c1=0x07; c2=0x0f; break;
-		    case 'L': c1=0x02; break;
-		    case 'H': c1=0x33; break;
-		    case 'R': c1=0x02; c2=0x0f; break;
-		    case 'M': c1=0x01; break;
-		    case 'T': c1=0x00; break;
+		    case 'C': c1=0x3f; break;              // RUN/STOP
+		    case 'D': c1=0x07; break;              // down
+		    case 'U': c1=0x07; c2=0x0f; break;     // up
+		    case 'L': c1=0x02; break;              // left
+		    case 'H': c1=0x33; break;              // HOME
+		    case 'R': c1=0x02; c2=0x0f; break;     // right
+		    case 'M': c1=0x01; break;              // RETURN 
+		    case 'T': c1=0x00; break;              // INST/DEL
 		    case '1': c1=0x04; break; // F1
 		    case '3': c1=0x05; break; // F3
 		    case '5': c1=0x06; break; // F5
