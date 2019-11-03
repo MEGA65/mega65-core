@@ -581,7 +581,7 @@ begin
             and (key_box_counter /= 2
                  or (current_matrix_id(6 downto 0)
                      = next_matrix_id(6 downto 0)))
-            and (key_box_counter /= (7.5*9)) -- wide keys begin earlier
+            and (key_box_counter /= 7*9+4) -- wide keys begin earlier 
             and (key_box_counter /= (5*9)
                  or (key_same_as_last='1') -- repeated key, like SPACE
                  or (current_matrix_id(7) = '1') -- wide key
