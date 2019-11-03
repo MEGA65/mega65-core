@@ -1969,6 +1969,9 @@ begin
           -- fastio_rdata <= "0000"
           -- & std_logic_vector(debug_charaddress_drive2(11 downto 8));
           fastio_rdata <= x"FF";
+          fastio_rdata(0) <= external_frame_x_zero_latched;
+          fastio_rdata(1) <= external_pixel_strobe_log(0);
+          fastio_rdata(2) <= vga_in_frame;
         elsif register_number=127 then
           fastio_rdata <= x"FF";
         elsif register_number<256 then
