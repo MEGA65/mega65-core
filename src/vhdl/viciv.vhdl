@@ -2664,7 +2664,7 @@ begin
           -- viciv_legacy_mode_registers_touched <= '1';
 
           case fastio_wdata(7 downto 6) is
-            when "00" => -- PAL, 800x600 @ 50Hz
+            when "00" => -- PAL, 720x576 @ 50Hz
               vsync_delay <= to_unsigned(0,8);
               vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
               vicii_max_raster <= pal_max_raster;
@@ -2675,7 +2675,7 @@ begin
 
 --              sprite_first_x <= to_unsigned(1+80+1-(24-3)*(120/60),14);
 
-            when "01" => -- PAL, 800x600 50Hz, NTSC max raster
+            when "01" => -- PAL, 720x576 50Hz, NTSC max raster
               vsync_delay <= to_unsigned(0,8);
               vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
               vicii_max_raster <= ntsc_max_raster;
@@ -2685,7 +2685,7 @@ begin
               
 --              sprite_first_x <= to_unsigned(1+80+1-(24-3)*(120/60),14);
               
-            when "10" => -- NTSC, 800x600 @ 60Hz
+            when "10" => -- NTSC, 720x480 @ 60Hz
               vsync_delay <= to_unsigned(0,8);
               vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
               vicii_max_raster <= ntsc_max_raster;
@@ -2695,7 +2695,7 @@ begin
 
 --              sprite_first_x <= to_unsigned(1+80+1-(24-3)*(120/60),14);
 
-            when "11" => -- NTSC 800x600 60Hz
+            when "11" => -- NTSC 720x480 60Hz
               vsync_delay <= to_unsigned(0,8);
               vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
               -- NTSC but with PAL max raster
