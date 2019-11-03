@@ -278,10 +278,6 @@ begin
                lcd_display_enable => lcd_display_enable
                );                              
 
-  vgablue <= buffer_vgablue(7 downto 4);
-  vgared <= buffer_vgared(7 downto 4);
-  vgagreen <= buffer_vgagreen(7 downto 4);
-
   red_in <= x"00" when (pixel_counter > (39+raster_counter) and pixel_counter < (760-raster_counter) ) else x"FF";
   blue_in <= x"00" when (pixel_counter /=1 and pixel_counter /= 39 and pixel_counter/= 759 and pixel_counter/=799 ) else x"FF";
   
@@ -296,9 +292,26 @@ begin
   -- Push correct clock to LCD panel
 --  jbhi(7) <= clock30 when sw(0)='1' else cpuclock;
   
-  process (pixelclock) is
+  process (pixelclock,sw,buffer_vgablue,buffer_vgared,buffer_vgagreen) is
     variable digit : std_logic_vector(3 downto 0);
   begin    
+
+    if sw(0)='0' and sw(4)='0' then
+      -- NTSC
+      vgablue <= buffer_vgablue(7 downto 4);
+      vgared <= buffer_vgared(7 downto 4);
+      vgagreen <= buffer_vgagreen(7 downto 4);
+    elsif sw(0)='0' and sw(4)='1' then
+      -- VGA64Hz
+      vgared <= buffer_vgablue(7 downto 4);
+      vgagreen <= buffer_vgared(7 downto 4);
+      vgablue <= buffer_vgagreen(7 downto 4);
+    else
+      -- PAL
+      vgagreen <= buffer_vgablue(7 downto 4);
+      vgablue <= buffer_vgared(7 downto 4);
+      vgared <= buffer_vgagreen(7 downto 4);
+    end if;
     
     if rising_edge(pixelclock) then
 
