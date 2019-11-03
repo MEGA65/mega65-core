@@ -131,10 +131,6 @@ architecture behavioural of keymapper is
   signal portb_value_scan : std_logic_vector(7 downto 0);
   signal porta_value_scan : std_logic_vector(7 downto 0);
   
-  -- These hold the last complete scanned values
-  signal portb_value : std_logic_vector(7 downto 0);
-  signal porta_value : std_logic_vector(7 downto 0);
-
   -- Re-assemble the keyboard matrix, and de-glitch it.
   signal matrix0 : std_logic_vector(71 downto 0);
   signal matrix1 : std_logic_vector(71 downto 0);
@@ -185,6 +181,8 @@ begin  -- behavioural
   end process;
   
   keyread: process (ioclock)
+    variable portb_value : std_logic_vector(7 downto 0);
+    variable porta_value : std_logic_vector(7 downto 0);
     variable scan_col_out : std_logic;
     variable n2 : integer;
   begin  -- process keyread
