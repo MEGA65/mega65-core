@@ -68,7 +68,7 @@ architecture behavioural of visual_keyboard is
   signal y_start_current : unsigned(11 downto 0) :=
     to_unsigned(1,12);
   constant x_start_current : unsigned(13 downto 0) :=
-    to_unsigned(80,14);
+    to_unsigned(80-32,14); -- -32 is to compensate for VIC-IV pipeline depth
 
   signal y_start_current_upabit : unsigned(11 downto 0) :=
     to_unsigned(0,12);
