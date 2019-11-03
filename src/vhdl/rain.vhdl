@@ -134,6 +134,7 @@ architecture rtl of matrix_rain_compositor is
   signal last_letterbox : std_logic := '1';
   signal last_xcounter_in : integer := 0;
   signal last_xcounter_t1 : integer := 0;
+  signal last_xcounter_t2 : integer := 0;
   
   signal drop_start : integer range 0 to 63 := 1;
   signal drop_end : integer range 0 to 63 := 1;
@@ -625,6 +626,7 @@ begin  -- rtl
       end if;
 
       -- Delay display by one clock to re-synchronise with the VIC-IV video output
+      last_xcounter_t2 <= last_xcounter_t1;
       last_xcounter_t1 <= last_xcounter_in;
       last_xcounter_in <= xcounter_in;
       
@@ -706,7 +708,8 @@ begin  -- rtl
           column_counter <= column_counter + 1;
         else
           -- rotate bits for terminal chargen every 2 640H pixels
-          if last_xcounter_t1 /= last_xcounter_in then
+          -- Delayed by 2 cycles to match pixel edge with real pixel edge.
+          if last_xcounter_t1 /= last_xcounter_t2 then
             char_bit_stretch <= not char_bit_stretch;
             if char_bit_stretch = '1' and char_bit_count /= 1 then
               char_bits(7 downto 1) <= char_bits(6 downto 0);
