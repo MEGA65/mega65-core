@@ -35,7 +35,7 @@ entity frame_generator is
     vsync_end : integer := 606;
     hsync_start : integer := 814;
     hsync_end : integer := 880;
-    viciv_pipeline_depth : integer := 18;
+    viciv_pipeline_depth : integer := 8;
     cycles_per_raster : integer := 63
     );
   port (
