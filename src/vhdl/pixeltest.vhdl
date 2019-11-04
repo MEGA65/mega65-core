@@ -257,15 +257,13 @@ begin
                pixel_strobe_out => pixel_due,
                
                -- Pixels
-               pixel_strobe_in => pixel_valid,
-               pixel_x_in => pixel_x,
                red_i => red_in,
                green_i => green_in,
                blue_i => blue_in,
 
-               red_o => buffer_vgared,
-               green_o => buffer_vgagreen,
-               blue_o => buffer_vgablue,
+               red_no => buffer_vgared,
+               green_no => buffer_vgagreen,
+               blue_no => buffer_vgablue,
 
                -- VGA signals
                hsync => hsync,
