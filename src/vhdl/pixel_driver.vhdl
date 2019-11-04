@@ -255,8 +255,8 @@ begin
                   frame_height => 526,       -- NTSC frame is 263 lines x 2 frames
                   display_height => 526-4,
                   pipeline_delay => 0,
-                  vsync_start => 489,
-                  vsync_end => 495,
+                  vsync_start => 489+10,
+                  vsync_end => 495+10,
                   hsync_start => 878-62-45,
                   hsync_end => 878-45
                   )                  
