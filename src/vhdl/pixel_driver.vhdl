@@ -98,7 +98,7 @@ architecture greco_roman of pixel_driver is
 
   signal raster_strobe : std_logic := '0';
   signal inframe_internal : std_logic := '0';
-  signal narrow_inframe : out std_logic := '0';
+  signal narrow_inframe : std_logic := '0';
   
   signal pal50_select_internal : std_logic := '0';
   signal pal50_select_internal_drive : std_logic := '0';
