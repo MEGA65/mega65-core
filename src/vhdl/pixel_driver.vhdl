@@ -59,6 +59,11 @@ entity pixel_driver is
     hsync : out std_logic;
     vsync : out std_logic;
 
+    -- Narrow display output, for VGA/HDMI
+    red_no : out unsigned(7 downto 0);
+    green_no : out unsigned(7 downto 0);
+    blue_no : out unsigned(7 downto 0);
+    
     -- Inform VIC-IV of new rasters and new frames
     -- Signals for VIC-IV etc to know what is happening
     hsync_uninverted : out std_logic;
@@ -84,8 +89,7 @@ entity pixel_driver is
     lcd_display_enable : out std_logic := '1';
     lcd_pixel_strobe : out std_logic := '0';     -- in 30/40MHz clock domain to match pixels
     lcd_inletterbox : out std_logic := '0';
-    lcd_inframe : out std_logic := '0'
-    
+    lcd_inframe : out std_logic := '0'    
     );
 
 end pixel_driver;
@@ -94,6 +98,7 @@ architecture greco_roman of pixel_driver is
 
   signal raster_strobe : std_logic := '0';
   signal inframe_internal : std_logic := '0';
+  signal narrow_inframe : out std_logic := '0';
   
   signal pal50_select_internal : std_logic := '0';
   signal pal50_select_internal_drive : std_logic := '0';
@@ -145,6 +150,10 @@ architecture greco_roman of pixel_driver is
   signal lcd_inframe_pal50 : std_logic := '0';
   signal lcd_inframe_ntsc60 : std_logic := '0';
   signal lcd_inframe_vga60 : std_logic := '0';
+
+  signal narrow_inframe_pal50 : std_logic := '0';
+  signal narrow_inframe_ntsc60 : std_logic := '0';
+  signal narrow_inframe_vga60 : std_logic := '0';
 
   signal lcd_inletterbox_pal50 : std_logic := '0';
   signal lcd_inletterbox_ntsc60 : std_logic := '0';
@@ -208,6 +217,7 @@ begin
   frame50: entity work.frame_generator 
     generic map ( frame_width => 851,        
                   display_width => 800,
+                  narrow_width => 720,
                   frame_height => 624,        -- 312 lines x 2 fields
                   pipeline_delay => 0,
                   display_height => 600,
@@ -228,6 +238,7 @@ begin
                lcd_hsync => lcd_hsync_pal50,
                lcd_vsync => lcd_vsync_pal50,
                lcd_inframe => lcd_inframe_pal50,
+               narrow_inframe => narrow_inframe_pal50,
                lcd_inletterbox => lcd_inletterbox_pal50,
 
                -- 80MHz facing signals for the VIC-IV
@@ -240,6 +251,7 @@ begin
   frame60: entity work.frame_generator
     generic map ( frame_width => 878-1,   -- 65 cycles x 16 pixels
                   display_width => 800,
+                  narrow_width => 720,
                   frame_height => 526,       -- NTSC frame is 263 lines x 2 frames
                   display_height => 526-4,
                   pipeline_delay => 0,
@@ -260,6 +272,7 @@ begin
                lcd_hsync => lcd_hsync_ntsc60,
                lcd_vsync => lcd_vsync_ntsc60,
                lcd_inframe => lcd_inframe_ntsc60,
+               narrow_inframe => narrow_inframe_ntsc60,
                lcd_inletterbox => lcd_inletterbox_ntsc60,
 
                -- 80MHz facing signals for VIC-IV
@@ -275,6 +288,7 @@ begin
   frame60vga: entity work.frame_generator
     generic map ( frame_width => 800-1,
                   display_width => 640,
+                  narrow_width => 640,
                   frame_height => 526,
                   display_height => 526-4,
                   pipeline_delay => 0,
@@ -295,6 +309,7 @@ begin
                lcd_hsync => lcd_hsync_vga60,
                lcd_vsync => lcd_vsync_vga60,
                lcd_inframe => lcd_inframe_vga60,
+               narrow_inframe => narrow_inframe_vga60,
                lcd_inletterbox => lcd_inletterbox_vga60,
 
                -- 80MHz facing signals for VIC-IV
@@ -325,6 +340,9 @@ begin
   lcd_inframe <= lcd_inframe_pal50 when pal50_select_internal='1' else
                  lcd_inframe_vga60 when vga60_select_internal='1'
                  else lcd_inframe_ntsc60;
+  narrow_inframe <= narrow_inframe_pal50 when pal50_select_internal='1' else
+                 narrow_inframe_vga60 when vga60_select_internal='1'
+                 else narrow_inframe_ntsc60;
   lcd_inletterbox <= lcd_inletterbox_pal50 when pal50_select_internal='1' else
                      lcd_inletterbox_vga60 when vga60_select_internal='1'
                      else lcd_inletterbox_ntsc60;
@@ -413,6 +431,20 @@ begin
         red_o <= red_i;
         green_o <= green_i;
         blue_o <= blue_i;
+      end if;
+
+      if plotting='0' or inframe_internal='0' or narrow_inframe='0' then        
+        red_no <= x"00";
+        green_no <= x"00";
+        blue_no <= x"00";
+      elsif test_pattern_enable120='1' then
+        red_no <= to_unsigned(raddr50,8);
+        green_no <= to_unsigned(raddr60,8);
+        blue_no <= to_unsigned(raddrvga60,8);
+      else
+        red_no <= red_i;
+        green_no <= green_i;
+        blue_no <= blue_i;
       end if;
       
       if x_zero_pal50='1' then

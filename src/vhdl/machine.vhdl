@@ -114,6 +114,11 @@ entity machine is
          vgared : out  UNSIGNED (7 downto 0);
          vgagreen : out  UNSIGNED (7 downto 0);
          vgablue : out  UNSIGNED (7 downto 0);
+
+         panelred : out  UNSIGNED (7 downto 0);
+         panelgreen : out  UNSIGNED (7 downto 0);
+         panelblue : out  UNSIGNED (7 downto 0);
+
          hdmi_scl : inout std_logic := '1';
          hdmi_sda : inout std_logic := 'Z';
 
@@ -1044,9 +1049,14 @@ begin
 
       -- The pixel for direct output to VGA pins
       -- It is clocked at the correct pixel
-      red_o => vgared,
-      green_o => vgagreen,
-      blue_o => vgablue,      
+      red_no => vgared,
+      green_no => vgagreen,
+      blue_no => vgablue,      
+
+      red_o => panelred,
+      green_o => panelgreen,
+      blue_o => panelblue,
+               
       hsync => hsync,
       vsync => vsync,
 

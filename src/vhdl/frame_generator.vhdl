@@ -26,6 +26,7 @@ entity frame_generator is
   generic (
     frame_width : integer := 960;
     display_width : integer := 800;
+    narrow_width : integer := 720;
     pipeline_delay : integer := 0;
     frame_height : integer := 625;
     lcd_height : integer := 480;
@@ -60,6 +61,10 @@ entity frame_generator is
     lcd_inframe : out std_logic := '0';
     lcd_inletterbox : out std_logic := '0';
 
+    -- For video outputs that are narrower.
+    -- Typically anything other than the LCD panel of the MEGAphone 
+    narrow_inframe : out std_logic := '0';
+    
     red_o : out unsigned(7 downto 0) := x"00";
     green_o : out unsigned(7 downto 0) := x"00";
     blue_o : out unsigned(7 downto 0) := x"00";
@@ -190,6 +195,12 @@ begin
         if x = (1 + pipeline_delay) and lcd_inletterbox_internal = '1' then
           lcd_inframe <= '1';
           report "lcd_inframe=1 at x = " & integer'image(x);
+        end if;
+        if x = (1 + pipeline_delay + (display_width-narrow_width)/2) and lcd_inletterbox_internal = '1' then
+          narrow_inframe <= '1';
+        end if;
+        if x = (1 + pipeline_delay + display_width - (display_width-narrow_width)/2) then
+          narrow_inframe <= '0';
         end if;
         if x = (1 + pipeline_delay + display_width) then
           report "lcd_inframe=0 at x = " & integer'image(x);
