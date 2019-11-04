@@ -35,6 +35,7 @@ entity frame_generator is
     vsync_end : integer := 606;
     hsync_start : integer := 814;
     hsync_end : integer := 880;
+    viciv_pipeline_depth : integer := 18;
     cycles_per_raster : integer := 63
     );
   port (
@@ -196,10 +197,10 @@ begin
           lcd_inframe <= '1';
           report "lcd_inframe=1 at x = " & integer'image(x);
         end if;
-        if x = (1 + pipeline_delay + (display_width-narrow_width)/2) and lcd_inletterbox_internal = '1' then
+        if x = (1 + pipeline_delay + (display_width-narrow_width)/2 + viciv_pipeline_depth) and lcd_inletterbox_internal = '1' then
           narrow_inframe <= '1';
         end if;
-        if x = (1 + pipeline_delay + display_width - (display_width-narrow_width)/2) then
+        if x = (1 + pipeline_delay + display_width - (display_width-narrow_width)/2 + viciv_pipeline_depth) then
           narrow_inframe <= '0';
         end if;
         if x = (1 + pipeline_delay + display_width) then
