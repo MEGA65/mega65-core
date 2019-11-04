@@ -295,7 +295,7 @@ begin
       temp => fpga_temperature);
 
   widget0: entity work.widget_to_matrix port map(
-    ioclock => cpuclock,
+    ioclock => pixelclock,
 
     pmod_clock => jblo(1),
     pmod_start_of_sequence => jblo(2),
