@@ -2677,7 +2677,7 @@ begin
               vicii_max_raster <= pal_max_raster;
               -- Set 30MHz pixel clock for PAL
               -- VSYNC is negative for 50Hz (required for some monitors)
-              hsync_polarity_internal <= '0';
+              hsync_polarity_internal <= '1';
               vsync_polarity_internal <= '0';
 
 --              sprite_first_x <= to_unsigned(1+80+1-(24-3)*(120/60),14);
@@ -2687,7 +2687,7 @@ begin
               vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
               vicii_max_raster <= ntsc_max_raster;
               -- Set 30MHz pixel clock for PAL
-              hsync_polarity_internal <= '0';
+              hsync_polarity_internal <= '1';
               vsync_polarity_internal <= '0';
               
 --              sprite_first_x <= to_unsigned(1+80+1-(24-3)*(120/60),14);
@@ -2696,7 +2696,7 @@ begin
               vsync_delay <= to_unsigned(0,8);
               vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
               vicii_max_raster <= ntsc_max_raster;
-              hsync_polarity_internal <= '0';
+              hsync_polarity_internal <= '1';
               vsync_polarity_internal <= '0';
               -- Set 40MHz pixel clock for NTSC
 
@@ -2707,7 +2707,7 @@ begin
               vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
               -- NTSC but with PAL max raster
               vicii_max_raster <= pal_max_raster;
-              hsync_polarity_internal <= '0';
+              hsync_polarity_internal <= '1';
               vsync_polarity_internal <= '0';
               
               -- Set 40MHz pixel clock for NTSC
@@ -2716,7 +2716,7 @@ begin
             when others => -- Default to NTSC 800x600 60Hz
               vsync_delay <= to_unsigned(0,8);
               vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
-              hsync_polarity_internal <= '0';
+              hsync_polarity_internal <= '1';
               vsync_polarity_internal <= '0';
 
               -- Set 40MHz pixel clock for NTSC
