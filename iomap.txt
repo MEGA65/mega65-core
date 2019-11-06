@@ -374,8 +374,8 @@ GS $D60D.2 UARTMISC:SDDATA SD card MOSI/MISO
 GS $D60D.3 UARTMISC:SDCLK SD card SCLK
 GS $D60D.4 UARTMISC:SDCS SD card CS_BO
 GS $D60D.5 UARTMISC:SDBSH Enable SD card bitbash mode
-GS $D60D.6 UARTMISC:HDSPI HDMI SPI control interface SDA data line 
-GS $D60D.7 UARTMISC:HDSCL HDMI SPI control interface SCL clock 
+GS $D60D.6 UARTMISC:HDSDA HDMI I2C control interface SDA data line 
+GS $D60D.7 UARTMISC:HDSCL HDMI I2C control interface SCL clock 
 GS $D60D Bit bashing port
 GS $D60E UARTMISC:BASHDDR Data Direction Register (DDR) for \$D60D bit bashing port.
 GS $D60F.0 UARTMISC:KEYLEFT Directly read C65 Cursor left key

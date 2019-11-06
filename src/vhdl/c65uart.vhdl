@@ -525,8 +525,8 @@ begin  -- behavioural
           fastio_rdata(7 downto 0) <= unsigned(reg_portf_ddr);
         when x"0d" =>
           -- @IO:GS $D60D Bit bashing port
-          -- @IO:GS $D60D.7 UARTMISC:HDSCL HDMI SPI control interface SCL clock 
-          -- @IO:GS $D60D.6 UARTMISC:HDSPI HDMI SPI control interface SDA data line 
+          -- @IO:GS $D60D.7 UARTMISC:HDSCL HDMI I2C control interface SCL clock 
+          -- @IO:GS $D60D.6 UARTMISC:HDSDA HDMI I2C control interface SDA data line 
           -- @IO:GS $D60D.5 UARTMISC:SDBSH Enable SD card bitbash mode
           -- @IO:GS $D60D.4 UARTMISC:SDCS SD card CS_BO
           -- @IO:GS $D60D.3 UARTMISC:SDCLK SD card SCLK

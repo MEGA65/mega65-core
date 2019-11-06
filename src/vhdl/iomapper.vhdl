@@ -700,14 +700,12 @@ begin
       porte(1) => keyboard_column8_select,
       porte(0) => capslock_from_keymapper,
       -- Port G is M65 only, and has bit-bash interfaces
-      portg(7) => hdmi_sda,
-      portg(6) => hdmi_scl,
+      portg(7) => hdmi_scl,
+      portg(6) => hdmi_sda,
       portg(5) => sd_bitbash,
       portg(4) => sd_bitbash_cs_bo,
       portg(3) => sd_bitbash_sclk_o,
       portg(2) => sd_bitbash_mosi_o,
---      portg(0) => sd_interface_select,
---      portg(1 downto 0) => keyboard_scan_mode,
       -- @IO:GS $D60D.1 - Internal 1541 drive reset
       -- @IO:GS $D60D.0 - Internal 1541 drive connect (1= use internal 1541 instead of IEC drive connector)                        
       portg(1) => drive_reset,
