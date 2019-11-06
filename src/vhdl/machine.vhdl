@@ -119,8 +119,8 @@ entity machine is
          panelgreen : out  UNSIGNED (7 downto 0);
          panelblue : out  UNSIGNED (7 downto 0);
 
-         hdmi_scl : inout std_logic := '1';
-         hdmi_sda : inout std_logic := 'Z';
+         hdmi_scl : inout std_logic;
+         hdmi_sda : inout std_logic;
 
          -------------------------------------------------------------------------
          -- CIA1 ports for keyboard and joysticks
