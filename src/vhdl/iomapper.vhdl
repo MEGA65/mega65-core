@@ -187,8 +187,8 @@ entity iomapper is
 
         pmoda : inout std_logic_vector(7 downto 0);
 
-        hdmi_scl : inout std_logic := '1';
-        hdmi_sda : inout std_logic := 'Z';
+        hdmi_scl : inout std_logic;
+        hdmi_sda : inout std_logic;
 
         uart_rx : inout std_logic := 'H';
         uart_tx : out std_logic;
