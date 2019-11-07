@@ -9,8 +9,8 @@
 	; $D60E bit 6 = DDR SCL
 	; $D60D bit 7 = SDA
 	; $D60D bit 6 = SCL
-	 .alias data_bit  128
-	 .alias clock_bit 64
+	 .alias data_bit  64
+	 .alias clock_bit 128
 
 	 .scope
 	 .word _next, 10                       ; Next line and current line number
@@ -42,6 +42,21 @@ programentrypoint:
 	jsr $ffd2
 	lda #$0e
 	jsr $ffd2
+
+	jmp finite
+
+	lda $d60e
+	and #$bf
+	ora #$40
+	sta $d60e
+@infinity:
+	inc $0400
+	lda $d60d
+	eor #$40
+	sta $d60d
+	jmp @infinity
+
+finite:
 
 	jsr i2cstop
 
@@ -76,7 +91,7 @@ programentrypoint:
 	inx
 	phx
 	tax
-	lda #$72
+	lda #$7A
 	jsr writeregister
 	plx
 	jmp @setup_next_reg
@@ -90,9 +105,9 @@ programentrypoint:
 
 nextaddr:
 	; Read out registers of device $70 = packet memory map
-	; $72 = normal registers (change by setting normal register $45)
+	; $7A = normal registers (change by setting normal register $45)
 	; $7E = EDID ( change by setting normal register $43)
-	lda #$72
+	lda #$7a
 	ldy regnum
 	jsr readregister
 	pha
