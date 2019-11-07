@@ -145,7 +145,7 @@ set_property -dict {PACKAGE_PIN W12 IOSTANDARD LVCMOS33} [get_ports hsync]
 set_property -dict {PACKAGE_PIN V14 IOSTANDARD LVCMOS33} [get_ports vsync]
 
 # HDMI output
-set_property -dict {PACKAGE_PIN Y2 IOSTANDARD LVCMOS33} [get_ports hdmi_scl]
+set_property -dict {PACKAGE_PIN T3 IOSTANDARD LVCMOS33} [get_ports hdmi_scl]
 set_property -dict {PACKAGE_PIN U7 IOSTANDARD LVCMOS33} [get_ports hdmi_sda]
 set_property -dict {PACKAGE_PIN Y9 IOSTANDARD LVCMOS33} [get_ports hdmi_int]
 
