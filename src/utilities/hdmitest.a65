@@ -43,21 +43,6 @@ programentrypoint:
 	lda #$0e
 	jsr $ffd2
 
-	jmp finite
-
-	lda $d60e
-	and #$bf
-	ora #$40
-	sta $d60e
-@infinity:
-	inc $0400
-	lda $d60d
-	eor #$40
-	sta $d60d
-	jmp @infinity
-
-finite:
-
 	jsr i2cstop
 
 	; Enable replacing SPD memory
@@ -104,26 +89,44 @@ finite:
 	sta regnum
 
 nextaddr:
+
 	; Read out registers of device $70 = packet memory map
 	; $7A = normal registers (change by setting normal register $45)
 	; $7E = EDID ( change by setting normal register $43)
-	lda #$7a
+	lda #$7A
 	ldy regnum
 	jsr readregister
 	pha
 	lda regnum
-	and #$0f
-	bne @printcomma
-	lda #$0d
-	jmp @printnewline
-@printcomma:
-	lda #$2c
-@printnewline:
+	and #$03
+	bne @noprintspace
+	lda #$20
 	jsr $ffd2
+@noprintspace:
+
+	; erase previous value on screen
+	lda #$20
+	jsr $ffd2
+	lda #$20
+	jsr $ffd2
+	lda #$9d
+	jsr $ffd2
+	lda #$9d
+	jsr $ffd2
+
 	plx
-	lda #$00
-	tay
-	jsr $bdcd
+;	lda #$00
+;	tay
+;	jsr $bdcd
+	jsr hexout
+
+	lda regnum
+	and #$0f
+	cmp #$0f
+	bne @noprintnewline
+	lda #$0d
+	jsr $ffd2
+@noprintnewline:
 
 	lda txackresult
 	cmp #$70
@@ -137,8 +140,37 @@ readok:
 	bne nextaddr
 
 endloop:
+	inc $0427
+
+	lda #$13
+	jsr $ffd2
+	jmp @done_setup	
+
 	inc $d020
 	jmp endloop
+
+hexout:
+	; X = char to display
+	txa
+	lsr
+	lsr
+	lsr
+	lsr
+	jsr hexdigitout
+	txa
+	and #$0f
+	jsr hexdigitout
+	rts
+hexdigitout:
+	cmp #$a
+	bcs @atof
+	ora #$30
+	jmp $ffd2
+@atof:
+	sec
+	sbc #9
+	ora #$40
+	jmp $ffd2
 
 regnum: .byte 0
 
@@ -148,12 +180,15 @@ spd_string:
 	.byte $01 ; No idea why this value here
 	.byte 25  ; Length of frame???
 	.byte "@M.E.G.A.",0
+	.byte 0
 	.byte "MEGA65 Computer",0
 	.byte 0,0,0,0,0,0,0,0,0,0,0 ; Make sure we have at least 32 bytes, the 32nd of which must be $00
 
 hdmi_register_setup_table:
 	; Table of registers and values to setup
 	; Taken from Section 3 - Quick Setup Guide for the 7511 HDMI transceiver
+	; https://www.analog.com/media/en/technical-documentation/user-guides/ADV7511_Programming_Guide.pdf	
+        ; See also: http://dtsheet.com/doc/2013050/hdmi-enabled-designs-using-the-adv7511-pdf
 
 	; Power up the TX
 	.byte $41,$00 ; power up (section 4.8)
