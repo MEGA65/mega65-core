@@ -12,6 +12,8 @@
 	 .alias data_bit  64
 	 .alias clock_bit 128
 
+	 .alias addr_7511 $7A
+
 	 .scope
 	 .word _next, 10                       ; Next line and current line number
 	 .byte $97, "2,0:", $9e, " 2014", $AA, "65",0      ; POKE 2,0 : SYS 2014+65
@@ -46,10 +48,17 @@ programentrypoint:
 	jsr i2cstop
 
 	; Enable replacing SPD memory
-	lda #$70
+	lda #addr_7511
 	ldy #$1f
 	ldx #$80
 	jsr writeregister
+
+	; Enable replacing and reading SPD memory
+	lda #addr_7511
+	ldy #$44
+	ldx #$78
+	jsr writeregister
+
 
 	; Set HDMI Source Product Description string to "M.E.G.A. 65 Computer"
 	ldy #$00
@@ -76,12 +85,28 @@ programentrypoint:
 	inx
 	phx
 	tax
-	lda #$7A
+	lda #addr_7511
 	jsr writeregister
 	plx
 	jmp @setup_next_reg
 
 @done_setup:
+
+
+	; Force power up
+	lda #addr_7511
+	ldy #$41
+	ldx #$ff
+	jsr writeregister
+
+	; make packet memory readable
+	
+	; Enable replacing and reading SPD memory
+	lda #addr_7511
+	ldy #$44
+	ldx #$78
+	jsr writeregister
+
 
 	; Dump values of all registers
 	
@@ -93,7 +118,7 @@ nextaddr:
 	; Read out registers of device $70 = packet memory map
 	; $7A = normal registers (change by setting normal register $45)
 	; $7E = EDID ( change by setting normal register $43)
-	lda #$7A
+	lda #addr_7511
 	ldy regnum
 	jsr readregister
 	pha
@@ -254,8 +279,11 @@ writeregister:
 	; Send register number
 	tya
 	jsr i2ctxbyte
+	; Send register value to write
 	pla
 	jsr i2ctxbyte
+	; End of register write
+	jsr i2cstop
 	rts	
 
 ; Read a register on the I2C bus
@@ -291,9 +319,6 @@ readregister:
 ; Receive a byte on the I2C bus
 ;   Y = (N)ACK bit to send
 i2crxbyte:
-
-;	lda #$72
-;	jsr $ffd2
 
 	jsr sdahigh
 	ldx #$00
