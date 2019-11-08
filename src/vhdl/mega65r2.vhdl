@@ -134,6 +134,10 @@ entity container is
          hdmi_scl : inout std_logic;
          hdmi_sda : inout std_logic;
          hdmi_de : out std_logic; -- high when valid pixels being output
+
+         hpd_a : inout std_logic;
+         ct_hpd : out std_logic := '1';
+         ls_oe : out std_logic := '1';
          -- (i.e., when hsync, vsync both low?)
          
          
@@ -494,7 +498,8 @@ begin
       vgagreen        => v_green,
       vgablue         => v_blue,
       hdmi_sda        => hdmi_sda,
-      hdmi_scl        => hdmi_scl,      
+      hdmi_scl        => hdmi_scl,
+      hpd_a           => hpd_a,
       
       ----------------------------------------------------------------------
       -- CBM floppy  std_logic_vectorerial port
