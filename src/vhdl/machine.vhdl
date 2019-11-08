@@ -121,6 +121,7 @@ entity machine is
 
          hdmi_scl : inout std_logic;
          hdmi_sda : inout std_logic;
+         hpd_a : inout std_logic;
 
          -------------------------------------------------------------------------
          -- CIA1 ports for keyboard and joysticks
@@ -1509,7 +1510,8 @@ begin
       widget_joyb => widget_joyb,     
       
       hdmi_sda => hdmi_sda,
-      hdmi_scl => hdmi_scl,    
+      hdmi_scl => hdmi_scl,
+      hpd_a => hpd_a,
 
       uart_rx => uart_rx,
       uart_tx => uart_tx,

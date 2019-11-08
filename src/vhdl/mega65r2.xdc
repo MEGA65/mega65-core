@@ -155,11 +155,12 @@ set_property -dict {PACKAGE_PIN A16 IOSTANDARD LVCMOS33} [get_ports fpga_sda]
 
 #set_property -dict {PACKAGE_PIN AB7 IOSTANDARD LVCMOS33} [get_ports scl_a]
 #set_property -dict {PACKAGE_PIN V9 IOSTANDARD LVCMOS33} [get_ports sda_a]
-#set_property -dict {PACKAGE_PIN Y8 IOSTANDARD LVCMOS33} [get_ports hpd_a]
 #set_property -dict {PACKAGE_PIN W9 IOSTANDARD LVCMOS33} [get_ports cec_a]
+set_property -dict {PACKAGE_PIN Y8 IOSTANDARD LVCMOS33} [get_ports hpd_a]
+set_property -dict {PACKAGE_PIN M15 IOSTANDARD LVCMOS33} [get_ports ct_hpd]
+set_property -dict {PACKAGE_PIN AB6 IOSTANDARD LVCMOS33} [get_ports ls_oe]
 
 # Other things I don't yet know
-set_property -dict {PACKAGE_PIN AB6 IOSTANDARD LVCMOS33} [get_ports ls_oe]
 
 # FPGA JTAG interface
 #set_property -dict {PACKAGE_PIN R13 IOSTANDARD LVCMOS33} [get_ports fpga_tdi]

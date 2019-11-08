@@ -189,6 +189,7 @@ entity iomapper is
 
         hdmi_scl : inout std_logic;
         hdmi_sda : inout std_logic;
+        hpd_a : inout std_logic;
 
         uart_rx : inout std_logic := 'H';
         uart_tx : out std_logic;
@@ -429,7 +430,7 @@ architecture behavioral of iomapper is
   signal ascii_key_buffer_count : integer range 0 to 3 := 0;
   signal ascii_key_next : std_logic := '0';
 
-  signal sd_bitbash : std_logic;
+  signal sd_bitbash : std_logic := '0';
   signal sd_interface_select : std_logic := '0';
   signal sd_bitbash_cs_bo : std_logic;
   signal sd_bitbash_sclk_o : std_logic;
@@ -702,7 +703,7 @@ begin
       -- Port G is M65 only, and has bit-bash interfaces
       portg(7) => hdmi_scl,
       portg(6) => hdmi_sda,
-      portg(5) => sd_bitbash,
+      portg(5) => hpd_a,
       portg(4) => sd_bitbash_cs_bo,
       portg(3) => sd_bitbash_sclk_o,
       portg(2) => sd_bitbash_mosi_o,
