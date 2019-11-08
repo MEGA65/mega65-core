@@ -108,7 +108,7 @@ entity container is
          ----------------------------------------------------------------------
          jalo : inout std_logic_vector(4 downto 1) := (others => 'Z');
          jahi : inout std_logic_vector(10 downto 7) := (others => 'Z');
-         jblo : inout std_logic_vector(4 downto 1) := (others => 'Z');
+         jblo : in std_logic_vector(4 downto 1) := (others => 'Z');
          jbhi : inout std_logic_vector(10 downto 7) := (others => 'Z');
          jclo : inout std_logic_vector(4 downto 1) := (others => 'Z');
          jchi : inout std_logic_vector(10 downto 7) := (others => 'Z');
@@ -295,7 +295,7 @@ begin
       temp => fpga_temperature);
 
   widget0: entity work.widget_to_matrix port map(
-    ioclock => cpuclock,
+    ioclock => pixelclock,
 
     pmod_clock => jblo(1),
     pmod_start_of_sequence => jblo(2),

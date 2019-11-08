@@ -131,10 +131,11 @@ architecture behavioural of keymapper is
   signal portb_value_scan : std_logic_vector(7 downto 0);
   signal porta_value_scan : std_logic_vector(7 downto 0);
   
-  -- These hold the last complete scanned values
-  signal portb_value : std_logic_vector(7 downto 0);
-  signal porta_value : std_logic_vector(7 downto 0);
-
+  -- Re-assemble the keyboard matrix, and de-glitch it.
+  signal matrix0 : std_logic_vector(71 downto 0);
+  signal matrix1 : std_logic_vector(71 downto 0);
+  signal matrix : std_logic_vector(71 downto 0);
+  
     component kb_matrix_ram is
     port (ClkA : in std_logic;
           addressa : in integer range 0 to 8;
@@ -180,6 +181,8 @@ begin  -- behavioural
   end process;
   
   keyread: process (ioclock)
+    variable portb_value : std_logic_vector(7 downto 0);
+    variable porta_value : std_logic_vector(7 downto 0);
     variable scan_col_out : std_logic;
     variable n2 : integer;
   begin  -- process keyread
@@ -415,28 +418,70 @@ begin  -- behavioural
       
       scan_col_out := (scan_col(0) and scan_col(1) and scan_col(2) and scan_col(3) and
                        scan_col(4) and scan_col(5) and scan_col(6) and scan_col(7));
+
+      case scan_idx is
+        when 0 => matrix0(7 downto 0) <= scan_col;
+        when 1 => matrix0(15 downto 8) <= scan_col;
+        when 2 => matrix0(23 downto 16) <= scan_col;
+        when 3 => matrix0(31 downto 24) <= scan_col;
+        when 4 => matrix0(39 downto 32) <= scan_col;
+        when 5 => matrix0(47 downto 40) <= scan_col;
+        when 6 => matrix0(55 downto 48) <= scan_col;
+        when 7 => matrix0(63 downto 56) <= scan_col;
+        when 8 => matrix0(71 downto 64) <= scan_col;
+        when 9 =>
+          -- De-glitch matrix of read keys, to avoid
+          -- race-conditions from entering keys into the
+          -- distributed RAM and reading them out again
+          matrix1 <= matrix0;
+          if matrix1 = matrix0 then
+            matrix <= matrix0;
+          end if;
+        when others => null;
+      end case;
+
+      portb_value := x"FF";
+      for i in 0 to 7 loop
+        if porta_in(i)='0' then
+          for j in 0 to 7 loop
+            portb_value(j) := portb_value(j) and (matrix((i*8)+j) or matrix_mode_in);
+          end loop;  -- j
+        end if;        
+      end loop;
+      if keyboard_column8_select_in='0' then
+        for j in 0 to 7 loop
+          portb_value(j) := portb_value(j) and (matrix(64+j) or matrix_mode_in);
+        end loop;  -- j
+      end if;
+
+      -- We should also do it the otherway around as well
+
+      for i in 0 to 7 loop
+        if portb_in(i)='0' then
+          for j in 0 to 7 loop
+            porta_value(j) := porta_value(j) and (matrix((j*8)+i) or matrix_mode_in);
+            report "updating porta_value(" & integer'image(j)
+              & ") = " & std_logic'image(porta_value(j))
+              & " & ("
+              & std_logic'image(matrix((j*8)+i))
+              & " | "
+              & std_logic'image(matrix_mode_in)
+              & ")";
+          end loop;  -- j
+        else
+          -- keyboard not being scanned on this bit
+          porta_value := (others => '1');
+          report "porta_value = "
+            & to_string(porta_value) & " as not being keyboard scanned.";
+        end if;        
+      end loop;    
+      
       if scan_idx < 9 then
         -- each bit N of port b is the logical and of all bits across row N in columns where porta_in(N) is 0.
         -- each bit N of port a is the logical and of all bits across col N in rows where portb_in(N) is 0.
-        if scan_idx < 8 then
-          if porta_in(scan_idx)='0' then
-            portb_value_scan <= portb_value_scan and scan_col;
-          end if;
-          if portb_in(scan_idx)='0' then
-            porta_value_scan(scan_idx) <= porta_value_scan(scan_idx) and scan_col_out;
-          end if;
-        else
-          if keyboard_column8_select_in='0' then
-            portb_value_scan <= portb_value_scan and scan_col;
-          end if;
-        end if;
         scan_idx <= scan_idx + 1;
       else
         scan_idx <= 0;
-        porta_value <= porta_value_scan;
-        portb_value <= portb_value_scan;
-        porta_value_scan <= x"FF";
-        portb_value_scan <= x"FF";
       end if;
             
       -- Update physical pins to reflect what the CIA is asking for

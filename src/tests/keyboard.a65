@@ -1,0 +1,175 @@
+         .org $07ff
+
+	 ; load address
+	 .byte 1,8
+
+	 ; basic headder
+         .byte $4c,$16,$08,$00,$97,$32
+         .byte $2c,$30,$3a,$9e,$32,$30
+         .byte $37,$30,$00,$00,$00,$a9
+         .byte $01,$85,$02
+
+	 ; VIC-IV registers
+	 lda #$47
+	 sta $d02f
+	 lda #$53
+	 sta $d02f
+
+	 ; fast cpu
+	 lda #65
+	 sta 0
+
+	 ; disable bad line emulation
+	 lda #$00
+	 sta $d710
+
+	 ; Make chars different colours
+	 ldx #$27
+l3:
+	 lda #0
+	 sta $d800,x
+	 lda #1
+	 sta $d828,x
+	 lda #2
+	 sta $d850,x
+	 lda #3
+	 sta $d878,x
+	 lda #4
+	 sta $d8a0,x
+	 lda #5
+	 sta $d8c8,x
+	 lda #7
+	 sta $d8f0,x
+	 lda #8
+	 sta $d918,x
+	 dex
+	 bpl l3
+
+	 ; Disable IRQ so we don't get interference
+	 sei
+
+
+l2:
+	 ; Test whether the IO settle delay works or not
+	 lda #$80
+l2a:	 cmp $d012
+	 bne l2a
+
+	 ; make sure raster activity is visible
+	 ldx #7
+l2aa:    lda $1000
+	 dex
+	 bpl l2aa
+
+	 ldx #7
+	 ldy #6
+	 lda #$ff
+	 stx $d021
+	 sta $dc00
+	 sty $d021
+	 
+	 lda #$88
+l2b:	 cmp $d012
+	 bne l2b	 
+
+	 ; make sure raster activity is visible
+	 ldx #7
+l2ab:    lda $1000
+	 dex
+	 bpl l2ab
+
+	 ldx #1
+	 lda #2
+	 ldy #6
+	 stx $d021
+	 sta $d021
+	 sty $d021
+
+
+	 ; Show keyboard matrix bits
+	 lda #$ff-1
+	 sta $dc00
+	 ldx #$00
+l10:	 
+	 lda $dc01
+	 sta $0400,x
+	 inx
+	 cpx #$28
+	 bne l10
+
+	 lda #$ff-2
+	 sta $dc00
+	 ldx #$00
+l11:	 
+	 lda $dc01
+	 sta $0428,x
+	 inx
+	 cpx #$28
+	 bne l11
+
+	 lda #$ff-4
+	 sta $dc00
+	 ldx #$00
+l12:	 
+	 lda $dc01
+	 sta $0450,x
+	 inx
+	 cpx #$28
+	 bne l12
+
+	 lda #$ff-8
+	 sta $dc00
+	 ldx #$00
+l13:	 
+	 lda $dc01
+	 sta $0478,x
+	 inx
+	 cpx #$28
+	 bne l13
+
+	 lda #$ff-$10
+	 sta $dc00
+	 ldx #$00
+l14:	 
+	 lda $dc01
+	 sta $04a0,x
+	 inx
+	 cpx #$28
+	 bne l14
+
+	 lda #$ff-$20
+	 sta $dc00
+	 ldx #$00
+l15:	 
+	 lda $dc01
+	 sta $04c8,x
+	 inx
+	 cpx #$28
+	 bne l15
+
+	 lda #$ff-$40
+	 sta $dc00
+	 ldx #$00
+l16:	 
+	 lda $dc01
+	 sta $04f0,x
+	 inx
+	 cpx #$28
+	 bne l16
+
+	 lda #$ff-$80
+	 sta $dc00
+	 ldx #$00
+l17:	 
+	 lda $dc01
+	 sta $0518,x
+	 inx
+	 cpx #$28
+	 bne l17
+
+
+
+
+
+	 
+	 jmp l2	 

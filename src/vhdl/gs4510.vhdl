@@ -7360,7 +7360,10 @@ begin
               -- When we are at 50MHz, the M65's keyboard virtualiser can take up
               -- to 16 cycles to update the view.  So whenever we do something
               -- that might change that view, we enforce a brief pause of the CPU.
-              io_settle_trigger <= not io_settle_trigger;
+              -- XXX Should no longer be necessary, now that we reconstruct and
+              -- de-glitch the keyboard matrix in keymapper.vhdl
+--              io_settle_trigger <= not io_settle_trigger;
+              
             end if;
             
           end if;

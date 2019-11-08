@@ -30,7 +30,9 @@ architecture behavioural of widget_to_matrix is
 
   signal matrix_offset : integer range 0 to 255 := 252;
   signal last_pmod_clock : std_logic := '1';
-
+  signal pmod_clock_debounced : std_logic := '1';
+  signal pmod_clock_history : std_logic_vector(3 downto 0);
+  
   signal matrix_ram_offset : integer range 0 to 15 := 0;
   signal keyram_wea : std_logic_vector(7 downto 0);
   signal keyram_dia : std_logic_vector(7 downto 0);
@@ -65,7 +67,17 @@ begin  -- behavioural
       -- This interface has a clock, start-of-sequence signal and 4 data lines
       -- The data is pumped out in the correct order for us to just stash it
       -- into the matrix (or, at least it will when it is implemented ;)
-      last_pmod_clock <= pmod_clock;
+      pmod_clock_history(3 downto 1) <= pmod_clock_history(2 downto 0);
+      pmod_clock_history(0) <= pmod_clock;
+
+      if pmod_clock_history="1111" then
+        pmod_clock_debounced <= '1';
+      end if;
+      if pmod_clock_history="0000" then
+        pmod_clock_debounced <= '0';
+      end if;
+      
+      last_pmod_clock <= pmod_clock_debounced;
 
       -- Default is no write nothing at offset zero into the matrix ram.
       keyram_write_enable := x"00";
@@ -77,7 +89,7 @@ begin  -- behavioural
       if pmod_data_in = "1111" then
         enabled <= '1';
       end if;      
-      if pmod_clock='1' and last_pmod_clock='0' and enabled='1' then
+      if pmod_clock_debounced='1' and last_pmod_clock='0' and enabled='1' then
         -- Data available
         if pmod_start_of_sequence='1' then
           -- Write first four bits, and set offset for next time
