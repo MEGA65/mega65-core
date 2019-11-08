@@ -92,11 +92,10 @@ programentrypoint:
 
 @done_setup:
 
-
 	; Force power up
 	lda #addr_7511
-	ldy #$41
-	ldx #$ff
+	ldy #$9d
+	ldx #$61
 	jsr writeregister
 
 	; make packet memory readable
@@ -109,11 +108,35 @@ programentrypoint:
 
 
 	; Dump values of all registers
-	
+
+	jsr dump_main_regs
+	lda #$0d
+	jsr $ffd2
+	jsr dump_packet_mem
+	lda #$0d
+	jsr $ffd2
+	jsr dump_edid
+
+endloop:
+	inc $0427
+
+	jsr $ffe4
+	cmp #$20
+	bne endloop
+
+	lda #$13
+	jsr $ffd2
+	jmp @done_setup	
+
+	inc $d020
+	jmp endloop
+
+
+dump_main_regs:
 	lda #$00
 	sta regnum
 
-nextaddr:
+@nextaddr:
 
 	; Read out registers of device $70 = packet memory map
 	; $7A = normal registers (change by setting normal register $45)
@@ -155,24 +178,134 @@ nextaddr:
 
 	lda txackresult
 	cmp #$70
-	beq readok
+	beq @readok
 
 	; indicate error reading I2C bus?
 
-readok:
+@readok:
 	inc regnum
 	lda regnum
-	bne nextaddr
+	bne @nextaddr
 
-endloop:
-	inc $0427
+	rts
 
-	lda #$13
+dump_packet_mem:
+	lda #$00
+	sta regnum
+
+@nextaddr2:
+
+	; Read out registers of device $70 = packet memory map
+	; $7A = normal registers (change by setting normal register $45)
+	; $7E = EDID ( change by setting normal register $43)
+	lda #$70
+	ldy regnum
+	jsr readregister
+	pha
+	lda regnum
+	and #$03
+	bne @noprintspace2
+	lda #$20
 	jsr $ffd2
-	jmp @done_setup	
+@noprintspace2:
 
-	inc $d020
-	jmp endloop
+	; erase previous value on screen
+	lda #$20
+	jsr $ffd2
+	lda #$20
+	jsr $ffd2
+	lda #$9d
+	jsr $ffd2
+	lda #$9d
+	jsr $ffd2
+
+	plx
+;	lda #$00
+;	tay
+;	jsr $bdcd
+	jsr hexout
+
+	lda regnum
+	and #$0f
+	cmp #$0f
+	bne @noprintnewline2
+	lda #$0d
+	jsr $ffd2
+@noprintnewline2:
+
+	lda txackresult
+	cmp #$70
+	beq @readok2
+
+	; indicate error reading I2C bus?
+
+@readok2:
+	inc regnum
+	lda regnum
+	cmp #$40
+	bne @nextaddr2
+
+	rts
+
+
+dump_edid:
+	lda #$00
+	sta regnum
+
+@nextaddr3:
+
+	; Read out registers of device $70 = packet memory map
+	; $7A = normal registers (change by setting normal register $45)
+	; $7E = EDID ( change by setting normal register $43)
+	lda #$7E
+	ldy regnum
+	jsr readregister
+	pha
+	lda regnum
+	and #$03
+	bne @noprintspace3
+	lda #$20
+	jsr $ffd2
+@noprintspace3:
+
+	; erase previous value on screen
+	lda #$20
+	jsr $ffd2
+	lda #$20
+	jsr $ffd2
+	lda #$9d
+	jsr $ffd2
+	lda #$9d
+	jsr $ffd2
+
+	plx
+;	lda #$00
+;	tay
+;	jsr $bdcd
+	jsr hexout
+
+	lda regnum
+	and #$0f
+	cmp #$0f
+	bne @noprintnewline3
+	lda #$0d
+	jsr $ffd2
+@noprintnewline3:
+
+	lda txackresult
+	cmp #$70
+	beq @readok3
+
+	; indicate error reading I2C bus?
+
+@readok3:
+	inc regnum
+	lda regnum
+	cmp #$20
+	bne @nextaddr3
+
+	rts
+
 
 hexout:
 	; X = char to display
@@ -222,7 +355,7 @@ hdmi_register_setup_table:
 	.byte $98,$03 ; (section 4.2.9)
 	.byte $9A,$E0 ; (section 4.2.9)
 	.byte $9c,$30 ; (section 4.2.9)
-	.byte $9d,$01 ; (section 4.2.9) (but what about bits 2 - 7 ?)
+	.byte $9d,$61 ; (section 4.2.9) (but what about bits 2 - 7 ?)
 	.byte $A2,$A4 ; (section 4.2.9)
 	.byte $A3,$A4 ; (section 4.2.9)
 	.byte $E0,$D0 ; (section 4.2.9)
@@ -272,15 +405,21 @@ writeregister:
 	phx
 	pha
 	jsr i2cstart
+
 	; Send I2C address with read bit clear 
 	pla
 	and #$fe  ; clear read bit
+	sta $0428
 	jsr i2ctxbyte
+
 	; Send register number
 	tya
+	sta $0450
 	jsr i2ctxbyte
+
 	; Send register value to write
 	pla
+	sta $0478
 	jsr i2ctxbyte
 	; End of register write
 	jsr i2cstop
@@ -448,9 +587,6 @@ d1:	inx
 	bne d1
 	plx
 	
-;	lda #$2d
-;	jsr $ffd2
-
 	rts
 
 i2cstart:
