@@ -134,6 +134,7 @@ entity container is
          hdmi_scl : inout std_logic;
          hdmi_sda : inout std_logic;
          hdmi_de : out std_logic; -- high when valid pixels being output
+         hdmi_clk : out std_logic; 
 
          hpd_a : inout std_logic;
          ct_hpd : out std_logic := '1';
@@ -753,13 +754,11 @@ begin
       hdmiblue <= v_blue;
       -- pixels valid only when neither sync signal is asserted
       hdmi_de <= not (v_hsync or v_vsync);
+      hdmi_clk <= clock27;
+      
       -- no hdmi audio yet
       hdmi_spdif_out <= 'Z';
-      -- HDMI control interface
-      -- XXX We need to send some commands via I2C to configure the HDMI
-      -- interface, which we don't yet do, so HDMI output will not yet work.
---      hdmi_scl <= hdmi_scl;
---      hdmi_sda <= hdmi_sda;
+
     end if;
   end process;    
   
