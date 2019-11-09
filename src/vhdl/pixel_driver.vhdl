@@ -234,8 +234,8 @@ begin
                   hsync_start => 12,
                   hsync_end => 12+64,
 
-                  vga_hsync_start => 864-1-(64-12)-64,
-                  vga_hsync_end => 864-1-(64-12),                  
+                  vga_hsync_start => 864-1-(32)-64,
+                  vga_hsync_end => 864-1-(32),                  
                   
                   first_raster => 44,
                   last_raster => 620,
@@ -289,8 +289,8 @@ begin
                   hsync_start => 16,
                   hsync_end => 16+62,
 
-                  vga_hsync_start => 858-1-(64-16)-62,
-                  vga_hsync_end => 858-1-(64-16),
+                  vga_hsync_start => 858-1-(32)-62,
+                  vga_hsync_end => 858-1-(32),
                   
                   first_raster => 42,
                   last_raster => 522,
