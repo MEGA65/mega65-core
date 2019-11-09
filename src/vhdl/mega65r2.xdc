@@ -158,7 +158,7 @@ set_property -dict {PACKAGE_PIN A16 IOSTANDARD LVCMOS33} [get_ports fpga_sda]
 #set_property -dict {PACKAGE_PIN W9 IOSTANDARD LVCMOS33} [get_ports cec_a]
 set_property -dict {PACKAGE_PIN Y8 IOSTANDARD LVCMOS33} [get_ports hpd_a]
 set_property -dict {PACKAGE_PIN M15 IOSTANDARD LVCMOS33} [get_ports ct_hpd]
-set_property -dict {PACKAGE_PIN AB6 IOSTANDARD LVCMOS33} [get_ports ls_oe]
+set_property -dict {PACKAGE_PIN AB8 IOSTANDARD LVCMOS33} [get_ports ls_oe]
 
 # Other things I don't yet know
 
