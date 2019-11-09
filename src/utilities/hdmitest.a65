@@ -600,14 +600,16 @@ txbitsent:
 txackresult:	.byte 0
 
 delay10usec:
-	; 50MHz = 20ns cycles.
-	; 10usec = 500 CPU cycles
+	; 40MHz = 25ns cycles.
+	; 10usec = 400 CPU cycles
+	; (Turns out we don't need anything like that long for the I2C
+	; comms to work, so we have tuned the routine here.)
 	; This loop should be more than sufficient
-	phx
-	ldx #$ff
-d1:	inx
-	bne d1
-	plx
+;	phx
+;	ldx #$ff
+;d1:	inx
+;	bne d1
+;	plx
 	
 	rts
 
