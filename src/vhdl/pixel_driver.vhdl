@@ -190,8 +190,6 @@ architecture greco_roman of pixel_driver is
   
   signal y_zero_internal : std_logic := '0';
 
-  signal data_en80 : std_logic := '0';
-
   signal raddr : std_logic_vector(9 downto 0);
   signal waddr : std_logic_vector(9 downto 0);
 
@@ -434,15 +432,6 @@ begin
         report "x_zero = " & std_logic'image(x_zero_ntsc60)
           & ", y_zero = " & std_logic'image(y_zero_ntsc60);
       end if;       
-      
-      fullwidth_dataenable <= data_en80;
-      if pal50_select_internal = '1' then
-        data_en80 <= fullwidth_dataenable_pal50;
-      elsif vga60_select_internal='1' then
-        data_en80 <= fullwidth_dataenable_vga60;
-      else
-        data_en80 <= fullwidth_dataenable_ntsc60;
-      end if;
       
     end if;        
 
