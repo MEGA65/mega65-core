@@ -78,7 +78,7 @@ programentrypoint:
 @setup_next_reg:
 	lda hdmi_register_setup_table,x
 	cmp #$FF
-	beq  @done_setup
+	beq  @done_setup_regs
 	tay
 	inx
 	lda hdmi_register_setup_table,x
@@ -89,6 +89,22 @@ programentrypoint:
 	jsr writeregister
 	plx
 	jmp @setup_next_reg
+
+@done_setup_regs:
+
+	; Now make the packet mem etc visible to HDMI side, so we can get
+	; HDMI target name showing on HDMI receiver
+	; Resume SPD packet update
+	lda #addr_7511
+	ldy #$1f
+	ldx #$00
+	jsr writeregister
+
+	; Disable replacing and reading SPD memory from I2C, so HDMI can read it
+	lda #addr_7511
+	ldy #$44
+	ldx #$79
+	jsr writeregister
 
 @done_setup:
 
@@ -655,8 +671,6 @@ sdalow:
 	tsb $d60e
 	trb $d60d
 
-;	lda #$44
-;	jsr $ffd2
 	rts
 
 sdaread:
