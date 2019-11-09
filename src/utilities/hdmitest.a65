@@ -48,6 +48,7 @@ programentrypoint:
 	lda #$0e
 	jsr $ffd2
 
+	jmp @main_loop
 
 @setup7511:
 
@@ -142,6 +143,28 @@ programentrypoint:
 	jsr $ffe4
 	cmp #$20
 	beq @setup7511
+	cmp #$4d
+	bne @notmute
+
+	; enable colour space conversion
+	lda #addr_7511
+	ldy #$18
+	ldx #$80
+	jsr writeregister
+	jmp @main_loop
+
+@notmute:
+	cmp #$4e
+	bne @notunmute
+
+	; disable colour space conversion
+	lda #addr_7511
+	ldy #$18
+	ldx #$00
+	jsr writeregister
+	jmp @main_loop
+
+@notunmute:
 
 	lda #$13
 	jsr $ffd2
@@ -402,7 +425,7 @@ hdmi_register_setup_table:
 	.byte $F9,$00 ; (section 4.2.9)
 
 	; More registers, inferred from Mike Field's work with the 7511
-	.byte $55,$11 ; Enable Active Frame Information with TV signaling. PC signalling would be $12
+	.byte $55,$02 ; Enable Active Frame Information ($1x) with PC signaling ($x2). TV signalling would be $x1
 
 	.byte $56,$19 ; Centred 4:3 format
 	
