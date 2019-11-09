@@ -42,6 +42,9 @@ entity frame_generator is
     hsync_start : integer;
     hsync_end : integer;
 
+    vga_hsync_start : integer;
+    vga_hsync_end : integer;
+    
     first_raster : integer;
     last_raster : integer;
 
@@ -73,6 +76,7 @@ entity frame_generator is
 
     lcd_inletterbox : out std_logic := '0';
     vga_inletterbox : out std_logic := '0';
+    vga_hsync : out std_logic := '0';
     
     -- For video outputs that are wider
     -- (Typically the 800x480 LCD panel on the MEGAphone)
@@ -199,6 +203,7 @@ begin
           lcd_hsync <= '1';
         end if;
         -- HSYNC is negative by default
+        -- HDMI hsync
         if x = hsync_start then
           hsync_driver <= not hsync_polarity; 
           hsync_uninverted_driver <= '1'; 
@@ -207,6 +212,16 @@ begin
           hsync_driver <= hsync_polarity;
           hsync_uninverted_driver <= '0';
         end if;
+        -- Analog VGA HSYNC needs to be somewhat earlier, to allow
+        -- pseudo-flyback time
+        if x = vga_hsync_start then
+          vga_hsync <= '0';
+        end if;
+        if x = vga_hsync_end then
+          vga_hsync <= '1';
+        end if;
+
+        
         -- VSYNC is negative by default
         if y = vsync_start then
           lcd_vsync <= '0';

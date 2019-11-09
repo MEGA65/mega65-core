@@ -252,7 +252,8 @@ architecture Behavioral of container is
 
   signal pmoda_dummy :  std_logic_vector(7 downto 0) := (others => '1');
 
-  signal v_hsync : std_logic;
+  signal v_vga_hsync : std_logic;
+  signal v_hdmi_hsync : std_logic;
   signal v_vsync : std_logic;
   signal v_red : unsigned(7 downto 0);
   signal v_green : unsigned(7 downto 0);
@@ -494,7 +495,8 @@ begin
       no_hyppo => '0',
       
       vsync           => v_vsync,
-      hsync           => v_hsync,
+      vga_hsync           => v_vga_hsync,
+      hdmi_hsync           => v_hdmi_hsync,
       vgared          => v_red,
       vgagreen        => v_green,
       vgablue         => v_blue,
@@ -741,7 +743,7 @@ begin
     end if;
     
     if rising_edge(pixelclock) then
-      hsync <= v_hsync;
+      hsync <= v_vga_hsync;
       vsync <= v_vsync;
       vgared <= v_red;
       vgagreen <= v_green;
@@ -750,14 +752,14 @@ begin
     
     if rising_edge(pixelclock) then
 
-      hdmi_hsync <= v_hsync;
+      hdmi_hsync <= v_hdmi_hsync;
       hdmi_vsync <= v_vsync;
       hdmired <= v_red;
       hdmigreen <= v_green;
       hdmiblue <= v_blue;
       -- pixels valid only when neither sync signal is asserted
       -- As they are both negative, we can just and them
-      hdmi_de <= v_vsync and v_hsync;
+      hdmi_de <= v_vsync and v_hdmi_hsync;
       
       -- no hdmi audio yet
       hdmi_spdif_out <= 'Z';
