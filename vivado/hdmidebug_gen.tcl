@@ -100,6 +100,17 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/hdmidebug.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/kb_matrix_ram.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/mega65kbd_to_matrix.vhdl"]"\
+ "[file normalize "$origin_dir/zed_hdmi_720p/tb_colour_conversion.vhd"]"\
+ "[file normalize "$origin_dir/zed_hdmi_720p/clamp_channel.vhd"]"\
+ "[file normalize "$origin_dir/zed_hdmi_720p/tb_vga_hdmi.vhd"]"\
+ "[file normalize "$origin_dir/zed_hdmi_720p/i2c_sender.vhd"]"\
+ "[file normalize "$origin_dir/zed_hdmi_720p/hdmi_ddr_output.vhd"]"\
+ "[file normalize "$origin_dir/zed_hdmi_720p/clamper.vhd"]"\
+ "[file normalize "$origin_dir/zed_hdmi_720p/convert_444_422.vhd"]"\
+ "[file normalize "$origin_dir/zed_hdmi_720p/colour_space_conversion.vhd"]"\
+ "[file normalize "$origin_dir/zed_hdmi_720p/vga_hdmi.vhd"]"\
+ "[file normalize "$origin_dir/zed_hdmi_720p/zedboard_hdmi.vhd"]"\
+ "[file normalize "$origin_dir/zed_hdmi_720p/vga_generator.vhd"]"\
 ]
 set imported_files [add_files -fileset sources_1 $files]
 
@@ -108,7 +119,47 @@ set imported_files [add_files -fileset sources_1 $files]
 
 # Set 'sources_1' fileset file properties for local files
 
-set file "vhdl/debugtools.vhdl"
+set file "zed_hdmi_720p/tb_colour_conversion.vhd"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "zed_hdmi_720p/clamp_channel.vhd"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "zed_hdmi_720p/tb_vga_hdmi.vhd"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "zed_hdmi_720p/i2c_sender.vhd"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "zed_hdmi_720p/hdmi_ddr_output.vhd"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "zed_hdmi_720p/clamper.vhd"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "zed_hdmi_720p/convert_444_422.vhd"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "zed_hdmi_720p/colour_space_conversion.vhd"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "zed_hdmi_720p/vga_hdmi.vhd"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "zed_hdmi_720p/zedboard_hdmi.vhd"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "zed_hdmi_720p/vga_generator.vhd"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
