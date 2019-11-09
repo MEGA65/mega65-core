@@ -219,7 +219,7 @@ begin
   -- (This is the mode lines that the ADV7511 should want to see)
   frame50: entity work.frame_generator 
     generic map ( frame_width => 864,        
-                  frame_height => 624,        -- 312 lines x 2 fields
+                  frame_height => 625,        -- 312 lines x 2 fields
 
                   fullwidth_width => 720,
                   fullwidth_start => 12+64+68,
@@ -273,7 +273,7 @@ begin
   -- (This is the mode lines that the ADV7511 should want to see)
   frame60: entity work.frame_generator
     generic map ( frame_width => 858-1,   -- 65 cycles x 16 pixels
-                  frame_height => 525,       -- NTSC frame is 263 lines x 2 frames
+                  frame_height => 526,       -- NTSC frame is 263 lines x 2 frames
 
                   fullwidth_start => 16+62+60,
                   fullwidth_width => 720,
@@ -327,7 +327,7 @@ begin
   -- XXX - Actually just 720x480p 60Hz NTSC repeated for now.
   frame60vga: entity work.frame_generator
     generic map ( frame_width => 858-1,   -- 65 cycles x 16 pixels
-                  frame_height => 525,       -- NTSC frame is 263 lines x 2 frames
+                  frame_height => 526,       -- NTSC frame is 263 lines x 2 frames
 
                   fullwidth_start => 16+62+60,
                   fullwidth_width => 720,
