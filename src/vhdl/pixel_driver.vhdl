@@ -71,25 +71,22 @@ entity pixel_driver is
     y_zero : out std_logic;
     x_zero : out std_logic;
     inframe : out std_logic;
+    vga_inletterbox : out std_logic := '0';
 
-    xz50 : out std_logic;
-    xz60 : out std_logic;
-    p    : out std_logic;
-    ifi  : out std_logic;
-    ra60 : out integer;
-    
     -- Indicate when next pixel/raster is expected
     pixel_strobe_out : out std_logic;
+
+    fullwidth_dataenable : out std_logic := '1';
+    narrow_dataenable : out std_logic := '1';
     
     -- Similar signals to above for the LCD panel
     -- The main difference is that we only announce pixels during the 800x480
     -- letter box that the LCD can show.
     lcd_hsync : out std_logic := '0';
     lcd_vsync : out std_logic := '0';
-    lcd_display_enable : out std_logic := '1';
     lcd_pixel_strobe : out std_logic := '0';     -- in 30/40MHz clock domain to match pixels
-    lcd_inletterbox : out std_logic := '0';
-    lcd_inframe : out std_logic := '0'    
+    lcd_inletterbox : out std_logic := '0'
+
     );
 
 end pixel_driver;
@@ -97,8 +94,8 @@ end pixel_driver;
 architecture greco_roman of pixel_driver is
 
   signal raster_strobe : std_logic := '0';
-  signal inframe_internal : std_logic := '0';
-  signal narrow_inframe : std_logic := '0';
+  signal fullwidth_dataenable_internal : std_logic := '0';
+  signal narrow_dataenable_internal : std_logic := '0';
   
   signal pal50_select_internal : std_logic := '0';
   signal pal50_select_internal_drive : std_logic := '0';
@@ -143,21 +140,21 @@ architecture greco_roman of pixel_driver is
   signal x_zero_vga60 : std_logic := '0';
   signal y_zero_vga60 : std_logic := '0';
 
-  signal inframe_pal50 : std_logic := '0';
-  signal inframe_ntsc60 : std_logic := '0';
-  signal inframe_vga60 : std_logic := '0';
+  signal fullwidth_dataenable_pal50 : std_logic := '0';
+  signal fullwidth_dataenable_ntsc60 : std_logic := '0';
+  signal fullwidth_dataenable_vga60 : std_logic := '0';
 
-  signal lcd_inframe_pal50 : std_logic := '0';
-  signal lcd_inframe_ntsc60 : std_logic := '0';
-  signal lcd_inframe_vga60 : std_logic := '0';
-
-  signal narrow_inframe_pal50 : std_logic := '0';
-  signal narrow_inframe_ntsc60 : std_logic := '0';
-  signal narrow_inframe_vga60 : std_logic := '0';
+  signal narrow_dataenable_pal50 : std_logic := '0';
+  signal narrow_dataenable_ntsc60 : std_logic := '0';
+  signal narrow_dataenable_vga60 : std_logic := '0';
 
   signal lcd_inletterbox_pal50 : std_logic := '0';
   signal lcd_inletterbox_ntsc60 : std_logic := '0';
   signal lcd_inletterbox_vga60 : std_logic := '0';
+
+  signal vga_inletterbox_pal50 : std_logic := '0';
+  signal vga_inletterbox_ntsc60 : std_logic := '0';
+  signal vga_inletterbox_vga60 : std_logic := '0';
 
   signal lcd_pixel_clock_50 : std_logic := '0';
   signal lcd_pixel_clock_60 : std_logic := '0';
@@ -193,7 +190,7 @@ architecture greco_roman of pixel_driver is
   
   signal y_zero_internal : std_logic := '0';
 
-  signal display_en80 : std_logic := '0';
+  signal data_en80 : std_logic := '0';
 
   signal raddr : std_logic_vector(9 downto 0);
   signal waddr : std_logic_vector(9 downto 0);
@@ -214,17 +211,33 @@ begin
   -- C64 properly.
   -- They also use a common 27MHz pixel clock, which makes our life simpler
   
+  -- EDTV 720x576p 50Hz from:
+  -- http://read.pudn.com/downloads222/doc/1046129/CEA861D.pdf
+  -- (This is the mode lines that the ADV7511 should want to see)
   frame50: entity work.frame_generator 
-    generic map ( frame_width => 851,        
-                  display_width => 800,
-                  narrow_width => 720,
+    generic map ( frame_width => 864,        
                   frame_height => 624,        -- 312 lines x 2 fields
+
+                  fullwidth_width => 720,
+                  fullwidth_start => 12+64+68,
+
+                  narrow_width => 720,
+                  narrow_start => 12+64+68,
+
                   pipeline_delay => 0,
-                  display_height => 600,
-                  vsync_start => 581-6,
-                  vsync_end => 586-6,
-                  hsync_start => 851-77,
-                  hsync_end => 851-77+63
+
+                  vsync_start => 1,
+                  vsync_end => 6,
+                  hsync_start => 12,
+                  hsync_end => 12+64,
+
+                  first_raster => 44,
+                  last_raster => 620,
+
+                  -- Centre letterbox slice for LCD panel
+                  lcd_first_raster => 44+(576-480)/2,
+                  lcd_last_raster => 620-(576-480)/2
+                  
                   )                  
     port map ( clock81 => clock81,
                clock41 => cpuclock,
@@ -234,12 +247,12 @@ begin
                hsync_polarity => hsync_invert,
                vsync_polarity => vsync_invert,
                
-               inframe => inframe_pal50,
                lcd_hsync => lcd_hsync_pal50,
                lcd_vsync => lcd_vsync_pal50,
-               lcd_inframe => lcd_inframe_pal50,
-               narrow_inframe => narrow_inframe_pal50,
+               fullwidth_dataenable => fullwidth_dataenable_pal50,
+               narrow_dataenable => narrow_dataenable_pal50,
                lcd_inletterbox => lcd_inletterbox_pal50,
+               vga_inletterbox => vga_inletterbox_pal50,
 
                -- 80MHz facing signals for the VIC-IV
                x_zero => x_zero_pal50,
@@ -248,17 +261,32 @@ begin
 
                );
 
+  -- EDTV 720x480p 60Hz from:
+  -- http://read.pudn.com/downloads222/doc/1046129/CEA861D.pdf
+  -- (This is the mode lines that the ADV7511 should want to see)
   frame60: entity work.frame_generator
-    generic map ( frame_width => 878-1,   -- 65 cycles x 16 pixels
-                  display_width => 800,
+    generic map ( frame_width => 858-1,   -- 65 cycles x 16 pixels
+                  frame_height => 525,       -- NTSC frame is 263 lines x 2 frames
+
+                  fullwidth_start => 16+62+60,
+                  fullwidth_width => 720,
+
+                  narrow_start => 16+62+60,
                   narrow_width => 720,
-                  frame_height => 526,       -- NTSC frame is 263 lines x 2 frames
-                  display_height => 526-4,
+
                   pipeline_delay => 0,
-                  vsync_start => 489+10,
-                  vsync_end => 495+10,
-                  hsync_start => 878-62-45,
-                  hsync_end => 878-45
+                  
+                  vsync_start => 6,
+                  vsync_end => 6+6,
+
+                  hsync_start => 16,
+                  hsync_end => 16+62,
+
+                  first_raster => 42,
+                  last_raster => 522,
+
+                  lcd_first_raster => 42,
+                  lcd_last_raster => 522
                   )                  
     port map ( clock81 => clock81,
                clock41 => cpuclock,
@@ -268,12 +296,12 @@ begin
                hsync_polarity => hsync_invert,
                vsync_polarity => vsync_invert,
 
-               inframe => inframe_ntsc60,
                lcd_hsync => lcd_hsync_ntsc60,
                lcd_vsync => lcd_vsync_ntsc60,
-               lcd_inframe => lcd_inframe_ntsc60,
-               narrow_inframe => narrow_inframe_ntsc60,
+               fullwidth_dataenable => fullwidth_dataenable_ntsc60,
+               narrow_dataenable => narrow_dataenable_ntsc60,
                lcd_inletterbox => lcd_inletterbox_ntsc60,
+               vga_inletterbox => vga_inletterbox_ntsc60,
 
                -- 80MHz facing signals for VIC-IV
                x_zero => x_zero_ntsc60,
@@ -285,17 +313,30 @@ begin
   -- ModeLine "640x480" 25.18 640 656 752 800 480 490 492 525 -HSync -VSync
   -- Ends up being 64Hz, because our dotclock is ~27MHz.  Most monitors accept
   -- it, anyway.
+  -- XXX - Actually just 720x480p 60Hz NTSC repeated for now.
   frame60vga: entity work.frame_generator
-    generic map ( frame_width => 800-1,
-                  display_width => 640,
-                  narrow_width => 640,
-                  frame_height => 526,
-                  display_height => 526-4,
+    generic map ( frame_width => 858-1,   -- 65 cycles x 16 pixels
+                  frame_height => 525,       -- NTSC frame is 263 lines x 2 frames
+
+                  fullwidth_start => 16+62+60,
+                  fullwidth_width => 720,
+
+                  narrow_start => 16+62+60,
+                  narrow_width => 720,
+
                   pipeline_delay => 0,
-                  vsync_start => 489+5,
-                  vsync_end => 495+5,
-                  hsync_start => 790-64,
-                  hsync_end => 790
+                  
+                  vsync_start => 6,
+                  vsync_end => 6+6,
+
+                  hsync_start => 16,
+                  hsync_end => 16+62,
+
+                  first_raster => 42,
+                  last_raster => 522,
+
+                  lcd_first_raster => 42,
+                  lcd_last_raster => 522
                   )                  
     port map ( clock81 => clock81,
                clock41 => cpuclock,
@@ -305,12 +346,12 @@ begin
                hsync_polarity => hsync_invert,
                vsync_polarity => vsync_invert,
 
-               inframe => inframe_vga60,
                lcd_hsync => lcd_hsync_vga60,
                lcd_vsync => lcd_vsync_vga60,
-               lcd_inframe => lcd_inframe_vga60,
-               narrow_inframe => narrow_inframe_vga60,
+               fullwidth_dataenable => fullwidth_dataenable_vga60,
+               narrow_dataenable => narrow_dataenable_vga60,
                lcd_inletterbox => lcd_inletterbox_vga60,
+               vga_inletterbox => vga_inletterbox_vga60,
 
                -- 80MHz facing signals for VIC-IV
                x_zero => x_zero_vga60,
@@ -331,21 +372,26 @@ begin
   lcd_vsync <= lcd_vsync_pal50 when pal50_select_internal='1' else
                lcd_vsync_vga60 when vga60_select_internal='1'
                else lcd_vsync_ntsc60;
-  inframe <= inframe_pal50 when pal50_select_internal='1' else
-             inframe_vga60 when vga60_select_internal='1'
-             else inframe_ntsc60;
-  inframe_internal <= inframe_pal50 when pal50_select_internal='1' else
-                      inframe_vga60 when vga60_select_internal='1'
-                      else inframe_ntsc60;
-  lcd_inframe <= lcd_inframe_pal50 when pal50_select_internal='1' else
-                 lcd_inframe_vga60 when vga60_select_internal='1'
-                 else lcd_inframe_ntsc60;
-  narrow_inframe <= narrow_inframe_pal50 when pal50_select_internal='1' else
-                 narrow_inframe_vga60 when vga60_select_internal='1'
-                 else narrow_inframe_ntsc60;
+
+  fullwidth_dataenable <= fullwidth_dataenable_pal50 when pal50_select_internal='1' else
+                 fullwidth_dataenable_vga60 when vga60_select_internal='1'
+                 else fullwidth_dataenable_ntsc60;
+  fullwidth_dataenable_internal <= fullwidth_dataenable_pal50 when pal50_select_internal='1' else
+                 fullwidth_dataenable_vga60 when vga60_select_internal='1'
+                 else fullwidth_dataenable_ntsc60;
+  narrow_dataenable <= narrow_dataenable_pal50 when pal50_select_internal='1' else
+                 narrow_dataenable_vga60 when vga60_select_internal='1'
+                 else narrow_dataenable_ntsc60;
+  narrow_dataenable_internal <= narrow_dataenable_pal50 when pal50_select_internal='1' else
+                 narrow_dataenable_vga60 when vga60_select_internal='1'
+                 else narrow_dataenable_ntsc60;
+
   lcd_inletterbox <= lcd_inletterbox_pal50 when pal50_select_internal='1' else
                      lcd_inletterbox_vga60 when vga60_select_internal='1'
                      else lcd_inletterbox_ntsc60;
+  vga_inletterbox <= vga_inletterbox_pal50 when pal50_select_internal='1' else
+                     vga_inletterbox_vga60 when vga60_select_internal='1'
+                     else vga_inletterbox_ntsc60;
 
   raster_strobe <= x_zero_pal50 when pal50_select_internal='1' else
                    x_zero_vga60 when vga60_select_internal='1'
@@ -357,12 +403,6 @@ begin
             y_zero_vga60 when vga60_select_internal='1'
             else y_zero_ntsc60;
 
-  xz50 <= x_zero_pal50;
-  xz60 <= x_zero_vga60;
-  p <= plotting;
-  ifi <= inframe_internal;
-  ra60 <= raddrvga60;
-  
   y_zero_internal <= y_zero_pal50 when pal50_select_internal='1' else
                      y_zero_vga60 when vga60_select_internal='1'
                      else y_zero_ntsc60;
@@ -395,20 +435,20 @@ begin
           & ", y_zero = " & std_logic'image(y_zero_ntsc60);
       end if;       
       
-      lcd_display_enable <= display_en80;
+      fullwidth_dataenable <= data_en80;
       if pal50_select_internal = '1' then
-        display_en80 <= lcd_inframe_pal50;
+        data_en80 <= fullwidth_dataenable_pal50;
       elsif vga60_select_internal='1' then
-        display_en80 <= lcd_inframe_vga60;
+        data_en80 <= fullwidth_dataenable_vga60;
       else
-        display_en80 <= lcd_inframe_ntsc60;
+        data_en80 <= fullwidth_dataenable_ntsc60;
       end if;
       
     end if;        
 
     if rising_edge(clock27) then
       report "plotting = " & std_logic'image(plotting)
-        & ", inframe_internal = " & std_logic'image(inframe_internal);
+        & ", fullwidth_dataenable_internal = " & std_logic'image(fullwidth_dataenable_internal);
       
       pal50_select_internal_drive <= pal50_select;
       pal50_select_internal <= pal50_select_internal_drive;
@@ -419,7 +459,7 @@ begin
       test_pattern_enable120 <= test_pattern_enable;
       
       -- Output the pixels or else the test pattern
-      if plotting='0' or inframe_internal='0' then        
+      if plotting='0' or fullwidth_dataenable_internal='0' then        
         red_o <= x"00";
         green_o <= x"00";
         blue_o <= x"00";
@@ -433,7 +473,7 @@ begin
         blue_o <= blue_i;
       end if;
 
-      if plotting='0' or inframe_internal='0' or narrow_inframe='0' then        
+      if plotting='0' or narrow_dataenable_internal='0' then        
         red_no <= x"00";
         green_no <= x"00";
         blue_no <= x"00";

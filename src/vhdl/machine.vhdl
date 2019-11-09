@@ -108,7 +108,6 @@ entity machine is
          hsync : out  STD_LOGIC;
          lcd_hsync : out std_logic;
          lcd_vsync : out std_logic;
-         lcd_display_enable : out std_logic;
          pal50_select_out : out std_logic;
          
          vgared : out  UNSIGNED (7 downto 0);
@@ -118,6 +117,7 @@ entity machine is
          panelred : out  UNSIGNED (7 downto 0);
          panelgreen : out  UNSIGNED (7 downto 0);
          panelblue : out  UNSIGNED (7 downto 0);
+         lcd_dataenable : out std_logic;
 
          hdmi_scl : inout std_logic;
          hdmi_sda : inout std_logic;
@@ -591,10 +591,9 @@ architecture Behavioral of machine is
   signal matrix_fetch_address : unsigned(11 downto 0) := to_unsigned(0,12);
   signal matrix_rdata : unsigned(7 downto 0);
 
-  signal lcd_in_letterbox : std_logic := '0';
-  signal lcd_in_frame : std_logic := '0';
-  signal vga_in_frame : std_logic := '0';
-  signal lcd_display_enable_internal : std_logic := '0';
+  signal lcd_inletterbox : std_logic := '0';
+  signal vga_inletterbox : std_logic := '0';
+  signal lcd_dataenable_internal : std_logic := '0';
 
   signal pal50_select : std_logic := '0';
   signal vga60_select : std_logic := '0';
@@ -684,7 +683,7 @@ architecture Behavioral of machine is
   
 begin
 
-  lcd_display_enable <= lcd_display_enable_internal;
+  lcd_dataenable <= lcd_dataenable_internal;
   
   xcounter_viciv_u <= to_unsigned(xcounter_viciv,12);
   ycounter_viciv_u <= to_unsigned(ycounter_viciv,12);
@@ -1064,10 +1063,9 @@ begin
       -- And the variations on those signals for the LCD display
       lcd_hsync => lcd_hsync,
       lcd_vsync => lcd_vsync,
-      lcd_display_enable => lcd_display_enable_internal,
-      lcd_inletterbox => lcd_in_letterbox,
-      inframe => vga_in_frame,
-      lcd_inframe => lcd_in_frame
+      fullwidth_dataenable => lcd_dataenable_internal,
+      lcd_inletterbox => lcd_inletterbox,
+      vga_inletterbox => vga_inletterbox
 
       );
       
@@ -1092,13 +1090,13 @@ begin
       pal50_select => pal50_select,
       vga60_select => vga60_select,
       vsync_polarity => vsync_polarity,
-     hsync_polarity => hsync_polarity,
+      hsync_polarity => hsync_polarity,
 
       -- Framing information from pixel_driver
       external_pixel_strobe_in => external_pixel_strobe,
       external_frame_x_zero => external_frame_x_zero,
       external_frame_y_zero => external_frame_y_zero,
-      vga_in_frame => vga_in_frame,
+      vga_in_frame => vga_inletterbox,
 
       -- Pixels output for the video pipeline
       pixel_strobe_out => pixel_strobe_viciv,
@@ -1181,7 +1179,7 @@ begin
     ycounter_in => ycounter_viciv_u,
     xcounter_in => xcounter_viciv,
     
-    lcd_in_letterbox => lcd_in_letterbox,
+    lcd_in_letterbox => lcd_inletterbox,
     pixel_y_scale_200 => to_unsigned(2,4),
     pixel_y_scale_400 => to_unsigned(1,4),
     osk_ystart => osk_ystart,
@@ -1210,7 +1208,7 @@ begin
       -- Used as proxy for whether there we are in frame vs in border
       -- (visual keyboard is only for LCD display, so this makes sense
       -- here).
-      lcd_display_enable => lcd_display_enable_internal,
+      lcd_display_enable => lcd_dataenable_internal,
       
       -- Pixels from video pipeline
       pixel_strobe_in => pixel_strobe_viciv,
