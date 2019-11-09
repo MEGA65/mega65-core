@@ -753,7 +753,7 @@ begin
       hdmigreen <= v_green;
       hdmiblue <= v_blue;
       -- pixels valid only when neither sync signal is asserted
-      hdmi_de <= not (v_hsync or v_vsync);
+      hdmi_de <= '1';
       hdmi_clk <= clock27;
       
       -- no hdmi audio yet
