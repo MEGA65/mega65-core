@@ -648,6 +648,9 @@ begin
     -- VGA output at full pixel clock
     vdac_clk <= pixelclock;
 
+    -- HDMI output at 27MHz
+    hdmi_clk <= clock27;
+
     -- Ethernet clock at 50MHz
     eth_clock <= ethclock;
 
@@ -753,8 +756,8 @@ begin
       hdmigreen <= v_green;
       hdmiblue <= v_blue;
       -- pixels valid only when neither sync signal is asserted
-      hdmi_de <= '1';
-      hdmi_clk <= clock27;
+      -- As they are both negative, we can just and them
+      hdmi_de <= v_vsync and v_hsync;
       
       -- no hdmi audio yet
       hdmi_spdif_out <= 'Z';
