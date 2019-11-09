@@ -245,7 +245,6 @@ begin
                   -- Centre letterbox slice for LCD panel
                   lcd_first_raster => 1+(576-480)/2,
                   lcd_last_raster => 1+576-(576-480)/2
-                  
                   )                  
     port map ( clock81 => clock81,
                clock41 => cpuclock,
@@ -455,6 +454,15 @@ begin
         report "x_zero = " & std_logic'image(x_zero_ntsc60)
           & ", y_zero = " & std_logic'image(y_zero_ntsc60);
       end if;       
+      
+      fullwidth_dataenable <= data_en80;
+      if pal50_select_internal = '1' then
+        data_en80 <= fullwidth_dataenable_pal50;
+      elsif vga60_select_internal='1' then
+        data_en80 <= fullwidth_dataenable_vga60;
+      else
+        data_en80 <= fullwidth_dataenable_ntsc60;
+      end if;
       
     end if;        
 
