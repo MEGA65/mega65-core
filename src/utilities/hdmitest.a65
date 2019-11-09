@@ -145,16 +145,13 @@ programentrypoint:
 endloop:
 	inc $0427
 
-	jsr $ffe4
-	cmp #$20
-	bne endloop
+;	jsr $ffe4
+;	cmp #$20
+;	bne endloop
 
 	lda #$13
 	jsr $ffd2
 	jmp @done_setup	
-
-	inc $d020
-	jmp endloop
 
 
 dump_main_regs:
@@ -411,7 +408,7 @@ hdmi_register_setup_table:
 	.byte $18,$00	; Disable colour space conversion
 	.byte $AF,$02  	; bit 1 : Manual HDMI/DVI select (1 = HDMI, required for audio?)
 	      		; bit 7 = Enable HDCP (1 = enable. so set to 0 for no DRM)
-	.byte $40,$80  ; bit 7 = Enable GC (General Control?)
+	.byte $40,$C0  ; bit 7 = Enable GC (General Control?)
 	      	       ; bit 6 = Source Product Description, allows sending a name of the video source for display on the
 		       ; receiver.  If we set this up correctly, we can have it display "M.E.G.A. 65 Computer" or similar
 	      	       ; other bits enable various other packets. Leave others disabled.
@@ -607,7 +604,7 @@ delay10usec:
 	; 10usec = 500 CPU cycles
 	; This loop should be more than sufficient
 	phx
-	ldx #$00
+	ldx #$ff
 d1:	inx
 	bne d1
 	plx
