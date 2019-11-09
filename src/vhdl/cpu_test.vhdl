@@ -143,7 +143,7 @@ architecture behavior of cpu_test is
 
   signal pcm_modem1_data_out : std_logic := '0';
 
-  signal lcd_display_enable : std_logic := '1';
+  signal lcd_dataenable : std_logic := '1';
   
 begin
 
@@ -238,7 +238,7 @@ begin
 
       portb_pins => (others => '1'),
 
-      lcd_display_enable => lcd_display_enable,
+      lcd_dataenable => lcd_dataenable,
       
       pixelclock      => clock80,
       cpuclock      => cpuclock,
@@ -552,7 +552,7 @@ begin
   process (pixelclock) is
   begin
     if rising_edge(pixelclock) then
-      report "lcd_display_enable = " & std_logic'image(lcd_display_enable);
+      report "lcd_dataenable = " & std_logic'image(lcd_dataenable);
     end if;
   end process;
   

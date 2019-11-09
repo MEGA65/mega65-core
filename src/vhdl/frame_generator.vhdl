@@ -24,19 +24,30 @@ use Std.TextIO.all;
 
 entity frame_generator is
   generic (
-    frame_width : integer := 960;
-    display_width : integer := 800;
-    narrow_width : integer := 720;
-    pipeline_delay : integer := 0;
-    frame_height : integer := 625;
-    lcd_height : integer := 480;
-    display_height : integer := 600;
-    vsync_start : integer := 601;
-    vsync_end : integer := 606;
-    hsync_start : integer := 814;
-    hsync_end : integer := 880;
+    frame_width : integer;
+    frame_height : integer;
+
+    fullwidth_start : integer;
+    fullwidth_width : integer;
+
+    narrow_start : integer;
+    narrow_width : integer;
+
+    pipeline_delay : integer;
     viciv_pipeline_depth : integer := 4;
-    cycles_per_raster : integer := 63
+    cycles_per_raster : integer := 63;
+
+    vsync_start : integer;
+    vsync_end : integer;
+    hsync_start : integer;
+    hsync_end : integer;
+
+    first_raster : integer;
+    last_raster : integer;
+
+    lcd_first_raster : integer;
+    lcd_last_raster : integer
+    
     );
   port (
     -- Single 81MHz clock : divide by 2 for ~41MHz CPU and 27MHz
@@ -45,6 +56,9 @@ entity frame_generator is
     -- 41MHHz CPU clock is used for exporting the PHI2 clock
     clock41 : in std_logic;
 
+    -- ~40MHz oriented signal that strobes for each CPU tick
+    phi2_out : out std_logic;  
+    
     hsync_polarity : in std_logic;
     vsync_polarity : in std_logic;
 
@@ -52,23 +66,29 @@ entity frame_generator is
     hsync : out std_logic := '0';
     hsync_uninverted : out std_logic := '0';
     vsync : out std_logic := '0';
-    inframe : out std_logic := '0';
+    vsync_uninverted : out std_logic := '0';
 
-    -- ~40MHz oriented signal that strobes for each CPU tick
-    phi2_out : out std_logic;  
-    
     lcd_hsync : out std_logic := '0';
     lcd_vsync : out std_logic := '0';
-    lcd_inframe : out std_logic := '0';
-    lcd_inletterbox : out std_logic := '0';
 
+    lcd_inletterbox : out std_logic := '0';
+    vga_inletterbox : out std_logic := '0';
+    
+    -- For video outputs that are wider
+    -- (Typically the 800x480 LCD panel on the MEGAphone)
+    fullwidth_dataenable : out std_logic := '0';
+    
     -- For video outputs that are narrower.
     -- Typically anything other than the LCD panel of the MEGAphone 
-    narrow_inframe : out std_logic := '0';
+    narrow_dataenable : out std_logic := '0';
     
     red_o : out unsigned(7 downto 0) := x"00";
     green_o : out unsigned(7 downto 0) := x"00";
     blue_o : out unsigned(7 downto 0) := x"00";
+
+    nred_o : out unsigned(7 downto 0) := x"00";
+    ngreen_o : out unsigned(7 downto 0) := x"00";
+    nblue_o : out unsigned(7 downto 0) := x"00";
     
     -- ~80MHz oriented signals for VIC-IV
     pixel_strobe : out std_logic := '0';
@@ -95,14 +115,15 @@ architecture brutalist of frame_generator is
   
   signal x : integer := 0;
   signal y : integer := frame_height - 3;
-  signal inframe_internal : std_logic := '0';
-
-  signal lcd_inletterbox_internal : std_logic := '0';
 
   signal vsync_driver : std_logic := '0';
   signal hsync_driver : std_logic := '0';
   signal hsync_uninverted_driver : std_logic := '0';
+  signal vsync_uninverted_driver : std_logic := '0';
 
+  signal narrow_dataenable_driver : std_logic := '0';
+  signal fullwidth_dataenable_driver : std_logic := '0';
+  
   signal pixel_toggle : std_logic := '0';
   signal last_pixel_toggle : std_logic := '0';
 
@@ -110,6 +131,10 @@ architecture brutalist of frame_generator is
 
   signal x_zero_driver : std_logic := '0';
   signal y_zero_driver : std_logic := '0';
+
+  signal normal_y_active : std_logic := '0';
+  signal lcd_y_active : std_logic := '0';
+  
   
 begin
 
@@ -122,9 +147,13 @@ begin
       y_zero <= y_zero_driver;
       
       vsync <= vsync_driver;
+      vsync_uninverted <= vsync_uninverted_driver;
       hsync <= hsync_driver;
       hsync_uninverted <= hsync_uninverted_driver;
 
+      fullwidth_dataenable <= fullwidth_dataenable_driver;
+      narrow_dataenable <= narrow_dataenable_driver;
+      
       phi2_accumulator <= phi2_accumulator + ticks_per_128_phi2;
       if phi2_accumulator(15) /= last_phi2 then
         phi2_toggle <= not phi2_toggle;
@@ -161,14 +190,15 @@ begin
           end if;
         end if;
 
-        -- LCD HSYNC is expected to be just before start of pixels
-        if x = (frame_width - 200) then
+        -- LCD HSYNC is expected to be just before start of pixels, and is
+        -- always negative
+        if x = hsync_start then
           lcd_hsync <= '0';
         end if;
-        if x = (frame_width - 400) then
+        if x = hsync_end then
           lcd_hsync <= '1';
         end if;
-        -- HSYNC for VGA follows the settings passed via the generics
+        -- HSYNC is negative by default
         if x = hsync_start then
           hsync_driver <= not hsync_polarity; 
           hsync_uninverted_driver <= '1'; 
@@ -177,86 +207,94 @@ begin
           hsync_driver <= hsync_polarity;
           hsync_uninverted_driver <= '0';
         end if;
+        -- VSYNC is negative by default
+        if y = vsync_start then
+          lcd_vsync <= '0';
+          vsync_driver <= '0';
+          vsync_uninverted_driver <= '1'; 
+        end if;
+        if y = vsync_end+1 then
+          lcd_vsync <= '1';
+          vsync_driver <= '1';
+          vsync_uninverted_driver <= '0'; 
+        end if;
 
-        if y = ( display_height - lcd_height ) / 2 then
-          if lcd_inletterbox_internal='0' then
-            report "entering letter box";
-          end if;
-          lcd_inletterbox_internal <= '1';
+        if x = (1 + pipeline_delay + narrow_start + viciv_pipeline_depth) and normal_y_active='1'  then
+          narrow_dataenable_driver <= '1';
+        end if;
+        if x = (1 + pipeline_delay + narrow_start + narrow_width + viciv_pipeline_depth) then
+          narrow_dataenable_driver <= '0';
+        end if;
+
+        if x = (1 + pipeline_delay + fullwidth_start + viciv_pipeline_depth) and normal_y_active='1'  then
+          fullwidth_dataenable_driver <= '1';
+        end if;
+        if x = (1 + pipeline_delay + fullwidth_start + fullwidth_width + viciv_pipeline_depth) then
+          fullwidth_dataenable_driver <= '0';
+        end if;
+        
+        if y = first_raster then
+          normal_y_active <= '1';
+          vga_inletterbox <= '1';
+        end if;
+        if y = (last_raster+1) then
+          normal_y_active <= '0';
+          vga_inletterbox <= '0';
+        end if;
+
+        if y = lcd_first_raster then
+          lcd_y_active <= '1';
           lcd_inletterbox <= '1';
         end if;
-        if y = display_height - (display_height - lcd_height ) / 2 then
-          if lcd_inletterbox_internal='1' then
-            report "leaving letter box";
-          end if;
-          lcd_inletterbox_internal <= '0';
+        if y = (lcd_last_raster+1) then
+          lcd_y_active <= '0';
           lcd_inletterbox <= '0';
-        end if;
-        report "preparing for lcd_inframe check at (" & integer'image(x) & "," & integer'image(y) & ").";
-        if x = (1 + pipeline_delay) and lcd_inletterbox_internal = '1' then
-          lcd_inframe <= '1';
-          report "lcd_inframe=1 at x = " & integer'image(x);
-        end if;
-        if x = (1 + pipeline_delay + (display_width-narrow_width)/2 + viciv_pipeline_depth) and lcd_inletterbox_internal = '1' then
-          narrow_inframe <= '1';
-        end if;
-        if x = (1 + pipeline_delay + display_width - (display_width-narrow_width)/2 + viciv_pipeline_depth) then
-          narrow_inframe <= '0';
-        end if;
-        if x = (1 + pipeline_delay + display_width) then
-          report "lcd_inframe=0 at x = " & integer'image(x);
-          lcd_vsync <= lcd_inletterbox_internal;
-          lcd_inframe <= '0';
-        end if;
-        if x = pipeline_delay and y < display_height then
-          inframe <= '1';
-          inframe_internal <= '1';
-        end if;
-        if y = vsync_start then
-          vsync_driver <= vsync_polarity;
-        end if;
-        if y = 0 or y = vsync_end then
-          vsync_driver <= not vsync_polarity;
         end if;
 
         -- Colourful pattern inside frame
-        if inframe_internal = '1' then
+        if fullwidth_dataenable_driver = '1' then
           -- Inside frame, draw a test pattern
           red_o <= to_unsigned(x,8);
           green_o <= to_unsigned(y,8);
           blue_o <= to_unsigned(x+y,8);
+          nred_o <= to_unsigned(x,8);
+          ngreen_o <= to_unsigned(y,8);
+          nblue_o <= to_unsigned(x+y,8);
         end if;
         
         -- Draw white edge on frame
-        if x = pipeline_delay and y < display_height then
-          inframe <= '1';
-          inframe_internal <= '1';
+        if x = narrow_start or x = (narrow_start + narrow_width - 1) then
           red_o <= x"FF";
           green_o <= x"FF";
           blue_o <= x"FF";
+          nred_o <= x"FF";
+          ngreen_o <= x"FF";
+          nblue_o <= x"FF";
         end if;
-        if ((x = ( display_width + pipeline_delay - 1 ))
-            or (y = 0) or (y = (display_height - 1)))
-          and (inframe_internal='1') then
+        if y = first_raster or y = last_raster then
           red_o <= x"FF";
           green_o <= x"FF";
           blue_o <= x"FF";
-        end if;
-        -- Black outside of frame
-        if x = display_width + pipeline_delay then
-          inframe <= '0';
-          inframe_internal <= '0';
+          nred_o <= x"FF";
+          ngreen_o <= x"FF";
+          nblue_o <= x"FF";
         end if;
       end if;
 
       -- Make sure we have nothing visible during H/VSYNC pulses, so we don't
       -- mess up the VGA colours
-      if hsync_uninverted_driver='1' or vsync_driver = vsync_polarity then
+      if fullwidth_dataenable_driver = '0' then
         red_o <= x"00";
         green_o <= x"00";
         blue_o <= x"00";        
       end if;
-        
+      if narrow_dataenable_driver = '0' then
+        nred_o <= x"00";
+        ngreen_o <= x"00";
+        nblue_o <= x"00";
+      end if;
+
+      
     end if;
 
     if rising_edge(clock41) then
