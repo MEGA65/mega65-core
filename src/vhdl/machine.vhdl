@@ -105,7 +105,7 @@ entity machine is
          -- VGA output
          ----------------------------------------------------------------------
          vsync : out  STD_LOGIC;
-         hsync : out  STD_LOGIC;
+         vga_hsync : out  STD_LOGIC;
          lcd_hsync : out std_logic;
          lcd_vsync : out std_logic;
          pal50_select_out : out std_logic;
@@ -119,6 +119,7 @@ entity machine is
          panelblue : out  UNSIGNED (7 downto 0);
          lcd_dataenable : out std_logic;
 
+         hdmi_hsync : out  STD_LOGIC;
          hdmi_scl : inout std_logic;
          hdmi_sda : inout std_logic;
          hpd_a : inout std_logic;
@@ -1057,11 +1058,12 @@ begin
       green_o => panelgreen,
       blue_o => panelblue,
                
-      hsync => hsync,
-      vsync => vsync,
+      hsync => hdmi_hsync,
+      vsync => vsync,  -- for HDMI
+      vga_hsync => vga_hsync,      -- for VGA          
 
       -- And the variations on those signals for the LCD display
-      lcd_hsync => lcd_hsync,
+      lcd_hsync => lcd_hsync,               
       lcd_vsync => lcd_vsync,
       fullwidth_dataenable => lcd_dataenable_internal,
       lcd_inletterbox => lcd_inletterbox,

@@ -82,6 +82,7 @@ entity pixel_driver is
     -- Similar signals to above for the LCD panel
     -- The main difference is that we only announce pixels during the 800x480
     -- letter box that the LCD can show.
+    vga_hsync : out std_logic := '0';
     lcd_hsync : out std_logic := '0';
     lcd_vsync : out std_logic := '0';
     lcd_pixel_strobe : out std_logic := '0';     -- in 30/40MHz clock domain to match pixels
@@ -128,6 +129,10 @@ architecture greco_roman of pixel_driver is
   signal lcd_hsync_pal50 : std_logic := '0';
   signal lcd_hsync_ntsc60 : std_logic := '0';
   signal lcd_hsync_vga60 : std_logic := '0';
+  
+  signal vga_hsync_pal50 : std_logic := '0';
+  signal vga_hsync_ntsc60 : std_logic := '0';
+  signal vga_hsync_vga60 : std_logic := '0';
   
   signal test_pattern_red : unsigned(7 downto 0) := x"00";
   signal test_pattern_green : unsigned(7 downto 0) := x"00";
@@ -229,6 +234,9 @@ begin
                   hsync_start => 12,
                   hsync_end => 12+64,
 
+                  vga_hsync_start => 864-1-(64-12)-64,
+                  vga_hsync_end => 864-1-(64-12),                  
+                  
                   first_raster => 44,
                   last_raster => 620,
 
@@ -245,6 +253,7 @@ begin
                hsync_polarity => hsync_invert,
                vsync_polarity => vsync_invert,
                
+               vga_hsync => vga_hsync_pal50,
                lcd_hsync => lcd_hsync_pal50,
                lcd_vsync => lcd_vsync_pal50,
                fullwidth_dataenable => fullwidth_dataenable_pal50,
@@ -280,6 +289,9 @@ begin
                   hsync_start => 16,
                   hsync_end => 16+62,
 
+                  vga_hsync_start => 858-1-(64-16)-62,
+                  vga_hsync_end => 858-1-(64-16),
+                  
                   first_raster => 42,
                   last_raster => 522,
 
@@ -294,6 +306,7 @@ begin
                hsync_polarity => hsync_invert,
                vsync_polarity => vsync_invert,
 
+               vga_hsync => vga_hsync_ntsc60,
                lcd_hsync => lcd_hsync_ntsc60,
                lcd_vsync => lcd_vsync_ntsc60,
                fullwidth_dataenable => fullwidth_dataenable_ntsc60,
@@ -330,6 +343,9 @@ begin
                   hsync_start => 16,
                   hsync_end => 16+62,
 
+                  vga_hsync_start => 858-1-(64-16)-62,
+                  vga_hsync_end => 858-1-(64-16),
+                  
                   first_raster => 42,
                   last_raster => 522,
 
@@ -344,6 +360,7 @@ begin
                hsync_polarity => hsync_invert,
                vsync_polarity => vsync_invert,
 
+               vga_hsync => vga_hsync_vga60,
                lcd_hsync => lcd_hsync_vga60,
                lcd_vsync => lcd_vsync_vga60,
                fullwidth_dataenable => fullwidth_dataenable_vga60,
@@ -364,6 +381,9 @@ begin
   vsync <= vsync_pal50 when pal50_select_internal='1' else
            vsync_vga60 when vga60_select_internal='1'
            else vsync_ntsc60;
+  vga_hsync <= vga_hsync_pal50 when pal50_select_internal='1' else
+               vga_hsync_vga60 when vga60_select_internal='1'
+               else vga_hsync_ntsc60;
   lcd_hsync <= lcd_hsync_pal50 when pal50_select_internal='1' else
                lcd_hsync_vga60 when vga60_select_internal='1'
                else lcd_hsync_ntsc60;
