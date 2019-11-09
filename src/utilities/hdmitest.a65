@@ -26,6 +26,9 @@ iter1:	 .byte 0
 
 programentrypoint:
 
+	lda #0
+	sta $d020
+	
 	; disable interrupts so we can single-step more easily
 	sei
 	
@@ -120,11 +123,16 @@ programentrypoint:
 	ldx #$13
 	jsr writeregister
 
-	; Indicate NTSC 480p 60Hz 4:3 ( = $03)
+	; Indicate NTSC 480p 60Hz 4:3 ( = $02)
 	; For PAL 576p 50Hz 4:3 = $11
 	lda #addr_7511
 	ldy #$3c
-	ldx #$03          
+	ldx #$02          
+	jsr writeregister
+	
+	lda #addr_7511
+	ldy #$3d
+	ldx #$02          
 	jsr writeregister
 
 
@@ -394,8 +402,10 @@ hdmi_register_setup_table:
 	.byte $F9,$00 ; (section 4.2.9)
 
 	; More registers, inferred from Mike Field's work with the 7511
-	.byte $55,$12 ; Enable Active Frame Information with PC vs TV signaling. TV signalling would be $11
+	.byte $55,$11 ; Enable Active Frame Information with TV signaling. PC signalling would be $12
 
+	.byte $56,$19 ; Centred 4:3 format
+	
 	; Setup the video input mode
 	; Register maps are around page 157 of the 7511 programming guide
 	.byte $15,$00 ; (section 4.3.2) Video input mode in bits 0 - 3 : mode 0 = Non-DDR RGB, 8 - 12 bits per colour channel, separate syncs
@@ -427,6 +437,17 @@ hdmi_register_setup_table:
 	      	       ; other bits enable various other packets. Leave others disabled.
 	.byte $4C,$04  ; Output colour depth and general control colour depth (set to 24 bit)
 	.byte $97,$40  ; Set BKSV interrupt flag (but bit 6 must be set, before writing 1 to bit 6  according to page 15 ???)
+
+	.byte $4b,$40  ; clear any AV mute
+
+	; should these need to be set, or is it okay to leave them as default?
+	.byte $C5,$00 ; unknown register should have value $00
+	.byte $D1,$FF
+	
+	.byte $D2,$80
+	.byte $D3,$80
+	.byte $D4,$80
+	
 
 	; End of list
 	.byte $FF,$FF
