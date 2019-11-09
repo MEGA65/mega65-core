@@ -427,8 +427,6 @@ hdmi_register_setup_table:
 	; More registers, inferred from Mike Field's work with the 7511
 	.byte $55,$02 ; Enable Active Frame Information ($1x) with PC signaling ($x2). TV signalling would be $x1
 
-	.byte $56,$19 ; Centred 4:3 format
-	
 	; Setup the video input mode
 	; Register maps are around page 157 of the 7511 programming guide
 	.byte $15,$01 ; (section 4.3.2) Video input mode in bits 0 - 3 : mode 0 = Non-DDR RGB, 8 - 12 bits per colour channel, separate syncs
@@ -478,7 +476,6 @@ hdmi_register_setup_table:
 
 	.byte $D0,$3C
 	
-
 
 	; End of list
 	.byte $FF,$FF
