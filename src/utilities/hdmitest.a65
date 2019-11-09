@@ -106,6 +106,24 @@ programentrypoint:
 	ldx #$79
 	jsr writeregister
 
+	; Request reading of EDID data
+	lda #addr_7511
+	ldy #$C9
+	ldx #$03
+	jsr writeregister
+	lda #addr_7511
+	ldy #$C9
+	ldx #$13
+	jsr writeregister
+
+	; Indicate NTSC 480p 60Hz 4:3 ( = $03)
+	; For PAL 576p 50Hz 4:3 = $11
+	lda #addr_7511
+	ldy #$3c
+	ldx #$03          
+	jsr writeregister
+
+
 @done_setup:
 
 	; Force power up
@@ -113,15 +131,6 @@ programentrypoint:
 	ldy #$9d
 	ldx #$61
 	jsr writeregister
-
-	; make packet memory readable
-	
-	; Enable replacing and reading SPD memory
-	lda #addr_7511
-	ldy #$44
-	ldx #$78
-	jsr writeregister
-
 
 	; Dump values of all registers
 
