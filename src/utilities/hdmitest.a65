@@ -128,7 +128,7 @@ programentrypoint:
 	; For PAL 576p 50Hz 4:3 = $11
 	lda #addr_7511
 	ldy #$3c
-	ldx #$02          
+	ldx #$02
 	jsr writeregister
 	
 	lda #addr_7511
@@ -431,12 +431,12 @@ hdmi_register_setup_table:
 	
 	; Setup the video input mode
 	; Register maps are around page 157 of the 7511 programming guide
-	.byte $15,$00 ; (section 4.3.2) Video input mode in bits 0 - 3 : mode 0 = Non-DDR RGB, 8 - 12 bits per colour channel, separate syncs
+	.byte $15,$01 ; (section 4.3.2) Video input mode in bits 0 - 3 : mode 0 = Non-DDR RGB, 8 - 12 bits per colour channel, separate syncs
 	      	      ; Bits 4 - 7 = audio sample rate: 0b0000 = 44.1KHz audio. 0b1110 = 192KHz, 0b1010 = 96KHz, 0b010 = 48KHz, 0b0011 = 32KHz
 		
-	.byte $16,$30 ; (sections 4.3.2 and 4.3.5) Video input and output information
+	.byte $16,$34 ; (sections 4.3.2 and 4.3.5) Video input and output information
 	      	      ; bits 5 - 4 = input colour depth: 11 = 8 bits per channel
-		      ; bits 3 - 2 = input video style: 
+		      ; bits 3 - 2 = input video style: 01 = Style 2
 		      ; bits 7 - 6 = output style: 0b00 = 4:4:4
 		      ; bit 1 = ddr input edge (not used as we are not using DDR)
 		      ; bit 0 = RGB/YCbCr select: 0 = RGB
@@ -454,7 +454,7 @@ hdmi_register_setup_table:
 	.byte $18,$00	; Disable colour space conversion
 	.byte $AF,$02  	; bit 1 : Manual HDMI/DVI select (1 = HDMI, required for audio?)
 	      		; bit 7 = Enable HDCP (1 = enable. so set to 0 for no DRM)
-	.byte $40,$C0  ; bit 7 = Enable GC (General Control?)
+	.byte $40,$c0  ; bit 7 = Enable GC (General Control?)
 	      	       ; bit 6 = Source Product Description, allows sending a name of the video source for display on the
 		       ; receiver.  If we set this up correctly, we can have it display "M.E.G.A. 65 Computer" or similar
 	      	       ; other bits enable various other packets. Leave others disabled.
@@ -470,7 +470,15 @@ hdmi_register_setup_table:
 	.byte $D2,$80
 	.byte $D3,$80
 	.byte $D4,$80
+
+	; Colour space conversion registers, from Mike Field's code
+	.byte $18,$e7,$19,$34,$1a,$04,$1b,$ad,$1c,$00,$1d,$00,$1e,$1c,$1f,$1b
+	.byte $20,$1d,$21,$dc,$22,$04,$23,$ad,$24,$1f,$25,$24,$26,$01,$27,$35
+	.byte $28,$00,$29,$00,$2a,$04,$2b,$ad,$2c,$08,$2d,$7c,$2e,$1b,$2f,$77
+
+	.byte $D0,$3C
 	
+
 
 	; End of list
 	.byte $FF,$FF
