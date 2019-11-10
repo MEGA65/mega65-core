@@ -111,24 +111,6 @@ architecture Behavioral of vga_hdmi is
 		);
 	END COMPONENT;
 
-	COMPONENT hdmi_ddr_output
-	PORT(
-		clk        : IN std_logic;
-		clk90      : IN std_logic;
-		y          : IN std_logic_vector(7 downto 0);
-		c          : IN std_logic_vector(7 downto 0);
-		hsync_in   : IN std_logic;
-		vsync_in   : IN std_logic;
-		de_in      : IN std_logic;
-		hdmi_sda   : INOUT std_logic;      
-		hdmi_clk   : OUT std_logic;
-		hdmi_hsync : OUT std_logic;
-		hdmi_vsync : OUT std_logic;
-		hdmi_d     : OUT std_logic_vector(15 downto 0);
-		hdmi_de    : OUT std_logic;
-		hdmi_scl   : OUT std_logic
-		);
-	END COMPONENT;
    
    -- Clocking
    signal clk    : std_logic;
@@ -229,29 +211,6 @@ i_csc: colour_space_conversion PORT MAP(
 		de_out    => csc_de 
    );
 
-------------------------------
--- bypass the range clamper - it is not needed
-------------------------------
---i_clamper: clamper PORT MAP(
---		clk       => clk,
---		y_in      => csc_y,
---		c_in      => csc_c,
---		de_in     => csc_de,
---		hsync_in  => csc_hsync,
---		vsync_in  => csc_vsync,
---		y_out     => clamper_y,
---		c_out     => clamper_c,
---		de_out    => clamper_de,
---		hsync_out => clamper_hsync,
---		vsync_out => clamper_vsync
---	);
-   clamper_y     <= csc_y;
-	clamper_c     <= csc_c;
-   clamper_de    <= csc_de;
-   hdmi_de    <= csc_de;
-   hdmi_hsync <= csc_hsync;
-   hdmi_vsync <= csc_vsync;
-   hdmi_clk <= clk;
 
 -----------------------------------------------------------------------   
 -- This sends the configuration register values to the HDMI transmitter
@@ -312,6 +271,8 @@ i_i2c_sender: i2c_sender PORT MAP(
       CLKFBIN  => clkfb    -- 1-bit input: Feedback clock
       );
 
+   hdmi_clk <= clk;
+       
 clk_proc: process(clK)
    begin
       if rising_edge(clk) then
@@ -331,6 +292,10 @@ clk_proc: process(clK)
          hdmi_d(7 downto 0)  <= pattern_r;
          hdmi_d(15 downto 8)  <= pattern_g;
          hdmi_d(23 downto 16)  <= pattern_b;
+
+         hdmi_de    <= pattern_de;
+         hdmi_hsync <= pattern_hsync;
+         hdmi_vsync <= pattern_vsync;
                               
          vga_hs <= pattern_hsync;
          vga_vs <= pattern_vsync;
