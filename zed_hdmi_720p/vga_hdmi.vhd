@@ -235,8 +235,10 @@ i_csc: colour_space_conversion PORT MAP(
 	clamper_c     <= csc_c;
    clamper_de    <= csc_de;
    hdmi_de    <= csc_de;
-   clamper_hsync <= csc_hsync;
-	clamper_vsync <= csc_vsync;
+   hdmi_hsync <= csc_hsync;
+   hdmi_vsync <= csc_vsync;
+   hdmi_clk <= clk;
+                             
 
 i_hdmi_ddr_output: hdmi_ddr_output PORT MAP(
 		clk        => clk,
@@ -246,9 +248,9 @@ i_hdmi_ddr_output: hdmi_ddr_output PORT MAP(
 		hsync_in   => clamper_hsync,
 		vsync_in   => clamper_vsync,
 		de_in      => clamper_de,
-		hdmi_clk   => hdmi_clk,
-		hdmi_hsync => hdmi_hsync,
-		hdmi_vsync => hdmi_vsync,
+--		hdmi_clk   => hdmi_clk,
+--		hdmi_hsync => hdmi_hsync,
+--		hdmi_vsync => hdmi_vsync,
 --		hdmi_d     => hdmi_d,
 --		hdmi_de    => hdmi_de,
 		hdmi_scl   => hdmi_scl,
