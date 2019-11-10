@@ -30,6 +30,15 @@ entity vga_hdmi is
 end vga_hdmi;
 
 architecture Behavioral of vga_hdmi is
+   COMPONENT i2c_sender
+   PORT(
+      clk    : IN std_logic;
+      resend : IN std_logic;    
+      siod   : INOUT std_logic;      
+      sioc   : OUT std_logic
+   );
+   END COMPONENT;
+
    COMPONENT vga_generator
 	PORT(
 		clk : IN std_logic;          
@@ -160,7 +169,12 @@ architecture Behavioral of vga_hdmi is
    signal clamper_hsync : std_logic;
    signal clamper_vsync : std_logic;
    signal clamper_de    : std_logic;
+                                      
 
+   signal counter : integer := 0;
+   signal resend : std_logic := '1';      
+            
+                                      
 begin
 i_vga_generator: vga_generator PORT MAP(
 		clk   => clk,
@@ -238,25 +252,18 @@ i_csc: colour_space_conversion PORT MAP(
    hdmi_hsync <= csc_hsync;
    hdmi_vsync <= csc_vsync;
    hdmi_clk <= clk;
-                             
 
-i_hdmi_ddr_output: hdmi_ddr_output PORT MAP(
-		clk        => clk,
-		clk90      => clk90,
-		y          => clamper_y,
-		c          => clamper_c,
-		hsync_in   => clamper_hsync,
-		vsync_in   => clamper_vsync,
-		de_in      => clamper_de,
---		hdmi_clk   => hdmi_clk,
---		hdmi_hsync => hdmi_hsync,
---		hdmi_vsync => hdmi_vsync,
---		hdmi_d     => hdmi_d,
---		hdmi_de    => hdmi_de,
-		hdmi_scl   => hdmi_scl,
-		hdmi_sda   => hdmi_sda
-	);
-   
+-----------------------------------------------------------------------   
+-- This sends the configuration register values to the HDMI transmitter
+-----------------------------------------------------------------------   
+i_i2c_sender: i2c_sender PORT MAP(
+      clk => clk,
+      resend => resend,
+      sioc => hdmi_scl,
+      siod => hdmi_sda
+   );
+
+     
    -- Generate a 27MHz pixel clock and one with 90 degree phase shift from the 100MHz system clock.
    PLLE2_BASE_inst : PLLE2_BASE
    generic map (
@@ -303,10 +310,20 @@ i_hdmi_ddr_output: hdmi_ddr_output PORT MAP(
       PWRDWN   => '0',     -- 1-bit input: Power-down
       RST      => '0',     -- 1-bit input: Reset
       CLKFBIN  => clkfb    -- 1-bit input: Feedback clock
-   );
+      );
+
 clk_proc: process(clK)
    begin
       if rising_edge(clk) then
+
+         if counter < 100000000 then
+           counter <= counter + 1;
+           resend <= '0';
+         else
+           counter <= 0;
+           resend <= '1';
+         end if;
+                                  
          vga_r  <= pattern_r(7 downto 0);
          vga_g  <= pattern_g(7 downto 0);
          vga_b  <= pattern_b(7 downto 0);
