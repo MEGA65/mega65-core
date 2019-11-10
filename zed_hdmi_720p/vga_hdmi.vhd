@@ -51,67 +51,7 @@ architecture Behavioral of vga_hdmi is
 		);
 	END COMPONENT;
 
-	COMPONENT convert_444_422
-	PORT( clk      : IN std_logic;
-		   r_in     : IN std_logic_vector(7 downto 0);
-			g_in     : IN std_logic_vector(7 downto 0);
-         b_in     : IN std_logic_vector(7 downto 0);
-         hsync_in : IN std_logic;
-         vsync_in : IN std_logic;
-         de_in    : IN std_logic;
-      
-         r1_out    : OUT std_logic_vector(8 downto 0);
-         g1_out    : OUT std_logic_vector(8 downto 0);
-         b1_out    : OUT std_logic_vector(8 downto 0);
-         r2_out    : OUT std_logic_vector(8 downto 0);
-         g2_out    : OUT std_logic_vector(8 downto 0);
-         b2_out    : OUT std_logic_vector(8 downto 0);
-         pair_start_out: OUT std_logic;
-         hsync_out : OUT std_logic;
-         vsync_out : OUT std_logic;
-         de_out    : OUT std_logic
-		);
-	END COMPONENT;
 
-   COMPONENT colour_space_conversion
-   PORT( clk       : IN std_logic;          
-      
-         r1_in        : IN std_logic_vector(8 downto 0);
-         g1_in        : IN std_logic_vector(8 downto 0);
-         b1_in        : IN std_logic_vector(8 downto 0);
-         r2_in        : IN std_logic_vector(8 downto 0);
-         g2_in        : IN std_logic_vector(8 downto 0);
-         b2_in        : IN std_logic_vector(8 downto 0);
-         pair_start_in: IN std_logic;
-         de_in        : IN std_logic;
-         vsync_in     : IN std_logic;
-         hsync_in     : IN std_logic;
-         
-         y_out     : OUT std_logic_vector(7 downto 0);
-         c_out     : OUT std_logic_vector(7 downto 0);
-         de_out    : OUT std_logic;
-         hsync_out : OUT std_logic;
-         vsync_out : OUT std_logic
-      );
-	END COMPONENT;
-
-   COMPONENT clamper
-	PORT(
-		clk : IN std_logic;
-		y_in : IN std_logic_vector(7 downto 0);
-		c_in : IN std_logic_vector(7 downto 0);
-		de_in : IN std_logic;
-		hsync_in  : IN std_logic;
-		vsync_in  : IN std_logic;          
-		y_out     : OUT std_logic_vector(7 downto 0);
-		c_out     : OUT std_logic_vector(7 downto 0);
-		de_out    : OUT std_logic;
-		hsync_out : OUT std_logic;
-		vsync_out : OUT std_logic
-		);
-	END COMPONENT;
-
-   
    -- Clocking
    signal clk    : std_logic;
    signal clk0   : std_logic;
@@ -125,33 +65,6 @@ architecture Behavioral of vga_hdmi is
    signal pattern_hsync  : std_logic;
    signal pattern_vsync  : std_logic;
    signal pattern_de     : std_logic;
-
-   -- Signals from the pixel pair convertor
-   signal c422_r1    : std_logic_vector(8 downto 0);
-   signal c422_g1    : std_logic_vector(8 downto 0);
-   signal c422_b1    : std_logic_vector(8 downto 0);
-   signal c422_r2    : std_logic_vector(8 downto 0);
-   signal c422_g2    : std_logic_vector(8 downto 0);
-   signal c422_b2    : std_logic_vector(8 downto 0);
-   signal c422_pair_start : std_logic;
-   signal c422_hsync : std_logic;
-   signal c422_vsync : std_logic;
-   signal c422_de    : std_logic;
-
-   -- Signals from the colour space convertor
-   signal csc_y      : std_logic_vector(7 downto 0);
-   signal csc_c      : std_logic_vector(7 downto 0);
-   signal csc_hsync  : std_logic;
-   signal csc_vsync  : std_logic;
-   signal csc_de     : std_logic;
-
-   -- signals from the output range clampler
-   signal clamper_c     : std_logic_vector(7 downto 0);
-   signal clamper_y     : std_logic_vector(7 downto 0);
-   signal clamper_hsync : std_logic;
-   signal clamper_vsync : std_logic;
-   signal clamper_de    : std_logic;
-                                      
 
    signal counter : integer := 0;
    signal resend : std_logic := '1';      
@@ -167,49 +80,6 @@ i_vga_generator: vga_generator PORT MAP(
 		vsync => pattern_vsync,
 		hsync => pattern_hsync
 	);
-
-i_convert_444_422: convert_444_422 PORT MAP(
-		clk       => clk,
-      
-		r_in      => pattern_r,
-		g_in      => pattern_g,
-		b_in      => pattern_b,
-		hsync_in  => pattern_hsync,
-		vsync_in  => pattern_vsync,
-		de_in     => pattern_de,
-      
-		r1_out    => c422_r1,
-		g1_out    => c422_g1,
-		b1_out    => c422_b1,
-		r2_out    => c422_r2,
-		g2_out    => c422_g2,
-		b2_out    => c422_b2,
-      pair_start_out => c422_pair_start,
-		hsync_out => c422_hsync,
-		vsync_out => c422_vsync,
-		de_out    => c422_de
-	);
-
-
-i_csc: colour_space_conversion PORT MAP(
-		clk      => clk,
-		r1_in    => c422_r1,
-		g1_in    => c422_g1,
-		b1_in    => c422_b1,
-		r2_in    => c422_r2,
-		g2_in    => c422_g2,
-		b2_in    => c422_b2,
-      pair_start_in => c422_pair_start,
-		vsync_in => c422_vsync,
-		hsync_in => c422_hsync,
-		de_in    => c422_de,
-
-		y_out     => csc_y,
-		c_out     => csc_c,
-		hsync_out => csc_hsync,
-		vsync_out => csc_vsync,
-		de_out    => csc_de 
-   );
 
 
 -----------------------------------------------------------------------   
