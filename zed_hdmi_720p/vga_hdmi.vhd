@@ -12,8 +12,16 @@ library UNISIM;
 use UNISIM.VComponents.all;
 
 entity vga_hdmi is
-    Port ( clk_100       : in  STD_LOGIC;
-    
+    Port ( clock27 : in std_logic;
+
+           -- Signals from the VGA generator
+           pattern_r      : in std_logic_vector(7 downto 0);
+           pattern_g      : in std_logic_vector(7 downto 0);
+           pattern_b      : in std_logic_vector(7 downto 0);
+           pattern_hsync  : in std_logic;
+           pattern_vsync  : in std_logic;
+           pattern_de     : in std_logic;
+           
            vga_r         : out  STD_LOGIC_VECTOR (7 downto 0);
            vga_g         : out  STD_LOGIC_VECTOR (7 downto 0);
            vga_b         : out  STD_LOGIC_VECTOR (7 downto 0);
@@ -51,103 +59,31 @@ architecture Behavioral of vga_hdmi is
 		);
 	END COMPONENT;
 
-
-   -- Clocking
-   signal clk    : std_logic;
-   signal clk0   : std_logic;
-   signal clk90  : std_logic;
-   signal clkfb  : std_logic;
-   
-   -- Signals from the VGA generator
-   signal pattern_r      : std_logic_vector(7 downto 0);
-   signal pattern_g      : std_logic_vector(7 downto 0);
-   signal pattern_b      : std_logic_vector(7 downto 0);
-   signal pattern_hsync  : std_logic;
-   signal pattern_vsync  : std_logic;
-   signal pattern_de     : std_logic;
-
    signal counter : integer := 0;
    signal resend : std_logic := '1';      
             
                                       
 begin
-i_vga_generator: vga_generator PORT MAP(
-		clk   => clk,
-		r     => pattern_r,
-		g     => pattern_g,
-		b     => pattern_b,
-		de    => pattern_de,
-		vsync => pattern_vsync,
-		hsync => pattern_hsync
-	);
 
 
 -----------------------------------------------------------------------   
 -- This sends the configuration register values to the HDMI transmitter
 -----------------------------------------------------------------------   
 i_i2c_sender: i2c_sender PORT MAP(
-      clk => clk,
+      clk => clock27,
       resend => resend,
       sioc => hdmi_scl,
       siod => hdmi_sda
    );
 
-     
-   -- Generate a 27MHz pixel clock and one with 90 degree phase shift from the 100MHz system clock.
-   PLLE2_BASE_inst : PLLE2_BASE
-   generic map (
-      BANDWIDTH => "OPTIMIZED",  -- OPTIMIZED, HIGH, LOW
-      CLKFBOUT_MULT  => 14,       -- Multiply value for all CLKOUT, (2-64)
-      CLKFBOUT_PHASE => 0.0,     -- Phase offset in degrees of CLKFB, (-360.000-360.000).
-      CLKIN1_PERIOD  => 10.0,    -- Input clock period in ns to ps resolution (i.e. 33.333 is 30 MHz).
-      -- CLKOUT0_DIVIDE - CLKOUT5_DIVIDE: Divide amount for each CLKOUT (1-128)
-      CLKOUT0_DIVIDE => 14,
-      CLKOUT1_DIVIDE => 52,
-      CLKOUT2_DIVIDE => 52,
-      CLKOUT3_DIVIDE => 1,
-      CLKOUT4_DIVIDE => 1,
-      CLKOUT5_DIVIDE => 1,
-      -- CLKOUT0_DUTY_CYCLE - CLKOUT5_DUTY_CYCLE: Duty cycle for each CLKOUT (0.001-0.999).
-      CLKOUT0_DUTY_CYCLE => 0.5,
-      CLKOUT1_DUTY_CYCLE => 0.5,
-      CLKOUT2_DUTY_CYCLE => 0.5,
-      CLKOUT3_DUTY_CYCLE => 0.5,
-      CLKOUT4_DUTY_CYCLE => 0.5,
-      CLKOUT5_DUTY_CYCLE => 0.5,
-      -- CLKOUT0_PHASE - CLKOUT5_PHASE: Phase offset for each CLKOUT (-360.000-360.000).
-      CLKOUT0_PHASE => 0.0,
-      CLKOUT1_PHASE => 0.0,
-      CLKOUT2_PHASE => 135.0,
-      CLKOUT3_PHASE => 0.0,
-      CLKOUT4_PHASE => 0.0,
-      CLKOUT5_PHASE => 0.0,
-      DIVCLK_DIVIDE => 1,        -- Master division value, (1-56)
-      REF_JITTER1 => 0.0,        -- Reference input jitter in UI, (0.000-0.999).
-      STARTUP_WAIT => "FALSE"    -- Delay DONE until PLL Locks, ("TRUE"/"FALSE")
-   )
-   port map (
-      -- Clock Outputs: 1-bit (each) output: User configurable clock outputs
-      CLKOUT0  => clk0,
-      CLKOUT1  => clk,
-      CLKOUT2  => clk90,
-      CLKOUT3  => open,
-      CLKOUT4  => open,
-      CLKOUT5  => open,
-      CLKFBOUT => clkfb,   -- 1-bit output: Feedback clock
-      LOCKED   => open,    -- 1-bit output: LOCK
-      CLKIN1   => clk_100, -- 1-bit input: Input clock
-      PWRDWN   => '0',     -- 1-bit input: Power-down
-      RST      => '0',     -- 1-bit input: Reset
-      CLKFBIN  => clkfb    -- 1-bit input: Feedback clock
-      );
-
-   hdmi_clk <= clk;
+   hdmi_clk <= clock27;
        
-clk_proc: process(clK)
+clk_proc: process(clock27)
    begin
-      if rising_edge(clk) then
+      if rising_edge(clock27) then
 
-         if counter < 100000000 then
+         -- Try to re-activate HDMI display every 0.5 seconds
+         if counter < 13500000 then
            counter <= counter + 1;
            resend <= '0';
          else
