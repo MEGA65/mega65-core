@@ -222,27 +222,27 @@ begin
                   frame_height => 625,        -- 312 lines x 2 fields
 
                   fullwidth_width => 720,
-                  fullwidth_start => 12+64+68,
+                  fullwidth_start => 0,
 
                   narrow_width => 720,
-                  narrow_start => 12+64+68,
+                  narrow_start => 0,
 
                   pipeline_delay => 0,
 
-                  vsync_start => 1,
-                  vsync_end => 6,
-                  hsync_start => 12,
-                  hsync_end => 12+64,
+                  vsync_start => 576+1,
+                  vsync_end => 576+1+5,
+                  hsync_start => 720+12,
+                  hsync_end => 720+12+64,
 
-                  vga_hsync_start => 864-1-(10)-64,
-                  vga_hsync_end => 864-1-(10),                  
+                  vga_hsync_start => 720+12,
+                  vga_hsync_end => 720+12+64,                 
                   
-                  first_raster => 44,
-                  last_raster => 620,
+                  first_raster => 1,
+                  last_raster => 577,
 
                   -- Centre letterbox slice for LCD panel
-                  lcd_first_raster => 44+(576-480)/2,
-                  lcd_last_raster => 620-(576-480)/2
+                  lcd_first_raster => 1+(576-480)/2,
+                  lcd_last_raster => 1+576-(576-480)/2
                   
                   )                  
     port map ( clock81 => clock81,
