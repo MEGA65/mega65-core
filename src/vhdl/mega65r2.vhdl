@@ -257,7 +257,6 @@ architecture Behavioral of container is
   signal v_red : unsigned(7 downto 0);
   signal v_green : unsigned(7 downto 0);
   signal v_blue : unsigned(7 downto 0);
-  signal v_de : std_logic;
   signal lcd_dataenable : std_logic;
   
   -- XXX We should read the real temperature and feed this to the DDR controller
@@ -769,6 +768,9 @@ begin
       vgared <= v_red;
       vgagreen <= v_green;
       vgablue <= v_blue;
+      hdmired <= v_red;
+      hdmigreen <= v_green;
+      hdmiblue <= v_blue;
     end if;
     
     if rising_edge(pixelclock) then
