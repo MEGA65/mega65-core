@@ -31,11 +31,12 @@ architecture Behavioral of i2c_sender is
    signal   data_sr           : std_logic_vector(28 downto 0) := (others => '1');
    signal   tristate_sr       : std_logic_vector(28 downto 0) := (others => '0');
    signal   reg_value         : std_logic_vector(15 downto 0)  := (others => '0');
-   constant i2c_wr_addr       : std_logic_vector(7 downto 0)  := x"7A";
+   signal   i2c_wr_addr       : std_logic_vector(7 downto 0)  := x"7A";
 
    type reg_value_pair is ARRAY(0 TO 63) OF std_logic_vector(15 DOWNTO 0);    
    
    signal reg_value_pairs : reg_value_pair := (
+            x"FE7A", -- talk to device $7A
             -------------------
             -- Powerup please!
             -------------------
@@ -59,26 +60,26 @@ architecture Behavioral of i2c_sender is
             ---------------
             -- Output mode
             ---------------
-            x"AF04", -- DVI mode
+            x"AF02", -- HDMI mode
             x"4c04", -- Deep colour off (HDMI only?)     - not needed
-            x"4000", -- Turn off additional data packets - not needed
+            x"40C0", -- Turn on main HDMI data packets
 
-            --------------------------------------------------------------
-            -- Here is the YCrCb => RGB conversion, as per programming guide
-            -- This is table 57 - HDTV YCbCr (16 to 255) to RGB (0 to 255)
-            --------------------------------------------------------------
-            -- (Cr * A1       +      Y * A2       +     Cb * A3)/4096 +     A4    =  Red
---            x"18E7", x"1934",   x"1A04", x"1BAD",   x"1C00", x"1D00",   x"1E1C", x"1F1B",
-            x"1800", x"1934",   x"1A04", x"1BAD",   x"1C00", x"1D00",   x"1E1C", x"1F1B",
-            -- (Cr * B1       +      Y * B2       +     Cb * B3)/4096 +     B4    =  Green
-            x"201D", x"21DC",   x"2204", x"23AD",   x"241F", x"2524",   x"2601", x"2735",
-            -- (Cr * C1       +      Y * C2       +     Cb * C3)/4096 +     C4    =  Blue
-            x"2800", x"2900",   x"2A04", x"2BAD",   x"2C08", x"2D7C",   x"2E1B", x"2F77",
+            -- Set HDMI device name
+            x"1F80",x"4478", -- Allow setting HDMI packet memory
+            x"FE70", -- begin talking to device ID 70
+            x"0083",x"0101",x"0219",
+            -- @M.E.G.A. + NUL
+            x"0340",x"044D",x"052E",x"0645",x"072E",x"0847",x"092E",x"0A41",
+            x"0B2E",x"0C00",
+            -- MEGA65 Computer + NUL
+            x"0D4D",x"0E45",x"0F47",x"1041",x"1136",x"1235",x"1320",x"1443",
+            x"156f",x"166d",x"1770",x"1875",x"1974",x"1a65",x"1b72",x"1c00",
+            x"1d00",x"1e00",x"1f00",x"2000",
+            x"FE7A",
+            x"1F00",x"4479", -- Hand packet memory back to HDMI controller
 
             -- Extra space filled with FFFFs to signify end of data
-            x"FFFF", x"FFFF", x"FFFF", x"FFFF", x"FFFF", x"FFFF", x"FFFF",
-            x"FFFF", x"FFFF", x"FFFF", x"FFFF", x"FFFF", x"FFFF", x"FFFF",
-            x"FFFF", x"FFFF", x"FFFF", x"FFFF", x"FFFF", x"FFFF", x"FFFF"
+            (others => x"FFFF")
    );
 begin
 
@@ -121,8 +122,12 @@ i2c_send:   process(clk)
                initial_pause <= initial_pause+1;
             elsif finished = '0' then
                if divider = "11111111" then
-                  divider <= (others =>'0');
-                  if reg_value(15 downto 8) = "11111111" then
+                 divider <= (others =>'0');
+                 -- x"FExx" -> change I2C device to write to, to $xx
+                  if reg_value(15 downto 8) = "11111110" then
+                    i2c_wr_addr <= reg_value(7 downto 0);
+                  -- x"FFxx" -> finished
+                  elsif reg_value(15 downto 8) = "11111111" then
                      finished <= '1';
                   else
                      -- move the new data into the shift registers
