@@ -523,7 +523,7 @@ begin
       hdmi_sda        => hdmi_sda,
       hdmi_scl        => hdmi_scl,
       hpd_a           => hpd_a,
-      fullwidth_dataenable => lcd_dataenable,
+      lcd_dataenable => lcd_dataenable,
       
       ----------------------------------------------------------------------
       -- CBM floppy  std_logic_vectorerial port
