@@ -520,8 +520,8 @@ begin
       vgared          => v_red,
       vgagreen        => v_green,
       vgablue         => v_blue,
-      hdmi_sda        => hdmi_sda,
-      hdmi_scl        => hdmi_scl,
+--      hdmi_sda        => hdmi_sda,
+--      hdmi_scl        => hdmi_scl,
       hpd_a           => hpd_a,
       lcd_dataenable => lcd_dataenable,
       
