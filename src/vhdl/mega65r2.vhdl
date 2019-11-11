@@ -253,12 +253,12 @@ architecture Behavioral of container is
   signal pmoda_dummy :  std_logic_vector(7 downto 0) := (others => '1');
 
   signal v_vga_hsync : std_logic;
-  signal v_hdmi_hsync : std_logic;
   signal v_vsync : std_logic;
   signal v_red : unsigned(7 downto 0);
   signal v_green : unsigned(7 downto 0);
   signal v_blue : unsigned(7 downto 0);
   signal v_de : std_logic;
+  signal lcd_dataenable : std_logic;
   
   -- XXX We should read the real temperature and feed this to the DDR controller
   -- so that it can update timing whenever the temperature changes too much.
@@ -348,6 +348,27 @@ begin
       clk => cpuclock,
       temp => fpga_temperature);
 
+  hdmi0: entity work.vga_hdmi
+    port map (
+      clock27 => clock27,
+
+      -- outputs from machine.vhdl that feed us
+      pattern_r => std_logic_vector(v_red),
+      pattern_g => std_logic_vector(v_green),
+      pattern_b => std_logic_vector(v_blue),
+      pattern_hsync => v_vga_hsync,
+      pattern_vsync => v_vsync,
+      pattern_de => lcd_dataenable,
+
+      -- and our outputs to control the HDMI port
+      hdmi_clk => hdmi_clk,
+      hdmi_hsync => hdmi_hsync,
+      hdmi_vsync => hdmi_vsync,
+      hdmi_de => hdmi_de,
+      hdmi_scl => hdmi_scl,
+      hdmi_sda => hdmi_sda
+      );
+  
   kbd0: entity work.mega65kbd_to_matrix
     port map (
       ioclock => cpuclock,
@@ -495,14 +516,14 @@ begin
       no_hyppo => '0',
       
       vsync           => v_vsync,
-      vga_hsync           => v_vga_hsync,
-      hdmi_hsync           => v_hdmi_hsync,
+      vga_hsync       => v_vga_hsync,
       vgared          => v_red,
       vgagreen        => v_green,
       vgablue         => v_blue,
       hdmi_sda        => hdmi_sda,
       hdmi_scl        => hdmi_scl,
       hpd_a           => hpd_a,
+      fullwidth_dataenable => lcd_dataenable,
       
       ----------------------------------------------------------------------
       -- CBM floppy  std_logic_vectorerial port
@@ -752,15 +773,6 @@ begin
     
     if rising_edge(pixelclock) then
 
-      hdmi_hsync <= v_hdmi_hsync;
-      hdmi_vsync <= v_vsync;
-      hdmired <= v_red;
-      hdmigreen <= v_green;
-      hdmiblue <= v_blue;
-      -- pixels valid only when neither sync signal is asserted
-      -- As they are both negative, we can just and them
-      hdmi_de <= v_vsync and v_hdmi_hsync;
-      
       -- no hdmi audio yet
       hdmi_spdif_out <= 'Z';
 
