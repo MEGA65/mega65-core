@@ -33,6 +33,8 @@ architecture Behavioral of i2c_sender is
    signal   reg_value         : std_logic_vector(15 downto 0)  := (others => '0');
    signal   i2c_wr_addr       : std_logic_vector(7 downto 0)  := x"7A";
 
+   constant i2c_finished_token : std_logic_vector(15 downto 0) := x"FFFF";
+   
    type reg_value_pair is ARRAY(0 TO 63) OF std_logic_vector(15 DOWNTO 0);    
    
    signal reg_value_pairs : reg_value_pair := (
@@ -79,7 +81,7 @@ architecture Behavioral of i2c_sender is
             x"1F00",x"4479", -- Hand packet memory back to HDMI controller
 
             -- Extra space filled with FFFFs to signify end of data
-            (others => x"FFFF")
+            others => i2c_finished_token
    );
 begin
 
@@ -123,13 +125,16 @@ i2c_send:   process(clk)
             elsif finished = '0' then
                if divider = "11111111" then
                  divider <= (others =>'0');
-                 -- x"FExx" -> change I2C device to write to, to $xx
-                  if reg_value(15 downto 8) = "11111110" then
-                    i2c_wr_addr <= reg_value(7 downto 0);
-                  -- x"FFxx" -> finished
-                  elsif reg_value(15 downto 8) = "11111111" then
+                  if reg_value(15 downto 8) = "11111111" then
+                      -- x"FFxx" -> finished
                      finished <= '1';
                   else
+
+                    if reg_value(15 downto 8) = "11111110" then
+                      -- x"FExx" -> change I2C device to write to, to $xx
+                      i2c_wr_addr <= reg_value(7 downto 0);
+                    end if;
+                    
                      -- move the new data into the shift registers
                      clk_first_quarter <= (others => '0'); clk_first_quarter(clk_first_quarter'length-1) <= '1';
                      clk_last_quarter <= (others => '0');  clk_last_quarter(0) <= '1';
