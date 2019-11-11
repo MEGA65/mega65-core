@@ -53,7 +53,8 @@ architecture Behavioral of i2c_sender is
             -- according to documenation, style 2 should be x"1637" but it isn't. ARGH!
 --            x"1637", -- 444 output, 8 bit style 2, 1st half on rising edge - YCrCb clipping
             x"1630", -- more boring pixel format
-            x"1700", -- output asp ect ratio 16:9, external DE 
+            x"1700", -- input aspect ratio 4:3, external DE 
+            x"5619", -- ouput aspect ratio 4:3, 
             x"D03C", -- auto sync data - must be set for DDR modes. No DDR clock delay
             ---------------
             -- Output mode
@@ -76,7 +77,7 @@ architecture Behavioral of i2c_sender is
 
             -- Extra space filled with FFFFs to signify end of data
             x"FFFF", x"FFFF", x"FFFF", x"FFFF", x"FFFF", x"FFFF", x"FFFF",
-            x"FFFF", x"FFFF", x"FFFF", x"FFFF", x"FFFF", x"FFFF", x"FFFF", x"FFFF",
+            x"FFFF", x"FFFF", x"FFFF", x"FFFF", x"FFFF", x"FFFF", x"FFFF",
             x"FFFF", x"FFFF", x"FFFF", x"FFFF", x"FFFF", x"FFFF", x"FFFF"
    );
 begin
