@@ -221,7 +221,7 @@ begin
     generic map ( frame_width => 864,        
                   frame_height => 625,        -- 312 lines x 2 fields
 
-                  x_zero_position => 864-24,
+                  x_zero_position => 864-32,
                   
                   fullwidth_width => 720,
                   fullwidth_start => 0,
@@ -277,7 +277,7 @@ begin
     generic map ( frame_width => 858-1,   -- 65 cycles x 16 pixels
                   frame_height => 526,       -- NTSC frame is 263 lines x 2 frames
 
-                  x_zero_position => 858-24,
+                  x_zero_position => 858-32,
 
                   fullwidth_width => 720,
                   fullwidth_start => 0,
