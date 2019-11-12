@@ -111,6 +111,7 @@ set files [list \
  "[file normalize "$origin_dir/spdif_out/tb_spdif_out.vhd"]"\
  "[file normalize "$origin_dir/spdif_out/tb_timebase.vhd"]"\
  "[file normalize "$origin_dir/spdif_out/Timebase.vhd"]"\
+]
  set imported_files [add_files -fileset sources_1 $files]
 
 # Set 'sources_1' fileset file properties for remote files
