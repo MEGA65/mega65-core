@@ -105,13 +105,42 @@ set files [list \
  "[file normalize "$origin_dir/zed_hdmi_720p/i2c_sender.vhd"]"\
  "[file normalize "$origin_dir/zed_hdmi_720p/vga_hdmi.vhd"]"\
  "[file normalize "$origin_dir/zed_hdmi_720p/vga_generator.vhd"]"\
-]
-set imported_files [add_files -fileset sources_1 $files]
+ "[file normalize "$origin_dir/spdif_out/spdf_out.vhd"]"\
+ "[file normalize "$origin_dir/spdif_out/serialiser.vhd"]"\
+ "[file normalize "$origin_dir/spdif_out/soundSource.vhd"]"\
+ "[file normalize "$origin_dir/spdif_out/tb_spdif_out.vhd"]"\
+ "[file normalize "$origin_dir/spdif_out/tb_timebase.vhd"]"\
+ "[file normalize "$origin_dir/spdif_out/Timebase.vhd"]"\
+ set imported_files [add_files -fileset sources_1 $files]
 
 # Set 'sources_1' fileset file properties for remote files
 # None
 
 # Set 'sources_1' fileset file properties for local files
+
+set file "spdif_out/spdf_out.vhd"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "spdif_out/serialiser.vhd"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "spdif_out/soundSource.vhd"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "spdif_out/tb_spdif_out.vhd"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "spdif_out/tb_timebase.vhd"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "spdif_out/Timebase.vhd"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
 
 set file "zed_hdmi_720p/i2c_sender.vhd"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
