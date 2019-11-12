@@ -66,6 +66,11 @@ architecture Behavioral of i2c_sender is
             x"4c04", -- Deep colour off (HDMI only?)     - not needed
             x"40C0", -- Turn on main HDMI data packets
 
+            ---------------
+            -- Audio setup
+            ---------------
+            x"0A10",  -- SPDIF audio format
+            
             -- Set HDMI device name
             x"1F80",x"4478", -- Allow setting HDMI packet memory
             x"FE70", -- begin talking to device ID 70
