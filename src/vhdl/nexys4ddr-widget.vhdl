@@ -264,7 +264,6 @@ architecture Behavioral of container is
 
   signal lcd_hsync : std_logic;
   signal lcd_vsync : std_logic;
-  signal lcd_display_enable : std_logic;
   signal pal50_select : std_logic;
 
   signal widget_matrix_col_idx : integer range 0 to 8 := 0;
@@ -424,10 +423,10 @@ begin
       no_hyppo => '0',
       
       vsync           => vsync,
-      hsync           => hsync,
+      vga_hsync           => hsync,
       lcd_vsync => lcd_vsync,
       lcd_hsync => lcd_hsync,
-      lcd_display_enable => lcd_display_enable,
+
       vgared(7 downto 0)          => buffer_vgared,
       vgagreen(7 downto 0)        => buffer_vgagreen,
       vgablue(7 downto 0)         => buffer_vgablue,
@@ -565,13 +564,6 @@ begin
         vgablue <= to_unsigned(sawtooth_counter,4);
       end if;
 
-      -- VGA out on LCD panel
---      jalo <= std_logic_vector(buffer_vgablue(7 downto 4));
---      jahi <= std_logic_vector(buffer_vgared(7 downto 4));
---      jblo <= std_logic_vector(buffer_vgagreen(7 downto 4));
---      jbhi(8) <= lcd_hsync;
---      jbhi(9) <= lcd_vsync;
---      jbhi(10) <= lcd_display_enable;
     end if;
 
     if rising_edge(cpuclock) then
