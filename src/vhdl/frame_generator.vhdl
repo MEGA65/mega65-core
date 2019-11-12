@@ -27,6 +27,8 @@ entity frame_generator is
     frame_width : integer;
     frame_height : integer;
 
+    x_zero_position : integer := 0;
+    
     fullwidth_start : integer;
     fullwidth_width : integer;
 
@@ -175,15 +177,15 @@ begin
         pixel_strobe <= '1';     -- stays high for 1 cycle
         pixel_strobe_counter <= 0;
 
+        if x = x_zero_position then
+          x_zero_driver <= '1';          
+        elsif x = x_zero_position + 3 then
+          x_zero_driver <= '0';
+        end if;
         if x < frame_width then
           x <= x + 1;
-          -- make the x_zero signal last a bit longer, to make sure it gets captured.
-          if x = 3 then
-            x_zero_driver <= '0';
-          end if;
         else
           x <= 0;
-          x_zero_driver <= '1';
           if y < frame_height then
             y <= y + 1;
             y_zero_driver <= '0';
