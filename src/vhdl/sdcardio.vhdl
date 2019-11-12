@@ -2029,8 +2029,8 @@ begin  -- behavioural
 
             -- @IO:GS $D68B - F011 emulation control register
             when x"8b" =>
-              f011_mega_disk <= fastio_wdata(0);
-              f011_mega_disk2 <= fastio_wdata(1);
+              f011_mega_disk <= fastio_wdata(6);
+              f011_mega_disk2 <= fastio_wdata(7);
               -- @IO:GS $D68B.5 - F011 disk 2 write protect
               f011_disk2_write_protected <= not fastio_wdata(5);
               -- @IO:GS $D68B.4 - F011 disk 2 present
