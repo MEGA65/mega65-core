@@ -662,7 +662,7 @@ begin  -- behavioural
            sdhc_mode,sd_datatoken, sd_rdata,
            diskimage1_enable,f011_disk1_present,
            f011_disk1_write_protected,diskimage2_enable,f011_disk2_present,
-           f011_disk2_write_protected,diskimage_sector,sw,btn,aclmiso,
+           f011_disk2_write_protected,diskimage_sector,diskimage2_sector,sw,btn,aclmiso,
            aclmosiinternal,aclssinternal,aclSCKinternal,aclint1,aclint2,
            tmpsdainternal,tmpsclinternal,tmpint,tmpct,tmpint,last_scan_code,
            pcm_left,qspidb,
@@ -1613,9 +1613,9 @@ begin  -- behavioural
                         end if;
                       else
                         if sdhc_mode='1' then
-                          sd_sector <= diskimage_sector + diskimage2_offset;
+                          sd_sector <= diskimage2_sector + diskimage2_offset;
                         else
-                          sd_sector(31 downto 9) <= diskimage_sector(31 downto 9) +
+                          sd_sector(31 downto 9) <= diskimage2_sector(31 downto 9) +
                                                     diskimage2_offset;
                         end if;
                       end if;                        
@@ -1686,9 +1686,9 @@ begin  -- behavioural
                       end if;
                     elsif f011_ds="001" then
                       if sdhc_mode='1' then
-                        sd_sector <= diskimage_sector + diskimage2_offset;
+                        sd_sector <= diskimage2_sector + diskimage2_offset;
                       else
-                        sd_sector(31 downto 9) <= diskimage_sector(31 downto 9) +
+                        sd_sector(31 downto 9) <= diskimage2_sector(31 downto 9) +
                                                   diskimage2_offset;     
                       end if;
                     else

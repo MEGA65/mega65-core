@@ -3230,7 +3230,15 @@ d81a1:        // XXX - Why do we call closefile here?
 	bcs d81a1a
 	rts
 d81a1a:	
-		
+
+        // copy sector number from $D681 to $D68c
+        //
+        ldx #$03
+l94d:   lda $d681,x		// resolved sector number
+        sta $d68c,x  		// sector number of disk image #0
+        dex
+        bpl l94d
+	
         // Set flags to indicate it is mounted (and read-write)
         // But don't mess up the flags for the 2nd drive
 	lda $d68b
@@ -3307,6 +3315,14 @@ d81a1b:        // XXX - Why do we call closefile here?
 	bcs d81a1ab
 	rts
 d81a1ab:	
+
+        // copy sector number from $D681 to $D68c
+        //
+        ldx #$03
+l94db:   lda $d681,x		// resolved sector number
+        sta $d690,x  		// sector number of disk image #1
+        dex
+        bpl l94db
 		
         // Set flags to indicate it is mounted (and read-write)
         // But don't mess up the flags for the 2nd drive
@@ -3520,14 +3536,6 @@ l94c:   lda dos_file_descriptors+dos_filedescriptor_offset_startcluster,x
         bne l94c
 
         jsr dos_cluster_to_sector
-
-        // copy sector number from $D681 to $D68c
-        //
-        ldx #$03
-l94d:   lda $d681,x		// resolved sector number
-        sta $d68c,x  		// sector number of disk image #0
-        dex
-        bpl l94d
 
 	sec
 	rts
