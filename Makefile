@@ -514,8 +514,8 @@ $(VHDLSRCDIR)/hyppo.vhdl:	$(TOOLDIR)/makerom/rom_template.vhdl $(BINDIR)/HICKUP.
 $(VHDLSRCDIR)/colourram.vhdl:	$(TOOLDIR)/makerom/colourram_template.vhdl $(BINDIR)/COLOURRAM.BIN $(TOOLDIR)/makerom/makerom
 	$(TOOLDIR)/makerom/makerom $(TOOLDIR)/makerom/colourram_template.vhdl $(BINDIR)/COLOURRAM.BIN $(VHDLSRCDIR)/colourram ram8x32k
 
-$(SRCDIR)/open-roms/newc65:	$(SRCDIR)/open-roms/assets/8x8font.png
-	( cd $(SRCDIR)/open-roms ; make newc65 )
+$(SRCDIR)/open-roms/build/newc65.rom:	$(SRCDIR)/open-roms/assets/8x8font.png
+	( cd $(SRCDIR)/open-roms ; make build/newc65.rom )
 
 $(SRCDIR)/open-roms/assets/8x8font.png:
 	git submodule init
