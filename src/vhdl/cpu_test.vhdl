@@ -360,7 +360,7 @@ begin
       eth_interrupt => '0',
 
       vsync           => vsync,
-      hsync           => hsync,
+      vga_hsync           => hsync,
       vgared          => vgared,
       vgagreen        => vgagreen,
       vgablue         => vgablue,
