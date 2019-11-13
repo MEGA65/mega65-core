@@ -1040,7 +1040,7 @@ f011Virtualised:
         bcc d81attachfail
         jsr dos_closefile
 
-        jsr dos_d81attach
+        jsr dos_d81attach0
         bcc d81attachfail
 
         ldx #<msg_d81mounted
