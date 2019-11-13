@@ -394,7 +394,7 @@ begin
     port map (
       cpuclock => cpuclock,
       clock240 => clock163,
-      reset => reset_out,
+      -- reset => reset_out,
       address => expansionram_address,
       wdata => expansionram_wdata,
       read_request => expansionram_read,
@@ -402,8 +402,8 @@ begin
       rdata => expansionram_rdata,
       data_ready_strobe => expansionram_data_ready_strobe,
       busy => expansionram_busy,
-      latency_1x => to_unsigned(4,8),
-      latency_2x => to_unsigned(8,8),
+--      latency_1x => to_unsigned(4,8),
+--      latency_2x => to_unsigned(8,8),
       
       hr_d => hr_d,
       hr_rwds => hr_rwds,
