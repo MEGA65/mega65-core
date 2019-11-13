@@ -127,7 +127,7 @@ architecture behavioural of framepacker is
   signal last_access_is_thumbnail : std_logic := '0';
   signal thumbnail_x_counter : integer range 0 to 24 := 0;
   signal thumbnail_y_counter : integer range 0 to 24 := 0;
-
+  signal thumbnail_pixels_remaining : integer range 0 to 80 := 0;
 
   signal x_counter : integer range 0 to 4095 := 0;
   signal bit_queue_len : integer range 0 to 32 := 0;
@@ -278,6 +278,8 @@ begin  -- behavioural
         end if;
       end if;
       if pixel_newraster='1' then
+        -- Make sure we collect no more than 80 pixels per raster
+        thumbnail_pixels_remaining <= 80;
         x_counter <= 0;
         -- Sample first pixel, so we get all 80 pixels across the screen
         thumbnail_x_counter <= 9;
@@ -289,7 +291,10 @@ begin  -- behavioural
           thumbnail_active_pixel <= '0';
         else
           thumbnail_x_counter <= 0;
-          thumbnail_active_pixel <= thumbnail_active_row;
+          if thumbnail_pixels_remaining /= 0 then
+            thumbnail_active_pixel <= thumbnail_active_row;
+            thumbnail_pixels_remaining <= thumbnail_pixels_remaining - 1;
+          end if;
         end if;
       else
         thumbnail_active_pixel <= '0';
