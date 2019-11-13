@@ -56,31 +56,31 @@ programentrypoint:
 	jsr i2cstop
 
 	; Enable replacing SPD memory
-	lda #addr_7511
-	ldy #$1f
-	ldx #$80
-	jsr writeregister
-
-	; Enable replacing and reading SPD memory
-	lda #addr_7511
-	ldy #$44
-	ldx #$78
-	jsr writeregister
-
-
-	; Set HDMI Source Product Description string to "M.E.G.A. 65 Computer"
-	ldy #$00
-@spd_next_char:
-	lda spd_string,y
-	tax
-	phy
-	lda #$70 ; I2C address for packet memory
-	jsr writeregister
-	ply
-	iny
-	cpy #$20
-	bne @spd_next_char
-
+;	lda #addr_7511
+;	ldy #$1f
+;	ldx #$80
+;	jsr writeregister
+;
+;	; Enable replacing and reading SPD memory
+;	lda #addr_7511
+;	ldy #$44
+;	ldx #$78
+;	jsr writeregister
+;
+;
+;	; Set HDMI Source Product Description string to "M.E.G.A. 65 Computer"
+;	ldy #$00
+;@spd_next_char:
+;	lda spd_string,y
+;	tax
+;	phy
+;	lda #$70 ; I2C address for packet memory
+;	jsr writeregister
+;	ply
+;	iny
+;	cpy #$20
+;	bne @spd_next_char
+;
 	; Initialise various registers according to the documentation.
 	ldx #$00
 @setup_next_reg:
@@ -103,27 +103,27 @@ programentrypoint:
 	; Now make the packet mem etc visible to HDMI side, so we can get
 	; HDMI target name showing on HDMI receiver
 	; Resume SPD packet update
-	lda #addr_7511
-	ldy #$1f
-	ldx #$00
-	jsr writeregister
+;	lda #addr_7511
+;	ldy #$1f
+;	ldx #$00
+;	jsr writeregister
+;
+;	; Disable replacing and reading SPD memory from I2C, so HDMI can read it
+;	lda #addr_7511
+;	ldy #$44
+;	ldx #$79
+;	jsr writeregister
 
-	; Disable replacing and reading SPD memory from I2C, so HDMI can read it
-	lda #addr_7511
-	ldy #$44
-	ldx #$79
-	jsr writeregister
-
-	; Request reading of EDID data
-	lda #addr_7511
-	ldy #$C9
-	ldx #$03
-	jsr writeregister
-	lda #addr_7511
-	ldy #$C9
-	ldx #$13
-	jsr writeregister
-
+;	; Request reading of EDID data
+;	lda #addr_7511
+;	ldy #$C9
+;	ldx #$03
+;	jsr writeregister
+;	lda #addr_7511
+;	ldy #$C9
+;	ldx #$13
+;	jsr writeregister
+;
 	; Indicate NTSC 480p 60Hz 4:3 ( = $02)
 	; For PAL 576p 50Hz 4:3 = $11
 	lda #addr_7511
