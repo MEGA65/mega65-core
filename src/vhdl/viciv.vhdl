@@ -4388,7 +4388,14 @@ begin
 
           -- Read and store the 8 bytes of data we need for a full-colour character
           report "LEGACY: glyph reading full-colour pixel value $" & to_hstring(ramdata);
-          full_colour_data(63 downto 56) <= ramdata;
+          if glyph_4bit='0' or glyph_flip_horizontal='0' then
+            -- Don't fly byte nybl order
+            full_colour_data(63 downto 56) <= ramdata;
+          else
+            -- Do flip byte nybl order
+            full_colour_data(63 downto 60) <= ramdata(3 downto 0);
+            full_colour_data(59 downto 56) <= ramdata(7 downto 4);
+          end if;
           full_colour_data(55 downto 0) <= full_colour_data(63 downto 8);
           if glyph_flip_horizontal = '0' then
             glyph_data_address(2 downto 0) <= glyph_data_address(2 downto 0) + 1;
@@ -4399,7 +4406,14 @@ begin
             full_colour_data(63 downto 56) <= "00000000";
           end if;
           if glyph_reverse='1' then
-            full_colour_data(63 downto 56) <= ramdata xor "11111111";
+            if glyph_4bit='0' or glyph_flip_horizontal='0' then
+              -- Don't flip byte nybl order
+              full_colour_data(63 downto 56) <= ramdata xor "11111111";
+            else
+              -- Do flip byte nybl order
+              full_colour_data(63 downto 60) <= ramdata(3 downto 0) xor "1111";
+              full_colour_data(59 downto 56) <= ramdata(7 downto 4) xor "1111";
+            end if;
           end if;
           if glyph_underline='1' then
             full_colour_data(63 downto 56) <= "11111111";
