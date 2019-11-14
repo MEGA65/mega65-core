@@ -46,6 +46,7 @@ entity gs4510 is
     mathclock : in std_logic;
     Clock : in std_logic;
     phi0 : out std_logic;
+    phi_in : in std_logic;
     ioclock : in std_logic;
     reset : in std_logic;
     reset_out : out std_logic;
@@ -373,7 +374,10 @@ architecture Behavioural of gs4510 is
   signal last_clear_matrix_mode_toggle : std_logic := '0';
 
   -- For instruction-accurate CPU timing at 1MHz and 3.5MHz
-  -- XXX Doesn't differentiate between PAL and NTSC
+  -- Actually only used for 3.5MHz, as at 1MHz we used the cycle impulses
+  -- from the video frame generator, which also handles PAL/NTSC differences
+  -- XXX Doesn't differentiate between PAL and NTSC at 3.5MHz
+  -- XXX 2MHz / 3.5MHz thus also uses somewhat different time base to 1MHz
   constant pal1mhz_times_65536 : integer := 64569;
   constant pal2mhz_times_65536 : integer := 64569 * 2;
   constant pal3point5mhz_times_65536 : integer := 225992;
@@ -392,6 +396,7 @@ architecture Behavioural of gs4510 is
   signal phi_new_backlog : integer range 0 to 127 := 0;
   signal last_phi16 : std_logic := '0';
   signal phi0_export : std_logic := '0';
+  signal last_phi_in : std_logic := '0';
 
   -- IO has one waitstate for reading, 0 for writing
   -- (Reading incurrs an extra waitstate due to read_data_copy)
@@ -3248,6 +3253,7 @@ begin
 
       phi_add_backlog <= '0';
       phi_new_backlog <= 0;
+      last_phi_in <= phi_in;
       last_phi16 <= phi_counter(16);
       case cpuspeed_internal is
         when x"01" =>          
@@ -3261,7 +3267,8 @@ begin
           phi_counter(16) <= phi_counter(16) xor '1';
       end case;
       if cpuspeed_internal /= x"40" and monitor_mem_attention_request_drive='0' then
-        if last_phi16 /= phi_counter(16) then
+        if ((last_phi16 /= phi_counter(16)) and (cpuspeed_internal /= x"01"))
+           or ((cpuspeed_internal = x"01") and (last_phi_in /= phi_in)) then
           -- phi2 cycle has passed
           if phi_backlog = 1 or phi_backlog=0 then
             if phi_add_backlog = '0' then

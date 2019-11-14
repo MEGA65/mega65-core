@@ -552,7 +552,7 @@ architecture Behavioral of machine is
 
   signal segled_counter : unsigned(19 downto 0) := (others => '0');
 
-  signal phi0 : std_logic := '0';
+  signal phi : std_logic := '0';
 
   -- Video pipeline plumbing
   signal pixel_x_viciv : integer;
@@ -877,7 +877,7 @@ begin
       cpufrequency => cpufrequency,
       target => target)
     port map(
-      phi0 => phi0,
+      phi_in => phi,
       all_pause => all_pause,
       matrix_trap_in=>matrix_trap,
       request_monitor_halt => request_monitor_halt,
@@ -1031,7 +1031,7 @@ begin
 
                cpuclock => cpuclock,
 
-
+               phi_out => phi,
 
       pixel_strobe_out => external_pixel_strobe,
       
@@ -1377,7 +1377,7 @@ begin
       cart_access_count => cart_access_count,
       
       uartclock => uartclock,
-      phi0 => phi0,
+      phi0 => phi,
       reset => reset_combined,
       reset_out => reset_io,
       irq => io_irq, -- (but we might like to AND this with the hardware IRQ button)

@@ -43,6 +43,9 @@ entity pixel_driver is
     -- Invert hsync or vsync signals if '1'
     hsync_invert : in std_logic;
     vsync_invert : in std_logic;
+
+    -- ~1mhz clock for CPU and other parts, derived directly from the video clock
+    phi_out : out std_logic;
     
     -- Incoming video, e.g., from VIC-IV and rain compositer
     -- Clocked at clock81 (aka pixelclock)
@@ -121,6 +124,10 @@ architecture greco_roman of pixel_driver is
   signal hsync_vga60_uninverted : std_logic := '0';
   signal vsync_vga60 : std_logic := '0';
   signal vsync_vga60_uninverted : std_logic := '0';
+
+  signal phi2_pal50 : std_logic;
+  signal phi2_ntsc60 : std_logic;
+  signal phi2_vga60 : std_logic;
   
   signal lcd_vsync_pal50 : std_logic := '0';
   signal lcd_vsync_ntsc60 : std_logic := '0';
@@ -254,6 +261,8 @@ begin
                hsync_polarity => hsync_invert,
                vsync_polarity => vsync_invert,
                
+               phi2_out => phi2_pal50,
+               
                vga_hsync => vga_hsync_pal50,
                lcd_hsync => lcd_hsync_pal50,
                lcd_vsync => lcd_vsync_pal50,
@@ -308,6 +317,8 @@ begin
                hsync_polarity => hsync_invert,
                vsync_polarity => vsync_invert,
 
+               phi2_out => phi2_ntsc60,
+               
                vga_hsync => vga_hsync_ntsc60,
                lcd_hsync => lcd_hsync_ntsc60,
                lcd_vsync => lcd_vsync_ntsc60,
@@ -362,6 +373,8 @@ begin
                hsync_polarity => hsync_invert,
                vsync_polarity => vsync_invert,
 
+               phi2_out => phi2_vga60,
+               
                vga_hsync => vga_hsync_vga60,
                lcd_hsync => lcd_hsync_vga60,
                lcd_vsync => lcd_vsync_vga60,
@@ -376,6 +389,10 @@ begin
                pixel_strobe => pixel_strobe_vga60               
                
                );               
+
+  phi_out <= phi2_pal50 when pal50_select_internal='1' else
+           phi2_vga60 when vga60_select_internal='1'
+           else phi2_ntsc60;
   
   hsync <= hsync_pal50 when pal50_select_internal='1' else
            hsync_vga60 when vga60_select_internal='1'
