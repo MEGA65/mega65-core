@@ -226,7 +226,7 @@ begin
   -- (This is the mode lines that the ADV7511 should want to see)
   frame50: entity work.frame_generator 
     generic map ( frame_width => 864,        
-                  frame_height => 624,        -- 312 lines x 2 fields
+                  frame_height => 624-1,        -- 312 lines x 2 fields
 
                   x_zero_position => 864-32,
                   
