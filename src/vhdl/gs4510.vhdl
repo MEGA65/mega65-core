@@ -953,14 +953,17 @@ architecture Behavioural of gs4510 is
     2,5,0,8,4,4,6,6,2,4,2,7,4,4,7,7,
     6,6,0,8,3,3,5,5,4,2,2,2,4,4,6,6,
     2,5,0,8,4,4,6,6,2,4,2,7,4,4,7,7,
+
     6,6,0,8,3,3,5,5,3,2,2,2,3,4,6,6,
     2,5,0,8,4,4,6,6,2,4,2,7,4,4,7,7,
     6,6,0,8,3,3,5,5,4,2,2,2,5,4,6,6,
     2,5,0,8,4,4,6,6,2,4,2,7,4,4,7,7,
+
     2,6,2,6,3,3,3,3,2,2,2,2,4,4,4,4,
     2,6,0,6,4,4,4,4,2,5,2,5,5,5,5,5,
     2,6,2,6,3,3,3,3,2,2,2,2,4,4,4,4,
     2,5,0,5,4,4,4,4,2,4,2,4,4,4,4,4,
+
     2,6,2,8,3,3,5,5,2,2,2,2,4,4,6,6,
     2,5,0,8,4,4,6,6,2,4,2,7,4,4,7,7,
     2,6,2,8,3,3,5,5,2,2,2,2,4,4,6,6,
@@ -3268,7 +3271,7 @@ begin
       end case;
       if cpuspeed_internal /= x"40" and monitor_mem_attention_request_drive='0' then
         if ((last_phi16 /= phi_counter(16)) and (cpuspeed_internal /= x"01"))
-           or ((cpuspeed_internal = x"01") and (last_phi_in /= phi_in)) then
+           or ((cpuspeed_internal = x"01") and (last_phi_in='0' and phi_in='1')) then
           -- phi2 cycle has passed
           if phi_backlog = 1 or phi_backlog=0 then
             if phi_add_backlog = '0' then
