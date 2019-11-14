@@ -111,13 +111,14 @@ architecture brutalist of frame_generator is
 
   -- Work out what we need to add so that 16th bit (bit 15) will flip every time
   -- a phi2 cycle has occurred
-  signal ticks_per_128_phi2 : integer := 32768*cycles_per_raster/(frame_width*cycles_per_pixel);
-  signal ticks_per_phi2 : unsigned(15 downto 0) := to_unsigned(ticks_per_128_phi2,16);
-
-  signal phi2_accumulator : unsigned(15 downto 0) := to_unsigned(0,16);
+--  signal ticks_per_128_phi2 : integer := 32768*cycles_per_raster/(frame_width*cycles_per_pixel);
+--  signal ticks_per_phi2 : unsigned(15 downto 0) := to_unsigned(ticks_per_128_phi2,16);
+  signal ticks_per_phi2 : unsigned(7 downto 0) := to_unsigned(frame_width*2/cycles_per_pixel-1,8);
+  signal phi_remaining : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal phi2_accumulator : unsigned(7 downto 0) := to_unsigned(0,8);
   signal last_phi2 : std_logic := '0';
   signal phi2_toggle : std_logic := '0';
-  signal last_phi2_toggle : std_logic := '0';
+  signal last_phi2_toggle : std_logic := '0';  
   
   signal x : integer := 0;
   signal y : integer := frame_height - 3;
@@ -159,11 +160,16 @@ begin
 
       fullwidth_dataenable <= fullwidth_dataenable_driver;
       narrow_dataenable <= narrow_dataenable_driver;
-      
-      phi2_accumulator <= phi2_accumulator + ticks_per_128_phi2;
-      if phi2_accumulator(15) /= last_phi2 then
-        phi2_toggle <= not phi2_toggle;
-      end if;
+
+      if phi2_accumulator /= ticks_per_phi2 then
+        phi2_accumulator <= phi2_accumulator + 1;
+      else
+        phi2_accumulator <= to_unsigned(0,8);
+        if phi_remaining /= to_unsigned(0,8) then
+          phi2_toggle <= not phi2_toggle;
+          phi_remaining <= phi_remaining - 1;
+        end if;
+      end if;      
       
       -- Pixel strobe to VIC-IV can just be a 50MHz pulse
       -- train, since it all goes into a buffer.
@@ -176,9 +182,12 @@ begin
         
         pixel_strobe <= '1';     -- stays high for 1 cycle
         pixel_strobe_counter <= 0;
-
+       
         if x = x_zero_position then
-          x_zero_driver <= '1';          
+          x_zero_driver <= '1';
+          if phi_remaining = to_unsigned(0,8) then
+            phi_remaining <= to_unsigned(cycles_per_raster,8);
+          end if;
         elsif x = x_zero_position + 3 then
           x_zero_driver <= '0';
         end if;
@@ -192,7 +201,7 @@ begin
           else
             y <= 0;
             y_zero_driver <= '1';
-            phi2_accumulator <= to_unsigned(0,16);
+            phi2_accumulator <= to_unsigned(0,8);
           end if;
         end if;
 
