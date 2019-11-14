@@ -140,8 +140,7 @@ begin
           -- so we gate them on address line 23 = 8MB point)
           hr_cs0 <= ram_address(23);
           hr_cs1 <= not ram_address(23);
-          hr_clk_n <= '0';
-          hr_clk_p <= '1';
+          
           hr_reset <= '1'; -- active low reset
           countdown <= 6;
 
@@ -160,9 +159,7 @@ begin
           -- Call HyperRAM to attention
           hr_cs0 <= ram_address(23);
           hr_cs1 <= not ram_address(23);
-          hr_clk_n <= '0';
-          hr_clk_p <= '1';
-          hr_clock <= '1';
+        
           hr_reset <= '1'; -- active low reset
           countdown <= 6;
 
