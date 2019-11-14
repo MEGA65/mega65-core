@@ -122,6 +122,9 @@ begin
             report "Clearing busy_internal";
             busy_internal <= '0';
           end IF;
+          -- Release CS line between transactions
+          hr_cs0 <= '1';
+          hr_cs1 <= '1';
         when ReadSetup =>
           -- Prepare command vector
           hr_command(47) <= '1'; -- READ
@@ -166,11 +169,6 @@ begin
           state <= HyperRAMCSStrobe;
 
         when HyperRAMCSStrobe =>
-          if countdown = 3 then
-            -- Release CS line
-            hr_cs0 <= '1';
-            hr_cs1 <= '1';
-          end if;
           if countdown /= 0 then
             countdown <= countdown - 1;
           else
