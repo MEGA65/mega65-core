@@ -3129,7 +3129,8 @@ begin
       end if;
       
       -- If we got far along the last line to make it look real, and ...
-      if external_frame_y_zero = '1' then
+      last_external_frame_y_zero <= external_frame_y_zero;
+      if external_frame_y_zero = '0' and last_external_frame_y_zero='1' then
         -- Start of next frame
         report "Starting new frame. ycounter_driver <= 0";
         
