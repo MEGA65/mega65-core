@@ -8,6 +8,9 @@ entity keymapper is
   port (
     ioclock : in std_logic;
     reset_in : in std_logic;
+
+    viciv_frame_indicate : in std_logic;
+    
     matrix_mode_in : in std_logic; -- Is the system displaying matrix mode (not
                                    -- to be confused with the keyboard matrix).    
     joya_rotate : in std_logic;
@@ -90,6 +93,8 @@ end entity keymapper;
 architecture behavioural of keymapper is
 
   signal matrix_offset : integer range 0 to 255 := 252;
+
+  signal last_viciv_frame_indicate : std_logic := '0';
   
   signal hyper_trap_count_internal : unsigned(7 downto 0) := x"00";  
 
@@ -119,6 +124,7 @@ architecture behavioural of keymapper is
 
   signal key_num : integer range 0 to 71 := 0;
   signal hyper_trap : std_logic := '1';
+  signal hyper_trap_on_frame_sync : std_logic := '0';
 
   signal porta_pins : std_logic_vector(7 downto 0);
   signal portb_pins : std_logic_vector(7 downto 0);
@@ -327,9 +333,7 @@ begin  -- behavioural
             restore_out <= '0';
           elsif restore_down_ticks < 128 then
             -- 0.25 - ~ 4 second hold = trigger hypervisor trap
-            hyper_trap <= '0';
-            hyper_trap_count <= hyper_trap_count_internal + 1;
-            hyper_trap_count_internal <= hyper_trap_count_internal + 1;
+            hyper_trap_on_frame_sync <= '1';
 --          elsif restore_down_ticks < 128 then
             -- Long hold = do RESET instead of NMI
             -- But holding it down for >4 seconds does nothing,
@@ -338,10 +342,22 @@ begin  -- behavioural
 --            report "asserting reset via RESTORE key";
           end if;
         else
-          hyper_trap <= '1';
           restore_out <= '1';
           reset_drive <= '1';
         end if;
+
+        -- Trigger RESTORE long press trap always at same point in the frame,
+        -- so that we can unfreeze with relative timing properly maintained.
+        last_viciv_frame_indicate <= viciv_frame_indicate;
+        if hyper_trap_on_frame_sync = '1' and last_viciv_frame_indicate='0' and viciv_frame_indicate='1' then
+          hyper_trap_on_frame_sync <= '0';
+          hyper_trap <= '0';
+          hyper_trap_count <= hyper_trap_count_internal + 1;
+          hyper_trap_count_internal <= hyper_trap_count_internal + 1;
+        else
+          hyper_trap <= '1';          
+        end if;        
+
         
         if restore_state='0' then
           -- Restore key is down

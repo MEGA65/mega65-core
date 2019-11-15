@@ -40,7 +40,8 @@ entity iomapper is
         hyper_trap_f011_read : out std_logic;
         hyper_trap_f011_write : out std_logic;
         hyper_trap_count : out unsigned(7 downto 0);
-
+        viciv_frame_indicate : in std_logic;
+      
         joy3 : in std_logic_vector(4 downto 0);
         joy4 : in std_logic_vector(4 downto 0);
         
@@ -791,12 +792,13 @@ begin
       port map (
       reset_in => reset,
       matrix_mode_in => protected_hardware_in(6),
+      viciv_frame_indicate => viciv_frame_indicate,      
 
       matrix_segment_num => matrix_segment_num,
       matrix_segment_out => matrix_segment_out,
       suppress_key_glitches => suppress_key_glitches,
       suppress_key_retrigger => suppress_key_retrigger,
-
+    
       scan_mode => keyboard_scan_mode,
       scan_rate => keyboard_scan_rate,
       

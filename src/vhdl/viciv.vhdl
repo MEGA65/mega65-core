@@ -95,6 +95,8 @@ entity viciv is
     viciii_fast : out std_logic;
     viciv_fast : out std_logic;
 
+    viciv_frame_indicate : out std_logic := '0';
+    
     -- Used to tell the CPU when to steal cycles to simulate badlines
     badline_toggle : out std_logic := '0';
     vicii_raster_out : out unsigned(11 downto 0) := to_unsigned(0,12);
@@ -3082,6 +3084,14 @@ begin
           if vicii_ycounter_phase = vicii_ycounter_max_phase then
             if to_integer(vicii_ycounter) /= vicii_max_raster and ycounter >= vsync_delay_drive then
               vicii_ycounter <= vicii_ycounter + 1;
+              -- Indicate fixed point on the frame
+              -- (used by CPU to time entry into freeze routine for proper synchronisation.
+              --  Also helps thumbnails to not have tears in them).
+              if vicii_ycounter = to_unsigned(248,9) then
+                viciv_frame_indicate <= '1';
+              else
+                viciv_frame_indicate <= '0';
+              end if;
               -- We update V400 position in this case, bug also in the
               -- alternate case below
               vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;

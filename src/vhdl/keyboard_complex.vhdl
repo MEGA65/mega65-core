@@ -9,6 +9,8 @@ entity keyboard_complex is
     ioclock : in std_logic;
     reset_in : in std_logic;
     matrix_mode_in : in std_logic;
+
+    viciv_frame_indicate : in std_logic;
     
     -- Physical interface pins
 
@@ -203,6 +205,7 @@ begin
     ioclock => ioclock,
     reset_in => reset_in,
     matrix_mode_in => matrix_mode_in,
+    viciv_frame_indicate => viciv_frame_indicate,      
 
     -- Which inputs shall we incorporate
 

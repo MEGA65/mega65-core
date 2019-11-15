@@ -684,6 +684,8 @@ architecture Behavioral of machine is
   signal d031_write_toggle : std_logic;
 
   signal request_monitor_halt : std_logic;
+
+  signal viciv_frame_indicate : std_logic;
   
 begin
 
@@ -896,7 +898,7 @@ begin
       game => cpu_game,
       hyper_trap => hyper_trap_combined,
       hyper_trap_f011_read => hyper_trap_f011_read,
-      hyper_trap_f011_write => hyper_trap_f011_write,    
+      hyper_trap_f011_write => hyper_trap_f011_write,
       speed_gate => speed_gate,
       speed_gate_enable => speed_gate_enable,
       cpuis6502 => cpuis6502,
@@ -1083,6 +1085,8 @@ begin
       ioclock        => ioclock,
       all_pause => all_pause,
 
+      viciv_frame_indicate => viciv_frame_indicate,
+      
       hypervisor_mode => cpu_hypervisor_mode,
       
       irq             => vic_irq,
@@ -1324,6 +1328,7 @@ begin
       hyper_trap_f011_read => hyper_trap_f011_read,
       hyper_trap_f011_write => hyper_trap_f011_write,
       hyper_trap_count => hyper_trap_count,
+      viciv_frame_indicate => viciv_frame_indicate,      
       cpuclock => cpuclock,
       pixelclk => pixelclock,
       clock50mhz => clock50mhz,
