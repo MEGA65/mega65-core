@@ -61,7 +61,7 @@ entity gs4510 is
     cpu_hypervisor_mode : out std_logic := '0';
     matrix_trap_in : in std_logic;
     hyper_trap_f011_read : in std_logic;
-    hyper_trap_f011_write : in std_logic;
+    hyper_trap_f011_write : in std_logic;    
     --Protected Hardware Bits
     --Bit 0: TBD
     --Bit 1: TBD
@@ -510,7 +510,7 @@ architecture Behavioural of gs4510 is
   -- Have we ever replaced the hypervisor with another?
   -- (used to allow once-only update of hypervisor by hick-up file)
   signal hypervisor_upgraded : std_logic := '0';
-  
+
   -- Duplicates of all CPU registers to hold user-space contents when trapping
   -- to hypervisor.
   signal hyper_iomode : unsigned(7 downto 0)  := (others => '0');
