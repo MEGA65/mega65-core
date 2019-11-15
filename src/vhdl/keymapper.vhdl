@@ -344,20 +344,19 @@ begin  -- behavioural
         else
           restore_out <= '1';
           reset_drive <= '1';
+
+          -- Trigger RESTORE long press trap always at same point in the frame,
+          -- so that we can unfreeze with relative timing properly maintained.
+          last_viciv_frame_indicate <= viciv_frame_indicate;
+          if hyper_trap_on_frame_sync = '1' and last_viciv_frame_indicate='0' and viciv_frame_indicate='1' then
+            hyper_trap_on_frame_sync <= '0';
+            hyper_trap <= '0';
+            hyper_trap_count <= hyper_trap_count_internal + 1;
+            hyper_trap_count_internal <= hyper_trap_count_internal + 1;
+          else
+            hyper_trap <= '1';          
+          end if;
         end if;
-
-        -- Trigger RESTORE long press trap always at same point in the frame,
-        -- so that we can unfreeze with relative timing properly maintained.
-        last_viciv_frame_indicate <= viciv_frame_indicate;
-        if hyper_trap_on_frame_sync = '1' and last_viciv_frame_indicate='0' and viciv_frame_indicate='1' then
-          hyper_trap_on_frame_sync <= '0';
-          hyper_trap <= '0';
-          hyper_trap_count <= hyper_trap_count_internal + 1;
-          hyper_trap_count_internal <= hyper_trap_count_internal + 1;
-        else
-          hyper_trap <= '1';          
-        end if;        
-
         
         if restore_state='0' then
           -- Restore key is down
