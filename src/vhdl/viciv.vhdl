@@ -3273,7 +3273,9 @@ begin
         if to_integer(first_card_of_row) /= to_integer(prev_first_card_of_row) then
           raster_fetch_state <= FetchScreenRamLine;
           -- From Section 3.5 of http://www.zimmers.net/cbmpics/cbm/c64/vic-ii.txt
-          if ((vicii_ycounter > 47) and (vicii_ycounter<248)) or justbefore_y_chargen_start='1' then
+          -- (but has problems for some reason)
+--          if ((vicii_ycounter > 47) and (vicii_ycounter<248)) or justbefore_y_chargen_start='1' then
+          if (vertical_border='0') or justbefore_y_chargen_start='1' then
             badline_toggle_internal <= not badline_toggle_internal;
             badline_toggle <= not badline_toggle_internal;
             report "BADLINE @ y = " & integer'image(to_integer(displayy)) severity note;
