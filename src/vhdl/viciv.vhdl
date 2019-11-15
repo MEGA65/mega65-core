@@ -285,7 +285,7 @@ architecture Behavioral of viciv is
   signal vsync_delay_drive : unsigned(7 downto 0) := to_unsigned(0,8);
   signal vicii_ycounter_scale_minus_zero : unsigned(3 downto 0) := to_unsigned(2-1,4);
   signal chargen_x_scale : unsigned(7 downto 0) := to_unsigned(120,8);
-  signal sprite_first_x : unsigned(13 downto 0) := to_unsigned(31,14); 
+  signal sprite_first_x : unsigned(13 downto 0) := to_unsigned(32,14); 
   signal sprite_x_counting : std_logic := '0';
   signal sprite_x_scale_toggle : std_logic := '0';
   -- Each character pixel will be (n+1) pixels high
@@ -305,7 +305,7 @@ architecture Behavioral of viciv is
   signal vicii_max_raster : unsigned(8 downto 0) := pal_max_raster;
   -- Setting this value positive causes the chargen and screen to move down the
   -- screen relative to the VIC-II raster counter.
-  constant raster_correction : integer := 4;
+  constant raster_correction : integer := 3;
 
   -- Calculated dynamically
   signal vsync_start : unsigned(11 downto 0) := to_unsigned(0,12);
@@ -1303,7 +1303,7 @@ begin
         if reg_h640='0' then
           border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border),14);
           border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
-                                        -to_integer(single_side_border)+1,14);
+                                        -to_integer(single_side_border),14);
           x_chargen_start
             <= to_unsigned(to_integer(frame_h_front)
                            +to_integer(single_side_border)
@@ -1311,12 +1311,11 @@ begin
                            -- pixels are H640/800, so add double
                            +to_integer(vicii_x_smoothscroll)
                            +to_integer(vicii_x_smoothscroll)
-                           +1
                            ,14);
         else
           border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border),14);
           border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
-                                        -to_integer(single_side_border)+1,14);
+                                        -to_integer(single_side_border),14);
           x_chargen_start
             <= to_unsigned(to_integer(frame_h_front)
                            +to_integer(single_side_border)
@@ -1324,7 +1323,7 @@ begin
                            -- pixels are H640/800, so add double
                            +to_integer(vicii_x_smoothscroll)
                            +to_integer(vicii_x_smoothscroll)
-                           -1
+                           -2
                            ,14);
         end if;
       else
@@ -1390,7 +1389,7 @@ begin
           border_y_bottom <= to_unsigned(
             raster_correction+
             to_integer(display_height)
-            -to_integer(single_top_border_200)+to_integer(vsync_delay_drive),12);
+            -to_integer(single_top_border_200)+to_integer(vsync_delay_drive)-1,12);
         else
           border_y_top <= to_unsigned(raster_correction
                                       +to_integer(single_top_border_200)
@@ -1400,7 +1399,7 @@ begin
                                          +to_integer(display_height)
                                          +to_integer(vsync_delay_drive)
                                          -to_integer(single_top_border_200)
-                                         -(4*2),12);
+                                         -(4*2)-1,12);
         end if;
         -- set y_chargen_start based on twentyfourlines
         y_chargen_start <= to_unsigned(raster_correction
@@ -1425,7 +1424,7 @@ begin
           border_y_bottom <= to_unsigned(
             raster_correction+
             to_integer(display_height)
-            -to_integer(single_top_border_400)+to_integer(vsync_delay_drive),12);
+            -to_integer(single_top_border_400)+to_integer(vsync_delay_drive)-1,12);
         else
           border_y_top <= to_unsigned(raster_correction
                                       +to_integer(single_top_border_400)
@@ -1435,7 +1434,7 @@ begin
                                          +to_integer(display_height)
                                          +to_integer(vsync_delay_drive)
                                          -to_integer(single_top_border_400)
-                                         -(4*2),12);
+                                         -(4*2)-1,12);
         end if;
         -- set y_chargen_start based on twentyfourlines
         y_chargen_start <= to_unsigned(raster_correction
