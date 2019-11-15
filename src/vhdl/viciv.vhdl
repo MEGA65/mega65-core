@@ -212,6 +212,7 @@ architecture Behavioral of viciv is
   signal reg_h1280_delayed : std_logic := '0';
   signal external_frame_x_zero_latched : std_logic := '0';
   signal last_external_frame_x_zero_latched : std_logic := '0';
+  signal last_external_frame_y_zero : std_logic := '0';
 
   -- last value written to key register
   signal reg_key : unsigned(7 downto 0) := x"00";
