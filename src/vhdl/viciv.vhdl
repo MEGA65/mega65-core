@@ -286,7 +286,7 @@ architecture Behavioral of viciv is
   signal vsync_delay_drive : unsigned(7 downto 0) := to_unsigned(0,8);
   signal vicii_ycounter_scale_minus_zero : unsigned(3 downto 0) := to_unsigned(2-1,4);
   signal chargen_x_scale : unsigned(7 downto 0) := to_unsigned(120,8);
-  signal sprite_first_x : unsigned(13 downto 0) := to_unsigned(32,14); 
+  signal sprite_first_x : unsigned(13 downto 0) := to_unsigned(31,14); 
   signal sprite_x_counting : std_logic := '0';
   signal sprite_x_scale_toggle : std_logic := '0';
   -- Each character pixel will be (n+1) pixels high
@@ -1304,7 +1304,7 @@ begin
         if reg_h640='0' then
           border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border),14);
           border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
-                                        -to_integer(single_side_border),14);
+                                        -to_integer(single_side_border)-1,14);
           x_chargen_start
             <= to_unsigned(to_integer(frame_h_front)
                            +to_integer(single_side_border)
@@ -1316,7 +1316,7 @@ begin
         else
           border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border),14);
           border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
-                                        -to_integer(single_side_border),14);
+                                        -to_integer(single_side_border)-1,14);
           x_chargen_start
             <= to_unsigned(to_integer(frame_h_front)
                            +to_integer(single_side_border)
@@ -1353,7 +1353,7 @@ begin
                            ,14);
         else
           border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border)
-                                       +(7*2)+1,14);
+                                       +(7*2),14);
           border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
                                         -to_integer(single_side_border)
                                         -(9*2),14);
@@ -1364,7 +1364,7 @@ begin
                            -- pixels are H640/800, so add double
                            +to_integer(vicii_x_smoothscroll)
                            +to_integer(vicii_x_smoothscroll)
-                           -1
+                           -2
                            ,14);
         end if;
       end if;
