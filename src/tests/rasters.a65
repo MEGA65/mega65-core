@@ -1,0 +1,219 @@
+         .org $07ff
+
+	 .byte 1,8
+
+         .byte $4c,$16,$08,$00,$97,$32
+         .byte $2c,$30,$3a,$9e,$32,$30
+         .byte $37,$30,$00,$00,$00,$a9
+         .byte $01,$85,$02
+
+
+	 lda #$47
+	 sta $d02f
+	 lda #$53
+	 sta $d02f
+
+	 jmp old_test
+
+	 ; disable badlines etc
+	 lda #$00
+	 sta $d700
+
+	 lda #$00
+	 sta $d02f
+
+	 ; blank screen
+	 lda #$00
+	 sta $d011
+
+
+
+	 sei
+
+rrloop:
+
+	 ; Wait to near bottom of the screen
+l1:	 ldx $d012
+	 inc $0500,x
+	 cpx #$f8
+	 bne l1
+	
+	 ldx #$00
+
+	 ; 63 cycles per iteration
+rloop1:
+
+	; 14 cycles to do main part
+  	lda $d012
+	 sta $0400,x
+	 inc $d020
+
+	 ; 2 for loop setup
+	 ldy #7
+	 
+	 ; 5 per iteration
+ rl2:    dey
+	 bne rl2
+	 ; Make total 63 cycles
+	 bit $ea
+	 bit $ea
+
+	 ; 5 cycles for end of loop
+	 inx
+	 bne rloop1
+
+	 jmp rrloop
+
+	 ; fast cpu
+	 lda #65
+	 sta 0
+
+old_test:
+
+	 ; no interrupts
+	 sei
+
+	 ; clear screen
+	 jsr $e544
+
+	 lda #<irq
+	 sta $0314
+	 lda #>irq
+	 sta $0315
+	 lda #$81
+	 sta $d01a
+
+
+	 lda #$80
+	 sta $d012
+	 sta rasterlo
+	 lda #$00
+	 sta rasterhi
+	 ora #$1b
+	 sta $d011
+
+	 jsr printraster
+
+loop:
+	; show all rasters we see
+	lda $d052
+	sta $fd
+	lda $d053
+	and #$03
+	clc
+	adc #$05
+	sta $fe
+	ldy #$00
+	lda #$2a
+;	sta ($fd),y
+
+	jsr $ffe4
+	cmp #$00
+	beq loop
+	cmp #$11
+	beq down
+	cmp #$91
+	beq up
+
+	jsr printraster
+
+	jmp loop
+
+rasterlo:   .byte 0
+rasterhi:   .byte 0
+
+up:
+	lda rasterlo
+	sec
+	sbc #$01
+	sta rasterlo
+	lda rasterhi
+	sbc #$00
+	sta rasterhi
+	jsr printraster
+	jmp loop
+
+down:
+	lda rasterlo
+	clc
+	adc #$01
+	sta rasterlo
+	lda rasterhi
+	adc #$00
+	sta rasterhi
+	jsr printraster
+	jmp loop
+
+
+printraster:
+	jsr $e544
+
+	 ; Display column of chars for checking for funny char stretching
+	 ldx #$01
+	 stx $0400
+	 inx
+	 stx $0428
+	 inx
+	 stx $0450
+	 inx
+	 stx $0478
+	 inx
+	 stx $04a0
+	 inx
+	 stx $04c8
+	 inx
+	 stx $04f0
+	 inx
+	 stx $0518
+	 inx
+	 stx $0540
+	 inx
+	 stx $0568
+	 inx
+	 stx $0590
+	 inx
+	 stx $05b8
+	 inx
+	 stx $05e0
+	 inx
+	 stx $0608
+	 inx
+	 stx $0630
+	 inx
+	 stx $0658
+	 inx
+	 stx $0680
+
+
+
+	ldx rasterlo
+	stx $d012
+	lda rasterhi
+	jsr $bdcd
+	; and update match raster for IRQ
+	lda #$1b
+	bit rasterhi
+	beq +
+	ora #$80
+*	sta $d011
+	rts
+
+
+irq:
+	lda $d019
+	bpl notrasterirq
+	inc $0427
+	lda #$01
+	sta $d020
+	lda #$1a
+	sta $d011
+	ldx #$00
+*	dex
+	bne -
+	lda #$1b
+	sta $d011
+	lda #$00
+	sta $d020
+	inc $d019
+notrasterirq:
+	jmp $ea31
