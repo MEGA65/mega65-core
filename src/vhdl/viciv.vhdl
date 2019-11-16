@@ -2026,7 +2026,11 @@ begin
       -- That is, we trigger the interrupt when the raster is actually being DISPLAYED,
       -- and make the contents of $D012/$D011 match this.
       if enable_raster_delay='1' then
-        vicii_ycounter_minus_one <= vicii_ycounter_driver - 1;
+        if vicii_ycounter_driver /= 0 then
+          vicii_ycounter_minus_one <= vicii_ycounter_driver - 1;
+        else
+          vicii_ycounter_minus_one <= vicii_max_raster;
+        end if;
       else
         vicii_ycounter_minus_one <= vicii_ycounter_driver;
       end if;
