@@ -3070,7 +3070,7 @@ begin
           irq_raster <= '1';
         end if;
 
-        if true then
+        if last_external_frame_x_zero_latched='0' then
           -- ... update Y position, even during VSYNC, since frame timing is
           -- now exact.
           report "XZERO: incrementing ycounter from " & integer'image(to_integer(ycounter));
