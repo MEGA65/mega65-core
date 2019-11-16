@@ -166,10 +166,12 @@ syspart_unfreeze_from_slot_trap:
 	//  Make sure we resume a frozen program on the same raster line as
 	// it entered the freezer.  This might need a bit of tuning to get
 	// perfect, but it should already be accurate to within one raster line.
-	lda #$f8
+	lda #$ff
 @unfreezesyncwait:
 	cmp $d012
 	bne @unfreezesyncwait
+	// Clear any pending raster interrupt, to avoid problems.
+	dec $d019 
 	
         sta hypervisor_enterexit_trigger
 
