@@ -90,14 +90,13 @@ entity pixel_driver is
     lcd_vsync : out std_logic := '0';
     lcd_pixel_strobe : out std_logic := '0';     -- in 30/40MHz clock domain to match pixels
     lcd_inletterbox : out std_logic := '0'
-
+    
     );
 
 end pixel_driver;
 
 architecture greco_roman of pixel_driver is
 
-  signal raster_strobe : std_logic := '0';
   signal fullwidth_dataenable_internal : std_logic := '0';
   signal narrow_dataenable_internal : std_logic := '0';
   
@@ -430,9 +429,6 @@ begin
                      vga_inletterbox_vga60 when vga60_select_internal='1'
                      else vga_inletterbox_ntsc60;
 
-  raster_strobe <= x_zero_pal50 when pal50_select_internal='1' else
-                   x_zero_vga60 when vga60_select_internal='1'
-                   else x_zero_ntsc60;
   x_zero <= x_zero_pal50 when pal50_select_internal='1' else
             x_zero_vga60 when vga60_select_internal='1'
             else x_zero_ntsc60;
