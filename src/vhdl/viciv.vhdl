@@ -1306,7 +1306,7 @@ begin
         if reg_h640='0' then
           border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border),14);
           border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
-                                        -to_integer(single_side_border)-1,14);
+                                        -to_integer(single_side_border)-2,14);
           x_chargen_start
             <= to_unsigned(to_integer(frame_h_front)
                            +to_integer(single_side_border)
@@ -1318,7 +1318,7 @@ begin
         else
           border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border),14);
           border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
-                                        -to_integer(single_side_border)-1,14);
+                                        -to_integer(single_side_border)-2,14);
           x_chargen_start
             <= to_unsigned(to_integer(frame_h_front)
                            +to_integer(single_side_border)
