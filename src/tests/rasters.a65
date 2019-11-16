@@ -84,7 +84,7 @@ old_test:
 	 sta $d01a
 
 
-	 lda #$80
+	 lda #$50
 	 sta $d012
 	 sta rasterlo
 	 lda #$00
