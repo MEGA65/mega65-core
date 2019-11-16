@@ -984,7 +984,7 @@ int process_line(char *line,int live)
 	}
 
 	if (do_run) {
-	  stuff_keybuffer("RUN\r");
+	  stuff_keybuffer("RUN:\r");
 	  fprintf(stderr,"[T+%lldsec] RUN\n",(long long)time(0)-start_time);
 	}
 
