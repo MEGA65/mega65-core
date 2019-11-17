@@ -375,10 +375,10 @@ begin
     port map (
       clk => clock100,
       spdif_out => hdmi_spdif,
-      left_in => "00000000000000000000",
-      right_in => "00000000000000000000"
---      left_in => audio_left,
---      right_in => audio_right
+--      left_in => "00000000000000000000",
+--      right_in => "00000000000000000000",
+      left_in => audio_left,
+      right_in => audio_right
       );
   
   kbd0: entity work.mega65kbd_to_matrix
@@ -788,12 +788,6 @@ begin
       hdmiblue <= v_blue;
     end if;
     
-    if rising_edge(pixelclock) then
-
-      -- no hdmi audio yet
-      hdmi_spdif <= 'Z';
-
-    end if;
   end process;    
   
 end Behavioral;
