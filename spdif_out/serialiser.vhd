@@ -16,8 +16,6 @@ entity serialiser is
            auxAudioBits    : in  STD_LOGIC_VECTOR (3 downto 0);
            sample_left     : in  STD_LOGIC_VECTOR (19 downto 0);
            sample_right    : in  STD_LOGIC_VECTOR (19 downto 0);
-           nextSample      : out STD_LOGIC;
-           channelA        : out STD_LOGIC;
            spdifOut        : out STD_LOGIC);
 end serialiser;
 
@@ -56,8 +54,6 @@ begin
    sample2_left      <= sample_left(19 downto 4) & "0000";
    sample2_right      <= sample_right(19 downto 4) & "0000";
    spdifOut    <= current;
-   nextSample  <= loadSerialiser;
-   channelA    <= subFrameCount(0);
    
    parity_left <= auxAudioBits(3) xor auxAudioBits(2) xor auxAudioBits(1) xor auxAudioBits(0) xor
              sample2_left(19)      xor sample2_left(18)      xor sample2_left(17)      xor sample2_left(16)      xor
@@ -81,7 +77,7 @@ begin
       else
         -- This is a cute little hack from Mike that makes each group of frames
         -- consist of only two samples.
-         if subframeCount(0) = '0' then
+         if subframeCount(0) = '1' then
             preamble <= "11001001"; -- Y preamble
          else
             preamble <= "01101001"; -- Z preamble

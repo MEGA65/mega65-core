@@ -27,7 +27,7 @@ architecture Behavioral of Timebase is
    signal r : reg := ((others => '0'), (others => '0'), (others => '0'), '0', '0');
    signal n : reg;
    
-   constant terminalCount : natural := 882;
+   constant terminalCount : natural := 1133;
    constant errorStep      : natural := 631;
 begin
 	loadSerialiser <= r.loadSerialiser;
