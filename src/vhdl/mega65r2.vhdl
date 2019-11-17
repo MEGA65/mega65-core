@@ -129,7 +129,7 @@ entity container is
          hdmired : out  UNSIGNED (7 downto 0);
          hdmigreen : out  UNSIGNED (7 downto 0);
          hdmiblue : out  UNSIGNED (7 downto 0);
-         hdmi_spdif : out std_logic;
+         hdmi_spdif : out std_logic := '0';
          hdmi_spdif_out : in std_logic;
          hdmi_scl : inout std_logic;
          hdmi_sda : inout std_logic;
@@ -374,9 +374,7 @@ begin
   hdmiaudio0: entity work.hdmi_spdif
     port map (
       clk => clock100,
-      spdif_out => hdmi_spdif,
---      left_in => "00000000000000000000",
---      right_in => "00000000000000000000",
+--      spdif_out => hdmi_spdif,
       left_in => audio_left,
       right_in => audio_right
       );
