@@ -19,16 +19,24 @@ entity soundSource is
 end soundSource;
 
 architecture Behavioral of soundSource is
-   signal sampleCounter : STD_LOGIC_VECTOR(7 downto 0) := (others => '0');  -- 0 to 256
+  signal sampleCounter : STD_LOGIC_VECTOR(7 downto 0) := (others => '0');  -- 0 to 256
+
+  constant target_frequency : integer := 250;
+  constant counter_max := integer 100000000 / (target_frequency * 256);
+  signal counter : integer := 0;
+  
 begin
    
    process(clk, channelA, nextSample)
    begin
-      if clk'event and clk = '1' then
-          if nextSample = '1' and channelA = '1' then 
-            sampleCounter <= sampleCounter+1;
-         end if;
-      end if;
+     if clk'event and clk = '1' then
+       if counter /= counter_max then
+         counter <= counter + 1;
+       else
+         counter <= 0;
+         sampleCounter <= sampleCounter+1;
+       end if;
+     end if;
    end process;
    
    process(sampleCounter)
