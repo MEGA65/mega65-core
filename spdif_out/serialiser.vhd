@@ -81,7 +81,7 @@ begin
       else
         -- This is a cute little hack from Mike that makes each group of frames
         -- consist of only two samples.
-         if subframeCount(0) = 0 then
+         if subframeCount(0) = '0' then
             preamble <= "11001001"; -- Y preamble
          else
             preamble <= "01101001"; -- Z preamble
@@ -89,12 +89,12 @@ begin
       end if;
    end process;
    
-   process(bits, clk100M, bitclock, loadSerialiser, preamble, auxAudioBits, sample, parity)
+   process(bits, clk100M, bitclock, loadSerialiser, preamble, auxAudioBits, sample_left, sample_right, parity_left, parity_right)
    begin
       if clk100M'event and clk100M = '1' then
         if loadSerialiser = '1' then
           -- Alternate between left and right samples
-           if subframeCount(0) = 0 then
+           if subframeCount(0) = '0' then
              bits <= parity_left    & "1" & channelStatus    & "1" & subcode         & "1" & validity         & "1" & 
                sample2_left(19)      & "1" & sample2_left(18)      & "1" & sample2_left(17)      & "1" & sample2_left(16)      & "1" &
                sample2_left(15)      & "1" & sample2_left(14)      & "1" & sample2_left(13)      & "1" & sample2_left(12)      & "1" & 

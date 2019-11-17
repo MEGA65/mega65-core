@@ -31,7 +31,8 @@ architecture Behavioral of spdf_out is
    PORT(
       clk100m          : IN std_logic;
       auxAudioBits   : IN std_logic_vector(3 downto 0);
-      sample         : IN std_logic_vector(19 downto 0);
+      sample_left         : IN std_logic_vector(19 downto 0);
+      sample_right         : IN std_logic_vector(19 downto 0);
       nextSample       : OUT std_logic;
       channelA        : OUT std_logic;
       spdifOut       : OUT std_logic       
@@ -40,20 +41,22 @@ architecture Behavioral of spdf_out is
 
    signal nextSample   : std_logic;
    signal channelA   : std_logic;
-   signal sample      : std_logic_vector(19 downto 0);
+   signal sample_left      : std_logic_vector(19 downto 0);
+   signal sample_right      : std_logic_vector(19 downto 0);
 begin
 
    Inst_soundSource: soundSource PORT MAP(
       Clk => clk,
       nextSample => nextSample,
       channelA => channelA,
-      Sample => sample
+      Sample => sample_left
    );
 
    Inst_serialiser: serialiser PORT MAP(
       clk100M          => clk,
       auxAudioBits   => "0000",
-      sample          => sample,
+      sample_left          => sample_left,
+      sample_right          => sample_left,
       nextSample       => nextSample,
       channelA       => channelA,
       spdifOut       => spdif_out

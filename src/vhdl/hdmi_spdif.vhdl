@@ -23,7 +23,8 @@ architecture Behavioral of hdmi_spdif is
    PORT(
       clk100m          : IN std_logic;
       auxAudioBits   : IN std_logic_vector(3 downto 0);
-      sample         : IN std_logic_vector(19 downto 0);
+      sample_left         : IN std_logic_vector(19 downto 0);
+      sample_right         : IN std_logic_vector(19 downto 0);
       nextSample       : OUT std_logic;
       channelA        : OUT std_logic;
       spdifOut       : OUT std_logic       
@@ -32,7 +33,6 @@ architecture Behavioral of hdmi_spdif is
 
    signal nextSample   : std_logic;
    signal channelA   : std_logic;
-   signal sample      : std_logic_vector(19 downto 0);
 begin
 
    Inst_serialiser: serialiser PORT MAP(
