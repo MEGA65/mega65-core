@@ -56,18 +56,18 @@ begin
    spdifOut    <= current;
    
    parity_left <= auxAudioBits(3) xor auxAudioBits(2) xor auxAudioBits(1) xor auxAudioBits(0) xor
-             sample2_left(19)      xor sample2_left(18)      xor sample2_left(17)      xor sample2_left(16)      xor
-             sample2_left(15)      xor sample2_left(14)      xor sample2_left(13)      xor sample2_left(12)      xor
-             sample2_left(11)      xor sample2_left(10)      xor sample2_left(9)       xor sample2_left(8)       xor
-             sample2_left(7)       xor sample2_left(6)       xor sample2_left(5)       xor sample2_left(4)       xor
-             sample2_left(3)       xor sample2_left(2)       xor sample2_left(1)       xor sample2_left(0)       xor 
+             sample_left(19)      xor sample_left(18)      xor sample_left(17)      xor sample_left(16)      xor
+             sample_left(15)      xor sample_left(14)      xor sample_left(13)      xor sample_left(12)      xor
+             sample_left(11)      xor sample_left(10)      xor sample_left(9)       xor sample_left(8)       xor
+             sample_left(7)       xor sample_left(6)       xor sample_left(5)       xor sample_left(4)       xor
+             sample_left(3)       xor sample_left(2)       xor sample_left(1)       xor sample_left(0)       xor 
              subcode         xor validity        xor channelStatus   xor '0';
    parity_right <= auxAudioBits(3) xor auxAudioBits(2) xor auxAudioBits(1) xor auxAudioBits(0) xor
-             sample2_right(19)      xor sample2_right(18)      xor sample2_right(17)      xor sample2_right(16)      xor
-             sample2_right(15)      xor sample2_right(14)      xor sample2_right(13)      xor sample2_right(12)      xor
-             sample2_right(11)      xor sample2_right(10)      xor sample2_right(9)       xor sample2_right(8)       xor
-             sample2_right(7)       xor sample2_right(6)       xor sample2_right(5)       xor sample2_right(4)       xor
-             sample2_right(3)       xor sample2_right(2)       xor sample2_right(1)       xor sample2_right(0)       xor 
+             sample_right(19)      xor sample_right(18)      xor sample_right(17)      xor sample_right(16)      xor
+             sample_right(15)      xor sample_right(14)      xor sample_right(13)      xor sample_right(12)      xor
+             sample_right(11)      xor sample_right(10)      xor sample_right(9)       xor sample_right(8)       xor
+             sample_right(7)       xor sample_right(6)       xor sample_right(5)       xor sample_right(4)       xor
+             sample_right(3)       xor sample_right(2)       xor sample_right(1)       xor sample_right(0)       xor 
              subcode         xor validity        xor channelStatus   xor '0';
    
    process (subFrameCount)
