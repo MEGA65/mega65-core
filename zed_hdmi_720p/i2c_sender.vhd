@@ -70,6 +70,10 @@ architecture Behavioral of i2c_sender is
             -- Audio setup
             ---------------
             x"0A10",  -- SPDIF audio format
+            x"0B80",  -- SPDIF audio TX enable, extract MCLK from SPDIF audio
+                      -- stream, i.e no separate MCLK
+            x"0C00",  -- Use sampling rate encoded in the SPDIF stream instead
+                      -- of specifying the rate.
             
             -- Set HDMI device name
             x"1F80",x"4478", -- Allow setting HDMI packet memory
