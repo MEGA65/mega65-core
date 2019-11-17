@@ -25,7 +25,6 @@ architecture Behavioral of hdmi_spdif is
       auxAudioBits   : IN std_logic_vector(3 downto 0);
       sample_left         : IN std_logic_vector(19 downto 0);
       sample_right         : IN std_logic_vector(19 downto 0);
-      nextSample       : OUT std_logic;
       spdifOut       : OUT std_logic       
       );
    END COMPONENT;
