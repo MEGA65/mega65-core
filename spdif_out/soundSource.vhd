@@ -22,7 +22,7 @@ architecture Behavioral of soundSource is
   signal sampleCounter : STD_LOGIC_VECTOR(7 downto 0) := (others => '0');  -- 0 to 256
 
   constant target_frequency : integer := 250;
-  constant counter_max := integer 100000000 / (target_frequency * 256);
+  constant counter_max : integer := 100000000 / (target_frequency * 256);
   signal counter : integer := 0;
   
 begin
