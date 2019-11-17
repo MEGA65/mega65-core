@@ -26,13 +26,10 @@ architecture Behavioral of hdmi_spdif is
       sample_left         : IN std_logic_vector(19 downto 0);
       sample_right         : IN std_logic_vector(19 downto 0);
       nextSample       : OUT std_logic;
-      channelA        : OUT std_logic;
       spdifOut       : OUT std_logic       
       );
    END COMPONENT;
 
-   signal nextSample   : std_logic;
-   signal channelA   : std_logic;
 begin
 
    Inst_serialiser: serialiser PORT MAP(
@@ -40,8 +37,6 @@ begin
       auxAudioBits   => "0000",
       sample_left    => left_in,
       sample_right   => right_in,
-      nextSample     => nextSample,
-      channelA       => channelA,
       spdifOut       => spdif_out
    );
 
