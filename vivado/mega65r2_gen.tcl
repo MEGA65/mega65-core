@@ -199,6 +199,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/driverom.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/dpram8x4096.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/kb_matrix_ram.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/hdmi_spdif.vhdl"]"\
  "[file normalize "$origin_dir/src/verilog/6502_alu.v"]"\
  "[file normalize "$origin_dir/src/verilog/6502_mux.v"]"\
  "[file normalize "$origin_dir/src/verilog/6502_reg.v"]"\
@@ -212,6 +213,11 @@ set files [list \
  "[file normalize "$origin_dir/src/verilog/asym_ram_sdp.v"]"\
  "[file normalize "$origin_dir/zed_hdmi_720p/i2c_sender.vhd"]"\
  "[file normalize "$origin_dir/zed_hdmi_720p/vga_generator.vhd"]"\
+ "[file normalize "$origin_dir/spdif_out/serialiser.vhd"]"\
+ "[file normalize "$origin_dir/spdif_out/soundSource.vhd"]"\
+ "[file normalize "$origin_dir/spdif_out/tb_spdif_out.vhd"]"\
+ "[file normalize "$origin_dir/spdif_out/tb_timebase.vhd"]"\
+ "[file normalize "$origin_dir/spdif_out/Timebase.vhd"]"\
 ]
 set imported_files [add_files -fileset sources_1 $files]
 
@@ -219,6 +225,30 @@ set imported_files [add_files -fileset sources_1 $files]
 # None
 
 # Set 'sources_1' fileset file properties for local files
+set file "vhdl/hdmi_spdif.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "spdif_out/serialiser.vhd"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "spdif_out/soundSource.vhd"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "spdif_out/Timebase.vhd"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "spdif_out/tb_spdif_out.vhd"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "spdif_out/tb_timebase.vhd"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
 set file "vhdl/fake_expansion_port.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
