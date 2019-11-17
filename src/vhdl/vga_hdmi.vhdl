@@ -83,7 +83,7 @@ clk_proc: process(clock27)
       if rising_edge(clock27) then
 
          -- Try to re-activate HDMI display every 0.5 seconds
-         if counter < 27000000 then
+         if counter < 13500000 then
            counter <= counter + 1;
            resend <= '0';
          else
