@@ -51,25 +51,6 @@ begin
       loadSerialiser => loadSerialiser
    );
 
-   sample2_left      <= sample_left(19 downto 4) & "0000";
-   sample2_right      <= sample_right(19 downto 4) & "0000";
-   spdifOut    <= current;
-   
-   parity_left <= auxAudioBits(3) xor auxAudioBits(2) xor auxAudioBits(1) xor auxAudioBits(0) xor
-             sample_left(19)      xor sample_left(18)      xor sample_left(17)      xor sample_left(16)      xor
-             sample_left(15)      xor sample_left(14)      xor sample_left(13)      xor sample_left(12)      xor
-             sample_left(11)      xor sample_left(10)      xor sample_left(9)       xor sample_left(8)       xor
-             sample_left(7)       xor sample_left(6)       xor sample_left(5)       xor sample_left(4)       xor
-             sample_left(3)       xor sample_left(2)       xor sample_left(1)       xor sample_left(0)       xor 
-             subcode         xor validity        xor channelStatus   xor '0';
-   parity_right <= auxAudioBits(3) xor auxAudioBits(2) xor auxAudioBits(1) xor auxAudioBits(0) xor
-             sample_right(19)      xor sample_right(18)      xor sample_right(17)      xor sample_right(16)      xor
-             sample_right(15)      xor sample_right(14)      xor sample_right(13)      xor sample_right(12)      xor
-             sample_right(11)      xor sample_right(10)      xor sample_right(9)       xor sample_right(8)       xor
-             sample_right(7)       xor sample_right(6)       xor sample_right(5)       xor sample_right(4)       xor
-             sample_right(3)       xor sample_right(2)       xor sample_right(1)       xor sample_right(0)       xor 
-             subcode         xor validity        xor channelStatus   xor '0';
-   
    process (subFrameCount)
    begin
       if subframeCount = "00000000" then
@@ -88,6 +69,26 @@ begin
    process(bits, clk100M, bitclock, loadSerialiser, preamble, auxAudioBits, sample_left, sample_right, parity_left, parity_right)
    begin
       if clk100M'event and clk100M = '1' then
+        sample2_left      <= sample_left(19 downto 4) & "0000";
+        sample2_right      <= sample_right(19 downto 4) & "0000";
+        spdifOut    <= current;
+   
+        parity_left <= auxAudioBits(3) xor auxAudioBits(2) xor auxAudioBits(1) xor auxAudioBits(0) xor
+             sample_left(19)      xor sample_left(18)      xor sample_left(17)      xor sample_left(16)      xor
+             sample_left(15)      xor sample_left(14)      xor sample_left(13)      xor sample_left(12)      xor
+             sample_left(11)      xor sample_left(10)      xor sample_left(9)       xor sample_left(8)       xor
+             sample_left(7)       xor sample_left(6)       xor sample_left(5)       xor sample_left(4)       xor
+             sample_left(3)       xor sample_left(2)       xor sample_left(1)       xor sample_left(0)       xor 
+             subcode         xor validity        xor channelStatus   xor '0';
+        parity_right <= auxAudioBits(3) xor auxAudioBits(2) xor auxAudioBits(1) xor auxAudioBits(0) xor
+             sample_right(19)      xor sample_right(18)      xor sample_right(17)      xor sample_right(16)      xor
+             sample_right(15)      xor sample_right(14)      xor sample_right(13)      xor sample_right(12)      xor
+             sample_right(11)      xor sample_right(10)      xor sample_right(9)       xor sample_right(8)       xor
+             sample_right(7)       xor sample_right(6)       xor sample_right(5)       xor sample_right(4)       xor
+             sample_right(3)       xor sample_right(2)       xor sample_right(1)       xor sample_right(0)       xor 
+             subcode         xor validity        xor channelStatus   xor '0';
+   
+
         if loadSerialiser = '1' then
           -- Alternate between left and right samples
            if subframeCount(0) = '0' then
