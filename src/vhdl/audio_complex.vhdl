@@ -104,6 +104,8 @@ entity audio_complex is
     ampPWM_l : out std_logic;
     ampPWM_r : out std_logic;
     ampSD : out std_logic := '1';  -- default to amplifier on
+    audio_left : out std_logic_vector(19 downto 0);
+    audio_right : out std_logic_vector(19 downto 0);
 
     -- MEMs Microphone inputs
     micData0 : in std_logic; --  (microphones 0 and 1)
@@ -360,6 +362,12 @@ begin
   begin
     if rising_edge(clock50mhz) then
 
+      -- Export raw speaker audio for HDMI etc output
+      audio_left(19 downto 4) <= std_logic_vector(spkr_left);
+      audio_left(3 downto 0) <= "0000";
+      audio_right(19 downto 4) <= std_logic_vector(spkr_right);
+      audio_right(3 downto 0) <= "0000";
+      
       -- Combine the pairs of SIDs
       -- Re-enable this when adding 4 sids
       if sid4_enable='1' then

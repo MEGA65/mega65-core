@@ -129,8 +129,8 @@ entity container is
          hdmired : out  UNSIGNED (7 downto 0);
          hdmigreen : out  UNSIGNED (7 downto 0);
          hdmiblue : out  UNSIGNED (7 downto 0);
-         hdmi_spdif : in std_logic;
-         hdmi_spdif_out : out std_logic;
+         hdmi_spdif : out std_logic;
+         hdmi_spdif_out : in std_logic;
          hdmi_scl : inout std_logic;
          hdmi_sda : inout std_logic;
          hdmi_de : out std_logic; -- high when valid pixels being output
@@ -326,6 +326,9 @@ architecture Behavioral of container is
   signal expansionram_address : unsigned(26 downto 0);
   signal expansionram_data_ready_strobe : std_logic;
   signal expansionram_busy : std_logic;
+
+  signal audio_left : std_logic_vector(19 downto 0);
+  signal audio_right : std_logic_vector(19 downto 0);
   
 begin
 
@@ -366,6 +369,14 @@ begin
       hdmi_de => hdmi_de,
       hdmi_scl => hdmi_scl,
       hdmi_sda => hdmi_sda
+      );
+
+  hdmiaudio0: entity work.hdmi_spdif
+    port map (
+      clk => clock100,
+      spdif_out => hdmi_spdif,
+      left_in => audio_left,
+      right_in => audio_right
       );
   
   kbd0: entity work.mega65kbd_to_matrix
@@ -631,7 +642,9 @@ begin
       flopmotor => flopmotor_drive,
       ampPWM_l => pwm_l_drive,
       ampPWM_r => pwm_r_drive,
-
+      audio_left => audio_left,
+      audio_right => audio_right,
+      
       tmpsda => fpga_sda,
       tmpscl => fpga_scl,
       
@@ -776,7 +789,7 @@ begin
     if rising_edge(pixelclock) then
 
       -- no hdmi audio yet
-      hdmi_spdif_out <= 'Z';
+      hdmi_spdif <= 'Z';
 
     end if;
   end process;    

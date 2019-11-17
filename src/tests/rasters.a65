@@ -13,7 +13,7 @@
 	 lda #$53
 	 sta $d02f
 
-	 jmp old_test
+;	 jmp old_test
 
 	 ; disable badlines etc
 	 lda #$00
