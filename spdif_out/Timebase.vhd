@@ -39,7 +39,7 @@ begin
           loadSerialiser <= '0';
         else
           bitclock <= '1';
-          bit_counter <= '0';
+          bit_counter <= 0;
           if sample_counter /= 64 then
             sample_counter <= sample_counter + 1;
             loadSerialiser <= '0';
