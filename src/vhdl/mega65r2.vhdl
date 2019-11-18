@@ -129,6 +129,7 @@ entity container is
          hdmired : out  UNSIGNED (7 downto 0);
          hdmigreen : out  UNSIGNED (7 downto 0);
          hdmiblue : out  UNSIGNED (7 downto 0);
+         hdmi_int : in std_logic;
          hdmi_spdif : out std_logic := '0';
          hdmi_spdif_out : in std_logic;
          hdmi_scl : inout std_logic;
@@ -367,6 +368,7 @@ begin
       pattern_de => lcd_dataenable,
 
       -- and our outputs to control the HDMI port
+      hdmi_int => hdmi_int,
       hdmi_clk => hdmi_clk,
       hdmi_hsync => hdmi_hsync,
       hdmi_vsync => hdmi_vsync,
@@ -526,7 +528,7 @@ begin
 
       joy3 => joy3,
       joy4 => joy4,
-      
+
       no_hyppo => '0',
 
       porto_out => porto,
