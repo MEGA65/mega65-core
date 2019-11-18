@@ -98,7 +98,7 @@ clk_proc: process(clock27)
          if hdmi_int = '0' and last_hdmi_int='1' then
            resend <= '1';
          else
-           resent <= '0';
+           resend <= '0';
          end if;                                  
                                   
          vga_r  <= pattern_r(7 downto 0);
