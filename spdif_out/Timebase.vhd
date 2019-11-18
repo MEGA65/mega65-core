@@ -23,7 +23,8 @@ end Timebase;
 architecture Behavioral of Timebase is
 
   constant sample_rate : integer := 44100;
-  constant bit_rate : integer := sample_rate * 64;
+  constant bit_rate : integer := sample_rate * 64 * 2; -- 2 channels x 32 bits
+                                                       -- x bi-phase signalling
   constant ticks_per_bit : integer := 100000000 / bit_rate;
 
   signal sample_counter : integer := 0;
