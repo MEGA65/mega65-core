@@ -61,7 +61,7 @@ begin
     chstat_gstat => '0', -- maybe user bit management bit 0 or 3?
     chstat_preem => '0', -- no preemphasis
     chstat_copy => '1', -- NOT copyright (negative meaning)
-    chstat_audio => '1'. -- normal PCM audio
+    chstat_audio => '1', -- normal PCM audio
 
     sample_data => sample_32,
     sample_data_ack => sample_ack,
