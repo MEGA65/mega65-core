@@ -12,12 +12,16 @@ aml1:
         inx
         bne aml1
 
-        // Set master volume to max for L & R channels on M65R2
-        ldx #$fe
+        // Set master volume to max for L & R channels on M65R2 audio jack
         lda #$ff
+        ldx #$fe
         jsr audiomix_set2coefficients
         ldx #$de
-        lda #$ff
+        jsr audiomix_set2coefficients
+	// And also for speaker / HDMI audio outputs
+        ldx #$1e
+        jsr audiomix_set2coefficients
+        ldx #$3e
         jsr audiomix_set2coefficients
 
         jmp audio_set_stereo
@@ -34,12 +38,17 @@ audio_set_mono:
         jsr audiomix_set4coefficients
         ldx #$e0
         jsr audiomix_set4coefficients
+        ldx #$00
+        jsr audiomix_set4coefficients
+        ldx #$10
+        jsr audiomix_set4coefficients
+        ldx #$20
+        jsr audiomix_set4coefficients
+        ldx #$30
+        jsr audiomix_set4coefficients
         rts
 
-audio_set_stereo:
-        // Left and right SID volume levels
-        // for stereo operation
-        lda #$be
+audiomix_set_sid_lr_coefficients:
         ldx #$c0
         jsr audiomix_set2coefficients
         ldx #$d0
@@ -48,7 +57,16 @@ audio_set_stereo:
         jsr audiomix_set2coefficients
         ldx #$f2
         jsr audiomix_set2coefficients
-        lda #$40
+        ldx #$00
+        jsr audiomix_set2coefficients
+        ldx #$10
+        jsr audiomix_set2coefficients
+        ldx #$22
+        jsr audiomix_set2coefficients
+        ldx #$32
+        jmp audiomix_set2coefficients
+
+audiomix_set_sid_rl_coefficients:	
         ldx #$c2
         jsr audiomix_set2coefficients
         ldx #$d2
@@ -57,30 +75,30 @@ audio_set_stereo:
         jsr audiomix_set2coefficients
         ldx #$f0
         jsr audiomix_set2coefficients
-        rts
+        ldx #$02
+        jsr audiomix_set2coefficients
+        ldx #$12
+        jsr audiomix_set2coefficients
+        ldx #$20
+        jsr audiomix_set2coefficients
+        ldx #$30
+        jmp audiomix_set2coefficients        	
+	
+audio_set_stereo:
+        // Left and right SID volume levels
+        // for stereo operation
+        lda #$be
+	jsr audiomix_set_sid_lr_coefficients
+        lda #$40
+	jmp audiomix_set_sid_rl_coefficients
 
 audio_set_stereomirrored:
         // Left and right SID volume levels
         // for stereo operation
         lda #$40
-        ldx #$c0
-        jsr audiomix_set2coefficients
-        ldx #$d0
-        jsr audiomix_set2coefficients
-        ldx #$e2
-        jsr audiomix_set2coefficients
-        ldx #$f2
-        jsr audiomix_set2coefficients
+	jsr audiomix_set_sid_lr_coefficients
         lda #$be
-        ldx #$c2
-        jsr audiomix_set2coefficients
-        ldx #$d2
-        jsr audiomix_set2coefficients
-        ldx #$e0
-        jsr audiomix_set2coefficients
-        ldx #$f0
-        jsr audiomix_set2coefficients
-        rts
+	jmp audiomix_set_sid_rl_coefficients
 
 audiomix_setcoefficient:
         stx audiomix_addr
