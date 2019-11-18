@@ -598,6 +598,7 @@ begin  -- behavioural
           fastio_rdata <= unsigned(porto_internal);
         when x"1a" =>
           -- @IO:GS $D61A UARTMISC:UNUSED port p output value
+          -- @IO:GS $D61A.0 HDMI:SPDIFEN enable SPDIF audio output for HDMI video
           fastio_rdata <= unsigned(portp_internal);
         when x"1b" =>
           -- @IO:GS $D61B DEBUG:AMIMOUSDETECT READ 1351/amiga mouse auto detection DEBUG
