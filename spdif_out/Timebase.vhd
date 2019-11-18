@@ -1,9 +1,4 @@
 ----------------------------------------------------------------------------------
--- Reworked by PGS (paul@m-e-g-a.org).
--- Generate bitclock that is 128x sample rate
--- Once every 64 bitclocks, we generate a loadSerialiser signal to
--- load the next sample (either left or right)
-----------------------------------------------------------------------------------
 -- Engineer: Mike Field (hamster@snap.net.nz)
 -- 
 -- Module Name:    Timebase - Behavioral 
@@ -16,39 +11,50 @@ use IEEE.STD_LOGIC_UNSIGNED.ALL;
 
 entity Timebase is
     Port ( clk : in  STD_LOGIC;
-           bitclock : out  STD_LOGIC;
-			  loadSerialiser : OUT std_logic);
+           bitclock : out  STD_LOGIC);
 end Timebase;
 
 architecture Behavioral of Timebase is
+   type reg is record
+      state      : std_logic_vector(4 downto 0);
+      errorTotal : std_logic_vector(9 downto 0);
+      bitClock   : std_logic;
+   end record;
 
-  constant sample_rate : integer := 44100;
-  constant bit_rate : integer := sample_rate * 64 * 2; -- 2 channels x 32 bits
-                                                       -- x bi-phase signalling
-  constant ticks_per_bit : integer := 100000000 / bit_rate;
-
-  signal sample_counter : integer := 0;
-  signal bit_counter : integer := 0;
-  
+   signal r : reg := ((others => '0'), (others => '0'), '0');
+   signal n : reg;
+   
+   constant terminalCount : natural := 882;
+   constant errorStep      : natural := 631;
 begin
-   process(clk)
+
+   bitClock <= r.bitClock;
+   process(clk,r)
+   begin
+      n <= r;
+      n.bitclock <= '0';
+      n.state <= r.state+1;
+      case r.state is
+         when "00000" =>
+            n.bitclock <= '1';
+         when "10000" =>
+            if r.errorTotal < terminalCount - errorStep then
+               n.state <= "00000";
+               n.errorTotal <= r.errorTotal + errorStep;
+            else
+               n.errorTotal <= r.errorTotal + errorStep - terminalCount;
+            end if;
+         when "10001" =>            
+            n.state <= "00000";
+         when others =>
+            n.state <= r.state+1;
+      end case;
+   end process;
+   
+   process(clk, n)
    begin
       if clk'event and clk = '1' then
-        if bit_counter /= ticks_per_bit then
-          bit_counter <= bit_counter + 1;
-          bitclock <= '0';
-          loadSerialiser <= '0';
-        else
-          bitclock <= '1';
-          bit_counter <= 0;
-          if sample_counter /= 64 then
-            sample_counter <= sample_counter + 1;
-            loadSerialiser <= '0';
-          else
-            sample_counter <= 0;
-            loadSerialiser <= '1';
-          end if;
-        end if;
+         r <= n;
       end if;
    end process;
 end Behavioral;
