@@ -104,6 +104,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/mega65kbd_to_matrix.vhdl"]"\
  "[file normalize "$origin_dir/zed_hdmi_720p/i2c_sender.vhd"]"\
  "[file normalize "$origin_dir/src/vhdl/vga_hdmi.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/spdif_encoder.vhdl"]"\
  "[file normalize "$origin_dir/spdif_out/spdf_out.vhd"]"\
  "[file normalize "$origin_dir/spdif_out/serialiser.vhd"]"\
  "[file normalize "$origin_dir/spdif_out/soundSource.vhd"]"\

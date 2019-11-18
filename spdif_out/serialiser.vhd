@@ -42,7 +42,7 @@ architecture Behavioral of serialiser is
    signal subframeCount : STD_LOGIC_VECTOR (7 downto 0) := "00000000";
    signal parity_left   : STD_LOGIC;         
    signal parity_right  : STD_LOGIC;
-   signal last_parity : std_logic;
+   signal last_parity : std_logic := '0';
 
    constant subcode          : STD_LOGIC := '0'; -- Remeember to change process sensitibity list
    constant channelStatus   : STD_LOGIC := '0'; -- Remeember to change process sensitibity list
@@ -116,7 +116,7 @@ begin
                sample2_left( 3)      & "1" & sample2_left( 2)      & "1" & sample2_left( 1)      & "1" & sample2_left( 0)      & "1" & 
                auxAudioBits(3)& "1" & auxAudioBits(2) & "1" & auxAudioBits(1) & "1" & auxAudioBits(0) & "1" & 
                      preamble;
-             last_parity <= parity_left;
+--             last_parity <= parity_left;
            else
             bits <= parity_right    & "1" & channelStatus    & "1" & subcode         & "1" & validity         & "1" & 
                sample2_right(19)      & "1" & sample2_right(18)      & "1" & sample2_right(17)      & "1" & sample2_right(16)      & "1" &
@@ -126,7 +126,7 @@ begin
                sample2_right( 3)      & "1" & sample2_right( 2)      & "1" & sample2_right( 1)      & "1" & sample2_right( 0)      & "1" & 
                auxAudioBits(3)& "1" & auxAudioBits(2) & "1" & auxAudioBits(1) & "1" & auxAudioBits(0) & "1" & 
                preamble;
-             last_parity <= parity_right;
+--             last_parity <= parity_right;
             end if;
 
             -- There are 192 sub-frmes consisting of the left/right pairs,
