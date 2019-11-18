@@ -50,9 +50,9 @@ begin
   begin
     if rising_edge(clk) then
       if sample_channel = '0' then
-        sample_data(31 downto 12) <= left_in;
+        sample_32(31 downto 12) <= left_in;
       else
-        sample_data(31 downto 12) <= right_in;
+        sample_32(31 downto 12) <= right_in;
       end if;
     end if;
   end process;
