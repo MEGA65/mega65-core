@@ -36,7 +36,7 @@ architecture Behavioral of serialiser is
    signal preamble      : STD_LOGIC_VECTOR (7 downto 0);
    signal sample2_left  : STD_LOGIC_VECTOR (19 downto 0);
    signal sample2_right : STD_LOGIC_VECTOR (19 downto 0);
-   signal subframeCount : STD_LOGIC_VECTOR (7 downto 0) := "00000000";
+   signal subframeCount : STD_LOGIC_VECTOR (8 downto 0) := "000000000";
    signal parity_left   : STD_LOGIC;         
    signal parity_right  : STD_LOGIC;         
 
@@ -53,7 +53,7 @@ begin
 
    process (subFrameCount)
    begin
-      if subframeCount = "00000000" then
+      if subframeCount = "000000000" then
          preamble <= "00111001"; -- M preamble
       else
         -- This is a cute little hack from Mike that makes each group of frames
@@ -110,8 +110,9 @@ begin
                auxAudioBits(3)& "1" & auxAudioBits(2) & "1" & auxAudioBits(1) & "1" & auxAudioBits(0) & "1" & 
                preamble;
             end if;
-            
-            if subframeCount = 191 then
+
+            -- There are 192 sub-frmes consisting of the left/right pairs.
+            if subframeCount = (192*2-1) then
                subFrameCount <= (others => '0');
             else
                subFrameCount <= subFrameCount +1;
