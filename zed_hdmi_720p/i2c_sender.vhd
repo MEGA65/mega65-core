@@ -35,7 +35,7 @@ architecture Behavioral of i2c_sender is
 
    constant i2c_finished_token : std_logic_vector(15 downto 0) := x"FFFF";
    
-   type reg_value_pair is ARRAY(0 TO 63) OF std_logic_vector(15 DOWNTO 0);    
+   type reg_value_pair is ARRAY(0 TO 70) OF std_logic_vector(15 DOWNTO 0);    
    
    signal reg_value_pairs : reg_value_pair := (
             x"FE7A", -- talk to device $7A
@@ -51,6 +51,7 @@ architecture Behavioral of i2c_sender is
             ---------------
             -- Input mode
             ---------------
+            x"3C21", -- PAL 576p 4:3 aspect ratio video mode
             x"1500", -- Simple RGB video (was $06 = YCbCr 422, DDR, External sync)
             x"4810", -- Left justified data (D23 downto 8)
             -- according to documenation, style 2 should be x"1637" but it isn't. ARGH!
