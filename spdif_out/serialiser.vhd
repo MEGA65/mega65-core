@@ -1,4 +1,7 @@
 ----------------------------------------------------------------------------------
+-- Modified by PGS (paul@m-e-g-a.org)
+-- Added parity-based inversion of pre-amble words
+----------------------------------------------------------------------------------
 -- Engineer: Mike Field <hamster@snap.net.nz>
 -- 
 -- Module Name:    serialiser - Behavioral 
@@ -36,9 +39,10 @@ architecture Behavioral of serialiser is
    signal preamble      : STD_LOGIC_VECTOR (7 downto 0);
    signal sample2_left  : STD_LOGIC_VECTOR (19 downto 0);
    signal sample2_right : STD_LOGIC_VECTOR (19 downto 0);
-   signal subframeCount : STD_LOGIC_VECTOR (8 downto 0) := "000000000";
+   signal subframeCount : STD_LOGIC_VECTOR (7 downto 0) := "00000000";
    signal parity_left   : STD_LOGIC;         
-   signal parity_right  : STD_LOGIC;         
+   signal parity_right  : STD_LOGIC;
+   signal last_parity : std_logic;
 
    constant subcode          : STD_LOGIC := '0'; -- Remeember to change process sensitibity list
    constant channelStatus   : STD_LOGIC := '0'; -- Remeember to change process sensitibity list
@@ -53,16 +57,28 @@ begin
 
    process (subFrameCount)
    begin
-      if subframeCount = "000000000" then
+     if subframeCount = "00000000" then
+       if last_parity = '0' then
          preamble <= "00111001"; -- M preamble
+       else
+         preamble <= "11000110"; -- M preamble inverted
+       end if;
       else
         -- This is a cute little hack from Mike that makes each group of frames
         -- consist of only two samples.
-         if subframeCount(0) = '1' then
+        if subframeCount(0) = '1' then
+          if last_parity='0' then
             preamble <= "11001001"; -- Y preamble
-         else
+          else
+            preamble <= "00110110"; -- Y preamble inverted
+          end if;
+        else
+          if last_parity='0' then
             preamble <= "01101001"; -- Z preamble
-         end if;
+          else
+            preamble <= "10010110"; -- Z preamble inverted
+          end if;
+        end if;
       end if;
    end process;
    
@@ -100,6 +116,7 @@ begin
                sample2_left( 3)      & "1" & sample2_left( 2)      & "1" & sample2_left( 1)      & "1" & sample2_left( 0)      & "1" & 
                auxAudioBits(3)& "1" & auxAudioBits(2) & "1" & auxAudioBits(1) & "1" & auxAudioBits(0) & "1" & 
                      preamble;
+             last_parity <= parity_left;
            else
             bits <= parity_right    & "1" & channelStatus    & "1" & subcode         & "1" & validity         & "1" & 
                sample2_right(19)      & "1" & sample2_right(18)      & "1" & sample2_right(17)      & "1" & sample2_right(16)      & "1" &
@@ -109,10 +126,12 @@ begin
                sample2_right( 3)      & "1" & sample2_right( 2)      & "1" & sample2_right( 1)      & "1" & sample2_right( 0)      & "1" & 
                auxAudioBits(3)& "1" & auxAudioBits(2) & "1" & auxAudioBits(1) & "1" & auxAudioBits(0) & "1" & 
                preamble;
+             last_parity <= parity_right;
             end if;
 
-            -- There are 192 sub-frmes consisting of the left/right pairs.
-            if subframeCount = (192*2-1) then
+            -- There are 192 sub-frmes consisting of the left/right pairs,
+            -- i.e., 96 left and 96 right samples.
+            if subframeCount = (192-1) then
                subFrameCount <= (others => '0');
             else
                subFrameCount <= subFrameCount +1;
