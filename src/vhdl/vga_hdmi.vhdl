@@ -27,7 +27,8 @@ entity vga_hdmi is
            vga_b         : out  STD_LOGIC_VECTOR (7 downto 0);
            vga_hs        : out  STD_LOGIC;
            vga_vs        : out  STD_LOGIC;
-           
+
+           hdmi_int      : in   std_logic;
            hdmi_clk      : out  STD_LOGIC;
            hdmi_hsync    : out  STD_LOGIC;
            hdmi_vsync    : out  STD_LOGIC;
@@ -61,7 +62,8 @@ architecture Behavioral of vga_hdmi is
 
    signal counter : integer := 0;
    signal resend : std_logic := '1';      
-            
+
+   signal last_hdmi_int : std_logic;                                     
                                       
 begin
 
@@ -85,11 +87,19 @@ clk_proc: process(clock27)
          -- Try to re-activate HDMI display every 0.5 seconds
          if counter < 13500000 then
            counter <= counter + 1;
-           resend <= '0';
+--           resend <= '0';
          else
            counter <= 0;
-           resend <= '1';
+--           resend <= '1';
          end if;
+
+         -- Trigger I2C config on HDMI interrupt
+         last_hdmi_int <= hdmi_int;
+         if hdmi_int = '0' and last_hdmi_int='1' then
+           resend <= '1';
+         else
+           resent <= '0';
+         end if;                                  
                                   
          vga_r  <= pattern_r(7 downto 0);
          vga_g  <= pattern_g(7 downto 0);
