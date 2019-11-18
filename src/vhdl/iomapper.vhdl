@@ -91,6 +91,8 @@ entity iomapper is
         drive_led : out std_logic := '0';
         motor : out std_logic := '0';
 
+        porto_out : out unsigned(7 downto 0);
+        portp_out : out unsigned(7 downto 0);
         porta_pins : inout  std_logic_vector(7 downto 0) := (others => 'Z');
         portb_pins : in  std_logic_vector(7 downto 0);
         keyboard_column8_out : out std_logic;
@@ -762,6 +764,8 @@ begin
       portm_out(6 downto 0) => virtual_key3(6 downto 0),
       portm_out(7) => alternate_keyboard,
       portn_out => keyboard_scan_rate,
+      porto_out => porto_out,
+      portp_out => portp_out,
 --      porto_out => ,
 --      portp_out => ,
       portq_in => address_next_1541(7 downto 0),

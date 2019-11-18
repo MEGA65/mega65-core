@@ -329,6 +329,10 @@ architecture Behavioral of container is
 
   signal audio_left : std_logic_vector(19 downto 0);
   signal audio_right : std_logic_vector(19 downto 0);
+  signal spdif : std_logic;
+  
+  signal porto : unsigned(7 downto 0);
+  signal portp : unsigned(7 downto 0);
   
 begin
 
@@ -374,7 +378,7 @@ begin
   hdmiaudio0: entity work.hdmi_spdif
     port map (
       clk => clock100,
---      spdif_out => hdmi_spdif,
+      spdif_out => spdif,
       left_in => audio_left,
       right_in => audio_right
       );
@@ -524,6 +528,9 @@ begin
       joy4 => joy4,
       
       no_hyppo => '0',
+
+      porto_out => porto,
+      portp_out => portp,
       
       vsync           => v_vsync,
       vga_hsync       => v_vga_hsync,
@@ -774,6 +781,13 @@ begin
       pwm_r <= pwm_r_drive;
 
     end if;
+
+    -- Make SPDIF audio switchable for debugging HDMI output
+    if portp(0) = '1' then
+      hdmi_spdif <= spdif;
+    else
+      hdmi_spdif <= '0';
+    end if;      
     
     if rising_edge(pixelclock) then
       hsync <= v_vga_hsync;

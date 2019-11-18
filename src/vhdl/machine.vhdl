@@ -124,7 +124,10 @@ entity machine is
          hdmi_sda : inout std_logic;
          hpd_a : inout std_logic;
 
-         -------------------------------------------------------------------------
+        porto_out : out unsigned(7 downto 0);
+        portp_out : out unsigned(7 downto 0);
+
+        -------------------------------------------------------------------------
          -- CIA1 ports for keyboard and joysticks
          -------------------------------------------------------------------------
          porta_pins : inout  std_logic_vector(7 downto 0) := (others => 'Z');
@@ -1341,6 +1344,9 @@ begin
 
       joy3 => joy3,
       joy4 => joy4,
+
+      porto_out => porto_out,
+      portp_out => portp_out,
       
       buffereduart_rx => buffereduart_rx,
       buffereduart_tx => buffereduart_tx,
