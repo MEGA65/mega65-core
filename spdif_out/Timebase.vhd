@@ -11,32 +11,43 @@ use IEEE.STD_LOGIC_UNSIGNED.ALL;
 
 entity Timebase is
     Port ( clk : in  STD_LOGIC;
-           bitclock : out  STD_LOGIC);
+           bitclock : out  STD_LOGIC;
+			  loadSerialiser : OUT std_logic);
 end Timebase;
 
 architecture Behavioral of Timebase is
    type reg is record
       state      : std_logic_vector(4 downto 0);
       errorTotal : std_logic_vector(9 downto 0);
+		bitCount   : std_logic_vector(5 downto 0);
       bitClock   : std_logic;
+		loadSerialiser : std_logic;
    end record;
 
-   signal r : reg := ((others => '0'), (others => '0'), '0');
+   signal r : reg := ((others => '0'), (others => '0'), (others => '0'), '0', '0');
    signal n : reg;
    
-   constant terminalCount : natural := 882;
+   constant terminalCount : natural := 1133;
    constant errorStep      : natural := 631;
 begin
-
-   bitClock <= r.bitClock;
+	loadSerialiser <= r.loadSerialiser;
+   bitClock 		<= r.bitClock;
+	
    process(clk,r)
    begin
       n <= r;
-      n.bitclock <= '0';
-      n.state <= r.state+1;
+      n.bitclock			<= '0';
+		n.loadSerialiser	<= '0';
+      n.state 				<= r.state+1;
       case r.state is
          when "00000" =>
             n.bitclock <= '1';
+         when "00001" =>
+				n.bitcount <= r.bitcount + 1;
+         when "00010" =>
+				if n.bitcount = "000000" then
+					n.loadSerialiser	<= '1';
+				end if;				
          when "10000" =>
             if r.errorTotal < terminalCount - errorStep then
                n.state <= "00000";
