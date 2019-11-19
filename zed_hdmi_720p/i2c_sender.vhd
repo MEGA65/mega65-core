@@ -90,9 +90,10 @@ architecture Behavioral of i2c_sender is
     -- See p93 SS4.4.2 of https://www.analog.com/media/en/technical-documentation/user-guides/ADV7511_Programming_Guide.pdf
     -- 27MHz pixel clock, 44.1KHz audio rate using Table 81:
     -- N=6272 ($1880), CTS=30000 ($7530)
+    -- Clock is 27.083MHz, so CTS needs to be 30092 ($758C)
     -- Big-endian byte order?
     x"0100",x"0218",x"0380",
-    x"0700",x"0875",x"0930",            
+    x"0700",x"0875",x"098C",
     
 --            -- Set HDMI device name
 --            x"1F80",x"4478", -- Allow setting HDMI packet memory
