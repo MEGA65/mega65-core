@@ -71,7 +71,7 @@ architecture Behavioral of i2c_sender is
             -- Audio setup
             ---------------
             
-            x"0A1D",  -- SPDIF audio format, manual CTS
+            x"0A9D",  -- SPDIF audio format, manual CTS
             x"0B8E",  -- SPDIF audio TX enable, extract MCLK from SPDIF audio
                       -- stream, i.e no separate MCLK
             x"0C00",  -- Use sampling rate encoded in the SPDIF stream instead
