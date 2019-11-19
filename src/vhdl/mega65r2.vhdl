@@ -788,7 +788,7 @@ begin
     end if;
 
     h_audio_right <= audio_right;
-    l_audio_right <= audio_left;
+    h_audio_right <= audio_left;
     -- toggle signed/unsigned audio flipping
     if portp(1)='1' then
       h_audio_right(19) <= not audio_right(19);
