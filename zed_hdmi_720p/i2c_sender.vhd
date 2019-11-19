@@ -77,8 +77,8 @@ architecture Behavioral of i2c_sender is
     -- Audio setup
     ---------------
     
---            x"0A9D",  -- SPDIF audio format, manual CTS
-    x"0A1D",  -- SPDIF audio format, auto CTS
+    x"0A9D",  -- SPDIF audio format, manual CTS
+--    x"0A1D",  -- SPDIF audio format, auto CTS
     x"0B8E",  -- SPDIF audio TX enable, extract MCLK from SPDIF audio
     -- stream, i.e no separate MCLK
     x"0C00",  -- Use sampling rate encoded in the SPDIF stream instead
@@ -91,8 +91,8 @@ architecture Behavioral of i2c_sender is
     -- 27MHz pixel clock, 44.1KHz audio rate using Table 81:
     -- N=6272 ($1880), CTS=30000 ($7530)
     -- Big-endian byte order?
---            x"0100",x"0218",x"0380",
---            x"0700",x"0875",x"0930",            
+    x"0100",x"0218",x"0380",
+    x"0700",x"0875",x"0930",            
     
 --            -- Set HDMI device name
 --            x"1F80",x"4478", -- Allow setting HDMI packet memory
