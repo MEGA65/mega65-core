@@ -85,20 +85,18 @@ clk_proc: process(clock27)
       if rising_edge(clock27) then
 
          -- Try to re-activate HDMI display every 0.5 seconds
+        resend <= '0';
          if counter < 13500000 then
            counter <= counter + 1;
---           resend <= '0';
          else
            counter <= 0;
---           resend <= '1';
+           resend <= '1';
          end if;
 
          -- Trigger I2C config on HDMI interrupt
          last_hdmi_int <= hdmi_int;
          if hdmi_int = '0' and last_hdmi_int='1' then
            resend <= '1';
-         else
-           resend <= '0';
          end if;                                  
                                   
          vga_r  <= pattern_r(7 downto 0);
