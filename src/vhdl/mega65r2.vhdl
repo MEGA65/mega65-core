@@ -330,6 +330,8 @@ architecture Behavioral of container is
 
   signal audio_left : std_logic_vector(19 downto 0);
   signal audio_right : std_logic_vector(19 downto 0);
+  signal h_audio_left : std_logic_vector(19 downto 0);
+  signal h_audio_right : std_logic_vector(19 downto 0);
   signal spdif : std_logic;
   
   signal porto : unsigned(7 downto 0);
@@ -381,8 +383,8 @@ begin
     port map (
       clk => clock100,
       spdif_out => spdif,
-      left_in => audio_left,
-      right_in => audio_right
+      left_in => h_audio_left,
+      right_in => h_audio_right
       );
   
   kbd0: entity work.mega65kbd_to_matrix
@@ -686,6 +688,7 @@ begin
 
   process (pixelclock) is
   begin
+
     vdac_sync_n <= '0';  -- no sync on green
     vdac_blank_n <= '1'; -- was: not (v_hsync or v_vsync); 
 
@@ -782,6 +785,14 @@ begin
       pwm_l <= pwm_l_drive;
       pwm_r <= pwm_r_drive;
 
+    end if;
+
+    h_audio_right <= audio_right;
+    l_audio_right <= audio_left;
+    -- toggle signed/unsigned audio flipping
+    if portp(1)='1' then
+      h_audio_right(19) <= not audio_right(19);
+      h_audio_left(19) <= not audio_left(19);
     end if;
 
     -- Make SPDIF audio switchable for debugging HDMI output
