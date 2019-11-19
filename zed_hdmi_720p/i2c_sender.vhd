@@ -70,26 +70,35 @@ architecture Behavioral of i2c_sender is
             ---------------
             -- Audio setup
             ---------------
-            x"0A1D",  -- SPDIF audio format
+            
+            x"0A1D",  -- SPDIF audio format, manual CTS
             x"0B8E",  -- SPDIF audio TX enable, extract MCLK from SPDIF audio
                       -- stream, i.e no separate MCLK
             x"0C00",  -- Use sampling rate encoded in the SPDIF stream instead
             -- of specifying the rate.
             x"7301",  -- stereo
             x"7600",  -- clear channel allocations
+
+            -- Audio CTS and N values
+            -- See p93 SS4.4.2 of https://www.analog.com/media/en/technical-documentation/user-guides/ADV7511_Programming_Guide.pdf
+            -- 27MHz pixel clock, 44.1KHz audio rate using Table 81:
+            -- N=6272 ($1880), CTS=30000 ($7530)
+            -- Big-endian byte order?
+            x"0100",x"0218",x"0380",
+            x"0700",x"0875",x"0930",            
             
-            -- Set HDMI device name
-            x"1F80",x"4478", -- Allow setting HDMI packet memory
-            x"FE70", -- begin talking to device ID 70
-            x"0083",x"0101",x"0219",
-            -- @M.E.G.A. + NUL
-            x"0340",x"044D",x"052E",x"0645",x"072E",x"0847",x"092E",x"0A41",
-            x"0B2E",x"0C00",
-            -- MEGA65 Computer + NUL
-            x"0D4D",x"0E45",x"0F47",x"1041",x"1136",x"1235",x"1320",x"1443",
-            x"156f",x"166d",x"1770",x"1875",x"1974",x"1a65",x"1b72",x"1c00",
-            x"1d00",x"1e00",x"1f00",x"2000",
-            x"FE7A",
+--            -- Set HDMI device name
+--            x"1F80",x"4478", -- Allow setting HDMI packet memory
+--            x"FE70", -- begin talking to device ID 70
+--            x"0083",x"0101",x"0219",
+--            -- @M.E.G.A. + NUL
+--            x"0340",x"044D",x"052E",x"0645",x"072E",x"0847",x"092E",x"0A41",
+--            x"0B2E",x"0C00",
+--            -- MEGA65 Computer + NUL
+--            x"0D4D",x"0E45",x"0F47",x"1041",x"1136",x"1235",x"1320",x"1443",
+--            x"156f",x"166d",x"1770",x"1875",x"1974",x"1a65",x"1b72",x"1c00",
+--            x"1d00",x"1e00",x"1f00",x"2000",
+--            x"FE7A",
             x"1F00",x"4479", -- Hand packet memory back to HDMI controller
 
             -- Extra space filled with FFFFs to signify end of data
