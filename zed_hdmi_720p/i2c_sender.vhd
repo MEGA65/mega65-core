@@ -91,9 +91,10 @@ architecture Behavioral of i2c_sender is
     -- 27MHz pixel clock, 44.1KHz audio rate using Table 81:
     -- N=6272 ($1880), CTS=30000 ($7530)
     -- Clock is 27.083MHz, so CTS needs to be 30092 ($758C)
+    -- (or we increase sample rate to 27.083/27*44100 = 44237 samples / second.)
     -- Big-endian byte order?
     x"0100",x"0218",x"0380",
-    x"0700",x"0875",x"098C",
+    x"0700",x"0875",x"0930",
     
 --            -- Set HDMI device name
 --            x"1F80",x"4478", -- Allow setting HDMI packet memory

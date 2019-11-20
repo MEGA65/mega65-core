@@ -31,7 +31,8 @@ begin
     data_clk => clk,
     resetn => '1',
     conf_mode => "0101", -- 20 bit samples
-    conf_ratio => std_logic_vector(to_unsigned(100000000/(44100*64),8)), -- clock divider
+    -- 44237 = 27.083MHz/27.000MHz * 44100
+    conf_ratio => std_logic_vector(to_unsigned(100000000/(44237*64),8)), -- clock divider
     conf_txdata => '1', -- sample data is valid
     conf_txen => '1', -- enable transmitter
     chstat_freq => "00", -- 44.1KHz sample rate
