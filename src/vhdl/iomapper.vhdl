@@ -1197,7 +1197,7 @@ begin
       std_logic_vector(fastio_rdata) => data_o
 
     );
-    i2c1: entity work.hdmi_i2c port map (
+    i2c2: entity work.hdmi_i2c port map (
       clock => clk,
       cs => i2chdmi_cs,
 
