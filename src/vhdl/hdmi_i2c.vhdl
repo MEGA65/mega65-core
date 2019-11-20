@@ -107,7 +107,7 @@ architecture behavioural of hdmi_i2c is
   signal bytes : byte_array := (others => x"00");
 
   signal write_job_pending : std_logic := '0';
-  signal write_addr : unsigned(7 downto 0) := x"48";
+  signal write_addr : unsigned(7 downto 0) := x"72";
   signal write_reg : unsigned(7 downto 0) := x"02";
   signal write_val : unsigned(7 downto 0) := x"99";
 
@@ -117,7 +117,7 @@ begin
 
   i2c1: entity work.i2c_master
     generic map (
-      input_clk => 40_000_000,
+      input_clk => 50_000_000,
       bus_clk => 400_000
       )
     port map (
@@ -141,15 +141,12 @@ begin
   begin
 
     if cs='1' and fastio_read='1' then
-      if fastio_addr(7) = '0' then
+      if fastio_addr(7 downto 0) /= "11111111" then
         report "reading buffered I2C data";
         fastio_rdata <= bytes(to_integer(fastio_addr(7 downto 0)));
-      elsif fastio_addr(7 downto 0) = "11111111" then
+      else
         -- Show busy status for writing
         fastio_rdata <= (others => write_job_pending);
-      else
-        -- Else for debug show busy count
-        fastio_rdata <= to_unsigned(busy_count,8);
       end if;
     else
       fastio_rdata <= (others => 'Z');
@@ -187,7 +184,7 @@ begin
         i2c1_wdata <= x"00";
         i2c1_rw <= '0';
       elsif busy_count < 256 then
-          -- Read the 8 bytes from the device
+          -- Read the 255 bytes from the device
           i2c1_rw <= '1';
           i2c1_command_en <= '1';
           if busy_count > 1 then
