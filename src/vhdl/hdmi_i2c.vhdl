@@ -67,7 +67,7 @@ entity hdmi_i2c is
     
     -- I2C bus
     sda : inout std_logic;
-    scl : out std_logic;
+    scl : inout std_logic;
 
     -- FastIO interface
     cs : in std_logic;
