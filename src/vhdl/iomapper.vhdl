@@ -190,7 +190,7 @@ entity iomapper is
 
         pmoda : inout std_logic_vector(7 downto 0);
 
-        hdmi_scl : out std_logic;
+        hdmi_scl : inout std_logic;
         hdmi_sda : inout std_logic;
         hpd_a : inout std_logic;
 
