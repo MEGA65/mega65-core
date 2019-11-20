@@ -190,7 +190,7 @@ entity iomapper is
 
         pmoda : inout std_logic_vector(7 downto 0);
 
-        hdmi_scl : inout std_logic;
+        hdmi_scl : out std_logic;
         hdmi_sda : inout std_logic;
         hpd_a : inout std_logic;
 
@@ -1609,8 +1609,9 @@ begin
         sectorbuffercs <= sbcs_en;
       end if;
 
-      -- @IO:GS $FFD7000-FF - I2C Peripherals     
+      -- @IO:GS $FFD7x00-xFF - I2C Peripherals for various targets     
       i2cperipherals_cs <= '0';
+      i2chdmi_cs <= '0';
       if target = megaphoner1 then
         if address(19 downto 8) = x"D70" then
           i2cperipherals_cs <= '1';
