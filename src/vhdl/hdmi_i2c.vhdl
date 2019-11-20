@@ -147,7 +147,7 @@ architecture behavioural of hdmi_i2c is
 
   constant i2c_finished_token : std_logic_vector(15 downto 0) := x"FFFF";
   
-  type reg_value_pair is ARRAY(0 TO 70) OF std_logic_vector(15 DOWNTO 0);    
+  type reg_value_pair is ARRAY(0 TO 70) OF unsigned(15 DOWNTO 0);    
   
   signal reg_value_pairs : reg_value_pair := (
     x"FE7A", -- talk to device $7A
@@ -336,9 +336,9 @@ begin
             busy_count <= 0;
           else
             -- HDMI reset in progress, so issue next register write command.
-            if reg_value_pair(hdmi_reset_phase) /= i2c_finished_token and hdmi_reset_phase < 70 then
-              write_reg <= reg_value_pair(hdmi_reset_phase)(15 downto 8);
-              write_val <= reg_value_pair(hdmi_reset_phase)(7 downto 0);
+            if reg_value_pairs(hdmi_reset_phase) /= i2c_finished_token and hdmi_reset_phase < 70 then
+              write_reg <= reg_value_pairs(hdmi_reset_phase)(15 downto 8);
+              write_val <= reg_value_pairs(hdmi_reset_phase)(7 downto 0);
               hdmi_reset_phase <= hdmi_reset_phase + 1;
             else
               hdmi_int_latch <= '0';
