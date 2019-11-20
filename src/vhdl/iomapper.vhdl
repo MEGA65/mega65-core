@@ -384,6 +384,7 @@ architecture behavioral of iomapper is
   signal cia2cs : std_logic;
 
   signal i2cperipherals_cs : std_logic;
+  signal i2chdmi_cs : std_logic;
   signal sectorbuffercs : std_logic;
   signal sectorbuffercs_fast : std_logic;
   signal sector_buffer_mapped_read : std_logic;
@@ -722,8 +723,7 @@ begin
       porte(1) => keyboard_column8_select,
       porte(0) => capslock_from_keymapper,
       -- Port G is M65 only, and has bit-bash interfaces
-      portg(7) => hdmi_scl,
-      portg(6) => hdmi_sda,
+      portg(7 downto 6) => dummy_g(7 downto 6),
       portg(5) => hpd_a,
       portg(4) => sd_bitbash_cs_bo,
       portg(3) => sd_bitbash_sclk_o,
@@ -1197,6 +1197,20 @@ begin
       std_logic_vector(fastio_rdata) => data_o
 
     );
+    i2c1: entity work.hdmi_i2c port map (
+      clock => clk,
+      cs => i2chdmi_cs,
+
+      sda => hdmi_sda,
+      scl => hdmi_scl,
+    
+      fastio_addr => unsigned(address),
+      fastio_write => w,
+      fastio_read => r,
+      fastio_wdata => unsigned(data_i),
+      std_logic_vector(fastio_rdata) => data_o
+
+    );
   end generate i2cperiph_mega65r2;
   
   
@@ -1602,7 +1616,13 @@ begin
           i2cperipherals_cs <= '1';
           report "i2cperipherals_cs for MEGAphone asserted";
         end if;
-      else
+      end if;
+
+      if target = mega65r2 then
+        if address(19 downto 8) = x"D72" then
+          i2chdmi_cs <= '1';
+          report "i2chdmi_cs for MEGA65R2 asserted";
+        end if;
         if address(19 downto 8) = x"D71" then
           i2cperipherals_cs <= '1';
           report "i2cperipherals_cs for MEGA65R2 asserted";
