@@ -145,7 +145,7 @@ architecture behavioural of hdmi_i2c is
   signal   reg_value         : std_logic_vector(15 downto 0)  := (others => '0');
   signal   i2c_wr_addr       : std_logic_vector(7 downto 0)  := x"7A";
 
-  constant i2c_finished_token : std_logic_vector(15 downto 0) := x"FFFF";
+  constant i2c_finished_token : unsigned(15 downto 0) := x"FFFF";
   
   type reg_value_pair is ARRAY(0 TO 70) OF unsigned(15 DOWNTO 0);    
   
