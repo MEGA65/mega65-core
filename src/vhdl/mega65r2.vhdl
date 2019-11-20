@@ -374,9 +374,9 @@ begin
       hdmi_clk => hdmi_clk,
       hdmi_hsync => hdmi_hsync,
       hdmi_vsync => hdmi_vsync,
-      hdmi_de => hdmi_de,
-      hdmi_scl => hdmi_scl,
-      hdmi_sda => hdmi_sda
+      hdmi_de => hdmi_de
+--      hdmi_scl => hdmi_scl,
+--      hdmi_sda => hdmi_sda
       );
 
   hdmiaudio0: entity work.hdmi_spdif
@@ -541,8 +541,8 @@ begin
       vgared          => v_red,
       vgagreen        => v_green,
       vgablue         => v_blue,
---      hdmi_sda        => hdmi_sda,
---      hdmi_scl        => hdmi_scl,
+      hdmi_sda        => hdmi_sda,
+      hdmi_scl        => hdmi_scl,
       hpd_a           => hpd_a,
       lcd_dataenable => lcd_dataenable,
       
