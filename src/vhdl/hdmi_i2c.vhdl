@@ -107,7 +107,7 @@ architecture behavioural of hdmi_i2c is
   signal bytes : byte_array := (others => x"00");
 
   signal write_job_pending : std_logic := '0';
-  signal write_addr : unsigned(7 downto 0) := x"72";
+  signal write_addr : unsigned(7 downto 0) := x"7A";
   signal write_reg : unsigned(7 downto 0) := x"02";
   signal write_val : unsigned(7 downto 0) := x"99";
 
@@ -158,7 +158,7 @@ begin
       if cs='1' and fastio_write='1' then
         -- ADV7511 main map registers
         write_reg <= fastio_addr(7 downto 0);
-        write_addr <= x"72";
+        write_addr <= x"7A";
         write_job_pending <= '1';
         write_val <= fastio_wdata;
       end if;
@@ -180,7 +180,7 @@ begin
 
       if busy_count = 0 then
         i2c1_command_en <= '1';
-        i2c1_address <= "0111001"; -- 0x72/2 = I2C address of device;
+        i2c1_address <= "0111101"; -- 0x7A/2 = I2C address of device;
         i2c1_wdata <= x"00";
         i2c1_rw <= '0';
       elsif busy_count < 256 then
