@@ -193,7 +193,7 @@ begin
           if busy_count > 1 then
             bytes(busy_count - 1 - 1 + 0) <= i2c1_rdata;
           end if;
-      elsif busy_count = 256 the
+      elsif busy_count = 256 then
           -- Write to a register, if a request is pending:
           -- First, write the address and register number.
           i2c1_rw <= '0';
