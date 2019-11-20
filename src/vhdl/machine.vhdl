@@ -119,6 +119,7 @@ entity machine is
          panelblue : out  UNSIGNED (7 downto 0);
          lcd_dataenable : out std_logic;
 
+         hdmi_int : in std_logic := '1';
          hdmi_hsync : out  STD_LOGIC;
          hdmi_scl : inout std_logic;
          hdmi_sda : inout std_logic;
@@ -1526,6 +1527,7 @@ begin
       widget_joya => widget_joya,
       widget_joyb => widget_joyb,     
       
+      hdmi_int => hdmi_int,
       hdmi_sda => hdmi_sda,
       hdmi_scl => hdmi_scl,
       hpd_a => hpd_a,

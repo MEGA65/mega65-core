@@ -1201,6 +1201,8 @@ begin
       clock => clk,
       cs => i2chdmi_cs,
 
+      hdmi_int => hdmi_int,
+      
       sda => hdmi_sda,
       scl => hdmi_scl,
     
