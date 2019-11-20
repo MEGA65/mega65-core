@@ -370,7 +370,7 @@ begin
       pattern_de => lcd_dataenable,
 
       -- and our outputs to control the HDMI port
-      hdmi_int => hdmi_int,
+--      hdmi_int => hdmi_int,
       hdmi_clk => hdmi_clk,
       hdmi_hsync => hdmi_hsync,
       hdmi_vsync => hdmi_vsync,
@@ -541,6 +541,7 @@ begin
       vgared          => v_red,
       vgagreen        => v_green,
       vgablue         => v_blue,
+      hdmi_int        => hdmi_int,
       hdmi_sda        => hdmi_sda,
       hdmi_scl        => hdmi_scl,
       hpd_a           => hpd_a,

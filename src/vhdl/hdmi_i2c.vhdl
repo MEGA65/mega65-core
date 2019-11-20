@@ -64,7 +64,10 @@ use work.debugtools.all;
 entity hdmi_i2c is
   port (
     clock : in std_logic;
-    
+
+    -- HDMI interrupt to trigger automatic reset
+    hdmi_int : in std_logic;
+  
     -- I2C bus
     sda : inout std_logic;
     scl : inout std_logic;
@@ -112,6 +115,111 @@ architecture behavioural of hdmi_i2c is
   signal write_val : unsigned(7 downto 0) := x"99";
 
   signal delayed_en : integer range 0 to 255 := 0;
+  signal last_hdmi_int : std_logic := '1';
+  signal hdmi_int_latch : std_logic := '0';
+  signal hdmi_reset_phase : integer := 0;
+  
+  ----------------------------------------------------------------------------------
+  -- From:
+  ----------------------------------------------------------------------------------
+  -- Engineer:    Mike Field <hamster@snap.net.nz>
+  -- 
+  -- Module Name: i2c_sender h- Behavioral 
+  --
+  -- Description: Send register writes over an I2C-like interface
+  --
+  -- Feel free to use this how you see fit, and fix any errors you find :-)
+  ----------------------------------------------------------------------------------
+
+  
+  signal   divider           : unsigned(8 downto 0)  := (others => '0'); 
+  -- this value gives nearly 200ms cycles before the first register is written
+  signal   initial_pause     : unsigned(7 downto 0) := (others => '0');
+  signal   finished          : std_logic := '0';
+  signal   address           : std_logic_vector(7 downto 0)  := (others => '0');
+  signal   clk_first_quarter : std_logic_vector(28 downto 0) := (others => '1');
+  signal   clk_last_quarter  : std_logic_vector(28 downto 0) := (others => '1');
+  signal   busy_sr           : std_logic_vector(28 downto 0) := (others => '1');
+  signal   data_sr           : std_logic_vector(28 downto 0) := (others => '1');
+  signal   tristate_sr       : std_logic_vector(28 downto 0) := (others => '0');
+  signal   reg_value         : std_logic_vector(15 downto 0)  := (others => '0');
+  signal   i2c_wr_addr       : std_logic_vector(7 downto 0)  := x"7A";
+
+  constant i2c_finished_token : std_logic_vector(15 downto 0) := x"FFFF";
+  
+  type reg_value_pair is ARRAY(0 TO 70) OF std_logic_vector(15 DOWNTO 0);    
+  
+  signal reg_value_pairs : reg_value_pair := (
+    x"FE7A", -- talk to device $7A
+    -------------------
+    -- Powerup please!
+    -------------------
+    x"4110", 
+    ---------------------------------------
+    -- These valuse must be set as follows
+    ---------------------------------------
+    x"9803", x"9AE0", x"9C30", x"9D61", x"A2A4", x"A3A4", x"E0D0", x"5512", x"F900",
+    
+    ---------------
+    -- Input mode
+    ---------------
+    x"3C21", -- PAL 576p 4:3 aspect ratio video mode
+    x"1500", -- Simple RGB video (was $06 = YCbCr 422, DDR, External sync)
+    x"4810", -- Left justified data (D23 downto 8)
+    -- according to documenation, style 2 should be x"1637" but it isn't. ARGH!
+--            x"1637", -- 444 output, 8 bit style 2, 1st half on rising edge - YCrCb clipping
+    x"1630", -- more boring pixel format
+    x"1700", -- input aspect ratio 4:3, external DE 
+    x"5619", -- ouput aspect ratio 4:3, 
+    x"D03C", -- auto sync data - must be set for DDR modes. No DDR clock delay
+    ---------------
+    -- Output mode
+    ---------------
+    x"AF02", -- HDMI mode
+    x"4c04", -- Deep colour off (HDMI only?)     - not needed
+    x"40C0", -- Turn on main HDMI data packets
+
+    ---------------
+    -- Audio setup
+    ---------------
+    
+    x"0A9D",  -- SPDIF audio format, manual CTS
+--    x"0A1D",  -- SPDIF audio format, auto CTS
+    x"0B8E",  -- SPDIF audio TX enable, extract MCLK from SPDIF audio
+    -- stream, i.e no separate MCLK
+    x"0C00",  -- Use sampling rate encoded in the SPDIF stream instead
+    -- of specifying the rate.
+    x"7301",  -- stereo
+    x"7600",  -- clear channel allocations
+
+    -- Audio CTS and N values
+    -- See p93 SS4.4.2 of https://www.analog.com/media/en/technical-documentation/user-guides/ADV7511_Programming_Guide.pdf
+    -- 27MHz pixel clock, 44.1KHz audio rate using Table 81:
+    -- N=6272 ($1880), CTS=30000 ($7530)
+    -- Clock is 27.083MHz, so CTS needs to be 30092 ($758C)
+    -- (or we increase sample rate to 27.083/27*44100 = 44237 samples / second.)
+    -- Big-endian byte order?
+    x"0100",x"0218",x"0380",
+    x"0700",x"0875",x"0930",
+    
+--            -- Set HDMI device name
+--            x"1F80",x"4478", -- Allow setting HDMI packet memory
+--            x"FE70", -- begin talking to device ID 70
+--            x"0083",x"0101",x"0219",
+--            -- @M.E.G.A. + NUL
+--            x"0340",x"044D",x"052E",x"0645",x"072E",x"0847",x"092E",x"0A41",
+--            x"0B2E",x"0C00",
+--            -- MEGA65 Computer + NUL
+--            x"0D4D",x"0E45",x"0F47",x"1041",x"1136",x"1235",x"1320",x"1443",
+--            x"156f",x"166d",x"1770",x"1875",x"1974",x"1a65",x"1b72",x"1c00",
+--            x"1d00",x"1e00",x"1f00",x"2000",
+--            x"FE7A",
+    x"1F00",x"4479", -- Hand packet memory back to HDMI controller
+
+    -- Extra space filled with FFFFs to signify end of data
+    others => i2c_finished_token
+    );
+
   
 begin
 
@@ -154,6 +262,13 @@ begin
 
     if rising_edge(clock) then
 
+      -- Notice when HDMI needs to be reset
+      if hdmi_int = '0' and last_hdmi_int='1' then
+        hdmi_int_latch <= '1';
+        hdmi_reset_phase <= 0;
+      end if;
+      last_hdmi_int <= hdmi_int;
+      
       -- Write to registers as required
       if cs='1' and fastio_write='1' then
         -- ADV7511 main map registers
@@ -190,6 +305,10 @@ begin
           if busy_count > 1 then
             bytes(busy_count - 1 - 1 + 0) <= i2c1_rdata;
           end if;
+          -- Abort re-reading registers if we have more important work to do
+          if write_job_pending='1' or hdmi_int_latch='1' then
+            busy_count <= 256;
+          end if;
       elsif busy_count = 256 then
           -- Write to a register, if a request is pending:
           -- First, write the address and register number.
@@ -211,9 +330,20 @@ begin
           report "in others";
           -- Make sure we can't get stuck.
           i2c1_command_en <= '0';
-          busy_count <= 0;
           last_busy <= '1';
           write_job_pending <= '0';
+          if hdmi_int_latch = '0' then
+            busy_count <= 0;
+          else
+            -- HDMI reset in progress, so issue next register write command.
+            if reg_value_pair(hdmi_reset_phase) /= i2c_finished_token and hdmi_reset_phase < 70 then
+              write_reg <= reg_value_pair(hdmi_reset_phase)(15 downto 8);
+              write_val <= reg_value_pair(hdmi_reset_phase)(7 downto 0);
+              hdmi_reset_phase <= hdmi_reset_phase + 1;
+            else
+              hdmi_int_latch <= '0';
+            end if;
+          end if;
       end if;
 
       -- This has to come last, so that it overrides the clearing of
