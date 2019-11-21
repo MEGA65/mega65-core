@@ -253,11 +253,16 @@ begin
         report "reading buffered I2C data";
         fastio_rdata <= bytes(to_integer(fastio_addr(7 downto 0)));
       elsif fastio_addr(7 downto 0) = "11111110" then
-        -- Show busy status for writing
+        -- Show busy count @ $FE
         fastio_rdata <= to_unsigned(busy_count,8);
       else
-        -- Show busy status for writing
-        fastio_rdata <= (others => write_job_pending);
+        -- Show various status flags @ $FF
+        fastio_rdata(0) <= write_job_pending;
+        fastio_rdata(1) <= i2c1_busy;
+        fastio_rdata(2) <= last_busy;
+        fastio_rdata(3) <= hdmi_int_latch;
+        fastio_rdata(4) <= hdmi_int;
+        fastio_rdata(7 downto 5) <= (others => '0');
       end if;
     else
       fastio_rdata <= (others => 'Z');
