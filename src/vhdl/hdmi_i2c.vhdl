@@ -67,7 +67,7 @@ entity hdmi_i2c is
 
     -- HDMI interrupt to trigger automatic reset
     hdmi_int : in std_logic;
-  
+    
     -- I2C bus
     sda : inout std_logic;
     scl : inout std_logic;
@@ -225,7 +225,7 @@ begin
 
   i2c1: entity work.i2c_master
     generic map (
-      input_clk => 50_000_000,
+      input_clk => 40_000_000,
       bus_clk => 400_000
       )
     port map (
@@ -262,7 +262,8 @@ begin
         fastio_rdata(2) <= last_busy;
         fastio_rdata(3) <= hdmi_int_latch;
         fastio_rdata(4) <= hdmi_int;
-        fastio_rdata(7 downto 5) <= (others => '0');
+        fastio_rdata(5) <= to_unsigned(busy_count,9)(8);
+        fastio_rdata(7 downto 6) <= (others => '0');
       end if;
     else
       fastio_rdata <= (others => 'Z');
@@ -307,51 +308,51 @@ begin
         i2c1_wdata <= x"00";
         i2c1_rw <= '0';
       elsif busy_count < 256 then
-          -- Read the 255 bytes from the device
-          i2c1_rw <= '1';
-          i2c1_command_en <= '1';
-          if busy_count > 1 then
-            bytes(busy_count - 1 - 1 + 0) <= i2c1_rdata;
-          end if;
-          -- Abort re-reading registers if we have more important work to do
-          if write_job_pending='1' or hdmi_int_latch='1' then
-            busy_count <= 256;
-          end if;
+        -- Read the 255 bytes from the device
+        i2c1_rw <= '1';
+        i2c1_command_en <= '1';
+        if busy_count > 1 then
+          bytes(busy_count - 1 - 1 + 0) <= i2c1_rdata;
+        end if;
+        -- Abort re-reading registers if we have more important work to do
+        if write_job_pending='1' or hdmi_int_latch='1' then
+          busy_count <= 256;
+        end if;
       elsif busy_count = 256 then
-          -- Write to a register, if a request is pending:
-          -- First, write the address and register number.
-          i2c1_rw <= '0';
-          i2c1_command_en <= '1';
-          i2c1_address <= write_addr(7 downto 1);
-          i2c1_wdata <= write_reg;
+        -- Write to a register, if a request is pending:
+        -- First, write the address and register number.
+        i2c1_rw <= '0';
+        i2c1_command_en <= '1';
+        i2c1_address <= write_addr(7 downto 1);
+        i2c1_wdata <= write_reg;
       elsif busy_count = 257 then
-          -- Second, write the actual value into the register
-          i2c1_rw <= '0';
-          i2c1_command_en <= '1';
-          i2c1_wdata <= write_val;
+        -- Second, write the actual value into the register
+        i2c1_rw <= '0';
+        i2c1_command_en <= '1';
+        i2c1_wdata <= write_val;
       elsif busy_count = 258 then
-          report "Doing dummy read";
-          i2c1_rw <= '1';
-          i2c1_command_en <= '1';
-          i2c1_address <= (others => '1');
+        report "Doing dummy read";
+        i2c1_rw <= '1';
+        i2c1_command_en <= '1';
+        i2c1_address <= (others => '1');
       else
-          report "in others";
-          -- Make sure we can't get stuck.
-          i2c1_command_en <= '0';
-          last_busy <= '1';
-          write_job_pending <= '0';
-          if hdmi_int_latch = '0' then
-            busy_count <= 0;
+        report "in others";
+        -- Make sure we can't get stuck.
+        i2c1_command_en <= '0';
+        last_busy <= '1';
+        write_job_pending <= '0';
+        if hdmi_int_latch = '0' then
+          busy_count <= 0;
+        else
+          -- HDMI reset in progress, so issue next register write command.
+          if reg_value_pairs(hdmi_reset_phase) /= i2c_finished_token and hdmi_reset_phase < 70 then
+            write_reg <= reg_value_pairs(hdmi_reset_phase)(15 downto 8);
+            write_val <= reg_value_pairs(hdmi_reset_phase)(7 downto 0);
+            hdmi_reset_phase <= hdmi_reset_phase + 1;
           else
-            -- HDMI reset in progress, so issue next register write command.
-            if reg_value_pairs(hdmi_reset_phase) /= i2c_finished_token and hdmi_reset_phase < 70 then
-              write_reg <= reg_value_pairs(hdmi_reset_phase)(15 downto 8);
-              write_val <= reg_value_pairs(hdmi_reset_phase)(7 downto 0);
-              hdmi_reset_phase <= hdmi_reset_phase + 1;
-            else
-              hdmi_int_latch <= '0';
-            end if;
+            hdmi_int_latch <= '0';
           end if;
+        end if;
       end if;
 
       -- This has to come last, so that it overrides the clearing of
