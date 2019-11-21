@@ -145,6 +145,9 @@ architecture behavioural of hdmi_i2c is
   signal   reg_value         : std_logic_vector(15 downto 0)  := (others => '0');
   signal   i2c_wr_addr       : std_logic_vector(7 downto 0)  := x"7A";
 
+  signal idle_counter : integer := 0;
+  signal busy_counter : integer := 0;
+  
   constant i2c_finished_token : unsigned(15 downto 0) := x"FFFF";
   
   type reg_value_pair is ARRAY(0 TO 70) OF unsigned(15 DOWNTO 0);    
@@ -292,7 +295,9 @@ begin
       -- State machine for reading registers from the various
       -- devices.
       last_busy <= i2c1_busy;
-      if i2c1_busy='1' and last_busy='0' then
+      -- XXX If previous commit doesn't fix it, then try this form to see if it
+      -- avoids I2C bus lockup:
+      if (i2c1_busy='1' and last_busy='0') or (i2c1_busy='0' and last_busy='0') then
 
         -- Sequence through the list of transactions endlessly
         if (busy_count < 256) or ((write_job_pending='1' or hdmi_int_latch='1') and busy_count < (256+4)) then
@@ -370,7 +375,27 @@ begin
         end if;
       end if;
       
+      if i2c1_busy = '1' then
+        busy_counter <= busy_counter + 1;
+        idle_counter <= 0;
+      else
+        idle_counter <= idle_counter + 1;
+        busy_counter <= 0;
+      end if;
+      if busy_counter > 65535 then
+        -- Reset i2c bus, and start over
+        i2c1_reset <= '0';
+        busy_count <= 0;
+        busy_counter <= 0;
+      end if;
+      if idle_counter > 65535 then
+        -- This shouldn't happen either -- so just try to start things again
+        i2c1_reset <= '0';
+        busy_count <= 0;
+        idle_counter <= 0;
+      end if;
 
+      
       
     end if;
   end process;
