@@ -266,7 +266,8 @@ begin
         fastio_rdata(3) <= hdmi_int_latch;
         fastio_rdata(4) <= hdmi_int;
         fastio_rdata(5) <= to_unsigned(busy_count,9)(8);
-        fastio_rdata(7 downto 6) <= (others => '0');
+        fastio_rdata(6) <= i2c1_error;
+        fastio_rdata(7) <= '0';
       end if;
     else
       fastio_rdata <= (others => 'Z');
