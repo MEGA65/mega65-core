@@ -249,9 +249,12 @@ begin
   begin
 
     if cs='1' and fastio_read='1' then
-      if fastio_addr(7 downto 0) /= "11111111" then
+      if fastio_addr(7 downto 1) /= "1111111" then
         report "reading buffered I2C data";
         fastio_rdata <= bytes(to_integer(fastio_addr(7 downto 0)));
+      elsif fastio_addr(7 downto 0) = "11111110" then
+        -- Show busy status for writing
+        fastio_rdata <= to_unsigned(busy_count,8);
       else
         -- Show busy status for writing
         fastio_rdata <= (others => write_job_pending);
@@ -286,7 +289,7 @@ begin
       if i2c1_busy='1' and last_busy='0' then
 
         -- Sequence through the list of transactions endlessly
-        if (busy_count < 256) or (write_job_pending='1' and busy_count < (256+4)) then
+        if (busy_count < 256) or ((write_job_pending='1' or hdmi_int_latch='1') and busy_count < (256+4)) then
           busy_count <= busy_count + 1;
         else
           busy_count <= 0;
