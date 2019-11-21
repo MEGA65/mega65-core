@@ -114,7 +114,6 @@ architecture behavioural of hdmi_i2c is
   signal write_reg : unsigned(7 downto 0) := x"02";
   signal write_val : unsigned(7 downto 0) := x"99";
 
-  signal delayed_en : integer range 0 to 255 := 0;
   signal last_hdmi_int : std_logic := '1';
   signal hdmi_int_latch : std_logic := '0';
   signal hdmi_reset_phase : integer := 0;
@@ -145,8 +144,7 @@ architecture behavioural of hdmi_i2c is
   signal   reg_value         : std_logic_vector(15 downto 0)  := (others => '0');
   signal   i2c_wr_addr       : std_logic_vector(7 downto 0)  := x"7A";
 
-  signal idle_counter : integer := 0;
-  signal busy_counter : integer := 0;
+  signal timeout_counter : integer := 0;
   
   constant i2c_finished_token : unsigned(15 downto 0) := x"FFFF";
   
@@ -275,6 +273,10 @@ begin
 
     if rising_edge(clock) then
 
+      if timeout_counter < 1048576 then
+        timeout_counter <= timeout_counter + 1;
+      end if;
+      
       -- Notice when HDMI needs to be reset
       if hdmi_int = '0' and last_hdmi_int='1' then
         hdmi_int_latch <= '1';
@@ -313,6 +315,7 @@ begin
         i2c1_address <= "0111101"; -- 0x7A/2 = I2C address of device;
         i2c1_wdata <= x"00";
         i2c1_rw <= '0';
+        timeout_counter <= 0;
       elsif busy_count < 256 then
         -- Read the 255 bytes from the device
         i2c1_rw <= '1';
@@ -324,6 +327,7 @@ begin
         if write_job_pending='1' or hdmi_int_latch='1' then
           busy_count <= 256;
         end if;
+        timeout_counter <= 0;
       elsif busy_count = 256 then
         -- Write to a register, if a request is pending:
         -- First, write the address and register number.
@@ -331,16 +335,19 @@ begin
         i2c1_command_en <= '1';
         i2c1_address <= write_addr(7 downto 1);
         i2c1_wdata <= write_reg;
+        timeout_counter <= 0;
       elsif busy_count = 257 then
         -- Second, write the actual value into the register
         i2c1_rw <= '0';
         i2c1_command_en <= '1';
         i2c1_wdata <= write_val;
+        timeout_counter <= 0;
       elsif busy_count = 258 then
         report "Doing dummy read";
         i2c1_rw <= '1';
         i2c1_command_en <= '1';
         i2c1_address <= (others => '1');
+        timeout_counter <= 0;
       else
         report "in others";
         -- Make sure we can't get stuck.
@@ -359,44 +366,15 @@ begin
             hdmi_int_latch <= '0';
           end if;
         end if;
+        timeout_counter <= 0;
       end if;
 
-      -- This has to come last, so that it overrides the clearing of
-      -- i2c1_command_en above.
-      if i2c1_busy = '0' then
-        if delayed_en= 1 then
-          report "Activating delayed command";
-          i2c1_command_en <= '1';
-        elsif delayed_en > 1 then
-          delayed_en <= delayed_en - 1;
-        end if;
-      else
-        if delayed_en = 1 then
-          delayed_en <= 0;
-        end if;
-      end if;
-      
-      if i2c1_busy = '1' then
-        busy_counter <= busy_counter + 1;
-        idle_counter <= 0;
-      else
-        idle_counter <= idle_counter + 1;
-        busy_counter <= 0;
-      end if;
-      if busy_counter > 65535 then
+      if timeout_counter > 1048575 then
         -- Reset i2c bus, and start over
         i2c1_reset <= '0';
         busy_count <= 0;
-        busy_counter <= 0;
+        timeout_counter <= 0;
       end if;
-      if idle_counter > 65535 then
-        -- This shouldn't happen either -- so just try to start things again
-        i2c1_reset <= '0';
-        busy_count <= 0;
-        idle_counter <= 0;
-      end if;
-
-      
       
     end if;
   end process;
