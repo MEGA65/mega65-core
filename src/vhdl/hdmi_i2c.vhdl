@@ -327,7 +327,7 @@ begin
           report "Increment busy_count from " & integer'image(busy_count) & " to " & integer'image(busy_count +1);
           busy_count <= busy_count + 1;
         else
-          report "Reset busy_count to 0";
+          report "Reset busy_count to 0 from " & integer'image(busy_count);
           busy_count <= 0;
         end if;
       end if;
@@ -353,6 +353,17 @@ begin
         if write_job_pending='1' or hdmi_int_latch='1' then
           report "Skipping reading due to write job or HDMI interrupt";
           busy_count <= 257;
+        end if;
+        timeout_counter <= 0;
+      elsif busy_count = 257 then
+        -- Write to a register, if a request is pending:
+        -- First, write the address and register number.
+        if write_job_pending='1' then
+          i2c1_rw <= '0';
+          i2c1_command_en <= '1';
+          i2c1_address <= write_addr(7 downto 1);
+          i2c1_wdata <= write_reg;
+          timeout_counter <= 0;
         else
           -- If no real write job, do a dummy write to register $FF, so that we
           -- get the read-phase back to normal
@@ -361,17 +372,8 @@ begin
           i2c1_address <= write_addr(7 downto 1);
           i2c1_wdata <= x"FF";
           timeout_counter <= 0;
-          busy_count <= 257;          
+--          report "Doing dummy write to re-sync read register";
         end if;
-        timeout_counter <= 0;
-      elsif busy_count = 257 then
-        -- Write to a register, if a request is pending:
-        -- First, write the address and register number.
-        i2c1_rw <= '0';
-        i2c1_command_en <= '1';
-        i2c1_address <= write_addr(7 downto 1);
-        i2c1_wdata <= write_reg;
-        timeout_counter <= 0;
       elsif busy_count = 258 then
         -- Second, write the actual value into the register
         i2c1_rw <= '0';
