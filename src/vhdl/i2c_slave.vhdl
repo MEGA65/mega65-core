@@ -92,6 +92,7 @@ architecture arch of I2C_slave is
   signal data_valid_reg     : std_logic                    := '0';
   signal read_req_reg       : std_logic                    := '0';
   signal data_to_master_reg : std_logic_vector(7 downto 0) := (others => '0');
+  signal latch_read_val : std_logic := '0';
 begin
 
   -- debounce SCL and SDA
@@ -168,6 +169,17 @@ begin
       read_req_reg   <= '0';
 
 --      report "scl_debounced=" & std_logic'image(scl_debounced) & ", sda_debounced=" & std_logic'image(sda_debounced);
+
+      if read_req_reg = '1' then
+        latch_read_val <= '1';
+      else
+        latch_read_val <= '0';
+      end if;        
+
+      if latch_read_val='1' then
+        report "Latching dummy value $" & to_hstring(data_to_master);
+        data_to_master_reg <= data_to_master;
+      end if;
       
       case state_reg is
 
@@ -195,7 +207,6 @@ begin
               state_reg <= answer_ack_start;
               if cmd_reg = '1' then  -- issue read request 
                 read_req_reg       <= '1';
-                data_to_master_reg <= data_to_master;
               end if;
             else
               assert false
@@ -265,7 +276,6 @@ begin
             else  -- ack = continue read
               continue_reg       <= '1';
               read_req_reg       <= '1';  -- request reg byte
-              data_to_master_reg <= data_to_master;
             end if;
           end if;
 
