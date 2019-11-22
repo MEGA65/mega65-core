@@ -256,7 +256,10 @@ begin
   begin
 
     if cs='1' and fastio_read='1' then
-      if fastio_addr(7 downto 0) = "11111101" then
+      if fastio_addr(7 downto 0) = "11111100" then
+        -- Show timeout counter
+        fastio_rdata <= to_unsigned(busy_count,8);
+      elsif fastio_addr(7 downto 0) = "11111101" then
         -- Show timeout counter
         fastio_rdata <= to_unsigned(timeout_counter,8);
       elsif fastio_addr(7 downto 1) /= "1111111" then
@@ -303,6 +306,7 @@ begin
         end if;
         if fastio_addr(7 downto 0) = "00000000" then
           hdmi_int_latch <= '1';
+          hdmi_reset_phase <= 0;
         end if;
         write_reg <= fastio_addr(7 downto 0);
         write_addr <= x"7A";
