@@ -250,7 +250,10 @@ begin
   begin
 
     if cs='1' and fastio_read='1' then
-      if fastio_addr(7 downto 1) /= "1111111" then
+      if fastio_addr(7 downto 0) = "11111101" then
+        -- Show timeout counter
+        fastio_rdata <= to_unsigned(timeout_counter,8);
+      elsif fastio_addr(7 downto 1) /= "1111111" then
         report "reading buffered I2C data";
         fastio_rdata <= bytes(to_integer(fastio_addr(7 downto 0)));
       elsif fastio_addr(7 downto 0) = "11111110" then
