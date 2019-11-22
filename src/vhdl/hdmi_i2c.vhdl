@@ -150,6 +150,7 @@ architecture behavioural of hdmi_i2c is
   signal   i2c_wr_addr       : std_logic_vector(7 downto 0)  := x"7A";
 
   signal timeout_counter : integer := 0;
+  signal delayed_command : std_logic := '0';
   
   constant i2c_finished_token : unsigned(15 downto 0) := x"FFFF";
   
@@ -354,8 +355,10 @@ begin
         end if;
         -- Abort re-reading registers if we have more important work to do
         if write_job_pending='1' or hdmi_int_latch='1' then
-          report "Skipping reading due to write job or HDMI interrupt";
-          busy_count <= 257;
+--          report "Skipping reading due to write job or HDMI interrupt";
+--          if busy_count < (257 - 1 ) then
+--            busy_count <= 257 - 1;
+--          end if;
         end if;
         timeout_counter <= 0;
       elsif busy_count = 257 then
@@ -363,10 +366,14 @@ begin
         -- First, write the address and register number.
         if write_job_pending='1' then
           i2c1_rw <= '0';
-          i2c1_command_en <= '1';
+          if last_busy_count /= 257 then
+            report "Delaying register write triggered by write_job_pending";
+            i2c1_command_en <= '0';
+            delayed_command <= '1';
+            timeout_counter <= 0;
+          end if;
           i2c1_address <= write_addr(7 downto 1);
           i2c1_wdata <= write_reg;
-          timeout_counter <= 0;
         else
           -- If no real write job, do a dummy write to register $FF, so that we
           -- get the read-phase back to normal
@@ -379,10 +386,10 @@ begin
         end if;
       elsif busy_count = 258 then
         -- Second, write the actual value into the register
-        i2c1_rw <= '0';
         i2c1_command_en <= '1';
-        i2c1_wdata <= write_val;
         timeout_counter <= 0;
+        i2c1_rw <= '0';
+        i2c1_wdata <= write_val;
       elsif busy_count = 259 then
         if last_busy_count /= busy_count then
           report "Doing dummy read";
@@ -427,6 +434,15 @@ begin
         i2c1_reset <= '0';
         busy_count <= 0;
         timeout_counter <= 0;
+      end if;
+
+      if delayed_command = '1' then
+        if timeout_counter = 10000 then
+          i2c1_command_en <= '1';
+          delayed_command <= '0';
+          timeout_counter <= 0;
+          report "Starting delayed command";
+        end if;
       end if;
       
     end if;
