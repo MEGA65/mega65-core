@@ -210,7 +210,7 @@ begin
               end if;
             else
               assert false
-                report ("I2C: target/slave address mismatch (data is being sent to another slave).")
+                report ("I2C: target/slave address mismatch. Data is being sent to slave address $" & to_hstring(addr_reg))
                 severity note;
               state_reg <= idle;
             end if;

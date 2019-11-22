@@ -116,14 +116,14 @@ begin
     if rising_edge(clock50mhz) then
 
       case cycle_counter is
-        when 0 =>
+        when 2000000 =>
           report "@CYCLE " & integer'image(cycle_counter) & ": " &
             "Power up";
           hdmi_int <= '1';
           hdmi_cs <= '0';
           fastio_read <= '0';
           fastio_write <= '0';
-        when 100 =>
+        when 2000100 =>
           report "@CYCLE " & integer'image(cycle_counter) & ": " &
             "HDMI interrupt";
           hdmi_int <= '0';
