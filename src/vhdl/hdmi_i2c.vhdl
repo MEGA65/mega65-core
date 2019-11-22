@@ -165,6 +165,11 @@ architecture behavioural of hdmi_i2c is
     -- These valuse must be set as follows
     ---------------------------------------
     x"9803", x"9AE0", x"9C30", x"9D61", x"A2A4", x"A3A4", x"E0D0", x"5512", x"F900",
+
+    -- Clear all pending interrupts, so that the HDMI_INT line can float high again,
+    -- and re-trigger an interrupt again later, e.g., if the monitor is
+    -- unplugged and re-plugged.
+    x"96ff",
     
     ---------------
     -- Input mode
@@ -353,6 +358,13 @@ begin
         i2c1_command_en <= '1';
         if busy_count > 1 then
           bytes(busy_count - 1 - 1 + 0) <= i2c1_rdata;
+          if busy_count = (65 + 1 + 1 ) then
+            if i2c1_rdata(6) = '1' then
+              -- Detect if ADV7511 has shut down, and if so, start it back up again.
+              -- (This happens whenever HDMI link is lost)
+              hdmi_int_latch <= '1';
+            end if;
+          end if;
           if last_busy_count /= busy_count then 
             report "Storing value $" & to_hstring(i2c1_rdata) & " in reg $" & to_hstring(to_unsigned(busy_count - 1 -1 + 0,8));
           end if;
