@@ -300,6 +300,9 @@ begin
           -- Writing to reg $FF resets I2C bus
           i2c1_reset <= '0';
         end if;
+        if fastio_addr(7 downto 0) = "00000000" then
+          hdmi_int_latch <= '1';
+        end if;
         write_reg <= fastio_addr(7 downto 0);
         write_addr <= x"7A";
         write_job_pending <= '1';
