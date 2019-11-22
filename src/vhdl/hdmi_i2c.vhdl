@@ -226,7 +226,7 @@ begin
 
   i2c1: entity work.i2c_master
     generic map (
-      input_clk => 40_000_000,
+      input_clk => 42_000_000,
       bus_clk => 400_000
       )
     port map (
