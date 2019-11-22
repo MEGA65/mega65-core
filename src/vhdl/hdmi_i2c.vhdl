@@ -103,6 +103,7 @@ architecture behavioural of hdmi_i2c is
   signal v1 : unsigned(7 downto 0) := to_unsigned(0,8);
 
   signal busy_count : integer range 0 to 299 := 150;
+  signal last_busy_count : integer range 0 to 299 := 150;
   signal last_busy : std_logic := '1';
   
   subtype uint8 is unsigned(7 downto 0);
@@ -110,11 +111,14 @@ architecture behavioural of hdmi_i2c is
   signal bytes : byte_array := (others => x"00");
 
   signal write_job_pending : std_logic := '0';
+  -- Dummy write job that doesn't do anything
   signal write_addr : unsigned(7 downto 0) := x"7A";
-  signal write_reg : unsigned(7 downto 0) := x"02";
-  signal write_val : unsigned(7 downto 0) := x"99";
+  signal write_reg : unsigned(7 downto 0) := x"FF";
+  signal write_val : unsigned(7 downto 0) := x"42";
 
   signal last_hdmi_int : std_logic := '1';
+  -- Asserted when we have an HDMI interrupt to process (i.e goes high on -ve
+  -- edge of hdmi_int)
   signal hdmi_int_latch : std_logic := '0';
   signal hdmi_reset_phase : integer := 0;
   
@@ -151,7 +155,6 @@ architecture behavioural of hdmi_i2c is
   type reg_value_pair is ARRAY(0 TO 70) OF unsigned(15 DOWNTO 0);    
   
   signal reg_value_pairs : reg_value_pair := (
-    x"FE7A", -- talk to device $7A
     -------------------
     -- Powerup please!
     -------------------
@@ -308,35 +311,49 @@ begin
       last_busy <= i2c1_busy;
       -- XXX If previous commit doesn't fix it, then try this form to see if it
       -- avoids I2C bus lockup:
-      if (i2c1_busy='1' and last_busy='0') or (i2c1_busy='0' and last_busy='0') then
+      if (i2c1_busy='1' and last_busy='0') then -- or (i2c1_busy='0' and last_busy='0') then
+
+        if (i2c1_busy='1' and last_busy='0') then
+          report "I2C is end of busy";
+        end if;
+        if (i2c1_busy='0' and last_busy='0') then
+          report "I2C is idle";
+        end if;
 
         -- Sequence through the list of transactions endlessly
-        if (busy_count < 256) or ((write_job_pending='1' or hdmi_int_latch='1') and busy_count < (256+4)) then
+        if (busy_count < 257) or ((write_job_pending='1' or hdmi_int_latch='1') and busy_count < 260) then
+          report "Increment busy_count from " & integer'image(busy_count) & " to " & integer'image(busy_count +1);
           busy_count <= busy_count + 1;
         else
+          report "Reset busy_count to 0";
           busy_count <= 0;
         end if;
       end if;
 
+      last_busy_count <= busy_count;
       if busy_count = 0 then
         i2c1_command_en <= '1';
         i2c1_address <= "0111101"; -- 0x7A/2 = I2C address of device;
-        i2c1_wdata <= x"00";
+        i2c1_wdata <= x"00"; -- beginning at register 0
         i2c1_rw <= '0';
         timeout_counter <= 0;
-      elsif busy_count < 256 then
+      elsif busy_count < 257 then
         -- Read the 255 bytes from the device
         i2c1_rw <= '1';
         i2c1_command_en <= '1';
         if busy_count > 1 then
           bytes(busy_count - 1 - 1 + 0) <= i2c1_rdata;
+          if last_busy_count /= busy_count then 
+            report "Storing value $" & to_hstring(i2c1_rdata) & " in reg $" & to_hstring(to_unsigned(busy_count - 1 -1 + 0,8));
+          end if;
         end if;
         -- Abort re-reading registers if we have more important work to do
         if write_job_pending='1' or hdmi_int_latch='1' then
-          busy_count <= 256;
+          report "Skipping reading due to write job or HDMI interrupt";
+          busy_count <= 257;
         end if;
         timeout_counter <= 0;
-      elsif busy_count = 256 then
+      elsif busy_count = 257 then
         -- Write to a register, if a request is pending:
         -- First, write the address and register number.
         i2c1_rw <= '0';
@@ -344,40 +361,52 @@ begin
         i2c1_address <= write_addr(7 downto 1);
         i2c1_wdata <= write_reg;
         timeout_counter <= 0;
-      elsif busy_count = 257 then
+      elsif busy_count = 258 then
         -- Second, write the actual value into the register
         i2c1_rw <= '0';
         i2c1_command_en <= '1';
         i2c1_wdata <= write_val;
         timeout_counter <= 0;
-      elsif busy_count = 258 then
-        report "Doing dummy read";
+      elsif busy_count = 259 then
+        if last_busy_count /= busy_count then
+          report "Doing dummy read";
+        end if;
         i2c1_rw <= '1';
         i2c1_command_en <= '1';
         i2c1_address <= (others => '1');
         timeout_counter <= 0;
       else
-        report "in others";
+        report "in others (busy_count = " & integer'image(busy_count) & ")";
         -- Make sure we can't get stuck.
         i2c1_command_en <= '0';
         last_busy <= '1';
         write_job_pending <= '0';
         if hdmi_int_latch = '0' then
+          report "Resetting busy_count after register write";
           busy_count <= 0;
         else
           -- HDMI reset in progress, so issue next register write command.
           if reg_value_pairs(hdmi_reset_phase) /= i2c_finished_token and hdmi_reset_phase < 70 then
+            report "Writing $" & to_hstring(reg_value_pairs(hdmi_reset_phase)(7 downto 0))
+              & " to reg $" & to_hstring(reg_value_pairs(hdmi_reset_phase)(15 downto 8))
+              & " for HDMI init sequence.";
+            write_job_pending <= '1';
             write_reg <= reg_value_pairs(hdmi_reset_phase)(15 downto 8);
             write_val <= reg_value_pairs(hdmi_reset_phase)(7 downto 0);
             hdmi_reset_phase <= hdmi_reset_phase + 1;
+            busy_count <= 257;
           else
+            -- Discard HDMI interrupt latch now that we are done with it.
+            report "Finished HDMI reset sequence: Resetting busy_count to 0.";
             hdmi_int_latch <= '0';
+            busy_count <= 0;
           end if;
         end if;
         timeout_counter <= 0;
       end if;
 
       if timeout_counter > 1048575 then
+        report "timeout counter tripped: Resetting busy_count";
         -- Reset i2c bus, and start over
         i2c1_reset <= '0';
         busy_count <= 0;
