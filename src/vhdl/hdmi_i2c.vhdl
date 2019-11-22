@@ -149,6 +149,7 @@ architecture behavioural of hdmi_i2c is
   signal   reg_value         : std_logic_vector(15 downto 0)  := (others => '0');
   signal   i2c_wr_addr       : std_logic_vector(7 downto 0)  := x"7A";
 
+  signal hdmi_reset_count : integer := 0;
   signal timeout_counter : integer := 0;
   signal delayed_command : std_logic := '0';
   
@@ -263,7 +264,7 @@ begin
     if cs='1' and fastio_read='1' then
       if fastio_addr(7 downto 0) = "11111100" then
         -- Show timeout counter
-        fastio_rdata <= to_unsigned(busy_count,8);
+        fastio_rdata <= to_unsigned(hdmi_reset_count,8);
       elsif fastio_addr(7 downto 0) = "11111101" then
         -- Show timeout counter
         fastio_rdata <= to_unsigned(timeout_counter,8);
@@ -439,6 +440,7 @@ begin
             report "Finished HDMI reset sequence: Resetting busy_count to 0.";
             hdmi_int_latch <= '0';
             busy_count <= 0;
+            hdmi_reset_count <= hdmi_reset_count + 1;
           end if;
         end if;
         timeout_counter <= 0;
