@@ -121,7 +121,8 @@ architecture behavioural of hdmi_i2c is
   -- edge of hdmi_int)
   signal hdmi_int_latch : std_logic := '0';
   signal hdmi_reset_phase : integer := 0;
-  
+  signal hdmi_int_count : unsigned(7 downto 0) := to_unsigned(0,8);
+
   ----------------------------------------------------------------------------------
   -- From:
   ----------------------------------------------------------------------------------
@@ -219,7 +220,8 @@ architecture behavioural of hdmi_i2c is
 --            x"1d00",x"1e00",x"1f00",x"2000",
 --            x"FE7A",
     x"1F00",x"4479", -- Hand packet memory back to HDMI controller
-
+    x"FF00",  -- get I2C register offset for reading back to 0
+    
     -- Extra space filled with FFFFs to signify end of data
     others => i2c_finished_token
     );
@@ -260,8 +262,8 @@ begin
         report "reading buffered I2C data";
         fastio_rdata <= bytes(to_integer(fastio_addr(7 downto 0)));
       elsif fastio_addr(7 downto 0) = "11111110" then
-        -- Show busy count @ $FE
-        fastio_rdata <= to_unsigned(busy_count,8);
+        -- Show number of HDMI interrupts @ $FE
+        fastio_rdata <= hdmi_int_count;
       else
         -- Show various status flags @ $FF
         fastio_rdata(0) <= write_job_pending;
@@ -287,6 +289,7 @@ begin
       if hdmi_int = '0' and last_hdmi_int='1' then
         hdmi_int_latch <= '1';
         hdmi_reset_phase <= 0;
+        hdmi_int_count <= hdmi_int_count + 1;
       end if;
       last_hdmi_int <= hdmi_int;
       
@@ -296,12 +299,11 @@ begin
         if fastio_addr(7 downto 0) = "11111111" then
           -- Writing to reg $FF resets I2C bus
           i2c1_reset <= '0';
-        else
-          write_reg <= fastio_addr(7 downto 0);
-          write_addr <= x"7A";
-          write_job_pending <= '1';
-          write_val <= fastio_wdata;
         end if;
+        write_reg <= fastio_addr(7 downto 0);
+        write_addr <= x"7A";
+        write_job_pending <= '1';
+        write_val <= fastio_wdata;
       end if;
       
       i2c1_reset <= '1';
@@ -351,6 +353,15 @@ begin
         if write_job_pending='1' or hdmi_int_latch='1' then
           report "Skipping reading due to write job or HDMI interrupt";
           busy_count <= 257;
+        else
+          -- If no real write job, do a dummy write to register $FF, so that we
+          -- get the read-phase back to normal
+          i2c1_rw <= '0';
+          i2c1_command_en <= '1';
+          i2c1_address <= write_addr(7 downto 1);
+          i2c1_wdata <= x"FF";
+          timeout_counter <= 0;
+          busy_count <= 257;          
         end if;
         timeout_counter <= 0;
       elsif busy_count = 257 then
