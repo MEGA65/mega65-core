@@ -290,10 +290,15 @@ begin
       -- Write to registers as required
       if cs='1' and fastio_write='1' then
         -- ADV7511 main map registers
-        write_reg <= fastio_addr(7 downto 0);
-        write_addr <= x"7A";
-        write_job_pending <= '1';
-        write_val <= fastio_wdata;
+        if fastio_addr(7 downto 0) = "11111111" then
+          -- Writing to reg $FF resets I2C bus
+          i2c1_reset <= '0';
+        else
+          write_reg <= fastio_addr(7 downto 0);
+          write_addr <= x"7A";
+          write_job_pending <= '1';
+          write_val <= fastio_wdata;
+        end if;
       end if;
       
       i2c1_reset <= '1';
