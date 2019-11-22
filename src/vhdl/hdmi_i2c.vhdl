@@ -163,7 +163,7 @@ architecture behavioural of hdmi_i2c is
     -------------------
     x"4110", 
     ---------------------------------------
-    -- These valuse must be set as follows
+    -- These values must be set as follows
     ---------------------------------------
     x"9803", x"9AE0", x"9C30", x"9D61", x"A2A4", x"A3A4", x"E0D0", x"5512", x"F900",
 
@@ -363,7 +363,9 @@ begin
             if i2c1_rdata(6) = '1' then
               -- Detect if ADV7511 has shut down, and if so, start it back up again.
               -- (This happens whenever HDMI link is lost)
-              hdmi_int_latch <= '1';
+              if write_job_pending='0' then
+                hdmi_int_latch <= '1';
+              end if;
             end if;
           end if;
           if last_busy_count /= busy_count then 
