@@ -210,9 +210,11 @@ architecture behavioural of hdmi_i2c is
     -- N=6272 ($1880), CTS=30000 ($7530)
     -- Clock is 27.083MHz, so CTS needs to be 30092 ($758C)
     -- (or we increase sample rate to 27.083/27*44100 = 44237 samples / second.)
-    -- Big-endian byte order?
-    x"0100",x"0218",x"0380",
-    x"0700",x"0875",x"0930",
+    -- Big-endian byte order.
+    -- It seems that we are generating 88.2KHz, s N must be doubled to $3100
+    -- detected CTS is 30576 = $7770
+    x"0100",x"0231",x"0380",
+    x"0700",x"0877",x"0970",
     
 --            -- Set HDMI device name
 --            x"1F80",x"4478", -- Allow setting HDMI packet memory
