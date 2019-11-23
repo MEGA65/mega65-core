@@ -227,7 +227,7 @@ architecture behavioural of hdmi_i2c is
 --            x"1d00",x"1e00",x"1f00",x"2000",
 --            x"FE7A",
     x"1F00",x"4479", -- Hand packet memory back to HDMI controller
-    x"FF00",  -- get I2C register offset for reading back to 0
+    x"FE00",  -- get I2C register offset for reading back to 0
     
     -- Extra space filled with FFFFs to signify end of data
     others => i2c_finished_token
