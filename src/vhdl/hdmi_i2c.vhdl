@@ -200,6 +200,7 @@ architecture behavioural of hdmi_i2c is
     -- stream, i.e no separate MCLK
     x"0C00",  -- Use sampling rate encoded in the SPDIF stream instead
     -- of specifying the rate.
+    x"1220",  -- Mark audio stream as PCM audio, no copyright
     x"7301",  -- stereo
     x"7600",  -- clear channel allocations
 
