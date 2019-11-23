@@ -63,19 +63,53 @@ programentrypoint:
 	lda #>$0FFD
 	sta $ff
 
-@main_loop:
+	; Re-read register $fe to get constant rotation of register phase
+	; (this is because of a bug in hdmi_i2c.vhdl where the I2C read
+	; operation isnt being forced to register $00 each time.)
+	lda #$00
+	ldz #$fe
+	nop
+	sta ($fc),z
 
+	; Wait a while to let register writing complete
+	lda #$40
+@l1:	cmp $d012
+	bne @l1
+	lda #$30
+@l2:	cmp $d012
+	bne @l2
+
+@main_loop:
+	ldz #0
+@reg_read_loop:
+	; Re-read I2C register values
 	tza
-	tax
+	tax   
+	dex  ; shift around by 1, to make up for register rotation problem described above 
 	nop
 	lda ($fc),z
-	sta $0800,x
+	sta $1400,x
 	inz
+	bne @reg_read_loop
+
+	; Home cursor
+	lda #$13
+	jsr $ffd2
+
+	jsr print_inline
+	.byte "cHIP IS adv",0
+	lda $14f5
+	jsr print_hexbyte
+	lda $14f6
+	jsr print_hexbyte
+	jsr print_inline
+	.byte ", REV ",0
+	lda $1400
+	jsr print_hexbyte
 
 	jmp @main_loop
 
 print_inline:
-        inc $d020
 	; Get return address from stack to get string address
 	pla
 	sta $50
