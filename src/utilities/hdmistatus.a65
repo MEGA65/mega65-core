@@ -63,21 +63,14 @@ programentrypoint:
 	lda #>$0FFD
 	sta $ff
 
+
 	; Re-read register $fe to get constant rotation of register phase
 	; (this is because of a bug in hdmi_i2c.vhdl where the I2C read
 	; operation isnt being forced to register $00 each time.)
 	lda #$00
 	ldz #$fe
-	nop
-	sta ($fc),z
+	jsr write_i2c_reg
 
-	; Wait a while to let register writing complete
-	lda #$40
-@l1:	cmp $d012
-	bne @l1
-	lda #$30
-@l2:	cmp $d012
-	bne @l2
 
 @main_loop:
 	ldz #0
@@ -108,9 +101,32 @@ programentrypoint:
 	jsr print_hexbyte
 	jsr print_inline
 	.byte 13,"aUDIO N=",0
-	ldx $1402
-	ldy $1403
+	ldx $1403
+	ldy $1402
 	jsr print_dec
+	jsr print_inline
+	.byte ", CTS=",0
+	ldx $1409
+	ldy $1408
+	jsr print_dec
+	jsr print_inline
+	.byte " (detected cts=",0
+	ldx $1406
+	ldy $1405
+	jsr print_dec
+	jsr print_inline
+	.byte ", cts mode is ",0
+	lda $140a
+	bpl @ctsisauto
+	jsr print_inline
+	.byte "manual)",13,0
+	jmp @ctsnotauto
+@ctsisauto:
+	jsr print_inline
+	.byte "auto)",13,0
+@ctsnotauto:	
+	
+	
 
 	jmp @main_loop
 
@@ -251,6 +267,19 @@ print_dec:
 	lda dec_buffer+4
 	ora #$30
 	jsr $ffd2
+	rts
+
+write_i2c_reg:
+	nop
+	sta ($fc),z
+
+	; Wait a while to let register writing complete
+	lda #$40
+@l1:	cmp $d012
+	bne @l1
+	lda #$30
+@l2:	cmp $d012
+	bne @l2
 	rts
 
 dec_buffer:
