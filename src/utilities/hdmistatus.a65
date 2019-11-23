@@ -106,6 +106,11 @@ programentrypoint:
 	.byte ", REV ",0
 	lda $1400
 	jsr print_hexbyte
+	jsr print_inline
+	.byte 13,"aUDIO N=",0
+	ldx $1402
+	ldy $1403
+	jsr print_dec
 
 	jmp @main_loop
 
@@ -152,6 +157,109 @@ print_hexdigit:
 
 hexdigits:
 	.byte "0123456789ABCDEF"
+
+print_dec:
+	; print the number in YYXX as a decimal number
+	phy
+
+	lda #0
+	sta dec_buffer+0
+	sta dec_buffer+1
+	sta dec_buffer+2
+	sta dec_buffer+3
+	sta dec_buffer+4
+	ldz #0
+@pdl0:
+	ldy #8
+	txa
+@pdl1:
+	pha
+	tya
+	tax
+	pla
+	ror
+	bcc @pdc1
+	pha
+	tza
+	tax
+	lda values+0,x
+	and #$f
+	clc
+	adc dec_buffer+0
+	sta dec_buffer+0
+	lda values+1,x
+	and #$f
+	clc
+	adc dec_buffer+1
+	sta dec_buffer+1
+	lda values+2,x
+	and #$f
+	clc
+	adc dec_buffer+2
+	sta dec_buffer+2
+	lda values+3,x
+	and #$f
+	clc
+	adc dec_buffer+3
+	sta dec_buffer+3
+	lda values+4,x
+	and #$f
+	clc
+	adc dec_buffer+4
+	sta dec_buffer+4
+	pla
+@pdc1:
+	inz
+	inz
+	inz
+	inz
+	inz
+	dey
+	bne @pdl1
+	
+	cpz #80
+	beq @pdnormalise
+	plx
+	jmp @pdl0
+
+@pdnormalise:
+	ldx #4
+@pdn0:
+	lda dec_buffer+0,x
+	cmp #9
+	bcc @pdn1
+	inc dec_buffer-1,x
+	sec
+	sbc #10
+	sta dec_buffer+0,x
+	jmp @pdn0
+@pdn1:	dex
+	bpl @pdn0
+
+	lda dec_buffer+0
+	ora #$30
+	jsr $ffd2
+	lda dec_buffer+1
+	ora #$30
+	jsr $ffd2
+	lda dec_buffer+2
+	ora #$30
+	jsr $ffd2
+	lda dec_buffer+3
+	ora #$30
+	jsr $ffd2
+	lda dec_buffer+4
+	ora #$30
+	jsr $ffd2
+	rts
+
+dec_buffer:
+	.byte 0,0,0,0,0
+
+values:
+	.byte "00001","00002","00004","00008","00016","00032"
+	.byte "00064","00128","00256","00512","01024","02048"
+	.byte "04096","08192","16384","32768"
 
 	.scend
 
