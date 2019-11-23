@@ -306,10 +306,6 @@ begin
       -- Write to registers as required
       if cs='1' and fastio_write='1' then
         -- ADV7511 main map registers
-        if fastio_addr(7 downto 0) = "11111111" then
-          -- Writing to reg $FF resets I2C bus
-          i2c1_reset <= '0';
-        end if;
         if fastio_addr(7 downto 0) = "00000000" then
           hdmi_int_latch <= '1';
           hdmi_reset_phase <= 0;
