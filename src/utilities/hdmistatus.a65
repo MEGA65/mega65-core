@@ -1,0 +1,124 @@
+; HDMI I2C setup / test program
+
+; Include C65 BASIC program load header
+
+	 .word $2001
+	 .org $2001
+
+	 .scope
+	 .word _next, 10                       ; Next line and current line number
+	 .byte $FE,$02,"0:", $9e, " 8151", $AA, "65",0      ; BANK 0: SYS 8151+65 (=8216)
+_next:	 .word 0
+
+	 .checkpc 8216
+	 .advance 8216
+
+programentrypoint:
+
+	; C65 BASIC defaults to BANK 0, which is RAM bank 0, with no ROM or IO
+	; banked in. So we have to fix that ourselves.
+
+	lda #0
+	tax
+	tay
+	taz
+	map
+	eom
+
+	; Bank IO back in
+	lda #$37
+	sta $01
+	; Bank ROM in at $E000-$FFFF
+	lda #$80
+	tsb $d030
+
+	sei
+
+	lda #0
+	sta $d020
+	
+	; Enable C65GS io
+	lda #$47
+	sta $d02f
+	lda #$53
+	sta $D02f
+
+	; 50MHz CPU
+	lda #65
+	sta 0
+
+	; clear screen, lower case
+	lda #$93
+	jsr $ffd2
+	lda #$0e
+	jsr $ffd2
+
+	; Setup pointer to memory mapped HDMI I2C registers
+	lda #<$7200
+	sta $fc
+	lda #>$7200
+	sta $fd
+	lda #<$0FFD
+	sta $fe
+	lda #>$0FFD
+	sta $ff
+
+@main_loop:
+
+	tza
+	tax
+	nop
+	lda ($fc),z
+	sta $0800,x
+	inz
+
+	jmp @main_loop
+
+print_inline:
+        inc $d020
+	; Get return address from stack to get string address
+	pla
+	sta $50
+	pla
+	sta $51
+	inw $50
+@print_inline_char:
+	ldy #$00
+	lda ($50),y
+	beq @done_print_inline
+	jsr $ffd2
+	inw $50
+	jmp @print_inline_char
+
+
+@done_print_inline:
+	; skip $00 at end of string
+	inw $50
+	jmp ($0050)
+
+print_hexbyte:
+	pha
+	lsr
+	lsr
+	lsr
+	lsr
+	jsr print_hexdigit
+	pla
+	and #$f
+	jsr print_hexdigit
+	rts
+
+print_hexdigit:
+	phy
+	tay
+	lda hexdigits,y
+	jsr $ffd2
+	ply
+	rts
+
+hexdigits:
+	.byte "0123456789ABCDEF"
+
+	.scend
+
+	.outfile "hdmistatus.prg"
