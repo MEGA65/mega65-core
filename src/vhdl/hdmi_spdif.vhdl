@@ -52,11 +52,11 @@ begin
   begin
     if rising_edge(clk) then
       -- If we put the sample it the top 20 bits, then it is REALLY
-      -- loud and distorts.  So put it 4 bits down.
+      -- loud and distorts.  So put it 7 bits down.
       if sample_channel = '0' then
-        sample_32(27 downto 8) <= left_in;
+        sample_32(22 downto 3) <= left_in;
       else
-        sample_32(27 downto 8) <= right_in;
+        sample_32(22 downto 3) <= right_in;
       end if;
     end if;
   end process;
