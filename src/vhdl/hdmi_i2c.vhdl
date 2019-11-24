@@ -211,9 +211,8 @@ architecture behavioural of hdmi_i2c is
     -- Clock is 27.083MHz, so CTS needs to be 30092 ($758C)
     -- (or we increase sample rate to 27.083/27*44100 = 44237 samples / second.)
     -- Big-endian byte order.
-    -- It seems that we are generating 88.2KHz, s N must be doubled to $3100
-    -- detected CTS is 61152 = $EEE0
-    x"0100",x"0231",x"0300",
+    -- Use $6000 for 192KHz audio sample rate
+    x"0100",x"0260",x"0300",
 --    x"0700",x"08EE",x"09E0",
     
 --            -- Set HDMI device name
