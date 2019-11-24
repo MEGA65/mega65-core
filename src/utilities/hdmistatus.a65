@@ -68,7 +68,7 @@ programentrypoint:
 	; (this is because of a bug in hdmi_i2c.vhdl where the I2C read
 	; operation isnt being forced to register $00 each time.)
 	lda #$00
-	ldz #$fe
+	ldz #$ff
 	jsr write_i2c_reg
 
 
@@ -78,7 +78,7 @@ programentrypoint:
 	; Re-read I2C register values
 	tza
 	tax   
-	dex  ; shift around by 1, to make up for register rotation problem described above 
+;	dex  ; shift around by 1, to make up for register rotation problem described above 
 	nop
 	lda ($fc),z
 	sta $1400,x
@@ -100,22 +100,22 @@ programentrypoint:
 	lda $1400
 	jsr print_hexbyte
 	jsr print_inline
-	.byte 13,"aUDIO N=",0
+	.byte 13,"aUDIO n=",0
 	ldx $1403
 	ldy $1402
 	jsr print_dec
 	jsr print_inline
-	.byte ", CTS=",0
+	.byte ", cts=",0
 	ldx $1409
 	ldy $1408
 	jsr print_dec
 	jsr print_inline
-	.byte " (detected cts=",0
+	.byte " (dETECTED cts=",0
 	ldx $1406
 	ldy $1405
 	jsr print_dec
 	jsr print_inline
-	.byte ", cts mode is ",0
+	.byte ", cts MODE IS ",0
 	lda $140a
 	bpl @ctsisauto
 	jsr print_inline
@@ -123,9 +123,27 @@ programentrypoint:
 	jmp @ctsnotauto
 @ctsisauto:
 	jsr print_inline
-	.byte "auto)",13,0
-@ctsnotauto:	
+	.byte "auto)",0
+@ctsnotauto:
+	jsr print_inline
+	.byte ", sOURCE=",0
 	
+	lda $140a
+	and #$70
+	lsr
+	tax
+	ldy #$0
+@audiosourceloop:
+	lda audio_sources,x
+	phx
+	phy
+	jsr $ffd2
+	ply
+	plx
+	inx
+	iny
+	cpy #8
+	bne @audiosourceloop
 	
 
 	jmp @main_loop
@@ -289,6 +307,16 @@ values:
 	.byte "00001","00002","00004","00008","00016","00032"
 	.byte "00064","00128","00256","00512","01024","02048"
 	.byte "04096","08192","16384","32768"
+
+audio_sources:
+	.byte "i2s",0,0,0,0,0
+	.byte "spdif",0,0,0
+	.byte "dsd",0,0,0,0,0
+	.byte "hbr",0,0,0,0,0
+	.byte "dst",0,0,0,0,0
+	.byte "???",0,0,0,0,0
+	.byte "???",0,0,0,0,0
+	.byte "???",0,0,0,0,0
 
 	.scend
 
