@@ -15,6 +15,8 @@ _next:	 .word 0
 
 programentrypoint:
 
+	sei
+
 	; C65 BASIC defaults to BANK 0, which is RAM bank 0, with no ROM or IO
 	; banked in. So we have to fix that ourselves.
 
@@ -31,8 +33,6 @@ programentrypoint:
 	; Bank ROM in at $E000-$FFFF
 	lda #$80
 	tsb $d030
-
-	sei
 
 	lda #0
 	sta $d020
@@ -73,6 +73,29 @@ programentrypoint:
 
 
 @main_loop:
+	lda $d610
+	beq @nokey
+	sta $d610
+	sta $0840
+	
+	cmp #$61
+	bne @notkeya
+	lda $d61a
+	eor #$01
+	sta $d61a
+	jmp @main_loop
+@notkeya:
+	cmp #$76
+	bne @notkeyv
+	lda $d06f
+	eor #$80
+	sta $d06f
+	lda #$1b
+	sta $d011
+	jmp @main_loop
+@notkeyv:
+
+@nokey:
 	ldz #0
 @reg_read_loop:
 	; Re-read I2C register values
@@ -144,7 +167,41 @@ programentrypoint:
 	iny
 	cpy #8
 	bne @audiosourceloop
-	
+
+	jsr print_inline
+	.byte 13,"avd7511 spdif tx = ",0
+	lda $140b
+	bpl @spdifoff
+	jsr print_inline
+	.byte "on ",0
+	jmp @spdifonoffdone
+@spdifoff:
+	jsr print_inline
+	.byte "off",0
+@spdifonoffdone:
+	jsr print_inline
+	.byte ", mega65 spdif out = ",0
+	lda $d61a
+	and #$01
+	beq @mspdifoff
+	jsr print_inline
+	.byte "on ",0
+	jmp @mspdifonoffdone
+@mspdifoff:
+	jsr print_inline
+	.byte "off",0
+@mspdifonoffdone:
+	jsr print_inline
+	.byte ", vic-iv MODE = ",0
+	lda $d06f	
+	bpl @mpal
+	jsr print_inline
+	.byte "ntsc ",0
+	jmp @mnotntsc
+@mpal:
+	jsr print_inline
+	.byte "pal  ",0
+@mnotntsc:
 
 	jmp @main_loop
 
