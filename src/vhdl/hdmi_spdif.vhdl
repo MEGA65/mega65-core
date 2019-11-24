@@ -20,7 +20,7 @@ end hdmi_spdif;
 
 architecture Behavioral of hdmi_spdif is
 
-  signal sample_32 : std_logic_vector(31 downto 0);
+  signal sample_32 : std_logic_vector(31 downto 0) := (others => '0');
   signal sample_ack : std_logic;
   signal sample_channel : std_logic;
   
@@ -34,7 +34,7 @@ begin
     conf_ratio => std_logic_vector(to_unsigned(100000000/(44100*64),8)), -- clock divider
     conf_txdata => '1', -- sample data is valid
     conf_txen => '1', -- enable transmitter
-    chstat_freq => "00", -- 44.1KHz sample rate
+    chstat_freq => "11", -- 192KHz sample rate
     chstat_gstat => '0', -- maybe user bit management bit 0 or 3?
     chstat_preem => '0', -- no preemphasis
     chstat_copy => '1', -- NOT copyright (negative meaning)
@@ -50,7 +50,7 @@ begin
   process (clk) is
   begin
     if rising_edge(clk) then
-      -- If we put the sample it the top 20 bits, then it is REALLY
+      -- If we put the sample in the top 20 bits, then it is REALLY
       -- loud and distorts.  So put it 7 bits down.
       if sample_channel = '0' then
         sample_32(22 downto 3) <= left_in;
