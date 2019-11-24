@@ -19,6 +19,7 @@ aml1:
         ldx #$de
         jsr audiomix_set2coefficients
 	// And also for speaker / HDMI audio outputs
+	lda #$0f
         ldx #$1e
         jsr audiomix_set2coefficients
         ldx #$3e
