@@ -176,7 +176,7 @@ architecture behavioural of hdmi_i2c is
     -- Input mode
     ---------------
     x"3C21", -- PAL 576p 4:3 aspect ratio video mode
-    x"1500", -- Simple RGB video (was $06 = YCbCr 422, DDR, External sync)
+    x"15E0", -- Simple RGB video (was $06 = YCbCr 422, DDR, External sync), 192KHz audio sample rate
     x"4810", -- Left justified data (D23 downto 8)
     -- according to documenation, style 2 should be x"1637" but it isn't. ARGH!
 --            x"1637", -- 444 output, 8 bit style 2, 1st half on rising edge - YCrCb clipping
