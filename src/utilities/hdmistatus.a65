@@ -76,7 +76,6 @@ programentrypoint:
 	lda $d610
 	beq @nokey
 	sta $d610
-	sta $0840
 	
 	cmp #$61
 	bne @notkeya
@@ -94,6 +93,25 @@ programentrypoint:
 	sta $d011
 	jmp @main_loop
 @notkeyv:
+	cmp #$63
+	bne @notkeys
+
+	inc $d020
+	lda #$0f
+	sta $d418
+	lda #$0f
+	sta $d405
+	lda #$0f
+	sta $d401
+	lda #$00
+	sta $d406
+	sta $d400
+	lda #$00
+	sta $d404
+	lda #$11
+	sta $d404
+
+@notkeys:
 
 @nokey:
 	ldz #0
@@ -203,7 +221,227 @@ programentrypoint:
 	.byte "pal  ",0
 @mnotntsc:
 
+	jsr print_inline
+	.byte 13,"aUDIO STREAM IS: ",0
+	lda $1412
+	bpl @mpcm
+	jsr print_inline
+	.byte "NON-pcm, ",0
+	jmp @mnotpcm
+@mpcm:
+	jsr print_inline
+	.byte "pcm,     ",0
+@mnotpcm:
+
+	lda $1412
+	and #$20
+	beq @mcopyright
+	jsr print_inline
+	.byte "not-cOPYRIGHT, ",0
+	jmp @mnotcopyright
+@mcopyright:
+	jsr print_inline
+	.byte "cOPYRIGHT,     ",0
+@mnotcopyright:
+
+	lda $1414
+	and #$0f
+	asl
+	asl
+	asl
+	tay
+	ldx #0
+@samplesizeloop:
+	phx
+	phy
+	lda sample_size_list,y
+	jsr $ffd2
+	ply
+	plx
+	iny
+	inx
+	cpx #8
+	bne @samplesizeloop
+	jsr print_inline
+	.byte "BITS/SAMPLE, ",0
+
+
+	lda $1415
+	and #$f0
+	lsr
+	tay
+	ldx #0
+@samplerateloop:
+	phx
+	phy
+	lda sample_rate_list,y
+	jsr $ffd2
+	ply
+	plx
+	iny
+	inx
+	cpx #8
+	bne @samplerateloop
+
+	jsr print_inline
+	.byte 13,"    mANUAL MODE: ",0
+	lda $143c
+	and #$3f
+	tax
+	jsr print_video_mode
+
+	jsr print_inline
+	.byte 13,"aNNOUNCING MODE: ",0
+	lda $143d
+	and #$3f
+	tax
+	jsr print_video_mode
+
+	jsr print_inline
+	.byte 13,"  dETECTED MODE: ",0
+	lda $143e
+	lsr
+	lsr
+	and #$3f
+	tax
+	jsr print_video_mode
+
+	jsr print_inline
+	.byte 13,"aux dETECTED: ",0
+	lda $143f
+	and #$e0
+	lsr
+	lsr
+	lsr
+	lsr
+	lsr
+	tax
+	lda #<aux_vic_detect
+	sta $50
+	lda #>aux_vic_detect
+	sta $51
+	jsr print_xth_message
+
+	jsr print_inline
+	.byte 13,"rASTERS ",0
+	lda $143f
+	and #$18
+	lsr
+	lsr
+	lsr
+	tax
+	lda #<raster_counts
+	sta $50
+	lda #>raster_counts
+	sta $51
+	jsr print_xth_message
+
 	jmp @main_loop
+
+raster_counts:
+	.byte "??? LINES",0
+	.byte "262/312 LINES",0
+	.byte "263/313 LINES",0
+	.byte "???/314 LINES",0
+
+aux_vic_detect:
+	.byte "sET BY rEGISTER 0X3e",0
+	.byte "240P nOT ACTIVE",0
+	.byte "576I nOT ACTIVE",0
+	.byte "288P nOT ACTIVE",0
+	.byte "480I aCTIVE",0
+	.byte "240P aCTIVE",0
+	.byte "576I aCTIVE",0
+	.byte "288P aCTIVE",0
+
+print_video_mode:
+	; X has video mode
+	lda #<hdmi_mode_names
+	sta $50
+	lda #>hdmi_mode_names
+	sta $51
+	jmp print_xth_message
+
+print_xth_message:
+
+@skipnamesloop:
+	cpx #$00
+	beq @foundvideoname
+	ldy #$00
+@skipnamel2:
+	lda ($50),y
+	beq @foundvideonamenull
+	iny
+	bne @skipnamel2
+@foundvideonamenull:
+	tya
+	sec        ; skip NULL char also
+	adc $50
+	sta $50
+	lda $51
+	adc #0
+	sta $51
+	dex
+	jmp @skipnamesloop
+
+@foundvideoname:
+	; Found name, so now print it
+	ldy #0
+@printvideonameloop:	
+	lda ($50),y
+	beq @endofvideonamefound
+	phy
+	jsr $ffd2
+	ply
+	iny
+	bne @printvideonameloop
+@endofvideonamefound:
+	phy
+	lda #$20
+	jsr $ffd2
+	ply
+	iny
+	cpy #27                   ; max video name length + 2
+	bne @endofvideonamefound
+	
+	rts
+
+sample_rate_list:
+	.byte "44.1khZ "
+	.byte "iNVALID "
+	.byte "48khZ   "
+	.byte "32khZ   "
+	.byte "iNVALID "
+	.byte "iNVALID "
+	.byte "iNVALID "
+	.byte "iNVALID "
+	.byte "88.2khZ "
+	.byte "hbr     "
+	.byte "96khZ   "
+	.byte "iNVALID "
+	.byte "176.4khZ"
+	.byte "iNVALID "
+	.byte "192khZ  "
+	.byte "iNVALID "
+
+sample_size_list:
+	.byte "nOTsPEC "
+	.byte "nOTsPEC "
+	.byte "16 ",0,0,0,0,0
+	.byte "20 ",0,0,0,0,0
+	.byte "18 ",0,0,0,0,0
+	.byte "22 ",0,0,0,0,0
+	.byte "nOdESC ",0,0
+	.byte "nOdESC ",0,0
+	.byte "19 ",0,0,0,0,0
+	.byte "23 ",0,0,0,0,0
+	.byte "20 ",0,0,0,0,0
+	.byte "24 ",0,0,0,0,0
+	.byte "17 ",0,0,0,0,0
+	.byte "21 ",0,0,0,0,0
+	.byte "nOdESC ",0,0
+	.byte "nOdESC ",0,0
+
 
 print_inline:
 	; Get return address from stack to get string address
@@ -374,6 +612,74 @@ audio_sources:
 	.byte "???",0,0,0,0,0
 	.byte "???",0,0,0,0,0
 	.byte "???",0,0,0,0,0
+
+hdmi_mode_names:
+	.byte "vic uNAVAILABLE",0
+	.byte "vga (640X480) 4:3",0
+	.byte "480P-60, 4:3",0
+	.byte "480P-60, 16:9",0
+	.byte "720P-60, 16:9",0
+	.byte "1080I-60, 16:9",0
+	.byte "480I-60, 2x cLK, 4:3",0
+	.byte "480I-60, 2x cLK, 16:9",0
+	.byte "240P-60, 2x cLK, 4:3",0
+	.byte "240P-60, 2x cLK, 16:9",0
+	.byte "480I-60, 4x cLK, 4:3",0
+	.byte "480I-60, 4x cLK, 16:9",0
+	.byte "240P-60, 8x cLK, 4:3",0
+	.byte "240P-60, 8x cLK, 16:9",0
+	.byte "480P-60, 2x cLK, 4:3",0
+	.byte "480P-60, 2x cLK, 16:9",0
+	.byte "1080P-60, 16:9",0
+	.byte "576P-50, 4:3",0
+	.byte "576P-50, 16:9",0
+	.byte "720P-50, 16:9",0
+	.byte "1080I-50, 16:9",0
+	.byte "576I-50, 2x cLK, 4:3",0
+	.byte "576I-50, 2x cLK, 16:9",0
+	.byte "288P-50, 2x cLK, 4:3",0
+	.byte "288P-50, 2x cLK, 16:9",0
+	.byte "576I-50, 4x cLK, 4:3",0
+	.byte "576I-50, 4x cLK, 16:9",0
+	.byte "288P-50, 8x cLK, 4:3",0
+	.byte "288P-50, 8x cLK, 16:9",0
+	.byte "576P-50, 2x cLK, 4:3",0
+	.byte "576P-50, 2x cLK, 16:9",0
+	.byte "1080P-50, 16:9",0
+	.byte "1080P-24, 16:9",0
+	.byte "1080P-25, 16:9",0
+	.byte "1080P-30, 16:9",0
+	.byte "480P-60, 4x cLK, 4:3",0
+	.byte "480P-60, 4x cLK, 16:9",0
+	.byte "576P-50, 4x cLK, 4:3",0
+	.byte "576P-50, 4x cLK, 16:9",0
+	.byte "1080I-50, aLT bLANKING",0
+	.byte "1080I-100, 16:9",0
+	.byte "720P-100, 16:9",0
+	.byte "576P-100, 4:3",0
+	.byte "576P-100, 16:9",0
+	.byte "576I-100, 4:3",0
+	.byte "576I-100, 16:9",0
+	.byte "1080I-120, 16:9",0
+	.byte "720P-120, 16:9",0
+	.byte "480P-120, 4:3",0
+	.byte "480P-120, 16:9",0
+	.byte "480P-120, 4:3",0
+	.byte "480I-120, 16:9",0
+	.byte "576P-200, 4:3",0
+	.byte "576P-200, 16:9",0
+	.byte "576I-200, 4:3",0
+	.byte "576I-200, 16:9",0
+	.byte "480P-240, 4:3",0
+	.byte "480P-240, 16:9",0
+	.byte "480I-240, 4:3",0
+	.byte "480I-240, 16:9",0
+	.byte "60+ fOR fUTURE uSE",0
+	.byte "60+ fOR fUTURE uSE",0
+	.byte "60+ fOR fUTURE uSE",0
+	.byte "60+ fOR fUTURE uSE",0
+
+
 
 	.scend
 
