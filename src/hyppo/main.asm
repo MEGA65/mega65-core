@@ -2676,7 +2676,13 @@ cpnth1: adc #$06
 //       Offer for the user to be able to launch one of them
 
 utility_menu:
-        ldx #<msg_utilitymenu
+        // Display GIT commit again, so that it's easy to check commit of a build
+        ldx #<msg_gitcommit
+        ldy #>msg_gitcommit
+        jsr printmessage
+
+	// Display utility menu message
+	ldx #<msg_utilitymenu
         ldy #>msg_utilitymenu
         jsr printmessage
 
