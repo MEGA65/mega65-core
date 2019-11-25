@@ -502,6 +502,8 @@ void process_file(int mode, char *outputfilename)
 
     int this_tile[8][8];
 
+    int tile_set[width/8+1][height/8+1];
+    
     setup_c64_palette();
     
     for (y=0; y<height; y+=8) {
@@ -509,7 +511,7 @@ void process_file(int mode, char *outputfilename)
 	int yy,xx;
 	int i;
 
-	printf("[%d,%d]\n",x,y);
+	//	printf("[%d,%d]\n",x,y);
 
 	total++;
 
@@ -549,7 +551,7 @@ void process_file(int mode, char *outputfilename)
 	    for(yy=0;yy<8;yy++) {
 	      tiles[tile_count][yy][xx]=this_tile[yy][xx];
 	    }
-	  printf(".[%d]",tile_count); fflush(stdout);
+	  //	  printf(".[%d]",tile_count); fflush(stdout);
 	  tile_count++;
 	  if (tile_count>=8000) {
 	    fprintf(stderr,"Too many tiles\n");
@@ -560,6 +562,8 @@ void process_file(int mode, char *outputfilename)
 	    exit(-1);
 	  }
 	}
+	// Record tile number into image array
+	tile_set[x/8][y/8]=i;
       }
     }
     printf("%d problem tiles out of %d total tiles\n",problems,total);
@@ -600,12 +604,31 @@ void process_file(int mode, char *outputfilename)
     fseek(outfile,0x0340,SEEK_SET);
     int offset=0x0340;
 
+    fprintf(stderr,"Writing out tile map...\n");
     // Write out tile map
+    for (y=0; y<height; y+=8) {
+      for (x=0; x<width; x+=8) {
+	int tile=tile_set[x/8][y/8];
+	printf(".");
+	fputc(tile&0xff,outfile);
+	fputc(tile>>8,outfile);
+	offset+=2;
+      }
+    }
+    printf(".\n");
     
     // Write out tiles after aligning to 64 byte bountary
     while (offset&63) {
       fputc(0x00,outfile);
       offset++;
+    }
+
+    for(int i=0;i<tile_count;i++) {
+      for (y=0; y<8;y++) {
+	for (x=0; x<8;x++) {
+	  putc(tiles[i][y][x],outfile);
+	}
+      }
     }
     
   }
