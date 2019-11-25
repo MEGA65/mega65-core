@@ -334,14 +334,6 @@ syspart_configsector_apply:
         ora $d06f
         sta $d06f
         stx $d058
-	// Also enable/disable HDMI audio based on NTSC/PAL mode, since
-	// enabling HDMI audio currently breaks the PAL mode due to some
-	// problem with our use of the ADV7511 HDMI driver
-	lda $de02
-	rol
-	rol
-	and #$01
-	sta $d61a
 
         // Set audio options
         lda $de03
