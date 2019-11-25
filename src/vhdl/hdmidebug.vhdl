@@ -292,7 +292,7 @@ begin
                hsync_invert => zero,
                vsync_invert => zero,
                pal50_select => zero,
-               vga60_select => zero,
+               vga60_select => one,
                test_pattern_enable => one,      
       
       -- Framing information for VIC-IV

@@ -341,28 +341,29 @@ begin
     generic map ( frame_width => 858-1,   -- 65 cycles x 16 pixels
                   frame_height => 526,       -- NTSC frame is 263 lines x 2 frames
 
-                  fullwidth_start => 16+62+60,
-                  fullwidth_width => 720,
+                  x_zero_position => 858-32,
 
-                  narrow_start => 16+62+60,
+                  fullwidth_width => 720,
+                  fullwidth_start => 0,
+
                   narrow_width => 720,
+                  narrow_start => 0,
 
                   pipeline_delay => 0,
                   
-                  vsync_start => 6,
-                  vsync_end => 6+6,
+                  vsync_start => 480+1,
+                  vsync_end => 480+1+5,
+                  hsync_start => 720+16,
+                  hsync_end => 720+16+62,
 
-                  hsync_start => 16,
-                  hsync_end => 16+62,
-
-                  vga_hsync_start => 858-1-(64-16)-62,
-                  vga_hsync_end => 858-1-(64-16),
+                  vga_hsync_start => 720+16,
+                  vga_hsync_end => 720+16+62,
                   
-                  first_raster => 42,
-                  last_raster => 522,
+                  first_raster => 1,
+                  last_raster => 480,
 
-                  lcd_first_raster => 42,
-                  lcd_last_raster => 522
+                  lcd_first_raster => 1,
+                  lcd_last_raster => 480
                   )                  
     port map ( clock81 => clock81,
                clock41 => cpuclock,
