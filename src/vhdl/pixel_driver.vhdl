@@ -246,7 +246,7 @@ begin
                   vga_hsync_end => 720+12+64,                 
                   
                   first_raster => 1,
-                  last_raster => 577,
+                  last_raster => 576,
 
                   -- Centre letterbox slice for LCD panel
                   lcd_first_raster => 1+(576-480)/2,
@@ -338,8 +338,8 @@ begin
   -- it, anyway.
   -- XXX - Actually just 720x480p 60Hz NTSC repeated for now.
   frame60vga: entity work.frame_generator
-    generic map ( frame_width => 858-1,   -- 65 cycles x 16 pixels
-                  frame_height => 526,       -- NTSC frame is 263 lines x 2 frames
+    generic map ( frame_width => 864,   -- 65 cycles x 16 pixels
+                  frame_height => 624-1,       -- NTSC frame is 263 lines x 2 frames
 
                   x_zero_position => 858-32,
 
@@ -351,8 +351,8 @@ begin
 
                   pipeline_delay => 0,
                   
-                  vsync_start => 480+1,
-                  vsync_end => 480+1+5,
+                  vsync_start => 576+1,
+                  vsync_end => 576+1+5,
                   hsync_start => 720+16,
                   hsync_end => 720+16+62,
 
@@ -360,10 +360,10 @@ begin
                   vga_hsync_end => 720+16+62,
                   
                   first_raster => 1,
-                  last_raster => 480,
+                  last_raster => 576,
 
-                  lcd_first_raster => 1,
-                  lcd_last_raster => 480
+                  lcd_first_raster => 1+(576-480)/2,
+                  lcd_last_raster => 1+576-(576-480)/2
                   )                  
     port map ( clock81 => clock81,
                clock41 => cpuclock,
