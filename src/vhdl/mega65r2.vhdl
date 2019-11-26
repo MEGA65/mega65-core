@@ -700,7 +700,8 @@ begin
     hdmi_clk <= clock27;
 
     -- Ethernet clock at 50MHz
-    eth_clock <= ethclock;
+    -- Invert clock, as data bits arrive on falling edge, not rising edge.
+    eth_clock <= not ethclock;
 
     -- Use both real and cartridge IRQ and NMI signals
     irq_combined <= irq and irq_out;
