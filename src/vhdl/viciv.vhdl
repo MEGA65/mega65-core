@@ -2006,6 +2006,17 @@ begin
 
     if rising_edge(ioclock) then
 
+      if reset='0' then
+        -- Reset sprites to normal behaviour on reset
+        sprite_horizontal_tile_enables <= (others => '0');
+        sprite_v400_super_msbs <= (others => '0');
+        sprite_alpha_blend_enables <= (others => '0');
+        sprite_bitplane_enables <= (others => '0');
+        sprite_extended_width_enables <= (others => '0');
+        sprite_extended_height_enables <= (others => '0');
+        sprite_sixteen_colour_enables <= (others => '0');
+      end if;
+      
       if vicii_ntsc='1' then
         display_height <= display_height_ntsc;
       else
