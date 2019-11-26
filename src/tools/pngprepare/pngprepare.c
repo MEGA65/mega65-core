@@ -483,7 +483,7 @@ void process_file(int mode, char *outputfilename)
   }
 
   /* ============================ */
-  if (mode==2) {
+  if (mode==2||mode==4) {
     printf("mode=2 (hi-res prep)\n");
     // hi-res image preparation mode
 
@@ -527,7 +527,14 @@ void process_file(int mode, char *outputfilename)
 	      r=0; g=0; b=0;
 	    }
 
-	    int c=palette_lookup(r,g,b);
+	    int c;
+	    
+	    if (mode==2) {
+	      c=palette_lookup(r,g,b);
+	    } else {
+	      // Use red channel for alpha values
+	      c=r;
+	    }
 
 	    if (c>255) printf("Too many colours at (%d,%d)\n",x,y);
 	
@@ -749,6 +756,7 @@ int main(int argc, char **argv)
   if (!strcasecmp("logo",argv[1])) mode=0;
   if (!strcasecmp("charrom",argv[1])) mode=1;
   if (!strcasecmp("hires",argv[1])) mode=2;
+  if (!strcasecmp("hiresalpha",argv[1])) mode=4;
   if (!strcasecmp("sprite16",argv[1])) mode=3;
   if (mode==-1) {
     fprintf(stderr,"Usage: program_name <logo|charrom|hires|sprite16> <file_in> <file_out>\n");
