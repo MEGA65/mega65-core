@@ -245,8 +245,8 @@ begin
                   vga_hsync_start => 720+12,
                   vga_hsync_end => 720+12+64,                 
                   
-                  first_raster => 1+8,
-                  last_raster => 576+8,
+                  first_raster => 1+16,
+                  last_raster => 576+16,
 
                   -- Centre letterbox slice for LCD panel
                   lcd_first_raster => 1+(576-480)/2,
@@ -294,19 +294,19 @@ begin
 
                   pipeline_delay => 0,
                   
-                  vsync_start => 480+1,
-                  vsync_end => 480+1+5,
+                  vsync_start => 480+1+16,
+                  vsync_end => 480+1+5+16,
                   hsync_start => 720+16,
                   hsync_end => 720+16+62,
 
                   vga_hsync_start => 720+16,
                   vga_hsync_end => 720+16+62,
                   
-                  first_raster => 1+8,
-                  last_raster => 480+8,
+                  first_raster => 1,
+                  last_raster => 480,
 
-                  lcd_first_raster => 1+8,
-                  lcd_last_raster => 480+8
+                  lcd_first_raster => 1,
+                  lcd_last_raster => 480
                   )                  
     port map ( clock81 => clock81,
                clock41 => cpuclock,
