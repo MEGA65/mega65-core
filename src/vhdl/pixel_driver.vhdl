@@ -227,7 +227,7 @@ begin
     generic map ( frame_width => 864,        
                   frame_height => 624-1,        -- 312 lines x 2 fields
 
-                  x_zero_position => 864-44,
+                  x_zero_position => 864-45,
                   
                   fullwidth_width => 720,
                   fullwidth_start => 0,
@@ -245,8 +245,8 @@ begin
                   vga_hsync_start => 720+12,
                   vga_hsync_end => 720+12+64,                 
                   
-                  first_raster => 1,
-                  last_raster => 576,
+                  first_raster => 1+8,
+                  last_raster => 576+8,
 
                   -- Centre letterbox slice for LCD panel
                   lcd_first_raster => 1+(576-480)/2,
@@ -284,7 +284,7 @@ begin
     generic map ( frame_width => 858-1,   -- 65 cycles x 16 pixels
                   frame_height => 526,       -- NTSC frame is 263 lines x 2 frames
 
-                  x_zero_position => 858-44,
+                  x_zero_position => 858-41,
 
                   fullwidth_width => 720,
                   fullwidth_start => 0,
@@ -294,19 +294,19 @@ begin
 
                   pipeline_delay => 0,
                   
-                  vsync_start => 480+1+8,
-                  vsync_end => 480+1+5+8,
+                  vsync_start => 480+1,
+                  vsync_end => 480+1+5,
                   hsync_start => 720+16,
                   hsync_end => 720+16+62,
 
                   vga_hsync_start => 720+16,
                   vga_hsync_end => 720+16+62,
                   
-                  first_raster => 1,
-                  last_raster => 480,
+                  first_raster => 1+8,
+                  last_raster => 480+8,
 
-                  lcd_first_raster => 1,
-                  lcd_last_raster => 480
+                  lcd_first_raster => 1+8,
+                  lcd_last_raster => 480+8
                   )                  
     port map ( clock81 => clock81,
                clock41 => cpuclock,
