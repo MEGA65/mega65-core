@@ -274,7 +274,8 @@ architecture behavioural of sdcardio is
   signal diskimage2_sector : unsigned(31 downto 0) := x"ffffffff";
   signal diskimage1_enable : std_logic := '0';
   signal diskimage2_enable : std_logic := '0';
-  signal diskimage_offset : unsigned(10 downto 0);
+  signal diskimage1_offset : unsigned(16 downto 0);
+  signal diskimage2_offset : unsigned(16 downto 0);
   signal f011_track : unsigned(7 downto 0) := x"01";
   signal f011_sector : unsigned(7 downto 0) := x"00";
   signal physical_sector : unsigned(7 downto 0) := x"00";
@@ -337,6 +338,8 @@ architecture behavioural of sdcardio is
   signal f011_write_protected : std_logic := '0';
   signal f011_disk1_write_protected : std_logic := '0';
   signal f011_disk2_write_protected : std_logic := '0';
+  signal f011_mega_disk : std_logic := '0';
+  signal f011_mega_disk2 : std_logic := '0';
 
   signal f011_led : std_logic := '0';
   signal f011_motor : std_logic := '0';
@@ -371,7 +374,8 @@ architecture behavioural of sdcardio is
   signal fdc_mfm_byte : unsigned(7 downto 0);
   signal fdc_quantised_gap : unsigned(7 downto 0);
   
-  signal use_real_floppy : std_logic := '0';
+  signal use_real_floppy0 : std_logic := '0';
+  signal use_real_floppy2 : std_logic := '1';
   signal fdc_read_request : std_logic := '0';
   signal fdc_rotation_timeout : integer range 0 to 6 := 0;
   signal last_f_index : std_logic := '1';
@@ -659,7 +663,7 @@ begin  -- behavioural
            sdhc_mode,sd_datatoken, sd_rdata,
            diskimage1_enable,f011_disk1_present,
            f011_disk1_write_protected,diskimage2_enable,f011_disk2_present,
-           f011_disk2_write_protected,diskimage_sector,sw,btn,aclmiso,
+           f011_disk2_write_protected,diskimage_sector,diskimage2_sector,sw,btn,aclmiso,
            aclmosiinternal,aclssinternal,aclSCKinternal,aclint1,aclint2,
            tmpsdainternal,tmpsclinternal,tmpint,tmpct,tmpint,last_scan_code,
            pcm_left,qspidb,
@@ -670,7 +674,7 @@ begin  -- behavioural
            last_sd_state,f011_buffer_disk_address,f011_buffer_cpu_address,
            f011_flag_eq,sdcardio_cs,colourram_at_dc00,viciii_iomode,
            f_index,f_track0,f_writeprotect,f_rdata,f_diskchanged,
-           use_real_floppy,target_any,fdc_first_byte,fdc_sector_end,
+           use_real_floppy0,use_real_floppy2,target_any,fdc_first_byte,fdc_sector_end,
            fdc_sector_data_gap,fdc_sector_found,fdc_byte_valid,
            fdc_read_request,cycles_per_interval,found_track,
            found_sector,found_side,fdc_byte_out,fdc_mfm_state,
@@ -880,20 +884,35 @@ begin  -- behavioural
             fastio_rdata(3) <= diskimage2_enable;
             fastio_rdata(4) <= f011_disk2_present;
             fastio_rdata(5) <= not f011_disk2_write_protected;
+            -- @IO:GS $D68B.6 F011:MDISK0 Enable 64MiB ``MEGA Disk'' for F011 emulated drive 0
+            -- @IO:GS $D68B.7 F011:MDISK0 Enable 64MiB ``MEGA Disk'' for F011 emulated drive 1
+            fastio_rdata(6) <= f011_mega_disk;
+            fastio_rdata(7) <= f011_mega_disk2;
           when x"8c" =>
-            -- @IO:GS $D68C - Diskimage sector number (bits 0-7)
+            -- @IO:GS $D68C F011:DISKADDR0 Diskimage sector number (bits 0-7)
             fastio_rdata <= diskimage_sector(7 downto 0);
           when x"8d" =>
-            -- @IO:GS $D68D - Diskimage sector number (bits 8-15)
+            -- @IO:GS $D68D F011:DISKADDR1 Diskimage sector number (bits 8-15)
             fastio_rdata <= diskimage_sector(15 downto 8);
           when x"8e" =>
-            -- @IO:GS $D68E - Diskimage sector number (bits 16-23)
+            -- @IO:GS $D68E F011:DISKADDR2 Diskimage sector number (bits 16-23)
             fastio_rdata <= diskimage_sector(23 downto 16);
           when x"8f" =>
-            -- @IO:GS $D68F - Diskimage sector number (bits 24-31)
+            -- @IO:GS $D68F F011:DISKADDR3 Diskimage sector number (bits 24-31)
             fastio_rdata <= diskimage_sector(31 downto 24);
 
-
+          when x"90" =>
+            -- @IO:GS $D68C F011:DISK2ADDR0 Diskimage 2 sector number (bits 0-7)
+            fastio_rdata <= diskimage2_sector(7 downto 0);
+          when x"91" =>
+            -- @IO:GS $D68D F011:DISK2ADDR1 Diskimage 2 sector number (bits 8-15)
+            fastio_rdata <= diskimage2_sector(15 downto 8);
+          when x"92" =>
+            -- @IO:GS $D68E F011:DISK2ADDR2 Diskimage 2 sector number (bits 16-23)
+            fastio_rdata <= diskimage2_sector(23 downto 16);
+          when x"93" =>
+            -- @IO:GS $D68F F011:DISK2ADDR3 Diskimage 2 sector number (bits 24-31)
+            fastio_rdata <= diskimage2_sector(31 downto 24);
           when x"a0" =>
             -- @IO:GS $D6A0 - DEBUG FDC read status lines
             fastio_rdata(7) <= f_index;
@@ -903,12 +922,13 @@ begin  -- behavioural
             fastio_rdata(3) <= f_diskchanged;
             fastio_rdata(2 downto 0) <= (others => '1');
           when x"a1" =>
-            -- @IO:GS $D6A1.0 - Use real floppy drive instead of SD card
-            fastio_rdata(0) <= use_real_floppy;
+            -- @IO:GS $D6A1.0 F011:DRV0EN Use real floppy drive instead of SD card for 1st floppy drive
+            fastio_rdata(0) <= use_real_floppy0;
+            -- @IO:GS $D6A1.0 F011:DRV2EN Use real floppy drive instead of SD card for 2nd floppy drive
+            fastio_rdata(2) <= use_real_floppy2;
             -- @IO:GS $D6A1.1 - Match any sector on a real floppy read/write
             fastio_rdata(1) <= target_any;
-            -- @IO:GS $D6A1.2-6 - FDC debug status flags
-            fastio_rdata(2) <= fdc_first_byte;
+            -- @IO:GS $D6A1.3-7 - FDC debug status flags
             fastio_rdata(3) <= fdc_sector_end;
             fastio_rdata(4) <= fdc_crc_error;
             fastio_rdata(5) <= fdc_sector_found;
@@ -1354,21 +1374,32 @@ begin  -- behavioural
         end if;
       end if;
 
-      if use_real_floppy='1' then
+      if use_real_floppy0='1' and f011_ds = "000" then
         -- PC drives use a combined RDY and DISKCHANGE signal.
         -- You can only clear the DISKCHANGE and re-assert RDY
         -- by stepping the disk (thus the ticking of 
         f011_disk_present <= '1';
         f011_write_protected <= not f_writeprotect;
-      elsif f011_ds=x"000" then
+      elsif use_real_floppy2='1' and f011_ds = "001" then
+        -- PC drives use a combined RDY and DISKCHANGE signal.
+        -- You can only clear the DISKCHANGE and re-assert RDY
+        -- by stepping the disk (thus the ticking of 
+        f011_disk_present <= '1';
+        f011_write_protected <= not f_writeprotect;
+      elsif f011_ds="000" then
         f011_write_protected <= f011_disk1_write_protected;
         f011_disk_present <= f011_disk1_present;
-      elsif f011_ds=x"001" then
+      elsif f011_ds="001" then
         f011_write_protected <= f011_disk2_write_protected;      
         f011_disk_present <= f011_disk2_present;
       end if;
       
-      if use_real_floppy='1' then
+      if use_real_floppy0='1' and f011_ds="000" then
+        -- When using the real drive, use correct index and track 0 sensors
+        f011_track0 <= not f_track0;
+        f011_over_index <= not f_index;
+        f011_disk_changed <= not f_diskchanged;
+      elsif use_real_floppy2='1' and f011_ds="001" then
         -- When using the real drive, use correct index and track 0 sensors
         f011_track0 <= not f_track0;
         f011_over_index <= not f_index;
@@ -1395,15 +1426,39 @@ begin  -- behavioural
       else
         physical_sector <= f011_sector + 9;  -- +10 minus 1
       end if;
-      diskimage_offset(10 downto 0) <=
-        to_unsigned(
-          to_integer(f011_track(6 downto 0) & "0000")
-          +to_integer("00" & f011_track(6 downto 0) & "00")
-          +to_integer("000" & physical_sector),11);
-      -- and don't let it point beyond the end of the disk
-      if (f011_track >= 80) or (physical_sector > 20) then
-        -- point to last sector if disk instead
-        diskimage_offset <= to_unsigned(1599,11);
+      if f011_mega_disk='0' then
+        diskimage1_offset <=
+          to_unsigned(
+            to_integer(f011_track(6 downto 0) & "0000")        -- track x 16
+            +to_integer("00" & f011_track(6 downto 0) & "00")  -- track x 4  =
+                                                               -- track x 20
+            +to_integer("000" & physical_sector),17);
+        -- and don't let it point beyond the end of the disk
+        if (f011_track >= 80) or (physical_sector > 20) then
+          -- point to last sector if disk instead
+          diskimage1_offset <= to_unsigned(1599,17);
+        end if;
+      else
+        diskimage1_offset(16) <= f011_side(0);
+        diskimage1_offset(15 downto 8) <= f011_track;
+        diskimage1_offset(7 downto 0) <= f011_sector;
+      end if;   
+
+      if f011_mega_disk2='0' then
+        diskimage2_offset <=
+          to_unsigned(
+            to_integer(f011_track(6 downto 0) & "0000")
+            +to_integer("00" & f011_track(6 downto 0) & "00")
+            +to_integer("000" & physical_sector),17);
+        -- and don't let it point beyond the end of the disk
+        if (f011_track >= 80) or (physical_sector > 20) then
+          -- point to last sector if disk instead
+          diskimage2_offset <= to_unsigned(1599,17);
+        end if;
+      else
+        diskimage2_offset(16) <= f011_side(0);
+        diskimage2_offset(15 downto 8) <= f011_track;
+        diskimage2_offset(7 downto 0) <= f011_sector;
       end if;
       
       -- De-map sector buffer if VIC-IV maps colour RAM at $DC00
@@ -1461,7 +1516,7 @@ begin  -- behavioural
               end if;
               f011_head_side(0) <= fastio_wdata(3);
               f011_ds <= fastio_wdata(2 downto 0);
-              if use_real_floppy='0' then
+              if not ((use_real_floppy0='1' and f011_ds="000") or (use_real_floppy2='1' and f011_ds="001"))  then
                 if fastio_wdata(2 downto 0) /= f011_ds then
                   f011_disk_changed <= '0';
                 end if;
@@ -1532,7 +1587,7 @@ begin  -- behavioural
                   -- Start reading into start of pointer
                   f011_buffer_disk_address <= (others => '0');
                   
-                  if use_real_floppy='1' and f011_ds="000" then
+                  if (use_real_floppy0='1' and f011_ds="000") or (use_real_floppy2='1' and f011_ds="001") then
                     report "Using real floppy drive, asserting fdc_read_request";
                     -- Real floppy drive request
                     fdc_read_request <= '1';
@@ -1562,18 +1617,33 @@ begin  -- behavioural
                       f011_busy <= '1';
                       -- We use the SD-card buffer offset to count the bytes read
                       sd_buffer_offset <= (others => '0');
-                      if sdhc_mode='1' then
-                        sd_sector <= diskimage_sector + diskimage_offset;
+                      if f011_ds="000" then
+                        if sdhc_mode='1' then
+                          sd_sector <= diskimage_sector + diskimage1_offset;
+                        else
+                          sd_sector(31 downto 9) <= diskimage_sector(31 downto 9) +
+                                                    diskimage1_offset;     
+                        end if;
                       else
-                        sd_sector(31 downto 9) <= diskimage_sector(31 downto 9) +
-                                                  diskimage_offset;     
-                      end if;
+                        if sdhc_mode='1' then
+                          sd_sector <= diskimage2_sector + diskimage2_offset;
+                        else
+                          sd_sector(31 downto 9) <= diskimage2_sector(31 downto 9) +
+                                                    diskimage2_offset;
+                        end if;
+                      end if;                        
                     end if;
                     if virtualise_f011='1' then
                       -- Hypervisor virtualised
                       sd_state <= HyperTrapRead;
-                      sd_sector(10 downto 0) <= diskimage_offset;
-                      sd_sector(31 downto 11) <= (others => '0');
+                      if f011_ds="000" then
+                        sd_sector(16 downto 0) <= diskimage1_offset;
+                      elsif f011_ds="001" then
+                        sd_sector(16 downto 0) <= diskimage2_offset;
+                      else
+                        sd_sector(16 downto 0) <= (others => '0');
+                      end if;
+                      sd_sector(31 downto 17) <= (others => '0');
                     else
                       -- SD card
                       sd_state <= ReadSector;                      
@@ -1598,12 +1668,12 @@ begin  -- behavioural
                   sb_cpu_read_request <= '1';
                   f011_buffer_disk_address <= (others => '0');
                   
-                  if f011_ds="000" and ((diskimage1_enable or use_real_floppy)='0'
+                  if f011_ds="000" and ((diskimage1_enable or use_real_floppy0)='0'
                                         or f011_disk1_present='0'
                                         or f011_disk1_write_protected='1') then
                     f011_rnf <= '1';
                     report "Drive 0 selected, but not mounted.";
-                  elsif f011_ds="001" and (diskimage2_enable='0'
+                  elsif f011_ds="001" and ((diskimage2_enable or use_real_floppy2)='0'
                                            or f011_disk2_present='0'
                                            or f011_disk2_write_protected='1') then
                     f011_rnf <= '1';
@@ -1620,20 +1690,38 @@ begin  -- behavioural
                     sd_buffer_offset <= (others => '0');
                     -- XXX Doesn't trigger an error for bad track/sector:
                     -- just writes to sector 1599 of the disk image!
-                    if sdhc_mode='1' then
-                      sd_sector <= diskimage_sector + diskimage_offset;
+                    if f011_ds="000" then
+                      if sdhc_mode='1' then
+                        sd_sector <= diskimage_sector + diskimage1_offset;
+                      else
+                        sd_sector(31 downto 9) <= diskimage_sector(31 downto 9) +
+                                                  diskimage1_offset;     
+                      end if;
+                    elsif f011_ds="001" then
+                      if sdhc_mode='1' then
+                        sd_sector <= diskimage2_sector + diskimage2_offset;
+                      else
+                        sd_sector(31 downto 9) <= diskimage2_sector(31 downto 9) +
+                                                  diskimage2_offset;     
+                      end if;
                     else
-                      sd_sector(31 downto 9) <= diskimage_sector(31 downto 9) +
-                                                diskimage_offset;     
+                      sd_sector <= (others => '1');
                     end if;
                     -- XXX Writing with real floppy causes a hypervisor trap
                     -- instead of writing to disk.
-                    if virtualise_f011='0' and use_real_floppy='0' then
+                    if virtualise_f011='0' and
+                      ((use_real_floppy0='0' and f011_ds="000") or (use_real_floppy2='0' and f011_ds="001")) then
                       sd_state <= F011WriteSector;
                     else
                       sd_state <= HyperTrapWrite;
-                      sd_sector(10 downto 0) <= diskimage_offset;
-                      sd_sector(31 downto 11) <= (others => '0');
+                      if f011_ds="000" then
+                        sd_sector(16 downto 0) <= diskimage1_offset;
+                      elsif f011_ds="001" then
+                        sd_sector(16 downto 0) <= diskimage2_offset;
+                      else
+                        sd_sector(16 downto 0) <= (others => '0');
+                      end if;
+                      sd_sector(31 downto 17) <= (others => '0');
                     end if;
                     sdio_error <= '0';
                     sdio_fsm_error <= '0';
@@ -1955,6 +2043,8 @@ begin  -- behavioural
 
             -- @IO:GS $D68B - F011 emulation control register
             when x"8b" =>
+              f011_mega_disk <= fastio_wdata(6);
+              f011_mega_disk2 <= fastio_wdata(7);
               -- @IO:GS $D68B.5 - F011 disk 2 write protect
               f011_disk2_write_protected <= not fastio_wdata(5);
               -- @IO:GS $D68B.4 - F011 disk 2 present
@@ -1993,7 +2083,8 @@ begin  -- behavioural
               f_wgate <= fastio_wdata(1);
               f_side1 <= fastio_wdata(0);
             when x"a1" =>
-              use_real_floppy <= fastio_wdata(0);
+              use_real_floppy0 <= fastio_wdata(0);
+              use_real_floppy2 <= fastio_wdata(2);
               target_any <= fastio_wdata(1);
             when x"a2" =>
               cycles_per_interval <= fastio_wdata;

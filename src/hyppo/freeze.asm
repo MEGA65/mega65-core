@@ -83,9 +83,9 @@ unfreeze_next_region:
         // 1. Detach
         jsr dos_d81detach
 
-        // 2. Copy filename
+        // 2. Copy filename for image 0
         ldx currenttask_d81_image0_namelen
-        beq @noD81ImageToRemount
+        beq @noD81Image0ToRemount
         ldx #0
 copy:   lda currenttask_d81_image0_name,x
         sta dos_requested_filename,x
@@ -102,18 +102,49 @@ copy:   lda currenttask_d81_image0_name,x
         pha
 
         // 4. Try to reattach it
-        jsr dos_d81attach
+        jsr dos_d81attach0
 
         // 5. Mark write enabled if required
         pla
         cmp #$00
-        beq @noD81ImageToRemount
+        beq @noD81Image0ToRemount
 
         // 6. Re-enable write access on the disk image
         jsr dos_d81write_en
 
-@noD81ImageToRemount:
+@noD81Image0ToRemount:
 
+        // 2. Copy filename for image 0
+        ldx currenttask_d81_image1_namelen
+        beq @noD81Image1ToRemount
+        ldx #0
+copy1:  lda currenttask_d81_image1_name,x
+        sta dos_requested_filename,x
+        inx
+        cpx currenttask_d81_image1_namelen
+        bne copy1
+        lda #0
+        sta dos_requested_filename,x
+        stx dos_requested_filename_len
+
+        // 3. Remember write-enable flag
+        lda currenttask_d81_image1_flags
+        and #d81_image_flag_write_en
+        pha
+
+        // 4. Try to reattach it
+        jsr dos_d81attach1
+
+        // 5. Mark write enabled if required
+        pla
+        cmp #$00
+        beq @noD81Image1ToRemount
+
+        // 6. Re-enable write access on the disk image
+        jsr dos_d81write_en
+
+@noD81Image1ToRemount:
+	
         // Turn SID volume registers back on, as those registers
         // cannot be frozen.
         lda #$0f

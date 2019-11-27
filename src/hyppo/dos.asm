@@ -76,10 +76,10 @@ dos_and_process_trap_table:
 
         // $40 - $4E
         //
-        .word trap_dos_d81attach
+        .word trap_dos_d81attach0
         .word trap_dos_d81detach
         .word trap_dos_d81write_en
-        .word invalid_subfunction
+        .word trap_dos_d81attach1
         .word invalid_subfunction
         .word invalid_subfunction
         .word invalid_subfunction
@@ -432,13 +432,20 @@ tdgec1: ascii("%%>")
 
 //         ========================
 
-trap_dos_d81attach:
+trap_dos_d81attach0:
 
-        Checkpoint("trap_dos_d81attach")
+        Checkpoint("trap_dos_d81attach0")
 
-        lda #$00
-        sta $d68b
-        jsr dos_d81attach
+        jsr dos_d81attach0
+        jmp return_from_trap_with_carry_flag
+
+//         ========================
+
+trap_dos_d81attach1:
+
+        Checkpoint("trap_dos_d81attach1")
+
+        jsr dos_d81attach1
         jmp return_from_trap_with_carry_flag
 
 //         ========================
@@ -3184,6 +3191,8 @@ dsn_eon:
 //         ========================
 
 dos_d81detach:
+	// Detaches both drive 0 and drive 1
+	
         lda #$00
         sta $d68b
 
@@ -3199,8 +3208,10 @@ dos_d81detach:
         sec
         rts
 
-dos_d81attach:
+dos_d81attach0:
 
+	//  Always works on drive 0
+	
         // Assumes only that D81 file name has been set with dos_setname.
         //
         jsr dos_findfile
@@ -3215,6 +3226,159 @@ dos_d81attach:
 d81a1:        // XXX - Why do we call closefile here?
         jsr dos_closefile
 
+	jsr dos_d81check
+	bcs d81a1a
+	rts
+d81a1a:	
+
+        // copy sector number from $D681 to $D68c
+        //
+        ldx #$03
+l94d:   lda $d681,x		// resolved sector number
+        sta $d68c,x  		// sector number of disk image #0
+        dex
+        bpl l94d
+	
+        // Set flags to indicate it is mounted (and read-write)
+        // But don't mess up the flags for the 2nd drive
+	lda $d68b
+	and #%10111000
+        ora #$03
+        sta $d68b
+
+	// And set the MEGAfloppy flag if the file is 64MiB long
+	lda d81_clustercount+1
+	cmp #$80
+	bne not_mega_floppy2
+
+	lda $d68b
+	and #%10111000
+        ora #$43
+	sta $d68b
+
+not_mega_floppy2:	
+
+        Checkpoint("dos_d81attach0 <success>")
+
+        // Save name and set mount flag for disk image in process descriptor block
+        lda #d81_image_flag_mounted
+        sta currenttask_d81_image0_flags
+
+        ldx dos_requested_filename_len
+
+        // Check if the filename of the disk image is too long
+        cpx #d81_image_max_namelen
+        bcs @d81NameTooLongForProcessDescriptor
+
+        // Name not too long, save name and length
+        stx currenttask_d81_image0_namelen
+        ldx #0
+!:      lda dos_requested_filename,x
+        sta currenttask_d81_image0_name,x
+        inx
+        cpx currenttask_d81_image0_namelen
+        bne !-
+
+        sec
+        rts
+
+@d81NameTooLongForProcessDescriptor:
+        // Name is too long, so don't save it.
+        // This means that the disk image will unmount on freeze, and will not re-mount after
+        // XXX - This should probably be an error.
+        lda #0
+        sta currenttask_d81_image0_namelen
+
+        sec
+        rts
+
+dos_d81attach1:
+
+	//  Always works on drive 0
+	
+        // Assumes only that D81 file name has been set with dos_setname.
+        //
+        jsr dos_findfile
+        bcs d81a1b
+
+        lda #dos_errorcode_file_not_found
+        clc
+        rts
+
+//         ========================
+
+d81a1b:        // XXX - Why do we call closefile here?
+        jsr dos_closefile
+
+	jsr dos_d81check
+
+	bcs d81a1ab
+	rts
+d81a1ab:	
+
+        // copy sector number from $D681 to $D68c
+        //
+        ldx #$03
+l94db:   lda $d681,x		// resolved sector number
+        sta $d690,x  		// sector number of disk image #1
+        dex
+        bpl l94db
+		
+        // Set flags to indicate it is mounted (and read-write)
+        // But don't mess up the flags for the 2nd drive
+	lda $d68b
+	and #%01000111
+        ora #$18
+        sta $d68b
+
+	// And set the MEGAfloppy flag if the file is 64MiB long
+	lda d81_clustercount+1
+	cmp #$80
+	bne not_mega_floppy2b
+
+	lda $d68b
+	and #%01000111
+        ora #$98
+	sta $d68b
+
+not_mega_floppy2b:	
+	
+        Checkpoint("dos_d81attach1 <success>")
+
+        // Save name and set mount flag for disk image in process descriptor block
+        lda #d81_image_flag_mounted
+        sta currenttask_d81_image1_flags
+
+        ldx dos_requested_filename_len
+
+        // Check if the filename of the disk image is too long
+        cpx #d81_image_max_namelen
+        bcs @d81NameTooLongForProcessDescriptor1
+
+        // Name not too long, save name and length
+        stx currenttask_d81_image1_namelen
+        ldx #0
+!:      lda dos_requested_filename,x
+        sta currenttask_d81_image1_name,x
+        inx
+        cpx currenttask_d81_image1_namelen
+        bne !-
+
+        sec
+        rts
+
+@d81NameTooLongForProcessDescriptor1:
+        // Name is too long, so don't save it.
+        // This means that the disk image will unmount on freeze, and will not re-mount after
+        // XXX - This should probably be an error.
+        lda #0
+        sta currenttask_d81_image1_namelen
+
+        sec
+        rts
+
+	
+dos_d81check:	
         // now we need to check that the file is long enough,
         // and also that the clusters are contiguous.
 
@@ -3328,6 +3492,24 @@ l96:
         // we have read to end of D81 file, and it is contiguous
         // now check that it is the right length
 
+	// First check if we read enough for 64MiB
+	// XXX - This currently assumes 8 sectors per cluster.
+	lda d81_clustercount+1
+	cmp #$80
+	bne not_mega_floppy
+	lda d81_clustercount+0
+	ora d81_clustercount+2
+	ora d81_clustercount+3
+	beq is_mega_floppy
+
+not_mega_floppy:	
+	// Is a 64MiB MEGA Floppy?
+	// (These behave as double-sided 256-track 256-sector disks of 512 byte sectors,
+	//  but with normal D81 directory format on side 0 of track 40.)
+	// XXX These are really quite big, much bigger than required.
+	// We should allow masking of the upper bits to allow for arbitrarily smaller sized
+	// MEGAfloppies, so that space can be more efficiently used.	
+	
         lda d81_clustersneeded
         cmp d81_clustercount
         bne d81wronglength
@@ -3335,7 +3517,9 @@ l96:
         lda d81_clustersneeded+1
         cmp d81_clustercount+1
         bne d81wronglength
+is_mega_floppy:	
 
+d81_is_good:	
         // D81 is good.
 
         // Get cluster number again, convert to sector, and copy to
@@ -3353,54 +3537,9 @@ l94c:   lda dos_file_descriptors+dos_filedescriptor_offset_startcluster,x
 
         jsr dos_cluster_to_sector
 
-        // copy sector number from $D681 to $D68c
-        //
-        ldx #$03
-l94d:   lda $d681,x
-        sta $d68c,x
-        dex
-        bpl l94d
-
-
-        // Set flags to indicate it is mounted (and read-write)
-        //
-        lda #$03
-        sta $d68b
-
-        Checkpoint("dos_d81attach <success>")
-
-        // Save name and set mount flag for disk image in process descriptor block
-        lda #d81_image_flag_mounted
-        sta currenttask_d81_image0_flags
-
-        ldx dos_requested_filename_len
-
-        // Check if the filename of the disk image is too long
-        cpx #d81_image_max_namelen
-        bcs @d81NameTooLongForProcessDescriptor
-
-        // Name not too long, save name and length
-        stx currenttask_d81_image0_namelen
-        ldx #0
-!:      lda dos_requested_filename,x
-        sta currenttask_d81_image0_name,x
-        inx
-        cpx currenttask_d81_image0_namelen
-        bne !-
-
-        sec
-        rts
-
-@d81NameTooLongForProcessDescriptor:
-        // Name is too long, so don't save it.
-        // This means that the disk image will unmount on freeze, and will not re-mount after
-        // XXX - This should probably be an error.
-        lda #0
-        sta currenttask_d81_image0_namelen
-
-        sec
-        rts
-
+	sec
+	rts
+	
 
 //         ========================
 
