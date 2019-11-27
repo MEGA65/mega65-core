@@ -227,7 +227,7 @@ begin
     generic map ( frame_width => 864,        
                   frame_height => 624-1,        -- 312 lines x 2 fields
 
-                  x_zero_position => 864-32,
+                  x_zero_position => 864-44,
                   
                   fullwidth_width => 720,
                   fullwidth_start => 0,
@@ -237,8 +237,8 @@ begin
 
                   pipeline_delay => 0,
 
-                  vsync_start => 576+1,
-                  vsync_end => 576+1+5,
+                  vsync_start => 576+1+10,
+                  vsync_end => 576+1+5+10,
                   hsync_start => 720+12,
                   hsync_end => 720+12+64,
 
@@ -284,7 +284,7 @@ begin
     generic map ( frame_width => 858-1,   -- 65 cycles x 16 pixels
                   frame_height => 526,       -- NTSC frame is 263 lines x 2 frames
 
-                  x_zero_position => 858-32,
+                  x_zero_position => 858-44,
 
                   fullwidth_width => 720,
                   fullwidth_start => 0,
@@ -294,8 +294,8 @@ begin
 
                   pipeline_delay => 0,
                   
-                  vsync_start => 480+1,
-                  vsync_end => 480+1+5,
+                  vsync_start => 480+1+8,
+                  vsync_end => 480+1+5+8,
                   hsync_start => 720+16,
                   hsync_end => 720+16+62,
 
@@ -341,7 +341,7 @@ begin
     generic map ( frame_width => 864,   -- 65 cycles x 16 pixels
                   frame_height => 624-1,       -- NTSC frame is 263 lines x 2 frames
 
-                  x_zero_position => 858-32,
+                  x_zero_position => 864-32,
 
                   fullwidth_width => 720,
                   fullwidth_start => 0,
