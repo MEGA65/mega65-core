@@ -332,7 +332,8 @@ architecture Behavioral of container is
   signal audio_right : std_logic_vector(19 downto 0);
   signal h_audio_left : std_logic_vector(19 downto 0);
   signal h_audio_right : std_logic_vector(19 downto 0);
-  signal spdif : std_logic;
+  signal spdif_192000 : std_logic;
+  signal spdif_44100 : std_logic;
   
   signal porto : unsigned(7 downto 0);
   signal portp : unsigned(7 downto 0);
@@ -380,9 +381,18 @@ begin
       );
 
   hdmiaudio0: entity work.hdmi_spdif
+    generic map ( samplerate => 192000 )
     port map (
       clk => clock100,
-      spdif_out => spdif,
+      spdif_out => spdif_192000,
+      left_in => h_audio_left,
+      right_in => h_audio_right
+      );
+  hdmiaudio1: entity work.hdmi_spdif
+    generic map ( samplerate => 44100 )
+    port map (
+      clk => clock100,
+      spdif_out => spdif_44100,
       left_in => h_audio_left,
       right_in => h_audio_right
       );
@@ -792,14 +802,18 @@ begin
     h_audio_right <= audio_right;
     h_audio_right <= audio_left;
     -- toggle signed/unsigned audio flipping
-    if portp(1)='1' then
+    if portp(7)='1' then
       h_audio_right(19) <= not audio_right(19);
       h_audio_left(19) <= not audio_left(19);
     end if;
 
     -- Make SPDIF audio switchable for debugging HDMI output
     if portp(0) = '1' then
-      hdmi_spdif <= spdif;
+      if portp(1) = '0' then
+        hdmi_spdif <= spdif_192000;
+      else
+        hdmi_spdif <= spdif_44100;
+      end if;
     else
       hdmi_spdif <= '0';
     end if;      

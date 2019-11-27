@@ -12,6 +12,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 
 entity hdmi_spdif is
+  generic ( samplerate : integer := 192000);
   Port ( clk : in  STD_LOGIC;
          left_in : in std_logic_vector(19 downto 0);
          right_in : in std_logic_vector(19 downto 0);
@@ -31,7 +32,7 @@ begin
     data_clk => clk,
     resetn => '1',
     conf_mode => "0101", -- 20 bit samples
-    conf_ratio => std_logic_vector(to_unsigned(100000000/(44100*64),8)), -- clock divider
+    conf_ratio => std_logic_vector(to_unsigned(100000000/(samplerate*64),8)), -- clock divider
     conf_txdata => '1', -- sample data is valid
     conf_txen => '1', -- enable transmitter
     chstat_freq => "11", -- 192KHz sample rate
