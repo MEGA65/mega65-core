@@ -2470,11 +2470,21 @@ begin  -- behavioural
             -- We have an FDC request in progress.
 --        report "fdc_read_request asserted, checking for activity";
             last_f_index <= f_index;
-            fdc_rotation_timeout_reserve_counter <= fdc_rotation_timeout_reserve_counter - 1;
+            if fdc_rotation_timeout_reserve_counter /= 0 then
+              fdc_rotation_timeout_reserve_counter <= fdc_rotation_timeout_reserve_counter - 1;
+            else
+              -- Out of time: fail job
+              report "Clearing fdc_read_request due to timeout";
+              f011_rnf <= '1';
+              fdc_read_request <= '0';
+              fdc_bytes_read(4) <= '1';
+              f011_busy <= '0';
+              sd_state <= Idle;
+            end if;
             if (f_index='0' and last_f_index='1') and (fdc_sector_found='0') then
               -- Index hole is here. Decrement rotation counter,
               -- and timeout with RNF set if we reach zero.
-              if (fdc_rotation_timeout /= 0) and (fdc_rotation_timeout_reserve_counter /= 0 ) then
+              if (fdc_rotation_timeout /= 0) then 
                 fdc_rotation_timeout <= fdc_rotation_timeout - 1;
               else
                 -- Out of time: fail job
