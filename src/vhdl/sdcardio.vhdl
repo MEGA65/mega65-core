@@ -378,6 +378,7 @@ architecture behavioural of sdcardio is
   signal use_real_floppy2 : std_logic := '1';
   signal fdc_read_request : std_logic := '0';
   signal fdc_rotation_timeout : integer range 0 to 6 := 0;
+  signal fdc_rotation_timeout_reserve_counter : integer range 0 to 100000000 := 0;
   signal last_f_index : std_logic := '1';
 
   signal fdc_bytes_read : unsigned(15 downto 0) := x"0000";
@@ -1592,7 +1593,10 @@ begin  -- behavioural
                     -- Real floppy drive request
                     fdc_read_request <= '1';
                     -- Read must complete within 6 rotations
-                    fdc_rotation_timeout <= 6;                      
+                    fdc_rotation_timeout <= 6;
+                    -- If no physical drive, we won't get SYNC pulses, so
+                    -- should have an absolute timeout of 2 seconds
+                    fdc_rotation_timeout_reserve_counter <= 100000000;
                     
                     -- Mark F011 as busy with FDC job
                     f011_busy <= '1';
@@ -2466,10 +2470,11 @@ begin  -- behavioural
             -- We have an FDC request in progress.
 --        report "fdc_read_request asserted, checking for activity";
             last_f_index <= f_index;
+            fdc_rotation_timeout_reserve_counter <= fdc_rotation_timeout_reserve_counter - 1;
             if (f_index='0' and last_f_index='1') and (fdc_sector_found='0') then
               -- Index hole is here. Decrement rotation counter,
               -- and timeout with RNF set if we reach zero.
-              if fdc_rotation_timeout /= 0 then
+              if (fdc_rotation_timeout /= 0) and (fdc_rotation_timeout_reserve_counter /= 0 ) then
                 fdc_rotation_timeout <= fdc_rotation_timeout - 1;
               else
                 -- Out of time: fail job
