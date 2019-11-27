@@ -284,7 +284,7 @@ begin
     generic map ( frame_width => 858-1,   -- 65 cycles x 16 pixels
                   frame_height => 526,       -- NTSC frame is 263 lines x 2 frames
 
-                  x_zero_position => 858-41,
+                  x_zero_position => 858-49,
 
                   fullwidth_width => 720,
                   fullwidth_start => 0,
@@ -294,8 +294,8 @@ begin
 
                   pipeline_delay => 0,
                   
-                  vsync_start => 480+1+16,
-                  vsync_end => 480+1+5+16,
+                  vsync_start => 480+1+32,
+                  vsync_end => 480+1+5+32,
                   hsync_start => 720+16,
                   hsync_end => 720+16+62,
 
