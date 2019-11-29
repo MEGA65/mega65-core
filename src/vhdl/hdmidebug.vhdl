@@ -244,8 +244,8 @@ architecture Behavioral of container is
   signal GTS : std_logic := '0';
   signal KEYCLEARB : std_logic := '0';
   signal PACK : std_logic := '0';
-  signal USRCCLK0 : std_logic := '0';
-  signal USERCCLKTS : std_logic := '0';
+  signal USRCCLKO : std_logic := '0';
+  signal USRCCLKTS : std_logic := '0';
   signal USRDONEO : std_logic := '1';
   signal USRDONETS : std_logic := '0';
   
