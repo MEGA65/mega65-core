@@ -232,9 +232,52 @@ architecture Behavioral of container is
 
   signal zero : std_logic := '0';
   signal one : std_logic := '1';
+
+  signal CFGCLK : std_logic;
+  signal CFGMCLK : std_logic;
+  signal EOS : std_logic;
+  signal PREQ : std_logic := '0';
+  signal CLK : std_logic := '0';
+  signal GSR : std_logic := '0';
+  signal GTS : std_logic := '0';
+  signal KEYCLEARB : std_logic := '0';
+  signal PACK : std_logic := '0';
+  signal USRCCLK0 : std_logic := '0';
+  signal USERCCLKTS : std_logic := '0';
+  signal USRDONEO : std_logic := '1';
+  signal USRDONETS : std_logic := '0';
   
 begin
 
+--STARTUPE2:STARTUPBlock--7Series
+
+--XilinxHDLLibrariesGuide,version2012.4
+  STARTUPE2_inst: STARTUPE2
+    generic map(PROG_USR=>"FALSE", --Activate program event security feature.
+                                   --Requires encrypted bitstreams.
+  SIM_CCLK_FREQ=>0.0 --Set the Configuration Clock Frequency(ns) for simulation.
+    )
+    port map(CFGCLK=>CFGCLK,--1-bit output: Configuration main clock output
+             CFGMCLK=>CFGMCLK,--1-bit output: Configuration internal oscillator
+                              --clock output
+             EOS=>EOS,--1-bit output: Active high output signal indicating the
+                      --End Of Startup.
+             PREQ=>PREQ,--1-bit output: PROGRAM request to fabric output
+             CLK=>CLK,--1-bit input: User start-up clock input
+             GSR=>GSR,--1-bit input: Global Set/Reset input (GSR cannot be used
+                      --for the port name)
+             GTS=>GTS,--1-bit input: Global 3-state input (GTS cannot be used
+                      --for the port name)
+             KEYCLEARB=>KEYCLEARB,--1-bit input: Clear AES Decrypter Key input
+                                  --from Battery-Backed RAM (BBRAM)
+             PACK=>PACK,--1-bit input: PROGRAM acknowledge input
+             USRCCLKO=>USRCCLKO,--1-bit input: User CCLK input
+             USRCCLKTS=>USRCCLKTS,--1-bit input: User CCLK 3-state enable input
+             USRDONEO=>USRDONEO,--1-bit input: User DONE pin output control
+             USRDONETS=>USRDONETS--1-bit input: User DONE 3-state enable output
+             );
+-- End of STARTUPE2_inst instantiation
+  
   dotclock1: entity work.dotclock100
     port map ( clk_in1 => CLK_IN,
                clock100 => clock100,
