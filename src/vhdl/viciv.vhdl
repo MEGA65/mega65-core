@@ -303,7 +303,7 @@ architecture Behavioral of viciv is
   -- run correctly, even if at 60Hz video / interrupt rate.  The only problem I
   -- can imagine with doing this, is that PAL/NTSC detection routines will
   -- always think the system is PAL.
-  constant ntsc_max_raster : unsigned(8 downto 0) := to_unsigned(311,9); -- to_unsigned(262,9);
+  constant ntsc_max_raster : unsigned(8 downto 0) := to_unsigned(262,9);
   constant pal_max_raster : unsigned(8 downto 0) := to_unsigned(311,9);
   signal vicii_max_raster : unsigned(8 downto 0) := pal_max_raster;
   -- Setting this value positive causes the chargen and screen to move down the
