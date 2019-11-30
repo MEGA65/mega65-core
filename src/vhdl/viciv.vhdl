@@ -2722,7 +2722,7 @@ begin
                 hsync_polarity_internal <= '1';
                 vsync_polarity_internal <= '0';
                 if vicii_ntsc /= fastio_wdata(7) then
-                  vicii_first_raster <= to_unsigned(16,9);
+                  vicii_first_raster <= to_unsigned(7,9);
                 end if;
                 
 --              sprite_first_x <= to_unsigned(1+80+1-(24-3)*(120/60),14);
@@ -2734,7 +2734,7 @@ begin
                 hsync_polarity_internal <= '1';
                 vsync_polarity_internal <= '0';
                 if vicii_ntsc /= fastio_wdata(7) then
-                  vicii_first_raster <= to_unsigned(16,9);
+                  vicii_first_raster <= to_unsigned(7,9);
                 end if;
 --              sprite_first_x <= to_unsigned(1+80+1-(24-3)*(120/60),14);
                 
@@ -2743,7 +2743,7 @@ begin
                 hsync_polarity_internal <= '1';
                 vsync_polarity_internal <= '0';
                 if vicii_ntsc /= fastio_wdata(7) then
-                  vicii_first_raster <= to_unsigned(16,9);
+                  vicii_first_raster <= to_unsigned(7,9);
                 end if;
             end case;
           end if;
