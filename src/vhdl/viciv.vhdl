@@ -2694,70 +2694,66 @@ begin
             viciv_single_side_border_width_touched <= '1';
           end if;
 
-          case fastio_wdata(7 downto 6) is
-            when "00" => -- PAL, 720x576 @ 50Hz
-              vsync_delay <= to_unsigned(0,8);
-              vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
-              vicii_max_raster <= pal_max_raster;
-              -- Set 30MHz pixel clock for PAL
-              -- VSYNC is negative for 50Hz (required for some monitors)
-              hsync_polarity_internal <= '1';
-              vsync_polarity_internal <= '0';
-              if vicii_ntsc /= fastio_wdata(7) then
-                vicii_first_raster <= to_unsigned(0,9);
-              end if;
-
+          if pal50_select = fastio_wdata(7) or vga60_select /= fastio_wdata(6) then
+            case fastio_wdata(7 downto 6) is
+              when "00" => -- PAL, 720x576 @ 50Hz
+                vsync_delay <= to_unsigned(0,8);
+                vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
+                vicii_max_raster <= pal_max_raster;
+                -- VSYNC is negative for 50Hz (required for some monitors)
+                hsync_polarity_internal <= '1';
+                vsync_polarity_internal <= '0';
+                if vicii_ntsc /= fastio_wdata(7) then
+                  vicii_first_raster <= to_unsigned(0,9);
+                end if;
+                
 --              sprite_first_x <= to_unsigned(1+80+1-(24-3)*(120/60),14);
-
-            when "01" => -- PAL, 720x576 50Hz, NTSC max raster
-              vsync_delay <= to_unsigned(0,8);
-              vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
-              vicii_max_raster <= ntsc_max_raster;
-              -- Set 30MHz pixel clock for PAL
-              hsync_polarity_internal <= '1';
-              vsync_polarity_internal <= '0';
-              if vicii_ntsc /= fastio_wdata(7) then
-                vicii_first_raster <= to_unsigned(0,9);
-              end if;
+                
+              when "01" => -- PAL, 720x576 50Hz, NTSC max raster
+                vsync_delay <= to_unsigned(0,8);
+                vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
+                vicii_max_raster <= ntsc_max_raster;
+                hsync_polarity_internal <= '1';
+                vsync_polarity_internal <= '0';
+                if vicii_ntsc /= fastio_wdata(7) then
+                  vicii_first_raster <= to_unsigned(0,9);
+                end if;
 --              sprite_first_x <= to_unsigned(1+80+1-(24-3)*(120/60),14);
-              
-            when "10" => -- NTSC, 720x480 @ 60Hz
-              vsync_delay <= to_unsigned(0,8);
-              vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
-              vicii_max_raster <= ntsc_max_raster;
-              hsync_polarity_internal <= '1';
-              vsync_polarity_internal <= '0';
-              if vicii_ntsc /= fastio_wdata(7) then
-                vicii_first_raster <= to_unsigned(32,9);
-              end if;
-              -- Set 40MHz pixel clock for NTSC
-
+                
+              when "10" => -- NTSC, 720x480 @ 60Hz
+                vsync_delay <= to_unsigned(0,8);
+                vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
+                vicii_max_raster <= ntsc_max_raster;
+                hsync_polarity_internal <= '1';
+                vsync_polarity_internal <= '0';
+                if vicii_ntsc /= fastio_wdata(7) then
+                  vicii_first_raster <= to_unsigned(32,9);
+                end if;
+                
 --              sprite_first_x <= to_unsigned(1+80+1-(24-3)*(120/60),14);
-
-            when "11" => -- NTSC 720x480 60Hz
-              vsync_delay <= to_unsigned(0,8);
-              vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
-              -- NTSC but with PAL max raster
-              vicii_max_raster <= pal_max_raster;
-              hsync_polarity_internal <= '1';
-              vsync_polarity_internal <= '0';
-              if vicii_ntsc /= fastio_wdata(7) then
-                vicii_first_raster <= to_unsigned(32,9);
-              end if;
-              -- Set 40MHz pixel clock for NTSC
+                
+              when "11" => -- NTSC 720x480 60Hz
+                vsync_delay <= to_unsigned(0,8);
+                vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
+                -- NTSC but with PAL max raster
+                vicii_max_raster <= pal_max_raster;
+                hsync_polarity_internal <= '1';
+                vsync_polarity_internal <= '0';
+                if vicii_ntsc /= fastio_wdata(7) then
+                  vicii_first_raster <= to_unsigned(32,9);
+                end if;
 --              sprite_first_x <= to_unsigned(1+80+1-(24-3)*(120/60),14);
-
-            when others => -- Default to NTSC 800x600 60Hz
-              vsync_delay <= to_unsigned(0,8);
-              vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
-              hsync_polarity_internal <= '1';
-              vsync_polarity_internal <= '0';
-              if vicii_ntsc /= fastio_wdata(7) then
-                vicii_first_raster <= to_unsigned(32,9);
-              end if;
-              -- Set 40MHz pixel clock for NTSC
-
-          end case;
+                
+              when others => -- Default to NTSC 800x600 60Hz
+                vsync_delay <= to_unsigned(0,8);
+                vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
+                hsync_polarity_internal <= '1';
+                vsync_polarity_internal <= '0';
+                if vicii_ntsc /= fastio_wdata(7) then
+                  vicii_first_raster <= to_unsigned(32,9);
+                end if;
+            end case;
+          end if;
         elsif register_number=112 then
           -- @IO:GS $D070 NONE:VIC-IV palette bank selection
           -- @IO:GS $D070.7-6 VIC-IV:MAPEDPAL palette bank mapped at \$D100-\$D3FF
