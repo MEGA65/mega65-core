@@ -284,8 +284,6 @@ architecture Behavioral of viciv is
   constant display_height_ntsc : unsigned(11 downto 0) := to_unsigned(526-20,12);
   signal display_height : unsigned(11 downto 0);
   signal raster_buffer_half_toggle : std_logic := '0';
-  signal vsync_delay : unsigned(7 downto 0) := to_unsigned(0,8);
-  signal vsync_delay_drive : unsigned(7 downto 0) := to_unsigned(0,8);
   signal vicii_ycounter_scale_minus_zero : unsigned(3 downto 0) := to_unsigned(2-1,4);
   signal chargen_x_scale : unsigned(7 downto 0) := to_unsigned(120,8);
   signal sprite_first_x : unsigned(13 downto 0) := to_unsigned(31,14); 
@@ -311,7 +309,6 @@ architecture Behavioral of viciv is
   constant raster_correction : integer := 3;
 
   -- Calculated dynamically
-  signal vsync_start : unsigned(11 downto 0) := to_unsigned(0,12);
   signal x_end_of_raster : unsigned(13 downto 0) := to_unsigned(0,14);
   signal vicii_ycounter_scale : unsigned(3 downto 0) := to_unsigned(0,4);
 
@@ -1273,7 +1270,7 @@ begin
           sprite_first_x,sprite_sixteen_colour_enables,
           vicii_ntsc,vicii_first_raster,
           palette_bank_chargen_alt,bitplane_sixteen_colour_mode_flags,
-          vsync_delay,vicii_ycounter_scale_minus_zero,
+          vicii_ycounter_scale_minus_zero,
           hsync_polarity_internal,vsync_polarity_internal
           ) is
     variable bitplane_number : integer;
@@ -1388,26 +1385,26 @@ begin
         if twentyfourlines='0' then
           border_y_top <= to_unsigned(
             raster_correction+
-            to_integer(single_top_border_200)+to_integer(vsync_delay_drive),12);
+            to_integer(single_top_border_200)-to_integer(vicii_first_raster)*2,12);
           border_y_bottom <= to_unsigned(
             raster_correction+
             to_integer(display_height)
-            -to_integer(single_top_border_200)+to_integer(vsync_delay_drive)-1,12);
+            -to_integer(single_top_border_200)-to_integer(vicii_first_raster)*2-1,12);
         else
           border_y_top <= to_unsigned(raster_correction
                                       +to_integer(single_top_border_200)
-                                      +to_integer(vsync_delay_drive)
+                                      -to_integer(vicii_first_raster)*2
                                       +(4*2),12);
           border_y_bottom <= to_unsigned(raster_correction
                                          +to_integer(display_height)
-                                         +to_integer(vsync_delay_drive)
+                                         -to_integer(vicii_first_raster)*2
                                          -to_integer(single_top_border_200)
                                          -(4*2)-1,12);
         end if;
         -- set y_chargen_start based on twentyfourlines
         y_chargen_start <= to_unsigned(raster_correction
                                        +to_integer(single_top_border_200)
-                                       +to_integer(vsync_delay_drive)
+                                       -to_integer(vicii_first_raster)*2
                                        -(3*2)
                                        -- Display is always V400/600, so pixels
                                        -- are double height
@@ -1423,26 +1420,27 @@ begin
         if twentyfourlines='0' then
           border_y_top <= to_unsigned(
             raster_correction+
-            to_integer(single_top_border_400)+to_integer(vsync_delay_drive),12);
+            to_integer(single_top_border_400)
+            -to_integer(vicii_first_raster)*2,12);
           border_y_bottom <= to_unsigned(
             raster_correction+
             to_integer(display_height)
-            -to_integer(single_top_border_400)+to_integer(vsync_delay_drive)-1,12);
+            -to_integer(single_top_border_400)-to_integer(vicii_first_raster)*2-1,12);
         else
           border_y_top <= to_unsigned(raster_correction
                                       +to_integer(single_top_border_400)
-                                      +to_integer(vsync_delay_drive)
+                                      -to_integer(vicii_first_raster)*2
                                       +(4*2),12);
           border_y_bottom <= to_unsigned(raster_correction
                                          +to_integer(display_height)
-                                         +to_integer(vsync_delay_drive)
+                                         -to_integer(vicii_first_raster)*2
                                          -to_integer(single_top_border_400)
                                          -(4*2)-1,12);
         end if;
         -- set y_chargen_start based on twentyfourlines
         y_chargen_start <= to_unsigned(raster_correction
                                        +to_integer(single_top_border_400)
-                                       +to_integer(vsync_delay_drive)
+                                       -to_integer(vicii_first_raster)*2
                                        -(3*2)
                                        -- Screen is always V400/600, so pixels
                                        -- are 2 physical pixels high
@@ -1934,8 +1932,8 @@ begin
           fastio_rdata <= palette_bank_fastio & palette_bank_chargen & palette_bank_sprites & palette_bank_chargen_alt;
         elsif register_number=113 then -- $D3071
           fastio_rdata <= bitplane_sixteen_colour_mode_flags;
-        elsif register_number=114 then -- $D3072
-          fastio_rdata(7 downto 0) <= std_logic_vector(vsync_delay);
+        elsif register_number=114 then -- $D3072 UNUSED
+          fastio_rdata(7 downto 0) <= (others => '0');
         elsif register_number=115 then -- $D3073
           fastio_rdata(3 downto 0) <= std_logic_vector(reg_alpha_delay);
           fastio_rdata(7 downto 4) <= std_logic_vector(vicii_ycounter_scale_minus_zero(3 downto 0));
@@ -2697,7 +2695,6 @@ begin
           if vicii_ntsc /= fastio_wdata(7) or vga60_select_internal /= fastio_wdata(6) then
             case fastio_wdata(7 downto 6) is
               when "00" => -- PAL, 720x576 @ 50Hz
-                vsync_delay <= to_unsigned(0,8);
                 vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                 vicii_max_raster <= pal_max_raster;
                 -- VSYNC is negative for 50Hz (required for some monitors)
@@ -2710,7 +2707,6 @@ begin
 --              sprite_first_x <= to_unsigned(1+80+1-(24-3)*(120/60),14);
                 
               when "01" => -- PAL, 720x576 50Hz, NTSC max raster
-                vsync_delay <= to_unsigned(0,8);
                 vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                 vicii_max_raster <= ntsc_max_raster;
                 hsync_polarity_internal <= '1';
@@ -2721,36 +2717,33 @@ begin
 --              sprite_first_x <= to_unsigned(1+80+1-(24-3)*(120/60),14);
                 
               when "10" => -- NTSC, 720x480 @ 60Hz
-                vsync_delay <= to_unsigned(0,8);
                 vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                 vicii_max_raster <= ntsc_max_raster;
                 hsync_polarity_internal <= '1';
                 vsync_polarity_internal <= '0';
                 if vicii_ntsc /= fastio_wdata(7) then
-                  vicii_first_raster <= to_unsigned(32,9);
+                  vicii_first_raster <= to_unsigned(16,9);
                 end if;
                 
 --              sprite_first_x <= to_unsigned(1+80+1-(24-3)*(120/60),14);
                 
               when "11" => -- NTSC 720x480 60Hz
-                vsync_delay <= to_unsigned(0,8);
                 vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                 -- NTSC but with PAL max raster
                 vicii_max_raster <= pal_max_raster;
                 hsync_polarity_internal <= '1';
                 vsync_polarity_internal <= '0';
                 if vicii_ntsc /= fastio_wdata(7) then
-                  vicii_first_raster <= to_unsigned(32,9);
+                  vicii_first_raster <= to_unsigned(16,9);
                 end if;
 --              sprite_first_x <= to_unsigned(1+80+1-(24-3)*(120/60),14);
                 
               when others => -- Default to NTSC 800x600 60Hz
-                vsync_delay <= to_unsigned(0,8);
                 vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                 hsync_polarity_internal <= '1';
                 vsync_polarity_internal <= '0';
                 if vicii_ntsc /= fastio_wdata(7) then
-                  vicii_first_raster <= to_unsigned(32,9);
+                  vicii_first_raster <= to_unsigned(16,9);
                 end if;
             end case;
           end if;
@@ -2768,8 +2761,7 @@ begin
           -- @IO:GS $D071 VIC-IV:BP16ENS VIC-IV 16-colour bitplane enable flags
           bitplane_sixteen_colour_mode_flags <= fastio_wdata;
         elsif register_number=114 then -- $D3072
-          -- @IO:GS $D072 VIC-IV:VSYNDEL VIC-IV VSYNC delay
-          vsync_delay <= unsigned(fastio_wdata);
+          -- @IO:GS $D072 VIC-IV:UNUSED Unused Register. Reserved for future expansion
         elsif register_number=115 then -- $D3073
           -- @IO:GS $D073.0-3 VIC-IV:ALPHADELAY Alpha delay for compositor
           reg_alpha_Delay <= unsigned(fastio_wdata(3 downto 0));
@@ -3101,7 +3093,7 @@ begin
           end if;
           
           if vicii_ycounter_phase = vicii_ycounter_max_phase then
-            if to_integer(vicii_ycounter) /= vicii_max_raster and ycounter >= vsync_delay_drive then
+            if to_integer(vicii_ycounter) /= vicii_max_raster then
               vicii_ycounter <= vicii_ycounter + 1;
               -- Indicate fixed point on the frame
               -- (used by CPU to time entry into freeze routine for proper synchronisation.
@@ -3115,9 +3107,7 @@ begin
               -- alternate case below
               vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;
             end if;
-            if ycounter >= vsync_delay_drive then
-              vicii_ycounter_continuous <= vicii_ycounter_continuous + 1;
-            end if;
+            vicii_ycounter_continuous <= vicii_ycounter_continuous + 1;
 
             if vicii_ycounter_max_phase = 0 then
               -- Calculate raster number for sprites.
@@ -3416,8 +3406,6 @@ begin
       end if;
 
       -- Calculate vertical flyback and related signals
-      vsync_delay_drive <= vsync_delay;
-      vsync_start <= frame_v_front+display_height+to_integer(vsync_delay_drive);
       if ycounter=0 then
         null;
       elsif ycounter=frame_v_front then
