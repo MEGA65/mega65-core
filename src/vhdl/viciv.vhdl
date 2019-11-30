@@ -2694,7 +2694,7 @@ begin
             viciv_single_side_border_width_touched <= '1';
           end if;
 
-          if pal50_select = fastio_wdata(7) or vga60_select /= fastio_wdata(6) then
+          if vicii_ntsc /= fastio_wdata(7) or vga60_select_internal /= fastio_wdata(6) then
             case fastio_wdata(7 downto 6) is
               when "00" => -- PAL, 720x576 @ 50Hz
                 vsync_delay <= to_unsigned(0,8);
