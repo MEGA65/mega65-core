@@ -175,7 +175,7 @@ iter1:	 .byte 0
 	 STA $D021
 
 	 ; Switch to the appropriate video mode
-	 LDA #$00     ; No side borders
+	 LDA #$04     ; Minimum side borders
 	 STA $D05C
 	 LDA #$C8     ; V400, H640
 	 STA $D031
@@ -196,6 +196,8 @@ iter1:	 .byte 0
 	 STA $D04A
 	 LDA #>[60+480]
 	 STA $D04B
+	 LDA #$37     ; Display correct number of text rows
+	 STA $D07B
 
 	 ; Chargen X and Y positions
 	 LDA #<16
