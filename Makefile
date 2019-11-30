@@ -61,6 +61,7 @@ TOOLS=	$(TOOLDIR)/etherhyppo/etherhyppo \
 	$(TOOLDIR)/monitor_save \
 	$(TOOLDIR)/on_screen_keyboard_gen \
 	$(TOOLDIR)/pngprepare/pngprepare \
+	$(TOOLDIR)/pngprepare/pngtoscreens \
 	$(TOOLDIR)/pngprepare/giftotiles \
 	$(TOOLDIR)/i2cstatemapper
 
@@ -383,6 +384,9 @@ $(TOOLDIR)/osk_image:	$(TOOLDIR)/osk_image.c
 
 $(TOOLDIR)/frame2png:	$(TOOLDIR)/frame2png.c
 	$(CC) $(COPT) -I/usr/local/include -L/usr/local/lib -o $(TOOLDIR)/frame2png $(TOOLDIR)/frame2png.c -lpng
+
+$(TOOLDIR)/pngprepare/pngtoscreens:	$(TOOLDIR)/pngprepare/pngtoscreens.c
+	$(CC) $(COPT) -I/usr/local/include -L/usr/local/lib -o $(TOOLDIR)/pngprepare/pngtoscreens $(TOOLDIR)/pngprepare/pngtoscreens.c -lpng
 
 vfsimulate:	$(GHDL) $(VHDLSRCDIR)/frame_test.vhdl $(VHDLSRCDIR)/video_frame.vhdl
 	$(GHDL) -i $(VHDLSRCDIR)/frame_test.vhdl $(VHDLSRCDIR)/video_frame.vhdl
