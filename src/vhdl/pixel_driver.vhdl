@@ -284,7 +284,7 @@ begin
     generic map ( frame_width => 858-1,   -- 65 cycles x 16 pixels
                   frame_height => 526,       -- NTSC frame is 263 lines x 2 frames
 
-                  x_zero_position => 858-45,
+                  x_zero_position => 858-46,
 
                   fullwidth_width => 720,
                   fullwidth_start => 0,
