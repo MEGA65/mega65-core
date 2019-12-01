@@ -3113,10 +3113,10 @@ begin
 
             if vicii_ycounter_max_phase = 0 then
               -- Calculate raster number for sprites.
-              if vicii_ycounter = (to_integer(vicii_max_raster) - to_integer(sprite_y_adjust)) then
+              if vicii_ycounter = (to_integer(vicii_max_raster) + 2 - to_integer(sprite_y_adjust)) then
                 vicii_sprite_ycounter <= to_unsigned(0,9);
               else
-                vicii_sprite_ycounter <= vicii_ycounter_continuous + to_integer(sprite_y_adjust);
+                vicii_sprite_ycounter <= vicii_ycounter_continuous - 2 + to_integer(sprite_y_adjust);
               end if;
             end if;
             
@@ -3134,10 +3134,10 @@ begin
             end if;
             
             -- Calculate raster number for sprites.
-            if vicii_ycounter = (to_integer(vicii_max_raster) - to_integer(sprite_y_adjust)) then
+            if vicii_ycounter = (to_integer(vicii_max_raster) + 2 - to_integer(sprite_y_adjust)) then
               vicii_sprite_ycounter <= to_unsigned(0,9);
             else
-              vicii_sprite_ycounter <= vicii_ycounter_continuous + to_integer(sprite_y_adjust);
+              vicii_sprite_ycounter <= vicii_ycounter_continuous - 2 + to_integer(sprite_y_adjust);
             end if;
           end if;
         end if;
