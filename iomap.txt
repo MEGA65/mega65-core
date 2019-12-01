@@ -256,7 +256,7 @@ GS $D070.5-4 VIC-IV:BTPALSEL bitmap/text palette bank
 GS $D070.7-6 VIC-IV:MAPEDPAL palette bank mapped at \$D100-\$D3FF
 GS $D070 NONE:VIC-IV palette bank selection
 GS $D071 VIC-IV:BP16ENS VIC-IV 16-colour bitplane enable flags
-GS $D072 VIC-IV:VSYNDEL VIC-IV VSYNC delay
+GS $D072 VIC-IV:SPRYADJ Sprite Y position adjustment
 GS $D073.0-3 VIC-IV:ALPHADELAY Alpha delay for compositor
 GS $D073.4-7 VIC-IV:RASTERHEIGHT physical rasters per VIC-II raster (1 to 16)
 GS $D074 VIC-IV:SPRENALPHA Sprite alpha-blend enable
@@ -410,6 +410,7 @@ GS $D617.0-6 UARTMISC:VIRTKEY3 Set to \$7F for no key down, else specify 3nd vir
 GS $D617.7 UARTMISC:OSKTOP 1=Display on-screen keyboard at top, 0=Disply on-screen keyboard at bottom of screen.
 GS $D618 UARTMISC:KSCNRATE Physical keyboard scan rate (\$00=50MHz, \$FF=~200KHz)
 GS $D619 UARTMISC:UNUSED port o output value
+GS $D61A.0 HDMI:SPDIFEN enable SPDIF audio output for HDMI video
 GS $D61A UARTMISC:UNUSED port p output value
 GS $D61B.0 WRITEONLY enable/disable Amiga mouse support (1351 emulation) on jostick 1
 GS $D61B.1 WRITEONLY enable/disable Amiga mouse support (1351 emulation) on jostick 2
@@ -1116,7 +1117,6 @@ GS $FFcB000-$FFcBFFF - Internal 1541 ROM access
 GS $FFCC000-$FFCFFFF - Internal 1541 ROM access
 GS $FFD6C00-DFF - F011 floppy controller sector buffer
 GS $FFD6E00-FFF - SD card direct access sector buffer
-GS $FFD7000-FF - I2C Peripherals     
 GS $FFD70F0 - ADC1 smoothed value (LSB)
 GS $FFD70F1 - ADC1 smoothed value (MSB)
 GS $FFD70F2 - ADC2 smoothed value (LSB)
@@ -1132,6 +1132,7 @@ GS $FFD7113 RTC:RTCDAY Real-time Clock day of month value (binary coded decimal)
 GS $FFD7114 RTC:RTCMONTH Real-time Clock month value (binary coded decimal)
 GS $FFD7115 RTC:RTCYEAR Real-time Clock year value (binary coded decimal)
 GS $FFD7140-7F RTC:NVRAM 64-bytes of non-volatile RAM. Can be used for storing machine configuration.
+GS $FFD7x00-xFF - I2C Peripherals for various targets     
 GS $FFDE800 - $FFDEFFF Ethernet RX buffer (read only)
 GS $FFDE800 - $FFDEFFF Ethernet TX buffer (write only)
 GS $FFDF000 - VFPGA width of CLB array (READ ONLY)

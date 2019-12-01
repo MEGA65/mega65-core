@@ -287,6 +287,7 @@ architecture Behavioral of viciv is
   signal vicii_ycounter_scale_minus_zero : unsigned(3 downto 0) := to_unsigned(2-1,4);
   signal chargen_x_scale : unsigned(7 downto 0) := to_unsigned(120,8);
   signal sprite_first_x : unsigned(13 downto 0) := to_unsigned(31,14); 
+  signal sprite_y_adjust : unsigned(7 downto 0) := to_unsigned(2,8);  
   signal sprite_x_counting : std_logic := '0';
   signal sprite_x_scale_toggle : std_logic := '0';
   -- Each character pixel will be (n+1) pixels high
@@ -1933,7 +1934,7 @@ begin
         elsif register_number=113 then -- $D3071
           fastio_rdata <= bitplane_sixteen_colour_mode_flags;
         elsif register_number=114 then -- $D3072 UNUSED
-          fastio_rdata(7 downto 0) <= (others => '0');
+          fastio_rdata(7 downto 0) <= std_logic_vector(sprite_y_adjust);
         elsif register_number=115 then -- $D3073
           fastio_rdata(3 downto 0) <= std_logic_vector(reg_alpha_delay);
           fastio_rdata(7 downto 4) <= std_logic_vector(vicii_ycounter_scale_minus_zero(3 downto 0));
@@ -2761,7 +2762,8 @@ begin
           -- @IO:GS $D071 VIC-IV:BP16ENS VIC-IV 16-colour bitplane enable flags
           bitplane_sixteen_colour_mode_flags <= fastio_wdata;
         elsif register_number=114 then -- $D3072
-          -- @IO:GS $D072 VIC-IV:UNUSED Unused Register. Reserved for future expansion
+          -- @IO:GS $D072 VIC-IV:SPRYADJ Sprite Y position adjustment
+          sprite_y_adjust <= unsigned(fastio_wdata);
         elsif register_number=115 then -- $D3073
           -- @IO:GS $D073.0-3 VIC-IV:ALPHADELAY Alpha delay for compositor
           reg_alpha_Delay <= unsigned(fastio_wdata(3 downto 0));
@@ -3111,12 +3113,10 @@ begin
 
             if vicii_ycounter_max_phase = 0 then
               -- Calculate raster number for sprites.
-              -- The -2 is an adjustment factor to make the sprites line up correctly
-              -- on the screen.
-              if vicii_ycounter < 2 then
+              if vicii_ycounter = to_integer(sprite_y_adjust) then
                 vicii_sprite_ycounter <= to_unsigned(0,9);
               else
-                vicii_sprite_ycounter <= vicii_ycounter_continuous - 2;
+                vicii_sprite_ycounter <= vicii_ycounter_continuous - to_integer(sprite_y_adjust);
               end if;
             end if;
             
@@ -3134,13 +3134,10 @@ begin
             end if;
             
             -- Calculate raster number for sprites.
-            -- The -2 is an adjustment factor to make the sprites line up correctly
-            -- on the screen.
-            -- This is done on an "off" line, so that the sprites line up properly
-            if vicii_ycounter < 2 then
+            if vicii_ycounter = to_integer(sprite_y_adjust) then
               vicii_sprite_ycounter <= to_unsigned(0,9);
             else
-              vicii_sprite_ycounter <= vicii_ycounter_continuous - 2;
+              vicii_sprite_ycounter <= vicii_ycounter_continuous - to_integer(sprite_y_adjust);
             end if;
             
           end if;
