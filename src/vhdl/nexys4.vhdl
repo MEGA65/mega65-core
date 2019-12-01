@@ -1,20 +1,20 @@
 ----------------------------------------------------------------------------------
--- Company: 
--- Engineer: 
--- 
--- Create Date:    22:30:37 12/10/2013 
--- Design Name: 
--- Module Name:    container - Behavioral 
--- Project Name: 
--- Target Devices: 
--- Tool versions: 
--- Description: 
+-- Company:
+-- Engineer:
 --
--- Dependencies: 
+-- Create Date:    22:30:37 12/10/2013
+-- Design Name:
+-- Module Name:    container - Behavioral
+-- Project Name:
+-- Target Devices:
+-- Tool versions:
+-- Description:
 --
--- Revision: 
+-- Dependencies:
+--
+-- Revision:
 -- Revision 0.01 - File Created
--- Additional Comments: 
+-- Additional Comments:
 --
 ----------------------------------------------------------------------------------
 library IEEE;
@@ -37,17 +37,17 @@ use unisim.vcomponents.all;
 --use UNISIM.VComponents.all;
 
 entity container is
-  Port ( CLK_IN : STD_LOGIC;         
+  Port ( CLK_IN : STD_LOGIC;
          btnCpuReset : in  STD_LOGIC;
 --         irq : in  STD_LOGIC;
 --         nmi : in  STD_LOGIC;
-         
+
          ----------------------------------------------------------------------
-         -- CIA1 ports for keyboard/joystick 
+         -- CIA1 ports for keyboard/joystick
          ----------------------------------------------------------------------
 --         porta_pins : inout  std_logic_vector(7 downto 0);
 --         portb_pins : inout  std_logic_vector(7 downto 0);
-         
+
          ----------------------------------------------------------------------
          -- VGA output
          ----------------------------------------------------------------------
@@ -70,13 +70,13 @@ entity container is
          eth_rxdv : in std_logic;
          eth_interrupt : in std_logic;
          eth_clock : out std_logic;
-         
+
          -------------------------------------------------------------------------
          -- Lines for the SDcard interface itself
          -------------------------------------------------------------------------
          sdReset : out std_logic := '0';  -- must be 0 to power SD controller (cs_bo)
          sdClock : out std_logic;       -- (sclk_o)
-         sdMOSI : out std_logic;      
+         sdMOSI : out std_logic;
          sdMISO : in  std_logic;
 
          ---------------------------------------------------------------------------
@@ -88,7 +88,7 @@ entity container is
          aclSCK : out std_logic;
          aclInt1 : in std_logic;
          aclInt2 : in std_logic;
-         
+
          micData : in std_logic;
          micClk : out std_logic;
          micLRSel : out std_logic;
@@ -119,14 +119,14 @@ entity container is
          jdlo : inout std_logic_vector(4 downto 1) := (others => 'Z');
          jdhi : inout std_logic_vector(10 downto 7) := (others => 'Z');
          jxadc : inout std_logic_vector(7 downto 0) := (others => 'Z');
-         
+
          ----------------------------------------------------------------------
          -- Flash RAM for holding config
          ----------------------------------------------------------------------
 --         QspiSCK : out std_logic;
          QspiDB : inout std_logic_vector(3 downto 0);
          QspiCSn : out std_logic;
-         
+
          ----------------------------------------------------------------------
          -- Cellular RAM interface for Slow RAM
          ----------------------------------------------------------------------
@@ -155,7 +155,7 @@ entity container is
 --         ddr2_dq        : inout std_logic_vector(15 downto 0);
 --         ddr2_dqs_p     : inout std_logic_vector(1 downto 0);
 --         ddr2_dqs_n     : inout std_logic_vector(1 downto 0);
-         
+
          ----------------------------------------------------------------------
          -- Debug interfaces on Nexys4 board
          ----------------------------------------------------------------------
@@ -165,7 +165,7 @@ entity container is
 
          UART_TXD : out std_logic;
          RsRx : in std_logic;
-         
+
          sseg_ca : out std_logic_vector(7 downto 0);
          sseg_an : out std_logic_vector(7 downto 0)
          );
@@ -179,18 +179,18 @@ architecture Behavioral of container is
            rst : in  STD_LOGIC;
            temp : out  STD_LOGIC_VECTOR (11 downto 0));
   end component;
-  
+
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
   signal restore_key : std_logic := '1';
   signal reset_out : std_logic := '1';
   signal cpu_game : std_logic := '1';
   signal cpu_exrom : std_logic := '1';
-  
+
   signal buffer_vgared : unsigned(7 downto 0);
   signal buffer_vgagreen : unsigned(7 downto 0);
   signal buffer_vgablue : unsigned(7 downto 0);
-  
+
   signal pixelclock : std_logic;
   signal cpuclock : std_logic;
   signal clock240 : std_logic;
@@ -200,7 +200,7 @@ architecture Behavioral of container is
   signal clock30 : std_logic;
   signal clock30in : std_logic := '0';
   signal clock30count : integer range 0 to 2 := 0;
-  
+
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
 
   signal slow_access_request_toggle : std_logic;
@@ -212,7 +212,7 @@ architecture Behavioral of container is
 
   signal sector_buffer_mapped : std_logic;
 
-  
+
   signal vgaredignore : unsigned(3 downto 0);
   signal vgagreenignore : unsigned(3 downto 0);
   signal vgablueignore : unsigned(3 downto 0);
@@ -244,7 +244,7 @@ architecture Behavioral of container is
   signal cart_d : unsigned(7 downto 0) := (others => 'Z');
   signal cart_d_read : unsigned(7 downto 0) := (others => 'Z');
   signal cart_a : unsigned(15 downto 0) := (others => 'Z');
-  
+
   ----------------------------------------------------------------------
   -- CBM floppy serial port
   ----------------------------------------------------------------------
@@ -255,9 +255,9 @@ architecture Behavioral of container is
   signal iec_clk_o : std_logic := 'Z';
   signal iec_data_i : std_logic := '1';
   signal iec_clk_i : std_logic := '1';
-  signal iec_atn : std_logic := 'Z';  
+  signal iec_atn : std_logic := 'Z';
 
-  
+
   -- XXX We should read the real temperature and feed this to the DDR controller
   -- so that it can update timing whenever the temperature changes too much.
   signal fpga_temperature : std_logic_vector(11 downto 0) := (others => '0');
@@ -275,17 +275,17 @@ architecture Behavioral of container is
 
   signal joy3 : std_logic_vector(4 downto 0);
   signal joy4 : std_logic_vector(4 downto 0);
-  
+
 begin
-  
+
   dotclock1: entity work.dotclock100
     port map ( clk_in1 => CLK_IN,
-               clock80 => pixelclock, -- 80MHz
-               clock40 => cpuclock, -- 40MHz
+               clock100 => clock100,
+               clock81 => pixelclock, -- 80MHz
+               clock41 => cpuclock, -- 40MHz
                clock50 => ethclock,
-               clock200 => clock200,
-               clock120 => clock120,
-               clock240 => clock240
+               clock162 => clock162,
+               clock27 => clock27
                );
 
   fpgatemp0: fpgatemp
@@ -306,9 +306,9 @@ begin
 
       joya => joy3,
       joyb => joy4,
-      
+
       qspidb => qspidb,
-      qspicsn => qspicsn,      
+      qspicsn => qspicsn,
 --      qspisck => '1',
 
       slow_access_request_toggle => slow_access_request_toggle,
@@ -319,7 +319,7 @@ begin
       slow_access_rdata => slow_access_rdata,
 
       expansionram_data_ready_strobe => '1',
-      
+
       ----------------------------------------------------------------------
       -- Expansion/cartridge port
       ----------------------------------------------------------------------
@@ -330,11 +330,11 @@ begin
       cart_phi2 => cart_phi2,
       cart_dotclock => cart_dotclock,
       cart_reset => cart_reset,
-      
+
       cart_nmi => cart_nmi,
       cart_irq => cart_irq,
       cart_dma => cart_dma,
-      
+
       cart_exrom => cart_exrom,
       cart_ba => cart_ba,
       cart_rw => cart_rw,
@@ -343,12 +343,12 @@ begin
       cart_io1 => cart_io1,
       cart_game => cart_game,
       cart_io2 => cart_io2,
-      
+
       cart_d_in => cart_d_read,
       cart_d => cart_d,
       cart_a => cart_a
       );
-  
+
   machine0: entity work.machine
     generic map (cpufrequency => 40,
 		target => nexys4)
@@ -357,10 +357,9 @@ begin
       cpuclock        => cpuclock,
       uartclock       => cpuclock, -- Match CPU clock
       ioclock         => cpuclock, -- Match CPU clock
-      clock240 => clock240,
-      clock120 => clock120,
-      clock40 => cpuclock,
-      clock200 => clock200,
+      clock162 => clock162,
+      clock100 => clock100,
+      clock27 => clock27,
       clock50mhz      => ethclock,
       btncpureset => btncpureset,
       reset_out => reset_out,
@@ -371,9 +370,9 @@ begin
 
       joy3 => joy3,
       joy4 => joy4,
-      
+
       pal50_select_out => pal50_select,
-      
+
       -- Wire up a dummy caps_lock key on switch 8
       caps_lock_key => sw(8),
 
@@ -399,7 +398,7 @@ begin
       f_writeprotect => '1',
       f_rdata => '1',
       f_diskchanged => '1',
-      
+
       ----------------------------------------------------------------------
       -- CBM floppy  std_logic_vectorerial port
       ----------------------------------------------------------------------
@@ -411,11 +410,11 @@ begin
       iec_atn_o => iec_atn,
       iec_data_external => iec_data_i,
       iec_clk_external => iec_clk_i,
-      
+
       no_hyppo => '0',
-      
+
       vsync           => vsync,
-      hsync           => hsync,
+      vga_hsync           => hsync,
       lcd_vsync => lcd_vsync,
       lcd_hsync => lcd_hsync,
       lcd_display_enable => lcd_display_enable,
@@ -427,7 +426,7 @@ begin
       portb_pins => portb_pins,
       keyleft => '0',
       keyup => '0',
-      
+
       ---------------------------------------------------------------------------
       -- IO lines to the ethernet controller
       ---------------------------------------------------------------------------
@@ -440,7 +439,7 @@ begin
       eth_rxer => eth_rxer,
       eth_rxdv => eth_rxdv,
       eth_interrupt => eth_interrupt,
-      
+
       -------------------------------------------------------------------------
       -- Lines for the SDcard interface itself
       -------------------------------------------------------------------------
@@ -456,7 +455,7 @@ begin
       aclSCK => aclSCK,
       aclInt1 => aclInt1,
       aclInt2 => aclInt2,
-      
+
       micData0 => micData,
       micData1 => '0', -- This board has only one microphone
       micClk => micClk,
@@ -465,7 +464,7 @@ begin
       ampPWM_l => ampPWM_internal,
       ampPWM_r => led(14),
       ampSD => ampSD,
-      
+
       tmpSDA => tmpSDA,
       tmpSCL => tmpSCL,
       tmpInt => tmpInt,
@@ -482,10 +481,10 @@ begin
       -- slave).
       -- pcm_modem_clk => jdhi(7),
       -- pcm_modem_sync => jdhi(8),
-      
+
       pcm_modem1_data_out => jdhi(9),
       pcm_modem1_data_in => jdhi(10),
-      
+
       ps2data =>      ps2data,
       ps2clock =>     ps2clk,
 
@@ -493,8 +492,8 @@ begin
       widget_restore => '1',
       widget_capslock => '1',
       widget_joya => "11111",
-      widget_joyb => "11111",     
-      
+      widget_joyb => "11111",
+
       uart_rx => jclo(1),
       uart_tx => jclo(2),
 
@@ -503,15 +502,15 @@ begin
       buffereduart2_rx => jchi(9),
       buffereduart2_tx => jchi(10),
       buffereduart_ringindicate => jchi(8),
-      
+
       slow_access_request_toggle => slow_access_request_toggle,
       slow_access_ready_toggle => slow_access_ready_toggle,
       slow_access_address => slow_access_address,
       slow_access_write => slow_access_write,
       slow_access_wdata => slow_access_wdata,
       slow_access_rdata => slow_access_rdata,
---      cpu_exrom => cpu_exrom,      
---      cpu_game => cpu_game,      
+--      cpu_exrom => cpu_exrom,
+--      cpu_game => cpu_game,
       -- enable/disable cartridge with sw(8)
       cpu_exrom => '1',
       cpu_game => '1',
@@ -526,11 +525,11 @@ begin
 
       UART_TXD => UART_TXD,
       RsRx => RsRx,
-      
+
       sseg_ca => sseg_ca,
       sseg_an => sseg_an
       );
-    
+
   -- Hardware buttons for triggering IRQ & NMI
   irq <= not btn(0);
   nmi <= not btn(4);
@@ -546,7 +545,7 @@ begin
   port map
    (O => clock30,
     I => clock30in);
-  
+
   process (clock240)
   begin
     if rising_edge(clock240) then
@@ -558,10 +557,10 @@ begin
       end if;
     end if;
   end process;
-  
-  process (cpuclock,clock120,clock30,cpuclock,pal50_select)
+
+  process (cpuclock,pixelclock,clock30,cpuclock,pal50_select)
   begin
-    if rising_edge(clock120) then
+    if rising_edge(pixelclock) then
       if sw(7)='0' then
         -- VGA direct output
         vgared <= buffer_vgared(7 downto 4);
@@ -572,21 +571,13 @@ begin
         vgagreen <= to_unsigned(sawtooth_counter,4);
         vgablue <= to_unsigned(sawtooth_counter,4);
       end if;
-
-      -- VGA out on LCD panel
-      jalo <= std_logic_vector(buffer_vgablue(7 downto 4));
-      jahi <= std_logic_vector(buffer_vgared(7 downto 4));
-      jblo <= std_logic_vector(buffer_vgagreen(7 downto 4));
-      jbhi(8) <= lcd_hsync;
-      jbhi(9) <= lcd_vsync;
-      jbhi(10) <= lcd_display_enable;
     end if;
 
     if rising_edge(cpuclock) then
 
       -- No physical keyboard
       portb_pins <= (others => '1');
-      
+
       -- Debug audio output
       if sw(7) = '0' then
         ampPWM <= ampPWM_internal;
@@ -618,5 +609,5 @@ begin
 
   -- Ethernet clock is now just the CPU clock, since both are on 50MHz
   eth_clock <= cpuclock;
-  
+
 end Behavioral;
