@@ -2696,6 +2696,7 @@ begin
           if vicii_ntsc /= fastio_wdata(7) or vga60_select_internal /= fastio_wdata(6) then
             case fastio_wdata(7 downto 6) is
               when "00" => -- PAL, 720x576 @ 50Hz
+                sprite_y_adjust <= to_unsigned(0,8);
                 vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                 vicii_max_raster <= pal_max_raster;
                 -- VSYNC is negative for 50Hz (required for some monitors)
@@ -2708,6 +2709,7 @@ begin
 --              sprite_first_x <= to_unsigned(1+80+1-(24-3)*(120/60),14);
                 
               when "01" => -- PAL, 720x576 50Hz, NTSC max raster
+                sprite_y_adjust <= to_unsigned(0,8);
                 vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                 vicii_max_raster <= ntsc_max_raster;
                 hsync_polarity_internal <= '1';
@@ -2718,6 +2720,7 @@ begin
 --              sprite_first_x <= to_unsigned(1+80+1-(24-3)*(120/60),14);
                 
               when "10" => -- NTSC, 720x480 @ 60Hz
+                sprite_y_adjust <= to_unsigned(22,8);
                 vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                 vicii_max_raster <= ntsc_max_raster;
                 hsync_polarity_internal <= '1';
@@ -2729,6 +2732,7 @@ begin
 --              sprite_first_x <= to_unsigned(1+80+1-(24-3)*(120/60),14);
                 
               when "11" => -- NTSC 720x480 60Hz
+                sprite_y_adjust <= to_unsigned(22,8);
                 vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                 -- NTSC but with PAL max raster
                 vicii_max_raster <= pal_max_raster;
@@ -2740,6 +2744,7 @@ begin
 --              sprite_first_x <= to_unsigned(1+80+1-(24-3)*(120/60),14);
                 
               when others => -- Default to NTSC 800x600 60Hz
+                sprite_y_adjust <= to_unsigned(22,8);
                 vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                 hsync_polarity_internal <= '1';
                 vsync_polarity_internal <= '0';
