@@ -345,7 +345,6 @@ begin
 --      hr_cs0 => hr_cs0
 --      hr_cs1 => hr_cs1
 --      );
-
   slow_devices0: entity work.slow_devices
     port map (
       cpuclock => cpuclock,
