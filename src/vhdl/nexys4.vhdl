@@ -418,7 +418,7 @@ begin
       vga_hsync           => hsync,
       lcd_vsync => lcd_vsync,
       lcd_hsync => lcd_hsync,
-      lcd_display_enable => lcd_display_enable,
+      lcd_dataenable => lcd_display_enable,
       vgared(7 downto 0)          => buffer_vgared,
       vgagreen(7 downto 0)        => buffer_vgagreen,
       vgablue(7 downto 0)         => buffer_vgablue,
@@ -513,8 +513,6 @@ begin
 --      cpu_exrom => cpu_exrom,
 --      cpu_game => cpu_game,
       -- enable/disable cartridge with sw(8)
-      cpu_exrom => '1',
-      cpu_game => '1',
       cart_access_count => x"00",
 
       fpga_temperature => fpga_temperature,
