@@ -429,7 +429,7 @@ begin
       osk_toggle_key => osk_toggle_key,
       sector_buffer_mapped => sector_buffer_mapped,
 
-      -- enable/disable cartridge with sw(8)
+      -- no cartridges on MEGAphone (yet)
       cpu_exrom => '1',
       cpu_game => '1',
 
