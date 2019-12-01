@@ -513,6 +513,10 @@ begin
 --      cpu_exrom => cpu_exrom,
 --      cpu_game => cpu_game,
       -- enable/disable cartridge with sw(8)
+      cpu_exrom => '1',
+      cpu_game => '1',
+
+      -- enable/disable cartridge with sw(8)
       cart_access_count => x"00",
 
       fpga_temperature => fpga_temperature,
@@ -535,27 +539,8 @@ begin
   restore_key <= not btn(1);
 
   -- Push correct clock to LCD panel
-  jbhi(7) <= not clock30 when pal50_select='1' else not cpuclock;
+  jbhi(7) <= clock27;
 
-
-  -- Create BUFG'd 30MHz clock for LCD panel
-  --------------------------------------
-  clkin30_buf : IBUFG
-  port map
-   (O => clock30,
-    I => clock30in);
-
-  process (clock240)
-  begin
-    if rising_edge(clock240) then
-      if (clock30count /= 2 ) then
-        clock30count <= clock30count + 1;
-      else
-        clock30in <= not clock30in;
-        clock30count <= 0;
-      end if;
-    end if;
-  end process;
 
   process (cpuclock,pixelclock,clock30,cpuclock,pal50_select)
   begin
