@@ -439,8 +439,8 @@ begin
       pal50_select_out => pal50_select,
 
       -- Wire up a dummy caps_lock key on switch 8
-      caps_lock_key => '1',
-
+      caps_lock_key => '1',     
+      
       fa_fire => i2c_joya_fire,
       fa_up => i2c_joya_up,
       fa_left => i2c_joya_left,
