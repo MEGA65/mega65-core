@@ -191,12 +191,9 @@ architecture Behavioral of container is
   signal pixelclock : std_logic;
   signal ethclock : std_logic;
   signal cpuclock : std_logic;
-  signal clock40 : std_logic;
-  signal clock120 : std_logic;
-  signal clock100 : std_logic := '0';
-  signal clock200 : std_logic;
-  signal clock240 : std_logic;
-
+  signal clock27 : std_logic;
+  signal clock100 : std_logic;
+  signal clock162 : std_logic;
   
   
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
@@ -270,12 +267,12 @@ begin
 
   dotclock1: entity work.dotclock100
     port map ( clk_in1 => CLK_IN,
-               clock80 => pixelclock, -- 80MHz
-               clock40 => cpuclock, -- 40MHz
-               clock50 => ethclock,
                clock100 => clock100,
-               clock120 => clock120,
-               clock240 => clock240
+               clock81 => pixelclock, -- 80MHz
+               clock41 => cpuclock, -- 40MHz
+               clock50 => ethclock,
+               clock162 => clock162,
+               clock27 => clock27
                );
 
   fpgatemp0: entity work.fpgatemp
@@ -352,10 +349,9 @@ begin
       cpuclock        => cpuclock,
       uartclock       => cpuclock, -- Match CPU clock
       ioclock         => cpuclock, -- Match CPU clock
-      clock240 => clock240,
-      clock120 => clock120,
-      clock40 => cpuclock,
-      clock200 => clock200,
+      clock162 => clock162,
+      clock100 => clock100,
+      clock27 => clock27,
       clock50mhz      => ethclock,
 
       btncpureset => btncpureset,
@@ -371,7 +367,7 @@ begin
       no_hyppo => '0',
       
       vsync           => v_vsync,
-      hsync           => v_hsync,
+      vga_hsync           => v_hsync,
       vgared          => v_red,
       vgagreen        => v_green,
       vgablue         => v_blue,
