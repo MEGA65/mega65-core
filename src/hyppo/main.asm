@@ -1629,8 +1629,8 @@ resetdisplay:
         // (Also required to make sure matrix mode pixels aren't ragged on first boot).
         lda #$80
         sta $d06f
-	// Enable HDMI audio
-	lda #$01
+	// Enable HDMI 44.1KHz audio 
+	lda #$03
 	sta $d61a
 
         // disable test pattern and various other strange video things that might be hanging around
