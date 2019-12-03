@@ -809,11 +809,11 @@ begin
 
     -- Make SPDIF audio switchable for debugging HDMI output
     if portp(0) = '1' then
-      if portp(1) = '0' then
-        hdmi_spdif <= spdif_192000;
-      else
+--      if portp(1) = '0' then
+--        hdmi_spdif <= spdif_192000;
+--      else
         hdmi_spdif <= spdif_44100;
-      end if;
+--      end if;
     else
       hdmi_spdif <= '0';
     end if;      
