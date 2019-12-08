@@ -296,14 +296,6 @@ begin
         timeout_counter <= timeout_counter + 1;
       end if;
       
-      -- Notice when HDMI needs to be reset
-      if hdmi_int = '0' and last_hdmi_int='1' then
-        hdmi_int_latch <= '1';
-        hdmi_reset_phase <= 0;
-        hdmi_int_count <= hdmi_int_count + 1;
-      end if;
-      last_hdmi_int <= hdmi_int;
-      
       -- Write to registers as required
       if cs='1' and fastio_write='1' then
         -- ADV7511 main map registers
@@ -340,6 +332,9 @@ begin
         else
           report "Reset busy_count to 0 from " & integer'image(busy_count);
           busy_count <= 0;
+          if hdmi_int_latch = '1' then
+            hdmi_reset_phase <= 0;
+          end if;
         end if;
       end if;
 
@@ -358,10 +353,13 @@ begin
           bytes(busy_count - 1 - 1 + 0) <= i2c1_rdata;
           if busy_count = (65 + 1 + 1 ) then
             if i2c1_rdata(6) = '1' then
+              -- Check for I2C register $41 containing bit 6 ($40) asserted, to
+              -- indicate that HDMI TX has shut down
               -- Detect if ADV7511 has shut down, and if so, start it back up again.
               -- (This happens whenever HDMI link is lost)
               if write_job_pending='0' then
                 hdmi_int_latch <= '1';
+                hdmi_reset_phase <= 0;
               end if;
             end if;
           end if;
@@ -461,6 +459,16 @@ begin
           report "Starting delayed command";
         end if;
       end if;
+
+      -- Notice when HDMI needs to be reset
+      -- Comes last, so that nothing can derail it, e.g., interrupts mid-way
+      -- through initialisation.
+      if hdmi_int = '0' and last_hdmi_int='1' then
+        hdmi_int_latch <= '1';
+        hdmi_reset_phase <= 0;
+        hdmi_int_count <= hdmi_int_count + 1;
+      end if;
+      last_hdmi_int <= hdmi_int;      
       
     end if;
   end process;
