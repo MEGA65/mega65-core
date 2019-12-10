@@ -1243,6 +1243,12 @@ architecture Behavioural of gs4510 is
 
   signal badline_enable : std_logic := '1';
   signal slow_interrupts : std_logic := '1';
+
+  -- Simulated VDC access
+  signal vdc_reg_num : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal vdc_mem_addr : unsigned(15 downto 0) := to_unsigned(0,16);
+  -- fake VDC status register that claims "always ready"
+  signal vdc_status : unsigned(7 downto 0) := x"80";
   
 begin
 
@@ -1653,6 +1659,39 @@ begin
         wait_states_non_zero <= '1';
         proceed <= '0';
         hyperport_num <= real_long_address(5 downto 0);
+      elsif (long_address = x"ffd0600") then
+        -- Read VDC status #141
+        -- Lie and always claim that VDC is ready
+        read_source <= CPUPort;
+        wait_states <= x"01";
+        wait_states_non_zero <= '1';
+        proceed <= '0';
+        cpuport_num <= x"3";
+      elsif (long_address = x"ffd0601") then
+        if vdc_reg_num = x"1f" then
+          report "Preparing to read from Shadow for simulated VDC access";
+          shadow_address(19 downto 16) <= x"4";
+          shadow_address(15 downto 0) <= vdc_mem_addr;
+          vdc_mem_addr <= vdc_mem_addr + 1;
+          read_source <= Shadow;
+          accessing_shadow <= '1';
+          accessing_rom <= '0';
+          wait_states <= shadow_wait_states;
+          if shadow_wait_states=x"00" then
+            wait_states_non_zero <= '0';
+            proceed <= '1';
+          else
+            wait_states_non_zero <= '1';
+            proceed <= '0';
+          end if;
+        else
+          -- Read simulated VDC registers
+          read_source <= CPUPort;
+          wait_states <= x"01";
+          wait_states_non_zero <= '1';
+          proceed <= '0';
+          cpuport_num <= x"4";
+        end if;
       elsif (long_address = x"0000000") or (long_address = x"0000001") then
         accessing_cpuport <= '1';
         report "Preparing to read from a CPUPort";
@@ -2286,6 +2325,10 @@ begin
             when x"0" => return cpuport_ddr;
             when x"1" => return cpuport_value;
             when x"2" => return rec_status;
+            when x"3" => return vdc_status;
+            when x"4" =>
+              -- Read other VDC registers.
+              return x"ff";
             when others => return x"ff";
           end case;
         when Shadow =>
@@ -2444,6 +2487,27 @@ begin
 
         -- For now, just always report an error condition.
         rec_status <= x"80";
+      elsif (long_address = x"FFD0600") then
+        -- @IO:64 $D600 VDC:REGSEL VDC Register Select
+        -- VDC register select #141
+        vdc_reg_num <= value;
+      elsif (long_address = x"FFD0601") then
+        -- @IO:64 $D601 VDC:DATA VDC Data Access Register
+        case vdc_reg_num is
+          when x"12" =>
+            vdc_mem_addr(15 downto 8) <= value;
+          when x"13" =>
+            vdc_mem_addr(7 downto 0) <= value;
+          when x"1F" =>
+            -- Write to VDC RAM.
+            -- We map VDC RAM always to $40000
+            -- So we re-map this write to $4xxxx
+            long_address(27 downto 16) := x"000";
+            long_address(15 downto 0) := vdc_mem_addr;
+            vdc_mem_addr <= vdc_mem_addr + 1;
+          when others =>
+            null;
+        end case          
       elsif (long_address = x"FFD3700") or (long_address = x"FFD1700") then        
         -- Set low order bits of DMA list address
         reg_dmagic_addr(7 downto 0) <= value;
