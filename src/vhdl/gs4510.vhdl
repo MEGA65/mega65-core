@@ -1670,8 +1670,7 @@ begin
       elsif (long_address = x"ffd0601") then
         if vdc_reg_num = x"1f" then
           report "Preparing to read from Shadow for simulated VDC access";
-          shadow_address(19 downto 16) <= x"4";
-          shadow_address(15 downto 0) <= vdc_mem_addr;
+          shadow_address <= to_integer(vdc_mem_addr)+(4*65536);
           vdc_mem_addr <= vdc_mem_addr + 1;
           read_source <= Shadow;
           accessing_shadow <= '1';
@@ -2507,7 +2506,7 @@ begin
             vdc_mem_addr <= vdc_mem_addr + 1;
           when others =>
             null;
-        end case          
+        end case;
       elsif (long_address = x"FFD3700") or (long_address = x"FFD1700") then        
         -- Set low order bits of DMA list address
         reg_dmagic_addr(7 downto 0) <= value;
