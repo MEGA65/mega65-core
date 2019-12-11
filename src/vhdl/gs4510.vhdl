@@ -1716,6 +1716,13 @@ begin
           proceed <= '0';
           cpuport_num <= x"4";
         end if;
+      elsif (long_address(27 downto 4) = x"ffd060") then
+        -- Debug VDC and other CPU port things
+        read_source <= CPUPort;
+        wait_states <= x"01";
+        wait_states_non_zero <= '1';
+        proceed <= '0';
+        cpuport_num <= long_address(3 downto 0);        
       elsif (long_address = x"0000000") or (long_address = x"0000001") then
         accessing_cpuport <= '1';
         report "Preparing to read from a CPUPort";
@@ -2373,6 +2380,9 @@ begin
             when x"4" =>
               -- Read other VDC registers.
               return x"ff";
+            when x"5" => return vdc_mem_addr(7 downto 0);
+            when x"6" => return vdc_mem_addr(15 downto 8);
+            when x"7" => return vdc_reg_num(7 downto 0);
             when others => return x"ff";
           end case;
         when Shadow =>
