@@ -1671,7 +1671,7 @@ begin
         if vdc_reg_num = x"1f" then
           report "Preparing to read from Shadow for simulated VDC access";
           shadow_address <= to_integer(vdc_mem_addr)+(4*65536);
-          shadow_address_next <= to_integer(vdc_mem_addr)+(4*65536);
+          shadow_address_var := to_integer(vdc_mem_addr)+(4*65536);
           vdc_mem_addr <= vdc_mem_addr + 1;
           read_source <= Shadow;
           accessing_shadow <= '1';
