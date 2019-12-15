@@ -262,7 +262,25 @@ notarp:
 
 process_tftp_packet:	
 
+	lda $682d
+	sta $0409
+	cmp #$01
+	bne not_tftp_read_req
+	jmp tftp_read_req
+not_tftp_read_req:
+
 	inc $0403
+	rts
+
+tftp_read_req:
+	; Show filename being requested
+	lda #<$682e
+	ldy #>$682e
+	jsr $ab1e
+
+	lda #$0d
+	jsr $ffd2
+
 	rts
 
 ; ----------------------------------------------------------------------------------------
