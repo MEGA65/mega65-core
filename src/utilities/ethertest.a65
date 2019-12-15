@@ -240,14 +240,14 @@ send_icmp_reply:
 	; Set our MAC address (hardwired to 40:40:40:40:40:40 for now)
 	lda #$40
 	ldx #5
-ml1:	sta $3800,x
+ml1:	sta $3806,x
 	dex
 	bpl ml1
 	
 	; Copy source MAC address to destination position
 	ldx #5
 ml2:	lda $6808,x ; skip 2 bytes for len etc, then 6 bytes of dest mac addr (broadcast)
-	sta $3808,x
+	sta $3800,x
 	dex
 	bpl ml2
 
