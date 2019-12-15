@@ -2549,10 +2549,10 @@ begin
           when x"13" =>
             vdc_mem_addr(7 downto 0) <= value;
           when x"1F" =>
-            -- Write to VDC RAM.
-            -- We advance memory pointer here, but real write happens elsewhere
+            -- Write to VDC RAM.            
+            -- Real write happens elsewhere
             -- (search for x"ffd0601")
-            vdc_mem_addr <= vdc_mem_addr + 1;
+            null;
           when others =>
             null;
         end case;
@@ -7600,6 +7600,7 @@ begin
           -- So we re-map this write to $4xxxx
           long_address(27 downto 16) := x"004";
           long_address(15 downto 0) := vdc_mem_addr;
+          vdc_mem_addr <= vdc_mem_addr + 1;
         end if;
         
         -- shadow_address_var := to_integer(long_address(16 downto 0));
