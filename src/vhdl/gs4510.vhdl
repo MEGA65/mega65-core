@@ -2507,7 +2507,7 @@ begin
             -- Write to VDC RAM.            
             -- Real write happens elsewhere
             -- (search for x"ffd0601")
-            null;
+            vdc_mem_addr <= vdc_mem_addr + 1;
           when others =>
             null;
         end case;
@@ -7494,21 +7494,6 @@ begin
 
         real_long_address := memory_access_address;
 
-        -- Remap GeoRAM memory accesses
-        if real_long_address(27 downto 16) = x"FFD"
-          and real_long_address(11 downto 8)= x"E"
-          and georam_blockmask /= x"00" then
-          long_address := georam_page&real_long_address(7 downto 0);
-        end if;
-
-        if real_long_address = x"ffd0601" and vdc_reg_num = x"1f" then
-          -- We map VDC RAM always to $40000
-          -- So we re-map this write to $4xxxx
-          long_address(27 downto 16) := x"004";
-          long_address(15 downto 0) := vdc_mem_addr;
-          vdc_mem_addr <= vdc_mem_addr + 1;
-        end if;
-        
         -- shadow_address_var := to_integer(long_address(16 downto 0));
         
         if
@@ -7533,6 +7518,16 @@ begin
         -- something else? (PGS)
         elsif real_long_address(27 downto 16) = x"7F4" then
           long_address := x"FF80"&'0'&real_long_address(10 downto 0);
+        -- Remap GeoRAM memory accesses
+        elsif real_long_address(27 downto 16) = x"FFD"
+          and real_long_address(11 downto 8)= x"E"
+          and georam_blockmask /= x"00" then
+          long_address := georam_page&real_long_address(7 downto 0);
+        elsif real_long_address = x"ffd0601" and vdc_reg_num = x"1f" then
+          -- We map VDC RAM always to $40000
+          -- So we re-map this write to $4xxxx
+          long_address(27 downto 16) := x"004";
+          long_address(15 downto 0) := vdc_mem_addr;
         else
           long_address := real_long_address;
         end if;
