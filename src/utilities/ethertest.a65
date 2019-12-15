@@ -23,6 +23,10 @@ programentrypoint:
 	lda #$53
 	sta $D02f
 
+	; Fast CPU
+	lda #65
+	sta 0
+
 	; Reset ethernet
 	lda #$0
 	sta $d6e0
@@ -100,6 +104,8 @@ packetloop:
 	ora #$01
 	sta $d6e1
 
+	jmp noshowpacket
+
 	; to clear the screen
 	lda #$93
 	jsr $ffd2
@@ -125,12 +131,15 @@ loop1:	lda $6800,x
 	lda #$20
 	jsr $FFD2   
 
+noshowpacket:
 	; Is it an IPv4 packet?
 	lda $6810
 	cmp #$45
 	bne noticmpping
 	; Is it an ICMP packet?
 	lda $6819
+	cmp #$11
+	beq isudp
 	cmp #$01
 	bne noticmpping
 	; Check ICMP message type
@@ -149,7 +158,18 @@ isicmpping:
 	; It's a ping packet.
 	jsr send_icmp_reply	
 
+isudp:
+	inc $0402
+	lda $6827
+	cmp #<69
+	bne nottftp
+	lda $6826
+	cmp #>69
+	bne nottftp
 
+	jsr process_tftp_packet
+
+nottftp:
 noticmpping:
 	; Here we want to check that $680E - $6817 =
 	; 08 06 00 01 08 00 06 04 00 01
@@ -233,6 +253,11 @@ notarp:
 	jmp packetloop
 
 ; ----------------------------------------------------------------------------------------
+
+process_tftp_packet:
+	inc $0403
+	rts
+
 ; ----------------------------------------------------------------------------------------
 
 
@@ -303,11 +328,28 @@ ml5:	lda $3800,x
 	and #$0f
 	sta $d6e3
 
+	lda $d6e4
+	and #$06
+	sta $0418
+
 	; TX packet
 	lda #$01
 	sta $d6e4
 
+txwaitloop:
+	lda $D6E4
+	and #$06
+	beq txready
+	inc $0401
+	jmp txwaitloop
+
+txready:
+	; send packet 2nd time
+	lda #$01
+	sta $d6e4
+
 	inc $d020
+	inc $0400
 
 	jmp packetloop
 
