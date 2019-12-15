@@ -1675,14 +1675,10 @@ begin
           read_source <= Shadow;
           accessing_shadow <= '1';
           accessing_rom <= '0';
-          wait_states <= shadow_wait_states;
-          if shadow_wait_states=x"00" then
-            wait_states_non_zero <= '0';
-            proceed <= '1';
-          else
-            wait_states_non_zero <= '1';
-            proceed <= '0';
-          end if;
+          -- XXX Allow time for access to shadow RAM to complete
+          wait_states <= x"01";
+          wait_states_non_zero <= '1';
+          proceed <= '0';
         else
           -- Read simulated VDC registers
           read_source <= CPUPort;
@@ -2509,10 +2505,8 @@ begin
             vdc_mem_addr(7 downto 0) <= value;
           when x"1F" =>
             -- Write to VDC RAM.
-            -- We map VDC RAM always to $40000
-            -- So we re-map this write to $4xxxx
-            long_address(27 downto 16) := x"004";
-            long_address(15 downto 0) := vdc_mem_addr;
+            -- We advance memory pointer here, but real write happens elsewhere
+            -- (search for x"ffd0601")
             vdc_mem_addr <= vdc_mem_addr + 1;
           when others =>
             null;
@@ -7507,6 +7501,13 @@ begin
           long_address := georam_page&real_long_address(7 downto 0);
         end if;
 
+        if real_long_address = x"ffd0601" and vdc_reg_num = x"1f" then
+          -- We map VDC RAM always to $40000
+          -- So we re-map this write to $4xxxx
+          long_address(27 downto 16) := x"004";
+          long_address(15 downtgo 0) := vdc_mem_addr;
+        end if;
+        
         -- shadow_address_var := to_integer(long_address(16 downto 0));
         
         if
@@ -7575,6 +7576,13 @@ begin
           and real_long_address(11 downto 8) = x"E"
           and georam_blockmask /= x"00" then
           long_address := georam_page&real_long_address(7 downto 0);
+        end if;
+
+        if real_long_address = x"ffd0601" and vdc_reg_num = x"1f" then
+          -- We map VDC RAM always to $40000
+          -- So we re-map this write to $4xxxx
+          long_address(27 downto 16) := x"004";
+          long_address(15 downtgo 0) := vdc_mem_addr;          
         end if;
         
         if real_long_address(27 downto 12) = x"001F" and real_long_address(11)='1' then
