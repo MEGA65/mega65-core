@@ -7599,7 +7599,7 @@ begin
           -- We map VDC RAM always to $40000
           -- So we re-map this write to $4xxxx
           long_address(27 downto 16) := x"004";
-          long_address(15 downtgo 0) := vdc_mem_addr;
+          long_address(15 downto 0) := vdc_mem_addr;
         end if;
         
         -- shadow_address_var := to_integer(long_address(16 downto 0));
@@ -7676,7 +7676,7 @@ begin
           -- We map VDC RAM always to $40000
           -- So we re-map this write to $4xxxx
           long_address(27 downto 16) := x"004";
-          long_address(15 downtgo 0) := vdc_mem_addr;          
+          long_address(15 downto 0) := vdc_mem_addr;          
         end if;
         
         if real_long_address(27 downto 12) = x"001F" and real_long_address(11)='1' then
