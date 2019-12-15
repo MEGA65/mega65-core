@@ -32,6 +32,10 @@ programentrypoint:
 	sta $d6e0
 	lda #1
 	sta $d6e0
+	
+	lda #<msg_startup
+	ldy #>msg_startup
+	jsr $ab1e
 
 	; Set our MAC address to 40:40:40:40:40:40
 	ldx #5
@@ -273,6 +277,12 @@ not_tftp_read_req:
 	rts
 
 tftp_read_req:
+	jsr print_src_ip
+	
+	lda #<msg_read_req
+	ldy #>msg_read_req
+	jsr $ab1e
+	
 	; Show filename being requested
 	lda #<$682e
 	ldy #>$682e
@@ -280,6 +290,40 @@ tftp_read_req:
 
 	lda #$0d
 	jsr $ffd2
+
+	rts
+
+msg_read_req:
+	.byte " rEQUESTING FILE ",0
+
+msg_startup:
+	.byte $93,$11,"mega65 tftp sERVER v0.0.1",$0d
+	.byte "ip ADDRESS IS X.X.X.65, WHERE X.X.X.X",$0d
+	.byte "IS YOUR NETWORK PREFIX.",$0d
+	.byte 0
+
+print_src_ip:
+	lda #0
+	ldx $681c
+	jsr $bdcd
+	lda #$2e
+	jsr $ffd2
+
+	lda #0
+	ldx $681d
+	jsr $bdcd
+	lda #$2e
+	jsr $ffd2
+
+	lda #0
+	ldx $681e
+	jsr $bdcd
+	lda #$2e
+	jsr $ffd2
+
+	lda #0
+	ldx $681f
+	jsr $bdcd
 
 	rts
 
