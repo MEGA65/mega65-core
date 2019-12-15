@@ -29,6 +29,13 @@ programentrypoint:
 	lda #1
 	sta $d6e0
 
+	; Set our MAC address to 40:40:40:40:40:40
+	ldx #5
+	lda #$40
+mac1:	sta $d6e9,x
+	dex
+	bpl mac1
+
 	; Map ethernet registers at $6000 - $7FFF
 
 	; Ethernet controller really lives $FFDE000 - $FFDEFFF, so select $FF megabyte section for MAP LO
@@ -112,26 +119,41 @@ loop1:	lda $6800,x
 
 	; Print length of packet
 	lda $6801
-	and #$7f
+	and #$0f
 	ldx $6800
 	jsr $BDCD   
 	lda #$20
 	jsr $FFD2   
 
+	; Is it an IPv4 packet?
+	lda $6810
+	cmp #$45
+	bne noticmpping
+	; Is it an ICMP packet?
+	lda $6819
+	cmp #$01
+	bne noticmpping
+	; Check ICMP message type
+	lda $6824
+	cmp #$08
+	bne noticmpping
+	; Check last quad of IP addres is 255 (broadcast) or 65 (us)
+	lda $6823
+	sta $0420
+	cmp #$ff
+	beq isicmpping
+	cmp #65
+	bne noticmpping 
 
+isicmpping:
+	; It's a ping packet.
+	jsr send_icmp_reply	
+
+
+noticmpping:
 	; Here we want to check that $680E - $6817 =
 	; 08 06 00 01 08 00 06 04 00 01
 	;
-
-	ldx #9
-arpdloop:
-	lda arptemplate,x
-	sta $0450,x
-	lda $680e,x
-	sta $0428,x
-	dex
-	bpl arpdloop
-
 	ldx #$09
 arploop0:
 	lda $680e,x
@@ -207,6 +229,85 @@ arploop4:
 
 notarp:
 
+
+	jmp packetloop
+
+; ----------------------------------------------------------------------------------------
+; ----------------------------------------------------------------------------------------
+
+
+send_icmp_reply:
+	; Set our MAC address (hardwired to 40:40:40:40:40:40 for now)
+	lda #$40
+	ldx #5
+ml1:	sta $3800,x
+	dex
+	bpl ml1
+	
+	; Copy source MAC address to destination position
+	ldx #5
+ml2:	lda $6808,x ; skip 2 bytes for len etc, then 6 bytes of dest mac addr (broadcast)
+	sta $3808,x
+	dex
+	bpl ml2
+
+	; Copy packet body etc, which we will patch in a moment
+	ldx #$00
+ml3:	lda $680e,x
+	sta $380c,x
+	inx
+	bne ml3
+
+	; Set ICMP type to reply
+	lda #$00
+	sta $3822
+
+	; Set source IP address as destination
+	ldx #$3
+ml4:	lda $681c,x
+	sta $381e,x
+	dex
+	bpl ml4
+	; And set last octet of source address to be us (we assume we are always on a /24 aka class c net)
+	lda #65
+	sta $381d
+
+
+	; XXX Update ICMP check sum
+	lda $3832
+	clc
+	adc #$08
+	sta $3832
+	; XXX Update IP checksum
+	lda $6823 ; last octet of dest address
+	sec
+	sbc #65
+	clc
+	adc $3819
+	sta $3819
+	lda $3818
+	adc #0
+	sta $3818
+
+	; copy packet to TX area
+	ldx #$00
+ml5:	lda $3800,x
+	sta $6800,x
+	dex
+	bne ml5
+
+	; Copy length from received packet
+	lda $6800
+	sta $d6e2
+	lda $6801
+	and #$0f
+	sta $d6e3
+
+	; TX packet
+	lda #$01
+	sta $d6e4
+
+	inc $d020
 
 	jmp packetloop
 
