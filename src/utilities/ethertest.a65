@@ -283,8 +283,9 @@ not_tftp_read_req:
 tftp_read_req:
 
 	; Reset file sequence number
-	lda #$00
+	lda #<1
 	sta seq_num
+	lda #>1
 	sta seq_num+1
 
 	jsr print_src_ip
