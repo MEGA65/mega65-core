@@ -48,7 +48,7 @@ dos_and_process_trap_table:
         .word trap_dos_readdir
         .word trap_dos_closedir
         .word trap_dos_openfile
-        .word trap_dos_readfile                 // not currently implememted
+        .word trap_dos_readfile                 
         .word trap_dos_writefile                // not currently implememted
         .word trap_dos_mkfile                   // not currently implememted
 
@@ -349,6 +349,10 @@ trap_dos_closedir:
 
 //         ========================
 
+trap_dos_readfile:
+	jsr dos_readfile	
+        jmp return_from_trap_with_carry_flag
+	
 trap_dos_openfile:
 
         // Opens file in current dirent structure
@@ -493,7 +497,6 @@ td81we1:
 
 // BG: the following are placeholders for the future development
 
-trap_dos_readfile:
 trap_dos_getdisksize:
 trap_dos_getcwd:
 trap_dos_chdir:
@@ -2577,6 +2580,16 @@ dscffd1:
         sta dos_file_descriptors+dos_filedescriptor_offset_offsetinsector+0,x
         sta dos_file_descriptors+dos_filedescriptor_offset_offsetinsector+1,x
 
+        // Get length of file, so that we can
+        // limit load to reported length of file, instead assuming cluster
+        // chain is correct length, and file ends on a cluster boundary
+        ldx #$03
+!:      lda dos_dirent_length,x
+        sta dos_bytes_remaining,x
+	sta $0600,x
+        dex
+        bpl !-
+	
         sec
         rts
 
@@ -3001,15 +3014,6 @@ dos_readfileintomemory:
         jsr dos_closefile
         plp
 
-        // Have directory entry.  Get length of file, so that we can
-        // limit load to reported length of file, instead assuming cluster
-        // chain is correct length, and file ends on a cluster boundary
-        ldx #$03
-!:      lda dos_dirent_length,x
-        sta dos_bytes_remaining,x
-        dex
-        bpl !-
-
         // ... but report if we hit an error
         //
         bcc l_dos_return_error_already_set
@@ -3157,6 +3161,79 @@ dos_load_y_based_on_dos_bytes_remaining:
         sta dos_bytes_remaining+3
         rts
 
+
+dos_readfile:
+
+	inc $0700
+
+	lda dos_bytes_remaining+0
+	sta $0728+0
+	lda dos_bytes_remaining+1
+	sta $0728+1
+	lda dos_bytes_remaining+2
+	sta $0728+2
+	lda dos_bytes_remaining+3
+	sta $0728+3
+	
+	lda dos_bytes_remaining+0
+	ora dos_bytes_remaining+1
+	ora dos_bytes_remaining+2
+	ora dos_bytes_remaining+3
+	bne !+
+
+	// End of file
+	clc
+	rts
+	
+!:
+	inc $0701
+	
+	lda dos_bytes_remaining+2
+	ora dos_bytes_remaining+3
+	bne !+   // lots more to read
+	lda dos_bytes_remaining+1
+	cmp #1
+	bcs !+   // at least a whole sector more to read
+
+	// Only a fractional part of a sector to read, so zero out remaining
+	inc $0702
+
+	lda #$00
+	sta dos_bytes_remaining+0
+	// Actually make it look like 1 sector to go, so we decrement that to zero
+	// immediately below
+	lda #$02
+	sta dos_bytes_remaining+1
+	// FALL THROUGH
+!:
+	inc $0703
+	// Deduct one sector from the remaining
+	lda dos_bytes_remaining+1
+	sec
+	sbc #2
+	sta dos_bytes_remaining+1
+	lda dos_bytes_remaining+2
+	sbc #0
+	sta dos_bytes_remaining+2
+	lda dos_bytes_remaining+3
+	sbc #0
+	sta dos_bytes_remaining+3
+	
+	// Now read sector and return
+	
+        jsr sd_map_sectorbuffer
+        jsr dos_file_read_current_sector
+        bcs drf_gotsector
+	rts
+	
+drf_gotsector:
+	// Then advance to next sector.
+	// Ignore the error, as the EOF will get picked up on the next call.
+	jsr dos_file_advance_to_next_sector
+	sec
+	rts
+	
+	
 //         ========================
 
 dos_setname:
