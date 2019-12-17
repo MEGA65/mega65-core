@@ -325,7 +325,7 @@ file_not_found:
 	; Prepare a TFTP error response
 
 	; Insert error message
-	ldx #57
+	ldx #58
 fnf1:	lda tftp_error_file_not_found_bytes,x
 	sta $380c,x
 	dex
@@ -340,9 +340,9 @@ fnf1:	lda tftp_error_file_not_found_bytes,x
 	jsr setup_tftp_packet
 	
 	; Set packet length
-	lda #<69
+	lda #<70
 	sta $d6e2
-	lda #>69
+	lda #>70
 	sta $d6e3
 
 	jsr ip_calc_checksum
@@ -355,14 +355,17 @@ file_exists:
 	rts
 
 udp_calc_checksum:
-	; XXX Fix
+	; clear checksum field, as UDP checksum is optional
 	lda #$00
 	sta $3828
 	sta $3829
-	rts	
+	sta checksum+0
+	sta checksum+1
+
+	rts
 
 ip_calc_checksum:
-	; check checksum field
+	; clear checksum field
 	lda #$00
 	sta $3818
 	sta $3819
@@ -409,12 +412,27 @@ checksum_add_right:
 checksum:
 	.word 0
 
+; Example good exchange captured from my laptop:
+;15:13:52.782243 IP (tos 0x0, ttl 64, id 54441, offset 0, flags [DF], proto UDP (17), length 43)
+;    127.0.0.1.60858 > 127.0.0.1.69: [bad udp cksum 0xfe2a -> 0x7eb9!]  15 RRQ "foo" netascii
+;	0x0000:  0000 0000 0000 0000 0000 0000 0800 4500
+;	0x0010:  002b d4a9 4000 4011 6816 7f00 0001 7f00
+;	0x0020:  0001 edba 0045 0017 fe2a 0001 666f 6f00
+;	0x0030:  6e65 7461 7363 6969 00
+;15:13:52.782622 IP (tos 0x0, ttl 64, id 54442, offset 0, flags [DF], proto UDP (17), length 56)
+;    127.0.0.1.69 > 127.0.0.1.60858: [bad udp cksum 0xfe37 -> 0x827a!]  28 ERROR ENOTFOUND "Operation not permitte"
+;	0x0000:  0000 0000 0000 0000 0000 0000 0800 4500
+;	0x0010:  0038 d4aa 4000 4011 6808 7f00 0001 7f00
+;	0x0020:  0001 0045 edba 0024 fe37 0005 0001 4f70
+;	0x0030:  6572 6174 696f 6e20 6e6f 7420 7065 726d
+;	0x0040:  6974 7465 0000
+
 
 tftp_error_file_not_found_bytes:
 	; TFTP file not found error packet contents
 	.byte $08, $00    ; boring old-style ethernet frame
 	.byte $45, $00    ; IPv4
-	.byte $00, $2b    ; IP packet length?
+	.byte $00, $38    ; IP packet length
 	.byte $86, $4b    ; Identification field (not used)
 	.byte $40, $00    ; Don't fragment. Not a fragment
 	.byte $40, $11    ; UDP protocol
@@ -423,11 +441,12 @@ tftp_error_file_not_found_bytes:
 	.word 0,0         ; Destination IP address
 	.byte $00, $45    ; Source port
 	.byte $FF, $FF    ; Destination port 
-	.byte $00, $29    ; Length
+	.byte $00, $24    ; UDP packet Length
 	.byte $00, $00    ; UDP checksum
 	.byte $00,$05     ; TFTP Error opcode
 	.byte $00,$01     ; File not found
 	.byte "? FILE NOT FOUND ERROR",$00
+	.byte $00         ; pad to byte pair
 
 msg_read_req:
 	.byte " rEQUESTING FILE ",0
