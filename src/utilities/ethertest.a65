@@ -282,7 +282,14 @@ tftp_read_req:
 	lda #<msg_read_req
 	ldy #>msg_read_req
 	jsr $ab1e
-	
+
+	; Copy source UDP port for inserting into reply packets.
+	; (means we can have only one transfer in progress at a time.)
+	lda $6824
+	sta remote_port
+	lda $6824+1
+	sta remote_port+1
+
 	; Show filename being requested
 	lda #<$682e
 	ldy #>$682e
@@ -312,22 +319,39 @@ fc1:	lda $682e,y
 
 file_not_found:
 	; Prepare a TFTP error response
-;	jsr setup_tftp_packet
+	jsr setup_tftp_packet
 	; Insert error message
-	ldx #27
-fnf1:	lda tftp_error_file_not_found,x
-	sta $3820,x
+	ldx #35
+fnf1:	lda tftp_error_file_not_found_bytes,x
+	sta $3822,x
 	dex
 	bpl fnf1
+
+	lda remote_port+0
+	sta $3824+0
+	lda remote_port+1
+	sta $3824+1
+
+	; Set packet length
+	lda #<69
+	sta $d6e2
+	lda #>69
+	sta $d6e3
 	
+	jsr ether_tx_packet
+
 file_exists:
 
 	rts
 
-tftp_error_file_not_found:
+tftp_error_file_not_found_bytes:
 	; TFTP file not found error packet contents
-	.byte $00,$05 ; Error opcode
-	.byte $00,$01 ; File not found
+	.byte $00, $45    ; Source port
+	.byte $FF, $FF    ; Destination port 
+	.byte $00, $29    ; Length
+	.byte $00, $00    ; UDP checksum
+	.byte $00,$05     ; TFTP Error opcode
+	.byte $00,$01     ; File not found
 	.byte "? FILE NOT FOUND ERROR",$00
 
 msg_read_req:
@@ -338,6 +362,18 @@ msg_startup:
 	.byte "ip ADDRESS IS X.X.X.65, WHERE X.X.X.X",$0d
 	.byte "IS YOUR NETWORK PREFIX.",$0d
 	.byte 0
+
+remote_port:
+	.word 0
+
+; ----------------------------------------------------------------------------------------
+setup_tftp_packet:
+	jsr ether_setup_addresses
+	jsr ip_swap_addresses
+
+	rts
+
+; ----------------------------------------------------------------------------------------
 
 print_src_ip:
 	lda #0
@@ -363,6 +399,17 @@ print_src_ip:
 	jsr $bdcd
 
 	rts
+
+ip_swap_addresses:
+	; Set source IP address as destination
+	ldx #$3
+ml4:	lda $681c,x
+	sta $381e,x
+	dex
+	bpl ml4
+	; And set last octet of source address to be us (we assume we are always on a /24 aka class c net)
+	lda #65
+	sta $381d
 
 ; ----------------------------------------------------------------------------------------
 ether_copy_packet:
@@ -482,16 +529,7 @@ send_icmp_reply:
 	lda #$00
 	sta $3822
 
-	; Set source IP address as destination
-	ldx #$3
-ml4:	lda $681c,x
-	sta $381e,x
-	dex
-	bpl ml4
-	; And set last octet of source address to be us (we assume we are always on a /24 aka class c net)
-	lda #65
-	sta $381d
-
+	jsr ip_swap_addresses
 
 	; XXX Update ICMP check sum
 	lda $3832
