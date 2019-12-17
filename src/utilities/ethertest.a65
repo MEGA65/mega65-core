@@ -283,9 +283,9 @@ not_tftp_read_req:
 tftp_read_req:
 
 	; Reset file sequence number
-	lda #<1
+	lda #<0
 	sta seq_num
-	lda #>1
+	lda #>0
 	sta seq_num+1
 
 	jsr print_src_ip
@@ -395,15 +395,35 @@ fno1:	lda tftp_error_cant_open_file_bytes,x
 file_opened:
 
 	; Now loop through reading the file and sending the packets
+
+	; FALL THROUGH
+tftp_send_next_data_block:
+
+	; Bump sequence number
+	lda seq_num+0
+	clc
+	adc #1
+	sta seq_num+0
+	lda seq_num+1
+	adc #0
+	sta seq_num+1
+
+	; Actually, we just get the first packet of data, and send that.
+	; The other blocks (and any retransmissions) will happen in the
+	; main packet loop
 	lda #$1a
 	sta $d640
 	nop
 
-	php
-
 	; Number of bytes read are reported in $YYXX
-	phy
-	phx
+	; so file away for later.
+	stx data_bytes+0
+	sty data_bytes+1
+
+	jsr tftp_resend_data_block
+	rts
+
+tftp_resend_data_block:
 
 	ldx #32
 fd1:	lda tftp_data_packet_bytes,x
@@ -417,28 +437,19 @@ fd1:	lda tftp_data_packet_bytes,x
 	sta $3824+1
 
 	; Set correct UDP payload length
-	plx
-	ply
-	txa
+	lda data_bytes+0
 	clc
 	adc #<8
 	sta $3826+1
-	tya
+	lda data_bytes+1
 	adc #>8
 	sta $3826+0
 
-	; Update packet sequence number
+	; Insert packet sequence number
 	lda seq_num
 	sta $382c+1
-	clc
-	adc #$01
-	sta seq_num
-	sta $0420
 	lda seq_num+1
 	sta $382c+0
-	adc #0
-	sta seq_num+1
-	sta $0421
 
 	jsr setup_tftp_packet	
 
@@ -456,10 +467,6 @@ fd1:	lda tftp_data_packet_bytes,x
 	jsr udp_calc_checksum
 
 	jsr ether_tx_packet
-
-	plp
-
-	bcs file_opened
 
 	rts
 
@@ -522,6 +529,9 @@ checksum:
 	.word 0
 
 seq_num:
+	.word 0
+
+data_bytes:
 	.word 0
 
 ; Example good exchange captured from my laptop:
