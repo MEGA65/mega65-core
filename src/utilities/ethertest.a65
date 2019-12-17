@@ -44,6 +44,12 @@ mac1:	sta $d6e9,x
 	dex
 	bpl mac1
 
+	inc $d021
+	lda #$1a
+	sta $d640
+	nop
+	dec $d021
+
 	; Map ethernet registers at $6000 - $7FFF
 
 	; Ethernet buffer really lives $FFDE000 - $FFDEFFF, so select $FF megabyte section for MAP LO
@@ -388,7 +394,13 @@ fno1:	lda tftp_error_cant_open_file_bytes,x
 file_opened:
 
 	; Now loop through reading the file and sending the packets
-	
+	inc $d021
+	lda #$1a
+	sta $d640
+	nop
+	dec $d021
+	inc $0424
+	bcs file_opened
 
 	rts
 
