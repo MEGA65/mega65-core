@@ -281,6 +281,12 @@ not_tftp_read_req:
 	rts
 
 tftp_read_req:
+
+	; Reset file sequence number
+	lda #$00
+	sta seq_num
+	sta seq_num+1
+
 	jsr print_src_ip
 	
 	lda #<msg_read_req
@@ -392,14 +398,55 @@ file_opened:
 	sta $d640
 	nop
 
+	php
+
 	; Number of bytes read are reported in $YYXX
 	phy
 	phx
 
-	jsr setup_tftp_packet	
-	
+	ldx #32
+fd1:	lda tftp_data_packet_bytes,x
+	sta $380c,x
+	dex
+	bpl fd1
+
+	lda remote_port+0
+	sta $3824+0
+	lda remote_port+1
+	sta $3824+1
+
+	; Set correct data payload length
 	plx
 	ply
+	sty $3826+0
+	stx $3826+1
+
+	; Update packet sequence number
+	lda seq_num
+	sta $362c+1
+	clc
+	adc #$01
+	sta seq_num
+	lda seq_num+1
+	sta $362c+0
+	adc #0
+	sta seq_num+1	
+
+	jsr setup_tftp_packet	
+
+	lda $3826+1
+	clc
+	adc #<64         ; Packet length overhead
+	sta $d6e2
+	lda $3826+0
+	adc #>64         ; Packet length overhead
+	sta $d6e3
+	jsr ip_calc_checksum
+	jsr udp_calc_checksum
+
+	jsr ether_tx_packet
+
+	plp
 
 	bcs file_opened
 
@@ -463,6 +510,9 @@ checksum_add_right:
 checksum:
 	.word 0
 
+seq_num:
+	.word 0
+
 ; Example good exchange captured from my laptop:
 ;15:13:52.782243 IP (tos 0x0, ttl 64, id 54441, offset 0, flags [DF], proto UDP (17), length 43)
 ;    127.0.0.1.60858 > 127.0.0.1.69: [bad udp cksum 0xfe2a -> 0x7eb9!]  15 RRQ "foo" netascii
@@ -518,6 +568,25 @@ tftp_error_cant_open_file_bytes:
 	.byte $00,$01     ; File not found
 	.byte "? CANT OPEN FILE ERROR",$00
 	.byte $00         ; pad to byte pair
+
+
+tftp_data_packet_bytes:
+	; TFTP file not found error packet contents
+	.byte $08, $00    ; boring old-style ethernet frame
+	.byte $45, $00    ; IPv4
+	.byte $02, $22    ; IP packet length
+	.byte $86, $4b    ; Identification field (not used)
+	.byte $40, $00    ; Don't fragment. Not a fragment
+	.byte $40, $11    ; UDP protocol
+	.word 0           ; IP header checksum 
+	.word 0,0         ; Source IP address
+	.word 0,0         ; Destination IP address
+	.byte $00, $45    ; Source port
+	.byte $FF, $FF    ; Destination port 
+	.byte $02, $00    ; UDP packet Length
+	.byte $00, $00    ; UDP checksum
+	.byte $00, $03    ; TFTP Data packet
+	.word 0           ; Packet sequence number
 
 
 msg_read_req:
