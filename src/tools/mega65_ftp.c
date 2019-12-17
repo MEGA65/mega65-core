@@ -1327,7 +1327,7 @@ int show_directory(char *path)
     if (fat_opendir(path)) { retVal=-1; break; }
     // printf("Opened directory, dir_sector=%d (absolute sector = %d)\n",dir_sector,partition_start+dir_sector);
     while(!fat_readdir(&de)) {
-      if (de.d_name[0]&&(de.d_off>=0))
+      if (de.d_name[0]&&((unsigned char )de.d_name[0]!=0xe5)&&(de.d_off>=0))
 	printf("%12d %s\n",(int)de.d_off,de.d_name);
     }
   } while(0);
