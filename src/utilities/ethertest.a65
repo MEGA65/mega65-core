@@ -349,8 +349,46 @@ fnf1:	lda tftp_error_file_not_found_bytes,x
 	jsr udp_calc_checksum
 
 	jsr ether_tx_packet
+	rts
 
 file_exists:
+
+	lda #$18
+	sta $d640
+	nop
+	bcs file_opened	
+
+	; Insert error message
+	ldx #58
+fno1:	lda tftp_error_cant_open_file_bytes,x
+	sta $380c,x
+	dex
+	bpl fno1
+
+	lda remote_port+0
+	sta $3824+0
+	lda remote_port+1
+	sta $3824+1
+
+	; Now setup common parts
+	jsr setup_tftp_packet
+	
+	; Set packet length
+	lda #<70
+	sta $d6e2
+	lda #>70
+	sta $d6e3
+
+	jsr ip_calc_checksum
+	jsr udp_calc_checksum
+
+	jsr ether_tx_packet
+	rts
+
+file_opened:
+
+	; Now loop through reading the file and sending the packets
+	
 
 	rts
 
@@ -447,6 +485,27 @@ tftp_error_file_not_found_bytes:
 	.byte $00,$01     ; File not found
 	.byte "? FILE NOT FOUND ERROR",$00
 	.byte $00         ; pad to byte pair
+
+tftp_error_cant_open_file_bytes:
+	; TFTP file not found error packet contents
+	.byte $08, $00    ; boring old-style ethernet frame
+	.byte $45, $00    ; IPv4
+	.byte $00, $38    ; IP packet length
+	.byte $86, $4b    ; Identification field (not used)
+	.byte $40, $00    ; Don't fragment. Not a fragment
+	.byte $40, $11    ; UDP protocol
+	.word 0           ; IP header checksum 
+	.word 0,0         ; Source IP address
+	.word 0,0         ; Destination IP address
+	.byte $00, $45    ; Source port
+	.byte $FF, $FF    ; Destination port 
+	.byte $00, $24    ; UDP packet Length
+	.byte $00, $00    ; UDP checksum
+	.byte $00,$05     ; TFTP Error opcode
+	.byte $00,$01     ; File not found
+	.byte "? CANT OPEN FILE ERROR",$00
+	.byte $00         ; pad to byte pair
+
 
 msg_read_req:
 	.byte " rEQUESTING FILE ",0
