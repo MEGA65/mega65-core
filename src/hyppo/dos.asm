@@ -302,9 +302,11 @@ trap_dos_mkfile:
 	sta $0715
 
 	// Now go looking for empty FAT sectors
-	// Start at cluster 2, and add 128 each time to step through
+	// Start at cluster 128, and add 128 each time to step through
 	// them.
-	lda #$02
+	// This skips the first sector of FAT, which always has some used
+	// bits, and ensures we can allocate on a whole sector basis.
+	lda #128
 	sta zptempv32+0
 	lda #$00
 	sta zptempv32+1
@@ -486,11 +488,14 @@ found_enough_contiguous_free_space:
 	// Work out how many sectors full of incrementing clusters
 	// we need.
 	lda dos_scratch_byte_1
-	sec
-	sbc #1
 	sta dos_scratch_byte_2
 mkfile_fat_write_loop:	
 	// Get the (currently empty) sector
+	ldx #3
+!:	lda zptempv32,x
+	sta dos_current_cluster,x
+	dex
+	bpl !-
 	jsr read_fat_sector_for_cluster
 
 	// Update cluster number and write it into the field
@@ -543,17 +548,19 @@ mkfile_fat_write_loop:
 	bne !-
 
 	// If the last FAT sector for this file, then
-	// the last cluster entry should be $00000000 to mark
-	// end of file
+	// the last cluster entry should be $0FFFFFF8 to mark
+	// end of file.
 	lda dos_scratch_byte_2
 	cmp #1
 	bne !+
-	lda #0
+	lda #$F8
 	sta $dffc
+	lda #$FF
 	sta $dffd
 	sta $dffe
+	lda #$0F
 	sta $dfff
-!:
+!:	
 	// Write FAT sector to FAT1
 	lda #$03
 	sta $d680
