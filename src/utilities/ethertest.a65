@@ -277,6 +277,12 @@ process_tftp_packet:
 	jmp tftp_read_req
 not_tftp_read_req:
 
+	cmp #$02
+	bne not_tftp_put
+
+	jmp tftp_write_req
+
+not_tftp_put:
 	cmp #$04
 	bne not_tftp_ack
 
@@ -285,6 +291,135 @@ not_tftp_read_req:
 not_tftp_ack:
 
 	inc $0403
+	rts
+
+tftp_write_req:
+
+	; Reset file sequence number
+	lda #<0
+	sta seq_num
+	lda #>0
+	sta seq_num+1
+
+	jsr print_src_ip
+	
+	lda #<msg_write_req
+	ldy #>msg_write_req
+	jsr $ab1e
+
+	; Copy source UDP port for inserting into reply packets.
+	; (means we can have only one transfer in progress at a time.)
+	lda $6824
+	sta remote_port
+	lda $6824+1
+	sta remote_port+1
+
+	; Show filename being requested
+	lda #<$682e
+	ldy #>$682e
+	jsr $ab1e
+
+	lda #$0d
+	jsr $ffd2
+
+	; Copy filename to low memory
+	ldy #63
+wfc1:	lda $682e,y
+	sta $4000,y
+	dey
+	bpl wfc1
+
+	; Setup transfer area and filename
+	ldy #>$4000
+	lda #$2e
+	sta $d640
+	nop
+
+	; Look for file on FAT file system via hypervisor calls
+	lda #$34
+	sta $d640
+	nop
+	bcs wfile_exists
+
+wfile_not_found:
+	; Prepare a TFTP error response
+
+	; Insert error message
+	ldx #58
+wfnf1:	lda tftp_error_file_not_found_bytes,x
+	sta $380c,x
+	dex
+	bpl wfnf1
+
+	lda remote_port+0
+	sta $3824+0
+	lda remote_port+1
+	sta $3824+1
+
+	; Now setup common parts
+	jsr ether_setup_addresses
+	jsr ip_swap_addresses
+	
+	; Set packet length
+	lda #<70
+	sta $d6e2
+	lda #>70
+	sta $d6e3
+
+	jsr ip_calc_checksum
+	jsr udp_calc_checksum
+
+	jsr ether_tx_packet
+	rts
+
+wfile_exists:
+
+	; Close all open files
+	lda #$22
+	sta $d640
+	nop
+
+	; Try to open this file
+	lda #$18
+	sta $d640
+	nop
+	bcs wfile_opened	
+
+	; Insert error message
+	ldx #58
+wfno1:	lda tftp_error_cant_open_file_bytes,x
+	sta $380c,x
+	dex
+	bpl wfno1
+
+	lda remote_port+0
+	sta $3824+0
+	lda remote_port+1
+	sta $3824+1
+
+	; Now setup common parts
+	jsr ether_setup_addresses
+	jsr ip_swap_addresses
+	
+	; Set packet length
+	lda #<70
+	sta $d6e2
+	lda #>70
+	sta $d6e3
+
+	jsr ip_calc_checksum
+	jsr udp_calc_checksum
+
+	jsr ether_tx_packet
+	rts
+
+wfile_opened:
+
+	; File is opened (either following creation, or because
+	; it already exists.)
+	; We should now send an ACK with block #0 to indicate to the
+	; sender that we are ready to receive the blocks for this file.
+
 	rts
 
 tftp_read_req:
@@ -633,6 +768,9 @@ tftp_data_packet_bytes:
 
 msg_read_req:
 	.byte " rEQUESTING FILE ",0
+
+msg_write_req:
+	.byte " wRITING FILE ",0
 
 msg_startup:
 	.byte $93,$11,"mega65 tftp sERVER v0.0.1",$0d
