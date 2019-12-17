@@ -46,7 +46,7 @@ mac1:	sta $d6e9,x
 
 	; Map ethernet registers at $6000 - $7FFF
 
-	; Ethernet controller really lives $FFDE000 - $FFDEFFF, so select $FF megabyte section for MAP LO
+	; Ethernet buffer really lives $FFDE000 - $FFDEFFF, so select $FF megabyte section for MAP LO
 	lda #$ff
 	ldx #$0f
 	ldy #$00
@@ -291,7 +291,44 @@ tftp_read_req:
 	lda #$0d
 	jsr $ffd2
 
+	; Copy filename to low memory
+	ldy #63
+fc1:	lda $682e,y
+	sta $4000,y
+	dey
+	bpl fc1
+
+	; Setup transfer area and filename
+	ldy #>$4000
+	lda #$2e
+	sta $d640
+	nop
+
+	; Look for file on FAT file system via hypervisor calls
+	lda #$34
+	sta $d640
+	nop
+	bcs file_exists
+
+file_not_found:
+	; Prepare a TFTP error response
+;	jsr setup_tftp_packet
+	; Insert error message
+	ldx #27
+fnf1:	lda tftp_error_file_not_found,x
+	sta $3820,x
+	dex
+	bpl fnf1
+	
+file_exists:
+
 	rts
+
+tftp_error_file_not_found:
+	; TFTP file not found error packet contents
+	.byte $00,$05 ; Error opcode
+	.byte $00,$01 ; File not found
+	.byte "? FILE NOT FOUND ERROR",$00
 
 msg_read_req:
 	.byte " rEQUESTING FILE ",0
@@ -328,9 +365,74 @@ print_src_ip:
 	rts
 
 ; ----------------------------------------------------------------------------------------
+ether_packet_to_tx_buffer:
+	; Copy from $3800 to $FFDE000 where ethernet buffer
+	; lives.
+	lda #>dmalist_e1
+	sta $d701
+	lda #$00
+	sta $d704
+	lda #<dmalist_e1
+	sta $d705
+	rts
+
+dmalist_e1:
+	.byte $0b ; Option $0B = F018B job
+	.byte $80,$00 ; Option: Source MB = $00
+	.byte $81,$FF ; Option: Dest MB = $FF
+	.byte $00 ; End of options
+
+	.byte $00 ; Command = copy
+	.word $0400 ; Copy 1KB
+
+	.word $3800 ; Copy from $xxx3800
+	.byte $00   ; Copy from $xx0xxxx
+
+	.word $e000 ; Copy to $xxxE000
+	.byte $0D   ; Copy to $xxDxxxx
+
+	.byte $00   ; No sub-command
+	.word $0000 ; Modulo = $0000 (not used)
 
 
-send_icmp_reply:
+
+ether_tx_packet:
+
+	; copy packet to TX area
+	; XXX - Use DMA to decrease latency
+	ldx #$00
+ml5:	lda $3800,x
+	sta $6800,x
+	lda $3900,x
+	sta $6900,x
+	lda $3a00,x
+	sta $6a00,x	
+	dex
+	bne ml5
+
+	lda $d6e4
+	and #$06
+	sta $0418
+
+	; TX packet
+	lda #$01
+	sta $d6e4
+
+txwaitloop:
+	lda $D6E4
+	and #$06
+	beq txready
+	inc $0401
+	jmp txwaitloop
+
+txready:
+	; send packet 2nd time
+	lda #$01
+	sta $d6e4
+
+	rts
+
+ether_setup_addresses:
 	; Set our MAC address (hardwired to 40:40:40:40:40:40 for now)
 	lda #$40
 	ldx #5
@@ -344,6 +446,11 @@ ml2:	lda $6808,x ; skip 2 bytes for len etc, then 6 bytes of dest mac addr (broa
 	sta $3800,x
 	dex
 	bpl ml2
+
+	rts
+
+send_icmp_reply:
+	jsr ether_setup_addresses
 
 	; Copy packet body etc, which we will patch in a moment
 	ldx #$00
@@ -383,13 +490,6 @@ ml4:	lda $681c,x
 	adc #0
 	sta $3818
 
-	; copy packet to TX area
-	ldx #$00
-ml5:	lda $3800,x
-	sta $6800,x
-	dex
-	bne ml5
-
 	; Copy length from received packet
 	lda $6800
 	sta $d6e2
@@ -397,25 +497,7 @@ ml5:	lda $3800,x
 	and #$0f
 	sta $d6e3
 
-	lda $d6e4
-	and #$06
-	sta $0418
-
-	; TX packet
-	lda #$01
-	sta $d6e4
-
-txwaitloop:
-	lda $D6E4
-	and #$06
-	beq txready
-	inc $0401
-	jmp txwaitloop
-
-txready:
-	; send packet 2nd time
-	lda #$01
-	sta $d6e4
+	jsr ether_tx_packet
 
 	inc $d020
 	inc $0400
