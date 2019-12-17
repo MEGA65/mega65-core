@@ -441,12 +441,15 @@ fd1:	lda tftp_data_packet_bytes,x
 
 	jsr setup_tftp_packet	
 
+	; Copy SD card sector buffer into packet
+	jsr copy_sd_buffer_to_packet
+
 	lda $3826+1
 	clc
 	adc #<48         ; IP+UDP Packet length overhead
 	sta $d6e2
 	lda $3826+0
-	adc #>48         ; IP+UDP Packet length overhead
+ 	adc #>48         ; IP+UDP Packet length overhead
 	sta $d6e3
 	jsr ip_calc_checksum
 	jsr udp_calc_checksum
@@ -716,6 +719,36 @@ dmalist_e1:
 
 	.word $e800 ; Copy to $xxxE800
 	.byte $0D   ; Copy to $xxDxxxx
+
+	.byte $00   ; No sub-command
+	.word $0000 ; Modulo = $0000 (not used)
+
+
+copy_sd_buffer_to_packet:
+	; Copy from $FFD6E00 to $382e
+	; lives.
+	lda #>dmalist_e3
+	sta $d701
+	lda #$00
+	sta $d704
+	lda #<dmalist_e3
+	sta $d705
+	rts
+
+dmalist_e3:
+	.byte $0b ; Option $0B = F018B job
+	.byte $80,$FF ; Option: Source MB = $FF
+	.byte $81,$00 ; Option: Dest MB = $00
+	.byte $00 ; End of options
+
+	.byte $00 ; Command = copy
+	.word $0200 ; Copy 512 bytes
+
+	.word $6E00 ; Copy from $xxx6E00
+	.byte $0D   ; Copy from $xx0xxxx
+
+	.word $382E ; Copy to $xxxE800
+	.byte $00   ; Copy to $xxDxxxx
 
 	.byte $00   ; No sub-command
 	.word $0000 ; Modulo = $0000 (not used)
