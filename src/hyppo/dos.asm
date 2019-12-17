@@ -316,7 +316,7 @@ trap_dos_mkfile:
 	sta dos_scratch_byte_2
 
 	jsr sd_map_sectorbuffer
-	
+
 find_empty_fat_page_loop:
 	
 	ldx #3
@@ -325,16 +325,8 @@ find_empty_fat_page_loop:
 	dex
 	bpl !-
 
-	jsr dos_cluster_to_fat_sector
-
-	// Now read the sector
-        ldx #3
-!:      lda dos_current_cluster,x
-        sta $d681,x
-        dex
-        bpl !-
-	jsr sd_readsector
-
+	jsr read_fat_sector_for_cluster
+	
 	// Is the page empty
 	ldx #0
 !:	lda $de00,x
@@ -483,9 +475,112 @@ found_enough_contiguous_free_space:
 	iny
 	lda #0
 	sta (dos_scratch_vector),y
-	
-	
+
+	// Write sector back with updated dirent
+	lda #$03
+	sta $d680
+	jsr sd_wait_for_ready
+		
 	// XXX Update both FATs to make the allocation
+
+	// Work out how many sectors full of incrementing clusters
+	// we need.
+	lda dos_scratch_byte_1
+	sec
+	sbc #1
+	sta dos_scratch_byte_2
+mkfile_fat_write_loop:	
+	// Get the (currently empty) sector
+	jsr read_fat_sector_for_cluster
+
+	// Update cluster number and write it into the field
+	ldy #0
+!:
+	lda zptempv32+0
+	clc
+	adc #1
+	sta zptempv32+0
+	sta $de00,y
+	iny
+	lda zptempv32+1
+	adc #0
+	sta zptempv32+1
+	sta $de00,y
+	iny
+	lda zptempv32+2
+	adc #0
+	sta zptempv32+2
+	sta $de00,y
+	iny
+	lda zptempv32+3
+	adc #0
+	sta zptempv32+3
+	sta $de00,y
+	iny
+	bne !-
+!:
+	lda zptempv32+0
+	clc
+	adc #1
+	sta zptempv32+0
+	sta $df00,y
+	iny
+	lda zptempv32+1
+	adc #0
+	sta zptempv32+1
+	sta $df00,y
+	iny
+	lda zptempv32+2
+	adc #0
+	sta zptempv32+2
+	sta $df00,y
+	iny
+	lda zptempv32+3
+	adc #0
+	sta zptempv32+3
+	sta $df00,y
+	iny
+	bne !-
+
+	// If the last FAT sector for this file, then
+	// the last cluster entry should be $00000000 to mark
+	// end of file
+	lda dos_scratch_byte_2
+	cmp #1
+	bne !+
+	lda #0
+	sta $dffc
+	sta $dffd
+	sta $dffe
+	sta $dfff
+!:
+	// Write FAT sector to FAT1
+	lda #$03
+	sta $d680
+	jsr sd_wait_for_ready
+
+	// Work out where it will be in the 2nd FAT
+	lda dos_disk_table_offset
+	ora #fs_fat32_length_of_fat
+	tay
+	ldx #0
+!:	lda $d681,x
+	adc dos_disk_table,y
+	iny
+	inx
+	cpx #4
+	bne !-
+	
+	// Write FAT sector to FAT2
+	lda #$03
+	sta $d680
+	jsr sd_wait_for_ready
+	
+	// More FAT sectors to go?
+	dec dos_scratch_byte_2
+	beq !+
+	jmp mkfile_fat_write_loop
+!:	
 	
 	jmp return_from_trap_with_failure
 
@@ -494,6 +589,8 @@ dos_find_free_dirent:
 	jsr dos_opendir
 	// Then look for free directory entry slots.
 	jsr sd_map_sectorbuffer
+
+	// FALL THROUGH
 	
 empty_dirent_search_loop:	
 	
@@ -540,6 +637,20 @@ available_dirent_slot:
 	
 	sec
 	rts
+
+//         ========================
+	
+read_fat_sector_for_cluster:
+	jsr dos_cluster_to_fat_sector
+
+	// Now read the sector
+        ldx #3
+!:      lda dos_current_cluster,x
+        sta $d681,x
+        dex
+        bpl !-
+	jmp sd_readsector
+	
 //         ========================
 	
 trap_dos_opendir:
