@@ -751,6 +751,7 @@ begin  -- behavioural
             eth_tx_state <= IdleWait;
           end if;
         when others =>
+          eth_tx_commenced <= '0';
           eth_tx_state <= IdleWait;
       end case;
     
