@@ -416,15 +416,15 @@ fd1:	lda tftp_data_packet_bytes,x
 	lda remote_port+1
 	sta $3824+1
 
-	; Set correct data payload length
+	; Set correct UDP payload length
 	plx
 	ply
 	txa
 	clc
-	adc #<16
+	adc #<8
 	sta $3826+1
 	tya
-	adc #>16
+	adc #>8
 	sta $3826+0
 
 	; Update packet sequence number
@@ -447,10 +447,10 @@ fd1:	lda tftp_data_packet_bytes,x
 
 	lda $3826+1
 	clc
-	adc #<48         ; IP+UDP Packet length overhead
+	adc #<$0028         ; IP+UDP Packet length overhead
 	sta $d6e2
 	lda $3826+0
- 	adc #>48         ; IP+UDP Packet length overhead
+ 	adc #>$0028         ; IP+UDP Packet length overhead
 	sta $d6e3
 	jsr ip_calc_checksum
 	jsr udp_calc_checksum
@@ -585,7 +585,7 @@ tftp_data_packet_bytes:
 	; TFTP file not found error packet contents
 	.byte $08, $00    ; boring old-style ethernet frame
 	.byte $45, $00    ; IPv4
-	.byte $02, $2A    ; IP packet length
+	.byte $02, $20    ; IP packet length
 	.byte $86, $4b    ; Identification field (not used)
 	.byte $40, $00    ; Don't fragment. Not a fragment
 	.byte $40, $11    ; UDP protocol
