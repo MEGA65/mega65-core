@@ -277,6 +277,13 @@ process_tftp_packet:
 	jmp tftp_read_req
 not_tftp_read_req:
 
+	cmp #$04
+	bne not_tftp_ack
+
+	jmp tftp_ack_seen
+
+not_tftp_ack:
+
 	inc $0403
 	rts
 
@@ -360,6 +367,12 @@ fnf1:	lda tftp_error_file_not_found_bytes,x
 
 file_exists:
 
+	; Close all open files
+	lda #$22
+	sta $d640
+	nop
+
+	; Try to open this file
 	lda #$18
 	sta $d640
 	nop
@@ -469,6 +482,17 @@ fd1:	lda tftp_data_packet_bytes,x
 	jsr ether_tx_packet
 
 	rts
+
+tftp_ack_seen:
+	lda $682f
+	cmp seq_num+0
+	bne tftp_do_resend
+	lda $682e
+	cmp seq_num+0
+	bne tftp_do_resend
+	jmp tftp_send_next_data_block
+tftp_do_resend:
+	jmp tftp_resend_data_block
 
 udp_calc_checksum:
 	; clear checksum field, as UDP checksum is optional
