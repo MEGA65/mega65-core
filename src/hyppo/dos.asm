@@ -265,6 +265,227 @@ trap_dos_getcurrentdrive:
 
 //         ========================
 
+trap_dos_mkfile:
+
+	// XXX Filename must already be set.
+	// XXX Must be a file in the current directory only.
+	// XXX Can only create normal files, not directories
+	//     (change attribute after).
+	// XXX Only supports 8.3 names for now.
+	// XXX Allocates 512KB at a time, i.e., a full FAT sector's
+	//     worth of clusters.
+	// XXX Allocates a contiguous block, so that D81s etc can
+	//     be created, and guaranteed contiguous on the storage,
+	//     so that they can be mounted.
+	// XXX Size of file specified in $ZZYYXX, i.e., limit of 16MB.
+
+	// First, make sure the file doesn't already exist
+	jsr dos_findfile
+	bcc !+
+	// File exists, so abort
+	clc
+	lda #dos_errorcode_file_exists
+	sta dos_error_code
+	jmp return_from_trap_with_failure
+!:
+
+	// We need 1 FAT sector per 512KB of data.
+	// I.e., shift ZZ right by three bits to get number
+	// of empty FAT sectors we need to indicate sufficient space.
+	lda hypervisor_z
+	lsr
+	lsr
+	lsr
+	clc
+	adc #$01 
+	sta dos_scratch_byte_1
+
+	// Now go looking for empty FAT sectors
+	// Start at cluster 2, and add 128 each time to step through
+	// them.
+	lda #$02
+	sta zptempv32+0
+	lda #$00
+	sta zptempv32+1
+	sta zptempv32+2
+	sta zptempv32+3
+
+	// Initially 0 empty pages found
+	lda #0
+	sta dos_scratch_byte_2
+
+	jsr sd_map_sectorbuffer
+	
+find_empty_fat_page_loop:
+	
+	ldx #3
+!:	lda zptempv32,x
+	sta dos_current_cluster,x
+	dex
+	bpl !-
+
+	jsr dos_cluster_to_sector
+
+	// Now read the sector
+	ldx #3
+!:	lda dos_current_cluster,x
+	sta $d681,x
+	dex
+	bpl !-
+	jsr sd_readsector
+
+	// Is the page empty
+	lda #0
+	tax
+!:	lda $de00,x
+	bne !+
+	lda $df00,x
+	bne !+
+	inx
+	bne !-
+!:
+	// Z=1 if FAT sector all unallocated, Z=0 otherwise
+	beq fat_sector_is_empty
+
+	// Reset empty FAT sector counter
+	lda #0
+	sta dos_scratch_byte_2
+	jmp !+
+	
+fat_sector_is_empty:	
+	inc dos_scratch_byte_2
+	lda dos_scratch_byte_2
+	cmp dos_scratch_byte_1
+	beq found_enough_contiguous_free_space
+!:
+	// Need to find another
+	lda #$80
+	clc
+	adc zptempv32+0
+	sta zptempv32+0
+	lda zptempv32+1
+	adc #0
+	sta zptempv32+1
+	lda zptempv32+2
+	adc #0
+	sta zptempv32+2
+	lda zptempv32+3
+	adc #0
+	sta zptempv32+3
+
+	// XXX Check that we haven't hit the end of the file system
+	
+	jmp find_empty_fat_page_loop
+
+found_enough_contiguous_free_space:
+	// Space begins dos_scratch_byte_2 FAT sectors before here,
+	// so rewind back to there by taking $80 away for each count.
+	lda dos_scratch_byte_2
+	beq !+
+	lda zptempv32+0
+	sec
+	sbc #$80
+	sta zptempv32+0
+	lda zptempv32+1
+	sbc #0
+	sta zptempv32+1
+	lda zptempv32+2
+	sbc #0
+	sta zptempv32+2
+	lda zptempv32+3
+	sbc #0
+	sta zptempv32+3
+	dec dos_scratch_byte_2
+	jmp found_enough_contiguous_free_space
+!:
+	// zptempv32 now contains the starting cluster for our file
+
+	// Find directory entry slot
+	jsr dos_find_free_dirent
+	bcs !+
+	// Couldn't find a free dirent, so return whatever error
+	// we have been indicated.
+	rts
+!:
+
+	// Show offset in directory sector for dirent
+	lda dos_scratch_vector+0
+	sta $0700
+	lda dos_scratch_vector+1
+	and #$01
+	sta $0701
+
+	// Show directory sector
+	ldx #3
+!:	lda $d681,x
+	sta $0703,x
+	dex
+	bpl !-
+
+	// Show first cluster we will use
+	ldx #3
+	lda zptempv32,x
+	sta $0708,x
+	dex
+	bpl !-
+	
+	// XXX Populate dirent structure
+	
+	// XXX Update both FATs to make the allocation
+	
+	jmp return_from_trap_with_failure
+
+dos_find_free_dirent:
+	// Start by opening the directory.
+	jsr dos_opendir
+	// Then look for free directory entry slots.
+
+empty_dirent_search_loop:	
+	
+	jsr dos_file_read_current_sector
+
+	// Look for free dirent in first half of each sector.
+	ldx #0
+	lda #$de
+	sta dos_scratch_vector+1
+!:	lda $de00,x
+	cmp #$00 // vacant
+	beq available_dirent_slot
+	cmp #$e5 // deleted
+	beq available_dirent_slot
+	txa
+	adc #$20
+	tax
+	bne !-
+	inc dos_scratch_vector+1
+!:	lda $de00,x
+	cmp #$00 // vacant
+	beq available_dirent_slot
+	cmp #$e5 // deleted
+	beq available_dirent_slot
+	txa
+	adc #$20
+	tax
+	bne !-
+
+	// No empty slots in this directory, so see if there any more sectors in
+	// this directory?
+	jsr dos_file_advance_to_next_sector
+	bcs empty_dirent_search_loop
+
+	// Directory is full, so return error
+	// XXX Later we should allow extending the directory by adding another cluster.
+	lda #dos_errorcode_directory_full
+	sta dos_error_code
+	clc
+	rts
+	
+available_dirent_slot:	
+
+	sec
+	rts
+//         ========================
+	
 trap_dos_opendir:
 
         // X = File descriptor
@@ -502,7 +723,6 @@ trap_dos_getcwd:
 trap_dos_chdir:
 trap_dos_mkdir:
 trap_dos_rmdir:
-trap_dos_mkfile:
 trap_dos_writefile:
 trap_dos_seekfile:
 trap_dos_rmfile:
