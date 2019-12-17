@@ -437,6 +437,53 @@ found_enough_contiguous_free_space:
 	bpl !-
 	
 	// XXX Populate dirent structure
+	// dirent: erase old contents
+	ldy #31
+	lda #0
+!:	sta (dos_scratch_vector),y
+	dey
+	bpl !-
+	// dirent: filename
+	ldy #fs_fat32_dirent_offset_shortname
+!:	lda dos_requested_filename,y
+	sta (dos_scratch_vector),y
+	beq !+
+	iny
+	cpy #11
+	bne !-
+!:
+	
+	// dirent: attributes
+	ldy #fs_fat32_dirent_offset_attributes
+	lda #$20 // Archive bit set
+	sta (dos_scratch_vector),y
+	// dirent: start cluster
+	ldy #fs_fat32_dirent_offset_clusters_low
+	lda zptempv32+0
+	sta (dos_scratch_vector),y
+	iny
+	lda zptempv32+1
+	sta (dos_scratch_vector),y
+	ldy #fs_fat32_dirent_offset_clusters_high
+	lda zptempv32+2
+	sta (dos_scratch_vector),y
+	iny
+	lda zptempv32+3
+	sta (dos_scratch_vector),y	
+	// dirent: file length
+	ldy #fs_fat32_dirent_offset_file_length
+	lda hypervisor_x
+	sta (dos_scratch_vector),y
+	iny
+	lda hypervisor_y
+	sta (dos_scratch_vector),y
+	iny
+	lda hypervisor_z
+	sta (dos_scratch_vector),y
+	iny
+	lda #0
+	sta (dos_scratch_vector),y
+	
 	
 	// XXX Update both FATs to make the allocation
 	
