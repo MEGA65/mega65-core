@@ -488,7 +488,7 @@ tftp_ack_seen:
 	cmp seq_num+0
 	bne tftp_do_resend
 	lda $682e
-	cmp seq_num+0
+	cmp seq_num+1
 	bne tftp_do_resend
 	jmp tftp_send_next_data_block
 tftp_do_resend:
