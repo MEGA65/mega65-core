@@ -50,7 +50,7 @@ dos_and_process_trap_table:
         .word trap_dos_openfile
         .word trap_dos_readfile                 
         .word trap_dos_writefile                // not currently implememted
-        .word trap_dos_mkfile                   // not currently implememted
+        .word trap_dos_mkfile                   // implementation started
 
         // $20 - $2E
         //
@@ -299,6 +299,7 @@ trap_dos_mkfile:
 	clc
 	adc #$01 
 	sta dos_scratch_byte_1
+	sta $0715
 
 	// Now go looking for empty FAT sectors
 	// Start at cluster 2, and add 128 each time to step through
@@ -324,26 +325,27 @@ find_empty_fat_page_loop:
 	dex
 	bpl !-
 
-	jsr dos_cluster_to_sector
+	jsr dos_cluster_to_fat_sector
 
 	// Now read the sector
-	ldx #3
-!:	lda dos_current_cluster,x
-	sta $d681,x
-	dex
-	bpl !-
+        ldx #3
+!:      lda dos_current_cluster,x
+        sta $d681,x
+        dex
+        bpl !-
 	jsr sd_readsector
 
 	// Is the page empty
-	lda #0
-	tax
+	ldx #0
 !:	lda $de00,x
 	bne !+
 	lda $df00,x
 	bne !+
+
 	inx
 	bne !-
 !:
+	
 	// Z=1 if FAT sector all unallocated, Z=0 otherwise
 	beq fat_sector_is_empty
 
@@ -378,9 +380,14 @@ fat_sector_is_empty:
 	jmp find_empty_fat_page_loop
 
 found_enough_contiguous_free_space:
+
+	inc $0716
+	
 	// Space begins dos_scratch_byte_2 FAT sectors before here,
 	// so rewind back to there by taking $80 away for each count.
-	lda dos_scratch_byte_2
+	dec dos_scratch_byte_2
+	
+!:	lda dos_scratch_byte_2
 	beq !+
 	lda zptempv32+0
 	sec
@@ -396,7 +403,7 @@ found_enough_contiguous_free_space:
 	sbc #0
 	sta zptempv32+3
 	dec dos_scratch_byte_2
-	jmp found_enough_contiguous_free_space
+	jmp !-
 !:
 	// zptempv32 now contains the starting cluster for our file
 
@@ -424,7 +431,7 @@ found_enough_contiguous_free_space:
 
 	// Show first cluster we will use
 	ldx #3
-	lda zptempv32,x
+!:	lda zptempv32,x
 	sta $0708,x
 	dex
 	bpl !-
@@ -439,7 +446,8 @@ dos_find_free_dirent:
 	// Start by opening the directory.
 	jsr dos_opendir
 	// Then look for free directory entry slots.
-
+	jsr sd_map_sectorbuffer
+	
 empty_dirent_search_loop:	
 	
 	jsr dos_file_read_current_sector
@@ -481,7 +489,8 @@ empty_dirent_search_loop:
 	rts
 	
 available_dirent_slot:	
-
+	stx dos_scratch_vector+0
+	
 	sec
 	rts
 //         ========================
