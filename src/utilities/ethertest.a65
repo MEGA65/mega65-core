@@ -365,8 +365,38 @@ print_src_ip:
 	rts
 
 ; ----------------------------------------------------------------------------------------
+ether_copy_packet:
+	; Copy from $FFDE802 where ethernet RX buffer
+	; lives to $3800
+	lda #>dmalist_e2
+	sta $d701
+	lda #$00
+	sta $d704
+	lda #<dmalist_e2
+	sta $d705
+	rts
+
+dmalist_e2:
+	.byte $0b ; Option $0B = F018B job
+	.byte $80,$FF ; Option: Source MB = $FF
+	.byte $81,$00 ; Option: Dest MB = $00
+	.byte $00 ; End of options
+
+	.byte $00 ; Command = copy
+	.word $0400 ; Copy 1KB
+
+	.word $e802 ; Copy from $xxxE802
+	.byte $0D   ; Copy from $xxDxxxx
+
+	.word $3800 ; Copy to $xxx3800
+	.byte $00   ; Copy to $xx0xxxx
+
+	.byte $00   ; No sub-command
+	.word $0000 ; Modulo = $0000 (not used)
+
+
 ether_packet_to_tx_buffer:
-	; Copy from $3800 to $FFDE000 where ethernet buffer
+	; Copy from $3800 to $FFDE800 where ethernet buffer
 	; lives.
 	lda #>dmalist_e1
 	sta $d701
@@ -388,7 +418,7 @@ dmalist_e1:
 	.word $3800 ; Copy from $xxx3800
 	.byte $00   ; Copy from $xx0xxxx
 
-	.word $e000 ; Copy to $xxxE000
+	.word $e800 ; Copy to $xxxE800
 	.byte $0D   ; Copy to $xxDxxxx
 
 	.byte $00   ; No sub-command
@@ -400,15 +430,7 @@ ether_tx_packet:
 
 	; copy packet to TX area
 	; XXX - Use DMA to decrease latency
-	ldx #$00
-ml5:	lda $3800,x
-	sta $6800,x
-	lda $3900,x
-	sta $6900,x
-	lda $3a00,x
-	sta $6a00,x	
-	dex
-	bne ml5
+	jsr ether_packet_to_tx_buffer
 
 	lda $d6e4
 	and #$06
@@ -450,14 +472,11 @@ ml2:	lda $6808,x ; skip 2 bytes for len etc, then 6 bytes of dest mac addr (broa
 	rts
 
 send_icmp_reply:
-	jsr ether_setup_addresses
-
 	; Copy packet body etc, which we will patch in a moment
-	ldx #$00
-ml3:	lda $680e,x
-	sta $380c,x
-	inx
-	bne ml3
+	; Use DMA to decrease latency
+	jsr ether_copy_packet
+
+	jsr ether_setup_addresses
 
 	; Set ICMP type to reply
 	lda #$00
