@@ -184,6 +184,8 @@ noticmpping:
 	; Here we want to check that $680E - $6817 =
 	; 08 06 00 01 08 00 06 04 00 01
 	;
+	inc $044e
+
 	ldx #$09
 arploop0:
 	lda $680e,x
@@ -191,6 +193,8 @@ arploop0:
 	bne notarp
 	dex
 	bpl arploop0
+
+	inc $044f
 
 	; yes, we have ARP
 	; check that IP address asked for ends in .65
@@ -319,11 +323,11 @@ fc1:	lda $682e,y
 
 file_not_found:
 	; Prepare a TFTP error response
-	jsr setup_tftp_packet
+
 	; Insert error message
-	ldx #35
+	ldx #57
 fnf1:	lda tftp_error_file_not_found_bytes,x
-	sta $3822,x
+	sta $380c,x
 	dex
 	bpl fnf1
 
@@ -332,20 +336,91 @@ fnf1:	lda tftp_error_file_not_found_bytes,x
 	lda remote_port+1
 	sta $3824+1
 
+	; Now setup common parts
+	jsr setup_tftp_packet
+	
 	; Set packet length
 	lda #<69
 	sta $d6e2
 	lda #>69
 	sta $d6e3
-	
+
+	jsr ip_calc_checksum
+	jsr udp_calc_checksum
+
 	jsr ether_tx_packet
 
 file_exists:
 
 	rts
 
+udp_calc_checksum:
+	; XXX Fix
+	lda #$00
+	sta $3828
+	sta $3829
+	rts	
+
+ip_calc_checksum:
+	; check checksum field
+	lda #$00
+	sta $3818
+	sta $3819
+	sta checksum+0
+	sta checksum+1
+
+	ldx #0
+	clc
+cl1:
+	lda $380e,x
+	jsr checksum_add_left
+	inx
+	lda $380e,x
+	jsr checksum_add_right
+	inx
+	cpx #20
+	bne cl1
+
+	lda checksum+0
+	eor #$FF
+	sta $3818
+	lda checksum+1
+	eor #$FF
+	sta $3819
+
+	rts
+
+checksum_add_left:
+	adc checksum+0
+	sta checksum+0
+	lda checksum+1
+	adc #0
+	sta checksum+1
+	rts
+
+checksum_add_right:
+	adc checksum+1
+	sta checksum+1
+	lda checksum+0
+	adc #0
+	sta checksum+0
+	rts
+
+checksum:
+	.word 0
+
+
 tftp_error_file_not_found_bytes:
 	; TFTP file not found error packet contents
+	.byte $08, $00    ; boring old-style ethernet frame
+	.byte $45, $00    ; IPv4
+	.byte $00, $2b    ; IP packet length?
+	.byte $86, $4b    ; Identification field (not used)
+	.byte $40, $00    ; Don't fragment. Not a fragment
+	.byte $40, $11    ; UDP protocol
+	.word 0           ; IP header checksum 
+	.word 0,0         ; Source IP address
+	.word 0,0         ; Destination IP address
 	.byte $00, $45    ; Source port
 	.byte $FF, $FF    ; Destination port 
 	.byte $00, $29    ; Length
@@ -401,15 +476,22 @@ print_src_ip:
 	rts
 
 ip_swap_addresses:
-	; Set source IP address as destination
+	; Set source IP address as destination, and vice versa
 	ldx #$3
 ml4:	lda $681c,x
 	sta $381e,x
+
+	lda $6820,x
+	sta $381a,x
+
 	dex
 	bpl ml4
+
 	; And set last octet of source address to be us (we assume we are always on a /24 aka class c net)
 	lda #65
 	sta $381d
+
+	rts
 
 ; ----------------------------------------------------------------------------------------
 ether_copy_packet:
@@ -488,8 +570,9 @@ ether_tx_packet:
 	sta $d6e4
 
 txwaitloop:
-	lda $D6E4
+	lda $D6E4	
 	and #$06
+	sta $0402
 	beq txready
 	inc $0401
 	jmp txwaitloop
