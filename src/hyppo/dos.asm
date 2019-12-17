@@ -2586,7 +2586,6 @@ dscffd1:
         ldx #$03
 !:      lda dos_dirent_length,x
         sta dos_bytes_remaining,x
-	sta $0600,x
         dex
         bpl !-
 	
@@ -3164,8 +3163,6 @@ dos_load_y_based_on_dos_bytes_remaining:
 
 dos_readfile:
 
-	inc $0700
-
 	lda dos_bytes_remaining+0
 	sta $0728+0
 	lda dos_bytes_remaining+1
@@ -3181,12 +3178,17 @@ dos_readfile:
 	ora dos_bytes_remaining+3
 	bne !+
 
-	// End of file
+	// End of file: So zero bytes returned
+	lda #$00
+	sta hypervisor_x
+	sta hypervisor_y
 	clc
 	rts
 	
 !:
-	inc $0701
+	// Indicate how many bytes we are returning
+	ldx #<$0200
+	ldy #>$0200
 	
 	lda dos_bytes_remaining+2
 	ora dos_bytes_remaining+3
@@ -3196,8 +3198,11 @@ dos_readfile:
 	bcs !+   // at least a whole sector more to read
 
 	// Only a fractional part of a sector to read, so zero out remaining
-	inc $0702
 
+	// Update number of bytes for fractional sector read
+	ldx dos_bytes_remaining+0
+	ldy dos_bytes_remaining+1
+	
 	lda #$00
 	sta dos_bytes_remaining+0
 	// Actually make it look like 1 sector to go, so we decrement that to zero
@@ -3206,7 +3211,6 @@ dos_readfile:
 	sta dos_bytes_remaining+1
 	// FALL THROUGH
 !:
-	inc $0703
 	// Deduct one sector from the remaining
 	lda dos_bytes_remaining+1
 	sec
@@ -3218,6 +3222,10 @@ dos_readfile:
 	lda dos_bytes_remaining+3
 	sbc #0
 	sta dos_bytes_remaining+3
+
+	// Store number of bytes read in X and Y for calling process
+	stx hypervisor_x
+	sty hypervisor_y
 	
 	// Now read sector and return
 	
