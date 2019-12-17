@@ -2775,6 +2775,8 @@ dfanc1:
 
         jsr dos_cluster_to_fat_sector
 
+	jsr dos_remember_sd_sector
+	
         // copy from current cluster to SD sector address register
         //
         ldx #$03
@@ -2896,13 +2898,37 @@ dfanc_check:
 
 dfanc_ok:
         // cluster number is okay
+	jsr dos_restore_sd_sector
         sec
         rts
 
 dfanc_fail:
+	jsr dos_restore_sd_sector
         lda #dos_errorcode_invalid_cluster
         jmp dos_return_error
 
+	// Some routines disturb the current SD card sector in the buffer,
+	// but where the caller might not expect or want this to happen.
+	// For this reason we have the following convenience routines for
+	// stashing and restoring the current ready sector.
+dos_remember_sd_sector:
+	ldx #3
+!:	lda $d681,x
+	sta dos_stashed_sd_sector_number,x
+	dex
+	bpl !-
+	rts
+
+dos_restore_sd_sector:
+	ldx #3
+!:	lda dos_stashed_sd_sector_number,x
+	sta $d681,x
+	dex
+	bpl !-
+	jsr sd_readsector
+	rts
+	
+	
 //         ========================
 
 dos_cluster_to_fat_sector:
@@ -3228,7 +3254,9 @@ dos_readfile:
 drf_gotsector:
 	// Then advance to next sector.
 	// Ignore the error, as the EOF will get picked up on the next call.
+
 	jsr dos_file_advance_to_next_sector
+
 	sec
 	rts
 	
