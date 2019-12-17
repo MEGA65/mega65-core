@@ -3164,15 +3164,6 @@ dos_load_y_based_on_dos_bytes_remaining:
 dos_readfile:
 
 	lda dos_bytes_remaining+0
-	sta $0728+0
-	lda dos_bytes_remaining+1
-	sta $0728+1
-	lda dos_bytes_remaining+2
-	sta $0728+2
-	lda dos_bytes_remaining+3
-	sta $0728+3
-	
-	lda dos_bytes_remaining+0
 	ora dos_bytes_remaining+1
 	ora dos_bytes_remaining+2
 	ora dos_bytes_remaining+3
