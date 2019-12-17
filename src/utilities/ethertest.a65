@@ -344,6 +344,21 @@ wfc1:	lda $682e,y
 wfile_not_found:
 	; Prepare a TFTP error response
 
+	; Try to create file (name already setup, of course)
+	; Trick is we don't know the size! So just lie and say
+	; 800KB for now, which works for D81 files.
+	; dos_mkfile() trap for now allocates in units of 512KB
+	; anyway.  We will need to implement dos_truncfile() to
+	; reduce length of files (and ideally free the released
+	; space) at some point. But for now, we will use some
+	; carnal knowledge of how everything works to make it
+	; work in a basic manner.
+	ldz #$10   ; $10 x 64KB = 1MB
+	lda #$1e
+	sta $d640
+	nop
+	ldz #0
+
 	; Insert error message
 	ldx #58
 wfnf1:	lda tftp_error_file_not_found_bytes,x
