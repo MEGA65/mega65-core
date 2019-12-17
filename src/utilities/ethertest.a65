@@ -351,7 +351,8 @@ fnf1:	lda tftp_error_file_not_found_bytes,x
 	sta $3824+1
 
 	; Now setup common parts
-	jsr setup_tftp_packet
+	jsr ether_setup_addresses
+	jsr ip_swap_addresses
 	
 	; Set packet length
 	lda #<70
@@ -391,7 +392,8 @@ fno1:	lda tftp_error_cant_open_file_bytes,x
 	sta $3824+1
 
 	; Now setup common parts
-	jsr setup_tftp_packet
+	jsr ether_setup_addresses
+	jsr ip_swap_addresses
 	
 	; Set packet length
 	lda #<70
@@ -444,6 +446,16 @@ fd1:	lda tftp_data_packet_bytes,x
 	dex
 	bpl fd1
 
+	; Update IP packet length field
+	lda data_bytes+0
+	clc
+	adc #<$0020
+	sta $3811
+	lda data_bytes+1
+	adc #>$0020
+	sta $3810
+
+	; Set UDP remote port number
 	lda remote_port+0
 	sta $3824+0
 	lda remote_port+1
@@ -464,7 +476,8 @@ fd1:	lda tftp_data_packet_bytes,x
 	lda seq_num+1
 	sta $382c+0
 
-	jsr setup_tftp_packet	
+	jsr ether_setup_addresses
+	jsr ip_swap_addresses
 
 	; Copy SD card sector buffer into packet
 	jsr copy_sd_buffer_to_packet
@@ -629,13 +642,6 @@ msg_startup:
 
 remote_port:
 	.word 0
-
-; ----------------------------------------------------------------------------------------
-setup_tftp_packet:
-	jsr ether_setup_addresses
-	jsr ip_swap_addresses
-
-	rts
 
 ; ----------------------------------------------------------------------------------------
 
