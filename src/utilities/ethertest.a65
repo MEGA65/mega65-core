@@ -353,7 +353,9 @@ wfile_not_found:
 	; space) at some point. But for now, we will use some
 	; carnal knowledge of how everything works to make it
 	; work in a basic manner.
-	ldz #$10   ; $10 x 64KB = 1MB
+	ldz #$0C   ; $C8000 = 819,200
+	ldy #$80
+	ldx #$00
 	lda #$1e
 	sta $d640
 	nop
