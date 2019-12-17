@@ -421,10 +421,10 @@ fd1:	lda tftp_data_packet_bytes,x
 	ply
 	txa
 	clc
-	adc #<8
+	adc #<16
 	sta $3826+1
 	tya
-	adc #>8
+	adc #>16
 	sta $3826+0
 
 	; Update packet sequence number
