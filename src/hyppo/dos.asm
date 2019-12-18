@@ -272,12 +272,16 @@ trap_dos_mkfile:
 	// XXX Can only create normal files, not directories
 	//     (change attribute after).
 	// XXX Only supports 8.3 names for now.
+	// XXX Filenames without extension might still cause problems.
 	// XXX Allocates 512KB at a time, i.e., a full FAT sector's
 	//     worth of clusters.
 	// XXX Allocates a contiguous block, so that D81s etc can
 	//     be created, and guaranteed contiguous on the storage,
 	//     so that they can be mounted.
 	// XXX Size of file specified in $ZZYYXX, i.e., limit of 16MB.
+	// XXX Doesn't handle full file systems (or ones without enough space
+	//     free properly. Should check candidate cluster number is not too
+	//     high, and abort if it is.
 
 	// First, make sure the file doesn't already exist
 	jsr dos_findfile
@@ -299,7 +303,6 @@ trap_dos_mkfile:
 	clc
 	adc #$01 
 	sta dos_scratch_byte_1
-	sta $0715
 
 	// Now go looking for empty FAT sectors
 	// Start at cluster 128, and add 128 each time to step through
@@ -375,8 +378,6 @@ fat_sector_is_empty:
 
 found_enough_contiguous_free_space:
 
-	inc $0716
-	
 	// Space begins dos_scratch_byte_2 FAT sectors before here,
 	// so rewind back to there by taking $80 away for each count.
 	dec dos_scratch_byte_2
@@ -410,38 +411,55 @@ found_enough_contiguous_free_space:
 !:
 
 	// Show offset in directory sector for dirent
-	lda dos_scratch_vector+0
-	sta $0700
-	lda dos_scratch_vector+1
-	and #$01
-	sta $0701
-
-	// Show directory sector
-	ldx #3
-!:	lda $d681,x
-	sta $0703,x
-	dex
-	bpl !-
-
-	// Show first cluster we will use
-	ldx #3
-!:	lda zptempv32,x
-	sta $0708,x
-	dex
-	bpl !-
+//	lda dos_scratch_vector+0
+//	sta $0700
+//	lda dos_scratch_vector+1
+//	and #$01
+//	sta $0701
+//
+//	// Show directory sector
+//	ldx #3
+//!:	lda $d681,x
+//	sta $0703,x
+//	dex
+//	bpl !-
+//
+//	// Show first cluster we will use
+//	ldx #3
+//!:	lda zptempv32,x
+//	sta $0708,x
+//	dex
+//	bpl !-
 	
 	// XXX Populate dirent structure
 	// dirent: erase old contents
 	ldy #31
 	lda #0
 !:	sta (dos_scratch_vector),y
+	// Put spaces in filename field (first 11 bytes)
+	cpy #11
+	bne foo1
+	lda #$20
+foo1:	
 	dey
 	bpl !-
 	// dirent: filename
-	ldy #fs_fat32_dirent_offset_shortname
-!:	lda dos_requested_filename,y
-	sta (dos_scratch_vector),y
+	// Split filename at dot
+	ldy #0
+	ldx #fs_fat32_dirent_offset_shortname
+!:	lda dos_requested_filename,x
+	cmp #$2e
+	bne not_dot
+	ldy #8-1
+	bne was_dot
+not_dot:
+	// Don't write nul char if filename is short
+	cmp #0
 	beq !+
+	sta (dos_scratch_vector),y
+was_dot:	
+	beq !+
+	inx
 	iny
 	cpy #11
 	bne !-
@@ -483,7 +501,7 @@ found_enough_contiguous_free_space:
 	sta $d680
 	jsr sd_wait_for_ready
 		
-	// XXX Update both FATs to make the allocation
+	// Update both FATs to make the allocation
 
 	// Work out how many sectors full of incrementing clusters
 	// we need.
@@ -588,8 +606,9 @@ mkfile_fat_write_loop:
 	beq !+
 	jmp mkfile_fat_write_loop
 !:	
-	
-	jmp return_from_trap_with_failure
+
+	// All done: File has been created.
+	jmp return_from_trap_with_success
 
 dos_find_free_dirent:
 	// Start by opening the directory.
