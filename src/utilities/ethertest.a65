@@ -344,6 +344,10 @@ wfc1:	lda $682e,y
 wfile_not_found:
 	; Prepare a TFTP error response
 
+	lda #<msg_write_file_not_found
+	ldy #>msg_write_file_not_found
+	jsr $ab1e	
+
 	; Try to create file (name already setup, of course)
 	; Trick is we don't know the size! So just lie and say
 	; 800KB for now, which works for D81 files.
@@ -390,6 +394,11 @@ wfnf1:	lda tftp_error_file_not_found_bytes,x
 	rts
 
 wfile_exists:
+
+	lda #<msg_write_file_exists
+	ldy #>msg_write_file_exists
+	jsr $ab1e	
+
 
 	; Close all open files
 	lda #$22
@@ -794,6 +803,13 @@ msg_startup:
 	.byte "ip ADDRESS IS X.X.X.65, WHERE X.X.X.X",$0d
 	.byte "IS YOUR NETWORK PREFIX.",$0d
 	.byte 0
+
+msg_write_file_not_found:
+	.byte "fILE FOR WRITING DOES NOT EXIST.",$0d
+	.byte "cREATING FILE...",$0d,0
+	
+msg_write_file_exists:
+	.byte "fILE FOR WRITING PRESENT OR CREATED.",$0d,0
 
 remote_port:
 	.word 0
