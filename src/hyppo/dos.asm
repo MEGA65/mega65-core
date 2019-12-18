@@ -2106,7 +2106,7 @@ l3_dos_return_error_already_set:
 !:
         // Directory is now open, and we can now iterate through directory entries
         //
-        jmp dos_findnext
+	jmp dos_findnext
 
 
 //         ========================
@@ -2350,18 +2350,19 @@ eight3char1:
 
 //         ========================
 
-        // first, check if the entry begins with zero, suggesting END-OF-DIRECTORY
+        // first, check if the entry begins with $E5 marking a deleted file.
+	// Entry entries we just ignore, as they are totally valid.
 
         ldy #fs_fat32_dirent_offset_shortname        // Y=0 (first char of entry)
         lda (<dos_scratch_vector),y
-        cmp #$00
-        bne !+
-        jmp drd_end_of_directory
-!:
-        // then check if the entry begins with $E5, suggesting deleted
         cmp #$e5
         bne !+
         jmp drd_deleted_or_invalid_entry
+!:
+	cmp #$00
+        bne !+
+	// Empty entry, so skip over it
+	jmp drd_deleted_or_invalid_entry
 !:
         // now check the attrib
 
@@ -2834,7 +2835,7 @@ drd_deleted_or_invalid_entry:
         .byte 0
 ddie:        ascii("xx drd_deleted_or_invalid_entry")
         .byte 0
-
+	
         jsr dos_readdir_advance_to_next_entry
         bcc !+
         jmp dos_readdir
