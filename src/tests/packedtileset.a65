@@ -224,6 +224,8 @@ iter1:	 .byte 0
 	 dex
 	 bpl -
 	 
+infinity:
+	 jmp infinity
 
 	 rts
 
@@ -271,6 +273,11 @@ unpack:
 	lda $0427
 	pha
 
+	; Make RAM visible as far as possible
+	sei
+	lda #$35
+	sta $01
+
 	 ; setup pointer to packed data
 	 lda #<packed_data
 	 sta $fd
@@ -302,6 +309,10 @@ unpack_loop:
 	sta $0427
 	pla
 	sta $d020
+
+	lda #$37
+	sta $01
+	cli
 
 	rts
 *	bmi @isRLEToken
