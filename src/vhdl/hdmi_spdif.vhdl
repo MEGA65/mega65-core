@@ -12,7 +12,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 
 entity hdmi_spdif is
-  generic ( samplerate : integer := 192000);
+  generic ( samplerate : integer := 44100);
   Port ( clk : in  STD_LOGIC;
          left_in : in std_logic_vector(19 downto 0);
          right_in : in std_logic_vector(19 downto 0);
