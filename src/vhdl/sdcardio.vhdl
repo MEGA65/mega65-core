@@ -468,7 +468,10 @@ architecture behavioural of sdcardio is
   signal gesture_event : unsigned(3 downto 0) := x"0";
 
   signal pwm_knob_en : std_logic := '0';
-  
+
+  signal reconfigure_address : unsigned(31 downto 0) := x"00000000";
+  signal trigger_reconfigure : std_logic := '0';
+
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
   begin
@@ -481,6 +484,12 @@ begin  -- behavioural
   -- SD card controller module.
   --**********************************************************************
 
+  reconfig1: entity work.reconfig
+    port map ( clock => clock,
+               trigger_reconfigure => trigger_reconfigure,
+               reconfigure_address => reconfigure_address);
+
+  
   touch0: entity work.touch
     port map (
       clock50mhz => clock,
@@ -1046,7 +1055,7 @@ begin  -- behavioural
             -- @IO:GS $D6C0.0-3 - Touch pad gesture directions (left,right,up,down)
             -- @IO:GS $D6C0.7-4 - Touch pad gesture ID
             fastio_rdata(3 downto 0) <= gesture_event;
-            fastio_rdata(7 downto 4) <= gesture_event_id;
+            fastio_rdata(7 downto 4) <= gesture_event_id;            
           when x"D0" =>
             -- @IO:GS $D6D0 - I2C bus select (bus 0 = temp sensor on Nexys4 boardS)
             fastio_rdata <= i2c_bus_id;
@@ -2143,6 +2152,20 @@ begin  -- behavioural
               touch_enabled <= fastio_wdata(7);
               touch_enabled_internal <= fastio_wdata(7);
               touch_byte_num(6 downto 0) <= fastio_wdata(6 downto 0);
+            when x"C8" =>
+              -- @IO:GS $D6C8-B - Address of bitstream in boot flash for reconfiguration
+              reconfigure_address(7 downto 0) <= fastio_wdata;
+            when x"C9" =>
+              reconfigure_address(15 downto 8) <= fastio_wdata;
+            when x"CA" =>
+              reconfigure_address(23 downto 16) <= fastio_wdata;
+            when x"CB" =>
+              reconfigure_address(31 downto 24) <= fastio_wdata;
+            when x"CF" =>
+              -- @IO:GS $D6CF - Write $42 to Trigger FPGA reconfiguration to switch to alternate bitstream.
+              if fastio_wdata = x"42" then
+                trigger_reconfigure <= '1';
+              end if;              
             when x"D0" =>
               i2c_bus_id <= fastio_wdata;
             when x"D1" =>
