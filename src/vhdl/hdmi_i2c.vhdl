@@ -187,7 +187,7 @@ architecture behavioural of hdmi_i2c is
     ---------------
     -- Output mode
     ---------------
-    x"AF02", -- HDMI mode
+    x"AF06", -- HDMI mode
     x"4c04", -- Deep colour off (HDMI only?)     - not needed
     x"40C0", -- Turn on main HDMI data packets
 
@@ -227,7 +227,11 @@ architecture behavioural of hdmi_i2c is
 --            x"156f",x"166d",x"1770",x"1875",x"1974",x"1a65",x"1b72",x"1c00",
 --            x"1d00",x"1e00",x"1f00",x"2000",
 --            x"FE7A",
-    x"1F00",x"4479", -- Hand packet memory back to HDMI controller
+
+    x"1F00", -- Hand packet memory back to HDMI controller
+    x"4479", -- Set up which info frames  are included.  $79 = audio info frame
+             -- on, $71 = audio info frame off.
+
     x"FE00",  -- get I2C register offset for reading back to 0
     
     -- Extra space filled with FFFFs to signify end of data
