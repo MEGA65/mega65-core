@@ -386,8 +386,8 @@ begin
       spdif_out => spdif_44100,
       left_in => h_audio_left,
       right_in => h_audio_right
-      );
-  
+      ); 
+ 
   kbd0: entity work.mega65kbd_to_matrix
     port map (
       ioclock => cpuclock,

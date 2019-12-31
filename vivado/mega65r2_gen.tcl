@@ -95,6 +95,7 @@ set obj [get_filesets sources_1]
 set files [list \
  "[file normalize "$origin_dir/ipcore_dir/dotclock100.vhd"]"\
  "[file normalize "$origin_dir/src/vhdl/vga_hdmi.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/reconfig.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/debugtools.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/cputypes.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/victypes.vhdl"]"\
@@ -529,6 +530,10 @@ set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
 set file "vhdl/hdmi_i2c.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/reconfig.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
