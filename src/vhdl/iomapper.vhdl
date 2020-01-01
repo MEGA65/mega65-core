@@ -245,13 +245,6 @@ entity iomapper is
 
     ethernet_cpu_arrest : out std_logic;
     
-    ----------------------------------------------------------------------
-    -- Flash RAM for holding config
-    ----------------------------------------------------------------------
-    QspiSCK : out std_logic;
-    QspiDB : inout std_logic_vector(3 downto 0);
-    QspiCSn : out std_logic;        
-
     -------------------------------------------------------------------------
     -- Lines for the SDcard interface itself
     -------------------------------------------------------------------------
@@ -1325,10 +1318,6 @@ begin
     touch2_x => touch2_x,
     touch2_y => touch2_y,
     
-    QspiSCK => QspiSCK,
-    QspiDB => QspiDB,
-    QspiCSn => QspiCSn,
-
     last_scan_code => last_scan_code
 
     );
