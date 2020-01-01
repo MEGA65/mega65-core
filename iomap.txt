@@ -670,6 +670,8 @@ GS $D6BE.5-4 - Touch pad touch #2 Y MSBs
 GS $D6BF.7 - Enable/disable touch panel I2C communications
 GS $D6C0.0-3 - Touch pad gesture directions (left,right,up,down)
 GS $D6C0.7-4 - Touch pad gesture ID
+GS $D6C8-B - Address of bitstream in boot flash for reconfiguration
+GS $D6CF - Write $42 to Trigger FPGA reconfiguration to switch to alternate bitstream.
 GS $D6D0 - I2C bus select (bus 0 = temp sensor on Nexys4 boardS)
 GS $D6D1.0 - I2C reset
 GS $D6D1.1 - I2C command latch write strobe (write 1 to trigger command)
@@ -726,7 +728,7 @@ GS $D6EB ETH:MACADDR3 Ethernet MAC address
 GS $D6EC ETH:MACADDR4 Ethernet MAC address
 GS $D6ED ETH:MACADDR5 Ethernet MAC address
 GS $D6EE ETH:MACADDR6 Ethernet MAC address
-GS $D6EF ETH:DBGRXSTAT DEBUG show current ethernet RX state
+GS $D6EF ETH:DBGTXSTAT DEBUG show current ethernet RX state
 GS $D6F0 - LCD panel brightness control
 GS $D6F2 - Read FPGA five-way buttons
 GS $D6F3 - Accelerometer bit-bashing port
