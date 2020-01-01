@@ -100,6 +100,12 @@ entity machine is
 
          joy3 : in std_logic_vector(4 downto 0) := "11011";
          joy4 : in std_logic_vector(4 downto 0) := "10111";
+
+         ----------------------------------------------------------------------
+         -- Flash RAM for holding FPGA config
+         ----------------------------------------------------------------------
+         QspiDB : inout std_logic_vector(3 downto 0);
+         QspiCSn : out std_logic;
          
          ----------------------------------------------------------------------
          -- VGA output
@@ -1343,6 +1349,9 @@ begin
       speed_gate_enable => speed_gate_enable,
       ethernet_cpu_arrest => ethernet_cpu_arrest,
 
+      qspicsn => qspicsn,
+      qspidb => qspidb,
+      
       joy3 => joy3,
       joy4 => joy4,
 
