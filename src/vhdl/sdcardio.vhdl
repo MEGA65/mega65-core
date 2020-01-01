@@ -41,6 +41,9 @@
 -- with a one single-port buffer that gets shared between the two sides based
 -- on whether the SD controller is using it or not.
 
+library UNISIM;
+use UNISIM.vcomponents.all;
+
 use WORK.ALL;
 
 library IEEE;
@@ -200,7 +203,7 @@ architecture behavioural of sdcardio is
   signal qspi_clock_int : std_logic := '1';
   signal qspi_csn_int : std_logic := '1'; 
   signal qspi_dbddr : std_logic := '0';
-  signal qspidb_in : unsignd(3 downto 0);
+  signal qspidb_in : unsigned(3 downto 0);
   
   signal aclMOSIinternal : std_logic := '0';
   signal aclSSinternal : std_logic := '0';
