@@ -226,11 +226,11 @@ set_property -dict {PACKAGE_PIN E16 IOSTANDARD LVCMOS33} [get_ports internal_spe
 #set_property -dict { PACKAGE_PIN xx IOSTANDARD LVCMOS33 } [get_ports PS2Data]
 
 ##Quad SPI Flash
-#set_property -dict { PACKAGE_PIN xx IOSTANDARD LVCMOS33 } [get_ports QspiCSn]
-#set_property -dict { PACKAGE_PIN xx IOSTANDARD LVCMOS33 } [get_ports {QspiDB[0]}]
-#set_property -dict { PACKAGE_PIN xx IOSTANDARD LVCMOS33 } [get_ports {QspiDB[1]}]
-#set_property -dict { PACKAGE_PIN xx IOSTANDARD LVCMOS33 } [get_ports {QspiDB[2]}]
-#set_property -dict { PACKAGE_PIN xx IOSTANDARD LVCMOS33 } [get_ports {QspiDB[3]}]
+set_property  -dict { PACKAGE_PIN K17 IOSTANDARD LVCMOS33 } [get_ports {QspiDB[0]}]
+set_property  -dict { PACKAGE_PIN K18 IOSTANDARD LVCMOS33 } [get_ports {QspiDB[1]}]
+set_property  -dict { PACKAGE_PIN L14 IOSTANDARD LVCMOS33 } [get_ports {QspiDB[2]}]
+set_property  -dict { PACKAGE_PIN M14 IOSTANDARD LVCMOS33 } [get_ports {QspiDB[3]}]
+set_property  -dict { PACKAGE_PIN L13 IOSTANDARD LVCMOS33 } [get_ports QspiCSn]
 
 ## Hyper RAM
 set_property -dict {PACKAGE_PIN D22 IOSTANDARD LVCMOS33} [get_ports hr_clk_p]

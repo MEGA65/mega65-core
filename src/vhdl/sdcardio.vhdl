@@ -182,7 +182,6 @@ entity sdcardio is
     ----------------------------------------------------------------------
     -- Flash RAM for holding config
     ----------------------------------------------------------------------
-    QspiSCK : out std_logic;
     QspiDB : inout std_logic_vector(3 downto 0) := "ZZZZ";
     QspiCSn : out std_logic            
 
@@ -197,8 +196,11 @@ architecture behavioural of sdcardio is
   
   signal audio_mix_reg_int : unsigned(7 downto 0) := x"FF";
   
-  signal QspiSCKInternal : std_logic := '1';
-  signal QspiCSnInternal : std_logic := '1'; 
+  signal qspi_clock : std_logic := '0';  
+  signal qspi_clock_int : std_logic := '1';
+  signal qspi_csn_int : std_logic := '1'; 
+  signal qspi_dbddr : std_logic := '0';
+  signal qspidb_in : unsignd(3 downto 0);
   
   signal aclMOSIinternal : std_logic := '0';
   signal aclSSinternal : std_logic := '0';
@@ -484,11 +486,44 @@ begin  -- behavioural
   -- SD card controller module.
   --**********************************************************************
 
+  -- Used to allow MEGA65 to instruct FPGA to start a different bitstream #153
   reconfig1: entity work.reconfig
     port map ( clock => clock,
                trigger_reconfigure => trigger_reconfigure,
                reconfigure_address => reconfigure_address);
 
+  -- Used to allow MEGA65 access to the FPGA config boot SPI flash #153 
+  STARTUPE2_inst: STARTUPE2
+    generic map(PROG_USR=>"FALSE", --Activate program event security feature.
+                                   --Requires encrypted bitstreams.
+                SIM_CCLK_FREQ=>0.0 --Set the Configuration Clock Frequency(ns) for simulation.
+    )
+    port map(
+--           CFGCLK=>CFGCLK,--1-bit output: Configuration main clock output
+--           CFGMCLK=>CFGMCLK,--1-bit output: Configuration internal oscillator
+                              --clock output
+--           EOS=>EOS,--1-bit output: Active high output signal indicating the
+                      --End Of Startup.
+             PREQ=>'0',--1-bit output: PROGRAM request to fabric output
+             CLK=>CLK,--1-bit input: User start-up clock input
+             GSR=>'0',--1-bit input: Global Set/Reset input (GSR cannot be used
+                      --for the port name). UG470 says tie low.
+             GTS=>'0',--1-bit input: Global 3-state input (GTS cannot be used
+                      --for the port name). UG470 says tie low.
+             KEYCLEARB=>'0',--1-bit input: Clear AES Decrypter Key input
+                                  --from Battery-Backed RAM (BBRAM)
+             PACK=>'0',--1-bit input: PROGRAM acknowledge input
+
+             -- Provide a clock for the SPI bus
+             USRCCLKO=>qspi_clock,--1-bit input: User CCLK input
+             USRCCLKTS=>'0',--1-bit input: User CCLK 3-state enable input. Set
+                            --to 0 means don't tri-state
+
+             -- Leave DONE signal high
+             USRDONEO=>'1',--1-bit input: User DONE pin output control
+             USRDONETS=>'0' --1-bit input: User DONE 3-state enable output
+             );
+  
   
   touch0: entity work.touch
     port map (
@@ -675,8 +710,7 @@ begin  -- behavioural
            f011_disk2_write_protected,diskimage_sector,diskimage2_sector,sw,btn,aclmiso,
            aclmosiinternal,aclssinternal,aclSCKinternal,aclint1,aclint2,
            tmpsdainternal,tmpsclinternal,tmpint,tmpct,tmpint,last_scan_code,
-           pcm_left,qspidb,
-           qspicsninternal,QspiSCKInternal,
+           pcm_left,           
            sectorbuffercs,f011_cs,f011_led,f011_head_side,f011_drq,
            f011_lost,f011_wsector_found,f011_write_gate,f011_irq,
            f011_buffer_rdata,f011_reg_clock,f011_reg_step,f011_reg_pcode,
@@ -1055,7 +1089,21 @@ begin  -- behavioural
             -- @IO:GS $D6C0.0-3 - Touch pad gesture directions (left,right,up,down)
             -- @IO:GS $D6C0.7-4 - Touch pad gesture ID
             fastio_rdata(3 downto 0) <= gesture_event;
-            fastio_rdata(7 downto 4) <= gesture_event_id;            
+            fastio_rdata(7 downto 4) <= gesture_event_id;
+          when x"C8" =>
+            fastio_rdata <= reconfigure_address_int(7 downto 0);
+          when x"C9" =>
+            fastio_rdata <= reconfigure_address_int(15 downto 8);
+          when x"CA" =>
+            fastio_rdata <= reconfigure_address_int(23 downto 16);
+          when x"CB" =>
+            fastio_rdata <= reconfigure_address_int(31 downto 24);
+          when x"CC" =>
+            fastio_rdata(7) <= qspi_dbddr;
+            fastio_rdata(6) <= qspi_csn_int;
+            fastio_rdata(5) <= qspi_clock_int;
+            fastio_rdata(4) <= '0';
+            fastio_rdata(3 downto 0) <= qspidb;
           when x"D0" =>
             -- @IO:GS $D6D0 - I2C bus select (bus 0 = temp sensor on Nexys4 boardS)
             fastio_rdata <= i2c_bus_id;
@@ -1160,14 +1208,6 @@ begin  -- behavioural
           when x"FD" =>
             -- @IO:GS $D6FD - audio MSB (source selected by $D6F4)
             fastio_rdata <= audio_loopback(15 downto 8);
-          when x"FF" =>
-            -- Flash interface
-            if secure_mode='0' then
-              fastio_rdata(3 downto 0) <= unsigned(QspiDB);
-              fastio_rdata(5 downto 4) <= "00";
-              fastio_rdata(6) <= QspiCSnInternal;
-              fastio_rdata(7) <= QspiSCKInternal;
-            end if;
           when others =>
             fastio_rdata <= (others => '0');
         end case;
@@ -2155,12 +2195,37 @@ begin  -- behavioural
             when x"C8" =>
               -- @IO:GS $D6C8-B - Address of bitstream in boot flash for reconfiguration
               reconfigure_address(7 downto 0) <= fastio_wdata;
+              reconfigure_address_int(7 downto 0) <= fastio_wdata;
             when x"C9" =>
               reconfigure_address(15 downto 8) <= fastio_wdata;
+              reconfigure_address_int(15 downto 8) <= fastio_wdata;
             when x"CA" =>
               reconfigure_address(23 downto 16) <= fastio_wdata;
+              reconfigure_address_int(23 downto 16) <= fastio_wdata;
             when x"CB" =>
               reconfigure_address(31 downto 24) <= fastio_wdata;
+              reconfigure_address_int(31 downto 24) <= fastio_wdata;
+            when x"CC" =>
+              -- @IO:GS $D6CC.7 QSPI:DBDDR Data direction for QSPI flash interface. 1=output, 0=tri-state input
+              -- @IO:GS $D6CC.0-3 QSPI:DB Data bits for QSPI flash interface (read/write)
+
+-- XXX Implement this protection when its working
+--              if secure_mode='0' and hypervisor_mode='1' then
+
+              qspi_dbddr <= fastio_wdata(7);
+              qspicsn <= fastio_wdata(6);
+              qspi_csn_int <= fastio_wdata(6);
+              qspi_clock <= fastio_wdata(5);
+              qspi_clock_int <= fastio_wdata(5);
+              qspdidb_int <= fastio_wdata(3 downto 0);
+              if fastio_wdata(7)='1' then
+                qspidb <= fastio_wdata(3 downto 0);
+              else
+                qspidb <= "ZZZZ";
+              end if;
+
+--          end if;
+      
             when x"CF" =>
               -- @IO:GS $D6CF - Write $42 to Trigger FPGA reconfiguration to switch to alternate bitstream.
               if fastio_wdata = x"42" then
@@ -2272,39 +2337,6 @@ begin  -- behavioural
             when x"FB" =>
               -- 8-bit digital audio out
               pcm_right(15 downto 8) <= fastio_wdata;
-            when x"FF" =>
-              -- @IO:GS $D6FF - Flash bit-bashing port
-              -- Flash interface
-              if secure_mode='0' and hypervisor_mode='1' then
-                if fastio_wdata(0)='0' then
-                  QspiDB(0) <= '0';
-                else
-                  QspiDB(0) <= 'Z';
-                end if;
-                if fastio_wdata(1)='0' then
-                  QspiDB(1) <= '0';
-                else
-                  QspiDB(1) <= 'Z';
-                end if;
-                if fastio_wdata(2)='0' then
-                  QspiDB(2) <= '0';
-                else
-                  QspiDB(2) <= 'Z';
-                end if;
-                if fastio_wdata(3)='0' then
-                  QspiDB(3) <= '0';
-                else
-                  QspiDB(3) <= 'Z';
-                end if;
-
-                -- XXX We should protect CS so that we can prevent use of the flash
-                -- if we want.  As it is a malicious program could reprogram or
-                -- mess up the configuration flash.
-                QspiCSn <= fastio_wdata(6);
-                QspiCSnInternal <= fastio_wdata(6);
-                QspiSCK <= fastio_wdata(7);
-                QspiSCKInternal <= fastio_wdata(7);
-              end if;
             when others => null;
 
                            -- ================================================================== END

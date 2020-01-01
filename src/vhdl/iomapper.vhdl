@@ -142,7 +142,13 @@ entity iomapper is
         i2c_black3 : out std_logic;
         i2c_black4 : out std_logic;
         
-        ----------------------------------------------------------------------
+         ----------------------------------------------------------------------
+         -- Flash RAM for holding FPGA config
+         ----------------------------------------------------------------------
+         QspiDB : inout std_logic_vector(3 downto 0);
+         QspiCSn : out std_logic;
+
+         ----------------------------------------------------------------------
         -- CBM floppy serial port
         ----------------------------------------------------------------------
         iec_clk_en : out std_logic := '0';
@@ -1134,6 +1140,9 @@ begin
     sectorbuffercs => sectorbuffercs,
     sectorbuffercs_fast => sectorbuffercs_fast,
 
+    qspicsn => qspicsn,
+    qspidb => qspidb,
+    
     drive_led => drive_led,
     motor => motor,
 
