@@ -141,8 +141,13 @@ entity container is
          ct_hpd : out std_logic := '1';
          ls_oe : out std_logic := '1';
          -- (i.e., when hsync, vsync both low?)
-         
-         
+
+         ---------------------------------------------------------------------------
+         -- IO lines to QSPI config flash (used so that we can update bitstreams)
+         ---------------------------------------------------------------------------
+         QspiDB : unsigned(3 downto 0) := (others => '0');
+         QspiCSn : std_logic := '1';
+                
          ---------------------------------------------------------------------------
          -- IO lines to the ethernet controller
          ---------------------------------------------------------------------------
@@ -263,10 +268,6 @@ architecture Behavioral of container is
   -- XXX We should read the real temperature and feed this to the DDR controller
   -- so that it can update timing whenever the temperature changes too much.
   signal fpga_temperature : std_logic_vector(11 downto 0) := (others => '0');
-
-  -- XXX Connect to real QSPI flash interface at some point
-  signal QspiDB : std_logic_vector(3 downto 0) := (others => '0');
-  signal QspiCSn : std_logic := '1';
 
   signal fa_left_drive : std_logic;
   signal fa_right_drive : std_logic;
@@ -529,6 +530,9 @@ begin
       restore_key => restore_key,
       sector_buffer_mapped => sector_buffer_mapped,
 
+      qspicsn => qspicsn,
+      qspidb => qspidb,
+      
       joy3 => joy3,
       joy4 => joy4,
 
