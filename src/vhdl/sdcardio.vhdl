@@ -2226,7 +2226,7 @@ begin  -- behavioural
               qspi_clock <= fastio_wdata(5);
               qspi_clock_int <= fastio_wdata(5);
               if fastio_wdata(7)='1' then
-                qspidb <= fastio_wdata(3 downto 0);
+                qspidb <= std_logic_vector(fastio_wdata(3 downto 0));
               else
                 qspidb <= "ZZZZ";
               end if;
