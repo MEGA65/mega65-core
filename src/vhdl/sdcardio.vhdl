@@ -1108,7 +1108,7 @@ begin  -- behavioural
             fastio_rdata(6) <= qspi_csn_int;
             fastio_rdata(5) <= qspi_clock_int;
             fastio_rdata(4) <= '0';
-            fastio_rdata(3 downto 0) <= qspidb);
+            fastio_rdata(3 downto 0) <= qspidb;
           when x"D0" =>
             -- @IO:GS $D6D0 - I2C bus select (bus 0 = temp sensor on Nexys4 boardS)
             fastio_rdata <= i2c_bus_id;
