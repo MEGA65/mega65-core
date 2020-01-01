@@ -185,7 +185,7 @@ entity sdcardio is
     ----------------------------------------------------------------------
     -- Flash RAM for holding config
     ----------------------------------------------------------------------
-    QspiDB : inout std_logic_vector(3 downto 0) := "ZZZZ";
+    QspiDB : inout unsigned(3 downto 0) := "ZZZZ";
     QspiCSn : out std_logic            
 
     );
