@@ -508,7 +508,7 @@ begin  -- behavioural
                               --clock output
 --           EOS=>EOS,--1-bit output: Active high output signal indicating the
                       --End Of Startup.
-             PREQ=>'0',--1-bit output: PROGRAM request to fabric output
+--             PREQ=>,--1-bit output: PROGRAM request to fabric output
              CLK=>clock,--1-bit input: User start-up clock input
              GSR=>'0',--1-bit input: Global Set/Reset input (GSR cannot be used
                       --for the port name). UG470 says tie low.
@@ -1107,7 +1107,7 @@ begin  -- behavioural
             fastio_rdata(6) <= qspi_csn_int;
             fastio_rdata(5) <= qspi_clock_int;
             fastio_rdata(4) <= '0';
-            fastio_rdata(3 downto 0) <= qspidb;
+            fastio_rdata(3 downto 0) <= qspidb);
           when x"D0" =>
             -- @IO:GS $D6D0 - I2C bus select (bus 0 = temp sensor on Nexys4 boardS)
             fastio_rdata <= i2c_bus_id;
