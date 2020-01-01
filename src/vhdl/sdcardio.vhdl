@@ -472,6 +472,7 @@ architecture behavioural of sdcardio is
   signal pwm_knob_en : std_logic := '0';
 
   signal reconfigure_address : unsigned(31 downto 0) := x"00000000";
+  signal reconfigure_address_int : unsigned(31 downto 0) := x"00000000";
   signal trigger_reconfigure : std_logic := '0';
 
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
