@@ -327,6 +327,8 @@ void fetch_rdid(void)
   if (cfi_length==0) cfi_length = 512;
   for(i=0;i<cfi_length;i++)
     cfi_data[i]=spi_rx_byte();
+
+  spi_cs_high();
   
 }
 
