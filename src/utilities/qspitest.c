@@ -217,38 +217,6 @@ unsigned char sprite_data[63]={
   0,0,0
 };
 
-void main(void)
-{
-  
-  unsigned char seconds = 0;
-  unsigned char minutes = 0;
-  unsigned char hours = 0;
-
-  short x,y,z;
-  short a1,a2,a3;
-  unsigned char n=0;
-
-  m65_io_enable();
-
-  // Sprite 0 on
-  lpoke(0xFFD3015L,0x01);
-  // Sprite data at $03c0
-  *(unsigned char *)2040 = 0x3c0/0x40;
-
-  for(n=0;n<64;n++) 
-    *(unsigned char*)(0x3c0+n)=
-      sprite_data[n];
-  
-  // Disable OSK
-  lpoke(0xFFD3615L,0x7F);  
-  
-  // Clear screen
-  printf("%c",0x93);
-
-  
-  
-}
-
 /*
   $D6CC.7 = data bits DDR (all 4 bits at once)
   $D6CC.6 = CS#
@@ -361,4 +329,40 @@ void fetch_rdid(void)
     cfi_data[i]=spi_rx_byte();
   
 }
+
+
+void main(void)
+{
   
+  unsigned char seconds = 0;
+  unsigned char minutes = 0;
+  unsigned char hours = 0;
+
+  short x,y,z;
+  short a1,a2,a3;
+  unsigned char n=0;
+
+  m65_io_enable();
+
+  // Sprite 0 on
+  lpoke(0xFFD3015L,0x01);
+  // Sprite data at $03c0
+  *(unsigned char *)2040 = 0x3c0/0x40;
+
+  for(n=0;n<64;n++) 
+    *(unsigned char*)(0x3c0+n)=
+      sprite_data[n];
+  
+  // Disable OSK
+  lpoke(0xFFD3615L,0x7F);  
+  
+  // Clear screen
+  printf("%c",0x93);  
+
+  fetch_rdid();
+  printf("QSPI flash manufacturer = $%02x\n",manufacturer);
+  printf("QSPI device ID = $%04x\n",device_id);
+  
+}
+
+
