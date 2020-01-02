@@ -1659,7 +1659,7 @@ begin
         wait_states_non_zero <= '1';
         proceed <= '0';
         hyperport_num <= real_long_address(5 downto 0);
-      elsif (long_address = x"ffd0600") then
+      elsif (long_address = x"ffd3600") then
         -- Read VDC status #141
         -- Lie and always claim that VDC is ready
         read_source <= CPUPort;
@@ -1667,7 +1667,7 @@ begin
         wait_states_non_zero <= '1';
         proceed <= '0';
         cpuport_num <= x"3";
-      elsif (long_address = x"ffd0601") then
+      elsif (long_address = x"ffd3601") then
         if vdc_reg_num = x"1f" then
           report "Preparing to read from Shadow for simulated VDC access";
           shadow_address <= to_integer(vdc_mem_addr)+(4*65536);
@@ -1687,7 +1687,7 @@ begin
           proceed <= '0';
           cpuport_num <= x"4";
         end if;
-      elsif (long_address(27 downto 4) = x"ffd060") then
+      elsif (long_address(27 downto 4) = x"ffd360") then
         -- Debug VDC and other CPU port things
         read_source <= CPUPort;
         wait_states <= x"01";
@@ -2492,11 +2492,11 @@ begin
 
         -- For now, just always report an error condition.
         rec_status <= x"80";
-      elsif (long_address = x"FFD0600") then
+      elsif (long_address = x"FFD3600") then
         -- @IO:64 $D600 VDC:REGSEL VDC Register Select
         -- VDC register select #141
         vdc_reg_num <= value;
-      elsif (long_address = x"FFD0601") then
+      elsif (long_address = x"FFD3601") then
         -- @IO:64 $D601 VDC:DATA VDC Data Access Register
         case vdc_reg_num is
           when x"12" =>
@@ -2506,7 +2506,7 @@ begin
           when x"1F" =>
             -- Write to VDC RAM.            
             -- Real write happens elsewhere
-            -- (search for x"ffd0601")
+            -- (search for x"ffd3601")
             vdc_mem_addr <= vdc_mem_addr + 1;
           when others =>
             null;
@@ -7523,7 +7523,7 @@ begin
           and real_long_address(11 downto 8)= x"E"
           and georam_blockmask /= x"00" then
           long_address := georam_page&real_long_address(7 downto 0);
-        elsif real_long_address = x"ffd0601" and vdc_reg_num = x"1f" then
+        elsif real_long_address = x"ffd3601" and vdc_reg_num = x"1f" then
           -- We map VDC RAM always to $40000
           -- So we re-map this write to $4xxxx
           long_address(27 downto 16) := x"004";
@@ -7574,7 +7574,7 @@ begin
           long_address := georam_page&real_long_address(7 downto 0);
         end if;
 
-        if real_long_address = x"ffd0601" and vdc_reg_num = x"1f" then
+        if real_long_address = x"ffd3601" and vdc_reg_num = x"1f" then
           -- We map VDC RAM always to $40000
           -- So we re-map this write to $4xxxx
           long_address(27 downto 16) := x"004";
