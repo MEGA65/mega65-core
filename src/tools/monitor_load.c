@@ -96,6 +96,7 @@ void usage(void)
   fprintf(stderr,"  -E - Enable streaming of video via ethernet.\n");
   fprintf(stderr,"  -L - Enable streaming of CPU instruction log via ethernet.\n");
   fprintf(stderr,"  -f - Specify which FPGA to reconfigure when calling fpgajtag\n");
+  fprintf(stderr,"  -S - Show the text-mode screen\n");
   fprintf(stderr,"  filename - Load and run this file in C64 mode before exiting.\n");
   fprintf(stderr,"\n");
   exit(-3);
@@ -136,6 +137,14 @@ int break_point=-1;
 int saw_c64_mode=0;
 int saw_c65_mode=0;
 int hypervisor_paused=0;
+
+int screen_shot=0;
+int screen_rows_remaining=0;
+int screen_address=0;
+int next_screen_address=0;
+int screen_line_offset=0;
+int screen_line_step=0;
+int screen_width=0;
 
 char *type_text=NULL;
 int type_text_cr=0;
@@ -789,7 +798,43 @@ int process_line(char *line,int live)
 	hypervisor_paused=0;
         printf("hyperv not paused\n");
       }
-      if (addr>=0xffd3000U&&addr<=0xffd3100) {
+      if (addr==0xffd3058) {
+	// Screen shot stage 1: Get screen start address
+	// $D058/9 = chars per logical text row, i.e., advance per text line
+	// $D05E = number of chars to display per row
+	// $D060-3 = start address of screen
+	screen_address=b[8]+(b[9]<<8)+(b[10]<<16);
+	next_screen_address=screen_address;	
+        screen_width=b[6];
+	screen_line_step=b[0]+(b[1]<<8);
+	screen_rows_remaining=25;
+	screen_line_offset=0;
+	
+	// So now ask for screen data
+	char cmd[1024];
+	snprintf(cmd,1024,"M%x\n",screen_address);
+	slow_write(fd,cmd,strlen(cmd));
+      } else if (addr==next_screen_address) {
+	screen_line_offset+=16;
+	next_screen_address+=16;
+	if (screen_line_offset==0x100) {
+	  // We have read the whole screen line
+
+	  printf("Got screen line\n");
+	  
+	  screen_rows_remaining--;
+	  if (screen_rows_remaining) {
+	    // Ask for next screen line
+	    screen_address+=screen_line_step;
+	    next_screen_address=screen_address;
+	    screen_line_offset=0;
+	    char cmd[1024];
+	    snprintf(cmd,1024,"M%x\n",screen_address);
+	    slow_write(fd,cmd,strlen(cmd));
+	  } else exit(0);	  
+	}
+	// 
+      } else if (addr>=0xffd3000U&&addr<=0xffd3100) {
 	// copy bytes to VIC-IV register buffer
 	int offset=addr-0xffd3000;
 	if (offset<0x80&&offset>=0) {
@@ -1353,7 +1398,7 @@ int main(int argc,char **argv)
   start_time=time(0);
   
   int opt;
-  while ((opt = getopt(argc, argv, "14B:b:c:C:d:EFHf:k:Ll:m:MnoprR:s:t:T:")) != -1) {
+  while ((opt = getopt(argc, argv, "14B:b:c:C:d:EFHf:k:Ll:m:MnoprR:Ss:t:T:")) != -1) {
     switch (opt) {
     case 'B': sscanf(optarg,"%x",&break_point); break;
     case 'L': if (ethernet_video) { usage(); } else { ethernet_cpulog=1; } break;
@@ -1383,6 +1428,9 @@ int main(int argc,char **argv)
       case 230400: case 2000000: break;
       default: usage();
       }
+      break;
+    case 'S':
+      screen_shot=1;
       break;
     case 'b':
       bitstream=strdup(optarg); break;
@@ -1476,6 +1524,10 @@ int main(int argc,char **argv)
 	    case 2: slow_write_safe(fd,"m42c\r",5); break; // C64 mode check
             case 3: slow_write_safe(fd,"mffd3077\r",9); break; 
 	    case 4: slow_write_safe(fd,"mffd3659\r",9); break; // Hypervisor virtualisation/security mode flag check
+	    case 5:
+	      // Requests screen address if we are taking a screenshot
+	      if (screen_shot) slow_write_safe(fd,"mffd3058\r",9);
+	      break;
 	    default: phase=0;
 	    }
           } 
