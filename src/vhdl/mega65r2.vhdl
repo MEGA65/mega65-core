@@ -145,7 +145,7 @@ entity container is
          -- IO lines to QSPI config flash (used so that we can update bitstreams)
          ---------------------------------------------------------------------------
          QspiDB : inout unsigned(3 downto 0) := (others => '0');
-         QspiCSn : out std_logic := '1';
+         QspiCSn : out std_logic;
                 
          ---------------------------------------------------------------------------
          -- IO lines to the ethernet controller
