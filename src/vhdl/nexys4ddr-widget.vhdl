@@ -319,8 +319,8 @@ begin
       cpu_game => cpu_game,
       sector_buffer_mapped => sector_buffer_mapped,
       
-      qspidb => qspidb,
-      qspicsn => qspicsn,      
+--      qspidb => qspidb,
+--      qspicsn => qspicsn,      
 --      qspisck => '1',
 
       slow_access_request_toggle => slow_access_request_toggle,
@@ -380,6 +380,9 @@ begin
       restore_key => restore_key,
       sector_buffer_mapped => sector_buffer_mapped,
 
+      qspidb => qspidb,
+      qspicsn => qspicsn,      
+     
       pal50_select_out => pal50_select,
       
       -- Wire up a dummy caps_lock key on switch 8
