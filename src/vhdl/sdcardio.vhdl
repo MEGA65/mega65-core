@@ -203,6 +203,7 @@ architecture behavioural of sdcardio is
   signal qspi_clock_int : std_logic := '1';
   signal qspi_csn_int : std_logic := '1'; 
   signal qspi_dbddr : std_logic := '0';
+  signal qspi_tristate_d0 : std_logic := '0';
   signal qspidb_in : unsigned(3 downto 0);
   
   signal aclMOSIinternal : std_logic := '0';
@@ -1107,7 +1108,7 @@ begin  -- behavioural
             fastio_rdata(7) <= qspi_dbddr;
             fastio_rdata(6) <= qspi_csn_int;
             fastio_rdata(5) <= qspi_clock_int;
-            fastio_rdata(4) <= '0';
+            fastio_rdata(4) <= qspi_tristate_d0;
             fastio_rdata(3 downto 0) <= qspidb;
           when x"D0" =>
             -- @IO:GS $D6D0 - I2C bus select (bus 0 = temp sensor on Nexys4 boardS)
@@ -2225,8 +2226,14 @@ begin  -- behavioural
               qspi_csn_int <= fastio_wdata(6);
               qspi_clock <= fastio_wdata(5);
               qspi_clock_int <= fastio_wdata(5);
+              qspi_tristate_d0 <= fastio_wdata(4);
               if fastio_wdata(7)='1' then
-                qspidb <= fastio_wdata(3 downto 0);
+                if fastio_wdata(4)='0' then
+                  qspidb <= fastio_wdata(3 downto 0);
+                else
+                  qspidb(3 downto 1) <= fastio_wdata(3 downto 1);
+                  qspidb(0) <= 'Z';
+                end if;
               else
                 qspidb <= "ZZZZ";
               end if;
