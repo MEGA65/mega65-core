@@ -260,6 +260,23 @@ void main(void)
   $D6CC.3 = data bit 3 / HOLD#
 */
 
+void spi_tristate_si(void)
+{
+  POKE(0xD6CCU,PEEK(0xD6CCU)|0x10);
+}
+
+unsigned char spi_sample_si(void)
+{
+  return (PEEK(0xD6CCU)&0);
+}
+
+void spi_so_set(unsigned char b)
+{
+  // De-tri-state SO data line, and set value
+  POKE(0xD6CCU,(PEEK(0xD6CCU)&(0xFF-(0x81)))|(b?1:0));
+}
+
+
 void spi_clock_low(void)
 {
   POKE(0xD6CCU,PEEK(0xD6CCU)&(0xFF-0x20));
@@ -285,7 +302,7 @@ void spi_tx_bit(unsigned char bit)
 {
   spi_clock_low();
   spi_so_set(bit);
-  spi_clk_high();
+  spi_clock_high();
 }
 
 void spi_tx_byte(unsigned char b)
@@ -305,16 +322,17 @@ unsigned char spi_rx_byte()
 
   spi_tristate_si();
   for(i=0;i<8;i++) {
-    spi_clk_low();
+    spi_clock_low();
     b=b>>1;
     if (spi_sample_si()) b|=0x80;
-    spi_clk_high();
+    spi_clock_high();
   }
 }
 
 unsigned char manufacturer;
 unsigned short device_id;
 unsigned short cfi_data[512];
+unsigned short cfi_length=0;
 
 void fetch_rdid(void)
 {
@@ -333,14 +351,14 @@ void fetch_rdid(void)
   // Start with 3 byte manufacturer + device ID
   manufacturer=spi_rx_byte();
   device_id=spi_rx_byte()<<8;
-  devide_id|=spi_rx_byte();
+  device_id|=spi_rx_byte();
 
   // Now get the CFI data block
   for(i=0;i<512;i++) cfi_data[i]=0x00;  
   cfi_length=spi_rx_byte();
   if (cfi_length==0) cfi_length = 512;
   for(i=0;i<cfi_length;i++)
-    cfi_data[i]=spi_rx_byte;
+    cfi_data[i]=spi_rx_byte();
   
 }
   
