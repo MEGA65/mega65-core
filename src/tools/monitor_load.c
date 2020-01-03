@@ -467,11 +467,22 @@ int virtual_f011_read(int device,int track,int sector,int side)
 
 int print_screencode(unsigned char c)
 {
+  int rev=0;
+  if (c&0x80) {
+    rev=1; c&=0x7f;
+    // Now swap foreground/background
+    printf("%c[7m",27);
+  }
   if (c>='0'&&c<='9') printf("%c",c);
   else if (c>=0x00&&c<=0x1f) printf("%c",c+0x40);
   else if (c>=0x20&&c<=0x3f) printf("%c",c);
   
   else printf("?");
+
+  if (rev) {
+    // Reverse off again
+    printf("%c[0m",27);
+  }
 }
 
 int process_line(char *line,int live)
