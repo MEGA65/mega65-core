@@ -1250,6 +1250,28 @@ architecture Behavioural of gs4510 is
   -- fake VDC status register that claims "always ready"
   signal vdc_status : unsigned(7 downto 0) := x"80";
   
+  -- purpose: map VDC linear address to VICII bitmap addressing here
+  -- to keep it as simple as possible we assume fix 640x200x2 resolution
+  -- for the access
+  -- (better would be to align the math here with the actual VICIV 
+  -- video mode setting, even the bank to be used could be dynamic)
+  function resolve_vdc_to_viciv_address(vdc_address : unsigned(15 downto 0))
+    return unsigned is 
+
+    variable line : integer;
+    variable col : integer;
+    variable viciv_line : integer;
+    variable viciv_line_off : integer;
+  begin  -- resolve_vdc_to_viciv_address
+  
+    line := to_integer(vdc_address) / 80;
+    col := to_integer(vdc_address) mod 80;
+    viciv_line := line / 8;
+    viciv_line_off :=(viciv_line * 640) + (line mod 8) + (col * 8);
+    
+    return to_unsigned(viciv_line_off, 16);
+  end resolve_vdc_to_viciv_address;
+
 begin
 
   monitor_cpuport <= cpuport_value(2 downto 0);
@@ -1321,7 +1343,7 @@ begin
     unsigned(doutr) => cache_rdata,
     dinl => std_logic_vector(cache_wdata)
     );    
-  
+      
   process(clock,reset,reg_a,reg_x,reg_y,reg_z,flag_c,phi0_export,all_pause)
     procedure disassemble_last_instruction is
       variable justification : side := RIGHT;
@@ -1604,7 +1626,7 @@ begin
       end if;
       
     end procedure check_for_interrupts;
-
+    
     procedure read_long_address(
       real_long_address : in unsigned(27 downto 0)) is
       variable long_address : unsigned(27 downto 0);
@@ -1671,7 +1693,7 @@ begin
       elsif (long_address = x"ffd3601") then
         if vdc_reg_num = x"1f" then
           report "Preparing to read from Shadow for simulated VDC access";
-          shadow_address <= to_integer(viciv_line_off(vdc_mem_addr))+(4*65536);
+          shadow_address <= to_integer(resolve_vdc_to_viciv_address(vdc_mem_addr))+(4*65536);
           vdc_mem_addr <= vdc_mem_addr + 1;
           read_source <= Shadow;
           accessing_shadow <= '1';
@@ -6594,9 +6616,7 @@ begin
     -- temp hack as I work to move this code around...
     variable real_long_address : unsigned(27 downto 0);
     variable long_address : unsigned(27 downto 0);
-    
-    variable v_viciv_mem_addr: unsigned();
-    
+        
     -- purpose: Convert a 16-bit C64 address to native RAM (or I/O or ROM) address
     impure function resolve_address_to_long(short_address : unsigned(15 downto 0);
                                             writeP : boolean)
@@ -6839,27 +6859,7 @@ begin
       return temp_address;
     end resolve_address_to_long;
     
-    -- purpose: map VDC linear address to VICII bitmap addressing here
-    -- to keep it as simple as possible we assume fix 640x200x2 resolution
-    -- for the access
-    -- (better would be to align the math here with the actual VICIV 
-    -- video mode setting, even the bank to be used could be dynamic)
-    impure function resolve_vdc_to_viciv_address(vdc_address : unsigned(15 downto 0))
-      return unsigned is 
 
-      variable line : integer;
-      variable col : integer;
-      variable viciv_line : integer;
-      variable viciv_line_off : integer;
-    begin  -- resolve_vdc_to_viciv_address
-    
-      line := to_integer(vdc_address) / 80;
-      col := to_integer(vdc_address) mod 80;
-      viciv_line := line / 8;
-      viciv_line_off :=(viciv_line * 640) + (line mod 8) + (col * 8);
-      
-      return unsigned(viciv_line_off);
-    end resolve_vdc_to_viciv_address;
   begin
 
     stack_pop := '0'; stack_push := '0';
