@@ -1687,13 +1687,13 @@ begin
           proceed <= '0';
           cpuport_num <= x"4";
         end if;
-      elsif (long_address(27 downto 4) = x"ffd360") then
-        -- Debug VDC and other CPU port things
-        read_source <= CPUPort;
-        wait_states <= x"01";
-        wait_states_non_zero <= '1';
-        proceed <= '0';
-        cpuport_num <= long_address(3 downto 0);        
+--      elsif (long_address(27 downto 4) = x"ffd360") then
+--        -- Debug VDC and other CPU port things
+--        read_source <= CPUPort;
+--        wait_states <= x"01";
+--        wait_states_non_zero <= '1';
+--        proceed <= '0';
+--        cpuport_num <= long_address(3 downto 0);        
       elsif (long_address = x"0000000") or (long_address = x"0000001") then
         accessing_cpuport <= '1';
         report "Preparing to read from a CPUPort";
