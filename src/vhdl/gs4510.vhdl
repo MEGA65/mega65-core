@@ -1671,7 +1671,7 @@ begin
       elsif (long_address = x"ffd3601") then
         if vdc_reg_num = x"1f" then
           report "Preparing to read from Shadow for simulated VDC access";
-          shadow_address <= to_integer(vdc_mem_addr)+(4*65536);
+          shadow_address <= to_integer(viciv_line_off(vdc_mem_addr))+(4*65536);
           vdc_mem_addr <= vdc_mem_addr + 1;
           read_source <= Shadow;
           accessing_shadow <= '1';
@@ -6595,6 +6595,8 @@ begin
     variable real_long_address : unsigned(27 downto 0);
     variable long_address : unsigned(27 downto 0);
     
+    variable v_viciv_mem_addr: unsigned();
+    
     -- purpose: Convert a 16-bit C64 address to native RAM (or I/O or ROM) address
     impure function resolve_address_to_long(short_address : unsigned(15 downto 0);
                                             writeP : boolean)
@@ -6837,6 +6839,27 @@ begin
       return temp_address;
     end resolve_address_to_long;
     
+    -- purpose: map VDC linear address to VICII bitmap addressing here
+    -- to keep it as simple as possible we assume fix 640x200x2 resolution
+    -- for the access
+    -- (better would be to align the math here with the actual VICIV 
+    -- video mode setting, even the bank to be used could be dynamic)
+    impure function resolve_vdc_to_viciv_address(vdc_address : unsigned(15 downto 0))
+      return unsigned is 
+
+      variable line : integer;
+      variable col : integer;
+      variable viciv_line : integer;
+      variable viciv_line_off : integer;
+    begin  -- resolve_vdc_to_viciv_address
+    
+      line := to_integer(vdc_address) / 80;
+      col := to_integer(vdc_address) mod 80;
+      viciv_line := line / 8;
+      viciv_line_off :=(viciv_line * 640) + (line mod 8) + (col * 8);
+      
+      return unsigned(viciv_line_off);
+    end resolve_vdc_to_viciv_address;
   begin
 
     stack_pop := '0'; stack_push := '0';
@@ -7580,7 +7603,8 @@ begin
           -- We map VDC RAM always to $40000
           -- So we re-map this write to $4xxxx
           long_address(27 downto 16) := x"004";
-          long_address(15 downto 0) := vdc_mem_addr;          
+          
+          long_address(15 downto 0) := resolve_vdc_to_viciv_address(vdc_mem_addr);          
         end if;
         
         if real_long_address(27 downto 12) = x"001F" and real_long_address(11)='1' then
