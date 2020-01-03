@@ -145,6 +145,7 @@ int next_screen_address=0;
 int screen_line_offset=0;
 int screen_line_step=0;
 int screen_width=0;
+unsigned char screen_line_buffer[256];
 
 char *type_text=NULL;
 int type_text_cr=0;
@@ -464,6 +465,15 @@ int virtual_f011_read(int device,int track,int sector,int side)
   return 0;
 }
 
+int print_screencode(unsigned char c)
+{
+  if (c>='0'&&c<='9') printf("%c",c);
+  else if (c>=0x00&&c<=0x1f) printf("%c",c+0x40);
+  else if (c>=0x20&&c<=0x3f) printf("%c",c);
+  
+  else printf("?");
+}
+
 int process_line(char *line,int live)
 {
   int pc,a,x,y,sp,p;
@@ -720,7 +730,7 @@ int process_line(char *line,int live)
 	       &b[12],&b[13],&b[14],&b[15])==17) gotIt=1;
     if (gotIt) {
       char fname[17];
-      printf("Read memory @ $%04x\n",addr);
+      if (!screen_shot) printf("Read memory @ $%04x\n",addr);
       if (addr==name_addr) {
 	for(int i=0;i<16;i++) { fname[i]=b[i]; } fname[16]=0;
 	fname[name_len]=0;
@@ -815,12 +825,17 @@ int process_line(char *line,int live)
 	snprintf(cmd,1024,"M%x\n",screen_address);
 	slow_write(fd,cmd,strlen(cmd));
       } else if (addr==next_screen_address) {
+	for(int i=0;i<16;i++) screen_line_buffer[screen_line_offset+i]=b[i];
 	screen_line_offset+=16;
 	next_screen_address+=16;
 	if (screen_line_offset==0x100) {
 	  // We have read the whole screen line
 
-	  printf("Got screen line @ $%x. %d to go.\n",screen_address,screen_rows_remaining);
+	  // printf("Got screen line @ $%x. %d to go.\n",screen_address,screen_rows_remaining);
+	  for(int i=0;i<screen_width;i++) {
+	    print_screencode(screen_line_buffer[i]);
+	  }
+	  printf("\n");
 	  
 	  screen_rows_remaining--;
 	  if (screen_rows_remaining) {
@@ -954,8 +969,9 @@ int process_line(char *line,int live)
     } else {
       if (!saw_c64_mode) fprintf(stderr,"MEGA65 is in C64 mode.\n");
       saw_c64_mode=1;
-      if (!virtual_f011)
+      if( (!virtual_f011)&&(!screen_shot))
 	exit(0);
+      if (screen_shot) slow_write_safe(fd,"mffd3058\r",9);
     }
   }  
   if (state==2)
