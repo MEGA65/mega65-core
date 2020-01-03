@@ -1660,6 +1660,7 @@ begin
         proceed <= '0';
         hyperport_num <= real_long_address(5 downto 0);
       elsif (long_address = x"ffd3600") then
+        accessing_cpuport <= '1';
         -- Read VDC status #141
         -- Lie and always claim that VDC is ready
         read_source <= CPUPort;
@@ -1680,8 +1681,9 @@ begin
           wait_states_non_zero <= '1';
           proceed <= '0';
         else
+          accessing_cpuport <= '1';
           -- Read simulated VDC registers
-          read_source <= CPUPort;
+          read_source <= CPUPort;          
           wait_states <= x"01";
           wait_states_non_zero <= '1';
           proceed <= '0';
