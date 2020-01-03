@@ -467,7 +467,7 @@ int virtual_f011_read(int device,int track,int sector,int side)
 int process_line(char *line,int live)
 {
   int pc,a,x,y,sp,p;
-  //printf("[%s]\n",line);
+  //  printf("[%s]\n",line);
   if (!live) return 0;
   if (strstr(line,"ws h RECA8LHC")) {
      if (!new_monitor) printf("Detected new-style UART monitor.\n");
@@ -798,7 +798,7 @@ int process_line(char *line,int live)
 	hypervisor_paused=0;
         printf("hyperv not paused\n");
       }
-      if (addr==0xffd3058) {
+      if ((addr==0xffd3058)&&(!screen_address)) {
 	// Screen shot stage 1: Get screen start address
 	// $D058/9 = chars per logical text row, i.e., advance per text line
 	// $D05E = number of chars to display per row
@@ -820,7 +820,7 @@ int process_line(char *line,int live)
 	if (screen_line_offset==0x100) {
 	  // We have read the whole screen line
 
-	  printf("Got screen line\n");
+	  printf("Got screen line @ $%x. %d to go.\n",screen_address,screen_rows_remaining);
 	  
 	  screen_rows_remaining--;
 	  if (screen_rows_remaining) {
@@ -923,7 +923,11 @@ int process_line(char *line,int live)
         if (do_run) {
           // C65 mode stuff keyboard buffer
 	  printf("XXX - Do C65 keyboard buffer stuffing\n");
-	  
+	} else if (screen_shot) {
+	  if (!screen_address) {
+	    printf("Waiting to capture screen...\n");
+	    slow_write_safe(fd,"mffd3058\r",9);
+	  }
         } else {
   	  fprintf(stderr,"Exiting now that we are in C65 mode.\n");
 	  exit(0);
@@ -1518,16 +1522,16 @@ int main(int argc,char **argv)
           if(fast_mode) {         
 	  } else {	    
 	    if (state==99) printf("sending R command to sync @ %dpbs.\n",serial_speed);
-	    switch (phase%(4+hypervisor_paused)) {
+	    switch (phase%(5+hypervisor_paused)) {
 	    case 0: slow_write_safe(fd,"r\r",2); break; // PC check
 	    case 1: slow_write_safe(fd,"m800\r",5); break; // C65 Mode check
 	    case 2: slow_write_safe(fd,"m42c\r",5); break; // C64 mode check
             case 3: slow_write_safe(fd,"mffd3077\r",9); break; 
-	    case 4: slow_write_safe(fd,"mffd3659\r",9); break; // Hypervisor virtualisation/security mode flag check
-	    case 5:
+	    case 4:
 	      // Requests screen address if we are taking a screenshot
 	      if (screen_shot) slow_write_safe(fd,"mffd3058\r",9);
 	      break;
+	    case 5: slow_write_safe(fd,"mffd3659\r",9); break; // Hypervisor virtualisation/security mode flag check
 	    default: phase=0;
 	    }
           } 
