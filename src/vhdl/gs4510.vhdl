@@ -761,7 +761,11 @@ architecture Behavioural of gs4510 is
     MicrocodeInterpret,
     LoadTarget32,
     Execute32,
-    StoreTarget32
+    StoreTarget32,
+    
+    -- VDC simulation block operations
+    VDCRead,
+    VDCWrite
     );
   signal state : processor_state := ResetLow;
   signal fast_fetch_state : processor_state := InstructionDecode;
@@ -1249,6 +1253,7 @@ architecture Behavioural of gs4510 is
   signal vdc_mem_addr : unsigned(15 downto 0) := to_unsigned(0,16);
   -- fake VDC status register that claims "always ready"
   signal vdc_status : unsigned(7 downto 0) := x"80";
+  signal vdc_mem_addr_src : unsigned(15 downto 0) := to_unsigned(0,16);
   
   -- purpose: map VDC linear address to VICII bitmap addressing here
   -- to keep it as simple as possible we assume fix 640x200x2 resolution
@@ -2531,6 +2536,10 @@ begin
             vdc_mem_addr(15 downto 8) <= value;
           when x"13" =>
             vdc_mem_addr(7 downto 0) <= value;
+          when x"20" =>
+            vdc_mem_addr_src(15 downto 8) <= value;
+          when x"21" =>
+            vdc_mem_addr_src(7 downto 0) <= value;
           when x"1F" =>
             -- Write to VDC RAM.            
             -- Real write happens elsewhere
@@ -4451,6 +4460,18 @@ begin
               else
                 dmagic_count <= dmagic_count - 1;
               end if;
+            when VDCRead =>
+              state <= VDCWrite;
+              dmagic_count <= dmagic_count - 1;
+              vdc_mem_addr_src <= vdc_mem_addr_src + 1; 
+            when VDCWrite =>
+              vdc_mem_addr <= vdc_mem_addr + 1; 
+              if dmagic_count = 0 then
+                state <= normal_fetch_state;
+              else 
+                -- continue Reading
+                state <= VDCRead;
+              end if; 
             when DMAgicCopyRead =>
                                         -- We can't write a value the immediate cycle we read it, so
                                         -- we need to read one byte ahead, so that we have a 1 byte buffer
@@ -6432,6 +6453,10 @@ begin
                                         -- Get the shadow RAM or ROM address on the bus fast to improve timing.
           shadow_write <= '0';
           shadow_write_flags(1) <= '1';
+
+          if memory_access_address = x"FFD3601" and vdc_reg_num = x"1E" then
+            state <= VDCRead;
+          end if;
           
           if memory_access_address = x"FFD3700"
             or memory_access_address = x"FFD1700" then
@@ -7062,7 +7087,20 @@ begin
               memory_access_address(13 downto 12) := "11";
             end if;
           end if;
-          
+        
+        when VDARead =>
+          memory_access_read := '1';
+          memory_access_resolve_address := '0';
+          memory_access_address(27 downto 16) := x"004";
+          memory_access_address(15 downto 0) := resolve_vdc_to_viciv_address(vdc_mem_addr_src);
+
+        when VDAWrite =>
+          memory_access_write := '1';
+          memory_access_wdata := reg_t;
+          memory_access_resolve_address := '0';
+          memory_access_address(27 downto 16) := x"004";
+          memory_access_address(15 downto 0) := resolve_vdc_to_viciv_address(vdc_mem_addr);
+              
         when DMAgicCopyRead =>
           -- Do memory read
           memory_access_read := '1';
