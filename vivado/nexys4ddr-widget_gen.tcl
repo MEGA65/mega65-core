@@ -172,7 +172,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/expansion_port_controller.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/machine.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/fpgatemp.vhd"]"\
- "[file normalize "$origin_dir/src/vhdl/reconfig.vhd"]"\
+ "[file normalize "$origin_dir/src/vhdl/reconfig.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ddrwrapper.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/nexys4ddr-widget.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/rain.vhdl"]"\
@@ -524,7 +524,7 @@ set file "vhdl/fpgatemp.vhd"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
-set file "vhdl/reconfig.vhd"
+set file "vhdl/reconfig.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
