@@ -270,13 +270,13 @@ begin
                       --End Of Startup.
 --             PREQ=>PREQ,--1-bit output: PROGRAM request to fabric output
              CLK=>cpuclock,--1-bit input: User start-up clock input
-             GSR=>'1',--1-bit input: Global Set/Reset input (GSR cannot be used
+             GSR=>'0',--1-bit input: Global Set/Reset input (GSR cannot be used
                       --for the port name)
-             GTS=>'1',--1-bit input: Global 3-state input (GTS cannot be used
+             GTS=>'0',--1-bit input: Global 3-state input (GTS cannot be used
                       --for the port name)
-             KEYCLEARB=>'1',--1-bit input: Clear AES Decrypter Key input
+             KEYCLEARB=>'0',--1-bit input: Clear AES Decrypter Key input
                                   --from Battery-Backed RAM (BBRAM)
-             PACK=>'1',--1-bit input: PROGRAM acknowledge input
+             PACK=>'0',--1-bit input: PROGRAM acknowledge input
 
              -- Put CPU clock out on the QSPI CLOCK pin
              USRCCLKO=>cpuclock,--1-bit input: User CCLK input
