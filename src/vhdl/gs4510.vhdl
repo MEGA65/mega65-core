@@ -1274,7 +1274,8 @@ architecture Behavioural of gs4510 is
   signal vdc_mem_addr : unsigned(15 downto 0) := to_unsigned(0,16);
   -- fake VDC status register that claims "always ready"
   signal vdc_status : unsigned(7 downto 0) := x"80";
-
+  signal vdc_memory_access_toggle : std_logic := '0';
+  signal last_vdc_memory_access_toggle : std_logic := '0';
   
 begin
 
@@ -2549,11 +2550,6 @@ begin
             vdc_mem_addr(15 downto 8) <= value;
           when x"13" =>
             vdc_mem_addr(7 downto 0) <= value;
-          when x"1F" =>
-            -- Write to VDC RAM.            
-            -- Real write happens elsewhere
-            -- (search for x"ffd0601")
-            vdc_mem_addr <= vdc_mem_addr + 1;
           when others =>
             null;
         end case;
@@ -6621,6 +6617,13 @@ begin
           report "memory_access_read=1, addres=$"&to_hstring(memory_access_address) severity note;
           read_long_address(memory_access_address);
         end if;
+
+        if vdc_memory_access_toggle /= last_vdc_memory_access_toggle then
+          last_vdc_memory_access_toggle <= vdc_memory_access_toggle;
+          -- Writes to VDC RAM increment access address
+          vdc_mem_addr <= vdc_mem_addr + 1;
+        end if;          
+        
       end if; -- if not reseting
     end if;                         -- if rising edge of clock
   end process;
@@ -7624,6 +7627,7 @@ begin
           -- So we re-map this write to $4xxxx
           long_address(27 downto 16) := x"004";
           long_address(15 downto 0) := vdc_mem_addr;
+          vdc_memory_access_toggle <= not vdc_memory_access_toggle;
         else
           long_address := real_long_address;
         end if;
