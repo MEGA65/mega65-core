@@ -2415,7 +2415,7 @@ begin
         wait_states_non_zero <= '0';
       end if;
 
-      if (real_long_address = x"FFD3601") and (vdc_reg_num = 0x"1F") then
+      if (real_long_address = x"FFD3601") and (vdc_reg_num = x"1F") then
         vdc_mem_addr <= vdc_mem_addr + 1;
       end if;
 
