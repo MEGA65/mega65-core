@@ -270,15 +270,15 @@ begin
                       --End Of Startup.
 --             PREQ=>PREQ,--1-bit output: PROGRAM request to fabric output
              CLK=>cpuclock,--1-bit input: User start-up clock input
-             GSR=>'0',--1-bit input: Global Set/Reset input (GSR cannot be used
+             GSR=>'1',--1-bit input: Global Set/Reset input (GSR cannot be used
                       --for the port name)
-             GTS=>'0',--1-bit input: Global 3-state input (GTS cannot be used
+             GTS=>'1',--1-bit input: Global 3-state input (GTS cannot be used
                       --for the port name)
-             KEYCLEARB=>'0',--1-bit input: Clear AES Decrypter Key input
+             KEYCLEARB=>'1',--1-bit input: Clear AES Decrypter Key input
                                   --from Battery-Backed RAM (BBRAM)
              PACK=>'1',--1-bit input: PROGRAM acknowledge input
              USRCCLKO=>cpuclock,--1-bit input: User CCLK input
-             USRCCLKTS=>'0',--1-bit input: User CCLK 3-state enable input
+             USRCCLKTS=>'1',--1-bit input: User CCLK 3-state enable input
              USRDONEO=>'1',--1-bit input: User DONE pin output control
              USRDONETS=>'1' --1-bit input: User DONE 3-state enable output
              );
