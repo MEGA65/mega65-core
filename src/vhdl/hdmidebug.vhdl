@@ -248,6 +248,9 @@ architecture Behavioral of container is
   signal USRCCLKTS : std_logic := '0';
   signal USRDONEO : std_logic := '1';
   signal USRDONETS : std_logic := '0';
+
+  signal h_audio_left : unsigned(19 downto 0) := to_unsigned(0,20);
+  signal h_audio_right : unsigned(19 downto 0) := to_unsigned(0,20);
   
 begin
 
@@ -279,7 +282,11 @@ begin
              USRDONETS=>USRDONETS--1-bit input: User DONE 3-state enable output
              );
 -- End of STARTUPE2_inst instantiation
-  
+
+  reconfig1: entity work.reconfig
+    port map ( clock => cpuclock,
+               trigger_reconfigure => '0');
+
   dotclock1: entity work.dotclock100
     port map ( clk_in1 => CLK_IN,
                clock100 => clock100,
@@ -337,7 +344,7 @@ begin
                hsync_invert => zero,
                vsync_invert => zero,
                pal50_select => zero,
-               vga60_select => one,
+               vga60_select => zero,
                test_pattern_enable => one,      
       
       -- Framing information for VIC-IV
@@ -401,10 +408,14 @@ begin
       hdmi_sda => hdmi_sda
       );
 
-  spdif0: entity work.spdf_out port map(
-    clk => clock100,
-    spdif_out => hdmi_spdif
-    );
+  hdmiaudio: entity work.hdmi_spdif
+    generic map ( samplerate => 44100 )
+    port map (
+      clk => clock100,
+      spdif_out => hdmi_spdif,
+      left_in => std_logic_vector(h_audio_left),
+      right_in => std_logic_vector(h_audio_right)
+      );
 
   PROCESS (PIXELCLOCK) IS
   BEGIN
@@ -426,6 +437,10 @@ begin
     -- Ethernet clock at 50MHz
     eth_clock <= ethclock;
 
+    -- Make a horrible triangle wave test audio pattern
+    h_audio_left <= h_audio_left + 32;
+    h_audio_right <= h_audio_right + 32;
+    
   end process;    
   
 end Behavioral;
