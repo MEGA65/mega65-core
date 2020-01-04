@@ -7553,6 +7553,7 @@ begin
           -- So we re-map this write to $4xxxx
           long_address(27 downto 16) := x"004";
           long_address(15 downto 0) := resolve_vdc_to_viciv_address(vdc_mem_addr);
+          vdc_mem_addr <= vdc_mem_addr + 1;
         else
           long_address := real_long_address;
         end if;
