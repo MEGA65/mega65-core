@@ -2415,6 +2415,10 @@ begin
         wait_states_non_zero <= '0';
       end if;
 
+      if (real_long_address = x"FFD3601") and (vdc_reg_num = 0x"1F") then
+        vdc_mem_addr <= vdc_mem_addr + 1;
+      end if;
+
       -- Set GeoRAM page (gets munged later with GeoRAM base and mask values
       -- provided by the hypervisor)
       if real_long_address(27 downto 16) = x"ffd" then
@@ -7553,7 +7557,6 @@ begin
           -- So we re-map this write to $4xxxx
           long_address(27 downto 16) := x"004";
           long_address(15 downto 0) := resolve_vdc_to_viciv_address(vdc_mem_addr);
-          vdc_mem_addr <= vdc_mem_addr + 1;
         else
           long_address := real_long_address;
         end if;
