@@ -260,7 +260,7 @@ begin
   STARTUPE2_inst: STARTUPE2
     generic map(PROG_USR=>"FALSE", --Activate program event security feature.
                                    --Requires encrypted bitstreams.
-  SIM_CCLK_FREQ=>0.0 --Set the Configuration Clock Frequency(ns) for simulation.
+  SIM_CCLK_FREQ=>10.0 --Set the Configuration Clock Frequency(ns) for simulation.
     )
     port map(
 --      CFGCLK=>CFGCLK,--1-bit output: Configuration main clock output
@@ -269,7 +269,7 @@ begin
 --             EOS=>EOS,--1-bit output: Active high output signal indicating the
                       --End Of Startup.
 --             PREQ=>PREQ,--1-bit output: PROGRAM request to fabric output
-             CLK=>cpuclock,--1-bit input: User start-up clock input
+             CLK=>CLK_IN,--1-bit input: User start-up clock input
              GSR=>'0',--1-bit input: Global Set/Reset input (GSR cannot be used
                       --for the port name)
              GTS=>'0',--1-bit input: Global 3-state input (GTS cannot be used
@@ -284,7 +284,7 @@ begin
 
              -- Assert DONE pin
              USRDONEO=>'1',--1-bit input: User DONE pin output control
-             USRDONETS=>'0' --1-bit input: User DONE 3-state enable output
+             USRDONETS=>'1' --1-bit input: User DONE 3-state enable output
              );
 -- End of STARTUPE2_inst instantiation
 
