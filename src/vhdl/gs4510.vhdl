@@ -7088,13 +7088,13 @@ begin
             end if;
           end if;
         
-        when VDARead =>
+        when VDCRead =>
           memory_access_read := '1';
           memory_access_resolve_address := '0';
           memory_access_address(27 downto 16) := x"004";
           memory_access_address(15 downto 0) := resolve_vdc_to_viciv_address(vdc_mem_addr_src);
 
-        when VDAWrite =>
+        when VDCWrite =>
           memory_access_write := '1';
           memory_access_wdata := reg_t;
           memory_access_resolve_address := '0';
