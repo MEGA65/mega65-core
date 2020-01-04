@@ -269,7 +269,7 @@ begin
 --             EOS=>EOS,--1-bit output: Active high output signal indicating the
                       --End Of Startup.
 --             PREQ=>PREQ,--1-bit output: PROGRAM request to fabric output
-             CLK=>CLK_IN,--1-bit input: User start-up clock input
+             CLK=>'0',--1-bit input: User start-up clock input
              GSR=>'0',--1-bit input: Global Set/Reset input (GSR cannot be used
                       --for the port name)
              GTS=>'0',--1-bit input: Global 3-state input (GTS cannot be used
