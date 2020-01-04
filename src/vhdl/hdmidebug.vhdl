@@ -196,8 +196,8 @@ entity container is
          ----------------------------------------------------------------------
          -- I2C on-board peripherals
          ----------------------------------------------------------------------
-         fpga_sda : out std_logic := '0';
-         fpga_scl : out std_logic := '0';         
+         fpga_sda : inout std_logic;
+         fpga_scl : inout std_logic;         
          
          ----------------------------------------------------------------------
          -- Serial monitor interface
@@ -251,9 +251,6 @@ architecture Behavioral of container is
 
   signal h_audio_left : unsigned(19 downto 0) := to_unsigned(0,20);
   signal h_audio_right : unsigned(19 downto 0) := to_unsigned(0,20);
-
-  signal counter : integer := 0;
-  signal trigger_reconfigure : std_logic := '0';
   
 begin
 
@@ -263,37 +260,32 @@ begin
   STARTUPE2_inst: STARTUPE2
     generic map(PROG_USR=>"FALSE", --Activate program event security feature.
                                    --Requires encrypted bitstreams.
-  SIM_CCLK_FREQ=>10.0 --Set the Configuration Clock Frequency(ns) for simulation.
+  SIM_CCLK_FREQ=>0.0 --Set the Configuration Clock Frequency(ns) for simulation.
     )
-    port map(
---      CFGCLK=>CFGCLK,--1-bit output: Configuration main clock output
---      CFGMCLK=>CFGMCLK,--1-bit output: Configuration internal oscillator
+    port map(CFGCLK=>CFGCLK,--1-bit output: Configuration main clock output
+             CFGMCLK=>CFGMCLK,--1-bit output: Configuration internal oscillator
                               --clock output
---             EOS=>EOS,--1-bit output: Active high output signal indicating the
+             EOS=>EOS,--1-bit output: Active high output signal indicating the
                       --End Of Startup.
---             PREQ=>PREQ,--1-bit output: PROGRAM request to fabric output
-             CLK=>'0',--1-bit input: User start-up clock input
-             GSR=>'0',--1-bit input: Global Set/Reset input (GSR cannot be used
+             PREQ=>PREQ,--1-bit output: PROGRAM request to fabric output
+             CLK=>CLK,--1-bit input: User start-up clock input
+             GSR=>GSR,--1-bit input: Global Set/Reset input (GSR cannot be used
                       --for the port name)
-             GTS=>'0',--1-bit input: Global 3-state input (GTS cannot be used
+             GTS=>GTS,--1-bit input: Global 3-state input (GTS cannot be used
                       --for the port name)
-             KEYCLEARB=>'0',--1-bit input: Clear AES Decrypter Key input
+             KEYCLEARB=>KEYCLEARB,--1-bit input: Clear AES Decrypter Key input
                                   --from Battery-Backed RAM (BBRAM)
-             PACK=>'0',--1-bit input: PROGRAM acknowledge input
-
-             -- Put CPU clock out on the QSPI CLOCK pin
-             USRCCLKO=>cpuclock,--1-bit input: User CCLK input
-             USRCCLKTS=>'0',--1-bit input: User CCLK 3-state enable input
-
-             -- Assert DONE pin
-             USRDONEO=>'1',--1-bit input: User DONE pin output control
-             USRDONETS=>'1' --1-bit input: User DONE 3-state enable output
+             PACK=>PACK,--1-bit input: PROGRAM acknowledge input
+             USRCCLKO=>USRCCLKO,--1-bit input: User CCLK input
+             USRCCLKTS=>USRCCLKTS,--1-bit input: User CCLK 3-state enable input
+             USRDONEO=>USRDONEO,--1-bit input: User DONE pin output control
+             USRDONETS=>USRDONETS--1-bit input: User DONE 3-state enable output
              );
 -- End of STARTUPE2_inst instantiation
 
   reconfig1: entity work.reconfig
     port map ( clock => cpuclock,
-               trigger_reconfigure => trigger_reconfigure);
+               trigger_reconfigure => '0');
 
   dotclock1: entity work.dotclock100
     port map ( clk_in1 => CLK_IN,
@@ -448,22 +440,6 @@ begin
     -- Make a horrible triangle wave test audio pattern
     h_audio_left <= h_audio_left + 32;
     h_audio_right <= h_audio_right + 32;
-
-    if rising_edge(ethclock) then
-      counter <= counter + 1; 
-      if counter = (1*1048576) then
-        fpga_scl <= '1';
-      end if;
-      if counter = (2*1048576) then
-        fpga_sda <= '1';
-      end if;
-      if counter = (3*1048576) then
---      trigger_reconfigure <= '1';
-        counter <= 0;
-        fpga_scl <= '0';
-        fpga_sda <= '0';
-      end if;
-    end if;
     
   end process;    
   
