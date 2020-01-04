@@ -45,6 +45,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <errno.h>
 #include <getopt.h>
 #include <inttypes.h>
+
 #ifdef APPLE
 static const int B1000000 = 1000000;
 static const int B1500000 = 1500000;
@@ -549,7 +550,40 @@ int print_screencode(unsigned char c)
   if (c>='0'&&c<='9') printf("%c",c);
   else if (c>=0x00&&c<=0x1f) printf("%c",c+0x40);
   else if (c>=0x20&&c<=0x3f) printf("%c",c);
+  else if (c==0x60) printf("%s",to_utf8(0xA0));
+  else if (c==0x61) printf("%s",to_utf8(0x258c));
+  else if (c==0x62) printf("%s",to_utf8(0x2584));
+  else if (c==0x63) printf("%s",to_utf8(0x2594));
+  else if (c==0x64) printf("%s",to_utf8(0x2581));
+  else if (c==0x65) printf("%s",to_utf8(0x258e));
+  else if (c==0x66) printf("%s",to_utf8(0x2592));
+  else if (c==0x67) printf("%s",to_utf8(0x258a));
+  else if (c==0x68) printf("%s",to_utf8(0x7f));     // No Unicode equivalent
   else if (c==0x69) printf("%s",to_utf8(0x25e4));
+  else if (c==0x6A) printf("%s",to_utf8(0x258a));
+  else if (c==0x6B) printf("%s",to_utf8(0x2523));
+  else if (c==0x6C) printf("%s",to_utf8(0x2597));
+  else if (c==0x6D) printf("%s",to_utf8(0x2517));
+  else if (c==0x6E) printf("%s",to_utf8(0x2513));
+  else if (c==0x6F) printf("%s",to_utf8(0x2582));
+
+  else if (c==0x60) printf("%s",to_utf8(0xA0));
+  else if (c==0x60) printf("%s",to_utf8(0xA0));
+  else if (c==0x60) printf("%s",to_utf8(0xA0));
+  else if (c==0x60) printf("%s",to_utf8(0xA0));
+  else if (c==0x60) printf("%s",to_utf8(0xA0));
+  else if (c==0x60) printf("%s",to_utf8(0xA0));
+  else if (c==0x60) printf("%s",to_utf8(0xA0));
+  else if (c==0x60) printf("%s",to_utf8(0xA0));
+  else if (c==0x60) printf("%s",to_utf8(0xA0));
+  else if (c==0x60) printf("%s",to_utf8(0xA0));
+  else if (c==0x60) printf("%s",to_utf8(0xA0));
+  else if (c==0x60) printf("%s",to_utf8(0xA0));
+  else if (c==0x60) printf("%s",to_utf8(0xA0));
+  else if (c==0x60) printf("%s",to_utf8(0xA0));
+  else if (c==0x60) printf("%s",to_utf8(0xA0));
+  else if (c==0x60) printf("%s",to_utf8(0xA0));
+
   else printf("?");
 
   if (rev) {
