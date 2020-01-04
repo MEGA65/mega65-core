@@ -186,7 +186,7 @@ entity sdcardio is
     -- Flash RAM for holding config
     ----------------------------------------------------------------------
     QspiDB : inout unsigned(3 downto 0) := "ZZZZ";
-    QspiCSn : out std_logic            
+    QspiCSn : out std_logic := '0'
 
     );
 end sdcardio;
@@ -498,38 +498,6 @@ begin  -- behavioural
                trigger_reconfigure => trigger_reconfigure,
                reconfigure_address => reconfigure_address);
 
-  -- Used to allow MEGA65 access to the FPGA config boot SPI flash #153 
-  STARTUPE2_inst: STARTUPE2
-    generic map(PROG_USR=>"FALSE", --Activate program event security feature.
-                                   --Requires encrypted bitstreams.
-                SIM_CCLK_FREQ=>0.0 --Set the Configuration Clock Frequency(ns) for simulation.
-    )
-    port map(
---           CFGCLK=>CFGCLK,--1-bit output: Configuration main clock output
---           CFGMCLK=>CFGMCLK,--1-bit output: Configuration internal oscillator
-                              --clock output
---           EOS=>EOS,--1-bit output: Active high output signal indicating the
-                      --End Of Startup.
---             PREQ=>,--1-bit output: PROGRAM request to fabric output
-             CLK=>clock,--1-bit input: User start-up clock input
-             GSR=>'0',--1-bit input: Global Set/Reset input (GSR cannot be used
-                      --for the port name). UG470 says tie low.
-             GTS=>'0',--1-bit input: Global 3-state input (GTS cannot be used
-                      --for the port name). UG470 says tie low.
-             KEYCLEARB=>'0',--1-bit input: Clear AES Decrypter Key input
-                                  --from Battery-Backed RAM (BBRAM)
-             PACK=>'0',--1-bit input: PROGRAM acknowledge input
-
-             -- Provide a clock for the SPI bus
-             USRCCLKO=>qspi_clock,--1-bit input: User CCLK input
-             USRCCLKTS=>'0',--1-bit input: User CCLK 3-state enable input. Set
-                            --to 0 means don't tri-state
-
-             -- Leave DONE signal high
-             USRDONEO=>'1',--1-bit input: User DONE pin output control
-             USRDONETS=>'0' --1-bit input: User DONE 3-state enable output
-             );
-  
   
   touch0: entity work.touch
     port map (
