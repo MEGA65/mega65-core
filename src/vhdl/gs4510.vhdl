@@ -4464,10 +4464,12 @@ begin
                 dmagic_count <= dmagic_count - 1;
               end if;
             when VDCRead =>
+              phi_add_backlog <= '1'; phi_new_backlog <= 1;
               state <= VDCWrite;
               vdc_word_count <= vdc_word_count - 1;
               vdc_mem_addr_src <= vdc_mem_addr_src + 1; 
             when VDCWrite =>
+              phi_add_backlog <= '1'; phi_new_backlog <= 1;
               reg_t <= memory_read_value;
               vdc_mem_addr <= vdc_mem_addr + 1; 
               if vdc_word_count = 0 then
