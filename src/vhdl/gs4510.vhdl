@@ -4468,6 +4468,7 @@ begin
               vdc_word_count <= vdc_word_count - 1;
               vdc_mem_addr_src <= vdc_mem_addr_src + 1; 
             when VDCWrite =>
+              reg_t <= memory_read_value;
               vdc_mem_addr <= vdc_mem_addr + 1; 
               if vdc_word_count = 0 then
                 state <= normal_fetch_state;
