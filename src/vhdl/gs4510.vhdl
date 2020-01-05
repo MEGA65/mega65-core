@@ -1255,6 +1255,7 @@ architecture Behavioural of gs4510 is
   signal vdc_status : unsigned(7 downto 0) := x"80";
   signal vdc_mem_addr_src : unsigned(15 downto 0) := to_unsigned(0,16);
   signal vdc_word_count : unsigned(7 downto 0) := x"00";
+  signal vdc_first : std_logic := '1';
   
   -- purpose: map VDC linear address to VICII bitmap addressing here
   -- to keep it as simple as possible we assume fix 640x200x2 resolution
@@ -4466,12 +4467,18 @@ begin
             when VDCRead =>
               phi_add_backlog <= '1'; phi_new_backlog <= 1;
               state <= VDCWrite;
-              vdc_word_count <= vdc_word_count - 1;
+              if vdc_first = '0' then
+                vdc_word_count <= vdc_word_count - 1;
+              end if;
               vdc_mem_addr_src <= vdc_mem_addr_src + 1; 
             when VDCWrite =>
               phi_add_backlog <= '1'; phi_new_backlog <= 1;
               reg_t <= memory_read_value;
-              vdc_mem_addr <= vdc_mem_addr + 1; 
+              if vdc_first = '0' then
+                vdc_mem_addr <= vdc_mem_addr + 1; 
+              else
+                vdc_first <= '0';
+              end if;
               if vdc_word_count = 0 then
                 state <= normal_fetch_state;
               else 
@@ -6462,6 +6469,7 @@ begin
 
           if memory_access_address = x"FFD3601" and vdc_reg_num = x"1E" then
             state <= VDCRead;
+            vdc_first <= '1';
           end if;
           
           if memory_access_address = x"FFD3700"
