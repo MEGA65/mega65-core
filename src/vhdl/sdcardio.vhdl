@@ -2214,6 +2214,9 @@ begin  -- behavioural
               reconfigure_address_int(31 downto 24) <= fastio_wdata;
             when x"CC" =>
               -- @IO:GS $D6CC.7 QSPI:DBDDR Data direction for QSPI flash interface. 1=output, 0=tri-state input
+              -- @IO:GS $D6CC.6 QSPI:CSN Active-low chip-select for QSPI flash
+              -- @IO:GS $D6CC.5 QSPI:CLOCK Clock output line for QSPI flash
+              -- @IO:GS $D6CC.4 QSPI:TRIDB0 Separate tri-state control for DB0 for single-bit SPI transfers.
               -- @IO:GS $D6CC.0-3 QSPI:DB Data bits for QSPI flash interface (read/write)
 
 -- XXX Implement this protection when its working
