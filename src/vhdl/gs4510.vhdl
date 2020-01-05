@@ -232,6 +232,11 @@ entity gs4510 is
     slow_access_write : out std_logic := '0';
     slow_access_wdata : out unsigned(7 downto 0);
     slow_access_rdata : in unsigned(7 downto 0);
+
+    ---------------------------------------------------------------------------
+    -- VDC simulation support
+    ---------------------------------------------------------------------------
+    vdc_enabled : in std_logic := '0';
     
     ---------------------------------------------------------------------------
     -- VIC-III memory banking control
@@ -1687,7 +1692,7 @@ begin
         wait_states_non_zero <= '1';
         proceed <= '0';
         hyperport_num <= real_long_address(5 downto 0);
-      elsif (long_address = x"ffd3600") and (hypervisor_mode='0') then
+      elsif (long_address = x"ffd3600") and (hypervisor_mode='0') and (vdc_enabled='1') then
         accessing_cpuport <= '1';
         -- Read VDC status #141
         -- Lie and always claim that VDC is ready
@@ -1696,7 +1701,7 @@ begin
         wait_states_non_zero <= '1';
         proceed <= '0';
         cpuport_num <= x"3";
-      elsif (long_address = x"ffd3601") and (hypervisor_mode='0') then
+      elsif (long_address = x"ffd3601") and (hypervisor_mode='0') and (vdc_enabled='1') then
         if vdc_reg_num = x"1f" then
           report "Preparing to read from Shadow for simulated VDC access";
           shadow_address <= to_integer(resolve_vdc_to_viciv_address(vdc_mem_addr))+(4*65536);
@@ -2414,7 +2419,7 @@ begin
         wait_states_non_zero <= '0';
       end if;
 
-      if (real_long_address = x"FFD3601") and (vdc_reg_num = x"1F") and (hypervisor_mode='0') then
+      if (real_long_address = x"FFD3601") and (vdc_reg_num = x"1F") and (hypervisor_mode='0') and (vdc_enabled='1') then
         vdc_mem_addr <= vdc_mem_addr + 1;
       end if;
 
@@ -2519,11 +2524,11 @@ begin
 
         -- For now, just always report an error condition.
         rec_status <= x"80";
-      elsif (long_address = x"FFD3600") and (hypervisor_mode='0') then
+      elsif (long_address = x"FFD3600") and (hypervisor_mode='0') and (vdc_enabled='1') then
         -- @IO:64 $D600 VDC:REGSEL VDC Register Select
         -- VDC register select #141
         vdc_reg_num <= value;
-      elsif (long_address = x"FFD3601") and (hypervisor_mode='0') then
+      elsif (long_address = x"FFD3601") and (hypervisor_mode='0') and (vdc_enabled='1') then
         -- @IO:64 $D601 VDC:DATA VDC Data Access Register
         case vdc_reg_num is
           when x"12" =>
@@ -6447,7 +6452,7 @@ begin
           shadow_write <= '0';
           shadow_write_flags(1) <= '1';
 
-          if memory_access_address = x"FFD3601" and vdc_reg_num = x"1E"  and hypervisor_mode='0' then
+          if memory_access_address = x"FFD3601" and vdc_reg_num = x"1E" and hypervisor_mode='0' and (vdc_enabled='1') then
             state <= VDCRead;
           end if;
           
@@ -7583,7 +7588,7 @@ begin
           and real_long_address(11 downto 8)= x"E"
           and georam_blockmask /= x"00" then
           long_address := georam_page&real_long_address(7 downto 0);
-        elsif real_long_address = x"ffd3601" and vdc_reg_num = x"1f" and hypervisor_mode='0' then
+        elsif real_long_address = x"ffd3601" and vdc_reg_num = x"1f" and hypervisor_mode='0' and (vdc_enabled='1') then
           -- We map VDC RAM always to $40000
           -- So we re-map this write to $4xxxx
           long_address(27 downto 16) := x"004";
@@ -7634,7 +7639,7 @@ begin
           long_address := georam_page&real_long_address(7 downto 0);
         end if;
 
-        if real_long_address = x"ffd3601" and vdc_reg_num = x"1f" and hypervisor_mode='0' then
+        if real_long_address = x"ffd3601" and vdc_reg_num = x"1f" and hypervisor_mode='0' and (vdc_enabled='1') then
           -- We map VDC RAM always to $40000
           -- So we re-map this write to $4xxxx
           long_address(27 downto 16) := x"004";
