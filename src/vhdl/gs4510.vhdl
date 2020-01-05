@@ -1687,7 +1687,7 @@ begin
         wait_states_non_zero <= '1';
         proceed <= '0';
         hyperport_num <= real_long_address(5 downto 0);
-      elsif (long_address = x"ffd3600") then
+      elsif (long_address = x"ffd3600") and (hypervisor_mode='0') then
         accessing_cpuport <= '1';
         -- Read VDC status #141
         -- Lie and always claim that VDC is ready
@@ -1696,7 +1696,7 @@ begin
         wait_states_non_zero <= '1';
         proceed <= '0';
         cpuport_num <= x"3";
-      elsif (long_address = x"ffd3601") then
+      elsif (long_address = x"ffd3601") and (hypervisor_mode='0') then
         if vdc_reg_num = x"1f" then
           report "Preparing to read from Shadow for simulated VDC access";
           shadow_address <= to_integer(resolve_vdc_to_viciv_address(vdc_mem_addr))+(4*65536);
@@ -1717,13 +1717,6 @@ begin
           proceed <= '0';
           cpuport_num <= x"4";
         end if;
---      elsif (long_address(27 downto 4) = x"ffd360") then
---        -- Debug VDC and other CPU port things
---        read_source <= CPUPort;
---        wait_states <= x"01";
---        wait_states_non_zero <= '1';
---        proceed <= '0';
---        cpuport_num <= long_address(3 downto 0);        
       elsif (long_address = x"0000000") or (long_address = x"0000001") then
         accessing_cpuport <= '1';
         report "Preparing to read from a CPUPort";
@@ -2421,7 +2414,7 @@ begin
         wait_states_non_zero <= '0';
       end if;
 
-      if (real_long_address = x"FFD3601") and (vdc_reg_num = x"1F") then
+      if (real_long_address = x"FFD3601") and (vdc_reg_num = x"1F") and (hypervisor_mode='0') then
         vdc_mem_addr <= vdc_mem_addr + 1;
       end if;
 
@@ -2526,11 +2519,11 @@ begin
 
         -- For now, just always report an error condition.
         rec_status <= x"80";
-      elsif (long_address = x"FFD3600") then
+      elsif (long_address = x"FFD3600") and (hypervisor_mode='0') then
         -- @IO:64 $D600 VDC:REGSEL VDC Register Select
         -- VDC register select #141
         vdc_reg_num <= value;
-      elsif (long_address = x"FFD3601") then
+      elsif (long_address = x"FFD3601") and (hypervisor_mode='0') then
         -- @IO:64 $D601 VDC:DATA VDC Data Access Register
         case vdc_reg_num is
           when x"12" =>
@@ -2543,11 +2536,6 @@ begin
             vdc_mem_addr_src(7 downto 0) <= value;
           when x"1E" =>
             vdc_word_count(7 downto 0) <= value;
-          when x"1F" =>
-            -- Write to VDC RAM.            
-            -- Real write happens elsewhere
-            -- (search for x"ffd3601")
-            vdc_mem_addr <= vdc_mem_addr + 1;
           when others =>
             null;
         end case;
@@ -6459,7 +6447,7 @@ begin
           shadow_write <= '0';
           shadow_write_flags(1) <= '1';
 
-          if memory_access_address = x"FFD3601" and vdc_reg_num = x"1E" then
+          if memory_access_address = x"FFD3601" and vdc_reg_num = x"1E"  and hypervisor_mode='0' then
             state <= VDCRead;
           end if;
           
@@ -7595,7 +7583,7 @@ begin
           and real_long_address(11 downto 8)= x"E"
           and georam_blockmask /= x"00" then
           long_address := georam_page&real_long_address(7 downto 0);
-        elsif real_long_address = x"ffd3601" and vdc_reg_num = x"1f" then
+        elsif real_long_address = x"ffd3601" and vdc_reg_num = x"1f" and hypervisor_mode='0' then
           -- We map VDC RAM always to $40000
           -- So we re-map this write to $4xxxx
           long_address(27 downto 16) := x"004";
@@ -7646,11 +7634,10 @@ begin
           long_address := georam_page&real_long_address(7 downto 0);
         end if;
 
-        if real_long_address = x"ffd3601" and vdc_reg_num = x"1f" then
+        if real_long_address = x"ffd3601" and vdc_reg_num = x"1f" and hypervisor_mode='0' then
           -- We map VDC RAM always to $40000
           -- So we re-map this write to $4xxxx
           long_address(27 downto 16) := x"004";
-          
           long_address(15 downto 0) := resolve_vdc_to_viciv_address(vdc_mem_addr);          
         end if;
         
