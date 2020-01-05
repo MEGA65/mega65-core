@@ -1254,6 +1254,7 @@ architecture Behavioural of gs4510 is
   -- fake VDC status register that claims "always ready"
   signal vdc_status : unsigned(7 downto 0) := x"80";
   signal vdc_mem_addr_src : unsigned(15 downto 0) := to_unsigned(0,16);
+  signal vdc_word_count : unsigned(7 downto 0) := x"00";
   
   -- purpose: map VDC linear address to VICII bitmap addressing here
   -- to keep it as simple as possible we assume fix 640x200x2 resolution
@@ -2540,6 +2541,8 @@ begin
             vdc_mem_addr_src(15 downto 8) <= value;
           when x"21" =>
             vdc_mem_addr_src(7 downto 0) <= value;
+          when x"1E" =>
+            vdc_word_count(7 downto 0) <= value;
           when x"1F" =>
             -- Write to VDC RAM.            
             -- Real write happens elsewhere
@@ -4462,11 +4465,11 @@ begin
               end if;
             when VDCRead =>
               state <= VDCWrite;
-              dmagic_count <= dmagic_count - 1;
+              vdc_word_count <= vdc_word_count - 1;
               vdc_mem_addr_src <= vdc_mem_addr_src + 1; 
             when VDCWrite =>
               vdc_mem_addr <= vdc_mem_addr + 1; 
-              if dmagic_count = 0 then
+              if vdc_word_count = 0 then
                 state <= normal_fetch_state;
               else 
                 -- continue Reading
