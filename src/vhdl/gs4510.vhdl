@@ -7089,7 +7089,7 @@ begin
 
         when VDCWrite =>
           memory_access_write := '1';
-          memory_access_wdata := memory_read_value;
+          memory_access_wdata := read_data;
           memory_access_resolve_address := '0';
           memory_access_address(27 downto 16) := x"004";
           memory_access_address(15 downto 0) := resolve_vdc_to_viciv_address(vdc_mem_addr);
