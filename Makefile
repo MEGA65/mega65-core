@@ -445,6 +445,9 @@ $(TESTDIR)/vicii.prg:       $(TESTDIR)/vicii.c $(TESTDIR)/vicii_asm.s $(CC65)
 $(TESTDIR)/pulseoxy.prg:       $(TESTDIR)/pulseoxy.c $(CC65)
 	$(CL65) -O -o $*.prg --mapfile $*.map $< 
 
+$(TESTDIR)/qspitest.prg:       $(TESTDIR)/qspitest.c $(CC65)
+	$(CL65) -O -o $*.prg --mapfile $*.map $< 
+
 $(TESTDIR)/unicorns.prg:       $(TESTDIR)/unicorns.c $(CC65)
 	$(CL65) -O -o $*.prg --mapfile $*.map $<
 
@@ -620,8 +623,8 @@ $(SDCARD_DIR)/C000UTIL.BIN:	$(BINDIR)/diskmenu_c000.bin
 monitor_drive:	monitor_drive.c Makefile
 	$(CC) $(COPT) -o monitor_drive monitor_drive.c
 
-$(TOOLDIR)/monitor_load:	$(TOOLDIR)/monitor_load.c Makefile
-	$(CC) $(COPT) -o $(TOOLDIR)/monitor_load $(TOOLDIR)/monitor_load.c
+$(TOOLDIR)/monitor_load:	$(TOOLDIR)/monitor_load.c $(TOOLDIR)/fpgajtag/*.c $(TOOLDIR)/fpgajtag/*.h Makefile
+	$(CC) $(COPT) -I/usr/include/libusb-1.0 -I/opt/local/include/libusb-1.0 -I/usr/local//Cellar/libusb/1.0.18/include/libusb-1.0/ -o $(TOOLDIR)/monitor_load $(TOOLDIR)/monitor_load.c $(TOOLDIR)/fpgajtag/fpgajtag.c $(TOOLDIR)/fpgajtag/util.c $(TOOLDIR)/fpgajtag/process.c -lusb-1.0 -lz
 
 $(BINDIR)/ftphelper.bin:	src/ftphelper.a65
 	$(OPHIS) $(OPHISOPT) src/ftphelper.a65
