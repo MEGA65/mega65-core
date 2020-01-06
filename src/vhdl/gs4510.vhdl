@@ -7564,7 +7564,7 @@ begin
           and real_long_address(11 downto 8)= x"E"
           and georam_blockmask /= x"00" then
           long_address := georam_page&real_long_address(7 downto 0);
-        endi if;
+        end if;
         
         -- shadow_address_var := to_integer(long_address(16 downto 0));
         
