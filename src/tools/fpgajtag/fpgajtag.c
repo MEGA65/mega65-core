@@ -655,7 +655,7 @@ int min(int a, int b)
       return b;
 }
 
-int main(int argc, char **argv)
+int fpgajtag_main(int argc, char **argv)
 {
     uint32_t ret;
     int i, rflag = 0, lflag = 0, mflag = 0, cflag = 0, xflag = 0, rescan = 0;
