@@ -10,9 +10,9 @@
   mode, buffer length @ $C6 in C64 mode.
   
   2. If an optional bitstream file is provided, then we use fpgajtag to load
-  the bitstream via JTAG.
+  the bitstream via JTAG.  fpgajtag is now compiled internally to this program.
 
-Copyright (C) 2014-2017 Paul Gardner-Stephen
+Copyright (C) 2014-2020 Paul Gardner-Stephen
 Portions Copyright (C) 2013 Serval Project Inc.
  
 This program is free software; you can redistribute it and/or
@@ -68,6 +68,7 @@ int viciv_mode_report(unsigned char *viciv_regs);
 int process_char(unsigned char c,int live);
 int process_line(char *line,int live);
 int process_waiting(int fd);
+int fpgajtag_main(char *bitstream,char *serialport);
 
 void usage(void)
 {
@@ -1592,14 +1593,18 @@ int main(int argc,char **argv)
   
   // Load bitstream if file provided
   if (bitstream) {
-    char cmd[1024];
-    if (fpga_serial) 
-      snprintf(cmd,1024,"fpgajtag -s %s -a %s",
-	       fpga_serial,bitstream);
-    else
-      snprintf(cmd,1024,"fpgajtag -a %s",bitstream);
-    fprintf(stderr,"%s\n",cmd);
-    system(cmd);
+    // char cmd[1024];
+    if (fpga_serial) {
+      fpgajtag_main(bitstream,fpga_serial);
+    }
+    //      snprintf(cmd,1024,"fpgajtag -s %s -a %s",
+    //	       fpga_serial,bitstream);
+    else {
+      fpgajtag_main(bitstream,NULL);
+      //      snprintf(cmd,1024,"fpgajtag -a %s",bitstream);
+    }
+    //fprintf(stderr,"%s\n",cmd);
+    //    system(cmd);
     fprintf(stderr,"[T+%lldsec] Bitstream loaded\n",(long long)time(0)-start_time);
   }
 
