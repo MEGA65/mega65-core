@@ -655,82 +655,17 @@ int min(int a, int b)
       return b;
 }
 
-int fpgajtag_main(int argc, char **argv)
+int fpgajtag_main(char *bitstream,char *serialport)
 {
     uint32_t ret;
     int i, rflag = 0, lflag = 0, mflag = 0, cflag = 0, xflag = 0, rescan = 0;
-    const char *serialno = NULL;
+    const char *serialno = serialport;
+
+    match_any_idcode = 1;
     logfile = stdout;
     opterr = 0;
-    while ((i = getopt (argc, argv, "atrxlms:ci:I:")) != -1)
-        switch (i) {
-        case 'a':
-	    match_any_idcode = 1;
-            break;
-        case 'c':
-            cflag = 1;
-            break;
-        case 'i':
-            skip_idcode = atoi(optarg);
-            break;
-        case 'I':
-            interface = atoi(optarg);
-            break;
-        case 'l':
-            lflag = 1;
-            break;
-        case 'm':
-            mflag = 1;
-            break;
-        case 'r':
-            rflag = 1;
-            break;
-        case 's':
-            serialno = optarg;
-            break;
-        case 't':
-            trace = 1;
-            break;
-        case 'x':
-            xflag = 1;
-            break;
-        default:
-            goto usage;
-        }
 
-    if (optind != argc - 1 && !cflag && !lflag) {
-usage:
-        fprintf(stderr, "Usage %s [ -a ][ -x ] [ -l ] [ -m ] [ -t ] [ -s <serialno> ] [ -i <index> ] [ -I interface ] [ -r ] <filename>\n", argv[0]);
-	fprintf(stderr, "\n"
-		        "Programs Xilinx FPGA from a bitstream. The bitstream may be compressed and it may be contained an ELF executable.\n"
-                        "\n"
-                        "If filename is an ELF executable, reads the data from the fpgajtag section of the file, otherwise it reads the whole file.\n"
-                        "\n"
-                        "If the data is compressed with gzip, it is uncompressed.\n"
-		        "\n"
-                        "If the data has a .bit header, the header is removed.\n"
-                        "\n"
-                        "Unless using /dev/xdevcfg, scans USB for devices whose IDCODE matches the bitstream\n"
-                        "and programs the device whose position matches index. Index defaults to 0.\n"
-                        "\n"
-                        "When using /dev/xdevcfg, programs the device by writing the bitstream to /dev/xdevcfg."
-                        "\n"
-                        "A bitstream may be embedded into ELF executable application.elf via the following command:\n"
-                        "    objcopy --add-section fpgadata=system.bin.gz application.elf\n"
-                        "\n"
-		);
-        fprintf(stderr, "Optional arguments:\n"
-		        "  -a             Match any idcode\n"
-                        "  -x             Write input file to /dev/xdevcfg on Zynq devices\n"
-                        "  -l             Display a list of all FPGA jtag interfaces discovered on USB\n"
-                        "  -m             Use FPGA Manager\n"
-                        "  -s <serialno>  Use the jtag interface with the given serial number\n"
-                        "  -i <index>     Program the 'index' device in the jtag chain that matches the IDCODE in the input file\n"
-		        "  -I <0|1>       Which interface of FT2232 to use\n"
-                        "  -t             Trace usb programming traffic\n");
-        exit(1);
-    }
-    const char *filename = lflag ? NULL : argv[argc - 1];
+    const char *filename = bitstream;
 
     /*
      * Read input file
