@@ -539,7 +539,7 @@ char *to_utf8(const uint32_t cp)
 	return ret;
 }
 
-int print_screencode(unsigned char c)
+void print_screencode(unsigned char c)
 {
   int rev=0;
   if (c&0x80) {
