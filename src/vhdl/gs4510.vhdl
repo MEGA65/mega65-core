@@ -7559,6 +7559,13 @@ begin
 
         real_long_address := memory_access_address;
 
+        -- Remap GeoRAM memory accesses
+        if real_long_address(27 downto 16) = x"FFD"
+          and real_long_address(11 downto 8)= x"E"
+          and georam_blockmask /= x"00" then
+          long_address := georam_page&real_long_address(7 downto 0);
+        endi if;
+        
         -- shadow_address_var := to_integer(long_address(16 downto 0));
         
         if
@@ -7583,11 +7590,6 @@ begin
         -- something else? (PGS)
         elsif real_long_address(27 downto 16) = x"7F4" then
           long_address := x"FF80"&'0'&real_long_address(10 downto 0);
-        -- Remap GeoRAM memory accesses
-        elsif real_long_address(27 downto 16) = x"FFD"
-          and real_long_address(11 downto 8)= x"E"
-          and georam_blockmask /= x"00" then
-          long_address := georam_page&real_long_address(7 downto 0);
         elsif real_long_address = x"ffd3601" and vdc_reg_num = x"1f" and hypervisor_mode='0' and (vdc_enabled='1') then
           -- We map VDC RAM always to $40000
           -- So we re-map this write to $4xxxx
