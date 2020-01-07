@@ -131,7 +131,7 @@ char *search_path=".";
 char *bitstream=NULL;
 char *hyppo=NULL;
 char *fpga_serial=NULL;
-char serial_port[1024]="/dev/ttyUSB1"; // XXX do a better job auto-detecting this
+char *serial_port[1024]=NULL; // XXX do a better job auto-detecting this
 int serial_speed=2000000;
 char modeline_cmd[1024]="";
 int break_point=-1;
@@ -1535,7 +1535,7 @@ void set_serial_speed(int fd,int serial_speed)
 int main(int argc,char **argv)
 {
   start_time=time(0);
-  
+
   int opt;
   while ((opt = getopt(argc, argv, "14B:b:c:C:d:EFHf:k:Ll:m:MnoprR:Ss:t:T:")) != -1) {
     switch (opt) {
@@ -1553,7 +1553,7 @@ int main(int argc,char **argv)
     case 'F': reset_first=1; break; 
     case 'r': do_run=1; break;
     case 'f': fpga_serial=strdup(optarg); break;
-    case 'l': strcpy(serial_port,optarg); break;
+    case 'l': serial_port=strdup(optarg); break;
     case 'm': prepare_modeline(optarg); mode_report=1; break;
     case 'M': mode_report=1; break;
     case 'o': osk_enable=1; break;
@@ -1583,6 +1583,8 @@ int main(int argc,char **argv)
     }
   }  
 
+  init_fpgajtag(serial_port, bitstream, 0xffffffff);
+  
   if ((romfile||charromfile)&&(!hyppo)) {
     fprintf(stderr,"-k is required with -R or -C\n");
     usage();
