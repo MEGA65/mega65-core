@@ -473,15 +473,6 @@ begin
           & ", y_zero = " & std_logic'image(y_zero_ntsc60);
       end if;       
       
-      fullwidth_dataenable <= data_en80;
-      if pal50_select_internal = '1' then
-        data_en80 <= fullwidth_dataenable_pal50;
-      elsif vga60_select_internal='1' then
-        data_en80 <= fullwidth_dataenable_vga60;
-      else
-        data_en80 <= fullwidth_dataenable_ntsc60;
-      end if;
-      
     end if;        
 
     if rising_edge(clock27) then
