@@ -39,6 +39,8 @@
 #include <arpa/inet.h>
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>
+#include <unistd.h>
+#include <dirent.h>
 #include "util.h"
 #include "fpga.h"
 
@@ -46,6 +48,8 @@
 #define MAX_SINGLE_USB_DATA    4046
 #define IDCODE_ARRAY_SIZE        20
 #define SEGMENT_LENGTH   256 /* sizes above 256bytes seem to get more bytes back in response than were requested */
+
+extern char *serial_port;
 
 uint8_t *input_fileptr;
 int input_filesize, found_cortex = -1, jtag_index = -1, dcount, idcode_count;
@@ -588,7 +592,7 @@ static void read_config_memory(int fd, uint32_t size)
         CONFIG_TYPE1(CONFIG_OP_NOP, 0, 0)), size, fd);
 }
 
-static void init_fpgajtag(const char *serialno, const char *filename, uint32_t file_idcode)
+void init_fpgajtag(const char *serialno, const char *filename, uint32_t file_idcode)
 {
     int i, j;
 
@@ -630,6 +634,47 @@ static void init_fpgajtag(const char *serialno, const char *filename, uint32_t f
 	  {
 	    // Found the correct interface.
 	    // Now extract the real serial port name as well, so that monitor_load can use it.
+
+#if 0
+	    fprintf(stderr,"USB device info: dev=%p, idVendor=%x, idProduct=%x, bcdDevice=%x(0d%d)\n",
+		    uinfo[usb_index].dev,
+		    uinfo[usb_index].idVendor,
+		    uinfo[usb_index].idProduct,
+		    uinfo[usb_index].bcdDevice,
+		    uinfo[usb_index].bcdDevice
+		    );
+	    fprintf(stderr,"USB bus=%d, port_number=%d\n",
+		    libusb_get_bus_number(uinfo[usb_index].dev),
+		    libusb_get_port_number(uinfo[usb_index].dev));
+#endif
+	    int bus=libusb_get_bus_number(uinfo[usb_index].dev);
+	    int port=libusb_get_port_number(uinfo[usb_index].dev);
+	    
+	    // Iterate through /sys/bus/usb-serial/devices to see if any of the entries there have
+	    // symlinks that make sense for this device bus and port number.
+	    {
+	      DIR *d=opendir("/sys/bus/usb-serial/devices");
+	      if (d) {
+		struct dirent *de=NULL;
+		while (de=readdir(d)) {
+		  char link[1024]="";
+		  char path[1024];
+		  snprintf(path,1024,"/sys/bus/usb-serial/devices/%s",de->d_name);
+		  int len=readlink(path,link,sizeof(link));
+		  link[len]=0;
+		  // fprintf(stderr,"  Checking '%s' -> '%s'\n",path,link);
+		  char match[1024];
+		  snprintf(match,1024,"/%d-%d/%d-%d:1.1",bus,port,bus,port);
+		  if (strstr(link,match)) {
+		    char serial_path[1024];
+		    snprintf(serial_path,1024,"/dev/%s",de->d_name);
+		    fprintf(stderr,"Auto-detected serial port '%s'\n",serial_path);
+		    serial_port=strdup(serial_path);
+		  }
+		}
+		closedir(d);
+	      }
+	    }
 	    
             break;
 	  }

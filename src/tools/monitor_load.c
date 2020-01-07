@@ -69,6 +69,7 @@ int process_char(unsigned char c,int live);
 int process_line(char *line,int live);
 int process_waiting(int fd);
 int fpgajtag_main(char *bitstream,char *serialport);
+void init_fpgajtag(const char *serialno, const char *filename, uint32_t file_idcode);
 
 void usage(void)
 {
@@ -131,7 +132,7 @@ char *search_path=".";
 char *bitstream=NULL;
 char *hyppo=NULL;
 char *fpga_serial=NULL;
-char *serial_port[1024]=NULL; // XXX do a better job auto-detecting this
+char *serial_port=NULL; // XXX do a better job auto-detecting this
 int serial_speed=2000000;
 char modeline_cmd[1024]="";
 int break_point=-1;
