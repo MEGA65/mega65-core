@@ -2580,7 +2580,7 @@ begin
         -- @IO:GS $D710.2 - MISC:VDCSEN Enable VDC inteface simulation
         badline_enable <= value(0);
         slow_interrupts <= value(1);
-        vdc_enable <= value(2);
+        vdc_enabled <= value(2);
       -- @IO:GS $D770-3 25-bit multiplier input A
       elsif (long_address = x"FFD3770") or (long_address = x"FFD1770") then
         reg_mult_a(7 downto 0) <= value;
