@@ -337,33 +337,37 @@ begin
   -- Ends up being 64Hz, because our dotclock is ~27MHz.  Most monitors accept
   -- it, anyway.
   -- XXX - Actually just 720x480p 60Hz NTSC repeated for now.
+  -- A higher res mode for debugging
+  -- ModeLine "1280x720" 74.25 1280 1720 1760 1980 720 725 730 750 +HSync +VSync
+  -- (We are pretending to have 3x the pixel clock, so have to divide the width
+  -- by 3
   frame60vga: entity work.frame_generator
-    generic map ( frame_width => 864,   -- 65 cycles x 16 pixels
-                  frame_height => 624-1,       -- NTSC frame is 263 lines x 2 frames
+    generic map ( frame_width => 1980/3,
+                  frame_height => 750,
 
-                  x_zero_position => 864-32,
+                  x_zero_position => 0,
 
-                  fullwidth_width => 720,
+                  fullwidth_width => 1280/3,
                   fullwidth_start => 0,
 
-                  narrow_width => 720,
+                  narrow_width => 1280/3,
                   narrow_start => 0,
 
                   pipeline_delay => 0,
                   
-                  vsync_start => 576+1,
-                  vsync_end => 576+1+5,
-                  hsync_start => 720+16,
-                  hsync_end => 720+16+62,
+                  vsync_start => 725,
+                  vsync_end => 730,
+                  hsync_start => 1720/3,
+                  hsync_end => 1760/3,
 
-                  vga_hsync_start => 720+16,
-                  vga_hsync_end => 720+16+62,
+                  vga_hsync_start => 1720/3,
+                  vga_hsync_end => 1760/3,
                   
                   first_raster => 1,
-                  last_raster => 576,
+                  last_raster => 720,
 
-                  lcd_first_raster => 1+(576-480)/2,
-                  lcd_last_raster => 1+576-(576-480)/2
+                  lcd_first_raster => 1+(720-480)/2,
+                  lcd_last_raster => 1+576-(720-480)/2
                   )                  
     port map ( clock81 => clock81,
                clock41 => cpuclock,
