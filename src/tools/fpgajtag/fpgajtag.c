@@ -621,8 +621,8 @@ void init_fpgajtag(const char *serialno, const char *filename, uint32_t file_idc
         }
         fprintf(stderr, "\n");
     }
-    if (!filename)
-        exit(1);
+    //    if (!filename)
+    //        exit(1);
     while (1) {
         if (!uinfo[usb_index].dev) {
             fprintf(stderr, "fpgajtag: Can't find usable usb interface\n");
