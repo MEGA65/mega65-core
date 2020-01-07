@@ -236,7 +236,7 @@ entity gs4510 is
     ---------------------------------------------------------------------------
     -- VDC simulation support
     ---------------------------------------------------------------------------
-    vdc_enabled : in std_logic := '1';
+    vdc_enabled : in std_logic := '0';
     
     ---------------------------------------------------------------------------
     -- VIC-III memory banking control
@@ -2577,8 +2577,10 @@ begin
       elsif (long_address = x"FFD3710") or (long_address = x"FFD1710") then
         -- @IO:GS $D710.0 - MISC:BADLEN Enable badline emulation
         -- @IO:GS $D710.1 - MISC:SLIEN Enable 6502-style slow (7 cycle) interrupts
+        -- @IO:GS $D710.2 - MISC:VDCSEN Enable VDC inteface simulation
         badline_enable <= value(0);
         slow_interrupts <= value(1);
+        vdc_enable <= value(2);
       -- @IO:GS $D770-3 25-bit multiplier input A
       elsif (long_address = x"FFD3770") or (long_address = x"FFD1770") then
         reg_mult_a(7 downto 0) <= value;
@@ -4457,12 +4459,10 @@ begin
                 dmagic_count <= dmagic_count - 1;
               end if;
             when VDCRead =>
-              phi_add_backlog <= '1'; phi_new_backlog <= 1;
               state <= VDCWrite;
               vdc_word_count <= vdc_word_count - 1;
               vdc_mem_addr_src <= vdc_mem_addr_src + 1; 
             when VDCWrite =>
-              phi_add_backlog <= '1'; phi_new_backlog <= 1;
               vdc_mem_addr <= vdc_mem_addr + 1; 
               if vdc_word_count = 0 then
                 state <= normal_fetch_state;
