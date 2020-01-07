@@ -627,7 +627,12 @@ static void init_fpgajtag(const char *serialno, const char *filename, uint32_t f
         if (uinfo[usb_index].idVendor == USB_JTAG_ALTERA) {
         }
         else if (!serialno || !strcmp(serialno, (char *)uinfo[usb_index].iSerialNumber))
+	  {
+	    // Found the correct interface.
+	    // Now extract the real serial port name as well, so that monitor_load can use it.
+	    
             break;
+	  }
         usb_index++;
     }
 
@@ -725,7 +730,6 @@ int fpgajtag_main(char *bitstream,char *serialport)
 	}
         exit(0);
     }
-    init_fpgajtag(serialno, filename, cflag ? 0xffffffff : file_idcode);
 
     dcount = idcode_count - (found_cortex != -1) - 1;
     trailing_len = idcode_count - 1 - jtag_index;
