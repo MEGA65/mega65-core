@@ -983,7 +983,11 @@ int xilinx_boundaryscan(unsigned char *out,int len)
     // https://forums.xilinx.com/t5/Spartan-Family-FPGAs-Archived/Spartan-3AN-200-JTAG-Idcode-debugging-on-a-new-board/td-p/131792
     uint8_t *rdata = write_pattern(0, idcode_ppattern, 'I');
 
+    dump_bytes(0,"boundary data",rdata,256);
+    
     LOGNOTE("Checkpoint post write-pattern");
 
+    ENTER_TMS_STATE('I');
+    
     EXIT();
 }
