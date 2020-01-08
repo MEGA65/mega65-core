@@ -58,7 +58,10 @@ int parse_xdc(char *xdc)
       }
     }
     if (pin_name&&signal_name) {
-      printf("Found pin '%s' for signal '%s'\n",pin_name,signal_name);
+      //      printf("Found pin '%s' for signal '%s'\n",pin_name,signal_name);
+      pin_names[pin_count]=strdup(pin_name);
+      signal_names[pin_count]=strdup(signal_name);
+      pin_count++;
     }
     
     line[0]=0; fgets(line,1024,f);
@@ -166,6 +169,8 @@ int xilinx_boundaryscan(char *xdc,char *bsdl)
 	int value=(rdata[(i)>>3]>>((i)&7))&1;
 	
 	char *s="<unknown>";
+	for(int j=0;j<pin_count;j++)
+	  if (!strcmp(pin_names[j],boundary_bit_pin[i])) s=signal_names[j];
 	if (!strcmp(boundary_bit_type[i],"input"))
 	  {
 	    printf("bit#%d : %s (pin %s, signal %s) = %x\n",
@@ -176,7 +181,7 @@ int xilinx_boundaryscan(char *xdc,char *bsdl)
 	  }
       }
     }
-    
+
     LOGNOTE("Checkpoint post write-pattern");
 
     ENTER_TMS_STATE('I');
