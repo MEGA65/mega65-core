@@ -111,6 +111,10 @@ int parse_bsdl(char *bsdl)
   fclose(f);
 }
 
+#define BOUNDARY_PPAT INT32(0xff), REPEAT10(0xff),  REPEAT10(0xff),  REPEAT10(0xff),  REPEAT10(0xff), REPEAT10(0xff),  REPEAT10(0xff),  REPEAT10(0xff),  REPEAT10(0xff),  REPEAT10(0xff),  REPEAT10(0xff), REPEAT10(0xff),  REPEAT10(0xff),  REPEAT10(0xff),  REPEAT10(0xff),  REPEAT10(0xff)
+
+static uint8_t boundary_ppattern[] = DITEM(BOUNDARY_PPAT);
+
 
 int xilinx_boundaryscan(char *xdc,char *bsdl)
 {
@@ -160,7 +164,7 @@ int xilinx_boundaryscan(char *xdc,char *bsdl)
     // the IDCODE command.  Does the FPGA default to IDCODE?
     // Yes: This seems to be the case, according to here:
     // https://forums.xilinx.com/t5/Spartan-Family-FPGAs-Archived/Spartan-3AN-200-JTAG-Idcode-debugging-on-a-new-board/td-p/131792
-    uint8_t *rdata = write_pattern(0, idcode_ppattern, 'I');
+    uint8_t *rdata = write_pattern(0, boundary_ppattern, 'I');
 
     if (!bsdl) {
       dump_bytes(0,"boundary data",rdata,256);
