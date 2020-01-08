@@ -232,11 +232,6 @@ entity gs4510 is
     slow_access_write : out std_logic := '0';
     slow_access_wdata : out unsigned(7 downto 0);
     slow_access_rdata : in unsigned(7 downto 0);
-
-    ---------------------------------------------------------------------------
-    -- VDC simulation support
-    ---------------------------------------------------------------------------
-    vdc_enabled : in std_logic := '0';
     
     ---------------------------------------------------------------------------
     -- VIC-III memory banking control
@@ -1260,6 +1255,7 @@ architecture Behavioural of gs4510 is
   signal vdc_status : unsigned(7 downto 0) := x"80";
   signal vdc_mem_addr_src : unsigned(15 downto 0) := to_unsigned(0,16);
   signal vdc_word_count : unsigned(7 downto 0) := x"00";
+  signal vdc_enabled : std_logic := '0';
   
   -- purpose: map VDC linear address to VICII bitmap addressing here
   -- to keep it as simple as possible we assume fix 640x200x2 resolution
