@@ -38,6 +38,14 @@
 #include <libusb.h>
 #endif
 
+#ifdef USE_LOGGING
+#define ENTER() fprintf(stderr,"Entering %s()\n",__FUNCTION__)
+#define EXIT() fprintf(stderr,"Exiting %s()\n",__FUNCTION__)
+#else
+#define ENTER()
+#define EXIT()
+#endif
+
 // for using libftdi.so
 //#define USE_LIBFTDI
 
@@ -126,7 +134,7 @@ static int ftdi_write_data(struct ftdi_context *ftdi, const unsigned char *buf, 
     int actual_length = -1;
     int ret = -1;
     if (logging)
-        formatwrite(1, buf, size, "WRITE");
+      formatwrite(1, buf, size, "WRITE");
 #ifndef NO_LIBUSB
     ret = libusb_bulk_transfer(usbhandle, ENDPOINT_IN, (unsigned char *)buf, size, &actual_length, USB_TIMEOUT);
 #endif
@@ -180,13 +188,22 @@ static int ftdi_read_data(struct ftdi_context *ftdi, unsigned char *buf, int siz
  */
 void write_data(uint8_t *buf, int size)
 {
-    memcpy(usbreadbuffer_ptr, buf, size);
-    usbreadbuffer_ptr += size;
+  ENTER();
+#ifdef USE_LOGGING
+  dump_bytes(0,"write_data()", buf, size);
+#endif
+  
+  memcpy(usbreadbuffer_ptr, buf, size);
+  usbreadbuffer_ptr += size;
+  
+  EXIT();
 }
 
 void write_item(uint8_t *buf)
 {
-    write_data(buf+1, buf[0]);
+  ENTER();
+  write_data(buf+1, buf[0]);
+  EXIT();
 }
 
 int buffer_current_size(void)
