@@ -75,6 +75,7 @@ enum {DEVICE_OTHER=0, DEVICE_AC701=0x03636093, DEVICE_ZC706=0x03731093, DEVICE_Z
 #define IRREG_JPROGRAM         0x0b
 #define IRREG_JSTART           0x0c
 #define IRREG_ISC_NOOP         0x14
+#define IRREG_SAMPLE           0x01
 #define IRREG_BYPASS           0x3f // even on PCIE, this has an extra bit
 #define IRREG_BYPASS_EXTEND  0xffff // even on PCIE, this has an extra bit
 

@@ -44,6 +44,17 @@
 #include "util.h"
 #include "fpga.h"
 
+#ifdef USE_LOGGING
+#define ENTER() fprintf(stderr,"Entering %s()\n",__FUNCTION__)
+#define EXIT() fprintf(stderr,"Exiting %s()\n",__FUNCTION__)
+#define LOGNOTE(M) fprintf(stderr,"%s:%d:%s():%s\n",__FILE__,__LINE__,__FUNCTION__,M);
+#else
+#define ENTER()
+#define EXIT()
+#define LOGNOTE(M)
+#endif  
+
+
 #define FILE_READSIZE          6464
 #define MAX_SINGLE_USB_DATA    4046
 #define IDCODE_ARRAY_SIZE        20
@@ -117,6 +128,7 @@ static int match_state(char req)
 }
 void write_tms_transition(char *tail)
 {
+  ENTER();
     char *p = tail+2;
     uint8_t temp[] = {TMSW, 0, 0};
     int len = 0;
@@ -132,6 +144,7 @@ void write_tms_transition(char *tail)
     temp[1] = len-1;
     temp[2] >>= 8 - len;
     write_data(temp, sizeof(temp));
+    EXIT();
 }
 void ENTER_TMS_STATE(char required)
 {
@@ -142,7 +155,9 @@ void ENTER_TMS_STATE(char required)
         "SE1",   /* Shift-IR -> Exit1-IR */ "SU11", /* Shift-DR -> Update-DR */
         "UD100", /* Update -> Shift-DR */   "ID100",/* Idle -> Shift-DR */
         "RD0100",/* Reset -> Shift-DR */    "IR111",/* Idle -> Reset */
-        "PR11111",/* Pause -> Reset */      "IS1100", NULL};/* Idle -> Shift-IR */
+        "PR11111",/* Pause -> Reset */      "IS1100", /* Idle -> Shift-IR */
+			   "ED1100", /* Exit1-IR ->  -> Shift-DR */
+			   NULL};
     char **p = tail; 
     while(*p) {
         if (temp == (*p)[0] && required == (*p)[1])
@@ -247,6 +262,7 @@ void write_bytes(uint8_t read,
             flush_write(NULL);
     }
 }
+
 void idle_to_shift_dr(int idindex)
 {
     ENTER_TMS_STATE('D');
@@ -254,8 +270,11 @@ void idle_to_shift_dr(int idindex)
 }
 static uint8_t *write_pattern(int idindex, uint8_t *req, int target_state)
 {
-    idle_to_shift_dr(idindex);
+   LOGNOTE("Calling idle_to_shift_dr()");
+   idle_to_shift_dr(idindex);
+   LOGNOTE("Switched to shift_dr");
     write_bytes(DREAD, target_state, req+1, req[0], SEND_SINGLE_FRAME, 1, 0, 0);
+    LOGNOTE("Wrote bytes. Now reading...");
     return read_data();
 }
 
@@ -286,6 +305,7 @@ static uint64_t read_data_int(uint8_t *bufp)
 #define REPEAT10(A) REPEAT5(A), REPEAT5(A)
 
 #define IDCODE_PPAT INT32(0xff), REPEAT10(0xff), REPEAT5(0xff)
+// IDCODE return is 32 bits long according to Xilinx BSDL file
 #define IDCODE_VPAT INT32(0xffffffff), REPEAT10(0xffffffff), REPEAT10(0xffffffff), \
             REPEAT10(0xffffffff), INT32(0xffffffff)
 
@@ -295,13 +315,42 @@ static uint8_t idcode_vpattern[] = DITEM(IDCODE_VPAT);
 static uint8_t idcode_vresult[] = DITEM(IDCODE_VPAT); // filled in with idcode
 void read_idcode(int prereset)
 {
-    int i, offset = 0;
+  ENTER();
+  int i, offset = 0;
     uint32_t temp[IDCODE_ARRAY_SIZE];
 
     if (prereset)
         write_tms_transition("RR1");
+
+    LOGNOTE("Checkpoint pre marker_for_reset()");
+
+    // Send 1 + 4 TMS reset bits?
     marker_for_reset(4);
+
+    // PGS: Try to explicitly send the IDCODE command.
+    // Once we get this working, we know we can then adapt for BOUNDARY command.
+    // The following seems to work:
+    // 1. Switch to idle.
+    // 2. Switch to Select IR scan
+    // 3. Clock a null bit (maybe to switch to capture IR ?)
+    // 4. Send IDCODE command. Not sure why we need 5 instead of 6 for length/
+    // 5. Switch to IDLE after done
+    ENTER_TMS_STATE('I');
+    ENTER_TMS_STATE('S');
+    write_bit(0, 0, 0xff, 0);     // Select first device on bus
+    write_bit(0, 5, IRREG_IDCODE, 0);     // Send IDCODE command
+    ENTER_TMS_STATE('I');
+    
+    LOGNOTE("Checkpoint pre write-pattern");
+
+    // This sends the transition to Shift-DR, but doesn't seem to actually send
+    // the IDCODE command.  Does the FPGA default to IDCODE?
+    // Yes: This seems to be the case, according to here:
+    // https://forums.xilinx.com/t5/Spartan-Family-FPGAs-Archived/Spartan-3AN-200-JTAG-Idcode-debugging-on-a-new-board/td-p/131792
     uint8_t *rdata = write_pattern(0, idcode_ppattern, 'I');
+
+    LOGNOTE("Checkpoint post write-pattern");
+
     if (first_time_idcode_read) {    // only setup idcode patterns on first call!
         first_time_idcode_read = 0;
         memcpy(&idcode_presult[1], idcode_ppattern+1, idcode_ppattern[0]);
@@ -328,16 +377,22 @@ void read_idcode(int prereset)
             idcode_len[i] = XILINX_IR_LENGTH;
         }
     }
+    EXIT();
 }
 
 static void init_device(int extra)
 {
+  ENTER();
+  LOGNOTE("Disable loopback. Disable divide by 5 of master clock.");
     write_item(DITEM(LOOPBACK_END, DIS_DIV_5));
+    LOGNOTE("Set clock divisor");
     set_clock_divisor();
     write_item(DITEM(SET_BITS_LOW, 0xe8, 0xeb, SET_BITS_HIGH, 0x20, 0x30));
     if (extra)
         write_item(DITEM(SET_BITS_HIGH, 0x30, 0x00, SET_BITS_HIGH, 0x00, 0x00));
+    LOGNOTE("For TAP to reset state.");
     write_tms_transition("XR11111");       /*** Force TAP controller to Reset state ***/
+    EXIT();
 }
 static void get_deviceid(int device_index, int interface)
 {
@@ -656,7 +711,7 @@ void init_fpgajtag(const char *serialno, const char *filename, uint32_t file_idc
 	      DIR *d=opendir("/sys/bus/usb-serial/devices");
 	      if (d) {
 		struct dirent *de=NULL;
-		while (de=readdir(d)) {
+		while ((de=readdir(d))!=NULL) {
 		  char link[1024]="";
 		  char path[1024];
 		  snprintf(path,1024,"/sys/bus/usb-serial/devices/%s",de->d_name);
@@ -891,4 +946,44 @@ exit_label:
 	return rc;
     }
     return 0;
+}
+
+int xilinx_boundaryscan(unsigned char *out,int len)
+{
+  ENTER();
+  int i, offset = 0;
+    uint32_t temp[IDCODE_ARRAY_SIZE];
+
+    write_tms_transition("RR1");
+
+    LOGNOTE("Checkpoint pre marker_for_reset()");
+
+    // Send 1 + 4 TMS reset bits?
+    marker_for_reset(4);
+
+    // PGS: Try to explicitly send the IDCODE command.
+    // Once we get this working, we know we can then adapt for BOUNDARY command.
+    // The following seems to work:
+    // 1. Switch to idle.
+    // 2. Switch to Select IR scan
+    // 3. Clock a null bit (maybe to switch to capture IR ?)
+    // 4. Send IDCODE command. Not sure why we need 5 instead of 6 for length/
+    // 5. Switch to IDLE after done
+    ENTER_TMS_STATE('I');
+    ENTER_TMS_STATE('S');
+    write_bit(0, 0, 0xff, 0);     // Select first device on bus
+    write_bit(0, 5, IRREG_SAMPLE, 0);     // Send IDCODE command
+    ENTER_TMS_STATE('I');
+    
+    LOGNOTE("Checkpoint pre write-pattern");
+
+    // This sends the transition to Shift-DR, but doesn't seem to actually send
+    // the IDCODE command.  Does the FPGA default to IDCODE?
+    // Yes: This seems to be the case, according to here:
+    // https://forums.xilinx.com/t5/Spartan-Family-FPGAs-Archived/Spartan-3AN-200-JTAG-Idcode-debugging-on-a-new-board/td-p/131792
+    uint8_t *rdata = write_pattern(0, idcode_ppattern, 'I');
+
+    LOGNOTE("Checkpoint post write-pattern");
+
+    EXIT();
 }
