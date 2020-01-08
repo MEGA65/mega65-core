@@ -36,32 +36,34 @@ int parse_xdc(char *xdc)
   char line[1024];
   line[0]=0; fgets(line,1024,f);
   while(line[0]) {
-    char *package_pin=strstr(line,"PACKAGE_PIN");
-    char *get_ports=strstr(line,"get_ports");
-    char *pin_name=NULL;
-    char *signal_name=NULL;
-    
-    if (package_pin) {
-      pin_name=&package_pin[strlen("PACKAGE_PIN ")];
-      for(int i=0;pin_name[i];i++) if (pin_name[i]==' ') { pin_name[i]=0; break; }      
-    }
-
-    if (get_ports) {
-      int opening_square_brackets=0;
-      signal_name=&get_ports[strlen("get_ports ")];      
-      for(int i=0;signal_name[i];i++) {
-	if (signal_name[i]=='[') opening_square_brackets++;
-	if (signal_name[i]==']') {
-	  if (opening_square_brackets) opening_square_brackets--;
-	  else { signal_name[i]=0; break; }
+    if (line[0]!='#') {
+      char *package_pin=strstr(line,"PACKAGE_PIN");
+      char *get_ports=strstr(line,"get_ports");
+      char *pin_name=NULL;
+      char *signal_name=NULL;
+      
+      if (package_pin) {
+	pin_name=&package_pin[strlen("PACKAGE_PIN ")];
+	for(int i=0;pin_name[i];i++) if (pin_name[i]==' ') { pin_name[i]=0; break; }      
+      }
+      
+      if (get_ports) {
+	int opening_square_brackets=0;
+	signal_name=&get_ports[strlen("get_ports ")];      
+	for(int i=0;signal_name[i];i++) {
+	  if (signal_name[i]=='[') opening_square_brackets++;
+	  if (signal_name[i]==']') {
+	    if (opening_square_brackets) opening_square_brackets--;
+	    else { signal_name[i]=0; break; }
+	  }
 	}
       }
-    }
-    if (pin_name&&signal_name) {
-      //      printf("Found pin '%s' for signal '%s'\n",pin_name,signal_name);
-      pin_names[pin_count]=strdup(pin_name);
-      signal_names[pin_count]=strdup(signal_name);
-      pin_count++;
+      if (pin_name&&signal_name) {
+	//      printf("Found pin '%s' for signal '%s'\n",pin_name,signal_name);
+	pin_names[pin_count]=strdup(pin_name);
+	signal_names[pin_count]=strdup(signal_name);
+	pin_count++;
+      }
     }
     
     line[0]=0; fgets(line,1024,f);
