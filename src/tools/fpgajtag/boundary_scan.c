@@ -19,8 +19,9 @@ char *signal_names[MAX_PINS];
 int pin_count=0;
 
 #define MAX_BOUNDARY_BITS 8192
-char *boundary_bit_description[MAX_BOUNDARY_BITS];
-int boundary_bit_pin[MAX_BOUNDARY_BITS];
+char *boundary_bit_type[MAX_BOUNDARY_BITS];
+char *boundary_bit_fullname[MAX_BOUNDARY_BITS];
+char *boundary_bit_pin[MAX_BOUNDARY_BITS];
 int boundary_bit_count=0;
 char part_name[1024];
 
@@ -89,8 +90,15 @@ int parse_bsdl(char *bsdl)
     int n=sscanf(line,"%*[ \t]\"%*[ \t]%d (BC_%*d, %[^,], %[^,], %[^,)]",
 		 &bit_number,bit_name,bit_type,bit_default);
     if (n==4) {
-      fprintf(stderr,"Found boundary scan bit #%d : %s %s %s\n",
-	      bit_number,bit_name,bit_type,bit_default);
+      if (bit_number>=0&&bit_number<MAX_BOUNDARY_BITS) {
+	boundary_bit_type[bit_number]=strdup(bit_type);
+	boundary_bit_fullname[bit_number]=strdup(bit_name);
+        char *bit_pin=bit_name;
+	for(int i=0;bit_name[i];i++) if (bit_name[i]=='_') bit_pin=&bit_name[i+1];
+	boundary_bit_pin[bit_number]=strdup(bit_pin);
+	fprintf(stderr,"Found boundary scan bit #%d : %s %s %s (pin %s)\n",
+		bit_number,bit_name,bit_type,bit_default,bit_pin);
+      }
     } 
 	       
     
@@ -108,6 +116,11 @@ int xilinx_boundaryscan(char *xdc,char *bsdl)
   if (xdc) parse_xdc(xdc);
   else {
     fprintf(stderr,"WARNING: No XDC file, so cannot associate pins to project top-level port signals.\n");
+  }
+  for(int i=0;i<MAX_BOUNDARY_BITS;i++) {
+    boundary_bit_type[i]=NULL;
+    boundary_bit_fullname[i]=NULL;
+    boundary_bit_pin[i]=NULL;
   }
   if (bsdl) parse_bsdl(bsdl);
   else {
