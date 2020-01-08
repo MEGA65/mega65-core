@@ -22,6 +22,7 @@ int pin_count=0;
 char *boundary_bit_description[MAX_BOUNDARY_BITS];
 int boundary_bit_pin[MAX_BOUNDARY_BITS];
 int boundary_bit_count=0;
+char part_name[1024];
 
 int parse_xdc(char *xdc)
 {
@@ -76,6 +77,22 @@ int parse_bsdl(char *bsdl)
   char line[1024];
   line[0]=0; fgets(line,1024,f);
   while(line[0]) {
+    if (sscanf(line,"attribute BOUNDARY_LENGTH of %s : entity is %d;",
+	       part_name,&boundary_bit_count)==2) {
+      fprintf(stderr,"FPGA is assumed to be a %s, with %d bits of boundary scan data.\n",
+	      part_name,boundary_bit_count);
+    }
+    int bit_number;
+    char bit_name[1024];
+    char bit_type[1024];
+    char bit_default[1024];
+    int n=sscanf(line,"%*[ \t]\"%*[ \t]%d (BC_%*d, %[^,], %[^,], %[^,)]",
+		 &bit_number,bit_name,bit_type,bit_default);
+    if (n==4) {
+      fprintf(stderr,"Found boundary scan bit #%d : %s %s %s\n",
+	      bit_number,bit_name,bit_type,bit_default);
+    } 
+	       
     
     line[0]=0; fgets(line,1024,f);
   }
