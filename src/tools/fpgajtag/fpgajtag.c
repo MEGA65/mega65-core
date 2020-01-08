@@ -948,46 +948,4 @@ exit_label:
     return 0;
 }
 
-int xilinx_boundaryscan(unsigned char *out,int len)
-{
-  ENTER();
-  int i, offset = 0;
-    uint32_t temp[IDCODE_ARRAY_SIZE];
-
-    write_tms_transition("RR1");
-
-    LOGNOTE("Checkpoint pre marker_for_reset()");
-
-    // Send 1 + 4 TMS reset bits?
-    marker_for_reset(4);
-
-    // PGS: Try to explicitly send the IDCODE command.
-    // Once we get this working, we know we can then adapt for BOUNDARY command.
-    // The following seems to work:
-    // 1. Switch to idle.
-    // 2. Switch to Select IR scan
-    // 3. Clock a null bit (maybe to switch to capture IR ?)
-    // 4. Send IDCODE command. Not sure why we need 5 instead of 6 for length/
-    // 5. Switch to IDLE after done
-    ENTER_TMS_STATE('I');
-    ENTER_TMS_STATE('S');
-    write_bit(0, 0, 0xff, 0);     // Select first device on bus
-    write_bit(0, 5, IRREG_SAMPLE, 0);     // Send IDCODE command
-    ENTER_TMS_STATE('I');
-    
-    LOGNOTE("Checkpoint pre write-pattern");
-
-    // This sends the transition to Shift-DR, but doesn't seem to actually send
-    // the IDCODE command.  Does the FPGA default to IDCODE?
-    // Yes: This seems to be the case, according to here:
-    // https://forums.xilinx.com/t5/Spartan-Family-FPGAs-Archived/Spartan-3AN-200-JTAG-Idcode-debugging-on-a-new-board/td-p/131792
-    uint8_t *rdata = write_pattern(0, idcode_ppattern, 'I');
-
-    dump_bytes(0,"boundary data",rdata,256);
-    
-    LOGNOTE("Checkpoint post write-pattern");
-
-    ENTER_TMS_STATE('I');
-    
-    EXIT();
-}
+#include "boundary_scan.c"
