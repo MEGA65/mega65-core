@@ -70,16 +70,17 @@ int process_line(char *line,int live);
 int process_waiting(int fd);
 int fpgajtag_main(char *bitstream,char *serialport);
 void init_fpgajtag(const char *serialno, const char *filename, uint32_t file_idcode);
+int xilinx_boundaryscan(char *xdc,char *bsdl);
 
 void usage(void)
 {
   fprintf(stderr,"MEGA65 cross-development tool for booting the MEGA65 using a custom bitstream and/or HICKUP file.\n");
-  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <hickup file>] [-R romfile] [-C charromfile]] [-c COLOURRAM.BIN] [-B breakpoint] [-m modeline] [-o] [-d diskimage.d81] [-J] [[-1] [<-t|-T> <text>] [-f FPGA serial ID] [filename]] [-H] [-E|-L]\n");
+  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <hickup file>] [-R romfile] [-C charromfile]] [-c COLOURRAM.BIN] [-B breakpoint] [-m modeline] [-o] [-d diskimage.d81] [-J <XDC,BSDL>] [[-1] [<-t|-T> <text>] [-f FPGA serial ID] [filename]] [-H] [-E|-L]\n");
   fprintf(stderr,"  -l - Name of serial port to use, e.g., /dev/ttyUSB1\n");
   fprintf(stderr,"  -s - Speed of serial port in bits per second. This must match what your bitstream uses.\n");
   fprintf(stderr,"       (Older bitstream use 230400, and newer ones 2000000 or 4000000).\n");
   fprintf(stderr,"  -b - Name of bitstream file to load.\n");
-  fprintf(stderr,"  -J - Do JTAG boundary scan of attached FPGA.\n");
+  fprintf(stderr,"  -J - Do JTAG boundary scan of attached FPGA, using the provided XDC and BSDL files\n");
   fprintf(stderr,"  -k - Name of hickup file to forcibly use instead of the hyppo in the bitstream.\n");
   fprintf(stderr,"  -R - ROM file to preload at $20000-$3FFFF.\n");
   fprintf(stderr,"  -C - Character ROM file to preload.\n");
@@ -113,6 +114,9 @@ int ntsc_mode=0;
 int reset_first=0;
 
 int boundary_scan=0;
+char boundary_xdc[1024]="";
+char boundary_bsdl[1024]="";
+
 int counter  =0;
 int fd=-1;
 int state=99;
@@ -1540,7 +1544,7 @@ int main(int argc,char **argv)
   start_time=time(0);
 
   int opt;
-  while ((opt = getopt(argc, argv, "14B:b:c:C:d:EFHf:Jk:Ll:m:MnoprR:Ss:t:T:")) != -1) {
+  while ((opt = getopt(argc, argv, "14B:b:c:C:d:EFHf:J:k:Ll:m:MnoprR:Ss:t:T:")) != -1) {
     switch (opt) {
     case 'B': sscanf(optarg,"%x",&break_point); break;
     case 'L': if (ethernet_video) { usage(); } else { ethernet_cpulog=1; } break;
@@ -1577,7 +1581,9 @@ int main(int argc,char **argv)
     case 'b':
       bitstream=strdup(optarg); break;
     case 'J':
-      boundary_scan=1; break;
+      boundary_scan=1;
+      sscanf(optarg,"%[^,],%s",boundary_xdc,boundary_bsdl);
+      break;
     case 'k': hyppo=strdup(optarg); break;
     case 't': case 'T':
       type_text=strdup(optarg);
@@ -1591,7 +1597,7 @@ int main(int argc,char **argv)
   init_fpgajtag(serial_port, bitstream, 0xffffffff);
 
   if (boundary_scan) {
-    xilinx_boundaryscan(NULL,0);
+    xilinx_boundaryscan(boundary_xdc[0]?boundary_xdc:NULL,boundary_bsdl[0]?boundary_bsdl:NULL);
     exit(0);
   }
   
