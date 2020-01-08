@@ -96,8 +96,8 @@ int parse_bsdl(char *bsdl)
         char *bit_pin=bit_name;
 	for(int i=0;bit_name[i];i++) if (bit_name[i]=='_') bit_pin=&bit_name[i+1];
 	boundary_bit_pin[bit_number]=strdup(bit_pin);
-	fprintf(stderr,"Found boundary scan bit #%d : %s %s %s (pin %s)\n",
-		bit_number,bit_name,bit_type,bit_default,bit_pin);
+	if (0) fprintf(stderr,"Found boundary scan bit #%d : %s %s %s (pin %s)\n",
+		       bit_number,bit_name,bit_type,bit_default,bit_pin);
       }
     } 
 	       
@@ -159,7 +159,23 @@ int xilinx_boundaryscan(char *xdc,char *bsdl)
     // https://forums.xilinx.com/t5/Spartan-Family-FPGAs-Archived/Spartan-3AN-200-JTAG-Idcode-debugging-on-a-new-board/td-p/131792
     uint8_t *rdata = write_pattern(0, idcode_ppattern, 'I');
 
-    dump_bytes(0,"boundary data",rdata,256);
+    if (!bsdl) {
+      dump_bytes(0,"boundary data",rdata,256);
+    } else {
+      for(int i=0;i<boundary_bit_count;i++) {
+	int value=(rdata[(i)>>3]>>((i)&7))&1;
+	
+	char *s="<unknown>";
+	if (!strcmp(boundary_bit_type[i],"input"))
+	  {
+	    printf("bit#%d : %s (pin %s, signal %s) = %x\n",
+		   i,
+		   boundary_bit_fullname[i],
+		   boundary_bit_pin[i],
+		   s,value);
+	  }
+      }
+    }
     
     LOGNOTE("Checkpoint post write-pattern");
 
