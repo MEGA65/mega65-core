@@ -1246,7 +1246,7 @@ begin
 
     qspicsn => qspicsn,
     qspidb => qspidb,
-    qspi_clock => qspi_clock;
+    qspi_clock => qspi_clock,
     
     drive_led => drive_led,
     motor => motor,
