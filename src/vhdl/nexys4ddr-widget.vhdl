@@ -274,6 +274,7 @@ architecture Behavioral of container is
   signal widget_joyb : std_logic_vector(4 downto 0);
 
   signal qspi_clock : std_logic := '0';
+  signal qspi_clock_int : std_logic := '0';
   
 begin
 
@@ -398,193 +399,193 @@ begin
       cart_a => cart_a
       );
   
---  machine0: entity work.machine
---    generic map (cpufrequency => 40,
---                 target => nexys4ddr_widget)
---    port map (
---      pixelclock      => pixelclock,
---      cpuclock        => cpuclock,
---      uartclock       => cpuclock, -- Match CPU clock
---      ioclock         => cpuclock, -- Match CPU clock
---      clock162 => clock162,
---      clock100 => clock100,
---     clock27 => clock27,
---      clock50mhz      => ethclock,
---      btncpureset => btncpureset,
---      reset_out => reset_out,
---      irq => irq,
---      nmi => nmi,
---      restore_key => restore_key,
---      sector_buffer_mapped => sector_buffer_mapped,
---
-----      qspi_clock => qspi_clock,
---      qspidb => qspidb,
---      qspicsn => qspicsn,      
---     
---      pal50_select_out => pal50_select,
---      
---      -- Wire up a dummy caps_lock key on switch 8
---      caps_lock_key => sw(8),
---
---      fa_fire => '1',
---      fa_up =>  '1',
---      fa_left => '1',
---      fa_down => '1',
---      fa_right => '1',
---
---      fb_fire => '1',
---      fb_up => '1',
---      fb_left => '1',
---      fb_down => '1',
---      fb_right => '1',
---
---      fa_potx => '0',
---      fa_poty => '0',
---      fb_potx => '0',
---      fb_poty => '0',
---
---      f_index => '1',
---      f_track0 => '1',
---      f_writeprotect => '1',
---      f_rdata => '1',
---      f_diskchanged => '1',
---      
---      ----------------------------------------------------------------------
---      -- CBM floppy  std_logic_vectorerial port
---      ----------------------------------------------------------------------
---      iec_clk_en => iec_clk_en,
---      iec_data_en => iec_data_en,
---      iec_data_o => iec_data_o,
---      iec_reset => iec_reset,
---      iec_clk_o => iec_clk_o,
---      iec_atn_o => iec_atn,
---      iec_data_external => iec_data_i,
---      iec_clk_external => iec_clk_i,
---      
---      no_hyppo => '0',
---      
---      vsync           => vsync,
---      vga_hsync           => hsync,
---      lcd_vsync => lcd_vsync,
---      lcd_hsync => lcd_hsync,
---
---      vgared(7 downto 0)          => buffer_vgared,
---      vgagreen(7 downto 0)        => buffer_vgagreen,
---      vgablue(7 downto 0)         => buffer_vgablue,
---
---      porta_pins => porta_pins,
---      portb_pins => portb_pins,
---      keyleft => '0',
---      keyup => '0',
---      
---      ---------------------------------------------------------------------------
---      -- IO lines to the ethernet controller
---      ---------------------------------------------------------------------------
---      eth_mdio => eth_mdio,
---      eth_mdc => eth_mdc,
---      eth_reset => eth_reset,
---      eth_rxd => eth_rxd,
---      eth_txd => eth_txd,
---      eth_txen => eth_txen,
---      eth_rxer => eth_rxer,
---      eth_rxdv => eth_rxdv,
---      eth_interrupt => eth_interrupt,
---      
---      -------------------------------------------------------------------------
---      -- Lines for the SDcard interface itself
---      -------------------------------------------------------------------------
---      cs_bo => sdReset,
---      sclk_o => sdClock,
---      mosi_o => sdMOSI,
---      miso_i => sdMISO,
---      miso2_i => '1',
---
---      aclMISO => aclMISO,
---      aclMOSI => aclMOSI,
---      aclSS => aclSS,
---      aclSCK => aclSCK,
---      aclInt1 => aclInt1,
---      aclInt2 => aclInt2,
---      
---      micData0 => micData,
---      micData1 => '0', -- This board has only one microphone
---      micClk => micClk,
---      micLRSel => micLRSel,
---
---      ampPWM_l => ampPWM_internal,
---      ampPWM_r => led(14),
---      ampSD => ampSD,
---      
---      tmpSDA => tmpSDA,
---      tmpSCL => tmpSCL,
---      tmpInt => tmpInt,
---      tmpCT => tmpCT,
---
---      touchSDA => jdlo(2),
---      touchSCL => jdlo(1),
---      lcdpwm => jdlo(3),
---
---      -- Add second I2C bus we can connect to external things for testing.
---      i2c1sda => jdlo(4),
---      i2c1scl => jchi(7),
---      
---      -- This is for modem as PCM master:
---      pcm_modem_clk_in => jdhi(7),
---      pcm_modem_sync_in => jdhi(8),
---      -- This is for modem as PCM slave:
---      -- (note that the EC25AU firmware we have doesn't work properly as a PCM
---      -- slave).
---      -- pcm_modem_clk => jdhi(7),
---      -- pcm_modem_sync => jdhi(8),
---      
---      pcm_modem1_data_out => jdhi(9),
---      pcm_modem1_data_in => jdhi(10),
---      
---      ps2data =>      ps2data,
---      ps2clock =>     ps2clk,
---
---      widget_matrix_col_idx => widget_matrix_col_idx,
---      widget_matrix_col => widget_matrix_col,
---      widget_restore => widget_restore,
---      widget_capslock => widget_capslock,
---      widget_joya => widget_joya,
---      widget_joyb => widget_joyb,      
---      
---      uart_rx => jclo(1),
---      uart_tx => jclo(2),
---
---      buffereduart_rx => jclo(3),
---      buffereduart_tx => jclo(4),
---      buffereduart2_rx => jchi(9),
---      buffereduart2_tx => jchi(10),
---      buffereduart_ringindicate => jchi(8),
---      
---      slow_access_request_toggle => slow_access_request_toggle,
---      slow_access_ready_toggle => slow_access_ready_toggle,
---      slow_access_address => slow_access_address,
---      slow_access_write => slow_access_write,
---      slow_access_wdata => slow_access_wdata,
---      slow_access_rdata => slow_access_rdata,
-----      cpu_exrom => cpu_exrom,      
-----      cpu_game => cpu_game,      
---      -- enable/disable cartridge with sw(8)
---      cpu_exrom => '1',
---      cpu_game => '1',
---      cart_access_count => x"00",
---
---      fpga_temperature => fpga_temperature,
---
---      led(12 downto 0) => led(12 downto 0),
---      led(15 downto 13) => dummy,
---      sw => sw,
---      btn => btn,
---
---      UART_TXD => UART_TXD,
---      RsRx => RsRx,
---      
---      sseg_ca => sseg_ca,
---      sseg_an => sseg_an
---      );
+  machine0: entity work.machine
+    generic map (cpufrequency => 40,
+                 target => nexys4ddr_widget)
+    port map (
+      pixelclock      => pixelclock,
+      cpuclock        => cpuclock,
+      uartclock       => cpuclock, -- Match CPU clock
+      ioclock         => cpuclock, -- Match CPU clock
+      clock162 => clock162,
+      clock100 => clock100,
+     clock27 => clock27,
+      clock50mhz      => ethclock,
+      btncpureset => btncpureset,
+      reset_out => reset_out,
+      irq => irq,
+      nmi => nmi,
+      restore_key => restore_key,
+      sector_buffer_mapped => sector_buffer_mapped,
+
+--      qspi_clock => qspi_clock,
+      qspidb => qspidb,
+      qspicsn => qspicsn,      
+     
+      pal50_select_out => pal50_select,
+      
+      -- Wire up a dummy caps_lock key on switch 8
+      caps_lock_key => sw(8),
+
+      fa_fire => '1',
+      fa_up =>  '1',
+      fa_left => '1',
+      fa_down => '1',
+      fa_right => '1',
+
+      fb_fire => '1',
+      fb_up => '1',
+      fb_left => '1',
+      fb_down => '1',
+      fb_right => '1',
+
+      fa_potx => '0',
+      fa_poty => '0',
+      fb_potx => '0',
+      fb_poty => '0',
+
+      f_index => '1',
+      f_track0 => '1',
+      f_writeprotect => '1',
+      f_rdata => '1',
+      f_diskchanged => '1',
+      
+      ----------------------------------------------------------------------
+      -- CBM floppy  std_logic_vectorerial port
+      ----------------------------------------------------------------------
+      iec_clk_en => iec_clk_en,
+      iec_data_en => iec_data_en,
+      iec_data_o => iec_data_o,
+      iec_reset => iec_reset,
+      iec_clk_o => iec_clk_o,
+      iec_atn_o => iec_atn,
+      iec_data_external => iec_data_i,
+      iec_clk_external => iec_clk_i,
+      
+      no_hyppo => '0',
+      
+      vsync           => vsync,
+      vga_hsync           => hsync,
+      lcd_vsync => lcd_vsync,
+      lcd_hsync => lcd_hsync,
+
+      vgared(7 downto 0)          => buffer_vgared,
+      vgagreen(7 downto 0)        => buffer_vgagreen,
+      vgablue(7 downto 0)         => buffer_vgablue,
+
+      porta_pins => porta_pins,
+      portb_pins => portb_pins,
+      keyleft => '0',
+      keyup => '0',
+      
+      ---------------------------------------------------------------------------
+      -- IO lines to the ethernet controller
+      ---------------------------------------------------------------------------
+      eth_mdio => eth_mdio,
+      eth_mdc => eth_mdc,
+      eth_reset => eth_reset,
+      eth_rxd => eth_rxd,
+      eth_txd => eth_txd,
+      eth_txen => eth_txen,
+      eth_rxer => eth_rxer,
+      eth_rxdv => eth_rxdv,
+      eth_interrupt => eth_interrupt,
+      
+      -------------------------------------------------------------------------
+      -- Lines for the SDcard interface itself
+      -------------------------------------------------------------------------
+      cs_bo => sdReset,
+      sclk_o => sdClock,
+      mosi_o => sdMOSI,
+      miso_i => sdMISO,
+      miso2_i => '1',
+
+      aclMISO => aclMISO,
+      aclMOSI => aclMOSI,
+      aclSS => aclSS,
+      aclSCK => aclSCK,
+      aclInt1 => aclInt1,
+      aclInt2 => aclInt2,
+      
+      micData0 => micData,
+      micData1 => '0', -- This board has only one microphone
+      micClk => micClk,
+      micLRSel => micLRSel,
+
+      ampPWM_l => ampPWM_internal,
+      ampPWM_r => led(14),
+      ampSD => ampSD,
+      
+      tmpSDA => tmpSDA,
+      tmpSCL => tmpSCL,
+      tmpInt => tmpInt,
+      tmpCT => tmpCT,
+
+      touchSDA => jdlo(2),
+      touchSCL => jdlo(1),
+      lcdpwm => jdlo(3),
+
+      -- Add second I2C bus we can connect to external things for testing.
+      i2c1sda => jdlo(4),
+      i2c1scl => jchi(7),
+      
+      -- This is for modem as PCM master:
+      pcm_modem_clk_in => jdhi(7),
+      pcm_modem_sync_in => jdhi(8),
+      -- This is for modem as PCM slave:
+      -- (note that the EC25AU firmware we have doesn't work properly as a PCM
+      -- slave).
+      -- pcm_modem_clk => jdhi(7),
+      -- pcm_modem_sync => jdhi(8),
+      
+      pcm_modem1_data_out => jdhi(9),
+      pcm_modem1_data_in => jdhi(10),
+      
+      ps2data =>      ps2data,
+      ps2clock =>     ps2clk,
+
+      widget_matrix_col_idx => widget_matrix_col_idx,
+      widget_matrix_col => widget_matrix_col,
+      widget_restore => widget_restore,
+      widget_capslock => widget_capslock,
+      widget_joya => widget_joya,
+      widget_joyb => widget_joyb,      
+      
+      uart_rx => jclo(1),
+      uart_tx => jclo(2),
+
+      buffereduart_rx => jclo(3),
+      buffereduart_tx => jclo(4),
+      buffereduart2_rx => jchi(9),
+      buffereduart2_tx => jchi(10),
+      buffereduart_ringindicate => jchi(8),
+      
+      slow_access_request_toggle => slow_access_request_toggle,
+      slow_access_ready_toggle => slow_access_ready_toggle,
+      slow_access_address => slow_access_address,
+      slow_access_write => slow_access_write,
+      slow_access_wdata => slow_access_wdata,
+      slow_access_rdata => slow_access_rdata,
+--      cpu_exrom => cpu_exrom,      
+--      cpu_game => cpu_game,      
+      -- enable/disable cartridge with sw(8)
+      cpu_exrom => '1',
+      cpu_game => '1',
+      cart_access_count => x"00",
+
+      fpga_temperature => fpga_temperature,
+
+      led(12 downto 0) => led(12 downto 0),
+      led(15 downto 13) => dummy,
+      sw => sw,
+      btn => btn,
+
+      UART_TXD => UART_TXD,
+      RsRx => RsRx,
+      
+      sseg_ca => sseg_ca,
+      sseg_an => sseg_an
+      );
     
   -- Hardware buttons for triggering IRQ & NMI
   irq <= not btn(0);
@@ -619,18 +620,16 @@ begin
         led(15) <= ampPWM_internal;
       else
         -- 1KHz sawtooth
-        if sawtooth_phase < 50000 then
+        if sawtooth_phase < 50000000 then
           sawtooth_phase <= sawtooth_phase + 1;
           if sawtooth_counter < 256 then
             sawtooth_counter <= sawtooth_counter + sawtooth_level;
             ampPWM <= '0';
             led(15) <= '0';
-            qspi_clock <= '0';
           else
             sawtooth_counter <= sawtooth_counter + sawtooth_level - 256;
             ampPWM <= '1';
             led(15) <= '1';
-            qspi_clock <= '1';
           end if;
         else
           sawtooth_phase <= 0;
@@ -639,6 +638,9 @@ begin
           else
             sawtooth_level <= 0;
           end if;
+          qspi_clock <= not qspi_clock_int;
+          qspi_clock_int <= not qspi_clock_int;
+          
         end if;
       end if;
     end if;
