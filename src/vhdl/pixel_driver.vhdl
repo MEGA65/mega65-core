@@ -23,6 +23,10 @@ use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
 
+library UNISIM;
+use UNISIM.vcomponents.all;
+
+
 entity pixel_driver is
 
   port (
@@ -207,7 +211,7 @@ architecture greco_roman of pixel_driver is
   signal raddr50 : integer := 0;
   signal raddr60 : integer := 0;
   signal raddrvga60 : integer := 0;
-  
+
 begin
 
   -- Here we generate the frames and the pixel strobe references for everything
@@ -476,6 +480,7 @@ begin
     end if;        
 
     if rising_edge(clock27) then
+
       report "plotting = " & std_logic'image(plotting)
         & ", fullwidth_dataenable_internal = " & std_logic'image(fullwidth_dataenable_internal);
       
