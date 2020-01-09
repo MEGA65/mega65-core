@@ -398,7 +398,9 @@ begin
       cart_d => cart_d,
       cart_a => cart_a
       );
-  
+
+  core0:
+    if false generate 
   machine0: entity work.machine
     generic map (cpufrequency => 40,
                  target => nexys4ddr_widget)
@@ -586,7 +588,8 @@ begin
       sseg_ca => sseg_ca,
       sseg_an => sseg_an
       );
-    
+  end generate core0;
+  
   -- Hardware buttons for triggering IRQ & NMI
   irq <= not btn(0);
   nmi <= not btn(4);
