@@ -106,6 +106,7 @@ entity machine is
          ----------------------------------------------------------------------
          QspiDB : inout unsigned(3 downto 0);
          QspiCSn : out std_logic;
+         qspi_clock : out std_logic;
          
          ----------------------------------------------------------------------
          -- VGA output
@@ -1349,6 +1350,7 @@ begin
       speed_gate_enable => speed_gate_enable,
       ethernet_cpu_arrest => ethernet_cpu_arrest,
 
+      qspi_clock => qspi_clock,
       qspicsn => qspicsn,
       qspidb => qspidb,
       
