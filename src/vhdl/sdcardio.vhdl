@@ -2220,6 +2220,11 @@ begin  -- behavioural
 
 --          end if;
             when x"CD" =>
+              -- XXX This register was added, because without it the QSPI clock
+              -- could not be controlled. No idea why, as with it here, it is
+              -- possible to control it via $D6CC :/
+              -- @IO:GS $D6CD.0 QSPI:CLOCKRUN Set to cause QSPI clock to free run at CPU clock frequency.
+              -- @IO:GS $D6CD.1 QSPI:CLOCK Alternate address for direct manipulation of QSPI CLOCK
               qspi_clock_run <= fastio_wdata(0);
               qspi_clock <= fastio_wdata(1);
               qspi_clock_int <= fastio_wdata(1);
