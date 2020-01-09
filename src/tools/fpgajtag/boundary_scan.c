@@ -140,6 +140,23 @@ int xilinx_boundaryscan(char *xdc,char *bsdl)
     fprintf(stderr,"WARNING: No BSDL file, so cannot decode boundary scan information.\n");
   }
 
+  char *bbit_names[MAX_BOUNDARY_BITS];
+  int bbit_isclock[MAX_BOUNDARY_BITS];
+  int bbit_show[MAX_BOUNDARY_BITS];
+  
+  // Map JTAG bits to pins
+  for(int i=0;i<boundary_bit_count;i++) {
+    char *s="<unknown>";
+    for(int j=0;j<pin_count;j++)
+      if (!strcmp(pin_names[j],boundary_bit_pin[i])) s=signal_names[j];
+    bbit_names[i]=s;
+    if (!strcmp("CLK_IN",s)) bbit_isclock[i]=1; else bbit_isclock[i]=0;
+    if (!strcmp(boundary_bit_type[i],"input"))
+      bbit_show[i]=1; else bbit_show[i]=0;
+  }
+
+  unsigned long long start_time = gettime_ms();
+  
   do {
   
     int i, offset = 0;
@@ -174,27 +191,36 @@ int xilinx_boundaryscan(char *xdc,char *bsdl)
     // https://forums.xilinx.com/t5/Spartan-Family-FPGAs-Archived/Spartan-3AN-200-JTAG-Idcode-debugging-on-a-new-board/td-p/131792
     uint8_t *rdata = write_pattern(0, boundary_ppattern, 'I');
 
+    unsigned long long now = gettime_ms();
+    unsigned long long time_delta = now - start_time;
+
+    
     if (!bsdl) {
       dump_bytes(0,"boundary data",rdata,256);
     } else {
+      int count_shown=0;
       for(int i=0;i<boundary_bit_count;i++) {
 	int value=(rdata[(i)>>3]>>((i)&7))&1;
 	int last_value=(last_rdata[(i)>>3]>>((i)&7))&1;
 	
-	char *s="<unknown>";
-	for(int j=0;j<pin_count;j++)
-	  if (!strcmp(pin_names[j],boundary_bit_pin[i])) s=signal_names[j];
-	if (!strcmp(boundary_bit_type[i],"input"))
+	if (bbit_show[i])
 	  {
 	    if (first_time||last_value!=value) {
 	      
-	      if (first_time||strcmp(s,"CLK_IN")) {
-		
+	      if (first_time||(!bbit_isclock[i]))
+		{
+
+		  if(!count_shown) {
+		    printf("T+%lldms >>> Signal(s) changed.\n",
+			   time_delta);
+		  }
+		  count_shown++;
+		  
 		printf("bit#%d : %s (pin %s, signal %s) = %x\n",
 		       i,
 		       boundary_bit_fullname[i],
 		       boundary_bit_pin[i],
-		       s,value);
+		       bbit_names[i],value);
 	      }
 	    }
 	  }
