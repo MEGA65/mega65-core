@@ -201,6 +201,7 @@ architecture behavioural of sdcardio is
   signal audio_mix_reg_int : unsigned(7 downto 0) := x"FF";
   
   signal qspi_clock_int : std_logic := '1';
+  signal qspi_clock_run : std_logic := '1';
   signal qspi_csn_int : std_logic := '1'; 
   signal qspi_dbddr : std_logic := '0';
   signal qspi_tristate_d0 : std_logic := '0';
@@ -1077,6 +1078,9 @@ begin  -- behavioural
             fastio_rdata(5) <= qspi_clock_int;
             fastio_rdata(4) <= qspi_tristate_d0;
             fastio_rdata(3 downto 0) <= qspidb;
+          when x"CD" =>
+            fastio_rdata(0) <= qspi_clock_run;
+            fastio_rdata(7 downto 1) <= (others => '0');
           when x"D0" =>
             -- @IO:GS $D6D0 - I2C bus select (bus 0 = temp sensor on Nexys4 boardS)
             fastio_rdata <= i2c_bus_id;
@@ -1228,8 +1232,10 @@ begin  -- behavioural
     if rising_edge(clock) then    
 
       -- XXX DEBUG toggle QSPI clock madly
---      qspi_clock <= not qspi_clock_int;
---      qspi_clock_int <= not qspi_clock_int;
+      if qspi_clock_run = '1' then
+        qspi_clock <= not qspi_clock_int;
+        qspi_clock_int <= not qspi_clock_int;
+      end if;
       
       report "sectorbuffercs = " & std_logic'image(sectorbuffercs) & ", sectorbuffercs_fast=" & std_logic'image(sectorbuffercs_fast)
         & ", fastio_rdata_ram=$" & to_hstring(fastio_rdata_ram) & ", sector buffer raddr=$" & to_hstring(to_unsigned(sector_buffer_fastio_address,12));
@@ -2213,7 +2219,10 @@ begin  -- behavioural
               end if;
 
 --          end if;
-      
+            when x"CD" =>
+              qspi_clock_run <= fastio_wdata(0);
+              qspi_clock <= fastio_wdata(1);
+              qspi_clock_int <= fastio_wdata(1);
             when x"CF" =>
               -- @IO:GS $D6CF - Write $42 to Trigger FPGA reconfiguration to switch to alternate bitstream.
               if fastio_wdata = x"42" then
