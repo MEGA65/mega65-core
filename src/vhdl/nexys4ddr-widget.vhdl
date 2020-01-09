@@ -273,7 +273,7 @@ architecture Behavioral of container is
   signal widget_joya : std_logic_vector(4 downto 0);
   signal widget_joyb : std_logic_vector(4 downto 0);
 
-  signal qspi_clock : std_logic;
+  signal qspi_clock : std_logic := '0';
   
 begin
 
@@ -417,7 +417,7 @@ begin
       restore_key => restore_key,
       sector_buffer_mapped => sector_buffer_mapped,
 
-      qspi_clock => qspi_clock,
+--      qspi_clock => qspi_clock,
       qspidb => qspidb,
       qspicsn => qspicsn,      
      
@@ -593,7 +593,8 @@ begin
 
   process (cpuclock,pixelclock,cpuclock,pal50_select)
   begin
-    if rising_edge(pixelclock) then
+    if rising_edge(pixelclock) then      
+      
       if sw(7)='0' then
         -- VGA direct output
         vgared <= buffer_vgared(7 downto 4);
@@ -624,10 +625,12 @@ begin
             sawtooth_counter <= sawtooth_counter + sawtooth_level;
             ampPWM <= '0';
             led(15) <= '0';
+            qspi_clock <= '0';
           else
             sawtooth_counter <= sawtooth_counter + sawtooth_level - 256;
             ampPWM <= '1';
             led(15) <= '1';
+            qspi_clock <= '1';
           end if;
         else
           sawtooth_phase <= 0;
