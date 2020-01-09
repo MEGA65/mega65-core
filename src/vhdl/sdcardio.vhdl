@@ -1226,6 +1226,10 @@ begin  -- behavioural
     
     if rising_edge(clock) then    
 
+      -- XXX DEBUG toggle QSPI clock madly
+      qspi_clock <= not qspi_clock_int;
+      qspi_clock_int <= not qspi_clock_int;
+      
       report "sectorbuffercs = " & std_logic'image(sectorbuffercs) & ", sectorbuffercs_fast=" & std_logic'image(sectorbuffercs_fast)
         & ", fastio_rdata_ram=$" & to_hstring(fastio_rdata_ram) & ", sector buffer raddr=$" & to_hstring(to_unsigned(sector_buffer_fastio_address,12));
       
