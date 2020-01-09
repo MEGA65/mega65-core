@@ -58,6 +58,12 @@ int parse_xdc(char *xdc)
 	  }
 	}
       }
+
+      // Trim { and } from names where required
+      while (signal_name&&signal_name[0]=='{') signal_name++;
+      while (signal_name&&signal_name[0]&&signal_name[strlen(signal_name)-1]=='}')
+	     signal_name[strlen(signal_name)-1]=0;
+      
       if (pin_name&&signal_name) {
 	//      printf("Found pin '%s' for signal '%s'\n",pin_name,signal_name);
 	pin_names[pin_count]=strdup(pin_name);
@@ -118,7 +124,7 @@ int parse_bsdl(char *bsdl)
 static uint8_t boundary_ppattern[] = DITEM(BOUNDARY_PPAT);
 
 
-int xilinx_boundaryscan(char *xdc,char *bsdl)
+int xilinx_boundaryscan(char *xdc,char *bsdl,char *sensitivity)
 {
   ENTER();
 
@@ -141,7 +147,7 @@ int xilinx_boundaryscan(char *xdc,char *bsdl)
   }
 
   char *bbit_names[MAX_BOUNDARY_BITS];
-  int bbit_isclock[MAX_BOUNDARY_BITS];
+  int bbit_ignore[MAX_BOUNDARY_BITS];
   int bbit_show[MAX_BOUNDARY_BITS];
   
   // Map JTAG bits to pins
@@ -150,7 +156,14 @@ int xilinx_boundaryscan(char *xdc,char *bsdl)
     for(int j=0;j<pin_count;j++)
       if (!strcmp(pin_names[j],boundary_bit_pin[i])) s=signal_names[j];
     bbit_names[i]=s;
-    if (!strcmp("CLK_IN",s)) bbit_isclock[i]=1; else bbit_isclock[i]=0;
+    if (!strcmp("CLK_IN",s)) bbit_ignore[i]=1; else bbit_ignore[i]=0;
+    if (sensitivity) {
+      if (!i) printf("Applying sensitivity list '%s'\n",sensitivity);
+      if (strcasestr(sensitivity,s)) {
+	bbit_ignore[i]=0;
+	printf("Adding '%s' to sensitivity list.\n",s);
+      } else bbit_ignore[i]=1;
+    }
     if (!strcmp(boundary_bit_type[i],"input"))
       bbit_show[i]=1; else bbit_show[i]=0;
   }
@@ -207,7 +220,7 @@ int xilinx_boundaryscan(char *xdc,char *bsdl)
 	  {
 	    if (first_time||last_value!=value) {
 	      
-	      if (first_time||(!bbit_isclock[i]))
+	      if ((first_time&&(!sensitivity))||(!bbit_ignore[i]))
 		{
 
 		  if(!count_shown) {

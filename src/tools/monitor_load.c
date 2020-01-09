@@ -70,12 +70,12 @@ int process_line(char *line,int live);
 int process_waiting(int fd);
 int fpgajtag_main(char *bitstream,char *serialport);
 void init_fpgajtag(const char *serialno, const char *filename, uint32_t file_idcode);
-int xilinx_boundaryscan(char *xdc,char *bsdl);
+int xilinx_boundaryscan(char *xdc,char *bsdl,char *sensitivity);
 
 void usage(void)
 {
   fprintf(stderr,"MEGA65 cross-development tool for booting the MEGA65 using a custom bitstream and/or HICKUP file.\n");
-  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <hickup file>] [-R romfile] [-C charromfile]] [-c COLOURRAM.BIN] [-B breakpoint] [-m modeline] [-o] [-d diskimage.d81] [-J <XDC,BSDL>] [[-1] [<-t|-T> <text>] [-f FPGA serial ID] [filename]] [-H] [-E|-L]\n");
+  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <hickup file>] [-R romfile] [-C charromfile]] [-c COLOURRAM.BIN] [-B breakpoint] [-m modeline] [-o] [-d diskimage.d81] [-J <XDC,BSDL[,sensitivity list]>] [[-1] [<-t|-T> <text>] [-f FPGA serial ID] [filename]] [-H] [-E|-L]\n");
   fprintf(stderr,"  -l - Name of serial port to use, e.g., /dev/ttyUSB1\n");
   fprintf(stderr,"  -s - Speed of serial port in bits per second. This must match what your bitstream uses.\n");
   fprintf(stderr,"       (Older bitstream use 230400, and newer ones 2000000 or 4000000).\n");
@@ -116,6 +116,7 @@ int reset_first=0;
 int boundary_scan=0;
 char boundary_xdc[1024]="";
 char boundary_bsdl[1024]="";
+char jtag_sensitivity[1024]="";
 
 int counter  =0;
 int fd=-1;
@@ -1582,7 +1583,7 @@ int main(int argc,char **argv)
       bitstream=strdup(optarg); break;
     case 'J':
       boundary_scan=1;
-      sscanf(optarg,"%[^,],%s",boundary_xdc,boundary_bsdl);
+      sscanf(optarg,"%[^,],%[^,],%s",boundary_xdc,boundary_bsdl,jtag_sensitivity);
       break;
     case 'k': hyppo=strdup(optarg); break;
     case 't': case 'T':
@@ -1597,7 +1598,9 @@ int main(int argc,char **argv)
   init_fpgajtag(serial_port, bitstream, 0xffffffff);
 
   if (boundary_scan) {
-    xilinx_boundaryscan(boundary_xdc[0]?boundary_xdc:NULL,boundary_bsdl[0]?boundary_bsdl:NULL);
+    xilinx_boundaryscan(boundary_xdc[0]?boundary_xdc:NULL,
+			boundary_bsdl[0]?boundary_bsdl:NULL,
+			jtag_sensitivity[0]?jtag_sensitivity:NULL);
     exit(0);
   }
   
