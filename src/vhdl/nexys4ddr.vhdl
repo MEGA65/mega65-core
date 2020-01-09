@@ -33,8 +33,8 @@ use unisim.vcomponents.all;
 
 -- Uncomment the following library declaration if instantiating
 -- any Xilinx primitives in this code.
---library UNISIM;
---use UNISIM.VComponents.all;
+library UNISIM;
+use UNISIM.VComponents.all;
 
 entity container is
   Port ( CLK_IN : STD_LOGIC;         
@@ -123,7 +123,6 @@ entity container is
          ----------------------------------------------------------------------
          -- Flash RAM for holding config
          ----------------------------------------------------------------------
---         QspiSCK : out std_logic;
          QspiDB : inout std_logic_vector(3 downto 0);
          QspiCSn : out std_logic;
          
@@ -275,8 +274,45 @@ architecture Behavioral of container is
 
   signal joy3 : std_logic_vector(4 downto 0);
   signal joy4 : std_logic_vector(4 downto 0);
+
+  signal qspi_clock : std_logic;
   
 begin
+
+--STARTUPE2:STARTUPBlock--7Series
+
+--XilinxHDLLibrariesGuide,version2012.4
+  STARTUPE2_inst: STARTUPE2
+    generic map(PROG_USR=>"FALSE", --Activate program event security feature.
+                                   --Requires encrypted bitstreams.
+  SIM_CCLK_FREQ=>10.0 --Set the Configuration Clock Frequency(ns) for simulation.
+    )
+    port map(
+--      CFGCLK=>CFGCLK,--1-bit output: Configuration main clock output
+--      CFGMCLK=>CFGMCLK,--1-bit output: Configuration internal oscillator
+                              --clock output
+--             EOS=>EOS,--1-bit output: Active high output signal indicating the
+                      --End Of Startup.
+--             PREQ=>PREQ,--1-bit output: PROGRAM request to fabric output
+             CLK=>'0',--1-bit input: User start-up clock input
+             GSR=>'0',--1-bit input: Global Set/Reset input (GSR cannot be used
+                      --for the port name)
+             GTS=>'0',--1-bit input: Global 3-state input (GTS cannot be used
+                      --for the port name)
+             KEYCLEARB=>'0',--1-bit input: Clear AES Decrypter Key input
+                                  --from Battery-Backed RAM (BBRAM)
+             PACK=>'0',--1-bit input: PROGRAM acknowledge input
+
+             -- Put CPU clock out on the QSPI CLOCK pin
+             USRCCLKO=>qspi_clock,--1-bit input: User CCLK input
+             USRCCLKTS=>'0',--1-bit input: User CCLK 3-state enable input
+
+             -- Assert DONE pin
+             USRDONEO=>'1',--1-bit input: User DONE pin output control
+             USRDONETS=>'1' --1-bit input: User DONE 3-state enable output
+             );
+-- End of STARTUPE2_inst instantiation
+
   
   dotclock1: entity work.dotclock100
     port map ( clk_in1 => CLK_IN,
@@ -309,7 +345,7 @@ begin
       
       qspidb => qspidb,
       qspicsn => qspicsn,      
---      qspisck => '1',
+      qspisck => qspi_clock,
 
       slow_access_request_toggle => slow_access_request_toggle,
       slow_access_ready_toggle => slow_access_ready_toggle,
