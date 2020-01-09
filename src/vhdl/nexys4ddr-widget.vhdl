@@ -274,7 +274,7 @@ architecture Behavioral of container is
   signal widget_joyb : std_logic_vector(4 downto 0);
 
   signal qspi_clock : std_logic := '0';
-  signal qspi_clock_int : std_logic := '0';
+--  signal qspi_clock_int : std_logic := '0';
   
 begin
 
@@ -400,7 +400,7 @@ begin
       );
 
   core0:
-    if false generate 
+    if true generate 
   machine0: entity work.machine
     generic map (cpufrequency => 40,
                  target => nexys4ddr_widget)
@@ -420,7 +420,7 @@ begin
       restore_key => restore_key,
       sector_buffer_mapped => sector_buffer_mapped,
 
---      qspi_clock => qspi_clock,
+      qspi_clock => qspi_clock,
       qspidb => qspidb,
       qspicsn => qspicsn,      
      
@@ -641,8 +641,8 @@ begin
           else
             sawtooth_level <= 0;
           end if;
-          qspi_clock <= not qspi_clock_int;
-          qspi_clock_int <= not qspi_clock_int;
+--          qspi_clock <= not qspi_clock_int;
+--          qspi_clock_int <= not qspi_clock_int;
           
         end if;
       end if;
