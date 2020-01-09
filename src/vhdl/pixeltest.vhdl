@@ -222,9 +222,51 @@ architecture Behavioral of container is
   signal y0count : integer := 0;
 
   signal qspi_clock : std_logic := '0';
+
+  signal trigger_reconfigure : std_logic := '0';
+  signal reconfigure_address : unsigned(31 downto 0) := to_unsigned(0,32);
   
 begin
 
+  -- Used to allow MEGA65 to instruct FPGA to start a different bitstream #153
+  reconfig1: entity work.reconfig
+    port map ( clock => cpuclock,
+               trigger_reconfigure => trigger_reconfigure,
+               reconfigure_address => reconfigure_address);
+
+--XilinxHDLLibrariesGuide,version2012.4
+  STARTUPE2_inst: STARTUPE2
+    generic map(PROG_USR=>"FALSE", --Activate program event security feature.
+                                   --Requires encrypted bitstreams.
+  SIM_CCLK_FREQ=>10.0 --Set the Configuration Clock Frequency(ns) for simulation.
+    )
+    port map(
+--      CFGCLK=>CFGCLK,--1-bit output: Configuration main clock output
+--      CFGMCLK=>CFGMCLK,--1-bit output: Configuration internal oscillator
+                              --clock output
+--             EOS=>EOS,--1-bit output: Active high output signal indicating the
+                      --End Of Startup.
+--             PREQ=>PREQ,--1-bit output: PROGRAM request to fabric output
+             CLK=>'0',--1-bit input: User start-up clock input
+             GSR=>'0',--1-bit input: Global Set/Reset input (GSR cannot be used
+                      --for the port name)
+             GTS=>'0',--1-bit input: Global 3-state input (GTS cannot be used
+                      --for the port name)
+             KEYCLEARB=>'0',--1-bit input: Clear AES Decrypter Key input
+                                  --from Battery-Backed RAM (BBRAM)
+             PACK=>'0',--1-bit input: PROGRAM acknowledge input
+
+             -- Put CPU clock out on the QSPI CLOCK pin
+             USRCCLKO=>qspi_clock,--1-bit input: User CCLK input
+             USRCCLKTS=>'0',--1-bit input: User CCLK 3-state enable input
+
+             -- Assert DONE pin
+             USRDONEO=>'1',--1-bit input: User DONE pin output control
+             USRDONETS=>'1' --1-bit input: User DONE 3-state enable output
+             );
+-- End of STARTUPE2_inst instantiation
+
+  
   dotclock1: entity work.dotclock100
     port map ( clk_in1 => CLK_IN,
                clock81 => pixelclock, -- 80MHz
@@ -342,7 +384,7 @@ begin
       sseg_an <= (others => '1');
       sseg_an(to_integer(segled_counter(17 downto 15))) <= '0';
 
---      qspi_clock <= segled_counter(26);
+      qspi_clock <= segled_counter(26);
       
       if segled_counter(17 downto 15)=0 then
         digit := std_logic_vector(seg_led_data(3 downto 0));
