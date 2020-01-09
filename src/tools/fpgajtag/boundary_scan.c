@@ -177,7 +177,7 @@ int xilinx_boundaryscan(char *xdc,char *bsdl)
 	char *s="<unknown>";
 	for(int j=0;j<pin_count;j++)
 	  if (!strcmp(pin_names[j],boundary_bit_pin[i])) s=signal_names[j];
-	//	if (!strcmp(boundary_bit_type[i],"input"))
+	if (!strcmp(boundary_bit_type[i],"input"))
 	  {
 	    printf("bit#%d : %s (pin %s, signal %s) = %x\n",
 		   i,
