@@ -122,6 +122,10 @@ int xilinx_boundaryscan(char *xdc,char *bsdl)
 {
   ENTER();
 
+  char last_rdata[1024];
+  int loop=1;
+  int first_time=1;
+  
   if (xdc) parse_xdc(xdc);
   else {
     fprintf(stderr,"WARNING: No XDC file, so cannot associate pins to project top-level port signals.\n");
@@ -135,10 +139,12 @@ int xilinx_boundaryscan(char *xdc,char *bsdl)
   else {
     fprintf(stderr,"WARNING: No BSDL file, so cannot decode boundary scan information.\n");
   }
-  
-  int i, offset = 0;
-    uint32_t temp[IDCODE_ARRAY_SIZE];
 
+  do {
+  
+    int i, offset = 0;
+    uint32_t temp[IDCODE_ARRAY_SIZE];
+    
     write_tms_transition("IR1");
 
     LOGNOTE("Checkpoint pre marker_for_reset()");
@@ -173,17 +179,24 @@ int xilinx_boundaryscan(char *xdc,char *bsdl)
     } else {
       for(int i=0;i<boundary_bit_count;i++) {
 	int value=(rdata[(i)>>3]>>((i)&7))&1;
+	int last_value=(last_rdata[(i)>>3]>>((i)&7))&1;
 	
 	char *s="<unknown>";
 	for(int j=0;j<pin_count;j++)
 	  if (!strcmp(pin_names[j],boundary_bit_pin[i])) s=signal_names[j];
 	if (!strcmp(boundary_bit_type[i],"input"))
 	  {
-	    printf("bit#%d : %s (pin %s, signal %s) = %x\n",
-		   i,
-		   boundary_bit_fullname[i],
-		   boundary_bit_pin[i],
-		   s,value);
+	    if (first_time||last_value!=value) {
+	      
+	      if (first_time||strcmp(s,"CLK_IN")) {
+		
+		printf("bit#%d : %s (pin %s, signal %s) = %x\n",
+		       i,
+		       boundary_bit_fullname[i],
+		       boundary_bit_pin[i],
+		       s,value);
+	      }
+	    }
 	  }
       }
     }
@@ -191,6 +204,12 @@ int xilinx_boundaryscan(char *xdc,char *bsdl)
     LOGNOTE("Checkpoint post write-pattern");
 
     ENTER_TMS_STATE('I');
+
+    // Copy this data to old
+    bcopy(rdata,last_rdata,1024);
+    first_time=0;
+    
+  } while(loop);
     
     EXIT();
     return 0;
