@@ -147,6 +147,7 @@ entity iomapper is
          ----------------------------------------------------------------------
          QspiDB : inout unsigned(3 downto 0);
          QspiCSn : out std_logic;
+         qspi_clock : out std_logic;
 
          ----------------------------------------------------------------------
         -- CBM floppy serial port
@@ -1135,6 +1136,7 @@ begin
 
     qspicsn => qspicsn,
     qspidb => qspidb,
+    qspi_clock => qspi_clock;
     
     drive_led => drive_led,
     motor => motor,

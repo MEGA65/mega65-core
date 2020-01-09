@@ -186,7 +186,8 @@ entity sdcardio is
     -- Flash RAM for holding config
     ----------------------------------------------------------------------
     QspiDB : inout unsigned(3 downto 0) := "ZZZZ";
-    QspiCSn : out std_logic := '0'
+    QspiCSn : out std_logic := '0';
+    qspi_clock : out std_logic := '0'    
 
     );
 end sdcardio;
@@ -199,7 +200,6 @@ architecture behavioural of sdcardio is
   
   signal audio_mix_reg_int : unsigned(7 downto 0) := x"FF";
   
-  signal qspi_clock : std_logic := '0';  
   signal qspi_clock_int : std_logic := '1';
   signal qspi_csn_int : std_logic := '1'; 
   signal qspi_dbddr : std_logic := '0';
@@ -497,41 +497,6 @@ begin  -- behavioural
                trigger_reconfigure => trigger_reconfigure,
                reconfigure_address => reconfigure_address);
 
---STARTUPE2:STARTUPBlock--7Series
-
---XilinxHDLLibrariesGuide,version2012.4
-  STARTUPE2_inst: STARTUPE2
-    generic map(PROG_USR=>"FALSE", --Activate program event security feature.
-                                   --Requires encrypted bitstreams.
-  SIM_CCLK_FREQ=>10.0 --Set the Configuration Clock Frequency(ns) for simulation.
-    )
-    port map(
---      CFGCLK=>CFGCLK,--1-bit output: Configuration main clock output
---      CFGMCLK=>CFGMCLK,--1-bit output: Configuration internal oscillator
-                              --clock output
---             EOS=>EOS,--1-bit output: Active high output signal indicating the
-                      --End Of Startup.
---             PREQ=>PREQ,--1-bit output: PROGRAM request to fabric output
-             CLK=>'0',--1-bit input: User start-up clock input
-             GSR=>'0',--1-bit input: Global Set/Reset input (GSR cannot be used
-                      --for the port name)
-             GTS=>'0',--1-bit input: Global 3-state input (GTS cannot be used
-                      --for the port name)
-             KEYCLEARB=>'0',--1-bit input: Clear AES Decrypter Key input
-                                  --from Battery-Backed RAM (BBRAM)
-             PACK=>'0',--1-bit input: PROGRAM acknowledge input
-
-             -- Put CPU clock out on the QSPI CLOCK pin
-             USRCCLKO=>qspi_clock,--1-bit input: User CCLK input
-             USRCCLKTS=>'0',--1-bit input: User CCLK 3-state enable input
-
-             -- Assert DONE pin
-             USRDONEO=>'1',--1-bit input: User DONE pin output control
-             USRDONETS=>'1' --1-bit input: User DONE 3-state enable output
-             );
--- End of STARTUPE2_inst instantiation
-
-  
   touch0: entity work.touch
     port map (
       clock50mhz => clock,
