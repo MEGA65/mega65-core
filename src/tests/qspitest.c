@@ -229,6 +229,18 @@ unsigned char sprite_data[63]={
 */
 #define BITBASH_PORT 0xD6CCU
 
+/*
+  $D6CD.0 = clock free run if set, or under bitbash control when 0
+  $D6CD.1 = alternate control of clock pin
+*/
+#define CLOCKCTL_PORT 0xD6CDU
+
+unsigned short i;
+void delay(void)
+{
+  for(i=0;i<1000;i++) continue;
+}
+
 void spi_tristate_si(void)
 {
   POKE(BITBASH_PORT,PEEK(BITBASH_PORT)|0x10);
@@ -271,7 +283,9 @@ void spi_tx_bit(unsigned char bit)
 {
   spi_clock_low();
   spi_so_set(bit);
+  delay();
   spi_clock_high();
+  delay();
 }
 
 void spi_tx_byte(unsigned char b)
@@ -295,8 +309,10 @@ unsigned char spi_rx_byte()
   for(i=0;i<8;i++) {
     spi_clock_low();
     b=b>>1;
+    delay();
     if (spi_sample_si()) b|=0x80;
     spi_clock_high();
+    delay();
   }
 
   return b;
@@ -314,6 +330,9 @@ void fetch_rdid(void)
    */
 
   unsigned short i;
+
+  // Put QSPI clock under bitbash control
+  POKE(CLOCKCTL_PORT,1);
   
   spi_cs_high();
   spi_cs_low();
