@@ -450,7 +450,7 @@ void fpgausb_open(int device_index, int interface)
 error:
 #endif
     printf("Error opening usb interface: %d\n", step);
-    exit(-1);
+    //    exit(-1);
 }
 
 void fpgausb_close(void)
