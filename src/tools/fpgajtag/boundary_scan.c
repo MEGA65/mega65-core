@@ -10,8 +10,12 @@
 
 */
 #include <stdio.h>
+#define _GNU_SOURCE 1
 #include <string.h>
 #include <strings.h>
+
+unsigned long long gettime_ms(void);
+int dump_bytes(int col,char *msg,unsigned char *b,int count);
 
 #define MAX_PINS 4096
 char *pin_names[MAX_PINS];
