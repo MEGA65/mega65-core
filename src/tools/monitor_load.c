@@ -44,6 +44,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <sys/time.h>
 #include <errno.h>
 #include <getopt.h>
+#include <pthread.h>
 
 #ifdef APPLE
 static const int B1000000 = 1000000;
@@ -1357,10 +1358,21 @@ void set_serial_speed(int fd,int serial_speed)
   
 }
 
+void *run_boundary_scan(void *argp)
+{
+  xilinx_boundaryscan(boundary_xdc[0]?boundary_xdc:NULL,
+		      boundary_bsdl[0]?boundary_bsdl:NULL,
+		      jtag_sensitivity[0]?jtag_sensitivity:NULL);
+}
+
 int main(int argc,char **argv)
 {
   start_time=time(0);
 
+#define MAX_THREADS 16
+  int thread_count=0;
+  pthread_t threads[MAX_THREADS]; 
+  
   int opt;
   while ((opt = getopt(argc, argv, "14B:b:c:C:d:EFHf:J:k:Ll:m:MnoprR:Ss:t:T:")) != -1) {
     switch (opt) {
@@ -1412,10 +1424,9 @@ int main(int argc,char **argv)
   init_fpgajtag(serial_port, bitstream, 0xffffffff);
 
   if (boundary_scan) {
-    xilinx_boundaryscan(boundary_xdc[0]?boundary_xdc:NULL,
-			boundary_bsdl[0]?boundary_bsdl:NULL,
-			jtag_sensitivity[0]?jtag_sensitivity:NULL);
-    exit(0);
+    // Launch boundary scan in a separate thread, so that we can monitor signals while
+    // running other operations.
+    pthread_create(&threads[thread_count++], NULL, run_boundary_scan, NULL); 
   }
   
   if ((romfile||charromfile)&&(!hyppo)) {
@@ -1518,5 +1529,9 @@ int main(int argc,char **argv)
       }
     }
 
+    printf("Cleaning up background tasks...\n");
+    for(int i=0;i<thread_count;i++)
+    pthread_join(threads[i], NULL);     
+  
   return 0;
 }
