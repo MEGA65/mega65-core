@@ -234,10 +234,10 @@ unsigned char sprite_data[63]={
 */
 #define CLOCKCTL_PORT 0xD6CDU
 
-unsigned short i;
+unsigned int di;
 void delay(void)
 {
-  for(i=0;i<1000;i++) continue;
+   for(di=0;di<10;di++) continue;
 }
 
 void spi_tristate_si(void)
@@ -327,7 +327,7 @@ void fetch_rdid(void)
   unsigned short i;
 
   // Put QSPI clock under bitbash control
-  POKE(CLOCKCTL_PORT,1);
+  POKE(CLOCKCTL_PORT,0x00);
   
   spi_cs_high();
   spi_cs_low();
