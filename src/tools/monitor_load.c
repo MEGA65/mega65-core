@@ -710,7 +710,7 @@ int process_line(char *line,int live)
 	  sprintf(cmd,"b%x\r",break_point);
 	  usleep(20000);
 	  slow_write(fd,cmd,strlen(cmd));
-	  exit(0);
+	  do_exit(0);
 	}
 	
 	if (type_text) {
@@ -833,7 +833,7 @@ int process_line(char *line,int live)
 	    // Stop pressing keys
 	    slow_write(fd,"sffd3615 7f 7f 7f \n",19);
 	    // Typing mode does only typing
-	    exit(0);
+	    do_exit(0);
 	  }
 	}
       }
@@ -1005,7 +1005,7 @@ int process_line(char *line,int live)
 	    char cmd[1024];
 	    snprintf(cmd,1024,"M%x\n",screen_address);
 	    slow_write(fd,cmd,strlen(cmd));
-	  } else exit(0);	  
+	  } else do_exit(0);	  
 	}
 	// 
       } else if (addr>=0xffd3000U&&addr<=0xffd3100) {
@@ -1104,7 +1104,7 @@ int process_line(char *line,int live)
 	  }
         } else {
   	  fprintf(stderr,"Exiting now that we are in C65 mode.\n");
-	  exit(0);
+	  do_exit(0);
         }
       }
     }    
@@ -1129,7 +1129,7 @@ int process_line(char *line,int live)
       if (!saw_c64_mode) fprintf(stderr,"MEGA65 is in C64 mode.\n");
       saw_c64_mode=1;
       if( (!virtual_f011)&&(!screen_shot))
-	exit(0);
+	do_exit(0);
       if (screen_shot) slow_write_safe(fd,"mffd3058\r",9);
     }
   }  
@@ -1216,7 +1216,7 @@ int process_line(char *line,int live)
 	// loaded ok.
 	printf("LOADED.\n");
 	if (!virtual_f011)
-	  exit(0);
+	  do_exit(0);
       }
     }
   return 0;
@@ -1579,14 +1579,14 @@ void *run_boundary_scan(void *argp)
 		      jtag_sensitivity[0]?jtag_sensitivity:NULL);
 }
 
+#define MAX_THREADS 16
+  int thread_count=0;
+  pthread_t threads[MAX_THREADS]; 
+
 int main(int argc,char **argv)
 {
   start_time=time(0);
 
-#define MAX_THREADS 16
-  int thread_count=0;
-  pthread_t threads[MAX_THREADS]; 
-  
   int opt;
   while ((opt = getopt(argc, argv, "14B:b:c:C:d:EFHf:J:k:Ll:m:MnoprR:Ss:t:T:V:")) != -1) {
     switch (opt) {
@@ -1646,7 +1646,10 @@ int main(int argc,char **argv)
   if (boundary_scan) {
     // Launch boundary scan in a separate thread, so that we can monitor signals while
     // running other operations.
-    pthread_create(&threads[thread_count++], NULL, run_boundary_scan, NULL); 
+    if (pthread_create(&threads[thread_count++], NULL, run_boundary_scan, NULL))
+      perror("Failed to create JTAG boundary scan thread.\n");
+    else 
+      fprintf(stderr,"JTAG boundary scan launched in separate thread.\n"); 
   }
   
   if ((romfile||charromfile)&&(!hyppo)) {
@@ -1753,9 +1756,13 @@ int main(int argc,char **argv)
       }
     }
 
-    printf("Cleaning up background tasks...\n");
+  do_exit(0);
+}
+
+void do_exit(int retval) {
+    printf("Background tasks running. CONTROL+C to stop...\n");
     for(int i=0;i<thread_count;i++)
     pthread_join(threads[i], NULL);     
   
-  return 0;
+    exit(retval);
 }
