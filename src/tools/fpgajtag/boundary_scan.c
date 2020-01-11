@@ -13,8 +13,10 @@
 #define _GNU_SOURCE 1
 #include <string.h>
 #include <strings.h>
+#include <time.h>
 
 unsigned long long gettime_ms(void);
+unsigned long long gettime_us(void);
 int dump_bytes(int col,char *msg,unsigned char *b,int count);
 
 #define MAX_PINS 4096
@@ -88,6 +90,7 @@ int parse_xdc(char *xdc)
   }
 
   fclose(f);
+  return 0;
 }
 
 int parse_bsdl(char *bsdl)
@@ -129,6 +132,7 @@ int parse_bsdl(char *bsdl)
   }
 
   fclose(f);
+  return 0;
 }
 
 #define BOUNDARY_PPAT INT32(0xff), REPEAT10(0xff),  REPEAT10(0xff),  REPEAT10(0xff),  REPEAT10(0xff), REPEAT10(0xff),  REPEAT10(0xff),  REPEAT10(0xff),  REPEAT10(0xff),  REPEAT10(0xff),  REPEAT10(0xff), REPEAT10(0xff),  REPEAT10(0xff),  REPEAT10(0xff),  REPEAT10(0xff),  REPEAT10(0xff)
@@ -170,7 +174,14 @@ int xilinx_boundaryscan(char *xdc,char *bsdl,char *sensitivity)
     char *s="<unknown>";
     for(int j=0;j<pin_count;j++)
       if (!strcmp(pin_names[j],boundary_bit_pin[i])) s=signal_names[j];
-    bbit_names[i]=s;
+    if (!strcmp(boundary_bit_type[i],"input"))
+      bbit_names[i]=strdup(s);
+    else {
+      // Not an input bit, so assume its a control bit.
+      char t[1024];
+      snprintf(t,1024,"%s.ctl",s);
+      bbit_names[i]=strdup(t);
+    }
     bbit_vcdchar[i]=0;
     if (!strcmp("CLK_IN",s)) bbit_ignore[i]=1; else bbit_ignore[i]=0;
     if (sensitivity) {
@@ -187,11 +198,14 @@ int xilinx_boundaryscan(char *xdc,char *bsdl,char *sensitivity)
       } else bbit_ignore[i]=1;
     }
     if (!strcmp(boundary_bit_type[i],"input"))
-      bbit_show[i]=1; else bbit_show[i]=0;
+      bbit_show[i]=1; else {
+      bbit_show[i]=0;
+    }
   }
 
   // Write out VCD file header.
   if (vcd) {
+    time_t the_time=time(0);
     fprintf(vcd,"$date\n"
 	    "   %s\n"
 	    "$end\n"
@@ -204,7 +218,7 @@ int xilinx_boundaryscan(char *xdc,char *bsdl,char *sensitivity)
 	    "$timescale 1us $end\n"
 	    "$scope module logic $end\n"
 	    ,
-	    ctime());
+	    ctime(&the_time));
     for(int i=0;i<MAX_BOUNDARY_BITS;i++) {
       if (bbit_vcdchar[i]) {
 	fprintf(vcd,"$var wire 1 %c %s $end\n",
@@ -215,15 +229,20 @@ int xilinx_boundaryscan(char *xdc,char *bsdl,char *sensitivity)
     fprintf(vcd,"$upscope $end\n"
 	    "$enddefinitions $end\n"
 	    "$dumpvars\n");
+    for(int i=0;i<MAX_BOUNDARY_BITS;i++) {
+      if (bbit_vcdchar[i]) {
+	fprintf(vcd,"x%c\n",
+		bbit_vcdchar[i]);
+	
+      }
+    }
+    fprintf(vcd,"$end\n");
   }
   
   unsigned long long start_time = gettime_us();
   
   do {
   
-    int i, offset = 0;
-    uint32_t temp[IDCODE_ARRAY_SIZE];
-    
     write_tms_transition("IR1");
 
     LOGNOTE("Checkpoint pre marker_for_reset()");
@@ -265,15 +284,16 @@ int xilinx_boundaryscan(char *xdc,char *bsdl,char *sensitivity)
 	int value=(rdata[(i)>>3]>>((i)&7))&1;
 	int last_value=(last_rdata[(i)>>3]>>((i)&7))&1;
 	
-	if (bbit_show[i])
+	if (bbit_show[i]|bbit_vcdchar[i])
 	  {
 	    if (first_time||last_value!=value) {
 	      
-	      if ((first_time&&(!sensitivity))||(!bbit_ignore[i]))
+	      if ((first_time&&((!sensitivity)||vcd))
+		   ||(!bbit_ignore[i]))
 		{
 
 		  if(!count_shown) {
-		    if (vcd) fprintf(vcd,"#%d\n",time_delta);
+		    if (vcd) fprintf(vcd,"#%lld\n",time_delta);
 		    else
 		      printf("T+%lldusec >>> Signal(s) changed.\n",
 			     time_delta);
@@ -281,8 +301,10 @@ int xilinx_boundaryscan(char *xdc,char *bsdl,char *sensitivity)
 		  }
 		  count_shown++;
 
-		  if (vcd) fprintf(vcd,"%d%c\n",
-				   value,bbit_vcdchar[i]);
+		  if (vcd) {
+		    if (bbit_vcdchar[i])
+		      fprintf(vcd,"%d%c\n",value,bbit_vcdchar[i]);
+		  }
 		  else
 		    printf("bit#%d : %s (pin %s, signal %s) = %x\n",
 			   i,
