@@ -2191,7 +2191,7 @@ begin  -- behavioural
               -- @IO:GS $D6CC.7 QSPI:DBDDR Data direction for QSPI flash interface. 1=output, 0=tri-state input
               -- @IO:GS $D6CC.6 QSPI:CSN Active-low chip-select for QSPI flash
               -- @IO:GS $D6CC.5 QSPI:CLOCK Clock output line for QSPI flash
-              -- @IO:GS $D6CC.4 QSPI:TRIDB0 Separate tri-state control for DB0 for single-bit SPI transfers.
+              -- @IO:GS $D6CC.4 QSPI:TRIDB1 Separate tri-state control for DB1 for single-bit SPI transfers.
               -- @IO:GS $D6CC.0-3 QSPI:DB Data bits for QSPI flash interface (read/write)
 
 -- XXX Implement this protection when its working
@@ -2207,8 +2207,9 @@ begin  -- behavioural
                 if fastio_wdata(4)='0' then
                   qspidb <= fastio_wdata(3 downto 0);
                 else
-                  qspidb(3 downto 1) <= fastio_wdata(3 downto 1);
-                  qspidb(0) <= 'Z';
+                  qspidb(3 downto 2) <= fastio_wdata(3 downto 2);
+                  qspidb(1) <= 'Z';
+                  qspidb(0) <= fastio_wdata(0);
                 end if;
               else
                 qspidb <= "ZZZZ";
