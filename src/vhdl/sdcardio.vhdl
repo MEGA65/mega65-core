@@ -203,9 +203,6 @@ architecture behavioural of sdcardio is
   signal qspi_clock_int : std_logic := '1';
   signal qspi_clock_run : std_logic := '1';
   signal qspi_csn_int : std_logic := '1'; 
-  signal qspi_dbddr : std_logic := '0';
-  signal qspi_tristate_d0 : std_logic := '0';
-  signal qspidb_in : unsigned(3 downto 0);
   
   signal aclMOSIinternal : std_logic := '0';
   signal aclSSinternal : std_logic := '0';
@@ -1073,10 +1070,10 @@ begin  -- behavioural
           when x"CB" =>
             fastio_rdata <= reconfigure_address_int(31 downto 24);
           when x"CC" =>
-            fastio_rdata(7) <= qspi_dbddr;
+            fastio_rdata(7) <= '1';
             fastio_rdata(6) <= qspi_csn_int;
             fastio_rdata(5) <= qspi_clock_int;
-            fastio_rdata(4) <= qspi_tristate_d0;
+            fastio_rdata(4) <= '0';
             fastio_rdata(3 downto 0) <= qspidb;
           when x"CD" =>
             fastio_rdata(0) <= qspi_clock_run;
@@ -2192,31 +2189,39 @@ begin  -- behavioural
               reconfigure_address(31 downto 24) <= fastio_wdata;
               reconfigure_address_int(31 downto 24) <= fastio_wdata;
             when x"CC" =>
-              -- @IO:GS $D6CC.7 QSPI:DBDDR Data direction for QSPI flash interface. 1=output, 0=tri-state input
+              -- @IO:GS $D6CC.7 QSPI:UNUSED
               -- @IO:GS $D6CC.6 QSPI:CSN Active-low chip-select for QSPI flash
               -- @IO:GS $D6CC.5 QSPI:CLOCK Clock output line for QSPI flash
-              -- @IO:GS $D6CC.4 QSPI:TRIDB1 Separate tri-state control for DB1 for single-bit SPI transfers.
+              -- @IO:GS $D6CC.4 QSPI:UNUSED
               -- @IO:GS $D6CC.0-3 QSPI:DB Data bits for QSPI flash interface (read/write)
 
 -- XXX Implement this protection when its working
 --              if secure_mode='0' and hypervisor_mode='1' then
 
-              qspi_dbddr <= fastio_wdata(7);
               qspicsn <= fastio_wdata(6);
               qspi_csn_int <= fastio_wdata(6);
               qspi_clock <= fastio_wdata(5);
               qspi_clock_int <= fastio_wdata(5);
-              qspi_tristate_d0 <= fastio_wdata(4);
-              if fastio_wdata(7)='1' then
-                if fastio_wdata(4)='0' then
-                  qspidb <= fastio_wdata(3 downto 0);
-                else
-                  qspidb(3 downto 2) <= fastio_wdata(3 downto 2);
-                  qspidb(1) <= 'Z';
-                  qspidb(0) <= fastio_wdata(0);
-                end if;
+
+              if fastio_wdata(3) = '0' then
+                qspidb(3) <= '0';
               else
-                qspidb <= "ZZZZ";
+                qspidb(3) <= 'Z';
+              end if;
+              if fastio_wdata(2) = '0' then
+                qspidb(2) <= '0';
+              else
+                qspidb(2) <= 'Z';
+              end if;
+              if fastio_wdata(1) = '0' then
+                qspidb(1) <= '0';
+              else
+                qspidb(1) <= 'Z';
+              end if;
+              if fastio_wdata(0) = '0' then
+                qspidb(0) <= '0';
+              else
+                qspidb(0) <= 'Z';
               end if;
 
 --          end if;
