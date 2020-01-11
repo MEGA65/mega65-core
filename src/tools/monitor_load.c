@@ -72,16 +72,20 @@ int process_waiting(int fd);
 int fpgajtag_main(char *bitstream,char *serialport);
 void init_fpgajtag(const char *serialno, const char *filename, uint32_t file_idcode);
 int xilinx_boundaryscan(char *xdc,char *bsdl,char *sensitivity);
+void set_vcd_file(char *name);
 
 void usage(void)
 {
   fprintf(stderr,"MEGA65 cross-development tool for booting the MEGA65 using a custom bitstream and/or HICKUP file.\n");
-  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <hickup file>] [-R romfile] [-C charromfile]] [-c COLOURRAM.BIN] [-B breakpoint] [-m modeline] [-o] [-d diskimage.d81] [-J <XDC,BSDL[,sensitivity list]>] [[-1] [<-t|-T> <text>] [-f FPGA serial ID] [filename]] [-H] [-E|-L]\n");
+  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <hickup file>] [-R romfile] [-C charromfile]] [-c COLOURRAM.BIN] [-B breakpoint] [-m modeline] [-o] [-d diskimage.d81] [-J <XDC,BSDL[,sensitivity list]> [-V <vcd file>]] [[-1] [<-t|-T> <text>] [-f FPGA serial ID] [filename]] [-H] [-E|-L]\n");
   fprintf(stderr,"  -l - Name of serial port to use, e.g., /dev/ttyUSB1\n");
   fprintf(stderr,"  -s - Speed of serial port in bits per second. This must match what your bitstream uses.\n");
   fprintf(stderr,"       (Older bitstream use 230400, and newer ones 2000000 or 4000000).\n");
   fprintf(stderr,"  -b - Name of bitstream file to load.\n");
-  fprintf(stderr,"  -J - Do JTAG boundary scan of attached FPGA, using the provided XDC and BSDL files\n");
+  fprintf(stderr,"  -J - Do JTAG boundary scan of attached FPGA, using the provided XDC and BSDL files.\n");
+  fprintf(stderr,"       A sensitivity list can also be provided, to restrict the set of signals monitored.\n");
+  fprintf(stderr,"       This will likely be required when producing VCD files, as they can only log ~80 signals.\n");
+  fprintf(stderr,"  -V - Write JTAG change log to VCD file, instead of to stdout.\n");
   fprintf(stderr,"  -k - Name of hickup file to forcibly use instead of the hyppo in the bitstream.\n");
   fprintf(stderr,"  -R - ROM file to preload at $20000-$3FFFF.\n");
   fprintf(stderr,"  -C - Character ROM file to preload.\n");
@@ -211,6 +215,33 @@ int slow_write_safe(int fd,char *d,int l)
   slow_write(fd,d,l);
   if (!cpu_stopped) slow_write(fd,"t0\r",3);
   return 0;
+}
+
+// From os.c in serval-dna
+long long gettime_us()
+{
+  long long retVal = -1;
+
+  do 
+  {
+    struct timeval nowtv;
+
+    // If gettimeofday() fails or returns an invalid value, all else is lost!
+    if (gettimeofday(&nowtv, NULL) == -1)
+    {
+      break;
+    }
+
+    if (nowtv.tv_sec < 0 || nowtv.tv_usec < 0 || nowtv.tv_usec >= 1000000)
+    {
+      break;
+    }
+
+    retVal = nowtv.tv_sec * 1000000LL + nowtv.tv_usec;
+  }
+  while (0);
+
+  return retVal;
 }
 
 unsigned long long gettime_ms()
@@ -1557,7 +1588,7 @@ int main(int argc,char **argv)
   pthread_t threads[MAX_THREADS]; 
   
   int opt;
-  while ((opt = getopt(argc, argv, "14B:b:c:C:d:EFHf:J:k:Ll:m:MnoprR:Ss:t:T:")) != -1) {
+  while ((opt = getopt(argc, argv, "14B:b:c:C:d:EFHf:J:k:Ll:m:MnoprR:Ss:t:T:V:")) != -1) {
     switch (opt) {
     case 'B': sscanf(optarg,"%x",&break_point); break;
     case 'L': if (ethernet_video) { usage(); } else { ethernet_cpulog=1; } break;
@@ -1596,6 +1627,9 @@ int main(int argc,char **argv)
     case 'J':
       boundary_scan=1;
       sscanf(optarg,"%[^,],%[^,],%s",boundary_xdc,boundary_bsdl,jtag_sensitivity);
+      break;
+    case 'V':
+      set_vcd_file(optarg);
       break;
     case 'k': hyppo=strdup(optarg); break;
     case 't': case 'T':

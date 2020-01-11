@@ -29,6 +29,14 @@ char *boundary_bit_pin[MAX_BOUNDARY_BITS];
 int boundary_bit_count=0;
 char part_name[1024];
 
+FILE *vcd=NULL;
+
+void set_vcd_file(char *name)
+{
+  vcd=fopen(name,"w");
+  if (!vcd) perror("Failed to open VCD file for writing");
+}
+
 int parse_xdc(char *xdc)
 {
   FILE *f=fopen(xdc,"r");
@@ -153,6 +161,9 @@ int xilinx_boundaryscan(char *xdc,char *bsdl,char *sensitivity)
   char *bbit_names[MAX_BOUNDARY_BITS];
   int bbit_ignore[MAX_BOUNDARY_BITS];
   int bbit_show[MAX_BOUNDARY_BITS];
+  char bbit_vcdchar[MAX_BOUNDARY_BITS];
+
+  int next_vcdchar=33;
   
   // Map JTAG bits to pins
   for(int i=0;i<boundary_bit_count;i++) {
@@ -160,11 +171,18 @@ int xilinx_boundaryscan(char *xdc,char *bsdl,char *sensitivity)
     for(int j=0;j<pin_count;j++)
       if (!strcmp(pin_names[j],boundary_bit_pin[i])) s=signal_names[j];
     bbit_names[i]=s;
+    bbit_vcdchar[i]=0;
     if (!strcmp("CLK_IN",s)) bbit_ignore[i]=1; else bbit_ignore[i]=0;
     if (sensitivity) {
       if (!i) printf("Applying sensitivity list '%s'\n",sensitivity);
       if (strcasestr(sensitivity,s)) {
 	bbit_ignore[i]=0;
+	if (next_vcdchar<=126) {
+	  bbit_vcdchar[i]=next_vcdchar++;
+	} else {
+	  if (vcd)
+	    fprintf(stderr,"WARNING: Too many signals on sensitivity list for VCD output.\n");
+	}
 	printf("Adding '%s' to sensitivity list.\n",s);
       } else bbit_ignore[i]=1;
     }
@@ -172,7 +190,34 @@ int xilinx_boundaryscan(char *xdc,char *bsdl,char *sensitivity)
       bbit_show[i]=1; else bbit_show[i]=0;
   }
 
-  unsigned long long start_time = gettime_ms();
+  // Write out VCD file header.
+  if (vcd) {
+    fprintf(vcd,"$date\n"
+	    "   %s\n"
+	    "$end\n"
+	    "$version\n"
+	    "   MEGA65 monitor_load JTAG scan tool.\n"
+	    "$end\n"
+	    "$comment\n"
+	    "   No comment.\n"
+	    "$end\n"
+	    "$timescale 1us $end\n"
+	    "$scope module logic $end\n"
+	    ,
+	    ctime());
+    for(int i=0;i<MAX_BOUNDARY_BITS;i++) {
+      if (bbit_vcdchar[i]) {
+	fprintf(vcd,"$var wire 1 %c %s $end\n",
+		bbit_vcdchar[i],bbit_names[i]);
+	
+      }
+    }
+    fprintf(vcd,"$upscope $end\n"
+	    "$enddefinitions $end\n"
+	    "$dumpvars\n");
+  }
+  
+  unsigned long long start_time = gettime_us();
   
   do {
   
@@ -208,7 +253,7 @@ int xilinx_boundaryscan(char *xdc,char *bsdl,char *sensitivity)
     // https://forums.xilinx.com/t5/Spartan-Family-FPGAs-Archived/Spartan-3AN-200-JTAG-Idcode-debugging-on-a-new-board/td-p/131792
     uint8_t *rdata = write_pattern(0, boundary_ppattern, 'I');
 
-    unsigned long long now = gettime_ms();
+    unsigned long long now = gettime_us();
     unsigned long long time_delta = now - start_time;
 
     
@@ -228,20 +273,27 @@ int xilinx_boundaryscan(char *xdc,char *bsdl,char *sensitivity)
 		{
 
 		  if(!count_shown) {
-		    printf("T+%lldms >>> Signal(s) changed.\n",
-			   time_delta);
+		    if (vcd) fprintf(vcd,"#%d\n",time_delta);
+		    else
+		      printf("T+%lldusec >>> Signal(s) changed.\n",
+			     time_delta);
+
 		  }
 		  count_shown++;
-		  
-		printf("bit#%d : %s (pin %s, signal %s) = %x\n",
-		       i,
-		       boundary_bit_fullname[i],
-		       boundary_bit_pin[i],
-		       bbit_names[i],value);
+
+		  if (vcd) fprintf(vcd,"%d%c\n",
+				   value,bbit_vcdchar[i]);
+		  else
+		    printf("bit#%d : %s (pin %s, signal %s) = %x\n",
+			   i,
+			   boundary_bit_fullname[i],
+			   boundary_bit_pin[i],
+			   bbit_names[i],value);
 	      }
 	    }
 	  }
       }
+      if (vcd) fflush(vcd);
     }
 
     LOGNOTE("Checkpoint post write-pattern");
