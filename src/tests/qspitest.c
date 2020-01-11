@@ -218,14 +218,14 @@ unsigned char sprite_data[63]={
 };
 
 /*
-  $D6CC.7 = data bits DDR (all 4 bits at once)
-  $D6CC.6 = CS#
-  $D6CC.5 = clock
-  $D6CC.4 = tri-state SI only (to enable single bit SPI communications)
   $D6CC.0 = data bit 0 / SI (serial input)
   $D6CC.1 = data bit 1 / SO (serial output)
   $D6CC.2 = data bit 2 / WP# (write protect)
   $D6CC.3 = data bit 3 / HOLD#
+  $D6CC.4 = tri-state SI only (to enable single bit SPI communications)
+  $D6CC.5 = clock
+  $D6CC.6 = CS#
+  $D6CC.7 = data bits DDR (all 4 bits at once)
 */
 #define BITBASH_PORT 0xD6CCU
 
@@ -238,7 +238,7 @@ unsigned char sprite_data[63]={
 unsigned int di;
 void delay(void)
 {
-   for(di=0;di<10;di++) continue;
+   for(di=0;di<1000;di++) continue;
 }
 
 void spi_tristate_si(void)
@@ -248,13 +248,16 @@ void spi_tristate_si(void)
 
 unsigned char spi_sample_si(void)
 {
-  return (PEEK(BITBASH_PORT)&0);
+  return (PEEK(BITBASH_PORT)&0x02);
 }
 
 void spi_so_set(unsigned char b)
 {
   // De-tri-state SO data line, and set value
-  POKE(BITBASH_PORT,(PEEK(BITBASH_PORT)&(0xFF-(0x81)))|(b?1:0));
+  POKE(BITBASH_PORT,
+       (PEEK(BITBASH_PORT)&(0xFF-(0x01)))
+       |0x80
+       |(b?1:0));
 }
 
 
@@ -383,11 +386,27 @@ void main(void)
   lpoke(0xFFD3615L,0x7F);  
   
   // Clear screen
-  printf("%c",0x93);  
-
+  printf("%c",0x93);    
+  
   fetch_rdid();
   printf("QSPI flash manufacturer = $%02x\n",manufacturer);
   printf("QSPI device ID = $%04x\n",device_id);
+
+#if 0
+  n=0;
+  do {
+    delay();
+    POKE(0xD6CCU,n);
+    n++;
+  }  while (n);
+#endif
+  
+    delay();
+  spi_so_set(0);
+    delay();
+  spi_so_set(1);
+    delay();
+  spi_so_set(0);
   
 }
 
