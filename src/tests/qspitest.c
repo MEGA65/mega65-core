@@ -1,6 +1,6 @@
 #include <stdio.h>
-#define POKE(X,Y) (*(unsigned char*)(X))=Y
-#define PEEK(X) (*(unsigned char*)(X))
+#define POKE(X,Y) (*(volatile unsigned char*)(X))=Y
+#define PEEK(X) (*(volatile unsigned char*)(X))
 void m65_io_enable(void);
 
 unsigned char joy_x=100;
@@ -254,10 +254,13 @@ void spi_tristate_si(void)
 unsigned char spi_sample_si(void)
 {
   // Make SI pin input
-  bash_bits&=0x7F;  
+  bash_bits&=0x7F;
+  bash_bits|=0x02;
   POKE(BITBASH_PORT,bash_bits);
 
-  printf("%02x,",PEEK(BITBASH_PORT));
+  // Not sure why we need this here, but we do, else it only ever returns 1.
+  // (but the delay can be made quite short)
+  delay();
   
   if (PEEK(BITBASH_PORT)&0x02) return 1; else return 0;
 }
@@ -323,14 +326,12 @@ unsigned char spi_rx_byte()
 
   b=0;
 
-  printf("RX");
-  
   spi_tristate_si();
   for(i=0;i<8;i++) {
     spi_clock_low();
-    b=b>>1;
+    b=b<<1;
     delay();
-    if (spi_sample_si()) b|=0x80;
+    if (spi_sample_si()) b|=0x01;
     spi_clock_high();
     delay();
   }
