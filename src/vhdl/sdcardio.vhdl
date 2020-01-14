@@ -2185,10 +2185,10 @@ begin  -- behavioural
               reconfigure_address(31 downto 24) <= fastio_wdata;
               reconfigure_address_int(31 downto 24) <= fastio_wdata;
             when x"CC" =>
-              -- @IO:GS $D6CC.7 QSPI:UNUSED
+              -- @IO:GS $D6CC.7 QSPI:DB1 DDR (1=output)
               -- @IO:GS $D6CC.6 QSPI:CSN Active-low chip-select for QSPI flash
               -- @IO:GS $D6CC.5 QSPI:CLOCK Clock output line for QSPI flash
-              -- @IO:GS $D6CC.4 QSPI:UNUSED
+              -- @IO:GS $D6CC.4 QSPI:DB0 DDR (1=output)
               -- @IO:GS $D6CC.0-3 QSPI:DB Data bits for QSPI flash interface (read/write)
 
 -- XXX Implement this protection when its working
@@ -2199,6 +2199,8 @@ begin  -- behavioural
               qspi_clock <= fastio_wdata(5);
               qspi_clock_int <= fastio_wdata(5);
 
+              -- DB2 and DB3 have 1.8K external pull-up resistors, so can be driven
+              -- open-collector.
               if fastio_wdata(3) = '0' then
                 qspidb(3) <= '0';
               else
@@ -2209,15 +2211,24 @@ begin  -- behavioural
               else
                 qspidb(2) <= 'Z';
               end if;
+              -- DB1 and DB0 lack external pull-ups, so cannot be driven open-collector
               if fastio_wdata(1) = '0' then
                 qspidb(1) <= '0';
               else
-                qspidb(1) <= 'Z';
+                if fastio_wdata(7)='1' then
+                  qspidb(1) <= '1';
+                else
+                  qspidb(1) <= 'Z';
+                end if;
               end if;
               if fastio_wdata(0) = '0' then
                 qspidb(0) <= '0';
               else
-                qspidb(0) <= 'Z';
+                if fastio_wdata(4)='1' then
+                  qspidb(0) <= '1';
+                else
+                  qspidb(0) <= 'Z';
+                end if;
               end if;
 
 --          end if;
