@@ -430,9 +430,32 @@ void main(void)
   delay();
   
   fetch_rdid();
-  printf("QSPI flash manufacturer = $%02x\n",manufacturer);
-  printf("QSPI device ID = $%04x\n",device_id);
+  printf("qspi flash manufacturer = $%02x\n",manufacturer);
+  printf("qspi device id = $%04x\n",device_id);
+  printf("rdid byte count = %d\n",cfi_length);
+  printf("sector architecture is ");
+  if (cfi_data[4-4]==0x00) printf("uniform 256kb sectors.\n");
+  else if (cfi_data[4-4]==0x01) printf("4kb parameter sectors with 64kb sectors.\n");
+  else printf("unknown ($%02x).\n",cfi_data[4-4]);
+  printf("part family is %02x%c%c\n",
+	 cfi_data[5-4],cfi_data[6-4],cfi_data[7-4]);
+  printf("256/512 byte program typical time is 2^%d microseconds.\n",
+	 cfi_data[0x20-4]);
+  printf("erase typical time is 2^%d milliseconds.\n",
+	 cfi_data[0x21-4]);
 
+  {
+    unsigned char x,y;
+    for(y=0;y<8;y++) {
+      for(x=0;x<8;x++)
+	{
+	  printf(" %02x",cfi_data[y*8+x]);
+	}
+      printf("\n");
+    }
+  }
+  
+  
 #if 1
   n=0;
   do {
