@@ -234,50 +234,65 @@ unsigned char sprite_data[63]={
 */
 #define CLOCKCTL_PORT 0xD6CDU
 
+int bash_bits=0xFF;
+
 unsigned int di;
 void delay(void)
 {
+  // XXX For reasons I don't understand, DB0 and DB1 have VERY slow rise-times,
+  // so we need to counter that here.
    for(di=0;di<1000;di++) continue;
 }
 
 void spi_tristate_si(void)
 {
-  POKE(0xD6CCU,PEEK(0xD6CCU)|0x10);
+  bash_bits|=0x02;
+  POKE(BITBASH_PORT,bash_bits);
 }
 
 unsigned char spi_sample_si(void)
 {
-  return (PEEK(BITBASH_PORT)&0x02);
+  // Make SI pin input
+  bash_bits&=0x7F;  
+  POKE(BITBASH_PORT,bash_bits);
+
+  printf("%02x,",PEEK(BITBASH_PORT));
+  
+  if (PEEK(BITBASH_PORT)&0x02) return 1; else return 0;
 }
 
 void spi_so_set(unsigned char b)
 {
   // De-tri-state SO data line, and set value
-  POKE(BITBASH_PORT,
-       (PEEK(BITBASH_PORT)&(0xFF-(0x01)))
-       |0x80
-       |(b?1:0));
+  bash_bits&=(0xff-0x01);
+  bash_bits|=(0x1F-0x01);
+  if (b) bash_bits|=0x01;
+  POKE(BITBASH_PORT,bash_bits);
 }
 
 
 void spi_clock_low(void)
 {
-  POKE(0xD6CCU,PEEK(0xD6CCU)&(0xFF-0x20));
+  bash_bits&=0xff-0x20;
+  POKE(BITBASH_PORT,bash_bits);
 }
 
 void spi_clock_high(void)
 {
-  POKE(0xD6CCU,PEEK(0xD6CCU)|0x20);
+  bash_bits|=0x20;
+  POKE(BITBASH_PORT,bash_bits);
 }
 
 void spi_cs_low(void)
 {
-  POKE(0xD6CCU,PEEK(0xD6CCU)&(0xFF-0x40));
+    bash_bits&=0xff-0x40;
+    POKE(BITBASH_PORT,bash_bits);
 }
 
 void spi_cs_high(void)
 {
-  POKE(0xD6CCU,PEEK(0xD6CCU)|0x40);
+  bash_bits|=0x40;
+  POKE(BITBASH_PORT,bash_bits);
 }
 
 
@@ -295,8 +310,8 @@ void spi_tx_byte(unsigned char b)
   unsigned char i;
   
   for(i=0;i<8;i++) {
-    spi_tx_bit(b&1);
-    b=b>>1;
+    spi_tx_bit(b&0x80);
+    b=b<<1;
   }
 }
 
@@ -305,6 +320,10 @@ unsigned char spi_rx_byte()
   unsigned char b=0;
   unsigned char i;
 
+  b=0;
+
+  printf("RX");
+  
   spi_tristate_si();
   for(i=0;i<8;i++) {
     spi_clock_low();
@@ -333,7 +352,15 @@ void fetch_rdid(void)
   POKE(CLOCKCTL_PORT,0x00);
   
   spi_cs_high();
+  spi_clock_high();
+  delay();
+  spi_clock_low();
+  delay();
+  spi_clock_high();
+  delay();
   spi_cs_low();
+  delay();
+
   spi_tx_byte(0x9f);
 
   // Data format according to section 11.2
@@ -351,6 +378,15 @@ void fetch_rdid(void)
     cfi_data[i]=spi_rx_byte();
 
   spi_cs_high();
+  delay();
+  spi_clock_high();
+  delay();
+  spi_clock_low();
+  delay();
+  spi_clock_high();
+  delay();
+
+
   
 }
 
@@ -382,15 +418,32 @@ void main(void)
   
   // Clear screen
   printf("%c",0x93);    
+
+  // Start by resetting to CS high etc
+  bash_bits=0xff;
+  POKE(BITBASH_PORT,bash_bits);
+  delay();
+  delay();
+  delay();
+  delay();
+  delay();
   
   fetch_rdid();
   printf("QSPI flash manufacturer = $%02x\n",manufacturer);
   printf("QSPI device ID = $%04x\n",device_id);
 
-#if 0
+#if 1
   n=0;
   do {
     delay();
+    delay();
+    delay();
+    delay();
+    delay();
+    delay();
+    delay();
+    delay();
+    POKE(0xD6CCU,n);
     POKE(0xD6CCU,n);
     n++;
   }  while (n);
