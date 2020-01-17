@@ -244,9 +244,10 @@ int bash_bits=0xFF;
 unsigned int di;
 void delay(void)
 {
-  // XXX For reasons I don't understand, DB0 and DB1 have VERY slow rise-times,
-  // so we need to counter that here.
-   for(di=0;di<1000;di++) continue;
+  // Slow down signalling when debugging using JTAG monitoring.
+  // Not needed for normal operation.
+  
+  //   for(di=0;di<1000;di++) continue;
 }
 
 void spi_tristate_si(void)
@@ -556,7 +557,7 @@ void main(void)
   if (reg_sr1&0x02) printf("write latch enabled.\n"); else printf("write latch not (yet) enabled.\n");
   if (reg_sr1&0x01) printf("device busy.\n");
   
-  read_data(0x0);
+  read_data(0*1048576);
   {
     unsigned char x,y;
     for(y=0;y<12;y++) {
