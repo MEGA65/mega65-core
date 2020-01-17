@@ -517,6 +517,7 @@ void program_page(unsigned long start_address)
   spi_cs_high();
 
   while(reg_sr1&0x01) {
+    printf("flash busy. ");
     read_registers();
   }
 
