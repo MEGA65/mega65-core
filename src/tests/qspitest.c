@@ -386,16 +386,92 @@ short i,x,y,z;
 short a1,a2,a3;
 unsigned char n=0;
 
-void erase_sector(unsigned short sector_number)
+void read_registers(void)
+{
+  // Put QSPI clock under bitbash control
+  POKE(CLOCKCTL_PORT,0x00);
+
+  // Status Register 1 (SR1)
+  spi_cs_high();
+  spi_clock_high();
+  delay();
+  spi_cs_low();
+  delay();
+  spi_tx_byte(0x05);
+  reg_sr1=spi_rx_byte();
+  spi_cs_high();
+  delay();
+
+  // Config Register 1 (CR1)
+  spi_cs_high();
+  spi_clock_high();
+  delay();
+  spi_cs_low();
+  delay();
+  spi_tx_byte(0x35);
+  reg_cr1=spi_rx_byte();
+  spi_cs_high();
+  delay();  
+}
+
+void erase_sector(unsigned long address_in_sector)
 {
 
   // XXX Send Write Enable command (0x06 ?)
+  printf("activating write enable...\n");
+  while(!(reg_sr1&0x02)) {
+    spi_cs_high();
+    spi_clock_high();
+    delay();
+    spi_cs_low();
+    delay();
+    spi_tx_byte(0x06);
+    spi_cs_high();
+    
+    read_registers();
+  }  
+  
   // XXX Clear status register (0x30)
+  printf("clearing status register...\n");
+  while(reg_sr1&0x61) {
+    spi_cs_high();
+    spi_clock_high();
+    delay();
+    spi_cs_low();
+    delay();
+    spi_tx_byte(0x30);
+    spi_cs_high();
+
+    read_registers();
+  }
+    
   // XXX Erase 64/256kb (0xdc ?)
   // XXX Erase 4kb sector (0x21 ?)
+  printf("erasing sector...\n");
+  spi_cs_high();
+  spi_clock_high();
+  delay();
+  spi_cs_low();
+  delay();
+  spi_tx_byte(0xdc);
+  spi_tx_byte(address_in_sector>>24);
+  spi_tx_byte(address_in_sector>>16);
+  spi_tx_byte(address_in_sector>>8);
+  spi_tx_byte(address_in_sector>>0);
+  spi_cs_high();
+
+  while(reg_sr1&0x01) {
+    read_registers();
+  }
+
+  if (reg_sr1&0x20) printf("error erasing sector @ $%08x\n",address_in_sector);
+  else {
+    printf("sector at $%08llx erased.\n",address_in_sector);
+  }
+  
 }
 
-void program_page(unsigned short start_address)
+void program_page(unsigned long start_address)
 {
   // XXX Send Write Enable command (0x06 ?)
   // XXX Clear status register (0x30)
@@ -435,36 +511,6 @@ void read_data(unsigned long start_address)
   for(z=0;z<512;z++)
     data_buffer[z]=qspi_rx_byte();
   
-  spi_cs_high();
-  delay();
-  
-}
-
-
-void read_registers(void)
-{
-  // Put QSPI clock under bitbash control
-  POKE(CLOCKCTL_PORT,0x00);
-
-  // Status Register 1 (SR1)
-  spi_cs_high();
-  spi_clock_high();
-  delay();
-  spi_cs_low();
-  delay();
-  spi_tx_byte(0x05);
-  reg_sr1=spi_rx_byte();
-  spi_cs_high();
-  delay();
-
-  // Config Register 1 (CR1)
-  spi_cs_high();
-  spi_clock_high();
-  delay();
-  spi_cs_low();
-  delay();
-  spi_tx_byte(0x35);
-  reg_cr1=spi_rx_byte();
   spi_cs_high();
   delay();
   
@@ -615,7 +661,7 @@ void main(void)
 
   // Scan for existing bitstreams
   // (ignore golden bitstream at offset #0)
-  for(i=4;i<mb;i+=4) {
+  for(i=0;i<mb;i+=4) {
     read_data(i*1048576);
     //    for(x=0;x<256;x++) printf("%02x ",data_buffer[x]); printf("\n");
     y=0xff;
@@ -623,7 +669,13 @@ void main(void)
     for(x=0;x<256;x++) y&=data_buffer[x];
     for(x=0;x<16;x++) if (data_buffer[x]!=bitstream_magic[x]) z=0;
     if (y==0xff) printf("bitstream slot #%d header is empty.\n",i);
-    else if (z==0) printf("bitstream slot #%d is invalid.\n",i);
+    else if (z==0) {
+      printf("bitstream slot #%d is invalid.\n",i);
+      for(x=0;x<64;x++) {
+	printf("%02x ",data_buffer[x]);
+	if ((x&7)==7) printf("\n");
+      }
+    }
     else {
       // Something valid in the slot
       printf("bitstream slot #%d valid.\n",i>>2);
@@ -632,6 +684,8 @@ void main(void)
     // Check if entire slot is empty
     //    if (slot_empty_check(i)) printf("  slot is not completely empty.\n");
   }
+
+  erase_sector(4*1048576L);
   
 #if 1
   n=0;
