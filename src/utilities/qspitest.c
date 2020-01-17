@@ -374,6 +374,8 @@ unsigned short cfi_data[512];
 unsigned short cfi_length=0;
 
 unsigned char data_buffer[512];
+// Magic string for identifying properly loaded bitstream
+unsigned char bitstream_magic[16]="MEGA65BITSTREAM0";
 
 unsigned short mb = 0;
 
@@ -399,6 +401,7 @@ void program_page(unsigned short start_address)
 
 void read_data(unsigned long start_address)
 {
+  
   // XXX Send read command (0x13 for 1-bit, 0x6c for QSPI)
   // Put QSPI clock under bitbash control
   POKE(CLOCKCTL_PORT,0x00);
@@ -414,8 +417,20 @@ void read_data(unsigned long start_address)
   spi_tx_byte(start_address>>16);
   spi_tx_byte(start_address>>8);
   spi_tx_byte(start_address>>0);
-  for(i=0;i<512;i++)
-    data_buffer[i]=qspi_rx_byte();
+
+  // Table 25 latency codes
+  switch(latency_code) {
+  case 3:
+    break;
+  default:
+    // 8 cycles = equivalent of 4 bytes
+    for (z=0;z<4;z++) qspi_rx_byte();
+    break;
+  }
+
+  // Actually read the data.
+  for(z=0;z<512;z++)
+    data_buffer[z]=qspi_rx_byte();
   
   spi_cs_high();
   delay();
@@ -580,16 +595,22 @@ void main(void)
   if (reg_sr1&0x20) printf("erase error occurred.\n");
   if (reg_sr1&0x02) printf("write latch enabled.\n"); else printf("write latch not (yet) enabled.\n");
   if (reg_sr1&0x01) printf("device busy.\n");
-  
-  read_data(0*1048576);
-  {
-    unsigned char x,y;
-    for(y=0;y<12;y++) {
-      for(x=0;x<12;x++)
-	{
-	  printf(" %02x",data_buffer[(0*144)+y*12+x]);
-	}
-      printf("\n");
+
+  // Scan for existing bitstreams
+  // (ignore golden bitstream at offset #0)
+  for(i=4;i<mb;i+=4) {
+    read_data(i*1048576);
+    //    for(x=0;x<256;x++) printf("%02x ",data_buffer[x]); printf("\n");
+    y=0xff;
+    z=1;
+    for(x=0;x<256;x++) y&=data_buffer[x];
+    for(x=0;x<16;x++) if (data_buffer[x]!=bitstream_magic[x]) z=0;
+    if (y==0xff) printf("bitstream slot #%d is empty.\n",i);
+    else if (z==0) printf("bitstream slot #%d is invalid.\n",i);
+    else {
+      // Something valid in the slot
+      printf("bitstream slot #%d valid.\n",i>>2);
+      // Display info about it
     }
   }
   
