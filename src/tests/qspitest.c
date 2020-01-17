@@ -256,6 +256,13 @@ void spi_tristate_si(void)
   POKE(BITBASH_PORT,bash_bits);
 }
 
+void spi_tristate_si_and_so(void)
+{
+  bash_bits|=0x03;
+  bash_bits&=0x6f;
+  POKE(BITBASH_PORT,bash_bits);
+}
+
 unsigned char spi_sample_si(void)
 {
   // Make SI pin input
@@ -324,6 +331,26 @@ void spi_tx_byte(unsigned char b)
   }
 }
 
+unsigned char qspi_rx_byte()
+{
+  unsigned char b=0;
+  unsigned char i;
+
+  b=0;
+
+  spi_tristate_si_and_so();
+  for(i=0;i<2;i++) {
+    spi_clock_low();
+    b=b<<4;
+    delay();
+    b|=PEEK(BITBASH_PORT)&0x0f;
+    spi_clock_high();
+    delay();
+  }
+
+  return b;
+}
+
 unsigned char spi_rx_byte()
 {
   unsigned char b=0;
@@ -385,13 +412,13 @@ void read_data(unsigned long start_address)
   delay();
   spi_cs_low();
   delay();
-  spi_tx_byte(0x13);
+  spi_tx_byte(0x6c);
   spi_tx_byte(start_address>>24);
   spi_tx_byte(start_address>>16);
   spi_tx_byte(start_address>>8);
   spi_tx_byte(start_address>>0);
   for(i=0;i<512;i++)
-    data_buffer[i]=spi_rx_byte();
+    data_buffer[i]=qspi_rx_byte();
   
   spi_cs_high();
   delay();
