@@ -29,6 +29,10 @@ struct dmagic_dmalist {
 struct dmagic_dmalist dmalist;
 unsigned char dma_byte;
 
+unsigned char latency_code=0xff;
+unsigned char reg_cr1=0x00;
+unsigned char reg_sr1=0x00;
+
 void do_dma(void)
 {
   m65_io_enable();
@@ -341,6 +345,85 @@ unsigned short device_id;
 unsigned short cfi_data[512];
 unsigned short cfi_length=0;
 
+unsigned char data_buffer[512];
+
+unsigned short mb = 0;
+
+short i,x,y,z;
+short a1,a2,a3;
+unsigned char n=0;
+
+void erase_sector(unsigned short sector_number)
+{
+
+  // XXX Send Write Enable command (0x06 ?)
+  // XXX Clear status register (0x30)
+  // XXX Erase 64/256kb (0xdc ?)
+  // XXX Erase 4kb sector (0x21 ?)
+}
+
+void program_page(unsigned short start_address)
+{
+  // XXX Send Write Enable command (0x06 ?)
+  // XXX Clear status register (0x30)
+  // XXX Send Page Programme (0x12 for 1-bit, or 0x34 for 4-bit QSPI)
+}
+
+void read_data(unsigned long start_address)
+{
+  // XXX Send read command (0x13 for 1-bit, 0x6c for QSPI)
+  // Put QSPI clock under bitbash control
+  POKE(CLOCKCTL_PORT,0x00);
+
+  // Status Register 1 (SR1)
+  spi_cs_high();
+  spi_clock_high();
+  delay();
+  spi_cs_low();
+  delay();
+  spi_tx_byte(0x13);
+  spi_tx_byte(start_address>>24);
+  spi_tx_byte(start_address>>16);
+  spi_tx_byte(start_address>>8);
+  spi_tx_byte(start_address>>0);
+  for(i=0;i<512;i++)
+    data_buffer[i]=spi_rx_byte();
+  
+  spi_cs_high();
+  delay();
+  
+}
+
+
+void read_registers(void)
+{
+  // Put QSPI clock under bitbash control
+  POKE(CLOCKCTL_PORT,0x00);
+
+  // Status Register 1 (SR1)
+  spi_cs_high();
+  spi_clock_high();
+  delay();
+  spi_cs_low();
+  delay();
+  spi_tx_byte(0x05);
+  reg_sr1=spi_rx_byte();
+  spi_cs_high();
+  delay();
+
+  // Config Register 1 (CR1)
+  spi_cs_high();
+  spi_clock_high();
+  delay();
+  spi_cs_low();
+  delay();
+  spi_tx_byte(0x35);
+  reg_cr1=spi_rx_byte();
+  spi_cs_high();
+  delay();
+  
+}
+
 void fetch_rdid(void)
 {
   /* Run command 0x9F and fetch CFI etc data.
@@ -353,10 +436,6 @@ void fetch_rdid(void)
   POKE(CLOCKCTL_PORT,0x00);
   
   spi_cs_high();
-  spi_clock_high();
-  delay();
-  spi_clock_low();
-  delay();
   spi_clock_high();
   delay();
   spi_cs_low();
@@ -382,27 +461,22 @@ void fetch_rdid(void)
   delay();
   spi_clock_high();
   delay();
-  spi_clock_low();
-  delay();
-  spi_clock_high();
-  delay();
-
-
   
 }
+
+struct erase_region {
+  unsigned short sectors;
+  unsigned int sector_size;
+};
+
+int erase_region_count=0;
+#define MAX_ERASE_REGIONS 4
+struct erase_region erase_regions[MAX_ERASE_REGIONS];
 
 
 void main(void)
 {
   
-  unsigned char seconds = 0;
-  unsigned char minutes = 0;
-  unsigned char hours = 0;
-
-  short x,y,z;
-  short a1,a2,a3;
-  unsigned char n=0;
-
   m65_io_enable();
 
   // Sprite 0 on
@@ -430,6 +504,7 @@ void main(void)
   delay();
   
   fetch_rdid();
+  read_registers();
   printf("qspi flash manufacturer = $%02x\n",manufacturer);
   printf("qspi device id = $%04x\n",device_id);
   printf("rdid byte count = %d\n",cfi_length);
@@ -437,19 +512,54 @@ void main(void)
   if (cfi_data[4-4]==0x00) printf("uniform 256kb sectors.\n");
   else if (cfi_data[4-4]==0x01) printf("4kb parameter sectors with 64kb sectors.\n");
   else printf("unknown ($%02x).\n",cfi_data[4-4]);
-  printf("part family is %02x%c%c\n",
+  printf("part family is %02x-%c%c\n",
 	 cfi_data[5-4],cfi_data[6-4],cfi_data[7-4]);
-  printf("256/512 byte program typical time is 2^%d microseconds.\n",
+  printf("2^%d byte page, program typical time is 2^%d microseconds.\n",
+	 cfi_data[0x2a-4],
 	 cfi_data[0x20-4]);
   printf("erase typical time is 2^%d milliseconds.\n",
 	 cfi_data[0x21-4]);
 
+  // Work out size of flash in MB
+  {
+    unsigned char n=cfi_data[0x27-4];
+    mb=1;
+    n-=20;
+    while(n) { mb=mb<<1; n--; }
+  }
+  printf("flash size is %dmb.\n",mb);
+
+  // What erase regions do we have?
+  erase_region_count=cfi_data[0x2c-4];
+  if (erase_region_count>MAX_ERASE_REGIONS) {
+    printf("error: device has too many erase regions. increase max_erase_regions?\n");
+    return;
+  }
+  for(i=0;i<erase_region_count;i++) {
+    erase_regions[i].sectors=cfi_data[0x2d-4+(i*4)];
+    erase_regions[i].sectors|=(cfi_data[0x2e-4+(i*4)])<<8;
+    erase_regions[i].sectors++;
+    erase_regions[i].sector_size=cfi_data[0x2f-4+(i*4)];
+    erase_regions[i].sector_size|=(cfi_data[0x30-4+(i*4)])<<8;
+    printf("erase region #%d : %d sectors x %dkb\n",
+	   i+1,erase_regions[i].sectors,erase_regions[i].sector_size>>2);
+  }
+  if (reg_cr1&4) printf("warning: small sectors are at top, not bottom.\n");
+  latency_code=reg_cr1>>6;
+  printf("latency code = %d\n",latency_code);
+  if (reg_sr1&0x80) printf("flash is write protected.\n");
+  if (reg_sr1&0x40) printf("programming error occurred.\n");
+  if (reg_sr1&0x20) printf("erase error occurred.\n");
+  if (reg_sr1&0x02) printf("write latch enabled.\n"); else printf("write latch not (yet) enabled.\n");
+  if (reg_sr1&0x01) printf("device busy.\n");
+  
+  read_data(0x0);
   {
     unsigned char x,y;
-    for(y=0;y<8;y++) {
-      for(x=0;x<8;x++)
+    for(y=0;y<12;y++) {
+      for(x=0;x<12;x++)
 	{
-	  printf(" %02x",cfi_data[y*8+x]);
+	  printf(" %02x",data_buffer[(0*144)+y*12+x]);
 	}
       printf("\n");
     }
