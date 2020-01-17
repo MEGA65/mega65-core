@@ -516,6 +516,20 @@ int erase_region_count=0;
 #define MAX_ERASE_REGIONS 4
 struct erase_region erase_regions[MAX_ERASE_REGIONS];
 
+unsigned char slot_empty_check(unsigned short mb_num)
+{
+  unsigned long addr;
+  for(addr=(mb_num*1048576L);addr<((mb_num+4)*1048576L);addr+=512)
+    {
+      read_data(addr);
+      y=0xff;
+      for(x=0;x<512;x++) y&=data_buffer[x];
+      if (y!=0xff) return -1;
+
+      *(unsigned long *)(0x0400)=addr;
+    }
+  return 0;
+}
 
 void main(void)
 {
@@ -605,15 +619,16 @@ void main(void)
     z=1;
     for(x=0;x<256;x++) y&=data_buffer[x];
     for(x=0;x<16;x++) if (data_buffer[x]!=bitstream_magic[x]) z=0;
-    if (y==0xff) printf("bitstream slot #%d is empty.\n",i);
+    if (y==0xff) printf("bitstream slot #%d header is empty.\n",i);
     else if (z==0) printf("bitstream slot #%d is invalid.\n",i);
     else {
       // Something valid in the slot
       printf("bitstream slot #%d valid.\n",i>>2);
       // Display info about it
     }
+    // Check if entire slot is empty
+    //    if (slot_empty_check(i)) printf("  slot is not completely empty.\n");
   }
-  
   
 #if 1
   n=0;
