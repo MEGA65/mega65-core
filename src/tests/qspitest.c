@@ -474,8 +474,60 @@ void erase_sector(unsigned long address_in_sector)
 void program_page(unsigned long start_address)
 {
   // XXX Send Write Enable command (0x06 ?)
+
+  // XXX Send Write Enable command (0x06 ?)
+  printf("activating write enable...\n");
+  while(!(reg_sr1&0x02)) {
+    spi_cs_high();
+    spi_clock_high();
+    delay();
+    spi_cs_low();
+    delay();
+    spi_tx_byte(0x06);
+    spi_cs_high();
+    
+    read_registers();
+  }  
+  
   // XXX Clear status register (0x30)
+  printf("clearing status register...\n");
+  while(reg_sr1&0x61) {
+    spi_cs_high();
+    spi_clock_high();
+    delay();
+    spi_cs_low();
+    delay();
+    spi_tx_byte(0x30);
+    spi_cs_high();
+
+    read_registers();
+  }
+    
   // XXX Send Page Programme (0x12 for 1-bit, or 0x34 for 4-bit QSPI)
+  printf("writing 256 bytes of data...\n");
+  spi_cs_high();
+  spi_clock_high();
+  delay();
+  spi_cs_low();
+  delay();
+  spi_tx_byte(0x12);
+  spi_tx_byte(start_address>>24);
+  spi_tx_byte(start_address>>16);
+  spi_tx_byte(start_address>>8);
+  spi_tx_byte(start_address>>0);
+  for(x=0;x<256;x++) spi_tx_byte(data_buffer[x]);
+  
+  spi_cs_high();
+
+  while(reg_sr1&0x01) {
+    read_registers();
+  }
+
+  if (reg_sr1&0x60) printf("error writing data @ $%08x\n",start_address);
+  else {
+    printf("data at $%08llx written.\n",start_address);
+  }
+  
 }
 
 void read_data(unsigned long start_address)
@@ -685,7 +737,12 @@ void main(void)
     //    if (slot_empty_check(i)) printf("  slot is not completely empty.\n");
   }
 
-  erase_sector(4*1048576L);
+  //  erase_sector(4*1048576L);
+  data_buffer[0]=0x12;
+  data_buffer[1]=0x34;
+  data_buffer[2]=0x56;
+  data_buffer[3]=0x78;
+  program_page(4*1048576L);  
   
 #if 1
   n=0;
