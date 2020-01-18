@@ -485,10 +485,6 @@ begin
       irq_out => irq_out,
       nmi_out => nmi_out,
       
-      qspidb => qspidb,
-      qspicsn => qspicsn,      
-      qspisck => qspi_clock,
-
       joya => joy3,
       joyb => joy4,
       
@@ -567,6 +563,7 @@ begin
       restore_key => restore_key,
       sector_buffer_mapped => sector_buffer_mapped,
 
+      qspi_clock => qspi_clock,
       qspicsn => qspicsn,
       qspidb => qspidb,
       
