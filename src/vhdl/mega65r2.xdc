@@ -231,6 +231,10 @@ set_property  -dict { PACKAGE_PIN R22 IOSTANDARD LVCMOS33 } [get_ports {QspiDB[1
 set_property  -dict { PACKAGE_PIN P21 IOSTANDARD LVCMOS33 } [get_ports {QspiDB[2]}]
 set_property  -dict { PACKAGE_PIN R21 IOSTANDARD LVCMOS33 } [get_ports {QspiDB[3]}]
 set_property  -dict { PACKAGE_PIN T19 IOSTANDARD LVCMOS33 } [get_ports QspiCSn]
+set_property PULLUP true [get_ports {qspidb[0]}]
+set_property PULLUP true [get_ports {qspidb[1]}]
+set_property PULLUP true [get_ports {qspidb[2]}]
+set_property PULLUP true [get_ports {qspidb[3]}]
 
 ## Hyper RAM
 set_property -dict {PACKAGE_PIN D22 IOSTANDARD LVCMOS33} [get_ports hr_clk_p]
