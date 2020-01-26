@@ -547,6 +547,9 @@ void main(void)
 
   // Clear screen
   printf("%c",0x93);
+  for(y=0;y<24;y++) printf("%c",0x11);
+  printf("%c0-7 = Launch Core.  CTRL 0-7 = Edit Slo%c",0x12,0x92);
+  POKE(1024+999,0x14+0x80);
   
   // Scan for existing bitstreams
   // (ignore golden bitstream at offset #0)
@@ -568,7 +571,7 @@ void main(void)
     read_data(i*1048576+1*256);
     for(x=0;x<256;x++) y&=data_buffer[x];
 
-    if (y==0xff) printf("(%d) SLOT EMPTY\n",i>>2);
+    if (y==0xff) printf("(%d) EMPTY SLOT\n",i>>2);
     else {
       if (!valid) {
 	if (!i) {
