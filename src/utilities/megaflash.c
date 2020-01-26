@@ -231,6 +231,7 @@ unsigned char sprite_data[63]={
   $D6CC.6 = CS#
   $D6CC.7 = data bits DDR (all 4 bits at once)
 */
+#define BITBASH_PORT 0xD6CCU
 
 /*
   $D6CD.0 = clock free run if set, or under bitbash control when 0
@@ -366,6 +367,8 @@ unsigned char spi_rx_byte()
     spi_clock_high();
     delay();
   }
+
+  return b;
 }
 
 unsigned char manufacturer;
