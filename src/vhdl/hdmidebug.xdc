@@ -1,7 +1,4 @@
-## This file is a general .ucf for the Nexys4 DDR Rev C board
-## To use it in a project:
-## - uncomment the lines corresponding to used pins
-## - rename the used signals according to the project
+# For MEGA65r2 PCB
 
 ## Clock signal (100MHz)
 set_property -dict {PACKAGE_PIN V13 IOSTANDARD LVCMOS33} [get_ports CLK_IN]

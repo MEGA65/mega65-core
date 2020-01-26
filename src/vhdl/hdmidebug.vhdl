@@ -251,6 +251,9 @@ architecture Behavioral of container is
 
   signal h_audio_left : unsigned(19 downto 0) := to_unsigned(0,20);
   signal h_audio_right : unsigned(19 downto 0) := to_unsigned(0,20);
+
+  signal counter : integer := 0;
+  signal trigger_reconfigure : std_logic := '0';
   
 begin
 
@@ -290,7 +293,7 @@ begin
 
   reconfig1: entity work.reconfig
     port map ( clock => cpuclock,
-               trigger_reconfigure => '0');
+               trigger_reconfigure => trigger_reconfigure);
 
   dotclock1: entity work.dotclock100
     port map ( clk_in1 => CLK_IN,
@@ -445,6 +448,11 @@ begin
     -- Make a horrible triangle wave test audio pattern
     h_audio_left <= h_audio_left + 32;
     h_audio_right <= h_audio_right + 32;
+
+    counter <= counter + 1;
+    if counter = (256*1048576) then
+      trigger_reconfigure <= '1';
+    end if;
     
   end process;    
   
