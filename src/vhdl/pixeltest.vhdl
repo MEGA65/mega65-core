@@ -225,6 +225,7 @@ architecture Behavioral of container is
 
   signal trigger_reconfigure : std_logic := '0';
   signal reconfigure_address : unsigned(31 downto 0) := to_unsigned(0,32);
+  signal counter : unsigned(31 downto 0) := to_unsigned(0,32);
   
 begin
 
@@ -361,12 +362,17 @@ begin
     
     if rising_edge(pixelclock) then
 
+      counter <= counter + 1;
+      led(14) <= counter(25);
+      led(15) <= counter(28);
+      trigger_reconfigure <= counter(28);
+      
       led(0) <= x_zero;
       led(1) <= y_zero;
       led(2) <= pixel_due;
       led(3) <= p;
       led(4) <= ifi;
-      led(15 downto 6) <= std_logic_vector(to_unsigned(ra60,10));
+--      led(15 downto 6) <= std_logic_vector(to_unsigned(ra60,10));
       jclo(1) <= x_zero;
       jclo(2) <= xz60;
       jclo(3) <= p;
