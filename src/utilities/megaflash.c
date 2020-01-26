@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 
 #include "mega65_hal.h"
 #include "mega65_memory.h"
@@ -583,7 +584,11 @@ void main(void)
 
   d=opendir();
   while ((de=readdir(d))!=NULL) {
-    printf("file '%s'\n",de->d_name);
+    if (strlen(de->d_name)>4) {
+      if (!strcmp(&de->d_name[strlen(de->d_name)-4],".d81")) {
+	printf("file '%s'\n",de->d_name);
+      }
+    }
   }
   closedir(d);
   
