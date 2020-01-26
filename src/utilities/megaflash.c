@@ -464,6 +464,8 @@ unsigned char slot_empty_check(unsigned short mb_num)
 
 void main(void)
 {
+  unsigned char d;
+  struct m65_dirent *de=NULL;
   
   mega65_io_enable();
 
@@ -568,7 +570,7 @@ void main(void)
     //    if (slot_empty_check(i)) printf("  slot is not completely empty.\n");
   }
 
-#if 1
+#if 0
   erase_sector(4*1048576L);
 #endif
 #if 0
@@ -578,30 +580,12 @@ void main(void)
   data_buffer[3]=0x78;
   program_page(4*1048576L);  
 #endif
-  
-#if 1
-  n=0;
-  do {
-    delay();
-    delay();
-    delay();
-    delay();
-    delay();
-    delay();
-    delay();
-    delay();
-    POKE(0xD6CCU,n);
-    POKE(0xD6CCU,n);
-    n++;
-  }  while (n);
-#endif
-  
-    delay();
-  spi_so_set(0);
-    delay();
-  spi_so_set(1);
-    delay();
-  spi_so_set(0);
+
+  d=opendir();
+  while ((de=readdir(d))!=NULL) {
+    printf("file '%s'\n",de->d_name);
+  }
+  closedir(d);
   
 }
 
