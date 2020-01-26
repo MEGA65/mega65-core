@@ -467,6 +467,7 @@ void main(void)
 {
   unsigned char d;
   struct m65_dirent *de=NULL;
+  unsigned char valid;
   
   mega65_io_enable();
 
@@ -544,28 +545,50 @@ void main(void)
   if (reg_sr1&0x02) printf("write latch enabled.\n"); else printf("write latch not (yet) enabled.\n");
   if (reg_sr1&0x01) printf("device busy.\n");
 
+  // Clear screen
+  printf("%c",0x93);
+  
   // Scan for existing bitstreams
   // (ignore golden bitstream at offset #0)
-  if (1)
   for(i=0;i<mb;i+=4) {
-    read_data(i*1048576);
-    //    for(x=0;x<256;x++) printf("%02x ",data_buffer[x]); printf("\n");
+
+    // Position cursor for slot
+    z=i>>2;
+    printf("%c%c%c%c%c",0x13,0x11,0x11,0x11,0x11);
+    for(y=0;y<z;y++) printf("%c%c",0x11,0x11);
+    
+    read_data(i*1048576+0*256);
+    //       for(x=0;x<256;x++) printf("%02x ",data_buffer[x]); printf("\n");
     y=0xff;
-    z=1;
+    valid=1;
     for(x=0;x<256;x++) y&=data_buffer[x];
-    for(x=0;x<16;x++) if (data_buffer[x]!=bitstream_magic[x]) z=0;
-    if (y==0xff) printf("bitstream slot #%d header is empty.\n",i);
-    else if (z==0) {
-      printf("bitstream slot #%d is invalid.\n",i);
-      for(x=0;x<64;x++) {
-	printf("%02x ",data_buffer[x]);
-	if ((x&7)==7) printf("\n");
-      }
-    }
+    for(x=0;x<16;x++) if (data_buffer[x]!=bitstream_magic[x]) { valid=0; break; }
+
+    // Check 512 bytes in total, because sometimes >256 bytes of FF are at the start of a bitstream.
+    read_data(i*1048576+1*256);
+    for(x=0;x<256;x++) y&=data_buffer[x];
+
+    if (y==0xff) printf("(%d) SLOT EMPTY\n",i>>2);
     else {
-      // Something valid in the slot
-      printf("bitstream slot #%d valid.\n",i>>2);
-      // Display info about it
+      if (!valid) {
+	if (!i) {
+	  // Assume contains golden bitstream
+	  printf("(%d) MEGA65 FACTORY CORE",i>>2);
+	} else {
+	  printf("(%d) UNKNOWN CONTENT\n",i>>2);
+	}
+#if 0
+	for(x=0;x<64;x++) {
+	  printf("%02x ",data_buffer[x]);
+	  if ((x&7)==7) printf("\n");
+	}
+#endif
+      }
+      else {
+	// Something valid in the slot
+	printf("%c(%d) VALID\n",0x05,i>>2);
+	// Display info about it
+      }
     }
     // Check if entire slot is empty
     //    if (slot_empty_check(i)) printf("  slot is not completely empty.\n");
@@ -582,6 +605,7 @@ void main(void)
   program_page(4*1048576L);  
 #endif
 
+#if 0
   d=opendir();
   while ((de=readdir(d))!=NULL) {
     if (strlen(de->d_name)>4) {
@@ -591,6 +615,7 @@ void main(void)
     }
   }
   closedir(d);
+#endif
   
 }
 
