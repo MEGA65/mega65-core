@@ -2,6 +2,8 @@
 
 #include "mega65_hal.h"
 #include "mega65_memory.h"
+#include "dirent.h"
+#include "fileio.h"
 
 unsigned char joy_x=100;
 unsigned char joy_y=100;
