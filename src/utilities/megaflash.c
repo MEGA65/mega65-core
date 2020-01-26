@@ -550,53 +550,62 @@ void main(void)
   for(y=0;y<24;y++) printf("%c",0x11);
   printf("%c0-7 = Launch Core.  CTRL 0-7 = Edit Slo%c",0x12,0x92);
   POKE(1024+999,0x14+0x80);
-  
-  // Scan for existing bitstreams
-  // (ignore golden bitstream at offset #0)
-  for(i=0;i<mb;i+=4) {
 
-    // Position cursor for slot
-    z=i>>2;
-    printf("%c%c%c%c%c",0x13,0x11,0x11,0x11,0x11);
-    for(y=0;y<z;y++) printf("%c%c",0x11,0x11);
-    
-    read_data(i*1048576+0*256);
-    //       for(x=0;x<256;x++) printf("%02x ",data_buffer[x]); printf("\n");
-    y=0xff;
-    valid=1;
-    for(x=0;x<256;x++) y&=data_buffer[x];
-    for(x=0;x<16;x++) if (data_buffer[x]!=bitstream_magic[x]) { valid=0; break; }
-
-    // Check 512 bytes in total, because sometimes >256 bytes of FF are at the start of a bitstream.
-    read_data(i*1048576+1*256);
-    for(x=0;x<256;x++) y&=data_buffer[x];
-
-    if (y==0xff) printf("(%d) EMPTY SLOT\n",i>>2);
-    else {
-      if (!valid) {
-	if (!i) {
-	  // Assume contains golden bitstream
-	  printf("(%d) MEGA65 FACTORY CORE",i>>2);
-	} else {
-	  printf("(%d) UNKNOWN CONTENT\n",i>>2);
-	}
+  while(1)
+    {  
+      // Scan for existing bitstreams
+      // (ignore golden bitstream at offset #0)
+      for(i=0;i<mb;i+=4) {
+	
+	// Position cursor for slot
+	z=i>>2;
+	printf("%c%c%c%c%c",0x13,0x11,0x11,0x11,0x11);
+	for(y=0;y<z;y++) printf("%c%c",0x11,0x11);
+	
+	read_data(i*1048576+0*256);
+	//       for(x=0;x<256;x++) printf("%02x ",data_buffer[x]); printf("\n");
+	y=0xff;
+	valid=1;
+	for(x=0;x<256;x++) y&=data_buffer[x];
+	for(x=0;x<16;x++) if (data_buffer[x]!=bitstream_magic[x]) { valid=0; break; }
+	
+	// Check 512 bytes in total, because sometimes >256 bytes of FF are at the start of a bitstream.
+	read_data(i*1048576+1*256);
+	for(x=0;x<256;x++) y&=data_buffer[x];
+	
+	if (y==0xff) printf("(%d) EMPTY SLOT\n",i>>2);
+	else {
+	  if (!valid) {
+	    if (!i) {
+	      // Assume contains golden bitstream
+	      printf("(%d) MEGA65 FACTORY CORE",i>>2);
+	    } else {
+	      printf("(%d) UNKNOWN CONTENT\n",i>>2);
+	    }
 #if 0
-	for(x=0;x<64;x++) {
-	  printf("%02x ",data_buffer[x]);
-	  if ((x&7)==7) printf("\n");
-	}
+	    for(x=0;x<64;x++) {
+	      printf("%02x ",data_buffer[x]);
+	      if ((x&7)==7) printf("\n");
+	    }
 #endif
+	  }
+	  else {
+	    // Something valid in the slot
+	    printf("%c(%d) VALID\n",0x05,i>>2);
+	    // Display info about it
+	  }
+	}
+	// Check if entire slot is empty
+	//    if (slot_empty_check(i)) printf("  slot is not completely empty.\n");
       }
-      else {
-	// Something valid in the slot
-	printf("%c(%d) VALID\n",0x05,i>>2);
-	// Display info about it
+
+      x=PEEK(0xd610);
+      if (x) {
+	POKE(0xd610,0);
+	POKE(0xD020U,x);
       }
     }
-    // Check if entire slot is empty
-    //    if (slot_empty_check(i)) printf("  slot is not completely empty.\n");
-  }
-
+  
 #if 0
   erase_sector(4*1048576L);
 #endif
