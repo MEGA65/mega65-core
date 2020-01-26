@@ -52,6 +52,9 @@ unsigned char sprite_data[63]={
 };
 
 /*
+  $D6C8-B = address for FPGA to boot from in flash
+  $D6CF = trigger address for FPGA reconfiguration: Write $42 to trigger
+
   $D6CC.0 = data bit 0 / SI (serial input)
   $D6CC.1 = data bit 1 / SO (serial output)
   $D6CC.2 = data bit 2 / WP# (write protect)
@@ -68,6 +71,22 @@ unsigned char sprite_data[63]={
   $D6CD.1 = alternate control of clock pin
 */
 #define CLOCKCTL_PORT 0xD6CDU
+
+void reconfig_fpga(unsigned long addr)
+{
+  mega65_io_enable();
+  POKE(0xD6C8U,(addr>>0)&0xff);
+  POKE(0xD6C9U,(addr>>8)&0xff);
+  POKE(0xD6CAU,(addr>>16)&0xff);
+  POKE(0xD6CBU,(addr>>24)&0xff);
+
+  // Try to reconfigure
+  POKE(0xD6CFU,0x42);
+  while(1) {
+    POKE(0xD020,PEEK(0xD012));
+    POKE(0xD6CFU,0x42);
+  }
+}
 
 int bash_bits=0xFF;
 
@@ -497,6 +516,10 @@ void main(void)
   
   fetch_rdid();
   read_registers();
+  if ((manufacturer==0xff) && (device_id==0xffff)) {
+    printf("ERROR: Cannot communicate with QSPI            flash device.\n");
+    return;
+  }
   printf("qspi flash manufacturer = $%02x\n",manufacturer);
   printf("qspi device id = $%04x\n",device_id);
   printf("rdid byte count = %d\n",cfi_length);
@@ -602,7 +625,10 @@ void main(void)
       x=PEEK(0xd610);
       if (x) {
 	POKE(0xd610,0);
-	POKE(0xD020U,x);
+	if (x>='0'&&x<='8') {
+	  if (!x) reconfig_fpga(0);
+	  else reconfig_fpga((x-'0')*(4*1048576)+4096);
+	}
       }
     }
   
