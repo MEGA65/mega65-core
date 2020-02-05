@@ -90,6 +90,20 @@ int main(int argc,char **argv)
 	  }
 	  printf("\n");
 	  break;
+	case 0b01001:
+	  printf("Setting configuration register 0:\n");
+	  if ((val&7)<6) printf("  GWE deassert in Startup Phase %d\n",(val&7)-1);
+	  else if ((val&7)==6) printf("  GWE tracks DONE\n"); else printf("  GWE set to keep (not recommended)\n");
+	  if (((val>>3)&7)<6) printf("  GTS deassert in Startup Phase %d\n",((val>>3)&7)-1);
+	  else if (((val>>3)&7)==6) printf("  GTS tracks DONE\n"); else printf("  GTS set to keep (not recommended)\n");
+	  if (((val>>6)&7)==7) printf("  LOCK_CYCLE stall for MMCM lock disabled.\n");
+	  else printf("  LOCK_CYCLE stall for MMCM lock set to stage %d\n",(val>>6)&7);
+	  if (((val>>9)&7)==7) printf("  MATCH_CYCLE stall for DCI match disabled.\n");
+	  else printf("  MATCH_CYCLE stall for DCI match set to stage %d\n",(val>>9)&7);
+	  if (((val>>12)&7)<6) printf("  DONE pin released in Startup Phase %d\n",((val>>12)&7)-1);
+	  else if (((val>>12)&7)==6) printf("  DONE pin release in undefined state\n"); else printf("  DONE pin set to keep (not recommended)\n");
+	  
+	  break;
 	default:
 	  printf("Writing value $%08x to FPGA register $%x\n",val,reg);
 	}
