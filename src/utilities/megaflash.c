@@ -13,6 +13,8 @@ unsigned char latency_code=0xff;
 unsigned char reg_cr1=0x00;
 unsigned char reg_sr1=0x00;
 
+void progress_bar(unsigned char onesixtieths);
+
 void wait_10ms(void)
 {
   // 16 x ~64usec raster lines = ~1ms
@@ -626,7 +628,9 @@ void main(void)
       if (x) {
 	POKE(0xd610,0);
 	if (x>='0'&&x<='8') {
-	  if (!x) reconfig_fpga(0);
+	  if (x=='0') {
+	    reconfig_fpga(0);
+	  }
 	  else reconfig_fpga((x-'0')*(4*1048576)+4096);
 	}
       }
@@ -670,7 +674,7 @@ void progress_bar(unsigned char onesixtieths)
       POKE(0x0400+(6*40)-1+i,160);
     }    
   }
-  for(;i<40;i++) {
+  for(;i<=40;i++) {
     POKE(0x400+(4*40)+i,0x20);
     POKE(0x400+(5*40)+i,0x20);
     POKE(0x400+(6*40)+i,0x20);
