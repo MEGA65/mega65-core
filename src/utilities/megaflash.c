@@ -99,6 +99,7 @@ void reconfig_fpga(unsigned long addr)
 
 void reflash_slot(unsigned char slot)
 {
+  printf("%c",0x93);
 }
 
 int bash_bits=0xFF;
@@ -581,14 +582,17 @@ void main(void)
   if (reg_sr1&0x02) printf("write latch enabled.\n"); else printf("write latch not (yet) enabled.\n");
   if (reg_sr1&0x01) printf("device busy.\n");
 
-  // Clear screen
-  printf("%c",0x93);
-  for(y=0;y<24;y++) printf("%c",0x11);
-  printf("%c0-7 = Launch Core.  CTRL 0-7 = Edit Slo%c",0x12,0x92);
-  POKE(1024+999,0x14+0x80);
-
   while(1)
     {  
+
+      // Clear screen
+      printf("%c",0x93);
+
+      // Draw footer line with instructions
+      for(y=0;y<24;y++) printf("%c",0x11);
+      printf("%c0-7 = Launch Core.  CTRL 0-7 = Edit Slo%c",0x12,0x92);
+      POKE(1024+999,0x14+0x80);
+
       // Scan for existing bitstreams
       // (ignore golden bitstream at offset #0)
       for(i=0;i<mb;i+=4) {
@@ -635,7 +639,11 @@ void main(void)
 	//    if (slot_empty_check(i)) printf("  slot is not completely empty.\n");
       }
 
-      x=PEEK(0xd610);
+      x=0;
+      while(!x) {
+	x=PEEK(0xd610);
+      }
+
       if (x) {
 	POKE(0xd610,0);
 	if (x>='0'&&x<'8') {
