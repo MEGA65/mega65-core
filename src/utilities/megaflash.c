@@ -750,24 +750,18 @@ char *diskchooser_instructions=
   "  SELECT FLASH FILE, THEN PRESS RETURN  "
   "       OR PRESS RUN/STOP TO ABORT       ";
 
-unsigned char normal_row[40]={
-  0,1,0,1,0,1,0,1,
-  0,1,0,1,0,1,0,1,
-  0,1,0,1,0,1,0,1,
-  0,1,0,1,0,1,0,1,
-  0,1,0,1,0,1,0,1
+unsigned char normal_row[20]={
+  1,1,1,1,
+  1,1,1,1,
+  1,1,1,1,
+  1,1,1,1,
+  1,1,1,1
 };
 
-unsigned char highlight_row[40]={
-  0,0x21,0,0x21,0,0x21,0,0x21,0,0x21,0,0x21,0,0x21,0,0x21,
-  0,0x21,0,0x21,0,0x21,0,0x21,0,0x21,0,0x21,0,0x21,0,0x21,
-  0,0x21,0,0x21,0,0x21,0,0x21
-};
-
-unsigned char dir_line_colour[40]={
-  0,0xe,0,0xe,0,0xe,0,0xe,0,0xe,0,0xe,0,0xe,0,0xe,
-  0,0xe,0,0xe,0,0xe,0,0xe,0,0xe,0,0xe,0,0xe,0,0xe,
-  0,0xe,0,0xe,0,0xe,0,0xe
+unsigned char highlight_row[20]={
+  0x21,0x21,0x21,0x21,0x21,0x21,0x21,0x21,
+  0x21,0x21,0x21,0x21,0x21,0x21,0x21,0x21,
+  0x21,0x21,0x21,0x21
 };
 
 char disk_name_return[32];
@@ -790,12 +784,12 @@ void draw_file_list(void)
   POKE(SCREEN_ADDRESS+1,0);
   POKE(SCREEN_ADDRESS+2,' ');
   POKE(SCREEN_ADDRESS+3,0);
-  lcopy(SCREEN_ADDRESS,SCREEN_ADDRESS+4,40*2*23-4);
+  lcopy(SCREEN_ADDRESS,SCREEN_ADDRESS+4,40*23-4);
   lpoke(COLOUR_RAM_ADDRESS+0,0);
   lpoke(COLOUR_RAM_ADDRESS+1,1);
   lpoke(COLOUR_RAM_ADDRESS+2,0);
   lpoke(COLOUR_RAM_ADDRESS+3,1);
-  lcopy(COLOUR_RAM_ADDRESS,COLOUR_RAM_ADDRESS+4,40*2*23-4);
+  lcopy(COLOUR_RAM_ADDRESS,COLOUR_RAM_ADDRESS+4,40*23-4);
 
   // Draw instructions
   for(i=0;i<80;i++) {
@@ -805,10 +799,10 @@ void draw_file_list(void)
       POKE(SCREEN_ADDRESS+23*80+(i<<1)+0,diskchooser_instructions[i]);
     POKE(SCREEN_ADDRESS+23*80+(i<<1)+1,0);
   }
-  lcopy((long)highlight_row,COLOUR_RAM_ADDRESS+(23*80)+0,40);
-  lcopy((long)highlight_row,COLOUR_RAM_ADDRESS+(23*80)+40,40);
-  lcopy((long)highlight_row,COLOUR_RAM_ADDRESS+(24*80)+0,40);
-  lcopy((long)highlight_row,COLOUR_RAM_ADDRESS+(24*80)+40,40);
+  lcopy((long)highlight_row,COLOUR_RAM_ADDRESS+(23*40)+0,20);
+  lcopy((long)highlight_row,COLOUR_RAM_ADDRESS+(23*40)+20,20);
+  lcopy((long)highlight_row,COLOUR_RAM_ADDRESS+(24*40)+0,20);
+  lcopy((long)highlight_row,COLOUR_RAM_ADDRESS+(24*40)+20,20);
 
   
   for(i=0;i<23;i++) {
@@ -828,12 +822,12 @@ void draw_file_list(void)
     }
     if ((display_offset+i)==selection_number) {
       // Highlight the row
-      lcopy((long)highlight_row,COLOUR_RAM_ADDRESS+(i*80),40);
+      lcopy((long)highlight_row,COLOUR_RAM_ADDRESS+(i*40),20);
     } else {
       // Normal row
-      lcopy((long)normal_row,COLOUR_RAM_ADDRESS+(i*80),40);
+      lcopy((long)normal_row,COLOUR_RAM_ADDRESS+(i*40),20);
     }
-    addr+=(40*2);  
+    addr+=(40*1);  
   }
 
   
@@ -862,7 +856,7 @@ char *select_bitstream_file(void)
   while(dirent&&((unsigned short)dirent!=0xffffU)) {
     x=strlen(dirent->d_name)-4;
     if (x>=0) {
-      if ((!strncmp(&dirent->d_name[x],".D81",4))||(!strncmp(&dirent->d_name[x],".d81",4))) {
+      if ((!strncmp(&dirent->d_name[x],".BIT",4))||(!strncmp(&dirent->d_name[x],".bit",4))) {
 	// File is a disk image
 	lfill(0x40000L+(file_count*64),' ',64);
 	lcopy((long)&dirent->d_name[0],0x40000L+(file_count*64),x+4);
