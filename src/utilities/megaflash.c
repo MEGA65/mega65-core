@@ -515,6 +515,9 @@ void main(void)
   
   // Disable OSK
   lpoke(0xFFD3615L,0x7F);  
+
+  // Enable VIC-III attributes
+  POKE(0xD031,0x20);
   
   // Clear screen
   printf("%c",0x93);    
@@ -781,23 +784,18 @@ void draw_file_list(void)
   unsigned char name[64];
   // First, clear the screen
   POKE(SCREEN_ADDRESS+0,' ');
-  POKE(SCREEN_ADDRESS+1,0);
-  POKE(SCREEN_ADDRESS+2,' ');
-  POKE(SCREEN_ADDRESS+3,0);
-  lcopy(SCREEN_ADDRESS,SCREEN_ADDRESS+4,40*23-4);
-  lpoke(COLOUR_RAM_ADDRESS+0,0);
+  POKE(SCREEN_ADDRESS+1,' ');
+  lcopy(SCREEN_ADDRESS,SCREEN_ADDRESS+2,40*23-2);
+  lpoke(COLOUR_RAM_ADDRESS+0,1);
   lpoke(COLOUR_RAM_ADDRESS+1,1);
-  lpoke(COLOUR_RAM_ADDRESS+2,0);
-  lpoke(COLOUR_RAM_ADDRESS+3,1);
-  lcopy(COLOUR_RAM_ADDRESS,COLOUR_RAM_ADDRESS+4,40*23-4);
+  lcopy(COLOUR_RAM_ADDRESS,COLOUR_RAM_ADDRESS+2,40*23-2);
 
   // Draw instructions
   for(i=0;i<80;i++) {
     if (diskchooser_instructions[i]>='A'&&diskchooser_instructions[i]<='Z') 
-      POKE(SCREEN_ADDRESS+23*80+(i<<1)+0,diskchooser_instructions[i]&0x1f);
+      POKE(SCREEN_ADDRESS+23*40+i+0,diskchooser_instructions[i]&0x1f);
     else
-      POKE(SCREEN_ADDRESS+23*80+(i<<1)+0,diskchooser_instructions[i]);
-    POKE(SCREEN_ADDRESS+23*80+(i<<1)+1,0);
+      POKE(SCREEN_ADDRESS+23*40+i+0,diskchooser_instructions[i]);
   }
   lcopy((long)highlight_row,COLOUR_RAM_ADDRESS+(23*40)+0,20);
   lcopy((long)highlight_row,COLOUR_RAM_ADDRESS+(23*40)+20,20);
@@ -812,13 +810,13 @@ void draw_file_list(void)
 
       for(x=0;x<20;x++) {
 	if ((name[x]>='A'&&name[x]<='Z') ||(name[x]>='a'&&name[x]<='z'))
-	  POKE(addr+(x<<1),name[x]&0x1f);
+	  POKE(addr+x,name[x]&0x1f);
 	else
-	  POKE(addr+(x<<1),name[x]);
+	  POKE(addr+x,name[x]);
       }
     } else {
       // Blank dummy entry
-      for(x=0;x<40;x++) POKE(addr+(x<<1),' ');
+      for(x=0;x<20;x++) POKE(addr+x,' ');
     }
     if ((display_offset+i)==selection_number) {
       // Highlight the row
@@ -907,12 +905,10 @@ char *select_bitstream_file(void)
       return disk_name_return;
       break;
     case 0x11: case 0x9d:  // Cursor down or left
-      POKE(0xD020U,6);
       selection_number++;
       if (selection_number>=file_count) selection_number=0;
       break;
     case 0x91: case 0x1d:  // Cursor up or right
-      POKE(0xD020U,6);
       selection_number--;
       if (selection_number<0) selection_number=file_count-1;
       break;
