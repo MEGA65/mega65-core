@@ -76,6 +76,10 @@ unsigned char sprite_data[63]={
 
 void reconfig_fpga(unsigned long addr)
 {
+  // Black screen when reconfiguring
+  POKE(0xd020,0); 
+  POKE(0xd011,0);
+ 
   mega65_io_enable();
   POKE(0xD6C8U,(addr>>0)&0xff);
   POKE(0xD6C9U,(addr>>8)&0xff);
@@ -87,7 +91,14 @@ void reconfig_fpga(unsigned long addr)
   while(1) {
     POKE(0xD020,PEEK(0xD012));
     POKE(0xD6CFU,0x42);
+
+    // Grey screen if reconfig failing
+    POKE(0xd020,0x0d);     
   }
+}
+
+void reflash_slot(unsigned char slot)
+{
 }
 
 int bash_bits=0xFF;
@@ -627,11 +638,37 @@ void main(void)
       x=PEEK(0xd610);
       if (x) {
 	POKE(0xd610,0);
-	if (x>='0'&&x<='8') {
+	if (x>='0'&&x<'8') {
 	  if (x=='0') {
 	    reconfig_fpga(0);
 	  }
 	  else reconfig_fpga((x-'0')*(4*1048576)+4096);
+	}
+	switch(x) {
+	case 146: // CTRL-0
+	  reflash_slot(0);
+	  break;
+	case 144: // CTRL-1
+	  reflash_slot(1);
+	  break;
+	case 5:   // CTRL-2
+	  reflash_slot(2);
+	  break;
+	case 28:  // CTRL-3
+	  reflash_slot(3);
+	  break;
+	case 159: // CTRL-4
+	  reflash_slot(4);
+	  break;
+	case 156: // CTRL-5
+	  reflash_slot(5);
+	  break;
+	case 30:  // CTRL-6
+	  reflash_slot(6);
+	  break;
+	case 31:  // CTRL-7
+	  reflash_slot(7);
+	  break;
 	}
       }
     }
