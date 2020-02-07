@@ -2440,7 +2440,11 @@ begin
 
       -- Set GeoRAM page (gets munged later with GeoRAM base and mask values
       -- provided by the hypervisor)
-      if real_long_address(27 downto 16) = x"ffd" then
+      -- $DFFE/F
+      if (real_long_address(27 downto 16) = x"ffd0")
+        or (real_long_address(27 downto 16) = x"ffd1")
+        or (real_long_address(27 downto 16) = x"ffd3")
+      then
         if real_long_address(11 downto 0) = x"fff" then
           georam_block <= value;
         elsif real_long_address(11 downto 0) = x"ffe" then
@@ -7618,10 +7622,11 @@ begin
         elsif real_long_address(27 downto 16) = x"7F4" then
           long_address := x"FF80"&'0'&real_long_address(10 downto 0);
         -- Remap GeoRAM memory accesses
---        elsif real_long_address(27 downto 16) = x"FFD"
---          and real_long_address(11 downto 8)= x"E"
---          and georam_blockmask /= x"00" then
---          long_address := georam_page&real_long_address(7 downto 0);
+        elsif ((real_long_address(27 downto 18) = x"FFD0E")
+               or (real_long_address(27 downto 18) = x"FFD1E")
+               or ((real_long_address(27 downto 18) = x"FFD3E")))
+          and georam_blockmask /= x"00" then
+          long_address := georam_page&real_long_address(7 downto 0);
 
         elsif real_long_address = x"ffd0601" and vdc_reg_num = x"1f" and hypervisor_mode='0' then
           -- We map VDC RAM always to $40000
@@ -7669,8 +7674,9 @@ begin
         real_long_address := memory_access_address;
         
         -- Remap GeoRAM memory accesses
-        if real_long_address(27 downto 16) = x"FFD"
-          and real_long_address(11 downto 8) = x"E"
+        if ((real_long_address(27 downto 18) = x"FFD0E")
+            or (real_long_address(27 downto 18) = x"FFD1E")
+            or (real_long_address(27 downto 18) = x"FFD3E"))
           and georam_blockmask /= x"00" then
           long_address := georam_page&real_long_address(7 downto 0);
         end if;
