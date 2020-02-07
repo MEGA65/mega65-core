@@ -15,6 +15,8 @@
 #include <strings.h>
 #include <time.h>
 
+char *strcasestr(const char *haystack, const char *needle);
+
 unsigned long long gettime_ms(void);
 unsigned long long gettime_us(void);
 int dump_bytes(int col,char *msg,unsigned char *b,int count);
