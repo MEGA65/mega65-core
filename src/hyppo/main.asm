@@ -411,6 +411,10 @@ return_from_trap_with_success:
 
         Checkpoint("return_from_trap_with_success")
 
+	// Clear A on return
+	lda #$00
+	sta hypervisor_a
+	
         // return from hypervisor
         sta hypervisor_enterexit_trigger
 
@@ -2954,7 +2958,7 @@ msg_checkpoint_eom:
 
 msg_retryreadmbr:       .text "RE-TRYING TO READ MBR"
                         .byte 0
-msg_hyppo:              .text "MEGA65 MEGAOS HYPERVISOR V00.12"
+msg_hyppo:              .text "MEGA65 MEGAOS HYPERVISOR V00.13"
                         .byte 0
 msg_hyppohelp:          .text "ALT=UTIL MENU CTRL=HOLD-BOOT SHIFT=DEBUG"
                         .byte 0
