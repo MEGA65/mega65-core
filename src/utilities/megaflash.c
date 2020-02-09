@@ -156,7 +156,7 @@ void reflash_slot(unsigned char slot)
   // Also, we will assume the BIT files contain the 4KB header we want
   // so we will just write upto 4MB of stuff in one go.
   progress=0; progress_acc=0;
-  for(addr=4*1024*1024*slot;addr<4*1024*1024*(slot+1);addr+=512) {
+  for(addr=(4L*1024L*1024L)*slot;addr<(4L*1024L*1024L)*(slot+1);addr+=512) {
     progress_acc+=512;
     if (progress_acc>26214) {
       progress_acc-=26214;
@@ -167,19 +167,23 @@ void reflash_slot(unsigned char slot)
     for(i=0;i<512;i++) if (data_buffer[i]!=0xff) break;
     if (i<512) {
       erase_sector(addr);
+      // Wait a while for erasing to finish
+      for(i=0;i<100;i++) usleep(10000);
+      // Then verify that the sector has been erased
       read_data(addr);
       for(i=0;i<512;i++) if (data_buffer[i]!=0xff) break;
       if (i<512) {
-	printf("%cFailed to erase flash page at $%x\n",0x93,addr);
+	printf("\n! Failed to erase flash page at $%llx\n",addr);
+	printf("  byte %d = $%x instead of $FF\n",i,data_buffer[i]);
 	while(1) continue;
       }
     }
   }
   
   // Read the flash file and write it to the flash
-  printf("%cWriting bitstream to flash...\n",0x93);
+  printf("Writing bitstream to flash...\n",0x93);
   progress=0; progress_acc=0;
-  for(addr=4*1024*1024*slot;addr<4*1024*1024*(slot+1);addr+=512) {
+  for(addr=(4L*1024L*1024L)*slot;addr<(4L*1024L*1024L)*(slot+1);addr+=512) {
     progress_acc+=512;
     if (progress_acc>26214) {
       progress_acc-=26214;
@@ -199,7 +203,7 @@ void reflash_slot(unsigned char slot)
     for(i=0;i<512;i++) if (data_buffer[i]!=buffer[i]) break;
     if (i<512)
       {
-	printf("Verification error at address $%x:\n",
+	printf("Verification error at address $%llx:\n",
 	       addr+i);
 	printf("Read back $%x instead of $%x\n",
 	       data_buffer[i],buffer[i]);
@@ -469,7 +473,7 @@ void program_page(unsigned long start_address)
   }
     
   // XXX Send Page Programme (0x12 for 1-bit, or 0x34 for 4-bit QSPI)
-  printf("writing 256 bytes of data...\n");
+  printf("writing 512 bytes of data...\n");
   spi_cs_high();
   spi_clock_high();
   delay();
@@ -480,7 +484,7 @@ void program_page(unsigned long start_address)
   spi_tx_byte(start_address>>16);
   spi_tx_byte(start_address>>8);
   spi_tx_byte(start_address>>0);
-  for(x=0;x<256;x++) spi_tx_byte(data_buffer[x]);
+  for(x=0;x<512;x++) spi_tx_byte(data_buffer[x]);
   
   spi_cs_high();
 
@@ -489,7 +493,7 @@ void program_page(unsigned long start_address)
     read_registers();
   }
 
-  if (reg_sr1&0x60) printf("error writing data @ $%08x\n",start_address);
+  if (reg_sr1&0x60) printf("error writing data @ $%08llx\n",start_address);
   else {
     printf("data at $%08llx written.\n",start_address);
   }
@@ -756,16 +760,16 @@ void main(void)
 	  else reconfig_fpga((x-'0')*(4*1048576)+4096);
 	}
 	switch(x) {
-	case 146: // CTRL-0
+	case 146: case 0x41: case 0x61:  // CTRL-0
 	  reflash_slot(0);
 	  break;
-	case 144: // CTRL-1
+	case 144: case 0x42: case 0x62: // CTRL-1
 	  reflash_slot(1);
 	  break;
-	case 5:   // CTRL-2
+	case 5: case 0x43: case 0x63: // CTRL-2
 	  reflash_slot(2);
 	  break;
-	case 28:  // CTRL-3
+	case 28: case 0x44: case 0x64: // CTRL-3
 	  reflash_slot(3);
 	  break;
 	case 159: // CTRL-4
