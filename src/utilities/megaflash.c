@@ -195,8 +195,11 @@ void reflash_slot(unsigned char slot)
     
     if (!bytes_returned) break;
 
-    lcopy((unsigned long)buffer,(unsigned long)data_buffer,512);
+    // Programming works on 256 byte pages, so we have to write two of them.
+    lcopy((unsigned long)&buffer[0],(unsigned long)data_buffer,256);
     program_page(addr);
+    lcopy((unsigned long)&buffer[256],(unsigned long)data_buffer,256);
+    program_page(addr+256);
 
     // Verify
     read_data(addr);
@@ -473,7 +476,7 @@ void program_page(unsigned long start_address)
   }
     
   // XXX Send Page Programme (0x12 for 1-bit, or 0x34 for 4-bit QSPI)
-  printf("writing 512 bytes of data...\n");
+  printf("writing 256 bytes of data...\n");
   spi_cs_high();
   spi_clock_high();
   delay();
@@ -484,7 +487,7 @@ void program_page(unsigned long start_address)
   spi_tx_byte(start_address>>16);
   spi_tx_byte(start_address>>8);
   spi_tx_byte(start_address>>0);
-  for(x=0;x<512;x++) spi_tx_byte(data_buffer[x]);
+  for(x=0;x<256;x++) spi_tx_byte(data_buffer[x]);
   
   spi_cs_high();
 
