@@ -15,7 +15,25 @@ unsigned char latency_code=0xff;
 unsigned char reg_cr1=0x00;
 unsigned char reg_sr1=0x00;
 
+unsigned char manufacturer;
+unsigned short device_id;
+unsigned short cfi_data[512];
+unsigned short cfi_length=0;
+
+unsigned char data_buffer[512];
+// Magic string for identifying properly loaded bitstream
+unsigned char bitstream_magic[16]="MEGA65BITSTREAM0";
+
+unsigned short mb = 0;
+
+short i,x,y,z;
+short a1,a2,a3;
+unsigned char n=0;
+
 void progress_bar(unsigned char onesixtieths);
+void read_data(unsigned long start_address);
+void program_page(unsigned long start_address);
+void erase_sector(unsigned long address_in_sector);
 
 void wait_10ms(void)
 {
@@ -99,9 +117,78 @@ void reconfig_fpga(unsigned long addr)
   }
 }
 
+unsigned char buffer[512];
+unsigned long addr;
+unsigned char progress=0;
+unsigned long progress_acc=0;
+
 void reflash_slot(unsigned char slot)
 {
+  unsigned short bytes_returned;
+  unsigned char fd;
   unsigned char *file=select_bitstream_file();
+  if (!file) return;
+  if ((unsigned short)file==0xffff) return;
+
+  
+  printf("%c",0x93);
+
+  closeall();
+  fd=open(file);
+  if (fd==0xff) {
+    // Couldn't open the file.
+    printf("ERROR: Could not open flash file '%s'\n",file);
+    printf("\nPress any key to continue.\n");
+    while(PEEK(0xD610)) POKE(0xD610,0);
+    while (!PEEK(0xD610)) continue;
+
+    while(1) continue;
+    
+    return;
+  }
+
+  printf("Erasing flash slot...\n");
+  lfill((unsigned long)buffer,0,512);
+
+  // Do a smart erase: read blocks, and only erase pages if they are
+  // not all $FF.  Later we can make it even smarter, and only clear
+  // pages where bits need clearing.
+  // Also, we will assume the BIT files contain the 4KB header we want
+  // so we will just write upto 4MB of stuff in one go.
+  progress=0; progress_acc=0;
+  for(addr=4*1024*1024*slot;addr<4*1024*1024*(slot+1);addr+=512) {
+    progress_acc+=512;
+    if (progress_acc>26214) {
+      progress_acc-=26214;
+      progress++;
+      progress_bar(progress);
+    }
+    read_data(addr);
+    for(i=0;i<512;i++) if (data_buffer[i]!=0xff) break;
+    if (i<512) {
+      erase_sector(addr);
+      read_data(addr);
+      for(i=0;i<512;i++) if (data_buffer[i]!=0xff) break;
+      if (i<512) {
+	printf("%cFailed to erase flash page at $%x\n",0x93,addr);
+	while(1) continue;
+      }
+    }
+  }
+  
+  // Read the flash file
+  while((bytes_returned=read512(buffer))!=0) {
+    POKE(0xD020,(PEEK(0xD020)+1)&0xf);
+    //    lcopy(buffer,0x0478,512);
+    
+    while(PEEK(0xD610)) POKE(0xD610,0);
+    while (!PEEK(0xD610)) continue;
+  }
+
+  
+  while(1) continue;
+  
+  close(fd);
 }
 
 int bash_bits=0xFF;
@@ -235,21 +322,6 @@ unsigned char spi_rx_byte()
 
   return b;
 }
-
-unsigned char manufacturer;
-unsigned short device_id;
-unsigned short cfi_data[512];
-unsigned short cfi_length=0;
-
-unsigned char data_buffer[512];
-// Magic string for identifying properly loaded bitstream
-unsigned char bitstream_magic[16]="MEGA65BITSTREAM0";
-
-unsigned short mb = 0;
-
-short i,x,y,z;
-short a1,a2,a3;
-unsigned char n=0;
 
 void read_registers(void)
 {
@@ -806,7 +878,7 @@ void draw_file_list(void)
   for(i=0;i<23;i++) {
     if ((display_offset+i)<file_count) {
       // Real line
-      lcopy(0x40000U+((display_offset+i)<<6),(unsigned char *)name,64);
+      lcopy(0x40000U+((display_offset+i)<<6),(unsigned long)name,64);
 
       for(x=0;x<20;x++) {
 	if ((name[x]>='A'&&name[x]<='Z') ||(name[x]>='a'&&name[x]<='z'))
@@ -834,6 +906,7 @@ void draw_file_list(void)
 char *select_bitstream_file(void)
 {
   unsigned char x,dir;
+  signed char j;
   struct m65_dirent *dirent;
   int idle_time=0;
   
@@ -852,12 +925,12 @@ char *select_bitstream_file(void)
   dir=opendir();
   dirent=readdir(dir);
   while(dirent&&((unsigned short)dirent!=0xffffU)) {
-    x=strlen(dirent->d_name)-4;
-    if (x>=0) {
-      if ((!strncmp(&dirent->d_name[x],".BIT",4))||(!strncmp(&dirent->d_name[x],".bit",4))) {
+    j=strlen(dirent->d_name)-4;
+    if (j>=0) {
+      if ((!strncmp(&dirent->d_name[j],".BIT",4))||(!strncmp(&dirent->d_name[j],".bit",4))) {
 	// File is a disk image
 	lfill(0x40000L+(file_count*64),' ',64);
-	lcopy((long)&dirent->d_name[0],0x40000L+(file_count*64),x+4);
+	lcopy((long)&dirent->d_name[0],0x40000L+(file_count*64),j+4);
 	file_count++;
       }
     }
@@ -897,7 +970,7 @@ char *select_bitstream_file(void)
       return NULL;
     case 0x0d:             // Return = select this disk.
       // Copy name out
-      lcopy(0x40000L+(selection_number*64),disk_name_return,32);
+      lcopy(0x40000L+(selection_number*64),(unsigned long)disk_name_return,32);
       // Then null terminate it
       for(x=31;x;x--)
 	if (disk_name_return[x]==' ') { disk_name_return[x]=0; } else { break; }
