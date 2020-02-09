@@ -176,19 +176,47 @@ void reflash_slot(unsigned char slot)
     }
   }
   
-  // Read the flash file
-  while((bytes_returned=read512(buffer))!=0) {
-    POKE(0xD020,(PEEK(0xD020)+1)&0xf);
-    //    lcopy(buffer,0x0478,512);
+  // Read the flash file and write it to the flash
+  printf("%cWriting bitstream to flash...\n",0x93);
+  progress=0; progress_acc=0;
+  for(addr=4*1024*1024*slot;addr<4*1024*1024*(slot+1);addr+=512) {
+    progress_acc+=512;
+    if (progress_acc>26214) {
+      progress_acc-=26214;
+      progress++;
+      progress_bar(progress);
+    }
+
+    bytes_returned=read512(buffer);
     
-    while(PEEK(0xD610)) POKE(0xD610,0);
-    while (!PEEK(0xD610)) continue;
+    if (!bytes_returned) break;
+
+    lcopy((unsigned long)buffer,(unsigned long)data_buffer,512);
+    program_page(addr);
+
+    // Verify
+    read_data(addr);
+    for(i=0;i<512;i++) if (data_buffer[i]!=buffer[i]) break;
+    if (i<512)
+      {
+	printf("Verification error at address $%x:\n",
+	       addr+i);
+	printf("Read back $%x instead of $%x\n",
+	       data_buffer[i],buffer[i]);
+	while(1) continue;
+      }
+    
+    
   }
 
-  
-  while(1) continue;
+  printf("%cFlash slot successfully written.\nPress any key to return to menu.\n");
+  while(PEEK(0xD610)) POKE(0xD610,0);
+  while(!PEEK(0xD610)) continue;
+  POKE(0xD610,0);
   
   close(fd);
+
+  return;
 }
 
 int bash_bits=0xFF;
