@@ -201,12 +201,28 @@ void reflash_slot(unsigned char slot)
     for(i=0;i<100;i++) usleep(10000);
     lcopy((unsigned long)&buffer[256],(unsigned long)data_buffer,256);
     program_page(addr+256);
+    for(i=0;i<100;i++) usleep(10000);
 
     // Verify
     read_data(addr);
     for(i=0;i<512;i++) if (data_buffer[i]!=buffer[i]) break;
     if (i<512)
       {
+	// Failed to verify. Try once more, then give up.
+
+	// Programming works on 256 byte pages, so we have to write two of them.
+	lcopy((unsigned long)&buffer[0],(unsigned long)data_buffer,256);
+	program_page(addr);
+	for(i=0;i<100;i++) usleep(10000);
+	lcopy((unsigned long)&buffer[256],(unsigned long)data_buffer,256);
+	program_page(addr+256);
+	for(i=0;i<100;i++) usleep(10000);
+	
+	// Verify
+	read_data(addr);
+	for(i=0;i<512;i++) if (data_buffer[i]!=buffer[i]) break;
+	if (i==512) break;
+	
 	printf("Verification error at address $%llx:\n",
 	       addr+i);
 	printf("Read back $%x instead of $%x\n",
@@ -696,7 +712,7 @@ void main(void)
 #if 0
   read_data(0x400100L);
   printf("00: ");
-  for(x=0;x<256;x++) {
+  for(x=128;x<256;x++) {
     printf("%02x ",data_buffer[x]);
     if ((x&7)==7) {
       printf("\n");
