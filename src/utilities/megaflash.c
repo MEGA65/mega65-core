@@ -210,13 +210,16 @@ void reflash_slot(unsigned char slot)
       {
 	// Failed to verify. Try once more, then give up.
 
-	// Programming works on 256 byte pages, so we have to write two of them.
-	lcopy((unsigned long)&buffer[0],(unsigned long)data_buffer,256);
-	program_page(addr);
-	for(i=0;i<100;i++) usleep(10000);
-	lcopy((unsigned long)&buffer[256],(unsigned long)data_buffer,256);
-	program_page(addr+256);
-	for(i=0;i<100;i++) usleep(10000);
+	if (i<256) {
+	  // Programming works on 256 byte pages, so we have to write two of them.
+	  lcopy((unsigned long)&buffer[0],(unsigned long)data_buffer,256);
+	  program_page(addr);
+	  for(i=0;i<100;i++) usleep(10000);
+	} else {
+	  lcopy((unsigned long)&buffer[256],(unsigned long)data_buffer,256);
+	  program_page(addr+256);
+	  for(i=0;i<100;i++) usleep(10000);
+	}
 	
 	// Verify
 	read_data(addr);
