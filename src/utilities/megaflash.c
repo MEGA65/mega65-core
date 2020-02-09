@@ -198,6 +198,7 @@ void reflash_slot(unsigned char slot)
     // Programming works on 256 byte pages, so we have to write two of them.
     lcopy((unsigned long)&buffer[0],(unsigned long)data_buffer,256);
     program_page(addr);
+    for(i=0;i<100;i++) usleep(10000);
     lcopy((unsigned long)&buffer[256],(unsigned long)data_buffer,256);
     program_page(addr+256);
 
@@ -692,6 +693,19 @@ void main(void)
   if (reg_sr1&0x02) printf("write latch enabled.\n"); else printf("write latch not (yet) enabled.\n");
   if (reg_sr1&0x01) printf("device busy.\n");
 
+#if 0
+  read_data(0x400100L);
+  printf("00: ");
+  for(x=0;x<256;x++) {
+    printf("%02x ",data_buffer[x]);
+    if ((x&7)==7) {
+      printf("\n");
+      if (x!=0xff) printf("%02x: ",x+1);
+    }
+  }
+  while(1) continue;
+#endif
+  
   while(1)
     {  
 
