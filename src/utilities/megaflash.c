@@ -190,7 +190,7 @@ void reflash_slot(unsigned char slot)
   }
   
   // Read the flash file and write it to the flash
-  printf("Writing bitstream to flash...\n\na",0x93);
+  printf("Writing bitstream to flash...\n\n",0x93);
   progress=0; progress_acc=0;
   for(addr=(4L*1024L*1024L)*slot;addr<(4L*1024L*1024L)*(slot+1);addr+=512) {
     progress_acc+=512;
