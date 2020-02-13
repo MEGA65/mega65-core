@@ -633,7 +633,7 @@ int sdhc_check(void)
   return sdhc;
 }
 
-#define SECTOR_CACHE_SIZE 4096
+#define SECTOR_CACHE_SIZE 16384
 int sector_cache_count=0;
 unsigned char sector_cache[SECTOR_CACHE_SIZE][512];
 unsigned int sector_cache_sectors[SECTOR_CACHE_SIZE];
@@ -649,8 +649,16 @@ int read_sector(const unsigned int sector_number,unsigned char *buffer,int noCac
     if (!noCacheP) {
       for(int i=0;i<sector_cache_count;i++) {
 	if (sector_cache_sectors[i]==sector_number) {
-	  bcopy(sector_cache[i],buffer,512);
-	  retVal=0; cachedRead=1; break;
+	  if (i<SECTOR_CACHE_SIZE) {
+	    // Space in the cache for a new sector
+	    bcopy(sector_cache[i],buffer,512);
+	    retVal=0; cachedRead=1; break;
+	  } else {
+	    // Sector cache is full - do random replacement
+	    i=random()%SECTOR_CACHE_SIZE;
+	    bcopy(sector_cache[i],buffer,512);
+	    retVal=0; cachedRead=1; break;
+	  }
 	}
       }
     }
