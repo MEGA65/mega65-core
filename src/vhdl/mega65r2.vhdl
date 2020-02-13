@@ -64,6 +64,11 @@ entity container is
          fb_potx : inout std_logic;
          fb_poty : inout std_logic;
 
+         fa_potx_n : out std_logic := '0';
+         fa_poty_n : out std_logic := '0';
+         fb_potx_n : out std_logic := '0';
+         fb_poty_n : out std_logic := '0';
+         
          ----------------------------------------------------------------------
          -- Expansion/cartridge port
          ----------------------------------------------------------------------
@@ -791,6 +796,13 @@ begin
       iec_reset <= iec_reset_drive;
       iec_atn <= not iec_atn_drive;
 
+      -- Hold the negative side of the POT lines low
+      fa_potx_n <= '0';
+      fa_poty_n <= '0';
+      fb_potx_n <= '0';
+      fb_poty_n <= '0';
+
+      -- Do the SID-style alternate charge/discharge of POT lines
       if pot_drain='1' then
         fa_potx <= '0';
         fa_poty <= '0';
