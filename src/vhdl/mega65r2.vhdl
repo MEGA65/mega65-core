@@ -338,6 +338,10 @@ architecture Behavioral of container is
   signal portp : unsigned(7 downto 0);
 
   signal pot_drain : std_logic := '0';
+  signal fa_potx_int : std_logic := '1';
+  signal fa_poty_int : std_logic := '1';
+  signal fb_potx_int : std_logic := '1';
+  signal fb_poty_int : std_logic := '1';
   
   signal qspi_clock : std_logic;
   
