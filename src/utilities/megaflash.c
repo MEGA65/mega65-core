@@ -171,6 +171,8 @@ void reflash_slot(unsigned char slot)
     read_data(addr);
     for(i=0;i<512;i++) if (data_buffer[i]!=0xff) break;
     i=0; tries=0;
+
+    if (i==512) continue;
     
     while (i<512) {
       erase_sector(addr);
@@ -187,6 +189,13 @@ void reflash_slot(unsigned char slot)
 	}
       }
     }
+
+    // Step ahead to the next 4KB boundary, as flash sectors can't be smaller than
+    // that.
+    progress_acc+=0xe00-(addr&0xfff);
+    addr+=0x1000; addr&=0xfffff000;
+    addr-=512; // since we add this much in the for() loop
+    
   }
   
   // Read the flash file and write it to the flash
