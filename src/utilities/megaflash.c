@@ -887,7 +887,8 @@ short file_count=0;
 short selection_number=0;
 short display_offset=0;
 
-char *reading_disk_list_message="SCANNING DIRECTORY ...";
+char *reading_disk_list_message="sCANNING dIRECTORY ...";
+char *no_disk_list_message="nO mega65 cORE fILES fOUND";
 
 char *diskchooser_instructions=
   "  SELECT FLASH FILE, THEN PRESS RETURN  "
@@ -1009,7 +1010,13 @@ char *select_bitstream_file(void)
   closedir(dir);
 
   // If we didn't find any disk images, then just return
-  if (!file_count) return NULL;
+  if (!file_count) {
+    printf("%c",0x93);
+    for(x=0;no_disk_list_message[x];x++)
+      POKE(SCREEN_ADDRESS+12*40+(7)+(x*1),no_disk_list_message[x]&0x3f);
+    for(x=0;x<32;x++) usleep(65000);
+    return NULL;
+  }
 
   // Okay, we have some disk images, now get the user to pick one!
   draw_file_list();
