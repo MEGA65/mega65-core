@@ -98,6 +98,8 @@ set_property -dict {PACKAGE_PIN C14 IOSTANDARD LVCMOS33} [get_ports fa_up]
 set_property -dict {PACKAGE_PIN F14 IOSTANDARD LVCMOS33} [get_ports fa_left]
 set_property -dict {PACKAGE_PIN F13 IOSTANDARD LVCMOS33} [get_ports fa_right]
 set_property -dict {PACKAGE_PIN E17 IOSTANDARD LVCMOS33} [get_ports fa_fire]
+set_property -dict {PACKAGE_PIN H13 IOSTANDARD LVCMOS33} [get_ports fa_potx]
+set_property -dict {PACKAGE_PIN G15 IOSTANDARD LVCMOS33} [get_ports fa_poty]
 
 # Joystick port B
 set_property -dict {PACKAGE_PIN P17 IOSTANDARD LVCMOS33} [get_ports fb_down]
@@ -105,6 +107,8 @@ set_property -dict {PACKAGE_PIN W19 IOSTANDARD LVCMOS33} [get_ports fb_up]
 set_property -dict {PACKAGE_PIN F21 IOSTANDARD LVCMOS33} [get_ports fb_left]
 set_property -dict {PACKAGE_PIN C15 IOSTANDARD LVCMOS33} [get_ports fb_right]
 set_property -dict {PACKAGE_PIN F15 IOSTANDARD LVCMOS33} [get_ports fb_fire]
+set_property -dict {PACKAGE_PIN J14 IOSTANDARD LVCMOS33} [get_ports fb_potx]
+set_property -dict {PACKAGE_PIN J22 IOSTANDARD LVCMOS33} [get_ports fb_poty]
 
 ##VGA Connector
 
