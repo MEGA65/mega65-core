@@ -850,14 +850,14 @@ void progress_bar(unsigned char onesixtieths)
       POKE(0x0400+(6*40)-1+i,160);
     }    
   }
-  for(;i<=40;i++) {
+  for(;i<=39;i++) {
     POKE(0x400+(4*40)+i,0x20);
     POKE(0x400+(5*40)+i,0x20);
     POKE(0x400+(6*40)+i,0x20);
   }
-  POKE(0x0400+(4*40)+(onesixtieths/4),progress_chars[x & 3]);
-  POKE(0x0400+(5*40)+(onesixtieths/4),progress_chars[x & 3]);
-  POKE(0x0400+(6*40)+(onesixtieths/4),progress_chars[x & 3]);
+  POKE(0x0400+(4*40)+(onesixtieths/4),progress_chars[onesixtieths & 3]);
+  POKE(0x0400+(5*40)+(onesixtieths/4),progress_chars[onesixtieths & 3]);
+  POKE(0x0400+(6*40)+(onesixtieths/4),progress_chars[onesixtieths & 3]);
   return;
 }
 
