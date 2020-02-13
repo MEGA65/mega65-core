@@ -7,6 +7,7 @@
 #include "fileio.h"
 
 char *select_bitstream_file(void);
+void fetch_rdid(void);
 
 unsigned char joy_x=100;
 unsigned char joy_y=100;
@@ -122,6 +123,9 @@ unsigned long addr;
 unsigned char progress=0;
 unsigned long progress_acc=0;
 
+unsigned char verify_enable=0;
+unsigned char tries;
+
 void reflash_slot(unsigned char slot)
 {
   unsigned short bytes_returned;
@@ -147,7 +151,7 @@ void reflash_slot(unsigned char slot)
     return;
   }
 
-  printf("Erasing flash slot...\n");
+  printf("Erasing flash slot...%c%c%c%c%c%c\n",17,17,17,17,17,17);
   lfill((unsigned long)buffer,0,512);
 
   // Do a smart erase: read blocks, and only erase pages if they are
@@ -156,6 +160,7 @@ void reflash_slot(unsigned char slot)
   // Also, we will assume the BIT files contain the 4KB header we want
   // so we will just write upto 4MB of stuff in one go.
   progress=0; progress_acc=0;
+
   for(addr=(4L*1024L*1024L)*slot;addr<(4L*1024L*1024L)*(slot+1);addr+=512) {
     progress_acc+=512;
     if (progress_acc>26214) {
@@ -165,73 +170,162 @@ void reflash_slot(unsigned char slot)
     }
     read_data(addr);
     for(i=0;i<512;i++) if (data_buffer[i]!=0xff) break;
-    if (i<512) {
+    i=0; tries=0;
+    
+    while (i<512) {
       erase_sector(addr);
-      // Wait a while for erasing to finish
-      for(i=0;i<100;i++) usleep(10000);
       // Then verify that the sector has been erased
       read_data(addr);
       for(i=0;i<512;i++) if (data_buffer[i]!=0xff) break;
       if (i<512) {
-	printf("\n! Failed to erase flash page at $%llx\n",addr);
-	printf("  byte %d = $%x instead of $FF\n",i,data_buffer[i]);
-	while(1) continue;
+	tries++;
+	if (tries==16) {
+	  printf("\n! Failed to erase flash page at $%llx\n",addr);
+	  printf("  byte %d = $%x instead of $FF\n",i,data_buffer[i]);
+	  printf("Please reset and try again.\n");
+	  while(1) continue;
+	}
       }
     }
   }
   
   // Read the flash file and write it to the flash
-  printf("Writing bitstream to flash...\n",0x93);
+  printf("Writing bitstream to flash...\n\na",0x93);
   progress=0; progress_acc=0;
   for(addr=(4L*1024L*1024L)*slot;addr<(4L*1024L*1024L)*(slot+1);addr+=512) {
     progress_acc+=512;
     if (progress_acc>26214) {
       progress_acc-=26214;
       progress++;
-      progress_bar(progress);
     }
+    progress_bar(progress);
 
     bytes_returned=read512(buffer);
     
     if (!bytes_returned) break;
 
-    // Programming works on 256 byte pages, so we have to write two of them.
-    lcopy((unsigned long)&buffer[0],(unsigned long)data_buffer,256);
-    program_page(addr);
-    for(i=0;i<100;i++) usleep(10000);
-    lcopy((unsigned long)&buffer[256],(unsigned long)data_buffer,256);
-    program_page(addr+256);
-    for(i=0;i<100;i++) usleep(10000);
-
     // Verify
-    read_data(addr);
-    for(i=0;i<512;i++) if (data_buffer[i]!=buffer[i]) break;
-    if (i<512)
-      {
-	// Failed to verify. Try once more, then give up.
-
-	if (i<256) {
-	  // Programming works on 256 byte pages, so we have to write two of them.
-	  lcopy((unsigned long)&buffer[0],(unsigned long)data_buffer,256);
-	  program_page(addr);
-	  for(i=0;i<100;i++) usleep(10000);
-	} else {
-	  lcopy((unsigned long)&buffer[256],(unsigned long)data_buffer,256);
-	  program_page(addr+256);
-	  for(i=0;i<100;i++) usleep(10000);
-	}
-	
-	// Verify
-	read_data(addr);
-	for(i=0;i<512;i++) if (data_buffer[i]!=buffer[i]) break;
-	if (i==512) break;
-	
-	printf("Verification error at address $%llx:\n",
-	       addr+i);
-	printf("Read back $%x instead of $%x\n",
-	       data_buffer[i],buffer[i]);
-	while(1) continue;
+    i=0;
+    while(i<256) {
+      read_data(addr);
+      for(i=0;i<256;i++) if (data_buffer[i]!=buffer[i]) break;
+      if (i==256) {
+	printf("%cPage $%08llx is already programmed.\n",0x91,addr);
+	break;
       }
+
+      // Programming works on 256 byte pages, so we have to write two of them.
+      lcopy((unsigned long)&buffer[0],(unsigned long)data_buffer,256);
+      program_page(addr);
+
+      read_data(addr);
+      for(i=0;i<256;i++) if (data_buffer[i]!=buffer[i]) break;
+      if (i==256) {
+	break;
+      }
+      printf("%cPage $%08llx written.\n",0x91,addr);
+
+      if (!verify_enable) break;
+      
+      printf("Verification error at address $%llx:\n",
+	     addr+i);
+      printf("Read back $%x instead of $%x\n",
+	     data_buffer[i],buffer[i]);
+      printf("Press any key to continue...\n");
+      while(PEEK(0xD610)) POKE(0xD610,0);
+      while(!PEEK(0xD610)) continue;
+      while(PEEK(0xD610)) POKE(0xD610,0);
+      printf("Data read from flash is:\n");
+      for(i=0;i<256;i+=64) {
+	for(x=0;x<64;x++) {
+	  if (!(x&7)) printf("%04x : ",i+x);
+	  printf(" %02x",data_buffer[i+x]);
+	  if ((x&7)==7) printf("\n");
+	}
+      
+	printf("Press any key to continue...\n");
+	while(PEEK(0xD610)) POKE(0xD610,0);
+	while(!PEEK(0xD610)) continue;
+	while(PEEK(0xD610)) POKE(0xD610,0);
+      }
+
+      printf("Correct data is:\n");
+      for(i=0;i<256;i+=64) {
+	for(x=0;x<64;x++) {
+	  if (!(x&7)) printf("%04x : ",i+x);
+	  printf(" %02x",buffer[i+x]);
+	  if ((x&7)==7) printf("\n");
+	}
+      
+	printf("Press any key to continue...\n");
+	while(PEEK(0xD610)) POKE(0xD610,0);
+	while(!PEEK(0xD610)) continue;
+	while(PEEK(0xD610)) POKE(0xD610,0);
+      }
+      fetch_rdid();
+      i=0; 
+    }
+
+    i=0;
+    while(i<256) {
+      read_data(addr);
+      for(i=0;i<256;i++) if (data_buffer[256+i]!=buffer[256+i]) break;
+      if (i==256) {
+	printf("%cPage $%08llx is already programmed.\n",0x91,addr+256);
+	break;
+      }
+
+      // Programming works on 256 byte pages, so we have to write two of them.
+      lcopy((unsigned long)&buffer[256],(unsigned long)data_buffer,256);
+      program_page(addr+256);
+
+      read_data(addr);
+      for(i=0;i<256;i++) if (data_buffer[256+i]!=buffer[256+i]) break;
+      if (i==256) {
+	break;
+      }
+      printf("%cPage $%08llx written.\n",0x91,addr+256);
+
+      if (!verify_enable) break;
+
+      printf("Verification error at address $%llx:\n",
+	     addr+256+i);
+      printf("Read back $%x instead of $%x\n",
+	     data_buffer[i],buffer[i]);
+      printf("Press any key to continue...\n");
+      while(PEEK(0xD610)) POKE(0xD610,0);
+      while(!PEEK(0xD610)) continue;
+      while(PEEK(0xD610)) POKE(0xD610,0);
+      printf("Data read from flash is:\n");
+      for(i=0;i<256;i+=64) {
+	for(x=0;x<64;x++) {
+	  if (!(x&7)) printf("%04x : ",i+x);
+	  printf(" %02x",data_buffer[256+i+x]);
+	  if ((x&7)==7) printf("\n");
+	}
+      
+	printf("Press any key to continue...\n");
+	while(PEEK(0xD610)) POKE(0xD610,0);
+	while(!PEEK(0xD610)) continue;
+	while(PEEK(0xD610)) POKE(0xD610,0);
+      }
+
+      printf("Correct data is:\n");
+      for(i=0;i<256;i+=64) {
+	for(x=0;x<64;x++) {
+	  if (!(x&7)) printf("%04x : ",i+x);
+	  printf(" %02x",buffer[256+i+x]);
+	  if ((x&7)==7) printf("\n");
+	}
+      
+	printf("Press any key to continue...\n");
+	while(PEEK(0xD610)) POKE(0xD610,0);
+	while(!PEEK(0xD610)) continue;
+	while(PEEK(0xD610)) POKE(0xD610,0);
+      }
+      fetch_rdid();
+      i=0; 
+    }
     
     
   }
@@ -410,7 +504,7 @@ void erase_sector(unsigned long address_in_sector)
 {
 
   // XXX Send Write Enable command (0x06 ?)
-  printf("activating write enable...\n");
+  //  printf("activating write enable...\n");
   while(!(reg_sr1&0x02)) {
     spi_cs_high();
     spi_clock_high();
@@ -424,7 +518,7 @@ void erase_sector(unsigned long address_in_sector)
   }  
   
   // XXX Clear status register (0x30)
-  printf("clearing status register...\n");
+  //  printf("clearing status register...\n");
   while(reg_sr1&0x61) {
     spi_cs_high();
     spi_clock_high();
@@ -439,7 +533,7 @@ void erase_sector(unsigned long address_in_sector)
     
   // XXX Erase 64/256kb (0xdc ?)
   // XXX Erase 4kb sector (0x21 ?)
-  printf("erasing sector...\n");
+  //  printf("erasing sector...\n");
   spi_cs_high();
   spi_clock_high();
   delay();
@@ -458,7 +552,7 @@ void erase_sector(unsigned long address_in_sector)
 
   if (reg_sr1&0x20) printf("error erasing sector @ $%08x\n",address_in_sector);
   else {
-    printf("sector at $%08llx erased.\n",address_in_sector);
+    printf("sector at $%08llx erased.\n%c",address_in_sector,0x91);
   }
   
 }
@@ -467,8 +561,13 @@ void program_page(unsigned long start_address)
 {
   // XXX Send Write Enable command (0x06 ?)
 
+  while(reg_sr1&0x01) {
+    printf("flash busy. ");
+    read_registers();
+  }
+
   // XXX Send Write Enable command (0x06 ?)
-  printf("activating write enable...\n");
+  //  printf("activating write enable...\n");
   while(!(reg_sr1&0x02)) {
     spi_cs_high();
     spi_clock_high();
@@ -482,7 +581,7 @@ void program_page(unsigned long start_address)
   }  
   
   // XXX Clear status register (0x30)
-  printf("clearing status register...\n");
+  //  printf("clearing status register...\n");
   while(reg_sr1&0x61) {
     spi_cs_high();
     spi_clock_high();
@@ -494,9 +593,13 @@ void program_page(unsigned long start_address)
 
     read_registers();
   }
-    
+
+  if (!reg_sr1&0x02) {
+    printf("error: write latch cleared.\n");
+  }
+  
   // XXX Send Page Programme (0x12 for 1-bit, or 0x34 for 4-bit QSPI)
-  printf("writing 256 bytes of data...\n");
+  //  printf("writing 256 bytes of data...\n");
   spi_cs_high();
   spi_clock_high();
   delay();
@@ -512,13 +615,13 @@ void program_page(unsigned long start_address)
   spi_cs_high();
 
   while(reg_sr1&0x01) {
-    printf("flash busy. ");
+    //    printf("flash busy. ");
     read_registers();
   }
 
   if (reg_sr1&0x60) printf("error writing data @ $%08llx\n",start_address);
   else {
-    printf("data at $%08llx written.\n",start_address);
+    //    printf("data at $%08llx written.\n",start_address);
   }
   
 }
@@ -793,7 +896,7 @@ void main(void)
 	  if (x=='0') {
 	    reconfig_fpga(0);
 	  }
-	  else reconfig_fpga((x-'0')*(4*1048576)+4096);
+	  else reconfig_fpga((x-'0')*(4*1048576)+0); // +4096);
 	}
 	switch(x) {
 	case 146: case 0x41: case 0x61:  // CTRL-0
