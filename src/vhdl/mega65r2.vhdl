@@ -59,6 +59,11 @@ entity container is
          fb_down : in std_logic;
          fb_fire : in std_logic;
 
+         fa_potx : inout std_logic;
+         fa_poty : inout std_logic;
+         fb_potx : inout std_logic;
+         fb_poty : inout std_logic;
+
          ----------------------------------------------------------------------
          -- Expansion/cartridge port
          ----------------------------------------------------------------------
@@ -281,12 +286,6 @@ architecture Behavioral of container is
   signal fb_down_drive : std_logic;
   signal fb_fire_drive : std_logic;
 
-  signal fa_potx : std_logic;
-  signal fa_poty : std_logic;
-  signal fb_potx : std_logic;
-  signal fb_poty : std_logic;
-  signal pot_drain : std_logic;
-
   signal pot_via_iec : std_logic;
   
   signal iec_clk_en_drive : std_logic;
@@ -338,6 +337,8 @@ architecture Behavioral of container is
   signal porto : unsigned(7 downto 0);
   signal portp : unsigned(7 downto 0);
 
+  signal pot_drain : std_logic := '0';
+  
   signal qspi_clock : std_logic;
   
 begin
@@ -620,10 +621,10 @@ begin
       fb_down => fb_down_drive,
       fb_right => fb_right_drive,
 
-      fa_potx => fa_potx,
-      fa_poty => fa_poty,
-      fb_potx => fb_potx,
-      fb_poty => fb_poty,
+      fa_potx => fa_potx_int,
+      fa_poty => fa_poty_int,
+      fb_potx => fb_potx_int,
+      fb_poty => fb_poty_int,
       pot_drain => pot_drain,
       pot_via_iec => pot_via_iec,
 
@@ -786,42 +787,33 @@ begin
       iec_reset <= iec_reset_drive;
       iec_atn <= not iec_atn_drive;
 
-      if pot_via_iec = '0' then
-        -- Normal IEC port operation
-        iec_clk_en <= iec_clk_o_drive;
-        iec_clk_o <= not iec_clk_o_drive;
-        iec_clk_i_drive <= iec_clk_i;
-        iec_data_en <= iec_data_o_drive;
-        iec_data_o <= not iec_data_o_drive;
-        iec_data_i_drive <= iec_data_i;
-        -- So pots act like infinite resistance
+      if pot_drain='1' then
         fa_potx <= '0';
         fa_poty <= '0';
         fb_potx <= '0';
         fb_poty <= '0';
+        fa_potx_int <= '0';
+        fa_poty_int <= '0';
+        fb_potx_int <= '0';
+        fb_poty_int <= '0';
       else
-        -- IEC lines being used as POT inputs
-        iec_clk_i_drive <= '1';
-        iec_data_i_drive <= '1';
-        if pot_drain = '1' then
-          -- IEC lines being used to drain pots
-          iec_clk_en <= '1';
-          iec_clk_o <= '0';
-          iec_data_en <= '1';
-          iec_data_o <= '0';
-        else
-          -- Stop draining
-          iec_clk_en <= '0';
-          iec_clk_o <= '0';
-          iec_data_en <= '0';
-          iec_data_o <= '0';
-        end if;
-        -- Copy IEC input values to POT inputs
-        fa_potx <= iec_data_i;
-        fa_poty <= iec_clk_i;
-        fb_potx <= iec_data_i;
-        fb_poty <= iec_clk_i;
+        fa_potx <= 'Z';
+        fa_poty <= 'Z';
+        fb_potx <= 'Z';
+        fb_poty <= 'Z';
+        fa_potx_int <= fa_potx;
+        fa_poty_int <= fa_poty;
+        fb_potx_int <= fb_potx;
+        fb_poty_int <= fb_poty;
       end if;
+      
+      -- Normal IEC port operation
+      iec_clk_en <= iec_clk_o_drive;
+      iec_clk_o <= not iec_clk_o_drive;
+      iec_clk_i_drive <= iec_clk_i;
+      iec_data_en <= iec_data_o_drive;
+      iec_data_o <= not iec_data_o_drive;
+      iec_data_i_drive <= iec_data_i;
 
       pwm_l <= pwm_l_drive;
       pwm_r <= pwm_r_drive;
