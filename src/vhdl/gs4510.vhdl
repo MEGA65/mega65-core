@@ -1900,7 +1900,8 @@ begin
             end if;
           end if;
         end if;                           -- $DXXXX
-      elsif (long_address(27) = '1' or long_address(26)='1') and hyper_protected_hardware(7)='0' then
+      elsif (long_address(27) = '1' or long_address(26)='1' or long_address(25)='1') and hyper_protected_hardware(7)='0' then
+        -- @IO:GS $2000000 - $3FFFFFF SUMMARY:SLOWDEV Slow Device memory (32MB)
         -- @IO:GS $4000000 - $7FFFFFF SUMMARY:SLOWDEV Slow Device memory (64MB)
         -- @IO:GS $8000000 - $FEFFFFF SUMMARY:SLOWDEV Slow Device memory (127MB)
         -- (But not accessible in secure compartment)
