@@ -93,7 +93,6 @@ architecture behavioural of mega65r2_i2c is
   signal i2c1_rw_internal : std_logic := '0';
   signal i2c1_error : std_logic := '0';  
   signal i2c1_reset : std_logic := '1';
-  signal i2c1_reset_internal : std_logic := '1';
   signal i2c1_command_en : std_logic := '0';  
   signal i2c1_command_en_internal : std_logic := '0';  
   signal v0 : unsigned(7 downto 0) := to_unsigned(0,8);
@@ -169,19 +168,21 @@ begin
           write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 64,8);
           write_addr <= x"AE";            
           write_job_pending <= '1';
+        elsif fastio_addr(7 downto 0) = x"FE" then
+          i2c1_reset <= '0';
+        elsif fastio_addr(7 downto 0) = x"FF" then
+          i2c1_reset <= '1';
         end if;
         write_val <= fastio_wdata;
       end if;
       
-      i2c1_reset <= '1';
-
       -- State machine for reading registers from the various
       -- devices.
       last_busy <= i2c1_busy;
       if i2c1_busy='1' and last_busy='0' then
 
         -- Sequence through the list of transactions endlessly
-        if (busy_count < 126) or (write_job_pending='1' and busy_count < (126+4)) then
+        if (busy_count < 126) or ((write_job_pending='1') and (busy_count < (126+4))) then
           busy_count <= busy_count + 1;
         else
           busy_count <= 0;
@@ -250,7 +251,7 @@ begin
           i2c1_command_en <= '1';
           i2c1_wdata <= write_val;
         when 128 =>
-          -- Do dummy read of some nonsence, so that the write above doesn't
+          -- Do dummy read of some nonsense, so that the write above doesn't
           -- get carried over into the access of the first IO expander
           -- (which it was, and was naturally causing problems as a result).
           report "Doing dummy read";
