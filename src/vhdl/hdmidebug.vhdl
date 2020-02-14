@@ -257,7 +257,7 @@ architecture Behavioral of container is
   signal h_audio_left : unsigned(19 downto 0) := to_unsigned(0,20);
   signal h_audio_right : unsigned(19 downto 0) := to_unsigned(0,20);
 
-  signal counter : integer := 0;
+  signal counter : unsigned(31 downto 0) := to_unsigned(0,32);
   signal trigger_reconfigure : std_logic := '0';
 
   signal pmod_counter : unsigned(15 downto 0) := to_unsigned(0,16);
@@ -458,19 +458,19 @@ begin
 
     if rising_edge(ethclock) then
       counter <= counter + 1; 
-      if counter = (1*1048576) then
+      if counter = x"100000" then
         fpga_scl <= '1';
       end if;
-      if counter = (2*1048576) then
+      if counter = x"200000" then
         fpga_sda <= '1';
       end if;
-      if counter = (3*1048576) then
+      if counter = x"300000" then
 --      trigger_reconfigure <= '1';
-        counter <= 0;
+        counter <= to_unsigned(0,32);
         fpga_scl <= '0';
         fpga_sda <= '0';
       end if;
-      if to_unsigned(counter)(12 downto 0) = x"000" then
+      if counter(12 downto 0) = x"000" then
         pmod_counter <= pmod_counter + 1;
         p1lo <= std_logic_vector(pmod_counter(3 downto 0));
         p1hi <= std_logic_vector(pmod_counter(7 downto 4));
