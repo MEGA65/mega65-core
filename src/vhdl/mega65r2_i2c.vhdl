@@ -112,6 +112,7 @@ architecture behavioural of mega65r2_i2c is
 
   signal delayed_en : integer range 0 to 255 := 0;
 
+  signal i2c1_swap : std_logic := '0';
   signal i2c1_debug_sda : std_logic := '0';
   signal i2c1_debug_scl : std_logic := '0';
   
@@ -134,7 +135,7 @@ begin
       ack_error => i2c1_error,
       sda => sda,
       scl => scl,
-      swap => '0',
+      swap => i2c1_swap,
       debug_sda => i2c1_debug_sda,
       debug_scl => i2c1_debug_scl      
       ); 
@@ -182,6 +183,10 @@ begin
           i2c1_debug_sda <= '0';
         elsif fastio_addr(7 downto 0) = x"F3" then
           i2c1_debug_sda <= '1';          
+        elsif fastio_addr(7 downto 0) = x"F4" then
+          i2c1_swap <= '0';
+        elsif fastio_addr(7 downto 0) = x"F5" then
+          i2c1_swap <= '1';          
         elsif fastio_addr(7 downto 0) = x"FE" then
           i2c1_reset <= '0';
         elsif fastio_addr(7 downto 0) = x"FF" then
