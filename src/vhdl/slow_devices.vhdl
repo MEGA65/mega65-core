@@ -252,10 +252,11 @@ begin
             case to_integer(slow_access_address(7 downto 0)) is
               when 0 =>
                 -- @IO:GS $3FFFF00 MEGA65 PMOD P1 data port 
-                slow_access_rdata(7 downto 4) <= p1hi;
-                slow_access_rdata(3 downto 0) <= p1lo;
+                slow_access_rdata(7 downto 4) <= unsigned(p1hi);
+                slow_access_rdata(3 downto 0) <= unsigned(p1lo);
                 if slow_access_write='1' then
-                  p1hi <= slow_access_wdata;
+                  p1hi <= std_logic_vector(slow_access_wdata(7 downto 4));
+                  p1lo <= std_logic_vector(slow_access_wdata(3 downto 0));
                 end if;
               when 1 =>
                 -- @IO:GS $3FFFF01 MEGA65 PMOD P1 data direction port 
@@ -287,10 +288,11 @@ begin
                 end if;                
               when 2 =>
                 -- @IO:GS $3FFFF02 MEGA65 PMOD P2 data port 
-                slow_access_rdata(7 downto 4) <= p2hi;
-                slow_access_rdata(3 downto 0) <= p2lo;
+                slow_access_rdata(7 downto 4) <= unsigned(p2hi);
+                slow_access_rdata(3 downto 0) <= unsigned(p2lo);
                 if slow_access_write='1' then
-                  p2hi <= slow_access_wdata;
+                  p2hi <= std_logic_vector(slow_access_wdata(7 downto 4));
+                  p2lo <= std_logic_vector(slow_access_wdata(3 downto 0));
                 end if;
               when 3 =>
                 -- @IO:GS $3FFFF03 MEGA65 PMOD P2 data direction port 
