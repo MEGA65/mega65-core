@@ -716,9 +716,14 @@ begin
       ampPWM_r => pwm_r_drive,
       audio_left => audio_left,
       audio_right => audio_right,
-      
-      tmpsda => fpga_sda,
-      tmpscl => fpga_scl,
+
+      -- Normal connection of I2C peripherals to dedicated address space
+      i2c1sda => fpga_sda,
+      i2c1scl => fpga_scl,
+
+--      tmpsda => fpga_sda,
+--      tmpscl => fpga_scl,
+
       
       -- No PS/2 keyboard for now
       ps2data =>      '1',
