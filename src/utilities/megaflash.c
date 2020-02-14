@@ -123,7 +123,7 @@ unsigned long addr;
 unsigned char progress=0;
 unsigned long progress_acc=0;
 
-unsigned char verify_enable=0;
+unsigned char verify_enable=1;
 unsigned char tries;
 
 void reflash_slot(unsigned char slot)
@@ -161,6 +161,7 @@ void reflash_slot(unsigned char slot)
   // so we will just write upto 4MB of stuff in one go.
   progress=0; progress_acc=0;
 
+  if (0)
   for(addr=(4L*1024L*1024L)*slot;addr<(4L*1024L*1024L)*(slot+1);addr+=512) {
     progress_acc+=512;
     if (progress_acc>26214) {
@@ -168,6 +169,9 @@ void reflash_slot(unsigned char slot)
       progress++;
       progress_bar(progress);
     }
+    // dummy read to flush buffer in flash
+    read_data(addr^0x100000);
+    read_data(addr^0x110000);
     read_data(addr);
     for(i=0;i<512;i++) if (data_buffer[i]!=0xff) break;
     i=0; tries=0;
@@ -216,6 +220,9 @@ void reflash_slot(unsigned char slot)
     // Verify
     i=0;
     while(i<256) {
+      // Do a dummy read first, to flush any read buffer in the flash
+      read_data(addr^0x100000);
+      read_data(addr^0x110000);
       read_data(addr);
       for(i=0;i<256;i++) if (data_buffer[i]!=buffer[i]) break;
       if (i==256) {
@@ -227,9 +234,14 @@ void reflash_slot(unsigned char slot)
       lcopy((unsigned long)&buffer[0],(unsigned long)data_buffer,256);
       program_page(addr);
 
+      // Do a dummy read first, to flush any read buffer in the flash
+      read_data(addr^0x100000);
+      read_data(addr^0x110000);
       read_data(addr);
+      
       for(i=0;i<256;i++) if (data_buffer[i]!=buffer[i]) break;
       if (i==256) {
+	printf("Page $%08llx appears correct after write.\n\n",addr);
 	break;
       }
       printf("%cPage $%08llx written.\n",0x91,addr);
@@ -277,6 +289,9 @@ void reflash_slot(unsigned char slot)
 
     i=0;
     while(i<256) {
+      // Do a dummy read first, to flush any read buffer in the flash
+      read_data(addr^0x100000);
+      read_data(addr^0x110000);
       read_data(addr);
       for(i=0;i<256;i++) if (data_buffer[256+i]!=buffer[256+i]) break;
       if (i==256) {
@@ -288,6 +303,9 @@ void reflash_slot(unsigned char slot)
       lcopy((unsigned long)&buffer[256],(unsigned long)data_buffer,256);
       program_page(addr+256);
 
+      // Do dummy read first, to flush any read buffer
+      read_data(addr^0x100000);
+      read_data(addr^0x110000);
       read_data(addr);
       for(i=0;i<256;i++) if (data_buffer[256+i]!=buffer[256+i]) break;
       if (i==256) {
@@ -300,7 +318,7 @@ void reflash_slot(unsigned char slot)
       printf("Verification error at address $%llx:\n",
 	     addr+256+i);
       printf("Read back $%x instead of $%x\n",
-	     data_buffer[i],buffer[i]);
+	     data_buffer[i+256],buffer[i]+256);
       printf("Press any key to continue...\n");
       while(PEEK(0xD610)) POKE(0xD610,0);
       while(!PEEK(0xD610)) continue;
@@ -825,15 +843,25 @@ void main(void)
   if (reg_sr1&0x01) printf("device busy.\n");
 
 #if 0
-  read_data(0x400100L);
-  printf("00: ");
-  for(x=128;x<256;x++) {
-    printf("%02x ",data_buffer[x]);
-    if ((x&7)==7) {
-      printf("\n");
-      if (x!=0xff) printf("%02x: ",x+1);
+
+  for(addr=0x400000L;addr<0x800000L;addr+=512) {
+    read_data(addr);
+
+    printf("Data read from flash is:\n");
+    for(i=0;i<512;i+=64) {
+      for(x=0;x<64;x++) {
+	if (!(x&7)) printf("%08llx : ",addr+i+x);
+	printf(" %02x",data_buffer[i+x]);
+	if ((x&7)==7) printf("\n");
+      }
+    
+      printf("Press any key to continue...\n");
+      while(PEEK(0xD610)) POKE(0xD610,0);
+      while(!PEEK(0xD610)) continue;
+      while(PEEK(0xD610)) POKE(0xD610,0);
     }
   }
+
   while(1) continue;
 #endif
   
