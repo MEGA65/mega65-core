@@ -115,6 +115,7 @@ architecture behavioural of mega65r2_i2c is
   signal i2c1_swap : std_logic := '0';
   signal i2c1_debug_sda : std_logic := '0';
   signal i2c1_debug_scl : std_logic := '0';
+  signal debug_status : unsigned(5 downto 0) := "000000";
   
 begin
 
@@ -153,6 +154,10 @@ begin
       elsif fastio_addr(7 downto 0) = "11111110" then
         -- Show error status from I2C
         fastio_rdata <= (others => i2c1_error);
+      elsif fastio_addr(7 downto 0) = "11111101" then
+        -- Show error status from I2C
+        fastio_rdata(7 downto 6) <= "10";
+        fastio_rdata(5 downto 0) <= debug_status;
       else
         -- Else for debug show busy count
         fastio_rdata <= to_unsigned(busy_count,8);
@@ -177,20 +182,28 @@ begin
           write_job_pending <= '1';
         elsif fastio_addr(7 downto 0) = x"F0" then
           i2c1_debug_scl <= '0';
+          debug_status(0) <= '0';
         elsif fastio_addr(7 downto 0) = x"F1" then
           i2c1_debug_scl <= '1';          
+          debug_status(0) <= '1';
         elsif fastio_addr(7 downto 0) = x"F2" then
           i2c1_debug_sda <= '0';
+          debug_status(1) <= '0';
         elsif fastio_addr(7 downto 0) = x"F3" then
           i2c1_debug_sda <= '1';          
+          debug_status(1) <= '1';
         elsif fastio_addr(7 downto 0) = x"F4" then
           i2c1_swap <= '0';
+          debug_status(2) <= '0';
         elsif fastio_addr(7 downto 0) = x"F5" then
           i2c1_swap <= '1';          
+          debug_status(2) <= '1';
         elsif fastio_addr(7 downto 0) = x"FE" then
           i2c1_reset <= '0';
+          debug_status(3) <= '0';
         elsif fastio_addr(7 downto 0) = x"FF" then
           i2c1_reset <= '1';
+          debug_status(3) <= '1';
         end if;
         write_val <= fastio_wdata;
       end if;
