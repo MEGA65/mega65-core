@@ -65,6 +65,11 @@ entity container is
          p1hi : out std_logic_vector(3 downto 0);
          p2lo : out std_logic_vector(3 downto 0);
          p2hi : out std_logic_vector(3 downto 0);
+
+         sd2Clock : out std_logic;
+         sd2Reset : out std_logic;
+         sd2MISO : out std_logic;
+         sd2MOSI : out std_logic;
          
          ----------------------------------------------------------------------
          -- Expansion/cartridge port
@@ -479,6 +484,10 @@ begin
         p2hi <= std_logic_vector(pmod_counter(15 downto 12));
 
       end if;
+      sd2Clock <= counter(4);
+      sd2Reset <= counter(5);
+      sd2MISO <= counter(6);
+      sd2MOSI <= counter(7);
     end if;
     
   end process;    
