@@ -324,7 +324,6 @@ begin
                 end if;                
               when others => slow_access_rdata <= x"FF";
             end case;
-            slow_access
             state <= Idle;
             slow_access_ready_toggle <= slow_access_request_toggle;            
           else
