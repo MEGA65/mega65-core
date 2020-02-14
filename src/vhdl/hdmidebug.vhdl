@@ -61,6 +61,11 @@ entity container is
          fb_down : in std_logic;
          fb_fire : in std_logic;
 
+         p1lo : out std_logic_vector(3 downto 0);
+         p1hi : out std_logic_vector(3 downto 0);
+         p2lo : out std_logic_vector(3 downto 0);
+         p2hi : out std_logic_vector(3 downto 0);
+         
          ----------------------------------------------------------------------
          -- Expansion/cartridge port
          ----------------------------------------------------------------------
@@ -254,6 +259,8 @@ architecture Behavioral of container is
 
   signal counter : integer := 0;
   signal trigger_reconfigure : std_logic := '0';
+
+  signal pmod_counter : unsigned(15 downto 0) := to_unsigned(0,16);
   
 begin
 
@@ -462,6 +469,15 @@ begin
         counter <= 0;
         fpga_scl <= '0';
         fpga_sda <= '0';
+      end if;
+      if to_unsigned(counter)(12 downto 0) = x"000" then
+        pmod_counter <= pmod_counter + 1;
+        p1lo <= std_logic_vector(pmod_counter(3 downto 0));
+        p1hi <= std_logic_vector(pmod_counter(7 downto 4));
+
+        p2lo <= std_logic_vector(pmod_counter(11 downto 8));
+        p2hi <= std_logic_vector(pmod_counter(15 downto 12));
+
       end if;
     end if;
     
