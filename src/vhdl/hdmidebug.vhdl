@@ -70,6 +70,8 @@ entity container is
          sd2Reset : out std_logic;
          sd2MISO : out std_logic;
          sd2MOSI : out std_logic;
+         sd2d1 : out std_logic;
+         sd2d2 : out std_logic;
          
          ----------------------------------------------------------------------
          -- Expansion/cartridge port
@@ -485,6 +487,8 @@ begin
       sd2Reset <= counter(5);
       sd2MISO <= counter(6);
       sd2MOSI <= counter(7);
+      sd2d1 <= counter(8);
+      sd2d2 <= counter(9);
     end if;
     
   end process;    
