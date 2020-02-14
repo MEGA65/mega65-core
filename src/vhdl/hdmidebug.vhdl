@@ -196,8 +196,8 @@ entity container is
          ----------------------------------------------------------------------
          -- I2C on-board peripherals
          ----------------------------------------------------------------------
-         fpga_sda : inout std_logic;
-         fpga_scl : inout std_logic;         
+         fpga_sda : out std_logic := '0';
+         fpga_scl : out std_logic := '0';         
          
          ----------------------------------------------------------------------
          -- Serial monitor interface
@@ -449,9 +449,20 @@ begin
     h_audio_left <= h_audio_left + 32;
     h_audio_right <= h_audio_right + 32;
 
-    counter <= counter + 1;
-    if counter = (256*1048576) then
-      trigger_reconfigure <= '1';
+    if rising_edge(ethclock) then
+      counter <= counter + 1; 
+      if counter = (1*1048576) then
+        fpga_scl <= '1';
+      end if;
+      if counter = (2*1048576) then
+        fpga_sda <= '1';
+      end if;
+      if counter = (3*1048576) then
+--      trigger_reconfigure <= '1';
+        counter <= 0;
+        fpga_scl <= '0';
+        fpga_sda <= '0';
+      end if;
     end if;
     
   end process;    
