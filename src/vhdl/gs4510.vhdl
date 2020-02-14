@@ -2782,7 +2782,7 @@ begin
         else
           wait_states_non_zero <= '0';
         end if;
-      elsif (long_address(27) = '1' or long_address(26)='1') and hyper_protected_hardware(7)='0' then
+      elsif (long_address(27) = '1' or long_address(26)='1' or long_address(25) = '1') and hyper_protected_hardware(7)='0' then
         report "writing to slow device memory..." severity note;
         -- (But not accessible in secure compartment)
         accessing_slowram <= '1';
