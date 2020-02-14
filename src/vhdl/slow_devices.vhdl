@@ -43,6 +43,11 @@ ENTITY slow_devices IS
     -- Indicate if expansion port is busy with access
     cart_busy : out std_logic;
     cart_access_count : out unsigned(7 downto 0);
+
+    p1lo : inout std_logic_vector(3 downto 0) := "1111";
+    p1hi : inout std_logic_vector(3 downto 0) := "1111";
+    p2lo : inout std_logic_vector(3 downto 0) := "1111";
+    p2hi : inout std_logic_vector(3 downto 0) := "1111";
     
     ------------------------------------------------------------------------
     -- Expansion RAM (upto 128MB)
@@ -243,6 +248,83 @@ begin
             report "Preparing to access from C64 cartridge port";
             expansionram_read_timeout <= to_unsigned(1000,12);
             state <= CartridgePortRequest;
+          elsif slow_access_address(27 downto 8) = x"3ffff" then
+            case to_integer(slow_access_address(7 downto 0)) is
+              when 0 =>
+                -- @IO:GS $3FFFF00 MEGA65 PMOD P1 data port 
+                slow_access_rdata(7 downto 4) <= p1hi;
+                slow_access_rdata(3 downto 0) <= p1lo;
+                if slow_access_write='1' then
+                  p1hi <= slow_access_wdata;
+                end if;
+              when 1 =>
+                -- @IO:GS $3FFFF01 MEGA65 PMOD P1 data direction port 
+                if slow_access_write='1' then
+                  if slow_access_wdata(7)='0' then
+                    p1hi(3) <= 'Z';
+                  end if;
+                  if slow_access_wdata(6)='0' then
+                    p1hi(2) <= 'Z';
+                  end if;
+                  if slow_access_wdata(5)='0' then
+                    p1hi(1) <= 'Z';
+                  end if;
+                  if slow_access_wdata(4)='0' then
+                    p1hi(0) <= 'Z';
+                  end if;
+                  if slow_access_wdata(3)='0' then
+                    p1lo(3) <= 'Z';
+                  end if;
+                  if slow_access_wdata(2)='0' then
+                    p1lo(2) <= 'Z';
+                  end if;
+                  if slow_access_wdata(1)='0' then
+                    p1lo(1) <= 'Z';
+                  end if;
+                  if slow_access_wdata(0)='0' then
+                    p1lo(0) <= 'Z';
+                  end if;
+                end if;                
+              when 2 =>
+                -- @IO:GS $3FFFF02 MEGA65 PMOD P2 data port 
+                slow_access_rdata(7 downto 4) <= p2hi;
+                slow_access_rdata(3 downto 0) <= p2lo;
+                if slow_access_write='1' then
+                  p2hi <= slow_access_wdata;
+                end if;
+              when 3 =>
+                -- @IO:GS $3FFFF03 MEGA65 PMOD P2 data direction port 
+                if slow_access_write='1' then
+                  if slow_access_wdata(7)='0' then
+                    p2hi(3) <= 'Z';
+                  end if;
+                  if slow_access_wdata(6)='0' then
+                    p2hi(2) <= 'Z';
+                  end if;
+                  if slow_access_wdata(5)='0' then
+                    p2hi(1) <= 'Z';
+                  end if;
+                  if slow_access_wdata(4)='0' then
+                    p2hi(0) <= 'Z';
+                  end if;
+                  if slow_access_wdata(3)='0' then
+                    p2lo(3) <= 'Z';
+                  end if;
+                  if slow_access_wdata(2)='0' then
+                    p2lo(2) <= 'Z';
+                  end if;
+                  if slow_access_wdata(1)='0' then
+                    p2lo(1) <= 'Z';
+                  end if;
+                  if slow_access_wdata(0)='0' then
+                    p2lo(0) <= 'Z';
+                  end if;
+                end if;                
+              when others => slow_access_rdata <= x"FF";
+            end case;
+            slow_access
+            state <= Idle;
+            slow_access_ready_toggle <= slow_access_request_toggle;            
           else
             
             -- Unmapped address space: Content = "Unmapped"

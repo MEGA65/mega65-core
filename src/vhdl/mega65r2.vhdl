@@ -186,6 +186,12 @@ entity container is
          -- Left and right audio
          pwm_l : out std_logic;
          pwm_r : out std_logic;
+
+         -- PMOD connectors on the MEGA65 R2 main board
+         p1lo : inout std_logic_vector(3 downto 0);
+         p1hi : inout std_logic_vector(3 downto 0);
+         p2lo : inout std_logic_vector(3 downto 0);
+         p2hi : inout std_logic_vector(3 downto 0);
          
          ----------------------------------------------------------------------
          -- Floppy drive interface
@@ -497,6 +503,11 @@ begin
       
       joya => joy3,
       joyb => joy4,
+
+      p1lo => p1lo,
+      p1hi => p1hi,
+      p2lo => p2lo,
+      p2hi => p2hi,
       
 --      cart_busy => led,
       cart_access_count => cart_access_count,
