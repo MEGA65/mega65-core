@@ -127,6 +127,8 @@ set_property -dict {PACKAGE_PIN G2 IOSTANDARD LVCMOS33} [get_ports sd2Clock]
 set_property -dict {PACKAGE_PIN K2 IOSTANDARD LVCMOS33} [get_ports sd2Reset]
 set_property -dict {PACKAGE_PIN H2 IOSTANDARD LVCMOS33} [get_ports sd2MISO]
 set_property -dict {PACKAGE_PIN J2 IOSTANDARD LVCMOS33} [get_ports sd2MOSI]
+set_property -dict {PACKAGE_PIN H3 IOSTANDARD LVCMOS33} [get_ports sd2D1]
+set_property -dict {PACKAGE_PIN J1 IOSTANDARD LVCMOS33} [get_ports sd2D2]
 
 ##VGA Connector
 
