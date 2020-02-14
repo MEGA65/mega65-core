@@ -174,16 +174,18 @@ int xilinx_boundaryscan(char *xdc,char *bsdl,char *sensitivity)
   // Map JTAG bits to pins
   for(int i=0;i<boundary_bit_count;i++) {
     char *s="<unknown>";
-    for(int j=0;j<pin_count;j++)
-      if (!strcmp(pin_names[j],boundary_bit_pin[i])) s=signal_names[j];
-    if (!strcmp(boundary_bit_type[i],"input"))
-      bbit_names[i]=strdup(s);
-    else {
-      // Not an input bit, so assume its a control bit.
-      char t[1024];
-      snprintf(t,1024,"%s.ctl",s);
-      bbit_names[i]=strdup(t);
-    }
+    if (boundary_bit_pin[i]) {
+      for(int j=0;j<pin_count;j++)
+	if (!strcmp(pin_names[j],boundary_bit_pin[i])) s=signal_names[j];
+      if (!strcmp(boundary_bit_type[i],"input"))
+	bbit_names[i]=strdup(s);
+      else {
+	// Not an input bit, so assume its a control bit.
+	char t[1024];
+	snprintf(t,1024,"%s.ctl",s);
+	bbit_names[i]=strdup(t);
+      }
+    } else bbit_names[i]="<unknown>";
     bbit_vcdchar[i]=0;
     if (!strcmp("CLK_IN",s)) bbit_ignore[i]=1; else bbit_ignore[i]=0;
     if (sensitivity) {
@@ -199,7 +201,7 @@ int xilinx_boundaryscan(char *xdc,char *bsdl,char *sensitivity)
 	printf("Adding '%s' to sensitivity list.\n",s);
       } else bbit_ignore[i]=1;
     }
-    if (!strcmp(boundary_bit_type[i],"input"))
+    if (boundary_bit_type[i]&&(!strcmp(boundary_bit_type[i],"input")))
       bbit_show[i]=1; else {
       bbit_show[i]=0;
     }
