@@ -15,6 +15,10 @@ C65 $003C000-$003CFFF - 4KB C65 KERNAL/INTERFACE ROM
 C65 $003E000-$003FFFF - 8KB C65 KERNAL ROM
 GS $00 ETHCOMMAND:STOPTX Immediately stop transmitting the current ethernet frame.  Will cause a partially sent frame to be received, most likely resulting in the loss of that frame.  
 GS $01 ETHCOMMAND:STARTTX Transmit packet
+GS $3FFFF00 MEGA65 PMOD P1 data port 
+GS $3FFFF01 MEGA65 PMOD P1 data direction port 
+GS $3FFFF02 MEGA65 PMOD P2 data port 
+GS $3FFFF03 MEGA65 PMOD P2 data direction port 
 GS $4000000 - $7FFFFFF Slow Device memory (64MB)
 GS $4000000 - $7FFFFFF SUMMARY:SLOWDEV Slow Device memory (64MB)
 GS $7010000.4-0 - Read /EXROM & /GAME signal probe count (MEGA65 R1 PCB only)
@@ -671,6 +675,13 @@ GS $D6BF.7 - Enable/disable touch panel I2C communications
 GS $D6C0.0-3 - Touch pad gesture directions (left,right,up,down)
 GS $D6C0.7-4 - Touch pad gesture ID
 GS $D6C8-B - Address of bitstream in boot flash for reconfiguration
+GS $D6CC.0-3 QSPI:DB Data bits for QSPI flash interface (read/write)
+GS $D6CC.4 QSPI:DB0 DDR (1=output)
+GS $D6CC.5 QSPI:CLOCK Clock output line for QSPI flash
+GS $D6CC.6 QSPI:CSN Active-low chip-select for QSPI flash
+GS $D6CC.7 QSPI:DB1 DDR (1=output)
+GS $D6CD.0 QSPI:CLOCKRUN Set to cause QSPI clock to free run at CPU clock frequency.
+GS $D6CD.1 QSPI:CLOCK Alternate address for direct manipulation of QSPI CLOCK
 GS $D6CF - Write $42 to Trigger FPGA reconfiguration to switch to alternate bitstream.
 GS $D6D0 - I2C bus select (bus 0 = temp sensor on Nexys4 boardS)
 GS $D6D1.0 - I2C reset
@@ -745,7 +756,6 @@ GS $D6FA - Digital audio, left channel, LSB
 GS $D6FB - Digital audio, left channel, MSB
 GS $D6FC - audio LSB (source selected by $D6F4)
 GS $D6FD - audio MSB (source selected by $D6F4)
-GS $D6FF - Flash bit-bashing port
 C65 $D700 DMA:ADDRLSBTRIG DMAgic DMA list address LSB, and trigger DMA (when written)
 C65 $D701 DMA:ADDRMSB DMA list address high byte (address bits 8 -- 15).
 C65 $D702 DMA:ADDRBANK DMA list address bank (address bits 16 -- 22). Writing clears \$D704.
