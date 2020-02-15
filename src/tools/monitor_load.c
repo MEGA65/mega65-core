@@ -1641,7 +1641,9 @@ int main(int argc,char **argv)
     }
   }  
 
-  init_fpgajtag(serial_port, bitstream, 0xffffffff);
+  // Detect only A7100T parts
+  // XXX Will require patching for MEGA65 R1 PCBs, as they have an A200T part.
+  init_fpgajtag(serial_port, bitstream, 0x3631093); // 0xffffffff);
 
   if (boundary_scan) {
     // Launch boundary scan in a separate thread, so that we can monitor signals while
