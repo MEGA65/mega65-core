@@ -1550,6 +1550,7 @@ begin
       sclk_o => sclk_o,
       mosi_o => mosi_o,
       miso_i => miso_i,
+      sclk2_o => sclk2_o,
       mosi2_o => mosi2_o,
       miso2_i => miso2_i,
       
