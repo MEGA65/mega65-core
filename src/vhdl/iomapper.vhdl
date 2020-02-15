@@ -1347,14 +1347,22 @@ begin
         miso_i_sd <= miso_i;
         mosi_o <= mosi_o_sd;
         mosi2_o <= '1';
-        sclk_o <= sclk_o_sd when sd_bitbash='0' else sd_bitbash_sclk_o;
+        if sd_bitbash='0' then
+          sclk_o <= sclk_o_sd;
+        else
+          sclk_o <= sd_bitbash_sclk_o;
+        end if;
         sclk2_o <= '1';
       else
         miso_i_sd <= miso2_i;
         mosi2_o <= mosi_o_sd;
         mosi_o <= '1';
         sclk_o <= '1';
-        sclk2_o <= sclk_o_sd when sd_bitbash='0' else sd_bitbash_sclk_o;
+        if sd_bitbash = '0' then
+          sclk2_o <= sclk_o_sd;
+        else
+          sclk2_o <= sd_bitbash_sclk_o;
+        end if;
       end if;
       
 
