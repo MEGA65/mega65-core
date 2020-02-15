@@ -127,8 +127,8 @@ set_property -dict {PACKAGE_PIN G2 IOSTANDARD LVCMOS33} [get_ports sd2Clock]
 set_property -dict {PACKAGE_PIN K2 IOSTANDARD LVCMOS33} [get_ports sd2Reset]
 set_property -dict {PACKAGE_PIN H2 IOSTANDARD LVCMOS33} [get_ports sd2MISO]
 set_property -dict {PACKAGE_PIN J2 IOSTANDARD LVCMOS33} [get_ports sd2MOSI]
-set_property -dict {PACKAGE_PIN H3 IOSTANDARD LVCMOS33} [get_ports sd2D1]
-set_property -dict {PACKAGE_PIN J1 IOSTANDARD LVCMOS33} [get_ports sd2D2]
+set_property -dict {PACKAGE_PIN H3 IOSTANDARD LVCMOS33} [get_ports sd2d1]
+set_property -dict {PACKAGE_PIN J1 IOSTANDARD LVCMOS33} [get_ports sd2d2]
 
 ##VGA Connector
 
@@ -292,7 +292,7 @@ set_property -dict {PACKAGE_PIN L14 IOSTANDARD LVCMOS33} [get_ports RsRx]
 
 ##Micro SD Connector (x2 on r2 PCB)
 set_property -dict {PACKAGE_PIN G2 IOSTANDARD LVCMOS33} [get_ports sd2Clock]
-set_property -dict {PACKAGE_PIN K1 IOSTANDARD LVCMOS33} [get_ports sd2Reset]
+set_property -dict {PACKAGE_PIN K2 DRIVE 24 SLEW FAST IOSTANDARD LVCMOS33} [get_ports sd2Reset]
 set_property -dict {PACKAGE_PIN H2 IOSTANDARD LVCMOS33} [get_ports sd2MISO]
 set_property -dict {PACKAGE_PIN J2 IOSTANDARD LVCMOS33} [get_ports sd2MOSI]
 #set_property -dict { PACKAGE_PIN H2 IOSTANDARD LVCMOS33 } [get_ports {sd2_dat[0]}]
