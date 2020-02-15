@@ -249,6 +249,7 @@ entity iomapper is
     sclk_o : out std_logic;
     mosi_o : out std_logic;
     miso_i : in  std_logic;
+    sclk2_o : out std_logic;
     mosi2_o : out std_logic;
     miso2_i : in  std_logic;
 
@@ -1222,7 +1223,6 @@ begin
 
   -- Allow taking over of SD interface for bitbashing and debugging
   cs_bo <= cs_bo_sd when sd_bitbash='0' else sd_bitbash_cs_bo;
-  sclk_o <= sclk_o_sd when sd_bitbash='0' else sd_bitbash_sclk_o;
   
   scancode_out<=last_scan_code;
   process(clk,sbcs_en,lscs_en,c65uart_en,ethernetcs_en,sdcardio_en,
@@ -1237,10 +1237,14 @@ begin
         miso_i_sd <= miso_i;
         mosi_o <= mosi_o_sd;
         mosi2_o <= '1';
+        sclk_o <= sclk_o_sd when sd_bitbash='0' else sd_bitbash_sclk_o;
+        sclk2_o <= '1';
       else
         miso_i_sd <= miso2_i;
         mosi2_o <= mosi_o_sd;
         mosi_o <= '1';
+        sclk_o <= '1';
+        sclk2_o <= sclk_o_sd when sd_bitbash='0' else sd_bitbash_sclk_o;
       end if;
       
 
