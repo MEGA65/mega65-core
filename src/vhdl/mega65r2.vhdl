@@ -180,6 +180,7 @@ entity container is
          sdMOSI : out std_logic;      
          sdMISO : in  std_logic;
 
+         sd2reset : out std_logic;
          sd2Clock : out std_logic;       -- (sclk_o)
          sd2MOSI : out std_logic;
          sd2MISO : in std_logic;
@@ -683,6 +684,7 @@ begin
       sclk_o => sdClock,
       mosi_o => sdMOSI,
       miso_i => sdMISO,
+      cs2_bo => sd2Reset,
       sclk2_o => sd2Clock,
       mosi2_o => sd2MOSI,
       miso2_i => sd2MISO,
