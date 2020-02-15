@@ -193,6 +193,7 @@ entity machine is
          sclk_o : out std_logic;
          mosi_o : out std_logic;
          miso_i : in  std_logic;
+         cs2_bo : out std_logic;
          sclk2_o : out std_logic;
          mosi2_o : out std_logic;
          miso2_i : in  std_logic;
@@ -1532,6 +1533,7 @@ begin
       sclk_o => sclk_o,
       mosi_o => mosi_o,
       miso_i => miso_i,
+      cs2_bo => cs2_bo,
       sclk2_o => sclk2_o,
       mosi2_o => mosi2_o,
       miso2_i => miso2_i,
