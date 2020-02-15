@@ -731,21 +731,26 @@ void init_fpgajtag(const char *serialno, const char *filename, uint32_t file_idc
 	      }
 	    }
 	    
-            break;
+	    /*
+	     * Set JTAG clock speed and GPIO pins for our i/f
+	     */
+	    get_deviceid(usb_index, interface);          /*** Generic initialization of FTDI chip ***/
+	    for (i = 0; i < idcode_count; i++) {       /*** look for device matching file idcode ***/
+	      if (idcode_array[i] == file_idcode || file_idcode == 0xffffffff || match_any_idcode) {
+		jtag_index = i;
+		printf("Found matching device.\n");
+
+		//		if (skip_idcode-- <= 0)
+		//		  break;
+
+		return;
+	      }
+	    }
+            
 	  }
         usb_index++;
     }
 
-    /*
-     * Set JTAG clock speed and GPIO pins for our i/f
-     */
-    get_deviceid(usb_index, interface);          /*** Generic initialization of FTDI chip ***/
-    for (i = 0; i < idcode_count; i++)       /*** look for device matching file idcode ***/
-        if (idcode_array[i] == file_idcode || file_idcode == 0xffffffff || match_any_idcode) {
-            jtag_index = i;
-            if (skip_idcode-- <= 0)
-                break;
-        }
     if (jtag_index == -1) {
         printf("[%s] id %x from file does not match actual id %x\n", __FUNCTION__, file_idcode, idcode_array[0]);
         exit(-1);
