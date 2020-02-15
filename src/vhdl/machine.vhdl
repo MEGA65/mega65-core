@@ -191,12 +191,13 @@ entity machine is
          iec_clk_external : in std_logic;
          
          -------------------------------------------------------------------------
-         -- Lines for the SDcard interface itself
+         -- Lines for the SDcard interfaces (internal and external (2))
          -------------------------------------------------------------------------
          cs_bo : out std_logic;
          sclk_o : out std_logic;
          mosi_o : out std_logic;
          miso_i : in  std_logic;
+         sclk2_o : out std_logic;
          mosi2_o : out std_logic;
          miso2_i : in  std_logic;
 
