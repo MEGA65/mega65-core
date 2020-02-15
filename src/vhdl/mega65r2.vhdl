@@ -642,7 +642,7 @@ begin
       sclk_o => sdClock,
       mosi_o => sdMOSI,
       miso_i => sdMISO,
-      cs2_bo => sd2Reset,
+      cs2_bo => sd2reset,
       sclk2_o => sd2Clock,
       mosi2_o => sd2MOSI,
       miso2_i => sd2MISO,
