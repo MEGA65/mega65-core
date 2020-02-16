@@ -162,7 +162,8 @@ begin
       if (state /= Idle) and ( slowdown_counter /= 0) then
         slowdown_counter <= slowdown_counter - 1;
       else
-        slowdown_counter <= 1000000;
+--        slowdown_counter <= 1000000;
+        slowdown_counter <= 0;
         
         case state is
           when Idle =>
