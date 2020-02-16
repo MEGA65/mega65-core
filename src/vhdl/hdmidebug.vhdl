@@ -311,27 +311,27 @@ begin
 --               clock54 => clock54
                );
 
-  hyperram0: entity work.hyperram
-    port map (
-      cpuclock => cpuclock,
-      clock240 => cpuclock,
-      -- reset => reset_out,
-      address => expansionram_address,
-      wdata => expansionram_wdata,
-      read_request => expansionram_read,
-      write_request => expansionram_write,
-      rdata => expansionram_rdata,
-      data_ready_strobe => expansionram_data_ready_strobe,
-      busy => expansionram_busy,
---      latency_1x => to_unsigned(4,8),
---      latency_2x => to_unsigned(8,8),
+--   hyperram0: entity work.hyperram
+--     port map (
+--       cpuclock => cpuclock,
+--       clock240 => cpuclock,
+--       -- reset => reset_out,
+--       address => expansionram_address,
+--       wdata => expansionram_wdata,
+--       read_request => expansionram_read,
+--       write_request => expansionram_write,
+--       rdata => expansionram_rdata,
+--       data_ready_strobe => expansionram_data_ready_strobe,
+--       busy => expansionram_busy,
+-- --      latency_1x => to_unsigned(4,8),
+-- --      latency_2x => to_unsigned(8,8),
       
-      hr_d => hr_d,
-      hr_rwds => hr_rwds,
-      hr_reset => hr_reset,
-      hr_clk_p => hr_clk_p,
-      hr_cs0 => hr_cs0
-      );
+--       hr_d => hr_d,
+--       hr_rwds => hr_rwds,
+--       hr_reset => hr_reset,
+--       hr_clk_p => hr_clk_p,
+--       hr_cs0 => hr_cs0
+--       );
   
 
   
@@ -698,20 +698,6 @@ begin
     if rising_edge(ethclock) then
       counter <= counter + 1; 
 
-      if counter(24 downto 0) = to_unsigned(0,25) then
-        reg_num(4 downto 0) <= reg_num(4 downto 0) + 1;
-      end if;
-      
-      if counter(12 downto 0) = x"000" then
-        pmod_counter <= pmod_counter + 1;
-        p1lo <= std_logic_vector(pmod_counter(3 downto 0));
-        p1hi <= std_logic_vector(pmod_counter(7 downto 4));
-
-        p2lo <= std_logic_vector(pmod_counter(11 downto 8));
-        p2hi <= std_logic_vector(pmod_counter(15 downto 12));
-
-      end if;
-
       if counter(25 downto 0)=to_unsigned(0,26) then
         expansionram_read <= '1';
       else
@@ -724,6 +710,15 @@ begin
       sd2MOSI <= counter(7);
       sd2d1 <= counter(8);
       sd2d2 <= counter(9);
+
+      -- Try waggling Hyperram pins
+      hr_d <= counter(7 downto 0);
+      hr_cs0 <= counter(24);
+      hr_reset <= counter(25);
+      hr_rwds <= counter(26);
+      hr_clk_p <= counter(23);
+      led <= counter(23);
+      
     end if;
     
   end process;    
