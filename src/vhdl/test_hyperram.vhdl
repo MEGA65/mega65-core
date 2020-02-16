@@ -25,7 +25,7 @@ architecture foo of test_hyperram is
   signal hr_reset : std_logic := '1';
   signal hr_clk_n : std_logic := '0';
   signal hr_clk_p : std_logic := '0';
-  signal hr_cs : std_logic := '0';
+  signal hr_cs0 : std_logic := '0';
   
 begin
 
@@ -50,9 +50,21 @@ begin
       hr_reset => hr_reset,
       hr_clk_n => hr_clk_n,
       hr_clk_p => hr_clk_p,
-      hr_cs => hr_cs
+      hr_cs0 => hr_cs0
       );
 
+  process(hr_cs0, hr_clk_p, hr_reset, hr_rwds, hr_d) is
+  begin
+    report
+      "hr_cs0 = " & std_logic'image(hr_cs0) & ", " &
+      "hr_clk_p = " & std_logic'image(hr_clk_p) & ", " &
+      "hr_reset = " & std_logic'image(hr_reset) & ", " &
+      "hr_rwds = " & std_logic'image(hr_rwds) & ", " &
+      "hr_d = " & to_hstring(hr_d) & ", " &
+      ".";
+  end process;
+  
+  
   -- 240MHz fast clock and 40MHz cpu clock
   process is
   begin
