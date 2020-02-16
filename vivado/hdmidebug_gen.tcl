@@ -98,6 +98,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/cputypes.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/victypes.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/hdmidebug.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/hyperram.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/hdmi_spdif.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/reconfig.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/frame_generator.vhdl"]"\
@@ -180,6 +181,10 @@ set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
 set file "vhdl/hdmidebug.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/hyperram.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
