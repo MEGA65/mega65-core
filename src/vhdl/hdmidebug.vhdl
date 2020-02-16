@@ -674,6 +674,13 @@ begin
     HDMIRED <= UNSIGNED(RED);
     hdmigreen <= unsigned(green);
     hdmiblue <= unsigned(blue);
+
+    if expansionram_busy='1' then
+      hdmiblue <= (others => '1');
+    else
+      hdmiblue <= (others => '0');
+    end if;
+    led <= expansionram_busy;
   
     vdac_sync_n <= '0';  -- no sync on green
     vdac_blank_n <= '1'; -- was: not (v_hsync or v_vsync); 
