@@ -265,6 +265,15 @@ architecture Behavioral of container is
   signal trigger_reconfigure : std_logic := '0';
 
   signal pmod_counter : unsigned(15 downto 0) := to_unsigned(0,16);
+
+  signal expansionram_read : std_logic := '0';
+  signal expansionram_write : std_logic := '0';
+  signal expansionram_rdata : unsigned(7 downto 0);
+  signal expansionram_wdata : unsigned(7 downto 0);
+  signal expansionram_address : unsigned(26 downto 0) := to_unsigned(0,27);
+  signal expansionram_data_ready_strobe : std_logic;
+  signal expansionram_busy : std_logic;
+
   
 begin
 
@@ -317,6 +326,30 @@ begin
 --               clock54 => clock54
                );
 
+  hyperram0: entity work.hyperram
+    port map (
+      cpuclock => cpuclock,
+      clock240 => cpuclock,
+      -- reset => reset_out,
+      address => expansionram_address,
+      wdata => expansionram_wdata,
+      read_request => expansionram_read,
+      write_request => expansionram_write,
+      rdata => expansionram_rdata,
+      data_ready_strobe => expansionram_data_ready_strobe,
+      busy => expansionram_busy,
+--      latency_1x => to_unsigned(4,8),
+--      latency_2x => to_unsigned(8,8),
+      
+      hr_d => hr_d,
+      hr_rwds => hr_rwds,
+      hr_reset => hr_reset,
+      hr_clk_p => hr_clk_p,
+      hr_cs0 => hr_cs0
+      );
+  
+
+  
   kbd0: entity work.mega65kbd_to_matrix
     port map (
       ioclock => cpuclock,
@@ -483,6 +516,13 @@ begin
         p2hi <= std_logic_vector(pmod_counter(15 downto 12));
 
       end if;
+
+      if counter(25 downto 0)=to_unsigned(0,26) then
+        expansionram_read <= '1';
+      else
+        expansionram_read <= '0';
+      end if;
+      
       sd2Clock <= counter(4);
       sd2Reset <= counter(5);
       sd2MISO <= counter(6);
