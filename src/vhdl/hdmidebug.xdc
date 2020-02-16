@@ -11,8 +11,7 @@ create_clock -period 10.000 -name CLK_IN [get_ports CLK_IN]
 set_property -dict {PACKAGE_PIN M13 IOSTANDARD LVCMOS33} [get_ports btnCpuReset]
 
 # General purpose LED on mother board
-#set_property -dict {PACKAGE_PIN U22 IOSTANDARD LVCMOS33} [get_ports led] DEBUG
-set_property -dict {PACKAGE_PIN A21 IOSTANDARD LVCMOS33} [get_ports led]
+set_property -dict {PACKAGE_PIN U22 IOSTANDARD LVCMOS33} [get_ports led]
 
 # CBM-488/IEC serial port
 set_property -dict {PACKAGE_PIN AA21 IOSTANDARD LVCMOS33} [get_ports iec_clk_en]
@@ -259,8 +258,7 @@ set_property -dict {PACKAGE_PIN E16 IOSTANDARD LVCMOS33} [get_ports internal_spe
 
 ## Hyper RAM
 set_property -dict {PACKAGE_PIN D22 IOSTANDARD LVCMOS33} [get_ports hr_clk_p]
-#set_property -dict {PACKAGE_PIN A21 IOSTANDARD LVCMOS33} [get_ports {hr_d[0]}]  DEBUG
-set_property -dict {PACKAGE_PIN U22 IOSTANDARD LVCMOS33} [get_ports {hr_d[0]}]
+set_property -dict {PACKAGE_PIN A21 IOSTANDARD LVCMOS33} [get_ports {hr_d[0]}]
 set_property -dict {PACKAGE_PIN D21 IOSTANDARD LVCMOS33} [get_ports {hr_d[1]}]
 set_property -dict {PACKAGE_PIN C20 IOSTANDARD LVCMOS33} [get_ports {hr_d[2]}]
 set_property -dict {PACKAGE_PIN A20 IOSTANDARD LVCMOS33} [get_ports {hr_d[3]}]
