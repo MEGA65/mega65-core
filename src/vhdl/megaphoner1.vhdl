@@ -34,6 +34,7 @@ library UNISIM;
 use UNISIM.VComponents.all;
 
 entity container is
+  generic ( debugmode = false);
   Port ( CLK_IN : STD_LOGIC;
 --         btnCpuReset : in  STD_LOGIC;
 --         irq : in  STD_LOGIC;
@@ -131,7 +132,8 @@ entity container is
          ----------------------------------------------------------------------
          -- Flash RAM for holding config
          ----------------------------------------------------------------------
-         QspiDB : inout unsigned(3 downto 0) := (others => '0');
+--         QspiSCK : out std_logic;
+         QspiDB : inout unsigned(3 downto 0) := (others => 'Z');
          QspiCSn : out std_logic;
 
          ----------------------------------------------------------------------
@@ -359,29 +361,29 @@ begin
       clk => cpuclock,
       temp => fpga_temperature);
 
---  hyperram0: entity work.hyperram
---    port map (
---      latency_1x => to_unsigned(4,8),
---      latency_2x => to_unsigned(8,8),
---      reset => reset_out,
---      cpuclock => cpuclock,
---      clock240 => clock163,
---      address => expansionram_address,
---      wdata => expansionram_wdata,
---      read_request => expansionram_read,
---      write_request => expansionram_write,
---      rdata => expansionram_rdata,
---      data_ready_strobe => expansionram_data_ready_strobe,
---      busy => expansionram_busy,
---      hr_d => hr_d,
---      hr_rwds => hr_rwds,
---      hr_reset => hr_reset,
---      hr_clk_n => hr_clk_n,
---      hr_clk_p => hr_clk_p,
---      hr_cs0 => hr_cs0
---      hr_cs1 => hr_cs1
---      );
-
+  hyperram0: entity work.hyperram
+    port map (
+      latency_1x => to_unsigned(4,8),
+      latency_2x => to_unsigned(8,8),
+      reset => reset_out,
+      cpuclock => cpuclock,
+      clock240 => clock163,
+      address => expansionram_address,
+      wdata => expansionram_wdata,
+      read_request => expansionram_read,
+      write_request => expansionram_write,
+      rdata => expansionram_rdata,
+      data_ready_strobe => expansionram_data_ready_strobe,
+      busy => expansionram_busy,
+      hr_d => hr_d,
+      hr_rwds => hr_rwds,
+      hr_reset => hr_reset,
+      hr_clk_n => hr_clk_n,
+      hr_clk_p => hr_clk_p,
+      hr_cs0 => hr_cs0
+      hr_cs1 => hr_cs1
+      );
+  
   slow_devices0: entity work.slow_devices
     port map (
       cpuclock => cpuclock,
@@ -445,6 +447,8 @@ begin
       cart_a => cart_a
       );
 
+  machine_megaphone:
+  if debugmode = false generate
   machine0: entity work.machine
     generic map (cpufrequency => 40,
                  target => megaphoner1)
@@ -657,6 +661,7 @@ begin
 --      sseg_ca => sseg_ca,
 --      sseg_an => sseg_an
       );
+  end generate;
 
   lcd_dclk <= clock27;
 
