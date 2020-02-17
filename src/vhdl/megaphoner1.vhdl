@@ -34,14 +34,13 @@ library UNISIM;
 use UNISIM.VComponents.all;
 
 entity container is
-  generic ( debugmode = false);
   Port ( CLK_IN : STD_LOGIC;
 --         btnCpuReset : in  STD_LOGIC;
 --         irq : in  STD_LOGIC;
 --         nmi : in  STD_LOGIC;
 
-         wifirx : out std_logic;
-         wifitx : out std_logic;
+         wifirx : out std_logic := '1';
+         wifitx : out std_logic := '1';
 
          i2c1sda : inout std_logic;
          i2c1scl : inout std_logic;
@@ -447,8 +446,6 @@ begin
       cart_a => cart_a
       );
 
-  machine_megaphone:
-  if debugmode = false generate
   machine0: entity work.machine
     generic map (cpufrequency => 40,
                  target => megaphoner1)
@@ -661,7 +658,6 @@ begin
 --      sseg_ca => sseg_ca,
 --      sseg_an => sseg_an
       );
-  end generate;
 
   lcd_dclk <= clock27;
 
