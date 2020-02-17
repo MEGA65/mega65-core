@@ -162,8 +162,8 @@ begin
       if (state /= Idle) and ( slowdown_counter /= 0) then
         slowdown_counter <= slowdown_counter - 1;
       else
---        slowdown_counter <= 1000000;
-        slowdown_counter <= 0;
+        slowdown_counter <= 1000000;
+--        slowdown_counter <= 0;
         
         case state is
           when Idle =>
@@ -184,10 +184,15 @@ begin
             -- Release CS line between transactions
             hr_cs0 <= '1';
             hr_cs1 <= '1';
+
+            -- Put recogniseable patter on data lines for debugging
+            hr_d <= x"A5";
           when ReadSetup =>
             -- Prepare command vector
             hr_command(47) <= '1'; -- READ
-            hr_command(46) <= ram_address(24); -- Memory address space (1) / Register
+            -- Map actual RAM to bottom 32MB of 64MB space (repeated 4x)
+            -- and registers to upper 32MB
+            hr_command(46) <= not ram_address(25); -- Memory address space (1) / Register
                                                -- address space select (0) ?
             hr_command(45) <= '1'; -- Linear access (not wrapped)
             hr_command(44 downto 37) <= (others => '0'); -- unused upper address bits
