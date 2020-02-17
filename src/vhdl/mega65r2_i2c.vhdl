@@ -99,6 +99,7 @@ architecture behavioural of mega65r2_i2c is
   signal v1 : unsigned(7 downto 0) := to_unsigned(0,8);
 
   signal busy_count : integer range 0 to 255 := 150;
+  signal last_busy_count : integer range 0 to 255 := 150;
   signal last_busy : std_logic := '1';
   
   subtype uint8 is unsigned(7 downto 0);
@@ -216,11 +217,14 @@ begin
         -- Sequence through the list of transactions endlessly
         if (busy_count < 126) or ((write_job_pending='1') and (busy_count < (126+4))) then
           busy_count <= busy_count + 1;
+          report "busy_count = " & integer'image(busy_count + 1);
         else
           busy_count <= 0;
-        end if;
+        report "busy_count = " & integer'image(0);
+        end if;        
       end if;
-
+      last_busy_count <= busy_count;
+      
       case busy_count is
         -- The body for this case statement can be automatically generated
         -- using src/tools/i2cstatemapper.c
@@ -229,7 +233,7 @@ begin
         -- Start of Auto-Generated Content
         --------------------------------------------------------------------        
         when 0 =>
-          report "Serial EEPROM UUID";
+--          report "Serial EEPROM UUID";
           i2c1_command_en <= '1';
           i2c1_address <= "1010000"; -- 0xA1/2 = I2C address of device;
           i2c1_wdata <= x"F8";
@@ -273,25 +277,43 @@ begin
         when 126 =>
           -- Write to a register, if a request is pending:
           -- First, write the address and register number.
+          if last_busy_count /= busy_count then
+            report "Writing to register $" & to_hstring(write_addr(7 downto 0));
+          end if;
           i2c1_rw <= '0';
           i2c1_command_en <= '1';
           i2c1_address <= write_addr(7 downto 1);
           i2c1_wdata <= write_reg;
         when 127 =>
           -- Second, write the actual value into the register
+          if last_busy_count /= busy_count then
+            report "Writing value $" & to_hstring(write_val) & " to register";
+          end if;
+          if i2c1_busy='0' then
+            i2c1_command_en <= '1';
+          else
+            i2c1_command_en <= '0';
+          end if;
           i2c1_rw <= '0';
-          i2c1_command_en <= '1';
           i2c1_wdata <= write_val;
         when 128 =>
           -- Do dummy read of some nonsense, so that the write above doesn't
           -- get carried over into the access of the first IO expander
           -- (which it was, and was naturally causing problems as a result).
-          report "Doing dummy read";
+          if last_busy_count /= busy_count then
+            report "Doing dummy read after write";
+          end if;
+          if i2c1_busy='0' then
+            i2c1_command_en <= '1';
+          else
+            i2c1_command_en <= '0';
+          end if;
           i2c1_rw <= '1';
-          i2c1_command_en <= '1';
           i2c1_address <= (others => '1');
         when others =>
-          report "in others";
+          if last_busy_count /= busy_count then
+            report "in others";
+          end if;
           -- Make sure we can't get stuck.
           i2c1_command_en <= '0';
           busy_count <= 0;
