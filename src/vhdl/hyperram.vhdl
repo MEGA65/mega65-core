@@ -192,7 +192,8 @@ begin
             hr_command(47) <= '1'; -- READ
             -- Map actual RAM to bottom 32MB of 64MB space (repeated 4x)
             -- and registers to upper 32MB
-            hr_command(46) <= not ram_address(25); -- Memory address space (1) / Register
+            hr_command(46) <= '1'; -- Memory address space (1) / Register
+--            hr_command(46) <= not ram_address(25); -- Memory address space (1) / Register
                                                -- address space select (0) ?
             hr_command(45) <= '1'; -- Linear access (not wrapped)
             hr_command(44 downto 37) <= (others => '0'); -- unused upper address bits
