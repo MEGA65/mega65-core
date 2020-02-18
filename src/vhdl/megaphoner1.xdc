@@ -129,7 +129,7 @@ set_property -dict {PACKAGE_PIN G17 IOSTANDARD LVCMOS18 PULLUP TRUE} [get_ports 
 set_property -dict {PACKAGE_PIN D18 IOSTANDARD LVCMOS18 PULLUP TRUE} [get_ports {hr_d[5]}]
 set_property -dict {PACKAGE_PIN B18 IOSTANDARD LVCMOS18 PULLUP TRUE} [get_ports {hr_d[6]}]
 set_property -dict {PACKAGE_PIN A16 IOSTANDARD LVCMOS18 PULLUP TRUE} [get_ports {hr_d[7]}]
-set_property -dict {PACKAGE_PIN E18 IOSTANDARD LVCMOS18 PULLUP TRUE} [get_ports hr_rwds]
+set_property -dict {PACKAGE_PIN E18 IOSTANDARD LVCMOS18} [get_ports hr_rwds]
 set_property -dict {PACKAGE_PIN C17 IOSTANDARD LVCMOS18 PULLUP TRUE} [get_ports hr_rsto]
 set_property -dict {PACKAGE_PIN J17 IOSTANDARD LVCMOS18 PULLUP TRUE} [get_ports hr_reset]
 #set_property -dict {PACKAGE_PIN J18 IOSTANDARD LVCMOS18 PULLUP TRUE} [get_ports hr_int]
