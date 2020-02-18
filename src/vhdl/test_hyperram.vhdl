@@ -16,7 +16,7 @@ architecture foo of test_hyperram is
   signal expansionram_write : std_logic := '0';
   signal expansionram_rdata : unsigned(7 downto 0);
   signal expansionram_wdata : unsigned(7 downto 0);
-  signal expansionram_address : unsigned(26 downto 0) := (others => '0');
+  signal expansionram_address : unsigned(26 downto 0) := "000000100100011010001010110";
   signal expansionram_data_ready_strobe : std_logic;
   signal expansionram_busy : std_logic;
 
@@ -53,6 +53,17 @@ begin
       hr_cs0 => hr_cs0
       );
 
+  fakehyper0: entity work.fakehyperram
+    port map (
+      hr_d => hr_d,
+      hr_rwds => hr_rwds,
+      hr_reset => hr_reset,
+      hr_clk_n => hr_clk_n,
+      hr_clk_p => hr_clk_p,
+      hr_cs0 => hr_cs0
+      );
+    
+  
   process(hr_cs0, hr_clk_p, hr_reset, hr_rwds, hr_d) is
   begin
     report
