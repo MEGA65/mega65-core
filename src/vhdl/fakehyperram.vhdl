@@ -29,6 +29,8 @@ architecture gothic of fakehyperram is
 
   signal command : std_logic_vector(47 downto 0);
   signal command_clocks_remaining : integer := 0;
+  signal latency_clocks_remaining : integer := 0;
+  signal in_transfer : std_logic := '0';
   signal last_cs0 : std_logic := '1';
   signal read_write : std_logic := '1';
   
@@ -60,12 +62,14 @@ begin
         command_clocks_remaining <= command_clocks_remaining - 1;
       elsif command_clocks_remaining = 1 then
         -- Finished CA clock in
+        hr_rwds <= 'Z';
         report "CA is $" & to_hstring(command);
         if command(47)='1' then
           report "  job is READ";
         else
           report "  job is WRITE";
         end if;
+        read_write <= command(47);
         if command(46)='1' then
           report "  job is REGISTER";
         else
@@ -78,8 +82,28 @@ begin
         end if;
         report "  address is $" & to_hstring(command(44 downto 16)&command(2 downto 0));
         command_clocks_remaining <= 0;
+        -- 8 clocks minus the two clocks for the last two bytes of CA, that
+        -- don't contain ROW/COL lookup info = 6
+        -- Then take one off, so that we are actually acting when first data comes
+        latency_clocks_remaining <= 6 - 1;
+      elsif latency_clocks_remaining /= 0 then
+        latency_clocks_remaining <= latency_clocks_remaining - 1;
+        report "Waiting for initial latency to expire: " & integer'image(latency_clocks_remaining);
+        if latency_clocks_remaining = 1 then
+          in_transfer <= '1';
+        end if;
+      else
+        if read_write = '1' then
+          report "Reading data";
+        else
+          report "Writing data: value=$" & to_hstring(hr_d) & ", write_gate=" & std_logic'image(hr_rwds);
+        end if;
       end if;
-                  
+      -- Cancel transaction when CS goes high
+      if hr_cs0 = '1' then
+        in_transfer <= '0';
+      end if;
+      
     end if;
   end process;
 end gothic;
