@@ -410,7 +410,7 @@ wire mem_done;
 reg mem_error;
 reg [7:0] mem_read_byte;
 reg [1:0] mem_state;
-reg [15:0] mem_timeout;
+reg [24:0] mem_timeout;
 
 `define MEM_STATE_IDLE    0         // Nothing in progress (also where we go after ACK)
 `define MEM_STATE_WAIT    1         // Waiting for monitor_mem_attention_granted to be 0
@@ -426,7 +426,7 @@ assign mem_done = mem_state == `MEM_STATE_IDLE;
 always @(posedge clk)
 begin
   if(mem_timer_reset)
-    mem_timeout <= 65535;
+    mem_timeout <= 33554431;
   else if(mem_timer_expired == 0)
     mem_timeout = mem_timeout - 1;
 end
