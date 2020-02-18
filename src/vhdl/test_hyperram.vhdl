@@ -26,6 +26,11 @@ architecture foo of test_hyperram is
   signal hr_clk_n : std_logic := '0';
   signal hr_clk_p : std_logic := '0';
   signal hr_cs0 : std_logic := '0';
+
+  signal cycles : integer := 0;
+
+  signal expecting_byte : std_logic := '0';
+  signal expected_byte : unsigned(7 downto 0);
   
 begin
 
@@ -83,11 +88,32 @@ begin
     report "expansionram_data_ready_strobe=" & std_logic'image(expansionram_data_ready_strobe) 
       & ", expansionram_busy=" & std_logic'image(expansionram_busy);
 
-    if expansionram_busy='0' then
-      report "Requesting hyperram write";
-      expansionram_write <= '1';
+    if expansionram_busy = '0' then
+      cycles <= cycles + 1;
+      case cycles is
+        when 1 =>
+          report "DISPATCH: Write to $123456";
+          expansionram_write <= '1';
+          expansionram_read <= '0';
+          expansionram_wdata <= x"42";
+          expansionram_address(23 downto 0) <= x"123456";          
+        when 10 =>
+          report "DISPATCH: Read from $123456";
+          expansionram_write <= '0';
+          expansionram_read <= '1';
+          expansionram_address(23 downto 0) <= x"123456";
+          expected_byte <= x"42";
+          expecting_byte <= '1';
+        when others =>
+      end case;
     else
+      expansionram_read <= '0';
       expansionram_write <= '0';
+    end if;
+
+    if expansionram_data_ready_strobe = '1' and expecting_byte='1' then
+      report "Expected byte $" & to_hstring(expected_byte) & ", and received $" & to_hstring(expansionram_rdata);
+      expecting_byte <= '0';
     end if;
     
     cpuclock <= '0';
