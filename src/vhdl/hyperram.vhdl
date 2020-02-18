@@ -302,9 +302,10 @@ begin
                   state <= HyperRAMReadWait;
                 else
                   -- Writing, so count down the correct number of cycles;
-                  -- Initial latency is reduced by 3 cycles for the last bytes
-                  -- of the access command
-                  countdown <= 6 - 3;
+                  -- Initial latency is reduced by 2 cycles for the last bytes
+                  -- of the access command, and by 1 more to cover state
+                  -- machine latency
+                  countdown <= 8 - 2 - 1;
                   state <= HyperRAMLatencyWait;
                 end if;
               end if;
@@ -318,6 +319,7 @@ begin
               hr_clk_p <= hr_clock;
               hr_clock <= not hr_clock;
             else
+              report "latency countdown = " & integer'image(countdown);
               if countdown /= 0 then
                 countdown <= countdown - 1;
               else
@@ -326,6 +328,9 @@ begin
                   -- then wait another 6 cycles.
                   extra_latency <= '0';
                   countdown <= 6;
+                  -- Also begin driving RWDS low when CLK low one
+                  -- cycle before actually starting to write.
+                  hr_rwds <= '0';
                 else
                   -- Latency countdown for writing is over, we can now
                   -- begin writing bytes.
@@ -334,6 +339,10 @@ begin
                   -- If it is too high an address, then we are late.
                   -- If it is not written at all, then we are too early.
 
+                  -- XXX HyperRAM works on 16-bit fundamental transfers.
+                  -- This means we need to have two half-cycles, and pick which
+                  -- one we want to write during.
+                  
                   -- Write byte
                   hr_rwds <= '1';
                   hr_d <= ram_wdata;
@@ -345,7 +354,8 @@ begin
             -- Last cycle was data, so next cycle is clock.
 
             -- Indicate no more bytes to write
-            hr_rwds <= '0';
+            hr_rwds <= 'Z';
+            hr_cs0 <= '1';
 
             -- Toggle clock
             hr_clk_n <= not hr_clock;
