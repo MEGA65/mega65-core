@@ -1687,6 +1687,12 @@ sumslab:
         map
         eom
 
+	// Now make sure we are mapping MB 0 for the lower half.
+	ldx #$0f
+	lda #$00
+	map
+	eom
+	
         // sum contents of 16KB slab
         //
         lda #$00
