@@ -27,6 +27,8 @@ set_property -dict {PACKAGE_PIN B21 IOSTANDARD LVCMOS33} [get_ports hr_rwds]
 set_property -dict {PACKAGE_PIN B22 IOSTANDARD LVCMOS33} [get_ports hr_reset]
 set_property -dict {PACKAGE_PIN C22 IOSTANDARD LVCMOS33} [get_ports hr_cs0]
 
+
+
 # XXX - Do we need something like this?
 # CONFIG INTERNAL_VREF_BANK34= 0.900;
 
