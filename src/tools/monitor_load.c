@@ -76,7 +76,7 @@ void set_vcd_file(char *name);
 void usage(void)
 {
   fprintf(stderr,"MEGA65 cross-development tool for booting the MEGA65 using a custom bitstream and/or HICKUP file.\n");
-  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <hickup file>] [-R romfile] [-U flashmenufile] [-C charromfile]] [-c COLOURRAM.BIN] [-B breakpoint] [-m modeline] [-o] [-d diskimage.d81] [-j] [-J <XDC,BSDL[,sensitivity list]> [-V <vcd file>]] [[-1] [<-t|-T> <text>] [-f FPGA serial ID] [filename]] [-H] [-E|-L] [-Z <flash addr>]\n");
+  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <hickup file>] [-R romfile] [-C charromfile]] [-c COLOURRAM.BIN] [-B breakpoint] [-m modeline] [-o] [-d diskimage.d81] [-j] [-J <XDC,BSDL[,sensitivity list]> [-V <vcd file>]] [[-1] [<-t|-T> <text>] [-f FPGA serial ID] [filename]] [-H] [-E|-L]\n");
   fprintf(stderr,"  -l - Name of serial port to use, e.g., /dev/ttyUSB1\n");
   fprintf(stderr,"  -s - Speed of serial port in bits per second. This must match what your bitstream uses.\n");
   fprintf(stderr,"       (Older bitstream use 230400, and newer ones 2000000 or 4000000).\n");
@@ -84,6 +84,7 @@ void usage(void)
   fprintf(stderr,"  -J - Do JTAG boundary scan of attached FPGA, using the provided XDC and BSDL files.\n");
   fprintf(stderr,"       A sensitivity list can also be provided, to restrict the set of signals monitored.\n");
   fprintf(stderr,"       This will likely be required when producing VCD files, as they can only log ~80 signals.\n");
+  fprintf(stderr,"  -j   Do JTAG operation(s), and nothing else.\n");
   fprintf(stderr,"  -V - Write JTAG change log to VCD file, instead of to stdout.\n");
   fprintf(stderr,"  -k - Name of hickup file to forcibly use instead of the hyppo in the bitstream.\n");
   fprintf(stderr,"  -R - ROM file to preload at $20000-$3FFFF.\n");
@@ -149,8 +150,7 @@ char *serial_port=NULL; // XXX do a better job auto-detecting this
 int serial_speed=2000000;
 char modeline_cmd[1024]="";
 int break_point=-1;
-uint32_t zap_addr;
-int zap=0;
+int jtag_only=0;
 
 int saw_c64_mode=0;
 int saw_c65_mode=0;
@@ -1467,7 +1467,7 @@ int main(int argc,char **argv)
   start_time=time(0);
 
   int opt;
-  while ((opt = getopt(argc, argv, "14B:b:c:C:d:EFHf:jJ:k:Ll:m:MnoprR:Ss:t:T:U:V:XZ:")) != -1) {
+  while ((opt = getopt(argc, argv, "14B:b:c:C:d:EFHf:jJ:k:Ll:m:MnoprR:Ss:t:T:V:")) != -1) {
     switch (opt) {
     case 'Z':
       {
@@ -1509,6 +1509,8 @@ int main(int argc,char **argv)
       break;
     case 'b':
       bitstream=strdup(optarg); break;
+    case 'j':
+      jtag_only=1; break;
     case 'J':
       boundary_scan=1;
       sscanf(optarg,"%[^,],%[^,],%s",boundary_xdc,boundary_bsdl,jtag_sensitivity);
@@ -1536,6 +1538,8 @@ int main(int argc,char **argv)
     else 
       fprintf(stderr,"JTAG boundary scan launched in separate thread.\n"); 
   }
+
+  if (jtag_only) do_exit(0);
   
   if ((romfile||charromfile)&&(!hyppo)) {
     fprintf(stderr,"-k is required with -R or -C\n");
