@@ -25,7 +25,7 @@ set_property -dict {PACKAGE_PIN E21 IOSTANDARD LVCMOS33 PULLUP TRUE} [get_ports 
 set_property -dict {PACKAGE_PIN E22 IOSTANDARD LVCMOS33 PULLUP TRUE} [get_ports {hr_d[7]}]
 set_property -dict {PACKAGE_PIN B21 IOSTANDARD LVCMOS33 PULLUP TRUE} [get_ports hr_rwds]
 set_property -dict {PACKAGE_PIN B22 IOSTANDARD LVCMOS33 PULLUP TRUE} [get_ports hr_reset]
-set_property -dict {PACKAGE_PIN C22 IOSTANDARD LVCMOS33 PULLUP TRUE} [get_ports PULLUP TRUE hr_cs0]
+set_property -dict {PACKAGE_PIN C22 IOSTANDARD LVCMOS33 PULLUP TRUE} [get_ports hr_cs0]
 
 
 
