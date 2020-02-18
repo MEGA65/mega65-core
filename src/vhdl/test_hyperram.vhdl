@@ -15,8 +15,8 @@ architecture foo of test_hyperram is
   signal expansionram_read : std_logic := '0';
   signal expansionram_write : std_logic := '0';
   signal expansionram_rdata : unsigned(7 downto 0);
-  signal expansionram_wdata : unsigned(7 downto 0);
-  signal expansionram_address : unsigned(26 downto 0) := "000000100100011010001010110";
+  signal expansionram_wdata : unsigned(7 downto 0) := x"42";
+  signal expansionram_address : unsigned(26 downto 0) := "000000100100011010001010111";
   signal expansionram_data_ready_strobe : std_logic;
   signal expansionram_busy : std_logic;
 
