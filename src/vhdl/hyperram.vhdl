@@ -84,6 +84,7 @@ begin
       
       data_ready_strobe <= '0';
       if read_request='1' and busy_internal='0' then
+        report "Making read request";
         -- Begin read request
         request_toggle <= not request_toggle;
         -- Latch address
@@ -91,6 +92,7 @@ begin
         ram_reading <= '1';
         null;
       elsif write_request='1' and busy_internal='0' then
+        report "Making write request";
         -- Begin write request
         request_toggle <= not request_toggle;
         -- Latch address and data 
@@ -113,8 +115,8 @@ begin
       if (state /= Idle) and ( slowdown_counter /= 0) then
         slowdown_counter <= slowdown_counter - 1;
       else
-        slowdown_counter <= 1000000;
---        slowdown_counter <= 0;
+--        slowdown_counter <= 100000;
+        slowdown_counter <= 0;
         
         case state is
           when Idle =>
@@ -124,6 +126,7 @@ begin
               if ram_reading = '1' then
                 state <= ReadSetup;
               else
+                report "Setting state to WriteSetup";
                 state <= WriteSetup;
               end if;
               busy_internal <= '1';
@@ -136,6 +139,10 @@ begin
             hr_cs0 <= '1';
             hr_cs1 <= '1';
 
+            -- Clock must be low when idle, so that it is in correct phase
+            -- when CS0 is pulled low to trigger a transaction
+            hr_clk_p <= '0';
+            
             -- Put recogniseable patter on data lines for debugging
             hr_d <= x"A5";
           when ReadSetup =>
@@ -163,6 +170,9 @@ begin
             state <= HyperRAMCSStrobe;
             
           when WriteSetup =>
+
+            report "Preparing hr_command etc";
+            
             -- Prepare command vector
             hr_command(47) <= '0'; -- WRITE
             hr_command(46) <= '0'; -- Memory address space
@@ -172,16 +182,15 @@ begin
             hr_command(15 downto 3) <= (others => '0'); -- reserved bits
             hr_command(2 downto 0) <= ram_address(2 downto 0);
 
-            -- Call HyperRAM to attention
-            hr_cs0 <= ram_address(23);
-            hr_cs1 <= not ram_address(23);
-            
             hr_reset <= '1'; -- active low reset
             countdown <= 6;
 
             state <= HyperRAMCSStrobe;
 
           when HyperRAMCSStrobe =>
+
+            report "Counting down CS strobe";
+            
             if countdown /= 0 then
               countdown <= countdown - 1;
             else
@@ -190,6 +199,11 @@ begin
             end if;
 
           when HyperRAMOutputCommand =>
+
+            -- Call HyperRAM to attention
+            hr_cs0 <= ram_address(23);
+            hr_cs1 <= not ram_address(23);
+            
             hr_rwds <= 'Z';
             next_is_data <= not next_is_data;
             if next_is_data = '0' then
