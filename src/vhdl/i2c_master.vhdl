@@ -134,7 +134,7 @@ BEGIN
         CASE state IS
           WHEN ready =>                      --idle state
             IF(ena = '1') THEN               --transaction requested
-              report "Accepting job";
+              report "Accepting job: addr=$" & to_hstring(addr) & ", rw= " & std_logic'image(rw);
               busy <= '1';                   --flag busy
               addr_rw <= addr & rw;          --collect requested slave address and command
               data_tx <= data_wr;            --collect requested data to write
@@ -166,11 +166,12 @@ BEGIN
               report "switching to wr following command";
               state <= wr;                   --go to write byte
             ELSE                             --read command
+              report "switching to rd following command $" & to_hstring(addr_rw);
               sda_int <= '1';                --release sda from incoming data
               state <= rd;                   --go to read byte
             END IF;
           WHEN wr =>                         --write byte of transaction
---            report "writing data bit " & integer'image(bit_cnt);
+            report "writing data bit " & integer'image(bit_cnt) & " of $" & to_hstring(data_tx) & " as " & std_logic'image(sda_int);
             busy <= '1';                     --resume busy if continuous mode
             IF(bit_cnt = 0) THEN             --write byte transmit finished
               sda_int <= '1';                --release sda for slave acknowledge
@@ -182,7 +183,7 @@ BEGIN
               state <= wr;                   --continue writing
             END IF;
           WHEN rd =>                         --read byte of transaction
---            report "reading data bit " & integer'image(bit_cnt);
+            report "reading data bit " & integer'image(bit_cnt);
             busy <= '1';                     --resume busy if continuous mode
             IF(bit_cnt = 0) THEN             --read byte receive finished
               IF(ena = '1' AND addr_rw = addr & rw) THEN  --continuing with another read at same address
@@ -203,14 +204,14 @@ BEGIN
               busy <= '0';                   --continue is accepted
               addr_rw <= addr & rw;          --collect requested slave address and command
               data_tx <= data_wr;            --collect requested data to write
-              report "Writing byte $" & to_hstring(data_rx);
+              report "Writing byte $" & to_hstring(data_wr) & " via slave_ack2";
               if addr_rw = addr & rw THEN   --continue transaction with
                                                         --another write
                 sda_int <= data_wr(bit_cnt); --write first bit of data
                 report "re-trigging byte write, because ena is still high";
                 state <= wr;                 --go to write byte
               ELSE                           --continue transaction with a read or new slave
-                report "repeating start";
+                report "repeating start, because target differs";
                 state <= start;              --go to repeated start
               END IF;
             ELSE                             --complete transaction
