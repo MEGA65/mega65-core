@@ -35,7 +35,7 @@ begin
     sda => sda,
     scl => scl,
     
-    fastio_addr => to_unsigned(16,20),
+    fastio_addr => to_unsigned(16+16,20),
     fastio_write => '1',
     fastio_read => '0',
     fastio_wdata => x"42"
