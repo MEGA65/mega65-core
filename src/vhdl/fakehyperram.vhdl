@@ -104,6 +104,12 @@ begin
       else
         if read_write = '1' then
           report "Reading $" & to_hstring(ram(to_integer(ram_address))) & " from @ $" & to_hstring(ram_address);
+          hr_d <= ram(to_integer(ram_address));
+          if ram_address(0) = '0' then
+            hr_rwds <= '1';
+          else
+            hr_rwds <= '0';
+          end if;
         else
           if hr_rwds='0' then
             report "Writing data: value=$" & to_hstring(hr_d) & " @ $" & to_hstring(ram_address);
