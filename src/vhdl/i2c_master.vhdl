@@ -32,6 +32,7 @@
 LIBRARY ieee;
 USE ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use work.debugtools.all;
 
 ENTITY i2c_master IS
   generic (
