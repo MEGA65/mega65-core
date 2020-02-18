@@ -52,43 +52,22 @@ architecture foo of test_i2c is
   
 begin
 
-  touch0: entity work.touch
-    port map (
-      clock50mhz => clock50mhz,
-      sda => sda,
-      scl => scl,
-      touch_enabled => touch_enabled,
-
-      x_invert => x_invert,
-      y_invert => y_invert,
-      x_mult => x_mult,
-      y_mult => y_mult,
-
-      touch1_active => touch1_active,
-      touch1_status => touch1_status,
-      x1 => x1,
-      y1 => y1,
-
-      touch2_active => touch2_active,
-      touch2_status => touch2_status,
-      x2 => x2,
-      y2 => y2
-      );
- 
-  i2cslave: entity work.i2c_slave
-    generic map (
-      SLAVE_ADDR => "0111000"
-      )
-    port map (
-      scl => scl,
-      sda => sda,
-      clk => clock50mhz,
-      rst => '0',
-      read_req => read_req,
-      data_to_master => data_to_master,
-      data_valid => data_valid,
-      data_from_master => data_from_master);
-
+  i2c1: entity work.mega65r2_i2c port map (
+    clock => clock50mhz,
+    cs => '1',
+    
+    sda => sda,
+    scl => scl,
+    
+    fastio_addr => to_unsigned(16+16,20),
+    fastio_write => '1',
+    fastio_read => '0',
+    fastio_wdata => x"42"
+--    std_logic_vector(fastio_rdata) => data_o
+    
+    );
+  
+  
   process is
   begin
     clock50mhz <= '0';  
