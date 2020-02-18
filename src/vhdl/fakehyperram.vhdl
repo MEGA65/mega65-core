@@ -33,6 +33,8 @@ architecture gothic of fakehyperram is
   signal in_transfer : std_logic := '0';
   signal last_cs0 : std_logic := '1';
   signal read_write : std_logic := '1';
+
+  signal ram_address : unsigned(23 downto 0);
   
 begin
 
@@ -80,7 +82,10 @@ begin
         else
           report "  job is WRAPPED BURST";
         end if;
-        report "  address is $" & to_hstring(command(44 downto 16)&command(2 downto 0));
+        report "  word address is $" & to_hstring(command(44 downto 16)&command(2 downto 0)&"0");
+        ram_address(23 downto 4) <= unsigned(command(35 downto 16));
+        ram_address(3 downto 1) <= unsigned(command(2 downto 0));
+        ram_address(0) <= '0';
         command_clocks_remaining <= 0;
         -- 8 clocks minus the two clocks for the last two bytes of CA, that
         -- don't contain ROW/COL lookup info = 6
@@ -96,8 +101,13 @@ begin
         if read_write = '1' then
           report "Reading data";
         else
-          report "Writing data: value=$" & to_hstring(hr_d) & ", write_gate=" & std_logic'image(hr_rwds);
+          if hr_rwds='0' then
+            report "Writing data: value=$" & to_hstring(hr_d) & " @ $" & to_hstring(ram_address); 
+          else
+            report "Masking write: value=$" & to_hstring(hr_d) & " @ $" & to_hstring(ram_address);
+          end if;
         end if;
+        ram_address <= ram_address + 1;
       end if;
       -- Cancel transaction when CS goes high
       if hr_cs0 = '1' then
