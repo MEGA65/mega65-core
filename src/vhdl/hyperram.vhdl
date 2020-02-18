@@ -91,6 +91,9 @@ architecture gothic of hyperram is
   -- Used to slow down HyperRAM enough that we can watch waveforms on the JTAG
   -- boundary scanner.
   signal slowdown_counter : integer := 0;
+
+  signal byte_phase : std_logic := '0';
+  signal byte_written : std_logic := '0';
   
 begin
 
@@ -246,13 +249,15 @@ begin
             report "Preparing hr_command etc";
             
             -- Prepare command vector
+            -- As HyperRAM addresses on 16bit boundaries, we shift the address
+            -- down one bit.
             hr_command(47) <= '0'; -- WRITE
             hr_command(46) <= '0'; -- Memory address space
             hr_command(45) <= '1'; -- Linear access (not wrapped)
-            hr_command(44 downto 37) <= (others => '0'); -- unused upper address bits
-            hr_command(36 downto 16) <= ram_address(23 downto 3);
+            hr_command(44 downto 35) <= (others => '0'); -- unused upper address bits
+            hr_command(34 downto 16) <= ram_address(22 downto 4);
             hr_command(15 downto 3) <= (others => '0'); -- reserved bits
-            hr_command(2 downto 0) <= ram_address(2 downto 0);
+            hr_command(2 downto 0) <= ram_address(3 downto 1);
 
             hr_reset <= '1'; -- active low reset
             countdown <= 6;
@@ -310,8 +315,9 @@ begin
                 end if;
               end if;
             end if;
+            byte_phase <= '0';
+            byte_written <= '0';
           when HyperRAMLatencyWait =>
-            hr_rwds <= 'Z';
             next_is_data <= not next_is_data;
             if next_is_data = '0' then
               -- Toggle clock while data steady
@@ -321,6 +327,8 @@ begin
             else
               report "latency countdown = " & integer'image(countdown);
               if countdown /= 0 then
+                report "tri-stating RWDS";
+                hr_rwds <= 'Z';
                 countdown <= countdown - 1;
               else
                 if extra_latency='1' then
@@ -330,25 +338,49 @@ begin
                   countdown <= 6;
                   -- Also begin driving RWDS low when CLK low one
                   -- cycle before actually starting to write.
+                  report "Pulling RWDS low ahead of writing.";
                   hr_rwds <= '0';
                 else
                   -- Latency countdown for writing is over, we can now
-                  -- begin writing bytes.
-                  -- XXX It is possible we will have mis-timed this by a cycle or
-                  -- two, in which case, we will write to the wrong address.
-                  -- If it is too high an address, then we are late.
-                  -- If it is not written at all, then we are too early.
+                  -- begin writing bytes.                  
 
-                  -- XXX HyperRAM works on 16-bit fundamental transfers.
+                  -- HyperRAM works on 16-bit fundamental transfers.
                   -- This means we need to have two half-cycles, and pick which
                   -- one we want to write during.
+                  -- If RWDS is asserted, then the write is masked, i.e., won't
+                  -- occur.
+                  -- In this first 
                   
                   -- Write byte
-                  hr_rwds <= '1';
+                  if byte_phase = '0' then
+                    -- Even byte
+                    if ram_address(0) = '0' then
+                      report "Clearing write mask for even address";
+                      hr_rwds <= '0';
+                      byte_written <= '1';
+                    else
+                      hr_rwds <= '1';
+                    end if;
+                  else
+                    -- Odd byte
+                    if ram_address(0) = '1' then
+                      report "Clearing write mask for odd address";
+                      hr_rwds <= '0';
+                      byte_written <= '1';
+                    else
+                      hr_rwds <= '1';
+                    end if;
+                    -- We finish after (possibly) writing the odd byte
+                  end if;
+                  byte_phase <= '1';
+                  
                   hr_d <= ram_wdata;
-                  state <= HyperRAMFinishWriting;
                 end if;
               end if;
+            end if;
+            if byte_written = '1' and next_is_data='0' then
+              report "Advancing to HyperRAMFinishWriting";
+              state <= HyperRAMFinishWriting;
             end if;
           when HyperRAMFinishWriting =>
             -- Last cycle was data, so next cycle is clock.
@@ -383,10 +415,14 @@ begin
               hr_clock <= not hr_clock;
             else
               if hr_rwds = '1' then
-                -- Data has arrived
-                rdata <= hr_d;
-                data_ready_toggle <= not data_ready_toggle;
-                state <= Idle;
+                -- Data has arrived: Latch either odd or even byte
+                -- as required.
+                if byte_phase = ram_address(0) then
+                  rdata <= hr_d;
+                  data_ready_toggle <= not data_ready_toggle;
+                  state <= Idle;
+                end if;
+                byte_phase <= '1';
               end if;
             end if;
           when others =>
