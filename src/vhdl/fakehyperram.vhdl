@@ -35,6 +35,10 @@ architecture gothic of fakehyperram is
   signal read_write : std_logic := '1';
 
   signal ram_address : unsigned(23 downto 0);
+  type ram_t is array (0 to 8388607) of unsigned(7 downto 0);
+  shared variable ram : ram_t := (
+    others => x"BD"
+    );
   
 begin
 
@@ -99,10 +103,11 @@ begin
         end if;
       else
         if read_write = '1' then
-          report "Reading data";
+          report "Reading $" & to_hstring(ram(to_integer(ram_address))) & " from @ $" & to_hstring(ram_address);
         else
           if hr_rwds='0' then
-            report "Writing data: value=$" & to_hstring(hr_d) & " @ $" & to_hstring(ram_address); 
+            report "Writing data: value=$" & to_hstring(hr_d) & " @ $" & to_hstring(ram_address);
+            ram(to_integer(ram_address)) := hr_d;
           else
             report "Masking write: value=$" & to_hstring(hr_d) & " @ $" & to_hstring(ram_address);
           end if;
