@@ -48,7 +48,7 @@ begin
       report "hr_clk_p = " & std_logic'image(hr_clk_p);
 
       last_cs0 <= hr_cs0;
-      if hr_cs0 = '1' then
+      if hr_cs0 = '1' and in_transfer='0' then
         hr_d <= (others => 'Z');
       end if;
       
@@ -106,24 +106,26 @@ begin
           in_transfer <= '1';
         end if;
       else
-        if read_write = '1' then
-          report "Reading $" & to_hstring(ram(to_integer(ram_address))) & " from @ $" & to_hstring(ram_address);
-          hr_d <= ram(to_integer(ram_address));
-          if ram_address(0) = '0' then
-            hr_rwds <= '1';
+        if in_transfer='1' then
+          if read_write = '1' then
+            report "Reading $" & to_hstring(ram(to_integer(ram_address))) & " from @ $" & to_hstring(ram_address);
+            hr_d <= ram(to_integer(ram_address));
+            if ram_address(0) = '0' then
+              hr_rwds <= '1';
+            else
+              hr_rwds <= '0';
+            end if;
           else
-            hr_rwds <= '0';
+            if hr_rwds='0' then
+              report "Writing data: value=$" & to_hstring(hr_d) & " @ $" & to_hstring(ram_address);
+              ram(to_integer(ram_address)) := hr_d;
+            else
+              report "Masking write: value=$" & to_hstring(hr_d) & " @ $" & to_hstring(ram_address);
+            end if;
           end if;
-        else
-          if hr_rwds='0' then
-            report "Writing data: value=$" & to_hstring(hr_d) & " @ $" & to_hstring(ram_address);
-            ram(to_integer(ram_address)) := hr_d;
-          else
-            report "Masking write: value=$" & to_hstring(hr_d) & " @ $" & to_hstring(ram_address);
-          end if;
+          ram_address <= ram_address + 1;
         end if;
-        ram_address <= ram_address + 1;
-      end if;
+      end if; 
       -- Cancel transaction when CS goes high
       if hr_cs0 = '1' then
         in_transfer <= '0';
