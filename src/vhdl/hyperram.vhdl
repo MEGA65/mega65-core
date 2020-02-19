@@ -231,9 +231,9 @@ begin
                                                -- address space select (0) ?
             hr_command(45) <= '1'; -- Linear access (not wrapped)
             hr_command(44 downto 37) <= (others => '0'); -- unused upper address bits
-            hr_command(36 downto 16) <= ram_address(23 downto 3);
+            hr_command(34 downto 16) <= ram_address(22 downto 4);
             hr_command(15 downto 3) <= (others => '0'); -- reserved bits
-            hr_command(2 downto 0) <= ram_address(2 downto 0);
+            hr_command(2 downto 0) <= ram_address(3 downto 1);
 
             -- Call HyperRAM to attention (Each 8MB half has a separate CS line,
             -- so we gate them on address line 23 = 8MB point)
@@ -253,7 +253,7 @@ begin
             -- As HyperRAM addresses on 16bit boundaries, we shift the address
             -- down one bit.
             hr_command(47) <= '0'; -- WRITE
-            hr_command(46) <= '0'; -- Memory address space
+            hr_command(46) <= '1'; -- Memory address space
             hr_command(45) <= '1'; -- Linear access (not wrapped)
             hr_command(44 downto 35) <= (others => '0'); -- unused upper address bits
             hr_command(34 downto 16) <= ram_address(22 downto 4);
@@ -401,6 +401,7 @@ begin
             state <= Idle;
           when HyperRAMReadWait =>
             hr_rwds <= 'Z';
+            hr_d <= (others => 'Z');                       
             if countdown = 0 then
               -- Timed out waiting for read -- so return anyway, rather
               -- than locking the machine hard forever.
