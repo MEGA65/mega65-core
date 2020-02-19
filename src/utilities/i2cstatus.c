@@ -217,31 +217,20 @@ unsigned char sprite_data[63]={
   0,0,0
 };
 
-void main(void)
-{
-  
-  unsigned char seconds = 0;
-  unsigned char minutes = 0;
-  unsigned char hours = 0;
+unsigned char seconds = 0;
+unsigned char minutes = 0;
+unsigned char hours = 0;
+unsigned char date = 0;
+unsigned char month = 0;
+unsigned char year = 0;
 
-  short x,y,z;
-  short a1,a2,a3;
-  unsigned char n=0;
+short x,y,z;
+short a1,a2,a3;
+unsigned char n=0;
 
-  m65_io_enable();
+void target_megaphone(void)
+  {
 
-  // Sprite 0 on
-  lpoke(0xFFD3015L,0x01);
-  // Sprite data at $03c0
-  *(unsigned char *)2040 = 0x3c0/0x40;
-
-  for(n=0;n<64;n++) 
-    *(unsigned char*)(0x3c0+n)=
-      sprite_data[n];
-  
-  // Disable OSK
-  lpoke(0xFFD3615L,0x7F);  
-  
   // Enable acceleromter, 10Hz sampling
   while(lpeek(0xffd70ffL)) continue;
   lpoke(0xFFD7060L,0x27);    
@@ -436,3 +425,102 @@ void main(void)
     
   }
 }
+
+void target_mega65r2(void)
+  {
+
+  while(lpeek(0xffd71ffL)) continue;
+
+  // Clear screen
+  printf("%c",0x93);
+
+  //Function to display current time from Real Time Clock
+  while(1){
+    // 0xffd7110 is the base address for all bytes read from the RTC
+    // The I2C Master places them in these memory locations
+
+    // Home cursor
+    printf("%c",0x13);
+
+    printf("Unique identifier/MAC seed: ");
+    for(n=2;n<8;n++) printf("%02x",lpeek(0xffd7100+n));
+    printf("\n");
+
+    printf("NVRAM:\n");
+    for(n=0x40;n<0x80;n++) {
+      if (!(n&7)) printf("  %02x :",n-0x40);
+      printf("%02x",lpeek(0xffd7100+n));
+      if ((n&7)==7) printf("\n");
+    }
+    printf("\n");
+    
+    seconds = lpeek(0xffd7110);
+    minutes = lpeek(0xffd7111);
+    hours = lpeek(0xffd7112);
+    if (hours&0x80)
+      printf("real-time clock: %02x:",hours&0x3f);
+    else
+      printf("real-time clock: %02x:",hours&0x1f);      
+    printf("%02x.",minutes&0x7f);
+    printf("%02x",seconds&0x7f); 
+    if (hours&0x80) {
+      printf(" hours");
+    } else {
+      if (hours&0x20) printf(" pm"); else printf(" am");
+    }
+
+    printf("\n");
+
+    date = lpeek(0xffd7113);
+    month = lpeek(0xffd7114);
+    year = lpeek(0xffd7115);    
+    
+    printf("Date: %02x-",date);
+    switch(month) {
+    case 0x01: printf("jan"); break;
+    case 0x02: printf("feb"); break;
+    case 0x03: printf("mar"); break;
+    case 0x04: printf("apr"); break;
+    case 0x05: printf("may"); break;
+    case 0x06: printf("jun"); break;
+    case 0x07: printf("jul"); break;
+    case 0x08: printf("aug"); break;
+    case 0x09: printf("sep"); break;
+    case 0x10: printf("oct"); break;
+    case 0x11: printf("nov"); break;
+    case 0x12: printf("dec"); break;
+    default: printf("invalid month"); break;
+    }
+    printf("-20%02x\n",year);
+    
+  }
+}
+
+
+void main(void)
+{
+  
+  m65_io_enable();
+
+  // Sprite 0 on
+  lpoke(0xFFD3015L,0x01);
+  // Sprite data at $03c0
+  *(unsigned char *)2040 = 0x3c0/0x40;
+
+  for(n=0;n<64;n++) 
+    *(unsigned char*)(0x3c0+n)=
+      sprite_data[n];
+  
+  // Disable OSK
+  lpoke(0xFFD3615L,0x7F);  
+
+  if (lpeek(0xffd7100)||lpeek(0xffd71fe))
+    target_mega65r2();
+  else if (lpeek(0xffd7100)||lpeek(0xffd71fe))
+    target_megaphone();
+  else
+    printf("Unknown hardware revision. No I2C block found.\n");
+
+}
+  
+
