@@ -48,6 +48,10 @@ begin
       report "hr_clk_p = " & std_logic'image(hr_clk_p);
 
       last_cs0 <= hr_cs0;
+      if hr_cs0 = '1' then
+        hr_d <= (others => 'Z');
+      end if;
+      
       -- New transactions MUST start with CLK low according to the datasheet.
       if hr_cs0 = '0' and last_cs0 = '1' and hr_clk_p='0' then
         report "Starting new transaction";
@@ -56,12 +60,12 @@ begin
         -- We will indicate latency x1 for now
         hr_rwds <= '0';
 
-        report "Received CA byte $" & to_hstring(hr_d);
+        report "Received first CA byte %" & to_string(std_logic_vector(hr_d));
         
         command(7 downto 0) <= std_logic_vector(hr_d);
         command_clocks_remaining <= 6;
       elsif command_clocks_remaining > 1 then
-        report "Received CA byte $" & to_hstring(hr_d);
+        report "Received subsequent CA byte %" & to_string(std_logic_vector(hr_d));
         
         command(7 downto 0) <= std_logic_vector(hr_d);
         command(47 downto 8) <= command(39 downto 0);

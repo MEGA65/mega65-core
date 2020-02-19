@@ -2,7 +2,7 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
-
+use work.debugtools.all;
 
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
@@ -94,7 +94,7 @@ architecture gothic of hyperram is
 
   signal byte_phase : std_logic := '0';
   signal byte_written : std_logic := '0';
-  
+
 begin
 
   hyper0: component hyper_xface
@@ -219,6 +219,7 @@ begin
             hr_clk_p <= '0';
             
             -- Put recogniseable patter on data lines for debugging
+            report "setting hr_d to $A5";
             hr_d <= x"A5";
           when ReadSetup =>
             -- Prepare command vector
@@ -266,7 +267,7 @@ begin
 
           when HyperRAMCSStrobe =>
 
-            report "Counting down CS strobe";
+            report "Counting down CS strobe: COMMAND = $" & to_hstring(hr_command);
             
             if countdown /= 0 then
               countdown <= countdown - 1;
@@ -276,7 +277,7 @@ begin
             end if;
 
           when HyperRAMOutputCommand =>
-
+            report "Writing command";
             -- Call HyperRAM to attention
             hr_cs0 <= ram_address(23);
             hr_cs1 <= not ram_address(23);
@@ -292,6 +293,7 @@ begin
               -- Toggle data while clock steady
               hr_d <= hr_command(47 downto 40);
               hr_command(47 downto 8) <= hr_command(39 downto 0);
+              report "Writing command byte $" & to_hstring(hr_command(47 downto 40));
 
               if countdown = 3 then
                 extra_latency <= hr_rwds;
@@ -373,7 +375,8 @@ begin
                     -- We finish after (possibly) writing the odd byte
                   end if;
                   byte_phase <= '1';
-                  
+
+                  report "setting hr_d to ram_wdata";
                   hr_d <= ram_wdata;
                 end if;
               end if;
@@ -417,7 +420,9 @@ begin
               if hr_rwds = '1' then
                 -- Data has arrived: Latch either odd or even byte
                 -- as required.
+                report "Saw read data = $" & to_hstring(hr_d);
                 if byte_phase = ram_address(0) then
+                  report "Latching read data = $" & to_hstring(hr_d);
                   rdata <= hr_d;
                   data_ready_toggle <= not data_ready_toggle;
                   state <= Idle;
