@@ -96,11 +96,13 @@ begin
           expansionram_write <= '1';
           expansionram_read <= '0';
           expansionram_wdata <= x"42";
+          expansionram_address(26 downto 24) <= (others => '0');
           expansionram_address(23 downto 0) <= x"123456";          
         when 10 =>
           report "DISPATCH: Read from $123456";
           expansionram_write <= '0';
           expansionram_read <= '1';
+          expansionram_address(26 downto 24) <= (others => '0');
           expansionram_address(23 downto 0) <= x"123456";
           expected_byte <= x"42";
           expecting_byte <= '1';
