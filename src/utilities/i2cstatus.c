@@ -98,6 +98,19 @@ unsigned char lpeek(long address)
   return dma_byte;
 }
 
+unsigned char b1,b2,b3;
+
+unsigned char lpeek_debounced(long address)
+{
+  b1=0; b2=1;
+  while(b1!=b2||b1!=b3) {
+    b1=lpeek(address);
+    b2=lpeek(address);
+    b3=lpeek(address);
+  }
+  return b1;
+}
+
 void lpoke(long address, unsigned char value)
 {  
 
@@ -429,7 +442,7 @@ void target_megaphone(void)
 void target_mega65r2(void)
   {
 
-  while(lpeek(0xffd71ffL)) continue;
+    //  while(lpeek(0xffd71ffL)) continue;
 
   // Clear screen
   printf("%c",0x93);
@@ -443,24 +456,24 @@ void target_mega65r2(void)
     printf("%c",0x13);
 
     printf("Unique identifier/MAC seed: ");
-    for(n=2;n<8;n++) printf("%02x",lpeek(0xffd7100+n));
+    for(n=2;n<8;n++) printf("%02x",lpeek_debounced(0xffd7100+n));
     printf("\n");
 
     printf("NVRAM:\n");
     for(n=0x40;n<0x80;n++) {
       if (!(n&7)) printf("  %02x :",n-0x40);
-      printf("%02x",lpeek(0xffd7100+n));
+      printf("%02x",lpeek_debounced(0xffd7100+n));
       if ((n&7)==7) printf("\n");
     }
     printf("\n");
     
-    seconds = lpeek(0xffd7110);
-    minutes = lpeek(0xffd7111);
-    hours = lpeek(0xffd7112);
+    seconds = lpeek_debounced(0xffd7110);
+    minutes = lpeek_debounced(0xffd7111);
+    hours = lpeek_debounced(0xffd7112);
     if (hours&0x80)
-      printf("real-time clock: %02x:",hours&0x3f);
+      printf("Real-time clock: %02x:",hours&0x3f);
     else
-      printf("real-time clock: %02x:",hours&0x1f);      
+      printf("Real-time clock: %02x:",hours&0x1f);      
     printf("%02x.",minutes&0x7f);
     printf("%02x",seconds&0x7f); 
     if (hours&0x80) {
@@ -471,11 +484,11 @@ void target_mega65r2(void)
 
     printf("\n");
 
-    date = lpeek(0xffd7113);
-    month = lpeek(0xffd7114);
-    year = lpeek(0xffd7115);    
+    date = lpeek_debounced(0xffd7113);
+    month = lpeek_debounced(0xffd7114);
+    year = lpeek_debounced(0xffd7115);    
     
-    printf("Date: %02x-",date);
+    printf("Date:            %02x-",date);
     switch(month) {
     case 0x01: printf("jan"); break;
     case 0x02: printf("feb"); break;
