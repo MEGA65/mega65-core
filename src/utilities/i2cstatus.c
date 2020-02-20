@@ -439,6 +439,25 @@ void target_megaphone(void)
   }
 }
 
+unsigned char bcd_add(unsigned char in, unsigned char delta)
+{
+  unsigned char v=in+delta;
+  if ((v&0xf)>0x09) v+=0x06;
+  return v;
+}
+
+void clip_date(void) {
+  if (date>=0x31) date=0x01;
+  if ((month==0x02)&&(date>0x29)) date=0x01;
+  if (((month==0x04)
+       ||(month==0x6)
+       ||(month==0x6)
+       ||(month==0x9)
+       ||(month==0x11)
+       )
+      &&(date>0x30)) date=0x01;
+}
+
 void target_mega65r2(void)
   {
 
@@ -479,7 +498,7 @@ void target_mega65r2(void)
     if (hours&0x80) {
       printf(" hours");
     } else {
-      if (hours&0x20) printf(" pm"); else printf(" am");
+      if (hours&0x20) printf(" pm   "); else printf(" am   ");
     }
 
     printf("\n");
@@ -505,6 +524,81 @@ void target_mega65r2(void)
     default: printf("invalid month"); break;
     }
     printf("-20%02x\n",year);
+
+    printf("\nPress 1-6 to adjust time/date.\n      7 toggles 12/24 hour time.\n");
+
+    if (lpeek(0xffd3610)) {
+      // Wait for any previous write to complete
+      while(lpeek(0xffd71ff)) continue;
+
+      switch(lpeek(0xffd3610)) {
+      case '1':
+	if (hours&0x80) {
+	  // easy case: military time.
+	  hours=bcd_add(hours&0x7f,1);
+	  if (hours>=0x24) hours=0x00;
+	  lpoke(0xffd7112,hours|0x80);	  
+	} else {
+	  // 12 hour time with AM/PM flag.
+	  if ((hours&0x1f)==0x12) {
+	    // becomes hour 1 in opposite half of day
+	    hours=((hours&0x20)^0x20)|0x01;
+	  } else hours=bcd_add(hours,1);
+	  lpoke(0xffd7112,hours);
+	}
+	break;
+      case '2':
+	minutes=bcd_add(minutes,1);
+	if (minutes>=0x60) minutes=0x00;
+	lpoke(0xffd7111,minutes);
+	break;
+      case '3':
+	seconds=bcd_add(seconds,1);
+	if (seconds>=0x60) seconds=0x00;
+	lpoke(0xffd7111,seconds);
+	break;
+      case '4':
+	date=bcd_add(date,1);
+	clip_date();
+	lpoke(0xffd7113,date);
+	break;
+      case '5':
+	month=bcd_add(month,1);
+	if (month>=0x12) month=0x01;
+	lpoke(0xffd7114,month);
+	clip_date();
+	// Wait for any previous write to complete
+	while(lpeek(0xffd71ff)) continue;
+	lpoke(0xffd7113,date);	
+	break;
+      case '6':
+	year=bcd_add(year,1);
+	if (year>0x99) year=0x00;
+	lpoke(0xffd7115,year);
+	break;
+      case '7':
+	if (hours&0x80) {
+	  // Switch to 12 hour time.
+	  hours&=0x7f;
+	  if ((hours&0x7f)>0x12) {
+	    hours=bcd_add(hours,-0x12);
+	    hours|=0x20;
+	  }
+	  
+	} else {
+	  if (hours&0x20) {
+	    hours=bcd_add(hours&0x1f,0x12);
+	  }
+	  hours|=0x80;
+	}
+	lpoke(0xffd7112,hours);
+	break;
+      default:
+	break;
+      }
+      
+      lpoke(0xffd3610,0);
+    }
     
   }
 }
