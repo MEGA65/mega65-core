@@ -1,13 +1,14 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "mega65_hal.h"
-#include "mega65_memory.h"
-#include "dirent.h"
-#include "fileio.h"
+#include <hal.h>
+#include <memory.h>
+#include <dirent.h>
+#include <fileio.h>
 
 char *select_bitstream_file(void);
 void fetch_rdid(void);
+void flash_reset(void);
 
 unsigned char joy_x=100;
 unsigned char joy_y=100;
@@ -122,9 +123,8 @@ unsigned char buffer[512];
 unsigned long addr;
 unsigned char progress=0;
 unsigned long progress_acc=0;
+unsigned char tries = 0;
 
-unsigned char verify_enable=1;
-unsigned char tries;
 
 void reflash_slot(unsigned char slot)
 {
@@ -151,7 +151,9 @@ void reflash_slot(unsigned char slot)
     return;
   }
 
-  printf("Erasing flash slot...%c%c%c%c%c%c\n",17,17,17,17,17,17);
+  printf("%c%c%c%c%c%cErasing flash slot...\n",
+	 17,17,17,17,17,17
+	 );
   lfill((unsigned long)buffer,0,512);
 
   // Do a smart erase: read blocks, and only erase pages if they are
@@ -161,7 +163,6 @@ void reflash_slot(unsigned char slot)
   // so we will just write upto 4MB of stuff in one go.
   progress=0; progress_acc=0;
 
-  if (0)
   for(addr=(4L*1024L*1024L)*slot;addr<(4L*1024L*1024L)*(slot+1);addr+=512) {
     progress_acc+=512;
     if (progress_acc>26214) {
@@ -170,11 +171,9 @@ void reflash_slot(unsigned char slot)
       progress_bar(progress);
     }
     // dummy read to flush buffer in flash
-    read_data(addr^0x100000);
-    read_data(addr^0x110000);
     read_data(addr);
     for(i=0;i<512;i++) if (data_buffer[i]!=0xff) break;
-    i=0; tries=0;
+    i=0; tries++;
 
     if (i==512) continue;
     
@@ -201,7 +200,9 @@ void reflash_slot(unsigned char slot)
     addr-=512; // since we add this much in the for() loop
     
   }
-  
+
+  flash_reset();
+
   // Read the flash file and write it to the flash
   printf("Writing bitstream to flash...\n\n",0x93);
   progress=0; progress_acc=0;
@@ -217,41 +218,59 @@ void reflash_slot(unsigned char slot)
     
     if (!bytes_returned) break;
 
-    // Verify
-    i=0;
-    while(i<256) {
-      // Do a dummy read first, to flush any read buffer in the flash
-      read_data(addr^0x100000);
-      read_data(addr^0x110000);
-      read_data(addr);
-      for(i=0;i<256;i++) if (data_buffer[i]!=buffer[i]) break;
-      if (i==256) {
-	printf("%cPage $%08llx is already programmed.\n",0x91,addr);
-	break;
-      }
+    // Programming works on 256 byte pages, so we have to write two of them.
+    lcopy((unsigned long)&buffer[0],(unsigned long)data_buffer,256);
+    program_page(addr);
 
-      // Programming works on 256 byte pages, so we have to write two of them.
-      lcopy((unsigned long)&buffer[0],(unsigned long)data_buffer,256);
-      program_page(addr);
+    // Programming works on 256 byte pages, so we have to write two of them.
+    lcopy((unsigned long)&buffer[256],(unsigned long)data_buffer,256);
+    program_page(addr+256);       
+  }
 
-      // Do a dummy read first, to flush any read buffer in the flash
-      read_data(addr^0x100000);
-      read_data(addr^0x110000);
-      read_data(addr);
-      
-      for(i=0;i<256;i++) if (data_buffer[i]!=buffer[i]) break;
-      if (i==256) {
-	printf("Page $%08llx appears correct after write.\n\n",addr);
-	break;
-      }
-      printf("%cPage $%08llx written.\n",0x91,addr);
+  /*
+    Now read through the file again to verify that we wrote the correct data.
+    But before we start, we reset the flash, so that it doesn't read incorrect
+    data.
+  */
+  
+  printf("Verifying that bitstream was correctly written to flash...\n");
 
-      if (!verify_enable) break;
-      
+  flash_reset();
+
+  closeall();
+  fd=open(file);
+  if (fd==0xff) {
+    // Couldn't open the file.
+    printf("ERROR: Could not open flash file '%s'\n",file);
+    printf("\nPress any key to continue.\n");
+    while(PEEK(0xD610)) POKE(0xD610,0);
+    while (!PEEK(0xD610)) continue;
+
+    while(1) continue;
+    
+    return;
+  }
+
+  for(addr=(4L*1024L*1024L)*slot;addr<(4L*1024L*1024L)*(slot+1);addr+=512) {
+    progress_acc+=512;
+    if (progress_acc>26214) {
+      progress_acc-=26214;
+      progress++;
+    }
+    progress_bar(progress);
+
+    bytes_returned=read512(buffer);
+    
+    if (!bytes_returned) break;
+  
+    read_data(addr);
+    for(i=0;i<256;i++) if (data_buffer[i]!=buffer[i]) break;
+    if ((i<256)&&(i<bytes_returned)) {
+
       printf("Verification error at address $%llx:\n",
-	     addr+i);
+	     addr+256+i);
       printf("Read back $%x instead of $%x\n",
-	     data_buffer[i],buffer[i]);
+	     data_buffer[i+256],buffer[i]);
       printf("Press any key to continue...\n");
       while(PEEK(0xD610)) POKE(0xD610,0);
       while(!PEEK(0xD610)) continue;
@@ -270,6 +289,8 @@ void reflash_slot(unsigned char slot)
 	while(PEEK(0xD610)) POKE(0xD610,0);
       }
 
+      printf("(b) Correct data is:\n");
+
       printf("Correct data is:\n");
       for(i=0;i<256;i+=64) {
 	for(x=0;x<64;x++) {
@@ -285,36 +306,11 @@ void reflash_slot(unsigned char slot)
       }
       fetch_rdid();
       i=0; 
+      break;
     }
-
-    i=0;
-    while(i<256) {
-      // Do a dummy read first, to flush any read buffer in the flash
-      read_data(addr^0x100000);
-      read_data(addr^0x110000);
-      read_data(addr);
-      for(i=0;i<256;i++) if (data_buffer[256+i]!=buffer[256+i]) break;
-      if (i==256) {
-	printf("%cPage $%08llx is already programmed.\n",0x91,addr+256);
-	break;
-      }
-
-      // Programming works on 256 byte pages, so we have to write two of them.
-      lcopy((unsigned long)&buffer[256],(unsigned long)data_buffer,256);
-      program_page(addr+256);
-
-      // Do dummy read first, to flush any read buffer
-      read_data(addr^0x100000);
-      read_data(addr^0x110000);
-      read_data(addr);
-      for(i=0;i<256;i++) if (data_buffer[256+i]!=buffer[256+i]) break;
-      if (i==256) {
-	break;
-      }
-      printf("%cPage $%08llx written.\n",0x91,addr+256);
-
-      if (!verify_enable) break;
-
+    
+    for(i=0;i<256;i++) if (data_buffer[256+i]!=buffer[256+i]) break;
+    if (i<256&&(i<(bytes_returned-256))) {
       printf("Verification error at address $%llx:\n",
 	     addr+256+i);
       printf("Read back $%x instead of $%x\n",
@@ -353,9 +349,7 @@ void reflash_slot(unsigned char slot)
       fetch_rdid();
       i=0; 
     }
-    
-    
-  }
+  }        
 
   printf("%cFlash slot successfully written.\nPress any key to return to menu.\n");
   while(PEEK(0xD610)) POKE(0xD610,0);
@@ -499,6 +493,23 @@ unsigned char spi_rx_byte()
   return b;
 }
 
+void flash_reset(void)
+{
+  spi_cs_high();
+  spi_clock_high();
+  delay();
+  spi_cs_low();
+  delay();
+  spi_tx_byte(0x06);
+  spi_cs_high();
+  usleep(65000);
+  usleep(65000);
+  usleep(65000);
+  usleep(65000);
+  usleep(65000);
+  usleep(65000);
+}
+ 
 void read_registers(void)
 {
   // Put QSPI clock under bitbash control
@@ -1136,7 +1147,7 @@ char *select_bitstream_file(void)
   while(dirent&&((unsigned short)dirent!=0xffffU)) {
     j=strlen(dirent->d_name)-4;
     if (j>=0) {
-      if ((!strncmp(&dirent->d_name[j],".BIT",4))||(!strncmp(&dirent->d_name[j],".bit",4))) {
+      if ((!strncmp(&dirent->d_name[j],".COR",4))||(!strncmp(&dirent->d_name[j],".cor",4))) {
 	// File is a disk image
 	lfill(0x40000L+(file_count*64),' ',64);
 	lcopy((long)&dirent->d_name[0],0x40000L+(file_count*64),j+4);
