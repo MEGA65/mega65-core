@@ -14,6 +14,7 @@
 char *select_bitstream_file(void);
 void fetch_rdid(void);
 void flash_reset(void);
+void show_horse(unsigned char frame);
 
 unsigned char joy_x=100;
 unsigned char joy_y=100;
@@ -184,13 +185,14 @@ void reflash_slot(unsigned char slot)
     if (i==512) continue;
     
     while (i<512) {
+      printf(".");
       erase_sector(addr);
       // Then verify that the sector has been erased
       read_data(addr);
       for(i=0;i<512;i++) if (data_buffer[i]!=0xff) break;
       if (i<512) {
 	tries++;
-	if (tries==16) {
+	if (tries==128) {
 	  printf("\n! Failed to erase flash page at $%llx\n",addr);
 	  printf("  byte %d = $%x instead of $FF\n",i,data_buffer[i]);
 	  printf("Please reset and try again.\n");
@@ -221,7 +223,8 @@ void reflash_slot(unsigned char slot)
       progress++;
     }
     progress_bar(progress);
-
+    show_horse(progress&7);
+    
     bytes_returned=read512(buffer);
     
     if (!bytes_returned) break;
@@ -379,6 +382,17 @@ void delay(void)
   
   //   for(di=0;di<1000;di++) continue;
 }
+
+void show_horse(unsigned char frame)
+{
+  POKE(0xD015,1);
+  POKE(0xD000,progress+24);
+  POKE(0xD001,228);
+  POKE(2040,0x380/0x40);
+  lcopy(&horse_sprites[(frame&7)<<6],0x380,63);
+}
+
+
 
 void spi_tristate_si(void)
 {
@@ -640,7 +654,7 @@ void erase_sector(unsigned long address_in_sector)
   spi_tx_byte(address_in_sector>>0);
   spi_cs_high();
 
-  while(reg_sr1&0x01) {
+  while(reg_sr1&0x03) {
     read_registers();
   }
 
@@ -1023,7 +1037,7 @@ void main(void)
 
   while(1) continue;
 #endif
-  
+
   while(1)
     {  
 
