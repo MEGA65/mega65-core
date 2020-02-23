@@ -478,6 +478,8 @@ architecture behavioural of sdcardio is
   signal reconfigure_address_int : unsigned(31 downto 0) := x"00000000";
   signal trigger_reconfigure : std_logic := '0';
 
+  signal flash_boot_address : unsigned(31 downto 0) := x"FFFFFFFF";
+  
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
   begin
@@ -494,7 +496,8 @@ begin  -- behavioural
   reconfig1: entity work.reconfig
     port map ( clock => clock,
                trigger_reconfigure => trigger_reconfigure,
-               reconfigure_address => reconfigure_address);
+               reconfigure_address => reconfigure_address,
+               boot_address => flash_boot_address);
 
   touch0: entity work.touch
     port map (
@@ -1061,6 +1064,15 @@ begin  -- behavioural
             -- @IO:GS $D6C0.7-4 - Touch pad gesture ID
             fastio_rdata(3 downto 0) <= gesture_event;
             fastio_rdata(7 downto 4) <= gesture_event_id;
+          -- @IO:GS $D6C8-B - Address currently loaded bitstream was fetched from flash memory.
+          when x"C4" =>
+            fastio_rdata <= flash_boot_address(7 downto 0);
+          when x"C5" =>
+            fastio_rdata <= flash_boot_address(15 downto 8);
+          when x"C6" =>
+            fastio_rdata <= flash_boot_address(23 downto 16);
+          when x"C7" =>
+            fastio_rdata <= flash_boot_address(31 downto 24);
           when x"C8" =>
             fastio_rdata <= reconfigure_address_int(7 downto 0);
           when x"C9" =>
