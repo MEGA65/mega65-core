@@ -6,6 +6,11 @@
 #include <dirent.h>
 #include <fileio.h>
 
+#include "../tests/horses.h"
+
+//#define DEBUG_BITBASH(x) { printf("@%d:%02x",__LINE__,x); }
+#define DEBUG_BITBASH(x)
+
 char *select_bitstream_file(void);
 void fetch_rdid(void);
 void flash_reset(void);
@@ -27,6 +32,7 @@ unsigned char data_buffer[512];
 unsigned char bitstream_magic[16]="MEGA65BITSTREAM0";
 
 unsigned short mb = 0;
+
 
 short i,x,y,z;
 short a1,a2,a3;
@@ -201,6 +207,8 @@ void reflash_slot(unsigned char slot)
     
   }
 
+  // XXX Setup horse sprites for minigame
+  
   flash_reset();
 
   // Read the flash file and write it to the flash
@@ -376,6 +384,7 @@ void spi_tristate_si(void)
 {
   bash_bits|=0x02;
   POKE(BITBASH_PORT,bash_bits);
+  DEBUG_BITBASH(bash_bits);
 }
 
 void spi_tristate_si_and_so(void)
@@ -383,6 +392,7 @@ void spi_tristate_si_and_so(void)
   bash_bits|=0x03;
   bash_bits&=0x6f;
   POKE(BITBASH_PORT,bash_bits);
+  DEBUG_BITBASH(bash_bits);
 }
 
 unsigned char spi_sample_si(void)
@@ -391,6 +401,7 @@ unsigned char spi_sample_si(void)
   bash_bits&=0x7F;
   bash_bits|=0x02;
   POKE(BITBASH_PORT,bash_bits);
+  DEBUG_BITBASH(bash_bits);
 
   // Not sure why we need this here, but we do, else it only ever returns 1.
   // (but the delay can be made quite short)
@@ -406,31 +417,58 @@ void spi_so_set(unsigned char b)
   bash_bits|=(0x1F-0x01);
   if (b) bash_bits|=0x01;
   POKE(BITBASH_PORT,bash_bits);
+  DEBUG_BITBASH(bash_bits);
+}
+
+void qspi_nybl_set(unsigned char nybl)
+{
+  // De-tri-state SO data line, and set value
+  bash_bits&=(0xff-0x0f);
+  bash_bits&=(0xff-0x10);
+  bash_bits|=nybl & 0xf;
+  bash_bits|=0x80;
+  POKE(BITBASH_PORT,bash_bits);
+  DEBUG_BITBASH(bash_bits);
+  printf("$%02x ",bash_bits);
 }
 
 
 void spi_clock_low(void)
 {
-  bash_bits&=0xff-0x20;
+  bash_bits&=(0xff-0x20);
   POKE(BITBASH_PORT,bash_bits);
+  DEBUG_BITBASH(bash_bits);
 }
 
 void spi_clock_high(void)
 {
   bash_bits|=0x20;
   POKE(BITBASH_PORT,bash_bits);
+  DEBUG_BITBASH(bash_bits);
+}
+
+void spi_idle_clocks(unsigned int count)
+{
+  while (count--) {
+    spi_clock_low();
+    delay();
+    spi_clock_high();
+    delay();
+  }
 }
 
 void spi_cs_low(void)
 {
     bash_bits&=0xff-0x40;
     POKE(BITBASH_PORT,bash_bits);
+    DEBUG_BITBASH(bash_bits);
 }
 
 void spi_cs_high(void)
 {
   bash_bits|=0x40;
   POKE(BITBASH_PORT,bash_bits);
+  DEBUG_BITBASH(bash_bits);
 }
 
 
@@ -438,6 +476,15 @@ void spi_tx_bit(unsigned char bit)
 {
   spi_clock_low();
   spi_so_set(bit);
+  delay();
+  spi_clock_high();
+  delay();
+}
+
+void qspi_tx_nybl(unsigned char nybl)
+{
+  spi_clock_low();
+  qspi_nybl_set(nybl);
   delay();
   spi_clock_high();
   delay();
@@ -451,6 +498,12 @@ void spi_tx_byte(unsigned char b)
     spi_tx_bit(b&0x80);
     b=b<<1;
   }
+}
+
+void qspi_tx_byte(unsigned char b)
+{
+  qspi_tx_nybl((b&0xf0)>>4);
+  qspi_tx_nybl(b&0xf);
 }
 
 unsigned char qspi_rx_byte()
@@ -500,20 +553,18 @@ void flash_reset(void)
   delay();
   spi_cs_low();
   delay();
-  spi_tx_byte(0x06);
+  spi_tx_byte(0x60);
   spi_cs_high();
-  usleep(65000);
-  usleep(65000);
-  usleep(65000);
-  usleep(65000);
-  usleep(65000);
-  usleep(65000);
+  usleep(32000);
+  usleep(32000);
+  usleep(32000);
+  usleep(32000);
+  usleep(32000);
+  usleep(32000);
 }
- 
+
 void read_registers(void)
 {
-  // Put QSPI clock under bitbash control
-  POKE(CLOCKCTL_PORT,0x00);
 
   // Status Register 1 (SR1)
   spi_cs_high();
@@ -538,11 +589,8 @@ void read_registers(void)
   delay();  
 }
 
-void erase_sector(unsigned long address_in_sector)
+void spi_write_enable(void)
 {
-
-  // XXX Send Write Enable command (0x06 ?)
-  //  printf("activating write enable...\n");
   while(!(reg_sr1&0x02)) {
     spi_cs_high();
     spi_clock_high();
@@ -553,7 +601,15 @@ void erase_sector(unsigned long address_in_sector)
     spi_cs_high();
     
     read_registers();
-  }  
+  }
+}
+
+void erase_sector(unsigned long address_in_sector)
+{
+
+  // XXX Send Write Enable command (0x06 ?)
+  //  printf("activating write enable...\n");
+  spi_write_enable();
   
   // XXX Clear status register (0x30)
   //  printf("clearing status register...\n");
@@ -595,28 +651,41 @@ void erase_sector(unsigned long address_in_sector)
   
 }
 
+unsigned char first,last;
+
 void program_page(unsigned long start_address)
 {
   // XXX Send Write Enable command (0x06 ?)
 
-  while(reg_sr1&0x01) {
-    printf("flash busy. ");
+  first=0;
+  last=0xff;
+
+#if 0
+  // Skip any leading 0xff bytes
+  while(data_buffer[first]==0xff) {
+    first++;
+    // Check if entire sector is made of 0xff
+    if (first==0) return;
+  }
+  // Skip any trailing 0xff bytes
+  while(data_buffer[last]==0xff) last--;
+
+  if (first||(last<0xff)) {
+    printf("writing partial page $%08lx: $%02x -- $%02x\n",
+	   start_address,first,last);
+  }
+
+  start_address+=first;
+#endif
+  
+  while(reg_sr1&0x03) {
+    //    printf("flash busy. ");
     read_registers();
   }
 
   // XXX Send Write Enable command (0x06 ?)
   //  printf("activating write enable...\n");
-  while(!(reg_sr1&0x02)) {
-    spi_cs_high();
-    spi_clock_high();
-    delay();
-    spi_cs_low();
-    delay();
-    spi_tx_byte(0x06);
-    spi_cs_high();
-    
-    read_registers();
-  }  
+  spi_write_enable();
   
   // XXX Clear status register (0x30)
   //  printf("clearing status register...\n");
@@ -638,6 +707,7 @@ void program_page(unsigned long start_address)
   
   // XXX Send Page Programme (0x12 for 1-bit, or 0x34 for 4-bit QSPI)
   //  printf("writing 256 bytes of data...\n");
+
   spi_cs_high();
   spi_clock_high();
   delay();
@@ -648,11 +718,20 @@ void program_page(unsigned long start_address)
   spi_tx_byte(start_address>>16);
   spi_tx_byte(start_address>>8);
   spi_tx_byte(start_address>>0);
-  for(x=0;x<256;x++) spi_tx_byte(data_buffer[x]);
-  
+
+  // XXX For some reason we get stuck bits with QSPI writing, so we aren't going to do it.
+  // Flashing actually takes longer normally, anyway.
+  for(i=0;i<256;i++) spi_tx_byte(data_buffer[i]);
+
   spi_cs_high();
 
-  while(reg_sr1&0x01) {
+  // Revert lines to input after QSPI operation
+  bash_bits|=0x10;
+  bash_bits&=0xff-0x80;
+  POKE(BITBASH_PORT,bash_bits);
+  DEBUG_BITBASH(bash_bits);
+
+  while(reg_sr1&0x03) {
     //    printf("flash busy. ");
     read_registers();
   }
@@ -667,10 +746,6 @@ void program_page(unsigned long start_address)
 void read_data(unsigned long start_address)
 {
   
-  // XXX Send read command (0x13 for 1-bit, 0x6c for QSPI)
-  // Put QSPI clock under bitbash control
-  POKE(CLOCKCTL_PORT,0x00);
-
   // Status Register 1 (SR1)
   spi_cs_high();
   spi_clock_high();
@@ -710,9 +785,6 @@ void fetch_rdid(void)
 
   unsigned short i;
 
-  // Put QSPI clock under bitbash control
-  POKE(CLOCKCTL_PORT,0x00);
-  
   spi_cs_high();
   spi_clock_high();
   delay();
@@ -766,6 +838,47 @@ unsigned char slot_empty_check(unsigned short mb_num)
   return 0;
 }
 
+void flash_inspector(void)
+{
+  addr=0;
+  read_data(addr);
+  printf("Flash @ $%08x:\n",addr);
+  for(i=0;i<256;i++)
+    {
+      if (!(i&15)) printf("+%03x : ",i);
+      printf("%02x",data_buffer[i]);
+      if ((i&15)==15) printf("\n");
+    }
+  while(1)
+    {
+      x=0;
+      while(!x) {
+	x=PEEK(0xd610);
+      }
+
+      if (x) {
+	POKE(0xd610,0);
+	switch(x) {
+	case 0x11: addr+=256; break;
+	case 0x91: addr-=256; break;
+	case 0x1d: addr+=0x400000; break;
+	case 0x9d: addr-=0x400000; break;
+	case 0x03: return;
+	}
+
+	read_data(addr);
+	printf("%cFlash @ $%08lx:\n",0x93,addr);
+	for(i=0;i<256;i++)
+	  {
+	    if (!(i&15)) printf("+%03x : ",i);
+	    printf("%02x",data_buffer[i]);
+	    if ((i&15)==15) printf("\n");
+	  }
+
+      }
+    }
+}
+
 void main(void)
 {
   unsigned char valid;
@@ -793,11 +906,15 @@ void main(void)
   // Start by resetting to CS high etc
   bash_bits=0xff;
   POKE(BITBASH_PORT,bash_bits);
+  DEBUG_BITBASH(bash_bits);
   delay();
   delay();
   delay();
   delay();
   delay();
+
+  // Put QSPI clock under bitbash control
+  POKE(CLOCKCTL_PORT,0x00);  
   
   fetch_rdid();
   read_registers();
@@ -853,6 +970,37 @@ void main(void)
   if (reg_sr1&0x02) printf("write latch enabled.\n"); else printf("write latch not (yet) enabled.\n");
   if (reg_sr1&0x01) printf("device busy.\n");
 
+#if 0
+
+  printf("Press any key to continue...\n");
+  while(PEEK(0xD610)) POKE(0xD610,0);
+  while(!PEEK(0xD610)) continue;
+  while(PEEK(0xD610)) POKE(0xD610,0);
+  
+  erase_sector(4*1048576L);
+  read_data(4*1048576L+0);
+  data_buffer[0]=0xfe;
+  data_buffer[1]=0xdc;
+  data_buffer[2]=0xba;
+  data_buffer[3]=0x98;
+  program_page(4*1048576L+0);
+  data_buffer[0]=0xde;
+  data_buffer[1]=0xad;
+  data_buffer[2]=0xbe;
+  data_buffer[3]=0xef;
+  program_page(4*1048576L+256);
+
+  printf("Press any key to continue...\n");
+  while(PEEK(0xD610)) POKE(0xD610,0);
+  while(!PEEK(0xD610)) continue;
+  while(PEEK(0xD610)) POKE(0xD610,0);
+  
+
+  flash_inspector();
+  
+#endif
+
+  
 #if 0
 
   for(addr=0x400000L;addr<0x800000L;addr+=512) {
@@ -947,33 +1095,37 @@ void main(void)
 	  else reconfig_fpga((x-'0')*(4*1048576)+0); // +4096);
 	}
 	switch(x) {
-	case 146: case 0x41: case 0x61:  // CTRL-0
-	  reflash_slot(0);
-	  break;
-	case 144: case 0x42: case 0x62: // CTRL-1
-	  reflash_slot(1);
-	  break;
-	case 5: case 0x43: case 0x63: // CTRL-2
-	  reflash_slot(2);
-	  break;
-	case 28: case 0x44: case 0x64: // CTRL-3
-	  reflash_slot(3);
-	  break;
-	case 159: // CTRL-4
-	  reflash_slot(4);
-	  break;
-	case 156: // CTRL-5
-	  reflash_slot(5);
-	  break;
-	case 30:  // CTRL-6
-	  reflash_slot(6);
-	  break;
-	case 31:  // CTRL-7
-	  reflash_slot(7);
-	  break;
-	}
-      }
-    }
+	  case 0x4d: case 0x6d: // M / m
+	    // Flash memory monitor
+	    flash_inspector();
+	    break;
+	  case 146: case 0x41: case 0x61:  // CTRL-0
+	    reflash_slot(0);
+	    break;
+	  case 144: case 0x42: case 0x62: // CTRL-1
+	    reflash_slot(1);
+	    break;
+	  case 5: case 0x43: case 0x63: // CTRL-2
+	    reflash_slot(2);
+	    break;
+	  case 28: case 0x44: case 0x64: // CTRL-3
+	    reflash_slot(3);
+	    break;
+	  case 159: // CTRL-4
+	    reflash_slot(4);
+	    break;
+	  case 156: // CTRL-5
+	    reflash_slot(5);
+	    break;
+	  case 30:  // CTRL-6
+	    reflash_slot(6);
+	    break;
+	  case 31:  // CTRL-7
+	    reflash_slot(7);
+	    break;
+	  }
+	  }
+	  }
   
 #if 0
   erase_sector(4*1048576L);
@@ -1165,7 +1317,7 @@ char *select_bitstream_file(void)
     printf("%c",0x93);
     for(x=0;no_disk_list_message[x];x++)
       POKE(SCREEN_ADDRESS+12*40+(7)+(x*1),no_disk_list_message[x]&0x3f);
-    for(x=0;x<32;x++) usleep(65000);
+    for(x=0;x<32;x++) usleep(32000);
     return NULL;
   }
 
