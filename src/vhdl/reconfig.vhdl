@@ -14,7 +14,8 @@ entity reconfig is
   port (
     clock : in std_logic;
     trigger_reconfigure : in std_logic;
-    reconfigure_address : in unsigned(31 downto 0) := x"00000000"
+    reconfigure_address : in unsigned(31 downto 0) := x"00000000";
+    boot_address : out unsigned(31 downto 0) := x"FFFFFFFF"
     );
 end reconfig;
 
@@ -36,60 +37,6 @@ architecture behavioural of reconfig is
     x"AA995566", -- Sync word 
     x"20000000", -- Type 1 NOOP
     x"20000000", -- Type 1 NOOP
-
-    -- the below was an attempt to allow reconfig from JTAG loaded bitstream. #156
-    -- ... which didn't work for some reason.
---    -- Select QSPIx4, set SPI read command 
---    x"3003E001",x"0000026C",
---    -- Send reiniatialised BPI/SPI re-initiate bitstream read
---    x"30008001",x"00000012",
---    x"20000000", -- Type 1 NOOP
---    -- Reset watchdog timer
---    x"30022001",x"00000000",
---
---    -- Send NOOP command
---    x"30008001",x"00000000",
---    x"20000000", -- Type 1 NOOP
---    -- Send Reset CRC command
---    x"30008001",x"00000007",
---    x"20000000", -- Type 1 NOOP
---    x"20000000", -- Type 1 NOOP
---
---    --Write $0 to undocumented config register #13?
---    x"30026001",x"00000000",
---
---    --  GWE deassert in Startup Phase 4
---    --  GTS deassert in Startup Phase 3
---    --  LOCK_CYCLE stall for MMCM lock disabled.
---    --  MATCH_CYCLE stall for DCI match disabled.
---    --  DONE pin released in Startup Phase 2
---    --  33MHz QSPI clock ($42 gets shifted right one, to be $21 == 33 decimal)
---    -- etc
---    x"30012001",x"02423FE5",
---
---    -- Clear Configuration Options Register 1
---    -- (mostly resetting BPI configuration settings)
---    x"3001C001",x"00000000",
---
---    -- Write ID code to match FPGA
-----    x"30018001",x"03631093",
---
---    -- Activate selected frequency for QSPI config reading
---    x"30008001",x"00000009",
---    
---    x"20000000", -- Type 1 NOOP
---
---    -- Set mask register to allow CTL0 and CTL1 writes to be effective
---    x"3000C001",x"00000401",
---    -- Write to CTL0: Enable fallback on configuration failure, clear GLUTMASK
---    -- to allow read-back of changeable memory cell values
---    x"3000A001",x"00000501",
---
---    -- Set mask register to allow CTL0 and CTL1 writes to be effective    
---    x"3000C001",x"00001000",
---    -- Write magic value into reserved CTRL1 register
---    x"30030001",x"00001000",
-
    
     x"30020001", -- Type 1 write to WBSTAR
     x"00000000", -- Warm-boot start address
@@ -99,6 +46,23 @@ architecture behavioural of reconfig is
     x"0000000F", -- IPROG word
     x"20000000", -- Type 1 NOOP
     x"20000000", -- Type 1 NOOP
+
+
+    -- Offset 16: read WBSTAR
+    x"FFFFFFFF", -- Dummy word
+    x"FFFFFFFF", -- Dummy word
+    x"FFFFFFFF", -- Dummy word
+    x"FFFFFFFF", -- Dummy word
+    x"FFFFFFFF", -- Dummy word
+    x"AA995566", -- Sync word 
+    x"20000000", -- Type 1 NOOP
+    x"20000000", -- Type 1 NOOP   
+    x"20020001", -- Type 1 read from WBSTAR
+    x"20000000", -- Type 1 NOOP
+    x"20000000", -- Type 1 NOOP
+    x"20000000", -- Type 1 NOOP
+
+    
     others => x"FFFFFFFF"
     );
 
@@ -129,8 +93,20 @@ begin
   begin
 
     if rising_edge(clock) then
+      if counter = 27 then
+        -- Capture read WBSTAR value
+        boot_address <= icape_out;
+        rw <= '0';
+      end if;
+      if counter > 24 and counter < 28 then
+        -- Switch to reading for getting WBSTAR register
+        -- contents
+        rw <= '1';
+      else
+        rw <= '0';
+      end if;
       if counter < 70 then
-        if counter = 5 then
+        if counter = 5 or counter = 16 then
           cs <= '0';
           rw <= '0';
         end if;
