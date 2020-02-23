@@ -40,17 +40,23 @@
 -- 8-bit read addresses:
 -- 0xA9, 0xA1, 0xDF, 0xAF
 
--- @IO:GS $FFD7100-07 UUID:UUID64 64-bit UUID. Can be used to seed ethernet MAC address
--- @IO:GS $FFD7110-3F RTC:RTC Real-time Clock
--- @IO:GS $FFD7110 RTC:RTCSEC Real-time Clock seconds value (binary coded decimal)
--- @IO:GS $FFD7111 RTC:RTCMIN Real-time Clock minutes value (binary coded decimal)
--- @IO:GS $FFD7112 RTC:RTCHOUR Real-time Clock hours value (binary coded decimal)
--- @IO:GS $FFD7113 RTC:RTCDAY Real-time Clock day of month value (binary coded decimal)
--- @IO:GS $FFD7114 RTC:RTCMONTH Real-time Clock month value (binary coded decimal)
--- @IO:GS $FFD7115 RTC:RTCYEAR Real-time Clock year value (binary coded decimal)
-
-
--- @IO:GS $FFD7140-7F RTC:NVRAM 64-bytes of non-volatile RAM. Can be used for storing machine configuration.
+-- @IO:GS $FFD7100-07 TARGETM65R2:UUID64 64-bit UUID. Can be used to seed ethernet MAC address
+-- @IO:GS $FFD7110-3F TARGETM65R2:RTC Real-time Clock (ISL12022)
+-- @IO:GS $FFD7110.0-5 TARGETM65R2:RTCSEC Real-time Clock seconds value (0 -- 59) (binary coded decimal)
+-- @IO:GS $FFD7111.0-5 TARGETM65R2:RTCMIN Real-time Clock minutes value (0 -- 59) (binary coded decimal)
+-- @IO:GS $FFD7112.0-5 TARGETM65R2:RTCHOUR Real-time Clock hours value (0 -- 12 or 0 -- 23) (binary coded decimal)
+-- @IO:GS $FFD7112.5 TARGETM65R2:RTCAMPM Real-time Clock AM/PM flag (1 = PM) (only for when not in 24 hour mode)
+-- @IO:GS $FFD7112.7 TARGETM65R2:RTC24HR Real-time Clock 24 hour flag
+-- @IO:GS $FFD7113.0-5 TARGETM65R2:RTCDAY Real-time Clock day of month value (1 -- 31) (binary coded decimal)
+-- @IO:GS $FFD7114.0-4 TARGETM65R2:RTCMONTH Real-time Clock month value (binary coded decimal)
+-- @IO:GS $FFD7115 TARGETM65R2:RTCYEAR Real-time Clock year value, relative to year 2000 (binary coded decimal)
+-- @IO:GS $FFD7116.0-2 TARGETM65R2:RTCDOW Real-time Clock day of week (0 -- 6)
+-- @IO:GS $FFD7117.5 TARGETM65R2:RTCDST Real-time Clock daylight savings indicate bit
+-- @IO:GS $FFD7140-7F TARGETM65R2:NVRAM 64-bytes of non-volatile RAM. Can be used for storing machine configuration.
+-- @IO:GS $FFD7140 TARGETM65R2:RTCNVRAM00 Non-volatile RAM, part of the Real-Time Clock. Can be used for storing machine configuration.
+-- @IO:GS $FFD7141 TARGETM65R2:RTCNVRAM01 Non-volatile RAM, part of the Real-Time Clock. Can be used for storing machine configuration.
+-- @IO:GS $FFD7142 TARGETM65R2:RTCNVRAM02 Non-volatile RAM, part of the Real-Time Clock. Can be used for storing machine configuration.
+-- @IO:GS $FFD7143 TARGETM65R2:RTCNVRAM03 Non-volatile RAM, part of the Real-Time Clock. Can be used for storing machine configuration.
 
 
 use WORK.ALL;
