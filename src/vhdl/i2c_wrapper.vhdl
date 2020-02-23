@@ -152,22 +152,22 @@ begin
         report "reading buffered I2C data";
         fastio_rdata <= bytes(to_integer(fastio_addr(6 downto 0)));
       elsif fastio_addr(7 downto 0) = x"f0" then
-        -- @IO:GS $FFD70F0 - ADC1 smoothed value (LSB)
+        -- @IO:GS $FFD70F0 TARGETMEGAPHONER1:ADC1LSB smoothed value (LSB)
         fastio_rdata <= adc1_smooth(7 downto 0);
       elsif fastio_addr(7 downto 0) = x"f1" then
-        -- @IO:GS $FFD70F1 - ADC1 smoothed value (MSB)
+        -- @IO:GS $FFD70F1 TARGETMEGAPHONER1:ADC1MSB smoothed value (MSB)
         fastio_rdata <= adc1_smooth(15 downto 8);
       elsif fastio_addr(7 downto 0) = x"f2" then
-        -- @IO:GS $FFD70F2 - ADC2 smoothed value (LSB)
+        -- @IO:GS $FFD70F2 TARGETMEGAPHONER1:ADC2LSB smoothed value (LSB)
         fastio_rdata <= adc2_smooth(7 downto 0);
       elsif fastio_addr(7 downto 0) = x"f3" then
-        -- @IO:GS $FFD70F3 - ADC2 smoothed value (MSB)
+        -- @IO:GS $FFD70F3 TARGETMEGAPHONER1:ADC2MSB smoothed value (MSB)
         fastio_rdata <= adc2_smooth(15 downto 8);
       elsif fastio_addr(7 downto 0) = x"f4" then
-        -- @IO:GS $FFD70F4 - ADC3 smoothed value (LSB)
+        -- @IO:GS $FFD70F4 TARGETMEGAPHONER1:ADC3LSB smoothed value (LSB)
         fastio_rdata <= adc3_smooth(7 downto 0);
       elsif fastio_addr(7 downto 0) = x"f5" then
-        -- @IO:GS $FFD70F5 - ADC3 smoothed value (MSB)
+        -- @IO:GS $FFD70F5 TARGETMEGAPHONER1:ADC3MSB smoothed value (MSB)
         fastio_rdata <= adc3_smooth(15 downto 8);
       elsif fastio_addr(7 downto 0) = "11111111" then
         -- Show busy status for writing
@@ -204,6 +204,14 @@ begin
             write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 0,8);
             write_addr <= x"4C";
             write_job_pending <= '1';
+          -- @IO:GS $FFD7000 TARGETMEGAPHONER1:IO1R0 IO Expander 1, Register 0
+          -- @IO:GS $FFD7001 TARGETMEGAPHONER1:IO1R1 IO Expander 1, Register 1
+          -- @IO:GS $FFD7002 TARGETMEGAPHONER1:IO1R2 IO Expander 1, Register 2
+          -- @IO:GS $FFD7003 TARGETMEGAPHONER1:IO1R3 IO Expander 1, Register 3
+          -- @IO:GS $FFD7004 TARGETMEGAPHONER1:IO1R4 IO Expander 1, Register 4
+          -- @IO:GS $FFD7005 TARGETMEGAPHONER1:IO1R5 IO Expander 1, Register 5
+          -- @IO:GS $FFD7006 TARGETMEGAPHONER1:IO1R6 IO Expander 1, Register 6
+          -- @IO:GS $FFD7007 TARGETMEGAPHONER1:IO1R7 IO Expander 1, Register 7
           when 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 =>
             write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 8,8);
             write_addr <= x"4A";            
@@ -212,21 +220,133 @@ begin
             write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 16,8);
             write_addr <= x"48";
             write_job_pending <= '1';
+          -- @IO:GS $FFD7010 TARGETMEGAPHONER1:IO1R0 IO Expander 3, Register 0
+          -- @IO:GS $FFD7011 TARGETMEGAPHONER1:IO1R1 IO Expander 3, Register 1
+          -- @IO:GS $FFD7012 TARGETMEGAPHONER1:IO1R2 IO Expander 3, Register 2
+          -- @IO:GS $FFD7013 TARGETMEGAPHONER1:IO1R3 IO Expander 3, Register 3
+          -- @IO:GS $FFD7014 TARGETMEGAPHONER1:IO1R4 IO Expander 3, Register 4
+          -- @IO:GS $FFD7015 TARGETMEGAPHONER1:IO1R5 IO Expander 3, Register 5
+          -- @IO:GS $FFD7016 TARGETMEGAPHONER1:IO1R6 IO Expander 3, Register 6
+          -- @IO:GS $FFD7017 TARGETMEGAPHONER1:IO1R7 IO Expander 3, Register 7
           when 24 | 25 | 26 | 27 | 28 | 29 | 30 | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40 | 41 | 42 =>
             -- RTC
             write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 24,8);
             write_addr <= x"A2";
             write_job_pending <= '1';
+          -- @IO:GS $FFD7018 TARGETMEGAPHONER1:RTCR0 Real-Time Clock, Register 0
+          -- @IO:GS $FFD7019 TARGETMEGAPHONER1:RTCR1 Real-Time Clock, Register 1
+          -- @IO:GS $FFD701A TARGETMEGAPHONER1:RTCR2 Real-Time Clock, Register 2
+          -- @IO:GS $FFD701B TARGETMEGAPHONER1:RTCR3 Real-Time Clock, Register 3
+          -- @IO:GS $FFD701C TARGETMEGAPHONER1:RTCR4 Real-Time Clock, Register 4
+          -- @IO:GS $FFD701D TARGETMEGAPHONER1:RTCR5 Real-Time Clock, Register 5
+          -- @IO:GS $FFD701E TARGETMEGAPHONER1:RTCR6 Real-Time Clock, Register 6
+          -- @IO:GS $FFD701F TARGETMEGAPHONER1:RTCR7 Real-Time Clock, Register 7
+          -- @IO:GS $FFD7020 TARGETMEGAPHONER1:RTCR8 Real-Time Clock, Register 8
+          -- @IO:GS $FFD7021 TARGETMEGAPHONER1:RTCR9 Real-Time Clock, Register 9
+          -- @IO:GS $FFD7022 TARGETMEGAPHONER1:RTCRA Real-Time Clock, Register A
+          -- @IO:GS $FFD7023 TARGETMEGAPHONER1:RTCRB Real-Time Clock, Register B
+          -- @IO:GS $FFD7024 TARGETMEGAPHONER1:RTCRC Real-Time Clock, Register C
+          -- @IO:GS $FFD7025 TARGETMEGAPHONER1:RTCRD Real-Time Clock, Register D
+          -- @IO:GS $FFD7026 TARGETMEGAPHONER1:RTCRE Real-Time Clock, Register E
+          -- @IO:GS $FFD7027 TARGETMEGAPHONER1:RTCRF Real-Time Clock, Register F
+          -- @IO:GS $FFD7028 TARGETMEGAPHONER1:RTCR10 Real-Time Clock, Register 10
+          -- @IO:GS $FFD7029 TARGETMEGAPHONER1:RTCR11 Real-Time Clock, Register 11
+          -- @IO:GS $FFD702A TARGETMEGAPHONER1:RTCR12 Real-Time Clock, Register 12
+          -- @IO:GS $FFD702B TARGETMEGAPHONER1:RTCR13 Real-Time Clock, Register 13
+          -- @IO:GS $FFD702C TARGETMEGAPHONER1:RTCR14 Real-Time Clock, Register 14
+          -- @IO:GS $FFD702D TARGETMEGAPHONER1:RTCR15 Real-Time Clock, Register 15
+          -- @IO:GS $FFD702E TARGETMEGAPHONER1:RTCR16 Real-Time Clock, Register 16
+          -- @IO:GS $FFD702F TARGETMEGAPHONER1:RTCR17 Real-Time Clock, Register 17
           when 48 | 49 | 50 | 51 | 52 | 53 | 54 | 55 | 56 | 57 | 58 | 59 | 60 | 61 | 62 | 63 =>
             -- Amplifier
             write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 48,8);
             write_addr <= x"68";
             write_job_pending <= '1';            
+          -- @IO:GS $FFD7030 TARGETMEGAPHONER1:AMPR0 Speaker Amplifier, Register 0
+          -- @IO:GS $FFD7031 TARGETMEGAPHONER1:AMPR1 Speaker Amplifier, Register 1
+          -- @IO:GS $FFD7032 TARGETMEGAPHONER1:AMPR2 Speaker Amplifier, Register 2
+          -- @IO:GS $FFD7033 TARGETMEGAPHONER1:AMPR3 Speaker Amplifier, Register 3
+          -- @IO:GS $FFD7034 TARGETMEGAPHONER1:AMPR4 Speaker Amplifier, Register 4
+          -- @IO:GS $FFD7035 TARGETMEGAPHONER1:AMPR5 Speaker Amplifier, Register 5
+          -- @IO:GS $FFD7036 TARGETMEGAPHONER1:AMPR6 Speaker Amplifier, Register 6
+          -- @IO:GS $FFD7037 TARGETMEGAPHONER1:AMPR7 Speaker Amplifier, Register 7
+          -- @IO:GS $FFD7038 TARGETMEGAPHONER1:AMPR8 Speaker Amplifier, Register 8
+          -- @IO:GS $FFD7039 TARGETMEGAPHONER1:AMPR9 Speaker Amplifier, Register 9
+          -- @IO:GS $FFD703A TARGETMEGAPHONER1:AMPRA Speaker Amplifier, Register A
+          -- @IO:GS $FFD703B TARGETMEGAPHONER1:AMPRB Speaker Amplifier, Register B
+          -- @IO:GS $FFD703C TARGETMEGAPHONER1:AMPRC Speaker Amplifier, Register C
+          -- @IO:GS $FFD703D TARGETMEGAPHONER1:AMPRD Speaker Amplifier, Register D
+          -- @IO:GS $FFD703E TARGETMEGAPHONER1:AMPRE Speaker Amplifier, Register E
+          -- @IO:GS $FFD703F TARGETMEGAPHONER1:AMPRF Speaker Amplifier, Register F
           when 64 | 65 | 66 | 67 | 68 | 69 | 70 | 71 | 72 | 73 | 74 | 75 | 76 | 77 | 78 | 79 | 80 | 81 | 82 | 83 | 84 | 85 | 86 | 87 | 88 | 89 | 90 | 91 | 92 | 93 | 94 | 95 | 96 | 97 | 98 | 99 | 100 | 101 | 102 | 103 | 104 | 105 | 106 | 107 | 108 | 109 | 110 | 111 | 112 | 113 | 114 | 115 | 116 | 117 | 118 | 119 | 120 | 121 | 122 | 123 | 124 | 125 | 126 | 127 =>
             -- Accelerometer
             write_reg <= to_unsigned(to_integer(fastio_addr(7 downto 0)) - 64, 8);
             write_addr <= x"32";
             write_job_pending <= '1';            
+          -- @IO:GS $FFD7040 TARGETMEGAPHONER1:ACCELR0 Accelerometer, Register 0
+          -- @IO:GS $FFD7041 TARGETMEGAPHONER1:ACCELR1 Accelerometer, Register 1
+          -- @IO:GS $FFD7042 TARGETMEGAPHONER1:ACCELR2 Accelerometer, Register 2
+          -- @IO:GS $FFD7043 TARGETMEGAPHONER1:ACCELR3 Accelerometer, Register 3
+          -- @IO:GS $FFD7044 TARGETMEGAPHONER1:ACCELR4 Accelerometer, Register 4
+          -- @IO:GS $FFD7045 TARGETMEGAPHONER1:ACCELR5 Accelerometer, Register 5
+          -- @IO:GS $FFD7046 TARGETMEGAPHONER1:ACCELR6 Accelerometer, Register 6
+          -- @IO:GS $FFD7047 TARGETMEGAPHONER1:ACCELR7 Accelerometer, Register 7
+          -- @IO:GS $FFD7048 TARGETMEGAPHONER1:ACCELR8 Accelerometer, Register 8
+          -- @IO:GS $FFD7049 TARGETMEGAPHONER1:ACCELR9 Accelerometer, Register 9
+          -- @IO:GS $FFD704A TARGETMEGAPHONER1:ACCELRA Accelerometer, Register A
+          -- @IO:GS $FFD704B TARGETMEGAPHONER1:ACCELRB Accelerometer, Register B
+          -- @IO:GS $FFD704C TARGETMEGAPHONER1:ACCELRC Accelerometer, Register C
+          -- @IO:GS $FFD704D TARGETMEGAPHONER1:ACCELRD Accelerometer, Register D
+          -- @IO:GS $FFD704E TARGETMEGAPHONER1:ACCELRE Accelerometer, Register E
+          -- @IO:GS $FFD704F TARGETMEGAPHONER1:ACCELRF Accelerometer, Register F
+          -- @IO:GS $FFD7050 TARGETMEGAPHONER1:ACCELR10 Accelerometer, Register 10
+          -- @IO:GS $FFD7051 TARGETMEGAPHONER1:ACCELR11 Accelerometer, Register 11
+          -- @IO:GS $FFD7052 TARGETMEGAPHONER1:ACCELR12 Accelerometer, Register 12
+          -- @IO:GS $FFD7053 TARGETMEGAPHONER1:ACCELR13 Accelerometer, Register 13
+          -- @IO:GS $FFD7054 TARGETMEGAPHONER1:ACCELR14 Accelerometer, Register 14
+          -- @IO:GS $FFD7055 TARGETMEGAPHONER1:ACCELR15 Accelerometer, Register 15
+          -- @IO:GS $FFD7056 TARGETMEGAPHONER1:ACCELR16 Accelerometer, Register 16
+          -- @IO:GS $FFD7057 TARGETMEGAPHONER1:ACCELR17 Accelerometer, Register 17
+          -- @IO:GS $FFD7058 TARGETMEGAPHONER1:ACCELR18 Accelerometer, Register 18
+          -- @IO:GS $FFD7059 TARGETMEGAPHONER1:ACCELR19 Accelerometer, Register 19
+          -- @IO:GS $FFD705A TARGETMEGAPHONER1:ACCELR1A Accelerometer, Register 1A
+          -- @IO:GS $FFD705B TARGETMEGAPHONER1:ACCELR1B Accelerometer, Register 1B
+          -- @IO:GS $FFD705C TARGETMEGAPHONER1:ACCELR1C Accelerometer, Register 1C
+          -- @IO:GS $FFD705D TARGETMEGAPHONER1:ACCELR1D Accelerometer, Register 1D
+          -- @IO:GS $FFD705E TARGETMEGAPHONER1:ACCELR1E Accelerometer, Register 1E
+          -- @IO:GS $FFD705F TARGETMEGAPHONER1:ACCELR1F Accelerometer, Register 1F
+          -- @IO:GS $FFD7060 TARGETMEGAPHONER1:ACCELR20 Accelerometer, Register 20
+          -- @IO:GS $FFD7061 TARGETMEGAPHONER1:ACCELR21 Accelerometer, Register 21
+          -- @IO:GS $FFD7062 TARGETMEGAPHONER1:ACCELR22 Accelerometer, Register 22
+          -- @IO:GS $FFD7063 TARGETMEGAPHONER1:ACCELR23 Accelerometer, Register 23
+          -- @IO:GS $FFD7064 TARGETMEGAPHONER1:ACCELR24 Accelerometer, Register 24
+          -- @IO:GS $FFD7065 TARGETMEGAPHONER1:ACCELR25 Accelerometer, Register 25
+          -- @IO:GS $FFD7066 TARGETMEGAPHONER1:ACCELR26 Accelerometer, Register 26
+          -- @IO:GS $FFD7067 TARGETMEGAPHONER1:ACCELR27 Accelerometer, Register 27
+          -- @IO:GS $FFD7068 TARGETMEGAPHONER1:ACCELR28 Accelerometer, Register 28
+          -- @IO:GS $FFD7069 TARGETMEGAPHONER1:ACCELR29 Accelerometer, Register 29
+          -- @IO:GS $FFD706A TARGETMEGAPHONER1:ACCELR2A Accelerometer, Register 2A
+          -- @IO:GS $FFD706B TARGETMEGAPHONER1:ACCELR2B Accelerometer, Register 2B
+          -- @IO:GS $FFD706C TARGETMEGAPHONER1:ACCELR2C Accelerometer, Register 2C
+          -- @IO:GS $FFD706D TARGETMEGAPHONER1:ACCELR2D Accelerometer, Register 2D
+          -- @IO:GS $FFD706E TARGETMEGAPHONER1:ACCELR2E Accelerometer, Register 2E
+          -- @IO:GS $FFD706F TARGETMEGAPHONER1:ACCELR2F Accelerometer, Register 2F
+          -- @IO:GS $FFD7070 TARGETMEGAPHONER1:ACCELR30 Accelerometer, Register 30
+          -- @IO:GS $FFD7071 TARGETMEGAPHONER1:ACCELR31 Accelerometer, Register 31
+          -- @IO:GS $FFD7072 TARGETMEGAPHONER1:ACCELR32 Accelerometer, Register 32
+          -- @IO:GS $FFD7073 TARGETMEGAPHONER1:ACCELR33 Accelerometer, Register 33
+          -- @IO:GS $FFD7074 TARGETMEGAPHONER1:ACCELR34 Accelerometer, Register 34
+          -- @IO:GS $FFD7075 TARGETMEGAPHONER1:ACCELR35 Accelerometer, Register 35
+          -- @IO:GS $FFD7076 TARGETMEGAPHONER1:ACCELR36 Accelerometer, Register 36
+          -- @IO:GS $FFD7077 TARGETMEGAPHONER1:ACCELR37 Accelerometer, Register 37
+          -- @IO:GS $FFD7078 TARGETMEGAPHONER1:ACCELR38 Accelerometer, Register 38
+          -- @IO:GS $FFD7079 TARGETMEGAPHONER1:ACCELR39 Accelerometer, Register 39
+          -- @IO:GS $FFD707A TARGETMEGAPHONER1:ACCELR3A Accelerometer, Register 3A
+          -- @IO:GS $FFD707B TARGETMEGAPHONER1:ACCELR3B Accelerometer, Register 3B
+          -- @IO:GS $FFD707C TARGETMEGAPHONER1:ACCELR3C Accelerometer, Register 3C
+          -- @IO:GS $FFD707D TARGETMEGAPHONER1:ACCELR3D Accelerometer, Register 3D
+          -- @IO:GS $FFD707E TARGETMEGAPHONER1:ACCELR3E Accelerometer, Register 3E
+          -- @IO:GS $FFD707F TARGETMEGAPHONER1:ACCELR3F Accelerometer, Register 3F
           when others =>
         end case;
         write_val <= fastio_wdata;
