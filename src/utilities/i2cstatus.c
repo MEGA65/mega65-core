@@ -1,174 +1,12 @@
 #include <stdio.h>
-#define POKE(X,Y) (*(unsigned char*)(X))=Y
-#define PEEK(X) (*(unsigned char*)(X))
-void m65_io_enable(void);
+#include <memory.h>
+#include <targets.h>
+#include <time.h>
+
+struct m65_tm tm;
 
 unsigned char joy_x=100;
 unsigned char joy_y=100;
-
-struct dmagic_dmalist {
-  // Enhanced DMA options
-  unsigned char option_0b;
-  unsigned char option_80;
-  unsigned char source_mb;
-  unsigned char option_81;
-  unsigned char dest_mb;
-  unsigned char end_of_options;
-
-  // F018B format DMA request
-  unsigned char command;
-  unsigned int count;
-  unsigned int source_addr;
-  unsigned char source_bank;
-  unsigned int dest_addr;
-  unsigned char dest_bank;
-  unsigned char sub_cmd;  // F018B subcmd
-  unsigned int modulo;
-};
-
-struct dmagic_dmalist dmalist;
-unsigned char dma_byte;
-
-void do_dma(void)
-{
-  m65_io_enable();
-
-  //  for(i=0;i<24;i++)
-  // screen_hex_byte(SCREEN_ADDRESS+i*3,PEEK(i+(unsigned int)&dmalist));
-  
-  // Now run DMA job (to and from anywhere, and list is in low 1MB)
-  POKE(0xd702U,0);
-  POKE(0xd704U,0x00);  // List is in $00xxxxx
-  POKE(0xd701U,((unsigned int)&dmalist)>>8);
-  POKE(0xd705U,((unsigned int)&dmalist)&0xff); // triggers enhanced DMA
-}
-
-unsigned char lpeek_toscreen(long address)
-{
-  // Read the byte at <address> in 28-bit address space
-  // XXX - Optimise out repeated setup etc
-  // (separate DMA lists for peek, poke and copy should
-  // save space, since most fields can stay initialised).
-
-  dmalist.option_0b=0x0b;
-  dmalist.option_80=0x80;
-  dmalist.source_mb=(address>>20);
-  dmalist.option_81=0x81;
-  dmalist.dest_mb=0x00; // dma_byte lives in 1st MB
-  dmalist.end_of_options=0x00;
-  dmalist.sub_cmd=0x02; // Hold source address
-  
-  dmalist.command=0x00; // copy
-  dmalist.count=1000;
-  dmalist.source_addr=address&0xffff;
-  dmalist.source_bank=((address>>16)&0x0f);
-  dmalist.dest_addr=0x0400;
-  dmalist.dest_bank=0;
-
-  do_dma();
-   
-  return dma_byte;
-}
-
-
-unsigned char lpeek(long address)
-{
-  // Read the byte at <address> in 28-bit address space
-  // XXX - Optimise out repeated setup etc
-  // (separate DMA lists for peek, poke and copy should
-  // save space, since most fields can stay initialised).
-
-  dmalist.option_0b=0x0b;
-  dmalist.option_80=0x80;
-  dmalist.source_mb=(address>>20);
-  dmalist.option_81=0x81;
-  dmalist.dest_mb=0x00; // dma_byte lives in 1st MB
-  dmalist.end_of_options=0x00;
-  dmalist.sub_cmd=0x00;
-  
-  dmalist.command=0x00; // copy
-  dmalist.count=1;
-  dmalist.source_addr=address&0xffff;
-  dmalist.source_bank=(address>>16)&0x0f;
-  dmalist.dest_addr=(unsigned int)&dma_byte;
-  dmalist.dest_bank=0;
-
-  do_dma();
-   
-  return dma_byte;
-}
-
-void lpoke(long address, unsigned char value)
-{  
-
-  dmalist.option_0b=0x0b;
-  dmalist.option_80=0x80;
-  dmalist.source_mb=0x00; // dma_byte lives in 1st MB
-  dmalist.option_81=0x81;
-  dmalist.dest_mb=(address>>20);
-  dmalist.end_of_options=0x00;
-  
-  dma_byte=value;
-  dmalist.command=0x00; // copy
-  dmalist.count=1;
-  dmalist.source_addr=(unsigned int)&dma_byte;
-  dmalist.source_bank=0;
-  dmalist.dest_addr=address&0xffff;
-  dmalist.dest_bank=(address>>16)&0x0f;
-
-  do_dma(); 
-  return;
-}
-
-void lcopy(long source_address, long destination_address,
-          unsigned int count)
-{
-  if (!count) return;
-  dmalist.option_0b=0x0b;
-  dmalist.option_80=0x80;
-  dmalist.source_mb=source_address>>20;
-  dmalist.option_81=0x81;
-  dmalist.dest_mb=(destination_address>>20);
-  dmalist.end_of_options=0x00;
-
-  dmalist.command=0x00; // copy
- dmalist.count=count;
-  dmalist.sub_cmd=0;
-  dmalist.source_addr=source_address&0xffff;
-  dmalist.source_bank=(source_address>>16)&0x0f;
-  if (source_address>=0xd000 && source_address<0xe000)
-    dmalist.source_bank|=0x80;  
-  dmalist.dest_addr=destination_address&0xffff;
-  dmalist.dest_bank=(destination_address>>16)&0x0f;
-  if (destination_address>=0xd000 && destination_address<0xe000)
-    dmalist.dest_bank|=0x80;
-
-  do_dma();
-  return;
-}
-
-void lfill(long destination_address, unsigned char value,
-          unsigned int count)
-{
-  if (!count) return;
-  dmalist.option_0b=0x0b;
-  dmalist.option_80=0x80;
-  dmalist.source_mb=0x00;
-  dmalist.option_81=0x81;
-  dmalist.dest_mb=destination_address>>20;
-  dmalist.end_of_options=0x00;
-
-  dmalist.command=0x03; // fill
-  dmalist.sub_cmd=0;
-  dmalist.count=count;
-  dmalist.source_addr=value;
-  dmalist.dest_addr=destination_address&0xffff;
-  dmalist.dest_bank=(destination_address>>16)&0x0f;
-  if (destination_address>=0xd000 && destination_address<0xe000)
-    dmalist.dest_bank|=0x80;
-  do_dma();
-  return;
-}
 
 void m65_io_enable(void)
 {
@@ -217,18 +55,43 @@ unsigned char sprite_data[63]={
   0,0,0
 };
 
-void main(void)
-{
-  
-  unsigned char seconds = 0;
-  unsigned char minutes = 0;
-  unsigned char hours = 0;
 
   short x,y,z;
   short a1,a2,a3;
   unsigned char n=0;
 
-  m65_io_enable();
+void show_rtc(void)
+{
+    getrtc(&tm);
+    
+    //    seconds = lpeek_debounced(0xffd7110);
+    //    minutes = lpeek_debounced(0xffd7111);
+
+    printf("Real-time clock: %02d:%02d.%02d",tm.tm_hour,tm.tm_min,tm.tm_sec);
+    printf("\n");
+
+    printf("Date:            %02d-",tm.tm_mday+1);
+    switch(tm.tm_mon) {
+    case 1: printf("jan"); break;
+    case 2: printf("feb"); break;
+    case 3: printf("mar"); break;
+    case 4: printf("apr"); break;
+    case 5: printf("may"); break;
+    case 6: printf("jun"); break;
+    case 7: printf("jul"); break;
+    case 8: printf("aug"); break;
+    case 9: printf("sep"); break;
+    case 10: printf("oct"); break;
+    case 11: printf("nov"); break;
+    case 12: printf("dec"); break;
+    default: printf("invalid month"); break;
+    }
+    printf("-%04d\n",tm.tm_year+1900);
+
+}
+
+void target_megaphone(void)
+  {
 
   // Sprite 0 on
   lpoke(0xFFD3015L,0x01);
@@ -292,18 +155,9 @@ void main(void)
     y=lpeek(0xffd36ba);
     y|=(lpeek(0xffd36bb)&0x30)<<4;
     printf("touch1: %d,%d\n",x,y);
+
+    show_rtc();
     
-    seconds = lpeek(0xffd701a);
-    minutes = lpeek(0xffd701b);
-    hours = lpeek(0xffd701c);
-    printf("real-time clock: %02x:",hours&0x3f);
-    printf("%02x.",minutes&0x7f);
-    printf("%02x",seconds&0x7f); //Prints BCD byte
-    //Since bit 7 is always set, mask it off with 0x7f
-
-    printf("\n");
-
-
     // Also read Accelerometer status
     x=lpeek(0xffd7068L)+(lpeek(0xffd7069L)<<8L);
     y=lpeek(0xffd706AL)+(lpeek(0xffd706BL)<<8L);
@@ -436,3 +290,157 @@ void main(void)
     
   }
 }
+
+unsigned char bcd_add(unsigned char in, unsigned char delta)
+{
+  unsigned char v=in+delta;
+  if ((v&0xf)>0x09) v+=0x06;
+  return v;
+}
+
+void clip_date(void) {
+  if (tm.tm_mday>=30) tm.tm_mday=0;
+  if ((tm.tm_mon==2)&&(tm.tm_mday>28)) tm.tm_mday=0;
+  if (((tm.tm_mon==4)
+       ||(tm.tm_mon==6)
+       ||(tm.tm_mon==6)
+       ||(tm.tm_mon==9)
+       ||(tm.tm_mon==11)
+       )
+      &&(tm.tm_mday>29)) tm.tm_mday=0;
+}
+
+unsigned char hours;
+
+void target_mega65r2(void)
+  {
+
+    //  while(lpeek(0xffd71ffL)) continue;
+
+  // Clear screen
+  printf("%c",0x93);
+
+  //Function to display current time from Real Time Clock
+  while(1){
+    // 0xffd7110 is the base address for all bytes read from the RTC
+    // The I2C Master places them in these memory locations
+
+    // Home cursor
+    printf("%c",0x13);
+
+    printf("Unique identifier/MAC seed: ");
+    for(n=2;n<8;n++) printf("%02x",lpeek_debounced(0xffd7100+n));
+    printf("\n");
+
+    printf("NVRAM:\n");
+    for(n=0x40;n<0x80;n++) {
+      if (!(n&7)) printf(" $%02x :",n-0x40);
+      printf(" %02x",lpeek_debounced(0xffd7100+n));
+      if ((n&7)==7) printf("\n");
+    }
+    printf("\n");
+
+    show_rtc();
+    
+    printf("\nPress 1-6 to adjust time/date.\n      7 toggles 12/24 hour time.\n");
+
+    if (lpeek(0xffd3610)) {
+      // Wait for any previous write to complete
+      while(lpeek(0xffd71ff)) continue;
+
+      switch(lpeek(0xffd3610)) {
+      case '0':
+	setrtc(&tm);
+	break;
+      case '1':
+	tm.tm_hour++;
+	if (tm.tm_hour>23) tm.tm_hour=0;
+	setrtc(&tm);
+	break;
+      case '2':
+	tm.tm_min++;
+	if (tm.tm_min>59) tm.tm_min=0;
+	setrtc(&tm);
+	break;
+      case '3':
+	tm.tm_sec++;
+	if (tm.tm_sec>59) tm.tm_sec=0;
+	setrtc(&tm);
+	break;
+      case '4':
+	tm.tm_mday++;
+	clip_date();
+	setrtc(&tm);
+	break;
+      case '5':
+	tm.tm_mon++;
+	if (tm.tm_mon>12) tm.tm_mon=1;
+	clip_date();
+	setrtc(&tm);
+	break;
+      case '6':
+	tm.tm_year++;
+	if (tm.tm_year>199) tm.tm_year=0;
+	setrtc(&tm);
+	break;
+      case '7':
+	// 12/24 toggle is not supported by the libc, so do it manually
+	hours=lpeek_debounced(0xffd7112);
+	if (hours&0x80) {
+	  // Switch to 12 hour time.
+	  hours&=0x7f;
+	  if ((hours&0x7f)>0x12) {
+	    hours=bcd_add(hours,-0x12);
+	    hours|=0x20;
+	  }	  
+	} else {
+	  if (hours&0x20) {
+	    hours=bcd_add(hours&0x1f,0x12);
+	  }
+	  hours|=0x80;
+	}
+	while(lpeek(0xffd71ff)) continue;
+	lpoke(0xffd7112,hours);
+	break;
+      default:
+	break;
+      }
+      
+      lpoke(0xffd3610,0);
+    }
+    
+  }
+}
+
+
+void main(void)
+{
+  
+  m65_io_enable();
+
+  // Sprite 0 on
+  lpoke(0xFFD3015L,0x01);
+  // Sprite data at $03c0
+  *(unsigned char *)2040 = 0x3c0/0x40;
+
+  for(n=0;n<64;n++) 
+    *(unsigned char*)(0x3c0+n)=
+      sprite_data[n];
+  
+  // Disable OSK
+  lpoke(0xFFD3615L,0x7F);  
+
+  switch (detect_target()) {
+  case TARGET_MEGA65R2:
+    target_mega65r2();
+    break;
+  case TARGET_MEGAPHONER1:
+    target_megaphone();
+    break;
+  default:
+    printf("Unknown hardware revision. No I2C block found.\n");
+  }
+
+}
+  
+
