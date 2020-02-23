@@ -185,6 +185,10 @@ int xilinx_boundaryscan(char *xdc,char *bsdl,char *sensitivity)
 	snprintf(t,1024,"%s.ctl",s);
 	bbit_names[i]=strdup(t);
       }
+      if (!strcmp(s,"<unknown>")) {
+	//	printf("Unknown signal '%s'\n",boundary_bit_pin[i]);
+	s=boundary_bit_pin[i];
+      }
     } else bbit_names[i]="<unknown>";
     bbit_vcdchar[i]=0;
     if (!strcmp("CLK_IN",s)) bbit_ignore[i]=1; else bbit_ignore[i]=0;
