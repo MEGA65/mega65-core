@@ -3,6 +3,10 @@
 ## - uncomment the lines corresponding to used pins
 ## - rename the used signals according to the project
 
+### Magic comment to allow monitor_load JTAg to automatically use the correct
+### part boundary scan information.
+### monitor_load:hint:part:xc7a100tfgg484
+
 ## Clock signal (100MHz)
 set_property -dict {PACKAGE_PIN V13 IOSTANDARD LVCMOS33} [get_ports CLK_IN]
 
