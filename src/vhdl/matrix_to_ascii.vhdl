@@ -542,30 +542,9 @@ begin
             report "key press, ASCII code = " & to_hstring(key_matrix(key_num));
             ascii_key <= key_matrix(key_num);
             repeat_key <= key_num;
-            -- On the M65 PCB with a real keyboard, there is a strange problem
-            -- that causes extreme key repeat, as though each key is being
-            -- pressed and released at the scan rate.  This is despite when
-            -- readingg the keyboard matrix segments when a key is held down
-            -- that there is no glitching visible (at least at the speed the CPU
-            -- routine is checking the matrix).  It only happens with the real
-            -- keyboard. On a Nexys4 board with USB / PS2 keyboard, the
-            -- problem doesn't occur. CORRECTION: It DOES happen with PS2 on Nexys4
-            -- As an interim, we refuse to retrigger an ASCII key event for the
-            -- same key that was most recently triggered.
-            -- If there is glitching, we could deal with it by ANDing the matrix
-            -- data every cycle within a scan interval, so that transiently down
-            -- lines will be detected as firmly down.            
-            if (repeat_key /= key_num) or (suppress_key_retrigger='0') then
               repeat_key_timer <= repeat_start_timer;
---              if key_matrix(key_num) = x"11" or key_matrix(key_num) = x"1D" then
               ascii_key_valid_countdown <= 511;
               ascii_key_valid <= '0';
---              else
---                ascii_key_valid <= '1';
---              end if;
-            else
-              ascii_key_valid <= '0';
-            end if;
           else
             ascii_key_valid <= '0';
           end if;
