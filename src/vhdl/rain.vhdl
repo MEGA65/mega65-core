@@ -712,7 +712,7 @@ begin  -- rtl
           -- (Actually we need to tweak the delay for PAL and NTSC differently
           -- still for some reason?)
           if ((last_xcounter_t1 /= last_xcounter_t2) and (pal_mode='0'))
-            or ((last_xcounter_t1 /= last_xcounter_in) and (pal_mode='1'))
+            or ((last_xcounter_t1 /= last_xcounter_t2) and (pal_mode='1'))
           then
             char_bit_stretch <= not char_bit_stretch;
             if char_bit_stretch = '1' and char_bit_count /= 1 then
