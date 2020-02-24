@@ -133,6 +133,8 @@ architecture rtl of matrix_rain_compositor is
   signal feed : feed_t := Normal;
   signal frame_number : integer range 0 to 127 := 70;
   signal lfsr_advance_counter : integer range 0 to 31 := 0;
+  signal lcd_in_letterbox_delayed : std_logic := '1';
+  signal lcd_in_letterbox_history : std_logic_vector(11 downto 0) := (others => '0');
   signal last_letterbox : std_logic := '1';
   signal last_xcounter_in : integer := 0;
   signal last_xcounter_t1 : integer := 0;
@@ -279,8 +281,11 @@ begin  -- rtl
         skip_rasters <= to_unsigned(0,4);
         skip_bytes <= te_line_length;
       end if;
-      
-      last_letterbox <= lcd_in_letterbox;
+
+      lcd_in_letterbox_history(0) <= lcd_in_letterbox;
+      lcd_in_letterbox_delayed <= lcd_in_letterbox_history(11);
+      lcd_in_letterbox_history(11 downto 1) <= lcd_in_letterbox_history(10 downto 0);
+      last_letterbox <= lcd_in_letterbox_delayed;
 
       drop_row <= (to_integer(ycounter_in)+0)/16;
 
@@ -632,7 +637,7 @@ begin  -- rtl
       last_xcounter_t1 <= last_xcounter_in;
       last_xcounter_in <= xcounter_in;
 
-      external_frame_x_zero_delayed <= external_frame_x_zero_history(11);
+      external_frame_x_zero_delayed <= external_frame_x_zero_history(10);
       external_frame_x_zero_history(11 downto 1) <= external_frame_x_zero_history(10 downto 0);
       external_frame_x_zero_history(0) <= external_frame_x_zero;
       
@@ -646,7 +651,7 @@ begin  -- rtl
         -- data.  A complication is that we have to deal with
         -- contention on the BRAM interface, so we ideally need to
         -- sequence the requests a little carefully.
-        if external_frame_x_zero_delayed='1' and last_external_frame_x_zero = '0' and lcd_in_letterbox='1' then
+        if external_frame_x_zero_delayed='1' and last_external_frame_x_zero = '0' and lcd_in_letterbox_delayed='1' then
           char_bit_count <= 0;
           fetch_next_char <= '1';
           column_counter <= 0;
@@ -717,9 +722,7 @@ begin  -- rtl
           -- Delayed by 2 cycles to match pixel edge with real pixel edge.
           -- (Actually we need to tweak the delay for PAL and NTSC differently
           -- still for some reason?)
-          if ((last_xcounter_t1 /= last_xcounter_t2) and (pal_mode='0'))
-            or ((last_xcounter_t1 /= last_xcounter_t2) and (pal_mode='1'))
-          then
+          if (last_xcounter_t1 /= last_xcounter_t2) then
             char_bit_stretch <= not char_bit_stretch;
             if char_bit_stretch = '1' and char_bit_count /= 1 then
               char_bits(7 downto 1) <= char_bits(6 downto 0);
@@ -836,8 +839,7 @@ begin  -- rtl
             glyph_bits(6 downto 0) <= glyph_bits(7 downto 1);
             glyph_bits(7) <= glyph_bits(0);
           end if;
-          if xcounter_in /= last_xcounter_in 
-            and xcounter_in /= last_xcounter_in then
+          if xcounter_in /= last_xcounter_in then
             glyph_bit_count <= glyph_bit_count - 1;
           end if;
         end if;
@@ -854,11 +856,6 @@ begin  -- rtl
       end if;
 
       -- Now that we know what we want to display, actually display it.
-      if xcounter_in >= debug_x and xcounter_in < (debug_x+10) then
-        report
-          "x=" & integer'image(xcounter_in) & ": " &
-          "source = " & feed_t'image(feed);
-      end if;
       case feed is
         when Normal =>
           -- Normal display, so show pixels from input video stream
@@ -868,12 +865,6 @@ begin  -- rtl
         when Matrix =>
           -- Matrix mode, so display the matrix mode text mode that we
           -- generate here.
-          if xcounter_in >= debug_x and xcounter_in < (debug_x+10) then
-            report
-              "x=" & integer'image(xcounter_in) & ": " &
-              "  pixel_out = " & std_logic'image(char_bits(7))
-              & ", char_bits=%" & to_string(char_bits);
-          end if;
           if last_letterbox = '0' then
             vgared_out <= x"00";
             vgagreen_out <= x"00";
@@ -1041,7 +1032,7 @@ begin  -- rtl
         lfsr_advance(1 downto 0) <= "11";        
         lfsr_advance(3 downto 0) <= "1111";        
       end if;
-      if last_letterbox = '1' and lcd_in_letterbox = '0' then
+      if last_letterbox = '1' and lcd_in_letterbox_delayed = '0' then
         last_y_used <= ycounter_in;
       end if;
       if external_frame_y_zero = '0' and last_external_frame_y_zero = '1' then
