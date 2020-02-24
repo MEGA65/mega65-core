@@ -9,11 +9,6 @@ use work.cputypes.all;
 
 ENTITY slow_devices IS
   generic (
-    has_quad_flash : std_logic := '0';
-    has_psram : std_logic := '0';
-    has_hyperram : std_logic := '0';
-    has_c64_cartridge_port : std_logic := '0';
-    has_fakecartridge : std_logic := '0';
     target : mega65_target_t := mega65r1
     );
   PORT (
@@ -189,11 +184,6 @@ begin
     cart_a => cart_a
     );
 
-  generate_fake_cartridge:
-  if has_fakecartridge='1' generate
-    
-  end generate;
-  
   process (pixelclock) is
   begin
     if rising_edge(pixelclock) then
