@@ -629,8 +629,12 @@ begin  -- rtl
       last_xcounter_t2 <= last_xcounter_t1;
       last_xcounter_t1 <= last_xcounter_in;
       last_xcounter_in <= xcounter_in;
+
+      external_frame_x_zero_delayed <= external_frame_x_history(11);
+      external_frame_x_history(11 downto 1) <= external_frame_x_history(10 downto 0);
+      external_frame_x_history(0) <= external_frame_x_zero;
       
-      last_external_frame_x_zero <= external_frame_x_zero;
+      last_external_frame_x_zero <= external_frame_x_zero_delayed;
       last_external_frame_y_zero <= external_frame_y_zero;
 
       if true then
@@ -640,7 +644,7 @@ begin  -- rtl
         -- data.  A complication is that we have to deal with
         -- contention on the BRAM interface, so we ideally need to
         -- sequence the requests a little carefully.
-        if external_frame_x_zero='1' and last_external_frame_x_zero = '0' and lcd_in_letterbox='1' then
+        if external_frame_x_zero_delayed='1' and last_external_frame_x_zero = '0' and lcd_in_letterbox='1' then
           char_bit_count <= 0;
           fetch_next_char <= '1';
           column_counter <= 0;
@@ -786,7 +790,7 @@ begin  -- rtl
         drop_distance_to_end_drive <= drop_distance_to_end_drive2(7 downto 0);
         glyph_pixel <= glyph_bits(0);
         
-        if external_frame_x_zero = '1' then
+        if external_frame_x_zero_delayed = '1' then
           glyph_bit_count <= 0;
         elsif glyph_bit_count < 2 then
           -- Request next glyph
@@ -871,7 +875,7 @@ begin  -- rtl
           if last_letterbox = '0' then
             vgared_out <= x"00";
             vgagreen_out <= x"00";
-            if external_frame_x_zero='1' then
+            if external_frame_x_zero_delayed='1' then
               vgablue_out <= x"FF";
             else
               vgablue_out <= x"00";
@@ -1017,7 +1021,7 @@ begin  -- rtl
       end case;
       
       lfsr_reset(3 downto 0) <= "0000";
-      if external_frame_x_zero='1' then
+      if external_frame_x_zero_delayed='1' then
         -- Horizontal fly-back
         -- Reset LFSRs that generate the start/end values
         if seed(15 downto 0) /= "00000000000000" then
@@ -1076,7 +1080,7 @@ begin  -- rtl
       end if;
       if lfsr_advance_counter /= 0 then
         lfsr_advance_counter <= lfsr_advance_counter - 1;
-      elsif external_frame_x_zero = '1' then
+      elsif external_frame_x_zero_delayed = '1' then
         lfsr_advance(3 downto 0) <= "0000";
       else
         -- Collect bits to form start and end of rain and glyph
