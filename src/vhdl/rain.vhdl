@@ -632,9 +632,9 @@ begin  -- rtl
       last_xcounter_t1 <= last_xcounter_in;
       last_xcounter_in <= xcounter_in;
 
-      external_frame_x_zero_delayed <= external_frame_x_history(11);
-      external_frame_x_history(11 downto 1) <= external_frame_x_history(10 downto 0);
-      external_frame_x_history(0) <= external_frame_x_zero;
+      external_frame_x_zero_delayed <= external_frame_x_zero_history(11);
+      external_frame_x_zero_history(11 downto 1) <= external_frame_x_zero_history(10 downto 0);
+      external_frame_x_zero_history(0) <= external_frame_x_zero;
       
       last_external_frame_x_zero <= external_frame_x_zero_delayed;
       last_external_frame_y_zero <= external_frame_y_zero;
