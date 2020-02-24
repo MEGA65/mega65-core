@@ -86,7 +86,9 @@ architecture rtl of matrix_rain_compositor is
   constant debug_x : integer := 9999 + 56;
 
   signal last_external_frame_x_zero : std_logic := '0';
+  signal external_frame_x_zero_delayed : std_logic := '0';
   signal last_external_frame_y_zero : std_logic := '0';
+  signal external_frame_x_zero_history : std_logic_vector(11 downto 0) := (others => '0');
   
   signal screenram_we : std_logic := '0';
   signal screenram_addr : integer range 0 to 4095 := 0;
