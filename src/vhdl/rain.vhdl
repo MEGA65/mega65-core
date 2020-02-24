@@ -134,7 +134,7 @@ architecture rtl of matrix_rain_compositor is
   signal frame_number : integer range 0 to 127 := 70;
   signal lfsr_advance_counter : integer range 0 to 31 := 0;
   signal lcd_in_letterbox_delayed : std_logic := '1';
-  signal lcd_in_letterbox_history : std_logic_vector(11 downto 0) := (others => '0');
+  signal lcd_in_letterbox_toggle_countdown : integer range 0 to 72 := 72;
   signal last_letterbox : std_logic := '1';
   signal last_xcounter_in : integer := 0;
   signal last_xcounter_t1 : integer := 0;
@@ -282,11 +282,18 @@ begin  -- rtl
         skip_bytes <= te_line_length;
       end if;
 
-      lcd_in_letterbox_history(0) <= lcd_in_letterbox;
-      lcd_in_letterbox_delayed <= lcd_in_letterbox_history(11);
-      lcd_in_letterbox_history(11 downto 1) <= lcd_in_letterbox_history(10 downto 0);
-      last_letterbox <= lcd_in_letterbox_delayed;
-
+      -- Delay lcd_in_letterbox signal by 72 clock ticks to shift matrix mode
+      -- monitor display by 12 pixels = 24 natural pixels = 72 pixelclock ticks
+      -- to the right.
+      if lcd_in_letterbox_toggle_countdown /= 0 then
+        lcd_in_letterbox_toggle_countdown <= lcd_in_letterbox_toggle_countdown - 1;
+      else
+        lcd_in_letterbox_delayed <= lcd_in_letterbox;
+      end if;
+      if lcd_in_letterbox = lcd_in_letterbox_delayed then
+        lcd_in_letterbox_toggle_countdown <= 72;
+      end if;
+      
       drop_row <= (to_integer(ycounter_in)+0)/16;
 
       if matrix_fetch_chardata = '1' then
