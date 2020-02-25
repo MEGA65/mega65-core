@@ -281,11 +281,12 @@ begin  -- rtl
         -- If we are in NTSC, then we have to trim two lines from the bottom.
         if pal_mode='0' then
           skip_rows <= to_unsigned(1+2,5); -- NTSC skip 2 lines
+          skip_bytes <= te_line_length * 3;
         else
           skip_rows <= to_unsigned(1,5); -- PAL show all lines
+          skip_bytes <= te_line_length;
         end if;
         skip_rasters <= to_unsigned(0,4);
-        skip_bytes <= te_line_length;
       end if;
 
       -- Delay lcd_in_letterbox signal by 72 clock ticks to shift matrix mode
@@ -403,14 +404,6 @@ begin  -- rtl
         report "Terminal emulator processing character $"
           & to_hstring(monitor_char_in);
         case monitor_char_in is
-          -- XXX debug monitor mode output
-          -- Remove when finished testing
-          when x"5b" => -- [
-            char_bits_delay <= char_bits_delay - 1;
-            terminal_emulator_fast <= '1';            
-          when x"5d" => -- ]
-            char_bits_delay <= char_bits_delay + 1;
-            terminal_emulator_fast <= '1';            
           when x"13" =>
             -- Home
             te_cursor_y <= 0;
