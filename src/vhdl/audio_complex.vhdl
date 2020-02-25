@@ -304,9 +304,7 @@ begin
   pwm1: entity work.pcm_to_pdm
     port map (
       clock50mhz => clock50mhz,
-      -- XXX DEBUG
---      pcm_left => pcspeaker_l_in,      
-      pcm_left => spkr_left,
+      pcm_left => pcspeaker_l_in,      
       pcm_right => pcspeaker_r_in,
 
       pdm_left => pcspeaker_left,
