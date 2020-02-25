@@ -304,7 +304,9 @@ begin
   pwm1: entity work.pcm_to_pdm
     port map (
       clock50mhz => clock50mhz,
-      pcm_left => pcspeaker_l_in,
+      -- XXX DEBUG
+--      pcm_left => pcspeaker_l_in,      
+      pcm_left => spkr_left,
       pcm_right => pcspeaker_r_in,
 
       pdm_left => pcspeaker_left,
@@ -361,7 +363,7 @@ begin
     outputs(1) => spkr_right,     -- also used for HDMI out on M65R2
     outputs(2) => modem1_out,
     outputs(3) => modem2_out,
-    outputs(4) => bt_left_out,    -- Drives internal speaker on M65R2
+    outputs(4) => bt_left_out,    -- also drives internal speaker on M65R2
     outputs(5) => bt_right_out,
     outputs(6) => headphones_left_out,  -- drives headphone jack on M65R2
     outputs(7) => headphones_right_out, -- drives headphone jack on M65R2
