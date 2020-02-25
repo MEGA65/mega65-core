@@ -134,7 +134,9 @@ architecture rtl of matrix_rain_compositor is
   signal frame_number : integer range 0 to 127 := 70;
   signal lfsr_advance_counter : integer range 0 to 31 := 0;
   signal lcd_in_letterbox_delayed : std_logic := '1';
-  signal lcd_in_letterbox_toggle_countdown : integer range 0 to 72 := 72;
+  signal lcd_in_letterbox_toggle_countdown : integer range 0 to 1023 := 0;
+  signal x_position_delay : integer range 0 to 1023 := 72;
+  signal pal_pixel_delay : integer range 0 to 7 := 0;
   signal last_letterbox : std_logic := '1';
   signal last_xcounter_in : integer := 0;
   signal last_xcounter_t1 : integer := 0;
@@ -294,7 +296,7 @@ begin  -- rtl
       else
       end if;
       if lcd_in_letterbox = lcd_in_letterbox_delayed then
-        lcd_in_letterbox_toggle_countdown <= 72;
+        lcd_in_letterbox_toggle_countdown <= x_position_delay;
       end if;
       
       drop_row <= (to_integer(ycounter_in)+0)/16;
@@ -398,6 +400,17 @@ begin  -- rtl
         report "Terminal emulator processing character $"
           & to_hstring(monitor_char_in);
         case monitor_char_in is
+          -- XXX debug monitor mode output
+          -- Remove when finished testing
+          when x"7b" => -- {
+            x_position_delay <= x_position_delay - 1;
+          when x"7d" => -- }
+            x_position_delay <= x_position_delay - 1;
+          when x"5b" => -- [
+            pal_pixel_delay <= pal_pixel_delay - 1;
+          when x"5d" => -- [
+            pal_pixel_delay <= pal_pixel_delay + 1;
+          
           when x"13" =>
             -- Home
             te_cursor_y <= 0;
@@ -734,7 +747,10 @@ begin  -- rtl
           -- (Actually we need to tweak the delay for PAL and NTSC differently
           -- still for some reason?)
           if ((last_xcounter_t1 /= last_xcounter_t2) and pal_mode='0')
-            or ((last_xcounter_t1 /= last_xcounter_t3) and pal_mode='1')
+            or ((last_xcounter_in /= last_xcounter_t1) and (pal_mode='1') and (pal_pixel_delay=0)
+            or ((last_xcounter_t1 /= last_xcounter_t2) and (pal_mode='1') and (pal_pixel_delay=1)
+            or ((last_xcounter_t2 /= last_xcounter_t3) and (pal_mode='1') and (pal_pixel_delay=2)
+            or ((xcounter_in /= last_xcounter_in) and (pal_mode='1') and (pal_pixel_delay=3)
           then
             char_bit_stretch <= not char_bit_stretch;
             if char_bit_stretch = '1' and char_bit_count /= 1 then
