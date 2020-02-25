@@ -198,14 +198,14 @@ begin
                 hr_d <= (others => 'Z');
               end if;
             when x"2" =>
-              hr_rwds <= wdata(0);
+              hr_rwds_int <= wdata(0);
               hr_reset_int <= wdata(1);
               hr_clk_n_int <= wdata(2);
               hr_clk_p_int <= wdata(3);
               hr_cs0_int <= wdata(4);
               hr_cs1_int <= wdata(5);
 
-              hr_reset_int <= wdata(1);
+              hr_reset <= wdata(1);
               hr_clk_n <= wdata(2);
               hr_clk_p <= wdata(3);
               hr_cs0 <= wdata(4);
@@ -243,6 +243,10 @@ begin
             if debug_mode='0' then
               state <= Idle;
             end if;
+
+            hr_rwds <= hr_rwds_int;
+            hr_reset <= hr_reset_int;
+            
           when Idle =>
             -- Mark us ready for a new job, or pick up a new job
             if debug_mode='1' then
