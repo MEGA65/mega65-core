@@ -137,6 +137,9 @@ architecture rtl of matrix_rain_compositor is
   signal lcd_in_letterbox_toggle_countdown : integer range 0 to 1023 := 0;
   signal x_position_delay : integer range 0 to 1023 := 72;
   signal pal_pixel_delay : integer range 0 to 7 := 0;
+  signal char_bits_delay : integer range 0 to 63 := 1;
+  signal char_bits_pending_countdown : integer range 0 to 63 := 1;
+  signal char_bits_pending : unsigned(7 downto 0);
   signal last_letterbox : std_logic := '1';
   signal last_xcounter_in : integer := 0;
   signal last_xcounter_t1 : integer := 0;
@@ -403,17 +406,11 @@ begin  -- rtl
           -- XXX debug monitor mode output
           -- Remove when finished testing
           when x"5b" => -- [
-            x_position_delay <= x_position_delay - 32;
+            char_bits_delay <= char_bits_delay - 1;
             terminal_emulator_fast <= '1';            
           when x"5d" => -- ]
-            x_position_delay <= x_position_delay + 32;
+            char_bits_delay <= char_bits_delay + 1;
             terminal_emulator_fast <= '1';            
-          when x"7b" => -- {
-            pal_pixel_delay <= pal_pixel_delay - 1;
-            terminal_emulator_fast <= '1';            
-          when x"7d" => -- }
-            pal_pixel_delay <= pal_pixel_delay + 1;
-            terminal_emulator_fast <= '1';          
           when x"13" =>
             -- Home
             te_cursor_y <= 0;
@@ -671,6 +668,13 @@ begin  -- rtl
       last_external_frame_x_zero <= external_frame_x_zero_delayed;
       last_external_frame_y_zero <= external_frame_y_zero;
 
+      if char_bits_pending_countdown = 1 then
+        char_bits <= char_bits_pending;
+      end if;
+      if char_bits_pending_countdown /= 0 then
+        char_bits_pending_countdown <= char_bits_pending_countdown - 1;
+      end if;
+      
       if true then
         -- Text terminal display
         -- We need to read the current char cell to know which
@@ -710,27 +714,23 @@ begin  -- rtl
           end if;
         elsif char_bit_count = 0 then
           -- Request next character
-          if xcounter_in >= debug_x and xcounter_in < (debug_x+10) then
-            report
-              "x=" & integer'image(xcounter_in) & ": " &
-              "char_bits becomes $" & to_hstring(next_char_bits);
-          end if;
-          char_bits <= std_logic_vector(next_char_bits);
+          char_bits_pending <= std_logic_vector(next_char_bits);
+          char_bits_pending_countdown <= char_bits_delay;
           is_cursor <= next_is_cursor;
           -- The offset of 3 is to position the matrix mode overlay more
           -- centrally on the screen.
-          if column_counter > 2 then
+          if column_counter > 4 then
             char_screen_address <= char_screen_address + 1;
           end if;
           if colourify_data='1' then
             case column_counter is
-              when 13 | 14 | 17 | 18 | 21 | 22 | 25 | 26 | 29 | 30 | 33 | 34 | 37 | 38 | 41 | 42 =>
+              when 15 | 16 | 19 | 20 | 23 | 24 | 27 | 28 | 31 | 32 | 35 | 36 | 39 | 40 | 43 | 44 =>
                 alternate_colour <= '1';
               when others =>
                 alternate_colour <= '0';
             end case;
           end if;
-          if column_counter=3 then
+          if column_counter=5 then
             column_visible <= '1';
           elsif column_counter=11 then
             if next_char_bits(0)='1' then
@@ -738,7 +738,7 @@ begin  -- rtl
             else
               alternate_row <= '0';
             end if;
-          elsif column_counter = (3 + te_line_length) then
+          elsif column_counter = (5 + te_line_length) then
             column_visible <= '0';
           end if;
           fetch_next_char <= '1';
