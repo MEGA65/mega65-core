@@ -284,6 +284,8 @@ begin  -- behavioural
           thumbnail_active_row <= not last_hypervisor_mode;
           thumbnail_write_address
             <= to_unsigned(to_integer(thumbnail_row_address) + 80,12);
+          thumbnail_row_address
+            <= to_unsigned(to_integer(thumbnail_row_address) + 80,12);
           
           report "THUMB: active_row asserted on row "
             & to_string(std_logic_vector(pixel_y));
