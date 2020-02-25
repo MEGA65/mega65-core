@@ -227,9 +227,13 @@ begin
           data_ready_strobe <= '1';
         end if;
       end if;
-    end if;
 
-    if rising_edge(clock240) then
+      -- XXX This leaves hyperram running at the CPU's clock rate,
+      -- which means it will be REALLY slow. But it simplifies debugging
+      -- for now.      
+--    end if;
+--    if rising_edge(clock240) then
+      
       -- HyperRAM state machine
       report "State = " & state_t'image(state);
       if (state /= Idle) and ( slowdown_counter /= 0) then
