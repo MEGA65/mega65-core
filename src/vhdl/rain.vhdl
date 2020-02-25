@@ -404,13 +404,16 @@ begin  -- rtl
           -- Remove when finished testing
           when x"7b" => -- {
             x_position_delay <= x_position_delay - 1;
+            terminal_emulator_fast <= '1';            
           when x"7d" => -- }
             x_position_delay <= x_position_delay - 1;
+            terminal_emulator_fast <= '1';            
           when x"5b" => -- [
             pal_pixel_delay <= pal_pixel_delay - 1;
+            terminal_emulator_fast <= '1';            
           when x"5d" => -- [
             pal_pixel_delay <= pal_pixel_delay + 1;
-          
+            terminal_emulator_fast <= '1';          
           when x"13" =>
             -- Home
             te_cursor_y <= 0;
