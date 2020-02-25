@@ -105,7 +105,8 @@ begin
         ram_address <= address;
         ram_reading <= '1';
 
-        if address(23 downto 4) = x"FFFFF" then
+        -- XXX always read from dummy debug bitbash registers
+--        if address(23 downto 4) = x"FFFFF" then
           case address(3 downto 0) is
             when x"0" =>
               rdata <= (others => debug_mode);
@@ -124,7 +125,7 @@ begin
               rdata <= x"48";
           end case;
           data_ready_strobe <= '1';
-        end if;        
+--        end if;        
       elsif write_request='1' and busy_internal='0' then
         report "Making write request";
         -- Begin write request
