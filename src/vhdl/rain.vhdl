@@ -139,6 +139,7 @@ architecture rtl of matrix_rain_compositor is
   signal last_xcounter_in : integer := 0;
   signal last_xcounter_t1 : integer := 0;
   signal last_xcounter_t2 : integer := 0;
+  signal last_xcounter_t3 : integer := 0;
   
   signal drop_start : integer range 0 to 63 := 1;
   signal drop_end : integer range 0 to 63 := 1;
@@ -640,6 +641,7 @@ begin  -- rtl
       end if;
 
       -- Delay display by one clock to re-synchronise with the VIC-IV video output
+      last_xcounter_t3 <= last_xcounter_t2;
       last_xcounter_t2 <= last_xcounter_t1;
       last_xcounter_t1 <= last_xcounter_in;
       last_xcounter_in <= xcounter_in;
@@ -730,7 +732,7 @@ begin  -- rtl
           -- (Actually we need to tweak the delay for PAL and NTSC differently
           -- still for some reason?)
           if ((last_xcounter_t1 /= last_xcounter_t2) and pal_mode='0')
-            or ((last_xcounter_in /= last_xcounter_t2) and pal_mode='1')
+            or ((last_xcounter_t1 /= last_xcounter_t3) and pal_mode='1')
           then
             char_bit_stretch <= not char_bit_stretch;
             if char_bit_stretch = '1' and char_bit_count /= 1 then
