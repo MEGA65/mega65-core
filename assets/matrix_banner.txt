@@ -1,4 +1,4 @@
- *** MEGA65 Machine Inspection Interface ***
+*** MEGA65 Machine Inspection Interface ***
 GIT commit: GITCOMMITID
 F1/F3/UP/DOWN - View Memory, F7 - Wipe mem
 ACCEPT - Enter/exit secure compartment
