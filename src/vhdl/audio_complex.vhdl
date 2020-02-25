@@ -104,6 +104,7 @@ entity audio_complex is
     ampPWM_l : out std_logic;
     ampPWM_r : out std_logic;
     pcspeaker_left : out std_logic;
+    pcspeaker_right : out std_logic;
     ampSD : out std_logic := '1';  -- default to amplifier on
     audio_left : out std_logic_vector(19 downto 0);
     audio_right : out std_logic_vector(19 downto 0);
@@ -155,6 +156,7 @@ architecture elizabethan of audio_complex is
   signal spkr_right : unsigned(15 downto 0) := x"0000";
 
   signal pcspeaker_l_in : unsigned(15 downto 0) := x"0000";
+  signal pcspeaker_r_in : unsigned(15 downto 0) := x"0000";
   
   -- Dummy signals for soaking up dummy audio mixer outputs
   signal dummy0 : unsigned(15 downto 0) := x"0000";
@@ -306,7 +308,7 @@ begin
       pcm_right => pcspeaker_r_in,
 
       pdm_left => pcspeaker_left,
---      pdm_right => pcspeaker_right,
+      pdm_right => pcspeaker_right,
 
       audio_mode => pwm_mode
       );
@@ -400,6 +402,7 @@ begin
 
       -- Duplicate of bt_left_out as PWM, for driving MEGA65 R2 on-board speaker
       pcspeaker_l_in <= bt_left_out;
+      pcspeaker_r_in <= bt_right_out;
       
       -- Propagate I2S and PCM clocks
       if modem_is_pcm_master='0' then
