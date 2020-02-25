@@ -13,6 +13,7 @@ entity iomapper is
         clock100mhz : in std_logic;
         protected_hardware_in : in unsigned(7 downto 0);
         virtualised_hardware_in : in unsigned(7 downto 0);
+        pal_mode : in std_logic;
         -- Enables for the various chip select lines
         chipselect_enables : in std_logic_vector(7 downto 0) := x"FF";
 
@@ -557,6 +558,7 @@ begin
     ioclock => clk,
     pixelclock => pixelclk,
     ethclock => clock50mhz,
+    pal_mode => pal_mode,
     hypervisor_mode => cpu_hypervisor_mode,
     thumbnail_cs => thumbnail_cs,
 

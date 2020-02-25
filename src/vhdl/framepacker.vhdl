@@ -59,6 +59,7 @@ entity framepacker is
     ethclock : in std_logic;
     hypervisor_mode : in std_logic;
     thumbnail_cs : in std_logic;
+    pal_mode : in std_logic;
 
     video_or_cpu : in std_logic;
     
@@ -113,6 +114,7 @@ architecture behavioural of framepacker is
   signal output_write : std_logic := '0';
 
   signal thumbnail_write_address : unsigned(11 downto 0) := x"000";
+  signal thumbnail_row_address : unsigned(11 downto 0) := x"000";
   signal thumbnail_read_address : unsigned(11 downto 0) := x"000";
   signal thumbnail_wdata : unsigned(7 downto 0) := x"00";
   signal thumbnail_rdata : unsigned(7 downto 0) := x"00";
@@ -257,14 +259,21 @@ begin  -- behavioural
       if to_integer(last_pixel_y) /= to_integer(pixel_y) then
         if to_integer(pixel_y) = 0 then
           thumbnail_write_address <= (others => '0');
+          thumbnail_row_address <= (others => '0');
           report "THUMB: Reset write address";
           thumbnail_y_counter <= 0;
           thumbnail_x_counter <= 0;
           thumbnail_active_row <= '0';
         end if;
-        if thumbnail_y_counter < 11 then
+        -- PAL has more raster lines than NTSC, so we have a different vertical
+        -- sampling rate.
+        if ((thumbnail_y_counter < 11) and (pal_mode='1'))
+          or ((thumbnail_y_counter < 10) and (pal_mode='0'))          
+        then
           thumbnail_y_counter <= thumbnail_y_counter + 1;
           thumbnail_active_row <= '0';
+          thumbnail_write_address <= thumbnail_row_address;
+            
           report "THUMB: active_row cleared on row "
             & to_string(std_logic_vector(pixel_y));
         else
@@ -273,6 +282,9 @@ begin  -- behavioural
           thumbnail_y_counter <= 0;
           -- Thumbnail generation does not happen when in hypervisor mode
           thumbnail_active_row <= not last_hypervisor_mode;
+          thumbnail_write_address
+            <= to_unsigned(to_integer(thumbnail_row_address) + 80,12);
+          
           report "THUMB: active_row asserted on row "
             & to_string(std_logic_vector(pixel_y));
         end if;

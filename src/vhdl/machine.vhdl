@@ -1336,6 +1336,7 @@ begin
       clock100mhz => clock100,
       clock2mhz => clock2mhz,
       cpuspeed => cpuspeed,      
+      pal_mode => pal50_select,
       protected_hardware_in => protected_hardware_sig,
       virtualised_hardware_in => virtualised_hardware_sig,
       chipselect_enables => chipselect_enables,
