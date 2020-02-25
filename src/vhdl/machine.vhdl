@@ -232,6 +232,7 @@ entity machine is
 
          ampPWM_l : out std_logic;
          ampPWM_r : out std_logic;
+         pcspeaker_left : out std_logic;
          ampSD : out std_logic;
          audio_left : out std_logic_vector(19 downto 0);
          audio_right : out std_logic_vector(19 downto 0);
@@ -1567,6 +1568,7 @@ begin
       -- PDM digital audio output
       ampPWM_l => ampPWM_l,
       ampPWM_r => ampPWM_r,
+      pcspeaker_left => pcspeaker_left,
       audio_left => audio_left,
       audio_right => audio_right,
       ampSD => ampSD,

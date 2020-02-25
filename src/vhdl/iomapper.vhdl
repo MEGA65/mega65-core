@@ -277,10 +277,11 @@ entity iomapper is
     -- PDM audio output for headphones/line-out
     ampPWM_l : out std_logic;
     ampPWM_r : out std_logic;
+    pcspeaker_left : out std_logic;
     ampSD : out std_logic;
     audio_left : out std_logic_vector(19 downto 0);
     audio_right : out std_logic_vector(19 downto 0);
-
+    
     -- I2S audio channels
     i2s_master_clk : out std_logic := '0';
     i2s_master_sync : out std_logic := '0';
@@ -1123,6 +1124,7 @@ begin
     ampSD => ampSD,
     ampPWM_l => ampPWM_l,
     ampPWM_r => ampPWM_r,
+    pcspeaker_left => pcspeaker_left,
     audio_left => audio_left,
     audio_right => audio_right,
 

@@ -185,9 +185,14 @@ entity container is
          sd2MOSI : out std_logic;
          sd2MISO : in std_logic;
 
-         -- Left and right audio
+         -- Left and right headphone port audio 
          pwm_l : out std_logic;
          pwm_r : out std_logic;
+         
+
+         -- internal speaker
+         pcspeaker_left : out std_logic;
+         pcspeaker_muten : out std_logic;
 
          -- PMOD connectors on the MEGA65 R2 main board
          p1lo : inout std_logic_vector(3 downto 0);
@@ -718,6 +723,8 @@ begin
       flopmotor => flopmotor_drive,
       ampPWM_l => pwm_l_drive,
       ampPWM_r => pwm_r_drive,
+      ampSD => pcspeaker_muten,
+      pcspeaker_left => pcspeaker_left_drive,
       audio_left => audio_left,
       audio_right => audio_right,
 
@@ -853,6 +860,7 @@ begin
 
       pwm_l <= pwm_l_drive;
       pwm_r <= pwm_r_drive;
+      pcspeaker_left <= pcspeaker_left_drive;
 
     end if;
 
