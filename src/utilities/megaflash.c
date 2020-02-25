@@ -389,7 +389,7 @@ void show_horse(unsigned char frame)
   POKE(0xD000,progress+24);
   POKE(0xD001,228);
   POKE(2040,0x380/0x40);
-  lcopy(&horse_sprites[(frame&7)<<6],0x380,63);
+  lcopy((long)&horse_sprites[(frame&7)<<6],0x380,63);
 }
 
 
@@ -893,9 +893,12 @@ void flash_inspector(void)
     }
 }
 
+unsigned int base_addr;
+
 void main(void)
 {
   unsigned char valid;
+  unsigned char selected=0;
   
   mega65_io_enable();
 
@@ -1038,11 +1041,13 @@ void main(void)
   while(1) continue;
 #endif
 
+  printf("%c",0x93);
+  
   while(1)
     {  
 
-      // Clear screen
-      printf("%c",0x93);
+      // home cursor
+      printf("%c",0x13);
 
       // Draw footer line with instructions
       for(y=0;y<24;y++) printf("%c",0x11);
@@ -1055,8 +1060,8 @@ void main(void)
 	
 	// Position cursor for slot
 	z=i>>2;
-	printf("%c%c%c%c%c",0x13,0x11,0x11,0x11,0x11);
-	for(y=0;y<z;y++) printf("%c%c",0x11,0x11);
+	printf("%c%c",0x13,0x11);
+	for(y=0;y<z;y++) printf("%c%c%c",0x11,0x11,0x11);
 	
 	read_data(i*1048576+0*256);
 	//       for(x=0;x<256;x++) printf("%02x ",data_buffer[x]); printf("\n");
@@ -1064,42 +1069,51 @@ void main(void)
 	valid=1;
 	for(x=0;x<256;x++) y&=data_buffer[x];
 	for(x=0;x<16;x++) if (data_buffer[x]!=bitstream_magic[x]) { valid=0; break; }
+
+	// Always treat golden bitstream slot as valid
+	if (!i) valid=1;
 	
 	// Check 512 bytes in total, because sometimes >256 bytes of FF are at the start of a bitstream.
 	read_data(i*1048576+1*256);
 	for(x=0;x<256;x++) y&=data_buffer[x];
-	
-	if (y==0xff) printf("(%d) EMPTY SLOT\n",i>>2);
-	else {
-	  if (!valid) {
-	    if (!i) {
-	      // Assume contains golden bitstream
-	      printf("(%d) MEGA65 FACTORY CORE",i>>2);
-	    } else {
-	      printf("(%d) UNKNOWN CONTENT\n",i>>2);
-	    }
-#if 0
-	    for(x=0;x<64;x++) {
-	      printf("%02x ",data_buffer[x]);
-	      if ((x&7)==7) printf("\n");
-	    }
-#endif
-	  }
-	  else {
-	    // Something valid in the slot
-	    printf("%c(%d) VALID\n",0x05,i>>2);
-	    // Display info about it
-	  }
+
+	if (!i) {
+	  // Assume contains golden bitstream
+	  printf("    (%d) MEGA65 FACTORY CORE",i>>2);
 	}
+	else if (y==0xff) printf("    (%d) EMPTY SLOT\n",i>>2);
+	else if (!valid) {
+	  printf("    (%d) UNKNOWN CONTENT\n",i>>2);
+	} else {
+	  // Something valid in the slot
+	  printf("    %c(%d) VALID\n",0x05,i>>2);
+	  // Display info about it
+	}
+
 	// Check if entire slot is empty
 	//    if (slot_empty_check(i)) printf("  slot is not completely empty.\n");
+
+	base_addr = 0x0400 + (i>>2)*(3*40);
+	if ((i>>2)==selected) {
+	  // Highlight selected item
+	  for(x=0;x<(3*40);x++) {
+	    POKE(base_addr+x,PEEK(base_addr+x)|0x80);
+	    POKE(base_addr+0xd400+x,valid?1:((y==0xff)?2:7));
+	  }
+	} else {
+	  // Don't highlight non-selected items
+	  for(x=0;x<(3*40);x++) {
+	    POKE(base_addr+x,PEEK(base_addr+x)&0x7F);
+	  }
+	}
       }
 
+      
       x=0;
       while(!x) {
 	x=PEEK(0xd610);
       }
-
+      
       if (x) {
 	POKE(0xd610,0);
 	if (x>='0'&&x<'8') {
@@ -1109,37 +1123,61 @@ void main(void)
 	  else reconfig_fpga((x-'0')*(4*1048576)+0); // +4096);
 	}
 	switch(x) {
-	  case 0x4d: case 0x6d: // M / m
-	    // Flash memory monitor
-	    flash_inspector();
-	    break;
-	  case 146: case 0x41: case 0x61:  // CTRL-0
-	    reflash_slot(0);
-	    break;
-	  case 144: case 0x42: case 0x62: // CTRL-1
-	    reflash_slot(1);
-	    break;
-	  case 5: case 0x43: case 0x63: // CTRL-2
-	    reflash_slot(2);
-	    break;
-	  case 28: case 0x44: case 0x64: // CTRL-3
-	    reflash_slot(3);
-	    break;
-	  case 159: // CTRL-4
-	    reflash_slot(4);
-	    break;
-	  case 156: // CTRL-5
-	    reflash_slot(5);
-	    break;
-	  case 30:  // CTRL-6
-	    reflash_slot(6);
-	    break;
-	  case 31:  // CTRL-7
-	    reflash_slot(7);
-	    break;
+	case 0x1d: case 0x11:
+	  selected++;
+	  if (selected>=(mb>>2)) selected=0;
+	  break;
+	case 0x9d: case 0x91:
+	  if (selected==0) selected=(mb>>2)-1; else selected--;
+	  break;
+	case 0x0d:
+	  // Launch selected bitstream
+	  if (!selected) {
+	    reconfig_fpga(0);
+	    printf("%c",0x93);
 	  }
-	  }
-	  }
+	  else reconfig_fpga(selected*(4*1048576)+0); // +4096);
+	  break;
+	case 0x4d: case 0x6d: // M / m
+	  // Flash memory monitor
+	  flash_inspector();
+	  printf("%c",0x93);
+	  break;
+	case 146: case 0x41: case 0x61:  // CTRL-0
+	  reflash_slot(0);
+	  printf("%c",0x93);
+	  break;
+	case 144: case 0x42: case 0x62: // CTRL-1
+	  reflash_slot(1);
+	  printf("%c",0x93);
+	  break;
+	case 5: case 0x43: case 0x63: // CTRL-2
+	  reflash_slot(2);
+	  printf("%c",0x93);
+	  break;
+	case 28: case 0x44: case 0x64: // CTRL-3
+	  reflash_slot(3);
+	  printf("%c",0x93);
+	  break;
+	case 159: // CTRL-4
+	  reflash_slot(4);
+	  printf("%c",0x93);
+	  break;
+	case 156: // CTRL-5
+	  reflash_slot(5);
+	  printf("%c",0x93);
+	  break;
+	case 30:  // CTRL-6
+	  reflash_slot(6);
+	  printf("%c",0x93);
+	  break;
+	case 31:  // CTRL-7
+	  reflash_slot(7);
+	  printf("%c",0x93);
+	  break;
+	}
+      }
+    }
   
 #if 0
   erase_sector(4*1048576L);
