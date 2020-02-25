@@ -39,6 +39,10 @@ entity container is
          btnCpuReset : in  STD_LOGIC;
 
          led : out std_logic := '1';
+
+         -- internal speaker
+         pcspeaker_left : out std_logic;
+         pcspeaker_muten : out std_logic;         
          
          ----------------------------------------------------------------------
          -- HyperRAM as expansion RAM
@@ -120,6 +124,9 @@ begin
 --      hr_clk_p <= counter(23);
 --      led <= counter(23);
       led <= hr_cs0;
+
+      pcspeaker_left <= counter(20);
+      pcspeaker_muten <= counter(26);
       
     end if;
     

@@ -27,7 +27,9 @@ set_property -dict {PACKAGE_PIN B21 IOSTANDARD LVCMOS33 PULLUP TRUE} [get_ports 
 set_property -dict {PACKAGE_PIN B22 IOSTANDARD LVCMOS33 PULLUP TRUE} [get_ports hr_reset]
 set_property -dict {PACKAGE_PIN C22 IOSTANDARD LVCMOS33 PULLUP TRUE} [get_ports hr_cs0]
 
-
+# optional internal speaker:
+set_property -dict {PACKAGE_PIN F18 IOSTANDARD LVCMOS33} [get_ports pcspeaker_muten]
+set_property -dict {PACKAGE_PIN E16 IOSTANDARD LVCMOS33} [get_ports pcspeaker_left]
 
 # XXX - Do we need something like this?
 # CONFIG INTERNAL_VREF_BANK34= 0.900;
