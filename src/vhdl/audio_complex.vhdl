@@ -179,7 +179,7 @@ architecture elizabethan of audio_complex is
 
   -- Use PWM instead of PDM for digital output to speakers
   -- on boards using 1-wire DAC
-  signal pwm_mode : std_logic := '0';
+  signal pwm_mode : std_logic := '1';
 
   signal ampPWM_l_in : unsigned(15 downto 0);
   signal ampPWM_r_in : unsigned(15 downto 0);
