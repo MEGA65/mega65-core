@@ -403,10 +403,10 @@ begin  -- rtl
           -- XXX debug monitor mode output
           -- Remove when finished testing
           when x"5b" => -- [
-            x_position_delay <= x_position_delay - 1;
+            x_position_delay <= x_position_delay - 32;
             terminal_emulator_fast <= '1';            
           when x"5d" => -- ]
-            x_position_delay <= x_position_delay - 1;
+            x_position_delay <= x_position_delay + 32;
             terminal_emulator_fast <= '1';            
           when x"7b" => -- {
             pal_pixel_delay <= pal_pixel_delay - 1;
