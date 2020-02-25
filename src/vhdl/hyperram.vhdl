@@ -41,6 +41,7 @@ end hyperram;
 architecture gothic of hyperram is
 
   type state_t is (
+    Debug,
     Idle,
     ReadSetup,
     WriteSetup,
@@ -77,6 +78,16 @@ architecture gothic of hyperram is
   signal byte_phase : std_logic := '0';
   signal byte_written : std_logic := '0';
 
+  signal debug_mode : std_logic := '0';
+
+  signal hr_ddr : std_logic := '0';
+  signal hr_reset_int : std_logic := '0';
+  signal hr_rwds_int : std_logic := '0';
+  signal hr_cs0_int : std_logic := '0';
+  signal hr_cs1_int : std_logic := '0';
+  signal hr_clk_p_int : std_logic := '0';
+  signal hr_clk_n_int : std_logic := '0';
+  
 begin
   process (cpuclock,clock240) is
   begin
@@ -93,7 +104,27 @@ begin
         -- Latch address
         ram_address <= address;
         ram_reading <= '1';
-        null;
+
+        if address(23 downto 4) = x"FFFFF" then
+          case address(3 downto 0) is
+            when x"0" =>
+              rdata <= (others => debug_mode);
+            when x"1" =>
+              rdata <= hr_d;
+            when x"2" =>
+              rdata(0) <= hr_rwds;
+              rdata(1) <= hr_reset_int;
+              rdata(2) <= hr_clk_n_int;
+              rdata(3) <= hr_clk_p_int;
+              rdata(4) <= hr_cs0_int;
+              rdata(5) <= hr_cs1_int;
+              rdata(6) <= hr_ddr;
+              rdata(7) <= '1';
+            when others =>
+              rdata <= x"48";
+          end case;
+          data_ready_strobe <= '1';
+        end if;        
       elsif write_request='1' and busy_internal='0' then
         report "Making write request";
         -- Begin write request
@@ -103,6 +134,44 @@ begin
         ram_wdata <= wdata;
         ram_reading <= '0';
         null;
+
+        if address(23 downto 4) = x"FFFFF" then
+          case address(3 downto 0) is
+            when x"0" =>
+              if wdata = x"de" then
+                debug_mode <= '1';
+              elsif wdata = x"1d" then
+                debug_mode <= '0';
+              end if;
+            when x"1" =>
+              if hr_ddr='1' then
+                hr_d <= wdata;
+              else
+                hr_d <= (others => 'Z');
+              end if;
+            when x"2" =>
+              hr_rwds <= wdata(0);
+              hr_reset_int <= wdata(1);
+              hr_clk_n_int <= wdata(2);
+              hr_clk_p_int <= wdata(3);
+              hr_cs0_int <= wdata(4);
+              hr_cs1_int <= wdata(5);
+
+              hr_reset_int <= wdata(1);
+              hr_clk_n <= wdata(2);
+              hr_clk_p <= wdata(3);
+              hr_cs0 <= wdata(4);
+              hr_cs1 <= wdata(5);
+
+              hr_ddr <= wdata(6);
+              if wdata(6)='0' then
+                hr_d <= (others => '0');
+              end if;
+            when others =>
+              null;
+          end case;
+          data_ready_strobe <= '1';
+        end if;        
       else
         -- Nothing new to do
         if data_ready_toggle /= last_data_ready_toggle then
@@ -122,8 +191,15 @@ begin
         slowdown_counter <= 0;
         
         case state is
+          when Debug =>
+            if debug_mode='0' then
+              state <= Idle;
+            end if;
           when Idle =>
             -- Mark us ready for a new job, or pick up a new job
+            if debug_mode='1' then
+              state <= Debug;
+            end if;
             if request_toggle /= last_request_toggle then
               last_request_toggle <= request_toggle;
               if ram_reading = '1' then
