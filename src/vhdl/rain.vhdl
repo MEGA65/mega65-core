@@ -402,16 +402,16 @@ begin  -- rtl
         case monitor_char_in is
           -- XXX debug monitor mode output
           -- Remove when finished testing
-          when x"7b" => -- {
-            x_position_delay <= x_position_delay - 1;
-            terminal_emulator_fast <= '1';            
-          when x"7d" => -- }
-            x_position_delay <= x_position_delay - 1;
-            terminal_emulator_fast <= '1';            
           when x"5b" => -- [
+            x_position_delay <= x_position_delay - 1;
+            terminal_emulator_fast <= '1';            
+          when x"5d" => -- ]
+            x_position_delay <= x_position_delay - 1;
+            terminal_emulator_fast <= '1';            
+          when x"7b" => -- {
             pal_pixel_delay <= pal_pixel_delay - 1;
             terminal_emulator_fast <= '1';            
-          when x"5d" => -- [
+          when x"7d" => -- }
             pal_pixel_delay <= pal_pixel_delay + 1;
             terminal_emulator_fast <= '1';          
           when x"13" =>
