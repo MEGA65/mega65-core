@@ -286,10 +286,12 @@ begin  -- rtl
       -- Delay lcd_in_letterbox signal by 72 clock ticks to shift matrix mode
       -- monitor display by 12 pixels = 24 natural pixels = 72 pixelclock ticks
       -- to the right.
+      if lcd_in_letterbox_toggle_countdown = 1 then
+        lcd_in_letterbox_delayed <= lcd_in_letterbox;
+      end if;
       if lcd_in_letterbox_toggle_countdown /= 0 then
         lcd_in_letterbox_toggle_countdown <= lcd_in_letterbox_toggle_countdown - 1;
       else
-        lcd_in_letterbox_delayed <= lcd_in_letterbox;
       end if;
       if lcd_in_letterbox = lcd_in_letterbox_delayed then
         lcd_in_letterbox_toggle_countdown <= 72;
