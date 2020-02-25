@@ -139,7 +139,7 @@ architecture rtl of matrix_rain_compositor is
   signal pal_pixel_delay : integer range 0 to 7 := 0;
   signal char_bits_delay : integer range 0 to 63 := 1;
   signal char_bits_pending_countdown : integer range 0 to 63 := 1;
-  signal char_bits_pending : unsigned(7 downto 0);
+  signal char_bits_pending : std_logic_vector(7 downto 0);
   signal last_letterbox : std_logic := '1';
   signal last_xcounter_in : integer := 0;
   signal last_xcounter_t1 : integer := 0;
