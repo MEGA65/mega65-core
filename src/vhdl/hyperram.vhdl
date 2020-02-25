@@ -42,40 +42,17 @@ end hyperram;
 
 architecture gothic of hyperram is
 
-  component hyper_xface is
-    port (
-      reset : in std_logic;
-      clk : in std_logic;
-      rd_req : in std_logic;
-      wr_req : in std_logic;
-      mem_or_reg : in std_logic;
-      wr_byte_en : in std_logic_vector(3 downto 0);
-      rd_num_dwords : in unsigned(5 downto 0);
-      addr : in unsigned(31 downto 0);
-      wr_d : in unsigned(31 downto 0);
-      rd_d : out unsigned(31 downto 0);
-      rd_rdy : out std_logic;
-      busy : out std_logic;
-      burst_wr_rdy : out std_logic;
-      latency_1x : in unsigned(7 downto 0);
-      latency_2x : in unsigned(7 downto 0);
-
-      dram_dq_in : in unsigned(7 downto 0);
-      dram_dq_out : out unsigned(7 downto 0);
-      dram_dq_oe_l : out std_logic;
-
-      dram_rwds_in : in std_logic;
-      dram_rwds_out : out std_logic;
-      dram_rwds_oe_l : out std_logic;
-
-      dram_ck : out std_logic;
-      dram_rst_l : out std_logic;
-      dram_cs_l : out std_logic;
-      sump_dbg : out unsigned(7 downto 0)
-      );
-  end component;
-
-  signal reset_hi : std_logic;
+  type state_t is (
+    Debug,
+    Idle,
+    ReadSetup,
+    WriteSetup,
+    HyperRAMCSStrobe,
+    HyperRAMOutputCommand,
+    HyperRAMLatencyWait,
+    HyperRAMFinishWriting,
+    HyperRAMReadWait
+    );
   
   signal address_latched : unsigned(26 downto 0);
   signal wdata_latched : unsigned(7 downto 0);
@@ -95,6 +72,16 @@ architecture gothic of hyperram is
   signal byte_phase : std_logic := '0';
   signal byte_written : std_logic := '0';
 
+  signal debug_mode : std_logic := '0';
+
+  signal hr_ddr : std_logic := '0';
+  signal hr_reset_int : std_logic := '0';
+  signal hr_rwds_int : std_logic := '0';
+  signal hr_cs0_int : std_logic := '0';
+  signal hr_cs1_int : std_logic := '0';
+  signal hr_clk_p_int : std_logic := '0';
+  signal hr_clk_n_int : std_logic := '0';
+  
 begin
 
   hyper0: component hyper_xface
@@ -165,7 +152,27 @@ begin
         -- Latch address
         ram_address <= address;
         ram_reading <= '1';
-        null;
+
+        if address(23 downto 4) = x"FFFFF" then
+          case address(3 downto 0) is
+            when x"0" =>
+              rdata <= (others => debug_mode);
+            when x"1" =>
+              rdata <= hr_d;
+            when x"2" =>
+              rdata(0) <= hr_rwds;
+              rdata(1) <= hr_reset_int;
+              rdata(2) <= hr_clk_n_int;
+              rdata(3) <= hr_clk_p_int;
+              rdata(4) <= hr_cs0_int;
+              rdata(5) <= hr_cs1_int;
+              rdata(6) <= hr_ddr;
+              rdata(7) <= '1';
+            when others =>
+              rdata <= x"48";
+          end case;
+          data_ready_strobe <= '1';
+        end if;        
       elsif write_request='1' and busy_internal='0' then
         report "Making write request";
         -- Begin write request
@@ -175,6 +182,44 @@ begin
         ram_wdata <= wdata;
         ram_reading <= '0';
         null;
+
+        if address(23 downto 4) = x"FFFFF" then
+          case address(3 downto 0) is
+            when x"0" =>
+              if wdata = x"de" then
+                debug_mode <= '1';
+              elsif wdata = x"1d" then
+                debug_mode <= '0';
+              end if;
+            when x"1" =>
+              if hr_ddr='1' then
+                hr_d <= wdata;
+              else
+                hr_d <= (others => 'Z');
+              end if;
+            when x"2" =>
+              hr_rwds <= wdata(0);
+              hr_reset_int <= wdata(1);
+              hr_clk_n_int <= wdata(2);
+              hr_clk_p_int <= wdata(3);
+              hr_cs0_int <= wdata(4);
+              hr_cs1_int <= wdata(5);
+
+              hr_reset_int <= wdata(1);
+              hr_clk_n <= wdata(2);
+              hr_clk_p <= wdata(3);
+              hr_cs0 <= wdata(4);
+              hr_cs1 <= wdata(5);
+
+              hr_ddr <= wdata(6);
+              if wdata(6)='0' then
+                hr_d <= (others => '0');
+              end if;
+            when others =>
+              null;
+          end case;
+          data_ready_strobe <= '1';
+        end if;        
       else
         -- Nothing new to do
         if data_ready_toggle /= last_data_ready_toggle then
@@ -194,8 +239,15 @@ begin
         slowdown_counter <= 0;
         
         case state is
+          when Debug =>
+            if debug_mode='0' then
+              state <= Idle;
+            end if;
           when Idle =>
             -- Mark us ready for a new job, or pick up a new job
+            if debug_mode='1' then
+              state <= Debug;
+            end if;
             if request_toggle /= last_request_toggle then
               last_request_toggle <= request_toggle;
               if ram_reading = '1' then
