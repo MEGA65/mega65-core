@@ -320,6 +320,7 @@ architecture Behavioral of container is
 
   signal pwm_l_drive : std_logic;
   signal pwm_r_drive : std_logic;
+  signal pcspeaker_left_drive : std_logic;
 
   signal flopled_drive : std_logic;
   signal flopmotor_drive : std_logic;
