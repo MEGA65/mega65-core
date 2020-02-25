@@ -282,18 +282,25 @@ begin  -- behavioural
           thumbnail_y_counter <= 0;
           -- Thumbnail generation does not happen when in hypervisor mode
           thumbnail_active_row <= not last_hypervisor_mode;
-          thumbnail_write_address
-            <= to_unsigned(to_integer(thumbnail_row_address) + 80,12);
-          thumbnail_row_address
-            <= to_unsigned(to_integer(thumbnail_row_address) + 80,12);
+          if to_integer(thumbnail_row_address) < ( 4095 - 80 ) then
+            thumbnail_write_address
+              <= to_unsigned(to_integer(thumbnail_row_address) + 80,12);
+            thumbnail_row_address
+              <= to_unsigned(to_integer(thumbnail_row_address) + 80,12);
+          else
+            -- Make sure we don't overflow and wrap at the bottom of the frame.
+            thumbnail_write_address <= to_unsigned(4095 - 80,12);
+            thumbnail_row_address <= to_unsigned(4095 - 80,12);
+          end if;            
+
+          -- Make sure we collect no more than 80 pixels per raster
+          thumbnail_pixels_remaining <= 80 - 1;
           
           report "THUMB: active_row asserted on row "
             & to_string(std_logic_vector(pixel_y));
         end if;
       end if;
       if pixel_newraster='1' then
-        -- Make sure we collect no more than 80 pixels per raster
-        thumbnail_pixels_remaining <= 80;
         x_counter <= 0;
         -- Sample first pixel, so we get all 80 pixels across the screen
         thumbnail_x_counter <= 9;
@@ -314,8 +321,10 @@ begin  -- behavioural
         thumbnail_active_pixel <= '0';
       end if;
       if thumbnail_active_pixel='1' then
-        thumbnail_write_address
-          <= to_unsigned(to_integer(thumbnail_write_address) + 1,12);
+        if to_integer(thumbnail_write_address) /= 4095 then
+          thumbnail_write_address
+            <= to_unsigned(to_integer(thumbnail_write_address) + 1,12);
+        end if;
         thumbnail_wdata <= pixel_drive;
         report "THUMB: Writing pixel $" & to_hstring(pixel_drive)
           & " @ $" & to_hstring(thumbnail_write_address);
