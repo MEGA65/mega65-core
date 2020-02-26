@@ -159,7 +159,8 @@ begin
       if read_request='1' and busy_internal='0' then
         report "Making read request";
         -- Begin read request
-        request_toggle <= not request_toggle;
+        -- XXX Disabled during debug
+--        request_toggle <= not request_toggle;
         -- Latch address
         ram_address <= address;
         ram_reading <= '1';
@@ -190,7 +191,8 @@ begin
       elsif write_request='1' and busy_internal='0' then
         report "Making write request";
         -- Begin write request
-        request_toggle <= not request_toggle;
+        -- XXX Disabled during debug
+--        request_toggle <= not request_toggle;
         -- Latch address and data 
         ram_address <= address;
         ram_wdata <= wdata;
@@ -233,12 +235,14 @@ begin
               null;
           end case;
           data_ready_strobe <= '1';
+          data_ready_strobe_countdown <= 5;
         end if;        
       else
         -- Nothing new to do
         if data_ready_toggle /= last_data_ready_toggle then
           last_data_ready_toggle <= data_ready_toggle;
           data_ready_strobe <= '1';
+          data_ready_strobe_countdown <= 5;
         end if;
       end if;
 
@@ -480,8 +484,10 @@ begin
               -- Timed out waiting for read -- so return anyway, rather
               -- than locking the machine hard forever.
               rdata <= x"DD";
+              rdata(0) <= data_ready_toggle;
+              rdata(1) <= busy_internal;
               data_ready_strobe <= '1';
-              data_ready_strobe_countdown <= 2;
+              data_ready_strobe_countdown <= 5;
               data_ready_toggle <= not data_ready_toggle;
               state <= Idle;
             else
