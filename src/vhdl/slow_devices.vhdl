@@ -53,7 +53,7 @@ ENTITY slow_devices IS
     expansionram_wdata : out unsigned(7 downto 0) := x"FF";
     expansionram_address : out unsigned(26 downto 0);
     expansionram_data_ready_strobe : in std_logic;
-    expansionram_busy : in std_logic := '1';    
+    expansionram_busy : in std_logic;
     
     ----------------------------------------------------------------------
     -- Flash RAM for holding FPGA config
@@ -346,7 +346,10 @@ begin
         else
           -- Time out if stuck for too long
           state <= Idle;
-          slow_access_rdata <= x"99";
+          -- XXX Debug reading from HyperRAM
+          slow_access_rdata(5 downto 0) <= expansionram_rdata(5 downto 0);
+          slow_access_rdata(6) <= expansionram_busy;
+          slow_access_rdata(7) <= expansionram_data_ready_strobe;
           slow_access_ready_toggle <= slow_access_request_toggle;
         end if;
       end if;
