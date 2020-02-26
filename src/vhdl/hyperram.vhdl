@@ -14,8 +14,9 @@ use work.debugtools.all;
 --use UNISIM.VComponents.all;
 
 entity hyperram is
-  Port ( cpuclock : in STD_LOGIC; -- For slow devices bus interface
-         clock240 : in std_logic; -- Used for fast clock for HyperRAM
+  Port ( pixelclock : in STD_LOGIC; -- For slow devices bus interface is
+                                    -- actually on pixelclock to reduce latencies
+         clock163 : in std_logic; -- Used for fast clock for HyperRAM
 
          read_request : in std_logic;
          write_request : in std_logic;
@@ -90,10 +91,11 @@ architecture gothic of hyperram is
   signal hr_clk_n_int : std_logic := '0';
   
 begin
-  process (cpuclock,clock240) is
+  process (pixelclock,clock163) is
   begin
-    if rising_edge(cpuclock) then
-      report "read_request=" & std_logic'image(read_request) & ", busy_internal=" & std_logic'image(busy_internal);
+    if rising_edge(pixelclock) then
+      report "read_request=" & std_logic'image(read_request) & ", busy_internal=" & std_logic'image(busy_internal)
+        & ", write_request=" & std_logic'image(write_request);
 
       busy <= busy_internal;
 
@@ -130,6 +132,7 @@ begin
               rdata(6) <= hr_ddr;
               rdata(7) <= '1';
             when others =>
+              -- This seems to be what gets returned all the time
               rdata <= x"42";
           end case;
           data_ready_strobe <= '1';
@@ -198,7 +201,7 @@ begin
       -- which means it will be REALLY slow. But it simplifies debugging
       -- for now.      
 --    end if;
---    if rising_edge(clock240) then
+--    if rising_edge(clock163) then
       
       -- HyperRAM state machine
       report "State = " & state_t'image(state);
