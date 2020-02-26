@@ -153,6 +153,7 @@ begin
         data_ready_strobe <= '0';
       else
         data_ready_strobe_countdown <= data_ready_strobe_countdown - 1;
+        data_ready_strobe <= '1';
       end if;
       
       if read_request='1' and busy_internal='0' then
