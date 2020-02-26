@@ -14,9 +14,9 @@ use work.debugtools.all;
 --use UNISIM.VComponents.all;
 
 entity hyperram is
-  Port ( cpuclock : in STD_LOGIC; -- For slow devices bus interface
-         clock240 : in std_logic; -- Used for fast clock for HyperRAM
-         reset : in std_logic;
+  Port ( pixelclock : in STD_LOGIC; -- For slow devices bus interface is
+                                    -- actually on pixelclock to reduce latencies
+         clock163 : in std_logic; -- Used for fast clock for HyperRAM
 
          latency_1x : in Unsigned(7 downto 0);
          latency_2x : in Unsigned(7 downto 0);
@@ -84,68 +84,11 @@ architecture gothic of hyperram is
   signal hr_clk_n_int : std_logic := '0';
   
 begin
-
-  hyper0: component hyper_xface
-    port map(
-    -- Access interface
-    reset => reset_hi,  -- active high
-    clk => cpuclock,
-    rd_req => rd_req,
-    wr_req => wr_req,
-    mem_or_reg => mem_or_reg,
-    wr_byte_en => wr_byte_en,
-    rd_num_dwords => rd_num_dwords,
-    addr(26 downto 0) => address_latched,
-    addr(31 downto 27) => address_dummy,
-    wr_d(31 downto 24) => wdata_latched,
-    wr_d(23 downto 16) => wdata_latched,
-    wr_d(15 downto 8) => wdata_latched,
-    wr_d(7 downto 0) => wdata_latched,
-    rd_d => rd_d,
-    rd_rdy => rd_rdy,
-    busy => mem_busy,
-    burst_wr_rdy => burst_wr_rdy,
-    latency_1x => latency_1x,
-    latency_2x => latency_2x,
-
-    -- Hyperram pins
-    dram_dq_in => dram_dq_in,
-    dram_dq_out => dram_dq_out,
-    dram_dq_oe_l => dram_dq_oe_l,
-    dram_rwds_in => dram_rwds_in,
-    dram_rwds_out => dram_rwds_out,
-    dram_rwds_oe_l => dram_rwds_oe_l,
-
-    dram_ck => hr_clk_p,
-    dram_rst_l => hr_reset,
-    dram_cs_l => hr_cs0
-    );
-
-  reset_hi <= not reset;
-  
-  process (dram_dq_in,dram_dq_out,dram_dq_oe_l,
-           dram_rwds_in,dram_rwds_out,dram_rwds_oe_l) is
+  process (pixelclock,clock163) is
   begin
-    -- Control direction of bi-directional signals
-    if dram_dq_oe_l = '0' then
-      hr_d <= (others => 'Z');
-      dram_dq_in <= hr_d;
-    else
-      hr_d <= dram_dq_out;
-    end if;
-    if dram_rwds_oe_l='0' then
-      hr_rwds <= 'Z';
-      dram_rwds_in <= hr_rwds;
-    else
-      hr_rwds <= dram_rwds_out;
-    end if;
-  end process;
-  
-    
-  process (cpuclock,clock240) is
-  begin
-    if rising_edge(cpuclock) then
-      report "read_request=" & std_logic'image(read_request) & ", busy_internal=" & std_logic'image(busy_internal);
+    if rising_edge(pixelclock) then
+      report "read_request=" & std_logic'image(read_request) & ", busy_internal=" & std_logic'image(busy_internal)
+        & ", write_request=" & std_logic'image(write_request);
 
       busy <= busy_internal;
 
@@ -182,6 +125,7 @@ begin
               rdata(6) <= hr_ddr;
               rdata(7) <= '1';
             when others =>
+              -- This seems to be what gets returned all the time
               rdata <= x"42";
           end case;
           data_ready_strobe <= '1';
@@ -250,7 +194,7 @@ begin
       -- which means it will be REALLY slow. But it simplifies debugging
       -- for now.      
 --    end if;
---    if rising_edge(clock240) then
+--    if rising_edge(clock163) then
       
       -- HyperRAM state machine
       report "State = " & state_t'image(state);
