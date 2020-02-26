@@ -182,7 +182,7 @@ begin
               rdata(6) <= hr_ddr;
               rdata(7) <= '1';
             when others =>
-              rdata <= x"48";
+              rdata <= x"42";
           end case;
           data_ready_strobe <= '1';
           data_ready_strobe_countdown <= 5;
