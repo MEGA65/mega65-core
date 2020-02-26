@@ -150,7 +150,8 @@ begin
       busy <= busy_internal;
 
       if data_ready_strobe_countdown = 0 then
-        data_ready_strobe <= '0';
+        -- XXX debug make it always high
+        data_ready_strobe <= '1';
       else
         data_ready_strobe_countdown <= data_ready_strobe_countdown - 1;
         data_ready_strobe <= '1';
