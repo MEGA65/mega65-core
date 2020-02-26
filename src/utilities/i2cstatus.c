@@ -272,6 +272,10 @@ void target_megaphone(void)
 	break;
       case '8':
 	lpoke(0xffd7012L,a2^0x80);
+      case 0x55: case 0x75: // U
+	lpoke(0xffd7018L,0x41);
+      case 0x4c: case 0x6c: // L
+	lpoke(0xffd7018L,0x01);
 	break;
       }
     }
@@ -329,6 +333,11 @@ void target_mega65r2(void)
     printf("\n");
 
     show_rtc();
+
+    if (lpeek(0xffd7118)&0x40)
+      printf("Clock is write-enabled  \n");
+    else
+      printf("Clock is WRITE-PROTECTED\n");
     
     printf("\nPress 1-6 to adjust time/date.\n      7 toggles 12/24 hour time.\n");
 
