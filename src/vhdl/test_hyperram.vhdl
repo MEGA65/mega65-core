@@ -11,9 +11,10 @@ end entity;
 architecture foo of test_hyperram is
 
   signal cpuclock : std_logic := '1';
-  signal clock240 : std_logic := '1';
+  signal pixelclock : std_logic := '1';
+  signal clock163 : std_logic := '1';
 
-  signal expansionram_read : std_logic := '0';
+  signal expansionram_read : std_logic;
   signal expansionram_write : std_logic := '0';
   signal expansionram_rdata : unsigned(7 downto 0);
   signal expansionram_wdata : unsigned(7 downto 0) := x"42";
@@ -28,9 +29,9 @@ architecture foo of test_hyperram is
   signal hr_clk_p : std_logic := '0';
   signal hr_cs0 : std_logic := '0';
 
-  signal slow_access_request_toggle : std_logic;
+  signal slow_access_request_toggle : std_logic := '0';
   signal slow_access_ready_toggle : std_logic;
-  signal slow_access_write : std_logic;
+  signal slow_access_write : std_logic := '0';
   signal slow_access_address : unsigned(27 downto 0);
   signal slow_access_wdata : unsigned(7 downto 0);
   signal slow_access_rdata : unsigned(7 downto 0);
@@ -49,8 +50,8 @@ begin
   
   hyperram0: entity work.hyperram
     port map (
-      cpuclock => cpuclock,
-      clock240 => clock240,
+      pixelclock => pixelclock,
+      clock163 => clock163,
       address => expansionram_address,
       wdata => expansionram_wdata,
       read_request => expansionram_read,
@@ -83,7 +84,7 @@ begin
       )
     port map (
       cpuclock => cpuclock,
-      pixelclock => cpuclock,
+      pixelclock => pixelclock,
       reset => '1',
 --      cpu_exrom => '1',
 --      cpu_game => '1',
@@ -105,6 +106,11 @@ begin
 
       expansionram_data_ready_strobe => '0',
       expansionram_busy => '0',
+      expansionram_read => expansionram_read,
+      expansionram_write => expansionram_write,
+      expansionram_address => expansionram_address,
+      expansionram_rdata => expansionram_rdata,
+      expansionram_wdata => expansionram_wdata,
       cart_nmi => '1',
       cart_irq => '1',
       cart_dma => '1',
@@ -140,64 +146,65 @@ begin
   begin
 
     report "expansionram_data_ready_strobe=" & std_logic'image(expansionram_data_ready_strobe) 
-      & ", expansionram_busy=" & std_logic'image(expansionram_busy);
+      & ", expansionram_busy=" & std_logic'image(expansionram_busy)
+      & ", expansionram_read=" & std_logic'image(expansionram_read);
 
-    if expansionram_busy = '0' then
+    if rising_edge(cpuclock) then
       cycles <= cycles + 1;
       case cycles is
-        when 1 =>
-          report "DISPATCH: Write to $123456";
-          expansionram_write <= '1';
-          expansionram_read <= '0';
-          expansionram_wdata <= x"42";
-          expansionram_address(26 downto 24) <= (others => '0');
-          expansionram_address(23 downto 0) <= x"123456";          
+        when 5 =>
+--          report "DISPATCH: Write to $123456";
+--          expansionram_write <= '1';
+--          expansionram_read <= '0';
+--          expansionram_wdata <= x"42";
+--          expansionram_address(26 downto 24) <= (others => '0');
+--          expansionram_address(23 downto 0) <= x"123456";
+          report "DISPATCH: Read from $8000000";
+          slow_access_request_toggle <= not slow_access_request_toggle;
+          slow_access_write <= '0';
+          slow_access_address <= x"8000000";
         when 10 =>
-          report "DISPATCH: Read from $123456";
-          expansionram_write <= '0';
-          expansionram_read <= '1';
-          expansionram_address(26 downto 24) <= (others => '0');
-          expansionram_address(23 downto 0) <= x"123456";
-          expected_byte <= x"42";
-          expecting_byte <= '1';
+--          report "DISPATCH: Read from $123456";
+--          expansionram_write <= '0';
+--          expansionram_read <= '1';
+--          expansionram_address(26 downto 24) <= (others => '0');
+--          expansionram_address(23 downto 0) <= x"123456";
+--          expected_byte <= x"42";
+--          expecting_byte <= '1';
         when others =>
       end case;
     else
-      expansionram_read <= '0';
-      expansionram_write <= '0';
+--      expansionram_read <= '0';
+--      expansionram_write <= '0';
     end if;
 
-    if expansionram_data_ready_strobe = '1' and expecting_byte='1' then
-      report "Expected byte $" & to_hstring(expected_byte) & ", and received $" & to_hstring(expansionram_rdata);
-      expecting_byte <= '0';
-    end if;
-    
+--    if expansionram_data_ready_strobe = '1' and expecting_byte='1' then
+--      report "Expected byte $" & to_hstring(expected_byte) & ", and received $" & to_hstring(expansionram_rdata);
+--      expecting_byte <= '0';
+--    end if;
+
+    pixelclock <= '0';
     cpuclock <= '0';
-    clock240 <= '0';
+    clock163 <= '0';
     wait for 2 ns;
-    clock240 <= '1';
+    clock163 <= '1';
     wait for 2 ns;
-    clock240 <= '0';
+    pixelclock <= '1';
+    clock163 <= '0';
     wait for 2 ns;
-    clock240 <= '1';
-    wait for 2 ns;
-    clock240 <= '0';
-    wait for 2 ns;
-    clock240 <= '1';
+    clock163 <= '1';
     wait for 2 ns;
 
+    pixelclock <= '0';
     cpuclock <= '1';
-    clock240 <= '0';
+    clock163 <= '0';
     wait for 2 ns;
-    clock240 <= '1';
+    clock163 <= '1';
     wait for 2 ns;
-    clock240 <= '0';
+    pixelclock <= '0';
+    clock163 <= '0';
     wait for 2 ns;
-    clock240 <= '1';
-    wait for 2 ns;
-    clock240 <= '0';
-    wait for 2 ns;
-    clock240 <= '1';
+    clock163 <= '1';
     wait for 2 ns;
 
 --    report "40MHz CPU clock cycle finished";
