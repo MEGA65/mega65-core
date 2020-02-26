@@ -150,8 +150,7 @@ begin
       busy <= busy_internal;
 
       if data_ready_strobe_countdown = 0 then
-        -- XXX debug make it always high
-        data_ready_strobe <= '1';
+        data_ready_strobe <= '0';
       else
         data_ready_strobe_countdown <= data_ready_strobe_countdown - 1;
         data_ready_strobe <= '1';
@@ -480,7 +479,9 @@ begin
             if countdown = 0 then
               -- Timed out waiting for read -- so return anyway, rather
               -- than locking the machine hard forever.
-              rdata <= x"DE";
+              rdata <= x"DD";
+              data_ready_strobe <= '1';
+              data_ready_strobe_countdown <= 2;
               data_ready_toggle <= not data_ready_toggle;
               state <= Idle;
             else
