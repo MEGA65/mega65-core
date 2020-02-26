@@ -3,6 +3,7 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use STD.textio.all;
 use work.debugtools.all;
+use work.cputypes.all;
 
 entity test_hyperram is
 end entity;
@@ -27,6 +28,13 @@ architecture foo of test_hyperram is
   signal hr_clk_p : std_logic := '0';
   signal hr_cs0 : std_logic := '0';
 
+  signal slow_access_request_toggle : std_logic;
+  signal slow_access_ready_toggle : std_logic;
+  signal slow_access_write : std_logic;
+  signal slow_access_address : unsigned(27 downto 0);
+  signal slow_access_wdata : unsigned(7 downto 0);
+  signal slow_access_rdata : unsigned(7 downto 0);
+  
   signal cycles : integer := 0;
 
   signal expecting_byte : std_logic := '0';
@@ -68,6 +76,52 @@ begin
       hr_cs0 => hr_cs0
       );
     
+
+  slow_devices0: entity work.slow_devices
+    generic map (
+      target => mega65r2
+      )
+    port map (
+      cpuclock => cpuclock,
+      pixelclock => cpuclock,
+      reset => '1',
+--      cpu_exrom => '1',
+--      cpu_game => '1',
+      sector_buffer_mapped => '1',
+
+--      irq_out => irq_out,
+--      nmi_out => nmi_out,
+      
+--      joya => joy3,
+--      joyb => joy4,
+
+--      p1lo => p1lo,
+--      p1hi => p1hi,
+--      p2lo => p2lo,
+--      p2hi => p2hi,
+      
+--      cart_busy => led,
+--      cart_access_count => cart_access_count,
+
+      expansionram_data_ready_strobe => '0',
+      expansionram_busy => '0',
+      cart_nmi => '1',
+      cart_irq => '1',
+      cart_dma => '1',
+      cart_exrom => '1',
+      cart_game => '1',
+      cart_d_in => (others => '1'),
+      
+      slow_access_request_toggle => slow_access_request_toggle,
+      slow_access_ready_toggle => slow_access_ready_toggle,
+      slow_access_write => slow_access_write,
+      slow_access_address => slow_access_address,
+      slow_access_wdata => slow_access_wdata,
+      slow_access_rdata => slow_access_rdata
+
+      );
+  
+
   
   process(hr_cs0, hr_clk_p, hr_reset, hr_rwds, hr_d) is
   begin
