@@ -59,6 +59,7 @@ architecture gothic of hyperram is
   
   signal hr_clock : std_logic := '0';
 
+  signal data_ready_strobe_countdown : integer range 0 to 5 := 0;
   signal data_ready_toggle : std_logic := '0';
   signal last_data_ready_toggle : std_logic := '0';
 
@@ -144,7 +145,16 @@ begin
   process (cpuclock,clock240) is
   begin
     if rising_edge(cpuclock) then
-      data_ready_strobe <= '0';
+      report "read_request=" & std_logic'image(read_request) & ", busy_internal=" & std_logic'image(busy_internal);
+
+      busy <= busy_internal;
+
+      if data_ready_strobe_countdown = 0 then
+        data_ready_strobe <= '0';
+      else
+        data_ready_strobe_countdown <= data_ready_strobe_countdown - 1;
+      end if;
+      
       if read_request='1' and busy_internal='0' then
         report "Making read request";
         -- Begin read request
@@ -173,6 +183,8 @@ begin
               rdata <= x"48";
           end case;
           data_ready_strobe <= '1';
+          data_ready_strobe_countdown <= 5;
+        report "asserting data_ready_strobe for fake read";
 --        end if;        
       elsif write_request='1' and busy_internal='0' then
         report "Making write request";
