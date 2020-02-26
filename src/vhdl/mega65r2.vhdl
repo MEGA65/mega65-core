@@ -435,9 +435,9 @@ begin
 
   hyperram0: entity work.hyperram
     port map (
-      cpuclock => cpuclock,
-      clock240 => clock163,
-      reset => reset_out,
+      pixelclock => pixelclock,
+      clock163 => clock163,
+      -- reset => reset_out,
       address => expansionram_address,
       wdata => expansionram_wdata,
       read_request => expansionram_read,

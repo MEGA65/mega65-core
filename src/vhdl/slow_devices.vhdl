@@ -201,6 +201,7 @@ begin
       case state is
         when Idle =>
           -- Clear flags for expansion RAM access request
+          report "Clearing expansionram_read/write in Idle";
           expansionram_read <= '0';
           expansionram_write <= '0';
           
@@ -236,6 +237,7 @@ begin
             
           if slow_access_address(27)='1' then
             -- $8000000-$FFFFFFF = expansion RAM
+            report "Triaging Expansion RAM request";
             expansionram_read_timeout <= (others => '1');
             state <= ExpansionRAMRequest;
           elsif slow_access_address(26)='1' then
@@ -281,10 +283,13 @@ begin
             state <= Idle;
             slow_access_ready_toggle <= slow_access_request_toggle;
           elsif expansionram_busy = '0' then
+            report "Preparing to access HyperRAM";
             -- Prepare request to HyperRAM
             expansionram_address <= slow_access_address(26 downto 0);
             expansionram_wdata <= slow_access_wdata;
             expansionram_read <= not slow_access_write;
+            report "setting expansionram_read to " & std_logic'image(not slow_access_write)
+              & " ( = not " & std_logic'image(slow_access_write) & ")";
             expansionram_write <= slow_access_write;
             if slow_access_write='1' then
               -- Write can be delivered, and then ignored, since we aren't
@@ -295,12 +300,14 @@ begin
               -- Read from expansion RAM -- here we need to wait for a response
               -- from the expansion RAM
               state <= ExpansionRAMReadWait;
+              report "Switching to ExpansionRAMReadWait";
             end if;
           else
             -- Expansion RAM is busy, wait for it to become idle
           end if;
       when ExpansionRAMReadWait =>
         -- Clear request flags
+        report "Clearing expansionram_read/write in ExpansionRAMReadWait";
         expansionram_read <= '0';
         expansionram_write <= '0';
         if expansionram_data_ready_strobe = '1' then
