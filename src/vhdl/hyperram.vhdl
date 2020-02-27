@@ -136,7 +136,8 @@ begin
         ram_address <= address;
         ram_reading <= '1';
 
-        if address(26 downto 3 ) = cache_row0_address and cache_row0_valids(to_integer(address(2 downto 0))) = '1' then
+        -- Check for cache read
+        if false and (address(26 downto 3 ) = cache_row0_address and cache_row0_valids(to_integer(address(2 downto 0))) = '1') then
           -- Cache read
           fake_data_ready_strobe <= '1';
           fake_rdata <= cache_row0_data(to_integer(address(2 downto 0)));
