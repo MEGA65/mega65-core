@@ -31,6 +31,7 @@ architecture foo of test_hyperram is
 
   signal slow_access_request_toggle : std_logic := '0';
   signal slow_access_ready_toggle : std_logic;
+  signal last_slow_access_ready_toggle : std_logic;
   signal slow_access_write : std_logic := '0';
   signal slow_access_address : unsigned(27 downto 0);
   signal slow_access_wdata : unsigned(7 downto 0);
@@ -104,8 +105,8 @@ begin
 --      cart_busy => led,
 --      cart_access_count => cart_access_count,
 
-      expansionram_data_ready_strobe => '0',
-      expansionram_busy => '0',
+      expansionram_data_ready_strobe => expansionram_data_ready_strobe,
+      expansionram_busy => expansionram_busy,
       expansionram_read => expansionram_read,
       expansionram_write => expansionram_write,
       expansionram_address => expansionram_address,
@@ -141,7 +142,6 @@ begin
   end process;
   
   
-  -- 240MHz fast clock and 40MHz cpu clock
   process is
   begin
 
@@ -149,39 +149,22 @@ begin
       & ", expansionram_busy=" & std_logic'image(expansionram_busy)
       & ", expansionram_read=" & std_logic'image(expansionram_read);
 
-    if rising_edge(cpuclock) then
-      cycles <= cycles + 1;
-      case cycles is
-        when 5 =>
---          report "DISPATCH: Write to $123456";
---          expansionram_write <= '1';
---          expansionram_read <= '0';
---          expansionram_wdata <= x"42";
---          expansionram_address(26 downto 24) <= (others => '0');
---          expansionram_address(23 downto 0) <= x"123456";
-          report "DISPATCH: Read from $8000000";
-          slow_access_request_toggle <= not slow_access_request_toggle;
-          slow_access_write <= '0';
-          slow_access_address <= x"8000000";
-        when 10 =>
---          report "DISPATCH: Read from $123456";
---          expansionram_write <= '0';
---          expansionram_read <= '1';
---          expansionram_address(26 downto 24) <= (others => '0');
---          expansionram_address(23 downto 0) <= x"123456";
---          expected_byte <= x"42";
---          expecting_byte <= '1';
-        when others =>
-      end case;
-    else
---      expansionram_read <= '0';
---      expansionram_write <= '0';
+    if slow_access_ready_toggle /= last_slow_access_ready_toggle then
+      report "Read slow device byte $" & to_hstring(slow_access_rdata);
+      last_slow_access_ready_toggle <= slow_access_ready_toggle;
     end if;
-
---    if expansionram_data_ready_strobe = '1' and expecting_byte='1' then
---      report "Expected byte $" & to_hstring(expected_byte) & ", and received $" & to_hstring(expansionram_rdata);
---      expecting_byte <= '0';
---    end if;
+    
+    cycles <= cycles + 1;
+    case cycles is
+      when 1 =>
+        report "DISPATCH: Read from $8000000";
+        slow_access_request_toggle <= not slow_access_request_toggle;
+        slow_access_write <= '0';
+        slow_access_address <= x"8000000";
+      when 10 =>
+      when others =>
+        null;
+    end case;
 
     pixelclock <= '0';
     cpuclock <= '0';

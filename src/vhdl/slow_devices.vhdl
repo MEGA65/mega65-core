@@ -307,10 +307,11 @@ begin
           end if;
       when ExpansionRAMReadWait =>
         -- Clear request flags
-        report "Clearing expansionram_read/write in ExpansionRAMReadWait";
+        report "Clearing expansionram_read/write in ExpansionRAMReadWait (ready_strobe = " & std_logic'image(expansionram_data_ready_strobe) & ").";
         expansionram_read <= '0';
         expansionram_write <= '0';
         if expansionram_data_ready_strobe = '1' then
+          report "Saw data. Switching back to Idle state";
           state <= Idle;
           slow_access_rdata <= expansionram_rdata;
           slow_access_ready_toggle <= slow_access_request_toggle;
