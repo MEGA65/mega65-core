@@ -14,7 +14,8 @@ use work.debugtools.all;
 --use UNISIM.VComponents.all;
 
 entity fakehyperram is
-  Port ( 
+  Port (
+    clock163 : in std_logic;
          hr_d : inout unsigned(7 downto 0) := (others => 'Z'); -- Data/Address
          hr_rwds : inout std_logic := 'Z'; -- RW Data strobe
          hr_reset : in std_logic := '1'; -- Active low RESET line to HyperRAM
@@ -35,16 +36,22 @@ architecture gothic of fakehyperram is
   signal read_write : std_logic := '1';
 
   signal ram_address : unsigned(23 downto 0);
-  type ram_t is array (0 to 8388607) of unsigned(7 downto 0);
+  type ram_t is array (0 to 7) of unsigned(7 downto 0);
   shared variable ram : ram_t := (
     others => x"BD"
     );
+
+  signal last_hr_clk_p : std_logic := '0';
+  signal last_hr_cs0 : std_logic := '0';
   
 begin
 
   process (hr_clk_p,hr_clk_n,hr_cs0) is
   begin
-    if rising_edge(hr_clk_p) or falling_edge(hr_clk_p) or falling_edge(hr_cs0) or rising_edge(hr_cs0) then
+    if rising_edge(clock163) then
+    if hr_clk_p /= last_hr_clk_p or hr_cs0 /= last_hr_cs0 then
+      last_hr_clk_p <= hr_clk_p;
+      last_hr_cs0 <= hr_cs0;
       report "hr_clk_p = " & std_logic'image(hr_clk_p);
 
       last_cs0 <= hr_cs0;
@@ -108,8 +115,8 @@ begin
       else
         if in_transfer='1' then
           if read_write = '1' then
-            report "Fake Hyperram Reading $" & to_hstring(ram(to_integer(ram_address))) & " from @ $" & to_hstring(ram_address);
-            hr_d <= ram(to_integer(ram_address));
+            report "Fake Hyperram Reading $" & to_hstring(ram(to_integer(ram_address(2 downto 0)))) & " from @ $" & to_hstring(ram_address);
+            hr_d <= ram(to_integer(ram_address(2 downto 0)));
             if ram_address(0) = '0' then
               hr_rwds <= '1';
             else
@@ -118,7 +125,7 @@ begin
           else
             if hr_rwds='0' then
               report "Writing data: value=$" & to_hstring(hr_d) & " @ $" & to_hstring(ram_address);
-              ram(to_integer(ram_address)) := hr_d;
+              ram(to_integer(ram_address(2 downto 0))) := hr_d;
             else
               report "Masking write: value=$" & to_hstring(hr_d) & " @ $" & to_hstring(ram_address);
             end if;
@@ -131,6 +138,7 @@ begin
         in_transfer <= '0';
       end if;
       
+    end if;
     end if;
   end process;
 end gothic;
