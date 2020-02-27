@@ -217,12 +217,12 @@ end container;
 
 architecture Behavioral of container is
 
-  signal hr_d : unsigned(7 downto 0) := (others => '0');
-  signal hr_rwds : std_logic := '0';
-  signal hr_reset : std_logic := '1';
-  signal hr_clk_n : std_logic := '0';
-  signal hr_clk_p : std_logic := '0';
-  signal hr_cs0 : std_logic := '0';
+--  signal hr_d : unsigned(7 downto 0) := (others => '0');
+--  signal hr_rwds : std_logic := '0';
+--  signal hr_reset : std_logic := '1';
+--  signal hr_clk_n : std_logic := '0';
+--  signal hr_clk_p : std_logic := '0';
+--  signal hr_cs0 : std_logic := '0';
   
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
