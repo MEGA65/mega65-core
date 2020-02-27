@@ -44,7 +44,7 @@ begin
 
   process (hr_clk_p,hr_clk_n,hr_cs0) is
   begin
-    if rising_edge(hr_clk_p) or falling_edge(hr_clk_p) or falling_edge(hr_cs0) then
+    if rising_edge(hr_clk_p) or falling_edge(hr_clk_p) or falling_edge(hr_cs0) or rising_edge(hr_cs0) then
       report "hr_clk_p = " & std_logic'image(hr_clk_p);
 
       last_cs0 <= hr_cs0;
@@ -108,7 +108,7 @@ begin
       else
         if in_transfer='1' then
           if read_write = '1' then
-            report "Reading $" & to_hstring(ram(to_integer(ram_address))) & " from @ $" & to_hstring(ram_address);
+            report "Fake Hyperram Reading $" & to_hstring(ram(to_integer(ram_address))) & " from @ $" & to_hstring(ram_address);
             hr_d <= ram(to_integer(ram_address));
             if ram_address(0) = '0' then
               hr_rwds <= '1';
