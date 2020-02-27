@@ -61,6 +61,18 @@ entity container is
          fb_down : in std_logic;
          fb_fire : in std_logic;
 
+         p1lo : out std_logic_vector(3 downto 0);
+         p1hi : out std_logic_vector(3 downto 0);
+         p2lo : out std_logic_vector(3 downto 0);
+         p2hi : out std_logic_vector(3 downto 0);
+
+         sd2Clock : out std_logic;
+         sd2Reset : out std_logic;
+         sd2MISO : out std_logic;
+         sd2MOSI : out std_logic;
+         sd2d1 : out std_logic;
+         sd2d2 : out std_logic;
+         
          ----------------------------------------------------------------------
          -- Expansion/cartridge port
          ----------------------------------------------------------------------
@@ -167,9 +179,6 @@ entity container is
          sdMOSI : out std_logic;      
          sdMISO : in  std_logic;
 
-         sd2MOSI : out std_logic;
-         sd2MISO : in std_logic;
-
          -- Left and right audio
          pwm_l : out std_logic;
          pwm_r : out std_logic;
@@ -196,8 +205,8 @@ entity container is
          ----------------------------------------------------------------------
          -- I2C on-board peripherals
          ----------------------------------------------------------------------
-         fpga_sda : inout std_logic;
-         fpga_scl : inout std_logic;         
+         fpga_sda : out std_logic := '0';
+         fpga_scl : out std_logic := '0';         
          
          ----------------------------------------------------------------------
          -- Serial monitor interface
@@ -252,8 +261,23 @@ architecture Behavioral of container is
   signal h_audio_left : unsigned(19 downto 0) := to_unsigned(0,20);
   signal h_audio_right : unsigned(19 downto 0) := to_unsigned(0,20);
 
-  signal counter : integer := 0;
+  signal counter : unsigned(31 downto 0) := to_unsigned(0,32);
   signal trigger_reconfigure : std_logic := '0';
+
+  signal pmod_counter : unsigned(15 downto 0) := to_unsigned(0,16);
+
+  signal reconfigure_address : unsigned(31 downto 0) := to_unsigned(0,32);
+  signal boot_address24 : unsigned(31 downto 0) := (others => '1');
+  signal boot_address25 : unsigned(31 downto 0) := (others => '1');
+  signal boot_address26 : unsigned(31 downto 0) := (others => '1');
+  signal boot_address27 : unsigned(31 downto 0) := (others => '1');
+  signal boot_address28 : unsigned(31 downto 0) := (others => '1');
+
+  signal x_zero : std_logic;
+  signal y_zero : std_logic;
+  signal pixel_strobe : std_logic;
+  signal xcounter : unsigned(11 downto 0) := to_unsigned(0,12);
+  signal ycounter : integer := 0;
   
 begin
 
@@ -293,6 +317,12 @@ begin
 
   reconfig1: entity work.reconfig
     port map ( clock => cpuclock,
+               reconfigure_address => reconfigure_address,
+               boot_address24 => boot_address24,
+               boot_address25 => boot_address25,
+               boot_address26 => boot_address26,
+               boot_address => boot_address27,
+               boot_address28 => boot_address28,
                trigger_reconfigure => trigger_reconfigure);
 
   dotclock1: entity work.dotclock100
@@ -346,7 +376,7 @@ begin
 
                cpuclock => cpuclock,
 
---               pixel_strobe_out => external_pixel_strobe,
+               pixel_strobe_out => pixel_strobe,
       
                -- Configuration information from the VIC-IV
                hsync_invert => zero,
@@ -356,8 +386,8 @@ begin
                test_pattern_enable => one,      
       
       -- Framing information for VIC-IV
---      x_zero => external_frame_x_zero,     
---      y_zero => external_frame_y_zero,     
+      x_zero => x_zero,     
+      y_zero => y_zero,     
 
       -- Pixel data from the video pipeline
       -- (clocked at 100MHz pixel clock)
@@ -401,9 +431,9 @@ begin
       pattern_vsync => pattern_vsync,
       pattern_de => pattern_de,
       
-      vga_r => red,
-      vga_g => green,
-      vga_b => blue,
+--      vga_r => red,
+--      vga_g => green,
+--      vga_b => blue,
       vga_hs => hsync,
       vga_vs => vsync,
 
@@ -428,6 +458,38 @@ begin
   PROCESS (PIXELCLOCK) IS
   BEGIN
 
+    if y_zero = '1' then
+      ycounter <= 0;
+    elsif x_zero = '1' then
+      xcounter <= to_unsigned(0,12);
+      ycounter <= ycounter + 1;
+    elsif pixel_strobe = '1' then
+      xcounter <= xcounter + 1;
+    end if;
+
+    -- Show values read back
+    if xcounter(11 downto 4) = "11111" then
+      red <= x"00";      
+    elsif to_integer(xcounter(11 downto 4)) < 32 then
+      if ycounter = 0 or ycounter = 64 or ycounter = 128 or ycounter = 192 or ycounter = 256 or ycounter = 320 then
+        red <= x"00";
+      elsif ycounter < 64 then
+        red <= (others => boot_address24(to_integer(xcounter(11 downto 4))));
+      elsif ycounter < 128 then
+        red <= (others => boot_address25(to_integer(xcounter(11 downto 4))));
+      elsif ycounter < 192 then
+        red <= (others => boot_address26(to_integer(xcounter(11 downto 4))));
+      elsif ycounter < 256 then
+        red <= (others => boot_address27(to_integer(xcounter(11 downto 4))));
+      elsif ycounter < 320 then
+        red <= (others => boot_address28(to_integer(xcounter(11 downto 4))));
+      else
+        red <= x"00";
+      end if;
+    else
+      red <= (others => xcounter(4));
+    end if;
+    
     VGARED <= UNSIGNED(RED);
     VGAGREEN <= UNSIGNED(GREEN);
     VGABLUE <= UNSIGNED(BLUE);
@@ -449,9 +511,35 @@ begin
     h_audio_left <= h_audio_left + 32;
     h_audio_right <= h_audio_right + 32;
 
-    counter <= counter + 1;
-    if counter = (256*1048576) then
-      trigger_reconfigure <= '1';
+    if rising_edge(ethclock) then
+      counter <= counter + 1; 
+      if counter = x"100000" then
+        fpga_scl <= '1';
+      end if;
+      if counter = x"200000" then
+        fpga_sda <= '1';
+      end if;
+      if counter = x"300000" then
+--      trigger_reconfigure <= '1';
+        counter <= to_unsigned(0,32);
+        fpga_scl <= '0';
+        fpga_sda <= '0';
+      end if;
+      if counter(12 downto 0) = x"000" then
+        pmod_counter <= pmod_counter + 1;
+        p1lo <= std_logic_vector(pmod_counter(3 downto 0));
+        p1hi <= std_logic_vector(pmod_counter(7 downto 4));
+
+        p2lo <= std_logic_vector(pmod_counter(11 downto 8));
+        p2hi <= std_logic_vector(pmod_counter(15 downto 12));
+
+      end if;
+      sd2Clock <= counter(4);
+      sd2Reset <= counter(5);
+      sd2MISO <= counter(6);
+      sd2MOSI <= counter(7);
+      sd2d1 <= counter(8);
+      sd2d2 <= counter(9);
     end if;
     
   end process;    
