@@ -340,7 +340,7 @@ begin
 
           when HyperRAMCSStrobe =>
 
-            report "Counting down CS strobe: COMMAND = $" & to_hstring(hr_command) & ", hr_cs0 = " & std_logic'image(hr_cs0);
+--            report "Counting down CS strobe: COMMAND = $" & to_hstring(hr_command) & ", hr_cs0 = " & std_logic'image(hr_cs0);
             
             if countdown /= 0 then
               countdown <= countdown - 1;
@@ -366,11 +366,11 @@ begin
               hr_clock <= not hr_clock;
             else
               -- Toggle data while clock steady
-              report "Presenting hr_command byte on hr_d = $" & to_hstring(hr_command(47 downto 40))
-                & ", clock = " & std_logic'image(hr_clock)
-                & ", next_is_data = " & std_logic'image(next_is_data)
-                & ", countdown = " & integer'image(countdown)
-                & ", cs0= " & std_logic'image(hr_cs0);
+--              report "Presenting hr_command byte on hr_d = $" & to_hstring(hr_command(47 downto 40))
+--                & ", clock = " & std_logic'image(hr_clock)
+--                & ", next_is_data = " & std_logic'image(next_is_data)
+--                & ", countdown = " & integer'image(countdown)
+--                & ", cs0= " & std_logic'image(hr_cs0);
               
               hr_d <= hr_command(47 downto 40);
               hr_command(47 downto 8) <= hr_command(39 downto 0);
