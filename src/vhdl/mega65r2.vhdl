@@ -241,7 +241,6 @@ architecture Behavioral of container is
   signal clock120 : std_logic;
   signal clock100 : std_logic;
   signal clock162 : std_logic;
-  signal clock163 : std_logic;
 
   -- XXX Actually connect to new keyboard
   signal restore_key : std_logic := '1';
@@ -444,7 +443,7 @@ begin
   hyperram0: entity work.hyperram
     port map (
       pixelclock => pixelclock,
-      clock163 => clock163,
+      clock163 => clock162,
 
       -- XXX Debug by showing if expansion RAM unit is receiving requests or not
       request_counter => led,
