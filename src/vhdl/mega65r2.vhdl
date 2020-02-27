@@ -91,11 +91,11 @@ entity container is
          ----------------------------------------------------------------------
          -- HyperRAM as expansion RAM
          ----------------------------------------------------------------------
-         hr_d : inout unsigned(7 downto 0);
-         hr_rwds : inout std_logic;
-         hr_reset : out std_logic;
-         hr_clk_p : out std_logic;
-         hr_cs0 : out std_logic;
+--         hr_d : inout unsigned(7 downto 0);
+--         hr_rwds : inout std_logic;
+--         hr_reset : out std_logic;
+--         hr_clk_p : out std_logic;
+--         hr_cs0 : out std_logic;
          
          ----------------------------------------------------------------------
          -- CBM floppy serial port
@@ -214,6 +214,13 @@ end container;
 
 architecture Behavioral of container is
 
+  signal hr_d : unsigned(7 downto 0) := (others => '0');
+  signal hr_rwds : std_logic := '0';
+  signal hr_reset : std_logic := '1';
+  signal hr_clk_n : std_logic := '0';
+  signal hr_clk_p : std_logic := '0';
+  signal hr_cs0 : std_logic := '0';
+  
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
   signal irq_combined : std_logic := '1';
@@ -454,6 +461,17 @@ begin
       hr_clk_p => hr_clk_p,
       hr_cs0 => hr_cs0
       );
+
+  fakehyper0: entity work.fakehyperram
+    port map (
+      hr_d => hr_d,
+      hr_rwds => hr_rwds,
+      hr_reset => hr_reset,
+      hr_clk_n => hr_clk_n,
+      hr_clk_p => hr_clk_p,
+      hr_cs0 => hr_cs0
+      );
+    
   
   slow_devices0: entity work.slow_devices
     generic map (
