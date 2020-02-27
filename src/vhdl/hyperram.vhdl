@@ -44,6 +44,7 @@ architecture gothic of hyperram is
 
   type state_t is (
     Debug,
+    Idle2,
     Idle,
     ReadSetup,
     WriteSetup,
@@ -90,7 +91,7 @@ architecture gothic of hyperram is
   -- each byte.
   type cache_row_t is array (0 to 7) of unsigned(7 downto 0);
 
-  signal cache_row0_valids : std_logic_vector(7 downto 0) := (others => '0');
+  signal cache_row0_valids : std_logic_vector(0 to 7) := (others => '0');
   signal cache_row0_address : unsigned(23 downto 0) := (others => '1');  
   signal cache_row0_data : cache_row_t := ( others => x"00" );
 
@@ -108,6 +109,17 @@ begin
       busy <= busy_internal;
 
       fake_data_ready_strobe <= '0';
+
+      report "cache: address=$" & to_hstring(cache_row0_address&"000") & ", valids=" & to_string(cache_row0_valids)
+        & ", data = "
+        & to_hstring(cache_row0_data(0)) & " "
+        & to_hstring(cache_row0_data(1)) & " "
+        & to_hstring(cache_row0_data(2)) & " "
+        & to_hstring(cache_row0_data(3)) & " "
+        & to_hstring(cache_row0_data(4)) & " "
+        & to_hstring(cache_row0_data(5)) & " "
+        & to_hstring(cache_row0_data(6)) & " "
+        & to_hstring(cache_row0_data(7)) & " ";
       
       if read_request='1' and busy_internal='0' then
         report "Making read request";
@@ -225,9 +237,27 @@ begin
 
             hr_rwds <= hr_rwds_int;
             hr_reset <= hr_reset_int;
+
+          when Idle2 =>
+            report "Releasing hyperram CS lines";
+            hr_cs0 <= '1';
+            hr_cs1 <= '1';
+            report "Presenting tri-state on hr_d";
+            hr_d <= (others => 'Z');
+
+            -- Clock must be low when idle, so that it is in correct phase
+            -- when CS0 is pulled low to trigger a transaction
+            hr_clk_p <= '0';
+            
+            -- Put recogniseable patter on data lines for debugging
+            report "Presenting hr_d with $A5";
+            hr_d <= x"A5";
+
+            state <= Idle;
             
           when Idle =>
             -- Mark us ready for a new job, or pick up a new job
+            next_is_data <= '1';
             if debug_mode='1' then
               state <= Debug;
             end if;
@@ -264,8 +294,8 @@ begin
             hr_clk_p <= '0';
             
             -- Put recogniseable patter on data lines for debugging
-            report "setting hr_d to $A5";
-            hr_d <= x"A5";
+            report "Presenting hr_d to $A5";
+            hr_d <= (others => 'Z');
           when ReadSetup =>
             -- Prepare command vector
             hr_command(47) <= '1'; -- READ
@@ -282,11 +312,6 @@ begin
             hr_command(2) <= ram_address(3);
             hr_command(1 downto 0) <= "00";
 
-            -- Call HyperRAM to attention (Each 8MB half has a separate CS line,
-            -- so we gate them on address line 23 = 8MB point)
-            hr_cs0 <= ram_address(23);
-            hr_cs1 <= not ram_address(23);
-            
             hr_reset <= '1'; -- active low reset
             countdown <= 6;
 
@@ -315,7 +340,7 @@ begin
 
           when HyperRAMCSStrobe =>
 
-            report "Counting down CS strobe: COMMAND = $" & to_hstring(hr_command);
+            report "Counting down CS strobe: COMMAND = $" & to_hstring(hr_command) & ", hr_cs0 = " & std_logic'image(hr_cs0);
             
             if countdown /= 0 then
               countdown <= countdown - 1;
@@ -323,7 +348,9 @@ begin
               state <= HyperRAMOutputCommand;
               countdown <= 6; -- 48 bits = 6 x 8 bits
             end if;
-
+            report "Presenting hr_command byte 0 on hr_d = $" & to_hstring(hr_command(47 downto 40));
+            hr_d <= hr_command(47 downto 40);
+            
           when HyperRAMOutputCommand =>
             report "Writing command";
             -- Call HyperRAM to attention
@@ -339,6 +366,12 @@ begin
               hr_clock <= not hr_clock;
             else
               -- Toggle data while clock steady
+              report "Presenting hr_command byte on hr_d = $" & to_hstring(hr_command(47 downto 40))
+                & ", clock = " & std_logic'image(hr_clock)
+                & ", next_is_data = " & std_logic'image(next_is_data)
+                & ", countdown = " & integer'image(countdown)
+                & ", cs0= " & std_logic'image(hr_cs0);
+              
               hr_d <= hr_command(47 downto 40);
               hr_command(47 downto 8) <= hr_command(39 downto 0);
               report "Writing command byte $" & to_hstring(hr_command(47 downto 40));
@@ -425,7 +458,7 @@ begin
                   end if;
                   write_byte_phase <= '1';
 
-                  report "setting hr_d to ram_wdata";
+                  report "Presenting hr_d with ram_wdata";
                   hr_d <= ram_wdata;
                 end if;
               end if;
@@ -440,6 +473,7 @@ begin
             -- Indicate no more bytes to write
             hr_rwds <= 'Z';
             hr_cs0 <= '1';
+            hr_cs1 <= '1';
 
             -- Toggle clock
             hr_clk_n <= not hr_clock;
@@ -450,6 +484,7 @@ begin
             state <= Idle;
           when HyperRAMReadWait =>
             hr_rwds <= 'Z';
+            report "Presenting tri-state on hr_d";
             hr_d <= (others => 'Z');                       
             if countdown = 0 then
               -- Timed out waiting for read -- so return anyway, rather
@@ -490,7 +525,9 @@ begin
                   data_ready_toggle <= not data_ready_toggle;
                 end if;
                 if byte_phase = 7 then
-                  state <= Idle;
+                  state <= Idle2;
+                  hr_cs0 <= '1';
+                  hr_cs1 <= '1';
                 else
                   byte_phase <= byte_phase + 1;
                 end if;
