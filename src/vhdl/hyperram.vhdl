@@ -69,7 +69,8 @@ architecture gothic of hyperram is
   -- boundary scanner.
   signal slowdown_counter : integer := 0;
 
-  signal byte_phase : std_logic := '0';
+  signal byte_phase : unsigned(2 downto 0) := to_unsigned(0,3);
+  signal write_byte_phase : std_logic := '0';
   signal byte_written : std_logic := '0';
 
   signal debug_mode : std_logic := '0';
@@ -83,6 +84,15 @@ architecture gothic of hyperram is
   signal hr_clk_n_int : std_logic := '0';
 
   signal cycle_count : integer := 0;
+
+  -- Have a tiny little cache to reduce latency
+  -- 8 byte cache rows, where we indicate the validity of
+  -- each byte.
+  type cache_row_t is array (0 to 7) of unsigned(7 downto 0);
+
+  signal cache_row0_valids : std_logic_vector(7 downto 0) := (others => '0');
+  signal cache_row0_address : unsigned(23 downto 0) := (others => '1');  
+  signal cache_row0_data : cache_row_t := ( others => x"00" );
   
 begin
   process (pixelclock,clock163) is
@@ -102,8 +112,12 @@ begin
         ram_address <= address;
         ram_reading <= '1';
 
+        if address(26 downto 3 ) = cache_row0_address and cache_row0_valids(to_integer(address(2 downto 0))) = '1' then
+          -- Cache read
+          data_ready_strobe <= '1';
+          rdata <= cache_row0_data(to_integer(address(2 downto 0)));
+        elsif address(23 downto 4) = x"FFFFF" and address(26 downto 24) = "111" then
         -- Allow reading from dummy debug bitbash registers at $BFFFFFx
-        if address(23 downto 4) = x"FFFFF" and address(26 downto 24) = "111" then
           case address(3 downto 0) is
             when x"0" =>
               rdata <= (others => debug_mode);
@@ -130,12 +144,12 @@ begin
       elsif write_request='1' and busy_internal='0' then
         report "Making write request";
         -- Begin write request
-        -- Latch address and data 
+        -- Latch address and data
+
         ram_address <= address;
         ram_wdata <= wdata;
         ram_reading <= '0';
-        null;
-
+        
         if address(23 downto 4) = x"FFFFF" and address(26 downto 24) = "111" then
           case address(3 downto 0) is
             when x"0" =>
@@ -144,30 +158,30 @@ begin
               elsif wdata = x"1d" then
                 debug_mode <= '0';
               end if;
-            when x"1" =>
-              if hr_ddr='1' then
-                hr_d <= wdata;
-              else
-                hr_d <= (others => 'Z');
-              end if;
-            when x"2" =>
-              hr_rwds_int <= wdata(0);
-              hr_reset_int <= wdata(1);
-              hr_clk_n_int <= wdata(2);
-              hr_clk_p_int <= wdata(3);
-              hr_cs0_int <= wdata(4);
-              hr_cs1_int <= wdata(5);
-
-              hr_reset <= wdata(1);
-              hr_clk_n <= wdata(2);
-              hr_clk_p <= wdata(3);
-              hr_cs0 <= wdata(4);
-              hr_cs1 <= wdata(5);
-
-              hr_ddr <= wdata(6);
-              if wdata(6)='0' then
-                hr_d <= (others => '0');
-              end if;
+--            when x"1" =>
+--              if hr_ddr='1' then
+--                hr_d <= wdata;
+--              else
+--                hr_d <= (others => 'Z');
+--              end if;
+--            when x"2" =>
+--              hr_rwds_int <= wdata(0);
+--              hr_reset_int <= wdata(1);
+--              hr_clk_n_int <= wdata(2);
+--              hr_clk_p_int <= wdata(3);
+--              hr_cs0_int <= wdata(4);
+--              hr_cs1_int <= wdata(5);
+--
+--              hr_reset <= wdata(1);
+--              hr_clk_n <= wdata(2);
+--              hr_clk_p <= wdata(3);
+--              hr_cs0 <= wdata(4);
+--              hr_cs1 <= wdata(5);
+--
+--              hr_ddr <= wdata(6);
+--              if wdata(6)='0' then
+--                hr_d <= (others => '0');
+--              end if;
             when others =>
               null;
           end case;
@@ -218,6 +232,15 @@ begin
               else
                 report "Setting state to WriteSetup";
                 state <= WriteSetup;
+
+                -- Update cache
+                if cache_row0_address /= ram_address(26 downto 3) then          
+                  cache_row0_valids <= (others => '0');
+                  cache_row0_address <= ram_address(26 downto 3);
+                end if;
+                cache_row0_valids(to_integer(ram_address(2 downto 0))) <= '1';
+                cache_row0_data(to_integer(ram_address(2 downto 0))) <= ram_wdata;        
+                
               end if;
               busy_internal <= '1';
               report "Accepting job";
@@ -249,7 +272,9 @@ begin
             hr_command(44 downto 37) <= (others => '0'); -- unused upper address bits
             hr_command(34 downto 16) <= ram_address(22 downto 4);
             hr_command(15 downto 3) <= (others => '0'); -- reserved bits
-            hr_command(2 downto 0) <= ram_address(3 downto 1);
+            -- Always read on 8 byte boundaries, and read a full cache line
+            hr_command(2) <= ram_address(3);
+            hr_command(1 downto 0) <= "00";
 
             -- Call HyperRAM to attention (Each 8MB half has a separate CS line,
             -- so we gate them on address line 23 = 8MB point)
@@ -334,7 +359,8 @@ begin
                 end if;
               end if;
             end if;
-            byte_phase <= '0';
+            byte_phase <= to_unsigned(0,3);
+            write_byte_phase <= '0';
             byte_written <= '0';
           when HyperRAMLatencyWait =>
             next_is_data <= not next_is_data;
@@ -371,7 +397,7 @@ begin
                   -- In this first 
                   
                   -- Write byte
-                  if byte_phase = '0' then
+                  if write_byte_phase = '0' then
                     -- Even byte
                     if ram_address(0) = '0' then
                       report "Clearing write mask for even address";
@@ -391,7 +417,7 @@ begin
                     end if;
                     -- We finish after (possibly) writing the odd byte
                   end if;
-                  byte_phase <= '1';
+                  write_byte_phase <= '1';
 
                   report "setting hr_d to ram_wdata";
                   hr_d <= ram_wdata;
@@ -442,13 +468,26 @@ begin
                 -- Data has arrived: Latch either odd or even byte
                 -- as required.
                 report "Saw read data = $" & to_hstring(hr_d);
-                if byte_phase = ram_address(0) then
+
+                -- Update cache
+                if cache_row0_address /= ram_address(26 downto 3) then          
+                  cache_row0_valids <= (others => '0');
+                  cache_row0_address <= ram_address(26 downto 3);
+                end if;
+                cache_row0_valids(to_integer(byte_phase)) <= '1';
+                cache_row0_data(to_integer(byte_phase)) <= hr_d;
+                
+                if byte_phase = ram_address(2 downto 0) then
                   report "Latching read data = $" & to_hstring(hr_d);
                   rdata <= hr_d;
                   data_ready_toggle <= not data_ready_toggle;
-                  state <= Idle;
                 end if;
-                byte_phase <= '1';
+                if byte_phase = 7 then
+                  state <= Idle;
+                else
+                  byte_phase <= byte_phase + 1;
+                end if;
+                
               end if;
             end if;
           when others =>
