@@ -102,14 +102,12 @@ begin
       if read_request='1' and busy_internal='0' then
         report "Making read request";
         -- Begin read request
-        -- XXX Disabled during debug
---        request_toggle <= not request_toggle;
         -- Latch address
         ram_address <= address;
         ram_reading <= '1';
 
-        -- XXX always read from dummy debug bitbash registers
---        if address(23 downto 4) = x"FFFFF" then
+        -- Allow reading from dummy debug bitbash registers at $BFFFFFx
+        if address(23 downto 4) = x"FFFFF" and address(26 downto 24) = "111" then
           case address(3 downto 0) is
             when x"0" =>
               rdata <= (others => debug_mode);
@@ -130,20 +128,20 @@ begin
           end case;
           data_ready_strobe <= '1';
           data_ready_strobe_countdown <= 5;
-        report "asserting data_ready_strobe for fake read";
---        end if;        
+          report "asserting data_ready_strobe for fake read";
+        else
+          request_toggle <= not request_toggle;          
+        end if;        
       elsif write_request='1' and busy_internal='0' then
         report "Making write request";
         -- Begin write request
-        -- XXX Disabled during debug
---        request_toggle <= not request_toggle;
         -- Latch address and data 
         ram_address <= address;
         ram_wdata <= wdata;
         ram_reading <= '0';
         null;
 
-        if address(23 downto 4) = x"FFFFF" then
+        if address(23 downto 4) = x"FFFFF" and address(26 downto 24) = "111" then
           case address(3 downto 0) is
             when x"0" =>
               if wdata = x"de" then
@@ -180,6 +178,8 @@ begin
           end case;
           data_ready_strobe <= '1';
           data_ready_strobe_countdown <= 5;
+        else
+          request_toggle <= not request_toggle;          
         end if;        
       else
         -- Nothing new to do
@@ -190,19 +190,15 @@ begin
         end if;
       end if;
 
-      -- XXX This leaves hyperram running at the CPU's clock rate,
-      -- which means it will be REALLY slow. But it simplifies debugging
-      -- for now.      
---    end if;
---    if rising_edge(clock163) then
+    end if;
+    if rising_edge(clock163) then
       
       -- HyperRAM state machine
       report "State = " & state_t'image(state);
       if (state /= Idle) and ( slowdown_counter /= 0) then
         slowdown_counter <= slowdown_counter - 1;
       else
---        slowdown_counter <= 100000;
-        slowdown_counter <= 0;
+        slowdown_counter <= 100;
         
         case state is
           when Debug =>
@@ -248,8 +244,8 @@ begin
             hr_command(47) <= '1'; -- READ
             -- Map actual RAM to bottom 32MB of 64MB space (repeated 4x)
             -- and registers to upper 32MB
-            hr_command(46) <= '1'; -- Memory address space (1) / Register
---            hr_command(46) <= not ram_address(25); -- Memory address space (1) / Register
+--            hr_command(46) <= '1'; -- Memory address space (1) / Register
+            hr_command(46) <= not ram_address(26); -- Memory address space (1) / Register
                                                -- address space select (0) ?
             hr_command(45) <= '1'; -- Linear access (not wrapped)
             hr_command(44 downto 37) <= (others => '0'); -- unused upper address bits
@@ -275,7 +271,8 @@ begin
             -- As HyperRAM addresses on 16bit boundaries, we shift the address
             -- down one bit.
             hr_command(47) <= '0'; -- WRITE
-            hr_command(46) <= '1'; -- Memory address space
+            hr_command(46) <= not ram_address(26); -- Allow access to HyperRAM
+                                                   -- registers as well as memory.
             hr_command(45) <= '1'; -- Linear access (not wrapped)
             hr_command(44 downto 35) <= (others => '0'); -- unused upper address bits
             hr_command(34 downto 16) <= ram_address(22 downto 4);
