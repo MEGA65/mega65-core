@@ -313,7 +313,7 @@ begin
             -- Map actual RAM to bottom 32MB of 64MB space (repeated 4x)
             -- and registers to upper 32MB
 --            hr_command(46) <= '1'; -- Memory address space (1) / Register
-            hr_command(46) <= not ram_address(26); -- Memory address space (1) / Register
+            hr_command(46) <= '0'; -- Memory address space (1) / Register
                                                -- address space select (0) ?
             hr_command(45) <= '1'; -- Linear access (not wrapped)
             hr_command(44 downto 37) <= (others => '0'); -- unused upper address bits
@@ -336,8 +336,7 @@ begin
             -- As HyperRAM addresses on 16bit boundaries, we shift the address
             -- down one bit.
             hr_command(47) <= '0'; -- WRITE
-            hr_command(46) <= not ram_address(26); -- Allow access to HyperRAM
-                                                   -- registers as well as memory.
+            hr_command(46) <= '0'; -- Memory, not register space
             hr_command(45) <= '1'; -- Linear access (not wrapped)
             hr_command(44 downto 35) <= (others => '0'); -- unused upper address bits
             hr_command(34 downto 16) <= ram_address(22 downto 4);
