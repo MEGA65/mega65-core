@@ -18,6 +18,9 @@ entity hyperram is
                                     -- actually on pixelclock to reduce latencies
          clock163 : in std_logic; -- Used for fast clock for HyperRAM
 
+         -- Simple counter for number of requests received
+         request_counter : out std_logic := '0';
+         
          read_request : in std_logic;
          write_request : in std_logic;
          address : in unsigned(26 downto 0);
@@ -106,6 +109,8 @@ architecture gothic of hyperram is
 
   signal fake_data_ready_strobe : std_logic := '0';
   signal fake_rdata : unsigned(7 downto 0) := x"00";
+
+  signal request_counter_int : std_logic := '0';
   
 begin
   process (pixelclock,clock163) is
@@ -118,6 +123,11 @@ begin
 
       fake_data_ready_strobe <= '0';
 
+      if read_request = '1' or write_request = '1' then
+        request_counter_int <= not request_counter_int;
+        request_counter <= request_counter_int;
+      end if;
+      
       report "cache: address=$" & to_hstring(cache_row0_address&"000") & ", valids=" & to_string(cache_row0_valids)
         & ", data = "
         & to_hstring(cache_row0_data(0)) & " "
