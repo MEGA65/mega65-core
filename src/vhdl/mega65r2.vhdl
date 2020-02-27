@@ -447,6 +447,10 @@ begin
     port map (
       pixelclock => pixelclock,
       clock163 => clock163,
+
+      -- XXX Debug by showing if expansion RAM unit is receiving requests or not
+      request_counter => led,
+      
       -- reset => reset_out,
       address => expansionram_address,
       wdata => expansionram_wdata,
@@ -455,13 +459,12 @@ begin
       rdata => expansionram_rdata,
       data_ready_strobe => expansionram_data_ready_strobe,
       busy => expansionram_busy,
-      latency_1x => to_unsigned(4,8),
-      latency_2x => to_unsigned(8,8),
-      
+
       hr_d => hr_d,
       hr_rwds => hr_rwds,
       hr_reset => hr_reset,
       hr_clk_p => hr_clk_p,
+      hr_clk_n => hr_clk_n,
       hr_cs0 => hr_cs0
       );
 
@@ -508,13 +511,13 @@ begin
       ----------------------------------------------------------------------
       -- Expansion RAM interface (upto 127MB)
       ----------------------------------------------------------------------
-      expansionram_read => expansionram_read,
-      expansionram_write => expansionram_write,
-      expansionram_rdata => expansionram_rdata,
-      expansionram_wdata => expansionram_wdata,
-      expansionram_address => expansionram_address,
       expansionram_data_ready_strobe => expansionram_data_ready_strobe,
       expansionram_busy => expansionram_busy,
+      expansionram_read => expansionram_read,
+      expansionram_write => expansionram_write,
+      expansionram_address => expansionram_address,
+      expansionram_rdata => expansionram_rdata,
+      expansionram_wdata => expansionram_wdata,
       
       ----------------------------------------------------------------------
       -- Expansion/cartridge port
@@ -760,7 +763,8 @@ begin
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then
 
-      led <= cart_exrom;
+--      led <= cart_exrom;
+--      led <= flopled_drive;
       
       fa_left_drive <= fa_left;
       fa_right_drive <= fa_right;
