@@ -226,6 +226,7 @@ begin
               busy_internal <= '0';
             end IF;
             -- Release CS line between transactions
+            report "Releasing hyperram CS lines";
             hr_cs0 <= '1';
             hr_cs1 <= '1';
 
