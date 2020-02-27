@@ -168,6 +168,21 @@ begin
           slow_access_request_toggle <= not slow_access_request_toggle;
           slow_access_write <= '0';
           slow_access_address <= x"8000010";
+        when 20 =>
+          report "DISPATCH: Read from $8000017";
+          slow_access_request_toggle <= not slow_access_request_toggle;
+          slow_access_write <= '0';
+          slow_access_address <= x"8000017";
+        when 30 =>
+          report "DISPATCH: Read from $8000018";
+          slow_access_request_toggle <= not slow_access_request_toggle;
+          slow_access_write <= '0';
+          slow_access_address <= x"8000018";
+        when 40 =>
+          report "DISPATCH: Read from $8000019";
+          slow_access_request_toggle <= not slow_access_request_toggle;
+          slow_access_write <= '0';
+          slow_access_address <= x"8000019";
         when others =>
           null;
       end case;
