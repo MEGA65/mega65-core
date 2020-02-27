@@ -93,6 +93,10 @@ architecture gothic of hyperram is
   signal cache_row0_valids : std_logic_vector(7 downto 0) := (others => '0');
   signal cache_row0_address : unsigned(23 downto 0) := (others => '1');  
   signal cache_row0_data : cache_row_t := ( others => x"00" );
+
+  signal last_rwds : std_logic := '0';
+
+  signal fake_data_ready_strobe : std_logic := '0';
   
 begin
   process (pixelclock,clock163) is
@@ -103,7 +107,7 @@ begin
 
       busy <= busy_internal;
 
-      data_ready_strobe <= '0';
+      fake_data_ready_strobe <= '0';
       
       if read_request='1' and busy_internal='0' then
         report "Making read request";
@@ -114,7 +118,7 @@ begin
 
         if address(26 downto 3 ) = cache_row0_address and cache_row0_valids(to_integer(address(2 downto 0))) = '1' then
           -- Cache read
-          data_ready_strobe <= '1';
+          fake_data_ready_strobe <= '1';
           rdata <= cache_row0_data(to_integer(address(2 downto 0)));
         elsif address(23 downto 4) = x"FFFFF" and address(26 downto 24) = "111" then
         -- Allow reading from dummy debug bitbash registers at $BFFFFFx
@@ -136,7 +140,7 @@ begin
               -- This seems to be what gets returned all the time
               rdata <= x"42";
           end case;
-          data_ready_strobe <= '1';
+          fake_data_ready_strobe <= '1';
           report "asserting data_ready_strobe for fake read";
         else
           request_toggle <= not request_toggle;          
@@ -185,7 +189,7 @@ begin
             when others =>
               null;
           end case;
-          data_ready_strobe <= '1';
+          fake_data_ready_strobe <= '1';
         else
           request_toggle <= not request_toggle;          
         end if;        
@@ -193,7 +197,7 @@ begin
         -- Nothing new to do
         if data_ready_toggle /= last_data_ready_toggle then
           last_data_ready_toggle <= data_ready_toggle;
-          data_ready_strobe <= '1';
+          fake_data_ready_strobe <= '1';
         end if;
       end if;
 
@@ -201,6 +205,8 @@ begin
     if rising_edge(clock163) then
 
       cycle_count <= cycle_count + 1;
+
+      data_ready_strobe <= fake_data_ready_strobe;
       
       -- HyperRAM state machine
       report "State = " & state_t'image(state) & " @ Cycle " & integer'image(cycle_count);
@@ -464,7 +470,8 @@ begin
               hr_clk_p <= hr_clock;
               hr_clock <= not hr_clock;
             else
-              if hr_rwds = '1' then
+              last_rwds <= hr_rwds;
+              if hr_rwds = '1' or ((last_rwds='1') and (hr_clock='0')) then
                 -- Data has arrived: Latch either odd or even byte
                 -- as required.
                 report "Saw read data = $" & to_hstring(hr_d);
