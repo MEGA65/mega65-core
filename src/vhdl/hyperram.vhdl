@@ -98,6 +98,7 @@ architecture gothic of hyperram is
   signal last_rwds : std_logic := '0';
 
   signal fake_data_ready_strobe : std_logic := '0';
+  signal fake_rdata : unsigned(7 downto 0) := x"00";
   
 begin
   process (pixelclock,clock163) is
@@ -131,26 +132,26 @@ begin
         if address(26 downto 3 ) = cache_row0_address and cache_row0_valids(to_integer(address(2 downto 0))) = '1' then
           -- Cache read
           fake_data_ready_strobe <= '1';
-          rdata <= cache_row0_data(to_integer(address(2 downto 0)));
+          fake_rdata <= cache_row0_data(to_integer(address(2 downto 0)));
         elsif address(23 downto 4) = x"FFFFF" and address(26 downto 24) = "111" then
         -- Allow reading from dummy debug bitbash registers at $BFFFFFx
           case address(3 downto 0) is
             when x"0" =>
-              rdata <= (others => debug_mode);
+              fake_rdata <= (others => debug_mode);
             when x"1" =>
-              rdata <= hr_d;
+              fake_rdata <= hr_d;
             when x"2" =>
-              rdata(0) <= hr_rwds;
-              rdata(1) <= hr_reset_int;
-              rdata(2) <= hr_clk_n_int;
-              rdata(3) <= hr_clk_p_int;
-              rdata(4) <= hr_cs0_int;
-              rdata(5) <= hr_cs1_int;
-              rdata(6) <= hr_ddr;
-              rdata(7) <= '1';
+              fake_rdata(0) <= hr_rwds;
+              fake_rdata(1) <= hr_reset_int;
+              fake_rdata(2) <= hr_clk_n_int;
+              fake_rdata(3) <= hr_clk_p_int;
+              fake_rdata(4) <= hr_cs0_int;
+              fake_rdata(5) <= hr_cs1_int;
+              fake_rdata(6) <= hr_ddr;
+              fake_rdata(7) <= '1';
             when others =>
               -- This seems to be what gets returned all the time
-              rdata <= x"42";
+              fake_rdata <= x"42";
           end case;
           fake_data_ready_strobe <= '1';
           report "asserting data_ready_strobe for fake read";
@@ -219,6 +220,9 @@ begin
       cycle_count <= cycle_count + 1;
 
       data_ready_strobe <= fake_data_ready_strobe;
+      if fake_data_ready_strobe='1' then
+        rdata <= fake_rdata;
+      end if;
       
       -- HyperRAM state machine
       report "State = " & state_t'image(state) & " @ Cycle " & integer'image(cycle_count);
