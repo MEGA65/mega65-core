@@ -59,7 +59,6 @@ architecture gothic of hyperram is
   
   signal hr_clock : std_logic := '0';
 
-  signal data_ready_strobe_countdown : integer range 0 to 5 := 0;
   signal data_ready_toggle : std_logic := '0';
   signal last_data_ready_toggle : std_logic := '0';
 
@@ -92,12 +91,7 @@ begin
 
       busy <= busy_internal;
 
-      if data_ready_strobe_countdown = 0 then
-        data_ready_strobe <= '0';
-      else
-        data_ready_strobe_countdown <= data_ready_strobe_countdown - 1;
-        data_ready_strobe <= '1';
-      end if;
+      data_ready_strobe <= '0';
       
       if read_request='1' and busy_internal='0' then
         report "Making read request";
@@ -127,7 +121,6 @@ begin
               rdata <= x"42";
           end case;
           data_ready_strobe <= '1';
-          data_ready_strobe_countdown <= 5;
           report "asserting data_ready_strobe for fake read";
         else
           request_toggle <= not request_toggle;          
@@ -177,7 +170,6 @@ begin
               null;
           end case;
           data_ready_strobe <= '1';
-          data_ready_strobe_countdown <= 5;
         else
           request_toggle <= not request_toggle;          
         end if;        
@@ -186,7 +178,6 @@ begin
         if data_ready_toggle /= last_data_ready_toggle then
           last_data_ready_toggle <= data_ready_toggle;
           data_ready_strobe <= '1';
-          data_ready_strobe_countdown <= 5;
         end if;
       end if;
 
@@ -428,7 +419,6 @@ begin
               rdata(0) <= data_ready_toggle;
               rdata(1) <= busy_internal;
               data_ready_strobe <= '1';
-              data_ready_strobe_countdown <= 5;
               data_ready_toggle <= not data_ready_toggle;
               state <= Idle;
             else
