@@ -81,6 +81,8 @@ architecture gothic of hyperram is
   signal hr_cs1_int : std_logic := '0';
   signal hr_clk_p_int : std_logic := '0';
   signal hr_clk_n_int : std_logic := '0';
+
+  signal cycle_count : integer := 0;
   
 begin
   process (pixelclock,clock163) is
@@ -183,13 +185,17 @@ begin
 
     end if;
     if rising_edge(clock163) then
+
+      cycle_count <= cycle_count + 1;
       
       -- HyperRAM state machine
-      report "State = " & state_t'image(state);
+      report "State = " & state_t'image(state) & " @ Cycle " & integer'image(cycle_count);
+      
       if (state /= Idle) and ( slowdown_counter /= 0) then
         slowdown_counter <= slowdown_counter - 1;
       else
-        slowdown_counter <= 100;
+--        slowdown_counter <= 100;
+        slowdown_counter <= 0;
         
         case state is
           when Debug =>
