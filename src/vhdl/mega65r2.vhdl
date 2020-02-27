@@ -91,11 +91,12 @@ entity container is
          ----------------------------------------------------------------------
          -- HyperRAM as expansion RAM
          ----------------------------------------------------------------------
---         hr_d : inout unsigned(7 downto 0);
---         hr_rwds : inout std_logic;
---         hr_reset : out std_logic;
---         hr_clk_p : out std_logic;
---         hr_cs0 : out std_logic;
+         hr_d : inout unsigned(7 downto 0);
+         hr_rwds : inout std_logic;
+         hr_reset : out std_logic;
+         hr_clk_p : out std_logic;
+         hr_clk_n : out std_logic;
+         hr_cs0 : out std_logic;
          
          ----------------------------------------------------------------------
          -- CBM floppy serial port
@@ -462,15 +463,16 @@ begin
       hr_cs0 => hr_cs0
       );
 
-  fakehyper0: entity work.fakehyperram
-    port map (
-      hr_d => hr_d,
-      hr_rwds => hr_rwds,
-      hr_reset => hr_reset,
-      hr_clk_n => hr_clk_n,
-      hr_clk_p => hr_clk_p,
-      hr_cs0 => hr_cs0
-      );
+--  fakehyper0: entity work.fakehyperram
+--    port map (
+--      clock163 => clock163,
+--      hr_d => hr_d,
+--      hr_rwds => hr_rwds,
+--      hr_reset => hr_reset,
+--      hr_clk_n => hr_clk_n,
+--      hr_clk_p => hr_clk_p,
+--      hr_cs0 => hr_cs0
+--      );
     
   
   slow_devices0: entity work.slow_devices

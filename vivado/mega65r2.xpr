@@ -6,7 +6,7 @@
 <Project Version="7" Minor="35" Path="/home/paul/Projects/mega65/mega65-core/vivado/mega65r2.xpr">
   <DefaultLaunch Dir="$PRUNDIR"/>
   <Configuration>
-    <Option Name="Id" Val="7360153c45ba48bdb66484fb4d44e5a1"/>
+    <Option Name="Id" Val="71b069c69c144066a82753f332041023"/>
     <Option Name="Part" Val="xc7a100tfgg484-1"/>
     <Option Name="CompiledLibDir" Val="$PCACHEDIR/compile_simlib"/>
     <Option Name="CompiledLibDirXSim" Val=""/>
@@ -497,6 +497,12 @@
         </FileInfo>
       </File>
       <File Path="$PPRDIR/../src/vhdl/hyperram.vhdl">
+        <FileInfo>
+          <Attr Name="UsedIn" Val="synthesis"/>
+          <Attr Name="UsedIn" Val="simulation"/>
+        </FileInfo>
+      </File>
+      <File Path="$PPRDIR/../src/vhdl/fakehyperram.vhdl">
         <FileInfo>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="simulation"/>
