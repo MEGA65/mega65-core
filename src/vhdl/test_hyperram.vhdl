@@ -160,7 +160,7 @@ begin
         report "DISPATCH: Read from $8000000";
         slow_access_request_toggle <= not slow_access_request_toggle;
         slow_access_write <= '0';
-        slow_access_address <= x"8000000";
+        slow_access_address <= x"8000010";
       when 10 =>
       when others =>
         null;
