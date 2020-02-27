@@ -153,18 +153,29 @@ begin
       report "Read slow device byte $" & to_hstring(slow_access_rdata);
       last_slow_access_ready_toggle <= slow_access_ready_toggle;
     end if;
+
+    if expansionram_busy = '0' then
+      cycles <= cycles + 1;
+      case cycles is
+        when 1 =>
+          report "DISPATCH: Write to $8000010";
+          slow_access_request_toggle <= not slow_access_request_toggle;
+          slow_access_write <= '1';
+          slow_access_wdata <= x"34";
+          slow_access_address <= x"8000010";
+        when 10 =>
+          report "DISPATCH: Read from $8000010";
+          slow_access_request_toggle <= not slow_access_request_toggle;
+          slow_access_write <= '0';
+          slow_access_address <= x"8000010";
+        when others =>
+          null;
+      end case;
+      if cycles = 100 then
+        cycles <= 0;
+      end if;
+    end if;
     
-    cycles <= cycles + 1;
-    case cycles is
-      when 1 =>
-        report "DISPATCH: Read from $8000000";
-        slow_access_request_toggle <= not slow_access_request_toggle;
-        slow_access_write <= '0';
-        slow_access_address <= x"8000010";
-      when 10 =>
-      when others =>
-        null;
-    end case;
 
     pixelclock <= '0';
     cpuclock <= '0';
