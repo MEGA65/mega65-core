@@ -545,17 +545,20 @@ begin
                   cache_row0_valids <= (others => '0');
                   cache_row0_address <= ram_address(26 downto 3);
                 end if;
-                cache_row0_valids(to_integer(byte_phase)) <= '1';
-                cache_row0_data(to_integer(byte_phase)) <= hr_d;
-                
-                if byte_phase = ram_address(2 downto 0) then
+                if byte_phase > 0 then
+                  cache_row0_valids(to_integer(byte_phase)-1) <= '1';
+                  cache_row0_data(to_integer(byte_phase)-1) <= hr_d;
+                end if;
+
+                -- We have one dead cycle to skip before the data flows
+                if to_integer(byte_phase) = (to_integer(ram_address(2 downto 0))+1) then
                   report "Latching read data = $" & to_hstring(hr_d);
                   rdata <= hr_d;
                   data_ready_strobe <= '1';
                   data_ready_strobe_hold <= '1';
                 end if;
                 report "byte_phase = " & integer'image(to_integer(byte_phase));
-                if byte_phase = 7 then
+                if byte_phase = 8 then
                   state <= Idle2;
                   hr_cs0 <= '1';
                   hr_cs1 <= '1';
