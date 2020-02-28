@@ -103,7 +103,7 @@ architecture gothic of hyperram is
 
   signal request_counter_int : std_logic := '0';
 
-  signal write_latency : unsigned(7 downto 0) := to_unsigned(8 - 2 - 1,8)
+  signal write_latency : unsigned(7 downto 0) := to_unsigned(8 - 2 - 1,8);
   
 begin
   process (pixelclock,clock163) is
