@@ -16,11 +16,7 @@ entity reconfig is
     reg_num : in unsigned(4 downto 0) := "01001";
     trigger_reconfigure : in std_logic;
     reconfigure_address : in unsigned(31 downto 0) := x"00000000";
-    boot_address24 : out unsigned(31 downto 0) := x"FFFFFFFF";
-    boot_address25 : out unsigned(31 downto 0) := x"FFFFFFFF";
-    boot_address26 : out unsigned(31 downto 0) := x"FFFFFFFF";
-    boot_address : out unsigned(31 downto 0) := x"FFFFFFFF";
-    boot_address28 : out unsigned(31 downto 0) := x"FFFFFFFF"
+    boot_address : out unsigned(31 downto 0) := x"FFFFFFFF"
     );
 end reconfig;
 
@@ -116,33 +112,13 @@ begin
   begin
 
     if rising_edge(clock) then
-      if counter = 26 then
-        -- Capture read WBSTAR value
-        boot_address24 <= icape_out;
-      end if;
-      if counter = 27 then
-        -- Capture read WBSTAR value
-        boot_address25 <= icape_out;
-      end if;
-      if counter = 28 then
-        -- Capture read WBSTAR value
-        boot_address26 <= icape_out;
-      end if;
-      if counter = 29 then
-        -- Capture read WBSTAR value
-        boot_address <= icape_out;
-      end if;
-      if counter = 30 then
-        -- Capture read WBSTAR value
-        boot_address28 <= icape_out;
-      end if;
       if counter < 70 then
 
         -- CS and R/W transitions are encoded in the upper bits of our value list
         cs <= bitstream_values(counter)(33);
         rw <= bitstream_values(counter)(32);
         if bitstream_values(counter)(34)='1' then
---          boot_address <= icape_out;
+          boot_address <= icape_out;
         end if;
         
         counter <= counter + 1;        
