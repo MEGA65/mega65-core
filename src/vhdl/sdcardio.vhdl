@@ -479,6 +479,8 @@ architecture behavioural of sdcardio is
   signal trigger_reconfigure : std_logic := '0';
 
   signal flash_boot_address : unsigned(31 downto 0) := x"FFFFFFFF";
+
+  signal icape2_reg : unsigned(4 downto 0) := (others => "10110");
   
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
@@ -495,6 +497,7 @@ begin  -- behavioural
   -- Used to allow MEGA65 to instruct FPGA to start a different bitstream #153
   reconfig1: entity work.reconfig
     port map ( clock => clock,
+               icape2_reg => icape2_reg,
                trigger_reconfigure => trigger_reconfigure,
                reconfigure_address => reconfigure_address,
                boot_address => flash_boot_address);
@@ -1066,6 +1069,10 @@ begin  -- behavioural
             fastio_rdata(7 downto 4) <= gesture_event_id;
           -- @IO:GS $D6C8-B - Address currently loaded bitstream was fetched from flash memory.
           when x"C4" =>
+            -- @IO:GS $D6C4 FPGA:REGVAL Value of selected ICAPE2 register (least significant byte)
+            -- @IO:GS $D6C5 FPGA:REGVAL Value of selected ICAPE2 register
+            -- @IO:GS $D6C6 FPGA:REGVAL Value of selected ICAPE2 register
+            -- @IO:GS $D6C7 FPGA:REGVAL Value of selected ICAPE2 register (most significant byte)
             fastio_rdata <= flash_boot_address(7 downto 0);
           when x"C5" =>
             fastio_rdata <= flash_boot_address(15 downto 8);
@@ -2187,8 +2194,14 @@ begin  -- behavioural
               touch_enabled <= fastio_wdata(7);
               touch_enabled_internal <= fastio_wdata(7);
               touch_byte_num(6 downto 0) <= fastio_wdata(6 downto 0);
+            when x"C4" =>
+              -- @IO:GS $D6C4 FPGA:REGNUM Select ICAPE2 FPGA configuration register for reading WRITE ONLY
+              icape2_reg <= fastio_wdata(4 downto 0);
             when x"C8" =>
-              -- @IO:GS $D6C8-B - Address of bitstream in boot flash for reconfiguration
+              -- @IO:GS $D6C8 FPGA:BOOTADDR0 Address of bitstream in boot flash for reconfiguration (least significant byte)
+              -- @IO:GS $D6C9 FPGA:BOOTADDR1 Address of bitstream in boot flash for reconfiguration
+              -- @IO:GS $D6CA FPGA:BOOTADDR2 Address of bitstream in boot flash for reconfiguration
+              -- @IO:GS $D6CB FPGA:BOOTADDR3 Address of bitstream in boot flash for reconfiguration (most significant byte)
               reconfigure_address(7 downto 0) <= fastio_wdata;
               reconfigure_address_int(7 downto 0) <= fastio_wdata;
             when x"C9" =>
