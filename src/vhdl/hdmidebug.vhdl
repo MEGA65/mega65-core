@@ -319,6 +319,7 @@ begin
 
   reconfig1: entity work.reconfig
     port map ( clock => cpuclock,
+               reg_num => reg_num,
                reconfigure_address => reconfigure_address,
                boot_address24 => boot_address24,
                boot_address25 => boot_address25,
