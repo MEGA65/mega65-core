@@ -44,6 +44,11 @@ architecture foo of test_hyperram is
   
 begin
 
+  reconfig1: entity work.reconfig
+    port map ( clock => clock163,
+               trigger_reconfigure => '0',
+               reconfigure_address => (others => '0'));
+  
   hyperram0: entity work.hyperram
     port map (
       pixelclock => pixelclock,
