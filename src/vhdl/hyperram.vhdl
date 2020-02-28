@@ -62,6 +62,7 @@ architecture gothic of hyperram is
 
   signal data_ready_toggle : std_logic := '0';
   signal last_data_ready_toggle : std_logic := '0';
+  signal data_ready_strobe_hold : std_logic := '0';
 
   signal request_toggle : std_logic := '0';
   signal last_request_toggle : std_logic := '0';
@@ -141,7 +142,7 @@ begin
           -- Cache read
           fake_data_ready_strobe <= '1';
           fake_rdata <= cache_row0_data(to_integer(address(2 downto 0)));
-        elsif address(23 downto 4) = x"FFFFF" and address(26 downto 24) = "111" then
+        elsif address(23 downto 4) = x"FFFFF" and address(25 downto 24) = "11" then
         -- Allow reading from dummy debug bitbash registers at $BFFFFFx
           case address(3 downto 0) is
             when x"0" =>
@@ -175,7 +176,7 @@ begin
         ram_wdata <= wdata;
         ram_reading <= '0';
         
-        if address(23 downto 4) = x"FFFFF" and address(26 downto 24) = "111" then
+        if address(23 downto 4) = x"FFFFF" and address(25 downto 24) = "11" then
           case address(3 downto 0) is
             when x"0" =>
               if wdata = x"de" then
@@ -227,10 +228,17 @@ begin
 
       cycle_count <= cycle_count + 1;
 
-      data_ready_strobe <= fake_data_ready_strobe;
-      if fake_data_ready_strobe='1' then
-        rdata <= fake_rdata;
+      if data_ready_strobe_hold = '0' then      
+        data_ready_strobe <= fake_data_ready_strobe;
+        if fake_data_ready_strobe='1' then
+          report "holding data_ready_strobe via fake data = $" & to_hstring(fake_rdata);
+          rdata <= fake_rdata;
+        end if;
+      else
+        report "holding data_ready_strobe for an extra cycle";
+        data_ready_strobe <= '1';
       end if;
+      data_ready_strobe_hold <= '0';
       
       -- HyperRAM state machine
       report "State = " & state_t'image(state) & " @ Cycle " & integer'image(cycle_count);
@@ -504,7 +512,7 @@ begin
               rdata(0) <= data_ready_toggle;
               rdata(1) <= busy_internal;
               data_ready_strobe <= '1';
-              data_ready_toggle <= not data_ready_toggle;
+              data_ready_strobe_hold <= '1';
               state <= Idle;
             else
               countdown <= countdown - 1;
@@ -533,8 +541,10 @@ begin
                 if byte_phase = ram_address(2 downto 0) then
                   report "Latching read data = $" & to_hstring(hr_d);
                   rdata <= hr_d;
-                  data_ready_toggle <= not data_ready_toggle;
+                  data_ready_strobe <= '1';
+                  data_ready_strobe_hold <= '1';
                 end if;
+                report "byte_phase = " & integer'image(to_integer(byte_phase));
                 if byte_phase = 7 then
                   state <= Idle2;
                   hr_cs0 <= '1';
