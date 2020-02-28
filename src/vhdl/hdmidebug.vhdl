@@ -267,11 +267,7 @@ architecture Behavioral of container is
   signal pmod_counter : unsigned(15 downto 0) := to_unsigned(0,16);
 
   signal reconfigure_address : unsigned(31 downto 0) := to_unsigned(0,32);
-  signal boot_address24 : unsigned(31 downto 0) := (others => '1');
-  signal boot_address25 : unsigned(31 downto 0) := (others => '1');
-  signal boot_address26 : unsigned(31 downto 0) := (others => '1');
-  signal boot_address27 : unsigned(31 downto 0) := (others => '1');
-  signal boot_address28 : unsigned(31 downto 0) := (others => '1');
+  signal boot_address : unsigned(31 downto 0) := (others => '1');
 
   signal x_zero : std_logic;
   signal y_zero : std_logic;
@@ -321,11 +317,7 @@ begin
     port map ( clock => cpuclock,
                reg_num => reg_num(4 downto 0),
                reconfigure_address => reconfigure_address,
-               boot_address24 => boot_address24,
-               boot_address25 => boot_address25,
-               boot_address26 => boot_address26,
-               boot_address => boot_address27,
-               boot_address28 => boot_address28,
+               boot_address => boot_address,
                trigger_reconfigure => trigger_reconfigure);
 
   dotclock1: entity work.dotclock100
@@ -488,15 +480,15 @@ begin
         red <= x"00";
         blue <= x"FF";
       elsif ycounter < 64 then
-        red <= (others => boot_address24(to_integer(xcounter(11 downto 4))-5));
+        red <= (others => boot_address(to_integer(xcounter(11 downto 4))-5));
       elsif ycounter < 128 then
-        red <= (others => boot_address25(to_integer(xcounter(11 downto 4))-5));
+        red <= (others => boot_address(to_integer(xcounter(11 downto 4))-5));
       elsif ycounter < 192 then
-        red <= (others => boot_address26(to_integer(xcounter(11 downto 4))-5));
+        red <= (others => boot_address(to_integer(xcounter(11 downto 4))-5));
       elsif ycounter < 256 then
-        red <= (others => boot_address27(to_integer(xcounter(11 downto 4))-5));
+        red <= (others => boot_address(to_integer(xcounter(11 downto 4))-5));
       elsif ycounter < 320 then
-        red <= (others => boot_address28(to_integer(xcounter(11 downto 4))-5));
+        red <= (others => boot_address(to_integer(xcounter(11 downto 4))-5));
       elsif ycounter < 384 then
         red <= (others => reg_num(to_integer(xcounter(11 downto 4))-5));
       else
