@@ -70,6 +70,7 @@ begin
 
   fakehyper0: entity work.fakehyperram
     port map (
+      clock163 => clock163,
       hr_d => hr_d,
       hr_rwds => hr_rwds,
       hr_reset => hr_reset,
@@ -210,7 +211,7 @@ begin
     wait for 2 ns;
     clock163 <= '1';
     wait for 2 ns;
-    pixelclock <= '0';
+    pixelclock <= '1';
     clock163 <= '0';
     wait for 2 ns;
     clock163 <= '1';
