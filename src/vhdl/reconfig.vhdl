@@ -13,9 +13,14 @@ use UNISIM.vcomponents.all;
 entity reconfig is
   port (
     clock : in std_logic;
+    reg_num : in unsigned(4 downto 0) := "01001";
     trigger_reconfigure : in std_logic;
     reconfigure_address : in unsigned(31 downto 0) := x"00000000";
-    boot_address : out unsigned(31 downto 0) := x"FFFFFFFF"
+    boot_address24 : out unsigned(31 downto 0) := x"FFFFFFFF";
+    boot_address25 : out unsigned(31 downto 0) := x"FFFFFFFF";
+    boot_address26 : out unsigned(31 downto 0) := x"FFFFFFFF";
+    boot_address : out unsigned(31 downto 0) := x"FFFFFFFF";
+    boot_address28 : out unsigned(31 downto 0) := x"FFFFFFFF"
     );
 end reconfig;
 
@@ -26,51 +31,69 @@ architecture behavioural of reconfig is
   signal cs : std_logic := '1'; -- interface active when low
   signal rw : std_logic := '1'; -- Read or _Write
 
-  type reg_value_pair is ARRAY(0 TO 70) OF unsigned(31 DOWNTO 0);    
+  type reg_value_pair is ARRAY(0 TO 70) OF unsigned(35 DOWNTO 0);    
   
   signal bitstream_values : reg_value_pair := (
-    x"FFFFFFFF", -- Dummy word
-    x"FFFFFFFF", -- Dummy word
-    x"FFFFFFFF", -- Dummy word
-    x"FFFFFFFF", -- Dummy word
-    x"FFFFFFFF", -- Dummy word
-    x"AA995566", -- Sync word 
-    x"20000000", -- Type 1 NOOP
-    x"20000000", -- Type 1 NOOP
+    x"0FFFFFFFF", -- Dummy word CS=0, RDWR=0
+    x"0FFFFFFFF", -- Dummy word
+    x"0FFFFFFFF", -- Dummy word
+    x"0FFFFFFFF", -- Dummy word
+    x"0FFFFFFFF", -- Dummy word
+    x"0AA995566", -- Sync word 
+    x"020000000", -- Type 1 NOOP
+    x"020000000", -- Type 1 NOOP
    
-    x"30020001", -- Type 1 write to WBSTAR
-    x"00000000", -- Warm-boot start address
-    x"20000000", -- Type 1 NOOP
-    x"20000000", -- Type 1 NOOP
-    x"30008001", -- Type 1 write words to CMD
-    x"0000000F", -- IPROG word
-    x"20000000", -- Type 1 NOOP
-    x"20000000", -- Type 1 NOOP
+    x"030020001", -- Type 1 write to WBSTAR
+    x"000000000", -- Warm-boot start address
+    x"020000000", -- Type 1 NOOP
+    x"020000000", -- Type 1 NOOP
+    x"030008001", -- Type 1 write words to CMD
+    x"00000000F", -- IPROG word
+    x"020000000", -- Type 1 NOOP
+    x"020000000", -- Type 1 NOOP
 
 
-    -- Offset 16: read WBSTAR
-    x"FFFFFFFF", -- Dummy word
-    x"FFFFFFFF", -- Dummy word
-    x"FFFFFFFF", -- Dummy word
-    x"FFFFFFFF", -- Dummy word
-    x"FFFFFFFF", -- Dummy word
-    x"AA995566", -- Sync word 
-    x"20000000", -- Type 1 NOOP
-    x"20000000", -- Type 1 NOOP   
-    x"20020001", -- Type 1 read from WBSTAR
-    x"20000000", -- Type 1 NOOP
-    x"20000000", -- Type 1 NOOP
-    x"20000000", -- Type 1 NOOP
+    -- Offset 16: read WBSTAR or other register
+    x"3FFFFFFFF", -- Dummy word with CS and R/W released
+    x"020000000", -- Type 1 NOOP
+    x"0AA995566", -- Sync word 
+    x"020000000", -- Type 1 NOOP     
+    x"020000000", -- Type 1 NOOP
 
+
+    -- Offset 21: The actual read command
+--    x"20020001", -- Type 1 read from WBSTAR (10000)
+--    x"2002c001", -- Type 1 read from BOOTSTS (10110)
+--    x"020012001", -- Type 1 read from COR0 (01001) (has value with ones and  zeroes for easy spotting)    
+    x"028018001", -- Type 1 read from IDCODE (01100) (has value with ones and  zeroes for easy spotting)
+
+    -- Offset 22: Switch to read and allow time for value to emerge 
+    x"220000000", -- Release CS
+    x"320000000", -- Switch to READ, CS still released    
+    x"120000000", -- Type 1 NOOP with CS asserted and R/W = READ
+    x"120000000", -- Type 1 NOOP with CS asserted and R/W = READ
+    x"120000000", -- Type 1 NOOP with CS asserted and R/W = READ
+    x"120000000", -- Type 1 NOOP with CS asserted and R/W = READ
+    x"120000000", -- Type 1 NOOP with CS asserted and R/W = READ
+
+    -- Offset 29: Get value back out
+    x"520000000", -- We get our answer now.
+    x"020000000", -- Desync
+    x"020000000", -- Type 1 NOOP
+    x"020000000", -- Type 1 NOOP
     
-    others => x"FFFFFFFF"
+    
+    others => x"3FFFFFFFF"
     );
 
   signal counter : integer range 0 to 99 := 99;
+
+  signal set_toggle : std_logic := '0';
   
 begin
 
   ICAPE2_inst: ICAPE2 
+--  ICAPE2_inst: entity work.ICAPE2 
     generic map(
       DEVICE_ID => X"3651093",    -- Specifies the pre-programmed
       -- Device ID value to be used for
@@ -93,26 +116,40 @@ begin
   begin
 
     if rising_edge(clock) then
+      if counter = 26 then
+        -- Capture read WBSTAR value
+        boot_address24 <= icape_out;
+      end if;
       if counter = 27 then
         -- Capture read WBSTAR value
-        boot_address <= icape_out;
-        rw <= '0';
+        boot_address25 <= icape_out;
       end if;
-      if counter > 24 and counter < 28 then
-        -- Switch to reading for getting WBSTAR register
-        -- contents
-        rw <= '1';
-      else
-        rw <= '0';
+      if counter = 28 then
+        -- Capture read WBSTAR value
+        boot_address26 <= icape_out;
+      end if;
+      if counter = 29 then
+        -- Capture read WBSTAR value
+        boot_address <= icape_out;
+      end if;
+      if counter = 30 then
+        -- Capture read WBSTAR value
+        boot_address28 <= icape_out;
       end if;
       if counter < 70 then
-        if counter = 5 or counter = 16 then
-          cs <= '0';
-          rw <= '0';
+
+        -- CS and R/W transitions are encoded in the upper bits of our value list
+        cs <= bitstream_values(counter)(33);
+        rw <= bitstream_values(counter)(32);
+        if bitstream_values(counter)(34)='1' then
+--          boot_address <= icape_out;
         end if;
         
         counter <= counter + 1;        
 
+        report "counter = " & integer'image(counter)
+          & ", writing $" & to_hstring(bitstream_values(counter)(31 downto 0));
+        
         icape_in(31) <= bitstream_values(counter)(24);
         icape_in(30) <= bitstream_values(counter)(25);
         icape_in(29) <= bitstream_values(counter)(26);
@@ -150,11 +187,20 @@ begin
         icape_in(0) <= bitstream_values(counter)(7);
 
       else
-        bitstream_values(9) <= reconfigure_address;
+
+        set_toggle <= not set_toggle;
+
+        if set_toggle = '0' then
+          bitstream_values(9)(31 downto 0) <= reconfigure_address;
+        else
+          bitstream_values(21)(17 downto 13) <= reg_num;
+        end if;
         cs <= '1';
         rw <= '1';
         if trigger_reconfigure = '1' then
           counter <= 0;
+        else
+          counter <= 16; 
         end if;
       end if;
             
