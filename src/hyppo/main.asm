@@ -642,6 +642,56 @@ reset_entry:
         ldy #>msg_hyppohelp
         jsr printmessage
 
+	// Work out if we are on first reset.  If so, then try switching to bitstream in 2nd slot.
+	
+first_boot_flag_instruction:
+	// Use first boot code path only once
+	// WARNING: Self modifying code!
+	bit dont_launch_flash_menu
+	lda #$4c
+	sta first_boot_flag_instruction
+
+	// On first boot, we start the flash menu regardless
+	// (The flash menu will work out whether to switch bitstream or not)
+	jmp launch_flash_menu
+	
+	// On ALT or either joystick button, enter flash menu.
+	// But only on first boot, while flash menu program can still be relied upon to be in memory.
+	lda $d610
+	cmp #$09
+	beq launch_flash_menu
+	lda $dc00
+	and $dc01
+	and #$10
+	bne dont_launch_flash_menu
+	
+launch_flash_menu:
+	// Store where the flash menu should jump to if it doesn't need to do anything.
+	lda #<fpga_has_been_reconfigured
+	sta $03f0
+	lda #>fpga_has_been_reconfigured
+	sta $03f1
+	// Then actually start it.
+	// NOTE: Flash menu runs in hypervisor mode, so can't use memory beyond $7FFF etc.
+
+	// But we make sure that the flash menu is really there
+	// CC65 starts programs with $A5 as first byte, so we check that
+	lda $080d
+	cmp #$a5
+	bne flash_menu_missing
+	jmp $080d
+flash_menu_missing:
+        ldx #<msg_flashmenumissing
+        ldy #>msg_flashmenumissing
+        jsr printmessage
+
+dont_launch_flash_menu:	
+fpga_has_been_reconfigured:	
+
+	// We can't trust that the flash menu is still in memory by this point, so do nothing.
+	// (This also means if you choose "safe mode" factory bitstream, and then reset, it
+	// won't try to run upgraded bitstream again.)
+	
         // check keyboard for 0-9 down to select alternate rom
         //
         jsr keyboardread
@@ -2828,6 +2878,46 @@ ueol1:
         lda #$35 // IO + Kernel ROM @ $E000 (although Kernel is blank)
         sta hypervisor_cpuport01
 
+	jsr kludge_ffd2_for_cc65_programs
+
+        // Next instruction exits hypervisor to user mode
+        sta hypervisor_enterexit_trigger
+
+flash_menu:
+	// Run the flash menu which is pre-loaded into memory on first boot
+	// (in the FPGA BRAM).
+	jsr kludge_ffd2_for_cc65_programs
+
+        lda #$ff
+        sta $d702
+        lda #$ff
+        sta $d704  // dma list is in top MB of address space
+        lda #>flashmenu_dmalist
+        sta $d701
+        // Trigger enhanced DMA
+        lda #<flashmenu_dmalist
+        sta $d705
+	
+	jmp $080d
+
+flashmenu_dmalist:
+        // copy $50000-$577FF to $00007FF-$0007FFFF
+
+        // MEGA65 Enhanced DMA options
+        .byte $0A      // Request format is F018A
+        .byte $80,$00  // Copy from $FFxxxxx
+        .byte $81,$00  // Copy to $00xxxxx
+        .byte $00 // no more options
+        // F018A DMA list
+        .byte $00 // copy + last request in chain
+        .word $77FF // size of copy 
+        .word $0000 // starting addr 
+        .byte $05   // of bank $5
+        .word $07FF // destination address is $0801 - 2
+        .byte $00   // of bank $0
+        .word $0000 // modulo (unused)
+	
+kludge_ffd2_for_cc65_programs:	
         // make $FFD2 safe for CC65 compiled programs that call
         // there to set lower case during initialisation.
         // We need to write $60 to $2FFD2
@@ -2835,11 +2925,8 @@ ueol1:
         ldx #$d2
         ldy #$ff
         ldz #$02
-        jsr longpoke
-
-        // Next instruction exits hypervisor to user mode
-        sta hypervisor_enterexit_trigger
-
+        jmp longpoke
+	
 utility_dmalist:
         // copy $FF8xxxx-$FF8yyyy to $00007FF-$000xxxx
 
@@ -3058,7 +3145,9 @@ msg_dmagica:            .text "DMAGIC REV A MODE"
                         .byte 0
 msg_dmagicb:            .text "DMAGIC REV B MODE"
                         .byte 0
-
+msg_flashmenumissing:	.text "FLASH UTIL NOT FOUND"
+			.byte 0
+	
 // Include the GIT Message as a string
 #import "../version.asm"
 
