@@ -118,7 +118,14 @@ begin
         cs <= bitstream_values(counter)(33);
         rw <= bitstream_values(counter)(32);
         if bitstream_values(counter)(34)='1' then
-          boot_address <= icape_out;
+          -- Flip bit order in bytes
+          for bb in 0 to 3 loop
+            for j in 0 to 7 loop
+              boot_address(bb*8+j) <= icape_out(bb*8+7-j);
+            end loop;
+          end loop;
+          
+--          boot_address <= icape_out;
         end if;
         
         counter <= counter + 1;        
