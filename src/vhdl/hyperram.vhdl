@@ -102,6 +102,8 @@ architecture gothic of hyperram is
   signal fake_rdata : unsigned(7 downto 0) := x"00";
 
   signal request_counter_int : std_logic := '0';
+
+  signal write_latency : unsigned(7 downto 0) := to_unsigned(8 - 2 - 1,8)
   
 begin
   process (pixelclock,clock163) is
@@ -158,6 +160,8 @@ begin
               fake_rdata(5) <= hr_cs1_int;
               fake_rdata(6) <= hr_ddr;
               fake_rdata(7) <= '1';
+            when x"3" =>
+              fake_rdata <= write_latency;
             when others =>
               -- This seems to be what gets returned all the time
               fake_rdata <= x"42";
@@ -208,6 +212,8 @@ begin
 --              if wdata(6)='0' then
 --                hr_d <= (others => '0');
 --              end if;
+            when x"3" =>
+              write_latency <= fake_rdata;
             when others =>
               null;
           end case;
@@ -411,8 +417,9 @@ begin
                   -- Writing, so count down the correct number of cycles;
                   -- Initial latency is reduced by 2 cycles for the last bytes
                   -- of the access command, and by 1 more to cover state
-                  -- machine latency
-                  countdown <= 8 - 2 - 1;
+                  -- machine latency                  
+--                  countdown <= 8 - 2 - 1;
+                  countdown <= to_integer(write_latency);
                   state <= HyperRAMLatencyWait;
                 end if;
               end if;
