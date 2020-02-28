@@ -46,7 +46,7 @@ architecture gothic of fakehyperram is
   
 begin
 
-  process (hr_clk_p,hr_clk_n,hr_cs0) is
+  process (hr_clk_p,hr_clk_n,hr_cs0,clock163) is
   begin
     if rising_edge(clock163) then
     if hr_clk_p /= last_hr_clk_p or hr_cs0 /= last_hr_cs0 then
