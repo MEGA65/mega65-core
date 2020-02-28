@@ -1065,8 +1065,7 @@ void main(void)
   usleep(10);
   // Allow a little while for it to be fetched.
   // (about 40 cycles should be long enough)
-  // XXX bit order here is reversed until we update the bitstream.
-  if (PEEK(0xD6C5)&0x80) {
+  if (PEEK(0xD6C5)&0x01) {
     // FPGA has been reconfigured, so assume that we should boot
     // normally, unless magic keys are being pressed.
     if ((PEEK(0xD610)==0x09)||(!(PEEK(0xDC00)&0x10))||(!(PEEK(0xDC01)&0x10)))
@@ -1074,18 +1073,30 @@ void main(void)
 	// Magic key pressed, so proceed to flash menu after flushing keyboard input buffer
 	while(PEEK(0xD610)) POKE(0xD610,0);
       }
-    else
-      return;
+    else {
+      // We should actually jump ($03F0) to resume hypervisor booting
+      // (see src/hyppo/main.asm launch_flash_menu routine for more info)
+      printf("Continuing booting with this bitstream...\n");
+      printf("Trying to return control to hypervisor...\n");
+      POKE(0x3EF,0x4C);
+      asm (" jmp $03EF ");
+    }
+  } else {
+    // FPGA has NOT been reconfigured
+    // So if we have a valid upgrade bitstream in slot 1, then run it.
+    // Else, just show the menu.
+    // XXX - For now, we just always show the menu
+    printf("I should be starting from slot #1\n");
   }
-  
+
   printf("BOOTSTS = $%02x%02x%02x%02x\n",
 	 PEEK(0xD6C7),PEEK(0xD6C6),PEEK(0xD6C5),PEEK(0xD6C4));
   
-
-  
-  POKE(0xD6C4,0x10);
+#if 0
+  POKE(0xD6C4,0x10);  
   printf("WBSTAR = $%02x%02x%02x%02x\n",
 	 PEEK(0xD6C7),PEEK(0xD6C6),PEEK(0xD6C5),PEEK(0xD6C4));
+#endif  
 
   while(1)
     {  
