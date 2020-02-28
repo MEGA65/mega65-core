@@ -198,6 +198,8 @@ begin
         expansionram_eternally_busy <= '0';
       end if;
       
+      report "State = " & slow_state'image(state) & " expansionram_data_ready_strobe = "
+        & std_logic'image(expansionram_data_ready_strobe);
       case state is
         when Idle =>
           -- Clear flags for expansion RAM access request
@@ -311,7 +313,7 @@ begin
         expansionram_read <= '0';
         expansionram_write <= '0';
         if expansionram_data_ready_strobe = '1' then
-          report "Saw data. Switching back to Idle state";
+          report "Saw data. Switching back to Idle state. byte = $" & to_hstring(expansionram_rdata);
           state <= Idle;
           slow_access_rdata <= expansionram_rdata;
           slow_access_ready_toggle <= slow_access_request_toggle;
