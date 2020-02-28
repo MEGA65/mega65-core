@@ -194,7 +194,7 @@ void reflash_slot(unsigned char slot)
 	tries++;
 	if (tries==128) {
 	  printf("\n! Failed to erase flash page at $%llx\n",addr);
-	  printf("  byte %d = $%x instead of $FF\n",i,data_buffer[i]);
+	  printf("  byte $%x = $%x instead of $FF\n",i,data_buffer[i]);
 	  printf("Please reset and try again.\n");
 	  while(1) continue;
 	}
@@ -939,6 +939,7 @@ void main(void)
     printf("ERROR: Cannot communicate with QSPI            flash device.\n");
     return;
   }
+#if 0
   printf("qspi flash manufacturer = $%02x\n",manufacturer);
   printf("qspi device id = $%04x\n",device_id);
   printf("rdid byte count = %d\n",cfi_length);
@@ -953,7 +954,8 @@ void main(void)
 	 cfi_data[0x20-4]);
   printf("erase typical time is 2^%d milliseconds.\n",
 	 cfi_data[0x21-4]);
-
+#endif
+  
   // Work out size of flash in MB
   {
     unsigned char n=cfi_data[0x27-4];
@@ -961,8 +963,10 @@ void main(void)
     n-=20;
     while(n) { mb=mb<<1; n--; }
   }
+#if 0
   printf("flash size is %dmb.\n",mb);
-
+#endif
+  
   // What erase regions do we have?
   erase_region_count=cfi_data[0x2c-4];
   if (erase_region_count>MAX_ERASE_REGIONS) {
@@ -975,18 +979,22 @@ void main(void)
     erase_regions[i].sectors++;
     erase_regions[i].sector_size=cfi_data[0x2f-4+(i*4)];
     erase_regions[i].sector_size|=(cfi_data[0x30-4+(i*4)])<<8;
+#if 0
     printf("erase region #%d : %d sectors x %dkb\n",
 	   i+1,erase_regions[i].sectors,erase_regions[i].sector_size>>2);
+#endif
   }
   if (reg_cr1&4) printf("warning: small sectors are at top, not bottom.\n");
   latency_code=reg_cr1>>6;
+#if 0
   printf("latency code = %d\n",latency_code);
   if (reg_sr1&0x80) printf("flash is write protected.\n");
   if (reg_sr1&0x40) printf("programming error occurred.\n");
   if (reg_sr1&0x20) printf("erase error occurred.\n");
   if (reg_sr1&0x02) printf("write latch enabled.\n"); else printf("write latch not (yet) enabled.\n");
   if (reg_sr1&0x01) printf("device busy.\n");
-
+#endif
+  
 #if 0
 
   printf("Press any key to continue...\n");
@@ -1115,14 +1123,14 @@ void main(void)
 
 	if (!i) {
 	  // Assume contains golden bitstream
-	  printf("    (%d) MEGA65 FACTORY CORE",i>>2);
+	  printf("    (%c) MEGA65 FACTORY CORE",'0'+(i>>2));
 	}
-	else if (y==0xff) printf("    (%d) EMPTY SLOT\n",i>>2);
+	else if (y==0xff) printf("    (%c) EMPTY SLOT\n",'0'+(i>>2));
 	else if (!valid) {
-	  printf("    (%d) UNKNOWN CONTENT\n",i>>2);
+	  printf("    (%c) UNKNOWN CONTENT\n",'0'+(i>>2));
 	} else {
 	  // Something valid in the slot
-	  printf("    %c(%d) VALID\n",0x05,i>>2);
+	  printf("    %c(%c) VALID\n",0x05,'0'+(i>>2));
 	  // Display info about it
 	}
 
