@@ -479,7 +479,7 @@ architecture behavioural of sdcardio is
 
   signal flash_boot_address : unsigned(31 downto 0) := x"FFFFFFFF";
 
-  signal icape2_reg : unsigned(4 downto 0) := (others => "10110");
+  signal icape2_reg : unsigned(4 downto 0) := "10110";
   
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
