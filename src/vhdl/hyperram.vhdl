@@ -164,7 +164,7 @@ begin
             when x"3" =>
               fake_rdata <= write_latency;
             when x"4" =>
-              fake_rdata <= to_unsigned(state_t'index(state),8);
+              fake_rdata <= to_unsigned(state_t'pos(state),8);
             when others =>
               -- This seems to be what gets returned all the time
               fake_rdata <= x"42";
