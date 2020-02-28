@@ -71,7 +71,7 @@ architecture gothic of hyperram is
   -- boundary scanner.
   signal slowdown_counter : integer := 0;
 
-  signal byte_phase : unsigned(2 downto 0) := to_unsigned(0,3);
+  signal byte_phase : unsigned(3 downto 0) := to_unsigned(0,4);
   signal write_byte_phase : std_logic := '0';
   signal byte_written : std_logic := '0';
 
@@ -425,7 +425,7 @@ begin
                 end if;
               end if;
             end if;
-            byte_phase <= to_unsigned(0,3);
+            byte_phase <= to_unsigned(0,4);
             write_byte_phase <= '0';
             byte_written <= '0';
           when HyperRAMLatencyWait =>
