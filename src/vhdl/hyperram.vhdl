@@ -213,7 +213,7 @@ begin
 --                hr_d <= (others => '0');
 --              end if;
             when x"3" =>
-              write_latency <= fake_rdata;
+              write_latency <= wdata;
             when others =>
               null;
           end case;
