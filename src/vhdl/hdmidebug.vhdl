@@ -278,6 +278,8 @@ architecture Behavioral of container is
   signal pixel_strobe : std_logic;
   signal xcounter : unsigned(11 downto 0) := to_unsigned(0,12);
   signal ycounter : integer := 0;
+
+  signal reg_num : unsigned(31 downto 0) := to_unsigned(0,32);
   
 begin
 
@@ -458,37 +460,51 @@ begin
   PROCESS (PIXELCLOCK) IS
   BEGIN
 
+    if rising_edge(pixelclock) then
     if y_zero = '1' then
       ycounter <= 0;
     elsif x_zero = '1' then
       xcounter <= to_unsigned(0,12);
-      ycounter <= ycounter + 1;
+      if xcounter /= to_unsigned(0,12) then
+        ycounter <= ycounter + 1;
+      end if;
     elsif pixel_strobe = '1' then
       xcounter <= xcounter + 1;
     end if;
 
     -- Show values read back
-    if xcounter(11 downto 4) = "11111" then
+    if y_zero = '1' or x_zero = '1' then
+      green <= x"ff";
+    else
+      green <= x"00";
+    end if;
+    blue <= x"00";
+    if xcounter(3 downto 0) = "0000" then
       red <= x"00";      
-    elsif to_integer(xcounter(11 downto 4)) < 32 then
-      if ycounter = 0 or ycounter = 64 or ycounter = 128 or ycounter = 192 or ycounter = 256 or ycounter = 320 then
+    elsif to_integer(xcounter(11 downto 4)) < 37 and to_integer(xcounter(11 downto 4)) > 4 then
+      blue <= x"00";
+      if ycounter = 0 or ycounter = 64 or ycounter = 128 or ycounter = 192 or ycounter = 256 or ycounter = 320 or ycounter = 384 then
         red <= x"00";
+        blue <= x"FF";
       elsif ycounter < 64 then
-        red <= (others => boot_address24(to_integer(xcounter(11 downto 4))));
+        red <= (others => boot_address24(to_integer(xcounter(11 downto 4))-5));
       elsif ycounter < 128 then
-        red <= (others => boot_address25(to_integer(xcounter(11 downto 4))));
+        red <= (others => boot_address25(to_integer(xcounter(11 downto 4))-5));
       elsif ycounter < 192 then
-        red <= (others => boot_address26(to_integer(xcounter(11 downto 4))));
+        red <= (others => boot_address26(to_integer(xcounter(11 downto 4))-5));
       elsif ycounter < 256 then
-        red <= (others => boot_address27(to_integer(xcounter(11 downto 4))));
+        red <= (others => boot_address27(to_integer(xcounter(11 downto 4))-5));
       elsif ycounter < 320 then
-        red <= (others => boot_address28(to_integer(xcounter(11 downto 4))));
+        red <= (others => boot_address28(to_integer(xcounter(11 downto 4))-5));
+      elsif ycounter < 384 then
+        red <= (others => reg_num(to_integer(xcounter(11 downto 4))-5));
       else
-        red <= x"00";
+        red <= (others => xcounter(4));
       end if;
     else
-      red <= (others => xcounter(4));
+      red <= x"00";
     end if;
+  end if;
     
     VGARED <= UNSIGNED(RED);
     VGAGREEN <= UNSIGNED(GREEN);
@@ -513,18 +529,11 @@ begin
 
     if rising_edge(ethclock) then
       counter <= counter + 1; 
-      if counter = x"100000" then
-        fpga_scl <= '1';
+
+      if counter(24 downto 0) = to_unsigned(0,25) then
+        reg_num(4 downto 0) <= reg_num(4 downto 0) + 1;
       end if;
-      if counter = x"200000" then
-        fpga_sda <= '1';
-      end if;
-      if counter = x"300000" then
---      trigger_reconfigure <= '1';
-        counter <= to_unsigned(0,32);
-        fpga_scl <= '0';
-        fpga_sda <= '0';
-      end if;
+      
       if counter(12 downto 0) = x"000" then
         pmod_counter <= pmod_counter + 1;
         p1lo <= std_logic_vector(pmod_counter(3 downto 0));
