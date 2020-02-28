@@ -1042,7 +1042,43 @@ void main(void)
 #endif
 
   printf("%c",0x93);
+
+
+  // We care about whether the IPROG bit is set.
+  // If the IPROG bit is set, then we are post-config, and we
+  // don't want to automatically change config. Rather, we just
+  // exit to allow the Hypervisor to boot normally.  The exception
+  // is if the fire button on either joystick is held, or the TAB
+  // key is being pressed.  In that case, we show the menu of
+  // flash slots, and allow the user to select which core to load.
+
+  // Select BOOTSTS register
+  POKE(0xD6C4,0x16);
+  usleep(10);
+  // Allow a little while for it to be fetched.
+  // (about 40 cycles should be long enough)
+  // XXX bit order here is reversed until we update the bitstream.
+  if (PEEK(0xD6C5)&0x80) {
+    // FPGA has been reconfigured, so assume that we should boot
+    // normally, unless magic keys are being pressed.
+    if ((PEEK(0xD610)==0x09)||(!(PEEK(0xDC00)&0x10))||(!(PEEK(0xDC01)&0x10)))
+      {
+	// Magic key pressed, so proceed to flash menu after flushing keyboard input buffer
+	while(PEEK(0xD610)) POKE(0xD610,0);
+      }
+    else
+      return;
+  }
   
+  printf("BOOTSTS = $%02x%02x%02x%02x\n",
+	 PEEK(0xD6C7),PEEK(0xD6C6),PEEK(0xD6C5),PEEK(0xD6C4));
+  
+
+  
+  POKE(0xD6C4,0x10);
+  printf("WBSTAR = $%02x%02x%02x%02x\n",
+	 PEEK(0xD6C7),PEEK(0xD6C6),PEEK(0xD6C5),PEEK(0xD6C4));
+
   while(1)
     {  
 
