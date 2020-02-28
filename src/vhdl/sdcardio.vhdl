@@ -496,7 +496,7 @@ begin  -- behavioural
   -- Used to allow MEGA65 to instruct FPGA to start a different bitstream #153
   reconfig1: entity work.reconfig
     port map ( clock => clock,
-               icape2_reg => icape2_reg,
+               reg_num => icape2_reg,
                trigger_reconfigure => trigger_reconfigure,
                reconfigure_address => reconfigure_address,
                boot_address => flash_boot_address);
