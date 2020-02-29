@@ -370,7 +370,7 @@ architecture behavioral of iomapper is
   signal restore_down_count : unsigned(7 downto 0) := x"00";
   
   signal clock50hz : std_logic := '1';
-  constant divisor50hz : integer := 480000; -- 48MHz/50Hz/2;
+  constant divisor50hz : integer := 406250; -- 40.625MHz/50Hz/2;
   signal counter50hz : integer := 0;
 
   signal vfpga_cs : std_logic;
