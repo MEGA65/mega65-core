@@ -332,6 +332,14 @@ void target_mega65r2(void)
     }
     printf("\n");
 
+    printf("CIA1 Clock:      %02x:%02x.%02x (%dHz)\n",
+	   PEEK(0xDC0B)&0x3f,
+	   PEEK(0xDC0A),PEEK(0xDC09),
+	   (PEEK(0xDC0E)&1)?60:50);
+    // Force 50Hz CIA RTC mode, since MEGA65 always feeds CIAs 50hz, not 60hz.
+    POKE(0xDC0E,PEEK(0xDC0E)&0xFE);
+
+    
     show_rtc();
 
     if (lpeek(0xffd7118)&0x40)
