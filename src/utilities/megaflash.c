@@ -1113,8 +1113,9 @@ void main(void)
       POKE(0xCF7f,0x4C);
       asm (" jmp $cf7f ");
     } else {
-      printf("WARNING: Flash slot 1 is seems to be messed up.\n");
-      printf("To avoid seeing this message every time, either\n"
+      printf("WARNING: Flash slot 1 is seems to be\n"
+	     "messed up.\n");
+      printf("To avoid seeing this message every time,either "
 	     "erase or re-flash the slot.\n");
       printf("\nPress almost any key to continue...\n");
       while(PEEK(0xD610)) POKE(0xD610,0);
