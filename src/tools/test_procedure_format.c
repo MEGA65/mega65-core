@@ -40,6 +40,17 @@ int main(int argc,char **argv)
     char issue_file[1024];
     snprintf(issue_file,1024,"issues/issue%d.txt",issue);
     FILE *isf=fopen(issue_file,"r");
+    if (isf) {
+      char line[1024]; line[0]=0;
+      fgets(line,1024,isf);
+      while(line[0]&&(line[strlen(line)-1]<' '))
+	line[strlen(line)-1]=0;
+      if (strcmp(line,"HTTP/1.1 200 OK")) {
+	// Ignore files that didn't fetch correctly.
+	fclose(isf);
+	isf=NULL;
+      }
+    }
     if (!isf) {
       // Need to refetch it
       fprintf(stderr,"Can't open '%s' -- refetching.\n",issue_file);
@@ -48,7 +59,7 @@ int main(int argc,char **argv)
       char cmd[1024];
       snprintf(cmd,1024,"curl -i https://api.github.com/repos/mega65/mega65-core/issues/%d > %s\n",
 	      issue,issue_file);
-      system(cmd);
+      //system(cmd);
       isf=fopen(issue_file,"r");
       if (!isf) {
 	fprintf(stderr,"WARNING: Could not fetch issue #%d\n",issue);
