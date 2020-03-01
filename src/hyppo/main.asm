@@ -678,9 +678,6 @@ launch_flash_menu:
 
 return_from_flashmenu:	
 
-	inc $d020
-	jmp return_from_flashmenu
-	
 	// Here we have been given control back from the flash menu program.
 	// So we have to put some things back to continue the kickstart boot process.
 
@@ -696,12 +693,28 @@ return_from_flashmenu:
         sta $d702
         lda #$ff
         sta $d704  // dma list is in top MB of address space
+
+	// Don't forget to reset colour RAM also
+	lda #$01
+	tsb $d030
+        lda #>erasescreendmalist
+        sta $d701
+        // set bottom 8 bits of address and trigger DMA.
+        //
+        lda #<erasescreendmalist
+        sta $d705
+	lda #$01
+	trb $d030
+	
+	// And finally, the screen data
         lda #>screenrestore_dmalist
         sta $d701
         // Trigger enhanced DMA
         lda #<screenrestore_dmalist
         sta $d705
-	
+
+	jsr resetdisplay
+		
 	jmp dont_launch_flash_menu
 	
 flash_menu_missing:
@@ -1755,7 +1768,7 @@ resetdisplay:
         // characters and full-colour characters for chars >$FF for the logo
         //
         lda #$c5
-        lda $d054        // VIC-IV Control Register C
+        sta $d054        // VIC-IV Control Register C
 
         // and 80 bytes (40 16-bit characters) per row.
         //
@@ -2971,35 +2984,26 @@ flashmenu_dmalist:
         .byte $0A      // Request format is F018A
         .byte $80,$00  // Copy from $00xxxxx
         .byte $81,$00  // Copy to $00xxxxx
+
+	// Copy screen from $0400-$0BFF to $00009000
         .byte $00 // no more options
         // F018A DMA list
-        .byte $00 // copy + chained request
+        .byte $04 // copy + chained
+        .word $0800 // size of copy 
+        .word $0400 // starting addr 
+        .byte $00   // of bank $0
+        .word $9000 // destination address is $8000
+        .byte $00   // of bank $5
+        .word $0000 // modulo (unused)
+
+	// Copy program down
+        .byte $00 // no more options
+	// F018A DMA list
+        .byte $00 // copy + not chained request
         .word $77FF // size of copy 
         .word $0000 // starting addr 
         .byte $05   // of bank $5
         .word $07FF // destination address is $0801 - 2
-        .byte $00   // of bank $0
-        .word $0000 // modulo (unused)
-
-	// FALL THROUGH VIA CHAINED REQUEST
-	
-screensave_dmalist:	
-	// Then copy screen from $0400-$0BFF to $00050000
-	// (we have just copied the flash menu program down, so we can overwrite it)
-	// XXX if we get all clever pants, we could do a SWAP operation instead :)
-	// That would mean we could merge the list for save and restore, and not need a chained
-	// list, thus saving probably 50 bytes or so.
-	// so that we can restore it again after
-	
-        .byte $80,$00  // Copy from $00xxxxx
-        .byte $81,$00  // Copy to $00xxxxx
-        .byte $00 // no more options
-        // F018A DMA list
-        .byte $00 // copy + last in chain
-        .word $0800 // size of copy 
-        .word $0400 // starting addr 
-        .byte $05   // of bank $5
-        .word $0000 // destination address is $8000
         .byte $00   // of bank $0
         .word $0000 // modulo (unused)
 
@@ -3010,10 +3014,10 @@ screenrestore_dmalist:
         // F018A DMA list
         .byte $00 // copy + last in chain
         .word $0800 // size of copy 
-        .word $0000 // destination address is $0000
+        .word $9000 // destination address is $0000
         .byte $00   // of bank $0
         .word $0400 // starting addr 
-        .byte $05   // of bank $5
+        .byte $00   // of bank $5
         .word $0000 // modulo (unused)
 	
 	
