@@ -6,15 +6,12 @@
 #include <dirent.h>
 #include <fileio.h>
 
-#include "../tests/horses.h"
-
 //#define DEBUG_BITBASH(x) { printf("@%d:%02x",__LINE__,x); }
 #define DEBUG_BITBASH(x)
 
 char *select_bitstream_file(void);
 void fetch_rdid(void);
 void flash_reset(void);
-void show_horse(unsigned char frame);
 
 unsigned char joy_x=100;
 unsigned char joy_y=100;
@@ -209,8 +206,6 @@ void reflash_slot(unsigned char slot)
     
   }
 
-  // XXX Setup horse sprites for minigame
-  
   flash_reset();
 
   // Read the flash file and write it to the flash
@@ -223,7 +218,6 @@ void reflash_slot(unsigned char slot)
       progress++;
     }
     progress_bar(progress);
-    show_horse(progress&7);
     
     bytes_returned=read512(buffer);
     
@@ -382,17 +376,6 @@ void delay(void)
   
   //   for(di=0;di<1000;di++) continue;
 }
-
-void show_horse(unsigned char frame)
-{
-  POKE(0xD015,1);
-  POKE(0xD000,progress+24);
-  POKE(0xD001,228);
-  POKE(2040,0x380/0x40);
-  lcopy((long)&horse_sprites[(frame&7)<<6],0x380,63);
-}
-
-
 
 void spi_tristate_si(void)
 {
@@ -1074,12 +1057,17 @@ void main(void)
 	while(PEEK(0xD610)) POKE(0xD610,0);
       }
     else {
-      // We should actually jump ($03F0) to resume hypervisor booting
+      // We should actually jump ($CF80) to resume hypervisor booting
       // (see src/hyppo/main.asm launch_flash_menu routine for more info)
       printf("Continuing booting with this bitstream...\n");
       printf("Trying to return control to hypervisor...\n");
-      POKE(0x3EF,0x4C);
-      asm (" jmp $03EF ");
+
+      printf("\nPress any key to continue.\n");
+      while(PEEK(0xD610)) POKE(0xD610,0);
+      while (!PEEK(0xD610)) continue;
+      
+      POKE(0xCF7f,0x4C);
+      asm (" jmp $cf7f ");
     }
   } else {
     // FPGA has NOT been reconfigured

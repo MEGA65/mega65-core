@@ -77,7 +77,7 @@ void set_vcd_file(char *name);
 void usage(void)
 {
   fprintf(stderr,"MEGA65 cross-development tool for booting the MEGA65 using a custom bitstream and/or HICKUP file.\n");
-  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <hickup file>] [-R romfile] [-C charromfile]] [-c COLOURRAM.BIN] [-B breakpoint] [-m modeline] [-o] [-d diskimage.d81] [-j] [-J <XDC,BSDL[,sensitivity list]> [-V <vcd file>]] [[-1] [<-t|-T> <text>] [-f FPGA serial ID] [filename]] [-H] [-E|-L]\n");
+  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <hickup file>] [-R romfile] [-U flashmenufile] [-C charromfile]] [-c COLOURRAM.BIN] [-B breakpoint] [-m modeline] [-o] [-d diskimage.d81] [-j] [-J <XDC,BSDL[,sensitivity list]> [-V <vcd file>]] [[-1] [<-t|-T> <text>] [-f FPGA serial ID] [filename]] [-H] [-E|-L]\n");
   fprintf(stderr,"  -l - Name of serial port to use, e.g., /dev/ttyUSB1\n");
   fprintf(stderr,"  -s - Speed of serial port in bits per second. This must match what your bitstream uses.\n");
   fprintf(stderr,"       (Older bitstream use 230400, and newer ones 2000000 or 4000000).\n");
@@ -89,6 +89,7 @@ void usage(void)
   fprintf(stderr,"  -V - Write JTAG change log to VCD file, instead of to stdout.\n");
   fprintf(stderr,"  -k - Name of hickup file to forcibly use instead of the hyppo in the bitstream.\n");
   fprintf(stderr,"  -R - ROM file to preload at $20000-$3FFFF.\n");
+  fprintf(stderr,"  -U - Flash menu file to preload at $50000-$57FFF.\n");
   fprintf(stderr,"  -C - Character ROM file to preload.\n");
   fprintf(stderr,"  -c - Colour RAM contents to preload.\n");
   fprintf(stderr,"  -4 - Switch to C64 mode before exiting.\n");
@@ -137,6 +138,7 @@ int virtual_f011=0;
 char *d81file=NULL;
 char *filename=NULL;
 char *romfile=NULL;
+char *flashmenufile=NULL;
 char *charromfile=NULL;
 char *colourramfile=NULL;
 FILE *f=NULL;
@@ -661,6 +663,7 @@ int process_line(char *line,int live)
       stop_cpu();
       if (hyppo) { load_file(hyppo,0xfff8000,patchKS); } hyppo=NULL;
       if (romfile) { load_file(romfile,0x20000,0); } romfile=NULL;
+      if (flashmenufile) { load_file(flashmenufile,0x50000,0); } romfile=NULL;
       if (charromfile) load_file(charromfile,0xFF7E000,0);
       if (colourramfile) load_file(colourramfile,0xFF80000,0);
       if (virtual_f011) {
@@ -1590,11 +1593,12 @@ int main(int argc,char **argv)
   start_time=time(0);
 
   int opt;
-  while ((opt = getopt(argc, argv, "14B:b:c:C:d:EFHf:jJ:k:Ll:m:MnoprR:Ss:t:T:V:")) != -1) {
+  while ((opt = getopt(argc, argv, "14B:b:c:C:d:EFHf:jJ:k:Ll:m:MnoprR:Ss:t:T:U:V:")) != -1) {
     switch (opt) {
     case 'B': sscanf(optarg,"%x",&break_point); break;
     case 'L': if (ethernet_video) { usage(); } else { ethernet_cpulog=1; } break;
     case 'E': if (ethernet_cpulog) { usage(); } else { ethernet_video=1; } break;
+    case 'U': flashmenufile=strdup(optarg); break;
     case 'R': romfile=strdup(optarg); break;
     case 'H': halt=1; break;
     case 'C': charromfile=strdup(optarg); break;
