@@ -1076,7 +1076,7 @@ void main(void)
       // We should actually jump ($CF80) to resume hypervisor booting
       // (see src/hyppo/main.asm launch_flash_menu routine for more info)
 
-#if 1
+#if 0
       printf("Continuing booting with this bitstream...\n");
       printf("Trying to return control to hypervisor...\n");
 
