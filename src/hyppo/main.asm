@@ -667,25 +667,50 @@ first_boot_flag_instruction:
 	
 launch_flash_menu:
 	// Store where the flash menu should jump to if it doesn't need to do anything.
-	lda #<fpga_has_been_reconfigured
-	sta $03f0
-	lda #>fpga_has_been_reconfigured
-	sta $03f1
+	lda #<return_from_flashmenu
+	sta $cf80
+	lda #>return_from_flashmenu
+	sta $cf81
 	// Then actually start it.
 	// NOTE: Flash menu runs in hypervisor mode, so can't use memory beyond $7FFF etc.
 
-	// But we make sure that the flash menu is really there
-	// CC65 starts programs with $A5 as first byte, so we check that
-	lda $080d
-	cmp #$a5
-	bne flash_menu_missing
-	jmp $080d
+	jmp flash_menu
+
+return_from_flashmenu:	
+
+	inc $d020
+	jmp return_from_flashmenu
+	
+	// Here we have been given control back from the flash menu program.
+	// So we have to put some things back to continue the kickstart boot process.
+
+	// Put ZP and stack back where they belong
+	lda #$bf
+	.byte $5B // tab
+	ldy #$be
+	.byte $2B // tys
+	ldx #$ff
+	txs
+	
+        lda #$ff
+        sta $d702
+        lda #$ff
+        sta $d704  // dma list is in top MB of address space
+        lda #>screenrestore_dmalist
+        sta $d701
+        // Trigger enhanced DMA
+        lda #<screenrestore_dmalist
+        sta $d705
+	
+	jmp dont_launch_flash_menu
+	
 flash_menu_missing:
         ldx #<msg_flashmenumissing
         ldy #>msg_flashmenumissing
         jsr printmessage
 
-dont_launch_flash_menu:	
+dont_launch_flash_menu:
+
 fpga_has_been_reconfigured:	
 
 	// We can't trust that the flash menu is still in memory by this point, so do nothing.
@@ -2884,9 +2909,9 @@ ueol1:
         sta hypervisor_enterexit_trigger
 
 flash_menu:
+
 	// Run the flash menu which is pre-loaded into memory on first boot
 	// (in the FPGA BRAM).
-	jsr kludge_ffd2_for_cc65_programs
 
         lda #$ff
         sta $d702
@@ -2897,7 +2922,46 @@ flash_menu:
         // Trigger enhanced DMA
         lda #<flashmenu_dmalist
         sta $d705
+
+	// Bank in KERNAL ROM space so megaflash can run
+	// Writing to $01 when ZP is relocated is a bit tricky, as
+	// we have to mess about with the Base Register, or force
+	// the assembler to do an absolute write.
+	lda #$37
+	.byte $8d,$01,$00 // ABS STA $0001
+
+	// XXX Move Stack and ZP to normal places, before letting C64 KERNAL loose on
+	// Hypervisor memory map!
+	lda #$00
+	.byte $5B // tab
+	ldy #$01
+	.byte $2B // tys
 	
+	// XXX DMA copy our current screen safely somewhere for later restoration?
+	
+	// We should also reset video mode to normal
+	lda #$40
+	sta $d054
+	
+
+	// Tell KERNAL screen is at $0400
+	lda #>$0400
+	sta $0288
+	// Now ask KERNAL to setup vectors
+	jsr $fd15
+	// And clear screen, setup screen editor
+	jsr $e518
+
+	// Clear memory map at $4000-5FFF
+	// (Why on earth do we even map some of the HyperRAM there, anyway???)
+	lda #0
+	tax
+	tay
+	ldz #$3f
+	map
+	eom
+	
+	// Actually launch freeze menu
 	jmp $080d
 
 flashmenu_dmalist:
@@ -2905,18 +2969,55 @@ flashmenu_dmalist:
 
         // MEGA65 Enhanced DMA options
         .byte $0A      // Request format is F018A
-        .byte $80,$00  // Copy from $FFxxxxx
+        .byte $80,$00  // Copy from $00xxxxx
         .byte $81,$00  // Copy to $00xxxxx
         .byte $00 // no more options
         // F018A DMA list
-        .byte $00 // copy + last request in chain
+        .byte $00 // copy + chained request
         .word $77FF // size of copy 
         .word $0000 // starting addr 
         .byte $05   // of bank $5
         .word $07FF // destination address is $0801 - 2
         .byte $00   // of bank $0
         .word $0000 // modulo (unused)
+
+	// FALL THROUGH VIA CHAINED REQUEST
 	
+screensave_dmalist:	
+	// Then copy screen from $0400-$0BFF to $00050000
+	// (we have just copied the flash menu program down, so we can overwrite it)
+	// XXX if we get all clever pants, we could do a SWAP operation instead :)
+	// That would mean we could merge the list for save and restore, and not need a chained
+	// list, thus saving probably 50 bytes or so.
+	// so that we can restore it again after
+	
+        .byte $80,$00  // Copy from $00xxxxx
+        .byte $81,$00  // Copy to $00xxxxx
+        .byte $00 // no more options
+        // F018A DMA list
+        .byte $00 // copy + last in chain
+        .word $0800 // size of copy 
+        .word $0400 // starting addr 
+        .byte $05   // of bank $5
+        .word $0000 // destination address is $8000
+        .byte $00   // of bank $0
+        .word $0000 // modulo (unused)
+
+screenrestore_dmalist:
+        .byte $80,$00  // Copy from $00xxxxx
+        .byte $81,$00  // Copy to $00xxxxx
+        .byte $00 // no more options
+        // F018A DMA list
+        .byte $00 // copy + last in chain
+        .word $0800 // size of copy 
+        .word $0000 // destination address is $0000
+        .byte $00   // of bank $0
+        .word $0400 // starting addr 
+        .byte $05   // of bank $5
+        .word $0000 // modulo (unused)
+	
+	
+
 kludge_ffd2_for_cc65_programs:	
         // make $FFD2 safe for CC65 compiled programs that call
         // there to set lower case during initialisation.
