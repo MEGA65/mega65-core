@@ -637,11 +637,19 @@ reset_entry:
         jsr printmessage
 
         // Display help text
-        //
-        ldx #<msg_hyppohelp
-        ldy #>msg_hyppohelp
+	lda first_boot_flag_instruction
+	cmp #$4c
+	beq not_first_boot_message
+        ldx #<msg_hyppohelpfirst
+        ldy #>msg_hyppohelpfirst
         jsr printmessage
-
+	jmp first_boot_flag_instruction
+	
+not_first_boot_message:	
+        ldx #<msg_hyppohelpnotfirst
+        ldy #>msg_hyppohelpnotfirst
+        jsr printmessage
+	
 	// Work out if we are on first reset.  If so, then try switching to bitstream in 2nd slot.
 	
 first_boot_flag_instruction:
@@ -723,6 +731,19 @@ flash_menu_missing:
         jsr printmessage
 
 dont_launch_flash_menu:
+	lda $d610
+	cmp #$09
+	bne fpga_has_been_reconfigured
+
+	// Tell user what to do if they can't access the flash menu
+noflash_menu:
+        ldx #<msg_noflashmenu
+        ldy #>msg_noflashmenu
+        jsr printmessage
+	inc $d020
+nfm1:
+	jmp nfm1
+	
 
 fpga_has_been_reconfigured:	
 
@@ -2245,6 +2266,10 @@ go64:
 //  C64-mode kernel on the C65 checks if C65 mode
 //  should be entered.)
 
+	// Prevent utility menu from being launched
+	lda #$4c
+	sta utility_menu
+	
         // Check if hold boot switch is set (control-key)
         //
 l41:    lda buckykey_status
@@ -2776,7 +2801,19 @@ cpnth1: adc #$06
 //       Scan the 32KB colour RAM looking for pre-loaded utilities.
 //       Offer for the user to be able to launch one of them
 
+	// Tell user what to do if they can't access the utility menu
+noutility_menu:
+        ldx #<msg_noutilitymenu
+        ldy #>msg_noutilitymenu
+        jsr printmessage
+	inc $d020
+num1:
+	jmp num1
+	
 utility_menu:
+	// Gets self-modified to prevent entering utility menu except on first boot
+	bit noutility_menu
+	
         // Display GIT commit again, so that it's easy to check commit of a build
         ldx #<msg_gitcommit
         ldy #>msg_gitcommit
@@ -3132,10 +3169,6 @@ utillist_rewind:
 
         rts
 
-msg_utilitymenu:
-        .text "SELECT UTILITY TO LAUNCH"
-        .byte 0
-
 serialwrite:
         // write character to serial port
         // XXX - Have some kind of permission control on this
@@ -3163,11 +3196,25 @@ msg_checkpoint_eom:
 
 // messages all have to be <=40 bytes long
 
+msg_utilitymenu:
+        .text "SELECT UTILITY TO LAUNCH"
+        .byte 0
+
+msg_noutilitymenu:	
+		        .text "HOLD ALT + POWER CYCLE FOR UTILITY MENU"
+	                .byte 0
+	
+msg_noflashmenu:	
+		        .text "HOLD TAB + POWER CYCLE FOR FLASH MENU"
+	                .byte 0
+	
 msg_retryreadmbr:       .text "RE-TRYING TO READ MBR"
                         .byte 0
 msg_hyppo:              .text "MEGA65 MEGAOS HYPERVISOR V00.14"
                         .byte 0
-msg_hyppohelp:          .text "TAB=FLASH MENU, ALT=UTIL MENU, CTRL=HOLD"
+msg_hyppohelpfirst:     .text "TAB=FLASH MENU, ALT=UTIL MENU, CTRL=HOLD"
+                        .byte 0
+msg_hyppohelpnotfirst:  .text "POWER OFF/ON FOR FLASH OR UTIL MENU"
                         .byte 0
 msg_romok:              .text "ROM CHECKSUM OK - BOOTING"
                         .byte 0
