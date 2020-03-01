@@ -158,17 +158,22 @@ void reflash_slot(unsigned char slot)
   printf("%c",0x93);
 
   closeall();
-  fd=open(file);
-  if (fd==0xff) {
-    // Couldn't open the file.
-    printf("ERROR: Could not open flash file '%s'\n",file);
-    printf("\nPress any key to continue.\n");
-    while(PEEK(0xD610)) POKE(0xD610,0);
-    while (!PEEK(0xD610)) continue;
 
-    while(1) continue;
+  // magic filename for erasing a slot begins with "-" 
+  if (file[0]!='-') {
     
-    return;
+    fd=open(file);
+    if (fd==0xff) {
+      // Couldn't open the file.
+      printf("ERROR: Could not open flash file '%s'\n",file);
+      printf("\nPress any key to continue.\n");
+      while(PEEK(0xD610)) POKE(0xD610,0);
+      while (!PEEK(0xD610)) continue;
+      
+      while(1) continue;
+      
+      return;
+    }
   }
 
   printf("%c%c%c%c%c%cErasing flash slot...\n",
@@ -224,154 +229,158 @@ void reflash_slot(unsigned char slot)
 
   flash_reset();
 
-  // Read the flash file and write it to the flash
-  printf("Writing bitstream to flash...\n\n",0x93);
-  progress=0; progress_acc=0;
-  for(addr=(4L*1024L*1024L)*slot;addr<(4L*1024L*1024L)*(slot+1);addr+=512) {
-    progress_acc+=512;
-    if (progress_acc>26214) {
-      progress_acc-=26214;
-      progress++;
-    }
-    progress_bar(progress);
-    
-    bytes_returned=read512(buffer);
-    
-    if (!bytes_returned) break;
-
-    // Programming works on 256 byte pages, so we have to write two of them.
-    lcopy((unsigned long)&buffer[0],(unsigned long)data_buffer,256);
-    program_page(addr);
-
-    // Programming works on 256 byte pages, so we have to write two of them.
-    lcopy((unsigned long)&buffer[256],(unsigned long)data_buffer,256);
-    program_page(addr+256);       
-  }
-
-  /*
-    Now read through the file again to verify that we wrote the correct data.
-    But before we start, we reset the flash, so that it doesn't read incorrect
-    data.
-  */
+  // magic filename for erasing a slot begins with "-" 
+  if (file[0]!='-') {
   
-  printf("Verifying that bitstream was correctly written to flash...\n");
-
-  flash_reset();
-
-  closeall();
-  fd=open(file);
-  if (fd==0xff) {
-    // Couldn't open the file.
-    printf("ERROR: Could not open flash file '%s'\n",file);
-    printf("\nPress any key to continue.\n");
-    while(PEEK(0xD610)) POKE(0xD610,0);
-    while (!PEEK(0xD610)) continue;
-
-    while(1) continue;
+    // Read the flash file and write it to the flash
+    printf("%cWriting bitstream to flash...\n\n",0x93);
+    progress=0; progress_acc=0;
+    for(addr=(4L*1024L*1024L)*slot;addr<(4L*1024L*1024L)*(slot+1);addr+=512) {
+      progress_acc+=512;
+      if (progress_acc>26214) {
+	progress_acc-=26214;
+	progress++;
+      }
+      progress_bar(progress);
+      
+      bytes_returned=read512(buffer);
+      
+      if (!bytes_returned) break;
+      
+      // Programming works on 256 byte pages, so we have to write two of them.
+      lcopy((unsigned long)&buffer[0],(unsigned long)data_buffer,256);
+      program_page(addr);
+      
+      // Programming works on 256 byte pages, so we have to write two of them.
+      lcopy((unsigned long)&buffer[256],(unsigned long)data_buffer,256);
+      program_page(addr+256);       
+    }
     
-    return;
+    /*
+      Now read through the file again to verify that we wrote the correct data.
+      But before we start, we reset the flash, so that it doesn't read incorrect
+      data.
+    */
+    
+    printf("Verifying that bitstream was correctly written to flash...\n");
+    
+    flash_reset();
+    
+    closeall();
+    fd=open(file);
+    if (fd==0xff) {
+      // Couldn't open the file.
+      printf("ERROR: Could not open flash file '%s'\n",file);
+      printf("\nPress any key to continue.\n");
+      while(PEEK(0xD610)) POKE(0xD610,0);
+      while (!PEEK(0xD610)) continue;
+      
+      while(1) continue;
+      
+      return;
+    }
+    
+    for(addr=(4L*1024L*1024L)*slot;addr<(4L*1024L*1024L)*(slot+1);addr+=512) {
+      progress_acc+=512;
+      if (progress_acc>26214) {
+	progress_acc-=26214;
+	progress++;
+      }
+      progress_bar(progress);
+      
+      bytes_returned=read512(buffer);
+      
+      if (!bytes_returned) break;
+      
+      read_data(addr);
+      for(i=0;i<256;i++) if (data_buffer[i]!=buffer[i]) break;
+      if ((i<256)&&(i<bytes_returned)) {
+	
+	printf("Verification error at address $%llx:\n",
+	       addr+256+i);
+	printf("Read back $%x instead of $%x\n",
+	       data_buffer[i+256],buffer[i]);
+	printf("Press any key to continue...\n");
+	while(PEEK(0xD610)) POKE(0xD610,0);
+	while(!PEEK(0xD610)) continue;
+	while(PEEK(0xD610)) POKE(0xD610,0);
+	printf("Data read from flash is:\n");
+	for(i=0;i<256;i+=64) {
+	  for(x=0;x<64;x++) {
+	    if (!(x&7)) printf("%04x : ",i+x);
+	    printf(" %02x",data_buffer[i+x]);
+	    if ((x&7)==7) printf("\n");
+	  }
+	  
+	  printf("Press any key to continue...\n");
+	  while(PEEK(0xD610)) POKE(0xD610,0);
+	  while(!PEEK(0xD610)) continue;
+	  while(PEEK(0xD610)) POKE(0xD610,0);
+	}
+	
+	printf("(b) Correct data is:\n");
+	
+	printf("Correct data is:\n");
+	for(i=0;i<256;i+=64) {
+	  for(x=0;x<64;x++) {
+	    if (!(x&7)) printf("%04x : ",i+x);
+	    printf(" %02x",buffer[i+x]);
+	    if ((x&7)==7) printf("\n");
+	  }
+	  
+	  printf("Press any key to continue...\n");
+	  while(PEEK(0xD610)) POKE(0xD610,0);
+	  while(!PEEK(0xD610)) continue;
+	  while(PEEK(0xD610)) POKE(0xD610,0);
+	}
+	fetch_rdid();
+	i=0; 
+	break;
+      }
+      
+      for(i=0;i<256;i++) if (data_buffer[256+i]!=buffer[256+i]) break;
+      if (i<256&&(i<(bytes_returned-256))) {
+	printf("Verification error at address $%llx:\n",
+	       addr+256+i);
+	printf("Read back $%x instead of $%x\n",
+	       data_buffer[i+256],buffer[i]+256);
+	printf("Press any key to continue...\n");
+	while(PEEK(0xD610)) POKE(0xD610,0);
+	while(!PEEK(0xD610)) continue;
+	while(PEEK(0xD610)) POKE(0xD610,0);
+	printf("Data read from flash is:\n");
+	for(i=0;i<256;i+=64) {
+	  for(x=0;x<64;x++) {
+	    if (!(x&7)) printf("%04x : ",i+x);
+	    printf(" %02x",data_buffer[256+i+x]);
+	    if ((x&7)==7) printf("\n");
+	  }
+	  
+	  printf("Press any key to continue...\n");
+	  while(PEEK(0xD610)) POKE(0xD610,0);
+	  while(!PEEK(0xD610)) continue;
+	  while(PEEK(0xD610)) POKE(0xD610,0);
+	}
+	
+	printf("Correct data is:\n");
+	for(i=0;i<256;i+=64) {
+	  for(x=0;x<64;x++) {
+	    if (!(x&7)) printf("%04x : ",i+x);
+	    printf(" %02x",buffer[256+i+x]);
+	    if ((x&7)==7) printf("\n");
+	  }
+	  
+	  printf("Press any key to continue...\n");
+	  while(PEEK(0xD610)) POKE(0xD610,0);
+	  while(!PEEK(0xD610)) continue;
+	  while(PEEK(0xD610)) POKE(0xD610,0);
+	}
+	fetch_rdid();
+	i=0; 
+      }
+    }        
   }
-
-  for(addr=(4L*1024L*1024L)*slot;addr<(4L*1024L*1024L)*(slot+1);addr+=512) {
-    progress_acc+=512;
-    if (progress_acc>26214) {
-      progress_acc-=26214;
-      progress++;
-    }
-    progress_bar(progress);
-
-    bytes_returned=read512(buffer);
     
-    if (!bytes_returned) break;
-  
-    read_data(addr);
-    for(i=0;i<256;i++) if (data_buffer[i]!=buffer[i]) break;
-    if ((i<256)&&(i<bytes_returned)) {
-
-      printf("Verification error at address $%llx:\n",
-	     addr+256+i);
-      printf("Read back $%x instead of $%x\n",
-	     data_buffer[i+256],buffer[i]);
-      printf("Press any key to continue...\n");
-      while(PEEK(0xD610)) POKE(0xD610,0);
-      while(!PEEK(0xD610)) continue;
-      while(PEEK(0xD610)) POKE(0xD610,0);
-      printf("Data read from flash is:\n");
-      for(i=0;i<256;i+=64) {
-	for(x=0;x<64;x++) {
-	  if (!(x&7)) printf("%04x : ",i+x);
-	  printf(" %02x",data_buffer[i+x]);
-	  if ((x&7)==7) printf("\n");
-	}
-      
-	printf("Press any key to continue...\n");
-	while(PEEK(0xD610)) POKE(0xD610,0);
-	while(!PEEK(0xD610)) continue;
-	while(PEEK(0xD610)) POKE(0xD610,0);
-      }
-
-      printf("(b) Correct data is:\n");
-
-      printf("Correct data is:\n");
-      for(i=0;i<256;i+=64) {
-	for(x=0;x<64;x++) {
-	  if (!(x&7)) printf("%04x : ",i+x);
-	  printf(" %02x",buffer[i+x]);
-	  if ((x&7)==7) printf("\n");
-	}
-      
-	printf("Press any key to continue...\n");
-	while(PEEK(0xD610)) POKE(0xD610,0);
-	while(!PEEK(0xD610)) continue;
-	while(PEEK(0xD610)) POKE(0xD610,0);
-      }
-      fetch_rdid();
-      i=0; 
-      break;
-    }
-    
-    for(i=0;i<256;i++) if (data_buffer[256+i]!=buffer[256+i]) break;
-    if (i<256&&(i<(bytes_returned-256))) {
-      printf("Verification error at address $%llx:\n",
-	     addr+256+i);
-      printf("Read back $%x instead of $%x\n",
-	     data_buffer[i+256],buffer[i]+256);
-      printf("Press any key to continue...\n");
-      while(PEEK(0xD610)) POKE(0xD610,0);
-      while(!PEEK(0xD610)) continue;
-      while(PEEK(0xD610)) POKE(0xD610,0);
-      printf("Data read from flash is:\n");
-      for(i=0;i<256;i+=64) {
-	for(x=0;x<64;x++) {
-	  if (!(x&7)) printf("%04x : ",i+x);
-	  printf(" %02x",data_buffer[256+i+x]);
-	  if ((x&7)==7) printf("\n");
-	}
-      
-	printf("Press any key to continue...\n");
-	while(PEEK(0xD610)) POKE(0xD610,0);
-	while(!PEEK(0xD610)) continue;
-	while(PEEK(0xD610)) POKE(0xD610,0);
-      }
-
-      printf("Correct data is:\n");
-      for(i=0;i<256;i+=64) {
-	for(x=0;x<64;x++) {
-	  if (!(x&7)) printf("%04x : ",i+x);
-	  printf(" %02x",buffer[256+i+x]);
-	  if ((x&7)==7) printf("\n");
-	}
-      
-	printf("Press any key to continue...\n");
-	while(PEEK(0xD610)) POKE(0xD610,0);
-	while(!PEEK(0xD610)) continue;
-	while(PEEK(0xD610)) POKE(0xD610,0);
-      }
-      fetch_rdid();
-      i=0; 
-    }
-  }        
-
   printf("%cFlash slot successfully written.\nPress any key to return to menu.\n");
   while(PEEK(0xD610)) POKE(0xD610,0);
   while(!PEEK(0xD610)) continue;
@@ -1467,13 +1476,18 @@ char *select_bitstream_file(void)
   for(x=0;reading_disk_list_message[x];x++)
     POKE(SCREEN_ADDRESS+12*40+(9)+(x*1),reading_disk_list_message[x]&0x3f);
 
+  // Add dummy entry for erasing the slot
+  lfill(0x40000L+(file_count*64),' ',64);
+  lcopy((long)"-erase slot-",0x40000L+(file_count*64),13);
+  file_count++;
+  
   dir=opendir();
   dirent=readdir(dir);
   while(dirent&&((unsigned short)dirent!=0xffffU)) {
     j=strlen(dirent->d_name)-4;
     if (j>=0) {
       if ((!strncmp(&dirent->d_name[j],".COR",4))||(!strncmp(&dirent->d_name[j],".cor",4))) {
-	// File is a disk image
+	// File is a core
 	lfill(0x40000L+(file_count*64),' ',64);
 	lcopy((long)&dirent->d_name[0],0x40000L+(file_count*64),j+4);
 	file_count++;
