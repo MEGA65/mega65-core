@@ -1072,15 +1072,19 @@ void main(void)
 	// Magic key pressed, so proceed to flash menu after flushing keyboard input buffer
 	while(PEEK(0xD610)) POKE(0xD610,0);
       }
-    else {
+    else {      
       // We should actually jump ($CF80) to resume hypervisor booting
       // (see src/hyppo/main.asm launch_flash_menu routine for more info)
+
+#if 1
       printf("Continuing booting with this bitstream...\n");
       printf("Trying to return control to hypervisor...\n");
 
       printf("\nPress any key to continue.\n");
       while(PEEK(0xD610)) POKE(0xD610,0);
       while (!PEEK(0xD610)) continue;
+      while(PEEK(0xD610)) POKE(0xD610,0);
+#endif
       
       POKE(0xCF7f,0x4C);
       asm (" jmp $cf7f ");
