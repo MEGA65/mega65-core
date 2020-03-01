@@ -25,6 +25,8 @@ unsigned short device_id;
 unsigned short cfi_data[512];
 unsigned short cfi_length=0;
 
+unsigned char reconfig_disabled=0;
+
 unsigned char data_buffer[512];
 // Magic string for identifying properly loaded bitstream
 unsigned char bitstream_magic[16]="MEGA65BITSTREAM0";
@@ -102,6 +104,20 @@ unsigned char sprite_data[63]={
 
 void reconfig_fpga(unsigned long addr)
 {
+
+  if (reconfig_disabled) {
+    printf("%cERROR: Remember that warning about\n"
+	   "having started from JTAG?\n"
+	   "I really did mean it, when I said that\n"
+	   "it would stop you being able to launch\n"
+	   "another core.\n",0x93);
+    printf("\nPress any key to return to the menu...\n");
+    while(PEEK(0xD610)) POKE(0xD610,0);
+    while(!PEEK(0xD610)) continue;
+    while(PEEK(0xD610)) POKE(0xD610,0);
+    return;
+  }
+  
   // Black screen when reconfiguring
   POKE(0xd020,0); 
   POKE(0xd011,0);
@@ -1077,8 +1093,31 @@ void main(void)
     printf("I should be starting from slot #1\n");
   }
 
-  printf("BOOTSTS = $%02x%02x%02x%02x\n",
-	 PEEK(0xD6C7),PEEK(0xD6C6),PEEK(0xD6C5),PEEK(0xD6C4));
+  //  printf("BOOTSTS = $%02x%02x%02x%02x\n",
+  //	 PEEK(0xD6C7),PEEK(0xD6C6),PEEK(0xD6C5),PEEK(0xD6C4));
+
+  if (PEEK(0xD6C7)==0xFF) {
+    // BOOTSTS not reading properly.  This usually means we have
+    // started from a bitstream via JTAG, and the ECAPE2 thingy
+    // isn't working. This means we can't successfully reconfigure
+    // so we should probably display a warning.
+    printf("WARNING: You appear to have started this"
+	   "bitstream via JTAG.  This means that you"
+	   "can't use this menu to launch other\n"
+	   "cores.  You will still be able to flash "
+	   " new bitstreams, though.\n");
+    reconfig_disabled=1;
+    printf("\nPress almost any key to continue...\n");
+    while(PEEK(0xD610)) POKE(0xD610,0);
+    // Ignore TAB, since they might still be holding it
+    while((!PEEK(0xD610))||(PEEK(0xD610)==0x09)) {
+      if (PEEK(0xD610)==0x09) POKE(0xD610,0);
+      continue;
+    }
+    while(PEEK(0xD610)) POKE(0xD610,0);
+
+    printf("%c",0x93);
+  }
   
 #if 0
   POKE(0xD6C4,0x10);  
