@@ -3150,9 +3150,9 @@ msg_checkpoint_eom:
 
 msg_retryreadmbr:       .text "RE-TRYING TO READ MBR"
                         .byte 0
-msg_hyppo:              .text "MEGA65 MEGAOS HYPERVISOR V00.13"
+msg_hyppo:              .text "MEGA65 MEGAOS HYPERVISOR V00.14"
                         .byte 0
-msg_hyppohelp:          .text "ALT=UTIL MENU CTRL=HOLD-BOOT SHIFT=DEBUG"
+msg_hyppohelp:          .text "TAB=FLASH MENU, ALT=UTIL MENU, CTRL=HOLD"
                         .byte 0
 msg_romok:              .text "ROM CHECKSUM OK - BOOTING"
                         .byte 0
@@ -3166,7 +3166,7 @@ msg_megaromloaded:      .text "LOADED MEGA65ROM.M65 ($$$$ PAGES)"
                         .byte 0
 msg_tryingsdcard:       .text "LOOKING FOR SDHC CARD >=4GB..."
                         .byte 0
-msg_foundsdcard:        .text "SD CARD IS NOT SDHC. REPLACE WITH SDHC CARD."
+msg_foundsdcard:        .text "SD CARD IS NOT SDHC. MUST BE SDHC."
                         .byte 0
 msg_foundsdhccard:      .text "FOUND AND RESET SDHC CARD"
                         .byte 0
