@@ -1094,7 +1094,41 @@ void main(void)
     // So if we have a valid upgrade bitstream in slot 1, then run it.
     // Else, just show the menu.
     // XXX - For now, we just always show the menu
-    printf("I should be starting from slot #1\n");
+
+    // Check valid flag and empty state of the slot before launching it.
+    read_data(1*1048576+0*256);
+    y=0xff;
+    valid=1;
+    for(x=0;x<256;x++) y&=data_buffer[x];
+    for(x=0;x<16;x++) if (data_buffer[x]!=bitstream_magic[x]) { valid=0; break; }
+    // Check 512 bytes in total, because sometimes >256 bytes of FF are at the start of a bitstream.
+    read_data(i*1048576+1*256);
+    for(x=0;x<256;x++) y&=data_buffer[x];
+    
+    if (valid) {
+      // Valid bitstream -- so start it
+      reconfig_fpga(1*(4*1048576)+4096);
+    } else if (y==0xff) {
+      // Empty slot -- ignore and resume
+      POKE(0xCF7f,0x4C);
+      asm (" jmp $cf7f ");
+    } else {
+      printf("WARNING: Flash slot 1 is seems to be messed up.\n");
+      printf("To avoid seeing this message every time, either\n"
+	     "erase or re-flash the slot.\n");
+      printf("\nPress almost any key to continue...\n");
+      while(PEEK(0xD610)) POKE(0xD610,0);
+      // Ignore TAB, since they might still be holding it
+      while((!PEEK(0xD610))||(PEEK(0xD610)==0x09)) {
+	if (PEEK(0xD610)==0x09) POKE(0xD610,0);
+	continue;
+      }
+    while(PEEK(0xD610)) POKE(0xD610,0);
+
+    printf("%c",0x93);
+      
+    }
+    
   }
 
   //  printf("BOOTSTS = $%02x%02x%02x%02x\n",
