@@ -1505,7 +1505,6 @@ char *select_bitstream_file(void)
     for(x=0;no_disk_list_message[x];x++)
       POKE(SCREEN_ADDRESS+12*40+(7)+(x*1),no_disk_list_message[x]&0x3f);
     for(x=0;x<32;x++) usleep(32000);
-    return NULL;
   }
 
   // Okay, we have some disk images, now get the user to pick one!
