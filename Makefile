@@ -638,6 +638,9 @@ $(TOOLDIR)/ftphelper.c:	$(BINDIR)/ftphelper.bin $(TOOLDIR)/bin2c
 $(TOOLDIR)/mega65_ftp:	$(TOOLDIR)/mega65_ftp.c Makefile $(TOOLDIR)/ftphelper.c
 	$(CC) $(COPT) -o $(TOOLDIR)/mega65_ftp $(TOOLDIR)/mega65_ftp.c $(TOOLDIR)/ftphelper.c -lreadline
 
+$(TOOLDIR)/test_procedure_format:	Makefile $(TOOLDIR)/test_procedure_format.c
+	$(CC) $(COPT) -o $(TOOLDIR)/test_procedure_format $(TOOLDIR)/test_procedure_format.c
+
 $(TOOLDIR)/bitinfo:	$(TOOLDIR)/bitinfo.c Makefile 
 	$(CC) $(COPT) -g -Wall -o $(TOOLDIR)/bitinfo $(TOOLDIR)/bitinfo.c
 
