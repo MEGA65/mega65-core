@@ -517,7 +517,7 @@ int process_line(char *line,int live)
     } else if (pc>=0x8000&&pc<0xc000
 	       &&(hyppo)) {
       int patchKS=0;
-      if (romfile) patchKS=1;
+      if (romfile&&(!flashmenufile)) patchKS=1;
       fprintf(stderr,"[T+%lldsec] Replacing %shyppo...\n",
 	      (long long)time(0)-start_time,
 	      patchKS?"and patching ":"");
