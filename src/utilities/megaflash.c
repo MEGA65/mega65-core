@@ -33,6 +33,7 @@ unsigned char bitstream_magic[16]="MEGA65BITSTREAM0";
 
 unsigned short mb = 0;
 
+unsigned char buffer[512];
 
 short i,x,y,z;
 short a1,a2,a3;
@@ -54,32 +55,6 @@ void wait_10ms(void)
       continue;
   }
 }
-
-unsigned char sprite_data[63]={
-  0xff,0,0,
-  0xe0,0,0,
-  0xb0,0,0,
-  0x98,0,0,
-  0x8c,0,0,
-  0x86,0,0,
-  0x83,0,0,
-  0x81,0x80,0,
-
-  0,0xc0,0,
-  0,0x60,0,
-  0,0x30,0,
-  0,0x18,0,
-  0,0,0,
-  0,0,0,
-  0,0,0,
-  0,0,0,
-
-  0,0,0,
-  0,0,0,
-  0,0,0,
-  0,0,0,
-  0,0,0
-};
 
 /*
   $D6C8-B = address for FPGA to boot from in flash
@@ -117,13 +92,22 @@ const uint16_t sd_ctl=0xd680L;
 const uint16_t sd_addr=0xd681L;
 const uint16_t sd_errorcode=0xd6daL;
 
-unsigned long sdcard_timeout=1000000;
+const unsigned long sd_timeout_value=100000;
+
+unsigned long sdcard_timeout;
 unsigned char sdbus=1;
+
+unsigned long fat32_partition_start=0;
+unsigned long fat32_partition_end=0;
+unsigned char fat32_sectors_per_cluster=0;
+unsigned long fat32_reserved_sectors=0;
+unsigned long fat32_data_sectors=0;
+unsigned long fat32_sectors_per_fat=0;
+unsigned long fat32_cluster2_sector=0;
 
 void sdcard_reset(void)
 {
   // Reset and release reset
-
   
   // Check for external SD card, then internal SD card.
 
@@ -136,6 +120,8 @@ void sdcard_reset(void)
   POKE(sd_ctl,0);
   POKE(sd_ctl,1);
 
+  sdcard_timeout = sd_timeout_value;
+  
   // Now wait for SD card reset to complete
   while (PEEK(sd_ctl)&3) {
     POKE(0xd020,(PEEK(0xd020)+1)&15);
@@ -145,23 +131,180 @@ void sdcard_reset(void)
 	POKE(sd_ctl,0xc0);
 	POKE(sd_ctl,0);
 	POKE(sd_ctl,1);
-	sdcard_timeout=1000000;
+	sdcard_timeout=sd_timeout_value;
 	sdbus=0;
       }
     }
   }
 
+  if (!sdcard_timeout) {
+    printf("Could not reset SD card\n");
+    while(1) continue;
+  }
+
   // Reassert SDHC flag
   POKE(sd_ctl,0x41);
+}
 
+void sdcard_readsector(const uint32_t sector_number)
+{
+  char tries=0;
+  
+  uint32_t sector_address=sector_number*512;
+  sector_address=sector_number;
+
+
+  POKE(sd_addr+0,(sector_address>>0)&0xff);
+  POKE(sd_addr+1,(sector_address>>8)&0xff);
+  POKE(sd_addr+2,((uint32_t)sector_address>>16)&0xff);
+  POKE(sd_addr+3,((uint32_t)sector_address>>24)&0xff);
+
+  //  write_line("Reading sector @ $",0);
+  //  screen_hex(screen_line_address-80+18,sector_address);
+  
+  while(tries<10) {
+
+    // Wait for SD card to be ready
+    sdcard_timeout=50000U;
+    while (PEEK(sd_ctl)&0x3)
+      {
+	sdcard_timeout--; if (!sdcard_timeout) return;
+	if (PEEK(sd_ctl)&0x40)
+	  {
+	    return;
+	  }
+	// Sometimes we see this result, i.e., sdcard.vhdl thinks it is done,
+	// but sdcardio.vhdl thinks not. This means a read error
+	if (PEEK(sd_ctl)==0x01) return;
+      }
+
+    // Command read
+    POKE(sd_ctl,2);
+    
+    // Wait for read to complete
+    sdcard_timeout=50000U;
+    while (PEEK(sd_ctl)&0x3) {
+      sdcard_timeout--; if (!sdcard_timeout) return;
+	//      write_line("Waiting for read to complete",0);
+      if (PEEK(sd_ctl)&0x40)
+	{
+	  return;
+	}
+      // Sometimes we see this result, i.e., sdcard.vhdl thinks it is done,
+      // but sdcardio.vhdl thinks not. This means a read error
+      if (PEEK(sd_ctl)==0x01) return;
+    }
+
+      // Note result
+    // result=PEEK(sd_ctl);
+
+    if (!(PEEK(sd_ctl)&0x67)) {
+      // Copy data from hardware sector buffer via DMA
+      lcopy(sd_sectorbuffer,(long)buffer,512);
+  
+      return;
+    }
+    
+    POKE(0xd020,(PEEK(0xd020)+1)&0xf);
+
+    // Reset SD card
+    sdcard_reset();
+
+    tries++;
+  }
+  
 }
 
 unsigned char sdcard_setup=0;
 
 
+void scan_partition_entry(const char i)
+{
+  char j;
+  
+  int offset=0x1be + (i<<4);
+
+  char id=buffer[offset+4];
+  uint32_t lba_start,lba_end;
+
+  for(j=0;j<4;j++) ((char *)&lba_start)[j]=buffer[offset+8+j];
+  for(j=0;j<4;j++) ((char *)&lba_end)[j]=buffer[offset+12+j];
+ 
+  if (id==0x0c) {
+    // Found FAT partition
+    fat32_partition_start=lba_start;
+    fat32_partition_end=lba_end;
+#if 0
+    printf("Partition type $%02x spans sectors $%lx -- $%lx\n",
+	   id,fat32_partition_start,fat32_partition_end);
+#endif
+  }
+  
+}
+
+
 void setup_sdcard(void)
 {
+  unsigned char j;
+  
   sdcard_reset();
+
+  // Get MBR to find FAT32 partition
+  sdcard_readsector(0);
+
+  if ((buffer[0x1fe]!=0x55)||(buffer[0x1ff]!=0xAA)) {
+    printf("Current partition table is invalid.\n");
+    while(1) continue;
+  } else {  
+    for(i=0;i<4;i++) {
+      scan_partition_entry(i);
+    }
+  }
+  if (!fat32_partition_start) {
+    printf("Could not find a valid FAT partition\n");
+    while(1) continue;
+  }
+
+  // Ok, we have the partition, now work out where the FAT is etc
+  sdcard_readsector(fat32_partition_start);
+
+#if 0
+  for(j=0;j<64;j++) {
+    if (!(j&7)) printf("\n %02x :",j);
+    printf(" %02x",buffer[j]);
+  }
+  printf("\n");
+#endif
+
+  fat32_sectors_per_cluster=buffer[0x0d];
+  for(j=0;j<2;j++) ((char *)&fat32_reserved_sectors)[j]=buffer[0x0e+j];
+  for(j=0;j<4;j++) ((char *)&fat32_data_sectors)[j]=buffer[0x20+j];
+  for(j=0;j<4;j++) ((char *)&fat32_sectors_per_fat)[j]=buffer[0x24+j];
+
+  fat32_cluster2_sector
+    = fat32_partition_start
+    + fat32_reserved_sectors
+    + fat32_sectors_per_fat
+    + fat32_sectors_per_fat;
+
+#if 0
+  printf("%ld sectors per fat, %ld reserved sectors, %d sectors per cluster.\n",
+	 fat32_sectors_per_fat,fat32_reserved_sectors,fat32_sectors_per_cluster);
+  printf("Cluster 2 begins at sector $%08lx\n",fat32_cluster2_sector);
+#endif  
+  
+}
+
+unsigned long fat32_nextclusterinchain(unsigned long cluster)
+{
+  unsigned short offset_in_sector=(cluster&0x7f)<<2;
+  unsigned long fat_sector
+    = fat32_partition_start + fat32_reserved_sectors;
+  fat_sector+=(cluster>>7);
+
+  sdcard_readsector(fat_sector);
+  return *(unsigned long*)(&buffer[offset_in_sector]);
+  
 }
 
 unsigned char hy_open(char *filename)
@@ -182,13 +325,77 @@ void hy_close(unsigned char fd)
 {
 }
 
+unsigned long hy_opendir_cluster=0;
+unsigned long hy_opendir_sector=0;
+unsigned char hy_opendir_sector_in_cluster=0;
+unsigned int hy_opendir_offset_in_sector=0;
+
 unsigned char hy_opendir(void)
 {
   if (!sdcard_setup) setup_sdcard();
+
+  hy_opendir_cluster=2;
+  hy_opendir_sector=fat32_cluster2_sector;
+  hy_opendir_sector_in_cluster=0;
+  hy_opendir_offset_in_sector=0;
 }
+
+struct m65_dirent hy_dirent;
 
 struct m65_dirent *hy_readdir(unsigned char)
 {
+  unsigned char *dirent;
+  unsigned char j;
+  unsigned char found=0;
+
+  while(!found) {
+    // Chain through directory as required
+    if (hy_opendir_offset_in_sector==512) {
+      hy_opendir_offset_in_sector=0;
+      hy_opendir_sector_in_cluster++;
+      hy_opendir_sector++;
+    }
+    if (hy_opendir_sector_in_cluster>=fat32_sectors_per_cluster) {
+      hy_opendir_sector_in_cluster=0;
+      hy_opendir_cluster=fat32_nextclusterinchain(hy_opendir_cluster);
+      printf("Next cluster is $%08lx\n",hy_opendir_cluster);
+      if (hy_opendir_cluster>=0x0ffffff0) return NULL;
+      hy_opendir_sector=(hy_opendir_cluster-2)*fat32_sectors_per_cluster+fat32_cluster2_sector;
+    }
+    if (!hy_opendir_cluster) return NULL;
+    
+    sdcard_readsector(hy_opendir_sector);
+
+#if 0
+    // Get DOS directory entry and populate
+    dirent = &buffer[hy_opendir_offset_in_sector];
+    ((unsigned char *)hy_dirent.d_ino)[0]=dirent[0x1a];
+    ((unsigned char *)hy_dirent.d_ino)[1]=dirent[0x1b];
+    ((unsigned char *)hy_dirent.d_ino)[2]=dirent[0x14];
+    ((unsigned char *)hy_dirent.d_ino)[3]=dirent[0x15];
+    for(j=0;j<8;j++) hy_dirent.d_name[j]=buffer[hy_opendir_offset_in_sector=0+j];
+    hy_dirent.d_name[8]='.';
+    for(j=0;j<8;j++) hy_dirent.d_name[9+j]=dirent[8+j];
+    hy_dirent.d_name[12]=0;
+
+    if (hy_dirent.d_name[0]&&hy_dirent.d_name[0]!=0xe5) found=1;
+
+#endif
+    printf("sector $%lx, offset $%x, first char = $%02x\n",
+	   hy_opendir_sector,
+	   hy_opendir_offset_in_sector,
+	   hy_dirent.d_name[0]);
+    
+    while(!PEEK(0xD610)) continue;
+    while(PEEK(0xD610)) POKE(0xD610,0);  
+    
+    hy_opendir_offset_in_sector+=0x20;
+  }
+
+  if (found)
+    return &hy_dirent;
+  else
+    return NULL;
 }
 
 void hy_closedir(unsigned char)
@@ -233,7 +440,6 @@ void reconfig_fpga(unsigned long addr)
   }
 }
 
-unsigned char buffer[512];
 unsigned long addr;
 unsigned char progress=0;
 unsigned long progress_acc=0;
@@ -242,13 +448,13 @@ unsigned char tries = 0;
 
 void reflash_slot(unsigned char slot)
 {
+  
   unsigned short bytes_returned;
   unsigned char fd;
   unsigned char *file=select_bitstream_file();
   if (!file) return;
   if ((unsigned short)file==0xffff) return;
 
-  
   printf("%c",0x93);
 
   closeall();
@@ -927,15 +1133,6 @@ void fetch_rdid(void)
   
 }
 
-struct erase_region {
-  unsigned short sectors;
-  unsigned int sector_size;
-};
-
-int erase_region_count=0;
-#define MAX_ERASE_REGIONS 4
-struct erase_region erase_regions[MAX_ERASE_REGIONS];
-
 unsigned char slot_empty_check(unsigned short mb_num)
 {
   unsigned long addr;
@@ -953,6 +1150,7 @@ unsigned char slot_empty_check(unsigned short mb_num)
 
 void flash_inspector(void)
 {
+#if 0
   addr=0;
   read_data(addr);
   printf("Flash @ $%08x:\n",addr);
@@ -990,6 +1188,7 @@ void flash_inspector(void)
 
       }
     }
+#endif
 }
 
 unsigned int base_addr;
@@ -1001,24 +1200,12 @@ void main(void)
   
   mega65_io_enable();
 
-  // Sprite 0 on
-  lpoke(0xFFD3015L,0x01);
-  // Sprite data at $03c0
-  *(unsigned char *)2040 = 0x3c0/0x40;
-
-  for(n=0;n<64;n++) 
-    *(unsigned char*)(0x3c0+n)=
-      sprite_data[n];
-  
   // Disable OSK
   lpoke(0xFFD3615L,0x7F);  
 
   // Enable VIC-III attributes
   POKE(0xD031,0x20);
   
-  // Clear screen
-  printf("%c",0x93);    
-
   // Start by resetting to CS high etc
   bash_bits=0xff;
   POKE(BITBASH_PORT,bash_bits);
@@ -1066,24 +1253,6 @@ void main(void)
   printf("flash size is %dmb.\n",mb);
 #endif
   
-  // What erase regions do we have?
-  erase_region_count=cfi_data[0x2c-4];
-  if (erase_region_count>MAX_ERASE_REGIONS) {
-    printf("error: device has too many erase regions. increase max_erase_regions?\n");
-    return;
-  }
-  for(i=0;i<erase_region_count;i++) {
-    erase_regions[i].sectors=cfi_data[0x2d-4+(i*4)];
-    erase_regions[i].sectors|=(cfi_data[0x2e-4+(i*4)])<<8;
-    erase_regions[i].sectors++;
-    erase_regions[i].sector_size=cfi_data[0x2f-4+(i*4)];
-    erase_regions[i].sector_size|=(cfi_data[0x30-4+(i*4)])<<8;
-#if 0
-    printf("erase region #%d : %d sectors x %dkb\n",
-	   i+1,erase_regions[i].sectors,erase_regions[i].sector_size>>2);
-#endif
-  }
-  if (reg_cr1&4) printf("warning: small sectors are at top, not bottom.\n");
   latency_code=reg_cr1>>6;
 #if 0
   printf("latency code = %d\n",latency_code);
@@ -1159,7 +1328,9 @@ void main(void)
   // key is being pressed.  In that case, we show the menu of
   // flash slots, and allow the user to select which core to load.
 
-  if (PEEK(0xD610)!=0x09) {
+  // XXX Temporarily allow ESC to get to flash menu to avoid
+  // race-conditions with version in bitstream
+  if ((PEEK(0xD610)!=0x09)&&PEEK(0xD610)!=0x1b) {
   
     // Select BOOTSTS register
     POKE(0xD6C4,0x16);
@@ -1381,6 +1552,7 @@ void main(void)
 	  }
 	  else reconfig_fpga(selected*(4*1048576)+0); // +4096);
 	  break;
+#if 0
 	case 0x4d: case 0x6d: // M / m
 	  // Flash memory monitor
 	  flash_inspector();
@@ -1390,6 +1562,7 @@ void main(void)
 	  reflash_slot(0);
 	  printf("%c",0x93);
 	  break;
+#endif
 	case 144: case 0x42: case 0x62: // CTRL-1
 	  reflash_slot(1);
 	  printf("%c",0x93);
@@ -1439,6 +1612,7 @@ unsigned char progress_chars[4]={32,101,97,231};
 
 void progress_bar(unsigned char onesixtieths)
 {
+#if 1
   /* Draw a progress bar several chars high */
 
   if (onesixtieths>3) {
@@ -1456,6 +1630,7 @@ void progress_bar(unsigned char onesixtieths)
   POKE(0x0400+(4*40)+(onesixtieths/4),progress_chars[onesixtieths & 3]);
   POKE(0x0400+(5*40)+(onesixtieths/4),progress_chars[onesixtieths & 3]);
   POKE(0x0400+(6*40)+(onesixtieths/4),progress_chars[onesixtieths & 3]);
+#endif
   return;
 }
 
@@ -1484,9 +1659,6 @@ void progress_bar(unsigned char onesixtieths)
 short file_count=0;
 short selection_number=0;
 short display_offset=0;
-
-char *reading_disk_list_message="sCANNING dIRECTORY ...";
-char *no_disk_list_message="nO mega65 cORE fILES fOUND";
 
 char *diskchooser_instructions=
   "  SELECT FLASH FILE, THEN PRESS RETURN  "
@@ -1586,9 +1758,6 @@ char *select_bitstream_file(void)
   POKE(SCREEN_ADDRESS+1,' ');
   lcopy(SCREEN_ADDRESS,SCREEN_ADDRESS+2,40*25-2);
 
-  for(x=0;reading_disk_list_message[x];x++)
-    POKE(SCREEN_ADDRESS+12*40+(9)+(x*1),reading_disk_list_message[x]&0x3f);
-
   // Add dummy entry for erasing the slot
   lfill(0x40000L+(file_count*64),' ',64);
   lcopy((long)"-erase slot-",0x40000L+(file_count*64),12);
@@ -1598,8 +1767,10 @@ char *select_bitstream_file(void)
   // traps to get the directory listing!
   hy_closeall();
   dir=hy_opendir();
+  printf("%cScanning directory...\n",0x93);
   dirent=hy_readdir(dir);
   while(dirent&&((unsigned short)dirent!=0xffffU)) {
+    printf("Found file '%s'\n",dirent->d_name);
     j=strlen(dirent->d_name)-4;
     if (j>=0) {
       if ((!strncmp(&dirent->d_name[j],".COR",4))||(!strncmp(&dirent->d_name[j],".cor",4)))
@@ -1615,14 +1786,6 @@ char *select_bitstream_file(void)
   }
 
   hy_closedir(dir);
-
-  // If we didn't find any disk images, then just return
-  if (!file_count) {
-    printf("%c",0x93);
-    for(x=0;no_disk_list_message[x];x++)
-      POKE(SCREEN_ADDRESS+12*40+(7)+(x*1),no_disk_list_message[x]&0x3f);
-    for(x=0;x<32;x++) usleep(32000);
-  }
 
   // Okay, we have some disk images, now get the user to pick one!
   draw_file_list();
