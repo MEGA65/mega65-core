@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <strings.h>
 #include <string.h>
+#include <ctype.h>
 
 int max_issue=0;
 
@@ -29,17 +30,53 @@ int parse_string(char *in,char *out)
   out[outlen]=0;
 }
 
-int register_breaks(int issue,char *ttile,char *problem)
+#define MAX_PROBLEMS 8192
+int problem_issues[MAX_PROBLEMS];
+char *problem_titles[MAX_PROBLEMS];
+char *problem_descriptions[MAX_PROBLEMS];
+int problem_mentioned[MAX_PROBLEMS];
+int problem_count=0;
+
+int register_breaks(int issue,char *title,char *problem)
 {
   int i;
   char problem_msg[8192];
   for(i=0;problem[i]&&problem[i]!='\r';i++) {
+    // Also stop when hitting a non-escaped quote
+    
     problem_msg[i]=problem[i];
     problem_msg[i+1]=0;
   }
+
+  
   
   fprintf(stderr,"Registering problem: #%d : '%s'\n",
 	  issue,problem_msg);
+  problem_issues[problem_count]=issue;
+  problem_titles[problem_count]=strdup(title);
+  problem_descriptions[problem_count]=strdup(problem_msg);
+  problem_count++;
+  
+  return 0;
+}
+
+int show_problem_box(FILE *f,int problem_number)
+{
+  fprintf(f,"\\begin{table}[H]\n"
+	  "\\begin{tabular}{|l|l|l|l|}\n"
+	  "\\hline\n"
+	  "Issue                                                          & \\href{https://github.com/mega65/mega65-core/issues/%d}{\\#%d} & Resolved? & Y / N / Unsure / Not Applicable \\\\ \\hline\n"
+	  "\\begin{tabular}[Hc]{@{}l@{}}Problem\\\\ Description:\\end{tabular} & \\multicolumn{3}{l|}{%s}                           \\\\ \\hline\n"
+	  "\\begin{tabular}[Hc]{@{}l@{}}Tester's\\\\ Comments\\end{tabular}    & \\multicolumn{3}{l|}{}                              \\\\ \\hline\n"
+	  "\\end{tabular}\n"
+	  "\\end{table}\n\n",
+	  problem_issues[problem_number],
+	  problem_issues[problem_number],
+	  problem_descriptions[problem_number]
+	  );
+
+  problem_mentioned[problem_number]++;
+  
   return 0;
 }
 
@@ -56,7 +93,7 @@ int main(int argc,char **argv)
     fprintf(stderr,"ERROR: Could not read issues.txt.\n");
     exit(-3);
   }
-  char line[1024];
+  char line[8192];
   line[0]=0; fgets(line,1024,f);
   while(line[0]) {
     while(line[0]&&(line[0]<=' '))
@@ -144,9 +181,106 @@ int main(int argc,char **argv)
       // If no specific problems were registered, then we just need to log the whole
       // issue
       if (!problem_count)
-        register_breaks(issue_num,title,"Unspecified problem. Please add ##BREAKS tags via github issue");
+        register_breaks(issue_num,title,"Unspecified problem. Please add \\#\\#BREAKS tags via github issue");
     }
   }
 
+  // Ok, now we have the set of issues and things that the issues broke, so that we can annotate the
+  // test procedure document.
+
+  FILE *of=fopen("testprocedure.tex","w");
+  FILE *inf=fopen("testprocedure_in.tex","r");
+  if (!of||!inf) {
+    fprintf(stderr,"ERROR: Could not open testprocedure.tex or testprocedure_in.tex\n");
+    exit(-1);
+  }
+
+  // Output Latex header
+  fprintf(of,
+	  "\\documentclass{article}\n"
+	  "\n"
+	  "\\title{MEGA65 Test Procedure}\n"
+	  // XXX include git commit ID in a \\abstract{} block?
+	  "\\usepackage{float}\n"
+	  "\\usepackage{hyperref}\n"
+	  "\\begin{document}\n"
+	  "\\maketitle\n"
+	  "\\section*{Test Procedure}\n"
+	  "\\begin{enumerate}\n"
+	  );
+
+  line[0]=0; fgets(line,8192,inf);
+  while(line[0]) {
+    int queued_problems[MAX_PROBLEMS];
+
+    for(int i=0;line[i];i++) {
+      if (line[i]=='#') {
+	if (line[i+1]=='[') {
+	  // Named problem
+	  char *p=&line[i+2];
+	  int len=0;
+	  int found=0;
+	  while(p[len]&&p[len]!=']') len++;
+	  printf("named problem at '%s', len=%d\n",
+		 p,len);
+	  for(int j=0;j<problem_count;j++) {
+	    if (!strncmp(problem_descriptions[j],p,len)) {
+	      show_problem_box(of,j);
+	      found=1;
+	    }
+	  }
+	  if (!found) {
+	    int z=p[len]; p[len]=0;
+	    fprintf(of,"ERROR: Problem ``%s'' does not appear in issues. Please check spelling and punctuation are exactly matching the text in the \\#\\#BREAKS directive in the issue body.\n",p);
+	    p[len]=z;
+	  }
+	  i+=1+len+1;	  
+	  
+	} else {
+	  // Issue number: Show all problems that the issue references
+	  char num[16];
+	  int nlen=0;
+	  while(isdigit(line[i+1+nlen])&&(nlen<16)) {
+	    num[nlen++]=line[i+1+nlen];	    
+	  }
+	  i+=nlen;
+	  num[nlen]=0;
+	  int issue_num=atoi(num);
+	  for(int j=0;j<problem_count;j++) {
+	    if (problem_issues[j]==issue_num)
+	      show_problem_box(of,j);
+	  }
+	}
+      }
+      else fprintf(of,"%c",line[i]);
+    }
+    
+    line[0]=0; fgets(line,8192,inf);
+  }
+
+  fprintf(of,"\\item End of procedure.\n");
+  
+  fprintf(of,
+	  "\\end{enumerate}\n"
+	  );
+
+
+  int missed_count=0;
+  for(int i=0;i<problem_count;i++) {
+    if (!problem_mentioned[i]) {
+      if (!missed_count)
+	fprintf(of,"\\section*{Issues not (yet) included in the test procedure}\n");
+      show_problem_box(of,i);
+      missed_count++;
+    }
+  }
+  
+  fprintf(of,
+	  "\\end{document}\n"
+	  );
+  
+  fclose(of); fclose(inf);
+
+  system("pdflatex testprocedure");
   
 }
