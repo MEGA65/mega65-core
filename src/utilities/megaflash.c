@@ -1108,8 +1108,10 @@ void main(void)
     for(x=0;x<256;x++) y&=data_buffer[x];
     for(x=0;x<16;x++) if (data_buffer[x]!=bitstream_magic[x]) { valid=0; break; }
     // Check 512 bytes in total, because sometimes >256 bytes of FF are at the start of a bitstream.
-    read_data(i*1048576+1*256);
-    for(x=0;x<256;x++) y&=data_buffer[x];
+    if (y==0xff) {
+      read_data(i*1048576+1*256);
+      for(x=0;x<256;x++) y&=data_buffer[x];
+    }
     
     if (valid) {
       // Valid bitstream -- so start it
@@ -1120,7 +1122,7 @@ void main(void)
       asm (" jmp $cf7f ");
     } else {
       printf("WARNING: Flash slot 1 is seems to be\n"
-	     "messed up.\n");
+	     "messed up (code $%02X).\n",y);
       printf("To avoid seeing this message every time,either "
 	     "erase or re-flash the slot.\n");
       printf("\nPress almost any key to continue...\n");
