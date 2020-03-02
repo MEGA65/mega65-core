@@ -292,6 +292,8 @@ void setup_sdcard(void)
 	 fat32_sectors_per_fat,fat32_reserved_sectors,fat32_sectors_per_cluster);
   printf("Cluster 2 begins at sector $%08lx\n",fat32_cluster2_sector);
 #endif  
+
+  sdcard_setup=1;
   
 }
 
@@ -305,20 +307,6 @@ unsigned long fat32_nextclusterinchain(unsigned long cluster)
   sdcard_readsector(fat_sector);
   return *(unsigned long*)(&buffer[offset_in_sector]);
   
-}
-
-unsigned char hy_open(char *filename)
-{
-  if (!sdcard_setup) setup_sdcard();
-}
-
-unsigned char hy_read512(unsigned char *return_buffer)
-{
-  if (!sdcard_setup) setup_sdcard();
-}
-
-void hy_closeall(void)
-{
 }
 
 void hy_close(unsigned char fd)
@@ -391,6 +379,55 @@ void hy_closedir(unsigned char)
 {
 }
 
+unsigned long file_cluster=0;
+unsigned long file_sector=0;
+unsigned char file_sector_in_cluster=0;
+
+unsigned char hy_open(char *filename)
+{
+  struct m65_dirent *de;
+  if (!sdcard_setup) setup_sdcard();
+  hy_opendir();
+  while(de=hy_readdir(0)) {
+    if (!strcmp(de->d_name,filename)) {
+      printf("Found file '%s' at cluster $%08lx\n",
+	     filename,de->d_ino);
+      file_cluster=de->d_ino;
+      file_sector_in_cluster=0;
+      file_sector=(file_cluster-2)*fat32_sectors_per_cluster+fat32_cluster2_sector;
+      return 0;
+    }
+  }
+  return 0xff;
+}
+
+unsigned short hy_read512(unsigned char *return_buffer)
+{
+  if (!sdcard_setup) setup_sdcard();
+
+  if (!file_cluster) return 0;
+  
+  sdcard_readsector(file_sector);
+
+  file_sector_in_cluster++;
+  file_sector++;
+  if (file_sector_in_cluster>=fat32_sectors_per_cluster) {
+    file_sector_in_cluster=0;
+    file_cluster=fat32_nextclusterinchain(file_cluster);
+    if (file_cluster>=0x0ffffff0||(!file_cluster)) {
+      file_cluster=0; 
+    }
+    file_sector=(file_cluster-2)*fat32_sectors_per_cluster+fat32_cluster2_sector;    
+  }
+
+  return 512;
+}
+
+void hy_closeall(void)
+{
+}
+
+
 
 void reconfig_fpga(unsigned long addr)
 {
@@ -444,9 +481,9 @@ void reflash_slot(unsigned char slot)
   if (!file) return;
   if ((unsigned short)file==0xffff) return;
 
-  printf("%c",0x93);
+  printf("%cPreparing to reflash using...\n",0x93);
 
-  closeall();
+  hy_closeall();
 
   // magic filename for erasing a slot begins with "-" 
   if (file[0]!='-') {
@@ -552,7 +589,7 @@ void reflash_slot(unsigned char slot)
     
     flash_reset();
     
-    closeall();
+    hy_closeall();
     fd=hy_open(file);
     if (fd==0xff) {
       // Couldn't open the file.
