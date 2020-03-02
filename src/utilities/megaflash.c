@@ -1111,6 +1111,8 @@ void main(void)
     if (y==0xff) {
       read_data(1*1048576+1*256);
       for(x=0;x<256;x++) y&=data_buffer[x];
+    } else {
+      printf("(First sector not empty. Code $%02x)\n",y);
     }
     
     if (valid) {
