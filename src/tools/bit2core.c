@@ -35,8 +35,8 @@ int main(int argc,char **argv)
   // Write core file name and version
   char header_block[4096-16];
   bzero(header_block,4096-16);
-  for(int i=0;(i<28)&&argv[2][i];i++) header_block[i]=argv[2][i];
-  for(int i=0;(i<28)&&argv[3][i];i++) header_block[32+i]=argv[3][i];
+  for(int i=0;(i<32)&&argv[2][i];i++) header_block[i]=argv[2][i];
+  for(int i=0;(i<32)&&argv[3][i];i++) header_block[32+i]=argv[3][i];
   fwrite(header_block,4096-16,1,of);
   fwrite(bitstream,bit_size,1,of);
   fclose(of);
