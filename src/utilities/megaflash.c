@@ -1109,7 +1109,7 @@ void main(void)
     for(x=0;x<16;x++) if (data_buffer[x]!=bitstream_magic[x]) { valid=0; break; }
     // Check 512 bytes in total, because sometimes >256 bytes of FF are at the start of a bitstream.
     if (y==0xff) {
-      read_data(i*1048576+1*256);
+      read_data(1*1048576+1*256);
       for(x=0;x<256;x++) y&=data_buffer[x];
     }
     
