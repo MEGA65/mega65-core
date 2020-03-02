@@ -1224,7 +1224,18 @@ void main(void)
 	  printf("    (%c) UNKNOWN CONTENT\n",'0'+(i>>2));
 	} else {
 	  // Something valid in the slot
-	  printf("    %c(%c) VALID\n",0x05,'0'+(i>>2));
+	  char core_name[32];
+	  char core_version[32];
+	  unsigned char j;
+	  for(j=0;j<32;j++) {
+	    core_name[j]=data_buffer[16+j];
+	    core_version[j]=data_buffer[48+j];
+	  }
+	  core_name[27]=0;
+	  core_version[27]=0;
+	  
+	  printf("    %c(%c) %s\n",0x05,'0'+(i>>2),core_name);
+	  printf("           %s\n",core_version);
 	  // Display info about it
 	}
 
