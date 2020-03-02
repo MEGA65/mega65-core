@@ -1065,83 +1065,88 @@ void main(void)
   // key is being pressed.  In that case, we show the menu of
   // flash slots, and allow the user to select which core to load.
 
-  // Select BOOTSTS register
-  POKE(0xD6C4,0x16);
-  usleep(10);
-  // Allow a little while for it to be fetched.
-  // (about 40 cycles should be long enough)
-  if (PEEK(0xD6C5)&0x01) {
-    // FPGA has been reconfigured, so assume that we should boot
-    // normally, unless magic keys are being pressed.
-    if ((PEEK(0xD610)==0x09)||(!(PEEK(0xDC00)&0x10))||(!(PEEK(0xDC01)&0x10)))
-      {
-	// Magic key pressed, so proceed to flash menu after flushing keyboard input buffer
-	while(PEEK(0xD610)) POKE(0xD610,0);
-      }
-    else {      
-      // We should actually jump ($CF80) to resume hypervisor booting
-      // (see src/hyppo/main.asm launch_flash_menu routine for more info)
-
+  if (PEEK(0xD610)!=0x09) {
+  
+    // Select BOOTSTS register
+    POKE(0xD6C4,0x16);
+    usleep(10);
+    // Allow a little while for it to be fetched.
+    // (about 40 cycles should be long enough)
+    if (PEEK(0xD6C5)&0x01) {
+      // FPGA has been reconfigured, so assume that we should boot
+      // normally, unless magic keys are being pressed.
+      if ((PEEK(0xD610)==0x09)||(!(PEEK(0xDC00)&0x10))||(!(PEEK(0xDC01)&0x10)))
+	{
+	  // Magic key pressed, so proceed to flash menu after flushing keyboard input buffer
+	  while(PEEK(0xD610)) POKE(0xD610,0);
+	}
+      else {      
+	// We should actually jump ($CF80) to resume hypervisor booting
+	// (see src/hyppo/main.asm launch_flash_menu routine for more info)
+	
 #if 0
-      printf("Continuing booting with this bitstream...\n");
-      printf("Trying to return control to hypervisor...\n");
-
-      printf("\nPress any key to continue.\n");
-      while(PEEK(0xD610)) POKE(0xD610,0);
-      while (!PEEK(0xD610)) continue;
-      while(PEEK(0xD610)) POKE(0xD610,0);
+	printf("Continuing booting with this bitstream...\n");
+	printf("Trying to return control to hypervisor...\n");
+	
+	printf("\nPress any key to continue.\n");
+	while(PEEK(0xD610)) POKE(0xD610,0);
+	while (!PEEK(0xD610)) continue;
+	while(PEEK(0xD610)) POKE(0xD610,0);
 #endif
+	
+	POKE(0xCF7f,0x4C);
+	asm (" jmp $cf7f ");
+      }
+    } else {
+      // FPGA has NOT been reconfigured
+      // So if we have a valid upgrade bitstream in slot 1, then run it.
+      // Else, just show the menu.
+      // XXX - For now, we just always show the menu
       
-      POKE(0xCF7f,0x4C);
-      asm (" jmp $cf7f ");
+      // Check valid flag and empty state of the slot before launching it.
+      read_data(4*1048576+0*256);
+      y=0xff;
+      valid=1;
+      for(x=0;x<256;x++) y&=data_buffer[x];
+      for(x=0;x<16;x++) if (data_buffer[x]!=bitstream_magic[x]) { valid=0; break; }
+      // Check 512 bytes in total, because sometimes >256 bytes of FF are at the start of a bitstream.
+      if (y==0xff) {
+	read_data(4*1048576+1*256);
+	for(x=0;x<256;x++) y&=data_buffer[x];
+      } else {
+	//      for(i=0;i<255;i++) printf("%02x",data_buffer[i]);
+	//      printf("\n");
+	printf("(First sector not empty. Code $%02x)\n",y);
+      }
+      
+      if (valid) {
+	// Valid bitstream -- so start it
+	reconfig_fpga(1*(4*1048576)+4096);
+      } else if (y==0xff) {
+	// Empty slot -- ignore and resume
+	POKE(0xCF7f,0x4C);
+	asm (" jmp $cf7f ");
+      } else {
+	printf("WARNING: Flash slot 1 is seems to be\n"
+	       "messed up (code $%02X).\n",y);
+	printf("To avoid seeing this message every time,either "
+	       "erase or re-flash the slot.\n");
+	printf("\nPress almost any key to continue...\n");
+	while(PEEK(0xD610)) POKE(0xD610,0);
+	// Ignore TAB, since they might still be holding it
+	while((!PEEK(0xD610))||(PEEK(0xD610)==0x09)) {
+	  if (PEEK(0xD610)==0x09) POKE(0xD610,0);
+	  continue;
+	}
+	while(PEEK(0xD610)) POKE(0xD610,0);
+	
+	printf("%c",0x93);
+	
+      }
     }
   } else {
-    // FPGA has NOT been reconfigured
-    // So if we have a valid upgrade bitstream in slot 1, then run it.
-    // Else, just show the menu.
-    // XXX - For now, we just always show the menu
-
-    // Check valid flag and empty state of the slot before launching it.
-    read_data(4*1048576+0*256);
-    y=0xff;
-    valid=1;
-    for(x=0;x<256;x++) y&=data_buffer[x];
-    for(x=0;x<16;x++) if (data_buffer[x]!=bitstream_magic[x]) { valid=0; break; }
-    // Check 512 bytes in total, because sometimes >256 bytes of FF are at the start of a bitstream.
-    if (y==0xff) {
-      read_data(4*1048576+1*256);
-      for(x=0;x<256;x++) y&=data_buffer[x];
-    } else {
-      //      for(i=0;i<255;i++) printf("%02x",data_buffer[i]);
-      //      printf("\n");
-      printf("(First sector not empty. Code $%02x)\n",y);
-    }
-
-    if (valid) {
-      // Valid bitstream -- so start it
-      reconfig_fpga(1*(4*1048576)+4096);
-    } else if (y==0xff) {
-      // Empty slot -- ignore and resume
-      POKE(0xCF7f,0x4C);
-      asm (" jmp $cf7f ");
-    } else {
-      printf("WARNING: Flash slot 1 is seems to be\n"
-	     "messed up (code $%02X).\n",y);
-      printf("To avoid seeing this message every time,either "
-	     "erase or re-flash the slot.\n");
-      printf("\nPress almost any key to continue...\n");
-      while(PEEK(0xD610)) POKE(0xD610,0);
-      // Ignore TAB, since they might still be holding it
-      while((!PEEK(0xD610))||(PEEK(0xD610)==0x09)) {
-	if (PEEK(0xD610)==0x09) POKE(0xD610,0);
-	continue;
-      }
-    while(PEEK(0xD610)) POKE(0xD610,0);
-
-    printf("%c",0x93);
-      
-    }
-    
+    // We have started by holding TAB down
+    // So just proceed with showing the menu
   }
 
   //  printf("BOOTSTS = $%02x%02x%02x%02x\n",
