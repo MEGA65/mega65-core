@@ -788,7 +788,8 @@ normalboot:
 
         // Work out if we are using primary or secondard SD card
 
-        // First try resetting card 0
+        // First try resetting card 1 (external)
+	// so that if you have an external card, it will be used in preference
         lda #$c1
         sta $d680
         lda #$00
@@ -802,7 +803,7 @@ normalboot:
 
         lda $d680
         and #$03
-        bne trybus1
+        bne trybus0
 
         phx
 
@@ -813,11 +814,11 @@ normalboot:
         plx
 
         jmp tryreadmbr
-trybus1:
+trybus0:
         dex
         bne @morewaiting
 
-        lda #$c1
+        lda #$c0
         sta $d680
 
         ldx #<msg_tryingcard1
