@@ -1102,19 +1102,21 @@ void main(void)
     // XXX - For now, we just always show the menu
 
     // Check valid flag and empty state of the slot before launching it.
-    read_data(1*1048576+0*256);
+    read_data(4*1048576+0*256);
     y=0xff;
     valid=1;
     for(x=0;x<256;x++) y&=data_buffer[x];
     for(x=0;x<16;x++) if (data_buffer[x]!=bitstream_magic[x]) { valid=0; break; }
     // Check 512 bytes in total, because sometimes >256 bytes of FF are at the start of a bitstream.
     if (y==0xff) {
-      read_data(1*1048576+1*256);
+      read_data(4*1048576+1*256);
       for(x=0;x<256;x++) y&=data_buffer[x];
     } else {
+      //      for(i=0;i<255;i++) printf("%02x",data_buffer[i]);
+      //      printf("\n");
       printf("(First sector not empty. Code $%02x)\n",y);
     }
-    
+
     if (valid) {
       // Valid bitstream -- so start it
       reconfig_fpga(1*(4*1048576)+4096);
