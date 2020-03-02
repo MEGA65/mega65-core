@@ -358,7 +358,6 @@ struct m65_dirent *hy_readdir(unsigned char)
     if (hy_opendir_sector_in_cluster>=fat32_sectors_per_cluster) {
       hy_opendir_sector_in_cluster=0;
       hy_opendir_cluster=fat32_nextclusterinchain(hy_opendir_cluster);
-      printf("Next cluster is $%08lx\n",hy_opendir_cluster);
       if (hy_opendir_cluster>=0x0ffffff0) return NULL;
       hy_opendir_sector=(hy_opendir_cluster-2)*fat32_sectors_per_cluster+fat32_cluster2_sector;
     }
@@ -366,29 +365,19 @@ struct m65_dirent *hy_readdir(unsigned char)
     
     sdcard_readsector(hy_opendir_sector);
 
-#if 0
     // Get DOS directory entry and populate
     dirent = &buffer[hy_opendir_offset_in_sector];
-    ((unsigned char *)hy_dirent.d_ino)[0]=dirent[0x1a];
-    ((unsigned char *)hy_dirent.d_ino)[1]=dirent[0x1b];
-    ((unsigned char *)hy_dirent.d_ino)[2]=dirent[0x14];
-    ((unsigned char *)hy_dirent.d_ino)[3]=dirent[0x15];
-    for(j=0;j<8;j++) hy_dirent.d_name[j]=buffer[hy_opendir_offset_in_sector=0+j];
+    ((unsigned char *)&hy_dirent.d_ino)[0]=dirent[0x1a];
+    ((unsigned char *)&hy_dirent.d_ino)[1]=dirent[0x1b];
+    ((unsigned char *)&hy_dirent.d_ino)[2]=dirent[0x14];
+    ((unsigned char *)&hy_dirent.d_ino)[3]=dirent[0x15];
+    for(j=0;j<8;j++) hy_dirent.d_name[j]=dirent[0+j];
     hy_dirent.d_name[8]='.';
     for(j=0;j<8;j++) hy_dirent.d_name[9+j]=dirent[8+j];
     hy_dirent.d_name[12]=0;
 
     if (hy_dirent.d_name[0]&&hy_dirent.d_name[0]!=0xe5) found=1;
 
-#endif
-    printf("sector $%lx, offset $%x, first char = $%02x\n",
-	   hy_opendir_sector,
-	   hy_opendir_offset_in_sector,
-	   hy_dirent.d_name[0]);
-    
-    while(!PEEK(0xD610)) continue;
-    while(PEEK(0xD610)) POKE(0xD610,0);  
-    
     hy_opendir_offset_in_sector+=0x20;
   }
 
@@ -1770,7 +1759,6 @@ char *select_bitstream_file(void)
   printf("%cScanning directory...\n",0x93);
   dirent=hy_readdir(dir);
   while(dirent&&((unsigned short)dirent!=0xffffU)) {
-    printf("Found file '%s'\n",dirent->d_name);
     j=strlen(dirent->d_name)-4;
     if (j>=0) {
       if ((!strncmp(&dirent->d_name[j],".COR",4))||(!strncmp(&dirent->d_name[j],".cor",4)))
