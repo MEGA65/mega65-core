@@ -176,9 +176,7 @@ void reflash_slot(unsigned char slot)
     }
   }
 
-  printf("%c%c%c%c%c%cErasing flash slot...\n",
-	 17,17,17,17,17,17
-	 );
+  printf("%cErasing flash slot...\n",0x93);
   lfill((unsigned long)buffer,0,512);
 
   // Do a smart erase: read blocks, and only erase pages if they are
@@ -203,7 +201,6 @@ void reflash_slot(unsigned char slot)
     if (i==512) continue;
     
     while (i<512) {
-      printf(".");
       erase_sector(addr);
       // Then verify that the sector has been erased
       read_data(addr);
@@ -1478,7 +1475,7 @@ char *select_bitstream_file(void)
 
   // Add dummy entry for erasing the slot
   lfill(0x40000L+(file_count*64),' ',64);
-  lcopy((long)"-erase slot-",0x40000L+(file_count*64),13);
+  lcopy((long)"-erase slot-",0x40000L+(file_count*64),12);
   file_count++;
   
   dir=opendir();
