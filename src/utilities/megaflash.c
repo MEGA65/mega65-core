@@ -102,6 +102,36 @@ unsigned char sprite_data[63]={
 */
 #define CLOCKCTL_PORT 0xD6CDU
 
+unsigned char hy_open(char *filename)
+{
+}
+
+unsigned char hy_read512(unsigned char *return_buffer)
+{
+}
+
+void hy_closeall(void)
+{
+  
+}
+
+void hy_close(unsigned char fd)
+{
+}
+
+unsigned char hy_opendir(void)
+{
+}
+
+struct m65_dirent *hy_readdir(unsigned char)
+{
+}
+
+void hy_closedir(unsigned char)
+{
+}
+
+
 void reconfig_fpga(unsigned long addr)
 {
 
@@ -162,7 +192,7 @@ void reflash_slot(unsigned char slot)
   // magic filename for erasing a slot begins with "-" 
   if (file[0]!='-') {
     
-    fd=open(file);
+    fd=hy_open(file);
     if (fd==0xff) {
       // Couldn't open the file.
       printf("ERROR: Could not open flash file '%s'\n",file);
@@ -240,7 +270,7 @@ void reflash_slot(unsigned char slot)
       }
       progress_bar(progress);
       
-      bytes_returned=read512(buffer);
+      bytes_returned=hy_read512(buffer);
       
       if (!bytes_returned) break;
       
@@ -264,7 +294,7 @@ void reflash_slot(unsigned char slot)
     flash_reset();
     
     closeall();
-    fd=open(file);
+    fd=hy_open(file);
     if (fd==0xff) {
       // Couldn't open the file.
       printf("ERROR: Could not open flash file '%s'\n",file);
@@ -285,7 +315,7 @@ void reflash_slot(unsigned char slot)
       }
       progress_bar(progress);
       
-      bytes_returned=read512(buffer);
+      bytes_returned=hy_read512(buffer);
       
       if (!bytes_returned) break;
       
@@ -383,7 +413,7 @@ void reflash_slot(unsigned char slot)
   while(!PEEK(0xD610)) continue;
   POKE(0xD610,0);
   
-  close(fd);
+  hy_close(fd);
 
   return;
 }
@@ -1499,13 +1529,17 @@ char *select_bitstream_file(void)
   lfill(0x40000L+(file_count*64),' ',64);
   lcopy((long)"-erase slot-",0x40000L+(file_count*64),12);
   file_count++;
-  
-  dir=opendir();
-  dirent=readdir(dir);
+
+  // ARGH!!! We are running from in hypervisor mode, so we can't use hypervisor
+  // traps to get the directory listing!
+  hy_closeall();
+  dir=hy_opendir();
+  dirent=hy_readdir(dir);
   while(dirent&&((unsigned short)dirent!=0xffffU)) {
     j=strlen(dirent->d_name)-4;
     if (j>=0) {
-      if ((!strncmp(&dirent->d_name[j],".COR",4))||(!strncmp(&dirent->d_name[j],".cor",4))) {
+      if ((!strncmp(&dirent->d_name[j],".COR",4))||(!strncmp(&dirent->d_name[j],".cor",4)))
+	{
 	// File is a core
 	lfill(0x40000L+(file_count*64),' ',64);
 	lcopy((long)&dirent->d_name[0],0x40000L+(file_count*64),j+4);
@@ -1513,10 +1547,10 @@ char *select_bitstream_file(void)
       }
     }
     
-    dirent=readdir(dir);
+    dirent=hy_readdir(dir);
   }
 
-  closedir(dir);
+  hy_closedir(dir);
 
   // If we didn't find any disk images, then just return
   if (!file_count) {
