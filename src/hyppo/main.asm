@@ -656,8 +656,6 @@ first_boot_flag_instruction:
 	// Use first boot code path only once
 	// WARNING: Self modifying code!
 	bit dont_launch_flash_menu
-	lda #$4c
-	sta first_boot_flag_instruction
 
 	// On first boot, we start the flash menu regardless
 	// (The flash menu will work out whether to switch bitstream or not)
@@ -674,6 +672,7 @@ first_boot_flag_instruction:
 	bne dont_launch_flash_menu
 	
 launch_flash_menu:
+	
 	// Store where the flash menu should jump to if it doesn't need to do anything.
 	lda #<return_from_flashmenu
 	sta $cf80
@@ -2260,6 +2259,10 @@ go64:
 	// Prevent utility menu from being launched
 	lda #$4c
 	sta utility_menu
+
+	// Prevent flash menu from being launched
+	lda #$4c
+	sta first_boot_flag_instruction
 	
         // Check if hold boot switch is set (control-key)
         //
