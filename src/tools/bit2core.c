@@ -1,0 +1,46 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <strings.h>
+
+int main(int argc,char **argv)
+{
+  if (argc!=5) {
+    fprintf(stderr,"MEGA65 bitstream to core file converter.\n");
+    fprintf(stderr,"usage: <foo.bit> <core name> <core version> <out.cor>\n");
+    exit(-1);
+  }
+
+  unsigned char bitstream[4*1048576];
+  FILE *bf=fopen(argv[1],"r");
+  if (!bf) {
+    fprintf(stderr,"ERROR: Could not read bitstream file '%s'\n",argv[1]);
+    exit(-3);
+  }
+  int bit_size=fread(bitstream,1,4*1048576,bf);
+  fclose(bf);
+  
+  printf("Bitstream file is %d bytes long.\n",bit_size);
+  if (bit_size<1||bit_size>(4*1048576-4096)) {
+    fprintf(stderr,"ERROR: Bitstream file must be >0 bytes and no bigger than (4MB - 4K)\n");
+    exit(-2);
+  }
+
+  FILE *of=fopen(argv[4],"w");
+  if (!of) {
+    fprintf(stderr,"ERROR: Could not create core file '%s'\n",argv[4]);
+    exit(-3);
+  }
+  // Write magic bytes
+  fprintf(of,"MEGA65BITSTREAM0");
+  // Write core file name and version
+  char header_block[4096-16];
+  bzero(header_block,4096-16);
+  for(int i=0;(i<28)&&argv[2][i];i++) header_block[i]=argv[2][i];
+  for(int i=0;(i<28)&&argv[3][i];i++) header_block[32+i]=argv[3][i];
+  fwrite(header_block,4096-16,1,of);
+  fwrite(bitstream,bit_size,1,of);
+  fclose(of);
+
+  printf("Core file written.\n");
+  return 0;
+}
