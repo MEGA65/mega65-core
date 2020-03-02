@@ -585,7 +585,7 @@ void reflash_slot(unsigned char slot)
       data.
     */
     
-    printf("Verifying that bitstream was correctly written to flash...\n");
+    printf("%cVerifying that bitstream was correctly written to flash...\n",0x93);
     
     flash_reset();
     
