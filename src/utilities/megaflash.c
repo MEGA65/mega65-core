@@ -102,17 +102,80 @@ unsigned char sprite_data[63]={
 */
 #define CLOCKCTL_PORT 0xD6CDU
 
+/*
+  Here are our routines for accessing the SD card without relying on the
+  hypervisor.  Note that we can't even assume that the hypervisor has 
+  found and reset the SD card, because of the very early point at which
+  the flash menu gets called.  "Alles muss man selber machen" ;)
+  Oh, yes, and we have only about 5KB space left in this utility, before
+  we start having memory overrun problems. So we have to keep this
+  absolutely minimalistic.
+ */
+
+const long sd_sectorbuffer=0xffd6e00L;
+const uint16_t sd_ctl=0xd680L;
+const uint16_t sd_addr=0xd681L;
+const uint16_t sd_errorcode=0xd6daL;
+
+unsigned long sdcard_timeout=1000000;
+unsigned char sdbus=1;
+
+void sdcard_reset(void)
+{
+  // Reset and release reset
+
+  
+  // Check for external SD card, then internal SD card.
+
+  // Select external SD card slot
+  POKE(sd_ctl,0xc1);
+  
+  // Clear SDHC flag
+  POKE(sd_ctl,0x40);
+  
+  POKE(sd_ctl,0);
+  POKE(sd_ctl,1);
+
+  // Now wait for SD card reset to complete
+  while (PEEK(sd_ctl)&3) {
+    POKE(0xd020,(PEEK(0xd020)+1)&15);
+    sdcard_timeout--;
+    if (!sdcard_timeout) {
+      if (sdbus==1) {
+	POKE(sd_ctl,0xc0);
+	POKE(sd_ctl,0);
+	POKE(sd_ctl,1);
+	sdcard_timeout=1000000;
+	sdbus=0;
+      }
+    }
+  }
+
+  // Reassert SDHC flag
+  POKE(sd_ctl,0x41);
+
+}
+
+unsigned char sdcard_setup=0;
+
+
+void setup_sdcard(void)
+{
+  sdcard_reset();
+}
+
 unsigned char hy_open(char *filename)
 {
+  if (!sdcard_setup) setup_sdcard();
 }
 
 unsigned char hy_read512(unsigned char *return_buffer)
 {
+  if (!sdcard_setup) setup_sdcard();
 }
 
 void hy_closeall(void)
 {
-  
 }
 
 void hy_close(unsigned char fd)
@@ -121,6 +184,7 @@ void hy_close(unsigned char fd)
 
 unsigned char hy_opendir(void)
 {
+  if (!sdcard_setup) setup_sdcard();
 }
 
 struct m65_dirent *hy_readdir(unsigned char)
