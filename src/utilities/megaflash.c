@@ -29,7 +29,9 @@ unsigned char reconfig_disabled=0;
 
 unsigned char data_buffer[512];
 // Magic string for identifying properly loaded bitstream
-unsigned char bitstream_magic[16]="MEGA65BITSTREAM0";
+unsigned char bitstream_magic[16]=
+  // "MEGA65BITSTREAM0";
+  { 0x4d, 0x45, 0x47, 0x41, 0x36, 0x35, 0x42, 0x49, 0x54, 0x53, 0x54, 0x52, 0x45, 0x41, 0x4d, 0x30};
 
 unsigned short mb = 0;
 
@@ -1176,7 +1178,7 @@ unsigned char slot_empty_check(unsigned short mb_num)
 
 void flash_inspector(void)
 {
-#if 0
+#if 1
   addr=0;
   read_data(addr);
   printf("Flash @ $%08x:\n",addr);
@@ -1518,16 +1520,20 @@ void main(void)
 	  char core_name[32];
 	  char core_version[32];
 	  unsigned char j;
+	  read_data(i*1048576+0*256);
 	  for(j=0;j<32;j++) {
 	    core_name[j]=data_buffer[16+j];
 	    core_version[j]=data_buffer[48+j];
+	    // ASCII to PETSCII conversion
+	    if ((core_name[j]>=0x41&&core_name[j]<=0x57)
+		||(core_name[j]>=0x61&&core_name[j]<=0x77)) core_name[j]^=0x20;
 	  }
-	  core_name[27]=0;
-	  core_version[27]=0;
+	  core_name[31]=0;
+	  core_version[31]=0;
 	  
-	  printf("    %c(%c) %s\n",0x05,'0'+(i>>2),core_name);
-	  printf("           %s\n",core_version);
 	  // Display info about it
+	  printf("    %c(%c) %s\n",0x05,'0'+(i>>2),core_name);
+	  printf("        %s\n",core_version);
 	}
 
 	// Check if entire slot is empty
@@ -1578,17 +1584,17 @@ void main(void)
 	  }
 	  else reconfig_fpga(selected*(4*1048576)+0); // +4096);
 	  break;
-#if 0
+#if 1
 	case 0x4d: case 0x6d: // M / m
 	  // Flash memory monitor
 	  flash_inspector();
 	  printf("%c",0x93);
 	  break;
+#endif
 	case 146: case 0x41: case 0x61:  // CTRL-0
 	  reflash_slot(0);
 	  printf("%c",0x93);
 	  break;
-#endif
 	case 144: case 0x42: case 0x62: // CTRL-1
 	  reflash_slot(1);
 	  printf("%c",0x93);
