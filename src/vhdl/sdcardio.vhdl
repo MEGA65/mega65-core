@@ -1248,7 +1248,7 @@ begin  -- behavioural
     if rising_edge(clock) then    
 
       -- XXX DEBUG toggle QSPI clock madly
-      if qspi_clock_run = '1' then
+      if qspi_clock_run = '1' and hypervisor_mode='1' then
         qspi_clock <= not qspi_clock_int;
         qspi_clock_int <= not qspi_clock_int;
       end if;
@@ -2220,47 +2220,44 @@ begin  -- behavioural
               -- @IO:GS $D6CC.4 QSPI:DB0 DDR (1=output)
               -- @IO:GS $D6CC.0-3 QSPI:DB Data bits for QSPI flash interface (read/write)
 
--- XXX Implement this protection when its working
---              if secure_mode='0' and hypervisor_mode='1' then
+              if hypervisor_mode='1' then
+                qspicsn <= fastio_wdata(6);
+                qspi_csn_int <= fastio_wdata(6);
+                qspi_clock <= fastio_wdata(5);
+                qspi_clock_int <= fastio_wdata(5);
 
-              qspicsn <= fastio_wdata(6);
-              qspi_csn_int <= fastio_wdata(6);
-              qspi_clock <= fastio_wdata(5);
-              qspi_clock_int <= fastio_wdata(5);
-
-              -- DB2 and DB3 have 1.8K external pull-up resistors, so can be driven
-              -- open-collector.
-              if fastio_wdata(3) = '0' then
-                qspidb(3) <= '0';
-              else
-                qspidb(3) <= 'Z';
-              end if;
-              if fastio_wdata(2) = '0' then
-                qspidb(2) <= '0';
-              else
-                qspidb(2) <= 'Z';
-              end if;
-              -- DB1 and DB0 lack external pull-ups, so cannot be driven open-collector
-              if fastio_wdata(1) = '0' then
-                qspidb(1) <= '0';
-              else
-                if fastio_wdata(7)='1' then
-                  qspidb(1) <= '1';
+                -- DB2 and DB3 have 1.8K external pull-up resistors, so can be driven
+                -- open-collector.
+                if fastio_wdata(3) = '0' then
+                  qspidb(3) <= '0';
                 else
-                  qspidb(1) <= 'Z';
+                  qspidb(3) <= 'Z';
+                end if;
+                if fastio_wdata(2) = '0' then
+                  qspidb(2) <= '0';
+                else
+                  qspidb(2) <= 'Z';
+                end if;
+                -- DB1 and DB0 lack external pull-ups, so cannot be driven open-collector
+                if fastio_wdata(1) = '0' then
+                  qspidb(1) <= '0';
+                else
+                  if fastio_wdata(7)='1' then
+                    qspidb(1) <= '1';
+                  else
+                    qspidb(1) <= 'Z';
+                  end if;
+                end if;
+                if fastio_wdata(0) = '0' then
+                  qspidb(0) <= '0';
+                else
+                  if fastio_wdata(4)='1' then
+                    qspidb(0) <= '1';
+                  else
+                    qspidb(0) <= 'Z';
+                  end if;
                 end if;
               end if;
-              if fastio_wdata(0) = '0' then
-                qspidb(0) <= '0';
-              else
-                if fastio_wdata(4)='1' then
-                  qspidb(0) <= '1';
-                else
-                  qspidb(0) <= 'Z';
-                end if;
-              end if;
-
---          end if;
             when x"CD" =>
               -- XXX This register was added, because without it the QSPI clock
               -- could not be controlled. No idea why, as with it here, it is
