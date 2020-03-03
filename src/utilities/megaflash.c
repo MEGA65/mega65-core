@@ -391,8 +391,8 @@ unsigned char hy_open(char *filename)
   hy_opendir();
   while(de=hy_readdir(0)) {
     if (!strcmp(de->d_name,filename)) {
-      printf("Found file '%s' at cluster $%08lx\n",
-	     filename,de->d_ino);
+      //      printf("Found file '%s' at cluster $%08lx\n",
+      //	     filename,de->d_ino);
       file_cluster=de->d_ino;
       file_sector_in_cluster=0;
       file_sector=(file_cluster-2)*fat32_sectors_per_cluster+fat32_cluster2_sector;
