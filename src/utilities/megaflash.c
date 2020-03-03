@@ -1396,7 +1396,7 @@ void main(void)
 
   // XXX Temporarily allow ESC to get to flash menu to avoid
   // race-conditions with version in bitstream
-  if ((PEEK(0xD610)!=0x09)&&PEEK(0xD610)!=0x1b) {
+  if (PEEK(0xD610)!=0x09) {
   
     // Select BOOTSTS register
     POKE(0xD6C4,0x16);
