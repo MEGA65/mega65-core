@@ -1427,7 +1427,9 @@ void main(void)
 	while (!PEEK(0xD610)) continue;
 	while(PEEK(0xD610)) POKE(0xD610,0);
 #endif
-	
+
+	// Switch back to normal speed control before exiting
+	POKE(0,64);
 	POKE(0xCF7f,0x4C);
 	asm (" jmp $cf7f ");
       }
@@ -1458,6 +1460,8 @@ void main(void)
 	reconfig_fpga(1*(4*1048576)+4096);
       } else if (y==0xff) {
 	// Empty slot -- ignore and resume
+	// Switch back to normal speed control before exiting
+	POKE(0,64);
 	POKE(0xCF7f,0x4C);
 	asm (" jmp $cf7f ");
       } else {
