@@ -20,8 +20,8 @@ int main(int argc,char **argv)
   fclose(bf);
   
   printf("Bitstream file is %d bytes long.\n",bit_size);
-  if (bit_size<1||bit_size>(4*1048576-4096)) {
-    fprintf(stderr,"ERROR: Bitstream file must be >0 bytes and no bigger than (4MB - 4K)\n");
+  if (bit_size<1024||bit_size>(4*1048576-4096)) {
+    fprintf(stderr,"ERROR: Bitstream file must be >1K and no bigger than (4MB - 4K)\n");
     exit(-2);
   }
 
@@ -38,7 +38,7 @@ int main(int argc,char **argv)
   for(int i=0;(i<32)&&argv[2][i];i++) header_block[i]=argv[2][i];
   for(int i=0;(i<32)&&argv[3][i];i++) header_block[32+i]=argv[3][i];
   fwrite(header_block,4096-16,1,of);
-  fwrite(bitstream,bit_size,1,of);
+  fwrite(&bitstream[120],bit_size-120,1,of);
   fclose(of);
 
   printf("Core file written.\n");
