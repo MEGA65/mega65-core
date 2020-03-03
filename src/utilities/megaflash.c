@@ -1604,7 +1604,7 @@ void main(void)
 	  if (x=='0') {
 	    reconfig_fpga(0);
 	  }
-	  else reconfig_fpga((x-'0')*(4*1048576)+0); // +4096);
+	  else reconfig_fpga((x-'0')*(4*1048576)+4096);
 	}
 	switch(x) {
 	case 0x1d: case 0x11:
