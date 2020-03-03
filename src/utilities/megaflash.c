@@ -443,6 +443,7 @@ void reconfig_fpga(unsigned long addr)
     while(PEEK(0xD610)) POKE(0xD610,0);
     while(!PEEK(0xD610)) continue;
     while(PEEK(0xD610)) POKE(0xD610,0);
+    printf("%c",0x93);
     return;
   }
   
@@ -1218,6 +1219,44 @@ void flash_inspector(void)
 #endif
 }
 
+unsigned char check_input(char *m)
+{
+  while(PEEK(0xD610)) POKE(0xD610,0);
+
+  while(*m) {
+    // Weird CC65 PETSCII/ASCII fix ups
+    if (*m==0x0a) *m=0x0d;
+    
+    if (!PEEK(0xD610)) continue;
+    if (PEEK(0xD610)!=((*m)&0x7f)) {
+      return 0;
+    }
+    POKE(0xD610,0);
+    m++;
+  }
+  return 1;
+}
+
+unsigned char user_has_been_warned(void)
+{
+  printf("%c"
+	 "Replacing the bitstream in slot 0 can\n"
+	 "brick your MEGA65. If you are REALLY\n"
+	 "SURE that you want to do this, type:\n"
+	 "I ACCEPT THIS VOIDS MY WARRANTY\n",
+	 0x93);
+  if (!check_input("I ACCEPT THIS VOIDS MY WARRANTY\r")) return 0;
+  printf("\nAnd now:\n"
+	 "ITS MY FAULT ALONE WHEN IT GOES WRONG\n");
+  if (!check_input("ITS MY FAULT ALONE WHEN IT GOES WRONG\r")) return 0;
+  printf("\nAlso, type in the 32768th prime:\n");
+  if (!check_input("386093\r")) return 0;
+  printf("\nFinally, what is the average airspeed of"
+	 " a laden (european) swallow?\n");
+  if (!check_input("11 METRES PER SECOND\r")) return 0;
+  return 1;
+}
+
 unsigned int base_addr;
 
 void main(void)
@@ -1481,7 +1520,7 @@ void main(void)
 
       // Draw footer line with instructions
       for(y=0;y<24;y++) printf("%c",0x11);
-      printf("%c0-7 = Launch Core.  CTRL 0-7 = Edit Slo%c",0x12,0x92);
+      printf("%c0-7 = Launch Core.  CTRL 1-7 = Edit Slo%c",0x12,0x92);
       POKE(1024+999,0x14+0x80);
 
       // Scan for existing bitstreams
@@ -1590,8 +1629,9 @@ void main(void)
 	  printf("%c",0x93);
 	  break;
 #endif
-	case 146: case 0x41: case 0x61:  // CTRL-0
-	  reflash_slot(0);
+	case 0x7e: // TILDE
+	  if (user_has_been_warned())
+	    reflash_slot(0);
 	  printf("%c",0x93);
 	  break;
 	case 144: case 0x42: case 0x62: // CTRL-1
