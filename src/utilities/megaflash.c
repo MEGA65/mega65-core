@@ -405,12 +405,11 @@ unsigned char hy_open(char *filename)
 
 unsigned short hy_read512(unsigned char *return_buffer)
 {
+  unsigned long the_sector=file_sector;
   if (!sdcard_setup) setup_sdcard();
 
   if (!file_cluster) return 0;
   
-  sdcard_readsector(file_sector);
-
   file_sector_in_cluster++;
   file_sector++;
   if (file_sector_in_cluster>=fat32_sectors_per_cluster) {
@@ -421,6 +420,8 @@ unsigned short hy_read512(unsigned char *return_buffer)
     }
     file_sector=(file_cluster-2)*fat32_sectors_per_cluster+fat32_cluster2_sector;    
   }
+
+  sdcard_readsector(the_sector);
 
   return 512;
 }
