@@ -83,12 +83,14 @@ void usage(void)
   fprintf(stderr,"  -s - Speed of serial port in bits per second. This must match what your bitstream uses.\n");
   fprintf(stderr,"       (Older bitstream use 230400, and newer ones 2000000 or 4000000).\n");
   fprintf(stderr,"  -b - Name of bitstream file to load.\n");
+  fprintf(stderr,"  -k - Name of hickup file to forcibly use instead of the HYPPO in the bitstream.\n");
+  fprintf(stderr,"       NOTE: You can use bitstream and/or HYPPO from the Jenkins server by using @issue/tag/hardware\n"
+  	         "             for the bitstream, and @issue/tag for HYPPO.\n");
   fprintf(stderr,"  -J - Do JTAG boundary scan of attached FPGA, using the provided XDC and BSDL files.\n");
   fprintf(stderr,"       A sensitivity list can also be provided, to restrict the set of signals monitored.\n");
   fprintf(stderr,"       This will likely be required when producing VCD files, as they can only log ~80 signals.\n");
   fprintf(stderr,"  -j   Do JTAG operation(s), and nothing else.\n");
   fprintf(stderr,"  -V - Write JTAG change log to VCD file, instead of to stdout.\n");
-  fprintf(stderr,"  -k - Name of hickup file to forcibly use instead of the hyppo in the bitstream.\n");
   fprintf(stderr,"  -R - ROM file to preload at $20000-$3FFFF.\n");
   fprintf(stderr,"  -U - Flash menu file to preload at $50000-$57FFF.\n");
   fprintf(stderr,"  -C - Character ROM file to preload.\n");
