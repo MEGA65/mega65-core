@@ -1598,6 +1598,28 @@ void download_bitstream(void)
     exit(-3);
   }
 
+  char filename[8192];
+  snprintf(filename,8192,"%s/.netrc",getenv("HOME"));
+  FILE *nf=fopen(filename,"r");
+  if (!nf) {
+    fprintf(stderr,"WARNING: You don't have a .netrc file.  You probably want to set one up with something like this:\n"
+	    "    machine  app.scryptos.com\n"
+	    "    login    <ask deft for one>\n"
+	    "    password <ask deft for one>\n"
+	    "So that you don't get asked by cadaver all the time for a username and password.\n");
+  }
+  fclose(nf);
+  snprintf(filename,8192,"/usr/bin/cadaver");
+  nf=fopen(filename,"r");
+  if (!nf) {
+    fprintf(stderr,"ERROR: You don't seem to have cadaver installed.\n"
+	    "If you are on Ubuntu linux, try:\n"
+	    "   sudo apt-get install cadaver\n"
+	    "I'll try anyway, in case you just have it installed in a funny place.\n"
+	    );
+  }
+  fclose(nf);
+  
   fprintf(stderr,"Fetching bitstream from scryptos archive...\n");
   unlink("/tmp/monitor_load.folder.txt");
   char cmd[8192];
@@ -1625,6 +1647,57 @@ void download_bitstream(void)
 
 void download_hyppo(void)
 {
+  int issue,tag;
+  if (sscanf(hyppo,"@%d/%d",&issue,&tag)<2) {
+    fprintf(stderr,"ERROR: @ directive to download HICKUP.M65 must be in the format issue/tag, e.g., 168/1\n");
+    exit(-3);
+  }
+
+  char filename[8192];
+  snprintf(filename,8192,"%s/.netrc",getenv("HOME"));
+  FILE *nf=fopen(filename,"r");
+  if (!nf) {
+    fprintf(stderr,"WARNING: You don't have a .netrc file.  You probably want to set one up with something like this:\n"
+	    "    machine  app.scryptos.com\n"
+	    "    login    <ask deft for one>\n"
+	    "    password <ask deft for one>\n"
+	    "So that you don't get asked by cadaver all the time for a username and password.\n");
+  }
+  fclose(nf);
+  snprintf(filename,8192,"/usr/bin/cadaver");
+  nf=fopen(filename,"r");
+  if (!nf) {
+    fprintf(stderr,"ERROR: You don't seem to have cadaver installed.\n"
+	    "If you are on Ubuntu linux, try:\n"
+	    "   sudo apt-get install cadaver\n"
+	    "I'll try anyway, in case you just have it installed in a funny place.\n"
+	    );
+  }
+  fclose(nf);
+  
+  fprintf(stderr,"Fetching HICKUP.M65 from scryptos archive...\n");
+  unlink("/tmp/monitor_load.folder.txt");
+  char cmd[8192];
+  snprintf(cmd,8192,"echo ls | cadaver \"https://app.scryptos.com/webdav/MEGA/groups/MEGA65%%20filehost/ShareFolder/Bitstreams/Jenkins-Out/mega65-core/issues/%d/\" | grep \"%d-\" | cut -c9-40 | sed 's/ //g' > /tmp/monitor_load.folder.txt",
+	   issue,tag);
+  system(cmd);
+
+  FILE *f=fopen("/tmp/monitor_load.folder.txt","r");
+  if (!f) {
+    fprintf(stderr,"ERROR: Could not read WebDAV retrieved folder name from /tmp/monitor_load.folder.txt\n");
+    exit(-2);
+  }
+  char folder[8192]="";
+  fread(folder,1,8192,f);  
+  fclose(f);
+  while(folder[0]&&folder[strlen(folder)-1]<' ') folder[strlen(folder)-1]=0;
+  fprintf(stderr,"Resolved %d/%d to %d/%s\n",issue,tag,issue,folder);
+  
+  unlink("/tmp/monitor_load.HICKUP.M65");
+  snprintf(cmd,8192,"echo \"get HICKUP.M65 /tmp/monitor_load.HICKUP.M65\" | cadaver  \"https://app.scryptos.com/webdav/MEGA/groups/MEGA65%%20filehost/ShareFolder/Bitstreams/Jenkins-Out/mega65-core/issues/%d/%s/\"",issue,folder);
+  fprintf(stderr,"%s\n",cmd);
+  system(cmd);
+  hyppo="/tmp/monitor_load.HICKUP.M65";
 }
 
 int main(int argc,char **argv)
