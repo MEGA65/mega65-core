@@ -73,6 +73,7 @@ int fpgajtag_main(char *bitstream,char *serialport);
 void init_fpgajtag(const char *serialno, const char *filename, uint32_t file_idcode);
 int xilinx_boundaryscan(char *xdc,char *bsdl,char *sensitivity);
 void set_vcd_file(char *name);
+void do_exit(int retval);
 
 void usage(void)
 {
@@ -1588,6 +1589,44 @@ void *run_boundary_scan(void *argp)
   int thread_count=0;
   pthread_t threads[MAX_THREADS]; 
 
+void download_bitstream(void)
+{
+  int issue,tag;
+  char target[1024]="mega65r2";
+  if (sscanf(bitstream,"@%d/%d/%s",&issue,&tag,target)<2) {
+    fprintf(stderr,"ERROR: @ directive to download bitstreams must be in the format issue/tag/hardware, e.g., 168/1/mega65r2\n");
+    exit(-3);
+  }
+
+  fprintf(stderr,"Fetching bitstream from scryptos archive...\n");
+  unlink("/tmp/monitor_load.folder.txt");
+  char cmd[8192];
+  snprintf(cmd,8192,"echo ls | cadaver \"https://app.scryptos.com/webdav/MEGA/groups/MEGA65%%20filehost/ShareFolder/Bitstreams/Jenkins-Out/mega65-core/issues/%d/\" | grep \"%d-\" | cut -c9-40 | sed 's/ //g' > /tmp/monitor_load.folder.txt",
+	   issue,tag);
+  system(cmd);
+
+  FILE *f=fopen("/tmp/monitor_load.folder.txt","r");
+  if (!f) {
+    fprintf(stderr,"ERROR: Could not read WebDAV retrieved folder name from /tmp/monitor_load.folder.txt\n");
+    exit(-2);
+  }
+  char folder[8192]="";
+  fread(folder,1,8192,f);  
+  fclose(f);
+  while(folder[0]&&folder[strlen(folder)-1]<' ') folder[strlen(folder)-1]=0;
+  fprintf(stderr,"Resolved %d/%d to %d/%s\n",issue,tag,issue,folder);
+  
+  unlink("/tmp/monitor_load.bit");
+  snprintf(cmd,8192,"echo \"get %s.bit /tmp/monitor_load.bit\" | cadaver  \"https://app.scryptos.com/webdav/MEGA/groups/MEGA65%%20filehost/ShareFolder/Bitstreams/Jenkins-Out/mega65-core/issues/%d/%s/\"",target,issue,folder);
+  fprintf(stderr,"%s\n",cmd);
+  system(cmd);
+  bitstream="/tmp/monitor_load.bit";
+}
+
+void download_hyppo(void)
+{
+}
+
 int main(int argc,char **argv)
 {
   start_time=time(0);
@@ -1629,7 +1668,9 @@ int main(int argc,char **argv)
       screen_shot=1;
       break;
     case 'b':
-      bitstream=strdup(optarg); break;
+      bitstream=strdup(optarg);
+      if (bitstream[0]=='@') download_bitstream();
+      break;
     case 'j':
       jtag_only=1; break;
     case 'J':
@@ -1639,7 +1680,10 @@ int main(int argc,char **argv)
     case 'V':
       set_vcd_file(optarg);
       break;
-    case 'k': hyppo=strdup(optarg); break;
+    case 'k':
+      hyppo=strdup(optarg);
+      if (hyppo[0]=='@') download_hyppo();
+      break;
     case 't': case 'T':
       type_text=strdup(optarg);
       if (opt=='T') type_text_cr=1;
