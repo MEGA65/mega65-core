@@ -24,7 +24,7 @@ use Std.TextIO.all;
 library UNISIM;
 use UNISIM.vcomponents.all;
 use work.cputypes.all;
-                
+
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
 --use IEEE.NUMERIC_STD.ALL;
@@ -276,6 +276,29 @@ architecture Behavioral of container is
   signal ycounter : integer := 0;
 
   signal reg_num : unsigned(31 downto 0) := to_unsigned(0,32);
+
+  signal ram_cache : unsigned(511 downto 0) := (others => '0');
+  signal ram_written : unsigned(511 downto 0) := (others => '0');
+
+  signal ram_cell : integer range 0 to 511 := 0;
+
+  signal frame_counter : unsigned(7 downto 0) := x"00";
+
+  signal joya_idle : std_logic := '1';
+  signal joyb_idle : std_logic := '1';
+
+  signal expansionram_read : std_logic;
+  signal expansionram_write : std_logic;
+  signal expansionram_rdata : unsigned(7 downto 0);
+  signal expansionram_wdata : unsigned(7 downto 0);
+  signal expansionram_address : unsigned(26 downto 0);
+  signal expansionram_data_ready_strobe : std_logic;
+  signal expansionram_busy : std_logic;
+
+  signal read_address : unsigned(7 downto 0) := to_unsigned(0,8);
+  
+  signal queue_ram_write : std_logic := '0';
+  signal read_countdown : integer range 0 to 10 := 0;
   
 begin
 
@@ -284,33 +307,33 @@ begin
 --XilinxHDLLibrariesGuide,version2012.4
   STARTUPE2_inst: STARTUPE2
     generic map(PROG_USR=>"FALSE", --Activate program event security feature.
-                                   --Requires encrypted bitstreams.
-  SIM_CCLK_FREQ=>10.0 --Set the Configuration Clock Frequency(ns) for simulation.
-    )
+                --Requires encrypted bitstreams.
+                SIM_CCLK_FREQ=>10.0 --Set the Configuration Clock Frequency(ns) for simulation.
+                )
     port map(
 --      CFGCLK=>CFGCLK,--1-bit output: Configuration main clock output
 --      CFGMCLK=>CFGMCLK,--1-bit output: Configuration internal oscillator
-                              --clock output
+      --clock output
 --             EOS=>EOS,--1-bit output: Active high output signal indicating the
-                      --End Of Startup.
+      --End Of Startup.
 --             PREQ=>PREQ,--1-bit output: PROGRAM request to fabric output
-             CLK=>'0',--1-bit input: User start-up clock input
-             GSR=>'0',--1-bit input: Global Set/Reset input (GSR cannot be used
-                      --for the port name)
-             GTS=>'0',--1-bit input: Global 3-state input (GTS cannot be used
-                      --for the port name)
-             KEYCLEARB=>'0',--1-bit input: Clear AES Decrypter Key input
-                                  --from Battery-Backed RAM (BBRAM)
-             PACK=>'0',--1-bit input: PROGRAM acknowledge input
+      CLK=>'0',--1-bit input: User start-up clock input
+      GSR=>'0',--1-bit input: Global Set/Reset input (GSR cannot be used
+      --for the port name)
+      GTS=>'0',--1-bit input: Global 3-state input (GTS cannot be used
+      --for the port name)
+      KEYCLEARB=>'0',--1-bit input: Clear AES Decrypter Key input
+      --from Battery-Backed RAM (BBRAM)
+      PACK=>'0',--1-bit input: PROGRAM acknowledge input
 
-             -- Put CPU clock out on the QSPI CLOCK pin
-             USRCCLKO=>cpuclock,--1-bit input: User CCLK input
-             USRCCLKTS=>'0',--1-bit input: User CCLK 3-state enable input
+      -- Put CPU clock out on the QSPI CLOCK pin
+      USRCCLKO=>cpuclock,--1-bit input: User CCLK input
+      USRCCLKTS=>'0',--1-bit input: User CCLK 3-state enable input
 
-             -- Assert DONE pin
-             USRDONEO=>'1',--1-bit input: User DONE pin output control
-             USRDONETS=>'1' --1-bit input: User DONE 3-state enable output
-             );
+      -- Assert DONE pin
+      USRDONEO=>'1',--1-bit input: User DONE pin output control
+      USRDONETS=>'1' --1-bit input: User DONE 3-state enable output
+      );
 -- End of STARTUPE2_inst instantiation
 
   reconfig1: entity work.reconfig
@@ -338,7 +361,7 @@ begin
       powerled => '1',
       flopled => '1',
       flopmotor => '1',
-            
+      
       kio8 => kb_io0,
       kio9 => kb_io1,
       kio10 => kb_io2,
@@ -365,20 +388,20 @@ begin
 
   pixel0: entity work.pixel_driver
     port map (
-               clock81 => pixelclock, -- 80MHz
-               clock162 => clock162,
-               clock27 => clock27,
+      clock81 => pixelclock, -- 80MHz
+      clock162 => clock162,
+      clock27 => clock27,
 
-               cpuclock => cpuclock,
+      cpuclock => cpuclock,
 
-               pixel_strobe_out => pixel_strobe,
+      pixel_strobe_out => pixel_strobe,
       
-               -- Configuration information from the VIC-IV
-               hsync_invert => zero,
-               vsync_invert => zero,
-               pal50_select => zero,
-               vga60_select => zero,
-               test_pattern_enable => one,      
+      -- Configuration information from the VIC-IV
+      hsync_invert => zero,
+      vsync_invert => zero,
+      pal50_select => zero,
+      vga60_select => zero,
+      test_pattern_enable => one,      
       
       -- Framing information for VIC-IV
       x_zero => x_zero,     
@@ -399,7 +422,7 @@ begin
 --      red_o => panelred,
 --      green_o => panelgreen,
 --      blue_o => panelblue,
-               
+      
       hsync => pattern_hsync,
       vsync => pattern_vsync,  -- for HDMI
 --      vga_hsync => vga_hsync,      -- for VGA          
@@ -412,7 +435,7 @@ begin
 --      vga_inletterbox => vga_inletterbox
 
       );
-      
+  
 
   
   hdmi0: entity work.vga_hdmi
@@ -450,54 +473,132 @@ begin
       right_in => std_logic_vector(h_audio_right)
       );
 
+  hyperram0: entity work.hyperram
+    port map (
+      pixelclock => pixelclock,
+      clock163 => clock162,
+
+      -- XXX Debug by showing if expansion RAM unit is receiving requests or not
+      request_counter => led,
+      
+      -- reset => reset_out,
+      address => expansionram_address,
+      wdata => expansionram_wdata,
+      read_request => expansionram_read,
+      write_request => expansionram_write,
+      rdata => expansionram_rdata,
+      data_ready_strobe => expansionram_data_ready_strobe,
+      busy => expansionram_busy,
+      hr_d => hr_d,
+      hr_rwds => hr_rwds,
+      hr_reset => hr_reset,
+      hr_clk_p => hr_clk_p,
+--      hr_clk_n => hr_clk_n,
+      hr_cs0 => hr_cs0
+      );
+
+  
   PROCESS (PIXELCLOCK) IS
+    variable row : unsigned(31 downto 0);
+    variable thebit : unsigned(31 downto 0);
   BEGIN
 
     if rising_edge(pixelclock) then
-    if y_zero = '1' then
-      ycounter <= 0;
-    elsif x_zero = '1' then
-      xcounter <= to_unsigned(0,12);
-      if xcounter /= to_unsigned(0,12) then
-        ycounter <= ycounter + 1;
+      
+      -- Control hyperram
+      if expansionram_data_ready_strobe='1' then
+        if (read_address /= ((512/8)-1)) then
+          read_address <= read_address + 1;
+        else
+          read_address <= to_unsigned(0,8);
+        end if;
+              
+        ram_cache(to_integer(read_address)*8+7 downto to_integer(read_address)*8+0) <= expansionram_rdata;
+        expansionram_read <= '0';
+        expansionram_write <= '0';
+      elsif expansionram_busy = '1' then
+        expansionram_read <= '0';
+        expansionram_write <= '0';
+      elsif (queue_ram_write = '1') and (expansionram_busy='0') then
+        queue_ram_write <= '0';
+        thebit := to_unsigned(ram_cell,32);
+        expansionram_address <= thebit(29 downto 3);
+        thebit(31 downto 3) := to_unsigned(ram_cell,29);
+        thebit(2 downto 0) := "000";
+        expansionram_wdata <= ram_written((to_integer(thebit)+7) downto to_integer(thebit));
+        expansionram_read <= '0';
+        expansionram_write <= '1';
+        read_countdown <= 10;
+      elsif (queue_ram_write = '0') and (expansionram_busy='0') and (read_countdown=0) then
+        expansionram_address <= (others => '0');
+        -- XXX DEBUG limit reading to only 4 bytes repeatedly
+        expansionram_address(1 downto 0) <= read_address(1 downto 0);
+        expansionram_read <= '1';
+        expansionram_write <= '0';
+      elsif read_countdown /= 0 then
+        read_countdown <= read_countdown - 1;
       end if;
-    elsif pixel_strobe = '1' then
-      xcounter <= xcounter + 1;
-    end if;
+      
+      
+      if y_zero = '1' then
+        if ycounter /= 0 then
+          frame_counter <= frame_counter + 1;
+          joya_idle <= fa_left and fa_right and fa_up and fa_down and fa_fire;
+          if joya_idle='1' then
+            if fa_left='0' then
+              ram_cell <= ram_cell - 1;
+            elsif fa_right='0' then
+              ram_cell <= ram_cell + 1;
+            elsif fa_up='0' then
+              ram_cell <= ram_cell - 32;
+            elsif fa_down='0' then
+              ram_cell <= ram_cell + 32;
+            end if;
+            if fa_fire='0' then
+              -- Trigger toggle of the RAM cell in question
+              ram_written(ram_cell) <= not ram_written(ram_cell);
+              queue_ram_write <= '1';
+            end if;
+          end if;
+        end if;
+        ycounter <= 0;
+      elsif x_zero = '1' then
+        xcounter <= to_unsigned(0,12);
+        if xcounter /= to_unsigned(0,12) then
+          ycounter <= ycounter + 1;
+        end if;
+      elsif pixel_strobe = '1' then
+        xcounter <= xcounter + 1;
+      end if;
 
-    -- Show values read back
-    if y_zero = '1' or x_zero = '1' then
-      green <= x"ff";
-    else
-      green <= x"00";
-    end if;
-    blue <= x"00";
-    if xcounter(3 downto 0) = "0000" then
-      red <= x"00";      
-    elsif to_integer(xcounter(11 downto 4)) < 37 and to_integer(xcounter(11 downto 4)) > 4 then
-      blue <= x"00";
-      if ycounter = 0 or ycounter = 64 or ycounter = 128 or ycounter = 192 or ycounter = 256 or ycounter = 320 or ycounter = 384 then
-        red <= x"00";
-        blue <= x"FF";
-      elsif ycounter < 64 then
-        red <= (others => boot_address(to_integer(xcounter(11 downto 4))-5));
-      elsif ycounter < 128 then
-        red <= (others => boot_address(to_integer(xcounter(11 downto 4))-5));
-      elsif ycounter < 192 then
-        red <= (others => boot_address(to_integer(xcounter(11 downto 4))-5));
-      elsif ycounter < 256 then
-        red <= (others => boot_address(to_integer(xcounter(11 downto 4))-5));
-      elsif ycounter < 320 then
-        red <= (others => boot_address(to_integer(xcounter(11 downto 4))-5));
-      elsif ycounter < 384 then
-        red <= (others => reg_num(to_integer(xcounter(11 downto 4))-5));
+      -- Show values read back
+      if y_zero = '1' or x_zero = '1' then
+        green <= x"ff";
       else
-        red <= (others => xcounter(4));
+        green <= x"00";
       end if;
-    else
-      red <= x"00";
+      blue <= x"00";
+      if xcounter(3 downto 0) = "0000" and (xcounter(11 downto 4)>4) and (xcounter(11 downto 4)<=37)
+        and (ycounter >=64) and (ycounter < (64+16*16)) then
+        red <= x"00";
+        blue <= x"ff";
+      elsif to_integer(xcounter(11 downto 4)) < 37 and to_integer(xcounter(11 downto 4)) > 4 then
+        row := to_unsigned(ycounter-64,32);
+        blue <= x"00";
+        if row(3 downto 0) = "0000" and ycounter>=64 and ycounter<=320 then
+          red <= x"00";
+          blue <= x"FF";
+        elsif ycounter >=64 and ycounter < (64+16*16) then
+          red <= (others => ram_cache(to_integer(row(31 downto 4))*32+to_integer(xcounter(11 downto 4))-5));
+          blue <= (others => ram_written(to_integer(row(31 downto 4))*32+to_integer(xcounter(11 downto 4))-5));
+          if ram_cell = (to_integer(row(31 downto 4))*32+to_integer(xcounter(11 downto 4))-5) then
+            green <= (others => frame_counter(5));
+          end if;
+        end if;
+      else
+        red <= x"00";
+      end if;
     end if;
-  end if;
     
     VGARED <= UNSIGNED(RED);
     VGAGREEN <= UNSIGNED(GREEN);
@@ -506,7 +607,7 @@ begin
     HDMIRED <= UNSIGNED(RED);
     hdmigreen <= unsigned(green);
     hdmiblue <= unsigned(blue);
-  
+    
     vdac_sync_n <= '0';  -- no sync on green
     vdac_blank_n <= '1'; -- was: not (v_hsync or v_vsync); 
 
