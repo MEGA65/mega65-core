@@ -45,6 +45,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <errno.h>
 #include <getopt.h>
 
+int xemu_mode=0;
+
 time_t start_time=0;
 
 FILE  *o=NULL;
@@ -139,7 +141,8 @@ int process_line(char *line,int live)
 	       &bs_low,&bs_high,&be_low,&be_high)==4) {
       start_addr=bs_low+(bs_high<<8);
       end_addr=be_low+(be_high<<8)-1;
-      if (!start_addr) {
+      printf("start_addr=$%04x\n",start_addr);
+      if (start_addr<0x0801) {
 	printf("Using C65 BASIC pointers\n");
 	// Probably C65 mode
 	start_addr=end_addr;
@@ -160,7 +163,7 @@ int process_line(char *line,int live)
       start_addr=((foo>>24)&0xff)+((foo>>8)&0xff00);
       end_addr=((foo>>8)&0xff) + ((foo<<8)&0xff00) -1;
 
-      if (!start_addr) {
+      if (start_addr<0x0801) {
 	printf("Using C65 BASIC pointers\n");
 	// Probably C65 mode
 	start_addr=end_addr;
@@ -172,8 +175,6 @@ int process_line(char *line,int live)
       fprintf(stderr,"BASIC program occupies $%04x -- $%04x\n",
 	      start_addr,end_addr);
 
-      fprintf(stderr,"BASIC program occupies $%04x -- $%04x\n",
-	      start_addr,end_addr);
       // C64 BASIC header
       fputc(start_addr&0xff,o); fputc((start_addr>>8)&0xff,o);      
       state=1;
@@ -283,11 +284,12 @@ int process_waiting(int fd)
 void usage(void)
 {
   fprintf(stderr,"MEGA65 cross-development tool for saving from a running MEGA65.\n");
-  fprintf(stderr,"usage: monitor_save [-l <serial port>] [-s <230400|2000000|4000000>]  filename\n");
+  fprintf(stderr,"usage: monitor_save [-l <serial port>] [-s <230400|2000000|4000000>] [-X]  filename\n");
   fprintf(stderr,"  -l - Name of serial port to use, e.g., /dev/ttyUSB1\n");
   fprintf(stderr,"  -s - Speed of serial port in bits per second. This must match what your bitstream uses.\n");
   fprintf(stderr,"       (Older bitstream use 230400, and newer ones 2000000 or 4000000).\n");
   fprintf(stderr,"  -a - Specify address range to save as start:end in hex.\n");
+  fprintf(stderr,"  -X - Save an Xemu memory archive, e.g., for using to extract screen shots via Xemu tools.\n"); 
   fprintf(stderr,"  filename - Name of file to save memory into.\n");
   fprintf(stderr,"\n");
   exit(-3);
@@ -299,8 +301,12 @@ int main(int argc,char **argv)
   last_check = gettime_ms();
   
   int opt;
-  while ((opt = getopt(argc, argv, "l:s:a:")) != -1) {
+  while ((opt = getopt(argc, argv, "l:s:a:X")) != -1) {
     switch (opt) {
+    case 'X':
+      // Save Xemu compatible memory image for extracting screen shots etc
+      xemu_mode=1;
+      break;
     case 'l': strcpy(serial_port,optarg); break;
     case 's':
       serial_speed=atoi(optarg);
