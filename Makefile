@@ -454,7 +454,9 @@ $(TESTDIR)/instructiontiming.prg:       $(TESTDIR)/instructiontiming.c $(TESTDIR
 $(UTILDIR)/mega65_config.prg:       $(UTILDIR)/mega65_config.o $(CC65)
 	$(LD65) $< --mapfile $*.map -o $*.prg
 
-$(UTILDIR)/megaflash.prg:       $(UTILDIR)/megaflash.c $(CC65) $(SRCDIR)/mega65-libc/cc65/src/*.c $(SRCDIR)/mega65-libc/cc65/src/*.s $(SRCDIR)/mega65-libc/cc65/include/*.h
+$(UTILDIR)/megaflash.prg:       $(UTILDIR)/megaflash.c $(CC65)
+	git submodule init
+	git submodule update
 	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -O -o $*.prg --mapfile $*.map $<  $(SRCDIR)/mega65-libc/cc65/src/*.c $(SRCDIR)/mega65-libc/cc65/src/*.s
 
 $(UTILDIR)/i2clist.prg:       $(UTILDIR)/i2clist.c $(CC65)
