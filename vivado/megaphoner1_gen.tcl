@@ -176,6 +176,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/expansion_port_controller.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/machine.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/fpgatemp.vhd"]"\
+ "[file normalize "$origin_dir/src/vhdl/reconfig.vhd"]"\
  "[file normalize "$origin_dir/src/vhdl/ddrwrapper.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/megaphoner1.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/rain.vhdl"]"\
