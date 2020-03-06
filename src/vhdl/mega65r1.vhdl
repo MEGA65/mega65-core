@@ -124,6 +124,12 @@ entity container is
          
          
          ---------------------------------------------------------------------------
+         -- IO lines to QSPI config flash (used so that we can update bitstreams)
+         ---------------------------------------------------------------------------
+         QspiDB : inout unsigned(3 downto 0) := (others => '0');
+         QspiCSn : out std_logic;
+         
+         ---------------------------------------------------------------------------
          -- IO lines to the ethernet controller
          ---------------------------------------------------------------------------
          eth_mdio : inout std_logic;
@@ -218,10 +224,6 @@ architecture Behavioral of container is
   -- XXX We should read the real temperature and feed this to the DDR controller
   -- so that it can update timing whenever the temperature changes too much.
   signal fpga_temperature : std_logic_vector(11 downto 0) := (others => '0');
-
-  -- XXX Connect to real QSPI flash interface at some point
-  signal QspiDB : std_logic_vector(3 downto 0) := (others => '0');
-  signal QspiCSn : std_logic := '1';
 
   signal fa_left_drive : std_logic;
   signal fa_right_drive : std_logic;
