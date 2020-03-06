@@ -131,8 +131,7 @@ entity container is
          ----------------------------------------------------------------------
          -- Flash RAM for holding config
          ----------------------------------------------------------------------
---         QspiSCK : out std_logic;
-         QspiDB : inout std_logic_vector(3 downto 0) := (others => 'Z');
+         QspiDB : inout unsigned(3 downto 0) := (others => '0');
          QspiCSn : out std_logic;
 
          ----------------------------------------------------------------------
