@@ -524,9 +524,9 @@ $(SRCDIR)/open-roms/assets/8x8font.png:
 	git submodule update
 	( cd $(SRCDIR)/open-roms ; git submodule init ; git submodule update )
 
-$(VHDLSRCDIR)/shadowram.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65 $(ASSETS)/alphatest.bin Makefile $(SDCARD_DIR)/FREEZER.M65  $(SRCDIR)/open-roms/build/newc65 $(SRCDIR)/utilities/megaflash.prg
+$(VHDLSRCDIR)/shadowram.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65 $(ASSETS)/alphatest.bin Makefile $(SDCARD_DIR)/FREEZER.M65  $(SRCDIR)/open-roms/newc65 $(SRCDIR)/utilities/megaflash.prg
 	mkdir -p $(SDCARD_DIR)
-	$(TOOLDIR)/mempacker/mempacker_new -n shadowram -s 393215 -f $(VHDLSRCDIR)/shadowram.vhdl $(SDCARD_DIR)/BANNER.M65@57D00 $(SDCARD_DIR)/FREEZER.M65@12000 $(SRCDIR)/open-roms/build/newc65@20000 $(SRCDIR)/utilities/megaflash.prg@50000
+	$(TOOLDIR)/mempacker/mempacker_new -n shadowram -s 393215 -f $(VHDLSRCDIR)/shadowram.vhdl $(SDCARD_DIR)/BANNER.M65@57D00 $(SDCARD_DIR)/FREEZER.M65@12000 $(SRCDIR)/open-roms/newc65@20000 $(SRCDIR)/utilities/megaflash.prg@50000
 
 $(VERILOGSRCDIR)/monitor_mem.v:	$(TOOLDIR)/mempacker/mempacker_v $(BINDIR)/monitor.m65
 	$(TOOLDIR)/mempacker/mempacker_v -n monitormem -w 12 -s 4096 -f $(VERILOGSRCDIR)/monitor_mem.v $(BINDIR)/monitor.m65@0000
