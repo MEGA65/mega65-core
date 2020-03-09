@@ -1397,8 +1397,14 @@ void main(void)
   // key is being pressed.  In that case, we show the menu of
   // flash slots, and allow the user to select which core to load.
 
-  // XXX Temporarily allow ESC to get to flash menu to avoid
-  // race-conditions with version in bitstream
+  // Holding ESC on boot will prevent flash menu starting
+  if (PEEK(0xD610)==0x1b) {
+    // Switch back to normal speed control before exiting
+    POKE(0,64);
+    POKE(0xCF7f,0x4C);
+    asm (" jmp $cf7f ");
+  }
+  
   if (PEEK(0xD610)!=0x09) {
   
     // Select BOOTSTS register
@@ -1614,6 +1620,14 @@ void main(void)
 	  else reconfig_fpga((x-'0')*(4*1048576)+4096);
 	}
 	switch(x) {
+	case 0x03: case 0x1b:
+	  // Simply exit flash menu without doing anything.
+	  
+	  // Switch back to normal speed control before exiting
+	  POKE(0,64);
+	  POKE(0xCF7f,0x4C);
+	  asm (" jmp $cf7f ");
+	  
 	case 0x1d: case 0x11:
 	  selected++;
 	  if (selected>=(mb>>2)) selected=0;
