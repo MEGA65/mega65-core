@@ -122,6 +122,11 @@ entity container is
          hdmi_de : out std_logic; -- high when valid pixels being output
          -- (i.e., when hsync, vsync both low?)
          
+         ---------------------------------------------------------------------------
+         -- IO lines to QSPI config flash (used so that we can update bitstreams)
+         ---------------------------------------------------------------------------
+         QspiDB : inout unsigned(3 downto 0) := (others => '0');
+         QspiCSn : out std_logic;
          
          ---------------------------------------------------------------------------
          -- IO lines to QSPI config flash (used so that we can update bitstreams)
@@ -330,8 +335,8 @@ begin
       cpu_game => cpu_game,
       sector_buffer_mapped => sector_buffer_mapped,
       
-      qspidb => qspidb,
-      qspicsn => qspicsn,      
+      qspidb => qspiDB,
+      qspicsn => qspiCSn,      
       qspisck => qspi_clock,
 
       joya => joy3,
@@ -348,6 +353,7 @@ begin
       slow_access_rdata => slow_access_rdata,
 
       expansionram_data_ready_strobe => '1',
+      expansionram_busy => '1',
   
       ----------------------------------------------------------------------
       -- Expansion/cartridge port
