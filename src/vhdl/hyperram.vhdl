@@ -105,6 +105,13 @@ architecture gothic of hyperram is
 
   signal write_latency : unsigned(7 downto 0) := to_unsigned((8 - 2)*2,8);
     -- to_unsigned(8 - 2 - 1,8);
+
+  constant cache_enabled : boolean := false;
+
+  signal hr_d_pending : std_logic := '0';
+  signal hr_flags_pending : std_logic := '0';
+  signal hr_d_newval : unsigned(7 downto 0);
+  signal hr_flags_newval : unsigned(7 downto 0);
   
 begin
   process (pixelclock,clock163) is
@@ -113,6 +120,9 @@ begin
       report "read_request=" & std_logic'image(read_request) & ", busy_internal=" & std_logic'image(busy_internal)
         & ", write_request=" & std_logic'image(write_request);
 
+      hr_d_pending <= '0';
+      hr_flags_pending <= '0';
+      
       busy <= busy_internal;
 
       fake_data_ready_strobe <= '0';
@@ -141,7 +151,7 @@ begin
         ram_reading <= '1';
 
         -- Check for cache read
-        if false and (address(26 downto 3 ) = cache_row0_address and cache_row0_valids(to_integer(address(2 downto 0))) = '1') then
+        if cache_enabled and (address(26 downto 3 ) = cache_row0_address and cache_row0_valids(to_integer(address(2 downto 0))) = '1') then
           -- Cache read
           fake_data_ready_strobe <= '1';
           fake_rdata <= cache_row0_data(to_integer(address(2 downto 0)));
@@ -191,13 +201,17 @@ begin
               elsif wdata = x"1d" then
                 debug_mode <= '0';
               end if;
---            when x"1" =>
+            when x"1" =>
+              hr_d_pending <= '1';
+              hr_d_newval <= wdata;
 --              if hr_ddr='1' then
 --                hr_d <= wdata;
 --              else
 --                hr_d <= (others => 'Z');
 --              end if;
---            when x"2" =>
+            when x"2" =>
+              hr_flags_pending <= '1';
+              hr_flags_newval <= wdata;
 --              hr_rwds_int <= wdata(0);
 --              hr_reset_int <= wdata(1);
 --              hr_clk_n_int <= wdata(2);
@@ -237,6 +251,32 @@ begin
 
       cycle_count <= cycle_count + 1;
 
+      -- Bitbashing interface to write values
+      if hr_d_pending='1' then
+        if hr_ddr='1' then
+          hr_d <= hr_d_newval;
+        end if;
+      end if;
+      if hr_flags_pending='1' then
+        hr_rwds_int <= hr_flags_newval(0);
+        hr_reset_int <= hr_flags_newval(1);
+        hr_clk_n_int <= hr_flags_newval(2);
+        hr_clk_p_int <= hr_flags_newval(3);
+        hr_cs0_int <= hr_flags_newval(4);
+        hr_cs1_int <= hr_flags_newval(5);
+        
+        hr_reset <= hr_flags_newval(1);
+        hr_clk_n <= hr_flags_newval(2);
+        hr_clk_p <= hr_flags_newval(3);
+        hr_cs0 <= hr_flags_newval(4);
+        hr_cs1 <= hr_flags_newval(5);
+        
+        hr_ddr <= hr_flags_newval(6);
+        if hr_flags_newval(6)='0' then
+          hr_d <= (others => 'Z');
+        end if;
+      end if;        
+      
       if data_ready_strobe_hold = '0' then      
         data_ready_strobe <= fake_data_ready_strobe;
         if fake_data_ready_strobe='1' then
