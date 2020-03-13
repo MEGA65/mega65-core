@@ -226,22 +226,22 @@ begin
         -- Analog VGA HSYNC needs to be somewhat earlier, to allow
         -- pseudo-flyback time
         if x = vga_hsync_start then
-          vga_hsync <= '0';
+          vga_hsync <= not hsync_polarity;
         end if;
         if x = vga_hsync_end then
-          vga_hsync <= '1';
+          vga_hsync <= hsync_polarity;
         end if;
 
         
         -- VSYNC is negative by default
         if y = vsync_start then
           lcd_vsync <= '0';
-          vsync_driver <= '0';
+          vsync_driver <= vsync_polarity;
           vsync_uninverted_driver <= '1'; 
         end if;
         if y = vsync_end+1 then
           lcd_vsync <= '1';
-          vsync_driver <= '1';
+          vsync_driver <= not vsync_polarity;
           vsync_uninverted_driver <= '0'; 
         end if;
 
