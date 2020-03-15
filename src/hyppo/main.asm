@@ -2986,9 +2986,6 @@ flash_menu:
 	// We should also reset video mode to normal
 	lda #$40
 	sta $d054
-HOHO:	
-        inc $D020
-        jmp HOHO
 
 	// Tell KERNAL screen is at $0400
 	lda #>$0400
@@ -3006,6 +3003,10 @@ HOHO:
 	ldz #$3f
 	map
 	eom
+
+        HOHO:	
+                inc $D020
+                jmp HOHO
 	
 	// Actually launch freeze menu
 	jmp $080d
