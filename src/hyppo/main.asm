@@ -655,7 +655,7 @@ not_first_boot_message:
 first_boot_flag_instruction:
 	// Use first boot code path only once
 	// WARNING: Self modifying code!
-	jmp dont_launch_flash_menu
+	bit dont_launch_flash_menu
 
 	// On first boot, we start the flash menu regardless
 	// (The flash menu will work out whether to switch bitstream or not)
@@ -2986,7 +2986,9 @@ flash_menu:
 	// We should also reset video mode to normal
 	lda #$40
 	sta $d054
-	
+HOHO:	
+        inc $D020
+        jmp HOHO
 
 	// Tell KERNAL screen is at $0400
 	lda #>$0400
