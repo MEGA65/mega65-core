@@ -3009,10 +3009,6 @@ flash_menu:
 	ldz #$3f
 	map
 	eom
-
-        HOHO:	
-                inc $D020
-                jmp HOHO
 	
 	// Actually launch freeze menu
 	jmp $080d
