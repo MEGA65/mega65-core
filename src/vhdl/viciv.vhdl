@@ -200,7 +200,7 @@ architecture Behavioral of viciv is
   signal stop_chargen_raster_counter : unsigned(7 downto 0) := x"00";
   signal stop_chargen_delay : unsigned(7 downto 0) := to_unsigned(3,8);
   
-  signal vicii_2mhz_internal : std_logic := '1';
+  signal vicii_2mhz_internal : std_logic := '0';
   signal viciii_fast_internal : std_logic := '1';
   signal viciv_fast_internal : std_logic := '1';
   signal viciv_bitplane_chargen_on : std_logic := '0';
