@@ -3003,12 +3003,12 @@ flash_menu:
 
 	// Clear memory map at $4000-5FFF
 	// (Why on earth do we even map some of the HyperRAM there, anyway???)
-	lda #0
-	tax
-	tay
-	ldz #$3f
-	map
-	eom
+;	lda #0
+;	tax
+;	tay
+;	ldz #$3f
+;	map
+;	eom
 	
 	// Actually launch freeze menu
 	jmp $080d
