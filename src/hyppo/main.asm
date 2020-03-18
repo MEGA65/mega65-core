@@ -2980,7 +2980,7 @@ flash_menu:
 	// the assembler to do an absolute write.
 	lda #$37
 	.byte $8d,$01,$00 // ABS STA $0001
-        inc     $D020
+        ;inc     $D020
 
 	// XXX Move Stack and ZP to normal places, before letting C64 KERNAL loose on
 	// Hypervisor memory map!
