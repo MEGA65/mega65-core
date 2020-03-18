@@ -3010,6 +3010,8 @@ flash_menu:
 ;	map
 ;	eom
 	
+        inc $D020
+        
 	// Actually launch freeze menu
 	jmp $080d
 
