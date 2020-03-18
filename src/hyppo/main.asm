@@ -2995,7 +2995,7 @@ flash_menu:
 	// We should also reset video mode to normal
 	lda #$40
 	sta $d054
-        inc     $D020
+        ;inc     $D020
 
 	// Tell KERNAL screen is at $0400
 	lda #>$0400
