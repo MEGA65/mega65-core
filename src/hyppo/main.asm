@@ -2973,12 +2973,14 @@ flash_menu:
         lda #<flashmenu_dmalist
         sta $d705
 
+        inc     $D020
 	// Bank in KERNAL ROM space so megaflash can run
 	// Writing to $01 when ZP is relocated is a bit tricky, as
 	// we have to mess about with the Base Register, or force
 	// the assembler to do an absolute write.
 	lda #$37
 	.byte $8d,$01,$00 // ABS STA $0001
+        inc     $D020
 
 	// XXX Move Stack and ZP to normal places, before letting C64 KERNAL loose on
 	// Hypervisor memory map!
@@ -2986,29 +2988,33 @@ flash_menu:
 	.byte $5B // tab
 	ldy #$01
 	.byte $2B // tys
+        inc     $D020
 	
 	// XXX DMA copy our current screen safely somewhere for later restoration?
 	
 	// We should also reset video mode to normal
 	lda #$40
 	sta $d054
+        inc     $D020
 
 	// Tell KERNAL screen is at $0400
 	lda #>$0400
 	sta $0288
 	// Now ask KERNAL to setup vectors
 	jsr $fd15
+        inc     $D020
 	// And clear screen, setup screen editor
 	jsr $e518
+        inc     $D020
 
 	// Clear memory map at $4000-5FFF
 	// (Why on earth do we even map some of the HyperRAM there, anyway???)
-;	lda #0
-;	tax
-;	tay
-;	ldz #$3f
-;	map
-;	eom
+	lda #0
+	tax
+	tay
+	ldz #$3f
+	map
+	eom
 	
         inc $D020
         
