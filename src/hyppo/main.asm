@@ -3001,12 +3001,13 @@ flash_menu:
 	lda #>$0400
 	sta $0288
         
-HOHO:
-        inc $d020
-        jmp HOHO
         
 	// Now ask KERNAL to setup vectors
 	jsr $fd15
+        HOHO:
+                inc $d020
+                jmp HOHO
+
         ;inc     $D020
 	// And clear screen, setup screen editor
 	jsr $e518
