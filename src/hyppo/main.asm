@@ -3004,14 +3004,15 @@ flash_menu:
         
 	// Now ask KERNAL to setup vectors
 	jsr $fd15
-        HOHO:
-                inc $d020
-                jmp HOHO
 
         ;inc     $D020
 	// And clear screen, setup screen editor
 	jsr $e518
         ;inc     $D020
+
+        HOHO:
+                inc $d020
+                jmp HOHO
 
 	// Clear memory map at $4000-5FFF
 	// (Why on earth do we even map some of the HyperRAM there, anyway???)
