@@ -2973,7 +2973,7 @@ flash_menu:
         lda #<flashmenu_dmalist
         sta $d705
 
-        inc     $D020
+        ;inc     $D020
 	// Bank in KERNAL ROM space so megaflash can run
 	// Writing to $01 when ZP is relocated is a bit tricky, as
 	// we have to mess about with the Base Register, or force
@@ -2988,7 +2988,7 @@ flash_menu:
 	.byte $5B // tab
 	ldy #$01
 	.byte $2B // tys
-        inc     $D020
+        ;inc     $D020
 	
 	// XXX DMA copy our current screen safely somewhere for later restoration?
 	
@@ -3000,6 +3000,11 @@ flash_menu:
 	// Tell KERNAL screen is at $0400
 	lda #>$0400
 	sta $0288
+        
+HOHO:
+        inc $d020
+        jmp HOHO
+        
 	// Now ask KERNAL to setup vectors
 	jsr $fd15
         ;inc     $D020
