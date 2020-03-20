@@ -3000,16 +3000,7 @@ flash_menu:
 	// Tell KERNAL screen is at $0400
 	lda #>$0400
 	sta $0288
-        
-        // Clear memory map at $4000-5FFF
-	// (Why on earth do we even map some of the HyperRAM there, anyway???)
-	lda #0
-	tax
-	tay
-	ldz #$3f
-	map
-	eom
-        
+                
 	// Now ask KERNAL to setup vectors
 	jsr $fd15
 
