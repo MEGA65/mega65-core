@@ -3012,7 +3012,7 @@ flash_menu:
         HOHO:
                 inc $d020
                 jmp HOHO
-
+jsr $e518
 	
         ;inc $D020
         
