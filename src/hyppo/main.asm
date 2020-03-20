@@ -3015,7 +3015,7 @@ flash_menu:
 
         ;inc     $D020
 	// And clear screen, setup screen editor
-	jsr $e518
+;	jsr $e518
         ;inc     $D020
 
         HOHO:
