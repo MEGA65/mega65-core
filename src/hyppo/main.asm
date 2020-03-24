@@ -621,6 +621,14 @@ reset_entry:
 	.byte $2B // tys
 	ldx #$ff
 	txs
+
+	// Clear mapping of lower memory area
+	ldx #$00
+	lda #$00
+	ldy #$00
+	ldz #$3f
+	map
+	eom
 	
 #import "debugtests.asm"
 
@@ -2252,7 +2260,7 @@ phd3:   lda (<zptempp2),y
         iny
         iny
         cpy #$50
-        bne phd3
+        bcc phd3
         rts
 
 phd2:   txa
@@ -2974,10 +2982,11 @@ flash_menu:
 
 	// Run the flash menu which is pre-loaded into memory on first boot
 	// (in the FPGA BRAM).
+	// Also DMA copy our current screen safely somewhere for later restoration	
 
         lda #$ff
         sta $d702
-        lda #$ff
+        // lda #$ff
         sta $d704  // dma list is in top MB of address space
         lda #>flashmenu_dmalist
         sta $d701
@@ -2999,20 +3008,9 @@ flash_menu:
 	ldy #$01
 	.byte $2B // tys
 	
-	// XXX DMA copy our current screen safely somewhere for later restoration?
-	
 	// We should also reset video mode to normal
 	lda #$40
 	sta $d054
-	
-
-	// Tell KERNAL screen is at $0400
-	lda #>$0400
-	sta $0288
-	// Now ask KERNAL to setup vectors
-	jsr $fd15
-	// And clear screen, setup screen editor
-	jsr $e518
 
 	// Clear memory map at $4000-5FFF
 	// (Why on earth do we even map some of the HyperRAM there, anyway???)
@@ -3022,7 +3020,24 @@ flash_menu:
 	ldz #$3f
 	map
 	eom
-	
+	// And set MB low to $00, so that OpenROM doesn't jump into lala land
+	lda #0
+	ldx #$0f
+	map
+	eom	
+
+	// Tell KERNAL screen is at $0400
+	lda #>$0400
+	sta $0288
+	// Now ask KERNAL to setup vectors
+	jsr $fd15
+	// And clear screen, setup screen editor
+	jsr $e518
+	// make sure not in quote mode etc
+	lda #$00
+	sta $d8 // number of insertions outstanding = 0
+	sta $0f // clear quote mode
+
 	// Actually launch freeze menu
 	jmp $080d
 
