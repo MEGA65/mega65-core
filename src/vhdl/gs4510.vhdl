@@ -5821,11 +5821,7 @@ begin
               if reg_instruction=I_JMP then
                 report "monitor_instruction_strobe assert (JMP indirect)";
                 monitor_instruction_strobe <= '1';
---                state <= normal_fetch_state;
-                -- Don't allow interrupts immediately after JMP ($xxxx), so
-                -- that new PC has time to be properly retained in the case of
-                -- an interrupt.
-                state <= fast_fetch_state;
+                state <= normal_fetch_state;
               else
                 report "MAP: Doing JSR ($nnnn) to $"&to_hstring(memory_read_value&reg_t);
                 dec_sp := '1';
