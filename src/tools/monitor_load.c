@@ -220,7 +220,10 @@ int slow_write_safe(int fd,char *d,int l)
   // monitor tells us when a breakpoint has been reached.
   slow_write(fd,"t1\r",3);
   slow_write(fd,d,l);
-  if (!cpu_stopped) slow_write(fd,"t0\r",3);
+  if (!cpu_stopped) {
+    //    printf("Resuming CPU after writing string\n");
+    slow_write(fd,"t0\r",3);
+  }
   return 0;
 }
 
@@ -363,6 +366,7 @@ int restart_hyppo(void)
 {
   // Start executing in new hyppo
   if (!halt) {
+    printf("Re-Starting CPU in new HYPPO\n");
     usleep(50000);
     slow_write(fd,"g8100\r",6);
     usleep(10000);
@@ -651,13 +655,13 @@ int process_line(char *line,int live)
   }
   if (sscanf(line,"%04x %02x %02x %02x %02x %02x",
 	     &pc,&a,&x,&y,&sp,&p)==6) {
-    //    printf("PC=$%04x\n",pc);
+    printf("PC=$%04x\n",pc);
     if (pc==0xf4a5||pc==0xf4a2||pc==0xf666) {
       // Intercepted LOAD command
       printf("LOAD vector intercepted\n");
       state=1;
-    } else if (pc>=0x8000&&pc<0xc000
-	       &&(hyppo)) {
+    } else if ( //  (pc>=0x8000&&pc<0xc000)&&
+	       (hyppo)) {
       int patchKS=0;
       if (romfile&&(!flashmenufile)) patchKS=1;
       fprintf(stderr,"[T+%lldsec] Replacing %shyppo...\n",
