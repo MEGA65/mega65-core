@@ -614,6 +614,14 @@ reset_machine_state:
 reset_entry:
         sei
 
+	// Put ZP and stack back where they belong
+	lda #$bf
+	.byte $5B // tab
+	ldy #$be
+	.byte $2B // tys
+	ldx #$ff
+	txs
+	
 #import "debugtests.asm"
 
         jsr reset_machine_state
