@@ -2833,7 +2833,7 @@ num1:
 utility_menu:
 	// Gets self-modified to prevent entering utility menu except on first boot
 	bit noutility_menu
-	
+
         // Display GIT commit again, so that it's easy to check commit of a build
         ldx #<msg_gitcommit
         ldy #>msg_gitcommit
@@ -2970,11 +2970,11 @@ ueol1:
         jsr task_set_c64_memorymap
         lda #$3f
         sta hypervisor_cpuport00
-        lda #$35 // IO + Kernel ROM @ $E000 (although Kernel is blank)
+        lda #$36 // IO + Kernel ROM @ $E000 (although Kernel is blank)
         sta hypervisor_cpuport01
 
-	jsr kludge_ffd2_for_cc65_programs
-
+	jsr setup_for_openrom
+	
         // Next instruction exits hypervisor to user mode
         sta hypervisor_enterexit_trigger
 
@@ -2994,6 +2994,20 @@ flash_menu:
         lda #<flashmenu_dmalist
         sta $d705
 
+	// XXX Move Stack and ZP to normal places, before letting C64 KERNAL loose on
+	// Hypervisor memory map!
+	lda #$00
+	.byte $5B // tab
+	ldy #$01
+	.byte $2B // tys
+		
+	jsr setup_for_openrom
+
+	// Actually launch freeze menu
+	jmp $080d
+	
+setup_for_openrom:
+	
 	// Bank in KERNAL ROM space so megaflash can run
 	// Writing to $01 when ZP is relocated is a bit tricky, as
 	// we have to mess about with the Base Register, or force
@@ -3001,13 +3015,6 @@ flash_menu:
 	lda #$37
 	.byte $8d,$01,$00 // ABS STA $0001
 
-	// XXX Move Stack and ZP to normal places, before letting C64 KERNAL loose on
-	// Hypervisor memory map!
-	lda #$00
-	.byte $5B // tab
-	ldy #$01
-	.byte $2B // tys
-	
 	// We should also reset video mode to normal
 	lda #$40
 	sta $d054
@@ -3038,8 +3045,44 @@ flash_menu:
 	sta $d8 // number of insertions outstanding = 0
 	sta $0f // clear quote mode
 
-	// Actually launch freeze menu
-	jmp $080d
+	// Clear common interrupt sources
+
+	// CIAs
+//	lda #$ff
+//	sta $dc0d
+//	sta $dd0d
+//	lda $dc0d
+//	lda $dd0d
+
+	// VIC-IV
+//	dec $d019
+//	lda #$00
+//	sta $d01a
+
+	// Ethernet
+//	lda #$00
+//	sta $d6e1
+
+	// C65 UART
+	// XXX Actually it can't generate interrupts yet, so nothing to do :)
+
+	// Finally, clear any pending interrupts by using MAP instruction
+//	tax
+//	tay
+//	taz
+//	map
+//	lda #0    // to give time to effect clearing irq_pending in CPU
+//	eom
+
+	// And ignore any queued NMI (these don't get cleared by the MAP trick)
+	lda #$40
+	sta $0420
+	lda #<$0420
+	sta $0318
+	lda #>$0420
+	sta $0319
+	
+	rts
 
 flashmenu_dmalist:
         // copy $50000-$577FF to $00007FF-$0007FFFF
@@ -3083,18 +3126,6 @@ screenrestore_dmalist:
         .word $0400 // starting addr 
         .byte $00   // of bank $5
         .word $0000 // modulo (unused)
-	
-	
-
-kludge_ffd2_for_cc65_programs:	
-        // make $FFD2 safe for CC65 compiled programs that call
-        // there to set lower case during initialisation.
-        // We need to write $60 to $2FFD2
-        lda #$60 // RTS
-        ldx #$d2
-        ldy #$ff
-        ldz #$02
-        jmp longpoke
 	
 utility_dmalist:
         // copy $FF8xxxx-$FF8yyyy to $00007FF-$000xxxx
