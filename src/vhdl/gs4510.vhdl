@@ -3829,10 +3829,10 @@ begin
         end case;
         if hypervisor_mode='0' and ((speed_gate_drive='1') and (force_fast='0')) and (fast_key='1') then
           case cpu_speed is
-            when "100" => -- 1mhz
+            when "000" => -- 1mhz
               cpuspeed <= x"01";
               cpuspeed_internal <= x"01";
-            when "101" => -- 1mhz
+            when "001" => -- 1mhz
               cpuspeed <= x"01";
               cpuspeed_internal <= x"01";
             when "110" => -- 3.5mhz
@@ -3841,10 +3841,10 @@ begin
             when "111" => -- full speed
               cpuspeed <= x"40";
               cpuspeed_internal <= x"40";
-            when "000" => -- 2mhz
+            when "100" => -- 2mhz
               cpuspeed <= x"02";
               cpuspeed_internal <= x"02";
-            when "001" => -- full speed
+            when "101" => -- full speed
               cpuspeed <= x"40";
               cpuspeed_internal <= x"40";
             when "010" => -- 3.5mhz
