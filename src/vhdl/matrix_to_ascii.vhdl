@@ -543,7 +543,7 @@ begin
             ascii_key <= key_matrix(key_num);
             repeat_key <= key_num;
               repeat_key_timer <= repeat_start_timer;
-              ascii_key_valid_countdown <= 511;
+              ascii_key_valid_countdown <= 1023;
               ascii_key_valid <= '0';
           else
             ascii_key_valid <= '0';
