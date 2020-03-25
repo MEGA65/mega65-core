@@ -81,7 +81,6 @@ begin
           -- Assert RIGHT key
           scan_mask(2) := '0';
         end if;
-        key_up_last <= key_up;        
         if key_up = '1' and key_up_last = x"FF" then
           -- Assert DOWN key
           scan_mask(7) := '0';
