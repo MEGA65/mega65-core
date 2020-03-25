@@ -557,8 +557,7 @@ begin
             -- lines will be detected as firmly down.            
             if (repeat_key /= key_num) or (suppress_key_retrigger='0') then
               repeat_key_timer <= repeat_start_timer;
---              if key_matrix(key_num) = x"11" or key_matrix(key_num) = x"1D" then
-              ascii_key_valid_countdown <= 511;
+              ascii_key_valid_countdown <= 1023;
               ascii_key_valid <= '0';
 --              else
 --                ascii_key_valid <= '1';
