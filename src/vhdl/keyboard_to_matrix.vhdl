@@ -34,8 +34,8 @@ architecture behavioral of keyboard_to_matrix is
 
   signal enabled : std_logic := '0';
 
-  signal key_left_last : std_logic := '1';
-  signal key_up_last : std_logic := '1';
+  signal key_left_last : unsigned(7 downto 0) := x"00";
+  signal key_up_last : unsigned(7 downto 0) := x"00";
   
   signal keyram_wea : std_logic_vector(7 downto 0);
   signal keyram_mask : std_logic_vector(7 downto 0);
@@ -72,16 +72,25 @@ begin
       -- Basically the problem is if the UP or LEFT keys were getting
       -- pressed after phase 5 but before phase 8.
       if scan_phase = 8 then
-        key_left_last <= key_left;
-        if key_left = scan_mode(0) and key_left = key_left_last then
+        key_left_last(0) <= key_left;
+        key_left_last(7 downto 1) <= key_left_last(6 downto 0);
+        key_up_last(0) <= key_up;
+        key_up_last(7 downto 1) <= key_up_last(6 downto 0);
+
+        if key_left = '1' and key_left_last = x"FF" then
+          -- Assert RIGHT key
           scan_mask(2) := '0';
         end if;
         key_up_last <= key_up;        
-        if key_up = scan_mode(0) and key_up = key_up_last then
+        if key_up = '1' and key_up_last = x"FF" then
+          -- Assert DOWN key
           scan_mask(7) := '0';
         end if;
       elsif scan_phase = 5 then
-        if key_left = scan_mode(0) or key_up = scan_mode(0) then
+        -- Assert shift early, and keep it asserted until after
+        -- the cursor keys have had ample time to clear
+        if key_left_last /= x"00" or key_up_last /= x"00" then
+          -- Assert right shift
           scan_mask(52 mod 8) := '0';
         end if;
       end if;
