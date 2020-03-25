@@ -550,8 +550,9 @@ begin
             ascii_key <= key_matrix(key_num);
             
             -- Make CAPS LOCK invert case of only letters
-            if bucky_key_internal(6)='1' and key_matrix(key_num) >= to_unsigned(96+1,8)
-              and key_matrix(key_num) <= to_unsigned(96+26,8) then
+            if bucky_key_internal(6)='1'
+              and (to_integer(key_matrix(key_num)) >= (96+1))
+              and (to_integer(key_matrix(key_num)) <= (96+26)) then
               ascii_key(6) <= '0';
             end if;
             
