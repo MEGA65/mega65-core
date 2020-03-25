@@ -508,7 +508,7 @@ begin
       -- as unique keys
       if bucky_key_internal(3)='1' then
         key_matrix := matrix_cbm;
-      elsif bucky_key_internal(0)='1' or bucky_key_internal(1)='1' or key_up='0' or key_left='0' then
+      elsif bucky_key_internal(0)='1' or bucky_key_internal(1)='1' or key_up='1' or key_left='1' then
         -- Force shifted key set if UP or LEFT keys active, to try to prevent
         -- glitching of those keys.
         key_matrix := matrix_shift;
