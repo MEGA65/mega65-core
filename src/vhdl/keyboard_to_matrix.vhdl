@@ -33,6 +33,9 @@ architecture behavioral of keyboard_to_matrix is
   signal scan_phase : integer range 0 to 15 := 0; -- reset entry phase
 
   signal enabled : std_logic := '0';
+
+  signal key_left_last : std_logic := '1';
+  signal key_up_last : std_logic := '1';
   
   signal keyram_wea : std_logic_vector(7 downto 0);
   signal keyram_mask : std_logic_vector(7 downto 0);
