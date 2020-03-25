@@ -63,12 +63,18 @@ begin
       -- which we correct at the hardware by rearranging the colunms
       -- we connect. This just leaves left and up that simulate specific
       -- keys that we have to shift left one column to match
-      scan_mask := x"FF";      
+      scan_mask := x"FF";
+      -- We delay asserting the UP/LEFT keys for one round, until
+      -- the shift key has had time to go down.
+      -- Basically the problem is if the UP or LEFT keys were getting
+      -- pressed after phase 5 but before phase 8.
       if scan_phase = 8 then
-        if key_left = scan_mode(0) then
+        key_left_last <= key_left;
+        if key_left = scan_mode(0) and key_left = key_left_last then
           scan_mask(2) := '0';
         end if;
-        if key_up = scan_mode(0) then
+        key_up_last <= key_up;        
+        if key_up = scan_mode(0) and key_up = key_up_last then
           scan_mask(7) := '0';
         end if;
       elsif scan_phase = 5 then
