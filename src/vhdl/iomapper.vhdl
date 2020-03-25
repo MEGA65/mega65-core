@@ -1604,7 +1604,9 @@ begin
       -- @IO:GS $FFF8114 Hypervisor entry point on FDC write (when virtualised) (trap $45)
       
       if address(19 downto 14)&"00" = x"F8" then
-        hyppocs <= cpu_hypervisor_mode;
+        -- XXX SECURITY DEBUG TEMPORARY Leave HYPPO mappable all the time for debug
+        -- hyppocs <= cpu_hypervisor_mode;
+        hyppocs <= '1';
       else
         hyppocs <='0';
       end if;
