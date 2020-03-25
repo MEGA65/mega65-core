@@ -552,7 +552,7 @@ begin
             
             repeat_key <= key_num;
               repeat_key_timer <= repeat_start_timer;
-              ascii_key_valid_countdown <= 1023;
+              ascii_key_valid_countdown <= 8191;
               ascii_key_valid <= '0';
           else
             ascii_key_valid <= '0';
