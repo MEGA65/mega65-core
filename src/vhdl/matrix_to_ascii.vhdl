@@ -566,7 +566,7 @@ begin
             -- lines will be detected as firmly down.            
             if (repeat_key /= key_num) or (suppress_key_retrigger='0') then
               repeat_key_timer <= repeat_start_timer;
-              ascii_key_valid_countdown <= 1023;
+              ascii_key_valid_countdown <= 8191;
               ascii_key_valid <= '0';
 --              else
 --                ascii_key_valid <= '1';
