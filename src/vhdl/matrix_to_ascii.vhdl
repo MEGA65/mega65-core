@@ -524,12 +524,13 @@ begin
 
         -- Update modifiers
         case key_num is
-          when 15 => bucky_key_internal(0) <= not debounce_key_state;
-          when 52 => bucky_key_internal(1) <= not debounce_key_state;
-          when 58 => bucky_key_internal(2) <= not debounce_key_state;
-          when 61 => bucky_key_internal(3) <= not debounce_key_state;
-          when 66 => bucky_key_internal(4) <= not debounce_key_state;
-          when 64 => bucky_key_internal(5) <= not debounce_key_state;
+          when 15 => bucky_key_internal(0) <= not debounce_key_state; -- LEFT/LOCK_SHIFT
+          when 52 => bucky_key_internal(1) <= not debounce_key_state; -- RIGHT_SHIFT
+          when 58 => bucky_key_internal(2) <= not debounce_key_state; -- CTRL
+          when 61 => bucky_key_internal(3) <= not debounce_key_state; -- MEGA
+          when 66 => bucky_key_internal(4) <= not debounce_key_state; -- ALT
+          when 64 => bucky_key_internal(5) <= not debounce_key_state; -- NO_SCROLL
+          when 78 => bucky_key_internal(6) <= not debounce_key_state; -- CAPS_LOCK
           when others => null;
         end case;
         
@@ -540,7 +541,15 @@ begin
             -- Key press event
             report "matrix = " & to_string(matrix);
             report "key press, ASCII code = " & to_hstring(key_matrix(key_num));
+
             ascii_key <= key_matrix(key_num);
+            
+            -- Make CAPS LOCK invert case of only letters
+            if bucky_key_internal(6)='1' and key_matrix(key_num) >= to_unsigned(96+1,8)
+              and key_matrix(key_num) <= to_unsigned(96+26,8) then
+              ascii_key(6) <= '0';
+            end if;
+            
             repeat_key <= key_num;
               repeat_key_timer <= repeat_start_timer;
               ascii_key_valid_countdown <= 1023;
