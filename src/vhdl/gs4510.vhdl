@@ -3816,13 +3816,13 @@ begin
         fast_fetch_state <= InstructionDecode;
         cpu_speed := vicii_2mhz&viciii_fast&viciv_fast;
         case cpu_speed is
-          when "100" => -- 1mhz
+          when "000" => -- 1mhz
             cpuspeed_external <= x"01";
-          when "101" =>
-            cpuspeed_external <= x"01";
-          when "000" =>
-            cpuspeed_external <= x"02";
           when "001" =>
+            cpuspeed_external <= x"01";
+          when "100" =>
+            cpuspeed_external <= x"02";
+          when "101" =>
             cpuspeed_external <= x"02";
           when others =>
             cpuspeed_external <= x"04";
