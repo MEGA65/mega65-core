@@ -16,6 +16,9 @@ entity matrix_to_ascii is
         
         suppress_key_glitches : in std_logic;
         suppress_key_retrigger : in std_logic;
+
+        key_up : in std_logic;
+        key_left : in std_logic;
         
         -- UART key stream
         ascii_key : out unsigned(7 downto 0) := (others => '0');
@@ -505,7 +508,9 @@ begin
       -- as unique keys
       if bucky_key_internal(3)='1' then
         key_matrix := matrix_cbm;
-      elsif bucky_key_internal(0)='1' or bucky_key_internal(1)='1' then
+      elsif bucky_key_internal(0)='1' or bucky_key_internal(1)='1' or key_up='0' or key_left='0' then
+        -- Force shifted key set if UP or LEFT keys active, to try to prevent
+        -- glitching of those keys.
         key_matrix := matrix_shift;
       elsif bucky_key_internal(2)='1' then
         key_matrix := matrix_control;
