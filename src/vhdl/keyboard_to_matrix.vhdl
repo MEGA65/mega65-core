@@ -40,6 +40,8 @@ architecture behavioral of keyboard_to_matrix is
   signal keyram_wea : std_logic_vector(7 downto 0);
   signal keyram_mask : std_logic_vector(7 downto 0);
   signal matrix_dia : std_logic_vector(7 downto 0);
+
+  signal right_shift : std_logic := '0';
 begin
   
   kb_kmm: entity work.kb_matrix_ram
@@ -79,11 +81,15 @@ begin
 
         if key_left = '1' and key_left_last = x"FF" then
           -- Assert RIGHT key
-          scan_mask(2) := '0';
+          if right_shift = '1' then
+            scan_mask(2) := '0';
+          end if;
         end if;
         if key_up = '1' and key_up_last = x"FF" then
           -- Assert DOWN key
-          scan_mask(7) := '0';
+          if right_shift = '1' then
+            scan_mask(7) := '0';
+          end if;
         end if;
       elsif scan_phase = 5 then
         -- Assert shift early, and keep it asserted until after
@@ -91,6 +97,9 @@ begin
         if key_left_last /= x"00" or key_up_last /= x"00" then
           -- Assert right shift
           scan_mask(52 mod 8) := '0';
+          right_shift <= '1';
+        else
+          right_shift <= '0';
         end if;
       end if;
 

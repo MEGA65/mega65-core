@@ -289,6 +289,9 @@ begin
 
       matrix_col => matrix_combined_col,
       matrix_col_idx => matrix_combined_col_idx,
+
+      key_up => key_up,
+      key_left => key_left,
       
       suppress_key_glitches => suppress_key_glitches,
       suppress_key_retrigger => suppress_key_retrigger,
