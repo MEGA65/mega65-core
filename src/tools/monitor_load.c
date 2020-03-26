@@ -128,6 +128,9 @@ char boundary_xdc[1024]="";
 char boundary_bsdl[1024]="";
 char jtag_sensitivity[1024]="";
 
+int hyppo_report=0;
+unsigned char hyppo_buffer[1024];
+
 int counter  =0;
 int fd=-1;
 int state=99;
@@ -644,6 +647,72 @@ void print_screencode(unsigned char c)
   }
 }
 
+void show_hyppo_report(void)
+{
+  printf("HYPPO status:\n");
+  // Buffer starats at $BC00 in HYPPO
+  // $BC00 - $BCFF = DOS work area
+  // $BD00 - $BDFF = Process Descriptor
+  // $BE00 - $BEFF = Stack
+  // $BF00 - $BFFF = ZP
+
+  printf("Disk count = $%02x\n",hyppo_buffer[0x001]);
+  printf("Default Disk = $%02x\n",hyppo_buffer[0x002]);
+  printf("Current Disk = $%02x\n",hyppo_buffer[0x003]);
+  printf("Disk Table offset = $%02x\n",hyppo_buffer[0x004]);
+  printf("Cluster of current directory = $%02x%02x%02x%02x\n",
+	 hyppo_buffer[0x008],hyppo_buffer[0x007],hyppo_buffer[0x006],hyppo_buffer[0x005]);
+  printf("opendir_cluster = $%02x%02x%02x%02x\n",
+	 hyppo_buffer[0x00c],hyppo_buffer[0x00b],hyppo_buffer[0x00a],hyppo_buffer[0x009]);
+  printf("opendir_sector = $%02x\n",hyppo_buffer[0x00d]);
+  printf("opendir_entry = $%02x\n",hyppo_buffer[0x00e]);
+
+  // Dirent struct follows:
+  // 64 bytes for file name
+  printf("dirent structure:\n");
+  printf("  Filename = '%s'\n",&hyppo_buffer[0x00f]);
+  printf("  Filename len = $%02x\n",hyppo_buffer[0x04f]);
+  printf("  Short name = '%s'\n",&hyppo_buffer[0x050]);
+  printf("  Start cluster = $%02x%02x%02x%02x\n",
+	 hyppo_buffer[0x060],hyppo_buffer[0x05f],hyppo_buffer[0x05e],hyppo_buffer[0x05d]);
+  printf("  File length = $%02x%02x%02x%02x\n",
+	 hyppo_buffer[0x064],hyppo_buffer[0x063],hyppo_buffer[0x062],hyppo_buffer[0x061]);
+  printf("  ATTRIB byte = $%02x\n",hyppo_buffer[0x065]);
+  printf("Requested filename len = $%02x\n",hyppo_buffer[0x66]);
+  printf("Requested filename = '%s'\n",&hyppo_buffer[0x67]);
+  printf("sectorsread = $%02x%02x\n",
+	 hyppo_buffer[0xaa],hyppo_buffer[0xa9]);
+  printf("bytes_remaining = $%02x%02x%02x%02x\n",
+	 hyppo_buffer[0xae],hyppo_buffer[0x0ad],hyppo_buffer[0xac],hyppo_buffer[0xab]);
+  printf("current sector = $%02x%02x%02x%02x, ",
+	 hyppo_buffer[0xb2],hyppo_buffer[0x0b1],hyppo_buffer[0xb0],hyppo_buffer[0xaf]);
+  printf("current cluster = $%02x%02x%02x%02x\n",
+	 hyppo_buffer[0xb6],hyppo_buffer[0x0b5],hyppo_buffer[0xb4],hyppo_buffer[0xb3]);
+  printf("current sector in cluster = $%02x\n",hyppo_buffer[0xb7]);
+
+  for(int fd=0;fd<4;fd++) {
+    int fd_o=0xb8+fd*0x10;
+    printf("File descriptor #%d:\n",fd);
+    printf("  disk ID = $%02x, ",hyppo_buffer[fd_o+0]);
+    printf("  mode = $%02x\n",hyppo_buffer[fd_o+1]);
+    printf("  start cluster = $%02x%02x%02x%02x, ",
+	   hyppo_buffer[fd_o+5],hyppo_buffer[fd_o+4],hyppo_buffer[fd_o+3],hyppo_buffer[fd_o+2]);
+    printf("  current cluster = $%02x%02x%02x%02x\n",
+	   hyppo_buffer[fd_o+9],hyppo_buffer[fd_o+8],hyppo_buffer[fd_o+7],hyppo_buffer[fd_o+6]);
+    printf("  sector in cluster = $%02x, ",hyppo_buffer[fd_o+10]);
+    printf("  offset in sector = $%02x%02x\n",hyppo_buffer[fd_o+12],hyppo_buffer[fd_o+11]);
+    //    printf("  file offset = $%02x%02x (x 256 bytes? not used?)\n",
+    //	   hyppo_buffer[fd_o+14],hyppo_buffer[fd_o+13]);
+  }
+
+  printf("Current file descriptor # = $%02x\n",hyppo_buffer[0xf4]);
+  printf("Current file descriptor offset = $%02x\n",hyppo_buffer[0xf5]);
+  printf("Dos error code = $%02x\n",hyppo_buffer[0xf6]);
+  printf("SYSPART error code = $%02x\n",hyppo_buffer[0xf7]);
+  printf("SYSPART present = $%02x\n",hyppo_buffer[0xf8]);
+
+}
+
 int process_line(char *line,int live)
 {
   int pc,a,x,y,sp,p;
@@ -901,7 +970,14 @@ int process_line(char *line,int live)
 	       &b[12],&b[13],&b[14],&b[15])==17) gotIt=1;
     if (gotIt) {
       char fname[17];
-      if (!screen_shot) printf("Read memory @ $%04x\n",addr);
+      //      if (!screen_shot) printf("Read memory @ $%04x\n",addr);
+      if (addr>=0xfffbc00&&addr<0xfffc000) {
+	for(int i=0;i<16;i++) hyppo_buffer[addr-0xfffbc00+i]=b[i];
+	if (addr==0xfffbff0) {
+	  show_hyppo_report();
+	  exit(0);
+	}
+      }
       if (addr==name_addr) {
 	for(int i=0;i<16;i++) { fname[i]=b[i]; } fname[16]=0;
 	fname[name_len]=0;
@@ -1711,8 +1787,9 @@ int main(int argc,char **argv)
   start_time=time(0);
 
   int opt;
-  while ((opt = getopt(argc, argv, "14B:b:c:C:d:EFHf:jJ:k:Ll:m:MnoprR:Ss:t:T:U:V:")) != -1) {
+  while ((opt = getopt(argc, argv, "14B:b:c:C:d:EFHf:jJ:k:Ll:m:MnoprR:Ss:t:T:U:V:X")) != -1) {
     switch (opt) {
+    case 'X': hyppo_report=1; break;
     case 'B': sscanf(optarg,"%x",&break_point); break;
     case 'L': if (ethernet_video) { usage(); } else { ethernet_cpulog=1; } break;
     case 'E': if (ethernet_cpulog) { usage(); } else { ethernet_video=1; } break;
@@ -1865,17 +1942,26 @@ int main(int argc,char **argv)
           if(fast_mode) {         
 	  } else {	    
 	    if (state==99) printf("sending R command to sync @ %dpbs.\n",serial_speed);
-	    switch (phase%(5+hypervisor_paused)) {
-	    case 0: slow_write_safe(fd,"r\r",2); break; // PC check
-	    case 1: slow_write_safe(fd,"m800\r",5); break; // C65 Mode check
-	    case 2: slow_write_safe(fd,"m42c\r",5); break; // C64 mode check
-            case 3: slow_write_safe(fd,"mffd3077\r",9); break; 
-	    case 4:
-	      // Requests screen address if we are taking a screenshot
-	      if (screen_shot) slow_write_safe(fd,"mffd3058\r",9);
-	      break;
-	    case 5: slow_write_safe(fd,"mffd3659\r",9); break; // Hypervisor virtualisation/security mode flag check
-	    default: phase=0;
+	    if (hyppo_report) {
+	      switch (phase%(5+hypervisor_paused)) {
+	      case 0: slow_write_safe(fd,"Mfffbc00\r",9); break;
+	      case 1: slow_write_safe(fd,"Mfffbd00\r",9); break;
+	      case 2: slow_write_safe(fd,"Mfffbe00\r",9); break;
+	      case 3: slow_write_safe(fd,"Mfffbf00\r",9); break;
+	      }
+	    } else {
+	      switch (phase%(5+hypervisor_paused)) {
+	      case 0: slow_write_safe(fd,"r\r",2); break; // PC check
+	      case 1: slow_write_safe(fd,"m800\r",5); break; // C65 Mode check
+	      case 2: slow_write_safe(fd,"m42c\r",5); break; // C64 mode check
+	      case 3: slow_write_safe(fd,"mffd3077\r",9); break; 
+	      case 4:
+		// Requests screen address if we are taking a screenshot
+		if (screen_shot) slow_write_safe(fd,"mffd3058\r",9);
+		break;
+	      case 5: slow_write_safe(fd,"mffd3659\r",9); break; // Hypervisor virtualisation/security mode flag check
+	      default: phase=0;
+	      }
 	    }
           } 
 	  phase++;	  
