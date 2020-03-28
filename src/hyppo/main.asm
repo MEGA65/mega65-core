@@ -3010,12 +3010,10 @@ setup_for_openrom:
 	// the assembler to do an absolute write.
 	lda #$37
 	.byte $8d,$01,$00 // ABS STA $0001
-        ;inc     $D020
 
 	// We should also reset video mode to normal
 	lda #$40
 	sta $d054
-        ;inc     $D020
 
 	// Clear memory map at $4000-5FFF
 	// (Why on earth do we even map some of the HyperRAM there, anyway???)
@@ -3034,14 +3032,10 @@ setup_for_openrom:
 	// Tell KERNAL screen is at $0400
 	lda #>$0400
 	sta $0288
-                
 	// Now ask KERNAL to setup vectors
 	jsr $fd15
-
-        ;inc     $D020
 	// And clear screen, setup screen editor
 	jsr $e518
-        ;inc     $D020
 	// make sure not in quote mode etc
 	lda #$00
 	sta $d8 // number of insertions outstanding = 0
