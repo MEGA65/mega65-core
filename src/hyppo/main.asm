@@ -669,7 +669,8 @@ not_first_boot_message:
 	// Work out if we are on first reset.  If so, then try switching to bitstream in 2nd slot.
 	
 first_boot_flag_instruction:
-
+try_flash_menu:	
+	
 	// Use first boot code path only once
 	// WARNING: Self modifying code!
 	bit dont_launch_flash_menu
@@ -741,13 +742,8 @@ return_from_flashmenu:
 		
 	jmp dont_launch_flash_menu
 	
-flash_menu_missing:
-        ldx #<msg_flashmenumissing
-        ldy #>msg_flashmenumissing
-        jsr printmessage
-
 dont_launch_flash_menu:
-	lda $d610
+	lda ascii_key_in
 	cmp #$09
 	bne fpga_has_been_reconfigured
 
@@ -1477,7 +1473,6 @@ loaded1541rom:
         bne nokey4
         jmp utility_menu
 nokey4:
-
         jmp go64
 
 //         ========================
@@ -2210,20 +2205,19 @@ endofmessage:
 
 	plz
 	rts
-
+/*
 debug_wait_on_key:	
-
-zz1:	lda $d610
-	sta $d610
+zz1:	lda ascii_key_in
+	sta ascii_key_in
 	bne zz1
 	
 zzz:	inc $d021
-	lda $d610
+	lda ascii_key_in
 	beq zzz
-	sta $d610
+	sta ascii_key_in
 	
         rts
-
+*/
 //         ========================
 
 printbanner:
@@ -2543,13 +2537,24 @@ l1:                // Enable VIC-IV / MEGA65 IO
 
 utility_menu_check:
         lda buckykey_status
+	cmp #$20
+	beq @startFlashMenu	
         cmp #$03
         beq @startUtilMenu
         and #$10
         bne @startUtilMenu
+@menuCheckDone:
         rts
 @startUtilMenu:
         jmp utility_menu
+@startFlashMenu:
+	// ... but only if available
+	lda first_boot_flag_instruction
+	cmp #$4c
+	beq @flashMenuNoAvail
+	jmp launch_flash_menu
+@flashMenuNoAvail:
+	jmp noflash_menu
 
 keyboardread:
 
@@ -3302,14 +3307,14 @@ msg_noutilitymenu:
 	                .byte 0
 	
 msg_noflashmenu:	
-		        .text "HOLD TAB + POWER CYCLE FOR FLASH MENU"
+		        .text "HOLD NO SCRL + RE-POWER FOR FLASH MENU"
 	                .byte 0
 	
 msg_retryreadmbr:       .text "RE-TRYING TO READ MBR"
                         .byte 0
 msg_hyppo:              .text "MEGA65 MEGAOS HYPERVISOR V00.15"
                         .byte 0
-msg_hyppohelpfirst:     .text "TAB=FLASH MENU, ALT=UTIL MENU, CTRL=HOLD"
+msg_hyppohelpfirst:     .text "NO SCRL=FLASH, ALT=UTILS, CTRL=HOLD"
                         .byte 0
 msg_hyppohelpnotfirst:  .text "POWER OFF/ON FOR FLASH OR UTIL MENU"
                         .byte 0
@@ -3394,8 +3399,6 @@ msg_dmagica:            .text "DMAGIC REV A MODE"
                         .byte 0
 msg_dmagicb:            .text "DMAGIC REV B MODE"
                         .byte 0
-msg_flashmenumissing:	.text "FLASH UTIL NOT FOUND"
-			.byte 0
 	
 // Include the GIT Message as a string
 #import "../version.asm"
