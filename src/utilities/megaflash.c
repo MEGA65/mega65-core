@@ -1330,14 +1330,9 @@ void main(void)
   if (reg_sr1&0x02) printf("write latch enabled.\n"); else printf("write latch not (yet) enabled.\n");
   if (reg_sr1&0x01) printf("device busy.\n");
 #endif
-  
+
 #if 0
 
-  printf("Press any key to continue...\n");
-  while(PEEK(0xD610)) POKE(0xD610,0);
-  while(!PEEK(0xD610)) continue;
-  while(PEEK(0xD610)) POKE(0xD610,0);
-  
   erase_sector(4*1048576L);
   read_data(4*1048576L+0);
   data_buffer[0]=0xfe;
@@ -1396,8 +1391,28 @@ void main(void)
   // key is being pressed.  In that case, we show the menu of
   // flash slots, and allow the user to select which core to load.
 
-  // XXX Temporarily allow ESC to get to flash menu to avoid
-  // race-conditions with version in bitstream
+  // Holding ESC on boot will prevent flash menu starting
+  if (PEEK(0xD610)==0x1b) {
+    // Switch back to normal speed control before exiting
+    POKE(0,64);
+    POKE(0xCF7f,0x4C);
+    asm (" jmp $cf7f ");
+  }
+
+  // Prompt for input before continuing
+  POKE(0x0400,PEEK(0xD610));
+
+  printf("Press any key to continue...\n");
+  while(PEEK(0xD610)) POKE(0xD610,0);
+  while(!PEEK(0xD610)) {
+    POKE(0xD020,PEEK(0xD012));
+    continue;
+  }
+  //  while(PEEK(0xD610)) POKE(0xD610,0);
+
+  //  POKE(0x0400,PEEK(0xD610));
+  //  while(1) POKE(0xD020,PEEK(0xD020));
+  
   if (PEEK(0xD610)!=0x09) {
   
     // Select BOOTSTS register
