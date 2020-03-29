@@ -322,6 +322,7 @@ unsigned int hy_opendir_offset_in_sector=0;
 
 unsigned char hy_opendir(void)
 {
+  if (!sdcard_setup) setup_sdcard();
 
   hy_opendir_cluster=2;
   hy_opendir_sector=fat32_cluster2_sector;
@@ -1621,6 +1622,14 @@ void main(void)
 	  else reconfig_fpga((x-'0')*(4*1048576)+4096);
 	}
 	switch(x) {
+	case 0x03: case 0x1b:
+	  // Simply exit flash menu without doing anything.
+	  
+	  // Switch back to normal speed control before exiting
+	  POKE(0,64);
+	  POKE(0xCF7f,0x4C);
+	  asm (" jmp $cf7f ");
+	  
 	case 0x1d: case 0x11:
 	  selected++;
 	  if (selected>=(mb>>2)) selected=0;
