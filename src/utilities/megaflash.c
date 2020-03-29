@@ -1399,22 +1399,15 @@ void main(void)
     asm (" jmp $cf7f ");
   }
 
-  // Prompt for input before continuing
-  POKE(0x0400,PEEK(0xD610));
 
-  printf("Press any key to continue...\n");
-  while(PEEK(0xD610)) POKE(0xD610,0);
-  while(!PEEK(0xD610)) {
-    POKE(0xD020,PEEK(0xD012));
-    continue;
-  }
   //  while(PEEK(0xD610)) POKE(0xD610,0);
 
   //  POKE(0x0400,PEEK(0xD610));
   //  while(1) POKE(0xD020,PEEK(0xD020));
-  
-  if (PEEK(0xD610)!=0x09) {
-  
+
+  // TAB key or NO SCROLL bucky held forces menu to appear
+  if ((PEEK(0xD610)!=0x09)&&(!(PEEK(0xD611)&0x20))) {
+
     // Select BOOTSTS register
     POKE(0xD6C4,0x16);
     usleep(10);
