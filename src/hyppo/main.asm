@@ -3307,14 +3307,14 @@ msg_noutilitymenu:
 	                .byte 0
 	
 msg_noflashmenu:	
-		        .text "HOLD NO SCRL + RE-POWER FOR FLASH MENU"
+		        .text "HOLD NO SCROLL + POWER CYCLE FOR FLASH"
 	                .byte 0
 	
 msg_retryreadmbr:       .text "RE-TRYING TO READ MBR"
                         .byte 0
 msg_hyppo:              .text "MEGA65 MEGAOS HYPERVISOR V00.15"
                         .byte 0
-msg_hyppohelpfirst:     .text "NO SCRL=FLASH, ALT=UTILS, CTRL=HOLD"
+msg_hyppohelpfirst:     .text "NO SCROLL=FLASH, ALT=UTILS, CTRL=HOLD"
                         .byte 0
 msg_hyppohelpnotfirst:  .text "POWER OFF/ON FOR FLASH OR UTIL MENU"
                         .byte 0
