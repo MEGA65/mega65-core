@@ -2206,7 +2206,7 @@ endofmessage:
 
 	// XXX DEBUG
 	// Require key press after each line displayed.
-	jsr debug_wait_on_key
+//	jsr debug_wait_on_key
 
 	plz
 	rts

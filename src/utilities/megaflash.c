@@ -1331,14 +1331,9 @@ void main(void)
   if (reg_sr1&0x02) printf("write latch enabled.\n"); else printf("write latch not (yet) enabled.\n");
   if (reg_sr1&0x01) printf("device busy.\n");
 #endif
-  
+
 #if 0
 
-  printf("Press any key to continue...\n");
-  while(PEEK(0xD610)) POKE(0xD610,0);
-  while(!PEEK(0xD610)) continue;
-  while(PEEK(0xD610)) POKE(0xD610,0);
-  
   erase_sector(4*1048576L);
   read_data(4*1048576L+0);
   data_buffer[0]=0xfe;
@@ -1404,6 +1399,20 @@ void main(void)
     POKE(0xCF7f,0x4C);
     asm (" jmp $cf7f ");
   }
+
+  // Prompt for input before continuing
+  POKE(0x0400,PEEK(0xD610));
+
+  printf("Press any key to continue...\n");
+  while(PEEK(0xD610)) POKE(0xD610,0);
+  while(!PEEK(0xD610)) {
+    POKE(0xD020,PEEK(0xD012));
+    continue;
+  }
+  //  while(PEEK(0xD610)) POKE(0xD610,0);
+
+  //  POKE(0x0400,PEEK(0xD610));
+  //  while(1) POKE(0xD020,PEEK(0xD020));
   
   if (PEEK(0xD610)!=0x09) {
   
