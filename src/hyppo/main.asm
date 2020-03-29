@@ -669,6 +669,7 @@ not_first_boot_message:
 	// Work out if we are on first reset.  If so, then try switching to bitstream in 2nd slot.
 	
 first_boot_flag_instruction:
+
 	// Use first boot code path only once
 	// WARNING: Self modifying code!
 	bit dont_launch_flash_menu
@@ -2136,19 +2137,22 @@ printmessage:        // HELPER routine
         bne pm22
         ldx #$08
 pm22:
-
         // if we have reached the bottom of the screen, start writing again
         // from the top of the screen (but don't touch the top 8 rows for
         // logo and banner)
         cpx #25
         bne pm2
-        ldx #$08
-        stx screenrow
+
+	jsr scroll_screen
+	ldx #24
+	stx screenrow
 
         // work out the screen address
         //
-pm2:    cpx #$00
+pm2:
+	cpx #$00
         beq pm1
+	
         clc
         lda <zptempp2
         adc #$50          // 40 columns x 16 bit
@@ -2157,18 +2161,6 @@ pm2:    cpx #$00
         adc #$00
         sta <zptempp2+1
 
-        // if reached bottom of screen, then loop back to top of screen
-        //
-        cmp #$0b
-        bcc pm5
-        lda <zptempp2
-        cmp #$d0
-        bcc pm5
-
-        lda #$80
-        sta <zptempp2
-        lda #$06
-        sta <zptempp2+1
 pm5:    dex
         bne pm2
 pm1:
@@ -2212,7 +2204,24 @@ pm4:                // write 16-bit character code
 endofmessage:
         inc screenrow
 
-        plz
+	// XXX DEBUG
+	// Require key press after each line displayed.
+	jsr debug_wait_on_key
+
+	plz
+	rts
+
+debug_wait_on_key:	
+
+zz1:	lda $d610
+	sta $d610
+	bne zz1
+	
+zzz:	inc $d021
+	lda $d610
+	beq zzz
+	sta $d610
+	
         rts
 
 //         ========================
@@ -3126,6 +3135,36 @@ screenrestore_dmalist:
         .word $0400 // starting addr 
         .byte $00   // of bank $5
         .word $0000 // modulo (unused)
+
+scroll_screen:
+	
+        lda #$ff
+        sta $d702
+        sta $d704  // dma list is in top MB of address space
+
+	// Don't forget to reset colour RAM also
+        lda #>scrollscreen_dmalist
+        sta $d701
+        // set bottom 8 bits of address and trigger DMA.
+        //
+        lda #<scrollscreen_dmalist
+        sta $d705
+
+	rts
+	
+scrollscreen_dmalist:
+        .byte $80,$00  // Copy from $00xxxxx
+        .byte $81,$00  // Copy to $00xxxxx
+        .byte $00 // no more options
+        // F018A DMA list
+        .byte $00 // copy + last in chain
+        .word 1280 // size of copy  ( (17-1) * 40 * 2 )
+        .word 1744 // src address is line 9 of screen
+        .byte $00   // of bank $0
+        .word 1664 // starting addr is line 8 of screen
+        .byte $00   // of bank $0
+        .word $0000 // modulo (unused)
+	
 	
 utility_dmalist:
         // copy $FF8xxxx-$FF8yyyy to $00007FF-$000xxxx
@@ -3268,7 +3307,7 @@ msg_noflashmenu:
 	
 msg_retryreadmbr:       .text "RE-TRYING TO READ MBR"
                         .byte 0
-msg_hyppo:              .text "MEGA65 MEGAOS HYPERVISOR V00.14"
+msg_hyppo:              .text "MEGA65 MEGAOS HYPERVISOR V00.15"
                         .byte 0
 msg_hyppohelpfirst:     .text "TAB=FLASH MENU, ALT=UTIL MENU, CTRL=HOLD"
                         .byte 0
