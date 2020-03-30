@@ -641,6 +641,9 @@ $(TOOLDIR)/mega65_ftp:	$(TOOLDIR)/mega65_ftp.c Makefile $(TOOLDIR)/ftphelper.c
 $(TOOLDIR)/test_procedure_format:	Makefile $(TOOLDIR)/test_procedure_format.c
 	$(CC) $(COPT) -o $(TOOLDIR)/test_procedure_format $(TOOLDIR)/test_procedure_format.c
 
+testprocedure.pdf:	$(TOOLDIR)/test_procedure_format testprocedure_in.tex
+	$(TOOLDIR)/test_procedure_format testprocedure_in.tex
+
 $(TOOLDIR)/bitinfo:	$(TOOLDIR)/bitinfo.c Makefile 
 	$(CC) $(COPT) -g -Wall -o $(TOOLDIR)/bitinfo $(TOOLDIR)/bitinfo.c
 

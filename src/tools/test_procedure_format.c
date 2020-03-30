@@ -16,6 +16,7 @@ int parse_string(char *in,char *out)
       case 'r':	out[outlen++]='\r'; break;
       case 'n':	out[outlen++]='\r'; break;
       case 't':	out[outlen++]='\t'; break;
+	//      case '$':	out[outlen++]='\\'; out[outlen++]='$'; break;
       case '\"':	out[outlen++]='\"'; break;
       case '\'':	out[outlen++]='\''; break;
       default:
@@ -41,14 +42,22 @@ int register_breaks(int issue,char *title,char *problem)
 {
   int i;
   char problem_msg[8192];
+  int o=0;
   for(i=0;problem[i]&&problem[i]!='\r';i++) {
     // Also stop when hitting a non-escaped quote
-    
-    problem_msg[i]=problem[i];
-    problem_msg[i+1]=0;
-  }
 
-  
+    // Make sure we escape tricky latex characters in problem descriptions 
+    switch(problem[i]) {
+    case '$':
+      fprintf(stderr,"$ sign spotted.\n");
+      problem_msg[o++]='\\';
+      problem_msg[o++]='$';
+      break;
+    default:
+      problem_msg[o++]=problem[i];
+    }
+    problem_msg[o]=0;
+  }
   
   fprintf(stderr,"Registering problem: #%d : '%s'\n",
 	  issue,problem_msg);
@@ -87,7 +96,10 @@ int main(int argc,char **argv)
   // This actually only returns the 30 most recent issues.  But the first one will always
   // be the newest, so it at least delimits what we need to search.
   // We will heavily cache, since the ##BREAKS tags are not expected to change often.
-  // system("curl -i https://api.github.com/repos/mega65/mega65-core/issues > issues.txt");
+  if (argc>2||!access("issues.txt")) 
+    system("curl -i https://api.github.com/repos/mega65/mega65-core/issues > issues.txt");
+  else
+    fprintf(stderr,"warning: Using cached issues.txt file. Delete to force re-fetching.\n");
   FILE *f=fopen("issues.txt","r");
   if (!f) {
     fprintf(stderr,"ERROR: Could not read issues.txt.\n");
