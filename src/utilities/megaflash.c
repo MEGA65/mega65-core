@@ -1645,7 +1645,7 @@ void main(void)
 	    reconfig_fpga(0);
 	    printf("%c",0x93);
 	  }
-	  else reconfig_fpga(selected*(4*1048576)+0); // +4096);
+	  else reconfig_fpga(selected*(4*1048576)+4096);
 	  break;
 #if 1
 	case 0x4d: case 0x6d: // M / m
