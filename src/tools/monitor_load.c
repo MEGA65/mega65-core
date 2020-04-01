@@ -78,7 +78,7 @@ void do_exit(int retval);
 void usage(void)
 {
   fprintf(stderr,"MEGA65 cross-development tool for booting the MEGA65 using a custom bitstream and/or HICKUP file.\n");
-  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <hickup file>] [-R romfile] [-U flashmenufile] [-C charromfile]] [-c COLOURRAM.BIN] [-B breakpoint] [-m modeline] [-o] [-d diskimage.d81] [-j] [-J <XDC,BSDL[,sensitivity list]> [-V <vcd file>]] [[-1] [<-t|-T> <text>] [-f FPGA serial ID] [filename]] [-H] [-E|-L]\n");
+  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <hickup file>] [-R romfile] [-U flashmenufile] [-C charromfile]] [-c COLOURRAM.BIN] [-B breakpoint] [-m modeline] [-o] [-d diskimage.d81] [-j] [-J <XDC,BSDL[,sensitivity list]> [-V <vcd file>]] [[-1] [<-t|-T> <text>] [-f FPGA serial ID] [filename]] [-H] [-E|-L] [-Z <flash addr>]\n");
   fprintf(stderr,"  -l - Name of serial port to use, e.g., /dev/ttyUSB1\n");
   fprintf(stderr,"  -s - Speed of serial port in bits per second. This must match what your bitstream uses.\n");
   fprintf(stderr,"       (Older bitstream use 230400, and newer ones 2000000 or 4000000).\n");
@@ -112,6 +112,7 @@ void usage(void)
   fprintf(stderr,"  -L - Enable streaming of CPU instruction log via ethernet.\n");
   fprintf(stderr,"  -f - Specify which FPGA to reconfigure when calling fpgajtag\n");
   fprintf(stderr,"  -S - Show the text-mode screen\n");
+  fprintf(stderr,"  -Z - Zap (reconfigure) FPGA from specified hex address in flash.\n");
   fprintf(stderr,"  filename - Load and run this file in C64 mode before exiting.\n");
   fprintf(stderr,"\n");
   exit(-3);
@@ -158,6 +159,8 @@ int serial_speed=2000000;
 char modeline_cmd[1024]="";
 int break_point=-1;
 int jtag_only=0;
+uint32_t zap_addr;
+int zap=0;
 
 int saw_c64_mode=0;
 int saw_c65_mode=0;
@@ -785,6 +788,21 @@ int process_line(char *line,int live)
 	}
 	printf("Synchronised with monitor.\n");
 
+	if (zap) {
+	  char cmd[1024];
+	  usleep(20000);
+	  snprintf(cmd,1024,"sffd36c8 %x %x %x %x\r",
+		  (zap_addr>>0)&0xff,
+		  (zap_addr>>8)&0xff,
+		  (zap_addr>>16)&0xff,
+		  (zap_addr>>24)&0xff);
+	  slow_write(fd,cmd,strlen(cmd));	  
+	  usleep(20000);
+	  snprintf(cmd,1024,"sffd36cf 42\r");
+	  slow_write(fd,cmd,strlen(cmd));
+	  fprintf(stderr,"FPGA reconfigure command issued.\n");
+	}
+	
 	if (break_point!=-1) {
 	  fprintf(stderr,"Setting CPU breakpoint at $%04x\n",break_point);
 	  char cmd[1024];
@@ -1787,9 +1805,17 @@ int main(int argc,char **argv)
   start_time=time(0);
 
   int opt;
-  while ((opt = getopt(argc, argv, "14B:b:c:C:d:EFHf:jJ:k:Ll:m:MnoprR:Ss:t:T:U:V:X")) != -1) {
+  while ((opt = getopt(argc, argv, "14B:b:c:C:d:EFHf:jJ:k:Ll:m:MnoprR:Ss:t:T:U:V:XZ:")) != -1) {
     switch (opt) {
     case 'X': hyppo_report=1; break;
+    case 'Z':
+      {
+	// Zap (reconfig) FPGA via MEGA65 reconfig registers
+	sscanf(optarg,"%x",&zap_addr);
+	fprintf(stderr,"Reconfiguring FPGA using bitstream at $%08x\n",zap_addr);
+	zap=1;
+      }
+      break;
     case 'B': sscanf(optarg,"%x",&break_point); break;
     case 'L': if (ethernet_video) { usage(); } else { ethernet_cpulog=1; } break;
     case 'E': if (ethernet_cpulog) { usage(); } else { ethernet_video=1; } break;
