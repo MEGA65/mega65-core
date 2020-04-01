@@ -454,10 +454,12 @@ void reconfig_fpga(unsigned long addr)
   POKE(0xd011,0);
  
   mega65_io_enable();
-  POKE(0xD6C8U,(addr>>0)&0xff);
-  POKE(0xD6C9U,(addr>>8)&0xff);
-  POKE(0xD6CAU,(addr>>16)&0xff);
-  POKE(0xD6CBU,(addr>>24)&0xff);
+
+  // Addresses for WBSTAR are shifted by 8 bits
+  POKE(0xD6C8U,(addr>>8)&0xff);
+  POKE(0xD6C9U,(addr>>16)&0xff);
+  POKE(0xD6CAU,(addr>>24)&0xff);
+  POKE(0xD6CBU,0x00);
 
   // Try to reconfigure
   POKE(0xD6CFU,0x42);
