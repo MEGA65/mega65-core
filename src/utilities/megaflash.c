@@ -461,6 +461,11 @@ void reconfig_fpga(unsigned long addr)
   POKE(0xD6CAU,(addr>>24)&0xff);
   POKE(0xD6CBU,0x00);
 
+  // Wait a little while, to make sure that the WBSTAR slot in
+  // the reconfig sequence gets set before we instruct the FPGA
+  // to reconfigure.
+  usleep(255);
+  
   // Try to reconfigure
   POKE(0xD6CFU,0x42);
   while(1) {
