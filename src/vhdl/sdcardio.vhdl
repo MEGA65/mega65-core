@@ -2259,10 +2259,10 @@ begin  -- behavioural
               -- Setting F011 drives to use SD card is a privileged operation,
               -- so that you can't take advantage of stale contents of the
               -- sector number to get direct access to the SD card that way.
-              if fastio_wdata(0)='1' or hypervisor_flag='1' or use_real_floppy0=fastio_wdata(0) then
+              if fastio_wdata(0)='1' or hypervisor_mode='1' or use_real_floppy0=fastio_wdata(0) then
                 use_real_floppy0 <= fastio_wdata(0);
               end if;
-              if fastio_wdata(2)='1' or hypervisor_flag='1' or use_real_floppy2=fastio_wdata(2) then
+              if fastio_wdata(2)='1' or hypervisor_mode='1' or use_real_floppy2=fastio_wdata(2) then
                 use_real_floppy2 <= fastio_wdata(2);
               end if;
               target_any <= fastio_wdata(1);
