@@ -3696,19 +3696,23 @@ begin
 
       end if;
 
-                                        -- Propagate slow device access interface signals
+      -- Propagate slow device access interface signals
       slow_access_request_toggle <= slow_access_request_toggle_drive;
       slow_access_address <= slow_access_address_drive;
       slow_access_write <= slow_access_write_drive;
       slow_access_wdata <= slow_access_wdata_drive;
       slow_access_ready_toggle_buffer <= slow_access_ready_toggle;
 
-                                        -- Allow matrix mode in hypervisor
+      -- Allow matrix mode in hypervisor
       protected_hardware <= hyper_protected_hardware;
       virtualised_hardware(0) <= virtualise_sd0;
       virtualised_hardware(1) <= virtualise_sd1;
       virtualised_hardware(7 downto 2) <= (others => '0');
-      cpu_hypervisor_mode <= hypervisor_mode or ;
+      cpu_hypervisor_mode <= hypervisor_mode;
+      -- Serial monitor interface sees memory as though hypervisor mode is
+      -- active, to aid debugging and ease of tool writing
+      privileged_access <= monitor_mem_attention_request or hypervisor_mode;
+      
       
       check_for_interrupts;
       
@@ -3729,10 +3733,6 @@ begin
         shadow_observed_write_count <= shadow_observed_write_count + 1;
       end if;
 
-      -- Serial monitor interface sees memory as though hypervisor mode is
-      -- active, to aid debugging and ease of tool writing.
-      privileged_access <= monitor_mem_attention_request or hypervisor_mode;
-      
       monitor_mem_attention_request_drive <= monitor_mem_attention_request;
       monitor_mem_read_drive <= monitor_mem_read;
       monitor_mem_write_drive <= monitor_mem_write;
