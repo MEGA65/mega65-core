@@ -97,7 +97,8 @@ entity sdcardio is
     fastio_wdata : in unsigned(7 downto 0);
     fastio_rdata_sel : out unsigned(7 downto 0);
     
-    virtualise_f011 : in std_logic;
+    virtualise_f011_drive0 : in std_logic;
+    virtualise_f011_drive1 : in std_logic;
     
     colourram_at_dc00 : in std_logic;
     viciii_iomode : in std_logic_vector(1 downto 0);
@@ -1750,7 +1751,9 @@ begin  -- behavioural
                         end if;
                       end if;                        
                     end if;
-                    if virtualise_f011='1' then
+                    if (virtualise_f011_drive0='1' and f011_ds="000")
+                      or (virtualise_f011_drive1='1' and f011_ds="001")
+                    then
                       -- Hypervisor virtualised
                       sd_state <= HyperTrapRead;
                       if f011_ds="000" then
@@ -1826,7 +1829,8 @@ begin  -- behavioural
                     end if;
                     -- XXX Writing with real floppy causes a hypervisor trap
                     -- instead of writing to disk.
-                    if virtualise_f011='0' and
+                    if ((virtualise_f011_drive0='0' and f011_ds="000") or (virtualise_f011_drive1='0' and f011_ds="001"))
+                        and
                       ((use_real_floppy0='0' and f011_ds="000") or (use_real_floppy2='0' and f011_ds="001")) then
                       sd_state <= F011WriteSector;
                     else
@@ -2206,16 +2210,40 @@ begin  -- behavioural
               report "writing $" & to_hstring(fastio_wdata) & " to FDC control";
 
             -- @IO:GS $D68C-$D68F - F011 disk 1 disk image address on SD card
-            when x"8c" => diskimage_sector(7 downto 0) <= fastio_wdata;
-            when x"8d" => diskimage_sector(15 downto 8) <= fastio_wdata;
-            when x"8e" => diskimage_sector(23 downto 16) <= fastio_wdata;
-            when x"8f" => diskimage_sector(31 downto 24) <= fastio_wdata;
+            when x"8c" =>
+              if hypervisor_mode='1' then
+                diskimage_sector(7 downto 0) <= fastio_wdata;
+              end if;
+            when x"8d" =>
+              if hypervisor_mode='1' then
+                diskimage_sector(15 downto 8) <= fastio_wdata;
+              end if;
+            when x"8e" =>
+              if hypervisor_mode='1' then
+                diskimage_sector(23 downto 16) <= fastio_wdata;
+              end if;
+            when x"8f" =>
+              if hypervisor_mode='1' then
+                diskimage_sector(31 downto 24) <= fastio_wdata;
+              end if;
 
             -- @IO:GS $D690-$D693 - F011 disk 2 disk image address on SD card
-            when x"90" => diskimage2_sector(7 downto 0) <= fastio_wdata;
-            when x"91" => diskimage2_sector(15 downto 8) <= fastio_wdata;
-            when x"92" => diskimage2_sector(23 downto 16) <= fastio_wdata;
-            when x"93" => diskimage2_sector(31 downto 24) <= fastio_wdata;
+            when x"90" =>
+              if hypervisor_mode='1' then
+                diskimage2_sector(7 downto 0) <= fastio_wdata;
+              end if;
+            when x"91" =>
+              if hypervisor_mode='1' then
+                diskimage2_sector(15 downto 8) <= fastio_wdata;
+              end if;
+            when x"92" =>
+              if hypervisor_mode='1' then
+                diskimage2_sector(23 downto 16) <= fastio_wdata;
+              end if;
+            when x"93" =>
+              if hypervisor_mode='1' then
+                diskimage2_sector(31 downto 24) <= fastio_wdata;
+              end if;
 
             when x"a0" =>
               -- @IO:GS $D6A0 - 3.5" FDC control line debug access
@@ -2228,8 +2256,15 @@ begin  -- behavioural
               f_wgate <= fastio_wdata(1);
               f_side1 <= fastio_wdata(0);
             when x"a1" =>
-              use_real_floppy0 <= fastio_wdata(0);
-              use_real_floppy2 <= fastio_wdata(2);
+              -- Setting F011 drives to use SD card is a privileged operation,
+              -- so that you can't take advantage of stale contents of the
+              -- sector number to get direct access to the SD card that way.
+              if fastio_wdata(0)='1' or hypervisor_flag='1' or use_real_floppy0=fastio_wdata(0) then
+                use_real_floppy0 <= fastio_wdata(0);
+              end if;
+              if fastio_wdata(2)='1' or hypervisor_flag='1' or use_real_floppy2=fastio_wdata(2) then
+                use_real_floppy2 <= fastio_wdata(2);
+              end if;
               target_any <= fastio_wdata(1);
               -- Setting flag to use real floppy or not causes disk change event
               latched_disk_change_event <= '1';
