@@ -1118,7 +1118,8 @@ begin
     hypervisor_mode => cpu_hypervisor_mode,
     hyper_trap_f011_read => hyper_trap_f011_read,
     hyper_trap_f011_write => hyper_trap_f011_write,
-    virtualise_f011 => virtualised_hardware_in(0),
+    virtualise_f011_drive0 => virtualised_hardware_in(0),
+    virtualise_f011_drive1 => virtualised_hardware_in(1),
     secure_mode => protected_hardware_in(7),
     
     fpga_temperature => fpga_temperature,
