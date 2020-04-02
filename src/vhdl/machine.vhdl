@@ -1001,7 +1001,7 @@ begin
       -- Hypervisor signals: we need to tell hyppo memory whether
       -- to map or not, and we also need to be able to set the VIC-III
       -- IO mode.
-      cpu_hypervisor_mode => cpu_hypervisor_mode,
+      privileged_access => cpu_hypervisor_mode,
       iomode_set => iomode_set,
       iomode_set_toggle => iomode_set_toggle,
       

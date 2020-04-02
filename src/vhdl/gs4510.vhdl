@@ -59,6 +59,7 @@ entity gs4510 is
     
     hyper_trap : in std_logic;
     cpu_hypervisor_mode : out std_logic := '0';
+    privileged_access : out std_logic := '0';
     matrix_trap_in : in std_logic;
     hyper_trap_f011_read : in std_logic;
     hyper_trap_f011_write : in std_logic;
@@ -4594,7 +4595,7 @@ begin
       virtualised_hardware(0) <= virtualise_sd0;
       virtualised_hardware(1) <= virtualise_sd1;
       virtualised_hardware(7 downto 2) <= (others => '0');
-      cpu_hypervisor_mode <= hypervisor_mode;
+      cpu_hypervisor_mode <= hypervisor_mode or ;
       
       check_for_interrupts;
       
@@ -4614,6 +4615,10 @@ begin
       if shadow_write='1' then
         shadow_observed_write_count <= shadow_observed_write_count + 1;
       end if;
+
+      -- Serial monitor interface sees memory as though hypervisor mode is
+      -- active, to aid debugging and ease of tool writing.
+      privileged_access <= monitor_mem_attention_request or hypervisor_mode;
       
       monitor_mem_attention_request_drive <= monitor_mem_attention_request;
       monitor_mem_read_drive <= monitor_mem_read;
