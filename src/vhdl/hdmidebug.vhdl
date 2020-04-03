@@ -499,7 +499,7 @@ begin
   uart_tx0: entity work.UART_TX_CTRL
     port map (
       send    => ascii_key_valid,
-      BIT_TMR_MAX => to_unsigned(10,16),
+      BIT_TMR_MAX => to_unsigned((40000000/2000000) - 1,16),
       clk     => cpuclock,
       data    => ascii_key,
 --      ready   => tx0_ready,
