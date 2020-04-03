@@ -591,6 +591,7 @@ begin
       ram_cache(34) <= key_restore;
       ram_cache(63 downto 56) <= unsigned(widget_matrix_col);
       ram_cache(55 downto 48) <= to_unsigned(widget_matrix_col_idx,8);
+      ram_cache(47) <= key_caps;
       
       -- Control hyperram
       if expansionram_data_ready_strobe='1' then
