@@ -886,9 +886,11 @@ begin  -- behavioural
           when x"89" =>
             fastio_rdata(0) <= f011_buffer_disk_address(8);
             fastio_rdata(1) <= f011_flag_eq and f011_drq;
-            fastio_rdata(6 downto 2) <= (others => '0');
             fastio_rdata(2) <= sd_handshake;
             fastio_rdata(3) <= sd_data_ready;
+            fastio_rdata(4) <= (others => '0');
+            fastio_rdata(5) <= virtualise_f011_drive0;
+            fastio_rdata(6) <= virtualise_f011_drive1;
             fastio_rdata(7) <= f011sd_buffer_select;
           when x"8a" =>
             -- @IO:GS $D68A - DEBUG check signals that can inhibit sector buffer mapping
