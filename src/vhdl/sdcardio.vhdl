@@ -917,6 +917,8 @@ begin  -- behavioural
             fastio_rdata(2) <= sd_handshake;
             fastio_rdata(3) <= sd_data_ready;
             fastio_rdata(4) <= not autotune_enable;
+            fastio_rdata(5) <= virtualise_f011_drive0;
+            fastio_rdata(6) <= virtualise_f011_drive1;
             fastio_rdata(7) <= f011sd_buffer_select;
             fastio_rdata(6 downto 5) <= (others => '0');
           when x"8a" =>
