@@ -121,7 +121,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/keymapper.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/widget_to_matrix.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ps2_to_matrix.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/UART_TX_CTRL.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/UART_TX_CTRL.vhd"]"\
 	       
 ]
  set imported_files [add_files -fileset sources_1 $files]
