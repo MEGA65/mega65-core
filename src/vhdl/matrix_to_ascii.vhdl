@@ -19,6 +19,7 @@ entity matrix_to_ascii is
 
         key_up : in std_logic;
         key_left : in std_logic;
+        key_caps : in std_logic;
         
         -- UART key stream
         ascii_key : out unsigned(7 downto 0) := (others => '0');
@@ -495,6 +496,8 @@ begin
   begin
     if rising_edge(clk) then
 
+      bucky_key_internal(6) <= key_caps;
+                     
       --reset <= reset_in;
       --if reset_in /= reset then
       --  matrix_internal <= (others => '1');
@@ -535,7 +538,7 @@ begin
           when 61 => bucky_key_internal(3) <= not debounce_key_state; -- MEGA
           when 66 => bucky_key_internal(4) <= not debounce_key_state; -- ALT
           when 64 => bucky_key_internal(5) <= not debounce_key_state; -- NO_SCROLL
-          when 78 => bucky_key_internal(6) <= not debounce_key_state; -- CAPS_LOCK
+          -- XXX CAPS LOCK has its own separate line, so is set elsewhere
           when others => null;
         end case;
         
@@ -557,23 +560,9 @@ begin
             end if;
             
             repeat_key <= key_num;
-            -- On the M65 PCB with a real keyboard, there is a strange problem
-            -- that causes extreme key repeat, as though each key is being
-            -- pressed and released at the scan rate.  This is despite when
-            -- readingg the keyboard matrix segments when a key is held down
-            -- that there is no glitching visible (at least at the speed the CPU
-            -- routine is checking the matrix).  It only happens with the real
-            -- keyboard. On a Nexys4 board with USB / PS2 keyboard, the
-            -- problem doesn't occur. CORRECTION: It DOES happen with PS2 on Nexys4
-            -- As an interim, we refuse to retrigger an ASCII key event for the
-            -- same key that was most recently triggered.
-            -- If there is glitching, we could deal with it by ANDing the matrix
-            -- data every cycle within a scan interval, so that transiently down
-            -- lines will be detected as firmly down.            
-            if (repeat_key /= key_num) or (suppress_key_retrigger='0') then
-              repeat_key_timer <= repeat_start_timer;
-              ascii_key_valid_countdown <= 8191;
-              ascii_key_valid <= '0';
+            repeat_key_timer <= repeat_start_timer;
+            ascii_key_valid_countdown <= 1023;
+            ascii_key_valid <= '0';
 --              else
 --                ascii_key_valid <= '1';
 --              end if;
