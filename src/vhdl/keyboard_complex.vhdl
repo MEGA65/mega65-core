@@ -292,6 +292,7 @@ begin
 
       key_up => key_up,
       key_left => key_left,
+      key_caps => capslock_combined,
       
       suppress_key_glitches => suppress_key_glitches,
       suppress_key_retrigger => suppress_key_retrigger,
