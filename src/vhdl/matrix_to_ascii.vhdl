@@ -556,7 +556,8 @@ begin
             if bucky_key_internal(6)='1'
               and (to_integer(key_matrix(key_num)) >= (96+1))
               and (to_integer(key_matrix(key_num)) <= (96+26)) then
-              ascii_key(6) <= '0';
+              -- Clear bit 5 ($20) to convert lower to upper case letters
+              ascii_key(5) <= '0';
             end if;
             
             repeat_key <= key_num;
