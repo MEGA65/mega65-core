@@ -888,7 +888,7 @@ begin  -- behavioural
             fastio_rdata(1) <= f011_flag_eq and f011_drq;
             fastio_rdata(2) <= sd_handshake;
             fastio_rdata(3) <= sd_data_ready;
-            fastio_rdata(4) <= (others => '0');
+            fastio_rdata(4) <= '0';
             fastio_rdata(5) <= virtualise_f011_drive0;
             fastio_rdata(6) <= virtualise_f011_drive1;
             fastio_rdata(7) <= f011sd_buffer_select;
