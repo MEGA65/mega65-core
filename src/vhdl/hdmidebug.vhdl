@@ -277,6 +277,23 @@ architecture Behavioral of container is
 
   signal reg_num : unsigned(31 downto 0) := to_unsigned(0,32);
   
+  signal queue_ram_write : std_logic := '0';
+  signal read_countdown : integer range 0 to 10 := 0;
+
+  signal ascii_key : unsigned(7 downto 0);
+  signal ascii_key_valid : std_logic := '0';
+  signal bucky_key : std_logic_vector(6 downto 0);
+  signal capslock_combined : std_logic;
+  signal widget_matrix_col_idx : integer range 0 to 8 := 0;  
+  signal widget_matrix_col : std_logic_vector(7 downto 0);
+  signal key_caps : std_logic := '0';
+  signal key_restore : std_logic := '0';
+  signal key_up : std_logic := '0';
+  signal key_left : std_logic := '0';
+
+  signal matrix_segment_num : std_logic_vector(7 downto 0);
+  signal porta_pins : std_logic_vector(7 downto 0) := (others => '1');
+  
 begin
 
 --STARTUPE2:STARTUPBlock--7Series
@@ -363,6 +380,119 @@ begin
 --               hsync => pattern_hsync
 --       );
 
+  block5: block
+  begin
+    kc0 : entity work.keyboard_complex
+      port map (
+      reset_in => '1',
+      matrix_mode_in => '0',
+      viciv_frame_indicate => '0',
+
+      matrix_segment_num => matrix_segment_num,
+--      matrix_segment_out => matrix_segment_out,
+      suppress_key_glitches => '0',
+      suppress_key_retrigger => '0',
+    
+      scan_mode => "11",
+      scan_rate => x"FF",
+
+      -- MEGA65 keyboard acts as though it were a widget board
+    widget_disable => '0',
+    ps2_disable => '1',
+    joyreal_disable => '1',
+    joykey_disable => '1',
+    physkey_disable => '1',
+    virtual_disable => '1',
+
+      joyswap => '0',
+      
+      joya_rotate => '0',
+      joyb_rotate => '0',
+      
+    ioclock       => clk,
+--    restore_out => restore_nmi,
+    keyboard_restore => key_restore,
+    keyboard_capslock => key_caps,
+    key_left => key_left,
+    key_up => key_up,
+
+    key1 => (others => '1'),
+    key2 => (others => '1'),
+    key3 => (others => '1'),
+
+    touch_key1 => (others => '1'),
+    touch_key2 => (others => '1'),
+
+--    keydown1 => osk_key1,
+--    keydown2 => osk_key2,
+--    keydown3 => osk_key3,
+--    keydown4 => osk_key4,
+      
+--    hyper_trap_out => hyper_trap,
+--    hyper_trap_count => hyper_trap_count,
+--    restore_up_count => restore_up_count,
+--    restore_down_count => restore_down_count,
+--    reset_out => reset_out,
+    ps2clock       => '1',
+    ps2data        => '1',
+--    last_scan_code => last_scan_code,
+--    key_status     => seg_led(1 downto 0),
+    porta_in       => (others => '1'),
+    portb_in       => (others => '1'),
+--    porta_out      => cia1porta_in,
+--    portb_out      => cia1portb_in,
+    porta_ddr      => (others => '1'),
+    portb_ddr      => (others => '1'),
+
+    joya(4) => '1',
+    joya(0) => '1',
+    joya(2) => '1',
+    joya(1) => '1',
+    joya(3) => '1',
+    
+    joyb(4) => '1',
+    joyb(0) => '1',
+    joyb(2) => '1',
+    joyb(1) => '1',
+    joyb(3) => '1',
+    
+--    key_debug_out => key_debug,
+  
+    porta_pins => porta_pins, 
+    portb_pins => (others => '1'),
+
+--    speed_gate => speed_gate,
+--    speed_gate_enable => speed_gate_enable,
+
+    capslock_out => capslock_combined,
+--    keyboard_column8_out => keyboard_column8_out,
+    keyboard_column8_select_in => '0',
+
+    widget_matrix_col_idx => widget_matrix_col_idx,
+    widget_matrix_col => widget_matrix_col,
+      widget_restore => '1',
+      widget_capslock => '1',
+    widget_joya => (others => '1'),
+    widget_joyb => (others => '1'),
+      
+      
+    -- remote keyboard input via ethernet
+      eth_keycode_toggle => '0',
+      eth_keycode => (others => '0'),
+
+    -- remote 
+--    eth_keycode_toggle => key_scancode_toggle,
+--    eth_keycode => key_scancode,
+
+    -- ASCII feed via hardware keyboard scanner
+    ascii_key => ascii_key,
+    ascii_key_valid => ascii_key_valid,
+    bucky_key => bucky_key(6 downto 0)
+    
+    );
+  end block;
+
+  
   pixel0: entity work.pixel_driver
     port map (
                clock81 => pixelclock, -- 80MHz
