@@ -496,7 +496,7 @@ begin
     port map (
       send    => ascii_key_valid,
       BIT_TMR_MAX => to_unsigned(10,16),
-      clk     => clock,
+      clk     => cpuclock,
       data    => ascii_key,
 --      ready   => tx0_ready,
       uart_tx => UART_TXD);
