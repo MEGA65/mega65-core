@@ -222,13 +222,9 @@ architecture Behavioral of container is
   signal pixelclock : std_logic;
   signal ethclock : std_logic;
   signal cpuclock : std_logic;
-  signal clock41 : std_logic;
   signal clock27 : std_logic;
-  signal clock81 : std_logic;
-  signal clock120 : std_logic;
   signal clock100 : std_logic;
   signal clock162 : std_logic;
-  signal clock163 : std_logic;
 
   signal red : std_logic_vector(7 downto 0);
   signal green : std_logic_vector(7 downto 0);
@@ -243,20 +239,6 @@ architecture Behavioral of container is
 
   signal zero : std_logic := '0';
   signal one : std_logic := '1';
-
-  signal CFGCLK : std_logic;
-  signal CFGMCLK : std_logic;
-  signal EOS : std_logic;
-  signal PREQ : std_logic := '0';
-  signal CLK : std_logic := '0';
-  signal GSR : std_logic := '0';
-  signal GTS : std_logic := '0';
-  signal KEYCLEARB : std_logic := '0';
-  signal PACK : std_logic := '0';
-  signal USRCCLKO : std_logic := '0';
-  signal USRCCLKTS : std_logic := '0';
-  signal USRDONEO : std_logic := '1';
-  signal USRDONETS : std_logic := '0';
 
   signal h_audio_left : unsigned(19 downto 0) := to_unsigned(0,20);
   signal h_audio_right : unsigned(19 downto 0) := to_unsigned(0,20);
@@ -284,7 +266,7 @@ architecture Behavioral of container is
   signal ascii_key_valid : std_logic := '0';
   signal bucky_key : std_logic_vector(6 downto 0);
   signal capslock_combined : std_logic;
-  signal widget_matrix_col_idx : integer range 0 to 8 := 0;  
+  signal widget_matrix_col_idx : integer range 0 to 8 := 5;  
   signal widget_matrix_col : std_logic_vector(7 downto 0);
   signal key_caps : std_logic := '0';
   signal key_restore : std_logic := '0';
@@ -293,6 +275,8 @@ architecture Behavioral of container is
 
   signal matrix_segment_num : std_logic_vector(7 downto 0);
   signal porta_pins : std_logic_vector(7 downto 0) := (others => '1');
+
+  signal key_count : unsigned(15 downto 0) := to_unsigned(0,16);
   
 begin
 
@@ -352,9 +336,9 @@ begin
     port map (
       ioclock => cpuclock,
 
-      powerled => '1',
-      flopled => '1',
-      flopmotor => '1',
+      powerled => key_up,
+      flopled => '0',
+      flopmotor => fb_fire,
             
       kio8 => kb_io0,
       kio9 => kb_io1,
@@ -398,18 +382,18 @@ begin
 
       -- MEGA65 keyboard acts as though it were a widget board
     widget_disable => '0',
-    ps2_disable => '1',
-    joyreal_disable => '1',
-    joykey_disable => '1',
-    physkey_disable => '1',
-    virtual_disable => '1',
+    ps2_disable => '0',
+    joyreal_disable => '0',
+    joykey_disable => '0',
+    physkey_disable => '0',
+    virtual_disable => '0',
 
       joyswap => '0',
       
       joya_rotate => '0',
       joyb_rotate => '0',
       
-    ioclock       => clk,
+    ioclock       => cpuclock,
 --    restore_out => restore_nmi,
     keyboard_restore => key_restore,
     keyboard_capslock => key_caps,
@@ -593,12 +577,53 @@ begin
   BEGIN
 
     if rising_edge(pixelclock) then
-    if y_zero = '1' then
-      ycounter <= 0;
-    elsif x_zero = '1' then
-      xcounter <= to_unsigned(0,12);
-      if xcounter /= to_unsigned(0,12) then
-        ycounter <= ycounter + 1;
+      
+      -- XXX Show keyboard status on screen
+      if ascii_key_valid='1' then
+        key_count <= key_count + 1;
+      end if;
+      ram_cache(15 downto 0) <= key_count;
+      ram_cache(31 downto 24) <= ascii_key;
+      ram_cache(23) <= ascii_key_valid;
+      ram_cache(22 downto 16) <= unsigned(bucky_key);
+      ram_cache(32) <= key_up;
+      ram_cache(33) <= key_left;
+      ram_cache(34) <= key_restore;
+      ram_cache(63 downto 56) <= unsigned(widget_matrix_col);
+      ram_cache(55 downto 48) <= to_unsigned(widget_matrix_col_idx,8);
+      
+      -- Control hyperram
+      if expansionram_data_ready_strobe='1' then
+        if (read_address /= ((512/8)-1)) then
+          read_address <= read_address + 1;
+        else
+          read_address <= to_unsigned(0,8);
+        end if;
+              
+        ram_cache(to_integer(read_address)*8+7 downto to_integer(read_address)*8+0) <= expansionram_rdata;
+        expansionram_read <= '0';
+        expansionram_write <= '0';
+      elsif expansionram_busy = '1' then
+        expansionram_read <= '0';
+        expansionram_write <= '0';
+      elsif (queue_ram_write = '1') and (expansionram_busy='0') then
+        queue_ram_write <= '0';
+        thebit := to_unsigned(ram_cell,32);
+        expansionram_address <= thebit(29 downto 3);
+        thebit(31 downto 3) := to_unsigned(ram_cell,29);
+        thebit(2 downto 0) := "000";
+        expansionram_wdata <= ram_written((to_integer(thebit)+7) downto to_integer(thebit));
+        expansionram_read <= '0';
+        expansionram_write <= '1';
+        read_countdown <= 10;
+      elsif (queue_ram_write = '0') and (expansionram_busy='0') and (read_countdown=0) then
+        expansionram_address <= (others => '0');
+        -- XXX DEBUG limit reading to only 4 bytes repeatedly
+        expansionram_address(1 downto 0) <= read_address(1 downto 0);
+        expansionram_read <= '1';
+        expansionram_write <= '0';
+      elsif read_countdown /= 0 then
+        read_countdown <= read_countdown - 1;
       end if;
     elsif pixel_strobe = '1' then
       xcounter <= xcounter + 1;
