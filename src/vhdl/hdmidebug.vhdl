@@ -24,6 +24,7 @@ use Std.TextIO.all;
 library UNISIM;
 use UNISIM.vcomponents.all;
 use work.cputypes.all;
+use work.debugtools.all;
 
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
@@ -299,6 +300,17 @@ architecture Behavioral of container is
   
   signal queue_ram_write : std_logic := '0';
   signal read_countdown : integer range 0 to 10 := 0;
+
+  signal ascii_key : unsigned(7 downto 0);
+  signal ascii_key_valid : std_logic := '0';
+  signal bucky_key : std_logic_vector(6 downto 0);
+  signal capslock_combined : std_logic;
+  signal widget_matrix_col_idx : integer range 0 to 8 := 0;  
+  signal widget_matrix_col : std_logic_vector(7 downto 0);
+  signal key_caps : std_logic := '0';
+  signal key_restore : std_logic := '0';
+  signal key_up : std_logic := '0';
+  signal key_left : std_logic := '0';
   
 begin
 
@@ -366,13 +378,12 @@ begin
       kio9 => kb_io1,
       kio10 => kb_io2,
 
---      matrix_col => widget_matrix_col,
-      matrix_col_idx => 0 -- widget_matrix_col_idx,
---      restore => widget_restore,
---      fastkey_out => fastkey,
---      capslock_out => widget_capslock,
---      upkey => keyup,
---      leftkey => keyleft
+      matrix_col => widget_matrix_col,
+      matrix_col_idx => widget_matrix_col_idx,
+      restore => key_restore,
+      capslock_out => key_caps,
+      upkey => key_up,
+      leftkey => key_left
       
       );
 
@@ -386,6 +397,119 @@ begin
 --               hsync => pattern_hsync
 --       );
 
+  block5: block
+  begin
+    kc0 : entity work.keyboard_complex
+      port map (
+      reset_in => '1',
+      matrix_mode_in => '0',
+      viciv_frame_indicate => '0',
+
+      matrix_segment_num => matrix_segment_num,
+--      matrix_segment_out => matrix_segment_out,
+      suppress_key_glitches => '0',
+      suppress_key_retrigger => '0',
+    
+      scan_mode => '1',
+      scan_rate => '1',
+
+      -- MEGA65 keyboard acts as though it were a widget board
+    widget_disable => '0',
+    ps2_disable => '1',
+    joyreal_disable => '1',
+    joykey_disable => '1',
+    physkey_disable => '1',
+    virtual_disable => '1',
+
+      joyswap => '0',
+      
+      joya_rotate => '0',
+      joyb_rotate => '0',
+      
+    ioclock       => clk,
+--    restore_out => restore_nmi,
+    keyboard_restore => key_restore,
+    keyboard_capslock => key_caps,
+    key_left => key_left,
+    key_up => key_up,
+
+    key1 => (others => '1'),
+    key2 => (others => '1'),
+    key3 => (others => '1'),
+
+    touch_key1 => (others => '1'),
+    touch_key2 => (others => '1'),
+
+--    keydown1 => osk_key1,
+--    keydown2 => osk_key2,
+--    keydown3 => osk_key3,
+--    keydown4 => osk_key4,
+      
+--    hyper_trap_out => hyper_trap,
+--    hyper_trap_count => hyper_trap_count,
+--    restore_up_count => restore_up_count,
+--    restore_down_count => restore_down_count,
+--    reset_out => reset_out,
+--    ps2clock       => ps2clock,
+--    ps2data        => ps2data,
+--    last_scan_code => last_scan_code,
+--    key_status     => seg_led(1 downto 0),
+    porta_in       => (others => '1'),
+    portb_in       => (others => '1'),
+--    porta_out      => cia1porta_in,
+--    portb_out      => cia1portb_in,
+--    porta_ddr      => cia1porta_ddr,
+--    portb_ddr      => cia1portb_ddr,
+
+    joya(4) => '1',
+    joya(0) => '1',
+    joya(2) => '1',
+    joya(1) => '1',
+    joya(3) => '1',
+    
+    joyb(4) => '1',
+    joyb(0) => '1',
+    joyb(2) => '1',
+    joyb(1) => '1',
+    joyb(3) => '1',
+    
+--    key_debug_out => key_debug,
+  
+    porta_pins => (others => '1'),
+    portb_pins => (others => '1'),
+
+--    speed_gate => speed_gate,
+--    speed_gate_enable => speed_gate_enable,
+
+    capslock_out => capslock_combined,
+--    keyboard_column8_out => keyboard_column8_out,
+--    keyboard_column8_select_in => keyboard_column8_select,
+
+    widget_matrix_col_idx => widget_matrix_col_idx,
+    widget_matrix_col => widget_matrix_col,
+--    widget_restore => widget_restore,
+--    widget_capslock => widget_capslock,
+--    widget_joya => widget_joya,
+--    widget_joyb => widget_joyb,
+      
+      
+    -- remote keyboard input via ethernet
+--    eth_keycode_toggle => eth_keycode_toggle,
+--    eth_keycode => eth_keycode
+
+    -- remote 
+--    eth_keycode_toggle => key_scancode_toggle,
+--    eth_keycode => key_scancode,
+
+    -- ASCII feed via hardware keyboard scanner
+    ascii_key => ascii_key,
+    ascii_key_valid => ascii_key_valid,
+    bucky_key => bucky_key(6 downto 0)
+    
+    );
+  end block;
+
+  
   pixel0: entity work.pixel_driver
     port map (
       clock81 => pixelclock, -- 80MHz
