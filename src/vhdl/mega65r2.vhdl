@@ -244,7 +244,7 @@ architecture Behavioral of container is
   -- On the R2, we don't use the "real" keyboard interface, but instead the
   -- widget board interface, so just have these as dummy all-high place holders
   signal column : std_logic_vector(8 downto 0) := (others => '1');
-  signal row : std_logic_vector(8 downto 0) := (others => '1');
+  signal row : std_logic_vector(7 downto 0) := (others => '1');
   
   
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
@@ -585,7 +585,7 @@ begin
       porta_pins => column(7 downto 0),
       portb_pins => row(7 downto 0),
       keyboard_column8 => column(8),
-      caps_lock_key => row(8),
+      caps_lock_key => '0',
       keyleft => keyleft,
       keyup => keyup,
 
