@@ -496,7 +496,9 @@ begin
   begin
     if rising_edge(clk) then
 
-      bucky_key_internal(6) <= key_caps;
+      -- CAPS LOCK key like others is active low, so we invert it when
+      -- recording its status.
+      bucky_key_internal(6) <= not key_caps;
                      
       --reset <= reset_in;
       --if reset_in /= reset then

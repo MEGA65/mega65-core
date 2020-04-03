@@ -585,7 +585,7 @@ begin
       porta_pins => column(7 downto 0),
       portb_pins => row(7 downto 0),
       keyboard_column8 => column(8),
-      caps_lock_key => '0',
+      caps_lock_key => '1',
       keyleft => keyleft,
       keyup => keyup,
 
