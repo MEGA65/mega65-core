@@ -19,6 +19,7 @@ entity matrix_to_ascii is
 
         key_up : in std_logic;
         key_left : in std_logic;
+        key_caps : in std_logic;
         
         -- UART key stream
         ascii_key : out unsigned(7 downto 0) := (others => '0');
@@ -495,6 +496,8 @@ begin
   begin
     if rising_edge(clk) then
 
+      bucky_key_internal(6) <= key_caps;
+                     
       --reset <= reset_in;
       --if reset_in /= reset then
       --  matrix_internal <= (others => '1');
@@ -535,7 +538,7 @@ begin
           when 61 => bucky_key_internal(3) <= not debounce_key_state; -- MEGA
           when 66 => bucky_key_internal(4) <= not debounce_key_state; -- ALT
           when 64 => bucky_key_internal(5) <= not debounce_key_state; -- NO_SCROLL
-          when 78 => bucky_key_internal(6) <= not debounce_key_state; -- CAPS_LOCK
+          -- XXX CAPS LOCK has its own separate line, so is set elsewhere
           when others => null;
         end case;
         
@@ -557,9 +560,9 @@ begin
             end if;
             
             repeat_key <= key_num;
-              repeat_key_timer <= repeat_start_timer;
-              ascii_key_valid_countdown <= 8191;
-              ascii_key_valid <= '0';
+            repeat_key_timer <= repeat_start_timer;
+            ascii_key_valid_countdown <= 1023;
+            ascii_key_valid <= '0';
           else
             ascii_key_valid <= '0';
           end if;
