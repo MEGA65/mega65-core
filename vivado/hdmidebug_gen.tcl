@@ -119,6 +119,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/keyboard_to_matrix.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/mega65kbd_to_matrix.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/matrix_to_ascii.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/keymapper.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/widget_to_matrix.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ps2_to_matrix.vhdl"]"\
 	       
@@ -214,10 +215,6 @@ set file "vhdl/keyboard_complex.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
-set file "vhdl/visual_keyboard.vhdl"
-set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
-set_property -name "file_type" -value "VHDL" -objects $file_obj
-
 set file "vhdl/matrix_to_ascii.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
@@ -229,6 +226,8 @@ set_property -name "file_type" -value "VHDL" -objects $file_obj
 set file "vhdl/keyboard_to_matrix.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+
 
 # Set 'sources_1' fileset properties
 set obj [get_filesets sources_1]

@@ -311,6 +311,9 @@ architecture Behavioral of container is
   signal key_restore : std_logic := '0';
   signal key_up : std_logic := '0';
   signal key_left : std_logic := '0';
+
+  signal matrix_segment_num : std_logic_vector(7 downto 0);
+  signal porta_pins : std_logic_vector(7 downto 0) := (others => '1');
   
 begin
 
@@ -410,8 +413,8 @@ begin
       suppress_key_glitches => '0',
       suppress_key_retrigger => '0',
     
-      scan_mode => '1',
-      scan_rate => '1',
+      scan_mode => "11",
+      scan_rate => x"FF",
 
       -- MEGA65 keyboard acts as though it were a widget board
     widget_disable => '0',
@@ -450,16 +453,16 @@ begin
 --    restore_up_count => restore_up_count,
 --    restore_down_count => restore_down_count,
 --    reset_out => reset_out,
---    ps2clock       => ps2clock,
---    ps2data        => ps2data,
+    ps2clock       => '1',
+    ps2data        => '1',
 --    last_scan_code => last_scan_code,
 --    key_status     => seg_led(1 downto 0),
     porta_in       => (others => '1'),
     portb_in       => (others => '1'),
 --    porta_out      => cia1porta_in,
 --    portb_out      => cia1portb_in,
---    porta_ddr      => cia1porta_ddr,
---    portb_ddr      => cia1portb_ddr,
+    porta_ddr      => (others => '1'),
+    portb_ddr      => (others => '1'),
 
     joya(4) => '1',
     joya(0) => '1',
@@ -475,7 +478,7 @@ begin
     
 --    key_debug_out => key_debug,
   
-    porta_pins => (others => '1'),
+    porta_pins => porta_pins, 
     portb_pins => (others => '1'),
 
 --    speed_gate => speed_gate,
@@ -483,19 +486,19 @@ begin
 
     capslock_out => capslock_combined,
 --    keyboard_column8_out => keyboard_column8_out,
---    keyboard_column8_select_in => keyboard_column8_select,
+    keyboard_column8_select_in => '0',
 
     widget_matrix_col_idx => widget_matrix_col_idx,
     widget_matrix_col => widget_matrix_col,
---    widget_restore => widget_restore,
---    widget_capslock => widget_capslock,
---    widget_joya => widget_joya,
---    widget_joyb => widget_joyb,
+      widget_restore => '1',
+      widget_capslock => '1',
+    widget_joya => (others => '1'),
+    widget_joyb => (others => '1'),
       
       
     -- remote keyboard input via ethernet
---    eth_keycode_toggle => eth_keycode_toggle,
---    eth_keycode => eth_keycode
+      eth_keycode_toggle => '0',
+      eth_keycode => (others => '0'),
 
     -- remote 
 --    eth_keycode_toggle => key_scancode_toggle,
