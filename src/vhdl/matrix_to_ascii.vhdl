@@ -386,6 +386,84 @@ architecture behavioral of matrix_to_ascii is
     others => x"00"
     );
 
+  signal matrix_alt : key_matrix_t := (
+    0 => x"00", -- INS/DEL
+    1 => x"00", -- RET/NO KEY
+    2 => x"00", -- HORZ/CRSR
+    3 => x"00", -- F8/F7
+    4 => x"B9", -- super-script 1
+    5 => x"B2", -- super-script 2
+    6 => x"B3", -- super-script 3
+    7 => x"00", -- VERT/CRSR
+    8 => x"A4", -- currency symbol
+    9 => x"AE", -- registered symbol
+    10 => x"E5", -- A with circle on top
+    11 => x"A2", -- Cent symbol (was $/4)
+    12 => x"F7", -- Divide symbol
+    13 => x"A7", -- Section symbol (was S)
+    14 => x"E6", -- AE/ae ligature
+    15 => x"00", -- LEFT/SHIFT
+    16 => x"B0", -- Degree symbol
+    17 => x"AE", -- Registered symbol (was R/r)
+    18 => x"F0", -- Eth rune
+    19 => x"A5", -- Yen symbol (&/6)
+    20 => x"E7", -- C with cedilla beneath
+    21 => x"00", -- F/f
+    22 => x"FE", -- Thorn rune
+    23 => x"D7", -- Multiply symbol
+    24 => x"B4", -- Acute accent
+    25 => x"FF", -- Y with umlaut
+    26 => x"00", -- G/g
+    27 => x"00", -- (/8
+    28 => x"FA", -- U with accute accent (was B/b)
+    29 => x"FD", -- Y with accute accent (was H/h)
+    30 => x"FC", -- Ü/ü
+    31 => x"00", -- V/v
+    32 => x"00", -- )/9
+    33 => x"ED", -- I with accute accent (Icelandic)
+    34 => x"E9", -- (was J/j)
+    35 => x"00", -- {/0
+    36 => x"B5", -- mu symbol (was m)
+    37 => x"E1", -- A with accute accent (was K/k)
+    38 => x"F8", -- O with stroke through 
+    39 => x"F1", -- N with tilde over
+    40 => x"B1", -- +/- sign
+    41 => x"B6", -- Pilcrow Sign
+    42 => x"F3", -- O with accute accent (was L/l)
+    43 => x"AC", -- Not sign
+    44 => x"BB", -- >>
+    45 => x"E4", -- Ä/ä
+    46 => x"A8", -- Diaresis (umlaut without letter under) (was NO KEY/@)
+    47 => x"AB", -- <</,
+    48 => x"A3", -- British pound?
+    49 => x"B7", -- Middle dot
+    50 => x"E4", -- Also Ä/ä (for convenience for German typists)
+    51 => x"00", -- CLR/HOM
+    52 => x"00", -- RIGHT/SHIFT
+    53 => x"AF", -- Macron ("overscore")
+    54 => x"00", -- SPECIAL/UNPRINTABLE/^
+    55 => x"BF", -- upside-down question mark (was ?)
+    56 => x"A1", -- upside-down ! (was 1)
+    57 => x"00", -- `/_
+    58 => x"00", -- CTRL/NO KEY
+    59 => x"00", -- "/2
+    60 => x"00", -- SPACE/BAR
+    61 => x"00", -- C=/NO KEY
+    62 => x"A9", -- Copyright symbol (was Q)
+    63 => x"00", -- RUN/STOP
+    64 => x"00", -- NO/SCRL
+    65 => x"00", -- TAB/NO KEY
+    66 => x"00", -- ALT/NO KEY
+    67 => x"00", -- HELP/NO KEY
+    68 => x"BC", -- 1/4 fraction
+    69 => x"BD", -- 1/2 fraction
+    70 => x"BE", -- 3/4 fraction
+    71 => x"00", -- ESC/NO KEY
+
+    others => x"00"
+    );
+
+  
   signal key_num : integer range 0 to 71 := 0;
 
 begin
@@ -513,6 +591,8 @@ begin
       -- as unique keys
       if bucky_key_internal(3)='1' then
         key_matrix := matrix_cbm;
+      elsif bucky_key_internal(4)='1' then
+        key_matrix := matrix_alt;
       elsif bucky_key_internal(0)='1' or bucky_key_internal(1)='1' or key_up='1' or key_left='1' then
         -- Force shifted key set if UP or LEFT keys active, to try to prevent
         -- glitching of those keys.
@@ -556,9 +636,14 @@ begin
             
             -- Make CAPS LOCK invert case of only letters
             if bucky_key_internal(6)='1'
-              and (to_integer(key_matrix(key_num)) >= (96+1))
-              and (to_integer(key_matrix(key_num)) <= (96+26)) then
-              -- Clear bit 5 ($20) to convert lower to upper case letters
+              and (
+                ((to_integer(key_matrix(key_num)) >= (96+1))
+                 and (to_integer(key_matrix(key_num)) <= (96+26)))
+                or (bucky_key_internal(4) = '1')
+                then
+                  -- Clear bit 5 ($20) to convert lower to upper case letters
+                  -- (Applies to some weird Latin1 characters, regardless of
+                  -- the symbol.)
               ascii_key(5) <= '0';
             end if;
             
