@@ -790,7 +790,7 @@ normalboot:
 
         // First try resetting card 1 (external)
 	// so that if you have an external card, it will be used in preference
-        lda #$c0
+        lda #$c1
         sta $d680
         lda #$00
         sta $d680
