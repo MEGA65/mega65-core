@@ -231,7 +231,7 @@ saveConfRest0:
 	.defPStr        "reset your machine now"
 
 errorLine:
-	.byte		"a version mismatch has been detected!   "
+	.byte 		"config data corrupt. press f14 to reset."
 
 ;	This will tell us whats happening on each line so we can use quick 
 ;	look-ups for the mouse etc.  Only optLineMaxC of the lines on the 
@@ -570,9 +570,24 @@ checkMagicBytes:
 		DEX
 		BPL	@loop
 
-@halt:
-		JMP	@halt
+	;; PGS 20200405 - When this happens, offer to reset the config sector
+	
 
+	;; Wait until the user presses F14
+@halt:
+	lda $d610
+	beq @halt
+	cmp #$fe
+	beq @repairSettings
+	sta $d610
+	JMP	@halt
+
+	;; User pressed F14, so reset to default settings and continue
+@repairSettings:
+	;; Clear the read key
+	sta $d610
+	jsr getDefaultSettings
+	
 @exit:
 		RTS
 
