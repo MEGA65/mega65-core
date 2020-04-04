@@ -789,7 +789,7 @@ normalboot:
         // Work out if we are using primary or secondard SD card
 
         // First try resetting card 0
-        lda #$c0
+        lda #$c1
         sta $d680
         lda #$00
         sta $d680
