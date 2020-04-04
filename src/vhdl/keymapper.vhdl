@@ -173,8 +173,8 @@ begin  -- behavioural
   scanexport: process(ioclock)
   begin
     if rising_edge(ioclock) then
-      matrix_combined_col <= scan_col;
       if scan_idx < 9 then
+        matrix_combined_col <= scan_col;
         matrix_combined_col_idx <= scan_idx;
       end if;
     end if;
