@@ -217,9 +217,9 @@ begin
               hr_flags_pending <= '1';
               hr_flags_newval <= wdata;
               if wdata(7)='1' then
-                cache_enabled = true;
+                cache_enabled <= true;
               else
-                cache_enabled = false;
+                cache_enabled <= false;
               end if;
 --              hr_rwds_int <= wdata(0);
 --              hr_reset_int <= wdata(1);
