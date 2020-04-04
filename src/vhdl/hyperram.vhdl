@@ -106,7 +106,7 @@ architecture gothic of hyperram is
   signal write_latency : unsigned(7 downto 0) := to_unsigned((8 - 2)*2,8);
     -- to_unsigned(8 - 2 - 1,8);
 
-  constant cache_enabled : boolean := false;
+  signal cache_enabled : boolean := false;
 
   signal hr_d_pending : std_logic := '0';
   signal hr_flags_pending : std_logic := '0';
@@ -170,7 +170,11 @@ begin
               fake_rdata(4) <= hr_cs0_int;
               fake_rdata(5) <= hr_cs1_int;
               fake_rdata(6) <= hr_ddr;
-              fake_rdata(7) <= '1';
+              if cache_enabled then
+                fake_rdata(7) <= '1';
+              else
+                fake_rdata(7) <= '0';
+              end if;
             when x"3" =>
               fake_rdata <= write_latency;
             when x"4" =>
@@ -212,6 +216,11 @@ begin
             when x"2" =>
               hr_flags_pending <= '1';
               hr_flags_newval <= wdata;
+              if wdata(7)='1' then
+                cache_enabled = true;
+              else
+                cache_enabled = false;
+              end if;
 --              hr_rwds_int <= wdata(0);
 --              hr_reset_int <= wdata(1);
 --              hr_clk_n_int <= wdata(2);
