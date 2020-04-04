@@ -705,16 +705,19 @@ begin
       eth_interrupt => '0',
       
       -------------------------------------------------------------------------
-      -- Lines for the SDcard interface itself
+      -- Lines for the SDcard interfaces
       -------------------------------------------------------------------------
-      cs_bo => sdReset,
-      sclk_o => sdClock,
-      mosi_o => sdMOSI,
-      miso_i => sdMISO,
-      cs2_bo => sd2reset,
-      sclk2_o => sd2Clock,
-      mosi2_o => sd2MOSI,
-      miso2_i => sd2MISO,
+      -- External one is bus 0, so that it has priority.
+      -- Internal SD card:
+      cs_bo => sd2Reset,
+      sclk_o => sd2Clock,
+      mosi_o => sd2MOSI,
+      miso_i => sd2MISO,
+      -- External microSD
+      cs2_bo => sdreset,
+      sclk2_o => sdClock,
+      mosi2_o => sdMOSI,
+      miso2_i => sdMISO,
 
       slow_access_request_toggle => slow_access_request_toggle,
       slow_access_ready_toggle => slow_access_ready_toggle,
