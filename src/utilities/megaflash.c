@@ -97,7 +97,7 @@ const uint16_t sd_errorcode=0xd6daL;
 const unsigned long sd_timeout_value=100000;
 
 unsigned long sdcard_timeout;
-unsigned char sdbus=1;
+unsigned char sdbus=0;
 
 unsigned long fat32_partition_start=0;
 unsigned long fat32_partition_end=0;
@@ -129,12 +129,12 @@ void sdcard_reset(void)
     POKE(0xd020,(PEEK(0xd020)+1)&15);
     sdcard_timeout--;
     if (!sdcard_timeout) {
-      if (sdbus==1) {
+      if (sdbus==0) {
 	POKE(sd_ctl,0xc0);
 	POKE(sd_ctl,0);
 	POKE(sd_ctl,1);
 	sdcard_timeout=sd_timeout_value;
-	sdbus=0;
+	sdbus=1;
       }
     }
   }
