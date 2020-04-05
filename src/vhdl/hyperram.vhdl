@@ -78,6 +78,7 @@ architecture gothic of hyperram is
   signal debug_mode : std_logic := '0';
 
   signal hr_ddr : std_logic := '0';
+  signal hr_rwds_ddr : std_logic := '0';
   signal hr_reset_int : std_logic := '0';
   signal hr_rwds_int : std_logic := '0';
   signal hr_cs0_int : std_logic := '0';
@@ -112,6 +113,7 @@ architecture gothic of hyperram is
   signal hr_flags_pending : std_logic := '0';
   signal hr_d_newval : unsigned(7 downto 0);
   signal hr_flags_newval : unsigned(7 downto 0);
+  signal hr_rwds_high_seen : std_logic := '0';
   
 begin
   process (pixelclock,clock163) is
@@ -165,7 +167,7 @@ begin
             when x"2" =>
               fake_rdata(0) <= hr_rwds;
               fake_rdata(1) <= hr_reset_int;
-              fake_rdata(2) <= hr_clk_n_int;
+              fake_rdata(2) <= hr_rwds_ddr;
               fake_rdata(3) <= hr_clk_p_int;
               fake_rdata(4) <= hr_cs0_int;
               fake_rdata(5) <= hr_cs1_int;
@@ -269,16 +271,21 @@ begin
       if hr_flags_pending='1' then
         hr_rwds_int <= hr_flags_newval(0);
         hr_reset_int <= hr_flags_newval(1);
-        hr_clk_n_int <= hr_flags_newval(2);
+        hr_clk_n_int <= not hr_flags_newval(3);
         hr_clk_p_int <= hr_flags_newval(3);
         hr_cs0_int <= hr_flags_newval(4);
         hr_cs1_int <= hr_flags_newval(5);
         
         hr_reset <= hr_flags_newval(1);
-        hr_clk_n <= hr_flags_newval(2);
+        hr_clk_n <= not hr_flags_newval(3);
         hr_clk_p <= hr_flags_newval(3);
         hr_cs0 <= hr_flags_newval(4);
         hr_cs1 <= hr_flags_newval(5);
+        
+        hr_rwds_ddr <= hr_flags_newval(2);
+        if hr_flags_newval(2)='0' then
+          hr_rwds <= 'Z';
+        end if;
         
         hr_ddr <= hr_flags_newval(6);
         if hr_flags_newval(6)='0' then
@@ -313,7 +320,11 @@ begin
               state <= Idle;
             end if;
 
-            hr_rwds <= hr_rwds_int;
+            if hr_rwds_ddr='1' then
+              hr_rwds <= hr_rwds_int;
+            else
+              hr_rwds <= 'Z';
+            end if;
             hr_reset <= hr_reset_int;
 
           when Idle2 =>
@@ -464,6 +475,7 @@ begin
                   -- Reading: We can just wait until hr_rwds has gone low, and then
                   -- goes high again to indicate the first data byte
                   countdown <= 99;
+                  hr_rwds_high_seen <= '0';
                   state <= HyperRAMReadWait;
                 else
                   -- Writing, so count down the correct number of cycles;
@@ -586,7 +598,15 @@ begin
               hr_clock <= not hr_clock;
             else
               last_rwds <= hr_rwds;
-              if hr_rwds = '1' or ((last_rwds='1') and (hr_clock='0')) then
+              -- HyperRAM drives RWDS basically to follow the clock.
+              -- But first valid data is when RWDS goes high, so we have to
+              -- wait until we see it go high.
+              if ((hr_rwds='1') and (hr_clock='1')) then
+                hr_rwds_high_seen <= '1';
+              end if;                
+              if ((hr_rwds='1') and (hr_clock='1'))                
+                or (((hr_rwds='0') and (hr_clock='0')) hr_rwds_high_seen='1')
+              then
                 -- Data has arrived: Latch either odd or even byte
                 -- as required.
                 report "Saw read data = $" & to_hstring(hr_d);
