@@ -23,6 +23,98 @@
   $BFFFFF4 = read hyperram state machine value
 */
 
+unsigned char hr_flags=0;
+
+void hr_debug_enable(void)
+{
+  lpoke(0xbfffff0,0xDE);
+}
+
+void hr_debug_disable(void)
+{
+  lpoke(0xbfffff0,0x1D);
+}
+
+unsigned char read_hr_d(void)
+{
+  hr_flags&=(0xff-0x40);
+  lpoke(0xbfffff2,hr_flags);
+  return lpeek(0xBFFFFF0);
+}
+
+void write_hr_d(unsigned char v)
+{
+  hr_flags|=0x40;
+  lpoke(0xbfffff1,v);
+}
+
+void set_reset(unsigned char v)
+{
+  hr_flags&=(0xff-0x02);
+  
+  if (v)
+    hr_flags|=2;
+  lpoke(0xbfffff2,hr_flags);  
+}
+
+void set_rwds(unsigned char v)
+{
+  hr_flags&=(0xff-0x01);
+  
+  if (v)
+    hr_flags|=1;
+  lpoke(0xbfffff2,hr_flags);  
+}
+
+
+void set_clock(unsigned char v)
+{
+  hr_flags&=(0xff-0x0c);
+  
+  if (v)
+    hr_flags|=8;
+  else
+    hr_flags|=4;
+  lpoke(0xbfffff2,hr_flags);  
+}
+
+void set_cs(unsigned char v)
+{
+  hr_flags&=(0xff-0x30);
+  hr_flags|=(v<<4);
+  lpoke(0xbfffff2,hr_flags);
+}
+
+unsigned char i;
+
 void main(void)
 {
+  hr_debug_enable();
+  set_clock(0);
+  set_reset(1);
+  set_cs(1);
+  set_cs(2);
+  set_cs(1);
+  set_rwds(1);
+  // Command is read (bit 47 high), normal address space (bit 46=0), linear burst (bit 45 set)
+  set_rwds(0xa0);  
+  set_clock(1);
+  // Address = 0 (all other bytes zero)
+  set_rwds(0x0);  
+  set_clock(0);
+  set_rwds(0x0);  
+  set_clock(1);
+  set_rwds(0x0);  
+  set_clock(0);
+  set_rwds(0x0);  
+  set_clock(1);
+  set_rwds(0x0);  
+  set_clock(0);
+  for(i=0;i<32;i++)
+    {
+      printf("%2d : $%02x, ",i,read_hr_d());
+      set_clock((i&1)^1);
+    }
+  
+  
 }
