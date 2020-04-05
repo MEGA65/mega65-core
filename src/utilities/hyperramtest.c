@@ -13,7 +13,7 @@
   $BFFFFF1 = Read hr_d, and if hr_ddr bit set, write it
   $BFFFFF2.0 = hr_rwds
   $BFFFFF2.1 = hr_reset_int
-  $BFFFFF2.2 = hr_clk_n_int
+  $BFFFFF2.2 = hr_rwds_ddr
   $BFFFFF2.3 = hr_clk_p_int
   $BFFFFF2.4 = hr_cs0_int
   $BFFFFF2.5 = hr_cs1_int
@@ -60,10 +60,18 @@ void set_reset(unsigned char v)
 void set_rwds(unsigned char v)
 {
   hr_flags&=(0xff-0x01);
+  hr_flags|=0x04; // set ddr
   
   if (v)
     hr_flags|=1;
   lpoke(0xbfffff2,hr_flags);  
+}
+
+unsigned char read_rwds(void)
+{
+  hr_flags&=(0xff-0x04);
+  lpoke(0xbfffff2,hr_flags);
+  return lpeek(0xbfffff2)&0x01;
 }
 
 
@@ -71,10 +79,7 @@ void set_clock(unsigned char v)
 {
   hr_flags&=(0xff-0x0c);
   
-  if (v)
-    hr_flags|=8;
-  else
-    hr_flags|=4;
+  if (v) hr_flags|=8;
   lpoke(0xbfffff2,hr_flags);  
 }
 
@@ -95,7 +100,7 @@ void main(void)
   set_cs(1);
   set_cs(2);
   set_cs(1);
-  set_rwds(1);
+  read_rwds(); // cause RWDS to tri-state
   // Command is read (bit 47 high), normal address space (bit 46=0), linear burst (bit 45 set)
   set_rwds(0xa0);  
   set_clock(1);
