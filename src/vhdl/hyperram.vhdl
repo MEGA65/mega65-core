@@ -605,7 +605,7 @@ begin
                 hr_rwds_high_seen <= '1';
               end if;                
               if ((hr_rwds='1') and (hr_clock='1'))                
-                or (((hr_rwds='0') and (hr_clock='0')) hr_rwds_high_seen='1')
+                or (((hr_rwds='0') and (hr_clock='0')) and (hr_rwds_high_seen='1'))
               then
                 -- Data has arrived: Latch either odd or even byte
                 -- as required.
