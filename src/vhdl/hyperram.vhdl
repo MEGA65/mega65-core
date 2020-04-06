@@ -104,7 +104,7 @@ architecture gothic of hyperram is
 
   signal request_counter_int : std_logic := '0';
 
-  signal write_latency : unsigned(7 downto 0) := to_unsigned((8 - 2)*2+1,8);
+  signal write_latency : unsigned(7 downto 0) := to_unsigned((8 - 2)*2,8);
     -- to_unsigned(8 - 2 - 1,8);
 
   signal cache_enabled : boolean := false;
@@ -498,17 +498,13 @@ begin
               hr_clk_n <= not hr_clock;
               hr_clk_p <= hr_clock;
               hr_clock <= not hr_clock;
-              -- Avoid writing data to next byte when ticking the clock
-              if ram_reading = '0' then
-                hr_rwds <= '1';
-              end if;
             else
               report "latency countdown = " & integer'image(countdown);
+              -- Begin write mask pre-amble
+              if ram_reading = '0' and countdown = 2 then
+                hr_rwds <= '0';
+              end if;
               if countdown /= 0 then
-                report "tri-stating RWDS";
-                if ram_reading = '0' then
-                  hr_rwds <= '1';
-                end if;
                 countdown <= countdown - 1;
               else
                 if extra_latency='1' then
@@ -516,12 +512,6 @@ begin
                   -- then wait another 6 cycles.
                   extra_latency <= '0';
                   countdown <= 6;
-                  -- Also begin driving RWDS low when CLK low one
-                  -- cycle before actually starting to write.
-                  report "Pulling RWDS low ahead of writing.";
-                  if ram_reading = '0' then
-                    hr_rwds <= '1';
-                  end if;
                 else
                   -- Latency countdown for writing is over, we can now
                   -- begin writing bytes.                  
