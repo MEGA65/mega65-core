@@ -33,9 +33,9 @@ int main(int argc,char **argv)
 	 "$dumpvars\n"
 	 "x!\n"
 	 "x\"\n"
-	 "x$\n"
+	 "x&\n"
 	 "x%%\n"
-	 "xxxxxxxx^\n"
+	 "bxxxxxxxx ^\n"
 	 "$end\n"
 	 "\n");	
   
