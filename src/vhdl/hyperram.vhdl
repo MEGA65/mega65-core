@@ -566,6 +566,7 @@ begin
               -- Begin write mask pre-amble
               if ram_reading = '0' and countdown = 2 then
                 hr_rwds <= '0';
+                hr_d <= x"BE"; -- "before" data byte
               end if;
               if countdown /= 0 then
                 countdown <= countdown - 1;
@@ -587,6 +588,9 @@ begin
                   -- occur.
                   -- In this first 
                   
+                  report "Presenting hr_d with ram_wdata";
+                  hr_d <= ram_wdata;
+
                   -- Write byte
                   if write_byte_phase = '0' then
                     -- Even byte
@@ -596,6 +600,7 @@ begin
                       byte_written <= '1';
                     else
                       hr_rwds <= '1';
+                      hr_d <= x"ee"; -- even "masked" data byte                      
                     end if;
                   else
                     -- Odd byte
@@ -605,13 +610,12 @@ begin
                       byte_written <= '1';
                     else
                       hr_rwds <= '1';
+                      hr_d <= x"00"; -- odd "masked" data byte                      
                     end if;
                     -- We finish after (possibly) writing the odd byte
                   end if;
                   write_byte_phase <= '1';
 
-                  report "Presenting hr_d with ram_wdata";
-                  hr_d <= ram_wdata;
                 end if;
               end if;
             end if;
@@ -619,9 +623,13 @@ begin
               report "Advancing to HyperRAMFinishWriting";
               state <= HyperRAMFinishWriting1;
             end if;
+            if byte_written = '1' and next_is_data='1' then
+              hr_d <= x"AF"; -- "after" data byte
+            end if;
           when Hyperramfinishwriting1 =>
             -- Mask writing from here on.
             hr_rwds <= '1';
+            hr_d <= x"FA"; -- "after" data byte
             state <= Hyperramfinishwriting2;
           when Hyperramfinishwriting2 =>
             -- Tick clock so that masking of writing gets properly noted
