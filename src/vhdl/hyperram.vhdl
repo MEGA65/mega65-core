@@ -395,6 +395,7 @@ begin
             report "Presenting hr_d to $A5";
             hr_d <= (others => 'Z');
           when ReadSetup =>
+            report "Setting up to read $" & to_hstring(ram_address) & " ( address = $" & to_hstring(address) & ")";
             -- Prepare command vector
             hr_command(47) <= '1'; -- READ
             -- Map actual RAM to bottom 32MB of 64MB space (repeated 4x)
