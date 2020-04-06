@@ -650,13 +650,15 @@ begin
                   cache_row0_valids <= (others => '0');
                   cache_row0_address <= ram_address(26 downto 3);
                 end if;
-                if byte_phase > 0 then
-                  cache_row0_valids(to_integer(byte_phase)-1) <= '1';
-                  cache_row0_data(to_integer(byte_phase)-1) <= hr_d;
+
+                -- Store the bytes in the cache row
+                if byte_phase < 8 then
+                  cache_row0_valids(to_integer(byte_phase)) <= '1';
+                  cache_row0_data(to_integer(byte_phase)) <= hr_d;
                 end if;
 
-                -- We have one dead cycle to skip before the data flows
-                if to_integer(byte_phase) = (to_integer(ram_address(2 downto 0))+1) then
+                -- Quickly return the correct byte
+                if to_integer(byte_phase) = (to_integer(ram_address(2 downto 0))+0) then
                   report "Latching read data = $" & to_hstring(hr_d);
                   rdata <= hr_d;
                   data_ready_strobe <= '1';
