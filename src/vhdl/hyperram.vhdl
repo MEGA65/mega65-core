@@ -100,6 +100,10 @@ architecture gothic of hyperram is
   signal cache_row0_address : unsigned(23 downto 0) := (others => '1');  
   signal cache_row0_data : cache_row_t := ( others => x"00" );
 
+  signal cache_row1_valids : std_logic_vector(0 to 7) := (others => '0');
+  signal cache_row1_address : unsigned(23 downto 0) := (others => '1');  
+  signal cache_row1_data : cache_row_t := ( others => x"00" );
+  
   signal last_rwds : std_logic := '0';
 
   signal fake_data_ready_strobe : std_logic := '0';
@@ -114,13 +118,15 @@ architecture gothic of hyperram is
   signal write_latency : unsigned(7 downto 0) := to_unsigned((8 - 5)*2,8);
     -- to_unsigned(8 - 2 - 1,8);
 
-  signal cache_enabled : boolean := false;
+  signal cache_enabled : boolean := true;
 
   signal hr_d_pending : std_logic := '0';
   signal hr_flags_pending : std_logic := '0';
   signal hr_d_newval : unsigned(7 downto 0);
   signal hr_flags_newval : unsigned(7 downto 0);
   signal hr_rwds_high_seen : std_logic := '0';
+
+  signal random_bits : unsigned(7 downto 0) := x"00";
   
 begin
   process (pixelclock,clock163) is
@@ -129,6 +135,13 @@ begin
       report "read_request=" & std_logic'image(read_request) & ", busy_internal=" & std_logic'image(busy_internal)
         & ", write_request=" & std_logic'image(write_request);
 
+      -- Pseudo random bits so that we can do randomised cache row replacement
+      if random_bits /= to_unsigned(251,8) then
+        random_bits <= random_bits + 1;
+      else
+        random_bits <= x"00";
+      end if;
+      
       hr_d_pending <= '0';
       hr_flags_pending <= '0';
       
@@ -141,7 +154,7 @@ begin
         request_counter <= request_counter_int;
       end if;
       
-      report "cache: address=$" & to_hstring(cache_row0_address&"000") & ", valids=" & to_string(cache_row0_valids)
+      report "cache0: address=$" & to_hstring(cache_row0_address&"000") & ", valids=" & to_string(cache_row0_valids)
         & ", data = "
         & to_hstring(cache_row0_data(0)) & " "
         & to_hstring(cache_row0_data(1)) & " "
@@ -151,6 +164,16 @@ begin
         & to_hstring(cache_row0_data(5)) & " "
         & to_hstring(cache_row0_data(6)) & " "
         & to_hstring(cache_row0_data(7)) & " ";
+      report "cache1: address=$" & to_hstring(cache_row1_address&"000") & ", valids=" & to_string(cache_row1_valids)
+        & ", data = "
+        & to_hstring(cache_row1_data(0)) & " "
+        & to_hstring(cache_row1_data(1)) & " "
+        & to_hstring(cache_row1_data(2)) & " "
+        & to_hstring(cache_row1_data(3)) & " "
+        & to_hstring(cache_row1_data(4)) & " "
+        & to_hstring(cache_row1_data(5)) & " "
+        & to_hstring(cache_row1_data(6)) & " "
+        & to_hstring(cache_row1_data(7)) & " ";
       
       if read_request='1' and busy_internal='0' then
         report "Making read request";
@@ -353,6 +376,12 @@ begin
             state <= Idle;
             
           when Idle =>
+            -- Invalidate cache if disabled
+            if cache_enabled = false then
+              cache_row0_valids <= (others => '0');
+              cache_row1_valids <= (others => '0');
+            end if;
+              
             -- Mark us ready for a new job, or pick up a new job
             next_is_data <= '1';
             if debug_mode='1' then
@@ -363,16 +392,29 @@ begin
               if ram_reading = '1' then
                 state <= ReadSetup;
               else
-                report "Setting state to WriteSetup";
+                report "Setting state to WriteSetup. random_bits=" & to_hstring(random_bits);
                 state <= WriteSetup;
 
                 -- Update cache
-                if cache_row0_address /= ram_address(26 downto 3) then          
-                  cache_row0_valids <= (others => '0');
-                  cache_row0_address <= ram_address(26 downto 3);
+                if cache_row0_address = ram_address(26 downto 3) then
+                  cache_row0_valids(to_integer(ram_address(2 downto 0))) <= '1';
+                  cache_row0_data(to_integer(ram_address(2 downto 0))) <= ram_wdata;        
+                elsif cache_row1_address = ram_address(26 downto 3) then
+                  cache_row1_valids(to_integer(ram_address(2 downto 0))) <= '1';
+                  cache_row1_data(to_integer(ram_address(2 downto 0))) <= ram_wdata;        
+                else
+                  if random_bits(1)='0' then
+                    cache_row0_valids <= (others => '0');
+                    cache_row0_address <= ram_address(26 downto 3);
+                    cache_row0_valids(to_integer(ram_address(2 downto 0))) <= '1';
+                    cache_row0_data(to_integer(ram_address(2 downto 0))) <= ram_wdata;        
+                  else
+                    cache_row1_valids <= (others => '0');
+                    cache_row1_address <= ram_address(26 downto 3);
+                    cache_row1_valids(to_integer(ram_address(2 downto 0))) <= '1';
+                    cache_row1_data(to_integer(ram_address(2 downto 0))) <= ram_wdata;        
+                  end if;
                 end if;
-                cache_row0_valids(to_integer(ram_address(2 downto 0))) <= '1';
-                cache_row0_data(to_integer(ram_address(2 downto 0))) <= ram_wdata;        
                 
               end if;
               busy_internal <= '1';
@@ -646,15 +688,26 @@ begin
                 report "DISPATCH Saw read data = $" & to_hstring(hr_d);
 
                 -- Update cache
-                if cache_row0_address /= ram_address(26 downto 3) then          
-                  cache_row0_valids <= (others => '0');
-                  cache_row0_address <= ram_address(26 downto 3);
-                end if;
+                if byte_phase < 8 then
+                  if cache_row0_address = ram_address(26 downto 3) then          
+                    cache_row0_valids(to_integer(byte_phase)) <= '1';
+                    cache_row0_data(to_integer(byte_phase)) <= hr_d;
+                  elsif cache_row1_address = ram_address(26 downto 3) then          
+                    cache_row1_valids(to_integer(byte_phase)) <= '1';
+                    cache_row1_data(to_integer(byte_phase)) <= hr_d;
+                  elsif random_bits(1) = '0' then
+                    cache_row0_valids <= (others => '0');
+                    cache_row0_address <= ram_address(26 downto 3);
+                    cache_row0_valids(to_integer(byte_phase)) <= '1';
+                    cache_row0_data(to_integer(byte_phase)) <= hr_d;
+                  else
+                    cache_row1_valids <= (others => '0');
+                    cache_row1_address <= ram_address(26 downto 3);
+                    cache_row1_valids(to_integer(byte_phase)) <= '1';
+                    cache_row1_data(to_integer(byte_phase)) <= hr_d;
+                  end if;
 
                 -- Store the bytes in the cache row
-                if byte_phase < 8 then
-                  cache_row0_valids(to_integer(byte_phase)) <= '1';
-                  cache_row0_data(to_integer(byte_phase)) <= hr_d;
                 end if;
 
                 -- Quickly return the correct byte
