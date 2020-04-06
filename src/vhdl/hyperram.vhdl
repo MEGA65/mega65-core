@@ -104,7 +104,11 @@ architecture gothic of hyperram is
 
   signal request_counter_int : std_logic := '0';
 
+  -- 8 - 2 is correct for the part we have in the MEGA65
   signal write_latency : unsigned(7 downto 0) := to_unsigned((8 - 2)*2,8);
+  -- 8 - 4 is required, however, for the s27k0641.vhd test model that we have
+  -- found for testing.
+  signal write_latency : unsigned(7 downto 0) := to_unsigned((8 - 4)*2,8);
     -- to_unsigned(8 - 2 - 1,8);
 
   signal cache_enabled : boolean := false;
@@ -466,6 +470,9 @@ begin
 
               if countdown = 3 then
                 extra_latency <= hr_rwds;
+                if hr_rwds='1' then
+                  report "Applying extra latency";
+                end if;                    
               end if;
               if countdown /= 0 then
                 countdown <= countdown - 1;
@@ -508,6 +515,7 @@ begin
                 countdown <= countdown - 1;
               else
                 if extra_latency='1' then
+                  report "Waiting 6 more cycles for extra latency";
                   -- If we were asked to wait for extra latency,
                   -- then wait another 6 cycles.
                   extra_latency <= '0';
