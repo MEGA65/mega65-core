@@ -90,7 +90,7 @@ void set_cs(unsigned char v)
   lpoke(0xbfffff2,hr_flags);
 }
 
-unsigned char v,i,j,write_latency;
+unsigned char v,i,j,write_latency,correct,incorrect,actual,corrupt;
 unsigned char before[16];
 unsigned char after[16];
 
@@ -131,63 +131,68 @@ void main(void)
     Test HyperRAM reading and writing.
   */
 
-  for(write_latency=0x00;write_latency<0x20;write_latency++) {
-    printf("Write latency = $%02x:\n",write_latency);
-    
-    for(i=0;i<16;i++) lpoke(0x8000000+i,0xbd);    
-    for(i=0;i<16;i++) lpoke(0x8000000+i,0x40+i);    
-    for(i=0;i<16;i++) after[i]=lpeek(0x8000000+i);
+  // Cache off
+  lpoke(0xbfffff2,0x00);
+  
+  // Work out which write latency works for which offset
+  for(i=0;i<16;i++) {
+    printf("Analysing for addresses $xxxxxxx%x:\n",i);
 
-    for(j=0;j<16;j++) {
-      test_num++;
-
-      for(i=0;i<16;i++) before[i]=lpeek(0x8000000+(test_num<<4)+i);
-      
-      // Find byte value that is not present in any of the bytes of the row
-      v=0x40;
-      i=0;
-      while(i<16) {
-	for(i=0;i<16;i++) if (before[i]==v) break;
-	if (i<16) v++;
-      }
-      printf("Writing unique value $%0x to $%08lx\n",v,
-	     0x8000000+(test_num<<4)+j);
-      
-      lpoke(0x8000000+(test_num<<4)+j,v);
-
-      for(i=0;i<16;i++) after[i]=lpeek(0x8000000+(test_num<<4)+i);
-
-      for(i=0;i<16;i++) {
-	if (after[i]==v) {
-	  if (i==j) printf("Value was correctly written.\n");
-	  else printf("  Value ended up in $%08lx\n",0x8000000+(test_num<<4)+i);
+    for(write_latency=0x0e;write_latency<0x0f;write_latency++)
+      for(j=0;j<16;j++) {
+	for(actual=0;actual<4;actual++) {
+	  lpoke(0xbfffff3,0x0f); for(v=0;v<48;v++) lpoke(0x8000000+v,0xbd);
+	  lpoke(0xbfffff3,0x0e); for(v=0;v<48;v++) lpoke(0x8000000+v,0xbd);
+	  lpoke(0xbfffff3,0x0d); for(v=0;v<48;v++) lpoke(0x8000000+v,0xbd);
+	  lpoke(0xbfffff3,0x0c); for(v=0;v<48;v++) lpoke(0x8000000+v,0xbd);
+	  lpoke(0xbfffff3,0x0b); for(v=0;v<48;v++) lpoke(0x8000000+v,0xbd);
 	}
-	else if (after[i]!=before[i]) printf("  $xxxxxx%x corrupted: $%02x -> $%02x\n",
-					     i,before[i],after[i]);
-      }
+	for(v=0;v<48;v++)
+	  if (lpeek(0x8000000+v)!=0xbd) {
+	    printf("ERROR: Could not erase 48 byte block.\n");
+	    return;
+	  }
+	
+	lpoke(0xbfffff3,write_latency);
+	lpoke(0x8000010+j,0x55);
+	incorrect=0; correct=0; corrupt=0;
+	actual=0xff;
+	for(v=0;v<48;v++) {
+	  if (lpeek(0x8000000+v)==0x55) {
+	    if (v==(0x10+i)) correct=1;
+	    else { incorrect++; actual=v; }
+	  } else if (lpeek(0x8000000+v)!=0xbd) {
+	    corrupt++;
+	  }
+	}
 
-#if 0
-      printf("Before:\n");
-      for(i=0;i<16;i++) {
-	if (!(i&1)) printf(" ");
-	printf("%02x",before[i]);
-      }
-    //    printf("\n");
-      printf("After:\n");
-      for(i=0;i<16;i++) {
-	if (!(i&1)) printf(" ");
-	printf("%02x",after[i]);
-      }
-      printf("\n");
-#endif
-      
+	if (correct&&(!incorrect)&&(!corrupt))
+	  printf("write latency $%02x works perfectly.\n",write_latency);
+        else if ((!corrupt)&&(!correct)&&(incorrect==1)) {
+	  printf("write latency $%02x writes to memory location delta %d\n",
+		 write_latency,actual-0x10-i);
+	}
+	else
+	  printf("wl$%02x, j$%02x: %d, %d, %d\n",write_latency,j,
+		 correct,incorrect,corrupt);
+
+	for(v=0;v<48;v++) {
+	  if (!(v&0x3)) printf(" ");
+	  if (!(v&0xf)) printf("\n");
+	  printf("%02x",lpeek(0x8000000+v));
+	}
+	printf("\n");
+		 
+#if 1
       while(PEEK(0xD610)) POKE(0xD610,0);
-      printf("Press any key...\n");
+      //      printf("Press any key...\n");
       while(!PEEK(0xD610)) continue;
       while(PEEK(0xD610)) POKE(0xD610,0);
-    }
-    
+#endif  
+
+	
+      }
   }
-  
+
   
 }
