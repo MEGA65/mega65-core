@@ -111,7 +111,7 @@ architecture gothic of hyperram is
   -- signal write_latency : unsigned(7 downto 0) := to_unsigned((8 - 2)*2,8);
   -- 8 - 4 is required, however, for the s27k0641.vhd test model that we have
   -- found for testing.
-  signal write_latency : unsigned(7 downto 0) := to_unsigned((8 - 4)*2 - 1,8);
+  signal write_latency : unsigned(7 downto 0) := to_unsigned((8 - 5)*2,8);
     -- to_unsigned(8 - 2 - 1,8);
 
   signal cache_enabled : boolean := false;
@@ -344,6 +344,7 @@ begin
             -- Clock must be low when idle, so that it is in correct phase
             -- when CS0 is pulled low to trigger a transaction
             hr_clk_p <= '0';
+            hr_clock <= '0';
             
             -- Put recogniseable patter on data lines for debugging
             report "Presenting hr_d with $A5";
@@ -388,6 +389,7 @@ begin
             -- Clock must be low when idle, so that it is in correct phase
             -- when CS0 is pulled low to trigger a transaction
             hr_clk_p <= '0';
+            hr_clock <= '0';
             
             -- Put recogniseable patter on data lines for debugging
             report "Presenting hr_d to $A5";
@@ -446,6 +448,8 @@ begin
             report "Presenting hr_command byte 0 on hr_d = $" & to_hstring(hr_command(47 downto 40));
             hr_d <= hr_command(47 downto 40);
             next_is_data <= '0';
+            hr_clk_n <= not hr_clock;
+            hr_clk_p <= hr_clock;
             
           when HyperRAMOutputCommand =>
             report "Writing command";
