@@ -561,13 +561,16 @@ begin
               hr_clk_n <= not hr_clock;
               hr_clk_p <= hr_clock;
               hr_clock <= not hr_clock;
+
             else
               report "latency countdown = " & integer'image(countdown);
+
               -- Begin write mask pre-amble
-              if ram_reading = '0' and countdown = 2 then
+              if ram_reading = '0' and countdown = 1 and extra_latency='0' then
                 hr_rwds <= '0';
                 hr_d <= x"BE"; -- "before" data byte
               end if;
+              
               if countdown /= 0 then
                 countdown <= countdown - 1;
               else
