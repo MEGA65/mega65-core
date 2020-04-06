@@ -51,6 +51,9 @@ architecture gothic of hyperram is
     HyperRAMCSStrobe,
     HyperRAMOutputCommand,
     HyperRAMLatencyWait,
+    HyperRAMFinishWriting1,
+    HyperRAMFinishWriting2,
+    HyperRAMFinishWriting3,
     HyperRAMFinishWriting,
     HyperRAMReadWait
     );
@@ -105,10 +108,10 @@ architecture gothic of hyperram is
   signal request_counter_int : std_logic := '0';
 
   -- 8 - 2 is correct for the part we have in the MEGA65
-  signal write_latency : unsigned(7 downto 0) := to_unsigned((8 - 2)*2,8);
+  -- signal write_latency : unsigned(7 downto 0) := to_unsigned((8 - 2)*2,8);
   -- 8 - 4 is required, however, for the s27k0641.vhd test model that we have
   -- found for testing.
-  signal write_latency : unsigned(7 downto 0) := to_unsigned((8 - 4)*2,8);
+  signal write_latency : unsigned(7 downto 0) := to_unsigned((8 - 4)*2 - 1,8);
     -- to_unsigned(8 - 2 - 1,8);
 
   signal cache_enabled : boolean := false;
@@ -561,8 +564,25 @@ begin
             end if;
             if byte_written = '1' and next_is_data='0' then
               report "Advancing to HyperRAMFinishWriting";
-              state <= HyperRAMFinishWriting;
+              state <= HyperRAMFinishWriting1;
             end if;
+          when Hyperramfinishwriting1 =>
+            -- Mask writing from here on.
+            hr_rwds <= '1';
+            state <= Hyperramfinishwriting2;
+          when Hyperramfinishwriting2 =>
+            -- Mask writing from here on.
+
+            -- Toggle clock
+            hr_clk_n <= not hr_clock;
+            hr_clk_p <= hr_clock;
+            hr_clock <= not hr_clock;
+
+            state <= Hyperramfinishwriting3;
+          when Hyperramfinishwriting3 =>
+            -- Mask writing from here on.
+
+            state <= Hyperramfinishwriting;
           when HyperRAMFinishWriting =>
             -- Last cycle was data, so next cycle is clock.
 
