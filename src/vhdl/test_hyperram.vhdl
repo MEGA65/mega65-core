@@ -68,15 +68,25 @@ begin
       hr_cs0 => hr_cs0
       );
 
-  fakehyper0: entity work.fakehyperram
+  fakehyper0: entity work.s27kl0641
+    generic map (
+      tdevice_vcs => 5 ns,
+      timingmodel => "S27KL0641DABHI000"
+      )
     port map (
-      clock163 => clock163,
-      hr_d => hr_d,
-      hr_rwds => hr_rwds,
-      hr_reset => hr_reset,
-      hr_clk_n => hr_clk_n,
-      hr_clk_p => hr_clk_p,
-      hr_cs0 => hr_cs0
+      DQ7 => hr_d(7),
+      DQ6 => hr_d(6),
+      DQ5 => hr_d(5),
+      DQ4 => hr_d(4),
+      DQ3 => hr_d(3),
+      DQ2 => hr_d(2),
+      DQ1 => hr_d(1),
+      DQ0 => hr_d(0),
+
+      CSNeg => hr_cs0,
+      CK => hr_clk_p,
+      RESETneg => hr_reset,
+      RWDS => hr_rwds
       );
     
 
