@@ -90,10 +90,15 @@ void set_cs(unsigned char v)
   lpoke(0xbfffff2,hr_flags);
 }
 
-unsigned char i;
+unsigned char v,i,j,write_latency;
+unsigned char before[16];
+unsigned char after[16];
+
+unsigned long test_num=0;
 
 void main(void)
 {
+#if 0
   hr_debug_enable();
   set_clock(0);
   set_reset(1);
@@ -120,6 +125,69 @@ void main(void)
       printf("%2d : $%02x, ",i,read_hr_d());
       set_clock((i&1)^1);
     }
+#endif
+
+  /*
+    Test HyperRAM reading and writing.
+  */
+
+  for(write_latency=0x00;write_latency<0x20;write_latency++) {
+    printf("Write latency = $%02x:\n",write_latency);
+    
+    for(i=0;i<16;i++) lpoke(0x8000000+i,0xbd);    
+    for(i=0;i<16;i++) lpoke(0x8000000+i,0x40+i);    
+    for(i=0;i<16;i++) after[i]=lpeek(0x8000000+i);
+
+    for(j=0;j<16;j++) {
+      test_num++;
+
+      for(i=0;i<16;i++) before[i]=lpeek(0x8000000+(test_num<<4)+i);
+      
+      // Find byte value that is not present in any of the bytes of the row
+      v=0x40;
+      i=0;
+      while(i<16) {
+	for(i=0;i<16;i++) if (before[i]==v) break;
+	if (i<16) v++;
+      }
+      printf("Writing unique value $%0x to $%08lx\n",v,
+	     0x8000000+(test_num<<4)+j);
+      
+      lpoke(0x8000000+(test_num<<4)+j,v);
+
+      for(i=0;i<16;i++) after[i]=lpeek(0x8000000+(test_num<<4)+i);
+
+      for(i=0;i<16;i++) {
+	if (after[i]==v) {
+	  if (i==j) printf("Value was correctly written.\n");
+	  else printf("  Value ended up in $%08lx\n",0x8000000+(test_num<<4)+i);
+	}
+	else if (after[i]!=before[i]) printf("  $xxxxxx%x corrupted: $%02x -> $%02x\n",
+					     i,before[i],after[i]);
+      }
+
+#if 0
+      printf("Before:\n");
+      for(i=0;i<16;i++) {
+	if (!(i&1)) printf(" ");
+	printf("%02x",before[i]);
+      }
+    //    printf("\n");
+      printf("After:\n");
+      for(i=0;i<16;i++) {
+	if (!(i&1)) printf(" ");
+	printf("%02x",after[i]);
+      }
+      printf("\n");
+#endif
+      
+      while(PEEK(0xD610)) POKE(0xD610,0);
+      printf("Press any key...\n");
+      while(!PEEK(0xD610)) continue;
+      while(PEEK(0xD610)) POKE(0xD610,0);
+    }
+    
+  }
   
   
 }
