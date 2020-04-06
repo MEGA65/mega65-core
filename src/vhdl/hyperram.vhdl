@@ -445,6 +445,7 @@ begin
             end if;
             report "Presenting hr_command byte 0 on hr_d = $" & to_hstring(hr_command(47 downto 40));
             hr_d <= hr_command(47 downto 40);
+            next_is_data <= '0';
             
           when HyperRAMOutputCommand =>
             report "Writing command";
