@@ -179,6 +179,17 @@ entity container is
          pwm_l : out std_logic;
          pwm_r : out std_logic;
          
+
+         -- internal speaker
+         pcspeaker_left : out std_logic;
+         pcspeaker_muten : out std_logic;
+
+         -- PMOD connectors on the MEGA65 R2 main board
+--         p1lo : inout std_logic_vector(3 downto 0);
+--         p1hi : inout std_logic_vector(3 downto 0);
+--         p2lo : inout std_logic_vector(3 downto 0);
+--         p2hi : inout std_logic_vector(3 downto 0);
+         
          ----------------------------------------------------------------------
          -- Floppy drive interface
          ----------------------------------------------------------------------
@@ -217,6 +228,13 @@ end container;
 
 architecture Behavioral of container is
 
+  -- XXX Temporary pmod dummy signals while using PMOD hyperram for debugging.
+  signal p1lo : std_logic_vector(3 downto 0);
+  signal p1hi : std_logic_vector(3 downto 0);
+  signal p2lo : std_logic_vector(3 downto 0);
+  signal p2hi : std_logic_vector(3 downto 0);
+
+  
 --  signal hr_d : unsigned(7 downto 0) := (others => '0');
 --  signal hr_rwds : std_logic := '0';
 --  signal hr_reset : std_logic := '1';
