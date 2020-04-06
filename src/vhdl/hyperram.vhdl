@@ -121,7 +121,7 @@ architecture gothic of hyperram is
   signal write_latency : unsigned(7 downto 0) := to_unsigned((8 - 1)*2,8);
   -- 8 - 4 is required, however, for the s27k0641.vhd test model that we have
   -- found for testing.
-  -- signal write_latency : unsigned(7 downto 0) := to_unsigned((8 - 5)*2,8);
+--   signal write_latency : unsigned(7 downto 0) := to_unsigned((8 - 5)*2,8);
 
   signal cache_enabled : boolean := true;
 
@@ -626,6 +626,9 @@ begin
           when Hyperramfinishwriting2 =>
             -- Tick clock so that masking of writing gets properly noted
 
+            hr_cs0 <= '1';
+            hr_cs1 <= '1';
+
             -- Toggle clock
             hr_clk_n <= not hr_clock;
             hr_clk_p <= hr_clock;
@@ -641,9 +644,6 @@ begin
             -- bad happens with differential arrival time of CS versus
             -- clock versus RWDS
             
-            hr_cs0 <= '1';
-            hr_cs1 <= '1';
-
             -- Toggle clock
             hr_clk_n <= not hr_clock;
             hr_clk_p <= hr_clock;
