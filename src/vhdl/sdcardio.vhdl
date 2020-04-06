@@ -1424,13 +1424,13 @@ begin  -- behavioural
         end if;
       end if;
 
-      if use_real_floppy0='1' and f011_ds = "000" then
+      if use_real_floppy0='1' and virtualise_f011_drive0='0' and f011_ds = "000" then
         -- PC drives use a combined RDY and DISKCHANGE signal.
         -- You can only clear the DISKCHANGE and re-assert RDY
         -- by stepping the disk (thus the ticking of 
         f011_disk_present <= '1';
         f011_write_protected <= not f_writeprotect;
-      elsif use_real_floppy2='1' and f011_ds = "001" then
+      elsif use_real_floppy2='1' and virtualise_f011_drive1='0' and f011_ds = "001" then
         -- PC drives use a combined RDY and DISKCHANGE signal.
         -- You can only clear the DISKCHANGE and re-assert RDY
         -- by stepping the disk (thus the ticking of 
@@ -1443,7 +1443,7 @@ begin  -- behavioural
         f011_write_protected <= f011_disk2_write_protected;      
         f011_disk_present <= f011_disk2_present;
       end if;
-      
+       
       if use_real_floppy0='1' and f011_ds="000" then
         -- When using the real drive, use correct index and track 0 sensors
         f011_track0 <= not f_track0;
@@ -1637,7 +1637,8 @@ begin  -- behavioural
                   -- Start reading into start of pointer
                   f011_buffer_disk_address <= (others => '0');
                   
-                  if (use_real_floppy0='1' and f011_ds="000") or (use_real_floppy2='1' and f011_ds="001") then
+                  if (use_real_floppy0='1' and virtualise_f011_drive0='0' and f011_ds="000") or 
+                     (use_real_floppy2='1' and virtualise_f011_drive1='0' and f011_ds="001") then
                     report "Using real floppy drive, asserting fdc_read_request";
                     -- Real floppy drive request
                     fdc_read_request <= '1';
