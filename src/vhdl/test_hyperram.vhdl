@@ -44,10 +44,10 @@ architecture foo of test_hyperram is
   
 begin
 
-  reconfig1: entity work.reconfig
-    port map ( clock => clock163,
-               trigger_reconfigure => '0',
-               reconfigure_address => (others => '0'));
+--  reconfig1: entity work.reconfig
+--    port map ( clock => clock163,
+--               trigger_reconfigure => '0',
+--               reconfigure_address => (others => '0'));
   
   hyperram0: entity work.hyperram
     port map (
@@ -138,8 +138,15 @@ begin
       "hr_clk_p = " & std_logic'image(hr_clk_p) & ", " &
       "hr_reset = " & std_logic'image(hr_reset) & ", " &
       "hr_rwds = " & std_logic'image(hr_rwds) & ", " &
-      "hr_d = " & to_hstring(hr_d) & ", " &
-      ".";
+      "hr_d = " & std_logic'image(hr_d(0))
+      & std_logic'image(hr_d(1))
+      & std_logic'image(hr_d(2))
+      & std_logic'image(hr_d(3))
+      & std_logic'image(hr_d(4))
+      & std_logic'image(hr_d(5))
+      & std_logic'image(hr_d(6))
+      & std_logic'image(hr_d(7))
+      & ".";
   end process;
   
   
