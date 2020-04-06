@@ -631,15 +631,19 @@ begin
               -- HyperRAM drives RWDS basically to follow the clock.
               -- But first valid data is when RWDS goes high, so we have to
               -- wait until we see it go high.
-              if ((hr_rwds='1') and (hr_clock='1')) then
+              report "DISPATCH watching for data: rwds=" & std_logic'image(hr_rwds) & ", clock=" & std_logic'image(hr_clock)
+                & ", rwds seen=" & std_logic'image(hr_rwds_high_seen);
+
+              if (hr_rwds='1') then
                 hr_rwds_high_seen <= '1';
+                if hr_rwds_high_seen = '0' then
+                  report "DISPATCH saw hr_rwds go high at start of data stream";
+                end if;
               end if;                
-              if ((hr_rwds='1') and (hr_clock='1'))                
-                or (((hr_rwds='0') and (hr_clock='0')) and (hr_rwds_high_seen='1'))
-              then
+              if (hr_rwds_high_seen='1') or (hr_rwds='1') then
                 -- Data has arrived: Latch either odd or even byte
                 -- as required.
-                report "Saw read data = $" & to_hstring(hr_d);
+                report "DISPATCH Saw read data = $" & to_hstring(hr_d);
 
                 -- Update cache
                 if cache_row0_address /= ram_address(26 downto 3) then          
