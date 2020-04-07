@@ -168,7 +168,7 @@ begin
       & ", expansionram_read=" & std_logic'image(expansionram_read);
 
     if slow_access_ready_toggle /= last_slow_access_ready_toggle then
-      report "Read slow device byte $" & to_hstring(slow_access_rdata);
+      report "DISPATCH: Read slow device byte $" & to_hstring(slow_access_rdata);
       last_slow_access_ready_toggle <= slow_access_ready_toggle;
     end if;
 
@@ -176,48 +176,54 @@ begin
       cycles <= cycles + 1;
       case cycles is
         when 1 =>
+          -- Try reading a config register
+          report "DISPATCH: Write to $9000000";
+          slow_access_request_toggle <= not slow_access_request_toggle;
+          slow_access_write <= '0';
+          slow_access_address <= x"9000000";
+        when 10 =>
           report "DISPATCH: Write to $8000010";
           slow_access_request_toggle <= not slow_access_request_toggle;
           slow_access_write <= '1';
           slow_access_wdata <= x"34";
           slow_access_address <= x"8000010";
-        when 10 =>
+        when 20 => 
           report "DISPATCH: Write to $8000019";
           slow_access_request_toggle <= not slow_access_request_toggle;
           slow_access_wdata <= x"56";
           slow_access_write <= '1';
           slow_access_address <= x"8000019";
-        when 20 =>
+        when 30 =>
           report "DISPATCH: Read from $8000010";
           slow_access_request_toggle <= not slow_access_request_toggle;
           slow_access_write <= '0';
           slow_access_address <= x"8000010";
-        when 30 =>
+        when 40 =>
           report "DISPATCH: Read from $8000017";
           slow_access_request_toggle <= not slow_access_request_toggle;
           slow_access_write <= '0';
           slow_access_address <= x"8000017";
-        when 40 =>
+        when 50 =>
           report "DISPATCH: Read from $8000018";
           slow_access_request_toggle <= not slow_access_request_toggle;
           slow_access_write <= '0';
           slow_access_address <= x"8000018";
-        when 50 =>
+        when 60 =>
           report "DISPATCH: Read from $8000019";
           slow_access_request_toggle <= not slow_access_request_toggle;
           slow_access_write <= '0';
           slow_access_address <= x"8000019";
-        when 60 =>
+        when 70 =>
           report "DISPATCH: Read from $800001a";
           slow_access_request_toggle <= not slow_access_request_toggle;
           slow_access_write <= '0';
           slow_access_address <= x"8000019";
-        when 70 =>
+        when 80 =>
           report "DISPATCH: Read from $800001b";
           slow_access_request_toggle <= not slow_access_request_toggle;
           slow_access_write <= '0';
           slow_access_address <= x"8000019";
-        when 80 =>
+        when 90 =>
           report "DISPATCH: Read from $800001c";
           slow_access_request_toggle <= not slow_access_request_toggle;
           slow_access_write <= '0';
@@ -234,26 +240,26 @@ begin
     pixelclock <= '0';
     cpuclock <= '0';
     clock163 <= '0';
-    wait for 2 ns;
+    wait for 3 ns;
     clock163 <= '1';
-    wait for 2 ns;
+    wait for 3 ns;
     pixelclock <= '1';
     clock163 <= '0';
-    wait for 2 ns;
+    wait for 3 ns;
     clock163 <= '1';
-    wait for 2 ns;
+    wait for 3 ns;
 
     pixelclock <= '0';
     cpuclock <= '1';
     clock163 <= '0';
-    wait for 2 ns;
+    wait for 3 ns;
     clock163 <= '1';
-    wait for 2 ns;
+    wait for 3 ns;
     pixelclock <= '1';
     clock163 <= '0';
-    wait for 2 ns;
+    wait for 3 ns;
     clock163 <= '1';
-    wait for 2 ns;
+    wait for 3 ns;
 
 --    report "40MHz CPU clock cycle finished";
     
