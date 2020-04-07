@@ -140,7 +140,7 @@ architecture gothic of hyperram is
 
   signal odd_byte_fix : std_logic := '0';
   signal odd_byte_fix_flags : unsigned(7 downto 0) := (others => '1');
-  
+
 begin
   process (pixelclock,clock163) is
   begin
@@ -200,10 +200,12 @@ begin
           -- Cache read
           fake_data_ready_strobe <= '1';
           fake_rdata <= cache_row0_data(to_integer(address(2 downto 0)));
+          report "DISPATCH: Returning data $"& to_hstring(cache_row0_data(to_integer(address(2 downto 0))))&" from cache row0";
         elsif cache_enabled and (address(26 downto 3 ) = cache_row1_address and cache_row1_valids(to_integer(address(2 downto 0))) = '1') then
           -- Cache read
           fake_data_ready_strobe <= '1';
           fake_rdata <= cache_row1_data(to_integer(address(2 downto 0)));
+          report "DISPATCH: Returning data $"& to_hstring(cache_row1_data(to_integer(address(2 downto 0))))&" from cache row1";
         elsif address(23 downto 4) = x"FFFFF" and address(25 downto 24) = "11" then
         -- Allow reading from dummy debug bitbash registers at $BFFFFFx
           case address(3 downto 0) is
@@ -479,9 +481,17 @@ begin
             hr_command(44 downto 37) <= (others => '0'); -- unused upper address bits
             hr_command(34 downto 16) <= ram_address(22 downto 4);
             hr_command(15 downto 3) <= (others => '0'); -- reserved bits
-            -- Always read on 8 byte boundaries, and read a full cache line
-            hr_command(2) <= ram_address(3);
-            hr_command(1 downto 0) <= "00";
+            if ram_address(24) = '0' then
+              -- Always read on 8 byte boundaries, and read a full cache line
+              hr_command(2) <= ram_address(3);
+              hr_command(1 downto 0) <= "00";
+            else
+              -- Except that register reads are weird: They read the same 2 bytes
+              -- over and over again, so we have to make it set bit 0 of the CA
+              -- for the "odd" registers"
+              hr_command(2 downto 1) <= "00";
+              hr_command(0) <= ram_address(3);
+            end if;
 
             hr_reset <= '1'; -- active low reset
             countdown <= 6;
@@ -758,19 +768,19 @@ begin
               -- HyperRAM drives RWDS basically to follow the clock.
               -- But first valid data is when RWDS goes high, so we have to
               -- wait until we see it go high.
-              report "DISPATCH watching for data: rwds=" & std_logic'image(hr_rwds) & ", clock=" & std_logic'image(hr_clock)
-                & ", rwds seen=" & std_logic'image(hr_rwds_high_seen);
+--              report "DISPATCH watching for data: rwds=" & std_logic'image(hr_rwds) & ", clock=" & std_logic'image(hr_clock)
+--                & ", rwds seen=" & std_logic'image(hr_rwds_high_seen);
 
               if (hr_rwds='1') then
                 hr_rwds_high_seen <= '1';
-                if hr_rwds_high_seen = '0' then
-                  report "DISPATCH saw hr_rwds go high at start of data stream";
-                end if;
+--                if hr_rwds_high_seen = '0' then
+  --                report "DISPATCH saw hr_rwds go high at start of data stream";
+--                end if;
               end if;                
               if (hr_rwds_high_seen='1') or (hr_rwds='1') then
                 -- Data has arrived: Latch either odd or even byte
                 -- as required.
-                report "DISPATCH Saw read data = $" & to_hstring(hr_d);
+--                report "DISPATCH Saw read data = $" & to_hstring(hr_d);
 
                 -- Update cache
                 if byte_phase < 8 then
@@ -797,7 +807,7 @@ begin
 
                 -- Quickly return the correct byte
                 if to_integer(byte_phase) = (to_integer(ram_address(2 downto 0))+0) then
-                  report "Latching read data = $" & to_hstring(hr_d);
+                  report "DISPATCH: Returning freshly read data = $" & to_hstring(hr_d);
                   rdata <= hr_d;
                   data_ready_strobe <= '1';
                   data_ready_strobe_hold <= '1';
