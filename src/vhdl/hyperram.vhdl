@@ -532,7 +532,7 @@ begin
             end if;
 
             hr_reset <= '1'; -- active low reset
-            countdown <= 6;
+            countdown <= 0;
 
             state <= HyperRAMCSStrobe;
             
@@ -565,25 +565,21 @@ begin
 
           when HyperRAMCSStrobe =>
 
---            report "Counting down CS strobe: COMMAND = $" & to_hstring(hr_command) & ", hr_cs0 = " & std_logic'image(hr_cs0);
-            
-            if countdown /= 0 then
-              countdown <= countdown - 1;
+            state <= HyperRAMOutputCommand;
+            if ram_address(24)='1' and ram_reading='0' and odd_byte_fix_flags(4)='1' then
+              -- 48 bits of CA followed by 16 bit register value
+              -- (we shift the buffered config register values out automatically)
+              countdown <= 8;
             else
-              state <= HyperRAMOutputCommand;
-              if ram_address(24)='1' and ram_reading='0' and odd_byte_fix_flags(4)='1' then
-                -- 48 bits of CA followed by 16 bit register value
-                -- (we shift the buffered config register values out automatically)
-                countdown <= 8;
-              else
-                countdown <= 6; -- 48 bits = 6 x 8 bits
-              end if;
+              countdown <= 6; -- 48 bits = 6 x 8 bits
             end if;
+
             report "Presenting hr_command byte 0 on hr_d = $" & to_hstring(hr_command(47 downto 40));
             hr_d <= hr_command(47 downto 40);
             next_is_data <= '0';
-            hr_clk_n <= not hr_clock;
-            hr_clk_p <= hr_clock;
+            hr_clk_n <= '1'; 
+            hr_clk_p <= '0';
+            hr_clock <= '0';
             
           when HyperRAMOutputCommand =>
             report "Writing command";
