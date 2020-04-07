@@ -52,10 +52,6 @@ architecture gothic of hyperram is
     HyperRAMOutputCommand,
     HyperRAMLatencyWait,
     HyperRAMFinishWriting1,
-    HyperRAMFinishWriting2,
-    HyperRAMFinishWriting3,
-    HyperRAMFinishWriting4,
-    HyperRAMFinishWriting5,
     HyperRAMFinishWriting,
     HyperRAMReadWait
     );
@@ -649,7 +645,7 @@ begin
                   -- area will write those values, which we have done by shifting
                   -- those through and sending 48+16 bits instead of the usual
                   -- 48.
-                  state <= HyperRAMFinishWriting2;
+                  state <= HyperRAMFinishWriting1;
                 else
                   -- Writing to memory, so count down the correct number of cycles;
                   -- Initial latency is reduced by 2 cycles for the last bytes
@@ -722,44 +718,12 @@ begin
               report "Advancing to HyperRAMFinishWriting";
               state <= HyperRAMFinishWriting1;
             end if;
-            if byte_written = '1' and next_is_data='1' then
-              hr_d <= x"AF"; -- "after" data byte
-            end if;
           when Hyperramfinishwriting1 =>
             -- Mask writing from here on.
-            hr_rwds <= '1';
-            hr_d <= x"FA"; -- "after" data byte
-            state <= Hyperramfinishwriting2;
-          when Hyperramfinishwriting2 =>
-            -- Tick clock so that masking of writing gets properly noted
-
             hr_cs0 <= '1';
             hr_cs1 <= '1';
-
-            -- Toggle clock
---            hr_clk_n <= not hr_clock;
---            hr_clk_p <= hr_clock;
---            hr_clock <= not hr_clock;
-
-            state <= Hyperramfinishwriting3;
-          when Hyperramfinishwriting3 =>
-            -- Make clock tick proper width
-
-            state <= Hyperramfinishwriting4;
---          when Hyperramfinishwriting4 =>
---            -- Tick clock while CS released to really make sure nothing
---            -- bad happens with differential arrival time of CS versus
---            -- clock versus RWDS
---            
---            -- Toggle clock
---            hr_clk_n <= not hr_clock;
---            hr_clk_p <= hr_clock;
---            hr_clock <= not hr_clock;
---            
---            state <= Hyperramfinishwriting5;
---          when Hyperramfinishwriting5 =>
---            -- Make clock tick proper width
-
+            hr_rwds <= '1';
+            hr_d <= x"FA"; -- "after" data byte
             state <= Hyperramfinishwriting;
           when HyperRAMFinishWriting =>
             -- Last cycle was data, so next cycle is clock.
