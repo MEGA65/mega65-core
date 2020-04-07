@@ -118,12 +118,8 @@ architecture gothic of hyperram is
 
   signal request_counter_int : std_logic := '0';
 
-  -- 8 - 2 is correct for the part we have in the MEGA65,
-  -- but presumably due to the way we drive things, it actually needs to be
-  -- (8 - 2 + 1) * 2 = $0E.
-  -- That at least gets writing to odd addresses working correctly.
-  -- Even addresses write to $x and $x + 2.
-  signal write_latency : unsigned(7 downto 0) := to_unsigned((8 - 1)*2,8);
+  -- 8 - 2 is correct for the part we have in the MEGA65.
+  signal write_latency : unsigned(7 downto 0) := to_unsigned((8 - 2)*2 - 1,8);
   -- 8 - 4 is required, however, for the s27k0641.vhd test model that we have
   -- found for testing.
 --   signal write_latency : unsigned(7 downto 0) := to_unsigned((8 - 5)*2,8);
@@ -655,16 +651,12 @@ begin
                   -- 48.
                   state <= HyperRAMFinishWriting2;
                 else
-                  -- Writing to config register, so count down the correct number of cycles;
+                  -- Writing to memory, so count down the correct number of cycles;
                   -- Initial latency is reduced by 2 cycles for the last bytes
                   -- of the access command, and by 1 more to cover state
                   -- machine latency                  
 --                  countdown <= 8 - 2 - 1;
-                  if odd_byte_fix='0' or odd_byte_fix_flags(3)='0' then
-                    countdown <= to_integer(write_latency);
-                  else
-                    countdown <= to_integer(write_latency) + 2;
-                  end if;
+                  countdown <= to_integer(write_latency);
                   state <= HyperRAMLatencyWait;
                 end if;
               end if;
@@ -684,13 +676,10 @@ begin
               report "latency countdown = " & integer'image(countdown);
 
               -- Begin write mask pre-amble
-              if ram_reading = '0' and countdown = 1 and extra_latency='0' and (odd_byte_fix='0' or odd_byte_fix_flags(0)='0') then
+              if ram_reading = '0' and countdown = 2 then
                 hr_rwds <= '0';
                 hr_d <= x"BE"; -- "before" data byte
-              elsif ram_reading = '0' and countdown = 3 and extra_latency='0' and (odd_byte_fix='1' and odd_byte_fix_flags(1)='1') then
-                hr_rwds <= '0';
-                hr_d <= x"B0"; -- "before odd" data byte
-              elsif odd_byte_fix='1' and odd_byte_fix_flags(2)='1' then
+              elsif odd_byte_fix='1' then
                 hr_rwds <= '1';
               end if;
               
@@ -718,30 +707,14 @@ begin
                   hr_d <= ram_wdata;
 
                   -- Write byte
-                  if write_byte_phase = '0' then
-                    -- Even byte
-                    if ram_address(0) = '0' then
-                      report "Clearing write mask for even address";
-                      hr_rwds <= '0';
-                      byte_written <= '1';
-                    else
-                      hr_rwds <= '1';
-                      hr_d <= x"ee"; -- even "masked" data byte                      
-                    end if;
-                  else
-                    -- Odd byte
-                    if ram_address(0) = '1' then
-                      report "Clearing write mask for odd address";
-                      hr_rwds <= '0';
-                      byte_written <= '1';
-                    else
-                      hr_rwds <= '1';
-                      hr_d <= x"00"; -- odd "masked" data byte                      
-                    end if;
-                    -- We finish after (possibly) writing the odd byte
+                  hr_rwds <= ram_address(0) xor write_byte_phase;
+                  if write_byte_phase = '0' and ram_address(0)='1' then
+                    hr_d <= x"ee"; -- even "masked" data byte
+                  elsif write_byte_phase = '1' and ram_address(0)='0' then
+                    hr_d <= x"0d"; -- odd "masked" data byte                      
                   end if;
                   write_byte_phase <= '1';
-
+                  byte_written <= write_byte_phase;                  
                 end if;
               end if;
             end if;
