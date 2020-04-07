@@ -61,6 +61,11 @@ architecture gothic of hyperram is
     HyperRAMFinishWriting,
     HyperRAMReadWait
     );
+
+  -- How many clock ticks need to expire between transactions to satisfy T_RWR
+  -- of hyperrram?
+  signal rwr_delay : unsigned(7 downto 0) := to_unsigned(1+40*163/1000,8);
+  signal rwr_counter : unsigned(7 downto 0) := (others => '0');
   
   signal state : state_t := Idle;
   signal busy_internal : std_logic := '0';
@@ -231,6 +236,8 @@ begin
               fake_rdata <= to_unsigned(state_t'pos(state),8);
             when x"5" =>
               fake_rdata <= odd_byte_fix_flags;
+            when x"6" =>
+              fake_rdata <= rwr_delay;
             when others =>
               -- This seems to be what gets returned all the time
               fake_rdata <= x"42";
@@ -294,6 +301,8 @@ begin
               write_latency <= wdata;
             when x"5" =>
               odd_byte_fix_flags <= wdata;
+            when x"6" =>
+              rwr_delay <= wdata;
             when others =>
               null;
           end case;
@@ -369,6 +378,7 @@ begin
         case state is
           when Debug =>
             if debug_mode='0' then
+              rwr_counter <= rwr_delay;
               state <= Idle;
             end if;
 
@@ -395,6 +405,7 @@ begin
             report "Presenting hr_d with $A5";
             hr_d <= x"A5";
 
+            rwr_counter <= rwr_delay;
             state <= Idle;
             
           when Idle =>
@@ -409,7 +420,10 @@ begin
             if debug_mode='1' then
               state <= Debug;
             end if;
-            if request_toggle /= last_request_toggle then
+            if rwr_counter /= to_unsigned(0,8) then
+              rwr_counter <= rwr_counter - 1;
+            end if;
+            if request_toggle /= last_request_toggle and rwr_counter = to_unsigned(0,8) then
               last_request_toggle <= request_toggle;
               if ram_reading = '1' then
                 state <= ReadSetup;
@@ -720,6 +734,7 @@ begin
             hr_clock <= not hr_clock;
 
             -- Go back to waiting
+            rwr_counter <= rwr_delay;
             state <= Idle;
           when HyperRAMReadWait =>
             hr_rwds <= 'Z';
@@ -733,6 +748,7 @@ begin
               rdata(1) <= busy_internal;
               data_ready_strobe <= '1';
               data_ready_strobe_hold <= '1';
+              rwr_counter <= rwr_delay;
               state <= Idle;
             else
               countdown <= countdown - 1;
@@ -794,6 +810,7 @@ begin
                 end if;
                 report "byte_phase = " & integer'image(to_integer(byte_phase));
                 if byte_phase = 8 then
+                  rwr_counter <= rwr_delay;
                   state <= Idle2;
                   hr_cs0 <= '1';
                   hr_cs1 <= '1';
@@ -804,6 +821,7 @@ begin
               end if;
             end if;
           when others =>
+            rwr_counter <= rwr_delay;
             state <= Idle;
         end case;      
       end if;
