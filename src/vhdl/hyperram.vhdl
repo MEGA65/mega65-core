@@ -200,6 +200,10 @@ begin
           -- Cache read
           fake_data_ready_strobe <= '1';
           fake_rdata <= cache_row0_data(to_integer(address(2 downto 0)));
+        elsif cache_enabled and (address(26 downto 3 ) = cache_row1_address and cache_row1_valids(to_integer(address(2 downto 0))) = '1') then
+          -- Cache read
+          fake_data_ready_strobe <= '1';
+          fake_rdata <= cache_row1_data(to_integer(address(2 downto 0)));
         elsif address(23 downto 4) = x"FFFFF" and address(25 downto 24) = "11" then
         -- Allow reading from dummy debug bitbash registers at $BFFFFFx
           case address(3 downto 0) is
