@@ -504,8 +504,7 @@ begin
             hr_clk_p <= '0';
             hr_clock <= '0';
             
-            -- Put recogniseable patter on data lines for debugging
-            report "Presenting hr_d to $A5";
+            report "Tristating hr_d";
             hr_d <= (others => 'Z');
           when ReadSetup =>
             report "Setting up to read $" & to_hstring(ram_address) & " ( address = $" & to_hstring(address) & ")";
@@ -558,8 +557,9 @@ begin
             hr_command(2 downto 0) <= ram_address(3 downto 1);
 
             hr_reset <= '1'; -- active low reset
-            countdown <= 6;
 
+            -- This is the delay before we assert CS
+            countdown <= 0;
             
             state <= HyperRAMCSStrobe;
 
