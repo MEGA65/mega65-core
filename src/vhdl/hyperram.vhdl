@@ -139,7 +139,7 @@ architecture gothic of hyperram is
   signal random_bits : unsigned(7 downto 0) := x"00";
 
   signal odd_byte_fix : std_logic := '0';
-  signal odd_byte_fix_flags : unsigned(7 downto 0) := "00001111";
+  signal odd_byte_fix_flags : unsigned(7 downto 0) := "00011111";
 
   signal conf_buf0 : unsigned(7 downto 0) := x"12";
   signal conf_buf1 : unsigned(7 downto 0) := x"34";
@@ -554,8 +554,11 @@ begin
             -- down one bit.
             hr_command(47) <= '0'; -- WRITE
             hr_command(46) <= ram_address(24); -- Memory, not register space
-            hr_command(45) <= '0'; -- Wrap (so that we can do the weird odd
-                                   -- byte write correct more safely).
+            -- Wrap (so that we can do the weird odd byte write correct more safely).
+            -- But only if we are writing to RAM. If we are writing to config registers,
+            -- we MUST set this bit apparently. (Table 5.1 ISSI HyperRAM datasheet)
+            hr_command(45) <= ram_address(24);
+            
             hr_command(44 downto 35) <= (others => '0'); -- unused upper address bits
             hr_command(15 downto 3) <= (others => '0'); -- reserved bits
             
@@ -620,18 +623,19 @@ begin
               hr_clock <= not hr_clock;
             else
               -- Toggle data while clock steady
---              report "Presenting hr_command byte on hr_d = $" & to_hstring(hr_command(47 downto 40))
---                & ", clock = " & std_logic'image(hr_clock)
---                & ", next_is_data = " & std_logic'image(next_is_data)
---                & ", countdown = " & integer'image(countdown)
---                & ", cs0= " & std_logic'image(hr_cs0);
+              report "Presenting hr_command byte on hr_d = $" & to_hstring(hr_command(47 downto 40))
+                & ", clock = " & std_logic'image(hr_clock)
+                & ", next_is_data = " & std_logic'image(next_is_data)
+                & ", countdown = " & integer'image(countdown)
+                & ", cs0= " & std_logic'image(hr_cs0);
               
               hr_d <= hr_command(47 downto 40);
               hr_command(47 downto 8) <= hr_command(39 downto 0);
 
               -- Also shift out config register values, if required
               if ram_address(24)='1' then
-                hr_command(7 downto 0) <= conf_buf0;              
+                report "shifting in conf value $" & to_hstring(conf_buf0);
+                hr_command(7 downto 0) <= conf_buf0;
                 conf_buf0 <= conf_buf1;
                 conf_buf1 <= conf_buf0;
               else
@@ -640,7 +644,7 @@ begin
               
               report "Writing command byte $" & to_hstring(hr_command(47 downto 40));
 
-              if countdown = 3 then
+              if countdown = 3 and (ram_address(24)='0' or ram_reading='1') then
                 extra_latency <= hr_rwds;
                 if hr_rwds='1' then
                   report "Applying extra latency";
