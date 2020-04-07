@@ -143,6 +143,12 @@ architecture gothic of hyperram is
 
   signal conf_buf0 : unsigned(7 downto 0) := x"12";
   signal conf_buf1 : unsigned(7 downto 0) := x"34";
+  signal conf_buf0_in : unsigned(7 downto 0) := x"12";
+  signal conf_buf1_in : unsigned(7 downto 0) := x"34";
+  signal conf_buf0_set : std_logic := '0';
+  signal conf_buf1_set : std_logic := '0';
+  signal last_conf_buf0_set : std_logic := '0';
+  signal last_conf_buf1_set : std_logic := '0';
   
 begin
   process (pixelclock,clock163) is
@@ -307,9 +313,11 @@ begin
             when x"6" =>
               rwr_delay <= wdata;
             when x"8" =>
-              conf_buf0 <= wdata;
+              conf_buf0_in <= wdata;
+              conf_buf0_set <= not conf_buf0_set;
             when x"9" =>
-              conf_buf1 <= wdata;              
+              conf_buf1_in <= wdata;              
+              conf_buf1_set <= not conf_buf1_set;
             when others =>
               null;
           end case;
@@ -375,6 +383,15 @@ begin
       
       -- HyperRAM state machine
       report "State = " & state_t'image(state) & " @ Cycle " & integer'image(cycle_count);
+
+      if conf_buf0_set /= last_conf_buf0_set then
+        last_conf_buf0_set <= conf_buf0_set;
+        conf_buf0 <= conf_buf0_in;
+      end if;
+      if conf_buf1_set /= last_conf_buf1_set then
+        last_conf_buf1_set <= conf_buf1_set;
+        conf_buf1 <= conf_buf1_in;
+      end if;
       
       if (state /= Idle) and ( slowdown_counter /= 0) then
         slowdown_counter <= slowdown_counter - 1;
