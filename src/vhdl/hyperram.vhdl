@@ -610,9 +610,13 @@ begin
               hr_command(47 downto 8) <= hr_command(39 downto 0);
 
               -- Also shift out config register values, if required
-              hr_command(7 downto 0) <= conf_buf0;              
-              conf_buf0 <= conf_buf1;
-              conf_buf1 <= conf_buf0;
+              if ram_address(24)='1' then
+                hr_command(7 downto 0) <= conf_buf0;              
+                conf_buf0 <= conf_buf1;
+                conf_buf1 <= conf_buf0;
+              else
+                hr_command(7 downto 0) <= x"00";
+              end if;
               
               report "Writing command byte $" & to_hstring(hr_command(47 downto 40));
 
