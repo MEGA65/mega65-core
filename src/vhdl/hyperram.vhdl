@@ -562,23 +562,8 @@ begin
             hr_command(44 downto 35) <= (others => '0'); -- unused upper address bits
             hr_command(15 downto 3) <= (others => '0'); -- reserved bits
             
-            if ram_address(0)='0' then
-              hr_command(34 downto 16) <= ram_address(22 downto 4);
-              hr_command(2 downto 0) <= ram_address(3 downto 1);
-            else
-              -- When writing to odd numbered addresses, we have to actually
-              -- write one word early, with that write masked out, for reasons that are not entirely clear.
-              -- It happens with both ISSI and Cypruss parts.
-              
-              if ram_address(3 downto 1) /= "000" then
-                hr_command(34 downto 16) <= ram_address(22 downto 4);
-                hr_command(2 downto 0) <= to_unsigned(to_integer(ram_address(3 downto 1))-1,3);
-              else
-                hr_command(34 downto 16) <= to_unsigned(to_integer(ram_address(22 downto 4))-1,19);
-                hr_command(2 downto 0) <= "111";
-              end if;
-            end if;
-            odd_byte_fix <= ram_address(0);
+            hr_command(34 downto 16) <= ram_address(22 downto 4);
+            hr_command(2 downto 0) <= ram_address(3 downto 1);
 
             hr_reset <= '1'; -- active low reset
             countdown <= 6;
@@ -670,7 +655,7 @@ begin
                   -- 48.
                   state <= HyperRAMFinishWriting2;
                 else
-                  -- Writing, so count down the correct number of cycles;
+                  -- Writing to config register, so count down the correct number of cycles;
                   -- Initial latency is reduced by 2 cycles for the last bytes
                   -- of the access command, and by 1 more to cover state
                   -- machine latency                  
@@ -779,28 +764,28 @@ begin
             hr_cs1 <= '1';
 
             -- Toggle clock
-            hr_clk_n <= not hr_clock;
-            hr_clk_p <= hr_clock;
-            hr_clock <= not hr_clock;
+--            hr_clk_n <= not hr_clock;
+--            hr_clk_p <= hr_clock;
+--            hr_clock <= not hr_clock;
 
             state <= Hyperramfinishwriting3;
           when Hyperramfinishwriting3 =>
             -- Make clock tick proper width
 
             state <= Hyperramfinishwriting4;
-          when Hyperramfinishwriting4 =>
-            -- Tick clock while CS released to really make sure nothing
-            -- bad happens with differential arrival time of CS versus
-            -- clock versus RWDS
-            
-            -- Toggle clock
-            hr_clk_n <= not hr_clock;
-            hr_clk_p <= hr_clock;
-            hr_clock <= not hr_clock;
-            
-            state <= Hyperramfinishwriting5;
-          when Hyperramfinishwriting5 =>
-            -- Make clock tick proper width
+--          when Hyperramfinishwriting4 =>
+--            -- Tick clock while CS released to really make sure nothing
+--            -- bad happens with differential arrival time of CS versus
+--            -- clock versus RWDS
+--            
+--            -- Toggle clock
+--            hr_clk_n <= not hr_clock;
+--            hr_clk_p <= hr_clock;
+--            hr_clock <= not hr_clock;
+--            
+--            state <= Hyperramfinishwriting5;
+--          when Hyperramfinishwriting5 =>
+--            -- Make clock tick proper width
 
             state <= Hyperramfinishwriting;
           when HyperRAMFinishWriting =>
@@ -809,10 +794,10 @@ begin
             -- Indicate no more bytes to write
             hr_rwds <= 'Z';
 
-            -- Toggle clock
-            hr_clk_n <= not hr_clock;
-            hr_clk_p <= hr_clock;
-            hr_clock <= not hr_clock;
+--            -- Toggle clock
+--            hr_clk_n <= not hr_clock;
+--            hr_clk_p <= hr_clock;
+--            hr_clock <= not hr_clock;
 
             -- Go back to waiting
             rwr_counter <= rwr_delay;
