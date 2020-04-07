@@ -535,7 +535,8 @@ begin
             -- down one bit.
             hr_command(47) <= '0'; -- WRITE
             hr_command(46) <= ram_address(24); -- Memory, not register space
-            hr_command(45) <= '1'; -- Linear access (not wrapped)
+            hr_command(45) <= '0'; -- Wrap (so that we can do the weird odd
+                                   -- byte write correct more safely).
             hr_command(44 downto 35) <= (others => '0'); -- unused upper address bits
             hr_command(15 downto 3) <= (others => '0'); -- reserved bits
             
