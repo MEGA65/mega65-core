@@ -633,7 +633,7 @@ begin
               hr_command(47 downto 8) <= hr_command(39 downto 0);
 
               -- Also shift out config register values, if required
-              if ram_address(24)='1' then
+              if ram_address(24)='1' and ram_reading='0' then
                 report "shifting in conf value $" & to_hstring(conf_buf0);
                 hr_command(7 downto 0) <= conf_buf0;
                 conf_buf0 <= conf_buf1;
