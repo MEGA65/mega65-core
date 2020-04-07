@@ -132,6 +132,9 @@ architecture gothic of hyperram is
   signal hr_rwds_high_seen : std_logic := '0';
 
   signal random_bits : unsigned(7 downto 0) := x"00";
+
+  signal odd_byte_fix : std_logic := '0';
+  signal odd_byte_fix_flags : unsigned(7 downto 0) := (others => '1');
   
 begin
   process (pixelclock,clock163) is
@@ -216,6 +219,8 @@ begin
               fake_rdata <= write_latency;
             when x"4" =>
               fake_rdata <= to_unsigned(state_t'pos(state),8);
+            when x"5" =>
+              fake_rdata <= odd_byte_fix_flags;
             when others =>
               -- This seems to be what gets returned all the time
               fake_rdata <= x"42";
@@ -277,6 +282,8 @@ begin
 --              end if;
             when x"3" =>
               write_latency <= wdata;
+            when x"5" =>
+              odd_byte_fix_flags <= wdata;
             when others =>
               null;
           end case;
@@ -474,13 +481,30 @@ begin
             hr_command(46) <= ram_address(24); -- Memory, not register space
             hr_command(45) <= '1'; -- Linear access (not wrapped)
             hr_command(44 downto 35) <= (others => '0'); -- unused upper address bits
-            hr_command(34 downto 16) <= ram_address(22 downto 4);
             hr_command(15 downto 3) <= (others => '0'); -- reserved bits
-            hr_command(2 downto 0) <= ram_address(3 downto 1);
+            
+            if ram_address(0)='0' then
+              hr_command(34 downto 16) <= ram_address(22 downto 4);
+              hr_command(2 downto 0) <= ram_address(3 downto 1);
+            else
+              -- When writing to odd numbered addresses, we have to actually
+              -- write one word early, with that write masked out, for reasons that are not entirely clear.
+              -- It happens with both ISSI and Cypruss parts.
+              
+              if ram_address(3 downto 1) /= "000" then
+                hr_command(34 downto 16) <= ram_address(22 downto 4);
+                hr_command(2 downto 0) <= to_unsigned(to_integer(ram_address(3 downto 1))-1,3);
+              else
+                hr_command(34 downto 16) <= to_unsigned(to_integer(ram_address(22 downto 4))-1,19);
+                hr_command(2 downto 0) <= "111";
+              end if;
+            end if;
+            odd_byte_fix <= ram_address(0);
 
             hr_reset <= '1'; -- active low reset
             countdown <= 6;
 
+            
             state <= HyperRAMCSStrobe;
 
           when HyperRAMCSStrobe =>
@@ -546,7 +570,11 @@ begin
                   -- of the access command, and by 1 more to cover state
                   -- machine latency                  
 --                  countdown <= 8 - 2 - 1;
-                  countdown <= to_integer(write_latency);
+                  if odd_byte_fix='0' or odd_byte_fix_flags(3)='0' then
+                    countdown <= to_integer(write_latency);
+                  else
+                    countdown <= to_integer(write_latency) + 2;
+                  end if;
                   state <= HyperRAMLatencyWait;
                 end if;
               end if;
@@ -566,9 +594,14 @@ begin
               report "latency countdown = " & integer'image(countdown);
 
               -- Begin write mask pre-amble
-              if ram_reading = '0' and countdown = 1 and extra_latency='0' then
+              if ram_reading = '0' and countdown = 1 and extra_latency='0' and (odd_byte_fix='0' or odd_byte_fix_flags(0)='0') then
                 hr_rwds <= '0';
                 hr_d <= x"BE"; -- "before" data byte
+              elsif ram_reading = '0' and countdown = 3 and extra_latency='0' and (odd_byte_fix='1' and odd_byte_fix_flags(1)='1') then
+                hr_rwds <= '0';
+                hr_d <= x"B0"; -- "before odd" data byte
+              elsif odd_byte_fix='1' and odd_byte_fix_flags(2)='1' then
+                hr_rwds <= '1';
               end if;
               
               if countdown /= 0 then
