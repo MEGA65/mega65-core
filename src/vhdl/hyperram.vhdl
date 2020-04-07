@@ -139,7 +139,7 @@ architecture gothic of hyperram is
   signal random_bits : unsigned(7 downto 0) := x"00";
 
   signal odd_byte_fix : std_logic := '0';
-  signal odd_byte_fix_flags : unsigned(7 downto 0) := (others => '1');
+  signal odd_byte_fix_flags : unsigned(7 downto 0) := "00001111";
 
   signal conf_buf0 : unsigned(7 downto 0) := x"12";
   signal conf_buf1 : unsigned(7 downto 0) := x"34";
@@ -571,7 +571,7 @@ begin
               countdown <= countdown - 1;
             else
               state <= HyperRAMOutputCommand;
-              if ram_address(24)='1' and ram_reading='0' then
+              if ram_address(24)='1' and ram_reading='0' and odd_byte_fix_flags(4)='1' then
                 -- 48 bits of CA followed by 16 bit register value
                 -- (we shift the buffered config register values out automatically)
                 countdown <= 8;
@@ -636,7 +636,7 @@ begin
                   countdown <= 99;
                   hr_rwds_high_seen <= '0';
                   state <= HyperRAMReadWait;
-                elsif ram_address(24)='1' then
+                elsif ram_address(24)='1' and ram_reading='0' then
                   -- Config register write.
                   -- These are a bit weird, as they have no latency, and all 16
                   -- bits have to get written at once.  So we will have 2 buffer
