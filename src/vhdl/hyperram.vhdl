@@ -219,7 +219,7 @@ begin
         -- Allow reading from dummy debug bitbash registers at $BFFFFFx
           case address(3 downto 0) is
             when x"0" =>
-              fake_rdata <= cache_row1_valids;
+              fake_rdata <= unsigned(cache_row1_valids);
 --              fake_rdata <= (others => debug_mode);
             when x"1" =>
               fake_rdata <= hr_d;
@@ -245,7 +245,7 @@ begin
             when x"6" =>
               fake_rdata <= rwr_delay;
             when x"7" =>
-              fake_rdata <= cache_row0_valids;
+              fake_rdata <= unsigned(cache_row0_valids);
             when x"8" =>
               fake_rdata <= conf_buf0;
             when x"9" =>
