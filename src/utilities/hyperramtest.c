@@ -8,21 +8,27 @@
 
 unsigned long addr,time,speed;
 unsigned char r2;
+unsigned char cr0hi;
+unsigned char cr0lo;
+unsigned char id0hi;
+unsigned char id0lo;
 
 void main(void)
 {
   POKE(0,65);
+  POKE(0xD02F,0x47);
+  POKE(0xD02F,0x53);
   
   // Cache off
   lpoke(0xbfffff2,0x00);
-  
+
   /*
     Test complete HyperRAM, including working out the size.
   */
   printf("Determining size of Extra RAM");
   
   lpoke(0x8000000,0xbd);
-  for(addr=0x8000100;(lpeek(0x8000000)==0xbd)&&(addr<0xbff0000);addr+=0x100)
+  for(addr=0x8001000;(lpeek(0x8000000)==0xbd)&&(addr<0xbff0000);addr+=0x1000)
     {
       if (!(addr&0xfffff)) printf(".");
       lpoke(addr,0x55);
@@ -33,15 +39,51 @@ void main(void)
     } 
 
   printf("%c",0x93);
-  
+
+  cr0hi=lpeek(0x9001000);
+  cr0lo=lpeek(0x9001001);
+  id0hi=lpeek(0x9000000);
+  id0lo=lpeek(0x9000001);
+
   while(1) {
     printf("%cUpper limit of Extra RAM is $%08lx\n",0x13,addr);  
-    printf("%cExtra RAM is %ld MB\n",(addr-0x8000000L)>>20L);
+    printf("%cExtra RAM is %d MB\n",(unsigned int)((addr-0x8000000L)>>20L));
+    printf("Chip ID: %d rows, %d columns\n",
+	   (id0hi&0x1f)+1,(id0lo>>4)+1);
+    printf("Expected capacity: %d MB\n",
+	   1<<((id0hi&0x1f)+1+(id0lo>>4)+1+1-20));
+    printf("Vendor: ");
+    switch(id0lo&0xf) {
+    case 1: printf("Cypress"); break;
+    case 3: printf("ISSI"); break;
+    default: printf("<unknown>");
+    }
+    printf("\n");
     
+    printf("Config: Powered up=%c,\n drive strength=$%x,\n",(cr0hi&0x80)?'Y':'N',(cr0hi>>4)&7);
+    switch((cr0lo&0xf0)>>4) {
+    case 0: printf(" 5 clock latency,\n"); break;
+    case 1: printf(" 6 clock latency,\n"); break;
+    case 14: printf(" 3 clock latency,\n"); break;
+    case 15: printf(" 4 clock latency,\n"); break;
+    default:
+      printf("unknown latency clocks ($%x),\n",(cr0lo&0xf0)>>4);      
+    }
+    if (cr0lo&8) printf(" fixed latency,"); else printf(" variable latency,");
+    printf("\n");
+    if (cr0lo&28) printf(" hybrid burst,"); else printf(" legacy burst,");
+    printf("\n");
+    switch(cr0lo&3) {
+    case 0: printf(" 128 byte burst length.\n"); break;
+    case 1: printf(" 64 byte burst length.\n"); break;
+    case 2: printf(" 16 byte burst length.\n"); break;
+    case 3: printf(" 32 byte burst length.\n"); break;
+    }
+
     // Test read speed of normal and extra ram  
     while(PEEK(0xD012)!=0x10)
       while(PEEK(0xD011)&0x80) continue;
-    lcopy(0x20000,0x40000,32768);
+    lcopy(0x20000L,0x40000L,32768);
     r2=PEEK(0xD012);
     printf("Copy Fast RAM to Fast RAM: ");
     // 63usec / raster
@@ -73,6 +115,15 @@ void main(void)
     
     while(PEEK(0xD012)!=0x10)
       while(PEEK(0xD011)&0x80) continue;
+    lcopy(0x8000000,0x8010000,4096);
+    r2=PEEK(0xD012);
+    printf("Copy Extra RAM to Extra RAM: ");
+    time=(r2-0x10)*63;
+    speed=4096000L/time;
+    printf("%ld KB/sec\n",speed);
+
+    while(PEEK(0xD012)!=0x10)
+      while(PEEK(0xD011)&0x80) continue;
     lfill(0x8000000,0,4096);
     r2=PEEK(0xD012);
     printf("Fill Extra RAM: ");
@@ -95,15 +146,22 @@ void main(void)
     
     while(PEEK(0xD012)!=0x10)
       while(PEEK(0xD011)&0x80) continue;
-    POKE(0xD020,1);
     lcopy(0x40000,0x8000000,4096);
-    POKE(0xD020,0);
     r2=PEEK(0xD012);
     printf("Copy Fast RAM to Extra RAM: ");
     time=(r2-0x10)*63;
     speed=4096000L/time;
     printf("%ld KB/sec\n",speed);
     
+    while(PEEK(0xD012)!=0x10)
+      while(PEEK(0xD011)&0x80) continue;
+    lcopy(0x8000000,0x8010000,4096);
+    r2=PEEK(0xD012);
+    printf("Copy Extra RAM to Extra RAM: ");
+    time=(r2-0x10)*63;
+    speed=4096000L/time;
+    printf("%ld KB/sec\n",speed);
+
     while(PEEK(0xD012)!=0x10)
       while(PEEK(0xD011)&0x80) continue;
     lfill(0x8000000,0,4096);
