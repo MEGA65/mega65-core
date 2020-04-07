@@ -219,7 +219,8 @@ begin
         -- Allow reading from dummy debug bitbash registers at $BFFFFFx
           case address(3 downto 0) is
             when x"0" =>
-              fake_rdata <= (others => debug_mode);
+              fake_rdata <= cache_row1_valids;
+--              fake_rdata <= (others => debug_mode);
             when x"1" =>
               fake_rdata <= hr_d;
             when x"2" =>
@@ -243,10 +244,28 @@ begin
               fake_rdata <= odd_byte_fix_flags;
             when x"6" =>
               fake_rdata <= rwr_delay;
+            when x"7" =>
+              fake_rdata <= cache_row0_valids;
             when x"8" =>
               fake_rdata <= conf_buf0;
             when x"9" =>
               fake_rdata <= conf_buf1;
+
+            when x"a" =>
+              fake_rdata <= cache_row0_address(7 downto 0);
+            when x"b" =>
+              fake_rdata <= cache_row0_address(15 downto 8);
+            when x"c" =>
+              fake_rdata <= cache_row0_address(23 downto 16);
+
+            when x"d" =>
+              fake_rdata <= cache_row1_address(7 downto 0);
+            when x"e" =>
+              fake_rdata <= cache_row1_address(15 downto 8);
+            when x"f" =>
+              fake_rdata <= cache_row1_address(23 downto 16);
+              
+              
             when others =>
               -- This seems to be what gets returned all the time
               fake_rdata <= x"42";
