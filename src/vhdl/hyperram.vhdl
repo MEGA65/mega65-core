@@ -141,6 +141,9 @@ architecture gothic of hyperram is
   signal odd_byte_fix : std_logic := '0';
   signal odd_byte_fix_flags : unsigned(7 downto 0) := (others => '1');
 
+  signal conf_buf0 : unsigned(7 downto 0) := x"12";
+  signal conf_buf1 : unsigned(7 downto 0) := x"34";
+  
 begin
   process (pixelclock,clock163) is
   begin
@@ -234,6 +237,10 @@ begin
               fake_rdata <= odd_byte_fix_flags;
             when x"6" =>
               fake_rdata <= rwr_delay;
+            when x"8" =>
+              fake_rdata <= conf_buf0;
+            when x"9" =>
+              fake_rdata <= conf_buf1;
             when others =>
               -- This seems to be what gets returned all the time
               fake_rdata <= x"42";
@@ -299,6 +306,10 @@ begin
               odd_byte_fix_flags <= wdata;
             when x"6" =>
               rwr_delay <= wdata;
+            when x"8" =>
+              conf_buf0 <= wdata;
+            when x"9" =>
+              conf_buf1 <= wdata;              
             when others =>
               null;
           end case;
@@ -543,7 +554,13 @@ begin
               countdown <= countdown - 1;
             else
               state <= HyperRAMOutputCommand;
-              countdown <= 6; -- 48 bits = 6 x 8 bits
+              if ram_address(24)='1' and ram_reading='0' then
+                -- 48 bits of CA followed by 16 bit register value
+                -- (we shift the buffered config register values out automatically)
+                countdown <= 8;
+              else
+                countdown <= 6; -- 48 bits = 6 x 8 bits
+              end if;
             end if;
             report "Presenting hr_command byte 0 on hr_d = $" & to_hstring(hr_command(47 downto 40));
             hr_d <= hr_command(47 downto 40);
@@ -574,6 +591,12 @@ begin
               
               hr_d <= hr_command(47 downto 40);
               hr_command(47 downto 8) <= hr_command(39 downto 0);
+
+              -- Also shift out config register values, if required
+              hr_command(7 downto 0) <= conf_buf0;              
+              conf_buf0 <= conf_buf1;
+              conf_buf1 <= conf_buf0;
+              
               report "Writing command byte $" & to_hstring(hr_command(47 downto 40));
 
               if countdown = 3 then
@@ -592,6 +615,15 @@ begin
                   countdown <= 99;
                   hr_rwds_high_seen <= '0';
                   state <= HyperRAMReadWait;
+                elsif ram_address(24)='1' then
+                  -- Config register write.
+                  -- These are a bit weird, as they have no latency, and all 16
+                  -- bits have to get written at once.  So we will have 2 buffer
+                  -- registers that get setup, and then ANY write to the register
+                  -- area will write those values, which we have done by shifting
+                  -- those through and sending 48+16 bits instead of the usual
+                  -- 48.
+                  state <= HyperRAMFinishWriting2;
                 else
                   -- Writing, so count down the correct number of cycles;
                   -- Initial latency is reduced by 2 cycles for the last bytes
