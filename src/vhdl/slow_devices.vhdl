@@ -253,6 +253,8 @@ begin
             then
               -- Read request for expansion RAM that can be serviced using the
               -- exported cache line.
+              report "CACHE: Reading byte $" & to_hstring(expansionram_current_cache_line(to_integer(slow_access_address(2 downto 0))))
+                & " from exposed hyperram current cache line";
               slow_access_rdata <= expansionram_current_cache_line(to_integer(slow_access_address(2 downto 0)));
               state <= Idle;
               slow_access_ready_toggle <= slow_access_request_toggle;            
