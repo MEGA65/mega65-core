@@ -206,7 +206,8 @@ begin
       end if;
       
       report "State = " & slow_state'image(state) & " expansionram_data_ready_strobe = "
-        & std_logic'image(expansionram_data_ready_strobe);
+        & std_logic'image(expansionram_data_ready_strobe)
+        & ", expansionram_busy = " & std_logic'image(expansionram_busy);
       case state is
         when Idle =>
           -- Clear flags for expansion RAM access request
