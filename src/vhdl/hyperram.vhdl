@@ -265,7 +265,19 @@ begin
         ram_reading <= '1';
 
         -- Check for cache read
-        if cache_enabled and (address(26 downto 3 ) = cache_row0_address and cache_row0_valids(to_integer(address(2 downto 0))) = '1') then
+        -- We check the write buffers first, as any contents that they have
+        -- must take priority over everything else
+        if cache_enabled and (address(26 downto 3 ) = write_collect0_address and write_collect0_valids(to_integer(address(2 downto 0))) = '1') then
+          -- Write cache read-back
+          fake_data_ready_strobe <= '1';
+          fake_rdata <= write_collect0_data(to_integer(address(2 downto 0)));
+          report "DISPATCH: Returning data $"& to_hstring(write_collect0_data(to_integer(address(2 downto 0))))&" from write collect0";
+        elsif cache_enabled and (address(26 downto 3 ) = write_collect1_address and write_collect1_valids(to_integer(address(2 downto 0))) = '1') then
+          -- Write cache read-back
+          fake_data_ready_strobe <= '1';
+          fake_rdata <= write_collect1_data(to_integer(address(2 downto 0)));
+          report "DISPATCH: Returning data $"& to_hstring(write_collect1_data(to_integer(address(2 downto 0))))&" from write collect1";
+        elsif cache_enabled and (address(26 downto 3 ) = cache_row0_address and cache_row0_valids(to_integer(address(2 downto 0))) = '1') then
           -- Cache read
           fake_data_ready_strobe <= '1';
           fake_rdata <= cache_row0_data(to_integer(address(2 downto 0)));
