@@ -60,9 +60,36 @@ architecture gothic of hyperram is
   -- of hyperrram?
   signal rwr_delay : unsigned(7 downto 0) := to_unsigned(1+40*163/1000,8);
   signal rwr_counter : unsigned(7 downto 0) := (others => '0');
+
+  -- We prime the HyperRAM controller to set the value of CR0 initially on
+  -- power up to minimise latency.
   
-  signal address_latched : unsigned(26 downto 0);
-  signal wdata_latched : unsigned(7 downto 0);
+  
+  signal state : state_t := WriteSetup;
+  signal busy_internal : std_logic := '1';
+  signal hr_command : unsigned(47 downto 0);
+
+  signal ram_address : unsigned(26 downto 0) :=
+    "001000000000001000000000000"; -- = bottom 27 bits of x"9001000";
+  signal ram_wdata : unsigned(7 downto 0) := x"00";
+  signal ram_reading : std_logic := '0';
+
+  -- We want to set config register 0 to $8fe6, to enable variable latency
+  -- and 3 cycles instead of 6 for latency. This speeds up writing almost 2x.
+  
+  signal conf_buf0 : unsigned(7 downto 0) := x"8f";
+  signal conf_buf1 : unsigned(7 downto 0) := x"e6";
+  signal conf_buf0_in : unsigned(7 downto 0) := x"8f";
+  signal conf_buf1_in : unsigned(7 downto 0) := x"e6";
+  signal conf_buf0_set : std_logic := '0';
+  signal conf_buf1_set : std_logic := '0';
+  signal last_conf_buf0_set : std_logic := '0';
+  signal last_conf_buf1_set : std_logic := '0';
+
+  -- Delay sending of the initial configuration write command
+  -- to give the HyperRAM chip time to start up
+  -- Datasheet says 150usec is required, we do that, plus a bit.
+  signal start_delay_counter : integer := 150*(1000/162)+20;  
   
   signal hr_clock : std_logic := '0';
 
@@ -72,10 +99,6 @@ architecture gothic of hyperram is
 
   signal request_toggle : std_logic := '0';
   signal last_request_toggle : std_logic := '0';
-
-  -- Used to slow down HyperRAM enough that we can watch waveforms on the JTAG
-  -- boundary scanner.
-  signal slowdown_counter : integer := 0;
 
   signal byte_phase : unsigned(3 downto 0) := to_unsigned(0,4);
   signal write_byte_phase : std_logic := '0';
@@ -114,8 +137,9 @@ architecture gothic of hyperram is
 
   signal request_counter_int : std_logic := '0';
 
-  -- 8 - 2 is correct for the part we have in the MEGA65.
-  signal write_latency : unsigned(7 downto 0) := to_unsigned((8 - 2)*2 - 1,8);
+  -- 3 is correct for the part we have in the MEGA65, after we have set the
+  -- config register to minimise latency.
+  signal write_latency : unsigned(7 downto 0) := to_unsigned(3,8);
   -- 8 - 4 is required, however, for the s27k0641.vhd test model that we have
   -- found for testing.
 --   signal write_latency : unsigned(7 downto 0) := to_unsigned((8 - 5)*2,8);
@@ -133,14 +157,6 @@ architecture gothic of hyperram is
   signal odd_byte_fix : std_logic := '0';
   signal odd_byte_fix_flags : unsigned(7 downto 0) := "00011111";
 
-  signal conf_buf0 : unsigned(7 downto 0) := x"12";
-  signal conf_buf1 : unsigned(7 downto 0) := x"34";
-  signal conf_buf0_in : unsigned(7 downto 0) := x"12";
-  signal conf_buf1_in : unsigned(7 downto 0) := x"34";
-  signal conf_buf0_set : std_logic := '0';
-  signal conf_buf1_set : std_logic := '0';
-  signal last_conf_buf0_set : std_logic := '0';
-  signal last_conf_buf1_set : std_logic := '0';
   
 begin
   process (pixelclock,clock163) is
@@ -404,11 +420,10 @@ begin
         conf_buf1 <= conf_buf1_in;
       end if;
       
-      if (state /= Idle) and ( slowdown_counter /= 0) then
-        slowdown_counter <= slowdown_counter - 1;
+      if (state /= Idle) and ( start_delay_counter /= 0) then
+        start_delay_counter <= start_delay_counter - 1;
       else
---        slowdown_counter <= 100;
-        slowdown_counter <= 0;
+        start_delay_counter <= 0;
         
         case state is
           when Debug =>
