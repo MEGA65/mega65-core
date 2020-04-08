@@ -246,7 +246,18 @@ begin
             
           if slow_access_address(27)='1' then
             -- $8000000-$FFFFFFF = expansion RAM
-            report "Triaging Expansion RAM request";
+            report "Triaging Expansion RAM request to address $" & to_hstring(slow_access_address);
+            report "cachecs: address=$" & to_hstring(expansionram_current_cache_line_address&"000")
+              & ", valid=" & std_logic'image(expansionram_current_cache_line_valid)
+              & ", data = "
+              & to_hstring(expansionram_current_cache_line(0)) & " "
+              & to_hstring(expansionram_current_cache_line(1)) & " "
+              & to_hstring(expansionram_current_cache_line(2)) & " "
+              & to_hstring(expansionram_current_cache_line(3)) & " "
+              & to_hstring(expansionram_current_cache_line(4)) & " "
+              & to_hstring(expansionram_current_cache_line(5)) & " "
+              & to_hstring(expansionram_current_cache_line(6)) & " "
+              & to_hstring(expansionram_current_cache_line(7)) & " ";
             if expansionram_current_cache_line_valid='1' and
               expansionram_current_cache_line_address(26 downto 3) = slow_access_address(26 downto 3) and
               slow_access_write='0'
