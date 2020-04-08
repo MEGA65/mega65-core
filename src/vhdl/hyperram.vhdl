@@ -145,6 +145,7 @@ architecture gothic of hyperram is
   -- 3 is correct for the part we have in the MEGA65, after we have set the
   -- config register to minimise latency.
   signal write_latency : unsigned(7 downto 0) := to_unsigned(3,8);
+  signal extra_write_latency : unsigned(7 downto 0) := to_unsigned(3,8);
   -- 8 - 4 is required, however, for the s27k0641.vhd test model that we have
   -- found for testing.
 --   signal write_latency : unsigned(7 downto 0) := to_unsigned((8 - 5)*2,8);
@@ -252,7 +253,7 @@ begin
             when x"3" =>
               fake_rdata <= write_latency;
             when x"4" =>
-              fake_rdata <= to_unsigned(state_t'pos(state),8);
+              fake_rdata <= extra_write_latency;
             when x"5" =>
               fake_rdata <= odd_byte_fix_flags;
             when x"6" =>
@@ -340,6 +341,8 @@ begin
 --              end if;
             when x"3" =>
               write_latency <= wdata;
+            when x"4" =>
+              extra_write_latency <= wdata;
             when x"5" =>
               odd_byte_fix_flags <= wdata;
             when x"6" =>
@@ -710,7 +713,7 @@ begin
                   -- If we were asked to wait for extra latency,
                   -- then wait another 6 cycles.
                   extra_latency <= '0';
-                  countdown <= 6;
+                  countdown <= to_integer(extra_write_latency);
                 else
                   -- Latency countdown for writing is over, we can now
                   -- begin writing bytes.                  
