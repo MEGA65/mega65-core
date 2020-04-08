@@ -170,7 +170,7 @@ architecture gothic of hyperram is
   -- found for testing.
 --   signal write_latency : unsigned(7 downto 0) := to_unsigned((8 - 5)*2,8);
 
-  signal cache_enabled : boolean := true;
+  signal cache_enabled : boolean := false;
 
   signal hr_d_pending : std_logic := '0';
   signal hr_flags_pending : std_logic := '0';
@@ -801,10 +801,7 @@ begin
             -- down one bit.
             hr_command(47) <= '0'; -- WRITE
             hr_command(46) <= ram_address(24); -- Memory, not register space
-            -- Wrap (so that we can do the weird odd byte write correct more safely).
-            -- But only if we are writing to RAM. If we are writing to config registers,
-            -- we MUST set this bit apparently. (Table 5.1 ISSI HyperRAM datasheet)
-            hr_command(45) <= ram_address(24);
+            hr_command(45) <= '1'; -- linear
             
             hr_command(44 downto 35) <= (others => '0'); -- unused upper address bits
             hr_command(15 downto 3) <= (others => '0'); -- reserved bits
