@@ -54,6 +54,13 @@ ENTITY slow_devices IS
     expansionram_address : out unsigned(26 downto 0);
     expansionram_data_ready_strobe : in std_logic;
     expansionram_busy : in std_logic;
+
+    -- Improve read speed by saving us from having to even enquire of
+    -- the HyperRAM controller for the most recently accessed cache line.
+    expansionram_current_cache_line : in cache_row_t := (others => (others => '0'));
+    expansionram_current_cache_line_address : in unsigned(26 downto 0) := (others => '0');
+    expansionram_current_cache_line_valid : in std_logic := '0';
+    
     
     ----------------------------------------------------------------------
     -- Flash RAM for holding FPGA config
@@ -240,8 +247,19 @@ begin
           if slow_access_address(27)='1' then
             -- $8000000-$FFFFFFF = expansion RAM
             report "Triaging Expansion RAM request";
-            expansionram_read_timeout <= (others => '1');
-            state <= ExpansionRAMRequest;
+            if expansionram_current_cache_line_valid='1' and
+              expansionram_current_cache_line_address(26 downto 3) = slow_access_address(26 downto 3) and
+              slow_access_write='0'
+            then
+              -- Read request for expansion RAM that can be serviced using the
+              -- exported cache line.
+              slow_access_rdata <= expansionram_current_cache_line(to_integer(slow_access_address(2 downto 0)));
+              state <= Idle;
+              slow_access_ready_toggle <= slow_access_request_toggle;            
+            else
+              expansionram_read_timeout <= (others => '1');
+              state <= ExpansionRAMRequest;
+            end if;
           elsif slow_access_address(26)='1' then
             -- $4000000-$7FFFFFF = cartridge port
             report "Preparing to access from C64 cartridge port";

@@ -3,6 +3,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
+use work.cputypes.all;
 
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
@@ -120,8 +121,6 @@ architecture gothic of hyperram is
   -- Have a tiny little cache to reduce latency
   -- 8 byte cache rows, where we indicate the validity of
   -- each byte.
-  type cache_row_t is array (0 to 7) of unsigned(7 downto 0);
-
   signal cache_row0_valids : std_logic_vector(0 to 7) := (others => '0');
   signal cache_row0_address : unsigned(23 downto 0) := (others => '1');  
   signal cache_row0_data : cache_row_t := ( others => x"00" );
