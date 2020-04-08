@@ -830,13 +830,13 @@ begin
                   end if;
                 else
                   -- Export the appropriate cache line to slow_devices
-                  if cache_row0_address = ram_address(26 downto 3) then          
+                  if cache_row0_address = ram_address(26 downto 3) and cache_enabled then          
                     if cache_row0_valids = x"FF" then
                       current_cache_line <= cache_row0_data;
                       current_cache_line_address(26 downto 3) <= ram_address(26 downto 3);
                       current_cache_line_valid <= '1';
                     end if;
-                  elsif cache_row1_address = ram_address(26 downto 3) then          
+                  elsif cache_row1_address = ram_address(26 downto 3) and cache_enabled then          
                     if cache_row1_valids = x"FF" then
                       current_cache_line <= cache_row1_data;
                       current_cache_line_address(26 downto 3) <= ram_address(26 downto 3);
