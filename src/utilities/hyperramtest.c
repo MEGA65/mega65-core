@@ -26,13 +26,17 @@ void bust_cache(void) {
 }
 
 
-void main(void)
+void setup_hyperram(void)
 {
-  POKE(0,65);
-  POKE(0xD02F,0x47);
-  POKE(0xD02F,0x53);
+  // Pre-fill all hyperram for convenience
+  printf("Erasing hyperram");
+  lpoke(0xbfffff2,0x82);
+  for(addr=0x8000000;(addr<0x9000000);addr+=0x8000)
+    { lfill(addr,0x00,0x8000); printf("."); }
+  printf("\n");
+
   
-  // Cache off
+  // Cache off while sizing RAM, so that we don't just read cached bytes
   lpoke(0xbfffff2,0x02);
 
   /*
@@ -45,14 +49,40 @@ void main(void)
     {
       if (!(addr&0xfffff)) printf(".");
       lpoke(addr,0x55);
-      if (lpeek(addr)!=0x55) break;
+      if (lpeek(addr)!=0x55) {
+	printf("$%08lx != $55 (saw $%02x)",addr,lpeek(addr));
+	break;
+      }
       lpoke(addr,0xAA);
-      if (lpeek(addr)!=0xAA) break;
-      if (lpeek(0x8000000)!=0xbd) break;
-    } 
+      if (lpeek(addr)!=0xAA) {
+	printf("$%08lx != $AA (saw $%02x)",addr,lpeek(addr));
+	break;
+      }
+      if (lpeek(0x8000000)!=0xbd) {
+	printf("$8000000 corrupted != $BD (saw $%02x)",addr,lpeek(0x8000000));
+	break;
+      }
+    }
+
+  while(PEEK(0xD610)) POKE(0xD610,0);
+  while(!PEEK(0xD610)) continue;
+  while(PEEK(0xD610)) POKE(0xD610,0);
+  
+}
+
+void main(void)
+{
+  POKE(0,65);
+  POKE(0xD02F,0x47);
+  POKE(0xD02F,0x53);
+
+  setup_hyperram();
 
   printf("%c",0x93);
 
+  // Turn cache back on before reading config registers etc
+  lpoke(0xbfffff2,0x82);
+  
   bust_cache();
   cr0hi=lpeek(0x9001000);
   bust_cache();
@@ -64,6 +94,13 @@ void main(void)
   id0lo=lpeek(0x9000001);
 
   while(1) {
+
+    while (PEEK(0xD610)) {
+      setup_hyperram();
+      POKE(0xD610,0);
+      printf("%c",0x93);
+    }
+    
     printf("%cUpper limit of Extra RAM is $%08lx\n",0x13,addr);
     mbs=(unsigned int)((addr-0x8000000L)>>20L);
     printf("Extra RAM is %d MB\n",mbs);
