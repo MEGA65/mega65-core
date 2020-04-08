@@ -15,14 +15,25 @@ unsigned char id0lo;
 unsigned int mbs;
 
 void bust_cache(void) {
-  lpeek(0x8000000);
-  lpeek(0x8000010);
-  lpeek(0x8000020);
-  lpeek(0x8000030);
-  lpeek(0x8000040);
-  lpeek(0x8000050);
-  lpeek(0x8000060);
-  lpeek(0x8000070);
+  lpeek(0x8000100);
+  lpeek(0x8000110);
+  lpeek(0x8000120);
+  lpeek(0x8000130);
+  lpeek(0x8000140);
+  lpeek(0x8000150);
+  lpeek(0x8000160);
+  lpeek(0x8000170);
+  lpoke(0x8000100,0x99);
+  lpoke(0x8000110,0x99);
+  lpoke(0x8000120,0x99);
+  lpoke(0x8000130,0x99);
+  lpoke(0x8000140,0x99);
+  lpoke(0x8000150,0x99);
+  lpoke(0x8000160,0x99);
+  lpoke(0x8000170,0x99);
+
+  lpoke(0xbfffff2,0x02);
+  lpoke(0xbfffff2,0x82);
 }
 
 
@@ -30,40 +41,53 @@ void setup_hyperram(void)
 {
   // Pre-fill all hyperram for convenience
   printf("Erasing hyperram");
-  lpoke(0xbfffff2,0x82);
+  lpoke(0xbfffff2,0x82);  // cache on for much faster linear writes
   for(addr=0x8000000;(addr<0x9000000);addr+=0x8000)
     { lfill(addr,0x00,0x8000); printf("."); }
   printf("\n");
 
   
-  // Cache off while sizing RAM, so that we don't just read cached bytes
-  lpoke(0xbfffff2,0x02);
-
   /*
     Test complete HyperRAM, including working out the size.
   */
   printf("Determining size of Extra RAM");
   
   lpoke(0x8000000,0xbd);
-  for(addr=0x8001000;(lpeek(0x8000000)==0xbd)&&(addr<0xbff0000);addr+=0x1000)
+  if (lpeek(0x8000000)!=0xbd) {
+    printf("ERROR: $8000000 didn't hold its value.\n"
+	   "Should be $BD, but saw $%02x\n",lpeek(0x8000000));
+  }
+  for(addr=0x8001000;(lpeek(0x8000000)==0xbd)&&(addr!=0x9000000);addr+=0x1000)
     {
-      if (!(addr&0xfffff)) printf(".");
+      printf(".");
       lpoke(addr,0x55);
+
+      bust_cache();
+      
       if (lpeek(addr)!=0x55) {
 	printf("$%08lx != $55 (saw $%02x)",addr,lpeek(addr));
 	break;
       }
       lpoke(addr,0xAA);
+
+      bust_cache();
+
       if (lpeek(addr)!=0xAA) {
 	printf("$%08lx != $AA (saw $%02x)",addr,lpeek(addr));
 	break;
       }
+
+      bust_cache();
+      
       if (lpeek(0x8000000)!=0xbd) {
 	printf("$8000000 corrupted != $BD (saw $%02x)",addr,lpeek(0x8000000));
 	break;
       }
     }
 
+  lpoke(0xbfffff2,0x82);
+  
+  printf("\nPress any key to continue...\n");
   while(PEEK(0xD610)) POKE(0xD610,0);
   while(!PEEK(0xD610)) continue;
   while(PEEK(0xD610)) POKE(0xD610,0);
