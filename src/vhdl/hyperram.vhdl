@@ -183,6 +183,12 @@ architecture gothic of hyperram is
   signal odd_byte_fix_flags : unsigned(7 downto 0) := "00011111";
 
   signal write_blocked : std_logic := '0';
+
+  signal background_write : std_logic := '0';
+  signal background_write_source : std_logic := '0';
+  signal background_write_valids : std_logic_vector(7 downto 0) := x"00";
+  signal background_write_data : cache_row_t := (others => (others => '0'));
+  signal background_write_count : integer range 0 to 4 := 0;
   
 begin
   process (pixelclock,clock163) is
@@ -564,7 +570,17 @@ begin
               cache_row0_valids <= (others => '0');
               cache_row1_valids <= (others => '0');
             end if;
-              
+
+            -- Clear write buffer flags when they are empty
+            if write_collect0_dispatchable = '0' then
+              write_collect0_toolate <= '0';
+              write_collect0_flushed <= '0';
+            end if;
+            if write_collect1_dispatchable = '0' then
+              write_collect1_toolate <= '0';
+              write_collect1_flushed <= '0';
+            end if;
+            
             -- Mark us ready for a new job, or pick up a new job
             next_is_data <= '1';
             if debug_mode='1' then
@@ -610,8 +626,61 @@ begin
                 end if;
                 
               end if;
-              busy_internal <= '1';
               report "Accepting job";
+              busy_internal <= '1';
+            elsif write_collect0_dispatchable = '1' then
+              -- Do background write.
+              busy_internal <= '0';
+
+              -- Mark the write buffer as being processed.              
+              write_collect0_flushed <= '0';
+              -- And that it is not (yet) too late to add extra bytes to the write.
+              write_collect0_toolate <= '0';
+
+              background_write <= '1';
+              background_write_source <= '0'; -- collect 0
+              
+              -- Prepare command vector
+              hr_command(47) <= '0'; -- WRITE
+              hr_command(46) <= write_collect0_address(26); -- Memory, not register space
+              hr_command(45) <= ram_address(26);
+              hr_command(44 downto 35) <= (others => '0'); -- unused upper address bits
+              hr_command(15 downto 3) <= (others => '0'); -- reserved bits
+              hr_command(34 downto 16) <= write_collect0_address(24 downto 6);
+              hr_command(2 downto 0) <= write_collect0_address(5 downto 3);
+              hr_reset <= '1'; -- active low reset
+
+              -- This is the delay before we assert CS
+              countdown <= 0;
+            
+              state <= HyperRAMCSStrobe;
+              
+            elsif write_collect1_dispatchable = '1' then
+              busy_internal <= '0';              
+
+              -- Mark the write buffer as being processed.              
+              write_collect1_flushed <= '0';
+              -- And that it is not (yet) too late to add extra bytes to the write.
+              write_collect1_toolate <= '0';
+
+              background_write <= '1';
+              background_write_source <= '1'; -- collect 0
+              
+              -- Prepare command vector
+              hr_command(47) <= '0'; -- WRITE
+              hr_command(46) <= write_collect1_address(26); -- Memory, not register space
+              hr_command(45) <= ram_address(26);
+              hr_command(44 downto 35) <= (others => '0'); -- unused upper address bits
+              hr_command(15 downto 3) <= (others => '0'); -- reserved bits
+              hr_command(34 downto 16) <= write_collect1_address(24 downto 6);
+              hr_command(2 downto 0) <= write_collect1_address(5 downto 3);
+              hr_reset <= '1'; -- active low reset
+
+              -- This is the delay before we assert CS
+              countdown <= 0;
+            
+              state <= HyperRAMCSStrobe;
+
             else
               report "Clearing busy_internal";
               busy_internal <= '0';
@@ -771,6 +840,20 @@ begin
                   -- machine latency                  
 --                  countdown <= 8 - 2 - 1;
                   countdown <= to_integer(write_latency);
+
+                  -- We are not just about ready to start writing, so mark the
+                  -- write buffer as too late to be added to, because we will
+                  -- snap-shot it in a moment.
+                  if background_write = '1' then
+                    if background_write_source = '0' then
+                      write_collect0_toolate <= '1';
+                      write_collect0_flushed <= '0';
+                    else
+                      write_collect1_toolate <= '1';
+                      write_collect1_flushed <= '0';
+                    end if;
+                  end if;
+                  
                   state <= HyperRAMLatencyWait;
                 end if;
               end if;
@@ -780,6 +863,22 @@ begin
             byte_written <= '0';
           when HyperRAMLatencyWait =>
             next_is_data <= not next_is_data;
+
+            -- Now snap-shot the write buffer data, and mark the slot as flushed
+            if background_write = '1' then
+              if background_write_source = '0' and write_collect0_toolate = '0' then
+                write_collect0_flushed <= '1';
+                background_write_data <= write_collect0_data;
+                background_write_valids <= write_collect0_valids;
+                background_write_count <= 4;
+              elsif background_write_source = '1' and write_collect1_toolate = '0' then
+                write_collect1_flushed <= '1';
+                background_write_data <= write_collect1_data;
+                background_write_valids <= write_collect1_valids;
+                background_write_count <= 4;
+              end if;
+            end if;
+            
             if next_is_data = '0' then
               -- Toggle clock while data steady
               hr_clk_n <= not hr_clock;
@@ -817,18 +916,42 @@ begin
                   -- occur.
                   -- In this first 
                   
-                  report "Presenting hr_d with ram_wdata";
-                  hr_d <= ram_wdata;
-
+                  report "Presenting hr_d with ram_wdata or background data";
+                  if background_write='1' then
+                    hr_d <= background_write_data(0);
+                    background_write_data(0) <= background_write_data(1);
+                    background_write_data(1) <= background_write_data(2);
+                    background_write_data(2) <= background_write_data(3);
+                    background_write_data(3) <= background_write_data(4);
+                    background_write_data(4) <= background_write_data(5);
+                    background_write_data(5) <= background_write_data(6);
+                    background_write_data(6) <= background_write_data(7);
+                    background_write_data(7) <= x"00";
+                    
+                    hr_rwds <= not background_write_valids(0);
+                    background_write_valids(6 downto 0) <= background_write_valids(7 downto 1);
+                    background_write_valids(7) <= '0';
+                  else
+                    hr_d <= ram_wdata;
+                    hr_rwds <= ram_address(0) xor write_byte_phase;
+                  end if;
+                  
                   -- Write byte
-                  hr_rwds <= ram_address(0) xor write_byte_phase;
                   if write_byte_phase = '0' and ram_address(0)='1' then
                     hr_d <= x"ee"; -- even "masked" data byte
                   elsif write_byte_phase = '1' and ram_address(0)='0' then
                     hr_d <= x"0d"; -- odd "masked" data byte                      
                   end if;
                   write_byte_phase <= '1';
-                  byte_written <= write_byte_phase;                  
+                  if background_write='0' then
+                    byte_written <= write_byte_phase;
+                  elsif write_byte_phase='1' then
+                    if background_write_count /= 0 then
+                      background_write_count <= background_write_count - 1;
+                    else
+                      byte_written <= '1';
+                    end if;
+                  end if;
                 end if;
               end if;
             end if;
