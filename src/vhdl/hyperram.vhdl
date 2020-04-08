@@ -186,9 +186,9 @@ architecture gothic of hyperram is
 
   signal background_write : std_logic := '0';
   signal background_write_source : std_logic := '0';
-  signal background_write_valids : std_logic_vector(7 downto 0) := x"00";
+  signal background_write_valids : std_logic_vector(0 to 7) := x"00";
   signal background_write_data : cache_row_t := (others => (others => '0'));
-  signal background_write_count : integer range 0 to 4 := 0;
+  signal background_write_count : integer range 0 to 6 := 0;
   
 begin
   process (pixelclock,clock163) is
@@ -208,6 +208,15 @@ begin
       hr_flags_pending <= '0';
       
       busy <= busy_internal or write_blocked;
+
+      -- Clear write block as soon as either write buffer clears
+      if (write_collect0_dispatchable='0' and write_collect0_toolate='0' and write_collect0_flushed='0')
+        or (write_collect1_dispatchable='0' and write_collect1_toolate='0' and write_collect1_flushed='0')
+      then
+        write_blocked <= '0';
+      else
+        write_blocked <= '1';
+      end if;
 
       fake_data_ready_strobe <= '0';
 
@@ -262,6 +271,16 @@ begin
         & to_hstring(write_collect1_data(5)) & " "
         & to_hstring(write_collect1_data(6)) & " "
         & to_hstring(write_collect1_data(7)) & " ";
+
+
+      if write_collect0_dispatchable = '1' and write_collect0_toolate <= '1' and write_collect0_flushed = '1' then
+        write_collect0_dispatchable <= '0';
+      end if;
+      if write_collect1_dispatchable = '1' and write_collect1_toolate <= '1' and write_collect1_flushed = '1' then
+        write_collect1_dispatchable <= '0';
+      end if;
+              
+
       
       if read_request='1' and busy_internal='0' then
         report "Making read request";
@@ -430,31 +449,33 @@ begin
 
             -- Can we add the write to an existing collected write?
             if write_collect0_toolate = '0' and write_collect0_address = address(26 downto 3)
-              and write_collect0_dispatchable = '1' then
+              and write_collect0_dispatchable = '1' and write_collect0_toolate='0' then
               write_collect0_valids(to_integer(address(2 downto 0))) <= '1';
               write_collect0_data(to_integer(address(2 downto 0))) <= wdata;
-              write_blocked <= '0';
             elsif write_collect1_toolate = '0' and write_collect1_address = address(26 downto 3)
-              and write_collect1_dispatchable = '1' then
+              and write_collect1_dispatchable = '1' and write_collect1_toolate='0' then
               write_collect1_valids(to_integer(address(2 downto 0))) <= '1';
               write_collect1_data(to_integer(address(2 downto 0))) <= wdata;
-              write_blocked <= '0';
-            elsif write_collect0_dispatchable = '0' then
+            elsif write_collect0_dispatchable = '0' and write_collect0_toolate='0' then
+              write_collect0_valids <= (others => '0');
               write_collect0_valids(to_integer(address(2 downto 0))) <= '1';
               write_collect0_data(to_integer(address(2 downto 0))) <= wdata;
               write_collect0_address <= address(26 downto 3);
               write_collect0_dispatchable <= '1';
-              write_blocked <= '0';
-            elsif write_collect1_dispatchable = '0' then
+              -- Block further writes if we already have one busy write buffer
+              write_blocked <= '1';
+            elsif write_collect1_dispatchable = '0' and write_collect1_toolate='0' then
+              write_collect1_valids <= (others => '0');
               write_collect1_valids(to_integer(address(2 downto 0))) <= '1';
               write_collect1_data(to_integer(address(2 downto 0))) <= wdata;
               write_collect1_address <= address(26 downto 3);
               write_collect1_dispatchable <= '1';
-              write_blocked <= '0';
+              -- Block further writes if we already have one busy write buffer
+              write_blocked <= '1';
             else
               -- No write collection point that we can use, so just block until
               -- one becomes available
-              write_blocked <= '1';
+              report "DISPATCH: Write blocked due to busy write buffers";
             end if;
           end if;
         end if;        
@@ -642,12 +663,13 @@ begin
               
               -- Prepare command vector
               hr_command(47) <= '0'; -- WRITE
-              hr_command(46) <= write_collect0_address(26); -- Memory, not register space
+              hr_command(46) <= write_collect0_address(24); -- Memory, not register space
               hr_command(45) <= ram_address(26);
               hr_command(44 downto 35) <= (others => '0'); -- unused upper address bits
               hr_command(15 downto 3) <= (others => '0'); -- reserved bits
-              hr_command(34 downto 16) <= write_collect0_address(24 downto 6);
-              hr_command(2 downto 0) <= write_collect0_address(5 downto 3);
+              hr_command(34 downto 16) <= write_collect0_address(22 downto 4);
+              hr_command(2) <= write_collect0_address(3);
+              hr_command(1 downto 0) <= "00";
               hr_reset <= '1'; -- active low reset
 
               -- This is the delay before we assert CS
@@ -668,12 +690,14 @@ begin
               
               -- Prepare command vector
               hr_command(47) <= '0'; -- WRITE
-              hr_command(46) <= write_collect1_address(26); -- Memory, not register space
-              hr_command(45) <= ram_address(26);
+              hr_command(46) <= write_collect1_address(24); -- Memory, not register space
+              hr_command(45) <= ram_address(24);
               hr_command(44 downto 35) <= (others => '0'); -- unused upper address bits
               hr_command(15 downto 3) <= (others => '0'); -- reserved bits
-              hr_command(34 downto 16) <= write_collect1_address(24 downto 6);
-              hr_command(2 downto 0) <= write_collect1_address(5 downto 3);
+              hr_command(34 downto 16) <= write_collect1_address(22 downto 4);
+              hr_command(2) <= write_collect1_address(3);
+              hr_command(1 downto 0) <= "00";
+
               hr_reset <= '1'; -- active low reset
 
               -- This is the delay before we assert CS
@@ -845,6 +869,8 @@ begin
                   -- write buffer as too late to be added to, because we will
                   -- snap-shot it in a moment.
                   if background_write = '1' then
+                    report "WRITE: Asserting toolate signal";
+                    background_write_count <= 4 + 2;                    
                     if background_write_source = '0' then
                       write_collect0_toolate <= '1';
                       write_collect0_flushed <= '0';
@@ -863,19 +889,21 @@ begin
             byte_written <= '0';
           when HyperRAMLatencyWait =>
             next_is_data <= not next_is_data;
+            report "WRITE: LatencyWait state, bg_wr=" & std_logic'image(background_write)
+              & ", count=" & integer'image(background_write_count);
 
             -- Now snap-shot the write buffer data, and mark the slot as flushed
             if background_write = '1' then
-              if background_write_source = '0' and write_collect0_toolate = '0' then
+              if background_write_source = '0' and write_collect0_toolate='1' and write_collect0_flushed = '0' then
                 write_collect0_flushed <= '1';
+                report "WRITE: background_write_data copied from write_collect0. Valids = " & to_string(write_collect0_valids);
                 background_write_data <= write_collect0_data;
                 background_write_valids <= write_collect0_valids;
-                background_write_count <= 4;
-              elsif background_write_source = '1' and write_collect1_toolate = '0' then
+              elsif background_write_source = '1' and write_collect1_toolate='1' and write_collect1_flushed = '0' then
                 write_collect1_flushed <= '1';
+                report "WRITE: background_write_data copied from write_collect1";
                 background_write_data <= write_collect1_data;
                 background_write_valids <= write_collect1_valids;
-                background_write_count <= 4;
               end if;
             end if;
             
@@ -918,6 +946,9 @@ begin
                   
                   report "Presenting hr_d with ram_wdata or background data";
                   if background_write='1' then
+                    report "WRITE: Writing background byte $" & to_hstring(background_write_data(0))
+                      & ", valids= " & to_string(background_write_valids)
+                      & ", background words left = " & integer'image(background_write_count);
                     hr_d <= background_write_data(0);
                     background_write_data(0) <= background_write_data(1);
                     background_write_data(1) <= background_write_data(2);
@@ -929,7 +960,7 @@ begin
                     background_write_data(7) <= x"00";
                     
                     hr_rwds <= not background_write_valids(0);
-                    background_write_valids(6 downto 0) <= background_write_valids(7 downto 1);
+                    background_write_valids(0 to 6) <= background_write_valids(1 to 7);
                     background_write_valids(7) <= '0';
                   else
                     hr_d <= ram_wdata;
@@ -937,15 +968,16 @@ begin
                   end if;
                   
                   -- Write byte
-                  if write_byte_phase = '0' and ram_address(0)='1' then
-                    hr_d <= x"ee"; -- even "masked" data byte
-                  elsif write_byte_phase = '1' and ram_address(0)='0' then
-                    hr_d <= x"0d"; -- odd "masked" data byte                      
-                  end if;
                   write_byte_phase <= '1';
                   if background_write='0' then
+                    if write_byte_phase = '0' and ram_address(0)='1' then
+                      hr_d <= x"ee"; -- even "masked" data byte
+                    elsif write_byte_phase = '1' and ram_address(0)='0' then
+                      hr_d <= x"0d"; -- odd "masked" data byte                      
+                    end if;
                     byte_written <= write_byte_phase;
                   elsif write_byte_phase='1' then
+                    report "WRITE: Decrementing background_write_count from " & integer'image(background_write_count);
                     if background_write_count /= 0 then
                       background_write_count <= background_write_count - 1;
                     else
