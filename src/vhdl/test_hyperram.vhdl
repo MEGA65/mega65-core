@@ -45,6 +45,90 @@ architecture foo of test_hyperram is
 
   signal expecting_byte : std_logic := '0';
   signal expected_byte : unsigned(7 downto 0);
+
+  type mem_transaction_t is record
+    address : unsigned(27 downto 0);
+    write_p : std_logic;
+    value : unsigned(7 downto 0);     -- either to write, or expected to read
+  end record mem_transaction_t;
+
+  type mem_job_list_t is array(0 to 99) of mem_transaction_t;
+
+  signal mem_jobs : mem_job_list_t := (
+    -- Write 16 bytes, first the evens and then the odds
+    (address => x"8000000", write_p => '1', value => x"30"),
+    (address => x"8000002", write_p => '1', value => x"32"),
+    (address => x"8000004", write_p => '1', value => x"34"),
+    (address => x"8000006", write_p => '1', value => x"36"),
+    (address => x"8000008", write_p => '1', value => x"38"),
+    (address => x"800000a", write_p => '1', value => x"3a"),
+    (address => x"800000c", write_p => '1', value => x"3c"),
+    (address => x"800000e", write_p => '1', value => x"3e"),
+    (address => x"8000001", write_p => '1', value => x"31"),
+    (address => x"8000003", write_p => '1', value => x"33"),
+    (address => x"8000005", write_p => '1', value => x"35"),
+    (address => x"8000007", write_p => '1', value => x"37"),
+    (address => x"8000009", write_p => '1', value => x"39"),
+    (address => x"800000b", write_p => '1', value => x"3b"),
+    (address => x"800000d", write_p => '1', value => x"3d"),
+    (address => x"800000f", write_p => '1', value => x"3f"),
+
+    -- Now a few random writes to stress the write buffers
+    (address => x"8001009", write_p => '1', value => x"39"),
+    (address => x"800200b", write_p => '1', value => x"3b"),
+    (address => x"800300d", write_p => '1', value => x"3d"),
+    (address => x"800400f", write_p => '1', value => x"3f"),
+
+    -- ... and read them back
+    (address => x"8001009", write_p => '0', value => x"39"),
+    (address => x"800200b", write_p => '0', value => x"3b"),
+    (address => x"800300d", write_p => '0', value => x"3d"),
+    (address => x"800400f", write_p => '0', value => x"3f"),
+    
+    -- Read the first 16 bytes back
+    (address => x"8000000", write_p => '0', value => x"30"),
+    (address => x"8000001", write_p => '0', value => x"31"),
+    (address => x"8000002", write_p => '0', value => x"32"),
+    (address => x"8000003", write_p => '0', value => x"33"),
+    (address => x"8000004", write_p => '0', value => x"34"),
+    (address => x"8000005", write_p => '0', value => x"35"),
+    (address => x"8000006", write_p => '0', value => x"36"),
+    (address => x"8000007", write_p => '0', value => x"37"),
+    (address => x"8000008", write_p => '0', value => x"38"),
+    (address => x"8000009", write_p => '0', value => x"39"),
+    (address => x"800000a", write_p => '0', value => x"3a"),
+    (address => x"800000b", write_p => '0', value => x"3b"),
+    (address => x"800000c", write_p => '0', value => x"3c"),
+    (address => x"800000d", write_p => '0', value => x"3d"),
+    (address => x"800000e", write_p => '0', value => x"3e"),
+    (address => x"800000f", write_p => '0', value => x"3f"),
+
+
+    
+    -- Read the first 16 bytes back
+    (address => x"8000000", write_p => '0', value => x"30"),
+    (address => x"8000001", write_p => '0', value => x"31"),
+    (address => x"8000002", write_p => '0', value => x"32"),
+    (address => x"8000003", write_p => '0', value => x"33"),
+    (address => x"8000004", write_p => '0', value => x"34"),
+    (address => x"8000005", write_p => '0', value => x"35"),
+    (address => x"8000006", write_p => '0', value => x"36"),
+    (address => x"8000007", write_p => '0', value => x"37"),
+    (address => x"8000008", write_p => '0', value => x"38"),
+    (address => x"8000009", write_p => '0', value => x"39"),
+    (address => x"800000a", write_p => '0', value => x"3a"),
+    (address => x"800000b", write_p => '0', value => x"3b"),
+    (address => x"800000c", write_p => '0', value => x"3c"),
+    (address => x"800000d", write_p => '0', value => x"3d"),
+    (address => x"800000e", write_p => '0', value => x"3e"),
+    (address => x"800000f", write_p => '0', value => x"3f"),
+
+    others => ( address => x"FFFFFFF", write_p => '0', value => x"FF")
+    );
+
+  signal idle_wait : integer := 0;
+  signal expect_value : std_logic := '0';
+  signal expected_value : unsigned(7 downto 0) := x"00";
   
 begin
 
@@ -182,71 +266,44 @@ begin
       & ", expansionram_read=" & std_logic'image(expansionram_read);
 
     if slow_access_ready_toggle /= last_slow_access_ready_toggle then
-      report "DISPATCH: Read slow device byte $" & to_hstring(slow_access_rdata);
+      if expect_value = '1' then
+        if expected_value = slow_access_rdata then
+          report "DISPATCH: Read correct value $" & to_hstring(slow_access_rdata);
+        else
+          report "DISPATCH: ERROR: Expected $" & to_hstring(expected_value) & ", but saw $" & to_hstring(slow_access_rdata);
+        end if;
+      end if;
       last_slow_access_ready_toggle <= slow_access_ready_toggle;
     end if;
 
     if expansionram_busy = '0' then
-      cycles <= cycles + 1;
-      case cycles is
-        when 1 =>
-          -- Try reading a config register
-          report "DISPATCH: Write to $9000000";
-          slow_access_request_toggle <= not slow_access_request_toggle;
-          slow_access_write <= '0';
-          slow_access_address <= x"9000000";
-        when 10 =>
-          report "DISPATCH: Write to $8000010";
-          slow_access_request_toggle <= not slow_access_request_toggle;
-          slow_access_write <= '1';
-          slow_access_wdata <= x"34";
-          slow_access_address <= x"8000010";
-        when 20 => 
-          report "DISPATCH: Write to $8000019";
-          slow_access_request_toggle <= not slow_access_request_toggle;
-          slow_access_wdata <= x"56";
-          slow_access_write <= '1';
-          slow_access_address <= x"8000019";
-        when 30 =>
-          report "DISPATCH: Read from $8000010";
-          slow_access_request_toggle <= not slow_access_request_toggle;
-          slow_access_write <= '0';
-          slow_access_address <= x"8000010";
-        when 40 =>
-          report "DISPATCH: Read from $8000017";
-          slow_access_request_toggle <= not slow_access_request_toggle;
-          slow_access_write <= '0';
-          slow_access_address <= x"8000017";
-        when 50 =>
-          report "DISPATCH: Read from $8000018";
-          slow_access_request_toggle <= not slow_access_request_toggle;
-          slow_access_write <= '0';
-          slow_access_address <= x"8000018";
-        when 60 =>
-          report "DISPATCH: Read from $8000019";
-          slow_access_request_toggle <= not slow_access_request_toggle;
-          slow_access_write <= '0';
-          slow_access_address <= x"8000019";
-        when 70 =>
-          report "DISPATCH: Read from $800001a";
-          slow_access_request_toggle <= not slow_access_request_toggle;
-          slow_access_write <= '0';
-          slow_access_address <= x"800001a";
-        when 80 =>
-          report "DISPATCH: Read from $800001b";
-          slow_access_request_toggle <= not slow_access_request_toggle;
-          slow_access_write <= '0';
-          slow_access_address <= x"800001b";
-        when 90 =>
-          report "DISPATCH: Read from $800001c";
-          slow_access_request_toggle <= not slow_access_request_toggle;
-          slow_access_write <= '0';
-          slow_access_address <= x"800001c";
-        when others =>
-          null;
-      end case;
-      if cycles = 100 then
+
+      if mem_jobs(cycles).address = x"FFFFFFF" then
         cycles <= 0;
+      else
+        cycles <= cycles + 1;        
+      end if;
+
+      if idle_wait /= 0 then
+        idle_wait <= idle_wait - 1;
+      else
+        idle_wait <= 3;
+      
+        slow_access_address <= mem_jobs(cycles).address;
+        slow_access_write <= mem_jobs(cycles).write_p;
+        slow_access_wdata <= mem_jobs(cycles).value;
+        slow_access_request_toggle <= not slow_access_request_toggle;
+      
+        if (mem_jobs(cycles).write_p='0') then
+          report "DISPATCH: Reading from $" & to_hstring(mem_jobs(cycles).address) & ", expecting to see $"
+            & to_hstring(mem_jobs(cycles).value);
+          expect_value <= '1';
+          expected_value <= mem_jobs(cycles).value;
+        else
+          report "DISPATCH: Writing to $" & to_hstring(mem_jobs(cycles).address) & " <- $"
+            & to_hstring(mem_jobs(cycles).value);
+          expect_value <= '0';
+        end if;
       end if;
     end if;
     
