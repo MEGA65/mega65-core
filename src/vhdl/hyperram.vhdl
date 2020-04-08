@@ -489,7 +489,7 @@ begin
                 -- Update short-circuit cache line
                 -- (We don't change validity, since we don't know if it is
                 -- valid or not).
-                if ram_address(26 downto 3) /= current_cache_line_address(26 downto 3) then
+                if ram_address(26 downto 3) = current_cache_line_address(26 downto 3) then
                   current_cache_line(to_integer(ram_address(2 downto 0))) <= ram_wdata;
                 end if;
 
