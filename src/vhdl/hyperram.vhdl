@@ -170,13 +170,16 @@ architecture gothic of hyperram is
   -- found for testing.
 --   signal write_latency : unsigned(7 downto 0) := to_unsigned((8 - 5)*2,8);
 
-  signal cache_enabled : boolean := false;
+  signal cache_enabled : boolean := true;
 
   signal hr_d_pending : std_logic := '0';
   signal hr_flags_pending : std_logic := '0';
   signal hr_d_newval : unsigned(7 downto 0);
   signal hr_flags_newval : unsigned(7 downto 0);
   signal hr_rwds_high_seen : std_logic := '0';
+
+  signal hr_d_last : unsigned(7 downto 0);
+  signal skip_data_phase : std_logic := '0';
 
   signal random_bits : unsigned(7 downto 0) := x"00";
 
@@ -602,8 +605,6 @@ begin
             report "Releasing hyperram CS lines";
             hr_cs0 <= '1';
             hr_cs1 <= '1';
-            report "Presenting tri-state on hr_d";
-            hr_d <= (others => 'Z');
 
             -- Clock must be low when idle, so that it is in correct phase
             -- when CS0 is pulled low to trigger a transaction
@@ -612,6 +613,7 @@ begin
             
             -- Put recogniseable patter on data lines for debugging
             report "Presenting hr_d with $A5";
+            hr_d_last <= x"A5";
             hr_d <= x"A5";
 
             rwr_counter <= rwr_delay;
@@ -761,6 +763,7 @@ begin
             hr_clock <= '0';
             
             report "Tristating hr_d";
+            hr_d_last <= (others => '1');
             hr_d <= (others => 'Z');
           when ReadSetup =>
             report "Setting up to read $" & to_hstring(ram_address) & " ( address = $" & to_hstring(address) & ")";
@@ -828,7 +831,13 @@ begin
             end if;
 
             report "Presenting hr_command byte 0 on hr_d = $" & to_hstring(hr_command(47 downto 40));
+            hr_d_last <= hr_command(47 downto 40);
             hr_d <= hr_command(47 downto 40);
+
+            -- We can always skip the first data phase, because we have just
+            -- presented the byte here.
+            skip_data_phase <= '1';
+            
             next_is_data <= '0';
             hr_clk_n <= '1'; 
             hr_clk_p <= '0';
@@ -841,20 +850,51 @@ begin
             hr_cs1 <= not ram_address(23);
             
             hr_rwds <= 'Z';
-            next_is_data <= not next_is_data;
+            
+            if skip_data_phase = '0' or countdown < 2 then
+              next_is_data <= not next_is_data;
+            else
+              -- If the bytes we need to present are identical,
+              -- we can skip the data setting phase of the clock, which
+              -- speeds up dispatch of the command a little.
+              next_is_data <= '0';
+              hr_command(47 downto 8) <= hr_command(39 downto 0);
+
+              -- Also shift out config register values, if required
+              if ram_address(24)='1' and ram_reading_held='0' then
+                report "shifting in conf value $" & to_hstring(conf_buf0);
+                hr_command(7 downto 0) <= conf_buf0;
+                conf_buf0 <= conf_buf1;
+                conf_buf1 <= conf_buf0;
+              else
+                hr_command(7 downto 0) <= x"00";
+              end if;
+              
+              countdown <= countdown - 1;
+            end if;
             if next_is_data = '0' then
               -- Toggle clock while data steady
               hr_clk_n <= not hr_clock;
               hr_clk_p <= hr_clock;
               hr_clock <= not hr_clock;
+
+              if hr_d_last = hr_command(47 downto 40) then
+                skip_data_phase <= '1';
+              else
+                skip_data_phase <= '0';
+              end if;              
             else
               -- Toggle data while clock steady
---              report "Presenting hr_command byte on hr_d = $" & to_hstring(hr_command(47 downto 40))
---                & ", clock = " & std_logic'image(hr_clock)
---                & ", next_is_data = " & std_logic'image(next_is_data)
---                & ", countdown = " & integer'image(countdown)
---                & ", cs0= " & std_logic'image(hr_cs0);
+              report "Presenting hr_command byte on hr_d = $" & to_hstring(hr_command(47 downto 40))
+                & ", clock = " & std_logic'image(hr_clock)
+                & ", next_is_data = " & std_logic'image(next_is_data)
+                & ", countdown = " & integer'image(countdown)
+                & ", skip_data_phase = " & std_logic'image(skip_data_phase)
+                & ", skip compare: $"
+                & to_hstring(hr_command(47 downto 40))
+                & " vs $" & to_hstring(hr_d_last);
               
+              hr_d_last <= hr_command(47 downto 40);
               hr_d <= hr_command(47 downto 40);
               hr_command(47 downto 8) <= hr_command(39 downto 0);
 
@@ -957,6 +997,7 @@ begin
               -- Begin write mask pre-amble
               if ram_reading_held = '0' and countdown = 2 then
                 hr_rwds <= '0';
+                hr_d_last <= x"BE";
                 hr_d <= x"BE"; -- "before" data byte
               elsif odd_byte_fix='1' then
                 hr_rwds <= '1';
@@ -987,6 +1028,7 @@ begin
                     report "WRITE: Writing background byte $" & to_hstring(background_write_data(0))
                       & ", valids= " & to_string(background_write_valids)
                       & ", background words left = " & integer'image(background_write_count);
+                    hr_d_last <= background_write_data(0);
                     hr_d <= background_write_data(0);
                     background_write_data(0) <= background_write_data(1);
                     background_write_data(1) <= background_write_data(2);
@@ -1001,6 +1043,7 @@ begin
                     background_write_valids(0 to 6) <= background_write_valids(1 to 7);
                     background_write_valids(7) <= '0';
                   else
+                    hr_d_last <= ram_wdata;
                     hr_d <= ram_wdata;
                     hr_rwds <= ram_address(0) xor write_byte_phase;
                   end if;
@@ -1009,8 +1052,10 @@ begin
                   write_byte_phase <= '1';
                   if background_write='0' then
                     if write_byte_phase = '0' and ram_address(0)='1' then
+                      hr_d_last <= x"ee"; -- even "masked" data byte
                       hr_d <= x"ee"; -- even "masked" data byte
                     elsif write_byte_phase = '1' and ram_address(0)='0' then
+                      hr_d_last <= x"0d"; -- odd "masked" data byte
                       hr_d <= x"0d"; -- odd "masked" data byte                      
                     end if;
                     byte_written <= write_byte_phase;
@@ -1034,6 +1079,7 @@ begin
             hr_cs0 <= '1';
             hr_cs1 <= '1';
             hr_rwds <= '1';
+            hr_d_last <= x"FA"; -- "after" data byte
             hr_d <= x"FA"; -- "after" data byte
             state <= Hyperramfinishwriting;
           when HyperRAMFinishWriting =>
@@ -1053,6 +1099,7 @@ begin
           when HyperRAMReadWait =>
             hr_rwds <= 'Z';
             report "Presenting tri-state on hr_d";
+            hr_d_last <= (others => '1');                       
             hr_d <= (others => 'Z');                       
             if countdown = 0 then
               -- Timed out waiting for read -- so return anyway, rather
