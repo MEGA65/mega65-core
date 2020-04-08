@@ -55,6 +55,9 @@ architecture foo of test_hyperram is
   type mem_job_list_t is array(0 to 99) of mem_transaction_t;
 
   signal mem_jobs : mem_job_list_t := (
+    (address => x"8000000", write_p => '0', value => x"FF"),
+
+
     -- Write 16 bytes, first the evens and then the odds
     (address => x"8000000", write_p => '1', value => x"30"),
     (address => x"8000002", write_p => '1', value => x"32"),
@@ -74,16 +77,16 @@ architecture foo of test_hyperram is
     (address => x"800000f", write_p => '1', value => x"3f"),
 
     -- Now a few random writes to stress the write buffers
-    (address => x"8001009", write_p => '1', value => x"39"),
-    (address => x"800200b", write_p => '1', value => x"3b"),
-    (address => x"800300d", write_p => '1', value => x"3d"),
-    (address => x"800400f", write_p => '1', value => x"3f"),
+    (address => x"8001009", write_p => '1', value => x"49"),
+    (address => x"800200b", write_p => '1', value => x"4b"),
+    (address => x"800300d", write_p => '1', value => x"4d"),
+    (address => x"800400f", write_p => '1', value => x"4f"),
 
     -- ... and read them back
-    (address => x"8001009", write_p => '0', value => x"39"),
-    (address => x"800200b", write_p => '0', value => x"3b"),
-    (address => x"800300d", write_p => '0', value => x"3d"),
-    (address => x"800400f", write_p => '0', value => x"3f"),
+    (address => x"8001009", write_p => '0', value => x"49"),
+    (address => x"800200b", write_p => '0', value => x"4b"),
+    (address => x"800300d", write_p => '0', value => x"4d"),
+    (address => x"800400f", write_p => '0', value => x"4f"),
     
     -- Read the first 16 bytes back
     (address => x"8000000", write_p => '0', value => x"30"),
@@ -126,7 +129,9 @@ architecture foo of test_hyperram is
     others => ( address => x"FFFFFFF", write_p => '0', value => x"FF")
     );
 
-  signal idle_wait : integer := 0;
+  -- Wait initially to allow hyperram to reset and set config register
+  signal idle_wait : integer := 1000;
+  
   signal expect_value : std_logic := '0';
   signal expected_value : unsigned(7 downto 0) := x"00";
   
@@ -278,28 +283,33 @@ begin
 
     if expansionram_busy = '0' then
 
-      if mem_jobs(cycles).address = x"FFFFFFF" then
-        cycles <= 0;
-      else
-        cycles <= cycles + 1;        
-      end if;
-
       if idle_wait /= 0 then
         idle_wait <= idle_wait - 1;
       else
-        idle_wait <= 3;
+
+        if mem_jobs(cycles).address = x"FFFFFFF" then
+          cycles <= 0;
+        else
+          cycles <= cycles + 1;        
+        end if;
       
         slow_access_address <= mem_jobs(cycles).address;
         slow_access_write <= mem_jobs(cycles).write_p;
         slow_access_wdata <= mem_jobs(cycles).value;
         slow_access_request_toggle <= not slow_access_request_toggle;
-      
+       
+        
         if (mem_jobs(cycles).write_p='0') then
+          -- Let reads finish serially
+          -- (In the worst case, this can take quite a while)
+          idle_wait <= 20;
           report "DISPATCH: Reading from $" & to_hstring(mem_jobs(cycles).address) & ", expecting to see $"
             & to_hstring(mem_jobs(cycles).value);
           expect_value <= '1';
           expected_value <= mem_jobs(cycles).value;
         else
+          -- Try to rush writes, so that writes get merged
+          idle_wait <= 0;
           report "DISPATCH: Writing to $" & to_hstring(mem_jobs(cycles).address) & " <- $"
             & to_hstring(mem_jobs(cycles).value);
           expect_value <= '0';
