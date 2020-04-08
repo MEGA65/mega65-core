@@ -31,6 +31,12 @@ entity hyperram is
          data_ready_strobe : out std_logic := '0';
          busy : out std_logic := '0';
 
+         -- Export current cache line for speeding up reads from slow_devices controller
+         -- by skipping the need to hand us the request and get the response back.
+         current_cache_line : out cache_row_t := (others => (others => '0'));
+         current_cache_line_address : inout unsigned(26 downto 3) := (others => '0');
+         current_cache_line_valid : out std_logic := '0';
+         
          hr_d : inout unsigned(7 downto 0) := (others => 'Z'); -- Data/Address
          hr_rwds : inout std_logic := 'Z'; -- RW Data strobe
 --         hr_rsto : in std_logic; -- Unknown PIN
@@ -480,6 +486,13 @@ begin
                 report "Setting state to WriteSetup. random_bits=" & to_hstring(random_bits);
                 state <= WriteSetup;
 
+                -- Update short-circuit cache line
+                -- (We don't change validity, since we don't know if it is
+                -- valid or not).
+                if ram_address(26 downto 3) /= current_cache_line_address(26 downto 3) then
+                  current_cache_line(to_integer(ram_address(2 downto 0))) <= ram_wdata;
+                end if;
+
                 -- Update cache
                 if cache_row0_address = ram_address(26 downto 3) then
                   cache_row0_valids(to_integer(ram_address(2 downto 0))) <= '1';
@@ -793,6 +806,7 @@ begin
 
                 -- Update cache
                 if byte_phase < 8 then
+                  -- Store the bytes in the cache row
                   if cache_row0_address = ram_address(26 downto 3) then          
                     cache_row0_valids(to_integer(byte_phase)) <= '1';
                     cache_row0_data(to_integer(byte_phase)) <= hr_d;
@@ -810,10 +824,23 @@ begin
                     cache_row1_valids(to_integer(byte_phase)) <= '1';
                     cache_row1_data(to_integer(byte_phase)) <= hr_d;
                   end if;
-
-                -- Store the bytes in the cache row
+                else
+                  -- Export the appropriate cache line to slow_devices
+                  if cache_row0_address = ram_address(26 downto 3) then          
+                    if cache_row0_valids = x"FF" then
+                      current_cache_line <= cache_row0_data;
+                      current_cache_line_address(26 downto 3) <= ram_address(26 downto 3);
+                      current_cache_line_valid <= '1';
+                    end if;
+                  elsif cache_row1_address = ram_address(26 downto 3) then          
+                    if cache_row1_valids = x"FF" then
+                      current_cache_line <= cache_row1_data;
+                      current_cache_line_address(26 downto 3) <= ram_address(26 downto 3);
+                      current_cache_line_valid <= '1';
+                    end if;
+                  end if;
                 end if;
-
+                
                 -- Quickly return the correct byte
                 if to_integer(byte_phase) = (to_integer(ram_address(2 downto 0))+0) then
                   report "DISPATCH: Returning freshly read data = $" & to_hstring(hr_d);

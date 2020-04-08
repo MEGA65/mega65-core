@@ -58,7 +58,7 @@ ENTITY slow_devices IS
     -- Improve read speed by saving us from having to even enquire of
     -- the HyperRAM controller for the most recently accessed cache line.
     expansionram_current_cache_line : in cache_row_t := (others => (others => '0'));
-    expansionram_current_cache_line_address : in unsigned(26 downto 0) := (others => '0');
+    expansionram_current_cache_line_address : in unsigned(26 downto 3) := (others => '0');
     expansionram_current_cache_line_valid : in std_logic := '0';
     
     
