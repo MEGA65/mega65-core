@@ -80,6 +80,7 @@ architecture gothic of hyperram is
     "001000000000001000000000000"; -- = bottom 27 bits of x"9001000";
   signal ram_wdata : unsigned(7 downto 0) := x"00";
   signal ram_reading : std_logic := '0';
+  signal ram_reading_held : std_logic := '0';
 
   -- We want to set config register 0 to $8fe6, to enable variable latency
   -- and 3 cycles instead of 6 for latency. This speeds up writing almost 2x.
@@ -377,15 +378,24 @@ begin
           fake_data_ready_strobe <= '1';
           report "asserting data_ready_strobe for fake read";
         else
+          report "request_toggle flipped";
+
+          ram_reading <= '1';
           request_toggle <= not request_toggle;          
         end if;
-      elsif queued_write='1' and busy_internal='0' then
+      elsif queued_write='1' and write_collect0_dispatchable='0' and write_collect0_flushed='0'
+        and write_collect0_toolate='0' then
 
-        -- Any queued write just gets flushed out on its own
-        ram_address <= address;
-        ram_wdata <= wdata;
-        ram_reading <= '0';
-        request_toggle <= not request_toggle;
+        report "DISPATCH: Executing queued write to $" & to_hstring(queued_waddr);
+        
+        -- Push it out as a normal batched write, that can collect others if they
+        -- come soon enough.
+      
+        write_collect0_valids <= (others => '0');
+        write_collect0_valids(to_integer(queued_waddr(2 downto 0))) <= '1';
+        write_collect0_data(to_integer(queued_waddr(2 downto 0))) <= queued_wdata;
+        write_collect0_address <= queued_waddr(26 downto 3);
+        write_collect0_dispatchable <= '1';
 
         queued_write <= '0';
         
@@ -460,6 +470,7 @@ begin
         else
           if cache_enabled = false then
             -- Do normal  write request
+          report "request_toggle flipped";
             request_toggle <= not request_toggle;
           else
             -- Collect writes together for dispatch
@@ -633,6 +644,7 @@ begin
             end if;
             if request_toggle /= last_request_toggle and rwr_counter = to_unsigned(0,8) then
               last_request_toggle <= request_toggle;
+              ram_reading_held <= ram_reading;
               if ram_reading = '1' then
                 state <= ReadSetup;
               else
@@ -695,7 +707,7 @@ begin
               hr_command(1 downto 0) <= "00";
               hr_reset <= '1'; -- active low reset
 
-              ram_reading <= '0';
+              ram_reading_held <= '0';
 
               -- This is the delay before we assert CS
               countdown <= 0;
@@ -725,7 +737,7 @@ begin
               hr_command(2) <= write_collect1_address(3);
               hr_command(1 downto 0) <= "00";
 
-              ram_reading <= '0';
+              ram_reading_held <= '0';
               
               hr_reset <= '1'; -- active low reset
 
@@ -810,7 +822,7 @@ begin
           when HyperRAMCSStrobe =>
 
             state <= HyperRAMOutputCommand;
-            if ram_address(24)='1' and ram_reading='0' and odd_byte_fix_flags(4)='1' then
+            if ram_address(24)='1' and ram_reading_held='0' and odd_byte_fix_flags(4)='1' then
               -- 48 bits of CA followed by 16 bit register value
               -- (we shift the buffered config register values out automatically)
               countdown <= 8;
@@ -850,7 +862,7 @@ begin
               hr_command(47 downto 8) <= hr_command(39 downto 0);
 
               -- Also shift out config register values, if required
-              if ram_address(24)='1' and ram_reading='0' then
+              if ram_address(24)='1' and ram_reading_held='0' then
                 report "shifting in conf value $" & to_hstring(conf_buf0);
                 hr_command(7 downto 0) <= conf_buf0;
                 conf_buf0 <= conf_buf1;
@@ -861,7 +873,7 @@ begin
               
               report "Writing command byte $" & to_hstring(hr_command(47 downto 40));
 
-              if countdown = 3 and (ram_address(24)='0' or ram_reading='1') then
+              if countdown = 3 and (ram_address(24)='0' or ram_reading_held='1') then
                 extra_latency <= hr_rwds;
                 if hr_rwds='1' then
                   report "Applying extra latency";
@@ -871,13 +883,13 @@ begin
                 countdown <= countdown - 1;
               else
                 -- Finished shifting out
-                if ram_reading = '1' then
+                if ram_reading_held = '1' then
                   -- Reading: We can just wait until hr_rwds has gone low, and then
                   -- goes high again to indicate the first data byte
                   countdown <= 99;
                   hr_rwds_high_seen <= '0';
                   state <= HyperRAMReadWait;
-                elsif ram_address(24)='1' and ram_reading='0' then
+                elsif ram_address(24)='1' and ram_reading_held='0' then
                   -- Config register write.
                   -- These are a bit weird, as they have no latency, and all 16
                   -- bits have to get written at once.  So we will have 2 buffer
@@ -946,7 +958,7 @@ begin
               report "latency countdown = " & integer'image(countdown);
 
               -- Begin write mask pre-amble
-              if ram_reading = '0' and countdown = 2 then
+              if ram_reading_held = '0' and countdown = 2 then
                 hr_rwds <= '0';
                 hr_d <= x"BE"; -- "before" data byte
               elsif odd_byte_fix='1' then
