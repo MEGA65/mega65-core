@@ -134,6 +134,24 @@ architecture gothic of hyperram is
   signal cache_row1_valids : std_logic_vector(0 to 7) := (others => '0');
   signal cache_row1_address : unsigned(23 downto 0) := (others => '1');  
   signal cache_row1_data : cache_row_t := ( others => x"00" );
+
+  -- Collect writes together to hide write latency
+  signal write_collect0_dispatchable : std_logic := '0';
+  signal write_collect0_address : unsigned(26 downto 3) := (others => '0');  
+  signal write_collect0_valids : std_logic_vector(0 to 7) := (others => '0');
+  signal write_collect0_data : cache_row_t := ( others => x"00" );
+  signal write_collect0_toolate : std_logic := '0'; -- Set when its too late to
+                                                    -- add more bytes to the write.
+  signal write_collect0_flushed : std_logic := '1';
+
+  signal write_collect1_dispatchable : std_logic := '0';
+  signal write_collect1_address : unsigned(26 downto 3) := (others => '0');  
+  signal write_collect1_valids : std_logic_vector(0 to 7) := (others => '0');
+  signal write_collect1_data : cache_row_t := ( others => x"00" );
+  signal write_collect1_toolate : std_logic := '0'; -- Set when its too late to
+                                                    -- add more bytes to the write.
+  signal write_collect1_flushed : std_logic := '1';
+  
   
   signal last_rwds : std_logic := '0';
 
@@ -164,6 +182,7 @@ architecture gothic of hyperram is
   signal odd_byte_fix : std_logic := '0';
   signal odd_byte_fix_flags : unsigned(7 downto 0) := "00011111";
 
+  signal write_blocked : std_logic := '0';
   
 begin
   process (pixelclock,clock163) is
@@ -182,7 +201,7 @@ begin
       hr_d_pending <= '0';
       hr_flags_pending <= '0';
       
-      busy <= busy_internal;
+      busy <= busy_internal or write_blocked;
 
       fake_data_ready_strobe <= '0';
 
@@ -211,6 +230,32 @@ begin
         & to_hstring(cache_row1_data(5)) & " "
         & to_hstring(cache_row1_data(6)) & " "
         & to_hstring(cache_row1_data(7)) & " ";
+      report "write0: $" & to_hstring(write_collect0_address&"000") & ", v=" & to_string(write_collect0_valids)
+        & ", d=" & std_logic'image(write_collect0_dispatchable)
+        & ", late=" & std_logic'image(write_collect0_toolate)
+        & ", fl=" & std_logic'image(write_collect0_flushed)
+        & ", data = "
+        & to_hstring(write_collect0_data(0)) & " "
+        & to_hstring(write_collect0_data(1)) & " "
+        & to_hstring(write_collect0_data(2)) & " "
+        & to_hstring(write_collect0_data(3)) & " "
+        & to_hstring(write_collect0_data(4)) & " "
+        & to_hstring(write_collect0_data(5)) & " "
+        & to_hstring(write_collect0_data(6)) & " "
+        & to_hstring(write_collect0_data(7)) & " ";
+      report "write1: $" & to_hstring(write_collect1_address&"000") & ", v=" & to_string(write_collect1_valids)
+        & ", d=" & std_logic'image(write_collect1_dispatchable)
+        & ", late=" & std_logic'image(write_collect1_toolate)
+        & ", fl=" & std_logic'image(write_collect1_flushed)
+        & ", data = "
+        & to_hstring(write_collect1_data(0)) & " "
+        & to_hstring(write_collect1_data(1)) & " "
+        & to_hstring(write_collect1_data(2)) & " "
+        & to_hstring(write_collect1_data(3)) & " "
+        & to_hstring(write_collect1_data(4)) & " "
+        & to_hstring(write_collect1_data(5)) & " "
+        & to_hstring(write_collect1_data(6)) & " "
+        & to_hstring(write_collect1_data(7)) & " ";
       
       if read_request='1' and busy_internal='0' then
         report "Making read request";
@@ -359,7 +404,41 @@ begin
           end case;
           fake_data_ready_strobe <= '1';
         else
-          request_toggle <= not request_toggle;          
+          if cache_enabled = false then
+            -- Do normal  write request
+            request_toggle <= not request_toggle;
+          else
+            -- Collect writes together for dispatch
+
+            -- Can we add the write to an existing collected write?
+            if write_collect0_toolate = '0' and write_collect0_address = address(26 downto 3)
+              and write_collect0_dispatchable = '1' then
+              write_collect0_valids(to_integer(address(2 downto 0))) <= '1';
+              write_collect0_data(to_integer(address(2 downto 0))) <= wdata;
+              write_blocked <= '0';
+            elsif write_collect1_toolate = '0' and write_collect1_address = address(26 downto 3)
+              and write_collect1_dispatchable = '1' then
+              write_collect1_valids(to_integer(address(2 downto 0))) <= '1';
+              write_collect1_data(to_integer(address(2 downto 0))) <= wdata;
+              write_blocked <= '0';
+            elsif write_collect0_dispatchable = '0' then
+              write_collect0_valids(to_integer(address(2 downto 0))) <= '1';
+              write_collect0_data(to_integer(address(2 downto 0))) <= wdata;
+              write_collect0_address <= address(26 downto 3);
+              write_collect0_dispatchable <= '1';
+              write_blocked <= '0';
+            elsif write_collect1_dispatchable = '0' then
+              write_collect1_valids(to_integer(address(2 downto 0))) <= '1';
+              write_collect1_data(to_integer(address(2 downto 0))) <= wdata;
+              write_collect1_address <= address(26 downto 3);
+              write_collect1_dispatchable <= '1';
+              write_blocked <= '0';
+            else
+              -- No write collection point that we can use, so just block until
+              -- one becomes available
+              write_blocked <= '1';
+            end if;
+          end if;
         end if;        
       else
         -- Nothing new to do
