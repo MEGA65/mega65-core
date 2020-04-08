@@ -231,17 +231,17 @@ begin
           report "DISPATCH: Read from $800001a";
           slow_access_request_toggle <= not slow_access_request_toggle;
           slow_access_write <= '0';
-          slow_access_address <= x"8000019";
+          slow_access_address <= x"800001a";
         when 80 =>
           report "DISPATCH: Read from $800001b";
           slow_access_request_toggle <= not slow_access_request_toggle;
           slow_access_write <= '0';
-          slow_access_address <= x"8000019";
+          slow_access_address <= x"800001b";
         when 90 =>
           report "DISPATCH: Read from $800001c";
           slow_access_request_toggle <= not slow_access_request_toggle;
           slow_access_write <= '0';
-          slow_access_address <= x"8000019";
+          slow_access_address <= x"800001c";
         when others =>
           null;
       end case;
