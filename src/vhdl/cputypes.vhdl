@@ -123,5 +123,8 @@ package cputypes is
   end record;
 
   type microcoderom_t is array (instruction) of microcodeops;
+
+  -- Used for HyperRAM cache
+  type cache_row_t is array (0 to 7) of unsigned(7 downto 0);
   
 end cputypes;
