@@ -189,7 +189,13 @@ architecture gothic of hyperram is
   signal background_write_valids : std_logic_vector(0 to 7) := x"00";
   signal background_write_data : cache_row_t := (others => (others => '0'));
   signal background_write_count : integer range 0 to 6 := 0;
-  
+
+  -- If we get too many writes in short succession, we may need to queue up one
+  -- of the writes, while waiting for slow_devices to notice
+  signal queued_write : std_logic := '0';
+  signal queued_wdata : unsigned(7 downto 0) := x"00";
+  signal queued_waddr : unsigned(26 downto 0) := to_unsigned(0,27);
+
 begin
   process (pixelclock,clock163) is
   begin
@@ -207,15 +213,16 @@ begin
       hr_d_pending <= '0';
       hr_flags_pending <= '0';
       
-      busy <= busy_internal or write_blocked;
+      busy <= busy_internal or write_blocked or queued_write;
 
       -- Clear write block as soon as either write buffer clears
       if (write_collect0_dispatchable='0' and write_collect0_toolate='0' and write_collect0_flushed='0')
         or (write_collect1_dispatchable='0' and write_collect1_toolate='0' and write_collect1_flushed='0')
       then
-        write_blocked <= '0';
+        write_blocked <= queued_write;
       else
         write_blocked <= '1';
+        busy <= '1';
       end if;
 
       fake_data_ready_strobe <= '0';
@@ -371,9 +378,19 @@ begin
           report "asserting data_ready_strobe for fake read";
         else
           request_toggle <= not request_toggle;          
-        end if;        
+        end if;
+      elsif queued_write='1' and busy_internal='0' then
+
+        -- Any queued write just gets flushed out on its own
+        ram_address <= address;
+        ram_wdata <= wdata;
+        ram_reading <= '0';
+        request_toggle <= not request_toggle;
+
+        queued_write <= '0';
+        
       elsif write_request='1' and busy_internal='0' then
-        report "Making write request";
+        report "Making write request: addr $" & to_hstring(address) & " <= " & to_hstring(wdata);
         -- Begin write request
         -- Latch address and data
 
@@ -475,7 +492,11 @@ begin
             else
               -- No write collection point that we can use, so just block until
               -- one becomes available
-              report "DISPATCH: Write blocked due to busy write buffers";
+              report "DISPATCH: Write blocked due to busy write buffers: " &
+                " addr $" & to_hstring(address) & " <= " & to_hstring(wdata);
+              queued_waddr <= address;
+              queued_wdata <= wdata;
+              queued_write <= '1';
             end if;
           end if;
         end if;        
@@ -653,6 +674,8 @@ begin
               -- Do background write.
               busy_internal <= '0';
 
+              report "DISPATCH: Writing out collect0 @ $" & to_hstring(write_collect0_address&"000");
+              
               -- Mark the write buffer as being processed.              
               write_collect0_flushed <= '0';
               -- And that it is not (yet) too late to add extra bytes to the write.
@@ -664,13 +687,15 @@ begin
               -- Prepare command vector
               hr_command(47) <= '0'; -- WRITE
               hr_command(46) <= write_collect0_address(24); -- Memory, not register space
-              hr_command(45) <= ram_address(26);
+              hr_command(45) <= '1'; -- linear
               hr_command(44 downto 35) <= (others => '0'); -- unused upper address bits
               hr_command(15 downto 3) <= (others => '0'); -- reserved bits
               hr_command(34 downto 16) <= write_collect0_address(22 downto 4);
               hr_command(2) <= write_collect0_address(3);
               hr_command(1 downto 0) <= "00";
               hr_reset <= '1'; -- active low reset
+
+              ram_reading <= '0';
 
               -- This is the delay before we assert CS
               countdown <= 0;
@@ -680,6 +705,8 @@ begin
             elsif write_collect1_dispatchable = '1' then
               busy_internal <= '0';              
 
+              report "DISPATCH: Writing out collect1 @ $" & to_hstring(write_collect1_address&"000");
+              
               -- Mark the write buffer as being processed.              
               write_collect1_flushed <= '0';
               -- And that it is not (yet) too late to add extra bytes to the write.
@@ -691,13 +718,15 @@ begin
               -- Prepare command vector
               hr_command(47) <= '0'; -- WRITE
               hr_command(46) <= write_collect1_address(24); -- Memory, not register space
-              hr_command(45) <= ram_address(24);
+              hr_command(45) <= '1'; -- linear
               hr_command(44 downto 35) <= (others => '0'); -- unused upper address bits
               hr_command(15 downto 3) <= (others => '0'); -- reserved bits
               hr_command(34 downto 16) <= write_collect1_address(22 downto 4);
               hr_command(2) <= write_collect1_address(3);
               hr_command(1 downto 0) <= "00";
 
+              ram_reading <= '0';
+              
               hr_reset <= '1'; -- active low reset
 
               -- This is the delay before we assert CS
