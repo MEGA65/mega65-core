@@ -892,7 +892,7 @@ begin
               else
                 hr_command(7 downto 0) <= x"00";
               end if;
-              
+
               countdown <= countdown - 1;
 
             end if;
@@ -987,7 +987,9 @@ begin
                       write_collect1_flushed <= '0';
                     end if;
                   end if;
-                  
+
+                  -- Tell read logic to fast-tick until data arrives
+                  skip_data_phase <= '1';
                   state <= HyperRAMLatencyWait;
                 end if;
               end if;
@@ -998,7 +1000,10 @@ begin
           when HyperRAMLatencyWait =>
             next_is_data <= not next_is_data;
             report "WRITE: LatencyWait state, bg_wr=" & std_logic'image(background_write)
-              & ", count=" & integer'image(background_write_count);
+              & ", count=" & integer'image(background_write_count)
+              & ", countdown=" & integer'image(countdown)
+              & ", next_is_data=" & std_logic'image(next_is_data)
+              & ", skip_data_phase=" &std_logic'image(skip_data_phase);
 
             -- Now snap-shot the write buffer data, and mark the slot as flushed
             if background_write = '1' then
@@ -1014,14 +1019,32 @@ begin
                 background_write_valids <= write_collect1_valids;
               end if;
             end if;
+
+            if background_write='1' and countdown = 0 and extra_latency='0' then
+              report "WRITE: Writing background byte $" & to_hstring(background_write_data(0))
+                & ", valids= " & to_string(background_write_valids)
+                & ", background words left = " & integer'image(background_write_count);
+              hr_d_last <= background_write_data(0);
+              hr_d <= background_write_data(0);
+              hr_rwds <= not background_write_valids(0);
+
+              skip_data_phase <= '0';
+            else
+              hr_d_last <= ram_wdata;
+              hr_d <= ram_wdata;
+              hr_rwds <= ram_address(0) xor write_byte_phase;
+            end if;
+
             
-            if next_is_data = '0' or countdown /= 0 then
+            if next_is_data = '0' or skip_data_phase='1' then
               report "Tick read latency clock";
               -- Toggle clock while data steady
               hr_clk_n <= not hr_clock;
               hr_clk_p <= hr_clock;
               hr_clock <= not hr_clock;
-              countdown <= countdown - 1;
+              if countdown /= 0 then
+                countdown <= countdown - 1;
+              end if;
 
             else
               report "latency countdown = " & integer'image(countdown);
@@ -1056,29 +1079,6 @@ begin
                   -- In this first 
                   
                   report "Presenting hr_d with ram_wdata or background data";
-                  if background_write='1' then
-                    report "WRITE: Writing background byte $" & to_hstring(background_write_data(0))
-                      & ", valids= " & to_string(background_write_valids)
-                      & ", background words left = " & integer'image(background_write_count);
-                    hr_d_last <= background_write_data(0);
-                    hr_d <= background_write_data(0);
-                    background_write_data(0) <= background_write_data(1);
-                    background_write_data(1) <= background_write_data(2);
-                    background_write_data(2) <= background_write_data(3);
-                    background_write_data(3) <= background_write_data(4);
-                    background_write_data(4) <= background_write_data(5);
-                    background_write_data(5) <= background_write_data(6);
-                    background_write_data(6) <= background_write_data(7);
-                    background_write_data(7) <= x"00";
-                    
-                    hr_rwds <= not background_write_valids(0);
-                    background_write_valids(0 to 6) <= background_write_valids(1 to 7);
-                    background_write_valids(7) <= '0';
-                  else
-                    hr_d_last <= ram_wdata;
-                    hr_d <= ram_wdata;
-                    hr_rwds <= ram_address(0) xor write_byte_phase;
-                  end if;
                   
                   -- Write byte
                   write_byte_phase <= '1';
@@ -1091,13 +1091,26 @@ begin
                       hr_d <= x"0d"; -- odd "masked" data byte                      
                     end if;
                     byte_written <= write_byte_phase;
-                  elsif write_byte_phase='1' then
+                  elsif write_byte_phase='1' and extra_latency='0' then
                     report "WRITE: Decrementing background_write_count from " & integer'image(background_write_count);
                     if background_write_count /= 0 then
                       background_write_count <= background_write_count - 1;
                     else
                       byte_written <= '1';
                     end if;
+
+                    background_write_data(0) <= background_write_data(1);
+                    background_write_data(1) <= background_write_data(2);
+                    background_write_data(2) <= background_write_data(3);
+                    background_write_data(3) <= background_write_data(4);
+                    background_write_data(4) <= background_write_data(5);
+                    background_write_data(5) <= background_write_data(6);
+                    background_write_data(6) <= background_write_data(7);
+                    background_write_data(7) <= x"00";
+
+                    background_write_valids(0 to 6) <= background_write_valids(1 to 7);
+                    background_write_valids(7) <= '0';
+                    
                   end if;
                 end if;
               end if;
@@ -1135,6 +1148,10 @@ begin
             hr_d <= (others => 'Z');                       
             if (hr_rwds='1') then
               hr_rwds_high_seen <= '1';
+              -- Stop fast-ticking once we see hr_rwds go high
+              if hr_rwds_high_seen = '0' then
+                skip_data_phase <= '0';
+              end if;
               if hr_rwds_high_seen = '0' then
                 report "DISPATCH saw hr_rwds go high at start of data stream";
               end if;
