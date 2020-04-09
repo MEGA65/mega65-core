@@ -865,6 +865,9 @@ begin
             hr_rwds <= 'Z';
             hr_rwds_last <= '1';
 
+            hr_d_last <= hr_command(47 downto 40);
+            hr_d <= hr_command(47 downto 40);
+            
             -- Latch extra latency status
             if countdown = 3 and (ram_address(24)='0' or ram_reading_held='1') then
               extra_latency <= hr_rwds;
@@ -910,8 +913,6 @@ begin
                   & to_hstring(hr_d_last) & ", hr_cmd=$" & to_hstring(hr_command);
                 
                 skip_data_phase <= '1';
-                hr_d_last <= hr_command(47 downto 40);
-                hr_d <= hr_command(47 downto 40);
 
                 hr_command(47 downto 8) <= hr_command(39 downto 0);
                 countdown <= countdown - 1;
