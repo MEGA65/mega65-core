@@ -191,7 +191,7 @@ architecture gothic of hyperram is
   signal background_write_source : std_logic := '0';
   signal background_write_valids : std_logic_vector(0 to 7) := x"00";
   signal background_write_data : cache_row_t := (others => (others => '0'));
-  signal background_write_count : integer range 0 to 6 := 0;
+  signal background_write_count : integer range 0 to 15 := 0;
 
   -- If we get too many writes in short succession, we may need to queue up one
   -- of the writes, while waiting for slow_devices to notice
@@ -981,7 +981,8 @@ begin
                   -- snap-shot it in a moment.
                   if background_write = '1' then
                     report "WRITE: Asserting toolate signal";
-                    background_write_count <= 4 + 2;                    
+                    -- 4 words + 3 extra counts?
+                    background_write_count <= 7;
                     if background_write_source = '0' then
                       write_collect0_toolate <= '1';
                       write_collect0_flushed <= '0';
@@ -1022,11 +1023,12 @@ begin
             end if;
 
             -- Do countdown until we are able to write
-            if countdown = 0 and extra_latency = '0' then
+            if countdown = 1 and extra_latency = '0' then
               background_writing <= '1';
               -- And schedule first piece of data immediately after the count
               -- down is done.
               if background_writing = '0' then
+                report "Setting next_is_data <= 0 at end of count down";
                 next_is_data <= '0';
               end if;
             end if;
@@ -1053,6 +1055,7 @@ begin
               hr_d_last <= background_write_data(0);
               
               -- Toggle clock while counting down
+              report  "Tick clock (count down)";
               hr_clock <= not hr_clock;
               hr_clk_p <= not hr_clock;
               hr_clk_n <= hr_clock;
@@ -1064,6 +1067,7 @@ begin
               hr_rwds <= '0';
               hr_rwds_last <= '0';
               -- And hold clock for 1/2 a tick
+              report "DONT Tick clock (1/2 cycle hold for write preamble)";
               hr_clock <= hr_clock;
               hr_clk_p <= hr_clock;
               hr_clk_n <= not hr_clock;
@@ -1081,21 +1085,27 @@ begin
                 hr_rwds_last <= not background_write_valids(0);
                 
                 if ((hr_d_last = background_write_data(0)) or (background_write_valids(0)='0'))
-                  and (hr_rwds_last = background_write_valids(0)) then
+                  and (hr_rwds_last = not background_write_valids(0)) then
                   -- Data is already there, so tick immediately
                   
-                  report "Tick read latency clock";
+                  report "Tick clock (background writing, next_is_data=1, data already available)";
+                  report "hr_rwds_last = " & std_logic'image(hr_rwds_last)
+                    & ", valids=" & to_string(background_write_valids(0 to 7));
                   -- Toggle clock while data steady
-                  hr_clk_n <= not hr_clock;
-                  hr_clk_p <= hr_clock;
+                  hr_clk_n <= hr_clock;
+                  hr_clk_p <= not hr_clock;
                   hr_clock <= not hr_clock;                    
                   next_is_data <= '1';
+
+--                  hr_d <= x"aa"; -- AA for already available
                   
                 else
                   -- Data not already correct, so set the data before ticking
                   hr_d_last <= background_write_data(0);
                   hr_d <= background_write_data(0);
                   next_is_data <= '0';
+
+--                  hr_d <= x"48";  -- H for hold
                 end if;
 
                 if background_write_count /= 0 then
@@ -1103,29 +1113,33 @@ begin
                 else
                   byte_written <= '1';
                 end if;
+
+                if background_write_count < 8 then
+                  report "WRITE: Shifting data to write. new next byte will be $"
+                    & to_hstring(background_write_data(1));
+                  background_write_data(0) <= background_write_data(1);
+                  background_write_data(1) <= background_write_data(2);
+                  background_write_data(2) <= background_write_data(3);
+                  background_write_data(3) <= background_write_data(4);
+                  background_write_data(4) <= background_write_data(5);
+                  background_write_data(5) <= background_write_data(6);
+                  background_write_data(6) <= background_write_data(7);
+                  background_write_data(7) <= x"00";
                 
-                background_write_data(0) <= background_write_data(1);
-                background_write_data(1) <= background_write_data(2);
-                background_write_data(2) <= background_write_data(3);
-                background_write_data(3) <= background_write_data(4);
-                background_write_data(4) <= background_write_data(5);
-                background_write_data(5) <= background_write_data(6);
-                background_write_data(6) <= background_write_data(7);
-                background_write_data(7) <= x"00";
-                
-                background_write_valids(0 to 6) <= background_write_valids(1 to 7);
-                background_write_valids(7) <= '0';                  
+                  background_write_valids(0 to 6) <= background_write_valids(1 to 7);
+                  background_write_valids(7) <= '0';
+                end if;
                 
               end if;
 
               if next_is_data = '0' and background_writing='1' then
 
+                report "Tick clock (background writing, next_is_data=0)";
                 next_is_data <= '1';
                 
-                report "Tick read latency clock";
                 -- Toggle clock while data steady
-                hr_clk_n <= not hr_clock;
-                hr_clk_p <= hr_clock;
+                hr_clk_n <= hr_clock;
+                hr_clk_p <= not hr_clock;
                 hr_clock <= not hr_clock;                                        
                 
               end if;
