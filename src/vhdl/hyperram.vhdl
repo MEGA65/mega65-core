@@ -830,7 +830,8 @@ begin
               countdown <= 6; -- 48 bits = 6 x 8 bits
             end if;
 
-            report "Presenting hr_command byte 0 on hr_d = $" & to_hstring(hr_command(47 downto 40));
+            report "Presenting hr_command byte 0 on hr_d = $" & to_hstring(hr_command(47 downto 40))
+              & " (irrespective of skip setting)";
             hr_d_last <= hr_command(47 downto 40);
             hr_d <= hr_command(47 downto 40);
 
@@ -844,20 +845,42 @@ begin
             hr_clock <= '0';
             
           when HyperRAMOutputCommand =>
-            report "Writing command";
-            -- Call HyperRAM to attention
+            report "Writing command : $" & to_hstring(hr_command);
+
+            report "Presenting hr_command byte on hr_d = $" & to_hstring(hr_command(47 downto 40))
+              & ", clock = " & std_logic'image(hr_clock)
+              & ", next_is_data = " & std_logic'image(next_is_data)
+              & ", countdown = " & integer'image(countdown)
+              & ", skip_data_phase = " & std_logic'image(skip_data_phase)
+              & ", skip compare: $"
+              & to_hstring(hr_command(47 downto 40))
+              & " vs $" & to_hstring(hr_d_last);
+
+-- Call HyperRAM to attention
             hr_cs0 <= ram_address(23);
             hr_cs1 <= not ram_address(23);
             
             hr_rwds <= 'Z';
+
+            -- Latch extra latency status
+            if countdown = 3 and (ram_address(24)='0' or ram_reading_held='1') then
+              extra_latency <= hr_rwds;
+              if hr_rwds='1' then
+                report "Applying extra latency";
+              end if;                    
+            end if;
+
+            skip_data_phase <= '0';
             
-            if skip_data_phase = '0' or countdown < 2 then
+            if skip_data_phase = '0' then
               next_is_data <= not next_is_data;
-            else
+            elsif next_is_data='0' then
               -- If the bytes we need to present are identical,
               -- we can skip the data setting phase of the clock, which
               -- speeds up dispatch of the command a little.
+
               next_is_data <= '0';
+
               hr_command(47 downto 8) <= hr_command(39 downto 0);
 
               -- Also shift out config register values, if required
@@ -871,32 +894,44 @@ begin
               end if;
               
               countdown <= countdown - 1;
+
             end if;
-            if next_is_data = '0' then
+            if next_is_data = '0' and countdown /= 0 then
               -- Toggle clock while data steady
               hr_clk_n <= not hr_clock;
               hr_clk_p <= hr_clock;
               hr_clock <= not hr_clock;
 
-              if hr_d_last = hr_command(47 downto 40) then
+              if hr_d_last = hr_command(47 downto 39) then
+                report "Ticking clock and skip_data_phase <= 1 because hr_d_last=$"
+                  & to_hstring(hr_d_last) & ", hr_cmd=$" & to_hstring(hr_command);
+                
                 skip_data_phase <= '1';
+                hr_d_last <= hr_command(47 downto 40);
+                hr_d <= hr_command(47 downto 40);
+
+                hr_command(47 downto 8) <= hr_command(39 downto 0);
+                countdown <= countdown - 1;
+                
+                next_is_data <= '0';
               else
+                report "Ticking clock and skip_data_phase <= 0 because hr_d_last=$"
+                  & to_hstring(hr_d_last) & ", hr_cmd=$" & to_hstring(hr_command);
                 skip_data_phase <= '0';
               end if;              
             else
               -- Toggle data while clock steady
-              report "Presenting hr_command byte on hr_d = $" & to_hstring(hr_command(47 downto 40))
-                & ", clock = " & std_logic'image(hr_clock)
-                & ", next_is_data = " & std_logic'image(next_is_data)
-                & ", countdown = " & integer'image(countdown)
-                & ", skip_data_phase = " & std_logic'image(skip_data_phase)
-                & ", skip compare: $"
-                & to_hstring(hr_command(47 downto 40))
-                & " vs $" & to_hstring(hr_d_last);
-              
-              hr_d_last <= hr_command(47 downto 40);
-              hr_d <= hr_command(47 downto 40);
-              hr_command(47 downto 8) <= hr_command(39 downto 0);
+              report "next_is_data='1' or countdown=0";
+
+              if countdown /= 0 then
+                hr_d_last <= hr_command(47 downto 40);
+                hr_d <= hr_command(47 downto 40);
+                hr_command(47 downto 8) <= hr_command(39 downto 0);
+              else
+                hr_clk_p <= '0';
+                hr_clk_n <= '1';
+                hr_clock <= '0';
+              end if;
 
               -- Also shift out config register values, if required
               if ram_address(24)='1' and ram_reading_held='0' then
@@ -910,12 +945,6 @@ begin
               
               report "Writing command byte $" & to_hstring(hr_command(47 downto 40));
 
-              if countdown = 3 and (ram_address(24)='0' or ram_reading_held='1') then
-                extra_latency <= hr_rwds;
-                if hr_rwds='1' then
-                  report "Applying extra latency";
-                end if;                    
-              end if;
               if countdown /= 0 then
                 countdown <= countdown - 1;
               else
