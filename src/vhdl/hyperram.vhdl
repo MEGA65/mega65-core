@@ -981,8 +981,7 @@ begin
                   -- snap-shot it in a moment.
                   if background_write = '1' then
                     report "WRITE: Asserting toolate signal";
-                    -- 4 words + 3 extra counts?
-                    background_write_count <= 7;
+                    background_write_count <= 4 + 2;
                     if background_write_source = '0' then
                       write_collect0_toolate <= '1';
                       write_collect0_flushed <= '0';
@@ -1088,15 +1087,28 @@ begin
                   and (hr_rwds_last = not background_write_valids(0)) then
                   -- Data is already there, so tick immediately
                   
-                  report "Tick clock (background writing, next_is_data=1, data already available)";
-                  report "hr_rwds_last = " & std_logic'image(hr_rwds_last)
-                    & ", valids=" & to_string(background_write_valids(0 to 7));
-                  -- Toggle clock while data steady
-                  hr_clk_n <= hr_clock;
-                  hr_clk_p <= not hr_clock;
-                  hr_clock <= not hr_clock;                    
-                  next_is_data <= '1';
+                  if background_write_valids(1 to 7) = "0000000" and hr_clock='0' then
+                    -- No more bytes to write, so stop as soon as clock is
+                    -- going low.
+                    hr_cs0 <= '1';
+                    hr_cs1 <= '1';
+                    hr_rwds <= '1';
+                    hr_d_last <= x"FA"; -- "after" data byte
+                    hr_d <= x"FA"; -- "after" data byte
+                    state <= Hyperramfinishwriting;
+                  else 
+                    report "Tick clock (background writing, next_is_data=1, data already available)";
+                    report "hr_rwds_last = " & std_logic'image(hr_rwds_last)
+                      & ", valids=" & to_string(background_write_valids(0 to 7));
+                    -- Toggle clock while data steady
+                    hr_clk_n <= hr_clock;
+                    hr_clk_p <= not hr_clock;
+                    hr_clock <= not hr_clock;                    
+                    next_is_data <= '1';
 
+                  end if;
+
+                  
 --                  hr_d <= x"aa"; -- AA for already available
                   
                 else
