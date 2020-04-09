@@ -200,6 +200,7 @@ architecture gothic of hyperram is
   signal queued_waddr : unsigned(26 downto 0) := to_unsigned(0,27);
 
   signal background_writing : std_logic := '0';
+  signal hr_rwds_last : std_logic := '0';
   
 begin
   process (pixelclock,clock163) is
@@ -862,6 +863,7 @@ begin
             hr_cs1 <= not ram_address(23);
             
             hr_rwds <= 'Z';
+            hr_rwds_last <= '1';
 
             -- Latch extra latency status
             if countdown = 3 and (ram_address(24)='0' or ram_reading_held='1') then
@@ -1060,6 +1062,7 @@ begin
             -- Begin write mask preamble
             if ram_reading_held = '0' and countdown = 2 and extra_latency='0' and hr_clock='0' then
               hr_rwds <= '0';
+              hr_rwds_last <= '0';
               -- And hold clock for 1/2 a tick
               hr_clock <= hr_clock;
               hr_clk_p <= hr_clock;
@@ -1075,8 +1078,10 @@ begin
                 & ", background words left = " & integer'image(background_write_count);
 
                 hr_rwds <= not background_write_valids(0);
+                hr_rwds_last <= not background_write_valids(0);
                 
-                if (hr_d_last = background_write_data(0)) or (background_write_valids(0)='0') then
+                if ((hr_d_last = background_write_data(0)) or (background_write_valids(0)='0'))
+                  and (hr_rwds_last = background_write_valids(0)) then
                   -- Data is already there, so tick immediately
                   
                   report "Tick read latency clock";
