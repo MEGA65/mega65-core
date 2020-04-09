@@ -954,6 +954,7 @@ begin
                   -- goes high again to indicate the first data byte
                   countdown <= 99;
                   hr_rwds_high_seen <= '0';
+                  next_is_data <= '0';
                   state <= HyperRAMReadWait;
                 elsif ram_address(24)='1' and ram_reading_held='0' then
                   -- Config register write.
@@ -1014,11 +1015,13 @@ begin
               end if;
             end if;
             
-            if next_is_data = '0' then
+            if next_is_data = '0' or countdown /= 0 then
+              report "Tick read latency clock";
               -- Toggle clock while data steady
               hr_clk_n <= not hr_clock;
               hr_clk_p <= hr_clock;
               hr_clock <= not hr_clock;
+              countdown <= countdown - 1;
 
             else
               report "latency countdown = " & integer'image(countdown);
@@ -1130,6 +1133,12 @@ begin
             report "Presenting tri-state on hr_d";
             hr_d_last <= (others => '1');                       
             hr_d <= (others => 'Z');                       
+            if (hr_rwds='1') then
+              hr_rwds_high_seen <= '1';
+              if hr_rwds_high_seen = '0' then
+                report "DISPATCH saw hr_rwds go high at start of data stream";
+              end if;
+            end if;                
             if countdown = 0 then
               -- Timed out waiting for read -- so return anyway, rather
               -- than locking the machine hard forever.
@@ -1140,16 +1149,26 @@ begin
               data_ready_strobe_hold <= '1';
               rwr_counter <= rwr_delay;
               state <= Idle;
+              next_is_data <= not next_is_data;
             else
               countdown <= countdown - 1;
+              if hr_rwds_high_seen='0' and hr_rwds='0' then
+                next_is_data <= '0';
+              else
+                next_is_data <= not next_is_data;
+              end if;
             end if;
-            next_is_data <= not next_is_data;
-            if next_is_data = '0' then
+            -- We don't tick clock on the first cycle that data arrives
+            -- (so that we stop fast-ticking the clock and don't miss the first
+            -- byte, but at the same time, that we don't have to have the hyperram
+            -- clock ticking at 40 instead of 80mhz while waiting for data to arrive).
+            if next_is_data = '0' and (hr_rwds_high_seen='1' or hr_rwds='0')  then
               -- Toggle clock while data steady
               hr_clk_n <= not hr_clock;
               hr_clk_p <= hr_clock;
               hr_clock <= not hr_clock;
             else
+              next_is_data <= '0';
               last_rwds <= hr_rwds;
               -- HyperRAM drives RWDS basically to follow the clock.
               -- But first valid data is when RWDS goes high, so we have to
@@ -1157,12 +1176,6 @@ begin
 --              report "DISPATCH watching for data: rwds=" & std_logic'image(hr_rwds) & ", clock=" & std_logic'image(hr_clock)
 --                & ", rwds seen=" & std_logic'image(hr_rwds_high_seen);
 
-              if (hr_rwds='1') then
-                hr_rwds_high_seen <= '1';
---                if hr_rwds_high_seen = '0' then
-  --                report "DISPATCH saw hr_rwds go high at start of data stream";
---                end if;
-              end if;                
               if (hr_rwds_high_seen='1') or (hr_rwds='1') then
                 -- Data has arrived: Latch either odd or even byte
                 -- as required.
@@ -1213,7 +1226,7 @@ begin
                   data_ready_strobe_hold <= '1';
                 end if;
                 report "byte_phase = " & integer'image(to_integer(byte_phase));
-                if byte_phase = 8 then
+                if byte_phase = 7 then
                   rwr_counter <= rwr_delay;
                   state <= Idle2;
                   hr_cs0 <= '1';
