@@ -51,5 +51,11 @@ int main(int argc,char **argv)
   fclose(f);
 
   fprintf(stderr,"Found %d relevant commits.\n",commit_count);
+
+  for(int i=commit_count-1;i>-1;i--) {
+    snprintf(cmd,8192,"git cherry-pick %s",commits[i]);
+    fprintf(stderr,"%s\n",cmd);
+    system(cmd);
+  }
   
 }
