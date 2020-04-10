@@ -428,6 +428,9 @@ spritesimulate:	$(GHDL) $(SPRITEFILES)
 	$(GHDL) -m test_sprite
 	./test_sprite || $(GHDL) -r test_sprite
 
+$(TOOLDIR)/merge-issue:	$(TOOLDIR)/merge-issue.c
+	$(CC) $(COPT) -o $(TOOLDIR)/merge-issue $(TOOLDIR)/merge-issue.c
+
 $(TOOLDIR)/osk_image:	$(TOOLDIR)/osk_image.c
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
