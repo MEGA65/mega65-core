@@ -53,8 +53,10 @@ int main(int argc,char **argv)
   fprintf(stderr,"Found %d relevant commits.\n",commit_count);
 
   for(int i=commit_count-1;i>-1;i--) {
-    snprintf(cmd,8192,"git cherry-pick %s",commits[i]);
+    snprintf(cmd,8192,"git cherry-pick %s | tee cherry-pick.log",commits[i]);
     fprintf(stderr,"%s\n",cmd);
+    fprintf(stderr,"Press ENTER to apply.\n");
+    fgets(line,1024,stdin);
     system(cmd);
   }
   
