@@ -3239,6 +3239,11 @@ l94d:   lda $d681,x		// resolved sector number
         dex
         bpl l94d
 	
+        // disable real floppy 0
+        lda $d6a1
+        and #$fe
+        sta $d6a1
+        
         // Set flags to indicate it is mounted (and read-write)
         // But don't mess up the flags for the 2nd drive
 	lda $d68b
@@ -3324,6 +3329,11 @@ l94db:   lda $d681,x		// resolved sector number
         dex
         bpl l94db
 		
+        // disable real floppy 1
+        lda $d6a1
+        and #$fb
+        sta $d6a1
+
         // Set flags to indicate it is mounted (and read-write)
         // But don't mess up the flags for the 2nd drive
 	lda $d68b
