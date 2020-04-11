@@ -625,6 +625,7 @@ begin
               end if;
 
               hr_clk_queue <= "00";
+              ddr_phase <= '0';
               
             elsif write_collect1_dispatchable = '1' then
               busy_internal <= '0';              
@@ -841,7 +842,7 @@ begin
                     write_collect1_flushed <= '0';
                   end if;
                 end if;
-                
+
                 state <= HyperRAMDoWrite;
               end if;
             end if;
