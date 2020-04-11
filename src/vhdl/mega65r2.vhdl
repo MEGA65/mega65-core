@@ -179,11 +179,6 @@ entity container is
          pwm_l : out std_logic;
          pwm_r : out std_logic;
          
-
-         -- internal speaker
-         pcspeaker_left : out std_logic;
-         pcspeaker_muten : out std_logic;
-
          -- PMOD connectors on the MEGA65 R2 main board
          p1lo : inout std_logic_vector(3 downto 0);
          p1hi : inout std_logic_vector(3 downto 0);
