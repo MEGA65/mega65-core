@@ -49,7 +49,7 @@ architecture gothic of hyperram is
     ReadSetup,
     WriteSetup,
     HyperRAMOutputCommand,
-    HyperRAMLatencyWait,
+    HyperRAMDoWrite,
     HyperRAMFinishWriting1,
     HyperRAMFinishWriting,
     HyperRAMReadWait
@@ -842,13 +842,13 @@ begin
                   end if;
                 end if;
                 
-                state <= HyperRAMLatencyWait;
+                state <= HyperRAMDoWrite;
               end if;
             end if;
             byte_phase <= to_unsigned(0,4);
             write_byte_phase <= '0';
             byte_written <= '0';
-          when HyperRAMLatencyWait =>
+          when HyperRAMDoWrite =>
             ddr_phase <= not ddr_phase;
             if ddr_phase='0' then
               hr_clk_queue <= "11";
