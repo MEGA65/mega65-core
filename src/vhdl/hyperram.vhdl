@@ -833,7 +833,7 @@ begin
                 -- snap-shot it in a moment.
                 if background_write = '1' then
                   report "WRITE: Asserting toolate signal";
-                  background_write_count <= 4 + 2;                    
+                  background_write_count <= 4 + 2;
                   if background_write_source = '0' then
                     write_collect0_toolate <= '1';
                     write_collect0_flushed <= '0';
@@ -944,14 +944,12 @@ begin
                   if background_write_count /= 0 then
                     background_write_count <= background_write_count - 1;
                   else
-                    byte_written <= '1';
+                    report "Advancing to HyperRAMFinishWriting";
+                    hr_clk_queue <= "00";
+                    state <= HyperRAMFinishWriting1;                    
                   end if;
                 end if;
               end if;
-            end if;
-            if byte_written = '1' then
-              report "Advancing to HyperRAMFinishWriting";
-              state <= HyperRAMFinishWriting1;
             end if;
           when Hyperramfinishwriting1 =>
             -- Mask writing from here on.
