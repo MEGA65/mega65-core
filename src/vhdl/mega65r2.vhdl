@@ -396,7 +396,7 @@ begin
                clock41 => cpuclock, -- 40MHz
                clock50 => ethclock,
                clock162 => clock162,
-               clock27 => clock27
+               clock27 => clock27,
                clock325 => clock325
                );
 
