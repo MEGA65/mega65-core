@@ -13,6 +13,7 @@ architecture foo of test_hyperram is
   signal cpuclock : std_logic := '1';
   signal pixelclock : std_logic := '1';
   signal clock163 : std_logic := '1';
+  signal clock325 : std_logic := '1';
 
   signal expansionram_read : std_logic;
   signal expansionram_write : std_logic := '0';
@@ -146,6 +147,7 @@ begin
     port map (
       pixelclock => pixelclock,
       clock163 => clock163,
+      clock325 => clock325,
       address => expansionram_address,
       wdata => expansionram_wdata,
       read_request => expansionram_read,
@@ -318,29 +320,68 @@ begin
     end if;
     
 
+    clock325 <= '0';
     pixelclock <= '0';
     cpuclock <= '0';
     clock163 <= '0';
-    wait for 3 ns;
+
+    clock325 <= '1';
+    wait for 1.5 ns;
+    clock325 <= '0';
+    wait for 1.5 ns;
+    
     clock163 <= '1';
-    wait for 3 ns;
+
+    clock325 <= '1';
+    wait for 1.5 ns;
+    clock325 <= '0';
+    wait for 1.5 ns;
+
     pixelclock <= '1';
     clock163 <= '0';
-    wait for 3 ns;
+
+    clock325 <= '1';
+    wait for 1.5 ns;
+    clock325 <= '0';
+    wait for 1.5 ns;
+
     clock163 <= '1';
-    wait for 3 ns;
+
+    clock325 <= '1';
+    wait for 1.5 ns;
+    clock325 <= '0';
+    wait for 1.5 ns;
 
     pixelclock <= '0';
     cpuclock <= '1';
     clock163 <= '0';
-    wait for 3 ns;
+
+    clock325 <= '1';
+    wait for 1.5 ns;
+    clock325 <= '0';
+    wait for 1.5 ns;
+
     clock163 <= '1';
-    wait for 3 ns;
+
+    clock325 <= '1';
+    wait for 1.5 ns;
+    clock325 <= '0';
+    wait for 1.5 ns;
+
     pixelclock <= '1';
     clock163 <= '0';
-    wait for 3 ns;
+
+    clock325 <= '1';
+    wait for 1.5 ns;
+    clock325 <= '0';
+    wait for 1.5 ns;
+
     clock163 <= '1';
-    wait for 3 ns;
+
+    clock325 <= '1';
+    wait for 1.5 ns;
+    clock325 <= '0';
+    wait for 1.5 ns;
 
 --    report "40MHz CPU clock cycle finished";
     
