@@ -106,7 +106,6 @@ architecture gothic of hyperram is
 
   signal byte_phase : unsigned(3 downto 0) := to_unsigned(0,4);
   signal write_byte_phase : std_logic := '0';
-  signal byte_written : std_logic := '0';
 
   signal hr_ddr : std_logic := '0';
   signal hr_rwds_ddr : std_logic := '0';
@@ -848,7 +847,6 @@ begin
             end if;
             byte_phase <= to_unsigned(0,4);
             write_byte_phase <= '0';
-            byte_written <= '0';
           when HyperRAMDoWrite =>
             ddr_phase <= not ddr_phase;
             if ddr_phase='0' then
@@ -938,7 +936,6 @@ begin
                   elsif write_byte_phase = '1' and ram_address(0)='0' then
                     hr_d <= x"0d"; -- odd "masked" data byte                      
                   end if;
-                  byte_written <= write_byte_phase;
                 elsif write_byte_phase='1' then
                   report "WRITE: Decrementing background_write_count from " & integer'image(background_write_count);
                   if background_write_count /= 0 then
@@ -1059,7 +1056,7 @@ begin
                 data_ready_strobe_hold <= '1';
               end if;
               report "byte_phase = " & integer'image(to_integer(byte_phase));
-              if byte_phase = 8 then
+              if byte_phase = 7 then
                 rwr_counter <= rwr_delay;
                 state <= Idle;
                 hr_cs0 <= '1';
