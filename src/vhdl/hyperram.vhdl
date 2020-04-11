@@ -122,7 +122,7 @@ architecture gothic of hyperram is
 
   signal hr_ddr : std_logic := '0';
   signal hr_rwds_ddr : std_logic := '0';
-  signal hr_reset_int : std_logic := '0';
+  signal hr_reset_int : std_logic := '1';
   signal hr_rwds_int : std_logic := '0';
   signal hr_cs0_int : std_logic := '0';
   signal hr_cs1_int : std_logic := '0';
@@ -176,7 +176,7 @@ architecture gothic of hyperram is
   -- found for testing.
 --   signal write_latency : unsigned(7 downto 0) := to_unsigned((8 - 5)*2,8);
 
-  signal cache_enabled : boolean := false;
+  signal cache_enabled : boolean := true;
 
   signal hr_d_pending : std_logic := '0';
   signal hr_flags_pending : std_logic := '0';
