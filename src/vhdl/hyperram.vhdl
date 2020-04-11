@@ -49,7 +49,6 @@ architecture gothic of hyperram is
     Idle,
     ReadSetup,
     WriteSetup,
-    HyperRAMCSStrobe,
     HyperRAMOutputCommand,
     HyperRAMLatencyWait,
     HyperRAMFinishWriting1,
@@ -638,7 +637,16 @@ begin
               -- This is the delay before we assert CS
               countdown <= 0;
             
-              state <= HyperRAMCSStrobe;
+              state <= HyperRAMOutputCommand;
+              if ram_address(24)='1' and ram_reading_held='0' and odd_byte_fix_flags(4)='1' then
+                -- 48 bits of CA followed by 16 bit register value
+                -- (we shift the buffered config register values out automatically)
+                countdown <= 7;
+              else
+                countdown <= 6; -- 48 bits = 6 x 8 bits
+              end if;
+
+              hr_clk_queue <= "00";
               
             elsif write_collect1_dispatchable = '1' then
               busy_internal <= '0';              
@@ -667,10 +675,19 @@ begin
               
               hr_reset <= '1'; -- active low reset
 
-              -- This is the delay before we assert CS
-              countdown <= 0;
-            
-              state <= HyperRAMCSStrobe;
+            state <= HyperRAMOutputCommand;
+            if ram_address(24)='1' and ram_reading_held='0' and odd_byte_fix_flags(4)='1' then
+              -- 48 bits of CA followed by 16 bit register value
+              -- (we shift the buffered config register values out automatically)
+              countdown <= 7;
+            else
+              countdown <= 6; -- 48 bits = 6 x 8 bits
+            end if;
+
+            hr_clk_queue <= "00";
+              
+            report "clk_queue <= '00'";
+            ddr_phase <= '0';
 
             else
               report "Clearing busy_internal";
@@ -716,7 +733,18 @@ begin
             hr_reset <= '1'; -- active low reset
             countdown <= 0;
 
-            state <= HyperRAMCSStrobe;
+            state <= HyperRAMOutputCommand;
+            if ram_address(24)='1' and ram_reading_held='0' and odd_byte_fix_flags(4)='1' then
+              -- 48 bits of CA followed by 16 bit register value
+              -- (we shift the buffered config register values out automatically)
+              countdown <= 7;
+            else
+              countdown <= 6; -- 48 bits = 6 x 8 bits
+            end if;
+
+            hr_clk_queue <= "00";
+            report "clk_queue <= '00'";
+            ddr_phase <= '0';
             
           when WriteSetup =>
 
@@ -737,13 +765,6 @@ begin
 
             hr_reset <= '1'; -- active low reset
 
-            -- This is the delay before we assert CS
-            countdown <= 0;
-            
-            state <= HyperRAMCSStrobe;
-
-          when HyperRAMCSStrobe =>
-
             state <= HyperRAMOutputCommand;
             if ram_address(24)='1' and ram_reading_held='0' and odd_byte_fix_flags(4)='1' then
               -- 48 bits of CA followed by 16 bit register value
@@ -753,8 +774,6 @@ begin
               countdown <= 6; -- 48 bits = 6 x 8 bits
             end if;
 
-            report "Presenting hr_command byte 0 on hr_d = $" & to_hstring(hr_command(47 downto 40));
-            hr_d <= hr_command(47 downto 40);
             hr_clk_queue <= "00";
             report "clk_queue <= '00'";
             ddr_phase <= '0';
