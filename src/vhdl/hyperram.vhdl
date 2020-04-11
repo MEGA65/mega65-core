@@ -4,6 +4,8 @@ use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
 use work.cputypes.all;
+library UNISIM;
+use UNISIM.vcomponents.all;
 
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
@@ -17,7 +19,9 @@ use work.cputypes.all;
 entity hyperram is
   Port ( pixelclock : in STD_LOGIC; -- For slow devices bus interface is
                                     -- actually on pixelclock to reduce latencies
+                                    -- Also pixelclock is the natural clock speed we apply to the HyperRAM.
          clock163 : in std_logic; -- Used for fast clock for HyperRAM
+         clock325 : in std_logic; -- Used for fast clock for HyperRAM SERDES units
 
          -- Simple counter for number of requests received
          request_counter : out std_logic := '0';
@@ -425,11 +429,6 @@ begin
             when x"1" =>
               hr_d_pending <= '1';
               hr_d_newval <= wdata;
---              if hr_ddr='1' then
---                hr_d <= wdata;
---              else
---                hr_d <= (others => 'Z');
---              end if;
             when x"2" =>
               hr_flags_pending <= '1';
               hr_flags_newval <= wdata;
@@ -438,23 +437,6 @@ begin
               else
                 cache_enabled <= false;
               end if;
---              hr_rwds_int <= wdata(0);
---              hr_reset_int <= wdata(1);
---              hr_clk_n_int <= wdata(2);
---              hr_clk_p_int <= wdata(3);
---              hr_cs0_int <= wdata(4);
---              hr_cs1_int <= wdata(5);
---
---              hr_reset <= wdata(1);
---              hr_clk_n <= wdata(2);
---              hr_clk_p <= wdata(3);
---              hr_cs0 <= wdata(4);
---              hr_cs1 <= wdata(5);
---
---              hr_ddr <= wdata(6);
---              if wdata(6)='0' then
---                hr_d <= (others => '0');
---              end if;
             when x"3" =>
               write_latency <= wdata;
             when x"4" =>
