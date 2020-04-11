@@ -88,7 +88,7 @@ port
   clock41          : out    std_logic;
   clock81           : out    std_logic;
   clock27           : out    std_logic;
-  clock54          : out    std_logic;
+  clock325          : out    std_logic;
   -- Status and control signals
   LOCKED            : out    std_logic
  );
@@ -180,8 +180,8 @@ begin
     CLKOUT5_PHASE        => 0.000,
     CLKOUT5_DUTY_CYCLE   => 0.500,
     CLKOUT5_USE_FINE_PS  => FALSE,
-    -- CLKOUT6 = CLK_OUT7 = clock54 - 650MHZ/12
-    CLKOUT6_DIVIDE       => 12,
+    -- CLKOUT6 = CLK_OUT7 = clock325 - 650MHZ/2
+    CLKOUT6_DIVIDE       => 2,
     CLKOUT6_PHASE        => 0.000,
     CLKOUT6_DUTY_CYCLE   => 0.500,
     CLKOUT6_USE_FINE_PS  => FALSE,
@@ -270,7 +270,7 @@ begin
 
   clkout7_buf : BUFG
   port map
-   (O   => clock54,
+   (O   => clock325,
     I   => clkout6);
 
 end xilinx;
