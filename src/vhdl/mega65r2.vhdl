@@ -242,6 +242,7 @@ architecture Behavioral of container is
   signal clock120 : std_logic;
   signal clock100 : std_logic;
   signal clock162 : std_logic;
+  signal clock325 : std_logic;
 
   -- XXX Actually connect to new keyboard
   signal restore_key : std_logic := '1';
@@ -398,7 +399,7 @@ begin
                clock50 => ethclock,
                clock162 => clock162,
                clock27 => clock27
---               clock54 => clock54
+               clock325 => clock325
                );
 
   fpgatemp0: entity work.fpgatemp
@@ -455,6 +456,7 @@ begin
     port map (
       pixelclock => pixelclock,
       clock163 => clock162,
+      clock325 => clock325,
 
       -- XXX Debug by showing if expansion RAM unit is receiving requests or not
       request_counter => led,
