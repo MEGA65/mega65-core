@@ -45,7 +45,6 @@ end hyperram;
 architecture gothic of hyperram is
 
   type state_t is (
-    Idle2,
     Idle,
     ReadSetup,
     WriteSetup,
@@ -525,27 +524,6 @@ begin
         start_delay_counter <= 0;
         
         case state is
-          when Idle2 =>
-            report "Releasing hyperram CS lines";
-            hr_cs0 <= '1';
-            hr_cs1 <= '1';
-            hr_clk_queue <= "00";
-            report "clk_queue <= '00'";
-            report "Presenting tri-state on hr_d";
-            hr_d <= (others => 'Z');
-
-            -- Clock must be low when idle, so that it is in correct phase
-            -- when CS0 is pulled low to trigger a transaction
-            hr_clk_p <= '0';
-            hr_clock <= '0';
-            
-            -- Put recogniseable patter on data lines for debugging
-            report "Presenting hr_d with $A5";
-            hr_d <= x"A5";
-
-            rwr_counter <= rwr_delay;
-            state <= Idle;
-            
           when Idle =>
             -- Invalidate cache if disabled
             if cache_enabled = false then
@@ -978,11 +956,12 @@ begin
             -- Mask writing from here on.
             hr_cs0 <= '1';
             hr_cs1 <= '1';
-            hr_rwds <= '1';
+            hr_rwds <= 'Z';
             hr_d <= x"FA"; -- "after" data byte
             hr_clk_queue <= "00";
             report "clk_queue <= '00'";
-            state <= Hyperramfinishwriting;
+            rwr_counter <= rwr_delay;
+            state <= Idle;
           when HyperRAMFinishWriting =>
             -- Last cycle was data, so next cycle is clock.
 
@@ -1083,7 +1062,7 @@ begin
               report "byte_phase = " & integer'image(to_integer(byte_phase));
               if byte_phase = 8 then
                 rwr_counter <= rwr_delay;
-                state <= Idle2;
+                state <= Idle;
                 hr_cs0 <= '1';
                 hr_cs1 <= '1';
                 hr_clk_queue <= "00";
