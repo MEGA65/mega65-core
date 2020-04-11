@@ -44,8 +44,8 @@ entity hyperram is
 --         hr_int : in std_logic; -- Interrupt?
          hr_clk_n : out std_logic := '0';
          hr_clk_p : out std_logic := '1';
-         hr_cs1 : out std_logic := '1';
-         hr_cs0 : out std_logic := '1'
+         hr_cs0 : out std_logic := '1';
+         hr_cs1 : out std_logic := '1'
          );
 end hyperram;
 
@@ -100,12 +100,11 @@ architecture gothic of hyperram is
   -- to give the HyperRAM chip time to start up
   -- Datasheet says 150usec is required, we do that, plus a bit.
   signal start_delay_counter : integer := 150*(1000/162)+20;  
-
+  
   signal countdown : integer := 0;
   signal extra_latency : std_logic := '0';
 
   signal next_is_data : std_logic := '1';
-  
   signal hr_clock : std_logic := '0';
 
   signal data_ready_toggle : std_logic := '0';
@@ -177,7 +176,7 @@ architecture gothic of hyperram is
   -- found for testing.
 --   signal write_latency : unsigned(7 downto 0) := to_unsigned((8 - 5)*2,8);
 
-  signal cache_enabled : boolean := true;
+  signal cache_enabled : boolean := false;
 
   signal hr_d_pending : std_logic := '0';
   signal hr_flags_pending : std_logic := '0';
@@ -185,11 +184,9 @@ architecture gothic of hyperram is
   signal hr_flags_newval : unsigned(7 downto 0);
   signal hr_rwds_high_seen : std_logic := '0';
 
-  signal hr_d_last : unsigned(7 downto 0);
-  signal skip_data_phase : std_logic := '0';
-
   signal random_bits : unsigned(7 downto 0) := x"00";
 
+  signal odd_byte_fix : std_logic := '0';
   signal odd_byte_fix_flags : unsigned(7 downto 0) := "00011111";
 
   signal write_blocked : std_logic := '0';
@@ -198,7 +195,7 @@ architecture gothic of hyperram is
   signal background_write_source : std_logic := '0';
   signal background_write_valids : std_logic_vector(0 to 7) := x"00";
   signal background_write_data : cache_row_t := (others => (others => '0'));
-  signal background_write_count : integer range 0 to 15 := 0;
+  signal background_write_count : integer range 0 to 6 := 0;
 
   -- If we get too many writes in short succession, we may need to queue up one
   -- of the writes, while waiting for slow_devices to notice
@@ -206,9 +203,6 @@ architecture gothic of hyperram is
   signal queued_wdata : unsigned(7 downto 0) := x"00";
   signal queued_waddr : unsigned(26 downto 0) := to_unsigned(0,27);
 
-  signal background_writing : std_logic := '0';
-  signal hr_rwds_last : std_logic := '0';
-  
 begin
   process (pixelclock,clock163) is
   begin
@@ -614,6 +608,8 @@ begin
             report "Releasing hyperram CS lines";
             hr_cs0 <= '1';
             hr_cs1 <= '1';
+            report "Presenting tri-state on hr_d";
+            hr_d <= (others => 'Z');
 
             -- Clock must be low when idle, so that it is in correct phase
             -- when CS0 is pulled low to trigger a transaction
@@ -622,7 +618,6 @@ begin
             
             -- Put recogniseable patter on data lines for debugging
             report "Presenting hr_d with $A5";
-            hr_d_last <= x"A5";
             hr_d <= x"A5";
 
             rwr_counter <= rwr_delay;
@@ -772,7 +767,6 @@ begin
             hr_clock <= '0';
             
             report "Tristating hr_d";
-            hr_d_last <= (others => '1');
             hr_d <= (others => 'Z');
           when ReadSetup =>
             report "Setting up to read $" & to_hstring(ram_address) & " ( address = $" & to_hstring(address) & ")";
@@ -831,7 +825,7 @@ begin
           when HyperRAMCSStrobe =>
 
             state <= HyperRAMOutputCommand;
-            if ram_address(24)='1' and ram_reading_held='0' then
+            if ram_address(24)='1' and ram_reading_held='0' and odd_byte_fix_flags(4)='1' then
               -- 48 bits of CA followed by 16 bit register value
               -- (we shift the buffered config register values out automatically)
               countdown <= 8;
@@ -839,110 +833,36 @@ begin
               countdown <= 6; -- 48 bits = 6 x 8 bits
             end if;
 
-            report "Presenting hr_command byte 0 on hr_d = $" & to_hstring(hr_command(47 downto 40))
-              & " (irrespective of skip setting)";
-            hr_d_last <= hr_command(47 downto 40);
+            report "Presenting hr_command byte 0 on hr_d = $" & to_hstring(hr_command(47 downto 40));
             hr_d <= hr_command(47 downto 40);
-
-            -- We can always skip the first data phase, because we have just
-            -- presented the byte here.
-            skip_data_phase <= '1';
-            
             next_is_data <= '0';
             hr_clk_n <= '1'; 
             hr_clk_p <= '0';
             hr_clock <= '0';
             
           when HyperRAMOutputCommand =>
-            report "Writing command : $" & to_hstring(hr_command);
-
-            report "Presenting hr_command byte on hr_d = $" & to_hstring(hr_command(47 downto 40))
-              & ", clock = " & std_logic'image(hr_clock)
-              & ", next_is_data = " & std_logic'image(next_is_data)
-              & ", countdown = " & integer'image(countdown)
-              & ", skip_data_phase = " & std_logic'image(skip_data_phase)
-              & ", skip compare: $"
-              & to_hstring(hr_command(47 downto 40))
-              & " vs $" & to_hstring(hr_d_last);
-
--- Call HyperRAM to attention
+            report "Writing command";
+            -- Call HyperRAM to attention
             hr_cs0 <= ram_address(23);
             hr_cs1 <= not ram_address(23);
             
             hr_rwds <= 'Z';
-            hr_rwds_last <= '1';
-
-            hr_d_last <= hr_command(47 downto 40);
-            hr_d <= hr_command(47 downto 40);
-            
-            -- Latch extra latency status
-            if countdown = 3 and (ram_address(24)='0' or ram_reading_held='1') then
-              extra_latency <= hr_rwds;
-              if hr_rwds='1' then
-                report "Applying extra latency";
-              end if;                    
-            end if;
-
-            skip_data_phase <= '0';
-            
-            if skip_data_phase = '0' then
-              next_is_data <= not next_is_data;
-            elsif next_is_data='0' then
-              -- If the bytes we need to present are identical,
-              -- we can skip the data setting phase of the clock, which
-              -- speeds up dispatch of the command a little.
-
-              next_is_data <= '0';
-
-              hr_command(47 downto 8) <= hr_command(39 downto 0);
-
-              -- Also shift out config register values, if required
-              if ram_address(24)='1' and ram_reading_held='0' then
-                report "shifting in conf value $" & to_hstring(conf_buf0);
-                hr_command(7 downto 0) <= conf_buf0;
-                conf_buf0 <= conf_buf1;
-                conf_buf1 <= conf_buf0;
-              else
-                hr_command(7 downto 0) <= x"00";
-              end if;
-
-              countdown <= countdown - 1;
-
-            end if;
-            if next_is_data = '0' and countdown /= 0 then
+            next_is_data <= not next_is_data;
+            if next_is_data = '0' then
               -- Toggle clock while data steady
               hr_clk_n <= not hr_clock;
               hr_clk_p <= hr_clock;
               hr_clock <= not hr_clock;
-
-              if hr_d_last = hr_command(47 downto 39) then
-                report "Ticking clock and skip_data_phase <= 1 because hr_d_last=$"
-                  & to_hstring(hr_d_last) & ", hr_cmd=$" & to_hstring(hr_command);
-                
-                skip_data_phase <= '1';
-
-                hr_command(47 downto 8) <= hr_command(39 downto 0);
-                countdown <= countdown - 1;
-                
-                next_is_data <= '0';
-              else
-                report "Ticking clock and skip_data_phase <= 0 because hr_d_last=$"
-                  & to_hstring(hr_d_last) & ", hr_cmd=$" & to_hstring(hr_command);
-                skip_data_phase <= '0';
-              end if;              
             else
               -- Toggle data while clock steady
-              report "next_is_data='1' or countdown=0";
-
-              if countdown /= 0 then
-                hr_d_last <= hr_command(47 downto 40);
-                hr_d <= hr_command(47 downto 40);
-                hr_command(47 downto 8) <= hr_command(39 downto 0);
-              else
-                hr_clk_p <= '0';
-                hr_clk_n <= '1';
-                hr_clock <= '0';
-              end if;
+--              report "Presenting hr_command byte on hr_d = $" & to_hstring(hr_command(47 downto 40))
+--                & ", clock = " & std_logic'image(hr_clock)
+--                & ", next_is_data = " & std_logic'image(next_is_data)
+--                & ", countdown = " & integer'image(countdown)
+--                & ", cs0= " & std_logic'image(hr_cs0);
+              
+              hr_d <= hr_command(47 downto 40);
+              hr_command(47 downto 8) <= hr_command(39 downto 0);
 
               -- Also shift out config register values, if required
               if ram_address(24)='1' and ram_reading_held='0' then
@@ -956,6 +876,12 @@ begin
               
               report "Writing command byte $" & to_hstring(hr_command(47 downto 40));
 
+              if countdown = 3 and (ram_address(24)='0' or ram_reading_held='1') then
+                extra_latency <= hr_rwds;
+                if hr_rwds='1' then
+                  report "Applying extra latency";
+                end if;                    
+              end if;
               if countdown /= 0 then
                 countdown <= countdown - 1;
               else
@@ -965,7 +891,6 @@ begin
                   -- goes high again to indicate the first data byte
                   countdown <= 99;
                   hr_rwds_high_seen <= '0';
-                  next_is_data <= '0';
                   state <= HyperRAMReadWait;
                 elsif ram_address(24)='1' and ram_reading_held='0' then
                   -- Config register write.
@@ -989,7 +914,7 @@ begin
                   -- snap-shot it in a moment.
                   if background_write = '1' then
                     report "WRITE: Asserting toolate signal";
-                    background_write_count <= 4 + 2;
+                    background_write_count <= 4 + 2;                    
                     if background_write_source = '0' then
                       write_collect0_toolate <= '1';
                       write_collect0_flushed <= '0';
@@ -998,8 +923,7 @@ begin
                       write_collect1_flushed <= '0';
                     end if;
                   end if;
-
-                  background_writing <= '0';
+                  
                   state <= HyperRAMLatencyWait;
                 end if;
               end if;
@@ -1008,11 +932,9 @@ begin
             write_byte_phase <= '0';
             byte_written <= '0';
           when HyperRAMLatencyWait =>
+            next_is_data <= not next_is_data;
             report "WRITE: LatencyWait state, bg_wr=" & std_logic'image(background_write)
-              & ", count=" & integer'image(background_write_count)
-              & ", countdown=" & integer'image(countdown)
-              & ", next_is_data=" & std_logic'image(next_is_data)
-              & ", skip_data_phase=" &std_logic'image(skip_data_phase);
+              & ", count=" & integer'image(background_write_count);
 
             -- Now snap-shot the write buffer data, and mark the slot as flushed
             if background_write = '1' then
@@ -1028,145 +950,88 @@ begin
                 background_write_valids <= write_collect1_valids;
               end if;
             end if;
-
-            -- Do countdown until we are able to write
-            if countdown = 1 and extra_latency = '0' then
-              background_writing <= '1';
-              -- And schedule first piece of data immediately after the count
-              -- down is done.
-              if background_writing = '0' then
-                report "Setting next_is_data <= 0 at end of count down";
-                next_is_data <= '0';
-              end if;
-            end if;
-
-            -- Count down and tick clock while we wait for the latency to
-            -- run out. Clock ticks fast.
-            if background_writing='0' then
-              if hr_clock='0' then
-                report "latency countdown = " & integer'image(countdown);
-                if countdown /= 0 then
-                  countdown <= countdown - 1;
-                else
-                  if extra_latency='1' then
-                    report "Waiting 6 more cycles for extra latency";
-                    -- If we were asked to wait for extra latency,
-                    -- then wait another 6 cycles.
-                    extra_latency <= '0';
-                    countdown <= to_integer(extra_write_latency);
-                  end if;
-                end if;
-              end if;
-
-              hr_d <= background_write_data(0);
-              hr_d_last <= background_write_data(0);
-              
-              -- Toggle clock while counting down
-              report  "Tick clock (count down)";
-              hr_clock <= not hr_clock;
-              hr_clk_p <= not hr_clock;
-              hr_clk_n <= hr_clock;
-
-            end if;
-
-            -- Begin write mask preamble
-            if ram_reading_held = '0' and countdown = 2 and extra_latency='0' and hr_clock='0' then
-              hr_rwds <= '0';
-              hr_rwds_last <= '0';
-              -- And hold clock for 1/2 a tick
-              report "DONT Tick clock (1/2 cycle hold for write preamble)";
-              hr_clock <= hr_clock;
-              hr_clk_p <= hr_clock;
-              hr_clk_n <= not hr_clock;
-            end if;              
-                        
-            if background_write='1' and background_writing = '1' then
-              -- Background writes, we try to put the next byte out early
-
-              if next_is_data='1' then
-                report "WRITE: Writing background byte $" & to_hstring(background_write_data(0))
-                  & ", valids= " & to_string(background_write_valids)
-                & ", background words left = " & integer'image(background_write_count);
-
-                hr_rwds <= not background_write_valids(0);
-                hr_rwds_last <= not background_write_valids(0);
-                
-                if ((hr_d_last = background_write_data(0)) or (background_write_valids(0)='0'))
-                  and (hr_rwds_last = not background_write_valids(0)) then
-                  -- Data is already there, so tick immediately
-                  
-                  if background_write_valids(1 to 7) = "0000000" and hr_clock='0' then
-                    -- No more bytes to write, so stop as soon as clock is
-                    -- going low.
-                    hr_cs0 <= '1';
-                    hr_cs1 <= '1';
-                    hr_rwds <= '1';
-                    hr_d_last <= x"FA"; -- "after" data byte
-                    hr_d <= x"FA"; -- "after" data byte
-                    state <= Hyperramfinishwriting;
-                  else 
-                    report "Tick clock (background writing, next_is_data=1, data already available)";
-                    report "hr_rwds_last = " & std_logic'image(hr_rwds_last)
-                      & ", valids=" & to_string(background_write_valids(0 to 7));
-                    -- Toggle clock while data steady
-                    hr_clk_n <= hr_clock;
-                    hr_clk_p <= not hr_clock;
-                    hr_clock <= not hr_clock;                    
-                    next_is_data <= '1';
-
-                  end if;
-
-                  
---                  hr_d <= x"aa"; -- AA for already available
-                  
-                else
-                  -- Data not already correct, so set the data before ticking
-                  hr_d_last <= background_write_data(0);
-                  hr_d <= background_write_data(0);
-                  next_is_data <= '0';
-
---                  hr_d <= x"48";  -- H for hold
-                end if;
-
-                if background_write_count /= 0 then
-                  background_write_count <= background_write_count - 1;
-                else
-                  byte_written <= '1';
-                end if;
-
-                if background_write_count < 8 then
-                  report "WRITE: Shifting data to write. new next byte will be $"
-                    & to_hstring(background_write_data(1));
-                  background_write_data(0) <= background_write_data(1);
-                  background_write_data(1) <= background_write_data(2);
-                  background_write_data(2) <= background_write_data(3);
-                  background_write_data(3) <= background_write_data(4);
-                  background_write_data(4) <= background_write_data(5);
-                  background_write_data(5) <= background_write_data(6);
-                  background_write_data(6) <= background_write_data(7);
-                  background_write_data(7) <= x"00";
-                
-                  background_write_valids(0 to 6) <= background_write_valids(1 to 7);
-                  background_write_valids(7) <= '0';
-                end if;
-                
-              end if;
-
-              if next_is_data = '0' and background_writing='1' then
-
-                report "Tick clock (background writing, next_is_data=0)";
-                next_is_data <= '1';
-                
-                -- Toggle clock while data steady
-                hr_clk_n <= hr_clock;
-                hr_clk_p <= not hr_clock;
-                hr_clock <= not hr_clock;                                        
-                
-              end if;
-                
-            end if;
             
-            if byte_written = '1' then
+            if next_is_data = '0' then
+              -- Toggle clock while data steady
+              hr_clk_n <= not hr_clock;
+              hr_clk_p <= hr_clock;
+              hr_clock <= not hr_clock;
+
+            else
+              report "latency countdown = " & integer'image(countdown);
+
+              -- Begin write mask pre-amble
+              if ram_reading_held = '0' and countdown = 2 then
+                hr_rwds <= '0';
+                hr_d <= x"BE"; -- "before" data byte
+              elsif odd_byte_fix='1' then
+                hr_rwds <= '1';
+              end if;
+              
+              if countdown /= 0 then
+                countdown <= countdown - 1;
+              else
+                if extra_latency='1' then
+                  report "Waiting 6 more cycles for extra latency";
+                  -- If we were asked to wait for extra latency,
+                  -- then wait another 6 cycles.
+                  extra_latency <= '0';
+                  countdown <= to_integer(extra_write_latency);
+                else
+                  -- Latency countdown for writing is over, we can now
+                  -- begin writing bytes.                  
+
+                  -- HyperRAM works on 16-bit fundamental transfers.
+                  -- This means we need to have two half-cycles, and pick which
+                  -- one we want to write during.
+                  -- If RWDS is asserted, then the write is masked, i.e., won't
+                  -- occur.
+                  -- In this first 
+                  
+                  report "Presenting hr_d with ram_wdata or background data";
+                  if background_write='1' then
+                    report "WRITE: Writing background byte $" & to_hstring(background_write_data(0))
+                      & ", valids= " & to_string(background_write_valids)
+                      & ", background words left = " & integer'image(background_write_count);
+                    hr_d <= background_write_data(0);
+                    background_write_data(0) <= background_write_data(1);
+                    background_write_data(1) <= background_write_data(2);
+                    background_write_data(2) <= background_write_data(3);
+                    background_write_data(3) <= background_write_data(4);
+                    background_write_data(4) <= background_write_data(5);
+                    background_write_data(5) <= background_write_data(6);
+                    background_write_data(6) <= background_write_data(7);
+                    background_write_data(7) <= x"00";
+                    
+                    hr_rwds <= not background_write_valids(0);
+                    background_write_valids(0 to 6) <= background_write_valids(1 to 7);
+                    background_write_valids(7) <= '0';
+                  else
+                    hr_d <= ram_wdata;
+                    hr_rwds <= ram_address(0) xor write_byte_phase;
+                  end if;
+                  
+                  -- Write byte
+                  write_byte_phase <= '1';
+                  if background_write='0' then
+                    if write_byte_phase = '0' and ram_address(0)='1' then
+                      hr_d <= x"ee"; -- even "masked" data byte
+                    elsif write_byte_phase = '1' and ram_address(0)='0' then
+                      hr_d <= x"0d"; -- odd "masked" data byte                      
+                    end if;
+                    byte_written <= write_byte_phase;
+                  elsif write_byte_phase='1' then
+                    report "WRITE: Decrementing background_write_count from " & integer'image(background_write_count);
+                    if background_write_count /= 0 then
+                      background_write_count <= background_write_count - 1;
+                    else
+                      byte_written <= '1';
+                    end if;
+                  end if;
+                end if;
+              end if;
+            end if;
+            if byte_written = '1' and next_is_data='0' then
               report "Advancing to HyperRAMFinishWriting";
               state <= HyperRAMFinishWriting1;
             end if;
@@ -1175,7 +1040,6 @@ begin
             hr_cs0 <= '1';
             hr_cs1 <= '1';
             hr_rwds <= '1';
-            hr_d_last <= x"FA"; -- "after" data byte
             hr_d <= x"FA"; -- "after" data byte
             state <= Hyperramfinishwriting;
           when HyperRAMFinishWriting =>
@@ -1195,18 +1059,7 @@ begin
           when HyperRAMReadWait =>
             hr_rwds <= 'Z';
             report "Presenting tri-state on hr_d";
-            hr_d_last <= (others => '1');                       
             hr_d <= (others => 'Z');                       
-            if (hr_rwds='1') then
-              hr_rwds_high_seen <= '1';
-              -- Stop fast-ticking once we see hr_rwds go high
-              if hr_rwds_high_seen = '0' then
-                skip_data_phase <= '0';
-              end if;
-              if hr_rwds_high_seen = '0' then
-                report "DISPATCH saw hr_rwds go high at start of data stream";
-              end if;
-            end if;                
             if countdown = 0 then
               -- Timed out waiting for read -- so return anyway, rather
               -- than locking the machine hard forever.
@@ -1217,26 +1070,16 @@ begin
               data_ready_strobe_hold <= '1';
               rwr_counter <= rwr_delay;
               state <= Idle;
-              next_is_data <= not next_is_data;
             else
               countdown <= countdown - 1;
-              if hr_rwds_high_seen='0' and hr_rwds='0' then
-                next_is_data <= '0';
-              else
-                next_is_data <= not next_is_data;
-              end if;
             end if;
-            -- We don't tick clock on the first cycle that data arrives
-            -- (so that we stop fast-ticking the clock and don't miss the first
-            -- byte, but at the same time, that we don't have to have the hyperram
-            -- clock ticking at 40 instead of 80mhz while waiting for data to arrive).
-            if next_is_data = '0' and (hr_rwds_high_seen='1' or hr_rwds='0')  then
+            next_is_data <= not next_is_data;
+            if next_is_data = '0' then
               -- Toggle clock while data steady
               hr_clk_n <= not hr_clock;
               hr_clk_p <= hr_clock;
               hr_clock <= not hr_clock;
             else
-              next_is_data <= '0';
               last_rwds <= hr_rwds;
               -- HyperRAM drives RWDS basically to follow the clock.
               -- But first valid data is when RWDS goes high, so we have to
@@ -1244,6 +1087,12 @@ begin
 --              report "DISPATCH watching for data: rwds=" & std_logic'image(hr_rwds) & ", clock=" & std_logic'image(hr_clock)
 --                & ", rwds seen=" & std_logic'image(hr_rwds_high_seen);
 
+              if (hr_rwds='1') then
+                hr_rwds_high_seen <= '1';
+--                if hr_rwds_high_seen = '0' then
+  --                report "DISPATCH saw hr_rwds go high at start of data stream";
+--                end if;
+              end if;                
               if (hr_rwds_high_seen='1') or (hr_rwds='1') then
                 -- Data has arrived: Latch either odd or even byte
                 -- as required.
@@ -1294,7 +1143,7 @@ begin
                   data_ready_strobe_hold <= '1';
                 end if;
                 report "byte_phase = " & integer'image(to_integer(byte_phase));
-                if byte_phase = 7 then
+                if byte_phase = 8 then
                   rwr_counter <= rwr_delay;
                   state <= Idle2;
                   hr_cs0 <= '1';
