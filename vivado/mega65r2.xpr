@@ -940,7 +940,7 @@
         </ReportConfig>
         <ReportConfig Name="impl_1_place_report_utilization_0" Spec="report_utilization" RunStep="place_design" ReportFile="container_utilization_placed.rpt" Version="1" Minor="0">
           <ReportConfigOption Name="dummy_option" Type="string"/>
-          <ReportConfigOutputOption Name="pb" Type="string" Value="container_utilization_placed.pb"/>
+          <ReportConfigOutputOption Name="pb" Type="string" Value=""/>
         </ReportConfig>
         <ReportConfig Name="impl_1_place_report_control_sets_0" Spec="report_control_sets" RunStep="place_design" ReportFile="container_control_sets_placed.rpt" Version="1" Minor="0">
           <ReportConfigOption Name="dummy_option" Type="string"/>
