@@ -42,7 +42,9 @@ entity hyperram is
 --         hr_rsto : in std_logic; -- Unknown PIN
          hr_reset : out std_logic := '1'; -- Active low RESET line to HyperRAM
 --         hr_int : in std_logic; -- Interrupt?
+         hr_clk_n : out std_logic := '0';
          hr_clk_p : out std_logic := '1';
+         hr_cs1 : out std_logic := '1';
          hr_cs0 : out std_logic := '1'
          );
 end hyperram;
@@ -98,6 +100,11 @@ architecture gothic of hyperram is
   -- to give the HyperRAM chip time to start up
   -- Datasheet says 150usec is required, we do that, plus a bit.
   signal start_delay_counter : integer := 150*(1000/162)+20;  
+
+  signal countdown : integer := 0;
+  signal extra_latency : std_logic := '0';
+
+  signal next_is_data : std_logic := '1';
   
   signal hr_clock : std_logic := '0';
 
