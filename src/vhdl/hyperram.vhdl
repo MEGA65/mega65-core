@@ -45,7 +45,6 @@ end hyperram;
 architecture gothic of hyperram is
 
   type state_t is (
-    Debug,
     Idle2,
     Idle,
     ReadSetup,
@@ -111,8 +110,6 @@ architecture gothic of hyperram is
   signal write_byte_phase : std_logic := '0';
   signal byte_written : std_logic := '0';
 
-  signal debug_mode : std_logic := '0';
-
   signal hr_ddr : std_logic := '0';
   signal hr_rwds_ddr : std_logic := '0';
   signal hr_reset_int : std_logic := '1';
@@ -171,10 +168,6 @@ architecture gothic of hyperram is
 
   signal cache_enabled : boolean := true;
 
-  signal hr_d_pending : std_logic := '0';
-  signal hr_flags_pending : std_logic := '0';
-  signal hr_d_newval : unsigned(7 downto 0);
-  signal hr_flags_newval : unsigned(7 downto 0);
   signal hr_rwds_high_seen : std_logic := '0';
 
   signal random_bits : unsigned(7 downto 0) := x"00";
@@ -196,8 +189,11 @@ architecture gothic of hyperram is
   signal queued_wdata : unsigned(7 downto 0) := x"00";
   signal queued_waddr : unsigned(26 downto 0) := to_unsigned(0,27);
 
+  signal ddr_toggle : std_logic := '0';
+  signal hr_clk_queue : std_logic_vector(0 to 1) := "00";
+  
 begin
-  process (pixelclock,clock163) is
+  process (pixelclock,clock163,clock325) is
   begin
     if rising_edge(pixelclock) then
       report "read_request=" & std_logic'image(read_request) & ", busy_internal=" & std_logic'image(busy_internal)
@@ -209,9 +205,6 @@ begin
       else
         random_bits <= x"00";
       end if;
-      
-      hr_d_pending <= '0';
-      hr_flags_pending <= '0';
       
       busy <= busy_internal or write_blocked or queued_write;
 
@@ -324,17 +317,16 @@ begin
           case address(3 downto 0) is
             when x"0" =>
               fake_rdata <= unsigned(cache_row1_valids);
---              fake_rdata <= (others => debug_mode);
             when x"1" =>
               fake_rdata <= hr_d;
             when x"2" =>
-              fake_rdata(0) <= hr_rwds;
-              fake_rdata(1) <= hr_reset_int;
-              fake_rdata(2) <= hr_rwds_ddr;
-              fake_rdata(3) <= hr_clk_p_int;
-              fake_rdata(4) <= hr_cs0_int;
-              fake_rdata(5) <= hr_cs1_int;
-              fake_rdata(6) <= hr_ddr;
+              fake_rdata(0) <= '0';
+              fake_rdata(1) <= '0';
+              fake_rdata(2) <= '0';
+              fake_rdata(3) <= '0';
+              fake_rdata(4) <= '0';
+              fake_rdata(5) <= '0';
+              fake_rdata(6) <= '0';
               if cache_enabled then
                 fake_rdata(7) <= '1';
               else
@@ -410,17 +402,10 @@ begin
         if address(23 downto 4) = x"FFFFF" and address(25 downto 24) = "11" then
           case address(3 downto 0) is
             when x"0" =>
-              if wdata = x"de" then
-                debug_mode <= '1';
-              elsif wdata = x"1d" then
-                debug_mode <= '0';
-              end if;
+              null;
             when x"1" =>
-              hr_d_pending <= '1';
-              hr_d_newval <= wdata;
+              null;
             when x"2" =>
-              hr_flags_pending <= '1';
-              hr_flags_newval <= wdata;
               if wdata(7)='1' then
                 cache_enabled <= true;
               else
@@ -497,41 +482,20 @@ begin
       end if;
 
     end if;
+    if rising_edge(clock325) then
+      ddr_toggle <= not ddr_toggle;
+      if ddr_toggle='0' then
+        hr_clk_p <= hr_clk_queue(0);
+        hr_clk_n <= not hr_clk_queue(0);
+      else
+        hr_clk_p <= hr_clk_queue(1);
+        hr_clk_n <= not hr_clk_queue(1);
+      end if;
+    end if;
     if rising_edge(clock163) then
 
       cycle_count <= cycle_count + 1;
 
-      -- Bitbashing interface to write values
-      if hr_d_pending='1' then
-        if hr_ddr='1' then
-          hr_d <= hr_d_newval;
-        end if;
-      end if;
-      if hr_flags_pending='1' then
-        hr_rwds_int <= hr_flags_newval(0);
-        hr_reset_int <= hr_flags_newval(1);
-        hr_clk_n_int <= not hr_flags_newval(3);
-        hr_clk_p_int <= hr_flags_newval(3);
-        hr_cs0_int <= hr_flags_newval(4);
-        hr_cs1_int <= hr_flags_newval(5);
-        
-        hr_reset <= hr_flags_newval(1);
-        hr_clk_n <= not hr_flags_newval(3);
-        hr_clk_p <= hr_flags_newval(3);
-        hr_cs0 <= hr_flags_newval(4);
-        hr_cs1 <= hr_flags_newval(5);
-        
-        hr_rwds_ddr <= hr_flags_newval(2);
-        if hr_flags_newval(2)='0' then
-          hr_rwds <= 'Z';
-        end if;
-        
-        hr_ddr <= hr_flags_newval(6);
-        if hr_flags_newval(6)='0' then
-          hr_d <= (others => 'Z');
-        end if;
-      end if;        
-      
       if data_ready_strobe_hold = '0' then      
         data_ready_strobe <= fake_data_ready_strobe;
         if fake_data_ready_strobe='1' then
@@ -562,19 +526,6 @@ begin
         start_delay_counter <= 0;
         
         case state is
-          when Debug =>
-            if debug_mode='0' then
-              rwr_counter <= rwr_delay;
-              state <= Idle;
-            end if;
-
-            if hr_rwds_ddr='1' then
-              hr_rwds <= hr_rwds_int;
-            else
-              hr_rwds <= 'Z';
-            end if;
-            hr_reset <= hr_reset_int;
-
           when Idle2 =>
             report "Releasing hyperram CS lines";
             hr_cs0 <= '1';
@@ -613,9 +564,6 @@ begin
             
             -- Mark us ready for a new job, or pick up a new job
             next_is_data <= '1';
-            if debug_mode='1' then
-              state <= Debug;
-            end if;
             if rwr_counter /= to_unsigned(0,8) then
               rwr_counter <= rwr_counter - 1;
             end if;
