@@ -748,7 +748,7 @@ begin
             if ram_address(24)='1' and ram_reading_held='0' and odd_byte_fix_flags(4)='1' then
               -- 48 bits of CA followed by 16 bit register value
               -- (we shift the buffered config register values out automatically)
-              countdown <= 8;
+              countdown <= 7;
             else
               countdown <= 6; -- 48 bits = 6 x 8 bits
             end if;
