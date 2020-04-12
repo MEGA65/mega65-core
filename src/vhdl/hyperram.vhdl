@@ -186,10 +186,11 @@ architecture gothic of hyperram is
   signal queued_wdata : unsigned(7 downto 0) := x"00";
   signal queued_waddr : unsigned(26 downto 0) := to_unsigned(0,27);
 
-  signal hr_clk_queue : std_logic_vector(0 to 1) := "00";
+  signal hr_clk_set : std_logic := '0';
+  signal hr_clk_delayed : std_logic := '0';
   
 begin
-  process (pixelclock,clock163,clock325) is
+  process (pixelclock,clock163,clock325,hr_clk_set,hr_clk_delayed) is
   begin
     if rising_edge(pixelclock) then
       report "read_request=" & std_logic'image(read_request) & ", busy_internal=" & std_logic'image(busy_internal)
@@ -478,17 +479,18 @@ begin
       end if;
 
     end if;
+    -- Optionally delay HR_CLK by 1/2 an 80MHz clock cycle
     if rising_edge(clock325) then
-      if clock163='1' then
-        report "clock <= queue(0) = " & std_logic'image(hr_clk_queue(0));
-        hr_clk_p <= hr_clk_queue(0);
-        hr_clk_n <= not hr_clk_queue(0);
-      else
-        report "clock <= queue(1) = " & std_logic'image(hr_clk_queue(1));
-        hr_clk_p <= hr_clk_queue(1);
-        hr_clk_n <= not hr_clk_queue(1);
+      if hr_clk_delayed='1' then
+        hr_clk_p <= hr_clk_set;
+        hr_clk_n <= not hr_clk_set;
       end if;
     end if;
+    if hr_clk_delayed='0' then
+        hr_clk_p <= hr_clk_set;
+        hr_clk_n <= not hr_clk_set;
+    end if;
+
     if rising_edge(clock163) then
 
       cycle_count <= cycle_count + 1;
@@ -623,7 +625,8 @@ begin
                 countdown <= 6; -- 48 bits = 6 x 8 bits
               end if;
 
-              hr_clk_queue <= "00";
+              hr_clk_set <= '0';
+              hr_clk_delayed <= '1';
               ddr_phase <= '0';
               
             elsif write_collect1_dispatchable = '1' then
@@ -662,7 +665,8 @@ begin
               countdown <= 6; -- 48 bits = 6 x 8 bits
             end if;
 
-            hr_clk_queue <= "00";
+            hr_clk_set <= '0';
+            hr_clk_delayed <= '1';
               
             report "clk_queue <= '00'";
             ddr_phase <= '0';
@@ -678,8 +682,8 @@ begin
 
             -- Clock must be low when idle, so that it is in correct phase
             -- when CS0 is pulled low to trigger a transaction
-            hr_clk_queue <= "00";
-            report "clk_queue <= '00'";
+            hr_clk_set <= '0';
+            hr_clk_delayed <= '1';         
             
             report "Tristating hr_d";
             hr_d <= (others => 'Z');
@@ -720,8 +724,8 @@ begin
               countdown <= 6; -- 48 bits = 6 x 8 bits
             end if;
 
-            hr_clk_queue <= "00";
-            report "clk_queue <= '00'";
+            hr_clk_set <= '0';
+            hr_clk_delayed <= '1';         
             ddr_phase <= '0';
             
           when WriteSetup =>
@@ -752,8 +756,8 @@ begin
               countdown <= 6; -- 48 bits = 6 x 8 bits
             end if;
 
-            hr_clk_queue <= "00";
-            report "clk_queue <= '00'";
+            hr_clk_set <= '0';
+            hr_clk_delayed <= '1';         
             ddr_phase <= '0';
             
           when HyperRAMOutputCommand =>
@@ -765,13 +769,9 @@ begin
             hr_rwds <= 'Z';
 
             ddr_phase <= not ddr_phase;
-            if ddr_phase='0' then
-              hr_clk_queue <= "11";
-              report "clk_queue <= '11'";
-            else
-              hr_clk_queue <= "00";
-            report "clk_queue <= '00'";
-            end if;
+
+            hr_clk_set <= not ddr_phase;
+            hr_clk_delayed <= '1';         
 
             -- Toggle data while clock steady
 --              report "Presenting hr_command byte on hr_d = $" & to_hstring(hr_command(47 downto 40))
@@ -849,13 +849,8 @@ begin
             write_byte_phase <= '0';
           when HyperRAMDoWrite =>
             ddr_phase <= not ddr_phase;
-            if ddr_phase='0' then
-              hr_clk_queue <= "11";
-              report "clk_queue <= '11'";
-            else
-              report "clk_queue <= '00'";
-              hr_clk_queue <= "00";
-            end if;
+            hr_clk_set <= not ddr_phase;
+            hr_clk_delayed <= '1';         
 
             report "WRITE: LatencyWait state, bg_wr=" & std_logic'image(background_write)
               & ", count=" & integer'image(background_write_count);
@@ -942,7 +937,8 @@ begin
                     background_write_count <= background_write_count - 1;
                   else
                     report "Advancing to HyperRAMFinishWriting";
-                    hr_clk_queue <= "00";
+                    hr_clk_set <= '0';
+                    hr_clk_delayed <= '1';         
                     state <= HyperRAMFinishWriting1;                    
                   end if;
                 end if;
@@ -954,7 +950,8 @@ begin
             hr_cs1 <= '1';
             hr_rwds <= 'Z';
             hr_d <= x"FA"; -- "after" data byte
-            hr_clk_queue <= "00";
+            hr_clk_set <= '0';
+            hr_clk_delayed <= '1';         
             report "clk_queue <= '00'";
             rwr_counter <= rwr_delay;
             state <= Idle;
@@ -984,15 +981,10 @@ begin
             else
               countdown <= countdown - 1;
             end if;
+
             ddr_phase <= not ddr_phase;
-            if ddr_phase='0' then
-              report "clk_queue <= '10'";
-              hr_clk_queue <= "10";
-            else
-              report "clk_queue <= '01'";
-              hr_clk_queue <= "01";
-            end if;
-              
+            hr_clk_set <= ddr_phase;
+            hr_clk_delayed <= '0';         
             
             last_rwds <= hr_rwds;
               -- HyperRAM drives RWDS basically to follow the clock.
@@ -1062,8 +1054,8 @@ begin
                 state <= Idle;
                 hr_cs0 <= '1';
                 hr_cs1 <= '1';
-                hr_clk_queue <= "00";
-                report "clk_queue <= '00'";
+                hr_clk_set <= '0';
+                hr_clk_delayed <= '0';         
               else
                 byte_phase <= byte_phase + 1;
               end if;
