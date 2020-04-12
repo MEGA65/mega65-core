@@ -985,11 +985,12 @@ begin
               countdown <= countdown - 1;
             end if;
             ddr_phase <= not ddr_phase;
-            hr_clk_queue <= (others => ddr_phase);
-            if ddr_phase='1' then
-              report "clk_queue <= '11'";
+            if ddr_phase='0' then
+              report "clk_queue <= '10'";
+              hr_clk_queue <= "10";
             else
-              report "clk_queue <= '00'";
+              report "clk_queue <= '01'";
+              hr_clk_queue <= "01";
             end if;
               
             
