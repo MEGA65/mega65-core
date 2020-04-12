@@ -810,6 +810,7 @@ begin
           when HyperRAMOutputCommandSlow =>
             -- XXX This sometimes still fails
             -- Is it glitching on latching the clock in the 325MHz clock domain?
+            -- Yes, that is part of it.
             
             report "Writing command";
             -- Call HyperRAM to attention
@@ -1325,7 +1326,10 @@ begin
 
             pause_phase <= not pause_phase;
 
-            if pause_phase = '0' then              
+            if pause_phase = '1' then
+              hr_clk_set <= not ddr_phase;
+              hr_clk_delayed <= '0';         
+            else
               if countdown = 0 then
                 -- Timed out waiting for read -- so return anyway, rather
                 -- than locking the machine hard forever.
@@ -1341,8 +1345,6 @@ begin
               end if;
               
               ddr_phase <= not ddr_phase;
-              hr_clk_set <= not ddr_phase;
-              hr_clk_delayed <= '0';         
               
               last_rwds <= hr_rwds;
               -- HyperRAM drives RWDS basically to follow the clock.
