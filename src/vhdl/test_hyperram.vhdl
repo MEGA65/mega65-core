@@ -280,6 +280,7 @@ begin
           report "DISPATCH: ERROR: Expected $" & to_hstring(expected_value) & ", but saw $" & to_hstring(slow_access_rdata);
         end if;
       end if;
+      expect_value <= '0';
       last_slow_access_ready_toggle <= slow_access_ready_toggle;
     end if;
 
@@ -287,7 +288,7 @@ begin
 
       if idle_wait /= 0 then
         idle_wait <= idle_wait - 1;
-      else
+      elsif expect_value = '0' then
 
         if mem_jobs(cycles).address = x"FFFFFFF" then
           cycles <= 0;
@@ -304,7 +305,7 @@ begin
         if (mem_jobs(cycles).write_p='0') then
           -- Let reads finish serially
           -- (In the worst case, this can take quite a while)
-          idle_wait <= 20;
+          idle_wait <= 0;
           report "DISPATCH: Reading from $" & to_hstring(mem_jobs(cycles).address) & ", expecting to see $"
             & to_hstring(mem_jobs(cycles).value);
           expect_value <= '1';
