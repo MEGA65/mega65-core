@@ -84,11 +84,13 @@ architecture gothic of hyperram is
 
   -- We want to set config register 0 to $8fe6, to enable variable latency
   -- and 3 cycles instead of 6 for latency. This speeds up writing almost 2x.
+  -- But at 80MHz instead of 40MHz bus, we have to increase the latency from
+  -- 3 to 4 cycles to satisfy the 40ns minimum time requirement.
   
   signal conf_buf0 : unsigned(7 downto 0) := x"8f";
-  signal conf_buf1 : unsigned(7 downto 0) := x"1f";
+  signal conf_buf1 : unsigned(7 downto 0) := x"f6";
   signal conf_buf0_in : unsigned(7 downto 0) := x"8f";
-  signal conf_buf1_in : unsigned(7 downto 0) := x"1f";
+  signal conf_buf1_in : unsigned(7 downto 0) := x"f6";
   signal conf_buf0_set : std_logic := '0';
   signal conf_buf1_set : std_logic := '0';
   signal last_conf_buf0_set : std_logic := '0';
@@ -148,7 +150,7 @@ architecture gothic of hyperram is
 
   signal write_collect1_dispatchable : std_logic := '0';
   signal write_collect1_address : unsigned(26 downto 3) := (others => '0');  
-  signal write_collect1_valids : std_logic_vector(0 to 7) := (others => '0');
+ signal write_collect1_valids : std_logic_vector(0 to 7) := (others => '0');
   signal write_collect1_data : cache_row_t := ( others => x"00" );
   signal write_collect1_toolate : std_logic := '0'; -- Set when its too late to
                                                     -- add more bytes to the write.
@@ -162,11 +164,11 @@ architecture gothic of hyperram is
 
   signal request_counter_int : std_logic := '0';
 
-  -- 3 is correct for the part we have in the MEGA65, after we have set the
+  -- 4 is correct for the part we have in the MEGA65, after we have set the
   -- config register to minimise latency.
-  signal write_latency : unsigned(7 downto 0) := to_unsigned(6,8);
+  signal write_latency : unsigned(7 downto 0) := to_unsigned(5,8);
   -- And the matching extra latency is 5
-  signal extra_write_latency : unsigned(7 downto 0) := to_unsigned(14,8);
+  signal extra_write_latency : unsigned(7 downto 0) := to_unsigned(8,8);
   -- 8 - 4 is required, however, for the s27k0641.vhd test model that we have
   -- found for testing.
 --   signal write_latency : unsigned(7 downto 0) := to_unsigned((8 - 5)*2,8);
