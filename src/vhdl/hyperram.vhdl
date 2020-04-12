@@ -61,6 +61,10 @@ architecture gothic of hyperram is
   -- covered by various latencies in the system (including clock 1/2 cycle delay).
   -- This effectively gets us down to 45ns. Taking another cycle would leave us
   -- at only 38.7ns, which is a bit too short.
+  -- This gives us an effective 8-byte write latency of ~132ns = ~7.5MHz.
+  -- For read it is ~143ns = 6.99MHz, which might just be a whisker too slow
+  -- for MiniMig.  By reading only 4 bytes instead of 8, this would allow getting
+  -- back down to ~120 -- 132ns, which should be enough.
   signal rwr_delay : unsigned(7 downto 0) := to_unsigned(40*163/1000 - 1 - 2 -1,8);
   signal rwr_counter : unsigned(7 downto 0) := (others => '0');
 
@@ -82,9 +86,9 @@ architecture gothic of hyperram is
   -- and 3 cycles instead of 6 for latency. This speeds up writing almost 2x.
   
   signal conf_buf0 : unsigned(7 downto 0) := x"8f";
-  signal conf_buf1 : unsigned(7 downto 0) := x"e6";
+  signal conf_buf1 : unsigned(7 downto 0) := x"1f";
   signal conf_buf0_in : unsigned(7 downto 0) := x"8f";
-  signal conf_buf1_in : unsigned(7 downto 0) := x"e6";
+  signal conf_buf1_in : unsigned(7 downto 0) := x"1f";
   signal conf_buf0_set : std_logic := '0';
   signal conf_buf1_set : std_logic := '0';
   signal last_conf_buf0_set : std_logic := '0';
@@ -160,9 +164,9 @@ architecture gothic of hyperram is
 
   -- 3 is correct for the part we have in the MEGA65, after we have set the
   -- config register to minimise latency.
-  signal write_latency : unsigned(7 downto 0) := to_unsigned(3,8);
+  signal write_latency : unsigned(7 downto 0) := to_unsigned(6,8);
   -- And the matching extra latency is 5
-  signal extra_write_latency : unsigned(7 downto 0) := to_unsigned(5,8);
+  signal extra_write_latency : unsigned(7 downto 0) := to_unsigned(14,8);
   -- 8 - 4 is required, however, for the s27k0641.vhd test model that we have
   -- found for testing.
 --   signal write_latency : unsigned(7 downto 0) := to_unsigned((8 - 5)*2,8);
