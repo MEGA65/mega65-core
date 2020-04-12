@@ -187,7 +187,17 @@ begin  -- behavioural
     -- detect if the thumbnail is valid, or if it is still showing data from
     -- another process.
     if fastio_read='1' and (thumbnail_cs='1') then
-      if fastio_addr(3 downto 0) = x"2" then
+      if fastio_addr(3 downto 0) = x"5" then
+        fastio_rdata(0) <= pixel_valid_out;
+        fastio_rdata(1) <= pixel_newraster;
+        fastio_rdata(2) <= pixel_newframe;
+      elsif fastio_addr(3 downto 0) = x"4" then
+        -- @IO:GS $D644 - Lower 8 bits of thumbnail buffer read address (TEMPORARY DEBUG REGISTER)
+        fastio_rdata <= thumbnail_write_address(11 downto 8);
+      elsif fastio_addr(3 downto 0) = x"3" then
+        -- @IO:GS $D643 - Lower 8 bits of thumbnail buffer read address (TEMPORARY DEBUG REGISTER)
+        fastio_rdata <= thumbnail_write_address(7 downto 0);
+      elsif fastio_addr(3 downto 0) = x"2" then
         -- @IO:GS $D642 - Lower 8 bits of thumbnail buffer read address (TEMPORARY DEBUG REGISTER)
         fastio_rdata <= thumbnail_read_address(7 downto 0);
       elsif fastio_addr(3 downto 0) = x"1" then
