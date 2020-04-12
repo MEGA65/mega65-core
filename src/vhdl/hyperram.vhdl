@@ -51,13 +51,17 @@ architecture gothic of hyperram is
     HyperRAMOutputCommand,
     HyperRAMDoWrite,
     HyperRAMFinishWriting1,
-    HyperRAMFinishWriting,
     HyperRAMReadWait
     );
 
   -- How many clock ticks need to expire between transactions to satisfy T_RWR
-  -- of hyperrram?
-  signal rwr_delay : unsigned(7 downto 0) := to_unsigned(1+40*163/1000,8);
+  -- of hyperrram for the T_RWR 40ns delay.
+  -- We can also subtract one cycle for the time it takes to pull CS low, and then
+  -- two more for the clocks before the critical moment, and one more for time
+  -- covered by various latencies in the system (including clock 1/2 cycle delay).
+  -- This effectively gets us down to 45ns. Taking another cycle would leave us
+  -- at only 38.7ns, which is a bit too short.
+  signal rwr_delay : unsigned(7 downto 0) := to_unsigned(40*163/1000 - 1 - 2 -1,8);
   signal rwr_counter : unsigned(7 downto 0) := (others => '0');
 
   -- We prime the HyperRAM controller to set the value of CR0 initially on
@@ -526,6 +530,9 @@ begin
         
         case state is
           when Idle =>
+            report "Tristating hr_d";
+            hr_d <= (others => 'Z');
+
             -- Invalidate cache if disabled
             if cache_enabled = false then
               cache_row0_valids <= (others => '0');
@@ -545,8 +552,8 @@ begin
             -- Mark us ready for a new job, or pick up a new job
             if rwr_counter /= to_unsigned(0,8) then
               rwr_counter <= rwr_counter - 1;
-            end if;
-            if request_toggle /= last_request_toggle and rwr_counter = to_unsigned(0,8) then
+              hr_d <= x"bb";
+            elsif request_toggle /= last_request_toggle then
               last_request_toggle <= request_toggle;
               ram_reading_held <= ram_reading;
               if ram_reading = '1' then
@@ -656,20 +663,20 @@ begin
               
               hr_reset <= '1'; -- active low reset
 
-            state <= HyperRAMOutputCommand;
-            if ram_address(24)='1' and ram_reading_held='0' and odd_byte_fix_flags(4)='1' then
-              -- 48 bits of CA followed by 16 bit register value
-              -- (we shift the buffered config register values out automatically)
-              countdown <= 7;
-            else
-              countdown <= 6; -- 48 bits = 6 x 8 bits
-            end if;
+              state <= HyperRAMOutputCommand;
+              if ram_address(24)='1' and ram_reading_held='0' and odd_byte_fix_flags(4)='1' then
+                -- 48 bits of CA followed by 16 bit register value
+                -- (we shift the buffered config register values out automatically)
+                countdown <= 7;
+              else
+                countdown <= 6; -- 48 bits = 6 x 8 bits
+              end if;
 
-            hr_clk_set <= '0';
-            hr_clk_delayed <= '1';
+              hr_clk_set <= '0';
+              hr_clk_delayed <= '1';
               
-            report "clk_queue <= '00'";
-            ddr_phase <= '0';
+              report "clk_queue <= '00'";
+              ddr_phase <= '0';
 
             else
               report "Clearing busy_internal";
@@ -685,8 +692,6 @@ begin
             hr_clk_set <= '0';
             hr_clk_delayed <= '1';         
             
-            report "Tristating hr_d";
-            hr_d <= (others => 'Z');
           when ReadSetup =>
             report "Setting up to read $" & to_hstring(ram_address) & " ( address = $" & to_hstring(address) & ")";
             -- Prepare command vector
@@ -955,15 +960,6 @@ begin
             report "clk_queue <= '00'";
             rwr_counter <= rwr_delay;
             state <= Idle;
-          when HyperRAMFinishWriting =>
-            -- Last cycle was data, so next cycle is clock.
-
-            -- Indicate no more bytes to write
-            hr_rwds <= 'Z';
-
-            -- Go back to waiting
-            rwr_counter <= rwr_delay;
-            state <= Idle;
           when HyperRAMReadWait =>
             hr_rwds <= 'Z';
             report "Presenting tri-state on hr_d";
@@ -1060,9 +1056,6 @@ begin
                 byte_phase <= byte_phase + 1;
               end if;
             end if;
-          when others =>
-            rwr_counter <= rwr_delay;
-            state <= Idle;
         end case;      
       end if;
     end if;
