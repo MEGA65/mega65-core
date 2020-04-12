@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 int main(int argc,char **argv)
 {
@@ -11,6 +12,8 @@ int main(int argc,char **argv)
   unsigned char hr_cs0,hr_clk_p,hr_reset,hr_rwds;
   unsigned char hr_d[8];
 
+  time_t t=time(0);
+  
   printf("$date\n"
 	 "   Mon Feb 17 15:29:53 2020\n"
 	 "\n"
@@ -79,6 +82,8 @@ int main(int argc,char **argv)
 	}
       }
     }
+
+    if ((time(0)-t)>20) exit(0);
     
     line[0]=0; fgets(line,1024,stdin);
   }
