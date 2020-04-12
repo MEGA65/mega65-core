@@ -196,9 +196,9 @@ begin
     
   end generate;
   
-  process (pixelclock,cpuclock) is
+  process (pixelclock) is
   begin
-    if rising_edge(cpuclock) then
+    if rising_edge(pixelclock) then
 
       -- Mark expansion RAM as present if the busy flag ever clears
       if expansionram_busy='0' then
