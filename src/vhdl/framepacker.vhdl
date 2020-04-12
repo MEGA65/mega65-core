@@ -193,7 +193,8 @@ begin  -- behavioural
         fastio_rdata(2) <= pixel_newframe;
       elsif fastio_addr(3 downto 0) = x"4" then
         -- @IO:GS $D644 - Lower 8 bits of thumbnail buffer read address (TEMPORARY DEBUG REGISTER)
-        fastio_rdata <= thumbnail_write_address(11 downto 8);
+        fastio_rdata(7 downto 4) <= "0000";
+        fastio_rdata(3 downto 0) <= thumbnail_write_address(11 downto 8);
       elsif fastio_addr(3 downto 0) = x"3" then
         -- @IO:GS $D643 - Lower 8 bits of thumbnail buffer read address (TEMPORARY DEBUG REGISTER)
         fastio_rdata <= thumbnail_write_address(7 downto 0);
