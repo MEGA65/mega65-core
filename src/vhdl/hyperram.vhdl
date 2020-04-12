@@ -1108,12 +1108,12 @@ begin
             end if;
           when HyperRAMDoWriteSlow =>
             pause_phase <= not pause_phase;
-            
-            if pause_phase = '0' then
 
-              ddr_phase <= not ddr_phase;
-              hr_clk_set <= not ddr_phase;
+            if pause_phase = '1' then
+              hr_clk_set <= ddr_phase;
               hr_clk_delayed <= '0';         
+            else
+              ddr_phase <= not ddr_phase;
               
               report "WRITE: LatencyWait state, bg_wr=" & std_logic'image(background_write)
                 & ", count=" & integer'image(background_write_count);
@@ -1338,7 +1338,7 @@ begin
               end if;
               
               ddr_phase <= not ddr_phase;
-              hr_clk_set <= ddr_phase;
+              hr_clk_set <= not ddr_phase;
               hr_clk_delayed <= '0';         
               
               last_rwds <= hr_rwds;
