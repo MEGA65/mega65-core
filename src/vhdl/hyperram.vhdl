@@ -103,7 +103,7 @@ architecture gothic of hyperram is
   -- config register to minimise latency.
   signal write_latency : unsigned(7 downto 0) := to_unsigned(7,8);
   -- And the matching extra latency is 5
-  signal extra_write_latency : unsigned(7 downto 0) := to_unsigned(10,8);
+  signal extra_write_latency : unsigned(7 downto 0) := to_unsigned(9,8);
 
   signal fast_cmd_mode : std_logic := '0';
   signal fast_read_mode : std_logic := '0';
@@ -499,16 +499,16 @@ begin
 
     end if;
     -- Optionally delay HR_CLK by 1/2 an 80MHz clock cycle
-    if rising_edge(clock325) then
-      if hr_clk_delayed='1' then
+--    if rising_edge(clock325) then
+--      if hr_clk_delayed='1' then
+--        hr_clk_p <= hr_clk_set;
+--        hr_clk_n <= not hr_clk_set;
+--     end if;
+--    end if;
+--    if hr_clk_delayed='0' then
         hr_clk_p <= hr_clk_set;
         hr_clk_n <= not hr_clk_set;
-      end if;
-    end if;
-    if hr_clk_delayed='0' then
-        hr_clk_p <= hr_clk_set;
-        hr_clk_n <= not hr_clk_set;
-    end if;
+--    end if;
 
     if rising_edge(clock163) then
 
@@ -808,6 +808,9 @@ begin
             ddr_phase <= '0';
             
           when HyperRAMOutputCommandSlow =>
+            -- XXX This sometimes still fails
+            -- Is it glitching on latching the clock in the 325MHz clock domain?
+            
             report "Writing command";
             -- Call HyperRAM to attention
             hr_cs0 <= ram_address(23);
