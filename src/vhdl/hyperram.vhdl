@@ -1003,6 +1003,7 @@ begin
                   end if;
                 end if;
 
+                countdown_timeout <= '0';
                 if fast_write_mode='1' then
                   state <= HyperRAMDoWrite;
                 else
@@ -1115,7 +1116,13 @@ begin
 
             if pause_phase = '1' then
               hr_clk_set <= ddr_phase;
-              hr_clk_delayed <= '0';         
+              hr_clk_delayed <= '0';
+              if countdown_timeout = '1' then
+                report "Advancing to HyperRAMFinishWriting";
+                hr_clk_set <= '0';
+                hr_clk_delayed <= '1';         
+                state <= HyperRAMFinishWriting;                    
+              end if;
             else
               ddr_phase <= not ddr_phase;
               
@@ -1203,10 +1210,7 @@ begin
                     if background_write_count /= 0 then
                       background_write_count <= background_write_count - 1;
                     else
-                      report "Advancing to HyperRAMFinishWriting";
-                      hr_clk_set <= '0';
-                      hr_clk_delayed <= '1';         
-                      state <= HyperRAMFinishWriting;                    
+                      countdown_timeout <= '1';
                     end if;
                   end if;
                 end if;
