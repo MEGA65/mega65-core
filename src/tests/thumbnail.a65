@@ -41,9 +41,9 @@ l7:	 sta $2d00,y
 
 	 inc $d020
 
-	 ; raster interrupt to toggle normal/full-colour mode
+	 ; initial raster interrupt to toggle normal/full-colour mode
 	 
-	 lda #$00
+	 lda #$08
 	 sta $d012
 	 lda #$1b
 	 sta $d011
@@ -75,7 +75,8 @@ l5:	 nop
 	 lda #$02
 	 sta $d054
 
-	 lda #$00
+	 ; Work around temporary NTSC bug that stops raster interrupts for rasters $000 - $005
+	 lda #$20
 	 sta $d012
 	 lda #$1b
 	 sta $d011
