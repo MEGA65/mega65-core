@@ -203,7 +203,7 @@ architecture gothic of hyperram is
     := 150*(1000/162)+20
     -- plus a correction factor to get initial config register write correctly
     -- aligned with the clock
-    +1;
+    +3;
   -- phaseshift has to also start at 1 for the above to work.
   signal hr_clk_phaseshift : std_logic := '1';
   signal hr_clk_phaseshift_current : std_logic := '1';
