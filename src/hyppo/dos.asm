@@ -3763,11 +3763,11 @@ dos_d81attach0:
 ;;         ========================
 
 d81a1:        ;; XXX - Why do we call closefile here?
-        ;jsr dos_closefile
+        jsr dos_closefile
 
-	;jsr dos_d81check
-	;bcs d81a1a
-	;rts
+        jsr dos_d81check
+        bcs d81a1a
+        rts
 d81a1a:	
 
         ;; copy sector number from $D681 to $D68c
@@ -3852,12 +3852,11 @@ dos_d81attach1:
 ;;         ========================
 
 d81a1b:        ;; XXX - Why do we call closefile here?
-        ;jsr dos_closefile
+        jsr dos_closefile
 
-	;jsr dos_d81check
-
-	;bcs d81a1ab
-	;rts
+        jsr dos_d81check
+        bcs d81a1ab
+        rts
 d81a1ab:	
 
         ;; copy sector number from $D681 to $D68c
