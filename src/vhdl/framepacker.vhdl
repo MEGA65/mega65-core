@@ -191,6 +191,7 @@ begin  -- behavioural
         fastio_rdata(0) <= pixel_valid_out;
         fastio_rdata(1) <= pixel_newraster;
         fastio_rdata(2) <= pixel_newframe;
+        fastio_rdata(7 downto 3) <= (others => '0');
       elsif fastio_addr(3 downto 0) = x"4" then
         -- @IO:GS $D644 - Lower 8 bits of thumbnail buffer read address (TEMPORARY DEBUG REGISTER)
         fastio_rdata(7 downto 4) <= "0000";
