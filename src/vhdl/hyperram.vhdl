@@ -204,6 +204,7 @@ architecture gothic of hyperram is
 
   signal hr_clk_set : std_logic := '0';
   signal hr_clk_delayed : std_logic := '0';
+  signal hr_d_last : unsigned(7 downto 0);
   
 begin
   process (pixelclock,clock163,clock325,hr_clk_set,hr_clk_delayed) is
@@ -1333,7 +1334,7 @@ begin
             pause_phase <= not pause_phase;
 
             if pause_phase = '1' then
-              null;
+              hr_d_last <= hr_d;
             else
               hr_clk_set <= not ddr_phase;
               hr_clk_delayed <= '0';         
@@ -1376,20 +1377,20 @@ begin
                   -- Store the bytes in the cache row
                   if cache_row0_address = ram_address(26 downto 3) then          
                     cache_row0_valids(to_integer(byte_phase)) <= '1';
-                    cache_row0_data(to_integer(byte_phase)) <= hr_d;
+                    cache_row0_data(to_integer(byte_phase)) <= hr_d_last;
                   elsif cache_row1_address = ram_address(26 downto 3) then          
                     cache_row1_valids(to_integer(byte_phase)) <= '1';
-                    cache_row1_data(to_integer(byte_phase)) <= hr_d;
+                    cache_row1_data(to_integer(byte_phase)) <= hr_d_last;
                   elsif random_bits(1) = '0' then
                     cache_row0_valids <= (others => '0');
                     cache_row0_address <= ram_address(26 downto 3);
                     cache_row0_valids(to_integer(byte_phase)) <= '1';
-                    cache_row0_data(to_integer(byte_phase)) <= hr_d;
+                    cache_row0_data(to_integer(byte_phase)) <= hr_d_last;
                   else
                     cache_row1_valids <= (others => '0');
                     cache_row1_address <= ram_address(26 downto 3);
                     cache_row1_valids(to_integer(byte_phase)) <= '1';
-                    cache_row1_data(to_integer(byte_phase)) <= hr_d;
+                    cache_row1_data(to_integer(byte_phase)) <= hr_d_last;
                   end if;
                 else
                   -- Export the appropriate cache line to slow_devices
@@ -1410,8 +1411,8 @@ begin
                 
                 -- Quickly return the correct byte
                 if to_integer(byte_phase) = (to_integer(ram_address(2 downto 0))+0) then
-                  report "DISPATCH: Returning freshly read data = $" & to_hstring(hr_d);
-                  rdata <= hr_d;
+                  report "DISPATCH: Returning freshly read data = $" & to_hstring(hr_d_last);
+                  rdata <= hr_d_last;
                   data_ready_strobe <= '1';
                   data_ready_strobe_hold <= '1';
                 end if;
