@@ -16,6 +16,13 @@ unsigned int mbs;
 unsigned int temp_addr;
 unsigned int i,j,k;
 
+/*
+  0x01 = Send command fast  (not currently working)
+  0x02 = Read bytes fast
+  0x04 = Write data fast (not currently working)
+*/
+unsigned char fast_flags=0x02; 
+
 void bust_cache(void) {
   lpeek(0x8000100);
   lpeek(0x8000110);
@@ -35,7 +42,7 @@ void bust_cache(void) {
   lpoke(0x8000170,0x99);
 
   lpoke(0xbfffff2,0x00);
-  lpoke(0xbfffff2,0x80);
+  lpoke(0xbfffff2,0x80+fast_flags);
 }
 
 
@@ -46,7 +53,7 @@ void setup_hyperram(void)
   */
   printf("Determining size of Extra RAM");
   
-  lpoke(0xbfffff2,0x80);
+  lpoke(0xbfffff2,0x80+fast_flags);
   lpoke(0x8000000,0xbd);
   if (lpeek(0x8000000)!=0xbd) {
     printf("ERROR: $8000000 didn't hold its value.\n"
@@ -85,7 +92,7 @@ void setup_hyperram(void)
 
   // Pre-fill all hyperram for convenience
   printf("Erasing hyperram");
-  lpoke(0xbfffff2,0x80);  // cache on for much faster linear writes
+  lpoke(0xbfffff2,0x80+fast_flags);  // cache on for much faster linear writes
 
   // Allow for upto 16MB of HyperRAM
   for(addr=0x8000000;(addr<upper_addr);addr+=0x8000)
@@ -120,17 +127,19 @@ void test_miswrite(void)
 
   for(addr=0x8000000;addr<upper_addr;addr+=0x800)
     {
-      printf("Testing @ $%08lx\n",addr);
-      for(i=0;i<256;i) {
-	printf(".");
+      printf("\nTesting @ $%08lx",addr);
+      for(i=0;i<256;i++) {
+	if (!(i&0xf)) printf(".");
 	lfill(addr,0,0x800);
 	// Write test pattern somewhere
 	for(j=0;j<16;j++) lpoke(addr+(i*4)+j,0x10+j);
+
 	// Copy slow RAM back and check
-	while(1) {
+	//while(1) {
 	lcopy(addr,0xc000,0x800);
-	lcopy(0xc000,0x0400,0x3c0);
-	}
+	//	  lcopy(0xc000,0x0400,0x3c0);
+	//	}
+	  
 	{
 	for(j=0;j<0x800;j++) {
 	  if (j<(i*4)||j>=((i*4+16))) {
@@ -150,11 +159,11 @@ void test_miswrite(void)
 	      printf("ERROR: Read $%02x from $%08lx, expected $%02x (i=%d)\n",
 		     PEEK(0xc000+j),addr+j,
 		     0x10+j-i*4,i);
-	      /*
+	      
 	    while(PEEK(0xD610)) POKE(0xD610,0);
 	    while(!PEEK(0xD610)) continue;
 	    while(PEEK(0xD610)) POKE(0xD610,0);
-	      */
+	    
 	      }
 	    }
 	}
@@ -297,7 +306,7 @@ void main(void)
   printf("%c",0x93);
 
   // Turn cache back on before reading config registers etc
-  lpoke(0xbfffff2,0x80);
+  lpoke(0xbfffff2,0x80+fast_flags);
   
   bust_cache();
   cr0hi=lpeek(0x9001000);
@@ -347,8 +356,9 @@ void main(void)
     printf("%ld KB/sec\n",speed);
     
     // Hyperram Cache on
-    lpoke(0xbfffff2,0x80);
-    printf("With Cache enabled:\n");
+    fast_flags=0x02;
+    lpoke(0xbfffff2,0x80+fast_flags);
+    printf("With fast access enabled:\n");
     
     while(PEEK(0xD012)!=0x10)
       while(PEEK(0xD011)&0x80) continue;
@@ -387,8 +397,8 @@ void main(void)
     printf("%ld KB/sec\n",speed);
     
     // Hyperram Cache off
-    lpoke(0xbfffff2,0x00);
-    printf("With Cache disabled:\n");
+    lpoke(0xbfffff2,0x80);
+    printf("With fast access disabled:\n");
     
     while(PEEK(0xD012)!=0x10)
       while(PEEK(0xD011)&0x80) continue;
@@ -427,7 +437,7 @@ void main(void)
     printf("%ld KB/sec\n",speed);
 
     // cache back on after no-cache test
-    lpoke(0xbfffff2,0x80);
+    lpoke(0xbfffff2,0x80+fast_flags);
     
   }
   
