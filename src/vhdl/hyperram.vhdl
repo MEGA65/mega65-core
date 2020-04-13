@@ -225,6 +225,18 @@ begin
       report "read_request=" & std_logic'image(read_request) & ", busy_internal=" & std_logic'image(busy_internal)
         & ", write_request=" & std_logic'image(write_request);
 
+      -- Update read cache when writing
+      if write_request='1' and busy_internal='0' then
+        if cache_enabled and (address(26 downto 3 ) = cache_row0_address) then
+          cache_row0_data(to_integer(address(2 downto 0))) <= wdata;
+          cache_row0_valids(to_integer(address(2 downto 0))) <= '1';
+        elsif cache_enabled and (address(26 downto 3 ) = cache_row1_address) then
+          -- Cache read
+          cache_row1_data(to_integer(address(2 downto 0))) <= wdata;
+          cache_row1_valids(to_integer(address(2 downto 0))) <= '1';
+        end if;
+      end if;
+      
       -- Pseudo random bits so that we can do randomised cache row replacement
       if random_bits /= to_unsigned(251,8) then
         random_bits <= random_bits + 1;
@@ -425,16 +437,6 @@ begin
         ram_wdata <= wdata;
         ram_reading <= '0';
 
-        -- Update read cache when writing
-        if cache_enabled and (address(26 downto 3 ) = cache_row0_address) then
-          cache_row0_data(to_integer(address(2 downto 0))) <= wdata;
-          cache_row0_valids(to_integer(address(2 downto 0))) <= '1';
-        elsif cache_enabled and (address(26 downto 3 ) = cache_row1_address) then
-          -- Cache read
-          cache_row1_data(to_integer(address(2 downto 0))) <= wdata;
-          cache_row1_valids(to_integer(address(2 downto 0))) <= '1';
-        end if;
-        
         if address(23 downto 4) = x"FFFFF" and address(25 downto 24) = "11" then
           case address(3 downto 0) is
             when x"0" =>
