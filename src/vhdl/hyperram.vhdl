@@ -92,9 +92,9 @@ architecture gothic of hyperram is
   -- 3 to 4 cycles to satisfy the 40ns minimum time requirement.
   
   signal conf_buf0 : unsigned(7 downto 0) := x"8f";
-  signal conf_buf1 : unsigned(7 downto 0) := x"06";
+  signal conf_buf1 : unsigned(7 downto 0) := x"e6";
   signal conf_buf0_in : unsigned(7 downto 0) := x"8f";
-  signal conf_buf1_in : unsigned(7 downto 0) := x"06";
+  signal conf_buf1_in : unsigned(7 downto 0) := x"e6";
   signal conf_buf0_set : std_logic := '0';
   signal conf_buf1_set : std_logic := '0';
   signal last_conf_buf0_set : std_logic := '0';
@@ -102,13 +102,13 @@ architecture gothic of hyperram is
 
   -- 4 is correct for the part we have in the MEGA65, after we have set the
   -- config register to minimise latency.
-  signal write_latency : unsigned(7 downto 0) := to_unsigned(7,8);
+  signal write_latency : unsigned(7 downto 0) := to_unsigned(3,8);
   -- And the matching extra latency is 5
-  signal extra_write_latency : unsigned(7 downto 0) := to_unsigned(9,8);
+  signal extra_write_latency : unsigned(7 downto 0) := to_unsigned(5,8);
 
-  signal fast_cmd_mode : std_logic := '1';
-  signal fast_read_mode : std_logic := '1';
-  signal fast_write_mode : std_logic := '1';
+  signal fast_cmd_mode : std_logic := '0';
+  signal fast_read_mode : std_logic := '0';
+  signal fast_write_mode : std_logic := '0';
   
   
   signal countdown : integer := 0;
