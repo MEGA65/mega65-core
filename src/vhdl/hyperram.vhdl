@@ -836,6 +836,7 @@ begin
                   if fast_read_mode='1' then
                     state <= HyperRAMReadWait;
                   else
+                    pause_phase <= '1';
                     state <= HyperRAMReadWaitSlow;
                   end if;
                 elsif ram_address(24)='1' and ram_reading_held='0' then
@@ -970,6 +971,7 @@ begin
                 if fast_read_mode='1' then
                   state <= HyperRAMReadWait;
                 else
+                  pause_phase <= '1';                  
                   state <= HyperRAMReadWaitSlow;
                 end if;
               elsif ram_address(24)='1' and ram_reading_held='0' then
