@@ -353,7 +353,14 @@ architecture Behavioral of viciv is
   signal vicii_ycounter_continuous : unsigned(8 downto 0) := to_unsigned(0,9);
   signal vicii_ycounter_driver : unsigned(8 downto 0) := to_unsigned(0,9);
   signal vicii_ycounter_minus_one : unsigned(8 downto 0) := to_unsigned(0,9);
+  -- Sprite Y-Counter is the raster counter that has been corrected for PAL/NTSC
+  -- frame dimensions etc, and is what has the values lined up to what you would
+  -- expect with a VIC-II. #201 #181
   signal vicii_sprite_ycounter : unsigned(8 downto 0) := to_unsigned(0,9);
+  signal vicii_sprite_ycounter_driver : unsigned(8 downto 0) := to_unsigned(0,9);
+  signal vicii_sprite_ycounter_minus_one : unsigned(8 downto 0) := to_unsigned(0,9);
+
+  
   signal vicii_ycounter_v400 : unsigned(9 downto 0) := to_unsigned(0,10);
   signal last_vicii_ycounter : unsigned(8 downto 0) := to_unsigned(0,9);
   signal vicii_ycounter_phase : unsigned(3 downto 0) := (others => '0');
@@ -1655,14 +1662,14 @@ begin
                                         -- compatibility sprite x position MSB
           fastio_rdata <= vicii_sprite_xmsbs;
         elsif register_number=17 then             -- $D011
-          fastio_rdata(7) <= vicii_ycounter_minus_one(8);  -- MSB of raster
+          fastio_rdata(7) <= vicii_sprite_ycounter_minus_one(8);  -- MSB of raster
           fastio_rdata(6) <= extended_background_mode;
           fastio_rdata(5) <= not text_mode;
           fastio_rdata(4) <= not blank;
           fastio_rdata(3) <= not twentyfourlines;
           fastio_rdata(2 downto 0) <= std_logic_vector(vicii_y_smoothscroll);
         elsif register_number=18 then          -- $D012 current raster low 8 bits
-          fastio_rdata <= std_logic_vector(vicii_ycounter_minus_one(7 downto 0));
+          fastio_rdata <= std_logic_vector(vicii_sprite_ycounter_minus_one(7 downto 0));
         elsif register_number=19 then          -- $D013 lightpen X (coarse rasterX)
           fastio_rdata <= std_logic_vector(lightpen_x_latch);
         elsif register_number=20 then          -- $D014 lightpen Y (coarse rasterY)
@@ -2017,6 +2024,7 @@ begin
       vsync_polarity <= vsync_polarity_internal;
 
       vicii_ycounter_driver <= vicii_ycounter;
+      vicii_sprite_ycounter_driver <= vicii_sprite_ycounter;
       -- We need a delayed version of the VICII ycounter to display in $D011/$D012,
       -- as raster interrupts actually happen one raster line later than expected,
       -- to offset the fact that we have a 1 raster line delay in output of the
@@ -2025,8 +2033,10 @@ begin
       -- and make the contents of $D012/$D011 match this.
       if enable_raster_delay='1' then
         vicii_ycounter_minus_one <= vicii_ycounter_driver - 1;
+        vicii_sprite_ycounter_minus_one <= vicii_sprite_ycounter_driver - 1;
       else
         vicii_ycounter_minus_one <= vicii_ycounter_driver;
+        vicii_sprite_ycounter_minus_one <= vicii_sprite_ycounter_driver;
       end if;
 
       viciv_calculate_modeline_dimensions;
@@ -3051,7 +3061,7 @@ begin
         else
           vicii_raster_compare_plus_one <= vicii_raster_compare;
         end if;
-        if (vicii_is_raster_source='1') and (vicii_ycounter = vicii_raster_compare_plus_one(8 downto 0)) and last_vicii_ycounter /= vicii_ycounter then
+        if (vicii_is_raster_source='1') and (vicii_sprite_ycounter = vicii_raster_compare_plus_one(8 downto 0)) and last_vicii_ycounter /= vicii_ycounter then
           irq_raster <= '1';
         end if;
         last_vicii_ycounter <= vicii_ycounter;
