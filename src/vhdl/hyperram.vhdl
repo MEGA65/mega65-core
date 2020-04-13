@@ -225,18 +225,6 @@ begin
       report "read_request=" & std_logic'image(read_request) & ", busy_internal=" & std_logic'image(busy_internal)
         & ", write_request=" & std_logic'image(write_request);
 
-      -- Update read cache when writing
-      if write_request='1' and busy_internal='0' then
-        if cache_enabled and (address(26 downto 3 ) = cache_row0_address) then
-          cache_row0_data(to_integer(address(2 downto 0))) <= wdata;
-          cache_row0_valids(to_integer(address(2 downto 0))) <= '1';
-        elsif cache_enabled and (address(26 downto 3 ) = cache_row1_address) then
-          -- Cache read
-          cache_row1_data(to_integer(address(2 downto 0))) <= wdata;
-          cache_row1_valids(to_integer(address(2 downto 0))) <= '1';
-        end if;
-      end if;
-      
       -- Pseudo random bits so that we can do randomised cache row replacement
       if random_bits /= to_unsigned(251,8) then
         random_bits <= random_bits + 1;
@@ -1117,12 +1105,24 @@ begin
                 report "WRITE: background_write_data copied from write_collect0. Valids = " & to_string(write_collect0_valids);
                 background_write_data <= write_collect0_data;
                 background_write_valids <= write_collect0_valids;
+                
               elsif background_write_source = '1' and write_collect1_toolate='1' and write_collect1_flushed = '0' then
                 write_collect1_flushed <= '1';
                 report "WRITE: background_write_data copied from write_collect1";
                 background_write_data <= write_collect1_data;
                 background_write_valids <= write_collect1_valids;
               end if;
+
+              -- Invalidate read cache when writing
+              if cache_enabled and (ram_address(26 downto 3 ) = cache_row0_address) then
+                cache_row0_valids <= (others => '0');
+              elsif cache_enabled and (ram_address(26 downto 3 ) = cache_row1_address) then
+                cache_row1_valids <= (others => '0');
+              end if;
+            end if;
+        
+
+              
             end if;
 
             report "latency countdown = " & integer'image(countdown);
