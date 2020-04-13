@@ -51,6 +51,7 @@ architecture gothic of hyperram is
     HyperRAMOutputCommand,
     HyperRAMDoWrite,
     HyperRAMOutputCommandSlow,
+    StartBackgroundWrite,
     HyperRAMDoWriteSlow,
     HyperRAMFinishWriting,
     HyperRAMReadWaitSlow,
@@ -202,7 +203,7 @@ architecture gothic of hyperram is
     := 150*(1000/162)+20
     -- plus a correction factor to get initial config register write correctly
     -- aligned with the clock
-    +0;
+    +1;
   -- phaseshift has to also start at 1 for the above to work.
   signal hr_clk_phaseshift : std_logic := '1';
   signal hr_clk_phaseshift_current : std_logic := '1';
@@ -529,12 +530,17 @@ begin
       if hr_clock_phase="111" then
         hr_clk_fast_current <= hr_clk_fast;
         hr_clk_phaseshift_current <= hr_clk_phaseshift;
+        if hr_clk_fast /= hr_clk_fast_current or hr_clk_phaseshift_current /= hr_clk_phaseshift then
+          report "Updating hr_clock_fast to " & std_logic'image(hr_clk_fast)
+            & ", hr_clk_phaseshift to " & std_logic'image(hr_clk_phaseshift);
+        end if;
       end if;
       
       -- Only change clock mode when safe to do so
       clock_status_vector(4) := hr_clk_fast_current;
       clock_status_vector(3) := hr_clk_phaseshift_current;
       clock_status_vector(2 downto 0) := hr_clock_phase;
+      report "clock phase vector = " & to_string(std_logic_vector(clock_status_vector));
       case clock_status_vector is        
         -- Slow clock rate, no phase shift
         when "00000" => hr_clk <= '0'; hr_clk_p <= '0'; hr_clk_n <= '1';
@@ -731,15 +737,10 @@ begin
                 -- This is the delay before we assert CS
                 countdown <= 0;
 
-                if fast_cmd_mode='1' then
-                  state <= HyperRAMOutputCommand;
-                  hr_clk_phaseshift <= '1';
-                  hr_clk_fast <= '1';
-                else
-                  state <= HyperRAMOutputCommandSlow;
-                  hr_clk_phaseshift <= '1';
-                  hr_clk_fast <= '0';
-                end if;
+                -- We have to use this intermediate stage to get the clock
+                -- phase right.
+                state <= StartBackgroundWrite;
+                
                 if ram_address(24)='1' and ram_reading_held='0' then
                   -- 48 bits of CA followed by 16 bit register value
                   -- (we shift the buffered config register values out automatically)
@@ -777,15 +778,8 @@ begin
                 
                 hr_reset <= '1'; -- active low reset
 
-                if fast_cmd_mode='1' then
-                  state <= HyperRAMOutputCommand;
-                  hr_clk_fast <= '1';
-                  hr_clk_phaseshift <= '1';
-                else
-                  state <= HyperRAMOutputCommandSlow;
-                  hr_clk_fast <= '0';
-                  hr_clk_phaseshift <= '1';
-                end if;
+                state <= StartBackgroundWrite;
+
                 if ram_address(24)='1' and ram_reading_held='0' then
                   -- 48 bits of CA followed by 16 bit register value
                   -- (we shift the buffered config register values out automatically)
@@ -806,6 +800,18 @@ begin
               hr_cs0 <= '1';
               hr_cs1 <= '1';
             end if;
+
+          when StartBackgroundWrite =>
+            report "in StartBackgroundWrite to synchronise with clock";
+            if fast_cmd_mode='1' then
+              state <= HyperRAMOutputCommand;
+              hr_clk_phaseshift <= '1';
+              hr_clk_fast <= '1';
+            else
+              state <= HyperRAMOutputCommandSlow;
+              hr_clk_phaseshift <= '1';
+              hr_clk_fast <= '0';
+            end if;            
             
           when ReadSetup =>
             report "Setting up to read $" & to_hstring(ram_address) & " ( address = $" & to_hstring(address) & ")";
@@ -967,8 +973,7 @@ begin
               -- Toggle data while clock steady
               report "Presenting hr_command byte on hr_d = $" & to_hstring(hr_command(47 downto 40))
                 & ", clock = " & std_logic'image(hr_clk)
-                & ", countdown = " & integer'image(countdown)
-                & ", cs0= " & std_logic'image(hr_cs0);
+                & ", countdown = " & integer'image(countdown);
               
               hr_d <= hr_command(47 downto 40);
               hr_command(47 downto 8) <= hr_command(39 downto 0);
@@ -1313,6 +1318,7 @@ begin
               data_ready_strobe <= '1';
               data_ready_strobe_hold <= '1';
               rwr_counter <= rwr_delay;
+              hr_clk_phaseshift <= '1';         
               report "returning to idle";
               state <= Idle;
             else
@@ -1391,7 +1397,7 @@ begin
                 state <= Idle;
                 hr_cs0 <= '1';
                 hr_cs1 <= '1';
-                hr_clk_phaseshift <= '0';         
+                hr_clk_phaseshift <= '1';         
               else
                 byte_phase <= byte_phase + 1;
               end if;
@@ -1418,6 +1424,7 @@ begin
                 rwr_counter <= rwr_delay;
                 report "returning to idle";
                 state <= Idle;
+                hr_clk_phaseshift <= '1';
               else
                 countdown <= countdown - 1;
               end if;
@@ -1493,7 +1500,7 @@ begin
                   state <= Idle;
                   hr_cs0 <= '1';
                   hr_cs1 <= '1';
-                  hr_clk_phaseshift <= '0';         
+                  hr_clk_phaseshift <= '1';
                 else
                   byte_phase <= byte_phase + 1;
                 end if;
