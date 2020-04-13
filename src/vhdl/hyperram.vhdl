@@ -1121,10 +1121,6 @@ begin
               end if;
             end if;
         
-
-              
-            end if;
-
             report "latency countdown = " & integer'image(countdown);
 
             -- Begin write mask pre-amble
