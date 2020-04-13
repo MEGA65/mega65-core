@@ -7,8 +7,8 @@ use work.cputypes.all;
 
 entity hyperram is
   Port ( pixelclock : in STD_LOGIC; -- For slow devices bus interface is
-                                    -- actually on pixelclock to reduce latencies
-                                    -- Also pixelclock is the natural clock speed we apply to the HyperRAM.
+         -- actually on pixelclock to reduce latencies
+         -- Also pixelclock is the natural clock speed we apply to the HyperRAM.
          clock163 : in std_logic; -- Used for fast clock for HyperRAM
          clock325 : in std_logic; -- Used for fast clock for HyperRAM SERDES units
 
@@ -161,7 +161,7 @@ architecture gothic of hyperram is
 
   signal write_collect1_dispatchable : std_logic := '0';
   signal write_collect1_address : unsigned(26 downto 3) := (others => '0');  
- signal write_collect1_valids : std_logic_vector(0 to 7) := (others => '0');
+  signal write_collect1_valids : std_logic_vector(0 to 7) := (others => '0');
   signal write_collect1_data : cache_row_t := ( others => x"00" );
   signal write_collect1_toolate : std_logic := '0'; -- Set when its too late to
                                                     -- add more bytes to the write.
@@ -304,7 +304,7 @@ begin
       if write_collect1_dispatchable = '1' and write_collect1_toolate <= '1' and write_collect1_flushed = '1' then
         write_collect1_dispatchable <= '0';
       end if;
-              
+      
 
       
       if read_request='1' and busy_internal='0' then
@@ -338,7 +338,7 @@ begin
           fake_rdata <= cache_row1_data(to_integer(address(2 downto 0)));
           report "DISPATCH: Returning data $"& to_hstring(cache_row1_data(to_integer(address(2 downto 0))))&" from cache row1";
         elsif address(23 downto 4) = x"FFFFF" and address(25 downto 24) = "11" then
-        -- Allow reading from dummy debug bitbash registers at $BFFFFFx
+          -- Allow reading from dummy debug bitbash registers at $BFFFFFx
           case address(3 downto 0) is
             when x"0" =>
               fake_rdata <= unsigned(cache_row1_valids);
@@ -406,7 +406,7 @@ begin
         
         -- Push it out as a normal batched write, that can collect others if they
         -- come soon enough.
-      
+        
         write_collect0_valids <= (others => '0');
         write_collect0_valids(to_integer(queued_waddr(2 downto 0))) <= '1';
         write_collect0_data(to_integer(queued_waddr(2 downto 0))) <= queued_wdata;
@@ -470,7 +470,7 @@ begin
         else
           if cache_enabled = false then
             -- Do normal  write request
-          report "request_toggle flipped";
+            report "request_toggle flipped";
             request_toggle <= not request_toggle;
           else
             -- Collect writes together for dispatch
@@ -524,6 +524,12 @@ begin
     -- (actually just by optionally inverting it)
     if rising_edge(clock325) then
       hr_clock_phase <= hr_clock_phase + 1;
+      -- Changing at the end of a phase cycle prevents us having any
+      -- problematically short clock pulses when it matters.
+      if hr_clock_phase="111" then
+        hr_clk_fast_current <= hr_clk_fast;
+        hr_clk_phaseshift_current <= hr_clk_phaseshift;
+      end if;
       
       -- Only change clock mode when safe to do so
       clock_status_vector(4) := hr_clk_fast_current;
@@ -539,9 +545,7 @@ begin
         when "00101" => hr_clk <= '1'; hr_clk_p <= '1'; hr_clk_n <= '0';
         when "00110" => hr_clk <= '1'; hr_clk_p <= '1'; hr_clk_n <= '0';
         when "00111" => hr_clk <= '1'; hr_clk_p <= '1'; hr_clk_n <= '0';
-                        hr_clk_fast_current <= hr_clk_fast;
-                        hr_clk_phaseshift_current <= hr_clk_phaseshift;
-        
+                        
         -- Slow clock rate, with phase shift = bring forward tick by 1/2 a cycle
         when "01000" => hr_clk <= '0'; hr_clk_p <= '0'; hr_clk_n <= '1';
         when "01001" => hr_clk <= '0'; hr_clk_p <= '0'; hr_clk_n <= '1';
@@ -551,9 +555,7 @@ begin
         when "01101" => hr_clk <= '1'; hr_clk_p <= '1'; hr_clk_n <= '0';
         when "01110" => hr_clk <= '0'; hr_clk_p <= '0'; hr_clk_n <= '1';
         when "01111" => hr_clk <= '0'; hr_clk_p <= '0'; hr_clk_n <= '1';
-                        hr_clk_fast_current <= hr_clk_fast;
-                        hr_clk_phaseshift_current <= hr_clk_phaseshift;
-        
+                        
         -- Fast clock rate, no phase shift
         when "10000" => hr_clk <= '0'; hr_clk_p <= '0'; hr_clk_n <= '1';
         when "10001" => hr_clk <= '0'; hr_clk_p <= '0'; hr_clk_n <= '1';
@@ -563,24 +565,20 @@ begin
         when "10101" => hr_clk <= '0'; hr_clk_p <= '0'; hr_clk_n <= '1';
         when "10110" => hr_clk <= '1'; hr_clk_p <= '1'; hr_clk_n <= '0';
         when "10111" => hr_clk <= '1'; hr_clk_p <= '1'; hr_clk_n <= '0';
-                        hr_clk_fast_current <= hr_clk_fast;
-                        hr_clk_phaseshift_current <= hr_clk_phaseshift;
-        
+                        
         -- Fast clock rate, with phase shift
-        when "11000" => hr_clk <= '1'; hr_clk_p <= '1'; hr_clk_n <= '0';
-        when "11001" => hr_clk <= '0'; hr_clk_p <= '0'; hr_clk_n <= '1';
-        when "11010" => hr_clk <= '0'; hr_clk_p <= '0'; hr_clk_n <= '1';
-        when "11011" => hr_clk <= '1'; hr_clk_p <= '1'; hr_clk_n <= '0';
-        when "11100" => hr_clk <= '1'; hr_clk_p <= '1'; hr_clk_n <= '0';
-        when "11101" => hr_clk <= '0'; hr_clk_p <= '0'; hr_clk_n <= '1';
-        when "11110" => hr_clk <= '0'; hr_clk_p <= '0'; hr_clk_n <= '1';
-                        hr_clk_fast_current <= hr_clk_fast;
-                        hr_clk_phaseshift_current <= hr_clk_phaseshift;
-        when "11111" => hr_clk <= '1'; hr_clk_p <= '1'; hr_clk_n <= '0';
-        
+        when "11000" => hr_clk <= '0'; hr_clk_p <= '0'; hr_clk_n <= '1';
+        when "11001" => hr_clk <= '1'; hr_clk_p <= '1'; hr_clk_n <= '0';
+        when "11010" => hr_clk <= '1'; hr_clk_p <= '1'; hr_clk_n <= '0';
+        when "11011" => hr_clk <= '0'; hr_clk_p <= '0'; hr_clk_n <= '1';
+        when "11100" => hr_clk <= '0'; hr_clk_p <= '0'; hr_clk_n <= '1';
+        when "11101" => hr_clk <= '1'; hr_clk_p <= '1'; hr_clk_n <= '0';
+        when "11110" => hr_clk <= '1'; hr_clk_p <= '1'; hr_clk_n <= '0';
+        when "11111" => hr_clk <= '0'; hr_clk_p <= '0'; hr_clk_n <= '1';
+                        
         when others => hr_clk <= '0';  hr_clk_p <= '0'; hr_clk_n <= '1';
       end case;
-          
+      
     end if;
 
     if rising_edge(clock163) then
@@ -623,7 +621,7 @@ begin
 
             -- All commands need the clock offset by 1/2 cycle
             hr_clk_phaseshift <= '1';
-            hr_clk_fast <= '0';
+            hr_clk_fast <= '1';
             
             pause_phase <= '0';
             countdown_timeout <= '0';
@@ -650,162 +648,164 @@ begin
               & ", l_r_t=" & std_logic'image(last_request_toggle)
               & ", hr_clk=" & std_logic'image(hr_clk)
               & ", rwr_counter = " & integer'image(to_integer(rwr_counter));
-              
+            
             if rwr_counter /= to_unsigned(0,8) then
               rwr_counter <= rwr_counter - 1;
               hr_d <= x"bb";
-              -- Phase 101 guarantees that the clock base change will happen
-              -- within the comming clock cycle
-            elsif request_toggle /= last_request_toggle and hr_clock_phase(2 downto 1) = "10" then
-              ram_reading_held <= ram_reading;
+            -- Phase 101 guarantees that the clock base change will happen
+            -- within the comming clock cycle
+            elsif hr_clock_phase(2 downto 1) = "10" then
+              if request_toggle /= last_request_toggle then
+                ram_reading_held <= ram_reading;
                 
-              if ram_reading = '1' then
-                report "Waiting to start read";
-                last_request_toggle <= request_toggle;
-                state <= ReadSetup;
-                report "Accepting job";
-                busy_internal <= '1';
-              else
-                report "Waiting to start write";
-                report "Setting state to WriteSetup. random_bits=" & to_hstring(random_bits);
-                last_request_toggle <= request_toggle;
-                state <= WriteSetup;
-                report "Accepting job";
-                busy_internal <= '1';
-
-                -- Update short-circuit cache line
-                -- (We don't change validity, since we don't know if it is
-                -- valid or not).
-                if ram_address(26 downto 3) = current_cache_line_address(26 downto 3) then
-                  current_cache_line(to_integer(ram_address(2 downto 0))) <= ram_wdata;
-                end if;
-
-                -- Update cache
-                if cache_row0_address = ram_address(26 downto 3) then
-                  cache_row0_valids(to_integer(ram_address(2 downto 0))) <= '1';
-                  cache_row0_data(to_integer(ram_address(2 downto 0))) <= ram_wdata;        
-                elsif cache_row1_address = ram_address(26 downto 3) then
-                  cache_row1_valids(to_integer(ram_address(2 downto 0))) <= '1';
-                  cache_row1_data(to_integer(ram_address(2 downto 0))) <= ram_wdata;        
+                if ram_reading = '1' then
+                  report "Waiting to start read";
+                  last_request_toggle <= request_toggle;
+                  state <= ReadSetup;
+                  report "Accepting job";
+                  busy_internal <= '1';
                 else
-                  if random_bits(1)='0' then
-                    cache_row0_valids <= (others => '0');
-                    cache_row0_address <= ram_address(26 downto 3);
+                  report "Waiting to start write";
+                  report "Setting state to WriteSetup. random_bits=" & to_hstring(random_bits);
+                  last_request_toggle <= request_toggle;
+                  state <= WriteSetup;
+                  report "Accepting job";
+                  busy_internal <= '1';
+
+                  -- Update short-circuit cache line
+                  -- (We don't change validity, since we don't know if it is
+                  -- valid or not).
+                  if ram_address(26 downto 3) = current_cache_line_address(26 downto 3) then
+                    current_cache_line(to_integer(ram_address(2 downto 0))) <= ram_wdata;
+                  end if;
+
+                  -- Update cache
+                  if cache_row0_address = ram_address(26 downto 3) then
                     cache_row0_valids(to_integer(ram_address(2 downto 0))) <= '1';
                     cache_row0_data(to_integer(ram_address(2 downto 0))) <= ram_wdata;        
-                  else
-                    cache_row1_valids <= (others => '0');
-                    cache_row1_address <= ram_address(26 downto 3);
+                  elsif cache_row1_address = ram_address(26 downto 3) then
                     cache_row1_valids(to_integer(ram_address(2 downto 0))) <= '1';
                     cache_row1_data(to_integer(ram_address(2 downto 0))) <= ram_wdata;        
+                  else
+                    if random_bits(1)='0' then
+                      cache_row0_valids <= (others => '0');
+                      cache_row0_address <= ram_address(26 downto 3);
+                      cache_row0_valids(to_integer(ram_address(2 downto 0))) <= '1';
+                      cache_row0_data(to_integer(ram_address(2 downto 0))) <= ram_wdata;        
+                    else
+                      cache_row1_valids <= (others => '0');
+                      cache_row1_address <= ram_address(26 downto 3);
+                      cache_row1_valids(to_integer(ram_address(2 downto 0))) <= '1';
+                      cache_row1_data(to_integer(ram_address(2 downto 0))) <= ram_wdata;        
+                    end if;
                   end if;
+                  
                 end if;
+              elsif write_collect0_dispatchable = '1' then
+                -- Do background write.
+                busy_internal <= '0';
+
+                report "DISPATCH: Writing out collect0 @ $" & to_hstring(write_collect0_address&"000");
                 
-              end if;
-            elsif write_collect0_dispatchable = '1' then
-              -- Do background write.
-              busy_internal <= '0';
+                -- Mark the write buffer as being processed.              
+                write_collect0_flushed <= '0';
+                -- And that it is not (yet) too late to add extra bytes to the write.
+                write_collect0_toolate <= '0';
 
-              report "DISPATCH: Writing out collect0 @ $" & to_hstring(write_collect0_address&"000");
-              
-              -- Mark the write buffer as being processed.              
-              write_collect0_flushed <= '0';
-              -- And that it is not (yet) too late to add extra bytes to the write.
-              write_collect0_toolate <= '0';
+                background_write <= '1';
+                background_write_source <= '0'; -- collect 0
+                
+                -- Prepare command vector
+                hr_command(47) <= '0'; -- WRITE
+                hr_command(46) <= write_collect0_address(24); -- Memory, not register space
+                hr_command(45) <= '1'; -- linear
+                hr_command(44 downto 35) <= (others => '0'); -- unused upper address bits
+                hr_command(15 downto 3) <= (others => '0'); -- reserved bits
+                hr_command(34 downto 16) <= write_collect0_address(22 downto 4);
+                hr_command(2) <= write_collect0_address(3);
+                hr_command(1 downto 0) <= "00";
+                hr_reset <= '1'; -- active low reset
 
-              background_write <= '1';
-              background_write_source <= '0'; -- collect 0
-              
-              -- Prepare command vector
-              hr_command(47) <= '0'; -- WRITE
-              hr_command(46) <= write_collect0_address(24); -- Memory, not register space
-              hr_command(45) <= '1'; -- linear
-              hr_command(44 downto 35) <= (others => '0'); -- unused upper address bits
-              hr_command(15 downto 3) <= (others => '0'); -- reserved bits
-              hr_command(34 downto 16) <= write_collect0_address(22 downto 4);
-              hr_command(2) <= write_collect0_address(3);
-              hr_command(1 downto 0) <= "00";
-              hr_reset <= '1'; -- active low reset
+                ram_reading_held <= '0';
 
-              ram_reading_held <= '0';
+                -- This is the delay before we assert CS
+                countdown <= 0;
 
-              -- This is the delay before we assert CS
-              countdown <= 0;
+                if fast_cmd_mode='1' then
+                  state <= HyperRAMOutputCommand;
+                  hr_clk_phaseshift <= '1';
+                  hr_clk_fast <= '1';
+                else
+                  state <= HyperRAMOutputCommandSlow;
+                  hr_clk_phaseshift <= '1';
+                  hr_clk_fast <= '0';
+                end if;
+                if ram_address(24)='1' and ram_reading_held='0' then
+                  -- 48 bits of CA followed by 16 bit register value
+                  -- (we shift the buffered config register values out automatically)
+                  countdown <= 6 + 1;
+                else
+                  countdown <= 6;
+                end if;
 
-              if fast_cmd_mode='1' then
-                state <= HyperRAMOutputCommand;
-                hr_clk_phaseshift <= '1';
-                hr_clk_fast <= '1';
+                ddr_phase <= '0';
+                
+              elsif write_collect1_dispatchable = '1' then
+                busy_internal <= '0';              
+
+                report "DISPATCH: Writing out collect1 @ $" & to_hstring(write_collect1_address&"000");
+                
+                -- Mark the write buffer as being processed.              
+                write_collect1_flushed <= '0';
+                -- And that it is not (yet) too late to add extra bytes to the write.
+                write_collect1_toolate <= '0';
+
+                background_write <= '1';
+                background_write_source <= '1'; -- collect 0
+                
+                -- Prepare command vector
+                hr_command(47) <= '0'; -- WRITE
+                hr_command(46) <= write_collect1_address(24); -- Memory, not register space
+                hr_command(45) <= '1'; -- linear
+                hr_command(44 downto 35) <= (others => '0'); -- unused upper address bits
+                hr_command(15 downto 3) <= (others => '0'); -- reserved bits
+                hr_command(34 downto 16) <= write_collect1_address(22 downto 4);
+                hr_command(2) <= write_collect1_address(3);
+                hr_command(1 downto 0) <= "00";
+
+                ram_reading_held <= '0';
+                
+                hr_reset <= '1'; -- active low reset
+
+                if fast_cmd_mode='1' then
+                  state <= HyperRAMOutputCommand;
+                  hr_clk_fast <= '1';
+                  hr_clk_phaseshift <= '1';
+                else
+                  state <= HyperRAMOutputCommandSlow;
+                  hr_clk_fast <= '0';
+                  hr_clk_phaseshift <= '1';
+                end if;
+                if ram_address(24)='1' and ram_reading_held='0' then
+                  -- 48 bits of CA followed by 16 bit register value
+                  -- (we shift the buffered config register values out automatically)
+                  countdown <= 6 + 1;
+                else
+                  countdown <= 6;
+                end if;
+
+                report "clk_queue <= '00'";
+                ddr_phase <= '0';
+
               else
-                state <= HyperRAMOutputCommandSlow;
-                hr_clk_phaseshift <= '1';
-                hr_clk_fast <= '0';
-              end if;
-              if ram_address(24)='1' and ram_reading_held='0' then
-                -- 48 bits of CA followed by 16 bit register value
-                -- (we shift the buffered config register values out automatically)
-                countdown <= 6 + 1;
-              else
-                countdown <= 6;
-              end if;
-
-              ddr_phase <= '0';
-              
-            elsif write_collect1_dispatchable = '1' then
-              busy_internal <= '0';              
-
-              report "DISPATCH: Writing out collect1 @ $" & to_hstring(write_collect1_address&"000");
-              
-              -- Mark the write buffer as being processed.              
-              write_collect1_flushed <= '0';
-              -- And that it is not (yet) too late to add extra bytes to the write.
-              write_collect1_toolate <= '0';
-
-              background_write <= '1';
-              background_write_source <= '1'; -- collect 0
-              
-              -- Prepare command vector
-              hr_command(47) <= '0'; -- WRITE
-              hr_command(46) <= write_collect1_address(24); -- Memory, not register space
-              hr_command(45) <= '1'; -- linear
-              hr_command(44 downto 35) <= (others => '0'); -- unused upper address bits
-              hr_command(15 downto 3) <= (others => '0'); -- reserved bits
-              hr_command(34 downto 16) <= write_collect1_address(22 downto 4);
-              hr_command(2) <= write_collect1_address(3);
-              hr_command(1 downto 0) <= "00";
-
-              ram_reading_held <= '0';
-              
-              hr_reset <= '1'; -- active low reset
-
-              if fast_cmd_mode='1' then
-                state <= HyperRAMOutputCommand;
-                hr_clk_fast <= '1';
-                hr_clk_phaseshift <= '1';
-              else
-                state <= HyperRAMOutputCommandSlow;
-                hr_clk_fast <= '0';
-                hr_clk_phaseshift <= '1';
-              end if;
-              if ram_address(24)='1' and ram_reading_held='0' then
-                -- 48 bits of CA followed by 16 bit register value
-                -- (we shift the buffered config register values out automatically)
-                countdown <= 6 + 1;
-              else
-                countdown <= 6;
-              end if;
-
-              report "clk_queue <= '00'";
-              ddr_phase <= '0';
-
-            else
-              report "Clearing busy_internal";
-              busy_internal <= '0';
-            end IF;
-            -- Release CS line between transactions
-            report "Releasing hyperram CS lines";
-            hr_cs0 <= '1';
-            hr_cs1 <= '1';
+                report "Clearing busy_internal";
+                busy_internal <= '0';
+              end IF;
+              -- Release CS line between transactions
+              report "Releasing hyperram CS lines";
+              hr_cs0 <= '1';
+              hr_cs1 <= '1';
+            end if;
             
           when ReadSetup =>
             report "Setting up to read $" & to_hstring(ram_address) & " ( address = $" & to_hstring(address) & ")";
@@ -964,7 +964,7 @@ begin
 
             else
               
-            -- Toggle data while clock steady
+              -- Toggle data while clock steady
               report "Presenting hr_command byte on hr_d = $" & to_hstring(hr_command(47 downto 40))
                 & ", clock = " & std_logic'image(hr_clk)
                 & ", countdown = " & integer'image(countdown)
@@ -982,9 +982,9 @@ begin
               else
                 hr_command(7 downto 0) <= x"00";
               end if;
-            
+              
               report "Writing command byte $" & to_hstring(hr_command(47 downto 40));
-            
+              
               if countdown = 3 and (ram_address(24)='0' or ram_reading_held='1') then
                 extra_latency <= hr_rwds;
                 if hr_rwds='1' then
@@ -1015,7 +1015,7 @@ begin
 --                & ", next_is_data = " & std_logic'image(next_is_data)
 --                & ", countdown = " & integer'image(countdown)
 --                & ", cs0= " & std_logic'image(hr_cs0);
-              
+            
             hr_d <= hr_command(47 downto 40);
             hr_command(47 downto 8) <= hr_command(39 downto 0);
 
@@ -1168,7 +1168,7 @@ begin
                   hr_d <= ram_wdata;
                   hr_rwds <= ram_address(0) xor write_byte_phase;
                 end if;
-                  
+                
                 -- Write byte
                 write_byte_phase <= '1';
                 if background_write='0' then
@@ -1226,7 +1226,7 @@ begin
                 hr_rwds <= '0';
                 hr_d <= x"BE"; -- "before" data byte
               end if;
-            
+              
               if countdown /= 0 then
                 countdown <= countdown - 1;
               else
@@ -1239,14 +1239,14 @@ begin
                 else
                   -- Latency countdown for writing is over, we can now
                   -- begin writing bytes.                  
-                
+                  
                   -- HyperRAM works on 16-bit fundamental transfers.
                   -- This means we need to have two half-cycles, and pick which
                   -- one we want to write during.
                   -- If RWDS is asserted, then the write is masked, i.e., won't
                   -- occur.
                   -- In this first 
-                
+                  
                   report "Presenting hr_d with ram_wdata or background data";
                   if background_write='1' then
                     report "WRITE: Writing background byte $" & to_hstring(background_write_data(0))
@@ -1261,7 +1261,7 @@ begin
                     background_write_data(5) <= background_write_data(6);
                     background_write_data(6) <= background_write_data(7);
                     background_write_data(7) <= x"00";
-                  
+                    
                     hr_rwds <= not background_write_valids(0);
                     background_write_valids(0 to 6) <= background_write_valids(1 to 7);
                     background_write_valids(7) <= '0';
@@ -1313,7 +1313,7 @@ begin
               data_ready_strobe <= '1';
               data_ready_strobe_hold <= '1';
               rwr_counter <= rwr_delay;
-            report "returning to idle";
+              report "returning to idle";
               state <= Idle;
             else
               countdown <= countdown - 1;
@@ -1323,16 +1323,16 @@ begin
             hr_clk_phaseshift <= '0';         
             
             last_rwds <= hr_rwds;
-              -- HyperRAM drives RWDS basically to follow the clock.
-              -- But first valid data is when RWDS goes high, so we have to
-              -- wait until we see it go high.
+            -- HyperRAM drives RWDS basically to follow the clock.
+            -- But first valid data is when RWDS goes high, so we have to
+            -- wait until we see it go high.
 --              report "DISPATCH watching for data: rwds=" & std_logic'image(hr_rwds) & ", clock=" & std_logic'image(hr_clock)
 --                & ", rwds seen=" & std_logic'image(hr_rwds_high_seen);
 
             if (hr_rwds='1') then
               hr_rwds_high_seen <= '1';
 --                if hr_rwds_high_seen = '0' then
-  --                report "DISPATCH saw hr_rwds go high at start of data stream";
+            --                report "DISPATCH saw hr_rwds go high at start of data stream";
 --                end if;
             end if;                
             if (hr_rwds_high_seen='1') or (hr_rwds='1') then
@@ -1376,7 +1376,7 @@ begin
                   end if;
                 end if;
               end if;
-                
+              
               -- Quickly return the correct byte
               if to_integer(byte_phase) = (to_integer(ram_address(2 downto 0))+0) then
                 report "DISPATCH: Returning freshly read data = $" & to_hstring(hr_d);
