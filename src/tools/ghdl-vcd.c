@@ -48,6 +48,11 @@ int main(int argc,char **argv)
 	       &timepoint,&regnum)==2) {
       active=1000;
     }
+    if (sscanf(line,"%*[^@]@%dus:(report note): Writing to register $%x",
+	       &timepoint,&regnum)==2) {
+      timepoint*=1000; // usec to ns
+      active=1000;
+    }
     if (active) {
       int n=sscanf(line,"%*[^@]@%dns:(report note): hr_cs0 = '%c', hr_clk_p = '%c', hr_reset = '%c', hr_rwds = '%c', hr_d = '%c''%c''%c''%c''%c''%c''%c''%c', ",
 		   &timepoint,&hr_cs0,&hr_clk_p,&hr_reset,&hr_rwds,
@@ -60,6 +65,20 @@ int main(int argc,char **argv)
 		   &hr_d[6],
 		   &hr_d[7]
 		   );
+      if (n<13) {
+	n=sscanf(line,"%*[^@]@%dus:(report note): hr_cs0 = '%c', hr_clk_p = '%c', hr_reset = '%c', hr_rwds = '%c', hr_d = '%c''%c''%c''%c''%c''%c''%c''%c', ",
+		 &timepoint,&hr_cs0,&hr_clk_p,&hr_reset,&hr_rwds,
+		 &hr_d[0],
+		 &hr_d[1],
+		 &hr_d[2],
+		 &hr_d[3],
+		 &hr_d[4],
+		 &hr_d[5],
+		 &hr_d[6],
+		 &hr_d[7]
+		 );
+	timepoint*=1000; // us to ns
+      }
       if (n==13) {
 	printf("#%d\n%c!\n%c\"\n%c&\n%c%%\nb%c%c%c%c%c%c%c%c ^\n",
 	       timepoint,(char)hr_cs0,(char)hr_clk_p,(char)hr_reset,(char)hr_rwds,
