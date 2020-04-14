@@ -32,11 +32,17 @@ entity hyperram is
          
          hr_d : inout unsigned(7 downto 0) := (others => 'Z'); -- Data/Address
          hr_rwds : inout std_logic := 'Z'; -- RW Data strobe
---         hr_rsto : in std_logic; -- Unknown PIN
          hr_reset : out std_logic := '1'; -- Active low RESET line to HyperRAM
---         hr_int : in std_logic; -- Interrupt?
          hr_clk_n : out std_logic := '0';
          hr_clk_p : out std_logic := '1';
+
+         hr2_d : inout unsigned(7 downto 0) := (others => 'Z'); -- Data/Address
+         hr2_rwds : inout std_logic := 'Z'; -- RW Data strobe
+         hr2_reset : out std_logic := '1'; -- Active low RESET line to HyperRAM
+         hr2_clk_n : out std_logic := '0';
+         hr2_clk_p : out std_logic := '1';
+
+
          hr_cs0 : out std_logic := '1';
          hr_cs1 : out std_logic := '1'
          );
@@ -80,10 +86,14 @@ architecture gothic of hyperram is
   signal busy_internal : std_logic := '1';
   signal hr_command : unsigned(47 downto 0);
 
+  -- Used to assert CS line on BOTH hyperRAM modules at the same time
+  -- when doing the initial configuration register write.
+  signal first_transaction : std_logic := '1';
+  
   -- Initial transaction is config register write
   signal config_reg_write : std_logic := '1';
   signal ram_address : unsigned(26 downto 0) :=
-    "001000000000001000000000000"; -- = bottom 27 bits of x"9001000";
+    "010000000000001000000000000"; -- = bottom 27 bits of x"A001000";
   signal ram_wdata : unsigned(7 downto 0) := x"00";
   signal ram_reading : std_logic := '0';
   signal ram_reading_held : std_logic := '0';
@@ -217,6 +227,8 @@ architecture gothic of hyperram is
 
   signal hr_clock_phase : unsigned(2 downto 0) := "000";
 
+  signal hyperram2_select : std_logic := '0';
+  
   signal read_time_adjust : integer range 0 to 255 := 1;
   
 begin
@@ -530,45 +542,78 @@ begin
       case clock_status_vector is        
         -- Slow clock rate, no phase shift
         when "00000" => hr_clk <= '0'; hr_clk_p <= '0'; hr_clk_n <= '1';
+                        hr2_clk_p <= '0'; hr2_clk_n <= '1';
         when "00001" => hr_clk <= '0'; hr_clk_p <= '0'; hr_clk_n <= '1';
+                        hr2_clk_p <= '0'; hr2_clk_n <= '1';
         when "00010" => hr_clk <= '0'; hr_clk_p <= '0'; hr_clk_n <= '1';
+                        hr2_clk_p <= '0'; hr2_clk_n <= '1';
         when "00011" => hr_clk <= '0'; hr_clk_p <= '0'; hr_clk_n <= '1';
+                        hr2_clk_p <= '0'; hr2_clk_n <= '1';
         when "00100" => hr_clk <= '1'; hr_clk_p <= '1'; hr_clk_n <= '0';
+                        hr2_clk_p <= '1'; hr2_clk_n <= '0';                        
         when "00101" => hr_clk <= '1'; hr_clk_p <= '1'; hr_clk_n <= '0';
+                        hr2_clk_p <= '1'; hr2_clk_n <= '0';                        
         when "00110" => hr_clk <= '1'; hr_clk_p <= '1'; hr_clk_n <= '0';
+                        hr2_clk_p <= '1'; hr2_clk_n <= '0';                        
         when "00111" => hr_clk <= '1'; hr_clk_p <= '1'; hr_clk_n <= '0';
+                        hr2_clk_p <= '1'; hr2_clk_n <= '0';                        
                         
         -- Slow clock rate, with phase shift = bring forward tick by 1/2 a cycle
         when "01000" => hr_clk <= '0'; hr_clk_p <= '0'; hr_clk_n <= '1';
+                        hr2_clk_p <= '0'; hr2_clk_n <= '1';
         when "01001" => hr_clk <= '0'; hr_clk_p <= '0'; hr_clk_n <= '1';
+                        hr2_clk_p <= '0'; hr2_clk_n <= '1';
         when "01010" => hr_clk <= '1'; hr_clk_p <= '1'; hr_clk_n <= '0';
+                        hr2_clk_p <= '1'; hr2_clk_n <= '0';                        
         when "01011" => hr_clk <= '1'; hr_clk_p <= '1'; hr_clk_n <= '0';
+                        hr2_clk_p <= '1'; hr2_clk_n <= '0';                        
         when "01100" => hr_clk <= '1'; hr_clk_p <= '1'; hr_clk_n <= '0';
+                        hr2_clk_p <= '1'; hr2_clk_n <= '0';                        
         when "01101" => hr_clk <= '1'; hr_clk_p <= '1'; hr_clk_n <= '0';
+                        hr2_clk_p <= '1'; hr2_clk_n <= '0';                        
         when "01110" => hr_clk <= '0'; hr_clk_p <= '0'; hr_clk_n <= '1';
+                        hr2_clk_p <= '0'; hr2_clk_n <= '1';
         when "01111" => hr_clk <= '0'; hr_clk_p <= '0'; hr_clk_n <= '1';
+                        hr2_clk_p <= '0'; hr2_clk_n <= '1';
                         
         -- Fast clock rate, no phase shift
         when "10000" => hr_clk <= '0'; hr_clk_p <= '0'; hr_clk_n <= '1';
+                        hr2_clk_p <= '0'; hr2_clk_n <= '1';
         when "10001" => hr_clk <= '0'; hr_clk_p <= '0'; hr_clk_n <= '1';
+                        hr2_clk_p <= '0'; hr2_clk_n <= '1';
         when "10010" => hr_clk <= '1'; hr_clk_p <= '1'; hr_clk_n <= '0';
+                        hr2_clk_p <= '1'; hr2_clk_n <= '0';                        
         when "10011" => hr_clk <= '1'; hr_clk_p <= '1'; hr_clk_n <= '0';
+                        hr2_clk_p <= '1'; hr2_clk_n <= '0';                        
         when "10100" => hr_clk <= '0'; hr_clk_p <= '0'; hr_clk_n <= '1';
+                        hr2_clk_p <= '0'; hr2_clk_n <= '1';
         when "10101" => hr_clk <= '0'; hr_clk_p <= '0'; hr_clk_n <= '1';
+                        hr2_clk_p <= '0'; hr2_clk_n <= '1';
         when "10110" => hr_clk <= '1'; hr_clk_p <= '1'; hr_clk_n <= '0';
+                        hr2_clk_p <= '1'; hr2_clk_n <= '0';                        
         when "10111" => hr_clk <= '1'; hr_clk_p <= '1'; hr_clk_n <= '0';
+                        hr2_clk_p <= '1'; hr2_clk_n <= '0';                        
                         
         -- Fast clock rate, with phase shift
         when "11000" => hr_clk <= '0'; hr_clk_p <= '0'; hr_clk_n <= '1';
+                        hr2_clk_p <= '0'; hr2_clk_n <= '1';
         when "11001" => hr_clk <= '1'; hr_clk_p <= '1'; hr_clk_n <= '0';
+                        hr2_clk_p <= '1'; hr2_clk_n <= '0';                        
         when "11010" => hr_clk <= '1'; hr_clk_p <= '1'; hr_clk_n <= '0';
+                        hr2_clk_p <= '1'; hr2_clk_n <= '0';                        
         when "11011" => hr_clk <= '0'; hr_clk_p <= '0'; hr_clk_n <= '1';
+                        hr2_clk_p <= '0'; hr2_clk_n <= '1';
         when "11100" => hr_clk <= '0'; hr_clk_p <= '0'; hr_clk_n <= '1';
+                        hr2_clk_p <= '0'; hr2_clk_n <= '1';
         when "11101" => hr_clk <= '1'; hr_clk_p <= '1'; hr_clk_n <= '0';
+                        hr2_clk_p <= '1'; hr2_clk_n <= '0';                        
         when "11110" => hr_clk <= '1'; hr_clk_p <= '1'; hr_clk_n <= '0';
+                        hr2_clk_p <= '1'; hr2_clk_n <= '0';                        
         when "11111" => hr_clk <= '0'; hr_clk_p <= '0'; hr_clk_n <= '1';
+                        hr2_clk_p <= '0'; hr2_clk_n <= '1';
                         
         when others => hr_clk <= '0';  hr_clk_p <= '0'; hr_clk_n <= '1';
+                        hr2_clk_p <= '0'; hr2_clk_n <= '1';
       end case;
       
     end if;
@@ -611,7 +656,10 @@ begin
           when Idle =>
             report "Tristating hr_d";
             hr_d <= (others => 'Z');
+            hr2_d <= (others => 'Z');
 
+            first_transaction <= '0';
+            
             -- All commands need the clock offset by 1/2 cycle
             hr_clk_phaseshift <= '1';
             hr_clk_fast <= '1';
@@ -645,6 +693,7 @@ begin
             if rwr_counter /= to_unsigned(0,8) then
               rwr_counter <= rwr_counter - 1;
               hr_d <= x"bb";
+              hr2_d <= x"bb";
             -- Phase 101 guarantees that the clock base change will happen
             -- within the comming clock cycle
             elsif hr_clock_phase(2 downto 1) = "10" then
@@ -711,11 +760,12 @@ begin
                 background_write <= '1';
                 background_write_source <= '0'; -- collect 0
 
-                config_reg_write <= write_collect0_address(24);
+                config_reg_write <= write_collect0_address(25);
+                hyperram2_select <= write_collect0_address(24);
                 
                 -- Prepare command vector
                 hr_command(47) <= '0'; -- WRITE
-                hr_command(46) <= write_collect0_address(24); -- Memory, not register space
+                hr_command(46) <= write_collect0_address(25); -- Memory, not register space
                 hr_command(45) <= '1'; -- linear
                 hr_command(44 downto 35) <= (others => '0'); -- unused upper address bits
                 hr_command(15 downto 3) <= (others => '0'); -- reserved bits
@@ -733,7 +783,7 @@ begin
                 -- phase right.
                 state <= StartBackgroundWrite;
                 
-                if write_collect0_address(24)='1' then
+                if write_collect0_address(25)='1' then
                   -- 48 bits of CA followed by 16 bit register value
                   -- (we shift the buffered config register values out automatically)
                   countdown <= 6 + 1;
@@ -752,14 +802,15 @@ begin
                 -- And that it is not (yet) too late to add extra bytes to the write.
                 write_collect1_toolate <= '0';
 
-                config_reg_write <= write_collect1_address(24);
+                config_reg_write <= write_collect1_address(25);
+                hyperram2_select <= write_collect1_address(24);
 
                 background_write <= '1';
                 background_write_source <= '1'; -- collect 0
                 
                 -- Prepare command vector
                 hr_command(47) <= '0'; -- WRITE
-                hr_command(46) <= write_collect1_address(24); -- Memory, not register space
+                hr_command(46) <= write_collect1_address(25); -- Memory, not register space
                 hr_command(45) <= '1'; -- linear
                 hr_command(44 downto 35) <= (others => '0'); -- unused upper address bits
                 hr_command(15 downto 3) <= (others => '0'); -- reserved bits
@@ -773,7 +824,7 @@ begin
 
                 state <= StartBackgroundWrite;
 
-                if write_collect1_address(24)='1' then
+                if write_collect1_address(25)='1' then
                   -- 48 bits of CA followed by 16 bit register value
                   -- (we shift the buffered config register values out automatically)
                   countdown <= 6 + 1;
@@ -809,18 +860,21 @@ begin
             
           when ReadSetup =>
             report "Setting up to read $" & to_hstring(ram_address) & " ( address = $" & to_hstring(address) & ")";
+
+            hyperram2_select <= ram_address(24);
+            
             -- Prepare command vector
             hr_command(47) <= '1'; -- READ
             -- Map actual RAM to bottom 32MB of 64MB space (repeated 4x)
             -- and registers to upper 32MB
 --            hr_command(46) <= '1'; -- Memory address space (1) / Register
-            hr_command(46) <= ram_address(24); -- Memory address space (1) / Register
+            hr_command(46) <= ram_address(25); -- Memory address space (1) / Register
                                                -- address space select (0) ?
             hr_command(45) <= '1'; -- Linear access (not wrapped)
             hr_command(44 downto 37) <= (others => '0'); -- unused upper address bits
             hr_command(34 downto 16) <= ram_address(22 downto 4);
             hr_command(15 downto 3) <= (others => '0'); -- reserved bits
-            if ram_address(24) = '0' then
+            if ram_address(25) = '0' then
               -- Always read on 8 byte boundaries, and read a full cache line
               hr_command(2) <= ram_address(3);
               hr_command(1 downto 0) <= "00";
@@ -853,13 +907,14 @@ begin
 
             report "Preparing hr_command etc";
 
-            config_reg_write <= ram_address(24);
+            config_reg_write <= ram_address(25);
+            hyperram2_select <= ram_address(24);
             
             -- Prepare command vector
             -- As HyperRAM addresses on 16bit boundaries, we shift the address
             -- down one bit.
             hr_command(47) <= '0'; -- WRITE
-            hr_command(46) <= ram_address(24); -- Memory, not register space
+            hr_command(46) <= ram_address(25); -- Memory, not register space
             hr_command(45) <= '1'; -- linear
             
             hr_command(44 downto 35) <= (others => '0'); -- unused upper address bits
@@ -881,7 +936,7 @@ begin
               hr_clk_fast <= '0';
               hr_clk_phaseshift <= '1';         
             end if;
-            if ram_address(24)='1' then
+            if ram_address(25)='1' then
               -- 48 bits of CA followed by 16 bit register value
               -- (we shift the buffered config register values out automatically)
               countdown <= 6 + 1;
@@ -893,9 +948,10 @@ begin
             report "Writing command, ram_address=$" & to_hstring(ram_address);
             -- Call HyperRAM to attention
             hr_cs0 <= ram_address(23);
-            hr_cs1 <= not ram_address(23);
+            hr_cs1 <= not (ram_address(23) or first_transaction);
             
             hr_rwds <= 'Z';
+            hr2_rwds <= 'Z';
 
             pause_phase <= not pause_phase;
 
@@ -975,6 +1031,7 @@ begin
                 & ", countdown = " & integer'image(countdown);
               
               hr_d <= hr_command(47 downto 40);
+              hr2_d <= hr_command(47 downto 40);
               hr_command(47 downto 8) <= hr_command(39 downto 0);
 
               -- Also shift out config register values, if required
@@ -1001,7 +1058,9 @@ begin
             
               if countdown = 3 and (config_reg_write='0' or ram_reading_held='1') then
                 extra_latency <= hr_rwds;
-                if hr_rwds='1' then
+                if (hr_rwds='1' and hyperram2_select='0')
+                  or (hr2_rwds='1' and hyperram2_select='0')
+                then
                   report "Applying extra latency";
                 end if;                    
               end if;
@@ -1017,9 +1076,10 @@ begin
             report "Writing command";
             -- Call HyperRAM to attention
             hr_cs0 <= ram_address(23);
-            hr_cs1 <= not ram_address(23);
+            hr_cs1 <= not (ram_address(23) or first_transaction);
             
             hr_rwds <= 'Z';
+            hr2_rwds <= 'Z';
 
             hr_clk_phaseshift <= '1';
 
@@ -1031,6 +1091,7 @@ begin
 --                & ", cs0= " & std_logic'image(hr_cs0);
             
             hr_d <= hr_command(47 downto 40);
+            hr2_d <= hr_command(47 downto 40);
             hr_command(47 downto 8) <= hr_command(39 downto 0);
 
             -- Also shift out config register values, if required
@@ -1046,8 +1107,13 @@ begin
             report "Writing command byte $" & to_hstring(hr_command(47 downto 40));
             
             if countdown = 3 and (config_reg_write='0' or ram_reading_held='1') then
-              extra_latency <= hr_rwds;
-              if hr_rwds='1' then
+              if hyperram2_select='0' then
+                extra_latency <= hr_rwds;
+              else
+                extra_latency <= hr2_rwds;
+              end if;
+              if (hr_rwds='1' and hyperram2_select='0')
+                or (hr2_rwds='1' and hyperram2_select='0') then
                 report "Applying extra latency";
               end if;                    
             end if;
@@ -1153,7 +1219,9 @@ begin
             -- Begin write mask pre-amble
             if ram_reading_held = '0' and countdown = 2 then
               hr_rwds <= '0';
+              hr2_rwds <= '0';
               hr_d <= x"BE"; -- "before" data byte
+              hr2_d <= x"BE"; -- "before" data byte
             end if;
             
             if countdown /= 0 then
@@ -1182,6 +1250,7 @@ begin
                     & ", valids= " & to_string(background_write_valids)
                     & ", background words left = " & integer'image(background_write_count);
                   hr_d <= background_write_data(0);
+                  hr2_d <= background_write_data(0);
                   background_write_data(0) <= background_write_data(1);
                   background_write_data(1) <= background_write_data(2);
                   background_write_data(2) <= background_write_data(3);
@@ -1192,11 +1261,14 @@ begin
                   background_write_data(7) <= x"00";
                   
                   hr_rwds <= not background_write_valids(0);
+                  hr2_rwds <= not background_write_valids(0);
                   background_write_valids(0 to 6) <= background_write_valids(1 to 7);
                   background_write_valids(7) <= '0';
                 else
                   hr_d <= ram_wdata;
+                  hr2_d <= ram_wdata;
                   hr_rwds <= ram_address(0) xor write_byte_phase;
+                  hr2_rwds <= ram_address(0) xor write_byte_phase;
                 end if;
                 
                 -- Write byte
@@ -1204,8 +1276,10 @@ begin
                 if background_write='0' then
                   if write_byte_phase = '0' and ram_address(0)='1' then
                     hr_d <= x"ee"; -- even "masked" data byte
+                    hr2_d <= x"ee"; -- even "masked" data byte
                   elsif write_byte_phase = '1' and ram_address(0)='0' then
                     hr_d <= x"0d"; -- odd "masked" data byte                      
+                    hr2_d <= x"0d"; -- odd "masked" data byte                      
                   end if;
                 elsif write_byte_phase='1' then
                   report "WRITE: Decrementing background_write_count from " & integer'image(background_write_count);
@@ -1253,7 +1327,9 @@ begin
               -- Begin write mask pre-amble
               if ram_reading_held = '0' and countdown = 2 then
                 hr_rwds <= '0';
+                hr2_rwds <= '0';
                 hr_d <= x"BE"; -- "before" data byte
+                hr2_d <= x"BE"; -- "before" data byte
               end if;
               
               if countdown /= 0 then
@@ -1282,6 +1358,7 @@ begin
                       & ", valids= " & to_string(background_write_valids)
                       & ", background words left = " & integer'image(background_write_count);
                     hr_d <= background_write_data(0);
+                    hr2_d <= background_write_data(0);
                     background_write_data(0) <= background_write_data(1);
                     background_write_data(1) <= background_write_data(2);
                     background_write_data(2) <= background_write_data(3);
@@ -1292,11 +1369,14 @@ begin
                     background_write_data(7) <= x"00";
                     
                     hr_rwds <= not background_write_valids(0);
+                    hr2_rwds <= not background_write_valids(0);
                     background_write_valids(0 to 6) <= background_write_valids(1 to 7);
                     background_write_valids(7) <= '0';
                   else
                     hr_d <= ram_wdata;
+                    hr2_d <= ram_wdata;
                     hr_rwds <= ram_address(0) xor write_byte_phase;
+                    hr2_rwds <= ram_address(0) xor write_byte_phase;
                   end if;
                   
                   -- Write byte
@@ -1304,8 +1384,10 @@ begin
                   if background_write='0' then
                     if write_byte_phase = '0' and ram_address(0)='1' then
                       hr_d <= x"ee"; -- even "masked" data byte
+                      hr2_d <= x"ee"; -- even "masked" data byte
                     elsif write_byte_phase = '1' and ram_address(0)='0' then
                       hr_d <= x"0d"; -- odd "masked" data byte                      
+                      hr2_d <= x"0d"; -- odd "masked" data byte                      
                     end if;
                   elsif write_byte_phase='1' then
                     report "WRITE: Decrementing background_write_count from " & integer'image(background_write_count);
@@ -1323,7 +1405,9 @@ begin
             hr_cs0 <= '1';
             hr_cs1 <= '1';
             hr_rwds <= 'Z';
+            hr2_rwds <= 'Z';
             hr_d <= x"FA"; -- "after" data byte
+            hr2_d <= x"FA"; -- "after" data byte
             hr_clk_phaseshift <= '1';         
             report "clk_queue <= '00'";
             rwr_counter <= rwr_delay;
@@ -1331,8 +1415,10 @@ begin
             state <= Idle;
           when HyperRAMReadWait =>
             hr_rwds <= 'Z';
+            hr2_rwds <= 'Z';
             report "Presenting tri-state on hr_d";
             hr_d <= (others => 'Z');                       
+            hr2_d <= (others => 'Z');                       
             if countdown = 0 then
               -- Timed out waiting for read -- so return anyway, rather
               -- than locking the machine hard forever.
@@ -1350,21 +1436,29 @@ begin
             end if;
 
             hr_clk_phaseshift <= '0';         
-            
-            last_rwds <= hr_rwds;
+
+            if hyperram2_select='0' then
+              last_rwds <= hr_rwds;
+            else
+              last_rwds <= hr2_rwds;
+            end if;
             -- HyperRAM drives RWDS basically to follow the clock.
             -- But first valid data is when RWDS goes high, so we have to
             -- wait until we see it go high.
 --              report "DISPATCH watching for data: rwds=" & std_logic'image(hr_rwds) & ", clock=" & std_logic'image(hr_clock)
 --                & ", rwds seen=" & std_logic'image(hr_rwds_high_seen);
 
-            if (hr_rwds='1') then
+            if ((hr_rwds='1') and (hyperram2_select='0'))
+              or ((hr2_rwds='1') and (hyperram2_select='1'))
+            then
               hr_rwds_high_seen <= '1';
 --                if hr_rwds_high_seen = '0' then
             --                report "DISPATCH saw hr_rwds go high at start of data stream";
 --                end if;
             end if;                
-            if (hr_rwds_high_seen='1') or (hr_rwds='1') then
+            if (((hr_rwds='1') and (hyperram2_select='0'))
+              or ((hr2_rwds='1') and (hyperram2_select='1')))
+              or (hr_rwds_high_seen='1') then
               -- Data has arrived: Latch either odd or even byte
               -- as required.
 --                  report "DISPATCH Saw read data = $" & to_hstring(hr_d);
@@ -1374,20 +1468,36 @@ begin
                 -- Store the bytes in the cache row
                 if cache_row0_address = ram_address(26 downto 3) then          
                   cache_row0_valids(to_integer(byte_phase)) <= '1';
-                  cache_row0_data(to_integer(byte_phase)) <= hr_d;
+                  if hyperram2_select='0' then
+                    cache_row0_data(to_integer(byte_phase)) <= hr_d;
+                  else
+                    cache_row0_data(to_integer(byte_phase)) <= hr2_d;
+                  end if;
                 elsif cache_row1_address = ram_address(26 downto 3) then          
                   cache_row1_valids(to_integer(byte_phase)) <= '1';
-                  cache_row1_data(to_integer(byte_phase)) <= hr_d;
+                  if hyperram2_select='0' then
+                    cache_row1_data(to_integer(byte_phase)) <= hr_d;
+                  else
+                    cache_row1_data(to_integer(byte_phase)) <= hr2_d;
+                  end if;
                 elsif random_bits(1) = '0' then
                   cache_row0_valids <= (others => '0');
                   cache_row0_address <= ram_address(26 downto 3);
                   cache_row0_valids(to_integer(byte_phase)) <= '1';
-                  cache_row0_data(to_integer(byte_phase)) <= hr_d;
+                  if hyperram2_select='0' then
+                    cache_row0_data(to_integer(byte_phase)) <= hr_d;
+                  else
+                    cache_row0_data(to_integer(byte_phase)) <= hr2_d;
+                  end if;
                 else
                   cache_row1_valids <= (others => '0');
                   cache_row1_address <= ram_address(26 downto 3);
                   cache_row1_valids(to_integer(byte_phase)) <= '1';
-                  cache_row1_data(to_integer(byte_phase)) <= hr_d;
+                  if hyperram2_select='0' then
+                    cache_row1_data(to_integer(byte_phase)) <= hr_d;
+                  else
+                    cache_row1_data(to_integer(byte_phase)) <= hr2_d;
+                  end if;
                 end if;
               else
                 -- Export the appropriate cache line to slow_devices
@@ -1409,7 +1519,11 @@ begin
               -- Quickly return the correct byte
               if to_integer(byte_phase) = (to_integer(ram_address(2 downto 0))+0) then
                 report "DISPATCH: Returning freshly read data = $" & to_hstring(hr_d);
-                rdata <= hr_d;
+                if hyperram2_select='0' then
+                  rdata <= hr_d;
+                else
+                  rdata <= hr2_d;
+                end if;
                 data_ready_strobe <= '1';
                 data_ready_strobe_hold <= '1';
               end if;
@@ -1427,8 +1541,10 @@ begin
             end if;
           when HyperRAMReadWaitSlow =>
             hr_rwds <= 'Z';
+            hr2_rwds <= 'Z';
             report "Presenting tri-state on hr_d";
             hr_d <= (others => 'Z');
+            hr2_d <= (others => 'Z');
 
             pause_phase <= not pause_phase;
 
@@ -1452,20 +1568,26 @@ begin
                 countdown <= countdown - 1;
               end if;
               
-              last_rwds <= hr_rwds;
+              if hyperram2_select='0' then
+                last_rwds <= hr_rwds;
+              else
+                last_rwds <= hr2_rwds;
+              end if;
               -- HyperRAM drives RWDS basically to follow the clock.
               -- But first valid data is when RWDS goes high, so we have to
               -- wait until we see it go high.
 --              report "DISPATCH watching for data: rwds=" & std_logic'image(hr_rwds) & ", clock=" & std_logic'image(hr_clock)
 --                & ", rwds seen=" & std_logic'image(hr_rwds_high_seen);
               
-              if (hr_rwds='1') then
+              if ((hr_rwds='1') and (hyperram2_select='0')) or ((hr2_rwds='1') and (hyperram2_select='1'))
+              then
                 hr_rwds_high_seen <= '1';
 --                if hr_rwds_high_seen = '0' then
               --                report "DISPATCH saw hr_rwds go high at start of data stream";
 --                end if;
               end if;                
-              if (hr_rwds_high_seen='1') or (hr_rwds='1') then
+              if (((hr_rwds='1') and (hyperram2_select='0')) or ((hr2_rwds='1') and (hyperram2_select='1')))
+              or (hr_rwds_high_seen='1') then
                 -- Data has arrived: Latch either odd or even byte
                 -- as required.
 --                  report "DISPATCH Saw read data = $" & to_hstring(hr_d);
@@ -1475,20 +1597,36 @@ begin
                   -- Store the bytes in the cache row
                   if cache_row0_address = ram_address(26 downto 3) then          
                     cache_row0_valids(to_integer(byte_phase)) <= '1';
-                    cache_row0_data(to_integer(byte_phase)) <= hr_d;
+                    if hyperram2_select='0' then
+                      cache_row0_data(to_integer(byte_phase)) <= hr_d;
+                    else
+                      cache_row0_data(to_integer(byte_phase)) <= hr2_d;
+                    end if;
                   elsif cache_row1_address = ram_address(26 downto 3) then          
                     cache_row1_valids(to_integer(byte_phase)) <= '1';
-                    cache_row1_data(to_integer(byte_phase)) <= hr_d;
+                    if hyperram2_select='0' then
+                      cache_row1_data(to_integer(byte_phase)) <= hr_d;
+                    else
+                      cache_row1_data(to_integer(byte_phase)) <= hr2_d;
+                    end if;
                   elsif random_bits(1) = '0' then
                     cache_row0_valids <= (others => '0');
                     cache_row0_address <= ram_address(26 downto 3);
                     cache_row0_valids(to_integer(byte_phase)) <= '1';
-                    cache_row0_data(to_integer(byte_phase)) <= hr_d;
+                    if hyperram2_select='0' then
+                      cache_row0_data(to_integer(byte_phase)) <= hr_d;
+                    else
+                      cache_row0_data(to_integer(byte_phase)) <= hr2_d;
+                    end if;
                   else
                     cache_row1_valids <= (others => '0');
                     cache_row1_address <= ram_address(26 downto 3);
                     cache_row1_valids(to_integer(byte_phase)) <= '1';
-                    cache_row1_data(to_integer(byte_phase)) <= hr_d;
+                    if hyperram2_select='0' then
+                      cache_row1_data(to_integer(byte_phase)) <= hr_d;
+                    else
+                      cache_row1_data(to_integer(byte_phase)) <= hr2_d;
+                    end if;
                   end if;
                 else
                   -- Export the appropriate cache line to slow_devices
@@ -1510,7 +1648,11 @@ begin
                 -- Quickly return the correct byte
                 if to_integer(byte_phase) = (to_integer(ram_address(2 downto 0))+read_time_adjust) then
                   report "DISPATCH: Returning freshly read data = $" & to_hstring(hr_d);
-                  rdata <= hr_d;
+                  if hyperram2_select='0' then
+                    rdata <= hr_d;
+                  else
+                    rdata <= hr2_d;
+                  end if;
                   data_ready_strobe <= '1';
                   data_ready_strobe_hold <= '1';
                 end if;
