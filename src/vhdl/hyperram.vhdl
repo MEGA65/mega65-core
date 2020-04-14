@@ -80,6 +80,8 @@ architecture gothic of hyperram is
   signal busy_internal : std_logic := '1';
   signal hr_command : unsigned(47 downto 0);
 
+  -- Initial transaction is config register write
+  signal config_reg_write : std_logic := '1';
   signal ram_address : unsigned(26 downto 0) :=
     "001000000000001000000000000"; -- = bottom 27 bits of x"9001000";
   signal ram_wdata : unsigned(7 downto 0) := x"00";
@@ -594,8 +596,9 @@ begin
       data_ready_strobe_hold <= '0';
       
       -- HyperRAM state machine
-      report "State = " & state_t'image(state) & " @ Cycle " & integer'image(cycle_count);
-
+      report "State = " & state_t'image(state) & " @ Cycle " & integer'image(cycle_count)
+        & ", config_reg_write=" & std_logic'image(config_reg_write);
+      
       if conf_buf0_set /= last_conf_buf0_set then
         last_conf_buf0_set <= conf_buf0_set;
         conf_buf0 <= conf_buf0_in;
@@ -651,12 +654,12 @@ begin
             -- Phase 101 guarantees that the clock base change will happen
             -- within the comming clock cycle
             elsif hr_clock_phase(2 downto 1) = "10" then
-              request_accepted <= request_toggle;
               if request_toggle /= last_request_toggle then
                 ram_reading_held <= ram_reading;
                 
                 if ram_reading = '1' then
                   report "Waiting to start read";
+                  request_accepted <= request_toggle;
                   last_request_toggle <= request_toggle;
                   state <= ReadSetup;
                   report "Accepting job";
@@ -664,6 +667,7 @@ begin
                 else
                   report "Waiting to start write";
                   report "Setting state to WriteSetup. random_bits=" & to_hstring(random_bits);
+                  request_accepted <= request_toggle;
                   last_request_toggle <= request_toggle;
                   state <= WriteSetup;
                   report "Accepting job";
@@ -701,6 +705,7 @@ begin
               elsif write_collect0_dispatchable = '1' then
                 -- Do background write.
                 busy_internal <= '0';
+                request_accepted <= request_toggle;
 
                 report "DISPATCH: Writing out collect0 @ $" & to_hstring(write_collect0_address&"000");
                 
@@ -711,6 +716,8 @@ begin
 
                 background_write <= '1';
                 background_write_source <= '0'; -- collect 0
+
+                config_reg_write <= write_collect0_address(24);
                 
                 -- Prepare command vector
                 hr_command(47) <= '0'; -- WRITE
@@ -732,7 +739,7 @@ begin
                 -- phase right.
                 state <= StartBackgroundWrite;
                 
-                if ram_address(24)='1' and ram_reading_held='0' then
+                if write_collect0_address(24)='1' then
                   -- 48 bits of CA followed by 16 bit register value
                   -- (we shift the buffered config register values out automatically)
                   countdown <= 6 + 1;
@@ -742,6 +749,7 @@ begin
 
               elsif write_collect1_dispatchable = '1' then
                 busy_internal <= '0';              
+                request_accepted <= request_toggle;
 
                 report "DISPATCH: Writing out collect1 @ $" & to_hstring(write_collect1_address&"000");
                 
@@ -749,6 +757,8 @@ begin
                 write_collect1_flushed <= '0';
                 -- And that it is not (yet) too late to add extra bytes to the write.
                 write_collect1_toolate <= '0';
+
+                config_reg_write <= write_collect1_address(24);
 
                 background_write <= '1';
                 background_write_source <= '1'; -- collect 0
@@ -769,7 +779,7 @@ begin
 
                 state <= StartBackgroundWrite;
 
-                if ram_address(24)='1' and ram_reading_held='0' then
+                if write_collect1_address(24)='1' then
                   -- 48 bits of CA followed by 16 bit register value
                   -- (we shift the buffered config register values out automatically)
                   countdown <= 6 + 1;
@@ -782,6 +792,7 @@ begin
               else
                 report "Clearing busy_internal";
                 busy_internal <= '0';
+                request_accepted <= request_toggle;
               end IF;
               -- Release CS line between transactions
               report "Releasing hyperram CS lines";
@@ -791,6 +802,7 @@ begin
 
           when StartBackgroundWrite =>
             report "in StartBackgroundWrite to synchronise with clock";
+            pause_phase <= '0';
             if fast_cmd_mode='1' then
               state <= HyperRAMOutputCommand;
               hr_clk_phaseshift <= '1';
@@ -828,6 +840,7 @@ begin
 
             hr_reset <= '1'; -- active low reset
             countdown <= 0;
+            pause_phase <= '0';
 
             if fast_cmd_mode='1' then
               state <= HyperRAMOutputCommand;
@@ -838,17 +851,15 @@ begin
               hr_clk_fast <= '0';
               hr_clk_phaseshift <= '1';
             end if;
-            if ram_address(24)='1' and ram_reading_held='0' then
-              -- 48 bits of CA followed by 16 bit register value
-              -- (we shift the buffered config register values out automatically)
-              countdown <= 6 + 1;
-            else
-              countdown <= 6;
-            end if;
-
+            
+            countdown <= 6;
+            config_reg_write <= '0';
+            
           when WriteSetup =>
 
             report "Preparing hr_command etc";
+
+            config_reg_write <= ram_address(24);
             
             -- Prepare command vector
             -- As HyperRAM addresses on 16bit boundaries, we shift the address
@@ -865,6 +876,8 @@ begin
 
             hr_reset <= '1'; -- active low reset
 
+            pause_phase <= '0';
+            
             if fast_cmd_mode='1' then
               state <= HyperRAMOutputCommand;
               hr_clk_fast <= '1';
@@ -874,7 +887,7 @@ begin
               hr_clk_fast <= '0';
               hr_clk_phaseshift <= '1';         
             end if;
-            if ram_address(24)='1' and ram_reading_held='0' then
+            if ram_address(24)='1' then
               -- 48 bits of CA followed by 16 bit register value
               -- (we shift the buffered config register values out automatically)
               countdown <= 6 + 1;
@@ -883,7 +896,7 @@ begin
             end if;            
             
           when HyperRAMOutputCommandSlow =>
-            report "Writing command";
+            report "Writing command, ram_address=$" & to_hstring(ram_address);
             -- Call HyperRAM to attention
             hr_cs0 <= ram_address(23);
             hr_cs1 <= not ram_address(23);
@@ -911,7 +924,7 @@ begin
                     hr_clk_fast <= '0';
                     state <= HyperRAMReadWaitSlow;
                   end if;
-                elsif ram_address(24)='1' and ram_reading_held='0' then
+                elsif config_reg_write='1' and ram_reading_held='0' then
                   -- Config register write.
                   -- These are a bit weird, as they have no latency, and all 16
                   -- bits have to get written at once.  So we will have 2 buffer
@@ -919,6 +932,14 @@ begin
                   -- area will write those values, which we have done by shifting
                   -- those through and sending 48+16 bits instead of the usual
                   -- 48.
+                  if background_write='1' then
+                    if background_write_source = '0' then
+                      write_collect0_flushed <= '1';
+                    else
+                      write_collect1_flushed <= '1';
+                    end if;
+                  end if;
+                  
                   state <= HyperRAMFinishWriting;
                 else
                   -- Writing to memory, so count down the correct number of cycles;
@@ -963,7 +984,7 @@ begin
               hr_command(47 downto 8) <= hr_command(39 downto 0);
 
               -- Also shift out config register values, if required
-              if ram_address(24)='1' and ram_reading_held='0' then
+              if config_reg_write='1' and ram_reading_held='0' then
                 report "shifting in conf value $" & to_hstring(conf_buf0);
                 hr_command(7 downto 0) <= conf_buf0;
                 conf_buf0 <= conf_buf1;
@@ -973,8 +994,18 @@ begin
               end if;
               
               report "Writing command byte $" & to_hstring(hr_command(47 downto 40));
-              
-              if countdown = 3 and (ram_address(24)='0' or ram_reading_held='1') then
+
+              if countdown = 3 and config_reg_write='1' then
+                if background_write='1' then
+                  if background_write_source = '0' then
+                    write_collect0_toolate <= '1';
+                  else
+                    write_collect1_toolate <= '1';
+                  end if;
+                end if;
+              end if;
+            
+              if countdown = 3 and (config_reg_write='0' or ram_reading_held='1') then
                 extra_latency <= hr_rwds;
                 if hr_rwds='1' then
                   report "Applying extra latency";
@@ -1009,7 +1040,7 @@ begin
             hr_command(47 downto 8) <= hr_command(39 downto 0);
 
             -- Also shift out config register values, if required
-            if ram_address(24)='1' and ram_reading_held='0' then
+            if config_reg_write='1' and ram_reading_held='0' then
               report "shifting in conf value $" & to_hstring(conf_buf0);
               hr_command(7 downto 0) <= conf_buf0;
               conf_buf0 <= conf_buf1;
@@ -1020,7 +1051,7 @@ begin
             
             report "Writing command byte $" & to_hstring(hr_command(47 downto 40));
             
-            if countdown = 3 and (ram_address(24)='0' or ram_reading_held='1') then
+            if countdown = 3 and (config_reg_write='0' or ram_reading_held='1') then
               extra_latency <= hr_rwds;
               if hr_rwds='1' then
                 report "Applying extra latency";
@@ -1043,7 +1074,7 @@ begin
                   hr_clk_fast <= '0';
                   state <= HyperRAMReadWaitSlow;
                 end if;
-              elsif ram_address(24)='1' and ram_reading_held='0' then
+              elsif config_reg_write='1' and ram_reading_held='0' then
                 -- Config register write.
                 -- These are a bit weird, as they have no latency, and all 16
                 -- bits have to get written at once.  So we will have 2 buffer
@@ -1051,6 +1082,15 @@ begin
                 -- area will write those values, which we have done by shifting
                 -- those through and sending 48+16 bits instead of the usual
                 -- 48.
+
+                if background_write='1' then
+                  if background_write_source = '0' then
+                    write_collect0_flushed <= '1';
+                  else
+                    write_collect1_flushed <= '1';
+                  end if;
+                end if;
+
                 state <= HyperRAMFinishWriting;
               else
                 -- Writing to memory, so count down the correct number of cycles;
@@ -1059,7 +1099,7 @@ begin
                 -- machine latency                  
                 countdown <= to_integer(write_latency);
 
-                -- We are not just about ready to start writing, so mark the
+                -- We are now just about ready to start writing, so mark the
                 -- write buffer as too late to be added to, because we will
                 -- snap-shot it in a moment.
                 if background_write = '1' then
