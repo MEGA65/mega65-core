@@ -34,6 +34,13 @@ architecture foo of test_hyperram is
   signal hr_clk_p : std_logic := '0';
   signal hr_cs0 : std_logic := '0';
 
+  signal hr2_d : unsigned(7 downto 0) := (others => '0');
+  signal hr2_rwds : std_logic := '0';
+  signal hr2_reset : std_logic := '1';
+  signal hr2_clk_n : std_logic := '0';
+  signal hr2_clk_p : std_logic := '0';
+  signal hr2_cs0 : std_logic := '0';
+  
   signal slow_access_request_toggle : std_logic := '0';
   signal slow_access_ready_toggle : std_logic;
   signal last_slow_access_ready_toggle : std_logic;
@@ -56,6 +63,9 @@ architecture foo of test_hyperram is
   type mem_job_list_t is array(0 to 99) of mem_transaction_t;
 
   signal mem_jobs : mem_job_list_t := (
+    (address => x"8000000", write_p => '0', value => x"FF"),
+    (address => x"9001000", write_p => '1', value => x"F1"),
+    (address => x"9001000", write_p => '1', value => x"F2"),
     (address => x"8000000", write_p => '0', value => x"FF"),
 
 
@@ -165,7 +175,15 @@ begin
       hr_reset => hr_reset,
       hr_clk_n => hr_clk_n,
       hr_clk_p => hr_clk_p,
-      hr_cs0 => hr_cs0
+      hr_cs0 => hr_cs0,
+
+      hr2_d => hr2_d,
+      hr2_rwds => hr2_rwds,
+      hr2_reset => hr2_reset,
+      hr2_clk_n => hr2_clk_n,
+      hr2_clk_p => hr2_clk_p,
+      hr_cs1 => hr2_cs0
+      
       );
 
   fakehyper0: entity work.s27kl0641
@@ -190,6 +208,28 @@ begin
       );
     
 
+  fakehyper1: entity work.s27kl0641
+    generic map (
+      tdevice_vcs => 5 ns,
+      timingmodel => "S27KL0641DABHI000"
+      )
+    port map (
+      DQ7 => hr2_d(7),
+      DQ6 => hr2_d(6),
+      DQ5 => hr2_d(5),
+      DQ4 => hr2_d(4),
+      DQ3 => hr2_d(3),
+      DQ2 => hr2_d(2),
+      DQ1 => hr2_d(1),
+      DQ0 => hr2_d(0),
+
+      CSNeg => hr2_cs0,
+      CK => hr2_clk_p,
+      RESETneg => hr2_reset,
+      RWDS => hr2_rwds
+      );
+    
+  
   slow_devices0: entity work.slow_devices
     generic map (
       target => mega65r2
@@ -246,7 +286,9 @@ begin
   
 
   
-  process(hr_cs0, hr_clk_p, hr_reset, hr_rwds, hr_d) is
+  process(hr_cs0, hr_clk_p, hr_reset, hr_rwds, hr_d,
+          hr2_cs0, hr2_clk_p, hr2_reset, hr2_rwds, hr2_d
+          ) is
   begin
     report
       "hr_cs0 = " & std_logic'image(hr_cs0) & ", " &
@@ -261,6 +303,20 @@ begin
       & std_logic'image(hr_d(5))
       & std_logic'image(hr_d(6))
       & std_logic'image(hr_d(7))
+      & ".";
+    report
+      "hr2_cs0 = " & std_logic'image(hr2_cs0) & ", " &
+      "hr2_clk_p = " & std_logic'image(hr2_clk_p) & ", " &
+      "hr2_reset = " & std_logic'image(hr2_reset) & ", " &
+      "hr2_rwds = " & std_logic'image(hr2_rwds) & ", " &
+      "hr2_d = " & std_logic'image(hr2_d(0))
+      & std_logic'image(hr2_d(1))
+      & std_logic'image(hr2_d(2))
+      & std_logic'image(hr2_d(3))
+      & std_logic'image(hr2_d(4))
+      & std_logic'image(hr2_d(5))
+      & std_logic'image(hr2_d(6))
+      & std_logic'image(hr2_d(7))
       & ".";
   end process;
   
@@ -288,7 +344,7 @@ begin
 
       if idle_wait /= 0 then
         idle_wait <= idle_wait - 1;
-      elsif expect_value = '0' then
+      elsif expect_value = '0' and slow_access_ready_toggle = slow_access_request_toggle then
 
         if mem_jobs(cycles).address = x"FFFFFFF" then
           cycles <= 0;
@@ -305,14 +361,14 @@ begin
         if (mem_jobs(cycles).write_p='0') then
           -- Let reads finish serially
           -- (In the worst case, this can take quite a while)
-          idle_wait <= 0;
+          idle_wait <= 40;
           report "DISPATCH: Reading from $" & to_hstring(mem_jobs(cycles).address) & ", expecting to see $"
             & to_hstring(mem_jobs(cycles).value);
           expect_value <= '1';
           expected_value <= mem_jobs(cycles).value;
         else
           -- Try to rush writes, so that writes get merged
-          idle_wait <= 0;
+          idle_wait <= 40;
           report "DISPATCH: Writing to $" & to_hstring(mem_jobs(cycles).address) & " <- $"
             & to_hstring(mem_jobs(cycles).value);
           expect_value <= '0';
