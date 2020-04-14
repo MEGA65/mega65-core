@@ -95,8 +95,14 @@ entity container is
          hr_rwds : inout std_logic;
          hr_reset : out std_logic;
          hr_clk_p : out std_logic;
---         hr_clk_n : out std_logic;
          hr_cs0 : out std_logic;
+
+         -- Optional 2nd hyperram in trap-door slot
+         hr2_d : inout unsigned(7 downto 0);
+         hr2_rwds : inout std_logic;
+         hr2_reset : out std_logic;
+         hr2_clk_p : out std_logic;
+         hr2_cs0 : out std_logic;
          
          ----------------------------------------------------------------------
          -- CBM floppy serial port
@@ -479,7 +485,14 @@ begin
       hr_reset => hr_reset,
       hr_clk_p => hr_clk_p,
 --      hr_clk_n => hr_clk_n,
-      hr_cs0 => hr_cs0
+      hr_cs0 => hr_cs0,
+
+      hr2_d => hr2_d,
+      hr2_rwds => hr2_rwds,
+      hr2_reset => hr2_reset,
+      hr2_clk_p => hr2_clk_p,
+--      hr_clk_n => hr_clk_n,
+      hr2_cs0 => hr_cs0      
       );
 
 --  fakehyper0: entity work.fakehyperram
