@@ -485,14 +485,15 @@ begin
       hr_reset => hr_reset,
       hr_clk_p => hr_clk_p,
 --      hr_clk_n => hr_clk_n,
+
       hr_cs0 => hr_cs0,
+      hr_cs1 => hr2_cs0,
 
       hr2_d => hr2_d,
       hr2_rwds => hr2_rwds,
       hr2_reset => hr2_reset,
-      hr2_clk_p => hr2_clk_p,
+      hr2_clk_p => hr2_clk_p
 --      hr_clk_n => hr_clk_n,
-      hr2_cs0 => hr_cs0      
       );
 
 --  fakehyper0: entity work.fakehyperram
