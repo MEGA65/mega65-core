@@ -11,6 +11,8 @@ int main(int argc,char **argv)
   char sda,scl;
   unsigned char hr_cs0,hr_clk_p,hr_reset,hr_rwds;
   unsigned char hr_d[8];
+  unsigned char hr2_cs0,hr2_clk_p,hr2_reset,hr2_rwds;
+  unsigned char hr2_d[8];
 
   time_t t=time(0);
   
@@ -26,11 +28,19 @@ int main(int argc,char **argv)
 	 "$end\n"
 	 "$timescale 1us $end\n"
 	 "$scope module logic $end\n"
+
 	 "$var wire 1 ! hr_cs0 $end\n"
 	 "$var wire 1 \" hr_clk_p $end\n"
 	 "$var wire 1 & hr_reset $end\n"
 	 "$var wire 1 %% hr_rwds $end\n"
 	 "$var wire 8 ^ hr_d $end\n"
+
+	 "$var wire 1 A hr2_cs0 $end\n"
+	 "$var wire 1 B hr2_clk_p $end\n"
+	 "$var wire 1 C hr2_reset $end\n"
+	 "$var wire 1 D hr2_rwds $end\n"
+	 "$var wire 8 E hr2_d $end\n"
+
 	 "$upscope $end\n"
 	 "$enddefinitions $end\n"
 	 "$dumpvars\n"
@@ -39,6 +49,11 @@ int main(int argc,char **argv)
 	 "x&\n"
 	 "x%%\n"
 	 "bxxxxxxxx ^\n"
+	 "xA\n"
+	 "xB\n"
+	 "xC\n"
+	 "xD\n"
+	 "bxxxxxxxx E\n"
 	 "$end\n"
 	 "\n");	
   
@@ -91,6 +106,45 @@ int main(int argc,char **argv)
 	}
       }
 
+    if (active) {
+      int n=sscanf(line,"%*[^@]@%dns:(report note): hr2_cs0 = '%c', hr2_clk_p = '%c', hr2_reset = '%c', hr2_rwds = '%c', hr2_d = '%c''%c''%c''%c''%c''%c''%c''%c', ",
+		   &timepoint,&hr2_cs0,&hr2_clk_p,&hr2_reset,&hr2_rwds,
+		   &hr2_d[0],
+		   &hr2_d[1],
+		   &hr2_d[2],
+		   &hr2_d[3],
+		   &hr2_d[4],
+		   &hr2_d[5],
+		   &hr2_d[6],
+		   &hr2_d[7]
+		   );
+      if (n<13) {
+	n=sscanf(line,"%*[^@]@%dus:(report note): hr2_cs0 = '%c', hr2_clk_p = '%c', hr2_reset = '%c', hr2_rwds = '%c', hr2_d = '%c''%c''%c''%c''%c''%c''%c''%c', ",
+		 &timepoint,&hr2_cs0,&hr2_clk_p,&hr2_reset,&hr2_rwds,
+		 &hr2_d[0],
+		 &hr2_d[1],
+		 &hr2_d[2],
+		 &hr2_d[3],
+		 &hr2_d[4],
+		 &hr2_d[5],
+		 &hr2_d[6],
+		 &hr2_d[7]
+		 );
+	timepoint*=1000; // us to ns
+      }
+      if (n==13) {
+	printf("%cA\n%cB\n%cC\n%cD\nb%c%c%c%c%c%c%c%c E\n",
+	       (char)hr2_cs0,(char)hr2_clk_p,(char)hr2_reset,(char)hr2_rwds,
+	       hr2_d[7],hr2_d[6],hr2_d[5],hr2_d[4],hr2_d[3],hr2_d[2],hr2_d[1],hr2_d[0]
+	       );
+	active--;
+	if (!active) {
+	  
+	  exit(0);
+	}
+      }
+
+    }      
 	if (sscanf(line,"%*[^@]@%dns:(report note): SDA='%c', SCL='%c'",
 		 &timepoint,&sda,&scl)==3) {
 	printf("#%d\n%c!\n%c\"\n",timepoint,(char)sda,(char)scl);
