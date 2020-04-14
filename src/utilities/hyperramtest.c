@@ -460,10 +460,10 @@ void main(void)
   // Turn cache back on before reading config registers etc
   lpoke(0xbfffff2,0x80+fast_flags);
   
-  cr0hi=lpeek(0x9001000);
-  cr0lo=lpeek(0x9001001);
-  id0hi=lpeek(0x9000000);
-  id0lo=lpeek(0x9000001);
+  cr0hi=lpeek(0xA001000);
+  cr0lo=lpeek(0xA001001);
+  id0hi=lpeek(0xA000000);
+  id0lo=lpeek(0xA000001);
 
   while (PEEK(0xd610)) POKE(0xd610,0);
   
