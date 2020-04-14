@@ -456,14 +456,8 @@ begin
         else
           if cache_enabled = false then
             -- Do normal  write request
-
-            if request_accepted = request_toggle then
-              report "request_toggle flipped";
-              request_toggle <= not request_toggle;
-              ram_address <= address;
-              ram_wdata <= wdata;
-              ram_reading <= '0';
-            end if;
+            report "request_toggle flipped";
+            request_toggle <= not request_toggle;
             
           else
             -- Collect writes together for dispatch
