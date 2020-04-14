@@ -1061,7 +1061,7 @@ begin
               if countdown = 3 and (config_reg_write='0' or ram_reading_held='1') then
                 extra_latency <= hr_rwds;
                 if (hr_rwds='1' and hyperram2_select='0')
-                  or (hr2_rwds='1' and hyperram2_select='0')
+                  or (hr2_rwds='1' and hyperram2_select='1')
                 then
                   report "Applying extra latency";
                 end if;                    
@@ -1115,7 +1115,7 @@ begin
                 extra_latency <= hr2_rwds;
               end if;
               if (hr_rwds='1' and hyperram2_select='0')
-                or (hr2_rwds='1' and hyperram2_select='0') then
+                or (hr2_rwds='1' and hyperram2_select='1') then
                 report "Applying extra latency";
               end if;                    
             end if;
