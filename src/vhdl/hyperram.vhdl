@@ -677,10 +677,12 @@ begin
             if write_collect0_dispatchable = '0' then
               write_collect0_toolate <= '0';
               write_collect0_flushed <= '0';
+              write_collect0_address <= (others => '1');
             end if;
             if write_collect1_dispatchable = '0' then
               write_collect1_toolate <= '0';
               write_collect1_flushed <= '0';
+              write_collect1_address <= (others => '1');
             end if;
             
             -- Mark us ready for a new job, or pick up a new job
