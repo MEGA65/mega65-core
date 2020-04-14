@@ -116,7 +116,6 @@ architecture gothic of hyperram is
   signal countdown_timeout : std_logic := '0';
 
   signal pause_phase : std_logic := '0';
-  signal ddr_phase : std_logic := '0';
   signal hr_clock : std_logic := '0';
 
   signal data_ready_toggle : std_logic := '0';
@@ -124,6 +123,7 @@ architecture gothic of hyperram is
   signal data_ready_strobe_hold : std_logic := '0';
 
   signal request_toggle : std_logic := '0';
+  signal request_accepted : std_logic := '0';
   signal last_request_toggle : std_logic := '0';
 
   signal byte_phase : unsigned(3 downto 0) := to_unsigned(0,4);
@@ -214,8 +214,6 @@ architecture gothic of hyperram is
   signal hr_clk : std_logic := '0';
 
   signal hr_clock_phase : unsigned(2 downto 0) := "000";
-
-  signal hr_d_last : unsigned(7 downto 0);
 
   signal read_time_adjust : integer range 0 to 255 := 1;
   
@@ -313,9 +311,6 @@ begin
       if read_request='1' and busy_internal='0' then
         report "Making read request";
         -- Begin read request
-        -- Latch address
-        ram_address <= address;
-        ram_reading <= '1';
 
         -- Check for cache read
         -- We check the write buffers first, as any contents that they have
@@ -396,10 +391,10 @@ begin
           end case;
           fake_data_ready_strobe <= '1';
           report "asserting data_ready_strobe for fake read";
-        else
+        elsif request_accepted = request_toggle then
           report "request_toggle flipped";
-
           ram_reading <= '1';
+          ram_address <= address;
           request_toggle <= not request_toggle;          
         end if;
       elsif queued_write='1' and write_collect0_dispatchable='0' and write_collect0_flushed='0'
@@ -422,10 +417,6 @@ begin
         report "Making write request: addr $" & to_hstring(address) & " <= " & to_hstring(wdata);
         -- Begin write request
         -- Latch address and data
-
-        ram_address <= address;
-        ram_wdata <= wdata;
-        ram_reading <= '0';
 
         if address(23 downto 4) = x"FFFFF" and address(25 downto 24) = "11" then
           case address(3 downto 0) is
@@ -463,8 +454,15 @@ begin
         else
           if cache_enabled = false then
             -- Do normal  write request
-            report "request_toggle flipped";
-            request_toggle <= not request_toggle;
+
+            if request_accepted = request_toggle then
+              report "request_toggle flipped";
+              request_toggle <= not request_toggle;
+              ram_address <= address;
+              ram_wdata <= wdata;
+              ram_reading <= '0';
+            end if;
+            
           else
             -- Collect writes together for dispatch
 
@@ -653,6 +651,7 @@ begin
             -- Phase 101 guarantees that the clock base change will happen
             -- within the comming clock cycle
             elsif hr_clock_phase(2 downto 1) = "10" then
+              request_accepted <= request_toggle;
               if request_toggle /= last_request_toggle then
                 ram_reading_held <= ram_reading;
                 
@@ -741,8 +740,6 @@ begin
                   countdown <= 6;
                 end if;
 
-                ddr_phase <= '0';
-                
               elsif write_collect1_dispatchable = '1' then
                 busy_internal <= '0';              
 
@@ -781,7 +778,6 @@ begin
                 end if;
 
                 report "clk_queue <= '00'";
-                ddr_phase <= '0';
 
               else
                 report "Clearing busy_internal";
@@ -850,8 +846,6 @@ begin
               countdown <= 6;
             end if;
 
-            ddr_phase <= '0';
-            
           when WriteSetup =>
 
             report "Preparing hr_command etc";
@@ -887,8 +881,6 @@ begin
             else
               countdown <= 6;
             end if;            
-            
-            ddr_phase <= '0';
             
           when HyperRAMOutputCommandSlow =>
             report "Writing command";
@@ -1094,7 +1086,6 @@ begin
             write_byte_phase <= '0';
 
           when HyperRAMDoWrite =>
-            ddr_phase <= not ddr_phase;
             hr_clk_phaseshift <= '1';         
 
             report "WRITE: LatencyWait state, bg_wr=" & std_logic'image(background_write)
@@ -1204,7 +1195,6 @@ begin
                 state <= HyperRAMFinishWriting;                    
               end if;
             else
-              ddr_phase <= not ddr_phase;
               
               report "WRITE: LatencyWait state, bg_wr=" & std_logic'image(background_write)
                 & ", count=" & integer'image(background_write_count);
@@ -1325,7 +1315,6 @@ begin
               countdown <= countdown - 1;
             end if;
 
-            ddr_phase <= not ddr_phase;
             hr_clk_phaseshift <= '0';         
             
             last_rwds <= hr_rwds;
@@ -1410,7 +1399,7 @@ begin
             pause_phase <= not pause_phase;
 
             if pause_phase = '1' then
-              hr_d_last <= hr_d;
+              null;
             else
               hr_clk_phaseshift <= '0';         
               if countdown = 0 then
@@ -1428,8 +1417,6 @@ begin
               else
                 countdown <= countdown - 1;
               end if;
-              
-              ddr_phase <= not ddr_phase;
               
               last_rwds <= hr_rwds;
               -- HyperRAM drives RWDS basically to follow the clock.
@@ -1454,20 +1441,20 @@ begin
                   -- Store the bytes in the cache row
                   if cache_row0_address = ram_address(26 downto 3) then          
                     cache_row0_valids(to_integer(byte_phase)) <= '1';
-                    cache_row0_data(to_integer(byte_phase)) <= hr_d_last;
+                    cache_row0_data(to_integer(byte_phase)) <= hr_d;
                   elsif cache_row1_address = ram_address(26 downto 3) then          
                     cache_row1_valids(to_integer(byte_phase)) <= '1';
-                    cache_row1_data(to_integer(byte_phase)) <= hr_d_last;
+                    cache_row1_data(to_integer(byte_phase)) <= hr_d;
                   elsif random_bits(1) = '0' then
                     cache_row0_valids <= (others => '0');
                     cache_row0_address <= ram_address(26 downto 3);
                     cache_row0_valids(to_integer(byte_phase)) <= '1';
-                    cache_row0_data(to_integer(byte_phase)) <= hr_d_last;
+                    cache_row0_data(to_integer(byte_phase)) <= hr_d;
                   else
                     cache_row1_valids <= (others => '0');
                     cache_row1_address <= ram_address(26 downto 3);
                     cache_row1_valids(to_integer(byte_phase)) <= '1';
-                    cache_row1_data(to_integer(byte_phase)) <= hr_d_last;
+                    cache_row1_data(to_integer(byte_phase)) <= hr_d;
                   end if;
                 else
                   -- Export the appropriate cache line to slow_devices
@@ -1488,8 +1475,8 @@ begin
                 
                 -- Quickly return the correct byte
                 if to_integer(byte_phase) = (to_integer(ram_address(2 downto 0))+read_time_adjust) then
-                  report "DISPATCH: Returning freshly read data = $" & to_hstring(hr_d_last);
-                  rdata <= hr_d_last;
+                  report "DISPATCH: Returning freshly read data = $" & to_hstring(hr_d);
+                  rdata <= hr_d;
                   data_ready_strobe <= '1';
                   data_ready_strobe_hold <= '1';
                 end if;
