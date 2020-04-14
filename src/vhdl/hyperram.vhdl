@@ -313,14 +313,19 @@ begin
         & to_hstring(write_collect1_data(7)) & " ";
 
 
+      -- Clear write buffers once they have been flushed.
+      -- We have to wipe the address and valids, so that they don't get stuck being
+      -- used as stale sources for cache reading.
       if write_collect0_dispatchable = '1' and write_collect0_toolate <= '1' and write_collect0_flushed = '1' then
         write_collect0_dispatchable <= '0';
+        write_collect0_address <= (others => '1');
+        write_collect0_valids <= (others => '0');
       end if;
       if write_collect1_dispatchable = '1' and write_collect1_toolate <= '1' and write_collect1_flushed = '1' then
         write_collect1_dispatchable <= '0';
-      end if;
-      
-
+        write_collect1_address <= (others => '1');            
+        write_collect1_valids <= (others => '0');
+      end if;      
       
       if read_request='1' and busy_internal='0' then
         report "Making read request";
@@ -533,7 +538,7 @@ begin
             & ", hr_clk_phaseshift to " & std_logic'image(hr_clk_phaseshift);
         end if;
       end if;
-      
+
       -- Only change clock mode when safe to do so
       clock_status_vector(4) := hr_clk_fast_current;
       clock_status_vector(3) := hr_clk_phaseshift_current;
@@ -677,12 +682,10 @@ begin
             if write_collect0_dispatchable = '0' then
               write_collect0_toolate <= '0';
               write_collect0_flushed <= '0';
-              write_collect0_address <= (others => '1');
             end if;
             if write_collect1_dispatchable = '0' then
               write_collect1_toolate <= '0';
               write_collect1_flushed <= '0';
-              write_collect1_address <= (others => '1');
             end if;
             
             -- Mark us ready for a new job, or pick up a new job
