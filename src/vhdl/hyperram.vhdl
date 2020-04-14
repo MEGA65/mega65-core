@@ -1064,7 +1064,7 @@ begin
                   hr_clk_fast <= '1';
                   state <= HyperRAMReadWait;
                 else
-                  pause_phase <= '1';                  
+                  pause_phase <= '0';                  
                   hr_clk_fast <= '0';
                   state <= HyperRAMReadWaitSlow;
                 end if;
