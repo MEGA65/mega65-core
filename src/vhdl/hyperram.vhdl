@@ -216,6 +216,8 @@ architecture gothic of hyperram is
   signal hr_clock_phase : unsigned(2 downto 0) := "000";
 
   signal hr_d_last : unsigned(7 downto 0);
+
+  signal read_time_adjust : integer range 0 to 255 := 1;
   
 begin
   process (pixelclock,clock163,clock325,hr_clk,hr_clk_phaseshift) is
@@ -363,7 +365,7 @@ begin
             when x"4" =>
               fake_rdata <= extra_write_latency;
             when x"5" =>
-              fake_rdata <= x"00";
+              fake_rdata <= to_unsigned(read_time_adjust,8);
             when x"6" =>
               fake_rdata <= rwr_delay;
             when x"7" =>
@@ -445,7 +447,7 @@ begin
             when x"4" =>
               extra_write_latency <= wdata;
             when x"5" =>
-              null;
+              read_time_adjust <= to_integer(wdata);
             when x"6" =>
               rwr_delay <= wdata;
             when x"8" =>
@@ -1485,14 +1487,14 @@ begin
                 end if;
                 
                 -- Quickly return the correct byte
-                if to_integer(byte_phase) = (to_integer(ram_address(2 downto 0))+0) then
+                if to_integer(byte_phase) = (to_integer(ram_address(2 downto 0))+read_time_adjust) then
                   report "DISPATCH: Returning freshly read data = $" & to_hstring(hr_d_last);
                   rdata <= hr_d_last;
                   data_ready_strobe <= '1';
                   data_ready_strobe_hold <= '1';
                 end if;
                 report "byte_phase = " & integer'image(to_integer(byte_phase));
-                if byte_phase = 7 then
+                if byte_phase = 7 + read_time_adjust then
                   rwr_counter <= rwr_delay;
                   report "returning to idle";
                   state <= Idle;
