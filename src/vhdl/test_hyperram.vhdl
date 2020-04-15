@@ -64,8 +64,8 @@ architecture foo of test_hyperram is
 
   signal mem_jobs : mem_job_list_t := (
     (address => x"8000000", write_p => '0', value => x"FF"),
-    (address => x"9001000", write_p => '1', value => x"F1"),
-    (address => x"9001000", write_p => '1', value => x"F2"),
+    (address => x"A001000", write_p => '1', value => x"F1"),
+    (address => x"A001000", write_p => '1', value => x"F2"),
     (address => x"8000000", write_p => '0', value => x"FF"),
 
 
