@@ -118,10 +118,10 @@ architecture gothic of hyperram is
   -- And the matching extra latency is 5
   signal extra_write_latency : unsigned(7 downto 0) := to_unsigned(5,8);
 
-  signal fast_cmd_mode : std_logic := '0';
-  signal fast_read_mode : std_logic := '0';
-  signal fast_write_mode : std_logic := '0';
-  
+  signal fast_cmd_mode : std_logic := '1';
+  signal fast_read_mode : std_logic := '1';
+  signal fast_write_mode : std_logic := '1';
+  signal read_phase_shift : std_logic := '1';
   
   signal countdown : integer := 0;
   signal extra_latency : std_logic := '0';
@@ -365,7 +365,7 @@ begin
               fake_rdata(0) <= fast_cmd_mode;
               fake_rdata(1) <= fast_read_mode;
               fake_rdata(2) <= fast_write_mode;
-              fake_rdata(3) <= '0';
+              fake_rdata(3) <= read_phase_shift;
               fake_rdata(4) <= '0';
               fake_rdata(5) <= '0';
               fake_rdata(6) <= '0';
@@ -447,6 +447,7 @@ begin
               fast_cmd_mode <= wdata(0);
               fast_read_mode <= wdata(1);
               fast_write_mode <= wdata(2);
+              read_phase_shift <= wdata(3);
               if wdata(7)='1' then
                 cache_enabled <= true;
               else
@@ -1440,7 +1441,7 @@ begin
               countdown <= countdown - 1;
             end if;
 
-            hr_clk_phaseshift <= '0';         
+            hr_clk_phaseshift <= read_phase_shift;
 
             if hyperram2_select='0' then
               last_rwds <= hr_rwds;
@@ -1473,6 +1474,8 @@ begin
                 -- Store the bytes in the cache row
                 if cache_row0_address = ram_address(26 downto 3) then          
                   cache_row0_valids(to_integer(byte_phase)) <= '1';
+                  report "hr_sample='1'";
+                  report "hr_sample='0'";
                   if hyperram2_select='0' then
                     cache_row0_data(to_integer(byte_phase)) <= hr_d;
                   else
@@ -1480,6 +1483,8 @@ begin
                   end if;
                 elsif cache_row1_address = ram_address(26 downto 3) then          
                   cache_row1_valids(to_integer(byte_phase)) <= '1';
+                  report "hr_sample='1'";
+                  report "hr_sample='0'";
                   if hyperram2_select='0' then
                     cache_row1_data(to_integer(byte_phase)) <= hr_d;
                   else
@@ -1489,6 +1494,8 @@ begin
                   cache_row0_valids <= (others => '0');
                   cache_row0_address <= ram_address(26 downto 3);
                   cache_row0_valids(to_integer(byte_phase)) <= '1';
+                  report "hr_sample='1'";
+                  report "hr_sample='0'";
                   if hyperram2_select='0' then
                     cache_row0_data(to_integer(byte_phase)) <= hr_d;
                   else
@@ -1498,6 +1505,8 @@ begin
                   cache_row1_valids <= (others => '0');
                   cache_row1_address <= ram_address(26 downto 3);
                   cache_row1_valids(to_integer(byte_phase)) <= '1';
+                  report "hr_sample='1'";
+                  report "hr_sample='0'";
                   if hyperram2_select='0' then
                     cache_row1_data(to_integer(byte_phase)) <= hr_d;
                   else
@@ -1524,6 +1533,8 @@ begin
               -- Quickly return the correct byte
               if to_integer(byte_phase) = (to_integer(ram_address(2 downto 0))+0) then
                 report "DISPATCH: Returning freshly read data = $" & to_hstring(hr_d);
+                report "hr_return='1'";
+                report "hr_return='0'";
                 if hyperram2_select='0' then
                   rdata <= hr_d;
                 else
@@ -1556,7 +1567,7 @@ begin
             if pause_phase = '1' then
               null;
             else
-              hr_clk_phaseshift <= '0';         
+              hr_clk_phaseshift <= read_phase_shift;
               if countdown = 0 then
                 -- Timed out waiting for read -- so return anyway, rather
                 -- than locking the machine hard forever.
@@ -1602,6 +1613,8 @@ begin
                   -- Store the bytes in the cache row
                   if cache_row0_address = ram_address(26 downto 3) then          
                     cache_row0_valids(to_integer(byte_phase)) <= '1';
+                    report "hr_sample='1'";
+                    report "hr_sample='0'";
                     if hyperram2_select='0' then
                       cache_row0_data(to_integer(byte_phase)) <= hr_d;
                     else
@@ -1609,6 +1622,8 @@ begin
                     end if;
                   elsif cache_row1_address = ram_address(26 downto 3) then          
                     cache_row1_valids(to_integer(byte_phase)) <= '1';
+                    report "hr_sample='1'";
+                    report "hr_sample='0'";
                     if hyperram2_select='0' then
                       cache_row1_data(to_integer(byte_phase)) <= hr_d;
                     else
@@ -1618,6 +1633,8 @@ begin
                     cache_row0_valids <= (others => '0');
                     cache_row0_address <= ram_address(26 downto 3);
                     cache_row0_valids(to_integer(byte_phase)) <= '1';
+                    report "hr_sample='1'";
+                    report "hr_sample='0'";
                     if hyperram2_select='0' then
                       cache_row0_data(to_integer(byte_phase)) <= hr_d;
                     else
@@ -1627,6 +1644,8 @@ begin
                     cache_row1_valids <= (others => '0');
                     cache_row1_address <= ram_address(26 downto 3);
                     cache_row1_valids(to_integer(byte_phase)) <= '1';
+                    report "hr_sample='1'";
+                    report "hr_sample='0'";
                     if hyperram2_select='0' then
                       cache_row1_data(to_integer(byte_phase)) <= hr_d;
                     else
@@ -1653,6 +1672,8 @@ begin
                 -- Quickly return the correct byte
                 if to_integer(byte_phase) = (to_integer(ram_address(2 downto 0))+read_time_adjust) then
                   report "DISPATCH: Returning freshly read data = $" & to_hstring(hr_d);
+                  report "hr_return='1'";
+                  report "hr_return='0'";
                   if hyperram2_select='0' then
                     rdata <= hr_d;
                   else
