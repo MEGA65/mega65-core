@@ -102,14 +102,16 @@ architecture gothic of hyperram is
   signal ram_reading : std_logic := '0';
   signal ram_reading_held : std_logic := '0';
 
-  -- We want to set config register 0 to $8fe6, to enable variable latency
+  -- We want to set config register 0 to $ffe6, to enable variable latency
   -- and 3 cycles instead of 6 for latency. This speeds up writing almost 2x.
   -- But at 80MHz instead of 40MHz bus, we have to increase the latency from
   -- 3 to 4 cycles to satisfy the 40ns minimum time requirement.
+  -- This also sets the drive strength to the maximum, to get cleaner faster
+  -- clock transitions. This fixes checkerboard read errors at 80MHz.
   
-  signal conf_buf0 : unsigned(7 downto 0) := x"8f";
+  signal conf_buf0 : unsigned(7 downto 0) := x"ff";
   signal conf_buf1 : unsigned(7 downto 0) := x"f6";
-  signal conf_buf0_in : unsigned(7 downto 0) := x"8f";
+  signal conf_buf0_in : unsigned(7 downto 0) := x"ff";
   signal conf_buf1_in : unsigned(7 downto 0) := x"f6";
   signal conf_buf0_set : std_logic := '0';
   signal conf_buf1_set : std_logic := '0';
