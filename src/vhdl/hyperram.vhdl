@@ -234,16 +234,12 @@ architecture gothic of hyperram is
   
   signal read_time_adjust : integer range 0 to 255 := 1;
 
-  signal invalidate_current_cache_line : std_logic := '0';
-  
 begin
   process (pixelclock,clock163,clock325,hr_clk,hr_clk_phaseshift) is
     variable clock_status_vector : unsigned(4 downto 0);
   begin
     if rising_edge(pixelclock) then
 
-      invalidate_current_cache_line <= '0';
-      
       report "read_request=" & std_logic'image(read_request) & ", busy_internal=" & std_logic'image(busy_internal)
         & ", write_request=" & std_logic'image(write_request);
 
@@ -273,7 +269,7 @@ begin
         request_counter <= request_counter_int;
       end if;
       
-      report "cache0: address=$" & to_hstring(cache_row0_address&"000") & ", valids=" & to_string(cache_row0_valids)
+      report "CACHE cache0: address=$" & to_hstring(cache_row0_address&"000") & ", valids=" & to_string(cache_row0_valids)
         & ", data = "
         & to_hstring(cache_row0_data(0)) & " "
         & to_hstring(cache_row0_data(1)) & " "
@@ -283,7 +279,7 @@ begin
         & to_hstring(cache_row0_data(5)) & " "
         & to_hstring(cache_row0_data(6)) & " "
         & to_hstring(cache_row0_data(7)) & " ";
-      report "cache1: address=$" & to_hstring(cache_row1_address&"000") & ", valids=" & to_string(cache_row1_valids)
+      report "CACHE cache1: address=$" & to_hstring(cache_row1_address&"000") & ", valids=" & to_string(cache_row1_valids)
         & ", data = "
         & to_hstring(cache_row1_data(0)) & " "
         & to_hstring(cache_row1_data(1)) & " "
@@ -293,7 +289,7 @@ begin
         & to_hstring(cache_row1_data(5)) & " "
         & to_hstring(cache_row1_data(6)) & " "
         & to_hstring(cache_row1_data(7)) & " ";
-      report "write0: $" & to_hstring(write_collect0_address&"000") & ", v=" & to_string(write_collect0_valids)
+      report "CACHE write0: $" & to_hstring(write_collect0_address&"000") & ", v=" & to_string(write_collect0_valids)
         & ", d=" & std_logic'image(write_collect0_dispatchable)
         & ", late=" & std_logic'image(write_collect0_toolate)
         & ", fl=" & std_logic'image(write_collect0_flushed)
@@ -306,7 +302,7 @@ begin
         & to_hstring(write_collect0_data(5)) & " "
         & to_hstring(write_collect0_data(6)) & " "
         & to_hstring(write_collect0_data(7)) & " ";
-      report "write1: $" & to_hstring(write_collect1_address&"000") & ", v=" & to_string(write_collect1_valids)
+      report "CACHE write1: $" & to_hstring(write_collect1_address&"000") & ", v=" & to_string(write_collect1_valids)
         & ", d=" & std_logic'image(write_collect1_dispatchable)
         & ", late=" & std_logic'image(write_collect1_toolate)
         & ", fl=" & std_logic'image(write_collect1_flushed)
@@ -445,11 +441,6 @@ begin
         -- Begin write request
         -- Latch address and data
 
-        -- Invalidate short-circuit cache line, if it matches
-        if address(26 downto 3) = current_cache_line_address(26 downto 3) then
-          invalidate_current_cache_line <= '1';
-        end if;                
-        
         if address(23 downto 4) = x"FFFFF" and address(25 downto 24) = "11" then
           case address(3 downto 0) is
             when x"0" =>
@@ -527,6 +518,17 @@ begin
               queued_wdata <= wdata;
               queued_write <= '1';
             end if;
+
+            if cache_row0_address = address(26 downto 3) then
+              cache_row0_valids(to_integer(address(2 downto 0))) <= '1';
+              cache_row0_data(to_integer(address(2 downto 0))) <= wdata;
+            end if;
+            if cache_row1_address = address(26 downto 3) then
+              cache_row1_valids(to_integer(address(2 downto 0))) <= '1';
+              cache_row1_data(to_integer(address(2 downto 0))) <= wdata;
+            end if;
+
+            
           end if;
         end if;        
       else
@@ -639,10 +641,6 @@ begin
 
     if rising_edge(clock163) then
 
-      if invalidate_current_cache_line='1' then
-        current_cache_line_valid <= '0';
-      end if;
-      
       cycle_count <= cycle_count + 1;
 
       if data_ready_strobe_hold = '0' then      
