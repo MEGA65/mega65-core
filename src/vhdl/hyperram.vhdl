@@ -88,6 +88,8 @@ architecture gothic of hyperram is
   signal busy_internal : std_logic := '1';
   signal hr_command : unsigned(47 downto 0);
 
+  signal hr_d_last : unsigned(7 downto 0);
+  
   -- Used to assert CS line on BOTH hyperRAM modules at the same time
   -- when doing the initial configuration register write.
   signal first_transaction : std_logic := '1';
@@ -1703,7 +1705,13 @@ begin
             report "Presenting tri-state on hr_d";
             hr_d <= (others => 'Z');
             hr2_d <= (others => 'Z');
-
+            
+            if hyperram2_select='0' then
+              hr_d_last <= hr_d;
+            else
+              hr_d_last <= hr2_d;
+            end if;
+            
             pause_phase <= not pause_phase;
 
             if pause_phase = '1' then
@@ -1757,19 +1765,27 @@ begin
                     cache_row0_valids(to_integer(byte_phase)) <= '1';
                     report "hr_sample='1'";
                     report "hr_sample='0'";
-                    if hyperram2_select='0' then
-                      cache_row0_data(to_integer(byte_phase)) <= hr_d;
+                    if byte_phase = 0 then
+                      cache_row0_data(to_integer(byte_phase)) <= hr_d_last;
                     else
-                      cache_row0_data(to_integer(byte_phase)) <= hr2_d;
+                      if hyperram2_select='0' then
+                        cache_row0_data(to_integer(byte_phase)) <= hr_d;
+                      else
+                        cache_row0_data(to_integer(byte_phase)) <= hr2_d;
+                      end if;
                     end if;
                   elsif cache_row1_address = ram_address(26 downto 3) then          
                     cache_row1_valids(to_integer(byte_phase)) <= '1';
                     report "hr_sample='1'";
                     report "hr_sample='0'";
-                    if hyperram2_select='0' then
-                      cache_row1_data(to_integer(byte_phase)) <= hr_d;
+                    if byte_phase = 0 then
+                      cache_row1_data(to_integer(byte_phase)) <= hr_d_last;
                     else
-                      cache_row1_data(to_integer(byte_phase)) <= hr2_d;
+                      if hyperram2_select='0' then
+                        cache_row1_data(to_integer(byte_phase)) <= hr_d;
+                      else
+                        cache_row1_data(to_integer(byte_phase)) <= hr2_d;
+                      end if;
                     end if;
                   elsif random_bits(1) = '0' then
                     cache_row0_valids <= (others => '0');
@@ -1777,10 +1793,14 @@ begin
                     cache_row0_valids(to_integer(byte_phase)) <= '1';
                     report "hr_sample='1'";
                     report "hr_sample='0'";
-                    if hyperram2_select='0' then
-                      cache_row0_data(to_integer(byte_phase)) <= hr_d;
+                    if byte_phase = 0 then
+                      cache_row0_data(to_integer(byte_phase)) <= hr_d_last;
                     else
-                      cache_row0_data(to_integer(byte_phase)) <= hr2_d;
+                      if hyperram2_select='0' then
+                        cache_row0_data(to_integer(byte_phase)) <= hr_d;
+                      else
+                        cache_row0_data(to_integer(byte_phase)) <= hr2_d;
+                      end if;
                     end if;
                   else
                     cache_row1_valids <= (others => '0');
@@ -1788,10 +1808,14 @@ begin
                     cache_row1_valids(to_integer(byte_phase)) <= '1';
                     report "hr_sample='1'";
                     report "hr_sample='0'";
-                    if hyperram2_select='0' then
-                      cache_row1_data(to_integer(byte_phase)) <= hr_d;
+                    if byte_phase = 0 then
+                      cache_row1_data(to_integer(byte_phase)) <= hr_d_last;
                     else
-                      cache_row1_data(to_integer(byte_phase)) <= hr2_d;
+                      if hyperram2_select='0' then
+                        cache_row1_data(to_integer(byte_phase)) <= hr_d;
+                      else
+                        cache_row1_data(to_integer(byte_phase)) <= hr2_d;
+                      end if;
                     end if;
                   end if;
                 else
@@ -1816,10 +1840,14 @@ begin
                   report "DISPATCH: Returning freshly read data = $" & to_hstring(hr_d);
                   report "hr_return='1'";
                   report "hr_return='0'";
-                  if hyperram2_select='0' then
-                    rdata <= hr_d;
+                  if byte_phase = 0 then
+                    rdata <= hr_d_last;
                   else
-                    rdata <= hr2_d;
+                    if hyperram2_select='0' then
+                      rdata <= hr_d;
+                    else
+                      rdata <= hr2_d;
+                    end if;
                   end if;
                   data_ready_strobe <= '1';
                   data_ready_strobe_hold <= '1';
