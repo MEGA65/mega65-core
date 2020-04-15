@@ -69,12 +69,22 @@ architecture foo of test_hyperram is
     (address => x"8000808", write_p => '1', value => x"08"),
     (address => x"8000810", write_p => '1', value => x"10"),
     (address => x"8000818", write_p => '1', value => x"18"),
+    (address => x"8000820", write_p => '1', value => x"20"),
+    (address => x"8000828", write_p => '1', value => x"28"),
+    (address => x"8000830", write_p => '1', value => x"30"),
+    (address => x"8000838", write_p => '1', value => x"38"),
+    (address => x"8000840", write_p => '1', value => x"40"),
     (address => x"8000808", write_p => '1', value => x"48"),
     (address => x"8000800", write_p => '0', value => x"00"),
     (address => x"8000800", write_p => '1', value => x"40"),
     (address => x"8000808", write_p => '0', value => x"48"),
     (address => x"8000810", write_p => '0', value => x"10"),
     (address => x"8000818", write_p => '0', value => x"18"),
+    (address => x"8000820", write_p => '0', value => x"20"),
+    (address => x"8000828", write_p => '0', value => x"28"),
+    (address => x"8000830", write_p => '0', value => x"30"),
+    (address => x"8000838", write_p => '0', value => x"38"),
+    (address => x"8000840", write_p => '0', value => x"40"),
 
 
     -- Write 16 bytes, first the evens and then the odds
