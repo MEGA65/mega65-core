@@ -189,7 +189,11 @@ architecture gothic of hyperram is
   signal block_address : unsigned(26 downto 5);
   signal block_valid : std_logic := '0';
   signal is_block_read : boolean := false;
-  signal block_read_enable : std_logic := '1';
+  signal block_read_enable : std_logic := '1'; -- enable 32 byte read block fetching
+  signal is_prefetch : boolean := false;
+  signal ram_prefetch : boolean := false;
+  signal flag_prefetch : std_logic := '1';  -- enable/disable prefetch of read
+                                            -- blocks
 
   signal current_cache_line_update : cache_row_t := (others => (others => '0'));
   signal current_cache_line_new_address : unsigned(26 downto 3) := (others => '0');
@@ -251,6 +255,7 @@ architecture gothic of hyperram is
 begin
   process (pixelclock,clock163,clock325,hr_clk,hr_clk_phaseshift) is
     variable clock_status_vector : unsigned(4 downto 0);
+    variable tempaddr : unsigned(26 downto 0);
   begin
     if rising_edge(pixelclock) then
 
@@ -375,6 +380,19 @@ begin
           current_cache_line_update <= block_data(to_integer(address(4 downto 3)));
           current_cache_line_new_address <= address(26 downto 3);
           current_cache_line_update_all <= not current_cache_line_update_all;
+
+          if (address(4 downto 3) = "11") and (flag_prefetch='1') then
+            -- When attempting to read from the last 8 bytes of a block read,
+            -- we schedule a pre-fetch of the next 32 bytes, so that we can hide
+            -- the read latency as much as possible.
+            ram_reading <= '1';
+            tempaddr(26 downto 5) := address(26 downto 5) + 1;
+            tempaddr(4 downto 0) := "00000";
+            ram_address <= tempaddr;
+            request_toggle <= not request_toggle;          
+            ram_prefetch <= true;
+            report "DISPATCH: Dispatching pre-fetch of $" & to_hstring(tempaddr);
+          end if;
           
         elsif cache_enabled and (address(26 downto 3 ) = write_collect0_address and write_collect0_valids(to_integer(address(2 downto 0))) = '1') then
           -- Write cache read-back
@@ -409,7 +427,7 @@ begin
               fake_rdata(2) <= fast_write_mode;
               fake_rdata(3) <= read_phase_shift;
               fake_rdata(4) <= block_read_enable;
-              fake_rdata(5) <= '0';
+              fake_rdata(5) <= flag_prefetch;
               fake_rdata(6) <= '0';
               if cache_enabled then
                 fake_rdata(7) <= '1';
@@ -456,6 +474,7 @@ begin
           report "request_toggle flipped";
           ram_reading <= '1';
           ram_address <= address;
+          ram_prefetch <= false;
           request_toggle <= not request_toggle;          
         end if;
       elsif queued_write='1' and write_collect0_dispatchable='0' and write_collect0_flushed='0'
@@ -491,6 +510,7 @@ begin
               fast_write_mode <= wdata(2);
               read_phase_shift <= wdata(3);
               block_read_enable <= wdata(4);
+              flag_prefetch <= wdata(5);
               if wdata(7)='1' then
                 cache_enabled <= true;
               else
@@ -518,6 +538,7 @@ begin
           if cache_enabled = false then
             -- Do normal  write request
             report "request_toggle flipped";
+            ram_prefetch <= false;
             request_toggle <= not request_toggle;
             
           else
@@ -733,6 +754,7 @@ begin
 
             first_transaction <= '0';
             is_block_read <= false;
+            is_prefetch <= ram_prefetch;
             
             -- All commands need the clock offset by 1/2 cycle
             hr_clk_phaseshift <= write_phase_shift;
@@ -1571,7 +1593,7 @@ begin
                     <= hr2_d;
                 end if;
               end if;
-              if byte_phase < 8 then
+              if (byte_phase < 8) then
                 -- Store the bytes in the cache row
                 if cache_row0_address = ram_address(26 downto 3) then          
                   cache_row0_valids(to_integer(byte_phase)) <= '1';
@@ -1614,7 +1636,7 @@ begin
                     cache_row1_data(to_integer(byte_phase)) <= hr2_d;
                   end if;
                 end if;
-              elsif byte_phase = 8 then
+              elsif (byte_phase = 8) and (is_prefetch = false) then
                 -- Export the appropriate cache line to slow_devices
                 if cache_row0_address = ram_address(26 downto 3) and cache_enabled then          
                   if cache_row0_valids = x"FF" then
@@ -1632,7 +1654,7 @@ begin
               end if;
               
               -- Quickly return the correct byte
-              if to_integer(byte_phase) = (to_integer(ram_address(2 downto 0))+0) then
+              if to_integer(byte_phase) = (to_integer(ram_address(2 downto 0))+0) and (is_prefetch=false) then
                 report "DISPATCH: Returning freshly read data = $" & to_hstring(hr_d);
                 report "hr_return='1'";
                 report "hr_return='0'";
@@ -1656,6 +1678,7 @@ begin
                 if is_block_read then
                   block_valid <= '1';
                 end if;
+                is_prefetch <= false;
               else
                 byte_phase <= byte_phase + 1;
               end if;
