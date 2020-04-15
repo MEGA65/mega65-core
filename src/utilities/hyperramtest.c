@@ -140,6 +140,43 @@ void test_continuousread(void)
   
 }
 
+void test_cacheerror(void)
+{
+  printf("Performing cache error test.\n");
+
+  //  for(addr=0x8000000;addr<0x8800000;addr+=0x8000)
+  //    lfill(addr,0x00,0x8000);
+
+  addr=0x8000000;
+  lfill(addr,0x00,0x800);
+  for(j=0;j<16;j++) lpoke(addr+j,0x10+j);
+  lcopy(addr,0xc000,0x800);
+
+  addr=0x8000800;
+  lfill(addr,0x00,0x800);
+  for(j=0;j<16;j++) lpoke(addr+j,0x10+j);
+  lcopy(addr,0xc000,0x800);
+
+  for(j=0;j<16;j++) {
+    i=0;
+    if (PEEK(0xc000+j)!=(0x10+(j-i*4))) {
+      printf("ERROR: Read $%02x from $%08lx, expected $%02x (i=%d)\n",
+	     PEEK(0xc000+j),addr+j,
+	     0x10+j-i*4,i);
+      
+      while(PEEK(0xD610)) POKE(0xD610,0);
+      while(!PEEK(0xD610)) continue;
+      if (PEEK(0xD610)==0x03) return;
+      while(PEEK(0xD610)) POKE(0xD610,0);
+      
+    }
+    printf("$%02x ",PEEK(0xc000+j));
+  }
+
+}
+
+
+
 void test_miswrite(void)
 {
   printf("Performing mis-write test.\n");
@@ -157,7 +194,7 @@ void test_miswrite(void)
       printf("\nTesting @ $%08lx",addr);
       for(i=0;i<256;i++) {
 	if (!(i&0xf)) printf(".");
-	lfill(addr,0,0x800);
+	lfill(addr,0x00,0x800);
 	// Write test pattern somewhere
 	for(j=0;j<16;j++) lpoke(addr+(i*4)+j,0x10+j);
 
@@ -168,7 +205,7 @@ void test_miswrite(void)
 	//	}
 	  
 	{
-	for(j=0;j<0x800;j++) {
+	for(j=0x000;j<0x800;j+=0x800) {
 	  if (PEEK(0xD610)==0x03) return;
 	  while(PEEK(0xD610)) POKE(0xD610,0);
 	  if (j<(i*4)||j>=((i*4+16))) {
@@ -496,6 +533,7 @@ void main(void)
     case '2': test_continuousread(); break;
     case '3': test_miswrite(); break;
     case '4': test_checkerboard(); break;
+    case '5': test_cacheerror(); break;
     }
 
     while(PEEK(0xD610)) POKE(0xD610,0);
