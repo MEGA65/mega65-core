@@ -21,7 +21,8 @@ unsigned int i,j,k;
   0x02 = Read bytes fast
   0x04 = Write data fast (not currently working)
 */
-unsigned char fast_flags=0x02; 
+unsigned char fast_flags=0x0a; 
+unsigned char slow_flags=0x0a; 
 
 void bust_cache(void) {
   lpeek(0x8000100);
@@ -360,7 +361,6 @@ void test_speed(void)
       printf("%ld KB/s \n\n",speed);
 
       // Hyperram fast transactions
-      fast_flags=0x07;
       lpoke(0xbfffff2,0x80+fast_flags);
       printf("%cWith fast access enabled:%c\n",0x92,0x12);
       
@@ -401,8 +401,7 @@ void test_speed(void)
       printf("%ld KB/s \n",speed);
       
       // Hyperram slow transactions
-      fast_flags=0x00;
-      lpoke(0xbfffff2,0x80+fast_flags);
+      lpoke(0xbfffff2,0x80+slow_flags);
       printf("\n%cWith fast access disabled:%c\n",0x92,0x12);
       
       while(PEEK(0xD012)!=0x10)
@@ -475,6 +474,7 @@ void main(void)
     while (PEEK(0xd610)) POKE(0xd610,0);
 
     printf("\nSelect test:\n"
+	   "0 - Reprobe RAM size\n"
 	   "1 - Speed test\n"
 	   "2 - Read stability\n"
 	   "3 - Mis-write test\n"
@@ -491,6 +491,7 @@ void main(void)
     show_info();
 
     switch(i) {
+    case '0': setup_hyperram(); break;
     case '1': test_speed(); break;
     case '2': test_continuousread(); break;
     case '3': test_miswrite(); break;
