@@ -75,7 +75,9 @@ architecture gothic of hyperram is
   -- For read it is ~143ns = 6.99MHz, which might just be a whisker too slow
   -- for MiniMig.  By reading only 4 bytes instead of 8, this would allow getting
   -- back down to ~120 -- 132ns, which should be enough.
-  signal rwr_delay : unsigned(7 downto 0) := to_unsigned(40*163/1000 - 1 - 2 -1,8);
+  -- Actually, all of that is a bit moot, since it seems that we just have to apply
+  -- some trial and error to get it right. 1 seems right with the current settings.
+  signal rwr_delay : unsigned(7 downto 0) := to_unsigned(1,8);
   signal rwr_counter : unsigned(7 downto 0) := (others => '0');
 
   -- We prime the HyperRAM controller to set the value of CR0 initially on
