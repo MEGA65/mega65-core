@@ -63,10 +63,18 @@ architecture foo of test_hyperram is
   type mem_job_list_t is array(0 to 99) of mem_transaction_t;
 
   signal mem_jobs : mem_job_list_t := (
-    (address => x"8000000", write_p => '0', value => x"FF"),
-    (address => x"A001000", write_p => '1', value => x"F1"),
-    (address => x"A001000", write_p => '1', value => x"F2"),
-    (address => x"8000000", write_p => '0', value => x"FF"),
+    (address => x"8000001", write_p => '1', value => x"91"),
+    (address => x"8000001", write_p => '0', value => x"91"),
+    (address => x"8000800", write_p => '1', value => x"00"),
+    (address => x"8000808", write_p => '1', value => x"08"),
+    (address => x"8000810", write_p => '1', value => x"10"),
+    (address => x"8000818", write_p => '1', value => x"18"),
+    (address => x"8000808", write_p => '1', value => x"48"),
+    (address => x"8000800", write_p => '0', value => x"00"),
+    (address => x"8000800", write_p => '1', value => x"40"),
+    (address => x"8000808", write_p => '0', value => x"48"),
+    (address => x"8000810", write_p => '0', value => x"10"),
+    (address => x"8000818", write_p => '0', value => x"18"),
 
 
     -- Write 16 bytes, first the evens and then the odds
