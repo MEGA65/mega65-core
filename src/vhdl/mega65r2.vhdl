@@ -478,19 +478,19 @@ begin
       current_cache_line_address => current_cache_line_address,
       current_cache_line_valid => current_cache_line_valid,     
       
-      hr_d => hr_d,
-      hr_rwds => hr_rwds,
-      hr_reset => hr_reset,
-      hr_clk_p => hr_clk_p,
+      hr2_d => hr_d,
+      hr2_rwds => hr_rwds,
+      hr2_reset => hr_reset,
+      hr2_clk_p => hr_clk_p,
 --      hr_clk_n => hr_clk_n,
 
-      hr_cs0 => hr_cs0,
-      hr_cs1 => hr2_cs0,
+      hr_cs1 => hr_cs0,
+      hr_cs0 => hr2_cs0,
 
-      hr2_d => hr2_d,
-      hr2_rwds => hr2_rwds,
-      hr2_reset => hr2_reset,
-      hr2_clk_p => hr2_clk_p
+      hr_d => hr2_d,
+      hr_rwds => hr2_rwds,
+      hr_reset => hr2_reset,
+      hr_clk_p => hr2_clk_p
 --      hr_clk_n => hr_clk_n,
       );
 
