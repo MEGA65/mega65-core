@@ -39,7 +39,6 @@
 .label HyppoStack_Start             = $be00
 .label HyppoZP_Start                = $bf00
 .label Hyppo_End                    = $bfff
-.label Data_Start                   = $ce00
 
 .file [name="../../bin/HICKUP.M65", type="bin", segments="TrapEntryPoints,RelocatedCPUVectors,Traps,DOSDiskTable,SysPartStructure,DOSWorkArea,ProcessDescriptors,HyppoStack,HyppoZP"]
 
@@ -52,7 +51,6 @@
 .segmentdef ProcessDescriptors     [min=ProcessDescriptors_Start,  max=HyppoStack_Start-1                                  ]
 .segmentdef HyppoStack             [min=HyppoStack_Start,          max=HyppoZP_Start-1,            fill, fillByte=$3e      ]
 .segmentdef HyppoZP                [min=HyppoZP_Start,             max=Hyppo_End,                  fill, fillByte=$3f      ]
-.segmentdef Data                   [min=Data_Start,                max=$ffff                                               ]
 
 /*  -------------------------------------------------------------------
     Reserved space for Hyppo ZP at $BF00-$BFFF
@@ -121,8 +119,6 @@ sdcounter:
     you choose a disk image from a list.
     ---------------------------------------------------------------- */
 
-        .segment Data
-        * = Data_Start
 romslab:
         .byte 0
 screenrow:
