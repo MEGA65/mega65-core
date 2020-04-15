@@ -201,6 +201,12 @@ architecture gothic of hyperram is
   signal current_cache_line_update_flags : std_logic_vector(0 to 7) := (others => '0');
   signal last_current_cache_line_update_all : std_logic := '0';
   signal last_current_cache_line_update_flags : std_logic_vector(0 to 7) := (others => '0');
+
+  signal cache_row_update_toggle : std_logic := '0';
+  signal last_cache_row_update_toggle : std_logic := '0';
+  signal cache_row_update_address : unsigned(26 downto 3) := (others => '0');
+  signal cache_row_update_byte : integer range 0 to 7 := 0;
+  signal cache_row_update_value : unsigned(7 downto 0) := x"00";
   
   signal last_rwds : std_logic := '0';
 
@@ -589,19 +595,11 @@ begin
             end if;
             
             -- Update read cache structures when writing
-            if cache_row0_address = address(26 downto 3) then
-              cache_row0_valids(to_integer(address(2 downto 0))) <= '1';
-              cache_row0_data(to_integer(address(2 downto 0))) <= wdata;
-            end if;
-            if cache_row1_address = address(26 downto 3) then
-              cache_row1_valids(to_integer(address(2 downto 0))) <= '1';
-              cache_row1_data(to_integer(address(2 downto 0))) <= wdata;
-            end if;
-            if block_address = address(26 downto 5) then
-              block_data(to_integer(address(4 downto 3)))(to_integer(address(2 downto 0))) <= wdata;
-            end if;
+            cache_row_update_address <= address(26 downto 3);
+            cache_row_update_byte <= to_integer(address(2 downto 0));
+            cache_row_update_value <= wdata;
+            cache_row_update_toggle <= not cache_row_update_toggle;
 
-            
           end if;
         end if;        
       else
@@ -772,16 +770,32 @@ begin
             end if;
 
             if current_cache_line_update_all /= last_current_cache_line_update_all then
-              current_cache_line_update_all <= last_current_cache_line_update_all;
+              last_current_cache_line_update_all <= current_cache_line_update_all;
               current_cache_line_address <= current_cache_line_new_address;
               current_cache_line <= current_cache_line_update;
             end if;
             for i in 0 to 7 loop
               if current_cache_line_update_flags(i) /= last_current_cache_line_update_flags(i)  then
-                current_cache_line_update_flags(i) <= last_current_cache_line_update_flags(i);
+                last_current_cache_line_update_flags(i) <= current_cache_line_update_flags(i);
                 current_cache_line(i) <= current_cache_line_update(i);
               end if;
             end loop;
+
+            if cache_row_update_toggle /= last_cache_row_update_toggle then
+              last_cache_row_update_toggle <= cache_row_update_toggle;
+              if cache_row0_address = cache_row_update_address then
+                cache_row0_valids(cache_row_update_byte) <= '1';
+                cache_row0_data(cache_row_update_byte) <= cache_row_update_value;
+              end if;
+              if cache_row1_address = cache_row_update_address then
+                cache_row1_valids(cache_row_update_byte) <= '1';
+                cache_row1_data(cache_row_update_byte) <= cache_row_update_value;
+              end if;
+              if block_address = cache_row_update_address(26 downto 5) then
+                block_data(to_integer(cache_row_update_address(4 downto 3)))(cache_row_update_byte)
+                  <= cache_row_update_value;
+              end if;
+            end if;                        
             
             -- Clear write buffer flags when they are empty
             if write_collect0_dispatchable = '0' then
