@@ -144,19 +144,37 @@ void test_cacheerror(void)
 {
   printf("Performing cache error test.\n");
 
+  lpoke(0x8000800L,0x99);
+  lpoke(0xbfffff2,0x0a);
+  lpoke(0xbfffff2,0x8a);
   //  for(addr=0x8000000;addr<0x8800000;addr+=0x8000)
-  //    lfill(addr,0x00,0x8000);
 
-  addr=0x8000000;
-  lfill(addr,0x00,0x800);
-  for(j=0;j<16;j++) lpoke(addr+j,0x10+j);
-  lcopy(addr,0xc000,0x800);
+  // Reading before writing causes the cache to cache the previously read value
+  // So doing this:
+  printf("before $%02x\n",lpeek(0x8000800L));
+  // ... and then writing a $10, will cause the $10 to be ignored:
+  printf("Writing $10\n");
+  lpoke(0x8000800L,0x10);
+  // ... and so, we will read $99 here instead of $10
+  printf("first read $%02x\n",lpeek(0x8000800L));
+  printf("second read $%02x\n",lpeek(0x8000800L));
 
-  addr=0x8000800;
-  lfill(addr,0x00,0x800);
-  for(j=0;j<16;j++) lpoke(addr+j,0x10+j);
-  lcopy(addr,0xc000,0x800);
-
+  lpeek(0x8001000);
+  lpeek(0x8001008);
+  printf("first read $%02x\n",lpeek(0x8000800L));
+  printf("second read $%02x\n",lpeek(0x8000800L));
+  
+  // But if we now flush the cache, and then just write a new value ($20):
+  printf("Flushing cache.\n");
+  lpoke(0xbfffff2,0x0a);
+  lpoke(0xbfffff2,0x8a);
+  printf("Writing $20\n");
+  lpoke(0x8000800L,0x20);
+  // ... we will read the correct value ($20) back:
+  printf("first read $%02x\n",lpeek(0x8000800L));
+  printf("second read $%02x\n",lpeek(0x8000800L));
+  
+  
   for(j=0;j<16;j++) {
     i=0;
     if (PEEK(0xc000+j)!=(0x10+(j-i*4))) {
@@ -491,6 +509,8 @@ void main(void)
 
   printf("%c",0x93);
 
+  test_cacheerror();
+  
   setup_hyperram();
 
   // Turn cache back on before reading config registers etc

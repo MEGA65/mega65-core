@@ -233,12 +233,17 @@ architecture gothic of hyperram is
   signal hyperram2_select : std_logic := '0';
   
   signal read_time_adjust : integer range 0 to 255 := 1;
+
+  signal invalidate_current_cache_line : std_logic := '0';
   
 begin
   process (pixelclock,clock163,clock325,hr_clk,hr_clk_phaseshift) is
     variable clock_status_vector : unsigned(4 downto 0);
   begin
     if rising_edge(pixelclock) then
+
+      invalidate_current_cache_line <= '0';
+      
       report "read_request=" & std_logic'image(read_request) & ", busy_internal=" & std_logic'image(busy_internal)
         & ", write_request=" & std_logic'image(write_request);
 
@@ -440,6 +445,11 @@ begin
         -- Begin write request
         -- Latch address and data
 
+        -- Invalidate short-circuit cache line, if it matches
+        if address(26 downto 3) = current_cache_line_address(26 downto 3) then
+          invalidate_current_cache_line <= '1';
+        end if;                
+        
         if address(23 downto 4) = x"FFFFF" and address(25 downto 24) = "11" then
           case address(3 downto 0) is
             when x"0" =>
@@ -629,6 +639,10 @@ begin
 
     if rising_edge(clock163) then
 
+      if invalidate_current_cache_line='1' then
+        current_cache_line_valid <= '0';
+      end if;
+      
       cycle_count <= cycle_count + 1;
 
       if data_ready_strobe_hold = '0' then      
@@ -771,7 +785,7 @@ begin
 
                 config_reg_write <= write_collect0_address(25);
                 hyperram2_select <= write_collect0_address(24);
-                
+
                 -- Prepare command vector
                 hr_command(47) <= '0'; -- WRITE
                 hr_command(46) <= write_collect0_address(25); -- Memory, not register space
@@ -816,7 +830,7 @@ begin
 
                 background_write <= '1';
                 background_write_source <= '1'; -- collect 0
-                
+
                 -- Prepare command vector
                 hr_command(47) <= '0'; -- WRITE
                 hr_command(46) <= write_collect1_address(25); -- Memory, not register space
