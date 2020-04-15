@@ -122,6 +122,7 @@ architecture gothic of hyperram is
   signal fast_read_mode : std_logic := '1';
   signal fast_write_mode : std_logic := '0';
   signal read_phase_shift : std_logic := '1';
+  signal write_phase_shift : std_logic := '1';
   
   signal countdown : integer := 0;
   signal extra_latency : std_logic := '0';
@@ -667,7 +668,7 @@ begin
             first_transaction <= '0';
             
             -- All commands need the clock offset by 1/2 cycle
-            hr_clk_phaseshift <= '1';
+            hr_clk_phaseshift <= write_phase_shift;
             hr_clk_fast <= '1';
             
             pause_phase <= '0';
@@ -856,11 +857,11 @@ begin
             pause_phase <= '0';
             if fast_cmd_mode='1' then
               state <= HyperRAMOutputCommand;
-              hr_clk_phaseshift <= '1';
+              hr_clk_phaseshift <= write_phase_shift;
               hr_clk_fast <= '1';
             else
               state <= HyperRAMOutputCommandSlow;
-              hr_clk_phaseshift <= '1';
+              hr_clk_phaseshift <= write_phase_shift;
               hr_clk_fast <= '0';
             end if;            
             
@@ -899,11 +900,11 @@ begin
             if fast_cmd_mode='1' then
               state <= HyperRAMOutputCommand;
               hr_clk_fast <= '1';
-              hr_clk_phaseshift <= '1';
+              hr_clk_phaseshift <= write_phase_shift;
             else
               state <= HyperRAMOutputCommandSlow;
               hr_clk_fast <= '0';
-              hr_clk_phaseshift <= '1';
+              hr_clk_phaseshift <= write_phase_shift;
             end if;
             
             countdown <= 6;
@@ -936,11 +937,11 @@ begin
             if fast_cmd_mode='1' then
               state <= HyperRAMOutputCommand;
               hr_clk_fast <= '1';
-              hr_clk_phaseshift <= '1';         
+              hr_clk_phaseshift <= write_phase_shift;         
             else
               state <= HyperRAMOutputCommandSlow;
               hr_clk_fast <= '0';
-              hr_clk_phaseshift <= '1';         
+              hr_clk_phaseshift <= write_phase_shift;
             end if;
             if ram_address(25)='1' then
               -- 48 bits of CA followed by 16 bit register value
@@ -962,7 +963,7 @@ begin
             pause_phase <= not pause_phase;
 
             if pause_phase='1' then
-              hr_clk_phaseshift <= '1';
+              hr_clk_phaseshift <= write_phase_shift;
 
               if countdown_timeout='1' then
                 -- Finished shifting out
@@ -1087,7 +1088,7 @@ begin
             hr_rwds <= 'Z';
             hr2_rwds <= 'Z';
 
-            hr_clk_phaseshift <= '1';
+            hr_clk_phaseshift <= write_byte_phase;
 
             -- Toggle data while clock steady
 --              report "Presenting hr_command byte on hr_d = $" & to_hstring(hr_command(47 downto 40))
@@ -1192,7 +1193,7 @@ begin
             write_byte_phase <= '0';
 
           when HyperRAMDoWrite =>
-            hr_clk_phaseshift <= '1';         
+            hr_clk_phaseshift <= write_phase_shift;         
 
             report "WRITE: LatencyWait state, bg_wr=" & std_logic'image(background_write)
               & ", count=" & integer'image(background_write_count);
@@ -1293,7 +1294,7 @@ begin
                     background_write_count <= background_write_count - 1;
                   else
                     report "Advancing to HyperRAMFinishWriting";
-                    hr_clk_phaseshift <= '1';         
+                    hr_clk_phaseshift <= write_phase_shift;         
                     state <= HyperRAMFinishWriting;                    
                   end if;
                 end if;
@@ -1303,7 +1304,7 @@ begin
             pause_phase <= not pause_phase;
 
             if pause_phase = '1' then
-              hr_clk_phaseshift <= '1';
+              hr_clk_phaseshift <= write_phase_shift;
               if countdown_timeout = '1' then
                 report "Advancing to HyperRAMFinishWriting";
                 state <= HyperRAMFinishWriting;                    
@@ -1414,7 +1415,7 @@ begin
             hr2_rwds <= 'Z';
             hr_d <= x"FA"; -- "after" data byte
             hr2_d <= x"FA"; -- "after" data byte
-            hr_clk_phaseshift <= '1';         
+            hr_clk_phaseshift <= write_phase_shift;         
             report "clk_queue <= '00'";
             rwr_counter <= rwr_delay;
             report "returning to idle";
@@ -1434,7 +1435,7 @@ begin
               data_ready_strobe <= '1';
               data_ready_strobe_hold <= '1';
               rwr_counter <= rwr_delay;
-              hr_clk_phaseshift <= '1';         
+              hr_clk_phaseshift <= write_phase_shift;         
               report "returning to idle";
               state <= Idle;
             else
@@ -1550,7 +1551,7 @@ begin
                 state <= Idle;
                 hr_cs0 <= '1';
                 hr_cs1 <= '1';
-                hr_clk_phaseshift <= '1';         
+                hr_clk_phaseshift <= write_phase_shift;         
               else
                 byte_phase <= byte_phase + 1;
               end if;
@@ -1579,7 +1580,7 @@ begin
                 rwr_counter <= rwr_delay;
                 report "returning to idle";
                 state <= Idle;
-                hr_clk_phaseshift <= '1';
+                hr_clk_phaseshift <= write_phase_shift;
               else
                 countdown <= countdown - 1;
               end if;
@@ -1689,7 +1690,7 @@ begin
                   state <= Idle;
                   hr_cs0 <= '1';
                   hr_cs1 <= '1';
-                  hr_clk_phaseshift <= '1';
+                  hr_clk_phaseshift <= write_phase_shift;
                 else
                   byte_phase <= byte_phase + 1;
                 end if;
