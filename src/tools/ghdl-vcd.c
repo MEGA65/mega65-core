@@ -13,6 +13,7 @@ int main(int argc,char **argv)
   unsigned char hr_d[8];
   unsigned char hr2_cs0,hr2_clk_p,hr2_reset,hr2_rwds;
   unsigned char hr2_d[8];
+  unsigned char hr_sample,hr_return;
 
   time_t t=time(0);
   
@@ -40,6 +41,7 @@ int main(int argc,char **argv)
 	 "$var wire 1 C hr2_reset $end\n"
 	 "$var wire 1 D hr2_rwds $end\n"
 	 "$var wire 8 E hr2_d $end\n"
+	 "$var wire 1 F hr_sample $end\n"
 
 	 "$upscope $end\n"
 	 "$enddefinitions $end\n"
@@ -107,6 +109,22 @@ int main(int argc,char **argv)
       }
 
     if (active) {
+      int n=sscanf(line,"%*[^@]@%dns:(report note): hr_sample='%c'",
+		   &timepoint,&hr_sample);
+      if (n<2) {
+	n=sscanf(line,"%*[^@]@%dus:(report note): hr_sample='%c'",
+		 &timepoint,&hr_sample);	
+	timepoint*=1000; // us to ns
+      }
+      if (n==2) {
+	if (hr_sample=='0') timepoint++;
+	printf("#%d\n%cF\n",
+	       timepoint,(char)hr_sample);
+      }
+	
+    }      
+      
+    if (active) {
       int n=sscanf(line,"%*[^@]@%dns:(report note): hr2_cs0 = '%c', hr2_clk_p = '%c', hr2_reset = '%c', hr2_rwds = '%c', hr2_d = '%c''%c''%c''%c''%c''%c''%c''%c', ",
 		   &timepoint,&hr2_cs0,&hr2_clk_p,&hr2_reset,&hr2_rwds,
 		   &hr2_d[0],
@@ -137,22 +155,12 @@ int main(int argc,char **argv)
 	       (char)hr2_cs0,(char)hr2_clk_p,(char)hr2_reset,(char)hr2_rwds,
 	       hr2_d[7],hr2_d[6],hr2_d[5],hr2_d[4],hr2_d[3],hr2_d[2],hr2_d[1],hr2_d[0]
 	       );
-	active--;
-	if (!active) {
-	  
-	  exit(0);
-	}
       }
 
     }      
 	if (sscanf(line,"%*[^@]@%dns:(report note): SDA='%c', SCL='%c'",
 		 &timepoint,&sda,&scl)==3) {
 	printf("#%d\n%c!\n%c\"\n",timepoint,(char)sda,(char)scl);
-	active--;
-	if (!active) {
-	  
-	  exit(0);
-	}
       }
     }
 
