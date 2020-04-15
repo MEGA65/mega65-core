@@ -144,6 +144,7 @@ void test_cacheerror(void)
 {
   printf("Performing cache error test.\n");
 
+  printf("Writing $99\n");
   lpoke(0x8000800L,0x99);
   lpoke(0xbfffff2,0x0a);
   lpoke(0xbfffff2,0x8a);
@@ -151,29 +152,19 @@ void test_cacheerror(void)
 
   // Reading before writing causes the cache to cache the previously read value
   // So doing this:
-  printf("before $%02x\n",lpeek(0x8000800L));
+  printf("  read $%02x\n",lpeek(0x8000800L));
   // ... and then writing a $10, will cause the $10 to be ignored:
   printf("Writing $10\n");
   lpoke(0x8000800L,0x10);
   // ... and so, we will read $99 here instead of $10
-  printf("first read $%02x\n",lpeek(0x8000800L));
-  printf("second read $%02x\n",lpeek(0x8000800L));
+  printf("  read $%02x\n",lpeek(0x8000800L));
 
-  lpeek(0x8001000);
-  lpeek(0x8001008);
-  printf("first read $%02x\n",lpeek(0x8000800L));
-  printf("second read $%02x\n",lpeek(0x8000800L));
-  
-  // But if we now flush the cache, and then just write a new value ($20):
+  // ... but if we flush the cache, it all works just fine...
   printf("Flushing cache.\n");
   lpoke(0xbfffff2,0x0a);
   lpoke(0xbfffff2,0x8a);
-  printf("Writing $20\n");
-  lpoke(0x8000800L,0x20);
-  // ... we will read the correct value ($20) back:
-  printf("first read $%02x\n",lpeek(0x8000800L));
-  printf("second read $%02x\n",lpeek(0x8000800L));
-  
+  printf("  read $%02x\n",lpeek(0x8000800L));
+
   
   for(j=0;j<16;j++) {
     i=0;
