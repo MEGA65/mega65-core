@@ -183,7 +183,12 @@ architecture gothic of hyperram is
                                                     -- add more bytes to the write.
   signal write_collect1_flushed : std_logic := '1';
   
-  
+
+  type block_t is array 0 to 3 of cache_row_t;
+  signal block_data : block_t := (others => (others => x"00"));
+  signal block_address : unsigned(26 downto 5);
+  signal block_valid : std_logic := '0';
+                                     
   signal last_rwds : std_logic := '0';
 
   signal fake_data_ready_strobe : std_logic := '0';
@@ -519,6 +524,14 @@ begin
               queued_write <= '1';
             end if;
 
+            -- Update short-circuit cache line
+            -- (We don't change validity, since we don't know if it is
+            -- valid or not).
+            if address(26 downto 3) = current_cache_line_address(26 downto 3) then
+              current_cache_line(to_integer(address(2 downto 0))) <= wdata;
+            end if;
+            
+            -- Update read cache structures when writing
             if cache_row0_address = address(26 downto 3) then
               cache_row0_valids(to_integer(address(2 downto 0))) <= '1';
               cache_row0_data(to_integer(address(2 downto 0))) <= wdata;
@@ -526,6 +539,9 @@ begin
             if cache_row1_address = address(26 downto 3) then
               cache_row1_valids(to_integer(address(2 downto 0))) <= '1';
               cache_row1_data(to_integer(address(2 downto 0))) <= wdata;
+            end if;
+            if block_address = address(26 downto 5) then
+              block_data(to_integer(address(4 downto 3))(to_integer(address(2 downto 0)))) <= wdata;
             end if;
 
             
