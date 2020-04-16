@@ -359,6 +359,10 @@ architecture Behavioral of container is
   signal portp : unsigned(7 downto 0);
 
   signal qspi_clock : std_logic;
+
+  signal disco_led_en : std_logic := '0';
+  signal disco_led_val : unsigned(7 downto 0);
+  signal disco_led_id : unsigned(7 downto 0);
   
 begin
 
@@ -440,6 +444,10 @@ begin
     port map (
       ioclock => cpuclock,
 
+      disco_led_en => disco_led_en,
+      disco_led_id => disco_led_id,
+      disco_led_val => disco_led_val,
+      
       powerled => '1',
       flopled => flopled_drive,
       flopmotor => flopmotor_drive,
@@ -734,6 +742,10 @@ begin
 --      micClk => micClk,
 --      micLRSel => micLRSel,
 
+      disco_led_en => disco_led_en,
+      disco_led_id => disco_led_id,
+      disco_led_val => disco_led_val,      
+      
       flopled => flopled_drive,
       flopmotor => flopmotor_drive,
       ampPWM_l => pwm_l_drive,
