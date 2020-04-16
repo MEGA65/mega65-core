@@ -124,6 +124,13 @@ architecture gothic of hyperram is
   -- And the matching extra latency is 5
   signal extra_write_latency : unsigned(7 downto 0) := to_unsigned(7,8);
 
+  -- And for the 2nd trap-door hyperram.
+  -- That module from 1BitSquared uses a different brand of hyperram
+  -- and seems to have different timing.
+  signal write_latency2 : unsigned(7 downto 0) := to_unsigned(1,8);
+  signal extra_write_latency2 : unsigned(7 downto 0) := to_unsigned(3,8);
+
+  
   signal fast_cmd_mode : std_logic := '0';
   signal fast_read_mode : std_logic := '1';
   signal fast_write_mode : std_logic := '0';
@@ -467,11 +474,11 @@ begin
               fake_rdata <= cache_row0_address(23 downto 16);
 
             when x"d" =>
-              fake_rdata <= cache_row1_address(7 downto 0);
+              fake_rdata <= write_latency2;
             when x"e" =>
-              fake_rdata <= cache_row1_address(15 downto 8);
+              fake_rdata <= extra_write_latency2;
             when x"f" =>
-              fake_rdata <= cache_row1_address(23 downto 16);
+              fake_rdata <= x"00";
               
               
             when others =>
@@ -540,6 +547,10 @@ begin
             when x"9" =>
               conf_buf1_in <= wdata;              
               conf_buf1_set <= not conf_buf1_set;
+            when x"d" =>
+              write_latency2 <= wdata;
+            when x"e" =>
+              extra_write_latency2 <= wdata;
             when others =>
               null;
           end case;
