@@ -54,6 +54,10 @@ entity iomapper is
         buffereduart_ringindicate : in std_logic;
         buffereduart2_rx : inout std_logic := 'H';
         buffereduart2_tx : out std_logic := '1';
+
+        disco_led_id : out unsigned(7 downto 0) := x"00";
+        disco_led_val : out unsigned(7 downto 0) := x"00";
+        disco_led_en : out std_logic := '0';
         
         cart_access_count : in unsigned(7 downto 0);
         
@@ -713,6 +717,10 @@ begin
       -- @IO:GS $D60D.0 - Internal 1541 drive connect (1= use internal 1541 instead of IEC drive connector)                        
       portg(1) => drive_reset,
       portg(0) => drive_connect,
+
+      disco_led_en => disco_led_en,
+      disco_led_id => disco_led_id,
+      disco_led_val => disco_led_val,
       
       key_debug => key_debug,
       widget_disable => widget_disable,

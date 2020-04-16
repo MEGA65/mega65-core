@@ -27,6 +27,10 @@ entity c65uart is
     fastio_wdata : in unsigned(7 downto 0);
     fastio_rdata : out unsigned(7 downto 0);
 
+    disco_led_en : out std_logic := '0';
+    disco_led_id : out unsigned(7 downto 0) := x"00";
+    disco_led_val : out unsigned(7 downto 0) := x"00";
+    
     uart_rx : inout std_logic := 'H';
     uart_tx : out std_logic;
 
@@ -218,6 +222,10 @@ architecture behavioural of c65uart is
   signal osk_toggle_counter : integer range 0 to 20000000 := 0;
   signal last_joyswap_key : std_logic := '1';
   signal joyswap_countdown : integer range 0 to 1023 := 0;
+
+  signal disco_led_en_int : std_logic := '0';
+  signal disco_led_id_int : unsigned(7 downto 0) := x"00";
+
   
 begin  -- behavioural
   
@@ -438,6 +446,14 @@ begin  -- behavioural
             suppress_key_retrigger <= not fastio_wdata(6);
             -- @IO:GS $D61B.7 WRITEONLY DEBUG disable ASCII key glitch suppression
             suppress_key_glitches <= not fastio_wdata(7);
+          when x"1d" =>
+            disco_led_en_int <= fastio_wdata(7);
+            disco_led_en <= fastio_wdata(7);
+            disco_led_id_int(6 downto 0) <= fastio_wdata(6 downto 0);
+            disco_led_id(6 downto 0) <= fastio_wdata(6 downto 0);
+            disco_led_id(7) <= '0';
+          when x"1e" =>
+            disco_led_val <= fastio_wdata;            
           when others => null;
         end case;
       end if;
@@ -610,11 +626,13 @@ begin  -- behavioural
           -- @IO:GS $D61C DEBUG:1541PCLSB internal 1541 PC LSB
           fastio_rdata(7 downto 0) <= unsigned(portq_in);
         when x"1d" =>
-          -- @IO:GS $D61D DEBUG:ASCKEYCNT ASCII key event counter LSB
-          -- @IO:GS $D61E DEBUG:ASCKEYCNT ASCII key event counter MSB
-          fastio_rdata(7 downto 0) <= ascii_key_event_count(7 downto 0);
+          -- @IO:GS $D61D.7 UARTMISC:Keyboard LED control enable
+          -- @IO:GS $D61D.0-6 UARTMISC:Keyboard LED register select (R,G,B channels x 4 = 0 to 11)
+          -- @IO:GS $D61E UARTMISC:Keyboard register value (write only)
+          fastio_rdata(7) <= disco_led_en_int;
+          fasiio_rdata(6 downto 0) <= disco_led_id_int;
         when x"1e" =>
-          fastio_rdata(7 downto 0) <= ascii_key_event_count(15 downto 8);
+          fastio_rdata(7 downto 0) <= x"FF";
         when x"1F" =>
           -- @IO:GS $D61F DEBUG:BUCKYCOPY DUPLICATE Modifier key state (hardware accelerated keyboard scanner).
           fastio_rdata(7 downto 0) <= unsigned(porti);

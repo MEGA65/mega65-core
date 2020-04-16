@@ -11,6 +11,10 @@ entity mega65kbd_to_matrix is
     flopmotor : in std_logic;
     flopled : in std_logic;
     powerled : in std_logic;    
+
+    disco_led_id : in unsigned(7 downto 0) := x"00";
+    disco_led_val : in unsigned(7 downto 0) := x"00";
+    disco_led_en : in std_logic := '0';
     
     kio8 : out std_logic; -- clock to keyboard
     kio9 : out std_logic; -- data output to keyboard
@@ -167,13 +171,20 @@ begin  -- behavioural
             -- Reset to start
             sync_pulse <= '1';
             output_vector <= (others => '0');
-            if flopmotor='1' or (flopled='1' and counter(24)='1') then
-              output_vector(23 downto 0) <= x"00FF00";
-              output_vector(47 downto 24) <= x"00FF00";
-            end if;
-            if powerled='1' then
-              output_vector(71 downto 48) <= x"00FF00";
-              output_vector(95 downto 72) <= x"00FF00";
+            if disco_led_en = '1' then
+              -- Allow simple RGB control of the LEDs
+              if disco_led_id < 12 then
+                output_vector(7+to_integer(disco_led_id)*8 downto to_integer(disco_led_id)*8) <= std_logic_vector(disco_led_val);
+              end if;
+            else
+              if flopmotor='1' or (flopled='1' and counter(24)='1') then
+                output_vector(23 downto 0) <= x"00FF00";
+                output_vector(47 downto 24) <= x"00FF00";
+              end if;
+              if powerled='1' then
+                output_vector(71 downto 48) <= x"00FF00";
+                output_vector(95 downto 72) <= x"00FF00";
+              end if;
             end if;
           elsif phase = 140 then
             sync_pulse <= '0';
