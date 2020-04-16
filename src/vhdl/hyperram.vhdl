@@ -1390,7 +1390,7 @@ begin
                 -- then wait another 6 cycles.
                 extra_latency <= '0';
 
-                if hyperram2_select='1' then
+                if hyperram2_select='0' then
                   countdown <= to_integer(extra_write_latency);
                 else
                   countdown <= to_integer(extra_write_latency2);
@@ -1502,7 +1502,7 @@ begin
                   -- If we were asked to wait for extra latency,
                   -- then wait another 6 cycles.
                   extra_latency <= '0';
-                  if hyperram2_select='1' then
+                  if hyperram2_select='0' then
                     countdown <= to_integer(extra_write_latency);
                   else
                     countdown <= to_integer(extra_write_latency2);
