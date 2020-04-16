@@ -1601,7 +1601,7 @@ begin
               countdown <= countdown - 1;
             end if;
 
-            hr_clk_phaseshift <= read_phase_shift;
+            hr_clk_phaseshift <= read_phase_shift xor hyperram2_select;
 
             if hyperram2_select='0' then
               last_rwds <= hr_rwds;
@@ -1752,7 +1752,7 @@ begin
             if pause_phase = '1' then
               null;
             else
-              hr_clk_phaseshift <= read_phase_shift;
+              hr_clk_phaseshift <= read_phase_shift xor hyperram2_select;
               if countdown = 0 then
                 -- Timed out waiting for read -- so return anyway, rather
                 -- than locking the machine hard forever.
