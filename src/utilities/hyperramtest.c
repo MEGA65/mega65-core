@@ -21,27 +21,10 @@ unsigned int i,j,k;
   0x02 = Read bytes fast
   0x04 = Write data fast (not currently working)
 */
-unsigned char fast_flags=0x3a; 
-unsigned char slow_flags=0x0a;
+unsigned char fast_flags=0x7a; 
+unsigned char slow_flags=0x4a;
 
 void bust_cache(void) {
-  lpeek(0x8000100);
-  lpeek(0x8000110);
-  lpeek(0x8000120);
-  lpeek(0x8000130);
-  lpeek(0x8000140);
-  lpeek(0x8000150);
-  lpeek(0x8000160);
-  lpeek(0x8000170);
-  lpoke(0x8000100,0x99);
-  lpoke(0x8000110,0x99);
-  lpoke(0x8000120,0x99);
-  lpoke(0x8000130,0x99);
-  lpoke(0x8000140,0x99);
-  lpoke(0x8000150,0x99);
-  lpoke(0x8000160,0x99);
-  lpoke(0x8000170,0x99);
-
   lpoke(0xbfffff2,0x00);
   lpoke(0xbfffff2,0x80+fast_flags);
 }
@@ -53,6 +36,10 @@ void setup_hyperram(void)
     Test complete HyperRAM, including working out the size.
   */
   printf("Determining size of Slow RAM");
+
+  // Set default timing for 2nd hyperram
+  lpoke(0xbfffffd,0x04);
+  lpoke(0xbfffffe,0x00);
   
   lpoke(0xbfffff2,0x80+fast_flags);
   lpoke(0x8000000,0xbd);
@@ -64,6 +51,8 @@ void setup_hyperram(void)
     {
       if (!(addr&0xfffff)) printf(".");
 
+      bust_cache();
+      
       lpoke(addr,0x55);
 
       bust_cache();
@@ -73,6 +62,8 @@ void setup_hyperram(void)
 	printf("\n$%08lx corrupted != $55\n (saw $%02x, re-read yields $%02x)",addr,i,lpeek(addr));
 	break;
       }
+
+      bust_cache();
 
       lpoke(addr,0xAA);
 
@@ -96,7 +87,7 @@ void setup_hyperram(void)
 
   upper_addr=addr;
 
-  if (addr!=0x8800000) {
+  if (addr!=0x9000000) {
     printf("\nError(s) while testing Slow RAM\n");
     printf("\nPress any key to continue...\n");
     while(PEEK(0xD610)) POKE(0xD610,0);
@@ -132,12 +123,85 @@ void test_continuousread(void)
   // Write test pattern somewhere
   for(j=0;j<16;j++) lpoke(addr+120+j,0x10+j);
   
+  addr=0x8800000;
+  lfill(addr,0xbd,0x800);
+
+  // Write test pattern somewhere
+  for(j=0;j<16;j++) lpoke(addr+120+j,0x10+j);
+  
+
+
   // Copy slow RAM back and check
   while(!PEEK(0xD610)) {
-    lcopy(addr,0xc000,0x800);
-    lcopy(0xc000,0x0400,0x3c0);
+    lcopy(0x8000000,0x0400,40*12);
+    lcopy(0x8800000,0x0400+40*13,40*12);
   }
   
+}
+
+void test_ramtiming(void)
+{
+  printf("%c%cThis message should appear without\n"
+	 "error, and beginning at the start of the"
+	 "second line of the screen.  Otherwise,\n"
+	 "the RAM timings are still incorrect.\n",0x93,0x11);
+  printf("Press RUN/STOP when correct.\n");
+  lcopy(0x0428,0xc000,0x200);
+  
+  // Test for both hyperram chips
+  for(i=0;i<16;i++)
+    for(j=0;j<16;j++) {
+      lpoke(0xbfffff3,i);
+      lpoke(0xbfffff4,j);
+
+      lfill(0x8000000,0x00,0x800);
+      lcopy(0xc000,0x8000000,0x200);
+
+      printf("%cwrite_latency=%d, extra_latency=%d:\n",0x93,i,j);
+      
+      lcopy(0x8000000,0x428,0x200);
+
+      for(k=0;k<0x200;k++) if (PEEK(0xC000+k)!=PEEK(0x428+k)) break;
+
+      if (k!=0x200) continue;
+
+#if 1
+      printf("Correct timing for HyperRAM @ $8000000-$87FFFFF\n");
+      while(!PEEK(0xD610)) continue;
+#endif
+      i=17; j=17; // exit both loops immediately
+      POKE(0xD610,0);
+      
+    }
+
+
+  for(i=0;i<8;i++)
+    for(j=0;j<8;j++) {
+      lpoke(0xbfffffd,i);
+      lpoke(0xbfffffe,j);
+
+      lfill(0x8800000,0x00,0x800);
+      lcopy(0xc000,0x8800000,0x200);
+
+      printf("%cwrite_latency=%d, extra_latency=%d:\n",0x93,i,j);
+
+      lpoke(0xbfffff2,0x00);
+      lpoke(0xbfffff2,0xba);
+      
+      lcopy(0x8800000,0x428,0x200);
+
+      for(k=0;k<0x200;k++) if (PEEK(0xC000+k)!=PEEK(0x428+k)) break;
+
+      //      if (k!=0x200) continue;
+
+#if 1
+      //      printf("Correct timing for HyperRAM @ $8800000-$8FFFFFF\n");
+      while(!PEEK(0xD610)) continue;
+      if (PEEK(0xD610)==3) return;
+      POKE(0xD610,0);
+#endif
+      
+    }
 }
 
 void test_cacheerror(void)
@@ -525,6 +589,8 @@ void main(void)
 	   "2 - Read stability\n"
 	   "3 - Mis-write test\n"
 	   "4 - Checkerboard test\n"
+	   "5 - Test cache consistency cases\n"
+	   "6 - Probe RAM timings\n"
 	   "\n"
 	   "Press RUN/STOP to return to menu from\nany test.\n"
 	   );
@@ -543,6 +609,7 @@ void main(void)
     case '3': test_miswrite(); break;
     case '4': test_checkerboard(); break;
     case '5': test_cacheerror(); break;
+    case '6': test_ramtiming(); break;
     }
 
     while(PEEK(0xD610)) POKE(0xD610,0);
