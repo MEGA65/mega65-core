@@ -889,7 +889,7 @@ begin
                 background_write_source <= '0'; -- collect 0
 
                 config_reg_write <= write_collect0_address(25);
-                hyperram2_select <= write_collect0_address(24);
+                hyperram2_select <= write_collect0_address(23);
 
                 -- Prepare command vector
                 hr_command(47) <= '0'; -- WRITE
@@ -931,7 +931,7 @@ begin
                 write_collect1_toolate <= '0';
 
                 config_reg_write <= write_collect1_address(25);
-                hyperram2_select <= write_collect1_address(24);
+                hyperram2_select <= write_collect1_address(23);
 
                 background_write <= '1';
                 background_write_source <= '1'; -- collect 0
@@ -989,7 +989,7 @@ begin
           when ReadSetup =>
             report "Setting up to read $" & to_hstring(ram_address) & " ( address = $" & to_hstring(address) & ")";
 
-            hyperram2_select <= ram_address(24);
+            hyperram2_select <= ram_address(23);
             
             -- Prepare command vector
             hr_command(47) <= '1'; -- READ
@@ -1036,7 +1036,7 @@ begin
             report "Preparing hr_command etc";
 
             config_reg_write <= ram_address(25);
-            hyperram2_select <= ram_address(24);
+            hyperram2_select <= ram_address(23);
             
             -- Prepare command vector
             -- As HyperRAM addresses on 16bit boundaries, we shift the address
