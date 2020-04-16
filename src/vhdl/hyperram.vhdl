@@ -1621,6 +1621,8 @@ begin
 --                if hr_rwds_high_seen = '0' then
             --                report "DISPATCH saw hr_rwds go high at start of data stream";
 --                end if;
+            else
+              hr_rwds_high_seen <= '0';
             end if;                
             if (((hr_rwds='1') and (hyperram2_select='0'))
               or ((hr2_rwds='1') and (hyperram2_select='1')))
@@ -1629,6 +1631,7 @@ begin
               -- as required.
 --                  report "DISPATCH Saw read data = $" & to_hstring(hr_d);
 
+              
               -- Update cache
               if (byte_phase < 32) and is_block_read then
                 report "hr_sample='1'";
@@ -1780,6 +1783,8 @@ begin
               if ((hr_rwds='1') and (hyperram2_select='0')) or ((hr2_rwds='1') and (hyperram2_select='1'))
               then
                 hr_rwds_high_seen <= '1';
+              else
+                hr_rwds_high_seen <= '0';
 --                if hr_rwds_high_seen = '0' then
               --                report "DISPATCH saw hr_rwds go high at start of data stream";
 --                end if;
