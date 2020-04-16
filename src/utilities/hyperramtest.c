@@ -21,8 +21,8 @@ unsigned int i,j,k;
   0x02 = Read bytes fast
   0x04 = Write data fast (not currently working)
 */
-unsigned char fast_flags=0x0a; 
-unsigned char slow_flags=0x0a; 
+unsigned char fast_flags=0x3a; 
+unsigned char slow_flags=0x0a;
 
 void bust_cache(void) {
   lpeek(0x8000100);
@@ -500,8 +500,6 @@ void main(void)
 
   printf("%c",0x93);
 
-  test_cacheerror();
-  
   setup_hyperram();
 
   // Turn cache back on before reading config registers etc
