@@ -1,0 +1,47 @@
+	; Simple test program for GMK to test keyboards on manufacture
+
+	.word $0801
+	 .org $0801
+	 .scope
+
+	 .word _next, 10                       ; Next line and current line number
+	 .byte $9e, "2062",0      ; SYS 2062
+_next:	 .word 0
+
+iter1:	 .byte 0
+
+	 .checkpc 2062
+	 .advance 2062
+
+programentrypoint:
+
+	sei
+
+	; C65GS io
+	lda #$47
+	sta $d02f
+	lda #$53
+	sta $D02f
+
+	; Fast CPU
+	lda #65
+	sta 0
+
+	lda #$00
+	sta $d011
+	sta $d020
+	sta $d021
+	lda #$80
+	sta $d06f
+	lda #$ff
+	sta $d615
+	sta $d616
+	
+loop:
+	jmp loop
+	
+	.byte 	"PROP.M65U.NAME=KEYBOARD TEST"
+	.byte 0
+
+
+	.scend
