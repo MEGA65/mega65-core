@@ -591,7 +591,7 @@ iomap.txt:	$(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/vfpga/*.vhdl
 	# Force consistent ordering of items according to natural byte values
 	LC_ALL=C egrep "IO:C6|IO:GS" `find $(VHDLSRCDIR) -iname "*.vhdl"` | cut -f3- -d: | sort -u -k2 > iomap.txt
 
-CRAMUTILS=	$(UTILDIR)/mega65_config.prg $(SRCDIR)/mega65-fdisk/m65fdisk.prg
+CRAMUTILS=	$(UTILDIR)/mega65_config.prg $(SRCDIR)/mega65-fdisk/m65fdisk.prg $(UTILDIR)/mega65_keyboardtest.prg
 $(BINDIR)/COLOURRAM.BIN:	$(TOOLDIR)/utilpacker/utilpacker $(CRAMUTILS)
 	$(TOOLDIR)/utilpacker/utilpacker $(BINDIR)/COLOURRAM.BIN $(CRAMUTILS)
 
@@ -716,6 +716,7 @@ clean:
 	rm -f $(BINDIR)/HICKUP.M65 hyppo.list hyppo.map
 	rm -f $(UTILDIR)/diskmenu.prg $(UTILDIR)/diskmenuprg.list $(UTILDIR)/diskmenu.map $(UTILDIR)/diskmenuprg.o
 	rm -f $(UTILDIR)/mega65_config.prg $(UTILDIR)/mega65_config.list $(UTILDIR)/mega65_config.map $(UTILDIR)/mega65_config.o
+	rm -f $(UTILDDIR)/mega65_keyboardtest.prg
 	rm -f $(BINDIR)/diskmenu_c000.bin $(UTILDIR)/diskmenuc000.list $(BINDIR)/diskmenu_c000.map $(UTILDIR)/diskmenuc000.o
 	rm -f $(TOOLDIR)/etherhyppo/etherhyppo
 	rm -f $(TOOLDIR)/etherload/etherload
