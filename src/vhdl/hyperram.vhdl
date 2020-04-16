@@ -1142,8 +1142,12 @@ begin
                   -- Writing to memory, so count down the correct number of cycles;
                   -- Initial latency is reduced by 2 cycles for the last bytes
                   -- of the access command, and by 1 more to cover state
-                  -- machine latency                  
-                  countdown <= to_integer(write_latency);
+                  -- machine latency
+                  if hyperram2_select='0' then
+                    countdown <= to_integer(write_latency);
+                  else
+                    countdown <= to_integer(write_latency2);
+                  end if;
 
                   -- We are not just about ready to start writing, so mark the
                   -- write buffer as too late to be added to, because we will
@@ -1304,7 +1308,11 @@ begin
                 -- Initial latency is reduced by 2 cycles for the last bytes
                 -- of the access command, and by 1 more to cover state
                 -- machine latency                  
-                countdown <= to_integer(write_latency);
+                if hyperram2_select='0' then
+                  countdown <= to_integer(write_latency);
+                else
+                  countdown <= to_integer(write_latency2);
+                end if;
 
                 -- We are now just about ready to start writing, so mark the
                 -- write buffer as too late to be added to, because we will
@@ -1379,7 +1387,12 @@ begin
                 -- If we were asked to wait for extra latency,
                 -- then wait another 6 cycles.
                 extra_latency <= '0';
-                countdown <= to_integer(extra_write_latency);
+
+                if hyperram2_select='1' then
+                  countdown <= to_integer(extra_write_latency);
+                else
+                  countdown <= to_integer(extra_write_latency2);
+                end if;
               else
                 -- Latency countdown for writing is over, we can now
                 -- begin writing bytes.                  
@@ -1487,7 +1500,11 @@ begin
                   -- If we were asked to wait for extra latency,
                   -- then wait another 6 cycles.
                   extra_latency <= '0';
-                  countdown <= to_integer(extra_write_latency);
+                  if hyperram2_select='1' then
+                    countdown <= to_integer(extra_write_latency);
+                  else
+                    countdown <= to_integer(extra_write_latency2);
+                  end if;
                 else
                   -- Latency countdown for writing is over, we can now
                   -- begin writing bytes.                  
