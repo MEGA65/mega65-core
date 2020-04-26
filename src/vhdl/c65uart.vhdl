@@ -630,7 +630,7 @@ begin  -- behavioural
           -- @IO:GS $D61D.0-6 UARTMISC:Keyboard LED register select (R,G,B channels x 4 = 0 to 11)
           -- @IO:GS $D61E UARTMISC:Keyboard register value (write only)
           fastio_rdata(7) <= disco_led_en_int;
-          fasiio_rdata(6 downto 0) <= disco_led_id_int;
+          fastio_rdata(6 downto 0) <= disco_led_id_int(6 downto 0);
         when x"1e" =>
           fastio_rdata(7 downto 0) <= x"FF";
         when x"1F" =>
