@@ -319,7 +319,8 @@ architecture behavioural of sdcardio is
   signal f011_buffer_rdata : unsigned(7 downto 0);
   signal f011_buffer_write : std_logic := '0';
   signal f011_flag_eq : std_logic := '1';
-  signal f011_swap : std_logic := '0';
+  signal f011_swap : std_logic := '0'; -- swap buffer halves, C65 style
+  signal f011_swap_drives : std_logic := '0'; -- swap drive 0 and drive 1
 
   signal f011_eq_inhibit : std_logic := '0';
 
@@ -769,7 +770,7 @@ begin  -- behavioural
             --        output will go true (low).
             fastio_rdata <=
               f011_irqenable & f011_led & f011_motor & f011_swap &
-              f011_head_side(0) & f011_ds;
+              f011_head_side(0) & f011_ds(2 downto 1) & (f011_ds(0) xor f011_swap_drives);
           when "00001" =>
             -- COMMAND | WRITE | READ  | FREE  | STEP  |  DIR  | ALGO  |  ALT  | NOBUF | 1 RW
             --WRITE   must be set to perform write operations.
@@ -1623,12 +1624,14 @@ begin  -- behavioural
               motor <= fastio_wdata(5);
 
               f_motora <= '1'; f_selecta <= '1'; f_motorb <= '1'; f_selectb <= '1';
-              if f011_ds = "000" then              
-                f_motora <= not fastio_wdata(5); -- start motor on real drive
-                f_selecta <= not fastio_wdata(5);
-              elsif f011_ds = "001" then              
-                f_motorb <= not fastio_wdata(5); -- start motor on real drive
-                f_selectb <= not fastio_wdata(5);
+              if f011_ds(2 downto 1) = "00" then
+                if (f011_ds(0) xor f011_swap_drives) = '0' then
+                  f_motora <= not fastio_wdata(5); -- start motor on real drive
+                  f_selecta <= not fastio_wdata(5);
+                else
+                  f_motorb <= not fastio_wdata(5); -- start motor on real drive
+                  f_selectb <= not fastio_wdata(5);
+                end if;
               end if;
               
               -- De-selecting drive cancelled disk change event
@@ -1646,7 +1649,7 @@ begin  -- behavioural
               f011_head_side(0) <= fastio_wdata(3);
               f011_ds <= fastio_wdata(2 downto 0);
               if not ((use_real_floppy0='1' and f011_ds="000") or (use_real_floppy2='1' and f011_ds="001"))  then
-                if fastio_wdata(2 downto 0) /= f011_ds then
+                if (fastio_wdata(2 downto 0) /= f011_ds) then
                   f011_disk_changed <= '0';
                 end if;
               end if;
@@ -2294,12 +2297,14 @@ begin  -- behavioural
 
               f_motora <= '1'; f_motorb <= '1';
               f_selecta <= '1'; f_selectb <= '1';
-              if f011_ds = "000" then              
-                f_selecta <= fastio_wdata(5);
-                f_motora <= fastio_wdata(6);
-              elsif f011_ds = "001" then              
-                f_selectb <= fastio_wdata(5);
-                f_motorb <= fastio_wdata(6);
+              if f011_ds(2 downto 1) = "00" then
+                if (f011_ds(0) xor f011_swap_drives) = '0' then              
+                  f_selecta <= fastio_wdata(5);
+                  f_motora <= fastio_wdata(6);
+                else
+                  f_selectb <= fastio_wdata(5);
+                  f_motorb <= fastio_wdata(6);
+                end if;
               end if;
                                
               f_stepdir <= fastio_wdata(4);
