@@ -972,8 +972,6 @@ begin  -- behavioural
           when x"93" =>
             -- @IO:GS $D68F F011:DISK2ADDR3 Diskimage 2 sector number (bits 24-31)
             fastio_rdata <= diskimage2_sector(31 downto 24);
-          when x"9c" =>
-            fastio_rdata <= 
           when x"a0" =>
             -- @IO:GS $D6A0 - DEBUG FDC read status lines
             fastio_rdata(7) <= f_index;
