@@ -743,7 +743,7 @@ begin  -- behavioural
             --        output will go true (low).
             fastio_rdata <=
               f011_irqenable & f011_led & f011_motor & f011_swap &
-              f011_head_side(0) & f011_ds(2 downto 1) & (f011_ds(0) xor f011_swap_drives);
+              f011_head_side(0) & f011_ds;
           when "00001" =>
             -- COMMAND | WRITE | READ  | FREE  | STEP  |  DIR  | ALGO  |  ALT  | NOBUF | 1 RW
             --WRITE   must be set to perform write operations.
