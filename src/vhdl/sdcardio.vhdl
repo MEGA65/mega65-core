@@ -389,6 +389,7 @@ architecture behavioural of sdcardio is
   signal fdc_rotation_timeout : integer range 0 to 10 := 0;
   signal rotation_count : integer range 0 to 15 := 0;
   signal index_wait_timeout : integer := 0;
+  signal fdc_rotation_timeout_reserve_counter : integer range 0 to 100000000 := 0;
   signal last_f_index : std_logic := '1';
 
   signal fdc_bytes_read : unsigned(15 downto 0) := x"0000";
@@ -971,6 +972,8 @@ begin  -- behavioural
           when x"93" =>
             -- @IO:GS $D68F F011:DISK2ADDR3 Diskimage 2 sector number (bits 24-31)
             fastio_rdata <= diskimage2_sector(31 downto 24);
+          when x"9c" =>
+            fastio_rdata <= 
           when x"a0" =>
             -- @IO:GS $D6A0 - DEBUG FDC read status lines
             fastio_rdata(7) <= f_index;
@@ -1725,6 +1728,9 @@ begin  -- behavioural
                     -- disk to the other, it can take a little longer than 1.2
                     -- sec)
                     fdc_rotation_timeout <= 10;                      
+                    -- If no physical drive, we won't get SYNC pulses, so
+                    -- should have an absolute timeout of 2 seconds
+                    fdc_rotation_timeout_reserve_counter <= 100000000;
                     
                     -- Mark F011 as busy with FDC job
                     f011_busy <= '1';
@@ -2739,6 +2745,20 @@ begin  -- behavioural
         when FDCReadingSector =>
           if fdc_read_request='1' then
             -- We have an FDC request in progress.
+
+            if fdc_rotation_timeout_reserve_counter /= 0 then
+              fdc_rotation_timeout_reserve_counter <= fdc_rotation_timeout_reserve_counter - 1;
+            else
+              -- Out of time: fail job
+              report "Clearing fdc_read_request due to timeout";
+              f011_rnf <= '1';
+              fdc_read_request <= '0';
+              fdc_bytes_read(4) <= '1';
+              f011_busy <= '0';
+              sd_state <= Idle;
+            end if;
+
+            
 --        report "fdc_read_request asserted, checking for activity";
             last_f_index <= f_index;
             if index_wait_timeout /= 0 then
