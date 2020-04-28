@@ -129,8 +129,10 @@ entity sdcardio is
     -- Floppy drive interface
     ----------------------------------------------------------------------
     f_density : out std_logic := '1';
-    f_motor : out std_logic := '1';
-    f_select : out std_logic := '1';
+    f_motora : out std_logic := '1';
+    f_selecta : out std_logic := '1';
+    f_motorb : out std_logic := '1';
+    f_selectb : out std_logic := '1';
     f_stepdir : out std_logic := '1';
     f_step : out std_logic := '1';
     f_wdata : out std_logic := '1';
@@ -1619,8 +1621,15 @@ begin  -- behavioural
               f011_motor <= fastio_wdata(5);
               motor <= fastio_wdata(5);
 
-              f_motor <= not fastio_wdata(5); -- start motor on real drive
-              f_select <= not fastio_wdata(5);
+              f_motora <= '1'; f_selecta <= '1'; f_motorb <= '1'; f_selectb <= '1';
+              if f011_ds = "000" then              
+                f_motora <= not fastio_wdata(5); -- start motor on real drive
+                f_selecta <= not fastio_wdata(5);
+              elsif f011_ds = "001" then              
+                f_motorb <= not fastio_wdata(5); -- start motor on real drive
+                f_selectb <= not fastio_wdata(5);
+              end if;
+              
               -- De-selecting drive cancelled disk change event
               if fastio_wdata(5)='0' then
                 latched_disk_change_event <= '0';
@@ -1861,7 +1870,14 @@ begin  -- behavioural
                   f011_head_track <= f011_head_track - 1;
                   f_step <= '0';
                   f_stepdir <= '1';
-                  f_select <= '0';
+
+                  f_selecta <= '1'; f_selectb <= '1';
+                  if f011_ds = "000" then              
+                    f_selecta <= '0'; 
+                  elsif f011_ds = "001" then              
+                    f_selectb <= '0';
+                  end if;
+                  
                   f_wgate <= '1';
                   f011_busy <= '1';
                   busy_countdown(15 downto 8) <= (others => '0');
@@ -1870,13 +1886,27 @@ begin  -- behavioural
                   -- be busy for one step interval, without
                   -- actually stepping
                   f011_busy <= '1';
-                  f_select <= '0';
+
+                  f_selecta <= '1'; f_selectb <= '1';
+                  if f011_ds = "000" then              
+                    f_selecta <= '0'; 
+                  elsif f011_ds = "001" then              
+                    f_selectb <= '0';
+                  end if;
+                                    
                   busy_countdown(15 downto 8) <= (others => '0');
                   busy_countdown(7 downto 0) <= f011_reg_step; 
                 when x"18" =>         -- head step in
                   f_step <= '0';
                   f_stepdir <= '0';
-                  f_select <= '0';
+
+                  f_selecta <= '1'; f_selectb <= '1';
+                  if f011_ds = "000" then              
+                    f_selecta <= '0'; 
+                  elsif f011_ds = "001" then              
+                    f_selectb <= '0';
+                  end if;
+                                    
                   f_wgate <= '1';
                   f011_head_track <= f011_head_track + 1;
                   f011_busy <= '1';
@@ -2257,8 +2287,17 @@ begin  -- behavioural
             when x"a0" =>
               -- @IO:GS $D6A0 - 3.5" FDC control line debug access
               f_density <= fastio_wdata(7);
-              f_motor <= fastio_wdata(6);
-              f_select <= fastio_wdata(5);
+
+              f_motora <= '1'; f_motorb <= '1';
+              f_selecta <= '1'; f_selectb <= '1';
+              if f011_ds = "000" then              
+                f_selecta <= fastio_wdata(5);
+                f_motora <= fastio_wdata(6);
+              elsif f011_ds = "001" then              
+                f_selectb <= fastio_wdata(5);
+                f_motorb <= fastio_wdata(6);
+              end if;
+                               
               f_stepdir <= fastio_wdata(4);
               f_step <= fastio_wdata(3);
               f_wdata <= fastio_wdata(2);
