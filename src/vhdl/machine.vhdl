@@ -202,8 +202,10 @@ entity machine is
          -- Floppy drive interface
          ----------------------------------------------------------------------
          f_density : out std_logic := '1';
-         f_motor : out std_logic := '1';
-         f_select : out std_logic := '1';
+         f_motora : out std_logic := '1';
+         f_selecta : out std_logic := '1';
+         f_motorb : out std_logic := '1';
+         f_selectb : out std_logic := '1';
          f_stepdir : out std_logic := '1';
          f_step : out std_logic := '1';
          f_wdata : out std_logic := '1';
@@ -1424,8 +1426,10 @@ begin
     monitor_p => monitor_p,
       
     f_density => f_density,
-    f_motor => f_motor,
-    f_select => f_select,
+    f_motora => f_motora,
+    f_selecta => f_selecta,
+    f_motorb => f_motorb,
+    f_selectb => f_selectb,
     f_stepdir => f_stepdir,
     f_step => f_step,
     f_wdata => f_wdata,
