@@ -216,7 +216,6 @@ set files [list \
  "[file normalize "$origin_dir/src/verilog/monitor_bus.v"]"\
  "[file normalize "$origin_dir/src/verilog/asym_ram_sdp.v"]"\
  "[file normalize "$origin_dir/zed_hdmi_720p/i2c_sender.vhd"]"\
- "[file normalize "$origin_dir/zed_hdmi_720p/vga_hdmi.vhd"]"\
  "[file normalize "$origin_dir/zed_hdmi_720p/vga_generator.vhd"]"\
  "[file normalize "$origin_dir/spdif_out/serialiser.vhd"]"\
  "[file normalize "$origin_dir/spdif_out/soundSource.vhd"]"\
