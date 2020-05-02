@@ -417,7 +417,7 @@ architecture behavioral of matrix_to_ascii is
     27 => x"00", -- (/8
     28 => x"FA", -- U with accute accent (was B/b)
     29 => x"FD", -- Y with accute accent (was H/h)
-    30 => x"FC", -- Ü/ü
+    30 => x"FC", -- u with umlaut
     31 => x"00", -- V/v
     32 => x"00", -- )/9
     33 => x"ED", -- I with accute accent (Icelandic)
@@ -432,12 +432,12 @@ architecture behavioral of matrix_to_ascii is
     42 => x"F3", -- O with accute accent (was L/l)
     43 => x"AC", -- Not sign
     44 => x"BB", -- >>
-    45 => x"E4", -- Ä/ä
+    45 => x"E4", -- a with umlaut
     46 => x"A8", -- Diaresis (umlaut without letter under) (was NO KEY/@)
     47 => x"AB", -- <</,
     48 => x"A3", -- British pound?
     49 => x"B7", -- Middle dot
-    50 => x"E4", -- Also Ä/ä (for convenience for German typists)
+    50 => x"E4", -- Also a with umlaut (for convenience for German typists)
     51 => x"00", -- CLR/HOM
     52 => x"00", -- RIGHT/SHIFT
     53 => x"AF", -- Macron ("overscore")

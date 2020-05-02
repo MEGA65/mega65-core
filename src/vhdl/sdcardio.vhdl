@@ -41,8 +41,8 @@
 -- with a one single-port buffer that gets shared between the two sides based
 -- on whether the SD controller is using it or not.
 
-library UNISIM;
-use UNISIM.vcomponents.all;
+--library UNISIM;
+--use UNISIM.vcomponents.all;
 
 use WORK.ALL;
 
