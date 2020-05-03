@@ -134,7 +134,7 @@ architecture gothic of hyperram is
   signal fast_cmd_mode : std_logic := '0';
   signal fast_read_mode : std_logic := '1';
   signal fast_write_mode : std_logic := '0';
-  signal read_phase_shift : std_logic := '1';
+  signal read_phase_shift : std_logic := '0';
   signal write_phase_shift : std_logic := '1';
   signal byte0_fix : std_logic := '1';
   
@@ -296,6 +296,10 @@ begin
       
       busy <= busy_internal or write_blocked or queued_write;
 
+      if write_blocked = '1' and first_transaction='0' then
+        report "DISPATCH: write_blocked asserted. Waiting for existing writes to flush...";
+      end if;
+      
       -- Clear write block as soon as either write buffer clears
       if (write_collect0_dispatchable='0' and write_collect0_toolate='0' and write_collect0_flushed='0')
         or (write_collect1_dispatchable='0' and write_collect1_toolate='0' and write_collect1_flushed='0')
@@ -393,11 +397,13 @@ begin
       -- We have to wipe the address and valids, so that they don't get stuck being
       -- used as stale sources for cache reading.
       if write_collect0_dispatchable = '1' and write_collect0_toolate <= '1' and write_collect0_flushed = '1' then
+        show_collect0 := true;
         write_collect0_dispatchable <= '0';
         write_collect0_address <= (others => '1');
         write_collect0_valids <= (others => '0');
       end if;
       if write_collect1_dispatchable = '1' and write_collect1_toolate <= '1' and write_collect1_flushed = '1' then
+        show_collect0 := true;
         write_collect1_dispatchable <= '0';
         write_collect1_address <= (others => '1');            
         write_collect1_valids <= (others => '0');
@@ -852,10 +858,12 @@ begin
             
             -- Clear write buffer flags when they are empty
             if write_collect0_dispatchable = '0' then
+              show_collect0 := true;
               write_collect0_toolate <= '0';
               write_collect0_flushed <= '0';
             end if;
             if write_collect1_dispatchable = '0' then
+              show_collect1 := true;
               write_collect1_toolate <= '0';
               write_collect1_flushed <= '0';
             end if;
@@ -896,31 +904,31 @@ begin
                   -- Update short-circuit cache line
                   -- (We don't change validity, since we don't know if it is
                   -- valid or not).
-                  if ram_address(26 downto 3) = current_cache_line_address(26 downto 3) then
-                    current_cache_line(to_integer(ram_address(2 downto 0))) <= ram_wdata;
+                  if hyperram_access_address(26 downto 3) = current_cache_line_address(26 downto 3) then
+                    current_cache_line(to_integer(hyperram_access_address(2 downto 0))) <= ram_wdata;
                   end if;
 
                   -- Update cache
-                  if cache_row0_address = ram_address(26 downto 3) then
-                    cache_row0_valids(to_integer(ram_address(2 downto 0))) <= '1';
-                    cache_row0_data(to_integer(ram_address(2 downto 0))) <= ram_wdata;        
+                  if cache_row0_address = hyperram_access_address(26 downto 3) then
+                    cache_row0_valids(to_integer(hyperram_access_address(2 downto 0))) <= '1';
+                    cache_row0_data(to_integer(hyperram_access_address(2 downto 0))) <= ram_wdata;        
                     show_cache0 := true;
-                  elsif cache_row1_address = ram_address(26 downto 3) then
-                    cache_row1_valids(to_integer(ram_address(2 downto 0))) <= '1';
-                    cache_row1_data(to_integer(ram_address(2 downto 0))) <= ram_wdata;        
+                  elsif cache_row1_address = hyperram_access_address(26 downto 3) then
+                    cache_row1_valids(to_integer(hyperram_access_address(2 downto 0))) <= '1';
+                    cache_row1_data(to_integer(hyperram_access_address(2 downto 0))) <= ram_wdata;        
                     show_cache1 := true;
                   else
                     if random_bits(1)='0' then
                       cache_row0_valids <= (others => '0');
-                      cache_row0_address <= ram_address(26 downto 3);
-                      cache_row0_valids(to_integer(ram_address(2 downto 0))) <= '1';
-                      cache_row0_data(to_integer(ram_address(2 downto 0))) <= ram_wdata;        
+                      cache_row0_address <= hyperram_access_address(26 downto 3);
+                      cache_row0_valids(to_integer(hyperram_access_address(2 downto 0))) <= '1';
+                      cache_row0_data(to_integer(hyperram_access_address(2 downto 0))) <= ram_wdata;        
                       show_cache0 := true;
                     else
                       cache_row1_valids <= (others => '0');
-                      cache_row1_address <= ram_address(26 downto 3);
-                      cache_row1_valids(to_integer(ram_address(2 downto 0))) <= '1';
-                      cache_row1_data(to_integer(ram_address(2 downto 0))) <= ram_wdata;        
+                      cache_row1_address <= hyperram_access_address(26 downto 3);
+                      cache_row1_valids(to_integer(hyperram_access_address(2 downto 0))) <= '1';
+                      cache_row1_data(to_integer(hyperram_access_address(2 downto 0))) <= ram_wdata;        
                       show_cache1 := true;
                     end if;
                   end if;
@@ -1143,7 +1151,7 @@ begin
             end if;            
             
           when HyperRAMOutputCommandSlow =>
-            report "Writing command, ram_address=$" & to_hstring(hyperram_access_address);
+            report "Writing command, hyperram_access_address=$" & to_hstring(hyperram_access_address);
             -- Call HyperRAM to attention
             hr_cs0 <= not hyperram0_select;
             hr_cs1 <= not (hyperram1_select or first_transaction);
