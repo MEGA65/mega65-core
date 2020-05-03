@@ -351,9 +351,9 @@ begin
     if slow_access_ready_toggle /= last_slow_access_ready_toggle then
       if expect_value = '1' then
         if expected_value = slow_access_rdata then
-          report "DISPATCH: Read correct value $" & to_hstring(slow_access_rdata);
+          report "DISPATCHER: Read correct value $" & to_hstring(slow_access_rdata);
         else
-          report "DISPATCH: ERROR: Expected $" & to_hstring(expected_value) & ", but saw $" & to_hstring(slow_access_rdata);
+          report "DISPATCHER: ERROR: Expected $" & to_hstring(expected_value) & ", but saw $" & to_hstring(slow_access_rdata);
         end if;
       end if;
       expect_value <= '0';
@@ -382,14 +382,14 @@ begin
           -- Let reads finish serially
           -- (In the worst case, this can take quite a while)
           idle_wait <= 40;
-          report "DISPATCH: Reading from $" & to_hstring(mem_jobs(cycles).address) & ", expecting to see $"
+          report "DISPATCHER: Reading from $" & to_hstring(mem_jobs(cycles).address) & ", expecting to see $"
             & to_hstring(mem_jobs(cycles).value);
           expect_value <= '1';
           expected_value <= mem_jobs(cycles).value;
         else
           -- Try to rush writes, so that writes get merged
           idle_wait <= 40;
-          report "DISPATCH: Writing to $" & to_hstring(mem_jobs(cycles).address) & " <- $"
+          report "DISPATCHER: Writing to $" & to_hstring(mem_jobs(cycles).address) & " <- $"
             & to_hstring(mem_jobs(cycles).value);
           expect_value <= '0';
         end if;
