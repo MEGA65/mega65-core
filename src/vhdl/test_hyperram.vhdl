@@ -206,6 +206,7 @@ begin
 
   fakehyper0: entity work.s27kl0641
     generic map (
+      id => "$8000000",
       tdevice_vcs => 5 ns,
       timingmodel => "S27KL0641DABHI000"
       )
@@ -228,6 +229,7 @@ begin
 
   fakehyper1: entity work.s27kl0641
     generic map (
+      id => "$8800000",
       tdevice_vcs => 5 ns,
       timingmodel => "S27KL0641DABHI000"
       )
