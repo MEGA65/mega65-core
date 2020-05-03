@@ -266,8 +266,6 @@ architecture gothic of hyperram is
 
   signal hr_clock_phase : unsigned(2 downto 0) := "000";
 
-  signal hyperram2_select : std_logic := '0';
-  
   signal read_time_adjust : integer range 0 to 255 := 1;
 
   signal hyperram0_select : std_logic := '0';
@@ -278,6 +276,11 @@ begin
   process (pixelclock,clock163,clock325,hr_clk,hr_clk_phaseshift) is
     variable clock_status_vector : unsigned(4 downto 0);
     variable tempaddr : unsigned(26 downto 0);
+    variable show_cache0 : boolean := false;
+    variable show_cache1 : boolean := false;
+    variable show_collect0 : boolean := false;
+    variable show_collect1 : boolean := false;
+    variable show_block : boolean := false;    
   begin
     if rising_edge(pixelclock) then
 
@@ -309,17 +312,22 @@ begin
         request_counter_int <= not request_counter_int;
         request_counter <= request_counter_int;
       end if;
-      
-      report "CACHE cache0: address=$" & to_hstring(cache_row0_address&"000") & ", valids=" & to_string(cache_row0_valids)
-        & ", data = "
-        & to_hstring(cache_row0_data(0)) & " "
-        & to_hstring(cache_row0_data(1)) & " "
-        & to_hstring(cache_row0_data(2)) & " "
-        & to_hstring(cache_row0_data(3)) & " "
-        & to_hstring(cache_row0_data(4)) & " "
-        & to_hstring(cache_row0_data(5)) & " "
-        & to_hstring(cache_row0_data(6)) & " "
-        & to_hstring(cache_row0_data(7)) & " ";
+
+      if show_cache0 then
+        report "CACHE cache0: address=$" & to_hstring(cache_row0_address&"000") & ", valids=" & to_string(cache_row0_valids)
+          & ", data = "
+          & to_hstring(cache_row0_data(0)) & " "
+          & to_hstring(cache_row0_data(1)) & " "
+          & to_hstring(cache_row0_data(2)) & " "
+          & to_hstring(cache_row0_data(3)) & " "
+          & to_hstring(cache_row0_data(4)) & " "
+          & to_hstring(cache_row0_data(5)) & " "
+          & to_hstring(cache_row0_data(6)) & " "
+          & to_hstring(cache_row0_data(7)) & " ";
+        show_cache0 := false;
+      end if;
+
+      if show_cache1 then
       report "CACHE cache1: address=$" & to_hstring(cache_row1_address&"000") & ", valids=" & to_string(cache_row1_valids)
         & ", data = "
         & to_hstring(cache_row1_data(0)) & " "
@@ -330,45 +338,55 @@ begin
         & to_hstring(cache_row1_data(5)) & " "
         & to_hstring(cache_row1_data(6)) & " "
         & to_hstring(cache_row1_data(7)) & " ";
-      report "CACHE write0: $" & to_hstring(write_collect0_address&"000") & ", v=" & to_string(write_collect0_valids)
-        & ", d=" & std_logic'image(write_collect0_dispatchable)
-        & ", late=" & std_logic'image(write_collect0_toolate)
-        & ", fl=" & std_logic'image(write_collect0_flushed)
-        & ", data = "
-        & to_hstring(write_collect0_data(0)) & " "
-        & to_hstring(write_collect0_data(1)) & " "
-        & to_hstring(write_collect0_data(2)) & " "
-        & to_hstring(write_collect0_data(3)) & " "
-        & to_hstring(write_collect0_data(4)) & " "
-        & to_hstring(write_collect0_data(5)) & " "
-        & to_hstring(write_collect0_data(6)) & " "
-        & to_hstring(write_collect0_data(7)) & " ";
-      report "CACHE write1: $" & to_hstring(write_collect1_address&"000") & ", v=" & to_string(write_collect1_valids)
-        & ", d=" & std_logic'image(write_collect1_dispatchable)
-        & ", late=" & std_logic'image(write_collect1_toolate)
-        & ", fl=" & std_logic'image(write_collect1_flushed)
-        & ", data = "
-        & to_hstring(write_collect1_data(0)) & " "
-        & to_hstring(write_collect1_data(1)) & " "
-        & to_hstring(write_collect1_data(2)) & " "
-        & to_hstring(write_collect1_data(3)) & " "
-        & to_hstring(write_collect1_data(4)) & " "
-        & to_hstring(write_collect1_data(5)) & " "
-        & to_hstring(write_collect1_data(6)) & " "
-        & to_hstring(write_collect1_data(7)) & " ";
-      report "CACHE block0: $" & to_hstring(block_address&"00000") & ", valid=" & std_logic'image(block_valid);
-      for i in 0 to 3 loop
-        report "CACHE block0 segment " & integer'image(i) & ": "
-        & to_hstring(block_data(i)(0)) & " "
-        & to_hstring(block_data(i)(1)) & " "
-        & to_hstring(block_data(i)(2)) & " "
-        & to_hstring(block_data(i)(3)) & " "
-        & to_hstring(block_data(i)(4)) & " "
-        & to_hstring(block_data(i)(5)) & " "
-        & to_hstring(block_data(i)(6)) & " "
-        & to_hstring(block_data(i)(7)) & " ";
-        
-      end loop;
+      show_cache1 := false;
+      end if;
+      if show_collect0 then
+        report "CACHE write0: $" & to_hstring(write_collect0_address&"000") & ", v=" & to_string(write_collect0_valids)
+          & ", d=" & std_logic'image(write_collect0_dispatchable)
+          & ", late=" & std_logic'image(write_collect0_toolate)
+          & ", fl=" & std_logic'image(write_collect0_flushed)
+          & ", data = "
+          & to_hstring(write_collect0_data(0)) & " "
+          & to_hstring(write_collect0_data(1)) & " "
+          & to_hstring(write_collect0_data(2)) & " "
+          & to_hstring(write_collect0_data(3)) & " "
+          & to_hstring(write_collect0_data(4)) & " "
+          & to_hstring(write_collect0_data(5)) & " "
+          & to_hstring(write_collect0_data(6)) & " "
+          & to_hstring(write_collect0_data(7)) & " ";
+        show_collect0 := false;
+      end if;
+      if show_collect1 then
+        report "CACHE write1: $" & to_hstring(write_collect1_address&"000") & ", v=" & to_string(write_collect1_valids)
+          & ", d=" & std_logic'image(write_collect1_dispatchable)
+          & ", late=" & std_logic'image(write_collect1_toolate)
+          & ", fl=" & std_logic'image(write_collect1_flushed)
+          & ", data = "
+          & to_hstring(write_collect1_data(0)) & " "
+          & to_hstring(write_collect1_data(1)) & " "
+          & to_hstring(write_collect1_data(2)) & " "
+          & to_hstring(write_collect1_data(3)) & " "
+          & to_hstring(write_collect1_data(4)) & " "
+          & to_hstring(write_collect1_data(5)) & " "
+          & to_hstring(write_collect1_data(6)) & " "
+          & to_hstring(write_collect1_data(7)) & " ";
+        show_collect1 := false;
+      end if;
+      if show_block then
+        report "CACHE block0: $" & to_hstring(block_address&"00000") & ", valid=" & std_logic'image(block_valid);
+        for i in 0 to 3 loop
+          report "CACHE block0 segment " & integer'image(i) & ": "
+            & to_hstring(block_data(i)(0)) & " "
+            & to_hstring(block_data(i)(1)) & " "
+            & to_hstring(block_data(i)(2)) & " "
+            & to_hstring(block_data(i)(3)) & " "
+            & to_hstring(block_data(i)(4)) & " "
+            & to_hstring(block_data(i)(5)) & " "
+            & to_hstring(block_data(i)(6)) & " "
+            & to_hstring(block_data(i)(7)) & " ";          
+        end loop;
+        show_block := false;
+      end if;
       
 
       -- Clear write buffers once they have been flushed.
@@ -512,6 +530,7 @@ begin
         write_collect0_data(to_integer(queued_waddr(2 downto 0))) <= queued_wdata;
         write_collect0_address <= queued_waddr(26 downto 3);
         write_collect0_dispatchable <= '1';
+        show_collect0 := true;
 
         queued_write <= '0';
         
@@ -576,10 +595,12 @@ begin
               and write_collect0_dispatchable = '1' and write_collect0_toolate='0' then
               write_collect0_valids(to_integer(address(2 downto 0))) <= '1';
               write_collect0_data(to_integer(address(2 downto 0))) <= wdata;
+              show_collect0 := true;
             elsif write_collect1_toolate = '0' and write_collect1_address = address(26 downto 3)
               and write_collect1_dispatchable = '1' and write_collect1_toolate='0' then
               write_collect1_valids(to_integer(address(2 downto 0))) <= '1';
               write_collect1_data(to_integer(address(2 downto 0))) <= wdata;
+              show_collect1 := true;
             elsif write_collect0_dispatchable = '0' and write_collect0_toolate='0' then
               write_collect0_valids <= (others => '0');
               write_collect0_valids(to_integer(address(2 downto 0))) <= '1';
@@ -588,6 +609,7 @@ begin
               write_collect0_dispatchable <= '1';
               -- Block further writes if we already have one busy write buffer
               write_blocked <= '1';
+              show_collect0 := true;
             elsif write_collect1_dispatchable = '0' and write_collect1_toolate='0' then
               write_collect1_valids <= (others => '0');
               write_collect1_valids(to_integer(address(2 downto 0))) <= '1';
@@ -596,6 +618,7 @@ begin
               write_collect1_dispatchable <= '1';
               -- Block further writes if we already have one busy write buffer
               write_blocked <= '1';
+              show_collect1 := true;
             else
               -- No write collection point that we can use, so just block until
               -- one becomes available
@@ -738,7 +761,7 @@ begin
       if data_ready_strobe_hold = '0' then      
         data_ready_strobe <= fake_data_ready_strobe;
         if fake_data_ready_strobe='1' then
-          report "holding data_ready_strobe via fake data = $" & to_hstring(fake_rdata);
+          report "DISPATCH: holding data_ready_strobe via fake data = $" & to_hstring(fake_rdata);
           rdata <= fake_rdata;
         end if;
       else
@@ -809,18 +832,21 @@ begin
                   & " gets $" & to_hstring(cache_row_update_value);
                 cache_row0_valids(cache_row_update_byte) <= '1';
                 cache_row0_data(cache_row_update_byte) <= cache_row_update_value;
+                show_cache0 := true;
               end if;
               if cache_row1_address = cache_row_update_address then
                 report "DISPATCH: Updating cache1 via write: $" & to_hstring((cache_row_update_address&"000")+cache_row_update_byte)
                   & " gets $" & to_hstring(cache_row_update_value);
                 cache_row1_valids(cache_row_update_byte) <= '1';
                 cache_row1_data(cache_row_update_byte) <= cache_row_update_value;
+                show_cache1 := true;
               end if;
               if block_address = cache_row_update_address(26 downto 5) then
                 report "DISPATCH: Updating block data via write: $" & to_hstring((cache_row_update_address&"000")+cache_row_update_byte)
                   & " gets $" & to_hstring(cache_row_update_value);
                 block_data(to_integer(cache_row_update_address(4 downto 3)))(cache_row_update_byte)
                   <= cache_row_update_value;
+                show_block := true;
               end if;
             end if;                        
             
@@ -878,20 +904,24 @@ begin
                   if cache_row0_address = ram_address(26 downto 3) then
                     cache_row0_valids(to_integer(ram_address(2 downto 0))) <= '1';
                     cache_row0_data(to_integer(ram_address(2 downto 0))) <= ram_wdata;        
+                    show_cache0 := true;
                   elsif cache_row1_address = ram_address(26 downto 3) then
                     cache_row1_valids(to_integer(ram_address(2 downto 0))) <= '1';
                     cache_row1_data(to_integer(ram_address(2 downto 0))) <= ram_wdata;        
+                    show_cache1 := true;
                   else
                     if random_bits(1)='0' then
                       cache_row0_valids <= (others => '0');
                       cache_row0_address <= ram_address(26 downto 3);
                       cache_row0_valids(to_integer(ram_address(2 downto 0))) <= '1';
                       cache_row0_data(to_integer(ram_address(2 downto 0))) <= ram_wdata;        
+                      show_cache0 := true;
                     else
                       cache_row1_valids <= (others => '0');
                       cache_row1_address <= ram_address(26 downto 3);
                       cache_row1_valids(to_integer(ram_address(2 downto 0))) <= '1';
                       cache_row1_data(to_integer(ram_address(2 downto 0))) <= ram_wdata;        
+                      show_cache1 := true;
                     end if;
                   end if;
                   
@@ -912,7 +942,6 @@ begin
                 background_write_source <= '0'; -- collect 0
 
                 config_reg_write <= write_collect0_address(25);
-                hyperram2_select <= write_collect0_address(23);
 
                 -- Prepare command vector
                 hr_command(47) <= '0'; -- WRITE
@@ -960,7 +989,6 @@ begin
                 write_collect1_toolate <= '0';
 
                 config_reg_write <= write_collect1_address(25);
-                hyperram2_select <= write_collect1_address(23);
 
                 background_write <= '1';
                 background_write_source <= '1'; -- collect 0
@@ -1024,8 +1052,6 @@ begin
           when ReadSetup =>
             report "Setting up to read $" & to_hstring(ram_address) & " ( address = $" & to_hstring(address) & ")";
 
-            hyperram2_select <= ram_address(23);
-            
             -- Prepare command vector
             hr_command(47) <= '1'; -- READ
             -- Map actual RAM to bottom 32MB of 64MB space (repeated 4x)
@@ -1076,7 +1102,6 @@ begin
             report "Preparing hr_command etc";
 
             config_reg_write <= ram_address(25);
-            hyperram2_select <= ram_address(23);
             
             -- Prepare command vector
             -- As HyperRAM addresses on 16bit boundaries, we shift the address
@@ -1177,7 +1202,7 @@ begin
                   -- Initial latency is reduced by 2 cycles for the last bytes
                   -- of the access command, and by 1 more to cover state
                   -- machine latency
-                  if hyperram2_select='0' then
+                  if hyperram1_select='0' then
                     countdown <= to_integer(write_latency);
                   else
                     countdown <= to_integer(write_latency2);
@@ -1243,8 +1268,8 @@ begin
             
               if countdown = 3 and (config_reg_write='0' or ram_reading_held='1') then
                 extra_latency <= hr_rwds;
-                if (hr_rwds='1' and hyperram2_select='0')
-                  or (hr2_rwds='1' and hyperram2_select='1')
+                if (hr_rwds='1' and hyperram0_select='1')
+                  or (hr2_rwds='1' and hyperram1_select='1')
                 then
                   report "Applying extra latency";
                 end if;                    
@@ -1292,13 +1317,13 @@ begin
             report "Writing command byte $" & to_hstring(hr_command(47 downto 40));
             
             if countdown = 3 and (config_reg_write='0' or ram_reading_held='1') then
-              if hyperram2_select='0' then
+              if hyperram0_select='1' then
                 extra_latency <= hr_rwds;
               else
                 extra_latency <= hr2_rwds;
               end if;
-              if (hr_rwds='1' and hyperram2_select='0')
-                or (hr2_rwds='1' and hyperram2_select='1') then
+              if (hr_rwds='1' and hyperram0_select='1')
+                or (hr2_rwds='1' and hyperram1_select='1') then
                 report "Applying extra latency";
               end if;                    
             end if;
@@ -1342,7 +1367,7 @@ begin
                 -- Initial latency is reduced by 2 cycles for the last bytes
                 -- of the access command, and by 1 more to cover state
                 -- machine latency                  
-                if hyperram2_select='0' then
+                if hyperram0_select='1' then
                   countdown <= to_integer(write_latency);
                 else
                   countdown <= to_integer(write_latency2);
@@ -1422,7 +1447,7 @@ begin
                 -- then wait another 6 cycles.
                 extra_latency <= '0';
 
-                if hyperram2_select='0' then
+                if hyperram0_select='1' then
                   countdown <= to_integer(extra_write_latency);
                 else
                   countdown <= to_integer(extra_write_latency2);
@@ -1534,7 +1559,7 @@ begin
                   -- If we were asked to wait for extra latency,
                   -- then wait another 6 cycles.
                   extra_latency <= '0';
-                  if hyperram2_select='0' then
+                  if hyperram0_select='1' then
                     countdown <= to_integer(extra_write_latency);
                   else
                     countdown <= to_integer(extra_write_latency2);
@@ -1633,9 +1658,9 @@ begin
               countdown <= countdown - 1;
             end if;
 
-            hr_clk_phaseshift <= read_phase_shift xor hyperram2_select;
+            hr_clk_phaseshift <= read_phase_shift xor hyperram1_select;
 
-            if hyperram2_select='0' then
+            if hyperram0_select='1' then
               last_rwds <= hr_rwds;
             else
               last_rwds <= hr2_rwds;
@@ -1646,8 +1671,8 @@ begin
 --              report "DISPATCH watching for data: rwds=" & std_logic'image(hr_rwds) & ", clock=" & std_logic'image(hr_clock)
 --                & ", rwds seen=" & std_logic'image(hr_rwds_high_seen);
 
-            if ((hr_rwds='1') and (hyperram2_select='0'))
-              or ((hr2_rwds='1') and (hyperram2_select='1'))
+            if ((hr_rwds='1') and (hyperram0_select='1'))
+              or ((hr2_rwds='1') and (hyperram1_select='1'))
             then
               hr_rwds_high_seen <= '1';
 --                if hr_rwds_high_seen = '0' then
@@ -1656,8 +1681,8 @@ begin
             else
               hr_rwds_high_seen <= '0';
             end if;                
-            if (((hr_rwds='1') and (hyperram2_select='0'))
-              or ((hr2_rwds='1') and (hyperram2_select='1')))
+            if (((hr_rwds='1') and (hyperram0_select='1'))
+              or ((hr2_rwds='1') and (hyperram1_select='1')))
               or (hr_rwds_high_seen='1') then
               -- Data has arrived: Latch either odd or even byte
               -- as required.
@@ -1668,7 +1693,7 @@ begin
               if (byte_phase < 32) and is_block_read then
                 report "hr_sample='1'";
                 report "hr_sample='0'";
-                if hyperram2_select='0' then
+                if hyperram0_select='1' then
                   block_data(to_integer(byte_phase(4 downto 3)))(to_integer(byte_phase(2 downto 0)))
                     <= hr_d;
                 else
@@ -1682,42 +1707,46 @@ begin
                   cache_row0_valids(to_integer(byte_phase)) <= '1';
                   report "hr_sample='1'";
                   report "hr_sample='0'";
-                  if hyperram2_select='0' then
+                  if hyperram0_select='1' then
                     cache_row0_data(to_integer(byte_phase)) <= hr_d;
                   else
                     cache_row0_data(to_integer(byte_phase)) <= hr2_d;
                   end if;
+                  show_cache0 := true;
                 elsif cache_row1_address = hyperram_access_address(26 downto 3) then          
                   cache_row1_valids(to_integer(byte_phase)) <= '1';
                   report "hr_sample='1'";
                   report "hr_sample='0'";
-                  if hyperram2_select='0' then
+                  if hyperram0_select='1' then
                     cache_row1_data(to_integer(byte_phase)) <= hr_d;
                   else
                     cache_row1_data(to_integer(byte_phase)) <= hr2_d;
                   end if;
+                  show_cache1 := true;
                 elsif random_bits(1) = '0' then
                   cache_row0_valids <= (others => '0');
                   cache_row0_address <= hyperram_access_address(26 downto 3);
                   cache_row0_valids(to_integer(byte_phase)) <= '1';
                   report "hr_sample='1'";
                   report "hr_sample='0'";
-                  if hyperram2_select='0' then
+                  if hyperram0_select='1' then
                     cache_row0_data(to_integer(byte_phase)) <= hr_d;
                   else
                     cache_row0_data(to_integer(byte_phase)) <= hr2_d;
                   end if;
+                  show_cache0 := true;
                 else
                   cache_row1_valids <= (others => '0');
                   cache_row1_address <= hyperram_access_address(26 downto 3);
                   cache_row1_valids(to_integer(byte_phase)) <= '1';
                   report "hr_sample='1'";
                   report "hr_sample='0'";
-                  if hyperram2_select='0' then
+                  if hyperram0_select='1' then
                     cache_row1_data(to_integer(byte_phase)) <= hr_d;
                   else
                     cache_row1_data(to_integer(byte_phase)) <= hr2_d;
                   end if;
+                  show_cache1 := true;
                 end if;
               elsif (byte_phase = 8) and (is_prefetch = false) then
                 -- Export the appropriate cache line to slow_devices
@@ -1738,14 +1767,19 @@ begin
               
               -- Quickly return the correct byte
               if to_integer(byte_phase) = (to_integer(hyperram_access_address(2 downto 0))+0) and (is_prefetch=false) then
-                report "DISPATCH: Returning freshly read data = $" & to_hstring(hr_d);
-                report "hr_return='1'";
-                report "hr_return='0'";
-                if hyperram2_select='0' then
+                if hyperram0_select='1' then
+                  report "DISPATCH: Returning freshly read data = $" & to_hstring(hr_d)
+                    & ", hyperram0_select="& std_logic'image(hyperram0_select) 
+                    & ", hyperram1_select="& std_logic'image(hyperram1_select);
                   rdata <= hr_d;
                 else
+                  report "DISPATCH: Returning freshly read data = $" & to_hstring(hr2_d)
+                    & ", hyperram0_select="& std_logic'image(hyperram0_select) 
+                    & ", hyperram1_select="& std_logic'image(hyperram1_select);
                   rdata <= hr2_d;
                 end if;
+                report "hr_return='1'";
+                report "hr_return='0'";
                 data_ready_strobe <= '1';
                 data_ready_strobe_hold <= '1';
               end if;
@@ -1773,7 +1807,7 @@ begin
             hr_d <= (others => 'Z');
             hr2_d <= (others => 'Z');
             
-            if hyperram2_select='0' then
+            if hyperram0_select='1' then
               hr_d_last <= hr_d;
             else
               hr_d_last <= hr2_d;
@@ -1784,7 +1818,7 @@ begin
             if pause_phase = '1' then
               null;
             else
-              hr_clk_phaseshift <= read_phase_shift xor hyperram2_select;
+              hr_clk_phaseshift <= read_phase_shift xor hyperram1_select;
               if countdown = 0 then
                 -- Timed out waiting for read -- so return anyway, rather
                 -- than locking the machine hard forever.
@@ -1801,7 +1835,7 @@ begin
                 countdown <= countdown - 1;
               end if;
               
-              if hyperram2_select='0' then
+              if hyperram0_select='1' then
                 last_rwds <= hr_rwds;
               else
                 last_rwds <= hr2_rwds;
@@ -1812,7 +1846,7 @@ begin
 --              report "DISPATCH watching for data: rwds=" & std_logic'image(hr_rwds) & ", clock=" & std_logic'image(hr_clock)
 --                & ", rwds seen=" & std_logic'image(hr_rwds_high_seen);
               
-              if ((hr_rwds='1') and (hyperram2_select='0')) or ((hr2_rwds='1') and (hyperram2_select='1'))
+              if ((hr_rwds='1') and (hyperram0_select='1')) or ((hr2_rwds='1') and (hyperram1_select='1'))
               then
                 hr_rwds_high_seen <= '1';
               else
@@ -1821,7 +1855,7 @@ begin
               --                report "DISPATCH saw hr_rwds go high at start of data stream";
 --                end if;
               end if;                
-              if (((hr_rwds='1') and (hyperram2_select='0')) or ((hr2_rwds='1') and (hyperram2_select='1')))
+              if (((hr_rwds='1') and (hyperram0_select='1')) or ((hr2_rwds='1') and (hyperram1_select='1')))
               or (hr_rwds_high_seen='1') then
                 -- Data has arrived: Latch either odd or even byte
                 -- as required.
@@ -1837,12 +1871,13 @@ begin
                     if byte_phase = 0 and byte0_fix='1' then
                       cache_row0_data(to_integer(byte_phase)) <= hr_d_last;
                     else
-                      if hyperram2_select='0' then
+                      if hyperram0_select='1' then
                         cache_row0_data(to_integer(byte_phase)) <= hr_d;
                       else
                         cache_row0_data(to_integer(byte_phase)) <= hr2_d;
                       end if;
                     end if;
+                    show_cache0 := true;
                   elsif cache_row1_address = hyperram_access_address(26 downto 3) then          
                     cache_row1_valids(to_integer(byte_phase)) <= '1';
                     report "hr_sample='1'";
@@ -1850,12 +1885,13 @@ begin
                     if byte_phase = 0 and byte0_fix='1' then
                       cache_row1_data(to_integer(byte_phase)) <= hr_d_last;
                     else
-                      if hyperram2_select='0' then
+                      if hyperram0_select='1' then
                         cache_row1_data(to_integer(byte_phase)) <= hr_d;
                       else
                         cache_row1_data(to_integer(byte_phase)) <= hr2_d;
                       end if;
                     end if;
+                    show_cache1 := true;
                   elsif random_bits(1) = '0' then
                     cache_row0_valids <= (others => '0');
                     cache_row0_address <= hyperram_access_address(26 downto 3);
@@ -1865,12 +1901,13 @@ begin
                     if byte_phase = 0 and byte0_fix='1' then
                       cache_row0_data(to_integer(byte_phase)) <= hr_d_last;
                     else
-                      if hyperram2_select='0' then
+                      if hyperram0_select='1' then
                         cache_row0_data(to_integer(byte_phase)) <= hr_d;
                       else
                         cache_row0_data(to_integer(byte_phase)) <= hr2_d;
                       end if;
                     end if;
+                    show_cache0 := true;
                   else
                     cache_row1_valids <= (others => '0');
                     cache_row1_address <= hyperram_access_address(26 downto 3);
@@ -1880,12 +1917,13 @@ begin
                     if byte_phase = 0 and byte0_fix='1' then
                       cache_row1_data(to_integer(byte_phase)) <= hr_d_last;
                     else
-                      if hyperram2_select='0' then
+                      if hyperram0_select='1' then
                         cache_row1_data(to_integer(byte_phase)) <= hr_d;
                       else
                         cache_row1_data(to_integer(byte_phase)) <= hr2_d;
                       end if;
                     end if;
+                    show_cache1 := true;
                   end if;
                 else
                   -- Export the appropriate cache line to slow_devices
@@ -1906,18 +1944,19 @@ begin
                 
                 -- Quickly return the correct byte
                 if to_integer(byte_phase) = (to_integer(hyperram_access_address(2 downto 0))+read_time_adjust) then
-                  report "DISPATCH: Returning freshly read data = $" & to_hstring(hr_d);
-                  report "hr_return='1'";
-                  report "hr_return='0'";
                   if byte_phase = 0 and byte0_fix='1' then
                     rdata <= hr_d_last;
                   else
-                    if hyperram2_select='0' then
+                    if hyperram0_select='1' then
+                      report "DISPATCH: Returning freshly read data = $" & to_hstring(hr_d);
                       rdata <= hr_d;
                     else
+                      report "DISPATCH: Returning freshly read data = $" & to_hstring(hr2_d);
                       rdata <= hr2_d;
                     end if;
                   end if;
+                  report "hr_return='1'";
+                  report "hr_return='0'";
                   data_ready_strobe <= '1';
                   data_ready_strobe_hold <= '1';
                 end if;
