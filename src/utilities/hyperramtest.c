@@ -20,9 +20,14 @@ unsigned int i,j,k;
   0x01 = Send command fast  (not currently working)
   0x02 = Read bytes fast
   0x04 = Write data fast (not currently working)
+
+  XXX Weirdly, the external hyperram only works stably with the cache enabled
+  ($80 set), or else it gets lots of transient single byte errors.
+
+
 */
-unsigned char fast_flags=0x7a; 
-unsigned char slow_flags=0x4a;
+unsigned char fast_flags=0xf2; 
+unsigned char slow_flags=0x00;
 
 void bust_cache(void) {
   lpoke(0xbfffff2,0x00);
@@ -115,22 +120,22 @@ void test_continuousread(void)
   i=0;
   for(addr=0x8000000;addr<0x8800000;addr+=0x8000)
     lfill(addr,i++,0x8000);
-  
+
+  printf("Initialising hyperram contents...\n");
 
   addr=0x8000000;
   lfill(addr,0xbd,0x800);
 
-  // Write test pattern somewhere
-  for(j=0;j<16;j++) lpoke(addr+120+j,0x10+j);
-  
   addr=0x8800000;
   lfill(addr,0xbd,0x800);
 
-  // Write test pattern somewhere
-  for(j=0;j<16;j++) lpoke(addr+120+j,0x10+j);
+  // Write test pattern to both ATTIC and CELLAR hyperram areas
+  j=0;
+  addr=0x8000000;
+  do { lpoke(addr+j,+j); j++; } while(j);
+  addr=0x8800000;
+  do { lpoke(addr+j,+j); j++; } while(j);
   
-
-
   // Copy slow RAM back and check
   while(!PEEK(0xD610)) {
     lcopy(0x8000000,0x0400,40*12);
