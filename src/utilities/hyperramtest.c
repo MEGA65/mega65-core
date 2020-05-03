@@ -28,10 +28,11 @@ unsigned int i,j,k;
 */
 unsigned char fast_flags=0xf2; 
 unsigned char slow_flags=0x00;
+unsigned char cache_bit=0; // =0x80;
 
 void bust_cache(void) {
-  lpoke(0xbfffff2,0x00);
-  lpoke(0xbfffff2,0x80+fast_flags);
+  lpoke(0xbfffff2,fast_flags&(0xff-cache_bit));
+  lpoke(0xbfffff2,fast_flags|cache_bit);
 }
 
 
@@ -43,10 +44,10 @@ void setup_hyperram(void)
   printf("Determining size of Slow RAM");
 
   // Set default timing for 2nd hyperram
-  lpoke(0xbfffffd,0x04);
-  lpoke(0xbfffffe,0x00);
+  //  lpoke(0xbfffffd,0x04);
+  //  lpoke(0xbfffffe,0x00);
   
-  lpoke(0xbfffff2,0x80+fast_flags);
+  lpoke(0xbfffff2,fast_flags|cache_bit);
   lpoke(0x8000000,0xbd);
   //  if (lpeek(0x8000000)!=0xbd) {
   //    printf("ERROR: $8000000 didn't hold its value.\n"
@@ -103,7 +104,8 @@ void setup_hyperram(void)
 
   // Pre-fill all hyperram for convenience
   printf("\nErasing hyperram");
-  lpoke(0xbfffff2,0x80+fast_flags);  // cache on for much faster linear writes
+  // Cache helps with linear write speed
+  lpoke(0xbfffff2,fast_flags|cache_bit);
 
   // Allow for upto 16MB of HyperRAM
   for(addr=0x8000000;(addr<upper_addr);addr+=0x8000)
@@ -190,8 +192,7 @@ void test_ramtiming(void)
 
       printf("%cwrite_latency=%d, extra_latency=%d:\n",0x93,i,j);
 
-      lpoke(0xbfffff2,0x00);
-      lpoke(0xbfffff2,0xba);
+      bust_cache();
       
       lcopy(0x8800000,0x428,0x200);
 
@@ -215,8 +216,8 @@ void test_cacheerror(void)
 
   printf("Writing $99\n");
   lpoke(0x8000800L,0x99);
-  lpoke(0xbfffff2,0x0a);
-  lpoke(0xbfffff2,0x8a);
+  bust_cache();
+  
   //  for(addr=0x8000000;addr<0x8800000;addr+=0x8000)
 
   // Reading before writing causes the cache to cache the previously read value
@@ -230,8 +231,7 @@ void test_cacheerror(void)
 
   // ... but if we flush the cache, it all works just fine...
   printf("Flushing cache.\n");
-  lpoke(0xbfffff2,0x0a);
-  lpoke(0xbfffff2,0x8a);
+  bust_cache();
   printf("  read $%02x\n",lpeek(0x8000800L));
 
   
@@ -476,7 +476,7 @@ void test_speed(void)
       printf("%ld KB/s \n\n",speed);
 
       // Hyperram fast transactions
-      lpoke(0xbfffff2,0x80+fast_flags);
+      lpoke(0xbfffff2,fast_flags|cache_bit);
       printf("%cWith fast access enabled:%c\n",0x92,0x12);
       
       while(PEEK(0xD012)!=0x10)
@@ -516,7 +516,7 @@ void test_speed(void)
       printf("%ld KB/s \n",speed);
       
       // Hyperram slow transactions
-      lpoke(0xbfffff2,0x80+slow_flags);
+      lpoke(0xbfffff2,slow_flags|cache_bit);
       printf("\n%cWith fast access disabled:%c\n",0x92,0x12);
       
       while(PEEK(0xD012)!=0x10)
@@ -556,7 +556,7 @@ void test_speed(void)
       printf("%ld KB/s \n",speed);
       
       // cache back on after no-cache test
-      lpoke(0xbfffff2,0x80+fast_flags);
+      lpoke(0xbfffff2,fast_flags|cache_bit);
       
     }
 }
@@ -572,7 +572,7 @@ void main(void)
   setup_hyperram();
 
   // Turn cache back on before reading config registers etc
-  lpoke(0xbfffff2,0x80+fast_flags);
+  lpoke(0xbfffff2,fast_flags|cache_bit);
   
   cr0hi=lpeek(0xA001000);
   cr0lo=lpeek(0xA001001);
