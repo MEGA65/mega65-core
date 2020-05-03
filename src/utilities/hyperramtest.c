@@ -44,8 +44,8 @@ void setup_hyperram(void)
   printf("Determining size of Slow RAM");
 
   // Set default timing for 2nd hyperram
-  //  lpoke(0xbfffffd,0x04);
-  //  lpoke(0xbfffffe,0x00);
+  lpoke(0xbfffffd,0x03);
+  lpoke(0xbfffffe,0x01);
   
   lpoke(0xbfffff2,fast_flags|cache_bit);
   lpoke(0x8000000,0xbd);
@@ -142,6 +142,12 @@ void test_continuousread(void)
   while(!PEEK(0xD610)) {
     lcopy(0x8000000,0x0400,40*12);
     lcopy(0x8800000,0x0400+40*13,40*12);
+
+    // Mark mismatches red
+    for(j=0;j<255;j++) if (PEEK(0x0400+j)!=j) POKE(0xD800+j,2); else POKE(0xD800+j,0xe);
+    for(j=0;j<(40*12-256);j++) if (PEEK(0x0500+j)!=j) POKE(0xD900+j,2); else POKE(0xD900+j,0xe);
+    for(j=0;j<255;j++) if (PEEK(0x0400+40*13+j)!=j) POKE(0xD800+40*13+j,2); else POKE(0xD800+j,0xe);
+    for(j=0;j<(40*12-256);j++) if (PEEK(0x0500+j)!=j) POKE(0xD900+j,2); else POKE(0xD900+j,0xe);
   }
   
 }
