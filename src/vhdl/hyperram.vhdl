@@ -201,13 +201,10 @@ architecture gothic of hyperram is
   signal block_address : unsigned(26 downto 5);
   signal block_valid : std_logic := '0';
   signal is_block_read : boolean := false;
-  signal block_read_enable : std_logic := '0'; -- enable 32 byte read block fetching
   signal is_prefetch : boolean := false;
   signal is_expected_to_respond : boolean := false;
   signal ram_prefetch : boolean := false;
   signal ram_normalfetch : boolean := false;
-  signal flag_prefetch : std_logic := '0';  -- enable/disable prefetch of read
-                                            -- blocks
 
   signal current_cache_line_update : cache_row_t := (others => (others => '0'));
   signal current_cache_line_new_address : unsigned(26 downto 3) := (others => '0');
@@ -229,7 +226,11 @@ architecture gothic of hyperram is
 
   signal request_counter_int : std_logic := '0';
 
-  signal cache_enabled : boolean := false;
+  -- Control optimisations for hyperram access
+  signal cache_enabled : boolean := true;
+  signal block_read_enable : std_logic := '1'; -- enable 32 byte read block fetching
+  signal flag_prefetch : std_logic := '1';  -- enable/disable prefetch of read
+                                            -- blocks
 
   signal hr_rwds_high_seen : std_logic := '0';
 
@@ -635,14 +636,12 @@ begin
             -- Do normal  write request
             report "request_toggle flipped";
             report "DISPATCH: Accepted non-cached write";
-            busy_internal <= '1';
             ram_prefetch <= false;
             ram_normalfetch <= true;
             request_toggle <= not request_toggle;
             ram_reading <= '0';
             ram_address <= address;
             ram_wdata <= wdata;
-            background_write_count <= 2;
             background_write <= '0';
           else
             -- Collect writes together for dispatch
@@ -1204,6 +1203,10 @@ begin
 
             report "Preparing hr_command etc for write to $" & to_hstring(ram_address);
 
+            if not cache_enabled then
+              background_write_count <= 2;
+            end if;
+            
             config_reg_write <= ram_address(25);
             
             -- Prepare command vector
