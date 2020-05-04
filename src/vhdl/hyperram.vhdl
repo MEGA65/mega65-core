@@ -263,7 +263,9 @@ architecture gothic of hyperram is
   signal background_write_valids : std_logic_vector(0 to 7) := x"00";
   signal background_write_data : cache_row_t := (others => (others => '0'));
   signal background_write_count : integer range 0 to 6 := 0;
-
+  signal background_write_next_address : unsigned(26 downto 3) := (others => '0');
+  signal write_continues : integer := 0;
+  
   -- If we get too many writes in short succession, we may need to queue up one
   -- of the writes, while waiting for slow_devices to notice
   signal queued_write : std_logic := '0';
@@ -310,7 +312,7 @@ begin
     variable show_collect0 : boolean := false;
     variable show_collect1 : boolean := false;
     variable show_block : boolean := false;
-    variable show_always : boolean := true;
+    variable show_always : boolean := false;
   begin
     if rising_edge(pixelclock) then
 
@@ -443,23 +445,68 @@ begin
       -- Clear write buffers once they have been flushed.
       -- We have to wipe the address and valids, so that they don't get stuck being
       -- used as stale sources for cache reading.
-      if write_collect0_dispatchable = '1' and write_collect0_toolate <= '1' and write_collect0_flushed = '1' then
-        if write_collect0_dispatchable='1' then
-          show_collect0 := true;
-        end if;
-        write_collect0_dispatchable <= '0';
+      if write_collect0_dispatchable = '1' and write_collect0_toolate = '1' and write_collect0_flushed = '1' then
+        show_collect0 := true;
+        report "WRITE: Clearing collect0";
         write_collect0_address <= (others => '1');
-        write_collect0_valids <= (others => '0');
+        write_collect0_dispatchable <= '0';
       end if;
-      if write_collect1_dispatchable = '1' and write_collect1_toolate <= '1' and write_collect1_flushed = '1' then
+      if write_collect1_dispatchable = '1' and write_collect1_toolate = '1' and write_collect1_flushed = '1' then
         if write_collect1_dispatchable='1' then
           show_collect1 := true;
         end if;
+        report "WRITE: Clearing collect1";
+        write_collect1_address <= (others => '1');
         write_collect1_dispatchable <= '0';
-        write_collect1_address <= (others => '1');            
-        write_collect1_valids <= (others => '0');
       end if;      
 
+      if write_collect0_dispatchable = '0' and write_collect0_toolate = '0' and write_collect0_flushed = '0' then
+        if queued_write='1' then
+          report "DISPATCH: Dequeuing queued write to $" & to_hstring(queued_waddr);
+        
+          -- Push it out as a normal batched write, that can collect others if they
+          -- come soon enough.
+        
+          write_collect0_valids <= (others => '0');
+          if queued_wen_lo='1' then
+            write_collect0_valids(to_integer(queued_waddr(2 downto 0))) <= '1';
+            write_collect0_data(to_integer(queued_waddr(2 downto 0))) <= queued_wdata;
+          end if;
+          if queued_wen_hi='1' then
+            write_collect0_valids(to_integer(queued_waddr(2 downto 0))+1) <= '1';
+            write_collect0_data(to_integer(queued_waddr(2 downto 0))+1) <= queued_wdata_hi;
+          end if;
+          write_collect0_address <= queued_waddr(26 downto 3);
+          write_collect0_dispatchable <= '1';
+          show_collect0 := true;
+          
+          queued_write <= '0';
+        end if;
+      end if;
+      if write_collect1_dispatchable = '0' and write_collect1_toolate = '0' and write_collect1_flushed = '0' then
+        if queued_write='1' then
+          report "DISPATCH: Dequeuing queued write to $" & to_hstring(queued_waddr);
+        
+          -- Push it out as a normal batched write, that can collect others if they
+          -- come soon enough.
+        
+          write_collect1_valids <= (others => '0');
+          if queued_wen_lo='1' then
+            write_collect1_valids(to_integer(queued_waddr(2 downto 0))) <= '1';
+            write_collect1_data(to_integer(queued_waddr(2 downto 0))) <= queued_wdata;
+          end if;
+          if queued_wen_hi='1' then
+            write_collect1_valids(to_integer(queued_waddr(2 downto 0))+1) <= '1';
+            write_collect1_data(to_integer(queued_waddr(2 downto 0))+1) <= queued_wdata_hi;
+          end if;
+          write_collect1_address <= queued_waddr(26 downto 3);
+          write_collect1_dispatchable <= '1';
+          show_collect1 := true;
+          
+          queued_write <= '0';
+        end if;
+      end if;
+      
       -- Ignore read requests to the current block read, as they get
       -- short-circuited in the inner state machine to save time.
       if read_request='1' and busy_internal='0' and ((is_block_read = false) or (block_address /= address(26 downto 5))) then
@@ -693,7 +740,8 @@ begin
 
             -- Can we add the write to an existing collected write?
             if write_collect0_toolate = '0' and write_collect0_address = address(26 downto 3)
-              and write_collect0_dispatchable = '1' and write_collect0_toolate='0' then
+              and write_collect0_dispatchable = '1' and write_collect0_toolate='0'
+            then
               if wen_lo='1' then
                 write_collect0_valids(to_integer(address(2 downto 0))) <= '1';
                 write_collect0_data(to_integer(address(2 downto 0))) <= wdata;
@@ -1165,7 +1213,11 @@ begin
                   end if;
                   
                 end if;
-              elsif write_collect0_dispatchable = '1' then
+              elsif (write_collect0_dispatchable = '1')
+                -- But only if the other collector doesn't have an address that
+                -- would chain to us.
+                and ((write_collect0_address /= (write_collect1_address + 1)) or write_collect1_dispatchable='0')
+              then
                 -- Do background write.
                 busy_internal <= '0';
                 request_accepted <= request_toggle;
@@ -1231,6 +1283,7 @@ begin
                 write_collect1_flushed <= '0';
                 -- And that it is not (yet) too late to add extra bytes to the write.
                 write_collect1_toolate <= '0';
+                show_collect1 := true;
 
                 config_reg_write <= write_collect1_address(25);
 
@@ -1436,12 +1489,14 @@ begin
                   -- registers that get setup, and then ANY write to the register
                   -- area will write those values, which we have done by shifting
                   -- those through and sending 48+16 bits instead of the usual
-                  -- 48.
+                  -- 48.                  
                   if background_write='1' then
                     if background_write_source = '0' then
                       write_collect0_flushed <= '1';
+                      show_collect0 := true;
                     else
                       write_collect1_flushed <= '1';
+                      show_collect1 := true;
                     end if;
                   end if;
 
@@ -1464,12 +1519,18 @@ begin
                   if background_write = '1' then
                     report "WRITE: Asserting toolate signal";
                     background_write_count <= 4 + 2;
+                   -- We know we can do upto 128 bytes at least per write,
+                  -- before a refresh is required. So allow 16x8 byte writes to
+                  -- be chained.
+                    write_continues <= 16;
                     if background_write_source = '0' then
                       write_collect0_toolate <= '1';
                       write_collect0_flushed <= '0';
+                      show_collect0 := true;
                     else
                       write_collect1_toolate <= '1';
                       write_collect1_flushed <= '0';
+                      show_collect1 := true;
                     end if;
                   end if;
                   countdown_timeout <= '0';
@@ -1606,8 +1667,10 @@ begin
                 if background_write='1' then
                   if background_write_source = '0' then
                     write_collect0_flushed <= '1';
+                    show_collect0 := true;
                   else
                     write_collect1_flushed <= '1';
+                    show_collect1 := true;
                   end if;
                 end if;
 
@@ -1630,12 +1693,18 @@ begin
                 if background_write = '1' then
                   report "WRITE: Asserting toolate signal";
                   background_write_count <= 4 + 2;
+                  -- We know we can do upto 128 bytes at least per write,
+                  -- before a refresh is required. So allow 16x8 byte writes to
+                  -- be chained.
+                  write_continues <= 16;
                   if background_write_source = '0' then
                     write_collect0_toolate <= '1';
                     write_collect0_flushed <= '0';
+                    show_collect0 := true;
                   else
                     write_collect1_toolate <= '1';
                     write_collect1_flushed <= '0';
+                    show_collect1 := true;
                   end if;
                 end if;
 
@@ -1660,12 +1729,14 @@ begin
             if background_write = '1' then
               if background_write_source = '0' and write_collect0_toolate='1' and write_collect0_flushed = '0' then
                 write_collect0_flushed <= '1';
+                show_collect0 := true;
                 report "WRITE: background_write_data copied from write_collect0. Valids = " & to_string(write_collect0_valids);
                 background_write_data <= write_collect0_data;
                 background_write_valids <= write_collect0_valids;
                 
               elsif background_write_source = '1' and write_collect1_toolate='1' and write_collect1_flushed = '0' then
                 write_collect1_flushed <= '1';
+                show_collect1 := true;
                 report "WRITE: background_write_data copied from write_collect1";
                 background_write_data <= write_collect1_data;
                 background_write_valids <= write_collect1_valids;
@@ -1790,12 +1861,16 @@ begin
               if background_write = '1' then
                 if background_write_source = '0' and write_collect0_toolate='1' and write_collect0_flushed = '0' then
                   write_collect0_flushed <= '1';
+                  show_collect0 := true;
                   report "WRITE: background_write_data copied from write_collect0. Valids = " & to_string(write_collect0_valids);
+                  background_write_next_address <= write_collect0_address + 1;
                   background_write_data <= write_collect0_data;
                   background_write_valids <= write_collect0_valids;
                 elsif background_write_source = '1' and write_collect1_toolate='1' and write_collect1_flushed = '0' then
                   write_collect1_flushed <= '1';
+                  show_collect1 := true;
                   report "WRITE: background_write_data copied from write_collect1";
+                  background_write_next_address <= write_collect1_address + 1;
                   background_write_data <= write_collect1_data;
                   background_write_valids <= write_collect1_valids;
                 end if;
@@ -1864,6 +1939,20 @@ begin
                     hr_rwds <= hyperram_access_address(0) xor write_byte_phase;
                     hr2_rwds <= hyperram_access_address(0) xor write_byte_phase;
                   end if;
+
+                  -- Finish resetting write collectors when chaining
+                  if write_collect0_dispatchable='0' and write_collect0_flushed='1' and write_collect0_toolate='1' then
+                    report "WRITECONTINUE: Resetting collect0";
+                    write_collect0_flushed <= '0';
+                    write_collect0_toolate <= '0';
+                    show_collect0 := true;
+                  end if;
+                  if write_collect1_dispatchable='0' and write_collect1_flushed='1' and write_collect1_toolate='1' then
+                    report "WRITECONTINUE: Resetting collect1";
+                    write_collect1_flushed <= '0';
+                    write_collect1_toolate <= '0';
+                    show_collect1 := true;
+                  end if;
                   
                   -- Write byte
                   write_byte_phase <= '1';
@@ -1881,11 +1970,57 @@ begin
                       state <= HyperRAMFinishWriting;
                     end if;
                   elsif write_byte_phase='1' then
-                    report "WRITE: Decrementing background_write_count from " & integer'image(background_write_count);
+                    report "WRITE: Decrementing background_write_count from " & integer'image(background_write_count)
+                      & ", write_continues = " & integer'image(write_continues);
                     if background_write_count /= 0 then
                       background_write_count <= background_write_count - 1;
+                      if background_write_count = 3 and write_continues /= 0 then
+                        report "WRITECONTINUE: Checking for chained writes (" & integer'image(write_continues) & " more continues allowed)";
+                        report "WRITECONTINUE: Am looking for $" & to_hstring(background_write_next_address&"000") &
+                          ", options are 0:$" & to_hstring(write_collect0_address&"000") &
+                          " and 1:$" & to_hstring(write_collect1_address&"000");
+                        show_collect0 := true;
+                        show_collect1 := true;
+                        -- Get ready to commit next write block, if one is there
+                        if write_continues /= 0 and write_collect0_toolate='0' and write_collect0_flushed = '0'
+                          and write_collect0_address = background_write_next_address then
+                          report "WRITECONTINUE: Marking collect0 @ $" & to_hstring(write_collect0_address&"000") & " for chained write.";
+                          write_collect0_toolate <= '1';
+                          show_collect0 := true;                          
+                        elsif write_continues /= 0 and write_collect1_toolate='0' and write_collect1_flushed = '0'
+                          and write_collect1_address = background_write_next_address then
+                          report "WRITECONTINUE: Marking collect1 @ $" & to_hstring(write_collect1_address&"000") & " for chained write.";
+                          write_collect1_toolate <= '1';
+                          show_collect1 := true;
+                        end if;
+                      end if;
                     else
-                      countdown_timeout <= '1';
+                      -- See if we have another write collect that we can
+                      -- continue with
+                      if write_continues /= 0 and write_collect0_toolate='1' and write_collect0_flushed = '0'
+                        and write_collect0_address = background_write_next_address
+                      then
+                        report "WRITECONTINUE: background_write_data copied from write_collect0. Valids = " & to_string(write_collect0_valids);
+                        background_write_next_address <= write_collect0_address + 1;
+                        background_write_data <= write_collect0_data;
+                        background_write_valids <= write_collect0_valids;
+                        background_write_count <= 6;
+                        background_write_source <= '0';
+                        write_continues <= write_continues - 1;
+                        show_collect0 := true;                          
+                      elsif write_continues /= 0 and write_collect1_toolate='1' and write_collect1_flushed = '0'
+                        and write_collect1_address = background_write_next_address then
+                        report "WRITECONTINUE: background_write_data copied from write_collect1";
+                        background_write_next_address <= write_collect1_address + 1;
+                        background_write_data <= write_collect1_data;
+                        background_write_valids <= write_collect1_valids;
+                        background_write_count <= 6;
+                        background_write_source <= '1';
+                        write_continues <= write_continues - 1;
+                        show_collect1 := true;                          
+                      else 
+                        countdown_timeout <= '1';
+                      end if;
                     end if;
                   end if;
                 end if;
