@@ -262,7 +262,7 @@ architecture gothic of hyperram is
   signal background_write_source : std_logic := '0';
   signal background_write_valids : std_logic_vector(0 to 7) := x"00";
   signal background_write_data : cache_row_t := (others => (others => '0'));
-  signal background_write_count : integer range 0 to 6 := 0;
+  signal background_write_count : integer range 0 to 7 := 0;
   signal background_write_next_address : unsigned(26 downto 3) := (others => '0');
   signal write_continues : integer := 0;
   
@@ -1131,7 +1131,12 @@ begin
             -- Phase 101 guarantees that the clock base change will happen
             -- within the comming clock cycle
             elsif hr_clock_phase(2 downto 1) = "10" then
-              if request_toggle /= last_request_toggle then
+              if (request_toggle /= last_request_toggle)
+                -- Only commence reads AFTER all pending writes have flushed,
+                -- to ensure cache coherence (there are corner-cases here with
+                -- chained writes, block reads and other bits and pieces).
+                and write_collect0_dispatchable='0'
+                and write_collect1_dispatchable='0' then
                 report "WAITING for job";
                 ram_reading_held <= ram_reading;
                 
@@ -2004,7 +2009,7 @@ begin
                         background_write_next_address <= write_collect0_address + 1;
                         background_write_data <= write_collect0_data;
                         background_write_valids <= write_collect0_valids;
-                        background_write_count <= 6;
+                        background_write_count <= 7;
                         background_write_source <= '0';
                         write_continues <= write_continues - 1;
                         show_collect0 := true;                          
@@ -2014,7 +2019,7 @@ begin
                         background_write_next_address <= write_collect1_address + 1;
                         background_write_data <= write_collect1_data;
                         background_write_valids <= write_collect1_valids;
-                        background_write_count <= 6;
+                        background_write_count <= 7;
                         background_write_source <= '1';
                         write_continues <= write_continues - 1;
                         show_collect1 := true;                          
