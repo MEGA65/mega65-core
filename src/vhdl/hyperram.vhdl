@@ -833,6 +833,25 @@ begin
         last_conf_buf1_set <= conf_buf1_set;
         conf_buf1 <= conf_buf1_in;
       end if;
+
+      -- See if slow_devices is asking for the next 8 bytes.
+      -- If we have it, then pre-present it if we have it in our data block
+      -- (If it isn't in the data block, then we will have presumably already
+      -- started a pre-fetch when we serviced the access that created the current
+      -- data value in the current cache line entry.
+      if expansionram_current_cache_line_next_toggle /= last_current_cache_next_toggle then
+        last_current_cache_next_toggle <= expansionram_current_cache_line_next_toggle;
+        if (current_cache_line_address(26 downto 5) = block_address(26 downto 5))
+          and (current_cache_line_address(4 downto 3) /= "11") and (block_valid='1')
+        then
+          report "DISPATCHER: Presenting next 8 bytes to slow_devices. Was $"
+            & to_hstring(current_cache_line_address&"000") & ", new is $"
+            & to_hstring(current_cache_line_address(26 downto 5)&(current_cache_line_address(4 downto 3) + 1)&"000");
+          current_cache_line_address(4 downto 3) <= current_cache_line_address(4 downto 3) + 1;
+          current_cache_line <= block_data(to_integer(current_cache_line_address(4 downto 3)) + 1);
+          current_cache_line_valid <= '1';
+        end if;       
+      end if;
       
       if (state /= Idle) and ( start_delay_counter /= 0) then
         start_delay_counter <= start_delay_counter - 1;
@@ -868,7 +887,8 @@ begin
             end if;
 
             if current_cache_line_update_all /= last_current_cache_line_update_all then
-              last_current_cache_line_update_all <= current_cache_line_update_all;
+              report "DISPATCHER: Replacing current cache line with $" & to_hstring(current_cache_line_new_address&"000");
+              last_current_cache_line_update_all <= current_cache_line_update_all;              
               current_cache_line_address <= current_cache_line_new_address;
               current_cache_line <= current_cache_line_update;
             end if;

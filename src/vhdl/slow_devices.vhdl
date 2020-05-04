@@ -274,6 +274,7 @@ begin
               -- If we are reading the last byte in the set we have, then tell
               -- hyperram controller to present the next data, if possible.
               if slow_access_address(2 downto 0) = "111" then
+--                report "DISPATCHER: Requesting next 8 bytes";
                 expansionram_current_cache_line_next_toggle <= not expansionram_current_cache_line_next_toggle;
               end if;
             else
