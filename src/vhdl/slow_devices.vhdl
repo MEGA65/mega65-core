@@ -60,6 +60,7 @@ ENTITY slow_devices IS
     expansionram_current_cache_line : in cache_row_t := (others => (others => '0'));
     expansionram_current_cache_line_address : in unsigned(26 downto 3) := (others => '0');
     expansionram_current_cache_line_valid : in std_logic := '0';
+    expansionram_current_cache_line_next_toggle : inout std_logic := '0';
     
     
     ----------------------------------------------------------------------
@@ -269,7 +270,12 @@ begin
                 & " from exposed hyperram current cache line";
               slow_access_rdata <= expansionram_current_cache_line(to_integer(slow_access_address(2 downto 0)));
               state <= Idle;
-              slow_access_ready_toggle <= slow_access_request_toggle;            
+              slow_access_ready_toggle <= slow_access_request_toggle;
+              -- If we are reading the last byte in the set we have, then tell
+              -- hyperram controller to present the next data, if possible.
+              if slow_access_address(2 downto 0) = "111" then
+                expansionram_current_cache_line_next_toggle <= not expansionram_current_cache_line_next_toggle;
+              end if;
             else
               expansionram_read_timeout <= (others => '1');
               state <= ExpansionRAMRequest;

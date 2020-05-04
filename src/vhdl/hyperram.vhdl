@@ -29,6 +29,7 @@ entity hyperram is
          current_cache_line : out cache_row_t := (others => (others => '0'));
          current_cache_line_address : inout unsigned(26 downto 3) := (others => '0');
          current_cache_line_valid : out std_logic := '0';
+         expansionram_current_cache_line_next_toggle : in std_logic := '0';
          
          hr_d : inout unsigned(7 downto 0) := (others => 'Z'); -- Data/Address
          hr_rwds : inout std_logic := 'Z'; -- RW Data strobe
@@ -80,9 +81,7 @@ architecture gothic of hyperram is
   signal rwr_delay : unsigned(7 downto 0) := to_unsigned(1,8);
   signal rwr_counter : unsigned(7 downto 0) := (others => '0');
 
-  -- We prime the HyperRAM controller to set the value of CR0 initially on
-  -- power up to minimise latency.
-  
+  signal last_current_cache_next_toggle : std_logic := '0';  
   
   signal state : state_t := WriteSetup;
   signal busy_internal : std_logic := '1';
