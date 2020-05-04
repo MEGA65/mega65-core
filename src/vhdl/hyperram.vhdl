@@ -126,8 +126,8 @@ architecture gothic of hyperram is
   -- And for the 2nd trap-door hyperram.
   -- That module from 1BitSquared uses a different brand of hyperram
   -- and seems to have different timing.
-  signal write_latency2 : unsigned(7 downto 0) := to_unsigned(5,8);
-  signal extra_write_latency2 : unsigned(7 downto 0) := to_unsigned(7,8);
+  signal write_latency2 : unsigned(7 downto 0) := to_unsigned(3,8);
+  signal extra_write_latency2 : unsigned(7 downto 0) := to_unsigned(1,8);
 
   
   signal fast_cmd_mode : std_logic := '0';
@@ -977,31 +977,31 @@ begin
                   -- Update short-circuit cache line
                   -- (We don't change validity, since we don't know if it is
                   -- valid or not).
-                  if hyperram_access_address(26 downto 3) = current_cache_line_address(26 downto 3) then
+                  if ram_address(26 downto 3) = current_cache_line_address(26 downto 3) then
                     current_cache_line(to_integer(hyperram_access_address(2 downto 0))) <= ram_wdata;
                   end if;
 
                   -- Update cache
-                  if cache_row0_address = hyperram_access_address(26 downto 3) then
-                    cache_row0_valids(to_integer(hyperram_access_address(2 downto 0))) <= '1';
-                    cache_row0_data(to_integer(hyperram_access_address(2 downto 0))) <= ram_wdata;        
+                  if cache_row0_address = ram_address(26 downto 3) then
+                    cache_row0_valids(to_integer(ram_address(2 downto 0))) <= '1';
+                    cache_row0_data(to_integer(ram_address(2 downto 0))) <= ram_wdata;        
                     show_cache0 := true;
-                  elsif cache_row1_address = hyperram_access_address(26 downto 3) then
-                    cache_row1_valids(to_integer(hyperram_access_address(2 downto 0))) <= '1';
-                    cache_row1_data(to_integer(hyperram_access_address(2 downto 0))) <= ram_wdata;        
+                  elsif cache_row1_address = ram_address(26 downto 3) then
+                    cache_row1_valids(to_integer(ram_address(2 downto 0))) <= '1';
+                    cache_row1_data(to_integer(ram_address(2 downto 0))) <= ram_wdata;        
                     show_cache1 := true;
                   else
                     if random_bits(1)='0' then
                       cache_row0_valids <= (others => '0');
-                      cache_row0_address <= hyperram_access_address(26 downto 3);
-                      cache_row0_valids(to_integer(hyperram_access_address(2 downto 0))) <= '1';
-                      cache_row0_data(to_integer(hyperram_access_address(2 downto 0))) <= ram_wdata;        
+                      cache_row0_address <= ram_address(26 downto 3);
+                      cache_row0_valids(to_integer(ram_address(2 downto 0))) <= '1';
+                      cache_row0_data(to_integer(ram_address(2 downto 0))) <= ram_wdata;        
                       show_cache0 := true;
                     else
                       cache_row1_valids <= (others => '0');
-                      cache_row1_address <= hyperram_access_address(26 downto 3);
-                      cache_row1_valids(to_integer(hyperram_access_address(2 downto 0))) <= '1';
-                      cache_row1_data(to_integer(hyperram_access_address(2 downto 0))) <= ram_wdata;        
+                      cache_row1_address <= ram_address(26 downto 3);
+                      cache_row1_valids(to_integer(ram_address(2 downto 0))) <= '1';
+                      cache_row1_data(to_integer(ram_address(2 downto 0))) <= ram_wdata;        
                       show_cache1 := true;
                     end if;
                   end if;
