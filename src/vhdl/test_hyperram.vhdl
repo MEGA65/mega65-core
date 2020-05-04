@@ -62,6 +62,10 @@ architecture foo of test_hyperram is
 
   type mem_job_list_t is array(0 to 99) of mem_transaction_t;
 
+  signal start_time : integer := 0;
+  signal current_time : integer := 0;
+  signal dispatch_time : integer := 0;
+  
   signal mem_jobs : mem_job_list_t := (
     (address => x"8801001", write_p => '1', value => x"91"),
     (address => x"8801001", write_p => '0', value => x"91"),
@@ -155,7 +159,7 @@ architecture foo of test_hyperram is
     (address => x"800000e", write_p => '0', value => x"3e"),
     (address => x"800000f", write_p => '0', value => x"3f"),
 
-    others => ( address => x"FFFFFFF", write_p => '0', value => x"FF")
+    others => ( address => x"FFFFFFF", write_p => '0', value => x"00")
     );
 
   -- Wait initially to allow hyperram to reset and set config register
@@ -341,6 +345,13 @@ begin
   end process;
   
   
+  process (clock325) is
+  begin
+    if rising_edge(clock325) then
+      current_time <= current_time + 3;
+    end if;
+  end process;
+  
   process is
   begin
 
@@ -348,10 +359,12 @@ begin
       & ", expansionram_busy=" & std_logic'image(expansionram_busy)
       & ", expansionram_read=" & std_logic'image(expansionram_read);
 
+    
     if slow_access_ready_toggle /= last_slow_access_ready_toggle then
       if expect_value = '1' then
         if expected_value = slow_access_rdata then
-          report "DISPATCHER: Read correct value $" & to_hstring(slow_access_rdata);
+          report "DISPATCHER: Read correct value $" & to_hstring(slow_access_rdata)
+            & " after " & integer'image(current_time - dispatch_time) & "ns.";
         else
           report "DISPATCHER: ERROR: Expected $" & to_hstring(expected_value) & ", but saw $" & to_hstring(slow_access_rdata);
         end if;
@@ -367,7 +380,9 @@ begin
       elsif expect_value = '0' and slow_access_ready_toggle = slow_access_request_toggle then
 
         if mem_jobs(cycles).address = x"FFFFFFF" then
+          report "Total sequence was " & integer'image(current_time - start_time) & "ns.";
           cycles <= 0;
+          start_time <= current_time;
         else
           cycles <= cycles + 1;        
         end if;
@@ -376,19 +391,22 @@ begin
         slow_access_write <= mem_jobs(cycles).write_p;
         slow_access_wdata <= mem_jobs(cycles).value;
         slow_access_request_toggle <= not slow_access_request_toggle;
-       
-        
+
+        if start_time = 0 then
+          start_time <= current_time;
+        end if;
+        dispatch_time <= current_time;
         if (mem_jobs(cycles).write_p='0') then
           -- Let reads finish serially
           -- (In the worst case, this can take quite a while)
-          idle_wait <= 40;
+          idle_wait <= 0;
           report "DISPATCHER: Reading from $" & to_hstring(mem_jobs(cycles).address) & ", expecting to see $"
             & to_hstring(mem_jobs(cycles).value);
           expect_value <= '1';
           expected_value <= mem_jobs(cycles).value;
         else
           -- Try to rush writes, so that writes get merged
-          idle_wait <= 40;
+          idle_wait <= 0;
           report "DISPATCHER: Writing to $" & to_hstring(mem_jobs(cycles).address) & " <- $"
             & to_hstring(mem_jobs(cycles).value);
           expect_value <= '0';
@@ -396,7 +414,6 @@ begin
       end if;
     end if;
     
-
     clock325 <= '0';
     pixelclock <= '0';
     cpuclock <= '0';

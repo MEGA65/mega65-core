@@ -305,7 +305,7 @@ begin
       busy <= busy_internal or write_blocked or queued_write;
 
       if write_blocked = '1' and first_transaction='0' then
-        report "DISPATCH: write_blocked asserted. Waiting for existing writes to flush...";
+--        report "DISPATCH: write_blocked asserted. Waiting for existing writes to flush...";
       end if;
       
       -- Clear write block as soon as either write buffer clears
@@ -1720,7 +1720,7 @@ begin
                 -- Okay, here is the tricky case: If the request is for data
                 -- that is in this block read, we DONT want to abort the read,
                 -- because starting a new request will almost always be slower.
-                report "DISPATCHER: new request is for $" & to_hstring(address) & ", and we are reading $" & to_hstring(hyperram_access_address) & ", read = " & std_logic'image(read_request);
+                report "DISPATCH: new request is for $" & to_hstring(address) & ", and we are reading $" & to_hstring(hyperram_access_address) & ", read = " & std_logic'image(read_request);
                 if ((read_request='1') or (read_request_held='1'))
                   and (address(26 downto 5) = hyperram_access_address(26 downto 5)) then
                   -- New read request from later in this block.
@@ -1730,7 +1730,7 @@ begin
                   -- we can just return it, and pretend nothing happened...
                   -- except that the 80mhz state machine that talks to slow_devices
                   -- doesn't know that we can do this.
-                  report "DISPATCHER: Continuing with pre-fetch, because the read hits the block being read!";
+                  report "DISPATCH: Continuing with pre-fetch, because the read hits the block being read!";
 
                   read_request_held <= read_request;
                   
@@ -1739,7 +1739,7 @@ begin
                   -- machine thinks we are still busy.
                   if address(26 downto 5) = hyperram_access_address(26 downto 5) then
                     if byte_phase > to_integer(address(4 downto 0)) then
-                      report "DISPATCHER: Supplying data from partially read data block. Value is $"
+                      report "DISPATCH: Supplying data from partially read data block. Value is $"
                         & to_hstring(block_data(to_integer(address(4 downto 3)))(to_integer(address(2 downto 0))))
                         & " ( from (" & integer'image(to_integer(address(4 downto 3)))
                         & ")(" & integer'image(to_integer(address(2 downto 0)));
@@ -1751,14 +1751,14 @@ begin
                   end if;
                   
                 elsif read_request='1' and (not is_expected_to_respond) then
-                  report "DISPATCHER: Aborting pre-fetch due to incoming read request";
+                  report "DISPATCH: Aborting pre-fetch due to incoming read request";
                   state <= Idle;
                 end if;
               end if;
               -- Because we can now abort at any time, we can pretend we are
               -- not busy. We are just filling in time...
               if busy_internal = '1' then
-                report "DISPATCHER: Clearing busy during tail of pre-fetch";
+                report "DISPATCH: Clearing busy during tail of pre-fetch";
               end if;
               busy_internal <= '0';
             end if;
@@ -1766,7 +1766,7 @@ begin
             -- required to provide any further direct output, so clear the
             -- flag, so that the above logic can terminate a pre-fetch when required.
             if byte_phase = 8 then
-              report "DISPATCHER: Clearing is_expected_to_respond";
+              report "DISPATCH: Clearing is_expected_to_respond";
               is_expected_to_respond <= false;
             end if;
             -- Clear busy flag as soon as we can, allowing for pipelining
@@ -1942,13 +1942,13 @@ begin
             -- XXX unless it is for data that would be pre-fetched?
             if is_block_read and (not is_expected_to_respond) then
               if (read_request='1' or write_request='1') then
-                report "DISPATCHER: Aborting pre-fetch due to incoming request";
+                report "DISPATCH: Aborting pre-fetch due to incoming request";
                 state <= Idle;
               end if;
               -- Because we can now abort at any time, we can pretend we are
               -- not busy. We are just filling in time...
               if busy_internal = '1' then
-                report "DISPATCHER: Clearing busy during tail of pre-fetch";
+                report "DISPATCH: Clearing busy during tail of pre-fetch";
               end if;
               busy_internal <= '0';
             end if;
@@ -1956,7 +1956,7 @@ begin
             -- required to provide any further direct output, so clear the
             -- flag, so that the above logic can terminate a pre-fetch when required.
             if byte_phase = 8 then
-              report "DISPATCHER: Clearing is_expected_to_respond";
+              report "DISPATCH: Clearing is_expected_to_respond";
               is_expected_to_respond <= false;
             end if;
             
