@@ -44,6 +44,14 @@ entity hyperram is
          current_cache_line_address : inout unsigned(26 downto 3) := (others => '0');
          current_cache_line_valid : out std_logic := '0';
          expansionram_current_cache_line_next_toggle : in std_logic := '0';
+
+         -- Allow VIC-IV to request lines of data also.
+         -- We then pump it out byte-by-byte when ready
+         -- VIC-IV can address only 512KB at a time, so we have a banking register
+         viciv_addr : in unsigned(18 downto 3) := (others => '0');
+         viciv_request_toggle : in std_logic := '0';
+         viciv_data_out : out unsigned(7 downto 0) := x"00";
+         viciv_data_strobe : out std_logic := '0';
          
          hr_d : inout unsigned(7 downto 0) := (others => 'Z'); -- Data/Address
          hr_rwds : inout std_logic := 'Z'; -- RW Data strobe
@@ -303,6 +311,14 @@ architecture gothic of hyperram is
 
   signal read_request_held : std_logic := '0';
   signal mark_cache_for_prefetch : std_logic := '0';
+
+  signal viciv_last_request_toggle : std_logic := '0';
+  signal viciv_bank : unsigned(7 downto 0) := x"00";
+  signal viciv_data_buffer : cache_row_t := (others => x"00");
+  signal viciv_buffer_toggle : std_logic := '0';
+  signal last_viciv_buffer_toggle : std_logic := '0';
+  signal viciv_next_byte : integer range 0 to 8 := 0;
+  signal is_vic_fetch : boolean := false;
   
 begin
   process (pixelclock,clock163,clock325,hr_clk,hr_clk_phaseshift) is
@@ -317,6 +333,21 @@ begin
   begin
     if rising_edge(pixelclock) then
 
+      -- Present the data to the VIC-IV
+      viciv_data_strobe <= '0';
+      if viciv_buffer_toggle /= last_viciv_buffer_toggle then
+        report "VIC: Starting to send data";
+        last_viciv_buffer_toggle <= viciv_buffer_toggle;
+        viciv_data_out <= viciv_data_buffer(0);
+        viciv_next_byte <= 1;
+        viciv_data_strobe <= '1';
+      elsif viciv_next_byte < 8 then
+        report "VIC: Sending byte " & integer'image(viciv_next_byte);
+        viciv_data_out <= viciv_data_buffer(viciv_next_byte);
+        viciv_next_byte <= viciv_next_byte + 1;
+        viciv_data_strobe <= '1';        
+      end if;
+      
       if in_simulation = true then
         write_latency2 <= to_unsigned(5,8);
         extra_write_latency2 <= to_unsigned(3,8);
@@ -587,7 +618,7 @@ begin
             when x"0" =>
               fake_rdata <= to_unsigned(write_continues_max,8);
             when x"1" =>
-              fake_rdata <= hr_d;
+              fake_rdata <= viciv_bank;
             when x"2" =>
               fake_rdata(0) <= fast_cmd_mode;
               fake_rdata(1) <= fast_read_mode;
@@ -686,7 +717,7 @@ begin
             when x"0" =>
               write_continues_max <= to_integer(wdata);
             when x"1" =>
-              null;
+              viciv_bank <= wdata;
             when x"2" =>
               fast_cmd_mode <= wdata(0);
               fast_read_mode <= wdata(1);
@@ -1024,6 +1055,7 @@ begin
             is_block_read <= false;
             is_prefetch <= ram_prefetch;
             is_expected_to_respond <= ram_normalfetch;
+            is_vic_fetch <= false;
             
             -- All commands need the clock offset by 1/2 cycle
             hr_clk_phaseshift <= write_phase_shift;
@@ -1132,7 +1164,48 @@ begin
             -- Phase 101 guarantees that the clock base change will happen
             -- within the comming clock cycle
             elsif hr_clock_phase(2 downto 1) = "10" then
-              if (request_toggle /= last_request_toggle)
+              if viciv_request_toggle /= viciv_last_request_toggle then
+                report "VIC: Received data request";
+                -- VIC-IV is asking for 8 bytes of data
+                viciv_last_request_toggle <= viciv_request_toggle;
+
+                -- Prepare command vector
+                hr_command(47) <= '1'; -- READ
+                hr_command(46) <= '0'; -- Memory, not register space
+                hr_command(45) <= '1'; -- linear
+                hr_command(44 downto 35) <= (others => '0'); -- unused upper address bits
+                hr_command(15 downto 3) <= (others => '0'); -- reserved bits
+                hr_command(34 downto 28) <= viciv_bank(6 downto 0);
+                hr_command(27 downto 16) <= viciv_addr(15 downto 4);
+                hr_command(2) <= viciv_addr(3);
+                hr_command(1 downto 0) <= "00";
+
+                hyperram0_select <= not viciv_bank(7);
+                hyperram1_select <= viciv_bank(7);
+                
+                hyperram_access_address(26 downto 19) <= viciv_bank;
+                hyperram_access_address(18 downto 3) <= viciv_addr(18 downto 3);
+                hyperram_access_address(2 downto 0) <= (others => '0');
+
+                ram_reading_held <= '1';
+                is_expected_to_respond <= false;
+                is_vic_fetch <= true;
+                countdown <= 6;
+                config_reg_write <= '0';
+                hr_reset <= '1'; -- active low reset
+                pause_phase <= '0';
+
+                if fast_cmd_mode='1' then
+                  state <= HyperRAMOutputCommand;
+                  hr_clk_fast <= '1';
+                  hr_clk_phaseshift <= write_phase_shift;
+                else
+                  state <= HyperRAMOutputCommandSlow;
+                  hr_clk_fast <= '0';
+                  hr_clk_phaseshift <= write_phase_shift;
+                end if;            
+                
+              elsif (request_toggle /= last_request_toggle)
                 -- Only commence reads AFTER all pending writes have flushed,
                 -- to ensure cache coherence (there are corner-cases here with
                 -- chained writes, block reads and other bits and pieces).
@@ -2181,6 +2254,19 @@ begin
               end if;
               if (byte_phase < 8) then
                 -- Store the bytes in the cache row
+                if is_vic_fetch then
+                  if hyperram0_select='1' then
+                    viciv_data_buffer(to_integer(byte_phase)) <= hr_d;
+                  else
+                    viciv_data_buffer(to_integer(byte_phase)) <= hr2_d;
+                  end if;
+                  -- We load the data here 2x faster than it is sent to the VIC-IV
+                  -- so we can start transmitting immediately, to minimise latency
+                  if byte_phase = 0 then
+                    report "VIC: Indicating buffer readiness";
+                    viciv_buffer_toggle <= not viciv_buffer_toggle;
+                  end if;
+                end if;
                 if cache_row0_address = hyperram_access_address(26 downto 3) then          
                   cache_row0_valids(to_integer(byte_phase)) <= '1';
                   report "hr_sample='1'";
@@ -2379,6 +2465,19 @@ begin
                 -- Update cache
                 if byte_phase < 8 then
                   -- Store the bytes in the cache row
+                  if is_vic_fetch then
+                    if hyperram0_select='1' then
+                      viciv_data_buffer(to_integer(byte_phase)) <= hr_d;
+                    else
+                      viciv_data_buffer(to_integer(byte_phase)) <= hr2_d;
+                    end if;
+                    -- We load the data here 2x faster than it is sent to the VIC-IV
+                    -- so we can start transmitting immediately, to minimise latency
+                    if byte_phase = 0 then
+                      report "VIC: Indicating buffer readiness";
+                      viciv_buffer_toggle <= not viciv_buffer_toggle;
+                    end if;
+                  end if;          
                   if cache_row0_address = hyperram_access_address(26 downto 3) then          
                     cache_row0_valids(to_integer(byte_phase)) <= '1';
                     report "hr_sample='1'";

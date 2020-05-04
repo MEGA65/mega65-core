@@ -183,6 +183,12 @@ architecture foo of test_hyperram is
   
   signal expect_value : std_logic := '0';
   signal expected_value : unsigned(7 downto 0) := x"00";
+
+  signal viciv_addr : unsigned(18 downto 3) := (others => '0');
+  signal viciv_request_toggle : std_logic := '0';
+  signal viciv_data : unsigned(7 downto 0) := x"00";
+  signal viciv_data_strobe : std_logic := '0';
+  signal pixel_counter : unsigned(31 downto 0) := to_unsigned(0,32);
   
 begin
 
@@ -209,6 +215,11 @@ begin
       current_cache_line_address => current_cache_line_address,
       current_cache_line_valid => current_cache_line_valid,
       expansionram_current_cache_line_next_toggle  => expansionram_current_cache_line_next_toggle,
+
+      viciv_addr => viciv_addr,
+      viciv_request_toggle => viciv_request_toggle,
+      viciv_data_out => viciv_data,
+      viciv_data_strobe => viciv_data_strobe,
       
       hr_d => hr_d,
       hr_rwds => hr_rwds,
@@ -361,6 +372,21 @@ begin
       & std_logic'image(hr2_d(6))
       & std_logic'image(hr2_d(7))
       & ".";
+  end process;
+
+  process (pixelclock) is
+  begin
+    if rising_edge(pixelclock) then
+      pixel_counter <= pixel_counter + 1;
+      if (pixel_counter(7 downto 0) = x"00") then
+        report "VIC: Dispatching pixel data request";
+        viciv_request_toggle <= pixel_counter(8);
+        viciv_addr <= pixel_counter(23 downto 8);
+      end if;
+      if viciv_data_strobe='1' then
+        report "VIC: Received byte $" & to_hstring(viciv_data);
+      end if;
+    end if;
   end process;
   
   
