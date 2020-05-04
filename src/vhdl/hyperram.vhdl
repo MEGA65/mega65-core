@@ -265,6 +265,7 @@ architecture gothic of hyperram is
   signal background_write_count : integer range 0 to 7 := 0;
   signal background_write_next_address : unsigned(26 downto 3) := (others => '0');
   signal write_continues : integer := 0;
+  signal write_continues_max : integer := 16;
   
   -- If we get too many writes in short succession, we may need to queue up one
   -- of the writes, while waiting for slow_devices to notice
@@ -584,7 +585,7 @@ begin
           -- Allow reading from dummy debug bitbash registers at $BFFFFFx
           case address(3 downto 0) is
             when x"0" =>
-              fake_rdata <= unsigned(cache_row1_valids);
+              fake_rdata <= to_unsigned(write_continues_max,8);
             when x"1" =>
               fake_rdata <= hr_d;
             when x"2" =>
@@ -683,7 +684,7 @@ begin
         if address(23 downto 4) = x"FFFFF" and address(25 downto 24) = "11" then
           case address(3 downto 0) is
             when x"0" =>
-              null;
+              write_continues_max <= to_integer(wdata);
             when x"1" =>
               null;
             when x"2" =>
@@ -1527,7 +1528,7 @@ begin
                    -- We know we can do upto 128 bytes at least per write,
                   -- before a refresh is required. So allow 16x8 byte writes to
                   -- be chained.
-                    write_continues <= 16;
+                    write_continues <= write_continues_max;
                     if background_write_source = '0' then
                       write_collect0_toolate <= '1';
                       write_collect0_flushed <= '0';
@@ -1701,7 +1702,7 @@ begin
                   -- We know we can do upto 128 bytes at least per write,
                   -- before a refresh is required. So allow 16x8 byte writes to
                   -- be chained.
-                  write_continues <= 16;
+                  write_continues <= write_continues_max;
                   if background_write_source = '0' then
                     write_collect0_toolate <= '1';
                     write_collect0_flushed <= '0';
