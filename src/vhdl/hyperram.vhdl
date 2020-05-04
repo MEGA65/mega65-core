@@ -310,8 +310,14 @@ begin
       else
         random_bits <= x"00";
       end if;
-      
-      busy <= busy_internal or write_blocked or queued_write;
+
+      if cache_enabled then
+        busy <= busy_internal or write_blocked or queued_write;
+      else
+        -- With no cache, we have to IMMEDIATELY assert busy when we see a
+        -- request to avoid a race-condition with slow_devices
+        busy <= busy_internal or write_blocked or queued_write or read_request or write_request;
+      end if;
 
       if write_blocked = '1' and first_transaction='0' then
         report "DISPATCH: write_blocked asserted. Waiting for existing writes to flush...";
@@ -629,12 +635,13 @@ begin
             -- Do normal  write request
             report "request_toggle flipped";
             report "DISPATCH: Accepted non-cached write";
+            busy_internal <= '1';
             ram_prefetch <= false;
             ram_normalfetch <= true;
             request_toggle <= not request_toggle;
             ram_address <= address;
             ram_wdata <= wdata;
-            background_write_count <= 1;
+            background_write_count <= 2;
             background_write <= '0';
           else
             -- Collect writes together for dispatch
@@ -875,6 +882,10 @@ begin
             hr2_d <= (others => 'Z');
 
             read_request_held <= '0';
+
+            if not cache_enabled then
+              busy_internal <= '0';
+            end if;
             
             first_transaction <= '0';
             is_block_read <= false;
