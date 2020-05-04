@@ -120,6 +120,24 @@ architecture foo of test_hyperram is
     (address => x"800200b", write_p => '0', value => x"4b"),
     (address => x"800300d", write_p => '0', value => x"4d"),
     (address => x"800400f", write_p => '0', value => x"4f"),
+
+    -- Write a linear block of 16
+    (address => x"8040000", write_p => '0', value => x"e0"),
+    (address => x"8040001", write_p => '0', value => x"e1"),
+    (address => x"8040002", write_p => '0', value => x"e2"),
+    (address => x"8040003", write_p => '0', value => x"e3"),
+    (address => x"8040004", write_p => '0', value => x"e4"),
+    (address => x"8040005", write_p => '0', value => x"e5"),
+    (address => x"8040006", write_p => '0', value => x"e6"),
+    (address => x"8040007", write_p => '0', value => x"e7"),
+    (address => x"8040008", write_p => '0', value => x"e8"),
+    (address => x"8040009", write_p => '0', value => x"e9"),
+    (address => x"804000a", write_p => '0', value => x"ea"),
+    (address => x"804000b", write_p => '0', value => x"eb"),
+    (address => x"804000c", write_p => '0', value => x"ec"),
+    (address => x"804000d", write_p => '0', value => x"ed"),
+    (address => x"804000e", write_p => '0', value => x"ee"),
+    (address => x"804000f", write_p => '0', value => x"ef"),
     
     -- Read the first 16 bytes back
     (address => x"8000000", write_p => '0', value => x"30"),
@@ -138,27 +156,7 @@ architecture foo of test_hyperram is
     (address => x"800000d", write_p => '0', value => x"3d"),
     (address => x"800000e", write_p => '0', value => x"3e"),
     (address => x"800000f", write_p => '0', value => x"3f"),
-
-
     
-    -- Read the first 16 bytes back
-    (address => x"8000000", write_p => '0', value => x"30"),
-    (address => x"8000001", write_p => '0', value => x"31"),
-    (address => x"8000002", write_p => '0', value => x"32"),
-    (address => x"8000003", write_p => '0', value => x"33"),
-    (address => x"8000004", write_p => '0', value => x"34"),
-    (address => x"8000005", write_p => '0', value => x"35"),
-    (address => x"8000006", write_p => '0', value => x"36"),
-    (address => x"8000007", write_p => '0', value => x"37"),
-    (address => x"8000008", write_p => '0', value => x"38"),
-    (address => x"8000009", write_p => '0', value => x"39"),
-    (address => x"800000a", write_p => '0', value => x"3a"),
-    (address => x"800000b", write_p => '0', value => x"3b"),
-    (address => x"800000c", write_p => '0', value => x"3c"),
-    (address => x"800000d", write_p => '0', value => x"3d"),
-    (address => x"800000e", write_p => '0', value => x"3e"),
-    (address => x"800000f", write_p => '0', value => x"3f"),
-
     -- Write over an 8-byte boundary to try to figure out the
     -- external hyperram bug
     (address => x"8800085", write_p => '1', value => x"85"),
