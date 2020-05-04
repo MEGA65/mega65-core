@@ -2343,7 +2343,7 @@ begin
                   end if;
                   report "hr_return='1'";
                   report "hr_return='0'";
-                  if rdata_16en='0' and byte_phase(0)='1' then
+                  if rdata_16en='0' or byte_phase(0)='1' then
                     data_ready_strobe <= '1';
                     data_ready_strobe_hold <= '1';
                   end if;
