@@ -273,6 +273,8 @@ architecture gothic of hyperram is
   signal hyperram0_select : std_logic := '0';
   signal hyperram1_select : std_logic := '0';
   signal hyperram_access_address : unsigned(26 downto 0) := to_unsigned(0,27);
+
+  signal read_request_held : std_logic := '0';
   
 begin
   process (pixelclock,clock163,clock325,hr_clk,hr_clk_phaseshift) is
@@ -286,8 +288,12 @@ begin
   begin
     if rising_edge(pixelclock) then
 
-      report "read_request=" & std_logic'image(read_request) & ", busy_internal=" & std_logic'image(busy_internal)
-        & ", write_request=" & std_logic'image(write_request);
+      report "read_request=" & std_logic'image(read_request)
+        & ", read_request_held=" & std_logic'image(read_request_held)
+        & ", busy_internal=" & std_logic'image(busy_internal)
+        & ", write_request=" & std_logic'image(write_request)
+        & ", request_toggle(last) = " & std_logic'image(request_toggle) & "(" & std_logic'image(last_request_toggle) & ")."
+        & ", is_block_read=" & boolean'image(is_block_read);
 
       -- Pseudo random bits so that we can do randomised cache row replacement
       if random_bits /= to_unsigned(251,8) then
@@ -415,6 +421,8 @@ begin
         write_collect1_valids <= (others => '0');
       end if;      
 
+      -- Ignore read requests to the current block read, as they get
+      -- short-circuited in the inner state machine to save time.
       if read_request='1' and busy_internal='0' and ((is_block_read = false) or (block_address /= address(26 downto 5))) then
         report "Making read request";
         -- Begin read request
@@ -441,13 +449,10 @@ begin
             tempaddr(26 downto 5) := address(26 downto 5) + 1;
             tempaddr(4 downto 0) := "00000";
             ram_address <= tempaddr;
-            request_toggle <= not request_toggle;          
+--            request_toggle <= not request_toggle;          
             ram_prefetch <= true;
             ram_normalfetch <= false;
-            -- We have to mark ourselves busy, else slow_devices thinks that
-            -- it can release read_request.
-            -- XXX We could abort pre-fetches if we see read_request assert.
-            busy_internal <= '1';
+
             report "DISPATCH: Dispatching pre-fetch of $" & to_hstring(tempaddr);
             -- Mark a cache line to receive the pre-fetched data, so that we don't
             -- have to wait for it all to turn up, before being able to return
@@ -835,6 +840,8 @@ begin
             hr_d <= (others => 'Z');
             hr2_d <= (others => 'Z');
 
+            read_request_held <= '0';
+            
             first_transaction <= '0';
             is_block_read <= false;
             is_prefetch <= ram_prefetch;
@@ -1708,17 +1715,14 @@ begin
             end if;
 
             -- Abort memory pre-fetching if we are asked to do something
-            -- XXX unless it is for data that would be pre-fetched?
---            report "DISPATCHER: is_block_read = " & boolean'image(is_block_read) & ", is_expected_to_respond = "
---              & boolean'image(is_expected_to_respond);
-            if is_block_read and (not is_expected_to_respond) then
---              report "DISPATCHER: pre-fetch is eligible for early termination";
+            if is_block_read then 
               if (read_request='1' or write_request='1') then
                 -- Okay, here is the tricky case: If the request is for data
                 -- that is in this block read, we DONT want to abort the read,
                 -- because starting a new request will almost always be slower.
                 report "DISPATCHER: new request is for $" & to_hstring(address) & ", and we are reading $" & to_hstring(hyperram_access_address) & ", read = " & std_logic'image(read_request);
-                if (read_request='1') and (address(26 downto 5) = hyperram_access_address(26 downto 5)) then
+                if ((read_request='1') or (read_request_held='1'))
+                  and (address(26 downto 5) = hyperram_access_address(26 downto 5)) then
                   -- New read request from later in this block.
                   -- We know that we will have the data soon.
                   -- The trick is coordinating our response.
@@ -1728,10 +1732,12 @@ begin
                   -- doesn't know that we can do this.
                   report "DISPATCHER: Continuing with pre-fetch, because the read hits the block being read!";
 
+                  read_request_held <= read_request;
+                  
                   -- Return the byte as soon as we have it available
                   -- We don't test request_toggle, as the outer 80MHz state
                   -- machine thinks we are still busy.
-                  if ram_address(26 downto 5) = hyperram_access_address(26 downto 5) then
+                  if address(26 downto 5) = hyperram_access_address(26 downto 5) then
                     if byte_phase > to_integer(address(4 downto 0)) then
                       report "DISPATCHER: Supplying data from partially read data block. Value is $"
                         & to_hstring(block_data(to_integer(address(4 downto 3)))(to_integer(address(2 downto 0))))
@@ -1744,7 +1750,7 @@ begin
                     end if;
                   end if;
                   
-                elsif read_request='1' then
+                elsif read_request='1' and (not is_expected_to_respond) then
                   report "DISPATCHER: Aborting pre-fetch due to incoming read request";
                   state <= Idle;
                 end if;
@@ -1900,9 +1906,10 @@ begin
               end if;
               report "byte_phase = " & integer'image(to_integer(byte_phase));
               if ((byte_phase = 7) and (is_block_read=false))
-              or ((byte_phase = 31) and (is_block_read=true)) then
+              or (byte_phase = 31) then
                 rwr_counter <= rwr_delay;
                 report "returning to idle";
+                last_request_toggle <= request_toggle;
                 state <= Idle;
                 hr_cs0 <= '1';
                 hr_cs1 <= '1';
