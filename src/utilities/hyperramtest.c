@@ -462,6 +462,9 @@ void show_info(void)
 
 void test_speed(void)
 {
+  POKE(0xD06F,0x80); // PAL, so that we have 63usec per raster for calculations below
+  POKE(0xD011,0x1b);
+  
   printf("%c",0x93);
   while(!PEEK(0xD610))
     {
@@ -470,23 +473,23 @@ void test_speed(void)
       printf("\n");
 
       // Test read speed of normal and extra ram  
-      while(PEEK(0xD012)!=0x10)
+      while(PEEK(0xD012)!=0x20)
 	while(PEEK(0xD011)&0x80) continue;
       lcopy(0x20000L,0x40000L,32768);
       r2=PEEK(0xD012);
       printf("Copy Chip RAM to Chip RAM: ");
       // 63usec / raster
-      time=(r2-0x10)*63;
+      time=(r2-0x20)*63;
       speed=32768000L/time;
       printf("%ld KB/s \n",speed);
 
-      while(PEEK(0xD012)!=0x10)
+      while(PEEK(0xD012)!=0x20)
 	while(PEEK(0xD011)&0x80) continue;
       lfill(0x40000L,0,32768);
       r2=PEEK(0xD012);
       printf("            Fill Chip RAM: ");
       // 63usec / raster
-      time=(r2-0x10)*63;
+      time=(r2-0x20)*63;
       speed=32768000L/time;
       printf("%ld KB/s \n\n",speed);
 
@@ -494,39 +497,39 @@ void test_speed(void)
       lpoke(0xbfffff2,fast_flags|cache_bit);
       printf("%cWith fast access enabled:%c\n",0x92,0x12);
       
-      while(PEEK(0xD012)!=0x10)
+      while(PEEK(0xD012)!=0x20)
 	while(PEEK(0xD011)&0x80) continue;
       lcopy(0x8000000,0x40000,4096);
       r2=PEEK(0xD012);
       printf("Copy Slow RAM to Chip RAM: ");
-      time=(r2-0x10)*63;
+      time=(r2-0x20)*63;
       speed=4096000L/time;
       printf("%ld KB/s \n",speed);
       
-      while(PEEK(0xD012)!=0x10)
+      while(PEEK(0xD012)!=0x20)
 	while(PEEK(0xD011)&0x80) continue;
       lcopy(0x40000,0x8000000,4096);
       r2=PEEK(0xD012);
       printf("Copy Chip RAM to Slow RAM: ");
-      time=(r2-0x10)*63;
+      time=(r2-0x20)*63;
       speed=4096000L/time;
       printf("%ld KB/s \n",speed);
       
-      while(PEEK(0xD012)!=0x10)
+      while(PEEK(0xD012)!=0x20)
 	while(PEEK(0xD011)&0x80) continue;
       lcopy(0x8000000,0x8010000,4096);
       r2=PEEK(0xD012);
       printf("Copy Slow RAM to Slow RAM: ");
-      time=(r2-0x10)*63;
+      time=(r2-0x20)*63;
       speed=4096000L/time;
       printf("%ld KB/s \n",speed);
       
-      while(PEEK(0xD012)!=0x10)
+      while(PEEK(0xD012)!=0x20)
 	while(PEEK(0xD011)&0x80) continue;
       lfill(0x8000000,0,4096);
       r2=PEEK(0xD012);
       printf("            Fill Slow RAM: ");
-      time=(r2-0x10)*63;
+      time=(r2-0x20)*63;
       speed=4096000L/time;
       printf("%ld KB/s \n",speed);
       
@@ -534,39 +537,39 @@ void test_speed(void)
       lpoke(0xbfffff2,slow_flags|cache_bit);
       printf("\n%cWith fast access disabled:%c\n",0x92,0x12);
       
-      while(PEEK(0xD012)!=0x10)
+      while(PEEK(0xD012)!=0x20)
 	while(PEEK(0xD011)&0x80) continue;
       lcopy(0x8000000,0x40000,4096);
       r2=PEEK(0xD012);
       printf("Copy Slow RAM to Chip RAM: ");
-      time=(r2-0x10)*63;
+      time=(r2-0x20)*63;
       speed=4096000L/time;
       printf("%ld KB/s \n",speed);
       
-      while(PEEK(0xD012)!=0x10)
+      while(PEEK(0xD012)!=0x20)
 	while(PEEK(0xD011)&0x80) continue;
       lcopy(0x40000,0x8000000,4096);
       r2=PEEK(0xD012);
       printf("Copy Chip RAM to Slow RAM: ");
-      time=(r2-0x10)*63;
+      time=(r2-0x20)*63;
       speed=4096000L/time;
       printf("%ld KB/s \n",speed);
       
-      while(PEEK(0xD012)!=0x10)
+      while(PEEK(0xD012)!=0x20)
 	while(PEEK(0xD011)&0x80) continue;
       lcopy(0x8000000,0x8010000,4096);
       r2=PEEK(0xD012);
       printf("Copy Slow RAM to Slow RAM: ");
-      time=(r2-0x10)*63;
+      time=(r2-0x20)*63;
       speed=4096000L/time;
       printf("%ld KB/s \n",speed);
       
-      while(PEEK(0xD012)!=0x10)
+      while(PEEK(0xD012)!=0x20)
 	while(PEEK(0xD011)&0x80) continue;
       lfill(0x8000000,0,4096);
       r2=PEEK(0xD012);
       printf("            Fill Slow RAM: ");
-      time=(r2-0x10)*63;
+      time=(r2-0x20)*63;
       speed=4096000L/time;
       printf("%ld KB/s \n",speed);
       
@@ -601,7 +604,7 @@ void main(void)
     printf("%c",0x93);
     show_info();
 
-    while (PEEK(0xd610)) POKE(0xd610,0);
+    while (PEEK(0xd610)) { POKE(0xD020,PEEK(0xD020)+1); POKE(0x0427,PEEK(0xD610)); POKE(0xd610,0); }
 
     printf("\nSelect test:\n"
 	   "0 - Reprobe RAM size\n"
