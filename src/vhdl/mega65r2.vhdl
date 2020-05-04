@@ -348,6 +348,8 @@ architecture Behavioral of container is
   signal current_cache_line : cache_row_t := (others => (others => '0'));
   signal current_cache_line_address : unsigned(26 downto 3) := (others => '0');
   signal current_cache_line_valid : std_logic := '0';
+  signal expansionram_current_cache_line_next_toggle : std_logic := '0';
+
   
   signal audio_left : std_logic_vector(19 downto 0);
   signal audio_right : std_logic_vector(19 downto 0);
@@ -487,6 +489,7 @@ begin
       current_cache_line => current_cache_line,
       current_cache_line_address => current_cache_line_address,
       current_cache_line_valid => current_cache_line_valid,     
+      expansionram_current_cache_line_next_toggle  => expansionram_current_cache_line_next_toggle,
       
       hr_d => hr_d,
       hr_rwds => hr_rwds,
@@ -558,6 +561,7 @@ begin
       expansionram_current_cache_line => current_cache_line,
       expansionram_current_cache_line_address => current_cache_line_address,
       expansionram_current_cache_line_valid => current_cache_line_valid,
+      expansionram_current_cache_line_next_toggle  => expansionram_current_cache_line_next_toggle,
       
       ----------------------------------------------------------------------
       -- Expansion/cartridge port

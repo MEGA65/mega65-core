@@ -15,6 +15,7 @@ architecture foo of test_hyperram is
   signal clock163 : std_logic := '1';
   signal clock325 : std_logic := '1';
 
+  signal expansionram_current_cache_line_next_toggle : std_logic := '0';
   signal expansionram_read : std_logic;
   signal expansionram_write : std_logic := '0';
   signal expansionram_rdata : unsigned(7 downto 0);
@@ -25,7 +26,6 @@ architecture foo of test_hyperram is
   signal current_cache_line : cache_row_t := (others => (others => '0'));
   signal current_cache_line_address : unsigned(26 downto 3) := (others => '0');
   signal current_cache_line_valid : std_logic := '0';
-
 
   signal hr_d : unsigned(7 downto 0) := (others => '0');
   signal hr_rwds : std_logic := '0';
@@ -191,6 +191,7 @@ begin
       current_cache_line => current_cache_line,
       current_cache_line_address => current_cache_line_address,
       current_cache_line_valid => current_cache_line_valid,
+      expansionram_current_cache_line_next_toggle  => expansionram_current_cache_line_next_toggle,
       
       hr_d => hr_d,
       hr_rwds => hr_rwds,
@@ -291,6 +292,7 @@ begin
       expansionram_current_cache_line => current_cache_line,
       expansionram_current_cache_line_address => current_cache_line_address,
       expansionram_current_cache_line_valid => current_cache_line_valid,
+      expansionram_current_cache_line_next_toggle  => expansionram_current_cache_line_next_toggle,
       
       cart_nmi => '1',
       cart_irq => '1',
