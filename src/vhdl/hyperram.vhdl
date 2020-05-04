@@ -203,7 +203,9 @@ architecture gothic of hyperram is
   signal is_block_read : boolean := false;
   signal block_read_enable : std_logic := '1'; -- enable 32 byte read block fetching
   signal is_prefetch : boolean := false;
+  signal is_expected_to_respond : boolean := false;
   signal ram_prefetch : boolean := false;
+  signal ram_normalfetch : boolean := false;
   signal flag_prefetch : std_logic := '1';  -- enable/disable prefetch of read
                                             -- blocks
 
@@ -397,13 +399,17 @@ begin
       -- We have to wipe the address and valids, so that they don't get stuck being
       -- used as stale sources for cache reading.
       if write_collect0_dispatchable = '1' and write_collect0_toolate <= '1' and write_collect0_flushed = '1' then
-        show_collect0 := true;
+        if write_collect0_dispatchable='1' then
+          show_collect0 := true;
+        end if;
         write_collect0_dispatchable <= '0';
         write_collect0_address <= (others => '1');
         write_collect0_valids <= (others => '0');
       end if;
       if write_collect1_dispatchable = '1' and write_collect1_toolate <= '1' and write_collect1_flushed = '1' then
-        show_collect0 := true;
+        if write_collect1_dispatchable='1' then
+          show_collect1 := true;
+        end if;
         write_collect1_dispatchable <= '0';
         write_collect1_address <= (others => '1');            
         write_collect1_valids <= (others => '0');
@@ -437,7 +443,25 @@ begin
             ram_address <= tempaddr;
             request_toggle <= not request_toggle;          
             ram_prefetch <= true;
+            ram_normalfetch <= false;
+            -- We have to mark ourselves busy, else slow_devices thinks that
+            -- it can release read_request.
+            -- XXX We could abort pre-fetches if we see read_request assert.
+            busy_internal <= '1';
             report "DISPATCH: Dispatching pre-fetch of $" & to_hstring(tempaddr);
+            -- Mark a cache line to receive the pre-fetched data, so that we don't
+            -- have to wait for it all to turn up, before being able to return
+            -- the first 8 bytes
+            if random_bits(1)='0' then
+              cache_row0_valids <= (others => '0');
+              cache_row0_address <= tempaddr(26 downto 3);
+              show_cache0 := true;
+            else
+              cache_row1_valids <= (others => '0');
+              cache_row1_address <= tempaddr(26 downto 3);
+              show_cache1 := true;
+            end if;
+            
           end if;
           
         elsif cache_enabled and (address(26 downto 3 ) = write_collect0_address and write_collect0_valids(to_integer(address(2 downto 0))) = '1') then
@@ -517,10 +541,19 @@ begin
           fake_data_ready_strobe <= '1';
           report "asserting data_ready_strobe for fake read";
         elsif request_accepted = request_toggle then
+          -- Normal RAM read.
           report "request_toggle flipped";
           ram_reading <= '1';
           ram_address <= address;
-          ram_prefetch <= false;
+          ram_normalfetch <= true;
+          -- We just need to check if there is a pre-fetch already
+          -- queued for this same address
+          if address(26 downto 3) = ram_address(26 downto 3) and ram_prefetch then
+            report "DISPATCH: Merging read with pre-fetch.";
+          else
+            report "DISPATCH: Cancelling pre-fetch to prioritise explicit read";
+            ram_prefetch <= false;
+          end if;
           request_toggle <= not request_toggle;          
         end if;
       elsif queued_write='1' and write_collect0_dispatchable='0' and write_collect0_flushed='0'
@@ -590,7 +623,9 @@ begin
           if cache_enabled = false then
             -- Do normal  write request
             report "request_toggle flipped";
+            report "DISPATCH: Accepted non-cached write";
             ram_prefetch <= false;
+            ram_normalfetch <= true;
             request_toggle <= not request_toggle;
             
           else
@@ -803,6 +838,7 @@ begin
             first_transaction <= '0';
             is_block_read <= false;
             is_prefetch <= ram_prefetch;
+            is_expected_to_respond <= ram_normalfetch;
             
             -- All commands need the clock offset by 1/2 cycle
             hr_clk_phaseshift <= write_phase_shift;
@@ -858,12 +894,16 @@ begin
             
             -- Clear write buffer flags when they are empty
             if write_collect0_dispatchable = '0' then
-              show_collect0 := true;
+              if write_collect0_toolate = '1' then
+                show_collect0 := true;
+              end if;
               write_collect0_toolate <= '0';
               write_collect0_flushed <= '0';
             end if;
             if write_collect1_dispatchable = '0' then
-              show_collect1 := true;
+              if write_collect1_toolate = '1' then
+                show_collect1 := true;
+              end if;
               write_collect1_toolate <= '0';
               write_collect1_flushed <= '0';
             end if;
@@ -883,6 +923,7 @@ begin
             -- within the comming clock cycle
             elsif hr_clock_phase(2 downto 1) = "10" then
               if request_toggle /= last_request_toggle then
+                report "WAITING for job";
                 ram_reading_held <= ram_reading;
                 
                 if ram_reading = '1' then
@@ -1666,6 +1707,39 @@ begin
               countdown <= countdown - 1;
             end if;
 
+            -- Abort memory pre-fetching if we are asked to do something
+            -- XXX unless it is for data that would be pre-fetched?
+--            report "DISPATCHER: is_block_read = " & boolean'image(is_block_read) & ", is_expected_to_respond = "
+--              & boolean'image(is_expected_to_respond);
+            if is_block_read and (not is_expected_to_respond) then
+              report "DISPATCHER: pre-fetch is eligible for early termination";
+              if (read_request='1' or write_request='1') then
+                report "DISPATCHER: Aborting pre-fetch due to incoming request";
+                state <= Idle;
+              end if;
+              -- Because we can now abort at any time, we can pretend we are
+              -- not busy. We are just filling in time...
+              if busy_internal = '1' then
+                report "DISPATCHER: Clearing busy during tail of pre-fetch";
+              end if;
+              busy_internal <= '0';
+            end if;
+            -- After we have read the first 8 bytes, we know that we are no longer
+            -- required to provide any further direct output, so clear the
+            -- flag, so that the above logic can terminate a pre-fetch when required.
+            if byte_phase = 8 then
+              report "DISPATCHER: Clearing is_expected_to_respond";
+              is_expected_to_respond <= false;
+            end if;
+            -- Clear busy flag as soon as we can, allowing for pipelining
+            -- through to and from slow_devices, so that we don't waste time,
+            -- but also that we avoid doing it too early and screwing things up.
+            if byte_phase = 4 then
+              if is_block_read then
+                busy_internal <= '0';
+              end if;
+            end if;
+            
             hr_clk_phaseshift <= read_phase_shift xor hyperram1_select;
 
             if hyperram0_select='1' then
@@ -1708,6 +1782,7 @@ begin
                   block_data(to_integer(byte_phase(4 downto 3)))(to_integer(byte_phase(2 downto 0)))
                     <= hr2_d;
                 end if;
+                show_block := true;
               end if;
               if (byte_phase < 8) then
                 -- Store the bytes in the cache row
@@ -1756,7 +1831,7 @@ begin
                   end if;
                   show_cache1 := true;
                 end if;
-              elsif (byte_phase = 8) and (is_prefetch = false) then
+              elsif (byte_phase = 8) and is_expected_to_respond then
                 -- Export the appropriate cache line to slow_devices
                 if cache_row0_address = hyperram_access_address(26 downto 3) and cache_enabled then          
                   if cache_row0_valids = x"FF" then
@@ -1774,7 +1849,7 @@ begin
               end if;
               
               -- Quickly return the correct byte
-              if to_integer(byte_phase) = (to_integer(hyperram_access_address(2 downto 0))+0) and (is_prefetch=false) then
+              if to_integer(byte_phase) = (to_integer(hyperram_access_address(2 downto 0))+0) and is_expected_to_respond then
                 if hyperram0_select='1' then
                   report "DISPATCH: Returning freshly read data = $" & to_hstring(hr_d)
                     & ", hyperram0_select="& std_logic'image(hyperram0_select) 
@@ -1804,6 +1879,7 @@ begin
                   block_valid <= '1';
                 end if;
                 is_prefetch <= false;
+                is_expected_to_respond <= false;
               else
                 byte_phase <= byte_phase + 1;
               end if;
@@ -1823,6 +1899,28 @@ begin
             
             pause_phase <= not pause_phase;
 
+            -- Abort memory pre-fetching if we are asked to do something
+            -- XXX unless it is for data that would be pre-fetched?
+            if is_block_read and (not is_expected_to_respond) then
+              if (read_request='1' or write_request='1') then
+                report "DISPATCHER: Aborting pre-fetch due to incoming request";
+                state <= Idle;
+              end if;
+              -- Because we can now abort at any time, we can pretend we are
+              -- not busy. We are just filling in time...
+              if busy_internal = '1' then
+                report "DISPATCHER: Clearing busy during tail of pre-fetch";
+              end if;
+              busy_internal <= '0';
+            end if;
+            -- After we have read the first 8 bytes, we know that we are no longer
+            -- required to provide any further direct output, so clear the
+            -- flag, so that the above logic can terminate a pre-fetch when required.
+            if byte_phase = 8 then
+              report "DISPATCHER: Clearing is_expected_to_respond";
+              is_expected_to_respond <= false;
+            end if;
+            
             if pause_phase = '1' then
               null;
             else
