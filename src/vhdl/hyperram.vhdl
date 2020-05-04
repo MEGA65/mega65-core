@@ -1712,10 +1712,42 @@ begin
 --            report "DISPATCHER: is_block_read = " & boolean'image(is_block_read) & ", is_expected_to_respond = "
 --              & boolean'image(is_expected_to_respond);
             if is_block_read and (not is_expected_to_respond) then
-              report "DISPATCHER: pre-fetch is eligible for early termination";
+--              report "DISPATCHER: pre-fetch is eligible for early termination";
               if (read_request='1' or write_request='1') then
-                report "DISPATCHER: Aborting pre-fetch due to incoming request";
-                state <= Idle;
+                -- Okay, here is the tricky case: If the request is for data
+                -- that is in this block read, we DONT want to abort the read,
+                -- because starting a new request will almost always be slower.
+                report "DISPATCHER: new request is for $" & to_hstring(address) & ", and we are reading $" & to_hstring(hyperram_access_address) & ", read = " & std_logic'image(read_request);
+                if (read_request='1') and (address(26 downto 5) = hyperram_access_address(26 downto 5)) then
+                  -- New read request from later in this block.
+                  -- We know that we will have the data soon.
+                  -- The trick is coordinating our response.
+                  -- If we have already read the byte, then it's relatively easy:
+                  -- we can just return it, and pretend nothing happened...
+                  -- except that the 80mhz state machine that talks to slow_devices
+                  -- doesn't know that we can do this.
+                  report "DISPATCHER: Continuing with pre-fetch, because the read hits the block being read!";
+
+                  -- Return the byte as soon as we have it available
+                  -- We don't test request_toggle, as the outer 80MHz state
+                  -- machine thinks we are still busy.
+                  if ram_address(26 downto 5) = hyperram_access_address(26 downto 5) then
+                    if byte_phase > to_integer(address(4 downto 0)) then
+                      report "DISPATCHER: Supplying data from partially read data block. Value is $"
+                        & to_hstring(block_data(to_integer(address(4 downto 3)))(to_integer(address(2 downto 0))))
+                        & " ( from (" & integer'image(to_integer(address(4 downto 3)))
+                        & ")(" & integer'image(to_integer(address(2 downto 0)));
+                      data_ready_strobe <= '1';
+                      data_ready_strobe_hold <= '1';
+                      rdata <= block_data(to_integer(address(4 downto 3)))(to_integer(address(2 downto 0)));
+                      last_request_toggle <= request_toggle;
+                    end if;
+                  end if;
+                  
+                elsif read_request='1' then
+                  report "DISPATCHER: Aborting pre-fetch due to incoming read request";
+                  state <= Idle;
+                end if;
               end if;
               -- Because we can now abort at any time, we can pretend we are
               -- not busy. We are just filling in time...
