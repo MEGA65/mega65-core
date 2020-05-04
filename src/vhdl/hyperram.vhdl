@@ -275,6 +275,7 @@ architecture gothic of hyperram is
   signal hyperram_access_address : unsigned(26 downto 0) := to_unsigned(0,27);
 
   signal read_request_held : std_logic := '0';
+  signal mark_cache_for_prefetch : std_logic := '0';
   
 begin
   process (pixelclock,clock163,clock325,hr_clk,hr_clk_phaseshift) is
@@ -295,6 +296,8 @@ begin
         & ", request_toggle(last) = " & std_logic'image(request_toggle) & "(" & std_logic'image(last_request_toggle) & ")."
         & ", is_block_read=" & boolean'image(is_block_read);
 
+      mark_cache_for_prefetch <= '0';
+      
       -- Pseudo random bits so that we can do randomised cache row replacement
       if random_bits /= to_unsigned(251,8) then
         random_bits <= random_bits + 1;
@@ -457,16 +460,7 @@ begin
             -- Mark a cache line to receive the pre-fetched data, so that we don't
             -- have to wait for it all to turn up, before being able to return
             -- the first 8 bytes
-            if random_bits(1)='0' then
-              cache_row0_valids <= (others => '0');
-              cache_row0_address <= tempaddr(26 downto 3);
-              show_cache0 := true;
-            else
-              cache_row1_valids <= (others => '0');
-              cache_row1_address <= tempaddr(26 downto 3);
-              show_cache1 := true;
-            end if;
-            
+            mark_cache_for_prefetch <= '1';
           end if;
           
         elsif cache_enabled and (address(26 downto 3 ) = write_collect0_address and write_collect0_valids(to_integer(address(2 downto 0))) = '1') then
@@ -804,6 +798,18 @@ begin
 
       cycle_count <= cycle_count + 1;
 
+      if mark_cache_for_prefetch='1' then
+        if random_bits(1)='0' then
+          cache_row0_valids <= (others => '0');
+          cache_row0_address <= ram_address(26 downto 3);
+          show_cache0 := true;
+        else
+          cache_row1_valids <= (others => '0');
+          cache_row1_address <= ram_address(26 downto 3);
+          show_cache1 := true;
+        end if;
+      end if;
+      
       if data_ready_strobe_hold = '0' then      
         data_ready_strobe <= fake_data_ready_strobe;
         if fake_data_ready_strobe='1' then
