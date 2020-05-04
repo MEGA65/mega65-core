@@ -229,7 +229,7 @@ architecture gothic of hyperram is
 
   signal request_counter_int : std_logic := '0';
 
-  signal cache_enabled : boolean := true;
+  signal cache_enabled : boolean := false;
 
   signal hr_rwds_high_seen : std_logic := '0';
 
@@ -632,7 +632,10 @@ begin
             ram_prefetch <= false;
             ram_normalfetch <= true;
             request_toggle <= not request_toggle;
-            
+            ram_address <= address;
+            ram_wdata <= wdata;
+            background_write_count <= 1;
+            background_write <= '0';
           else
             -- Collect writes together for dispatch
 
@@ -1187,7 +1190,7 @@ begin
             
           when WriteSetup =>
 
-            report "Preparing hr_command etc";
+            report "Preparing hr_command etc for write to $" & to_hstring(ram_address);
 
             config_reg_write <= ram_address(25);
             
@@ -1283,7 +1286,8 @@ begin
                       write_collect1_flushed <= '1';
                     end if;
                   end if;
-                  
+
+                  report "Finished writing config register";
                   state <= HyperRAMFinishWriting;
                 else
                   -- Writing to memory, so count down the correct number of cycles;
@@ -1449,6 +1453,7 @@ begin
                   end if;
                 end if;
 
+                report "Finished writing config register";
                 state <= HyperRAMFinishWriting;
               else
                 -- Writing to memory, so count down the correct number of cycles;
@@ -1582,11 +1587,18 @@ begin
                 write_byte_phase <= '1';
                 if background_write='0' then
                   if write_byte_phase = '0' and hyperram_access_address(0)='1' then
+                    report "Masking even byte";
                     hr_d <= x"ee"; -- even "masked" data byte
                     hr2_d <= x"ee"; -- even "masked" data byte
                   elsif write_byte_phase = '1' and hyperram_access_address(0)='0' then
+                    report "Masking odd byte";
                     hr_d <= x"0d"; -- odd "masked" data byte                      
                     hr2_d <= x"0d"; -- odd "masked" data byte                      
+                  end if;
+                  if background_write_count /= 0 then
+                    background_write_count <= background_write_count - 1;
+                  else
+                    state <= HyperRAMFinishWriting;
                   end if;
                 elsif write_byte_phase='1' then
                   report "WRITE: Decrementing background_write_count from " & integer'image(background_write_count);
@@ -1594,8 +1606,7 @@ begin
                     background_write_count <= background_write_count - 1;
                   else
                     report "Advancing to HyperRAMFinishWriting";
-                    hr_clk_phaseshift <= write_phase_shift;         
-                    state <= HyperRAMFinishWriting;                    
+                    hr_clk_phaseshift <= write_phase_shift;
                   end if;
                 end if;
               end if;
@@ -1700,6 +1711,11 @@ begin
                       hr_d <= x"0d"; -- odd "masked" data byte                      
                       hr2_d <= x"0d"; -- odd "masked" data byte                      
                     end if;
+                    if background_write_count /= 0 then
+                      background_write_count <= background_write_count - 1;
+                    else
+                      state <= HyperRAMFinishWriting;
+                    end if;
                   elsif write_byte_phase='1' then
                     report "WRITE: Decrementing background_write_count from " & integer'image(background_write_count);
                     if background_write_count /= 0 then
@@ -1711,7 +1727,7 @@ begin
                 end if;
               end if;
             end if;
-          when Hyperramfinishwriting =>
+          when HyperRAMFinishWriting =>
             -- Mask writing from here on.
             hr_cs0 <= '1';
             hr_cs1 <= '1';
