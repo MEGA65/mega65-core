@@ -642,7 +642,6 @@ begin
             ram_reading <= '0';
             ram_address <= address;
             ram_wdata <= wdata;
-            background_write <= '0';
           else
             -- Collect writes together for dispatch
 
@@ -1205,6 +1204,7 @@ begin
 
             if not cache_enabled then
               background_write_count <= 2;
+              background_write <= '0';
             end if;
             
             config_reg_write <= ram_address(25);
