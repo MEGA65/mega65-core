@@ -176,6 +176,7 @@ begin
 --               reconfigure_address => (others => '0'));
   
   hyperram0: entity work.hyperram
+    generic map ( in_simulation => true )
     port map (
       pixelclock => pixelclock,
       clock163 => clock163,
