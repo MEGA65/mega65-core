@@ -159,6 +159,24 @@ architecture foo of test_hyperram is
     (address => x"800000e", write_p => '0', value => x"3e"),
     (address => x"800000f", write_p => '0', value => x"3f"),
 
+    -- Write over an 8-byte boundary to try to figure out the
+    -- external hyperram bug
+    (address => x"8800085", write_p => '1', value => x"85"),
+    (address => x"8800086", write_p => '1', value => x"86"),
+    (address => x"8800087", write_p => '1', value => x"87"),
+    (address => x"8800088", write_p => '1', value => x"88"),
+    (address => x"8800089", write_p => '1', value => x"89"),
+    (address => x"880008a", write_p => '1', value => x"8a"),
+    (address => x"880008b", write_p => '1', value => x"8b"),
+
+    (address => x"8800085", write_p => '0', value => x"85"),
+    (address => x"8800086", write_p => '0', value => x"86"),
+    (address => x"8800087", write_p => '0', value => x"87"),
+    (address => x"8800088", write_p => '0', value => x"88"),
+    (address => x"8800089", write_p => '0', value => x"89"),
+    (address => x"880008a", write_p => '0', value => x"8a"),
+    (address => x"880008b", write_p => '0', value => x"8b"),
+    
     others => ( address => x"FFFFFFF", write_p => '0', value => x"00")
     );
 
@@ -369,7 +387,8 @@ begin
           report "DISPATCHER: Read correct value $" & to_hstring(slow_access_rdata)
             & " after " & integer'image(current_time - dispatch_time) & "ns.";
         else
-          report "DISPATCHER: ERROR: Expected $" & to_hstring(expected_value) & ", but saw $" & to_hstring(slow_access_rdata);
+          report "DISPATCHER: ERROR: Expected $" & to_hstring(expected_value) & ", but saw $" & to_hstring(slow_access_rdata)
+            & " after " & integer'image(current_time - dispatch_time) & "ns.";            
         end if;
       end if;
       expect_value <= '0';
