@@ -144,10 +144,24 @@ void test_continuousread(void)
     lcopy(0x8800000,0x0400+40*13,40*12);
 
     // Mark mismatches red
-    for(j=0;j<255;j++) if (PEEK(0x0400+j)!=j) POKE(0xD800+j,2); else POKE(0xD800+j,0xe);
-    for(j=0;j<(40*12-256);j++) if (PEEK(0x0500+j)!=j) POKE(0xD900+j,2); else POKE(0xD900+j,0xe);
-    for(j=0;j<255;j++) if (PEEK(0x0400+40*13+j)!=j) POKE(0xD800+40*13+j,2); else POKE(0xD800+j,0xe);
-    for(j=0;j<(40*12-256);j++) if (PEEK(0x0500+j)!=j) POKE(0xD900+j,2); else POKE(0xD900+j,0xe);
+    // Internal hyperram:
+    for(j=0;j<255;j++)
+      { if (PEEK(0x0400+j)!=j) POKE(0xD800+j,2); else POKE(0xD800+j,0xe); }
+    for(j=0;j<(40*12-256);j++)
+      { if (PEEK(0x0500+j)!=j) POKE(0xD900+j,2); else POKE(0xD900+j,0xe); }
+
+    // External hyperram:
+    i=0;
+    for(j=0;j<255;j++)
+      { if (PEEK(0x0400+40*13+j)!=j) { POKE(0xD800+40*13+j,2); i++; } else POKE(0xD800+40*13+j,0xe); }
+    for(j=0;j<(40*12-256);j++)
+      { if (PEEK(0x0500+40*13+j)!=j) { POKE(0xD900+40*13+j,2); i++; }  else POKE(0xD900+40*13+j,0xe); }
+    if (i>62) {
+      // Wait for user press while debugging external hyperram read problems.
+      while(!PEEK(0xD610)) { POKE(0xD020,PEEK(0xD020)+1); }
+      if (PEEK(0xD610)==3) return;
+      POKE(0xD610,0);
+    }
   }
   
 }
