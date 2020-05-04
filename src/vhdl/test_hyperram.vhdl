@@ -380,7 +380,7 @@ begin
       elsif expect_value = '0' and slow_access_ready_toggle = slow_access_request_toggle then
 
         if mem_jobs(cycles).address = x"FFFFFFF" then
-          report "Total sequence was " & integer'image(current_time - start_time) & "ns.";
+          report "DISPATCHER: Total sequence was " & integer'image(current_time - start_time) & "ns.";
           cycles <= 0;
           start_time <= current_time;
         else
