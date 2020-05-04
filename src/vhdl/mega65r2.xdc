@@ -277,6 +277,8 @@ set_property -dict {PACKAGE_PIN C22 IOSTANDARD LVCMOS33 PULLUP FALSE} [get_ports
 
 ## Hyper RAM on trap-door PMOD
 ## Pinout is for one of these: https://github.com/blackmesalabs/hyperram
+## If no SLEW or DRIVE directive, then reading external hyperram sometimes results in two
+## dummy bytes being read at the start of a read transfer. 
 set_property -dict {PACKAGE_PIN G1 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 24} [get_ports hr2_clk_p]
 #set_property -dict {PACKAGE_PIN F1 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 24} [get_ports hr2_clk_n]
 set_property -dict {PACKAGE_PIN B2 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 24} [get_ports {hr2_d[0]}]
