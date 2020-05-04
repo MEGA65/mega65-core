@@ -20,6 +20,7 @@ unsigned int i,j,k;
   0x01 = Send command fast  (not currently working)
   0x02 = Read bytes fast
   0x04 = Write data fast (not currently working)
+  0x08 = Read phase offset
 
   XXX Weirdly, the external hyperram only works stably with the cache enabled
   ($80 set), or else it gets lots of transient single byte errors.
@@ -65,7 +66,8 @@ void setup_hyperram(void)
       
       i=lpeek(addr);
       if (i!=0x55) {
-	printf("\n$%08lx corrupted != $55\n (saw $%02x, re-read yields $%02x)",addr,i,lpeek(addr));
+	if ((addr!=0x8800000)&&(addr!=0x9000000))
+	  printf("\n$%08lx corrupted != $55\n (saw $%02x, re-read yields $%02x)",addr,i,lpeek(addr));
 	break;
       }
 
@@ -77,7 +79,8 @@ void setup_hyperram(void)
 
       i=lpeek(addr);
       if (i!=0xaa) {
-	printf("\n$%08lx corrupted != $AA\n  (saw $%02x, re-read yields $%02x)",addr,i,lpeek(addr));
+	if ((addr!=0x8800000)&&(addr!=0x9000000))
+	  printf("\n$%08lx corrupted != $AA\n  (saw $%02x, re-read yields $%02x)",addr,i,lpeek(addr));
 	break;
       }
 
@@ -93,7 +96,7 @@ void setup_hyperram(void)
 
   upper_addr=addr;
 
-  if (addr!=0x9000000) {
+  if ((addr!=0x8800000)&&(addr!=0x9000000)) {
     printf("\nError(s) while testing Slow RAM\n");
     printf("\nPress any key to continue...\n");
     while(PEEK(0xD610)) POKE(0xD610,0);
@@ -145,10 +148,17 @@ void test_continuousread(void)
 
     // Mark mismatches red
     // Internal hyperram:
+    i=0;
     for(j=0;j<255;j++)
-      { if (PEEK(0x0400+j)!=j) POKE(0xD800+j,2); else POKE(0xD800+j,0xe); }
+      { if (PEEK(0x0400+j)!=j) { i++; POKE(0xD800+j,2); } else POKE(0xD800+j,0xe); }
     for(j=0;j<(40*12-256);j++)
-      { if (PEEK(0x0500+j)!=j) POKE(0xD900+j,2); else POKE(0xD900+j,0xe); }
+      { if (PEEK(0x0500+j)!=j) { i++; POKE(0xD900+j,2); } else POKE(0xD900+j,0xe); }
+    if (i>0) {
+      // Wait for user press while debugging external hyperram read problems.
+      while(!PEEK(0xD610)) { POKE(0xD020,PEEK(0xD020)+1); }
+      if (PEEK(0xD610)==3) return;
+      POKE(0xD610,0);
+    }
 
     // External hyperram:
     i=0;
@@ -156,12 +166,6 @@ void test_continuousread(void)
       { if (PEEK(0x0400+40*13+j)!=j) { POKE(0xD800+40*13+j,2); i++; } else POKE(0xD800+40*13+j,0xe); }
     for(j=0;j<(40*12-256);j++)
       { if (PEEK(0x0500+40*13+j)!=j) { POKE(0xD900+40*13+j,2); i++; }  else POKE(0xD900+40*13+j,0xe); }
-    if (i>62) {
-      // Wait for user press while debugging external hyperram read problems.
-      while(!PEEK(0xD610)) { POKE(0xD020,PEEK(0xD020)+1); }
-      if (PEEK(0xD610)==3) return;
-      POKE(0xD610,0);
-    }
   }
   
 }
@@ -232,7 +236,7 @@ void test_ramtiming(void)
 
 void test_cacheerror(void)
 {
-  printf("Performing cache error test.\n");
+  printf("\nPerforming cache error test.\n\n");
 
   printf("Writing $99\n");
   lpoke(0x8000800L,0x99);
@@ -254,22 +258,13 @@ void test_cacheerror(void)
   bust_cache();
   printf("  read $%02x\n",lpeek(0x8000800L));
 
-  
-  for(j=0;j<16;j++) {
-    i=0;
-    if (PEEK(0xc000+j)!=(0x10+(j-i*4))) {
-      printf("ERROR: Read $%02x from $%08lx, expected $%02x (i=%d)\n",
-	     PEEK(0xc000+j),addr+j,
-	     0x10+j-i*4,i);
-      
-      while(PEEK(0xD610)) POKE(0xD610,0);
-      while(!PEEK(0xD610)) continue;
-      if (PEEK(0xD610)==0x03) return;
-      while(PEEK(0xD610)) POKE(0xD610,0);
-      
-    }
-    printf("$%02x ",PEEK(0xc000+j));
-  }
+
+  printf("\nPress any key to return.\n");
+  while(PEEK(0xD610)) POKE(0xD610,0);
+  while(!PEEK(0xD610)) continue;
+  if (PEEK(0xD610)==0x03) return;
+  while(PEEK(0xD610)) POKE(0xD610,0);
+
 
 }
 
