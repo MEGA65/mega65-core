@@ -201,12 +201,12 @@ architecture gothic of hyperram is
   signal block_address : unsigned(26 downto 5);
   signal block_valid : std_logic := '0';
   signal is_block_read : boolean := false;
-  signal block_read_enable : std_logic := '1'; -- enable 32 byte read block fetching
+  signal block_read_enable : std_logic := '0'; -- enable 32 byte read block fetching
   signal is_prefetch : boolean := false;
   signal is_expected_to_respond : boolean := false;
   signal ram_prefetch : boolean := false;
   signal ram_normalfetch : boolean := false;
-  signal flag_prefetch : std_logic := '1';  -- enable/disable prefetch of read
+  signal flag_prefetch : std_logic := '0';  -- enable/disable prefetch of read
                                             -- blocks
 
   signal current_cache_line_update : cache_row_t := (others => (others => '0'));
@@ -639,6 +639,7 @@ begin
             ram_prefetch <= false;
             ram_normalfetch <= true;
             request_toggle <= not request_toggle;
+            ram_reading <= '0';
             ram_address <= address;
             ram_wdata <= wdata;
             background_write_count <= 2;
@@ -1832,7 +1833,7 @@ begin
             -- through to and from slow_devices, so that we don't waste time,
             -- but also that we avoid doing it too early and screwing things up.
             if byte_phase = 4 then
-              if is_block_read then
+              if is_block_read and cache_enabled then
                 busy_internal <= '0';
               end if;
             end if;
@@ -2009,7 +2010,9 @@ begin
               if busy_internal = '1' then
                 report "DISPATCH: Clearing busy during tail of pre-fetch";
               end if;
-              busy_internal <= '0';
+              if cache_enabled then
+                busy_internal <= '0';
+              end if;
             end if;
             -- After we have read the first 8 bytes, we know that we are no longer
             -- required to provide any further direct output, so clear the
