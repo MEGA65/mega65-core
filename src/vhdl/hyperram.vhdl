@@ -1031,6 +1031,8 @@ begin
                 -- Do background write.
                 busy_internal <= '0';
                 request_accepted <= request_toggle;
+                is_prefetch <= false;
+                is_expected_to_respond <= false;
 
                 report "DISPATCH: Writing out collect0 @ $" & to_hstring(write_collect0_address&"000");
                 
@@ -1082,6 +1084,9 @@ begin
                 busy_internal <= '0';              
                 request_accepted <= request_toggle;
 
+                is_prefetch <= false;
+                is_expected_to_respond <= false;
+                
                 report "DISPATCH: Writing out collect1 @ $" & to_hstring(write_collect1_address&"000");
                 
                 -- Mark the write buffer as being processed.              
