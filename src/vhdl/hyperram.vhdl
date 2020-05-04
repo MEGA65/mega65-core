@@ -6,6 +6,7 @@ use work.debugtools.all;
 use work.cputypes.all;
 
 entity hyperram is
+  generic ( in_simulation : in boolean := false);
   Port ( pixelclock : in STD_LOGIC; -- For slow devices bus interface is
          -- actually on pixelclock to reduce latencies
          -- Also pixelclock is the natural clock speed we apply to the HyperRAM.
@@ -284,10 +285,16 @@ begin
     variable show_cache1 : boolean := false;
     variable show_collect0 : boolean := false;
     variable show_collect1 : boolean := false;
-    variable show_block : boolean := false;    
+    variable show_block : boolean := false;
+    variable show_always : boolean := true;
   begin
     if rising_edge(pixelclock) then
 
+      if in_simulation = true then
+        write_latency2 <= to_unsigned(5,8);
+        extra_write_latency2 <= to_unsigned(3,8);
+      end if;        
+      
       report "read_request=" & std_logic'image(read_request)
         & ", read_request_held=" & std_logic'image(read_request_held)
         & ", busy_internal=" & std_logic'image(busy_internal)
@@ -307,7 +314,7 @@ begin
       busy <= busy_internal or write_blocked or queued_write;
 
       if write_blocked = '1' and first_transaction='0' then
---        report "DISPATCH: write_blocked asserted. Waiting for existing writes to flush...";
+        report "DISPATCH: write_blocked asserted. Waiting for existing writes to flush...";
       end if;
       
       -- Clear write block as soon as either write buffer clears
@@ -327,7 +334,7 @@ begin
         request_counter <= request_counter_int;
       end if;
 
-      if show_cache0 then
+      if show_cache0 or show_always then
         report "CACHE cache0: address=$" & to_hstring(cache_row0_address&"000") & ", valids=" & to_string(cache_row0_valids)
           & ", data = "
           & to_hstring(cache_row0_data(0)) & " "
@@ -341,7 +348,7 @@ begin
         show_cache0 := false;
       end if;
 
-      if show_cache1 then
+      if show_cache1 or show_always then
       report "CACHE cache1: address=$" & to_hstring(cache_row1_address&"000") & ", valids=" & to_string(cache_row1_valids)
         & ", data = "
         & to_hstring(cache_row1_data(0)) & " "
@@ -354,7 +361,7 @@ begin
         & to_hstring(cache_row1_data(7)) & " ";
       show_cache1 := false;
       end if;
-      if show_collect0 then
+      if show_collect0 or show_always then
         report "CACHE write0: $" & to_hstring(write_collect0_address&"000") & ", v=" & to_string(write_collect0_valids)
           & ", d=" & std_logic'image(write_collect0_dispatchable)
           & ", late=" & std_logic'image(write_collect0_toolate)
@@ -370,7 +377,7 @@ begin
           & to_hstring(write_collect0_data(7)) & " ";
         show_collect0 := false;
       end if;
-      if show_collect1 then
+      if show_collect1 or show_always then
         report "CACHE write1: $" & to_hstring(write_collect1_address&"000") & ", v=" & to_string(write_collect1_valids)
           & ", d=" & std_logic'image(write_collect1_dispatchable)
           & ", late=" & std_logic'image(write_collect1_toolate)
@@ -386,7 +393,7 @@ begin
           & to_hstring(write_collect1_data(7)) & " ";
         show_collect1 := false;
       end if;
-      if show_block then
+      if show_block or show_always then
         report "CACHE block0: $" & to_hstring(block_address&"00000") & ", valid=" & std_logic'image(block_valid);
         for i in 0 to 3 loop
           report "CACHE block0 segment " & integer'image(i) & ": "
