@@ -310,6 +310,7 @@ architecture gothic of hyperram is
   signal hyperram_access_address : unsigned(26 downto 0) := to_unsigned(0,27);
 
   signal read_request_held : std_logic := '0';
+  signal write_request_held : std_logic := '0';
   signal mark_cache_for_prefetch : std_logic := '0';
 
   signal viciv_last_request_toggle : std_logic := '0';
@@ -319,6 +320,9 @@ architecture gothic of hyperram is
   signal last_viciv_buffer_toggle : std_logic := '0';
   signal viciv_next_byte : integer range 0 to 8 := 0;
   signal is_vic_fetch : boolean := false;
+
+  signal read_request_latch : std_logic := '0';
+  signal write_request_latch : std_logic := '0';
   
 begin
   process (pixelclock,clock163,clock325,hr_clk,hr_clk_phaseshift) is
@@ -333,6 +337,9 @@ begin
   begin
     if rising_edge(pixelclock) then
 
+      read_request_latch <= read_request;
+      write_request_latch <= write_request;
+      
       -- Present the data to the VIC-IV
       viciv_data_strobe <= '0';
       if viciv_buffer_toggle /= last_viciv_buffer_toggle then
@@ -355,6 +362,9 @@ begin
       
       report "read_request=" & std_logic'image(read_request)
         & ", read_request_held=" & std_logic'image(read_request_held)
+        & ", write_request_held=" & std_logic'image(write_request_held)
+        & ", read_request_latch=" & std_logic'image(read_request_latch)
+        & ", write_request_latch=" & std_logic'image(write_request_latch)
         & ", busy_internal=" & std_logic'image(busy_internal)
         & ", write_request=" & std_logic'image(write_request)
         & ", request_toggle(last) = " & std_logic'image(request_toggle) & "(" & std_logic'image(last_request_toggle) & ")."
@@ -374,7 +384,8 @@ begin
       else
         -- With no cache, we have to IMMEDIATELY assert busy when we see a
         -- request to avoid a race-condition with slow_devices
-        busy <= busy_internal or write_blocked or queued_write or read_request or write_request;
+        busy <= busy_internal or write_blocked or queued_write
+                or read_request or write_request or read_request_latch or write_request_latch;
       end if;
 
       if write_blocked = '1' and first_transaction='0' then
@@ -391,9 +402,15 @@ begin
         busy <= '1';
       end if;
 
+      -- Similarly as soon as we see a VIC-IV request come through we need to
+      -- assert busy
+      if viciv_request_toggle /= viciv_last_request_toggle then
+        busy <= '1';
+      end if;
+      
       fake_data_ready_strobe <= '0';
 
-      if read_request = '1' or write_request = '1' then
+      if read_request = '1' or write_request = '1' or read_request_latch='1' or write_request_latch='1' then
         request_counter_int <= not request_counter_int;
         request_counter <= request_counter_int;
       end if;
@@ -541,10 +558,13 @@ begin
       
       -- Ignore read requests to the current block read, as they get
       -- short-circuited in the inner state machine to save time.
-      if read_request='1' and busy_internal='0' and ((is_block_read = false) or (block_address /= address(26 downto 5))) then
+      if (read_request or read_request_latch)='1'
+        and busy_internal='0' and ((is_block_read = false) or (block_address /= address(26 downto 5))) then
         report "Making read request";
         -- Begin read request
 
+        read_request_latch <= '0';
+        
         -- Check for cache read
         -- We check the write buffers first, as any contents that they have
         -- must take priority over everything else
@@ -707,10 +727,12 @@ begin
 
         queued_write <= '0';
         
-      elsif write_request='1' and busy_internal='0' then
+      elsif (write_request or write_request_latch)='1' and busy_internal='0' then
         report "Making write request: addr $" & to_hstring(address) & " <= " & to_hstring(wdata);
         -- Begin write request
         -- Latch address and data
+
+        write_request_latch <= '0';
 
         if address(23 downto 4) = x"FFFFF" and address(25 downto 24) = "11" then
           case address(3 downto 0) is
@@ -1033,12 +1055,16 @@ begin
           current_cache_line_valid <= '1';
         end if;       
       end if;
+
+      -- Keep read request when required
+      read_request_held <= read_request;
+      write_request_held <= write_request;
       
       if (state /= Idle) and ( start_delay_counter /= 0) then
         start_delay_counter <= start_delay_counter - 1;
       else
         start_delay_counter <= 0;
-        
+
         case state is
           when Idle =>
             report "Tristating hr_d";
@@ -1046,6 +1072,7 @@ begin
             hr2_d <= (others => 'Z');
 
             read_request_held <= '0';
+            write_request_held <= '0';
 
             if not cache_enabled then
               busy_internal <= '0';
@@ -1187,6 +1214,7 @@ begin
                 hyperram_access_address(18 downto 3) <= viciv_addr(18 downto 3);
                 hyperram_access_address(2 downto 0) <= (others => '0');
 
+                busy_internal <= '1';
                 ram_reading_held <= '1';
                 is_expected_to_respond <= false;
                 is_vic_fetch <= true;
@@ -1534,7 +1562,8 @@ begin
 
             -- Prepare for reading block data
             is_block_read <= false;
-            if (hyperram_access_address(4 downto 3) = "00") and block_read_enable='1' and (ram_reading_held='1') then
+            if (hyperram_access_address(4 downto 3) = "00") and block_read_enable='1' and (ram_reading_held='1')
+              and (is_vic_fetch = false) then
               block_valid <= '0';
               block_address <= hyperram_access_address(26 downto 5);
               is_block_read <= true;
@@ -2159,8 +2188,6 @@ begin
                   -- doesn't know that we can do this.
                   report "DISPATCH: Continuing with pre-fetch, because the read hits the block being read!";
 
-                  read_request_held <= read_request;
-                  
                   -- Return the byte as soon as we have it available
                   -- We don't test request_toggle, as the outer 80MHz state
                   -- machine thinks we are still busy.
