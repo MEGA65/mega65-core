@@ -60,7 +60,8 @@ ENTITY i2c_master IS
 END i2c_master;
 
 ARCHITECTURE logic OF i2c_master IS
-  CONSTANT divider  :  INTEGER := (input_clk/bus_clk)/4; --number of clocks in 1/4 cycle of scl
+--  CONSTANT divider  :  INTEGER := (input_clk/bus_clk)/4; --number of clocks in 1/4 cycle of scl
+  CONSTANT divider  :  INTEGER := (4125000/400000)/4; --number of clocks in 1/4 cycle of scl
   
   TYPE machine IS(ready, start, command, slv_ack1, wr, rd, slv_ack2, mstr_ack, stop); --needed states
   SIGNAL state         : machine;                        --state machine

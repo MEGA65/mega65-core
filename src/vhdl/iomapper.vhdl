@@ -1117,7 +1117,9 @@ begin
   end generate i2cperiph_mega65r2;
   
   
-  sdcard0 : entity work.sdcardio port map (
+  sdcard0 : entity work.sdcardio
+    generic map ( target => target )
+    port map (
     pixelclk => pixelclk,
     clock => clk,
     reset => reset,
