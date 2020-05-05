@@ -365,6 +365,12 @@ architecture Behavioral of container is
   signal disco_led_en : std_logic := '0';
   signal disco_led_val : unsigned(7 downto 0);
   signal disco_led_id : unsigned(7 downto 0);
+
+  signal hyper_addr : unsigned(18 downto 3) := (others => '0');
+  signal hyper_request_toggle : std_logic := '0';
+  signal hyper_data : unsigned(7 downto 0) := x"00";
+  signal hyper_data_strobe : std_logic := '0';
+
   
 begin
 
@@ -476,6 +482,11 @@ begin
 
       -- XXX Debug by showing if expansion RAM unit is receiving requests or not
       request_counter => led,
+
+      viciv_addr => hyper_addr,
+      viciv_request_toggle => hyper_request_toggle,
+      viciv_data_out => hyper_data,
+      viciv_data_strobe => hyper_data_strobe,
       
       -- reset => reset_out,
       address => expansionram_address,
@@ -596,7 +607,9 @@ begin
   
   machine0: entity work.machine
     generic map (cpufrequency => 40,
-                 target => mega65r2
+                 target => mega65r2,
+                 hyper_installed => true -- For VIC-IV to know it can use
+                                         -- hyperram for full-colour glyphs
                  )                 
     port map (
       pixelclock      => pixelclock,
@@ -608,6 +621,11 @@ begin
       clock27 => clock27,
       clock50mhz      => ethclock,
 
+      hyper_addr => hyper_addr,
+      hyper_request_toggle => hyper_request_toggle,
+      hyper_data => hyper_data,
+      hyper_data_strobe => hyper_data_strobe,
+      
       fast_key => fastkey,
       
       btncpureset => btncpureset,

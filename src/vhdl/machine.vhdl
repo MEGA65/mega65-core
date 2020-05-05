@@ -54,6 +54,7 @@ use work.cputypes.all;
 
 entity machine is
   generic (cpufrequency : integer := 50;
+           hyper_installed : boolean := false;
            target : mega65_target_t );
   Port ( pixelclock : in STD_LOGIC;
          cpuclock : in std_logic;
@@ -324,6 +325,14 @@ entity machine is
          debug8_state_out : out std_logic_vector(7 downto 0);
          debug4_state_out : out std_logic_vector(3 downto 0);
          proceed_dbg_out : out std_logic;
+
+         ---------------------------------------------------------------------------
+         -- Direct interface to HyperRAM for fetching 256 colour glyph data etc
+         ---------------------------------------------------------------------------
+         hyper_addr : out unsigned(18 downto 3) := (others => '0');
+         hyper_request_toggle : out std_logic := '0';
+         hyper_data : in unsigned(7 downto 0) := x"00";
+         hyper_data_strobe : in std_logic := '0';
          
          ----------------------------------------------------------------------
          -- Debug interfaces on Nexys4 board
@@ -1088,6 +1097,7 @@ begin
       
       
   viciv0: entity work.viciv
+    generic map ( hyper_installed => hyper_installed )
     port map (
       pixelclock      => pixelclock,
       cpuclock        => cpuclock,
@@ -1109,6 +1119,11 @@ begin
       vsync_polarity => vsync_polarity,
       hsync_polarity => hsync_polarity,
 
+      hyper_addr => hyper_addr,
+      hyper_request_toggle => hyper_request_toggle,
+      hyper_data => hyper_data,
+      hyper_data_strobe => hyper_data_strobe,
+      
       -- Framing information from pixel_driver
       external_pixel_strobe_in => external_pixel_strobe,
       external_frame_x_zero => external_frame_x_zero,
