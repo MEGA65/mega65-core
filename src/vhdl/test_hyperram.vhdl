@@ -60,7 +60,7 @@ architecture foo of test_hyperram is
     value : unsigned(7 downto 0);     -- either to write, or expected to read
   end record mem_transaction_t;
 
-  type mem_job_list_t is array(0 to 99) of mem_transaction_t;
+  type mem_job_list_t is array(0 to 199) of mem_transaction_t;
 
   signal start_time : integer := 0;
   signal current_time : integer := 0;
@@ -122,22 +122,22 @@ architecture foo of test_hyperram is
     (address => x"800400f", write_p => '0', value => x"4f"),
 
     -- Write a linear block of 16
-    (address => x"8040000", write_p => '0', value => x"e0"),
-    (address => x"8040001", write_p => '0', value => x"e1"),
-    (address => x"8040002", write_p => '0', value => x"e2"),
-    (address => x"8040003", write_p => '0', value => x"e3"),
-    (address => x"8040004", write_p => '0', value => x"e4"),
-    (address => x"8040005", write_p => '0', value => x"e5"),
-    (address => x"8040006", write_p => '0', value => x"e6"),
-    (address => x"8040007", write_p => '0', value => x"e7"),
-    (address => x"8040008", write_p => '0', value => x"e8"),
-    (address => x"8040009", write_p => '0', value => x"e9"),
-    (address => x"804000a", write_p => '0', value => x"ea"),
-    (address => x"804000b", write_p => '0', value => x"eb"),
-    (address => x"804000c", write_p => '0', value => x"ec"),
-    (address => x"804000d", write_p => '0', value => x"ed"),
-    (address => x"804000e", write_p => '0', value => x"ee"),
-    (address => x"804000f", write_p => '0', value => x"ef"),
+    (address => x"8040000", write_p => '1', value => x"e0"),
+    (address => x"8040001", write_p => '1', value => x"e1"),
+    (address => x"8040002", write_p => '1', value => x"e2"),
+    (address => x"8040003", write_p => '1', value => x"e3"),
+    (address => x"8040004", write_p => '1', value => x"e4"),
+    (address => x"8040005", write_p => '1', value => x"e5"),
+    (address => x"8040006", write_p => '1', value => x"e6"),
+    (address => x"8040007", write_p => '1', value => x"e7"),
+    (address => x"8040008", write_p => '1', value => x"e8"),
+    (address => x"8040009", write_p => '1', value => x"e9"),
+    (address => x"804000a", write_p => '1', value => x"ea"),
+    (address => x"804000b", write_p => '1', value => x"eb"),
+    (address => x"804000c", write_p => '1', value => x"ec"),
+    (address => x"804000d", write_p => '1', value => x"ed"),
+    (address => x"804000e", write_p => '1', value => x"ee"),
+    (address => x"804000f", write_p => '1', value => x"ef"),
     
     -- Read the first 16 bytes back
     (address => x"8000000", write_p => '0', value => x"30"),
@@ -174,6 +174,25 @@ architecture foo of test_hyperram is
     (address => x"8800089", write_p => '0', value => x"89"),
     (address => x"880008a", write_p => '0', value => x"8a"),
     (address => x"880008b", write_p => '0', value => x"8b"),
+
+    -- Read a linear block of 16
+    (address => x"8040000", write_p => '0', value => x"e0"),
+    (address => x"8040001", write_p => '0', value => x"e1"),
+    (address => x"8040002", write_p => '0', value => x"e2"),
+    (address => x"8040003", write_p => '0', value => x"e3"),
+    (address => x"8040004", write_p => '0', value => x"e4"),
+    (address => x"8040005", write_p => '0', value => x"e5"),
+    (address => x"8040006", write_p => '0', value => x"e6"),
+    (address => x"8040007", write_p => '0', value => x"e7"),
+    (address => x"8040008", write_p => '0', value => x"e8"),
+    (address => x"8040009", write_p => '0', value => x"e9"),
+    (address => x"804000a", write_p => '0', value => x"ea"),
+    (address => x"804000b", write_p => '0', value => x"eb"),
+    (address => x"804000c", write_p => '0', value => x"ec"),
+    (address => x"804000d", write_p => '0', value => x"ed"),
+    (address => x"804000e", write_p => '0', value => x"ee"),
+    (address => x"804000f", write_p => '0', value => x"ef"),
+
     
     others => ( address => x"FFFFFFF", write_p => '0', value => x"00")
     );
