@@ -17,14 +17,14 @@ architecture behavior of cpu_test is
   signal pmoda : std_logic_vector(7 downto 0) := "ZZZZZZZZ";
   signal pmodc : std_logic_vector(7 downto 0) := "ZZZZZZZZ";
   
-  signal pixelclock : std_logic := '0';
-  signal cpuclock : std_logic := '0';
-  signal ioclock : std_logic := '0';
-  signal clock50mhz : std_logic := '0';
-  signal clock27 : std_logic := '0';
-  signal clock100 : std_logic := '0';
-  signal clock163 : std_logic := '0';
-  signal clock325 : std_logic := '0';
+  signal pixelclock : std_logic := '1';
+  signal cpuclock : std_logic := '1';
+  signal ioclock : std_logic := '1';
+  signal clock50mhz : std_logic := '1';
+  signal clock27 : std_logic := '1';
+  signal clock100 : std_logic := '1';
+  signal clock163 : std_logic := '1';
+  signal clock325 : std_logic := '1';
   signal reset : std_logic := '0';
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
@@ -163,19 +163,19 @@ architecture behavior of cpu_test is
   signal current_cache_line_valid : std_logic := '0';
   signal expansionram_current_cache_line_next_toggle : std_logic := '0';
 
-  signal hr_d : unsigned(7 downto 0) := (others => '0');
-  signal hr_rwds : std_logic := '0';
-  signal hr_reset : std_logic := '1';
-  signal hr_clk_n : std_logic := '0';
-  signal hr_clk_p : std_logic := '0';
-  signal hr_cs0 : std_logic := '0';
+  signal hr_d : unsigned(7 downto 0);
+  signal hr_rwds : std_logic;
+  signal hr_reset : std_logic;
+  signal hr_clk_n : std_logic;
+  signal hr_clk_p : std_logic;
+  signal hr_cs0 : std_logic;
 
-  signal hr2_d : unsigned(7 downto 0) := (others => '0');
-  signal hr2_rwds : std_logic := '0';
-  signal hr2_reset : std_logic := '1';
-  signal hr2_clk_n : std_logic := '0';
-  signal hr2_clk_p : std_logic := '0';
-  signal hr2_cs0 : std_logic := '0'; 
+  signal hr2_d : unsigned(7 downto 0);
+  signal hr2_rwds : std_logic;
+  signal hr2_reset : std_logic;
+  signal hr2_clk_n : std_logic;
+  signal hr2_clk_p : std_logic;
+  signal hr2_cs0 : std_logic; 
   
 begin
 
@@ -523,76 +523,111 @@ begin
     end loop;
   end process;
 
+  process(hr_cs0, hr_clk_p, hr_reset, hr_rwds, hr_d,
+          hr2_cs0, hr2_clk_p, hr2_reset, hr2_rwds, hr2_d
+          ) is
+  begin
+    report
+      "hr_cs0 = " & std_logic'image(hr_cs0) & ", " &
+      "hr_clk_p = " & std_logic'image(hr_clk_p) & ", " &
+      "hr_reset = " & std_logic'image(hr_reset) & ", " &
+      "hr_rwds = " & std_logic'image(hr_rwds) & ", " &
+      "hr_d = " & std_logic'image(hr_d(0))
+      & std_logic'image(hr_d(1))
+      & std_logic'image(hr_d(2))
+      & std_logic'image(hr_d(3))
+      & std_logic'image(hr_d(4))
+      & std_logic'image(hr_d(5))
+      & std_logic'image(hr_d(6))
+      & std_logic'image(hr_d(7))
+      & ".";
+    report
+      "hr2_cs0 = " & std_logic'image(hr2_cs0) & ", " &
+      "hr2_clk_p = " & std_logic'image(hr2_clk_p) & ", " &
+      "hr2_reset = " & std_logic'image(hr2_reset) & ", " &
+      "hr2_rwds = " & std_logic'image(hr2_rwds) & ", " &
+      "hr2_d = " & std_logic'image(hr2_d(0))
+      & std_logic'image(hr2_d(1))
+      & std_logic'image(hr2_d(2))
+      & std_logic'image(hr2_d(3))
+      & std_logic'image(hr2_d(4))
+      & std_logic'image(hr2_d(5))
+      & std_logic'image(hr2_d(6))
+      & std_logic'image(hr2_d(7))
+      & ".";
+  end process;
+  
   
   process
   begin  -- process tb
     report "beginning simulation" severity note;
+
+    wait for 3 ns;
     
     for i in 1 to 2000000 loop
-      clock325 <= '0';
-      pixelclock <= '0';
-      cpuclock <= '0';
-      ioclock <= '0';
-      clock163 <= '0';
-      
-      clock325 <= '1';
-      wait for 1.5 ns;
-      clock325 <= '0';
-      wait for 1.5 ns;
-      
-      clock163 <= '1';
-      
-      clock325 <= '1';
-      wait for 1.5 ns;
-      clock325 <= '0';
-      wait for 1.5 ns;
-      
-      pixelclock <= '1';
-      clock163 <= '0';
-      
-      clock325 <= '1';
-      wait for 1.5 ns;
-      clock325 <= '0';
-      wait for 1.5 ns;
-      
-      clock163 <= '1';
-      
-      clock325 <= '1';
-      wait for 1.5 ns;
-      clock325 <= '0';
-      wait for 1.5 ns;
-      
-      pixelclock <= '0';
-      cpuclock <= '1';
-      ioclock <= '1';
-      clock163 <= '0';
-      
-      clock325 <= '1';
-      wait for 1.5 ns;
-      clock325 <= '0';
-      wait for 1.5 ns;
-      
-      clock163 <= '1';
-      
-      clock325 <= '1';
-      wait for 1.5 ns;
-      clock325 <= '0';
-      wait for 1.5 ns;
-      
-      pixelclock <= '1';
-      clock163 <= '0';
-      
-      clock325 <= '1';
-      wait for 1.5 ns;
-      clock325 <= '0';
-      wait for 1.5 ns;
-      
-      clock163 <= '1';
-      
-      clock325 <= '1';
-      wait for 1.5 ns;
-      clock325 <= '0';
-      wait for 1.5 ns;
+
+    clock325 <= '0';
+    pixelclock <= '0';
+    cpuclock <= '0';
+    clock163 <= '0';
+
+    clock325 <= '1';
+    wait for 1.5 ns;
+    clock325 <= '0';
+    wait for 1.5 ns;
+
+    clock163 <= '1';
+
+    clock325 <= '1';
+    wait for 1.5 ns;
+    clock325 <= '0';
+    wait for 1.5 ns;
+
+    pixelclock <= '1';
+    clock163 <= '0';
+
+    clock325 <= '1';
+    wait for 1.5 ns;
+    clock325 <= '0';
+    wait for 1.5 ns;
+
+    clock163 <= '1';
+
+    clock325 <= '1';
+    wait for 1.5 ns;
+    clock325 <= '0';
+    wait for 1.5 ns;
+
+    pixelclock <= '0';
+    cpuclock <= '1';
+    clock163 <= '0';
+
+    clock325 <= '1';
+    wait for 1.5 ns;
+    clock325 <= '0';
+    wait for 1.5 ns;
+
+    clock163 <= '1';
+
+    clock325 <= '1';
+    wait for 1.5 ns;
+    clock325 <= '0';
+    wait for 1.5 ns;
+
+    pixelclock <= '1';
+    clock163 <= '0';
+
+    clock325 <= '1';
+    wait for 1.5 ns;
+    clock325 <= '0';
+    wait for 1.5 ns;
+
+    clock163 <= '1';
+
+    clock325 <= '1';
+    wait for 1.5 ns;
+    clock325 <= '0';
+    wait for 1.5 ns;
       
       if i = 10 then
         reset <= '1';

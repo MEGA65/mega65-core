@@ -336,7 +336,7 @@ begin
     variable show_always : boolean := false;
   begin
     if rising_edge(pixelclock) then
-
+      
       read_request_latch <= read_request;
       write_request_latch <= write_request;
       
@@ -996,7 +996,6 @@ begin
     end if;
 
     if rising_edge(clock163) then
-
       cycle_count <= cycle_count + 1;
 
       if mark_cache_for_prefetch='1' then
@@ -1192,7 +1191,8 @@ begin
             -- within the comming clock cycle
             elsif hr_clock_phase(2 downto 1) = "10" then
               if viciv_request_toggle /= viciv_last_request_toggle then
-                report "VIC: Received data request";
+                report "VIC: Received data request for $" & to_hstring(viciv_addr&"000")
+                  & ", bank = $" & to_hstring(viciv_bank&"0000000000000000000");
                 -- VIC-IV is asking for 8 bytes of data
                 viciv_last_request_toggle <= viciv_request_toggle;
 
@@ -1200,15 +1200,16 @@ begin
                 hr_command(47) <= '1'; -- READ
                 hr_command(46) <= '0'; -- Memory, not register space
                 hr_command(45) <= '1'; -- linear
-                hr_command(44 downto 35) <= (others => '0'); -- unused upper address bits
+                hr_command(44 downto 32) <= (others => '0'); -- unused upper address bits
                 hr_command(15 downto 3) <= (others => '0'); -- reserved bits
-                hr_command(34 downto 28) <= viciv_bank(6 downto 0);
+                hr_command(31 downto 28) <= viciv_bank(3 downto 0);
                 hr_command(27 downto 16) <= viciv_addr(15 downto 4);
                 hr_command(2) <= viciv_addr(3);
                 hr_command(1 downto 0) <= "00";
 
-                hyperram0_select <= not viciv_bank(7);
-                hyperram1_select <= viciv_bank(7);
+                -- We want 
+                hyperram0_select <= not viciv_bank(4);
+                hyperram1_select <= viciv_bank(4);
                 
                 hyperram_access_address(26 downto 19) <= viciv_bank;
                 hyperram_access_address(18 downto 3) <= viciv_addr(18 downto 3);

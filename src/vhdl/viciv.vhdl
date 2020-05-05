@@ -831,7 +831,7 @@ architecture Behavioral of viciv is
   signal glyph_trim_top : integer range 0 to 7;
   signal glyph_trim_bottom : integer range 0 to 7;
   signal glyph_paint_background : std_logic := '1';
-  signal glyphs_from_hyperram : std_logic := '0';
+  signal glyphs_from_hyperram : std_logic := '1';
   signal last_hyper_request_toggle : std_logic := '0';
 
   signal short_line : std_logic := '0';
