@@ -1121,8 +1121,8 @@ begin
 
       hyper_addr => hyper_addr,
       hyper_request_toggle => hyper_request_toggle,
-      hyper_data => hyper_data,
-      hyper_data_strobe => hyper_data_strobe,
+      hyper_data_in => hyper_data,
+      hyper_data_strobe_in => hyper_data_strobe,
       
       -- Framing information from pixel_driver
       external_pixel_strobe_in => external_pixel_strobe,
