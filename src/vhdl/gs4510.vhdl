@@ -39,6 +39,7 @@ entity gs4510 is
   generic(
     math_unit_enable : boolean := false;
     chipram_1mb : std_logic := '0';
+
     cpufrequency : integer := 50;
     chipram_size : integer := 393216;
     target : mega65_target_t := mega65r2);
@@ -1253,9 +1254,11 @@ architecture Behavioural of gs4510 is
   -- Simulated VDC access
   signal vdc_reg_num : unsigned(7 downto 0) := to_unsigned(0,8);
   signal vdc_mem_addr : unsigned(15 downto 0) := to_unsigned(0,16);
+  signal vdc_mem_addr_drive : unsigned(15 downto 0) := to_unsigned(0,16);
   -- fake VDC status register that claims "always ready"
   signal vdc_status : unsigned(7 downto 0) := x"80";
   signal vdc_mem_addr_src : unsigned(15 downto 0) := to_unsigned(0,16);
+  signal vdc_mem_addr_src_drive : unsigned(15 downto 0) := to_unsigned(0,16);
   signal vdc_word_count : unsigned(7 downto 0) := x"00";
   signal vdc_enabled : std_logic := '0';
   
@@ -3235,6 +3238,9 @@ begin
                                         -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) and all_pause='0' then
 
+      vdc_mem_addr_drive <= vdc_mem_addr;
+      vdc_mem_addr_src_drive <= vdc_mem_addr_src;
+            
       if (clear_matrix_mode_toggle='1' and last_clear_matrix_mode_toggle='0')
         or (clear_matrix_mode_toggle='0' and last_clear_matrix_mode_toggle='1')
       then
@@ -7100,14 +7106,14 @@ begin
           memory_access_read := '1';
           memory_access_resolve_address := '0';
           memory_access_address(27 downto 16) := x"004";
-          memory_access_address(15 downto 0) := resolve_vdc_to_viciv_address(vdc_mem_addr_src);
+          memory_access_address(15 downto 0) := resolve_vdc_to_viciv_address(vdc_mem_addr_src_drive);
 
         when VDCWrite =>
           memory_access_write := '1';
           memory_access_wdata := read_data;
           memory_access_resolve_address := '0';
           memory_access_address(27 downto 16) := x"004";
-          memory_access_address(15 downto 0) := resolve_vdc_to_viciv_address(vdc_mem_addr);
+          memory_access_address(15 downto 0) := resolve_vdc_to_viciv_address(vdc_mem_addr_drive);
               
         when DMAgicCopyRead =>
           -- Do memory read
@@ -7604,7 +7610,7 @@ begin
           -- We map VDC RAM always to $40000
           -- So we re-map this write to $4xxxx
           long_address(27 downto 16) := x"004";
-          long_address(15 downto 0) := resolve_vdc_to_viciv_address(vdc_mem_addr);
+          long_address(15 downto 0) := resolve_vdc_to_viciv_address(vdc_mem_addr_drive);
         else
           long_address := real_long_address;
         end if;
@@ -7655,7 +7661,7 @@ begin
           -- We map VDC RAM always to $40000
           -- So we re-map this write to $4xxxx
           long_address(27 downto 16) := x"004";
-          long_address(15 downto 0) := resolve_vdc_to_viciv_address(vdc_mem_addr);          
+          long_address(15 downto 0) := resolve_vdc_to_viciv_address(vdc_mem_addr_drive);          
         end if;
         
         if real_long_address(27 downto 12) = x"001F" and real_long_address(11)='1' then
