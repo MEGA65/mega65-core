@@ -109,6 +109,12 @@ architecture gothic of hyperram is
   signal busy_internal : std_logic := '1';
   signal hr_command : unsigned(47 downto 0);
 
+  type last_trans_t is array (0 to 3) of unsigned(47 downto 0);
+  type last_time_t is array (0 to 3) of unsigned(31 downto 0);
+  signal last_transactions : last_trans_t;
+  signal last_transaction_times : last_time_t;
+  signal transaction_timestamp : unsigned(31 downto 0) := to_unsigned(0,32);
+
   signal hr_d_last : unsigned(7 downto 0);
   
   -- Used to assert CS line on BOTH hyperRAM modules at the same time
@@ -749,6 +755,31 @@ begin
               |  x"6e"
               |  x"6f" => fake_rdata <= block_data(3)(to_integer(address(2 downto 0)));
 
+            when x"80" | x"81" | x"82" | x"83" | x"84" | x"85" =>
+              fake_rdata <= last_transactions(3)
+                ((47 - to_integer(address(3 downto 0)*8)) downto (40 - to_integer(address(3 downto 0)*8)));
+            when x"8c" | x"8d" | x"8e" | x"8f" =>
+              fake_rdata <= last_transaction_times(3)
+                ((31 - to_integer(address(2 downto 0)*8)) downto (24 - to_integer(address(2 downto 0)*8)));
+            when x"90" | x"91" | x"92" | x"93" | x"94" | x"95" =>
+              fake_rdata <= last_transactions(2)
+                ((47 - to_integer(address(3 downto 0)*8)) downto (40 - to_integer(address(3 downto 0)*8)));
+            when x"9c" | x"9d" | x"9e" | x"9f" =>
+              fake_rdata <= last_transaction_times(2)
+                ((31 - to_integer(address(2 downto 0)*8)) downto (24 - to_integer(address(2 downto 0)*8)));
+            when x"a0" | x"a1" | x"a2" | x"a3" | x"a4" | x"a5" =>
+              fake_rdata <= last_transactions(1)
+                ((47 - to_integer(address(3 downto 0)*8)) downto (40 - to_integer(address(3 downto 0)*8)));
+            when x"ac" | x"ad" | x"ae" | x"af" =>
+              fake_rdata <= last_transaction_times(1)
+                ((31 - to_integer(address(2 downto 0)*8)) downto (24 - to_integer(address(2 downto 0)*8)));
+            when x"b0" | x"b1" | x"b2" | x"b3" | x"b4" | x"b5" =>
+              fake_rdata <= last_transactions(0)
+                ((47 - to_integer(address(3 downto 0)*8)) downto (40 - to_integer(address(3 downto 0)*8)));
+            when x"bc" | x"bd" | x"be" | x"bf" =>
+              fake_rdata <= last_transaction_times(0)
+                ((31 - to_integer(address(2 downto 0)*8)) downto (24 - to_integer(address(2 downto 0)*8)));
+
                           
             when others => fake_rdata <= x"BF";
           end case;
@@ -1120,6 +1151,8 @@ begin
     if rising_edge(clock163) then
       cycle_count <= cycle_count + 1;
 
+      transaction_timestamp <= transaction_timestamp + 1;
+      
       if mark_cache_for_prefetch='1' then
         if random_bits(1)='0' then
           cache_row0_valids <= (others => '0');
@@ -1683,6 +1716,17 @@ begin
             hr_rwds <= 'Z';
             hr2_rwds <= 'Z';
 
+            -- Remember the last few transactions and their time stamps, so
+            -- that we can debug the external hyper ram
+            last_transactions(0) <= hr_command;
+            last_transactions(1) <= last_transactions(0);
+            last_transactions(2) <= last_transactions(1);
+            last_transactions(3) <= last_transactions(2);
+            last_transaction_times(0) <= transaction_timestamp;
+            last_transaction_times(1) <= last_transaction_times(0);
+            last_transaction_times(2) <= last_transaction_times(1);
+            last_transaction_times(3) <= last_transaction_times(2);            
+            
             -- Prepare for reading block data
             is_block_read <= false;
             if (hyperram_access_address(4 downto 3) = "00") and block_read_enable='1' and (ram_reading_held='1')
