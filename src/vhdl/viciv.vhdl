@@ -54,7 +54,8 @@ use work.all;
 
 entity viciv is
   generic (
-    chipram_size : integer := 393216
+    chipram_size : integer := 393216;
+    hyper_installed : boolean := false
     );
   Port (
     all_pause : in std_logic;
@@ -162,6 +163,14 @@ entity viciv is
     chipram_address : OUT unsigned(19 DOWNTO 0);
     chipram_datain : IN unsigned(7 DOWNTO 0);
 
+    ---------------------------------------------------------------------------
+    -- Direct interface to HyperRAM for fetching 256 colour glyph data etc
+    ---------------------------------------------------------------------------
+    hyper_addr : out unsigned(18 downto 3) := (others => '0');
+    hyper_request_toggle : out std_logic := '0';
+    hyper_data : in unsigned(7 downto 0) := x"00";
+    hyper_data_strobe : in std_logic := '0';
+    
     -----------------------------------------------------------------------------
     -- FastIO interface for accessing video registers
     -----------------------------------------------------------------------------
@@ -452,6 +461,7 @@ architecture Behavioral of viciv is
                            FetchBitmapCell,
                            FetchBitmapData,
                            PaintFullColourFetch,
+                           PaintFullColourHyperRAMFetch,
                            PaintMemWait,
                            PaintMemWait2,
                            PaintMemWait3,
@@ -821,6 +831,8 @@ architecture Behavioral of viciv is
   signal glyph_trim_top : integer range 0 to 7;
   signal glyph_trim_bottom : integer range 0 to 7;
   signal glyph_paint_background : std_logic := '1';
+  signal glyphs_from_hyperram : std_logic := '0';
+  signal last_hyper_request_toggle : std_logic := '0';
 
   signal short_line : std_logic := '0';
   signal short_line_length : integer range 0 to 512;
@@ -1905,7 +1917,8 @@ begin
         elsif register_number=98 then
           fastio_rdata <= std_logic_vector(screen_ram_base(23 downto 16));
         elsif register_number=99 then
-          fastio_rdata(7 downto 4) <= x"0";
+          fastio_rdata(7) <= glyphs_from_hyperram;
+          fastio_rdata(6 downto 4) <= (others => '0');
           fastio_rdata(3 downto 0) <= std_logic_vector(screen_ram_base(27 downto 24));
         elsif register_number=100 then
           fastio_rdata <= std_logic_vector(colour_ram_base(7 downto 0));
@@ -2614,8 +2627,10 @@ begin
           -- @IO:GS $D062 VIC-IV:SCRNPTR screen RAM precise base address (bits 23 - 16)
           screen_ram_base(23 downto 16) <= unsigned(fastio_wdata);
         elsif register_number=99 then
-          -- @IO:GS $D063 VIC-IV:SCRNPTR screen RAM precise base address (bits 31 - 24)
+          -- @IO:GS $D063.0-3 VIC-IV:SCRNPTR screen RAM precise base address (bits 31 - 24)
           screen_ram_base(27 downto 24) <= unsigned(fastio_wdata(3 downto 0));
+          -- @IO:GS $D063.7 VIC-IV:EXGLYPH source full-colour character data from expansion RAM
+          glyphs_from_hyperram <= fastio_wdata(7);
         elsif register_number=100 then
           -- @IO:GS $D064 VIC-IV:COLPTR colour RAM base address (bits 0 - 7)
           colour_ram_base(7 downto 0) <= unsigned(fastio_wdata);
@@ -4375,15 +4390,62 @@ begin
           end if;
 
           if glyph_full_colour = '1' then
-            if glyph_flip_horizontal = '0' then
-              glyph_data_address(2 downto 0) <= glyph_data_address(2 downto 0) + 1;
+            if glyphs_from_hyperram='0' or (not hyper_installed) then
+              -- Fetch full-colour glyph data from chip ram
+              if glyph_flip_horizontal = '0' then
+                glyph_data_address(2 downto 0) <= glyph_data_address(2 downto 0) + 1;
+              else
+                glyph_data_address(2 downto 0) <= glyph_data_address(2 downto 0) - 1;
+              end if;
+              full_colour_fetch_count <= 0;
+              raster_fetch_state <= PaintFullColourFetch;
             else
-              glyph_data_address(2 downto 0) <= glyph_data_address(2 downto 0) - 1;
+              -- Fetch glyph data from ATTIC/CELLAR ram (hyperram)
+              full_colour_fetch_count <= 0;
+              hyper_addr(18 downto 3) <= glyph_data_address(18 downto 3);
+              hyper_request_toggle <= not last_hyper_request_toggle;
+              last_hyper_request_toggle <= not last_hyper_request_toggle;
+              raster_fetch_state <= PaintFullColourHyperRAMFetch;
             end if;
-            full_colour_fetch_count <= 0;
-            raster_fetch_state <= PaintFullColourFetch;
           else
             raster_fetch_state <= PaintMemWait3;
+          end if;
+        when PaintFullColourHyperRAMFetch =>
+          -- Read data from dedicated hyperram interface (a bit like the VRAM
+          -- that was originally planned for the Amiga Ranger chipset that was
+          -- never released.
+          if hyper_data_strobe='1' then
+            if full_colour_fetch_count < 7 then
+
+              if glyph_flip_horizontal='0' then
+                if glyph_visible='0' then
+                  full_colour_data(63 downto 56) <= "00000000";
+                elsif glyph_underline='1' then
+                  full_colour_data(63 downto 56) <= "11111111";
+                elsif glyph_reverse='1' then
+                  full_colour_data(63 downto 56) <= hyper_data xor "11111111";
+                else
+                  full_colour_data(63 downto 56) <= hyper_data;                  
+                end if;
+                full_colour_data(55 downto 0) <= full_colour_data(63 downto 8);                
+              else
+                if glyph_visible='0' then
+                  full_colour_data(7 downto 0) <= "00000000";
+                elsif glyph_underline='1' then
+                  full_colour_data(7 downto 0) <= "11111111";
+                elsif glyph_reverse='1' then
+                  full_colour_data(7 downto 0) <= hyper_data xor "11111111";
+                else
+                  full_colour_data(7 downto 0) <= hyper_data;                  
+                end if;
+                full_colour_data(63 downto 8) <= full_colour_data(55 downto 0);                
+              end if;
+              
+              raster_fetch_state <= PaintFullColourHyperRAMFetch;
+              full_colour_fetch_count <= full_colour_fetch_count + 1;
+            else
+              raster_fetch_state <= PaintMemWait3;
+            end if;
           end if;
         when PaintFullColourFetch =>
           -- Show what we are doing in debug display mode
