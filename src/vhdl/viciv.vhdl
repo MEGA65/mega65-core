@@ -1036,7 +1036,9 @@ architecture Behavioral of viciv is
   signal show_render_activity : std_logic := '0';
 
   signal hyper_data : unsigned(7 downto 0) := x"00";
+  signal hyper_addr_drive : unsigned(18 downto 3) := x"0000";
   signal hyper_data_strobe : std_logic := '0';
+  signal hyper_request_toggle_drive : std_logic := '0';
   
 begin
 
@@ -2027,9 +2029,11 @@ begin
 
     if rising_edge(ioclock) then
 
-      -- Drive stage for data from hyper RAM
+      -- Drive stage for data from hyper RAM and signals out to it
       hyper_data <= hyper_data_in;
       hyper_data_strobe <= hyper_data_strobe_in;
+      hyper_addr <= hyper_addr_drive;
+      hyper_request_toggle <= hyper_request_toggle_drive;
       
       if vicii_ntsc='1' then
         display_height <= display_height_ntsc;
@@ -4409,8 +4413,8 @@ begin
             else
               -- Fetch glyph data from ATTIC/CELLAR ram (hyperram)
               full_colour_fetch_count <= 0;
-              hyper_addr(18 downto 3) <= glyph_data_address(18 downto 3);
-              hyper_request_toggle <= not last_hyper_request_toggle;
+              hyper_addr_drive(18 downto 3) <= glyph_data_address(18 downto 3);
+              hyper_request_toggle_drive <= not last_hyper_request_toggle;
               last_hyper_request_toggle <= not last_hyper_request_toggle;
               raster_fetch_state <= PaintFullColourHyperRAMFetch;
             end if;
