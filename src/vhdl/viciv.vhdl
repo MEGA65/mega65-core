@@ -168,8 +168,8 @@ entity viciv is
     ---------------------------------------------------------------------------
     hyper_addr : out unsigned(18 downto 3) := (others => '0');
     hyper_request_toggle : out std_logic := '0';
-    hyper_data : in unsigned(7 downto 0) := x"00";
-    hyper_data_strobe : in std_logic := '0';
+    hyper_data_in : in unsigned(7 downto 0) := x"00";
+    hyper_data_strobe_in : in std_logic := '0';
     
     -----------------------------------------------------------------------------
     -- FastIO interface for accessing video registers
@@ -1035,6 +1035,9 @@ architecture Behavioral of viciv is
   signal render_activity : std_logic_vector(2 downto 0) := "000";
   signal show_render_activity : std_logic := '0';
 
+  signal hyper_data : unsigned(7 downto 0) := x"00";
+  signal hyper_data_strobe : std_logic := '0';
+  
 begin
 
   rasterbuffer1: entity work.ram18x2k
@@ -2024,6 +2027,10 @@ begin
 
     if rising_edge(ioclock) then
 
+      -- Drive stage for data from hyper RAM
+      hyper_data <= hyper_data_in;
+      hyper_data_strobe <= hyper_data_strobe_in;
+      
       if vicii_ntsc='1' then
         display_height <= display_height_ntsc;
       else
@@ -4416,7 +4423,7 @@ begin
           -- never released.
           if hyper_data_strobe='1' then
             if full_colour_fetch_count < 7 then
-
+              report "VIC: Receiving hyperram byte $" & to_hstring(hyper_data);
               if glyph_flip_horizontal='0' then
                 if glyph_visible='0' then
                   full_colour_data(63 downto 56) <= "00000000";
@@ -4444,6 +4451,7 @@ begin
               raster_fetch_state <= PaintFullColourHyperRAMFetch;
               full_colour_fetch_count <= full_colour_fetch_count + 1;
             else
+              report "VIC: Received all bytes from HyperRAM. Resuming";
               raster_fetch_state <= PaintMemWait3;
             end if;
           end if;
