@@ -349,7 +349,8 @@ begin
         viciv_next_byte <= 1;
         viciv_data_strobe <= '1';
       elsif viciv_next_byte < 8 then
-        report "VIC: Sending byte " & integer'image(viciv_next_byte);
+        report "VIC: Sending byte " & integer'image(viciv_next_byte)
+           & " = $" & to_hstring(viciv_data_buffer(viciv_next_byte));
         viciv_data_out <= viciv_data_buffer(viciv_next_byte);
         viciv_next_byte <= viciv_next_byte + 1;
         viciv_data_strobe <= '1';        
@@ -632,6 +633,127 @@ begin
             fake_rdata <= cache_row1_data(to_integer(address(2 downto 0)));
             report "DISPATCH: Returning data $"& to_hstring(cache_row1_data(to_integer(address(2 downto 0))))&" from cache row1";
           end if;
+        elsif address(23 downto 8) = x"00000" and address(25 downto 24) = "11" then
+          -- $B0000xx for now for debugging caches etc
+          case address(7 downto 0) is
+            when x"00" => fake_rdata <= cache_row0_address(23 downto 16);
+            when x"01" => fake_rdata <= cache_row0_address(15 downto 8);
+            when x"02" => fake_rdata <= cache_row0_address(7 downto 0);
+            when x"03" => fake_rdata <= x"AA";
+            when x"04" => fake_rdata <= unsigned(cache_row0_valids);
+            when x"05" => fake_rdata <= x"AA";
+            when x"06" => fake_rdata <= x"AA";
+            when x"07" => fake_rdata <= x"AA";
+            when x"08"|x"09"|x"0a"|x"0b"|x"0c"|x"0d"|x"0e"|x"0f" =>
+              fake_rdata <= cache_row0_data(to_integer(address(2 downto 0)));
+
+            when x"10" => fake_rdata <= cache_row1_address(23 downto 16);
+            when x"11" => fake_rdata <= cache_row1_address(15 downto 8);
+            when x"12" => fake_rdata <= cache_row1_address(7 downto 0);
+            when x"13" => fake_rdata <= x"AA";
+            when x"14" => fake_rdata <= unsigned(cache_row1_valids);
+            when x"15" => fake_rdata <= x"AA";
+            when x"16" => fake_rdata <= x"AA";
+            when x"17" => fake_rdata <= x"AA";
+            when x"18"
+              |  x"19"
+              |  x"1a"
+              |  x"1b"
+              |  x"1c"
+              |  x"1d"
+              |  x"1e"
+              |  x"1f" => fake_rdata <= cache_row1_data(to_integer(address(2 downto 0)));
+
+            when x"20" => fake_rdata <= write_collect0_address(23 downto 16);
+            when x"21" => fake_rdata <= write_collect0_address(15 downto 8);
+            when x"22" => fake_rdata(7 downto 3) <= write_collect0_address(7 downto 3);
+                          fake_rdata(2 downto 0) <= "000";
+            when x"23" => fake_rdata <= x"AA";
+            when x"24" => fake_rdata <= unsigned(write_collect0_valids);
+            when x"25" => fake_rdata <= x"AA";
+            when x"26" => fake_rdata <= x"00";
+                          fake_rdata(4) <= write_collect0_dispatchable;
+                          fake_rdata(1) <= write_collect0_toolate;
+                          fake_rdata(0) <= write_collect0_flushed;
+            when x"27" => fake_rdata <= x"AA";
+            when x"28"
+              |  x"29"
+              |  x"2a"
+              |  x"2b"
+              |  x"2c"
+              |  x"2d"
+              |  x"2e"
+              |  x"2f" => fake_rdata <= write_collect0_data(to_integer(address(2 downto 0)));
+
+            when x"30" => fake_rdata <= write_collect1_address(23 downto 16);
+            when x"31" => fake_rdata <= write_collect1_address(15 downto 8);
+            when x"32" => fake_rdata(7 downto 3) <= write_collect1_address(7 downto 3);
+                          fake_rdata(2 downto 0) <= "000";
+            when x"33" => fake_rdata <= x"AA";
+            when x"34" => fake_rdata <= unsigned(write_collect1_valids);
+            when x"35" => fake_rdata <= x"AA";
+            when x"36" => fake_rdata <= x"00";
+                          fake_rdata(4) <= write_collect1_dispatchable;
+                          fake_rdata(1) <= write_collect1_toolate;
+                          fake_rdata(0) <= write_collect1_flushed;
+            when x"37" => fake_rdata <= x"AA";
+            when x"38"
+              |  x"39"
+              |  x"3a"
+              |  x"3b"
+              |  x"3c"
+              |  x"3d"
+              |  x"3e"
+              |  x"3f" => fake_rdata <= write_collect1_data(to_integer(address(2 downto 0)));
+
+            when x"40" => fake_rdata <= block_address(23 downto 16);
+            when x"41" => fake_rdata <= block_address(15 downto 8);
+            when x"42" => fake_rdata(7 downto 5) <= block_address(7 downto 5);
+                          fake_rdata(4 downto 0) <= "00000";
+            when x"43" => fake_rdata <= x"AA";
+            when x"44" => fake_rdata <= x"00";
+                          if (block_valid='1') then fake_rdata <= x"FF"; end if;
+
+            when x"50"
+              |  x"51"
+              |  x"52"
+              |  x"53"
+              |  x"54"
+              |  x"55"
+              |  x"56"
+              |  x"57" => fake_rdata <= block_data(0)(to_integer(address(2 downto 0)));
+            when x"58"
+              |  x"59"
+              |  x"5a"
+              |  x"5b"
+              |  x"5c"
+              |  x"5d"
+              |  x"5e"
+              |  x"5f" => fake_rdata <= block_data(1)(to_integer(address(2 downto 0)));
+                          
+
+            when x"60"
+              |  x"61"
+              |  x"62"
+              |  x"63"
+              |  x"64"
+              |  x"65"
+              |  x"66"
+              |  x"67" => fake_rdata <= block_data(2)(to_integer(address(2 downto 0)));
+            when x"68"
+              |  x"69"
+              |  x"6a"
+              |  x"6b"
+              |  x"6c"
+              |  x"6d"
+              |  x"6e"
+              |  x"6f" => fake_rdata <= block_data(3)(to_integer(address(2 downto 0)));
+
+                          
+            when others => fake_rdata <= x"BF";
+          end case;
+          fake_data_ready_strobe <= '1';
+          report "asserting data_ready_strobe for fake read";                            
         elsif address(23 downto 4) = x"FFFFF" and address(25 downto 24) = "11" then
           -- Allow reading from dummy debug bitbash registers at $BFFFFFx
           case address(3 downto 0) is
