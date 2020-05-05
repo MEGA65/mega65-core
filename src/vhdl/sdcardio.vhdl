@@ -51,9 +51,11 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
+use work.cputypes.all;
 
 entity sdcardio is
   generic (
+    target : mega65_target_t;
     cpu_frequency : integer := 40000000
     );
   port (
@@ -499,12 +501,16 @@ begin  -- behavioural
   --**********************************************************************
 
   -- Used to allow MEGA65 to instruct FPGA to start a different bitstream #153
-  reconfig1: entity work.reconfig
-    port map ( clock => clock,
-               reg_num => icape2_reg,
-               trigger_reconfigure => trigger_reconfigure,
-               reconfigure_address => reconfigure_address,
-               boot_address => flash_boot_address);
+  reconfig:
+  if target /= simulation generate
+    reconfig1:
+    entity work.reconfig
+      port map ( clock => clock,
+                 reg_num => icape2_reg,
+                 trigger_reconfigure => trigger_reconfigure,
+                 reconfigure_address => reconfigure_address,
+                 boot_address => flash_boot_address);
+  end generate;
 
   touch0: entity work.touch
     port map (

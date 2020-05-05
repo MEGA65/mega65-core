@@ -6,6 +6,7 @@ use ieee.numeric_std.all;
 package cputypes is
 
   type mega65_target_t is (
+    simulation,
     mega65r1, mega65r2,
     megaphoner1,
     nexys4, nexys4ddr, nexys4ddr_widget

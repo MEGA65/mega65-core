@@ -175,6 +175,7 @@ VFPGAVHDL=		$(VHDLSRCDIR)/vfpga/overlay_IP.vhdl \
 
 PERIPHVHDL=		$(VHDLSRCDIR)/sdcardio.vhdl \
 			$(VHDLSRCDIR)/touch.vhdl \
+			$(VHDLSRCDIR)/hyperram.vhdl \
 			$(VHDLSRCDIR)/i2c_master.vhdl \
 			$(VHDLSRCDIR)/i2c_wrapper.vhdl \
 			$(VHDLSRCDIR)/buffereduart.vhdl \
@@ -221,6 +222,7 @@ M65VHDL=		$(VHDLSRCDIR)/machine.vhdl \
 			$(VHDLSRCDIR)/ddrwrapper.vhdl \
 			$(VHDLSRCDIR)/framepacker.vhdl \
 			$(VHDLSRCDIR)/hyppo.vhdl \
+			$(VHDLSRCDIR)/mega65r2_i2c.vhdl \
 			$(VHDLSRCDIR)/version.vhdl \
 			$(C65VHDL) \
 			$(VICIVVHDL) \
@@ -261,6 +263,10 @@ NEXYSVHDL=		$(VHDLSRCDIR)/slowram.vhdl \
 SIMULATIONVHDL=		$(VHDLSRCDIR)/cpu_test.vhdl \
 			$(VHDLSRCDIR)/fake_expansion_port.vhdl \
 			$(VHDLSRCDIR)/fake_sdcard.vhdl \
+			$(VHDLSRCDIR)/fake_reconfig.vhdl \
+			$(VHDLSRCDIR)/gen_utils.vhd \
+			$(VHDLSRCDIR)/conversions.vhd \
+			$(VHDLSRCDIR)/s27kl0641.vhd \
 			$(VHDLSRCDIR)/uart_monitor.vhdl.tmp \
 			$(CPUVHDL) \
 			$(M65VHDL)
