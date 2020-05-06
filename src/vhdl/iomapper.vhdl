@@ -927,19 +927,22 @@ begin
     audio_data => rightsid_audio);
   end block;
 
-  vfpga:        entity work.vfpga_wrapper_8bit port map (
-    pixel_clock => pixelclk,
-    clock => clk,
-    cs_vfpga => vfpga_cs,
-    hypervisor_mode_in => cpu_hypervisor_mode,
-
-    fastio_address => unsigned(address(19 downto 0)),
-    fastio_write => w,
-    std_logic_vector(fastio_rdata) => data_o,
-    fastio_read => r,
-    fastio_wdata => unsigned(data_i)
-    
-    );
+  vfpga:
+    if false generate
+      vfpga0:        entity work.vfpga_wrapper_8bit port map (
+        pixel_clock => pixelclk,
+        clock => clk,
+        cs_vfpga => vfpga_cs,
+        hypervisor_mode_in => cpu_hypervisor_mode,
+        
+        fastio_address => unsigned(address(19 downto 0)),
+        fastio_write => w,
+        std_logic_vector(fastio_rdata) => data_o,
+        fastio_read => r,
+        fastio_wdata => unsigned(data_i)        
+        );
+    end generate;
+  
   
   ethernet0 : entity work.ethernet port map (
     clock50mhz => clock50mhz,
