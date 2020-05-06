@@ -282,6 +282,8 @@ architecture gothic of hyperram is
   signal background_write_data : cache_row_t := (others => (others => '0'));
   signal background_write_count : integer range 0 to 7 := 0;
   signal background_write_next_address : unsigned(26 downto 3) := (others => '0');
+  signal background_write_next_address_matches_collect0 : std_logic := '0';
+  signal background_write_next_address_matches_collect1 : std_logic := '0';
   signal write_continues : integer range 0 to 255 := 0;
   signal write_continues_max : integer range 0 to 255 := 16;
   
@@ -2189,6 +2191,19 @@ begin
         when HyperRAMDoWriteSlow =>
           pause_phase <= not pause_phase;
 
+          if write_collect0_address = background_write_next_address then
+            background_write_next_address_matches_collect0 <= '1';
+          else
+            background_write_next_address_matches_collect0 <= '0';
+          end if;
+            
+          if write_collect1_address = background_write_next_address then
+            background_write_next_address_matches_collect1 <= '1';
+          else
+            background_write_next_address_matches_collect1 <= '0';
+          end if;
+            
+          
           if pause_phase = '1' then
             hr_clk_phaseshift <= write_phase_shift;
             if countdown_timeout = '1' then
@@ -2207,6 +2222,8 @@ begin
                 show_collect0 := true;
                 report "WRITE: background_write_data copied from write_collect0. Valids = " & to_string(write_collect0_valids);
                 background_write_next_address <= write_collect0_address + 1;
+                background_write_next_address_matches_collect0 <= '0';
+                background_write_next_address_matches_collect1 <= '0';
                 background_write_data <= write_collect0_data;
                 background_write_valids <= write_collect0_valids;
               elsif background_write_source = '1' and write_collect1_toolate='1' and write_collect1_flushed = '0' then
@@ -2214,6 +2231,8 @@ begin
                 show_collect1 := true;
                 report "WRITE: background_write_data copied from write_collect1";
                 background_write_next_address <= write_collect1_address + 1;
+                background_write_next_address_matches_collect0 <= '0';
+                background_write_next_address_matches_collect1 <= '0';
                 background_write_data <= write_collect1_data;
                 background_write_valids <= write_collect1_valids;
               end if;
@@ -2332,12 +2351,12 @@ begin
                       show_collect1 := true;
                       -- Get ready to commit next write block, if one is there
                       if write_continues /= 0 and write_collect0_toolate='0' and write_collect0_flushed = '0'
-                        and write_collect0_address = background_write_next_address then
+                        and background_write_next_address_matches_collect0='1' then
                         report "WRITECONTINUE: Marking collect0 @ $" & to_hstring(write_collect0_address&"000") & " for chained write.";
                         write_collect0_toolate <= '1';
                         show_collect0 := true;                          
                       elsif write_continues /= 0 and write_collect1_toolate='0' and write_collect1_flushed = '0'
-                        and write_collect1_address = background_write_next_address then
+                        and background_write_next_address_matches_collect1='1' then
                         report "WRITECONTINUE: Marking collect1 @ $" & to_hstring(write_collect1_address&"000") & " for chained write.";
                         write_collect1_toolate <= '1';
                         show_collect1 := true;
@@ -2347,10 +2366,12 @@ begin
                     -- See if we have another write collect that we can
                     -- continue with
                     if write_continues /= 0 and write_collect0_toolate='1' and write_collect0_flushed = '0'
-                      and write_collect0_address = background_write_next_address
+                      and background_write_next_address_matches_collect0='1'
                     then
                       report "WRITECONTINUE: background_write_data copied from write_collect0. Valids = " & to_string(write_collect0_valids);
                       background_write_next_address <= write_collect0_address + 1;
+                      background_write_next_address_matches_collect0 <= '0';
+                      background_write_next_address_matches_collect1 <= '0';
                       background_write_data <= write_collect0_data;
                       background_write_valids <= write_collect0_valids;
                       background_write_count <= 7;
@@ -2358,9 +2379,11 @@ begin
                       write_continues <= write_continues - 1;
                       show_collect0 := true;                          
                     elsif write_continues /= 0 and write_collect1_toolate='1' and write_collect1_flushed = '0'
-                      and write_collect1_address = background_write_next_address then
+                      and background_write_next_address_matches_collect0='1' then
                       report "WRITECONTINUE: background_write_data copied from write_collect1";
                       background_write_next_address <= write_collect1_address + 1;
+                      background_write_next_address_matches_collect0 <= '0';
+                      background_write_next_address_matches_collect1 <= '0';
                       background_write_data <= write_collect1_data;
                       background_write_valids <= write_collect1_valids;
                       background_write_count <= 7;
