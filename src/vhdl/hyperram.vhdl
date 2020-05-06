@@ -284,6 +284,10 @@ architecture gothic of hyperram is
   signal background_write_next_address : unsigned(26 downto 3) := (others => '0');
   signal background_write_next_address_matches_collect0 : std_logic := '0';
   signal background_write_next_address_matches_collect1 : std_logic := '0';
+  signal background_chained_write : std_logic := '0';
+  signal background_write_fetch : std_logic := '0';
+  signal collect1_matches_collect0_plus_1 : std_logic := '0';
+  signal collect0_matches_collect1_plus_1 : std_logic := '0';
   signal write_continues : integer range 0 to 255 := 0;
   signal write_continues_max : integer range 0 to 255 := 16;
   
@@ -1535,7 +1539,10 @@ begin
               -- And that it is not (yet) too late to add extra bytes to the write.
               write_collect0_toolate <= '0';
 
+              background_write_next_address <= write_collect0_address;
+              background_write_next_address_matches_collect0 <= '1';
               background_write <= '1';
+              background_write_fetch <= '1';
               background_write_source <= '0'; -- collect 0
 
               config_reg_write <= write_collect0_address(25);
@@ -1591,7 +1598,10 @@ begin
 
               config_reg_write <= write_collect1_address(25);
 
+              background_write_next_address <= write_collect1_address;
+              background_write_next_address_matches_collect1 <= '1';
               background_write <= '1';
+              background_write_fetch <= '1';
               background_write_source <= '1'; -- collect 0
 
               -- Prepare command vector
@@ -2070,6 +2080,7 @@ begin
               write_collect0_flushed <= '1';
               show_collect0 := true;
               report "WRITE: background_write_data copied from write_collect0. Valids = " & to_string(write_collect0_valids);
+              background_write_fetch <= '1';
               background_write_data <= write_collect0_data;
               background_write_valids <= write_collect0_valids;
               
@@ -2150,6 +2161,11 @@ begin
                 hr2_rwds <= not background_write_valids(0);
                 background_write_valids(0 to 6) <= background_write_valids(1 to 7);
                 background_write_valids(7) <= '0';
+
+                if background_write_count = 0 and background_chained_write = '1' then
+                  background_write_fetch <= '1';
+                end if;
+                
               else
                 -- XXX Doesn't handle 16-bit writes properly. But that's
                 -- okay, as they are only supported with the cache and
@@ -2195,14 +2211,100 @@ begin
             background_write_next_address_matches_collect0 <= '1';
           else
             background_write_next_address_matches_collect0 <= '0';
-          end if;
-            
+          end if;            
           if write_collect1_address = background_write_next_address then
             background_write_next_address_matches_collect1 <= '1';
           else
             background_write_next_address_matches_collect1 <= '0';
           end if;
+          if write_collect1_address = write_collect0_address + 1 then
+            collect1_matches_collect0_plus_1 <= '1';
+          else
+            collect1_matches_collect0_plus_1 <= '0';
+          end if;
+          if write_collect0_address = write_collect1_address + 1 then
+            collect0_matches_collect1_plus_1 <= '1';
+          else
+            collect0_matches_collect1_plus_1 <= '0';
+          end if;
+          
             
+          -- Fetch takes 2 cycles, so schedule one cycle before last read
+          -- and shift, so that it happens after that last shift, but
+          -- before it is needed again.
+          if background_write_count = 0 and pause_phase = '0' then
+            -- See if we have another write collect that we can
+            -- continue with
+            if write_continues /= 0 and background_chained_write='1' then
+              if background_write_fetch = '0' then
+                report "WRITECONTINUE: Continuing write: Requesting fetch.";                      
+                background_write_fetch <= '1';
+              end if;
+            else
+              report "WRITECONTINUE: No continuation. Terminating write.";
+              countdown_timeout <= '1';
+            end if;
+          end if;                
+          
+          report "WRITE: LatencyWait state, bg_wr=" & std_logic'image(background_write)
+            & ", count=" & integer'image(background_write_count)
+            & ", background_write_fetch = " & std_logic'image(background_write_fetch);
+          
+          -- Now snap-shot the write buffer data, and mark the slot as flushed
+          if background_write = '1' and
+            ( (background_write_next_address_matches_collect0 = '1')
+              or (background_write_next_address_matches_collect1 = '1') )
+          then
+            if background_chained_write = '0' then
+              report "WRITE: background_chained_write <= 1";
+            end if;
+            background_chained_write <= '1';
+          else
+            if background_chained_write = '1' then
+              report "WRITE: background_chained_write <= 0";
+            end if;
+            background_chained_write <= '0';
+          end if;
+          
+          if background_write_fetch = '1' then
+            report "WRITE: Doing fetch of background write data";
+            background_write_fetch <= '0';
+            background_write_next_address <= background_write_next_address + 1;
+            write_continues <= write_continues - 1;
+            background_write_count <= 7;
+            if background_write_next_address_matches_collect0 = '1' then              
+              show_collect0 := true;
+              report "WRITE: background_write_data copied from write_collect0 (@ $"
+                & to_hstring(write_collect0_address&"000")
+                & "). Valids = " & to_string(write_collect0_valids)
+                & ", next addr was $" & to_hstring(background_write_next_address&"000");
+              
+              background_write_next_address <= write_collect0_address + 1;
+              background_write_next_address_matches_collect0 <= '0';
+              background_write_next_address_matches_collect1 <= collect1_matches_collect0_plus_1;
+              
+              background_write_source <= '0';
+              background_write_data <= write_collect0_data;
+              background_write_valids <= write_collect0_valids;
+              write_collect0_flushed <= '1';
+              
+            elsif background_write_next_address_matches_collect1 = '1' then                
+              show_collect1 := true;
+              report "WRITE: background_write_data copied from write_collect1. Valids = " & to_string(write_collect1_valids)
+                & ", next addr was $" & to_hstring(background_write_next_address&"000");
+              background_write_next_address <= write_collect1_address + 1;
+              background_write_next_address_matches_collect0 <= collect0_matches_collect1_plus_1;
+              background_write_next_address_matches_collect1 <= '0';
+              
+              background_write_source <= '1';
+              background_write_data <= write_collect1_data;
+              background_write_valids <= write_collect1_valids;
+              write_collect1_flushed <= '1';
+            else
+              report "WRITE: Write is not chained.";
+              background_chained_write <= '0';
+            end if;
+          end if;
           
           if pause_phase = '1' then
             hr_clk_phaseshift <= write_phase_shift;
@@ -2211,33 +2313,7 @@ begin
               state <= HyperRAMFinishWriting;                    
             end if;
           else
-            
-            report "WRITE: LatencyWait state, bg_wr=" & std_logic'image(background_write)
-              & ", count=" & integer'image(background_write_count);
-
-            -- Now snap-shot the write buffer data, and mark the slot as flushed
-            if background_write = '1' then
-              if background_write_source = '0' and write_collect0_toolate='1' and write_collect0_flushed = '0' then
-                write_collect0_flushed <= '1';
-                show_collect0 := true;
-                report "WRITE: background_write_data copied from write_collect0. Valids = " & to_string(write_collect0_valids);
-                background_write_next_address <= write_collect0_address + 1;
-                background_write_next_address_matches_collect0 <= '0';
-                background_write_next_address_matches_collect1 <= '0';
-                background_write_data <= write_collect0_data;
-                background_write_valids <= write_collect0_valids;
-              elsif background_write_source = '1' and write_collect1_toolate='1' and write_collect1_flushed = '0' then
-                write_collect1_flushed <= '1';
-                show_collect1 := true;
-                report "WRITE: background_write_data copied from write_collect1";
-                background_write_next_address <= write_collect1_address + 1;
-                background_write_next_address_matches_collect0 <= '0';
-                background_write_next_address_matches_collect1 <= '0';
-                background_write_data <= write_collect1_data;
-                background_write_valids <= write_collect1_valids;
-              end if;
-            end if;
-
+                      
             report "latency countdown = " & integer'image(countdown);
 
             -- Begin write mask pre-amble
@@ -2285,6 +2361,7 @@ begin
                     & ", background words left = " & integer'image(background_write_count);
                   hr_d <= background_write_data(0);
                   hr2_d <= background_write_data(0);
+
                   background_write_data(0) <= background_write_data(1);
                   background_write_data(1) <= background_write_data(2);
                   background_write_data(2) <= background_write_data(3);
@@ -2321,7 +2398,7 @@ begin
                   write_collect1_toolate <= '0';
                   show_collect1 := true;
                 end if;
-                
+
                 -- Write byte
                 write_byte_phase <= '1';
                 if background_write='0' then
@@ -2337,7 +2414,7 @@ begin
                   else
                     state <= HyperRAMFinishWriting;
                   end if;
-                elsif write_byte_phase='1' then
+                else
                   report "WRITE: Decrementing background_write_count from " & integer'image(background_write_count)
                     & ", write_continues = " & integer'image(write_continues);
                   if background_write_count /= 0 then
@@ -2362,38 +2439,8 @@ begin
                         show_collect1 := true;
                       end if;
                     end if;
-                  else
-                    -- See if we have another write collect that we can
-                    -- continue with
-                    if write_continues /= 0 and write_collect0_toolate='1' and write_collect0_flushed = '0'
-                      and background_write_next_address_matches_collect0='1'
-                    then
-                      report "WRITECONTINUE: background_write_data copied from write_collect0. Valids = " & to_string(write_collect0_valids);
-                      background_write_next_address <= write_collect0_address + 1;
-                      background_write_next_address_matches_collect0 <= '0';
-                      background_write_next_address_matches_collect1 <= '0';
-                      background_write_data <= write_collect0_data;
-                      background_write_valids <= write_collect0_valids;
-                      background_write_count <= 7;
-                      background_write_source <= '0';
-                      write_continues <= write_continues - 1;
-                      show_collect0 := true;                          
-                    elsif write_continues /= 0 and write_collect1_toolate='1' and write_collect1_flushed = '0'
-                      and background_write_next_address_matches_collect0='1' then
-                      report "WRITECONTINUE: background_write_data copied from write_collect1";
-                      background_write_next_address <= write_collect1_address + 1;
-                      background_write_next_address_matches_collect0 <= '0';
-                      background_write_next_address_matches_collect1 <= '0';
-                      background_write_data <= write_collect1_data;
-                      background_write_valids <= write_collect1_valids;
-                      background_write_count <= 7;
-                      background_write_source <= '1';
-                      write_continues <= write_continues - 1;
-                      show_collect1 := true;                          
-                    else 
-                      countdown_timeout <= '1';
-                    end if;
                   end if;
+
                 end if;
               end if;
             end if;
