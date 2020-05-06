@@ -1252,14 +1252,15 @@ architecture Behavioural of gs4510 is
   -- Simulated VDC access
   signal vdc_reg_num : unsigned(7 downto 0) := to_unsigned(0,8);
   signal vdc_mem_addr : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal vdc_mem_addr_drive : unsigned(15 downto 0) := to_unsigned(0,16);
   -- fake VDC status register that claims "always ready"
   signal vdc_status : unsigned(7 downto 0) := x"80";
   signal vdc_mem_addr_src : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal vdc_mem_addr_src_drive : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal vdc_mem_addr_src_drive2 : unsigned(15 downto 0) := to_unsigned(0,16);
   signal vdc_word_count : unsigned(7 downto 0) := x"00";
   signal vdc_enabled : std_logic := '0';
+
+  signal resolved_vdc_to_viciv_address : unsigned(15 downto 0) := x"0000";
+  signal resolved_vdc_to_viciv_src_address : unsigned(15 downto 0) := x"0000";
+  
   
   -- purpose: map VDC linear address to VICII bitmap addressing here
   -- to keep it as simple as possible we assume fix 640x200x2 resolution
@@ -1704,7 +1705,7 @@ begin
       elsif (long_address = x"ffd3601") and (hypervisor_mode='0') and (vdc_enabled='1') then
         if vdc_reg_num = x"1f" then
           report "Preparing to read from Shadow for simulated VDC access";
-          shadow_address <= to_integer(resolve_vdc_to_viciv_address(vdc_mem_addr))+(4*65536);
+          shadow_address <= to_integer(resolved_vdc_to_viciv_address)+(4*65536);
           vdc_mem_addr <= vdc_mem_addr + 1;
           read_source <= Shadow;
           accessing_shadow <= '1';
@@ -3081,6 +3082,9 @@ begin
       -- facility.
       reg_mult_p <= to_unsigned(to_integer(reg_mult_a) * to_integer(reg_mult_b),48);
 
+      resolved_vdc_to_viciv_src_address <= resolve_vdc_to_viciv_address(vdc_mem_addr_src);
+      resolved_vdc_to_viciv_address <= resolve_vdc_to_viciv_address(vdc_mem_addr);
+      
       -- Disable all non-essential IO devices from memory map when in secure mode.
       if hyper_protected_hardware(7)='1' then
 --        cartridge_enable <= '0';
@@ -3237,10 +3241,6 @@ begin
                                         -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) and all_pause='0' then
 
-      vdc_mem_addr_drive <= vdc_mem_addr;
-      vdc_mem_addr_src_drive <= vdc_mem_addr_src;
-      vdc_mem_addr_src_drive2 <= vdc_mem_addr_src_drive;
-            
       if (clear_matrix_mode_toggle='1' and last_clear_matrix_mode_toggle='0')
         or (clear_matrix_mode_toggle='0' and last_clear_matrix_mode_toggle='1')
       then
@@ -7099,14 +7099,14 @@ begin
           memory_access_read := '1';
           memory_access_resolve_address := '0';
           memory_access_address(27 downto 16) := x"004";
-          memory_access_address(15 downto 0) := resolve_vdc_to_viciv_address(vdc_mem_addr_src_drive2);
+          memory_access_address(15 downto 0) := resolved_vdc_to_viciv_src_address;
 
         when VDCWrite =>
           memory_access_write := '1';
           memory_access_wdata := read_data;
           memory_access_resolve_address := '0';
           memory_access_address(27 downto 16) := x"004";
-          memory_access_address(15 downto 0) := resolve_vdc_to_viciv_address(vdc_mem_addr_drive);
+          memory_access_address(15 downto 0) := resolved_vdc_to_viciv_address;
               
         when DMAgicCopyRead =>
           -- Do memory read
@@ -7603,7 +7603,7 @@ begin
           -- We map VDC RAM always to $40000
           -- So we re-map this write to $4xxxx
           long_address(27 downto 16) := x"004";
-          long_address(15 downto 0) := resolve_vdc_to_viciv_address(vdc_mem_addr_drive);
+          long_address(15 downto 0) := resolved_vdc_to_viciv_address;
         else
           long_address := real_long_address;
         end if;
@@ -7654,7 +7654,7 @@ begin
           -- We map VDC RAM always to $40000
           -- So we re-map this write to $4xxxx
           long_address(27 downto 16) := x"004";
-          long_address(15 downto 0) := resolve_vdc_to_viciv_address(vdc_mem_addr_drive);          
+          long_address(15 downto 0) := resolved_vdc_to_viciv_src_address;
         end if;
         
         if real_long_address(27 downto 12) = x"001F" and real_long_address(11)='1' then
