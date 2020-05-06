@@ -1257,6 +1257,7 @@ architecture Behavioural of gs4510 is
   signal vdc_status : unsigned(7 downto 0) := x"80";
   signal vdc_mem_addr_src : unsigned(15 downto 0) := to_unsigned(0,16);
   signal vdc_mem_addr_src_drive : unsigned(15 downto 0) := to_unsigned(0,16);
+  signal vdc_mem_addr_src_drive2 : unsigned(15 downto 0) := to_unsigned(0,16);
   signal vdc_word_count : unsigned(7 downto 0) := x"00";
   signal vdc_enabled : std_logic := '0';
   
@@ -3238,6 +3239,7 @@ begin
 
       vdc_mem_addr_drive <= vdc_mem_addr;
       vdc_mem_addr_src_drive <= vdc_mem_addr_src;
+      vdc_mem_addr_src_drive2 <= vdc_mem_addr_src_drive;
             
       if (clear_matrix_mode_toggle='1' and last_clear_matrix_mode_toggle='0')
         or (clear_matrix_mode_toggle='0' and last_clear_matrix_mode_toggle='1')
@@ -7097,7 +7099,7 @@ begin
           memory_access_read := '1';
           memory_access_resolve_address := '0';
           memory_access_address(27 downto 16) := x"004";
-          memory_access_address(15 downto 0) := resolve_vdc_to_viciv_address(vdc_mem_addr_src_drive);
+          memory_access_address(15 downto 0) := resolve_vdc_to_viciv_address(vdc_mem_addr_src_drive2);
 
         when VDCWrite =>
           memory_access_write := '1';
