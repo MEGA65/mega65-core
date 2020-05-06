@@ -704,6 +704,8 @@ $(BINDIR)/%.bit: 	vivado/%.xpr $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(SIMULA
 	cp vivado/$(subst bin/,,$*).runs/impl_1/container.bit $@
 	# Make a copy named after the commit and datestamp, for easy going back to previous versions
 	cp $@ $(BINDIR)/$*-`$(TOOLDIR)/gitversion.sh`.bit
+	./vivado_timing $@
+	cp $@.timing.txt $(BINDIR)/$*-`$(TOOLDIR)/gitversion.sh`.timing.txt
 
 $(BINDIR)/%.mcs:	$(BINDIR)/%.bit
 	mkdir -p $(SDCARD_DIR)
