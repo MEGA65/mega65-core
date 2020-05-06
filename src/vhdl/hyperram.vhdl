@@ -106,7 +106,7 @@ architecture gothic of hyperram is
 
   signal last_current_cache_next_toggle : std_logic := '0';  
   
-  signal state : state_t := WriteSetup;
+  signal state : state_t := StartupDelay;
   signal busy_internal : std_logic := '1';
   signal hr_command : unsigned(47 downto 0);
 
@@ -170,7 +170,8 @@ architecture gothic of hyperram is
   signal write_phase_shift : std_logic := '1';
   signal byte0_fix : std_logic := '1';
   
-  signal countdown : integer := 0;
+  signal countdown : integer range 0 to 63 := 0;
+  signal countdown_is_zero : std_logic := '1';
   signal extra_latency : std_logic := '0';
   signal countdown_timeout : std_logic := '0';
 
@@ -280,8 +281,8 @@ architecture gothic of hyperram is
   signal background_write_data : cache_row_t := (others => (others => '0'));
   signal background_write_count : integer range 0 to 7 := 0;
   signal background_write_next_address : unsigned(26 downto 3) := (others => '0');
-  signal write_continues : integer := 0;
-  signal write_continues_max : integer := 16;
+  signal write_continues : integer range 0 to 255 := 0;
+  signal write_continues_max : integer range 0 to 255 := 16;
   
   -- If we get too many writes in short succession, we may need to queue up one
   -- of the writes, while waiting for slow_devices to notice
@@ -299,7 +300,7 @@ architecture gothic of hyperram is
     := 150*(1000/162)+20
     -- plus a correction factor to get initial config register write correctly
     -- aligned with the clock
-    +3;
+    +2;
   signal start_delay_expired : std_logic := '0';
   
   -- phaseshift has to also start at 1 for the above to work.
@@ -391,12 +392,13 @@ begin
       end if;
 
       if cache_enabled then
-        busy <= busy_internal or write_blocked or queued_write;
+        busy <= busy_internal or write_blocked or queued_write or (not start_delay_expired);
       else
         -- With no cache, we have to IMMEDIATELY assert busy when we see a
         -- request to avoid a race-condition with slow_devices
         busy <= busy_internal or write_blocked or queued_write
-                or read_request or write_request or read_request_latch or write_request_latch;
+                or read_request or write_request or read_request_latch or write_request_latch
+                or (not start_delay_expired);
       end if;
 
       if write_blocked = '1' and first_transaction='0' then
@@ -1242,7 +1244,7 @@ begin
         start_delay_counter <= start_delay_counter - 1;
         if start_delay_counter = 0 then
           start_delay_expired <= '1';
-          state <= Idle;
+          state <= WriteSetup;
         end if;
       end if;      
       
@@ -1404,6 +1406,7 @@ begin
               is_expected_to_respond <= false;
               is_vic_fetch <= true;
               countdown <= 6;
+              countdown_is_zero <= '0';
               config_reg_write <= '0';
               hr_reset <= '1'; -- active low reset
               pause_phase <= '0';
@@ -1549,7 +1552,6 @@ begin
               ram_reading_held <= '0';
 
               -- This is the delay before we assert CS
-              countdown <= 0;
 
               -- We have to use this intermediate stage to get the clock
               -- phase right.
@@ -1562,6 +1564,7 @@ begin
               else
                 countdown <= 6;
               end if;
+              countdown_is_zero <= '0';
 
             elsif write_collect1_dispatchable = '1' then
               busy_internal <= '0';              
@@ -1612,6 +1615,7 @@ begin
               else
                 countdown <= 6;
               end if;
+              countdown_is_zero <= '0';
 
               report "clk_queue <= '00'";
 
@@ -1672,7 +1676,6 @@ begin
           hyperram_access_address <= ram_address;
           
           hr_reset <= '1'; -- active low reset
-          countdown <= 0;
           pause_phase <= '0';
 
           if fast_cmd_mode='1' then
@@ -1688,6 +1691,7 @@ begin
           
           countdown <= 6;
           config_reg_write <= '0';
+          countdown_is_zero <= '0';
           
         when WriteSetup =>
 
@@ -1721,16 +1725,18 @@ begin
           hyperram_access_address <= ram_address;
           
           pause_phase <= '0';
-          
-          if fast_cmd_mode='1' then
-            state <= HyperRAMOutputCommand;
-            hr_clk_fast <= '1';
-            hr_clk_phaseshift <= write_phase_shift;         
-          else
-            state <= HyperRAMOutputCommandSlow;
-            fresh_transaction <= '1';
-            hr_clk_fast <= '0';
-            hr_clk_phaseshift <= write_phase_shift;
+
+          if start_delay_expired = '1' then
+            if fast_cmd_mode='1' then
+              state <= HyperRAMOutputCommand;
+              hr_clk_fast <= '1';
+              hr_clk_phaseshift <= write_phase_shift;         
+            else
+              state <= HyperRAMOutputCommandSlow;
+              fresh_transaction <= '1';
+              hr_clk_fast <= '0';
+              hr_clk_phaseshift <= write_phase_shift;
+            end if;
           end if;
           if ram_address(25)='1' then
             -- 48 bits of CA followed by 16 bit register value
@@ -1738,7 +1744,8 @@ begin
             countdown <= 6 + 1;
           else
             countdown <= 6;
-          end if;            
+          end if;
+          countdown_is_zero <= '0';
           
         when HyperRAMOutputCommandSlow =>
           report "Writing command, hyperram_access_address=$" & to_hstring(hyperram_access_address);
@@ -1782,7 +1789,8 @@ begin
               if ram_reading_held = '1' then
                 -- Reading: We can just wait until hr_rwds has gone low, and then
                 -- goes high again to indicate the first data byte
-                countdown <= 99;
+                countdown <= 63;
+                countdown_is_zero <= '0';
                 hr_rwds_high_seen <= '0';
                 countdown_timeout <= '0';
                 if fast_read_mode='1' then
@@ -1823,6 +1831,9 @@ begin
                 else
                   countdown <= to_integer(write_latency2);
                 end if;
+                -- XXX Doesn't work if write_latency(2) is $00
+                countdown_is_zero <= '0';
+                
 
                 -- We are not just about ready to start writing, so mark the
                 -- write buffer as too late to be added to, because we will
@@ -1896,6 +1907,9 @@ begin
                 report "Applying extra latency";
               end if;                    
             end if;
+            if countdown = 1 then
+              countdown_is_zero <= '1';
+            end if;
             if countdown /= 0 then
               countdown <= countdown - 1;
             else
@@ -1949,14 +1963,18 @@ begin
               report "Applying extra latency";
             end if;                    
           end if;
-          if countdown /= 0 then
-            countdown <= countdown - 1;
+          if countdown = 1 then
+            countdown_is_zero <= '1';
           else
+            countdown_is_zero <= '0';
+          end if;
+          if countdown_is_zero = '1' then
             -- Finished shifting out
             if ram_reading_held = '1' then
               -- Reading: We can just wait until hr_rwds has gone low, and then
               -- goes high again to indicate the first data byte
-              countdown <= 99;
+              countdown <= 63;
+              countdown_is_zero <= '0';
               hr_rwds_high_seen <= '0';
               if fast_read_mode='1' then
                 hr_clk_fast <= '1';
@@ -1997,6 +2015,8 @@ begin
               else
                 countdown <= to_integer(write_latency2);
               end if;
+              -- XXX Assumes write_latency > 0
+              countdown_is_zero <= '0';
 
               -- We are now just about ready to start writing, so mark the
               -- write buffer as too late to be added to, because we will
@@ -2073,7 +2093,11 @@ begin
           
           if countdown /= 0 then
             countdown <= countdown - 1;
-          else
+          end if;
+          if countdown = 1 then
+            countdown_is_zero <= '1';
+          end if;
+          if countdown_is_zero='1' then
             if extra_latency='1' then
               report "Waiting 6 more cycles for extra latency";
               -- If we were asked to wait for extra latency,
@@ -2085,6 +2109,8 @@ begin
               else
                 countdown <= to_integer(extra_write_latency2);
               end if;
+              -- Assumes extra latency is not zero
+              countdown_is_zero <= '0';              
             else
               -- Latency countdown for writing is over, we can now
               -- begin writing bytes.                  
@@ -2199,7 +2225,11 @@ begin
             
             if countdown /= 0 then
               countdown <= countdown - 1;
-            else
+            end if;
+            if countdown = 1 then
+              countdown_is_zero <= '1';
+            end if;
+            if countdown_is_zero = '1' then
               if extra_latency='1' then
                 report "Waiting 6 more cycles for extra latency";
                 -- If we were asked to wait for extra latency,
@@ -2210,6 +2240,8 @@ begin
                 else
                   countdown <= to_integer(extra_write_latency2);
                 end if;
+                -- XXX Assumes extra_write_latency is not zero
+                countdown_is_zero <= '0';
               else
                 -- Latency countdown for writing is over, we can now
                 -- begin writing bytes.                  
@@ -2355,8 +2387,14 @@ begin
           hr2_rwds <= 'Z';
           report "Presenting tri-state on hr_d";
           hr_d <= (others => 'Z');                       
-          hr2_d <= (others => 'Z');                       
-          if countdown = 0 then
+          hr2_d <= (others => 'Z');
+          if countdown_is_zero = '0' then
+            countdown <= countdown - 1;
+          end if;
+          if countdown = 1 then
+            countdown_is_zero <= '1';
+          end if;
+          if countdown_is_zero = '1' then
             -- Timed out waiting for read -- so return anyway, rather
             -- than locking the machine hard forever.
             rdata_hi <= x"DD";
@@ -2369,8 +2407,6 @@ begin
             hr_clk_phaseshift <= write_phase_shift;         
             report "returning to idle";
             state <= Idle;
-          else
-            countdown <= countdown - 1;
           end if;
 
           -- Abort memory pre-fetching if we are asked to do something
@@ -2649,7 +2685,13 @@ begin
             null;
           else
             hr_clk_phaseshift <= read_phase_shift xor hyperram1_select;
-            if countdown = 0 then
+            if countdown_is_zero = '0' then
+              countdown <= countdown - 1;
+            end if;
+            if countdown = 1 then
+              countdown_is_zero <= '1';
+            end if;
+            if countdown_is_zero = '1' then
               -- Timed out waiting for read -- so return anyway, rather
               -- than locking the machine hard forever.
               rdata_hi <= x"DD";
@@ -2662,8 +2704,6 @@ begin
               report "returning to idle";
               state <= Idle;
               hr_clk_phaseshift <= write_phase_shift;
-            else
-              countdown <= countdown - 1;
             end if;
             
             if hyperram0_select='1' then
