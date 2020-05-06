@@ -139,6 +139,17 @@ architecture gothic of hyperram is
   signal ram_reading : std_logic := '0';
   signal ram_reading_held : std_logic := '0';
 
+  signal ram_reading_drive : std_logic := '0';
+  signal ram_address_drive : unsigned(26 downto 0) := 
+    "010000000000001000000000000"; -- = bottom 27 bits of x"A001000";
+  signal ram_wdata_drive : unsigned(7 downto 0) := x"00";
+  signal ram_wdata_hi_drive : unsigned(7 downto 0) := x"00";
+  signal ram_wdata_enlo_drive : std_logic := '0';
+  signal ram_wdata_enhi_drive : std_logic := '0';
+  signal cache_row0_address_matches_ram_address : std_logic := '0';
+  signal cache_row1_address_matches_ram_address : std_logic := '0';
+  signal ram_address_matches_current_cache_line_address : std_logic := '0';
+  
   -- We want to set config register 0 to $ffe6, to enable variable latency
   -- and 3 cycles instead of 6 for latency. This speeds up writing almost 2x.
   -- But at 80MHz instead of 40MHz bus, we have to increase the latency from
@@ -1197,6 +1208,92 @@ begin
     if rising_edge(clock163) then
       cycle_count <= cycle_count + 1;
 
+      -- We run double the clock speed of the pixelclock area, so no request
+      -- can come in during the extra drive cycle we use to update these values
+      -- so as to improve the timing closure of the whole thing
+      ram_wdata_drive <= ram_wdata;
+      ram_wdata_hi_drive <= ram_wdata_hi;
+      ram_address_drive <= ram_address;
+      ram_reading_drive <= ram_reading;
+      ram_wdata_enlo_drive <= ram_wdata_enlo;
+      ram_wdata_enhi_drive <= ram_wdata_enhi;
+      if ram_address(26 downto 3) = current_cache_line_address(26 downto 3) then
+        ram_address_matches_current_cache_line_address <= '1';
+      else
+        ram_address_matches_current_cache_line_address <= '0';
+      end if;
+      if cache_row0_address = ram_address(26 downto 3) then
+        cache_row0_address_matches_ram_address <= '1';
+      else
+        cache_row0_address_matches_ram_address <= '0';
+      end if;
+      if cache_row1_address = ram_address(26 downto 3) then
+        cache_row1_address_matches_ram_address <= '1';
+      else
+        cache_row1_address_matches_ram_address <= '0';
+      end if;
+      
+      -- Update short-circuit cache line
+      -- (We don't change validity, since we don't know if it is
+      -- valid or not).
+      if ram_address_matches_current_cache_line_address = '1' then
+        if ram_wdata_enlo_drive='1' then
+          current_cache_line_drive(to_integer(hyperram_access_address(2 downto 0))) <= ram_wdata_drive;
+        end if;
+        if ram_wdata_enhi_drive='1' then
+          current_cache_line_drive(to_integer(hyperram_access_address(2 downto 0))+1) <= ram_wdata_hi_drive;
+        end if;
+      end if;
+      
+      -- Update cache
+      if cache_row0_address_matches_ram_address = '1' then
+        if ram_wdata_enlo_drive='1' then
+          cache_row0_valids(to_integer(ram_address_drive(2 downto 0))) <= '1';
+          cache_row0_data(to_integer(ram_address_drive(2 downto 0))) <= ram_wdata_drive;
+        end if;
+        if ram_wdata_enhi_drive='1' then
+          cache_row0_valids(to_integer(ram_address_drive(2 downto 0))+1) <= '1';
+          cache_row0_data(to_integer(ram_address_drive(2 downto 0))+1) <= ram_wdata_hi_drive;
+        end if;
+        show_cache0 := true;
+      elsif cache_row1_address_matches_ram_address='1' then
+        if ram_wdata_enlo_drive='1' then
+          cache_row1_valids(to_integer(ram_address_drive(2 downto 0))) <= '1';
+          cache_row1_data(to_integer(ram_address_drive(2 downto 0))) <= ram_wdata_drive;        
+        end if;
+        if ram_wdata_enhi_drive='1' then
+          cache_row1_valids(to_integer(ram_address_drive(2 downto 0))+1) <= '1';
+          cache_row1_data(to_integer(ram_address_drive(2 downto 0))+1) <= ram_wdata_hi_drive;
+        end if;
+        show_cache1 := true;
+      else
+        if random_bits(1)='0' then
+          cache_row0_valids <= (others => '0');
+          cache_row0_address <= ram_address_drive(26 downto 3);
+          if ram_wdata_enlo_drive='1' then
+            cache_row0_valids(to_integer(ram_address_drive(2 downto 0))) <= '1';
+            cache_row0_data(to_integer(ram_address_drive(2 downto 0))) <= ram_wdata_drive;
+          end if;
+          if ram_wdata_enhi_drive='1' then
+            cache_row0_valids(to_integer(ram_address_drive(2 downto 0))+1) <= '1';
+            cache_row0_data(to_integer(ram_address_drive(2 downto 0))+1) <= ram_wdata_hi_drive;
+          end if;
+          show_cache0 := true;
+        else
+          cache_row1_valids <= (others => '0');
+          cache_row1_address <= ram_address_drive(26 downto 3);
+          if ram_wdata_enlo_drive='1' then
+            cache_row1_valids(to_integer(ram_address_drive(2 downto 0))) <= '1';
+            cache_row1_data(to_integer(ram_address_drive(2 downto 0))) <= ram_wdata_drive;
+          end if;
+          if ram_wdata_enhi_drive='1' then
+            cache_row1_valids(to_integer(ram_address_drive(2 downto 0))+1) <= '1';
+            cache_row1_data(to_integer(ram_address_drive(2 downto 0))+1) <= ram_wdata_hi_drive;
+          end if;
+          show_cache1 := true;
+        end if;
+      end if;
+      
       if current_cache_line_address(26 downto 5) = block_address(26 downto 5)
         and block_valid = '1' then
         current_cache_line_matches_block <= '1';
@@ -1496,67 +1593,6 @@ begin
                 state <= WriteSetup;
                 report "Accepting job";
                 busy_internal <= '1';
-
-                -- Update short-circuit cache line
-                -- (We don't change validity, since we don't know if it is
-                -- valid or not).
-                if ram_address(26 downto 3) = current_cache_line_address(26 downto 3) then
-                  if ram_wdata_enlo='1' then
-                    current_cache_line_drive(to_integer(hyperram_access_address(2 downto 0))) <= ram_wdata;
-                  end if;
-                  if ram_wdata_enhi='1' then
-                    current_cache_line_drive(to_integer(hyperram_access_address(2 downto 0))+1) <= ram_wdata_hi;
-                  end if;
-                end if;
-
-                -- Update cache
-                if cache_row0_address = ram_address(26 downto 3) then
-                  if ram_wdata_enlo='1' then
-                    cache_row0_valids(to_integer(ram_address(2 downto 0))) <= '1';
-                    cache_row0_data(to_integer(ram_address(2 downto 0))) <= ram_wdata;
-                  end if;
-                  if ram_wdata_enhi='1' then
-                    cache_row0_valids(to_integer(ram_address(2 downto 0))+1) <= '1';
-                    cache_row0_data(to_integer(ram_address(2 downto 0))+1) <= ram_wdata_hi;
-                  end if;
-                  show_cache0 := true;
-                elsif cache_row1_address = ram_address(26 downto 3) then
-                  if ram_wdata_enlo='1' then
-                    cache_row1_valids(to_integer(ram_address(2 downto 0))) <= '1';
-                    cache_row1_data(to_integer(ram_address(2 downto 0))) <= ram_wdata;        
-                  end if;
-                  if ram_wdata_enhi='1' then
-                    cache_row1_valids(to_integer(ram_address(2 downto 0))+1) <= '1';
-                    cache_row1_data(to_integer(ram_address(2 downto 0))+1) <= ram_wdata_hi;
-                  end if;
-                  show_cache1 := true;
-                else
-                  if random_bits(1)='0' then
-                    cache_row0_valids <= (others => '0');
-                    cache_row0_address <= ram_address(26 downto 3);
-                    if ram_wdata_enlo='1' then
-                      cache_row0_valids(to_integer(ram_address(2 downto 0))) <= '1';
-                      cache_row0_data(to_integer(ram_address(2 downto 0))) <= ram_wdata;
-                    end if;
-                    if ram_wdata_enhi='1' then
-                      cache_row0_valids(to_integer(ram_address(2 downto 0))+1) <= '1';
-                      cache_row0_data(to_integer(ram_address(2 downto 0))+1) <= ram_wdata_hi;
-                    end if;
-                    show_cache0 := true;
-                  else
-                    cache_row1_valids <= (others => '0');
-                    cache_row1_address <= ram_address(26 downto 3);
-                    if ram_wdata_enlo='1' then
-                      cache_row1_valids(to_integer(ram_address(2 downto 0))) <= '1';
-                      cache_row1_data(to_integer(ram_address(2 downto 0))) <= ram_wdata;        
-                    end if;
-                    if ram_wdata_enhi='1' then
-                      cache_row1_valids(to_integer(ram_address(2 downto 0))+1) <= '1';
-                      cache_row1_data(to_integer(ram_address(2 downto 0))+1) <= ram_wdata_hi;
-                    end if;
-                    show_cache1 := true;
-                  end if;
-                end if;
                 
               end if;
             elsif (write_collect0_dispatchable = '1')
