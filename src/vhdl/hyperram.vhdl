@@ -115,13 +115,6 @@ architecture gothic of hyperram is
   signal busy_internal : std_logic := '1';
   signal hr_command : unsigned(47 downto 0);
 
-  type last_trans_t is array (0 to 3) of unsigned(47 downto 0);
-  type last_time_t is array (0 to 3) of unsigned(31 downto 0);
-  signal last_transactions : last_trans_t;
-  signal last_transaction_times : last_time_t;
-  signal transaction_timestamp : unsigned(31 downto 0) := to_unsigned(0,32);
-  signal fresh_transaction : std_logic := '0';
-
   signal hr_d_last : unsigned(7 downto 0);
   
   -- Used to assert CS line on BOTH hyperRAM modules at the same time
@@ -792,52 +785,6 @@ begin
               |  x"6e"
               |  x"6f" => fake_rdata <= block_data(3)(to_integer(address(2 downto 0)));
 
-
-            when x"80" => fake_rdata <= last_transactions(3)(47 downto 40);
-            when x"81" => fake_rdata <= last_transactions(3)(39 downto 32);
-            when x"82" => fake_rdata <= last_transactions(3)(31 downto 24);
-            when x"83" => fake_rdata <= last_transactions(3)(23 downto 16);
-            when x"84" => fake_rdata <= last_transactions(3)(15 downto  8);
-            when x"85" => fake_rdata <= last_transactions(3)( 7 downto  0);
-            when x"8c" => fake_rdata <= last_transaction_times(3)(31 downto 24);
-            when x"8d" => fake_rdata <= last_transaction_times(3)(23 downto 16);
-            when x"8e" => fake_rdata <= last_transaction_times(3)(15 downto 8);
-            when x"8f" => fake_rdata <= last_transaction_times(3)(7 downto 0);
-
-            when x"90" => fake_rdata <= last_transactions(2)(47 downto 40);
-            when x"91" => fake_rdata <= last_transactions(2)(39 downto 32);
-            when x"92" => fake_rdata <= last_transactions(2)(31 downto 24);
-            when x"93" => fake_rdata <= last_transactions(2)(23 downto 16);
-            when x"94" => fake_rdata <= last_transactions(2)(15 downto  8);
-            when x"95" => fake_rdata <= last_transactions(2)( 7 downto  0);
-            when x"9c" => fake_rdata <= last_transaction_times(2)(31 downto 24);
-            when x"9d" => fake_rdata <= last_transaction_times(2)(23 downto 16);
-            when x"9e" => fake_rdata <= last_transaction_times(2)(15 downto 8);
-            when x"9f" => fake_rdata <= last_transaction_times(2)(7 downto 0);
-
-            when x"a0" => fake_rdata <= last_transactions(1)(47 downto 40);
-            when x"a1" => fake_rdata <= last_transactions(1)(39 downto 32);
-            when x"a2" => fake_rdata <= last_transactions(1)(31 downto 24);
-            when x"a3" => fake_rdata <= last_transactions(1)(23 downto 16);
-            when x"a4" => fake_rdata <= last_transactions(1)(15 downto  8);
-            when x"a5" => fake_rdata <= last_transactions(1)( 7 downto  0);
-            when x"ac" => fake_rdata <= last_transaction_times(1)(31 downto 24);
-            when x"ad" => fake_rdata <= last_transaction_times(1)(23 downto 16);
-            when x"ae" => fake_rdata <= last_transaction_times(1)(15 downto 8);
-            when x"af" => fake_rdata <= last_transaction_times(1)(7 downto 0);
-
-            when x"b0" => fake_rdata <= last_transactions(0)(47 downto 40);
-            when x"b1" => fake_rdata <= last_transactions(0)(39 downto 32);
-            when x"b2" => fake_rdata <= last_transactions(0)(31 downto 24);
-            when x"b3" => fake_rdata <= last_transactions(0)(23 downto 16);
-            when x"b4" => fake_rdata <= last_transactions(0)(15 downto  8);
-            when x"b5" => fake_rdata <= last_transactions(0)( 7 downto  0);
-            when x"bc" => fake_rdata <= last_transaction_times(0)(31 downto 24);
-            when x"bd" => fake_rdata <= last_transaction_times(0)(23 downto 16);
-            when x"be" => fake_rdata <= last_transaction_times(0)(15 downto 8);
-            when x"bf" => fake_rdata <= last_transaction_times(0)(7 downto 0);
-
-                          
             when others => fake_rdata <= x"BF";
           end case;
           fake_data_ready_strobe <= '1';
@@ -1376,8 +1323,6 @@ begin
       read_request_held <= read_request;
       write_request_held <= write_request;
 
-      transaction_timestamp <= transaction_timestamp + 1;     
-
       if start_delay_expired='0' then
         start_delay_counter <= start_delay_counter - 1;
         if start_delay_counter = 0 then
@@ -1564,7 +1509,6 @@ begin
                 hr_clk_phaseshift <= write_phase_shift;
               else
                 state <= HyperRAMOutputCommandSlow;
-                fresh_transaction <= '1';
                 hr_clk_fast <= '0';
                 hr_clk_phaseshift <= write_phase_shift;
               end if;            
@@ -1731,7 +1675,6 @@ begin
             hr_clk_fast <= '1';
           else
             state <= HyperRAMOutputCommandSlow;
-            fresh_transaction <= '1';
             hr_clk_phaseshift <= write_phase_shift;
             hr_clk_fast <= '0';
           end if;            
@@ -1776,7 +1719,6 @@ begin
             hr_clk_phaseshift <= write_phase_shift;
           else
             state <= HyperRAMOutputCommandSlow;
-            fresh_transaction <= '1';
             hr_clk_fast <= '0';
             hr_clk_phaseshift <= write_phase_shift;
           end if;
@@ -1825,7 +1767,6 @@ begin
               hr_clk_phaseshift <= write_phase_shift;         
             else
               state <= HyperRAMOutputCommandSlow;
-              fresh_transaction <= '1';
               hr_clk_fast <= '0';
               hr_clk_phaseshift <= write_phase_shift;
             end if;
@@ -1848,20 +1789,6 @@ begin
           hr_rwds <= 'Z';
           hr2_rwds <= 'Z';
 
-          if fresh_transaction='1' then
-            -- Remember the last few transactions and their time stamps, so
-            -- that we can debug the external hyper ram
-            last_transactions(0) <= hr_command;
-            last_transactions(1) <= last_transactions(0);
-            last_transactions(2) <= last_transactions(1);
-            last_transactions(3) <= last_transactions(2);
-            last_transaction_times(0) <= transaction_timestamp;
-            last_transaction_times(1) <= last_transaction_times(0);
-            last_transaction_times(2) <= last_transaction_times(1);
-            last_transaction_times(3) <= last_transaction_times(2);
-            fresh_transaction <= '0';
-          end if;
-          
           -- Prepare for reading block data
           is_block_read <= false;
           if (hyperram_access_address(4 downto 3) = "00") and block_read_enable='1' and (ram_reading_held='1')
