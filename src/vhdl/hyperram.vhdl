@@ -354,7 +354,8 @@ begin
     variable show_always : boolean := false;
   begin
     if rising_edge(pixelclock) then
-      
+
+      report "PIXELCLOCK tick";
       read_request_latch <= read_request;
       write_request_latch <= write_request;
       
@@ -580,7 +581,7 @@ begin
       -- short-circuited in the inner state machine to save time.
       if (read_request or read_request_latch)='1'
         and busy_internal='0' and ((is_block_read = false) or (block_address /= address(26 downto 5))) then
-        report "Making read request";
+        report "Making read request for $" & to_hstring(address);
         -- Begin read request
 
         read_request_latch <= '0';
@@ -1388,7 +1389,11 @@ begin
           -- Phase 101 guarantees that the clock base change will happen
           -- within the comming clock cycle
           if rwr_waiting='0' and  hr_clock_phase(2 downto 1) = "10" then
-            if viciv_request_toggle /= viciv_last_request_toggle then
+            if (viciv_request_toggle /= viciv_last_request_toggle)
+              -- Only start VIC-IV fetches if we don't have a transaction
+              -- already waiting to go.
+              and (request_toggle = last_request_toggle) 
+            then
               report "VIC: Received data request for $" & to_hstring(viciv_addr&"000")
                 & ", bank = $" & to_hstring(viciv_bank&"0000000000000000000");
               -- VIC-IV is asking for 8 bytes of data
