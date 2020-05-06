@@ -142,6 +142,7 @@ architecture gothic of hyperram is
   signal cache_row0_address_matches_ram_address : std_logic := '0';
   signal cache_row1_address_matches_ram_address : std_logic := '0';
   signal ram_address_matches_current_cache_line_address : std_logic := '0';
+  signal address_matches_hyperram_access_address_block : std_logic := '0';
   
   -- We want to set config register 0 to $ffe6, to enable variable latency
   -- and 3 cycles instead of 6 for latency. This speeds up writing almost 2x.
@@ -1178,6 +1179,12 @@ begin
         cache_row1_address_matches_ram_address <= '1';
       else
         cache_row1_address_matches_ram_address <= '0';
+      end if;
+
+      if address(26 downto 5) = hyperram_access_address(26 downto 5) then
+        address_matches_hyperram_access_address_block <= '1';
+      else
+        address_matches_hyperram_access_address_block <= '0';
       end if;
       
       -- Update short-circuit cache line
@@ -2495,8 +2502,7 @@ begin
               -- that is in this block read, we DONT want to abort the read,
               -- because starting a new request will almost always be slower.
               report "DISPATCH: new request is for $" & to_hstring(address) & ", and we are reading $" & to_hstring(hyperram_access_address) & ", read = " & std_logic'image(read_request);
-              if ((read_request='1') or (read_request_held='1'))
-                and (address(26 downto 5) = hyperram_access_address(26 downto 5)) then
+              if ((read_request='1') or (read_request_held='1')) and address_matches_hyperram_access_address_block='1' then
                 -- New read request from later in this block.
                 -- We know that we will have the data soon.
                 -- The trick is coordinating our response.
@@ -2509,7 +2515,7 @@ begin
                 -- Return the byte as soon as we have it available
                 -- We don't test request_toggle, as the outer 80MHz state
                 -- machine thinks we are still busy.
-                if address(26 downto 5) = hyperram_access_address(26 downto 5) then
+                if address_matches_hyperram_access_address_block = '1' then
                   if byte_phase > to_integer(address(4 downto 0)) then
                     report "DISPATCH: Supplying data from partially read data block. Value is $"
                       & to_hstring(block_data(to_integer(address(4 downto 3)))(to_integer(address(2 downto 0))))
