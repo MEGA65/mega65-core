@@ -103,6 +103,7 @@ architecture gothic of hyperram is
   -- some trial and error to get it right. 1 seems right with the current settings.
   signal rwr_delay : unsigned(7 downto 0) := to_unsigned(1,8);
   signal rwr_counter : unsigned(7 downto 0) := (others => '0');
+  signal rwr_waiting : std_logic := '0';
 
   signal last_current_cache_next_toggle : std_logic := '0';  
   
@@ -1373,9 +1374,14 @@ begin
             rwr_counter <= rwr_counter - 1;
             hr_d <= x"bb";
             hr2_d <= x"bb";
+          end if;
+          if rwr_counter = to_unsigned(1,8) then
+            rwr_waiting <= '0';
+          end if;
+            
           -- Phase 101 guarantees that the clock base change will happen
           -- within the comming clock cycle
-          elsif hr_clock_phase(2 downto 1) = "10" then
+          if rwr_waiting='0' and  hr_clock_phase(2 downto 1) = "10" then
             if viciv_request_toggle /= viciv_last_request_toggle then
               report "VIC: Received data request for $" & to_hstring(viciv_addr&"000")
                 & ", bank = $" & to_hstring(viciv_bank&"0000000000000000000");
@@ -2380,6 +2386,7 @@ begin
           hr_clk_phaseshift <= write_phase_shift;         
           report "clk_queue <= '00'";
           rwr_counter <= rwr_delay;
+          rwr_waiting <= '1';
           report "returning to idle";
           state <= Idle;
         when HyperRAMReadWait =>
@@ -2404,6 +2411,7 @@ begin
             data_ready_strobe <= '1';
             data_ready_strobe_hold <= '1';
             rwr_counter <= rwr_delay;
+            rwr_waiting <= '1';
             hr_clk_phaseshift <= write_phase_shift;         
             report "returning to idle";
             state <= Idle;
@@ -2627,6 +2635,7 @@ begin
             if ((byte_phase = 7) and (is_block_read=false))
               or (byte_phase = 31) then
               rwr_counter <= rwr_delay;
+              rwr_waiting <= '1';
               report "returning to idle";
               last_request_toggle <= request_toggle;
               state <= Idle;
@@ -2701,6 +2710,7 @@ begin
               data_ready_strobe <= '1';
               data_ready_strobe_hold <= '1';
               rwr_counter <= rwr_delay;
+              rwr_waiting <= '1';
               report "returning to idle";
               state <= Idle;
               hr_clk_phaseshift <= write_phase_shift;
@@ -2861,6 +2871,7 @@ begin
               report "byte_phase = " & integer'image(to_integer(byte_phase));
               if byte_phase = 7 + read_time_adjust then
                 rwr_counter <= rwr_delay;
+                rwr_waiting <= '1';
                 report "returning to idle";
                 state <= Idle;
                 hr_cs0 <= '1';
