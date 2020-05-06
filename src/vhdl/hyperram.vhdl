@@ -580,7 +580,10 @@ begin
       -- Ignore read requests to the current block read, as they get
       -- short-circuited in the inner state machine to save time.
       if (read_request or read_request_latch)='1'
-        and busy_internal='0' and ((is_block_read = false) or (block_address /= address(26 downto 5))) then
+        and busy_internal='0' and ((is_block_read = false) or (block_address /= address(26 downto 5)))
+        -- Don't but in on the VIC-IV (but once we have submitted a request, we
+        -- do have priority)
+        and (viciv_last_request_toggle = viciv_request_toggle) then
         report "Making read request for $" & to_hstring(address);
         -- Begin read request
 
@@ -603,7 +606,8 @@ begin
           current_cache_line_new_address <= address(26 downto 3);
           current_cache_line_update_all <= not current_cache_line_update_all;
 
-          if (address(4 downto 3) = "11") and (flag_prefetch='1') then
+          if (address(4 downto 3) = "11") and (flag_prefetch='1')
+          and (viciv_request_toggle = viciv_last_request_toggle) then
             -- When attempting to read from the last 8 bytes of a block read,
             -- we schedule a pre-fetch of the next 32 bytes, so that we can hide
             -- the read latency as much as possible.
@@ -963,7 +967,7 @@ begin
           end case;
           fake_data_ready_strobe <= '1';
         else
-          if cache_enabled = false then
+          if cache_enabled = false then 
             -- Do normal  write request
             report "request_toggle flipped";
             report "DISPATCH: Accepted non-cached write";
