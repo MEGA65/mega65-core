@@ -2411,7 +2411,9 @@ begin
           
           report "WRITE: LatencyWait state, bg_wr=" & std_logic'image(background_write)
             & ", count=" & integer'image(background_write_count)
-            & ", background_write_fetch = " & std_logic'image(background_write_fetch);
+            & ", background_write_fetch = " & std_logic'image(background_write_fetch)
+            & ", background_write_valids = " & to_string(background_write_valids)
+            & ", write_blocked=" & std_logic'image(write_blocked);
           
           -- Now snap-shot the write buffer data, and mark the slot as flushed
           if background_write = '1' and
@@ -2427,6 +2429,14 @@ begin
               report "WRITE: background_chained_write <= 0";
             end if;
             background_chained_write <= '0';
+
+            if hr_clock_phase_drive(2 downto 1)="10" and (background_write_valids = "00000000")
+              and (read_request='1' or write_request='1' or write_blocked='1') then
+              report "LatencyWait: Aborting tail of background write due to incoming job/write_blocked";
+              state <= HyperRAMFinishWriting;              
+            end if;
+                
+            
           end if;
           
           if background_write_fetch = '1' then
