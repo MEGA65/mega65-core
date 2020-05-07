@@ -307,6 +307,8 @@ architecture gothic of hyperram is
   signal block_address_matches_cache_row_update_address : std_logic := '0';
   signal cache_row0_address_matches_cache_row_update_address : std_logic := '0';
   signal cache_row1_address_matches_cache_row_update_address : std_logic := '0';
+  signal byte_phase_greater_than_address_low_bits : std_logic := '0';
+  signal byte_phase_greater_than_address_end_of_row : std_logic := '0';
   
   signal write_continues : integer range 0 to 255 := 0;
   signal write_continues_max : integer range 0 to 255 := 16;
@@ -1246,6 +1248,18 @@ begin
       else
         write_collect0_address_matches_write_collect1_address_plus_1 <= '0';
       end if;
+
+      if to_integer(byte_phase) > to_integer(address(4 downto 0)) then
+        byte_phase_greater_than_address_low_bits <= '1';
+      else
+        byte_phase_greater_than_address_low_bits <= '0';
+      end if;
+      if to_integer(byte_phase) > to_integer(address(4 downto 3)&"111") then
+        byte_phase_greater_than_address_end_of_row <= '1';
+      else
+        byte_phase_greater_than_address_end_of_row <= '0';
+      end if;
+      
       
       -- Update short-circuit cache line
       -- (We don't change validity, since we don't know if it is
@@ -2706,7 +2720,7 @@ begin
                 -- We don't test request_toggle, as the outer 80MHz state
                 -- machine thinks we are still busy.
                 if address_matches_hyperram_access_address_block = '1' then
-                  if to_integer(byte_phase) > to_integer(address(4 downto 0)) then
+                  if byte_phase_greater_than_address_low_bits='1' then
                     report "DISPATCH: Supplying data from partially read data block. Value is $"
                       & to_hstring(block_data(to_integer(address(4 downto 3)))(to_integer(address(2 downto 0))))
                       & " ( from (" & integer'image(to_integer(address(4 downto 3)))
@@ -2725,7 +2739,7 @@ begin
                     -- slow_devices to help it optimise linear reads
                     report "DISPATCH: byte_phase = " & integer'image(to_integer(byte_phase))
                       & ", address=$" & to_hstring(address);
-                    if to_integer(byte_phase) > to_integer(address(4 downto 3)&"111") then
+                    if byte_phase_greater_than_address_end_of_row = '1' then
                       report "DISPATCH: Pushing block line to current_cache_line";
                       current_cache_line_drive <= block_data(to_integer(address(4 downto 3)));
                       current_cache_line_address_drive(26 downto 5) <= block_address(26 downto 5);
