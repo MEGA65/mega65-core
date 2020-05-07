@@ -40,6 +40,12 @@ ENTITY slow_devices IS
     slow_access_wdata : in unsigned(7 downto 0);
     slow_access_rdata : out unsigned(7 downto 0);    
 
+    -- Fast read interface for slow devices linear reading
+    -- (only hyperram)
+    slow_prefetched_request_toggle : in std_logic := '0';
+    slow_prefetched_data : out unsigned(7 downto 0) := x"00";
+    slow_prefetched_address : inout unsigned(26 downto 0) := (others => '1');
+    
     -- Indicate if expansion port is busy with access
     cart_busy : out std_logic;
     cart_access_count : out unsigned(7 downto 0);
@@ -270,6 +276,7 @@ begin
                 & " from exposed hyperram current cache line";
               slow_access_rdata <= expansionram_current_cache_line(to_integer(slow_access_address(2 downto 0)));
               state <= Idle;
+              
               slow_access_ready_toggle <= slow_access_request_toggle;
               -- If we are reading the last byte in the set we have, then tell
               -- hyperram controller to present the next data, if possible.
@@ -277,6 +284,18 @@ begin
 --                report "DISPATCHER: Requesting next 8 bytes";
                 expansionram_current_cache_line_next_toggle <= not expansionram_current_cache_line_next_toggle;
               end if;
+
+              if slow_access_address(2 downto 0) /= "111" then
+                -- Present the NEXT byte via the fast interface to the CPU
+                slow_prefetched_address <= slow_access_address(26 downto 0) + 1;
+                slow_prefetched_data <= expansionram_current_cache_line(to_integer(slow_access_address(2 downto 0))+1);
+              else
+                -- XXX Ideally we should automatically present the next byte
+                -- when it becomes available, but it's probably not worth the
+                -- complexity for the small incremental benefit it would deliver.
+                null;
+              end if;
+              
             else
               expansionram_read_timeout <= (others => '1');
               state <= ExpansionRAMRequest;
@@ -332,11 +351,18 @@ begin
             report "setting expansionram_read to " & std_logic'image(not slow_access_write)
               & " ( = not " & std_logic'image(slow_access_write) & ")";
             expansionram_write <= slow_access_write;
+
             if slow_access_write='1' then
               -- Write can be delivered, and then ignored, since we aren't
               -- waiting for anything. So just return to the Idle state;
               state <= Idle;
               slow_access_ready_toggle <= slow_access_request_toggle;
+
+              -- Update pre-fetched data when writing
+              if slow_access_address = slow_prefetched_address then
+                slow_prefetched_data <= slow_access_wdata;
+              end if;
+              
             elsif slow_access_write='0' then
               -- Read from expansion RAM -- here we need to wait for a response
               -- from the expansion RAM
