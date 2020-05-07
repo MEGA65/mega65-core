@@ -101,6 +101,12 @@ entity machine is
          slow_access_rdata : in unsigned(7 downto 0);
          cart_access_count : in unsigned(7 downto 0) := x"00";
 
+         -- Fast read interface for slow devices linear reading
+         -- (only hyperram)
+         slow_prefetched_request_toggle : inout std_logic := '0';
+         slow_prefetched_data : in unsigned(7 downto 0) := x"00";
+         slow_prefetched_address : in unsigned(26 downto 0) := (others => '1');
+         
          sector_buffer_mapped : inout std_logic;
 
          joy3 : in std_logic_vector(4 downto 0) := "11011";
@@ -1010,6 +1016,9 @@ begin
       slow_access_write => slow_access_write,
       slow_access_wdata => slow_access_wdata,
       slow_access_rdata => slow_access_rdata,
+      slow_prefetched_address => slow_prefetched_address,
+      slow_prefetched_data => slow_prefetched_data,
+      slow_prefetched_request_toggle => slow_prefetched_request_toggle,
       
       chipram_clk => pixelclock,
       chipram_address => chipram_address,
