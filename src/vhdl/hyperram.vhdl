@@ -340,6 +340,7 @@ architecture gothic of hyperram is
   signal hr_clk : std_logic := '0';
 
   signal hr_clock_phase : unsigned(2 downto 0) := "000";
+  signal hr_clock_phase_drive : unsigned(2 downto 0) := "111";
 
   signal read_time_adjust : integer range 0 to 255 := 1;
   signal seven_plus_read_time_adjust : unsigned(5 downto 0) := "000000";
@@ -1066,10 +1067,11 @@ begin
     -- Optionally delay HR_CLK by 1/2 an 160MHz clock cycle
     -- (actually just by optionally inverting it)
     if rising_edge(clock325) then
+      hr_clock_phase_drive <= hr_clock_phase;
       hr_clock_phase <= hr_clock_phase + 1;
       -- Changing at the end of a phase cycle prevents us having any
       -- problematically short clock pulses when it matters.
-      if hr_clock_phase="111" then
+      if hr_clock_phase_drive="110" then
         hr_clk_fast_current <= hr_clk_fast;
         hr_clk_phaseshift_current <= hr_clk_phaseshift;
         if hr_clk_fast /= hr_clk_fast_current or hr_clk_phaseshift_current /= hr_clk_phaseshift then
@@ -1487,7 +1489,7 @@ begin
             
           -- Phase 101 guarantees that the clock base change will happen
           -- within the comming clock cycle
-          if rwr_waiting='0' and  hr_clock_phase(2 downto 1) = "10" then
+          if rwr_waiting='0' and  hr_clock_phase_drive(2 downto 1) = "01" then
             if (viciv_request_toggle /= viciv_last_request_toggle)
               -- Only start VIC-IV fetches if we don't have a transaction
               -- already waiting to go.
