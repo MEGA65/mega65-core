@@ -1932,7 +1932,6 @@ begin
           -- RAM that we used it, so that it can get the next one ready for us.
           -- This allows MUCH faster linear reading of the slow device address
           -- space, which is particularly helpful for accessing the HyperRAM.
-          slow_prefetched_request_toggle <= not slow_prefetched_request_toggle;
           slow_prefetch_data <= slow_prefetched_data;
           wait_states <= x"00";
           wait_states_non_zero <= '0';
