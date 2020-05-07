@@ -239,14 +239,16 @@ architecture Behavioral of container is
   signal cpu_game : std_logic := '1';
   signal cpu_exrom : std_logic := '1';
 
-  signal pixelclock : std_logic;
   signal ethclock : std_logic;
   signal cpuclock : std_logic;
   signal clock41 : std_logic;
   signal clock27 : std_logic;
-  signal clock81 : std_logic;
+  signal pixelclock : std_logic; -- i.e., clock81p
+  signal clock81n : std_logic;
   signal clock120 : std_logic;
   signal clock100 : std_logic;
+  signal clock135p : std_logic;
+  signal clock135n : std_logic;
   signal clock162 : std_logic;
   signal clock325 : std_logic;
 
@@ -408,16 +410,25 @@ begin
              );
 -- End of STARTUPE2_inst instantiation
 
-  
-  dotclock1: entity work.dotclock100
-    port map ( clk_in1 => CLK_IN,
-               clock100 => clock100,
-               clock81 => pixelclock, -- 80MHz
-               clock41 => cpuclock, -- 40MHz
-               clock50 => ethclock,
-               clock162 => clock162,
-               clock27 => clock27,
-               clock325 => clock325
+
+  -- New clocking setup, using more optimised selection of multipliers
+  -- and dividers, as well as the ability of some clock outputs to provide an
+  -- inverted clock for free.
+  -- Also, the 50 and 100MHz ethernet clocks are now independent of the other
+  -- clocks, so that Vivado shouldn't try to meet timing closure in the (already
+  -- protected) domain crossings used for those.
+  clocks1: entity work.clocking
+    port map ( clk_in    => CLK_IN,
+               clock27   => clock27,    --   27.083 MHz
+               clock41   => cpuclock,   --   40.625 MHz
+               clock50   => ethclock,   --   50     MHz
+               clock81p  => pixelclock, --   81.25  MHz
+               clock81n  => clock81n,   --   81.25  MHz
+               clock100  => clock100,   --  100     MHz
+               clock135p => clock135p,  --  135.417 MHz
+               clock135n => clock135n,  --  135.417 MHz
+               clock163  => clock162,   -- 162.5    MHz
+               clock325  => clock325    -- 325      MHz
                );
 
   fpgatemp0: entity work.fpgatemp
