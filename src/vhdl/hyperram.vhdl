@@ -1217,57 +1217,7 @@ begin
         end if;
       end if;
       
-      -- Update cache
-      if cache_row0_address_matches_ram_address = '1' then
-        if ram_wdata_enlo_drive='1' then
-          cache_row0_valids(to_integer(ram_address_drive(2 downto 0))) <= '1';
-          cache_row0_data(to_integer(ram_address_drive(2 downto 0))) <= ram_wdata_drive;
-        end if;
-        if ram_wdata_enhi_drive='1' then
-          cache_row0_valids(to_integer(ram_address_drive(2 downto 0))+1) <= '1';
-          cache_row0_data(to_integer(ram_address_drive(2 downto 0))+1) <= ram_wdata_hi_drive;
-        end if;
-        show_cache0 := true;
-      elsif cache_row1_address_matches_ram_address='1' then
-        if ram_wdata_enlo_drive='1' then
-          cache_row1_valids(to_integer(ram_address_drive(2 downto 0))) <= '1';
-          cache_row1_data(to_integer(ram_address_drive(2 downto 0))) <= ram_wdata_drive;        
-        end if;
-        if ram_wdata_enhi_drive='1' then
-          cache_row1_valids(to_integer(ram_address_drive(2 downto 0))+1) <= '1';
-          cache_row1_data(to_integer(ram_address_drive(2 downto 0))+1) <= ram_wdata_hi_drive;
-        end if;
-        show_cache1 := true;
-      else
-        if random_bits(1)='0' then
-          cache_row0_valids <= (others => '0');
-          cache_row0_address <= ram_address_drive(26 downto 3);
-          if ram_wdata_enlo_drive='1' then
-            cache_row0_valids(to_integer(ram_address_drive(2 downto 0))) <= '1';
-            cache_row0_data(to_integer(ram_address_drive(2 downto 0))) <= ram_wdata_drive;
-          end if;
-          if ram_wdata_enhi_drive='1' then
-            cache_row0_valids(to_integer(ram_address_drive(2 downto 0))+1) <= '1';
-            cache_row0_data(to_integer(ram_address_drive(2 downto 0))+1) <= ram_wdata_hi_drive;
-          end if;
-          show_cache0 := true;
-        else
-          cache_row1_valids <= (others => '0');
-          cache_row1_address <= ram_address_drive(26 downto 3);
-          if ram_wdata_enlo_drive='1' then
-            cache_row1_valids(to_integer(ram_address_drive(2 downto 0))) <= '1';
-            cache_row1_data(to_integer(ram_address_drive(2 downto 0))) <= ram_wdata_drive;
-          end if;
-          if ram_wdata_enhi_drive='1' then
-            cache_row1_valids(to_integer(ram_address_drive(2 downto 0))+1) <= '1';
-            cache_row1_data(to_integer(ram_address_drive(2 downto 0))+1) <= ram_wdata_hi_drive;
-          end if;
-          show_cache1 := true;
-        end if;
-      end if;
-      
-      if current_cache_line_address(26 downto 5) = block_address(26 downto 5)
-        and block_valid = '1' then
+      if current_cache_line_address(26 downto 5) = block_address(26 downto 5) then
         current_cache_line_matches_block <= '1';
       else
         current_cache_line_matches_block <= '0';
@@ -1305,6 +1255,7 @@ begin
       
       if mark_cache_for_prefetch='1' then
         if random_bits(1)='0' then
+          report "Zeroing cache_row0_valids";
           cache_row0_valids <= (others => '0');
           cache_row0_address <= ram_address(26 downto 3);
           show_cache0 := true;
@@ -1374,6 +1325,7 @@ begin
 
       -- Invalidate cache if disabled
       if cache_enabled = false then
+        report "Zeroing cache_row0_valids";
         cache_row0_valids <= (others => '0');
         cache_row1_valids <= (others => '0');
         current_cache_line_valid_drive <= '0';
@@ -2139,6 +2091,7 @@ begin
 
             -- Invalidate read cache when writing
             if cache_enabled and hyperram_access_address_matches_cache_row0 = '1' then
+              report "Zeroing cache_row0_valids";
               cache_row0_valids <= (others => '0');
             elsif cache_enabled and hyperram_access_address_matches_cache_row1 = '1' then
               cache_row1_valids <= (others => '0');
@@ -2272,7 +2225,56 @@ begin
           else
             collect0_matches_collect1_plus_1 <= '0';
           end if;
-          
+
+          -- Update cache
+          if cache_row0_address_matches_ram_address = '1' then
+            if ram_wdata_enlo_drive='1' then
+              cache_row0_valids(to_integer(ram_address_drive(2 downto 0))) <= '1';
+              cache_row0_data(to_integer(ram_address_drive(2 downto 0))) <= ram_wdata_drive;
+            end if;
+            if ram_wdata_enhi_drive='1' then
+              cache_row0_valids(to_integer(ram_address_drive(2 downto 0))+1) <= '1';
+              cache_row0_data(to_integer(ram_address_drive(2 downto 0))+1) <= ram_wdata_hi_drive;
+            end if;
+            show_cache0 := true;
+          elsif cache_row1_address_matches_ram_address='1' then
+            if ram_wdata_enlo_drive='1' then
+              cache_row1_valids(to_integer(ram_address_drive(2 downto 0))) <= '1';
+              cache_row1_data(to_integer(ram_address_drive(2 downto 0))) <= ram_wdata_drive;        
+            end if;
+            if ram_wdata_enhi_drive='1' then
+              cache_row1_valids(to_integer(ram_address_drive(2 downto 0))+1) <= '1';
+              cache_row1_data(to_integer(ram_address_drive(2 downto 0))+1) <= ram_wdata_hi_drive;
+            end if;
+            show_cache1 := true;
+          else
+            if random_bits(1)='0' then
+              report "Zeroing cache_row0_valids";
+              cache_row0_valids <= (others => '0');
+              cache_row0_address <= ram_address_drive(26 downto 3);
+              if ram_wdata_enlo_drive='1' then
+                cache_row0_valids(to_integer(ram_address_drive(2 downto 0))) <= '1';
+                cache_row0_data(to_integer(ram_address_drive(2 downto 0))) <= ram_wdata_drive;
+              end if;
+              if ram_wdata_enhi_drive='1' then
+                cache_row0_valids(to_integer(ram_address_drive(2 downto 0))+1) <= '1';
+                cache_row0_data(to_integer(ram_address_drive(2 downto 0))+1) <= ram_wdata_hi_drive;
+              end if;
+              show_cache0 := true;
+            else
+              cache_row1_valids <= (others => '0');
+              cache_row1_address <= ram_address_drive(26 downto 3);
+              if ram_wdata_enlo_drive='1' then
+                cache_row1_valids(to_integer(ram_address_drive(2 downto 0))) <= '1';
+                cache_row1_data(to_integer(ram_address_drive(2 downto 0))) <= ram_wdata_drive;
+              end if;
+              if ram_wdata_enhi_drive='1' then
+                cache_row1_valids(to_integer(ram_address_drive(2 downto 0))+1) <= '1';
+                cache_row1_data(to_integer(ram_address_drive(2 downto 0))+1) <= ram_wdata_hi_drive;
+              end if;
+              show_cache1 := true;
+            end if;
+          end if;
             
           -- Fetch takes 2 cycles, so schedule one cycle before last read
           -- and shift, so that it happens after that last shift, but
@@ -2676,6 +2678,7 @@ begin
                 end if;
                 show_cache1 := true;
               elsif random_bits(1) = '0' then
+                report "Zeroing cache_row0_valids";
                 cache_row0_valids <= (others => '0');
                 cache_row0_address <= hyperram_access_address(26 downto 3);
                 cache_row0_valids(to_integer(byte_phase)) <= '1';
@@ -2901,6 +2904,7 @@ begin
                   end if;
                   show_cache1 := true;
                 elsif random_bits(1) = '0' then
+                  report "Zeroing cache_row0_valids";
                   cache_row0_valids <= (others => '0');
                   cache_row0_address <= hyperram_access_address(26 downto 3);
                   cache_row0_valids(to_integer(byte_phase)) <= '1';
