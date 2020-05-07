@@ -258,6 +258,7 @@ architecture gothic of hyperram is
   signal last_current_cache_line_update_flags : std_logic_vector(0 to 7) := (others => '0');
 
   signal current_cache_line_matches_block : std_logic := '0';
+  signal current_cache_line_plus_1_matches_block : std_logic := '0';
   signal hyperram_access_address_matches_cache_row0 : std_logic := '0';
   signal hyperram_access_address_matches_cache_row1 : std_logic := '0';
   
@@ -636,7 +637,7 @@ begin
             tempaddr(26 downto 5) := address(26 downto 5) + 1;
             tempaddr(4 downto 0) := "00000";
             ram_address <= tempaddr;
---            request_toggle <= not request_toggle;          
+            request_toggle <= not request_toggle;          
             ram_prefetch <= true;
             ram_normalfetch <= false;
 
@@ -1222,6 +1223,12 @@ begin
       else
         current_cache_line_matches_block <= '0';
       end if;
+      if (current_cache_line_address(26 downto 5) + 1) = block_address(26 downto 5) then
+        current_cache_line_plus_1_matches_block <= '1';
+      else
+        current_cache_line_plus_1_matches_block <= '0';
+      end if;
+
       if cache_row0_address = hyperram_access_address(26 downto 3) then
         hyperram_access_address_matches_cache_row0 <= '1';
       else
@@ -1297,8 +1304,21 @@ begin
       -- (If it isn't in the data block, then we will have presumably already
       -- started a pre-fetch when we serviced the access that created the current
       -- data value in the current cache line entry.
+
+      
       if expansionram_current_cache_line_next_toggle /= last_current_cache_next_toggle then
         last_current_cache_next_toggle <= expansionram_current_cache_line_next_toggle;
+        if current_cache_line_plus_1_matches_block = '1'
+          and (current_cache_line_address(4 downto 3) = "11") and (block_valid='1')
+        then
+          report "DISPATCHER: Presenting next 8 bytes to slow_devices. Was $"
+            & to_hstring(current_cache_line_address&"000") & ", new is $"
+            & to_hstring(current_cache_line_address(26 downto 5)&(current_cache_line_address(4 downto 3) + 1)&"000");
+          current_cache_line_address_drive(26 downto 5) <= block_address;
+          current_cache_line_address_drive(4 downto 3) <= "00";
+          current_cache_line_drive <= block_data(0);
+          current_cache_line_valid_drive <= '1';
+        end if;
         if current_cache_line_matches_block = '1'
           and (current_cache_line_address(4 downto 3) /= "11") and (block_valid='1')
         then
@@ -1308,6 +1328,24 @@ begin
           current_cache_line_address_drive(4 downto 3) <= current_cache_line_address(4 downto 3) + 1;
           current_cache_line_drive <= block_data(to_integer(current_cache_line_address(4 downto 3)) + 1);
           current_cache_line_valid_drive <= '1';
+
+          if current_cache_line_address(4 downto 3) = "10" then
+            ram_reading <= '1';
+            tempaddr(26 downto 5) := current_cache_line_address(26 downto 5) + 1;
+            tempaddr(4 downto 0) := "00000";
+            ram_address <= tempaddr;
+            ram_prefetch <= true;
+            ram_normalfetch <= false;
+            request_toggle <= not request_toggle;
+            
+            report "DISPATCH: Dispatching pre-fetch of $" & to_hstring(tempaddr)
+              & " in response to giving last row to current_cache_line";
+            -- Mark a cache line to receive the pre-fetched data, so that we don't
+            -- have to wait for it all to turn up, before being able to return
+            -- the first 8 bytes
+            mark_cache_for_prefetch <= '1';
+          end if;
+          
         end if;       
       end if;
 
