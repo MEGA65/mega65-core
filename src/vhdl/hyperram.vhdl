@@ -341,6 +341,7 @@ architecture gothic of hyperram is
   signal hr_clk_fast_current : std_logic := '1';
   signal hr_clk : std_logic := '0';
 
+  signal hr_clock_phase165 : unsigned(1 downto 0) := "00";
   signal hr_clock_phase : unsigned(2 downto 0) := "000";
   signal hr_clock_phase_drive : unsigned(2 downto 0) := "111";
 
@@ -1190,6 +1191,8 @@ begin
     end if;
 
     if rising_edge(clock163) then
+      hr_clock_phase165 <= hr_clock_phase165 + 1;
+
       cycle_count <= cycle_count + 1;
 
       if read_request_delatch='1' and read_request_latch='0' then
@@ -1553,7 +1556,7 @@ begin
             
           -- Phase 101 guarantees that the clock base change will happen
           -- within the comming clock cycle
-          if rwr_waiting='0' and  hr_clock_phase_drive(2 downto 1) = "01" then
+          if rwr_waiting='0' and  hr_clock_phase165 = "10" then
             if (viciv_request_toggle /= viciv_last_request_toggle)
               -- Only start VIC-IV fetches if we don't have a transaction
               -- already waiting to go.
@@ -2453,7 +2456,7 @@ begin
             end if;
             background_chained_write <= '0';
 
-            if hr_clock_phase_drive(2 downto 1)="10" and (background_write_valids = "00000000")
+            if hr_clock_phase165="11" and (background_write_valids = "00000000")
               and (read_request='1' or write_request='1' or write_blocked='1') then
               report "LatencyWait: Aborting tail of background write due to incoming job/write_blocked";
               state <= HyperRAMFinishWriting;              
