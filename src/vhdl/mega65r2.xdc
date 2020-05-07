@@ -12,6 +12,13 @@ set_property -dict {PACKAGE_PIN V13 IOSTANDARD LVCMOS33} [get_ports CLK_IN]
 
 create_clock -period 10.000 -name CLK_IN [get_ports CLK_IN]
 
+## Make Ethernet clocks unrelated to other clocks to avoid erroneous timing
+## violations, and hopefully make everything synthesise faster.
+set_clock_groups -asynchronous \
+     -group { cpuclock hdmi_clk_OBUF vdac_clk_OBUF clock162 clock325 } \
+     -group { CLKFBOUT clk_fb_eth clock100 eth_clock_OBUF }
+
+
 ## Buttons
 # XXX - Currently resets FPGA, rather than CPU
 #
