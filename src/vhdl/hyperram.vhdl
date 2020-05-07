@@ -364,6 +364,7 @@ architecture gothic of hyperram is
 
   signal read_request_latch : std_logic := '0';
   signal read_request_delatch : std_logic := '0';
+  signal read_request_prev : std_logic := '0';
   signal write_request_latch : std_logic := '0';
 
   signal prefetch_when_idle : boolean := false;
@@ -1225,6 +1226,11 @@ begin
         address_matches_hyperram_access_address_block <= '1';
       else
         address_matches_hyperram_access_address_block <= '0';
+      end if;
+      if read_request='1' or read_request_held='1' then
+        read_request_prev <= '1';
+      else
+        read_request_prev <= '0';
       end if;
 
       if write_collect0_address = (write_collect1_address + 1) then
@@ -2644,7 +2650,12 @@ begin
               -- that is in this block read, we DONT want to abort the read,
               -- because starting a new request will almost always be slower.
               report "DISPATCH: new request is for $" & to_hstring(address) & ", and we are reading $" & to_hstring(hyperram_access_address) & ", read = " & std_logic'image(read_request);
-              if ((read_request='1') or (read_request_held='1')) and address_matches_hyperram_access_address_block='1' then
+              report "DISPATCH:"
+                & " read_request=" & std_logic'image(read_request)
+                & " read_request_held=" & std_logic'image(read_request_held)
+                & " address_matches_hyperram_access_address_block=" & std_logic'image(address_matches_hyperram_access_address_block);
+                
+              if read_request_prev='1' and address_matches_hyperram_access_address_block='1' then
                 -- New read request from later in this block.
                 -- We know that we will have the data soon.
                 -- The trick is coordinating our response.
@@ -2675,7 +2686,7 @@ begin
                   end if;
                 end if;
                 
-              elsif read_request='1' and (not is_expected_to_respond) then
+              elsif read_request_prev='1' and (not is_expected_to_respond) then
                 report "DISPATCH: Aborting pre-fetch due to incoming read request";
                 state <= Idle;
               end if;
