@@ -302,6 +302,11 @@ architecture gothic of hyperram is
   signal background_write_fetch : std_logic := '0';
   signal collect1_matches_collect0_plus_1 : std_logic := '0';
   signal collect0_matches_collect1_plus_1 : std_logic := '0';
+  signal matches_cache_row_update_address : std_logic := '0';
+  signal block_address_matches_cache_row_update_address : std_logic := '0';
+  signal cache_row0_address_matches_cache_row_update_address : std_logic := '0';
+  signal cache_row1_address_matches_cache_row_update_address : std_logic := '0';
+  
   signal write_continues : integer range 0 to 255 := 0;
   signal write_continues_max : integer range 0 to 255 := 16;
   
@@ -1271,7 +1276,23 @@ begin
       else
         hyperram_access_address_matches_cache_row1 <= '0';
       end if;
-      
+      if cache_row0_address = cache_row_update_address then
+        cache_row0_address_matches_ram_address <= '1';
+      else
+        cache_row0_address_matches_ram_address <= '0';
+      end if;
+      if cache_row1_address = cache_row_update_address then
+        cache_row1_address_matches_ram_address <= '1';
+      else
+        cache_row1_address_matches_ram_address <= '0';
+      end if;
+      if block_address = cache_row_update_address(26 downto 5) then
+        block_address_matches_cache_row_update_address <= '1';
+      else
+        block_address_matches_cache_row_update_address <= '0';
+      end if;
+        
+          
       current_cache_line <= current_cache_line_drive;
       current_cache_line_address <= current_cache_line_address_drive;
       current_cache_line_valid <= current_cache_line_valid_drive;
@@ -1344,6 +1365,76 @@ begin
           state <= WriteSetup;
         end if;
       end if;      
+
+      -- Invalidate cache if disabled
+      if cache_enabled = false then
+        cache_row0_valids <= (others => '0');
+        cache_row1_valids <= (others => '0');
+        current_cache_line_valid_drive <= '0';
+        block_valid <= '0';
+      end if;
+      
+      if current_cache_line_update_all /= last_current_cache_line_update_all then
+        report "DISPATCHER: Replacing current cache line with $" & to_hstring(current_cache_line_new_address&"000");
+        last_current_cache_line_update_all <= current_cache_line_update_all;              
+        current_cache_line_address_drive <= current_cache_line_new_address;
+        current_cache_line_drive <= current_cache_line_update;
+      end if;
+      for i in 0 to 7 loop
+        if current_cache_line_update_flags(i) /= last_current_cache_line_update_flags(i)  then
+          last_current_cache_line_update_flags(i) <= current_cache_line_update_flags(i);
+          current_cache_line_drive(i) <= current_cache_line_update(i);
+        end if;
+      end loop;
+      
+      if cache_row_update_toggle /= last_cache_row_update_toggle then
+        last_cache_row_update_toggle <= cache_row_update_toggle;
+        if cache_row0_address_matches_cache_row_update_address = '1' then
+          if cache_row_update_lo='1' then
+            report "DISPATCH: Updating cache0 via write: $" & to_hstring((cache_row_update_address&"000")+cache_row_update_byte)
+              & " gets $" & to_hstring(cache_row_update_value);
+            cache_row0_valids(cache_row_update_byte) <= '1';
+            cache_row0_data(cache_row_update_byte) <= cache_row_update_value;
+          end if;
+          if cache_row_update_hi='1' then
+            report "DISPATCH: Updating cache0 via write: $" & to_hstring((cache_row_update_address&"001")+cache_row_update_byte)
+              & " gets $" & to_hstring(cache_row_update_value);
+            cache_row0_valids(cache_row_update_byte+1) <= '1';
+            cache_row0_data(cache_row_update_byte+1) <= cache_row_update_value_hi;
+          end if;
+          show_cache0 := true;
+        end if;
+        if cache_row1_address_matches_cache_row_update_address = '1' then
+          if cache_row_update_lo='1' then
+            report "DISPATCH: Updating cache1 via write: $" & to_hstring((cache_row_update_address&"000")+cache_row_update_byte)
+              & " gets $" & to_hstring(cache_row_update_value);
+            cache_row1_valids(cache_row_update_byte) <= '1';
+            cache_row1_data(cache_row_update_byte) <= cache_row_update_value;
+          end if;
+          if cache_row_update_hi='1' then
+            report "DISPATCH: Updating cache1 via write: $" & to_hstring((cache_row_update_address&"001")+cache_row_update_byte)
+              & " gets $" & to_hstring(cache_row_update_value);
+            cache_row1_valids(cache_row_update_byte+1) <= '1';
+            cache_row1_data(cache_row_update_byte+1) <= cache_row_update_value_hi;
+          end if;
+          show_cache1 := true;
+        end if;
+        if block_address_matches_cache_row_update_address = '1' then
+          if cache_row_update_lo='1' then
+            report "DISPATCH: Updating block data via write: $" & to_hstring((cache_row_update_address&"000")+cache_row_update_byte)
+              & " gets $" & to_hstring(cache_row_update_value);
+            block_data(to_integer(cache_row_update_address(4 downto 3)))(cache_row_update_byte)
+              <= cache_row_update_value;
+          end if;
+          if cache_row_update_hi='1' then
+            report "DISPATCH: Updating block data via write: $" & to_hstring((cache_row_update_address&"000")+cache_row_update_byte)
+              & " gets $" & to_hstring(cache_row_update_value);
+            block_data(to_integer(cache_row_update_address(4 downto 3)))(cache_row_update_byte+1)
+              <= cache_row_update_value_hi;
+          end if;
+          show_block := true;
+        end if;
+      end if;                              
       
       case state is
         when StartupDelay =>
@@ -1371,77 +1462,7 @@ begin
           hr_clk_fast <= '1';
           
           pause_phase <= '0';
-          countdown_timeout <= '0';
-          
-          -- Invalidate cache if disabled
-          if cache_enabled = false then
-            cache_row0_valids <= (others => '0');
-            cache_row1_valids <= (others => '0');
-            current_cache_line_valid_drive <= '0';
-            block_valid <= '0';
-          end if;
-
-          if current_cache_line_update_all /= last_current_cache_line_update_all then
-            report "DISPATCHER: Replacing current cache line with $" & to_hstring(current_cache_line_new_address&"000");
-            last_current_cache_line_update_all <= current_cache_line_update_all;              
-            current_cache_line_address_drive <= current_cache_line_new_address;
-            current_cache_line_drive <= current_cache_line_update;
-          end if;
-          for i in 0 to 7 loop
-            if current_cache_line_update_flags(i) /= last_current_cache_line_update_flags(i)  then
-              last_current_cache_line_update_flags(i) <= current_cache_line_update_flags(i);
-              current_cache_line_drive(i) <= current_cache_line_update(i);
-            end if;
-          end loop;
-
-          if cache_row_update_toggle /= last_cache_row_update_toggle then
-            last_cache_row_update_toggle <= cache_row_update_toggle;
-            if cache_row0_address = cache_row_update_address then
-              if cache_row_update_lo='1' then
-                report "DISPATCH: Updating cache0 via write: $" & to_hstring((cache_row_update_address&"000")+cache_row_update_byte)
-                  & " gets $" & to_hstring(cache_row_update_value);
-                cache_row0_valids(cache_row_update_byte) <= '1';
-                cache_row0_data(cache_row_update_byte) <= cache_row_update_value;
-              end if;
-              if cache_row_update_hi='1' then
-                report "DISPATCH: Updating cache0 via write: $" & to_hstring((cache_row_update_address&"001")+cache_row_update_byte)
-                  & " gets $" & to_hstring(cache_row_update_value);
-                cache_row0_valids(cache_row_update_byte+1) <= '1';
-                cache_row0_data(cache_row_update_byte+1) <= cache_row_update_value_hi;
-              end if;
-              show_cache0 := true;
-            end if;
-            if cache_row1_address = cache_row_update_address then
-              if cache_row_update_lo='1' then
-                report "DISPATCH: Updating cache1 via write: $" & to_hstring((cache_row_update_address&"000")+cache_row_update_byte)
-                  & " gets $" & to_hstring(cache_row_update_value);
-                cache_row1_valids(cache_row_update_byte) <= '1';
-                cache_row1_data(cache_row_update_byte) <= cache_row_update_value;
-              end if;
-              if cache_row_update_hi='1' then
-                report "DISPATCH: Updating cache1 via write: $" & to_hstring((cache_row_update_address&"001")+cache_row_update_byte)
-                  & " gets $" & to_hstring(cache_row_update_value);
-                cache_row1_valids(cache_row_update_byte+1) <= '1';
-                cache_row1_data(cache_row_update_byte+1) <= cache_row_update_value_hi;
-              end if;
-              show_cache1 := true;
-            end if;
-            if block_address = cache_row_update_address(26 downto 5) then
-              if cache_row_update_lo='1' then
-                report "DISPATCH: Updating block data via write: $" & to_hstring((cache_row_update_address&"000")+cache_row_update_byte)
-                  & " gets $" & to_hstring(cache_row_update_value);
-                block_data(to_integer(cache_row_update_address(4 downto 3)))(cache_row_update_byte)
-                  <= cache_row_update_value;
-              end if;
-              if cache_row_update_hi='1' then
-                report "DISPATCH: Updating block data via write: $" & to_hstring((cache_row_update_address&"000")+cache_row_update_byte)
-                  & " gets $" & to_hstring(cache_row_update_value);
-                block_data(to_integer(cache_row_update_address(4 downto 3)))(cache_row_update_byte+1)
-                  <= cache_row_update_value_hi;
-              end if;
-              show_block := true;
-            end if;
-          end if;                        
+          countdown_timeout <= '0';          
           
           -- Clear write buffer flags when they are empty
           if write_collect0_dispatchable = '0' then
