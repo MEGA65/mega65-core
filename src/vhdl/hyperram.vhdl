@@ -443,7 +443,8 @@ begin
       end if;
 
       if write_blocked = '1' and first_transaction='0' then
-        report "DISPATCH: write_blocked asserted. Waiting for existing writes to flush...";
+--        report "DISPATCH: write_blocked asserted. Waiting for existing writes to flush...";
+        null;
       end if;
       
       -- Clear write block as soon as either write buffer clears
@@ -2669,7 +2670,7 @@ begin
                 -- We don't test request_toggle, as the outer 80MHz state
                 -- machine thinks we are still busy.
                 if address_matches_hyperram_access_address_block = '1' then
-                  if byte_phase > to_integer(address(4 downto 0)) then
+                  if to_integer(byte_phase) > to_integer(address(4 downto 0)) then
                     report "DISPATCH: Supplying data from partially read data block. Value is $"
                       & to_hstring(block_data(to_integer(address(4 downto 3)))(to_integer(address(2 downto 0))))
                       & " ( from (" & integer'image(to_integer(address(4 downto 3)))
@@ -2683,6 +2684,21 @@ begin
                       rdata_hi <= block_data(to_integer(address(4 downto 3)))(to_integer(address(2 downto 0))+1);
                     end if;
                     last_request_toggle <= request_toggle;
+
+                    -- Also push the whole cache line equivalent to
+                    -- slow_devices to help it optimise linear reads
+                    report "DISPATCH: byte_phase = " & integer'image(to_integer(byte_phase))
+                      & ", address=$" & to_hstring(address);
+                    if to_integer(byte_phase) > to_integer(address(4 downto 3)&"111") then
+                      report "DISPATCH: Pushing block line to current_cache_line";
+                      current_cache_line_drive <= block_data(to_integer(address(4 downto 3)));
+                      current_cache_line_address_drive(26 downto 5) <= block_address(26 downto 5);
+                      current_cache_line_address_drive(4 downto 3) <= address(4 downto 3);
+                      current_cache_line_valid_drive <= '1';
+                    else
+                      report "DISPATCH: " & integer'image(to_integer(byte_phase)) & " not > " &
+                        integer'image(to_integer(address(4 downto 3)&"111"));
+                    end if;
                   end if;
                 end if;
                 
@@ -2823,9 +2839,6 @@ begin
               -- Export the appropriate cache line to slow_devices
               if hyperram_access_address_matches_cache_row0 = '1' and cache_enabled then          
                 if cache_row0_valids = x"FF" then
-                  current_cache_line_drive <= cache_row0_data;
-                  current_cache_line_address_drive(26 downto 3) <= hyperram_access_address(26 downto 3);
-                  current_cache_line_valid_drive <= '1';
                 end if;
               elsif hyperram_access_address_matches_cache_row1 = '1' and cache_enabled then          
                 if cache_row1_valids = x"FF" then
