@@ -366,6 +366,7 @@ architecture gothic of hyperram is
   signal read_request_delatch : std_logic := '0';
   signal read_request_prev : std_logic := '0';
   signal write_request_latch : std_logic := '0';
+  signal write_request_prev : std_logic := '0';
 
   signal prefetch_when_idle : boolean := false;
   
@@ -530,7 +531,8 @@ begin
         show_collect1 := false;
       end if;
       if show_block or show_always then
-        report "CACHE block0: $" & to_hstring(block_address&"00000") & ", valid=" & std_logic'image(block_valid);
+        report "CACHE block0: $" & to_hstring(block_address&"00000") & ", valid=" & std_logic'image(block_valid)
+          & ", byte_phase=" & integer'image(to_integer(byte_phase));
         for i in 0 to 3 loop
           report "CACHE block0 segment " & integer'image(i) & ": "
             & to_hstring(block_data(i)(0)) & " "
@@ -1232,6 +1234,11 @@ begin
         read_request_prev <= '1';
       else
         read_request_prev <= '0';
+      end if;
+      if write_request='1' or write_request_held='1' then
+        write_request_prev <= '1';
+      else
+        write_request_prev <= '0';
       end if;
 
       if write_collect0_address = (write_collect1_address + 1) then
@@ -2646,7 +2653,7 @@ begin
 
           -- Abort memory pre-fetching if we are asked to do something
           if is_block_read then 
-            if (read_request='1' or write_request='1') then
+            if (read_request_prev='1' or write_request_prev='1') then
               -- Okay, here is the tricky case: If the request is for data
               -- that is in this block read, we DONT want to abort the read,
               -- because starting a new request will almost always be slower.
@@ -2656,7 +2663,17 @@ begin
                 & " read_request_held=" & std_logic'image(read_request_held)
                 & " address_matches_hyperram_access_address_block=" & std_logic'image(address_matches_hyperram_access_address_block);
                 
-              if read_request_prev='1' and address_matches_hyperram_access_address_block='1' then
+              if write_request_prev='1' and address_matches_hyperram_access_address_block='1' then
+                -- XXX We are writing to a block that we are pre-fetching.
+                -- The write will happen anyway.  If we already have read the
+                -- byte, we can update it, else we have to abort the block, so
+                -- that the write can happen first.
+                if to_integer(byte_phase) <= to_integer(address(4 downto 0)+1) then
+                  report "DISPATCH: Aborting pre-fetch due to incoming conflicting write request";
+                  state <= Idle;
+                end if;
+                
+              elsif read_request_prev='1' and address_matches_hyperram_access_address_block='1' then
                 -- New read request from later in this block.
                 -- We know that we will have the data soon.
                 -- The trick is coordinating our response.
