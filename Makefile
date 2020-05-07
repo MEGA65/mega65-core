@@ -679,13 +679,13 @@ $(TOOLDIR)/on_screen_keyboard_gen:	$(TOOLDIR)/on_screen_keyboard_gen.c Makefile
 #-----------------------------------------------------------------------------
 
 # Generate Vivado .xpr from .tcl
-vivado/%.xpr: 	vivado/%_gen.tcl | $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(SIMULATIONVHDL) $(VERILOGSRCDIR)/*.v $(VERILOGSRCDIR)/monitor_mem.v
+vivado/%.xpr: 	vivado/%_gen.tcl | $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(VERILOGSRCDIR)/*.v $(VERILOGSRCDIR)/monitor_mem.v
 	echo MOOSE $@ from $<
 	$(VIVADO) -mode batch -source $<
 
 preliminaries: $(VERILOGSRCDIR)/monitor_mem.v $(M65VHDL)
 
-$(BINDIR)/%.bit: 	vivado/%.xpr $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(SIMULATIONVHDL) $(VERILOGSRCDIR)/*.v preliminaries
+$(BINDIR)/%.bit: 	vivado/%.xpr $(VHDLSRCDIR)/*.vhdl $(VHDLSRCDIR)/*.xdc $(VERILOGSRCDIR)/*.v preliminaries
 	echo MOOSE $@ from $<
 #	@rm -f $@
 #	@echo "---------------------------------------------------------"
