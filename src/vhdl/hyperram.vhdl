@@ -1539,7 +1539,6 @@ begin
             elsif prefetch_when_idle then
               prefetch_when_idle <= false;
               report "DISPATCHER: Dispatching chained pre-fetch";
-              ram_reading <= '1';
               tempaddr(26 downto 5) := current_cache_line_address(26 downto 5) + 1;
               tempaddr(4 downto 0) := "00000";
               hyperram_access_address <= tempaddr;
