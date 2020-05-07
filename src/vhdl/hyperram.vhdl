@@ -341,6 +341,8 @@ architecture gothic of hyperram is
   signal hr_clock_phase : unsigned(2 downto 0) := "000";
 
   signal read_time_adjust : integer range 0 to 255 := 1;
+  signal seven_plus_read_time_adjust : unsigned(5 downto 0) := "000000";
+  signal hyperram_access_address_read_time_adjusted : unsigned(5 downto 0) := "000000";
 
   signal hyperram0_select : std_logic := '0';
   signal hyperram1_select : std_logic := '0';
@@ -1162,6 +1164,10 @@ begin
     if rising_edge(clock163) then
       cycle_count <= cycle_count + 1;
 
+      hyperram_access_address_read_time_adjusted <= to_unsigned(to_integer(hyperram_access_address(2 downto 0))+read_time_adjust,6);
+      seven_plus_read_time_adjust <= to_unsigned(7 + read_time_adjust,6);
+                                                                
+      
       -- We run double the clock speed of the pixelclock area, so no request
       -- can come in during the extra drive cycle we use to update these values
       -- so as to improve the timing closure of the whole thing
@@ -2945,7 +2951,7 @@ begin
               end if;
               
               -- Quickly return the correct byte
-              if to_integer(byte_phase) = (to_integer(hyperram_access_address(2 downto 0))+read_time_adjust) then
+              if byte_phase = hyperram_access_address_read_time_adjusted then
                 if byte_phase = 0 and byte0_fix='1' then
                   if rdata_16en='1' and byte_phase(0)='1' then
                     rdata_hi <= hr_d_last;
@@ -2977,7 +2983,7 @@ begin
                 end if;
               end if;
               report "byte_phase = " & integer'image(to_integer(byte_phase));
-              if byte_phase = 7 + read_time_adjust then
+              if byte_phase = seven_plus_read_time_adjust then 
                 rwr_counter <= rwr_delay;
                 rwr_waiting <= '1';
                 report "returning to idle";
