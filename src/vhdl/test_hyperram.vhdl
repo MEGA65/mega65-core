@@ -29,7 +29,7 @@ architecture foo of test_hyperram is
 
   signal slow_prefetched_address : unsigned(26 downto 0);
   signal slow_prefetched_data : unsigned(7 downto 0);
-  signal slow_prefetched_request_toggle : std_logic;
+  signal slow_prefetched_request_toggle : std_logic := '0';
   
   signal hr_d : unsigned(7 downto 0) := (others => '0');
   signal hr_rwds : std_logic := '0';
