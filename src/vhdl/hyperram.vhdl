@@ -143,6 +143,7 @@ architecture gothic of hyperram is
   signal cache_row1_address_matches_ram_address : std_logic := '0';
   signal ram_address_matches_current_cache_line_address : std_logic := '0';
   signal address_matches_hyperram_access_address_block : std_logic := '0';
+  signal write_collect0_address_matches_write_collect1_address_plus_1 : std_logic := '0';
   
   -- We want to set config register 0 to $ffe6, to enable variable latency
   -- and 3 cycles instead of 6 for latency. This speeds up writing almost 2x.
@@ -1186,6 +1187,12 @@ begin
       else
         address_matches_hyperram_access_address_block <= '0';
       end if;
+
+      if write_collect0_address = (write_collect1_address + 1) then
+        write_collect0_address_matches_write_collect1_address_plus_1 <= '1';
+      else
+        write_collect0_address_matches_write_collect1_address_plus_1 <= '0';
+      end if;
       
       -- Update short-circuit cache line
       -- (We don't change validity, since we don't know if it is
@@ -1549,7 +1556,10 @@ begin
             elsif (write_collect0_dispatchable = '1')
               -- But only if the other collector doesn't have an address that
               -- would chain to us.
-              and ((write_collect0_address /= (write_collect1_address + 1)) or write_collect1_dispatchable='0')
+--              and ((write_collect0_address /= (write_collect1_address + 1)) or write_collect1_dispatchable='0')
+              -- XXX The following slows access down noticeably through
+              -- inefficient scheduling.
+              and ((write_collect0_address_matches_write_collect1_address_plus_1='1') or write_collect1_dispatchable='0')
             then
               -- Do background write.
               busy_internal <= '0';
@@ -2101,9 +2111,9 @@ begin
             end if;
 
             -- Invalidate read cache when writing
-            if cache_enabled and (hyperram_access_address(26 downto 3 ) = cache_row0_address) then
+            if cache_enabled and hyperram_access_address_matches_cache_row0 = '1' then
               cache_row0_valids <= (others => '0');
-            elsif cache_enabled and (hyperram_access_address(26 downto 3 ) = cache_row1_address) then
+            elsif cache_enabled and hyperram_access_address_matches_cache_row1 = '1' then
               cache_row1_valids <= (others => '0');
             end if;
           end if;
@@ -2618,7 +2628,7 @@ begin
                   viciv_buffer_toggle <= not viciv_buffer_toggle;
                 end if;
               end if;
-              if cache_row0_address = hyperram_access_address(26 downto 3) then          
+              if hyperram_access_address_matches_cache_row0 = '1' then          
                 cache_row0_valids(to_integer(byte_phase)) <= '1';
                 report "hr_sample='1'";
                 report "hr_sample='0'";
@@ -2628,7 +2638,7 @@ begin
                   cache_row0_data(to_integer(byte_phase)) <= hr2_d;
                 end if;
                 show_cache0 := true;
-              elsif cache_row1_address = hyperram_access_address(26 downto 3) then          
+              elsif hyperram_access_address_matches_cache_row1 = '1' then          
                 cache_row1_valids(to_integer(byte_phase)) <= '1';
                 report "hr_sample='1'";
                 report "hr_sample='0'";
@@ -2835,7 +2845,7 @@ begin
                     viciv_buffer_toggle <= not viciv_buffer_toggle;
                   end if;
                 end if;          
-                if cache_row0_address = hyperram_access_address(26 downto 3) then          
+                if hyperram_access_address_matches_cache_row0 = '1' then
                   cache_row0_valids(to_integer(byte_phase)) <= '1';
                   report "hr_sample='1'";
                   report "hr_sample='0'";
@@ -2849,7 +2859,7 @@ begin
                     end if;
                   end if;
                   show_cache0 := true;
-                elsif cache_row1_address = hyperram_access_address(26 downto 3) then          
+                elsif hyperram_access_address_matches_cache_row1 = '1' then
                   cache_row1_valids(to_integer(byte_phase)) <= '1';
                   report "hr_sample='1'";
                   report "hr_sample='0'";
