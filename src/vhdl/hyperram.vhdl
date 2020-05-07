@@ -363,6 +363,8 @@ architecture gothic of hyperram is
 
   signal read_request_latch : std_logic := '0';
   signal write_request_latch : std_logic := '0';
+
+  signal prefetch_when_idle : boolean := false;
   
 begin
   process (pixelclock,clock163,clock325,hr_clk,hr_clk_phaseshift) is
@@ -412,8 +414,6 @@ begin
         & ", request_toggle(last) = " & std_logic'image(request_toggle) & "(" & std_logic'image(last_request_toggle) & ")."
         & ", is_block_read=" & boolean'image(is_block_read);
 
-      mark_cache_for_prefetch <= '0';
-      
       -- Pseudo random bits so that we can do randomised cache row replacement
       if random_bits /= to_unsigned(251,8) then
         random_bits <= random_bits + 1;
@@ -1165,6 +1165,8 @@ begin
     if rising_edge(clock163) then
       cycle_count <= cycle_count + 1;
 
+      mark_cache_for_prefetch <= '0';     
+      
       hyperram_access_address_read_time_adjusted <= to_unsigned(to_integer(hyperram_access_address(2 downto 0))+read_time_adjust,6);
       seven_plus_read_time_adjust <= to_unsigned(7 + read_time_adjust,6);
                                                                 
@@ -1329,23 +1331,14 @@ begin
           current_cache_line_drive <= block_data(to_integer(current_cache_line_address(4 downto 3)) + 1);
           current_cache_line_valid_drive <= '1';
 
+          -- If it was the last row in the block that we have just presented,
+          -- it would be a really good idea to dispatch a pre-fetch right now.
+          -- The trick is that we can only safely do this, if we are idle.
           if current_cache_line_address(4 downto 3) = "10" then
-            ram_reading <= '1';
-            tempaddr(26 downto 5) := current_cache_line_address(26 downto 5) + 1;
-            tempaddr(4 downto 0) := "00000";
-            ram_address <= tempaddr;
-            ram_prefetch <= true;
-            ram_normalfetch <= false;
-            request_toggle <= not request_toggle;
-            
-            report "DISPATCH: Dispatching pre-fetch of $" & to_hstring(tempaddr)
-              & " in response to giving last row to current_cache_line";
-            -- Mark a cache line to receive the pre-fetched data, so that we don't
-            -- have to wait for it all to turn up, before being able to return
-            -- the first 8 bytes
-            mark_cache_for_prefetch <= '1';
+            report "DISPATCHER: Queuing chained pre-fetch";
+            prefetch_when_idle <= true;
           end if;
-          
+                     
         end if;       
       end if;
 
@@ -1543,7 +1536,50 @@ begin
                 hr_clk_fast <= '0';
                 hr_clk_phaseshift <= write_phase_shift;
               end if;            
+            elsif prefetch_when_idle then
+              prefetch_when_idle <= false;
+              report "DISPATCHER: Dispatching chained pre-fetch";
+              ram_reading <= '1';
+              tempaddr(26 downto 5) := current_cache_line_address(26 downto 5) + 1;
+              tempaddr(4 downto 0) := "00000";
+              hyperram_access_address <= tempaddr;
               
+              -- We are reading on a 32 byte boundary, so command formation is
+              -- simpler.
+              hr_command(47) <= '1'; -- Read
+              hr_command(45) <= '1'; -- Linear read, not wrapped
+              hr_command(34 downto 17) <= tempaddr(22 downto 5);
+              hr_command(16 downto 0) <= (others => '0');
+              
+              hyperram0_select <= not tempaddr(23);
+              hyperram1_select <= tempaddr(23);
+              hr_reset <= '1';
+              pause_phase <= '0';
+              is_prefetch <= true;
+              ram_reading_held <= '1';
+              is_expected_to_respond <= false;
+              
+              if fast_cmd_mode='1' then
+                state <= HyperRAMOutputCommand;
+                hr_clk_fast <= '1';
+                hr_clk_phaseshift <= write_phase_shift;
+              else
+                state <= HyperRAMOutputCommandSlow;
+                hr_clk_fast <= '0';
+                hr_clk_phaseshift <= write_phase_shift;
+              end if;
+              
+              countdown <= 6;
+              config_reg_write <= '0';
+              countdown_is_zero <= '0';
+              
+              report "DISPATCH: Dispatching pre-fetch of $" & to_hstring(tempaddr)
+                & " in response to giving last row to current_cache_line";
+              -- Mark a cache line to receive the pre-fetched data, so that we don't
+              -- have to wait for it all to turn up, before being able to return
+              -- the first 8 bytes
+              mark_cache_for_prefetch <= '1';
+            
             elsif (request_toggle /= last_request_toggle)
               -- Only commence reads AFTER all pending writes have flushed,
               -- to ensure cache coherence (there are corner-cases here with
@@ -2664,7 +2700,7 @@ begin
             or (hr_rwds_high_seen='1') then
             -- Data has arrived: Latch either odd or even byte
             -- as required.
---                  report "DISPATCH Saw read data = $" & to_hstring(hr_d);
+                  report "DISPATCH Saw read data = $" & to_hstring(hr_d);
 
             
             -- Update cache
