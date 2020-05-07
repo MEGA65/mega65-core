@@ -1040,6 +1040,7 @@ architecture Behavioral of viciv is
   signal hyper_data_strobe : std_logic := '0';
   signal hyper_request_toggle_drive : std_logic := '0';
   signal hyper_request_toggle_drive2 : std_logic := '0';
+  signal hyper_request_toggle_drive3 : std_logic := '0';
   
 begin
 
@@ -2035,7 +2036,8 @@ begin
       hyper_data_strobe <= hyper_data_strobe_in;
       hyper_addr <= hyper_addr_drive;
       hyper_request_toggle_drive2 <= hyper_request_toggle_drive;
-      hyper_request_toggle <= hyper_request_toggle_drive2;
+      hyper_request_toggle_drive3 <= hyper_request_toggle_drive2;
+      hyper_request_toggle <= hyper_request_toggle_drive3;
       
       if vicii_ntsc='1' then
         display_height <= display_height_ntsc;
