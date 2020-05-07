@@ -234,6 +234,12 @@ entity gs4510 is
     slow_access_write : out std_logic := '0';
     slow_access_wdata : out unsigned(7 downto 0);
     slow_access_rdata : in unsigned(7 downto 0);
+
+    -- Fast read interface for slow devices linear reading
+    -- (only hyperram)
+    slow_prefetched_request_toggle : inout std_logic := '0';
+    slow_prefetched_data : in unsigned(7 downto 0) := x"00";
+    slow_prefetched_address : in unsigned(26 downto 0) := (others => '1');
     
     ---------------------------------------------------------------------------
     -- VIC-III memory banking control
@@ -409,6 +415,8 @@ architecture Behavioural of gs4510 is
   signal slow_access_ready_toggle_buffer : std_logic := '0';
   signal slow_access_pending_write : std_logic := '0';
   signal slow_access_data_ready : std_logic := '0';
+
+  signal slow_prefetch_data : unsigned(7 downto 0) := x"00";
 
   -- Number of pending wait states
   signal wait_states : unsigned(7 downto 0) := x"05";
@@ -690,9 +698,10 @@ architecture Behavioural of gs4510 is
     FastIO,                 -- 0x04
     ColourRAM,              -- 0x05
     VICIV,                  -- 0x06
-    Hyppo,              -- 0x07
+    Hyppo,                  -- 0x07
     SlowRAM,                -- 0x08
-    Unmapped                -- 0x09
+    SlowRAMPreFetch,        -- 0x09
+    Unmapped                -- 0x0a
     );
 
   signal read_source : memory_source;
@@ -1916,11 +1925,25 @@ begin
         slow_access_data_ready <= '0';
         slow_access_address_drive <= long_address(27 downto 0);
         slow_access_write_drive <= '0';
-        slow_access_request_toggle_drive <= not slow_access_request_toggle_drive;
-        slow_access_desired_ready_toggle <= not slow_access_desired_ready_toggle;
-        wait_states <= x"FF";
-        wait_states_non_zero <= '1';
-        proceed <= '0';
+        if long_address(26 downto 0) = slow_prefetched_address then
+          -- If the slow device interface has correctly guessed the next address
+          -- we want to read from, then use the presented value, and tell the slow
+          -- RAM that we used it, so that it can get the next one ready for us.
+          -- This allows MUCH faster linear reading of the slow device address
+          -- space, which is particularly helpful for accessing the HyperRAM.
+          slow_prefetched_request_toggle <= not slow_prefetched_request_toggle;
+          slow_prefetch_data <= slow_prefetched_data;
+          wait_states <= x"00";
+          wait_states_non_zero <= '0';
+          proceed <= '1';
+          read_source <= SlowRAMPreFetch;
+        else
+          slow_access_request_toggle_drive <= not slow_access_request_toggle_drive;
+          slow_access_desired_ready_toggle <= not slow_access_desired_ready_toggle;
+          wait_states <= x"FF";
+          wait_states_non_zero <= '1';
+          proceed <= '0';
+        end if;
       else
         -- Don't let unmapped memory jam things up
         report "hit unmapped memory -- clearing wait_states" severity note;
@@ -2385,6 +2408,9 @@ begin
         when SlowRAM =>
           report "reading slow RAM data. Word is $" & to_hstring(slow_access_rdata) severity note;
           return unsigned(slow_access_rdata);
+        when SlowRAMPreFetch =>
+          report "reading slow prefetched RAM data. Word is $" & to_hstring(slow_access_rdata) severity note;
+          return unsigned(slow_prefetch_data);          
         when Unmapped =>
           report "accessing unmapped memory" severity note;
           return x"A0";                     -- make unmmapped memory obvious
