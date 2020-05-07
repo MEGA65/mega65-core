@@ -1259,13 +1259,15 @@ begin
         end if;
       end if;
       
-      if current_cache_line_address(26 downto 5) = block_address(26 downto 5) then
+      if current_cache_line_address(26 downto 5) = block_address(26 downto 5)
+          and (current_cache_line_address(4 downto 3) /= "11") and (block_valid='1') then
         current_cache_line_matches_block <= '1';
       else
         current_cache_line_matches_block <= '0';
       end if;
-      if (current_cache_line_address(26 downto 5) + 1) = block_address(26 downto 5) then
-        current_cache_line_plus_1_matches_block <= '1';
+      if (current_cache_line_address(26 downto 5) + 1) = block_address(26 downto 5) 
+        and (current_cache_line_address(4 downto 3) = "11") and (block_valid='1') then
+          current_cache_line_plus_1_matches_block <= '1';
       else
         current_cache_line_plus_1_matches_block <= '0';
       end if;
@@ -1354,7 +1356,6 @@ begin
       if expansionram_current_cache_line_next_toggle /= last_current_cache_next_toggle then
         last_current_cache_next_toggle <= expansionram_current_cache_line_next_toggle;
         if current_cache_line_plus_1_matches_block = '1'
-          and (current_cache_line_address(4 downto 3) = "11") and (block_valid='1')
         then
           report "DISPATCHER: Presenting next 8 bytes to slow_devices. Was $"
             & to_hstring(current_cache_line_address&"000") & ", new is $"
@@ -1365,11 +1366,19 @@ begin
           current_cache_line_valid_drive <= '1';
         end if;
         if current_cache_line_matches_block = '1'
-          and (current_cache_line_address(4 downto 3) /= "11") and (block_valid='1')
         then
           report "DISPATCHER: Presenting next 8 bytes to slow_devices. Was $"
             & to_hstring(current_cache_line_address&"000") & ", new is $"
-            & to_hstring(current_cache_line_address(26 downto 5)&(current_cache_line_address(4 downto 3) + 1)&"000");
+            & to_hstring(current_cache_line_address(26 downto 5)&(current_cache_line_address(4 downto 3) + 1)&"000")
+            & ", data is:"
+            & " " & to_hstring(block_data(to_integer(current_cache_line_address(4 downto 3)) + 1)(0)) 
+            & " " & to_hstring(block_data(to_integer(current_cache_line_address(4 downto 3)) + 1)(1)) 
+            & " " & to_hstring(block_data(to_integer(current_cache_line_address(4 downto 3)) + 1)(2)) 
+            & " " & to_hstring(block_data(to_integer(current_cache_line_address(4 downto 3)) + 1)(3)) 
+            & " " & to_hstring(block_data(to_integer(current_cache_line_address(4 downto 3)) + 1)(4)) 
+            & " " & to_hstring(block_data(to_integer(current_cache_line_address(4 downto 3)) + 1)(5)) 
+            & " " & to_hstring(block_data(to_integer(current_cache_line_address(4 downto 3)) + 1)(6)) 
+            & " " & to_hstring(block_data(to_integer(current_cache_line_address(4 downto 3)) + 1)(7));
           current_cache_line_address_drive(4 downto 3) <= current_cache_line_address(4 downto 3) + 1;
           current_cache_line_drive <= block_data(to_integer(current_cache_line_address(4 downto 3)) + 1);
           current_cache_line_valid_drive <= '1';
