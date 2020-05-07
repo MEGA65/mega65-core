@@ -363,6 +363,7 @@ architecture gothic of hyperram is
   signal is_vic_fetch : boolean := false;
 
   signal read_request_latch : std_logic := '0';
+  signal read_request_delatch : std_logic := '0';
   signal write_request_latch : std_logic := '0';
 
   signal prefetch_when_idle : boolean := false;
@@ -381,8 +382,15 @@ begin
     if rising_edge(pixelclock) then
 
       report "PIXELCLOCK tick";
-      read_request_latch <= read_request;
-      write_request_latch <= write_request;
+      if read_request='1' then
+        read_request_latch <= '1';
+      end if;
+      if write_request='1' then
+        write_request_latch <= '1';
+      end if;
+      if read_request_delatch = '1' then
+        read_request_latch <= '0';
+      end if;
       
       -- Present the data to the VIC-IV
       viciv_data_strobe <= '0';
@@ -413,7 +421,8 @@ begin
         & ", busy_internal=" & std_logic'image(busy_internal)
         & ", write_request=" & std_logic'image(write_request)
         & ", request_toggle(last) = " & std_logic'image(request_toggle) & "(" & std_logic'image(last_request_toggle) & ")."
-        & ", is_block_read=" & boolean'image(is_block_read);
+        & ", is_block_read=" & boolean'image(is_block_read)
+        & ", address=$" & to_hstring(address);
 
       -- Pseudo random bits so that we can do randomised cache row replacement
       if random_bits /= to_unsigned(251,8) then
@@ -602,6 +611,7 @@ begin
       
       -- Ignore read requests to the current block read, as they get
       -- short-circuited in the inner state machine to save time.
+      report "address = $" & to_hstring(address);
       if (read_request or read_request_latch)='1'
         and busy_internal='0' and ((is_block_read = false) or (block_address /= address(26 downto 5)))
         -- Don't but in on the VIC-IV (but once we have submitted a request, we
@@ -616,6 +626,7 @@ begin
         -- We check the write buffers first, as any contents that they have
         -- must take priority over everything else
         if (block_valid='1') and (address(26 downto 5) = block_address) then
+          report "asserting fake_data_ready_strobe";
           fake_data_ready_strobe <= '1';
           fake_rdata <= block_data(to_integer(address(4 downto 3)))(to_integer(address(2 downto 0)));
           if rdata_16en='1' then
@@ -655,6 +666,7 @@ begin
           -- result in a possible cache consistency problem, if reads happen before
           -- the writes get flushed.
           if rdata_16en='0' then
+            report "asserting fake_data_ready_strobe";
             fake_data_ready_strobe <= '1';
             fake_rdata <= write_collect0_data(to_integer(address(2 downto 0)));
             report "DISPATCH: Returning data $"& to_hstring(write_collect0_data(to_integer(address(2 downto 0))))&" from write collect0";
@@ -662,6 +674,7 @@ begin
         elsif cache_enabled and (address(26 downto 3 ) = write_collect1_address and write_collect1_valids(to_integer(address(2 downto 0))) = '1') then
           -- Write cache read-back
           if rdata_16en='0' then
+            report "asserting fake_data_ready_strobe";
             fake_data_ready_strobe <= '1';
             fake_rdata <= write_collect1_data(to_integer(address(2 downto 0)));
             report "DISPATCH: Returning data $"& to_hstring(write_collect1_data(to_integer(address(2 downto 0))))&" from write collect1";
@@ -669,6 +682,7 @@ begin
         elsif cache_enabled and (address(26 downto 3 ) = cache_row0_address and cache_row0_valids(to_integer(address(2 downto 0))) = '1') then
           -- Cache read
           if rdata_16en='0' then
+            report "asserting fake_data_ready_strobe";
             fake_data_ready_strobe <= '1';
             fake_rdata <= cache_row0_data(to_integer(address(2 downto 0)));
             report "DISPATCH: Returning data $"& to_hstring(cache_row0_data(to_integer(address(2 downto 0))))&" from cache row0";
@@ -676,6 +690,7 @@ begin
         elsif cache_enabled and (address(26 downto 3 ) = cache_row1_address and cache_row1_valids(to_integer(address(2 downto 0))) = '1') then
           -- Cache read
           if rdata_16en='0' then
+            report "asserting fake_data_ready_strobe";
             fake_data_ready_strobe <= '1';
             fake_rdata <= cache_row1_data(to_integer(address(2 downto 0)));
             report "DISPATCH: Returning data $"& to_hstring(cache_row1_data(to_integer(address(2 downto 0))))&" from cache row1";
@@ -798,6 +813,7 @@ begin
 
             when others => fake_rdata <= x"BF";
           end case;
+          report "asserting fake_data_ready_strobe";
           fake_data_ready_strobe <= '1';
           report "asserting data_ready_strobe for fake read";                            
         elsif address(23 downto 4) = x"FFFFF" and address(25 downto 24) = "11" then
@@ -854,6 +870,7 @@ begin
               -- This seems to be what gets returned all the time
               fake_rdata <= x"42";
           end case;
+          report "asserting fake_data_ready_strobe";
           fake_data_ready_strobe <= '1';
           report "asserting data_ready_strobe for fake read";
         elsif request_accepted = request_toggle then
@@ -942,6 +959,7 @@ begin
             when others =>
               null;
           end case;
+          report "asserting fake_data_ready_strobe";
           fake_data_ready_strobe <= '1';
         else
           if cache_enabled = false then 
@@ -1059,6 +1077,7 @@ begin
         -- Nothing new to do
         if data_ready_toggle /= last_data_ready_toggle then
           last_data_ready_toggle <= data_ready_toggle;
+          report "asserting fake_data_ready_strobe";
           fake_data_ready_strobe <= '1';
         end if;
       end if;
@@ -1167,6 +1186,10 @@ begin
     if rising_edge(clock163) then
       cycle_count <= cycle_count + 1;
 
+      if read_request_delatch='1' and read_request_latch='0' then
+        read_request_delatch <= '0';
+      end if;
+      
       mark_cache_for_prefetch <= '0';     
       
       hyperram_access_address_read_time_adjusted <= to_unsigned(to_integer(hyperram_access_address(2 downto 0))+read_time_adjust,6);
@@ -1277,7 +1300,10 @@ begin
         end if;
       end if;
       
-      if data_ready_strobe_hold = '0' then      
+      if data_ready_strobe_hold = '0' then
+        if fake_data_ready_strobe='1' then
+          report "asserting data_ready_strobe via fake_data_ready_strobe";
+        end if;
         data_ready_strobe <= fake_data_ready_strobe;
         if fake_data_ready_strobe='1' then
           report "DISPATCH: holding data_ready_strobe via fake data = $" & to_hstring(fake_rdata);
@@ -1286,6 +1312,7 @@ begin
         end if;
       else
         report "holding data_ready_strobe for an extra cycle";
+        report "asserting data_ready_strobe";
         data_ready_strobe <= '1';
       end if;
       data_ready_strobe_hold <= '0';
@@ -2600,6 +2627,7 @@ begin
             rdata <= x"DD";
             rdata(0) <= data_ready_toggle;
             rdata(1) <= busy_internal;
+            report "asserting data_ready_strobe";
             data_ready_strobe <= '1';
             data_ready_strobe_hold <= '1';
             rwr_counter <= rwr_delay;
@@ -2635,6 +2663,8 @@ begin
                       & to_hstring(block_data(to_integer(address(4 downto 3)))(to_integer(address(2 downto 0))))
                       & " ( from (" & integer'image(to_integer(address(4 downto 3)))
                       & ")(" & integer'image(to_integer(address(2 downto 0)));
+                    report "asserting data_ready_strobe";
+                    read_request_delatch <= '1';
                     data_ready_strobe <= '1';
                     data_ready_strobe_hold <= '1';
                     rdata <= block_data(to_integer(address(4 downto 3)))(to_integer(address(2 downto 0)));
@@ -2819,6 +2849,7 @@ begin
               report "hr_return='1'";
               report "hr_return='0'";
               if rdata_16en='0' or byte_phase(0)='1' then
+                report "asserting data_ready_strobe";
                 data_ready_strobe <= '1';
                 data_ready_strobe_hold <= '1';
               end if;
@@ -2899,6 +2930,7 @@ begin
               rdata <= x"DD";
               rdata(0) <= data_ready_toggle;
               rdata(1) <= busy_internal;
+              report "asserting data_ready_strobe";
               data_ready_strobe <= '1';
               data_ready_strobe_hold <= '1';
               rwr_counter <= rwr_delay;
@@ -3057,6 +3089,7 @@ begin
                 report "hr_return='1'";
                 report "hr_return='0'";
                 if rdata_16en='0' or byte_phase(0)='1' then
+                  report "asserting data_ready_strobe";
                   data_ready_strobe <= '1';
                   data_ready_strobe_hold <= '1';
                 end if;
