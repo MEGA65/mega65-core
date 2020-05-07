@@ -117,6 +117,8 @@ end slow_devices;
   
 architecture behavioural of slow_devices is
 
+  signal last_slow_prefetched_request_toggle : std_logic := '0';
+  
   signal cart_access_request : std_logic := '0';
   signal cart_access_read : std_logic := '1';
   signal cart_access_address : unsigned(31 downto 0) := (others => '1');
@@ -207,6 +209,23 @@ begin
   begin
     if rising_edge(pixelclock) then
 
+      if slow_prefetched_request_toggle /= last_slow_prefetched_request_toggle then
+        report "PREFETCH: slow_prefetched_request_toggle toggled";
+        last_slow_prefetched_request_toggle <= slow_prefetched_request_toggle;
+        if slow_prefetched_address(2 downto 0) /= "111" then
+          -- Present the NEXT byte via the fast interface to the CPU
+          report "PREFETCH: Presenting $" & to_hstring(slow_prefetched_address(26 downto 0) + 1)
+            & " = $" & to_hstring(expansionram_current_cache_line(to_integer(slow_prefetched_address(2 downto 0))+1))
+            & " due to CPU request toggle";
+          slow_prefetched_address <= slow_prefetched_address(26 downto 0) + 1;
+          slow_prefetched_data <= expansionram_current_cache_line(to_integer(slow_prefetched_address(2 downto 0))+1);
+        else
+          -- Now we would really like to be able to tell the hyperram
+          -- controller to give us the next data row
+          expansionram_current_cache_line_next_toggle <= not expansionram_current_cache_line_next_toggle;
+        end if;
+      end if;
+      
       -- Mark expansion RAM as present if the busy flag ever clears
       if expansionram_busy='0' then
         expansionram_eternally_busy <= '0';
