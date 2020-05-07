@@ -86,7 +86,7 @@ architecture foo of test_hyperram is
     (address => x"8800800", write_p => '0', value => x"00"),
     (address => x"8800800", write_p => '1', value => x"40"),
 
-    (address => x"8800800", write_p => '0', value => x"00"),
+    (address => x"8800800", write_p => '0', value => x"40"),
     (address => x"8800801", write_p => '0', value => x"FF"),
     (address => x"8800802", write_p => '0', value => x"FF"),
     (address => x"8800803", write_p => '0', value => x"FF"),
