@@ -27,6 +27,10 @@ architecture foo of test_hyperram is
   signal current_cache_line_address : unsigned(26 downto 3) := (others => '0');
   signal current_cache_line_valid : std_logic := '0';
 
+  signal slow_prefetched_address : unsigned(26 downto 0);
+  signal slow_prefetched_data : unsigned(7 downto 0);
+  signal slow_prefetched_request_toggle : std_logic;
+  
   signal hr_d : unsigned(7 downto 0) := (others => '0');
   signal hr_rwds : std_logic := '0';
   signal hr_reset : std_logic := '1';
@@ -405,6 +409,10 @@ begin
       cart_exrom => '1',
       cart_game => '1',
       cart_d_in => (others => '1'),
+
+      slow_prefetched_request_toggle => slow_prefetched_request_toggle,
+      slow_prefetched_data => slow_prefetched_data,
+      slow_prefetched_address => slow_prefetched_address,
       
       slow_access_request_toggle => slow_access_request_toggle,
       slow_access_ready_toggle => slow_access_ready_toggle,
@@ -491,7 +499,8 @@ begin
           report "DISPATCHER: ERROR: Expected $" & to_hstring(expected_value) & ", but saw $" & to_hstring(slow_access_rdata)
             & " after " & integer'image(current_time - dispatch_time) & "ns.";            
         end if;
-      end if;
+        dispatch_time <= current_time;
+      end if;        
       expect_value <= '0';
       last_slow_access_ready_toggle <= slow_access_ready_toggle;
     end if;
@@ -506,34 +515,50 @@ begin
           report "DISPATCHER: Total sequence was " & integer'image(current_time - start_time) & "ns "
             & "(mean " & integer'image(1+(current_time-start_time)/cycles) & "ns ).";
           cycles <= 0;
-          start_time <= current_time;
+          start_time <= current_time;          
         else
           cycles <= cycles + 1;        
         end if;
-      
-        slow_access_address <= mem_jobs(cycles).address;
-        slow_access_write <= mem_jobs(cycles).write_p;
-        slow_access_wdata <= mem_jobs(cycles).value;
-        slow_access_request_toggle <= not slow_access_request_toggle;
 
-        if start_time = 0 then
-          start_time <= current_time;
-        end if;
-        dispatch_time <= current_time;
-        if (mem_jobs(cycles).write_p='0') then
-          -- Let reads finish serially
-          -- (In the worst case, this can take quite a while)
-          idle_wait <= 0;
+
+        report "PREFETCH: slow_prefetched_address = $" & to_hstring(slow_prefetched_address);
+        if mem_jobs(cycles).address(26 downto 0) = slow_prefetched_address and mem_jobs(cycles).write_p='0' then
+          slow_prefetched_request_toggle <= not slow_prefetched_request_toggle;
           report "DISPATCHER: Reading from $" & to_hstring(mem_jobs(cycles).address) & ", expecting to see $"
-            & to_hstring(mem_jobs(cycles).value);
-          expect_value <= '1';
-          expected_value <= mem_jobs(cycles).value;
-        else
-          -- Try to rush writes, so that writes get merged
-          idle_wait <= 0;
-          report "DISPATCHER: Writing to $" & to_hstring(mem_jobs(cycles).address) & " <- $"
-            & to_hstring(mem_jobs(cycles).value);
-          expect_value <= '0';
+            & to_hstring(mem_jobs(cycles).value) & " (via slow prefetch)";
+          if slow_prefetched_data = mem_jobs(cycles).value then
+            report "DISPATCHER: Read correct value $" & to_hstring(slow_prefetched_data)
+              & " after " & integer'image(current_time - dispatch_time) & "ns.";
+          else
+            report "DISPATCHER: ERROR: Expected $" & to_hstring(expected_value) & ", but saw $" & to_hstring(slow_prefetched_data)
+              & " after " & integer'image(current_time - dispatch_time) & "ns.";            
+          end if;            
+          dispatch_time <= current_time;
+        else                  
+          slow_access_address <= mem_jobs(cycles).address;
+          slow_access_write <= mem_jobs(cycles).write_p;
+          slow_access_wdata <= mem_jobs(cycles).value;
+          slow_access_request_toggle <= not slow_access_request_toggle;
+          
+          if start_time = 0 then
+            start_time <= current_time;
+          end if;
+          if (mem_jobs(cycles).write_p='0') then
+            -- Let reads finish serially
+            -- (In the worst case, this can take quite a while)
+            idle_wait <= 0;
+            report "DISPATCHER: Reading from $" & to_hstring(mem_jobs(cycles).address) & ", expecting to see $"
+              & to_hstring(mem_jobs(cycles).value);
+            expect_value <= '1';
+            expected_value <= mem_jobs(cycles).value;
+          else
+            -- Try to rush writes, so that writes get merged
+            idle_wait <= 0;
+            report "DISPATCHER: Writing to $" & to_hstring(mem_jobs(cycles).address) & " <- $"
+              & to_hstring(mem_jobs(cycles).value);
+            expect_value <= '0';
+            dispatch_time <= current_time;
+          end if;
         end if;
       end if;
     end if;

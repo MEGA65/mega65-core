@@ -287,6 +287,9 @@ begin
 
               if slow_access_address(2 downto 0) /= "111" then
                 -- Present the NEXT byte via the fast interface to the CPU
+                report "PREFETCH: Presenting $" & to_hstring(slow_access_address(26 downto 0) + 1)
+                  & " = $" & to_hstring(expansionram_current_cache_line(to_integer(slow_access_address(2 downto 0))+1))
+                  & " due to regular slow access read.";
                 slow_prefetched_address <= slow_access_address(26 downto 0) + 1;
                 slow_prefetched_data <= expansionram_current_cache_line(to_integer(slow_access_address(2 downto 0))+1);
               else
