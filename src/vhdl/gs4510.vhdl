@@ -414,7 +414,7 @@ architecture Behavioural of gs4510 is
   signal slow_access_pending_write : std_logic := '0';
   signal slow_access_data_ready : std_logic := '0';
 
-  signal slow_prefetch_enable : std_logic := '0';
+  signal slow_prefetch_enable : std_logic := '1';
   signal slow_prefetch_data : unsigned(7 downto 0) := x"00";
 
   -- Number of pending wait states
