@@ -414,6 +414,7 @@ architecture Behavioural of gs4510 is
   signal slow_access_pending_write : std_logic := '0';
   signal slow_access_data_ready : std_logic := '0';
 
+  signal slow_prefetch_enable : std_logic := '0';
   signal slow_prefetch_data : unsigned(7 downto 0) := x"00";
 
   -- Number of pending wait states
@@ -1923,7 +1924,7 @@ begin
         slow_access_data_ready <= '0';
         slow_access_address_drive <= long_address(27 downto 0);
         slow_access_write_drive <= '0';
-        if long_address(26 downto 0) = slow_prefetched_address then
+        if long_address(26 downto 0) = slow_prefetched_address and slow_prefetch_enable='1' then
           -- If the slow device interface has correctly guessed the next address
           -- we want to read from, then use the presented value, and tell the slow
           -- RAM that we used it, so that it can get the next one ready for us.
@@ -2276,6 +2277,10 @@ begin
               value(2) := game;
               value(1) := cartridge_enable;              
               value(0) := '1'; -- Set if power is on, clear if power is off
+              return value;
+            when x"fe" =>
+              value(0) := slow_prefetch_enable;
+              value(7 downto 1) := (others => '0');
               return value;
             when others => return x"ff";
           end case;
@@ -2677,6 +2682,9 @@ begin
         force_exrom <= value(7);
         force_game <= value(6);
         power_down <= value(0);
+      elsif (long_address = x"FFD37FE") then
+        -- @IO:GS $D7FE.0 CPU:PREFETCH Enable expansion RAM pre-fetch logic
+        slow_prefetch_enable <= value(0);
       elsif (long_address = x"FFD37ff") or (long_address = x"FFD17ff") then
         null;
       end if;
