@@ -404,6 +404,17 @@ begin
           state <= Idle;
           slow_access_rdata <= expansionram_rdata;
           slow_access_ready_toggle <= slow_access_request_toggle;
+
+          if slow_access_address(2 downto 0) /= "111" then
+            -- Present the NEXT byte via the fast interface to the CPU
+            report "PREFETCH: Presenting $" & to_hstring(slow_access_address(26 downto 0) + 1)
+              & " = $" & to_hstring(expansionram_current_cache_line(to_integer(slow_access_address(2 downto 0))+1))
+              & " due to slow access read that had to ask HyperRAM for data.";
+            slow_prefetched_address(26 downto 3) <= expansionram_current_cache_line_address;
+            slow_prefetched_address(2 downto 0) <= slow_access_address(2 downto 0)+1;
+            slow_prefetched_data <= expansionram_current_cache_line(to_integer(slow_access_address(2 downto 0))+1);
+          end if;
+          
         end if;
         
       when CartridgePortRequest =>
