@@ -33,8 +33,8 @@ architecture RTL of clocking is
   signal clk_fb_adjust1     : std_logic := '0';
   signal clk_fb_adjust2     : std_logic := '0';
   signal clk_fb_eth : std_logic := '0';
-  signal clock80mhz : std_logic := '0';
-  signal clock144mhz : std_logic := '0';
+  signal clock69mhz : std_logic := '0';
+  signal clock124mhz : std_logic := '0';
   signal clock9969mhz : std_logic := '0'; 
   signal clock9969mhz_bufg : std_logic := '0'; 
   
@@ -43,6 +43,8 @@ begin
   -- We want 27MHz pixel clock.  From 100MHz, we will get 27.0833333 MHz
   -- But if we do the following, we can get exactly 27MHz:
   -- 4.000/5.000 x 9.000/5.000 x 9.000/13.000
+  -- But that goes out of range for the intermediate frequency, so we instead use:
+  -- 9.000/13.000 x 9.000/5.000 x 4.000/5.000
 
   adjust0 : MMCM_ADV
   generic map
@@ -54,12 +56,12 @@ begin
 
     -- Create 800 MHz 
     DIVCLK_DIVIDE        => 1,
-    CLKFBOUT_MULT_F      => 8.0,
+    CLKFBOUT_MULT_F      => 9.0,
     CLKFBOUT_PHASE       => 0.000,
     CLKFBOUT_USE_FINE_PS => FALSE,
 
-    -- CLKOUT0 = CLK_OUT1 = 800/10 = 400/5 = 80MHz = clock80mhz
-    CLKOUT0_DIVIDE_F     => 10.0,
+    -- CLKOUT0 = CLK_OUT1 = 900/13 = 69.23MHz = clock69mhz
+    CLKOUT0_DIVIDE_F     => 13.0,
     CLKOUT0_PHASE        => 0.000,
     CLKOUT0_DUTY_CYCLE   => 0.500,
     CLKOUT0_USE_FINE_PS  => FALSE
@@ -69,7 +71,7 @@ begin
     -- Output clocks
    (
      CLKFBOUT            => clk_fb_adjust0,
-     CLKOUT0             => clock80mhz,
+     CLKOUT0             => clock69mhz,
      -- Input clock control
      CLKFBIN             => clk_fb_adjust0,
      CLKIN1              => clk_in,
@@ -104,7 +106,7 @@ begin
     CLKFBOUT_PHASE       => 0.000,
     CLKFBOUT_USE_FINE_PS => FALSE,
 
-    -- CLKOUT0 = CLK_OUT1 = 80MHz x 9/5 = 144MHz = clock144mhz
+    -- CLKOUT0 = CLK_OUT1 = 69.23MHz x 9/5 = 124.61MHz = clock124mhz
     CLKOUT0_DIVIDE_F     => 5.0,
     CLKOUT0_PHASE        => 0.000,
     CLKOUT0_DUTY_CYCLE   => 0.500,
@@ -115,10 +117,10 @@ begin
     -- Output clocks
    (
      CLKFBOUT            => clk_fb_adjust1,
-     CLKOUT0             => clock144mhz,
+     CLKOUT0             => clock124mhz,
      -- Input clock control
      CLKFBIN             => clk_fb_adjust1,
-     CLKIN1              => clock80mhz,
+     CLKIN1              => clock69mhz,
      CLKIN2              => '0',
      -- Tied to always select the primary input clock
      CLKINSEL            => '1',
@@ -147,12 +149,12 @@ begin
 
     -- Create 800 MHz 
     DIVCLK_DIVIDE        => 1,
-    CLKFBOUT_MULT_F      => 9.0,
+    CLKFBOUT_MULT_F      => 8.0,
     CLKFBOUT_PHASE       => 0.000,
     CLKFBOUT_USE_FINE_PS => FALSE,
 
-    -- CLKOUT0 = CLK_OUT1 = 144MHz x 9/13 = 99.692307692MHz = clock9969mhz
-    CLKOUT0_DIVIDE_F     => 13.0,
+    -- CLKOUT0 = CLK_OUT1 = 124MHz x 8/10 = 99.692307692MHz = clock9969mhz
+    CLKOUT0_DIVIDE_F     => 10.0,
     CLKOUT0_PHASE        => 0.000,
     CLKOUT0_DUTY_CYCLE   => 0.500,
     CLKOUT0_USE_FINE_PS  => FALSE
@@ -165,7 +167,7 @@ begin
      CLKOUT0             => clock9969mhz,
      -- Input clock control
      CLKFBIN             => clk_fb_adjust2,
-     CLKIN1              => clock144mhz,
+     CLKIN1              => clock124mhz,
      CLKIN2              => '0',
      -- Tied to always select the primary input clock
      CLKINSEL            => '1',
