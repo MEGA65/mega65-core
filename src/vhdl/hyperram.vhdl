@@ -388,28 +388,6 @@ begin
   begin
     if rising_edge(pixelclock) then
 
-      -- Update short-circuit cache line
-      -- (We don't change validity, since we don't know if it is
-      -- valid or not).
-      -- This has to happen IMMEDIATELY so that slow_devices doesn't
-      -- accidentally read old data, while we are still scheduling the write.     
-      if address(26 downto 3) = current_cache_line_address(26 downto 3) then
-        report "Requesting update of current_cache_line due to write. Value = $"
-          & to_hstring(wdata) & ", byte offset = " & integer'image(to_integer(address(2 downto 0)));
-        if wen_lo = '1' then
-          current_cache_line_update(to_integer(address(2 downto 0))) <= wdata;
-          current_cache_line_update_flags(to_integer(address(2 downto 0))) <=
-            not current_cache_line_update_flags(to_integer(address(2 downto 0)));
-          current_cache_line_update_address <= current_cache_line_address;
-          end if;
-        if wen_hi = '1' then
-          current_cache_line_update(to_integer(address(2 downto 0))+1) <= wdata_hi;
-          current_cache_line_update_flags(to_integer(address(2 downto 0))+1) <=
-            not current_cache_line_update_flags(to_integer(address(2 downto 0))+1);
-          current_cache_line_update_address <= current_cache_line_address;
-        end if;
-      end if;                  
-      
       report "PIXELCLOCK tick";
       if read_request='1' then
         read_request_latch <= '1';
@@ -1220,7 +1198,28 @@ begin
       
       hyperram_access_address_read_time_adjusted <= to_unsigned(to_integer(hyperram_access_address(2 downto 0))+read_time_adjust,6);
       seven_plus_read_time_adjust <= to_unsigned(7 + read_time_adjust,6);
-                                                                
+
+      -- Update short-circuit cache line
+      -- (We don't change validity, since we don't know if it is
+      -- valid or not).
+      -- This has to happen IMMEDIATELY so that slow_devices doesn't
+      -- accidentally read old data, while we are still scheduling the write.     
+      if address(26 downto 3) = current_cache_line_address(26 downto 3) then
+        report "Requesting update of current_cache_line due to write. Value = $"
+          & to_hstring(wdata) & ", byte offset = " & integer'image(to_integer(address(2 downto 0)));
+        if wen_lo = '1' then
+          current_cache_line_update(to_integer(address(2 downto 0))) <= wdata;
+          current_cache_line_update_flags(to_integer(address(2 downto 0))) <=
+            not current_cache_line_update_flags(to_integer(address(2 downto 0)));
+          current_cache_line_update_address <= current_cache_line_address;
+          end if;
+        if wen_hi = '1' then
+          current_cache_line_update(to_integer(address(2 downto 0))+1) <= wdata_hi;
+          current_cache_line_update_flags(to_integer(address(2 downto 0))+1) <=
+            not current_cache_line_update_flags(to_integer(address(2 downto 0))+1);
+          current_cache_line_update_address <= current_cache_line_address;
+        end if;
+      end if;                             
       
       -- We run double the clock speed of the pixelclock area, so no request
       -- can come in during the extra drive cycle we use to update these values
