@@ -141,6 +141,10 @@ architecture behavioural of slow_devices is
     );
 
   signal state : slow_state := Idle;
+
+  signal last_expansionram_write_address : unsigned(27 downto 0) := (others => '1');
+  signal last_expansionram_write_data : unsigned(7 downto 0) := x"00";
+
   
 begin
   cartport0: entity work.expansion_port_controller
@@ -291,9 +295,21 @@ begin
             then
               -- Read request for expansion RAM that can be serviced using the
               -- exported cache line.
-              report "CACHE: Reading byte $" & to_hstring(expansionram_current_cache_line(to_integer(slow_access_address(2 downto 0))))
-                & " from exposed hyperram current cache line";
-              slow_access_rdata <= expansionram_current_cache_line(to_integer(slow_access_address(2 downto 0)));
+
+              -- If we do a write to a region already in the current cache
+              -- line, we process it so quickly, that the value doesn't have
+              -- time to be updated. Thus we need to keep it on hand, return
+              -- the new value ourselves.
+              report "CACHE: slow_access_address = $" & to_hstring(slow_access_address)
+                & ", last write addr $" & to_hstring(last_expansionram_write_address);
+              if slow_access_address = last_expansionram_write_address then
+                report "CACHE: Reading last-written byte $" & to_hstring(last_expansionram_write_data);
+                slow_access_rdata <= last_expansionram_write_data;
+              else
+                report "CACHE: Reading byte $" & to_hstring(expansionram_current_cache_line(to_integer(slow_access_address(2 downto 0))))
+                  & " from exposed hyperram current cache line";
+                slow_access_rdata <= expansionram_current_cache_line(to_integer(slow_access_address(2 downto 0)));
+              end if;
               state <= Idle;
               
               slow_access_ready_toggle <= slow_access_request_toggle;
@@ -367,6 +383,10 @@ begin
           elsif expansionram_busy = '0' then
             report "Preparing to access HyperRAM";
             -- Prepare request to HyperRAM
+            report "CACHE: remembering write to $" & to_hstring(slow_access_address);
+            last_expansionram_write_address <= slow_access_address;
+            last_expansionram_write_data <= slow_access_wdata;
+            expansionram_wdata <= slow_access_wdata;
             expansionram_address <= slow_access_address(26 downto 0);
             expansionram_wdata <= slow_access_wdata;
             expansionram_read <= not slow_access_write;
