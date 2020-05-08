@@ -175,7 +175,7 @@ architecture gothic of hyperram is
 
   
   signal fast_cmd_mode : std_logic := '0';
-  signal fast_read_mode : std_logic := '1';
+  signal fast_read_mode : std_logic := '0';
   signal fast_write_mode : std_logic := '0';
   signal read_phase_shift : std_logic := '0';
   signal write_phase_shift : std_logic := '1';
@@ -347,7 +347,7 @@ architecture gothic of hyperram is
   signal hr_clock_phase : unsigned(2 downto 0) := "000";
   signal hr_clock_phase_drive : unsigned(2 downto 0) := "111";
 
-  signal read_time_adjust : integer range 0 to 255 := 1;
+  signal read_time_adjust : integer range 0 to 255 := 0;
   signal seven_plus_read_time_adjust : unsigned(5 downto 0) := "000000";
   signal hyperram_access_address_read_time_adjusted : unsigned(5 downto 0) := "000000";
 
@@ -924,7 +924,10 @@ begin
           report "asserting fake_data_ready_strobe";
           fake_data_ready_strobe <= '1';
         else
-          if cache_enabled = false then 
+          -- Always do cached writes, as apart from the latency before
+          -- they get written out, it seems to be pretty reliable
+          -- if cache_enabled = false then
+          if false then
             -- Do normal  write request
             report "request_toggle flipped";
             report "DISPATCH: Accepted non-cached write";
@@ -2957,10 +2960,18 @@ begin
                 report "DISPATCH: Returning freshly read data = $" & to_hstring(hr_d)
                   & ", hyperram0_select="& std_logic'image(hyperram0_select) 
                   & ", hyperram1_select="& std_logic'image(hyperram1_select);
-                if rdata_16en='1' and byte_phase(0)='1' then
-                  rdata_hi <= hr_d;
+                if byte_phase = 0 and byte0_fix='1' then
+                  if rdata_16en='1' and byte_phase(0)='1' then
+                    rdata_hi <= hr_d;
+                  else
+                    rdata <= hr_d_last;
+                  end if;
                 else
-                  rdata <= hr_d;
+                  if rdata_16en='1' and byte_phase(0)='1' then
+                    rdata_hi <= hr_d;
+                  else
+                    rdata <= hr_d;
+                  end if;
                 end if;
               else
                 report "DISPATCH: Returning freshly read data = $" & to_hstring(hr2_d)
@@ -3193,6 +3204,7 @@ begin
               -- Quickly return the correct byte
               if byte_phase = hyperram_access_address_read_time_adjusted then
                 if byte_phase = 0 and byte0_fix='1' then
+                  report "DISPATCH: Returning freshly read data = $" & to_hstring(hr_d_last);
                   if rdata_16en='1' and byte_phase(0)='1' then
                     rdata_hi <= hr_d_last;
                   else
@@ -3207,7 +3219,8 @@ begin
                       rdata <= hr_d;
                     end if;
                   else
-                    report "DISPATCH: Returning freshly read data = $" & to_hstring(hr2_d);
+                    report "DISPATCH: Returning freshly read data = $" & to_hstring(hr2_d)
+                      & ", byte_phase=" & integer'image(to_integer(byte_phase));
                     if rdata_16en='1' and byte_phase(0)='1' then
                       rdata_hi <= hr2_d;
                     else
