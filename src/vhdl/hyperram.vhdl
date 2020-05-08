@@ -489,6 +489,12 @@ begin
         show_cache0 := false;
       end if;
 
+      if cache_row0_address = cache_row1_address then
+        report "ERROR: Cache row0 and row1 point to same address";
+        show_cache0 := true;
+        show_cache1 := true;
+      end if;
+      
       if show_cache1 or show_always then
         report "CACHE cache1: address=$" & to_hstring(cache_row1_address&"000") & ", valids=" & to_string(cache_row1_valids)
           & ", data = "
@@ -1410,7 +1416,7 @@ begin
           -- If it was the last row in the block that we have just presented,
           -- it would be a really good idea to dispatch a pre-fetch right now.
           -- The trick is that we can only safely do this, if we are idle.
-          if current_cache_line_address(4 downto 3) = "10" and flag_prefetch then
+          if current_cache_line_address(4 downto 3) = "10" and flag_prefetch='1' then
             report "DISPATCHER: Queuing chained pre-fetch";
             prefetch_when_idle <= true;
           end if;
