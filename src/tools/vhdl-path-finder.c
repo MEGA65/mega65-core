@@ -25,7 +25,18 @@ int main(int argc,char **argv)
     line[0]=0; fgets(line,1024,f);
     while(line[0]) {
       n++;
-      if (strstr(line,"if ")) {
+      if (strstr(line,"end if;")) {
+	if (line_count>0) {
+	  // Get rid of any elsif statements first
+	  while(line_count&&strstr(line_history[line_count-1],"elsif ")) line_count--;
+	  // Remove the last statement.
+	  line_count--;
+	} else {
+	  fprintf(stderr,"ERROR: 'end if;' without 'if' statement.\n");
+	  exit(-1);
+	}
+      }
+      else if (strstr(line,"if ")) {
 	char *s=strstr(line,"if ");
 	char *comment=strstr(line,"--");
 	if ((!comment)||(comment>s)) {
@@ -40,18 +51,7 @@ int main(int argc,char **argv)
 	    }
 	}	
       }
-      if (strstr(line,"end if;")) {
-	if (line_count>0) {
-	  // Get rid of any elsif statements first
-	  while(line_count&&strstr(line_history[line_count-1],"elsif ")) line_count--;
-	  // Remove the last statement.
-	  line_count--;
-	} else {
-	  fprintf(stderr,"ERROR: 'end if;' without 'if' statement.\n");
-	  exit(-1);
-	}
-      }
-      if (strstr(line,target)) {
+      else if (strstr(line,target)) {
 	printf("---------------------------------------\n");
 	for(int j=0;j<line_count;j++) {
 	  printf("%4d    %s",line_numbers[j],line_history[j]);
