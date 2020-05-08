@@ -389,7 +389,7 @@ begin
     variable show_collect0 : boolean := false;
     variable show_collect1 : boolean := false;
     variable show_block : boolean := false;
-    variable show_always : boolean := false;
+    variable show_always : boolean := true;
   begin
     if rising_edge(pixelclock) then
 
@@ -2960,7 +2960,8 @@ begin
             end if;
             
             -- Quickly return the correct byte
-            if to_integer(byte_phase) = (to_integer(hyperram_access_address(2 downto 0))+0) and is_expected_to_respond then
+            if to_integer(byte_phase) = (to_integer(hyperram_access_address(2 downto 0))+0) and is_expected_to_respond
+              and (not is_vic_fetch) then
               if hyperram0_select='1' then
                 report "DISPATCH: Returning freshly read data = $" & to_hstring(hr_d)
                   & ", hyperram0_select="& std_logic'image(hyperram0_select) 
@@ -3207,7 +3208,7 @@ begin
               end if;
               
               -- Quickly return the correct byte
-              if byte_phase = hyperram_access_address_read_time_adjusted then
+              if byte_phase = hyperram_access_address_read_time_adjusted and (not is_vic_fetch) then
                 if byte_phase = 0 and byte0_fix='1' then
                   report "DISPATCH: Returning freshly read data = $" & to_hstring(hr_d_last);
                   if rdata_16en='1' and byte_phase(0)='1' then
