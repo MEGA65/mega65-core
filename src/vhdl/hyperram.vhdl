@@ -664,10 +664,13 @@ begin
         elsif address(23 downto 8) = x"00000" and address(25 downto 24) = "11" then
           -- $B0000xx for now for debugging caches etc
           case address(7 downto 0) is
-            when x"00" => fake_rdata <= cache_row0_address(23 downto 16);
-            when x"01" => fake_rdata <= cache_row0_address(15 downto 8);
-            when x"02" => fake_rdata <= cache_row0_address(7 downto 0);
-            when x"03" => fake_rdata <= x"AA";
+            when x"00" => fake_rdata(7) <= '1';
+                          fake_rdata(6 downto 3) <= (others => '0');
+                          fake_rdata(2 downto 0) <= cache_row0_address(23 downto 11);
+            when x"01" => fake_rdata <= cache_row0_address(20 downto 13);
+            when x"02" => fake_rdata <= cache_row0_address(12 downto 5);
+            when x"03" => fake_rdata(7 downto 3) <= cache_row0_address(4 downto 0);
+                          fake_rdata(2 downto 0) <= "000";
             when x"04" => fake_rdata <= unsigned(cache_row0_valids);
             when x"05" => fake_rdata <= x"AA";
             when x"06" => fake_rdata <= x"AA";
@@ -675,10 +678,13 @@ begin
             when x"08"|x"09"|x"0a"|x"0b"|x"0c"|x"0d"|x"0e"|x"0f" =>
               fake_rdata <= cache_row0_data(to_integer(address(2 downto 0)));
 
-            when x"10" => fake_rdata <= cache_row1_address(23 downto 16);
-            when x"11" => fake_rdata <= cache_row1_address(15 downto 8);
-            when x"12" => fake_rdata <= cache_row1_address(7 downto 0);
-            when x"13" => fake_rdata <= x"AA";
+            when x"10" => fake_rdata(7) <= '1';
+                          fake_rdata(6 downto 3) <= (others => '0');
+                          fake_rdata(2 downto 0) <= cache_row1_address(23 downto 11);
+            when x"11" => fake_rdata <= cache_row1_address(20 downto 13);
+            when x"12" => fake_rdata <= cache_row1_address(12 downto 5);
+            when x"13" => fake_rdata(7 downto 3) <= cache_row1_address(4 downto 0);
+                          fake_rdata(2 downto 0) <= "000";
             when x"14" => fake_rdata <= unsigned(cache_row1_valids);
             when x"15" => fake_rdata <= x"AA";
             when x"16" => fake_rdata <= x"AA";
