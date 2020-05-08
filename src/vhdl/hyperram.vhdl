@@ -174,9 +174,19 @@ architecture gothic of hyperram is
   signal extra_write_latency2 : unsigned(7 downto 0) := to_unsigned(1,8);
 
   
+  -- Control optimisations for hyperram access
+  -- Enabling the cache MOSTLY works, but there is some cache coherency bug(s)
+  -- when writing. These are currently being investigated.
+  signal cache_enabled : boolean := true;
+  signal block_read_enable : std_logic := '1'; -- enable 32 byte read block fetching
+  signal flag_prefetch : std_logic := '1';  -- enable/disable prefetch of read
+                                            -- blocks
+
+  -- These three must be off for reliable operation on current PCBs
   signal fast_cmd_mode : std_logic := '0';
   signal fast_read_mode : std_logic := '0';
   signal fast_write_mode : std_logic := '0';
+
   signal read_phase_shift : std_logic := '0';
   signal write_phase_shift : std_logic := '1';
   signal byte0_fix : std_logic := '1';
@@ -280,11 +290,6 @@ architecture gothic of hyperram is
 
   signal request_counter_int : std_logic := '0';
 
-  -- Control optimisations for hyperram access
-  signal cache_enabled : boolean := true;
-  signal block_read_enable : std_logic := '1'; -- enable 32 byte read block fetching
-  signal flag_prefetch : std_logic := '1';  -- enable/disable prefetch of read
-                                            -- blocks
 
   signal hr_rwds_high_seen : std_logic := '0';
 
