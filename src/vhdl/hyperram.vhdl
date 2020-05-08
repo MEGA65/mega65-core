@@ -2711,7 +2711,7 @@ begin
                 -- The write will happen anyway.  If we already have read the
                 -- byte, we can update it, else we have to abort the block, so
                 -- that the write can happen first.
-                if to_integer(byte_phase) <= to_integer(address(4 downto 0)+1) then
+                if byte_phase_greater_than_address_low_bits = '0' then
                   report "DISPATCH: Aborting pre-fetch due to incoming conflicting write request";
                   state <= Idle;
                 end if;
