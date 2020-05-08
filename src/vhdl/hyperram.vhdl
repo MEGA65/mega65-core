@@ -250,8 +250,9 @@ architecture gothic of hyperram is
   signal ram_prefetch : boolean := false;
   signal ram_normalfetch : boolean := false;
 
-  signal current_cache_line_update : cache_row_t := (others => (others => '0'));
   signal current_cache_line_new_address : unsigned(26 downto 3) := (others => '0');
+  signal current_cache_line_update : cache_row_t := (others => (others => '0'));
+  signal current_cache_line_update_address : unsigned(26 downto 3) := (others => '0');
   signal current_cache_line_update_all : std_logic := '0';
   signal current_cache_line_update_flags : std_logic_vector(0 to 7) := (others => '0');
   signal last_current_cache_line_update_all : std_logic := '0';
@@ -399,11 +400,13 @@ begin
           current_cache_line_update(to_integer(address(2 downto 0))) <= wdata;
           current_cache_line_update_flags(to_integer(address(2 downto 0))) <=
             not current_cache_line_update_flags(to_integer(address(2 downto 0)));
-        end if;
+          current_cache_line_update_address <= current_cache_line_address;
+          end if;
         if wen_hi = '1' then
           current_cache_line_update(to_integer(address(2 downto 0))+1) <= wdata_hi;
           current_cache_line_update_flags(to_integer(address(2 downto 0))+1) <=
             not current_cache_line_update_flags(to_integer(address(2 downto 0))+1);
+          current_cache_line_update_address <= current_cache_line_address;
         end if;
       end if;                  
       
@@ -501,81 +504,6 @@ begin
         show_cache1 := true;
       end if;
             
-      if show_cache0 or show_always then
-        report "CACHE cache0: address=$" & to_hstring(cache_row0_address&"000") & ", valids=" & to_string(cache_row0_valids)
-          & ", data = "
-          & to_hstring(cache_row0_data(0)) & " "
-          & to_hstring(cache_row0_data(1)) & " "
-          & to_hstring(cache_row0_data(2)) & " "
-          & to_hstring(cache_row0_data(3)) & " "
-          & to_hstring(cache_row0_data(4)) & " "
-          & to_hstring(cache_row0_data(5)) & " "
-          & to_hstring(cache_row0_data(6)) & " "
-          & to_hstring(cache_row0_data(7)) & " ";
-        show_cache0 := false;
-      end if;
-
-      if show_cache1 or show_always then
-        report "CACHE cache1: address=$" & to_hstring(cache_row1_address&"000") & ", valids=" & to_string(cache_row1_valids)
-          & ", data = "
-          & to_hstring(cache_row1_data(0)) & " "
-          & to_hstring(cache_row1_data(1)) & " "
-          & to_hstring(cache_row1_data(2)) & " "
-          & to_hstring(cache_row1_data(3)) & " "
-          & to_hstring(cache_row1_data(4)) & " "
-          & to_hstring(cache_row1_data(5)) & " "
-          & to_hstring(cache_row1_data(6)) & " "
-          & to_hstring(cache_row1_data(7)) & " ";
-        show_cache1 := false;
-      end if;
-      if show_collect0 or show_always then
-        report "CACHE write0: $" & to_hstring(write_collect0_address&"000") & ", v=" & to_string(write_collect0_valids)
-          & ", d=" & std_logic'image(write_collect0_dispatchable)
-          & ", late=" & std_logic'image(write_collect0_toolate)
-          & ", fl=" & std_logic'image(write_collect0_flushed)
-          & ", data = "
-          & to_hstring(write_collect0_data(0)) & " "
-          & to_hstring(write_collect0_data(1)) & " "
-          & to_hstring(write_collect0_data(2)) & " "
-          & to_hstring(write_collect0_data(3)) & " "
-          & to_hstring(write_collect0_data(4)) & " "
-          & to_hstring(write_collect0_data(5)) & " "
-          & to_hstring(write_collect0_data(6)) & " "
-          & to_hstring(write_collect0_data(7)) & " ";
-        show_collect0 := false;
-      end if;
-      if show_collect1 or show_always then
-        report "CACHE write1: $" & to_hstring(write_collect1_address&"000") & ", v=" & to_string(write_collect1_valids)
-          & ", d=" & std_logic'image(write_collect1_dispatchable)
-          & ", late=" & std_logic'image(write_collect1_toolate)
-          & ", fl=" & std_logic'image(write_collect1_flushed)
-          & ", data = "
-          & to_hstring(write_collect1_data(0)) & " "
-          & to_hstring(write_collect1_data(1)) & " "
-          & to_hstring(write_collect1_data(2)) & " "
-          & to_hstring(write_collect1_data(3)) & " "
-          & to_hstring(write_collect1_data(4)) & " "
-          & to_hstring(write_collect1_data(5)) & " "
-          & to_hstring(write_collect1_data(6)) & " "
-          & to_hstring(write_collect1_data(7)) & " ";
-        show_collect1 := false;
-      end if;
-      if show_block or show_always then
-        report "CACHE block0: $" & to_hstring(block_address&"00000") & ", valid=" & std_logic'image(block_valid)
-          & ", byte_phase=" & integer'image(to_integer(byte_phase));
-        for i in 0 to 3 loop
-          report "CACHE block0 segment " & integer'image(i) & ": "
-            & to_hstring(block_data(i)(0)) & " "
-            & to_hstring(block_data(i)(1)) & " "
-            & to_hstring(block_data(i)(2)) & " "
-            & to_hstring(block_data(i)(3)) & " "
-            & to_hstring(block_data(i)(4)) & " "
-            & to_hstring(block_data(i)(5)) & " "
-            & to_hstring(block_data(i)(6)) & " "
-            & to_hstring(block_data(i)(7)) & " ";          
-        end loop;
-        show_block := false;
-      end if;
       
 
       -- Clear write buffers once they have been flushed.
@@ -1104,6 +1032,84 @@ begin
     -- Optionally delay HR_CLK by 1/2 an 160MHz clock cycle
     -- (actually just by optionally inverting it)
     if rising_edge(clock325) then
+
+      if show_cache0 or show_always then
+        report "CACHE cache0: address=$" & to_hstring(cache_row0_address&"000") & ", valids=" & to_string(cache_row0_valids)
+          & ", data = "
+          & to_hstring(cache_row0_data(0)) & " "
+          & to_hstring(cache_row0_data(1)) & " "
+          & to_hstring(cache_row0_data(2)) & " "
+          & to_hstring(cache_row0_data(3)) & " "
+          & to_hstring(cache_row0_data(4)) & " "
+          & to_hstring(cache_row0_data(5)) & " "
+          & to_hstring(cache_row0_data(6)) & " "
+          & to_hstring(cache_row0_data(7)) & " ";
+        show_cache0 := false;
+      end if;
+
+      if show_cache1 or show_always then
+        report "CACHE cache1: address=$" & to_hstring(cache_row1_address&"000") & ", valids=" & to_string(cache_row1_valids)
+          & ", data = "
+          & to_hstring(cache_row1_data(0)) & " "
+          & to_hstring(cache_row1_data(1)) & " "
+          & to_hstring(cache_row1_data(2)) & " "
+          & to_hstring(cache_row1_data(3)) & " "
+          & to_hstring(cache_row1_data(4)) & " "
+          & to_hstring(cache_row1_data(5)) & " "
+          & to_hstring(cache_row1_data(6)) & " "
+          & to_hstring(cache_row1_data(7)) & " ";
+        show_cache1 := false;
+      end if;
+      if show_collect0 or show_always then
+        report "CACHE write0: $" & to_hstring(write_collect0_address&"000") & ", v=" & to_string(write_collect0_valids)
+          & ", d=" & std_logic'image(write_collect0_dispatchable)
+          & ", late=" & std_logic'image(write_collect0_toolate)
+          & ", fl=" & std_logic'image(write_collect0_flushed)
+          & ", data = "
+          & to_hstring(write_collect0_data(0)) & " "
+          & to_hstring(write_collect0_data(1)) & " "
+          & to_hstring(write_collect0_data(2)) & " "
+          & to_hstring(write_collect0_data(3)) & " "
+          & to_hstring(write_collect0_data(4)) & " "
+          & to_hstring(write_collect0_data(5)) & " "
+          & to_hstring(write_collect0_data(6)) & " "
+          & to_hstring(write_collect0_data(7)) & " ";
+        show_collect0 := false;
+      end if;
+      if show_collect1 or show_always then
+        report "CACHE write1: $" & to_hstring(write_collect1_address&"000") & ", v=" & to_string(write_collect1_valids)
+          & ", d=" & std_logic'image(write_collect1_dispatchable)
+          & ", late=" & std_logic'image(write_collect1_toolate)
+          & ", fl=" & std_logic'image(write_collect1_flushed)
+          & ", data = "
+          & to_hstring(write_collect1_data(0)) & " "
+          & to_hstring(write_collect1_data(1)) & " "
+          & to_hstring(write_collect1_data(2)) & " "
+          & to_hstring(write_collect1_data(3)) & " "
+          & to_hstring(write_collect1_data(4)) & " "
+          & to_hstring(write_collect1_data(5)) & " "
+          & to_hstring(write_collect1_data(6)) & " "
+          & to_hstring(write_collect1_data(7)) & " ";
+        show_collect1 := false;
+      end if;
+      if show_block or show_always then
+        report "CACHE block0: $" & to_hstring(block_address&"00000") & ", valid=" & std_logic'image(block_valid)
+          & ", byte_phase=" & integer'image(to_integer(byte_phase));
+        for i in 0 to 3 loop
+          report "CACHE block0 segment " & integer'image(i) & ": "
+            & to_hstring(block_data(i)(0)) & " "
+            & to_hstring(block_data(i)(1)) & " "
+            & to_hstring(block_data(i)(2)) & " "
+            & to_hstring(block_data(i)(3)) & " "
+            & to_hstring(block_data(i)(4)) & " "
+            & to_hstring(block_data(i)(5)) & " "
+            & to_hstring(block_data(i)(6)) & " "
+            & to_hstring(block_data(i)(7)) & " ";          
+        end loop;
+        show_block := false;
+      end if;
+
+      
       hr_clock_phase_drive <= hr_clock_phase;
       hr_clock_phase <= hr_clock_phase + 1;
       -- Changing at the end of a phase cycle prevents us having any
@@ -1394,20 +1400,26 @@ begin
         current_cache_line_valid_drive <= '0';
         block_valid <= '0';
       end if;
-      
-      for i in 0 to 7 loop
-        if current_cache_line_update_flags(i) /= last_current_cache_line_update_flags(i)  then
-          report "CACHE: Driving update to current_cache_line byte " & integer'image(i)
-            & ", value $" & to_hstring(current_cache_line_update(i));
-          last_current_cache_line_update_flags(i) <= current_cache_line_update_flags(i);
-          current_cache_line_drive(i) <= current_cache_line_update(i);
+
+      if current_cache_line_update_all = last_current_cache_line_update_all then
+        if current_cache_line_update_address = current_cache_line_address_drive then
+          for i in 0 to 7 loop
+            if current_cache_line_update_flags(i) /= last_current_cache_line_update_flags(i)  then
+              report "CACHE: Driving update to current_cache_line byte " & integer'image(i)
+                & ", value $" & to_hstring(current_cache_line_update(i));
+              last_current_cache_line_update_flags(i) <= current_cache_line_update_flags(i);
+              current_cache_line_drive(i) <= current_cache_line_update(i);
+            end if;
+          end loop;
+        else
+          report "CACHE: Rejecting stale current line updates for $" & to_hstring(current_cache_line_update_address&"000");
         end if;
-      end loop;
-      if current_cache_line_update_all /= last_current_cache_line_update_all then
+      else
         report "DISPATCHER: Replacing current cache line with $" & to_hstring(current_cache_line_new_address&"000");
         last_current_cache_line_update_all <= current_cache_line_update_all;              
         current_cache_line_address_drive <= current_cache_line_new_address;
         current_cache_line_drive <= current_cache_line_update;
+        current_cache_line_update_flags <= last_current_cache_line_update_flags;
       end if;
 
       -- See if slow_devices is asking for the next 8 bytes.
@@ -1428,6 +1440,9 @@ begin
           current_cache_line_address_drive(4 downto 3) <= "00";
           current_cache_line_drive <= block_data(0);
           current_cache_line_valid_drive <= '1';
+          -- Cancel any other updates that might be scheduled for this
+          current_cache_line_update_all <= last_current_cache_line_update_all;
+          current_cache_line_update_flags <= last_current_cache_line_update_flags;
         end if;
         if current_cache_line_matches_block = '1'
         then
@@ -1446,8 +1461,9 @@ begin
           current_cache_line_address_drive(4 downto 3) <= current_cache_line_address(4 downto 3) + 1;
           current_cache_line_drive <= block_data(to_integer(current_cache_line_address(4 downto 3)) + 1);
           current_cache_line_valid_drive <= '1';
-          current_cache_line_update_all <= '0';
-          current_cache_line_update_flags <= (others => '0');
+          -- Cancel any other updates that might be scheduled for this
+          current_cache_line_update_all <= last_current_cache_line_update_all;
+          current_cache_line_update_flags <= last_current_cache_line_update_flags;
 
           -- If it was the last row in the block that we have just presented,
           -- it would be a really good idea to dispatch a pre-fetch right now.
