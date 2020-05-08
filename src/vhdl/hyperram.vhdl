@@ -309,6 +309,7 @@ architecture gothic of hyperram is
   signal cache_row1_address_matches_cache_row_update_address : std_logic := '0';
   signal byte_phase_greater_than_address_low_bits : std_logic := '0';
   signal byte_phase_greater_than_address_end_of_row : std_logic := '0';
+  signal block_address_matches_address : std_logic := '0';
   
   signal write_continues : integer range 0 to 255 := 0;
   signal write_continues_max : integer range 0 to 255 := 16;
@@ -619,8 +620,8 @@ begin
       -- Ignore read requests to the current block read, as they get
       -- short-circuited in the inner state machine to save time.
       report "address = $" & to_hstring(address);
-      if (read_request or read_request_latch)='1'
-        and busy_internal='0' and ((is_block_read = false) or (block_address /= address(26 downto 5)))
+      if (read_request or read_request_latch)='1' and busy_internal='0'
+        and ((is_block_read = false) or block_address_matches_address='0')
         -- Don't but in on the VIC-IV (but once we have submitted a request, we
         -- do have priority)
         and (viciv_last_request_toggle = viciv_request_toggle) then
@@ -632,7 +633,7 @@ begin
         -- Check for cache read
         -- We check the write buffers first, as any contents that they have
         -- must take priority over everything else
-        if (block_valid='1') and (address(26 downto 5) = block_address) then
+        if (block_valid='1') and (block_address_matches_address='1') then
           report "asserting fake_data_ready_strobe";
           fake_data_ready_strobe <= '1';
           fake_rdata <= block_data(to_integer(address(4 downto 3)))(to_integer(address(2 downto 0)));
@@ -1230,6 +1231,12 @@ begin
         cache_row1_address_matches_ram_address <= '0';
       end if;
 
+      if address(26 downto 5) = block_address then
+        block_address_matches_address <= '1';
+      else
+        block_address_matches_address <= '0';
+      end if;
+      
       if address(26 downto 5) = hyperram_access_address(26 downto 5) then
         address_matches_hyperram_access_address_block <= '1';
       else
