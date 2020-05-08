@@ -387,6 +387,26 @@ begin
   begin
     if rising_edge(pixelclock) then
 
+      -- Update short-circuit cache line
+      -- (We don't change validity, since we don't know if it is
+      -- valid or not).
+      -- This has to happen IMMEDIATELY so that slow_devices doesn't
+      -- accidentally read old data, while we are still scheduling the write.     
+      if address(26 downto 3) = current_cache_line_address(26 downto 3) then
+        report "Requesting update of current_cache_line due to write. Value = $"
+          & to_hstring(wdata) & ", byte offset = " & integer'image(to_integer(address(2 downto 0)));
+        if wen_lo = '1' then
+          current_cache_line_update(to_integer(address(2 downto 0))) <= wdata;
+          current_cache_line_update_flags(to_integer(address(2 downto 0))) <=
+            not current_cache_line_update_flags(to_integer(address(2 downto 0)));
+        end if;
+        if wen_hi = '1' then
+          current_cache_line_update(to_integer(address(2 downto 0))+1) <= wdata_hi;
+          current_cache_line_update_flags(to_integer(address(2 downto 0))+1) <=
+            not current_cache_line_update_flags(to_integer(address(2 downto 0))+1);
+        end if;
+      end if;                  
+      
       report "PIXELCLOCK tick";
       if read_request='1' then
         read_request_latch <= '1';
@@ -475,6 +495,12 @@ begin
         request_counter <= request_counter_int;
       end if;
 
+      if cache_row0_address = cache_row1_address and cache_row0_address /= x"ffffff" then
+        report "ERROR: Cache row0 and row1 point to same address";
+        show_cache0 := true;
+        show_cache1 := true;
+      end if;
+            
       if show_cache0 or show_always then
         report "CACHE cache0: address=$" & to_hstring(cache_row0_address&"000") & ", valids=" & to_string(cache_row0_valids)
           & ", data = "
@@ -489,12 +515,6 @@ begin
         show_cache0 := false;
       end if;
 
-      if cache_row0_address = cache_row1_address then
-        report "ERROR: Cache row0 and row1 point to same address";
-        show_cache0 := true;
-        show_cache1 := true;
-      end if;
-      
       if show_cache1 or show_always then
         report "CACHE cache1: address=$" & to_hstring(cache_row1_address&"000") & ", valids=" & to_string(cache_row1_valids)
           & ", data = "
@@ -1060,22 +1080,6 @@ begin
               queued_write <= '1';
             end if;
 
-            -- Update short-circuit cache line
-            -- (We don't change validity, since we don't know if it is
-            -- valid or not).
-            if address(26 downto 3) = current_cache_line_address(26 downto 3) then
-              if wen_lo = '1' then
-                current_cache_line_update(to_integer(address(2 downto 0))) <= wdata;
-                current_cache_line_update_flags(to_integer(address(2 downto 0))) <=
-                  not current_cache_line_update_flags(to_integer(address(2 downto 0)));
-              end if;
-              if wen_hi = '1' then
-                current_cache_line_update(to_integer(address(2 downto 0))+1) <= wdata_hi;
-                current_cache_line_update_flags(to_integer(address(2 downto 0))+1) <=
-                  not current_cache_line_update_flags(to_integer(address(2 downto 0))+1);
-              end if;
-            end if;
-            
             -- Update read cache structures when writing
             cache_row_update_address <= address(26 downto 3);
             cache_row_update_byte <= to_integer(address(2 downto 0));
@@ -1313,14 +1317,14 @@ begin
         hyperram_access_address_matches_cache_row1 <= '0';
       end if;
       if cache_row0_address = cache_row_update_address then
-        cache_row0_address_matches_ram_address <= '1';
+        cache_row0_address_matches_cache_row_update_address <= '1';
       else
-        cache_row0_address_matches_ram_address <= '0';
+        cache_row0_address_matches_cache_row_update_address <= '0';
       end if;
       if cache_row1_address = cache_row_update_address then
-        cache_row1_address_matches_ram_address <= '1';
+        cache_row1_address_matches_cache_row_update_address <= '1';
       else
-        cache_row1_address_matches_ram_address <= '0';
+        cache_row1_address_matches_cache_row_update_address <= '0';
       end if;
       if block_address = cache_row_update_address(26 downto 5) then
         block_address_matches_cache_row_update_address <= '1';
@@ -1328,7 +1332,9 @@ begin
         block_address_matches_cache_row_update_address <= '0';
       end if;
         
-          
+
+      report "CACHE: Updating current_cache_line from drive. Now "
+          & to_hstring(current_cache_line_drive(0)) & " ...";
       current_cache_line <= current_cache_line_drive;
       current_cache_line_address <= current_cache_line_address_drive;
       current_cache_line_valid <= current_cache_line_valid_drive;
@@ -1338,10 +1344,13 @@ begin
           report "Zeroing cache_row0_valids";
           cache_row0_valids <= (others => '0');
           cache_row0_address <= ram_address(26 downto 3);
+          cache_row0_address_matches_ram_address <= '1';
           show_cache0 := true;
         else
+          report "Zeroing cache_row1_valids";
           cache_row1_valids <= (others => '0');
           cache_row1_address <= ram_address(26 downto 3);
+          cache_row1_address_matches_ram_address <= '1';
           show_cache1 := true;
         end if;
       end if;
@@ -1376,13 +1385,38 @@ begin
         conf_buf1 <= conf_buf1_in;
       end if;
 
+
+      -- Invalidate cache if disabled
+      if cache_enabled = false then
+        report "Zeroing cache_row0_valids";
+        cache_row0_valids <= (others => '0');
+        cache_row1_valids <= (others => '0');
+        current_cache_line_valid_drive <= '0';
+        block_valid <= '0';
+      end if;
+      
+      for i in 0 to 7 loop
+        if current_cache_line_update_flags(i) /= last_current_cache_line_update_flags(i)  then
+          report "CACHE: Driving update to current_cache_line byte " & integer'image(i)
+            & ", value $" & to_hstring(current_cache_line_update(i));
+          last_current_cache_line_update_flags(i) <= current_cache_line_update_flags(i);
+          current_cache_line_drive(i) <= current_cache_line_update(i);
+        end if;
+      end loop;
+      if current_cache_line_update_all /= last_current_cache_line_update_all then
+        report "DISPATCHER: Replacing current cache line with $" & to_hstring(current_cache_line_new_address&"000");
+        last_current_cache_line_update_all <= current_cache_line_update_all;              
+        current_cache_line_address_drive <= current_cache_line_new_address;
+        current_cache_line_drive <= current_cache_line_update;
+      end if;
+
       -- See if slow_devices is asking for the next 8 bytes.
       -- If we have it, then pre-present it if we have it in our data block
       -- (If it isn't in the data block, then we will have presumably already
       -- started a pre-fetch when we serviced the access that created the current
       -- data value in the current cache line entry.
-
-      
+      -- This has to happen below the above single-byte update stuff, so that
+      -- we end retain cache coherency
       if expansionram_current_cache_line_next_toggle /= last_current_cache_next_toggle then
         last_current_cache_next_toggle <= expansionram_current_cache_line_next_toggle;
         if current_cache_line_plus_1_matches_block = '1'
@@ -1412,6 +1446,8 @@ begin
           current_cache_line_address_drive(4 downto 3) <= current_cache_line_address(4 downto 3) + 1;
           current_cache_line_drive <= block_data(to_integer(current_cache_line_address(4 downto 3)) + 1);
           current_cache_line_valid_drive <= '1';
+          current_cache_line_update_all <= '0';
+          current_cache_line_update_flags <= (others => '0');
 
           -- If it was the last row in the block that we have just presented,
           -- it would be a really good idea to dispatch a pre-fetch right now.
@@ -1435,28 +1471,6 @@ begin
           state <= WriteSetup;
         end if;
       end if;      
-
-      -- Invalidate cache if disabled
-      if cache_enabled = false then
-        report "Zeroing cache_row0_valids";
-        cache_row0_valids <= (others => '0');
-        cache_row1_valids <= (others => '0');
-        current_cache_line_valid_drive <= '0';
-        block_valid <= '0';
-      end if;
-      
-      if current_cache_line_update_all /= last_current_cache_line_update_all then
-        report "DISPATCHER: Replacing current cache line with $" & to_hstring(current_cache_line_new_address&"000");
-        last_current_cache_line_update_all <= current_cache_line_update_all;              
-        current_cache_line_address_drive <= current_cache_line_new_address;
-        current_cache_line_drive <= current_cache_line_update;
-      end if;
-      for i in 0 to 7 loop
-        if current_cache_line_update_flags(i) /= last_current_cache_line_update_flags(i)  then
-          last_current_cache_line_update_flags(i) <= current_cache_line_update_flags(i);
-          current_cache_line_drive(i) <= current_cache_line_update(i);
-        end if;
-      end loop;
       
       if cache_row_update_toggle /= last_cache_row_update_toggle then
         last_cache_row_update_toggle <= cache_row_update_toggle;
@@ -2249,6 +2263,7 @@ begin
               report "Zeroing cache_row0_valids";
               cache_row0_valids <= (others => '0');
             elsif cache_enabled and hyperram_access_address_matches_cache_row1 = '1' then
+              report "Zeroing cache_row1_valids";
               cache_row1_valids <= (others => '0');
             end if;
           end if;
@@ -2407,6 +2422,7 @@ begin
               report "Zeroing cache_row0_valids";
               cache_row0_valids <= (others => '0');
               cache_row0_address <= ram_address_drive(26 downto 3);
+              cache_row0_address_matches_ram_address <= '1';
               if ram_wdata_enlo_drive='1' then
                 cache_row0_valids(to_integer(ram_address_drive(2 downto 0))) <= '1';
                 cache_row0_data(to_integer(ram_address_drive(2 downto 0))) <= ram_wdata_drive;
@@ -2417,8 +2433,10 @@ begin
               end if;
               show_cache0 := true;
             else
+              report "Zeroing cache_row1_valids";
               cache_row1_valids <= (others => '0');
               cache_row1_address <= ram_address_drive(26 downto 3);
+              cache_row1_address_matches_ram_address <= '1';
               if ram_wdata_enlo_drive='1' then
                 cache_row1_valids(to_integer(ram_address_drive(2 downto 0))) <= '1';
                 cache_row1_data(to_integer(ram_address_drive(2 downto 0))) <= ram_wdata_drive;
@@ -2879,6 +2897,7 @@ begin
                 report "Zeroing cache_row0_valids";
                 cache_row0_valids <= (others => '0');
                 cache_row0_address <= hyperram_access_address(26 downto 3);
+                hyperram_access_address_matches_cache_row0 <= '1';
                 cache_row0_valids(to_integer(byte_phase)) <= '1';
                 report "hr_sample='1'";
                 report "hr_sample='0'";
@@ -2889,8 +2908,10 @@ begin
                 end if;
                 show_cache0 := true;
               else
+                report "Zeroing cache_row1_valids";
                 cache_row1_valids <= (others => '0');
                 cache_row1_address <= hyperram_access_address(26 downto 3);
+                hyperram_access_address_matches_cache_row1 <= '1';
                 cache_row1_valids(to_integer(byte_phase)) <= '1';
                 report "hr_sample='1'";
                 report "hr_sample='0'";
@@ -3104,6 +3125,7 @@ begin
                   report "Zeroing cache_row0_valids";
                   cache_row0_valids <= (others => '0');
                   cache_row0_address <= hyperram_access_address(26 downto 3);
+                  hyperram_access_address_matches_cache_row0 <= '1';
                   cache_row0_valids(to_integer(byte_phase)) <= '1';
                   report "hr_sample='1'";
                   report "hr_sample='0'";
@@ -3118,8 +3140,10 @@ begin
                   end if;
                   show_cache0 := true;
                 else
+                  report "Zeroing cache_row1_valids";
                   cache_row1_valids <= (others => '0');
                   cache_row1_address <= hyperram_access_address(26 downto 3);
+                  hyperram_access_address_matches_cache_row1 <= '1';
                   cache_row1_valids(to_integer(byte_phase)) <= '1';
                   report "hr_sample='1'";
                   report "hr_sample='0'";
