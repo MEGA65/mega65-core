@@ -189,7 +189,6 @@ architecture gothic of hyperram is
 
   signal read_phase_shift : std_logic := '0';
   signal write_phase_shift : std_logic := '1';
-  signal byte0_fix : std_logic := '1';
   
   signal countdown : integer range 0 to 63 := 0;
   signal countdown_is_zero : std_logic := '1';
@@ -797,7 +796,7 @@ begin
               fake_rdata(3) <= read_phase_shift;
               fake_rdata(4) <= block_read_enable;
               fake_rdata(5) <= flag_prefetch;
-              fake_rdata(6) <= byte0_fix;
+              fake_rdata(6) <= '0';
               if cache_enabled then
                 fake_rdata(7) <= '1';
               else
@@ -899,7 +898,7 @@ begin
               read_phase_shift <= wdata(3);
               block_read_enable <= wdata(4);
               flag_prefetch <= wdata(5);
-              byte0_fix <= wdata(6);
+              -- wdata(6) bit unused (wsa byte0_fix)
               if wdata(7)='1' then
                 cache_enabled <= true;
               else
@@ -2966,18 +2965,10 @@ begin
                 report "DISPATCH: Returning freshly read data = $" & to_hstring(hr_d)
                   & ", hyperram0_select="& std_logic'image(hyperram0_select) 
                   & ", hyperram1_select="& std_logic'image(hyperram1_select);
-                if byte_phase = 0 and byte0_fix='1' then
-                  if rdata_16en='1' and byte_phase(0)='1' then
-                    rdata_hi <= hr_d;
-                  else
-                    rdata <= hr_d_last;
-                  end if;
+                if rdata_16en='1' and byte_phase(0)='1' then
+                  rdata_hi <= hr_d;
                 else
-                  if rdata_16en='1' and byte_phase(0)='1' then
-                    rdata_hi <= hr_d;
-                  else
-                    rdata <= hr_d;
-                  end if;
+                  rdata <= hr_d;
                 end if;
               else
                 report "DISPATCH: Returning freshly read data = $" & to_hstring(hr2_d)
@@ -3129,28 +3120,20 @@ begin
                   cache_row0_valids(to_integer(byte_phase)) <= '1';
                   report "hr_sample='1'";
                   report "hr_sample='0'";
-                  if byte_phase = 0 and byte0_fix='1' then
-                    cache_row0_data(to_integer(byte_phase)) <= hr_d_last;
+                  if hyperram0_select='1' then
+                    cache_row0_data(to_integer(byte_phase)) <= hr_d;
                   else
-                    if hyperram0_select='1' then
-                      cache_row0_data(to_integer(byte_phase)) <= hr_d;
-                    else
-                      cache_row0_data(to_integer(byte_phase)) <= hr2_d;
-                    end if;
+                    cache_row0_data(to_integer(byte_phase)) <= hr2_d;
                   end if;
                   show_cache0 := true;
                 elsif hyperram_access_address_matches_cache_row1 = '1' then
                   cache_row1_valids(to_integer(byte_phase)) <= '1';
                   report "hr_sample='1'";
                   report "hr_sample='0'";
-                  if byte_phase = 0 and byte0_fix='1' then
-                    cache_row1_data(to_integer(byte_phase)) <= hr_d_last;
+                  if hyperram0_select='1' then
+                    cache_row1_data(to_integer(byte_phase)) <= hr_d;
                   else
-                    if hyperram0_select='1' then
-                      cache_row1_data(to_integer(byte_phase)) <= hr_d;
-                    else
-                      cache_row1_data(to_integer(byte_phase)) <= hr2_d;
-                    end if;
+                    cache_row1_data(to_integer(byte_phase)) <= hr2_d;
                   end if;
                   show_cache1 := true;
                 elsif random_bits(1) = '0' then
@@ -3161,14 +3144,10 @@ begin
                   cache_row0_valids(to_integer(byte_phase)) <= '1';
                   report "hr_sample='1'";
                   report "hr_sample='0'";
-                  if byte_phase = 0 and byte0_fix='1' then
-                    cache_row0_data(to_integer(byte_phase)) <= hr_d_last;
+                  if hyperram0_select='1' then
+                    cache_row0_data(to_integer(byte_phase)) <= hr_d;
                   else
-                    if hyperram0_select='1' then
-                      cache_row0_data(to_integer(byte_phase)) <= hr_d;
-                    else
-                      cache_row0_data(to_integer(byte_phase)) <= hr2_d;
-                    end if;
+                    cache_row0_data(to_integer(byte_phase)) <= hr2_d;
                   end if;
                   show_cache0 := true;
                 else
@@ -3179,14 +3158,10 @@ begin
                   cache_row1_valids(to_integer(byte_phase)) <= '1';
                   report "hr_sample='1'";
                   report "hr_sample='0'";
-                  if byte_phase = 0 and byte0_fix='1' then
-                    cache_row1_data(to_integer(byte_phase)) <= hr_d_last;
+                  if hyperram0_select='1' then
+                    cache_row1_data(to_integer(byte_phase)) <= hr_d;
                   else
-                    if hyperram0_select='1' then
-                      cache_row1_data(to_integer(byte_phase)) <= hr_d;
-                    else
-                      cache_row1_data(to_integer(byte_phase)) <= hr2_d;
-                    end if;
+                    cache_row1_data(to_integer(byte_phase)) <= hr2_d;
                   end if;
                   show_cache1 := true;
                 end if;
@@ -3209,29 +3184,20 @@ begin
               
               -- Quickly return the correct byte
               if byte_phase = hyperram_access_address_read_time_adjusted and (not is_vic_fetch) then
-                if byte_phase = 0 and byte0_fix='1' then
-                  report "DISPATCH: Returning freshly read data = $" & to_hstring(hr_d_last);
+                if hyperram0_select='1' then
+                  report "DISPATCH: Returning freshly read data = $" & to_hstring(hr_d);
                   if rdata_16en='1' and byte_phase(0)='1' then
-                    rdata_hi <= hr_d_last;
+                    rdata_hi <= hr_d;
                   else
-                    rdata <= hr_d_last;
+                    rdata <= hr_d;
                   end if;
                 else
-                  if hyperram0_select='1' then
-                    report "DISPATCH: Returning freshly read data = $" & to_hstring(hr_d);
-                    if rdata_16en='1' and byte_phase(0)='1' then
-                      rdata_hi <= hr_d;
-                    else
-                      rdata <= hr_d;
-                    end if;
+                  report "DISPATCH: Returning freshly read data = $" & to_hstring(hr2_d)
+                    & ", byte_phase=" & integer'image(to_integer(byte_phase));
+                  if rdata_16en='1' and byte_phase(0)='1' then
+                    rdata_hi <= hr2_d;
                   else
-                    report "DISPATCH: Returning freshly read data = $" & to_hstring(hr2_d)
-                      & ", byte_phase=" & integer'image(to_integer(byte_phase));
-                    if rdata_16en='1' and byte_phase(0)='1' then
-                      rdata_hi <= hr2_d;
-                    else
-                      rdata <= hr2_d;
-                    end if;
+                    rdata <= hr2_d;
                   end if;
                 end if;
                 report "hr_return='1'";
