@@ -27,9 +27,9 @@ unsigned int i,j,k;
 
 
 */
-unsigned char fast_flags=0xf2; 
+unsigned char fast_flags=0x30; // 0xb0; 
 unsigned char slow_flags=0x00;
-unsigned char cache_bit=0; // =0x80;
+unsigned char cache_bit=0x80; // =0x80;
 
 void bust_cache(void) {
   lpoke(0xbfffff2,fast_flags&(0xff-cache_bit));
@@ -234,31 +234,72 @@ void test_ramtiming(void)
     }
 }
 
+long cache_row_addr;
+
+void show_cache_line(unsigned long addr,int row)
+{
+  printf("Row%d: ",row);
+  if (lpeek(addr+3)==0xAA) {
+    // Old style
+    cache_row_addr=lpeek(addr+2);
+    cache_row_addr|=(((long)lpeek(addr+1))<<8);
+    cache_row_addr|=(((long)lpeek(addr+0))<<16);
+    cache_row_addr=cache_row_addr<<3;
+    cache_row_addr|=0x8000000;
+  } else {
+    cache_row_addr=lpeek(addr+3);
+    cache_row_addr|=(((long)lpeek(addr+2))<<8);
+    cache_row_addr|=(((long)lpeek(addr+1))<<16);
+    cache_row_addr|=(((long)lpeek(addr+0))<<24);
+  }
+  printf("$%07lx:",cache_row_addr);
+  for(k=0;k<8;k++) {
+    if (lpeek(addr+4)&(1<<k)) {
+      printf(" %02x",lpeek(addr+8+k));
+    } else printf(" xx");
+  }
+  printf("\n");
+}
+
+void show_cache_contents(void)
+{
+  show_cache_line(0xb000000L,0);
+  show_cache_line(0xb000010L,1);
+}
+
 void test_cacheerror(void)
 {
   printf("\nPerforming cache error test.\n\n");
 
+  printf("Testing read-after-write:\n");
   printf("Writing $99\n");
   lpoke(0x8000800L,0x99);
   bust_cache();
   
-  //  for(addr=0x8000000;addr<0x8800000;addr+=0x8000)
-
-  // Reading before writing causes the cache to cache the previously read value
-  // So doing this:
   printf("  read $%02x\n",lpeek(0x8000800L));
-  // ... and then writing a $10, will cause the $10 to be ignored:
-  printf("Writing $10\n");
+  printf("Writing $10, ");
   lpoke(0x8000800L,0x10);
   // ... and so, we will read $99 here instead of $10
   printf("  read $%02x\n",lpeek(0x8000800L));
 
-  // ... but if we flush the cache, it all works just fine...
   printf("Flushing cache.\n");
   bust_cache();
   printf("  read $%02x\n",lpeek(0x8000800L));
 
-
+  printf("\nTesting more complex read-after-write:\n");
+  lfill(0x8000800,0x00,0x800);
+  for(j=0;j<16;j++) lpoke(0x8000800+j,0x10+j);
+  //  lcopy(0x8000000,0xc000,0x800);
+  for(j=0;j<16;j++) {
+    k=lpeek(0x8000800+j);
+    if (k!=(j+0x10)) {
+      printf("Read $%02x from $%08lx instead of $%02x\n",
+	     k,0x8000800L+j,j+0x10);
+      show_cache_contents();
+    }
+  }
+  
+  
   printf("\nPress any key to return.\n");
   while(PEEK(0xD610)) POKE(0xD610,0);
   while(!PEEK(0xD610)) continue;
@@ -499,7 +540,9 @@ void test_speed(void)
       
       while(PEEK(0xD012)!=0x20)
 	while(PEEK(0xD011)&0x80) continue;
+      //      POKE(0xD020,1);
       lcopy(0x8000000,0x40000,4096);
+      POKE(0xD020,14);
       r2=PEEK(0xD012);
       printf("Copy Slow RAM to Chip RAM: ");
       time=(r2-0x20)*63;
@@ -517,7 +560,9 @@ void test_speed(void)
       
       while(PEEK(0xD012)!=0x20)
 	while(PEEK(0xD011)&0x80) continue;
+      //      POKE(0xD020,2);
       lcopy(0x8000000,0x8010000,4096);
+      POKE(0xD020,14);
       r2=PEEK(0xD012);
       printf("Copy Slow RAM to Slow RAM: ");
       time=(r2-0x20)*63;
@@ -587,8 +632,16 @@ void main(void)
 
   printf("%c",0x93);
 
+  // XXX - The following are needed temporarily, while we bed everything down.
+  // Disable fast prefetch logic
+  POKE(0xD7FE,0x00);
+  // Disable read delay
+  lpoke(0xbfffff5,0);
+
   setup_hyperram();
 
+
+  
   // Turn cache back on before reading config registers etc
   lpoke(0xbfffff2,fast_flags|cache_bit);
   
