@@ -29,10 +29,165 @@ end entity;
 architecture RTL of clocking is
 
   signal clk_fb     : std_logic := '0';
+  signal clk_fb_adjust0     : std_logic := '0';
+  signal clk_fb_adjust1     : std_logic := '0';
+  signal clk_fb_adjust2     : std_logic := '0';
   signal clk_fb_eth : std_logic := '0';
+  signal clock80mhz : std_logic := '0';
+  signal clock144mhz : std_logic := '0';
+  signal clock9969mhz : std_logic := '0'; 
+  signal clock9969mhz_bufg : std_logic := '0'; 
   
 begin
 
+  -- We want 27MHz pixel clock.  From 100MHz, we will get 27.0833333 MHz
+  -- But if we do the following, we can get exactly 27MHz:
+  -- 4.000/5.000 x 9.000/5.000 x 9.000/13.000
+
+  adjust0 : MMCM_ADV
+  generic map
+   (BANDWIDTH            => "OPTIMIZED",
+    CLKOUT4_CASCADE      => FALSE,
+    CLOCK_HOLD           => FALSE,
+    COMPENSATION         => "ZHOLD",
+    STARTUP_WAIT         => FALSE,
+
+    -- Create 800 MHz 
+    DIVCLK_DIVIDE        => 1,
+    CLKFBOUT_MULT_F      => 8.0,
+    CLKFBOUT_PHASE       => 0.000,
+    CLKFBOUT_USE_FINE_PS => FALSE,
+
+    -- CLKOUT0 = CLK_OUT1 = 800/10 = 400/5 = 80MHz = clock80mhz
+    CLKOUT0_DIVIDE_F     => 10.0,
+    CLKOUT0_PHASE        => 0.000,
+    CLKOUT0_DUTY_CYCLE   => 0.500,
+    CLKOUT0_USE_FINE_PS  => FALSE
+    )
+
+  port map
+    -- Output clocks
+   (
+     CLKFBOUT            => clk_fb_adjust0,
+     CLKOUT0             => clock80mhz,
+     -- Input clock control
+     CLKFBIN             => clk_fb_adjust0,
+     CLKIN1              => clk_in,
+     CLKIN2              => '0',
+     -- Tied to always select the primary input clock
+     CLKINSEL            => '1',
+     -- Ports for dynamic reconfiguration
+     DADDR               => (others => '0'),
+     DCLK                => '0',
+     DEN                 => '0',
+     DI                  => (others => '0'),
+     DWE                 => '0',
+     -- Ports for dynamic phase shift
+     PSCLK               => '0',
+     PSEN                => '0',
+     PSINCDEC            => '0',
+     -- Other control and status signals
+     PWRDWN              => '0',
+     RST                 => '0');
+
+  adjust1 : MMCM_ADV
+  generic map
+   (BANDWIDTH            => "OPTIMIZED",
+    CLKOUT4_CASCADE      => FALSE,
+    CLOCK_HOLD           => FALSE,
+    COMPENSATION         => "ZHOLD",
+    STARTUP_WAIT         => FALSE,
+
+    -- Create 800 MHz 
+    DIVCLK_DIVIDE        => 1,
+    CLKFBOUT_MULT_F      => 9.0,
+    CLKFBOUT_PHASE       => 0.000,
+    CLKFBOUT_USE_FINE_PS => FALSE,
+
+    -- CLKOUT0 = CLK_OUT1 = 80MHz x 9/5 = 144MHz = clock144mhz
+    CLKOUT0_DIVIDE_F     => 5.0,
+    CLKOUT0_PHASE        => 0.000,
+    CLKOUT0_DUTY_CYCLE   => 0.500,
+    CLKOUT0_USE_FINE_PS  => FALSE
+    )
+
+  port map
+    -- Output clocks
+   (
+     CLKFBOUT            => clk_fb_adjust1,
+     CLKOUT0             => clock144mhz,
+     -- Input clock control
+     CLKFBIN             => clk_fb_adjust1,
+     CLKIN1              => clock80mhz,
+     CLKIN2              => '0',
+     -- Tied to always select the primary input clock
+     CLKINSEL            => '1',
+     -- Ports for dynamic reconfiguration
+     DADDR               => (others => '0'),
+     DCLK                => '0',
+     DEN                 => '0',
+     DI                  => (others => '0'),
+     DWE                 => '0',
+     -- Ports for dynamic phase shift
+     PSCLK               => '0',
+     PSEN                => '0',
+     PSINCDEC            => '0',
+     -- Other control and status signals
+     PWRDWN              => '0',
+     RST                 => '0');
+    
+
+    adjust2 : MMCM_ADV
+  generic map
+   (BANDWIDTH            => "OPTIMIZED",
+    CLKOUT4_CASCADE      => FALSE,
+    CLOCK_HOLD           => FALSE,
+    COMPENSATION         => "ZHOLD",
+    STARTUP_WAIT         => FALSE,
+
+    -- Create 800 MHz 
+    DIVCLK_DIVIDE        => 1,
+    CLKFBOUT_MULT_F      => 9.0,
+    CLKFBOUT_PHASE       => 0.000,
+    CLKFBOUT_USE_FINE_PS => FALSE,
+
+    -- CLKOUT0 = CLK_OUT1 = 144MHz x 9/13 = 99.692307692MHz = clock9969mhz
+    CLKOUT0_DIVIDE_F     => 13.0,
+    CLKOUT0_PHASE        => 0.000,
+    CLKOUT0_DUTY_CYCLE   => 0.500,
+    CLKOUT0_USE_FINE_PS  => FALSE
+    )
+
+  port map
+    -- Output clocks
+   (
+     CLKFBOUT            => clk_fb_adjust2,
+     CLKOUT0             => clock9969mhz,
+     -- Input clock control
+     CLKFBIN             => clk_fb_adjust2,
+     CLKIN1              => clock144mhz,
+     CLKIN2              => '0',
+     -- Tied to always select the primary input clock
+     CLKINSEL            => '1',
+     -- Ports for dynamic reconfiguration
+     DADDR               => (others => '0'),
+     DCLK                => '0',
+     DEN                 => '0',
+     DI                  => (others => '0'),
+     DWE                 => '0',
+     -- Ports for dynamic phase shift
+     PSCLK               => '0',
+     PSEN                => '0',
+     PSINCDEC            => '0',
+     -- Other control and status signals
+     PWRDWN              => '0',
+     RST                 => '0');
+    
+
+  bufg0:
+  bufg port map ( I => clock9969mhz,
+                  O => clock9969mhz_bufg);  
+  
   mmcm_adv0 : MMCM_ADV
   generic map
    (BANDWIDTH            => "OPTIMIZED",
@@ -71,7 +226,7 @@ begin
     CLKOUT3_DUTY_CYCLE   => 0.500,
     CLKOUT3_USE_FINE_PS  => FALSE,
 
-    -- CLKOUT4 = CLK_OUT5 = clock27 ~= 812.5MHz/30
+    -- CLKOUT4 = CLK_OUT5 = clock27 = 812.5MHz/30 = 27.083
     CLKOUT4_DIVIDE       => 30,
     CLKOUT4_PHASE        => 0.000,
     CLKOUT4_DUTY_CYCLE   => 0.500,
@@ -103,7 +258,7 @@ begin
     CLKOUT5             => clock163,
     -- Input clock control
     CLKFBIN             => clk_fb,
-    CLKIN1              => clk_in,
+    CLKIN1              => clock9969mhz_bufg,
     CLKIN2              => '0',
     -- Tied to always select the primary input clock
     CLKINSEL            => '1',
@@ -204,6 +359,7 @@ begin
     PWRDWN              => '0',
     RST                 => '0');
 
+  
 
   
 end rtl;
