@@ -4430,38 +4430,39 @@ begin
           -- that was originally planned for the Amiga Ranger chipset that was
           -- never released.
           if hyper_data_strobe='1' then
-            if full_colour_fetch_count < 7 then
-              report "VIC: Receiving hyperram byte $" & to_hstring(hyper_data);
-              if glyph_flip_horizontal='0' then
-                if glyph_visible='0' then
-                  full_colour_data(63 downto 56) <= "00000000";
-                elsif glyph_underline='1' then
-                  full_colour_data(63 downto 56) <= "11111111";
-                elsif glyph_reverse='1' then
-                  full_colour_data(63 downto 56) <= hyper_data xor "11111111";
-                else
-                  full_colour_data(63 downto 56) <= hyper_data;                  
-                end if;
-                full_colour_data(55 downto 0) <= full_colour_data(63 downto 8);                
+            report "VIC: Receiving hyperram byte $" & to_hstring(hyper_data);
+            if glyph_flip_horizontal='0' then
+              if glyph_visible='0' then
+                full_colour_data(63 downto 56) <= "00000000";
+              elsif glyph_underline='1' then
+                full_colour_data(63 downto 56) <= "11111111";
+              elsif glyph_reverse='1' then
+                full_colour_data(63 downto 56) <= hyper_data xor "11111111";
               else
-                if glyph_visible='0' then
-                  full_colour_data(7 downto 0) <= "00000000";
-                elsif glyph_underline='1' then
-                  full_colour_data(7 downto 0) <= "11111111";
-                elsif glyph_reverse='1' then
-                  full_colour_data(7 downto 0) <= hyper_data xor "11111111";
-                else
-                  full_colour_data(7 downto 0) <= hyper_data;                  
-                end if;
-                full_colour_data(63 downto 8) <= full_colour_data(55 downto 0);                
+                full_colour_data(63 downto 56) <= hyper_data;                  
               end if;
-              
+              full_colour_data(55 downto 0) <= full_colour_data(63 downto 8);                
+            else
+              if glyph_visible='0' then
+                full_colour_data(7 downto 0) <= "00000000";
+              elsif glyph_underline='1' then
+                full_colour_data(7 downto 0) <= "11111111";
+              elsif glyph_reverse='1' then
+                full_colour_data(7 downto 0) <= hyper_data xor "11111111";
+              else
+                full_colour_data(7 downto 0) <= hyper_data;                  
+              end if;
+              full_colour_data(63 downto 8) <= full_colour_data(55 downto 0);                
+            end if;
+
+            if full_colour_fetch_count < 7 then              
               raster_fetch_state <= PaintFullColourHyperRAMFetch;
               full_colour_fetch_count <= full_colour_fetch_count + 1;
             else
               report "VIC: Received all bytes from HyperRAM. Resuming";
               raster_fetch_state <= PaintMemWait3;
             end if;
+            
           end if;
         when PaintFullColourFetch =>
           -- Show what we are doing in debug display mode
