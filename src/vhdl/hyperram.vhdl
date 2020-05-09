@@ -317,6 +317,7 @@ architecture gothic of hyperram is
   signal byte_phase_greater_than_address_low_bits : std_logic := '0';
   signal byte_phase_greater_than_address_end_of_row : std_logic := '0';
   signal block_address_matches_address : std_logic := '0';
+  signal invalidate_read_cache : std_logic := '0';
   
   signal write_continues : integer range 0 to 255 := 0;
   signal write_continues_max : integer range 0 to 255 := 16;
@@ -395,6 +396,7 @@ begin
   begin
     if rising_edge(pixelclock) then
 
+      invalidate_read_cache <= '0';      
       cache_row_update_address_changed <= '0';
       
       if read_request='1' then
@@ -1057,8 +1059,16 @@ begin
             cache_row_update_value <= wdata;
             cache_row_update_value_hi <= wdata_hi;
             cache_row_update_lo <= wen_lo;
-            cache_row_update_hi <= wen_hi;            
-            cache_row_update_toggle <= not last_cache_row_update_toggle;
+            cache_row_update_hi <= wen_hi;
+            if cache_row_update_toggle = not last_cache_row_update_toggle then
+              -- At least one other cache update is pending.  This means that
+              -- we will not be able to keep the cache consistent.  The only
+              -- option is to invalidate the read cache rows, data block,
+              -- and current_cache_line.
+              invalidate_read_cache <= '1';
+            else
+              cache_row_update_toggle <= not last_cache_row_update_toggle;
+            end if;
 
           end if;
         end if;        
@@ -1584,7 +1594,16 @@ begin
           end if;
           show_block := true;
         end if;
-      end if;                              
+      end if;
+
+      if invalidate_read_cache='1' then
+        report "CACHE: Invalidating read cache due to write congestion.";
+        cache_row0_valids <= (others => '0');
+        cache_row1_valids <= (others => '0');
+        block_valid <= '0';
+        current_cache_line_valid_drive <= '0';
+        last_cache_row_update_toggle <= cache_row_update_toggle;
+      end if;
       
       case state is
         when StartupDelay =>
