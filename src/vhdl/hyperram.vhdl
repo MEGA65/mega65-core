@@ -1050,6 +1050,7 @@ begin
             end if;
 
             -- Update read cache structures when writing
+            report "CACHE: Requesting update of cache due to write: $" & to_hstring(address) & " = $" & to_hstring(wdata);
             cache_row_update_address <= address(26 downto 3);
             cache_row_update_address_changed <= '1';
             cache_row_update_byte <= to_integer(address(2 downto 0));
@@ -1534,9 +1535,8 @@ begin
         end if;
       end if;      
       
-      if cache_row_update_toggle /= last_cache_row_update_toggle then
-        last_cache_row_update_toggle <= cache_row_update_toggle;
-        if cache_row0_address_matches_cache_row_update_address = '1' and cache_row_update_address_changed='0' then
+      if cache_row_update_toggle /= last_cache_row_update_toggle and cache_row_update_address_changed = '0' then
+        if cache_row0_address_matches_cache_row_update_address = '1' then
           if cache_row_update_lo='1' then
             report "DISPATCH: Updating cache0 via write: $" & to_hstring((cache_row_update_address&"000")+cache_row_update_byte)
               & " gets $" & to_hstring(cache_row_update_value);
@@ -1551,7 +1551,7 @@ begin
           end if;
           show_cache0 := true;
         end if;
-        if cache_row1_address_matches_cache_row_update_address = '1' and cache_row_update_address_changed='0' then
+        if cache_row1_address_matches_cache_row_update_address = '1' then
           if cache_row_update_lo='1' then
             report "DISPATCH: Updating cache1 via write: $" & to_hstring((cache_row_update_address&"000")+cache_row_update_byte)
               & " gets $" & to_hstring(cache_row_update_value);
@@ -1566,7 +1566,7 @@ begin
           end if;
           show_cache1 := true;
         end if;
-        if block_address_matches_cache_row_update_address = '1' and cache_row_update_address_changed='0' then
+        if block_address_matches_cache_row_update_address = '1' then
           if cache_row_update_lo='1' then
             report "DISPATCH: Updating block data via write: $" & to_hstring((cache_row_update_address&"000")+cache_row_update_byte)
               & " gets $" & to_hstring(cache_row_update_value);
