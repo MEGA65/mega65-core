@@ -370,6 +370,7 @@ architecture gothic of hyperram is
   signal viciv_buffer_toggle : std_logic := '0';
   signal last_viciv_buffer_toggle : std_logic := '0';
   signal viciv_next_byte : integer range 0 to 8 := 0;
+  signal viciv_request_count : unsigned(31 downto 0) := to_unsigned(0,32);
   signal is_vic_fetch : boolean := false;
 
   signal read_request_latch : std_logic := '0';
@@ -785,6 +786,11 @@ begin
               |  x"6e"
               |  x"6f" => fake_rdata <= block_data(3)(to_integer(address(2 downto 0)));
 
+            when x"80" => fake_rdata <= viciv_request_count(31 downto 24);
+            when x"81" => fake_rdata <= viciv_request_count(23 downto 16);
+            when x"82" => fake_rdata <= viciv_request_count(15 downto 8);
+            when x"83" => fake_rdata <= viciv_request_count( 7 downto 0);
+                          
             when others => fake_rdata <= x"BF";
           end case;
           report "asserting fake_data_ready_strobe";
@@ -1628,6 +1634,8 @@ begin
               -- VIC-IV is asking for 8 bytes of data
               viciv_last_request_toggle <= viciv_request_toggle;
 
+              viciv_request_count <= viciv_request_count + 1;
+              
               -- Prepare command vector
               hr_command(47) <= '1'; -- READ
               hr_command(46) <= '0'; -- Memory, not register space
@@ -2489,7 +2497,9 @@ begin
           if background_write_count = 0 and pause_phase = '0' then
             -- See if we have another write collect that we can
             -- continue with
-            if write_continues /= 0 and background_chained_write='1' then
+            -- XXX We suspect that chained writes might be problematic on the
+            -- external hyperram for some strange reason, so disable them.
+            if write_continues /= 0 and background_chained_write='1' and hyperram1_select='0' then
               if background_write_fetch = '0' then
                 report "WRITECONTINUE: Continuing write: Requesting fetch.";                      
                 background_write_fetch <= '1';
