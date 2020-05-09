@@ -668,7 +668,7 @@ begin
           case address(7 downto 0) is
             when x"00" => fake_rdata(7) <= '1';
                           fake_rdata(6 downto 3) <= (others => '0');
-                          fake_rdata(2 downto 0) <= cache_row0_address(23 downto 11);
+                          fake_rdata(2 downto 0) <= cache_row0_address(23 downto 21);
             when x"01" => fake_rdata <= cache_row0_address(20 downto 13);
             when x"02" => fake_rdata <= cache_row0_address(12 downto 5);
             when x"03" => fake_rdata(7 downto 3) <= cache_row0_address(4 downto 0);
@@ -682,7 +682,7 @@ begin
 
             when x"10" => fake_rdata(7) <= '1';
                           fake_rdata(6 downto 3) <= (others => '0');
-                          fake_rdata(2 downto 0) <= cache_row1_address(23 downto 11);
+                          fake_rdata(2 downto 0) <= cache_row1_address(23 downto 21);
             when x"11" => fake_rdata <= cache_row1_address(20 downto 13);
             when x"12" => fake_rdata <= cache_row1_address(12 downto 5);
             when x"13" => fake_rdata(7 downto 3) <= cache_row1_address(4 downto 0);
