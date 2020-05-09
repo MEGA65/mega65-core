@@ -1041,6 +1041,7 @@ architecture Behavioral of viciv is
   signal hyper_request_toggle_drive : std_logic := '0';
   signal hyper_request_toggle_drive2 : std_logic := '0';
   signal hyper_request_toggle_drive3 : std_logic := '0';
+  signal hyper_data_counter : unsigned(31 downto 0) := to_unsigned(0,32);
   
 begin
 
@@ -1993,17 +1994,20 @@ begin
           -- fastio_rdata <= std_logic_vector(debug_charaddress_drive2(7 downto 0));
           -- fastio_rdata <= x"FF";
           -- XXX debug: $D07D shows current single top border height
-          fastio_rdata <= std_logic_vector(single_top_border_200(7 downto 0));
+--          fastio_rdata <= std_logic_vector(single_top_border_200(7 downto 0));
+          fastio_rdata <= std_logic_vector(hyper_data_counter(7 downto 0));
         elsif register_number=126 then
           -- fastio_rdata <= "0000"
           -- & std_logic_vector(debug_charaddress_drive2(11 downto 8));
-          fastio_rdata <= x"00";
-          fastio_rdata(0) <= external_frame_x_zero_latched;
-          fastio_rdata(1) <= external_pixel_strobe_log(0);
-          fastio_rdata(2) <= vga_in_frame;
-          fastio_rdata(3) <= indisplay_t3;
+--          fastio_rdata <= x"00";
+--          fastio_rdata(0) <= external_frame_x_zero_latched;
+--          fastio_rdata(1) <= external_pixel_strobe_log(0);
+--          fastio_rdata(2) <= vga_in_frame;
+--          fastio_rdata(3) <= indisplay_t3;
+          fastio_rdata <= std_logic_vector(hyper_data_counter(15 downto 8));
         elsif register_number=127 then
-          fastio_rdata <= x"FF";
+          fastio_rdata <= std_logic_vector(hyper_data_counter(23 downto 16));
+--          fastio_rdata <= x"FF";
         elsif register_number<256 then
                                         -- Fill in unused register space
           fastio_rdata <= (others => 'Z');
@@ -2038,6 +2042,10 @@ begin
       hyper_request_toggle_drive2 <= hyper_request_toggle_drive;
       hyper_request_toggle_drive3 <= hyper_request_toggle_drive2;
       hyper_request_toggle <= hyper_request_toggle_drive3;
+
+      if hyper_data_strobe = '1' then
+        hyper_data_counter <= hyper_data_counter + 1;
+      end if;
       
       if vicii_ntsc='1' then
         display_height <= display_height_ntsc;
