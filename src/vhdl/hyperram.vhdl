@@ -181,6 +181,7 @@ architecture gothic of hyperram is
   signal block_read_enable : std_logic := '1'; -- enable 32 byte read block fetching
   signal flag_prefetch : std_logic := '1';  -- enable/disable prefetch of read
                                             -- blocks
+  signal enable_current_cache_line : std_logic := '1';
 
   -- These three must be off for reliable operation on current PCBs
   signal fast_cmd_mode : std_logic := '0';
@@ -810,7 +811,7 @@ begin
               fake_rdata(3) <= read_phase_shift;
               fake_rdata(4) <= block_read_enable;
               fake_rdata(5) <= flag_prefetch;
-              fake_rdata(6) <= '0';
+              fake_rdata(6) <= enable_current_cache_line;
               if cache_enabled then
                 fake_rdata(7) <= '1';
               else
@@ -912,7 +913,7 @@ begin
               read_phase_shift <= wdata(3);
               block_read_enable <= wdata(4);
               flag_prefetch <= wdata(5);
-              -- wdata(6) bit unused (wsa byte0_fix)
+              enable_current_cache_line <= wdata(6);
               if wdata(7)='1' then
                 cache_enabled <= true;
               else
@@ -1364,10 +1365,12 @@ begin
         
 
       report "CACHE: Updating current_cache_line from drive. Now "
-          & to_hstring(current_cache_line_drive(0)) & " ...";
-      current_cache_line <= current_cache_line_drive;
-      current_cache_line_address <= current_cache_line_address_drive;
-      current_cache_line_valid <= current_cache_line_valid_drive;
+        & to_hstring(current_cache_line_drive(0)) & " ...";
+      if enable_current_cache_line='1' then
+        current_cache_line <= current_cache_line_drive;
+        current_cache_line_address <= current_cache_line_address_drive;
+        current_cache_line_valid <= current_cache_line_valid_drive;
+      end if;
       
       if mark_cache_for_prefetch='1' then
         if random_bits(1)='0' then
