@@ -392,7 +392,7 @@ begin
     variable show_collect0 : boolean := false;
     variable show_collect1 : boolean := false;
     variable show_block : boolean := false;
-    variable show_always : boolean := false;
+    variable show_always : boolean := true;
   begin
     if rising_edge(pixelclock) then
 
@@ -1836,6 +1836,7 @@ begin
               background_write <= '1';
               background_write_fetch <= '1';
               background_write_source <= '0'; -- collect 0
+              report "background_write_source = 0";
 
               config_reg_write <= write_collect0_address(25);
 
@@ -1894,7 +1895,8 @@ begin
               background_write_next_address_matches_collect1 <= '1';
               background_write <= '1';
               background_write_fetch <= '1';
-              background_write_source <= '1'; -- collect 0
+              background_write_source <= '1'; -- collect 1
+              report "background_write_source = 1";
 
               -- Prepare command vector
               hr_command(47) <= '0'; -- WRITE
@@ -2132,7 +2134,7 @@ begin
                 -- write buffer as too late to be added to, because we will
                 -- snap-shot it in a moment.
                 if background_write = '1' then
-                  report "WRITE: Asserting toolate signal";
+                  report "WRITE: Asserting toolate signal for collect" & std_logic'image(background_write_source);
                   background_write_count <= 4 + 2;
                   -- We know we can do upto 128 bytes at least per write,
                   -- before a refresh is required. So allow 16x8 byte writes to
@@ -2206,6 +2208,7 @@ begin
             if countdown /= 0 then
               countdown <= countdown - 1;
             else
+              report "asserting countdown_timeout";
               countdown_timeout <= '1';
             end if;
           end if;
@@ -2545,13 +2548,14 @@ begin
             -- continue with
             -- XXX We suspect that chained writes might be problematic on the
             -- external hyperram for some strange reason, so disable them.
-            if write_continues /= 0 and background_chained_write='1' and hyperram1_select='0' then
+            if write_continues /= 0 and background_chained_write='1' then
               if background_write_fetch = '0' then
                 report "WRITECONTINUE: Continuing write: Requesting fetch.";                      
                 background_write_fetch <= '1';
               end if;
             else
               report "WRITECONTINUE: No continuation. Terminating write.";
+              report "asserting countdown_timeout";
               countdown_timeout <= '1';
             end if;
           end if;                
@@ -2592,7 +2596,7 @@ begin
             background_write_next_address <= background_write_next_address + 1;
             write_continues <= write_continues - 1;
             background_write_count <= 7;
-            if background_write_next_address_matches_collect0 = '1' then              
+            if background_write_next_address_matches_collect0 = '1' and background_write_source = '0' then
               show_collect0 := true;
               report "WRITE: background_write_data copied from write_collect0 (@ $"
                 & to_hstring(write_collect0_address&"000")
@@ -2603,12 +2607,11 @@ begin
               background_write_next_address_matches_collect0 <= '0';
               background_write_next_address_matches_collect1 <= collect1_matches_collect0_plus_1;
               
-              background_write_source <= '0';
               background_write_data <= write_collect0_data;
               background_write_valids <= write_collect0_valids;
               write_collect0_flushed <= '1';
               
-            elsif background_write_next_address_matches_collect1 = '1' then                
+            elsif background_write_next_address_matches_collect1 = '1' and background_write_source = '1' then
               show_collect1 := true;
               report "WRITE: background_write_data copied from write_collect1. Valids = " & to_string(write_collect1_valids)
                 & ", next addr was $" & to_hstring(background_write_next_address&"000");
@@ -2616,7 +2619,6 @@ begin
               background_write_next_address_matches_collect0 <= collect0_matches_collect1_plus_1;
               background_write_next_address_matches_collect1 <= '0';
               
-              background_write_source <= '1';
               background_write_data <= write_collect1_data;
               background_write_valids <= write_collect1_valids;
               write_collect1_flushed <= '1';
@@ -2751,11 +2753,15 @@ begin
                         and background_write_next_address_matches_collect0='1' then
                         report "WRITECONTINUE: Marking collect0 @ $" & to_hstring(write_collect0_address&"000") & " for chained write.";
                         write_collect0_toolate <= '1';
+                        background_write_source <= '0';
+                        report "background_write_source = 0";
                         show_collect0 := true;                          
                       elsif write_continues /= 0 and write_collect1_toolate='0' and write_collect1_flushed = '0'
                         and background_write_next_address_matches_collect1='1' then
                         report "WRITECONTINUE: Marking collect1 @ $" & to_hstring(write_collect1_address&"000") & " for chained write.";
                         write_collect1_toolate <= '1';
+                        background_write_source <= '1';
+                        report "background_write_source = 1";
                         show_collect1 := true;
                       end if;
                     end if;
