@@ -499,7 +499,7 @@ $(UTILDIR)/diskmenu.prg:       $(UTILDIR)/diskmenuprg.o $(CC65)
 	$(LD65) $< --mapfile $*.map -o $*.prg
 
 $(SRCDIR)/mega65-fdisk/m65fdisk.prg:
-	( cd $(SRCDIR)/mega65-fdisk ; make )
+	( cd $(SRCDIR)/mega65-fdisk ; make m65fdisk.prg )
 
 $(BINDIR)/border.prg: 	$(SRCDIR)/border.a65 $(OPHIS)
 	$(OPHIS) $(OPHISOPT) $< -l $(BINDIR)/border.list -m $*.map -o $(BINDIR)/border.prg
