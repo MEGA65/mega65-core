@@ -309,6 +309,7 @@ architecture gothic of hyperram is
   signal collect1_matches_collect0_plus_1 : std_logic := '0';
   signal collect0_matches_collect1_plus_1 : std_logic := '0';
   signal matches_cache_row_update_address : std_logic := '0';
+  signal cache_row_update_address_changed : std_logic := '0';
   signal block_address_matches_cache_row_update_address : std_logic := '0';
   signal cache_row0_address_matches_cache_row_update_address : std_logic := '0';
   signal cache_row1_address_matches_cache_row_update_address : std_logic := '0';
@@ -392,7 +393,8 @@ begin
   begin
     if rising_edge(pixelclock) then
 
-      report "PIXELCLOCK tick";
+      cache_row_update_address_changed <= '0';
+      
       if read_request='1' then
         read_request_latch <= '1';
       end if;
@@ -1023,6 +1025,7 @@ begin
 
             -- Update read cache structures when writing
             cache_row_update_address <= address(26 downto 3);
+            cache_row_update_address_changed <= '1';
             cache_row_update_byte <= to_integer(address(2 downto 0));
             cache_row_update_value <= wdata;
             cache_row_update_value_hi <= wdata_hi;
@@ -1047,6 +1050,9 @@ begin
     if rising_edge(clock325) then
 
       if show_cache0 or show_always then
+        report "cache_row0_address_matches_cache_row_update_address="
+          & std_logic'image(cache_row0_address_matches_cache_row_update_address)
+          & ", cache_row_update_address=$" & to_hstring(cache_row_update_address&"000");
         report "CACHE cache0: address=$" & to_hstring(cache_row0_address&"000") & ", valids=" & to_string(cache_row0_valids)
           & ", data = "
           & to_hstring(cache_row0_data(0)) & " "
@@ -1502,7 +1508,7 @@ begin
       
       if cache_row_update_toggle /= last_cache_row_update_toggle then
         last_cache_row_update_toggle <= cache_row_update_toggle;
-        if cache_row0_address_matches_cache_row_update_address = '1' then
+        if cache_row0_address_matches_cache_row_update_address = '1' and cache_row_update_address_changed='0' then
           if cache_row_update_lo='1' then
             report "DISPATCH: Updating cache0 via write: $" & to_hstring((cache_row_update_address&"000")+cache_row_update_byte)
               & " gets $" & to_hstring(cache_row_update_value);
@@ -1517,7 +1523,7 @@ begin
           end if;
           show_cache0 := true;
         end if;
-        if cache_row1_address_matches_cache_row_update_address = '1' then
+        if cache_row1_address_matches_cache_row_update_address = '1' and cache_row_update_address_changed='0' then
           if cache_row_update_lo='1' then
             report "DISPATCH: Updating cache1 via write: $" & to_hstring((cache_row_update_address&"000")+cache_row_update_byte)
               & " gets $" & to_hstring(cache_row_update_value);
@@ -1532,7 +1538,7 @@ begin
           end if;
           show_cache1 := true;
         end if;
-        if block_address_matches_cache_row_update_address = '1' then
+        if block_address_matches_cache_row_update_address = '1' and cache_row_update_address_changed='0' then
           if cache_row_update_lo='1' then
             report "DISPATCH: Updating block data via write: $" & to_hstring((cache_row_update_address&"000")+cache_row_update_byte)
               & " gets $" & to_hstring(cache_row_update_value);
