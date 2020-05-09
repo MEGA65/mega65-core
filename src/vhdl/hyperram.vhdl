@@ -375,6 +375,7 @@ architecture gothic of hyperram is
   signal viciv_request_count : unsigned(31 downto 0) := to_unsigned(0,32);
   signal is_vic_fetch : boolean := false;
   signal viciv_data_debug : std_logic := '0';
+  signal viciv_debug_priority : std_logic := '0';
 
   signal read_request_latch : std_logic := '0';
   signal read_request_delatch : std_logic := '0';
@@ -421,6 +422,8 @@ begin
         report "VIC: Starting to send data";
         last_viciv_buffer_toggle <= viciv_buffer_toggle;
         viciv_data_out <= viciv_data_buffer(0);
+        report "VIC: Sending byte " & integer'image(0)
+          & " = $" & to_hstring(viciv_data_buffer(0));
         viciv_next_byte <= 1;
         viciv_data_strobe <= '1';
       elsif viciv_next_byte < 8 then
@@ -872,8 +875,8 @@ begin
               fake_rdata <= extra_write_latency2;
             when x"f" =>
               fake_rdata <= x"00";
-              
-              
+              fake_rdata(0) <= viciv_data_debug;
+              fake_rdata(1) <= viciv_debug_priority;                            
             when others =>
               -- This seems to be what gets returned all the time
               fake_rdata <= x"42";
@@ -941,7 +944,6 @@ begin
               block_read_enable <= wdata(4);
               flag_prefetch <= wdata(5);
               enable_current_cache_line <= wdata(6);
-              viciv_data_debug <= wdata(6);
               if wdata(7)='1' then
                 cache_enabled <= true;
               else
@@ -965,6 +967,9 @@ begin
               write_latency2 <= wdata;
             when x"e" =>
               extra_write_latency2 <= wdata;
+            when x"f" =>
+              viciv_data_debug <= wdata(0);
+              viciv_debug_priority <= wdata(1);
             when others =>
               null;
           end case;
@@ -1701,7 +1706,7 @@ begin
             if (viciv_request_toggle /= viciv_last_request_toggle)
               -- Only start VIC-IV fetches if we don't have a transaction
               -- already waiting to go.
-              and (request_toggle = last_request_toggle) 
+              and ((request_toggle = last_request_toggle) or viciv_debug_priority='1')
             then
               report "VIC: Received data request for $" & to_hstring(viciv_addr&"000")
                 & ", bank = $" & to_hstring(viciv_bank&"0000000000000000000");
@@ -2889,7 +2894,7 @@ begin
                   end if;
                 end if;
                 
-              elsif read_request_prev='1' and (not is_expected_to_respond) then
+              elsif read_request_prev='1' and (not is_expected_to_respond) and (not is_vic_fetch) then
                 report "DISPATCH: Aborting pre-fetch due to incoming read request";
                 state <= Idle;
               end if;
@@ -3105,7 +3110,7 @@ begin
 
           -- Abort memory pre-fetching if we are asked to do something
           -- XXX unless it is for data that would be pre-fetched?
-          if is_block_read and (not is_expected_to_respond) then
+          if is_block_read and (not is_expected_to_respond) and (not is_vic_fetch)  then
             if (read_request='1' or write_request='1') then
               report "DISPATCH: Aborting pre-fetch due to incoming request";
               state <= Idle;
