@@ -1175,7 +1175,7 @@ f011Virtualised:
 
         // all done, move on to loading the ROM
         //
-        jmp findrom
+        jmp loadrom
 
 //         ========================
 
@@ -1192,27 +1192,7 @@ d81attachfail:
         // debug
         Checkpoint( "couldnt mount/attach MEGA65.D81")
 
-findrom:
-        // Check state of current ROM
-        //
-        jsr checkromok
-        bcc loadrom
-
-        // ROM is loaded and ready, so transfer control to it.
-        //
-        ldx #<msg_romok
-        ldy #>msg_romok
-        jsr printmessage
-
-        Checkpoint("JUMPing into ROM-code")
-
-        // check for keyboard input to jump to utility menu
-        jsr scankeyboard
-        bcs nokey3
-        cmp #$20
-        bne nokey3
-        jmp utility_menu
-nokey3: jmp go64
+	jmp loadrom
 
 //         ========================
 
@@ -1388,10 +1368,6 @@ loadedok:
 
         jsr syspart_dmagic_autoset
 
-        // Store checksum of ROM
-        //
-        jsr storeromsum
-
         // copy character ROM portion into place
         // i.e., copy $2Dxxx to $FF7Exxx
 
@@ -1525,46 +1501,7 @@ badfs:
     ---------------------------------------------------------------- */
 
 checkromok:
-        // read switch 13.  If set, assume ROM is invalid
-        //
-        lda fpga_switches_high
-        and #$20
-        bne checksumfails
-
-        // or if loading a ROM other than MEGA65.ROM, then assume ROM
-        // is invalid
-        //
-        lda txt_MEGA65ROM+6
-        cmp #'.'
-        bne checksumfails
-
-        // calculate checksum of loaded ROM ...
-        //
-        jsr calcromsum
-        // ... then fall through to testing it
-testromsum:
-        // have checksum for all slabs.
-
-        jsr mapromchecksumrecord
-
-        lda $4000
-        cmp checksum
-        bne checksumfails
-        lda $4001
-        cmp checksum+1
-        bne checksumfails
-        lda $4002
-        cmp checksum+2
-        bne checksumfails
-
-        jsr resetmemmap
-
-        sec
-        rts
-
-//         ========================
-
-        // check failed
+	// Assume we always need to reload ROM on reset
 checksumfails:
         clc
         rts
@@ -1572,167 +1509,8 @@ checksumfails:
 //         ========================
 
 storeromsum:
-        jsr mapromchecksumrecord
-
-        lda checksum
-        sta $4000
-        lda checksum+1
-        sta $4001
-        lda checksum+2
-        sta $4002
         rts
 
-//         ========================
-
-mapromchecksumrecord:
-
-        // Map in ROM load record, and compare checksum
-        // Here we have to use our extension to MAP to access >1MB
-        // as only 128KB of slow ram is shadowed to $20000.
-        //
-        // Again, we have to take the relative nature of MAP, so
-        // we ask for $FC000 to be mapped at $0000, which means that
-        // $4000 will correspond to $0000 (MAP instruction address
-        // space wraps around at the 1MB mark)
-
-        // select 128MB mark for mapping lower 32KB of address space
-        //
-        lda #$80
-        ldx #$0f
-        ldy #$00   // keep hyppo mapped at $8000-$BFFF
-        ldz #$3f
-
-        map
-
-        // then map $FC000 + $4000 = $00000 at $4000-$7FFF
-        //
-        lda #$c0
-        ldx #$cf
-        ldy #$00   // keep hyppo mapped at $8000-$BFFF
-        ldz #$3f
-        map
-        eom
-
-        rts
-
-//         ========================
-
-calcromsum:        // calculate checksum of 128KB ROM
-
-        // use MAP to map C65 ROM address space in 16KB
-        // slabs at $4000-$7FFF.  Check sum each, and
-        // then compare checksum to ROM load record.
-        //
-        // ROMs get loaded into slow RAM at $8020000-$803FFFF,
-        // which is shadowed for reading using C65 MAP instruction to
-        // C65 address space $20000-$3FFFF.
-        //
-        // Checksum and ROM load record are stored in
-        // $8000000 - $800FFFF, i.e., the first 64KB of
-        // slow RAM.
-        //
-        // The 4510 MAP instruction does not normally provide access to the
-        // full 28-bit address space, so we need to use a trick.
-        //
-        // We do this by interpretting a MAP instruction that says to
-        // map none of the 8KB pages, but provides an offset in the range
-        // $F0000 - $FFF00 to set the "super page" register for that 32KB
-        // moby to bits 8 to 15 of the offset.  In practice, this means
-        // to allow mapping of memory above 1MB, the MB of memory being
-        // selected is chosen by the contents of A and Y registers when
-        // X and Z = $0F.
-        //
-
-        // reset checksum
-        // checksum is not all zeroes, so that if RAM initialises with
-        // all zeroes, including in the checksum field, the checksum will
-        // not pass.
-        //
-        lda #$03
-        sta checksum
-        sta checksum+1
-        sta checksum+2
-        sta checksum+3
-
-        // start with bottom 16KB of ROM
-        // we count in 16KB slabs, and ROM starts at 128KB mark,
-        // so we want to check from the 8th to 15th slabs inclusive.
-        //
-        lda #$08
-        sta romslab
-
-        // Summing can be done using normal use of MAP instruction,
-        // since slow RAM is shadowed as ROM to $20000-$3FFFF
-
-sumslab:
-        // romcheckslab indicates which 16KB piece.
-        // MAP uses 256-byte granularity, so we need to shift left
-        // 6 bits into A, and right 2 bits into X.
-        // We then set the upper two bits in X to indicate that the mapping
-        // applies to blocks 2 and 3.
-        // BUT MAP is relative, and since we are mapping at the 16KB mark,
-        // we need to subtract 1 lot of 16KB from the result.
-        // this is easy -- we just sbc #$01 from romslab before using it.
-        //
-        lda romslab
-        sec
-        sbc #$01
-        lsr
-        lsr
-        ora #$c0
-        tax
-        lda romslab
-        sec
-        sbc #$01
-        asl
-        asl
-        asl
-        asl
-        asl
-        asl
-        ldy #$00   // keep hyppo mapped at $8000-$BFFF
-        ldz #$3f
-
-        map
-        eom
-
-	// Now make sure we are mapping MB 0 for the lower half.
-	ldx #$0f
-	lda #$00
-	map
-	eom
-	
-        // sum contents of 16KB slab
-        //
-        lda #$00
-        sta <zptempv
-        lda #$40
-        sta <zptempv+1
-
-sumpage:
-        ldy #$00
-sumbyte:
-        lda checksum
-        clc
-        adc (<zptempv),y
-        sta checksum
-        bcc l6
-        inc checksum+1
-        bcc l6
-        inc checksum+2
-l6:     iny
-        bne sumbyte
-        inc <zptempv+1
-        lda <zptempv+1
-        cmp #$80
-        bne sumpage
-
-        inc romslab
-        lda romslab
-        cmp #$10
-        bne sumslab
-
-        jmp resetmemmap
 
 /*  -------------------------------------------------------------------
     Display and basic IO routines
