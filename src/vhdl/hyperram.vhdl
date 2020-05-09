@@ -374,6 +374,7 @@ architecture gothic of hyperram is
   signal viciv_next_byte : integer range 0 to 8 := 0;
   signal viciv_request_count : unsigned(31 downto 0) := to_unsigned(0,32);
   signal is_vic_fetch : boolean := false;
+  signal viciv_data_debug : std_logic := '0';
 
   signal read_request_latch : std_logic := '0';
   signal read_request_delatch : std_logic := '0';
@@ -410,7 +411,12 @@ begin
       end if;
       
       -- Present the data to the VIC-IV
-      viciv_data_strobe <= '0';
+      if viciv_data_debug = '1' then
+        viciv_data_strobe <= '1';
+        viciv_data_out <= viciv_request_count(7 downto 0);
+      else
+        viciv_data_strobe <= '0';
+      end if;
       if viciv_buffer_toggle /= last_viciv_buffer_toggle then
         report "VIC: Starting to send data";
         last_viciv_buffer_toggle <= viciv_buffer_toggle;
@@ -935,6 +941,7 @@ begin
               block_read_enable <= wdata(4);
               flag_prefetch <= wdata(5);
               enable_current_cache_line <= wdata(6);
+              viciv_data_debug <= wdata(6);
               if wdata(7)='1' then
                 cache_enabled <= true;
               else
