@@ -1058,7 +1058,7 @@ begin
             cache_row_update_value_hi <= wdata_hi;
             cache_row_update_lo <= wen_lo;
             cache_row_update_hi <= wen_hi;            
-            cache_row_update_toggle <= not cache_row_update_toggle;
+            cache_row_update_toggle <= not last_cache_row_update_toggle;
 
           end if;
         end if;        
@@ -1534,6 +1534,9 @@ begin
           state <= WriteSetup;
         end if;
       end if;      
+
+      report "CACHE: row update status: requested = " & boolean'image(cache_row_update_toggle /= last_cache_row_update_toggle)
+        & ", cache_row_update_address_changed = " & std_logic'image(cache_row_update_address_changed);
       
       if cache_row_update_toggle /= last_cache_row_update_toggle and cache_row_update_address_changed = '0' then
         if cache_row0_address_matches_cache_row_update_address = '1' then
