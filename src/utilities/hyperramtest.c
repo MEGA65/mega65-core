@@ -27,7 +27,7 @@ unsigned int i,j,k;
 
 
 */
-unsigned char fast_flags=0x30; // 0xb0; 
+unsigned char fast_flags=0x70; // 0xb0; 
 unsigned char slow_flags=0x00;
 unsigned char cache_bit=0x80; // =0x80;
 
@@ -180,8 +180,8 @@ void test_ramtiming(void)
   lcopy(0x0428,0xc000,0x200);
   
   // Test for both hyperram chips
-  for(i=0;i<16;i++)
-    for(j=0;j<16;j++) {
+  for(i=1;i<16;i++)
+    for(j=1;j<16;j++) {
       lpoke(0xbfffff3,i);
       lpoke(0xbfffff4,j);
 
@@ -206,8 +206,8 @@ void test_ramtiming(void)
     }
 
 
-  for(i=0;i<8;i++)
-    for(j=0;j<8;j++) {
+  for(i=1;i<8;i++)
+    for(j=1;j<8;j++) {
       lpoke(0xbfffffd,i);
       lpoke(0xbfffffe,j);
 
@@ -288,7 +288,11 @@ void test_cacheerror(void)
 
   printf("\nTesting more complex read-after-write:\n");
   lfill(0x8000800,0x00,0x800);
+  printf("Cache contents before writing:\n");
+  show_cache_contents();
   for(j=0;j<16;j++) lpoke(0x8000800+j,0x10+j);
+  printf("Cache contents before reading:\n");
+  show_cache_contents();
   //  lcopy(0x8000000,0xc000,0x800);
   for(j=0;j<16;j++) {
     k=lpeek(0x8000800+j);
@@ -329,9 +333,14 @@ void test_miswrite(void)
       for(i=0;i<256;i++) {
 	if (!(i&0xf)) printf(".");
 	lfill(addr,0x00,0x800);
+
+	//	show_cache_contents();
+	
 	// Write test pattern somewhere
 	for(j=0;j<16;j++) lpoke(addr+(i*4)+j,0x10+j);
 
+	//	show_cache_contents();
+	
 	// Copy slow RAM back and check
 	//while(1) {
 	lcopy(addr,0xc000,0x800);
@@ -501,6 +510,33 @@ void show_info(void)
   
 }
 
+void test_chipsetdma(void)
+{
+  // Get some data to show
+  // (Should show a single repeating 8x8 block with many colours)
+  for(i=0;i<64;i++) lpoke(0x8000000+i,i);
+  lfill(0x0400,0x00,0x400);
+  lfill(0x777d800,0x00,0x400);
+  
+  // VIC-IV 256-colour text mode, fetch data from hyperram
+  POKE(0xD054,0x06);
+  POKE(0xD063,0x80);
+  // Disable debug feeding of lots of data to VIC-IV
+  lpoke(0xbfffff2L,0);
+  
+  i=PEEK(0xD07D);
+  while(!PEEK(0xD610)) {
+    j=PEEK(0xD07D);
+    if (i!=j) POKE(0xD020,(PEEK(0xD020)+1)&0xf);
+    i=j;
+    // For some reason accessing the HyperRAM allows the next chipset DMA request to occur.
+    // But without, they occur only very, very slowly, or something like that.
+    //    lpeek(0x8000000);
+  }
+  POKE(0xD610,0);
+  POKE(0xD054,0);
+}
+
 void test_speed(void)
 {
   POKE(0xD06F,0x80); // PAL, so that we have 63usec per raster for calculations below
@@ -667,6 +703,7 @@ void main(void)
 	   "4 - Checkerboard test\n"
 	   "5 - Test cache consistency cases\n"
 	   "6 - Probe RAM timings\n"
+	   "7 - Test chipset DMA\n"
 	   "\n"
 	   "Press RUN/STOP to return to menu from\nany test.\n"
 	   );
@@ -686,6 +723,7 @@ void main(void)
     case '4': test_checkerboard(); break;
     case '5': test_cacheerror(); break;
     case '6': test_ramtiming(); break;
+    case '7': test_chipsetdma(); break;
     }
 
     while(PEEK(0xD610)) POKE(0xD610,0);
