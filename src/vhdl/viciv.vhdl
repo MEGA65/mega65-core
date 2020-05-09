@@ -571,6 +571,8 @@ architecture Behavioral of viciv is
   signal fullcolour_extendedchars : std_logic := '1';
   -- Characters <256 are full-colour blocks when enabled
   signal fullcolour_8bitchars : std_logic := '1';
+  -- Optionally fetch full-colour chars from HyperRAM
+  signal glyphs_from_hyperram : std_logic := '0';
 
   -- VIC-II style Mode control bits (correspond to bits in $D016 etc)
   -- -- Text/graphics mode select
@@ -831,7 +833,6 @@ architecture Behavioral of viciv is
   signal glyph_trim_top : integer range 0 to 7;
   signal glyph_trim_bottom : integer range 0 to 7;
   signal glyph_paint_background : std_logic := '1';
-  signal glyphs_from_hyperram : std_logic := '0';
   signal last_hyper_request_toggle : std_logic := '0';
 
   signal short_line : std_logic := '0';
@@ -4424,6 +4425,8 @@ begin
               raster_fetch_state <= PaintFullColourFetch;
             else
               -- Fetch glyph data from ATTIC/CELLAR ram (hyperram)
+              report "HYPERRAM: Request for $" & to_hstring(glyph_data_address(18 downto 3)&"000")
+                & " dispatched.";
               full_colour_fetch_count <= 0;
               hyper_addr_drive(18 downto 3) <= glyph_data_address(18 downto 3);
               hyper_request_toggle_drive <= not last_hyper_request_toggle;
@@ -4438,7 +4441,8 @@ begin
           -- that was originally planned for the Amiga Ranger chipset that was
           -- never released.
           if hyper_data_strobe='1' then
-            report "VIC: Receiving hyperram byte $" & to_hstring(hyper_data);
+            report "VIC: Receiving hyperram byte $" & to_hstring(hyper_data)
+              & ", full_colour_fetch_count = " & integer'image(full_colour_fetch_count);
             if glyph_flip_horizontal='0' then
               if glyph_visible='0' then
                 full_colour_data(63 downto 56) <= "00000000";
