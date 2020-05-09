@@ -392,7 +392,7 @@ begin
     variable show_collect0 : boolean := false;
     variable show_collect1 : boolean := false;
     variable show_block : boolean := false;
-    variable show_always : boolean := true;
+    variable show_always : boolean := false;
   begin
     if rising_edge(pixelclock) then
 
@@ -1301,6 +1301,27 @@ begin
       else
         cache_row1_address_matches_ram_address <= '0';
       end if;
+      if write_collect0_address = background_write_next_address then
+        background_write_next_address_matches_collect0 <= '1';
+      else
+        background_write_next_address_matches_collect0 <= '0';
+      end if;            
+      if write_collect1_address = background_write_next_address then
+        background_write_next_address_matches_collect1 <= '1';
+      else
+        background_write_next_address_matches_collect1 <= '0';
+      end if;
+      if write_collect1_address = write_collect0_address + 1 then
+        collect1_matches_collect0_plus_1 <= '1';
+      else
+        collect1_matches_collect0_plus_1 <= '0';
+      end if;
+      if write_collect0_address = write_collect1_address + 1 then
+        collect0_matches_collect1_plus_1 <= '1';
+      else
+        collect0_matches_collect1_plus_1 <= '0';
+      end if;
+
 
       if address(26 downto 5) = block_address then
         block_address_matches_address <= '1';
@@ -1394,9 +1415,11 @@ begin
       end if;
         
 
-      report "CACHE: Updating current_cache_line from drive. Now "
-        & to_hstring(current_cache_line_drive(0)) & " ...";
       if enable_current_cache_line='1' then
+--        if current_cache_line /= current_cache_line_drive then
+--          report "CACHE: Updating current_cache_line from drive. Now "
+--            & to_hstring(current_cache_line_drive(0)) & " ...";
+--        end if;
         current_cache_line <= current_cache_line_drive;
         current_cache_line_address <= current_cache_line_address_drive;
         current_cache_line_valid <= current_cache_line_valid_drive;
@@ -1545,8 +1568,8 @@ begin
         end if;
       end if;      
 
-      report "CACHE: row update status: requested = " & boolean'image(cache_row_update_toggle /= last_cache_row_update_toggle)
-        & ", cache_row_update_address_changed = " & std_logic'image(cache_row_update_address_changed);
+--      report "CACHE: row update status: requested = " & boolean'image(cache_row_update_toggle /= last_cache_row_update_toggle)
+--        & ", cache_row_update_address_changed = " & std_logic'image(cache_row_update_address_changed);
       
       if cache_row_update_toggle /= last_cache_row_update_toggle and cache_row_update_address_changed = '0' then
         if cache_row0_address_matches_cache_row_update_address = '1' then
@@ -2460,27 +2483,6 @@ begin
           end if;
         when HyperRAMDoWriteSlow =>
           pause_phase <= not pause_phase;
-
-          if write_collect0_address = background_write_next_address then
-            background_write_next_address_matches_collect0 <= '1';
-          else
-            background_write_next_address_matches_collect0 <= '0';
-          end if;            
-          if write_collect1_address = background_write_next_address then
-            background_write_next_address_matches_collect1 <= '1';
-          else
-            background_write_next_address_matches_collect1 <= '0';
-          end if;
-          if write_collect1_address = write_collect0_address + 1 then
-            collect1_matches_collect0_plus_1 <= '1';
-          else
-            collect1_matches_collect0_plus_1 <= '0';
-          end if;
-          if write_collect0_address = write_collect1_address + 1 then
-            collect0_matches_collect1_plus_1 <= '1';
-          else
-            collect0_matches_collect1_plus_1 <= '0';
-          end if;
 
           -- Update cache
           if cache_row0_address_matches_ram_address = '1' then
