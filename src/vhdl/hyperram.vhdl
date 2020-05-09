@@ -791,6 +791,25 @@ begin
             when x"81" => fake_rdata <= viciv_request_count(23 downto 16);
             when x"82" => fake_rdata <= viciv_request_count(15 downto 8);
             when x"83" => fake_rdata <= viciv_request_count( 7 downto 0);
+
+            when x"90" => fake_rdata(2 downto 0) <= current_cache_line_address_drive(26 downto 24);
+                          fake_rdata(7) <= '1';
+                          fake_rdata(6 downto 3) <= "0000";
+            when x"91" => fake_rdata <= current_cache_line_address_drive(23 downto 16);
+            when x"92" => fake_rdata <= current_cache_line_address_drive(15 downto 8);
+            when x"93" => fake_rdata(7 downto 3) <= current_cache_line_address_drive( 7 downto 3);
+                          fake_rdata(2 downto 0) <= "000";
+            when x"94" => fake_rdata <= (others => current_cache_line_valid_drive);              
+                          
+            when x"98"
+              |  x"99"
+              |  x"9a"
+              |  x"9b"
+              |  x"9c"
+              |  x"9d"
+              |  x"9e"
+              |  x"9f" => fake_rdata <= current_cache_line_drive(to_integer(address(2 downto 0)));
+
                           
             when others => fake_rdata <= x"BF";
           end case;
@@ -2766,7 +2785,7 @@ begin
           end if;
 
           -- Abort memory pre-fetching if we are asked to do something
-          if is_block_read then 
+          if is_block_read and (not is_vic_fetch) then 
             if (read_request_prev='1' or write_request_prev='1') then
               -- Okay, here is the tricky case: If the request is for data
               -- that is in this block read, we DONT want to abort the read,
@@ -2848,7 +2867,7 @@ begin
           -- After we have read the first 8 bytes, we know that we are no longer
           -- required to provide any further direct output, so clear the
           -- flag, so that the above logic can terminate a pre-fetch when required.
-          if byte_phase = 8 then
+          if byte_phase = 8 and (not is_vic_fetch) then
             report "DISPATCH: Clearing is_expected_to_respond";
             is_expected_to_respond <= false;
           end if;
@@ -2893,7 +2912,7 @@ begin
 
             
             -- Update cache
-            if (byte_phase < 32) and is_block_read then
+            if (byte_phase < 32) and is_block_read and (not is_vic_fetch) then
               report "hr_sample='1'";
               report "hr_sample='0'";
               if hyperram0_select='1' then
@@ -2919,8 +2938,7 @@ begin
                   report "VIC: Indicating buffer readiness";
                   viciv_buffer_toggle <= not viciv_buffer_toggle;
                 end if;
-              end if;
-              if hyperram_access_address_matches_cache_row0 = '1' then          
+              elsif hyperram_access_address_matches_cache_row0 = '1' then
                 cache_row0_valids(to_integer(byte_phase)) <= '1';
                 report "hr_sample='1'";
                 report "hr_sample='0'";
@@ -2971,10 +2989,10 @@ begin
               end if;
             elsif (byte_phase = 8) and is_expected_to_respond then
               -- Export the appropriate cache line to slow_devices
-              if hyperram_access_address_matches_cache_row0 = '1' and cache_enabled then          
+              if hyperram_access_address_matches_cache_row0 = '1' and cache_enabled and (not is_vic_fetch) then          
                 if cache_row0_valids = x"FF" then
                 end if;
-              elsif hyperram_access_address_matches_cache_row1 = '1' and cache_enabled then          
+              elsif hyperram_access_address_matches_cache_row1 = '1' and cache_enabled and (not is_vic_fetch) then          
                 if cache_row1_valids = x"FF" then
                   current_cache_line_drive <= cache_row1_data;
                   current_cache_line_address_drive(26 downto 3) <= hyperram_access_address(26 downto 3);
@@ -3140,8 +3158,7 @@ begin
                     report "VIC: Indicating buffer readiness";
                     viciv_buffer_toggle <= not viciv_buffer_toggle;
                   end if;
-                end if;          
-                if hyperram_access_address_matches_cache_row0 = '1' then
+                elsif hyperram_access_address_matches_cache_row0 = '1' then
                   cache_row0_valids(to_integer(byte_phase)) <= '1';
                   report "hr_sample='1'";
                   report "hr_sample='0'";
@@ -3192,13 +3209,13 @@ begin
                 end if;
               else
                 -- Export the appropriate cache line to slow_devices
-                if hyperram_access_address_matches_cache_row0 = '1' and cache_enabled then          
+                if hyperram_access_address_matches_cache_row0 = '1' and cache_enabled and (not is_vic_fetch) then
                   if cache_row0_valids = x"FF" then
                     current_cache_line_drive <= cache_row0_data;
                     current_cache_line_address_drive(26 downto 3) <= hyperram_access_address(26 downto 3);
                     current_cache_line_valid_drive <= '1';
                   end if;
-                elsif hyperram_access_address_matches_cache_row1 = '1' and cache_enabled then          
+                elsif hyperram_access_address_matches_cache_row1 = '1' and cache_enabled and (not is_vic_fetch) then
                   if cache_row1_valids = x"FF" then
                     current_cache_line_drive <= cache_row1_data;
                     current_cache_line_address_drive(26 downto 3) <= hyperram_access_address(26 downto 3);
