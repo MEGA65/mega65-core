@@ -45,17 +45,28 @@ void setup_hyperram(void)
   printf("Determining size of Slow RAM");
 
   // Set default timing for 2nd hyperram
-  lpoke(0xbfffffd,0x03);
-  lpoke(0xbfffffe,0x01);
-  
-  lpoke(0xbfffff2,fast_flags|cache_bit);
+  //  lpoke(0xbfffffd,0x03);
+  //  lpoke(0xbfffffe,0x01);
+
   lpoke(0x8000000,0xbd);
-  //  if (lpeek(0x8000000)!=0xbd) {
-  //    printf("ERROR: $8000000 didn't hold its value.\n"
-  //	   "Should be $BD, but saw $%02x\n",lpeek(0x8000000));
-  //  }
-  for(addr=0x8001000;(lpeek(0x8000000)==0xbd)&&(addr!=0x9000000);addr+=0x1000)
+  while(lpeek(0x8000000)!=0xBD) {
+    printf("Rewriting $8000000 = $BD.\n");
+    lpoke(0x8000000,0xbd);    
+  }
+  for(addr=0x8001000;(addr!=0x9000000);addr+=0x1000)
     {
+
+      // XXX There is still some cache consistency bugs,
+      // so we bust the cache before checking various things
+      bust_cache();
+      
+      if (lpeek(0x8000000)!=0xbd) {
+	printf("\nERROR: $8000000 didn't hold its value.\n"
+	       "Should be $BD, but saw $%02x\n",lpeek(0x8000000));
+	printf("(occurred while probing $%08lx)\n",addr);
+	break;
+      }
+      
       if (!(addr&0xfffff)) printf(".");
 
       bust_cache();
@@ -117,6 +128,8 @@ void setup_hyperram(void)
     }
   printf("\n");
  
+
+  lpoke(0xbfffff2,fast_flags|cache_bit);
   
 }
 
@@ -477,11 +490,18 @@ void show_info(void)
   printf("%cUpper limit of Slow RAM is $%08lx\n",0x13,upper_addr);
   mbs=(unsigned int)((addr-0x8000000L)>>20L);
   printf("Slow RAM is %d MB\n",mbs);
-  printf("Chip ID: %d rows, %d columns\n",
-	 (id0hi&0x1f)+1,(id0lo>>4)+1);
-  printf("Expected capacity: %d MB\n",
+
+  printf("Internal Slow RAM:\n");
+  cr0hi=lpeek(0xA001000);
+  cr0lo=lpeek(0xA001001);
+  id0hi=lpeek(0xA000000);
+  id0lo=lpeek(0xA000001);
+
+  //  printf("Chip ID: %d rows, %d columns\n",
+  //	 (id0hi&0x1f)+1,(id0lo>>4)+1);
+  printf("  Expected capacity: %d MB\n",
 	 1<<((id0hi&0x1f)+1+(id0lo>>4)+1+1-20));
-  printf("Vendor: ");
+  printf("  Vendor: ");
   switch(id0lo&0xf) {
   case 1: printf("Cypress"); break;
   case 3: printf("ISSI"); break;
@@ -489,24 +509,56 @@ void show_info(void)
   }
   printf("\n");
   
-  printf("Config: Powered up=%c, drive strength=$%x\n",(cr0hi&0x80)?'Y':'N',(cr0hi>>4)&7);
+  //  printf("Config: Powered up=%c, drive strength=$%x\n",(cr0hi&0x80)?'Y':'N',(cr0hi>>4)&7);
   switch((cr0lo&0xf0)>>4) {
-  case 0: printf(" 5 clock latency,"); break;
-  case 1: printf(" 6 clock latency,"); break;
-  case 14: printf(" 3 clock latency,"); break;
-  case 15: printf(" 4 clock latency,"); break;
+  case 0: printf("  5 clock latency,"); break;
+  case 1: printf("  6 clock latency,"); break;
+  case 14: printf("  3 clock latency,"); break;
+  case 15: printf("  4 clock latency,"); break;
   default:
-    printf("unknown latency clocks ($%x),",(cr0lo&0xf0)>>4);      
+    printf("  unknown latency clocks ($%x),",(cr0lo&0xf0)>>4);      
   }
   if (cr0lo&8) printf(" fixed latency,"); else printf(" variable latency,");
   printf("\n");
-  if (cr0lo&28) printf(" legacy burst,"); else printf(" hybrid burst,");
+  /*  if (cr0lo&28) printf(" legacy burst,"); else printf(" hybrid burst,");
   switch(cr0lo&3) {
   case 0: printf(" 128 byte burst length.\n"); break;
   case 1: printf(" 64 byte burst length.\n"); break;
   case 2: printf(" 16 byte burst length.\n"); break;
   case 3: printf(" 32 byte burst length.\n"); break;
   }
+  */
+
+  printf("Trapdoor Slow RAM:\n");
+  cr0hi=lpeek(0xA801000);
+  cr0lo=lpeek(0xA801001);
+  id0hi=lpeek(0xA800000);
+  id0lo=lpeek(0xA800001);
+  if ((1<<((id0hi&0x1f)+1+(id0lo>>4)+1+1-20))>0
+      &&
+      ((1<<((id0hi&0x1f)+1+(id0lo>>4)+1+1-20))<=32)) {
+    printf("  Expected capacity: %d MB\n",
+	   1<<((id0hi&0x1f)+1+(id0lo>>4)+1+1-20));
+    printf("  Vendor: ");
+    switch(id0lo&0xf) {
+    case 1: printf("Cypress"); break;
+    case 3: printf("ISSI"); break;
+    default: printf("<unknown>");
+    }
+    printf("\n");
+    
+    switch((cr0lo&0xf0)>>4) {
+    case 0: printf("  5 clock latency,"); break;
+    case 1: printf("  6 clock latency,"); break;
+    case 14: printf("  3 clock latency,"); break;
+    case 15: printf("  4 clock latency,"); break;
+    default:
+      printf("  unknown latency clocks ($%x),",(cr0lo&0xf0)>>4);      
+    }
+    if (cr0lo&8) printf(" fixed latency,"); else printf(" variable latency,");
+  } else
+    printf("  Not detected.\n");
+  printf("\n");
   
 }
 
@@ -514,9 +566,18 @@ void test_chipsetdma(void)
 {
   // Get some data to show
   // (Should show a single repeating 8x8 block with many colours)
-  for(i=0;i<64;i++) lpoke(0x8000000+i,i);
+
+  // Clear screen and RAM used to show the blocks
   lfill(0x0400,0x00,0x400);
   lfill(0x777d800,0x00,0x400);
+  lfill(0x8000000,0x00,0xffff);
+
+  // Make some coloured blocks
+  for(i=0;i<16;i++) lfill(0x8000000+(i<<6),i,0x40);
+  for(i=0;i<16;i++) POKE(0x0400+40*1+i,i);
+  
+  // Make a mult-colour block
+  for(i=0;i<64;i++) lpoke(0x8000000+i,i&0xf);
   
   // VIC-IV 256-colour text mode, fetch data from hyperram
   POKE(0xD054,0x06);
@@ -547,7 +608,7 @@ void test_speed(void)
     {
       printf("%c",0x13);
       show_info();
-      printf("\n");
+      printf("\n%cFast Chip RAM:%c\n",0x12,0x92);
 
       // Test read speed of normal and extra ram  
       while(PEEK(0xD012)!=0x20)
@@ -568,11 +629,12 @@ void test_speed(void)
       // 63usec / raster
       time=(r2-0x20)*63;
       speed=32768000L/time;
-      printf("%ld KB/s \n\n",speed);
+      printf("%ld KB/s \n",speed);
 
       // Hyperram fast transactions
       lpoke(0xbfffff2,fast_flags|cache_bit);
-      printf("%cWith fast access enabled:%c\n",0x92,0x12);
+
+      printf("%cInternal Slow RAM:%c\n",0x12,0x92);
       
       while(PEEK(0xD012)!=0x20)
 	while(PEEK(0xD011)&0x80) continue;
@@ -616,46 +678,56 @@ void test_speed(void)
       
       // Hyperram slow transactions
       lpoke(0xbfffff2,slow_flags|cache_bit);
-      printf("\n%cWith fast access disabled:%c\n",0x92,0x12);
-      
-      while(PEEK(0xD012)!=0x20)
-	while(PEEK(0xD011)&0x80) continue;
-      lcopy(0x8000000,0x40000,4096);
-      r2=PEEK(0xD012);
-      printf("Copy Slow RAM to Chip RAM: ");
-      time=(r2-0x20)*63;
-      speed=4096000L/time;
-      printf("%ld KB/s \n",speed);
-      
-      while(PEEK(0xD012)!=0x20)
-	while(PEEK(0xD011)&0x80) continue;
-      lcopy(0x40000,0x8000000,4096);
-      r2=PEEK(0xD012);
-      printf("Copy Chip RAM to Slow RAM: ");
-      time=(r2-0x20)*63;
-      speed=4096000L/time;
-      printf("%ld KB/s \n",speed);
-      
-      while(PEEK(0xD012)!=0x20)
-	while(PEEK(0xD011)&0x80) continue;
-      lcopy(0x8000000,0x8010000,4096);
-      r2=PEEK(0xD012);
-      printf("Copy Slow RAM to Slow RAM: ");
-      time=(r2-0x20)*63;
-      speed=4096000L/time;
-      printf("%ld KB/s \n",speed);
-      
-      while(PEEK(0xD012)!=0x20)
-	while(PEEK(0xD011)&0x80) continue;
-      lfill(0x8000000,0,4096);
-      r2=PEEK(0xD012);
-      printf("            Fill Slow RAM: ");
-      time=(r2-0x20)*63;
-      speed=4096000L/time;
-      printf("%ld KB/s \n",speed);
-      
-      // cache back on after no-cache test
-      lpoke(0xbfffff2,fast_flags|cache_bit);
+
+      printf("%cTrapdoor Slow RAM:%c\n",0x12,0x92);
+
+      if (upper_addr<=0x8800000)
+	printf("  Not detected.\n");
+      else {
+	
+	while(PEEK(0xD012)!=0x20)
+	  while(PEEK(0xD011)&0x80) continue;
+	//      POKE(0xD020,1);
+	lcopy(0x8800000,0x40000,4096);
+	POKE(0xD020,14);
+	r2=PEEK(0xD012);
+	printf("Copy Slow RAM to Chip RAM: ");
+	time=(r2-0x20)*63;
+	speed=4096000L/time;
+	printf("%ld KB/s \n",speed);
+	
+	while(PEEK(0xD012)!=0x20)
+	  while(PEEK(0xD011)&0x80) continue;
+	lcopy(0x40000,0x8800000,4096);
+	r2=PEEK(0xD012);
+	printf("Copy Chip RAM to Slow RAM: ");
+	time=(r2-0x20)*63;
+	speed=4096000L/time;
+	printf("%ld KB/s \n",speed);
+	
+	while(PEEK(0xD012)!=0x20)
+	  while(PEEK(0xD011)&0x80) continue;
+	//      POKE(0xD020,2);
+	lcopy(0x8800000,0x8810000,4096);
+	POKE(0xD020,14);
+	r2=PEEK(0xD012);
+	printf("Copy Slow RAM to Slow RAM: ");
+	time=(r2-0x20)*63;
+	speed=4096000L/time;
+	printf("%ld KB/s \n",speed);
+	
+	while(PEEK(0xD012)!=0x20)
+	  while(PEEK(0xD011)&0x80) continue;
+	lfill(0x8800000,0,4096);
+	r2=PEEK(0xD012);
+	printf("            Fill Slow RAM: ");
+	time=(r2-0x20)*63;
+	speed=4096000L/time;
+	printf("%ld KB/s \n",speed);
+	
+	// Hyperram slow transactions
+	lpoke(0xbfffff2,slow_flags|cache_bit);
+      }
       
     }
 }
@@ -668,24 +740,11 @@ void main(void)
 
   printf("%c",0x93);
 
-  // XXX - The following are needed temporarily, while we bed everything down.
-  // Disable fast prefetch logic
-  POKE(0xD7FE,0x00);
-  // Disable read delay
-  lpoke(0xbfffff5,0);
-
   setup_hyperram();
-
-
   
   // Turn cache back on before reading config registers etc
   lpoke(0xbfffff2,fast_flags|cache_bit);
   
-  cr0hi=lpeek(0xA001000);
-  cr0lo=lpeek(0xA001001);
-  id0hi=lpeek(0xA000000);
-  id0lo=lpeek(0xA000001);
-
   while (PEEK(0xd610)) POKE(0xd610,0);
   
   while(1) {
