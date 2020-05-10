@@ -1721,8 +1721,8 @@ begin
               hr_command(45) <= '1'; -- linear
               hr_command(44 downto 32) <= (others => '0'); -- unused upper address bits
               hr_command(15 downto 3) <= (others => '0'); -- reserved bits
-              hr_command(31 downto 28) <= viciv_bank(3 downto 0);
-              hr_command(27 downto 16) <= viciv_addr(15 downto 4);
+              hr_command(34 downto 31) <= viciv_bank(3 downto 0);
+              hr_command(30 downto 16) <= viciv_addr(18 downto 4);
               hr_command(2) <= viciv_addr(3);
               hr_command(1 downto 0) <= "00";
 
