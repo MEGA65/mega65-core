@@ -227,8 +227,8 @@ set_property -dict {PACKAGE_PIN AA8 IOSTANDARD LVCMOS33} [get_ports hdmi_spdif_o
 #
 set_property -dict {PACKAGE_PIN L6 IOSTANDARD LVCMOS33} [get_ports pwm_l]
 set_property -dict {PACKAGE_PIN F4 IOSTANDARD LVCMOS33} [get_ports pwm_r]
-set_property -dict {PACKAGE_PIN F18 IOSTANDARD LVCMOS33} [get_ports speaker_mute_n]
-set_property -dict {PACKAGE_PIN E16 IOSTANDARD LVCMOS33} [get_ports internal_speaker]
+set_property -dict {PACKAGE_PIN F18 IOSTANDARD LVCMOS33} [get_ports pcspeaker_muten]
+set_property -dict {PACKAGE_PIN E16 IOSTANDARD LVCMOS33} [get_ports pcspeaker_left]
 
 
 ##USB HID (PS/2)

@@ -136,6 +136,7 @@ entity container is
          hdmired : out  UNSIGNED (7 downto 0);
          hdmigreen : out  UNSIGNED (7 downto 0);
          hdmiblue : out  UNSIGNED (7 downto 0);
+         hdmi_int : in std_logic;
          hdmi_spdif : in std_logic;
          hdmi_spdif_out : out std_logic;
          hdmi_scl : inout std_logic;
@@ -184,6 +185,10 @@ entity container is
          -- Left and right audio
          pwm_l : out std_logic;
          pwm_r : out std_logic;
+
+         -- internal speaker
+         pcspeaker_left : out std_logic;
+         pcspeaker_muten : out std_logic;
          
          -- PMOD connectors on the MEGA65 R2 main board
          p1lo : inout std_logic_vector(3 downto 0);
@@ -461,6 +466,16 @@ begin
       hdmi_scl => hdmi_scl,
       hdmi_sda => hdmi_sda
       );
+
+  hdmiaudio: entity work.hdmi_spdif
+    generic map ( samplerate => 44100 )
+    port map (
+      clk => clock100,
+      spdif_out => spdif_44100,
+      left_in => h_audio_left,
+      right_in => h_audio_right
+      ); 
+
   
   kbd0: entity work.mega65kbd_to_matrix
     port map (
@@ -793,6 +808,10 @@ begin
       flopmotor => flopmotor_drive,
       ampPWM_l => pwm_l_drive,
       ampPWM_r => pwm_r_drive,
+      ampSD => pcspeaker_muten,
+      pcspeaker_left => pcspeaker_left_drive,
+      audio_left => audio_left,
+      audio_right => audio_right,
 
       -- Normal connection of I2C peripherals to dedicated address space
       i2c1sda => fpga_sda,
@@ -927,8 +946,25 @@ begin
 
       pwm_l <= pwm_l_drive;
       pwm_r <= pwm_r_drive;
-
+      pcspeaker_left <= pcspeaker_left_drive;
+      
     end if;
+
+    h_audio_right <= audio_right;
+    h_audio_right <= audio_left;
+    -- toggle signed/unsigned audio flipping
+    if portp(7)='1' then
+      h_audio_right(19) <= not audio_right(19);
+      h_audio_left(19) <= not audio_left(19);
+    end if;
+
+    -- Make SPDIF audio switchable for debugging HDMI output
+    if portp(0) = '1' then
+      hdmi_spdif <= spdif_44100;
+    else
+      hdmi_spdif <= '0';
+    end if;      
+
     
     if rising_edge(pixelclock) then
       hsync <= v_vga_hsync;
@@ -941,12 +977,6 @@ begin
       hdmiblue <= v_blue;
     end if;
     
-    if rising_edge(pixelclock) then
-
-      -- no hdmi audio yet
-      hdmi_spdif_out <= 'Z';
-
-    end if;
   end process;    
   
 end Behavioral;
