@@ -1105,7 +1105,9 @@ begin
   
   i2cperiph_mega65r2:
   if target = mega65r2 generate
-    i2c1: entity work.mega65r2_i2c port map (
+  i2c1: entity work.mega65r2_i2c
+    generic map ( clock_frequency => cpu_frequency)
+    port map (    
       clock => clk,
       cs => i2cperipherals_cs,
 
@@ -1523,6 +1525,7 @@ begin
           i2cperipherals_cs <= '1';
           report "i2cperipherals_cs for MEGAphone asserted";
         end if;
+      end if;
       else
         if address(19 downto 8) = x"D71" then
           i2cperipherals_cs <= '1';

@@ -36,6 +36,7 @@ use Std.TextIO.all;
 use work.debugtools.all;
 
 entity i2c_wrapper is
+  generic ( clock_frequency : integer )
   port (
     clock : in std_logic;
     
@@ -124,7 +125,7 @@ begin
 
   i2c1: entity work.i2c_master
     generic map (
-      input_clk => 40_000_000,
+      input_clk => clock_frequency,
       bus_clk => 400_000
       )
     port map (
