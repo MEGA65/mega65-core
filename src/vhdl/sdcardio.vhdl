@@ -56,7 +56,7 @@ use work.cputypes.all;
 entity sdcardio is
   generic (
     target : mega65_target_t;
-    cpu_frequency : integer := 40000000
+    cpu_frequency : integer
     );
   port (
     clock : in std_logic;

@@ -62,7 +62,7 @@ use Std.TextIO.all;
 use work.debugtools.all;
 
 entity mega65r2_i2c is
-  generic ( clock_frequency : integer)
+  generic ( clock_frequency : integer);
   port (
     clock : in std_logic;
     

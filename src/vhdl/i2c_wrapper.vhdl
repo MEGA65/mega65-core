@@ -36,7 +36,7 @@ use Std.TextIO.all;
 use work.debugtools.all;
 
 entity i2c_wrapper is
-  generic ( clock_frequency : integer )
+  generic ( clock_frequency : integer );
   port (
     clock : in std_logic;
     
