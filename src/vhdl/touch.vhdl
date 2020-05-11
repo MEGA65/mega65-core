@@ -106,6 +106,7 @@ begin
 
 
   i2c0: entity work.i2c_master
+    generic map ( clock_frequency => clock_frequency )
     port map (
       clk => clock50mhz,
       reset_n => i2c0_reset,
