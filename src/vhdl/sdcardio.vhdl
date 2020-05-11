@@ -545,6 +545,7 @@ begin  -- behavioural
       );
   
   i2c0: entity work.i2c_master
+    generic map ( clock_frequency => clock_frequency )
     port map (
       clk => clock,
       reset_n => i2c0_reset,
@@ -560,6 +561,7 @@ begin  -- behavioural
       );
   
   i2c1: entity work.i2c_master
+    generic map ( clock_frequency => clock_frequency )
     port map (
       clk => clock,
       reset_n => i2c1_reset,
