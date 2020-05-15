@@ -175,7 +175,6 @@ begin
   pcmclock0: entity work.pcm_clock 
     generic map (
       -- Modems and some other peripherals only use 8KHz
-      clock_frequency => clock_frequency,
       sample_rate => 8000
       )
     port map (
@@ -185,7 +184,6 @@ begin
 
   -- PCM interfaces to modems
   pcm0: entity work.pcm_transceiver 
-    generic map ( clock_frequency => clock_frequency )
     port map (
     clock50mhz => clock50mhz,
     pcm_clk => pcm_modem_clk_int,
@@ -196,7 +194,6 @@ begin
     rx_sample => modem1_in
     );
   pcm1: entity work.pcm_transceiver
-    generic map ( clock_frequency => clock_frequency )
     port map (
     clock50mhz => clock50mhz,
     pcm_clk => pcm_modem_clk_int,
@@ -209,7 +206,6 @@ begin
     
   -- I2S slave interface to RN52 Bluetooth
   i2s2: entity work.i2s_transceiver 
-    generic map ( clock_frequency => clock_frequency )
     port map (
     clock50mhz => clock50mhz,
     i2s_clk => i2s_slave_clk,
@@ -226,7 +222,6 @@ begin
   i2sclock2: entity work.i2s_clock
     generic map (
       -- Modems and some other peripherals only need 8KHz,
-      clock_frequency => clock_frequency,
       sample_rate => 44100
       )
     port map (
@@ -236,7 +231,6 @@ begin
   
   -- I2S master for stereo speakers
   i2s4: entity work.i2s_transceiver 
-    generic map ( clock_frequency => clock_frequency )
     port map (
     clock50mhz => clock50mhz,
     i2s_clk => i2s_master_clk_int,
