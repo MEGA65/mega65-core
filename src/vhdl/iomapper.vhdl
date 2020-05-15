@@ -7,7 +7,8 @@ use work.debugtools.all;
 use work.cputypes.all;
 
 entity iomapper is
-  generic ( target : mega65_target_t
+  generic ( target : mega65_target_t;
+            cpu_frequency : integer
              );
   port (Clk : in std_logic;
         clock100mhz : in std_logic;
@@ -1010,7 +1011,9 @@ begin
     fastio_wdata => unsigned(data_i)
     );
 
-  audio0: entity work.audio_complex port map (
+  audio0: entity work.audio_complex 
+    generic map ( clock_frequency => cpu_frequency )
+    port map (
     clock50mhz => clk,
 
     volume_knob1_target => volume_knob1_target,
@@ -1064,7 +1067,9 @@ begin
 
   i2cperiph_megaphone:
   if target = megaphoner1 generate
-    i2c1: entity work.i2c_wrapper port map (
+    i2c1: entity work.i2c_wrapper 
+     generic map ( clock_frequency => cpu_frequency )
+     port map (
       clock => clk,
       cs => i2cperipherals_cs,
 
