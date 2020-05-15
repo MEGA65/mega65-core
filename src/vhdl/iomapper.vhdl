@@ -1130,7 +1130,9 @@ begin
   
   
   sdcard0 : entity work.sdcardio
-    generic map ( target => target )
+    generic map ( 
+      cpu_frequency => cpu_frequency,
+      target => target )
     port map (
     pixelclk => pixelclk,
     clock => clk,
