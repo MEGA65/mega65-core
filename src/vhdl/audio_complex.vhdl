@@ -27,6 +27,7 @@ use work.debugtools.all;
 use work.cputypes.all;
 
 entity audio_complex is
+  generic ( clock_frequency : integer );
   port (    
     clock50mhz : in std_logic;
 
@@ -174,6 +175,7 @@ begin
   pcmclock0: entity work.pcm_clock 
     generic map (
       -- Modems and some other peripherals only use 8KHz
+      clock_frequency => clock_frequency,
       sample_rate => 8000
       )
     port map (
@@ -182,7 +184,9 @@ begin
     pcm_sync => pcm_modem_sync_gen);
 
   -- PCM interfaces to modems
-  pcm0: entity work.pcm_transceiver port map (
+  pcm0: entity work.pcm_transceiver 
+    generic map ( clock_frequency => clock_frequency )
+    port map (
     clock50mhz => clock50mhz,
     pcm_clk => pcm_modem_clk_int,
     pcm_sync => pcm_modem_sync_int,
@@ -191,7 +195,9 @@ begin
     tx_sample => modem1_out,
     rx_sample => modem1_in
     );
-  pcm1: entity work.pcm_transceiver port map (
+  pcm1: entity work.pcm_transceiver
+    generic map ( clock_frequency => clock_frequency )
+    port map (
     clock50mhz => clock50mhz,
     pcm_clk => pcm_modem_clk_int,
     pcm_sync => pcm_modem_sync_int,
@@ -202,7 +208,9 @@ begin
     );
     
   -- I2S slave interface to RN52 Bluetooth
-  i2s2: entity work.i2s_transceiver port map (
+  i2s2: entity work.i2s_transceiver 
+    generic map ( clock_frequency => clock_frequency )
+    port map (
     clock50mhz => clock50mhz,
     i2s_clk => i2s_slave_clk,
     i2s_sync => i2s_slave_sync,
@@ -218,6 +226,7 @@ begin
   i2sclock2: entity work.i2s_clock
     generic map (
       -- Modems and some other peripherals only need 8KHz,
+      clock_frequency => clock_frequency,
       sample_rate => 44100
       )
     port map (
@@ -226,7 +235,9 @@ begin
     i2s_sync => i2s_master_sync_int);
   
   -- I2S master for stereo speakers
-  i2s4: entity work.i2s_transceiver port map (
+  i2s4: entity work.i2s_transceiver 
+    generic map ( clock_frequency => clock_frequency )
+    port map (
     clock50mhz => clock50mhz,
     i2s_clk => i2s_master_clk_int,
     i2s_sync => i2s_master_sync_int,
