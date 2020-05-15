@@ -5,6 +5,7 @@ use STD.textio.all;
 use work.debugtools.all;
 
 entity touch is
+  generic ( clock_frequency : integer );
   port (
     clock50mhz : in std_logic;
     sda : inout std_logic;
@@ -106,7 +107,7 @@ begin
 
 
   i2c0: entity work.i2c_master
-    generic map ( clock_frequency => clock_frequency )
+    generic map ( input_clk => clock_frequency )
     port map (
       clk => clock50mhz,
       reset_n => i2c0_reset,
