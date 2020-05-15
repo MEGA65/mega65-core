@@ -1532,7 +1532,6 @@ begin
           i2cperipherals_cs <= '1';
           report "i2cperipherals_cs for MEGAphone asserted";
         end if;
-      end if;
       else
         if address(19 downto 8) = x"D71" then
           i2cperipherals_cs <= '1';
