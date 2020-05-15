@@ -1341,7 +1341,8 @@ begin
       );
   
   iomapper0: entity work.iomapper
-    generic map ( target => target )
+    generic map ( target => target,
+                  cpu_frequency => cpu_frequency )
     port map (
       clk => ioclock,
       clock100mhz => clock100,
