@@ -53,7 +53,7 @@ use work.cputypes.all;
 --use UNISIM.VComponents.all;
 
 entity machine is
-  generic (cpufrequency : integer := 50;
+  generic (cpu_frequency : integer;
            hyper_installed : boolean := false;
            target : mega65_target_t );
   Port ( pixelclock : in STD_LOGIC;
@@ -900,9 +900,7 @@ begin
   end process;
 
   cpu0: entity work.gs4510
-    generic map(
-      cpufrequency => cpufrequency,
-      target => target)
+    generic map(target => target)
     port map(
       phi0 => phi0,
       all_pause => all_pause,
