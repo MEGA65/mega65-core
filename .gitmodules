@@ -9,7 +9,7 @@
 	url = https://github.com/gardners/Ophis.git
 [submodule "src/mega65-fdisk"]
 	path = src/mega65-fdisk
-	url = https://github.com/MEGA65/mega65-fdisk.git
+	url = https://github.com/frehwagen/mega65-fdisk.git
 [submodule "iverilog"]
 	path = iverilog
 	url = https://github.com/steveicarus/iverilog.git
