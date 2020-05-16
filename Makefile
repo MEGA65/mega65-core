@@ -15,10 +15,18 @@ KICKASS_JAR = KickAss/KickAss.jar
 
 VIVADO=	./vivado_wrapper
 
+ifeq ($(USE_LOCAL_CC65),"")
 CC65=  cc65/bin/cc65
 CA65=  cc65/bin/ca65 --cpu 4510
 LD65=  cc65/bin/ld65 -t none
 CL65=  cc65/bin/cl65 --config src/tests/vicii.cfg
+else
+CC65=  cc65
+CA65=  ca65 --cpu 4510
+LD65=  ld65 -t none
+CL65=  cl65 --config src/tests/vicii.cfg
+endif
+
 GHDL=  ghdl/build/bin/ghdl
 
 CBMCONVERT=	cbmconvert/cbmconvert
@@ -69,7 +77,7 @@ all:	$(SDCARD_DIR)/MEGA65.D81 $(BINDIR)/mega65r1.mcs $(BINDIR)/nexys4.mcs $(BIND
 $(SDCARD_DIR)/FREEZER.M65:
 	git submodule init
 	git submodule update
-	( cd src/mega65-freezemenu && make FREEZER.M65 )
+	( cd src/mega65-freezemenu && make FREEZER.M65 USE_LOCAL_CC65=$(USE_LOCAL_CC65))
 	cp src/mega65-freezemenu/FREEZER.M65 $(SDCARD_DIR)
 
 $(CBMCONVERT):
@@ -80,7 +88,11 @@ $(CBMCONVERT):
 $(CC65):
 	git submodule init
 	git submodule update
+ifeq ($(USE_LOCAL_CC65),"")
 	( cd cc65 && make -j 8 )
+else
+	echo "Using local installed CC65."
+endif
 
 $(OPHIS):
 	git submodule init
@@ -478,7 +490,7 @@ $(UTILDIR)/diskmenu.prg:       $(UTILDIR)/diskmenuprg.o $(CC65)
 	$(LD65) $< --mapfile $*.map -o $*.prg
 
 $(SRCDIR)/mega65-fdisk/m65fdisk.prg:
-	( cd $(SRCDIR)/mega65-fdisk ; make )
+	( cd $(SRCDIR)/mega65-fdisk ; make  USE_LOCAL_CC65=$(USE_LOCAL_CC65))
 
 $(BINDIR)/border.prg: 	$(SRCDIR)/border.a65 $(OPHIS)
 	$(OPHIS) $(OPHISOPT) $< -l $(BINDIR)/border.list -m $*.map -o $(BINDIR)/border.prg
