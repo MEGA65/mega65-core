@@ -376,8 +376,10 @@ begin
 --      latency_1x => to_unsigned(4,8),
 --      latency_2x => to_unsigned(8,8),
 --      reset => reset_out,
-      cpuclock => cpuclock,
-      clock240 => clock163,
+      pixelclock => pixelclock,
+      clock163 => clock162,
+      clock325 => clock325,
+      
       address => expansionram_address,
       wdata => expansionram_wdata,
       read_request => expansionram_read,
@@ -458,7 +460,7 @@ begin
       );
 
   machine0: entity work.machine
-    generic map (cpufrequency => 40,
+    generic map (cpu_frequency => 40500000,
                  target => megaphoner1)
     port map (
       pixelclock      => pixelclock,
