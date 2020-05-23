@@ -1758,6 +1758,9 @@ resetdisplay:
 
         // Start in 60Hz mode, since most monitors support it
         // (Also required to make sure matrix mode pixels aren't ragged on first boot).
+	// The label here is used so that the syspartition settings can be used to
+	// change the default video mode on reset.
+pal_ntsc_minus_1:	
         lda #$80
         sta $d06f
 
