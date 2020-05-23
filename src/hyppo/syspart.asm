@@ -282,8 +282,16 @@ splf2:	lda syspart_start_sector,x
 
 
 syspart_configsector_set:
+	// So, the config sector USED to live in the system partition.
+	// But that causes a few problems:
+	// 1. You need a system partition, just to be able to pick PAL or NTSC on start.
+	// 2. The utility menu now, for good reason, appears before trying to probe any
+	//    SD cards. This means that the configure programme couldn't work out the
+	//    correct sector to work on.
+	// As a result, we now just officially have the config sector live in sector 1.
         ldx #3
-spcr1:	lda syspart_start_sector,x
+	lda #0
+spcr1:	// lda syspart_start_sector,x
         sta $d681,x
         dex
         bpl spcr1
@@ -322,8 +330,10 @@ syspart_configsector_apply:
         and #$c0
         ora $d06f
         sta $d06f
+	// And also write it into the instruction that sets the display mode on reset
+	sta pal_ntsc_minus_1+1
         stx $d058
-
+	
         // Set audio options
         lda $de03
         and #$01
