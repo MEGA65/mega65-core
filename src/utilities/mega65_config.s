@@ -577,6 +577,8 @@ readRealTimeClock:
 	INZ
 	NOP
 	LDA (zp32),Z
+	;; Hide bit7 which indicates 24 hour time
+	and #$7f
 	STA optDfltBase+$1f0     	; hours
 	STA optSessBase+$1f0     	; hours
 	sta rtc_values+$0
@@ -1570,6 +1572,8 @@ doAppMACChar:
 	jsr i2cwait
 	INZ
 	lda rtc_values+0
+	;; Always store RTC time in 24-hour format
+	ora #$80
 	NOP
 	STA (zp32),z
 	jsr i2cwait
