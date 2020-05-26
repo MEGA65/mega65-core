@@ -107,6 +107,15 @@ inputPageIndex:
 chipsetPageCnt 	=	1
 
 chipsetOptions0:
+	; Dummy field for RTC values.
+  	; In reality, we read it from the RTC, and write the values
+	; back there.
+	.byte		$60	
+	.word		$01f0
+	.defPStr	"real-time clock:"
+rtc_values:
+	.byte		$00, $00, $00, $00, $00, $00
+
 	.byte		$20			;option input type
 	.word		$0020			;offset into config table
 	.byte		$01			;bits for testing/setting
@@ -149,8 +158,8 @@ videoOptions0:
 	.word		$0002
 	.byte		$80
 	.defPStr	"video mode:"
-	.defPStr	"pal  50hz (800*600)"
-	.defPStr	"ntsc 60hz (800*600)"
+	.defPStr	"pal  50hz (720*576)"
+	.defPStr	"ntsc 60hz (720*480)"
 	.byte		$00
 videoOptions0_end:
 	.assert		(videoOptions0_end - videoOptions0) < 256, error, "Video Options 0 too large!"
@@ -229,13 +238,13 @@ savePageCnt	=	1
 ;Do not change the order or number of options in these lists!
 ;*******************************************************************************
 saveOptions0:
-	.byte		$10
-	.defPStr	"exit without saving"
-	.byte		$10
-	.defPStr	"apply settings now"
-	.byte		$10
-	.defPStr	"save for this boot and exit"
-	.byte		$10
+	.byte           $10
+	.defPStr        "exit without saving"
+       	.byte           $10
+        .defPStr        "apply and test settings now"
+        .byte           $10
+        .defPStr        "restore factory defaults"  
+ 	.byte		$10
 	.defPStr	"save as defaults and exit"
 	.byte		$00
 	

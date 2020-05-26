@@ -141,6 +141,8 @@ ptrPageIndx	=	$B0
 currMACByte	=	$B2			;Might be able to be non-ZP
 currMACNybb	=	$B3			;Might be able to be non-ZP
 
+zp32		=	$F7	; 32-bit pointer for far memory access
+	
 ptrOptsTemp	= 	$FB
 ptrCurrHeap	=	$FD
 ;-------------------------------------------------------------------------------
@@ -184,46 +186,46 @@ headerColours:
 	.byte		$02, $02, $07, $07, $05, $05, $06, $06
 	
 menuLine:
-	.byte		"inputBchipsetBvideoBaudioBnetwork  save"
+	.byte		"inputBchipsetBvideoBaudioBnetwork   save"
 footerLine:
 	.byte		"                                page  / "
 
 helpText0:
-	.byte		"version 00.99b             "
+	.byte		"version 00.99c             "
 helpText1:
 	.byte		"cursor up/down to navigate "
 helpText2:
 	.byte		"f1/f2 to change tabs       "
 helpText3:
-	.byte		"f3/f4 to change pages      "
+	;;  For now none of the tabs have multiple pages, so just repeat f1/f2 instruction
+	;; 	.byte		"f3/f4 to change pages      " 
+	.byte		"f1/f2 to change tabs       "
 helpText4:
 	.byte		"f7 for save and exit       "
 helpText5:
-	.byte		"f8 to apply settings       "
-helpText6:
 	.byte		"space or return for toggle "
-helpText7:
+helpText6:
 	.byte		"any key for data entry     "
 
 helpTexts:
 	.word		helpText0, helpText1, helpText2, helpText3
-	.word		helpText4, helpText5, helpText6, helpText7
+	.word		helpText4, helpText5, helpText6
 
 currHelpTxt:
 	.byte		$00
 
 saveConfExit0:
-	.defPStr	"are you sure you wish to exit"
+       .defPStr        "are you sure you wish to exit"
 saveConfExit1:
-	.defPStr	"without saving?"
+       .defPStr        "without saving?"
 saveConfAppl0:
-	.defPStr	"are you sure you wish to apply"
+       .defPStr        "are you sure you wish to apply"
 saveConfAppl1:
-	.defPStr	"the current settings?"
+       .defPStr        "the current settings?"
 saveConfSave0:
 	.defPStr	"are you sure you wish to save"
-saveConfSess0:
-	.defPStr	"for this boot and exit?"
+saveConfFactory0:
+       .defPStr        "the factory defaults and continue?"
 saveConfDflt0:
 	.defPStr	"as the defaults and exit?"
 	
@@ -358,16 +360,20 @@ main:
 		JMP	@inputLoop
 				
 @tstF1Key:
+		CMP 	#$1d
+		BEQ	@doMoveTabLeft
 		CMP	#keyF1
 		BNE	@tstF2Key
-		
+@doMoveTabLeft:	
 		JSR	moveTabLeft
 		JMP	main
 				
 @tstF2Key:
+		CMP     #$9d
+		BEQ	@doMoveTabRight
 		CMP	#keyF2
 		BNE	@tstF3Key
-		
+@doMoveTabRight:
 		JSR	moveTabRight
 		JMP	main
 		
@@ -387,7 +393,7 @@ main:
 		
 @tstF7Key:
 		CMP	#keyF7
-		BNE	@tstF8Key
+		BNE	@otherKey
 		
 		LDA	#tabMaxCount
 		STA	tabSelected
@@ -395,14 +401,6 @@ main:
 		
 		JMP	main
 		
-@tstF8Key:
-		CMP	#keyF8
-		BNE	@otherKey
-		
-		JSR	doJumpApplyNow
-		JMP	main
-		
-				
 @otherKey:
 	.if	DEBUG_MODE
 		STA	$0401
@@ -464,17 +462,17 @@ copyDefaultOptionsToSectorBuffer:
 		STA	$DE00
 		STA	$DE01
 		RTS
-		
+
 ;-------------------------------------------------------------------------------
 hypervisorApplyConfig:
 ;-------------------------------------------------------------------------------
 ;; Apply options in optSessBase
-		JSR	copySessionOptionsToSectorBuffer
-		LDA	#$04
-		STA	$D642
-		NOP
-		RTS
-
+               JSR     copySessionOptionsToSectorBuffer
+               LDA     #$04
+               STA     $D642
+               NOP
+               RTS
+	
 ;-------------------------------------------------------------------------------
 hypervisorSaveConfig:
 ;-------------------------------------------------------------------------------
@@ -509,6 +507,9 @@ hypervisorLoadOrResetConfig:
 		LDA	#$82
 		STA	$D680
 
+;;; Work-around for retrieving Real-Time Clock values for editing
+	jsr readRealTimeClock
+
 ;;      Check for empty config
 		LDA	optDfltBase+0
 		ORA	optDfltBase+1
@@ -529,24 +530,109 @@ getDefaultSettings:
 		STA	optDfltBase
 		STA	optDfltBase+1
 
-;;      (actually copy the ones we can from the running system)
-		LDA	$D06F
-		AND	#$C0
-		STA	optDfltBase+2
-		LDA	$D6F9
-		STA	optDfltBase+3
-		LDA	$D6A1
-		STA	optDfltBase+4
-		LDA	$D61B
-		STA	optDfltBase+5
+	;; MAC address
+	;; Generate a random one
 		LDX	#$05
-@maccopy:	LDA	$D6E9, X
-		STA	$DE06, X
+@macrandom:	PHX
+		JSR	getRandomByte
+		PLX
+		STA	optDfltBase+6, X
+		STA	$D6E9, X
 		DEX
-		bpl @maccopy
+		bpl @macrandom
+		LDA 	$DE06
+		ORA 	#$02	; Make "locally administered"
+		AND 	#$FE  	; Make unicast
+		STA 	$DE06
+		STA     $D6E9
 
+	jsr readRealTimeClock
+	
 		RTS
-		
+
+readRealTimeClock:	
+	;; We insert them, as though they came from the config sector
+	;; $FFD7110-5 has the real-time clock values on MEGA65R2
+	;; XXX - Support MEGAphone as well
+	lda #<$7110
+	sta zp32+0
+	lda #>$7110
+	sta zp32+1
+	lda #<$FFD
+	sta zp32+2
+	lda #>$FFD
+	sta zp32+3
+	LDZ #0
+	NOP
+	LDA (zp32),Z
+	STA optDfltBase+$1f2	; seconds
+	STA optSessBase+$1f2	; seconds
+	sta rtc_values+$2
+	INZ
+	NOP
+	LDA (zp32),Z
+	STA optDfltBase+$1f1	; minutes
+	STA optSessBase+$1f1	; minutes
+	sta rtc_values+$1
+	INZ
+	NOP
+	LDA (zp32),Z
+	STA optDfltBase+$1f0     	; hours
+	STA optSessBase+$1f0     	; hours
+	sta rtc_values+$0
+	INZ
+	;; YY-MM-DD date, so neither the Americans nor Europeans can claim we are favouring the other
+	NOP
+	LDA (zp32),Z
+	STA optDfltBase+$1f5	; day of month
+	STA optSessBase+$1f5	; day of month
+	sta rtc_values+$5
+	INZ
+	NOP
+	LDA (zp32),Z
+	STA optDfltBase+$1f4	; month of year
+	STA optSessBase+$1f4	; month of year
+	sta rtc_values+$4
+	INZ
+	NOP
+	LDA (zp32),Z
+	STA optDfltBase+$1f3	; year
+	STA optSessBase+$1f3	; year
+	sta rtc_values+$3
+	LDZ #0
+
+	RTS
+
+	
+
+	
+getRandomByte:
+	;; get parity of 256 reads of lowest bit of FPGA temperature
+	;; for each bit. Then add to raster number.
+	;; Should probably have more than enough entropy, even if the
+	;; temperature is biased, as we are looking only at parity of
+	;; a large number of reads.
+	;; (Whether it is cryptographically secure is a separate issue.
+	;; but it should be good enough for random MAC address generation).
+		LDA #$00
+		LDX #8
+		LDY #0
+@bitLoop:
+		EOR $D6DE
+		DEY
+		BNE @bitLoop
+	;; low bit into C
+		LSR
+	;; then into A
+		ROR
+		DEX
+		BPL @bitLoop
+		CLC
+		ADC $D012
+
+	        RTS
+	
+	
 ;-------------------------------------------------------------------------------
 checkMagicBytes:
 ;-------------------------------------------------------------------------------
@@ -854,7 +940,10 @@ doReadOpt:
 
 @tstMACOpt:
 		CMP	#$50
+		BEQ	@isMACOpt
+		CMP	#$60
 		BNE	@unknownOpt
+@isMACOpt:
 	   
 		INY
 		JSR	setOptBasePtr
@@ -1205,7 +1294,10 @@ doSaveOpt:
 		
 @tstMACOpt:
 		CMP	#$50
+		BEQ	@isMACOpt
+		CMP	#$60
 		BNE	@unknownOpt
+@isMACOpt:
 		
 		INY
 		JSR	setOptBasePtr
@@ -1241,28 +1333,27 @@ doSaveOpt:
 		SEC
 		RTS
 		
-
 ;-------------------------------------------------------------------------------
 doJumpApplyNow:
 ;-------------------------------------------------------------------------------
-		LDA	#tabMaxCount
-		STA	tabSelected
-		LDA	#$02
-		STA	saveSlctOpt
-		LDA	#$01
-		STA	pgeSelected
+               LDA     #tabMaxCount
+               STA     tabSelected
+               LDA     #$02
+               STA     saveSlctOpt
+               LDA     #$01
+               STA     pgeSelected
 
-		LDA	#savePageCnt
-		STA	currPageCnt
-		
-		LDA	#<savePageIndex
-		STA	ptrPageIndx
-		LDA	#>savePageIndex 
-		STA	ptrPageIndx + 1
-		
-		RTS
+               LDA     #savePageCnt
+               STA     currPageCnt
+               
+               LDA     #<savePageIndex
+               STA     ptrPageIndx
+               LDA     #>savePageIndex 
+               STA     ptrPageIndx + 1
+               
+               RTS
 
-
+	
 ;-------------------------------------------------------------------------------
 doTestDataInput:
 ;-------------------------------------------------------------------------------
@@ -1275,8 +1366,10 @@ doTestDataInput:
 		BEQ	@inputStr
 
 		CMP	#$50
+		BEQ 	@doMacKeys
+		CMP	#$60
 		BNE	@exit
-		
+@doMacKeys:
 		PLA
 		JSR	doTestMACKeys
 		RTS
@@ -1441,19 +1534,81 @@ doAppMACChar:
 	.endif
 		ORA	#$80
 		STA	(ptrCrsrSPos), Y
-		
+
 		LDA	currMACNybb
 		BEQ	@isHigh
 		
 		JSR	doAppMACCharLow
-		RTS
+		jmp 	@exit
 		
 @isHigh:
 		JSR	doAppMACCharHigh
 		
 @exit:
+	;; HACK: For setting the real-time clock we do this as you type.
+	lda tabSelected
+	cmp #1
+	bne notRTCTab
+
+	;;  Write-enable the clock
+	ldz #8
+	NOP
+	LDA (zp32),z
+	ora #$40
+	NOP
+	STA (zp32),z
+	jsr i2cwait
+	ldz #0
+	lda rtc_values+2
+	NOP
+	STA (zp32),z
+	jsr i2cwait
+	INZ
+	lda rtc_values+1
+	NOP
+	STA (zp32),z
+	jsr i2cwait
+	INZ
+	lda rtc_values+0
+	NOP
+	STA (zp32),z
+	jsr i2cwait
+	INZ
+	lda rtc_values+5
+	NOP
+	STA (zp32),z
+	jsr i2cwait
+	INZ
+	lda rtc_values+4
+	NOP
+	STA (zp32),z
+	jsr i2cwait
+	INZ
+	lda rtc_values+3
+	NOP
+	STA (zp32),z
+	jsr i2cwait
+	;;  Write-protect the clock
+	ldz #8
+	NOP
+	LDA (zp32),z
+	and #$BF
+	NOP
+	STA (zp32),z
+	LDZ #0	
+	
+notRTCTab:		
 		RTS
 
+i2cwait:
+	;; I2C peripherals can take a while for writes to get scheduled
+@i2c1:	lda $d012
+	cmp #$80
+	bne @i2c1
+@i2c2:	lda $d012
+	cmp #$70
+	bne @i2c2
+	rts
 
 ;-------------------------------------------------------------------------------
 doAppMACCharLow:
@@ -1781,18 +1936,16 @@ doPerformSaveAction:
 
 @tstSaveApply:
 		CPX	#$02
-		BNE	@tstSaveThis
+		BNE	@tstFactorySys
 		
 		JSR	saveSessionOpts
 		RTS
 		
-@tstSaveThis:
+@tstFactorySys:
 		CPX	#$04
 		BNE	@tstSaveSys
-		
-		JSR	saveSessionOpts
-		LDA	#$01
-		STA	progTermint
+		JSR	getDefaultSettings
+		JSR	readDefaultOpts
 		RTS
 	
 @tstSaveSys:		
@@ -1810,6 +1963,7 @@ doPerformSaveAction:
 ;-------------------------------------------------------------------------------
 setupSelectedTab:
 ;-------------------------------------------------------------------------------
+	
 		LDA	#$FF
 		STA	saveSlctOpt
 		
@@ -1934,6 +2088,9 @@ highlightInputTab:
 ;-------------------------------------------------------------------------------
 setupChipsetPage0:
 ;-------------------------------------------------------------------------------
+	;; Re-read RTC everytime we display a tab, so to give fresh time
+		JSR readRealTimeClock
+
 		LDA	#$00
 		STA	pgeSelected
 		LDA	#chipsetPageCnt
@@ -2657,6 +2814,8 @@ doUpdateSelected:
 		
 		CMP	#$50
 		BEQ	@updateMAC
+		CMP	#$60
+		BEQ	@updateMAC
 		
 		RTS
 		
@@ -2971,6 +3130,7 @@ displayOptionsPage:
 		JMP     @updateStd
 		
 @tstConfirm:
+	
 		CMP	#$01
 		BNE	@updateStd
 		
@@ -3023,77 +3183,77 @@ updateSaveReset:
 ;-------------------------------------------------------------------------------
 updateSaveConfirm:
 ;-------------------------------------------------------------------------------
-		LDX	saveSlctOpt
-		BNE	@tstSaveApply
-		
-		LDA	#<saveConfExit0
-		STA	ptrOptsTemp
-		LDA	#>saveConfExit0
-		STA	ptrOptsTemp + 1
-		
-		LDY	#optLineOffs
-		
-		JSR	dispCentreText
-		
-		LDA	#<saveConfExit1
-		STA	ptrOptsTemp
-		LDA	#>saveConfExit1
-		STA	ptrOptsTemp + 1
-		
-		LDY	#(optLineOffs + 2)
-		
-		JSR	dispCentreText
-		JMP	@exit
+               LDX     saveSlctOpt
+               BNE     @tstSaveApply
+               
+               LDA     #<saveConfExit0
+               STA     ptrOptsTemp
+               LDA     #>saveConfExit0
+               STA     ptrOptsTemp + 1
+               
+               LDY     #optLineOffs
+               
+               JSR     dispCentreText
+               
+               LDA     #<saveConfExit1
+               STA     ptrOptsTemp
+               LDA     #>saveConfExit1
+               STA     ptrOptsTemp + 1
+               
+               LDY     #(optLineOffs + 2)
+               
+               JSR     dispCentreText
+               JMP     @exit
 
 @tstSaveApply:
-		CPX	#$02
-		BNE	@tstSaveThis
-		
-		LDA	#<saveConfAppl0
-		STA	ptrOptsTemp
-		LDA	#>saveConfAppl0
-		STA	ptrOptsTemp + 1
-		
-		LDY	#optLineOffs
-		
-		JSR	dispCentreText
-		
-		LDA	#<saveConfAppl1
-		STA	ptrOptsTemp
-		LDA	#>saveConfAppl1
-		STA	ptrOptsTemp + 1
-		
-		LDY	#(optLineOffs + 2)
-		
-		JSR	dispCentreText
-		JMP	@exit
-		
+               CPX     #$02
+               BNE     @tstSaveThis
+               
+               LDA     #<saveConfAppl0
+               STA     ptrOptsTemp
+               LDA     #>saveConfAppl0
+               STA     ptrOptsTemp + 1
+               
+               LDY     #optLineOffs
+               
+               JSR     dispCentreText
+               
+               LDA     #<saveConfAppl1
+               STA     ptrOptsTemp
+               LDA     #>saveConfAppl1
+               STA     ptrOptsTemp + 1
+               
+               LDY     #(optLineOffs + 2)
+               
+               JSR     dispCentreText
+               JMP     @exit
+               
 @tstSaveThis:
-		CPX	#$04
-		BNE	@tstSaveSys
-		
-		LDA	#<saveConfSave0
-		STA	ptrOptsTemp
-		LDA	#>saveConfSave0
-		STA	ptrOptsTemp + 1
-		
-		LDY	#optLineOffs
-		
-		JSR	dispCentreText
-		
-		LDA	#<saveConfSess0
-		STA	ptrOptsTemp
-		LDA	#>saveConfSess0
-		STA	ptrOptsTemp + 1
-		
-		LDY	#(optLineOffs + 2)
-		
-		JSR	dispCentreText
-		JMP	@exit
-	
-@tstSaveSys:		
-		CPX	#$06
-		BNE	@invalid
+               CPX     #$04
+               BNE     @tstSaveSys
+               
+               LDA     #<saveConfSave0
+               STA     ptrOptsTemp
+               LDA     #>saveConfSave0
+               STA     ptrOptsTemp + 1
+               
+               LDY     #optLineOffs
+               
+               JSR     dispCentreText
+               
+               LDA     #<saveConfFactory0
+               STA     ptrOptsTemp
+               LDA     #>saveConfFactory0
+               STA     ptrOptsTemp + 1
+               
+               LDY     #(optLineOffs + 2)
+               
+               JSR     dispCentreText
+               JMP     @exit
+       
+@tstSaveSys:           
+               CPX     #$06
+               BNE     @invalid
 		
 		LDA	#<saveConfSave0
 		STA	ptrOptsTemp
@@ -3114,6 +3274,7 @@ updateSaveConfirm:
 		JSR	dispCentreText
 
 @exit:
+	
 		LDX	#$06
 		RTS
 		
@@ -3221,8 +3382,19 @@ doDisplayOpt:
 		
 @tstMACOpt:
 		CMP	#$50
+		BNE	@tstRTCOpt
+
+		lda #1
+		sta isRTCField
+		JSR	doDispMACOpt
+		RTS
+		
+@tstRTCOpt:
+		CMP	#$60
 		BNE	@unknownOpt
 		
+		lda #0
+		sta isRTCField
 		JSR	doDispMACOpt
 		RTS
 		
@@ -3503,8 +3675,15 @@ doDispMACOpt:
 		
 		CPY	#$11
 		BEQ     @skip
-		
+
+		lda 	isRTCField
+		bne 	@macColon
+		lda 	rtcSeparators,y
+		jmp 	@dispSeparator
+
+@macColon:
 		LDA	#':'
+@dispSeparator:
 		JSR     asciiToCharROM
 		ORA     #$80
 		STA	(ptrTempData), Y
@@ -3535,6 +3714,9 @@ doDispMACOpt:
 		CLC
 		RTS
 
+isRTCField:	.byte 0
+rtcSeparators:
+	.byte 0,0,':',0,0,'.',0,0,' ',0,0,'.',0,0,'.'
 
 ;-------------------------------------------------------------------------------
 convertValueToHex:
@@ -4021,6 +4203,8 @@ doHighlightSelected:
 		
 		CMP	#$50			;MAC type?
 		BEQ	@cont0			;
+		CMP	#$60			;RTC type?
+		BEQ	@cont0			;
 		
 		INY				;Skip past type, offset and 
 						;data
@@ -4414,10 +4598,11 @@ MIRQ:
 		BNE	@cont0
 		CMP	helpCntr
 		BNE	@cont0
-		
-		LDA	#$85
+
+	;; Update help message approximately every 2 seconds
+		LDA	#<120
 		STA	helpCntr
-		LDA	#$03
+		LDA	#>120
 		STA	helpCntr + 1
 		
 		LDA	currHelpTxt
@@ -4439,7 +4624,7 @@ MIRQ:
 		
 		INC	currHelpTxt
 		LDA	currHelpTxt
-		CMP	#$08
+		CMP	#$07
 		BNE	@cont0
 		
 		LDA	#$00
