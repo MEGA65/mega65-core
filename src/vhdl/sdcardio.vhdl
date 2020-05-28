@@ -1815,10 +1815,12 @@ begin  -- behavioural
                   f_stepdir <= '1';
 
                   f_selecta <= '1'; f_selectb <= '1';
-                  if f011_ds = "000" then              
-                    f_selecta <= '0'; 
-                  elsif f011_ds = "001" then              
-                    f_selectb <= '0';
+                  if f011_ds(2 downto 1) = "00" then
+                    if (f011_ds(0) xor f011_swap_drives) = '0' then              
+                      f_selecta <= '0';
+                    else
+                      f_selectb <= '0';
+                    end if;
                   end if;
                   
                   f_wgate <= '1';
@@ -1831,11 +1833,14 @@ begin  -- behavioural
                   f011_busy <= '1';
 
                   f_selecta <= '1'; f_selectb <= '1';
-                  if f011_ds = "000" then              
-                    f_selecta <= '0'; 
-                  elsif f011_ds = "001" then              
-                    f_selectb <= '0';
+                  if f011_ds(2 downto 1) = "00" then
+                    if (f011_ds(0) xor f011_swap_drives) = '0' then              
+                      f_selecta <= '0';
+                    else
+                      f_selectb <= '0';
+                    end if;
                   end if;
+
                                     
                   busy_countdown(15 downto 8) <= (others => '0');
                   busy_countdown(7 downto 0) <= f011_reg_step; 
@@ -1844,11 +1849,14 @@ begin  -- behavioural
                   f_stepdir <= '0';
 
                   f_selecta <= '1'; f_selectb <= '1';
-                  if f011_ds = "000" then              
-                    f_selecta <= '0'; 
-                  elsif f011_ds = "001" then              
-                    f_selectb <= '0';
+                  if f011_ds(2 downto 1) = "00" then
+                    if (f011_ds(0) xor f011_swap_drives) = '0' then              
+                      f_selecta <= '0';
+                    else
+                      f_selectb <= '0';
+                    end if;
                   end if;
+
                                     
                   f_wgate <= '1';
                   f011_head_track <= f011_head_track + 1;
