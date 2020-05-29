@@ -34,6 +34,8 @@ begin
   begin
     if rising_edge(clock40mhz) then
       -- Calculate thresholds for 1.0, 1.5 and 2.0 interval gaps
+      -- NOTE: The cycles per interval is effectively double the supplied value,
+      -- so $D6A2 needs to be set to 1/2 the expected value
       threshold_10_low <= to_unsigned(to_integer(cycles_per_interval(7 downto 0)),16);  -- 0.5 intervals
       threshold_10_high <= to_unsigned(to_integer(cycles_per_interval&'0') + to_integer(cycles_per_interval(7 downto 1)),16);
       threshold_15_high <= to_unsigned(to_integer(cycles_per_interval(7 downto 0)&"00") - to_integer(cycles_per_interval(7 downto 1)),16);
