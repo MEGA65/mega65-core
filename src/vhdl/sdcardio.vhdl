@@ -487,6 +487,8 @@ architecture behavioural of sdcardio is
   signal flash_boot_address : unsigned(31 downto 0) := x"FFFFFFFF";
 
   signal icape2_reg : unsigned(4 downto 0) := "10110";
+
+  signal latched_disk_change_event : std_logic := '0';
   
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
@@ -957,7 +959,8 @@ begin  -- behavioural
             fastio_rdata(5) <= f_writeprotect;
             fastio_rdata(4) <= f_rdata;
             fastio_rdata(3) <= f_diskchanged;
-            fastio_rdata(2 downto 0) <= (others => '1');
+            fastio_rdata(2) <= latched_disk_change_event;
+            fastio_rdata(1 downto 0) <= (others => '1');
           when x"a1" =>
             -- @IO:GS $D6A1.0 F011:DRV0EN Use real floppy drive instead of SD card for 1st floppy drive
             fastio_rdata(0) <= use_real_floppy0;
@@ -1463,13 +1466,14 @@ begin  -- behavioural
         -- When using the real drive, use correct index and track 0 sensors
         f011_track0 <= not f_track0;
         f011_over_index <= not f_index;
-        f011_disk_changed <= not f_diskchanged;
+        f011_disk_changed <= (not f_diskchanged) or latched_disk_change_event;
       elsif use_real_floppy2='1' and f011_ds="001" then
         -- When using the real drive, use correct index and track 0 sensors
         f011_track0 <= not f_track0;
         f011_over_index <= not f_index;
-        f011_disk_changed <= not f_diskchanged;
+        f011_disk_changed <= (not f_diskchanged) or latched_disk_change_event;
       else
+        f011_disk_changed <= latched_disk_change_event;
         if f011_head_track="0000000" then
           f011_track0 <= '1';
         else
@@ -1565,7 +1569,7 @@ begin  -- behavioural
               --        output will go true (low).
               f011_irqenable <= fastio_wdata(7);
               f011_led <= fastio_wdata(6);
-              drive_led <= fastio_wdata(6);
+              drive_led a<= fastio_wdata(6);
               f011_motor <= fastio_wdata(5);
               motor <= fastio_wdata(5);
 
@@ -1580,6 +1584,10 @@ begin  -- behavioural
                 end if;
               end if;
               
+              -- De-selecting drive cancelled disk change event
+              if fastio_wdata(5)='0' then
+                latched_disk_change_event <= '0';
+              end if;
               f_side1 <= not fastio_wdata(3);
               
               f011_swap <= fastio_wdata(4);
@@ -2239,6 +2247,8 @@ begin  -- behavioural
                 use_real_floppy2 <= fastio_wdata(2);
               end if;
               target_any <= fastio_wdata(1);
+              -- Setting flag to use real floppy or not causes disk change event
+              latched_disk_change_event <= '1';
             when x"a2" =>
               cycles_per_interval <= fastio_wdata;
               -- @IO:GS $D6F3 - Accelerometer bit-bashing port
