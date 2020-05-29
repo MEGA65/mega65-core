@@ -386,6 +386,12 @@ architecture behavioural of sdcardio is
 
   signal fdc_bytes_read : unsigned(15 downto 0) := x"0000";
   signal sd_wrote_byte : std_logic := '0';
+
+  signal autotune_enable : std_logic := '1';
+  signal autotune_step : std_logic := '1';
+  signal last_autotune_step : std_logic := '1';
+  signal autotune_stepdir : std_logic := '1';
+  
   
   signal packed_rdata : std_logic_vector(7 downto 0);
 
@@ -657,6 +663,9 @@ begin  -- behavioural
     mfm_last_gap => fdc_last_gap,
     mfm_last_byte => fdc_mfm_byte,
     mfm_quantised_gap => fdc_quantised_gap,
+
+    autotune_step => autotune_step,
+    autotune_stepdir => autotune_stepdir,
     
     target_track => target_track,
     target_sector => target_sector,
@@ -942,7 +951,8 @@ begin  -- behavioural
             fastio_rdata(4) <= f_rdata;
             fastio_rdata(3) <= f_diskchanged;
             fastio_rdata(2) <= latched_disk_change_event;
-            fastio_rdata(1 downto 0) <= (others => '1');
+            fastio_rdata(1) <= autotune_step;
+            fastio_rdata(0) <= autotune_stepdir;
           when x"a1" =>
             -- @IO:GS $D6A1.0 F011:DRV0EN Use real floppy drive instead of SD card for 1st floppy drive
             fastio_rdata(0) <= use_real_floppy0;
@@ -1249,6 +1259,22 @@ begin  -- behavioural
     
     if rising_edge(clock) then    
 
+      -- If MFM decoder thinks we are on the wrong track, and the
+      -- auto-tuner is enabled, then step in the right direction.
+      -- The timing of the steps is based on how often a sector goes past the head.
+      -- 10 sectors per track x 360 rpm = 60 sectors per second = ~16msec per
+      -- sector. This is more than slow enough for safe stepping, we don't need
+      -- to do any other timing interlock
+      if autotune_enable = '1' then
+        if autotune_step='1' and last_autotune_step='0' then
+          f_step <= '0';
+          f_stepdir <= autotune_stepdir;
+        elsif autotune_step='0' and last_autotune_step='1' then
+          f_step <= '1';
+        end if;
+      end if;
+      last_autotune_step <= autotune_step;
+      
       -- XXX DEBUG toggle QSPI clock madly
       if qspi_clock_run = '1' and hypervisor_mode='1' then
         qspi_clock <= not qspi_clock_int;
@@ -1551,7 +1577,7 @@ begin  -- behavioural
               --        output will go true (low).
               f011_irqenable <= fastio_wdata(7);
               f011_led <= fastio_wdata(6);
-              drive_led a<= fastio_wdata(6);
+              drive_led <= fastio_wdata(6);
               f011_motor <= fastio_wdata(5);
               motor <= fastio_wdata(5);
 
@@ -1811,7 +1837,13 @@ begin  -- behavioural
                 when x"20" =>         -- wait for motor spin up time (1sec)
                   f011_busy <= '1';
                   f011_rnf <= '1';    -- Set according to the specifications
-                  busy_countdown <= to_unsigned(16000,16); -- 1 sec spin up time
+                  busy_countdown <= to_unsigned(16000,16); -- 1 sec spin up time                  
+                when x"41" =>
+                  -- Enable auto-stepping if we are on the wrong track
+                  autotune_enable <= '1';
+                when x"4D" =>
+                  -- Disable auto-stepping if we are on the wrong track
+                  autotune_enable <= '0';
                 when x"00" =>         -- cancel running command (not implemented)
                   f_wgate <= '1';
                   report "Clearing fdc_read_request due to $00 command";
