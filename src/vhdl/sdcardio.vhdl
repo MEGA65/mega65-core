@@ -1903,12 +1903,6 @@ begin  -- behavioural
                   f011_busy <= '1';
                   f011_rnf <= '1';    -- Set according to the specifications
                   busy_countdown <= to_unsigned(16000,16); -- 1 sec spin up time                  
-                when x"41" =>
-                  -- Enable auto-stepping if we are on the wrong track
-                  autotune_enable <= '1';
-                when x"4D" =>
-                  -- Disable auto-stepping if we are on the wrong track
-                  autotune_enable <= '0';
                 when x"00" =>         -- cancel running command (not implemented)
                   f_wgate <= '1';
                   report "Clearing fdc_read_request due to $00 command";
