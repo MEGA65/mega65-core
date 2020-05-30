@@ -269,9 +269,9 @@ begin
             else
               autotune_step <= '1';
               if to_integer(target_track) > to_integer(seen_track) then
-                autotune_stepdir <= '1';
-              else
                 autotune_stepdir <= '0';
+              else
+                autotune_stepdir <= '1';
               end if;
             end if;
             if to_integer(target_sector) = to_integer(seen_sector) then
