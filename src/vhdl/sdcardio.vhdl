@@ -1840,12 +1840,6 @@ begin  -- behavioural
                   f011_busy <= '1';
                   f011_rnf <= '1';    -- Set according to the specifications
                   busy_countdown <= to_unsigned(16000,16); -- 1 sec spin up time                  
-                when x"41" =>
-                  -- Enable auto-stepping if we are on the wrong track
-                  autotune_enable <= '1';
-                when x"4D" =>
-                  -- Disable auto-stepping if we are on the wrong track
-                  autotune_enable <= '0';
                 when x"00" =>         -- cancel running command (not implemented)
                   f_wgate <= '1';
                   report "Clearing fdc_read_request due to $00 command";
@@ -2121,6 +2115,7 @@ begin  -- behavioural
                           -- @ IO:GS $D689.2 Set/read SD card sd_handshake signal
                           sd_handshake <= fastio_wdata(2);
                           sd_handshake_internal <= fastio_wdata(2);
+                          autotune_enable <= fastio_wdata(4);
 
                           -- ================================================================== END
                           -- the section above was for the SDcard
