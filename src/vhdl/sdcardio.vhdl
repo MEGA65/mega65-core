@@ -892,14 +892,16 @@ begin  -- behavioural
           -- @IO:GS $D689.0 - High bit of F011 buffer pointer (disk side) (read only)
           -- @IO:GS $D689.1 - Sector read from SD/F011/FDC, but not yet read by CPU (i.e., EQ and DRQ)
           -- @IO:GS $D689.3 - (read only) sd_data_ready signal.
+          -- @IO:GS $D689.4 - (read only) FDC autotune_enable signal
           -- @IO:GS $D689.7 - Memory mapped sector buffer select: 1=SD-Card, 0=F011/FDC
           when x"89" =>
             fastio_rdata(0) <= f011_buffer_disk_address(8);
             fastio_rdata(1) <= f011_flag_eq and f011_drq;
-            fastio_rdata(6 downto 2) <= (others => '0');
             fastio_rdata(2) <= sd_handshake;
             fastio_rdata(3) <= sd_data_ready;
+            fastio_rdata(4) <= autotune_enable;
             fastio_rdata(7) <= f011sd_buffer_select;
+            fastio_rdata(6 downto 5) <= (others => '0');
           when x"8a" =>
             -- @IO:GS $D68A - DEBUG check signals that can inhibit sector buffer mapping
             fastio_rdata(0) <= colourram_at_dc00;
