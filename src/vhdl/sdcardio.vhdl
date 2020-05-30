@@ -908,14 +908,14 @@ begin  -- behavioural
           -- @IO:GS $D689.2 - (read only, debug) sd_handshake signal.
           -- @IO:GS $D689.3 - (read only, debug) sd_data_ready signal.
           -- @IO:GS $D689.4 - F011 swap drive 0 / 1 
-          -- @IO:GS $D689.4 - (read only) FDC autotune_enable signal
+          -- @IO:GS $D689.4 - Disable FDC automatic track seeking (auto-tune)
           -- @IO:GS $D689.7 - Memory mapped sector buffer select: 1=SD-Card, 0=F011/FDC
           when x"89" =>
             fastio_rdata(0) <= f011_buffer_disk_address(8);
             fastio_rdata(1) <= f011_flag_eq and f011_drq;
             fastio_rdata(2) <= sd_handshake;
             fastio_rdata(3) <= sd_data_ready;
-            fastio_rdata(4) <= autotune_enable;
+            fastio_rdata(4) <= not autotune_enable;
             fastio_rdata(5) <= virtualise_f011_drive0;
             fastio_rdata(6) <= virtualise_f011_drive1;
             fastio_rdata(7) <= f011sd_buffer_select;
