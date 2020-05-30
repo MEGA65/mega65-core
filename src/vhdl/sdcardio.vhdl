@@ -892,14 +892,14 @@ begin  -- behavioural
           -- @IO:GS $D689.0 - High bit of F011 buffer pointer (disk side) (read only)
           -- @IO:GS $D689.1 - Sector read from SD/F011/FDC, but not yet read by CPU (i.e., EQ and DRQ)
           -- @IO:GS $D689.3 - (read only) sd_data_ready signal.
-          -- @IO:GS $D689.4 - (read only) FDC autotune_enable signal
+          -- @IO:GS $D689.4 - Disable FDC automatic track seeking (auto-tune)
           -- @IO:GS $D689.7 - Memory mapped sector buffer select: 1=SD-Card, 0=F011/FDC
           when x"89" =>
             fastio_rdata(0) <= f011_buffer_disk_address(8);
             fastio_rdata(1) <= f011_flag_eq and f011_drq;
             fastio_rdata(2) <= sd_handshake;
             fastio_rdata(3) <= sd_data_ready;
-            fastio_rdata(4) <= autotune_enable;
+            fastio_rdata(4) <= not autotune_enable;
             fastio_rdata(7) <= f011sd_buffer_select;
             fastio_rdata(6 downto 5) <= (others => '0');
           when x"8a" =>
@@ -2115,7 +2115,7 @@ begin  -- behavioural
                           -- @ IO:GS $D689.2 Set/read SD card sd_handshake signal
                           sd_handshake <= fastio_wdata(2);
                           sd_handshake_internal <= fastio_wdata(2);
-                          autotune_enable <= fastio_wdata(4);
+                          autotune_enable <= not fastio_wdata(4);
 
                           -- ================================================================== END
                           -- the section above was for the SDcard
