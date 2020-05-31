@@ -170,6 +170,15 @@ task_asblankslate:
 
 //         ========================
 
+unstable_illegal_opcode_trap:
+kill_opcode_trap:
+	// For now, just launch the freezer if an illegal opcode is hit that
+	// we can't work with.
+	// (Ideally later we will allow some clever tricks with at least the KIL
+	// opcodes, e.g., to call the hypervisor from C64 mode)
+
+	// FALL THROUGH
+	
 restore_press_trap:
 
         // Clear colour RAM at $DC00 flag, as it causes no end of trouble

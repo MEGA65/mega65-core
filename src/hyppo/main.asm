@@ -325,9 +325,9 @@ trap_entry_points:
         jmp f011_virtual_write                  // Trap #$45 (virtualised F011 sector write)
         nop
 
-        jmp nosuchtrap                          // common-trap (catch all)
-        nop                                     // refer: below in this file
-        jmp nosuchtrap
+        jmp unstable_illegal_opcode_trap        // Trap #$46 (6502 unstable illegal opcode)
+        nop                                     
+        jmp kill_opcode_trap                    // Trap #$47 (6502 KIL instruction)
         nop
         jmp nosuchtrap
         nop

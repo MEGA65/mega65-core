@@ -4839,12 +4839,12 @@ begin
                   when I_LAS => null;
                   when I_XAA | I_AHX | I_SHX | I_SHY | I_TAS => 
                     state <= TrapToHypervisor;
-                    -- Trap $7E = 6502 Unstable illegal instruction encountered
-                    hypervisor_trap_port <= "1111110";                     
+                    -- Trap $46 = 6502 Unstable illegal instruction encountered
+                    hypervisor_trap_port <= "1000110";                     
                   when I_KIL =>
                     state <= TrapToHypervisor;
-                    -- Trap $7F = 6502 KIL instruction encountered
-                    hypervisor_trap_port <= "1111111";                     
+                    -- Trap $47 = 6502 KIL instruction encountered
+                    hypervisor_trap_port <= "1000111";                     
                   -- Nothing special for other instructions
                   when others => null;
                 end case;
