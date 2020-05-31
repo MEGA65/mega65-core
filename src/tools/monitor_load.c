@@ -44,6 +44,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #include <sys/time.h>
 #include <errno.h>
 #include <getopt.h>
+#include <inttypes.h>
 #include <pthread.h>
 
 #ifdef APPLE
@@ -72,21 +73,24 @@ int fpgajtag_main(char *bitstream,char *serialport);
 void init_fpgajtag(const char *serialno, const char *filename, uint32_t file_idcode);
 int xilinx_boundaryscan(char *xdc,char *bsdl,char *sensitivity);
 void set_vcd_file(char *name);
+void do_exit(int retval);
 
 void usage(void)
 {
   fprintf(stderr,"MEGA65 cross-development tool for booting the MEGA65 using a custom bitstream and/or HICKUP file.\n");
-  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <hickup file>] [-R romfile] [-C charromfile]] [-c COLOURRAM.BIN] [-B breakpoint] [-m modeline] [-o] [-d diskimage.d81] [-j] [-J <XDC,BSDL[,sensitivity list]> [-V <vcd file>]] [[-1] [<-t|-T> <text>] [-f FPGA serial ID] [filename]] [-H] [-E|-L]\n");
+  fprintf(stderr,"usage: monitor_load [-l <serial port>] [-s <230400|2000000|4000000>]  [-b <FPGA bitstream>] [[-k <hickup file>] [-R romfile] [-U flashmenufile] [-C charromfile]] [-c COLOURRAM.BIN] [-B breakpoint] [-m modeline] [-o] [-d diskimage.d81] [-j] [-J <XDC,BSDL[,sensitivity list]> [-V <vcd file>]] [[-1] [<-t|-T> <text>] [-f FPGA serial ID] [filename]] [-H] [-E|-L] [-Z <flash addr>]\n");
   fprintf(stderr,"  -l - Name of serial port to use, e.g., /dev/ttyUSB1\n");
   fprintf(stderr,"  -s - Speed of serial port in bits per second. This must match what your bitstream uses.\n");
   fprintf(stderr,"       (Older bitstream use 230400, and newer ones 2000000 or 4000000).\n");
   fprintf(stderr,"  -b - Name of bitstream file to load.\n");
+  fprintf(stderr,"  -k - Name of hickup file to forcibly use instead of the HYPPO in the bitstream.\n");
+  fprintf(stderr,"       NOTE: You can use bitstream and/or HYPPO from the Jenkins server by using @issue/tag/hardware\n"
+  	         "             for the bitstream, and @issue/tag for HYPPO.\n");
   fprintf(stderr,"  -J - Do JTAG boundary scan of attached FPGA, using the provided XDC and BSDL files.\n");
   fprintf(stderr,"       A sensitivity list can also be provided, to restrict the set of signals monitored.\n");
   fprintf(stderr,"       This will likely be required when producing VCD files, as they can only log ~80 signals.\n");
   fprintf(stderr,"  -j   Do JTAG operation(s), and nothing else.\n");
   fprintf(stderr,"  -V - Write JTAG change log to VCD file, instead of to stdout.\n");
-  fprintf(stderr,"  -k - Name of hickup file to forcibly use instead of the hyppo in the bitstream.\n");
   fprintf(stderr,"  -R - ROM file to preload at $20000-$3FFFF.\n");
   fprintf(stderr,"  -U - Flash menu file to preload at $50000-$57FFF.\n");
   fprintf(stderr,"  -C - Character ROM file to preload.\n");
@@ -107,6 +111,7 @@ void usage(void)
   fprintf(stderr,"  -E - Enable streaming of video via ethernet.\n");
   fprintf(stderr,"  -L - Enable streaming of CPU instruction log via ethernet.\n");
   fprintf(stderr,"  -f - Specify which FPGA to reconfigure when calling fpgajtag\n");
+  fprintf(stderr,"  -S - Show the text-mode screen\n");
   fprintf(stderr,"  -Z - Zap (reconfigure) FPGA from specified hex address in flash.\n");
   fprintf(stderr,"  filename - Load and run this file in C64 mode before exiting.\n");
   fprintf(stderr,"\n");
@@ -123,6 +128,9 @@ int boundary_scan=0;
 char boundary_xdc[1024]="";
 char boundary_bsdl[1024]="";
 char jtag_sensitivity[1024]="";
+
+int hyppo_report=0;
+unsigned char hyppo_buffer[1024];
 
 int counter  =0;
 int fd=-1;
@@ -151,10 +159,21 @@ int serial_speed=2000000;
 char modeline_cmd[1024]="";
 int break_point=-1;
 int jtag_only=0;
+uint32_t zap_addr;
+int zap=0;
 
 int saw_c64_mode=0;
 int saw_c65_mode=0;
 int hypervisor_paused=0;
+
+int screen_shot=0;
+int screen_rows_remaining=0;
+int screen_address=0;
+int next_screen_address=0;
+int screen_line_offset=0;
+int screen_line_step=0;
+int screen_width=0;
+unsigned char screen_line_buffer[256];
 
 char *type_text=NULL;
 int type_text_cr=0;
@@ -207,7 +226,10 @@ int slow_write_safe(int fd,char *d,int l)
   // monitor tells us when a breakpoint has been reached.
   slow_write(fd,"t1\r",3);
   slow_write(fd,d,l);
-  if (!cpu_stopped) slow_write(fd,"t0\r",3);
+  if (!cpu_stopped) {
+    //    printf("Resuming CPU after writing string\n");
+    slow_write(fd,"t0\r",3);
+  }
   return 0;
 }
 
@@ -350,6 +372,7 @@ int restart_hyppo(void)
 {
   // Start executing in new hyppo
   if (!halt) {
+    printf("Re-Starting CPU in new HYPPO\n");
     usleep(50000);
     slow_write(fd,"g8100\r",6);
     usleep(10000);
@@ -501,10 +524,202 @@ int virtual_f011_read(int device,int track,int sector,int side)
   return 0;
 }
 
+typedef struct {
+	char mask;    /* char data will be bitwise AND with this */
+	char lead;    /* start bytes of current char in utf-8 encoded character */
+	uint32_t beg; /* beginning of codepoint range */
+	uint32_t end; /* end of codepoint range */
+	int bits_stored; /* the number of bits from the codepoint that fits in char */
+}utf_t;
+ 
+utf_t * utf[] = {
+	/*             mask        lead        beg      end       bits */
+	[0] = &(utf_t){0b00111111, 0b10000000, 0,       0,        6    },
+	[1] = &(utf_t){0b01111111, 0b00000000, 0000,    0177,     7    },
+	[2] = &(utf_t){0b00011111, 0b11000000, 0200,    03777,    5    },
+	[3] = &(utf_t){0b00001111, 0b11100000, 04000,   0177777,  4    },
+	[4] = &(utf_t){0b00000111, 0b11110000, 0200000, 04177777, 3    },
+	      &(utf_t){0},
+};
+
+// UTF-8 from https://rosettacode.org/wiki/UTF-8_encode_and_decode#C
+
+/* All lengths are in bytes */
+int codepoint_len(const uint32_t cp); /* len of associated utf-8 char */
+int utf8_len(const char ch);          /* len of utf-8 encoded char */
+ 
+char *to_utf8(const uint32_t cp);
+uint32_t to_cp(const char chr[4]);
+ 
+int codepoint_len(const uint32_t cp)
+{
+	int len = 0;
+	for(utf_t **u = utf; *u; ++u) {
+		if((cp >= (*u)->beg) && (cp <= (*u)->end)) {
+			break;
+		}
+		++len;
+	}
+	if(len > 4) /* Out of bounds */
+		exit(1);
+ 
+	return len;
+}
+ 
+int utf8_len(const char ch)
+{
+	int len = 0;
+	for(utf_t **u = utf; *u; ++u) {
+		if((ch & ~(*u)->mask) == (*u)->lead) {
+			break;
+		}
+		++len;
+	}
+	if(len > 4) { /* Malformed leading byte */
+		exit(1);
+	}
+	return len;
+}
+ 
+char *to_utf8(const uint32_t cp)
+{
+	static char ret[5];
+	const int bytes = codepoint_len(cp);
+ 
+	int shift = utf[0]->bits_stored * (bytes - 1);
+	ret[0] = (cp >> shift & utf[bytes]->mask) | utf[bytes]->lead;
+	shift -= utf[0]->bits_stored;
+	for(int i = 1; i < bytes; ++i) {
+		ret[i] = (cp >> shift & utf[0]->mask) | utf[0]->lead;
+		shift -= utf[0]->bits_stored;
+	}
+	ret[bytes] = '\0';
+	return ret;
+}
+
+void print_screencode(unsigned char c)
+{
+  int rev=0;
+  if (c&0x80) {
+    rev=1; c&=0x7f;
+    // Now swap foreground/background
+    printf("%c[7m",27);
+  }
+  if (c>='0'&&c<='9') printf("%c",c);
+  else if (c>=0x00&&c<=0x1f) printf("%c",c+0x40);
+  else if (c>=0x20&&c<=0x3f) printf("%c",c);
+  else if (c==0x60) printf("%s",to_utf8(0xA0));
+  else if (c==0x61) printf("%s",to_utf8(0x258c));
+  else if (c==0x62) printf("%s",to_utf8(0x2584));
+  else if (c==0x63) printf("%s",to_utf8(0x2594));
+  else if (c==0x64) printf("%s",to_utf8(0x2581));
+  else if (c==0x65) printf("%s",to_utf8(0x258e));
+  else if (c==0x66) printf("%s",to_utf8(0x2592));
+  else if (c==0x67) printf("%s",to_utf8(0x258a));
+  else if (c==0x68) printf("%s",to_utf8(0x7f));     // No Unicode equivalent
+  else if (c==0x69) printf("%s",to_utf8(0x25e4));
+  else if (c==0x6A) printf("%s",to_utf8(0x258a));
+  else if (c==0x6B) printf("%s",to_utf8(0x2523));
+  else if (c==0x6C) printf("%s",to_utf8(0x2597));
+  else if (c==0x6D) printf("%s",to_utf8(0x2517));
+  else if (c==0x6E) printf("%s",to_utf8(0x2513));
+  else if (c==0x6F) printf("%s",to_utf8(0x2582));
+
+  else if (c==0x60) printf("%s",to_utf8(0xA0));
+  else if (c==0x60) printf("%s",to_utf8(0xA0));
+  else if (c==0x60) printf("%s",to_utf8(0xA0));
+  else if (c==0x60) printf("%s",to_utf8(0xA0));
+  else if (c==0x60) printf("%s",to_utf8(0xA0));
+  else if (c==0x60) printf("%s",to_utf8(0xA0));
+  else if (c==0x60) printf("%s",to_utf8(0xA0));
+  else if (c==0x60) printf("%s",to_utf8(0xA0));
+  else if (c==0x60) printf("%s",to_utf8(0xA0));
+  else if (c==0x60) printf("%s",to_utf8(0xA0));
+  else if (c==0x60) printf("%s",to_utf8(0xA0));
+  else if (c==0x60) printf("%s",to_utf8(0xA0));
+  else if (c==0x60) printf("%s",to_utf8(0xA0));
+  else if (c==0x60) printf("%s",to_utf8(0xA0));
+  else if (c==0x60) printf("%s",to_utf8(0xA0));
+  else if (c==0x60) printf("%s",to_utf8(0xA0));
+
+  else printf("?");
+
+  if (rev) {
+    // Reverse off again
+    printf("%c[0m",27);
+  }
+}
+
+void show_hyppo_report(void)
+{
+  printf("HYPPO status:\n");
+  // Buffer starats at $BC00 in HYPPO
+  // $BC00 - $BCFF = DOS work area
+  // $BD00 - $BDFF = Process Descriptor
+  // $BE00 - $BEFF = Stack
+  // $BF00 - $BFFF = ZP
+
+  printf("Disk count = $%02x\n",hyppo_buffer[0x001]);
+  printf("Default Disk = $%02x\n",hyppo_buffer[0x002]);
+  printf("Current Disk = $%02x\n",hyppo_buffer[0x003]);
+  printf("Disk Table offset = $%02x\n",hyppo_buffer[0x004]);
+  printf("Cluster of current directory = $%02x%02x%02x%02x\n",
+	 hyppo_buffer[0x008],hyppo_buffer[0x007],hyppo_buffer[0x006],hyppo_buffer[0x005]);
+  printf("opendir_cluster = $%02x%02x%02x%02x\n",
+	 hyppo_buffer[0x00c],hyppo_buffer[0x00b],hyppo_buffer[0x00a],hyppo_buffer[0x009]);
+  printf("opendir_sector = $%02x\n",hyppo_buffer[0x00d]);
+  printf("opendir_entry = $%02x\n",hyppo_buffer[0x00e]);
+
+  // Dirent struct follows:
+  // 64 bytes for file name
+  printf("dirent structure:\n");
+  printf("  Filename = '%s'\n",&hyppo_buffer[0x00f]);
+  printf("  Filename len = $%02x\n",hyppo_buffer[0x04f]);
+  printf("  Short name = '%s'\n",&hyppo_buffer[0x050]);
+  printf("  Start cluster = $%02x%02x%02x%02x\n",
+	 hyppo_buffer[0x060],hyppo_buffer[0x05f],hyppo_buffer[0x05e],hyppo_buffer[0x05d]);
+  printf("  File length = $%02x%02x%02x%02x\n",
+	 hyppo_buffer[0x064],hyppo_buffer[0x063],hyppo_buffer[0x062],hyppo_buffer[0x061]);
+  printf("  ATTRIB byte = $%02x\n",hyppo_buffer[0x065]);
+  printf("Requested filename len = $%02x\n",hyppo_buffer[0x66]);
+  printf("Requested filename = '%s'\n",&hyppo_buffer[0x67]);
+  printf("sectorsread = $%02x%02x\n",
+	 hyppo_buffer[0xaa],hyppo_buffer[0xa9]);
+  printf("bytes_remaining = $%02x%02x%02x%02x\n",
+	 hyppo_buffer[0xae],hyppo_buffer[0x0ad],hyppo_buffer[0xac],hyppo_buffer[0xab]);
+  printf("current sector = $%02x%02x%02x%02x, ",
+	 hyppo_buffer[0xb2],hyppo_buffer[0x0b1],hyppo_buffer[0xb0],hyppo_buffer[0xaf]);
+  printf("current cluster = $%02x%02x%02x%02x\n",
+	 hyppo_buffer[0xb6],hyppo_buffer[0x0b5],hyppo_buffer[0xb4],hyppo_buffer[0xb3]);
+  printf("current sector in cluster = $%02x\n",hyppo_buffer[0xb7]);
+
+  for(int fd=0;fd<4;fd++) {
+    int fd_o=0xb8+fd*0x10;
+    printf("File descriptor #%d:\n",fd);
+    printf("  disk ID = $%02x, ",hyppo_buffer[fd_o+0]);
+    printf("  mode = $%02x\n",hyppo_buffer[fd_o+1]);
+    printf("  start cluster = $%02x%02x%02x%02x, ",
+	   hyppo_buffer[fd_o+5],hyppo_buffer[fd_o+4],hyppo_buffer[fd_o+3],hyppo_buffer[fd_o+2]);
+    printf("  current cluster = $%02x%02x%02x%02x\n",
+	   hyppo_buffer[fd_o+9],hyppo_buffer[fd_o+8],hyppo_buffer[fd_o+7],hyppo_buffer[fd_o+6]);
+    printf("  sector in cluster = $%02x, ",hyppo_buffer[fd_o+10]);
+    printf("  offset in sector = $%02x%02x\n",hyppo_buffer[fd_o+12],hyppo_buffer[fd_o+11]);
+    //    printf("  file offset = $%02x%02x (x 256 bytes? not used?)\n",
+    //	   hyppo_buffer[fd_o+14],hyppo_buffer[fd_o+13]);
+  }
+
+  printf("Current file descriptor # = $%02x\n",hyppo_buffer[0xf4]);
+  printf("Current file descriptor offset = $%02x\n",hyppo_buffer[0xf5]);
+  printf("Dos error code = $%02x\n",hyppo_buffer[0xf6]);
+  printf("SYSPART error code = $%02x\n",hyppo_buffer[0xf7]);
+  printf("SYSPART present = $%02x\n",hyppo_buffer[0xf8]);
+
+}
+
 int process_line(char *line,int live)
 {
   int pc,a,x,y,sp,p;
-  //printf("[%s]\n",line);
+  //  printf("[%s]\n",line);
   if (!live) return 0;
   if (strstr(line,"ws h RECA8LHC")) {
      if (!new_monitor) printf("Detected new-style UART monitor.\n");
@@ -512,13 +727,13 @@ int process_line(char *line,int live)
   }
   if (sscanf(line,"%04x %02x %02x %02x %02x %02x",
 	     &pc,&a,&x,&y,&sp,&p)==6) {
-    //    printf("PC=$%04x\n",pc);
+    printf("PC=$%04x\n",pc);
     if (pc==0xf4a5||pc==0xf4a2||pc==0xf666) {
       // Intercepted LOAD command
       printf("LOAD vector intercepted\n");
       state=1;
-    } else if (pc>=0x8000&&pc<0xc000
-	       &&(hyppo)) {
+    } else if ( //  (pc>=0x8000&&pc<0xc000)&&
+	       (hyppo)) {
       int patchKS=0;
       if (romfile&&(!flashmenufile)) patchKS=1;
       fprintf(stderr,"[T+%lldsec] Replacing %shyppo...\n",
@@ -531,7 +746,7 @@ int process_line(char *line,int live)
       if (charromfile) load_file(charromfile,0xFF7E000,0);
       if (colourramfile) load_file(colourramfile,0xFF80000,0);
       if (virtual_f011) {
-	char cmd[64];
+	char cmd[1024];
 	fprintf(stderr,"[T+%lldsec] Virtualising F011 FDC access.\n",
 		(long long)time(0)-start_time);
 	// Enable FDC virtualisation
@@ -626,14 +841,14 @@ int process_line(char *line,int live)
 		  // control sequences
 		  switch (type_text[i+1])
 		    {
-		    case 'C': c1=0x3f; break;
-		    case 'D': c1=0x07; break;
-		    case 'U': c1=0x07; c2=0x0f; break;
-		    case 'L': c1=0x02; break;
-		    case 'H': c1=0x33; break;
-		    case 'R': c1=0x02; c2=0x0f; break;
-		    case 'M': c1=0x01; break;
-		    case 'T': c1=0x00; break;
+		    case 'C': c1=0x3f; break;              // RUN/STOP
+		    case 'D': c1=0x07; break;              // down
+		    case 'U': c1=0x07; c2=0x0f; break;     // up
+		    case 'L': c1=0x02; break;              // left
+		    case 'H': c1=0x33; break;              // HOME
+		    case 'R': c1=0x02; c2=0x0f; break;     // right
+		    case 'M': c1=0x01; break;              // RETURN 
+		    case 'T': c1=0x00; break;              // INST/DEL
 		    case '1': c1=0x04; break; // F1
 		    case '3': c1=0x05; break; // F3
 		    case '5': c1=0x06; break; // F5
@@ -773,7 +988,14 @@ int process_line(char *line,int live)
 	       &b[12],&b[13],&b[14],&b[15])==17) gotIt=1;
     if (gotIt) {
       char fname[17];
-      printf("Read memory @ $%04x\n",addr);
+      //      if (!screen_shot) printf("Read memory @ $%04x\n",addr);
+      if (addr>=0xfffbc00&&addr<0xfffc000) {
+	for(int i=0;i<16;i++) hyppo_buffer[addr-0xfffbc00+i]=b[i];
+	if (addr==0xfffbff0) {
+	  show_hyppo_report();
+	  exit(0);
+	}
+      }
       if (addr==name_addr) {
 	for(int i=0;i<16;i++) { fname[i]=b[i]; } fname[16]=0;
 	fname[name_len]=0;
@@ -981,7 +1203,11 @@ int process_line(char *line,int live)
         if (do_run) {
           // C65 mode stuff keyboard buffer
 	  printf("XXX - Do C65 keyboard buffer stuffing\n");
-	  
+	} else if (screen_shot) {
+	  if (!screen_address) {
+	    printf("Waiting to capture screen...\n");
+	    slow_write_safe(fd,"mffd3058\r",9);
+	  }
         } else {
   	  fprintf(stderr,"Exiting now that we are in C65 mode.\n");
 	  do_exit(0);
@@ -1008,8 +1234,9 @@ int process_line(char *line,int live)
     } else {
       if (!saw_c64_mode) fprintf(stderr,"MEGA65 is in C64 mode.\n");
       saw_c64_mode=1;
-      if (!virtual_f011)
+      if( (!virtual_f011)&&(!screen_shot))
 	do_exit(0);
+      if (screen_shot) slow_write_safe(fd,"mffd3058\r",9);
     }
   }  
   if (state==2)
@@ -1021,7 +1248,7 @@ int process_line(char *line,int live)
 	fprintf(stderr,"Could not find file '%s'\n",filename);
 	exit(-1);
       } else {
-	char cmd[64];
+	char cmd[1024];
 	int load_addr=fgetc(f);
 	load_addr|=fgetc(f)<<8;
 	if (!comma_eight_comma_one) {
@@ -1087,7 +1314,7 @@ int process_line(char *line,int live)
 	}
 
 	if (do_run) {
-	  stuff_keybuffer("RUN\r");
+	  stuff_keybuffer("RUN:\r");
 	  fprintf(stderr,"[T+%lldsec] RUN\n",(long long)time(0)-start_time);
 	}
 
@@ -1462,13 +1689,125 @@ void *run_boundary_scan(void *argp)
   int thread_count=0;
   pthread_t threads[MAX_THREADS]; 
 
+void download_bitstream(void)
+{
+  int issue,tag;
+  char target[1024]="mega65r2";
+  if (sscanf(bitstream,"@%d/%d/%s",&issue,&tag,target)<2) {
+    fprintf(stderr,"ERROR: @ directive to download bitstreams must be in the format issue/tag/hardware, e.g., 168/1/mega65r2\n");
+    exit(-3);
+  }
+
+  char filename[8192];
+  snprintf(filename,8192,"%s/.netrc",getenv("HOME"));
+  FILE *nf=fopen(filename,"r");
+  if (!nf) {
+    fprintf(stderr,"WARNING: You don't have a .netrc file.  You probably want to set one up with something like this:\n"
+	    "    machine  app.scryptos.com\n"
+	    "    login    <ask deft for one>\n"
+	    "    password <ask deft for one>\n"
+	    "So that you don't get asked by cadaver all the time for a username and password.\n");
+  }
+  fclose(nf);
+  snprintf(filename,8192,"/usr/bin/cadaver");
+  nf=fopen(filename,"r");
+  if (!nf) {
+    fprintf(stderr,"ERROR: You don't seem to have cadaver installed.\n"
+	    "If you are on Ubuntu linux, try:\n"
+	    "   sudo apt-get install cadaver\n"
+	    "I'll try anyway, in case you just have it installed in a funny place.\n"
+	    );
+  }
+  fclose(nf);
+  
+  fprintf(stderr,"Fetching bitstream from scryptos archive...\n");
+  unlink("/tmp/monitor_load.folder.txt");
+  char cmd[8192];
+  snprintf(cmd,8192,"echo ls | cadaver \"https://app.scryptos.com/webdav/MEGA/groups/MEGA65%%20filehost/ShareFolder/Bitstreams/Jenkins-Out/mega65-core/issues/%d/\" | grep \"%d-\" | cut -c9-40 | sed 's/ //g' > /tmp/monitor_load.folder.txt",
+	   issue,tag);
+  system(cmd);
+
+  FILE *f=fopen("/tmp/monitor_load.folder.txt","r");
+  if (!f) {
+    fprintf(stderr,"ERROR: Could not read WebDAV retrieved folder name from /tmp/monitor_load.folder.txt\n");
+    exit(-2);
+  }
+  char folder[8192]="";
+  fread(folder,1,8192,f);  
+  fclose(f);
+  while(folder[0]&&folder[strlen(folder)-1]<' ') folder[strlen(folder)-1]=0;
+  fprintf(stderr,"Resolved %d/%d to %d/%s\n",issue,tag,issue,folder);
+  
+  unlink("/tmp/monitor_load.bit");
+  snprintf(cmd,8192,"echo \"get %s.bit /tmp/monitor_load.bit\" | cadaver  \"https://app.scryptos.com/webdav/MEGA/groups/MEGA65%%20filehost/ShareFolder/Bitstreams/Jenkins-Out/mega65-core/issues/%d/%s/\"",target,issue,folder);
+  fprintf(stderr,"%s\n",cmd);
+  system(cmd);
+  bitstream="/tmp/monitor_load.bit";
+}
+
+void download_hyppo(void)
+{
+  int issue,tag;
+  if (sscanf(hyppo,"@%d/%d",&issue,&tag)<2) {
+    fprintf(stderr,"ERROR: @ directive to download HICKUP.M65 must be in the format issue/tag, e.g., 168/1\n");
+    exit(-3);
+  }
+
+  char filename[8192];
+  snprintf(filename,8192,"%s/.netrc",getenv("HOME"));
+  FILE *nf=fopen(filename,"r");
+  if (!nf) {
+    fprintf(stderr,"WARNING: You don't have a .netrc file.  You probably want to set one up with something like this:\n"
+	    "    machine  app.scryptos.com\n"
+	    "    login    <ask deft for one>\n"
+	    "    password <ask deft for one>\n"
+	    "So that you don't get asked by cadaver all the time for a username and password.\n");
+  }
+  fclose(nf);
+  snprintf(filename,8192,"/usr/bin/cadaver");
+  nf=fopen(filename,"r");
+  if (!nf) {
+    fprintf(stderr,"ERROR: You don't seem to have cadaver installed.\n"
+	    "If you are on Ubuntu linux, try:\n"
+	    "   sudo apt-get install cadaver\n"
+	    "I'll try anyway, in case you just have it installed in a funny place.\n"
+	    );
+  }
+  fclose(nf);
+  
+  fprintf(stderr,"Fetching HICKUP.M65 from scryptos archive...\n");
+  unlink("/tmp/monitor_load.folder.txt");
+  char cmd[8192];
+  snprintf(cmd,8192,"echo ls | cadaver \"https://app.scryptos.com/webdav/MEGA/groups/MEGA65%%20filehost/ShareFolder/Bitstreams/Jenkins-Out/mega65-core/issues/%d/\" | grep \"%d-\" | cut -c9-40 | sed 's/ //g' > /tmp/monitor_load.folder.txt",
+	   issue,tag);
+  system(cmd);
+
+  FILE *f=fopen("/tmp/monitor_load.folder.txt","r");
+  if (!f) {
+    fprintf(stderr,"ERROR: Could not read WebDAV retrieved folder name from /tmp/monitor_load.folder.txt\n");
+    exit(-2);
+  }
+  char folder[8192]="";
+  fread(folder,1,8192,f);  
+  fclose(f);
+  while(folder[0]&&folder[strlen(folder)-1]<' ') folder[strlen(folder)-1]=0;
+  fprintf(stderr,"Resolved %d/%d to %d/%s\n",issue,tag,issue,folder);
+  
+  unlink("/tmp/monitor_load.HICKUP.M65");
+  snprintf(cmd,8192,"echo \"get HICKUP.M65 /tmp/monitor_load.HICKUP.M65\" | cadaver  \"https://app.scryptos.com/webdav/MEGA/groups/MEGA65%%20filehost/ShareFolder/Bitstreams/Jenkins-Out/mega65-core/issues/%d/%s/\"",issue,folder);
+  fprintf(stderr,"%s\n",cmd);
+  system(cmd);
+  hyppo="/tmp/monitor_load.HICKUP.M65";
+}
+
 int main(int argc,char **argv)
 {
   start_time=time(0);
 
   int opt;
-  while ((opt = getopt(argc, argv, "14B:b:c:C:d:EFHf:jJ:k:Ll:m:MnoprR:Ss:t:T:V:")) != -1) {
+  while ((opt = getopt(argc, argv, "14B:b:c:C:d:EFHf:jJ:k:Ll:m:MnoprR:Ss:t:T:U:V:XZ:")) != -1) {
     switch (opt) {
+    case 'X': hyppo_report=1; break;
     case 'Z':
       {
 	// Zap (reconfig) FPGA via MEGA65 reconfig registers
@@ -1507,8 +1846,13 @@ int main(int argc,char **argv)
       default: usage();
       }
       break;
+    case 'S':
+      screen_shot=1;
+      break;
     case 'b':
-      bitstream=strdup(optarg); break;
+      bitstream=strdup(optarg);
+      if (bitstream[0]=='@') download_bitstream();
+      break;
     case 'j':
       jtag_only=1; break;
     case 'J':
@@ -1518,7 +1862,10 @@ int main(int argc,char **argv)
     case 'V':
       set_vcd_file(optarg);
       break;
-    case 'k': hyppo=strdup(optarg); break;
+    case 'k':
+      hyppo=strdup(optarg);
+      if (hyppo[0]=='@') download_hyppo();
+      break;
     case 't': case 'T':
       type_text=strdup(optarg);
       if (opt=='T') type_text_cr=1;
@@ -1528,7 +1875,9 @@ int main(int argc,char **argv)
     }
   }  
 
-  init_fpgajtag(serial_port, bitstream, 0xffffffff);
+  // Detect only A7100T parts
+  // XXX Will require patching for MEGA65 R1 PCBs, as they have an A200T part.
+  init_fpgajtag(serial_port, bitstream, 0x3631093); // 0xffffffff);
 
   if (boundary_scan) {
     // Launch boundary scan in a separate thread, so that we can monitor signals while
@@ -1619,13 +1968,26 @@ int main(int argc,char **argv)
           if(fast_mode) {         
 	  } else {	    
 	    if (state==99) printf("sending R command to sync @ %dpbs.\n",serial_speed);
-	    switch (phase%(4+hypervisor_paused)) {
-	    case 0: slow_write_safe(fd,"r\r",2); break; // PC check
-	    case 1: slow_write_safe(fd,"m800\r",5); break; // C65 Mode check
-	    case 2: slow_write_safe(fd,"m42c\r",5); break; // C64 mode check
-            case 3: slow_write_safe(fd,"mffd3077\r",9); break; 
-	    case 4: slow_write_safe(fd,"mffd3659\r",9); break; // Hypervisor virtualisation/security mode flag check
-	    default: phase=0;
+	    if (hyppo_report) {
+	      switch (phase%(5+hypervisor_paused)) {
+	      case 0: slow_write_safe(fd,"Mfffbc00\r",9); break;
+	      case 1: slow_write_safe(fd,"Mfffbd00\r",9); break;
+	      case 2: slow_write_safe(fd,"Mfffbe00\r",9); break;
+	      case 3: slow_write_safe(fd,"Mfffbf00\r",9); break;
+	      }
+	    } else {
+	      switch (phase%(5+hypervisor_paused)) {
+	      case 0: slow_write_safe(fd,"r\r",2); break; // PC check
+	      case 1: slow_write_safe(fd,"m800\r",5); break; // C65 Mode check
+	      case 2: slow_write_safe(fd,"m42c\r",5); break; // C64 mode check
+	      case 3: slow_write_safe(fd,"mffd3077\r",9); break; 
+	      case 4:
+		// Requests screen address if we are taking a screenshot
+		if (screen_shot) slow_write_safe(fd,"mffd3058\r",9);
+		break;
+	      case 5: slow_write_safe(fd,"mffd3659\r",9); break; // Hypervisor virtualisation/security mode flag check
+	      default: phase=0;
+	      }
 	    }
           } 
 	  phase++;	  
