@@ -952,7 +952,7 @@ begin  -- behavioural
           when x"a1" =>
             -- @IO:GS $D6A1.0 F011:DRV0EN Use real floppy drive instead of SD card for 1st floppy drive
             fastio_rdata(0) <= use_real_floppy0;
-            -- @IO:GS $D6A1.0 F011:DRV2EN Use real floppy drive instead of SD card for 2nd floppy drive
+            -- @IO:GS $D6A1.2 F011:DRV2EN Use real floppy drive instead of SD card for 2nd floppy drive
             fastio_rdata(2) <= use_real_floppy2;
             -- @IO:GS $D6A1.1 - Match any sector on a real floppy read/write
             fastio_rdata(1) <= target_any;
