@@ -531,6 +531,10 @@ reset_machine_state:
         lda #$01
         sta audioamp_ctl
 
+        // Return keyboard LEDs to automatic control
+	lda #$00
+	sta $d61d
+
         // Clear system partition present flag
         lda #$00
         sta syspart_present
