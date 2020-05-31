@@ -4823,7 +4823,7 @@ begin
                   when I_STY => null;
                   when I_STZ => null;
 
-                                        -- And 6502 illegal opcodes
+                  -- And 6502 illegal opcodes
                   when I_SLO => is_rmw <= '1';
                   when I_RLA => is_rmw <= '1';
                   when I_SRE => is_rmw <= '1';
@@ -4833,20 +4833,19 @@ begin
                   when I_DCP => is_rmw <= '1';
                   when I_ISC => is_rmw <= '1';
                   when I_ANC => is_load <= '1';
-                  when I_ALR => null;
-                  when I_ARR => null;
-                  when I_XAA => null;
-                  when I_AXS => null;
-                  when I_AHX => null;
-                  when I_SHY => null;
-                  when I_SHX => null;
-                  when I_TAS => null;
+                  when I_ALR => is_load <= '1';
+                  when I_ARR => is_load <= '1';
+                  when I_AXS => is_load <= '1';
                   when I_LAS => null;
+                  when I_XAA | I_AHX | I_SHX | I_SHY | I_TAS => 
+                    state <= TrapToHypervisor;
+                    -- Trap $7E = 6502 Unstable illegal instruction encountered
+                    hypervisor_trap_port <= "1111110";                     
                   when I_KIL =>
                     state <= TrapToHypervisor;
-                                        -- Trap $7F = 6502 KIL instruction encountered
+                    -- Trap $7F = 6502 KIL instruction encountered
                     hypervisor_trap_port <= "1111111";                     
-                                        -- Nothing special for other instructions
+                  -- Nothing special for other instructions
                   when others => null;
                 end case;
               end if;
