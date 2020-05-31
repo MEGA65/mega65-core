@@ -136,8 +136,8 @@ entity container is
          hdmired : out  UNSIGNED (7 downto 0);
          hdmigreen : out  UNSIGNED (7 downto 0);
          hdmiblue : out  UNSIGNED (7 downto 0);
-         hdmi_spdif : in std_logic;
-         hdmi_spdif_out : out std_logic;
+         hdmi_int : in std_logic;
+         hdmi_spdif : out std_logic := '0';
          hdmi_scl : inout std_logic;
          hdmi_sda : inout std_logic;
          hdmi_de : out std_logic; -- high when valid pixels being output
@@ -181,9 +181,13 @@ entity container is
          sd2MOSI : out std_logic;
          sd2MISO : in std_logic;
 
-         -- Left and right audio
+         -- Left and right headphone port audio
          pwm_l : out std_logic;
          pwm_r : out std_logic;
+
+         -- internal speaker
+         pcspeaker_left : out std_logic;
+         pcspeaker_muten : out std_logic;
          
          -- PMOD connectors on the MEGA65 R2 main board
          p1lo : inout std_logic_vector(3 downto 0);
@@ -243,7 +247,6 @@ architecture Behavioral of container is
   signal clock27 : std_logic;
   signal pixelclock : std_logic; -- i.e., clock81p
   signal clock81n : std_logic;
-  signal clock120 : std_logic;
   signal clock100 : std_logic;
   signal clock135p : std_logic;
   signal clock135n : std_logic;
@@ -285,6 +288,7 @@ architecture Behavioral of container is
   signal v_green : unsigned(7 downto 0);
   signal v_blue : unsigned(7 downto 0);
   signal lcd_dataenable : std_logic;
+  signal hdmi_dataenable : std_logic;
   
   -- XXX We should read the real temperature and feed this to the DDR controller
   -- so that it can update timing whenever the temperature changes too much.
@@ -324,6 +328,7 @@ architecture Behavioral of container is
 
   signal pwm_l_drive : std_logic;
   signal pwm_r_drive : std_logic;
+  signal pcspeaker_left_drive : std_logic;
 
   signal flopled_drive : std_logic;
   signal flopmotor_drive : std_logic;
@@ -441,30 +446,23 @@ begin
       clk => cpuclock,
       temp => fpga_temperature);
 
-  hdmi0: entity work.vga_hdmi
+  hdmi_de <= hdmi_dataenable;
+  hdmi_hsync <= v_vga_hsync;
+  hdmi_vsync <= v_vsync;
+  
+  hdmiaudio: entity work.hdmi_spdif
+    generic map ( samplerate => 44100 )
     port map (
       clock27 => clock27,
+      spdif_out => spdif_44100,
+      left_in => h_audio_left,
+      right_in => h_audio_right
+      ); 
 
-      -- outputs from machine.vhdl that feed us
-      pattern_r => std_logic_vector(v_red),
-      pattern_g => std_logic_vector(v_green),
-      pattern_b => std_logic_vector(v_blue),
-      pattern_hsync => v_vga_hsync,
-      pattern_vsync => v_vsync,
-      pattern_de => lcd_dataenable,
-
-      -- and our outputs to control the HDMI port
-      hdmi_clk => hdmi_clk,
-      hdmi_hsync => hdmi_hsync,
-      hdmi_vsync => hdmi_vsync,
-      hdmi_de => hdmi_de,
-      hdmi_scl => hdmi_scl,
-      hdmi_sda => hdmi_sda
-      );
   
   kbd0: entity work.mega65kbd_to_matrix
     port map (
-      ioclock => cpuclock,
+      cpuclock => cpuclock,
 
       disco_led_en => disco_led_en,
       disco_led_id => disco_led_id,
@@ -633,7 +631,6 @@ begin
       pixelclock      => pixelclock,
       cpuclock        => cpuclock,
       uartclock       => cpuclock, -- Match CPU clock
-      ioclock         => cpuclock, -- Match CPU clock
       clock162 => clock162,
       clock100 => clock100,
       clock27 => clock27,
@@ -667,10 +664,11 @@ begin
       vgared          => v_red,
       vgagreen        => v_green,
       vgablue         => v_blue,
---      hdmi_sda        => hdmi_sda,
---      hdmi_scl        => hdmi_scl,
+      hdmi_sda        => hdmi_sda,
+      hdmi_scl        => hdmi_scl,
       hpd_a           => hpd_a,
       lcd_dataenable => lcd_dataenable,
+      hdmi_dataenable =>  hdmi_dataenable,
       
       ----------------------------------------------------------------------
       -- CBM floppy  std_logic_vectorerial port
@@ -793,6 +791,10 @@ begin
       flopmotor => flopmotor_drive,
       ampPWM_l => pwm_l_drive,
       ampPWM_r => pwm_r_drive,
+      ampSD => pcspeaker_muten,
+      pcspeaker_left => pcspeaker_left_drive,
+      audio_left => audio_left,
+      audio_right => audio_right,
 
       -- Normal connection of I2C peripherals to dedicated address space
       i2c1sda => fpga_sda,
@@ -801,6 +803,7 @@ begin
 --      tmpsda => fpga_sda,
 --      tmpscl => fpga_scl,
 
+      portp_out => portp,
       
       -- No PS/2 keyboard for now
       ps2data =>      '1',
@@ -927,8 +930,25 @@ begin
 
       pwm_l <= pwm_l_drive;
       pwm_r <= pwm_r_drive;
-
+      pcspeaker_left <= pcspeaker_left_drive;
+      
     end if;
+
+    h_audio_right <= audio_right;
+    h_audio_right <= audio_left;
+    -- toggle signed/unsigned audio flipping
+    if portp(7)='1' then
+      h_audio_right(19) <= not audio_right(19);
+      h_audio_left(19) <= not audio_left(19);
+    end if;
+
+    -- Make SPDIF audio switchable for debugging HDMI output
+    if portp(0) = '1' then
+      hdmi_spdif <= spdif_44100;
+    else
+      hdmi_spdif <= '0';
+    end if;      
+
     
     if rising_edge(pixelclock) then
       hsync <= v_vga_hsync;
@@ -940,13 +960,16 @@ begin
       hdmigreen <= v_green;
       hdmiblue <= v_blue;
     end if;
-    
-    if rising_edge(pixelclock) then
 
-      -- no hdmi audio yet
-      hdmi_spdif_out <= 'Z';
-
+    -- XXX DEBUG: Allow showing audio samples on video to make sure they are
+    -- getting through
+    if portp(2)='1' then
+      vgagreen <= unsigned(audio_left(15 downto 8));
+      vgared <= unsigned(audio_right(15 downto 8));
+      hdmigreen <= unsigned(audio_left(15 downto 8));
+      hdmired <= unsigned(audio_right(15 downto 8));
     end if;
+    
   end process;    
   
 end Behavioral;

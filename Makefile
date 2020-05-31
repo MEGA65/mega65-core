@@ -125,11 +125,12 @@ tools:	$(TOOLS)
 # assembly files (a65 -> prg)
 utilities:	$(UTILITIES)
 
-SIDVHDL=		$(VHDLSRCDIR)/sid_6581.vhd \
-			$(VHDLSRCDIR)/sid_coeffs.vhd \
-			$(VHDLSRCDIR)/sid_components.vhd \
-			$(VHDLSRCDIR)/sid_filters.vhd \
-			$(VHDLSRCDIR)/sid_voice.vhd \
+SIDVHDL=		$(VHDLSRCDIR)/sid_6581.vhdl \
+			$(VHDLSRCDIR)/sid_coeffs.vhdl \
+			$(VHDLSRCDIR)/sid_coeffs_mux.vhdl \
+			$(VHDLSRCDIR)/sid_components.vhdl \
+			$(VHDLSRCDIR)/sid_filters.vhdl \
+			$(VHDLSRCDIR)/sid_voice.vhdl \
 
 CPUVHDL=		$(VHDLSRCDIR)/gs4510.vhdl \
 			$(VHDLSRCDIR)/multiply32.vhdl \
@@ -143,7 +144,7 @@ C65VHDL=		$(SIDVHDL) \
 			$(VHDLSRCDIR)/mouse_input.vhdl \
 			$(VHDLSRCDIR)/cia6526.vhdl \
 			$(VHDLSRCDIR)/c65uart.vhdl \
-			$(VHDLSRCDIR)/UART_TX_CTRL.vhd \
+			$(VHDLSRCDIR)/UART_TX_CTRL.vhdl \
 			$(VHDLSRCDIR)/cputypes.vhdl \
 
 VICIVVHDL=		$(VHDLSRCDIR)/viciv.vhdl \
@@ -178,6 +179,9 @@ PERIPHVHDL=		$(VHDLSRCDIR)/sdcardio.vhdl \
 			$(VHDLSRCDIR)/hyperram.vhdl \
 			$(VHDLSRCDIR)/i2c_master.vhdl \
 			$(VHDLSRCDIR)/i2c_wrapper.vhdl \
+			$(VHDLSRCDIR)/hdmi_i2c.vhdl \
+			$(VHDLSRCDIR)/hdmi_spdif.vhdl \
+			$(VHDLSRCDIR)/spdif_encoder.vhdl \
 			$(VHDLSRCDIR)/buffereduart.vhdl \
 			$(VHDLSRCDIR)/mfm_bits_to_bytes.vhdl \
 			$(VHDLSRCDIR)/mfm_decoder.vhdl \
@@ -264,9 +268,9 @@ SIMULATIONVHDL=		$(VHDLSRCDIR)/cpu_test.vhdl \
 			$(VHDLSRCDIR)/fake_expansion_port.vhdl \
 			$(VHDLSRCDIR)/fake_sdcard.vhdl \
 			$(VHDLSRCDIR)/fake_reconfig.vhdl \
-			$(VHDLSRCDIR)/gen_utils.vhd \
-			$(VHDLSRCDIR)/conversions.vhd \
-			$(VHDLSRCDIR)/s27kl0641.vhd \
+			$(VHDLSRCDIR)/gen_utils.vhdl \
+			$(VHDLSRCDIR)/conversions.vhdl \
+			$(VHDLSRCDIR)/s27kl0641.vhdl \
 			$(VHDLSRCDIR)/uart_monitor.vhdl.tmp \
 			$(CPUVHDL) \
 			$(M65VHDL)
@@ -355,8 +359,8 @@ hyperramsimulate: $(GHDL) $(VHDLSRCDIR)/test_hyperram.vhdl $(VHDLSRCDIR)/hyperra
 	( ./test_hyperram || $(GHDL) -r test_hyperram )
 
 # Get the gen_utils.vhd and conversions.vhd files from here: https://freemodelfoundry.com/fmf_VHDL_models.php
-hyperramsimulate2: $(GHDL) $(VHDLSRCDIR)/test_hyperram.vhdl $(VHDLSRCDIR)/hyperram.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/s27kl0641.vhd $(VHDLSRCDIR)/slow_devices.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/expansion_port_controller.vhdl $(VHDLSRCDIR)/gen_utils.vhd $(VHDLSRCDIR)/conversions.vhd
-	$(GHDL) -i $(VHDLSRCDIR)/test_hyperram.vhdl $(VHDLSRCDIR)/hyperram.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/s27kl0641.vhd $(VHDLSRCDIR)/slow_devices.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/expansion_port_controller.vhdl $(VHDLSRCDIR)/gen_utils.vhd $(VHDLSRCDIR)/conversions.vhd
+hyperramsimulate2: $(GHDL) $(VHDLSRCDIR)/test_hyperram.vhdl $(VHDLSRCDIR)/hyperram.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/s27kl0641.vhd $(VHDLSRCDIR)/slow_devices.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/expansion_port_controller.vhdl $(VHDLSRCDIR)/gen_utils.vhdl $(VHDLSRCDIR)/conversions.vhdl
+	$(GHDL) -i $(VHDLSRCDIR)/test_hyperram.vhdl $(VHDLSRCDIR)/hyperram.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/s27kl0641.vhd $(VHDLSRCDIR)/slow_devices.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/expansion_port_controller.vhdl $(VHDLSRCDIR)/gen_utils.vhdl $(VHDLSRCDIR)/conversions.vhdl
 	$(GHDL) -m test_hyperram
 	( ./test_hyperram || $(GHDL) -r test_hyperram )
 

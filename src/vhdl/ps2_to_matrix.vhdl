@@ -6,7 +6,7 @@ use work.debugtools.all;
 
 entity ps2_to_matrix is
   port (
-    ioclock : in std_logic;
+    cpuclock : in std_logic;
     reset_in : in std_logic;
 
     -- PS/2 keyboard also provides emulated joysticks and RESTORE key
@@ -90,7 +90,7 @@ begin  -- behavioural
 
   ps2kmm: entity work.kb_matrix_ram
   port map (
-    clkA => ioclock,
+    clkA => cpuclock,
     addressa => keyram_address,
     dia => keyram_di,
     wea => keyram_wea,
@@ -99,7 +99,7 @@ begin  -- behavioural
     );
   
 -- purpose: read from ps2 keyboard interface
-  keyread: process (ioclock, ps2data,ps2clock)
+  keyread: process (cpuclock, ps2data,ps2clock)
     variable full_scan_code : std_logic_vector(11 downto 0);
     variable km_index : integer range 0 to 127;
     variable km_update : std_logic;
@@ -107,7 +107,7 @@ begin  -- behavioural
     variable km_index_col : unsigned(2 downto 0);
 
   begin  -- process keyread
-    if rising_edge(ioclock) then      
+    if rising_edge(cpuclock) then      
 
       joya <= joy1(4 downto 0);
       joyb <= joy2(4 downto 0);

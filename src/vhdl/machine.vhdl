@@ -62,7 +62,6 @@ entity machine is
          clock100 : in std_logic;    -- Must be 2x ethernet clock
          clock27 : in std_logic;
          clock162 : in std_logic;
-         ioclock : std_logic;
          uartclock : std_logic;
          btnCpuReset : in  STD_LOGIC;
          reset_out : out std_logic;
@@ -136,12 +135,17 @@ entity machine is
          panelgreen : out  UNSIGNED (7 downto 0);
          panelblue : out  UNSIGNED (7 downto 0);
          lcd_dataenable : out std_logic;
+         hdmi_dataenable : out std_logic;
 
+         hdmi_int : in std_logic := '1';
          hdmi_hsync : out  STD_LOGIC;
          hdmi_scl : inout std_logic;
          hdmi_sda : inout std_logic;
          hpd_a : inout std_logic;
 
+         porto_out : out unsigned(7 downto 0);
+         portp_out : out unsigned(7 downto 0);
+         
          -------------------------------------------------------------------------
          -- CIA1 ports for keyboard and joysticks
          -------------------------------------------------------------------------
@@ -239,7 +243,10 @@ entity machine is
 
          ampPWM_l : out std_logic;
          ampPWM_r : out std_logic;
+         pcspeaker_left : out std_logic;
          ampSD : out std_logic;
+         audio_left : out std_logic_vector(19 downto 0);
+         audio_right : out std_logic_vector(19 downto 0);
 
          micData0 : in std_logic;
          micData1 : in std_logic;
@@ -579,7 +586,9 @@ architecture Behavioral of machine is
 
   signal segled_counter : unsigned(19 downto 0) := (others => '0');
 
-  signal phi0 : std_logic := '0';
+  signal phi_1mhz : std_logic := '0';
+  signal phi_2mhz : std_logic := '0';
+  signal phi_3mhz : std_logic := '0';
 
   -- Video pipeline plumbing
   signal pixel_x_viciv : integer;
@@ -623,6 +632,7 @@ architecture Behavioral of machine is
   signal lcd_inletterbox : std_logic := '0';
   signal vga_inletterbox : std_logic := '0';
   signal lcd_dataenable_internal : std_logic := '0';
+  signal hdmi_dataenable_internal : std_logic := '0';
 
   signal pal50_select : std_logic := '0';
   signal vga60_select : std_logic := '0';
@@ -709,10 +719,13 @@ architecture Behavioral of machine is
   signal ethernet_cpu_arrest : std_logic := '0';
 
   signal d031_write_toggle : std_logic;
+
+  signal viciv_frame_indicate : std_logic;
   
 begin
 
   lcd_dataenable <= lcd_dataenable_internal;
+  hdmi_dataenable <= hdmi_dataenable_internal;
   
   xcounter_viciv_u <= to_unsigned(xcounter_viciv,12);
   ycounter_viciv_u <= to_unsigned(ycounter_viciv,12);
@@ -758,13 +771,13 @@ begin
     report "reset_combined = " & std_logic'image(reset_combined) severity note;
   end process;
   
-  process(pixelclock,ioclock)
+  process(pixelclock,cpuclock)
     variable digit : std_logic_vector(3 downto 0);
   begin
     if rising_edge(pixelclock) then
       report "external_pixel_strobe = " & std_logic'image(external_pixel_strobe);
     end if;
-    if rising_edge(ioclock) then
+    if rising_edge(cpuclock) then
       -- Hold reset low for a while when we first turn on
 --      report "power_on_reset(0) = " & std_logic'image(power_on_reset(0)) severity note;
       power_on_reset(7) <= '1';
@@ -900,7 +913,9 @@ begin
   cpu0: entity work.gs4510
     generic map(target => target)
     port map(
-      phi0 => phi0,
+      phi_1mhz => phi_1mhz,
+      phi_2mhz => phi_2mhz,
+      phi_3mhz => phi_3mhz,
       all_pause => all_pause,
       matrix_trap_in=>matrix_trap,
       protected_hardware => protected_hardware_sig,
@@ -908,7 +923,6 @@ begin
       chipselect_enables => chipselect_enables,
       mathclock => cpuclock,
       clock => cpuclock,
-      ioclock => ioclock,
       reset =>reset_combined,
       reset_out => reset_out,
       irq => combinedirq,
@@ -1056,7 +1070,9 @@ begin
 
                cpuclock => cpuclock,
 
-
+               phi_1mhz_out => phi_1mhz,
+               phi_2mhz_out => phi_2mhz,
+               phi_3mhz_out => phi_3mhz,
 
       pixel_strobe_out => external_pixel_strobe,
       
@@ -1095,6 +1111,7 @@ begin
       lcd_hsync => lcd_hsync,               
       lcd_vsync => lcd_vsync,
       fullwidth_dataenable => lcd_dataenable_internal,
+      narrow_dataenable => hdmi_dataenable_internal,
       lcd_inletterbox => lcd_inletterbox,
       vga_inletterbox => vga_inletterbox
 
@@ -1106,9 +1123,10 @@ begin
     port map (
       pixelclock      => pixelclock,
       cpuclock        => cpuclock,
-      ioclock        => ioclock,
       all_pause => all_pause,
 
+      viciv_frame_indicate => viciv_frame_indicate,
+      
       hypervisor_mode => cpu_hypervisor_mode,
       
       irq             => vic_irq,
@@ -1295,7 +1313,7 @@ begin
   
   mouse0: entity work.mouse_input
     port map (
-      clk => ioclock,
+      clk => cpuclock,
 
       mouse_debug => mouse_debug,
       amiga_mouse_enable_a => amiga_mouse_enable_a,
@@ -1342,12 +1360,15 @@ begin
   
   iomapper0: entity work.iomapper
     generic map ( target => target,
-                  cpu_frequency => cpu_frequency )
+                  cpu_frequency => cpu_frequency)
     port map (
-      clk => ioclock,
+      cpuclock => cpuclock,
       clock100mhz => clock100,
       clock2mhz => clock2mhz,
-      cpuspeed => cpuspeed,      
+      cpuspeed => cpuspeed,
+      pixelclk => pixelclock,
+      clock50mhz => clock50mhz,
+      pal_mode => pal50_select,
       protected_hardware_in => protected_hardware_sig,
       virtualised_hardware_in => virtualised_hardware_sig,
       chipselect_enables => chipselect_enables,
@@ -1356,9 +1377,7 @@ begin
       hyper_trap_f011_read => hyper_trap_f011_read,
       hyper_trap_f011_write => hyper_trap_f011_write,
       hyper_trap_count => hyper_trap_count,
-      cpuclock => cpuclock,
-      pixelclk => pixelclock,
-      clock50mhz => clock50mhz,
+      viciv_frame_indicate => viciv_frame_indicate,
       cpu_hypervisor_mode => cpu_hypervisor_mode,
       speed_gate => speed_gate,
       speed_gate_enable => speed_gate_enable,
@@ -1371,6 +1390,9 @@ begin
       joy3 => joy3,
       joy4 => joy4,
 
+      porto_out => porto_out,
+      portp_out => portp_out,
+      
       disco_led_en => disco_led_en,
       disco_led_id => disco_led_id,
       disco_led_val => disco_led_val,      
@@ -1417,7 +1439,7 @@ begin
       cart_access_count => cart_access_count,
       
       uartclock => uartclock,
-      phi0 => phi0,
+      phi0_1mhz => phi_1mhz,
       reset => reset_combined,
       reset_out => reset_io,
       irq => io_irq, -- (but we might like to AND this with the hardware IRQ button)
@@ -1552,7 +1574,8 @@ begin
       widget_capslock => widget_capslock,
       widget_joya => widget_joya,
       widget_joyb => widget_joyb,     
-      
+
+      hdmi_int => hdmi_int,
       hdmi_sda => hdmi_sda,
       hdmi_scl => hdmi_scl,
       hpd_a => hpd_a,
@@ -1580,6 +1603,10 @@ begin
       ampPWM_l => ampPWM_l,
       ampPWM_r => ampPWM_r,
       ampSD => ampSD,
+      pcspeaker_left => pcspeaker_left,
+      audio_left => audio_left,
+      audio_right => audio_right,
+      
 
       -- MEMS microphones
       micData0 => micData0,

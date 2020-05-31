@@ -187,18 +187,18 @@ architecture Behavioral of container is
   signal buffer_vgagreen : unsigned(7 downto 0);
   signal buffer_vgablue : unsigned(7 downto 0);
 
-  signal ethclock : std_logic;
+  signal pixelclock : std_logic;
   signal cpuclock : std_logic;
+  signal ethclock : std_logic;
   signal clock41 : std_logic;
   signal clock27 : std_logic;
-  signal pixelclock : std_logic; -- i.e., clock81p
+  signal clock81 : std_logic;
   signal clock81n : std_logic;
-  signal clock120 : std_logic;
-  signal clock100 : std_logic;
+  signal clock100 : std_logic; 
   signal clock135p : std_logic;
   signal clock135n : std_logic;
-  signal clock162 : std_logic;
   signal clock325 : std_logic;
+  signal clock163 : std_logic;
 
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
 
@@ -209,6 +209,10 @@ architecture Behavioral of container is
   signal slow_access_wdata : unsigned(7 downto 0);
   signal slow_access_rdata : unsigned(7 downto 0);
 
+  signal slow_prefetched_address : unsigned(26 downto 0);
+  signal slow_prefetched_data : unsigned(7 downto 0);
+  signal slow_prefetched_request_toggle : std_logic; 
+  
   signal sector_buffer_mapped : std_logic;
 
 
@@ -282,6 +286,11 @@ architecture Behavioral of container is
   signal expansionram_data_ready_strobe : std_logic;
   signal expansionram_busy : std_logic;
 
+  signal current_cache_line : cache_row_t := (others => (others => '0'));
+  signal current_cache_line_address : unsigned(26 downto 3) := (others => '0');
+  signal current_cache_line_valid : std_logic := '0';
+  signal expansionram_current_cache_line_next_toggle : std_logic := '0';
+  
   signal dummypins : std_logic_vector(1 to 100) := (others => '0');
 
   signal i2c_joya_fire : std_logic;
@@ -305,6 +314,12 @@ architecture Behavioral of container is
   signal widget_matrix_col : std_logic_vector(7 downto 0) := (others => '1');
 
   signal qspi_clock : std_logic;
+
+  signal hyper_addr : unsigned(18 downto 3) := (others => '0');
+  signal hyper_request_toggle : std_logic := '0';
+  signal hyper_data : unsigned(7 downto 0) := x"00";
+  signal hyper_data_strobe : std_logic := '0';
+
   
 begin
 
@@ -359,10 +374,9 @@ begin
                clock100  => clock100,   --  100     MHz
                clock135p => clock135p,  --  135.417 MHz
                clock135n => clock135n,  --  135.417 MHz
-               clock163  => clock162,   -- 162.5    MHz
+               clock163  => clock163,   -- 162.5    MHz
                clock325  => clock325    -- 325      MHz
                );
-
 
   fpgatemp0: fpgatemp
     generic map (DELAY_CYCLES => 480)
@@ -371,15 +385,22 @@ begin
       clk => cpuclock,
       temp => fpga_temperature);
 
+
   hyperram0: entity work.hyperram
     port map (
---      latency_1x => to_unsigned(4,8),
---      latency_2x => to_unsigned(8,8),
---      reset => reset_out,
       pixelclock => pixelclock,
-      clock163 => clock162,
+      clock163 => clock163,
       clock325 => clock325,
+
+      -- XXX Debug by showing if expansion RAM unit is receiving requests or not
+      request_counter => led,
+
+      viciv_addr => hyper_addr,
+      viciv_request_toggle => hyper_request_toggle,
+      viciv_data_out => hyper_data,
+      viciv_data_strobe => hyper_data_strobe,
       
+      -- reset => reset_out,
       address => expansionram_address,
       wdata => expansionram_wdata,
       read_request => expansionram_read,
@@ -387,13 +408,26 @@ begin
       rdata => expansionram_rdata,
       data_ready_strobe => expansionram_data_ready_strobe,
       busy => expansionram_busy,
+
+      current_cache_line => current_cache_line,
+      current_cache_line_address => current_cache_line_address,
+      current_cache_line_valid => current_cache_line_valid,     
+      expansionram_current_cache_line_next_toggle  => expansionram_current_cache_line_next_toggle,
+      
       hr_d => hr_d,
       hr_rwds => hr_rwds,
       hr_reset => hr_reset,
-      hr_clk_n => hr_clk_n,
       hr_clk_p => hr_clk_p,
+      hr_clk_n => hr_clk_n,
+
       hr_cs0 => hr_cs0,
-      hr_cs1 => hr_cs1
+      hr_cs1 => hr_cs1,
+
+      hr2_d => open,
+      hr2_rwds => open,
+      hr2_reset => open,
+      hr2_clk_p => open,
+      hr2_clk_n => open      
       );
   
   slow_devices0: entity work.slow_devices
@@ -429,6 +463,9 @@ begin
       expansionram_data_ready_strobe => expansionram_data_ready_strobe,
       expansionram_busy => expansionram_busy,
 
+      slow_prefetched_address => slow_prefetched_address,
+      slow_prefetched_data => slow_prefetched_data,
+      slow_prefetched_request_toggle => slow_prefetched_request_toggle,      
 
       ----------------------------------------------------------------------
       -- Expansion/cartridge port
@@ -461,13 +498,15 @@ begin
 
   machine0: entity work.machine
     generic map (cpu_frequency => 40500000,
-                 target => megaphoner1)
+                 target => megaphoner1,
+                 hyper_installed => true -- For VIC-IV to know it can use
+                                         -- hyperram for full-colour glyphs
+                 )
     port map (
       pixelclock      => pixelclock,
       cpuclock        => cpuclock,
       uartclock       => cpuclock, -- Match CPU clock
-      ioclock         => cpuclock, -- Match CPU clock
-      clock162 => clock162,
+      clock162 => clock163,
       clock100 => clock100,
       clock27 => clock27,
       clock50mhz      => ethclock,
@@ -480,6 +519,11 @@ begin
       osk_toggle_key => osk_toggle_key,
       sector_buffer_mapped => sector_buffer_mapped,
 
+      hyper_addr => hyper_addr,
+      hyper_request_toggle => hyper_request_toggle,
+      hyper_data => hyper_data,
+      hyper_data_strobe => hyper_data_strobe,
+      
       -- enable/disable cartridge with sw(8)
       cpu_exrom => '1',
       cpu_game => '1',

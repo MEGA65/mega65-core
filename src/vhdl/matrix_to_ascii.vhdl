@@ -128,7 +128,7 @@ architecture behavioral of matrix_to_ascii is
     46 => x"40", -- NO KEY/@
     47 => x"2c", -- </,
     48 => x"00", -- SPECIAL/UNPRINTABLE/NO KEY
-    49 => x"00", -- */NO KEY
+    49 => x"2a", -- */NO KEY
     50 => x"3b", -- ]/;
     51 => x"13", -- CLR/HOM
     52 => x"00", -- RIGHT/SHIFT
@@ -205,7 +205,7 @@ architecture behavioral of matrix_to_ascii is
     46 => x"00", -- NO KEY/@
     47 => x"3c", -- </,
     48 => x"00", -- SPECIAL/UNPRINTABLE/NO KEY
-    49 => x"2a", -- */NO KEY
+    49 => x"00", -- */NO KEY
     50 => x"5d", -- ]/;
     51 => x"93", -- CLR/HOM
     52 => x"00", -- RIGHT/SHIFT
@@ -359,7 +359,7 @@ architecture behavioral of matrix_to_ascii is
     46 => x"40", -- NO KEY/@
     47 => x"7e", -- </,/~
     48 => x"00", -- SPECIAL/UNPRINTABLE/NO KEY
-    49 => x"00", -- */NO KEY     
+    49 => x"2A", -- */NO KEY     
     50 => x"7d", -- ]/;/}
     51 => x"93", -- CLR/HOM
     52 => x"00", -- RIGHT/SHIFT

@@ -29,8 +29,10 @@ use work.cputypes.all;
 entity audio_complex is
   generic ( clock_frequency : integer );
   port (    
-    clock50mhz : in std_logic;
+    cpuclock : in std_logic;
 
+    sid4_enable : in std_logic := '0';
+    
     -- Interface for accessing mix table via CPU
     audio_mix_reg : in unsigned(7 downto 0) := x"FF";
     audio_mix_write : in std_logic := '0';
@@ -52,6 +54,9 @@ entity audio_complex is
     -- Audio in from digital SIDs
     leftsid_audio : in unsigned(17 downto 0);
     rightsid_audio : in unsigned(17 downto 0);
+    frontsid_audio : in unsigned(17 downto 0);
+    backsid_audio : in unsigned(17 downto 0);
+    
     -- Audio in from $D6F8-B registers
     pcm_left : in unsigned(15 downto 0);
     pcm_right : in unsigned(15 downto 0);
@@ -99,8 +104,12 @@ entity audio_complex is
     -- some of which may have only a left or right channel)
     ampPWM_l : out std_logic;
     ampPWM_r : out std_logic;
+    pcspeaker_left : out std_logic;
+    pcspeaker_right : out std_logic;
     ampSD : out std_logic := '1';  -- default to amplifier on
-
+    audio_left : out std_logic_vector(19 downto 0);
+    audio_right : out std_logic_vector(19 downto 0);
+    
     -- MEMs Microphone inputs
     micData0 : in std_logic; --  (microphones 0 and 1)
     micData1 : in std_logic; --  (microphones 2 and 3)
@@ -119,6 +128,10 @@ architecture elizabethan of audio_complex is
   signal mic_divider_max : unsigned(7 downto 0) := to_unsigned(8,8);
   signal mic_sample_trigger : unsigned(7 downto 0) := to_unsigned(3,8);
 
+  signal leftsid_audio_combined : unsigned(17 downto 0);
+  signal rightsid_audio_combined : unsigned(17 downto 0);
+
+  
   signal mic_do_sample_left : std_logic := '0';
   signal mic_do_sample_right : std_logic := '0';
   signal mic_divider : unsigned(7 downto 0) := "00000000";
@@ -142,6 +155,9 @@ architecture elizabethan of audio_complex is
   signal bt_right_out : unsigned(15 downto 0) := x"0000";
   signal spkr_left : unsigned(15 downto 0) := x"0000";
   signal spkr_right : unsigned(15 downto 0) := x"0000";
+
+  signal pcspeaker_l_in : unsigned(15 downto 0) := x"0000";
+  signal pcspeaker_r_in : unsigned(15 downto 0) := x"0000";
   
   -- Dummy signals for soaking up dummy audio mixer outputs
   signal dummy0 : unsigned(15 downto 0) := x"0000";
@@ -164,7 +180,7 @@ architecture elizabethan of audio_complex is
 
   -- Use PWM instead of PDM for digital output to speakers
   -- on boards using 1-wire DAC
-  signal pwm_mode : std_logic := '0';
+  signal pwm_mode : std_logic := '1';
 
   signal ampPWM_l_in : unsigned(15 downto 0);
   signal ampPWM_r_in : unsigned(15 downto 0);
@@ -175,17 +191,19 @@ begin
   pcmclock0: entity work.pcm_clock 
     generic map (
       -- Modems and some other peripherals only use 8KHz
+      clock_frequency => clock_frequency,
       sample_rate => 8000
       )
     port map (
-    clock50mhz => clock50mhz,
-    pcm_clk => pcm_modem_clk_gen,
-    pcm_sync => pcm_modem_sync_gen);
+      cpuclock => cpuclock,
+      pcm_clk => pcm_modem_clk_gen,
+      pcm_sync => pcm_modem_sync_gen);
 
   -- PCM interfaces to modems
-  pcm0: entity work.pcm_transceiver 
+  pcm0: entity work.pcm_transceiver
+    generic map ( clock_frequency => clock_frequency )
     port map (
-    clock50mhz => clock50mhz,
+    cpuclock => cpuclock,
     pcm_clk => pcm_modem_clk_int,
     pcm_sync => pcm_modem_sync_int,
     pcm_out => pcm_modem1_data_out,
@@ -194,8 +212,9 @@ begin
     rx_sample => modem1_in
     );
   pcm1: entity work.pcm_transceiver
+    generic map ( clock_frequency => clock_frequency )
     port map (
-    clock50mhz => clock50mhz,
+    cpuclock => cpuclock,
     pcm_clk => pcm_modem_clk_int,
     pcm_sync => pcm_modem_sync_int,
     pcm_out => pcm_modem2_data_out,
@@ -205,9 +224,10 @@ begin
     );
     
   -- I2S slave interface to RN52 Bluetooth
-  i2s2: entity work.i2s_transceiver 
+  i2s2: entity work.i2s_transceiver
+    generic map ( clock_frequency => clock_frequency )
     port map (
-    clock50mhz => clock50mhz,
+    cpuclock => cpuclock,
     i2s_clk => i2s_slave_clk,
     i2s_sync => i2s_slave_sync,
     pcm_out => i2s_bt_data_out,
@@ -222,17 +242,19 @@ begin
   i2sclock2: entity work.i2s_clock
     generic map (
       -- Modems and some other peripherals only need 8KHz,
+      clock_frequency => clock_frequency,
       sample_rate => 44100
       )
     port map (
-    clock50mhz => clock50mhz,
+    cpuclock => cpuclock,
     i2s_clk => i2s_master_clk_int,
     i2s_sync => i2s_master_sync_int);
   
   -- I2S master for stereo speakers
-  i2s4: entity work.i2s_transceiver 
+  i2s4: entity work.i2s_transceiver
+    generic map ( clock_frequency => clock_frequency )
     port map (
-    clock50mhz => clock50mhz,
+    cpuclock => cpuclock,
     i2s_clk => i2s_master_clk_int,
     i2s_sync => i2s_master_sync_int,
     pcm_out => i2s_speaker_data_out,
@@ -248,28 +270,28 @@ begin
   -- PDM input for MEMS microphone(s)
   mic0l: entity work.pdm_to_pcm
     port map (
-      clock => clock50mhz,
+      clock => cpuclock,
       sample_clock => mic_do_sample_left,
       sample_bit => micData0,
       sample_out => mems_mic0_left);
 
   mic0r: entity work.pdm_to_pcm
     port map (
-      clock => clock50mhz,
+      clock => cpuclock,
       sample_clock => mic_do_sample_right,
       sample_bit => micData0,
       sample_out => mems_mic0_right);
 
   mic1l: entity work.pdm_to_pcm
     port map (
-      clock => clock50mhz,
+      clock => cpuclock,
       sample_clock => mic_do_sample_left,
       sample_bit => micData1,
       sample_out => mems_mic1_left);
 
   mic1r: entity work.pdm_to_pcm
     port map (
-      clock => clock50mhz,
+      clock => cpuclock,
       sample_clock => mic_do_sample_right,
       sample_bit => micData1,
       sample_out => mems_mic1_right);
@@ -278,7 +300,7 @@ begin
   -- and on the MEGA65 PCB.
   pwm0: entity work.pcm_to_pdm
     port map (
-      clock50mhz => clock50mhz,
+      cpuclock => cpuclock,
       pcm_left => ampPWM_l_in,
       pcm_right => ampPWM_r_in,
 
@@ -288,9 +310,23 @@ begin
       audio_mode => pwm_mode
       );
   
+  -- PWM/PDM digital audio output for Nexys4 series boards
+  -- and on the MEGA65 PCB.
+  pwm1: entity work.pcm_to_pdm
+    port map (
+      cpuclock => cpuclock,
+      pcm_left => pcspeaker_l_in,      
+      pcm_right => pcspeaker_r_in,
+
+      pdm_left => pcspeaker_left,
+      pdm_right => pcspeaker_right,
+
+      audio_mode => pwm_mode
+      );
+  
   -- Audio Mixer to combine everything
   mix0: entity work.audio_mixer port map (
-    clock50mhz => clock50mhz,
+    cpuclock => cpuclock,
     reg_num => audio_mix_reg,
     reg_write => audio_mix_write,
     wdata => audio_mix_wdata,
@@ -308,8 +344,8 @@ begin
     volume_knob3_target => volume_knob3_target,
     
     -- SID outputs
-    sources(0) => leftsid_audio(17 downto 2),
-    sources(1) => rightsid_audio(17 downto 2),
+    sources(0) => leftsid_audio_combined(17 downto 2),
+    sources(1) => rightsid_audio_combined(17 downto 2),
     -- Two mono I2S from communications modules
     sources(2) => modem1_in,
     sources(3) => modem2_in,
@@ -332,14 +368,14 @@ begin
     sources(15) => x"0000", -- #15 can't be used, as shadowed by master volume.
 
     -- Audio outputs for on-board speakers, line-out etc
-    outputs(0) => spkr_left,
-    outputs(1) => spkr_right,
+    outputs(0) => spkr_left,      -- also used for HDMI out on M65R2
+    outputs(1) => spkr_right,     -- also used for HDMI out on M65R2
     outputs(2) => modem1_out,
     outputs(3) => modem2_out,
-    outputs(4) => bt_left_out,
+    outputs(4) => bt_left_out,    -- also drives internal speaker on M65R2
     outputs(5) => bt_right_out,
-    outputs(6) => headphones_left_out,
-    outputs(7) => headphones_right_out,
+    outputs(6) => headphones_left_out,  -- drives headphone jack on M65R2
+    outputs(7) => headphones_right_out, -- drives headphone jack on M65R2
     -- The other 8 outputs are in fact dummy place-holders.
     -- We do not expect to have more than 8 audio outputs
     outputs(8) => dummy0,
@@ -352,13 +388,35 @@ begin
     outputs(15) => dummy7
     );   
 
-  process (clock50mhz) is
+  process (cpuclock) is
   begin
-    if rising_edge(clock50mhz) then
+    if rising_edge(cpuclock) then
 
+      -- Export raw speaker audio for HDMI etc output
+      audio_left(19 downto 4) <= std_logic_vector(spkr_left);
+      audio_left(3 downto 0) <= "0000";
+      audio_right(19 downto 4) <= std_logic_vector(spkr_right);
+      audio_right(3 downto 0) <= "0000";
+      
+      -- Combine the pairs of SIDs
+      -- Re-enable this when adding 4 sids
+      if sid4_enable='1' then
+        -- When using 4 SIDs, we subtract the signed 0-point from the
+        -- combination, so that the level of each SID remains unchanged
+        leftsid_audio_combined <= leftsid_audio + frontsid_audio - 32768;
+        rightsid_audio_combined <= rightsid_audio + backsid_audio - 32768;
+      else 
+        leftsid_audio_combined <= leftsid_audio;
+        rightsid_audio_combined <= rightsid_audio;
+      end if;
+      
       ampPWM_l_in <= headphones_left_out;
       ampPWM_r_in <= headphones_right_out;
 
+      -- Duplicate of bt_left_out as PWM, for driving MEGA65 R2 on-board speaker
+      pcspeaker_l_in <= bt_left_out;
+      pcspeaker_r_in <= bt_right_out;
+      
       -- Propagate I2S and PCM clocks
       if modem_is_pcm_master='0' then
         -- Use internally generated clock

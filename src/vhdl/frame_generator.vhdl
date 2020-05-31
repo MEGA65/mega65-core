@@ -37,7 +37,9 @@ entity frame_generator is
 
     pipeline_delay : integer;
     viciv_pipeline_depth : integer := 4;
-    cycles_per_raster : integer := 63;
+    cycles_per_raster_1mhz : integer := 63;
+    cycles_per_raster_2mhz : integer := 63 * 2;
+    cycles_per_raster_3mhz : integer := 221; -- 63*3.5, rounded up to next integer;
 
     vsync_start : integer;
     vsync_end : integer;
@@ -58,11 +60,13 @@ entity frame_generator is
     -- Single 81MHz clock : divide by 2 for ~41MHz CPU and 27MHz
     -- video pixel clock
     clock81 : in std_logic;
-    -- 41MHHz CPU clock is used for exporting the PHI2 clock
+    -- CPU clock is used for exporting the PHI2 clock
     clock41 : in std_logic;
 
-    -- ~40MHz oriented signal that strobes for each CPU tick
-    phi2_out : out std_logic;  
+    -- CPU clock oriented signal that strobes for each CPU tick
+    phi2_1mhz_out : out std_logic;  
+    phi2_2mhz_out : out std_logic;  
+    phi2_3mhz_out : out std_logic;  
     
     hsync_polarity : in std_logic;
     vsync_polarity : in std_logic;
@@ -107,17 +111,34 @@ end frame_generator;
 
 architecture brutalist of frame_generator is
 
+  -- The pixelclock signal is 3x the real pixel clock 
   constant cycles_per_pixel : integer := 3;
+  -- Two physical rasters per VIC-II/III raster
+  constant physical_rasters_per_vic_ii_raster : integer := 2;
 
-  -- Work out what we need to add so that 16th bit (bit 15) will flip every time
-  -- a phi2 cycle has occurred
-  signal ticks_per_128_phi2 : integer := 32768*cycles_per_raster/(frame_width*cycles_per_pixel);
-  signal ticks_per_phi2 : unsigned(15 downto 0) := to_unsigned(ticks_per_128_phi2,16);
-
-  signal phi2_accumulator : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal last_phi2 : std_logic := '0';
-  signal phi2_toggle : std_logic := '0';
-  signal last_phi2_toggle : std_logic := '0';
+  constant ticks_per_vic_ii_raster : integer := frame_width * physical_rasters_per_vic_ii_raster * cycles_per_pixel;
+  
+  -- Now work out how much to add to the various accumulators,
+  -- so that bit(16) will toggle on each phi tick
+  -- The trick here is that we have to slightly over-estimate, rather than
+  -- under-estimate, so that we don't end up a cycle short on each raster.
+  -- Adding 1 should do that.
+  constant phi2_1mhz_delta : unsigned(16 downto 0) := to_unsigned(1+65536*cycles_per_raster_1mhz/ticks_per_vic_ii_raster,17);
+  constant phi2_2mhz_delta : unsigned(16 downto 0) := to_unsigned(1+65536*cycles_per_raster_2mhz/ticks_per_vic_ii_raster,17);
+  constant phi2_3mhz_delta : unsigned(16 downto 0) := to_unsigned(1+65536*cycles_per_raster_3mhz/ticks_per_vic_ii_raster,17);
+  
+  signal phi2_remaining_1mhz : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal phi2_remaining_2mhz : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal phi2_remaining_3mhz : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal phi2_accumulator_1mhz : unsigned(16 downto 0) := to_unsigned(0,17);
+  signal phi2_accumulator_2mhz : unsigned(16 downto 0) := to_unsigned(0,17);
+  signal phi2_accumulator_3mhz : unsigned(16 downto 0) := to_unsigned(0,17);
+  signal phi2_toggle_1mhz : std_logic := '0';
+  signal phi2_toggle_2mhz : std_logic := '0';
+  signal phi2_toggle_3mhz : std_logic := '0';
+  signal last_phi2_toggle_1mhz : std_logic := '0';  
+  signal last_phi2_toggle_2mhz : std_logic := '0';  
+  signal last_phi2_toggle_3mhz : std_logic := '0';  
   
   signal x : integer := 0;
   signal y : integer := frame_height - 3;
@@ -159,11 +180,28 @@ begin
 
       fullwidth_dataenable <= fullwidth_dataenable_driver;
       narrow_dataenable <= narrow_dataenable_driver;
-      
-      phi2_accumulator <= phi2_accumulator + ticks_per_128_phi2;
-      if phi2_accumulator(15) /= last_phi2 then
-        phi2_toggle <= not phi2_toggle;
-      end if;
+
+      phi2_accumulator_1mhz <= "0"&phi2_accumulator_1mhz(15 downto 0) + phi2_1mhz_delta;
+      phi2_accumulator_2mhz <= "0"&phi2_accumulator_2mhz(15 downto 0) + phi2_2mhz_delta;
+      phi2_accumulator_3mhz <= "0"&phi2_accumulator_3mhz(15 downto 0) + phi2_3mhz_delta;
+      if phi2_accumulator_1mhz(16) = '1' then
+        if phi2_remaining_1mhz /= 0 then
+          phi2_toggle_1mhz <= not phi2_toggle_1mhz;
+          phi2_remaining_1mhz <= phi2_remaining_1mhz - 1;
+        end if;
+      end if;      
+      if phi2_accumulator_2mhz(16) = '1' then
+        if phi2_remaining_2mhz /= 0 then
+          phi2_toggle_2mhz <= not phi2_toggle_2mhz;
+          phi2_remaining_2mhz <= phi2_remaining_2mhz - 1;
+        end if;
+      end if;      
+      if phi2_accumulator_3mhz(16) = '1' then
+        if phi2_remaining_3mhz /= 0 then
+          phi2_toggle_3mhz <= not phi2_toggle_3mhz;
+          phi2_remaining_3mhz <= phi2_remaining_3mhz - 1;
+        end if;
+      end if;      
       
       -- Pixel strobe to VIC-IV can just be a 50MHz pulse
       -- train, since it all goes into a buffer.
@@ -176,23 +214,34 @@ begin
         
         pixel_strobe <= '1';     -- stays high for 1 cycle
         pixel_strobe_counter <= 0;
-
+       
         if x = x_zero_position then
-          x_zero_driver <= '1';          
+          x_zero_driver <= '1';
+          if phi2_remaining_1mhz = to_unsigned(0,8) then
+            phi2_remaining_1mhz <= to_unsigned(cycles_per_raster_1mhz,8);
+          end if;
+          if phi2_remaining_2mhz = to_unsigned(0,8) then
+            phi2_remaining_2mhz <= to_unsigned(cycles_per_raster_2mhz,8);
+          end if;
+          if phi2_remaining_3mhz = to_unsigned(0,8) then
+            phi2_remaining_3mhz <= to_unsigned(cycles_per_raster_3mhz,8);
+          end if;
         elsif x = x_zero_position + 3 then
           x_zero_driver <= '0';
         end if;
-        if x < frame_width then
+        if x < (frame_width-1) then
           x <= x + 1;
         else
           x <= 0;
-          if y < frame_height then
+          if y < (frame_height-1) then
             y <= y + 1;
             y_zero_driver <= '0';
           else
             y <= 0;
             y_zero_driver <= '1';
-            phi2_accumulator <= to_unsigned(0,16);
+            phi2_accumulator_1mhz <= to_unsigned(0,17);
+            phi2_accumulator_2mhz <= to_unsigned(0,17);
+            phi2_accumulator_3mhz <= to_unsigned(0,17);
           end if;
         end if;
 
@@ -217,22 +266,22 @@ begin
         -- Analog VGA HSYNC needs to be somewhat earlier, to allow
         -- pseudo-flyback time
         if x = vga_hsync_start then
-          vga_hsync <= '0';
+          vga_hsync <= not hsync_polarity;
         end if;
         if x = vga_hsync_end then
-          vga_hsync <= '1';
+          vga_hsync <= hsync_polarity;
         end if;
 
         
         -- VSYNC is negative by default
         if y = vsync_start then
           lcd_vsync <= '0';
-          vsync_driver <= '0';
+          vsync_driver <= vsync_polarity;
           vsync_uninverted_driver <= '1'; 
         end if;
         if y = vsync_end+1 then
           lcd_vsync <= '1';
-          vsync_driver <= '1';
+          vsync_driver <= not vsync_polarity;
           vsync_uninverted_driver <= '0'; 
         end if;
 
@@ -272,11 +321,13 @@ begin
         if fullwidth_dataenable_driver = '1' then
           -- Inside frame, draw a test pattern
           red_o <= to_unsigned(x,8);
-          green_o <= to_unsigned(y,8);
-          blue_o <= to_unsigned(x+y,8);
+          green_o <= to_unsigned(y mod 16,8);
+--          blue_o <= to_unsigned(x+y,8);
+          blue_o <= to_unsigned(0,8);
           nred_o <= to_unsigned(x,8);
-          ngreen_o <= to_unsigned(y,8);
-          nblue_o <= to_unsigned(x+y,8);
+          ngreen_o <= to_unsigned(y mod 16,8);
+--          nblue_o <= to_unsigned(x+y,8);
+          nblue_o <= to_unsigned(0,8);
         end if;
         
         -- Draw white edge on frame
@@ -315,11 +366,23 @@ begin
     end if;
 
     if rising_edge(clock41) then
-      last_phi2_toggle <= phi2_toggle;
-      if phi2_toggle /= last_phi2_toggle then
-        phi2_out <= '1';
+      last_phi2_toggle_1mhz <= phi2_toggle_1mhz;
+      if phi2_toggle_1mhz /= last_phi2_toggle_1mhz then
+        phi2_1mhz_out <= '1';
       else
-        phi2_out <= '0';
+        phi2_1mhz_out <= '0';
+      end if;
+      last_phi2_toggle_2mhz <= phi2_toggle_2mhz;
+      if phi2_toggle_2mhz /= last_phi2_toggle_2mhz then
+        phi2_2mhz_out <= '1';
+      else
+        phi2_2mhz_out <= '0';
+      end if;
+      last_phi2_toggle_3mhz <= phi2_toggle_3mhz;
+      if phi2_toggle_3mhz /= last_phi2_toggle_3mhz then
+        phi2_3mhz_out <= '1';
+      else
+        phi2_3mhz_out <= '0';
       end if;
     end if;
     

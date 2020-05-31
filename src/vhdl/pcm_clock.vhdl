@@ -29,10 +29,11 @@ use work.debugtools.all;
 
 entity pcm_clock is
   generic (
+    clock_frequency : integer;
     sample_rate : integer := 8000
     );
   port (
-    clock50mhz : in std_logic;
+    cpuclock : in std_logic;
 
     -- PCM audio interface
     pcm_clk : out std_logic := '0';
@@ -47,7 +48,7 @@ architecture brutalist of pcm_clock is
   -- a half clock is 12.5 cycles, which doesn't work this way.
   -- The simple solution is to make the counter add the fractional part, and to
   -- add 2 each cycle instead of 1.
-  constant pcmclock_divider : integer := 25000000/(2000000/2);
+  constant pcmclock_divider : integer := clock_frequency/2000000;
   signal pcmclock_counter : integer range 0 to (pcmclock_divider + 1) := 0;
 
   constant samplerate_divider : integer := 2000000/sample_rate;
@@ -59,9 +60,9 @@ architecture brutalist of pcm_clock is
   
 begin
 
-  process (clock50mhz) is
+  process (cpuclock) is
   begin
-    if rising_edge(clock50mhz) then
+    if rising_edge(cpuclock) then
       report "Cycle " & integer'image(cycle_count) & ", pcmclock_counter=" & integer'image(pcmclock_counter);
       cycle_count <= cycle_count + 1;
       

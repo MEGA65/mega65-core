@@ -40,14 +40,14 @@ entity gs4510 is
     math_unit_enable : boolean := false;
     chipram_1mb : std_logic := '0';
 
-    cpufrequency : integer := 50;
     chipram_size : integer := 393216;
     target : mega65_target_t := mega65r2);
   port (
     mathclock : in std_logic;
     Clock : in std_logic;
-    phi0 : out std_logic;
-    ioclock : in std_logic;
+    phi_1mhz : in std_logic;
+    phi_2mhz : in std_logic;
+    phi_3mhz : in std_logic;
     reset : in std_logic;
     reset_out : out std_logic;
     irq : in std_logic;
@@ -364,26 +364,14 @@ architecture Behavioural of gs4510 is
 
   signal last_clear_matrix_mode_toggle : std_logic := '0';
 
-  -- For instruction-accurate CPU timing at 1MHz and 3.5MHz
-  -- XXX Doesn't differentiate between PAL and NTSC
-  constant pal1mhz_times_65536 : integer := 64569;
-  constant pal2mhz_times_65536 : integer := 64569 * 2;
-  constant pal3point5mhz_times_65536 : integer := 225992;
-  constant phi_fraction_01pal : unsigned(16 downto 0) :=
-    to_unsigned(pal1mhz_times_65536 / cpufrequency,17);
-  constant phi_fraction_02pal : unsigned(16 downto 0) :=
-    to_unsigned(pal2mhz_times_65536 / cpufrequency,17);
-  constant phi_fraction_04pal : unsigned(16 downto 0) :=
-    to_unsigned(pal3point5mhz_times_65536 / cpufrequency,17);
-  signal phi_export_counter : unsigned(16 downto 0) := (others => '0');
-  signal phi_counter : unsigned(16 downto 0) := (others => '0');
+  signal phi_internal : std_logic := '0';
   signal phi_pause : std_logic := '0';
   signal phi_backlog : integer range 0 to 127 := 0;
   signal phi_add_backlog : std_logic := '0';
   signal charge_for_branches_taken : std_logic := '1';
   signal phi_new_backlog : integer range 0 to 127 := 0;
   signal last_phi16 : std_logic := '0';
-  signal phi0_export : std_logic := '0';
+  signal last_phi_in : std_logic := '0';
 
   -- IO has one waitstate for reading, 0 for writing
   -- (Reading incurrs an extra waitstate due to read_data_copy)
@@ -1366,7 +1354,7 @@ begin
     dinl => std_logic_vector(cache_wdata)
     );    
       
-  process(clock,reset,reg_a,reg_x,reg_y,reg_z,flag_c,phi0_export,all_pause)
+  process(clock,reset,reg_a,reg_x,reg_y,reg_z,flag_c,all_pause)
     procedure disassemble_last_instruction is
       variable justification : side := RIGHT;
       variable size : width := 0;
@@ -1811,7 +1799,7 @@ begin
         fastio_read <= '1';
         proceed <= '0';
         
-        -- XXX Some fastio (that referencing ioclocked registers) does require
+        -- XXX Some fastio addresses do require some
         -- io_wait_states, while some can use fewer waitstates because the
         -- memories involved can be clocked at the CPU clock, and have just 1
         -- wait state due to the dual-port memories.
@@ -3069,11 +3057,8 @@ begin
     variable vreg33 : unsigned(32 downto 0) := to_unsigned(0,33);
     
   begin    
-                                        -- Export phi0 for the rest of the machine (scales with CPU speed)
-    phi0 <= phi0_export;
-    
-                                        -- Begin calculating results for operations immediately to help timing.
-                                        -- The trade-off is consuming a bit of extra silicon.
+    -- Begin calculating results for operations immediately to help timing.
+    -- The trade-off is consuming a bit of extra silicon.
     a_incremented <= reg_a + 1;
     a_decremented <= reg_a - 1;
     a_negated <= (not reg_a) + 1;
@@ -3315,41 +3300,20 @@ begin
         gated_game <= force_game;
       end if;
 
-                                        -- Count slow clock ticks for CIAs and other peripherals (never goes >3.5MHz)
-                                        -- Actually, the C65 always counts timers etc at 1MHz, which simplifies
-                                        -- things a little. We only deviate for C128 2MHz mode emulation, where we
-                                        -- do double it.
-                                        -- Actually, CIAs must run at 1MHz still in 2MHz mode, because SynthMark
-                                        -- depends  on it.
-      case cpuspeed_external is
---        when x"02" =>          
---          phi_export_counter <= phi_export_counter + phi_fraction_02pal;
-        when others =>          
-          phi_export_counter <= phi_export_counter + phi_fraction_01pal;
-      end case;
-      phi0_export <= phi_export_counter(16);
-      
-      
-                                        -- Count slow clock ticks for applying instruction-level 6502/4510 timing
-                                        -- accuracy at 1MHz and 3.5MHz
-                                        -- XXX Add NTSC speed emulation option as well
+      -- Count slow clock ticks for applying instruction-level 6502/4510 timing
+      -- accuracy at 1MHz and 3.5MHz
+      -- XXX Add NTSC speed emulation option as well
 
       phi_add_backlog <= '0';
       phi_new_backlog <= 0;
-      last_phi16 <= phi_counter(16);
       case cpuspeed_internal is
-        when x"01" =>          
-          phi_counter <= phi_counter + phi_fraction_01pal + cpu_speed_bias*16 - (128*16);
-        when x"02" =>          
-          phi_counter <= phi_counter + phi_fraction_02pal + cpu_speed_bias*16 - (128*16);
-        when x"04" =>
-          phi_counter <= phi_counter + phi_fraction_04pal + cpu_speed_bias*16 - (128*16);
-        when others =>
-                                        -- Full speed = 1 clock tick per cycle
-          phi_counter(16) <= phi_counter(16) xor '1';
+        when x"01" => phi_internal <= phi_1mhz;
+        when x"02" => phi_internal <= phi_2mhz;
+        when x"04" => phi_internal <= phi_3mhz;
+        when others => phi_internal <= '1'; -- Full speed = 1 clock tick per cycle
       end case;
       if cpuspeed_internal /= x"40" and monitor_mem_attention_request_drive='0' then
-        if last_phi16 /= phi_counter(16) then
+        if (phi_internal='1') then
           -- phi2 cycle has passed
           if phi_backlog = 1 or phi_backlog=0 then
             if phi_add_backlog = '0' then
@@ -5583,6 +5547,10 @@ begin
                       + to_integer(reg_x),16);
                     state <= JumpDereference;
                   when M_InnSPY =>
+                    -- XXX If this is really about stack relative, should it
+                    -- be applying BP as part of the offset?  Maybe it should,
+                    -- if we want a way to do stack-relative with stacks deeper
+                    -- than 256 bytes? But probably not.
                     temp_addr :=  to_unsigned(to_integer(reg_b&reg_arg1)
                                               +to_integer(reg_sph&reg_sp),16);
                     reg_addr <= temp_addr + 1;
@@ -6758,7 +6726,9 @@ begin
               if (short_address(11 downto 8) = x"4") and hyper_iomode(2)='1' then
                 temp_address(27 downto 12) := x"7FFD";
               end if;
-              if sector_buffer_mapped='0' and colourram_at_dc00='0' then
+              -- IO mode "10" = ethernet buffer at $D800-$DFFF, so no cartridge
+              -- IO
+              if sector_buffer_mapped='0' and colourram_at_dc00='0' and viciii_iomode/="10" then
                 -- Map $DE00-$DFFF IO expansion areas to expansion port
                 -- (but only if SD card sector buffer is not mapped, and
                 -- 2nd KB of colour RAM is not mapped).

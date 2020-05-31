@@ -31,8 +31,9 @@ use Std.TextIO.all;
 use work.debugtools.all;
 
 entity pcm_transceiver is
+  generic ( clock_frequency : integer );
   port (
-    clock50mhz : in std_logic;
+    cpuclock : in std_logic;
 
     -- PCM clock and sync signals
     pcm_clk : in std_logic;
@@ -67,9 +68,9 @@ architecture brutalist of pcm_transceiver is
   
 begin
 
-  process (clock50mhz) is
+  process (cpuclock) is
   begin
-    if rising_edge(clock50mhz) then
+    if rising_edge(cpuclock) then
 
       last_sync <= pcm_sync;
       last_clk <= pcm_clk;

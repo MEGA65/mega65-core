@@ -197,12 +197,14 @@ architecture behavioural of hdmi_i2c is
     ---------------
     
 --    x"0A1D",  -- SPDIF audio format, auto CTS
-    x"0A9D",  -- SPDIF audio format, manual CTS
+    x"0A10",  -- SPDIF audio format, auto CTS, 128x sample rate, audio sample
+              -- packet instead of HBR audio stream packet
     x"0B8E",  -- SPDIF audio TX enable, extract MCLK from SPDIF audio
     -- stream, i.e no separate MCLK
     x"0C00",  -- Use sampling rate encoded in the SPDIF stream instead
     -- of specifying the rate.
     x"1220",  -- Mark audio stream as PCM audio, no copyright
+    x"1403",  -- Indicate 20 bits per sample    
     x"7301",  -- stereo
     x"7600",  -- clear channel allocations
 
@@ -210,12 +212,11 @@ architecture behavioural of hdmi_i2c is
     -- See p93 SS4.4.2 of https://www.analog.com/media/en/technical-documentation/user-guides/ADV7511_Programming_Guide.pdf
     -- 27MHz pixel clock, 44.1KHz audio rate using Table 81:
     -- N=6272 ($1880), CTS=30000 ($7530)
-    -- Clock is 27.083MHz, so CTS needs to be 30092 ($758C)
-    -- (or we increase sample rate to 27.083/27*44100 = 44237 samples / second.)
+    -- Clock is 27MHz exactly, so the above values should work fine
     -- Big-endian byte order.
     -- Use $6000 for 192KHz audio sample rate
-    x"0100",x"0218",x"0380",  -- N
-    x"0700",x"08EE",x"09E0",  -- CTS = 61152
+    x"0100",x"0218",x"0380",  -- N   =  6272
+    x"0700",x"0875",x"0930",  -- CTS = 30000
     
 --            -- Set HDMI device name
 --            x"1F80",x"4478", -- Allow setting HDMI packet memory

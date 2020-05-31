@@ -176,9 +176,13 @@ architecture behavior of cpu_test is
   signal hr2_clk_n : std_logic;
   signal hr2_clk_p : std_logic;
   signal hr2_cs0 : std_logic; 
+
+  signal audio_left : std_logic_vector(19 downto 0);
+  signal audio_right : std_logic_vector(19 downto 0);
   
 begin
 
+  fh0: if false generate
   fakehyper0: entity work.s27kl0641
     generic map (
       id => "$8000000",
@@ -299,8 +303,18 @@ begin
       hr2_clk_p => hr2_clk_p
 --      hr_clk_n => hr_clk_n,
       );
+  end generate;
   
-  
+  hdmiaudio: entity work.hdmi_spdif
+    generic map ( samplerate => 44100 )
+    port map (
+      clock27 => clock27,
+      spdif_out => open,
+      left_in => audio_left,
+      right_in => audio_right
+      );  
+
+  sd0: if false generate
   slow_devices0: entity work.slow_devices
     port map (
       cpuclock => cpuclock,
@@ -363,7 +377,7 @@ begin
       cart_d => cart_d,
       cart_a => cart_a
       );
-  
+
   core0: entity work.machine
     generic map ( target => simulation,
                   hyper_installed => true)
@@ -485,6 +499,9 @@ begin
       eth_rxer => '0',
       eth_interrupt => '0',
 
+      audio_left => audio_left,
+      audio_right => audio_right,
+      
       vsync           => vsync,
       vga_hsync           => hsync,
       vgared          => vgared,
@@ -507,6 +524,7 @@ begin
 
       sseg_ca         => sseg_ca,
       sseg_an         => sseg_an);
+  end generate;
 
   process is
     file trace : CharFile;
@@ -555,6 +573,20 @@ begin
       & std_logic'image(hr2_d(6))
       & std_logic'image(hr2_d(7))
       & ".";
+  end process;
+
+  process
+  begin  -- process tb
+
+    wait for 3 ns;
+    
+    for i in 1 to 2000000 loop
+      clock27 <= '0';
+      wait for 18519 ps;
+      clock27 <= '1';
+      wait for 18519 ps;      
+    end loop;
+    
   end process;
   
   

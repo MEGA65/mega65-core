@@ -220,15 +220,17 @@ set_property -dict {PACKAGE_PIN R6 IOSTANDARD LVCMOS33} [get_ports hdmi_vsync]
 set_property -dict {PACKAGE_PIN R2 IOSTANDARD LVCMOS33} [get_ports hdmi_de]
 set_property -dict {PACKAGE_PIN Y2 IOSTANDARD LVCMOS33} [get_ports hdmi_clk]
 
+# This is the output from FPGA to ADV7511
 set_property -dict {PACKAGE_PIN AA1 IOSTANDARD LVCMOS33} [get_ports hdmi_spdif]
+# This is the output from the ADV7511, which we can safely ignore
 set_property -dict {PACKAGE_PIN AA8 IOSTANDARD LVCMOS33} [get_ports hdmi_spdif_out]
 
 # PWM Audio
 #
 set_property -dict {PACKAGE_PIN L6 IOSTANDARD LVCMOS33} [get_ports pwm_l]
 set_property -dict {PACKAGE_PIN F4 IOSTANDARD LVCMOS33} [get_ports pwm_r]
-set_property -dict {PACKAGE_PIN F18 IOSTANDARD LVCMOS33} [get_ports speaker_mute_n]
-set_property -dict {PACKAGE_PIN E16 IOSTANDARD LVCMOS33} [get_ports internal_speaker]
+set_property -dict {PACKAGE_PIN F18 IOSTANDARD LVCMOS33} [get_ports pcspeaker_muten]
+set_property -dict {PACKAGE_PIN E16 IOSTANDARD LVCMOS33} [get_ports pcspeaker_left]
 
 
 ##USB HID (PS/2)

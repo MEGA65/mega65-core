@@ -12,7 +12,7 @@ entity cia6526 is
     );
   port (
     cpuclock : in std_logic;
-    phi0 : in std_logic;
+    phi0_1mhz : in std_logic;
     todclock : in std_logic;
     reset : in std_logic;
     irq : out std_logic := 'H';
@@ -129,7 +129,6 @@ architecture behavioural of cia6526 is
   signal sdr_bits_remaining : integer := 0;
   signal sdr_bit_alternate : std_logic := '0';
 
-  signal prev_phi0 : std_logic := '0';
   signal prev_countin : std_logic := '0';
 
   signal prev_todclock : std_logic := '0';
@@ -478,10 +477,9 @@ begin  -- behavioural
       end if;
 
       -- Look for timera and timerb tick events
-      prev_phi0 <= phi0;
       prev_countin <= countin;
       reg_timera_underflow <= '0';
---      report "CIA reg_timera_start=" & std_logic'image(reg_timera_start) & ", phi0=" & std_logic'image(phi0);
+--      report "CIA reg_timera_start=" & std_logic'image(reg_timera_start) & ", phi0=" & std_logic'image(phi0_1mhz);
       if reg_timera_start='1' and hypervisor_mode='0' then
         if reg_timera = x"FFFF" and reg_timera_has_ticked='1' then
           -- underflow
@@ -526,8 +524,7 @@ begin  -- behavioural
         case reg_timera_tick_source is
           when '0' =>
             -- phi2 pulses
-            -- NOTE: MEGA65 clocks phi transitions, not pulses
-            if phi0 /= prev_phi0 then
+            if phi0_1mhz ='1' then
               report "CIA" & to_hstring(unit) &  " timera ticked down to $" & to_hstring(reg_timera);
               reg_timera <= reg_timera - 1;
               reg_timera_has_ticked <= '1';
@@ -558,7 +555,7 @@ begin  -- behavioural
         end if;
         case reg_timerb_tick_source is
           when "00" => -- phi2 pulses
-            if phi0 /= prev_phi0 then
+            if phi0_1mhz ='1' then
               if reg_timerb /= x"0000" then
                 report "CIA" & to_hstring(unit) & " timerb ticking down to $" & to_hstring(to_unsigned(to_integer(reg_timerb) - 1,16))
                   & " from $" & to_hstring(reg_timerb);

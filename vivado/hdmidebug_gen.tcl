@@ -93,91 +93,9 @@ if {[string equal [get_filesets -quiet sources_1] ""]} {
 set obj [get_filesets sources_1]
 # Import local files from the original project
 set files [list \
- "[file normalize "$origin_dir/ipcore_dir/dotclock100.vhd"]"\
- "[file normalize "$origin_dir/src/vhdl/debugtools.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/cputypes.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/victypes.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/hdmidebug.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/hyperram.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/hdmi_spdif.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/reconfig.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/frame_generator.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/pixel_driver.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/kb_matrix_ram.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/mega65kbd_to_matrix.vhdl"]"\
- "[file normalize "$origin_dir/zed_hdmi_720p/i2c_sender.vhd"]"\
- "[file normalize "$origin_dir/src/vhdl/spdif_encoder.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/vga_hdmi.vhdl"]"\
- "[file normalize "$origin_dir/zed_hdmi_720p/vga_generator.vhd"]"\
- "[file normalize "$origin_dir/spdif_out/spdf_out.vhd"]"\
- "[file normalize "$origin_dir/spdif_out/serialiser.vhd"]"\
- "[file normalize "$origin_dir/spdif_out/soundSource.vhd"]"\
- "[file normalize "$origin_dir/spdif_out/tb_spdif_out.vhd"]"\
- "[file normalize "$origin_dir/spdif_out/tb_timebase.vhd"]"\
- "[file normalize "$origin_dir/spdif_out/Timebase.vhd"]"\
- "[file normalize "$origin_dir/src/vhdl/keyboard_complex.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/virtual_to_matrix.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/keyboard_to_matrix.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/mega65kbd_to_matrix.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/matrix_to_ascii.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/keymapper.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/widget_to_matrix.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/ps2_to_matrix.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/UART_TX_CTRL.vhd"]"\
-	       
-]
- set imported_files [add_files -fileset sources_1 $files]
+ "[file normalize "$origin_dir/ipcore_dir/
 
-# Set 'sources_1' fileset file properties for remote files
-# None
-
-# Set 'sources_1' fileset file properties for local files
-
-set file "spdif_out/spdf_out.vhd"
-set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
-set_property -name "file_type" -value "VHDL" -objects $file_obj
-
-set file "spdif_out/serialiser.vhd"
-set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
-set_property -name "file_type" -value "VHDL" -objects $file_obj
-
-set file "spdif_out/soundSource.vhd"
-set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
-set_property -name "file_type" -value "VHDL" -objects $file_obj
-
-set file "spdif_out/tb_spdif_out.vhd"
-set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
-set_property -name "file_type" -value "VHDL" -objects $file_obj
-
-set file "spdif_out/tb_timebase.vhd"
-set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
-set_property -name "file_type" -value "VHDL" -objects $file_obj
-
-set file "spdif_out/Timebase.vhd"
-set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
-set_property -name "file_type" -value "VHDL" -objects $file_obj
-
-set file "zed_hdmi_720p/i2c_sender.vhd"
-set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
-set_property -name "file_type" -value "VHDL" -objects $file_obj
-
-set file "vhdl/spdif_encoder.vhdl"
-set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
-set_property -name "file_type" -value "VHDL" -objects $file_obj
-
-set file "vhdl/vga_hdmi.vhdl"
-set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
-set_property -name "file_type" -value "VHDL" -objects $file_obj
-
-set file "vhdl/cputypes.vhdl"
-set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
-set_property -name "file_type" -value "VHDL" -objects $file_obj
-
-set file "vhdl/victypes.vhdl"
-set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
-set_property -name "file_type" -value "VHDL" -objects $file_obj
-
-set file "ipcore_dir/dotclock100.vhd"
+set file "vhdl/clocking.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 

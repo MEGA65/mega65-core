@@ -10,7 +10,6 @@ entity c65uart is
   port (
     pixelclock : in std_logic;
     cpuclock : in std_logic;
-    phi0 : in std_logic;
     reset : in std_logic;
     irq : out std_logic := 'Z';
     c65uart_cs : in std_logic;
@@ -206,9 +205,12 @@ architecture behavioural of c65uart is
   signal portm_internal : std_logic_vector(7 downto 0) := x"7F";
   signal portn_internal : std_logic_vector(7 downto 0) := x"FF";
 
-  -- Visual keyboard X and Y start positions (x4).
   signal porto_internal : std_logic_vector(7 downto 0) := x"14";
-  signal portp_internal : std_logic_vector(7 downto 0) := x"34";
+
+  -- Bit 0 = HDMI audio enable
+  -- Bit 1 = HDMI audio signed conversion
+  -- Bit 2 = Overlay audio on red and green channels for debug
+  signal portp_internal : std_logic_vector(7 downto 0) := x"03";
 
   signal joyswap_internal : std_logic := '0';
   signal joya_rotate_internal : std_logic := '0';

@@ -53,15 +53,17 @@
 library ieee;
 use ieee.std_logic_1164.all; 
 use ieee.numeric_std.all;
+use work.debugtools.all;
 
 entity spdif_encoder is	 
-  generic (DATA_WIDTH: integer range 16 to 32 := 32); 
+  generic (
+    clock_frequency : integer := 27000000;
+    sample_rate : integer := 44100;
+    DATA_WIDTH: integer range 16 to 32 := 32); 
   port (
-    up_clk: in std_logic;             -- clock
-    data_clk : in std_logic;          -- data clock
+    clock27 : in std_logic;
     resetn : in std_logic;            -- resetn
     conf_mode: in std_logic_vector(3 downto 0);   -- sample format
-    conf_ratio: in std_logic_vector(7 downto 0);  -- clock divider
     conf_txdata: in std_logic;          -- sample data enable
     conf_txen: in std_logic;            -- spdif signal enable
     chstat_freq: in std_logic_vector(1 downto 0);  -- sample freq.
@@ -77,8 +79,16 @@ end spdif_encoder;
 
 architecture rtl of spdif_encoder is
 
+  -- We need to generate a clock that is 2x the actual required data rate
+  -- because of the biphasic encoding
+  -- The actual calculation can't be done in VHDL as it needs to be calulcated
+  -- using floating point precision to be accurate enough.
+--  constant clockadd_const : unsigned(32 downto 0) := to_unsigned(65536*65536*(sample_rate*2*64)/clock_frequency,33);
+  constant clockadd_const : unsigned(32 downto 0) := to_unsigned(897934496,33);
+  signal clocksummer : unsigned(32 downto 0) := (others => '0');
+  signal last_clocksummer32 : std_logic := '0';
+  
   signal spdif_clk_en, spdif_out : std_logic;
-  signal clk_cnt : integer range 0 to 511;
   type buf_states is (IDLE, READ_CHA, READ_CHB, CHA_RDY, CHB_RDY);
   signal bufctrl : buf_states;
   signal cha_samp_ack, chb_samp_ack : std_logic;
@@ -92,11 +102,11 @@ architecture rtl of spdif_encoder is
   signal audio : std_logic_vector(23 downto 0);
   signal par_vector : std_logic_vector(26 downto 0);
   signal send_audio : std_logic;
-  
-  signal tick_counter : std_logic;
-  signal tick_counter_d1 : std_logic;
-  signal tick_counter_d2 : std_logic;
 
+  signal first_sample_time : integer := 0;
+  signal last_sample_time : integer := 0;
+  signal samples_seen : integer := 0;
+  
   constant X_PREAMBLE : std_logic_vector(0 to 7) := "11100010";
   constant Y_PREAMBLE : std_logic_vector(0 to 7) := "11100100";
   constant Z_PREAMBLE : std_logic_vector(0 to 7) := "11101000";
@@ -145,43 +155,27 @@ architecture rtl of spdif_encoder is
   
 begin
 
--- SPDIF clock enable generation. The clock is a fraction of the data clock,
--- determined by the conf_ratio value.
-  DCLK : process (data_clk)
-  begin
-    if rising_edge(data_clk) then
-      tick_counter <= not tick_counter;
-    end if;
-  end process DCLK;
-
-  CGEN: process (up_clk)
+  CGEN: process (clock27)
   begin 
-    if rising_edge(up_clk) then
+    if rising_edge(clock27) then
       if resetn = '0' or conf_txen = '0' then
-         clk_cnt <= 0;
-         tick_counter_d1 <= '0';
-         tick_counter_d2 <= '0';
-         spdif_clk_en <= '0';
-      else
-        tick_counter_d1 <= tick_counter;
-        tick_counter_d2 <= tick_counter_d1;
+        clocksummer <= (others => '0');
+        last_clocksummer32 <= '0';
         spdif_clk_en <= '0';
-
-        if (tick_counter_d1 xor tick_counter_d2) = '1' then
-          if clk_cnt < to_integer(unsigned(conf_ratio)) then
-            clk_cnt <= clk_cnt + 1;
-          else
-            clk_cnt <= 0;
-            spdif_clk_en <= '1';
-          end if;
+      else
+        spdif_clk_en <= '0';
+        clocksummer <= clocksummer + clockadd_const;
+        if clocksummer(32) /= last_clocksummer32 then
+          last_clocksummer32 <= clocksummer(32);
+          spdif_clk_en <= '1';
         end if;
-      end if;
+      end if;        
     end if;
   end process CGEN;
 
-  SRD: process (up_clk)
+  SRD: process (clock27)
   begin 
-    if rising_edge(up_clk) then
+    if rising_edge(clock27) then
       if resetn = '0' or conf_txdata = '0' then
         bufctrl <= IDLE;
         sample_data_ack <= '0';
@@ -219,9 +213,9 @@ begin
     end if;
   end process SRD;
 
-  TXSYNC: process (data_clk)
+  TXSYNC: process (clock27)
   begin
-    if (rising_edge(data_clk)) then
+    if (rising_edge(clock27)) then
       if resetn = '0' then
         spdif_tx_o <= '0';
       else
@@ -232,9 +226,9 @@ begin
  
 -- State machine that generates sub-frames and blocks
   
-  FRST: process (up_clk)
+  FRST: process (clock27)
   begin 
-    if rising_edge(up_clk) then
+    if rising_edge(clock27) then
       if resetn = '0' or conf_txen = '0' then
         framest <= IDLE;
         frame_cnt <= 0;
@@ -262,6 +256,12 @@ begin
                 if bit_cnt < 31 then
                   bit_cnt <= bit_cnt + 1;
                 else
+                  if first_sample_time=0 then
+                    first_sample_time <= now / 1 us;
+                  end if;
+                  report "next sample channel A (block start). Sample interval: " & integer'image((now/1 us) - last_sample_time);
+                  last_sample_time <= now / 1 us;
+                  samples_seen <= samples_seen + 1;
                   bit_cnt <= 0;
                   if send_audio = '1' then
                     cha_samp_ack <= '1';
@@ -303,6 +303,9 @@ begin
                   bit_cnt <= bit_cnt + 1;
                 else
                   bit_cnt <= 0;
+                  report "next sample channel A. Sample interval: " & integer'image((now/1 us) - last_sample_time);
+                  last_sample_time <= now / 1 us;
+                  samples_seen <= samples_seen + 1;
                   if spdif_out = '1' then
                     inv_preamble <= '1';
                   else
@@ -358,6 +361,11 @@ begin
                   if send_audio = '1' then
                     chb_samp_ack <= '1';
                   end if;
+                  report "next sample channel B for sample " & integer'image(samples_seen);
+                  if samples_seen = 44100 then
+                    report "44100 samples took " & integer'image((now / 1 us) - first_sample_time);
+                  end if;
+                  
                   if frame_cnt < 191 then  -- One block is 192 frames
                     frame_cnt <= frame_cnt + 1;
                     framest <= CHANNEL_A;
@@ -403,9 +411,9 @@ begin
 
 -- Audio data latching
   DA32: if DATA_WIDTH = 32 generate
-    ALAT: process (up_clk)
+    ALAT: process (clock27)
     begin 
-      if rising_edge(up_clk) then
+      if rising_edge(clock27) then
         if send_audio = '0' then
           audio(23 downto 0) <= (others => '0');
         else
@@ -445,9 +453,9 @@ begin
   end generate DA32;
 
   DA16: if DATA_WIDTH = 16 generate
-    ALAT: process (up_clk)
+    ALAT: process (clock27)
     begin 
-      if rising_edge(up_clk) then
+      if rising_edge(clock27) then
         if send_audio = '0' then
           audio(23 downto 0) <= (others => '0');
         else
@@ -477,7 +485,8 @@ begin
   def_ch_status(14 downto 8) <= (others => '0');
   def_ch_status(15) <= chstat_gstat;    -- generation status
   def_ch_status(23 downto 16) <= (others => '0');
-  def_ch_status(27 downto 24) <= "0000" when chstat_freq = "00" else
+  -- 00 = 44.1KHz, 01 - 48KHz, 10 - 32KHz, 
+  def_ch_status(27 downto 24) <= "0000" when chstat_freq = "00" else 
                              "0010" when chstat_freq = "01" else
                              "0011" when chstat_freq = "10" else
                              "0001";

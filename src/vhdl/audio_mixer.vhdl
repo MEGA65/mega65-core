@@ -25,7 +25,7 @@ use work.cputypes.all;
 
 entity audio_mixer is
   port (    
-    clock50mhz : in std_logic;
+    cpuclock : in std_logic;
 
     -- Interface for accessing mix table
     reg_num : in unsigned(7 downto 0) := x"FF";
@@ -83,7 +83,7 @@ begin
 
   coefmem0: entity work.ram32x1024_sync
     port map (
-      clk => clock50mhz,
+      clk => cpuclock,
 
       cs => '1',
       address => ram_raddr,
@@ -95,9 +95,9 @@ begin
       wdata(15 downto 0) => dummy
       );
   
-  process (clock50mhz) is
+  process (cpuclock) is
   begin
-    if rising_edge(clock50mhz) then
+    if rising_edge(cpuclock) then
 
       -- Allow CPU to read any audio input or mixed output
       if to_integer(reg_num) < 16 then

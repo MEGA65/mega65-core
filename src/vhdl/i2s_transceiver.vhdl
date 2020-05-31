@@ -31,8 +31,9 @@ use Std.TextIO.all;
 use work.debugtools.all;
 
 entity i2s_transceiver is
+  generic ( clock_frequency : integer );
   port (
-    clock50mhz : in std_logic;
+    cpuclock : in std_logic;
 
     -- I2S clock and sync signals
     i2s_clk : in std_logic;
@@ -67,9 +68,9 @@ architecture brutalist of i2s_transceiver is
   
 begin
 
-  process (clock50mhz) is
+  process (cpuclock) is
   begin
-    if rising_edge(clock50mhz) then
+    if rising_edge(cpuclock) then
 
       last_clk <= i2s_clk;
 

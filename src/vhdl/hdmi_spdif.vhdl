@@ -13,7 +13,7 @@ use ieee.numeric_std.all;
 
 entity hdmi_spdif is
   generic ( samplerate : integer := 44100);
-  Port ( clk : in  STD_LOGIC;
+  Port ( clock27 : in std_logic;
          left_in : in std_logic_vector(19 downto 0);
          right_in : in std_logic_vector(19 downto 0);
          spdif_out : out  STD_LOGIC);
@@ -28,14 +28,12 @@ architecture Behavioral of hdmi_spdif is
 begin
 
   spdiftx0: entity work.spdif_encoder port map (
-    up_clk => clk,
-    data_clk => clk,
+    clock27 => clock27,
     resetn => '1',
     conf_mode => "0101", -- 20 bit samples
-    conf_ratio => std_logic_vector(to_unsigned(100000000/(samplerate*64),8)), -- clock divider
     conf_txdata => '1', -- sample data is valid
     conf_txen => '1', -- enable transmitter
-    chstat_freq => "11", -- 192KHz sample rate
+    chstat_freq => "00", -- 44.1KHz sample rate?
     chstat_gstat => '0', -- maybe user bit management bit 0 or 3?
     chstat_preem => '0', -- no preemphasis
     chstat_copy => '1', -- NOT copyright (negative meaning)
@@ -48,9 +46,9 @@ begin
     spdif_tx_o => spdif_out
     );
 
-  process (clk) is
+  process (clock27) is
   begin
-    if rising_edge(clk) then
+    if rising_edge(clock27) then
       -- If we put the sample in the top 20 bits, then it is REALLY
       -- loud and distorts.  So put it 7 bits down.
       if sample_channel = '0' then

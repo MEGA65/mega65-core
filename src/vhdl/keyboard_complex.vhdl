@@ -6,9 +6,11 @@ use work.debugtools.all;
 
 entity keyboard_complex is
   port (
-    ioclock : in std_logic;
+    cpuclock : in std_logic;
     reset_in : in std_logic;
     matrix_mode_in : in std_logic;
+
+    viciv_frame_indicate : in std_logic;
     
     -- Physical interface pins
 
@@ -146,7 +148,7 @@ begin
 
   v2m: entity work.virtual_to_matrix
     port map (
-      clk => ioclock,
+      clk => cpuclock,
       key1 => key1,
       key2 => key2,
       key3 => key3,
@@ -159,7 +161,7 @@ begin
   
   phykbd0: entity work.keyboard_to_matrix
     port map (
-      clk => ioclock,
+      clk => cpuclock,
       porta_pins => porta_pins,
       portb_pins => portb_pins,
       keyboard_column8_out => keyboard_column8_out,
@@ -174,7 +176,7 @@ begin
       );
 
   ps2: entity work.ps2_to_matrix port map(
-    ioclock => ioclock,
+    cpuclock => cpuclock,
     reset_in => reset_in,
 
     -- PS/2 keyboard also provides emulated joysticks and RESTORE key
@@ -200,9 +202,10 @@ begin
     );
 
   keymapper0:   entity work.keymapper port map(
-    ioclock => ioclock,
+    cpuclock => cpuclock,
     reset_in => reset_in,
     matrix_mode_in => matrix_mode_in,
+    viciv_frame_indicate => viciv_frame_indicate,      
 
     -- Which inputs shall we incorporate
 
@@ -281,7 +284,7 @@ begin
       clock_frequency => 50000000
       )
     port map(
-      Clk => ioclock,
+      Clk => cpuclock,
       reset_in => reset_in,
 
       matrix_col => matrix_combined_col,
@@ -303,7 +306,7 @@ begin
   -- copy of combined keyboard matrix for debug output
   kc_kmm_debug: entity work.kb_matrix_ram
   port map (
-    clkA => ioclock,
+    clkA => cpuclock,
     addressa => matrix_combined_col_idx,
     dia => matrix_combined_col,
     wea => x"FF",
@@ -314,7 +317,7 @@ begin
   -- another of combined keyboard matrix for summary view
   kc_kmm_summary: entity work.kb_matrix_ram
   port map (
-    clkA => ioclock,
+    clkA => cpuclock,
     addressa => matrix_combined_col_idx,
     dia => matrix_combined_col,
     wea => x"FF",
@@ -335,13 +338,13 @@ begin
     summary_index  <= kd_phase_index;
   end process;
         
-  process (ioclock)
+  process (cpuclock)
     variable num : integer;
   begin
 
     widget_matrix_col_idx <= matrix_col_idx;
     
-    if rising_edge(ioclock) then
+    if rising_edge(cpuclock) then
 
       capslock_out <= capslock_combined;
       restore_out <= restore_combined;

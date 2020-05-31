@@ -6,8 +6,11 @@ use work.debugtools.all;
 
 entity keymapper is
   port (
-    ioclock : in std_logic;
+    cpuclock : in std_logic;
     reset_in : in std_logic;
+
+    viciv_frame_indicate : in std_logic;
+    
     matrix_mode_in : in std_logic; -- Is the system displaying matrix mode (not
                                    -- to be confused with the keyboard matrix).    
     joya_rotate : in std_logic;
@@ -90,6 +93,8 @@ end entity keymapper;
 architecture behavioural of keymapper is
 
   signal matrix_offset : integer range 0 to 255 := 252;
+
+  signal last_viciv_frame_indicate : std_logic := '0';
   
   signal hyper_trap_count_internal : unsigned(7 downto 0) := x"00";  
 
@@ -119,6 +124,7 @@ architecture behavioural of keymapper is
 
   signal key_num : integer range 0 to 71 := 0;
   signal hyper_trap : std_logic := '1';
+  signal hyper_trap_on_frame_sync : std_logic := '0';
 
   signal porta_pins : std_logic_vector(7 downto 0);
   signal portb_pins : std_logic_vector(7 downto 0);
@@ -159,7 +165,7 @@ begin  -- behavioural
   -- to ensure we get the semantics correct for this to be done with LUTs and not 72 flip flops.
   kmm: entity work.kb_matrix_ram
   port map (
-    clkA => ioclock,
+    clkA => cpuclock,
     addressa => m_col_idx,
     dia => km_input,
     wea => x"FF",
@@ -170,9 +176,9 @@ begin  -- behavioural
   matrix_col_idx <= m_col_idx;
 
   -- Let other blocks snoop combined matrix output as we scan through it.
-  scanexport: process(ioclock)
+  scanexport: process(cpuclock)
   begin
-    if rising_edge(ioclock) then
+    if rising_edge(cpuclock) then
       if scan_idx < 9 then
         matrix_combined_col <= scan_col;
         matrix_combined_col_idx <= scan_idx;
@@ -180,13 +186,13 @@ begin  -- behavioural
     end if;
   end process;
   
-  keyread: process (ioclock)
+  keyread: process (cpuclock)
     variable portb_value : std_logic_vector(7 downto 0);
     variable porta_value : std_logic_vector(7 downto 0);
     variable scan_col_out : std_logic;
     variable n2 : integer;
   begin  -- process keyread
-    if rising_edge(ioclock) then      
+    if rising_edge(cpuclock) then      
       reset_out <= reset_drive;
       hyper_trap_out <= hyper_trap;
 
@@ -325,11 +331,9 @@ begin  -- behavioural
           if restore_down_ticks < 8 then
             -- <0.25 seconds = quick tap = trigger NMI
             restore_out <= '0';
-          elsif restore_down_ticks < 32 then
-            -- 0.25 - ~ 1 second hold = trigger hypervisor trap
-            hyper_trap <= '0';
-            hyper_trap_count <= hyper_trap_count_internal + 1;
-            hyper_trap_count_internal <= hyper_trap_count_internal + 1;
+          elsif restore_down_ticks < 128 then
+            -- 0.25 - ~ 4 second hold = trigger hypervisor trap
+            hyper_trap_on_frame_sync <= '1';
 --          elsif restore_down_ticks < 128 then
             -- Long hold = do RESET instead of NMI
             -- But holding it down for >4 seconds does nothing,
@@ -338,11 +342,11 @@ begin  -- behavioural
 --            report "asserting reset via RESTORE key";
           end if;
         else
-          hyper_trap <= '1';
           restore_out <= '1';
           reset_drive <= '1';
+
         end if;
-        
+
         if restore_state='0' then
           -- Restore key is down
           restore_up_ticks <= (others => '0');
@@ -357,6 +361,18 @@ begin  -- behavioural
           end if;
         end if;
       end if;      
+
+      -- Trigger RESTORE long press trap always at same point in the frame,
+      -- so that we can unfreeze with relative timing properly maintained.
+      last_viciv_frame_indicate <= viciv_frame_indicate;
+      if hyper_trap_on_frame_sync = '1' and last_viciv_frame_indicate='0' and viciv_frame_indicate='1' then
+        hyper_trap_on_frame_sync <= '0';
+        hyper_trap <= '0';
+        hyper_trap_count <= hyper_trap_count_internal + 1;
+        hyper_trap_count_internal <= hyper_trap_count_internal + 1;
+      else
+        hyper_trap <= '1';          
+      end if;        
       
       -------------------------------------------------------------------------
       -- Update C64 CIA ports

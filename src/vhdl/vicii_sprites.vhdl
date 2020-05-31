@@ -49,7 +49,7 @@ entity vicii_sprites is
     -- dot clock & io clock
     ----------------------------------------------------------------------
     pixelclock : in  STD_LOGIC;
-    ioclock : in std_logic;
+    cpuclock : in std_logic;
 
     signal sprite_h640 : in std_logic;
     signal sprite_v400s : in std_logic_vector(7 downto 0);
@@ -116,7 +116,7 @@ entity vicii_sprites is
     -- We could pull these in from the VIC-IV, but that would mean that they
     -- would have to propogate within one pixelclock, which will be very
     -- difficult to achieve.  A better way is to snoop the fastio bus, and read
-    -- them directly on the much slower ioclock, and provide them to each sprite.
+    -- them directly on the much slower cpuclock, and provide them to each sprite.
     fastio_addr : in std_logic_vector(19 downto 0);
     fastio_write : in std_logic;
     fastio_wdata : in std_logic_vector(7 downto 0)
@@ -947,7 +947,7 @@ begin
 
   bitplanes0: entity work.bitplanes
     port map(pixelclock => pixelclock,
-             ioclock => ioclock,
+             cpuclock => cpuclock,
 
              fastio_address => unsigned(fastio_addr),
              fastio_wdata => unsigned(fastio_wdata),
@@ -1015,7 +1015,7 @@ begin
              );
 
   
-  process(ioclock,fastio_addr,is_sprite_final,sprite_colour_final,pixel_final,alpha_final) is
+  process(cpuclock,fastio_addr,is_sprite_final,sprite_colour_final,pixel_final,alpha_final) is
     variable register_bank : unsigned(7 downto 0) := x"00";
     variable register_page : unsigned(3 downto 0) := "0000";
     variable register_num : unsigned(7 downto 0) := x"00";
@@ -1064,7 +1064,7 @@ begin
     -- (We also have to snoop $D02F and $D031 so that we know if VIC-III
     -- extended attributes are enabled.  If so, sprite colour registers are
     -- 8-bit (256 colour) instead of 4-bit (16 colour).
-    if rising_edge(ioclock) then
+    if rising_edge(cpuclock) then
       if fastio_write='1'
         and (fastio_addr(19) = '0' or fastio_addr(19) = '1') then        
         if register_number>=0 and register_number<16 then

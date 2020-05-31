@@ -94,31 +94,38 @@ set obj [get_filesets sources_1]
 # Import local files from the original project
 set files [list \
  "[file normalize "$origin_dir/src/vhdl/clocking.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/reconfig.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/debugtools.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/cputypes.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/victypes.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/sid_coeffs.vhd"]"\
+ "[file normalize "$origin_dir/src/vhdl/sid_coeffs.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ghdl_ram9x4k.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ghdl_ram36x1k.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/bitplane.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/sprite.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/pal_simulation.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/sid_voice.vhd"]"\
- "[file normalize "$origin_dir/src/vhdl/sid_filters.vhd"]"\
+ "[file normalize "$origin_dir/src/vhdl/sid_voice.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/sid_filters.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/sdcard.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ghdl_videobuffer.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ghdl_ram8x512.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ghdl_ram8x4096.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/ghdl_ram32x1024_sync.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ghdl_ram8x4096_sync.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/ghdl_ram32x1024_sync.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/colourram.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/crc.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/spdif_encoder.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/sid_coeffs_mux.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/hdmi_i2c.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/hdmi_spdif.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/soundSource.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/tb_spdif_out.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/bitplanes.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/vicii_sprites.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/UART_TX_CTRL.vhd"]"\
+ "[file normalize "$origin_dir/src/vhdl/UART_TX_CTRL.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/uart_rx.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/buffereduart.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/sid_6581.vhd"]"\
+ "[file normalize "$origin_dir/src/vhdl/sid_6581.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/shadowram.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/sdcardio.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/audio_mixer.vhdl"]"\
@@ -147,8 +154,8 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/ghdl_chipram8bit.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ghdl_alpha_blend.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/framepacker.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/asym_ram.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ethernet.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/asym_ram.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ethernet_miim.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/cia6526.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/c65uart.vhdl"]"\
@@ -162,10 +169,9 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/viciv.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/iomapper.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/gs4510.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/reconfig.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/hyperram.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/fakehyperram.vhdl"]"\
  "[file normalize "$origin_dir/src/verilog/hyper_xface.v"]"\
- "[file normalize "$origin_dir/src/vhdl/pinprober.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/vfpga/overlay_IP.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/vfpga/vfpga_clock_controller_pausable.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/vfpga/vfpga_wrapper_8bit.vhdl"]"\
@@ -176,28 +182,28 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/fake_expansion_port.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/expansion_port_controller.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/machine.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/fpgatemp.vhd"]"\
- "[file normalize "$origin_dir/src/vhdl/reconfig.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/ddrwrapper.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/megaphoner1.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/fpgatemp.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/rain.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/visual_keyboard.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/oskmem.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ps2_to_uart.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/uart_charrom.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/ddrwrapper.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/megaphoner1.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/keyboard_complex.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/virtual_to_matrix.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/keyboard_to_matrix.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/mega65kbd_to_matrix.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/matrix_to_ascii.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/widget_to_matrix.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ps2_to_matrix.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/termmem.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/lfsr16.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/ram32x1024.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/internal1541.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/m6522.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/driverom.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/dpram8x4096.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/lfsr16.vhdl"]"\
- "[file normalize "$origin_dir/src/vhdl/ram32x1024.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/kb_matrix_ram.vhdl"]"\
  "[file normalize "$origin_dir/src/verilog/6502_alu.v"]"\
  "[file normalize "$origin_dir/src/verilog/6502_mux.v"]"\
@@ -217,6 +223,31 @@ set imported_files [add_files -fileset sources_1 $files]
 # None
 
 # Set 'sources_1' fileset file properties for local files
+
+set file "vhdl/hdmi_spdif.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/soundSource.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/tb_spdif_out.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/spdif_encoder.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/sid_coeffs_mux.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/hdmi_i2c.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
 set file "vhdl/fake_expansion_port.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
@@ -253,7 +284,7 @@ set file "vhdl/victypes.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
-set file "vhdl/sid_coeffs.vhd"
+set file "vhdl/sid_coeffs.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
@@ -285,10 +316,6 @@ set file "vhdl/crc1581.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
-set file "vhdl/reconfig.vhdl"
-set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
-set_property -name "file_type" -value "VHDL" -objects $file_obj
-
 set file "vhdl/bitplane.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
@@ -305,11 +332,11 @@ set file "vhdl/sprite.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
-set file "vhdl/sid_voice.vhd"
+set file "vhdl/sid_voice.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
-set file "vhdl/sid_filters.vhd"
+set file "vhdl/sid_filters.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
@@ -337,6 +364,10 @@ set file "vhdl/keyboard_to_matrix.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
+set file "vhdl/mega65kbd_to_matrix.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
 set file "vhdl/ghdl_videobuffer.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
@@ -345,11 +376,11 @@ set file "vhdl/ghdl_ram8x512.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
-set file "vhdl/asym_ram.vhdl"
+set file "vhdl/ethernet_miim.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
-set file "vhdl/ethernet_miim.vhdl"
+set file "vhdl/asym_ram.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
@@ -369,7 +400,7 @@ set file "vhdl/version.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
-set file "vhdl/UART_TX_CTRL.vhd"
+set file "vhdl/UART_TX_CTRL.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
@@ -381,7 +412,7 @@ set file "vhdl/termmem.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
-set file "vhdl/sid_6581.vhd"
+set file "vhdl/sid_6581.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
@@ -485,15 +516,11 @@ set file "vhdl/mouse_input.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
-set file "vhdl/iomapper.vhdl"
-set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
-set_property -name "file_type" -value "VHDL" -objects $file_obj
-
-set file "vhdl/gs4510.vhdl"
-set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
-set_property -name "file_type" -value "VHDL" -objects $file_obj
-
 set file "vhdl/reconfig.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/iomapper.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
@@ -508,6 +535,22 @@ set_property -name "file_type" -value "VHDL" -objects $file_obj
 set file "vhdl/vfpga/vfpga_clock_controller_pausable.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/gs4510.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/hyperram.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/fakehyperram.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "verilog/hyper_xface.v"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "Verilog" -objects $file_obj
 
 set file "vhdl/divider32.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
@@ -533,7 +576,7 @@ set file "vhdl/machine.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
-set file "vhdl/fpgatemp.vhd"
+set file "vhdl/fpgatemp.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 

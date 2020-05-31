@@ -27,7 +27,7 @@ use work.cputypes.all;
 
 entity pcm_to_pdm is
   port (    
-    clock50mhz : in std_logic;
+    cpuclock : in std_logic;
 
     pcm_left : in unsigned(15 downto 0) := x"0000";
     pcm_right : in unsigned(15 downto 0) := x"0000";
@@ -59,9 +59,9 @@ architecture nordic of pcm_to_pdm is
 
 begin
 
-  process (clock50mhz) is
+  process (cpuclock) is
   begin
-    if rising_edge(clock50mhz) then
+    if rising_edge(cpuclock) then
 
       pcm_value_left <= to_integer(pcm_left);
       pcm_value_right <= to_integer(pcm_right);

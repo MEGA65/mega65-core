@@ -72,7 +72,6 @@ entity viciv is
     -- CPU clock (used for chipram and fastio interfaces)
     ----------------------------------------------------------------------
     cpuclock : in std_logic;
-    ioclock : in std_logic;
 
     -- CPU IRQ
     irq : out std_logic;
@@ -96,6 +95,8 @@ entity viciv is
     viciii_fast : out std_logic;
     viciv_fast : out std_logic;
 
+    viciv_frame_indicate : out std_logic := '0';
+    
     -- Used to tell the CPU when to steal cycles to simulate badlines
     badline_toggle : out std_logic := '0';
     vicii_raster_out : out unsigned(11 downto 0) := to_unsigned(0,12);
@@ -221,6 +222,7 @@ architecture Behavioral of viciv is
   signal reg_h1280_delayed : std_logic := '0';
   signal external_frame_x_zero_latched : std_logic := '0';
   signal last_external_frame_x_zero_latched : std_logic := '0';
+  signal last_external_frame_y_zero : std_logic := '0';
 
   -- last value written to key register
   signal reg_key : unsigned(7 downto 0) := x"00";
@@ -290,11 +292,10 @@ architecture Behavioral of viciv is
   constant display_height_ntsc : unsigned(11 downto 0) := to_unsigned(526-20,12);
   signal display_height : unsigned(11 downto 0);
   signal raster_buffer_half_toggle : std_logic := '0';
-  signal vsync_delay : unsigned(7 downto 0) := to_unsigned(0,8);
-  signal vsync_delay_drive : unsigned(7 downto 0) := to_unsigned(0,8);
   signal vicii_ycounter_scale_minus_zero : unsigned(3 downto 0) := to_unsigned(2-1,4);
   signal chargen_x_scale : unsigned(7 downto 0) := to_unsigned(120,8);
   signal sprite_first_x : unsigned(13 downto 0) := to_unsigned(31,14); 
+  signal sprite_y_adjust : unsigned(7 downto 0) := to_unsigned(2,8);  
   signal sprite_x_counting : std_logic := '0';
   signal sprite_x_scale_toggle : std_logic := '0';
   -- Each character pixel will be (n+1) pixels high
@@ -309,15 +310,14 @@ architecture Behavioral of viciv is
   -- run correctly, even if at 60Hz video / interrupt rate.  The only problem I
   -- can imagine with doing this, is that PAL/NTSC detection routines will
   -- always think the system is PAL.
-  constant ntsc_max_raster : unsigned(8 downto 0) := to_unsigned(311,9); -- to_unsigned(262,9);
+  constant ntsc_max_raster : unsigned(8 downto 0) := to_unsigned(262,9);
   constant pal_max_raster : unsigned(8 downto 0) := to_unsigned(311,9);
   signal vicii_max_raster : unsigned(8 downto 0) := pal_max_raster;
   -- Setting this value positive causes the chargen and screen to move down the
   -- screen relative to the VIC-II raster counter.
-  constant raster_correction : integer := 4;
+  constant raster_correction : integer := 3;
 
   -- Calculated dynamically
-  signal vsync_start : unsigned(11 downto 0) := to_unsigned(0,12);
   signal x_end_of_raster : unsigned(13 downto 0) := to_unsigned(0,14);
   signal vicii_ycounter_scale : unsigned(3 downto 0) := to_unsigned(0,4);
 
@@ -362,13 +362,7 @@ architecture Behavioral of viciv is
   signal vicii_ycounter_continuous : unsigned(8 downto 0) := to_unsigned(0,9);
   signal vicii_ycounter_driver : unsigned(8 downto 0) := to_unsigned(0,9);
   signal vicii_ycounter_minus_one : unsigned(8 downto 0) := to_unsigned(0,9);
-  -- Sprite Y-Counter is the raster counter that has been corrected for PAL/NTSC
-  -- frame dimensions etc, and is what has the values lined up to what you would
-  -- expect with a VIC-II. #201 #181
   signal vicii_sprite_ycounter : unsigned(8 downto 0) := to_unsigned(0,9);
-  signal vicii_sprite_ycounter_driver : unsigned(8 downto 0) := to_unsigned(0,9);
-  signal vicii_sprite_ycounter_minus_one : unsigned(8 downto 0) := to_unsigned(0,9);
-
   
   signal vicii_ycounter_v400 : unsigned(9 downto 0) := to_unsigned(0,10);
   signal last_vicii_ycounter : unsigned(8 downto 0) := to_unsigned(0,9);
@@ -1192,7 +1186,7 @@ begin
 
   vicii_sprites0: entity work.vicii_sprites
     port map (pixelclock => pixelclock,
-              ioclock => ioclock,
+              cpuclock => cpuclock,
 
               sprite_h640 => sprite_h640_delayed,
               sprite_v400s => sprite_v400s_delayed,
@@ -1260,7 +1254,7 @@ begin
   chipram_address <= next_ramaddress when to_integer(next_ramaddress) < chipram_size else to_unsigned(0,20);
   ramdata <= chipram_datain;
 
-  process(cpuclock,ioclock,fastio_addr,fastio_read,chardata,
+  process(cpuclock,fastio_addr,fastio_read,chardata,
           sprite_x,sprite_y,vicii_sprite_xmsbs,ycounter,extended_background_mode,
           text_mode,blank,twentyfourlines,vicii_y_smoothscroll,displayy,
           vicii_sprite_enables,multicolour_mode,thirtyeightcolumns,
@@ -1298,7 +1292,7 @@ begin
           sprite_first_x,sprite_sixteen_colour_enables,
           vicii_ntsc,vicii_first_raster,
           palette_bank_chargen_alt,bitplane_sixteen_colour_mode_flags,
-          vsync_delay,vicii_ycounter_scale_minus_zero,
+          vicii_ycounter_scale_minus_zero,
           hsync_polarity_internal,vsync_polarity_internal
           ) is
     variable bitplane_number : integer;
@@ -1331,7 +1325,7 @@ begin
         if reg_h640='0' then
           border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border),14);
           border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
-                                        -to_integer(single_side_border)+1,14);
+                                        -to_integer(single_side_border)-1,14);
           x_chargen_start
             <= to_unsigned(to_integer(frame_h_front)
                            +to_integer(single_side_border)
@@ -1339,12 +1333,11 @@ begin
                            -- pixels are H640/800, so add double
                            +to_integer(vicii_x_smoothscroll)
                            +to_integer(vicii_x_smoothscroll)
-                           +1
                            ,14);
         else
           border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border),14);
           border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
-                                        -to_integer(single_side_border)+1,14);
+                                        -to_integer(single_side_border)-1,14);
           x_chargen_start
             <= to_unsigned(to_integer(frame_h_front)
                            +to_integer(single_side_border)
@@ -1352,7 +1345,7 @@ begin
                            -- pixels are H640/800, so add double
                            +to_integer(vicii_x_smoothscroll)
                            +to_integer(vicii_x_smoothscroll)
-                           -1
+                           -2
                            ,14);
         end if;
       else
@@ -1381,7 +1374,7 @@ begin
                            ,14);
         else
           border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border)
-                                       +(7*2)+1,14);
+                                       +(7*2),14);
           border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
                                         -to_integer(single_side_border)
                                         -(9*2),14);
@@ -1392,7 +1385,7 @@ begin
                            -- pixels are H640/800, so add double
                            +to_integer(vicii_x_smoothscroll)
                            +to_integer(vicii_x_smoothscroll)
-                           -1
+                           -2
                            ,14);
         end if;
       end if;
@@ -1414,26 +1407,26 @@ begin
         if twentyfourlines='0' then
           border_y_top <= to_unsigned(
             raster_correction+
-            to_integer(single_top_border_200)+to_integer(vsync_delay_drive),12);
+            to_integer(single_top_border_200)-to_integer(vicii_first_raster)*2,12);
           border_y_bottom <= to_unsigned(
             raster_correction+
             to_integer(display_height)
-            -to_integer(single_top_border_200)+to_integer(vsync_delay_drive),12);
+            -to_integer(single_top_border_200)-to_integer(vicii_first_raster)*2-1,12);
         else
           border_y_top <= to_unsigned(raster_correction
                                       +to_integer(single_top_border_200)
-                                      +to_integer(vsync_delay_drive)
+                                      -to_integer(vicii_first_raster)*2
                                       +(4*2),12);
           border_y_bottom <= to_unsigned(raster_correction
                                          +to_integer(display_height)
-                                         +to_integer(vsync_delay_drive)
+                                         -to_integer(vicii_first_raster)*2
                                          -to_integer(single_top_border_200)
-                                         -(4*2),12);
+                                         -(4*2)-1,12);
         end if;
         -- set y_chargen_start based on twentyfourlines
         y_chargen_start <= to_unsigned(raster_correction
                                        +to_integer(single_top_border_200)
-                                       +to_integer(vsync_delay_drive)
+                                       -to_integer(vicii_first_raster)*2
                                        -(3*2)
                                        -- Display is always V400/600, so pixels
                                        -- are double height
@@ -1449,26 +1442,27 @@ begin
         if twentyfourlines='0' then
           border_y_top <= to_unsigned(
             raster_correction+
-            to_integer(single_top_border_400)+to_integer(vsync_delay_drive),12);
+            to_integer(single_top_border_400)
+            -to_integer(vicii_first_raster)*2,12);
           border_y_bottom <= to_unsigned(
             raster_correction+
             to_integer(display_height)
-            -to_integer(single_top_border_400)+to_integer(vsync_delay_drive),12);
+            -to_integer(single_top_border_400)-to_integer(vicii_first_raster)*2-1,12);
         else
           border_y_top <= to_unsigned(raster_correction
                                       +to_integer(single_top_border_400)
-                                      +to_integer(vsync_delay_drive)
+                                      -to_integer(vicii_first_raster)*2
                                       +(4*2),12);
           border_y_bottom <= to_unsigned(raster_correction
                                          +to_integer(display_height)
-                                         +to_integer(vsync_delay_drive)
+                                         -to_integer(vicii_first_raster)*2
                                          -to_integer(single_top_border_400)
-                                         -(4*2),12);
+                                         -(4*2)-1,12);
         end if;
         -- set y_chargen_start based on twentyfourlines
         y_chargen_start <= to_unsigned(raster_correction
                                        +to_integer(single_top_border_400)
-                                       +to_integer(vsync_delay_drive)
+                                       -to_integer(vicii_first_raster)*2                                       
                                        -(3*2)
                                        -- Screen is always V400/600, so pixels
                                        -- are 2 physical pixels high
@@ -1512,11 +1506,11 @@ begin
         if reg_h640='0' then
           border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border),14);
           border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
-                                        -to_integer(single_side_border),14);
+                                        -to_integer(single_side_border)-1,14);
         else
           border_x_left <= to_unsigned(to_integer(frame_h_front)+to_integer(single_side_border),14);
           border_x_right <= to_unsigned(to_integer(frame_h_front)+to_integer(display_width)
-                                        -to_integer(single_side_border)+1,14);
+                                        -to_integer(single_side_border),14);
         end if;
       else
         -- 38/40 col mode has one phyical pixel too few on the left (only one
@@ -1683,14 +1677,14 @@ begin
                                         -- compatibility sprite x position MSB
           fastio_rdata <= vicii_sprite_xmsbs;
         elsif register_number=17 then             -- $D011
-          fastio_rdata(7) <= vicii_sprite_ycounter_minus_one(8);  -- MSB of raster
+          fastio_rdata(7) <= vicii_ycounter_minus_one(8);  -- MSB of raster
           fastio_rdata(6) <= extended_background_mode;
           fastio_rdata(5) <= not text_mode;
           fastio_rdata(4) <= not blank;
           fastio_rdata(3) <= not twentyfourlines;
           fastio_rdata(2 downto 0) <= std_logic_vector(vicii_y_smoothscroll);
         elsif register_number=18 then          -- $D012 current raster low 8 bits
-          fastio_rdata <= std_logic_vector(vicii_sprite_ycounter_minus_one(7 downto 0));
+          fastio_rdata <= std_logic_vector(vicii_ycounter_minus_one(7 downto 0));
         elsif register_number=19 then          -- $D013 lightpen X (coarse rasterX)
           fastio_rdata <= std_logic_vector(lightpen_x_latch);
         elsif register_number=20 then          -- $D014 lightpen Y (coarse rasterY)
@@ -1961,8 +1955,8 @@ begin
           fastio_rdata <= palette_bank_fastio & palette_bank_chargen & palette_bank_sprites & palette_bank_chargen_alt;
         elsif register_number=113 then -- $D3071
           fastio_rdata <= bitplane_sixteen_colour_mode_flags;
-        elsif register_number=114 then -- $D3072
-          fastio_rdata(7 downto 0) <= std_logic_vector(vsync_delay);
+        elsif register_number=114 then -- $D3072 UNUSED
+          fastio_rdata(7 downto 0) <= std_logic_vector(sprite_y_adjust);
         elsif register_number=115 then -- $D3073
           fastio_rdata(3 downto 0) <= std_logic_vector(reg_alpha_delay);
           fastio_rdata(7 downto 4) <= std_logic_vector(vicii_ycounter_scale_minus_zero(3 downto 0));
@@ -2034,8 +2028,19 @@ begin
       end if;
     end if;
 
-    if rising_edge(ioclock) then
+    if rising_edge(cpuclock) then
 
+      if reset='0' then
+        -- Reset sprites to normal behaviour on reset
+        sprite_horizontal_tile_enables <= (others => '0');
+        sprite_v400_super_msbs <= (others => '0');
+        sprite_alpha_blend_enables <= (others => '0');
+        sprite_bitplane_enables <= (others => '0');
+        sprite_extended_width_enables <= (others => '0');
+        sprite_extended_height_enables <= (others => '0');
+        sprite_sixteen_colour_enables <= (others => '0');
+      end if;
+      
       -- Drive stage for data from hyper RAM and signals out to it
       hyper_data <= hyper_data_in;
       hyper_data_strobe <= hyper_data_strobe_in;
@@ -2061,7 +2066,6 @@ begin
       vsync_polarity <= vsync_polarity_internal;
 
       vicii_ycounter_driver <= vicii_ycounter;
-      vicii_sprite_ycounter_driver <= vicii_sprite_ycounter;
       -- We need a delayed version of the VICII ycounter to display in $D011/$D012,
       -- as raster interrupts actually happen one raster line later than expected,
       -- to offset the fact that we have a 1 raster line delay in output of the
@@ -2069,11 +2073,13 @@ begin
       -- That is, we trigger the interrupt when the raster is actually being DISPLAYED,
       -- and make the contents of $D012/$D011 match this.
       if enable_raster_delay='1' then
-        vicii_ycounter_minus_one <= vicii_ycounter_driver - 1;
-        vicii_sprite_ycounter_minus_one <= vicii_sprite_ycounter_driver - 1;
+        if vicii_ycounter_driver /= 0 then
+          vicii_ycounter_minus_one <= vicii_ycounter_driver - 1;
+        else
+          vicii_ycounter_minus_one <= vicii_max_raster;
+        end if;
       else
         vicii_ycounter_minus_one <= vicii_ycounter_driver;
-        vicii_sprite_ycounter_minus_one <= vicii_sprite_ycounter_driver;
       end if;
 
       viciv_calculate_modeline_dimensions;
@@ -2151,7 +2157,7 @@ begin
       palette_we <= (others => '0');
 
       -- Get VIC-II sprite data offsets
-      -- (this can happen on ioclock, since it should still allow ample time
+      -- (this can happen on cpuclock, since it should still allow ample time
       --  to synchronise with the sprites before we fetch the data for them).
       -- Save offset delivered by chain
 --      report "SPRITE: VIC-II sprite "
@@ -2426,7 +2432,7 @@ begin
           -- @IO:GS $D02F VIC-IV:KEY Write $45 then $54 to map 45E100 ethernet controller buffers to \$D000-\$DFFF
           elsif reg_key=x"45" then
             if fastio_wdata=x"54" then
-              -- C65GS VIC-IV mode
+              -- C65GS Map ethernet frame buffer mode
               viciii_iomode <= "10";
             end if;
           end if;
@@ -2719,63 +2725,57 @@ begin
             viciv_single_side_border_width_touched <= '1';
           end if;
 
-          case fastio_wdata(7 downto 6) is
-            when "00" => -- PAL, 720x576 @ 50Hz
-              vsync_delay <= to_unsigned(0,8);
-              vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
-              vicii_max_raster <= pal_max_raster;
-              -- Set 30MHz pixel clock for PAL
-              -- VSYNC is negative for 50Hz (required for some monitors)
-              hsync_polarity_internal <= '1';
-              vsync_polarity_internal <= '0';
-              vicii_first_raster <= to_unsigned(0,9);
-
---              sprite_first_x <= to_unsigned(1+80+1-(24-3)*(120/60),14);
-
-            when "01" => -- PAL, 720x576 50Hz, NTSC max raster
-              vsync_delay <= to_unsigned(0,8);
-              vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
-              vicii_max_raster <= ntsc_max_raster;
-              -- Set 30MHz pixel clock for PAL
-              hsync_polarity_internal <= '1';
-              vsync_polarity_internal <= '0';
-              vicii_first_raster <= to_unsigned(0,9);
-              
---              sprite_first_x <= to_unsigned(1+80+1-(24-3)*(120/60),14);
-              
-            when "10" => -- NTSC, 720x480 @ 60Hz
-              vsync_delay <= to_unsigned(0,8);
-              vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
-              vicii_max_raster <= ntsc_max_raster;
-              hsync_polarity_internal <= '1';
-              vsync_polarity_internal <= '0';
-              vicii_first_raster <= to_unsigned(24,9);
-              -- Set 40MHz pixel clock for NTSC
-
---              sprite_first_x <= to_unsigned(1+80+1-(24-3)*(120/60),14);
-
-            when "11" => -- NTSC 720x480 60Hz
-              vsync_delay <= to_unsigned(0,8);
-              vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
-              -- NTSC but with PAL max raster
-              vicii_max_raster <= pal_max_raster;
-              hsync_polarity_internal <= '1';
-              vsync_polarity_internal <= '0';
-              vicii_first_raster <= to_unsigned(24,9);
-              
-              -- Set 40MHz pixel clock for NTSC
---              sprite_first_x <= to_unsigned(1+80+1-(24-3)*(120/60),14);
-
-            when others => -- Default to NTSC 800x600 60Hz
-              vsync_delay <= to_unsigned(0,8);
-              vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
-              hsync_polarity_internal <= '1';
-              vsync_polarity_internal <= '0';
-              vicii_first_raster <= to_unsigned(24,9);
-
-              -- Set 40MHz pixel clock for NTSC
-
-          end case;
+          if vicii_ntsc /= fastio_wdata(7) or vga60_select_internal /= fastio_wdata(6) then
+            case fastio_wdata(7 downto 6) is
+              when "00" => -- PAL, 720x576 @ 50Hz
+                sprite_y_adjust <= to_unsigned(0,8);
+                vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
+                vicii_max_raster <= pal_max_raster;
+                -- VSYNC is negative for 50Hz (required for some monitors)
+                hsync_polarity_internal <= '1';
+                vsync_polarity_internal <= '0';
+                if vicii_ntsc /= fastio_wdata(7) then
+                  vicii_first_raster <= to_unsigned(0,9);
+                end if;
+              when "01" => -- PAL, 720x576 50Hz, NTSC max raster
+                sprite_y_adjust <= to_unsigned(0,8);
+                vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
+                vicii_max_raster <= ntsc_max_raster;
+                hsync_polarity_internal <= '1';
+                vsync_polarity_internal <= '0';
+                if vicii_ntsc /= fastio_wdata(7) then
+                  vicii_first_raster <= to_unsigned(0,9);
+                end if;
+              when "10" => -- NTSC, 720x480 @ 60Hz
+                sprite_y_adjust <= to_unsigned(22,8);
+                vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
+                vicii_max_raster <= ntsc_max_raster;
+                hsync_polarity_internal <= '1';
+                vsync_polarity_internal <= '0';
+                if vicii_ntsc /= fastio_wdata(7) then
+                  vicii_first_raster <= to_unsigned(7,9);
+                end if;
+                
+              when "11" => -- NTSC 720x480 60Hz
+                sprite_y_adjust <= to_unsigned(22,8);
+                vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
+                -- NTSC but with PAL max raster
+                vicii_max_raster <= pal_max_raster;
+                hsync_polarity_internal <= '1';
+                vsync_polarity_internal <= '0';
+                if vicii_ntsc /= fastio_wdata(7) then
+                  vicii_first_raster <= to_unsigned(7,9);
+                end if;
+              when others => -- Default to NTSC 800x600 60Hz
+                sprite_y_adjust <= to_unsigned(22,8);
+                vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
+                hsync_polarity_internal <= '1';
+                vsync_polarity_internal <= '0';
+                if vicii_ntsc /= fastio_wdata(7) then
+                  vicii_first_raster <= to_unsigned(7,9);
+                end if;
+            end case;
+          end if;
         elsif register_number=112 then
           -- @IO:GS $D070 NONE:VIC-IV palette bank selection
           -- @IO:GS $D070.7-6 VIC-IV:MAPEDPAL palette bank mapped at \$D100-\$D3FF
@@ -2790,8 +2790,8 @@ begin
           -- @IO:GS $D071 VIC-IV:BP16ENS VIC-IV 16-colour bitplane enable flags
           bitplane_sixteen_colour_mode_flags <= fastio_wdata;
         elsif register_number=114 then -- $D3072
-          -- @IO:GS $D072 VIC-IV:VSYNDEL VIC-IV VSYNC delay
-          vsync_delay <= unsigned(fastio_wdata);
+          -- @IO:GS $D072 VIC-IV:SPRYADJ Sprite Y position adjustment
+          sprite_y_adjust <= unsigned(fastio_wdata);
         elsif register_number=115 then -- $D3073
           -- @IO:GS $D073.0-3 VIC-IV:ALPHADELAY Alpha delay for compositor
           reg_alpha_Delay <= unsigned(fastio_wdata(3 downto 0));
@@ -3100,7 +3100,7 @@ begin
         else
           vicii_raster_compare_plus_one <= vicii_raster_compare;
         end if;
-        if (vicii_is_raster_source='1') and (vicii_sprite_ycounter = vicii_raster_compare_plus_one(8 downto 0)) and last_vicii_ycounter /= vicii_ycounter then
+        if (vicii_is_raster_source='1') and (vicii_ycounter = vicii_raster_compare_plus_one(8 downto 0)) and last_vicii_ycounter /= vicii_ycounter then
           irq_raster <= '1';
         end if;
         last_vicii_ycounter <= vicii_ycounter;
@@ -3110,8 +3110,9 @@ begin
           irq_raster <= '1';
         end if;
 
-        if xcounter > 255 then
-          -- ... it isn't VSYNC time, then update Y position
+        if last_external_frame_x_zero_latched='0' then
+          -- ... update Y position, even during VSYNC, since frame timing is
+          -- now exact.
           report "XZERO: incrementing ycounter from " & integer'image(to_integer(ycounter));
           ycounter_driver <= ycounter_driver + 1;
           
@@ -3122,24 +3123,28 @@ begin
           end if;
           
           if vicii_ycounter_phase = vicii_ycounter_max_phase then
-            if to_integer(vicii_ycounter) /= vicii_max_raster and ycounter >= vsync_delay_drive then
+            if to_integer(vicii_ycounter) /= vicii_max_raster then
               vicii_ycounter <= vicii_ycounter + 1;
+              -- Indicate fixed point on the frame
+              -- (used by CPU to time entry into freeze routine for proper synchronisation.
+              --  Also helps thumbnails to not have tears in them).
+              if vicii_ycounter = to_unsigned(255,9) then
+                viciv_frame_indicate <= '1';
+              else
+                viciv_frame_indicate <= '0';
+              end if;
               -- We update V400 position in this case, bug also in the
               -- alternate case below
               vicii_ycounter_v400 <= vicii_ycounter_v400 + 1;
             end if;
-            if ycounter >= vsync_delay_drive then
-              vicii_ycounter_continuous <= vicii_ycounter_continuous + 1;
-            end if;
+            vicii_ycounter_continuous <= vicii_ycounter_continuous + 1;
 
             if vicii_ycounter_max_phase = 0 then
               -- Calculate raster number for sprites.
-              -- The -2 is an adjustment factor to make the sprites line up correctly
-              -- on the screen.
-              if vicii_ycounter < 2 then
+              if vicii_ycounter = (to_integer(vicii_max_raster) + 2 - to_integer(sprite_y_adjust)) then
                 vicii_sprite_ycounter <= to_unsigned(0,9);
               else
-                vicii_sprite_ycounter <= vicii_ycounter_continuous - 2;
+                vicii_sprite_ycounter <= vicii_ycounter_continuous - 2  + to_integer(sprite_y_adjust);
               end if;
             end if;
             
@@ -3160,10 +3165,10 @@ begin
             -- The -2 is an adjustment factor to make the sprites line up correctly
             -- on the screen.
             -- This is done on an "off" line, so that the sprites line up properly
-            if vicii_ycounter < 2 then
+            if vicii_ycounter = (to_integer(vicii_max_raster) + 2 - to_integer(sprite_y_adjust)) then
               vicii_sprite_ycounter <= to_unsigned(0,9);
             else
-              vicii_sprite_ycounter <= vicii_ycounter_continuous - 2;
+              vicii_sprite_ycounter <= vicii_ycounter_continuous - 2 + to_integer(sprite_y_adjust);
             end if;
             
           end if;
@@ -3171,7 +3176,8 @@ begin
       end if;
       
       -- If we got far along the last line to make it look real, and ...
-      if external_frame_y_zero = '1' then
+      last_external_frame_y_zero <= external_frame_y_zero;
+      if external_frame_y_zero = '0' and last_external_frame_y_zero='1' then
         -- Start of next frame
         report "Starting new frame. ycounter_driver <= 0";
         
@@ -3242,7 +3248,7 @@ begin
           pixels_since_last_char <= to_unsigned(to_integer(displayy) - to_integer(y_chargen_start),3) + 1;
         end if;
       else
-        if to_integer(y_chargen_start) > to_integer(displayy(11 downto 1)) then
+        if y_chargen_start > displayy(11 downto 1) then
           pixels_since_last_char <= "000";
         else
           pixels_since_last_char <= to_unsigned(to_integer(displayy(11 downto 1)) - to_integer(y_chargen_start),3)
@@ -3313,7 +3319,9 @@ begin
         -- Finally decide which way we should go
         if to_integer(first_card_of_row) /= to_integer(prev_first_card_of_row) then
           raster_fetch_state <= FetchScreenRamLine;
-          if vertical_border='0' or justbefore_y_chargen_start='1' then
+          -- From Section 3.5 of http://www.zimmers.net/cbmpics/cbm/c64/vic-ii.txt
+          -- (but has problems for some reason)
+          if (blank = '0') and ((vertical_border='0') or justbefore_y_chargen_start='1') and (vicii_ycounter<248) and (vicii_ycounter>=40) then
             badline_toggle_internal <= not badline_toggle_internal;
             badline_toggle <= not badline_toggle_internal;
             report "BADLINE @ y = " & integer'image(to_integer(displayy)) severity note;
@@ -3425,8 +3433,6 @@ begin
       end if;
 
       -- Calculate vertical flyback and related signals
-      vsync_delay_drive <= vsync_delay;
-      vsync_start <= frame_v_front+display_height+to_integer(vsync_delay_drive);
       if ycounter=0 then
         null;
       elsif ycounter=frame_v_front then
@@ -3592,7 +3598,7 @@ begin
       debug_raster_buffer_write_address_drive <= debug_raster_buffer_write_address;
 
       -- Actually, we use two drive stages since the video timing is so pernickety.
-      -- The 2nd drive stage is driven by the ioclock. Search for _drive2 to
+      -- The 2nd drive stage is driven by the cpuclock. Search for _drive2 to
       -- find it.
 
       if xcounter=debug_x and ycounter=debug_y then
@@ -4482,7 +4488,14 @@ begin
 
           -- Read and store the 8 bytes of data we need for a full-colour character
           report "LEGACY: glyph reading full-colour pixel value $" & to_hstring(ramdata);
-          full_colour_data(63 downto 56) <= ramdata;
+          if glyph_4bit='0' or glyph_flip_horizontal='0' then
+            -- Don't fly byte nybl order
+            full_colour_data(63 downto 56) <= ramdata;
+          else
+            -- Do flip byte nybl order
+            full_colour_data(63 downto 60) <= ramdata(3 downto 0);
+            full_colour_data(59 downto 56) <= ramdata(7 downto 4);
+          end if;
           full_colour_data(55 downto 0) <= full_colour_data(63 downto 8);
           if glyph_flip_horizontal = '0' then
             glyph_data_address(2 downto 0) <= glyph_data_address(2 downto 0) + 1;
@@ -4493,7 +4506,14 @@ begin
             full_colour_data(63 downto 56) <= "00000000";
           end if;
           if glyph_reverse='1' then
-            full_colour_data(63 downto 56) <= ramdata xor "11111111";
+            if glyph_4bit='0' or glyph_flip_horizontal='0' then
+              -- Don't flip byte nybl order
+              full_colour_data(63 downto 56) <= ramdata xor "11111111";
+            else
+              -- Do flip byte nybl order
+              full_colour_data(63 downto 60) <= ramdata(3 downto 0) xor "1111";
+              full_colour_data(59 downto 56) <= ramdata(7 downto 4) xor "1111";
+            end if;
           end if;
           if glyph_underline='1' then
             full_colour_data(63 downto 56) <= "11111111";

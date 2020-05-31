@@ -31,7 +31,7 @@ entity bitplanes is
     -- dot clock
     ----------------------------------------------------------------------
     pixelclock : in  STD_LOGIC;
-    ioclock : in std_logic;
+    cpuclock : in std_logic;
 
     signal fastio_address :in unsigned(19 downto 0);
     signal fastio_write : in std_logic;
