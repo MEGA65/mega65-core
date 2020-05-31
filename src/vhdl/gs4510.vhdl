@@ -869,43 +869,42 @@ architecture Behavioural of gs4510 is
     M_impl,  M_nnnnY, M_impl,  M_impl,  M_nnnn,  M_nnnnX, M_nnnnX, M_nnrr,  
     M_immnn, M_InnX,  M_InnSPY,M_nn,    M_nn,    M_nn,    M_nn,    M_nn,    
     M_impl,  M_immnn, M_impl,  M_nnnn,  M_nnnn,  M_nnnn,  M_nnnn,  M_nnrr,  
-    M_rr,    M_InnY,  M_InnZ,  M_rrrr,  M_immnnnn,M_nnX,   M_nnX,   M_nn,    
+    M_rr,    M_InnY,  M_InnZ,  M_rrrr,  M_immnnnn,M_nnX,  M_nnX,   M_nn,    
     M_impl,  M_nnnnY, M_impl,  M_impl,  M_nnnn,  M_nnnnX, M_nnnnX, M_nnrr,
 
     -- 6502 personality
-    -- XXX currently just a copy of 4502 personality
-    M_impl,M_InnX,M_impl,M_InnX,M_nn,M_nn,M_nn,M_nn,
-    M_impl,M_immnn,M_impl,M_immnn,M_nnnn,M_nnnn,M_nnnn,M_nnnn,
-    M_rr,M_InnY,M_impl,M_InnY,M_nnX,M_nnX,M_nnX,M_nnX,
-    M_impl,M_nnnnY,M_impl,M_nnnnY,M_nnnnX,M_nnnnX,M_nnnnX,M_nnnnX,
-    M_nnnn,M_InnX,M_impl,M_InnX,M_nn,M_nn,M_nn,M_nn,
-    M_impl,M_immnn,M_impl,M_immnn,M_nnnn,M_nnnn,M_nnnn,M_nnnn,
-    M_rr,M_InnY,M_impl,M_InnY,M_nnX,M_nnX,M_nnX,M_nnX,
-    M_impl,M_nnnnY,M_impl,M_nnnnY,M_nnnnX,M_nnnnX,M_nnnnX,M_nnnnX,
-    M_impl,M_InnX,M_impl,M_InnX,M_nn,M_nn,M_nn,M_nn,
-    M_impl,M_immnn,M_impl,M_immnn,M_nnnn,M_nnnn,M_nnnn,M_nnnn,
-    M_rr,M_InnY,M_impl,M_InnY,M_nnX,M_nnX,M_nnX,M_nnX,
-    M_impl,M_nnnnY,M_impl,M_nnnnY,M_nnnnX,M_nnnnX,M_nnnnX,M_nnnnX,
-    M_impl,M_InnX,M_impl,M_InnX,M_nn,M_nn,M_nn,M_nn,
-    M_impl,M_immnn,M_impl,M_immnn,M_Innnn,M_nnnn,M_nnnn,M_nnnn,
-    M_rr,M_InnY,M_impl,M_InnY,M_nnX,M_nnX,M_nnX,M_nnX,
-    M_impl,M_nnnnY,M_impl,M_nnnnY,M_nnnnX,M_nnnnX,M_nnnnX,M_nnnnX,
-    M_immnn,M_InnX,M_immnn,M_InnX,M_nn,M_nn,M_nn,M_nn,
-    M_impl,M_immnn,M_impl,M_immnn,M_nnnn,M_nnnn,M_nnnn,M_nnnn,
-    M_rr,M_InnY,M_impl,M_InnY,M_nnX,M_nnX,M_nnY,M_nnY,
-    M_impl,M_nnnnY,M_impl,M_nnnnY,M_nnnnX,M_nnnnX,M_nnnnY,M_nnnnY,
-    M_immnn,M_InnX,M_immnn,M_InnX,M_nn,M_nn,M_nn,M_nn,
-    M_impl,M_immnn,M_impl,M_immnn,M_nnnn,M_nnnn,M_nnnn,M_nnnn,
-    M_rr,M_InnY,M_impl,M_InnY,M_nnX,M_nnX,M_nnY,M_nnY,
-    M_impl,M_nnnnY,M_impl,M_nnnnY,M_nnnnX,M_nnnnX,M_nnnnY,M_nnnnY,
-    M_immnn,M_InnX,M_immnn,M_InnX,M_nn,M_nn,M_nn,M_nn,
-    M_impl,M_immnn,M_impl,M_immnn,M_nnnn,M_nnnn,M_nnnn,M_nnnn,
-    M_rr,M_InnY,M_impl,M_InnY,M_nnX,M_nnX,M_nnX,M_nnX,
-    M_impl,M_nnnnY,M_impl,M_nnnnY,M_nnnnX,M_nnnnX,M_nnnnX,M_nnnnX,
-    M_immnn,M_InnX,M_immnn,M_InnX,M_nn,M_nn,M_nn,M_nn,
-    M_impl,M_immnn,M_impl,M_immnn,M_nnnn,M_nnnn,M_nnnn,M_nnnn,
-    M_rr,M_InnY,M_impl,M_InnY,M_nnX,M_nnX,M_nnX,M_nnX,
-    M_impl,M_nnnnY,M_impl,M_nnnnY,M_nnnnX,M_nnnnX,M_nnnnX,M_nnnnX);
+    M_impl,  M_InnX,  M_impl,  M_InnX,  M_nn,    M_nn,    M_nn,    M_nn,
+    M_impl,  M_immnn, M_impl,  M_immnn, M_nnnn,  M_nnnn,  M_nnnn,  M_nnnn,
+    M_rr,    M_InnY,  M_impl,  M_InnY,  M_nnX,   M_nnX,   M_nnX,   M_nnX,
+    M_impl,  M_nnnnY, M_impl,  M_nnnnY, M_nnnnX, M_nnnnX, M_nnnnX, M_nnnnX,
+    M_nnnn,  M_InnX,  M_impl,  M_InnX,  M_nn,    M_nn,    M_nn,    M_nn,
+    M_impl,  M_immnn, M_impl,  M_immnn, M_nnnn,  M_nnnn,  M_nnnn,  M_nnnn,
+    M_rr,    M_InnY,  M_impl,  M_InnY,  M_nnX,   M_nnX,   M_nnX,   M_nnX,
+    M_impl,  M_nnnnY, M_impl,  M_nnnnY, M_nnnnX, M_nnnnX, M_nnnnX, M_nnnnX,
+    M_impl,  M_InnX,  M_impl,  M_InnX,  M_nn,    M_nn,    M_nn,    M_nn,
+    M_impl,  M_immnn, M_impl,  M_immnn, M_nnnn,  M_nnnn,  M_nnnn,  M_nnnn,
+    M_rr,    M_InnY,  M_impl,  M_InnY,  M_nnX,   M_nnX,   M_nnX,   M_nnX,
+    M_impl,  M_nnnnY, M_impl,  M_nnnnY, M_nnnnX, M_nnnnX, M_nnnnX, M_nnnnX,
+    M_impl,  M_InnX,  M_impl,  M_InnX,  M_nn,    M_nn,    M_nn,    M_nn,
+    M_impl,  M_immnn, M_impl,  M_immnn, M_Innnn, M_nnnn,  M_nnnn,  M_nnnn,
+    M_rr,    M_InnY,  M_impl,  M_InnY,  M_nnX,   M_nnX,   M_nnX,   M_nnX,
+    M_impl,  M_nnnnY, M_impl,  M_nnnnY, M_nnnnX, M_nnnnX, M_nnnnX, M_nnnnX,
+    M_immnn, M_InnX,  M_immnn, M_InnX,  M_nn,    M_nn,    M_nn,    M_nn,
+    M_impl,  M_immnn, M_impl,  M_immnn, M_nnnn,  M_nnnn,  M_nnnn,  M_nnnn,
+    M_rr,    M_InnY,  M_impl,  M_InnY,  M_nnX,   M_nnX,   M_nnY,   M_nnY,
+    M_impl,  M_nnnnY, M_impl,  M_nnnnY, M_nnnnX, M_nnnnX, M_nnnnY, M_nnnnY,
+    M_immnn, M_InnX,  M_immnn, M_InnX,  M_nn,    M_nn,    M_nn,    M_nn,
+    M_impl,  M_immnn, M_impl,  M_immnn, M_nnnn,  M_nnnn,  M_nnnn,  M_nnnn,
+    M_rr,    M_InnY,  M_impl,  M_InnY,  M_nnX,   M_nnX,   M_nnY,   M_nnY,
+    M_impl,  M_nnnnY, M_impl,  M_nnnnY, M_nnnnX, M_nnnnX, M_nnnnY, M_nnnnY,
+    M_immnn, M_InnX,  M_immnn, M_InnX,  M_nn,    M_nn,    M_nn,    M_nn,
+    M_impl,  M_immnn, M_impl,  M_immnn, M_nnnn,  M_nnnn,  M_nnnn,  M_nnnn,
+    M_rr,    M_InnY,  M_impl,  M_InnY,  M_nnX,   M_nnX,   M_nnX,   M_nnX,
+    M_impl,  M_nnnnY, M_impl,  M_nnnnY, M_nnnnX, M_nnnnX, M_nnnnX, M_nnnnX,
+    M_immnn, M_InnX,  M_immnn, M_InnX,  M_nn,    M_nn,    M_nn,    M_nn,
+    M_impl,  M_immnn, M_impl,  M_immnn, M_nnnn,  M_nnnn,  M_nnnn,  M_nnnn,
+    M_rr,    M_InnY,  M_impl,  M_InnY,  M_nnX,   M_nnX,   M_nnX,   M_nnX,
+    M_impl,  M_nnnnY, M_impl,  M_nnnnY, M_nnnnX, M_nnnnX, M_nnnnX, M_nnnnX);
 
   type clut9bit is array(0 to 511) of integer range 0 to 15;
   constant cycle_count_lut : clut9bit := (
@@ -3391,17 +3390,17 @@ begin
         hyper_trap_state <= '1';
       end if;
       
-                                        -- Select CPU personality based on IO mode, but hypervisor can override to
-                                        -- for 4502 mode, and the hypervisor itself always runs in 4502 mode.
+      -- Select CPU personality based on IO mode, but hypervisor can override to
+      -- for 4502 mode, and the hypervisor itself always runs in 4502 mode.
       if (viciii_iomode="00") and (force_4502='0') and (hypervisor_mode='0') then
-                                        -- Use 6502 mode when IO mode is in C64/VIC-II mode, since no C64 program
-                                        -- should enable VIC-III IO map and expect 6502 CPU.  However, the one
-                                        -- catch to this is that the C64 mode kernal on a C65 uses new
-                                        -- instructions when checking the drive number to decide whether to use
-                                        -- the new DOS or IEC serial.  Thus we need code in the Kernal to run
-                                        -- in 4502 mode.  XXX The check here is not completely perfect, but
-                                        -- should cover all likely situations, since only the use of MAP could
-                                        -- upset it.
+        -- Use 6502 mode when IO mode is in C64/VIC-II mode, since no C64 program
+        -- should enable VIC-III IO map and expect 6502 CPU.  However, the one
+        -- catch to this is that the C64 mode kernal on a C65 uses new
+        -- instructions when checking the drive number to decide whether to use
+        -- the new DOS or IEC serial.  Thus we need code in the Kernal to run
+        -- in 4502 mode.  XXX The check here is not completely perfect, but
+        -- should cover all likely situations, since only the use of MAP could
+        -- upset it.
         if (reg_pc(15 downto 11) = "111")
           and ((cpuport_value(1) or (not cpuport_ddr(1)))='1')
           and (reg_map_high(3) = '0') then
