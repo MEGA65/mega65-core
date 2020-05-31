@@ -594,6 +594,7 @@ GS $D689.0 - High bit of F011 buffer pointer (disk side) (read only)
 GS $D689.1 - Sector read from SD/F011/FDC, but not yet read by CPU (i.e., EQ and DRQ)
 GS $D689.2 Set/read SD card sd_handshake signal
 GS $D689.3 - (read only) sd_data_ready signal.
+GS $D689.4 - Disable FDC automatic track seeking (auto-tune)
 GS $D689.7 - Memory mapped sector buffer select: 1=SD-Card, 0=F011/FDC
 GS $D68A - DEBUG check signals that can inhibit sector buffer mapping
 GS $D68B.0 - F011 disk 1 disk image enable
@@ -619,8 +620,8 @@ GS $D690-$D693 - F011 disk 2 disk image address on SD card
 GS $D6A0 - 3.5" FDC control line debug access
 GS $D6A0 - DEBUG FDC read status lines
 GS $D6A1.0 F011:DRV0EN Use real floppy drive instead of SD card for 1st floppy drive
-GS $D6A1.0 F011:DRV2EN Use real floppy drive instead of SD card for 2nd floppy drive
 GS $D6A1.1 - Match any sector on a real floppy read/write
+GS $D6A1.2 F011:DRV2EN Use real floppy drive instead of SD card for 2nd floppy drive
 GS $D6A1.3-7 - FDC debug status flags
 GS $D6A2 - FDC clock cycles per MFM data bit
 GS $D6A3 - FDC track number of last matching sector header
