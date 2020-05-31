@@ -388,6 +388,12 @@ architecture behavioural of sdcardio is
 
   signal fdc_bytes_read : unsigned(15 downto 0) := x"0000";
   signal sd_wrote_byte : std_logic := '0';
+
+  signal autotune_enable : std_logic := '1';
+  signal autotune_step : std_logic := '1';
+  signal last_autotune_step : std_logic := '1';
+  signal autotune_stepdir : std_logic := '1';
+  
   
   signal packed_rdata : std_logic_vector(7 downto 0);
 
@@ -482,6 +488,8 @@ architecture behavioural of sdcardio is
   signal flash_boot_address : unsigned(31 downto 0) := x"FFFFFFFF";
 
   signal icape2_reg : unsigned(4 downto 0) := "10110";
+
+  signal latched_disk_change_event : std_logic := '0';
   
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
@@ -664,6 +672,9 @@ begin  -- behavioural
     mfm_last_gap => fdc_last_gap,
     mfm_last_byte => fdc_mfm_byte,
     mfm_quantised_gap => fdc_quantised_gap,
+
+    autotune_step => autotune_step,
+    autotune_stepdir => autotune_stepdir,
     
     target_track => target_track,
     target_sector => target_sector,
@@ -890,14 +901,16 @@ begin  -- behavioural
           -- @IO:GS $D689.0 - High bit of F011 buffer pointer (disk side) (read only)
           -- @IO:GS $D689.1 - Sector read from SD/F011/FDC, but not yet read by CPU (i.e., EQ and DRQ)
           -- @IO:GS $D689.3 - (read only) sd_data_ready signal.
+          -- @IO:GS $D689.4 - Disable FDC automatic track seeking (auto-tune)
           -- @IO:GS $D689.7 - Memory mapped sector buffer select: 1=SD-Card, 0=F011/FDC
           when x"89" =>
             fastio_rdata(0) <= f011_buffer_disk_address(8);
             fastio_rdata(1) <= f011_flag_eq and f011_drq;
-            fastio_rdata(6 downto 2) <= (others => '0');
             fastio_rdata(2) <= sd_handshake;
             fastio_rdata(3) <= sd_data_ready;
+            fastio_rdata(4) <= not autotune_enable;
             fastio_rdata(7) <= f011sd_buffer_select;
+            fastio_rdata(6 downto 5) <= (others => '0');
           when x"8a" =>
             -- @IO:GS $D68A - DEBUG check signals that can inhibit sector buffer mapping
             fastio_rdata(0) <= colourram_at_dc00;
@@ -948,7 +961,9 @@ begin  -- behavioural
             fastio_rdata(5) <= f_writeprotect;
             fastio_rdata(4) <= f_rdata;
             fastio_rdata(3) <= f_diskchanged;
-            fastio_rdata(2 downto 0) <= (others => '1');
+            fastio_rdata(2) <= latched_disk_change_event;
+            fastio_rdata(1) <= autotune_step;
+            fastio_rdata(0) <= autotune_stepdir;
           when x"a1" =>
             -- @IO:GS $D6A1.0 F011:DRV0EN Use real floppy drive instead of SD card for 1st floppy drive
             fastio_rdata(0) <= use_real_floppy0;
@@ -1255,6 +1270,22 @@ begin  -- behavioural
     
     if rising_edge(clock) then    
 
+      -- If MFM decoder thinks we are on the wrong track, and the
+      -- auto-tuner is enabled, then step in the right direction.
+      -- The timing of the steps is based on how often a sector goes past the head.
+      -- 10 sectors per track x 360 rpm = 60 sectors per second = ~16msec per
+      -- sector. This is more than slow enough for safe stepping, we don't need
+      -- to do any other timing interlock
+      if autotune_enable = '1' then
+        if autotune_step='1' and last_autotune_step='0' then
+          f_step <= '0';
+          f_stepdir <= autotune_stepdir;
+        elsif autotune_step='0' and last_autotune_step='1' then
+          f_step <= '1';
+        end if;
+      end if;
+      last_autotune_step <= autotune_step;
+      
       -- XXX DEBUG toggle QSPI clock madly
       if qspi_clock_run = '1' and hypervisor_mode='1' then
         qspi_clock <= not qspi_clock_int;
@@ -1454,13 +1485,14 @@ begin  -- behavioural
         -- When using the real drive, use correct index and track 0 sensors
         f011_track0 <= not f_track0;
         f011_over_index <= not f_index;
-        f011_disk_changed <= not f_diskchanged;
+        f011_disk_changed <= (not f_diskchanged) or latched_disk_change_event;
       elsif use_real_floppy2='1' and f011_ds="001" then
         -- When using the real drive, use correct index and track 0 sensors
         f011_track0 <= not f_track0;
         f011_over_index <= not f_index;
-        f011_disk_changed <= not f_diskchanged;
+        f011_disk_changed <= (not f_diskchanged) or latched_disk_change_event;
       else
+        f011_disk_changed <= latched_disk_change_event;
         if f011_head_track="0000000" then
           f011_track0 <= '1';
         else
@@ -1562,6 +1594,10 @@ begin  -- behavioural
 
               f_motor <= not fastio_wdata(5); -- start motor on real drive
               f_select <= not fastio_wdata(5);
+              -- De-selecting drive cancelled disk change event
+              if fastio_wdata(5)='0' then
+                latched_disk_change_event <= '0';
+              end if;
               f_side1 <= not fastio_wdata(3);
               
               f011_swap <= fastio_wdata(4);
@@ -1812,7 +1848,7 @@ begin  -- behavioural
                 when x"20" =>         -- wait for motor spin up time (1sec)
                   f011_busy <= '1';
                   f011_rnf <= '1';    -- Set according to the specifications
-                  busy_countdown <= to_unsigned(16000,16); -- 1 sec spin up time
+                  busy_countdown <= to_unsigned(16000,16); -- 1 sec spin up time                  
                 when x"00" =>         -- cancel running command (not implemented)
                   f_wgate <= '1';
                   report "Clearing fdc_read_request due to $00 command";
@@ -2088,6 +2124,7 @@ begin  -- behavioural
                           -- @ IO:GS $D689.2 Set/read SD card sd_handshake signal
                           sd_handshake <= fastio_wdata(2);
                           sd_handshake_internal <= fastio_wdata(2);
+                          autotune_enable <= not fastio_wdata(4);
 
                           -- ================================================================== END
                           -- the section above was for the SDcard
@@ -2142,6 +2179,8 @@ begin  -- behavioural
               use_real_floppy0 <= fastio_wdata(0);
               use_real_floppy2 <= fastio_wdata(2);
               target_any <= fastio_wdata(1);
+              -- Setting flag to use real floppy or not causes disk change event
+              latched_disk_change_event <= '1';
             when x"a2" =>
               cycles_per_interval <= fastio_wdata;
               -- @IO:GS $D6F3 - Accelerometer bit-bashing port
