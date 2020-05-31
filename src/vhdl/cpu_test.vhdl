@@ -19,7 +19,6 @@ architecture behavior of cpu_test is
   
   signal pixelclock : std_logic := '1';
   signal cpuclock : std_logic := '1';
-  signal ioclock : std_logic := '1';
   signal clock50mhz : std_logic := '1';
   signal clock27 : std_logic := '1';
   signal clock100 : std_logic := '1';
@@ -380,6 +379,7 @@ begin
 
   core0: entity work.machine
     generic map ( target => simulation,
+    		  cpu_frequency => 40_500_000,
                   hyper_installed => true)
     port map (
       fpga_temperature => (others => '1'),
@@ -394,9 +394,8 @@ begin
       clock100 => clock100,
       clock27 => clock27,
       clock162 => clock163,
-      ioclock      => cpuclock,
       
-      uartclock    => ioclock,
+      uartclock    => cpuclock,
       btnCpuReset      => reset,
       irq => irq,
       nmi => '1',
