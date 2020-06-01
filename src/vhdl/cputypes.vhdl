@@ -69,6 +69,11 @@ package cputypes is
     timing_counter_set : unsigned(24 downto 0);
     timing_counter_set_flag : std_logic;
     last_timing_counter_set_flag : std_logic;
+
+    -- Digested values for output
+    sample_valid : std_logic;
+    current_value : signed(15 downto 0);
+    multed : signed(24 downto 0);
   end record;
     
   

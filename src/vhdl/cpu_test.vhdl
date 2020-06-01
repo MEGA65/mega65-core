@@ -725,18 +725,18 @@ begin
   end process;
 
   -- Trigger an IRQ to test branch bug
-  process
-  begin
-    wait for 38180 ns;
-    for i in 1 to 2000 loop
-      irq <= '0';
-      report "triggering IRQ for gs4510";
-      wait for 200 ns;
-      irq <= '1';
-      report "releasing IRQ for gs4510";
-      wait for 190 ns;
-    end loop;
-  end process;
+--  process
+--  begin
+--    wait for 38180 ns;
+--    for i in 1 to 2000 loop
+--      irq <= '0';
+--      report "triggering IRQ for gs4510";
+--      wait for 200 ns;
+--      irq <= '1';
+--      report "releasing IRQ for gs4510";
+--      wait for 190 ns;
+--    end loop;
+--  end process;
   
   process
     variable txbyte : unsigned(7 downto 0) := x"00";
@@ -765,14 +765,15 @@ begin
   process (clock50mhz) is
   begin
     if rising_edge(clock50mhz) then
-      report "PCM digital audio out = " & std_logic'image(pcm_modem1_data_out);
+--      report "PCM digital audio out = " & std_logic'image(pcm_modem1_data_out);
     end if;
   end process;
 
   process (pixelclock) is
   begin
     if rising_edge(pixelclock) then
-      report "lcd_dataenable = " & std_logic'image(lcd_dataenable);
+--      report "lcd_dataenable = " & std_logic'image(lcd_dataenable);
+      null;
     end if;
   end process;
   

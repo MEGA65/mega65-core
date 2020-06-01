@@ -1281,7 +1281,11 @@ architecture Behavioural of gs4510 is
                    timing_counter => to_unsigned(0,25),
                    timing_counter_set => to_unsigned(0,25),
                    timing_counter_set_flag => '0',
-                   last_timing_counter_set_flag => '0'
+                   last_timing_counter_set_flag => '0',
+
+                   sample_valid => '0',
+                   current_value => to_signed(0,16),
+                   multed => to_signed(0,25)
                    )
         );
   -- Mixed digital audio channels for writing to $D6F8-B
@@ -1290,6 +1294,7 @@ architecture Behavioural of gs4510 is
   signal audio_dma_write_sequence : integer range 0 to 3 := 0;
   signal audio_dma_fetch_is_lsb : std_logic := '0';
   signal audio_dma_tick_counter : unsigned(31 downto 0) := to_unsigned(0,32);
+  signal audio_dma_target_channel : integer range 0 to 3 := 0;
   
   -- purpose: map VDC linear address to VICII bitmap addressing here
   -- to keep it as simple as possible we assume fix 640x200x2 resolution
@@ -3277,6 +3282,9 @@ begin
     variable math_output_high : integer := 0;
     variable math_result : unsigned(63 downto 0) := to_unsigned(0,64);
     variable vreg33 : unsigned(32 downto 0) := to_unsigned(0,33);
+
+    variable audio_dma_left_temp : signed(15 downto 0);
+    variable audio_dma_right_temp : signed(15 downto 0);
     
   begin    
     -- Begin calculating results for operations immediately to help timing.
@@ -3322,6 +3330,29 @@ begin
       -- facility.
       reg_mult_p <= to_unsigned(to_integer(reg_mult_a) * to_integer(reg_mult_b),48);
 
+      -- We also have four more little multipliers for the audio DMA stuff
+      for i in 0 to 3 loop
+        if audio_dma(i).sample_valid='1' then
+          audio_dma(i).multed <= audio_dma(i).current_value * to_signed(to_integer(audio_dma(i).volume),9);
+        end if;
+      end loop;
+      -- And from those, we compose the combined left and right values, with
+      -- saturation detection
+      audio_dma_left_temp := audio_dma(0).multed(24 downto 9) + audio_dma(1).multed(24 downto 9);
+      if audio_dma(0).multed(24) = audio_dma(1).multed(24) and audio_dma_left_temp(15) /= audio_dma(0).multed(24) then
+        -- overflow: so saturate instead
+        audio_dma_left <= (others => audio_dma(0).multed(24));
+      else
+        audio_dma_left <= unsigned(audio_dma_left_temp);
+      end if;
+      audio_dma_right_temp := audio_dma(2).multed(24 downto 9) + audio_dma(3).multed(24 downto 9);
+      if audio_dma(2).multed(24) = audio_dma(3).multed(24) and audio_dma_right_temp(15) /= audio_dma(2).multed(24) then
+        -- overflow: so saturate instead
+        audio_dma_right <= (others => audio_dma(2).multed(24));
+      else
+        audio_dma_right <= unsigned(audio_dma_right_temp);
+      end if;
+      
       resolved_vdc_to_viciv_src_address <= resolve_vdc_to_viciv_address(vdc_mem_addr_src);
       resolved_vdc_to_viciv_address <= resolve_vdc_to_viciv_address(vdc_mem_addr);
       
@@ -4792,6 +4823,15 @@ begin
               -- left or right digi channel, so that we update it.
               -- (The details of the memory request are handled the memory access
               -- process below).
+
+              if audio_dma_fetch_is_lsb='1' then
+                audio_dma(audio_dma_target_channel).current_value(7 downto 0) <= signed(memory_read_value);
+                audio_dma(audio_dma_target_channel).sample_valid <= '0';
+              else
+                audio_dma(audio_dma_target_channel).current_value(15 downto 8) <= signed(memory_read_value);
+                audio_dma(audio_dma_target_channel).sample_valid <= '1';
+              end if;
+
               
               state <= InstructionFetch;
             when InstructionWait =>
@@ -7305,6 +7345,7 @@ begin
             memory_access_read := '1';
             audio_dma_fetch_is_lsb <= '0';
             if audio_dma(0).pending='1' then
+              audio_dma_target_channel <= 0;
               memory_access_address(27 downto 24) := x"0";
               memory_access_address(23 downto 0) := audio_dma(0).current_addr;
               if audio_dma(0).sample_width="11" and audio_dma(0).pending_msb='1' then
@@ -7316,6 +7357,7 @@ begin
                 audio_dma(0).pending <= '0';
               end if;
             elsif audio_dma(1).pending='1' then
+              audio_dma_target_channel <= 1;
               memory_access_address(27 downto 24) := x"0";
               memory_access_address(23 downto 0) := audio_dma(1).current_addr;
               if audio_dma(1).sample_width="11" and audio_dma(1).pending_msb='1' then
@@ -7325,6 +7367,7 @@ begin
                 audio_dma(1).pending <= '0';
               end if;
             elsif audio_dma(2).pending='1' then
+              audio_dma_target_channel <= 2;
               memory_access_address(27 downto 24) := x"0";
               memory_access_address(23 downto 0) := audio_dma(2).current_addr;
               if audio_dma(2).sample_width="11" and audio_dma(2).pending_msb='1' then
@@ -7334,6 +7377,7 @@ begin
                 audio_dma(2).pending <= '0';
               end if;
             elsif audio_dma(3).pending='1' then
+              audio_dma_target_channel <= 3;
               memory_access_address(27 downto 24) := x"0";
               memory_access_address(23 downto 0) := audio_dma(3).current_addr;
               if audio_dma(3).sample_width="11" and audio_dma(3).pending_msb='1' then
