@@ -1257,7 +1257,16 @@ architecture Behavioural of gs4510 is
 
   signal resolved_vdc_to_viciv_address : unsigned(15 downto 0) := x"0000";
   signal resolved_vdc_to_viciv_src_address : unsigned(15 downto 0) := x"0000";
-  
+
+  type audio_channels_t is array (0 to 3) of audio_dma_channel;
+  signal audio_dma : audio_channels_t
+    := (others => (base_addr => to_unsigned(0,32),
+                   time_base => to_unsigned(0,32),
+                   sample_length => to_unsigned(0,16),
+                   volume => to_unsigned(0,16),
+                   enable => '0',
+                   sample_width => "00"
+                   ));  
   
   -- purpose: map VDC linear address to VICII bitmap addressing here
   -- to keep it as simple as possible we assume fix 640x200x2 resolution
@@ -1970,6 +1979,65 @@ begin
             when x"03" => return reg_dmagic_status(7 downto 1) & support_f018b;
             when x"04" => return reg_dmagic_addr(27 downto 20);
 
+            -- $D720-$D72F - Audio DMA channel 0
+            when x"20" => return audio_dma(0).base_addr(7 downto 0);
+            when x"21" => return audio_dma(0).base_addr(15 downto 8);
+            when x"22" => return audio_dma(0).base_addr(23 downto 16);
+            when x"23" => return audio_dma(0).base_addr(31 downto 24);
+            when x"24" => return audio_dma(0).time_base(7 downto 0);
+            when x"25" => return audio_dma(0).time_base(15 downto 8);
+            when x"26" => return audio_dma(0).time_base(23 downto 16);
+            when x"27" => return audio_dma(0).time_base(31 downto 24);
+            when x"28" => return audio_dma(0).sample_length(7 downto 0);
+            when x"29" => return audio_dma(0).sample_length(15 downto 8);
+            when x"2a" => return audio_dma(0).volume(7 downto 0);
+            when x"2b" => return audio_dma(0).volume(15 downto 8);
+            when x"2f" => return audio_dma(0).enable & "00000" & audio_dma(0).sample_width;
+            -- $D730-$D73F - Audio DMA channel 1
+            when x"30" => return audio_dma(1).base_addr(7 downto 0);
+            when x"31" => return audio_dma(1).base_addr(15 downto 8);
+            when x"32" => return audio_dma(1).base_addr(23 downto 16);
+            when x"33" => return audio_dma(1).base_addr(31 downto 24);
+            when x"34" => return audio_dma(1).time_base(7 downto 0);
+            when x"35" => return audio_dma(1).time_base(15 downto 8);
+            when x"36" => return audio_dma(1).time_base(23 downto 16);
+            when x"37" => return audio_dma(1).time_base(31 downto 24);
+            when x"38" => return audio_dma(1).sample_length(7 downto 0);
+            when x"39" => return audio_dma(1).sample_length(15 downto 8);
+            when x"3a" => return audio_dma(1).volume(7 downto 0);
+            when x"3b" => return audio_dma(1).volume(15 downto 8);
+            when x"3f" => return audio_dma(1).enable & "00000" & audio_dma(1).sample_width;
+
+            -- $D740-$D74F - Audio DMA channel 2
+            when x"40" => return audio_dma(2).base_addr(7 downto 0);
+            when x"41" => return audio_dma(2).base_addr(15 downto 8);
+            when x"42" => return audio_dma(2).base_addr(23 downto 16);
+            when x"43" => return audio_dma(2).base_addr(31 downto 24);
+            when x"44" => return audio_dma(2).time_base(7 downto 0);
+            when x"45" => return audio_dma(2).time_base(15 downto 8);
+            when x"46" => return audio_dma(2).time_base(23 downto 16);
+            when x"47" => return audio_dma(2).time_base(31 downto 24);
+            when x"48" => return audio_dma(2).sample_length(7 downto 0);
+            when x"49" => return audio_dma(2).sample_length(15 downto 8);
+            when x"4a" => return audio_dma(2).volume(7 downto 0);
+            when x"4b" => return audio_dma(2).volume(15 downto 8);
+            when x"4f" => return audio_dma(2).enable & "00000" & audio_dma(2).sample_width;
+
+            -- $D750-$D75F - Audio DMA channel 3
+            when x"50" => return audio_dma(3).base_addr(7 downto 0);
+            when x"51" => return audio_dma(3).base_addr(15 downto 8);
+            when x"52" => return audio_dma(3).base_addr(23 downto 16);
+            when x"53" => return audio_dma(3).base_addr(31 downto 24);
+            when x"54" => return audio_dma(3).time_base(7 downto 0);
+            when x"55" => return audio_dma(3).time_base(15 downto 8);
+            when x"56" => return audio_dma(3).time_base(23 downto 16);
+            when x"57" => return audio_dma(3).time_base(31 downto 24);
+            when x"58" => return audio_dma(3).sample_length(7 downto 0);
+            when x"59" => return audio_dma(3).sample_length(15 downto 8);
+            when x"5a" => return audio_dma(3).volume(7 downto 0);
+            when x"5b" => return audio_dma(3).volume(15 downto 8);
+            when x"5f" => return audio_dma(3).enable & "00000" & audio_dma(3).sample_width;
+                          
             -- $D770-$D7DF reserved for math unit functions
             when x"70" => return reg_mult_a(7 downto 0);
             when x"71" => return reg_mult_a(15 downto 8);
@@ -2599,6 +2667,28 @@ begin
         badline_enable <= value(0);
         slow_interrupts <= value(1);
         vdc_enabled <= value(2);
+      elsif (long_address(27 downto 4) = x"FFD372") or (long_address(27 downto 4) = x"FFD172")
+        or (long_address(27 downto 4) = x"FFD373") or (long_address(27 downto 4) = x"FFD173")
+        or (long_address(27 downto 4) = x"FFD374") or (long_address(27 downto 4) = x"FFD174")
+        or (long_address(27 downto 4) = x"FFD375") or (long_address(27 downto 4) = x"FFD175")
+      then
+        case long_address(3 downto 0) is
+          when x"0" => audio_dma(to_integer(long_address(7 downto 4)-2)).base_addr(7 downto 0) <= value;
+          when x"1" => audio_dma(to_integer(long_address(7 downto 4)-2)).base_addr(15 downto 8) <= value;
+          when x"2" => audio_dma(to_integer(long_address(7 downto 4)-2)).base_addr(23 downto 16) <= value;
+          when x"3" => audio_dma(to_integer(long_address(7 downto 4)-2)).base_addr(31 downto 24) <= value;
+          when x"4" => audio_dma(to_integer(long_address(7 downto 4)-2)).time_base(7 downto 0) <= value;
+          when x"5" => audio_dma(to_integer(long_address(7 downto 4)-2)).time_base(15 downto 8) <= value;
+          when x"6" => audio_dma(to_integer(long_address(7 downto 4)-2)).time_base(23 downto 16) <= value;
+          when x"7" => audio_dma(to_integer(long_address(7 downto 4)-2)).time_base(31 downto 24) <= value;
+          when x"8" => audio_dma(to_integer(long_address(7 downto 4)-2)).sample_length(7 downto 0) <= value;
+          when x"9" => audio_dma(to_integer(long_address(7 downto 4)-2)).sample_length(15 downto 8) <= value;
+          when x"a" => audio_dma(to_integer(long_address(7 downto 4)-2)).volume(7 downto 0) <= value;
+          when x"b" => audio_dma(to_integer(long_address(7 downto 4)-2)).volume(15 downto 8) <= value;
+          when x"f" => audio_dma(to_integer(long_address(7 downto 4)-2)).enable <= value(7);
+                       audio_dma(to_integer(long_address(7 downto 4)-2)).sample_width <= value(1 downto 0);
+          when others => null;
+        end case;
       -- @IO:GS $D770-3 25-bit multiplier input A
       elsif (long_address = x"FFD3770") or (long_address = x"FFD1770") then
         reg_mult_a(7 downto 0) <= value;

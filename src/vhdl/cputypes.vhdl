@@ -46,6 +46,16 @@ package cputypes is
 
   type ilut9bit is array(0 to 511) of instruction;
 
+  type audio_dma_channel is record
+    base_addr : unsigned(31 downto 0);
+    time_base : unsigned(31 downto 0);
+    sample_length : unsigned(15 downto 0);
+    volume : unsigned(15 downto 0);
+    enable : std_logic;
+    sample_width : unsigned(1 downto 0);
+  end record;
+    
+  
   type microcodeops is record
     -- Do we increment PC?
     mcIncPC : std_logic;
