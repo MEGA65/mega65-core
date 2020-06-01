@@ -2798,14 +2798,6 @@ begin
                        -- the flags.
                        audio_dma(to_integer(long_address(7 downto 4)-2)).current_addr <=
                          audio_dma(to_integer(long_address(7 downto 4)-2)).base_addr;
-                       audio_dma(to_integer(long_address(7 downto 4)-2)).timing_counter <= to_unsigned(0,25);
-                       if value(1 downto 0)="11" then
-                         -- Sample format is 2 bytes, so indicate that we need
-                         -- two bytes
-                         audio_dma(to_integer(long_address(7 downto 4)-2)).pending_msb <= value(7);                           
-                       else
-                         audio_dma(to_integer(long_address(7 downto 4)-2)).pending_msb <= '0';                           
-                       end if;
           when x"1" => audio_dma(to_integer(long_address(7 downto 4)-2)).base_addr(7 downto 0) <= value;
           when x"2" => audio_dma(to_integer(long_address(7 downto 4)-2)).base_addr(15 downto 8) <= value;
           when x"3" => audio_dma(to_integer(long_address(7 downto 4)-2)).base_addr(23 downto 16) <= value;
@@ -2818,9 +2810,11 @@ begin
           when x"a" => audio_dma(to_integer(long_address(7 downto 4)-2)).current_addr(7 downto 0) <= value;
           when x"b" => audio_dma(to_integer(long_address(7 downto 4)-2)).current_addr(15 downto 8) <= value;
           when x"c" => audio_dma(to_integer(long_address(7 downto 4)-2)).current_addr(23 downto 16) <= value;
-          when x"d" => audio_dma(to_integer(long_address(7 downto 4)-2)).timing_counter(7 downto 0) <= value;
-          when x"e" => audio_dma(to_integer(long_address(7 downto 4)-2)).timing_counter(15 downto 8) <= value;
-          when x"f" => audio_dma(to_integer(long_address(7 downto 4)-2)).timing_counter(23 downto 16) <= value;
+      -- Phase between samples is read only for now, until I can be bothered to
+      -- add process crossing
+--          when x"d" => audio_dma(to_integer(long_address(7 downto 4)-2)).timing_counter(7 downto 0) <= value;
+--          when x"e" => audio_dma(to_integer(long_address(7 downto 4)-2)).timing_counter(15 downto 8) <= value;
+--          when x"f" => audio_dma(to_integer(long_address(7 downto 4)-2)).timing_counter(23 downto 16) <= value;
           when others => null;
         end case;
       -- @IO:GS $D770-3 25-bit multiplier input A
