@@ -1282,6 +1282,7 @@ architecture Behavioural of gs4510 is
   signal audio_dma_right : unsigned(15 downto 0) := to_unsigned(0,16);
   signal audio_dma_write_sequence : integer range 0 to 3 := 0;
   signal audio_dma_fetch_is_lsb : std_logic := '0';
+  signal audio_dma_tick_counter : unsigned(31 downto 0) := to_unsigned(0,32);
   
   -- purpose: map VDC linear address to VICII bitmap addressing here
   -- to keep it as simple as possible we assume fix 640x200x2 resolution
@@ -2000,6 +2001,12 @@ begin
                             & reg_dmagic_addr(22 downto 16);
             when x"03" => return reg_dmagic_status(7 downto 1) & support_f018b;
             when x"04" => return reg_dmagic_addr(27 downto 20);
+
+                          -- XXX DEBUG registers for audio DMA
+            when x"1c" => return audio_dma_tick_counter(7 downto 0);
+            when x"1d" => return audio_dma_tick_counter(15 downto 8);
+            when x"1e" => return audio_dma_tick_counter(23 downto 16);
+            when x"1f" => return audio_dma_tick_counter(31 downto 24);
 
             -- $D720-$D72F - Audio DMA channel 0
             when x"20" => return audio_dma(0).enable & audio_dma(0).repeat & "0000" & audio_dma(0).sample_width;
@@ -7189,6 +7196,7 @@ begin
       
       case state is
         when DoAudioDMA =>
+          audio_dma_tick_counter <= audio_dma_tick_counter + 1;
           -- Commit the updated audio values
           if (audio_dma(0).enable or audio_dma(1).enable or audio_dma(2).enable or audio_dma(3).enable) = '1' then
             memory_access_write := '1';
