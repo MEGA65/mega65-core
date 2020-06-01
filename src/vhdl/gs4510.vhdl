@@ -1275,7 +1275,7 @@ architecture Behavioural of gs4510 is
                    pending => '0',
                    pending_msb => '0',
                    current_addr => to_unsigned(0,24),
-                   timing_counter => to_unsigned(0,24)
+                   timing_counter => to_unsigned(0,25)
                    ));
   -- Mixed digital audio channels for writing to $D6F8-B
   signal audio_dma_left : unsigned(15 downto 0) := to_unsigned(0,16);
@@ -2008,7 +2008,84 @@ begin
             when x"1e" => return audio_dma_tick_counter(23 downto 16);
             when x"1f" => return audio_dma_tick_counter(31 downto 24);
 
-            -- $D720-$D72F - Audio DMA channel 0
+            -- @IO:GS $D720.7 DMA:CH0EN Enable Audio DMA channel 0
+            -- @IO:GS $D720.6 DMA:CH0LOOP Enable Audio DMA channel 0 looping
+            -- @IO:GS $D720.0-1 DMA:CH0SBITS Audio DMA channel 0 sample bits (11=16, 10=8, 01=upper nybl, 00=lower nybl)
+            -- @IO:GS $D721 DMA:CH0BADDR Audio DMA channel 0 base address LSB
+            -- @IO:GS $D722 DMA:CH0BADDR Audio DMA channel 0 base address middle byte
+            -- @IO:GS $D723 DMA:CH0BADDR Audio DMA channel 0 base address MSB
+            -- @IO:GS $D724 DMA:CH0FREQ Audio DMA channel 0 frequency LSB
+            -- @IO:GS $D725 DMA:CH0FREQ Audio DMA channel 0 frequency middle byte
+            -- @IO:GS $D726 DMA:CH0FREQ Audio DMA channel 0 frequency MSB
+            -- @IO:GS $D727 DMA:CH0TADDR Audio DMA channel 0 top address LSB
+            -- @IO:GS $D728 DMA:CH0TADDR Audio DMA channel 0 top address middle byte
+            -- @IO:GS $D729 DMA:CH0VOLUME Audio DMA channel 0 playback volume
+            -- @IO:GS $D72A DMA:CH0FREQ Audio DMA channel 0 current address LSB
+            -- @IO:GS $D72B DMA:CH0FREQ Audio DMA channel 0 current address middle byte
+            -- @IO:GS $D72C DMA:CH0FREQ Audio DMA channel 0 current address MSB
+            -- @IO:GS $D72D DMA:CH0FREQ Audio DMA channel 0 timing counter LSB
+            -- @IO:GS $D72E DMA:CH0FREQ Audio DMA channel 0 timing counter middle byte
+            -- @IO:GS $D72F DMA:CH0FREQ Audio DMA channel 0 timing counter address MSB
+
+            -- @IO:GS $D730.7 DMA:CH1EN Enable Audio DMA channel 1
+            -- @IO:GS $D730.6 DMA:CH1LOOP Enable Audio DMA channel 1 looping
+            -- @IO:GS $D730.0-1 DMA:CH1SBITS Audio DMA channel 1 sample bits (11=16, 10=8, 01=upper nybl, 00=lower nybl)
+            -- @IO:GS $D731 DMA:CH1BADDR Audio DMA channel 1 base address LSB
+            -- @IO:GS $D732 DMA:CH1BADDR Audio DMA channel 1 base address middle byte
+            -- @IO:GS $D733 DMA:CH1BADDR Audio DMA channel 1 base address MSB
+            -- @IO:GS $D734 DMA:CH1FREQ Audio DMA channel 1 frequency LSB
+            -- @IO:GS $D735 DMA:CH1FREQ Audio DMA channel 1 frequency middle byte
+            -- @IO:GS $D736 DMA:CH1FREQ Audio DMA channel 1 frequency MSB
+            -- @IO:GS $D737 DMA:CH1TADDR Audio DMA channel 1 top address LSB
+            -- @IO:GS $D738 DMA:CH1TADDR Audio DMA channel 1 top address middle byte
+            -- @IO:GS $D739 DMA:CH1VOLUME Audio DMA channel 1 playback volume
+            -- @IO:GS $D73A DMA:CH1FREQ Audio DMA channel 1 current address LSB
+            -- @IO:GS $D73B DMA:CH1FREQ Audio DMA channel 1 current address middle byte
+            -- @IO:GS $D73C DMA:CH1FREQ Audio DMA channel 1 current address MSB
+            -- @IO:GS $D73D DMA:CH1FREQ Audio DMA channel 1 timing counter LSB
+            -- @IO:GS $D73E DMA:CH1FREQ Audio DMA channel 1 timing counter middle byte
+            -- @IO:GS $D73F DMA:CH1FREQ Audio DMA channel 1 timing counter address MSB
+
+            -- @IO:GS $D740.7 DMA:CH2EN Enable Audio DMA channel 2
+            -- @IO:GS $D740.6 DMA:CH2LOOP Enable Audio DMA channel 2 looping
+            -- @IO:GS $D740.0-1 DMA:CH2SBITS Audio DMA channel 2 sample bits (11=16, 10=8, 01=upper nybl, 00=lower nybl)
+            -- @IO:GS $D741 DMA:CH2BADDR Audio DMA channel 2 base address LSB
+            -- @IO:GS $D742 DMA:CH2BADDR Audio DMA channel 2 base address middle byte
+            -- @IO:GS $D743 DMA:CH2BADDR Audio DMA channel 2 base address MSB
+            -- @IO:GS $D744 DMA:CH2FREQ Audio DMA channel 2 frequency LSB
+            -- @IO:GS $D745 DMA:CH2FREQ Audio DMA channel 2 frequency middle byte
+            -- @IO:GS $D746 DMA:CH2FREQ Audio DMA channel 2 frequency MSB
+            -- @IO:GS $D747 DMA:CH2TADDR Audio DMA channel 2 top address LSB
+            -- @IO:GS $D748 DMA:CH2TADDR Audio DMA channel 2 top address middle byte
+            -- @IO:GS $D749 DMA:CH2VOLUME Audio DMA channel 2 playback volume
+            -- @IO:GS $D74A DMA:CH2FREQ Audio DMA channel 2 current address LSB
+            -- @IO:GS $D74B DMA:CH2FREQ Audio DMA channel 2 current address middle byte
+            -- @IO:GS $D74C DMA:CH2FREQ Audio DMA channel 2 current address MSB
+            -- @IO:GS $D74D DMA:CH2FREQ Audio DMA channel 2 timing counter LSB
+            -- @IO:GS $D74E DMA:CH2FREQ Audio DMA channel 2 timing counter middle byte
+            -- @IO:GS $D74F DMA:CH2FREQ Audio DMA channel 2 timing counter address MSB
+                          
+            -- @IO:GS $D750.7 DMA:CH3EN Enable Audio DMA channel 3
+            -- @IO:GS $D750.6 DMA:CH3LOOP Enable Audio DMA channel 3 looping
+            -- @IO:GS $D750.0-1 DMA:CH3SBITS Audio DMA channel 3 sample bits (11=16, 10=8, 01=upper nybl, 00=lower nybl)
+            -- @IO:GS $D751 DMA:CH3BADDR Audio DMA channel 3 base address LSB
+            -- @IO:GS $D752 DMA:CH3BADDR Audio DMA channel 3 base address middle byte
+            -- @IO:GS $D753 DMA:CH3BADDR Audio DMA channel 3 base address MSB
+            -- @IO:GS $D754 DMA:CH3FREQ Audio DMA channel 3 frequency LSB
+            -- @IO:GS $D755 DMA:CH3FREQ Audio DMA channel 3 frequency middle byte
+            -- @IO:GS $D756 DMA:CH3FREQ Audio DMA channel 3 frequency MSB
+            -- @IO:GS $D757 DMA:CH3TADDR Audio DMA channel 3 top address LSB
+            -- @IO:GS $D758 DMA:CH3TADDR Audio DMA channel 3 top address middle byte
+            -- @IO:GS $D759 DMA:CH3VOLUME Audio DMA channel 3 playback volume
+            -- @IO:GS $D75A DMA:CH3FREQ Audio DMA channel 3 current address LSB
+            -- @IO:GS $D75B DMA:CH3FREQ Audio DMA channel 3 current address middle byte
+            -- @IO:GS $D75C DMA:CH3FREQ Audio DMA channel 3 current address MSB
+            -- @IO:GS $D75D DMA:CH3FREQ Audio DMA channel 3 timing counter LSB
+            -- @IO:GS $D75E DMA:CH3FREQ Audio DMA channel 3 timing counter middle byte
+            -- @IO:GS $D75F DMA:CH3FREQ Audio DMA channel 3 timing counter address MSB
+
+                          
+            -- $D720-$D72F - Audio DMA channel 0                          
             when x"20" => return audio_dma(0).enable & audio_dma(0).repeat & "0000" & audio_dma(0).sample_width;
             when x"21" => return audio_dma(0).base_addr(7 downto 0);
             when x"22" => return audio_dma(0).base_addr(15 downto 8);
@@ -2721,7 +2798,7 @@ begin
                        -- the flags.
                        audio_dma(to_integer(long_address(7 downto 4)-2)).current_addr <=
                          audio_dma(to_integer(long_address(7 downto 4)-2)).base_addr;
-                       audio_dma(to_integer(long_address(7 downto 4)-2)).timing_counter <= to_unsigned(0,32);
+                       audio_dma(to_integer(long_address(7 downto 4)-2)).timing_counter <= to_unsigned(0,25);
                        if value(1 downto 0)="11" then
                          -- Sample format is 2 bytes, so indicate that we need
                          -- two bytes
@@ -7178,7 +7255,7 @@ begin
       for i in 0 to 3 loop
         if audio_dma(i).enable='1' then
           audio_dma(i).stop <= '0';
-          audio_dma(i).timing_counter <= "0"&audio_dma(i).timing_counter(23 downto 0) + "0"&audio_dma(i).time_base;
+          audio_dma(i).timing_counter <= to_unsigned(to_integer(audio_dma(i).timing_counter(23 downto 0)) + to_integer(audio_dma(i).time_base),25);
           if audio_dma(i).timing_counter(24) = '1' then
             audio_dma(i).pending <= '1';
             if audio_dma(i).sample_width = "11" then
@@ -7220,7 +7297,8 @@ begin
             memory_access_read := '1';
             audio_dma_fetch_is_lsb <= '0';
             if audio_dma(0).pending='1' then
-              memory_access_address := audio_dma(0).current_addr;
+              memory_access_address(27 downto 24) := x"0";
+              memory_access_address(23 downto 0) := audio_dma(0).current_addr;
               if audio_dma(0).sample_width="11" and audio_dma(0).pending_msb='1' then
                 -- We still need to read the MSB after
                 audio_dma_fetch_is_lsb <= '1';
@@ -7230,7 +7308,8 @@ begin
                 audio_dma(0).pending <= '0';
               end if;
             elsif audio_dma(1).pending='1' then
-              memory_access_address := audio_dma(1).current_addr;
+              memory_access_address(27 downto 24) := x"0";
+              memory_access_address(23 downto 0) := audio_dma(1).current_addr;
               if audio_dma(1).sample_width="11" and audio_dma(1).pending_msb='1' then
                 audio_dma_fetch_is_lsb <= '1';
                 audio_dma(1).pending_msb <='0';
@@ -7238,7 +7317,8 @@ begin
                 audio_dma(1).pending <= '0';
               end if;
             elsif audio_dma(2).pending='1' then
-              memory_access_address := audio_dma(2).current_addr;
+              memory_access_address(27 downto 24) := x"0";
+              memory_access_address(23 downto 0) := audio_dma(2).current_addr;
               if audio_dma(2).sample_width="11" and audio_dma(2).pending_msb='1' then
                 audio_dma_fetch_is_lsb <= '1';
                 audio_dma(2).pending_msb <='0';
@@ -7246,7 +7326,8 @@ begin
                 audio_dma(2).pending <= '0';
               end if;
             elsif audio_dma(3).pending='1' then
-              memory_access_address := audio_dma(3).current_addr;
+              memory_access_address(27 downto 24) := x"0";
+              memory_access_address(23 downto 0) := audio_dma(3).current_addr;
               if audio_dma(3).sample_width="11" and audio_dma(3).pending_msb='1' then
                 audio_dma_fetch_is_lsb <= '1';
                 audio_dma(3).pending_msb <='0';

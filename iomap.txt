@@ -784,6 +784,78 @@ GS $D70E DMA:ADDRLSB DMA list address low byte (address bits 0 -- 7) WITHOUT STA
 GS $D710.0 - MISC:BADLEN Enable badline emulation
 GS $D710.1 - MISC:SLIEN Enable 6502-style slow (7 cycle) interrupts
 GS $D710.2 - MISC:VDCSEN Enable VDC inteface simulation
+GS $D720.0-1 DMA:CH0SBITS Audio DMA channel 0 sample bits (11=16, 10=8, 01=upper nybl, 00=lower nybl)
+GS $D720.6 DMA:CH0LOOP Enable Audio DMA channel 0 looping
+GS $D720.7 DMA:CH0EN Enable Audio DMA channel 0
+GS $D721 DMA:CH0BADDR Audio DMA channel 0 base address LSB
+GS $D722 DMA:CH0BADDR Audio DMA channel 0 base address middle byte
+GS $D723 DMA:CH0BADDR Audio DMA channel 0 base address MSB
+GS $D724 DMA:CH0FREQ Audio DMA channel 0 frequency LSB
+GS $D725 DMA:CH0FREQ Audio DMA channel 0 frequency middle byte
+GS $D726 DMA:CH0FREQ Audio DMA channel 0 frequency MSB
+GS $D727 DMA:CH0TADDR Audio DMA channel 0 top address LSB
+GS $D728 DMA:CH0TADDR Audio DMA channel 0 top address middle byte
+GS $D729 DMA:CH0VOLUME Audio DMA channel 0 playback volume
+GS $D72A DMA:CH0FREQ Audio DMA channel 0 current address LSB
+GS $D72B DMA:CH0FREQ Audio DMA channel 0 current address middle byte
+GS $D72C DMA:CH0FREQ Audio DMA channel 0 current address MSB
+GS $D72D DMA:CH0FREQ Audio DMA channel 0 timing counter LSB
+GS $D72E DMA:CH0FREQ Audio DMA channel 0 timing counter middle byte
+GS $D72F DMA:CH0FREQ Audio DMA channel 0 timing counter address MSB
+GS $D730.0-1 DMA:CH1SBITS Audio DMA channel 1 sample bits (11=16, 10=8, 01=upper nybl, 00=lower nybl)
+GS $D730.6 DMA:CH1LOOP Enable Audio DMA channel 1 looping
+GS $D730.7 DMA:CH1EN Enable Audio DMA channel 1
+GS $D731 DMA:CH1BADDR Audio DMA channel 1 base address LSB
+GS $D732 DMA:CH1BADDR Audio DMA channel 1 base address middle byte
+GS $D733 DMA:CH1BADDR Audio DMA channel 1 base address MSB
+GS $D734 DMA:CH1FREQ Audio DMA channel 1 frequency LSB
+GS $D735 DMA:CH1FREQ Audio DMA channel 1 frequency middle byte
+GS $D736 DMA:CH1FREQ Audio DMA channel 1 frequency MSB
+GS $D737 DMA:CH1TADDR Audio DMA channel 1 top address LSB
+GS $D738 DMA:CH1TADDR Audio DMA channel 1 top address middle byte
+GS $D739 DMA:CH1VOLUME Audio DMA channel 1 playback volume
+GS $D73A DMA:CH1FREQ Audio DMA channel 1 current address LSB
+GS $D73B DMA:CH1FREQ Audio DMA channel 1 current address middle byte
+GS $D73C DMA:CH1FREQ Audio DMA channel 1 current address MSB
+GS $D73D DMA:CH1FREQ Audio DMA channel 1 timing counter LSB
+GS $D73E DMA:CH1FREQ Audio DMA channel 1 timing counter middle byte
+GS $D73F DMA:CH1FREQ Audio DMA channel 1 timing counter address MSB
+GS $D740.0-1 DMA:CH2SBITS Audio DMA channel 2 sample bits (11=16, 10=8, 01=upper nybl, 00=lower nybl)
+GS $D740.6 DMA:CH2LOOP Enable Audio DMA channel 2 looping
+GS $D740.7 DMA:CH2EN Enable Audio DMA channel 2
+GS $D741 DMA:CH2BADDR Audio DMA channel 2 base address LSB
+GS $D742 DMA:CH2BADDR Audio DMA channel 2 base address middle byte
+GS $D743 DMA:CH2BADDR Audio DMA channel 2 base address MSB
+GS $D744 DMA:CH2FREQ Audio DMA channel 2 frequency LSB
+GS $D745 DMA:CH2FREQ Audio DMA channel 2 frequency middle byte
+GS $D746 DMA:CH2FREQ Audio DMA channel 2 frequency MSB
+GS $D747 DMA:CH2TADDR Audio DMA channel 2 top address LSB
+GS $D748 DMA:CH2TADDR Audio DMA channel 2 top address middle byte
+GS $D749 DMA:CH2VOLUME Audio DMA channel 2 playback volume
+GS $D74A DMA:CH2FREQ Audio DMA channel 2 current address LSB
+GS $D74B DMA:CH2FREQ Audio DMA channel 2 current address middle byte
+GS $D74C DMA:CH2FREQ Audio DMA channel 2 current address MSB
+GS $D74D DMA:CH2FREQ Audio DMA channel 2 timing counter LSB
+GS $D74E DMA:CH2FREQ Audio DMA channel 2 timing counter middle byte
+GS $D74F DMA:CH2FREQ Audio DMA channel 2 timing counter address MSB
+GS $D750.0-1 DMA:CH3SBITS Audio DMA channel 3 sample bits (11=16, 10=8, 01=upper nybl, 00=lower nybl)
+GS $D750.6 DMA:CH3LOOP Enable Audio DMA channel 3 looping
+GS $D750.7 DMA:CH3EN Enable Audio DMA channel 3
+GS $D751 DMA:CH3BADDR Audio DMA channel 3 base address LSB
+GS $D752 DMA:CH3BADDR Audio DMA channel 3 base address middle byte
+GS $D753 DMA:CH3BADDR Audio DMA channel 3 base address MSB
+GS $D754 DMA:CH3FREQ Audio DMA channel 3 frequency LSB
+GS $D755 DMA:CH3FREQ Audio DMA channel 3 frequency middle byte
+GS $D756 DMA:CH3FREQ Audio DMA channel 3 frequency MSB
+GS $D757 DMA:CH3TADDR Audio DMA channel 3 top address LSB
+GS $D758 DMA:CH3TADDR Audio DMA channel 3 top address middle byte
+GS $D759 DMA:CH3VOLUME Audio DMA channel 3 playback volume
+GS $D75A DMA:CH3FREQ Audio DMA channel 3 current address LSB
+GS $D75B DMA:CH3FREQ Audio DMA channel 3 current address middle byte
+GS $D75C DMA:CH3FREQ Audio DMA channel 3 current address MSB
+GS $D75D DMA:CH3FREQ Audio DMA channel 3 timing counter LSB
+GS $D75E DMA:CH3FREQ Audio DMA channel 3 timing counter middle byte
+GS $D75F DMA:CH3FREQ Audio DMA channel 3 timing counter address MSB
 GS $D770-3 25-bit multiplier input A
 GS $D770 MATH:MULTINA Multiplier input A (25 bit)
 GS $D771 MATH:MULTINA Multiplier input A (25 bit)
