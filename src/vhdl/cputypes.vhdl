@@ -61,8 +61,14 @@ package cputypes is
     pending : std_logic;
     pending_msb : std_logic;
     current_addr : unsigned(23 downto 0);
+    current_addr_set : unsigned(23 downto 0);
+    current_addr_set_flag : std_logic;
+    last_current_addr_set_flag : std_logic;
     -- Top big holds the overflow, which indicates if we need our next sample
     timing_counter : unsigned(24 downto 0);
+    timing_counter_set : unsigned(24 downto 0);
+    timing_counter_set_flag : std_logic;
+    last_timing_counter_set_flag : std_logic;
   end record;
     
   

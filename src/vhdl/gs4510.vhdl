@@ -1275,8 +1275,15 @@ architecture Behavioural of gs4510 is
                    pending => '0',
                    pending_msb => '0',
                    current_addr => to_unsigned(0,24),
-                   timing_counter => to_unsigned(0,25)
-                   ));
+                   current_addr_set => to_unsigned(0,24),
+                   current_addr_set_flag => '0',
+                   last_current_addr_set_flag => '0',
+                   timing_counter => to_unsigned(0,25),
+                   timing_counter_set => to_unsigned(0,25),
+                   timing_counter_set_flag => '0',
+                   last_timing_counter_set_flag => '0'
+                   )
+        );
   -- Mixed digital audio channels for writing to $D6F8-B
   signal audio_dma_left : unsigned(15 downto 0) := to_unsigned(0,16);
   signal audio_dma_right : unsigned(15 downto 0) := to_unsigned(0,16);
@@ -2794,10 +2801,6 @@ begin
           when x"0" => audio_dma(to_integer(long_address(7 downto 4)-2)).enable <= value(7);
                        audio_dma(to_integer(long_address(7 downto 4)-2)).repeat <= value(6);
                        audio_dma(to_integer(long_address(7 downto 4)-2)).sample_width <= value(1 downto 0);
-                       -- Reset current point in sample whenever we write to
-                       -- the flags.
-                       audio_dma(to_integer(long_address(7 downto 4)-2)).current_addr <=
-                         audio_dma(to_integer(long_address(7 downto 4)-2)).base_addr;
           when x"1" => audio_dma(to_integer(long_address(7 downto 4)-2)).base_addr(7 downto 0) <= value;
           when x"2" => audio_dma(to_integer(long_address(7 downto 4)-2)).base_addr(15 downto 8) <= value;
           when x"3" => audio_dma(to_integer(long_address(7 downto 4)-2)).base_addr(23 downto 16) <= value;
@@ -2807,14 +2810,16 @@ begin
           when x"7" => audio_dma(to_integer(long_address(7 downto 4)-2)).top_addr(7 downto 0) <= value;
           when x"8" => audio_dma(to_integer(long_address(7 downto 4)-2)).top_addr(15 downto 8) <= value;
           when x"9" => audio_dma(to_integer(long_address(7 downto 4)-2)).volume(7 downto 0) <= value;
-          when x"a" => audio_dma(to_integer(long_address(7 downto 4)-2)).current_addr(7 downto 0) <= value;
-          when x"b" => audio_dma(to_integer(long_address(7 downto 4)-2)).current_addr(15 downto 8) <= value;
-          when x"c" => audio_dma(to_integer(long_address(7 downto 4)-2)).current_addr(23 downto 16) <= value;
-      -- Phase between samples is read only for now, until I can be bothered to
-      -- add process crossing
---          when x"d" => audio_dma(to_integer(long_address(7 downto 4)-2)).timing_counter(7 downto 0) <= value;
---          when x"e" => audio_dma(to_integer(long_address(7 downto 4)-2)).timing_counter(15 downto 8) <= value;
---          when x"f" => audio_dma(to_integer(long_address(7 downto 4)-2)).timing_counter(23 downto 16) <= value;
+          when x"a" => audio_dma(to_integer(long_address(7 downto 4)-2)).current_addr_set(7 downto 0) <= value;
+          when x"b" => audio_dma(to_integer(long_address(7 downto 4)-2)).current_addr_set(15 downto 8) <= value;
+          when x"c" => audio_dma(to_integer(long_address(7 downto 4)-2)).current_addr_set(23 downto 16) <= value;
+                       audio_dma(to_integer(long_address(7 downto 4)-2)).current_addr_set_flag
+                         <= not audio_dma(to_integer(long_address(7 downto 4)-2)).current_addr_set_flag;
+          when x"d" => audio_dma(to_integer(long_address(7 downto 4)-2)).timing_counter_set(7 downto 0) <= value;
+          when x"e" => audio_dma(to_integer(long_address(7 downto 4)-2)).timing_counter_set(15 downto 8) <= value;
+          when x"f" => audio_dma(to_integer(long_address(7 downto 4)-2)).timing_counter_set(23 downto 16) <= value;
+                       audio_dma(to_integer(long_address(7 downto 4)-2)).timing_counter_set_flag
+                         <= not audio_dma(to_integer(long_address(7 downto 4)-2)).timing_counter_set_flag;
           when others => null;
         end case;
       -- @IO:GS $D770-3 25-bit multiplier input A
@@ -7254,16 +7259,25 @@ begin
             audio_dma(i).pending <= '1';
             if audio_dma(i).sample_width = "11" then
               audio_dma(i).pending_msb <= '1';
-              audio_dma(i).current_addr <= audio_dma(i).current_addr + 2;
-            else
-              audio_dma(i).current_addr <= audio_dma(i).current_addr + 1;
             end if;
+            audio_dma(i).current_addr <= audio_dma(i).current_addr + 1;
             if audio_dma(i).top_addr = audio_dma(i).current_addr(15 downto 0) then
               audio_dma(i).stop <= '1';
             end if;
           end if;
         end if;
+        if audio_dma(i).last_timing_counter_set_flag /= audio_dma(i).timing_counter_set_flag then
+          audio_dma(i).last_timing_counter_set_flag <= audio_dma(i).timing_counter_set_flag;
+          audio_dma(i).timing_counter <= audio_dma(i).timing_counter_set;
+        end if;
+        if audio_dma(i).last_current_addr_set_flag /= audio_dma(i).current_addr_set_flag then
+          audio_dma(i).last_current_addr_set_flag <= audio_dma(i).current_addr_set_flag;
+          audio_dma(i).current_addr <= audio_dma(i).current_addr_set;
+        end if;
       end loop;
+
+
+
       
       case state is
         when DoAudioDMA =>
