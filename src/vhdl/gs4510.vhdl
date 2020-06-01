@@ -3325,6 +3325,9 @@ begin
     -- output.  We will map these all onto the same 64 bytes of registers.
 
     if rising_edge(clock) then
+
+      report "tick";
+      
       -- We also have one direct 18x25 multiplier for use by the hypervisor.
       -- This multiplier fits a single DSP48E unit, and does not use the plumbing
       -- facility.
@@ -4170,6 +4173,7 @@ begin
               null;
             end if;           
           else
+            report "Waitstate countdown. wait_states=$" & to_hstring(wait_states);
             if wait_states /= x"01" then
               wait_states <= wait_states - 1;
               wait_states_non_zero <= '1';
@@ -4201,7 +4205,7 @@ begin
 
         report "CPU state : proceed=" & std_logic'image(proceed);
         if proceed='0' then
-
+          
           -- Make bus idle while waiting
           memory_access_address := (others => '1');
           memory_access_read := '0';

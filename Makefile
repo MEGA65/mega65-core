@@ -271,7 +271,7 @@ SIMULATIONVHDL=		$(VHDLSRCDIR)/cpu_test.vhdl \
 			$(VHDLSRCDIR)/gen_utils.vhdl \
 			$(VHDLSRCDIR)/conversions.vhdl \
 			$(VHDLSRCDIR)/s27kl0641.vhdl \
-			$(VHDLSRCDIR)/fake_uart_monitor.vhdl \
+			$(VHDLSRCDIR)/dummy_uart_monitor.vhdl \
 			$(CPUVHDL) \
 			$(M65VHDL)
 

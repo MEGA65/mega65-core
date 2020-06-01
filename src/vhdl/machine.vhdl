@@ -1755,6 +1755,8 @@ begin
   begin
     if rising_edge(cpuclock) then
 
+      report "tick";
+      
       secure_mode_triage_required <= protected_hardware_sig(7) or secure_mode_from_monitor;
       
       osk_touch1_key <= osk_touch1_key_driver;

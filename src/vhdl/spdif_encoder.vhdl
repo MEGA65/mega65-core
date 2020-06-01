@@ -303,7 +303,7 @@ begin
                   bit_cnt <= bit_cnt + 1;
                 else
                   bit_cnt <= 0;
-                  report "next sample channel A. Sample interval: " & integer'image((now/1 us) - last_sample_time);
+--                  report "next sample channel A. Sample interval: " & integer'image((now/1 us) - last_sample_time);
                   last_sample_time <= now / 1 us;
                   samples_seen <= samples_seen + 1;
                   if spdif_out = '1' then
@@ -361,7 +361,7 @@ begin
                   if send_audio = '1' then
                     chb_samp_ack <= '1';
                   end if;
-                  report "next sample channel B for sample " & integer'image(samples_seen);
+--                  report "next sample channel B for sample " & integer'image(samples_seen);
                   if samples_seen = 44100 then
                     report "44100 samples took " & integer'image((now / 1 us) - first_sample_time);
                   end if;

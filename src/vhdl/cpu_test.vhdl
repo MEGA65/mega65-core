@@ -376,6 +376,7 @@ begin
       cart_d => cart_d,
       cart_a => cart_a
       );
+  end generate;
 
   core0: entity work.machine
     generic map ( target => simulation,
@@ -523,7 +524,6 @@ begin
 
       sseg_ca         => sseg_ca,
       sseg_an         => sseg_an);
-  end generate;
 
   process is
     file trace : CharFile;
