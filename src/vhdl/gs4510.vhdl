@@ -1262,9 +1262,10 @@ architecture Behavioural of gs4510 is
   signal resolved_vdc_to_viciv_address : unsigned(15 downto 0) := x"0000";
   signal resolved_vdc_to_viciv_src_address : unsigned(15 downto 0) := x"0000";
 
-  type audio_channels_t is array (0 to 3) of audio_dma_channel;
-  signal audio_dma : audio_channels_t
-    := (others => (base_addr => to_unsigned(0,24),
+  type audio_channels_t is array (0 to 3) of audio_dma_channel;  
+  signal audio_dma_0 : audio_dma_channel;
+  signal audio_dma: audio_channels_t
+    := (others => (base_addr => to_unsigned(1234567,24),
                    time_base => to_unsigned(0,24),
                    top_addr => to_unsigned(0,16),
                    volume => to_unsigned(0,8),
@@ -1390,7 +1391,7 @@ begin
     dinl => std_logic_vector(cache_wdata)
     );    
       
-  process(clock,reset,reg_a,reg_x,reg_y,reg_z,flag_c,all_pause)
+  process(clock,reset,reg_a,reg_x,reg_y,reg_z,flag_c,all_pause,audio_dma)
     procedure disassemble_last_instruction is
       variable justification : side := RIGHT;
       variable size : width := 0;
@@ -2813,9 +2814,11 @@ begin
           when x"4" => audio_dma(to_integer(long_address(7 downto 4)-2)).time_base(7 downto 0) <= value;
           when x"5" => audio_dma(to_integer(long_address(7 downto 4)-2)).time_base(15 downto 8) <= value;
           when x"6" => audio_dma(to_integer(long_address(7 downto 4)-2)).time_base(23 downto 16) <= value;
+                       report "Audio DMA channel " & integer'image(to_integer(long_address(7 downto 4)-2))
+                         & " setting <time_base to $" & to_hstring(value);                       
           when x"7" => audio_dma(to_integer(long_address(7 downto 4)-2)).top_addr(7 downto 0) <= value;
           when x"8" => audio_dma(to_integer(long_address(7 downto 4)-2)).top_addr(15 downto 8) <= value;
-                       report "Audio DMA channel " & to_integer(long_address(7 downto 4)-2)
+                       report "Audio DMA channel " & integer'image(to_integer(long_address(7 downto 4)-2))
                          & " setting <top_addr to $" & to_hstring(value);
           when x"9" => audio_dma(to_integer(long_address(7 downto 4)-2)).volume(7 downto 0) <= value;
           when x"a" => audio_dma(to_integer(long_address(7 downto 4)-2)).current_addr_set(7 downto 0) <= value;
@@ -3330,6 +3333,39 @@ begin
     if rising_edge(clock) then
 
       report "tick";
+
+      report "Audio DMA channel " & integer'image(0) & ": "
+        & "base=$" & to_hstring(audio_dma(0).base_addr)
+        & ", top_addr=$" & to_hstring(audio_dma(0).top_addr)
+        & ", timebase=$" & to_hstring(audio_dma(0).time_base)
+        & ", current_addr=$" & to_hstring(audio_dma(0).current_addr)
+        & ", timing_counter=$" & to_hstring(audio_dma(0).timing_counter)
+        ;
+
+      report "Audio DMA channel_0 : "
+        & "base=$" & to_hstring(audio_dma_0.base_addr)
+        & ", top_addr=$" & to_hstring(audio_dma_0.top_addr)
+        & ", timebase=$" & to_hstring(audio_dma_0.time_base)
+        & ", current_addr=$" & to_hstring(audio_dma_0.current_addr)
+        & ", timing_counter=$" & to_hstring(audio_dma_0.timing_counter)
+        ;
+      
+      audio_dma(0).base_addr(15 downto 8) <= audio_dma(0).base_addr(15 downto 8) + 1;
+      audio_dma_0.base_addr(15 downto 8) <= audio_dma_0.base_addr(15 downto 8) + 1;
+      audio_dma_0.base_addr(23 downto 16) <= x"42";
+
+      report "The wrapped bits are "
+        & std_logic'image(std_logic(audio_dma(0).base_addr(15)))
+        & std_logic'image(std_logic(audio_dma(0).base_addr(14)))
+        & std_logic'image(std_logic(audio_dma(0).base_addr(13)))
+        & std_logic'image(std_logic(audio_dma(0).base_addr(12)))
+        & std_logic'image(std_logic(audio_dma(0).base_addr(11)))
+        & std_logic'image(std_logic(audio_dma(0).base_addr(10)))
+        & std_logic'image(std_logic(audio_dma(0).base_addr(9)))
+        & std_logic'image(std_logic(audio_dma(0).base_addr(8)))
+        ;
+
+      
       
       -- We also have one direct 18x25 multiplier for use by the hypervisor.
       -- This multiplier fits a single DSP48E unit, and does not use the plumbing
@@ -3518,10 +3554,26 @@ begin
                                         -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) and all_pause='0' then
 
+        report "Audio DMA channel " & integer'image(0) & ": "
+          & "base=%" & to_string(std_logic_vector(audio_dma(0).base_addr))
+          & ", top_addr=$" & to_hstring(audio_dma(0).top_addr)
+          & ", timebase=$" & to_hstring(audio_dma(0).time_base)
+          & ", current_addr=$" & to_hstring(audio_dma(0).current_addr)
+          & ", timing_counter=$" & to_hstring(audio_dma(0).timing_counter)
+          ;
+
+        audio_dma(0).base_addr(7 downto 0) <= to_unsigned(to_integer(audio_dma(0).base_addr(7 downto 0)) + 1,8);
+        report "updated value should be=$" & to_hstring(to_unsigned(to_integer(audio_dma(0).base_addr(7 downto 0)) + 1,8));
+        
       for i in 0 to 3 loop
         if audio_dma(i).stop='1' then
           audio_dma(i).enable <= '0';
           report "Stopping Audio DMA channel #" & integer'image(i);
+        end if;
+
+        if audio_dma(i).enable='0' then
+--        report "Audio DMA channel " & integer'image(i) & " disabled.";
+          null;
         end if;
       end loop;
       
@@ -6919,7 +6971,12 @@ begin
            dmagic_first_read,is_rmw,reg_arg1,reg_sp,reg_addr_msbs,reg_a,reg_x,reg_y,reg_z,reg_pageactive,shadow_rdata,proceed,
            reg_mult_a,read_data,shadow_wdata,shadow_address,hyppo_address,
            reg_pageid,rom_writeprotect,georam_page,
-           hyppo_address_next,clock,fastio_rdata
+           hyppo_address_next,clock,fastio_rdata,audio_dma,fastio_addr,phi_pause,audio_dma_tick_counter,audio_dma_write_sequence,
+           audio_dma_left,audio_dma_right,resolved_vdc_to_viciv_address,resolved_vdc_to_viciv_src_address,axyz_phase,reg_val32,
+           gated_exrom,gated_game,cpuport_value,cpuport_ddr,hyper_iomode,sector_buffer_mapped,colourram_at_dc00,reg_map_high,
+           reg_map_low,reg_mb_high,reg_mb_low,reg_offset_high,reg_offset_low,rom_at_e000,rom_at_c000,rom_at_a000,rom_at_8000,
+           dat_even,dat_bitplane_addresses,dat_offset_drive,georam_blockmask,vdc_reg_num,vdc_enabled,shadow_address_next,
+           read_source,fastio_addr_next
            )
     variable memory_access_address : unsigned(27 downto 0) := x"FFFFFFF";
     variable memory_access_read : std_logic := '0';
@@ -7284,7 +7341,13 @@ begin
     for i in 0 to 3 loop
       if audio_dma(i).enable='0' then
 --        report "Audio DMA channel " & integer'image(i) & " disabled.";
-        null;
+        report "Audio DMA channel " & integer'image(i) & " disabled: "
+          & "base=$" & to_hstring(audio_dma(i).base_addr)
+          & ", top_addr=$" & to_hstring(audio_dma(i).top_addr)
+          & ", timebase=$" & to_hstring(audio_dma(i).time_base)
+          & ", current_addr=$" & to_hstring(audio_dma(i).current_addr)
+          & ", timing_counter=$" & to_hstring(audio_dma(i).timing_counter)
+          ;
       else
         report "Audio DMA channel " & integer'image(i) & " enabled: "
           & "base=$" & to_hstring(audio_dma(i).base_addr)

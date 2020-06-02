@@ -760,23 +760,7 @@ begin
       wait for 10 ns;
       
     end loop;
-  end process;
-
-  process (clock50mhz) is
-  begin
-    if rising_edge(clock50mhz) then
---      report "PCM digital audio out = " & std_logic'image(pcm_modem1_data_out);
-    end if;
-  end process;
-
-  process (pixelclock) is
-  begin
-    if rising_edge(pixelclock) then
---      report "lcd_dataenable = " & std_logic'image(lcd_dataenable);
-      null;
-    end if;
-  end process;
-  
+  end process;  
   
 end behavior;
 

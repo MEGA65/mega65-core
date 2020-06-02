@@ -299,8 +299,13 @@ simulate:	$(GHDL) $(SIMULATIONVHDL) $(ASSETS)/synthesised-60ns.dat
 	$(GHDL) -m cpu_test
 	./cpu_test || $(GHDL) -r cpu_test
 
-ghdlbug:	$(GHDL) $(VHDLSRCDIR)/ghdl_bug.vhdl $(VHDLSRCDIR)/cputypes.vhdl 
-	$(GHDL) -i $(VHDLSRCDIR)/ghdl_bug.vhdl $(VHDLSRCDIR)/cputypes.vhdl 
+simulate-llvm:	$(SIMULATIONVHDL) $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(ASSETS)/synthesised-60ns.dat
+	ghdl -i $(SIMULATIONVHDL) $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl
+	ghdl -m cpu_test
+	ghdl -c -g $(SIMULATIONVHDL) $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl -r cpu_test
+
+ghdlbug:	$(GHDL) $(VHDLSRCDIR)/ghdl_bug.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl 
+	$(GHDL) -i $(VHDLSRCDIR)/ghdl_bug.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl 
 	$(GHDL) -m ghdl_bug
 	./ghdl_bug || $(GHDL) -r ghdl_bug
 
