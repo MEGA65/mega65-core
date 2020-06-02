@@ -3342,17 +3342,18 @@ begin
         & ", timing_counter=$" & to_hstring(audio_dma(0).timing_counter)
         ;
 
-      report "Audio DMA channel_0 : "
-        & "base=$" & to_hstring(audio_dma_0.base_addr)
-        & ", top_addr=$" & to_hstring(audio_dma_0.top_addr)
-        & ", timebase=$" & to_hstring(audio_dma_0.time_base)
-        & ", current_addr=$" & to_hstring(audio_dma_0.current_addr)
-        & ", timing_counter=$" & to_hstring(audio_dma_0.timing_counter)
-        ;
-      
-      audio_dma(0).base_addr(15 downto 8) <= audio_dma(0).base_addr(15 downto 8) + 1;
-      audio_dma_0.base_addr(15 downto 8) <= audio_dma_0.base_addr(15 downto 8) + 1;
-      audio_dma_0.base_addr(23 downto 16) <= x"42";
+        -- XXX DEBUG test problems with GHDL
+--      report "Audio DMA channel_0 : "
+--        & "base=$" & to_hstring(audio_dma_0.base_addr)
+--        & ", top_addr=$" & to_hstring(audio_dma_0.top_addr)
+--        & ", timebase=$" & to_hstring(audio_dma_0.time_base)
+--        & ", current_addr=$" & to_hstring(audio_dma_0.current_addr)
+--        & ", timing_counter=$" & to_hstring(audio_dma_0.timing_counter)
+--        ;
+
+--      audio_dma(0).base_addr(15 downto 8) <= audio_dma(0).base_addr(15 downto 8) + 1;
+--      audio_dma_0.base_addr(15 downto 8) <= audio_dma_0.base_addr(15 downto 8) + 1;
+--      audio_dma_0.base_addr(23 downto 16) <= x"42";
 
       report "The wrapped bits are "
         & std_logic'image(std_logic(audio_dma(0).base_addr(15)))
@@ -3554,16 +3555,16 @@ begin
                                         -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) and all_pause='0' then
 
-        report "Audio DMA channel " & integer'image(0) & ": "
-          & "base=%" & to_string(std_logic_vector(audio_dma(0).base_addr))
-          & ", top_addr=$" & to_hstring(audio_dma(0).top_addr)
-          & ", timebase=$" & to_hstring(audio_dma(0).time_base)
-          & ", current_addr=$" & to_hstring(audio_dma(0).current_addr)
-          & ", timing_counter=$" & to_hstring(audio_dma(0).timing_counter)
-          ;
-
-        audio_dma(0).base_addr(7 downto 0) <= to_unsigned(to_integer(audio_dma(0).base_addr(7 downto 0)) + 1,8);
-        report "updated value should be=$" & to_hstring(to_unsigned(to_integer(audio_dma(0).base_addr(7 downto 0)) + 1,8));
+      -- XXX debug GHDL simulation
+--       report "Audio DMA channel " & integer'image(0) & ": "
+--          & "base=%" & to_string(std_logic_vector(audio_dma(0).base_addr))
+--          & ", top_addr=$" & to_hstring(audio_dma(0).top_addr)
+--          & ", timebase=$" & to_hstring(audio_dma(0).time_base)
+--          & ", current_addr=$" & to_hstring(audio_dma(0).current_addr)
+--          & ", timing_counter=$" & to_hstring(audio_dma(0).timing_counter)
+--          ;
+--        audio_dma(0).base_addr(7 downto 0) <= to_unsigned(to_integer(audio_dma(0).base_addr(7 downto 0)) + 1,8);
+--        report "updated value should be=$" & to_hstring(to_unsigned(to_integer(audio_dma(0).base_addr(7 downto 0)) + 1,8));
         
       for i in 0 to 3 loop
         if audio_dma(i).stop='1' then
