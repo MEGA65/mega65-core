@@ -299,6 +299,12 @@ simulate:	$(GHDL) $(SIMULATIONVHDL) $(ASSETS)/synthesised-60ns.dat
 	$(GHDL) -m cpu_test
 	./cpu_test || $(GHDL) -r cpu_test
 
+ghdlbug:	$(GHDL) $(VHDLSRCDIR)/ghdl_bug.vhdl $(VHDLSRCDIR)/cputypes.vhdl 
+	$(GHDL) -i $(VHDLSRCDIR)/ghdl_bug.vhdl $(VHDLSRCDIR)/cputypes.vhdl 
+	$(GHDL) -m ghdl_bug
+	./ghdl_bug || $(GHDL) -r ghdl_bug
+
+
 nocpu:	$(GHDL) $(NOCPUSIMULATIONVHDL)
 	$(GHDL) -i $(NOCPUSIMULATIONVHDL)
 	$(GHDL) -m cpu_test
