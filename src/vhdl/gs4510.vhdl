@@ -2806,6 +2806,7 @@ begin
           when x"0" => audio_dma(to_integer(long_address(7 downto 4)-2)).enable <= value(7);
                        audio_dma(to_integer(long_address(7 downto 4)-2)).repeat <= value(6);
                        audio_dma(to_integer(long_address(7 downto 4)-2)).sample_width <= value(1 downto 0);
+                       report "Setting Audio DMA channel 0 flags to $" & to_hstring(value);
           when x"1" => audio_dma(to_integer(long_address(7 downto 4)-2)).base_addr(7 downto 0) <= value;
           when x"2" => audio_dma(to_integer(long_address(7 downto 4)-2)).base_addr(15 downto 8) <= value;
           when x"3" => audio_dma(to_integer(long_address(7 downto 4)-2)).base_addr(23 downto 16) <= value;
@@ -2814,6 +2815,8 @@ begin
           when x"6" => audio_dma(to_integer(long_address(7 downto 4)-2)).time_base(23 downto 16) <= value;
           when x"7" => audio_dma(to_integer(long_address(7 downto 4)-2)).top_addr(7 downto 0) <= value;
           when x"8" => audio_dma(to_integer(long_address(7 downto 4)-2)).top_addr(15 downto 8) <= value;
+                       report "Audio DMA channel " & to_integer(long_address(7 downto 4)-2)
+                         & " setting <top_addr to $" & to_hstring(value);
           when x"9" => audio_dma(to_integer(long_address(7 downto 4)-2)).volume(7 downto 0) <= value;
           when x"a" => audio_dma(to_integer(long_address(7 downto 4)-2)).current_addr_set(7 downto 0) <= value;
           when x"b" => audio_dma(to_integer(long_address(7 downto 4)-2)).current_addr_set(15 downto 8) <= value;
@@ -3518,6 +3521,7 @@ begin
       for i in 0 to 3 loop
         if audio_dma(i).stop='1' then
           audio_dma(i).enable <= '0';
+          report "Stopping Audio DMA channel #" & integer'image(i);
         end if;
       end loop;
       
@@ -7276,6 +7280,47 @@ begin
         io_settle_delay <= '1';
       end if;
     end if;
+
+    for i in 0 to 3 loop
+      if audio_dma(i).enable='0' then
+--        report "Audio DMA channel " & integer'image(i) & " disabled.";
+        null;
+      else
+        report "Audio DMA channel " & integer'image(i) & " enabled: "
+          & "base=$" & to_hstring(audio_dma(i).base_addr)
+          & ", top_addr=$" & to_hstring(audio_dma(i).top_addr)
+          & ", timebase=$" & to_hstring(audio_dma(i).time_base)
+          & ", current_addr=$" & to_hstring(audio_dma(i).current_addr)
+          & ", timing_counter=$" & to_hstring(audio_dma(i).timing_counter)
+          ;
+          
+        audio_dma(i).stop <= '0';
+        audio_dma(i).timing_counter <= to_unsigned(to_integer(audio_dma(i).timing_counter(23 downto 0)) + to_integer(audio_dma(i).time_base),25);       
+        if audio_dma(i).timing_counter(24) = '1' then
+          report "Audio DMA channel " & integer'image(i) & " marking next sample due.";            
+          audio_dma(i).pending <= '1';
+          if audio_dma(i).sample_width = "11" then
+            audio_dma(i).pending_msb <= '1';
+          end if;
+          if audio_dma(i).top_addr = audio_dma(i).current_addr(15 downto 0) then
+            -- End of sample reached: Either stop or repeat
+            report "Audio DMA channel " & integer'image(i) & " end of sample reached.";
+            audio_dma(i).stop <= not audio_dma(i).repeat;
+            audio_dma(i).current_addr <= audio_dma(i).base_addr;
+          end if;
+        else
+          report "Audio DMA channel " & integer'image(i) & " next sample not yet due.";
+        end if;
+      end if;
+      if audio_dma(i).last_timing_counter_set_flag /= audio_dma(i).timing_counter_set_flag then
+        audio_dma(i).last_timing_counter_set_flag <= audio_dma(i).timing_counter_set_flag;
+        audio_dma(i).timing_counter <= audio_dma(i).timing_counter_set;
+      end if;
+      if audio_dma(i).last_current_addr_set_flag /= audio_dma(i).current_addr_set_flag then
+        audio_dma(i).last_current_addr_set_flag <= audio_dma(i).current_addr_set_flag;
+        audio_dma(i).current_addr <= audio_dma(i).current_addr_set;
+      end if;
+    end loop;
     
     if proceed = '0' or phi_pause='1' then
 
@@ -7285,6 +7330,8 @@ begin
       memory_access_address := x"000"&reg_pc;
       memory_access_resolve_address := '1';
 
+      -- XXX We should preferentially do the audio DMA fetches here
+      
     else
       
       -- By default read next byte in instruction stream.
@@ -7293,35 +7340,7 @@ begin
       memory_access_address := x"000"&reg_pc;
       memory_access_resolve_address := '1';
 
-      fastio_addr_var := x"FFFFF";
-      
-      for i in 0 to 3 loop
-        if audio_dma(i).enable='1' then
-          audio_dma(i).stop <= '0';
-          audio_dma(i).timing_counter <= to_unsigned(to_integer(audio_dma(i).timing_counter(23 downto 0)) + to_integer(audio_dma(i).time_base),25);
-          if audio_dma(i).timing_counter(24) = '1' then
-            audio_dma(i).pending <= '1';
-            if audio_dma(i).sample_width = "11" then
-              audio_dma(i).pending_msb <= '1';
-            end if;
-            audio_dma(i).current_addr <= audio_dma(i).current_addr + 1;
-            if audio_dma(i).top_addr = audio_dma(i).current_addr(15 downto 0) then
-              audio_dma(i).stop <= '1';
-            end if;
-          end if;
-        end if;
-        if audio_dma(i).last_timing_counter_set_flag /= audio_dma(i).timing_counter_set_flag then
-          audio_dma(i).last_timing_counter_set_flag <= audio_dma(i).timing_counter_set_flag;
-          audio_dma(i).timing_counter <= audio_dma(i).timing_counter_set;
-        end if;
-        if audio_dma(i).last_current_addr_set_flag /= audio_dma(i).current_addr_set_flag then
-          audio_dma(i).last_current_addr_set_flag <= audio_dma(i).current_addr_set_flag;
-          audio_dma(i).current_addr <= audio_dma(i).current_addr_set;
-        end if;
-      end loop;
-
-
-
+      fastio_addr_var := x"FFFFF";      
       
       case state is
         when DoAudioDMA =>
@@ -7352,6 +7371,7 @@ begin
               audio_dma_target_channel <= 0;
               memory_access_address(27 downto 24) := x"0";
               memory_access_address(23 downto 0) := audio_dma(0).current_addr;
+              audio_dma(0).current_addr <= audio_dma(0).current_addr + 1;
               if audio_dma(0).sample_width="11" and audio_dma(0).pending_msb='1' then
                 -- We still need to read the MSB after
                 audio_dma_fetch_is_lsb <= '1';
@@ -7364,6 +7384,7 @@ begin
               audio_dma_target_channel <= 1;
               memory_access_address(27 downto 24) := x"0";
               memory_access_address(23 downto 0) := audio_dma(1).current_addr;
+              audio_dma(1).current_addr <= audio_dma(1).current_addr + 1;
               if audio_dma(1).sample_width="11" and audio_dma(1).pending_msb='1' then
                 audio_dma_fetch_is_lsb <= '1';
                 audio_dma(1).pending_msb <='0';
@@ -7374,6 +7395,7 @@ begin
               audio_dma_target_channel <= 2;
               memory_access_address(27 downto 24) := x"0";
               memory_access_address(23 downto 0) := audio_dma(2).current_addr;
+              audio_dma(2).current_addr <= audio_dma(2).current_addr + 1;
               if audio_dma(2).sample_width="11" and audio_dma(2).pending_msb='1' then
                 audio_dma_fetch_is_lsb <= '1';
                 audio_dma(2).pending_msb <='0';
@@ -7384,6 +7406,7 @@ begin
               audio_dma_target_channel <= 3;
               memory_access_address(27 downto 24) := x"0";
               memory_access_address(23 downto 0) := audio_dma(3).current_addr;
+              audio_dma(3).current_addr <= audio_dma(3).current_addr + 1;
               if audio_dma(3).sample_width="11" and audio_dma(3).pending_msb='1' then
                 audio_dma_fetch_is_lsb <= '1';
                 audio_dma(3).pending_msb <='0';
