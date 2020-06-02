@@ -115,8 +115,8 @@ int main(int argc,char **argv)
 
   for(i=0;i<bytes;i++)
 //    if (archive[i])
-    fprintf(o,"          %d => x\"%02x\", -- $%05x\n",i,archive[i],i);
-  fprintf(o,"          %d => x\"%02x\"); -- $%05x\n",i,archive[i],i);
+    fprintf(o,"          x\"%02x\", -- $%05x\n",archive[i],i);
+  fprintf(o,"          x\"%02x\"); -- $%05x\n",archive[i],i);
 
   fprintf(o,"  shared variable ram : ram_t := initram;\n");
   
