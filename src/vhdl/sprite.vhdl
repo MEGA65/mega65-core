@@ -155,10 +155,10 @@ begin  -- behavioural
   begin  -- process main
     if sprite_h640='1' then
       x_in <= x640_in;
-      report "x_in <= x640_in";
+--      report "x_in <= x640_in";
     else
       x_in <= x320_in;
-      report "x_in <= x320_in";
+--      report "x_in <= x320_in";
     end if;
     
     x_offset_bits := std_logic_vector(to_unsigned(x_offset,6));
