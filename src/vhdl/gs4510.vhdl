@@ -1263,9 +1263,8 @@ architecture Behavioural of gs4510 is
   signal resolved_vdc_to_viciv_src_address : unsigned(15 downto 0) := x"0000";
 
   type audio_channels_t is array (0 to 3) of audio_dma_channel;  
-  signal audio_dma_0 : audio_dma_channel;
   signal audio_dma: audio_channels_t
-    := (others => (base_addr => to_unsigned(1234567,24),
+    := (others => (base_addr => to_unsigned(0,24),
                    time_base => to_unsigned(0,24),
                    top_addr => to_unsigned(0,16),
                    volume => to_unsigned(0,8),
@@ -1296,6 +1295,7 @@ architecture Behavioural of gs4510 is
   signal audio_dma_fetch_is_lsb : std_logic := '0';
   signal audio_dma_tick_counter : unsigned(31 downto 0) := to_unsigned(0,32);
   signal audio_dma_target_channel : integer range 0 to 3 := 0;
+  signal audio_dma_enable : std_logic := '0';
   
   -- purpose: map VDC linear address to VICII bitmap addressing here
   -- to keep it as simple as possible we assume fix 640x200x2 resolution
@@ -2015,6 +2015,9 @@ begin
             when x"03" => return reg_dmagic_status(7 downto 1) & support_f018b;
             when x"04" => return reg_dmagic_addr(27 downto 20);
 
+            -- $D711.7 DMA:AUDEN Enable Audio DMA channel 0
+            when x"11" => return audio_dma_enable & "0000000";
+                          
                           -- XXX DEBUG registers for audio DMA
             when x"1c" => return audio_dma_tick_counter(7 downto 0);
             when x"1d" => return audio_dma_tick_counter(15 downto 8);
@@ -2796,6 +2799,9 @@ begin
         badline_enable <= value(0);
         slow_interrupts <= value(1);
         vdc_enabled <= value(2);
+      elsif (long_address = x"FFD3711") or (long_address = x"FFD1711") then
+        -- @IO:GS $D711.7 - DMA:AUDEN Enable Audio DMA
+        audio_dma_enable <= value(7);
       elsif (long_address(27 downto 4) = x"FFD372") or (long_address(27 downto 4) = x"FFD172")
         or (long_address(27 downto 4) = x"FFD373") or (long_address(27 downto 4) = x"FFD173")
         or (long_address(27 downto 4) = x"FFD374") or (long_address(27 downto 4) = x"FFD174")
@@ -3341,19 +3347,6 @@ begin
         & ", current_addr=$" & to_hstring(audio_dma(0).current_addr)
         & ", timing_counter=$" & to_hstring(audio_dma(0).timing_counter)
         ;
-
-        -- XXX DEBUG test problems with GHDL
---      report "Audio DMA channel_0 : "
---        & "base=$" & to_hstring(audio_dma_0.base_addr)
---        & ", top_addr=$" & to_hstring(audio_dma_0.top_addr)
---        & ", timebase=$" & to_hstring(audio_dma_0.time_base)
---        & ", current_addr=$" & to_hstring(audio_dma_0.current_addr)
---        & ", timing_counter=$" & to_hstring(audio_dma_0.timing_counter)
---        ;
-
---      audio_dma(0).base_addr(15 downto 8) <= audio_dma(0).base_addr(15 downto 8) + 1;
---      audio_dma_0.base_addr(15 downto 8) <= audio_dma_0.base_addr(15 downto 8) + 1;
---      audio_dma_0.base_addr(23 downto 16) <= x"42";
 
       report "The wrapped bits are "
         & std_logic'image(std_logic(audio_dma(0).base_addr(15)))
@@ -7410,7 +7403,7 @@ begin
         when DoAudioDMA =>
           audio_dma_tick_counter <= audio_dma_tick_counter + 1;
           -- Commit the updated audio values
-          if (audio_dma(0).enable or audio_dma(1).enable or audio_dma(2).enable or audio_dma(3).enable) = '1' then
+          if (audio_dma_enable = '1') and (audio_dma(0).enable or audio_dma(1).enable or audio_dma(2).enable or audio_dma(3).enable) = '1' then
             memory_access_write := '1';
             case audio_dma_write_sequence is
               when 0 => memory_access_address := x"FFD36F8";
@@ -7428,7 +7421,7 @@ begin
             end case;
           end if;          
         when InstructionFetch =>
-          if (audio_dma(0).pending or audio_dma(1).pending or audio_dma(2).pending or audio_dma(3).pending) = '1' then
+          if (audio_dma_enable = '1') and (audio_dma(0).pending or audio_dma(1).pending or audio_dma(2).pending or audio_dma(3).pending) = '1' then
             memory_access_read := '1';
             audio_dma_fetch_is_lsb <= '0';
             if audio_dma(0).pending='1' then
