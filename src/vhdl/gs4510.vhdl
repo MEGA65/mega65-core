@@ -282,7 +282,8 @@ architecture Behavioural of gs4510 is
 
   signal virtualise_sd : std_logic := '0';
 
-  signal dat_bitplane_addresses_drive : sprite_vector_eight;
+  signal dat_bitplane_addresses_drive : sprite_vector_eight := (
+    others => to_unsigned(0,8));
   signal dat_offset_drive : unsigned(15 downto 0) := to_unsigned(0,16);
   signal dat_even_drive : std_logic := '1';
 
@@ -312,10 +313,10 @@ architecture Behavioural of gs4510 is
   signal shadow_write : std_logic := '0';
   signal shadow_write_next : std_logic := '0';
 
-  signal hyppo_address : std_logic_vector(13 downto 0);
-  signal hyppo_address_next : std_logic_vector(13 downto 0);
+  signal hyppo_address : std_logic_vector(13 downto 0) := std_logic_vector(to_unsigned(0,14));
+  signal hyppo_address_next : std_logic_vector(13 downto 0) := std_logic_vector(to_unsigned(0,14));
   
-  signal fastio_addr_next : std_logic_vector(19 downto 0);
+  signal fastio_addr_next : std_logic_vector(19 downto 0) := std_logic_vector(to_unsigned(0,20));
   
   signal read_data : unsigned(7 downto 0)  := (others => '0');
   
@@ -1211,12 +1212,17 @@ architecture Behavioural of gs4510 is
     do_add : std_logic;
   end record;
 
+  constant math_unit_config_v : math_unit_config :=
+    ( source_a => 0, source_b => 0, output => 0,
+      output_low => '0', output_high => '0',
+      latched => '0', do_add => '0');
+  
   constant math_unit_count : integer := 16;  
   type math_reg_array is array(0 to 15) of unsigned(31 downto 0);   
   type math_config_array is array(0 to math_unit_count - 1) of math_unit_config;
-  signal reg_math_regs : math_reg_array;
-  signal reg_math_config : math_config_array;
-  signal reg_math_config_drive : math_config_array;
+  signal reg_math_regs : math_reg_array := (others => to_unsigned(0,32));
+  signal reg_math_config : math_config_array := (others => math_unit_config_v);
+  signal reg_math_config_drive : math_config_array := (others => math_unit_config_v);
   signal reg_math_latch_counter : unsigned(7 downto 0) := x"00";
   signal reg_math_latch_interval : unsigned(7 downto 0) := x"00";
 
@@ -3078,7 +3084,7 @@ begin
     
     -- purpose: change memory map, C65-style
     procedure c65_map_instruction is
-      variable offset : unsigned(15 downto 0);
+      variable offset : unsigned(15 downto 0) := x"0000";
     begin  -- c65_map_instruction
       -- This is how this instruction works:
       --                            Mapper Register Data
@@ -3139,7 +3145,7 @@ begin
     procedure alu_op_cmp (
       i1 : in unsigned(7 downto 0);
       i2 : in unsigned(7 downto 0)) is
-      variable result : unsigned(8 downto 0);
+      variable result : unsigned(8 downto 0) := to_unsigned(0,9);
     begin
       result := ("0"&i1) - ("0"&i2);
       flag_z <= '0'; flag_c <= '0';
@@ -3156,7 +3162,7 @@ begin
       i1 : in unsigned(7 downto 0);
       i2 : in unsigned(7 downto 0)) return unsigned is
       -- Result is NVZC<8bit result>
-      variable tmp : unsigned(11 downto 0);
+      variable tmp : unsigned(11 downto 0) := x"000";
     begin
       if flag_d='1' then
         tmp(8) := '0';
@@ -3216,8 +3222,8 @@ begin
     impure function alu_op_sub (
       i1 : in unsigned(7 downto 0);
       i2 : in unsigned(7 downto 0)) return unsigned is
-      variable tmp : unsigned(11 downto 0); -- NVZC+8bit result
-      variable tmpd : unsigned(8 downto 0);
+      variable tmp : unsigned(11 downto 0) := x"000"; -- NVZC+8bit result
+      variable tmpd : unsigned(8 downto 0) := "000000000";
     begin
       tmp(8 downto 0) := ("0"&i1) - ("0"&i2)
                          - "000000001" + ("00000000"&flag_c);
@@ -3274,19 +3280,19 @@ begin
     variable memory_access_resolve_address : std_logic := '0';
     variable memory_access_wdata : unsigned(7 downto 0) := x"FF";
 
-    variable pc_inc : std_logic;
-    variable pc_dec : std_logic;
-    variable dec_sp : std_logic;
-    variable stack_pop : std_logic;
-    variable stack_push : std_logic;
-    variable push_value : unsigned(7 downto 0);
+    variable pc_inc : std_logic := '0';
+    variable pc_dec : std_logic := '0';
+    variable dec_sp : std_logic := '0';
+    variable stack_pop : std_logic := '0';
+    variable stack_push : std_logic := '0';
+    variable push_value : unsigned(7 downto 0) := (others => '0');
 
-    variable temp_addr : unsigned(15 downto 0);    
+    variable temp_addr : unsigned(15 downto 0) := (others => '0');
 
-    variable temp17 : unsigned(16 downto 0);    
-    variable temp9 : unsigned(8 downto 0);    
+    variable temp17 : unsigned(16 downto 0) := (others => '0');
+    variable temp9 : unsigned(8 downto 0) := (others => '0');
 
-    variable cpu_speed : std_logic_vector(2 downto 0);
+    variable cpu_speed : std_logic_vector(2 downto 0) := (others => '0');
 
     variable math_input_a_source : integer := 0;
     variable math_input_b_source : integer := 0;
@@ -3295,8 +3301,8 @@ begin
     variable math_result : unsigned(63 downto 0) := to_unsigned(0,64);
     variable vreg33 : unsigned(32 downto 0) := to_unsigned(0,33);
 
-    variable audio_dma_left_temp : signed(15 downto 0);
-    variable audio_dma_right_temp : signed(15 downto 0);
+    variable audio_dma_left_temp : signed(15 downto 0) := (others => '0');
+    variable audio_dma_right_temp : signed(15 downto 0) := (others => '0');
     
   begin    
     -- Begin calculating results for operations immediately to help timing.
@@ -6983,21 +6989,21 @@ begin
     variable shadow_read_var : std_logic := '0';
     variable shadow_wdata_var : unsigned(7 downto 0) := x"FF";
 
-    variable hyppo_address_var : std_logic_vector(13 downto 0);
-    variable fastio_addr_var : std_logic_vector(19 downto 0);
+    variable hyppo_address_var : std_logic_vector(13 downto 0) := (others => '0');
+    variable fastio_addr_var : std_logic_vector(19 downto 0) := (others => '0');
 
     variable long_address_read_var : unsigned(27 downto 0) := x"FFFFFFF";
     variable long_address_write_var : unsigned(27 downto 0) := x"FFFFFFF";
 
-    variable temp_addr : unsigned(15 downto 0);    
-    variable stack_pop : std_logic;
-    variable stack_push : std_logic;
-    variable virtual_reg_p : std_logic_vector(7 downto 0);
+    variable temp_addr : unsigned(15 downto 0) := x"0000";     
+    variable stack_pop : std_logic := '0';
+    variable stack_push : std_logic := '0';
+    variable virtual_reg_p : std_logic_vector(7 downto 0) := x"00";
     variable reg_pages_dirty_var : std_logic_vector(3 downto 0)  := (others => '0');
     
     -- temp hack as I work to move this code around...
-    variable real_long_address : unsigned(27 downto 0);
-    variable long_address : unsigned(27 downto 0);
+    variable real_long_address : unsigned(27 downto 0) := (others => '0');
+    variable long_address : unsigned(27 downto 0) := (others => '0');
         
     -- purpose: Convert a 16-bit C64 address to native RAM (or I/O or ROM) address
     impure function resolve_address_to_long(short_address : unsigned(15 downto 0);
@@ -7365,6 +7371,7 @@ begin
             audio_dma(i).stop <= not audio_dma(i).repeat;
             audio_dma(i).current_addr <= audio_dma(i).base_addr;
           end if;
+          audio_dma(i).timing_counter(24) <= '0';
         else
           report "Audio DMA channel " & integer'image(i) & " next sample not yet due.";
         end if;
