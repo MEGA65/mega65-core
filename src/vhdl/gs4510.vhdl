@@ -4891,7 +4891,7 @@ begin
             when InstructionWait =>
               state <= InstructionFetch;
             when InstructionFetch =>
-              if (audio_dma(0).pending or audio_dma(1).pending or audio_dma(2).pending or audio_dma(3).pending) = '1' then
+              if (audio_dma_enable='1') and (audio_dma(0).pending or audio_dma(1).pending or audio_dma(2).pending or audio_dma(3).pending) = '1' then
                 -- Do an Audio DMA.
                 -- The memory access process lower in this file handles the
                 -- memory access.
