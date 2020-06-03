@@ -114,28 +114,28 @@ entity machine is
          ----------------------------------------------------------------------
          -- Flash RAM for holding FPGA config
          ----------------------------------------------------------------------
-         QspiDB : inout unsigned(3 downto 0);
-         QspiCSn : out std_logic;
-         qspi_clock : out std_logic;
+         QspiDB : inout unsigned(3 downto 0) := (others => 'Z');
+         QspiCSn : out std_logic := '0';
+         qspi_clock : out std_logic := '0';
          
          ----------------------------------------------------------------------
          -- VGA output
          ----------------------------------------------------------------------
-         vsync : out  STD_LOGIC;
-         vga_hsync : out  STD_LOGIC;
-         lcd_hsync : out std_logic;
-         lcd_vsync : out std_logic;
-         pal50_select_out : out std_logic;
+         vsync : out  STD_LOGIC := '0';
+         vga_hsync : out STD_LOGIC := '0';
+         lcd_hsync : out std_logic := '0';
+         lcd_vsync : out std_logic := '0';
+         pal50_select_out : out std_logic := '0';
          
-         vgared : out  UNSIGNED (7 downto 0);
-         vgagreen : out  UNSIGNED (7 downto 0);
-         vgablue : out  UNSIGNED (7 downto 0);
+         vgared : out  UNSIGNED (7 downto 0) := x"00";
+         vgagreen : out  UNSIGNED (7 downto 0) := x"00";
+         vgablue : out  UNSIGNED (7 downto 0) := x"00";
 
-         panelred : out  UNSIGNED (7 downto 0);
-         panelgreen : out  UNSIGNED (7 downto 0);
-         panelblue : out  UNSIGNED (7 downto 0);
-         lcd_dataenable : out std_logic;
-         hdmi_dataenable : out std_logic;
+         panelred : out  UNSIGNED (7 downto 0) := x"00";
+         panelgreen : out  UNSIGNED (7 downto 0) := x"00";
+         panelblue : out  UNSIGNED (7 downto 0) := x"00";
+         lcd_dataenable : out std_logic := '0';
+         hdmi_dataenable : out std_logic := '0';
 
          hdmi_int : in std_logic := '1';
          hdmi_hsync : out  STD_LOGIC;

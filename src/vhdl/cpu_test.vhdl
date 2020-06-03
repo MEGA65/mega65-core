@@ -30,26 +30,26 @@ architecture behavior of cpu_test is
   signal cpu_exrom : std_logic := '1';
   signal cpu_game : std_logic := '1';
 
-  signal vsync : std_logic;
-  signal hsync : std_logic;
-  signal vgared : unsigned(7 downto 0);
-  signal vgagreen : unsigned(7 downto 0);
-  signal vgablue : unsigned(7 downto 0);
+  signal vsync : std_logic := '0';
+  signal hsync : std_logic := '0';
+  signal vgared : unsigned(7 downto 0) := x"00";
+  signal vgagreen : unsigned(7 downto 0) := x"00";
+  signal vgablue : unsigned(7 downto 0) := x"00";
 
-  signal led : std_logic_vector(15 downto 0);
+  signal led : std_logic_vector(15 downto 0) := x"0000";
   signal sw : std_logic_vector(15 downto 0) := (others => '0');
   signal btn : std_logic_vector(4 downto 0) := (others => '0');
 
   signal qspidb : unsigned(3 downto 0) := (others => '0');
-  signal qspicsn : std_logic;
-  signal qspisck : std_logic;
-  signal aclsck : std_logic;
+  signal qspicsn : std_logic := '0';
+  signal qspisck : std_logic := '0';
+  signal aclsck : std_logic := '0';
 
-  signal UART_TXD : std_logic;
-  signal RsRx : std_logic;
+  signal UART_TXD : std_logic := '0';
+  signal RsRx : std_logic := '0';
   
-  signal sseg_ca : std_logic_vector(7 downto 0);
-  signal sseg_an : std_logic_vector(7 downto 0);
+  signal sseg_ca : std_logic_vector(7 downto 0) := x"00";
+  signal sseg_an : std_logic_vector(7 downto 0) := x"00";
 
   component slowram is
     port (address : in std_logic_vector(26 downto 0);
@@ -83,20 +83,20 @@ architecture behavior of cpu_test is
 
   signal eth_rxdv : std_logic := '0';
   signal eth_rxd : unsigned(1 downto 0) := "00";
-  signal eth_txen : std_logic;
-  signal eth_txd : unsigned(1 downto 0);
+  signal eth_txen : std_logic := '0';
+  signal eth_txd : unsigned(1 downto 0) := "00";
 
-  signal cart_ctrl_dir : std_logic;
-  signal cart_haddr_dir : std_logic;
-  signal cart_laddr_dir : std_logic;
-  signal cart_data_dir : std_logic;
-  signal cart_phi2 : std_logic;
-  signal cart_dotclock : std_logic;
-  signal cart_reset : std_logic;
+  signal cart_ctrl_dir : std_logic := '0';
+  signal cart_haddr_dir : std_logic := '0';
+  signal cart_laddr_dir : std_logic := '0';
+  signal cart_data_dir : std_logic := '0';
+  signal cart_phi2 : std_logic := '0';
+  signal cart_dotclock : std_logic := '0';
+  signal cart_reset : std_logic := '0';
 
-  signal cart_nmi : std_logic;
-  signal cart_irq : std_logic;
-  signal cart_dma : std_logic;
+  signal cart_nmi : std_logic := '0';
+  signal cart_irq : std_logic := '0';
+  signal cart_dma : std_logic := '0';
 
   signal cart_exrom : std_logic := 'Z';
   signal cart_ba : std_logic := 'Z';
@@ -114,12 +114,12 @@ architecture behavior of cpu_test is
   ----------------------------------------------------------------------
   -- CBM floppy serial port
   ----------------------------------------------------------------------
-  signal iec_clk_en : std_logic;
-  signal iec_data_en : std_logic;
-  signal iec_data_o : std_logic;
-  signal iec_reset : std_logic;
-  signal iec_clk_o : std_logic;
-  signal iec_atn_o : std_logic;
+  signal iec_clk_en : std_logic := '0';
+  signal iec_data_en : std_logic := '0';
+  signal iec_data_o : std_logic := '0';
+  signal iec_reset : std_logic := '0';
+  signal iec_clk_o : std_logic := '0';
+  signal iec_atn_o : std_logic := '0';
 
   signal iec_data_external : std_logic := '0';
   signal iec_clk_external : std_logic := '1';
@@ -127,14 +127,14 @@ architecture behavior of cpu_test is
   ----------------------------------------------------------------------
   -- Slow devices (cartridge port, slow RAM etc)
   ----------------------------------------------------------------------
-  signal slow_access_request_toggle : std_logic;
-  signal slow_access_ready_toggle : std_logic;
-  signal slow_access_write : std_logic;
-  signal slow_access_address : unsigned(27 downto 0);
-  signal slow_access_wdata : unsigned(7 downto 0);
-  signal slow_access_rdata : unsigned(7 downto 0);
+  signal slow_access_request_toggle : std_logic := '0';
+  signal slow_access_ready_toggle : std_logic := '0';
+  signal slow_access_write : std_logic := '0';
+  signal slow_access_address : unsigned(27 downto 0) := (others => '0');
+  signal slow_access_wdata : unsigned(7 downto 0) := (others => '0');
+  signal slow_access_rdata : unsigned(7 downto 0) := (others => '0');
 
-  signal sector_buffer_mapped : std_logic;
+  signal sector_buffer_mapped : std_logic := '0';
 
   signal pot_drain : std_logic := '0';
 
@@ -149,13 +149,13 @@ architecture behavior of cpu_test is
   signal hyper_data : unsigned(7 downto 0) := x"00";
   signal hyper_data_strobe : std_logic := '0';
 
-  signal expansionram_read : std_logic;
-  signal expansionram_write : std_logic;
-  signal expansionram_rdata : unsigned(7 downto 0);
-  signal expansionram_wdata : unsigned(7 downto 0);
-  signal expansionram_address : unsigned(26 downto 0);
-  signal expansionram_data_ready_strobe : std_logic;
-  signal expansionram_busy : std_logic;
+  signal expansionram_read : std_logic := '0';
+  signal expansionram_write : std_logic := '0';
+  signal expansionram_rdata : unsigned(7 downto 0) := (others => '0');
+  signal expansionram_wdata : unsigned(7 downto 0) := (others => '0');
+  signal expansionram_address : unsigned(26 downto 0) := (others => '0');
+  signal expansionram_data_ready_strobe : std_logic := '0';
+  signal expansionram_busy : std_logic := '0';
 
   signal current_cache_line : cache_row_t := (others => (others => '0'));
   signal current_cache_line_address : unsigned(26 downto 3) := (others => '0');
@@ -163,21 +163,21 @@ architecture behavior of cpu_test is
   signal expansionram_current_cache_line_next_toggle : std_logic := '0';
 
   signal hr_d : unsigned(7 downto 0);
-  signal hr_rwds : std_logic;
-  signal hr_reset : std_logic;
-  signal hr_clk_n : std_logic;
-  signal hr_clk_p : std_logic;
-  signal hr_cs0 : std_logic;
+  signal hr_rwds : std_logic := '0';
+  signal hr_reset : std_logic := '0';
+  signal hr_clk_n : std_logic := '0';
+  signal hr_clk_p : std_logic := '0';
+  signal hr_cs0 : std_logic := '0';
 
-  signal hr2_d : unsigned(7 downto 0);
-  signal hr2_rwds : std_logic;
-  signal hr2_reset : std_logic;
-  signal hr2_clk_n : std_logic;
-  signal hr2_clk_p : std_logic;
-  signal hr2_cs0 : std_logic; 
+  signal hr2_d : unsigned(7 downto 0) := (others => '0');
+  signal hr2_rwds : std_logic := '0';
+  signal hr2_reset : std_logic := '0';
+  signal hr2_clk_n : std_logic := '0';
+  signal hr2_clk_p : std_logic := '0';
+  signal hr2_cs0 : std_logic := '0'; 
 
-  signal audio_left : std_logic_vector(19 downto 0);
-  signal audio_right : std_logic_vector(19 downto 0);
+  signal audio_left : std_logic_vector(19 downto 0) := (others => '0');
+  signal audio_right : std_logic_vector(19 downto 0) := (others => '0');
   
 begin
 

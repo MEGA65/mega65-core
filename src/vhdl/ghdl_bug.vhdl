@@ -20,7 +20,8 @@ architecture behavior of ghdl_bug is
   signal clock325 : std_logic := '1';
   signal reset : std_logic := '0';
 
-  signal audio_dma_0 : audio_dma_channel
+  signal audio_dma_0 : audio_dma_channel;
+  signal audio_dma_1 : audio_dma_channel
     :=  (base_addr => to_unsigned(1234567,24),
          time_base => to_unsigned(0,24),
          top_addr => to_unsigned(0,16),
@@ -122,7 +123,7 @@ begin
     clock325 <= '0';
     wait for 1.5 ns;
       
-      if i = 10 then
+    if i = 10 then
         reset <= '1';
         report "Releasing reset";
       end if;

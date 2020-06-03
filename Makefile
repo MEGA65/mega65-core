@@ -232,10 +232,11 @@ M65VHDL=		$(VHDLSRCDIR)/machine.vhdl \
 			$(VICIVVHDL) \
 			$(PERIPHVHDL) \
 			$(1541VHDL) \
-			$(VFPGAVHDL) \
 			$(SERMONVHDL) \
 			$(MEMVHDL) \
-			$(SUPPORTVHDL)
+			$(SUPPORTVHDL) \
+# PGS VFPGA not currently being used, and including it slows simulation a lot
+#			$(VFPGAVHDL) \
 
 SUPPORTVHDL=		$(VHDLSRCDIR)/debugtools.vhdl \
 			$(VHDLSRCDIR)/crc.vhdl \
@@ -292,21 +293,23 @@ MONITORVERILOG=		$(VERILOGSRCDIR)/6502_alu.v \
 			$(VERILOGSRCDIR)/UART_TX_CTRL.v \
 			$(VERILOGSRCDIR)/uart_rx.v
 
-
+# GHDL with mcode backend
 simulate:	$(GHDL) $(SIMULATIONVHDL) $(ASSETS)/synthesised-60ns.dat
 	$(GHDL) -i $(SIMULATIONVHDL)
 	$(GHDL) -m cpu_test
-	./cpu_test || $(GHDL) -r cpu_test
+	$(GHDL) -r cpu_test --assert-level=warning 
 
+# GHDL with llvm backend
 simulate-llvm:	$(SIMULATIONVHDL) $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(ASSETS)/synthesised-60ns.dat
 	ghdl -i $(SIMULATIONVHDL) $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl
 	ghdl -m cpu_test
-	ghdl -c -g $(SIMULATIONVHDL) $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl -r cpu_test
+	ghdl -c -g $(SIMULATIONVHDL) $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl -e -g cpu_test
 
-ghdlbug:	$(GHDL) $(VHDLSRCDIR)/ghdl_bug.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl 
-	$(GHDL) -i $(VHDLSRCDIR)/ghdl_bug.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl 
-	$(GHDL) -m ghdl_bug
-	./ghdl_bug || $(GHDL) -r ghdl_bug
+ghdl_bug:	$(GHDL) $(VHDLSRCDIR)/ghdl_bug.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl 
+	ghdl -i $(VHDLSRCDIR)/ghdl_bug.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl 
+	ghdl -m ghdl_bug
+	ghdl -c -g $(VHDLSRCDIR)/ghdl_bug.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl -e -g ghdl_bug 
+	./ghdl_bug	
 
 
 nocpu:	$(GHDL) $(NOCPUSIMULATIONVHDL)
