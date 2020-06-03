@@ -3346,7 +3346,7 @@ begin
 
     if rising_edge(clock) then
 
-      if audio_dma_block_timeout /=0 or (audio_dma_enable='0') then
+      if audio_dma_block_timeout /=0 or (audio_dma_enable='0') or (reset_drive='0') then
         audio_dma_blocked <= '1';
       else
         audio_dma_blocked <= '0';
