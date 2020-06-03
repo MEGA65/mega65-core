@@ -1302,6 +1302,8 @@ architecture Behavioural of gs4510 is
   signal audio_dma_tick_counter : unsigned(31 downto 0) := to_unsigned(0,32);
   signal audio_dma_target_channel : integer range 0 to 3 := 0;
   signal audio_dma_enable : std_logic := '0';
+  signal audio_dma_block_timeout : integer range 0 to 7 := 0;
+  signal audio_dma_blocked : std_logic := '1';
   
   -- purpose: map VDC linear address to VICII bitmap addressing here
   -- to keep it as simple as possible we assume fix 640x200x2 resolution
@@ -3344,6 +3346,12 @@ begin
 
     if rising_edge(clock) then
 
+      if audio_dma_block_timeout /=0 or (audio_dma_enable='0') then
+        audio_dma_blocked <= '1';
+      else
+        audio_dma_blocked <= '0';
+      end if;
+        
       report "tick";
 
       report "Audio DMA channel " & integer'image(0) & ": "
@@ -4884,6 +4892,9 @@ begin
               -- (The details of the memory request are handled the memory access
               -- process below).
 
+              -- Prevent Audio DMAs from saturating the bus
+              audio_dma_block_timeout <= 7;
+              
               if audio_dma_fetch_is_lsb='1' then
                 audio_dma(audio_dma_target_channel).current_value(7 downto 0) <= signed(memory_read_value);
                 audio_dma(audio_dma_target_channel).sample_valid <= '0';
@@ -4897,7 +4908,7 @@ begin
             when InstructionWait =>
               state <= InstructionFetch;
             when InstructionFetch =>
-              if (audio_dma_enable='1') and (audio_dma(0).pending or audio_dma(1).pending or audio_dma(2).pending or audio_dma(3).pending) = '1' then
+              if (audio_dma_blocked='0') and (audio_dma(0).pending or audio_dma(1).pending or audio_dma(2).pending or audio_dma(3).pending) = '1' then
                 -- Do an Audio DMA.
                 -- The memory access process lower in this file handles the
                 -- memory access.
@@ -7410,7 +7421,7 @@ begin
         when DoAudioDMA =>
           audio_dma_tick_counter <= audio_dma_tick_counter + 1;
           -- Commit the updated audio values
-          if (audio_dma_enable = '1') and (audio_dma(0).enable or audio_dma(1).enable or audio_dma(2).enable or audio_dma(3).enable) = '1' then
+          if (audio_dma_blocked = '0') and (audio_dma(0).enable or audio_dma(1).enable or audio_dma(2).enable or audio_dma(3).enable) = '1' then
             memory_access_write := '1';
             case audio_dma_write_sequence is
               when 0 => memory_access_address := x"FFD36F8";
@@ -7428,7 +7439,7 @@ begin
             end case;
           end if;          
         when InstructionFetch =>
-          if (audio_dma_enable = '1') and (audio_dma(0).pending or audio_dma(1).pending or audio_dma(2).pending or audio_dma(3).pending) = '1' then
+          if (audio_dma_blocked = '0') and (audio_dma(0).pending or audio_dma(1).pending or audio_dma(2).pending or audio_dma(3).pending) = '1' then
             memory_access_read := '1';
             audio_dma_fetch_is_lsb <= '0';
             if audio_dma(0).pending='1' then
