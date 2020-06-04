@@ -2024,7 +2024,7 @@ begin
             when x"04" => return reg_dmagic_addr(27 downto 20);
 
             -- $D711.7 DMA:AUDEN Enable Audio DMA channel 0
-            when x"11" => return audio_dma_enable & "0000000";
+            when x"11" => return audio_dma_enable & audio_dma_blocked & "000000";
                           
                           -- XXX DEBUG registers for audio DMA
             when x"1c" => return audio_dma_tick_counter(7 downto 0);
@@ -2809,6 +2809,7 @@ begin
         vdc_enabled <= value(2);
       elsif (long_address = x"FFD3711") or (long_address = x"FFD1711") then
         -- @IO:GS $D711.7 - DMA:AUDEN Enable Audio DMA
+        -- @IO:GS $D711.6 - DMA:AUDBLOCKED Audio DMA blocked
         audio_dma_enable <= value(7);
       elsif (long_address(27 downto 4) = x"FFD372") or (long_address(27 downto 4) = x"FFD172")
         or (long_address(27 downto 4) = x"FFD373") or (long_address(27 downto 4) = x"FFD173")
