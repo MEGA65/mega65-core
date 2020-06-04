@@ -2023,10 +2023,12 @@ begin
             when x"03" => return reg_dmagic_status(7 downto 1) & support_f018b;
             when x"04" => return reg_dmagic_addr(27 downto 20);
 
-            -- $D711.7 DMA:AUDEN Enable Audio DMA channel 0
-            when x"11" => return audio_dma_enable & audio_dma_blocked & "000000";
+            -- @IO:GS $D711.7 - DMA:AUDEN Enable Audio DMA
+            -- @IO:GS $D711.6 - DMA:AUDBLOCKED Audio DMA blocked (read only) DEBUG
+            -- @IO:GS $D711.0-2 - DMA:AUDBLOCKTO Audio DMA block timeout (read only) DEBUG
+            when x"11" => return audio_dma_enable & audio_dma_blocked & "000" & to_unsigned(audio_dma_block_timeout,3);
                           
-                          -- XXX DEBUG registers for audio DMA
+            -- XXX DEBUG registers for audio DMA
             when x"1c" => return audio_dma_tick_counter(7 downto 0);
             when x"1d" => return audio_dma_tick_counter(15 downto 8);
             when x"1e" => return audio_dma_tick_counter(23 downto 16);
@@ -2110,7 +2112,7 @@ begin
 
                           
             -- $D720-$D72F - Audio DMA channel 0                          
-            when x"20" => return audio_dma(0).enable & audio_dma(0).repeat & "0000" & audio_dma(0).sample_width;
+            when x"20" => return audio_dma(0).enable & audio_dma(0).repeat & audio_dma(0).pending & "000" & audio_dma(0).sample_width;
             when x"21" => return audio_dma(0).base_addr(7 downto 0);
             when x"22" => return audio_dma(0).base_addr(15 downto 8);
             when x"23" => return audio_dma(0).base_addr(23 downto 16);
@@ -2808,8 +2810,6 @@ begin
         slow_interrupts <= value(1);
         vdc_enabled <= value(2);
       elsif (long_address = x"FFD3711") or (long_address = x"FFD1711") then
-        -- @IO:GS $D711.7 - DMA:AUDEN Enable Audio DMA
-        -- @IO:GS $D711.6 - DMA:AUDBLOCKED Audio DMA blocked
         audio_dma_enable <= value(7);
       elsif (long_address(27 downto 4) = x"FFD372") or (long_address(27 downto 4) = x"FFD172")
         or (long_address(27 downto 4) = x"FFD373") or (long_address(27 downto 4) = x"FFD173")
