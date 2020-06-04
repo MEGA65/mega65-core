@@ -383,7 +383,7 @@ architecture behavioural of sdcardio is
   signal use_real_floppy0 : std_logic := '0';
   signal use_real_floppy2 : std_logic := '1';
   signal fdc_read_request : std_logic := '0';
-  signal fdc_rotation_timeout : integer range 0 to 6 := 0;
+  signal fdc_rotation_timeout : integer range 0 to 10 := 0;
   signal rotation_count : integer range 0 to 15 := 0;
   signal index_wait_timeout : integer := 0;
   signal last_f_index : std_logic := '1';
@@ -1690,8 +1690,11 @@ begin  -- behavioural
                     report "Using real floppy drive, asserting fdc_read_request";
                     -- Real floppy drive request
                     fdc_read_request <= '1';
-                    -- Read must complete within 6 rotations
-                    fdc_rotation_timeout <= 6;                      
+                    -- Read must complete within 10 rotations
+                    -- (Was 6, but if we need to auto-seek from one end of the
+                    -- disk to the other, it can take a little longer than 1.2
+                    -- sec)
+                    fdc_rotation_timeout <= 10;                      
                     
                     -- Mark F011 as busy with FDC job
                     f011_busy <= '1';
@@ -2620,11 +2623,11 @@ begin  -- behavioural
               index_wait_timeout <= index_wait_timeout -1;
             end if;
             if (f_index='0' and last_f_index='1') or index_wait_timeout=0 then
-              rotation_count <= rotation_count;
+              rotation_count <= rotation_count + 1;
               -- Allow 250ms per rotation (they should be ~200ms)
               index_wait_timeout <= cpu_frequency / 4;
             end if;
-            if (f_index='0' and last_f_index='1') and (fdc_sector_found='0') or index_wait_timeout=0 then
+            if ((f_index='0' and last_f_index='1') and (fdc_sector_found='0')) or index_wait_timeout=0 then
               -- Index hole is here. Decrement rotation counter,
               -- and timeout with RNF set if we reach zero.
               if fdc_rotation_timeout /= 0 then
