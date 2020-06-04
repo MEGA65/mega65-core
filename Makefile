@@ -235,8 +235,7 @@ M65VHDL=		$(VHDLSRCDIR)/machine.vhdl \
 			$(SERMONVHDL) \
 			$(MEMVHDL) \
 			$(SUPPORTVHDL) \
-# PGS VFPGA not currently being used, and including it slows simulation a lot
-#			$(VFPGAVHDL) \
+			$(VFPGAVHDL) \
 
 SUPPORTVHDL=		$(VHDLSRCDIR)/debugtools.vhdl \
 			$(VHDLSRCDIR)/crc.vhdl \
@@ -266,6 +265,7 @@ NEXYSVHDL=		$(VHDLSRCDIR)/slowram.vhdl \
 
 
 SIMULATIONVHDL=		$(VHDLSRCDIR)/cpu_test.vhdl \
+			$(VHDLSRCDIR)/s27kl0641.vhd \
 			$(VHDLSRCDIR)/fake_expansion_port.vhdl \
 			$(VHDLSRCDIR)/fake_sdcard.vhdl \
 			$(VHDLSRCDIR)/fake_reconfig.vhdl \
@@ -303,12 +303,12 @@ simulate:	$(GHDL) $(SIMULATIONVHDL) $(ASSETS)/synthesised-60ns.dat
 simulate-llvm:	$(SIMULATIONVHDL) $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(ASSETS)/synthesised-60ns.dat
 	ghdl -i $(SIMULATIONVHDL) $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl
 	ghdl -m cpu_test
-	ghdl -c -g -v $(SIMULATIONVHDL) $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl -e cpu_test
+	ghdl -c -g $(SIMULATIONVHDL) $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl -e cpu_test
 
-ghdl_bug:	$(GHDL) $(VHDLSRCDIR)/ghdl_bug.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl 
-	ghdl -i $(VHDLSRCDIR)/ghdl_bug.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl 
+ghdl_bug:	$(GHDL) $(VHDLSRCDIR)/ghdl_bug.vhdl  $(SIMULATIONVHDL)
+	ghdl -i $(VHDLSRCDIR)/ghdl_bug.vhdl $(SIMULATIONVHDL)
 	ghdl -m ghdl_bug
-	ghdl -c -g -v $(VHDLSRCDIR)/ghdl_bug.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl -e ghdl_bug 
+	ghdl -c -g -v $(VHDLSRCDIR)/ghdl_bug.vhdl $(SIMULATIONVHDL) -e ghdl_bug 
 
 
 nocpu:	$(GHDL) $(NOCPUSIMULATIONVHDL)
@@ -534,8 +534,8 @@ $(BINDIR)/border.prg: 	$(SRCDIR)/border.a65 $(OPHIS)
 
 # ============================ done moved, print-warn, clean-target
 #??? diskmenu_c000.bin yet b0rken
-$(BINDIR)/HICKUP.M65: $(SRCDIR)/hyppo/main.asm $(SRCDIR)/version.asm
-	$(JAVA) -jar $(KICKASS_JAR) $< -afo
+#$(BINDIR)/HICKUP.M65: $(SRCDIR)/hyppo/main.asm $(SRCDIR)/version.asm
+#	$(JAVA) -jar $(KICKASS_JAR) $< -afo
 
 $(SRCDIR)/monitor/monitor_dis.a65: $(SRCDIR)/monitor/gen_dis
 	$(SRCDIR)/monitor/gen_dis >$(SRCDIR)/monitor/monitor_dis.a65
