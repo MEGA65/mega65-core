@@ -4951,264 +4951,273 @@ begin
                 pc_inc := '1';
               end if;
             when InstructionDecode =>
-                                        -- Show previous instruction
-              disassemble_last_instruction;
-                                        -- Start recording this instruction
-              last_instruction_pc <= reg_pc - 1;
-              last_opcode <= memory_read_value;
-              last_bytecount <= 1;
-              
-                                        -- Prepare microcode vector in case we need it next cycles
-              reg_microcode <=
-                microcode_lut(instruction_lut(to_integer(emu6502&memory_read_value)));
-              reg_addressingmode <= mode_lut(to_integer(emu6502&memory_read_value));
-              reg_instruction <= instruction_lut(to_integer(emu6502&memory_read_value));
-              phi_add_backlog <= '1';
-              phi_new_backlog <= cycle_count_lut(to_integer(timing6502&memory_read_value));
-              
-                                        -- 4502 doesn't allow interrupts immediately following a
-                                        -- single-cycle instruction
-              if (hypervisor_mode='0') and (
-                (no_interrupt = '0')
-                and ((irq_pending='1' and flag_i='0') or nmi_pending='1')) then
-                                        -- An interrupt has occurred
-                report "Interrupt detected, decrementing PC";
-                state <= Interrupt;
-                reg_pc <= reg_pc - 1;
-                pc_inc := '0';
-                                        -- Make sure reg_instruction /= I_BRK, so that B flag is not
-                                        -- erroneously set.
-                reg_instruction <= I_SEI;
+
+              if (audio_dma_blocked='0') and (audio_dma(0).pending or audio_dma(1).pending or audio_dma(2).pending or audio_dma(3).pending) = '1' then
+                -- Do an Audio DMA.
+                -- The memory access process lower in this file handles the
+                -- memory access.
+                
+                state <= DoAudioDMA;
               else
-                reg_opcode <= memory_read_value;
-                                        -- Present instruction to serial monitor;
-                monitor_opcode <= memory_read_value;
-                monitor_ibytes <= "0000";
-                monitor_instructionpc <= reg_pc - 1;              
+                -- Show previous instruction
+                disassemble_last_instruction;
+                -- Start recording this instruction
+                last_instruction_pc <= reg_pc - 1;
+                last_opcode <= memory_read_value;
+                last_bytecount <= 1;
+              
+                -- Prepare microcode vector in case we need it next cycles
+                reg_microcode <=
+                  microcode_lut(instruction_lut(to_integer(emu6502&memory_read_value)));
+                reg_addressingmode <= mode_lut(to_integer(emu6502&memory_read_value));
+                reg_instruction <= instruction_lut(to_integer(emu6502&memory_read_value));
+                phi_add_backlog <= '1';
+                phi_new_backlog <= cycle_count_lut(to_integer(timing6502&memory_read_value));
                 
-                                        -- Always read the next instruction byte after reading opcode
-                                        -- (this means we can't interrupt the CPU in between single-cycle
-                                        -- instructions -- this is actually correct behaviour for the 4502)
-                pc_inc := '1';
-
-                report "Executing instruction " & instruction'image(instruction_lut(to_integer(emu6502&memory_read_value)))
-                  severity note;                
-
-                -- See if this is a single cycle instruction.
-                -- Note that CLI and CLE take 2 cycles so that any
-                -- pending interrupt can happen immediately (interrupts cannot
-                -- happen immediately after a single cycle instruction, because
-                -- interrupts are only checked in InstructionFetch, not
-                -- InstructionDecode).
-                absolute32_addressing_enabled <= '0';
-                flat32_address <= '0';
-                flat32_address_prime <= '0';
-                value32_enabled <= '0';
-                next_is_axyz32_instruction <= '0';
-
-                report "VAL32: next_is_axyz32_instruction=" & std_logic'image(next_is_axyz32_instruction)
-                  & ", value32_enabled = " & std_logic'image(value32_enabled);
-                
-                case memory_read_value is
-                  when x"03" =>
-                    flag_e <= '1'; -- SEE
-                    report "ZPCACHE: Flushing cache due to setting E flag";
-                    cache_flushing <= '1';
-                    cache_flush_counter <= (others => '0');
-                  when x"0A" => reg_a <= a_asl; set_nz(a_asl); flag_c <= reg_a(7); -- ASL A
-                  when x"0B" => reg_y <= reg_sph; set_nz(reg_sph); -- TSY
-                  when x"18" => flag_c <= '0';  -- CLC
-                  when x"1A" => reg_a <= a_incremented; set_nz(a_incremented); -- INC A
-                  when x"1B" => reg_z <= z_incremented; set_nz(z_incremented); -- INZ
-                  when x"2A" => reg_a <= a_rol; set_nz(a_rol); flag_c <= reg_a(7); -- ROL A
-                  when x"2B" =>
-                    reg_sph <= reg_y; -- TYS
-                    report "ZPCACHE: Flushing cache due to setting SPH";
-                    cache_flushing <= '1';
-                    cache_flush_counter <= (others => '0');                    
-                  when x"38" => flag_c <= '1';  -- SEC
-                  when x"3A" => reg_a <= a_decremented; set_nz(a_decremented); -- DEC A
-                  when x"3B" => reg_z <= z_decremented; set_nz(z_decremented); -- DEZ
-                  when x"42" =>
-                    reg_a <= a_negated; set_nz(a_negated); -- NEG A
-                    -- NEG / NEG / INSTRUCTION is used to indicate using AXYZ
-                    -- regs as single 32-bit pseudo register.
-                    -- This prefix can be used together with the NOP / NOP prefix
-                    -- for the 32-bit ZP-indirect instructions. In that case,
-                    -- this prefix must come first, i.e., NEG / NEG / NOP / NOP
-                    -- / LDA or STA ($xx), Z
-                    if value32_enabled = '0' then
-                      value32_enabled <= '1';
-                    else
-                      next_is_axyz32_instruction <= '1';
-                    end if;
-                  when x"43" => reg_a <= a_asr; set_nz(a_asr); -- ASR A
-                  when x"4A" => reg_a <= a_lsr; set_nz(a_lsr); flag_c <= reg_a(0); -- LSR A
-                  when x"4B" => reg_z <= reg_a; set_nz(reg_a); -- TAZ
-                  when x"5B" =>
-                    reg_b <= reg_a; -- TAB
-                    report "ZPCACHE: Flushing cache due to moving ZP";
-                    cache_flushing <= '1';
-                    cache_flush_counter <= (others => '0');
-                  when x"6A" => reg_a <= a_ror; set_nz(a_ror); flag_c <= reg_a(0); -- ROR A
-                  when x"6B" => reg_a <= reg_z; set_nz(reg_z); -- TZA
-                  when x"78" => flag_i <= '1';  -- SEI
-                  when x"7B" => reg_a <= reg_b; set_nz(reg_b); -- TBA
-                  when x"88" => reg_y <= y_decremented; set_nz(y_decremented); -- DEY
-                  when x"8A" => reg_a <= reg_x; set_nz(reg_x); -- TXA
-                  when x"98" => reg_a <= reg_y; set_nz(reg_y); -- TYA
-                  when x"9A" => reg_sp <= reg_x; -- TXS
-                  when x"A8" => reg_y <= reg_a; set_nz(reg_a); -- TAY
-                  when x"AA" => reg_x <= reg_a; set_nz(reg_a); -- TAX
-                  when x"B8" => flag_v <= '0';  -- CLV
-                  when x"BA" => reg_x <= reg_sp; set_nz(reg_sp); -- TSX
-                  when x"C8" => reg_y <= y_incremented; set_nz(y_incremented); -- INY
-                  when x"CA" => reg_x <= x_decremented; set_nz(x_decremented); -- DEX
-                  when x"D8" => flag_d <= '0';  -- CLD
-                                flat32_address_prime <= '1';
-                                flat32_address <= flat32_address_prime;
-                  when x"E8" => reg_x <= x_incremented; set_nz(x_incremented); -- INX
-                  when x"EA" => map_interrupt_inhibit <= '0'; -- EOM
-                                -- Enable 32-bit pointer for ($nn),Z addressing
-                                -- mode
-                                absolute32_addressing_enabled <= '1';
-                                -- Preserve NEG / NEG prefix status for AXYZ
-                                -- 32-bit pseudo register usage.
-                                next_is_axyz32_instruction <= next_is_axyz32_instruction;
-                  when x"F8" => flag_d <= '1';  -- SED
-                  when others => null;
-                end case;
-                
-                -- Preserve absolute32_addressing_enabled value if the current
-                -- instruction is ($nn),Z, so that we can use a 32-bit pointer
-                -- for that instruction.  Fortunately these all have the same
-                -- bottom five bits, being $x2, where x is odd.
-                if memory_read_value(4 downto 0) = "10010" then
-                  absolute32_addressing_enabled <= absolute32_addressing_enabled;
-                end if;
-                -- Preset flat32_address value if the current instruction is
-                -- JMP, JSR or RTS
-                -- This is opcodes JMP absolute ($4C), JMP indirect ($6C),
-                -- JMP (absolute,X) ($7C), JSR absolute ($20), JSR (absolute) ($22)
-                -- JSR (absolute,X) ($23), RTS ($60), RTS immediate ($62)
-                case memory_read_value is
-                  when x"20" => flat32_address <= flat32_address;
-                  when x"22" => flat32_address <= flat32_address;
-                  when x"23" => flat32_address <= flat32_address;
-                  when x"4C" => flat32_address <= flat32_address;
-                  when x"60" => flat32_address <= flat32_address;
-                  when x"62" => flat32_address <= flat32_address;
-                  when x"6C" => flat32_address <= flat32_address;
-                  when others => null;
-                end case;
-                
-                if op_is_single_cycle(to_integer(emu6502&memory_read_value)) = '0' then
-                  if (mode_lut(to_integer(emu6502&memory_read_value)) = M_immnn)
-                    or (mode_lut(to_integer(emu6502&memory_read_value)) = M_impl)
-                    or (mode_lut(to_integer(emu6502&memory_read_value)) = M_A)
-                  then
-                    no_interrupt <= '0';
-                    if memory_read_value=x"60" then
-                                        -- Fast-track RTS
-                      if flat32_address = '0' then
-                                        -- Normal 16-bit RTS
-                        state <= RTS;
-                      else
-                                        -- 32-bit RTS, including virtual memory address resolution
-                        report "Far-RTS";
-                        state <= Flat32RTS;
-                      end if;
-                    elsif memory_read_value=x"40" then
-                                        -- Fast-track RTI
-                      state <= RTI;
-                    else
-                      report "Skipping straight to microcode interpret from fetch";
-                      state <= MicrocodeInterpret;
-                    end if;
-                  else
-                    next_is_axyz32_instruction <= next_is_axyz32_instruction;
-                    state <= Cycle2;
-                  end if;
+                -- 4502 doesn't allow interrupts immediately following a
+                -- single-cycle instruction
+                if (hypervisor_mode='0') and (
+                  (no_interrupt = '0')
+                  and ((irq_pending='1' and flag_i='0') or nmi_pending='1')) then
+                                        -- An interrupt has occurred
+                  report "Interrupt detected, decrementing PC";
+                  state <= Interrupt;
+                  reg_pc <= reg_pc - 1;
+                  pc_inc := '0';
+                  -- Make sure reg_instruction /= I_BRK, so that B flag is not
+                  -- erroneously set.
+                  reg_instruction <= I_SEI;
                 else
-                  no_interrupt <= '1';
-                                        -- Allow monitor to trace through single-cycle instructions
-                  if monitor_mem_trace_mode='1' or debugging_single_stepping='1' then
-                    report "monitor_instruction_strobe assert (4510 single cycle instruction, single-stepped)";
-                    state <= normal_fetch_state;
-                    pc_inc := '0';
-                  else
-                    report "monitor_instruction_strobe assert (4510 single cycle instruction)";                    
+                  reg_opcode <= memory_read_value;
+                                        -- Present instruction to serial monitor;
+                  monitor_opcode <= memory_read_value;
+                  monitor_ibytes <= "0000";
+                  monitor_instructionpc <= reg_pc - 1;              
+                  
+                  -- Always read the next instruction byte after reading opcode
+                  -- (this means we can't interrupt the CPU in between single-cycle
+                  -- instructions -- this is actually correct behaviour for the 4502)
+                  pc_inc := '1';
+                  
+                  report "Executing instruction " & instruction'image(instruction_lut(to_integer(emu6502&memory_read_value)))
+                    severity note;                
+                  
+                  -- See if this is a single cycle instruction.
+                  -- Note that CLI and CLE take 2 cycles so that any
+                  -- pending interrupt can happen immediately (interrupts cannot
+                  -- happen immediately after a single cycle instruction, because
+                  -- interrupts are only checked in InstructionFetch, not
+                  -- InstructionDecode).
+                  absolute32_addressing_enabled <= '0';
+                  flat32_address <= '0';
+                  flat32_address_prime <= '0';
+                  value32_enabled <= '0';
+                  next_is_axyz32_instruction <= '0';
+                  
+                  report "VAL32: next_is_axyz32_instruction=" & std_logic'image(next_is_axyz32_instruction)
+                    & ", value32_enabled = " & std_logic'image(value32_enabled);
+                  
+                  case memory_read_value is
+                    when x"03" =>
+                      flag_e <= '1'; -- SEE
+                      report "ZPCACHE: Flushing cache due to setting E flag";
+                      cache_flushing <= '1';
+                      cache_flush_counter <= (others => '0');
+                    when x"0A" => reg_a <= a_asl; set_nz(a_asl); flag_c <= reg_a(7); -- ASL A
+                    when x"0B" => reg_y <= reg_sph; set_nz(reg_sph); -- TSY
+                    when x"18" => flag_c <= '0';  -- CLC
+                    when x"1A" => reg_a <= a_incremented; set_nz(a_incremented); -- INC A
+                    when x"1B" => reg_z <= z_incremented; set_nz(z_incremented); -- INZ
+                    when x"2A" => reg_a <= a_rol; set_nz(a_rol); flag_c <= reg_a(7); -- ROL A
+                    when x"2B" =>
+                      reg_sph <= reg_y; -- TYS
+                      report "ZPCACHE: Flushing cache due to setting SPH";
+                      cache_flushing <= '1';
+                      cache_flush_counter <= (others => '0');                    
+                    when x"38" => flag_c <= '1';  -- SEC
+                    when x"3A" => reg_a <= a_decremented; set_nz(a_decremented); -- DEC A
+                    when x"3B" => reg_z <= z_decremented; set_nz(z_decremented); -- DEZ
+                    when x"42" =>
+                      reg_a <= a_negated; set_nz(a_negated); -- NEG A
+                      -- NEG / NEG / INSTRUCTION is used to indicate using AXYZ
+                      -- regs as single 32-bit pseudo register.
+                      -- This prefix can be used together with the NOP / NOP prefix
+                      -- for the 32-bit ZP-indirect instructions. In that case,
+                      -- this prefix must come first, i.e., NEG / NEG / NOP / NOP
+                      -- / LDA or STA ($xx), Z
+                      if value32_enabled = '0' then
+                        value32_enabled <= '1';
+                      else
+                        next_is_axyz32_instruction <= '1';
+                      end if;
+                    when x"43" => reg_a <= a_asr; set_nz(a_asr); -- ASR A
+                    when x"4A" => reg_a <= a_lsr; set_nz(a_lsr); flag_c <= reg_a(0); -- LSR A
+                    when x"4B" => reg_z <= reg_a; set_nz(reg_a); -- TAZ
+                    when x"5B" =>
+                      reg_b <= reg_a; -- TAB
+                      report "ZPCACHE: Flushing cache due to moving ZP";
+                      cache_flushing <= '1';
+                      cache_flush_counter <= (others => '0');
+                    when x"6A" => reg_a <= a_ror; set_nz(a_ror); flag_c <= reg_a(0); -- ROR A
+                    when x"6B" => reg_a <= reg_z; set_nz(reg_z); -- TZA
+                    when x"78" => flag_i <= '1';  -- SEI
+                    when x"7B" => reg_a <= reg_b; set_nz(reg_b); -- TBA
+                    when x"88" => reg_y <= y_decremented; set_nz(y_decremented); -- DEY
+                    when x"8A" => reg_a <= reg_x; set_nz(reg_x); -- TXA
+                    when x"98" => reg_a <= reg_y; set_nz(reg_y); -- TYA
+                    when x"9A" => reg_sp <= reg_x; -- TXS
+                    when x"A8" => reg_y <= reg_a; set_nz(reg_a); -- TAY
+                    when x"AA" => reg_x <= reg_a; set_nz(reg_a); -- TAX
+                    when x"B8" => flag_v <= '0';  -- CLV
+                    when x"BA" => reg_x <= reg_sp; set_nz(reg_sp); -- TSX
+                    when x"C8" => reg_y <= y_incremented; set_nz(y_incremented); -- INY
+                    when x"CA" => reg_x <= x_decremented; set_nz(x_decremented); -- DEX
+                    when x"D8" => flag_d <= '0';  -- CLD
+                                  flat32_address_prime <= '1';
+                                  flat32_address <= flat32_address_prime;
+                    when x"E8" => reg_x <= x_incremented; set_nz(x_incremented); -- INX
+                    when x"EA" => map_interrupt_inhibit <= '0'; -- EOM
+                                  -- Enable 32-bit pointer for ($nn),Z addressing
+                                  -- mode
+                                  absolute32_addressing_enabled <= '1';
+                                  -- Preserve NEG / NEG prefix status for AXYZ
+                                  -- 32-bit pseudo register usage.
+                                  next_is_axyz32_instruction <= next_is_axyz32_instruction;
+                    when x"F8" => flag_d <= '1';  -- SED
+                    when others => null;
+                  end case;
+                  
+                  -- Preserve absolute32_addressing_enabled value if the current
+                  -- instruction is ($nn),Z, so that we can use a 32-bit pointer
+                  -- for that instruction.  Fortunately these all have the same
+                  -- bottom five bits, being $x2, where x is odd.
+                  if memory_read_value(4 downto 0) = "10010" then
+                    absolute32_addressing_enabled <= absolute32_addressing_enabled;
                   end if;
-                  monitor_instruction_strobe <= '1';
-                end if;
-                
-                monitor_instruction <= to_unsigned(instruction'pos(instruction_lut(to_integer(emu6502&memory_read_value))),8);
-                is_rmw <= '0'; is_load <= '0';
-                rmw_dummy_write_done <= '0';
-                case instruction_lut(to_integer(emu6502&memory_read_value)) is
+                  -- Preset flat32_address value if the current instruction is
+                  -- JMP, JSR or RTS
+                  -- This is opcodes JMP absolute ($4C), JMP indirect ($6C),
+                  -- JMP (absolute,X) ($7C), JSR absolute ($20), JSR (absolute) ($22)
+                  -- JSR (absolute,X) ($23), RTS ($60), RTS immediate ($62)
+                  case memory_read_value is
+                    when x"20" => flat32_address <= flat32_address;
+                    when x"22" => flat32_address <= flat32_address;
+                    when x"23" => flat32_address <= flat32_address;
+                    when x"4C" => flat32_address <= flat32_address;
+                    when x"60" => flat32_address <= flat32_address;
+                    when x"62" => flat32_address <= flat32_address;
+                    when x"6C" => flat32_address <= flat32_address;
+                    when others => null;
+                  end case;
+                  
+                  if op_is_single_cycle(to_integer(emu6502&memory_read_value)) = '0' then
+                    if (mode_lut(to_integer(emu6502&memory_read_value)) = M_immnn)
+                      or (mode_lut(to_integer(emu6502&memory_read_value)) = M_impl)
+                      or (mode_lut(to_integer(emu6502&memory_read_value)) = M_A)
+                    then
+                      no_interrupt <= '0';
+                      if memory_read_value=x"60" then
+                                        -- Fast-track RTS
+                        if flat32_address = '0' then
+                                        -- Normal 16-bit RTS
+                          state <= RTS;
+                        else
+                                        -- 32-bit RTS, including virtual memory address resolution
+                          report "Far-RTS";
+                          state <= Flat32RTS;
+                        end if;
+                      elsif memory_read_value=x"40" then
+                                        -- Fast-track RTI
+                        state <= RTI;
+                      else
+                        report "Skipping straight to microcode interpret from fetch";
+                        state <= MicrocodeInterpret;
+                      end if;
+                    else
+                      next_is_axyz32_instruction <= next_is_axyz32_instruction;
+                      state <= Cycle2;
+                    end if;
+                  else
+                    no_interrupt <= '1';
+                                        -- Allow monitor to trace through single-cycle instructions
+                    if monitor_mem_trace_mode='1' or debugging_single_stepping='1' then
+                      report "monitor_instruction_strobe assert (4510 single cycle instruction, single-stepped)";
+                      state <= normal_fetch_state;
+                      pc_inc := '0';
+                    else
+                      report "monitor_instruction_strobe assert (4510 single cycle instruction)";                    
+                    end if;
+                    monitor_instruction_strobe <= '1';
+                  end if;
+                  
+                  monitor_instruction <= to_unsigned(instruction'pos(instruction_lut(to_integer(emu6502&memory_read_value))),8);
+                  is_rmw <= '0'; is_load <= '0';
+                  rmw_dummy_write_done <= '0';
+                  case instruction_lut(to_integer(emu6502&memory_read_value)) is
                                         -- Note if instruction is RMW
-                  when I_INC => is_rmw <= '1';
-                  when I_DEC => is_rmw <= '1';
-                  when I_ROL => is_rmw <= '1';
-                  when I_ROR => is_rmw <= '1';
-                  when I_ASL => is_rmw <= '1';
-                  when I_ASR => is_rmw <= '1';
-                  when I_LSR => is_rmw <= '1';
-                  when I_TSB => is_rmw <= '1';
-                  when I_TRB => is_rmw <= '1';
-                  when I_RMB => is_rmw <= '1';
-                  when I_SMB => is_rmw <= '1';
+                    when I_INC => is_rmw <= '1';
+                    when I_DEC => is_rmw <= '1';
+                    when I_ROL => is_rmw <= '1';
+                    when I_ROR => is_rmw <= '1';
+                    when I_ASL => is_rmw <= '1';
+                    when I_ASR => is_rmw <= '1';
+                    when I_LSR => is_rmw <= '1';
+                    when I_TSB => is_rmw <= '1';
+                    when I_TRB => is_rmw <= '1';
+                    when I_RMB => is_rmw <= '1';
+                    when I_SMB => is_rmw <= '1';
                                         -- There are a few 16-bit RMWs as well
-                  when I_INW => is_rmw <= '1';
-                  when I_DEW => is_rmw <= '1';
-                  when I_ASW => is_rmw <= '1';
-                  when I_PHW => is_rmw <= '1';
-                  when I_ROW => is_rmw <= '1';
+                    when I_INW => is_rmw <= '1';
+                    when I_DEW => is_rmw <= '1';
+                    when I_ASW => is_rmw <= '1';
+                    when I_PHW => is_rmw <= '1';
+                    when I_ROW => is_rmw <= '1';
                                         -- Note if instruction LOADs value from memory
-                  when I_BIT => is_load <= '1';
-                  when I_AND => is_load <= '1';
-                  when I_ORA => is_load <= '1';
-                  when I_EOR => is_load <= '1';
-                  when I_ADC => is_load <= '1';
-                  when I_SBC => is_load <= '1';
-                  when I_CMP => is_load <= '1';
-                  when I_CPX => is_load <= '1';
-                  when I_CPY => is_load <= '1';
-                  when I_CPZ => is_load <= '1';
-                  when I_LDA => is_load <= '1';
-                  when I_LDX => is_load <= '1';
-                  when I_LDY => is_load <= '1';
-                  when I_LDZ => is_load <= '1';
-                  when I_STA => null;
-                  when I_STX => null;
-                  when I_STY => null;
-                  when I_STZ => null;
-
-                  -- And 6502 illegal opcodes
-                  when I_SLO => is_rmw <= '1';
-                  when I_RLA => is_rmw <= '1';
-                  when I_SRE => is_rmw <= '1';
-                  when I_SAX => null;
-                  when I_LAX => is_load <= '1';
-                  when I_RRA => is_rmw <= '1';
-                  when I_DCP => is_rmw <= '1';
-                  when I_ISC => is_rmw <= '1';
-                  when I_ANC => is_load <= '1';
-                  when I_ALR => is_load <= '1';
-                  when I_ARR => is_load <= '1';
-                  when I_AXS => is_load <= '1';
-                  when I_LAS => null;
-                  when I_XAA | I_AHX | I_SHX | I_SHY | I_TAS => 
-                    state <= TrapToHypervisor;
-                    -- Trap $46 = 6502 Unstable illegal instruction encountered
-                    hypervisor_trap_port <= "1000110";                     
-                  when I_KIL =>
-                    state <= TrapToHypervisor;
-                    -- Trap $47 = 6502 KIL instruction encountered
-                    hypervisor_trap_port <= "1000111";                     
-                  -- Nothing special for other instructions
-                  when others => null;
-                end case;
+                    when I_BIT => is_load <= '1';
+                    when I_AND => is_load <= '1';
+                    when I_ORA => is_load <= '1';
+                    when I_EOR => is_load <= '1';
+                    when I_ADC => is_load <= '1';
+                    when I_SBC => is_load <= '1';
+                    when I_CMP => is_load <= '1';
+                    when I_CPX => is_load <= '1';
+                    when I_CPY => is_load <= '1';
+                    when I_CPZ => is_load <= '1';
+                    when I_LDA => is_load <= '1';
+                    when I_LDX => is_load <= '1';
+                    when I_LDY => is_load <= '1';
+                    when I_LDZ => is_load <= '1';
+                    when I_STA => null;
+                    when I_STX => null;
+                    when I_STY => null;
+                    when I_STZ => null;
+                                  
+                    -- And 6502 illegal opcodes
+                    when I_SLO => is_rmw <= '1';
+                    when I_RLA => is_rmw <= '1';
+                    when I_SRE => is_rmw <= '1';
+                    when I_SAX => null;
+                    when I_LAX => is_load <= '1';
+                    when I_RRA => is_rmw <= '1';
+                    when I_DCP => is_rmw <= '1';
+                    when I_ISC => is_rmw <= '1';
+                    when I_ANC => is_load <= '1';
+                    when I_ALR => is_load <= '1';
+                    when I_ARR => is_load <= '1';
+                    when I_AXS => is_load <= '1';
+                    when I_LAS => null;
+                    when I_XAA | I_AHX | I_SHX | I_SHY | I_TAS => 
+                      state <= TrapToHypervisor;
+                      -- Trap $46 = 6502 Unstable illegal instruction encountered
+                      hypervisor_trap_port <= "1000110";                     
+                    when I_KIL =>
+                      state <= TrapToHypervisor;
+                      -- Trap $47 = 6502 KIL instruction encountered
+                      hypervisor_trap_port <= "1000111";                     
+                    -- Nothing special for other instructions
+                    when others => null;
+                  end case;
+                end if;
               end if;
             when InstructionDecode6502 =>
                                         -- Show previous instruction
