@@ -388,6 +388,7 @@ architecture behavioural of sdcardio is
   signal use_real_floppy2 : std_logic := '1';
   signal fdc_read_request : std_logic := '0';
   signal fdc_rotation_timeout : integer range 0 to 6 := 0;
+  signal rotation_count : integer range 0 to 15 := 0;
   signal fdc_rotation_timeout_reserve_counter : integer range 0 to 100000000 := 0;
   signal last_f_index : std_logic := '1';
 
@@ -1030,6 +1031,11 @@ begin  -- behavioural
             fastio_rdata(3 downto 0) <= volume_knob3_target;
             fastio_rdata(6 downto 4) <= "000";
             fastio_rdata(7) <= pwm_knob_en;
+          when x"af" =>
+            -- @IO:GS $D6AF.0-3 - DEBUG:FDCRTOUT Floppy index timeout
+            -- @IO:GS $D6AF.4-7 - DEBUG:FDCIDXCNT Floppy index count
+            fastio_rdata(3 downto 0) <= to_unsigned(fdc_rotation_timeout,4);
+            fastio_rdata(7 downto 4) <= to_unsigned(rotation_count,4);
           when x"B0" =>
             -- @IO:GS $D6B0 - Touch pad control / status
             -- @IO:GS $D6B0.0 - Touch event 1 is valid
@@ -2716,6 +2722,9 @@ begin  -- behavioural
             
 --        report "fdc_read_request asserted, checking for activity";
             last_f_index <= f_index;
+            if (f_index='0' and last_f_index='1') then
+              rotation_count <= rotation_count;
+            end if;
             if (f_index='0' and last_f_index='1') and (fdc_sector_found='0') then
               -- Index hole is here. Decrement rotation counter,
               -- and timeout with RNF set if we reach zero.
