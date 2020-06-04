@@ -385,6 +385,7 @@ architecture behavioural of sdcardio is
   signal fdc_read_request : std_logic := '0';
   signal fdc_rotation_timeout : integer range 0 to 6 := 0;
   signal rotation_count : integer range 0 to 15 := 0;
+  signal index_wait_timeout : integer := 0;
   signal last_f_index : std_logic := '1';
 
   signal fdc_bytes_read : unsigned(15 downto 0) := x"0000";
@@ -1697,6 +1698,9 @@ begin  -- behavioural
                     -- Clear request not found flag (gets set by timeout if required)
                     f011_rnf <= '0';
                     
+                    -- Allow 250ms per rotation (they should be ~200ms)
+                    index_wait_timeout <= cpu_frequency / 4;
+
                     sd_state <= FDCReadingSector;
                   else
                     if f011_ds="000" and (f011_disk1_present='0' or diskimage1_enable='0') then
@@ -2612,10 +2616,15 @@ begin  -- behavioural
             -- We have an FDC request in progress.
 --        report "fdc_read_request asserted, checking for activity";
             last_f_index <= f_index;
-            if (f_index='0' and last_f_index='1') then
-              rotation_count <= rotation_count;
+            if index_wait_timeout /= 0 then
+              index_wait_timeout <= index_wait_timeout -1;
             end if;
-            if (f_index='0' and last_f_index='1') and (fdc_sector_found='0') then
+            if (f_index='0' and last_f_index='1') or index_wait_timeout=0 then
+              rotation_count <= rotation_count;
+              -- Allow 250ms per rotation (they should be ~200ms)
+              index_wait_timeout <= cpu_frequency / 4;
+            end if;
+            if (f_index='0' and last_f_index='1') and (fdc_sector_found='0') or index_wait_timeout=0 then
               -- Index hole is here. Decrement rotation counter,
               -- and timeout with RNF set if we reach zero.
               if fdc_rotation_timeout /= 0 then
