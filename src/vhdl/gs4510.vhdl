@@ -2112,7 +2112,8 @@ begin
 
                           
             -- $D720-$D72F - Audio DMA channel 0                          
-            when x"20" => return audio_dma(0).enable & audio_dma(0).repeat & audio_dma(0).pending & "000" & audio_dma(0).sample_width;
+            when x"20" => return audio_dma(0).enable & audio_dma(0).repeat & audio_dma(0).pending &
+                            audio_dma(0).timing_counter(24) & "00" & audio_dma(0).sample_width;
             when x"21" => return audio_dma(0).base_addr(7 downto 0);
             when x"22" => return audio_dma(0).base_addr(15 downto 8);
             when x"23" => return audio_dma(0).base_addr(23 downto 16);
