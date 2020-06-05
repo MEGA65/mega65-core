@@ -3347,37 +3347,7 @@ begin
     -- output.  We will map these all onto the same 64 bytes of registers.
 
     if rising_edge(clock) then
-
-      if audio_dma_block_timeout /=0 or (audio_dma_enable='0') or (reset_drive='0') then
-        audio_dma_blocked <= '1';
-        audio_dma_block_timeout <= audio_dma_block_timeout - 1;
-      else
-        audio_dma_blocked <= '0';
-      end if;
-        
-      report "tick";
-
-      report "Audio DMA channel " & integer'image(0) & ": "
-        & "base=$" & to_hstring(audio_dma(0).base_addr)
-        & ", top_addr=$" & to_hstring(audio_dma(0).top_addr)
-        & ", timebase=$" & to_hstring(audio_dma(0).time_base)
-        & ", current_addr=$" & to_hstring(audio_dma(0).current_addr)
-        & ", timing_counter=$" & to_hstring(audio_dma(0).timing_counter)
-        ;
-
-      report "The wrapped bits are "
-        & std_logic'image(std_logic(audio_dma(0).base_addr(15)))
-        & std_logic'image(std_logic(audio_dma(0).base_addr(14)))
-        & std_logic'image(std_logic(audio_dma(0).base_addr(13)))
-        & std_logic'image(std_logic(audio_dma(0).base_addr(12)))
-        & std_logic'image(std_logic(audio_dma(0).base_addr(11)))
-        & std_logic'image(std_logic(audio_dma(0).base_addr(10)))
-        & std_logic'image(std_logic(audio_dma(0).base_addr(9)))
-        & std_logic'image(std_logic(audio_dma(0).base_addr(8)))
-        ;
-
-      
-      
+           
       -- We also have one direct 18x25 multiplier for use by the hypervisor.
       -- This multiplier fits a single DSP48E unit, and does not use the plumbing
       -- facility.
@@ -3565,6 +3535,34 @@ begin
                                         -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) and all_pause='0' then
 
+      if audio_dma_block_timeout /=0 or (audio_dma_enable='0') or (reset_drive='0') then
+        audio_dma_blocked <= '1';
+        audio_dma_block_timeout <= audio_dma_block_timeout - 1;
+      else
+        audio_dma_blocked <= '0';
+      end if;
+        
+      report "tick";
+
+      report "Audio DMA channel " & integer'image(0) & ": "
+        & "base=$" & to_hstring(audio_dma(0).base_addr)
+        & ", top_addr=$" & to_hstring(audio_dma(0).top_addr)
+        & ", timebase=$" & to_hstring(audio_dma(0).time_base)
+        & ", current_addr=$" & to_hstring(audio_dma(0).current_addr)
+        & ", timing_counter=$" & to_hstring(audio_dma(0).timing_counter)
+        ;
+
+      report "The wrapped bits are "
+        & std_logic'image(std_logic(audio_dma(0).base_addr(15)))
+        & std_logic'image(std_logic(audio_dma(0).base_addr(14)))
+        & std_logic'image(std_logic(audio_dma(0).base_addr(13)))
+        & std_logic'image(std_logic(audio_dma(0).base_addr(12)))
+        & std_logic'image(std_logic(audio_dma(0).base_addr(11)))
+        & std_logic'image(std_logic(audio_dma(0).base_addr(10)))
+        & std_logic'image(std_logic(audio_dma(0).base_addr(9)))
+        & std_logic'image(std_logic(audio_dma(0).base_addr(8)))
+        ;
+      
       -- XXX debug GHDL simulation
 --       report "Audio DMA channel " & integer'image(0) & ": "
 --          & "base=%" & to_string(std_logic_vector(audio_dma(0).base_addr))
