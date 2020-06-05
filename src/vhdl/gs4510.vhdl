@@ -85,7 +85,7 @@ entity gs4510 is
     dat_bitplane_addresses : in sprite_vector_eight;
     
     cpuis6502 : out std_logic := '0';
-    cpuspeed : out unsigned(7 downto 0);
+    cpuspeed : out unsigned(7 downto 0) := x"01";
 
     power_down : out std_logic := '1';
     
@@ -635,7 +635,7 @@ architecture Behavioural of gs4510 is
   signal io_settle_trigger : std_logic := '0';
   signal io_settle_trigger_last : std_logic := '0';  
   
-  signal read_data_copy : unsigned(7 downto 0);
+  signal read_data_copy : unsigned(7 downto 0) := x"00";
   
   type instruction_property is array(0 to 255) of std_logic;
   signal op_is_single_cycle : instruction_property := (
@@ -2027,9 +2027,10 @@ begin
 
             -- @IO:GS $D711.7 - DMA:AUDEN Enable Audio DMA
             -- @IO:GS $D711.6 - DMA:AUDBLOCKED Audio DMA blocked (read only) DEBUG
-            -- @IO:GS $D711.5 - DMA:AUDWRBLOCK Audio DMA block writes (samples still get read)
+            -- @IO:GS $D711.5 - DMA:AUDWRBLOCK Audio DMA block writes (samples still get read) 
+            -- @IO:GS $D711.4 - DMA:AUDWRBLOCKED Audio DMA writes currently blocked (read only) DEBUG
             -- @IO:GS $D711.0-2 - DMA:AUDBLOCKTO Audio DMA block timeout (read only) DEBUG
-            when x"11" => return audio_dma_enable & audio_dma_blocked & audio_dma_disable_writes & "00" & to_unsigned(audio_dma_block_timeout,3);
+            when x"11" => return audio_dma_enable & audio_dma_blocked & audio_dma_disable_writes & audio_dma_write_blocked "0" & to_unsigned(audio_dma_block_timeout,3);
                           
             -- XXX DEBUG registers for audio DMA
             when x"1c" => return audio_dma_tick_counter(7 downto 0);
