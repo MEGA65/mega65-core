@@ -1304,6 +1304,8 @@ architecture Behavioural of gs4510 is
   signal audio_dma_enable : std_logic := '0';
   signal audio_dma_block_timeout : integer range 0 to 7 := 0;
   signal audio_dma_blocked : std_logic := '1';
+  signal audio_dma_disable_writes : std_logic := '1';
+  signal audio_dma_write_blocked : std_logic := '1';
   
   -- purpose: map VDC linear address to VICII bitmap addressing here
   -- to keep it as simple as possible we assume fix 640x200x2 resolution
@@ -2025,8 +2027,9 @@ begin
 
             -- @IO:GS $D711.7 - DMA:AUDEN Enable Audio DMA
             -- @IO:GS $D711.6 - DMA:AUDBLOCKED Audio DMA blocked (read only) DEBUG
+            -- @IO:GS $D711.5 - DMA:AUDWRBLOCK Audio DMA block writes (samples still get read)
             -- @IO:GS $D711.0-2 - DMA:AUDBLOCKTO Audio DMA block timeout (read only) DEBUG
-            when x"11" => return audio_dma_enable & audio_dma_blocked & "000" & to_unsigned(audio_dma_block_timeout,3);
+            when x"11" => return audio_dma_enable & audio_dma_blocked & audio_dma_disable_writes & "00" & to_unsigned(audio_dma_block_timeout,3);
                           
             -- XXX DEBUG registers for audio DMA
             when x"1c" => return audio_dma_tick_counter(7 downto 0);
@@ -2812,6 +2815,7 @@ begin
         vdc_enabled <= value(2);
       elsif (long_address = x"FFD3711") or (long_address = x"FFD1711") then
         audio_dma_enable <= value(7);
+        audio_dma_disable_writes <= value(5);
       elsif (long_address(27 downto 4) = x"FFD372") or (long_address(27 downto 4) = x"FFD172")
         or (long_address(27 downto 4) = x"FFD373") or (long_address(27 downto 4) = x"FFD173")
         or (long_address(27 downto 4) = x"FFD374") or (long_address(27 downto 4) = x"FFD174")
@@ -3535,11 +3539,15 @@ begin
                                         -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) and all_pause='0' then
 
+      if (audio_dma_block_timeout /=0) then
+        audio_dma_block_timeout <= audio_dma_block_timeout - 1;
+      end if;
       if (audio_dma_block_timeout /=0) or (audio_dma_enable='0') or (reset_drive='0') then
         audio_dma_blocked <= '1';
-        audio_dma_block_timeout <= audio_dma_block_timeout - 1;
+        audio_dma_write_blocked <= '1';
       else
         audio_dma_blocked <= '0';
+        audio_dma_write_blocked <= audio_dma_disable_writes;
       end if;
         
       report "tick";
@@ -7431,7 +7439,7 @@ begin
         when DoAudioDMA =>
           audio_dma_tick_counter <= audio_dma_tick_counter + 1;
           -- Commit the updated audio values
-          if (audio_dma_blocked = '0') and (audio_dma(0).enable or audio_dma(1).enable or audio_dma(2).enable or audio_dma(3).enable) = '1' then
+          if (audio_dma_write_blocked = '0') and (audio_dma(0).enable or audio_dma(1).enable or audio_dma(2).enable or audio_dma(3).enable) = '1' then
             memory_access_write := '1';
             case audio_dma_write_sequence is
               when 0 => memory_access_address := x"FFD36F8";
@@ -7446,6 +7454,8 @@ begin
               when 3 => memory_access_address := x"FFD36FB";
                         memory_access_wdata := audio_dma_right(15 downto 8);
                         audio_dma_write_sequence <= 0;
+              when others =>
+                memory_access_write := '0';
             end case;
           end if;          
         when InstructionFetch =>
