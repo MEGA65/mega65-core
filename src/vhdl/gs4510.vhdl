@@ -208,14 +208,14 @@ entity gs4510 is
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
     ---------------------------------------------------------------------------
-    fastio_addr : inout std_logic_vector(19 downto 0);
-    fastio_addr_fast : out std_logic_vector(19 downto 0);
+    fastio_addr : inout std_logic_vector(19 downto 0) := (others => '0');
+    fastio_addr_fast : out std_logic_vector(19 downto 0) := (others => '0');
     fastio_read : inout std_logic := '0';
     fastio_write : inout std_logic := '0';
-    fastio_wdata : inout std_logic_vector(7 downto 0);
+    fastio_wdata : inout std_logic_vector(7 downto 0) := (others => '0');
     fastio_rdata : in std_logic_vector(7 downto 0);
     hyppo_rdata : in std_logic_vector(7 downto 0);
-    hyppo_address_out : out std_logic_vector(13 downto 0);
+    hyppo_address_out : out std_logic_vector(13 downto 0) := (others => '0');
     
     sector_buffer_mapped : in std_logic;
     fastio_vic_rdata : in std_logic_vector(7 downto 0);
@@ -3350,6 +3350,7 @@ begin
 
       if audio_dma_block_timeout /=0 or (audio_dma_enable='0') or (reset_drive='0') then
         audio_dma_blocked <= '1';
+        audio_dma_block_timeout <= audio_dma_block_timeout - 1;
       else
         audio_dma_blocked <= '0';
       end if;
