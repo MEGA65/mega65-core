@@ -94,9 +94,9 @@ entity sid6581 is
 		do					: out unsigned(7 downto 0);	-- data out	(from chip)
 		pot_x				: in  unsigned(7 downto 0);	-- paddle input-X
 		pot_y				: in  unsigned(7 downto 0);	-- paddle input-Y
-		audio_data		: out unsigned(17 downto 0);
+		audio_data		: out unsigned(17 downto 0) := to_unsigned(0,18);
 
-                filter_table_addr : out integer range 0 to 2047;
+                filter_table_addr : out integer range 0 to 2047 := 0;
                 filter_table_val : in unsigned(15 downto 0)
 	);
 end sid6581;
@@ -148,18 +148,18 @@ architecture Behavioral of sid6581 is
 	signal voice_2_PA_MSB	: std_logic := '0';
 	signal voice_3_PA_MSB	: std_logic := '0';
 
-	signal voice1_signed		: signed(12 downto 0);
-	signal voice2_signed		: signed(12 downto 0);
-	signal voice3_signed		: signed(12 downto 0);
+	signal voice1_signed		: signed(12 downto 0) := to_signed(0,13);
+	signal voice2_signed		: signed(12 downto 0) := to_signed(0,13);
+	signal voice3_signed		: signed(12 downto 0) := to_signed(0,13);
 
 	-- filter
 	constant ext_in_signed	: signed(12 downto 0) := to_signed(0,13);
-	signal filtered_audio	: signed(18 downto 0);
+	signal filtered_audio	: signed(18 downto 0) := to_signed(0,19);
 	signal tick_q1, tick_q2	: std_logic;
-	signal input_valid		: std_logic;
+	signal input_valid		: std_logic := '0';
 	signal unsigned_audio	: unsigned(17 downto 0);
 	signal unsigned_filt		: unsigned(18 downto 0);
-	signal ff1					: std_logic;
+	signal ff1					: std_logic := '1';
 
 -------------------------------------------------------------------------------
 
