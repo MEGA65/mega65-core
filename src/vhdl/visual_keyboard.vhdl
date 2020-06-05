@@ -90,7 +90,7 @@ architecture behavioural of visual_keyboard is
   signal box_inverse_delay : std_logic := '0';
   
   signal address : integer range 0 to 4095 := 0;
-  signal rdata : unsigned(7 downto 0);
+  signal rdata : unsigned(7 downto 0) := x"00";
 
   signal current_address : integer range 0 to 4095 := 0;
   signal last_row_address : integer range 0 to 4095 := 0;

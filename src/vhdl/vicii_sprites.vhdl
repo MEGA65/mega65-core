@@ -99,18 +99,18 @@ entity vicii_sprites is
     signal alpha_in : in unsigned(7 downto 0);
 
     -- Pass pixel information back out, as well as the sprite colour information
-    signal is_foreground_out : out std_logic;
-    signal is_background_out : out std_logic;
-    signal x_out : out xposition;
-    signal y_out : out yposition;
+    signal is_foreground_out : out std_logic := '0';
+    signal is_background_out : out std_logic := '0';
+    signal x_out : out xposition := 0;
+    signal y_out : out yposition := 0;
     signal border_out : out std_logic;
-    signal pixel_out : out unsigned(7 downto 0);
-    signal alpha_out : out unsigned(7 downto 0);
-    signal sprite_colour_out : out unsigned(7 downto 0);
-    signal sprite_number_out : out integer range 0 to 7;
-    signal is_sprite_out : out std_logic;
-    signal sprite_fg_map_final : out std_logic_vector(7 downto 0);
-    signal sprite_map_final : out std_logic_vector(7 downto 0);
+    signal pixel_out : out unsigned(7 downto 0) := (others => '0');
+    signal alpha_out : out unsigned(7 downto 0) := (others => '0');
+    signal sprite_colour_out : out unsigned(7 downto 0) := (others => '0');
+    signal sprite_number_out : out integer range 0 to 7 := 0; 
+    signal is_sprite_out : out std_logic := '0';
+    signal sprite_fg_map_final : out std_logic_vector(7 downto 0) := (others => '0');
+    signal sprite_map_final : out std_logic_vector(7 downto 0) := (others => '0');
 
     -- We need the registers that describe the various sprites.
     -- We could pull these in from the VIC-IV, but that would mean that they
@@ -305,7 +305,7 @@ architecture behavioural of vicii_sprites is
   signal sprite_colour_2_1 : unsigned(7 downto 0);
   signal sprite_colour_1_0 : unsigned(7 downto 0);  
   signal sprite_colour_0_bp : unsigned(7 downto 0);  
-  signal sprite_colour_final : unsigned(7 downto 0);  
+  signal sprite_colour_final : unsigned(7 downto 0) := x"00";  
   signal pixel_7_6 : unsigned(7 downto 0);
   signal pixel_6_5 : unsigned(7 downto 0);
   signal pixel_5_4 : unsigned(7 downto 0);

@@ -45,36 +45,6 @@ package cputypes is
     );
 
   type ilut9bit is array(0 to 511) of instruction;
-
-  type audio_dma_channel is record
-    -- User visible signals for current state
-    base_addr : unsigned(23 downto 0);
-    time_base : unsigned(23 downto 0);
-    top_addr : unsigned(15 downto 0);
-    volume : unsigned(7 downto 0);
-    enable : std_logic;
-    repeat : std_logic;
-    stop : std_logic;
-    sample_width : unsigned(1 downto 0);
-
-    -- Internal signals for current state 
-    pending : std_logic;
-    pending_msb : std_logic;
-    current_addr : unsigned(23 downto 0);
-    current_addr_set : unsigned(23 downto 0);
-    current_addr_set_flag : std_logic;
-    last_current_addr_set_flag : std_logic;
-    -- Top big holds the overflow, which indicates if we need our next sample
-    timing_counter : unsigned(24 downto 0);
-    timing_counter_set : unsigned(24 downto 0);
-    timing_counter_set_flag : std_logic;
-    last_timing_counter_set_flag : std_logic;
-
-    -- Digested values for output
-    sample_valid : std_logic;
-    current_value : signed(15 downto 0);
-    multed : signed(24 downto 0);
-  end record;
     
   
   type microcodeops is record

@@ -26,16 +26,16 @@ architecture behavioral of virtual_to_matrix is
 
   signal scan_phase : integer range 0 to 71 := 0;
 
-  signal key1_drive : unsigned(7 downto 0);
-  signal key2_drive : unsigned(7 downto 0);
-  signal key3_drive : unsigned(7 downto 0);
-  signal touch_key1_drive : unsigned(7 downto 0);
-  signal touch_key2_drive : unsigned(7 downto 0);
+  signal key1_drive : unsigned(7 downto 0) := (others => '0');
+  signal key2_drive : unsigned(7 downto 0) := (others => '0');
+  signal key3_drive : unsigned(7 downto 0) := (others => '0');
+  signal touch_key1_drive : unsigned(7 downto 0) := (others => '0');
+  signal touch_key2_drive : unsigned(7 downto 0) := (others => '0');
   
   -- keyboard matrix ram inputs
-  signal keyram_address : integer range 0 to 8;
-  signal keyram_di : std_logic_vector(7 downto 0);
-  signal keyram_wea : std_logic_vector(7 downto 0);
+  signal keyram_address : integer range 0 to 8 := 0;
+  signal keyram_di : std_logic_vector(7 downto 0) := (others => '0');
+  signal keyram_wea : std_logic_vector(7 downto 0) := (others => '0');
   
 begin
 
