@@ -3535,7 +3535,7 @@ begin
                                         -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) and all_pause='0' then
 
-      if audio_dma_block_timeout /=0 or (audio_dma_enable='0') or (reset_drive='0') then
+      if (audio_dma_block_timeout /=0) or (audio_dma_enable='0') or (reset_drive='0') then
         audio_dma_blocked <= '1';
         audio_dma_block_timeout <= audio_dma_block_timeout - 1;
       else
@@ -4909,7 +4909,7 @@ begin
             when InstructionWait =>
               state <= InstructionFetch;
             when InstructionFetch =>
-              if (audio_dma_blocked='0') and (audio_dma(0).pending or audio_dma(1).pending or audio_dma(2).pending or audio_dma(3).pending) = '1' then
+              if (audio_dma_blocked='0') and ((audio_dma(0).pending or audio_dma(1).pending or audio_dma(2).pending or audio_dma(3).pending) = '1') then
                 -- Do an Audio DMA.
                 -- The memory access process lower in this file handles the
                 -- memory access.
@@ -4951,7 +4951,7 @@ begin
               end if;
             when InstructionDecode =>
 
-              if (audio_dma_blocked='0') and (audio_dma(0).pending or audio_dma(1).pending or audio_dma(2).pending or audio_dma(3).pending) = '1' then
+              if (audio_dma_blocked='0') and ((audio_dma(0).pending or audio_dma(1).pending or audio_dma(2).pending or audio_dma(3).pending) = '1') then
                 -- Do an Audio DMA.
                 -- The memory access process lower in this file handles the
                 -- memory access.
