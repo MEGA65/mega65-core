@@ -508,7 +508,7 @@ architecture Behavioral of machine is
   signal hyper_trap_f011_write : std_logic := '0';
   signal hyper_trap_count : unsigned(7 downto 0) := x"00";
 
-  signal fastio_addr : std_logic_vector(19 downto 0);
+  signal fastio_addr : std_logic_vector(19 downto 0) := (others => '0');
   signal fastio_addr_fast : std_logic_vector(19 downto 0);
   signal fastio_read : std_logic;
   signal fastio_write : std_logic;

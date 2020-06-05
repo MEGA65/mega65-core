@@ -411,7 +411,7 @@ architecture Behavioral of viciv is
   signal paint_full_colour_data : unsigned(63 downto 0) := (others => '0');
 
   -- chipram access management registers
-  signal next_ramaddress : unsigned(19 downto 0);
+  signal next_ramaddress : unsigned(19 downto 0) := to_unsigned(0,20);
   signal next_ramaccess_is_screen_row_fetch : std_logic := '0';
   signal this_ramaccess_is_screen_row_fetch : std_logic := '0';
   signal last_ramaccess_is_screen_row_fetch : std_logic := '0';
@@ -434,9 +434,9 @@ architecture Behavioral of viciv is
   signal final_screen_row_fetch_address : unsigned(19 downto 0) := to_unsigned(0,20);
   signal final_ramdata : unsigned(7 downto 0) := to_unsigned(0,8);
 
-  signal vgared_driver : unsigned(7 downto 0);
-  signal vgablue_driver : unsigned(7 downto 0);
-  signal vgagreen_driver  : unsigned(7 downto 0);
+  signal vgared_driver : unsigned(7 downto 0) := x"00";
+  signal vgablue_driver : unsigned(7 downto 0) := x"00";
+  signal vgagreen_driver  : unsigned(7 downto 0) := x"00";
 
   signal ycounter_driver : unsigned(11 downto 0) := to_unsigned(625,12);
 
