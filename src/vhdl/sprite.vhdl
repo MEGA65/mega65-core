@@ -92,8 +92,8 @@ entity sprite is
     signal y_out : out yposition;
     signal yfine_out : out yposition;
     signal border_out : out std_logic;
-    signal pixel_out : out unsigned(7 downto 0);
-    signal alpha_out : out unsigned(7 downto 0);
+    signal pixel_out : out unsigned(7 downto 0) := x"00";
+    signal alpha_out : out unsigned(7 downto 0) := x"00";
     signal sprite_colour_out : out unsigned(7 downto 0);
     signal sprite_number_out : out integer range 0 to 7;
     signal is_sprite_out : out std_logic;

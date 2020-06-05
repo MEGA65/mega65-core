@@ -23,14 +23,14 @@ entity alpha_blend_top is
 
     alpha_delay : in unsigned(3 downto 0);
     
-     pixclk_out: out std_logic;
-     hsync_blnd: out std_logic;
-     vsync_blnd: out std_logic;
-     de_blnd:    out std_logic;
-     r_blnd:     out std_logic_vector(9 downto 0);
-     g_blnd:     out std_logic_vector(9 downto 0);
-     b_blnd:     out std_logic_vector(9 downto 0);
-     dcm_locked:  out std_logic
+     pixclk_out: out std_logic := '1';
+     hsync_blnd: out std_logic := '1';
+     vsync_blnd: out std_logic := '1';
+     de_blnd:    out std_logic := '1';
+     r_blnd:     out std_logic_vector(9 downto 0) := (others => '0');
+     g_blnd:     out std_logic_vector(9 downto 0) := (others => '0');
+     b_blnd:     out std_logic_vector(9 downto 0) := (others => '0');
+     dcm_locked:  out std_logic := '1'
 ); 
 end alpha_blend_top;
 
@@ -47,21 +47,21 @@ architecture behavioural of alpha_blend_top is
   signal g1drive  : integer := 0;
   signal b0drive  : integer := 0;
   signal b1drive  : integer := 0;
-  signal alpha_strm_drive: unsigned(10 downto 0);
-  signal oneminusalpha : integer;
+  signal alpha_strm_drive: unsigned(10 downto 0) := (others => '0');
+  signal oneminusalpha : integer := 0;
 
-  signal alpha_delayed : unsigned(10 downto 0);
-  signal oneminusalpha_delayed : integer;
-  signal alpha_delayed1 : unsigned(10 downto 0);
-  signal oneminusalpha_delayed1 : integer;
-  signal alpha_delayed2 : unsigned(10 downto 0);
-  signal oneminusalpha_delayed2 : integer;
-  signal alpha_delayed3 : unsigned(10 downto 0);
-  signal oneminusalpha_delayed3 : integer;
-  signal alpha_delayed4 : unsigned(10 downto 0);
-  signal oneminusalpha_delayed4 : integer;
-  signal alpha_delayed5 : unsigned(10 downto 0);
-  signal oneminusalpha_delayed5 : integer;
+  signal alpha_delayed : unsigned(10 downto 0) := (others => '0');
+  signal oneminusalpha_delayed : integer := 0;
+  signal alpha_delayed1 : unsigned(10 downto 0) := (others => '0');
+  signal oneminusalpha_delayed1 : integer := 0;
+  signal alpha_delayed2 : unsigned(10 downto 0) := (others => '0');
+  signal oneminusalpha_delayed2 : integer := 0;
+  signal alpha_delayed3 : unsigned(10 downto 0) := (others => '0');
+  signal oneminusalpha_delayed3 : integer := 0;
+  signal alpha_delayed4 : unsigned(10 downto 0) := (others => '0');
+  signal oneminusalpha_delayed4 : integer := 0;
+  signal alpha_delayed5 : unsigned(10 downto 0) := (others => '0');
+  signal oneminusalpha_delayed5 : integer := 0;
   
   
 begin

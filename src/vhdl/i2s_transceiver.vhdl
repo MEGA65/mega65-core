@@ -40,7 +40,7 @@ entity i2s_transceiver is
     i2s_sync : in std_logic;
 
     -- PCM audio interface
-    pcm_out : out std_logic;
+    pcm_out : out std_logic := '0';
     pcm_in : in std_logic;
 
     -- sample to send
@@ -48,8 +48,8 @@ entity i2s_transceiver is
     tx_sample_right : in unsigned(15 downto 0);
 
     -- last sample received
-    rx_sample_left : out unsigned(15 downto 0);
-    rx_sample_right : out unsigned(15 downto 0)
+    rx_sample_left : out unsigned(15 downto 0) := (others => '0');
+    rx_sample_right : out unsigned(15 downto 0) := (others => '0')
 
     );
 

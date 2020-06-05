@@ -268,25 +268,25 @@ entity iomapper is
     -- Lines for other devices that we handle here
     ---------------------------------------------------------------------------
     aclMISO : in std_logic;
-    aclMOSI : out std_logic;
-    aclSS : out std_logic;
-    aclSCK : out std_logic;
+    aclMOSI : out std_logic := '0';
+    aclSS : out std_logic := '0';
+    aclSCK : out std_logic := '0';
     aclInt1 : in std_logic;
     aclInt2 : in std_logic;
 
     -- MEMs microphones
     micData0 : in std_logic;
     micData1 : in std_logic;
-    micClk : out std_logic;
-    micLRSel : out std_logic;
+    micClk : out std_logic := '0';
+    micLRSel : out std_logic := '0';
 
     -- PDM audio output for headphones/line-out
-    ampPWM_l : out std_logic;
-    ampPWM_r : out std_logic;
-    pcspeaker_left : out std_logic;
-    ampSD : out std_logic;
-    audio_left : out std_logic_vector(19 downto 0);
-    audio_right : out std_logic_vector(19 downto 0);
+    ampPWM_l : out std_logic := '0';
+    ampPWM_r : out std_logic := '0';
+    pcspeaker_left : out std_logic := '0';
+    ampSD : out std_logic := '0';
+    audio_left : out std_logic_vector(19 downto 0) := (others => '0');
+    audio_right : out std_logic_vector(19 downto 0) := (others => '0');
 
     -- I2S audio channels
     i2s_master_clk : out std_logic := '0';
@@ -305,29 +305,29 @@ entity iomapper is
     i2s_bt_data_in : in std_logic := '0';
     i2s_bt_data_out : out std_logic := '0';
     
-    tmpSDA : inout std_logic;
-    tmpSCL : inout std_logic;
+    tmpSDA : inout std_logic := '0';
+    tmpSCL : inout std_logic := '0';
     tmpInt : in std_logic;
     tmpCT : in std_logic;
 
-    i2c1SDA : inout std_logic;
-    i2c1SCL : inout std_logic;
+    i2c1SDA : inout std_logic := '0';
+    i2c1SCL : inout std_logic := '0';
     
-    lcdpwm : out std_logic;
+    lcdpwm : out std_logic := '0';
     touchSDA : inout std_logic;
     touchSCL : inout std_logic;
     
     sw : in std_logic_vector(15 downto 0);
     btn : in std_logic_vector(4 downto 0);
-    seg_led : out unsigned(31 downto 0);
+    seg_led : out unsigned(31 downto 0) := (others => '0');
     
     -- Touch interface
     touch1_valid : out std_logic;
-    touch1_x : out unsigned(13 downto 0);
-    touch1_y : out unsigned(11 downto 0);
+    touch1_x : out unsigned(13 downto 0) := (others => '0');
+    touch1_y : out unsigned(11 downto 0) := (others => '0');
     touch2_valid : out std_logic;
-    touch2_x : out unsigned(13 downto 0);
-    touch2_y : out unsigned(11 downto 0);
+    touch2_x : out unsigned(13 downto 0) := (others => '0');
+    touch2_y : out unsigned(11 downto 0) := (others => '0');
     
     viciii_iomode : in std_logic_vector(1 downto 0);
     

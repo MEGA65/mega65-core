@@ -24,12 +24,12 @@ entity touch is
 
 
     scan_count : inout unsigned(7 downto 0) := x"00";
-    b0 : out unsigned(7 downto 0);
-    b1 : out unsigned(7 downto 0);
-    b2 : out unsigned(7 downto 0);
-    b3 : out unsigned(7 downto 0);
-    b4 : out unsigned(7 downto 0);
-    b5 : out unsigned(7 downto 0);
+    b0 : out unsigned(7 downto 0) := x"00";
+    b1 : out unsigned(7 downto 0) := x"00";
+    b2 : out unsigned(7 downto 0) := x"00";
+    b3 : out unsigned(7 downto 0) := x"00";
+    b4 : out unsigned(7 downto 0) := x"00";
+    b5 : out unsigned(7 downto 0) := x"00";
     touch_byte : out unsigned(7 downto 0) := x"BD";
     touch_byte_num : in unsigned(7 downto 0);
 

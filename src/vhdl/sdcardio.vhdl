@@ -176,12 +176,12 @@ entity sdcardio is
     touchSDA : inout std_logic;
     touchSCL : inout std_logic;
     -- Touch interface
-    touch1_valid : out std_logic;
-    touch1_x : out unsigned(13 downto 0);
-    touch1_y : out unsigned(11 downto 0);
-    touch2_valid : out std_logic;
-    touch2_x : out unsigned(13 downto 0);
-    touch2_y : out unsigned(11 downto 0);
+    touch1_valid : out std_logic := '0';
+    touch1_x : out unsigned(13 downto 0) := (others => '0');
+    touch1_y : out unsigned(11 downto 0) := (others => '0');
+    touch2_valid : out std_logic := '0';
+    touch2_x : out unsigned(13 downto 0) := (others => '0');
+    touch2_y : out unsigned(11 downto 0) := (others => '0');
         
     
     ----------------------------------------------------------------------

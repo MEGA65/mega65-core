@@ -47,10 +47,10 @@ port (
 	input_valid : in  std_logic;
 	ext_in      : in  signed(12 downto 0);
         
-	sound       : out signed(18 downto 0);
-	valid       : out std_logic;
+	sound       : out signed(18 downto 0) := (others => '0');
+	valid       : out std_logic := '0';
 
-        filter_table_addr : out integer range 0 to 2047;
+        filter_table_addr : out integer range 0 to 2047 := 0;
         filter_table_val : in unsigned(15 downto 0)
 );
 end entity;
@@ -98,7 +98,7 @@ architecture beh of sid_filters is
 		return a(12)&a(12)&a(12)&a(12)&a(12)&a;
 	end function;
 
-	signal fc : unsigned(10 downto 0);
+	signal fc : unsigned(10 downto 0) := (others => '0');
 
 begin
 

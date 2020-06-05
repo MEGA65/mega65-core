@@ -29,7 +29,7 @@ architecture foo of crc1581 is
   signal byte : unsigned(7 downto 0) := x"00";
 begin
   process (clock40mhz) is
-    variable last_crc : unsigned(15 downto 0);
+    variable last_crc : unsigned(15 downto 0) := x"0000";
   begin
     
     if rising_edge(clock40mhz) then

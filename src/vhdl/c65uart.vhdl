@@ -66,20 +66,20 @@ entity c65uart is
     amiga_mouse_assume_a : out std_logic;
     amiga_mouse_assume_b : out std_logic;
     
-    porte : inout std_logic_vector(7 downto 0);
-    portf : inout std_logic_vector(7 downto 0);
-    portg : inout std_logic_vector(7 downto 0);    
+    porte : inout std_logic_vector(7 downto 0) := (others => '0');
+    portf : inout std_logic_vector(7 downto 0) := (others => '0');
+    portg : inout std_logic_vector(7 downto 0) := (others => '0');
     porth : in std_logic_vector(7 downto 0);
     porth_write_strobe : out std_logic := '0';
     porti : in std_logic_vector(7 downto 0);
     portj_in : in std_logic_vector(7 downto 0);
-    portj_out : out std_logic_vector(7 downto 0);
-    portk_out : out  std_logic_vector(7 downto 0);
-    portl_out : out  std_logic_vector(7 downto 0);
-    portm_out : out  std_logic_vector(7 downto 0);
-    portn_out : out unsigned(7 downto 0);
-    porto_out : out unsigned(7 downto 0);
-    portp_out : out unsigned(7 downto 0);
+    portj_out : out std_logic_vector(7 downto 0) := (others => '0');
+    portk_out : out  std_logic_vector(7 downto 0) := (others => '0');
+    portl_out : out  std_logic_vector(7 downto 0) := (others => '0');
+    portm_out : out  std_logic_vector(7 downto 0) := (others => '0');
+    portn_out : out unsigned(7 downto 0) := (others => '0');
+    porto_out : out unsigned(7 downto 0) := (others => '0');
+    portp_out : out unsigned(7 downto 0) := (others => '0');
     portq_in : in unsigned(7 downto 0);
 
     suppress_key_glitches : out std_logic := '1';
