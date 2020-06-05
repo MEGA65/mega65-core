@@ -2030,7 +2030,7 @@ begin
             -- @IO:GS $D711.5 - DMA:AUDWRBLOCK Audio DMA block writes (samples still get read) 
             -- @IO:GS $D711.4 - DMA:AUDWRBLOCKED Audio DMA writes currently blocked (read only) DEBUG
             -- @IO:GS $D711.0-2 - DMA:AUDBLOCKTO Audio DMA block timeout (read only) DEBUG
-            when x"11" => return audio_dma_enable & audio_dma_blocked & audio_dma_disable_writes & audio_dma_write_blocked "0" & to_unsigned(audio_dma_block_timeout,3);
+            when x"11" => return audio_dma_enable & audio_dma_blocked & audio_dma_disable_writes & audio_dma_write_blocked & "0" & to_unsigned(audio_dma_block_timeout,3);
                           
             -- XXX DEBUG registers for audio DMA
             when x"1c" => return audio_dma_tick_counter(7 downto 0);
