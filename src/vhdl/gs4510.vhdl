@@ -231,7 +231,7 @@ entity gs4510 is
 
     slow_access_address : out unsigned(27 downto 0) := (others => '1');
     slow_access_write : out std_logic := '0';
-    slow_access_wdata : out unsigned(7 downto 0);
+    slow_access_wdata : out unsigned(7 downto 0) := x"00";
     slow_access_rdata : in unsigned(7 downto 0);
 
     -- Fast read interface for slow devices linear reading

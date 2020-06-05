@@ -14,8 +14,8 @@ architecture behavior of cpu_test is
 
   type CharFile is file of character;
   
-  signal pmoda : std_logic_vector(7 downto 0) := "ZZZZZZZZ";
-  signal pmodc : std_logic_vector(7 downto 0) := "ZZZZZZZZ";
+  signal pmoda : std_logic_vector(7 downto 0) := "11111111";
+  signal pmodc : std_logic_vector(7 downto 0) := "11111111";
   
   signal pixelclock : std_logic := '1';
   signal cpuclock : std_logic := '1';

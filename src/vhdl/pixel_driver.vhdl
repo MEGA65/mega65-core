@@ -61,29 +61,29 @@ entity pixel_driver is
 
     -- Output video stream, clocked at correct clock for the
     -- video mode, i.e., after clock domain crossing
-    red_o : out unsigned(7 downto 0);
-    green_o : out unsigned(7 downto 0);
-    blue_o : out unsigned(7 downto 0);
+    red_o : out unsigned(7 downto 0) := x"FF";
+    green_o : out unsigned(7 downto 0) := x"FF";
+    blue_o : out unsigned(7 downto 0) := x"FF";
     -- hsync and vsync signals for VGA
-    hsync : out std_logic;
-    vsync : out std_logic;
+    hsync : out std_logic := '1';
+    vsync : out std_logic := '1';
 
     -- Narrow display output, for VGA/HDMI
-    red_no : out unsigned(7 downto 0);
-    green_no : out unsigned(7 downto 0);
-    blue_no : out unsigned(7 downto 0);
+    red_no : out unsigned(7 downto 0) := x"FF";
+    green_no : out unsigned(7 downto 0) := x"FF";
+    blue_no : out unsigned(7 downto 0) := x"FF";
     
     -- Inform VIC-IV of new rasters and new frames
     -- Signals for VIC-IV etc to know what is happening
-    hsync_uninverted : out std_logic;
-    vsync_uninverted : out std_logic;
-    y_zero : out std_logic;
-    x_zero : out std_logic;
-    inframe : out std_logic;
+    hsync_uninverted : out std_logic := '0';
+    vsync_uninverted : out std_logic := '0';
+    y_zero : out std_logic := '0';
+    x_zero : out std_logic := '0';
+    inframe : out std_logic := '0';
     vga_inletterbox : out std_logic := '0';
 
     -- Indicate when next pixel/raster is expected
-    pixel_strobe_out : out std_logic;
+    pixel_strobe_out : out std_logic := '0';
 
     fullwidth_dataenable : out std_logic := '1';
     narrow_dataenable : out std_logic := '1';

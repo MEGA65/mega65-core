@@ -64,7 +64,7 @@ entity machine is
          clock162 : in std_logic;
          uartclock : std_logic;
          btnCpuReset : in  STD_LOGIC;
-         reset_out : out std_logic;
+         reset_out : out std_logic := '1';
          irq : in  STD_LOGIC;
          nmi : in  STD_LOGIC;
          restore_key : in std_logic;
@@ -83,20 +83,20 @@ entity machine is
          disco_led_val : out unsigned(7 downto 0) := x"00";
          disco_led_en : out std_logic := '0';
 
-         flopled : out std_logic;
-         flopmotor : out std_logic;
+         flopled : out std_logic := '0';
+         flopmotor : out std_logic := '0';
 
          buffereduart_rx : inout std_logic;
          buffereduart_tx : out std_logic := '1';
          buffereduart_ringindicate : in std_logic;
-         buffereduart2_rx : inout std_logic;
+         buffereduart2_rx : inout std_logic := '0';
          buffereduart2_tx : out std_logic := '1';
          
-         slow_access_request_toggle : out std_logic;
+         slow_access_request_toggle : out std_logic := '0';
          slow_access_ready_toggle : in std_logic := '0';
          slow_access_write : out std_logic := '0';
-         slow_access_address : out unsigned(27 downto 0);
-         slow_access_wdata : out unsigned(7 downto 0);
+         slow_access_address : out unsigned(27 downto 0) := to_unsigned(0,28);
+         slow_access_wdata : out unsigned(7 downto 0) := to_unsigned(0,8);
          slow_access_rdata : in unsigned(7 downto 0);
          cart_access_count : in unsigned(7 downto 0) := x"00";
 
@@ -138,13 +138,13 @@ entity machine is
          hdmi_dataenable : out std_logic := '0';
 
          hdmi_int : in std_logic := '1';
-         hdmi_hsync : out  STD_LOGIC;
-         hdmi_scl : inout std_logic;
-         hdmi_sda : inout std_logic;
-         hpd_a : inout std_logic;
+         hdmi_hsync : out  STD_LOGIC := '1';
+         hdmi_scl : inout std_logic := '1';
+         hdmi_sda : inout std_logic := '1';
+         hpd_a : inout std_logic := '1';
 
-         porto_out : out unsigned(7 downto 0);
-         portp_out : out unsigned(7 downto 0);
+         porto_out : out unsigned(7 downto 0) := x"00";
+         portp_out : out unsigned(7 downto 0) := x"00";
          
          -------------------------------------------------------------------------
          -- CIA1 ports for keyboard and joysticks
@@ -153,7 +153,7 @@ entity machine is
          portb_pins : in  std_logic_vector(7 downto 0);
          keyleft : in std_logic;
          keyup : in std_logic;
-         keyboard_column8 : out std_logic;
+         keyboard_column8 : out std_logic := '1';
          caps_lock_key : in std_logic;
          fa_left : in std_logic;
          fa_right : in std_logic;
@@ -169,48 +169,48 @@ entity machine is
          fa_poty : in std_logic;
          fb_potx : in std_logic;
          fb_poty : in std_logic;
-         pot_drain : buffer std_logic;
-         pot_via_iec : buffer std_logic;
+         pot_drain : buffer std_logic := '1';
+         pot_via_iec : buffer std_logic := '1';
 
-        i2c_joya_fire : out std_logic;
-        i2c_joya_up : out std_logic;
-        i2c_joya_down : out std_logic;
-        i2c_joya_left : out std_logic;
-        i2c_joya_right : out std_logic;
-        i2c_joyb_fire : out std_logic;
-        i2c_joyb_up : out std_logic;
-        i2c_joyb_down : out std_logic;
-        i2c_joyb_left : out std_logic;
-        i2c_joyb_right : out std_logic;
-        i2c_button2 : out std_logic;
-        i2c_button3 : out std_logic;
-        i2c_button4 : out std_logic;
-        i2c_black2 : out std_logic;
-        i2c_black3 : out std_logic;
-        i2c_black4 : out std_logic;
+        i2c_joya_fire : out std_logic := '1';
+        i2c_joya_up : out std_logic := '1';
+        i2c_joya_down : out std_logic := '1';
+        i2c_joya_left : out std_logic := '1';
+        i2c_joya_right : out std_logic := '1';
+        i2c_joyb_fire : out std_logic := '1';
+        i2c_joyb_up : out std_logic := '1';
+        i2c_joyb_down : out std_logic := '1';
+        i2c_joyb_left : out std_logic := '1';
+        i2c_joyb_right : out std_logic := '1';
+        i2c_button2 : out std_logic := '1';
+        i2c_button3 : out std_logic := '1';
+        i2c_button4 : out std_logic := '1';
+        i2c_black2 : out std_logic := '1';
+        i2c_black3 : out std_logic := '1';
+        i2c_black4 : out std_logic := '1';
          
          ----------------------------------------------------------------------
          -- CBM floppy serial port
          ----------------------------------------------------------------------
-         iec_clk_en : out std_logic;
-         iec_data_en : out std_logic;
-         iec_data_o : out std_logic;
-         iec_reset : out std_logic;
-         iec_clk_o : out std_logic;
-         iec_atn_o : out std_logic;
+         iec_clk_en : out std_logic := '1';
+         iec_data_en : out std_logic := '1';
+         iec_data_o : out std_logic := '1';
+         iec_reset : out std_logic := '1';
+         iec_clk_o : out std_logic := '1';
+         iec_atn_o : out std_logic := '1';
          iec_data_external : in std_logic;
          iec_clk_external : in std_logic;
          
          -------------------------------------------------------------------------
          -- Lines for the SDcard interfaces (internal and external (2))
          -------------------------------------------------------------------------
-         cs_bo : out std_logic;
-         sclk_o : out std_logic;
-         mosi_o : out std_logic;
+         cs_bo : out std_logic := '1';
+         sclk_o : out std_logic := '1';
+         mosi_o : out std_logic := '1';
          miso_i : in  std_logic;
-         cs2_bo : out std_logic;
-         sclk2_o : out std_logic;
-         mosi2_o : out std_logic;
+         cs2_bo : out std_logic := '1';
+         sclk2_o : out std_logic := '1';
+         mosi2_o : out std_logic := '1';
          miso2_i : in  std_logic;
 
          ----------------------------------------------------------------------
@@ -235,23 +235,23 @@ entity machine is
          -- Lines for other devices that we handle here
          ---------------------------------------------------------------------------
          aclMISO : in std_logic;
-         aclMOSI : out std_logic;
-         aclSS : out std_logic;
-         aclSCK : out std_logic;
+         aclMOSI : out std_logic := '1';
+         aclSS : out std_logic := '1';
+         aclSCK : out std_logic := '1';
          aclInt1 : in std_logic;
          aclInt2 : in std_logic;
 
-         ampPWM_l : out std_logic;
-         ampPWM_r : out std_logic;
-         pcspeaker_left : out std_logic;
-         ampSD : out std_logic;
-         audio_left : out std_logic_vector(19 downto 0);
-         audio_right : out std_logic_vector(19 downto 0);
+         ampPWM_l : out std_logic := '1';
+         ampPWM_r : out std_logic := '1';
+         pcspeaker_left : out std_logic := '1';
+         ampSD : out std_logic := '0';
+         audio_left : out std_logic_vector(19 downto 0) := (others => '1');
+         audio_right : out std_logic_vector(19 downto 0) := (others => '1');
 
          micData0 : in std_logic;
          micData1 : in std_logic;
-         micClk : out std_logic;
-         micLRSel : out std_logic;
+         micClk : out std_logic := '1';
+         micLRSel : out std_logic := '1';
 
          -- I2S audio channels
          i2s_master_clk : out std_logic := '0';
@@ -270,13 +270,13 @@ entity machine is
          i2s_bt_data_in : in std_logic := '0';
          i2s_bt_data_out : out std_logic := '0';    
          
-         tmpSDA : inout std_logic;
-         tmpSCL : inout std_logic;
+         tmpSDA : inout std_logic := '1';
+         tmpSCL : inout std_logic := '1';
          tmpInt : in std_logic;
          tmpCT : in std_logic;
 
-         i2c1SDA : inout std_logic;
-         i2c1SCL : inout std_logic;
+         i2c1SDA : inout std_logic := '1';
+         i2c1SCL : inout std_logic := '1';
 
          lcdpwm : out std_logic := '1';
          touchSDA : inout std_logic := '1';
@@ -286,11 +286,11 @@ entity machine is
          -- IO lines to the ethernet controller
          ---------------------------------------------------------------------------
          eth_mdio : inout std_logic;
-         eth_mdc : out std_logic;
-         eth_reset : out std_logic;
+         eth_mdc : out std_logic := '1';
+         eth_reset : out std_logic := '1';
          eth_rxd : in unsigned(1 downto 0);
-         eth_txd : out unsigned(1 downto 0);
-         eth_txen : out std_logic;
+         eth_txd : out unsigned(1 downto 0) := "00"; 
+         eth_txen : out std_logic := '0';
          eth_rxdv : in std_logic;
          eth_rxer : in std_logic;
          eth_interrupt : in std_logic;
@@ -317,7 +317,7 @@ entity machine is
         widget_joyb : in std_logic_vector(4 downto 0);
 
          uart_rx : inout std_logic;
-         uart_tx : out std_logic;
+         uart_tx : out std_logic := '1';
          
          -- CPU block ram debug
          -- Debugging
@@ -348,15 +348,15 @@ entity machine is
          ----------------------------------------------------------------------
          -- Debug interfaces on Nexys4 board
          ----------------------------------------------------------------------
-         led : out std_logic_vector(15 downto 0);
+         led : out std_logic_vector(15 downto 0) := (others => '0');
          sw : in std_logic_vector(15 downto 0);
          btn : in std_logic_vector(4 downto 0);
 
-         UART_TXD : out std_logic;
+         UART_TXD : out std_logic := '1';
          RsRx : in std_logic;
          
-         sseg_ca : out std_logic_vector(7 downto 0);
-         sseg_an : out std_logic_vector(7 downto 0)
+         sseg_ca : out std_logic_vector(7 downto 0) := (others => '0');
+         sseg_an : out std_logic_vector(7 downto 0) := (others => '0')
          );
 end machine;
 
