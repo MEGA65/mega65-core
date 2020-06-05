@@ -235,8 +235,7 @@ M65VHDL=		$(VHDLSRCDIR)/machine.vhdl \
 			$(SERMONVHDL) \
 			$(MEMVHDL) \
 			$(SUPPORTVHDL) \
-# PGS VFPGA not currently being used, and including it slows simulation a lot
-#			$(VFPGAVHDL) \
+			$(VFPGAVHDL) \
 
 SUPPORTVHDL=		$(VHDLSRCDIR)/debugtools.vhdl \
 			$(VHDLSRCDIR)/crc.vhdl \
@@ -266,6 +265,7 @@ NEXYSVHDL=		$(VHDLSRCDIR)/slowram.vhdl \
 
 
 SIMULATIONVHDL=		$(VHDLSRCDIR)/cpu_test.vhdl \
+			$(VHDLSRCDIR)/s27kl0641.vhd \
 			$(VHDLSRCDIR)/fake_expansion_port.vhdl \
 			$(VHDLSRCDIR)/fake_sdcard.vhdl \
 			$(VHDLSRCDIR)/fake_reconfig.vhdl \
