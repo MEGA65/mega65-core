@@ -7455,7 +7455,6 @@ begin
       audio_dma_last_current_addr_set_flag <= (others => '0');
       audio_dma_timing_counter <= (others => to_unsigned(0,25));
       audio_dma_last_timing_counter_set_flag <= (others => '0');
-      audio_dma_sample_valid <= (others => '0');      
     end if;
     
     if proceed = '0' or phi_pause='1' then
