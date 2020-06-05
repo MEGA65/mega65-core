@@ -652,32 +652,32 @@ architecture Behavioral of viciv is
   signal sprite_datavalid : std_logic;
   signal sprite_bytenumber : spritebytenumber := 0;
   signal sprite_spritenumber : spritenumber := 0;
-  signal sprite_data_byte : unsigned(7 downto 0);
+  signal sprite_data_byte : unsigned(7 downto 0) := to_unsigned(0,7+1);
   -- The sprite chain also has the opportunity to modify the pixel colour being
   -- drawn so that the sprites can be overlayed on the display.
   signal pixel_is_foreground : std_logic;
   signal pixel_is_background : std_logic;
   signal pixel_is_foreground_in : std_logic;
   signal pixel_is_background_in : std_logic;
-  signal composite_bg_red : unsigned(7 downto 0);
-  signal composite_bg_green : unsigned(7 downto 0);
-  signal composite_bg_blue : unsigned(7 downto 0);
-  signal composite_red : unsigned(7 downto 0);
-  signal composite_green : unsigned(7 downto 0);
-  signal composite_blue : unsigned(7 downto 0);
-  signal composited_red : std_logic_vector(9 downto 0);
-  signal composited_green : std_logic_vector(9 downto 0);
-  signal composited_blue : std_logic_vector(9 downto 0);
+  signal composite_bg_red : unsigned(7 downto 0) := to_unsigned(0,7+1);
+  signal composite_bg_green : unsigned(7 downto 0) := to_unsigned(0,7+1);
+  signal composite_bg_blue : unsigned(7 downto 0) := to_unsigned(0,7+1);
+  signal composite_red : unsigned(7 downto 0) := to_unsigned(0,7+1);
+  signal composite_green : unsigned(7 downto 0) := to_unsigned(0,7+1);
+  signal composite_blue : unsigned(7 downto 0) := to_unsigned(0,7+1);
+  signal composited_red : std_logic_vector(9 downto 0) := std_logic_vector(to_unsigned(0,9+1));
+  signal composited_green : std_logic_vector(9 downto 0) := std_logic_vector(to_unsigned(0,9+1));
+  signal composited_blue : std_logic_vector(9 downto 0) := std_logic_vector(to_unsigned(0,9+1));
   signal compositer_enable : std_logic := '1';
   signal is_background_in : std_logic;
   signal pixel_is_background_out : std_logic;
   signal pixel_is_foreground_out : std_logic;
-  signal chargen_pixel_colour : unsigned(7 downto 0);
-  signal chargen_alpha_value : unsigned(7 downto 0);
-  signal postsprite_pixel_colour : unsigned(7 downto 0);
-  signal postsprite_alpha_value : unsigned(7 downto 0);
+  signal chargen_pixel_colour : unsigned(7 downto 0) := to_unsigned(0,7+1);
+  signal chargen_alpha_value : unsigned(7 downto 0) := to_unsigned(0,7+1);
+  signal postsprite_pixel_colour : unsigned(7 downto 0) := to_unsigned(0,7+1);
+  signal postsprite_alpha_value : unsigned(7 downto 0) := to_unsigned(0,7+1);
   signal postsprite_sprite_number : integer range 0 to 7;
-  signal alpha_blend_alpha : unsigned(7 downto 0);
+  signal alpha_blend_alpha : unsigned(7 downto 0) := to_unsigned(0,7+1);
   signal pixel_is_sprite : std_logic;
 
   signal sprite_fetch_drive : std_logic := '0';
@@ -694,26 +694,26 @@ architecture Behavioral of viciv is
   signal thirtyeightcolumns : std_logic := '0';
   signal vicii_raster_compare : unsigned(10 downto 0) := to_unsigned(256,11);
   signal vicii_raster_compare_plus_one : unsigned(10 downto 0) := to_unsigned(256,11);
-  signal vicii_x_smoothscroll : unsigned(2 downto 0);
-  signal vicii_y_smoothscroll : unsigned(2 downto 0);
+  signal vicii_x_smoothscroll : unsigned(2 downto 0) := to_unsigned(0,2+1);
+  signal vicii_y_smoothscroll : unsigned(2 downto 0) := to_unsigned(0,2+1);
   -- NOTE: these are here for reading. the actual used VIC-II sprite
   -- registers are defined in vicii_sprites.vhdl
   signal vicii_sprite_enables : std_logic_vector(7 downto 0) := x"FF";
-  signal vicii_sprite_xmsbs : std_logic_vector(7 downto 0);
-  signal vicii_sprite_x_expand : std_logic_vector(7 downto 0);
-  signal vicii_sprite_y_expand : std_logic_vector(7 downto 0);
-  signal vicii_sprite_priority_bits : std_logic_vector(7 downto 0);
-  signal vicii_sprite_multicolour_bits : std_logic_vector(7 downto 0);
+  signal vicii_sprite_xmsbs : std_logic_vector(7 downto 0) := std_logic_vector(to_unsigned(0,7+1));
+  signal vicii_sprite_x_expand : std_logic_vector(7 downto 0) := std_logic_vector(to_unsigned(0,7+1));
+  signal vicii_sprite_y_expand : std_logic_vector(7 downto 0) := std_logic_vector(to_unsigned(0,7+1));
+  signal vicii_sprite_priority_bits : std_logic_vector(7 downto 0) := std_logic_vector(to_unsigned(0,7+1));
+  signal vicii_sprite_multicolour_bits : std_logic_vector(7 downto 0) := std_logic_vector(to_unsigned(0,7+1));
 
   -- Here are the signals received from the sprites, which get ored onto
   -- the following signals.
-  signal vicii_sprite_sprite_collision_map : std_logic_vector(7 downto 0);
-  signal vicii_sprite_bitmap_collision_map : std_logic_vector(7 downto 0);
+  signal vicii_sprite_sprite_collision_map : std_logic_vector(7 downto 0) := std_logic_vector(to_unsigned(0,7+1));
+  signal vicii_sprite_bitmap_collision_map : std_logic_vector(7 downto 0) := std_logic_vector(to_unsigned(0,7+1));
 
   -- HEre is what gets read from the VIC-II register (and then zeroed in the process)
   -- and which also get checked for interrupt generation
-  signal vicii_sprite_sprite_collisions : std_logic_vector(7 downto 0);
-  signal vicii_sprite_bitmap_collisions : std_logic_vector(7 downto 0);
+  signal vicii_sprite_sprite_collisions : std_logic_vector(7 downto 0) := std_logic_vector(to_unsigned(0,7+1));
+  signal vicii_sprite_bitmap_collisions : std_logic_vector(7 downto 0) := std_logic_vector(to_unsigned(0,7+1));
 
   signal viciii_extended_attributes : std_logic := '1';
   signal irq_lightpen : std_logic := '0';
@@ -733,8 +733,8 @@ architecture Behavioral of viciv is
   signal clear_collisionspritesprite : std_logic := '0';
   signal clear_collisionspritesprite_1 : std_logic := '0';
 
-  signal lightpen_x_latch : unsigned(7 downto 0);
-  signal lightpen_y_latch : unsigned(7 downto 0);
+  signal lightpen_x_latch : unsigned(7 downto 0) := to_unsigned(0,7+1);
+  signal lightpen_y_latch : unsigned(7 downto 0) := to_unsigned(0,7+1);
   
   -- Used for hardware character blinking ala C65
   signal viciii_blink_phase : std_logic := '0';
@@ -770,7 +770,7 @@ architecture Behavioral of viciv is
   signal card_number : unsigned(15 downto 0) := x"0000";
   signal card_number_drive : unsigned(15 downto 0) := x"0000";
   signal card_number_is_extended : std_logic;  -- set if card_number > $00FF
-  signal first_card_of_row : unsigned(15 downto 0);
+  signal first_card_of_row : unsigned(15 downto 0) := to_unsigned(0,15+1);
   -- DEBUG: Set previous first card of row to all high so that a badline gets
   -- triggered on the first raster being drawn.
   -- Also used so that last pixel row in bitmap char cards doesn't show data
@@ -782,48 +782,48 @@ architecture Behavioral of viciv is
   signal chargen_y_next : unsigned(2 downto 0) := (others => '0');
   signal chargen_y_hold : unsigned(2 downto 0) := (others => '0');
   -- fractional pixel position for scaling
-  signal chargen_y_sub : unsigned(4 downto 0);
+  signal chargen_y_sub : unsigned(4 downto 0) := to_unsigned(0,4+1);
 
   -- Common bitmap and character drawing info
-  signal glyph_data_address : unsigned(19 downto 0);
+  signal glyph_data_address : unsigned(19 downto 0) := to_unsigned(0,20);
 
   -- For holding pre-calculated expressions to flatten logic
-  signal bitmap_glyph_data_address : unsigned(19 downto 0);
+  signal bitmap_glyph_data_address : unsigned(19 downto 0) := to_unsigned(0,20);
 
 
   -- Bitmap drawing info
-  signal bitmap_colour_foreground : unsigned(7 downto 0);
-  signal bitmap_colour_background : unsigned(7 downto 0);
+  signal bitmap_colour_foreground : unsigned(7 downto 0) := x"00";
+  signal bitmap_colour_background : unsigned(7 downto 0) := x"00";
 
   -- Character drawing info
-  signal background_colour_select : unsigned(1 downto 0);
+  signal background_colour_select : unsigned(1 downto 0) := "00";
   signal glyph_number : unsigned(12 downto 0) := to_unsigned(0,13);
-  signal glyph_colour_drive : unsigned(7 downto 0);
-  signal glyph_colour_drive2 : unsigned(7 downto 0);
-  signal glyph_colour : unsigned(7 downto 0);
-  signal glyph_attributes : unsigned(3 downto 0);
-  signal glyph_visible_drive : std_logic;
-  signal glyph_visible : std_logic;
-  signal glyph_bold : std_logic;
-  signal glyph_bold_drive : std_logic;
-  signal glyph_underline_drive : std_logic;
-  signal glyph_underline : std_logic;
-  signal glyph_reverse : std_logic;
-  signal glyph_reverse_drive : std_logic;
-  signal glyph_full_colour : std_logic;
-  signal glyph_4bit : std_logic;
-  signal glyph_flip_horizontal : std_logic;
-  signal glyph_flip_vertical : std_logic;
-  signal glyph_goto : std_logic;
-  signal glyph_width_deduct : unsigned(3 downto 0);
+  signal glyph_colour_drive : unsigned(7 downto 0) := x"00";
+  signal glyph_colour_drive2 : unsigned(7 downto 0) := x"00";
+  signal glyph_colour : unsigned(7 downto 0) := x"00";
+  signal glyph_attributes : unsigned(3 downto 0) := "0000";
+  signal glyph_visible_drive : std_logic := '0';
+  signal glyph_visible : std_logic := '0';
+  signal glyph_bold : std_logic := '0';
+  signal glyph_bold_drive : std_logic := '0';
+  signal glyph_underline_drive : std_logic := '0';
+  signal glyph_underline : std_logic := '0';
+  signal glyph_reverse : std_logic := '0';
+  signal glyph_reverse_drive : std_logic := '0';
+  signal glyph_full_colour : std_logic := '0';
+  signal glyph_4bit : std_logic := '0';
+  signal glyph_flip_horizontal : std_logic := '0';
+  signal glyph_flip_vertical : std_logic := '0';
+  signal glyph_goto : std_logic := '0';
+  signal glyph_width_deduct : unsigned(3 downto 0) := to_unsigned(0,3+1);
   signal glyph_width : integer range 0 to 16;
   signal paint_glyph_width : integer range 0 to 16;
-  signal paint_glyph_4bit : std_logic;
-  signal glyph_blink : std_logic;
-  signal glyph_blink_drive : std_logic;
-  signal paint_blink : std_logic;
-  signal glyph_with_alpha : std_logic;
-  signal paint_with_alpha : std_logic;
+  signal paint_glyph_4bit : std_logic := '0';
+  signal glyph_blink : std_logic := '0';
+  signal glyph_blink_drive : std_logic := '0';
+  signal paint_blink : std_logic := '0';
+  signal glyph_with_alpha : std_logic := '0';
+  signal paint_with_alpha : std_logic := '0';
   signal glyph_trim_top : integer range 0 to 7;
   signal glyph_trim_bottom : integer range 0 to 7;
   signal glyph_paint_background : std_logic := '1';
@@ -835,7 +835,7 @@ architecture Behavioral of viciv is
   signal screen_ram_high_is_ff : std_logic := '0';
   signal row_advance : integer range 0 to 512;
 
-  signal card_of_row : unsigned(7 downto 0);
+  signal card_of_row : unsigned(7 downto 0) := to_unsigned(0,7+1);
   signal chargen_active : std_logic := '0';
   signal chargen_active_drive : std_logic := '0';
   signal chargen_active_soon : std_logic := '0';
@@ -848,21 +848,21 @@ architecture Behavioral of viciv is
   signal card_number_t1 : unsigned(7 downto 0) := (others => '0');
   signal card_number_t2 : unsigned(7 downto 0) := (others => '0');
   signal card_number_t3 : unsigned(7 downto 0) := (others => '0');
-  signal cards_differ : std_logic;
+  signal cards_differ : std_logic := '0';
   signal indisplay_t1 : std_logic := '0';
   signal indisplay_t2 : std_logic := '0';
   signal indisplay_t3 : std_logic := '0';
-  signal cycles_to_next_card : unsigned(7 downto 0);
-  signal cycles_to_next_card_drive : unsigned(7 downto 0);
+  signal cycles_to_next_card : unsigned(7 downto 0) := to_unsigned(0,7+1);
+  signal cycles_to_next_card_drive : unsigned(7 downto 0) := to_unsigned(0,7+1);
 
   -- Interface to character generator rom
   signal charaddress : integer range 0 to 4095;
-  signal chardata : std_logic_vector(7 downto 0);
-  signal chardata_drive : unsigned(7 downto 0);
+  signal chardata : std_logic_vector(7 downto 0) := std_logic_vector(to_unsigned(0,7+1));
+  signal chardata_drive : unsigned(7 downto 0) := to_unsigned(0,7+1);
   -- buffer of read data to improve timing
-  signal charrow : std_logic_vector(7 downto 0);
-  signal charrow_t1 : std_logic_vector(7 downto 0);
-  signal charrow_t2 : std_logic_vector(7 downto 0);
+  signal charrow : std_logic_vector(7 downto 0) := std_logic_vector(to_unsigned(0,7+1));
+  signal charrow_t1 : std_logic_vector(7 downto 0) := std_logic_vector(to_unsigned(0,7+1));
+  signal charrow_t2 : std_logic_vector(7 downto 0) := std_logic_vector(to_unsigned(0,7+1));
 
   -- C65 style 2K colour RAM
   signal colourram_at_dc00_internal : std_logic := '0';
@@ -892,20 +892,20 @@ architecture Behavioral of viciv is
 
   -- Border generation signals
   -- (see video registers section for the registers that define the border size)
-  signal inborder : std_logic;
-  signal postsprite_inborder : std_logic;
-  signal inborder_drive : std_logic;
-  signal inborder_t1 : std_logic;
-  signal inborder_t2 : std_logic;
-  signal xfrontporch : std_logic;
-  signal xfrontporch_drive : std_logic;
-  signal xbackporch : std_logic;
-  signal xbackporch_edge : std_logic;
+  signal inborder : std_logic := '0';
+  signal postsprite_inborder : std_logic := '0';
+  signal inborder_drive : std_logic := '0';
+  signal inborder_t1 : std_logic := '0';
+  signal inborder_t2 : std_logic := '0';
+  signal xfrontporch : std_logic := '0';
+  signal xfrontporch_drive : std_logic := '0';
+  signal xbackporch : std_logic := '0';
+  signal xbackporch_edge : std_logic := '0';
 
-  signal last_ramaddress : unsigned(19 downto 0);
-  signal ramaddress : unsigned(19 downto 0);
-  signal ramdata : unsigned(7 downto 0);
-  signal ramdata_drive : unsigned(7 downto 0);
+  signal last_ramaddress : unsigned(19 downto 0) := to_unsigned(0,19+1);
+  signal ramaddress : unsigned(19 downto 0) := to_unsigned(0,19+1);
+  signal ramdata : unsigned(7 downto 0) := to_unsigned(0,7+1);
+  signal ramdata_drive : unsigned(7 downto 0) := to_unsigned(0,7+1);
 
   -- Precalculated mono/multicolour pixel bits
   signal multicolour_bits : std_logic_vector(1 downto 0) := (others => '0');
@@ -913,41 +913,41 @@ architecture Behavioral of viciv is
 
   -- Raster buffer
   -- Read address is in 128th of pixels
-  signal raster_buffer_read_address : unsigned(10 downto 0);
-  signal raster_buffer_read_address_sub : unsigned(9 downto 0);
-  signal raster_buffer_read_address_next : unsigned(10 downto 0);
-  signal raster_buffer_read_address_sub_next : unsigned(9 downto 0);
-  signal raster_buffer_read_data : unsigned(17 downto 0);
-  signal raster_buffer_write_address : unsigned(10 downto 0);
-  signal raster_buffer_write_data : unsigned(17 downto 0);
-  signal raster_buffer_write : std_logic;
+  signal raster_buffer_read_address : unsigned(10 downto 0) := to_unsigned(0,10+1);
+  signal raster_buffer_read_address_sub : unsigned(9 downto 0) := to_unsigned(0,9+1);
+  signal raster_buffer_read_address_next : unsigned(10 downto 0) := to_unsigned(0,10+1);
+  signal raster_buffer_read_address_sub_next : unsigned(9 downto 0) := to_unsigned(0,9+1);
+  signal raster_buffer_read_data : unsigned(17 downto 0) := to_unsigned(0,17+1);
+  signal raster_buffer_write_address : unsigned(10 downto 0) := to_unsigned(0,10+1);
+  signal raster_buffer_write_data : unsigned(17 downto 0) := to_unsigned(0,17+1);
+  signal raster_buffer_write : std_logic := '0';
 
-  signal raster_buffer_max_write_address : unsigned(9 downto 0);
-  signal raster_buffer_max_write_address_hold : unsigned(9 downto 0);
-  signal raster_buffer_max_write_address_prev : unsigned(9 downto 0);
+  signal raster_buffer_max_write_address : unsigned(9 downto 0) := to_unsigned(0,9+1);
+  signal raster_buffer_max_write_address_hold : unsigned(9 downto 0) := to_unsigned(0,9+1);
+  signal raster_buffer_max_write_address_prev : unsigned(9 downto 0) := to_unsigned(0,9+1);
 
   -- Colour RAM access for video controller
-  signal colourramaddress : unsigned(15 downto 0);
-  signal colourramdata : unsigned(7 downto 0);
+  signal colourramaddress : unsigned(15 downto 0) := to_unsigned(0,15+1);
+  signal colourramdata : unsigned(7 downto 0) := to_unsigned(0,7+1);
   -- ... and for CPU
-  signal colour_ram_fastio_address : unsigned(15 downto 0);
+  signal colour_ram_fastio_address : unsigned(15 downto 0) := to_unsigned(0,15+1);
 
   -- Palette RAM access via fastio port
   signal palette_we : std_logic_vector(3 downto 0) := (others => '0');
-  signal palette_fastio_address : std_logic_vector(9 downto 0);
-  signal palette_fastio_rdata : std_logic_vector(31 downto 0);
+  signal palette_fastio_address : std_logic_vector(9 downto 0) := std_logic_vector(to_unsigned(0,9+1));
+  signal palette_fastio_rdata : std_logic_vector(31 downto 0) := std_logic_vector(to_unsigned(0,31+1));
 
   -- Palette RAM access for video controller
   -- -- colour lookup for primary pixel pipeline
-  signal palette_address : std_logic_vector(9 downto 0);
-  signal palette_rdata : std_logic_vector(31 downto 0);
+  signal palette_address : std_logic_vector(9 downto 0) := std_logic_vector(to_unsigned(0,9+1));
+  signal palette_rdata : std_logic_vector(31 downto 0) := std_logic_vector(to_unsigned(0,31+1));
   -- -- colour lookup for anti-aliased font foreground colour
-  signal alias_palette_address : std_logic_vector(9 downto 0);
-  signal alias_palette_rdata : std_logic_vector(31 downto 0);
+  signal alias_palette_address : std_logic_vector(9 downto 0) := std_logic_vector(to_unsigned(0,9+1));
+  signal alias_palette_rdata : std_logic_vector(31 downto 0) := std_logic_vector(to_unsigned(0,31+1));
   -- -- colour lookup for alpha blending of visible sprite over
   --    character generator
-  signal sprite_alias_palette_address : std_logic_vector(9 downto 0);
-  signal sprite_alias_palette_rdata : std_logic_vector(31 downto 0);
+  signal sprite_alias_palette_address : std_logic_vector(9 downto 0) := std_logic_vector(to_unsigned(0,9+1));
+  signal sprite_alias_palette_rdata : std_logic_vector(31 downto 0) := std_logic_vector(to_unsigned(0,31+1));
 
   -- Palette bank selection registers
   signal palette_bank_fastio : std_logic_vector(1 downto 0) := "11";
@@ -1539,10 +1539,10 @@ begin
     end procedure viciv_update_side_border_dimensions;
 
 
-    variable register_bank : unsigned(7 downto 0);
-    variable register_page : unsigned(3 downto 0);
-    variable register_num : unsigned(7 downto 0);
-    variable register_number : unsigned(11 downto 0);
+    variable register_bank : unsigned(7 downto 0) := to_unsigned(0,7+1);
+    variable register_page : unsigned(3 downto 0) := to_unsigned(0,3+1);
+    variable register_num : unsigned(7 downto 0) := to_unsigned(0,7+1);
+    variable register_number : unsigned(11 downto 0) := to_unsigned(0,11+1);
   begin
     fastio_rdata <= (others => 'Z');
 
