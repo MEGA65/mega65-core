@@ -3563,85 +3563,95 @@ begin
       end if;
 
       -- See combinatorial state machine further down for the actual memory accesses
-      case state is
-        when DoAudioDMA =>
-          audio_dma_tick_counter <= audio_dma_tick_counter + 1;
-          audio_dma_wait_state <= '1';
-          
-        when InstructionFetch | InstructionDecode =>
-          if (audio_dma_blocked = '0') and (audio_dma_pending(0) or audio_dma_pending(1)
-                                            or audio_dma_pending(2) or audio_dma_pending(3)) = '1' then
-            report "Audio DMA servicing request";
-            audio_dma_write_sequence <= 0;                
-            audio_dma_fetch_is_lsb <= '0';
-            if audio_dma_wait_state='1' then
-              audio_dma_wait_state <= '0';
-              reg_pc <= reg_pc - 1;              
-            elsif audio_dma_pending(0)='1' then
-              audio_dma_target_channel <= 0;
-              if audio_dma_sample_width(0)="11" and audio_dma_pending_msb(0)='1' then
-                -- We still need to read the MSB after
-                audio_dma_sample_valid(0) <= '0';
-                audio_dma_fetch_is_lsb <= '1';
-                audio_dma_pending_msb(0) <='0';
-                audio_dma_current_addr(0) <= audio_dma_current_addr(0) + 1;
-                report "audio_dma_current_value: scheduling LSB read of $" & to_hstring(audio_dma_current_addr(0));
-                
-              elsif audio_dma_sample_width(0)="11" and audio_dma_pending_msb(0)='0' then
-                report "audio_dma_current_value: scheduling MSB read of $" & to_hstring(audio_dma_current_addr(0));
-                -- 2nd cycle, so record the LSB
-                audio_dma_current_value(0)(7 downto 0) <= signed(memory_read_value);
-                report "audio_dma_current_value(" & integer'image(0) & ") <= $xx"
-                  & to_hstring(memory_read_value);
-                audio_dma_fetch_is_lsb <= '0';                
-                audio_dma_current_addr(0) <= audio_dma_current_addr(0) + 1;                
-                audio_dma_pending(0) <= '0';
-                state <= DoAudioDMA;
-              else
-                -- We are reading the MSB (or MSB-only sample format)
-                audio_dma_pending(0) <= '0';
-                state <= DoAudioDMA;
-              end if;
-            elsif audio_dma_pending(1)='1' then
-              audio_dma_target_channel <= 1;
-              if audio_dma_sample_width(1)="11" and audio_dma_pending_msb(1)='1' then
-                audio_dma_fetch_is_lsb <= '1';
-                audio_dma_pending_msb(1) <='0';
-                audio_dma_current_addr(1) <= audio_dma_current_addr(1) + 1;
-              else
-                audio_dma_pending(1) <= '0';
-                state <= DoAudioDMA;
-              end if;
-            elsif audio_dma_pending(2)='1' then
-              audio_dma_target_channel <= 2;
-              if audio_dma_sample_width(2)="11" and audio_dma_pending_msb(2)='1' then
-                audio_dma_fetch_is_lsb <= '1';
-                audio_dma_pending_msb(2) <='0';
-                audio_dma_current_addr(2) <= audio_dma_current_addr(2) + 1;
-              else
-                audio_dma_pending(2) <= '0';
-                state <= DoAudioDMA;
-              end if;
-            elsif audio_dma_pending(3)='1' then
-              audio_dma_target_channel <= 3;
-              if audio_dma_sample_width(3)="11" and audio_dma_pending_msb(3)='1' then
-                audio_dma_fetch_is_lsb <= '1';
-                audio_dma_pending_msb(3) <='0';
-                audio_dma_current_addr(3) <= audio_dma_current_addr(3) + 1;
-              else
-                audio_dma_pending(3) <= '0';
-                state <= DoAudioDMA;
+      if proceed='1' then
+        case state is
+          when DoAudioDMA =>
+            audio_dma_tick_counter <= audio_dma_tick_counter + 1;
+            audio_dma_wait_state <= '1';
+            report "Asserting audio_dma_wait_state";
+            
+          when InstructionFetch | InstructionDecode =>
+            if (audio_dma_blocked = '0') and (audio_dma_pending(0) or audio_dma_pending(1)
+                                              or audio_dma_pending(2) or audio_dma_pending(3)) = '1' then
+              report "Audio DMA servicing request";
+              audio_dma_write_sequence <= 0;                
+              audio_dma_fetch_is_lsb <= '0';
+              
+              -- Force to use shadow RAM, as normal address resolution doesn't
+              -- happen here.
+              read_source <= Shadow;
+              
+              if audio_dma_wait_state='1' then
+                report "audio DMA wait state";
+                audio_dma_wait_state <= '0';
+                reg_pc <= reg_pc - 1;              
+              elsif audio_dma_pending(0)='1' then
+                audio_dma_target_channel <= 0;
+                if audio_dma_sample_width(0)="11" and audio_dma_pending_msb(0)='1' then
+                  -- We still need to read the MSB after
+                  audio_dma_sample_valid(0) <= '0';
+                  audio_dma_fetch_is_lsb <= '1';
+                  audio_dma_pending_msb(0) <='0';
+                  audio_dma_current_addr(0) <= audio_dma_current_addr(0) + 1;
+                  report "audio_dma_current_value: scheduling LSB read of $" & to_hstring(audio_dma_current_addr(0));
+                  
+                elsif audio_dma_sample_width(0)="11" and audio_dma_pending_msb(0)='0' then
+                  report "audio_dma_current_value: scheduling MSB read of $" & to_hstring(audio_dma_current_addr(0));
+                  -- 2nd cycle, so record the LSB
+                  audio_dma_current_value(0)(7 downto 0) <= signed(memory_read_value);
+                  report "audio_dma_current_value(" & integer'image(0) & ") <= $xx"
+                    & to_hstring(memory_read_value);
+                  audio_dma_fetch_is_lsb <= '0';                
+                  audio_dma_current_addr(0) <= audio_dma_current_addr(0) + 1;                
+                  audio_dma_pending(0) <= '0';
+                  state <= DoAudioDMA;
+                else
+                  -- We are reading the MSB (or MSB-only sample format)
+                  audio_dma_pending(0) <= '0';
+                  state <= DoAudioDMA;
+                end if;
+              elsif audio_dma_pending(1)='1' then
+                audio_dma_target_channel <= 1;
+                if audio_dma_sample_width(1)="11" and audio_dma_pending_msb(1)='1' then
+                  audio_dma_fetch_is_lsb <= '1';
+                  audio_dma_pending_msb(1) <='0';
+                  audio_dma_current_addr(1) <= audio_dma_current_addr(1) + 1;
+                else
+                  audio_dma_pending(1) <= '0';
+                  state <= DoAudioDMA;
+                end if;
+              elsif audio_dma_pending(2)='1' then
+                audio_dma_target_channel <= 2;
+                if audio_dma_sample_width(2)="11" and audio_dma_pending_msb(2)='1' then
+                  audio_dma_fetch_is_lsb <= '1';
+                  audio_dma_pending_msb(2) <='0';
+                  audio_dma_current_addr(2) <= audio_dma_current_addr(2) + 1;
+                else
+                  audio_dma_pending(2) <= '0';
+                  state <= DoAudioDMA;
+                end if;
+              elsif audio_dma_pending(3)='1' then
+                audio_dma_target_channel <= 3;
+                if audio_dma_sample_width(3)="11" and audio_dma_pending_msb(3)='1' then
+                  audio_dma_fetch_is_lsb <= '1';
+                  audio_dma_pending_msb(3) <='0';
+                  audio_dma_current_addr(3) <= audio_dma_current_addr(3) + 1;
+                else
+                  audio_dma_pending(3) <= '0';
+                  state <= DoAudioDMA;
+                end if;
               end if;
             end if;
-          end if;
-        when others =>
-          null;
-      end case;               
+          when others =>
+            null;
+        end case;               
+      end if;
       
       report "Audio DMA blocked = " & std_logic'image(audio_dma_blocked)
         & ", blocked timeout = " & integer'image(audio_dma_block_timeout);
       for i in 0 to 3 loop
         if audio_dma_enables(i)='0' then
+          if false then
 --        report "Audio DMA channel " & integer'image(i) & " disabled.";
           report "Audio DMA channel " & integer'image(i) & " disabled: ";
           report "Audio DMA channel " & integer'image(i)
@@ -3664,8 +3674,9 @@ begin
             & std_logic'image(std_logic(audio_dma_timing_counter(0)(20)))
             & std_logic'image(std_logic(audio_dma_timing_counter(0)(19)))
             ;
+          end if;
         else
-          
+          if false then
           report "Audio DMA channel " & integer'image(i) & " enabled: ";
           report "Audio DMA channel " & integer'image(i) 
             & " pending=$" & std_logic'image(audio_dma_pending(i));
@@ -3689,6 +3700,7 @@ begin
             & std_logic'image(std_logic(audio_dma_timing_counter(0)(20)))
             & std_logic'image(std_logic(audio_dma_timing_counter(0)(19)))
             ;
+          end if;
           
           report "UPDATE timing_counter = " & integer'image(to_integer(audio_dma_timing_counter(i)(23 downto 0)))
             & ", time_base = " & integer'image(to_integer(audio_dma_time_base(i)));
@@ -6998,18 +7010,19 @@ begin
           end if;
         end if;
         
-                                        -- Effect memory accesses.
-                                        -- Note that we cannot combine address resolution for read and write,
-                                        -- because the resolution of some addresses is dependent on whether
-                                        -- the operation is read or write.  ROM accesses are a good example.
-                                        -- We delay the memory write until the next cycle to minimise logic depth
-
-                                        -- XXX - Try to fast-route low address lines to shadowram and other memory
-                                        -- blocks.
+        -- Effect memory accesses.
+        -- Note that we cannot combine address resolution for read and write,
+        -- because the resolution of some addresses is dependent on whether
+        -- the operation is read or write.  ROM accesses are a good example.
+        -- We delay the memory write until the next cycle to minimise logic depth
         
-                                        -- Mark pages dirty as necessary        
+        -- XXX - Try to fast-route low address lines to shadowram and other memory
+        -- blocks.
+        
+        -- Mark pages dirty as necessary        
         if memory_access_write='1' then
-
+          report "MEMORY is write";
+          
           -- Mark pages dirty as necessary        
           if(reg_pages_dirty_next(0) = '1') then
             reg_pages_dirty(0) <= '1';
@@ -7159,6 +7172,8 @@ begin
         elsif memory_access_read='1' then 
           report "memory_access_read=1, addres=$"&to_hstring(memory_access_address) severity note;
           read_long_address(memory_access_address);
+        else
+          report "MEMORY no action";          
         end if;
       end if; -- if not reseting
     end if;                         -- if rising edge of clock
@@ -7584,6 +7599,7 @@ begin
         when DoAudioDMA =>
           -- Commit the updated audio values
           if (audio_dma_write_blocked = '0') and (audio_dma_enables(0) or audio_dma_enables(1) or audio_dma_enables(2) or audio_dma_enables(3)) = '1' then
+            memory_access_read := '0';
             memory_access_write := '1';
             memory_access_resolve_address := '0';
             report "Setting audio_dma memory write address";
@@ -7603,7 +7619,11 @@ begin
         when InstructionFetch | InstructionDecode =>
           if (audio_dma_blocked = '0') and (audio_dma_pending(0) or audio_dma_pending(1) or audio_dma_pending(2) or audio_dma_pending(3)) = '1' then
             report "Audio DMA servicing request";
+            -- We have to hard-wire the access here, as it is happening after
+            -- the normal address resolution stuff.
+            -- This means in particular setting the memory_source to Shadow.
             memory_access_read := '1';
+            memory_access_write := '0';
             memory_access_resolve_address := '0';
               memory_access_address(27 downto 24) := x"0";
             if audio_dma_pending(0)='1' then
@@ -7674,6 +7694,7 @@ begin
             end if;
           else
             -- Don't do anything while the processor is held.
+            report "clearing memory access due to processor hold";
             memory_access_write := '0';
             memory_access_read := '0';
           end if;
@@ -8337,6 +8358,12 @@ begin
 
     hyppo_address_out <= hyppo_address_next;
     fastio_addr_fast <= fastio_addr_next;
+
+    report "final memory access was $" & to_hstring(memory_access_address)
+      & ", read=" & std_logic'image(memory_access_read)
+      & ", write=" & std_logic'image(memory_access_write)
+      & " to " & memory_source'image(read_source);
+    
     
   end process;
 
