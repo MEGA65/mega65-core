@@ -308,6 +308,11 @@ ghdl_bug:	$(GHDL) $(VHDLSRCDIR)/ghdl_bug.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDL
 	ghdl -i $(VHDLSRCDIR)/ghdl_bug.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl 
 	ghdl -m -g ghdl_bug
 
+MFMTESTSRCS=	$(VHDLSRCDIR)/mfm_test.vhdl $(VHDLSRCDIR)/mfm_bits_to_gaps.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl 
+simulatemfm:	$(GHDL) $(MFMTESTSRCS)
+	ghdl -i $(MFMTESTSRCS)
+	ghdl -m -g mfm_test
+
 nocpu:	$(GHDL) $(NOCPUSIMULATIONVHDL)
 	$(GHDL) -i $(NOCPUSIMULATIONVHDL)
 	$(GHDL) -m cpu_test
