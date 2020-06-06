@@ -367,7 +367,7 @@ architecture Behavioural of gs4510 is
   signal audio_dma_sample_valid : std_logic_vector(0 to 3) := (others => '0');
   signal audio_dma_current_value : s15_0to3 := (others => to_signed(0,16));
   signal audio_dma_multed : s24_0to3 := (others => to_signed(0,25));
-
+  signal audio_dma_wait_state : std_logic := '1';
   
   -- C65 RAM Expansion Controller
   -- bit 7 = indicate error status?
@@ -1408,7 +1408,7 @@ begin
     dinl => std_logic_vector(cache_wdata)
     );    
       
-  process(clock,reset,reg_a,reg_x,reg_y,reg_z,flag_c,all_pause)
+  process (clock,reset,reg_a,reg_x,reg_y,reg_z,flag_c,all_pause,read_data)
     procedure disassemble_last_instruction is
       variable justification : side := RIGHT;
       variable size : width := 0;
@@ -3566,45 +3566,71 @@ begin
       case state is
         when DoAudioDMA =>
           audio_dma_tick_counter <= audio_dma_tick_counter + 1;
+          audio_dma_wait_state <= '1';
           
         when InstructionFetch | InstructionDecode =>
           if (audio_dma_blocked = '0') and (audio_dma_pending(0) or audio_dma_pending(1)
                                             or audio_dma_pending(2) or audio_dma_pending(3)) = '1' then
             report "Audio DMA servicing request";
+            audio_dma_write_sequence <= 0;                
             audio_dma_fetch_is_lsb <= '0';
-            if audio_dma_pending(0)='1' then
+            if audio_dma_wait_state='1' then
+              audio_dma_wait_state <= '0';
+              reg_pc <= reg_pc - 1;              
+            elsif audio_dma_pending(0)='1' then
               audio_dma_target_channel <= 0;
               if audio_dma_sample_width(0)="11" and audio_dma_pending_msb(0)='1' then
                 -- We still need to read the MSB after
+                audio_dma_sample_valid(0) <= '0';
                 audio_dma_fetch_is_lsb <= '1';
                 audio_dma_pending_msb(0) <='0';
+                audio_dma_current_addr(0) <= audio_dma_current_addr(0) + 1;
+                report "audio_dma_current_value: scheduling LSB read of $" & to_hstring(audio_dma_current_addr(0));
+                
+              elsif audio_dma_sample_width(0)="11" and audio_dma_pending_msb(0)='0' then
+                report "audio_dma_current_value: scheduling MSB read of $" & to_hstring(audio_dma_current_addr(0));
+                -- 2nd cycle, so record the LSB
+                audio_dma_current_value(0)(7 downto 0) <= signed(memory_read_value);
+                report "audio_dma_current_value(" & integer'image(0) & ") <= $xx"
+                  & to_hstring(memory_read_value);
+                audio_dma_fetch_is_lsb <= '0';                
+                audio_dma_current_addr(0) <= audio_dma_current_addr(0) + 1;                
+                audio_dma_pending(0) <= '0';
+                state <= DoAudioDMA;
               else
                 -- We are reading the MSB (or MSB-only sample format)
                 audio_dma_pending(0) <= '0';
+                state <= DoAudioDMA;
               end if;
             elsif audio_dma_pending(1)='1' then
               audio_dma_target_channel <= 1;
               if audio_dma_sample_width(1)="11" and audio_dma_pending_msb(1)='1' then
                 audio_dma_fetch_is_lsb <= '1';
                 audio_dma_pending_msb(1) <='0';
+                audio_dma_current_addr(1) <= audio_dma_current_addr(1) + 1;
               else
                 audio_dma_pending(1) <= '0';
+                state <= DoAudioDMA;
               end if;
             elsif audio_dma_pending(2)='1' then
               audio_dma_target_channel <= 2;
               if audio_dma_sample_width(2)="11" and audio_dma_pending_msb(2)='1' then
                 audio_dma_fetch_is_lsb <= '1';
                 audio_dma_pending_msb(2) <='0';
+                audio_dma_current_addr(2) <= audio_dma_current_addr(2) + 1;
               else
                 audio_dma_pending(2) <= '0';
+                state <= DoAudioDMA;
               end if;
             elsif audio_dma_pending(3)='1' then
               audio_dma_target_channel <= 3;
               if audio_dma_sample_width(3)="11" and audio_dma_pending_msb(3)='1' then
                 audio_dma_fetch_is_lsb <= '1';
                 audio_dma_pending_msb(3) <='0';
+                audio_dma_current_addr(3) <= audio_dma_current_addr(3) + 1;
               else
                 audio_dma_pending(3) <= '0';
+                state <= DoAudioDMA;
               end if;
             end if;
           end if;
@@ -3666,12 +3692,13 @@ begin
           
           report "UPDATE timing_counter = " & integer'image(to_integer(audio_dma_timing_counter(i)(23 downto 0)))
             & ", time_base = " & integer'image(to_integer(audio_dma_time_base(i)));
-          audio_dma_timing_counter(i) <= to_unsigned(to_integer(audio_dma_timing_counter(i)(23 downto 0)) + to_integer(audio_dma_time_base(i)),25);       
+          audio_dma_timing_counter(i) <= to_unsigned(to_integer(audio_dma_timing_counter(i)(23 downto 0)) + to_integer(audio_dma_time_base(i)),25);
           if audio_dma_timing_counter(0)(24) = '1' then
             report "Audio DMA channel " & integer'image(i) & " marking next sample due.";            
             audio_dma_pending(i) <= '1';
             if audio_dma_sample_width(i) = "11" then
               audio_dma_pending_msb(i) <= '1';
+              audio_dma_fetch_is_lsb <= '0';
             end if;
             audio_dma_timing_counter(0)(24) <= '0';
           else
@@ -5045,25 +5072,11 @@ begin
 
               report "Doing Audio DMA";
 
-              if audio_dma_write_sequence = 3 then
-                report "Audio DMA bumping ch"
-                  & integer'image(audio_dma_target_channel) & " current_address to $"
-                  & to_hstring(audio_dma_current_addr(audio_dma_target_channel)+ 1);
-                audio_dma_current_addr(audio_dma_target_channel) <= audio_dma_current_addr(audio_dma_target_channel) + 1;
-              end if;
-              
               if audio_dma_write_sequence = 0 then
-                if audio_dma_fetch_is_lsb='1' then
-                  audio_dma_current_value(audio_dma_target_channel)(7 downto 0) <= signed(memory_read_value);
-                  audio_dma_sample_valid(audio_dma_target_channel) <= '0';
-                  report "audio_dma_current_value(" & integer'image(audio_dma_target_channel) & ") <= $xx"
-                    & to_hstring(memory_read_value);
-                else
-                  audio_dma_current_value(audio_dma_target_channel)(15 downto 8) <= signed(memory_read_value);
-                  audio_dma_sample_valid(audio_dma_target_channel) <= '1';
-                  report "audio_dma_current_value(" & integer'image(audio_dma_target_channel) & ") <= $"
-                    & to_hstring(memory_read_value) & "xx";
-                end if;
+                audio_dma_current_value(audio_dma_target_channel)(15 downto 8) <= signed(memory_read_value);
+                audio_dma_sample_valid(audio_dma_target_channel) <= '1';
+                report "audio_dma_current_value(" & integer'image(audio_dma_target_channel) & ") <= $"
+                  & to_hstring(memory_read_value) & "xx";
               end if;
 
 
@@ -5096,13 +5109,10 @@ begin
             when InstructionFetch =>
               if (audio_dma_blocked='0') and ((audio_dma_pending(0) or audio_dma_pending(1) or audio_dma_pending(2) or audio_dma_pending(3)) = '1') then
                 -- Do an Audio DMA.
-                -- The memory access process lower in this file handles the
+                -- The memory access process higher and lower in this file handles the
                 -- memory access.
                 pc_inc := '0';
-
-                audio_dma_write_sequence <= 0;
                 
-                state <= DoAudioDMA;
               elsif (hypervisor_mode='0')
                 and ((irq_pending='1' and flag_i='0') or nmi_pending='1')
                 and (monitor_irq_inhibit='0') then
@@ -5143,11 +5153,9 @@ begin
                 -- Do an Audio DMA.
                 -- The memory access process lower in this file handles the
                 -- memory access.
-                reg_pc <= reg_pc - 1;
+                -- The logic of managing the process is above
                 pc_inc := '0';
 
-                audio_dma_write_sequence <= 0;
-                state <= DoAudioDMA;
               else
                 -- Show previous instruction
                 disassemble_last_instruction;
