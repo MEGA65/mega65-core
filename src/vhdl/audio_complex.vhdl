@@ -60,7 +60,11 @@ entity audio_complex is
     -- Audio in from $D6F8-B registers
     pcm_left : in unsigned(15 downto 0);
     pcm_right : in unsigned(15 downto 0);
-
+    -- But if the CPU is providing digital audio, we use that instead
+    cpu_pcm_enable : in std_logic := '0';
+    cpu_pcm_left : in unsigned(15 downto 0) := x"8000";
+    cpu_pcm_right : in unsigned(15 downto 0) := x"8000";   
+    
     -- I2S PCM Audio interfaces (portable devices only)
 
     -- Master I2S clock (used for all i2s audio devices):
@@ -182,6 +186,9 @@ architecture elizabethan of audio_complex is
   -- on boards using 1-wire DAC
   signal pwm_mode : std_logic := '1';
 
+  signal pcm_selected_left : unsigned(15 downto 0) := x"0000";
+  signal pcm_selected_right : unsigned(15 downto 0) := x"0000";
+  
   signal ampPWM_l_in : unsigned(15 downto 0);
   signal ampPWM_r_in : unsigned(15 downto 0);
   
@@ -357,8 +364,8 @@ begin
     sources(6) => headphones_1_in,
     sources(7) => headphones_2_in,
     -- Digital audio 16-bit registers ($D6F8-B)
-    sources(8) => pcm_left,
-    sources(9) => pcm_right,
+    sources(8) => pcm_selected_left,
+    sources(9) => pcm_selected_right,
     -- MEMs microphones 0 - 3
     sources(10) => mems_mic0_left,
     sources(11) => mems_mic0_right,
@@ -388,10 +395,17 @@ begin
     outputs(15) => dummy7
     );   
 
+  pcm_selected_left <= pcm_left when cpu_pcm_enable='0' else cpu_pcm_left;
+  pcm_selected_right <= pcm_right when cpu_pcm_enable='0' else cpu_pcm_right;
+  
   process (cpuclock) is
-  begin
+  begin    
+    
     if rising_edge(cpuclock) then
 
+      report "pcm_selected_left = $" & to_hstring(pcm_selected_left)
+        & ", right = $" & to_hstring(pcm_selected_right);
+      
       -- Export raw speaker audio for HDMI etc output
       audio_left(19 downto 4) <= std_logic_vector(spkr_left);
       audio_left(3 downto 0) <= "0000";
