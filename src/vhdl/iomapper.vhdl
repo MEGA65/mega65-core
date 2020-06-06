@@ -58,6 +58,10 @@ entity iomapper is
         buffereduart2_rx : inout std_logic := 'H';
         buffereduart2_tx : out std_logic := '1';
 
+        cpu_pcm_left : in unsigned(15 downto 0) := x"FFFF";
+        cpu_pcm_right : in unsigned(15 downto 0) := x"FFFF";
+        cpu_pcm_enable : in std_logic := '0';
+        
         disco_led_id : out unsigned(7 downto 0) := x"00";
         disco_led_val : out unsigned(7 downto 0) := x"00";
         disco_led_en : out std_logic := '0';
@@ -1116,7 +1120,10 @@ begin
     audio_loopback => audio_loopback,
     pcm_left => pcm_left,
     pcm_right => pcm_right,
-
+    cpu_pcm_left => cpu_pcm_left,
+    cpu_pcm_right => cpu_pcm_right,
+    cpu_pcm_enable => cpu_pcm_enable,
+    
     -- MEMS microphone inputs (2 x strings of 2)
     micData0 => micData0,
     micData1 => micData1,

@@ -721,6 +721,10 @@ architecture Behavioral of machine is
   signal d031_write_toggle : std_logic;
 
   signal viciv_frame_indicate : std_logic;
+
+  signal cpu_pcm_left : unsigned(15 downto 0) := x"FFFF";
+  signal cpu_pcm_right : unsigned(15 downto 0) := x"FFFF";
+  signal cpu_pcm_enable : std_logic := '0';      
   
 begin
 
@@ -946,6 +950,10 @@ begin
       dat_even => dat_even,
       dat_bitplane_addresses => dat_bitplane_addresses,
 
+      cpu_pcm_left => cpu_pcm_left,
+      cpu_pcm_right => cpu_pcm_right,
+      cpu_pcm_enable => cpu_pcm_enable,
+      
       fast_key => fast_key,
       
       debug_address_w_dbg_out => debug_address_w_dbg_out,
@@ -1402,6 +1410,10 @@ begin
       buffereduart_ringindicate => buffereduart_ringindicate,
       buffereduart2_rx => buffereduart2_rx,
       buffereduart2_tx => buffereduart2_tx,
+
+      cpu_pcm_left => cpu_pcm_left,
+      cpu_pcm_right => cpu_pcm_right,
+      cpu_pcm_enable => cpu_pcm_enable,
       
       visual_keyboard_enable => visual_keyboard_enable,
       osk_debug_display => osk_debug_display,

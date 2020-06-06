@@ -102,6 +102,10 @@ entity gs4510 is
     
     matrix_rain_seed : out unsigned(15 downto 0) := (others => '0');
 
+    cpu_pcm_left : out unsigned(15 downto 0) := x"8000";
+    cpu_pcm_right : out unsigned(15 downto 0) := x"8000";
+    cpu_pcm_enable : out std_logic := '0';
+    
     -- Active low key that forces CPU to 40MHz
     fast_key : in std_logic;
   
@@ -3551,6 +3555,10 @@ begin
                                         -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) and all_pause='0' then
 
+      cpu_pcm_left <= unsigned(audio_dma_left);
+      cpu_pcm_right <= unsigned(audio_dma_right);
+      cpu_pcm_enable <= audio_dma_enable;
+      
       if (audio_dma_block_timeout /=0) then
         audio_dma_block_timeout <= audio_dma_block_timeout - 1;
       end if;
@@ -5091,7 +5099,6 @@ begin
                   & to_hstring(memory_read_value) & "xx";
               end if;
 
-
               audio_dma_stop(audio_dma_target_channel) <= '0';
               if audio_dma_top_addr(audio_dma_target_channel) = audio_dma_current_addr(audio_dma_target_channel)(15 downto 0) then
                 -- End of sample reached: Either stop or repeat
@@ -5100,22 +5107,11 @@ begin
                 audio_dma_current_addr(audio_dma_target_channel) <= audio_dma_base_addr(audio_dma_target_channel);
               end if;
               
-              -- Update all four digital audio output bytes each time we update
-              -- a sample.
-              report "audio_dma_write_sequence = " & integer'image(audio_dma_write_sequence);
+              -- Prevent Audio DMAs from saturating the bus
+              audio_dma_block_timeout <= 7;
+              -- Resume normal CPU activity
+              state <= InstructionFetch;                          
 
-              audio_dma_write_counter <= audio_dma_write_counter + 1;
-              case audio_dma_write_sequence is
-                when 0 => audio_dma_write_sequence <= 1;
-                when 1 => audio_dma_write_sequence <= 2;
-                when 2 => audio_dma_write_sequence <= 3;
-                when 3 => audio_dma_write_sequence <= 0;
-                          -- Prevent Audio DMAs from saturating the bus
-                          audio_dma_block_timeout <= 7;
-                          -- Resume normal CPU activity
-                          state <= InstructionFetch;                          
-                when others => null;
-              end case;
             when InstructionWait =>
               state <= InstructionFetch;
             when InstructionFetch =>
@@ -7597,25 +7593,11 @@ begin
       
       case state is
         when DoAudioDMA =>
-          -- Commit the updated audio values
-          if (audio_dma_write_blocked = '0') and (audio_dma_enables(0) or audio_dma_enables(1) or audio_dma_enables(2) or audio_dma_enables(3)) = '1' then
+            -- We used to write the audio registers here, but now we export
+            -- them directly to the audio sound system, so that we don't need
+            -- nearly so much bus time.
             memory_access_read := '0';
-            memory_access_write := '1';
-            memory_access_resolve_address := '0';
-            report "Setting audio_dma memory write address";
-            case audio_dma_write_sequence is
-              when 0 => memory_access_address := x"FFD36F8";
-                        memory_access_wdata := audio_dma_left(7 downto 0);
-              when 1 => memory_access_address := x"FFD36F9";
-                        memory_access_wdata := audio_dma_left(15 downto 8);
-              when 2 => memory_access_address := x"FFD36FA";
-                        memory_access_wdata := audio_dma_right(7 downto 0);
-              when 3 => memory_access_address := x"FFD36FB";
-                        memory_access_wdata := audio_dma_right(15 downto 8);
-              when others =>
-                memory_access_write := '0';
-            end case;
-          end if;          
+            memory_access_write := '0';
         when InstructionFetch | InstructionDecode =>
           if (audio_dma_blocked = '0') and (audio_dma_pending(0) or audio_dma_pending(1) or audio_dma_pending(2) or audio_dma_pending(3)) = '1' then
             report "Audio DMA servicing request";
