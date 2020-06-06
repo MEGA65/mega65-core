@@ -4902,6 +4902,8 @@ begin
               -- (The details of the memory request are handled the memory access
               -- process below).
 
+              pc_inc := '0';
+              
               -- Prevent Audio DMAs from saturating the bus
               audio_dma_block_timeout <= 7;
               
@@ -4922,6 +4924,7 @@ begin
                 -- Do an Audio DMA.
                 -- The memory access process lower in this file handles the
                 -- memory access.
+                pc_inc := '0';
                 
                 state <= DoAudioDMA;
               elsif (hypervisor_mode='0')
@@ -4964,6 +4967,8 @@ begin
                 -- Do an Audio DMA.
                 -- The memory access process lower in this file handles the
                 -- memory access.
+                reg_pc <= reg_pc - 1;
+                pc_inc := '0';
                 
                 state <= DoAudioDMA;
               else
@@ -7374,7 +7379,17 @@ begin
         when DoAudioDMA =>
           audio_dma_tick_counter <= audio_dma_tick_counter + 1;
           if (audio_dma_write_blocked = '0') and (audio_dma_enables(0) or audio_dma_enables(1) or audio_dma_enables(2) or audio_dma_enables(3)) = '1' then
+            report "Incrementing audio_dma_write_counter";
             audio_dma_write_counter <= audio_dma_write_counter + 1;
+
+            case audio_dma_write_sequence is
+              when 0 => audio_dma_write_sequence <= 1;
+              when 1 => audio_dma_write_sequence <= 2;
+              when 2 => audio_dma_write_sequence <= 3;
+              when 3 => audio_dma_write_sequence <= 0;
+              when others => null;
+            end case;
+            
           end if;
         when InstructionFetch | InstructionDecode =>
           if (audio_dma_blocked = '0') and (audio_dma_pending(0) or audio_dma_pending(1) or audio_dma_pending(2) or audio_dma_pending(3)) = '1' then
@@ -7556,19 +7571,16 @@ begin
           -- Commit the updated audio values
           if (audio_dma_write_blocked = '0') and (audio_dma_enables(0) or audio_dma_enables(1) or audio_dma_enables(2) or audio_dma_enables(3)) = '1' then
             memory_access_write := '1';
+            memory_access_resolve_address := '0';
             case audio_dma_write_sequence is
               when 0 => memory_access_address := x"FFD36F8";
                         memory_access_wdata := audio_dma_left(7 downto 0);
-                        audio_dma_write_sequence <= 1;
               when 1 => memory_access_address := x"FFD36F9";
                         memory_access_wdata := audio_dma_left(15 downto 8);
-                        audio_dma_write_sequence <= 2;
               when 2 => memory_access_address := x"FFD36FA";
                         memory_access_wdata := audio_dma_right(7 downto 0);
-                        audio_dma_write_sequence <= 3;
               when 3 => memory_access_address := x"FFD36FB";
                         memory_access_wdata := audio_dma_right(15 downto 8);
-                        audio_dma_write_sequence <= 0;
               when others =>
                 memory_access_write := '0';
             end case;
@@ -7577,6 +7589,7 @@ begin
           if (audio_dma_blocked = '0') and (audio_dma_pending(0) or audio_dma_pending(1) or audio_dma_pending(2) or audio_dma_pending(3)) = '1' then
             report "Audio DMA servicing request";
             memory_access_read := '1';
+            memory_access_resolve_address := '0';
             if audio_dma_pending(0)='1' then
               memory_access_address(27 downto 24) := x"0";
               memory_access_address(23 downto 0) := audio_dma_current_addr(0);
