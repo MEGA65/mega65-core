@@ -2055,6 +2055,7 @@ begin
 
             -- @IO:GS $D720.7 DMA:CH0EN Enable Audio DMA channel 0
             -- @IO:GS $D720.6 DMA:CH0LOOP Enable Audio DMA channel 0 looping
+            -- @IO:GS $D720.3 DMA:CH0STOP Audio DMA channel 0 stop flag
             -- @IO:GS $D720.0-1 DMA:CH0SBITS Audio DMA channel 0 sample bits (11=16, 10=8, 01=upper nybl, 00=lower nybl)
             -- @IO:GS $D721 DMA:CH0BADDR Audio DMA channel 0 base address LSB
             -- @IO:GS $D722 DMA:CH0BADDR Audio DMA channel 0 base address middle byte
@@ -2132,7 +2133,7 @@ begin
                           
             -- $D720-$D72F - Audio DMA channel 0                          
             when x"20" => return audio_dma_enables(0) & audio_dma_repeat(0) & audio_dma_pending(0) &
-                            audio_dma_timing_counter(0)(24) & "00" & audio_dma_sample_width(0);
+                            audio_dma_timing_counter(0)(24) & audio_dma_stop(0) & "0" & audio_dma_sample_width(0);
             when x"21" => return audio_dma_base_addr(0)(7 downto 0);
             when x"22" => return audio_dma_base_addr(0)(15 downto 8);
             when x"23" => return audio_dma_base_addr(0)(23 downto 16);
@@ -2842,6 +2843,7 @@ begin
           -- initialise things when freezing and unfreezing
           when x"0" => audio_dma_enables(to_integer(long_address(7 downto 4)-2)) <= value(7);
                        audio_dma_repeat(to_integer(long_address(7 downto 4)-2)) <= value(6);
+                       audio_dma_stop(to_integer(long_address(7 downto 4)-2)) <= value(3);
                        audio_dma_sample_width(to_integer(long_address(7 downto 4)-2)) <= value(1 downto 0);
                        report "Setting Audio DMA channel 0 flags to $" & to_hstring(value);
           when x"1" => audio_dma_base_addr(to_integer(long_address(7 downto 4)-2))(7 downto 0)   <= value;
@@ -3685,29 +3687,29 @@ begin
           end if;
         else
           if false then
-          report "Audio DMA channel " & integer'image(i) & " enabled: ";
-          report "Audio DMA channel " & integer'image(i) 
-            & " pending=$" & std_logic'image(audio_dma_pending(i));
-          report "Audio DMA channel " & integer'image(i)
-            & " base=$" & to_hstring(audio_dma_base_addr(i));
-          report "Audio DMA channel " & integer'image(i)
-            & ", top_addr=$" & to_hstring(audio_dma_top_addr(i));
-          report "Audio DMA channel " & integer'image(i)
-            & ", timebase=$" & to_hstring(audio_dma_time_base(i));
-          report "Audio DMA channel " & integer'image(i)
-            & ", current_addr=$" & to_hstring(audio_dma_current_addr(i));
-          report "Audio DMA channel " & integer'image(i)
-            & ", timing_counter=$" & to_hstring(audio_dma_timing_counter(i))
-            ;
-          report "Audio DMA channel " & integer'image(i)
-            & ", timing_counter bits = "
-            & std_logic'image(std_logic(audio_dma_timing_counter(0)(24)))
-            & std_logic'image(std_logic(audio_dma_timing_counter(0)(23)))
-            & std_logic'image(std_logic(audio_dma_timing_counter(0)(22)))
-            & std_logic'image(std_logic(audio_dma_timing_counter(0)(21)))
-            & std_logic'image(std_logic(audio_dma_timing_counter(0)(20)))
-            & std_logic'image(std_logic(audio_dma_timing_counter(0)(19)))
-            ;
+            report "Audio DMA channel " & integer'image(i) & " enabled: ";
+            report "Audio DMA channel " & integer'image(i) 
+              & " pending=$" & std_logic'image(audio_dma_pending(i));
+            report "Audio DMA channel " & integer'image(i)
+              & " base=$" & to_hstring(audio_dma_base_addr(i));
+            report "Audio DMA channel " & integer'image(i)
+              & ", top_addr=$" & to_hstring(audio_dma_top_addr(i));
+            report "Audio DMA channel " & integer'image(i)
+              & ", timebase=$" & to_hstring(audio_dma_time_base(i));
+            report "Audio DMA channel " & integer'image(i)
+              & ", current_addr=$" & to_hstring(audio_dma_current_addr(i));
+            report "Audio DMA channel " & integer'image(i)
+              & ", timing_counter=$" & to_hstring(audio_dma_timing_counter(i))
+              ;
+            report "Audio DMA channel " & integer'image(i)
+              & ", timing_counter bits = "
+              & std_logic'image(std_logic(audio_dma_timing_counter(0)(24)))
+              & std_logic'image(std_logic(audio_dma_timing_counter(0)(23)))
+              & std_logic'image(std_logic(audio_dma_timing_counter(0)(22)))
+              & std_logic'image(std_logic(audio_dma_timing_counter(0)(21)))
+              & std_logic'image(std_logic(audio_dma_timing_counter(0)(20)))
+              & std_logic'image(std_logic(audio_dma_timing_counter(0)(19)))
+              ;
           end if;
           
           report "UPDATE timing_counter = " & integer'image(to_integer(audio_dma_timing_counter(i)(23 downto 0)))
