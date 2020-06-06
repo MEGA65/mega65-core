@@ -2044,9 +2044,10 @@ begin
             -- @IO:GS $D711.7 - DMA:AUDEN Enable Audio DMA
             -- @IO:GS $D711.6 - DMA:AUDBLOCKED Audio DMA blocked (read only) DEBUG
             -- @IO:GS $D711.5 - DMA:AUDWRBLOCK Audio DMA block writes (samples still get read) 
-            -- @IO:GS $D711.4 - DMA:AUDWRBLOCKED Audio DMA writes currently blocked (read only) DEBUG
+            -- @IO:GS $D711.4 - DMA:AUDWRBLOCKED instructiondecode PC adjust DEBUG
+            -- @IO:GS $D711.3 - DMA:AUDWRBLOCKED instructionfetch PC adjust DEBUG
             -- @IO:GS $D711.0-2 - DMA:AUDBLOCKTO Audio DMA block timeout (read only) DEBUG
-            when x"11" => return audio_dma_enable & audio_dma_blocked & audio_dma_disable_writes & audio_dma_write_blocked & "0" & to_unsigned(audio_dma_block_timeout,3);
+            when x"11" => return audio_dma_enable & audio_dma_blocked & audio_dma_disable_writes & audio_dma_decode_pc_minus & audio_dma_fetch_pc_minus & to_unsigned(audio_dma_block_timeout,3);
                           
             -- XXX DEBUG registers for audio DMA
             when x"18" => return audio_dma_write_counter(7 downto 0);
@@ -2838,7 +2839,7 @@ begin
       elsif (long_address = x"FFD3711") or (long_address = x"FFD1711") then
         audio_dma_enable <= value(7);
         audio_dma_disable_writes <= value(5);
-        audio_dma_dispatch_pc_minus <= value(4);
+        audio_dma_decode_pc_minus <= value(4);
         audio_dma_fetch_pc_minus <= value(3);
       elsif (long_address(27 downto 4) = x"FFD372") or (long_address(27 downto 4) = x"FFD172")
         or (long_address(27 downto 4) = x"FFD373") or (long_address(27 downto 4) = x"FFD173")

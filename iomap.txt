@@ -638,10 +638,12 @@ GS $D6AD.0-3 - PHONE:Volume knob 1 audio target
 GS $D6AD.4-7 - PHONE:Volume knob 2 audio target
 GS $D6AE.0-3 - PHONE:Volume knob 3 audio target
 GS $D6AE.7 - PHONE:Volume knob 3 controls LCD panel brightness
+GS $D6AF.0-3 - DEBUG:FDCRTOUT Floppy index timeout
 GS $D6AF.0 - f011_rsector_found
 GS $D6AF.1 - f011_wsector_found
 GS $D6AF.2 - f011_eq_inhibit
 GS $D6AF.3 - f011_rnf
+GS $D6AF.4-7 - DEBUG:FDCIDXCNT Floppy index count
 GS $D6AF.4 - f011_drq
 GS $D6AF.5 - f011_lost
 GS $D6AF - Directly set F011 flags (intended for virtual F011 mode) WRITE ONLY
@@ -784,7 +786,14 @@ GS $D70E DMA:ADDRLSB DMA list address low byte (address bits 0 -- 7) WITHOUT STA
 GS $D710.0 - MISC:BADLEN Enable badline emulation
 GS $D710.1 - MISC:SLIEN Enable 6502-style slow (7 cycle) interrupts
 GS $D710.2 - MISC:VDCSEN Enable VDC inteface simulation
+GS $D711.0-2 - DMA:AUDBLOCKTO Audio DMA block timeout (read only) DEBUG
+GS $D711.3 - DMA:AUDWRBLOCKED instructionfetch PC adjust DEBUG
+GS $D711.4 - DMA:AUDWRBLOCKED instructiondecode PC adjust DEBUG
+GS $D711.5 - DMA:AUDWRBLOCK Audio DMA block writes (samples still get read) 
+GS $D711.6 - DMA:AUDBLOCKED Audio DMA blocked (read only) DEBUG
+GS $D711.7 - DMA:AUDEN Enable Audio DMA
 GS $D720.0-1 DMA:CH0SBITS Audio DMA channel 0 sample bits (11=16, 10=8, 01=upper nybl, 00=lower nybl)
+GS $D720.3 DMA:CH0STOP Audio DMA channel 0 stop flag
 GS $D720.6 DMA:CH0LOOP Enable Audio DMA channel 0 looping
 GS $D720.7 DMA:CH0EN Enable Audio DMA channel 0
 GS $D721 DMA:CH0BADDR Audio DMA channel 0 base address LSB
