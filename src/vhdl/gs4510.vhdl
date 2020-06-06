@@ -3576,7 +3576,7 @@ begin
         audio_dma_blocked <= '1';
         audio_dma_write_blocked <= '1';
       else
-        audio_dma_blocked <= '0';
+        audio_dma_blocked <= hypervisor_mode;
         audio_dma_write_blocked <= audio_dma_disable_writes;
       end if;
 
