@@ -524,6 +524,8 @@ architecture Behavioural of gs4510 is
   signal reg_sph : unsigned(7 downto 0)  := (others => '0');
   signal reg_pc : unsigned(15 downto 0)  := (others => '0');
 
+  signal reg_pc_stash : unsigned(15 downto 0)  := (others => '0');
+  
   -- CPU RAM bank selection registers.
   -- Now C65 style, but extended by 8 bits to give 256MB address space
   signal reg_mb_low : unsigned(7 downto 0)  := (others => '0');
@@ -3579,7 +3581,7 @@ begin
             audio_dma_tick_counter <= audio_dma_tick_counter + 1;
             audio_dma_wait_state <= '1';
             report "Asserting audio_dma_wait_state";
-            
+            reg_pc <= reg_pc_stash;
           when InstructionFetch | InstructionDecode =>
             if (audio_dma_blocked = '0') and (audio_dma_pending(0) or audio_dma_pending(1)
                                               or audio_dma_pending(2) or audio_dma_pending(3)) = '1' then
@@ -3594,7 +3596,11 @@ begin
               if audio_dma_wait_state='1' then
                 report "audio DMA wait state";
                 audio_dma_wait_state <= '0';
-                reg_pc <= reg_pc - 1;              
+                if state = InstructionFetch then
+                  reg_pc_stash <= reg_pc;
+                else
+                  reg_pc_stash <= reg_pc - 1;
+                end if;
               elsif audio_dma_pending(0)='1' then
                 audio_dma_target_channel <= 0;
                 if audio_dma_sample_width(0)="11" and audio_dma_pending_msb(0)='1' then
