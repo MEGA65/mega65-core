@@ -618,15 +618,6 @@ reset_machine_state:
 reset_entry:
         sei
 
-	// Test audio dma
-	lda #$ff
-	sta $d726
-	sta $d727
-	sta $d728
-	sta $d729
-	lda #$83
-	sta $d720
-	
 	// Put ZP and stack back where they belong
 	lda #$bf
 	.byte $5B // tab
