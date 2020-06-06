@@ -372,6 +372,9 @@ architecture Behavioural of gs4510 is
   signal audio_dma_current_value : s15_0to3 := (others => to_signed(0,16));
   signal audio_dma_multed : s24_0to3 := (others => to_signed(0,25));
   signal audio_dma_wait_state : std_logic := '1';
+
+  signal audio_dma_decode_pc_minus : std_logic := '1';
+  signal audio_dma_fetch_pc_minus : std_logic := '0';
   
   -- C65 RAM Expansion Controller
   -- bit 7 = indicate error status?
@@ -2835,6 +2838,8 @@ begin
       elsif (long_address = x"FFD3711") or (long_address = x"FFD1711") then
         audio_dma_enable <= value(7);
         audio_dma_disable_writes <= value(5);
+        audio_dma_dispatch_pc_minus <= value(4);
+        audio_dma_fetch_pc_minus <= value(3);
       elsif (long_address(27 downto 4) = x"FFD372") or (long_address(27 downto 4) = x"FFD172")
         or (long_address(27 downto 4) = x"FFD373") or (long_address(27 downto 4) = x"FFD173")
         or (long_address(27 downto 4) = x"FFD374") or (long_address(27 downto 4) = x"FFD174")
@@ -3596,10 +3601,12 @@ begin
               if audio_dma_wait_state='1' then
                 report "audio DMA wait state";
                 audio_dma_wait_state <= '0';
-                if state = InstructionFetch then
-                  reg_pc_stash <= reg_pc;
-                else
+                if (state = InstructionFetch and audio_dma_fetch_pc_minus='1')
+                  or (state = InstructionDecode and audio_dma_decode_pc_minus='1')
+                then
                   reg_pc_stash <= reg_pc - 1;
+                else
+                  reg_pc_stash <= reg_pc;
                 end if;
               elsif audio_dma_pending(0)='1' then
                 audio_dma_target_channel <= 0;
