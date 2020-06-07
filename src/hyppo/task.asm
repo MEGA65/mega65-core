@@ -184,10 +184,13 @@ restore_press_trap:
         // Clear colour RAM at $DC00 flag, as it causes no end of trouble
         lda #$01
         trb $D030
+	// and DMA audio
+	ldx #$00
+	stx $d711
 
         // Freeze to slot 0
-        ldx #$00
-        ldy #$00
+//        tax    <- uses $00 in X from above
+	tay
         jsr freeze_to_slot
 
         // Load freeze program
