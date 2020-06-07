@@ -3636,6 +3636,9 @@ begin
                   state <= DoAudioDMA;
                 else
                   -- We are reading the MSB (or MSB-only sample format)
+                  audio_dma_current_value(0)(15 downto 8) <= signed(memory_read_value);
+                  audio_dma_current_value(0)(7 downto 0) <= x"00";
+                  audio_dma_current_addr(0) <= audio_dma_current_addr(0) + 1;                
                   audio_dma_pending(0) <= '0';
                   state <= DoAudioDMA;
                 end if;
@@ -3661,6 +3664,9 @@ begin
                   state <= DoAudioDMA;
                 else
                   -- We are reading the MSB (or MSB-only sample format)
+                  audio_dma_current_value(1)(15 downto 8) <= signed(memory_read_value);
+                  audio_dma_current_value(1)(7 downto 0) <= x"00";
+                  audio_dma_current_addr(1) <= audio_dma_current_addr(1) + 1;                
                   audio_dma_pending(1) <= '0';
                   state <= DoAudioDMA;
                 end if;
@@ -3686,6 +3692,9 @@ begin
                   state <= DoAudioDMA;
                 else
                   -- We are reading the MSB (or MSB-only sample format)
+                  audio_dma_current_value(2)(15 downto 8) <= signed(memory_read_value);
+                  audio_dma_current_value(2)(7 downto 0) <= x"00";
+                  audio_dma_current_addr(2) <= audio_dma_current_addr(2) + 1;                
                   audio_dma_pending(2) <= '0';
                   state <= DoAudioDMA;
                 end if;
@@ -3711,6 +3720,9 @@ begin
                   state <= DoAudioDMA;
                 else
                   -- We are reading the MSB (or MSB-only sample format)
+                  audio_dma_current_value(3)(15 downto 8) <= signed(memory_read_value);
+                  audio_dma_current_value(3)(7 downto 0) <= x"00";
+                  audio_dma_current_addr(3) <= audio_dma_current_addr(3) + 1;                
                   audio_dma_pending(3) <= '0';
                   state <= DoAudioDMA;
                 end if;
