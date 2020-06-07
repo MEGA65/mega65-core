@@ -5184,7 +5184,9 @@ begin
               report "Doing Audio DMA";
 
               if audio_dma_write_sequence = 0 then
-                audio_dma_current_value(audio_dma_target_channel)(15 downto 8) <= signed(memory_read_value);
+                audio_dma_current_value(audio_dma_target_channel)(14 downto 8) <= signed(memory_read_value(6 downto 0));
+                audio_dma_current_value(audio_dma_target_channel)(15)
+                  <= memory_read_value(7) xor audio_dma_signed(audio_dma_target_channel);
                 audio_dma_sample_valid(audio_dma_target_channel) <= '1';
                 report "audio_dma_current_value(" & integer'image(audio_dma_target_channel) & ") <= $"
                   & to_hstring(memory_read_value) & "xx";
