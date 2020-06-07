@@ -106,6 +106,7 @@ entity gs4510 is
     cpu_pcm_right : out unsigned(15 downto 0) := x"8000";
     cpu_pcm_enable : out std_logic := '0';
     cpu_pcm_bypass : out std_logic := '0';
+    pwm_mode_select : out std_logic := '1';
     
     -- Active low key that forces CPU to 40MHz
     fast_key : in std_logic;
@@ -378,7 +379,7 @@ architecture Behavioural of gs4510 is
   signal audio_dma_decode_pc_minus : std_logic := '1';
   signal audio_dma_fetch_pc_minus : std_logic := '0';
   signal cpu_pcm_bypass_int : std_logic := '0';
-
+  signal pwm_mode_select_int : std_logic := '0';
   
   -- C65 RAM Expansion Controller
   -- bit 7 = indicate error status?
@@ -2049,8 +2050,9 @@ begin
             -- @IO:GS $D711.6 - DMA:AUDBLOCKED Audio DMA blocked (read only) DEBUG
             -- @IO:GS $D711.5 - DMA:AUDWRBLOCK Audio DMA block writes (samples still get read) 
             -- @IO:GS $D711.4 - DMA:AUDNOMIX Audio DMA bypasses audio mixer
+            -- @IO:GS $D711.3 - AUDIO:PWMPDM PWM/PDM audio encoding select
             -- @IO:GS $D711.0-2 - DMA:AUDBLOCKTO Audio DMA block timeout (read only) DEBUG
-            when x"11" => return audio_dma_enable & audio_dma_blocked & audio_dma_disable_writes & cpu_pcm_bypass_int & "0" & to_unsigned(audio_dma_block_timeout,3);
+            when x"11" => return audio_dma_enable & audio_dma_blocked & audio_dma_disable_writes & cpu_pcm_bypass_int & pwm_mode_select_int & to_unsigned(audio_dma_block_timeout,3);
                           
             -- XXX DEBUG registers for audio DMA
             when x"18" => return audio_dma_write_counter(7 downto 0);
@@ -2844,6 +2846,7 @@ begin
         audio_dma_enable <= value(7);
         audio_dma_disable_writes <= value(5);
         cpu_pcm_bypass_int <= value(4);
+        pwm_mode_select_int <= value(3);
       elsif (long_address(27 downto 4) = x"FFD372") or (long_address(27 downto 4) = x"FFD172")
         or (long_address(27 downto 4) = x"FFD373") or (long_address(27 downto 4) = x"FFD173")
         or (long_address(27 downto 4) = x"FFD374") or (long_address(27 downto 4) = x"FFD174")
@@ -3383,6 +3386,7 @@ begin
     if rising_edge(clock) then
 
       cpu_pcm_bypass <= cpu_pcm_bypass_int;
+      pwm_mode_select <= pwm_mode_select_int;
       
       -- We also have one direct 18x25 multiplier for use by the hypervisor.
       -- This multiplier fits a single DSP48E unit, and does not use the plumbing

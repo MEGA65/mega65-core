@@ -726,6 +726,7 @@ architecture Behavioral of machine is
   signal cpu_pcm_right : unsigned(15 downto 0) := x"FFFF";
   signal cpu_pcm_enable : std_logic := '0';
   signal cpu_pcm_bypass : std_logic := '0';
+  signal pwm_mode_select : std_logic := '0';
   
 begin
 
@@ -955,6 +956,7 @@ begin
       cpu_pcm_right => cpu_pcm_right,
       cpu_pcm_enable => cpu_pcm_enable,
       cpu_pcm_bypass => cpu_pcm_bypass,
+      pwm_mode_select => pwm_mode_select,
       
       fast_key => fast_key,
       
@@ -1417,6 +1419,7 @@ begin
       cpu_pcm_right => cpu_pcm_right,
       cpu_pcm_enable => cpu_pcm_enable,
       cpu_pcm_bypass => cpu_pcm_bypass,
+      pwm_mode_select => pwm_mode_select,
       
       visual_keyboard_enable => visual_keyboard_enable,
       osk_debug_display => osk_debug_display,

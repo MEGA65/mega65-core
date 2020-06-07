@@ -62,6 +62,7 @@ entity iomapper is
         cpu_pcm_right : in unsigned(15 downto 0) := x"FFFF";
         cpu_pcm_enable : in std_logic := '0';
         cpu_pcm_bypass : in std_logic := '0';
+        pwm_mode_select : in std_logic := '1';
         
         disco_led_id : out unsigned(7 downto 0) := x"00";
         disco_led_val : out unsigned(7 downto 0) := x"00";
@@ -1125,6 +1126,7 @@ begin
     cpu_pcm_right => cpu_pcm_right,
     cpu_pcm_enable => cpu_pcm_enable,
     cpu_pcm_bypass => cpu_pcm_bypass,
+    pwm_mode_select => pwm_mode_select,
     
     -- MEMS microphone inputs (2 x strings of 2)
     micData0 => micData0,

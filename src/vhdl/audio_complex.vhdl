@@ -64,7 +64,8 @@ entity audio_complex is
     cpu_pcm_enable : in std_logic := '0';
     cpu_pcm_bypass : in std_logic := '0';
     cpu_pcm_left : in unsigned(15 downto 0) := x"8000";
-    cpu_pcm_right : in unsigned(15 downto 0) := x"8000";   
+    cpu_pcm_right : in unsigned(15 downto 0) := x"8000";
+    pwm_mode_select : in std_logic := '1';
     
     -- I2S PCM Audio interfaces (portable devices only)
 
@@ -404,6 +405,8 @@ begin
     
     if rising_edge(cpuclock) then
 
+      pwm_mode <= pwm_mode_select;
+      
       report "pcm_selected_left = $" & to_hstring(pcm_selected_left)
         & ", right = $" & to_hstring(pcm_selected_right);
       
