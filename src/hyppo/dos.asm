@@ -3603,6 +3603,30 @@ dos_load_y_based_on_dos_bytes_remaining:
 
 dos_readfile:
 
+;; 	ldx dos_bytes_remaining+3 
+;; 	jsr checkpoint_bytetohex
+;; 	sty lenhex+0
+;; 	stx lenhex+1
+;; 	ldx dos_bytes_remaining+2
+;; 	jsr checkpoint_bytetohex
+;; 	sty lenhex+2
+;; 	stx lenhex+3
+;; 	ldx dos_bytes_remaining+1
+;; 	jsr checkpoint_bytetohex
+;; 	sty lenhex+4
+;; 	stx lenhex+5
+;; 	ldx dos_bytes_remaining+0
+;; 	jsr checkpoint_bytetohex
+;; 	sty lenhex+6
+;; 	stx lenhex+7
+	
+;; 	jsr checkpoint
+;; 	.byte 0
+;; 	ascii("$")
+;; lenhex:	
+;; 	ascii("%%%%%%%% bytes remaining.")
+;; 	.byte 0
+	
 	lda dos_bytes_remaining+0
 	ora dos_bytes_remaining+1
 	ora dos_bytes_remaining+2
@@ -3625,7 +3649,7 @@ dos_readfile:
 	ora dos_bytes_remaining+3
 	bne !+   // lots more to read
 	lda dos_bytes_remaining+1
-	cmp #1
+	cmp #2
 	bcs !+   // at least a whole sector more to read
 
 	// Only a fractional part of a sector to read, so zero out remaining
@@ -3642,6 +3666,7 @@ dos_readfile:
 	sta dos_bytes_remaining+1
 	// FALL THROUGH
 !:
+	
 	// Deduct one sector from the remaining
 	lda dos_bytes_remaining+1
 	sec
