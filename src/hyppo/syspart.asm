@@ -162,6 +162,15 @@ syspart_unfreeze_from_slot_trap:
         ldx hypervisor_x
         jsr syspart_locate_freezeslot
         jsr unfreeze_load_from_sdcard_immediate
+	//  Make sure we resume a frozen program on the same raster line as
+	// it entered the freezer.  This might need a bit of tuning to get
+	// perfect, but it should already be accurate to within one raster line.
+	lda #$ff
+@unfreezesyncwait:
+	cmp $d012
+	bne @unfreezesyncwait
+	// Clear any pending raster interrupt, to avoid problems.
+	dec $d019 
         sta hypervisor_enterexit_trigger
 
 syspart_get_slot_count_trap:

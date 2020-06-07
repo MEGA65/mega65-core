@@ -40,6 +40,15 @@ currenttask_d81_image0_name:
 currenttask_d81_image1_name:
         .text "                                "
 
+	// DOS work area is full, so some things over-flow here:
+	
+	// Used to temporarily stash the currently read SD card sector.
+	// (mostly to hide when we have to read a FAT sector during file
+	// access)
+dos_stashed_sd_sector_number:
+	.byte 0,0,0,0
+	
+	
         // Make sure we don't over-flow the available space
         * = start + $80
 

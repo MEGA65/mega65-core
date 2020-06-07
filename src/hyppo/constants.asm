@@ -36,6 +36,8 @@
         .label dos_errorcode_image_wrong_length = $8A
         .label dos_errorcode_image_fragmented = $8B
         .label dos_errorcode_no_space = $8C
+        .label dos_errorcode_file_exists = $8D
+        .label dos_errorcode_directory_full = $8E
         .label dos_errorcode_eof = $FF
 
         // FAT directory entry constants
