@@ -2044,10 +2044,8 @@ begin
             -- @IO:GS $D711.7 - DMA:AUDEN Enable Audio DMA
             -- @IO:GS $D711.6 - DMA:AUDBLOCKED Audio DMA blocked (read only) DEBUG
             -- @IO:GS $D711.5 - DMA:AUDWRBLOCK Audio DMA block writes (samples still get read) 
-            -- @IO:GS $D711.4 - DMA:AUDWRBLOCKED instructiondecode PC adjust DEBUG
-            -- @IO:GS $D711.3 - DMA:AUDWRBLOCKED instructionfetch PC adjust DEBUG
             -- @IO:GS $D711.0-2 - DMA:AUDBLOCKTO Audio DMA block timeout (read only) DEBUG
-            when x"11" => return audio_dma_enable & audio_dma_blocked & audio_dma_disable_writes & audio_dma_decode_pc_minus & audio_dma_fetch_pc_minus & to_unsigned(audio_dma_block_timeout,3);
+            when x"11" => return audio_dma_enable & audio_dma_blocked & audio_dma_disable_writes & "00" & to_unsigned(audio_dma_block_timeout,3);
                           
             -- XXX DEBUG registers for audio DMA
             when x"18" => return audio_dma_write_counter(7 downto 0);
@@ -2839,8 +2837,6 @@ begin
       elsif (long_address = x"FFD3711") or (long_address = x"FFD1711") then
         audio_dma_enable <= value(7);
         audio_dma_disable_writes <= value(5);
-        audio_dma_decode_pc_minus <= value(4);
-        audio_dma_fetch_pc_minus <= value(3);
       elsif (long_address(27 downto 4) = x"FFD372") or (long_address(27 downto 4) = x"FFD172")
         or (long_address(27 downto 4) = x"FFD373") or (long_address(27 downto 4) = x"FFD173")
         or (long_address(27 downto 4) = x"FFD374") or (long_address(27 downto 4) = x"FFD174")
@@ -3576,7 +3572,16 @@ begin
         audio_dma_blocked <= '1';
         audio_dma_write_blocked <= '1';
       else
-        audio_dma_blocked <= hypervisor_mode;
+        -- Audio DMA only works safely at 40MHz, and outside of hypervisor mode.
+        -- XXX This is due to some CPU timing bug, probably related to the need
+        -- for NOP after hypertraps. It doesn't show up in simulation, so its a
+        -- pain to track down. That said, its not unreasonable to require 40MHz
+        -- for audio DMA to work.
+        if cpuspeed_internal = x"40" then
+          audio_dma_blocked <= hypervisor_mode;
+        else
+          audio_dma_blocked <= '1';
+        end if;
         audio_dma_write_blocked <= audio_dma_disable_writes;
       end if;
 
@@ -3637,30 +3642,75 @@ begin
               elsif audio_dma_pending(1)='1' then
                 audio_dma_target_channel <= 1;
                 if audio_dma_sample_width(1)="11" and audio_dma_pending_msb(1)='1' then
+                  -- We still need to read the MSB after
+                  audio_dma_sample_valid(1) <= '0';
                   audio_dma_fetch_is_lsb <= '1';
                   audio_dma_pending_msb(1) <='0';
                   audio_dma_current_addr(1) <= audio_dma_current_addr(1) + 1;
+                  report "audio_dma_current_value: scheduling LSB read of $" & to_hstring(audio_dma_current_addr(1));
+                  
+                elsif audio_dma_sample_width(1)="11" and audio_dma_pending_msb(1)='0' then
+                  report "audio_dma_current_value: scheduling MSB read of $" & to_hstring(audio_dma_current_addr(1));
+                  -- 2nd cycle, so record the LSB
+                  audio_dma_current_value(1)(7 downto 0) <= signed(memory_read_value);
+                  report "audio_dma_current_value(" & integer'image(1) & ") <= $xx"
+                    & to_hstring(memory_read_value);
+                  audio_dma_fetch_is_lsb <= '0';                
+                  audio_dma_current_addr(1) <= audio_dma_current_addr(1) + 1;                
+                  audio_dma_pending(1) <= '0';
+                  state <= DoAudioDMA;
                 else
+                  -- We are reading the MSB (or MSB-only sample format)
                   audio_dma_pending(1) <= '0';
                   state <= DoAudioDMA;
                 end if;
               elsif audio_dma_pending(2)='1' then
                 audio_dma_target_channel <= 2;
                 if audio_dma_sample_width(2)="11" and audio_dma_pending_msb(2)='1' then
+                  -- We still need to read the MSB after
+                  audio_dma_sample_valid(2) <= '0';
                   audio_dma_fetch_is_lsb <= '1';
                   audio_dma_pending_msb(2) <='0';
                   audio_dma_current_addr(2) <= audio_dma_current_addr(2) + 1;
+                  report "audio_dma_current_value: scheduling LSB read of $" & to_hstring(audio_dma_current_addr(2));
+                  
+                elsif audio_dma_sample_width(2)="11" and audio_dma_pending_msb(2)='0' then
+                  report "audio_dma_current_value: scheduling MSB read of $" & to_hstring(audio_dma_current_addr(2));
+                  -- 2nd cycle, so record the LSB
+                  audio_dma_current_value(2)(7 downto 0) <= signed(memory_read_value);
+                  report "audio_dma_current_value(" & integer'image(2) & ") <= $xx"
+                    & to_hstring(memory_read_value);
+                  audio_dma_fetch_is_lsb <= '0';                
+                  audio_dma_current_addr(2) <= audio_dma_current_addr(2) + 1;                
+                  audio_dma_pending(2) <= '0';
+                  state <= DoAudioDMA;
                 else
+                  -- We are reading the MSB (or MSB-only sample format)
                   audio_dma_pending(2) <= '0';
                   state <= DoAudioDMA;
                 end if;
               elsif audio_dma_pending(3)='1' then
                 audio_dma_target_channel <= 3;
                 if audio_dma_sample_width(3)="11" and audio_dma_pending_msb(3)='1' then
+                  -- We still need to read the MSB after
+                  audio_dma_sample_valid(3) <= '0';
                   audio_dma_fetch_is_lsb <= '1';
                   audio_dma_pending_msb(3) <='0';
                   audio_dma_current_addr(3) <= audio_dma_current_addr(3) + 1;
+                  report "audio_dma_current_value: scheduling LSB read of $" & to_hstring(audio_dma_current_addr(3));
+                  
+                elsif audio_dma_sample_width(3)="11" and audio_dma_pending_msb(3)='0' then
+                  report "audio_dma_current_value: scheduling MSB read of $" & to_hstring(audio_dma_current_addr(3));
+                  -- 2nd cycle, so record the LSB
+                  audio_dma_current_value(3)(7 downto 0) <= signed(memory_read_value);
+                  report "audio_dma_current_value(" & integer'image(3) & ") <= $xx"
+                    & to_hstring(memory_read_value);
+                  audio_dma_fetch_is_lsb <= '0';                
+                  audio_dma_current_addr(3) <= audio_dma_current_addr(3) + 1;                
+                  audio_dma_pending(3) <= '0';
+                  state <= DoAudioDMA;
                 else
+                  -- We are reading the MSB (or MSB-only sample format)
                   audio_dma_pending(3) <= '0';
                   state <= DoAudioDMA;
                 end if;
