@@ -423,9 +423,14 @@ begin
         leftsid_audio_combined <= leftsid_audio;
         rightsid_audio_combined <= rightsid_audio;
       end if;
-      
-      ampPWM_l_in <= headphones_left_out;
-      ampPWM_r_in <= headphones_right_out;
+
+      if cpu_pcm_enable='0' then
+        ampPWM_l_in <= headphones_left_out;
+        ampPWM_r_in <= headphones_right_out;
+      else
+        ampPWM_l_in <= cpu_pcm_left;
+        ampPWM_r_in <= cpu_pcm_right;
+      end if;
 
       -- Duplicate of bt_left_out as PWM, for driving MEGA65 R2 on-board speaker
       pcspeaker_l_in <= bt_left_out;
