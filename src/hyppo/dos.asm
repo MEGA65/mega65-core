@@ -48,9 +48,9 @@ dos_and_process_trap_table:
         .word trap_dos_readdir
         .word trap_dos_closedir
         .word trap_dos_openfile
-        .word trap_dos_readfile                 // not currently implememted
+        .word trap_dos_readfile                 
         .word trap_dos_writefile                // not currently implememted
-        .word trap_dos_mkfile                   // not currently implememted
+        .word trap_dos_mkfile                   // implementation started
 
         // $20 - $2E
         //
@@ -265,6 +265,420 @@ trap_dos_getcurrentdrive:
 
 //         ========================
 
+trap_dos_mkfile:
+
+	// XXX Filename must already be set.
+	// XXX Must be a file in the current directory only.
+	// XXX Can only create normal files, not directories
+	//     (change attribute after).
+	// XXX Only supports 8.3 names for now.
+	// XXX Filenames without extension might still cause problems.
+	// XXX Allocates 512KB at a time, i.e., a full FAT sector's
+	//     worth of clusters.
+	// XXX Allocates a contiguous block, so that D81s etc can
+	//     be created, and guaranteed contiguous on the storage,
+	//     so that they can be mounted.
+	// XXX Size of file specified in $ZZYYXX, i.e., limit of 16MB.
+	// XXX Doesn't handle full file systems (or ones without enough space
+	//     free properly. Should check candidate cluster number is not too
+	//     high, and abort if it is.
+
+	// First, make sure the file doesn't already exist
+	jsr dos_findfile
+	bcc !+
+	// File exists, so abort
+	clc
+	lda #dos_errorcode_file_exists
+	sta dos_error_code
+	jmp return_from_trap_with_failure
+!:
+
+	// We need 1 FAT sector per 512KB of data.
+	// I.e., shift ZZ right by three bits to get number
+	// of empty FAT sectors we need to indicate sufficient space.
+	lda hypervisor_z
+	lsr
+	lsr
+	lsr
+	clc
+	adc #$01 
+	sta dos_scratch_byte_1
+
+	// Now go looking for empty FAT sectors
+	// Start at cluster 128, and add 128 each time to step through
+	// them.
+	// This skips the first sector of FAT, which always has some used
+	// bits, and ensures we can allocate on a whole sector basis.
+	lda #128
+	sta zptempv32+0
+	lda #$00
+	sta zptempv32+1
+	sta zptempv32+2
+	sta zptempv32+3
+
+	// Initially 0 empty pages found
+	lda #0
+	sta dos_scratch_byte_2
+
+	jsr sd_map_sectorbuffer
+
+find_empty_fat_page_loop:
+	
+	ldx #3
+!:	lda zptempv32,x
+	sta dos_current_cluster,x
+	dex
+	bpl !-
+
+	jsr read_fat_sector_for_cluster
+	
+	// Is the page empty
+	ldx #0
+!:	lda $de00,x
+	bne !+
+	lda $df00,x
+	bne !+
+
+	inx
+	bne !-
+!:
+	
+	// Z=1 if FAT sector all unallocated, Z=0 otherwise
+	beq fat_sector_is_empty
+
+	// Reset empty FAT sector counter
+	lda #0
+	sta dos_scratch_byte_2
+	jmp !+
+	
+fat_sector_is_empty:	
+	inc dos_scratch_byte_2
+	lda dos_scratch_byte_2
+	cmp dos_scratch_byte_1
+	beq found_enough_contiguous_free_space
+!:
+	// Need to find another
+	lda #$80
+	clc
+	adc zptempv32+0
+	sta zptempv32+0
+	lda zptempv32+1
+	adc #0
+	sta zptempv32+1
+	lda zptempv32+2
+	adc #0
+	sta zptempv32+2
+	lda zptempv32+3
+	adc #0
+	sta zptempv32+3
+
+	// XXX Check that we haven't hit the end of the file system
+	
+	jmp find_empty_fat_page_loop
+
+found_enough_contiguous_free_space:
+
+	// Space begins dos_scratch_byte_2 FAT sectors before here,
+	// so rewind back to there by taking $80 away for each count.
+	dec dos_scratch_byte_2
+	
+!:	lda dos_scratch_byte_2
+	beq !+
+	lda zptempv32+0
+	sec
+	sbc #$80
+	sta zptempv32+0
+	lda zptempv32+1
+	sbc #0
+	sta zptempv32+1
+	lda zptempv32+2
+	sbc #0
+	sta zptempv32+2
+	lda zptempv32+3
+	sbc #0
+	sta zptempv32+3
+	dec dos_scratch_byte_2
+	jmp !-
+!:
+	// zptempv32 now contains the starting cluster for our file
+
+	// Find directory entry slot
+	jsr dos_find_free_dirent
+	bcs !+
+	// Couldn't find a free dirent, so return whatever error
+	// we have been indicated.
+	rts
+!:
+
+	// Show offset in directory sector for dirent
+//	lda dos_scratch_vector+0
+//	sta $0700
+//	lda dos_scratch_vector+1
+//	and #$01
+//	sta $0701
+//
+//	// Show directory sector
+//	ldx #3
+//!:	lda $d681,x
+//	sta $0703,x
+//	dex
+//	bpl !-
+//
+//	// Show first cluster we will use
+//	ldx #3
+//!:	lda zptempv32,x
+//	sta $0708,x
+//	dex
+//	bpl !-
+	
+	// XXX Populate dirent structure
+	// dirent: erase old contents
+	ldy #31
+	lda #0
+!:	sta (dos_scratch_vector),y
+	// Put spaces in filename field (first 11 bytes)
+	cpy #11
+	bne foo1
+	lda #$20
+foo1:	
+	dey
+	bpl !-
+	// dirent: filename
+	// Split filename at dot
+	ldy #0
+	ldx #fs_fat32_dirent_offset_shortname
+!:	lda dos_requested_filename,x
+	cmp #$2e
+	bne not_dot
+	ldy #8-1
+	bne was_dot
+not_dot:
+	// Don't write nul char if filename is short
+	cmp #0
+	beq !+
+	sta (dos_scratch_vector),y
+was_dot:	
+	beq !+
+	inx
+	iny
+	cpy #11
+	bne !-
+!:
+	
+	// dirent: attributes
+	ldy #fs_fat32_dirent_offset_attributes
+	lda #$20 // Archive bit set
+	sta (dos_scratch_vector),y
+	// dirent: start cluster
+	ldy #fs_fat32_dirent_offset_clusters_low
+	lda zptempv32+0
+	sta (dos_scratch_vector),y
+	iny
+	lda zptempv32+1
+	sta (dos_scratch_vector),y
+	ldy #fs_fat32_dirent_offset_clusters_high
+	lda zptempv32+2
+	sta (dos_scratch_vector),y
+	iny
+	lda zptempv32+3
+	sta (dos_scratch_vector),y	
+	// dirent: file length
+	ldy #fs_fat32_dirent_offset_file_length
+	lda hypervisor_x
+	sta (dos_scratch_vector),y
+	iny
+	lda hypervisor_y
+	sta (dos_scratch_vector),y
+	iny
+	lda hypervisor_z
+	sta (dos_scratch_vector),y
+	iny
+	lda #0
+	sta (dos_scratch_vector),y
+
+	// Write sector back with updated dirent
+	lda #$03
+	sta $d680
+	jsr sd_wait_for_ready
+		
+	// Update both FATs to make the allocation
+
+	// Work out how many sectors full of incrementing clusters
+	// we need.
+	lda dos_scratch_byte_1
+	sta dos_scratch_byte_2
+mkfile_fat_write_loop:	
+	// Get the (currently empty) sector
+	ldx #3
+!:	lda zptempv32,x
+	sta dos_current_cluster,x
+	dex
+	bpl !-
+	jsr read_fat_sector_for_cluster
+
+	// Update cluster number and write it into the field
+	ldy #0
+!:
+	lda zptempv32+0
+	clc
+	adc #1
+	sta zptempv32+0
+	sta $de00,y
+	iny
+	lda zptempv32+1
+	adc #0
+	sta zptempv32+1
+	sta $de00,y
+	iny
+	lda zptempv32+2
+	adc #0
+	sta zptempv32+2
+	sta $de00,y
+	iny
+	lda zptempv32+3
+	adc #0
+	sta zptempv32+3
+	sta $de00,y
+	iny
+	bne !-
+!:
+	lda zptempv32+0
+	clc
+	adc #1
+	sta zptempv32+0
+	sta $df00,y
+	iny
+	lda zptempv32+1
+	adc #0
+	sta zptempv32+1
+	sta $df00,y
+	iny
+	lda zptempv32+2
+	adc #0
+	sta zptempv32+2
+	sta $df00,y
+	iny
+	lda zptempv32+3
+	adc #0
+	sta zptempv32+3
+	sta $df00,y
+	iny
+	bne !-
+
+	// If the last FAT sector for this file, then
+	// the last cluster entry should be $0FFFFFF8 to mark
+	// end of file.
+	lda dos_scratch_byte_2
+	cmp #1
+	bne !+
+	lda #$F8
+	sta $dffc
+	lda #$FF
+	sta $dffd
+	sta $dffe
+	lda #$0F
+	sta $dfff
+!:	
+	// Write FAT sector to FAT1
+	lda #$03
+	sta $d680
+	jsr sd_wait_for_ready
+
+	// Work out where it will be in the 2nd FAT
+	lda dos_disk_table_offset
+	ora #fs_fat32_length_of_fat
+	tay
+	ldx #0
+!:	lda $d681,x
+	adc dos_disk_table,y
+	iny
+	inx
+	cpx #4
+	bne !-
+	
+	// Write FAT sector to FAT2
+	lda #$03
+	sta $d680
+	jsr sd_wait_for_ready
+	
+	// More FAT sectors to go?
+	dec dos_scratch_byte_2
+	beq !+
+	jmp mkfile_fat_write_loop
+!:	
+
+	// All done: File has been created.
+	jmp return_from_trap_with_success
+
+dos_find_free_dirent:
+	// Start by opening the directory.
+	jsr dos_opendir
+	// Then look for free directory entry slots.
+	jsr sd_map_sectorbuffer
+
+	// FALL THROUGH
+	
+empty_dirent_search_loop:	
+	
+	jsr dos_file_read_current_sector
+
+	// Look for free dirent in first half of each sector.
+	ldx #0
+	lda #$de
+	sta dos_scratch_vector+1
+!:	lda $de00,x
+	cmp #$00 // vacant
+	beq available_dirent_slot
+	cmp #$e5 // deleted
+	beq available_dirent_slot
+	txa
+	adc #$20
+	tax
+	bne !-
+	inc dos_scratch_vector+1
+!:	lda $de00,x
+	cmp #$00 // vacant
+	beq available_dirent_slot
+	cmp #$e5 // deleted
+	beq available_dirent_slot
+	txa
+	adc #$20
+	tax
+	bne !-
+
+	// No empty slots in this directory, so see if there any more sectors in
+	// this directory?
+	jsr dos_file_advance_to_next_sector
+	bcs empty_dirent_search_loop
+
+	// Directory is full, so return error
+	// XXX Later we should allow extending the directory by adding another cluster.
+	lda #dos_errorcode_directory_full
+	sta dos_error_code
+	clc
+	rts
+	
+available_dirent_slot:	
+	stx dos_scratch_vector+0
+	
+	sec
+	rts
+
+//         ========================
+	
+read_fat_sector_for_cluster:
+	jsr dos_cluster_to_fat_sector
+
+	// Now read the sector
+        ldx #3
+!:      lda dos_current_cluster,x
+        sta $d681,x
+        dex
+        bpl !-
+	jmp sd_readsector
+	
+//         ========================
+	
 trap_dos_opendir:
 
         // X = File descriptor
@@ -349,6 +763,10 @@ trap_dos_closedir:
 
 //         ========================
 
+trap_dos_readfile:
+	jsr dos_readfile	
+        jmp return_from_trap_with_carry_flag
+	
 trap_dos_openfile:
 
         // Opens file in current dirent structure
@@ -493,13 +911,11 @@ td81we1:
 
 // BG: the following are placeholders for the future development
 
-trap_dos_readfile:
 trap_dos_getdisksize:
 trap_dos_getcwd:
 trap_dos_chdir:
 trap_dos_mkdir:
 trap_dos_rmdir:
-trap_dos_mkfile:
 trap_dos_writefile:
 trap_dos_seekfile:
 trap_dos_rmfile:
@@ -1709,7 +2125,7 @@ l3_dos_return_error_already_set:
 !:
         // Directory is now open, and we can now iterate through directory entries
         //
-        jmp dos_findnext
+	jmp dos_findnext
 
 
 //         ========================
@@ -1953,18 +2369,19 @@ eight3char1:
 
 //         ========================
 
-        // first, check if the entry begins with zero, suggesting END-OF-DIRECTORY
+        // first, check if the entry begins with $E5 marking a deleted file.
+	// Entry entries we just ignore, as they are totally valid.
 
         ldy #fs_fat32_dirent_offset_shortname        // Y=0 (first char of entry)
         lda (<dos_scratch_vector),y
-        cmp #$00
-        bne !+
-        jmp drd_end_of_directory
-!:
-        // then check if the entry begins with $E5, suggesting deleted
         cmp #$e5
         bne !+
         jmp drd_deleted_or_invalid_entry
+!:
+	cmp #$00
+        bne !+
+	// Empty entry, so skip over it
+	jmp drd_deleted_or_invalid_entry
 !:
         // now check the attrib
 
@@ -2437,7 +2854,7 @@ drd_deleted_or_invalid_entry:
         .byte 0
 ddie:        ascii("xx drd_deleted_or_invalid_entry")
         .byte 0
-
+	
         jsr dos_readdir_advance_to_next_entry
         bcc !+
         jmp dos_readdir
@@ -2577,6 +2994,15 @@ dscffd1:
         sta dos_file_descriptors+dos_filedescriptor_offset_offsetinsector+0,x
         sta dos_file_descriptors+dos_filedescriptor_offset_offsetinsector+1,x
 
+        // Get length of file, so that we can
+        // limit load to reported length of file, instead assuming cluster
+        // chain is correct length, and file ends on a cluster boundary
+        ldx #$03
+!:      lda dos_dirent_length,x
+        sta dos_bytes_remaining,x
+        dex
+        bpl !-
+	
         sec
         rts
 
@@ -2763,6 +3189,8 @@ dfanc1:
 
         jsr dos_cluster_to_fat_sector
 
+	jsr dos_remember_sd_sector
+	
         // copy from current cluster to SD sector address register
         //
         ldx #$03
@@ -2884,13 +3312,37 @@ dfanc_check:
 
 dfanc_ok:
         // cluster number is okay
+	jsr dos_restore_sd_sector
         sec
         rts
 
 dfanc_fail:
+	jsr dos_restore_sd_sector
         lda #dos_errorcode_invalid_cluster
         jmp dos_return_error
 
+	// Some routines disturb the current SD card sector in the buffer,
+	// but where the caller might not expect or want this to happen.
+	// For this reason we have the following convenience routines for
+	// stashing and restoring the current ready sector.
+dos_remember_sd_sector:
+	ldx #3
+!:	lda $d681,x
+	sta dos_stashed_sd_sector_number,x
+	dex
+	bpl !-
+	rts
+
+dos_restore_sd_sector:
+	ldx #3
+!:	lda dos_stashed_sd_sector_number,x
+	sta $d681,x
+	dex
+	bpl !-
+	jsr sd_readsector
+	rts
+	
+	
 //         ========================
 
 dos_cluster_to_fat_sector:
@@ -3000,15 +3452,6 @@ dos_readfileintomemory:
         //
         jsr dos_closefile
         plp
-
-        // Have directory entry.  Get length of file, so that we can
-        // limit load to reported length of file, instead assuming cluster
-        // chain is correct length, and file ends on a cluster boundary
-        ldx #$03
-!:      lda dos_dirent_length,x
-        sta dos_bytes_remaining,x
-        dex
-        bpl !-
 
         // ... but report if we hit an error
         //
@@ -3157,6 +3600,81 @@ dos_load_y_based_on_dos_bytes_remaining:
         sta dos_bytes_remaining+3
         rts
 
+
+dos_readfile:
+
+	lda dos_bytes_remaining+0
+	ora dos_bytes_remaining+1
+	ora dos_bytes_remaining+2
+	ora dos_bytes_remaining+3
+	bne !+
+
+	// End of file: So zero bytes returned
+	lda #$00
+	sta hypervisor_x
+	sta hypervisor_y
+	clc
+	rts
+	
+!:
+	// Indicate how many bytes we are returning
+	ldx #<$0200
+	ldy #>$0200
+	
+	lda dos_bytes_remaining+2
+	ora dos_bytes_remaining+3
+	bne !+   // lots more to read
+	lda dos_bytes_remaining+1
+	cmp #1
+	bcs !+   // at least a whole sector more to read
+
+	// Only a fractional part of a sector to read, so zero out remaining
+
+	// Update number of bytes for fractional sector read
+	ldx dos_bytes_remaining+0
+	ldy dos_bytes_remaining+1
+	
+	lda #$00
+	sta dos_bytes_remaining+0
+	// Actually make it look like 1 sector to go, so we decrement that to zero
+	// immediately below
+	lda #$02
+	sta dos_bytes_remaining+1
+	// FALL THROUGH
+!:
+	// Deduct one sector from the remaining
+	lda dos_bytes_remaining+1
+	sec
+	sbc #2
+	sta dos_bytes_remaining+1
+	lda dos_bytes_remaining+2
+	sbc #0
+	sta dos_bytes_remaining+2
+	lda dos_bytes_remaining+3
+	sbc #0
+	sta dos_bytes_remaining+3
+
+	// Store number of bytes read in X and Y for calling process
+	stx hypervisor_x
+	sty hypervisor_y
+	
+	// Now read sector and return
+	
+        jsr sd_map_sectorbuffer
+        jsr dos_file_read_current_sector
+        bcs drf_gotsector
+	rts
+	
+drf_gotsector:
+	// Then advance to next sector.
+	// Ignore the error, as the EOF will get picked up on the next call.
+
+	jsr dos_file_advance_to_next_sector
+
+	sec
+	rts
+	
+	
 //         ========================
 
 dos_setname:

@@ -411,9 +411,8 @@ return_from_trap_with_success:
 
         Checkpoint("return_from_trap_with_success")
 
-	// Clear A on return
-	lda #$00
-	sta hypervisor_a
+	// DO NOT Clear A on return
+        // (else traps can't return anything in A register)
 	
         // return from hypervisor
         sta hypervisor_enterexit_trigger
