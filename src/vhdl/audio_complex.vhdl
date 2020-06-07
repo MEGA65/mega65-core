@@ -62,6 +62,7 @@ entity audio_complex is
     pcm_right : in unsigned(15 downto 0);
     -- But if the CPU is providing digital audio, we use that instead
     cpu_pcm_enable : in std_logic := '0';
+    cpu_pcm_bypass : in std_logic := '0';
     cpu_pcm_left : in unsigned(15 downto 0) := x"8000";
     cpu_pcm_right : in unsigned(15 downto 0) := x"8000";   
     
@@ -424,17 +425,19 @@ begin
         rightsid_audio_combined <= rightsid_audio;
       end if;
 
-      if cpu_pcm_enable='0' then
+      if cpu_pcm_bypass='0' then
         ampPWM_l_in <= headphones_left_out;
         ampPWM_r_in <= headphones_right_out;
+        -- Duplicate of bt_left_out as PWM, for driving MEGA65 R2 on-board speaker
+        pcspeaker_l_in <= bt_left_out;
+        pcspeaker_r_in <= bt_right_out;
       else
         ampPWM_l_in <= cpu_pcm_left;
         ampPWM_r_in <= cpu_pcm_right;
+        pcspeaker_l_in <= cpu_pcm_left;
+        pcspeaker_r_in <= cpu_pcm_right;
       end if;
 
-      -- Duplicate of bt_left_out as PWM, for driving MEGA65 R2 on-board speaker
-      pcspeaker_l_in <= bt_left_out;
-      pcspeaker_r_in <= bt_right_out;
       
       -- Propagate I2S and PCM clocks
       if modem_is_pcm_master='0' then

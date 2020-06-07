@@ -105,6 +105,7 @@ entity gs4510 is
     cpu_pcm_left : out unsigned(15 downto 0) := x"8000";
     cpu_pcm_right : out unsigned(15 downto 0) := x"8000";
     cpu_pcm_enable : out std_logic := '0';
+    cpu_pcm_bypass : out std_logic := '0';
     
     -- Active low key that forces CPU to 40MHz
     fast_key : in std_logic;
@@ -355,6 +356,7 @@ architecture Behavioural of gs4510 is
   signal audio_dma_enables : std_logic_vector(0 to 3) := (others => '0');
   signal audio_dma_repeat : std_logic_vector(0 to 3) := (others => '0');
   signal audio_dma_stop : std_logic_vector(0 to 3) := (others => '0');
+  signal audio_dma_signed : std_logic_vector(0 to 3) := (others => '0');
   signal audio_dma_sample_width : u1_0to3 := (others => "00");
 
   signal audio_dma_pending : std_logic_vector(0 to 3) := (others => '0');
@@ -375,6 +377,8 @@ architecture Behavioural of gs4510 is
 
   signal audio_dma_decode_pc_minus : std_logic := '1';
   signal audio_dma_fetch_pc_minus : std_logic := '0';
+  signal cpu_pcm_bypass_int : std_logic := '0';
+
   
   -- C65 RAM Expansion Controller
   -- bit 7 = indicate error status?
@@ -2044,8 +2048,9 @@ begin
             -- @IO:GS $D711.7 - DMA:AUDEN Enable Audio DMA
             -- @IO:GS $D711.6 - DMA:AUDBLOCKED Audio DMA blocked (read only) DEBUG
             -- @IO:GS $D711.5 - DMA:AUDWRBLOCK Audio DMA block writes (samples still get read) 
+            -- @IO:GS $D711.4 - DMA:AUDNOMIX Audio DMA bypasses audio mixer
             -- @IO:GS $D711.0-2 - DMA:AUDBLOCKTO Audio DMA block timeout (read only) DEBUG
-            when x"11" => return audio_dma_enable & audio_dma_blocked & audio_dma_disable_writes & "00" & to_unsigned(audio_dma_block_timeout,3);
+            when x"11" => return audio_dma_enable & audio_dma_blocked & audio_dma_disable_writes & cpu_pcm_bypass_int & "0" & to_unsigned(audio_dma_block_timeout,3);
                           
             -- XXX DEBUG registers for audio DMA
             when x"18" => return audio_dma_write_counter(7 downto 0);
@@ -2059,6 +2064,7 @@ begin
 
             -- @IO:GS $D720.7 DMA:CH0EN Enable Audio DMA channel 0
             -- @IO:GS $D720.6 DMA:CH0LOOP Enable Audio DMA channel 0 looping
+            -- @IO:GS $D720.5 DMA:CH0SIGNED Enable Audio DMA channel 0 looping
             -- @IO:GS $D720.3 DMA:CH0STOP Audio DMA channel 0 stop flag
             -- @IO:GS $D720.0-1 DMA:CH0SBITS Audio DMA channel 0 sample bits (11=16, 10=8, 01=upper nybl, 00=lower nybl)
             -- @IO:GS $D721 DMA:CH0BADDR Audio DMA channel 0 base address LSB
@@ -2136,7 +2142,7 @@ begin
 
                           
             -- $D720-$D72F - Audio DMA channel 0                          
-            when x"20" => return audio_dma_enables(0) & audio_dma_repeat(0) & audio_dma_pending(0) &
+            when x"20" => return audio_dma_enables(0) & audio_dma_repeat(0) & audio_dma_signed(0) &
                             audio_dma_timing_counter(0)(24) & audio_dma_stop(0) & "0" & audio_dma_sample_width(0);
             when x"21" => return audio_dma_base_addr(0)(7 downto 0);
             when x"22" => return audio_dma_base_addr(0)(15 downto 8);
@@ -2154,7 +2160,7 @@ begin
             when x"2e" => return audio_dma_timing_counter(0)(15 downto 8);
             when x"2f" => return audio_dma_timing_counter(0)(23 downto 16);
             -- $D730-$D73F - Audio DMA channel 1
-            when x"30" => return audio_dma_enables(1) & audio_dma_repeat(1) & "0000" & audio_dma_sample_width(1);
+            when x"30" => return audio_dma_enables(1) & audio_dma_repeat(1) & audio_dma_signed(1) & "000" & audio_dma_sample_width(1);
             when x"31" => return audio_dma_base_addr(1)(7 downto 0);
             when x"32" => return audio_dma_base_addr(1)(15 downto 8);
             when x"33" => return audio_dma_base_addr(1)(23 downto 16);
@@ -2171,7 +2177,7 @@ begin
             when x"3e" => return audio_dma_timing_counter(1)(15 downto 8);
             when x"3f" => return audio_dma_timing_counter(1)(23 downto 16);
                                         -- $D740-$D74F - Audio DMA channel 2
-            when x"40" => return audio_dma_enables(2) & audio_dma_repeat(2) & "0000" & audio_dma_sample_width(2);
+            when x"40" => return audio_dma_enables(2) & audio_dma_repeat(2) & audio_dma_signed(2) & "000" & audio_dma_sample_width(2);
             when x"41" => return audio_dma_base_addr(2)(7 downto 0);
             when x"42" => return audio_dma_base_addr(2)(15 downto 8);
             when x"43" => return audio_dma_base_addr(2)(23 downto 16);
@@ -2188,7 +2194,7 @@ begin
             when x"4e" => return audio_dma_timing_counter(2)(15 downto 8);
             when x"4f" => return audio_dma_timing_counter(2)(23 downto 16);
                                         -- $D750-$D75F - Audio DMA channel 3
-            when x"50" => return audio_dma_enables(3) & audio_dma_repeat(3) & "0000" & audio_dma_sample_width(3);
+            when x"50" => return audio_dma_enables(3) & audio_dma_repeat(3) & audio_dma_signed(3) & "000" & audio_dma_sample_width(3);
             when x"51" => return audio_dma_base_addr(3)(7 downto 0);
             when x"52" => return audio_dma_base_addr(3)(15 downto 8);
             when x"53" => return audio_dma_base_addr(3)(23 downto 16);
@@ -2837,6 +2843,7 @@ begin
       elsif (long_address = x"FFD3711") or (long_address = x"FFD1711") then
         audio_dma_enable <= value(7);
         audio_dma_disable_writes <= value(5);
+        cpu_pcm_bypass_int <= value(4);
       elsif (long_address(27 downto 4) = x"FFD372") or (long_address(27 downto 4) = x"FFD172")
         or (long_address(27 downto 4) = x"FFD373") or (long_address(27 downto 4) = x"FFD173")
         or (long_address(27 downto 4) = x"FFD374") or (long_address(27 downto 4) = x"FFD174")
@@ -2847,6 +2854,7 @@ begin
           -- initialise things when freezing and unfreezing
           when x"0" => audio_dma_enables(to_integer(long_address(7 downto 4)-2)) <= value(7);
                        audio_dma_repeat(to_integer(long_address(7 downto 4)-2)) <= value(6);
+                       audio_dma_signed(to_integer(long_address(7 downto 4)-2)) <= value(5);
                        audio_dma_stop(to_integer(long_address(7 downto 4)-2)) <= value(3);
                        audio_dma_sample_width(to_integer(long_address(7 downto 4)-2)) <= value(1 downto 0);
                        report "Setting Audio DMA channel 0 flags to $" & to_hstring(value);
@@ -3373,7 +3381,9 @@ begin
     -- output.  We will map these all onto the same 64 bytes of registers.
 
     if rising_edge(clock) then
-           
+
+      cpu_pcm_bypass <= cpu_pcm_bypass_int;
+      
       -- We also have one direct 18x25 multiplier for use by the hypervisor.
       -- This multiplier fits a single DSP48E unit, and does not use the plumbing
       -- facility.
@@ -3636,7 +3646,8 @@ begin
                   state <= DoAudioDMA;
                 else
                   -- We are reading the MSB (or MSB-only sample format)
-                  audio_dma_current_value(0)(15 downto 8) <= signed(memory_read_value);
+                  audio_dma_current_value(0)(14 downto 8) <= signed(memory_read_value(6 downto 0));
+                  audio_dma_current_value(0)(15) <= memory_read_value(7) xor audio_dma_signed(0);
                   audio_dma_current_value(0)(7 downto 0) <= x"00";
                   audio_dma_current_addr(0) <= audio_dma_current_addr(0) + 1;                
                   audio_dma_pending(0) <= '0';
@@ -3664,7 +3675,8 @@ begin
                   state <= DoAudioDMA;
                 else
                   -- We are reading the MSB (or MSB-only sample format)
-                  audio_dma_current_value(1)(15 downto 8) <= signed(memory_read_value);
+                  audio_dma_current_value(1)(14 downto 8) <= signed(memory_read_value(6 downto 0));
+                  audio_dma_current_value(1)(15) <= memory_read_value(7) xor audio_dma_signed(1);
                   audio_dma_current_value(1)(7 downto 0) <= x"00";
                   audio_dma_current_addr(1) <= audio_dma_current_addr(1) + 1;                
                   audio_dma_pending(1) <= '0';
@@ -3692,8 +3704,8 @@ begin
                   state <= DoAudioDMA;
                 else
                   -- We are reading the MSB (or MSB-only sample format)
-                  audio_dma_current_value(2)(15 downto 8) <= signed(memory_read_value);
-                  audio_dma_current_value(2)(7 downto 0) <= x"00";
+                  audio_dma_current_value(2)(14 downto 8) <= signed(memory_read_value(6 downto 0));
+                  audio_dma_current_value(2)(15) <= memory_read_value(7) xor audio_dma_signed(2);
                   audio_dma_current_addr(2) <= audio_dma_current_addr(2) + 1;                
                   audio_dma_pending(2) <= '0';
                   state <= DoAudioDMA;
@@ -3720,7 +3732,8 @@ begin
                   state <= DoAudioDMA;
                 else
                   -- We are reading the MSB (or MSB-only sample format)
-                  audio_dma_current_value(3)(15 downto 8) <= signed(memory_read_value);
+                  audio_dma_current_value(3)(14 downto 8) <= signed(memory_read_value(6 downto 0));
+                  audio_dma_current_value(3)(15) <= memory_read_value(7) xor audio_dma_signed(3);
                   audio_dma_current_value(3)(7 downto 0) <= x"00";
                   audio_dma_current_addr(3) <= audio_dma_current_addr(3) + 1;                
                   audio_dma_pending(3) <= '0';
