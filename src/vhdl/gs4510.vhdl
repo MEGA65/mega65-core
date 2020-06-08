@@ -2050,9 +2050,13 @@ begin
             -- @IO:GS $D711.4 - DMA:AUDNOMIX Audio DMA bypasses audio mixer
             -- @IO:GS $D711.3 - AUDIO:PWMPDM PWM/PDM audio encoding select
             -- @IO:GS $D711.0-2 - DMA:AUDBLOCKTO Audio DMA block timeout (read only) DEBUG
-            when x"11" => return audio_dma_enable & audio_dma_blocked & audio_dma_disable_writes & cpu_pcm_bypass_int & pwm_mode_select_int & to_unsigned(audio_dma_block_timeout,3);
+            when x"11" => return audio_dma_enable & audio_dma_blocked & audio_dma_disable_writes & cpu_pcm_bypass_int & pwm_mode_select_int & to_unsigned(audio_dma_block_timeout,3);                         
                           
             -- XXX DEBUG registers for audio DMA
+            when x"14" => return audio_dma_left(7 downto 0);              
+            when x"15" => return audio_dma_left(15 downto 8);              
+            when x"16" => return audio_dma_right(7 downto 0);              
+            when x"17" => return audio_dma_right(15 downto 8);              
             when x"18" => return audio_dma_write_counter(7 downto 0);
             when x"19" => return audio_dma_write_counter(15 downto 8);
             when x"1a" => return audio_dma_write_counter(23 downto 16);
