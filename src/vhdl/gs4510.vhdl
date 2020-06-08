@@ -3584,6 +3584,9 @@ begin
       cpu_pcm_left <= unsigned(audio_dma_left);
       cpu_pcm_right <= unsigned(audio_dma_right);
       cpu_pcm_enable <= audio_dma_enable;
+
+      report "CPU PCM: $" & to_hstring(audio_dma_left) & " + $" & to_hstring(audio_dma_left)
+        & ", sample valids=" & to_string(audio_dma_sample_valid);
       
       -- Process result of background DMA
       if pending_dma_processed = '1' then
@@ -7565,6 +7568,11 @@ begin
 
       -- Do nothing while CPU is held
       -- Well, except for background DMA...
+
+      if pending_dma_target /= 0 then
+        report "BACKGROUNDDMA: Reading $" & to_hstring(pending_dma_address) & " for target " & integer'image(pending_dma_target)
+          & " in non-proceed/phi-pause cycle";
+      end if;
       
       memory_access_read := '1';
       memory_access_address := pending_dma_address;
@@ -7741,6 +7749,8 @@ begin
               if is_load='1' or is_rmw='1' then
                 -- On memory read wait-state, read from RAM, so that FastIO
                 -- lines clear
+                report "BACKGROUNDDMA: Reading $" & to_hstring(pending_dma_address) & " for target " & integer'image(pending_dma_target)
+                  & " in READ $nn wait cycle";
                 memory_access_read := '1';
                 memory_access_address := pending_dma_address;
                 memory_access_resolve_address := '0';
@@ -7750,6 +7760,8 @@ begin
               if is_load='1' or is_rmw='1' then
                 -- On memory read wait-state, read from RAM, so that FastIO
                 -- lines clear
+                report "BACKGROUNDDMA: Reading $" & to_hstring(pending_dma_address) & " for target " & integer'image(pending_dma_target)
+                  & " in READ $nn,X wait cycle";
                 memory_access_read := '1';
                 memory_access_address := pending_dma_address;
                 memory_access_resolve_address := '0';
@@ -7759,6 +7771,8 @@ begin
               if is_load='1' or is_rmw='1' then
                 -- On memory read wait-state, read from RAM, so that FastIO
                 -- lines clear
+                report "BACKGROUNDDMA: Reading $" & to_hstring(pending_dma_address) & " for target " & integer'image(pending_dma_target)
+                  & " in READ $nn,Y wait cycle";
                 memory_access_read := '1';
                 memory_access_address := pending_dma_address;
                 memory_access_resolve_address := '0';
@@ -7813,6 +7827,8 @@ begin
                 if is_load='1' or is_rmw='1' then
                   -- On memory read wait-state, read from RAM, so that FastIO
                   -- lines clear
+                report "BACKGROUNDDMA: Reading $" & to_hstring(pending_dma_address) & " for target " & integer'image(pending_dma_target)
+                  & " in READ $nn wait cycle (case 2)";
                   memory_access_read := '1';
                   memory_access_address := pending_dma_address;
                   memory_access_resolve_address := '0';
@@ -7832,6 +7848,8 @@ begin
                   if is_load='1' or is_rmw='1' then
                     -- On memory read wait-state, read from RAM, so that FastIO
                     -- lines clear
+                report "BACKGROUNDDMA: Reading $" & to_hstring(pending_dma_address) & " for target " & integer'image(pending_dma_target)
+                  & " in READ $nnnn wait cycle";
                     memory_access_read := '1';
                     memory_access_address := pending_dma_address;
                     memory_access_resolve_address := '0';
@@ -7857,6 +7875,8 @@ begin
                 if is_load='1' or is_rmw='1' then
                   -- On memory read wait-state, read from RAM, so that FastIO
                   -- lines clear
+                report "BACKGROUNDDMA: Reading $" & to_hstring(pending_dma_address) & " for target " & integer'image(pending_dma_target)
+                  & " in READ $nn,X wait cycle (case b)";
                   memory_access_read := '1';
                   memory_access_address := pending_dma_address;
                   memory_access_resolve_address := '0';
@@ -7867,6 +7887,8 @@ begin
                 if is_load='1' or is_rmw='1' then
                   -- On memory read wait-state, read from RAM, so that FastIO
                   -- lines clear
+                report "BACKGROUNDDMA: Reading $" & to_hstring(pending_dma_address) & " for target " & integer'image(pending_dma_target)
+                  & " in READ $nn,Y wait cycle (case b)";
                   memory_access_read := '1';
                   memory_access_address := pending_dma_address;
                   memory_access_resolve_address := '0';
@@ -7876,6 +7898,8 @@ begin
                 if is_load='1' or is_rmw='1' then
                   -- On memory read wait-state, read from RAM, so that FastIO
                   -- lines clear
+                report "BACKGROUNDDMA: Reading $" & to_hstring(pending_dma_address) & " for target " & integer'image(pending_dma_target)
+                  & " in READ $nnnn,Y wait cycle";
                   memory_access_read := '1';
                   memory_access_address := pending_dma_address;
                   memory_access_resolve_address := '0';
@@ -7885,6 +7909,8 @@ begin
                 if is_load='1' or is_rmw='1' then
                   -- On memory read wait-state, read from RAM, so that FastIO
                   -- lines clear
+                report "BACKGROUNDDMA: Reading $" & to_hstring(pending_dma_address) & " for target " & integer'image(pending_dma_target)
+                  & " in READ $nnnn,X wait cycle";
                   memory_access_read := '1';
                   memory_access_address := pending_dma_address;
                   memory_access_resolve_address := '0';
@@ -7920,6 +7946,8 @@ begin
           if is_load='1' or is_rmw='1' then
             -- On memory read wait-state, read from RAM, so that FastIO
             -- lines clear
+            report "BACKGROUNDDMA: Reading $" & to_hstring(pending_dma_address) & " for target " & integer'image(pending_dma_target)
+              & " in READ ($nn,X) wait cycle";
             memory_access_read := '1';
             memory_access_address := pending_dma_address;
             memory_access_resolve_address := '0';
@@ -7933,6 +7961,8 @@ begin
           if is_load='1' or is_rmw='1' then
             -- On memory read wait-state, read from RAM, so that FastIO
             -- lines clear
+            report "BACKGROUNDDMA: Reading $" & to_hstring(pending_dma_address) & " for target " & integer'image(pending_dma_target)
+              & " in READ ($nn,SP),Y wait cycle";
             memory_access_read := '1';
             memory_access_address := pending_dma_address;
             memory_access_resolve_address := '0';
@@ -7946,6 +7976,8 @@ begin
           if is_load='1' or is_rmw='1' then
             -- On memory read wait-state, read from RAM, so that FastIO
             -- lines clear
+            report "BACKGROUNDDMA: Reading $" & to_hstring(pending_dma_address) & " for target " & integer'image(pending_dma_target)
+              & " in READ ($nn,Y) wait cycle";
             memory_access_read := '1';
             memory_access_address := pending_dma_address;
             memory_access_resolve_address := '0';
@@ -7971,6 +8003,8 @@ begin
           if is_load='1' or is_rmw='1' then
             -- On memory read wait-state, read from RAM, so that FastIO
             -- lines clear
+            report "BACKGROUNDDMA: Reading $" & to_hstring(pending_dma_address) & " for target " & integer'image(pending_dma_target)
+              & " in READ ($nn),Z 32-bit vector wait cycle";
             memory_access_read := '1';
             memory_access_address := pending_dma_address;
             memory_access_resolve_address := '0';
@@ -7980,6 +8014,8 @@ begin
           if is_load='1' or is_rmw='1' then
             -- On memory read wait-state, read from RAM, so that FastIO
             -- lines clear
+            report "BACKGROUNDDMA: Reading $" & to_hstring(pending_dma_address) & " for target " & integer'image(pending_dma_target)
+              & " in READ ($nn),Z 16-bit vector wait cycle";
             memory_access_read := '1';
             memory_access_address := pending_dma_address;
             memory_access_resolve_address := '0';
