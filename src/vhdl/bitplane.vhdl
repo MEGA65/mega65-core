@@ -77,7 +77,7 @@ begin
       -- somewhat simpler.
       
       if reset='1' then
-          report "Flushing buffered bytes from bitstream.";
+--          report "Flushing buffered bytes from bitstream.";
           bb_valid_h <= '0';
           bb_valid_2 <= '0';
           bb_valid_3 <= '0';

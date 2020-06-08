@@ -286,15 +286,15 @@ begin  -- behavioural
         end if;
         y_top <= '0';
       end if;
-      report "SPRITE: #" & integer'image(sprite_number) & ": "
-        & "x_in=" & integer'image(x_in)
-        & ", y_in=" & integer'image(y_in)
---        & ", y_top=" & std_logic'image(y_top)
-        & ", enable=" & std_logic'image(sprite_enable)
-        & ", drawing=" & std_logic'image(sprite_drawing)
-        & ", in_sprite=" & std_logic'image(x_in_sprite)
-        & ", sprite_x,y=" & to_hstring("000"&sprite_x) & "," &
-        to_hstring(sprite_y);
+--      report "SPRITE: #" & integer'image(sprite_number) & ": "
+--        & "x_in=" & integer'image(x_in)
+--        & ", y_in=" & integer'image(y_in)
+----        & ", y_top=" & std_logic'image(y_top)
+--        & ", enable=" & std_logic'image(sprite_enable)
+--        & ", drawing=" & std_logic'image(sprite_drawing)
+--        & ", in_sprite=" & std_logic'image(x_in_sprite)
+--        & ", sprite_x,y=" & to_hstring("000"&sprite_x) & "," &
+--        to_hstring(sprite_y);
 --      if (x_in = to_integer(sprite_x)) then
 --        report "x_in = sprite_x";
 --      else

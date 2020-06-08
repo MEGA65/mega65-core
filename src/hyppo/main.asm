@@ -623,7 +623,7 @@ reset_entry:
 //	sta $d720
 //	lda #$90
 //	sta $d711
-	
+
 	// Put ZP and stack back where they belong
 	lda #$bf
 	.byte $5B // tab

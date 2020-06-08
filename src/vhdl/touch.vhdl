@@ -217,11 +217,11 @@ begin
         busy_count <= 0;
       end if;
       if i2c0_busy='0' and last_busy='1' then
-        report "busy de-asserted: dispatching next command";
+--        report "busy de-asserted: dispatching next command";
          case busy_count is
           when 0 =>
             if touch_enabled='1' then
-              report "Beginning touch panel scan";
+--              report "Beginning touch panel scan";
               -- send initial command
               i2c0_command_en <= '1';
               i2c0_address <= "0111000";  -- 0x70 = I2C address of touch panel

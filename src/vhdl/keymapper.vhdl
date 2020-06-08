@@ -487,8 +487,8 @@ begin  -- behavioural
         else
           -- keyboard not being scanned on this bit
           porta_value := (others => '1');
-          report "porta_value = "
-            & to_string(porta_value) & " as not being keyboard scanned.";
+--          report "porta_value = "
+--            & to_string(porta_value) & " as not being keyboard scanned.";
         end if;        
       end loop;    
       
@@ -504,14 +504,14 @@ begin  -- behavioural
       for b in 0 to 7 loop
         if porta_ddr(b)='1' then
           -- Pin is output
-          report "porta copying porta_in(" & integer'image(b) & ") due to ddr=1. Copied value = " & std_logic'image(porta_in(b));
+--          report "porta copying porta_in(" & integer'image(b) & ") due to ddr=1. Copied value = " & std_logic'image(porta_in(b));
           porta_pins(b) <= porta_in(b);
         else
           -- Pin is input, i.e., tri-stated
-          report "porta tristating porta_in(" & integer'image(b) & ") due to ddr=0.";
+--          report "porta tristating porta_in(" & integer'image(b) & ") due to ddr=0.";
           porta_pins(b) <= '1'; -- was 'Z'
         end if;
-        report "porta_pins = " & to_string(porta_pins);
+--        report "porta_pins = " & to_string(porta_pins);
         if portb_ddr(b)='1' then
           -- Pin is output
           portb_pins(b) <= portb_in(b);
@@ -532,13 +532,13 @@ begin  -- behavioural
           if (porta_ddr(b) = '0') and (porta_pins(b) = '0') then
             -- CIA should read bit as low
             porta_out(b) <= '0';
-            report "porta_out(" & integer'image(b) & ") = 0, due to ddr=0 and drive=0";
+--            report "porta_out(" & integer'image(b) & ") = 0, due to ddr=0 and drive=0";
           else
             porta_out(b) <= porta_value(b) and joyb(b);
-            report "porta_out(" & integer'image(b) & ") = " &
-              std_logic'image(porta_value(b)) & " & "
-              & std_logic'image(joyb(b))
-              & ", due to ddr=0 and drive=0";
+--            report "porta_out(" & integer'image(b) & ") = " &
+--              std_logic'image(porta_value(b)) & " & "
+--              & std_logic'image(joyb(b))
+--              & ", due to ddr=0 and drive=0";
           end if;
           if (portb_ddr(b) = '0') and (portb_pins(b) = '0') then
             -- CIA should read bit as low

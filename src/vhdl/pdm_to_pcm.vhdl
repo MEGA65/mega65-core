@@ -134,9 +134,9 @@ begin
           rolling_sums(i) <= rolling_sums(i-1);
         end loop;
         rolling_sums(0) <= rolling_sum;
-        report "sum = " & integer'image(sum);
-        report "sample_value = " & integer'image(sample_value);
-        report "rolling_sum = " & integer'image(rolling_sum);
+--        report "sum = " & integer'image(sum);
+--        report "sample_value = " & integer'image(sample_value);
+--        report "rolling_sum = " & integer'image(rolling_sum);
         if ( sample_value + rolling_sum ) > rolling_sums(15) then
           sample_value <= sample_value + rolling_sum - rolling_sums(15);
         else
