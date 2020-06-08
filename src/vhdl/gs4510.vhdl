@@ -3320,7 +3320,7 @@ begin
 
     variable memory_read_value : unsigned(7 downto 0);
 
-    variable memory_access_address : unsigned(27 downto 0) := x"FFFFFFF";
+    variable memory_access_address : unsigned(27 downto 0) := pending_dma_address;
     variable memory_access_read : std_logic := '0';
     variable memory_access_write : std_logic := '0';
     variable memory_access_resolve_address : std_logic := '0';
@@ -3587,45 +3587,47 @@ begin
 
       report "CPU PCM: $" & to_hstring(audio_dma_left) & " + $" & to_hstring(audio_dma_left)
         & ", sample valids=" & to_string(audio_dma_sample_valid);
-      
+
       -- Process result of background DMA
       if pending_dma_processed = '1' then
+        report "BACKGROUNDDMA: Read byte $" & to_hstring(shadow_rdata) & " for target " & integer'image(pending_dma_target);
         pending_dma_target <= 0 ;
+        report "BACKGROUNDDMA: Set target to 0";
         case pending_dma_target is
           when 0 => -- no pending job
             null;
           when 1 => -- Audio DMA ch 0, LSB
-            audio_dma_current_value(0)(7 downto 0) <= signed(memory_read_value);
+            audio_dma_current_value(0)(7 downto 0) <= signed(shadow_rdata);
           when 2 => -- Audio DMA ch 0, MSB
-            audio_dma_current_value(0)(15 downto 8) <= signed(memory_read_value);
+            audio_dma_current_value(0)(15 downto 8) <= signed(shadow_rdata);
             audio_dma_sample_valid(0) <= '1';
             audio_dma_pending_msb(0) <= '0';
             audio_dma_pending(0) <= '0';
           when 3 => -- Audio DMA ch 1, LSB
-            audio_dma_current_value(1)(7 downto 0) <= signed(memory_read_value);
+            audio_dma_current_value(1)(7 downto 0) <= signed(shadow_rdata);
           when 4 => -- Audio DMA ch 1, MSB
-            audio_dma_current_value(1)(15 downto 8) <= signed(memory_read_value);
+            audio_dma_current_value(1)(15 downto 8) <= signed(shadow_rdata);
             audio_dma_sample_valid(1) <= '1';
             audio_dma_pending_msb(1) <= '0';
             audio_dma_pending(1) <= '0';
           when 5 => -- Audio DMA ch 2, LSB
-            audio_dma_current_value(2)(7 downto 0) <= signed(memory_read_value);
+            audio_dma_current_value(2)(7 downto 0) <= signed(shadow_rdata);
           when 6 => -- Audio DMA ch 2, MSB
-            audio_dma_current_value(2)(15 downto 8) <= signed(memory_read_value);
+            audio_dma_current_value(2)(15 downto 8) <= signed(shadow_rdata);
             audio_dma_sample_valid(2) <= '1';
             audio_dma_pending_msb(2) <= '0';
             audio_dma_pending(2) <= '0';
           when 7 => -- Audio DMA ch 3, LSB
-            audio_dma_current_value(3)(7 downto 0) <= signed(memory_read_value);
+            audio_dma_current_value(3)(7 downto 0) <= signed(shadow_rdata);
           when 8 => -- Audio DMA ch 3, MSB
-            audio_dma_current_value(3)(15 downto 8) <= signed(memory_read_value);
+            audio_dma_current_value(3)(15 downto 8) <= signed(shadow_rdata);
             audio_dma_sample_valid(3) <= '1';
             audio_dma_pending_msb(3) <= '0';
             audio_dma_pending(3) <= '0';            
         end case;
         pending_dma_busy <= '0';
       end if;
-      if pending_dma_busy='0' or pending_dma_processed='1' then
+      if pending_dma_busy='0' then
         if audio_dma_pending(0)='1' then
           if audio_dma_sample_width(0)="11" and audio_dma_pending_msb(0)='1' then
             -- We still need to read the MSB after
@@ -3634,6 +3636,7 @@ begin
             audio_dma_current_addr(0) <= audio_dma_current_addr(0) + 1;
             report "audio_dma_current_value: scheduling LSB read of $" & to_hstring(audio_dma_current_addr(0));
             pending_dma_busy <= '1';
+            report "BACKGROUNDDMA: Set target to 1";
             pending_dma_target <= 1; -- ch0 LSB
             pending_dma_address(27 downto 0) <= (others => '0');
             pending_dma_address(23 downto 0) <= audio_dma_current_addr(0);
@@ -3643,6 +3646,7 @@ begin
             audio_dma_current_addr(0) <= audio_dma_current_addr(0) + 1;                
             report "audio_dma_current_value: scheduling MSB read of $" & to_hstring(audio_dma_current_addr(0));
             pending_dma_busy <= '1';
+            report "BACKGROUNDDMA: Set target to 2";
             pending_dma_target <= 2; -- ch0 MSB
             pending_dma_address(27 downto 0) <= (others => '0');
             pending_dma_address(23 downto 0) <= audio_dma_current_addr(0);
@@ -3655,6 +3659,7 @@ begin
             audio_dma_current_addr(1) <= audio_dma_current_addr(1) + 1;
             report "audio_dma_current_value: scheduling LSB read of $" & to_hstring(audio_dma_current_addr(1));
             pending_dma_busy <= '1';
+            report "BACKGROUNDDMA: Set target to 3";
             pending_dma_target <= 3; -- ch1 LSB
             pending_dma_address(27 downto 0) <= (others => '0');
             pending_dma_address(23 downto 0) <= audio_dma_current_addr(1);
@@ -3664,6 +3669,7 @@ begin
             audio_dma_current_addr(1) <= audio_dma_current_addr(1) + 1;                
             report "audio_dma_current_value: scheduling MSB read of $" & to_hstring(audio_dma_current_addr(1));
             pending_dma_busy <= '1';
+            report "BACKGROUNDDMA: Set target to 4";
             pending_dma_target <= 4; -- ch1 MSB
             pending_dma_address(27 downto 0) <= (others => '0');
             pending_dma_address(23 downto 0) <= audio_dma_current_addr(1);
@@ -3676,6 +3682,7 @@ begin
             audio_dma_current_addr(2) <= audio_dma_current_addr(2) + 1;
             report "audio_dma_current_value: scheduling LSB read of $" & to_hstring(audio_dma_current_addr(2));
             pending_dma_busy <= '1';
+            report "BACKGROUNDDMA: Set target to 5";
             pending_dma_target <= 5; -- ch2 LSB
             pending_dma_address(27 downto 0) <= (others => '0');
             pending_dma_address(23 downto 0) <= audio_dma_current_addr(2);
@@ -3685,6 +3692,7 @@ begin
             audio_dma_current_addr(2) <= audio_dma_current_addr(2) + 1;                
             report "audio_dma_current_value: scheduling MSB read of $" & to_hstring(audio_dma_current_addr(2));
             pending_dma_busy <= '1';
+            report "BACKGROUNDDMA: Set target to 6";
             pending_dma_target <= 6; -- ch2 MSB
             pending_dma_address(27 downto 0) <= (others => '0');
             pending_dma_address(23 downto 0) <= audio_dma_current_addr(2);
@@ -3697,6 +3705,7 @@ begin
             audio_dma_current_addr(3) <= audio_dma_current_addr(3) + 1;
             report "audio_dma_current_value: scheduling LSB read of $" & to_hstring(audio_dma_current_addr(3));
             pending_dma_busy <= '1';
+            report "BACKGROUNDDMA: Set target to 7";
             pending_dma_target <= 7; -- ch3 LSB
             pending_dma_address(27 downto 0) <= (others => '0');
             pending_dma_address(23 downto 0) <= audio_dma_current_addr(3);
@@ -3706,6 +3715,7 @@ begin
             audio_dma_current_addr(3) <= audio_dma_current_addr(3) + 1;                
             report "audio_dma_current_value: scheduling MSB read of $" & to_hstring(audio_dma_current_addr(3));
             pending_dma_busy <= '1';
+            report "BACKGROUNDDMA: Set target to 8";
             pending_dma_target <= 8; -- ch3 MSB
             pending_dma_address(27 downto 0) <= (others => '0');
             pending_dma_address(23 downto 0) <= audio_dma_current_addr(3);
@@ -4414,6 +4424,7 @@ begin
       
       if mem_reading='1' then
         memory_read_value := read_data;
+        report "MEMORY read value is $" & to_hstring(read_data);
       end if;
 
                                         -- Count down reset watchdog, and trigger reset if required.
@@ -4508,12 +4519,14 @@ begin
         monitor_proceed <= proceed;
         monitor_request_reflected <= monitor_mem_attention_request_drive;
 
-        report "CPU state : proceed=" & std_logic'image(proceed);
-        if proceed='0' then
+        -- Make bus idle while waiting
+
+        report "CPU state (a) : proceed=" & std_logic'image(proceed) & ", phi_pause=" & std_logic'image(phi_pause);
+        if proceed = '0' then
 
           -- Do nothing.
-          -- The memory access process down the bottom of the file will use
-          -- such cycles for background DMA.
+          -- (Background DMA gets performed in the process near the bottom of
+          -- the file.)
           
         else
                                         -- Main state machine for CPU
@@ -6949,6 +6962,8 @@ begin
           end case;
 
           -- Temporarily pick up memory access signals from combinatorial code
+          report "memory_access_address_next=$" & to_hstring(memory_access_address_next)
+            & ", memory_access_address=$" & to_hstring(memory_access_address);
           memory_access_address :=  memory_access_address_next;
           memory_access_read := memory_access_read_next;
           memory_access_write := memory_access_write_next;
@@ -7160,7 +7175,14 @@ begin
           report "memory_access_read=1, addres=$"&to_hstring(memory_access_address) severity note;
           read_long_address(memory_access_address);
         else
-          report "MEMORY no action";          
+          if pending_dma_busy = '1' then
+            report "BACKGROUNDDMA: Reading $" & to_hstring(pending_dma_address) & " for target " & integer'image(pending_dma_target)
+              & " in non-proceed/phi-pause cycle";
+            read_long_address(pending_dma_address);
+          else
+            report "MEMORY no action";          
+          end if;
+          
         end if;
       end if; -- if not reseting
     end if;                         -- if rising edge of clock
@@ -7200,7 +7222,7 @@ begin
            dat_even,dat_bitplane_addresses,dat_offset_drive,georam_blockmask,vdc_reg_num,vdc_enabled,shadow_address_next,
            read_source,fastio_addr_next
            )
-    variable memory_access_address : unsigned(27 downto 0) := x"FFFFFFF";
+    variable memory_access_address : unsigned(27 downto 0) := pending_dma_address;
     variable memory_access_read : std_logic := '0';
     variable memory_access_write : std_logic := '0';
     variable memory_access_resolve_address : std_logic := '0';
@@ -7214,8 +7236,8 @@ begin
     variable hyppo_address_var : std_logic_vector(13 downto 0) := (others => '0');
     variable fastio_addr_var : std_logic_vector(19 downto 0) := (others => '0');
 
-    variable long_address_read_var : unsigned(27 downto 0) := x"FFFFFFF";
-    variable long_address_write_var : unsigned(27 downto 0) := x"FFFFFFF";
+    variable long_address_read_var : unsigned(27 downto 0) := x"FFFFFFE";
+    variable long_address_write_var : unsigned(27 downto 0) := pending_dma_address;
 
     variable temp_addr : unsigned(15 downto 0) := x"0000";     
     variable stack_pop : std_logic := '0';
@@ -7487,7 +7509,9 @@ begin
     virtual_reg_p(0) := flag_c;
     
     -- Don't do anything by default...
-    memory_access_read := '0';
+    -- (We don't clear the memory_access_read flag, as this can be set by a background
+    -- DMA action. But we do want to clear the write flag to prevent stray writes.)
+--    memory_access_read := '0';
     memory_access_write := '0';
     memory_access_resolve_address := '0';
 
@@ -7508,12 +7532,12 @@ begin
 
     shadow_address_var := shadow_address;
 
-    long_address_write_var := x"FFFFFFF";
-    long_address_read_var := x"FFFFFFF";
+    long_address_write_var := x"FFFFFFC";
+    long_address_read_var := pending_dma_address;
 
     hyppo_address_var := hyppo_address;
 
-    memory_access_address := x"0000000";
+    memory_access_address := pending_dma_address;
     memory_access_wdata := x"00";
 
     reg_pages_dirty_var(0) := '0';
@@ -7564,24 +7588,21 @@ begin
       end if;
     end if;
       
+    report "CPU state (b) : proceed=" & std_logic'image(proceed) & ", phi_pause=" & std_logic'image(phi_pause);
     if proceed = '0' or phi_pause='1' then
 
       -- Do nothing while CPU is held
       -- Well, except for background DMA...
-
-      if pending_dma_target /= 0 then
-        report "BACKGROUNDDMA: Reading $" & to_hstring(pending_dma_address) & " for target " & integer'image(pending_dma_target)
-          & " in non-proceed/phi-pause cycle";
-      end if;
       
-      memory_access_read := '1';
-      memory_access_address := pending_dma_address;
-      memory_access_resolve_address := '0';
-      pending_dma_processed <= '1';
+--      memory_access_read := '1';
+--      memory_access_address := pending_dma_address;
+--      memory_access_resolve_address := '0';
+--      pending_dma_processed <= '1';
       
     else
       
       -- By default read next byte in instruction stream.
+      report "MEMORY Setting memory_access_address to PC ($" & to_hstring(reg_pc) & ").";
       memory_access_read := '1';
       memory_access_write := '0';
       memory_access_address := x"000"&reg_pc;
@@ -7591,6 +7612,7 @@ begin
       
       case state is
         when VectorRead =>
+          report "MEMORY Setting memory_access_address interrupt/trap vector";
           if hypervisor_mode='1' then
             -- Vectors move in hypervisor mode to be inside the hypervisor
             -- ROM at $81Fx
@@ -7618,6 +7640,7 @@ begin
           stack_pop := '1';
         when RTS3 =>
           -- Read the instruction byte following
+          report "MEMORY Setting memory_access_address to PC ($" & to_hstring(reg_pc) & ").";
           memory_access_address := x"000"&reg_pc;
           memory_access_read := '1';
         when ProcessorHold =>
@@ -7634,13 +7657,18 @@ begin
             
             if monitor_mem_write_drive='1' then
               -- Write to specified long address (or short if address is $777xxxx)
+              report "MEMORY Setting memory_access_address to monitor_mem_address_drive ($"
+                & to_hstring(monitor_mem_address_drive) & ").";
               memory_access_address := unsigned(monitor_mem_address_drive);
+              memory_access_read := '0';
               memory_access_write := '1';
               memory_access_wdata := monitor_mem_wdata_drive;
             elsif monitor_mem_read='1' then
               -- and optionally set PC
               if monitor_mem_setpc='0' then
                 -- otherwise just read from memory
+                report "MEMORY Setting memory_access_address to monitor_mem_address_drive ($"
+                  & to_hstring(monitor_mem_address_drive) & ").";
                 memory_access_address := unsigned(monitor_mem_address_drive);
                 memory_access_read := '1';
               end if;
@@ -7655,18 +7683,27 @@ begin
           -- Begin to load DMA registers
           -- We load them from the 20 bit address stored $D700 - $D702
           -- plus the 8-bit MB value in $D704
+          report "MEMORY Setting memory_access_address to reg_dmagic_addr ($"
+            & to_hstring(reg_dmagic_addr) & ").";
           memory_access_address := reg_dmagic_addr;
           memory_access_resolve_address := '0';
           memory_access_read := '1';
         when DMAgicReadOptions =>
+          report "MEMORY Setting memory_access_address to reg_dmagic_addr ($"
+            & to_hstring(reg_dmagic_addr) & ").";
           memory_access_address := reg_dmagic_addr;
           memory_access_resolve_address := '0';
           memory_access_read := '1';
         when DMAgicReadList =>
+          report "MEMORY Setting memory_access_address to reg_dmagic_addr ($"
+            & to_hstring(reg_dmagic_addr) & ").";
           memory_access_address := reg_dmagic_addr;
           memory_access_resolve_address := '0';
           memory_access_read := '1';
         when DMAgicFill =>
+          report "MEMORY Setting memory_access_address to dmagic_dest_addr ($"
+            & to_hstring(dmagic_dest_addr) & ").";
+          memory_access_read := '0';
           memory_access_write := '1';
           memory_access_wdata := dmagic_src_addr(15 downto 8);
           memory_access_resolve_address := '0';
@@ -7674,6 +7711,7 @@ begin
 
           -- redirect memory write to IO block if required
           if dmagic_dest_addr(23 downto 20) = x"d" and dmagic_dest_io='1' then
+          report "MEMORY Setting memory_access_address upper bits to IO block";
             memory_access_address(27 downto 16) := x"FFD";
             memory_access_address(15 downto 14) := "00";
             if hypervisor_mode='0' then
@@ -7686,20 +7724,27 @@ begin
         when VDCRead =>
           memory_access_read := '1';
           memory_access_resolve_address := '0';
+          report "MEMORY Setting memory_access_address to resolved_vdc_to_viciv_src_address ($004"
+            & to_hstring(resolved_vdc_to_viciv_src_address) & ").";
           memory_access_address(27 downto 16) := x"004";
           memory_access_address(15 downto 0) := resolved_vdc_to_viciv_src_address;
 
         when VDCWrite =>
+          memory_access_read := '0';
           memory_access_write := '1';
           memory_access_wdata := read_data;
           memory_access_resolve_address := '0';
           memory_access_address(27 downto 16) := x"004";
+          report "MEMORY Setting memory_access_address to resolved_vdc_to_viciv_src_address ($004"
+            & to_hstring(resolved_vdc_to_viciv_src_address) & ").";
           memory_access_address(15 downto 0) := resolved_vdc_to_viciv_address;
               
         when DMAgicCopyRead =>
           -- Do memory read
           memory_access_read := '1';
           memory_access_resolve_address := '0';
+          report "MEMORY Setting memory_access_address to dmagic_src_addr ($"
+            & to_hstring(dmagic_src_addr) & ").";
           memory_access_address := dmagic_src_addr(35 downto 8);
 
           -- redirect memory write to IO block if required
@@ -7719,12 +7764,15 @@ begin
             -- Do memory write
             if (reg_t /= reg_dmagic_transparent_value)
               or (reg_dmagic_use_transparent_value='0') then
+              memory_access_read := '0';
               memory_access_write := '1';
             else
               memory_access_write := '0';
             end if;
             memory_access_wdata := reg_t;
             memory_access_resolve_address := '0';
+          report "MEMORY Setting memory_access_address to dmagic_dest_addr ($"
+            & to_hstring(dmagic_dest_addr) & ").";
             memory_access_address := dmagic_dest_addr(35 downto 8);
 
             -- redirect memory write to IO block if required
@@ -7792,22 +7840,32 @@ begin
           stack_push := '1';
           memory_access_wdata := reg_addr32save(7 downto 0);
           memory_access_read := '1';
+          report "MEMORY Setting memory_access_address to reg_addr for Flat32SaveAddress4 ($"
+            & to_hstring(reg_addr) & ").";
           memory_access_address := x"000"&reg_addr;
           memory_access_resolve_address := '1';                
         when Flat32Dereference1 =>
           memory_access_read := '1';
+          report "MEMORY Setting memory_access_address to reg_addr for Flat32Dereference1 ($"
+            & to_hstring(reg_addr) & ").";
           memory_access_address := x"000"&reg_addr;
           memory_access_resolve_address := '1';                
         when Flat32Dereference2 =>
           memory_access_read := '1';
+          report "MEMORY Setting memory_access_address to reg_addr for Flat32Dereference2 ($"
+            & to_hstring(reg_addr) & ").";
           memory_access_address := x"000"&reg_addr;
           memory_access_resolve_address := '1';                
         when Flat32Dereference3 =>
           memory_access_read := '1';
+          report "MEMORY Setting memory_access_address to reg_addr for Flat32Dereference3 ($"
+            & to_hstring(reg_addr) & ").";
           memory_access_address := x"000"&reg_addr;
           memory_access_resolve_address := '1';                
         when Flat32Dereference4 =>
           memory_access_read := '1';
+          report "MEMORY Setting memory_access_address to reg_addr for Flat32Dereference4 ($"
+            & to_hstring(reg_addr) & ").";
           memory_access_address := x"000"&reg_addr;
           memory_access_resolve_address := '1';                
         when Cycle3 =>
@@ -7821,6 +7879,8 @@ begin
               when M_InnX =>                    
                 temp_addr := reg_b & (reg_arg1+reg_X);
                 memory_access_read := '1';
+                report "MEMORY Setting memory_access_address to temp_addr for InnX ($"
+                  & to_hstring(temp_addr) & ").";
                 memory_access_address := x"000"&temp_addr;
                 memory_access_resolve_address := '1';
               when M_nn =>
@@ -7841,6 +7901,8 @@ begin
                 if reg_instruction = I_JSR or reg_instruction = I_BSR then
                   memory_access_read := '0';
                   memory_access_write := '1';
+                  report "MEMORY Setting memory_access_address to Stack return Addr ($"
+                  & to_hstring(reg_sph&reg_sp) & ").";
                   memory_access_address := x"000"&reg_sph&reg_sp;
                   memory_access_resolve_address := '1';
                   memory_access_wdata := reg_pc_jsr(15 downto 8);
@@ -7848,8 +7910,8 @@ begin
                   if is_load='1' or is_rmw='1' then
                     -- On memory read wait-state, read from RAM, so that FastIO
                     -- lines clear
-                report "BACKGROUNDDMA: Reading $" & to_hstring(pending_dma_address) & " for target " & integer'image(pending_dma_target)
-                  & " in READ $nnnn wait cycle";
+                    report "BACKGROUNDDMA: Reading $" & to_hstring(pending_dma_address) & " for target " & integer'image(pending_dma_target)
+                      & " in READ $nnnn wait cycle";
                     memory_access_read := '1';
                     memory_access_address := pending_dma_address;
                     memory_access_resolve_address := '0';
@@ -7858,16 +7920,22 @@ begin
                 end if;
               when M_nnrr =>
                 memory_access_read := '1';
+                report "MEMORY Setting memory_access_address to BP for $nnrr ($"
+                  & to_hstring(reg_b&reg_arg1) & ").";
                 memory_access_address := x"000"&reg_b&reg_arg1;
                 memory_access_resolve_address := '1';
               when M_InnY =>
                 temp_addr := reg_b&reg_arg1;
                 memory_access_read := '1';
+                report "MEMORY Setting memory_access_address to BP for InnY ($"
+                  & to_hstring(temp_addr) & ").";
                 memory_access_address := x"000"&temp_addr;
                 memory_access_resolve_address := '1';
               when M_InnZ =>
                 temp_addr := reg_b&reg_arg1;
                 memory_access_read := '1';
+                report "MEMORY Setting memory_access_address to BP for InnZ ($"
+                  & to_hstring(temp_addr) & ").";
                 memory_access_address := x"000"&temp_addr;
                 memory_access_resolve_address := '1';
               when M_nnX =>
@@ -7920,6 +7988,8 @@ begin
                 temp_addr :=  to_unsigned(to_integer(reg_b&reg_arg1)
                                           +to_integer(reg_sph&reg_sp),16);
                 memory_access_read := '1';
+                report "MEMORY Setting memory_access_address to BP for InnSPY ($"
+                  & to_hstring(temp_addr) & ").";
                 memory_access_address := x"000"&temp_addr;
                 memory_access_resolve_address := '1';
               when others =>
@@ -7930,16 +8000,22 @@ begin
           -- Push PCH
           memory_access_read := '0';
           memory_access_write := '1';
+          report "MEMORY Setting memory_access_address to push to stack ($"
+            & to_hstring(reg_sph&reg_sp) & ").";
           memory_access_address := x"000"&reg_sph&reg_sp;
           memory_access_resolve_address := '1';
           memory_access_wdata := reg_pc_jsr(7 downto 0);
         when CallSubroutine2 =>
           -- Immediately start reading the next instruction
           memory_access_read := '1';
+          report "MEMORY Setting memory_access_address to call subroutine ($"
+            & to_hstring(reg_addr) & ").";
           memory_access_address := x"000"&reg_addr;
           memory_access_resolve_address := '1';
         when InnXReadVectorLow =>
           memory_access_read := '1';
+          report "MEMORY Setting memory_access_address to call subroutine ($"
+            & to_hstring(reg_addr) & ").";
           memory_access_address := x"000"&reg_addr;
           memory_access_resolve_address := '1';
         when InnXReadVectorHigh =>
@@ -7955,6 +8031,8 @@ begin
           end if;
         when InnSPYReadVectorLow =>
           memory_access_read := '1';
+          report "MEMORY Setting memory_access_address for InnSPYReadVectorLow ($"
+            & to_hstring(reg_addr) & ").";
           memory_access_address := x"000"&reg_addr;
           memory_access_resolve_address := '1';
         when InnSPYReadVectorHigh =>
@@ -7970,6 +8048,8 @@ begin
           end if;
         when InnYReadVectorLow =>
           memory_access_read := '1';
+          report "MEMORY Setting memory_access_address for InnYReadVectorLow ($"
+            & to_hstring(reg_addr) & ").";
           memory_access_address := x"000"&reg_addr;
           memory_access_resolve_address := '1';
         when InnYReadVectorHigh =>
@@ -7985,18 +8065,24 @@ begin
           end if;
         when InnZReadVectorLow =>
           memory_access_read := '1';
+          report "MEMORY Setting memory_access_address for InnZReadVectorLow ($"
+            & to_hstring(reg_addr) & ").";
           memory_access_address := x"000"&reg_addr;
           memory_access_resolve_address := '1';
         when InnZReadVectorByte2 =>
           -- Do addition of Z register as we go along, so that we don't have
           -- a 32-bit carry.
           memory_access_read := '1';
+          report "MEMORY Setting memory_access_address for InnZReadVectorByte2 ($"
+            & to_hstring(reg_addr) & ").";
           memory_access_address := x"000"&reg_addr;
           memory_access_resolve_address := '1';
         when InnZReadVectorByte3 =>
           -- Do addition of Z register as we go along, so that we don't have
           -- a 32-bit carry.
           memory_access_read := '1';
+          report "MEMORY Setting memory_access_address for InnZReadVectorByte3 ($"
+            & to_hstring(reg_addr) & ").";
           memory_access_address := x"000"&reg_addr;
           memory_access_resolve_address := '1';
         when InnZReadVectorByte4 =>
@@ -8025,10 +8111,14 @@ begin
           -- reg_addr holds the address we want to load a 16 bit address
           -- from for a JMP or JSR.
           memory_access_read := '1';
+          report "MEMORY Setting memory_access_address for JumpDereference ($"
+            & to_hstring(reg_addr) & ").";
           memory_access_address := x"000"&reg_addr;
           memory_access_resolve_address := '1';
         when JumpDereference2 =>
           memory_access_read := '1';
+          report "MEMORY Setting memory_access_address for JumpDereference2 ($"
+            & to_hstring(reg_addr) & ").";
           memory_access_address := x"000"&reg_addr;
           memory_access_resolve_address := '1';
         when JumpDereference3 =>
@@ -8037,18 +8127,25 @@ begin
           else
             memory_access_read := '0';
             memory_access_write := '1';
+            report "MEMORY Setting memory_access_address for JumpDereference3 ($"
+              & to_hstring(reg_sph&reg_sp) & ").";
             memory_access_address := x"000"&reg_sph&reg_sp;
             memory_access_resolve_address := '1';
             memory_access_wdata := reg_pc_jsr(15 downto 8);
           end if;        
         when DummyWrite =>
+          report "MEMORY Setting memory_access_address for DummyWrite ($"
+            & to_hstring(reg_addr) & ").";
           memory_access_address := x"000"&reg_addr;
           memory_access_resolve_address := '1';
           memory_access_write := '1';
           memory_access_read := '0';
           memory_access_wdata := reg_t_high;
         when WriteCommit =>
+          memory_access_read := '0';
           memory_access_write := '1';
+          report "MEMORY Setting memory_access_address for DummyWrite ($"
+            & to_hstring(reg_addr) & ").";
           memory_access_address(15 downto 0) := reg_addr;
           memory_access_resolve_address := not absolute32_addressing_enabled;
           if absolute32_addressing_enabled='1' then
@@ -8062,6 +8159,8 @@ begin
           -- For some addressing modes we load the target in a separate
           -- cycle to improve timing.
           memory_access_read := '1';
+          report "MEMORY Setting memory_access_address for LoadTarget ($"
+            & to_hstring(reg_addr) & ").";
           memory_access_address(15 downto 0) := reg_addr;
           memory_access_resolve_address := not absolute32_addressing_enabled;
           if absolute32_addressing_enabled='1' then
@@ -8074,6 +8173,8 @@ begin
             -- More bytes to read, so schedule next byte to read                
             report "VAL32: memory_access_address=$" & to_hstring(memory_access_address);
             memory_access_read := '1';
+            report "MEMORY Setting memory_access_address for LoadTarget32 ($"
+              & to_hstring(reg_addr + axyz_phase) & ").";
             memory_access_address(15 downto 0) := to_unsigned(to_integer(reg_addr) + axyz_phase,16);
             memory_access_resolve_address := not absolute32_addressing_enabled;
             report "VAL32: memory_access_address=$" & to_hstring(memory_access_address);
@@ -8081,8 +8182,11 @@ begin
         when StoreTarget32 =>
           report "VAL32: StoreTarget32 memory_access_address=$" & to_hstring(memory_access_address) & ", reg_val32=$" & to_hstring(reg_val32);
           if axyz_phase /= 4 then
+            memory_access_read := '0';
             memory_access_write := '1';
             memory_access_wdata := reg_val32(7 downto 0);
+            report "MEMORY Setting memory_access_address for LoadTarget32 ($"
+              & to_hstring(reg_addr + axyz_phase) & ").";
             memory_access_address(15 downto 0) := to_unsigned(to_integer(reg_addr) + axyz_phase,16);
             memory_access_resolve_address := not absolute32_addressing_enabled;
             report "VAL32: memory_access_address=$" & to_hstring(memory_access_address);
@@ -8099,6 +8203,8 @@ begin
             memory_access_wdata(5) := '1';  -- E always set when pushed
           end if;              
           if reg_microcode.mcWriteRegAddr='1' then
+            report "MEMORY Setting memory_access_address for mcWriteRegAddr ($"
+              & to_hstring(reg_addr) & ").";
             memory_access_address := x"000"&reg_addr;
             memory_access_resolve_address := '1';
           end if;
@@ -8112,6 +8218,8 @@ begin
           end case;              
           stack_pop := reg_microcode.mcPop;
           if reg_microcode.mcWordOp='1' then
+            report "MEMORY Setting memory_access_address for mcWordOp ($"
+              & to_hstring(reg_addr+1) & ").";
             memory_access_address := x"000"&(reg_addr+1);
             memory_access_resolve_address := '1';
             memory_access_read := '1';
@@ -8119,6 +8227,8 @@ begin
           memory_access_write := reg_microcode.mcWriteMem;
           if reg_microcode.mcWriteMem='1' then
             memory_access_address(15 downto 0) := reg_addr;
+            report "MEMORY Setting memory_access_address for mcWriteMem ($"
+              & to_hstring(reg_addr) & ").";
             memory_access_resolve_address := not absolute32_addressing_enabled;
             if absolute32_addressing_enabled='1' then
               memory_access_address(27 downto 16) := reg_addr_msbs(11 downto 0);
@@ -8145,13 +8255,19 @@ begin
           stack_push := '1';
           memory_access_wdata := reg_t_high;
         when WordOpWriteLow =>
+          report "MEMORY Setting memory_access_address for WordOpWriteLow ($"
+            & to_hstring(reg_addr) & ").";
           memory_access_address := x"000"&(reg_addr);
           memory_access_resolve_address := '1';
+          memory_access_read := '0';
           memory_access_write := '1';
           memory_access_wdata := reg_t;
         when WordOpWriteHigh =>
+          report "MEMORY Setting memory_access_address for WordOpWriteHigh ($"
+            & to_hstring(reg_addr) & ").";
           memory_access_address := x"000"&(reg_addr);
           memory_access_resolve_address := '1';
+          memory_access_read := '0';
           memory_access_write := '1';
           memory_access_wdata := reg_t_high;
         when others =>
@@ -8159,7 +8275,10 @@ begin
       end case;            
 
       if stack_push='1' then
+        memory_access_read := '0';
         memory_access_write := '1';
+          report "MEMORY Setting memory_access_address for stack_push ($"
+            & to_hstring(reg_sph&reg_sp) & ").";
         memory_access_address := x"000"&reg_sph&reg_sp;
         memory_access_resolve_address := '1';      
       end if;
@@ -8168,9 +8287,13 @@ begin
         memory_access_read := '1';
         if flag_e='0' then
           -- stack pointer can roam full 64KB
+          report "MEMORY Setting memory_access_address for stack_pop ($"
+            & to_hstring((reg_sph&reg_sp) + 1) & ").";
           memory_access_address := x"000"&((reg_sph&reg_sp)+1);
         else
           -- constrain stack pointer to single page if E flag is set
+          report "MEMORY Setting memory_access_address for stack_pop ($"
+            & to_hstring(reg_sph&(reg_sp + 1)) & ").";
           memory_access_address := x"000"&reg_sph&(reg_sp+1);
         end if;
         memory_access_resolve_address := '1';
@@ -8191,9 +8314,12 @@ begin
       --shadow_address_var := memory_access_address(long_address(16 downto 0));
       shadow_wdata_var := memory_access_wdata;
 
+      report "MEMORY address prior to resolution is $" & to_hstring(memory_access_address);
+      
       if memory_access_write='1' then
         if memory_access_resolve_address = '1' then
           memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),true);
+          report "MEMORY address post write resolution is $" & to_hstring(memory_access_address);
         end if;
 
         real_long_address := memory_access_address;
@@ -8269,6 +8395,7 @@ begin
         
         if memory_access_resolve_address = '1' then
           memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),false);
+          report "MEMORY address post read resolution is $" & to_hstring(memory_access_address);
         end if;
 
         real_long_address := memory_access_address;
