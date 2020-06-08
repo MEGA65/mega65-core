@@ -3394,14 +3394,6 @@ begin
 
     if rising_edge(clock) then
 
-      -- By default try to service pending background DMA requests.
-      -- Only if the shadow RAM bus is idle, do we actually do the request,
-      -- however.
-      shadow_write <= '0';
-      shadow_address <= to_integer(pending_dma_address);
-      is_pending_dma_access <= '1';
-      report "BACKGROUNDDMA: pending_dma_address=$" & to_hstring(pending_dma_address);
-      
       cpu_pcm_bypass <= cpu_pcm_bypass_int;
       pwm_mode_select <= pwm_mode_select_int;
       
@@ -3593,6 +3585,14 @@ begin
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) and all_pause='0' then
 
+      -- By default try to service pending background DMA requests.
+      -- Only if the shadow RAM bus is idle, do we actually do the request,
+      -- however.
+      shadow_write <= '0';
+      shadow_address <= to_integer(pending_dma_address);
+      is_pending_dma_access <= '1';
+      report "BACKGROUNDDMA: pending_dma_address=$" & to_hstring(pending_dma_address);     
+      
       cpu_pcm_left <= unsigned(audio_dma_left);
       cpu_pcm_right <= unsigned(audio_dma_right);
       cpu_pcm_enable <= audio_dma_enable;
