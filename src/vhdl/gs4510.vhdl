@@ -4545,9 +4545,12 @@ begin
         report "CPU state (a) : proceed=" & std_logic'image(proceed) & ", phi_pause=" & std_logic'image(phi_pause);
         if proceed = '0' then
 
-          -- Do nothing.
-          -- (Background DMA gets performed in the process near the bottom of
-          -- the file.)
+          -- Make bus idle while waiting
+          memory_access_address := (others => '1');
+          memory_access_read := '0';
+          memory_access_write := '0';
+          memory_access_resolve_address := '0';
+          memory_access_wdata := (others => '1');
           
         else
                                         -- Main state machine for CPU
@@ -7565,9 +7568,7 @@ begin
     virtual_reg_p(0) := flag_c;
     
     -- Don't do anything by default...
-    -- (We don't clear the memory_access_read flag, as this can be set by a background
-    -- DMA action. But we do want to clear the write flag to prevent stray writes.)
---    memory_access_read := '0';
+    memory_access_read := '0';
     memory_access_write := '0';
     memory_access_resolve_address := '0';
 
@@ -7596,7 +7597,7 @@ begin
 
     hyppo_address_var := hyppo_address;
 
-    memory_access_address := x"FFFFFFF";
+    memory_access_address := x"0000000";
     memory_access_wdata := x"00";
 
     reg_pages_dirty_var(0) := '0';
@@ -7649,6 +7650,10 @@ begin
     if proceed = '0' or phi_pause='1' then
 
       -- Do nothing while CPU is held
+      memory_access_read := '0';
+      memory_access_write := '0';
+      memory_access_address := x"000"&reg_pc;
+      memory_access_resolve_address := '1';
       
     else
       
