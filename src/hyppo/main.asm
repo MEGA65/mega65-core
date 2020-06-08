@@ -533,17 +533,15 @@ reset_machine_state:
         // Return keyboard LEDs to automatic control
 	lda #$00
 	sta $d61d
-
+	// Disable VIC-IV debug modes
+	sta $d066
         // Clear system partition present flag
-        lda #$00
         sta syspart_present
-
         // disable IRQ/NMI sources
+        sta $D01A
         lda #$7f
         sta $DC0D
         sta $DD0D
-        lda #$00
-        sta $D01A
 
         sec
         // determine VIC mode and set it accordingly in VICIV_MAGIC
@@ -570,18 +568,15 @@ reset_machine_state:
         sta $d055
         sta $d06b
         sta $d057
-        lda $d049
-        and #$f
-        sta $d049
-        lda $d04b
-        and #$f
-        sta $d04b
-        lda $d04d
-        and #$f
-        sta $d04d
-        lda $d04f
-        and #$f
-        sta $d04f
+        lda #$f0
+	tax
+	trb $d049
+	txa
+	trb $d04b
+	txa
+	trb $d04d
+	txa
+	trb $d04f
 
         // We DO NOT need to mess with $01, because
         // the 4510 starts up with hyppo mapped at $8000-$BFFF
@@ -1211,8 +1206,6 @@ d81attachfail:
         // debug
         Checkpoint( "couldnt mount/attach MEGA65.D81")
 
-	jmp loadrom
-
 //         ========================
 
 attempt_loadcharrom:
@@ -1516,22 +1509,6 @@ badfs:
         jmp reset_entry
 
 /*  -------------------------------------------------------------------
-    ROM loading and manipulation routines
-    ---------------------------------------------------------------- */
-
-checkromok:
-	// Assume we always need to reload ROM on reset
-checksumfails:
-        clc
-        rts
-
-//         ========================
-
-storeromsum:
-        rts
-
-
-/*  -------------------------------------------------------------------
     Display and basic IO routines
     ---------------------------------------------------------------- */
 
@@ -1556,6 +1533,9 @@ resetdisplay:
 pal_ntsc_minus_1:	
         lda #$80
         sta $d06f
+	// Enable HDMI 44.1KHz audio 
+	lda #$03
+	sta $d61a
 
         // disable test pattern and various other strange video things that might be hanging around
         lda #$80
