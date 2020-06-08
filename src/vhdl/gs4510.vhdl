@@ -4507,13 +4507,10 @@ begin
 
         report "CPU state : proceed=" & std_logic'image(proceed);
         if proceed='0' then
-          
-          -- Make bus idle while waiting
-          memory_access_address := (others => '1');
-          memory_access_read := '0';
-          memory_access_write := '0';
-          memory_access_resolve_address := '0';
-          memory_access_wdata := (others => '1');
+
+          -- Do nothing.
+          -- The memory access process down the bottom of the file will use
+          -- such cycles for background DMA.
           
         else
                                         -- Main state machine for CPU
@@ -7567,12 +7564,12 @@ begin
     if proceed = '0' or phi_pause='1' then
 
       -- Do nothing while CPU is held
-      memory_access_read := '0';
-      memory_access_write := '0';
-      memory_access_address := x"000"&reg_pc;
-      memory_access_resolve_address := '1';
-
-      -- XXX We should preferentially do the audio DMA fetches here
+      -- Well, except for background DMA...
+      
+      memory_access_read := '1';
+      memory_access_address := pending_dma_address;
+      memory_access_resolve_address := '0';
+      pending_dma_processed <= '1';
       
     else
       
