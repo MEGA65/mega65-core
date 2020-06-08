@@ -333,13 +333,9 @@ architecture Behavioural of gs4510 is
   signal audio_dma_left : unsigned(15 downto 0) := to_unsigned(0,16);
   signal audio_dma_right : unsigned(15 downto 0) := to_unsigned(0,16);
   signal audio_dma_write_sequence : integer range 0 to 3 := 0;
-  signal audio_dma_fetch_is_lsb : std_logic := '0';
   signal audio_dma_tick_counter : unsigned(31 downto 0) := to_unsigned(0,32);
   signal audio_dma_write_counter : unsigned(31 downto 0) := to_unsigned(0,32);
-  signal audio_dma_target_channel : integer range 0 to 3 := 0;
   signal audio_dma_enable : std_logic := '0';
-  signal audio_dma_block_timeout : integer range 0 to 7 := 0;
-  signal audio_dma_blocked : std_logic := '1';
   signal audio_dma_disable_writes : std_logic := '1';
   signal audio_dma_write_blocked : std_logic := '1';
 
@@ -376,10 +372,20 @@ architecture Behavioural of gs4510 is
   signal audio_dma_multed : s24_0to3 := (others => to_signed(0,25));
   signal audio_dma_wait_state : std_logic := '1';
 
-  signal audio_dma_decode_pc_minus : std_logic := '1';
-  signal audio_dma_fetch_pc_minus : std_logic := '0';
+  signal pending_dma_busy : std_logic := '0';
+  signal pending_dma_address : unsigned(27 downto 0) := to_unsigned(2,28);
+  signal pending_dma_processed : std_logic := '0';
+  -- 0 = no target set
+  -- 1 = audio dma channel 0 LSB
+  -- 2 = audio dma channel 0 MSB
+  -- ...
+  -- 7 = audio dma channel 3 LSB
+  -- 8 = audio dma channel 3 MSB
+  signal pending_dma_target : integer range 0 to 8 := 0;
+  
   signal cpu_pcm_bypass_int : std_logic := '0';
   signal pwm_mode_select_int : std_logic := '0';
+
   
   -- C65 RAM Expansion Controller
   -- bit 7 = indicate error status?
@@ -823,10 +829,7 @@ architecture Behavioural of gs4510 is
     
     -- VDC simulation block operations
     VDCRead,
-    VDCWrite,
-
-    -- Audio DMA
-    DoAudioDMA
+    VDCWrite
     
     );
   signal state : processor_state := ResetLow;
@@ -2050,7 +2053,7 @@ begin
             -- @IO:GS $D711.4 - DMA:AUDNOMIX Audio DMA bypasses audio mixer
             -- @IO:GS $D711.3 - AUDIO:PWMPDM PWM/PDM audio encoding select
             -- @IO:GS $D711.0-2 - DMA:AUDBLOCKTO Audio DMA block timeout (read only) DEBUG
-            when x"11" => return audio_dma_enable & audio_dma_blocked & audio_dma_disable_writes & cpu_pcm_bypass_int & pwm_mode_select_int & to_unsigned(audio_dma_block_timeout,3);                         
+            when x"11" => return audio_dma_enable & "0" & audio_dma_disable_writes & cpu_pcm_bypass_int & pwm_mode_select_int & "000";
                           
             -- XXX DEBUG registers for audio DMA
             when x"14" => return audio_dma_left(7 downto 0);              
@@ -3574,210 +3577,163 @@ begin
         end if;
       end if;
     end if;    
-                                        -- BEGINNING OF MAIN PROCESS FOR CPU
+
+    -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) and all_pause='0' then
 
       cpu_pcm_left <= unsigned(audio_dma_left);
       cpu_pcm_right <= unsigned(audio_dma_right);
       cpu_pcm_enable <= audio_dma_enable;
       
-      if (audio_dma_block_timeout /=0) then
-        audio_dma_block_timeout <= audio_dma_block_timeout - 1;
-      end if;
-      if (audio_dma_block_timeout /=0) or (audio_dma_enable='0') or (reset_drive='0') then
-        audio_dma_blocked <= '1';
-        audio_dma_write_blocked <= '1';
-      else
-        -- Audio DMA only works safely at 40MHz, and outside of hypervisor mode.
-        -- XXX This is due to some CPU timing bug, probably related to the need
-        -- for NOP after hypertraps. It doesn't show up in simulation, so its a
-        -- pain to track down. That said, its not unreasonable to require 40MHz
-        -- for audio DMA to work.
-        if cpuspeed_internal = x"40" then
-          audio_dma_blocked <= hypervisor_mode;
-        else
-          audio_dma_blocked <= '1';
-        end if;
-        audio_dma_write_blocked <= audio_dma_disable_writes;
-      end if;
-
-      -- See combinatorial state machine further down for the actual memory accesses
-      if proceed='1' then
-        case state is
-          when DoAudioDMA =>
-            audio_dma_tick_counter <= audio_dma_tick_counter + 1;
-            audio_dma_wait_state <= '1';
-            report "Asserting audio_dma_wait_state";
-          when InstructionFetch | InstructionDecode =>
-            if (audio_dma_blocked = '0') and (audio_dma_pending(0) or audio_dma_pending(1)
-                                              or audio_dma_pending(2) or audio_dma_pending(3)) = '1' then
-              report "Audio DMA servicing request";
-              audio_dma_write_sequence <= 0;                
-              audio_dma_fetch_is_lsb <= '0';
-              
-              -- Force to use shadow RAM, as normal address resolution doesn't
-              -- happen here.
-              read_source <= Shadow;
-              
-              if audio_dma_wait_state='1' then
-                report "audio DMA wait state";
-                audio_dma_wait_state <= '0';
-                if (state = InstructionFetch and audio_dma_fetch_pc_minus='1')
-                  or (state = InstructionDecode and audio_dma_decode_pc_minus='1')
-                then
-                  reg_pc <= reg_pc - 1;
-                else
-                  reg_pc <= reg_pc;
-                end if;
-              elsif audio_dma_pending(0)='1' then
-                audio_dma_target_channel <= 0;
-                if audio_dma_sample_width(0)="11" and audio_dma_pending_msb(0)='1' then
-                  -- We still need to read the MSB after
-                  audio_dma_sample_valid(0) <= '0';
-                  audio_dma_fetch_is_lsb <= '1';
-                  audio_dma_pending_msb(0) <='0';
-                  audio_dma_current_addr(0) <= audio_dma_current_addr(0) + 1;
-                  report "audio_dma_current_value: scheduling LSB read of $" & to_hstring(audio_dma_current_addr(0));
-                  
-                elsif audio_dma_sample_width(0)="11" and audio_dma_pending_msb(0)='0' then
-                  report "audio_dma_current_value: scheduling MSB read of $" & to_hstring(audio_dma_current_addr(0));
-                  -- 2nd cycle, so record the LSB
-                  audio_dma_current_value(0)(7 downto 0) <= signed(memory_read_value);
-                  report "audio_dma_current_value(" & integer'image(0) & ") <= $xx"
-                    & to_hstring(memory_read_value);
-                  audio_dma_fetch_is_lsb <= '0';                
-                  audio_dma_current_addr(0) <= audio_dma_current_addr(0) + 1;                
-                  audio_dma_pending(0) <= '0';
-                  state <= DoAudioDMA;
-                else
-                  -- We are reading the MSB (or MSB-only sample format)
-                  audio_dma_current_value(0)(14 downto 8) <= signed(memory_read_value(6 downto 0));
-                  audio_dma_current_value(0)(15) <= memory_read_value(7) xor audio_dma_signed(0);
-                  audio_dma_current_value(0)(7 downto 0) <= x"00";
-                  audio_dma_current_addr(0) <= audio_dma_current_addr(0) + 1;                
-                  audio_dma_pending(0) <= '0';
-                  state <= DoAudioDMA;
-                end if;
-              elsif audio_dma_pending(1)='1' then
-                audio_dma_target_channel <= 1;
-                if audio_dma_sample_width(1)="11" and audio_dma_pending_msb(1)='1' then
-                  -- We still need to read the MSB after
-                  audio_dma_sample_valid(1) <= '0';
-                  audio_dma_fetch_is_lsb <= '1';
-                  audio_dma_pending_msb(1) <='0';
-                  audio_dma_current_addr(1) <= audio_dma_current_addr(1) + 1;
-                  report "audio_dma_current_value: scheduling LSB read of $" & to_hstring(audio_dma_current_addr(1));
-                  
-                elsif audio_dma_sample_width(1)="11" and audio_dma_pending_msb(1)='0' then
-                  report "audio_dma_current_value: scheduling MSB read of $" & to_hstring(audio_dma_current_addr(1));
-                  -- 2nd cycle, so record the LSB
-                  audio_dma_current_value(1)(7 downto 0) <= signed(memory_read_value);
-                  report "audio_dma_current_value(" & integer'image(1) & ") <= $xx"
-                    & to_hstring(memory_read_value);
-                  audio_dma_fetch_is_lsb <= '0';                
-                  audio_dma_current_addr(1) <= audio_dma_current_addr(1) + 1;                
-                  audio_dma_pending(1) <= '0';
-                  state <= DoAudioDMA;
-                else
-                  -- We are reading the MSB (or MSB-only sample format)
-                  audio_dma_current_value(1)(14 downto 8) <= signed(memory_read_value(6 downto 0));
-                  audio_dma_current_value(1)(15) <= memory_read_value(7) xor audio_dma_signed(1);
-                  audio_dma_current_value(1)(7 downto 0) <= x"00";
-                  audio_dma_current_addr(1) <= audio_dma_current_addr(1) + 1;                
-                  audio_dma_pending(1) <= '0';
-                  state <= DoAudioDMA;
-                end if;
-              elsif audio_dma_pending(2)='1' then
-                audio_dma_target_channel <= 2;
-                if audio_dma_sample_width(2)="11" and audio_dma_pending_msb(2)='1' then
-                  -- We still need to read the MSB after
-                  audio_dma_sample_valid(2) <= '0';
-                  audio_dma_fetch_is_lsb <= '1';
-                  audio_dma_pending_msb(2) <='0';
-                  audio_dma_current_addr(2) <= audio_dma_current_addr(2) + 1;
-                  report "audio_dma_current_value: scheduling LSB read of $" & to_hstring(audio_dma_current_addr(2));
-                  
-                elsif audio_dma_sample_width(2)="11" and audio_dma_pending_msb(2)='0' then
-                  report "audio_dma_current_value: scheduling MSB read of $" & to_hstring(audio_dma_current_addr(2));
-                  -- 2nd cycle, so record the LSB
-                  audio_dma_current_value(2)(7 downto 0) <= signed(memory_read_value);
-                  report "audio_dma_current_value(" & integer'image(2) & ") <= $xx"
-                    & to_hstring(memory_read_value);
-                  audio_dma_fetch_is_lsb <= '0';                
-                  audio_dma_current_addr(2) <= audio_dma_current_addr(2) + 1;                
-                  audio_dma_pending(2) <= '0';
-                  state <= DoAudioDMA;
-                else
-                  -- We are reading the MSB (or MSB-only sample format)
-                  audio_dma_current_value(2)(14 downto 8) <= signed(memory_read_value(6 downto 0));
-                  audio_dma_current_value(2)(15) <= memory_read_value(7) xor audio_dma_signed(2);
-                  audio_dma_current_addr(2) <= audio_dma_current_addr(2) + 1;                
-                  audio_dma_pending(2) <= '0';
-                  state <= DoAudioDMA;
-                end if;
-              elsif audio_dma_pending(3)='1' then
-                audio_dma_target_channel <= 3;
-                if audio_dma_sample_width(3)="11" and audio_dma_pending_msb(3)='1' then
-                  -- We still need to read the MSB after
-                  audio_dma_sample_valid(3) <= '0';
-                  audio_dma_fetch_is_lsb <= '1';
-                  audio_dma_pending_msb(3) <='0';
-                  audio_dma_current_addr(3) <= audio_dma_current_addr(3) + 1;
-                  report "audio_dma_current_value: scheduling LSB read of $" & to_hstring(audio_dma_current_addr(3));
-                  
-                elsif audio_dma_sample_width(3)="11" and audio_dma_pending_msb(3)='0' then
-                  report "audio_dma_current_value: scheduling MSB read of $" & to_hstring(audio_dma_current_addr(3));
-                  -- 2nd cycle, so record the LSB
-                  audio_dma_current_value(3)(7 downto 0) <= signed(memory_read_value);
-                  report "audio_dma_current_value(" & integer'image(3) & ") <= $xx"
-                    & to_hstring(memory_read_value);
-                  audio_dma_fetch_is_lsb <= '0';                
-                  audio_dma_current_addr(3) <= audio_dma_current_addr(3) + 1;                
-                  audio_dma_pending(3) <= '0';
-                  state <= DoAudioDMA;
-                else
-                  -- We are reading the MSB (or MSB-only sample format)
-                  audio_dma_current_value(3)(14 downto 8) <= signed(memory_read_value(6 downto 0));
-                  audio_dma_current_value(3)(15) <= memory_read_value(7) xor audio_dma_signed(3);
-                  audio_dma_current_value(3)(7 downto 0) <= x"00";
-                  audio_dma_current_addr(3) <= audio_dma_current_addr(3) + 1;                
-                  audio_dma_pending(3) <= '0';
-                  state <= DoAudioDMA;
-                end if;
-              end if;
-            end if;
-          when others =>
+      -- Process result of background DMA
+      if pending_dma_processed = '1' then
+        pending_dma_target <= 0 ;
+        case pending_dma_target is
+          when 0 => -- no pending job
             null;
-        end case;               
+          when 1 => -- Audio DMA ch 0, LSB
+            audio_dma_current_value(0)(7 downto 0) <= signed(memory_read_value);
+          when 2 => -- Audio DMA ch 0, MSB
+            audio_dma_current_value(0)(15 downto 8) <= signed(memory_read_value);
+            audio_dma_sample_valid(0) <= '1';
+            audio_dma_pending_msb(0) <= '0';
+            audio_dma_pending(0) <= '0';
+          when 3 => -- Audio DMA ch 1, LSB
+            audio_dma_current_value(1)(7 downto 0) <= signed(memory_read_value);
+          when 4 => -- Audio DMA ch 1, MSB
+            audio_dma_current_value(1)(15 downto 8) <= signed(memory_read_value);
+            audio_dma_sample_valid(1) <= '1';
+            audio_dma_pending_msb(1) <= '0';
+            audio_dma_pending(1) <= '0';
+          when 5 => -- Audio DMA ch 2, LSB
+            audio_dma_current_value(2)(7 downto 0) <= signed(memory_read_value);
+          when 6 => -- Audio DMA ch 2, MSB
+            audio_dma_current_value(2)(15 downto 8) <= signed(memory_read_value);
+            audio_dma_sample_valid(2) <= '1';
+            audio_dma_pending_msb(2) <= '0';
+            audio_dma_pending(2) <= '0';
+          when 7 => -- Audio DMA ch 3, LSB
+            audio_dma_current_value(3)(7 downto 0) <= signed(memory_read_value);
+          when 8 => -- Audio DMA ch 3, MSB
+            audio_dma_current_value(3)(15 downto 8) <= signed(memory_read_value);
+            audio_dma_sample_valid(3) <= '1';
+            audio_dma_pending_msb(3) <= '0';
+            audio_dma_pending(3) <= '0';            
+        end case;
+        pending_dma_busy <= '0';
+      end if;
+      if pending_dma_busy='0' or pending_dma_processed='1' then
+        if audio_dma_pending(0)='1' then
+          if audio_dma_sample_width(0)="11" and audio_dma_pending_msb(0)='1' then
+            -- We still need to read the MSB after
+            audio_dma_sample_valid(0) <= '0';
+            audio_dma_pending_msb(0) <='0';
+            audio_dma_current_addr(0) <= audio_dma_current_addr(0) + 1;
+            report "audio_dma_current_value: scheduling LSB read of $" & to_hstring(audio_dma_current_addr(0));
+            pending_dma_busy <= '1';
+            pending_dma_target <= 1; -- ch0 LSB
+            pending_dma_address(27 downto 0) <= (others => '0');
+            pending_dma_address(23 downto 0) <= audio_dma_current_addr(0);
+          else 
+            audio_dma_sample_valid(0) <= '0';
+            audio_dma_pending(0) <= '0';
+            audio_dma_current_addr(0) <= audio_dma_current_addr(0) + 1;                
+            report "audio_dma_current_value: scheduling MSB read of $" & to_hstring(audio_dma_current_addr(0));
+            pending_dma_busy <= '1';
+            pending_dma_target <= 2; -- ch0 MSB
+            pending_dma_address(27 downto 0) <= (others => '0');
+            pending_dma_address(23 downto 0) <= audio_dma_current_addr(0);
+          end if;
+        elsif audio_dma_pending(1)='1' then
+          if audio_dma_sample_width(1)="11" and audio_dma_pending_msb(1)='1' then
+            -- We still need to read the MSB after
+            audio_dma_sample_valid(1) <= '0';
+            audio_dma_pending_msb(1) <='0';
+            audio_dma_current_addr(1) <= audio_dma_current_addr(1) + 1;
+            report "audio_dma_current_value: scheduling LSB read of $" & to_hstring(audio_dma_current_addr(1));
+            pending_dma_busy <= '1';
+            pending_dma_target <= 3; -- ch1 LSB
+            pending_dma_address(27 downto 0) <= (others => '0');
+            pending_dma_address(23 downto 0) <= audio_dma_current_addr(1);
+          else 
+            audio_dma_sample_valid(1) <= '0';
+            audio_dma_pending(1) <= '0';
+            audio_dma_current_addr(1) <= audio_dma_current_addr(1) + 1;                
+            report "audio_dma_current_value: scheduling MSB read of $" & to_hstring(audio_dma_current_addr(1));
+            pending_dma_busy <= '1';
+            pending_dma_target <= 4; -- ch1 MSB
+            pending_dma_address(27 downto 0) <= (others => '0');
+            pending_dma_address(23 downto 0) <= audio_dma_current_addr(1);
+          end if;
+        elsif audio_dma_pending(2)='1' then
+          if audio_dma_sample_width(2)="11" and audio_dma_pending_msb(2)='1' then
+            -- We still need to read the MSB after
+            audio_dma_sample_valid(2) <= '0';
+            audio_dma_pending_msb(2) <='0';
+            audio_dma_current_addr(2) <= audio_dma_current_addr(2) + 1;
+            report "audio_dma_current_value: scheduling LSB read of $" & to_hstring(audio_dma_current_addr(2));
+            pending_dma_busy <= '1';
+            pending_dma_target <= 5; -- ch2 LSB
+            pending_dma_address(27 downto 0) <= (others => '0');
+            pending_dma_address(23 downto 0) <= audio_dma_current_addr(2);
+          else 
+            audio_dma_sample_valid(2) <= '0';
+            audio_dma_pending(2) <= '0';
+            audio_dma_current_addr(2) <= audio_dma_current_addr(2) + 1;                
+            report "audio_dma_current_value: scheduling MSB read of $" & to_hstring(audio_dma_current_addr(2));
+            pending_dma_busy <= '1';
+            pending_dma_target <= 6; -- ch2 MSB
+            pending_dma_address(27 downto 0) <= (others => '0');
+            pending_dma_address(23 downto 0) <= audio_dma_current_addr(2);
+          end if;
+        elsif audio_dma_pending(3)='1' then
+          if audio_dma_sample_width(3)="11" and audio_dma_pending_msb(3)='1' then
+            -- We still need to read the MSB after
+            audio_dma_sample_valid(3) <= '0';
+            audio_dma_pending_msb(3) <='0';
+            audio_dma_current_addr(3) <= audio_dma_current_addr(3) + 1;
+            report "audio_dma_current_value: scheduling LSB read of $" & to_hstring(audio_dma_current_addr(3));
+            pending_dma_busy <= '1';
+            pending_dma_target <= 7; -- ch3 LSB
+            pending_dma_address(27 downto 0) <= (others => '0');
+            pending_dma_address(23 downto 0) <= audio_dma_current_addr(3);
+          else 
+            audio_dma_sample_valid(3) <= '0';
+            audio_dma_pending(3) <= '0';
+            audio_dma_current_addr(3) <= audio_dma_current_addr(3) + 1;                
+            report "audio_dma_current_value: scheduling MSB read of $" & to_hstring(audio_dma_current_addr(3));
+            pending_dma_busy <= '1';
+            pending_dma_target <= 8; -- ch3 MSB
+            pending_dma_address(27 downto 0) <= (others => '0');
+            pending_dma_address(23 downto 0) <= audio_dma_current_addr(3);
+          end if;
+        end if;
       end if;
       
-      report "Audio DMA blocked = " & std_logic'image(audio_dma_blocked)
-        & ", blocked timeout = " & integer'image(audio_dma_block_timeout);
       for i in 0 to 3 loop
         if audio_dma_enables(i)='0' then
           if false then
---        report "Audio DMA channel " & integer'image(i) & " disabled.";
-          report "Audio DMA channel " & integer'image(i) & " disabled: ";
-          report "Audio DMA channel " & integer'image(i)
-            & " base=$" & to_hstring(audio_dma_base_addr(i));
-          report "Audio DMA channel " & integer'image(i)
-            & ", top_addr=$" & to_hstring(audio_dma_top_addr(i));
-          report "Audio DMA channel " & integer'image(i)
-            & ", timebase=$" & to_hstring(audio_dma_time_base(i));
-          report "Audio DMA channel " & integer'image(i)
-            & ", current_addr=$" & to_hstring(audio_dma_current_addr(i));
-          report "Audio DMA channel " & integer'image(i)
-            & ", timing_counter=$" & to_hstring(audio_dma_timing_counter(i))
-            ;
-          report "Audio DMA channel " & integer'image(i)
-            & ", timing_counter bits = "
-            & std_logic'image(std_logic(audio_dma_timing_counter(0)(24)))
-            & std_logic'image(std_logic(audio_dma_timing_counter(0)(23)))
-            & std_logic'image(std_logic(audio_dma_timing_counter(0)(22)))
-            & std_logic'image(std_logic(audio_dma_timing_counter(0)(21)))
-            & std_logic'image(std_logic(audio_dma_timing_counter(0)(20)))
-            & std_logic'image(std_logic(audio_dma_timing_counter(0)(19)))
-            ;
+            report "Audio DMA channel " & integer'image(i) & " disabled: ";
+            report "Audio DMA channel " & integer'image(i)
+              & " base=$" & to_hstring(audio_dma_base_addr(i));
+            report "Audio DMA channel " & integer'image(i)
+              & ", top_addr=$" & to_hstring(audio_dma_top_addr(i));
+            report "Audio DMA channel " & integer'image(i)
+              & ", timebase=$" & to_hstring(audio_dma_time_base(i));
+            report "Audio DMA channel " & integer'image(i)
+              & ", current_addr=$" & to_hstring(audio_dma_current_addr(i));
+            report "Audio DMA channel " & integer'image(i)
+              & ", timing_counter=$" & to_hstring(audio_dma_timing_counter(i))
+              ;
+            report "Audio DMA channel " & integer'image(i)
+              & ", timing_counter bits = "
+              & std_logic'image(std_logic(audio_dma_timing_counter(0)(24)))
+              & std_logic'image(std_logic(audio_dma_timing_counter(0)(23)))
+              & std_logic'image(std_logic(audio_dma_timing_counter(0)(22)))
+              & std_logic'image(std_logic(audio_dma_timing_counter(0)(21)))
+              & std_logic'image(std_logic(audio_dma_timing_counter(0)(20)))
+              & std_logic'image(std_logic(audio_dma_timing_counter(0)(19)))
+              ;
           end if;
         else
           if false then
@@ -3814,7 +3770,6 @@ begin
             audio_dma_pending(i) <= '1';
             if audio_dma_sample_width(i) = "11" then
               audio_dma_pending_msb(i) <= '1';
-              audio_dma_fetch_is_lsb <= '0';
             end if;
             audio_dma_timing_counter(0)(24) <= '0';
           else
@@ -3853,22 +3808,13 @@ begin
         & ", current_addr=$" & to_hstring(audio_dma_current_addr(0))
         & ", timing_counter=$" & to_hstring(audio_dma_timing_counter(0))
         ;
-
-      report "The wrapped bits are "
-        & std_logic'image(std_logic(audio_dma_base_addr(0)(15)))
-        & std_logic'image(std_logic(audio_dma_base_addr(0)(14)))
-        & std_logic'image(std_logic(audio_dma_base_addr(0)(13)))
-        & std_logic'image(std_logic(audio_dma_base_addr(0)(12)))
-        & std_logic'image(std_logic(audio_dma_base_addr(0)(11)))
-        & std_logic'image(std_logic(audio_dma_base_addr(0)(10)))
-        & std_logic'image(std_logic(audio_dma_base_addr(0)(9)))
-        & std_logic'image(std_logic(audio_dma_base_addr(0)(8)))
-        ;
       
       for i in 0 to 3 loop
         if audio_dma_stop(i)='1' then
           audio_dma_enables(i) <= '0';
-          report "Stopping Audio DMA channel #" & integer'image(i);
+          if audio_dma_enables(i) = '1' then
+            report "Stopping Audio DMA channel #" & integer'image(i);
+          end if;
         end if;
 
         if audio_dma_enables(i)='0' then
@@ -5172,54 +5118,10 @@ begin
                   dmagic_count <= dmagic_count - 1;
                 end if;
               end if;
-            when DoAudioDMA =>
-              -- In this cycle we will have read the sample byte, and need to
-              -- put it in the sample buffer for this channel, and apply the volume
-              -- to it (and mixing the two left and two right channels).
-              -- This means we write each channel twice, once when each sub-channel
-              -- is updated, which sounds like it should be correct.
-              
-              -- Either way, we move to writing to the appropriate register for
-              -- left or right digi channel, so that we update it.
-              -- (The details of the memory request are handled the memory access
-              -- process below).
-
-              pc_inc := '0';
-
-              report "Doing Audio DMA";
-
-              if audio_dma_write_sequence = 0 then
-                audio_dma_current_value(audio_dma_target_channel)(14 downto 8) <= signed(memory_read_value(6 downto 0));
-                audio_dma_current_value(audio_dma_target_channel)(15)
-                  <= memory_read_value(7) xor audio_dma_signed(audio_dma_target_channel);
-                audio_dma_sample_valid(audio_dma_target_channel) <= '1';
-                report "audio_dma_current_value(" & integer'image(audio_dma_target_channel) & ") <= $"
-                  & to_hstring(memory_read_value) & "xx";
-              end if;
-
-              audio_dma_stop(audio_dma_target_channel) <= '0';
-              if audio_dma_top_addr(audio_dma_target_channel) = audio_dma_current_addr(audio_dma_target_channel)(15 downto 0) then
-                -- End of sample reached: Either stop or repeat
-                report "Audio DMA channel " & integer'image(audio_dma_target_channel) & " end of sample reached.";
-                audio_dma_stop(audio_dma_target_channel) <= not audio_dma_repeat(audio_dma_target_channel);
-                audio_dma_current_addr(audio_dma_target_channel) <= audio_dma_base_addr(audio_dma_target_channel);
-              end if;
-              
-              -- Prevent Audio DMAs from saturating the bus
-              audio_dma_block_timeout <= 7;
-              -- Resume normal CPU activity
-              state <= InstructionFetch;                          
-
             when InstructionWait =>
               state <= InstructionFetch;
             when InstructionFetch =>
-              if (audio_dma_blocked='0') and ((audio_dma_pending(0) or audio_dma_pending(1) or audio_dma_pending(2) or audio_dma_pending(3)) = '1') then
-                -- Do an Audio DMA.
-                -- The memory access process higher and lower in this file handles the
-                -- memory access.
-                pc_inc := '0';
-                
-              elsif (hypervisor_mode='0')
+              if (hypervisor_mode='0')
                 and ((irq_pending='1' and flag_i='0') or nmi_pending='1')
                 and (monitor_irq_inhibit='0') then
                                         -- An interrupt has occurred
@@ -5255,273 +5157,264 @@ begin
               end if;
             when InstructionDecode =>
 
-              if (audio_dma_blocked='0') and ((audio_dma_pending(0) or audio_dma_pending(1) or audio_dma_pending(2) or audio_dma_pending(3)) = '1') then
-                -- Do an Audio DMA.
-                -- The memory access process lower in this file handles the
-                -- memory access.
-                -- The logic of managing the process is above
-                pc_inc := '0';
-
-              else
-                -- Show previous instruction
-                disassemble_last_instruction;
-                -- Start recording this instruction
-                last_instruction_pc <= reg_pc - 1;
-                last_opcode <= memory_read_value;
-                last_bytecount <= 1;
+              -- Show previous instruction
+              disassemble_last_instruction;
+              -- Start recording this instruction
+              last_instruction_pc <= reg_pc - 1;
+              last_opcode <= memory_read_value;
+              last_bytecount <= 1;
               
-                -- Prepare microcode vector in case we need it next cycles
-                reg_microcode <=
-                  microcode_lut(instruction_lut(to_integer(emu6502&memory_read_value)));
-                reg_addressingmode <= mode_lut(to_integer(emu6502&memory_read_value));
-                reg_instruction <= instruction_lut(to_integer(emu6502&memory_read_value));
-                phi_add_backlog <= '1';
-                phi_new_backlog <= cycle_count_lut(to_integer(timing6502&memory_read_value));
-                
-                -- 4502 doesn't allow interrupts immediately following a
-                -- single-cycle instruction
-                if (hypervisor_mode='0') and (
-                  (no_interrupt = '0')
-                  and ((irq_pending='1' and flag_i='0') or nmi_pending='1')) then
+              -- Prepare microcode vector in case we need it next cycles
+              reg_microcode <=
+                microcode_lut(instruction_lut(to_integer(emu6502&memory_read_value)));
+              reg_addressingmode <= mode_lut(to_integer(emu6502&memory_read_value));
+              reg_instruction <= instruction_lut(to_integer(emu6502&memory_read_value));
+              phi_add_backlog <= '1';
+              phi_new_backlog <= cycle_count_lut(to_integer(timing6502&memory_read_value));
+              
+              -- 4502 doesn't allow interrupts immediately following a
+              -- single-cycle instruction
+              if (hypervisor_mode='0') and (
+                (no_interrupt = '0')
+                and ((irq_pending='1' and flag_i='0') or nmi_pending='1')) then
                                         -- An interrupt has occurred
-                  report "Interrupt detected, decrementing PC";
-                  state <= Interrupt;
-                  reg_pc <= reg_pc - 1;
-                  pc_inc := '0';
-                  -- Make sure reg_instruction /= I_BRK, so that B flag is not
-                  -- erroneously set.
-                  reg_instruction <= I_SEI;
-                else
-                  reg_opcode <= memory_read_value;
+                report "Interrupt detected, decrementing PC";
+                state <= Interrupt;
+                reg_pc <= reg_pc - 1;
+                pc_inc := '0';
+                -- Make sure reg_instruction /= I_BRK, so that B flag is not
+                -- erroneously set.
+                reg_instruction <= I_SEI;
+              else
+                reg_opcode <= memory_read_value;
                                         -- Present instruction to serial monitor;
-                  monitor_opcode <= memory_read_value;
-                  monitor_ibytes <= "0000";
-                  monitor_instructionpc <= reg_pc - 1;              
-                  
-                  -- Always read the next instruction byte after reading opcode
-                  -- (this means we can't interrupt the CPU in between single-cycle
-                  -- instructions -- this is actually correct behaviour for the 4502)
-                  pc_inc := '1';
-                  
-                  report "Executing instruction " & instruction'image(instruction_lut(to_integer(emu6502&memory_read_value)))
-                    severity note;                
-                  
-                  -- See if this is a single cycle instruction.
-                  -- Note that CLI and CLE take 2 cycles so that any
-                  -- pending interrupt can happen immediately (interrupts cannot
-                  -- happen immediately after a single cycle instruction, because
-                  -- interrupts are only checked in InstructionFetch, not
-                  -- InstructionDecode).
-                  absolute32_addressing_enabled <= '0';
-                  flat32_address <= '0';
-                  flat32_address_prime <= '0';
-                  value32_enabled <= '0';
-                  next_is_axyz32_instruction <= '0';
-                  
-                  report "VAL32: next_is_axyz32_instruction=" & std_logic'image(next_is_axyz32_instruction)
-                    & ", value32_enabled = " & std_logic'image(value32_enabled);
-                  
-                  case memory_read_value is
-                    when x"03" =>
-                      flag_e <= '1'; -- SEE
-                      report "ZPCACHE: Flushing cache due to setting E flag";
-                      cache_flushing <= '1';
-                      cache_flush_counter <= (others => '0');
-                    when x"0A" => reg_a <= a_asl; set_nz(a_asl); flag_c <= reg_a(7); -- ASL A
-                    when x"0B" => reg_y <= reg_sph; set_nz(reg_sph); -- TSY
-                    when x"18" => flag_c <= '0';  -- CLC
-                    when x"1A" => reg_a <= a_incremented; set_nz(a_incremented); -- INC A
-                    when x"1B" => reg_z <= z_incremented; set_nz(z_incremented); -- INZ
-                    when x"2A" => reg_a <= a_rol; set_nz(a_rol); flag_c <= reg_a(7); -- ROL A
-                    when x"2B" =>
-                      reg_sph <= reg_y; -- TYS
-                      report "ZPCACHE: Flushing cache due to setting SPH";
-                      cache_flushing <= '1';
-                      cache_flush_counter <= (others => '0');                    
-                    when x"38" => flag_c <= '1';  -- SEC
-                    when x"3A" => reg_a <= a_decremented; set_nz(a_decremented); -- DEC A
-                    when x"3B" => reg_z <= z_decremented; set_nz(z_decremented); -- DEZ
-                    when x"42" =>
-                      reg_a <= a_negated; set_nz(a_negated); -- NEG A
-                      -- NEG / NEG / INSTRUCTION is used to indicate using AXYZ
-                      -- regs as single 32-bit pseudo register.
-                      -- This prefix can be used together with the NOP / NOP prefix
-                      -- for the 32-bit ZP-indirect instructions. In that case,
-                      -- this prefix must come first, i.e., NEG / NEG / NOP / NOP
-                      -- / LDA or STA ($xx), Z
-                      if value32_enabled = '0' then
-                        value32_enabled <= '1';
-                      else
-                        next_is_axyz32_instruction <= '1';
-                      end if;
-                    when x"43" => reg_a <= a_asr; set_nz(a_asr); -- ASR A
-                    when x"4A" => reg_a <= a_lsr; set_nz(a_lsr); flag_c <= reg_a(0); -- LSR A
-                    when x"4B" => reg_z <= reg_a; set_nz(reg_a); -- TAZ
-                    when x"5B" =>
-                      reg_b <= reg_a; -- TAB
-                      report "ZPCACHE: Flushing cache due to moving ZP";
-                      cache_flushing <= '1';
-                      cache_flush_counter <= (others => '0');
-                    when x"6A" => reg_a <= a_ror; set_nz(a_ror); flag_c <= reg_a(0); -- ROR A
-                    when x"6B" => reg_a <= reg_z; set_nz(reg_z); -- TZA
-                    when x"78" => flag_i <= '1';  -- SEI
-                    when x"7B" => reg_a <= reg_b; set_nz(reg_b); -- TBA
-                    when x"88" => reg_y <= y_decremented; set_nz(y_decremented); -- DEY
-                    when x"8A" => reg_a <= reg_x; set_nz(reg_x); -- TXA
-                    when x"98" => reg_a <= reg_y; set_nz(reg_y); -- TYA
-                    when x"9A" => reg_sp <= reg_x; -- TXS
-                    when x"A8" => reg_y <= reg_a; set_nz(reg_a); -- TAY
-                    when x"AA" => reg_x <= reg_a; set_nz(reg_a); -- TAX
-                    when x"B8" => flag_v <= '0';  -- CLV
-                    when x"BA" => reg_x <= reg_sp; set_nz(reg_sp); -- TSX
-                    when x"C8" => reg_y <= y_incremented; set_nz(y_incremented); -- INY
-                    when x"CA" => reg_x <= x_decremented; set_nz(x_decremented); -- DEX
-                    when x"D8" => flag_d <= '0';  -- CLD
-                                  flat32_address_prime <= '1';
-                                  flat32_address <= flat32_address_prime;
-                    when x"E8" => reg_x <= x_incremented; set_nz(x_incremented); -- INX
-                    when x"EA" => map_interrupt_inhibit <= '0'; -- EOM
-                                  -- Enable 32-bit pointer for ($nn),Z addressing
-                                  -- mode
-                                  absolute32_addressing_enabled <= '1';
-                                  -- Preserve NEG / NEG prefix status for AXYZ
-                                  -- 32-bit pseudo register usage.
-                                  next_is_axyz32_instruction <= next_is_axyz32_instruction;
-                    when x"F8" => flag_d <= '1';  -- SED
-                    when others => null;
-                  end case;
-                  
-                  -- Preserve absolute32_addressing_enabled value if the current
-                  -- instruction is ($nn),Z, so that we can use a 32-bit pointer
-                  -- for that instruction.  Fortunately these all have the same
-                  -- bottom five bits, being $x2, where x is odd.
-                  if memory_read_value(4 downto 0) = "10010" then
-                    absolute32_addressing_enabled <= absolute32_addressing_enabled;
-                  end if;
-                  -- Preset flat32_address value if the current instruction is
-                  -- JMP, JSR or RTS
-                  -- This is opcodes JMP absolute ($4C), JMP indirect ($6C),
-                  -- JMP (absolute,X) ($7C), JSR absolute ($20), JSR (absolute) ($22)
-                  -- JSR (absolute,X) ($23), RTS ($60), RTS immediate ($62)
-                  case memory_read_value is
-                    when x"20" => flat32_address <= flat32_address;
-                    when x"22" => flat32_address <= flat32_address;
-                    when x"23" => flat32_address <= flat32_address;
-                    when x"4C" => flat32_address <= flat32_address;
-                    when x"60" => flat32_address <= flat32_address;
-                    when x"62" => flat32_address <= flat32_address;
-                    when x"6C" => flat32_address <= flat32_address;
-                    when others => null;
-                  end case;
-                  
-                  if op_is_single_cycle(to_integer(emu6502&memory_read_value)) = '0' then
-                    if (mode_lut(to_integer(emu6502&memory_read_value)) = M_immnn)
-                      or (mode_lut(to_integer(emu6502&memory_read_value)) = M_impl)
-                      or (mode_lut(to_integer(emu6502&memory_read_value)) = M_A)
-                    then
-                      no_interrupt <= '0';
-                      if memory_read_value=x"60" then
-                                        -- Fast-track RTS
-                        if flat32_address = '0' then
-                                        -- Normal 16-bit RTS
-                          state <= RTS;
-                        else
-                                        -- 32-bit RTS, including virtual memory address resolution
-                          report "Far-RTS";
-                          state <= Flat32RTS;
-                        end if;
-                      elsif memory_read_value=x"40" then
-                                        -- Fast-track RTI
-                        state <= RTI;
-                      else
-                        report "Skipping straight to microcode interpret from fetch";
-                        state <= MicrocodeInterpret;
-                      end if;
+                monitor_opcode <= memory_read_value;
+                monitor_ibytes <= "0000";
+                monitor_instructionpc <= reg_pc - 1;              
+                
+                -- Always read the next instruction byte after reading opcode
+                -- (this means we can't interrupt the CPU in between single-cycle
+                -- instructions -- this is actually correct behaviour for the 4502)
+                pc_inc := '1';
+                
+                report "Executing instruction " & instruction'image(instruction_lut(to_integer(emu6502&memory_read_value)))
+                  severity note;                
+                
+                -- See if this is a single cycle instruction.
+                -- Note that CLI and CLE take 2 cycles so that any
+                -- pending interrupt can happen immediately (interrupts cannot
+                -- happen immediately after a single cycle instruction, because
+                -- interrupts are only checked in InstructionFetch, not
+                -- InstructionDecode).
+                absolute32_addressing_enabled <= '0';
+                flat32_address <= '0';
+                flat32_address_prime <= '0';
+                value32_enabled <= '0';
+                next_is_axyz32_instruction <= '0';
+                
+                report "VAL32: next_is_axyz32_instruction=" & std_logic'image(next_is_axyz32_instruction)
+                  & ", value32_enabled = " & std_logic'image(value32_enabled);
+                
+                case memory_read_value is
+                  when x"03" =>
+                    flag_e <= '1'; -- SEE
+                    report "ZPCACHE: Flushing cache due to setting E flag";
+                    cache_flushing <= '1';
+                    cache_flush_counter <= (others => '0');
+                  when x"0A" => reg_a <= a_asl; set_nz(a_asl); flag_c <= reg_a(7); -- ASL A
+                  when x"0B" => reg_y <= reg_sph; set_nz(reg_sph); -- TSY
+                  when x"18" => flag_c <= '0';  -- CLC
+                  when x"1A" => reg_a <= a_incremented; set_nz(a_incremented); -- INC A
+                  when x"1B" => reg_z <= z_incremented; set_nz(z_incremented); -- INZ
+                  when x"2A" => reg_a <= a_rol; set_nz(a_rol); flag_c <= reg_a(7); -- ROL A
+                  when x"2B" =>
+                    reg_sph <= reg_y; -- TYS
+                    report "ZPCACHE: Flushing cache due to setting SPH";
+                    cache_flushing <= '1';
+                    cache_flush_counter <= (others => '0');                    
+                  when x"38" => flag_c <= '1';  -- SEC
+                  when x"3A" => reg_a <= a_decremented; set_nz(a_decremented); -- DEC A
+                  when x"3B" => reg_z <= z_decremented; set_nz(z_decremented); -- DEZ
+                  when x"42" =>
+                    reg_a <= a_negated; set_nz(a_negated); -- NEG A
+                    -- NEG / NEG / INSTRUCTION is used to indicate using AXYZ
+                    -- regs as single 32-bit pseudo register.
+                    -- This prefix can be used together with the NOP / NOP prefix
+                    -- for the 32-bit ZP-indirect instructions. In that case,
+                    -- this prefix must come first, i.e., NEG / NEG / NOP / NOP
+                    -- / LDA or STA ($xx), Z
+                    if value32_enabled = '0' then
+                      value32_enabled <= '1';
                     else
-                      next_is_axyz32_instruction <= next_is_axyz32_instruction;
-                      state <= Cycle2;
+                      next_is_axyz32_instruction <= '1';
+                    end if;
+                  when x"43" => reg_a <= a_asr; set_nz(a_asr); -- ASR A
+                  when x"4A" => reg_a <= a_lsr; set_nz(a_lsr); flag_c <= reg_a(0); -- LSR A
+                  when x"4B" => reg_z <= reg_a; set_nz(reg_a); -- TAZ
+                  when x"5B" =>
+                    reg_b <= reg_a; -- TAB
+                    report "ZPCACHE: Flushing cache due to moving ZP";
+                    cache_flushing <= '1';
+                    cache_flush_counter <= (others => '0');
+                  when x"6A" => reg_a <= a_ror; set_nz(a_ror); flag_c <= reg_a(0); -- ROR A
+                  when x"6B" => reg_a <= reg_z; set_nz(reg_z); -- TZA
+                  when x"78" => flag_i <= '1';  -- SEI
+                  when x"7B" => reg_a <= reg_b; set_nz(reg_b); -- TBA
+                  when x"88" => reg_y <= y_decremented; set_nz(y_decremented); -- DEY
+                  when x"8A" => reg_a <= reg_x; set_nz(reg_x); -- TXA
+                  when x"98" => reg_a <= reg_y; set_nz(reg_y); -- TYA
+                  when x"9A" => reg_sp <= reg_x; -- TXS
+                  when x"A8" => reg_y <= reg_a; set_nz(reg_a); -- TAY
+                  when x"AA" => reg_x <= reg_a; set_nz(reg_a); -- TAX
+                  when x"B8" => flag_v <= '0';  -- CLV
+                  when x"BA" => reg_x <= reg_sp; set_nz(reg_sp); -- TSX
+                  when x"C8" => reg_y <= y_incremented; set_nz(y_incremented); -- INY
+                  when x"CA" => reg_x <= x_decremented; set_nz(x_decremented); -- DEX
+                  when x"D8" => flag_d <= '0';  -- CLD
+                                flat32_address_prime <= '1';
+                                flat32_address <= flat32_address_prime;
+                  when x"E8" => reg_x <= x_incremented; set_nz(x_incremented); -- INX
+                  when x"EA" => map_interrupt_inhibit <= '0'; -- EOM
+                                -- Enable 32-bit pointer for ($nn),Z addressing
+                                -- mode
+                                absolute32_addressing_enabled <= '1';
+                                -- Preserve NEG / NEG prefix status for AXYZ
+                                -- 32-bit pseudo register usage.
+                                next_is_axyz32_instruction <= next_is_axyz32_instruction;
+                  when x"F8" => flag_d <= '1';  -- SED
+                  when others => null;
+                end case;
+                
+                -- Preserve absolute32_addressing_enabled value if the current
+                -- instruction is ($nn),Z, so that we can use a 32-bit pointer
+                -- for that instruction.  Fortunately these all have the same
+                -- bottom five bits, being $x2, where x is odd.
+                if memory_read_value(4 downto 0) = "10010" then
+                  absolute32_addressing_enabled <= absolute32_addressing_enabled;
+                end if;
+                -- Preset flat32_address value if the current instruction is
+                -- JMP, JSR or RTS
+                -- This is opcodes JMP absolute ($4C), JMP indirect ($6C),
+                -- JMP (absolute,X) ($7C), JSR absolute ($20), JSR (absolute) ($22)
+                -- JSR (absolute,X) ($23), RTS ($60), RTS immediate ($62)
+                case memory_read_value is
+                  when x"20" => flat32_address <= flat32_address;
+                  when x"22" => flat32_address <= flat32_address;
+                  when x"23" => flat32_address <= flat32_address;
+                  when x"4C" => flat32_address <= flat32_address;
+                  when x"60" => flat32_address <= flat32_address;
+                  when x"62" => flat32_address <= flat32_address;
+                  when x"6C" => flat32_address <= flat32_address;
+                  when others => null;
+                end case;
+                
+                if op_is_single_cycle(to_integer(emu6502&memory_read_value)) = '0' then
+                  if (mode_lut(to_integer(emu6502&memory_read_value)) = M_immnn)
+                    or (mode_lut(to_integer(emu6502&memory_read_value)) = M_impl)
+                    or (mode_lut(to_integer(emu6502&memory_read_value)) = M_A)
+                  then
+                    no_interrupt <= '0';
+                    if memory_read_value=x"60" then
+                                        -- Fast-track RTS
+                      if flat32_address = '0' then
+                                        -- Normal 16-bit RTS
+                        state <= RTS;
+                      else
+                                        -- 32-bit RTS, including virtual memory address resolution
+                        report "Far-RTS";
+                        state <= Flat32RTS;
+                      end if;
+                    elsif memory_read_value=x"40" then
+                                        -- Fast-track RTI
+                      state <= RTI;
+                    else
+                      report "Skipping straight to microcode interpret from fetch";
+                      state <= MicrocodeInterpret;
                     end if;
                   else
-                    no_interrupt <= '1';
-                                        -- Allow monitor to trace through single-cycle instructions
-                    if monitor_mem_trace_mode='1' or debugging_single_stepping='1' then
-                      report "monitor_instruction_strobe assert (4510 single cycle instruction, single-stepped)";
-                      state <= normal_fetch_state;
-                      pc_inc := '0';
-                    else
-                      report "monitor_instruction_strobe assert (4510 single cycle instruction)";                    
-                    end if;
-                    monitor_instruction_strobe <= '1';
+                    next_is_axyz32_instruction <= next_is_axyz32_instruction;
+                    state <= Cycle2;
                   end if;
-                  
-                  monitor_instruction <= to_unsigned(instruction'pos(instruction_lut(to_integer(emu6502&memory_read_value))),8);
-                  is_rmw <= '0'; is_load <= '0';
-                  rmw_dummy_write_done <= '0';
-                  case instruction_lut(to_integer(emu6502&memory_read_value)) is
-                                        -- Note if instruction is RMW
-                    when I_INC => is_rmw <= '1';
-                    when I_DEC => is_rmw <= '1';
-                    when I_ROL => is_rmw <= '1';
-                    when I_ROR => is_rmw <= '1';
-                    when I_ASL => is_rmw <= '1';
-                    when I_ASR => is_rmw <= '1';
-                    when I_LSR => is_rmw <= '1';
-                    when I_TSB => is_rmw <= '1';
-                    when I_TRB => is_rmw <= '1';
-                    when I_RMB => is_rmw <= '1';
-                    when I_SMB => is_rmw <= '1';
-                                        -- There are a few 16-bit RMWs as well
-                    when I_INW => is_rmw <= '1';
-                    when I_DEW => is_rmw <= '1';
-                    when I_ASW => is_rmw <= '1';
-                    when I_PHW => is_rmw <= '1';
-                    when I_ROW => is_rmw <= '1';
-                                        -- Note if instruction LOADs value from memory
-                    when I_BIT => is_load <= '1';
-                    when I_AND => is_load <= '1';
-                    when I_ORA => is_load <= '1';
-                    when I_EOR => is_load <= '1';
-                    when I_ADC => is_load <= '1';
-                    when I_SBC => is_load <= '1';
-                    when I_CMP => is_load <= '1';
-                    when I_CPX => is_load <= '1';
-                    when I_CPY => is_load <= '1';
-                    when I_CPZ => is_load <= '1';
-                    when I_LDA => is_load <= '1';
-                    when I_LDX => is_load <= '1';
-                    when I_LDY => is_load <= '1';
-                    when I_LDZ => is_load <= '1';
-                    when I_STA => null;
-                    when I_STX => null;
-                    when I_STY => null;
-                    when I_STZ => null;
-                                  
-                    -- And 6502 illegal opcodes
-                    when I_SLO => is_rmw <= '1';
-                    when I_RLA => is_rmw <= '1';
-                    when I_SRE => is_rmw <= '1';
-                    when I_SAX => null;
-                    when I_LAX => is_load <= '1';
-                    when I_RRA => is_rmw <= '1';
-                    when I_DCP => is_rmw <= '1';
-                    when I_ISC => is_rmw <= '1';
-                    when I_ANC => is_load <= '1';
-                    when I_ALR => is_load <= '1';
-                    when I_ARR => is_load <= '1';
-                    when I_AXS => is_load <= '1';
-                    when I_LAS => null;
-                    when I_XAA | I_AHX | I_SHX | I_SHY | I_TAS => 
-                      state <= TrapToHypervisor;
-                      -- Trap $46 = 6502 Unstable illegal instruction encountered
-                      hypervisor_trap_port <= "1000110";                     
-                    when I_KIL =>
-                      state <= TrapToHypervisor;
-                      -- Trap $47 = 6502 KIL instruction encountered
-                      hypervisor_trap_port <= "1000111";                     
-                    -- Nothing special for other instructions
-                    when others => null;
-                  end case;
+                else
+                  no_interrupt <= '1';
+                                        -- Allow monitor to trace through single-cycle instructions
+                  if monitor_mem_trace_mode='1' or debugging_single_stepping='1' then
+                    report "monitor_instruction_strobe assert (4510 single cycle instruction, single-stepped)";
+                    state <= normal_fetch_state;
+                    pc_inc := '0';
+                  else
+                    report "monitor_instruction_strobe assert (4510 single cycle instruction)";                    
+                  end if;
+                  monitor_instruction_strobe <= '1';
                 end if;
+                
+                monitor_instruction <= to_unsigned(instruction'pos(instruction_lut(to_integer(emu6502&memory_read_value))),8);
+                is_rmw <= '0'; is_load <= '0';
+                rmw_dummy_write_done <= '0';
+                case instruction_lut(to_integer(emu6502&memory_read_value)) is
+                                        -- Note if instruction is RMW
+                  when I_INC => is_rmw <= '1';
+                  when I_DEC => is_rmw <= '1';
+                  when I_ROL => is_rmw <= '1';
+                  when I_ROR => is_rmw <= '1';
+                  when I_ASL => is_rmw <= '1';
+                  when I_ASR => is_rmw <= '1';
+                  when I_LSR => is_rmw <= '1';
+                  when I_TSB => is_rmw <= '1';
+                  when I_TRB => is_rmw <= '1';
+                  when I_RMB => is_rmw <= '1';
+                  when I_SMB => is_rmw <= '1';
+                                        -- There are a few 16-bit RMWs as well
+                  when I_INW => is_rmw <= '1';
+                  when I_DEW => is_rmw <= '1';
+                  when I_ASW => is_rmw <= '1';
+                  when I_PHW => is_rmw <= '1';
+                  when I_ROW => is_rmw <= '1';
+                                        -- Note if instruction LOADs value from memory
+                  when I_BIT => is_load <= '1';
+                  when I_AND => is_load <= '1';
+                  when I_ORA => is_load <= '1';
+                  when I_EOR => is_load <= '1';
+                  when I_ADC => is_load <= '1';
+                  when I_SBC => is_load <= '1';
+                  when I_CMP => is_load <= '1';
+                  when I_CPX => is_load <= '1';
+                  when I_CPY => is_load <= '1';
+                  when I_CPZ => is_load <= '1';
+                  when I_LDA => is_load <= '1';
+                  when I_LDX => is_load <= '1';
+                  when I_LDY => is_load <= '1';
+                  when I_LDZ => is_load <= '1';
+                  when I_STA => null;
+                  when I_STX => null;
+                  when I_STY => null;
+                  when I_STZ => null;
+                                
+                  -- And 6502 illegal opcodes
+                  when I_SLO => is_rmw <= '1';
+                  when I_RLA => is_rmw <= '1';
+                  when I_SRE => is_rmw <= '1';
+                  when I_SAX => null;
+                  when I_LAX => is_load <= '1';
+                  when I_RRA => is_rmw <= '1';
+                  when I_DCP => is_rmw <= '1';
+                  when I_ISC => is_rmw <= '1';
+                  when I_ANC => is_load <= '1';
+                  when I_ALR => is_load <= '1';
+                  when I_ARR => is_load <= '1';
+                  when I_AXS => is_load <= '1';
+                  when I_LAS => null;
+                  when I_XAA | I_AHX | I_SHX | I_SHY | I_TAS => 
+                    state <= TrapToHypervisor;
+                    -- Trap $46 = 6502 Unstable illegal instruction encountered
+                    hypervisor_trap_port <= "1000110";                     
+                  when I_KIL =>
+                    state <= TrapToHypervisor;
+                    -- Trap $47 = 6502 KIL instruction encountered
+                    hypervisor_trap_port <= "1000111";                     
+                  -- Nothing special for other instructions
+                  when others => null;
+                end case;
               end if;
             when InstructionDecode6502 =>
                                         -- Show previous instruction
@@ -7630,6 +7523,8 @@ begin
 
     if rising_edge(clock) then
 
+      pending_dma_processed <= '0';
+      
       report "RISING EDGE CLOCK";
       
       report "fastio_rdata = $" & to_hstring(fastio_rdata);
@@ -7690,33 +7585,6 @@ begin
       fastio_addr_var := x"FFFFF";      
       
       case state is
-        when DoAudioDMA =>
-            -- We used to write the audio registers here, but now we export
-            -- them directly to the audio sound system, so that we don't need
-            -- nearly so much bus time.
-            memory_access_read := '0';
-            memory_access_write := '0';
-        when InstructionFetch | InstructionDecode =>
-          if (audio_dma_blocked = '0') and (audio_dma_pending(0) or audio_dma_pending(1) or audio_dma_pending(2) or audio_dma_pending(3)) = '1' then
-            report "Audio DMA servicing request";
-            -- We have to hard-wire the access here, as it is happening after
-            -- the normal address resolution stuff.
-            -- This means in particular setting the memory_source to Shadow.
-            memory_access_read := '1';
-            memory_access_write := '0';
-            memory_access_resolve_address := '0';
-              memory_access_address(27 downto 24) := x"0";
-            if audio_dma_pending(0)='1' then
-              memory_access_address(23 downto 0) := audio_dma_current_addr(0);
-            elsif audio_dma_pending(1)='1' then
-              memory_access_address(23 downto 0) := audio_dma_current_addr(1);
-            elsif audio_dma_pending(2)='1' then
-              memory_access_address(23 downto 0) := audio_dma_current_addr(2);
-            elsif audio_dma_pending(3)='1' then
-              memory_access_address(23 downto 0) := audio_dma_current_addr(3);
-            end if;
-            report "audio_dma sample read address $" & to_hstring(memory_access_address);
-          end if;          
         when VectorRead =>
           if hypervisor_mode='1' then
             -- Vectors move in hypervisor mode to be inside the hypervisor
@@ -7877,24 +7745,27 @@ begin
                 -- On memory read wait-state, read from RAM, so that FastIO
                 -- lines clear
                 memory_access_read := '1';
-                memory_access_address := x"0000002";
+                memory_access_address := pending_dma_address;
                 memory_access_resolve_address := '0';
+                pending_dma_processed <= '1';
               end if;
             when M_nnX =>
               if is_load='1' or is_rmw='1' then
                 -- On memory read wait-state, read from RAM, so that FastIO
                 -- lines clear
                 memory_access_read := '1';
-                memory_access_address := x"0000002";
+                memory_access_address := pending_dma_address;
                 memory_access_resolve_address := '0';
+                pending_dma_processed <= '1';
               end if;
             when M_nnY =>
               if is_load='1' or is_rmw='1' then
                 -- On memory read wait-state, read from RAM, so that FastIO
                 -- lines clear
                 memory_access_read := '1';
-                memory_access_address := x"0000002";
+                memory_access_address := pending_dma_address;
                 memory_access_resolve_address := '0';
+                pending_dma_processed <= '1';
               end if;
             when others =>
               null;
@@ -7946,8 +7817,9 @@ begin
                   -- On memory read wait-state, read from RAM, so that FastIO
                   -- lines clear
                   memory_access_read := '1';
-                  memory_access_address := x"0000002";
+                  memory_access_address := pending_dma_address;
                   memory_access_resolve_address := '0';
+                  pending_dma_processed <= '1';
                 end if;
               when M_immnn => -- Handled in MicrocodeInterpret
               when M_nnnn =>
@@ -7964,8 +7836,9 @@ begin
                     -- On memory read wait-state, read from RAM, so that FastIO
                     -- lines clear
                     memory_access_read := '1';
-                    memory_access_address := x"0000002";
+                    memory_access_address := pending_dma_address;
                     memory_access_resolve_address := '0';
+                    pending_dma_processed <= '1';
                   end if;
                 end if;
               when M_nnrr =>
@@ -7988,8 +7861,9 @@ begin
                   -- On memory read wait-state, read from RAM, so that FastIO
                   -- lines clear
                   memory_access_read := '1';
-                  memory_access_address := x"0000002";
+                  memory_access_address := pending_dma_address;
                   memory_access_resolve_address := '0';
+                  pending_dma_processed <= '1';
                 end if;
               when M_nnY =>
                 temp_addr := reg_b & (reg_arg1 + reg_Y);
@@ -7997,24 +7871,27 @@ begin
                   -- On memory read wait-state, read from RAM, so that FastIO
                   -- lines clear
                   memory_access_read := '1';
-                  memory_access_address := x"0000002";
+                  memory_access_address := pending_dma_address;
                   memory_access_resolve_address := '0';
+                  pending_dma_processed <= '1';
                 end if;
               when M_nnnnY =>
                 if is_load='1' or is_rmw='1' then
                   -- On memory read wait-state, read from RAM, so that FastIO
                   -- lines clear
                   memory_access_read := '1';
-                  memory_access_address := x"0000002";
+                  memory_access_address := pending_dma_address;
                   memory_access_resolve_address := '0';
+                  pending_dma_processed <= '1';
                 end if;
               when M_nnnnX =>
                 if is_load='1' or is_rmw='1' then
                   -- On memory read wait-state, read from RAM, so that FastIO
                   -- lines clear
                   memory_access_read := '1';
-                  memory_access_address := x"0000002";
+                  memory_access_address := pending_dma_address;
                   memory_access_resolve_address := '0';
+                  pending_dma_processed <= '1';
                 end if;
               when M_InnSPY =>
                 temp_addr :=  to_unsigned(to_integer(reg_b&reg_arg1)
@@ -8047,8 +7924,9 @@ begin
             -- On memory read wait-state, read from RAM, so that FastIO
             -- lines clear
             memory_access_read := '1';
-            memory_access_address := x"0000002";
+            memory_access_address := pending_dma_address;
             memory_access_resolve_address := '0';
+            pending_dma_processed <= '1';
           end if;
         when InnSPYReadVectorLow =>
           memory_access_read := '1';
@@ -8059,8 +7937,9 @@ begin
             -- On memory read wait-state, read from RAM, so that FastIO
             -- lines clear
             memory_access_read := '1';
-            memory_access_address := x"0000002";
+            memory_access_address := pending_dma_address;
             memory_access_resolve_address := '0';
+            pending_dma_processed <= '1';
           end if;
         when InnYReadVectorLow =>
           memory_access_read := '1';
@@ -8071,8 +7950,9 @@ begin
             -- On memory read wait-state, read from RAM, so that FastIO
             -- lines clear
             memory_access_read := '1';
-            memory_access_address := x"0000002";
+            memory_access_address := pending_dma_address;
             memory_access_resolve_address := '0';
+            pending_dma_processed <= '1';
           end if;
         when InnZReadVectorLow =>
           memory_access_read := '1';
@@ -8095,16 +7975,18 @@ begin
             -- On memory read wait-state, read from RAM, so that FastIO
             -- lines clear
             memory_access_read := '1';
-            memory_access_address := x"0000002";
+            memory_access_address := pending_dma_address;
             memory_access_resolve_address := '0';
+            pending_dma_processed <= '1';
           end if;
         when InnZReadVectorHigh =>
           if is_load='1' or is_rmw='1' then
             -- On memory read wait-state, read from RAM, so that FastIO
             -- lines clear
             memory_access_read := '1';
-            memory_access_address := x"0000002";
+            memory_access_address := pending_dma_address;
             memory_access_resolve_address := '0';
+            pending_dma_processed <= '1';
           end if;
         when JumpDereference =>
           -- reg_addr holds the address we want to load a 16 bit address
