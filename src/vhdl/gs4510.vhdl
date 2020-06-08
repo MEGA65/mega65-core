@@ -3589,7 +3589,7 @@ begin
       -- Only if the shadow RAM bus is idle, do we actually do the request,
       -- however.
       shadow_write <= '0';
-      shadow_address <= to_integer(pending_dma_address);
+--      shadow_address <= to_integer(pending_dma_address);
       is_pending_dma_access <= '1';
       report "BACKGROUNDDMA: pending_dma_address=$" & to_hstring(pending_dma_address);     
       
