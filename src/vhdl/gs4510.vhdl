@@ -382,6 +382,7 @@ architecture Behavioural of gs4510 is
   -- 7 = audio dma channel 3 LSB
   -- 8 = audio dma channel 3 MSB
   signal pending_dma_target : integer range 0 to 8 := 0;
+  signal last_pending_dma_target : integer range 0 to 8 := 0;
   
   signal cpu_pcm_bypass_int : std_logic := '0';
   signal pwm_mode_select_int : std_logic := '0';
@@ -1845,7 +1846,7 @@ begin
         -- @ IO:C65 $0032000-$0035FFF - 8KB C65 BASIC ROM
         -- @ IO:C65 $0030000-$0031FFF - 16KB C65 DOS ROM
         -- @ IO:M65 $0040000-$005FFFF - 128KB RAM (in place of C65 cartridge support)
-        report "Preparing to read from Shadow";
+        report "Preparing to read from Shadow. shadow_address_next = $" & to_hstring(to_unsigned(shadow_address_next,20));
         is_pending_dma_access <= '0';
         shadow_address <= shadow_address_next;
         read_source <= Shadow;
@@ -3399,6 +3400,7 @@ begin
       shadow_write <= '0';
       shadow_address <= to_integer(pending_dma_address);
       is_pending_dma_access <= '1';
+      report "BACKGROUNDDMA: pending_dma_address=$" & to_hstring(pending_dma_address);
       
       cpu_pcm_bypass <= cpu_pcm_bypass_int;
       pwm_mode_select <= pwm_mode_select_int;
@@ -3605,8 +3607,9 @@ begin
       report "BACKGROUNDDMA: Read byte $" & to_hstring(shadow_rdata);
       -- XXX Add the extra cycle delay because we don't do the clever clock
       -- crossing trick to get the address to the shadowram a cycle early
-      
-      if is_pending_dma_access = '1' then
+
+      last_pending_dma_target <= pending_dma_target;
+      if is_pending_dma_access = '1' and last_pending_dma_target /= 0 then
         report "BACKGROUNDDMA: Read byte $" & to_hstring(shadow_rdata) & " for target " & integer'image(pending_dma_target)
           & " from address $" & to_hstring(pending_dma_address);
         pending_dma_target <= 0 ;
@@ -5685,6 +5688,9 @@ begin
                   reg_addr <= temp_addr;
                   if is_load='1' or is_rmw='1' then
                     report "VAL32: ZP LoadTarget";
+                    -- Idle memory bus while latching address
+                    memory_access_read := '0';
+                    memory_access_write := '0';
                     state <= LoadTarget;
                   else
                                         -- (reading next instruction argument byte as default action)
@@ -5718,6 +5724,9 @@ begin
                   temp_addr := reg_b & (memory_read_value + reg_X);
                   reg_addr <= temp_addr;
                   if is_load='1' or is_rmw='1' then
+                    -- Idle memory bus while latching address
+                    memory_access_read := '0';
+                    memory_access_write := '0';
                     state <= LoadTarget;
                   else
                                         -- (reading next instruction argument byte as default action)
@@ -5728,6 +5737,9 @@ begin
                   temp_addr := reg_b & (memory_read_value + reg_Y);
                   reg_addr <= temp_addr;
                   if is_load='1' or is_rmw='1' then
+                    -- Idle memory bus while latching address
+                    memory_access_read := '0';
+                    memory_access_write := '0';
                     state <= LoadTarget;
                   else
                                         -- (reading next instruction argument byte as default action)
@@ -5962,6 +5974,9 @@ begin
                     temp_addr := reg_b & reg_arg1;
                     reg_addr <= temp_addr;
                     if is_load='1' or is_rmw='1' then
+                      -- Idle memory bus while latching address
+                      memory_access_read := '0';
+                      memory_access_write := '0';
                       state <= LoadTarget;
                     else
                                         -- (reading next instruction argument byte as default action)
@@ -5976,16 +5991,19 @@ begin
 
                     reg_addr(15 downto 8) <= memory_read_value;
 
-                                        -- If it is a branch, write the low bits of the programme
-                                        -- counter now.  We will read the 2nd argument next cycle
+                    -- If it is a branch, write the low bits of the programme
+                    -- counter now.  We will read the 2nd argument next cycle
                     if reg_instruction = I_JSR or reg_instruction = I_BSR then
                       dec_sp := '1';
                       state <= CallSubroutine;
                     else
                       if is_load='1' or is_rmw='1' then
+                        -- Idle memory bus while latching address
+                        memory_access_read := '0';
+                        memory_access_write := '0';
                         state <= LoadTarget;
                       else
-                                        -- (reading next instruction argument byte as default action)
+                        -- (reading next instruction argument byte as default action)
                         state <= MicrocodeInterpret;
                       end if;
                     end if;
@@ -6086,6 +6104,9 @@ begin
                     temp_addr := reg_b & (reg_arg1 + reg_X);
                     reg_addr <= temp_addr;
                     if is_load='1' or is_rmw='1' then
+                      -- Idle memory bus while latching address
+                      memory_access_read := '0';
+                      memory_access_write := '0';
                       state <= LoadTarget;
                     else
                                         -- (reading next instruction argument byte as default action)
@@ -6095,6 +6116,9 @@ begin
                     temp_addr := reg_b & (reg_arg1 + reg_Y);
                     reg_addr <= temp_addr;
                     if is_load='1' or is_rmw='1' then
+                      -- Idle memory bus while latching address
+                      memory_access_read := '0';
+                      memory_access_write := '0';
                       state <= LoadTarget;
                     else
                                         -- (reading next instruction argument byte as default action)
@@ -6107,6 +6131,9 @@ begin
                     monitor_ibytes(0) <= '1';
                     reg_addr <= x"00"&reg_y + to_integer(memory_read_value&reg_addr(7 downto 0));
                     if is_load='1' or is_rmw='1' then
+                      -- Idle memory bus while latching address
+                      memory_access_read := '0';
+                      memory_access_write := '0';
                       state <= LoadTarget;
                     else
                                         -- (reading next instruction argument byte as default action)
@@ -6119,6 +6146,9 @@ begin
                     monitor_ibytes(0) <= '1';
                     reg_addr <= x"00"&reg_x + to_integer(memory_read_value&reg_addr(7 downto 0));
                     if is_load='1' or is_rmw='1' then
+                      -- Idle memory bus while latching address
+                      memory_access_read := '0';
+                      memory_access_write := '0';
                       state <= LoadTarget;
                     else
                                         -- (reading next instruction argument byte as default action)
@@ -6236,6 +6266,9 @@ begin
               reg_addr <=
                 to_unsigned(to_integer(memory_read_value&reg_addr(7 downto 0)),16);
               if is_load='1' or is_rmw='1' then
+                -- Idle memory bus while latching address
+                memory_access_read := '0';
+                memory_access_write := '0';
                 state <= LoadTarget;
               else
                                         -- (reading next instruction argument byte as default action)
@@ -6249,6 +6282,9 @@ begin
                 to_unsigned(to_integer(memory_read_value&reg_addr(7 downto 0))
                             + to_integer(reg_y),16);
               if is_load='1' or is_rmw='1' then
+                -- Idle memory bus while latching address
+                memory_access_read := '0';
+                memory_access_write := '0';
                 state <= LoadTarget;
               else
                                         -- (reading next instruction argument byte as default action)
@@ -6262,6 +6298,9 @@ begin
                 to_unsigned(to_integer(memory_read_value&reg_addr(7 downto 0))
                             + to_integer(reg_y),16);
               if is_load='1' or is_rmw='1' then
+                -- Idle memory bus while latching address
+                memory_access_read := '0';
+                memory_access_write := '0';
                 state <= LoadTarget;
               else
                                         -- (reading next instruction argument byte as default action)
@@ -6328,6 +6367,9 @@ begin
                 & to_hstring(reg_addr_lsbs);
               if is_load='1' or is_rmw='1' then
                 report "VAL32: (ZP),Z LoadTarget";
+                -- Idle memory bus while latching address
+                memory_access_read := '0';
+                memory_access_write := '0';
                 state <= LoadTarget;
               else
                                         -- (reading next instruction argument byte as default action)
@@ -6338,6 +6380,9 @@ begin
                 to_unsigned(to_integer(memory_read_value&reg_addr(7 downto 0))
                             + to_integer(reg_z),16);
               if is_load='1' or is_rmw='1' then
+                -- Idle memory bus while latching address
+                memory_access_read := '0';
+                memory_access_write := '0';
                 state <= LoadTarget;
               else
                                         -- (reading next instruction argument byte as default action)
@@ -7541,7 +7586,10 @@ begin
     shadow_wdata_next <= shadow_wdata;
     hyppo_address_next <= hyppo_address;
 
-    shadow_address_var := shadow_address;
+    -- By default we read from the pending DMA address.
+--    shadow_address_var := shadow_address;
+    report "BACKGROUNDDMA: Setting shadow_address_var to $" & to_hstring(pending_dma_address);
+    shadow_address_var := to_integer(pending_dma_address);
 
     long_address_write_var := x"FFFFFFF";
     long_address_read_var := x"FFFFFFF";
@@ -8379,6 +8427,7 @@ begin
         shadow_write_var := '0';
       end if;
 
+      report "Setting shadow_address_next to $" & to_hstring(to_unsigned(shadow_address_var,20));
       shadow_address_next <= shadow_address_var;
       hyppo_address_next <= hyppo_address_var;
       
@@ -8429,7 +8478,7 @@ begin
       read_data <= shadow_rdata;
     else
       read_data <= read_data_copy;
-    end if;  
+    end if;
   end process;
   
 end Behavioural;
