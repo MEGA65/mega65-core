@@ -32,7 +32,7 @@ entity audio_mixer is
     reg_write : in std_logic := '0';
     wdata : in unsigned(15 downto 0) := x"FFFF";
     rdata : out unsigned(15 downto 0) := x"FFFF";
-    audio_loopback : out unsigned(15 downto 0) := x"FFFF";
+    audio_loopback : out signed(15 downto 0) := x"FFFF";
     modem_is_pcm_master : out std_logic := '0';
     amplifier_enable : out std_logic := '0';
 
@@ -47,15 +47,15 @@ entity audio_mixer is
     volume_knob3_target : in unsigned(3 downto 0) := "1111";
     
     -- Audio inputs
-    sources : in sample_vector_t := (others => x"8000");
+    sources : in sample_vector_t := (others => x"0000");
     -- Audio outputs
-    outputs : inout sample_vector_t := (others => x"8000")
+    outputs : inout sample_vector_t := (others => x"0000")
     );
 
 end entity;
 
 architecture elizabethan of audio_mixer is
-  signal srcs : sample_vector_t := (others => x"8000");
+  signal srcs : sample_vector_t := (others => x"0000");
   signal source_num : integer range 0 to 15 := 0;
 
   signal state : integer := 0;
@@ -71,7 +71,7 @@ architecture elizabethan of audio_mixer is
   signal set_output : std_logic := '0';
   signal output_channel : integer range 0 to 15 := 0;
   
-  signal mixed_value : integer := 0;
+  signal mixed_value : signed(15 downto 0) := x"0000";
 
   signal dummy : unsigned(15 downto 0) := x"0000";
 
@@ -149,7 +149,7 @@ begin
           -- Latch input samples
           srcs <= sources;
           -- Reset output value
-          mixed_value <= 0;
+          mixed_value <= to_signed(0,16);
           report "Zeroing mixed_value";
           -- Request second mix coefficient (first was already scheduled last cycle)
           -- (this is to handle the wait state on read).
@@ -165,8 +165,8 @@ begin
             & ": adding input " & integer'image(state-1)
             & " (= $" & to_hstring(srcs(state - 1)) & ")"
             & " via coefficient $" & to_hstring(ram_rdata(31 downto 16))
-            & " to current sum = $" & to_hstring(to_unsigned(mixed_value,32));
-          mixed_value <= mixed_value + to_integer(ram_rdata(31 downto 16)) * to_integer(srcs(state - 1));
+            & " to current sum = $" & to_hstring(mixed_value);
+          mixed_value <= mixed_value + to_integer(ram_rdata(31 downto 16)) * srcs(state - 1);
           -- Request next mix coefficient
           if state /= 15 then
             ram_raddr <= state + output_offset + 1;
@@ -181,7 +181,7 @@ begin
           report "For output "
             & integer'image(output_num)
             & " applying master volume coefficient $" & to_hstring(ram_rdata(31 downto 16));
-          mixed_value <= to_integer(to_unsigned(mixed_value,32)(31 downto 16)) * to_integer(ram_rdata(31 downto 16));
+          mixed_value <= mixed_value * to_integer(ram_rdata(31 downto 16));
           set_output <= '1';
           output_channel <= output_num;
           
@@ -211,9 +211,9 @@ begin
       end if;
       -- Push mixed output value
       if set_output='1' then
-        outputs(output_channel) <= to_unsigned(mixed_value,32)(31 downto 16);
+        outputs(output_channel) <= mixed_value;
         report "Outputing channel " & integer'image(output_channel) & " mixed value as $"
-          & to_hstring(to_unsigned(mixed_value,32)(31 downto 16));
+          & to_hstring(mixed_value(31 downto 16));
       end if;
     end if;
   end process;

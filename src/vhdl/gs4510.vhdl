@@ -102,8 +102,8 @@ entity gs4510 is
     
     matrix_rain_seed : out unsigned(15 downto 0) := (others => '0');
 
-    cpu_pcm_left : out unsigned(15 downto 0) := x"8000";
-    cpu_pcm_right : out unsigned(15 downto 0) := x"8000";
+    cpu_pcm_left : out signed(15 downto 0) := x"0000";
+    cpu_pcm_right : out signed(15 downto 0) := x"0000";
     cpu_pcm_enable : out std_logic := '0';
     cpu_pcm_bypass : out std_logic := '0';
     pwm_mode_select : out std_logic := '1';
@@ -330,8 +330,8 @@ architecture Behavioural of gs4510 is
   signal long_address_write : unsigned(27 downto 0)  := (others => '0');
 
   -- Mixed digital audio channels for writing to $D6F8-B
-  signal audio_dma_left : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal audio_dma_right : unsigned(15 downto 0) := to_unsigned(0,16);
+  signal audio_dma_left : signed(15 downto 0) := to_signed(0,16);
+  signal audio_dma_right : signed(15 downto 0) := to_signed(0,16);
   signal audio_dma_write_sequence : integer range 0 to 3 := 0;
   signal audio_dma_tick_counter : unsigned(31 downto 0) := to_unsigned(0,32);
   signal audio_dma_write_counter : unsigned(31 downto 0) := to_unsigned(0,32);
@@ -2059,10 +2059,10 @@ begin
             when x"11" => return audio_dma_enable & "0" & audio_dma_disable_writes & cpu_pcm_bypass_int & pwm_mode_select_int & "000";
                           
             -- XXX DEBUG registers for audio DMA
-            when x"14" => return audio_dma_left(7 downto 0);              
-            when x"15" => return audio_dma_left(15 downto 8);              
-            when x"16" => return audio_dma_right(7 downto 0);              
-            when x"17" => return audio_dma_right(15 downto 8);              
+            when x"14" => return unsigned(audio_dma_left(7 downto 0));
+            when x"15" => return unsigned(audio_dma_left(15 downto 8));              
+            when x"16" => return unsigned(audio_dma_right(7 downto 0));
+            when x"17" => return unsigned(audio_dma_right(15 downto 8));
             when x"18" => return audio_dma_write_counter(7 downto 0);
             when x"19" => return audio_dma_write_counter(15 downto 8);
             when x"1a" => return audio_dma_write_counter(23 downto 16);
@@ -3405,7 +3405,7 @@ begin
       -- We also have four more little multipliers for the audio DMA stuff
       for i in 0 to 3 loop
         if audio_dma_sample_valid(i)='1' then
-          audio_dma_multed(i) <= to_signed(audio_dma_current_value(i)) * to_unsigned(to_integer(audio_dma_volume(i)),9);
+          audio_dma_multed(i) <= to_signed(to_integer(audio_dma_volume(i)) * to_integer(audio_dma_current_value(i)),25);
         end if;
       end loop;
       -- And from those, we compose the combined left and right values, with
@@ -3416,30 +3416,30 @@ begin
           -- overflow: so saturate instead
           audio_dma_left <= (others => audio_dma_multed(1)(24));
         else
-          audio_dma_left <= unsigned(audio_dma_left_temp);
+          audio_dma_left <= audio_dma_left_temp;
         end if;
       elsif audio_dma_enables(0 to 1) = "10" then
         audio_dma_left <= audio_dma_current_value(0);
       elsif audio_dma_enables(0 to 1) = "01" then
         audio_dma_left <= audio_dma_current_value(1);
       else
-        audio_dma_left := (others => '0');
+        audio_dma_left <= (others => '0');
       end if;
 
       if audio_dma_enables(2 to 3) = "11" then
         audio_dma_right_temp := audio_dma_multed(2)(24 downto 9) + audio_dma_multed(3)(24 downto 9);
-        if audio_dma_multed(2)(24) = audio_dma_multed(3)(24) and audio_dma_left_temp(15) /= audio_dma_multed(2)(24) then
+        if audio_dma_multed(2)(24) = audio_dma_multed(3)(24) and audio_dma_right_temp(15) /= audio_dma_multed(2)(24) then
           -- overflow: so saturate instead
           audio_dma_right <= (others => audio_dma_multed(3)(24));
         else
-          audio_dma_right <= unsigned(audio_dma_left_temp);
+          audio_dma_right <= audio_dma_right_temp;
         end if;
       elsif audio_dma_enables(2 to 3) = "10" then
         audio_dma_right <= audio_dma_current_value(2);
       elsif audio_dma_enables(2 to 3) = "01" then
         audio_dma_right <= audio_dma_current_value(3);
       else
-        audio_dma_right := (others => '0');
+        audio_dma_right <= (others => '0');
       end if;
       
       resolved_vdc_to_viciv_src_address <= resolve_vdc_to_viciv_address(vdc_mem_addr_src);
@@ -3610,8 +3610,8 @@ begin
       is_pending_dma_access <= '1';
       report "BACKGROUNDDMA: pending_dma_address=$" & to_hstring(pending_dma_address);     
       
-      cpu_pcm_left <= unsigned(audio_dma_left);
-      cpu_pcm_right <= unsigned(audio_dma_right);
+      cpu_pcm_left <= audio_dma_left;
+      cpu_pcm_right <= audio_dma_right;
       cpu_pcm_enable <= audio_dma_enable;
 
       report "CPU PCM: $" & to_hstring(audio_dma_left) & " + $" & to_hstring(audio_dma_left)

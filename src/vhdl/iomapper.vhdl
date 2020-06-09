@@ -58,8 +58,8 @@ entity iomapper is
         buffereduart2_rx : inout std_logic := 'H';
         buffereduart2_tx : out std_logic := '1';
 
-        cpu_pcm_left : in unsigned(15 downto 0) := x"FFFF";
-        cpu_pcm_right : in unsigned(15 downto 0) := x"FFFF";
+        cpu_pcm_left : in signed(15 downto 0) := x"FFFF";
+        cpu_pcm_right : in signed(15 downto 0) := x"FFFF";
         cpu_pcm_enable : in std_logic := '0';
         cpu_pcm_bypass : in std_logic := '0';
         pwm_mode_select : in std_logic := '1';
@@ -411,13 +411,13 @@ architecture behavioral of iomapper is
   signal cia1portb_in : std_logic_vector(7 downto 0);
 
   signal leftsid_cs : std_logic;
-  signal leftsid_audio : unsigned(17 downto 0);
+  signal leftsid_audio : signed(17 downto 0);
   signal rightsid_cs : std_logic;
-  signal rightsid_audio : unsigned(17 downto 0);
+  signal rightsid_audio : signed(17 downto 0);
   signal frontsid_cs : std_logic;
-  signal frontsid_audio : unsigned(17 downto 0) := to_unsigned(0,18);
+  signal frontsid_audio : signed(17 downto 0) := to_signed(0,18);
   signal backsid_cs : std_logic;
-  signal backsid_audio : unsigned(17 downto 0);
+  signal backsid_audio : signed(17 downto 0);
 
   signal c65uart_cs : std_logic := '0';
   signal sdcardio_cs : std_logic := '0';
@@ -501,9 +501,9 @@ architecture behavioral of iomapper is
   signal audio_mix_write : std_logic := '0';
   signal audio_mix_wdata : unsigned(15 downto 0) := x"FFFF";
   signal audio_mix_rdata : unsigned(15 downto 0) := x"FFFF";
-  signal audio_loopback : unsigned(15 downto 0) := x"FFFF";
-  signal pcm_left : unsigned(15 downto 0) := x"FFFF";
-  signal pcm_right : unsigned(15 downto 0) := x"FFFF";
+  signal audio_loopback : signed(15 downto 0) := x"FFFF";
+  signal pcm_left : signed(15 downto 0) := x"FFFF";
+  signal pcm_right : signed(15 downto 0) := x"FFFF";
 
   signal cpu_ethernet_stream : std_logic;
 
@@ -947,7 +947,7 @@ begin
     std_logic_vector(do) => data_o,
     pot_x => potl_x,
     pot_y => potl_y,
-    audio_data => leftsid_audio,
+    signed_audio => leftsid_audio,
     filter_table_addr => filter_table_addr0,
     filter_table_val => filter_table_val0
     );
@@ -968,7 +968,7 @@ begin
     std_logic_vector(do) => data_o,
     pot_x => potr_x,
     pot_y => potr_y,
-    audio_data => rightsid_audio,
+    signed_audio => rightsid_audio,
     filter_table_addr => filter_table_addr1,
     filter_table_val => filter_table_val1
     );
@@ -989,7 +989,7 @@ begin
     std_logic_vector(do) => data_o,
     pot_x => potl_x,
     pot_y => potl_y,
-    audio_data => frontsid_audio,
+    signed_audio => frontsid_audio,
     filter_table_addr => filter_table_addr2,
     filter_table_val => filter_table_val2
     );
@@ -1010,7 +1010,7 @@ begin
     std_logic_vector(do) => data_o,
     pot_x => potr_x,
     pot_y => potr_y,
-    audio_data => backsid_audio,
+    signed_audio => backsid_audio,
     filter_table_addr => filter_table_addr3,
     filter_table_val => filter_table_val3
     );

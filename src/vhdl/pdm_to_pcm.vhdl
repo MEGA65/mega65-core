@@ -36,8 +36,8 @@ entity pdm_to_pcm is
     clock : in std_logic;
     sample_clock : in std_logic;
     sample_bit : in std_logic;
-    infrasample_out : out unsigned(15 downto 0);
-    sample_out : out unsigned(15 downto 0)
+    infrasample_out : out signed(15 downto 0);
+    sample_out : out signed(15 downto 0)
     );
 end pdm_to_pcm;
 
@@ -64,6 +64,7 @@ architecture behavioural of pdm_to_pcm is
 begin
   process (clock) is
     variable ny : std_logic_vector(1 downto 0);
+    variable signed_temp : signed(15 downto 0);
   begin
     if rising_edge(clock) then
       if sample_clock='1' then
@@ -80,7 +81,9 @@ begin
           end if;
         else
           infra_counter <= 0;
-          infrasample_out <= to_unsigned(infra_value,16);
+          signed_temp := signed(to_unsigned(infra_value,16));
+          signed_temp(15) := signed_temp(15) xor '1';
+          infrasample_out <= signed_temp;
           if sample_bit = '1' then
             infra_value <= 1;
           else
@@ -145,9 +148,11 @@ begin
 
         -- Get most significant bits of the sample
         -- We shift it left one bit, as the microphone tends to be quite quiet
-        sample_out(15 downto 2) <= to_unsigned(sample_value,14);
-        sample_out(1 downto 0) <= "00";
-          
+        signed_temp(14 downto 1) := signed(to_unsigned(sample_value,14));
+        signed_temp(0) := '0';
+        -- Values are all positive, so leave as they are
+        signed_temp(15) := '0';
+        sample_out <= signed_temp;    
       end if;
     end if;
   end process;

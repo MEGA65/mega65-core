@@ -8,6 +8,7 @@ package debugtools is
     function to_string(sv: Std_Logic_Vector) return string;
     function to_hstring(sv: Std_Logic_Vector) return string;
     function to_hstring(sv: unsigned) return string;
+    function to_hstring(sv: signed) return string;
     function safe_to_integer(sv : unsigned) return integer;
     procedure HWRITE(L:inout LINE; VALUE:in BIT_VECTOR;
     JUSTIFIED:in SIDE := RIGHT; FIELD:in WIDTH := 0);
@@ -80,6 +81,13 @@ package body debugtools is
       return to_hstring(std_logic_vector(sv));
     end;
 
+    function to_hstring(sv: signed) return string is
+      use Std.TextIO.all;
+      
+    begin
+      return to_hstring(std_logic_vector(sv));
+    end;
+      
       function safe_to_integer(sv : unsigned) return integer is
         variable v : integer := 0;
       begin

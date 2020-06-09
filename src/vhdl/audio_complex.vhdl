@@ -38,7 +38,7 @@ entity audio_complex is
     audio_mix_write : in std_logic := '0';
     audio_mix_wdata : in unsigned(15 downto 0) := x"FFFF";
     audio_mix_rdata : out unsigned(15 downto 0) := x"FFFF";
-    audio_loopback : out unsigned(15 downto 0) := x"FFFF";
+    audio_loopback : out signed(15 downto 0) := x"FFFF";
 
     -- Volume knobs
     volume_knob1 : in unsigned(15 downto 0) := x"FFFF";
@@ -52,19 +52,19 @@ entity audio_complex is
     -- The various audio busses and interfaces:
     
     -- Audio in from digital SIDs
-    leftsid_audio : in unsigned(17 downto 0);
-    rightsid_audio : in unsigned(17 downto 0);
-    frontsid_audio : in unsigned(17 downto 0);
-    backsid_audio : in unsigned(17 downto 0);
+    leftsid_audio : in signed(17 downto 0);
+    rightsid_audio : in signed(17 downto 0);
+    frontsid_audio : in signed(17 downto 0);
+    backsid_audio : in signed(17 downto 0);
     
     -- Audio in from $D6F8-B registers
-    pcm_left : in unsigned(15 downto 0);
-    pcm_right : in unsigned(15 downto 0);
+    pcm_left : in signed(15 downto 0);
+    pcm_right : in signed(15 downto 0);
     -- But if the CPU is providing digital audio, we use that instead
     cpu_pcm_enable : in std_logic := '0';
     cpu_pcm_bypass : in std_logic := '0';
-    cpu_pcm_left : in unsigned(15 downto 0) := x"8000";
-    cpu_pcm_right : in unsigned(15 downto 0) := x"8000";
+    cpu_pcm_left : in signed(15 downto 0) := x"0000";
+    cpu_pcm_right : in signed(15 downto 0) := x"0000";
     pwm_mode_select : in std_logic := '1';
     
     -- I2S PCM Audio interfaces (portable devices only)
@@ -134,46 +134,46 @@ architecture elizabethan of audio_complex is
   signal mic_divider_max : unsigned(7 downto 0) := to_unsigned(8,8);
   signal mic_sample_trigger : unsigned(7 downto 0) := to_unsigned(3,8);
 
-  signal leftsid_audio_combined : unsigned(17 downto 0);
-  signal rightsid_audio_combined : unsigned(17 downto 0);
+  signal leftsid_audio_combined : signed(17 downto 0);
+  signal rightsid_audio_combined : signed(17 downto 0);
 
   
   signal mic_do_sample_left : std_logic := '0';
   signal mic_do_sample_right : std_logic := '0';
   signal mic_divider : unsigned(7 downto 0) := "00000000";
-  signal mems_mic0_left : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal mems_mic0_right : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal mems_mic1_left : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal mems_mic1_right : unsigned(15 downto 0) := to_unsigned(0,16);
+  signal mems_mic0_left : signed(15 downto 0) := to_signed(0,16);
+  signal mems_mic0_right : signed(15 downto 0) := to_signed(0,16);
+  signal mems_mic1_left : signed(15 downto 0) := to_signed(0,16);
+  signal mems_mic1_right : signed(15 downto 0) := to_signed(0,16);
   signal micclkinternal : std_logic := '0';
   
-  signal modem1_in : unsigned(15 downto 0) := x"0000";
-  signal modem2_in : unsigned(15 downto 0) := x"0000";
-  signal modem1_out : unsigned(15 downto 0) := x"0000";
-  signal modem2_out : unsigned(15 downto 0) := x"0000";
-  signal headphones_1_in : unsigned(15 downto 0) := x"0000";
-  signal headphones_2_in : unsigned(15 downto 0) := x"0000";
-  signal headphones_left_out : unsigned(15 downto 0) := x"0000";
-  signal headphones_right_out : unsigned(15 downto 0) := x"0000";
-  signal bt_left_in : unsigned(15 downto 0) := x"0000";
-  signal bt_right_in : unsigned(15 downto 0) := x"0000";
-  signal bt_left_out : unsigned(15 downto 0) := x"0000";
-  signal bt_right_out : unsigned(15 downto 0) := x"0000";
-  signal spkr_left : unsigned(15 downto 0) := x"0000";
-  signal spkr_right : unsigned(15 downto 0) := x"0000";
+  signal modem1_in : signed(15 downto 0) := x"0000";
+  signal modem2_in : signed(15 downto 0) := x"0000";
+  signal modem1_out : signed(15 downto 0) := x"0000";
+  signal modem2_out : signed(15 downto 0) := x"0000";
+  signal headphones_1_in : signed(15 downto 0) := x"0000";
+  signal headphones_2_in : signed(15 downto 0) := x"0000";
+  signal headphones_left_out : signed(15 downto 0) := x"0000";
+  signal headphones_right_out : signed(15 downto 0) := x"0000";
+  signal bt_left_in : signed(15 downto 0) := x"0000";
+  signal bt_right_in : signed(15 downto 0) := x"0000";
+  signal bt_left_out : signed(15 downto 0) := x"0000";
+  signal bt_right_out : signed(15 downto 0) := x"0000";
+  signal spkr_left : signed(15 downto 0) := x"0000";
+  signal spkr_right : signed(15 downto 0) := x"0000";
 
-  signal pcspeaker_l_in : unsigned(15 downto 0) := x"0000";
-  signal pcspeaker_r_in : unsigned(15 downto 0) := x"0000";
+  signal pcspeaker_l_in : signed(15 downto 0) := x"0000";
+  signal pcspeaker_r_in : signed(15 downto 0) := x"0000";
   
   -- Dummy signals for soaking up dummy audio mixer outputs
-  signal dummy0 : unsigned(15 downto 0) := x"0000";
-  signal dummy1 : unsigned(15 downto 0) := x"0000";
-  signal dummy2 : unsigned(15 downto 0) := x"0000";
-  signal dummy3 : unsigned(15 downto 0) := x"0000";
-  signal dummy4 : unsigned(15 downto 0) := x"0000";
-  signal dummy5 : unsigned(15 downto 0) := x"0000";
-  signal dummy6 : unsigned(15 downto 0) := x"0000";
-  signal dummy7 : unsigned(15 downto 0) := x"0000";
+  signal dummy0 : signed(15 downto 0) := x"0000";
+  signal dummy1 : signed(15 downto 0) := x"0000";
+  signal dummy2 : signed(15 downto 0) := x"0000";
+  signal dummy3 : signed(15 downto 0) := x"0000";
+  signal dummy4 : signed(15 downto 0) := x"0000";
+  signal dummy5 : signed(15 downto 0) := x"0000";
+  signal dummy6 : signed(15 downto 0) := x"0000";
+  signal dummy7 : signed(15 downto 0) := x"0000";
 
   signal i2s_master_clk_int : std_logic := '0';
   signal i2s_master_sync_int : std_logic := '0';
@@ -188,11 +188,11 @@ architecture elizabethan of audio_complex is
   -- on boards using 1-wire DAC
   signal pwm_mode : std_logic := '1';
 
-  signal pcm_selected_left : unsigned(15 downto 0) := x"0000";
-  signal pcm_selected_right : unsigned(15 downto 0) := x"0000";
+  signal pcm_selected_left : signed(15 downto 0) := x"0000";
+  signal pcm_selected_right : signed(15 downto 0) := x"0000";
   
-  signal ampPWM_l_in : unsigned(15 downto 0);
-  signal ampPWM_r_in : unsigned(15 downto 0);
+  signal ampPWM_l_in : signed(15 downto 0);
+  signal ampPWM_r_in : signed(15 downto 0);
   
 begin
 
@@ -210,7 +210,7 @@ begin
 
   -- PCM interfaces to modems
   pcm0: entity work.pcm_transceiver
-    generic map ( clock_frequency => clock_frequency )
+    generic map ( clock_frequency => clock_frequency)
     port map (
     cpuclock => cpuclock,
     pcm_clk => pcm_modem_clk_int,
@@ -221,7 +221,7 @@ begin
     rx_sample => modem1_in
     );
   pcm1: entity work.pcm_transceiver
-    generic map ( clock_frequency => clock_frequency )
+    generic map ( clock_frequency => clock_frequency)
     port map (
     cpuclock => cpuclock,
     pcm_clk => pcm_modem_clk_int,
@@ -234,7 +234,8 @@ begin
     
   -- I2S slave interface to RN52 Bluetooth
   i2s2: entity work.i2s_transceiver
-    generic map ( clock_frequency => clock_frequency )
+    generic map ( clock_frequency => clock_frequency
+                  )
     port map (
     cpuclock => cpuclock,
     i2s_clk => i2s_slave_clk,
@@ -261,7 +262,7 @@ begin
   
   -- I2S master for stereo speakers
   i2s4: entity work.i2s_transceiver
-    generic map ( clock_frequency => clock_frequency )
+    generic map ( clock_frequency => clock_frequency)
     port map (
     cpuclock => cpuclock,
     i2s_clk => i2s_master_clk_int,
@@ -416,17 +417,9 @@ begin
       audio_right(19 downto 4) <= std_logic_vector(spkr_right);
       audio_right(3 downto 0) <= "0000";
       
-      -- Combine the pairs of SIDs
-      -- Re-enable this when adding 4 sids
-      if sid4_enable='1' then
-        -- When using 4 SIDs, we subtract the signed 0-point from the
-        -- combination, so that the level of each SID remains unchanged
-        leftsid_audio_combined <= leftsid_audio + frontsid_audio - 32768;
-        rightsid_audio_combined <= rightsid_audio + backsid_audio - 32768;
-      else 
-        leftsid_audio_combined <= leftsid_audio;
-        rightsid_audio_combined <= rightsid_audio;
-      end if;
+      -- Combine the pairs of SIDs      
+      leftsid_audio_combined <=  leftsid_audio + frontsid_audio;
+      rightsid_audio_combined <= rightsid_audio + backsid_audio;
 
       if cpu_pcm_bypass='0' then
         ampPWM_l_in <= headphones_left_out;

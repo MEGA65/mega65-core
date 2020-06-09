@@ -44,12 +44,12 @@ entity i2s_transceiver is
     pcm_in : in std_logic;
 
     -- sample to send
-    tx_sample_left : in unsigned(15 downto 0);
-    tx_sample_right : in unsigned(15 downto 0);
+    tx_sample_left : in signed(15 downto 0);
+    tx_sample_right : in signed(15 downto 0);
 
     -- last sample received
-    rx_sample_left : out unsigned(15 downto 0) := (others => '0');
-    rx_sample_right : out unsigned(15 downto 0) := (others => '0')
+    rx_sample_left : out signed(15 downto 0) := (others => '0');
+    rx_sample_right : out signed(15 downto 0) := (others => '0')
 
     );
 

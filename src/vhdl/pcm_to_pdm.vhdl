@@ -29,8 +29,8 @@ entity pcm_to_pdm is
   port (    
     cpuclock : in std_logic;
 
-    pcm_left : in unsigned(15 downto 0) := x"0000";
-    pcm_right : in unsigned(15 downto 0) := x"0000";
+    pcm_left : in signed(15 downto 0) := x"0000";
+    pcm_right : in signed(15 downto 0) := x"0000";
 
     pdm_left : out std_logic := '0';
     pdm_right : out std_logic := '0';
@@ -63,8 +63,9 @@ begin
   begin
     if rising_edge(cpuclock) then
 
-      pcm_value_left <= to_integer(pcm_left);
-      pcm_value_right <= to_integer(pcm_right);
+      -- Convert signed samples to unsigned
+      pcm_value_left <= to_integer(unsigned(pcm_left) + 32768);
+      pcm_value_right <= to_integer(unsigned(pcm_right) + 32768);
       
       -- Update debug indication of what the audio interface is doing
       audio_reflect(0) <= not audio_reflect(0);      

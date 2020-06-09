@@ -722,8 +722,8 @@ architecture Behavioral of machine is
 
   signal viciv_frame_indicate : std_logic;
 
-  signal cpu_pcm_left : unsigned(15 downto 0) := x"FFFF";
-  signal cpu_pcm_right : unsigned(15 downto 0) := x"FFFF";
+  signal cpu_pcm_left : signed(15 downto 0) := x"FFFF";
+  signal cpu_pcm_right : signed(15 downto 0) := x"FFFF";
   signal cpu_pcm_enable : std_logic := '0';
   signal cpu_pcm_bypass : std_logic := '0';
   signal pwm_mode_select : std_logic := '0';

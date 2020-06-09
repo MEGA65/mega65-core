@@ -70,10 +70,10 @@ entity sdcardio is
     audio_mix_write : out std_logic := '0';
     audio_mix_wdata : out unsigned(15 downto 0) := x"FFFF";
     audio_mix_rdata : in unsigned(15 downto 0) := x"FFFF";
-    audio_loopback : in unsigned(15 downto 0) := x"FFFF";
+    audio_loopback : in signed(15 downto 0) := x"FFFF";
     -- PCM digital audio output (to give to the mixer)
-    pcm_left : inout unsigned(15 downto 0) := x"0000";
-    pcm_right : inout unsigned(15 downto 0) := x"0000";
+    pcm_left : inout signed(15 downto 0) := x"0000";
+    pcm_right : inout signed(15 downto 0) := x"0000";
           
     hypervisor_mode : in std_logic;
     hyper_trap_f011_read : out std_logic := '0';
@@ -1215,22 +1215,22 @@ begin  -- behavioural
             fastio_rdata <= unsigned("000"&last_scan_code(12 downto 8));
           when x"F8" =>
             -- @IO:GS $D6F8 - Digital audio, left channel, LSB
-            fastio_rdata <= pcm_left(7 downto 0);
+            fastio_rdata <= unsigned(pcm_left(7 downto 0));
           when x"F9" =>
             -- @IO:GS $D6F9 - Digital audio, left channel, MSB
-            fastio_rdata <= pcm_left(15 downto 8);
+            fastio_rdata <= unsigned(pcm_left(15 downto 8));
           when x"FA" =>
             -- @IO:GS $D6FA - Digital audio, left channel, LSB
-            fastio_rdata <= pcm_right(7 downto 0);
+            fastio_rdata <= unsigned(pcm_right(7 downto 0));
           when x"FB" =>
             -- @IO:GS $D6FB - Digital audio, left channel, MSB
-            fastio_rdata <= pcm_right(15 downto 8);
+            fastio_rdata <= unsigned(pcm_right(15 downto 8));
           when x"FC" =>
             -- @IO:GS $D6FC - audio LSB (source selected by $D6F4)
-            fastio_rdata <= audio_loopback(7 downto 0);
+            fastio_rdata <= unsigned(audio_loopback(7 downto 0));
           when x"FD" =>
             -- @IO:GS $D6FD - audio MSB (source selected by $D6F4)
-            fastio_rdata <= audio_loopback(15 downto 8);
+            fastio_rdata <= unsigned(audio_loopback(15 downto 8));
           when others =>
             fastio_rdata <= (others => '0');
         end case;
@@ -2422,19 +2422,19 @@ begin  -- behavioural
               end if;
               audio_mix_write <= '1';
               
-            -- @IO:GS $D6F8 - 8-bit digital audio out (left)
+            -- @IO:GS $D6F8 - 16-bit digital audio out (left LSB)
             when x"F8" =>
-              -- 8-bit digital audio out
-              pcm_left(7 downto 0) <= fastio_wdata;
+              -- 16-bit digital audio out
+              pcm_left(7 downto 0) <= signed(fastio_wdata);
             when x"F9" =>
-              -- 8-bit digital audio out
-              pcm_left(15 downto 8) <= fastio_wdata;
+              -- 16-bit digital audio out
+              pcm_left(15 downto 8) <= signed(fastio_wdata);
             when x"FA" =>
-              -- 8-bit digital audio out
-              pcm_right(7 downto 0) <= fastio_wdata;
+              -- 16-bit digital audio out
+              pcm_right(7 downto 0) <= signed(fastio_wdata);
             when x"FB" =>
-              -- 8-bit digital audio out
-              pcm_right(15 downto 8) <= fastio_wdata;
+              -- 16-bit digital audio out
+              pcm_right(15 downto 8) <= signed(fastio_wdata);
             when others => null;
 
                            -- ================================================================== END
