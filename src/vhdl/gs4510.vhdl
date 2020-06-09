@@ -3637,11 +3637,11 @@ begin
       -- crossing trick to get the address to the shadowram a cycle early
 
       last_pending_dma_target <= pending_dma_target;
-      last_pending_dma_target2 <= last_pending_dma_target;
+--      last_pending_dma_target2 <= last_pending_dma_target;
       is_pending_dma_access_lower_latched_last <= is_pending_dma_access_lower_latched;
       if is_pending_dma_access_lower_latched_last='1'
         and last_pending_dma_target = pending_dma_target
-        and last_pending_dma_target2 = last_pending_dma_target
+--        and last_pending_dma_target2 = last_pending_dma_target
         and pending_dma_target /= 0 then
         report "BACKGROUNDDMA: Read byte $" & to_hstring(shadow_rdata) & " for target " & integer'image(pending_dma_target)
           & " from address $" & to_hstring(pending_dma_address);
