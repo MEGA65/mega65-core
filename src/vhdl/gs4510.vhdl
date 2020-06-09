@@ -3616,7 +3616,7 @@ begin
 
       -- XXX If CPU is not at 40MHz, then we cannot set pending_dma_address here,
       -- or CPU reads background DMA data in place of instruction arguments
-      if cpuspeed = x"40" then
+      if cpuspeed_internal = x"40" then
         shadow_address <= to_integer(pending_dma_address);
         is_pending_dma_access <= '1';
       else
