@@ -7653,10 +7653,6 @@ begin
 
     if rising_edge(clock) then
 
-      report "is_pending_dma_access_lower ASSERTED";
-      is_pending_dma_access_lower := '1';
-
-      
       report "RISING EDGE CLOCK";
       
       report "fastio_rdata = $" & to_hstring(fastio_rdata);
@@ -8485,6 +8481,7 @@ begin
         else
           -- Keep reading background DMA byte if we are not accessing the
           -- shadow RAM
+          is_pending_dma_access_lower := '1';
           shadow_address_var := to_integer(pending_dma_address);
         end if;
         
