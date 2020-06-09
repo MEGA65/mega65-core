@@ -96,7 +96,28 @@ begin
       );
   
   process (cpuclock) is
-    variable mix_temp : signed(31 downto 0);
+    variable src_temp : unsigned(15 downto 0);
+    variable mix_temp : integer;
+
+    function multiply_by_volume_coefficient( value : signed(15 downto 0);
+                                             volume : unsigned(15 downto 0))
+      return signed is
+      variable value_unsigned : unsigned(15 downto 0);
+      variable result_unsigned : unsigned(31 downto 0);
+      variable result : signed(31 downto 0);
+    begin
+      value_unsigned(14 downto 0) := unsigned(value(14 downto 0));
+      value_unsigned(15) := not value(15);
+
+      result_unsigned := value_unsigned * volume;
+
+      result := signed(result_unsigned);
+      result(31) := not result_unsigned(31);
+
+      return result(31 downto 16);
+      
+    end function;   
+    
   begin
     if rising_edge(cpuclock) then
 
@@ -167,8 +188,8 @@ begin
             & " (= $" & to_hstring(srcs(state - 1)) & ")"
             & " via coefficient $" & to_hstring(ram_rdata(31 downto 16))
             & " to current sum = $" & to_hstring(mixed_value);
-          mix_temp := to_integer(ram_rdata(31 downto 16)) * srcs(state - 1);
-          mixed_value <= mixed_value + mix_temp(31 downto 16);
+--          mix_temp := ram_rdata(31 downto 16) * srcs(state - 1);
+          mixed_value <= mixed_value + multiply_by_volume_coefficient(srcs(state - 1),ram_rdata(31 downto 16));
           -- Request next mix coefficient
           if state /= 15 then
             ram_raddr <= state + output_offset + 1;
@@ -183,8 +204,7 @@ begin
           report "For output "
             & integer'image(output_num)
             & " applying master volume coefficient $" & to_hstring(ram_rdata(31 downto 16));
-          mix_temp := mixed_value * to_integer(ram_rdata(31 downto 16));
-          mixed_value <= mix_temp(31 downto 16);
+          mixed_value <= multiply_by_volume_coefficient(mixed_value,ram_rdata(31 downto 16));
           set_output <= '1';
           output_channel <= output_num;
           
