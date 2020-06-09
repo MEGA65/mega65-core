@@ -612,19 +612,7 @@ reset_machine_state:
 reset_entry:
         sei
 
-	// Test audio dma
-//	lda #$10
-//	sta $d726
-//	lda #$ff
-//	sta $d727
-//	sta $d728
-//	sta $d729
-//	lda #$83
-//	sta $d720
-//	lda #$90
-//	sta $d711
-
-	// Put ZP and stack back where they belong
+ 	// Put ZP and stack back where they belong
 	lda #$bf
 	.byte $5B // tab
 	ldy #$be
@@ -1523,8 +1511,9 @@ resetdisplay:
         sta $d031
 
         lda #$00        // black
-        sta $D020        // border
-        sta $D021        // background
+        sta $D020       // border
+        sta $D021       // background
+	sta $D711 	// Disable DMA audio
 
         // Start in 60Hz mode, since most monitors support it
         // (Also required to make sure matrix mode pixels aren't ragged on first boot).
