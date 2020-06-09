@@ -2074,7 +2074,7 @@ begin
 
             -- @IO:GS $D720.7 DMA:CH0EN Enable Audio DMA channel 0
             -- @IO:GS $D720.6 DMA:CH0LOOP Enable Audio DMA channel 0 looping
-            -- @IO:GS $D720.5 DMA:CH0SIGNED Enable Audio DMA channel 0 looping
+            -- @IO:GS $D720.5 DMA:CH0SIGNED Enable Audio DMA channel 0 signed samples
             -- @IO:GS $D720.3 DMA:CH0STOP Audio DMA channel 0 stop flag
             -- @IO:GS $D720.0-1 DMA:CH0SBITS Audio DMA channel 0 sample bits (11=16, 10=8, 01=upper nybl, 00=lower nybl)
             -- @IO:GS $D721 DMA:CH0BADDR Audio DMA channel 0 base address LSB
@@ -3626,28 +3626,32 @@ begin
           when 1 => -- Audio DMA ch 0, LSB
             audio_dma_current_value(0)(7 downto 0) <= signed(shadow_rdata);
           when 2 => -- Audio DMA ch 0, MSB
-            audio_dma_current_value(0)(15 downto 8) <= signed(shadow_rdata);
+            audio_dma_current_value(0)(14 downto 8) <= signed(shadow_rdata(6 downto 0));
+            audio_dma_current_value(0)(15) <= shadow_rdata(7) xor audio_dma_signed(0);
             audio_dma_sample_valid(0) <= '1';
             audio_dma_pending_msb(0) <= '0';
             audio_dma_pending(0) <= '0';
           when 3 => -- Audio DMA ch 1, LSB
             audio_dma_current_value(1)(7 downto 0) <= signed(shadow_rdata);
           when 4 => -- Audio DMA ch 1, MSB
-            audio_dma_current_value(1)(15 downto 8) <= signed(shadow_rdata);
+            audio_dma_current_value(1)(14 downto 8) <= signed(shadow_rdata(6 downto 0));
+            audio_dma_current_value(1)(15) <= shadow_rdata(7) xor audio_dma_signed(1);
             audio_dma_sample_valid(1) <= '1';
             audio_dma_pending_msb(1) <= '0';
             audio_dma_pending(1) <= '0';
           when 5 => -- Audio DMA ch 2, LSB
             audio_dma_current_value(2)(7 downto 0) <= signed(shadow_rdata);
           when 6 => -- Audio DMA ch 2, MSB
-            audio_dma_current_value(2)(15 downto 8) <= signed(shadow_rdata);
+            audio_dma_current_value(2)(14 downto 8) <= signed(shadow_rdata(6 downto 0));
+            audio_dma_current_value(2)(15) <= shadow_rdata(7) xor audio_dma_signed(2);
             audio_dma_sample_valid(2) <= '1';
             audio_dma_pending_msb(2) <= '0';
             audio_dma_pending(2) <= '0';
           when 7 => -- Audio DMA ch 3, LSB
             audio_dma_current_value(3)(7 downto 0) <= signed(shadow_rdata);
           when 8 => -- Audio DMA ch 3, MSB
-            audio_dma_current_value(3)(15 downto 8) <= signed(shadow_rdata);
+            audio_dma_current_value(3)(14 downto 8) <= signed(shadow_rdata(6 downto 0));
+            audio_dma_current_value(3)(15) <= shadow_rdata(7) xor audio_dma_signed(3);
             audio_dma_sample_valid(3) <= '1';
             audio_dma_pending_msb(3) <= '0';
             audio_dma_pending(3) <= '0';            
