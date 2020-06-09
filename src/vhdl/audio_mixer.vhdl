@@ -96,6 +96,7 @@ begin
       );
   
   process (cpuclock) is
+    variable mix_temp : signed(31 downto 0);
   begin
     if rising_edge(cpuclock) then
 
@@ -166,7 +167,8 @@ begin
             & " (= $" & to_hstring(srcs(state - 1)) & ")"
             & " via coefficient $" & to_hstring(ram_rdata(31 downto 16))
             & " to current sum = $" & to_hstring(mixed_value);
-          mixed_value <= mixed_value + to_integer(ram_rdata(31 downto 16)) * srcs(state - 1);
+          mix_temp := to_integer(ram_rdata(31 downto 16)) * srcs(state - 1);
+          mixed_value <= mixed_value + mix_temp(31 downto 16);
           -- Request next mix coefficient
           if state /= 15 then
             ram_raddr <= state + output_offset + 1;
