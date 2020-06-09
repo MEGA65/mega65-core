@@ -3405,24 +3405,41 @@ begin
       -- We also have four more little multipliers for the audio DMA stuff
       for i in 0 to 3 loop
         if audio_dma_sample_valid(i)='1' then
-          audio_dma_multed(i) <= audio_dma_current_value(i) * to_signed(to_integer(audio_dma_volume(i)),9);
+          audio_dma_multed(i) <= to_signed(audio_dma_current_value(i)) * to_unsigned(to_integer(audio_dma_volume(i)),9);
         end if;
       end loop;
       -- And from those, we compose the combined left and right values, with
       -- saturation detection
-      audio_dma_left_temp := audio_dma_multed(0)(24 downto 9) + audio_dma_multed(1)(24 downto 9);
-      if audio_dma_multed(0)(24) = audio_dma_multed(1)(24) and audio_dma_left_temp(15) /= audio_dma_multed(0)(24) then
-        -- overflow: so saturate instead
-        audio_dma_left <= (others => audio_dma_multed(1)(24));
+      if audio_dma_enables(0 to 1) = "11" then
+        audio_dma_left_temp := audio_dma_multed(0)(24 downto 9) + audio_dma_multed(1)(24 downto 9);
+        if audio_dma_multed(0)(24) = audio_dma_multed(1)(24) and audio_dma_left_temp(15) /= audio_dma_multed(0)(24) then
+          -- overflow: so saturate instead
+          audio_dma_left <= (others => audio_dma_multed(1)(24));
+        else
+          audio_dma_left <= unsigned(audio_dma_left_temp);
+        end if;
+      elsif audio_dma_enables(0 to 1) = "10" then
+        audio_dma_left <= audio_dma_current_value(0);
+      elsif audio_dma_enables(0 to 1) = "01" then
+        audio_dma_left <= audio_dma_current_value(1);
       else
-        audio_dma_left <= unsigned(audio_dma_left_temp);
+        audio_dma_left := (others => '0');
       end if;
-      audio_dma_right_temp := audio_dma_multed(2)(24 downto 9) + audio_dma_multed(3)(24 downto 9);
-      if audio_dma_multed(2)(24) = audio_dma_multed(3)(24) and audio_dma_right_temp(15) /= audio_dma_multed(2)(24) then
-        -- overflow: so saturate instead
-        audio_dma_right <= (others => audio_dma_multed(2)(24));
+
+      if audio_dma_enables(2 to 3) = "11" then
+        audio_dma_right_temp := audio_dma_multed(2)(24 downto 9) + audio_dma_multed(3)(24 downto 9);
+        if audio_dma_multed(2)(24) = audio_dma_multed(3)(24) and audio_dma_left_temp(15) /= audio_dma_multed(2)(24) then
+          -- overflow: so saturate instead
+          audio_dma_right <= (others => audio_dma_multed(3)(24));
+        else
+          audio_dma_right <= unsigned(audio_dma_left_temp);
+        end if;
+      elsif audio_dma_enables(2 to 3) = "10" then
+        audio_dma_right <= audio_dma_current_value(2);
+      elsif audio_dma_enables(2 to 3) = "01" then
+        audio_dma_right <= audio_dma_current_value(3);
       else
-        audio_dma_right <= unsigned(audio_dma_right_temp);
+        audio_dma_right := (others => '0');
       end if;
       
       resolved_vdc_to_viciv_src_address <= resolve_vdc_to_viciv_address(vdc_mem_addr_src);
