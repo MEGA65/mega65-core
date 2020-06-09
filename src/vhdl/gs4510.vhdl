@@ -3614,6 +3614,12 @@ begin
           & " from address $" & to_hstring(pending_dma_address);
         pending_dma_target <= 0 ;
         report "BACKGROUNDDMA: Set target to 0";
+        if pending_dma_target /= 0 then
+          audio_dma_write_counter <= audio_dma_write_counter + 1;
+        end if;
+        
+        audio_dma_tick_counter <= audio_dma_tick_counter + 1;
+          
         case pending_dma_target is
           when 0 => -- no pending job
             null;
@@ -3844,6 +3850,9 @@ begin
         ;
       
       for i in 0 to 3 loop
+        if audio_dma_current_addr(i)(15 downto 0) = audio_dma_top_addr(i) then
+          audio_dma_stop(i) <= '1';
+        end if;
         if audio_dma_stop(i)='1' then
           audio_dma_enables(i) <= '0';
           if audio_dma_enables(i) = '1' then
