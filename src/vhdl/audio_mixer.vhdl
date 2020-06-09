@@ -183,7 +183,8 @@ begin
           report "For output "
             & integer'image(output_num)
             & " applying master volume coefficient $" & to_hstring(ram_rdata(31 downto 16));
-          mixed_value <= mixed_value * to_integer(ram_rdata(31 downto 16));
+          mix_temp := mixed_value * to_integer(ram_rdata(31 downto 16));
+          mixed_value <= mix_temp(31 downto 16);
           set_output <= '1';
           output_channel <= output_num;
           
@@ -215,7 +216,7 @@ begin
       if set_output='1' then
         outputs(output_channel) <= mixed_value;
         report "Outputing channel " & integer'image(output_channel) & " mixed value as $"
-          & to_hstring(mixed_value(31 downto 16));
+          & to_hstring(mixed_value);
       end if;
     end if;
   end process;
