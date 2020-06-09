@@ -384,6 +384,7 @@ architecture Behavioural of gs4510 is
   -- 8 = audio dma channel 3 MSB
   signal pending_dma_target : integer range 0 to 8 := 0;
   signal last_pending_dma_target : integer range 0 to 8 := 0;
+  signal last_pending_dma_target2 : integer range 0 to 8 := 0;
   
   signal cpu_pcm_bypass_int : std_logic := '0';
   signal pwm_mode_select_int : std_logic := '0';
@@ -1726,6 +1727,10 @@ begin
       fastio_write <= '0'; shadow_write <= '0';
 
       long_address := long_address_read;
+
+      -- By default do background DMA. If we have a real
+      -- shadow ram access, this will get overriden
+      shadow_address <= to_integer(pending_dma_address);
       
       report "Reading from long address $" & to_hstring(long_address) severity note;
       mem_reading <= '1';
@@ -3607,7 +3612,7 @@ begin
       -- Only if the shadow RAM bus is idle, do we actually do the request,
       -- however.
       shadow_write <= '0';
---      shadow_address <= to_integer(pending_dma_address);
+      shadow_address <= to_integer(pending_dma_address);
       is_pending_dma_access <= '1';
       report "BACKGROUNDDMA: pending_dma_address=$" & to_hstring(pending_dma_address);     
       
@@ -3622,12 +3627,18 @@ begin
       -- Note: background DMA can ONLY access the shadow RAM, and can happen
       -- while non-shadow RAM accesses are happening, e.g., on the fastio bus.
       -- Thus we have to read shadow_rdata directly.
-      report "BACKGROUNDDMA: Read byte $" & to_hstring(shadow_rdata);
+      report "BACKGROUNDDMA: Read byte $" & to_hstring(shadow_rdata)
+        & ", pending_dma_target = " & integer'image(pending_dma_target)
+        & ", last_pending_dma_target = " & integer'image(last_pending_dma_target);
       -- XXX Add the extra cycle delay because we don't do the clever clock
       -- crossing trick to get the address to the shadowram a cycle early
 
       last_pending_dma_target <= pending_dma_target;
-      if is_pending_dma_access_lower_latched='1' and last_pending_dma_target /= 0 then
+      last_pending_dma_target2 <= last_pending_dma_target;
+      if is_pending_dma_access_lower_latched='1'
+        and last_pending_dma_target = pending_dma_target
+        and last_pending_dma_target2 = last_pending_dma_target
+        and pending_dma_target /= 0 then
         report "BACKGROUNDDMA: Read byte $" & to_hstring(shadow_rdata) & " for target " & integer'image(pending_dma_target)
           & " from address $" & to_hstring(pending_dma_address);
         pending_dma_target <= 0 ;
@@ -7696,6 +7707,7 @@ begin
     if proceed = '0' then
 
       -- Waitstate while waiting for memory to respond
+      is_pending_dma_access_lower := '0';
       
       -- Do nothing while CPU is held
       report "MEMORY Setting memory_access_address to PC ($" & to_hstring(reg_pc) & "). proceed=0";
@@ -7707,6 +7719,7 @@ begin
     elsif phi_pause='1' then
 
       -- Dead cycle
+      is_pending_dma_access_lower := '0';
       
       -- By default read next byte in instruction stream.
       report "MEMORY Setting memory_access_address to PC ($" & to_hstring(reg_pc) & "). proceed=0, phi_pause=1";
@@ -8478,9 +8491,11 @@ begin
           shadow_read_var := '1';
           is_pending_dma_access_lower := '0';
           shadow_address_var := to_integer(long_address(19 downto 0));
+          report "SHADOW: NOT reading from pending_dma_address";
         else
           -- Keep reading background DMA byte if we are not accessing the
           -- shadow RAM
+          report "SHADOW: Reading from $" & to_hstring(pending_dma_address);
           is_pending_dma_access_lower := '1';
           shadow_address_var := to_integer(pending_dma_address);
         end if;
@@ -8492,6 +8507,13 @@ begin
         if long_address(27 downto 20) = x"FF" then
           fastio_addr_var := std_logic_vector(long_address(19 downto 0));
         end if;
+
+      else
+
+        -- Keep reading background DMA byte if we are not accessing the
+        -- shadow RAM
+        is_pending_dma_access_lower := '1';
+        shadow_address_var := to_integer(pending_dma_address);      
         
       end if;
 
