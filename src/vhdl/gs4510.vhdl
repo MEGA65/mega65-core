@@ -3851,9 +3851,10 @@ begin
       
       for i in 0 to 3 loop
         if audio_dma_current_addr(i)(15 downto 0) = audio_dma_top_addr(i) then
-          audio_dma_stop(i) <= '1';
           if audio_dma_repeat(i)='1' then
             audio_dma_current_addr(i) <= audio_dma_base_addr(i);
+          else
+            audio_dma_stop(i) <= '1';            
           end if;
         end if;
         if audio_dma_stop(i)='1' then
