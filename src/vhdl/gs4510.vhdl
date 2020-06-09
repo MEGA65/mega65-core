@@ -3613,8 +3613,15 @@ begin
       -- Only if the shadow RAM bus is idle, do we actually do the request,
       -- however.
       shadow_write <= '0';
-      shadow_address <= to_integer(pending_dma_address);
-      is_pending_dma_access <= '1';
+
+      -- XXX If CPU is not at 40MHz, then we cannot set pending_dma_address here,
+      -- or CPU reads background DMA data in place of instruction arguments
+      if cpuspeed = x"40" then
+        shadow_address <= to_integer(pending_dma_address);
+        is_pending_dma_access <= '1';
+      else
+        shadow_address <= shadow_address_next;
+      end if;
       report "BACKGROUNDDMA: pending_dma_address=$" & to_hstring(pending_dma_address);     
       
       cpu_pcm_left <= audio_dma_left;
@@ -7649,7 +7656,6 @@ begin
     hyppo_address_next <= hyppo_address;
 
     -- By default we read from the pending DMA address.
---    shadow_address_var := shadow_address;
     report "BACKGROUNDDMA: Setting shadow_address_var to $" & to_hstring(pending_dma_address);
     shadow_address_var := to_integer(pending_dma_address);
 
@@ -8376,7 +8382,6 @@ begin
         end if;
       end if;
 
-      --shadow_address_var := memory_access_address(long_address(16 downto 0));
       shadow_wdata_var := memory_access_wdata;
 
       report "MEMORY address prior to resolution is $" & to_hstring(memory_access_address);
