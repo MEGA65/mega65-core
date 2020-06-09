@@ -376,6 +376,7 @@ architecture Behavioural of gs4510 is
   signal pending_dma_address : unsigned(27 downto 0) := to_unsigned(2,28);
   signal is_pending_dma_access : std_logic := '0';
   signal is_pending_dma_access_lower_latched : std_logic := '0';
+  signal is_pending_dma_access_lower_latched_last : std_logic := '0';
   -- 0 = no target set
   -- 1 = audio dma channel 0 LSB
   -- 2 = audio dma channel 0 MSB
@@ -3629,13 +3630,16 @@ begin
       -- Thus we have to read shadow_rdata directly.
       report "BACKGROUNDDMA: Read byte $" & to_hstring(shadow_rdata)
         & ", pending_dma_target = " & integer'image(pending_dma_target)
-        & ", last_pending_dma_target = " & integer'image(last_pending_dma_target);
+        & ", last_pending_dma_target = " & integer'image(last_pending_dma_target)
+        & ", is_pending_dma_access_lower_latched = " & std_logic'image(is_pending_dma_access_lower_latched);
+      
       -- XXX Add the extra cycle delay because we don't do the clever clock
       -- crossing trick to get the address to the shadowram a cycle early
 
       last_pending_dma_target <= pending_dma_target;
       last_pending_dma_target2 <= last_pending_dma_target;
-      if is_pending_dma_access_lower_latched='1'
+      is_pending_dma_access_lower_latched_last <= is_pending_dma_access_lower_latched;
+      if is_pending_dma_access_lower_latched_last='1'
         and last_pending_dma_target = pending_dma_target
         and last_pending_dma_target2 = last_pending_dma_target
         and pending_dma_target /= 0 then
@@ -8378,6 +8382,9 @@ begin
       report "MEMORY address prior to resolution is $" & to_hstring(memory_access_address);
       
       if memory_access_write='1' then
+
+        is_pending_dma_access_lower := '0';
+        
         if memory_access_resolve_address = '1' then
           memory_access_address := resolve_address_to_long(memory_access_address(15 downto 0),true);
           report "MEMORY address post write resolution is $" & to_hstring(memory_access_address);
@@ -8513,6 +8520,7 @@ begin
         -- Keep reading background DMA byte if we are not accessing the
         -- shadow RAM
         is_pending_dma_access_lower := '1';
+        report "SHADOW: Reading from $" & to_hstring(pending_dma_address);
         shadow_address_var := to_integer(pending_dma_address);      
         
       end if;
