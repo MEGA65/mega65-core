@@ -375,6 +375,7 @@ architecture Behavioural of gs4510 is
   signal pending_dma_busy : std_logic := '0';
   signal pending_dma_address : unsigned(27 downto 0) := to_unsigned(2,28);
   signal is_pending_dma_access : std_logic := '0';
+  signal is_pending_dma_access_lower_latched : std_logic := '0';
   -- 0 = no target set
   -- 1 = audio dma channel 0 LSB
   -- 2 = audio dma channel 0 MSB
@@ -2153,7 +2154,7 @@ begin
                           
             -- $D720-$D72F - Audio DMA channel 0                          
             when x"20" => return audio_dma_enables(0) & audio_dma_repeat(0) & audio_dma_signed(0) &
-                            audio_dma_timing_counter(0)(24) & audio_dma_stop(0) & "0" & audio_dma_sample_width(0);
+                            audio_dma_timing_counter(0)(24) & audio_dma_stop(0) & audio_dma_sample_valid(0) & audio_dma_sample_width(0);
             when x"21" => return audio_dma_base_addr(0)(7 downto 0);
             when x"22" => return audio_dma_base_addr(0)(15 downto 8);
             when x"23" => return audio_dma_base_addr(0)(23 downto 16);
@@ -3626,7 +3627,7 @@ begin
       -- crossing trick to get the address to the shadowram a cycle early
 
       last_pending_dma_target <= pending_dma_target;
-      if is_pending_dma_access = '1' and last_pending_dma_target /= 0 then
+      if is_pending_dma_access_lower_latched='1' and last_pending_dma_target /= 0 then
         report "BACKGROUNDDMA: Read byte $" & to_hstring(shadow_rdata) & " for target " & integer'image(pending_dma_target)
           & " from address $" & to_hstring(pending_dma_address);
         pending_dma_target <= 0 ;
@@ -4579,7 +4580,15 @@ begin
         report "CPU state (a) : proceed=" & std_logic'image(proceed) & ", phi_pause=" & std_logic'image(phi_pause);
         if proceed = '0' then
 
-          -- Make bus idle while waiting
+          -- Make bus idle while waiting for wait state to finish
+          memory_access_address := (others => '1');
+          memory_access_read := '0';
+          memory_access_write := '0';
+          memory_access_resolve_address := '0';
+          memory_access_wdata := (others => '1');
+          elsif phi_pause='1' then
+
+          -- Make bus idle while waiting for dead cycle to finish
           memory_access_address := (others => '1');
           memory_access_read := '0';
           memory_access_write := '0';
@@ -6741,6 +6750,8 @@ begin
                                         -- have a lot of the other fancy instructions.  That just leaves
                                         -- us with loads, stores and reaad/modify/write instructions
 
+              report "BACKGROUNDDMA: in MicrocodeInterpret";
+              
                                         -- Go to next instruction by default
               if next_is_axyz32_instruction = '1' and reg_instruction = I_STA then
                 -- 32-bit store begins here, and the other 3 bytes get written
@@ -7275,7 +7286,7 @@ begin
           report "memory_access_read=1, addres=$"&to_hstring(memory_access_address) severity note;
           read_long_address(memory_access_address);
         else
-          report "MEMORY no action (possibly waiting for a wait-state)";                    
+          report "MEMORY no action (possibly waiting for a wait-state)";
         end if;
       end if; -- if not reseting
     end if;                         -- if rising edge of clock
@@ -7315,6 +7326,7 @@ begin
            dat_even,dat_bitplane_addresses,dat_offset_drive,georam_blockmask,vdc_reg_num,vdc_enabled,shadow_address_next,
            read_source,fastio_addr_next
            )
+    variable is_pending_dma_access_lower : std_logic := '1';
     variable memory_access_address : unsigned(27 downto 0) := x"FFFFFFF";
     variable memory_access_read : std_logic := '0';
     variable memory_access_write : std_logic := '0';
@@ -7640,6 +7652,10 @@ begin
     reg_pages_dirty_var(3) := '0';
 
     if rising_edge(clock) then
+
+      report "is_pending_dma_access_lower ASSERTED";
+      is_pending_dma_access_lower := '1';
+
       
       report "RISING EDGE CLOCK";
       
@@ -7681,10 +7697,24 @@ begin
     end if;
       
     report "CPU state (b) : proceed=" & std_logic'image(proceed) & ", phi_pause=" & std_logic'image(phi_pause);
-    if proceed = '0' or phi_pause='1' then
+    if proceed = '0' then
 
+      -- Waitstate while waiting for memory to respond
+      
       -- Do nothing while CPU is held
+      report "MEMORY Setting memory_access_address to PC ($" & to_hstring(reg_pc) & "). proceed=0";
       memory_access_read := '0';
+      memory_access_write := '0';
+      memory_access_address := x"000"&reg_pc;
+      memory_access_resolve_address := '1';
+
+    elsif phi_pause='1' then
+
+      -- Dead cycle
+      
+      -- By default read next byte in instruction stream.
+      report "MEMORY Setting memory_access_address to PC ($" & to_hstring(reg_pc) & "). proceed=0, phi_pause=1";
+      memory_access_read := '1';
       memory_access_write := '0';
       memory_access_address := x"000"&reg_pc;
       memory_access_resolve_address := '1';
@@ -7692,7 +7722,7 @@ begin
     else
       
       -- By default read next byte in instruction stream.
-      report "MEMORY Setting memory_access_address to PC ($" & to_hstring(reg_pc) & ").";
+      report "MEMORY Setting memory_access_address to PC ($" & to_hstring(reg_pc) & ") proceed=1 and phi_pause=0";
       memory_access_read := '1';
       memory_access_write := '0';
       memory_access_address := x"000"&reg_pc;
@@ -7962,7 +7992,7 @@ begin
                 if is_load='1' or is_rmw='1' then
                   -- Wait state while waiting for address to become available
                   memory_access_read := '0';
-                  memory_access_write := '0';
+                  memory_access_write := '0';                  
                 end if;
               when M_immnn => -- Handled in MicrocodeInterpret
               when M_nnnn =>
@@ -8213,6 +8243,8 @@ begin
           end if;              
         when MicrocodeInterpret =>
 
+          report "BACKGROUNDDMA: in MicrocodeInterpret";
+          
           if reg_microcode.mcStoreA='1' then memory_access_wdata := reg_a; end if;
           if reg_microcode.mcStoreX='1' then memory_access_wdata := reg_x; end if;
           if reg_microcode.mcStoreY='1' then memory_access_wdata := reg_y; end if;
@@ -8297,7 +8329,7 @@ begin
       if stack_push='1' then
         memory_access_read := '0';
         memory_access_write := '1';
-          report "MEMORY Setting memory_access_address for stack_push ($"
+        report "MEMORY Setting memory_access_address for stack_push ($"
             & to_hstring(reg_sph&reg_sp) & ").";
         memory_access_address := x"000"&reg_sph&reg_sp;
         memory_access_resolve_address := '1';      
@@ -8448,7 +8480,12 @@ begin
         
         if long_address(27 downto 20)=x"00" and ((not long_address(19)) or chipram_1mb)='1' then
           shadow_read_var := '1';
+          is_pending_dma_access_lower := '0';
           shadow_address_var := to_integer(long_address(19 downto 0));
+        else
+          -- Keep reading background DMA byte if we are not accessing the
+          -- shadow RAM
+          shadow_address_var := to_integer(pending_dma_address);
         end if;
         
         if long_address(19 downto 14)&"00" = x"F8" then
@@ -8475,6 +8512,8 @@ begin
     fastio_addr_next <= fastio_addr_var;
 
     -- Assign outputs to signals that clocked side can see and use...
+    is_pending_dma_access_lower_latched <= is_pending_dma_access_lower;
+
     memory_access_address_next <= memory_access_address;
     memory_access_read_next <= memory_access_read;
     memory_access_write_next <= memory_access_write;
