@@ -3763,29 +3763,6 @@ begin
             pending_dma_address(27 downto 0) <= (others => '0');
             pending_dma_address(23 downto 0) <= audio_dma_current_addr(0);
           end if;
-        elsif audio_dma_pending(1)='1' then
-          if audio_dma_sample_width(1)="11" and audio_dma_pending_msb(1)='1' then
-            -- We still need to read the MSB after
-            audio_dma_sample_valid(1) <= '0';
-            audio_dma_pending_msb(1) <='0';
-            audio_dma_current_addr(1) <= audio_dma_current_addr(1) + 1;
-            report "audio_dma_current_value: scheduling LSB read of $" & to_hstring(audio_dma_current_addr(1));
-            pending_dma_busy <= '1';
-            report "BACKGROUNDDMA: Set target to 3";
-            pending_dma_target <= 3; -- ch1 LSB
-            pending_dma_address(27 downto 0) <= (others => '0');
-            pending_dma_address(23 downto 0) <= audio_dma_current_addr(1);
-          else 
-            audio_dma_sample_valid(1) <= '0';
-            audio_dma_pending(1) <= '0';
-            audio_dma_current_addr(1) <= audio_dma_current_addr(1) + 1;                
-            report "audio_dma_current_value: scheduling MSB read of $" & to_hstring(audio_dma_current_addr(1));
-            pending_dma_busy <= '1';
-            report "BACKGROUNDDMA: Set target to 4";
-            pending_dma_target <= 4; -- ch1 MSB
-            pending_dma_address(27 downto 0) <= (others => '0');
-            pending_dma_address(23 downto 0) <= audio_dma_current_addr(1);
-          end if;
         elsif audio_dma_pending(2)='1' then
           if audio_dma_sample_width(2)="11" and audio_dma_pending_msb(2)='1' then
             -- We still need to read the MSB after
@@ -3831,6 +3808,29 @@ begin
             pending_dma_target <= 8; -- ch3 MSB
             pending_dma_address(27 downto 0) <= (others => '0');
             pending_dma_address(23 downto 0) <= audio_dma_current_addr(3);
+          end if;
+        elsif audio_dma_pending(1)='1' then
+          if audio_dma_sample_width(1)="11" and audio_dma_pending_msb(1)='1' then
+            -- We still need to read the MSB after
+            audio_dma_sample_valid(1) <= '0';
+            audio_dma_pending_msb(1) <='0';
+            audio_dma_current_addr(1) <= audio_dma_current_addr(1) + 1;
+            report "audio_dma_current_value: scheduling LSB read of $" & to_hstring(audio_dma_current_addr(1));
+            pending_dma_busy <= '1';
+            report "BACKGROUNDDMA: Set target to 3";
+            pending_dma_target <= 3; -- ch1 LSB
+            pending_dma_address(27 downto 0) <= (others => '0');
+            pending_dma_address(23 downto 0) <= audio_dma_current_addr(1);
+          else 
+            audio_dma_sample_valid(1) <= '0';
+            audio_dma_pending(1) <= '0';
+            audio_dma_current_addr(1) <= audio_dma_current_addr(1) + 1;                
+            report "audio_dma_current_value: scheduling MSB read of $" & to_hstring(audio_dma_current_addr(1));
+            pending_dma_busy <= '1';
+            report "BACKGROUNDDMA: Set target to 4";
+            pending_dma_target <= 4; -- ch1 MSB
+            pending_dma_address(27 downto 0) <= (others => '0');
+            pending_dma_address(23 downto 0) <= audio_dma_current_addr(1);
           end if;
         end if;
       end if;
