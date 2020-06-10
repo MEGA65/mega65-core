@@ -373,8 +373,9 @@ architecture Behavioural of gs4510 is
   signal audio_dma_multed : s23_0to3 := (others => to_signed(0,24));
   signal audio_dma_wait_state : std_logic := '1';
   signal audio_dma_left_saturated : std_logic := '0';
-  signal audio_dma_right_saturated : std_logic := '0';
+  signal audio_dma_right_saturated : std_logic := '0';  
   signal audio_dma_saturation_enable : std_logic := '1';
+  signal audio_dma_swap : std_logic := '0';
 
   signal pending_dma_busy : std_logic := '0';
   signal pending_dma_address : unsigned(27 downto 0) := to_unsigned(2,28);
@@ -2071,7 +2072,7 @@ begin
                           
             -- XXX DEBUG registers for audio DMA
             when x"12" => return audio_dma_left_saturated & audio_dma_right_saturated &
-                            "00000" & audio_dma_saturation_enable;
+                            "0000" & audio_dma_swap & audio_dma_saturation_enable;
             when x"14" => return unsigned(audio_dma_left(7 downto 0));
             when x"15" => return unsigned(audio_dma_left(15 downto 8));              
             when x"16" => return unsigned(audio_dma_right(7 downto 0));
@@ -2872,6 +2873,7 @@ begin
         cpu_pcm_bypass_int <= value(4);
         pwm_mode_select_int <= value(3);
       elsif (long_address = x"FFD3712") or (long_address = x"FFD1712") then
+        audio_dma_swap <= value(1);
         audio_dma_saturation_enable <= value(0);
       elsif (long_address(27 downto 4) = x"FFD372") or (long_address(27 downto 4) = x"FFD172")
         or (long_address(27 downto 4) = x"FFD373") or (long_address(27 downto 4) = x"FFD173")
@@ -3657,9 +3659,14 @@ begin
         shadow_address <= shadow_address_next;
       end if;
       report "BACKGROUNDDMA: pending_dma_address=$" & to_hstring(pending_dma_address);     
-      
-      cpu_pcm_left <= audio_dma_left;
-      cpu_pcm_right <= audio_dma_right;
+
+      if audio_dma_swap='0' then
+        cpu_pcm_left <= audio_dma_left;
+        cpu_pcm_right <= audio_dma_right;
+      else
+        cpu_pcm_left <= audio_dma_right;
+        cpu_pcm_right <= audio_dma_left;
+      end if;
       cpu_pcm_enable <= audio_dma_enable;
 
       report "CPU PCM: $" & to_hstring(audio_dma_left) & " + $" & to_hstring(audio_dma_right)
