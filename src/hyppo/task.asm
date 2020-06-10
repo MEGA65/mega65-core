@@ -185,12 +185,12 @@ restore_press_trap:
         lda #$01
         trb $D030
 	// and DMA audio
-	ldx #$00
-	stx $d711
+	lda #$00
+	sta $d711
 
         // Freeze to slot 0
-//        tax    <- uses $00 in X from above
-	tay
+	tax //   <- uses $00 in A from above
+	tay //   <- uses $00 in A from above
         jsr freeze_to_slot
 
         // Load freeze program
