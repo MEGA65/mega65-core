@@ -216,6 +216,21 @@ set files [list \
  "[file normalize "$origin_dir/src/verilog/monitor_ctrl.v"]"\
  "[file normalize "$origin_dir/src/verilog/monitor_bus.v"]"\
  "[file normalize "$origin_dir/src/verilog/asym_ram_sdp.v"]"\
+ "[file normalize "$origin_dir/src/verilog/calc_phase_inc.v"]"\
+ "[file normalize "$origin_dir/src/verilog/calc_rhythm_phase.v"]"\
+ "[file normalize "$origin_dir/src/verilog/edge_detector.v"]"\
+ "[file normalize "$origin_dir/src/verilog/env_rate_counter.v"]"\
+ "[file normalize "$origin_dir/src/verilog/envelope_generator.v"]"\
+ "[file normalize "$origin_dir/src/verilog/ksl_add_rom.v"]"\
+ "[file normalize "$origin_dir/src/verilog/operator.v"]"\
+ "[file normalize "$origin_dir/src/verilog/opl2.v"]"\
+ "[file normalize "$origin_dir/src/verilog/opl3_exp_lut.v"]"\
+ "[file normalize "$origin_dir/src/verilog/opl3_log_sine_lut.v"]"\
+ "[file normalize "$origin_dir/src/verilog/phase_generator.v"]"\
+ "[file normalize "$origin_dir/src/verilog/syn_fifo.v"]"\
+ "[file normalize "$origin_dir/src/verilog/tremolo.v"]"\
+ "[file normalize "$origin_dir/src/verilog/vibrato.v"]"
+
 ]
 set imported_files [add_files -fileset sources_1 $files]
 
@@ -677,6 +692,62 @@ set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "Verilog" -objects $file_obj
 
 set file "verilog/asym_ram_sdp.v"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "Verilog" -objects $file_obj
+
+set file "verilog/calc_phase_inc.v"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "Verilog" -objects $file_obj
+
+set file "verilog/calc_rhythm_phase.v"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "Verilog" -objects $file_obj
+
+set file "verilog/edge_detector.v"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "Verilog" -objects $file_obj
+
+set file "verilog/env_rate_counter.v"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "Verilog" -objects $file_obj
+
+set file "verilog/envelope_generator.v"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "Verilog" -objects $file_obj
+
+set file "verilog/ksl_add_rom.v"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "Verilog" -objects $file_obj
+
+set file "verilog/operator.v"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "Verilog" -objects $file_obj
+
+set file "verilog/opl2.v"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "Verilog" -objects $file_obj
+
+set file "verilog/opl3_exp_lut.v"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "Verilog" -objects $file_obj
+
+set file "verilog/opl3_log_sine_lut.v"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "Verilog" -objects $file_obj
+
+set file "verilog/phase_generator.v"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "Verilog" -objects $file_obj
+
+set file "verilog/syn_fifo.v"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "Verilog" -objects $file_obj
+
+set file "verilog/tremolo.v"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "Verilog" -objects $file_obj
+
+set file "verilog/vibrato.v"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "Verilog" -objects $file_obj
 
