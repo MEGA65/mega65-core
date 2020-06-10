@@ -341,6 +341,7 @@ architecture Behavioural of gs4510 is
 
   type u24_0to3 is array (0 to 3) of unsigned(24 downto 0);
   type s24_0to3 is array (0 to 3) of signed(24 downto 0);
+  type s23_0to3 is array (0 to 3) of signed(23 downto 0);
   type u23_0to3 is array (0 to 3) of unsigned(23 downto 0);
   type u15_0to3 is array (0 to 3) of unsigned(15 downto 0);
   type s15_0to3 is array (0 to 3) of signed(15 downto 0);
@@ -369,7 +370,7 @@ architecture Behavioural of gs4510 is
 
   signal audio_dma_sample_valid : std_logic_vector(0 to 3) := (others => '0');
   signal audio_dma_current_value : s15_0to3 := (others => to_signed(0,16));
-  signal audio_dma_multed : s24_0to3 := (others => to_signed(0,25));
+  signal audio_dma_multed : s23_0to3 := (others => to_signed(0,24));
   signal audio_dma_wait_state : std_logic := '1';
 
   signal pending_dma_busy : std_logic := '0';
@@ -2063,7 +2064,7 @@ begin
             -- @IO:GS $D711.4 - DMA:AUDNOMIX Audio DMA bypasses audio mixer
             -- @IO:GS $D711.3 - AUDIO:PWMPDM PWM/PDM audio encoding select
             -- @IO:GS $D711.0-2 - DMA:AUDBLOCKTO Audio DMA block timeout (read only) DEBUG
-            when x"11" => return audio_dma_enable & "0" & audio_dma_disable_writes & cpu_pcm_bypass_int & pwm_mode_select_int & "000";
+            when x"11" => return audio_dma_enable & pending_dma_busy & audio_dma_disable_writes & cpu_pcm_bypass_int & pwm_mode_select_int & "000";
                           
             -- XXX DEBUG registers for audio DMA
             when x"14" => return unsigned(audio_dma_left(7 downto 0));
@@ -2875,19 +2876,21 @@ begin
                        audio_dma_signed(to_integer(long_address(7 downto 4)-2)) <= value(5);
                        audio_dma_stop(to_integer(long_address(7 downto 4)-2)) <= value(3);
                        audio_dma_sample_width(to_integer(long_address(7 downto 4)-2)) <= value(1 downto 0);
-                       report "Setting Audio DMA channel 0 flags to $" & to_hstring(value);
+                       report "Setting Audio DMA channel "
+                         & integer'image(to_integer(long_address(7 downto 4)-2)) &
+                         " flags to $" & to_hstring(value);
           when x"1" => audio_dma_base_addr(to_integer(long_address(7 downto 4)-2))(7 downto 0)   <= value;
           when x"2" => audio_dma_base_addr(to_integer(long_address(7 downto 4)-2))(15 downto 8)  <= value;
           when x"3" => audio_dma_base_addr(to_integer(long_address(7 downto 4)-2))(23 downto 16) <= value;
           when x"4" => audio_dma_time_base(to_integer(long_address(7 downto 4)-2))(7 downto 0) <= value;
           when x"5" => audio_dma_time_base(to_integer(long_address(7 downto 4)-2))(15 downto 8) <= value;
           when x"6" => audio_dma_time_base(to_integer(long_address(7 downto 4)-2))(23 downto 16) <= value;
-                       report "Audio DMA channel " & integer'image(to_integer(long_address(7 downto 4)-2))
-                         & " setting <time_base to $" & to_hstring(value);                       
+                       report "Setting Audio DMA channel " & integer'image(to_integer(long_address(7 downto 4)-2))
+                         & " <time_base to $" & to_hstring(value);                       
           when x"7" => audio_dma_top_addr(to_integer(long_address(7 downto 4)-2))(7 downto 0)    <= value;
           when x"8" => audio_dma_top_addr(to_integer(long_address(7 downto 4)-2))(15 downto 8)   <= value;
-                       report "Audio DMA channel " & integer'image(to_integer(long_address(7 downto 4)-2))
-                         & " setting <top_addr to $" & to_hstring(value);
+                       report "Setting Audio DMA channel " & integer'image(to_integer(long_address(7 downto 4)-2))
+                         & " <top_addr to $" & to_hstring(value);
           when x"9" => audio_dma_volume(to_integer(long_address(7 downto 4)-2))      <= value;
           when x"a" => audio_dma_current_addr_set(to_integer(long_address(7 downto 4)-2))(7 downto 0)   <= value;
           when x"b" => audio_dma_current_addr_set(to_integer(long_address(7 downto 4)-2))(15 downto 8)  <= value;
@@ -3318,6 +3321,28 @@ begin
                                         --  & " = " & to_hstring(std_logic_vector(tmp(7 downto 0))) severity note;
       return tmp(11 downto 0);
     end function alu_op_sub;
+
+    function multiply_by_volume_coefficient( value : signed(15 downto 0);
+                                             volume : unsigned(7 downto 0))
+      return signed is
+      variable value_unsigned : unsigned(23 downto 0);
+      variable result_unsigned : unsigned(31 downto 0);
+      variable result : signed(31 downto 0);
+    begin
+
+      value_unsigned(14 downto 0) := unsigned(value(14 downto 0));
+      value_unsigned(23 downto 15) := (others => value(15));
+
+      result_unsigned := value_unsigned * volume;
+        
+      result := signed(result_unsigned);
+        
+      report "VOLMULT: $" & to_hstring(value) & " x $" & to_hstring(volume) & " = $ " & to_hstring(result);
+      
+      return result(23 downto 0);
+      
+    end function;   
+
     
     variable virtual_reg_p : std_logic_vector(7 downto 0);
     variable temp_pc : unsigned(15 downto 0);
@@ -3412,41 +3437,28 @@ begin
       -- We also have four more little multipliers for the audio DMA stuff
       for i in 0 to 3 loop
         if audio_dma_sample_valid(i)='1' then
-          audio_dma_multed(i) <= to_signed(to_integer(audio_dma_volume(i)) * to_integer(audio_dma_current_value(i)),25);
+          audio_dma_multed(i) <= multiply_by_volume_coefficient(audio_dma_current_value(i), audio_dma_volume(i));
+        end if;
+        if audio_dma_enables(i)='0' then
+          audio_dma_multed(i) <= (others => '0');
         end if;
       end loop;
       -- And from those, we compose the combined left and right values, with
       -- saturation detection
-      if audio_dma_enables(0 to 1) = "11" then
-        audio_dma_left_temp := audio_dma_multed(0)(24 downto 9) + audio_dma_multed(1)(24 downto 9);
-        if audio_dma_multed(0)(24) = audio_dma_multed(1)(24) and audio_dma_left_temp(15) /= audio_dma_multed(0)(24) then
-          -- overflow: so saturate instead
-          audio_dma_left <= (others => audio_dma_multed(1)(24));
-        else
-          audio_dma_left <= audio_dma_left_temp;
-        end if;
-      elsif audio_dma_enables(0 to 1) = "10" then
-        audio_dma_left <= audio_dma_current_value(0);
-      elsif audio_dma_enables(0 to 1) = "01" then
-        audio_dma_left <= audio_dma_current_value(1);
+      audio_dma_left_temp := audio_dma_multed(0)(23 downto 8) + audio_dma_multed(1)(23 downto 8);
+      if audio_dma_multed(0)(23) = audio_dma_multed(1)(23) and audio_dma_left_temp(15) /= audio_dma_multed(0)(23) then
+        -- overflow: so saturate instead
+        audio_dma_left <= (others => audio_dma_multed(1)(23));
       else
-        audio_dma_left <= (others => '0');
+        audio_dma_left <= audio_dma_left_temp;
       end if;
 
-      if audio_dma_enables(2 to 3) = "11" then
-        audio_dma_right_temp := audio_dma_multed(2)(24 downto 9) + audio_dma_multed(3)(24 downto 9);
-        if audio_dma_multed(2)(24) = audio_dma_multed(3)(24) and audio_dma_right_temp(15) /= audio_dma_multed(2)(24) then
-          -- overflow: so saturate instead
-          audio_dma_right <= (others => audio_dma_multed(3)(24));
-        else
-          audio_dma_right <= audio_dma_right_temp;
-        end if;
-      elsif audio_dma_enables(2 to 3) = "10" then
-        audio_dma_right <= audio_dma_current_value(2);
-      elsif audio_dma_enables(2 to 3) = "01" then
-        audio_dma_right <= audio_dma_current_value(3);
+      audio_dma_right_temp := audio_dma_multed(2)(23 downto 8) + audio_dma_multed(3)(23 downto 8);
+      if audio_dma_multed(2)(23) = audio_dma_multed(3)(23) and audio_dma_right_temp(15) /= audio_dma_multed(2)(23) then
+        -- overflow: so saturate instead
+        audio_dma_right <= (others => audio_dma_multed(3)(23));
       else
-        audio_dma_right <= (others => '0');
+        audio_dma_right <= audio_dma_right_temp;
       end if;
       
       resolved_vdc_to_viciv_src_address <= resolve_vdc_to_viciv_address(vdc_mem_addr_src);
@@ -3628,7 +3640,7 @@ begin
       cpu_pcm_right <= audio_dma_right;
       cpu_pcm_enable <= audio_dma_enable;
 
-      report "CPU PCM: $" & to_hstring(audio_dma_left) & " + $" & to_hstring(audio_dma_left)
+      report "CPU PCM: $" & to_hstring(audio_dma_left) & " + $" & to_hstring(audio_dma_right)
         & ", sample valids=" & to_string(audio_dma_sample_valid);
 
       -- Process result of background DMA
@@ -3811,12 +3823,12 @@ begin
               ;
             report "Audio DMA channel " & integer'image(i)
               & ", timing_counter bits = "
-              & std_logic'image(std_logic(audio_dma_timing_counter(0)(24)))
-              & std_logic'image(std_logic(audio_dma_timing_counter(0)(23)))
-              & std_logic'image(std_logic(audio_dma_timing_counter(0)(22)))
-              & std_logic'image(std_logic(audio_dma_timing_counter(0)(21)))
-              & std_logic'image(std_logic(audio_dma_timing_counter(0)(20)))
-              & std_logic'image(std_logic(audio_dma_timing_counter(0)(19)))
+              & std_logic'image(std_logic(audio_dma_timing_counter(i)(24)))
+              & std_logic'image(std_logic(audio_dma_timing_counter(i)(23)))
+              & std_logic'image(std_logic(audio_dma_timing_counter(i)(22)))
+              & std_logic'image(std_logic(audio_dma_timing_counter(i)(21)))
+              & std_logic'image(std_logic(audio_dma_timing_counter(i)(20)))
+              & std_logic'image(std_logic(audio_dma_timing_counter(i)(19)))
               ;
           end if;
         else
@@ -3837,25 +3849,25 @@ begin
               ;
             report "Audio DMA channel " & integer'image(i)
               & ", timing_counter bits = "
-              & std_logic'image(std_logic(audio_dma_timing_counter(0)(24)))
-              & std_logic'image(std_logic(audio_dma_timing_counter(0)(23)))
-              & std_logic'image(std_logic(audio_dma_timing_counter(0)(22)))
-              & std_logic'image(std_logic(audio_dma_timing_counter(0)(21)))
-              & std_logic'image(std_logic(audio_dma_timing_counter(0)(20)))
-              & std_logic'image(std_logic(audio_dma_timing_counter(0)(19)))
+              & std_logic'image(std_logic(audio_dma_timing_counter(i)(24)))
+              & std_logic'image(std_logic(audio_dma_timing_counter(i)(23)))
+              & std_logic'image(std_logic(audio_dma_timing_counter(i)(22)))
+              & std_logic'image(std_logic(audio_dma_timing_counter(i)(21)))
+              & std_logic'image(std_logic(audio_dma_timing_counter(i)(20)))
+              & std_logic'image(std_logic(audio_dma_timing_counter(i)(19)))
               ;
           end if;
           
           report "UPDATE timing_counter = " & integer'image(to_integer(audio_dma_timing_counter(i)(23 downto 0)))
             & ", time_base = " & integer'image(to_integer(audio_dma_time_base(i)));
           audio_dma_timing_counter(i) <= to_unsigned(to_integer(audio_dma_timing_counter(i)(23 downto 0)) + to_integer(audio_dma_time_base(i)),25);
-          if audio_dma_timing_counter(0)(24) = '1' then
+          if audio_dma_timing_counter(i)(24) = '1' then
             report "Audio DMA channel " & integer'image(i) & " marking next sample due.";            
             audio_dma_pending(i) <= '1';
             if audio_dma_sample_width(i) = "11" then
               audio_dma_pending_msb(i) <= '1';
             end if;
-            audio_dma_timing_counter(0)(24) <= '0';
+            audio_dma_timing_counter(i)(24) <= '0';
           else
             report "Audio DMA channel " & integer'image(i) & " next sample not yet due.";
           end if;
@@ -3885,15 +3897,17 @@ begin
       
       report "tick";
 
-      report "Audio DMA channel " & integer'image(0) & ": "
-        & "base=$" & to_hstring(audio_dma_base_addr(0))
-        & ", top_addr=$" & to_hstring(audio_dma_top_addr(0))
-        & ", timebase=$" & to_hstring(audio_dma_time_base(0))
-        & ", current_addr=$" & to_hstring(audio_dma_current_addr(0))
-        & ", timing_counter=$" & to_hstring(audio_dma_timing_counter(0))
-        ;
-      
+      report "BACKGROUNDDMA: Audio enables = " & to_string(audio_dma_enables);
       for i in 0 to 3 loop
+        report "Audio DMA channel " & integer'image(i) & ": "
+          & "base=$" & to_hstring(audio_dma_base_addr(i))
+          & ", top_addr=$" & to_hstring(audio_dma_top_addr(i))
+          & ", timebase=$" & to_hstring(audio_dma_time_base(i))
+          & ", current_addr=$" & to_hstring(audio_dma_current_addr(i))
+          & ", timing_counter=$" & to_hstring(audio_dma_timing_counter(i))
+          & ", dma_pending=" & std_logic'image(audio_dma_pending(i))
+          ;
+      
         if audio_dma_current_addr(i)(15 downto 0) = audio_dma_top_addr(i) then
           if audio_dma_repeat(i)='1' then
             audio_dma_current_addr(i) <= audio_dma_base_addr(i);
