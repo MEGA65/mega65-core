@@ -372,6 +372,9 @@ architecture Behavioural of gs4510 is
   signal audio_dma_current_value : s15_0to3 := (others => to_signed(0,16));
   signal audio_dma_multed : s23_0to3 := (others => to_signed(0,24));
   signal audio_dma_wait_state : std_logic := '1';
+  signal audio_dma_left_saturated : std_logic := '0';
+  signal audio_dma_right_saturated : std_logic := '0';
+  signal audio_dma_saturation_enable : std_logic := '1';
 
   signal pending_dma_busy : std_logic := '0';
   signal pending_dma_address : unsigned(27 downto 0) := to_unsigned(2,28);
@@ -2067,6 +2070,8 @@ begin
             when x"11" => return audio_dma_enable & pending_dma_busy & audio_dma_disable_writes & cpu_pcm_bypass_int & pwm_mode_select_int & "000";
                           
             -- XXX DEBUG registers for audio DMA
+            when x"12" => return audio_dma_left_saturated & audio_dma_right_saturated &
+                            "00000" & audio_dma_saturation_enable;
             when x"14" => return unsigned(audio_dma_left(7 downto 0));
             when x"15" => return unsigned(audio_dma_left(15 downto 8));              
             when x"16" => return unsigned(audio_dma_right(7 downto 0));
@@ -2866,6 +2871,8 @@ begin
         audio_dma_disable_writes <= value(5);
         cpu_pcm_bypass_int <= value(4);
         pwm_mode_select_int <= value(3);
+      elsif (long_address = x"FFD3712") or (long_address = x"FFD1712") then
+        audio_dma_saturation_enable <= value(0);
       elsif (long_address(27 downto 4) = x"FFD372") or (long_address(27 downto 4) = x"FFD172")
         or (long_address(27 downto 4) = x"FFD373") or (long_address(27 downto 4) = x"FFD173")
         or (long_address(27 downto 4) = x"FFD374") or (long_address(27 downto 4) = x"FFD174")
@@ -3451,17 +3458,29 @@ begin
       audio_dma_left_temp := audio_dma_multed(0)(23 downto 8) + audio_dma_multed(1)(23 downto 8);
       if audio_dma_multed(0)(23) = audio_dma_multed(1)(23) and audio_dma_left_temp(15) /= audio_dma_multed(0)(23) then
         -- overflow: so saturate instead
-        audio_dma_left <= (others => audio_dma_multed(1)(23));
+        if audio_dma_saturation_enable='1' then
+          audio_dma_left <= (others => audio_dma_multed(1)(23));
+        else
+          audio_dma_left <= audio_dma_left_temp;
+        end if;
+        audio_dma_left_saturated <= '1';
       else
         audio_dma_left <= audio_dma_left_temp;
+        audio_dma_left_saturated <= '0';
       end if;
 
       audio_dma_right_temp := audio_dma_multed(2)(23 downto 8) + audio_dma_multed(3)(23 downto 8);
       if audio_dma_multed(2)(23) = audio_dma_multed(3)(23) and audio_dma_right_temp(15) /= audio_dma_multed(2)(23) then
         -- overflow: so saturate instead
-        audio_dma_right <= (others => audio_dma_multed(3)(23));
+        if audio_dma_saturation_enable='1' then
+          audio_dma_right <= (others => audio_dma_multed(3)(23));
+        else
+          audio_dma_right <= audio_dma_right_temp;
+        end if;
+        audio_dma_right_saturated <= '1';
       else
         audio_dma_right <= audio_dma_right_temp;
+        audio_dma_right_saturated <= '0';
       end if;
       
       resolved_vdc_to_viciv_src_address <= resolve_vdc_to_viciv_address(vdc_mem_addr_src);
