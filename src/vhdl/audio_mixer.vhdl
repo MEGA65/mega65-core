@@ -106,13 +106,20 @@ begin
       variable result_unsigned : unsigned(31 downto 0);
       variable result : signed(31 downto 0);
     begin
-      value_unsigned(14 downto 0) := unsigned(value(14 downto 0));
-      value_unsigned(15) := not value(15);
+      if (value(15)='0') then
+        value_unsigned(14 downto 0) := unsigned(value(14 downto 0));
+      else
+        value_unsigned(14 downto 0) := (not unsigned(value(14 downto 0)) + 1);
+      end if;
+      value_unsigned(15) := '0';
 
       result_unsigned := value_unsigned * volume;
 
+      if value(15)='1' then
+        result_unsigned := (not result_unsigned) + 1;
+      end if;
+
       result := signed(result_unsigned);
-      result(31) := not result_unsigned(31);
 
       return result(31 downto 16);
       
