@@ -2161,7 +2161,7 @@ begin
                           
             -- $D720-$D72F - Audio DMA channel 0                          
             when x"20" => return audio_dma_enables(0) & audio_dma_repeat(0) & audio_dma_signed(0) &
-                            audio_dma_timing_counter(0)(24) & audio_dma_stop(0) & audio_dma_sample_valid(0) & audio_dma_sample_width(0);
+                            audio_dma_pending(0) & audio_dma_stop(0) & audio_dma_sample_valid(0) & audio_dma_sample_width(0);
             when x"21" => return audio_dma_base_addr(0)(7 downto 0);
             when x"22" => return audio_dma_base_addr(0)(15 downto 8);
             when x"23" => return audio_dma_base_addr(0)(23 downto 16);
@@ -2178,7 +2178,8 @@ begin
             when x"2e" => return audio_dma_timing_counter(0)(15 downto 8);
             when x"2f" => return audio_dma_timing_counter(0)(23 downto 16);
             -- $D730-$D73F - Audio DMA channel 1
-            when x"30" => return audio_dma_enables(1) & audio_dma_repeat(1) & audio_dma_signed(1) & "000" & audio_dma_sample_width(1);
+            when x"30" => return audio_dma_enables(1) & audio_dma_repeat(1) & audio_dma_signed(1) &
+                            audio_dma_pending(1) & audio_dma_stop(1) & audio_dma_sample_valid(1) & audio_dma_sample_width(1);
             when x"31" => return audio_dma_base_addr(1)(7 downto 0);
             when x"32" => return audio_dma_base_addr(1)(15 downto 8);
             when x"33" => return audio_dma_base_addr(1)(23 downto 16);
@@ -2195,7 +2196,8 @@ begin
             when x"3e" => return audio_dma_timing_counter(1)(15 downto 8);
             when x"3f" => return audio_dma_timing_counter(1)(23 downto 16);
                                         -- $D740-$D74F - Audio DMA channel 2
-            when x"40" => return audio_dma_enables(2) & audio_dma_repeat(2) & audio_dma_signed(2) & "000" & audio_dma_sample_width(2);
+            when x"40" => return audio_dma_enables(2) & audio_dma_repeat(2) & audio_dma_signed(2) &
+                            audio_dma_pending(2) & audio_dma_stop(2) & audio_dma_sample_valid(2) & audio_dma_sample_width(2);
             when x"41" => return audio_dma_base_addr(2)(7 downto 0);
             when x"42" => return audio_dma_base_addr(2)(15 downto 8);
             when x"43" => return audio_dma_base_addr(2)(23 downto 16);
@@ -2211,8 +2213,9 @@ begin
             when x"4d" => return audio_dma_timing_counter(2)(7 downto 0);
             when x"4e" => return audio_dma_timing_counter(2)(15 downto 8);
             when x"4f" => return audio_dma_timing_counter(2)(23 downto 16);
-                                        -- $D750-$D75F - Audio DMA channel 3
-            when x"50" => return audio_dma_enables(3) & audio_dma_repeat(3) & audio_dma_signed(3) & "000" & audio_dma_sample_width(3);
+            -- $D750-$D75F - Audio DMA channel 3
+            when x"50" => return audio_dma_enables(3) & audio_dma_repeat(3) & audio_dma_signed(3) &
+                            audio_dma_pending(3) & audio_dma_stop(3) & audio_dma_sample_valid(3) & audio_dma_sample_width(3);
             when x"51" => return audio_dma_base_addr(3)(7 downto 0);
             when x"52" => return audio_dma_base_addr(3)(15 downto 8);
             when x"53" => return audio_dma_base_addr(3)(23 downto 16);
