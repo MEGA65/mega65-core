@@ -68,6 +68,8 @@ architecture elizabethan of audio_mixer is
   signal ram_rdata : unsigned(31 downto 0) := to_unsigned(0,32);
   signal ram_we : std_logic := '0';
 
+  signal source14_volume : unsigned(15 downto 0) := to_unsigned(0,16);
+  
   signal set_output : std_logic := '0';
   signal output_channel : integer range 0 to 15 := 0;
   
@@ -178,7 +180,10 @@ begin
           -- Latch input samples
           srcs <= sources;
           -- Reset output value
-          mixed_value <= to_signed(0,16);
+          -- XXX A bit of a hack to allow 16 inputs: Inputs #14 and #15 have
+          -- the same volume level, taken from source 14
+          -- (This is used for the OPL2 FM synthesiser)
+          mixed_value <= multiply_by_volume_coefficient(sources(15),source14_volume);
           report "Zeroing mixed_value";
           -- Request second mix coefficient (first was already scheduled last cycle)
           -- (this is to handle the wait state on read).
@@ -196,6 +201,8 @@ begin
             & " via coefficient $" & to_hstring(ram_rdata(31 downto 16))
             & " to current sum = $" & to_hstring(mixed_value);
 --          mix_temp := ram_rdata(31 downto 16) * srcs(state - 1);
+          if state = 15 then
+            source14_volume <= ram_rdata(31 downto 16);
           mixed_value <= mixed_value + multiply_by_volume_coefficient(srcs(state - 1),ram_rdata(31 downto 16));
           -- Request next mix coefficient
           if state /= 15 then

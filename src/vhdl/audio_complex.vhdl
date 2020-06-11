@@ -50,6 +50,10 @@ entity audio_complex is
     volume_knob3_target : in unsigned(3 downto 0) := "1111";
     
     -- The various audio busses and interfaces:
+
+    -- OPL2/3 FM audio
+    fm_left : in signed(15 downto 0);
+    fm_right : in signed(15 downto 0);
     
     -- Audio in from digital SIDs
     leftsid_audio : in signed(17 downto 0);
@@ -374,8 +378,9 @@ begin
     sources(11) => mems_mic0_right,
     sources(12) => mems_mic1_left,
     sources(13) => mems_mic1_right,
-    sources(14) => x"0000", -- spare input
-    sources(15) => x"0000", -- #15 can't be used, as shadowed by master volume.
+    sources(14) => fm_left, -- spare input
+    sources(15) => fm_right, -- #15 can't be used, as shadowed by master volume
+                             -- (gain is controlled by source 14)
 
     -- Audio outputs for on-board speakers, line-out etc
     outputs(0) => spkr_left,      -- also used for HDMI out on M65R2

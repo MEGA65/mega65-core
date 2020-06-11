@@ -381,6 +381,8 @@ architecture Behavioral of container is
   signal hyper_data : unsigned(7 downto 0) := x"00";
   signal hyper_data_strobe : std_logic := '0';
 
+  signal fm_left : signed(15 downto 0);
+  signal fm_right : signed(15 downto 0);
   
 begin
 
@@ -559,6 +561,9 @@ begin
       
       joya => joy3,
       joyb => joy4,
+
+      fm_left => fm_left,
+      fm_right => fm_right,
       
 --      cart_busy => led,
       cart_access_count => cart_access_count,
@@ -656,6 +661,9 @@ begin
       
       joy3 => joy3,
       joy4 => joy4,
+
+      fm_left => fm_left,
+      fm_right => fm_right,
       
       no_hyppo => '0',
       

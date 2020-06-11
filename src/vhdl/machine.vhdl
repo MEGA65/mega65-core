@@ -111,6 +111,9 @@ entity machine is
          joy3 : in std_logic_vector(4 downto 0) := "11011";
          joy4 : in std_logic_vector(4 downto 0) := "10111";
 
+         fm_left : in signed(15 downto 0) := to_signed(0,16);
+         fm_right : in signed(15 downto 0) := to_signed(0,16);
+         
          ----------------------------------------------------------------------
          -- Flash RAM for holding FPGA config
          ----------------------------------------------------------------------
@@ -1401,6 +1404,9 @@ begin
       
       joy3 => joy3,
       joy4 => joy4,
+
+      fm_left => fm_left,
+      fm_right => fm_right,
 
       porto_out => porto_out,
       portp_out => portp_out,

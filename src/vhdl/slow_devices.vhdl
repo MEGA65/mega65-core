@@ -49,6 +49,9 @@ ENTITY slow_devices IS
     -- Indicate if expansion port is busy with access
     cart_busy : out std_logic;
     cart_access_count : out unsigned(7 downto 0);
+
+    fm_left : out signed(15 downto 0);
+    fm_right : out signed(15 downto 0);
     
     ------------------------------------------------------------------------
     -- Expansion RAM (upto 128MB)
@@ -117,6 +120,20 @@ end slow_devices;
   
 architecture behavioural of slow_devices is
 
+  -- OPL2/3 FM synthesiser
+  component opl2 is map (
+    clk : in std_logic;
+    reset : in std_logic;
+    opl2_we : in std_logic;
+    opl2_data : in unsigned(7 downto 0);
+    opl2_adr : in unsigned(7 downto 0);
+    kon : out std_logic_vector(8 downto 0);
+    channel_a : out signed(15 downto 0);
+    channel_b : out signed(15 downto 0);
+    sample_clk : out std_logic;
+    sample_clk_128 : out std_logic
+    );
+  
   signal last_slow_prefetched_request_toggle : std_logic := '0';
   
   signal cart_access_request : std_logic := '0';
@@ -134,6 +151,8 @@ architecture behavioural of slow_devices is
   
   type slow_state is (
     Idle,
+    OPL2Request,
+    OPL2Read,
     ExpansionRAMRequest,
     ExpansionRAMReadWait,
     CartridgePortRequest,
@@ -145,8 +164,24 @@ architecture behavioural of slow_devices is
   signal last_expansionram_write_address : unsigned(27 downto 0) := (others => '1');
   signal last_expansionram_write_data : unsigned(7 downto 0) := x"00";
 
+  signal opl_we : std_logic := '0';
+  signal opl_data : unsigned(7 downto 0) := x"00";
+  signal opl_adr : unsigned(7 downto 0) := x"00";
+                    
   
 begin
+
+  opl2fm0: entity work.opl2
+    port map (
+      clk => cpuclock,
+      reset => reset,
+      opl2_we => opl_we,
+      opl2_data => opl_data,
+      opl2_adr => opl_adr,
+      channel_a => fm_left,
+      channel_b => fm_right
+      );
+  
   cartport0: entity work.expansion_port_controller
     generic map ( pixelclock_frequency => 80,
                   target => target
@@ -208,6 +243,7 @@ begin
   if has_fakecartridge='1' generate
     
   end generate;
+
   
   process (pixelclock) is
   begin
@@ -275,7 +311,14 @@ begin
             -- XXX - DEBUG: Also pick which pin to drive a pulse train on
             pin_number <= to_integer(slow_access_wdata);            
             
-          if slow_access_address(27)='1' then
+          if slow_access_address(27)='1' and slow_access_address(27 downto 20) = x"FE" then
+            -- $FExxxxx = Slow IO peripherals
+            -- $FE000xx = OPL2/3 FM synthesiser
+            opl_adr <= slow_access_address(7 downto 0);
+            opl_we <= slow_access_write;
+            opl_data <= slow_access_wdata;
+            state <= OPL2Request;            
+          elsif slow_access_address(27)='1' then
             -- $8000000-$FFFFFFF = expansion RAM
             report "Triaging Expansion RAM request to address $" & to_hstring(slow_access_address);
             report "cachecs: address=$" & to_hstring(expansionram_current_cache_line_address&"000")
@@ -364,6 +407,14 @@ begin
           
         -- Note toggle state
         slow_access_last_request_toggle <= slow_access_request_toggle;
+      when OPL2Request =>
+        -- we might be out of phase with the 40MHz clock of the OPL, so we
+        -- wait an extra cycle to make sure the write gets latched.
+        -- It's not (apparently) possible to read from the OPL registers
+        state <= OPL2Read;
+      when OPL2Read =>
+        opl_we <= '0';
+        state <= Idle;
       when ExpansionRAMRequest =>
           if expansionram_eternally_busy='1' then
             -- Unmapped address space: Content = "ExtraRAM"

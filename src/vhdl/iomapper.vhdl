@@ -58,6 +58,9 @@ entity iomapper is
         buffereduart2_rx : inout std_logic := 'H';
         buffereduart2_tx : out std_logic := '1';
 
+        fm_left : in signed(15 downto 0) := x"0000";
+        fm_right : in signed(15 downto 0) := x"0000";
+        
         cpu_pcm_left : in signed(15 downto 0) := x"FFFF";
         cpu_pcm_right : in signed(15 downto 0) := x"FFFF";
         cpu_pcm_enable : in std_logic := '0';
@@ -1120,6 +1123,10 @@ begin
     audio_mix_wdata => audio_mix_wdata,
     audio_mix_rdata => audio_mix_rdata,
     audio_loopback => audio_loopback,
+
+    fm_left => fm_left,
+    fm_right => fm_right,
+    
     pcm_left => pcm_left,
     pcm_right => pcm_right,
     cpu_pcm_left => cpu_pcm_left,
