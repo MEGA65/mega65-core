@@ -121,7 +121,7 @@ end slow_devices;
 architecture behavioural of slow_devices is
 
   -- OPL2/3 FM synthesiser
-  component opl2 is map (
+  component opl2 is port (
     clk : in std_logic;
     reset : in std_logic;
     opl2_we : in std_logic;
@@ -133,6 +133,7 @@ architecture behavioural of slow_devices is
     sample_clk : out std_logic;
     sample_clk_128 : out std_logic
     );
+  end component;  
   
   signal last_slow_prefetched_request_toggle : std_logic := '0';
   

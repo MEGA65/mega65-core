@@ -203,6 +203,7 @@ begin
 --          mix_temp := ram_rdata(31 downto 16) * srcs(state - 1);
           if state = 15 then
             source14_volume <= ram_rdata(31 downto 16);
+          end if;
           mixed_value <= mixed_value + multiply_by_volume_coefficient(srcs(state - 1),ram_rdata(31 downto 16));
           -- Request next mix coefficient
           if state /= 15 then
