@@ -224,6 +224,7 @@ set files [list \
  "[file normalize "$origin_dir/src/verilog/ksl_add_rom.v"]"\
  "[file normalize "$origin_dir/src/verilog/operator.v"]"\
  "[file normalize "$origin_dir/src/verilog/opl2.v"]"\
+ "[file normalize "$origin_dir/src/verilog/opl3.vh"]"\
  "[file normalize "$origin_dir/src/verilog/opl3_exp_lut.v"]"\
  "[file normalize "$origin_dir/src/verilog/opl3_log_sine_lut.v"]"\
  "[file normalize "$origin_dir/src/verilog/phase_generator.v"]"\
@@ -724,6 +725,10 @@ set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "Verilog" -objects $file_obj
 
 set file "verilog/opl2.v"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "Verilog" -objects $file_obj
+
+set file "verilog/opl3.vh"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "Verilog" -objects $file_obj
 
