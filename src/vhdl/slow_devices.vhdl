@@ -134,6 +134,9 @@ architecture behavioural of slow_devices is
     sample_clk_128 : out std_logic
     );
   end component;  
+
+  signal sfx_emulation : std_logic := '0';
+  signal sfx_opl_adr : unsigned(7 downto 0) := x"00";
   
   signal last_slow_prefetched_request_toggle : std_logic := '0';
   
@@ -292,6 +295,10 @@ begin
           -- to $7FFDE00-$7FFDFFF, and external SIDs, when enabled, are expected
           -- at $7FFD400-$7FFD4FF.  The I/O expansion areas use the normal
           -- I/O1&2 select signals.
+          -- (Any othe peripherals that we want to have show up in the
+          --  $DExx/$DFxx IO spaces we should do here.  This is one reason why
+          --  the OPL2/3 chip is in slow_devices, and not via iomapper.vhdl.)
+          --  
           -- $4000000-$7EFFFFF (= 63MB) is mapped by default to MEGAcart content.
           -- $8000000-$FEFFFFF (=126MB) is mapped by default to expansion RAM.
           --
@@ -312,8 +319,30 @@ begin
 
             -- XXX - DEBUG: Also pick which pin to drive a pulse train on
             pin_number <= to_integer(slow_access_wdata);            
-            
-          if slow_access_address(27 downto 20) = x"FE" then
+
+          if slow_access_address = x"7FEFFFF" then
+            -- @IO:GS $7FEFFFF.0 Enable/disable SFX cartridge emulation
+            if slow_access_write='1' then
+              sfx_emulation <= slow_access_wdata(0);
+            end if;
+            slow_access_rdata(0) <= sfx_emulation;
+            slow_access_ready_toggle <= slow_access_request_toggle;
+            state <= Idle;
+          elsif slow_access_address = x"7FFDF40" and sfx_emulation='1' then
+            sfx_opl_adr <= slow_access_address(7 downto 0);
+            slow_access_ready_toggle <= slow_access_request_toggle;
+            state <= Idle;
+          elsif slow_access_address = x"7FFDF50" and sfx_emulation='1' then
+            opl_adr <= sfx_opl_adr;
+            opl_we <= slow_access_write;
+            opl_data <= slow_access_wdata;
+            slow_access_ready_toggle <= slow_access_request_toggle;
+            state <= OPL2Request;
+          elsif slow_access_address = x"7FFDF60" and sfx_emulation='1' then
+            slow_access_rdata <= unsigned(opl_kon(7 downto 0));
+            slow_access_ready_toggle <= slow_access_request_toggle;
+            state <= Idle;            
+          elsif slow_access_address(27 downto 20) = x"FE" then
             -- $FExxxxx = Slow IO peripherals
             -- $FE000xx = OPL2/3 FM synthesiser
             if slow_access_address(19 downto 8) = x"000" then
