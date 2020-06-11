@@ -50,8 +50,10 @@
 `include "opl3.vh"
 
 module opl2(
-  clk,       // 100 MHz system clock
-  OPL2_clk,  // 25 MHz OPL2 clock
+	// PGS - We use the 40.5MHz MEGA65 system clock for both
+  clk,       // 40.5 MHz system clock
+//  clk,       // 100 MHz system clock
+//  OPL2_clk,  // 25 MHz OPL2 clock
   reset,     // active high
   opl2_we,   // register write
   opl2_data, // register data
@@ -64,7 +66,7 @@ module opl2(
   );
 
   input         clk;
-  input         OPL2_clk;
+//  input         OPL2_clk;
   input         reset;
   input         opl2_we;
   input [7:0]   opl2_data;
@@ -175,7 +177,7 @@ module opl2(
     end
   endgenerate
 
-  always @(posedge OPL2_clk)
+  always @(posedge clk)
     if (reset) begin
       cntr <= 9'd0;
       sample_clk_en <= 1'b0;
@@ -184,8 +186,10 @@ module opl2(
     // Note: A "real" opl3 generates the sampling clock by dividing 14.318MHz
     // by 288 for sampling rate of 49715.2777..
     // 25 MHz clock (25 MHz/503 = 49702 Hz)
+    // 40.5 MHz clock (40.5 MHz/814 = 49754 Hz)
 //    cntr <= cntr == 9'd502 ? 9'd0 : cntr + 1'b1;
-      cntr <= cntr == 9'd499 ? 9'd0 : cntr + 1'b1;
+//      cntr <= cntr == 9'd499 ? 9'd0 : cntr + 1'b1;
+      cntr <= cntr == 9'd813 ? 9'd0 : cntr + 1'b1;
       sample_clk_en <= cntr == 9'd0;
       sample_clk <= ~cntr[8];
       sample_clk_128 <= ~cntr[0];
@@ -194,7 +198,7 @@ module opl2(
   /*
    * Registers that are not specific to a particular bank
    */
-  always @(posedge OPL2_clk)
+  always @(posedge clk)
     if (reset) begin
       nts <= 1'b0;
       dam <= 1'b0;
@@ -219,7 +223,7 @@ module opl2(
        
   generate
     for (i = 0; i < 6; i = i + 1) begin: name1
-      always @(posedge OPL2_clk) begin
+      always @(posedge clk) begin
         if (reset) begin
           am[i]   <= 1'b0;
           vib[i]  <= 1'b0;
@@ -261,7 +265,7 @@ module opl2(
 
     generate    
     for (i = 6; i < 12; i = i + 1) begin: name2
-      always @(posedge OPL2_clk) begin
+      always @(posedge clk) begin
         if (reset) begin
           am[i]   <= 1'b0;
           vib[i]  <= 1'b0;
@@ -303,7 +307,7 @@ module opl2(
     
     generate
     for (i = 12; i < 18; i = i + 1) begin: name3
-      always @(posedge OPL2_clk) begin
+      always @(posedge clk) begin
         if (reset) begin
           am[i]   <= 1'b0;
           vib[i]  <= 1'b0;
@@ -345,7 +349,7 @@ module opl2(
 
     generate
     for (i = 0; i < 9; i = i + 1) begin: name4
-      always @(posedge OPL2_clk) begin
+      always @(posedge clk) begin
         if (reset) begin
           fnum[i] <= 10'd0;
 
@@ -528,7 +532,7 @@ module opl2(
     modulation[17] = cnt[8] || ryt ? 0 : operator_out[14];
   end
 
-  always @(posedge OPL2_clk)
+  always @(posedge clk)
     if (reset)
       delay_state <= 5'd0;
     else
@@ -545,7 +549,7 @@ module opl2(
     else
       next_delay_state = delay_state;
       
-  always @(posedge OPL2_clk)
+  always @(posedge clk)
     if (reset)
       delay_counter <= 0;
     else begin
@@ -568,7 +572,7 @@ module opl2(
    * all operator slots (phase accumulation, envelope state and value, etc).
    */    
   operator operator_inst(
-    .clk(OPL2_clk),
+    .clk(clk),
     .reset(reset),
     .sample_clk_en(delay_state != 0 && delay_counter == 0),
     .op_num(op_num),              
@@ -603,7 +607,7 @@ module opl2(
     .out(operator_out_tmp)
   );   
 
-  always @(posedge OPL2_clk) begin
+  always @(posedge clk) begin
     if (delay_counter == OPERATOR_PIPELINE_DELAY - 1)
       operator_out[op_num] <= operator_out_tmp;
   end
@@ -615,7 +619,7 @@ module opl2(
     latch_feedback_pulse = delay_counter == OPERATOR_PIPELINE_DELAY - 1;     
   
   
-  always @(posedge OPL2_clk)
+  always @(posedge clk)
     if (reset)
       calc_state <= IDLE;
     else
@@ -627,7 +631,7 @@ module opl2(
     CALC_OUTPUTS: next_calc_state = channel == 8 ? IDLE : CALC_OUTPUTS;
     endcase
       
-  always @(posedge OPL2_clk) begin
+  always @(posedge clk) begin
     if (calc_state == IDLE || channel == 8)
       channel <= 0;
     else
@@ -667,7 +671,7 @@ module opl2(
 
   end
     
-  always @(posedge OPL2_clk) begin
+  always @(posedge clk) begin
     channel_a_acc_pre_clamp_p[0] <= cha[0] ? channel_2_op[0] : 0;
     channel_a_acc_pre_clamp_p[1] <= cha[1] ? channel_2_op[1] : 0;
     channel_a_acc_pre_clamp_p[2] <= cha[2] ? channel_2_op[2] : 0;
@@ -692,14 +696,14 @@ module opl2(
    * Each channel is accumulated (can be up to 19 bits) and then clamped to
    * 16-bits.
    */
-  always @(posedge OPL2_clk)
+  always @(posedge clk)
     if (sample_clk_en)
       channel_a_acc_pre_clamp <= 0;
     else if (calc_state == CALC_OUTPUTS)
       channel_a_acc_pre_clamp <= channel_a_acc_pre_clamp + 
        channel_a_acc_pre_clamp_p[channel];
   
-  always @(posedge OPL2_clk)
+  always @(posedge clk)
     if (sample_clk_en)
       channel_b_acc_pre_clamp <= 0;
     else if (calc_state == CALC_OUTPUTS)
@@ -709,7 +713,7 @@ module opl2(
   /*
    * Clamp output channels
    */
-  always @(posedge OPL2_clk)
+  always @(posedge clk)
     if (sample_clk_en) begin
       if (channel_a_acc_pre_clamp > 2**15 - 1)
         channel_a <= 2**15 - 1;

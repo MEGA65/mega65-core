@@ -293,6 +293,22 @@ MONITORVERILOG=		$(VERILOGSRCDIR)/6502_alu.v \
 			$(VERILOGSRCDIR)/UART_TX_CTRL.v \
 			$(VERILOGSRCDIR)/uart_rx.v
 
+OPL3VERILOG=		$(VERILOGSRCDIR)/calc_phase_inc.v \
+ 			$(VERILOGSRCDIR)/calc_rhythm_phase.v \
+			$(VERILOGSRCDIR)/edge_detector.v \
+			$(VERILOGSRCDIR)/env_rate_counter.v \
+			$(VERILOGSRCDIR)/envelope_generator.v \
+			$(VERILOGSRCDIR)/ksl_add_rom.v \
+			$(VERILOGSRCDIR)/operator.v \
+			$(VERILOGSRCDIR)/opl2.v \
+			$(VERILOGSRCDIR)/opl3_exp_lut.v \
+			$(VERILOGSRCDIR)/opl3_log_sine_lut.v \
+			$(VERILOGSRCDIR)/phase_generator.v \
+			$(VERILOGSRCDIR)/syn_fifo.v \
+			$(VERILOGSRCDIR)/tremolo.v \
+			$(VERILOGSRCDIR)/vibrato.v
+
+
 # GHDL with mcode backend
 simulate:	$(GHDL) $(SIMULATIONVHDL) $(ASSETS)/synthesised-60ns.dat
 	$(GHDL) -i $(SIMULATIONVHDL)
