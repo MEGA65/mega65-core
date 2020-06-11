@@ -313,20 +313,25 @@ begin
             -- XXX - DEBUG: Also pick which pin to drive a pulse train on
             pin_number <= to_integer(slow_access_wdata);            
             
-          if slow_access_address(27 downto 16) = x"FE00" then
+          if slow_access_address(27 downto 20) = x"FE" then
             -- $FExxxxx = Slow IO peripherals
             -- $FE000xx = OPL2/3 FM synthesiser
-            opl_adr <= slow_access_address(7 downto 0);
-            opl_we <= slow_access_write;
-            opl_data <= slow_access_wdata;
-            slow_access_ready_toggle <= slow_access_request_toggle;
-            if (slow_access_address(0)='0') then
-              slow_access_rdata <= unsigned(opl_kon(7 downto 0));
+            if slow_access_address(19 downto 8) = x"000" then
+              opl_adr <= slow_access_address(7 downto 0);
+              opl_we <= slow_access_write;
+              opl_data <= slow_access_wdata;
+              if (slow_access_address(0)='0') then
+                slow_access_rdata <= unsigned(opl_kon(7 downto 0));
+              else
+                slow_access_rdata(7 downto 1) <= (others => '1');
+                slow_access_rdata(0) <= opl_kon(8);
+              end if;
+              slow_access_ready_toggle <= slow_access_request_toggle;
+              state <= OPL2Request;
             else
-              slow_access_rdata(7 downto 1) <= (others => '1');
-              slow_access_rdata(0) <= opl_kon(8);
+              slow_access_ready_toggle <= slow_access_request_toggle;
+              state <= Idle;
             end if;
-            state <= OPL2Request;            
           elsif slow_access_address(27)='1' then
             -- $8000000-$FFFFFFF = expansion RAM
             report "Triaging Expansion RAM request to address $" & to_hstring(slow_access_address);
