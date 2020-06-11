@@ -3444,7 +3444,8 @@ begin
       -- We also have one direct 18x25 multiplier for use by the hypervisor.
       -- This multiplier fits a single DSP48E unit, and does not use the plumbing
       -- facility.
-      reg_mult_p <= to_unsigned(to_integer(reg_mult_a) * to_integer(reg_mult_b),48);
+      reg_mult_p(42 downto 0) <= reg_mult_a * reg_mult_b;
+      reg_mult_p(47 downto 43) <= (others => '0');
 
       -- We also have four more little multipliers for the audio DMA stuff
       for i in 0 to 3 loop
