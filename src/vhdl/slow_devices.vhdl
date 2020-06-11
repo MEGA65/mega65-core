@@ -167,7 +167,7 @@ architecture behavioural of slow_devices is
   signal opl_we : std_logic := '0';
   signal opl_data : unsigned(7 downto 0) := x"00";
   signal opl_adr : unsigned(7 downto 0) := x"00";
-                    
+  signal opl_kon : std_logic_vector(8 downto 0);                  
   
 begin
 
@@ -178,6 +178,7 @@ begin
       opl2_we => opl_we,
       opl2_data => opl_data,
       opl2_adr => opl_adr,
+      kon => opl_kon,
       channel_a => fm_left,
       channel_b => fm_right
       );
@@ -317,6 +318,13 @@ begin
             opl_adr <= slow_access_address(7 downto 0);
             opl_we <= slow_access_write;
             opl_data <= slow_access_wdata;
+            slow_access_ready_toggle <= slow_access_request_toggle;
+            if (slow_access_address(0)='0') then
+              slow_access_rdata <= unsigned(opl_kon(7 downto 0));
+            else
+              slow_access_rdata(7 downto 1) <= (others => '0');
+              slow_access_rdata(0) <= opl_kon(8);
+            end if;
             state <= OPL2Request;            
           elsif slow_access_address(27)='1' then
             -- $8000000-$FFFFFFF = expansion RAM
