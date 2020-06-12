@@ -46,6 +46,7 @@
 ;	40	- 	Blank line, no data
 ;	50	-	MAC Address input.  requires 1 string (label), word
 ;			offset and data	area of 6 bytes for storage of address.
+;       60      -       time/date
 ;	
 ;===============================================================================
 
@@ -189,24 +190,16 @@ audioOptions0:
 	.defPStr	"yes"
 
 	.byte		$20
-	.word		$0003
-	.byte		$80
-	.defPStr	"dac algorithm:"
-	.defPStr	"pdm"
-	.defPStr	"pwm"
-
+	.word		$000c
+	.byte		$01
+	.defPStr	"sfx cart emulation @ $df40:"
+	.defPStr	"off"
+	.defPStr	"on"
 
 	.byte		$20
 	.word		$0003
 	.byte		$01
 	.defPStr	"audio amplifier:"
-	.defPStr	"off"
-	.defPStr	"on"
-
-	.byte		$20
-	.word		$000c
-	.byte		$01
-	.defPStr	"sfx cart emulation @ $df40:"
 	.defPStr	"off"
 	.defPStr	"on"
 
