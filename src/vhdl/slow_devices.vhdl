@@ -173,6 +173,9 @@ architecture behavioural of slow_devices is
   signal opl_data : unsigned(7 downto 0) := x"00";
   signal opl_adr : unsigned(7 downto 0) := x"00";
   signal opl_kon : std_logic_vector(8 downto 0);                  
+  signal opl_sc : std_logic;
+  signal opl_sc_128 : std_logic;
+  
   
 begin
 
@@ -183,6 +186,8 @@ begin
       opl2_we => opl_we,
       opl2_data => opl_data,
       opl2_adr => opl_adr,
+      sample_clk => opl_sc,
+      sample_clk_128 => opl_sc_128,
       kon => opl_kon,
       channel_a => fm_left,
       channel_b => fm_right
@@ -330,6 +335,8 @@ begin
               sfx_emulation <= slow_access_wdata(0);
             end if;
             slow_access_rdata(0) <= sfx_emulation;
+            slow_access_rdata(1) <= opl_sc;
+            slow_access_rdata(2) <= opl_sc_128;
             slow_access_ready_toggle <= slow_access_request_toggle;
             state <= Idle;
           elsif slow_access_address = x"7FFDF40" and sfx_emulation='1' then
