@@ -87,7 +87,7 @@ module opl2(
 
   reg [7:0] opl2_reg[255:0];
 
-  reg [8:0] cntr;
+  reg [9:0] cntr;
   reg sample_clk_en;
 
   reg nts;
@@ -179,7 +179,7 @@ module opl2(
 
   always @(posedge clk)
     if (reset) begin
-      cntr <= 9'd0;
+      cntr <= 10'd0;
       sample_clk_en <= 1'b0;
       sample_clk <= 1'b0;
     end else begin
@@ -189,9 +189,9 @@ module opl2(
     // 40.5 MHz clock (40.5 MHz/814 = 49754 Hz)
 //    cntr <= cntr == 9'd502 ? 9'd0 : cntr + 1'b1;
 //      cntr <= cntr == 9'd499 ? 9'd0 : cntr + 1'b1;
-      cntr <= cntr == 9'd813 ? 9'd0 : cntr + 1'b1;
-      sample_clk_en <= cntr == 9'd0;
-      sample_clk <= ~cntr[8];
+      cntr <= cntr == 10'd813 ? 9'd0 : cntr + 1'b1;
+      sample_clk_en <= cntr == 10'd0;
+      sample_clk <= ~cntr[9];
       sample_clk_128 <= ~cntr[0];
     end
 
