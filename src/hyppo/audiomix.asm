@@ -4,9 +4,9 @@
     ---------------------------------------------------------------- */
 audiomix_setup:
 
-        // Set all audio mixer coefficients to maximum by default
+        // Set all audio mixer coefficients to silent by default
         ldx #$00
-        txa // A=$00 = all coefficients zero
+        txa 
 aml1:
         jsr audiomix_setcoefficient
         inx
@@ -25,7 +25,19 @@ aml1:
         ldx #$3e
         jsr audiomix_set2coefficients
 
-        jmp audio_set_stereo
+        jsr audio_set_stereo
+
+	// Set OPL / FM / SFX / Adlib volume to max on all channels
+	lda #$0c
+fmvolloop:
+	tax
+	lda #$ff
+	jsr audiomix_set2coefficients
+	txa
+	clc
+	adc #$20
+	bcc fmvolloop
+	
 
 audio_set_mono:
         // Left and right SID volume levels
