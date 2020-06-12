@@ -344,9 +344,26 @@ syspart_configsector_apply:
         stx $d058
 	
         // Set audio options
+
+	// Super SFX cartridge emulation
+	lda $de0c
+	ldz #$00
+	lda #$07
+	sta zptempv32+3
+	lda #$fe
+	sta zptempv32+2
+	inc
+	sta zptempv32+1
+	sta zptempv32+0
+	nop
+	sta (zptempv32),z
+
+	// Audio amplifier control
         lda $de03
         and #$01
         sta audioamp_ctl
+
+	// Stereo flags
         lda $de03
         and #$40
         beq is_stereo

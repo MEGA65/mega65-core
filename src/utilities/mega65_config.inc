@@ -203,6 +203,13 @@ audioOptions0:
 	.defPStr	"off"
 	.defPStr	"on"
 
+	.byte		$20
+	.word		$000c
+	.byte		$01
+	.defPStr	"sfx cart emulation @ $df40:"
+	.defPStr	"off"
+	.defPStr	"on"
+
 	.byte		$00
 audioOptions0_end:
 	.assert		(audioOptions0_end - audioOptions0) < 256, error, "Audio Options 0 too large!"
