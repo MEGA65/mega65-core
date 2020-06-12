@@ -135,6 +135,7 @@ architecture behavioural of slow_devices is
     );
   end component;  
 
+  signal reset_inverted : std_logic;
   signal sfx_emulation : std_logic := '0';
   signal sfx_opl_adr : unsigned(7 downto 0) := x"00";
   
@@ -178,7 +179,7 @@ begin
   opl2fm0: entity work.opl2
     port map (
       clk => cpuclock,
-      reset => reset,
+      reset => reset_inverted,
       opl2_we => opl_we,
       opl2_data => opl_data,
       opl2_adr => opl_adr,
@@ -252,6 +253,9 @@ begin
   
   process (pixelclock) is
   begin
+
+    reset_inverted <= not reset;
+    
     if rising_edge(pixelclock) then
 
       if slow_prefetched_request_toggle /= last_slow_prefetched_request_toggle then
