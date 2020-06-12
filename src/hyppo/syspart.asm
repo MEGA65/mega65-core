@@ -317,6 +317,10 @@ syspart_configsector_write:
         sec
         rts
 
+syspart_config_invalid:
+        clc
+        rts
+	
 syspart_configsector_apply:
         // Check version
         lda $de00
@@ -350,13 +354,14 @@ syspart_configsector_apply:
 	ldz #$00
 	lda #$07
 	sta zptempv32+3
-	lda #$fe
-	sta zptempv32+2
-	inc
-	sta zptempv32+1
-	sta zptempv32+0
+	ldx #$fe
+	stx zptempv32+2
+	inx
+	stx zptempv32+1
+	stx zptempv32+0
 	nop
-	sta (zptempv32),z
+	// 	sta (<zptempv32),z	
+	.byte $92, <zptempv32
 
 	// Audio amplifier control
         lda $de03
@@ -406,10 +411,6 @@ disknamecopy:
         bpl	disknamecopy
 nodiskname:
         sec
-        rts
-
-syspart_config_invalid:
-        clc
         rts
 
 syspart_dmagic_autoset_trap:
