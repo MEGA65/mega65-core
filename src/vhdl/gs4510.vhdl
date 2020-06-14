@@ -370,6 +370,7 @@ architecture Behavioural of gs4510 is
 
   signal audio_dma_sample_valid : std_logic_vector(0 to 3) := (others => '0');
   signal audio_dma_current_value : s15_0to3 := (others => to_signed(0,16));
+  signal audio_dma_latched_sample : s15_0to3 := (others => to_signed(0,16));
   signal audio_dma_multed : s23_0to3 := (others => to_signed(0,24));
   signal audio_dma_wait_state : std_logic := '1';
   signal audio_dma_left_saturated : std_logic := '0';
@@ -3450,8 +3451,9 @@ begin
       -- We also have four more little multipliers for the audio DMA stuff
       for i in 0 to 3 loop
         if audio_dma_sample_valid(i)='1' then
-          audio_dma_multed(i) <= multiply_by_volume_coefficient(audio_dma_current_value(i), audio_dma_volume(i));
+          audio_dma_latched_sample(i) <= audio_dma_current_value(i);
         end if;
+        audio_dma_multed(i) <= multiply_by_volume_coefficient(audio_dma_current_value(i), audio_dma_volume(i));
         if audio_dma_enables(i)='0' then
           audio_dma_multed(i) <= (others => '0');
         end if;
@@ -3753,8 +3755,11 @@ begin
             pending_dma_target <= 1; -- ch0 LSB
             pending_dma_address(27 downto 0) <= (others => '0');
             pending_dma_address(23 downto 0) <= audio_dma_current_addr(0);
-          else 
-            audio_dma_sample_valid(0) <= '0';
+          else
+            if audio_dma_sample_width(0)="11" then
+              -- Only invalidate sample when reading LSB of a 16-bit sample
+              audio_dma_sample_valid(0) <= '0';
+            end if;
             audio_dma_pending(0) <= '0';
             audio_dma_current_addr(0) <= audio_dma_current_addr(0) + 1;                
             report "audio_dma_current_value: scheduling MSB read of $" & to_hstring(audio_dma_current_addr(0));
