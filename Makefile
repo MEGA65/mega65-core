@@ -269,6 +269,7 @@ SIMULATIONVHDL=		$(VHDLSRCDIR)/cpu_test.vhdl \
 			$(VHDLSRCDIR)/fake_expansion_port.vhdl \
 			$(VHDLSRCDIR)/fake_sdcard.vhdl \
 			$(VHDLSRCDIR)/fake_reconfig.vhdl \
+			$(VHDLSRCDIR)/fake_opl2.vhdl \
 			$(VHDLSRCDIR)/gen_utils.vhdl \
 			$(VHDLSRCDIR)/conversions.vhdl \
 			$(VHDLSRCDIR)/dummy_uart_monitor.vhdl \
@@ -294,7 +295,7 @@ MONITORVERILOG=		$(VERILOGSRCDIR)/6502_alu.v \
 			$(VERILOGSRCDIR)/uart_rx.v
 
 OPL3VERILOG=		$(VERILOGSRCDIR)/calc_phase_inc.v \
- 			$(VERILOGSRCDIR)/calc_rhythm_phase.v \
+			$(VERILOGSRCDIR)/calc_rhythm_phase.v \
 			$(VERILOGSRCDIR)/edge_detector.v \
 			$(VERILOGSRCDIR)/env_rate_counter.v \
 			$(VERILOGSRCDIR)/envelope_generator.v \
