@@ -40,7 +40,7 @@ entity gs4510 is
     math_unit_enable : boolean := false;
     chipram_1mb : std_logic := '0';
 
-    cpufrequency : integer := 50;
+    cpufrequency : integer := 40;
     chipram_size : integer := 393216;
     target : mega65_target_t := mega65r2);
   port (
