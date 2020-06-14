@@ -357,7 +357,7 @@ architecture Behavioural of gs4510 is
     signed(to_unsigned(245-128,8)),signed(to_unsigned(233-128,8)),
     signed(to_unsigned(217-128,8)),signed(to_unsigned(198-128,8)),
     signed(to_unsigned(176-128,8)),signed(to_unsigned(152-128,8)),
-    signed(to_unsigned(128,8)),signed(to_unsigned(103+128,8)),
+    signed(to_unsigned(128-128,8)),signed(to_unsigned(103+128,8)),
     signed(to_unsigned(79+128,8)),signed(to_unsigned(57+128,8)),
     signed(to_unsigned(38+128,8)),signed(to_unsigned(22+128,8)),
     signed(to_unsigned(10+128,8)),signed(to_unsigned(3+128,8)),
