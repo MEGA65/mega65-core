@@ -347,6 +347,26 @@ architecture Behavioural of gs4510 is
   type s15_0to3 is array (0 to 3) of signed(15 downto 0);
   type u7_0to3 is array (0 to 3) of unsigned(7 downto 0);
   type u1_0to3 is array (0 to 3) of unsigned(1 downto 0);
+  type s7_0to31 is array (0 to 31) of signed(7 downto 0);
+  signal sine_table : s7_0to31 := (
+    signed(to_unsigned(128-128,8)),signed(to_unsigned(152-128,8)),
+    signed(to_unsigned(176-128,8)),signed(to_unsigned(198-128,8)),
+    signed(to_unsigned(217-128,8)),signed(to_unsigned(233-128,8)),
+    signed(to_unsigned(245-128,8)),signed(to_unsigned(252-128,8)),
+    signed(to_unsigned(255-128,8)),signed(to_unsigned(252-128,8)),
+    signed(to_unsigned(245-128,8)),signed(to_unsigned(233-128,8)),
+    signed(to_unsigned(217-128,8)),signed(to_unsigned(198-128,8)),
+    signed(to_unsigned(176-128,8)),signed(to_unsigned(152-128,8)),
+    signed(to_unsigned(128,8)),signed(to_unsigned(103+128,8)),
+    signed(to_unsigned(79+128,8)),signed(to_unsigned(57+128,8)),
+    signed(to_unsigned(38+128,8)),signed(to_unsigned(22+128,8)),
+    signed(to_unsigned(10+128,8)),signed(to_unsigned(3+128,8)),
+    signed(to_unsigned(1+128,8)),signed(to_unsigned(3+128,8)),
+    signed(to_unsigned(10+128,8)),signed(to_unsigned(22+128,8)),
+    signed(to_unsigned(38+128,8)),signed(to_unsigned(57+128,8)),
+    signed(to_unsigned(79+128,8)),signed(to_unsigned(103+128,8))    
+    );
+  
   signal audio_dma_base_addr : u23_0to3 := (others => x"050000"); -- to_unsigned(0,24));
   signal audio_dma_time_base : u23_0to3 := (others => to_unsigned(0,24));
   signal audio_dma_top_addr : u15_0to3 := (others => to_unsigned(0,16));
@@ -356,6 +376,7 @@ architecture Behavioural of gs4510 is
   signal audio_dma_stop : std_logic_vector(0 to 3) := (others => '0');
   signal audio_dma_signed : std_logic_vector(0 to 3) := (others => '0');
   signal audio_dma_sample_width : u1_0to3 := (others => "00");
+  signal audio_dma_sine_wave : std_logic_vector(0 to 3) := (others => '0');
 
   signal audio_dma_pending : std_logic_vector(0 to 3) := (others => '0');
   signal audio_dma_pending_msb: std_logic_vector(0 to 3) := (others => '0');
@@ -2090,6 +2111,7 @@ begin
             -- @IO:GS $D720.7 DMA:CH0EN Enable Audio DMA channel 0
             -- @IO:GS $D720.6 DMA:CH0LOOP Enable Audio DMA channel 0 looping
             -- @IO:GS $D720.5 DMA:CH0SIGNED Enable Audio DMA channel 0 signed samples
+            -- @IO:GS $D720.4 DMA:CH0SINE Audio DMA channel 0 play 32-sample sine wave instead of DMA data
             -- @IO:GS $D720.3 DMA:CH0STOP Audio DMA channel 0 stop flag
             -- @IO:GS $D720.0-1 DMA:CH0SBITS Audio DMA channel 0 sample bits (11=16, 10=8, 01=upper nybl, 00=lower nybl)
             -- @IO:GS $D721 DMA:CH0BADDR Audio DMA channel 0 base address LSB
@@ -2168,7 +2190,7 @@ begin
                           
             -- $D720-$D72F - Audio DMA channel 0                          
             when x"20" => return audio_dma_enables(0) & audio_dma_repeat(0) & audio_dma_signed(0) &
-                            audio_dma_pending(0) & audio_dma_stop(0) & audio_dma_sample_valid(0) & audio_dma_sample_width(0);
+                            audio_dma_sine_wave(0) & audio_dma_stop(0) & audio_dma_sample_valid(0) & audio_dma_sample_width(0);
             when x"21" => return audio_dma_base_addr(0)(7 downto 0);
             when x"22" => return audio_dma_base_addr(0)(15 downto 8);
             when x"23" => return audio_dma_base_addr(0)(23 downto 16);
@@ -2186,7 +2208,7 @@ begin
             when x"2f" => return audio_dma_timing_counter(0)(23 downto 16);
             -- $D730-$D73F - Audio DMA channel 1
             when x"30" => return audio_dma_enables(1) & audio_dma_repeat(1) & audio_dma_signed(1) &
-                            audio_dma_pending(1) & audio_dma_stop(1) & audio_dma_sample_valid(1) & audio_dma_sample_width(1);
+                            audio_dma_sine_wave(1) & audio_dma_stop(1) & audio_dma_sample_valid(1) & audio_dma_sample_width(1);
             when x"31" => return audio_dma_base_addr(1)(7 downto 0);
             when x"32" => return audio_dma_base_addr(1)(15 downto 8);
             when x"33" => return audio_dma_base_addr(1)(23 downto 16);
@@ -2204,7 +2226,7 @@ begin
             when x"3f" => return audio_dma_timing_counter(1)(23 downto 16);
                                         -- $D740-$D74F - Audio DMA channel 2
             when x"40" => return audio_dma_enables(2) & audio_dma_repeat(2) & audio_dma_signed(2) &
-                            audio_dma_pending(2) & audio_dma_stop(2) & audio_dma_sample_valid(2) & audio_dma_sample_width(2);
+                            audio_dma_sine_wave(2) & audio_dma_stop(2) & audio_dma_sample_valid(2) & audio_dma_sample_width(2);
             when x"41" => return audio_dma_base_addr(2)(7 downto 0);
             when x"42" => return audio_dma_base_addr(2)(15 downto 8);
             when x"43" => return audio_dma_base_addr(2)(23 downto 16);
@@ -2222,7 +2244,7 @@ begin
             when x"4f" => return audio_dma_timing_counter(2)(23 downto 16);
             -- $D750-$D75F - Audio DMA channel 3
             when x"50" => return audio_dma_enables(3) & audio_dma_repeat(3) & audio_dma_signed(3) &
-                            audio_dma_pending(3) & audio_dma_stop(3) & audio_dma_sample_valid(3) & audio_dma_sample_width(3);
+                            audio_dma_sine_wave(3) & audio_dma_stop(3) & audio_dma_sample_valid(3) & audio_dma_sample_width(3);
             when x"51" => return audio_dma_base_addr(3)(7 downto 0);
             when x"52" => return audio_dma_base_addr(3)(15 downto 8);
             when x"53" => return audio_dma_base_addr(3)(23 downto 16);
@@ -2887,6 +2909,7 @@ begin
           when x"0" => audio_dma_enables(to_integer(long_address(7 downto 4)-2)) <= value(7);
                        audio_dma_repeat(to_integer(long_address(7 downto 4)-2)) <= value(6);
                        audio_dma_signed(to_integer(long_address(7 downto 4)-2)) <= value(5);
+                       audio_dma_sine_wave(to_integer(long_address(7 downto 4)-2)) <= value(4);
                        audio_dma_stop(to_integer(long_address(7 downto 4)-2)) <= value(3);
                        audio_dma_sample_width(to_integer(long_address(7 downto 4)-2)) <= value(1 downto 0);
                        report "Setting Audio DMA channel "
@@ -3897,10 +3920,19 @@ begin
             & ", time_base = " & integer'image(to_integer(audio_dma_time_base(i)));
           audio_dma_timing_counter(i) <= to_unsigned(to_integer(audio_dma_timing_counter(i)(23 downto 0)) + to_integer(audio_dma_time_base(i)),25);
           if audio_dma_timing_counter(i)(24) = '1' then
-            report "Audio DMA channel " & integer'image(i) & " marking next sample due.";            
-            audio_dma_pending(i) <= '1';
-            if audio_dma_sample_width(i) = "11" then
-              audio_dma_pending_msb(i) <= '1';
+            report "Audio DMA channel " & integer'image(i) & " marking next sample due.";
+            if audio_dma_sine_wave(i)='1' then
+              -- Play pure sine wave using our 32-sample sine table.
+              -- Uses bottom 4 bits of current_addr to pick the sample
+              audio_dma_current_value(i)(15 downto 8) <= sine_table(to_integer(audio_dma_current_addr(i)(4 downto 0)));
+              audio_dma_current_value(i)(7 downto 0) <= sine_table(to_integer(audio_dma_current_addr(i)(4 downto 0)));
+              audio_dma_sample_valid(i) <= '1';
+            else
+              -- Play normal sample
+              audio_dma_pending(i) <= '1';
+              if audio_dma_sample_width(i) = "11" then
+                audio_dma_pending_msb(i) <= '1';
+              end if;
             end if;
             audio_dma_timing_counter(i)(24) <= '0';
           else
