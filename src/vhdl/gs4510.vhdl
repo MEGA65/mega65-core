@@ -3927,6 +3927,7 @@ begin
               audio_dma_current_value(i)(15 downto 8) <= sine_table(to_integer(audio_dma_current_addr(i)(4 downto 0)));
               audio_dma_current_value(i)(7 downto 0) <= sine_table(to_integer(audio_dma_current_addr(i)(4 downto 0)));
               audio_dma_sample_valid(i) <= '1';
+              audio_dma_current_addr(i) <= audio_dma_current_addr(i) + 1;
             else
               -- Play normal sample
               audio_dma_pending(i) <= '1';
