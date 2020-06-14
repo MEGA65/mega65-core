@@ -337,6 +337,7 @@ begin
             slow_access_rdata(0) <= sfx_emulation;
             slow_access_rdata(1) <= opl_sc;
             slow_access_rdata(2) <= opl_sc_128;
+            slow_access_rdata(7 downto 3) <= (others => '0');
             slow_access_ready_toggle <= slow_access_request_toggle;
             state <= Idle;
           elsif slow_access_address = x"7FFDF40" and sfx_emulation='1' then
