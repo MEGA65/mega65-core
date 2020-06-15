@@ -147,7 +147,7 @@ entity container is
          hdmi_spdif : out std_logic := '0';
          hdmi_spdif_out : in std_logic;
          hdmi_int : in std_logic;
-         hdmi_scl : out std_logic;
+         hdmi_scl : inout std_logic;
          hdmi_sda : inout std_logic;
          hdmi_de : out std_logic; -- high when valid pixels being output
          hdmi_clk : out std_logic; 
@@ -370,7 +370,7 @@ begin
 
   kbd0: entity work.mega65kbd_to_matrix
     port map (
-      ioclock => cpuclock,
+      cpuclock => cpuclock,
 
       powerled => key_up,
       flopled => '0',
@@ -405,6 +405,7 @@ begin
       port map (
       reset_in => '1',
       matrix_mode_in => '0',
+      viciv_frame_indicate => '0',
 
       matrix_segment_num => matrix_segment_num,
 --      matrix_segment_out => matrix_segment_out,
@@ -427,7 +428,7 @@ begin
       joya_rotate => '0',
       joyb_rotate => '0',
       
-    ioclock       => cpuclock,
+    cpuclock       => cpuclock,
 --    restore_out => restore_nmi,
     keyboard_restore => key_restore,
     keyboard_capslock => key_caps,
@@ -589,7 +590,7 @@ begin
       vga_hs => hsync,
       vga_vs => vsync,
 
---      hdmi_int => hdmi_int,
+      hdmi_int => hdmi_int,
       hdmi_clk => hdmi_clk,
       hdmi_hsync => hdmi_hsync,
       hdmi_vsync => hdmi_vsync,
