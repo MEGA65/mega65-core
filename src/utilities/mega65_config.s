@@ -227,7 +227,7 @@ saveConfSave0:
 saveConfFactory0:
        .defPStr        "the factory defaults and continue?"
 saveConfDflt0:
-	.defPStr	"as the defaults and exit?"
+	.defPStr	"as the default and exit?"
 	
 saveConfRest0:
 	.defPStr        "reset your machine now"
