@@ -15,16 +15,18 @@ KICKASS_JAR = KickAss/KickAss.jar
 
 VIVADO=	./vivado_wrapper
 
-ifeq ($(USE_LOCAL_CC65),"")
-CC65=  cc65/bin/cc65
-CA65=  cc65/bin/ca65 --cpu 4510
-LD65=  cc65/bin/ld65 -t none
-CL65=  cc65/bin/cl65 --config src/tests/vicii.cfg
+ifdef USE_LOCAL_CC65
+	# use locally installed binary (requires cc65 to be in the $PATH)
+	CC65=  cc65
+	CA65=  ca65 --cpu 4510
+	LD65=  ld65 -t none
+	CL65=  cl65 --config src/tests/vicii.cfg
 else
-CC65=  cc65
-CA65=  ca65 --cpu 4510
-LD65=  ld65 -t none
-CL65=  cl65 --config src/tests/vicii.cfg
+	# use the binary built from the submodule
+	CC65=  cc65/bin/cc65
+	CA65=  cc65/bin/ca65 --cpu 4510
+	LD65=  cc65/bin/ld65 -t none
+	CL65=  cc65/bin/cl65 --config src/tests/vicii.cfg
 endif
 
 GHDL=  ghdl/build/bin/ghdl
@@ -94,10 +96,10 @@ $(CC65):
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	git submodule init
 	git submodule update
-ifeq ($(USE_LOCAL_CC65),"")
-	( cd cc65 && make -j 8 )
+ifdef USE_LOCAL_CC65
+	echo "NOTE: Using local installed CC65 because USE_LOCAL_CC65=1."
 else
-	echo "Using local installed CC65."
+	( cd cc65 && make -j 8 )
 endif
 
 $(OPHIS):
