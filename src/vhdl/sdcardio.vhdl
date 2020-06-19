@@ -918,7 +918,7 @@ begin  -- behavioural
             fastio_rdata(3) <= sd_data_ready;
             fastio_rdata(4) <= not autotune_enable;
             fastio_rdata(5) <= f011_swap_drives;
-            fastio_rdata(6) <= (others => '0');
+            fastio_rdata(6) <= '0';
             fastio_rdata(7) <= f011sd_buffer_select;
           when x"8a" =>
             -- @IO:GS $D68A - DEBUG check signals that can inhibit sector buffer mapping
