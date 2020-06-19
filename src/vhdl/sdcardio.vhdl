@@ -908,8 +908,10 @@ begin  -- behavioural
           when x"88" => fastio_rdata <= f011_buffer_disk_address(7 downto 0);
           -- @IO:GS $D689.0 - High bit of F011 buffer pointer (disk side) (read only)
           -- @IO:GS $D689.1 - Sector read from SD/F011/FDC, but not yet read by CPU (i.e., EQ and DRQ)
-          -- @IO:GS $D689.3 - (read only) sd_data_ready signal.
+          -- @IO:GS $D689.2 - (read only, debug) sd_handshake signal.
+          -- @IO:GS $D689.3 - (read only, debug) sd_data_ready signal.
           -- @IO:GS $D689.4 - Disable FDC automatic track seeking (auto-tune)
+          -- @IO:GS $D689.5 - F011 swap drive 0 / 1 
           -- @IO:GS $D689.7 - Memory mapped sector buffer select: 1=SD-Card, 0=F011/FDC
           when x"89" =>
             fastio_rdata(0) <= f011_buffer_disk_address(8);
@@ -917,14 +919,17 @@ begin  -- behavioural
             fastio_rdata(2) <= sd_handshake;
             fastio_rdata(3) <= sd_data_ready;
             fastio_rdata(4) <= not autotune_enable;
-            fastio_rdata(5) <= virtualise_f011_drive0;
-            fastio_rdata(6) <= virtualise_f011_drive1;
+            fastio_rdata(5) <= f011_swap_drives;
+            fastio_rdata(6) <= (others => '0');
             fastio_rdata(7) <= f011sd_buffer_select;
-            fastio_rdata(6 downto 5) <= (others => '0');
           when x"8a" =>
             -- @IO:GS $D68A - DEBUG check signals that can inhibit sector buffer mapping
+            -- @IO:GS $D68A.2 - Read only: is drive 0 virtualized F011
+            -- @IO:GS $D68A.3 - Read only: is drive 1 virtualized F011
             fastio_rdata(0) <= colourram_at_dc00;
             fastio_rdata(1) <= viciii_iomode(1);
+            fastio_rdata(2) <= virtualise_f011_drive0;
+            fastio_rdata(3) <= virtualise_f011_drive1;
             
           when x"8b" =>
             -- BG the description seems in conflict with the assignment in the write section (below)
@@ -2184,6 +2189,7 @@ begin  -- behavioural
                           sd_handshake <= fastio_wdata(2);
                           sd_handshake_internal <= fastio_wdata(2);
                           autotune_enable <= not fastio_wdata(4);
+                          f011_swap_drives <= fastio_wdata(5);
 
                           -- ================================================================== END
                           -- the section above was for the SDcard
