@@ -227,6 +227,7 @@ architecture behavioural of c65uart is
 
   signal disco_led_en_int : std_logic := '0';
   signal disco_led_id_int : unsigned(7 downto 0) := x"00";
+  signal disco_led_val_int : unsigned(7 downto 0) := x"00";
 
   
 begin  -- behavioural
@@ -454,8 +455,10 @@ begin  -- behavioural
             disco_led_id_int(6 downto 0) <= fastio_wdata(6 downto 0);
             disco_led_id(6 downto 0) <= fastio_wdata(6 downto 0);
             disco_led_id(7) <= '0';
+            -- Latch intensity level only when setting the register to write to.
+            disco_led_val <= disco_led_val_int;            
           when x"1e" =>
-            disco_led_val <= fastio_wdata;            
+            disco_led_val_int <= fastio_wdata;
           when others => null;
         end case;
       end if;
@@ -566,6 +569,7 @@ begin  -- behavioural
         when x"11" =>
           -- @IO:GS $D611 Modifier key state (hardware accelerated keyboard scanner).
           -- @IO:GS $D611.4 UARTMISC:MALT ALT key state (hardware accelerated keyboard scanner).
+          -- @IO:GS $D611.6 UARTMISC:MCAPS CAPS LOCK key state (hardware accelerated keyboard scanner).
           -- @IO:GS $D611.5 UARTMISC:MSCRL NOSCRL key state (hardware accelerated keyboard scanner).
           -- @IO:GS $D611.3 UARTMISC:MMEGA MEGA/C= key state (hardware accelerated keyboard scanner).
           -- @IO:GS $D611.2 UARTMISC:MCTRL CTRL key state (hardware accelerated keyboard scanner).
@@ -634,7 +638,7 @@ begin  -- behavioural
           fastio_rdata(7) <= disco_led_en_int;
           fastio_rdata(6 downto 0) <= disco_led_id_int(6 downto 0);
         when x"1e" =>
-          fastio_rdata(7 downto 0) <= x"FF";
+          fastio_rdata(7 downto 0) <= disco_led_val_int;
         when x"1F" =>
           -- @IO:GS $D61F DEBUG:BUCKYCOPY DUPLICATE Modifier key state (hardware accelerated keyboard scanner).
           fastio_rdata(7 downto 0) <= unsigned(porti);
