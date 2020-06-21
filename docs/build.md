@@ -120,9 +120,16 @@ The following is assumed:
 1. you have ```cbmconvert``` installed (I have ver 2.1.2) (to make a D81 image) (refer to ./using.md)
 1. you have a recent version of Xilinx Vivado WebPACK edition installed, with a valid licence (recommended that you install to directory /opt/Xilinx to prevent issue with makefile)
 
+(Other dependancies are required and these will be detailed soon.)
+
 Overview of the compile process:
 
-1. ```make```,
+1. ```make``` -> downloads submodules, builds all prerequisites, builds all bitstreams.  
+or
+
+1. ```make USE_LOCAL_CC65=1``` -> as above but does not build the ```./cc65```-submodule.  
+This is useful for Continuous Integration (CI).
+Instead, your path must locate a pre-built binary from your LOCAL machine.
 
 The following instructions are for running in the fpga.
 
