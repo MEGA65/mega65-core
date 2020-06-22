@@ -225,21 +225,28 @@ For ubuntu16, ```libpng12-0``` is already installed but that **does not work**.
 You need ```libpng-dev``` and apt will select ```libpng12-dev``` **which does work**.  
 ``` dpkg -l | grep libpng``` -> 1.2.54.
 
-1. you have a recent version of Xilinx Vivado WebPACK edition installed.  
-With a valid licence.  
-Installed to directory /opt/Xilinx to prevent issue with makefile.
-
-Once the above dependencies are installed, you are ready to compile the design.
+1. you have a recent version of Xilinx Vivado installed.  
+.
+You must either install to directory ```/opt/Xilinx``` (to prevent issue with ```./vivado_wrapper```),  
+ie: ```/opt/Xilinx/Vivado/2018.2/```, or  
+place a symbolic link in your ```/opt/Xilinx/``` to your base install location for ```Vivado```,  
+ie: ```ln -s /my_ssd/Vivado /opt/Xilinx/Vivado```.
 
 ## Compiling
+
+Once the above dependencies are installed, you are ready to compile the design.
 
 Overview of the compile process:
 
 1. ```make``` -> downloads submodules, builds all prerequisites, builds all bitstreams.  
 or   
-```make TARGET```, where TARGET is one of: 
-"```bin/nexys4ddr.bit```", 
-"```bin/mega65r2.bit```", 
+```make TARGET```, where TARGET is one of (tested using vivado_v2018.2):  
+"```bin/nexys4.bit```",  
+"```bin/nexys4ddr.bit```" (currently broken),  
+"```bin/nexys4ddr-widget.bit```",  
+"```bin/mega65r1.bit```",  
+"```bin/mega65r2.bit```",  
+"```bin/megaphoner1.bit```",  
 etc...  
 which will build all dependancies and build just the specified bitstream.
 1. ```make USE_LOCAL_CC65=1``` -> as above but does not build the ```./cc65```-submodule.  
