@@ -122,7 +122,10 @@ architecture behavioural of hdmi_i2c is
   -- edge of hdmi_int)
   signal hdmi_int_latch : std_logic := '0';
   signal hdmi_reset_phase : integer := 0;
+  signal hdmi_config_count : unsigned(7 downto 0) := to_unsigned(0,8);
   signal hdmi_int_count : unsigned(7 downto 0) := to_unsigned(0,8);
+  signal hdmi_auto_reset : std_logic := '1';
+  signal hdmi_int_reset : std_logic := '1';
 
   ----------------------------------------------------------------------------------
   -- From:
@@ -270,11 +273,14 @@ begin
   begin
 
     if cs='1' and fastio_read='1' then
-      if fastio_addr(7 downto 0) = "11111100" then
-        -- Show timeout counter
+      if fastio_addr(7 downto 0) = "11111011" then
+        -- Show reset_phase @ $FB
+        fastio_rdata <= to_unsigned(hdmi_reset_phase,8);
+      elsif fastio_addr(7 downto 0) = "11111100" then
+        -- Show timeout counter @ $FC
         fastio_rdata <= to_unsigned(hdmi_reset_count,8);
       elsif fastio_addr(7 downto 0) = "11111101" then
-        -- Show timeout counter
+        -- Show timeout counter @ $FD
         fastio_rdata <= to_unsigned(timeout_counter,8);
       elsif fastio_addr(7 downto 1) /= "1111111" then
         report "reading buffered I2C data";
@@ -306,6 +312,12 @@ begin
       -- Write to registers as required
       if cs='1' and fastio_write='1' then
         -- ADV7511 main map registers
+        if fastio_addr(7 downto 0) = "11111111" then
+          -- WRite @ $FF to enable/disable HDMI reset automatically when not
+          -- connected to monitor
+          hdmi_auto_reset <= fastio_wdata(0);
+          hdmi_int_reset <= fastio_wdata(1);
+        end if;
         if fastio_addr(7 downto 0) = "00000000" then
           hdmi_int_latch <= '1';
           hdmi_reset_phase <= 0;
@@ -339,7 +351,8 @@ begin
         else
           report "Reset busy_count to 0 from " & integer'image(busy_count);
           busy_count <= 0;
-          if hdmi_int_latch = '1' then
+          -- Start resetting again if we received an interrupt during reset
+          if hdmi_int_latch = '1' and hdmi_int_reset='1' then
             hdmi_reset_phase <= 0;
           end if;
         end if;
@@ -364,7 +377,7 @@ begin
               -- indicate that HDMI TX has shut down
               -- Detect if ADV7511 has shut down, and if so, start it back up again.
               -- (This happens whenever HDMI link is lost)
-              if write_job_pending='0' then
+              if write_job_pending='0' and hdmi_auto_reset='1' then
                 hdmi_int_latch <= '1';
                 hdmi_reset_phase <= 0;
               end if;
@@ -430,6 +443,9 @@ begin
           busy_count <= 0;
         else
           -- HDMI reset in progress, so issue next register write command.
+          if hdmi_reset_phase = 1 then
+            hdmi_reset_count <= hdmi_reset_count + 1;
+          end if;
           if reg_value_pairs(hdmi_reset_phase) /= i2c_finished_token and hdmi_reset_phase < 70 then
             report "Writing $" & to_hstring(reg_value_pairs(hdmi_reset_phase)(7 downto 0))
               & " to reg $" & to_hstring(reg_value_pairs(hdmi_reset_phase)(15 downto 8))
@@ -470,7 +486,7 @@ begin
       -- Notice when HDMI needs to be reset
       -- Comes last, so that nothing can derail it, e.g., interrupts mid-way
       -- through initialisation.
-      if hdmi_int = '0' and last_hdmi_int='1' then
+      if hdmi_int = '0' and last_hdmi_int='1' and hdmi_int_reset='1' then
         hdmi_int_latch <= '1';
         hdmi_reset_phase <= 0;
         hdmi_int_count <= hdmi_int_count + 1;
