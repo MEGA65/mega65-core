@@ -12,6 +12,9 @@ create_clock -period 10.000 -name sys_clk_pin -waveform {0.000 5.000} -add [get_
 set_false_path -from [get_cells led*]
 set_false_path -to [get_cells vga*]
 
+## Accept sub-optimal clock placement
+set_property CLOCK_DEDICATED_ROUTE FALSE [get_nets clocks1/CLKOUT0]
+
 
 ## Switches
 set_property -dict {PACKAGE_PIN J15 IOSTANDARD LVCMOS33} [get_ports {sw[0]}]
@@ -111,7 +114,7 @@ set_property -dict {PACKAGE_PIN F6 IOSTANDARD LVCMOS33} [get_ports {jclo[2]}]
 set_property -dict {PACKAGE_PIN J2 IOSTANDARD LVCMOS33} [get_ports {jclo[3]}]
 set_property -dict {PACKAGE_PIN G6 IOSTANDARD LVCMOS33} [get_ports {jclo[4]}]
 set_property -dict { PACKAGE_PIN E7 IOSTANDARD LVCMOS33 } [get_ports {jchi[7]}]
-#set_property -dict { PACKAGE_PIN J3 IOSTANDARD LVCMOS33 } [get_ports {jchi[8]}]
+set_property -dict { PACKAGE_PIN J3 IOSTANDARD LVCMOS33 } [get_ports {jchi[8]}]
 set_property -dict {PACKAGE_PIN J4 IOSTANDARD LVCMOS33} [get_ports {jchi[9]}]
 set_property -dict {PACKAGE_PIN E6 IOSTANDARD LVCMOS33} [get_ports {jchi[10]}]
 
