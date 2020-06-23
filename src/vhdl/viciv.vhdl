@@ -1781,10 +1781,6 @@ begin
 
                                         -- Skip $D02F - $D03F to avoid real C65/C128 programs trying to
                                         -- fiddle with registers in this range.
-                                        -- NEW VIDEO REGISTERS
-                                        -- ($D040 - $D047 is the same as VIC-III DAT ports on C65.
-                                        --  This is tolerable, since the registers most likely used to detect a
-                                        --  C65 are made non-functional.
                                         --  For more C65 register info, see:
                                         -- http://www.zimmers.net/cbmpics/cbm/c65/c65manual.txt
         -- @IO:C65 $D032 - Bitplane enable bits
