@@ -153,6 +153,7 @@ architecture behavioural of hdmi_i2c is
   signal   reg_value         : std_logic_vector(15 downto 0)  := (others => '0');
   signal   i2c_wr_addr       : std_logic_vector(7 downto 0)  := x"7A";
 
+  signal hdmi_reset_compare_byte : unsigned(7 downto 0) := x"00";
   signal hdmi_reset_count : integer := 0;
   signal timeout_counter : integer := 0;
   signal delayed_command : std_logic := '0';
@@ -273,7 +274,10 @@ begin
   begin
 
     if cs='1' and fastio_read='1' then
-      if fastio_addr(7 downto 0) = "11111011" then
+      if fastio_addr(7 downto 0) = "11111010" then
+        -- Show reset compae byte from reg $41 @ $FA
+        fastio_rdata <= hdmi_reset_compare_byte;
+      elsif fastio_addr(7 downto 0) = "11111011" then
         -- Show reset_phase @ $FB
         fastio_rdata <= to_unsigned(hdmi_reset_phase,8);
       elsif fastio_addr(7 downto 0) = "11111100" then
@@ -372,6 +376,7 @@ begin
         if busy_count > 1 then
           bytes(busy_count - 1 - 1 + 0) <= i2c1_rdata;
           if busy_count = (65 + 1 + 1 ) then
+            hdmi_reset_compare_byte <= i2c1_rdata;
             if i2c1_rdata(6) = '1' then
               -- Check for I2C register $41 containing bit 6 ($40) asserted, to
               -- indicate that HDMI TX has shut down
