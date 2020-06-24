@@ -47,18 +47,6 @@ entity container is
 --         kb_io1 : out std_logic;
 --         kb_io2 : in std_logic;
 
---         -- Direct joystick lines
---         fa_left : in std_logic;
---         fa_right : in std_logic;
---         fa_up : in std_logic;
---         fa_down : in std_logic;
---         fa_fire : in std_logic;
---         fb_left : in std_logic;
---         fb_right : in std_logic;
---         fb_up : in std_logic;
---         fb_down : in std_logic;
---         fb_fire : in std_logic;
-
          ---------------------------------------------------------------------------
          -- IO lines to QSPI config flash (used so that we can update bitstreams)
          ---------------------------------------------------------------------------
@@ -87,10 +75,10 @@ entity container is
          sdMOSI : out std_logic;      
          sdMISO : in  std_logic;
 
---         sd2reset : out std_logic;
---         sd2Clock : out std_logic;       -- (sclk_o)
---         sd2MOSI : out std_logic;
---         sd2MISO : in std_logic;
+         sd2reset : out std_logic;
+         sd2Clock : out std_logic;       -- (sclk_o)
+         sd2MOSI : out std_logic;
+         sd2MISO : in std_logic;
 
          -- Left and right headphone port audio
 --         pwm_l : out std_logic;
@@ -154,6 +142,10 @@ architecture Behavioral of container is
   signal cpu_game : std_logic := '1';
   signal cpu_exrom : std_logic := '1';
 
+  signal fpga_sda : std_logic := '1';
+  signal fpga_scl : std_logic := '1';
+  signal pcspeaker_muten : std_logic := '1';
+  
   signal ethclock : std_logic;
   signal cpuclock : std_logic;
   signal clock41 : std_logic;
@@ -327,6 +319,43 @@ architecture Behavioral of container is
   signal eth_rxdv : std_logic;
   signal eth_interrupt : std_logic;
   signal eth_clock : std_logic;  
+
+         -- Direct joystick lines
+  signal fa_left : std_logic := '1';
+  signal fa_right : std_logic := '1';
+  signal fa_up : std_logic := '1';
+  signal fa_down : std_logic := '1';
+  signal fa_fire : std_logic := '1';
+  signal fb_left : std_logic := '1';
+  signal fb_right : std_logic := '1';
+  signal fb_up : std_logic := '1';
+  signal fb_down : std_logic := '1';
+  signal fb_fire : std_logic := '1';
+
+  signal iec_clk_en : std_logic := 'Z';
+  signal iec_data_en : std_logic := 'Z';
+  signal iec_data_o : std_logic := 'Z';
+  signal iec_reset : std_logic := 'Z';
+  signal iec_clk_o : std_logic := 'Z';
+  signal iec_data_i : std_logic := '1';
+  signal iec_clk_i : std_logic := '1';
+  signal iec_atn : std_logic := 'Z';  
+
+  signal vgared : UNSIGNED (7 downto 0);
+  signal vgagreen : UNSIGNED (7 downto 0);
+  signal vgablue : UNSIGNED (7 downto 0);
+
+  signal hdmi_vsync : STD_LOGIC;
+  signal hdmi_hsync : STD_LOGIC;
+  signal hdmired : UNSIGNED (7 downto 0);
+  signal hdmigreen : UNSIGNED (7 downto 0);
+  signal hdmiblue : UNSIGNED (7 downto 0);
+  signal hdmi_int : std_logic;
+  signal hdmi_spdif : std_logic := '0';
+  signal hdmi_scl : std_logic;
+  signal hdmi_sda : std_logic;
+  signal vsync : std_logic;
+  signal hsync : std_logic;
   
 begin
 
@@ -693,14 +722,14 @@ begin
 
   process (pixelclock) is
   begin
-    vdac_sync_n <= '0';  -- no sync on green
-    vdac_blank_n <= '1'; -- was: not (v_hsync or v_vsync); 
+--    vdac_sync_n <= '0';  -- no sync on green
+--    vdac_blank_n <= '1'; -- was: not (v_hsync or v_vsync); 
 
     -- VGA output at full pixel clock
-    vdac_clk <= pixelclock;
+--    vdac_clk <= pixelclock;
 
     -- HDMI output at 27MHz
-    hdmi_clk <= clock27;
+--    hdmi_clk <= clock27;
 
     -- Ethernet clock at 50MHz
     eth_clock <= ethclock;
@@ -790,9 +819,9 @@ begin
         fb_poty <= iec_clk_i;
       end if;
 
-      pwm_l <= pwm_l_drive;
-      pwm_r <= pwm_r_drive;
-      pcspeaker_left <= pcspeaker_left_drive;
+--      pwm_l <= pwm_l_drive;
+--      pwm_r <= pwm_r_drive;
+--      pcspeaker_left <= pcspeaker_left_drive;
       
     end if;
 

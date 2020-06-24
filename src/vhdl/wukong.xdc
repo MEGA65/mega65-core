@@ -10,7 +10,9 @@ set_property BITSTREAM.CONFIG.CONFIGRATE 50 [current_design]
 create_clock -period 20.000 [get_ports sys_clk]
 set_property IOSTANDARD LVCMOS33 [get_ports sys_clk]
 set_property PACKAGE_PIN M22 [get_ports sys_clk]
-set_property CLOCK_DEDICATED_ROUTE FALSE [get_nets {video_pll_m0/inst/clk_in1_video_pll}]
+
+set_property CLOCK_DEDICATED_ROUTE FALSE [get_nets clocks1/clock124mhz]
+
 ############## Switches and LEDs ##############
 set_property PACKAGE_PIN H7 [get_ports btncpureset]
 set_property IOSTANDARD LVCMOS33 [get_ports btncpureset]
@@ -32,6 +34,15 @@ set_property PACKAGE_PIN A4 [get_ports sdmosi]
 set_property IOSTANDARD LVCMOS33 [get_ports sdreset]
 set_property PACKAGE_PIN A5 [get_ports sdmiso]
 set_property IOSTANDARD LVCMOS33 [get_ports sdreset]
+
+set_property PACKAGE_PIN J4 [get_ports sd2reset]
+set_property IOSTANDARD LVCMOS33 [get_ports sd2reset]
+set_property PACKAGE_PIN G4 [get_ports sd2clock]
+set_property IOSTANDARD LVCMOS33 [get_ports sd2reset]
+set_property PACKAGE_PIN B4 [get_ports sd2mosi]
+set_property IOSTANDARD LVCMOS33 [get_ports sd2reset]
+set_property PACKAGE_PIN B5 [get_ports sd2miso]
+set_property IOSTANDARD LVCMOS33 [get_ports sd2reset]
 
 
 ############## USB Serial interface ###########
