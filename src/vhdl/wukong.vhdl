@@ -33,7 +33,7 @@ library UNISIM;
 use UNISIM.VComponents.all;
 
 entity container is
-  Port ( SYS_CLK : STD_LOGIC;         
+  Port ( CLK_IN : STD_LOGIC;         
          btnCpuReset : in  STD_LOGIC;
 --         irq : in  STD_LOGIC;
 --         nmi : in  STD_LOGIC;
@@ -75,7 +75,7 @@ entity container is
          sdMOSI : out std_logic;      
          sdMISO : in  std_logic;
 
-         sd2reset : out std_logic;
+         sd2Reset : out std_logic;
          sd2Clock : out std_logic;       -- (sclk_o)
          sd2MOSI : out std_logic;
          sd2MISO : in std_logic;
@@ -131,7 +131,6 @@ end container;
 
 architecture Behavioral of container is
 
-  signal clk_in : std_logic := '1';
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
   signal irq_combined : std_logic := '1';
@@ -401,13 +400,8 @@ begin
   -- clocks, so that Vivado shouldn't try to meet timing closure in the (already
   -- protected) domain crossings used for those.
 
-  -- Wukong board has only 50MHz clock. So for simplicity, we double it first.
-  clock50: entity work.clock50to100
-    port map (sys_clk => sys_clk,
-              clock100 => clk_in
-              );  
   
-  clocks1: entity work.clocking
+  clocks1: entity work.clocking50mhz
     port map ( clk_in    => CLK_IN,
                clock27   => clock27,    --   27.083 MHz
                clock41   => cpuclock,   --   40.625 MHz
@@ -513,7 +507,8 @@ begin
       expansionram_data_ready_strobe => '1'
 
       );
-  
+
+  m0: if false generate
   machine0: entity work.machine
     generic map (cpu_frequency => 40500000,
                  target => wukong,
@@ -719,7 +714,8 @@ begin
       btn => (others => '1')
          
       );
-
+  end generate;
+  
   process (pixelclock) is
   begin
 --    vdac_sync_n <= '0';  -- no sync on green
