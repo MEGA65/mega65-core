@@ -508,7 +508,7 @@ begin
 
       );
 
-  m0: if false generate
+  m0: if true generate
   machine0: entity work.machine
     generic map (cpu_frequency => 40500000,
                  target => wukong,
