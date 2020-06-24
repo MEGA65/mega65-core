@@ -9,7 +9,8 @@ package cputypes is
     simulation,
     mega65r1, mega65r2,
     megaphoner1,
-    nexys4, nexys4ddr, nexys4ddr_widget
+    nexys4, nexys4ddr, nexys4ddr_widget,
+    wukong
     );
   
   type sample_vector_t is array(0 to 15) of signed(15 downto 0);
