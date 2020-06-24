@@ -34,7 +34,7 @@ use UNISIM.VComponents.all;
 
 entity container is
   Port ( SYS_CLK : STD_LOGIC;         
---         btnCpuReset : in  STD_LOGIC;
+         btnCpuReset : in  STD_LOGIC;
 --         irq : in  STD_LOGIC;
 --         nmi : in  STD_LOGIC;
          
@@ -124,6 +124,7 @@ entity container is
 --         f_diskchanged : in std_logic;
 
          led : out std_logic;
+         led2 : out std_logic;
 
          ----------------------------------------------------------------------
          -- I2C on-board peripherals
@@ -290,6 +291,32 @@ architecture Behavioral of container is
 
   signal fm_left : signed(15 downto 0);
   signal fm_right : signed(15 downto 0);
+
+  signal cart_ctrl_dir : std_logic := 'Z';
+  signal cart_haddr_dir : std_logic := 'Z';
+  signal cart_laddr_dir : std_logic := 'Z';
+  signal cart_data_dir : std_logic := 'Z';
+  signal cart_phi2 : std_logic := 'Z';
+  signal cart_dotclock : std_logic := 'Z';
+  signal cart_reset : std_logic := 'Z';
+
+  signal cart_nmi : std_logic := 'Z';
+  signal cart_irq : std_logic := 'Z';
+  signal cart_dma : std_logic := 'Z';
+
+  signal cart_exrom : std_logic := 'Z';
+  signal cart_ba : std_logic := 'Z';
+  signal cart_rw : std_logic := 'Z';
+  signal cart_roml : std_logic := 'Z';
+  signal cart_romh : std_logic := 'Z';
+  signal cart_io1 : std_logic := 'Z';
+  signal cart_game : std_logic := 'Z';
+  signal cart_io2 : std_logic := 'Z';
+
+  signal cart_d : unsigned(7 downto 0) := (others => 'Z');
+  signal cart_d_read : unsigned(7 downto 0) := (others => 'Z');
+  signal cart_a : unsigned(15 downto 0) := (others => 'Z');
+  
   
 begin
 
@@ -376,7 +403,7 @@ begin
             
 --      kio8 => kb_io0,
 --      kio9 => kb_io1,
---      kio10 => kb_io2,
+      kio10 => 'Z',
 
       matrix_col => widget_matrix_col,
       matrix_col_idx => widget_matrix_col_idx,
@@ -415,7 +442,8 @@ begin
       
       cart_d_in => cart_d_read,
       cart_d => cart_d,
-      cart_a => cart_a      
+      cart_a => cart_a,
+      
       irq_out => irq_out,
       nmi_out => nmi_out,
       
@@ -682,6 +710,9 @@ begin
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then
 
+      segled_counter <= segled_counter + 1;
+      led2 <= segled_counter(24);
+      
 --      led <= cart_exrom;
 --      led <= flopled_drive;
       

@@ -11,6 +11,23 @@ create_clock -period 20.000 [get_ports sys_clk]
 set_property IOSTANDARD LVCMOS33 [get_ports sys_clk]
 set_property PACKAGE_PIN M22 [get_ports sys_clk]
 set_property CLOCK_DEDICATED_ROUTE FALSE [get_nets {video_pll_m0/inst/clk_in1_video_pll}]
+############## Switches and LEDs ##############
+set_property PACKAGE_PIN H7 [get_ports btncpureset]
+set_property IOSTANDARD LVCMOS33 [get_ports btncpureset]
+#set_property PACKAGE_PIN J8 [get_ports KEY1]
+#set_property IOSTANDARD LVCMOS33 [get_ports KEY1]
+set_property PACKAGE_PIN J6 [get_ports LED]
+set_property IOSTANDARD LVCMOS33 [get_ports LED]
+set_property PACKAGE_PIN H6 [get_ports LED2]
+set_property IOSTANDARD LVCMOS33 [get_ports LED2]
+
+############## USB Serial interface ###########
+set_property PACKAGE_PIN F3 [get_ports UART_TXD]
+set_property IOSTANDARD LVCMOS33 [get_ports UART_TXD]
+set_property PACKAGE_PIN E3 [get_ports RsRx]
+set_property IOSTANDARD LVCMOS33 [get_ports RsRx]
+
+
 ############## HDMIOUT define##################
 set_property PACKAGE_PIN C4 [get_ports TMDS_clk_n]
 set_property IOSTANDARD TMDS_33 [get_ports TMDS_clk_n]
