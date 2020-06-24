@@ -82,10 +82,10 @@ entity container is
          -------------------------------------------------------------------------
          -- Lines for the SDcard interface itself
          -------------------------------------------------------------------------
---         sdReset : out std_logic := '0';  -- must be 0 to power SD controller (cs_bo)
---         sdClock : out std_logic;       -- (sclk_o)
---         sdMOSI : out std_logic;      
---         sdMISO : in  std_logic;
+         sdReset : out std_logic := '0';  -- must be 0 to power SD controller (cs_bo)
+         sdClock : out std_logic;       -- (sclk_o)
+         sdMOSI : out std_logic;      
+         sdMISO : in  std_logic;
 
 --         sd2reset : out std_logic;
 --         sd2Clock : out std_logic;       -- (sclk_o)
@@ -316,7 +316,17 @@ architecture Behavioral of container is
   signal cart_d : unsigned(7 downto 0) := (others => 'Z');
   signal cart_d_read : unsigned(7 downto 0) := (others => 'Z');
   signal cart_a : unsigned(15 downto 0) := (others => 'Z');
-  
+
+  signal eth_mdio : std_logic;
+  signal eth_mdc : std_logic;
+  signal eth_reset : std_logic;
+  signal eth_rxd : unsigned(1 downto 0);
+  signal eth_txd : unsigned(1 downto 0);
+  signal eth_rxer : std_logic;
+  signal eth_txen : std_logic;
+  signal eth_rxdv : std_logic;
+  signal eth_interrupt : std_logic;
+  signal eth_clock : std_logic;  
   
 begin
 

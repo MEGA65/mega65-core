@@ -21,6 +21,19 @@ set_property IOSTANDARD LVCMOS33 [get_ports LED]
 set_property PACKAGE_PIN H6 [get_ports LED2]
 set_property IOSTANDARD LVCMOS33 [get_ports LED2]
 
+############## SD Card Interface ##############
+### XXX PGS Pin assignments are almost surely wrong
+###         for the PMOD adapter we are using.
+set_property PACKAGE_PIN H4 [get_ports sdreset]
+set_property IOSTANDARD LVCMOS33 [get_ports sdreset]
+set_property PACKAGE_PIN F4 [get_ports sdclock]
+set_property IOSTANDARD LVCMOS33 [get_ports sdreset]
+set_property PACKAGE_PIN A4 [get_ports sdmosi]
+set_property IOSTANDARD LVCMOS33 [get_ports sdreset]
+set_property PACKAGE_PIN A5 [get_ports sdmiso]
+set_property IOSTANDARD LVCMOS33 [get_ports sdreset]
+
+
 ############## USB Serial interface ###########
 set_property PACKAGE_PIN F3 [get_ports UART_TXD]
 set_property IOSTANDARD LVCMOS33 [get_ports UART_TXD]
