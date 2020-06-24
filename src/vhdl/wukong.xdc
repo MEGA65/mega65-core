@@ -32,8 +32,8 @@ set_property PULLUP true [get_ports {qspidb[3]}]
 
 
 ############## Switches and LEDs ##############
-set_property PACKAGE_PIN H7 [get_ports btncpureset]
-set_property IOSTANDARD LVCMOS33 [get_ports btncpureset]
+set_property PACKAGE_PIN H7 [get_ports btnCpuReset]
+set_property IOSTANDARD LVCMOS33 [get_ports btnCpuReset]
 #set_property PACKAGE_PIN J8 [get_ports KEY1]
 #set_property IOSTANDARD LVCMOS33 [get_ports KEY1]
 set_property PACKAGE_PIN J6 [get_ports led]
