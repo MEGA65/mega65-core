@@ -33,7 +33,7 @@ library UNISIM;
 use UNISIM.VComponents.all;
 
 entity container is
-  Port ( CLK_IN : STD_LOGIC;         
+  Port ( SYS_CLK : STD_LOGIC;         
 --         btnCpuReset : in  STD_LOGIC;
 --         irq : in  STD_LOGIC;
 --         nmi : in  STD_LOGIC;
@@ -142,6 +142,7 @@ end container;
 
 architecture Behavioral of container is
 
+  signal clk_in : std_logic := '1';
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
   signal irq_combined : std_logic := '1';
@@ -373,9 +374,9 @@ begin
       flopled => flopled_drive,
       flopmotor => flopmotor_drive,
             
-      kio8 => kb_io0,
-      kio9 => kb_io1,
-      kio10 => kb_io2,
+--      kio8 => kb_io0,
+--      kio9 => kb_io1,
+--      kio10 => kb_io2,
 
       matrix_col => widget_matrix_col,
       matrix_col_idx => widget_matrix_col_idx,
@@ -399,6 +400,22 @@ begin
       cpu_game => cpu_game,
       sector_buffer_mapped => sector_buffer_mapped,
 
+      cart_nmi => '1',
+      cart_irq => '1',
+      cart_dma => '1',
+      
+      cart_exrom => cart_exrom,
+      cart_ba => cart_ba,
+      cart_rw => cart_rw,
+      cart_roml => cart_roml,
+      cart_romh => cart_romh,
+      cart_io1 => cart_io1,
+      cart_game => cart_game,
+      cart_io2 => cart_io2,
+      
+      cart_d_in => cart_d_read,
+      cart_d => cart_d,
+      cart_a => cart_a      
       irq_out => irq_out,
       nmi_out => nmi_out,
       
@@ -425,7 +442,8 @@ begin
       ----------------------------------------------------------------------
       -- Expansion RAM interface (upto 127MB)
       ----------------------------------------------------------------------
-      expansionram_busy => '1'
+      expansionram_busy => '1',
+      expansionram_data_ready_strobe => '1'
 
       );
   
@@ -444,10 +462,10 @@ begin
       clock27 => clock27,
       clock50mhz      => ethclock,
 
-      hyper_addr => hyper_addr,
-      hyper_request_toggle => hyper_request_toggle,
-      hyper_data => hyper_data,
-      hyper_data_strobe => hyper_data_strobe,
+--      hyper_addr => hyper_addr,
+--      hyper_request_toggle => hyper_request_toggle,
+      hyper_data => (others => 'Z'),
+      hyper_data_strobe => '1',
       
       fast_key => fastkey,
       
@@ -475,8 +493,8 @@ begin
       vgared          => v_red,
       vgagreen        => v_green,
       vgablue         => v_blue,
-      hdmi_sda        => hdmi_sda,
-      hdmi_scl        => hdmi_scl,
+--      hdmi_sda        => hdmi_sda,
+--      hdmi_scl        => hdmi_scl,
       hpd_a           => hpd_a,
       lcd_dataenable => lcd_dataenable,
       hdmi_dataenable =>  hdmi_dataenable,

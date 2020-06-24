@@ -149,6 +149,31 @@ architecture behavioural of slow_devices is
   signal cart_access_accept_strobe : std_logic;
   signal cart_access_read_strobe : std_logic;
 
+  signal cart_ctrl_dir : std_logic := 'Z';
+  signal cart_haddr_dir : std_logic := 'Z';
+  signal cart_laddr_dir : std_logic := 'Z';
+  signal cart_data_dir : std_logic := 'Z';
+  signal cart_phi2 : std_logic := 'Z';
+  signal cart_dotclock : std_logic := 'Z';
+  signal cart_reset : std_logic := 'Z';
+
+  signal cart_nmi : std_logic := 'Z';
+  signal cart_irq : std_logic := 'Z';
+  signal cart_dma : std_logic := 'Z';
+
+  signal cart_exrom : std_logic := 'Z';
+  signal cart_ba : std_logic := 'Z';
+  signal cart_rw : std_logic := 'Z';
+  signal cart_roml : std_logic := 'Z';
+  signal cart_romh : std_logic := 'Z';
+  signal cart_io1 : std_logic := 'Z';
+  signal cart_game : std_logic := 'Z';
+  signal cart_io2 : std_logic := 'Z';
+
+  signal cart_d : unsigned(7 downto 0) := (others => 'Z');
+  signal cart_d_read : unsigned(7 downto 0) := (others => 'Z');
+  signal cart_a : unsigned(15 downto 0) := (others => 'Z');
+  
   signal slow_access_last_request_toggle : std_logic := '1';
 
   signal expansionram_eternally_busy : std_logic := '1';
