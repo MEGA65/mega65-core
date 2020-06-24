@@ -523,7 +523,7 @@ begin
       vgablue         => v_blue,
 --      hdmi_sda        => hdmi_sda,
 --      hdmi_scl        => hdmi_scl,
-      hpd_a           => hpd_a,
+--      hpd_a           => hpd_a,
       lcd_dataenable => lcd_dataenable,
       hdmi_dataenable =>  hdmi_dataenable,
       
@@ -568,20 +568,12 @@ begin
       pot_drain => pot_drain,
       pot_via_iec => pot_via_iec,
 
-    f_density => f_density,
-    f_motor => f_motor,
-    f_select => f_select,
-    f_stepdir => f_stepdir,
-    f_step => f_step,
-    f_wdata => f_wdata,
-    f_wgate => f_wgate,
-    f_side1 => f_side1,
-    f_index => f_index,
-    f_track0 => f_track0,
-    f_writeprotect => f_writeprotect,
-    f_rdata => f_rdata,
-    f_diskchanged => f_diskchanged,
-      
+      f_index => '1',
+      f_track0 => '1',
+      f_writeprotect => '1',
+      f_rdata => '1',
+      f_diskchanged => '1',
+
       ---------------------------------------------------------------------------
       -- IO lines to the ethernet controller
       ---------------------------------------------------------------------------
