@@ -114,6 +114,11 @@ entity container is
          led : out std_logic;
          led2 : out std_logic;
 
+         TMDS_data_p : out STD_LOGIC_VECTOR(2 downto 0);
+         TMDS_data_n : out STD_LOGIC_VECTOR(2 downto 0);
+         TMDS_clk_p : out STD_LOGIC;
+         TMDS_clk_n : out STD_LOGIC;
+         
          ----------------------------------------------------------------------
          -- I2C on-board peripherals
          ----------------------------------------------------------------------
@@ -344,8 +349,6 @@ architecture Behavioral of container is
   signal vgagreen : UNSIGNED (7 downto 0);
   signal vgablue : UNSIGNED (7 downto 0);
 
-  signal hdmi_vsync : STD_LOGIC;
-  signal hdmi_hsync : STD_LOGIC;
   signal hdmired : UNSIGNED (7 downto 0);
   signal hdmigreen : UNSIGNED (7 downto 0);
   signal hdmiblue : UNSIGNED (7 downto 0);
@@ -414,6 +417,44 @@ begin
                clock163  => clock162,   -- 162.5    MHz
                clock325  => clock325    -- 325      MHz
                );
+
+OBUFDS_blue  : OBUFDS port map ( O  => TMDS_data_p(0), OB => TMDS_data_n(0), I  => blue_s(0)  );
+OBUFDS_red   : OBUFDS port map ( O  => TMDS_data_p(1), OB => TMDS_data_n(1), I  => green_s(0) );
+OBUFDS_green : OBUFDS port map ( O  => TMDS_data_p(2), OB => TMDS_data_n(2), I  => red_s(0)   );
+OBUFDS_clock : OBUFDS port map ( O  => TMDS_clk_p, OB => TMDS_clk_n, I  => clock_s(0) );
+  
+  Inst_dvid: entity work.dvid PORT MAP(
+      clk       => clock135p,
+      clk_n     => clock135n, 
+      clk_pixel => clock27_int,
+      clk_pixel_en => true,
+      
+      red_p     => v_red,
+      green_p   => v_green,
+      blue_p    => v_blue,
+      blank     => hdmi_dataenable,
+      hsync     => v_vga_hsync,
+      vsync     => v_vsync,
+
+      EnhancedMode => true,
+      IsProgressive => true,
+      IsPAL => true,
+      Is30kHz => true,
+      Limited_Range => true,
+      Widescreen => false,
+
+      -- Audio input for HDMI audio
+      HDMI_audio_L => audio_left,
+      HDMI_audio_R => audio_right,
+      HDMI_LeftEnable => sample_ready,
+      HDMI_RightEnable => sample_ready,
+      
+      -- outputs to TMDS drivers
+      red_s     => red_s,
+      green_s   => green_s,
+      blue_s    => blue_s,
+      clock_s   => clock_s
+   );
 
   fpgatemp0: entity work.fpgatemp
     generic map (DELAY_CYCLES => 480)
