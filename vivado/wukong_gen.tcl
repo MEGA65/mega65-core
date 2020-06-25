@@ -192,6 +192,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/ddrwrapper.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/wukong.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/dvid.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/TMDS_encoder.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/dvienc_defs.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ddr_out_emard.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/keyboard_complex.vhdl"]"\
@@ -613,6 +614,10 @@ set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
 set file "vhdl/dvid.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/TMDS_encoder.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
