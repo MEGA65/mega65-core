@@ -370,6 +370,11 @@ architecture Behavioral of container is
   signal sample_ready : boolean := false;
   signal audio_counter_interval : unsigned(23 downto 0) := to_unsigned(clock_frequency/target_sample_rate,24);
 
+  signal hdmi_is_progressive : boolean := true;
+  signal hdmi_is_pal : boolean := true;
+  signal hdmi_is_30khz : boolean := true;
+  signal hdmi_is_limited : boolean := true;
+  signal hdmi_is_widescreen : boolean := true;
   
 begin
 
@@ -449,11 +454,11 @@ OBUFDS_clock : OBUFDS port map ( O  => TMDS_clk_p, OB => TMDS_clk_n, I  => clock
       vsync     => v_vsync,
 
       EnhancedMode => true,
-      IsProgressive => true,
-      IsPAL => true,
-      Is30kHz => true,
-      Limited_Range => true,
-      Widescreen => false,
+      IsProgressive => hdmi_is_progressive,
+      IsPAL => hdmi_is_pal,
+      Is30kHz => hdmi_is_30khz,
+      Limited_Range => hdmi_is_limited,
+      Widescreen => hdmi_is_widescreen,
 
       -- Audio input for HDMI audio
       HDMI_audio_L => audio_left(19 downto 4),
@@ -890,13 +895,40 @@ OBUFDS_clock : OBUFDS port map ( O  => TMDS_clk_p, OB => TMDS_clk_n, I  => clock
       h_audio_right(19) <= not audio_right(19);
       h_audio_left(19) <= not audio_left(19);
     end if;
-
+    
     -- Make SPDIF audio switchable for debugging HDMI output
     if portp(0) = '1' then
       hdmi_spdif <= spdif_44100;
     else
       hdmi_spdif <= '0';
-    end if;      
+    end if;
+
+    if portp(3)='1' then
+      hdmi_is_progressive <= true;
+    else
+      hdmi_is_progressive <= false;
+    end if;
+    if portp(4)='1' then
+      hdmi_is_pal <= true;
+    else
+      hdmi_is_pal <= false;
+    end if;
+    if portp(5)='1' then
+      hdmi_is_30khz <= true;
+    else
+      hdmi_is_30khz <= false;
+    end if;
+    if portp(6)='1' then
+      hdmi_is_limited <= true;
+    else
+      hdmi_is_limited <= false;
+    end if;
+    if portp(7)='1' then
+      hdmi_is_widescreen <= true;
+    else
+      hdmi_is_widescreen <= false;
+    end if;
+    
 
     
     if rising_edge(pixelclock) then
