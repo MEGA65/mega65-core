@@ -192,6 +192,11 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/ddrwrapper.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/wukong.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/dvid.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/aux_ecc1.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/aux_ecc2.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/aux_encoder.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/edvi_ucode.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/infoframe_rom_800x600_60hz_40M_48k.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/TMDS_encoder.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/dvienc_defs.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ddr_out_emard.vhdl"]"\
@@ -617,7 +622,27 @@ set file "vhdl/dvid.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
+set file "vhdl/aux_ecc1.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/aux_ecc2.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/aux_encoder.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/edvi_ucode.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
 set file "vhdl/TMDS_encoder.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/infoframe_rom_800x600_60hz_40M_48k.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
