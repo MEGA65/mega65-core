@@ -64,9 +64,9 @@ set_property IOSTANDARD LVCMOS33 [get_ports sd2MISO]
 
 
 ############## USB Serial interface ###########
-set_property PACKAGE_PIN F3 [get_ports UART_TXD]
+set_property PACKAGE_PIN E3 [get_ports UART_TXD]
 set_property IOSTANDARD LVCMOS33 [get_ports UART_TXD]
-set_property PACKAGE_PIN E3 [get_ports RsRx]
+set_property PACKAGE_PIN F3 [get_ports RsRx]
 set_property IOSTANDARD LVCMOS33 [get_ports RsRx]
 
 
