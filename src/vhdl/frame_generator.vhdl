@@ -83,6 +83,8 @@ entity frame_generator is
     lcd_inletterbox : out std_logic := '0';
     vga_inletterbox : out std_logic := '0';
     vga_hsync : out std_logic := '0';
+
+    vga_blank : out std_logic := '0';
     
     -- For video outputs that are wider
     -- (Typically the 800x480 LCD panel on the MEGAphone)
@@ -170,6 +172,8 @@ begin
 
     if rising_edge(clock81) then
 
+      vga_blank <= not narrow_dataenable_driver;
+      
       x_zero <= x_zero_driver;
       y_zero <= y_zero_driver;
       

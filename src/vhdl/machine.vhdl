@@ -129,6 +129,7 @@ entity machine is
          lcd_hsync : out std_logic := '0';
          lcd_vsync : out std_logic := '0';
          pal50_select_out : out std_logic := '0';
+         vga_blank : out std_logic := '0';
          
          vgared : out  UNSIGNED (7 downto 0) := x"00";
          vgagreen : out  UNSIGNED (7 downto 0) := x"00";
@@ -1120,7 +1121,8 @@ begin
                
       hsync => hdmi_hsync,
       vsync => vsync,  -- for HDMI
-      vga_hsync => vga_hsync,      -- for VGA          
+      vga_hsync => vga_hsync,      -- for VGA
+      vga_blank => vga_blank,
 
       -- And the variations on those signals for the LCD display
       lcd_hsync => lcd_hsync,               

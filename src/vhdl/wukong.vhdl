@@ -37,11 +37,14 @@ entity container is
          btnCpuReset : in  STD_LOGIC;
 --         irq : in  STD_LOGIC;
 --         nmi : in  STD_LOGIC;
+
+
+         KEY1 : in std_logic;
          
          ----------------------------------------------------------------------
          -- keyboard/joystick 
-         ----------------------------------------------------------------------
-
+         ---------------------------------------------------------------------
+         
 --         -- Interface for physical keyboard
 --         kb_io0 : out std_logic;
 --         kb_io1 : out std_logic;
@@ -277,7 +280,7 @@ architecture Behavioral of container is
   signal spdif_44100 : std_logic;
   
   signal porto : unsigned(7 downto 0);
-  signal portp : unsigned(7 downto 0);
+  signal portp : unsigned(7 downto 0) := x"FB";
 
   signal qspi_clock : std_logic;
 
@@ -375,6 +378,8 @@ architecture Behavioral of container is
   signal hdmi_is_30khz : boolean := true;
   signal hdmi_is_limited : boolean := true;
   signal hdmi_is_widescreen : boolean := true;
+
+  signal vga_blank : std_logic := '0';
   
 begin
 
@@ -423,14 +428,14 @@ begin
   
   clocks1: entity work.clocking50mhz
     port map ( clk_in    => CLK_IN,
-               clock27   => clock27,    --   27.083 MHz
-               clock41   => cpuclock,   --   40.625 MHz
+               clock27   => clock27,    --   27 MHz
+               clock41   => cpuclock,   --   40.5 MHz
                clock50   => ethclock,   --   50     MHz
-               clock81p  => pixelclock, --   81.25  MHz
-               clock81n  => clock81n,   --   81.25  MHz
+               clock81p  => pixelclock, --   81  MHz
+               clock81n  => clock81n,   --   81  MHz
                clock100  => clock100,   --  100     MHz
-               clock135p => clock135p,  --  135.417 MHz
-               clock135n => clock135n,  --  135.417 MHz
+               clock135p => clock135p,  --  135 MHz
+               clock135n => clock135n,  --  135 MHz
                clock163  => clock162,   -- 162.5    MHz
                clock325  => clock325    -- 325      MHz
                );
@@ -449,7 +454,7 @@ OBUFDS_clock : OBUFDS port map ( O  => TMDS_clk_p, OB => TMDS_clk_n, I  => clock
       red_p     => std_logic_vector(v_red),
       green_p   => std_logic_vector(v_green),
       blue_p    => std_logic_vector(v_blue),
-      blank     => hdmi_dataenable,
+      blank     => vga_blank,
       hsync     => v_vga_hsync,
       vsync     => v_vsync,
 
@@ -566,7 +571,35 @@ OBUFDS_clock : OBUFDS port map ( O  => TMDS_clk_p, OB => TMDS_clk_n, I  => clock
 
       );
 
-  m0: if true generate
+  pd0: if true generate
+    pixeldriver0: entity work.pixel_driver port map (
+      cpuclock => clock41,
+      clock81 => pixelclock,
+      clock162 => clock162,
+      clock27 => clock27,
+
+      pal50_select => KEY1,
+      vga60_select => '0',
+      test_pattern_enable => '1',
+      hsync_invert => '0',
+      vsync_invert => '0',
+
+      red_i => to_unsigned(0,8),
+      green_i => to_unsigned(0,8),
+      blue_i => to_unsigned(0,8),
+
+      std_logic_vector(red_o) => v_red,
+      std_logic_vector(green_o) => v_green,
+      std_logic_vector(blue_o) => v_blue,
+      vga_hsync => v_vga_hsync,
+      vsync => v_vsync,
+      vga_blank   => vga_blank
+
+  );
+
+  end generate;
+  
+  m0: if false generate
   machine0: entity work.machine
     generic map (cpu_frequency => 40500000,
                  target => wukong,
@@ -607,7 +640,8 @@ OBUFDS_clock : OBUFDS port map ( O  => TMDS_clk_p, OB => TMDS_clk_n, I  => clock
       fm_right => fm_right,
       
       no_hyppo => '0',
-      
+
+      vga_blank => vga_blank,
       vsync           => v_vsync,
       vga_hsync       => v_vga_hsync,
       vgared          => v_red,

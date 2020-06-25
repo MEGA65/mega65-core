@@ -47,6 +47,7 @@ entity pixel_driver is
     -- Invert hsync or vsync signals if '1'
     hsync_invert : in std_logic;
     vsync_invert : in std_logic;
+    vga_blank : out std_logic;
 
     -- ~1mhz clock for CPU and other parts, derived directly from the video clock
     phi_1mhz_out : out std_logic;
@@ -151,6 +152,10 @@ architecture greco_roman of pixel_driver is
   signal vga_hsync_pal50 : std_logic := '0';
   signal vga_hsync_ntsc60 : std_logic := '0';
   signal vga_hsync_vga60 : std_logic := '0';
+
+  signal vga_blank_pal50 : std_logic := '0';
+  signal vga_blank_ntsc60 : std_logic := '0';
+  signal vga_blank_vga60 : std_logic := '0';
   
   signal test_pattern_red : unsigned(7 downto 0) := x"00";
   signal test_pattern_green : unsigned(7 downto 0) := x"00";
@@ -285,6 +290,8 @@ begin
                lcd_inletterbox => lcd_inletterbox_pal50,
                vga_inletterbox => vga_inletterbox_pal50,
 
+               vga_blank => vga_blank_pal50,
+               
                -- 80MHz facing signals for the VIC-IV
                x_zero => x_zero_pal50,
                y_zero => y_zero_pal50,
@@ -343,6 +350,8 @@ begin
                lcd_inletterbox => lcd_inletterbox_ntsc60,
                vga_inletterbox => vga_inletterbox_ntsc60,
 
+               vga_blank => vga_blank_ntsc60,
+               
                -- 80MHz facing signals for VIC-IV
                x_zero => x_zero_ntsc60,
                y_zero => y_zero_ntsc60,
@@ -406,6 +415,8 @@ begin
                lcd_inletterbox => lcd_inletterbox_vga60,
                vga_inletterbox => vga_inletterbox_vga60,
 
+               vga_blank => vga_blank_vga60,
+               
                -- 80MHz facing signals for VIC-IV
                x_zero => x_zero_vga60,
                y_zero => y_zero_vga60,
@@ -439,6 +450,10 @@ begin
                lcd_vsync_vga60 when vga60_select_internal='1'
                else lcd_vsync_ntsc60;
 
+  vga_blank <=       vga_blank_pal50 when pal50_select_internal='1' else
+                     vga_blank_vga60 when vga60_select_internal='1'
+                     else vga_blank_ntsc60;
+  
   fullwidth_dataenable <= fullwidth_dataenable_pal50 when pal50_select_internal='1' else
                  fullwidth_dataenable_vga60 when vga60_select_internal='1'
                  else fullwidth_dataenable_ntsc60;
