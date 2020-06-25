@@ -566,7 +566,7 @@ OBUFDS_clock : OBUFDS port map ( O  => TMDS_clk_p, OB => TMDS_clk_n, I  => clock
 
       );
 
-  m0: if false generate
+  m0: if true generate
   machine0: entity work.machine
     generic map (cpu_frequency => 40500000,
                  target => wukong,
@@ -795,9 +795,6 @@ OBUFDS_clock : OBUFDS port map ( O  => TMDS_clk_p, OB => TMDS_clk_n, I  => clock
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then
 
-    -- XXX Test uart interface loopback
-      UART_TXD <= RsRx;
-      
       -- Strobe sample_ready at 48KHz
       if audio_counter /= to_integer(audio_counter_interval) then
         audio_counter <= audio_counter + 1;
