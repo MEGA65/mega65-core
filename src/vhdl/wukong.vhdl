@@ -358,6 +358,17 @@ architecture Behavioral of container is
   signal hdmi_sda : std_logic;
   signal vsync : std_logic;
   signal hsync : std_logic;
+
+  signal red_s   : std_logic_vector(0 downto 0);
+  signal green_s : std_logic_vector(0 downto 0);
+  signal blue_s  : std_logic_vector(0 downto 0);
+  signal clock_s : std_logic_vector(0 downto 0);
+
+  signal audio_counter : integer := 0;
+  signal sample_ready : boolean := false;
+  constant clock_frequency : integer := 27000000;
+  constant target_sample_rate : integer := 48000;
+
   
 begin
 
@@ -778,6 +789,15 @@ OBUFDS_clock : OBUFDS port map ( O  => TMDS_clk_p, OB => TMDS_clk_n, I  => clock
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then
 
+      -- Strobe sample_ready at 48KHz
+      if audio_counter /= to_integer(audio_counter_interval) then
+        audio_counter <= audio_counter + 1;
+        sample_ready <= false;
+      else
+        audio_counter <= 0;
+        sample_ready <= true;
+      end if;
+      
       segled_counter <= segled_counter + 1;
       led2 <= segled_counter(24);
       
