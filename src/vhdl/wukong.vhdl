@@ -364,10 +364,11 @@ architecture Behavioral of container is
   signal blue_s  : std_logic_vector(0 downto 0);
   signal clock_s : std_logic_vector(0 downto 0);
 
-  signal audio_counter : integer := 0;
-  signal sample_ready : boolean := false;
   constant clock_frequency : integer := 27000000;
   constant target_sample_rate : integer := 48000;
+  signal audio_counter : integer := 0;
+  signal sample_ready : boolean := false;
+  signal audio_counter_interval : unsigned(23 downto 0) := to_unsigned(clock_frequency/target_sample_rate,24);
 
   
 begin
@@ -437,12 +438,12 @@ OBUFDS_clock : OBUFDS port map ( O  => TMDS_clk_p, OB => TMDS_clk_n, I  => clock
   Inst_dvid: entity work.dvid PORT MAP(
       clk       => clock135p,
       clk_n     => clock135n, 
-      clk_pixel => clock27_int,
+      clk_pixel => clock27,
       clk_pixel_en => true,
       
-      red_p     => v_red,
-      green_p   => v_green,
-      blue_p    => v_blue,
+      red_p     => std_logic_vector(v_red),
+      green_p   => std_logic_vector(v_green),
+      blue_p    => std_logic_vector(v_blue),
       blank     => hdmi_dataenable,
       hsync     => v_vga_hsync,
       vsync     => v_vsync,
@@ -455,8 +456,8 @@ OBUFDS_clock : OBUFDS port map ( O  => TMDS_clk_p, OB => TMDS_clk_n, I  => clock
       Widescreen => false,
 
       -- Audio input for HDMI audio
-      HDMI_audio_L => audio_left,
-      HDMI_audio_R => audio_right,
+      HDMI_audio_L => audio_left(19 downto 4),
+      HDMI_audio_R => audio_right(19 downto 4),
       HDMI_LeftEnable => sample_ready,
       HDMI_RightEnable => sample_ready,
       
@@ -768,7 +769,7 @@ OBUFDS_clock : OBUFDS port map ( O  => TMDS_clk_p, OB => TMDS_clk_n, I  => clock
       );
   end generate;
   
-  process (pixelclock) is
+  process (pixelclock,cpuclock) is
   begin
 --    vdac_sync_n <= '0';  -- no sync on green
 --    vdac_blank_n <= '1'; -- was: not (v_hsync or v_vsync); 
