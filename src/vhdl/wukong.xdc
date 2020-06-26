@@ -17,7 +17,6 @@ set_property CLOCK_DEDICATED_ROUTE FALSE [get_nets {CLK_IN_IBUF}]
 ### XXX And for that matter, why do we need this, when it syntheses fine on the
 ### MEGA65 R2 board which also has an 100T part, with the same number of clocking
 ### resources.
-set_property CLOCK_DEDICATED_ROUTE FALSE [get_nets clocks1/clock124mhz]
 
 ################ QSPI Flash ###############################3
 set_property  -dict { PACKAGE_PIN R14 IOSTANDARD LVCMOS33 } [get_ports {QspiDB[0]}]

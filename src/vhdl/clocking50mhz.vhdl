@@ -20,6 +20,7 @@ entity clocking50mhz is
       clock100   : out std_logic;
       clock135p  : out std_logic;
       clock135n  : out std_logic;
+      clock135n2  : out std_logic;
       clock162   : out std_logic;
       clock324   : out std_logic
    );
@@ -30,8 +31,6 @@ architecture RTL of clocking50mhz is
 
   signal clk_fb     : std_logic := '0';
   signal clk_fb_adjust0     : std_logic := '0';
-  signal clk_fb_adjust1     : std_logic := '0';
-  signal clk_fb_adjust2     : std_logic := '0';
   signal clk_fb_eth : std_logic := '0';
   signal clock10125mhz : std_logic := '0';
   
@@ -147,12 +146,11 @@ begin
     CLKOUT5_DUTY_CYCLE   => 0.500,
     CLKOUT5_USE_FINE_PS  => FALSE,
 
-    -- CLKOUT6 = CLK_OUT7 = UNUSED
-    CLKOUT6_DIVIDE       => 5,
-    CLKOUT6_PHASE        => 0.000,
+    -- CLKOUT6 = CLK_OUT7 = duplicate inverted 135MHz clock for comparison
+    CLKOUT6_DIVIDE       => 6,
+    CLKOUT6_PHASE        => 180.000,
     CLKOUT6_DUTY_CYCLE   => 0.500,
     CLKOUT6_USE_FINE_PS  => FALSE,
-    CLKIN1_PERIOD        => 10.000,
     REF_JITTER1          => 0.010)
   port map
     -- Output clocks
@@ -165,6 +163,7 @@ begin
     CLKOUT3             => clock41,
     CLKOUT4             => clock27,
     CLKOUT5             => clock162,
+    CLKOUT6             => clock135n2,
     -- Input clock control
     CLKFBIN             => clk_fb,
     CLKIN1              => clock10125mhz,

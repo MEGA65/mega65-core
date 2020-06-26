@@ -176,6 +176,7 @@ architecture Behavioral of container is
   signal clock100 : std_logic;
   signal clock135p : std_logic;
   signal clock135n : std_logic;
+  signal clock135n2 : std_logic;
   signal clock162 : std_logic;
   signal clock324 : std_logic;
 
@@ -464,7 +465,8 @@ begin
                  clock81n  => clock81n,   --   81  MHz
                  clock100  => clock100,   --  100     MHz
                  clock135p => clock135p,  --  135 MHz
-                 clock135n => clock135n,  --  135 MHz
+                 clock135n => clock135n,  --  135 MHz inverted
+                 clock135n2 => clock135n2,  --  135 MHz inverted via another method
                  clock162  => clock162,   -- 162    MHz
                  clock324  => clock324    -- 324      MHz
                  );
@@ -604,7 +606,7 @@ begin
 
   debug(0) <= clock27;
   debug(1) <= cpuclock;
-  debug(2) <= pixelclock;
+  debug(2) <= clock135n2;
   debug(3) <= clock135p;
   debug(4) <= clock135n;
   
