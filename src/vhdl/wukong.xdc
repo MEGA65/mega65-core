@@ -30,6 +30,42 @@ set_property PULLUP true [get_ports {qspidb[1]}]
 set_property PULLUP true [get_ports {qspidb[2]}]
 set_property PULLUP true [get_ports {qspidb[3]}]
 
+############## Dummy VGA interface for debugging on J12 ##################
+set_property -dict {PACKAGE_PIN AB26 IOSTANDARD LVCMOS33} [get_ports vdac_clk]
+set_property -dict {PACKAGE_PIN AB24 IOSTANDARD LVCMOS33} [get_ports vdac_sync_n]
+set_property -dict {PACKAGE_PIN AA24 IOSTANDARD LVCMOS33} [get_ports vdac_blank_n]
+
+#
+set_property -dict {PACKAGE_PIN AA22 IOSTANDARD LVCMOS33} [get_ports {vgared[0]}]
+set_property -dict {PACKAGE_PIN Y25 IOSTANDARD LVCMOS33} [get_ports {vgared[1]}]
+set_property -dict {PACKAGE_PIN W25 IOSTANDARD LVCMOS33} [get_ports {vgared[2]}]
+set_property -dict {PACKAGE_PIN Y22 IOSTANDARD LVCMOS33} [get_ports {vgared[3]}]
+set_property -dict {PACKAGE_PIN W21 IOSTANDARD LVCMOS33} [get_ports {vgared[4]}]
+set_property -dict {PACKAGE_PIN V26 IOSTANDARD LVCMOS33} [get_ports {vgared[5]}]
+set_property -dict {PACKAGE_PIN U25 IOSTANDARD LVCMOS33} [get_ports {vgared[6]}]
+set_property -dict {PACKAGE_PIN V24 IOSTANDARD LVCMOS33} [get_ports {vgared[7]}]
+
+set_property -dict {PACKAGE_PIN V23 IOSTANDARD LVCMOS33} [get_ports {vgagreen[0]}]
+set_property -dict {PACKAGE_PIN V18 IOSTANDARD LVCMOS33} [get_ports {vgagreen[1]}]
+set_property -dict {PACKAGE_PIN U22 IOSTANDARD LVCMOS33} [get_ports {vgagreen[2]}]
+set_property -dict {PACKAGE_PIN U21 IOSTANDARD LVCMOS33} [get_ports {vgagreen[3]}]
+set_property -dict {PACKAGE_PIN T20 IOSTANDARD LVCMOS33} [get_ports {vgagreen[4]}]
+set_property -dict {PACKAGE_PIN T19 IOSTANDARD LVCMOS33} [get_ports {vgagreen[5]}]
+set_property -dict {PACKAGE_PIN AC26 IOSTANDARD LVCMOS33} [get_ports {vgagreen[6]}]
+set_property -dict {PACKAGE_PIN AC24 IOSTANDARD LVCMOS33} [get_ports {vgagreen[7]}]
+
+set_property -dict {PACKAGE_PIN AB25 IOSTANDARD LVCMOS33} [get_ports {vgablue[0]}]
+set_property -dict {PACKAGE_PIN AA23 IOSTANDARD LVCMOS33} [get_ports {vgablue[1]}]
+set_property -dict {PACKAGE_PIN AA25 IOSTANDARD LVCMOS33} [get_ports {vgablue[2]}]
+set_property -dict {PACKAGE_PIN Y26 IOSTANDARD LVCMOS33} [get_ports {vgablue[3]}]
+set_property -dict {PACKAGE_PIN Y23 IOSTANDARD LVCMOS33} [get_ports {vgablue[4]}]
+set_property -dict {PACKAGE_PIN Y21 IOSTANDARD LVCMOS33} [get_ports {vgablue[5]}]
+set_property -dict {PACKAGE_PIN W26 IOSTANDARD LVCMOS33} [get_ports {vgablue[6]}]
+set_property -dict {PACKAGE_PIN U26 IOSTANDARD LVCMOS33} [get_ports {vgablue[7]}]
+
+set_property -dict {PACKAGE_PIN U20 IOSTANDARD LVCMOS33} [get_ports hsync]
+set_property -dict {PACKAGE_PIN U19 IOSTANDARD LVCMOS33} [get_ports vsync]
+
 
 ############## Switches and LEDs ##############
 set_property PACKAGE_PIN H7 [get_ports btnCpuReset]

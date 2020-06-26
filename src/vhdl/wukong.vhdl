@@ -55,7 +55,20 @@ entity container is
          ---------------------------------------------------------------------------
          QspiDB : inout unsigned(3 downto 0) := (others => '0');
          QspiCSn : out std_logic;
-                
+
+         ---------------------------------------------------------------------------
+         -- Dummy VGA output for debug
+         ---------------------------------------------------------------------------
+         vdac_clk : out std_logic;
+         vdac_sync_n : out std_logic; -- tie low
+         vdac_blank_n : out std_logic; -- tie high
+         vsync : out  STD_LOGIC;
+         hsync : out  STD_LOGIC;
+         vgared : out  UNSIGNED (7 downto 0);
+         vgagreen : out  UNSIGNED (7 downto 0);
+         vgablue : out  UNSIGNED (7 downto 0);
+
+         
          ---------------------------------------------------------------------------
          -- IO lines to the ethernet controller
          ---------------------------------------------------------------------------
@@ -348,10 +361,6 @@ architecture Behavioral of container is
   signal iec_clk_i : std_logic := '1';
   signal iec_atn : std_logic := 'Z';  
 
-  signal vgared : UNSIGNED (7 downto 0);
-  signal vgagreen : UNSIGNED (7 downto 0);
-  signal vgablue : UNSIGNED (7 downto 0);
-
   signal hdmired : UNSIGNED (7 downto 0);
   signal hdmigreen : UNSIGNED (7 downto 0);
   signal hdmiblue : UNSIGNED (7 downto 0);
@@ -359,8 +368,6 @@ architecture Behavioral of container is
   signal hdmi_spdif : std_logic := '0';
   signal hdmi_scl : std_logic;
   signal hdmi_sda : std_logic;
-  signal vsync : std_logic;
-  signal hsync : std_logic;
 
   signal red_s   : std_logic_vector(0 downto 0);
   signal green_s : std_logic_vector(0 downto 0);
@@ -451,9 +458,9 @@ OBUFDS_clock : OBUFDS port map ( O  => TMDS_clk_p, OB => TMDS_clk_n, I  => clock
       clk_pixel => clock27,
       clk_pixel_en => true,
       
-      red_p     => std_logic_vector(v_red),
-      green_p   => std_logic_vector(v_green),
-      blue_p    => std_logic_vector(v_blue),
+      red_p     => std_logic_vector(hdmired),
+      green_p   => std_logic_vector(hdmigreen),
+      blue_p    => std_logic_vector(hdmiblue),
       blank     => vga_blank,
       hsync     => v_vga_hsync,
       vsync     => v_vsync,
@@ -810,11 +817,11 @@ OBUFDS_clock : OBUFDS port map ( O  => TMDS_clk_p, OB => TMDS_clk_n, I  => clock
   
   process (pixelclock,cpuclock) is
   begin
---    vdac_sync_n <= '0';  -- no sync on green
---    vdac_blank_n <= '1'; -- was: not (v_hsync or v_vsync); 
+    vdac_sync_n <= '0';  -- no sync on green
+    vdac_blank_n <= '1'; -- was: not (v_hsync or v_vsync); 
 
     -- VGA output at full pixel clock
---    vdac_clk <= pixelclock;
+    vdac_clk <= pixelclock;
 
     -- HDMI output at 27MHz
 --    hdmi_clk <= clock27;
@@ -839,7 +846,7 @@ OBUFDS_clock : OBUFDS port map ( O  => TMDS_clk_p, OB => TMDS_clk_n, I  => clock
       end if;
       
       segled_counter <= segled_counter + 1;
-      led2 <= segled_counter(24);
+      led2 <= segled_counter(22);
       
 --      led <= cart_exrom;
 --      led <= flopled_drive;
@@ -978,12 +985,12 @@ OBUFDS_clock : OBUFDS port map ( O  => TMDS_clk_p, OB => TMDS_clk_n, I  => clock
 
     -- XXX DEBUG: Allow showing audio samples on video to make sure they are
     -- getting through
-    if portp(2)='1' then
-      vgagreen <= unsigned(audio_left(15 downto 8));
-      vgared <= unsigned(audio_right(15 downto 8));
-      hdmigreen <= unsigned(audio_left(15 downto 8));
-      hdmired <= unsigned(audio_right(15 downto 8));
-    end if;
+--    if portp(2)='1' then
+--      vgagreen <= unsigned(audio_left(15 downto 8));
+--      vgared <= unsigned(audio_right(15 downto 8));
+--      hdmigreen <= unsigned(audio_left(15 downto 8));
+--      hdmired <= unsigned(audio_right(15 downto 8));
+--    end if;
     
   end process;    
   
