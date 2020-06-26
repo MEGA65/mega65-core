@@ -1,5 +1,8 @@
 #include <stdio.h>
 
+#define CLOCK_IN 100
+#define TARGET_FREQUENCY 324
+
 int main(int argc,char **argv)
 {
   unsigned long long setting=0;
@@ -27,8 +30,8 @@ int main(int argc,char **argv)
   printf("There are %d unique factors.\n",uniq_factor_count);
   
   
-  float best_freq=100;
-  float best_diff=100-27;
+  float best_freq=CLOCK_IN;
+  float best_diff=CLOCK_IN-TARGET_FREQUENCY;
   int best_factor_count=0;
   int best_factors[8]={0,0,0,0,0,0,0,0};
 
@@ -40,13 +43,13 @@ int main(int argc,char **argv)
       printf("Trying %d factors...\n",max_factors);
       for(int i=0;i<max_factors;i++) this_factors[i]=0;
       while(this_factors[0]<uniq_factor_count) {
-	float this_freq=27.0833333;
+	float this_freq=100;
 	for(int j=0;j<max_factors;j++) {
 	  //	  	  printf(" %.3f",factors[this_factors[j]]);
 	  this_freq*=uniq_factors[this_factors[j]];
 	}
 	//		printf(" = %.3f MHz\n",this_freq);
-	float diff=this_freq-27.00; if (diff<0) diff=-diff;
+	float diff=this_freq-TARGET_FREQUENCY; if (diff<0) diff=-diff;
 	if (0&&diff<1) {
 	  printf("Close freq: ");
 	  for(int j=0;j<max_factors;j++) printf(" %.3f",uniq_factors[this_factors[j]]);

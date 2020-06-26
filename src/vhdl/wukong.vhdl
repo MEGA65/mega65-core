@@ -176,7 +176,7 @@ architecture Behavioral of container is
   signal clock135p : std_logic;
   signal clock135n : std_logic;
   signal clock162 : std_logic;
-  signal clock325 : std_logic;
+  signal clock324 : std_logic;
 
   -- XXX Actually connect to new keyboard
   signal restore_key : std_logic := '1';
@@ -464,8 +464,8 @@ begin
                  clock100  => clock100,   --  100     MHz
                  clock135p => clock135p,  --  135 MHz
                  clock135n => clock135n,  --  135 MHz
-                 clock163  => clock162,   -- 162.5    MHz
-                 clock325  => clock325    -- 325      MHz
+                 clock162  => clock162,   -- 162    MHz
+                 clock324  => clock324    -- 324      MHz
                  );
 
     OBUFDS_blue  : OBUFDS port map ( O  => TMDS_data_p(0), OB => TMDS_data_n(0), I  => blue_s(0)  );

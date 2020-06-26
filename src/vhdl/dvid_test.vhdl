@@ -37,8 +37,8 @@ architecture Behavioral of dvid_test is
    signal clock100   : std_logic := '0';
    signal clock135p  : std_logic := '0';
    signal clock135n  : std_logic := '0';
-   signal clock163   : std_logic := '0';
-   signal clock325   : std_logic := '0';
+   signal clock162   : std_logic := '0';
+   signal clock324   : std_logic := '0';
 
    signal red     : std_logic_vector(7 downto 0) := (others => '0');
    signal green   : std_logic_vector(7 downto 0) := (others => '0');
@@ -110,8 +110,8 @@ clocking_inst : entity work.clocking50mhz port map (
       clock100 => clock100,
       clock135p => clock135p,
       clock135n => clock135n,
-      clock163 => clock163,
-      clock325 => clock325
+      clock162 => clock162,
+      clock324 => clock324
     );
 
 Inst_dvid: entity work.dvid PORT MAP(
@@ -154,7 +154,7 @@ OBUFDS_clock : OBUFDS port map ( O  => CLK_P, OB => CLK_N, I  => clock_s(0) );
 pixeldriver0: entity work.pixel_driver port map (
   cpuclock => clock41,
   clock81 => clock81,
-  clock162 => clock163,
+  clock162 => clock162,
   clock27 => clock27_int,
 
   pal50_select => dip_sw(1),
