@@ -1081,7 +1081,6 @@ begin
   pixel0: entity work.pixel_driver
     port map (
                clock81 => pixelclock, -- 80MHz
-               clock162 => clock162,
                clock27 => clock27,
 
                cpuclock => cpuclock,

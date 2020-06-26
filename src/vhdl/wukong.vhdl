@@ -39,6 +39,8 @@ entity container is
 --         nmi : in  STD_LOGIC;
 
 
+         debug : out std_logic_vector(4 downto 0);
+         
          KEY1 : in std_logic;
          
          ----------------------------------------------------------------------
@@ -168,7 +170,6 @@ architecture Behavioral of container is
   
   signal ethclock : std_logic;
   signal cpuclock : std_logic;
-  signal clock41 : std_logic;
   signal clock27 : std_logic;
   signal pixelclock : std_logic; -- i.e., clock81p
   signal clock81n : std_logic;
@@ -434,7 +435,7 @@ begin
 
   
 
-  dt1: if true generate
+  dt1: if false generate
     dvi0: entity work.dvid_test
       port map ( clk_in  => CLK_IN,
                  clock27 => clock27,
@@ -452,7 +453,7 @@ begin
     
   end generate;
   
-  d0: if false generate
+  d0: if true generate
 
     clocks1: entity work.clocking50mhz
       port map ( clk_in    => CLK_IN,
@@ -600,11 +601,17 @@ begin
 
       );
 
-  pd0: if false generate
+
+  debug(0) <= clock27;
+  debug(1) <= cpuclock;
+  debug(2) <= pixelclock;
+  debug(3) <= clock135p;
+  debug(4) <= clock135n;
+  
+  pd0: if true generate
     pixeldriver0: entity work.pixel_driver port map (
-      cpuclock => clock41,
+      cpuclock => cpuclock,
       clock81 => pixelclock,
-      clock162 => clock162,
       clock27 => clock27,
 
       pal50_select => KEY1,
@@ -836,7 +843,7 @@ begin
          
       );
   end generate;
-  
+
   process (pixelclock,cpuclock) is
   begin
     vdac_sync_n <= '0';  -- no sync on green

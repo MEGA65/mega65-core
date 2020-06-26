@@ -154,7 +154,6 @@ OBUFDS_clock : OBUFDS port map ( O  => CLK_P, OB => CLK_N, I  => clock_s(0) );
 pixeldriver0: entity work.pixel_driver port map (
   cpuclock => clock41,
   clock81 => clock81,
-  clock162 => clock162,
   clock27 => clock27_int,
 
   pal50_select => dip_sw(1),

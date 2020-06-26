@@ -63,6 +63,12 @@ set_property -dict {PACKAGE_PIN Y21 IOSTANDARD LVCMOS33} [get_ports {vgablue[5]}
 set_property -dict {PACKAGE_PIN W26 IOSTANDARD LVCMOS33} [get_ports {vgablue[6]}]
 set_property -dict {PACKAGE_PIN U26 IOSTANDARD LVCMOS33} [get_ports {vgablue[7]}]
 
+set_property -dict {PACKAGE_PIN W24 IOSTANDARD LVCMOS33} [get_ports {debug[0]}]
+set_property -dict {PACKAGE_PIN W23 IOSTANDARD LVCMOS33} [get_ports {debug[1]}]
+set_property -dict {PACKAGE_PIN W18 IOSTANDARD LVCMOS33} [get_ports {debug[2]}]
+set_property -dict {PACKAGE_PIN V22 IOSTANDARD LVCMOS33} [get_ports {debug[3]}]
+set_property -dict {PACKAGE_PIN V21 IOSTANDARD LVCMOS33} [get_ports {debug[4]}]
+
 set_property -dict {PACKAGE_PIN U20 IOSTANDARD LVCMOS33} [get_ports hsync]
 set_property -dict {PACKAGE_PIN U19 IOSTANDARD LVCMOS33} [get_ports vsync]
 

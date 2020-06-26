@@ -33,7 +33,6 @@ entity pixel_driver is
     -- The various clocks we need
     cpuclock : in std_logic;
     clock81 : in std_logic;
-    clock162 : in std_logic;
     clock27 : in std_logic;
 
     -- 720x576@50Hz if pal50_select='1', else 720x480@60Hz NTSC (or VGA 64Hz if
