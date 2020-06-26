@@ -192,6 +192,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/ddrwrapper.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/wukong.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/dvid.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/dvid_test.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/aux_ecc1.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/aux_ecc2.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/aux_encoder.vhdl"]"\
@@ -619,6 +620,10 @@ set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
 set file "vhdl/dvid.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/dvid_test.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 

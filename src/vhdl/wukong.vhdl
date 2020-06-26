@@ -433,26 +433,47 @@ begin
   -- protected) domain crossings used for those.
 
   
-  clocks1: entity work.clocking50mhz
-    port map ( clk_in    => CLK_IN,
-               clock27   => clock27,    --   27 MHz
-               clock41   => cpuclock,   --   40.5 MHz
-               clock50   => ethclock,   --   50     MHz
-               clock81p  => pixelclock, --   81  MHz
-               clock81n  => clock81n,   --   81  MHz
-               clock100  => clock100,   --  100     MHz
-               clock135p => clock135p,  --  135 MHz
-               clock135n => clock135n,  --  135 MHz
-               clock163  => clock162,   -- 162.5    MHz
-               clock325  => clock325    -- 325      MHz
-               );
 
-OBUFDS_blue  : OBUFDS port map ( O  => TMDS_data_p(0), OB => TMDS_data_n(0), I  => blue_s(0)  );
-OBUFDS_red   : OBUFDS port map ( O  => TMDS_data_p(1), OB => TMDS_data_n(1), I  => green_s(0) );
-OBUFDS_green : OBUFDS port map ( O  => TMDS_data_p(2), OB => TMDS_data_n(2), I  => red_s(0)   );
-OBUFDS_clock : OBUFDS port map ( O  => TMDS_clk_p, OB => TMDS_clk_n, I  => clock_s(0) );
+  dt1: if true generate
+    dvi0: entity work.dvid_test
+      port map ( clk_in  => CLK_IN,
+                 clock27 => clock27,
+--                 p13 => p13,
+                 dip_sw => (others => '0'),
+                 data_p => TMDS_data_p,
+                 data_n => TMDS_data_n,
+                 clk_p => TMDS_clk_p,
+                 clk_n => TMDS_clk_n,
+--                 led => led,
+                 reset => btnCpuReset,
+                 left => '0',
+                 sample_rdata => x"0000"
+               );
+    
+  end generate;
   
-  Inst_dvid: entity work.dvid PORT MAP(
+  d0: if false generate
+
+    clocks1: entity work.clocking50mhz
+      port map ( clk_in    => CLK_IN,
+                 clock27   => clock27,    --   27 MHz
+                 clock41   => cpuclock,   --   40.5 MHz
+                 clock50   => ethclock,   --   50     MHz
+                 clock81p  => pixelclock, --   81  MHz
+                 clock81n  => clock81n,   --   81  MHz
+                 clock100  => clock100,   --  100     MHz
+                 clock135p => clock135p,  --  135 MHz
+                 clock135n => clock135n,  --  135 MHz
+                 clock163  => clock162,   -- 162.5    MHz
+                 clock325  => clock325    -- 325      MHz
+                 );
+
+    OBUFDS_blue  : OBUFDS port map ( O  => TMDS_data_p(0), OB => TMDS_data_n(0), I  => blue_s(0)  );
+    OBUFDS_red   : OBUFDS port map ( O  => TMDS_data_p(1), OB => TMDS_data_n(1), I  => green_s(0) );
+    OBUFDS_green : OBUFDS port map ( O  => TMDS_data_p(2), OB => TMDS_data_n(2), I  => red_s(0)   );
+    OBUFDS_clock : OBUFDS port map ( O  => TMDS_clk_p, OB => TMDS_clk_n, I  => clock_s(0) );
+
+    Inst_dvid: entity work.dvid PORT MAP(
       clk       => clock135p,
       clk_n     => clock135n, 
       clk_pixel => clock27,
@@ -484,7 +505,8 @@ OBUFDS_clock : OBUFDS port map ( O  => TMDS_clk_p, OB => TMDS_clk_n, I  => clock
       blue_s    => blue_s,
       clock_s   => clock_s
    );
-
+  end generate;
+  
   fpgatemp0: entity work.fpgatemp
     generic map (DELAY_CYCLES => 480)
     port map (
@@ -578,7 +600,7 @@ OBUFDS_clock : OBUFDS port map ( O  => TMDS_clk_p, OB => TMDS_clk_n, I  => clock
 
       );
 
-  pd0: if true generate
+  pd0: if false generate
     pixeldriver0: entity work.pixel_driver port map (
       cpuclock => clock41,
       clock81 => pixelclock,
