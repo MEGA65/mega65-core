@@ -475,9 +475,9 @@ begin
                  clock324  => clock324    -- 324      MHz
                  );
 
-    OBUFDS_blue  : OBUFDS port map ( O  => TMDS_data_p(2), OB => TMDS_data_n(2), I  => blue_s_n(0)  );
+    OBUFDS_blue  : OBUFDS port map ( O  => TMDS_data_p(0), OB => TMDS_data_n(0), I  => blue_s_n(0)  );
     OBUFDS_red   : OBUFDS port map ( O  => TMDS_data_p(1), OB => TMDS_data_n(1), I  => green_s_n(0) );
-    OBUFDS_green : OBUFDS port map ( O  => TMDS_data_p(0), OB => TMDS_data_n(0), I  => red_s_n(0)   );
+    OBUFDS_green : OBUFDS port map ( O  => TMDS_data_p(2), OB => TMDS_data_n(2), I  => red_s_n(0)   );
     OBUFDS_clock : OBUFDS port map ( O  => TMDS_clk_p, OB => TMDS_clk_n, I  => clock_s(0) );
 
     Inst_dvid: entity work.dvid PORT MAP(
