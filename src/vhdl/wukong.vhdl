@@ -376,6 +376,10 @@ architecture Behavioral of container is
   signal blue_s  : std_logic_vector(0 downto 0);
   signal clock_s : std_logic_vector(0 downto 0);
 
+  signal red_s_n   : std_logic_vector(0 downto 0);
+  signal green_s_n : std_logic_vector(0 downto 0);
+  signal blue_s_n  : std_logic_vector(0 downto 0);
+  
   constant clock_frequency : integer := 27000000;
   constant target_sample_rate : integer := 48000;
   signal audio_counter : integer := 0;
@@ -471,9 +475,9 @@ begin
                  clock324  => clock324    -- 324      MHz
                  );
 
-    OBUFDS_blue  : OBUFDS port map ( O  => TMDS_data_p(0), OB => TMDS_data_n(0), I  => blue_s(0)  );
-    OBUFDS_red   : OBUFDS port map ( O  => TMDS_data_p(1), OB => TMDS_data_n(1), I  => green_s(0) );
-    OBUFDS_green : OBUFDS port map ( O  => TMDS_data_p(2), OB => TMDS_data_n(2), I  => red_s(0)   );
+    OBUFDS_blue  : OBUFDS port map ( O  => TMDS_data_p(0), OB => TMDS_data_n(0), I  => blue_s_n(0)  );
+    OBUFDS_red   : OBUFDS port map ( O  => TMDS_data_p(1), OB => TMDS_data_n(1), I  => green_s_n(0) );
+    OBUFDS_green : OBUFDS port map ( O  => TMDS_data_p(2), OB => TMDS_data_n(2), I  => red_s_n(0)   );
     OBUFDS_clock : OBUFDS port map ( O  => TMDS_clk_p, OB => TMDS_clk_n, I  => clock_s(0) );
 
     Inst_dvid: entity work.dvid PORT MAP(
@@ -603,6 +607,10 @@ begin
 
       );
 
+
+  red_s_n <= not red_s;
+  green_s_n <= not green_s;
+  blue_s_n <= not blue_s;
 
   debug(0) <= clock27;
   debug(1) <= cpuclock;
