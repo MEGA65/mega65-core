@@ -2084,12 +2084,12 @@ begin
             when x"03" => return reg_dmagic_status(7 downto 1) & support_f018b;
             when x"04" => return reg_dmagic_addr(27 downto 20);
 
-            -- @IO:GS $D711.7 - DMA:AUDEN Enable Audio DMA
-            -- @IO:GS $D711.6 - DMA:AUDBLOCKED Audio DMA blocked (read only) DEBUG
-            -- @IO:GS $D711.5 - DMA:AUDWRBLOCK Audio DMA block writes (samples still get read) 
-            -- @IO:GS $D711.4 - DMA:AUDNOMIX Audio DMA bypasses audio mixer
-            -- @IO:GS $D711.3 - AUDIO:PWMPDM PWM/PDM audio encoding select
-            -- @IO:GS $D711.0-2 - DMA:AUDBLOCKTO Audio DMA block timeout (read only) DEBUG
+            -- @IO:GS $D711.7 DMA:AUDEN Enable Audio DMA
+            -- @IO:GS $D711.6 DMA:AUDBLKD Audio DMA blocked (read only) DEBUG
+            -- @IO:GS $D711.5 DMA:AUDWRBLK Audio DMA block writes (samples still get read) 
+            -- @IO:GS $D711.4 DMA:AUDNOMIX Audio DMA bypasses audio mixer
+            -- @IO:GS $D711.3 AUDIO:PWMPDM PWM/PDM audio encoding select
+            -- @IO:GS $D711.0-2 DMA:AUDBLKTO Audio DMA block timeout (read only) DEBUG
             when x"11" => return audio_dma_enable & pending_dma_busy & audio_dma_disable_writes & cpu_pcm_bypass_int & pwm_mode_select_int & "000";
                           
             -- XXX DEBUG registers for audio DMA

@@ -1030,12 +1030,12 @@ begin  -- behavioural
             fastio_rdata(7 downto 4) <= to_unsigned(rotation_count,4);
           when x"B0" =>
             -- @IO:GS $D6B0 - Touch pad control / status
-            -- @IO:GS $D6B0.0 - Touch event 1 is valid
-            -- @IO:GS $D6B0.1 - Touch event 2 is valid
-            -- @IO:GS $D6B0.2-3 - Touch event 1 up/down state
-            -- @IO:GS $D6B0.5-4 - Touch event 2 up/down state
-            -- @IO:GS $D6B0.6 - Invert horizontal axis
-            -- @IO:GS $D6B0.7 - Invert vertical axis
+            -- @IO:GS $D6B0.0 TOUCH:EV1 Touch event 1 is valid
+            -- @IO:GS $D6B0.1 TOUCH:EV2 Touch event 2 is valid
+            -- @IO:GS $D6B0.2-3 TOUCH:UPDN1 Touch event 1 up/down state
+            -- @IO:GS $D6B0.5-4 TOUCH:UPDN2 Touch event 2 up/down state
+            -- @IO:GS $D6B0.6 TOUCH:XINV Invert horizontal axis
+            -- @IO:GS $D6B0.7 TOUCH:YINV Invert vertical axis
             fastio_rdata(0) <= touch1_active;
             fastio_rdata(1) <= touch2_active;
             fastio_rdata(3 downto 2) <= unsigned(touch1_status);
@@ -1043,49 +1043,49 @@ begin  -- behavioural
             fastio_rdata(6) <= touch_flip_x_internal;
             fastio_rdata(7) <= touch_flip_y_internal;
           when x"B1" =>
-            -- @IO:GS $D6B1 - Touch pad X scaling LSB
+            -- @IO:GS $D6B1 TOUCH:CALXSCALELSB Touch pad X scaling LSB
             fastio_rdata <= touch_scale_x_internal(7 downto 0);
           when x"B2" =>
-            -- @IO:GS $D6B2 - Touch pad X scaling MSB
+            -- @IO:GS $D6B2 TOUCH:CALXSCALEMSB Touch pad X scaling MSB
             fastio_rdata <= touch_scale_x_internal(15 downto 8);
           when x"B3" =>
-            -- @IO:GS $D6B3 - Touch pad Y scaling LSB
+            -- @IO:GS $D6B3 TOUCH:CALYSCALELSB Touch pad Y scaling LSB
             fastio_rdata <= touch_scale_y_internal(7 downto 0);
           when x"B4" =>
-            -- @IO:GS $D6B4 - Touch pad Y scaling MSB
+            -- @IO:GS $D6B4 TOUCH:CALYSCALEMSB Touch pad Y scaling MSB
             fastio_rdata <= touch_scale_y_internal(15 downto 8);
           when x"B5" =>
-            -- @IO:GS $D6B5 - Touch pad X delta LSB
+            -- @IO:GS $D6B5 TOUCH:CALXDELTALSB Touch pad X delta LSB
             fastio_rdata <= touch_delta_x_internal(7 downto 0);
           when x"B6" =>
-            -- @IO:GS $D6B6 - Touch pad X delta MSB
+            -- @IO:GS $D6B6 TOUGH:CALXDELTAMSB Touch pad X delta MSB
             fastio_rdata <= touch_delta_x_internal(15 downto 8);
           when x"B7" =>
-            -- @IO:GS $D6B7 - Touch pad Y delta LSB
+            -- @IO:GS $D6B7 TOUCH:CALYDELTALSB Touch pad Y delta LSB
             fastio_rdata <= touch_delta_y_internal(7 downto 0);
           when x"B8" =>
-            -- @IO:GS $D6B8 - Touch pad Y delta MSB
+            -- @IO:GS $D6B8 TOUCH:CALYDELTAMSB Touch pad Y delta MSB
             fastio_rdata <= touch_delta_y_internal(15 downto 8);
           when x"B9" =>
-            -- @IO:GS $D6B9 - Touch pad touch #1 X LSB
+            -- @IO:GS $D6B9 TOUCH:TOUCH1XLSB Touch pad touch #1 X LSB
             fastio_rdata <= touch_x1(7 downto 0);
           when x"BA" =>
-            -- @IO:GS $D6BA - Touch pad touch #1 Y LSB
+            -- @IO:GS $D6BA TOUCH:TOUCH1YLSB Touch pad touch #1 Y LSB
             fastio_rdata <= touch_y1(7 downto 0);
           when x"BB" =>
-            -- @IO:GS $D6BB.0-1 - Touch pad touch #1 X MSBs
-            -- @IO:GS $D6BB.5-4 - Touch pad touch #1 Y MSBs
+            -- @IO:GS $D6BB.0-1 TOUCH:TOUCH1XMSB Touch pad touch #1 X MSBs
+            -- @IO:GS $D6BB.5-4 TOUCH:TOUCH1YMSB Touch pad touch #1 Y MSBs
             fastio_rdata(1 downto 0) <= touch_x1(9 downto 8);
             fastio_rdata(5 downto 4) <= touch_y1(9 downto 8);
           when x"BC" =>
-            -- @IO:GS $D6BC - Touch pad touch #2 X LSB
+            -- @IO:GS $D6BC TOUCH:TOUCH2XLSB Touch pad touch #2 X LSB
             fastio_rdata <= touch_x2(7 downto 0);
           when x"BD" =>
-            -- @IO:GS $D6BD - Touch pad touch #2 Y LSB
+            -- @IO:GS $D6BD TOUCH:TOUCH2YLSB Touch pad touch #2 Y LSB
             fastio_rdata <= touch_y2(7 downto 0);
           when x"BE" =>
-            -- @IO:GS $D6BE.0-1 - Touch pad touch #2 X MSBs
-            -- @IO:GS $D6BE.5-4 - Touch pad touch #2 Y MSBs
+            -- @IO:GS $D6BE.0-1 TOUCH:TOUCH2XMSB Touch pad touch #2 X MSBs
+            -- @IO:GS $D6BE.5-4 TOUCH:TOUCH2YMSB Touch pad touch #2 Y MSBs
             fastio_rdata(1 downto 0) <= touch_x2(9 downto 8);
             fastio_rdata(5 downto 4) <= touch_y2(9 downto 8);
           when x"BF" =>
@@ -1093,8 +1093,8 @@ begin  -- behavioural
             -- XXX DEBUG temporary
             fastio_rdata(6 downto 0) <= touch_byte(6 downto 0);
           when x"C0" =>
-            -- @IO:GS $D6C0.0-3 - Touch pad gesture directions (left,right,up,down)
-            -- @IO:GS $D6C0.7-4 - Touch pad gesture ID
+            -- @IO:GS $D6C0.0-3 TOUCH:GESTUREDIR Touch pad gesture directions (left,right,up,down)
+            -- @IO:GS $D6C0.7-4 TOUCH:GESTUREID Touch pad gesture ID
             fastio_rdata(3 downto 0) <= gesture_event;
             fastio_rdata(7 downto 4) <= gesture_event_id;
           -- @IO:GS $D6C8-B - Address currently loaded bitstream was fetched from flash memory.
@@ -1128,7 +1128,7 @@ begin  -- behavioural
             fastio_rdata(0) <= qspi_clock_run;
             fastio_rdata(7 downto 1) <= (others => '0');
           when x"D0" =>
-            -- @IO:GS $D6D0 - I2C bus select (bus 0 = temp sensor on Nexys4 boardS)
+            -- @IO:GS $D6D0 MISC:I2CBUSSELECT I2C bus select (bus 0 = temp sensor on Nexys4 boardS)
             fastio_rdata <= i2c_bus_id;
           when x"D1" =>
             fastio_rdata <= (others => '0');
@@ -1167,28 +1167,28 @@ begin  -- behavioural
               fastio_rdata <= i2c1_rdata;
             end if;
           when x"da" =>
-            -- @IO:GS $D6DA - DEBUG SD card last error code LSB
+            -- @IO:GS $D6DA MISC:SDDEBUGERRLSB DEBUG SD card last error code LSB
             fastio_rdata(7 downto 0) <= unsigned(last_sd_error(7 downto 0));
           when x"db" =>
-            -- @IO:GS $D6DB - DEBUG SD card last error code MSB
+            -- @IO:GS $D6DB MISC:SDDEBUGERRMSB DEBUG SD card last error code MSB
             fastio_rdata(7 downto 0) <= unsigned(last_sd_error(15 downto 8));
           when x"DE" =>
-            -- @IO:GS $D6DE - FPGA die temperature sensor (lower nybl)
+            -- @IO:GS $D6DE FPGA:FPGATEMPLSB FPGA die temperature sensor (lower nybl)
             fastio_rdata <= unsigned("0000"&fpga_temperature(3 downto 0));
           when x"DF" =>
-            -- @IO:GS $D6DF - FPGA die temperature sensor (upper byte)
+            -- @IO:GS $D6DF FPGA:FPGATEMPMSB FPGA die temperature sensor (upper byte)
             fastio_rdata <= unsigned(fpga_temperature(11 downto 4));
           -- XXX $D6Ex is decoded by ethernet controller, so don't use those
             -- registers here!
           when x"F0" =>
-            -- @IO:GS $D6F0 - LCD panel brightness control
+            -- @IO:GS $D6F0 MISC:LCDBRIGHTNESS LCD panel brightness control
             fastio_rdata <= lcdpwm_value;
           when x"F2" =>
-            -- @IO:GS $D6F2 - Read FPGA five-way buttons
+            -- @IO:GS $D6F2 MISC:FPGABUTTONS Read FPGA five-way buttons
             fastio_rdata(7 downto 5) <= "000";
             fastio_rdata(4 downto 0) <= unsigned(btn(4 downto 0));
           when x"F3" =>
-            -- @IO:GS $D6F3 Accelerometer inputs
+            -- @IO:GS $D6F3 MISC:ACCELBITBASH Accelerometer bit-bash interface
             fastio_rdata(0) <= aclMISO;
             fastio_rdata(1) <= aclMOSIinternal;
             fastio_rdata(2) <= aclSSinternal;
@@ -1198,38 +1198,38 @@ begin  -- behavioural
             fastio_rdata(6) <= aclInt2;
             fastio_rdata(7) <= aclInt1 or aclInt2;
           when x"F4" =>
-            -- @IO:GS $D6F4 - Audio Mixer register select
+            -- @IO:GS $D6F4 AUDIO:MIXREGSEL Audio Mixer register select
             fastio_rdata <= audio_mix_reg_int;
           when x"F5" =>
-            -- @IO:GS $D6F5 - Audio Mixer register read port
+            -- @IO:GS $D6F5 AUDIO:MIXREGDATA Audio Mixer register read port
             if audio_mix_reg_int(0)='1' then
               fastio_rdata <= audio_mix_rdata(15 downto 8);
             else
               fastio_rdata <= audio_mix_rdata(7 downto 0);
             end if;
           when x"F6" =>
-            -- @IO:GS $D6F6 - Keyboard scan code reader (lower byte)
+            -- @IO:GS $D6F6 MISC:PS2KEYSCANLSB Keyboard scan code reader (lower byte)
             fastio_rdata <= unsigned(last_scan_code(7 downto 0));
           when x"F7" =>
-            -- @IO:GS $D6F7 - Keyboard scan code reader (upper nybl)
+            -- @IO:GS $D6F7 MISC:PS2KEYSCANMSB Keyboard scan code reader (upper nybl)
             fastio_rdata <= unsigned("000"&last_scan_code(12 downto 8));
           when x"F8" =>
-            -- @IO:GS $D6F8 - Digital audio, left channel, LSB
+            -- @IO:GS $D6F8 AUDIO:DIGILEFTLSB Digital audio, left channel, LSB
             fastio_rdata <= unsigned(pcm_left(7 downto 0));
           when x"F9" =>
-            -- @IO:GS $D6F9 - Digital audio, left channel, MSB
+            -- @IO:GS $D6F9 AUDIO:DIGILEFTMSB Digital audio, left channel, MSB
             fastio_rdata <= unsigned(pcm_left(15 downto 8));
           when x"FA" =>
-            -- @IO:GS $D6FA - Digital audio, left channel, LSB
+            -- @IO:GS $D6FA AUDIO:DIGIRIGHTLSB Digital audio, left channel, LSB
             fastio_rdata <= unsigned(pcm_right(7 downto 0));
           when x"FB" =>
-            -- @IO:GS $D6FB - Digital audio, left channel, MSB
+            -- @IO:GS $D6FB AUDIO:DIGIRIGHTMSB Digital audio, left channel, MSB
             fastio_rdata <= unsigned(pcm_right(15 downto 8));
           when x"FC" =>
-            -- @IO:GS $D6FC - audio LSB (source selected by $D6F4)
+            -- @IO:GS $D6FC AUDIO:READBACKLSB audio read-back LSB (source selected by $D6F4)
             fastio_rdata <= unsigned(audio_loopback(7 downto 0));
           when x"FD" =>
-            -- @IO:GS $D6FD - audio MSB (source selected by $D6F4)
+            -- @IO:GS $D6FD AUDIO:READBACKMSB audio read-back MSB (source selected by $D6F4)
             fastio_rdata <= unsigned(audio_loopback(15 downto 8));
           when others =>
             fastio_rdata <= (others => '0');
