@@ -303,7 +303,8 @@ trap_entry_points:
         nop
         jmp nosuchtrap
         nop
-        jmp nosuchtrap
+	// Writing to $D67F shall trap to freezer, as though user had triggered it.
+        jmp restore_press_trap
         nop
 
         // Traps $40-$4F (reset, page fault and other system-generated traps)
