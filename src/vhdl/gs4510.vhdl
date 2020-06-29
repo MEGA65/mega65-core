@@ -3484,7 +3484,7 @@ begin
           audio_dma_latched_sample(i) <= audio_dma_current_value(i);
         end if;
         audio_dma_multed(i) <= multiply_by_volume_coefficient(audio_dma_current_value(i), audio_dma_volume(i));
-        audio_dma_multed_pan(i) <= multiply_by_volume_coefficient(audio_dma_current_value(i), audio_dma_pan_volume(i));
+        audio_dma_pan_multed(i) <= multiply_by_volume_coefficient(audio_dma_current_value(i), audio_dma_pan_volume(i));
         if audio_dma_enables(i)='0' then
           audio_dma_multed(i) <= (others => '0');
         end if;
@@ -3746,11 +3746,11 @@ begin
             if audio_dma_sample_width((pending_dma_target - 1)/2) = "00" then
               -- Lower nybl
               audio_dma_current_value((pending_dma_target - 1)/2)(14 downto 12) <= signed(shadow_rdata(2 downto 0));
-              audio_dma_current_Value((pending_dma_target - 1)/2)(11 downto 0) <= (others => '0');
+              audio_dma_current_value((pending_dma_target - 1)/2)(11 downto 0) <= (others => '0');
               audio_dma_current_value((pending_dma_target - 1)/2)(15) <= shadow_rdata(3) xor audio_dma_signed((pending_dma_target - 1)/2);
             elsif audio_dma_sample_width((pending_dma_target - 1)/2) = "01" then
               -- Upper nybl
-              audio_dma_current_value((pending_dma_target - 1)/2)(14 downto 2) <= signed(shadow_rdata(6 downto 4));              
+              audio_dma_current_value((pending_dma_target - 1)/2)(14 downto 12) <= signed(shadow_rdata(6 downto 4));              
               audio_dma_current_Value((pending_dma_target - 1)/2)(11 downto 0) <= (others => '0');
               audio_dma_current_value((pending_dma_target - 1)/2)(15) <= shadow_rdata(7) xor audio_dma_signed((pending_dma_target - 1)/2);
             else
@@ -3761,74 +3761,6 @@ begin
             audio_dma_sample_valid((pending_dma_target - 1)/2) <= '1';
             audio_dma_pending_msb((pending_dma_target - 1)/2) <= '0';
             audio_dma_pending((pending_dma_target - 1)/2) <= '0';
-        end case;
-        pending_dma_busy <= '0';
-      end if;
-      if pending_dma_busy='0' then
-        if audio_dma_pending(0)='1' then
-          if audio_dma_sample_width(0)="11" and audio_dma_pending_msb(0)='1' then
-            -- We still need to read the MSB after
-            audio_dma_sample_valid(0) <= '0';
-            audio_dma_pending_msb(0) <='0';
-            audio_dma_current_addr(0) <= audio_dma_current_addr(0) + 1;
-            report "audio_dma_current_value: scheduling LSB read of $
-$" & to_hstring(pending_dma_address);
-        pending_dma_target <= 0 ;
-        report "BACKGROUNDDMA: Set target to 0";
-        if pending_dma_target /= 0 then
-          audio_dma_write_counter <= audio_dma_write_counter + 1;
-        end if;
-        
-        audio_dma_tick_counter <= audio_dma_tick_counter + 1;
-          
-        case pending_dma_target is
-          when 0 => -- no pending job
-            null;
-          when 1 | 3 | 5 | 7  => -- Audio DMA LSB
-            audio_dma_current_value((pending_dma_target - 1)/2)(7 downto 0) <= signed(shadow_rdata);
-          when 2 | 4 | 6 | 8 => -- Audio DMA MSB
-            if audio_dma_sample_width(0) = "00" then
-              -- Lower nybl
-              audio_dma_current_value(0)(14 downto 12) <= signed(shadow_rdata(2 downto 0));
-              audio_dma_current_Value(0)(11 downto 0) <= (others => '0');
-              audio_dma_current_value(0)(15) <= shadow_rdata(3) xor audio_dma_signed(0);
-            elsif audio_dma_sample_width(0) = "01" then
-              -- Upper nybl
-              audio_dma_current_value(0)(14 downto 2) <= signed(shadow_rdata(6 downto 4));              
-              audio_dma_current_Value(0)(11 downto 0) <= (others => '0');
-              audio_dma_current_value(0)(15) <= shadow_rdata(7) xor audio_dma_signed(0);
-            else
-              -- 8 or 16 bit sample 
-              audio_dma_current_value(0)(14 downto 8) <= signed(shadow_rdata(6 downto 0));
-              audio_dma_current_value(0)(15) <= shadow_rdata(7) xor audio_dma_signed(0);
-            end if;
-            audio_dma_sample_valid(0) <= '1';
-            audio_dma_pending_msb(0) <= '0';
-            audio_dma_pending(0) <= '0';
-          when 3 => -- Audio DMA ch 1, LSB
-            audio_dma_current_value(1)(7 downto 0) <= signed(shadow_rdata);
-          when 4 => -- Audio DMA ch 1, MSB
-            audio_dma_current_value(1)(14 downto 8) <= signed(shadow_rdata(6 downto 0));
-            audio_dma_current_value(1)(15) <= shadow_rdata(7) xor audio_dma_signed(1);
-            audio_dma_sample_valid(1) <= '1';
-            audio_dma_pending_msb(1) <= '0';
-            audio_dma_pending(1) <= '0';
-          when 5 => -- Audio DMA ch 2, LSB
-            audio_dma_current_value(2)(7 downto 0) <= signed(shadow_rdata);
-          when 6 => -- Audio DMA ch 2, MSB
-            audio_dma_current_value(2)(14 downto 8) <= signed(shadow_rdata(6 downto 0));
-            audio_dma_current_value(2)(15) <= shadow_rdata(7) xor audio_dma_signed(2);
-            audio_dma_sample_valid(2) <= '1';
-            audio_dma_pending_msb(2) <= '0';
-            audio_dma_pending(2) <= '0';
-          when 7 => -- Audio DMA ch 3, LSB
-            audio_dma_current_value(3)(7 downto 0) <= signed(shadow_rdata);
-          when 8 => -- Audio DMA ch 3, MSB
-            audio_dma_current_value(3)(14 downto 8) <= signed(shadow_rdata(6 downto 0));
-            audio_dma_current_value(3)(15) <= shadow_rdata(7) xor audio_dma_signed(3);
-            audio_dma_sample_valid(3) <= '1';
-            audio_dma_pending_msb(3) <= '0';
-            audio_dma_pending(3) <= '0';            
         end case;
         pending_dma_busy <= '0';
       end if;
