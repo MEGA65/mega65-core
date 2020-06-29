@@ -2087,9 +2087,9 @@ begin
             when x"04" => return reg_dmagic_addr(27 downto 20);
 
             -- @IO:GS $D711.7 DMA:AUDEN Enable Audio DMA
-            -- @IO:GS $D711.6 DMA:AUDBLKD Audio DMA blocked (read only) DEBUG
+            -- @IO:GS $D711.6 DMA:BLKD Audio DMA blocked (read only) DEBUG
             -- @IO:GS $D711.5 DMA:AUDWRBLK Audio DMA block writes (samples still get read) 
-            -- @IO:GS $D711.4 DMA:AUDNOMIX Audio DMA bypasses audio mixer
+            -- @IO:GS $D711.4 DMA:NOMIX Audio DMA bypasses audio mixer
             -- @IO:GS $D711.3 AUDIO:PWMPDM PWM/PDM audio encoding select
             -- @IO:GS $D711.0-2 DMA:AUDBLKTO Audio DMA block timeout (read only) DEBUG
             when x"11" => return audio_dma_enable & pending_dma_busy & audio_dma_disable_writes & cpu_pcm_bypass_int & pwm_mode_select_int & "000";
@@ -2109,9 +2109,9 @@ begin
 
             -- @IO:GS $D720.7 DMA:CH0EN Enable Audio DMA channel 0
             -- @IO:GS $D720.6 DMA:CH0LOOP Enable Audio DMA channel 0 looping
-            -- @IO:GS $D720.5 DMA:CH0SIGNED Enable Audio DMA channel 0 signed samples
+            -- @IO:GS $D720.5 DMA:CH0SGN Enable Audio DMA channel 0 signed samples
             -- @IO:GS $D720.4 DMA:CH0SINE Audio DMA channel 0 play 32-sample sine wave instead of DMA data
-            -- @IO:GS $D720.3 DMA:CH0STOP Audio DMA channel 0 stop flag
+            -- @IO:GS $D720.3 DMA:CH0STP Audio DMA channel 0 stop flag
             -- @IO:GS $D720.0-1 DMA:CH0SBITS Audio DMA channel 0 sample bits (11=16, 10=8, 01=upper nybl, 00=lower nybl)
             -- @IO:GS $D721 DMA:CH0BADDR Audio DMA channel 0 base address LSB
             -- @IO:GS $D722 DMA:CH0BADDR Audio DMA channel 0 base address middle byte
@@ -2131,6 +2131,9 @@ begin
 
             -- @IO:GS $D730.7 DMA:CH1EN Enable Audio DMA channel 1
             -- @IO:GS $D730.6 DMA:CH1LOOP Enable Audio DMA channel 1 looping
+            -- @IO:GS $D730.5 DMA:CH1SGN Enable Audio DMA channel 1 signed samples
+            -- @IO:GS $D730.4 DMA:CH1SINE Audio DMA channel 1 play 32-sample sine wave instead of DMA data
+            -- @IO:GS $D730.3 DMA:CH1STP Audio DMA channel 1 stop flag
             -- @IO:GS $D730.0-1 DMA:CH1SBITS Audio DMA channel 1 sample bits (11=16, 10=8, 01=upper nybl, 00=lower nybl)
             -- @IO:GS $D731 DMA:CH1BADDR Audio DMA channel 1 base address LSB
             -- @IO:GS $D732 DMA:CH1BADDR Audio DMA channel 1 base address middle byte
@@ -2150,7 +2153,10 @@ begin
 
             -- @IO:GS $D740.7 DMA:CH2EN Enable Audio DMA channel 2
             -- @IO:GS $D740.6 DMA:CH2LOOP Enable Audio DMA channel 2 looping
-            -- @IO:GS $D740.0-1 DMA:CH2SBITS Audio DMA channel 2 sample bits (11=16, 10=8, 01=upper nybl, 00=lower nybl)
+            -- @IO:GS $D740.5 DMA:CH2SGN Enable Audio DMA channel 2 signed samples
+            -- @IO:GS $D740.4 DMA:CH2SINE Audio DMA channel 2 play 32-sample sine wave instead of DMA data
+            -- @IO:GS $D740.3 DMA:CH2STP Audio DMA channel 2 stop flag
+            -- @IO:GS $D740.0-1 DMA:CH1SBITS Audio DMA channel 1 sample bits (11=16, 10=8, 01=upper nybl, 00=lower nybl)
             -- @IO:GS $D741 DMA:CH2BADDR Audio DMA channel 2 base address LSB
             -- @IO:GS $D742 DMA:CH2BADDR Audio DMA channel 2 base address middle byte
             -- @IO:GS $D743 DMA:CH2BADDR Audio DMA channel 2 base address MSB
@@ -2169,6 +2175,9 @@ begin
                           
             -- @IO:GS $D750.7 DMA:CH3EN Enable Audio DMA channel 3
             -- @IO:GS $D750.6 DMA:CH3LOOP Enable Audio DMA channel 3 looping
+            -- @IO:GS $D750.5 DMA:CH3SGN Enable Audio DMA channel 3 signed samples
+            -- @IO:GS $D750.4 DMA:CH3SINE Audio DMA channel 3 play 32-sample sine wave instead of DMA data
+            -- @IO:GS $D750.3 DMA:CH3STP Audio DMA channel 3 stop flag
             -- @IO:GS $D750.0-1 DMA:CH3SBITS Audio DMA channel 3 sample bits (11=16, 10=8, 01=upper nybl, 00=lower nybl)
             -- @IO:GS $D751 DMA:CH3BADDR Audio DMA channel 3 base address LSB
             -- @IO:GS $D752 DMA:CH3BADDR Audio DMA channel 3 base address middle byte
