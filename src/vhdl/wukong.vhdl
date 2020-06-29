@@ -608,9 +608,9 @@ begin
       );
 
 
-  red_s_n <= not red_s;
-  green_s_n <= not green_s;
-  blue_s_n <= not blue_s;
+  red_s_n <= red_s;
+  green_s_n <= green_s;
+  blue_s_n <= blue_s;
 
   debug(0) <= clock27;
   debug(1) <= cpuclock;
