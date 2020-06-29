@@ -37,7 +37,8 @@ architecture behavioural of mfm_bits_to_gaps is
 
   signal clock_bits : unsigned(7 downto 0) := x"FF";
 
-  signal bit_queue : unsigned(7 downto 0);
+  signal bit_input_queue : unsigned(7 downto 0);
+  signal bit_queue : unsigned(1 downto 0);
   signal bits_queued : integer range 0 to 7 := 0;
 
   signal interval_countdown : integer range 0 to 255 := 0;
@@ -52,21 +53,28 @@ begin
     if rising_edge(clock40mhz) then
 
       if interval_countdown = 0 then
-        interval_countdown <= cycles_per_interval;
+        interval_countdown <= to_integer(cycles_per_interval);
 
         if bits_queued /= 0 then
           bits_queued <= bits_queued - 1;
           
           if bit_queue(0)='1' then
-            transition_point <= to_unsigned(to_integer(cycles_per_interval(7 downto 1)),9);
+            transition_point <= to_integer(cycles_per_interval(7 downto 1));
           else
-            transition_point <= to_unsigned(256,9);
+            transition_point <= 256;
           end if;
         end if;
         
       else
         interval_countdown <= interval_countdown - 1;
-      end if;       
+      end if;
+
+      -- Request flux reversal
+      if interval_countdown = transition_point then
+        f_write <= '1';
+      else
+        f_write <= '0';
+      end if;
       
       if bits_queued = 0 then
         ready_for_next <= '1';
@@ -78,7 +86,7 @@ begin
         report "latched byte $" & to_hstring(byte_in) & "(clock byte $" & to_hstring(clock_byte_in) & ") for encoding.";
         bits_queued <= 8;
         -- Get the bits to send
-        bits_queued <= byte_in;
+        bit_input_queue <= byte_in;
         -- Invert clock bits so that we can calculate using them.
         clock_bits <= not clock_byte_in;
         ready_for_next <= '0';
