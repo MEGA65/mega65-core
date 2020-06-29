@@ -82,8 +82,8 @@ ENTITY slow_devices IS
     ------------------------------------------------------------------------
     -- 3rd and 4th joystick ports
     ------------------------------------------------------------------------
-    joya : out std_logic_vector(4 downto 0);
-    joyb : out std_logic_vector(4 downto 0);
+    joya : out std_logic_vector(4 downto 0) := "11111";
+    joyb : out std_logic_vector(4 downto 0) := "11111";
     
     ------------------------------------------------------------------------
     -- C64-compatible cartridge/expansion port

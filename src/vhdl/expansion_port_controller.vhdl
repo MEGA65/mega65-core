@@ -228,11 +228,27 @@ begin
 
         if joy_counter = 0 then
           if invert_joystick='0' then
-            joya <= std_logic_vector(cart_d_in(4 downto 0));
-            joyb <= std_logic_vector(cart_a(4 downto 0));
+            if cart_d_in(4 downto 0) /= "00000" then
+              joya <= std_logic_vector(cart_d_in(4 downto 0));
+            else
+              joya <= "11111";
+            end if;
+            if cart_a(4 downto 0) /= "00000" then
+              joyb <= std_logic_vector(cart_a(4 downto 0));
+            else
+              joyb <= "11111";
+            end if;
           else
-            joya <= std_logic_vector(cart_d_in(4 downto 0)) xor "11111";
-            joyb <= std_logic_vector(cart_a(4 downto 0)) xor "11111";
+            if cart_d_in(4 downto 0) /= "11111" then
+              joya <= std_logic_vector(cart_d_in(4 downto 0)) xor "11111";
+            else
+              joya <= "11111";
+            end if;
+            if cart_a(4 downto 0) /= "11111" then
+              joyb <= std_logic_vector(cart_a(4 downto 0)) xor "11111";
+            else
+              joyb <= "11111";
+            end if;
           end if;
           if target = mega65r1 then
             -- Precharge lines read for next reading on M65R1 that lacks pull-ups
