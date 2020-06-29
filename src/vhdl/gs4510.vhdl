@@ -371,6 +371,7 @@ architecture Behavioural of gs4510 is
   signal audio_dma_time_base : u23_0to3 := (others => to_unsigned(0,24));
   signal audio_dma_top_addr : u15_0to3 := (others => to_unsigned(0,16));
   signal audio_dma_volume : u7_0to3 := (others => to_unsigned(0,8));
+  signal audio_dma_pan_volume : u7_0to3 := (others => to_unsigned(0,8));
   signal audio_dma_enables : std_logic_vector(0 to 3) := (others => '0');
   signal audio_dma_repeat : std_logic_vector(0 to 3) := (others => '0');
   signal audio_dma_stop : std_logic_vector(0 to 3) := (others => '0');
@@ -393,6 +394,7 @@ architecture Behavioural of gs4510 is
   signal audio_dma_current_value : s15_0to3 := (others => to_signed(0,16));
   signal audio_dma_latched_sample : s15_0to3 := (others => to_signed(0,16));
   signal audio_dma_multed : s23_0to3 := (others => to_signed(0,24));
+  signal audio_dma_pan_multed : s23_0to3 := (others => to_signed(0,24));
   signal audio_dma_wait_state : std_logic := '1';
   signal audio_dma_left_saturated : std_logic := '0';
   signal audio_dma_right_saturated : std_logic := '0';  
@@ -2095,18 +2097,15 @@ begin
             -- XXX DEBUG registers for audio DMA
             when x"12" => return audio_dma_left_saturated & audio_dma_right_saturated &
                             "0000" & audio_dma_swap & audio_dma_saturation_enable;
-            when x"14" => return unsigned(audio_dma_left(7 downto 0));
-            when x"15" => return unsigned(audio_dma_left(15 downto 8));              
-            when x"16" => return unsigned(audio_dma_right(7 downto 0));
-            when x"17" => return unsigned(audio_dma_right(15 downto 8));
-            when x"18" => return audio_dma_write_counter(7 downto 0);
-            when x"19" => return audio_dma_write_counter(15 downto 8);
-            when x"1a" => return audio_dma_write_counter(23 downto 16);
-            when x"1b" => return audio_dma_write_counter(31 downto 24);
-            when x"1c" => return audio_dma_tick_counter(7 downto 0);
-            when x"1d" => return audio_dma_tick_counter(15 downto 8);
-            when x"1e" => return audio_dma_tick_counter(23 downto 16);
-            when x"1f" => return audio_dma_tick_counter(31 downto 24);
+
+            -- @IO:GS $D71C DMA:CH0RVOL Audio DMA channel 0 right channel volume
+            -- @IO:GS $D71D DMA:CH1RVOL Audio DMA channel 1 right channel volume
+            -- @IO:GS $D71E DMA:CH2LVOL Audio DMA channel 2 left channel volume
+            -- @IO:GS $D71F DMA:CH3LVOL Audio DMA channel 3 left channel volume
+            when x"1c" => return audio_dma_pan_volume(0)(7 downto 0);
+            when x"1d" => return audio_dma_pan_volume(1)(7 downto 0);
+            when x"1e" => return audio_dma_pan_volume(2)(7 downto 0);
+            when x"1f" => return audio_dma_pan_volume(3)(7 downto 0);
 
             -- @IO:GS $D720.7 DMA:CH0EN Enable Audio DMA channel 0
             -- @IO:GS $D720.6 DMA:CH0LOOP Enable Audio DMA channel 0 looping
@@ -2898,6 +2897,14 @@ begin
       elsif (long_address = x"FFD3712") or (long_address = x"FFD1712") then
         audio_dma_swap <= value(1);
         audio_dma_saturation_enable <= value(0);
+      elsif (long_address = x"FFD371C") or (long_address = x"FFD171C") then
+        audio_dma_pan_volume(0) <= value;
+      elsif (long_address = x"FFD371D") or (long_address = x"FFD171D") then
+        audio_dma_pan_volume(1) <= value;
+      elsif (long_address = x"FFD371E") or (long_address = x"FFD171E") then
+        audio_dma_pan_volume(2) <= value;
+      elsif (long_address = x"FFD371F") or (long_address = x"FFD171F") then
+        audio_dma_pan_volume(3) <= value;        
       elsif (long_address(27 downto 4) = x"FFD372") or (long_address(27 downto 4) = x"FFD172")
         or (long_address(27 downto 4) = x"FFD373") or (long_address(27 downto 4) = x"FFD173")
         or (long_address(27 downto 4) = x"FFD374") or (long_address(27 downto 4) = x"FFD174")
@@ -3477,13 +3484,15 @@ begin
           audio_dma_latched_sample(i) <= audio_dma_current_value(i);
         end if;
         audio_dma_multed(i) <= multiply_by_volume_coefficient(audio_dma_current_value(i), audio_dma_volume(i));
+        audio_dma_multed_pan(i) <= multiply_by_volume_coefficient(audio_dma_current_value(i), audio_dma_pan_volume(i));
         if audio_dma_enables(i)='0' then
           audio_dma_multed(i) <= (others => '0');
         end if;
       end loop;
       -- And from those, we compose the combined left and right values, with
       -- saturation detection
-      audio_dma_left_temp := audio_dma_multed(0)(23 downto 8) + audio_dma_multed(1)(23 downto 8);
+      audio_dma_left_temp := audio_dma_multed(0)(23 downto 8) + audio_dma_multed(1)(23 downto 8)
+                             + audio_dma_pan_multed(2)(23 downto 8) + audio_dma_pan_multed(3)(23 downto 8);
       if audio_dma_multed(0)(23) = audio_dma_multed(1)(23) and audio_dma_left_temp(15) /= audio_dma_multed(0)(23) then
         -- overflow: so saturate instead
         if audio_dma_saturation_enable='1' then
@@ -3497,7 +3506,8 @@ begin
         audio_dma_left_saturated <= '0';
       end if;
 
-      audio_dma_right_temp := audio_dma_multed(2)(23 downto 8) + audio_dma_multed(3)(23 downto 8);
+      audio_dma_right_temp := audio_dma_multed(2)(23 downto 8) + audio_dma_multed(3)(23 downto 8)
+                             + audio_dma_pan_multed(0)(23 downto 8) + audio_dma_pan_multed(1)(23 downto 8);
       if audio_dma_multed(2)(23) = audio_dma_multed(3)(23) and audio_dma_right_temp(15) /= audio_dma_multed(2)(23) then
         -- overflow: so saturate instead
         if audio_dma_saturation_enable='1' then
