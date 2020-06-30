@@ -37,6 +37,26 @@ char *problem_descriptions[MAX_PROBLEMS];
 int problem_mentioned[MAX_PROBLEMS];
 int problem_count=0;
 
+char tex_esc_buff[8192];
+char *tex_escape(char *in)
+{
+  int ol=0;
+  for(;*in;in++) {
+    switch(*in) {
+    case '$':
+    case '%':
+      tex_esc_buff[ol++]='\\';
+      tex_esc_buff[ol++]=*in;      
+      break;
+    default:
+      tex_esc_buff[ol++]=*in;
+    }
+  }
+  tex_esc_buff[ol]=0;
+  return tex_esc_buff;
+}
+
+
 int register_breaks(int issue,char *title,char *problem)
 {
   int i;
@@ -53,8 +73,8 @@ int register_breaks(int issue,char *title,char *problem)
   fprintf(stderr,"Registering problem: #%d : '%s'\n",
 	  issue,problem_msg);
   problem_issues[problem_count]=issue;
-  problem_titles[problem_count]=strdup(title);
-  problem_descriptions[problem_count]=strdup(problem_msg);
+  problem_titles[problem_count]=strdup(tex_escape(title));
+  problem_descriptions[problem_count]=strdup(tex_escape(problem_msg));
   problem_count++;
   
   return 0;
