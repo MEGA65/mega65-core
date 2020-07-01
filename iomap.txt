@@ -32,6 +32,7 @@ GS $7010003 - Counter of /NMI triggers from cartridge
 GS $7010004 - Counter of /DMA triggers from cartridge
 GS $7010005 - Counter of /GAME triggers from cartridge
 GS $7010006 - Counter of /EXROM triggers from cartridge
+GS $7FEFFFF.0 Enable/disable SFX cartridge emulation
 GS $8000000 - $FEFFFFF Slow Device memory (127MB)
 GS $8000000 - $FEFFFFF SUMMARY:SLOWDEV Slow Device memory (127MB)
 C64 $D000 VIC-II:S0X sprite 0 horizontal position
@@ -390,6 +391,7 @@ GS $D611.2 UARTMISC:MCTRL CTRL key state (hardware accelerated keyboard scanner)
 GS $D611.3 UARTMISC:MMEGA MEGA/C= key state (hardware accelerated keyboard scanner).
 GS $D611.4 UARTMISC:MALT ALT key state (hardware accelerated keyboard scanner).
 GS $D611.5 UARTMISC:MSCRL NOSCRL key state (hardware accelerated keyboard scanner).
+GS $D611.6 UARTMISC:MCAPS CAPS LOCK key state (hardware accelerated keyboard scanner).
 GS $D611 Modifier key state (hardware accelerated keyboard scanner).
 GS $D612.0 UARTMISC:WGTKEY Enable widget board keyboard/joystick input
 GS $D612.1 UARTMISC:PS2KEY Enable ps2 keyboard/joystick input
@@ -647,32 +649,32 @@ GS $D6AF.4-7 - DEBUG:FDCIDXCNT Floppy index count
 GS $D6AF.4 - f011_drq
 GS $D6AF.5 - f011_lost
 GS $D6AF - Directly set F011 flags (intended for virtual F011 mode) WRITE ONLY
-GS $D6B0.0 - Touch event 1 is valid
-GS $D6B0.1 - Touch event 2 is valid
-GS $D6B0.2-3 - Touch event 1 up/down state
-GS $D6B0.5-4 - Touch event 2 up/down state
-GS $D6B0.6 - Invert horizontal axis
-GS $D6B0.7 - Invert vertical axis
+GS $D6B0.0 TOUCH:EV1 Touch event 1 is valid
+GS $D6B0.1 TOUCH:EV2 Touch event 2 is valid
+GS $D6B0.2-3 TOUCH:UPDN1 Touch event 1 up/down state
+GS $D6B0.5-4 TOUCH:UPDN2 Touch event 2 up/down state
+GS $D6B0.6 TOUCH:XINV Invert horizontal axis
+GS $D6B0.7 TOUCH:YINV Invert vertical axis
 GS $D6B0 - Touch pad control / status
-GS $D6B1 - Touch pad X scaling LSB
-GS $D6B2 - Touch pad X scaling MSB
-GS $D6B3 - Touch pad Y scaling LSB
-GS $D6B4 - Touch pad Y scaling MSB
-GS $D6B5 - Touch pad X delta LSB
-GS $D6B6 - Touch pad X delta MSB
-GS $D6B7 - Touch pad Y delta LSB
-GS $D6B8 - Touch pad Y delta MSB
-GS $D6B9 - Touch pad touch #1 X LSB
-GS $D6BA - Touch pad touch #1 Y LSB
-GS $D6BB.0-1 - Touch pad touch #1 X MSBs
-GS $D6BB.5-4 - Touch pad touch #1 Y MSBs
-GS $D6BC - Touch pad touch #2 X LSB
-GS $D6BD - Touch pad touch #2 Y LSB
-GS $D6BE.0-1 - Touch pad touch #2 X MSBs
-GS $D6BE.5-4 - Touch pad touch #2 Y MSBs
+GS $D6B1 TOUCH:CALXSCALELSB Touch pad X scaling LSB
+GS $D6B2 TOUCH:CALXSCALEMSB Touch pad X scaling MSB
+GS $D6B3 TOUCH:CALYSCALELSB Touch pad Y scaling LSB
+GS $D6B4 TOUCH:CALYSCALEMSB Touch pad Y scaling MSB
+GS $D6B5 TOUCH:CALXDELTALSB Touch pad X delta LSB
+GS $D6B6 TOUGH:CALXDELTAMSB Touch pad X delta MSB
+GS $D6B7 TOUCH:CALYDELTALSB Touch pad Y delta LSB
+GS $D6B8 TOUCH:CALYDELTAMSB Touch pad Y delta MSB
+GS $D6B9 TOUCH:TOUCH1XLSB Touch pad touch #1 X LSB
+GS $D6BA TOUCH:TOUCH1YLSB Touch pad touch #1 Y LSB
+GS $D6BB.0-1 TOUCH:TOUCH1XMSB Touch pad touch #1 X MSBs
+GS $D6BB.5-4 TOUCH:TOUCH1YMSB Touch pad touch #1 Y MSBs
+GS $D6BC TOUCH:TOUCH2XLSB Touch pad touch #2 X LSB
+GS $D6BD TOUCH:TOUCH2YLSB Touch pad touch #2 Y LSB
+GS $D6BE.0-1 TOUCH:TOUCH2XMSB Touch pad touch #2 X MSBs
+GS $D6BE.5-4 TOUCH:TOUCH2YMSB Touch pad touch #2 Y MSBs
 GS $D6BF.7 - Enable/disable touch panel I2C communications
-GS $D6C0.0-3 - Touch pad gesture directions (left,right,up,down)
-GS $D6C0.7-4 - Touch pad gesture ID
+GS $D6C0.0-3 TOUCH:GESTUREDIR Touch pad gesture directions (left,right,up,down)
+GS $D6C0.7-4 TOUCH:GESTUREID Touch pad gesture ID
 GS $D6C4 FPGA:REGNUM Select ICAPE2 FPGA configuration register for reading WRITE ONLY
 GS $D6C4 FPGA:REGVAL Value of selected ICAPE2 register (least significant byte)
 GS $D6C5 FPGA:REGVAL Value of selected ICAPE2 register
@@ -691,7 +693,7 @@ GS $D6CC.7 QSPI:DB1 DDR (1=output)
 GS $D6CD.0 QSPI:CLOCKRUN Set to cause QSPI clock to free run at CPU clock frequency.
 GS $D6CD.1 QSPI:CLOCK Alternate address for direct manipulation of QSPI CLOCK
 GS $D6CF - Write $42 to Trigger FPGA reconfiguration to switch to alternate bitstream.
-GS $D6D0 - I2C bus select (bus 0 = temp sensor on Nexys4 boardS)
+GS $D6D0 MISC:I2CBUSSELECT I2C bus select (bus 0 = temp sensor on Nexys4 boardS)
 GS $D6D1.0 - I2C reset
 GS $D6D1.1 - I2C command latch write strobe (write 1 to trigger command)
 GS $D6D1.2 - I2C Select read (1) or write (0)
@@ -702,10 +704,10 @@ GS $D6D1 - I2C control/status
 GS $D6D2.7-1 - I2C address
 GS $D6D3 - I2C data write register
 GS $D6D4 - I2C data read register
-GS $D6DA - DEBUG SD card last error code LSB
-GS $D6DB - DEBUG SD card last error code MSB
-GS $D6DE - FPGA die temperature sensor (lower nybl)
-GS $D6DF - FPGA die temperature sensor (upper byte)
+GS $D6DA MISC:SDDEBUGERRLSB DEBUG SD card last error code LSB
+GS $D6DB MISC:SDDEBUGERRMSB DEBUG SD card last error code MSB
+GS $D6DE FPGA:FPGATEMPLSB FPGA die temperature sensor (lower nybl)
+GS $D6DF FPGA:FPGATEMPMSB FPGA die temperature sensor (upper byte)
 GS $D6E0.0 Clear to reset ethernet PHY
 GS $D6E0.0 ETH:RST Write 0 to hold ethernet controller under reset
 GS $D6E0.1-2 ETH:DRXD Read ethernet RX bits currently on the wire
@@ -749,21 +751,23 @@ GS $D6ED ETH:MACADDR5 Ethernet MAC address
 GS $D6EE ETH:MACADDR6 Ethernet MAC address
 GS $D6EF ETH:DBGRXSTAT DEBUG show current ethernet RX state
 GS $D6F0 - LCD panel brightness control
-GS $D6F2 - Read FPGA five-way buttons
+GS $D6F0 MISC:LCDBRIGHTNESS LCD panel brightness control
+GS $D6F2 MISC:FPGABUTTONS Read FPGA five-way buttons
 GS $D6F3 - Accelerometer bit-bashing port
-GS $D6F3 Accelerometer inputs
+GS $D6F3 MISC:ACCELBITBASH Accelerometer bit-bash interface
 GS $D6F4 - Audio Mixer register select
-GS $D6F5 - Audio Mixer register read port
+GS $D6F4 AUDIO:MIXREGSEL Audio Mixer register select
 GS $D6F5 - Audio Mixer register write port
-GS $D6F6 - Keyboard scan code reader (lower byte)
-GS $D6F7 - Keyboard scan code reader (upper nybl)
-GS $D6F8 - 8-bit digital audio out (left)
-GS $D6F8 - Digital audio, left channel, LSB
-GS $D6F9 - Digital audio, left channel, MSB
-GS $D6FA - Digital audio, left channel, LSB
-GS $D6FB - Digital audio, left channel, MSB
-GS $D6FC - audio LSB (source selected by $D6F4)
-GS $D6FD - audio MSB (source selected by $D6F4)
+GS $D6F5 AUDIO:MIXREGDATA Audio Mixer register read port
+GS $D6F6 MISC:PS2KEYSCANLSB Keyboard scan code reader (lower byte)
+GS $D6F7 MISC:PS2KEYSCANMSB Keyboard scan code reader (upper nybl)
+GS $D6F8 - 16-bit digital audio out (left LSB)
+GS $D6F8 AUDIO:DIGILEFTLSB Digital audio, left channel, LSB
+GS $D6F9 AUDIO:DIGILEFTMSB Digital audio, left channel, MSB
+GS $D6FA AUDIO:DIGIRIGHTLSB Digital audio, left channel, LSB
+GS $D6FB AUDIO:DIGIRIGHTMSB Digital audio, left channel, MSB
+GS $D6FC AUDIO:READBACKLSB audio read-back LSB (source selected by $D6F4)
+GS $D6FD AUDIO:READBACKMSB audio read-back MSB (source selected by $D6F4)
 C65 $D700 DMA:ADDRLSBTRIG DMAgic DMA list address LSB, and trigger DMA (when written)
 C65 $D701 DMA:ADDRMSB DMA list address high byte (address bits 8 -- 15).
 C65 $D702 DMA:ADDRBANK DMA list address bank (address bits 16 -- 22). Writing clears \$D704.
@@ -786,14 +790,20 @@ GS $D70E DMA:ADDRLSB DMA list address low byte (address bits 0 -- 7) WITHOUT STA
 GS $D710.0 - MISC:BADLEN Enable badline emulation
 GS $D710.1 - MISC:SLIEN Enable 6502-style slow (7 cycle) interrupts
 GS $D710.2 - MISC:VDCSEN Enable VDC inteface simulation
-GS $D711.0-2 - DMA:AUDBLOCKTO Audio DMA block timeout (read only) DEBUG
-GS $D711.3 - DMA:AUDWRBLOCKED instructionfetch PC adjust DEBUG
-GS $D711.4 - DMA:AUDWRBLOCKED instructiondecode PC adjust DEBUG
-GS $D711.5 - DMA:AUDWRBLOCK Audio DMA block writes (samples still get read) 
-GS $D711.6 - DMA:AUDBLOCKED Audio DMA blocked (read only) DEBUG
-GS $D711.7 - DMA:AUDEN Enable Audio DMA
+GS $D711.0-2 DMA:AUDBLKTO Audio DMA block timeout (read only) DEBUG
+GS $D711.3 AUDIO:PWMPDM PWM/PDM audio encoding select
+GS $D711.4 DMA:NOMIX Audio DMA bypasses audio mixer
+GS $D711.5 DMA:AUDWRBLK Audio DMA block writes (samples still get read) 
+GS $D711.6 DMA:BLKD Audio DMA blocked (read only) DEBUG
+GS $D711.7 DMA:AUDEN Enable Audio DMA
+GS $D71C DMA:CH0RVOL Audio DMA channel 0 right channel volume
+GS $D71D DMA:CH1RVOL Audio DMA channel 1 right channel volume
+GS $D71E DMA:CH2LVOL Audio DMA channel 2 left channel volume
+GS $D71F DMA:CH3LVOL Audio DMA channel 3 left channel volume
 GS $D720.0-1 DMA:CH0SBITS Audio DMA channel 0 sample bits (11=16, 10=8, 01=upper nybl, 00=lower nybl)
-GS $D720.3 DMA:CH0STOP Audio DMA channel 0 stop flag
+GS $D720.3 DMA:CH0STP Audio DMA channel 0 stop flag
+GS $D720.4 DMA:CH0SINE Audio DMA channel 0 play 32-sample sine wave instead of DMA data
+GS $D720.5 DMA:CH0SGN Enable Audio DMA channel 0 signed samples
 GS $D720.6 DMA:CH0LOOP Enable Audio DMA channel 0 looping
 GS $D720.7 DMA:CH0EN Enable Audio DMA channel 0
 GS $D721 DMA:CH0BADDR Audio DMA channel 0 base address LSB
@@ -812,6 +822,9 @@ GS $D72D DMA:CH0FREQ Audio DMA channel 0 timing counter LSB
 GS $D72E DMA:CH0FREQ Audio DMA channel 0 timing counter middle byte
 GS $D72F DMA:CH0FREQ Audio DMA channel 0 timing counter address MSB
 GS $D730.0-1 DMA:CH1SBITS Audio DMA channel 1 sample bits (11=16, 10=8, 01=upper nybl, 00=lower nybl)
+GS $D730.3 DMA:CH1STP Audio DMA channel 1 stop flag
+GS $D730.4 DMA:CH1SINE Audio DMA channel 1 play 32-sample sine wave instead of DMA data
+GS $D730.5 DMA:CH1SGN Enable Audio DMA channel 1 signed samples
 GS $D730.6 DMA:CH1LOOP Enable Audio DMA channel 1 looping
 GS $D730.7 DMA:CH1EN Enable Audio DMA channel 1
 GS $D731 DMA:CH1BADDR Audio DMA channel 1 base address LSB
@@ -829,7 +842,10 @@ GS $D73C DMA:CH1FREQ Audio DMA channel 1 current address MSB
 GS $D73D DMA:CH1FREQ Audio DMA channel 1 timing counter LSB
 GS $D73E DMA:CH1FREQ Audio DMA channel 1 timing counter middle byte
 GS $D73F DMA:CH1FREQ Audio DMA channel 1 timing counter address MSB
-GS $D740.0-1 DMA:CH2SBITS Audio DMA channel 2 sample bits (11=16, 10=8, 01=upper nybl, 00=lower nybl)
+GS $D740.0-1 DMA:CH1SBITS Audio DMA channel 1 sample bits (11=16, 10=8, 01=upper nybl, 00=lower nybl)
+GS $D740.3 DMA:CH2STP Audio DMA channel 2 stop flag
+GS $D740.4 DMA:CH2SINE Audio DMA channel 2 play 32-sample sine wave instead of DMA data
+GS $D740.5 DMA:CH2SGN Enable Audio DMA channel 2 signed samples
 GS $D740.6 DMA:CH2LOOP Enable Audio DMA channel 2 looping
 GS $D740.7 DMA:CH2EN Enable Audio DMA channel 2
 GS $D741 DMA:CH2BADDR Audio DMA channel 2 base address LSB
@@ -848,6 +864,9 @@ GS $D74D DMA:CH2FREQ Audio DMA channel 2 timing counter LSB
 GS $D74E DMA:CH2FREQ Audio DMA channel 2 timing counter middle byte
 GS $D74F DMA:CH2FREQ Audio DMA channel 2 timing counter address MSB
 GS $D750.0-1 DMA:CH3SBITS Audio DMA channel 3 sample bits (11=16, 10=8, 01=upper nybl, 00=lower nybl)
+GS $D750.3 DMA:CH3STP Audio DMA channel 3 stop flag
+GS $D750.4 DMA:CH3SINE Audio DMA channel 3 play 32-sample sine wave instead of DMA data
+GS $D750.5 DMA:CH3SGN Enable Audio DMA channel 3 signed samples
 GS $D750.6 DMA:CH3LOOP Enable Audio DMA channel 3 looping
 GS $D750.7 DMA:CH3EN Enable Audio DMA channel 3
 GS $D751 DMA:CH3BADDR Audio DMA channel 3 base address LSB
@@ -865,22 +884,24 @@ GS $D75C DMA:CH3FREQ Audio DMA channel 3 current address MSB
 GS $D75D DMA:CH3FREQ Audio DMA channel 3 timing counter LSB
 GS $D75E DMA:CH3FREQ Audio DMA channel 3 timing counter middle byte
 GS $D75F DMA:CH3FREQ Audio DMA channel 3 timing counter address MSB
-GS $D770-3 25-bit multiplier input A
-GS $D770 MATH:MULTINA Multiplier input A (25 bit)
-GS $D771 MATH:MULTINA Multiplier input A (25 bit)
-GS $D772 MATH:MULTINA Multiplier input A (25 bit)
-GS $D773.0 MATH:MULTINA Multiplier input A (25 bit)
-GS $D774-7 18-bit multiplier input B
-GS $D774 MATH:MULTINB Multiplier input A (18 bit)
-GS $D775 MATH:MULTINB Multiplier input A (18 bit)
-GS $D776.0-1 MATH:MULTINB Multiplier input A (18 bit)
-GS $D778 MATH:MULTOUT 48-bit output of MULTINA $\times$ MULTINB
-GS $D779 MATH:MULTOUT 48-bit output of MULTINA $\times$ MULTINB
-GS $D77A MATH:MULTOUT 48-bit output of MULTINA $\times$ MULTINB
-GS $D77B MATH:MULTOUT 48-bit output of MULTINA $\times$ MULTINB
-GS $D77C MATH:MULTOUT 48-bit output of MULTINA $\times$ MULTINB
-GS $D77D MATH:MULTOUT 48-bit output of MULTINA $\times$ MULTINB
-GS $D77E MATH:MULTOUT 48-bit output of MULTINA $\times$ MULTINB
+GS $D770-3 32-bit multiplier input A
+GS $D770 MATH:MULTINA Multiplier input A (32 bit)
+GS $D771 MATH:MULTINA Multiplier input A (32 bit)
+GS $D772 MATH:MULTINA Multiplier input A (32 bit)
+GS $D773 MATH:MULTINA Multiplier input A (32 bit)
+GS $D774-7 32-bit multiplier input B
+GS $D774 MATH:MULTINB Multiplier input A (32 bit)
+GS $D775 MATH:MULTINB Multiplier input A (32 bit)
+GS $D776 MATH:MULTINB Multiplier input A (32 bit)
+GS $D777 MATH:MULTINB Multiplier input A (32 bit)
+GS $D778 MATH:MULTOUT 64-bit output of MULTINA $\times$ MULTINB
+GS $D779 MATH:MULTOUT 64-bit output of MULTINA $\times$ MULTINB
+GS $D77A MATH:MULTOUT 64-bit output of MULTINA $\times$ MULTINB
+GS $D77B MATH:MULTOUT 64-bit output of MULTINA $\times$ MULTINB
+GS $D77C MATH:MULTOUT 64-bit output of MULTINA $\times$ MULTINB
+GS $D77D MATH:MULTOUT 64-bit output of MULTINA $\times$ MULTINB
+GS $D77E MATH:MULTOUT 64-bit output of MULTINA $\times$ MULTINB
+GS $D77F MATH:MULTOUT 64-bit output of MULTINA $\times$ MULTINB
 GS $D780-$D7BF - 16 x 32 bit Math Unit values
 GS $D780 MATH:MATHIN0 Math unit 32-bit input 0
 GS $D781 MATH:MATHIN0 Math unit 32-bit input 0
