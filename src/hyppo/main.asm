@@ -552,9 +552,8 @@ reset_machine_state:
         lda uart65_irq_flag
 
         // switch to fast mode
-        // 1. C65 fast-mode enable
-        lda $d031
-        ora #$40
+        // 1. C65 fast-mode enable, and disable extended attributes
+	lda #$40
         sta $d031
         // 2. MEGA65 48MHz enable (requires C65 or C128 fast mode to truly enable, hence the above)
         lda #$c5
@@ -563,9 +562,10 @@ reset_machine_state:
         // Setup I2C peripherals on the MEGAphone platform
         jsr megaphone_setup
 
-        // sprites off, and normal mode
+        // sprites off, and normal mode, 256-colour char data from chipram
         lda #$00
         sta $d015
+	sta $d063
         sta $d055
         sta $d06b
         sta $d057
