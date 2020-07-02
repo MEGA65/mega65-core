@@ -398,8 +398,8 @@ hyperramsimulate2: $(GHDL) $(VHDLSRCDIR)/test_hyperram.vhdl $(VHDLSRCDIR)/hyperr
 
 hyperramsimulate16: $(GHDL) $(VHDLSRCDIR)/test_hyperram16.vhdl $(VHDLSRCDIR)/hyperram.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/s27kl0641-pgs-modified.vhd $(VHDLSRCDIR)/slow_devices.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/expansion_port_controller.vhdl $(VHDLSRCDIR)/gen_utils.vhdl $(VHDLSRCDIR)/conversions.vhdl $(VHDLSRCDIR)/fake_opl2.vhdl
 	$(GHDL) -i $(VHDLSRCDIR)/test_hyperram16.vhdl $(VHDLSRCDIR)/hyperram.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/s27kl0641-pgs-modified.vhd $(VHDLSRCDIR)/slow_devices.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/expansion_port_controller.vhdl $(VHDLSRCDIR)/gen_utils.vhdl $(VHDLSRCDIR)/conversions.vhdl $(VHDLSRCDIR)/fake_opl2.vhdl
-	$(GHDL) -m test_hyperram
-	( ./test_hyperram || $(GHDL) -r test_hyperram )
+	$(GHDL) -m test_hyperram16
+	( ./test_hyperram16 || $(GHDL) -r test_hyperram16 )
 
 
 

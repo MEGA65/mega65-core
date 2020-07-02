@@ -27,6 +27,8 @@ architecture foo of test_hyperram16 is
   signal current_cache_line_address : unsigned(26 downto 3) := (others => '0');
   signal current_cache_line_valid : std_logic := '0';
 
+  signal cycles : integer := 0;  
+  
   signal slow_prefetched_address : unsigned(26 downto 0);
   signal slow_prefetched_data : unsigned(7 downto 0);
   signal slow_prefetched_request_toggle : std_logic := '0';
@@ -518,7 +520,7 @@ architecture foo of test_hyperram16 is
     );
 
   -- Wait initially to allow hyperram to reset and set config register
-  signal idle_wait : integer := 1000;
+  signal idle_wait : std_logic := '0';
   
   signal expect_value : std_logic := '0';
   signal expected_value : unsigned(7 downto 0) := x"00";
@@ -687,11 +689,11 @@ begin
     
     if expansionram_data_ready_strobe='1' then
       if expect_value = '1' then
-        if expected_value = slow_access_rdata then
-          report "DISPATCHER: Read correct value $" & to_hstring(slow_access_rdata)
+        if expected_value = expansionram_rdata then
+          report "DISPATCHER: Read correct value $" & to_hstring(expansionram_rdata)
             & " after " & integer'image(current_time - dispatch_time) & "ns.";
         else
-          report "DISPATCHER: ERROR: Expected $" & to_hstring(expected_value) & ", but saw $" & to_hstring(slow_access_rdata)
+          report "DISPATCHER: ERROR: Expected $" & to_hstring(expected_value) & ", but saw $" & to_hstring(expansionram_rdata)
             & " after " & integer'image(current_time - dispatch_time) & "ns.";            
         end if;
         dispatch_time <= current_time;
@@ -701,9 +703,7 @@ begin
 
     if expansionram_busy = '0' then
 
-      if idle_wait /= 0 then
-        idle_wait <= idle_wait - 1;
-      elsif expect_value = '0' and expansionram_busy='0' then
+      if expect_value = '0' and expansionram_busy='0' then
 
         if mem_jobs(cycles).address = x"FFFFFFF" then
           report "DISPATCHER: Total sequence was " & integer'image(current_time - start_time) & "ns "
@@ -715,7 +715,7 @@ begin
         end if;
 
         if expansionram_busy = '0' and idle_wait='0' then
-          expansionram_address <= mem_jobs(cycles).address;
+          expansionram_address <= mem_jobs(cycles).address(26 downto 0);
           expansionram_write <= mem_jobs(cycles).write_p;
           expansionram_read <= not mem_jobs(cycles).write_p;
           expansionram_wdata <= mem_jobs(cycles).value;
