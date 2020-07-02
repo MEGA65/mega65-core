@@ -265,7 +265,7 @@ NEXYSVHDL=		$(VHDLSRCDIR)/slowram.vhdl \
 
 
 SIMULATIONVHDL=		$(VHDLSRCDIR)/cpu_test.vhdl \
-			$(VHDLSRCDIR)/s27kl0641.vhd \
+			$(VHDLSRCDIR)/s27kl0641.vhdl \
 			$(VHDLSRCDIR)/fake_expansion_port.vhdl \
 			$(VHDLSRCDIR)/fake_sdcard.vhdl \
 			$(VHDLSRCDIR)/fake_reconfig.vhdl \
@@ -390,8 +390,8 @@ hyperramsimulate: $(GHDL) $(VHDLSRCDIR)/test_hyperram.vhdl $(VHDLSRCDIR)/hyperra
 	( ./test_hyperram || $(GHDL) -r test_hyperram )
 
 # Get the gen_utils.vhd and conversions.vhd files from here: https://freemodelfoundry.com/fmf_VHDL_models.php
-hyperramsimulate2: $(GHDL) $(VHDLSRCDIR)/test_hyperram.vhdl $(VHDLSRCDIR)/hyperram.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/s27kl0641.vhd $(VHDLSRCDIR)/slow_devices.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/expansion_port_controller.vhdl $(VHDLSRCDIR)/gen_utils.vhdl $(VHDLSRCDIR)/conversions.vhdl
-	$(GHDL) -i $(VHDLSRCDIR)/test_hyperram.vhdl $(VHDLSRCDIR)/hyperram.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/s27kl0641.vhd $(VHDLSRCDIR)/slow_devices.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/expansion_port_controller.vhdl $(VHDLSRCDIR)/gen_utils.vhdl $(VHDLSRCDIR)/conversions.vhdl
+hyperramsimulate2: $(GHDL) $(VHDLSRCDIR)/test_hyperram.vhdl $(VHDLSRCDIR)/hyperram.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/s27kl0641.vhdl $(VHDLSRCDIR)/slow_devices.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/expansion_port_controller.vhdl $(VHDLSRCDIR)/gen_utils.vhdl $(VHDLSRCDIR)/conversions.vhdl
+	$(GHDL) -i $(VHDLSRCDIR)/test_hyperram.vhdl $(VHDLSRCDIR)/hyperram.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/s27kl0641.vhdl $(VHDLSRCDIR)/slow_devices.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/expansion_port_controller.vhdl $(VHDLSRCDIR)/gen_utils.vhdl $(VHDLSRCDIR)/conversions.vhdl
 	$(GHDL) -m test_hyperram
 	( ./test_hyperram || $(GHDL) -r test_hyperram )
 
