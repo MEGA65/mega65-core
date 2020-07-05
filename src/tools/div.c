@@ -1,13 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-int main(int argc,char **argv)
+int do_divide(unsigned int n,unsigned int d)
 {
-  unsigned int n=atoi(argv[1]);
-  unsigned int d=atoi(argv[2]);
 
   unsigned long q=0;
 
+  
+  
   if (!d) {
     printf("Division by zero\n");
     return;
@@ -68,14 +68,17 @@ int main(int argc,char **argv)
       if (estimate_1==0x0000000100000000) {
 	// Exact result.
 	printf("Exact result. Stopping.\n");
+	printf("RESULT:%d:%d: %d/%d = %f ($%08X) in %d steps.\n",d,steps_taken,n,d,(double)n/d,r_estimate,steps_taken);
 	break;
       }	else if ((estimate_1&0xffffffff)<d) {
 	// Nearly exact result.
 	printf("Almost Exact result. Stopping.\n");
+	printf("RESULT:%d:%d: %d/%d = %f ($%08X) in %d steps.\n",d,steps_taken,n,d,(double)n/d,r_estimate,steps_taken);
 	break;	  
       }	else if ((((~estimate_1)&0xffffffff))<d) {
 	// Nearly exact result.
 	printf("Almost Exact result. Stopping.\n");
+	printf("RESULT:%d:%d: %d/%d = %f ($%08X) in %d steps.\n",d,steps_taken,n,d,(double)n/d,r_estimate,steps_taken);
 	break;	  
       } else if ((estimate_1>>32)) {
 	if (!(estimate_1&0xffffffff)) {
@@ -169,6 +172,7 @@ int main(int argc,char **argv)
 	  iter_count++;
 	  r=0;
 	}
+	if (!r) r=1;
 	r_estimate+=r;
 	printf("Adding $%08x to r = $%08lx\n",r,r_estimate);
 	if (r_estimate>0xfffffffffL) r_estimate=0xffffffff;
@@ -180,3 +184,11 @@ int main(int argc,char **argv)
   
   
 }
+
+int main(int argc,char **argv)
+{
+
+  for(int i=1;i<=0xffffffff;i++)
+    do_divide(1,i);
+}
+
