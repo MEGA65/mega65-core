@@ -38,14 +38,10 @@ begin
       report "state is " & state_t'image(state);
       case state is
         when idle =>
-          if start_over='1' then
-            report "Calculating $" & to_hstring(n) & " / $" & to_hstring(d);
-            dd(31 downto 0) <= d;
-            nn(31 downto 0) <= n;
-            nn(63 downto 32) <= (others => '0');
-            state <= normalise;
-            steps_remaining <= 5;
-            busy <= '1';
+          -- Deal with divide by zero
+          if dd = to_unsigned(0,32) then
+            q <= (others => '1');
+            busy <= '0';
           end if;
         when normalise =>
           if dd(31)='1' then
@@ -80,9 +76,7 @@ begin
               nn(0) <= '0';
             end if;
           end if;
-
         when step =>
-
           report "nn=$" & to_hstring(nn(63 downto 32)) & "." & to_hstring(nn(31 downto 0))
             & ", dd=$" & to_hstring(dd);
 
@@ -110,7 +104,19 @@ begin
           -- giving a result of 1.999999999
           q <= nn(63 downto 0) + 1;
           state <= idle;
-      end case;  
+      end case;
+
+      if start_over='1' and d /= to_unsigned(0,32) then
+        report "Calculating $" & to_hstring(n) & " / $" & to_hstring(d);
+        dd(31 downto 0) <= d;
+        nn(31 downto 0) <= n;
+        nn(63 downto 32) <= (others => '0');
+        state <= normalise;
+        steps_remaining <= 5;
+        busy <= '1';
+      end if;
+
+      
     end if;
   end process;
 end wattle_and_daub;
