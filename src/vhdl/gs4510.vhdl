@@ -1366,6 +1366,7 @@ architecture Behavioural of gs4510 is
   signal div_d : unsigned(31 downto 0);
   signal div_q : unsigned(63 downto 0);
   signal div_start_over : std_logic := '0';  
+  signal div_busy : std_logic := '0';  
   
   -- purpose: map VDC linear address to VICII bitmap addressing here
   -- to keep it as simple as possible we assume fix 640x200x2 resolution
@@ -1395,7 +1396,7 @@ begin
 
   fd0: entity work.fast_divide
     port map (
-      clock => cpuclock,
+      clock => clock,
       n => div_n,
       d => div_d,
       q => div_q,
@@ -2301,8 +2302,8 @@ begin
             when x"73" => return reg_mult_a(31 downto 24);
             when x"74" => return reg_mult_b(7 downto 0);
             when x"75" => return reg_mult_b(15 downto 8);
-            when x"75" => return reg_mult_b(23 downto 16);
-            when x"75" => return reg_mult_b(31 downto 24);
+            when x"76" => return reg_mult_b(23 downto 16);
+            when x"77" => return reg_mult_b(31 downto 24);
             -- @IO:GS $D768 MATH:MULTOUT 64-bit output of MULTINA $\divide$ MULTINB
             -- @IO:GS $D769 MATH:MULTOUT 64-bit output of MULTINA $\divide$ MULTINB
             -- @IO:GS $D76A MATH:MULTOUT 64-bit output of MULTINA $\divide$ MULTINB
@@ -3540,8 +3541,6 @@ begin
       -- Actually, we now offer 32x32 multiplication, as that should also be
       -- possible in a single cycle
       reg_mult_p(63 downto 0) <= reg_mult_a * reg_mult_b;
-      -- We then also calculate the reciprocal of A, and A/B using that      
-      reg_mult_q(63 downto 0) <= reg_mult_a * reg_mult_r;
 
       -- We also have four more little multipliers for the audio DMA stuff
       for i in 0 to 3 loop
