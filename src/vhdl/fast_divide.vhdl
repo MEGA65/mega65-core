@@ -20,8 +20,8 @@ entity fast_divide is
 end entity;
 
 architecture wattle_and_daub of fast_divide is
-  type state_t is (init, normalise, step, output);
-  signal state : state_t := init;
+  type state_t is (idle, normalise, step, output);
+  signal state : state_t := idle;
   signal steps_remaining : integer range 0 to 5 := 0;
 
   signal dd : unsigned(31 downto 0);
@@ -37,7 +37,7 @@ begin
     if rising_edge(clock) then
       report "state is " & state_t'image(state);
       case state is
-        when init =>
+        when idle =>
           if start_over='1' then
             report "Calculating $" & to_hstring(n) & " / $" & to_hstring(d);
             dd(31 downto 0) <= d;
@@ -85,29 +85,31 @@ begin
 
           report "nn=$" & to_hstring(nn(63 downto 32)) & "." & to_hstring(nn(31 downto 0))
             & ", dd=$" & to_hstring(dd);
-          
+
+          -- f = 2 - dd
           f := to_unsigned(0,34);
           f(33) := '1';
           f := f - dd;
           report "f = $" & to_hstring(f);
 
+          -- Now multiply both nn and dd by f
           temp96 := nn * f;
-          report "temp96 = $" & to_hstring(temp96);
-          temp64 := dd * f;
-          report "temp64 = $" & to_hstring(temp64);
-          report "nn <= " & to_hstring(temp96(93 downto 32));
-          report "dd <= " & to_hstring(temp64(63 downto 32));
           nn <= temp96(95 downto 32);
+          temp64 := dd * f;
           dd <= temp64(63 downto 32);      
-          
-          if steps_remaining /= 0 then
+
+          -- Perform number of required steps, or abort early if we can
+          if steps_remaining /= 0 and dd /= x"FFFFFFFF" then
             steps_remaining <= steps_remaining - 1;
           else
             state <= output;
           end if;
         when output =>
           busy <= '0';
-          q <= nn(63 downto 0);
+          -- No idea why we need to add one, but we do to stop things like 4/2
+          -- giving a result of 1.999999999
+          q <= nn(63 downto 0) + 1;
+          state <= idle;
       end case;  
     end if;
   end process;
