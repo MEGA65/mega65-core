@@ -31,7 +31,7 @@ int main(int argc,char **argv)
   while(dd) { bits_in_d++; dd=dd>>1; }
   printf("Numerator uses %d bits.\n",bits_in_d);
 
-  unsigned long r_estimate = 1<<(32-bits_in_d);
+  unsigned long r_estimate = 1LL<<(32-bits_in_d);
   if (!r_estimate) r_estimate=1;
 
   int iter_count=0;
@@ -41,6 +41,8 @@ int main(int argc,char **argv)
   while(1)
     {
       unsigned long estimate_1=r_estimate*d;
+      printf("$%016lx x $%08x = $%016lx\n",
+	     r_estimate,d,estimate_1);
 
       iter_count++;      
 
@@ -96,7 +98,7 @@ int main(int argc,char **argv)
 	case 5: r=r-(r>>2)-(r>>4); break;
 	case 6: r=r-(r>>2)-(r>>3); break;
 	case 7: r=r-(r>>2)-(r>>3)-(r>>4); break;
-	case 8: r=r>>2; break;
+	case 8: r=r; break;
 	case 9: r=(r>>2)+(r>>4); break;
 	case 10: r=(r>>2)+(r>>3); break;
 	case 11: r=(r>>2)+(r>>4); break;
@@ -106,8 +108,7 @@ int main(int argc,char **argv)
 	case 15: r=(r>4); break;
 	}
 	r_estimate-=r;
-	printf("Subtracting $%08x from r = $%08x\n",r,r_estimate);
-	return -1;
+	printf("Subtracting $%08x from r = $%08lx\n",r,r_estimate);
 	  
 	}
       } else {
@@ -129,7 +130,8 @@ int main(int argc,char **argv)
 	// can over-estimate the final result, by having neglected to consider the lower bits.
 	// This is why we have the subtraction due to overestimation case.
 	switch(a) {
-	case 0: r=(r<<3)+(r<<2)+(r<<1)+r; break; // 16x = + 15x
+	case 0: // r=(r<<3)+(r<<2)+(r<<1)+r; break; // 16x = + 15x
+	  r=r; break;
 	case 1: r=(r<<3)+(r<<2)+(r<<1); break; // 15x = + 14x
 	case 2: r=(r<<2)+(r<<1)+r; break; // 8x = + 7x
 	case 3: r=(r<<2)+(r>>2)+(r>>4); break; // 5.3333x = + 4.3333x
@@ -144,11 +146,14 @@ int main(int argc,char **argv)
 	case 12: r=(r>>2); break; // 1.25x = + 0.x25
 	case 13: r=(r>>4)+(r>>3)+(r>>5); break; // 1.2308x = +0.23x
 	case 14: r=(r>>3)+(r>>6); break; // 1.14x = + 0.14x
-	case 15: r=(r>>4)+(r>>8); break; // 1.06667x = + 0.066667x
+	  // If the bits are already all 1s, then we don't need to add anything
+	  //	case 15: r=(r>>4)+(r>>8); break; // 1.06667x = + 0.066667x
+	case 15: r=0;
 	}
 	r_estimate+=r;
-	printf("Adding $%08x to r = $%08x\n",r,r_estimate);
-
+	printf("Adding $%08x to r = $%08lx\n",r,r_estimate);
+	if (r_estimate>0xfffffffffL) r_estimate=0xffffffff;
+	
       }
 
       q=r_estimate*n;      
