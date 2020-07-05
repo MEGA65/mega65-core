@@ -24,14 +24,14 @@ architecture wattle_and_daub of fast_divide is
   signal state : state_t := init;
   signal steps_remaining : integer range 0 to 5 := 0;
 
-  signal nn : unsigned(63 downto 0);
   signal dd : unsigned(31 downto 0);
+  signal nn : unsigned(63 downto 0);
     
 begin
 
   process (clock) is
-    variable temp96 : unsigned(97 downto 0);
     variable temp64 : unsigned(65 downto 0);
+    variable temp96 : unsigned(97 downto 0);
     variable f : unsigned(33 downto 0);
   begin
     if rising_edge(clock) then
@@ -92,10 +92,13 @@ begin
           report "f = $" & to_hstring(f);
 
           temp96 := nn * f;
-          nn <= temp96(97 downto 34);
-
+          report "temp96 = $" & to_hstring(temp96);
           temp64 := dd * f;
-          dd <= temp64(65 downto 34);      
+          report "temp64 = $" & to_hstring(temp64);
+          report "nn <= " & to_hstring(temp96(93 downto 32));
+          report "dd <= " & to_hstring(temp64(63 downto 32));
+          nn <= temp96(95 downto 32);
+          dd <= temp64(63 downto 32);      
           
           if steps_remaining /= 0 then
             steps_remaining <= steps_remaining - 1;
