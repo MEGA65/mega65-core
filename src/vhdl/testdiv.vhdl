@@ -40,7 +40,7 @@ begin
     wait for 20 ns;
 
     if busy = '0' then
-      d <= counter + 1;
+      d <= counter;
       counter <= counter + 1;
       n <= to_unsigned(1024,32);
       start_over <= '1';
