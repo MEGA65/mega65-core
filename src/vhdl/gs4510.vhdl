@@ -1100,9 +1100,9 @@ architecture Behavioural of gs4510 is
   signal timing6502 : std_logic := '0';
   signal force_4502 : std_logic := '1';
 
-  signal reg_mult_a : unsigned(24 downto 0) := (others => '0');
-  signal reg_mult_b : unsigned(17 downto 0) := (others => '0');
-  signal reg_mult_p : unsigned(47 downto 0) := (others => '0');
+  signal reg_mult_a : unsigned(31 downto 0) := (others => '0');
+  signal reg_mult_b : unsigned(31 downto 0) := (others => '0');
+  signal reg_mult_p : unsigned(63 downto 0) := (others => '0');
 
   signal monitor_char_toggle_internal : std_logic := '1';
   signal monitor_mem_attention_granted_internal : std_logic := '0';
@@ -1362,6 +1362,11 @@ architecture Behavioural of gs4510 is
   signal resolved_vdc_to_viciv_address : unsigned(15 downto 0) := x"0000";
   signal resolved_vdc_to_viciv_src_address : unsigned(15 downto 0) := x"0000";
 
+  signal div_n : unsigned(31 downto 0);
+  signal div_d : unsigned(31 downto 0);
+  signal div_q : unsigned(63 downto 0);
+  signal div_start_over : std_logic := '0';  
+  
   -- purpose: map VDC linear address to VICII bitmap addressing here
   -- to keep it as simple as possible we assume fix 640x200x2 resolution
   -- for the access
@@ -1388,6 +1393,17 @@ begin
 
   monitor_cpuport <= cpuport_value(2 downto 0);
 
+  fd0: entity work.fast_divide
+    port map (
+      clock => cpuclock,
+      n => div_n,
+      d => div_d,
+      q => div_q,
+      start_over => div_start_over,
+      busy => div_busy
+      );
+
+  
   multipliers: for unit in 0 to 7 generate
     mult_unit : entity work.multiply32 port map (
       clock => mathclock,
@@ -2268,30 +2284,49 @@ begin
             when x"5d" => return audio_dma_timing_counter(3)(7 downto 0);
             when x"5e" => return audio_dma_timing_counter(3)(15 downto 8);
             when x"5f" => return audio_dma_timing_counter(3)(23 downto 16);
-                            
-            -- $D770-$D7DF reserved for math unit functions
+
+                                             
+            -- $D760-$D7DF reserved for math unit functions
+            when x"68" => return div_q(7 downto 0);
+            when x"69" => return div_q(15 downto 8);
+            when x"6a" => return div_q(23 downto 16);
+            when x"6b" => return div_q(31 downto 24);
+            when x"6c" => return div_q(39 downto 32);
+            when x"6d" => return div_q(47 downto 40);
+            when x"6e" => return div_q(55 downto 48);
+            when x"6f" => return div_q(63 downto 56);
             when x"70" => return reg_mult_a(7 downto 0);
             when x"71" => return reg_mult_a(15 downto 8);
             when x"72" => return reg_mult_a(23 downto 16);
-            when x"73" => return to_unsigned(to_integer(reg_mult_a(24 downto 24)),8);
+            when x"73" => return reg_mult_a(31 downto 24);
             when x"74" => return reg_mult_b(7 downto 0);
             when x"75" => return reg_mult_b(15 downto 8);
-            when x"76" => return to_unsigned(to_integer(reg_mult_b(17 downto 16)),8);
-            when x"77" => return x"00";
-            -- @IO:GS $D770 MATH:MULTINA Multiplier input A (25 bit)
-            -- @IO:GS $D771 MATH:MULTINA Multiplier input A (25 bit)
-            -- @IO:GS $D772 MATH:MULTINA Multiplier input A (25 bit)
-            -- @IO:GS $D773.0 MATH:MULTINA Multiplier input A (25 bit)
-            -- @IO:GS $D774 MATH:MULTINB Multiplier input A (18 bit)
-            -- @IO:GS $D775 MATH:MULTINB Multiplier input A (18 bit)
-            -- @IO:GS $D776.0-1 MATH:MULTINB Multiplier input A (18 bit)
-            -- @IO:GS $D778 MATH:MULTOUT 48-bit output of MULTINA $\times$ MULTINB
-            -- @IO:GS $D779 MATH:MULTOUT 48-bit output of MULTINA $\times$ MULTINB
-            -- @IO:GS $D77A MATH:MULTOUT 48-bit output of MULTINA $\times$ MULTINB
-            -- @IO:GS $D77B MATH:MULTOUT 48-bit output of MULTINA $\times$ MULTINB
-            -- @IO:GS $D77C MATH:MULTOUT 48-bit output of MULTINA $\times$ MULTINB
-            -- @IO:GS $D77D MATH:MULTOUT 48-bit output of MULTINA $\times$ MULTINB
-            -- @IO:GS $D77E MATH:MULTOUT 48-bit output of MULTINA $\times$ MULTINB
+            when x"75" => return reg_mult_b(23 downto 16);
+            when x"75" => return reg_mult_b(31 downto 24);
+            -- @IO:GS $D768 MATH:MULTOUT 64-bit output of MULTINA $\divide$ MULTINB
+            -- @IO:GS $D769 MATH:MULTOUT 64-bit output of MULTINA $\divide$ MULTINB
+            -- @IO:GS $D76A MATH:MULTOUT 64-bit output of MULTINA $\divide$ MULTINB
+            -- @IO:GS $D76B MATH:MULTOUT 64-bit output of MULTINA $\divide$ MULTINB
+            -- @IO:GS $D76C MATH:MULTOUT 64-bit output of MULTINA $\divide$ MULTINB
+            -- @IO:GS $D76D MATH:MULTOUT 64-bit output of MULTINA $\divide$ MULTINB
+            -- @IO:GS $D76E MATH:MULTOUT 64-bit output of MULTINA $\divide$ MULTINB
+            -- @IO:GS $D76F MATH:MULTOUT 64-bit output of MULTINA $\divide$ MULTINB
+            -- @IO:GS $D770 MATH:MULTINA Multiplier input A / Divider numerator (32 bit)
+            -- @IO:GS $D771 MATH:MULTINA Multiplier input A / Divider numerator (32 bit)
+            -- @IO:GS $D772 MATH:MULTINA Multiplier input A / Divider numerator (32 bit)
+            -- @IO:GS $D773 MATH:MULTINA Multiplier input A / Divider numerator (32 bit)
+            -- @IO:GS $D774 MATH:MULTINB Multiplier input B / Divider denominator (32 bit)
+            -- @IO:GS $D775 MATH:MULTINB Multiplier input B / Divider denominator (32 bit)
+            -- @IO:GS $D776 MATH:MULTINB Multiplier input B / Divider denominator (32 bit)
+            -- @IO:GS $D777 MATH:MULTINB Multiplier input B / Divider denominator (32 bit)
+            -- @IO:GS $D778 MATH:MULTOUT 64-bit output of MULTINA $\times$ MULTINB
+            -- @IO:GS $D779 MATH:MULTOUT 64-bit output of MULTINA $\times$ MULTINB
+            -- @IO:GS $D77A MATH:MULTOUT 64-bit output of MULTINA $\times$ MULTINB
+            -- @IO:GS $D77B MATH:MULTOUT 64-bit output of MULTINA $\times$ MULTINB
+            -- @IO:GS $D77C MATH:MULTOUT 64-bit output of MULTINA $\times$ MULTINB
+            -- @IO:GS $D77D MATH:MULTOUT 64-bit output of MULTINA $\times$ MULTINB
+            -- @IO:GS $D77E MATH:MULTOUT 64-bit output of MULTINA $\times$ MULTINB
+            -- @IO:GS $D77F MATH:MULTOUT 64-bit output of MULTINA $\times$ MULTINB
 
             when x"78" => return reg_mult_p(7 downto 0);
             when x"79" => return reg_mult_p(15 downto 8);
@@ -2299,8 +2334,8 @@ begin
             when x"7b" => return reg_mult_p(31 downto 24);
             when x"7c" => return reg_mult_p(39 downto 32);
             when x"7d" => return reg_mult_p(47 downto 40);
-            when x"7e" => return x"00";
-            when x"7f" => return x"00";
+            when x"7e" => return reg_mult_p(55 downto 48);
+            when x"7f" => return reg_mult_p(63 downto 56);
             -- @IO:GS $D780-$D7BF - 16 x 32 bit Math Unit values
             -- @IO:GS $D780 MATH:MATHIN0 Math unit 32-bit input 0
             -- @IO:GS $D781 MATH:MATHIN0 Math unit 32-bit input 0
@@ -2956,22 +2991,40 @@ begin
                          <= not audio_dma_timing_counter_set_flag(to_integer(long_address(7 downto 4)-2));
           when others => null;
         end case;
-      -- @IO:GS $D770-3 25-bit multiplier input A
+      -- @IO:GS $D770-3 32-bit multiplier input A
       elsif (long_address = x"FFD3770") or (long_address = x"FFD1770") then
         reg_mult_a(7 downto 0) <= value;
+        div_n(7 downto 0) <= value;
+        div_start_over <= '1';
       elsif (long_address = x"FFD3771") or (long_address = x"FFD1771") then
         reg_mult_a(15 downto 8) <= value;
+        div_n(15 downto 8) <= value;
+        div_start_over <= '1';
       elsif (long_address = x"FFD3772") or (long_address = x"FFD1772") then
         reg_mult_a(23 downto 16) <= value;
+        div_n(23 downto 16) <= value;
+        div_start_over <= '1';
       elsif (long_address = x"FFD3773") or (long_address = x"FFD1773") then
-        reg_mult_a(24) <= value(0);
-      -- @IO:GS $D774-7 18-bit multiplier input B
+        reg_mult_a(31 downto 24) <= value;
+        div_n(31 downto 24) <= value;
+        div_start_over <= '1';
+      -- @IO:GS $D774-7 32-bit multiplier input B
       elsif (long_address = x"FFD3774") or (long_address = x"FFD1774") then
         reg_mult_b(7 downto 0) <= value;
+        div_d(7 downto 0) <= value;
+        div_start_over <= '1';
       elsif (long_address = x"FFD3775") or (long_address = x"FFD1775") then
         reg_mult_b(15 downto 8) <= value;
+        div_d(15 downto 8) <= value;
+        div_start_over <= '1';
       elsif (long_address = x"FFD3776") or (long_address = x"FFD1776") then
-        reg_mult_b(17 downto 16) <= value(1 downto 0);
+        reg_mult_b(23 downto 16) <= value;
+        div_d(23 downto 16) <= value;
+        div_start_over <= '1';
+      elsif (long_address = x"FFD3777") or (long_address = x"FFD1777") then
+        reg_mult_b(31 downto 24) <= value;
+        div_d(31 downto 24) <= value;
+        div_start_over <= '1';
       elsif (long_address(27 downto 6)&"00"=x"FFD378")
         or  (long_address(27 downto 6)&"00"=x"FFD178") then
         -- Math unit register writing
@@ -3484,8 +3537,11 @@ begin
       -- We also have one direct 18x25 multiplier for use by the hypervisor.
       -- This multiplier fits a single DSP48E unit, and does not use the plumbing
       -- facility.
-      reg_mult_p(42 downto 0) <= reg_mult_a * reg_mult_b;
-      reg_mult_p(47 downto 43) <= (others => '0');
+      -- Actually, we now offer 32x32 multiplication, as that should also be
+      -- possible in a single cycle
+      reg_mult_p(63 downto 0) <= reg_mult_a * reg_mult_b;
+      -- We then also calculate the reciprocal of A, and A/B using that      
+      reg_mult_q(63 downto 0) <= reg_mult_a * reg_mult_r;
 
       -- We also have four more little multipliers for the audio DMA stuff
       for i in 0 to 3 loop
