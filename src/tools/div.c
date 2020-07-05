@@ -34,19 +34,24 @@ int main(int argc,char **argv)
   unsigned long r_estimate = 1LL<<(32-bits_in_d);
   if (!r_estimate) r_estimate=1;
 
+  int steps_taken=0;
+  
   int iter_count=0;
 
   q=r_estimate*n;
+
   
+  iter_count=1;
   while(1)
     {
       unsigned long estimate_1=r_estimate*d;
       printf("$%016lx x $%08x = $%016lx\n",
 	     r_estimate,d,estimate_1);
 
-      iter_count++;      
-
-      printf("%d: %u/%u = %f : current estimate is %f, estimate_1=%08x.%08x, estimate_r=%08x\n",
+      steps_taken++;
+      
+      printf("%d: %d: %u/%u = %f : current estimate is %f, estimate_1=%08x.%08x, estimate_r=%08x\n",
+	     steps_taken,
 	     iter_count,
 	     n,d,(double)n/d,
 	     ((double)q/(double)(1LL<<32)),
@@ -88,9 +93,14 @@ int main(int argc,char **argv)
 	
 	// Reduce r to a fraction of the current radix zone
 	r=r>>(iter_count-1)*4;
-	
+
+	// When subtracting, we want to try to approach slowly, as we know we have
+	// only gotten here by overshooting.
+	r=r*(1+a*2)/31;
+	if (0)
 	switch(a) {
-	case 0: r=r;	break;
+	case 0: r=r/31;
+	  // We are 16/15s of where we should be
 	case 1: r=r-(r>>4); break;
 	case 2: r=r-(r>>3); break;
 	case 3: r=r-(r>>3)-(r>>4); break;
@@ -107,6 +117,7 @@ int main(int argc,char **argv)
 	case 14: r=(r>>3); break;
 	case 15: r=(r>4); break;
 	}
+	if (!r) r=1;
 	r_estimate-=r;
 	printf("Subtracting $%08x from r = $%08lx\n",r,r_estimate);
 	  
@@ -132,23 +143,31 @@ int main(int argc,char **argv)
 	switch(a) {
 	case 0: // r=(r<<3)+(r<<2)+(r<<1)+r; break; // 16x = + 15x
 	  r=r; break;
+	  // For the remaining cases, the goal is to bring the value up to a=15 (not a=16)
+	  // This should always result in a value which tracks below the required amount,
+	  // except perhaps in rare situations.
 	case 1: r=(r<<3)+(r<<2)+(r<<1); break; // 15x = + 14x
-	case 2: r=(r<<2)+(r<<1)+r; break; // 8x = + 7x
-	case 3: r=(r<<2)+(r>>2)+(r>>4); break; // 5.3333x = + 4.3333x
-	case 4: r=(r<<1)+r; break; // 4x = + 3x
-	case 5: r=(r<<1)+(r>>3)+(r>>4); break; // 3.2x = + 2.2x
-	case 6: r=r+(r>>1)+(r>>3); break; // 2.6666x = + 1.6666x
-	case 7: r=r+(r>>2)+(r>>5); break; // 2.2856x = + 1.2857x
-	case 8: r=r; break;   // 2x = + 1x
-	case 9: r=(r>>1)+(r>>2); break;  // 1.77777x = +.777x
-	case 10: r=(r>>1)+(r>>4)+(r>>5); break; // 1.6x = + 0.6x
-	case 11: r=(r>>2)+(r>>3)+(r>>4)+(r>>6); break; // 1.45x = + 0.4545x
+	case 2: r=(r<<2)+(r<<1)+(r>>1); break; // 7.5x = + 6.5x
+	case 3: r=(r<<2); break; // 5x = + 4x
+	case 4: r=(r<<1)+(r>>1)+(r>>2); break; // 3.27x = + 2.75x
+	case 5: r=(r<<1); break; // 3x = + 2x
+	case 6: r=r+(r>>1); break; // 2.5x = + 1.5x
+	case 7: r=r+(r>>2)+(r>>5); break; // 2.1429x = + 1.1429x
+	case 8: // r=(r>>1)+(r>>2)+(r>>4); break;   // 1.875x = + 0.875x
+	  // Exactly double
+	  r=r; break;
+	case 9: r=(r>>1)+(r>>3)+(r>>5)+(r>>7); break;  // 1.66666x = +.666x
+	case 10: r=(r>>1); break; // 1.5x = + 0.5x
+	case 11: r=(r>>2)+(r>>4)+(r>>5)+(r>>6); break; // 1.3636x = + 0.3636x
 	case 12: r=(r>>2); break; // 1.25x = + 0.x25
-	case 13: r=(r>>4)+(r>>3)+(r>>5); break; // 1.2308x = +0.23x
-	case 14: r=(r>>3)+(r>>6); break; // 1.14x = + 0.14x
+	case 13: r=(r>>3)+(r>>6)+(r>>7)+(r>>8); break; // 1.1538x = +0.1538x
+	case 14: r=(r>>4)+(r>>7)+(r>>10); // +(r>>13)+(r>>16); break; // 1.0714x = + 0.0714x
 	  // If the bits are already all 1s, then we don't need to add anything
 	  //	case 15: r=(r>>4)+(r>>8); break; // 1.06667x = + 0.066667x
-	case 15: r=0;
+	  break;
+	case 15:
+	  iter_count++;
+	  r=0;
 	}
 	r_estimate+=r;
 	printf("Adding $%08x to r = $%08lx\n",r,r_estimate);
