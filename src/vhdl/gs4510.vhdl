@@ -3745,6 +3745,8 @@ begin
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) and all_pause='0' then
 
+      div_start_over <= '0';
+      
       -- By default try to service pending background DMA requests.
       -- Only if the shadow RAM bus is idle, do we actually do the request,
       -- however.
@@ -7822,7 +7824,7 @@ begin
       report "RISING EDGE CLOCK";
       
       report "fastio_rdata = $" & to_hstring(fastio_rdata);
-      
+
       reg_math_config_drive <= reg_math_config;
       
       -- We this awkward comparison because GHDL seems to think secure_mode_from_monitor='U'
