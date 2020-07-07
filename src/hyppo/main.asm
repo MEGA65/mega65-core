@@ -3036,6 +3036,11 @@ utillist_rewind:
 
 serialwrite:
         // write character to serial port
+
+	// First wait for it to go ready
+	ldx hypervisor_write_char_to_serial_monitor
+	bne serialwrite
+	
         // XXX - Have some kind of permission control on this
         // XXX - $D67C should not work when matrix mode is enabled at all?
         sta hypervisor_write_char_to_serial_monitor
