@@ -253,7 +253,8 @@ begin  -- behavioural
       
       -- Work out address to write pixel to in thumbnail buffer.
       -- 80x50 pixels = 4,000 bytes.
-      -- 600 / 50 = every 12th row 
+      -- 480 / 50 = every 12th row  (NTSC)
+      -- 576 / 50 = every 9th row  (PAL)
       -- 800 / 80 = every 10th column
       last_pixel_y <= pixel_y;
       if to_integer(last_pixel_y) /= to_integer(pixel_y) then
@@ -267,8 +268,8 @@ begin  -- behavioural
         end if;
         -- PAL has more raster lines than NTSC, so we have a different vertical
         -- sampling rate.
-        if ((thumbnail_y_counter < 11) and (pal_mode='1'))
-          or ((thumbnail_y_counter < 10) and (pal_mode='0'))          
+        if ((thumbnail_y_counter < (11-1)) and (pal_mode='1'))
+          or ((thumbnail_y_counter < (11-1)) and (pal_mode='0'))          
         then
           thumbnail_y_counter <= thumbnail_y_counter + 1;
           thumbnail_active_row <= '0';
