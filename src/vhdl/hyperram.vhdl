@@ -362,6 +362,7 @@ architecture gothic of hyperram is
 
   signal read_time_adjust : integer range 0 to 255 := 0;
   signal seven_plus_read_time_adjust : unsigned(5 downto 0) := "000000";
+  signal thirtyone_plus_read_time_adjust : unsigned(5 downto 0) := "000000";
   signal hyperram_access_address_read_time_adjusted : unsigned(5 downto 0) := "000000";
 
   signal hyperram0_select : std_logic := '0';
@@ -1353,6 +1354,7 @@ begin
       
       hyperram_access_address_read_time_adjusted <= to_unsigned(to_integer(hyperram_access_address(2 downto 0))+read_time_adjust,6);
       seven_plus_read_time_adjust <= to_unsigned(7 + read_time_adjust,6);
+      thirtyone_plus_read_time_adjust <= to_unsigned(31 + read_time_adjust,6);
       
       -- We run double the clock speed of the pixelclock area, so no request
       -- can come in during the extra drive cycle we use to update these values
@@ -3016,7 +3018,6 @@ begin
             -- Data has arrived: Latch either odd or even byte
             -- as required.
                   report "DISPATCH Saw read data = $" & to_hstring(hr_d);
-
             
             -- Update cache
             if (byte_phase < 32) and is_block_read and (not is_vic_fetch) then
@@ -3176,7 +3177,12 @@ begin
           -- Abort memory pre-fetching if we are asked to do something
           -- XXX unless it is for data that would be pre-fetched?
           if is_block_read and (not is_expected_to_respond) and (not is_vic_fetch)  then
-            if (read_request='1' or write_request='1') then
+            if ( write_request='1')
+              -- If a new read is on the same cache line as the last, then
+              -- assume whatever read we are doing now will satisfy it
+--              or (read_request='1' and address(26 downto 3) /= ram_address(26 downto 3))
+              or (read_request='1')
+            then
               report "DISPATCH: Aborting pre-fetch due to incoming request";
               state <= Idle;
             end if;
@@ -3251,6 +3257,18 @@ begin
 --                  report "DISPATCH Saw read data = $" & to_hstring(hr_d);
               
               -- Update cache
+              if (byte_phase < 32) and is_block_read and (not is_vic_fetch) then
+                report "hr_sample='1'";
+                report "hr_sample='0'";
+                if hyperram0_select='1' then
+                  block_data(to_integer(byte_phase(4 downto 3)))(to_integer(byte_phase(2 downto 0)))
+                    <= hr_d;
+                else
+                  block_data(to_integer(byte_phase(4 downto 3)))(to_integer(byte_phase(2 downto 0)))
+                    <= hr2_d;
+                end if;
+                show_block := true;
+              end if;
               if byte_phase < 8 then
                 -- Store the bytes in the cache row
                 if is_vic_fetch then
@@ -3367,7 +3385,9 @@ begin
 
               end if;
               report "byte_phase = " & integer'image(to_integer(byte_phase));
-              if byte_phase = seven_plus_read_time_adjust then 
+              if (byte_phase = seven_plus_read_time_adjust and is_block_read=false)
+                or (byte_phase = thirtyone_plus_read_time_adjust and is_block_read=true)
+              then 
                 rwr_counter <= rwr_delay;
                 rwr_waiting <= '1';
                 report "returning to idle";

@@ -265,11 +265,11 @@ begin
     if rising_edge(pixelclock) then
 
       if true then
-      report "expansionram_data_ready_strobe=" & std_logic'image(expansionram_data_ready_strobe) 
-        & ", expansionram_busy=" & std_logic'image(expansionram_busy)
-        & ", expansionram_read=" & std_logic'image(expansionram_read)
-        & ", idle_wait=" & std_logic'image(idle_wait)
-        & ", expect_value=" & std_logic'image(expect_value);
+        report "expansionram_data_ready_strobe=" & std_logic'image(expansionram_data_ready_strobe) 
+          & ", expansionram_busy=" & std_logic'image(expansionram_busy)
+          & ", expansionram_read=" & std_logic'image(expansionram_read)
+          & ", idle_wait=" & std_logic'image(idle_wait)
+          & ", expect_value=" & std_logic'image(expect_value);
       end if;
       
       if expansionram_data_ready_strobe='1' then
@@ -347,6 +347,8 @@ begin
     cpuclock <= '0';
     clock163 <= '0';
 
+    report "tick";
+    
     clock325 <= '1';
     wait for 1.5 ns;
     clock325 <= '0';
@@ -362,6 +364,8 @@ begin
     pixelclock <= '1';
     clock163 <= '0';
 
+    report "tick";   
+    
     clock325 <= '1';
     wait for 1.5 ns;
     clock325 <= '0';
@@ -378,6 +382,8 @@ begin
     cpuclock <= '1';
     clock163 <= '0';
 
+    report "tick";    
+
     clock325 <= '1';
     wait for 1.5 ns;
     clock325 <= '0';
@@ -393,6 +399,8 @@ begin
     pixelclock <= '1';
     clock163 <= '0';
 
+    report "tick";
+    
     clock325 <= '1';
     wait for 1.5 ns;
     clock325 <= '0';
