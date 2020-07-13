@@ -197,6 +197,8 @@
                            .monitor_hypervisor_mode(monitor_hypervisor_mode),
                            .monitor_hyper_trap(monitor_hyper_trap),
                            .protected_hardware(protected_hardware_in),
+         .key_scancode(key_scancode),
+         .key_scancode_toggle(key_scancode_toggle),
 			   .secure_mode_from_monitor(secure_mode_from_monitor),
 			   .secure_mode_from_cpu(secure_mode_from_cpu),
 			   .clear_matrix_mode_toggle(clear_matrix_mode_toggle),

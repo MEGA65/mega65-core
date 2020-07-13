@@ -49,6 +49,10 @@
 `define MON_CHAR_INOUT        5'h1E       // Hypervisor character input/output
 `define MON_CHAR_STATUS       5'h1F
 
+`define MON_KEY_SCANCODE0     5'h20
+`define MON_KEY_SCANCODE1     5'h21
+`define MON_KEY_SCANCODE_TOGGLE 5'h22
+
 module monitor_ctrl(input clk, input reset, output wire reset_out, 
                     `MARK_DEBUG input 		   write, (* mark_debug = "true" *) input read, 
 						   `MARK_DEBUG input [4:0] address, 
@@ -82,6 +86,8 @@ module monitor_ctrl(input clk, input reset, output wire reset_out,
 
 		    /* For controling access to secure mode */
 				input 		   secure_mode_from_cpu,
+        output reg     key_scancode[15:0],
+        output         key_scancode_toggle,
 				output reg 	   secure_mode_from_monitor,
 		                output reg         clear_matrix_mode_toggle,
                                     
@@ -108,6 +114,8 @@ module monitor_ctrl(input clk, input reset, output wire reset_out,
 				output wire [15:0] bit_rate_divisor, input rx, output wire tx, output reg activity);
 
    initial  secure_mode_from_monitor = 0;
+   initial  key_scancode = 0;
+   initial  key_scancode_toggle = 0;
    
 // Internal debugging
 `MARK_DEBUG wire [7:0] monitor_di;
@@ -328,6 +336,15 @@ begin
        // cancel matrix mode if we write to $900A
        clear_matrix_mode_toggle <= ~clear_matrix_mode_toggle;
     end 
+    if(address == `MON_KEY_SCANCODE0)
+    begin
+      key_scancode_toggle[7:0] <= di;
+    end
+    if(address == `MON_KEY_SCANCODE1)
+    begin
+      key_scancode_toggle[15:8] <= di;
+      key_scancode_toggle <= not key_scancode_toggle;
+    end
     if(address == `MON_STATE_CNT)
     begin
        // Writing to $901C from the monitor also instructs CPU to
