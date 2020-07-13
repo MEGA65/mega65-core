@@ -643,12 +643,18 @@ begin
           
         elsif cache_enabled and rdata_16en='0' and (address(26 downto 3 ) = write_collect0_address and write_collect0_valids(to_integer(address(2 downto 0))) = '1') then
           -- Write cache read-back
-          -- In 16-bit mode, we just let the writes all flush out. This can
-          -- result in a possible cache consistency problem, if reads happen before
-          -- the writes get flushed.
           report "asserting fake_data_ready_strobe";
           fake_data_ready_strobe <= '1';
           fake_rdata <= write_collect0_data(to_integer(address(2 downto 0)));
+          report "DISPATCH: Returning data $"& to_hstring(write_collect0_data(to_integer(address(2 downto 0))))&" from write collect0";
+        elsif cache_enabled and rdata_16en='1' and (address(26 downto 3 ) = write_collect0_address
+                                                    and write_collect0_valids(to_integer(address(2 downto 1)&"0")) = '1'
+                                                    and write_collect0_valids(to_integer(address(2 downto 1)&"1")) = '1') then
+          -- Write cache read-back
+          report "asserting fake_data_ready_strobe";
+          fake_data_ready_strobe <= '1';
+          fake_rdata <= write_collect0_data(to_integer(address(2 downto 1)&"0"));
+          fake_rdata_hi <= write_collect0_data(to_integer(address(2 downto 1)&"1"));
           report "DISPATCH: Returning data $"& to_hstring(write_collect0_data(to_integer(address(2 downto 0))))&" from write collect0";
         elsif cache_enabled and rdata_16en='0' and (address(26 downto 3 ) = write_collect1_address and write_collect1_valids(to_integer(address(2 downto 0))) = '1') then
           -- Write cache read-back
@@ -656,17 +662,45 @@ begin
           fake_data_ready_strobe <= '1';
           fake_rdata <= write_collect1_data(to_integer(address(2 downto 0)));
           report "DISPATCH: Returning data $"& to_hstring(write_collect1_data(to_integer(address(2 downto 0))))&" from write collect1";
+        elsif cache_enabled and rdata_16en='1' and (address(26 downto 3 ) = write_collect1_address
+                                                    and write_collect1_valids(to_integer(address(2 downto 1)&"0")) = '1'
+                                                    and write_collect1_valids(to_integer(address(2 downto 1)&"1")) = '1') then
+          -- Write cache read-back
+          report "asserting fake_data_ready_strobe";
+          fake_data_ready_strobe <= '1';
+          fake_rdata <= write_collect1_data(to_integer(address(2 downto 1)&"0"));
+          fake_rdata_hi <= write_collect1_data(to_integer(address(2 downto 1)&"1"));
+          report "DISPATCH: Returning data $"& to_hstring(write_collect1_data(to_integer(address(2 downto 0))))&" from write collect1";
         elsif cache_enabled and rdata_16en='0' and (address(26 downto 3 ) = cache_row0_address and cache_row0_valids(to_integer(address(2 downto 0))) = '1') then
           -- Cache reads
           report "asserting fake_data_ready_strobe";
           fake_data_ready_strobe <= '1';
           fake_rdata <= cache_row0_data(to_integer(address(2 downto 0)));
           report "DISPATCH: Returning data $"& to_hstring(cache_row0_data(to_integer(address(2 downto 0))))&" from cache row0";
+        elsif cache_enabled and rdata_16en='1' and (address(26 downto 3 ) = cache_row0_address
+                                                    and cache_row0_valids(to_integer(address(2 downto 1)&"0")) = '1'
+                                                    and cache_row0_valids(to_integer(address(2 downto 1)&"1")) = '1') then
+          -- Cache reads
+          report "asserting fake_data_ready_strobe";
+          fake_data_ready_strobe <= '1';
+          fake_rdata <= cache_row0_data(to_integer(address(2 downto 1)&"0"));
+          fake_rdata_hi <= cache_row0_data(to_integer(address(2 downto 1)&"1"));
+          report "DISPATCH: Returning data $"& to_hstring(cache_row0_data(to_integer(address(2 downto 0))))&" from cache row0";
         elsif cache_enabled and rdata_16en='0' and (address(26 downto 3 ) = cache_row1_address and cache_row1_valids(to_integer(address(2 downto 0))) = '1') then
           -- Cache read
           report "asserting fake_data_ready_strobe";
           fake_data_ready_strobe <= '1';
           fake_rdata <= cache_row1_data(to_integer(address(2 downto 0)));
+          report "DISPATCH: Returning data $"& to_hstring(cache_row1_data(to_integer(address(2 downto 0))))&" from cache row1";
+        elsif cache_enabled and rdata_16en='1' and (address(26 downto 3 ) = cache_row1_address
+                                                    and cache_row1_valids(to_integer(address(2 downto 1)&"0"))='1'
+                                                    and cache_row1_valids(to_integer(address(2 downto 1)&"1"))='1') then
+
+          -- Cache read
+          report "asserting fake_data_ready_strobe";
+          fake_data_ready_strobe <= '1';
+          fake_rdata <= cache_row1_data(to_integer(address(2 downto 1)&"0"));
+          fake_rdata_hi <= cache_row1_data(to_integer(address(2 downto 1)&"1"));
           report "DISPATCH: Returning data $"& to_hstring(cache_row1_data(to_integer(address(2 downto 0))))&" from cache row1";
         elsif address(23 downto 8) = x"00000" and address(25 downto 24) = "11" then
           -- $B0000xx for now for debugging caches etc
