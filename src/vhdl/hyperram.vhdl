@@ -641,41 +641,33 @@ begin
             mark_cache_for_prefetch <= '1';
           end if;
           
-        elsif cache_enabled and (address(26 downto 3 ) = write_collect0_address and write_collect0_valids(to_integer(address(2 downto 0))) = '1') then
+        elsif cache_enabled and rdata_16en='0' and (address(26 downto 3 ) = write_collect0_address and write_collect0_valids(to_integer(address(2 downto 0))) = '1') then
           -- Write cache read-back
           -- In 16-bit mode, we just let the writes all flush out. This can
           -- result in a possible cache consistency problem, if reads happen before
           -- the writes get flushed.
-          if rdata_16en='0' then
-            report "asserting fake_data_ready_strobe";
-            fake_data_ready_strobe <= '1';
-            fake_rdata <= write_collect0_data(to_integer(address(2 downto 0)));
-            report "DISPATCH: Returning data $"& to_hstring(write_collect0_data(to_integer(address(2 downto 0))))&" from write collect0";
-          end if;
-        elsif cache_enabled and (address(26 downto 3 ) = write_collect1_address and write_collect1_valids(to_integer(address(2 downto 0))) = '1') then
+          report "asserting fake_data_ready_strobe";
+          fake_data_ready_strobe <= '1';
+          fake_rdata <= write_collect0_data(to_integer(address(2 downto 0)));
+          report "DISPATCH: Returning data $"& to_hstring(write_collect0_data(to_integer(address(2 downto 0))))&" from write collect0";
+        elsif cache_enabled and rdata_16en='0' and (address(26 downto 3 ) = write_collect1_address and write_collect1_valids(to_integer(address(2 downto 0))) = '1') then
           -- Write cache read-back
-          if rdata_16en='0' then
-            report "asserting fake_data_ready_strobe";
-            fake_data_ready_strobe <= '1';
-            fake_rdata <= write_collect1_data(to_integer(address(2 downto 0)));
-            report "DISPATCH: Returning data $"& to_hstring(write_collect1_data(to_integer(address(2 downto 0))))&" from write collect1";
-          end if;
-        elsif cache_enabled and (address(26 downto 3 ) = cache_row0_address and cache_row0_valids(to_integer(address(2 downto 0))) = '1') then
+          report "asserting fake_data_ready_strobe";
+          fake_data_ready_strobe <= '1';
+          fake_rdata <= write_collect1_data(to_integer(address(2 downto 0)));
+          report "DISPATCH: Returning data $"& to_hstring(write_collect1_data(to_integer(address(2 downto 0))))&" from write collect1";
+        elsif cache_enabled and rdata_16en='0' and (address(26 downto 3 ) = cache_row0_address and cache_row0_valids(to_integer(address(2 downto 0))) = '1') then
+          -- Cache reads
+          report "asserting fake_data_ready_strobe";
+          fake_data_ready_strobe <= '1';
+          fake_rdata <= cache_row0_data(to_integer(address(2 downto 0)));
+          report "DISPATCH: Returning data $"& to_hstring(cache_row0_data(to_integer(address(2 downto 0))))&" from cache row0";
+        elsif cache_enabled and rdata_16en='0' and (address(26 downto 3 ) = cache_row1_address and cache_row1_valids(to_integer(address(2 downto 0))) = '1') then
           -- Cache read
-          if rdata_16en='0' then
-            report "asserting fake_data_ready_strobe";
-            fake_data_ready_strobe <= '1';
-            fake_rdata <= cache_row0_data(to_integer(address(2 downto 0)));
-            report "DISPATCH: Returning data $"& to_hstring(cache_row0_data(to_integer(address(2 downto 0))))&" from cache row0";
-          end if;
-        elsif cache_enabled and (address(26 downto 3 ) = cache_row1_address and cache_row1_valids(to_integer(address(2 downto 0))) = '1') then
-          -- Cache read
-          if rdata_16en='0' then
-            report "asserting fake_data_ready_strobe";
-            fake_data_ready_strobe <= '1';
-            fake_rdata <= cache_row1_data(to_integer(address(2 downto 0)));
-            report "DISPATCH: Returning data $"& to_hstring(cache_row1_data(to_integer(address(2 downto 0))))&" from cache row1";
-          end if;
+          report "asserting fake_data_ready_strobe";
+          fake_data_ready_strobe <= '1';
+          fake_rdata <= cache_row1_data(to_integer(address(2 downto 0)));
+          report "DISPATCH: Returning data $"& to_hstring(cache_row1_data(to_integer(address(2 downto 0))))&" from cache row1";
         elsif address(23 downto 8) = x"00000" and address(25 downto 24) = "11" then
           -- $B0000xx for now for debugging caches etc
           case address(7 downto 0) is
@@ -1593,7 +1585,7 @@ begin
           end if;
           if cache_row_update_hi='1' then
             report "DISPATCH: Updating cache0 via write: $" & to_hstring((cache_row_update_address&"001")+cache_row_update_byte)
-              & " gets $" & to_hstring(cache_row_update_value);
+              & " gets $" & to_hstring(cache_row_update_value_hi);
             cache_row0_valids(cache_row_update_byte+1) <= '1';
             cache_row0_data(cache_row_update_byte+1) <= cache_row_update_value_hi;
           end if;
@@ -1622,8 +1614,8 @@ begin
               <= cache_row_update_value;
           end if;
           if cache_row_update_hi='1' then
-            report "DISPATCH: Updating block data via write: $" & to_hstring((cache_row_update_address&"000")+cache_row_update_byte)
-              & " gets $" & to_hstring(cache_row_update_value);
+            report "DISPATCH: Updating block data via write: $" & to_hstring((cache_row_update_address&"001")+cache_row_update_byte)
+              & " gets $" & to_hstring(cache_row_update_value_hi);
             block_data(to_integer(cache_row_update_address(4 downto 3)))(cache_row_update_byte+1)
               <= cache_row_update_value_hi;
           end if;
@@ -3270,27 +3262,36 @@ begin
               if byte_phase = hyperram_access_address_read_time_adjusted and (not is_vic_fetch) then
                 if hyperram0_select='1' then
                   report "DISPATCH: Returning freshly read data = $" & to_hstring(hr_d);
-                  if rdata_16en='1' and byte_phase(0)='1' then
-                    rdata_hi <= hr_d;
-                  else
-                    rdata <= hr_d;
-                  end if;
+                  rdata <= hr_d;
                 else
                   report "DISPATCH: Returning freshly read data = $" & to_hstring(hr2_d)
                     & ", byte_phase=" & integer'image(to_integer(byte_phase));
-                  if rdata_16en='1' and byte_phase(0)='1' then
-                    rdata_hi <= hr2_d;
-                  else
-                    rdata <= hr2_d;
-                  end if;
+                  rdata <= hr2_d;
                 end if;
                 report "hr_return='1'";
                 report "hr_return='0'";
-                if rdata_16en='0' or byte_phase(0)='1' then
-                  report "asserting data_ready_strobe";
+                if rdata_16en='0' then
+                  report "asserting data_ready_strobe on low byte";
                   data_ready_strobe <= '1';
                   data_ready_strobe_hold <= '1';
                 end if;
+              end if;
+              if byte_phase = (hyperram_access_address_read_time_adjusted+1) and (not is_vic_fetch) and (rdata_16en='1') then
+                if hyperram0_select='1' then
+                  report "DISPATCH: Returning freshly read high-byte data = $" & to_hstring(hr_d);
+                  rdata_hi <= hr_d;
+                else
+                  report "DISPATCH: Returning freshly read data = $" & to_hstring(hr2_d)
+                    & ", byte_phase=" & integer'image(to_integer(byte_phase));
+                  rdata_hi <= hr2_d;
+                end if;
+                report "hr_return='1'";
+                report "hr_return='0'";
+
+                report "asserting data_ready_strobe on high byte";
+                data_ready_strobe <= '1';
+                data_ready_strobe_hold <= '1';
+
               end if;
               report "byte_phase = " & integer'image(to_integer(byte_phase));
               if byte_phase = seven_plus_read_time_adjust then 
