@@ -66,6 +66,27 @@ architecture foo of test_hyperram16 is
 
     -- Try to reproduce the read-strobe bug
     (address => x"8801000", write_p => '1', value => x"1984"),
+    (address => x"8801000", write_p => '1', value => x"1984"),
+
+    (address => x"8802000", write_p => '1', value => x"1241"),
+    (address => x"8802002", write_p => '1', value => x"2342"),
+    (address => x"8802004", write_p => '1', value => x"3433"),
+    (address => x"8802006", write_p => '1', value => x"4534"),
+    (address => x"8802008", write_p => '1', value => x"5625"),
+    (address => x"8802010", write_p => '1', value => x"6726"),
+    (address => x"8802012", write_p => '1', value => x"7817"),
+    (address => x"8802014", write_p => '1', value => x"8918"),
+    
+    (address => x"8802000", write_p => '0', value => x"1241"),
+    (address => x"8802002", write_p => '0', value => x"2342"),
+    (address => x"8802004", write_p => '0', value => x"3433"),
+    (address => x"8802006", write_p => '0', value => x"4534"),
+    (address => x"8802008", write_p => '0', value => x"5625"),
+    (address => x"8802010", write_p => '0', value => x"6726"),
+    (address => x"8802012", write_p => '0', value => x"7817"),
+    (address => x"8802014", write_p => '0', value => x"8918"),
+    
+    
     
     others => ( address => x"FFFFFFF", write_p => '0', value => x"0000")
     );
@@ -263,6 +284,7 @@ begin
           dispatch_time <= current_time;
         end if;        
         expect_value <= '0';
+        idle_wait <= '0';
       end if;
 
       expansionram_write <= '0';

@@ -322,14 +322,20 @@ architecture gothic of hyperram is
   signal write_continues : integer range 0 to 255 := 0;
   signal write_continues_max : integer range 0 to 255 := 16;
   
-  -- If we get too many writes in short succession, we may need to queue up one
-  -- of the writes, while waiting for slow_devices to notice
+  -- If we get too many writes in short succession, we may need to queue up to
+  -- two of the writes, while waiting for slow_devices to notice
   signal queued_write : std_logic := '0';
   signal queued_wen_lo : std_logic := '0';
   signal queued_wen_hi : std_logic := '0';
   signal queued_wdata : unsigned(7 downto 0) := x"00";
   signal queued_wdata_hi : unsigned(7 downto 0) := x"00";
   signal queued_waddr : unsigned(26 downto 0) := to_unsigned(0,27);
+  signal queued2_write : std_logic := '0';
+  signal queued2_wen_lo : std_logic := '0';
+  signal queued2_wen_hi : std_logic := '0';
+  signal queued2_wdata : unsigned(7 downto 0) := x"00";
+  signal queued2_wdata_hi : unsigned(7 downto 0) := x"00";
+  signal queued2_waddr : unsigned(26 downto 0) := to_unsigned(0,27);
 
   -- Delay sending of the initial configuration write command
   -- to give the HyperRAM chip time to start up
@@ -480,11 +486,11 @@ begin
       end if;
       
       if cache_enabled then
-        busy <= busy_internal or write_blocked or queued_write or (not start_delay_expired);
+        busy <= busy_internal or write_blocked or queued_write or queued2_write or (not start_delay_expired);
       else
         -- With no cache, we have to IMMEDIATELY assert busy when we see a
         -- request to avoid a race-condition with slow_devices
-        busy <= busy_internal or write_blocked or queued_write
+        busy <= busy_internal or write_blocked or queued_write or queued2_write
                 or read_request or write_request or read_request_latch or write_request_latch
                 or (not start_delay_expired);
       end if;
@@ -498,7 +504,7 @@ begin
       if (write_collect0_dispatchable='0' and write_collect0_toolate='0' and write_collect0_flushed='0')
         or (write_collect1_dispatchable='0' and write_collect1_toolate='0' and write_collect1_flushed='0')
       then
-        write_blocked <= queued_write;
+        write_blocked <= queued_write or queued2_write;
       else
         write_blocked <= '1';
         busy <= '1';
@@ -564,7 +570,28 @@ begin
           show_collect0 := true;
           
           queued_write <= '0';
+        elsif queued2_write='1' then
+          report "DISPATCH: Dequeuing queued write to $" & to_hstring(queued2_waddr);
+          
+          -- Push it out as a normal batched write, that can collect others if they
+          -- come soon enough.
+          
+          write_collect0_valids <= (others => '0');
+          if queued2_wen_lo='1' then
+            write_collect0_valids(to_integer(queued2_waddr(2 downto 0))) <= '1';
+            write_collect0_data(to_integer(queued2_waddr(2 downto 0))) <= queued2_wdata;
+          end if;
+          if queued2_wen_hi='1' then
+            write_collect0_valids(to_integer(queued2_waddr(2 downto 0))+1) <= '1';
+            write_collect0_data(to_integer(queued2_waddr(2 downto 0))+1) <= queued2_wdata_hi;
+          end if;
+          write_collect0_address <= queued2_waddr(26 downto 3);
+          write_collect0_dispatchable <= '1';
+          show_collect0 := true;
+          
+          queued2_write <= '0';
         end if;
+
       end if;
       if write_collect1_dispatchable = '0' and write_collect1_toolate = '0' and write_collect1_flushed = '0' then
         if queued_write='1' then
@@ -1081,12 +1108,24 @@ begin
               -- one becomes available
               report "DISPATCH: Write blocked due to busy write buffers: " &
                 " addr $" & to_hstring(address) & " <= " & to_hstring(wdata);
-              queued_waddr <= address;
-              queued_wdata <= wdata;
-              queued_wdata_hi <= wdata_hi;
-              queued_wen_lo <= wen_lo;
-              queued_wen_hi <= wen_hi;
-              queued_write <= '1';
+              if queued_write='1' then
+                -- Bother. We already had a queued write.
+                -- So remember that one, too
+                queued2_waddr <= address;
+                queued2_wdata <= wdata;
+                queued2_wdata_hi <= wdata_hi;
+                queued2_wen_lo <= wen_lo;
+                queued2_wen_hi <= wen_hi;
+                queued2_write <= '1';
+              else
+                queued_waddr <= address;
+                queued_wdata <= wdata;
+                queued_wdata_hi <= wdata_hi;
+                queued_wen_lo <= wen_lo;
+                queued_wen_hi <= wen_hi;
+                queued_write <= '1';
+              end if;              
+
             end if;
 
             -- Update read cache structures when writing
