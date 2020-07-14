@@ -23,8 +23,8 @@
   input terminal_emulator_ready,
   input terminal_emulator_ack,
   
-  output reg [15:0] key_scancode,
-  output reg key_scancode_toggle,
+  output [15:0] key_scancode,
+  output key_scancode_toggle,
       
   input force_single_step,
   input secure_mode_from_cpu,

@@ -6,52 +6,52 @@
 `endif
 
 /* These get mapped into the monitor CPU's address space at $9000 */
-`define MON_READ_IDX_LO       5'h00
-`define MON_READ_IDX_HI       5'h01           // If we get really cramped on space, we could combine the MON_READ_IDX_HI and MON_READ_IDX_LO registers
+`define MON_READ_IDX_LO       6'h00
+`define MON_READ_IDX_HI       6'h01           // If we get really cramped on space, we could combine the MON_READ_IDX_HI and MON_READ_IDX_LO registers
 
-`define MON_WRITE_IDX_LO      5'h02
-`define MON_WRITE_IDX_HI      5'h03
+`define MON_WRITE_IDX_LO      6'h02
+`define MON_WRITE_IDX_HI      6'h03
 
-`define MON_TRACE_CTRL        5'h04
-`define MON_TRACE_STEP        5'h05
+`define MON_TRACE_CTRL        6'h04
+`define MON_TRACE_STEP        6'h05
 
-`define MON_FLAG_MASK0        5'h06
-`define MON_FLAG_MASK1        5'h07
+`define MON_FLAG_MASK0        6'h06
+`define MON_FLAG_MASK1        6'h07
 
-`define MON_UART_RX           5'h08
-`define MON_UART_TX           5'h08         // These two registers could have the same address.  We never need to read from tx, or write to rx
-`define MON_KEYBOARD_RX       5'h09
+`define MON_UART_RX           6'h08
+`define MON_UART_TX           6'h08         // These two registers could have the same address.  We never need to read from tx, or write to rx
+`define MON_KEYBOARD_RX       6'h09
 
-`define MON_UART_STATUS       5'h0A
-`define MON_RESET_TIMEOUT     5'h0B
+`define MON_UART_STATUS       6'h0A
+`define MON_RESET_TIMEOUT     6'h0B
 
-`define MON_UART_BITRATE_LO   5'h0C
-`define MON_UART_BITRATE_HI   5'h0D
+`define MON_UART_BITRATE_LO   6'h0C
+`define MON_UART_BITRATE_HI   6'h0D
 
-`define MON_BREAK_ADDR0       5'h0E
-`define MON_BREAK_ADDR1       5'h0F
+`define MON_BREAK_ADDR0       6'h0E
+`define MON_BREAK_ADDR1       6'h0F
 
-`define MON_MEM_ADDR0         5'h10
-`define MON_MEM_ADDR1         5'h11
-`define MON_MEM_ADDR2         5'h12
-`define MON_MEM_ADDR3         5'h13
-`define MON_MEM_READ          5'h14
-`define MON_MEM_WRITE         5'h15
-`define MON_MEM_STATUS        5'h16       // Mostly just a status bit (bit 7) that says either read data is ready or we can write again.
-`define MON_MEM_INC           5'h17       // Maybe combine this with MEM_STATUS to free up a register?
+`define MON_MEM_ADDR0         6'h10
+`define MON_MEM_ADDR1         6'h11
+`define MON_MEM_ADDR2         6'h12
+`define MON_MEM_ADDR3         6'h13
+`define MON_MEM_READ          6'h14
+`define MON_MEM_WRITE         6'h15
+`define MON_MEM_STATUS        6'h16       // Mostly just a status bit (bit 7) that says either read data is ready or we can write again.
+`define MON_MEM_INC           6'h17       // Maybe combine this with MEM_STATUS to free up a register?
 
-`define MON_WATCH_ADDR0       5'h18
-`define MON_WATCH_ADDR1       5'h19
-`define MON_WATCH_ADDR2       5'h1A
-`define MON_WATCH_ADDR3       5'h1B
-`define MON_STATE_CNT         5'h1C
-`define MON_PROT_HARDWARE     5'h1D
-`define MON_CHAR_INOUT        5'h1E       // Hypervisor character input/output
-`define MON_CHAR_STATUS       5'h1F
+`define MON_WATCH_ADDR0       6'h18
+`define MON_WATCH_ADDR1       6'h19
+`define MON_WATCH_ADDR2       6'h1A
+`define MON_WATCH_ADDR3       6'h1B
+`define MON_STATE_CNT         6'h1C
+`define MON_PROT_HARDWARE     6'h1D
+`define MON_CHAR_INOUT        6'h1E       // Hypervisor character input/output
+`define MON_CHAR_STATUS       6'h1F
 
-`define MON_KEY_SCANCODE0     5'h20
-`define MON_KEY_SCANCODE1     5'h21
-`define MON_KEY_SCANCODE_TOGGLE 5'h22
+`define MON_KEY_SCANCODE0     6'h20
+`define MON_KEY_SCANCODE1     6'h21
+`define MON_KEY_SCANCODE_TOGGLE 6'h22
 
 module monitor_ctrl(input clk, input reset, output wire reset_out, 
                     `MARK_DEBUG input 		   write, (* mark_debug = "true" *) input read, 
@@ -86,8 +86,8 @@ module monitor_ctrl(input clk, input reset, output wire reset_out,
 
 		    /* For controling access to secure mode */
 				input 		   secure_mode_from_cpu,
-        output reg     key_scancode[15:0],
-        output         key_scancode_toggle,
+        output reg     [15:0] key_scancode,
+        output reg     key_scancode_toggle,
 				output reg 	   secure_mode_from_monitor,
 		                output reg         clear_matrix_mode_toggle,
                                     
@@ -114,7 +114,7 @@ module monitor_ctrl(input clk, input reset, output wire reset_out,
 				output wire [15:0] bit_rate_divisor, input rx, output wire tx, output reg activity);
 
    initial  secure_mode_from_monitor = 0;
-   initial  key_scancode = 0;
+   // initial  key_scancode = 0;
    initial  key_scancode_toggle = 0;
    
 // Internal debugging
@@ -338,12 +338,12 @@ begin
     end 
     if(address == `MON_KEY_SCANCODE0)
     begin
-      key_scancode_toggle[7:0] <= di;
+      key_scancode[7:0] = di[7:0];
     end
     if(address == `MON_KEY_SCANCODE1)
     begin
-      key_scancode_toggle[15:8] <= di;
-      key_scancode_toggle <= not key_scancode_toggle;
+      key_scancode[15:8] = di[7:0];
+      key_scancode_toggle <= ~key_scancode_toggle;
     end
     if(address == `MON_STATE_CNT)
     begin
