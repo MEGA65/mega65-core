@@ -51,7 +51,6 @@
 
 `define MON_KEY_SCANCODE0     6'h20
 `define MON_KEY_SCANCODE1     6'h21
-`define MON_KEY_SCANCODE_TOGGLE 6'h22
 
 module monitor_ctrl(input clk, input reset, output wire reset_out, 
                     `MARK_DEBUG input 		   write, (* mark_debug = "true" *) input read, 

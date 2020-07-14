@@ -93,6 +93,9 @@
       .alias      protected_hw        $901D
       .alias      monitor_char        $901E
       .alias      monitor_char_status $901F
+
+      .alias      key_scancode_lo     $9020
+      .alias      key_scancode_hi     $9021
       
       ; Trace control bits
       .alias      trace_en            $1
@@ -701,6 +704,24 @@ load_byte_wait:
       bpl         load_byte_wait        ; still not done... try again
       stx         mem_inc               ; increment write address
       bra         load_byte_loop        ; do next byte
+
+; ----------------------------------------
+; Key Scancode Command (k or K)
+; ----------------------------------------
+key_scancode_cmd:
+      plx                               ; pop x
+      ; just want to read in two byte values for scanlo and scanhi
+      cpx         cmdlen                      ; are we at end of command?
+      bcs         end_key_scancode_cmd        ; no more characters to parse...
+      lda         cmdbuf,x
+      sta         key_scancode_lo
+      inx
+      cpx         cmdlen                      ; are we at end of command?
+      bcs         end_key_scancode_cmd        ; no more characters to parse...
+      lda         cmdbuf,x
+      sta         key_scancode_hi
+end_key_scancode_cmd:
+      jmp         next_command          ; all done
 
 ; -------------------------------------
 ; Set PC Command (g or G)
@@ -1756,11 +1777,11 @@ flag_bits:
 cmd_jmp_cmds:
 	; @ = dump memory from CPU perspective (was D)
 	; D = disassemble instructions (was $)
-      .byte       "!@M?HRTZWBG+I#EFSLD"
+      .byte       "!@M?HRTZWBG+I#EFSLDK"
 cmd_jmp_table:
       .word       reset_cmd,dump_cpu_memory_cmd,dump_memory_cmd,print_banner,print_banner,show_registers_cmd
       .word       trace_cmd,history_cmd,watch_cmd,break_cmd,set_pc_cmd,set_bitrate_cmd,irq_cmd,hyper_trap_cmd
-      .word       flag_break_cmd,fill_mem_cmd,set_mem_cmd,load_mem_cmd,disassemble_mem_cmd
+      .word       flag_break_cmd,fill_mem_cmd,set_mem_cmd,load_mem_cmd,disassemble_mem_cmd,key_scancode_cmd
 
 ;securemode_entry_msg:
 ;	.byte   "All storage and communications devices have been disconnected.",13,10
