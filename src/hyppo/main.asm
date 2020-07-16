@@ -651,6 +651,12 @@ reset_entry:
         ldy #>msg_gitcommit
         jsr printmessage
 
+        // Magic instruction used by monitor_load to work out where
+        // to patch. Monitor_load changes bit to JMP when patching for
+        // SD-cardless operation
+        bit go64
+        bit $1234
+	
         // Display help text
 	lda first_boot_flag_instruction
 	cmp #$4c
@@ -765,12 +771,6 @@ fpga_has_been_reconfigured:
         // check keyboard for 0-9 down to select alternate rom
         //
         jsr keyboardread
-
-        // Magic instruction used by monitor_load to work out where
-        // to patch. Monitor_load changes bit to JMP when patching for
-        // SD-cardless operation
-        bit go64
-        bit $1234
 
 //         ========================
 
