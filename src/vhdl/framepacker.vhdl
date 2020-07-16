@@ -270,11 +270,11 @@ begin  -- behavioural
         -- sampling rate.
         if thumbnail_y_counter < 256 then
           if pal_mode='1' then
-            -- 576 rows / 80 = add 36 each physical raster
-            thumbnail_y_counter <= thumbnail_y_counter + 36;
+            -- 576 rows / 50 = add 23 each physical raster
+            thumbnail_y_counter <= thumbnail_y_counter + 23;
           else
-            -- 480 rows / 80 = add 43
-            thumbnail_y_counter <= thumbnail_y_counter + 43;
+            -- 480 rows / 50 = add 27
+            thumbnail_y_counter <= thumbnail_y_counter + 27;
           end if;
           thumbnail_active_row <= '0';
           thumbnail_write_address <= thumbnail_row_address;
