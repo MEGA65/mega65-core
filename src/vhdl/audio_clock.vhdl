@@ -49,12 +49,18 @@ architecture synth of audio_clock is
     ----------------------------------------------------------------------
     -- edit these functions to add support for other ref clk frequencies
 
+    -- It was 100MHz x48 / 5 / 78.125 = 12.288 MHz
+    -- But that results in an intermediate frequency of 480 MHz, below
+    -- the 600 MHz minimum.
+    -- Use x96 / 10 instead
+
+    
     impure function get_vco_mul return real is
         variable r : real;
     begin
         r := 0.0;
-        if fref = 100.0 and fs = 48.0 then
-            r := 48.0;
+        if fref = 50.0 and fs = 48.0 then
+            r := 96.0;
         end if;
         return r;
     end function get_vco_mul;
@@ -63,7 +69,7 @@ architecture synth of audio_clock is
         variable r : integer;
     begin
         r := 0;
-        if fref = 100.0 and fs = 48.0 then
+        if fref = 50.0 and fs = 48.0 then
             r := 5;
         end if;
         return r;
@@ -73,7 +79,7 @@ architecture synth of audio_clock is
         variable r : real;
     begin
         r := 0.0;
-        if fref = 100.0 and fs = 48.0 then
+        if fref = 50.0 and fs = 48.0 then
             r := 78.125;
         end if;
         return r;

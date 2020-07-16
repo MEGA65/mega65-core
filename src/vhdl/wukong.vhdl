@@ -473,9 +473,8 @@ begin
     -- simple audio test tone
     AUDIO_TONE: entity work.audio_out_test_tone
       generic map (
-        -- Really needs to be 100MHz
-        -- Nothing else will work, without extending audio_clock.vhdl
-        fref        => 100.0
+        -- You have to update audio_clock if you change this
+        fref        => 50.0
         )
         port map (
             ref_rst   => reset_high,
