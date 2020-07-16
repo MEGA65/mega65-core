@@ -390,6 +390,7 @@ architecture Behavioral of container is
   signal audio_counter_interval : unsigned(23 downto 0) := to_unsigned(clock_frequency/target_sample_rate,24);
 
   signal pcm_clk : std_logic := '0';
+  signal pcm_clken : std_logic := '0';
   signal pcm_l : std_logic_vector(15 downto 0) := std_logic_vector(to_unsigned(0,16));
   signal pcm_r : std_logic_vector(15 downto 0) := std_logic_vector(to_unsigned(0,16));
   signal pcm_acr : std_logic := '0';

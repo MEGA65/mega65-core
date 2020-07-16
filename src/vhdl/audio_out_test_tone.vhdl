@@ -30,9 +30,9 @@ entity audio_out_test_tone is
         ref_rst     : in    std_logic;                      -- reference clock reset
         ref_clk     : in    std_logic;                      -- reference clock (100MHz)
 
-        pcm_rst     : out   std_logic;                      -- audio clock reset
-        pcm_clk     : out   std_logic;                      -- audio clock (256Fs = 12.288MHz)
-        pcm_clken   : out   std_logic;                      -- audio clock enable (Fs = 48kHz)
+        pcm_rst     : inout   std_logic;                      -- audio clock reset
+        pcm_clk     : inout   std_logic;                      -- audio clock (256Fs = 12.288MHz)
+        pcm_clken   : inout   std_logic;                      -- audio clock enable (Fs = 48kHz)
 
         pcm_l       : out   std_logic_vector(15 downto 0);  -- } synchronous to pcm_clk
         pcm_r       : out   std_logic_vector(15 downto 0)   -- } valid on pcm_clken
