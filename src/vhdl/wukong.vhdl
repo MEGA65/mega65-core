@@ -390,6 +390,7 @@ architecture Behavioral of container is
   signal audio_counter_interval : unsigned(23 downto 0) := to_unsigned(clock_frequency/target_sample_rate,24);
 
   signal pcm_clk : std_logic := '0';
+  signal pcm_rst : std_logic := '1';
   signal pcm_clken : std_logic := '0';
   signal pcm_l : std_logic_vector(15 downto 0) := std_logic_vector(to_unsigned(0,16));
   signal pcm_r : std_logic_vector(15 downto 0) := std_logic_vector(to_unsigned(0,16));
@@ -479,7 +480,7 @@ begin
         port map (
             ref_rst   => reset_high,
             ref_clk   => clock100,
-            pcm_rst   => reset_high,
+            pcm_rst   => pcm_rst,
             pcm_clk   => pcm_clk,
             pcm_clken => pcm_clken,
             pcm_l     => pcm_l,
@@ -510,7 +511,7 @@ begin
         vga_b => std_logic_vector(v_blue),
 
         -- XXX For now the audio stuff is all dummy
-        pcm_rst => reset_high, -- active high audio reset
+        pcm_rst => pcm_rst, -- active high audio reset
         pcm_clk => pcm_clk, -- audio clock at fs
         pcm_clken => pcm_clken, -- audio clock enable
         pcm_l => pcm_l,
