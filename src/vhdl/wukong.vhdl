@@ -468,11 +468,31 @@ begin
                  clock324  => clock324    -- 324      MHz
                  );
 
+    -- simple audio test tone
+    AUDIO_TONE: entity work.audio_out_test_tone
+      generic map (
+        -- Really needs to be 100MHz
+        -- Nothing else will work, without extending audio_clock.vhdl
+        fref        => 100.0
+        )
+        port map (
+            ref_rst   => reset_high,
+            ref_clk   => clock100,
+            pcm_rst   => reset_high,
+            pcm_clk   => pcm_clk,
+            pcm_clken => pcm_clken,
+            pcm_l     => pcm_l,
+            pcm_r     => pcm_r
+        );
+
+    pcm_n <= std_logic_vector(to_unsigned(6144,pcm_n'length));
+    pcm_cts <= std_logic_vector(to_unsigned(27000,pcm_cts'length));
+    
     hdmi0: entity work.vga_to_hdmi
       generic map (pcm_fs => 48.0 -- 48.0KHz audio
                    )
       port map (
-        dvi => '1',   -- DVI only, no audio
+        dvi => '0',   -- Enable HDMI-style audio
         vic => std_logic_vector(to_unsigned(17,8)), -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60 NTSC
         aspect => "01", -- 01=4:3, 10=16:9
         pix_rep => '0', -- no pixel repetition
@@ -491,7 +511,7 @@ begin
         -- XXX For now the audio stuff is all dummy
         pcm_rst => reset_high, -- active high audio reset
         pcm_clk => pcm_clk, -- audio clock at fs
-        pcm_clken => '1', -- audio clock enable
+        pcm_clken => pcm_clken, -- audio clock enable
         pcm_l => pcm_l,
         pcm_r => pcm_r,
         pcm_acr => pcm_acr, -- 1KHz
@@ -628,7 +648,8 @@ begin
   debug(2) <= clock135n2;
   debug(3) <= clock135p;
   debug(4) <= clock135n;
-      
+
+  
   pd0: if true generate
     pixeldriver0: entity work.pixel_driver port map (
       cpuclock => cpuclock,

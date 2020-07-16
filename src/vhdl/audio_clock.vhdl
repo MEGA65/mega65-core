@@ -32,7 +32,7 @@ entity audio_clock is
         rsti    : in    std_logic;          -- reset in
         clki    : in    std_logic;          -- reference clock in
         rsto    : out   std_logic;          -- reset out (from MMCM lock status)
-        clk     : out   std_logic;          -- audio clock out (fs * ratio)
+        clk     : inout   std_logic;          -- audio clock out (fs * ratio)
         clken   : out   std_logic           -- audio clock enable out (fs)
 
     );
