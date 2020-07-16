@@ -293,6 +293,8 @@ architecture Behavioral of container is
   
   signal audio_left : std_logic_vector(19 downto 0);
   signal audio_right : std_logic_vector(19 downto 0);
+  signal audio_left_slow : std_logic_vector(19 downto 0);
+  signal audio_right_slow : std_logic_vector(19 downto 0);
   signal h_audio_left : std_logic_vector(19 downto 0);
   signal h_audio_right : std_logic_vector(19 downto 0);
   signal spdif_44100 : std_logic;
@@ -370,7 +372,6 @@ architecture Behavioral of container is
   signal hdmigreen : UNSIGNED (7 downto 0);
   signal hdmiblue : UNSIGNED (7 downto 0);
   signal hdmi_int : std_logic;
-  signal hdmi_spdif : std_logic := '0';
   signal hdmi_scl : std_logic;
   signal hdmi_sda : std_logic;
 
@@ -386,7 +387,7 @@ architecture Behavioral of container is
   constant clock_frequency : integer := 27000000;
   constant target_sample_rate : integer := 48000;
   signal audio_counter : integer := 0;
-  signal sample_ready : boolean := false;
+  signal sample_ready_toggle : std_logic := '0';
   signal audio_counter_interval : unsigned(23 downto 0) := to_unsigned(clock_frequency/target_sample_rate,24);
 
   signal pcm_clk : std_logic := '0';
@@ -482,6 +483,11 @@ begin
             pcm_rst   => pcm_rst,
             pcm_clk   => pcm_clk,
             pcm_clken => pcm_clken,
+
+            audio_left_slow => audio_left_slow,
+            audio_right_slow => audio_right_slow,
+            sample_ready_toggle => sample_ready_toggle,
+            
             pcm_l     => pcm_l,
             pcm_r     => pcm_r
         );
@@ -911,13 +917,16 @@ begin
 
       reset_high <= not btncpureset;
       
-      -- Strobe sample_ready at 48KHz
+      -- We need to pass audio to 12.288 MHz clock domain.
+      -- Easiest way is to hold samples constant for 16 ticks, and
+      -- have a slow toggle
       if audio_counter /= to_integer(audio_counter_interval) then
         audio_counter <= audio_counter + 1;
-        sample_ready <= false;
       else
         audio_counter <= 0;
-        sample_ready <= true;
+        sample_ready_toggle <= not sample_ready_toggle;
+        audio_left_slow <= h_audio_left;
+        audio_right_slow <= h_audio_right;
       end if;
       
       segled_counter <= segled_counter + 1;
@@ -1011,14 +1020,10 @@ begin
       h_audio_right(19) <= not audio_right(19);
       h_audio_left(19) <= not audio_left(19);
     end if;
-    
-    -- Make SPDIF audio switchable for debugging HDMI output
-    if portp(0) = '1' then
-      hdmi_spdif <= spdif_44100;
-    else
-      hdmi_spdif <= '0';
-    end if;
 
+
+    
+    
     if portp(3)='1' then
       hdmi_is_progressive <= true;
     else
