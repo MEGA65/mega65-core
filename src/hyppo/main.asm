@@ -1195,6 +1195,8 @@ d81attachfail:
         // debug
         Checkpoint( "couldnt mount/attach MEGA65.D81")
 
+	jmp loadrom
+	
 //         ========================
 
 attempt_loadcharrom:
