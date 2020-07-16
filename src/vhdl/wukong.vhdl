@@ -22,6 +22,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.cputypes.all;
+use work.types_pkg.all;
 
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
@@ -468,7 +469,7 @@ begin
                  );
 
     hdmi0: entity work.vga_to_hdmi
-      generic map (pcm_fs => 48.0 // 48.0KHz audio
+      generic map (pcm_fs => 48.0 -- 48.0KHz audio
                    )
       port map (
         dvi => '1',   -- DVI only, no audio

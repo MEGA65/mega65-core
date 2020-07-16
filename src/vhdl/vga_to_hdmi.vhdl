@@ -378,9 +378,17 @@ begin
         )
         port map (
             src_clk  => pcm_clk,
-            src_in   => iec_sync &
-                        iec_rp & iec_rc & iec_ru & iec_rv & iec_r &
-                        iec_lp & iec_lc & iec_lu & iec_lv & iec_l,
+            src_in(56)   => iec_sync,
+            src_in(55)  => iec_rp,
+            src_in(54) => iec_rc,
+            src_in(53) => iec_ru,
+            src_in(52) => iec_rv,
+            src_in(51 downto 28) => iec_r,
+            src_in(27) => iec_lp,
+            src_in(26) => iec_lc,
+            src_in(25) => iec_lu,
+            src_in(24) => iec_lv,
+            src_in(23 downto 0) => iec_l,
             src_send => iec_req,
             src_rcv  => iec_ack,
             dest_clk => vga_clk,
