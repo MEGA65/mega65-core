@@ -479,7 +479,7 @@ begin
         )
         port map (
             ref_rst   => reset_high,
-            ref_clk   => clock100,
+            ref_clk   => CLK_IN,
             pcm_rst   => pcm_rst,
             pcm_clk   => pcm_clk,
             pcm_clken => pcm_clken,
