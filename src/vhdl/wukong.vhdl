@@ -269,7 +269,7 @@ architecture Behavioral of container is
   signal cart_access_count : unsigned(7 downto 0);
 
   signal widget_matrix_col_idx : integer range 0 to 8 := 0;
-  signal widget_matrix_col : std_logic_vector(7 downto 0);
+  signal widget_matrix_col : std_logic_vector(7 downto 0) := (others => '1');
   signal widget_restore : std_logic := '1';
   signal widget_capslock : std_logic := '0';
   signal widget_joya : std_logic_vector(4 downto 0);
