@@ -406,10 +406,10 @@ begin  -- behavioural
             -- @IO:GS $D611.1 WRITE ONLY enable real joystick ports (for r2 PCB only)
             joyreal_enable_internal <= fastio_wdata(1);
           when x"12" =>
---            widget_enable_internal <= std_logic(fastio_wdata(0));
---            ps2_enable_internal <= std_logic(fastio_wdata(1));
---            physkey_enable_internal <= std_logic(fastio_wdata(2));
---            virtual_enable_internal <= std_logic(fastio_wdata(3));
+            widget_enable_internal <= std_logic(fastio_wdata(0));
+            ps2_enable_internal <= std_logic(fastio_wdata(1));
+            physkey_enable_internal <= std_logic(fastio_wdata(2));
+            virtual_enable_internal <= std_logic(fastio_wdata(3));
 --            joykey_enable_internal <= std_logic(fastio_wdata(4));
             osk_debug_display <= fastio_wdata(4);
             joyswap <= fastio_wdata(5);
