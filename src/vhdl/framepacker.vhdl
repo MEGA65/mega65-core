@@ -127,8 +127,8 @@ architecture behavioural of framepacker is
   signal pixel_drive : unsigned(7 downto 0) := x"00";
   signal last_hypervisor_mode : std_logic := '0'; 
   signal last_access_is_thumbnail : std_logic := '0';
-  signal thumbnail_x_counter : integer range 0 to 24 := 0;
-  signal thumbnail_y_counter : integer range 0 to 24 := 0;
+  signal thumbnail_x_counter : integer range 0 to 8 := 0;
+  signal thumbnail_y_counter : integer range 0 to 511 := 0;
   signal thumbnail_pixels_remaining : integer range 0 to 80 := 0;
 
   signal x_counter : integer range 0 to 4095 := 0;
@@ -268,10 +268,14 @@ begin  -- behavioural
         end if;
         -- PAL has more raster lines than NTSC, so we have a different vertical
         -- sampling rate.
-        if ((thumbnail_y_counter < (11-1)) and (pal_mode='1'))
-          or ((thumbnail_y_counter < (11-1)) and (pal_mode='0'))          
-        then
-          thumbnail_y_counter <= thumbnail_y_counter + 1;
+        if thumbnail_y_counter < 256 then
+          if pal_mode='1' then
+            -- 576 rows / 80 = add 36 each physical raster
+            thumbnail_y_counter <= thumbnail_y_counter + 36;
+          else
+            -- 480 rows / 80 = add 43
+            thumbnail_y_counter <= thumbnail_y_counter + 43;
+          end if;
           thumbnail_active_row <= '0';
           thumbnail_write_address <= thumbnail_row_address;
             
@@ -280,7 +284,7 @@ begin  -- behavioural
         else
           thumbnail_valid <= thumbnail_started;
           thumbnail_started <= '1';
-          thumbnail_y_counter <= 0;
+          thumbnail_y_counter <= thumbnail_y_counter - 256;
           -- Thumbnail generation does not happen when in hypervisor mode
           thumbnail_active_row <= not last_hypervisor_mode;
           if to_integer(thumbnail_row_address) < ( 4095 - 80 ) then
@@ -304,10 +308,10 @@ begin  -- behavioural
       if pixel_newraster='1' then
         x_counter <= 0;
         -- Sample first pixel, so we get all 80 pixels across the screen
-        thumbnail_x_counter <= 9;
+        thumbnail_x_counter <= 8;
       elsif pixel_valid_out = '1' then
         x_counter <= x_counter + 1;
-        if thumbnail_x_counter /= 9 then
+        if thumbnail_x_counter /= 8 then
           -- Make sure it doesn't wrap around within a frame if things go wrong.
           thumbnail_x_counter <= thumbnail_x_counter + 1;
           thumbnail_active_pixel <= '0';
