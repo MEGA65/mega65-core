@@ -403,6 +403,8 @@ architecture Behavioral of container is
   signal hdmi_is_widescreen : boolean := true;
 
   signal vga_blank : std_logic := '0';
+
+  signal tmds : slv_9_0_t(0 to 2);
   
 begin
 
@@ -466,21 +468,21 @@ begin
                  );
 
     hdmi0: entity work.vga_to_hdmi
-      generic map (pcm_fs := 48.0 // 48.0KHz audio
+      generic map (pcm_fs => 48.0 // 48.0KHz audio
                    )
       port map (
         dvi => '1',   -- DVI only, no audio
         vic => std_logic_vector(to_unsigned(17,8)), -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60 NTSC
         aspect => "01", -- 01=4:3, 10=16:9
         pix_rep => '0', -- no pixel repetition
-        vs_pol => vsync_polarity,  -- 1=active high
-        hs_pol => hsync_polarity,
+        vs_pol => '1',  -- 1=active high
+        hs_pol => '1',
 
         vga_rst => reset_high, -- active high reset
         vga_clk => clock27, -- VGA pixel clock
-        vga_vs => vga_vsync, -- active high vsync
-        vga_hs => vga_hsync, -- active high hsync
-        vga_de => vga_de,   -- pixel enable
+        vga_vs => v_vsync, -- active high vsync
+        vga_hs => v_vga_hsync, -- active high hsync
+        vga_de => hdmi_dataenable,   -- pixel enable
         vga_r => std_logic_vector(v_red),
         vga_g => std_logic_vector(v_green),
         vga_b => std_logic_vector(v_blue),
@@ -501,21 +503,21 @@ begin
      -- serialiser: in this design we use TMDS SelectIO outputs
     GEN_HDMI_DATA: for i in 0 to 2 generate
     begin
-        HDMI_DATA: entity xil_defaultlib.serialiser_10to1_selectio
+        HDMI_DATA: entity work.serialiser_10to1_selectio
             port map (
                 rst     => reset_high,
                 clk     => clock27,
-                clk_x5  => clock135,
+                clk_x5  => clock135p,
                 d       => tmds(i),
                 out_p   => TMDS_data_p(i),
                 out_n   => TMDS_data_n(i)
             );
     end generate GEN_HDMI_DATA;
-    HDMI_CLK: entity xil_defaultlib.serialiser_10to1_selectio
+    HDMI_CLK: entity work.serialiser_10to1_selectio
         port map (
             rst     => reset_high,
             clk     => clock27,
-            clk_x5  => clock135,
+            clk_x5  => clock135p,
             d       => "0000011111",
             out_p   => TMDS_clk_p,
             out_n   => TMDS_clk_n
@@ -637,6 +639,7 @@ begin
       test_pattern_enable => '1',
       hsync_invert => '0',
       vsync_invert => '0',
+      narrow_dataenable => hdmi_dataenable,
 
       red_i => to_unsigned(0,8),
       green_i => to_unsigned(0,8),
