@@ -651,7 +651,7 @@ begin
   debug(4) <= clock135n;
 
   
-  pd0: if true generate
+  pd0: if false generate
     pixeldriver0: entity work.pixel_driver port map (
       cpuclock => cpuclock,
       clock81 => pixelclock,
@@ -679,7 +679,7 @@ begin
 
   end generate;
   
-  m0: if false generate
+  m0: if true generate
   machine0: entity work.machine
     generic map (cpu_frequency => 40500000,
                  target => wukong,
