@@ -114,6 +114,8 @@ begin
         state <= normalise;
         steps_remaining <= 5;
         busy <= '1';
+      elsif start_over='1' then
+        report "Ignoring divide by zero";
       end if;
 
       
