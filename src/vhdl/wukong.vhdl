@@ -154,6 +154,8 @@ end container;
 
 architecture Behavioral of container is
 
+  signal reset_high : std_logic := '1';
+  
   signal irq : std_logic := '1';
   signal nmi : std_logic := '1';
   signal irq_combined : std_logic := '1';
@@ -386,6 +388,14 @@ architecture Behavioral of container is
   signal sample_ready : boolean := false;
   signal audio_counter_interval : unsigned(23 downto 0) := to_unsigned(clock_frequency/target_sample_rate,24);
 
+  signal pcm_clk : std_logic := '0';
+  signal pcm_l : std_logic_vector(15 downto 0) := std_logic_vector(to_unsigned(0,16));
+  signal pcm_r : std_logic_vector(15 downto 0) := std_logic_vector(to_unsigned(0,16));
+  signal pcm_acr : std_logic := '0';
+  signal pcm_n   : std_logic_vector(19 downto 0) := std_logic_vector(to_unsigned(0,20));
+  signal pcm_cts : std_logic_vector(19 downto 0) := std_logic_vector(to_unsigned(0,20));
+  
+  
   signal hdmi_is_progressive : boolean := true;
   signal hdmi_is_pal : boolean := true;
   signal hdmi_is_30khz : boolean := true;
@@ -437,26 +447,6 @@ begin
   -- Also, the 50 and 100MHz ethernet clocks are now independent of the other
   -- clocks, so that Vivado shouldn't try to meet timing closure in the (already
   -- protected) domain crossings used for those.
-
-  
-
-  dt1: if false generate
-    dvi0: entity work.dvid_test
-      port map ( clk_in  => CLK_IN,
-                 clock27 => clock27,
---                 p13 => p13,
-                 dip_sw => (others => '0'),
-                 data_p => TMDS_data_p,
-                 data_n => TMDS_data_n,
-                 clk_p => TMDS_clk_p,
-                 clk_n => TMDS_clk_n,
---                 led => led,
-                 reset => btnCpuReset,
-                 left => '0',
-                 sample_rdata => x"0000"
-               );
-    
-  end generate;
   
   d0: if true generate
 
@@ -475,155 +465,173 @@ begin
                  clock324  => clock324    -- 324      MHz
                  );
 
-    OBUFDS_blue  : OBUFDS port map ( O  => TMDS_data_p(0), OB => TMDS_data_n(0), I  => blue_s_n(0)  );
-    OBUFDS_red   : OBUFDS port map ( O  => TMDS_data_p(1), OB => TMDS_data_n(1), I  => green_s_n(0) );
-    OBUFDS_green : OBUFDS port map ( O  => TMDS_data_p(2), OB => TMDS_data_n(2), I  => red_s_n(0)   );
-    OBUFDS_clock : OBUFDS port map ( O  => TMDS_clk_p, OB => TMDS_clk_n, I  => clock_s(0) );
+    hdmi0: entity work.vga_to_hdmi
+      generic map (pcm_fs := 48.0 // 48.0KHz audio
+                   )
+      port map (
+        dvi => '1',   -- DVI only, no audio
+        vic => std_logic_vector(to_unsigned(17,8)), -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60 NTSC
+        aspect => "01", -- 01=4:3, 10=16:9
+        pix_rep => '0', -- no pixel repetition
+        vs_pol => vsync_polarity,  -- 1=active high
+        hs_pol => hsync_polarity,
 
-    Inst_dvid: entity work.dvid PORT MAP(
-      clk       => clock135p,
-      clk_n     => clock135n, 
-      clk_pixel => clock27,
-      clk_pixel_en => true,
-      
-      red_p     => std_logic_vector(hdmired),
-      green_p   => std_logic_vector(hdmigreen),
-      blue_p    => std_logic_vector(hdmiblue),
-      blank     => vga_blank,
-      hsync     => v_vga_hsync,
-      vsync     => v_vsync,
+        vga_rst => reset_high, -- active high reset
+        vga_clk => clock27, -- VGA pixel clock
+        vga_vs => vga_vsync, -- active high vsync
+        vga_hs => vga_hsync, -- active high hsync
+        vga_de => vga_de,   -- pixel enable
+        vga_r => std_logic_vector(v_red),
+        vga_g => std_logic_vector(v_green),
+        vga_b => std_logic_vector(v_blue),
 
-      EnhancedMode => true,
-      IsProgressive => hdmi_is_progressive,
-      IsPAL => hdmi_is_pal,
-      Is30kHz => hdmi_is_30khz,
-      Limited_Range => hdmi_is_limited,
-      Widescreen => hdmi_is_widescreen,
+        -- XXX For now the audio stuff is all dummy
+        pcm_rst => reset_high, -- active high audio reset
+        pcm_clk => pcm_clk, -- audio clock at fs
+        pcm_clken => '1', -- audio clock enable
+        pcm_l => pcm_l,
+        pcm_r => pcm_r,
+        pcm_acr => pcm_acr, -- 1KHz
+        pcm_n => pcm_n, -- ACR N value
+        pcm_cts => pcm_cts, -- ACR CTS value
 
-      -- Audio input for HDMI audio
-      HDMI_audio_L => audio_left(19 downto 4),
-      HDMI_audio_R => audio_right(19 downto 4),
-      HDMI_LeftEnable => sample_ready,
-      HDMI_RightEnable => sample_ready,
-      
-      -- outputs to TMDS drivers
-      red_s     => red_s,
-      green_s   => green_s,
-      blue_s    => blue_s,
-      clock_s   => clock_s
-   );
-  end generate;
-  
-  fpgatemp0: entity work.fpgatemp
-    generic map (DELAY_CYCLES => 480)
-    port map (
-      rst => '0',
-      clk => cpuclock,
-      temp => fpga_temperature);
+        tmds => tmds
+        );
+    
+     -- serialiser: in this design we use TMDS SelectIO outputs
+    GEN_HDMI_DATA: for i in 0 to 2 generate
+    begin
+        HDMI_DATA: entity xil_defaultlib.serialiser_10to1_selectio
+            port map (
+                rst     => reset_high,
+                clk     => clock27,
+                clk_x5  => clock135,
+                d       => tmds(i),
+                out_p   => TMDS_data_p(i),
+                out_n   => TMDS_data_n(i)
+            );
+    end generate GEN_HDMI_DATA;
+    HDMI_CLK: entity xil_defaultlib.serialiser_10to1_selectio
+        port map (
+            rst     => reset_high,
+            clk     => clock27,
+            clk_x5  => clock135,
+            d       => "0000011111",
+            out_p   => TMDS_clk_p,
+            out_n   => TMDS_clk_n
+        );
 
-  kbd0: entity work.mega65kbd_to_matrix
-    port map (
-      cpuclock => cpuclock,
+    
+    fpgatemp0: entity work.fpgatemp
+      generic map (DELAY_CYCLES => 480)
+      port map (
+        rst => '0',
+        clk => cpuclock,
+        temp => fpga_temperature);
 
-      disco_led_en => disco_led_en,
-      disco_led_id => disco_led_id,
-      disco_led_val => disco_led_val,
-      
-      powerled => '1',
-      flopled => flopled_drive,
-      flopmotor => flopmotor_drive,
+    kbd0: entity work.mega65kbd_to_matrix
+      port map (
+        cpuclock => cpuclock,
+        
+        disco_led_en => disco_led_en,
+        disco_led_id => disco_led_id,
+        disco_led_val => disco_led_val,
+        
+        powerled => '1',
+        flopled => flopled_drive,
+        flopmotor => flopmotor_drive,
             
 --      kio8 => kb_io0,
 --      kio9 => kb_io1,
-      kio10 => 'Z',
+        kio10 => 'Z',
 
-      matrix_col => widget_matrix_col,
-      matrix_col_idx => widget_matrix_col_idx,
-      restore => widget_restore,
-      fastkey_out => fastkey,
-      capslock_out => widget_capslock,
-      upkey => keyup,
-      leftkey => keyleft
+        matrix_col => widget_matrix_col,
+        matrix_col_idx => widget_matrix_col_idx,
+        restore => widget_restore,
+        fastkey_out => fastkey,
+        capslock_out => widget_capslock,
+        upkey => keyup,
+        leftkey => keyleft
       
-      );
+        );
 
-  slow_devices0: entity work.slow_devices
-    generic map (
-      target => wukong
-      )
-    port map (
-      cpuclock => cpuclock,
-      pixelclock => pixelclock,
-      reset => iec_reset_drive,
-      cpu_exrom => cpu_exrom,
-      cpu_game => cpu_game,
-      sector_buffer_mapped => sector_buffer_mapped,
-
-      cart_nmi => '1',
-      cart_irq => '1',
-      cart_dma => '1',
-      
-      cart_exrom => cart_exrom,
-      cart_ba => cart_ba,
-      cart_rw => cart_rw,
-      cart_roml => cart_roml,
-      cart_romh => cart_romh,
-      cart_io1 => cart_io1,
-      cart_game => cart_game,
-      cart_io2 => cart_io2,
-      
-      cart_d_in => cart_d_read,
-      cart_d => cart_d,
-      cart_a => cart_a,
-      
-      irq_out => irq_out,
-      nmi_out => nmi_out,
-      
-      joya => joy3,
-      joyb => joy4,
-
-      fm_left => fm_left,
-      fm_right => fm_right,
-      
+    slow_devices0: entity work.slow_devices
+      generic map (
+        target => wukong
+        )
+      port map (
+        cpuclock => cpuclock,
+        pixelclock => pixelclock,
+        reset => iec_reset_drive,
+        cpu_exrom => cpu_exrom,
+        cpu_game => cpu_game,
+        sector_buffer_mapped => sector_buffer_mapped,
+        
+        cart_nmi => '1',
+        cart_irq => '1',
+        cart_dma => '1',
+        
+        cart_exrom => cart_exrom,
+        cart_ba => cart_ba,
+        cart_rw => cart_rw,
+        cart_roml => cart_roml,
+        cart_romh => cart_romh,
+        cart_io1 => cart_io1,
+        cart_game => cart_game,
+        cart_io2 => cart_io2,
+        
+        cart_d_in => cart_d_read,
+        cart_d => cart_d,
+        cart_a => cart_a,
+        
+        irq_out => irq_out,
+        nmi_out => nmi_out,
+        
+        joya => joy3,
+        joyb => joy4,
+        
+        fm_left => fm_left,
+        fm_right => fm_right,
+        
 --      cart_busy => led,
-      cart_access_count => cart_access_count,
-      
-      slow_access_request_toggle => slow_access_request_toggle,
-      slow_access_ready_toggle => slow_access_ready_toggle,
-      slow_access_write => slow_access_write,
-      slow_access_address => slow_access_address,
-      slow_access_wdata => slow_access_wdata,
-      slow_access_rdata => slow_access_rdata,
-
-      slow_prefetched_address => slow_prefetched_address,
-      slow_prefetched_data => slow_prefetched_data,
-      slow_prefetched_request_toggle => slow_prefetched_request_toggle,
-      
-      ----------------------------------------------------------------------
-      -- Expansion RAM interface (upto 127MB)
-      ----------------------------------------------------------------------
-      expansionram_busy => '1',
-      expansionram_data_ready_strobe => '1'
-
-      );
-
-
+        cart_access_count => cart_access_count,
+        
+        slow_access_request_toggle => slow_access_request_toggle,
+        slow_access_ready_toggle => slow_access_ready_toggle,
+        slow_access_write => slow_access_write,
+        slow_access_address => slow_access_address,
+        slow_access_wdata => slow_access_wdata,
+        slow_access_rdata => slow_access_rdata,
+        
+        slow_prefetched_address => slow_prefetched_address,
+        slow_prefetched_data => slow_prefetched_data,
+        slow_prefetched_request_toggle => slow_prefetched_request_toggle,
+        
+        ----------------------------------------------------------------------
+        -- Expansion RAM interface (upto 127MB)
+        ----------------------------------------------------------------------
+        expansionram_busy => '1',
+        expansionram_data_ready_strobe => '1'
+        
+        );
+  end generate;
+    
   red_s_n <= red_s;
   green_s_n <= green_s;
   blue_s_n <= blue_s;
-
+  
   debug(0) <= clock27;
   debug(1) <= cpuclock;
   debug(2) <= clock135n2;
   debug(3) <= clock135p;
   debug(4) <= clock135n;
-  
+      
   pd0: if true generate
     pixeldriver0: entity work.pixel_driver port map (
       cpuclock => cpuclock,
       clock81 => pixelclock,
       clock27 => clock27,
-
+      
       pal50_select => KEY1,
       vga60_select => '0',
       test_pattern_enable => '1',
@@ -875,6 +883,8 @@ begin
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then
 
+      reset_high <= not btncpureset;
+      
       -- Strobe sample_ready at 48KHz
       if audio_counter /= to_integer(audio_counter_interval) then
         audio_counter <= audio_counter + 1;
