@@ -218,6 +218,8 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/kb_matrix_ram.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/serialiser_10to1_selectio.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/vga_to_hdmi.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/audio_clock.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/audio_out_test_tone.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/types_pkg.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/utils_pkg.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/hdmi_tx_encoder.vhdl"]"\
@@ -713,6 +715,14 @@ set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
 set file "vhdl/vga_to_hdmi.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/audio_clock.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/audio_out_test_tone.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
