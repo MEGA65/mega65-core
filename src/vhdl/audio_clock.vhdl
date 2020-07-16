@@ -23,7 +23,6 @@ use unisim.vcomponents.all;
 
 entity audio_clock is
     generic (
-        fref    : real;     -- reference clock frequency (MHz)
         fs      : real;     -- sampling (clken) frequency (kHz)
         ratio   : integer   -- clk to fs frequency ratio
     );
@@ -46,48 +45,11 @@ architecture synth of audio_clock is
     signal clki_fb  : std_logic;    -- feedback clock
     signal count    : integer range 0 to ratio-1;
 
-    ----------------------------------------------------------------------
-    -- edit these functions to add support for other ref clk frequencies
-
-    -- It was 100MHz x48 / 5 / 78.125 = 12.288 MHz
-    -- But that results in an intermediate frequency of 480 MHz, below
-    -- the 600 MHz minimum.
-    -- Use x96 / 10 instead
-
-    
-    impure function get_vco_mul return real is
-        variable r : real;
-    begin
-        r := 0.0;
-        if fref = 50.0 and fs = 48.0 then
-            r := 96.0;
-        end if;
-        return r;
-    end function get_vco_mul;
-
-    impure function get_vco_div return integer is
-        variable r : integer;
-    begin
-        r := 0;
-        if fref = 50.0 and fs = 48.0 then
-            r := 5;
-        end if;
-        return r;
-    end function get_vco_div;
-
-    impure function get_o_div return real is
-        variable r : real;
-    begin
-        r := 0.0;
-        if fref = 50.0 and fs = 48.0 then
-            r := 78.125;
-        end if;
-        return r;
-    end function get_o_div;
-
-    constant mmcm_vco_mul   : real      := get_vco_mul;
-    constant mmcm_vco_div   : integer   := get_vco_div;
-    constant mmcm_o_div     : real      := get_o_div;
+    -- Assume input clock is 50MHz
+    constant mmcm_vco_mul   : real      := 96.0;  -- 50MHz x 96 = 4.8GHz
+    constant mmcm_vco_div   : integer   := 5;     -- 4.8GHz / 5 = 960 MHz
+    constant mmcm_o_div     : real      := 78.125; -- 960 MHz / 78.125 =
+                                                      -- 12.288 MHz
 
     ----------------------------------------------------------------------
 
@@ -112,12 +74,14 @@ begin
     MMCM: mmcme2_adv
     generic map(
         bandwidth               => "OPTIMIZED",
-        clkfbout_mult_f         => mmcm_vco_mul,
+        clkfbout_mult_f         => 24.0, -- 50x24 = 1200 mhz
         clkfbout_phase          => 0.0,
         clkfbout_use_fine_ps    => false,
-        clkin1_period           => 10.0,
+        divclk_divide           => 1,    -- keep 1200MHz
+        clkin1_period           => 20.0,
         clkin2_period           => 0.0,
-        clkout0_divide_f        => mmcm_o_div,
+        clkout0_divide_f        => 97.625, -- 1200 / 97.625MHz = 12.291933MHz.
+                                           -- Error = 3.933 KHz
         clkout0_duty_cycle      => 0.5,
         clkout0_phase           => 0.0,
         clkout0_use_fine_ps     => false,
@@ -147,7 +111,6 @@ begin
         clkout6_phase           => 0.0,
         clkout6_use_fine_ps     => false,
         compensation            => "ZHOLD",
-        divclk_divide           => mmcm_vco_div,
         is_clkinsel_inverted    => '0',
         is_psen_inverted        => '0',
         is_psincdec_inverted    => '0',
