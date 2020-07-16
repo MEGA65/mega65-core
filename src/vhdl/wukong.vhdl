@@ -567,7 +567,7 @@ begin
             
 --      kio8 => kb_io0,
 --      kio9 => kb_io1,
-        kio10 => 'Z',
+        kio10 => '1', -- no keys pressed
 
         matrix_col => widget_matrix_col,
         matrix_col_idx => widget_matrix_col_idx,
