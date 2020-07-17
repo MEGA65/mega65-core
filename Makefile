@@ -10,8 +10,7 @@ OPHIS=	Ophis/bin/ophis
 OPHISOPT=	-4
 OPHIS_MON= Ophis/bin/ophis -c
 
-JAVA = java
-KICKASS_JAR = KickAss/KickAss.jar
+ACME=acme
 
 VIVADO=	./vivado_wrapper
 
@@ -564,9 +563,8 @@ $(BINDIR)/border.prg: 	$(SRCDIR)/border.a65 $(OPHIS)
 	$(OPHIS) $(OPHISOPT) $< -l $(BINDIR)/border.list -m $*.map -o $(BINDIR)/border.prg
 
 # ============================ done moved, print-warn, clean-target
-#??? diskmenu_c000.bin yet b0rken
 $(BINDIR)/HICKUP.M65: $(SRCDIR)/hyppo/main.asm $(SRCDIR)/version.asm
-	$(JAVA) -jar $(KICKASS_JAR) $< -afo
+	$(ACME) --cpu m65 --setpc 0x8000 -I $(SRCDIR)/hyppo $(SRCDIR)/hyppo/main.asm
 
 $(SRCDIR)/monitor/monitor_dis.a65: $(SRCDIR)/monitor/gen_dis
 	$(SRCDIR)/monitor/gen_dis >$(SRCDIR)/monitor/monitor_dis.a65

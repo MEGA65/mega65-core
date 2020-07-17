@@ -41,7 +41,7 @@
 !addr Hyppo_End                    = $bfff
 
 ;; .file [name="../../bin/HICKUP.M65", type="bin", segments="TrapEntryPoints,RelocatedCPUVectors,Traps,DOSDiskTable,SysPartStructure,DOSWorkArea,ProcessDescriptors,HyppoStack,HyppoZP"] 
-	!to "../../bin/HICKUP.M65", plain
+	!to "bin/HICKUP.M65", plain
 
 ;; .segmentdef TrapEntryPoints        [min=TrapEntryPoints_Start,     max=RelocatedCPUVectors_Start-1                         ]
 ;; .segmentdef RelocatedCPUVectors    [min=RelocatedCPUVectors_Start, max=Traps_Start-1                                       ]
@@ -3414,4 +3414,6 @@ d81_clustersneeded:
 d81_clustercount:
         !16 0
 
+	;; Make sure we pad to full size
 	* = Hyppo_End
+	!8 0
