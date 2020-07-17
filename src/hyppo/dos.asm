@@ -1084,20 +1084,6 @@ dos_initialise_disklist:
 ;;         ========================
 
 dos_consider_partition_entry:
-
-	;; XXX DEBUG not partition entry
-	lda <(dos_scratch_vector+0)
-	sta $0400
-	lda <(1+dos_scratch_vector)
-	sta $0401
--	lda $d610
-	sta $d610
-	bne -
--	inc $d020
-	lda $d610
-	beq -
-	sta $d610
-	
 	
         lda #$00
         sta dos_error_code
