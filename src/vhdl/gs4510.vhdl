@@ -3068,7 +3068,7 @@ begin
         -- @IO:GS $D7FB.0 CPU:BRCOST 1=charge extra cycle(s) for branches taken
         -- @IO:GS $D7FB.1 CPU:CARTEN 1= enable cartridges
         charge_for_branches_taken <= value(0);
-        cartridge_enable <= '1';
+        cartridge_enable <= value(1);
       elsif (long_address = x"FFD37FC") then
       -- @IO:GS $D7FC DEBUG chip-select enables for various devices
 --        chipselect_enables <= std_logic_vector(value);
@@ -3590,7 +3590,7 @@ begin
       
       -- Disable all non-essential IO devices from memory map when in secure mode.
       if hyper_protected_hardware(7)='1' then
---        cartridge_enable <= '0';
+        cartridge_enable <= '0';
         chipselect_enables <= x"84"; -- SD card/multi IO controller and SIDs
       -- (we disable the undesirable parts of the SD card interface separately)
       else
@@ -4095,8 +4095,8 @@ begin
       speed_gate_drive <= speed_gate;
       
       if cartridge_enable='1' then
-        gated_exrom <= exrom and force_exrom;
-        gated_game <= game and force_game;
+        gated_exrom <= exrom or force_exrom;
+        gated_game <= game or force_game;
       else
         gated_exrom <= force_exrom;
         gated_game <= force_game;
