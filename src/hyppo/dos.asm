@@ -189,11 +189,11 @@ trap_dos_loadfile:
         lda hypervisor_x
         sta <dos_file_loadaddress
         lda hypervisor_y
-        sta <dos_file_loadaddress+1
+        sta <(dos_file_loadaddress+1)
         lda hypervisor_z
-        sta <dos_file_loadaddress+2
+        sta <(dos_file_loadaddress+2)
         lda #$00
-        sta <dos_file_loadaddress+3
+        sta <(dos_file_loadaddress+3)
 
         jsr dos_readfileintomemory
         jmp return_from_trap_with_carry_flag
@@ -219,9 +219,7 @@ trap_dos_setname:
         bcc tdsnfailure
 
         ldx <hypervisor_userspace_copy_vector
-	;; PGS Is there a cleaner way to force this to use ZP addressing?
-	temp1 = 1+<hypervisor_userspace_copy_vector
-        ldy <temp1
+        ldy <(1+hypervisor_userspace_copy_vector)
         jsr dos_setname
         bcc tdsnfailure
 
@@ -312,11 +310,11 @@ trap_dos_mkfile:
 	;; This skips the first sector of FAT, which always has some used
 	;; bits, and ensures we can allocate on a whole sector basis.
 	lda #128
-	sta zptempv32+0
+	sta <(zptempv32+0)
 	lda #$00
-	sta zptempv32+1
-	sta zptempv32+2
-	sta zptempv32+3
+	sta <(zptempv32+1)
+	sta <(zptempv32+2)
+	sta <(zptempv32+3)
 
 	;; Initially 0 empty pages found
 	lda #0
@@ -327,7 +325,7 @@ trap_dos_mkfile:
 find_empty_fat_page_loop:
 	
 	ldx #3
--	lda zptempv32,x
+-	lda <zptempv32,x
 	sta dos_current_cluster,x
 	dex
 	bpl -
@@ -336,9 +334,9 @@ find_empty_fat_page_loop:
 	
 	;; Is the page empty
 	ldx #0
--	lda $de00,x
+-	lda sd_sectorbuffer,x
 	bne +
-	lda $df00,x
+	lda sd_sectorbuffer+$100,x
 	bne +
 
 	inx
@@ -362,17 +360,17 @@ fat_sector_is_empty:
 	;; Need to find another
 	lda #$80
 	clc
-	adc zptempv32+0
-	sta zptempv32+0
-	lda zptempv32+1
+	adc <(zptempv32+0)
+	sta <(zptempv32+0)
+	lda <(zptempv32+1)
 	adc #0
-	sta zptempv32+1
-	lda zptempv32+2
+	sta <(zptempv32+1)
+	lda <(zptempv32+2)
 	adc #0
-	sta zptempv32+2
-	lda zptempv32+3
+	sta <(zptempv32+2)
+	lda <(zptempv32+3)
 	adc #0
-	sta zptempv32+3
+	sta <(zptempv32+3)
 
 	;; XXX Check that we haven't hit the end of the file system
 	
@@ -386,19 +384,19 @@ found_enough_contiguous_free_space:
 	
 -	lda dos_scratch_byte_2
 	beq +
-	lda zptempv32+0
+	lda <(zptempv32+0)
 	sec
 	sbc #$80
-	sta zptempv32+0
-	lda zptempv32+1
+	sta <(zptempv32+0)
+	lda <(zptempv32+1)
 	sbc #0
-	sta zptempv32+1
-	lda zptempv32+2
+	sta <(zptempv32+1)
+	lda <(zptempv32+2)
 	sbc #0
-	sta zptempv32+2
-	lda zptempv32+3
+	sta <(zptempv32+2)
+	lda <(zptempv32+3)
 	sbc #0
-	sta zptempv32+3
+	sta <(zptempv32+3)
 	dec dos_scratch_byte_2
 	jmp -
 +
@@ -473,16 +471,16 @@ was_dot:
 	sta (<dos_scratch_vector),y
 	;; dirent: start cluster
 	ldy #fs_fat32_dirent_offset_clusters_low
-	lda zptempv32+0
+	lda <(zptempv32+0)
 	sta (<dos_scratch_vector),y
 	iny
-	lda zptempv32+1
+	lda <(zptempv32+1)
 	sta (<dos_scratch_vector),y
 	ldy #fs_fat32_dirent_offset_clusters_high
-	lda zptempv32+2
+	lda <(zptempv32+2)
 	sta (<dos_scratch_vector),y
 	iny
-	lda zptempv32+3
+	lda <(zptempv32+3)
 	sta (<dos_scratch_vector),y	
 	;; dirent: file length
 	ldy #fs_fat32_dirent_offset_file_length
@@ -512,7 +510,7 @@ was_dot:
 mkfile_fat_write_loop:	
 	;; Get the (currently empty) sector
 	ldx #3
--	lda zptempv32,x
+-	lda <zptempv32,x
 	sta dos_current_cluster,x
 	dex
 	bpl -
@@ -521,49 +519,50 @@ mkfile_fat_write_loop:
 	;; Update cluster number and write it into the field
 	ldy #0
 -
-	lda zptempv32+0
+	;; XXX Rework to use 32-bit pseudo register
+	lda <(zptempv32+0)
 	clc
 	adc #1
-	sta zptempv32+0
-	sta $de00,y
+	sta <(zptempv32+0)
+	sta sd_sectorbuffer,y
 	iny
-	lda zptempv32+1
+	lda <(zptempv32+1)
 	adc #0
-	sta zptempv32+1
-	sta $de00,y
+	sta <(zptempv32+1)
+	sta sd_sectorbuffer,y
 	iny
-	lda zptempv32+2
+	lda <(zptempv32+2)
 	adc #0
-	sta zptempv32+2
-	sta $de00,y
+	sta <(zptempv32+2)
+	sta sd_sectorbuffer,y
 	iny
-	lda zptempv32+3
+	lda <(zptempv32+3)
 	adc #0
-	sta zptempv32+3
-	sta $de00,y
+	sta <(zptempv32+3)
+	sta sd_sectorbuffer,y
 	iny
 	bne -
 -
-	lda zptempv32+0
+	lda <(zptempv32+0)
 	clc
 	adc #1
-	sta zptempv32+0
-	sta $df00,y
+	sta <(zptempv32+0)
+	sta sd_sectorbuffer+$100,y
 	iny
-	lda zptempv32+1
+	lda <(zptempv32+1)
 	adc #0
-	sta zptempv32+1
-	sta $df00,y
+	sta <(zptempv32+1)
+	sta sd_sectorbuffer+$100,y
 	iny
-	lda zptempv32+2
+	lda <(zptempv32+2)
 	adc #0
-	sta zptempv32+2
-	sta $df00,y
+	sta <(zptempv32+2)
+	sta sd_sectorbuffer+$100,y
 	iny
-	lda zptempv32+3
+	lda <(zptempv32+3)
 	adc #0
-	sta zptempv32+3
-	sta $df00,y
+	sta <(zptempv32+3)
+	sta sd_sectorbuffer+$100,y
 	iny
 	bne -
 
@@ -627,8 +626,8 @@ empty_dirent_search_loop:
 	;; Look for free dirent in first half of each sector.
 	ldx #0
 	lda #$de
-	sta dos_scratch_vector+1
--	lda $de00,x
+	sta <(dos_scratch_vector+1)
+-	lda sd_sectorbuffer,x
 	cmp #$00 ;; vacant
 	beq available_dirent_slot
 	cmp #$e5 ;; deleted
@@ -637,8 +636,8 @@ empty_dirent_search_loop:
 	adc #$20
 	tax
 	bne -
-	inc dos_scratch_vector+1
--	lda $de00,x
+	inc <(dos_scratch_vector+1)
+-	lda sd_sectorbuffer,x
 	cmp #$00 ;; vacant
 	beq available_dirent_slot
 	cmp #$e5 ;; deleted
@@ -661,7 +660,7 @@ empty_dirent_search_loop:
 	rts
 	
 available_dirent_slot:	
-	stx dos_scratch_vector+0
+	stx <(dos_scratch_vector+0)
 	
 	sec
 	rts
@@ -1017,24 +1016,24 @@ dos_read_partitiontable:
         ;; partition entries as we see fit.
         ;;
 
-        lda #<sd_sectorbuffer+$1BE
-        sta dos_scratch_vector
-        lda #>sd_sectorbuffer+$1BE
-        sta dos_scratch_vector+1
+        lda #<(sd_sectorbuffer+$1BE)
+        sta <dos_scratch_vector
+        lda #>(sd_sectorbuffer+$1BE)
+        sta <(dos_scratch_vector+1)
         +Checkpoint "=== Checking Partition #1 at $01BE"
         jsr dos_consider_partition_entry
 
         jsr dos_read_mbr
         bcc l_drpt_fail
-        lda #<sd_sectorbuffer+$1CE
-        sta dos_scratch_vector
+        lda #<(sd_sectorbuffer+$1CE)
+        sta <dos_scratch_vector
         +Checkpoint "=== Checking Partition #2 at $01CE"
         jsr dos_consider_partition_entry
 
         jsr dos_read_mbr
         bcc l_drpt_fail
-        lda #<sd_sectorbuffer+$1DE
-        sta dos_scratch_vector
+        lda #<(sd_sectorbuffer+$1DE)
+        sta <dos_scratch_vector
         +Checkpoint "=== Checking Partition #3 at $01DE"
         jsr dos_consider_partition_entry
 
@@ -1042,8 +1041,8 @@ dos_read_partitiontable:
         bcs +
 l_drpt_fail:
         jmp drpt_fail
-+       lda #<sd_sectorbuffer+$1EE
-        sta dos_scratch_vector
++       lda #<(sd_sectorbuffer+$1EE)
+        sta <dos_scratch_vector
         +Checkpoint "=== Checking Partition #4 at $01EE"
         jsr dos_consider_partition_entry
 
@@ -1086,6 +1085,20 @@ dos_initialise_disklist:
 
 dos_consider_partition_entry:
 
+	;; XXX DEBUG not partition entry
+	lda <(dos_scratch_vector+0)
+	sta $0400
+	lda <(1+dos_scratch_vector)
+	sta $0401
+-	lda $d610
+	sta $d610
+	bne -
+-	inc $d020
+	lda $d610
+	beq -
+	sta $d610
+	
+	
         lda #$00
         sta dos_error_code
 
@@ -2314,11 +2327,11 @@ drce_next_piece:
         ora #dos_filedescriptor_offset_offsetinsector
         tax
         lda dos_file_descriptors,x
-        sta dos_scratch_vector
+        sta <dos_scratch_vector
         lda dos_file_descriptors+1,x
         clc
         adc #$DE   ;; high byte of SD card sector buffer
-        sta dos_scratch_vector+1
+        sta <(dos_scratch_vector+1)
 
         ;; (dos_scratch_vector) now has the address of the directory entry
 
@@ -3254,7 +3267,7 @@ dfanc44:
         and #$40
         bne dfanc_high
 
-dfanc6: lda $de00,x
+dfanc6: lda sd_sectorbuffer,x
         sta dos_file_descriptors,y
         inx
         iny
@@ -3264,7 +3277,7 @@ dfanc6: lda $de00,x
         bra dfanc_check
 
 dfanc_high:
-        lda $df00,x
+        lda sd_sectorbuffer+$100,x
         sta dos_file_descriptors,y
         inx
         iny
@@ -3708,8 +3721,8 @@ dos_setname:
         ;;                 filename string must be terminated with $00
         ;;                 filename string must be <= $3F chars
 
-        stx dos_scratch_vector
-        sty dos_scratch_vector+1
+        stx <dos_scratch_vector
+        sty <(dos_scratch_vector+1)
         ldy #$00
 
 lr11:   lda (<dos_scratch_vector),y
