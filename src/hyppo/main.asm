@@ -1857,11 +1857,11 @@ pm3:    lda (<zptempp),y
 
 pm4:                ;; write 16-bit character code
         ;;
-        sta [<zptempp2],z
+        sta (<zptempp2),z
         inz
         pha
         lda #$00
-        sta [<zptempp2],z
+        sta (<zptempp2),z
         pla
         iny
         inz
@@ -2519,10 +2519,11 @@ utility_menu:
         sta zptempv
 
         jsr utillist_rewind
+
 um1:
         jsr utillist_validity_check
         bcc utility_end_of_list
-
+	
         ;; Display utility and assign number
         ldy #39
         lda #$20
@@ -2902,15 +2903,16 @@ ulvc_fail:
         rts
 
 utillist_rewind:
+
         ;; Set pointer to first entry in colour RAM ($0850)
         lda #<$0850
         sta <zptempv32
         lda #>$0850
-        sta <zptempv32+1
+        sta <(zptempv32+1)
         lda #<$0FF8
-        sta <zptempv32+2
+        sta <(zptempv32+2)
         lda #>$0FF8
-        sta <zptempv32+3
+        sta <(zptempv32+3)
 
         rts
 
