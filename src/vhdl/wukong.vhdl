@@ -323,14 +323,15 @@ architecture Behavioral of container is
   signal cart_irq : std_logic := 'Z';
   signal cart_dma : std_logic := 'Z';
 
-  signal cart_exrom : std_logic := 'Z';
-  signal cart_ba : std_logic := 'Z';
-  signal cart_rw : std_logic := 'Z';
-  signal cart_roml : std_logic := 'Z';
-  signal cart_romh : std_logic := 'Z';
-  signal cart_io1 : std_logic := 'Z';
-  signal cart_game : std_logic := 'Z';
-  signal cart_io2 : std_logic := 'Z';
+  -- Default to cartridge lines released
+  signal cart_exrom : std_logic := '1';
+  signal cart_ba : std_logic := '1';
+  signal cart_rw : std_logic := '1';
+  signal cart_roml : std_logic := '1';
+  signal cart_romh : std_logic := '1';
+  signal cart_io1 : std_logic := '1';
+  signal cart_game : std_logic := '1';
+  signal cart_io2 : std_logic := '1';
 
   signal cart_d : unsigned(7 downto 0) := (others => 'Z');
   signal cart_d_read : unsigned(7 downto 0) := (others => 'Z');
