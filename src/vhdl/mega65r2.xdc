@@ -327,14 +327,14 @@ set_property -dict {PACKAGE_PIN J5 IOSTANDARD LVCMOS33 PULLUP FALSE} [get_ports 
 #
 set_property -dict {PACKAGE_PIN P4 IOSTANDARD LVCMOS33} [get_ports {eth_rxd[0]}]
 set_property -dict {PACKAGE_PIN L1 IOSTANDARD LVCMOS33} [get_ports {eth_rxd[1]}]
-set_property -dict {PACKAGE_PIN L3 IOSTANDARD LVCMOS33 SLEW FAST} [get_ports {eth_txd[0]}]
-set_property -dict {PACKAGE_PIN K3 IOSTANDARD LVCMOS33 SLEW FAST} [get_ports {eth_txd[1]}]
+set_property -dict {PACKAGE_PIN L3 IOSTANDARD LVCMOS33 SLEW SLOW DRIVE 4} [get_ports {eth_txd[0]}]
+set_property -dict {PACKAGE_PIN K3 IOSTANDARD LVCMOS33 SLEW SLOW DRIVE 4} [get_ports {eth_txd[1]}]
 set_property -dict {PACKAGE_PIN K4 IOSTANDARD LVCMOS33} [get_ports eth_rxdv]
 set_property -dict {PACKAGE_PIN J6 IOSTANDARD LVCMOS33} [get_ports eth_mdc]
 set_property -dict {PACKAGE_PIN L5 IOSTANDARD LVCMOS33} [get_ports eth_mdio]
 set_property -dict {PACKAGE_PIN L4 IOSTANDARD LVCMOS33 SLEW FAST} [get_ports eth_clock]
 set_property -dict {PACKAGE_PIN K6 IOSTANDARD LVCMOS33} [get_ports eth_reset]
-set_property -dict {PACKAGE_PIN J4 IOSTANDARD LVCMOS33} [get_ports eth_txen]
+set_property -dict {PACKAGE_PIN J4 IOSTANDARD LVCMOS33 SLEW SLOW DRIVE 4} [get_ports eth_txen]
 set_property -dict {PACKAGE_PIN M6 IOSTANDARD LVCMOS33} [get_ports eth_rxer]
 #set_property -dict {PACKAGE_PIN K4 IOSTANDARD LVCMOS33} [get_ports eth_crs_dv]
 
