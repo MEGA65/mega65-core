@@ -12,6 +12,7 @@ entity iomapper is
              );
   port (cpuclock : in std_logic;
         clock100mhz : in std_logic;
+        clock200mhz : in std_logic;
         clock50mhz : in std_logic;
         clock2mhz : in std_logic;
         phi0_1mhz : in std_logic;
@@ -1039,6 +1040,7 @@ begin
   ethernet0 : entity work.ethernet port map (
     clock50mhz => clock50mhz,
     clock100 => clock100mhz,
+    clock200 => clock200mhz,
     clock => cpuclock,
     reset => reset,
     irq => ethernet_irq,

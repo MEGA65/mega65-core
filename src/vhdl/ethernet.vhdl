@@ -45,6 +45,7 @@ entity ethernet is
     clock : in std_logic;
     clock50mhz : in std_logic;
     clock100 : in std_logic;
+    clock200 : in std_logic;
     reset : in std_logic;
     irq : out std_logic := '1';
     ethernet_cs : in std_logic;
@@ -447,9 +448,9 @@ begin  -- behavioural
 
   -- Present TX data bits and TX en lines at variable phase to
   -- 50MHz clock
-  process(clock100) is
+  process(clock200) is
   begin
-    if rising_edge(clock100) then
+    if rising_edge(clock200) then
       eth_txd_out <= eth_txd_delayed(7 downto 6);
       eth_txen_out <= eth_txen_delayed(3);
 
@@ -1051,6 +1052,8 @@ begin  -- behavioural
         case fastio_addr(3 downto 0) is
           -- @IO:GS ETH:$D6E0 Ethernet control
           when x"0" =>
+            -- @IO:GS $D6E0.7 ETH:TXIDLE Ethernet transmit side is idle, i.e., a packet can be sent.
+            fastio_rdata(7) <= eth_tx_idle_cpuside;
             -- @IO:GS $D6E0.6 ETH:RXBLKD Indicate if ethernet RX is blocked until RX buffers rotated
             fastio_rdata(6) <= eth_buffer_blocked;
           -- @IO:GS $D6E0.4 ETH:KEYEN Allow remote keyboard input via magic ethernet frames

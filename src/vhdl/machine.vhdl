@@ -60,6 +60,7 @@ entity machine is
          cpuclock : in std_logic;
          clock50mhz : in std_logic;  -- normal ethernet clock
          clock100 : in std_logic;    -- Must be 2x ethernet clock
+         clock200 : in std_logic;    -- Must be 4x ethernet clock
          clock27 : in std_logic;
          clock162 : in std_logic;
          uartclock : std_logic;
@@ -283,7 +284,7 @@ entity machine is
          i2c1SCL : inout std_logic := '1';
 
          lcdpwm : out std_logic := '1';
-         touchSDA : inout std_logic := '1';
+         touchSDA : inout std_logic := 'H';
          touchSCL : inout std_logic := '1';
          
          ---------------------------------------------------------------------------
@@ -1380,6 +1381,7 @@ begin
     port map (
       cpuclock => cpuclock,
       clock100mhz => clock100,
+      clock200mhz => clock200,
       clock2mhz => clock2mhz,
       cpuspeed => cpuspeed,
       pixelclk => pixelclock,
