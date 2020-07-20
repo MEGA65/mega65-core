@@ -24,15 +24,15 @@ architecture wattle_and_daub of fast_divide is
   signal state : state_t := idle;
   signal steps_remaining : integer range 0 to 5 := 0;
 
-  signal dd : unsigned(31 downto 0);
-  signal nn : unsigned(63 downto 0);
+  signal dd : unsigned(31 downto 0) := to_unsigned(0,32);
+  signal nn : unsigned(63 downto 0) := to_unsigned(0,64);
     
 begin
 
   process (clock) is
-    variable temp64 : unsigned(65 downto 0);
-    variable temp96 : unsigned(97 downto 0);
-    variable f : unsigned(33 downto 0);
+    variable temp64 : unsigned(65 downto 0) := to_unsigned(0,66);
+    variable temp96 : unsigned(97 downto 0) := to_unsigned(0,98);
+    variable f : unsigned(33 downto 0) := to_unsigned(0,34);
   begin
     if rising_edge(clock) then
       report "state is " & state_t'image(state);
