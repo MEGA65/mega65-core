@@ -487,7 +487,10 @@ hypervisorSaveConfig:
 hypervisorLoadOrResetConfig:	
 ;-------------------------------------------------------------------------------
 ;;      Load current options sector from SD card using Hypervisor trap		
-		
+
+	;; As configure starts very early in the boot process, we can't rely on
+	;; HYPPO having probed the SD card busses, so we need to do it here.
+	
 ;;      Hypervisor trap to read config
 		LDA	#$00
 		STA 	$D642
