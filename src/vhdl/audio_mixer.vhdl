@@ -131,17 +131,17 @@ begin
     if rising_edge(cpuclock) then
 
       -- Allow CPU to read any audio input or mixed output
-      if to_integer(reg_num) < 16 then
-        audio_loopback <= sources(to_integer(reg_num));
+      if safe_to_integer(reg_num) < 16 then
+        audio_loopback <= sources(safe_to_integer(reg_num));
       elsif to_integer(reg_num) < 24 then
-        audio_loopback <= outputs(to_integer(reg_num)-16);
+        audio_loopback <= outputs(safe_to_integer(reg_num)-16);
       else
         audio_loopback <= x"DEAD";
       end if;
       
       if reg_write='1' then
         report "Writing $" & to_hstring(wdata) & " to mixer coefficient $" & to_hstring(reg_num);
-        ram_waddr <= to_integer(reg_num(7 downto 1));
+        ram_waddr <= safe_to_integer(reg_num(7 downto 1));
         ram_wdata(31 downto 16) <= wdata;
         if reg_num = x"5E" then
           -- Bit 0 of coefficient register $5E controls PCM slave/master mode selection
@@ -153,17 +153,17 @@ begin
         end if;
         ram_we <= '1';
       elsif volume_knob1_target(3)='0' and volume_knob1 /= volume_knob1_last then
-        ram_waddr <= to_integer(volume_knob1_target)*16+15;
+        ram_waddr <= safe_to_integer(volume_knob1_target)*16+15;
         ram_wdata(31 downto 17) <= volume_knob1(14 downto 0);
         ram_wdata(16) <= volume_knob1(0);
         volume_knob1_last <= volume_knob1;
       elsif volume_knob2_target(3)='0' and volume_knob2 /= volume_knob2_last then
-        ram_waddr <= to_integer(volume_knob2_target)*16+15;
+        ram_waddr <= safe_to_integer(volume_knob2_target)*16+15;
         ram_wdata(31 downto 17) <= volume_knob2(14 downto 0);
         ram_wdata(16) <= volume_knob2(0);
         volume_knob2_last <= volume_knob2;
       elsif volume_knob3_target(3)='0' and volume_knob3 /= volume_knob3_last then
-        ram_waddr <= to_integer(volume_knob3_target)*16+15;
+        ram_waddr <= safe_to_integer(volume_knob3_target)*16+15;
         ram_wdata(31 downto 17) <= volume_knob3(14 downto 0);
         ram_wdata(16) <= volume_knob3(0);
         volume_knob3_last <= volume_knob3;
@@ -211,7 +211,7 @@ begin
           else
             -- Service one CPU request per iteration of an output
             report "Reading coefficient $" & to_hstring(reg_num) & " for the CPU";
-            ram_raddr <= to_integer(reg_num(7 downto 1));
+            ram_raddr <= safe_to_integer(reg_num(7 downto 1));
           end if;
           
         when 16 =>

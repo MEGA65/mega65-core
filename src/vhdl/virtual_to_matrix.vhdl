@@ -66,11 +66,11 @@ begin
       touch_key1_drive <= touch_key1;
       touch_key2_drive <= touch_key2;
       
-      if (key1_drive = to_unsigned(scan_phase,8))
-        or (key2_drive = to_unsigned(scan_phase,8))
-        or (key3_drive = to_unsigned(scan_phase,8))
-        or (touch_key1_drive = to_unsigned(scan_phase,8))
-        or (touch_key2_drive = to_unsigned(scan_phase,8))
+      if (safe_to_integer(key1_drive) = scan_phase)
+        or (safe_to_integer(key2_drive) = scan_phase)
+        or (safe_to_integer(key3_drive) = scan_phase)
+        or (safe_to_integer(touch_key1_drive) = scan_phase)
+        or (safe_to_integer(touch_key2_drive) = scan_phase)
       then
         km_value := '0';
       else
@@ -98,7 +98,7 @@ begin
         when others => keyram_wea <= x"00";
       end case;
     
-      keyram_address <= to_integer(to_unsigned(km_index,7)(6 downto 3));
+      keyram_address <= safe_to_integer(to_unsigned(km_index,7)(6 downto 3));
       keyram_di <= (7 downto 0 => km_value); -- replicate value bit across byte
       
     end if;

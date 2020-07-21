@@ -23,6 +23,7 @@ architecture behavior of cpu_test is
   signal clock27 : std_logic := '1';
   signal clock100 : std_logic := '1';
   signal clock163 : std_logic := '1';
+  signal clock200 : std_logic := '1';
   signal clock325 : std_logic := '1';
   signal reset : std_logic := '0';
   signal irq : std_logic := '1';
@@ -395,6 +396,7 @@ begin
       clock100 => clock100,
       clock27 => clock27,
       clock162 => clock163,
+      clock200 => clock200,
       
       uartclock    => cpuclock,
       btnCpuReset      => reset,

@@ -504,6 +504,12 @@ begin
 
     if rising_edge(clock81) then
 
+  report "PIXEL strobe = " & std_logic'image(pixel_strobe_50) & ", "
+    & std_logic'image(pixel_strobe_vga60) & ", " 
+    & std_logic'image(pixel_strobe_60);
+  
+
+      
       if pal50_select_internal='1' then
         report "x_zero=" & std_logic'image(x_zero_pal50)
           & ", y_zero=" & std_logic'image(y_zero_pal50);

@@ -64,8 +64,8 @@ begin
     if rising_edge(cpuclock) then
 
       -- Convert signed samples to unsigned
-      pcm_value_left <= to_integer(unsigned(pcm_left) + 32768);
-      pcm_value_right <= to_integer(unsigned(pcm_right) + 32768);
+      pcm_value_left <= safe_to_integer(unsigned(pcm_left) + 32768);
+      pcm_value_right <= safe_to_integer(unsigned(pcm_right) + 32768);
       
       -- Update debug indication of what the audio interface is doing
       audio_reflect(0) <= not audio_reflect(0);      
@@ -112,22 +112,22 @@ begin
       -- Normal Pulse Width Modulation
       if pwm_counter < 1024 then
         pwm_counter <= pwm_counter + 1;
-        if to_integer(to_unsigned(pcm_value_left_hold,16)(15 downto 6)) = pwm_counter then
+        if safe_to_integer(to_unsigned(pcm_value_left_hold,16)(15 downto 6)) = pwm_counter then
           ampPwm_pwm_l <= '0';
         end if;
-        if to_integer(to_unsigned(pcm_value_right_hold,16)(15 downto 6)) = pwm_counter then
+        if safe_to_integer(to_unsigned(pcm_value_right_hold,16)(15 downto 6)) = pwm_counter then
           ampPwm_pwm_r <= '0';
         end if;
       else
         pwm_counter <= 0;
         pcm_value_left_hold <= pcm_value_left;
         pcm_value_right_hold <= pcm_value_right;
-        if to_integer(to_unsigned(pcm_value_left,16)(15 downto 6)) = 0 then
+        if safe_to_integer(to_unsigned(pcm_value_left,16)(15 downto 6)) = 0 then
           ampPWM_pwm_l <= '0';
         else
           ampPWM_pwm_l <= '1';
         end if;
-        if to_integer(to_unsigned(pcm_value_right,16)(15 downto 6)) = 0 then
+        if safe_to_integer(to_unsigned(pcm_value_right,16)(15 downto 6)) = 0 then
           ampPWM_pwm_r <= '0';
         else
           ampPWM_pwm_r <= '1';

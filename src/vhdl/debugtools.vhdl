@@ -90,13 +90,15 @@ package body debugtools is
       
       function safe_to_integer(sv : unsigned) return integer is
         variable v : integer := 0;
+        variable p : integer := 0;
       begin
-        for i in 0 to sv'length -1 loop
+        for i in sv'low to sv'high loop
           if sv(i)='1' then
-            v := v + (2**i);
+            v := v + (2**p);
           elsif sv(i) /= '0' then
             report "Bit #" & integer'image(i) & " of %" & to_string(std_logic_vector(sv)) & " is not 1 or 0, but " & std_logic'image(sv(i)) & ".";
           end if;
+          p := p + 1;
         end loop;
         return v;
       end;

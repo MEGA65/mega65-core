@@ -43,15 +43,18 @@ LIBRARY IEEE;
     USE IEEE.VITAL_primitives.ALL;
     USE STD.textio.ALL;
 
-LIBRARY FMF;
-    USE FMF.gen_utils.all;
-    USE FMF.conversions.all;
+LIBRARY work;
+    USE work.gen_utils.all;
+    USE work.conversions.all;
 
 -------------------------------------------------------------------------------
 -- ENTITY DECLARATION
 -------------------------------------------------------------------------------
 ENTITY s27kl0641 IS
     GENERIC (
+        -- Allow us to show which hyperam is doing what
+        id : string := "hyperram";
+
         -- tipd delays: interconnect path delays
         tipd_DQ0             : VitalDelayType01 := VitalZeroDelay01; --
         tipd_DQ1             : VitalDelayType01 := VitalZeroDelay01; --

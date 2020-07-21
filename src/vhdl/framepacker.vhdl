@@ -240,6 +240,10 @@ begin  -- behavioural
   begin
     if rising_edge(pixelclock) then
 
+      report "pixel_y=" & integer'image(to_integer(pixel_y))
+        & ", pixel_valid=" & std_logic'image(pixel_valid)
+        & ", pal_mode=" & std_logic'image(pal_mode);
+      
       -- Get pixel valid signal delayed by correct number of clock ticks
       pixel_valid_history(0) <= pixel_valid;
       pixel_valid_history(15 downto 1) <= pixel_valid_history(14 downto 0);

@@ -75,7 +75,7 @@ begin
       -- two bits, so full brightness will be $3FF/$400 = 99.9%, which is fine,
       -- and will avoid the wrap-around from stark white to black that we are seeing.
       alpha_strm_drive <= unsigned("0"&alpha_strm);
-      oneminusalpha <= (1024-to_integer(unsigned(alpha_strm)));
+      oneminusalpha <= (1024-safe_to_integer(unsigned(alpha_strm)));
 
       alpha_delayed1 <= alpha_strm_drive;
       oneminusalpha_delayed1 <= oneminusalpha;
@@ -113,25 +113,25 @@ begin
           oneminusalpha_delayed <= oneminusalpha;
       end case;                    
       
-      r0 <= to_integer(unsigned(r_strm0))
-            *to_integer(alpha_delayed);
-      r1 <= to_integer(unsigned(r_strm1))*oneminusalpha_delayed;
+      r0 <= safe_to_integer(unsigned(r_strm0))
+            *safe_to_integer(alpha_delayed);
+      r1 <= safe_to_integer(unsigned(r_strm1))*oneminusalpha_delayed;
       r0drive <= r0;
       r1drive <= r1;
       temp := to_unsigned(r0drive+r1drive,20);
       r_blnd <= std_logic_vector(temp(19 downto 10));
 
-      g0 <= to_integer(unsigned(g_strm0))
-            *to_integer(alpha_delayed);
-      g1 <= to_integer(unsigned(g_strm1))*oneminusalpha_delayed;
+      g0 <= safe_to_integer(unsigned(g_strm0))
+            *safe_to_integer(alpha_delayed);
+      g1 <= safe_to_integer(unsigned(g_strm1))*oneminusalpha_delayed;
       g0drive <= g0;
       g1drive <= g1;
       temp := to_unsigned(g0drive+g1drive,20);
       g_blnd <= std_logic_vector(temp(19 downto 10));
       
-      b0 <= to_integer(unsigned(b_strm0))
-            *to_integer(alpha_delayed);
-      b1 <= to_integer(unsigned(b_strm1))*oneminusalpha_delayed;
+      b0 <= safe_to_integer(unsigned(b_strm0))
+            *safe_to_integer(alpha_delayed);
+      b1 <= safe_to_integer(unsigned(b_strm1))*oneminusalpha_delayed;
       b0drive <= b0;
       b1drive <= b1;
       temp := to_unsigned(b0drive+b1drive,20);
