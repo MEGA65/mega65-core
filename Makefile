@@ -567,7 +567,7 @@ $(BINDIR)/HICKUP.M65: $(SRCDIR)/hyppo/main.asm $(SRCDIR)/version.asm
 	# NOTE: It's probably ugly of me to drop the .sym and .rep files in the base folder, but it was the only way
 	# I found to get the m65dbg support to work with the filepaths within the .rep files.
 	# As an alternative, one day, we could modify ACME to take a '-C' argument to specify the base-folder of the build.
-	$(ACME) --cpu m65 --setpc 0x8000 -I $(SRCDIR)/hyppo -l main.sym -r main.rep $(SRCDIR)/hyppo/main.asm
+	cd $(SRCDIR)/hyppo ; $(ACME) --cpu m65 --setpc 0x8000 -l main.sym -r main.rep main.asm
 
 $(SRCDIR)/monitor/monitor_dis.a65: $(SRCDIR)/monitor/gen_dis
 	$(SRCDIR)/monitor/gen_dis >$(SRCDIR)/monitor/monitor_dis.a65
