@@ -588,7 +588,7 @@ begin  -- behavioural
           -- @   IO:GS $D612.4 UARTMISC:PS2JOY Enable PS/2 / USB keyboard simulated joystick input
           fastio_rdata(4) <= joykey_enable_internal;
           -- @IO:GS $D612.4 UARTMISC:OSKDEBUG Debug OSK overlay (WRITE ONLY)
-          -- @IO:GS $D612.5 UARTMISC:JOYSWAP Exchange joystick ports 1 & 2
+          -- @IO:GS $D612.5 UARTMISC:JOYSWAP Exchange joystick ports 1 \& 2
           fastio_rdata(5) <= joyswap_internal;
           -- @IO:GS $D612.6 UARTMISC:LJOYA Rotate inputs of joystick A by 180 degrees (for left handed use)
           fastio_rdata(6) <= joya_rotate_internal;
