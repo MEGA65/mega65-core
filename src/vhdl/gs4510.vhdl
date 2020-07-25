@@ -6664,7 +6664,7 @@ begin
               if next_is_axyz32_instruction = '1' then
                 case reg_instruction is
                   when I_LDA | I_CMP | I_ADC | I_SBC | I_ORA | I_EOR | I_AND | I_INC | I_DEC
-                    | I_ROL | I_ROR | I_ASL | I_LSR =>
+                    | I_ROL | I_ROR | I_ASL | I_ASR | I_LSR =>
                     report "VAL32: Proceeding to LoadTarget32";
                     state <= LoadTarget32;
                     axyz_phase <= 1;
@@ -6816,6 +6816,19 @@ begin
                   vreg33 := '0' & reg_val32;
                   vreg33(32 downto 1) := vreg33(31 downto 0);
                   vreg33(0) := vreg33(32);
+                  reg_val32 <= vreg33(31 downto 0);
+                  if vreg33(31 downto 0) = to_unsigned(0,32) then
+                    flag_z <= '1';
+                  else
+                    flag_z <= '0';
+                  end if;
+                  flag_n <= vreg33(31);
+                  axyz_phase <= 0;
+                  state <= StoreTarget32;
+                when I_ASR =>
+                  vreg33 := '0' & reg_val32;
+                  vreg33(30 downto 0) := vreg33(31 downto 1);
+                  vreg33(31) := reg_val32(31);
                   reg_val32 <= vreg33(31 downto 0);
                   if vreg33(31 downto 0) = to_unsigned(0,32) then
                     flag_z <= '1';
