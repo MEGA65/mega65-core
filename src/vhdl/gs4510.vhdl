@@ -6663,7 +6663,7 @@ begin
                 & ", reg_instruction = " & instruction'image(reg_instruction) & ", reg_addr=$" & to_hstring(reg_addr);
               if next_is_axyz32_instruction = '1' then
                 case reg_instruction is
-                  when I_LDA | I_CMP | I_ADC | I_SBC | I_ORA | I_EOR | I_AND | I_INC | I_DEC
+                  when I_BIT | I_LDA | I_CMP | I_ADC | I_SBC | I_ORA | I_EOR | I_AND | I_INC | I_DEC
                     | I_ROL | I_ROR | I_ASL | I_ASR | I_LSR =>
                     report "VAL32: Proceeding to LoadTarget32";
                     state <= LoadTarget32;
@@ -6775,6 +6775,16 @@ begin
                   reg_x <= vreg33(15 downto 8);
                   reg_y <= vreg33(23 downto 16);
                   reg_z <= vreg33(31 downto 24);
+                when I_BIT =>
+                  flag_n <= reg_val32(31);
+                  flag_v <= reg_val32(30);
+                  vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
+                  vreg33(31 downto 0) := vreg33(31 downto 0) and reg_val32;
+                  if vreg33(31 downto 0) = to_unsigned(0,32) then
+                    flag_z <= '1';
+                  else
+                    flag_z <= '0';
+                  end if;
                 when I_AND =>
                   vreg33 := '0' & reg_z & reg_y & reg_x & reg_a;
                   vreg33(31 downto 0) := vreg33(31 downto 0) and reg_val32;
