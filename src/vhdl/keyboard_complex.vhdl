@@ -143,6 +143,7 @@ architecture behavioural of keyboard_complex is
   signal summary_out : std_logic_vector(7 downto 0);
   signal shift_key_state : std_logic;
   signal kd_state : std_logic;
+  signal virtual_restore : std_logic;
   
 begin
 
@@ -154,6 +155,7 @@ begin
       key3 => key3,
       touch_key1 => touch_key1,
       touch_key2 => touch_key2,
+      restore_out => virtual_restore,
       
       matrix_col => virtual_matrix_col,
       matrix_col_idx => matrix_col_idx
@@ -219,6 +221,7 @@ begin
     matrix_col_physkey => keyboard_matrix_col,
     capslock_physkey => keyboard_capslock,
     restore_physkey => keyboard_restore,
+    restore_virtual => virtual_restore,
 
     joykey_disable => joykey_disable,
     joya_physkey => keyboard_joya,

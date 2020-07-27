@@ -25,6 +25,7 @@ entity keymapper is
     matrix_col_physkey : in std_logic_vector(7 downto 0);
     capslock_physkey : in std_logic;
     restore_physkey : in std_logic;
+    restore_virtual : in std_logic;
 
     joykey_disable : in std_logic;
     joya_physkey : in std_logic_vector(4 downto 0);
@@ -313,6 +314,7 @@ begin  -- behavioural
 
       restore_state <= (restore_ps2 or ps2_disable)
                        and (restore_physkey or physkey_disable)
+                       and (restore_virtual or virtual_disable)
                        and (restore_widget or widget_disable);
       
       if fiftyhz_counter /= ( 50000000 / 50 ) then
