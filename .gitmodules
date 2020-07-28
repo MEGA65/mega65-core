@@ -18,7 +18,7 @@
 	url = https://github.com/ghdl/ghdl.git
 [submodule "src/mega65-freezemenu"]
 	path = src/mega65-freezemenu
-	url = https://github.com/MEGA65/mega65-freezemenu.git
+	url = git@github.com:gurcei/mega65-freezemenu.git
 [submodule "open-roms"]
 	path = src/open-roms
 	url = https://github.com/MEGA65/open-roms.git
