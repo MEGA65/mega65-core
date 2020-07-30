@@ -262,8 +262,13 @@ architecture behavioural of ethernet is
  signal eth_offset_fail : unsigned(7 downto 0) := x"00";
 
  signal eth_rxdv : std_logic := '0';
+ signal eth_rxdv_latched : std_logic := '0';
  signal eth_rxd : unsigned(1 downto 0) := "00";
+ signal eth_rxd_latched : unsigned(1 downto 0) := "00";
  signal eth_disable_crc_check : std_logic := '0';
+ signal rx_phase_counter : integer range 0 to 3 := 0;
+ signal eth_rx_latch_phase_drive : unsigned(1 downto 0) := to_unsigned(0,2);
+ signal eth_rx_latch_phase : unsigned(1 downto 0) := to_unsigned(0,2);
 
  signal eth_txd : unsigned(1 downto 0) := "11";
  signal eth_txen : std_logic := '0';
@@ -454,6 +459,18 @@ begin  -- behavioural
       eth_txd_out <= eth_txd_delayed(7 downto 6);
       eth_txen_out <= eth_txen_delayed(3);
 
+      if rx_phase_counter /= 3 then
+        rx_phase_counter <= rx_phase_counter + 1;
+      else
+        rx_phase_counter <= 0;
+      end if;
+
+      if rx_phase_counter = to_integer(eth_rx_latch_phase) then
+        eth_rxd_latched <= eth_rxd_in;
+        eth_rxdv_latched <= eth_rxdv_in;
+      end if;
+
+      
       eth_txd_delayed(7 downto 2) <= eth_txd_delayed(5 downto 0);
       eth_txen_delayed(3 downto 1) <= eth_txen_delayed(2 downto 0);
       case eth_txd_phase_drive is
@@ -478,9 +495,10 @@ begin  -- behavioural
   begin
     if rising_edge(clock50mhz) then
       eth_txd_phase_drive <= eth_txd_phase;
+      eth_rx_latch_phase_drive <= eth_rx_latch_phase;
       
-      eth_rxd <= eth_rxd_in;
-      eth_rxdv <= eth_rxdv_in;
+      eth_rxd <= eth_rxd_latched;
+      eth_rxdv <= eth_rxdv_latched;
       
       -- Register ethernet data lines and data valid signal
       eth_txd <= eth_txd_int;
@@ -1112,7 +1130,8 @@ begin  -- behavioural
             fastio_rdata(4) <= eth_accept_broadcast;
             -- @IO:GS $D6E5.5 ETH:MCST Accept multicast frames
             fastio_rdata(5) <= eth_accept_multicast;
-            fastio_rdata(7 downto 6) <= (others => '0');
+            -- @IO:GS $D6E5.2-3 ETH:RXPH Ethernet RX clock phase adjust
+            fastio_rdata(7 downto 6) <= eth_rx_latch_phase;
           when x"6" =>
             -- @IO:GS $D6E6.0-4 ETH:MIIMREG Ethernet MIIM register number
             -- @IO:GS $D6E6.7-5 ETH:MIIMPHY Ethernet MIIM PHY number (use 0 for Nexys4, 1 for MEGA65 r1 PCBs)
@@ -1417,6 +1436,8 @@ begin  -- behavioural
               eth_disable_crc_check <= fastio_wdata(1);
               -- @IO:GS $D6E5.2-3 Ethernet TX clock phase adjust
               eth_txd_phase <= fastio_wdata(3 downto 2);
+              -- @IO:GS $D6E5.6-7 Ethernet RX clock phase adjust
+              eth_rx_latch_phase <= fastio_wdata(7 downto 6);
               -- @IO:GS $D6E5.1 Disable CRC check for received packets
               eth_accept_broadcast <= fastio_wdata(4);
               eth_accept_multicast <= fastio_wdata(5);
