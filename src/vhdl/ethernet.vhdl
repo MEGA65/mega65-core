@@ -1352,7 +1352,9 @@ begin  -- behavioural
         irq <= '1';
       end if;
 
-      if fastio_write='1' then
+      if fastio_write='0' then
+        txbuffer_write <= '0';          
+      else
         if (fastio_addr(19 downto 10)&"00" = x"DE8")
           or (fastio_addr(19 downto 10)&"00" = x"D20")
         then
@@ -1360,11 +1362,16 @@ begin  -- behavioural
           -- (we don't need toclear the write lines, as noone else can write to
           -- the buffer.  The TX buffer cannot be read, as reading the same
           -- addresses reads from the RX buffer.)
+          -- But we do it anyway, since we are seeing funny problems with
+          -- packet corruption on TX side, where wrong data arrives, but the
+          -- ethernet CRC is still fine.
           -- @IO:GS $FFDE800 - $FFDEFFF Ethernet TX buffer (write only)
           -- @IO:GS $FFDE800 - $FFDEFFF Ethernet RX buffer (read only)
           txbuffer_writeaddress <= to_integer(fastio_addr(10 downto 0));
           txbuffer_write <= '1';
           txbuffer_wdata <= fastio_wdata;
+        else
+          txbuffer_write <= '0';          
         end if;
         if ethernet_cs='1' then
           case fastio_addr(3 downto 0) is
