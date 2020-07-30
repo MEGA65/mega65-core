@@ -15,6 +15,7 @@ entity clocking is
       clock27    : out std_logic;
       clock41    : out std_logic;
       clock50    : out std_logic;
+      clock50q   : out std_logic;
       clock81p   : out std_logic;
       clock81n   : out std_logic;
       clock200   : out std_logic;
@@ -312,9 +313,9 @@ begin
     CLKOUT2_DUTY_CYCLE   => 0.500,
     CLKOUT2_USE_FINE_PS  => FALSE,
     
-    -- CLKOUT3 = UNUSESD
-    CLKOUT3_DIVIDE       => 20,
-    CLKOUT3_PHASE        => 0.000,
+    -- CLKOUT3 = CLK_OUT4 = clock50q = 800MHz/16 = 50MHz, and rotated 45 degrees
+    CLKOUT3_DIVIDE       => 16,
+    CLKOUT3_PHASE        => 45.000,
     CLKOUT3_DUTY_CYCLE   => 0.500,
     CLKOUT3_USE_FINE_PS  => FALSE,
 
@@ -342,8 +343,9 @@ begin
     (
     CLKFBOUT            => clk_fb_eth,
     CLKOUT0             => clock100,
-    CLKOUT2             => clock200,
     CLKOUT1             => clock50,
+    CLKOUT2             => clock200,
+    CLKOUT3             => clock50q,
     -- Input clock control
     CLKFBIN             => clk_fb_eth,
     CLKIN1              => clk_in,

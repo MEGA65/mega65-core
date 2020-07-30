@@ -188,6 +188,7 @@ architecture Behavioral of container is
   signal buffer_vgablue : unsigned(7 downto 0);
   
   signal ethclock : std_logic;
+  signal ethclock_rotate : std_logic;
   signal cpuclock : std_logic;
   signal clock41 : std_logic;
   signal clock27 : std_logic;
@@ -329,6 +330,7 @@ begin
                clock27   => clock27,    --   27.083 MHz
                clock41   => cpuclock,   --   40.625 MHz
                clock50   => ethclock,   --   50     MHz
+               clock50q  => ethclock_rotate,
                clock81p  => pixelclock, --   81.25  MHz
                clock81n  => clock81n,   --   81.25  MHz
                clock100  => clock100,   --  100     MHz
@@ -666,6 +668,8 @@ begin
     end if;
   end process;
 
-  eth_clock <= ethclock;
+  -- Drive rotated clock to ethernet device so we can more safely latch on RX
+  -- and TX
+  eth_clock <= ethclock_rotate;
   
 end Behavioral;
