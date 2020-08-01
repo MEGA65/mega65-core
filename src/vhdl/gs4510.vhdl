@@ -6655,10 +6655,8 @@ begin
             when LoadTarget =>
               -- If an instruction was preceeded with NEG / NEG, then the load
               -- is into all four registers, AXYZ, as a pseudo register.
-              -- We only support this for certain instructions:
-              -- LDA, STA, CMP, ADC, SBC, ORA, EOR, AND,
-              -- INC, DEC, ROL, ROR, ASL, LSR.
-              -- (All addressing modes are supported, however)
+              -- We only support this for certain instructions and instruction
+              -- modes.
               report "VAL32: next_is_axyz32_instruction = " & std_logic'image(next_is_axyz32_instruction)
                 & ", reg_instruction = " & instruction'image(reg_instruction) & ", reg_addr=$" & to_hstring(reg_addr);
               if next_is_axyz32_instruction = '1' then
