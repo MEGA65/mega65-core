@@ -2055,7 +2055,7 @@ begin  -- behavioural
                       sd_buffer_offset <= (others => '0');
                     end if;
                   else
-                    report "SDWRITE: Attempt to write a sector without opening the gate"
+                    report "SDWRITE: Attempt to write a sector without opening the gate";
                     sdio_error <= '1';
                     sdio_fsm_error <= '1';
                   end if;
