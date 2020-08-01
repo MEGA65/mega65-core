@@ -497,8 +497,7 @@ was_dot:
 	sta (<dos_scratch_vector),y
 
 	;; Write sector back with updated dirent
-	lda #$03
-	sta $d680
+	jsr write_non_mbr_sector
 	jsr sd_wait_for_ready
 		
 	;; Update both FATs to make the allocation
@@ -581,8 +580,7 @@ mkfile_fat_write_loop:
 	sta $dfff
 +	
 	;; Write FAT sector to FAT1
-	lda #$03
-	sta $d680
+	jsr write_non_mbr_sector
 	jsr sd_wait_for_ready
 
 	;; Work out where it will be in the 2nd FAT
@@ -598,8 +596,7 @@ mkfile_fat_write_loop:
 	bne -
 	
 	;; Write FAT sector to FAT2
-	lda #$03
-	sta $d680
+	jsr write_non_mbr_sector
 	jsr sd_wait_for_ready
 	
 	;; More FAT sectors to go?

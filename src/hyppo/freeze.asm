@@ -193,6 +193,7 @@ freeze_write_first_sector_and_wait:
         jsr sd_wait_for_ready_reset_if_required
 
         ;; Trigger the write of the first sector of a multi-sector write
+	jsr sd_open_write_gate
         lda #$04
         sta $d680
 
@@ -229,6 +230,7 @@ freeze_write_sector_and_wait:
         jsr sd_wait_for_ready_reset_if_required
 
         ;; Trigger the write (subsequent sector of multi-sector write)
+	jsr sd_open_write_gate
         lda #$05
         sta $d680
 
@@ -251,6 +253,7 @@ freeze_write_sector_and_wait:
 
 freeze_end_multi_block_write:
         jsr sd_wait_for_ready
+	jsr sd_open_write_gate
         lda #$06
         sta $d680
         jsr sd_wait_for_ready

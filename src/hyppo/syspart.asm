@@ -312,8 +312,7 @@ syspart_configsector_read:
 
 syspart_configsector_write:
         jsr syspart_configsector_set
-        lda #$03
-        sta $d680
+	jsr write_non_mbr_sector
         sec
         rts
 

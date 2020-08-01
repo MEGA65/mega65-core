@@ -492,6 +492,11 @@ architecture behavioural of sdcardio is
   signal icape2_reg : unsigned(4 downto 0) := "10110";
 
   signal latched_disk_change_event : std_logic := '0';
+
+  -- Used to prevent accidental writes to sectors
+  signal write_sector_gate_open : std_logic := '0';
+  signal write_sector0_gate_open : std_logic := '0';
+  signal write_sector_gate_timeout : integer range 0 to 65535 := 0;
   
   function resolve_sector_buffer_address(f011orsd : std_logic; addr : unsigned(8 downto 0))
     return integer is
@@ -1277,6 +1282,13 @@ begin  -- behavioural
     
     if rising_edge(clock) then    
 
+      if write_sector_gate_timeout /= 0 then
+        write_sector_gate_timeout <= write_sector_gate_timeout - 1;
+      else
+        write_sector0_gate_open <= '0';
+        write_sector_gate_open <= '0';
+      end if;
+      
       -- If MFM decoder thinks we are on the wrong track, and the
       -- auto-tuner is enabled, then step in the right direction.
       -- The timing of the steps is based on how often a sector goes past the head.
@@ -2020,86 +2032,113 @@ begin  -- behavioural
 
                 when x"03" =>
                   -- Write sector
-                  sd_write_multi <= '0';
-                  sd_write_multi_first <= '0';
-                  sd_write_multi_last <= '0';
-                  if sdio_busy='1' then
-                    report "SDWRITE: sdio_busy is set, not writing";
+                  if (write_sector_gate_open='1' and sd_sector /= to_unsigned(0,32))
+                    or (write_sector0_gate_open='1' and sd_sector = to_unsigned(0,32))
+                  then 
+                    write_sector0_gate_open <= '0';
+                    write_sector_gate_open <= '0';
+                    sd_write_multi <= '0';
+                    sd_write_multi_first <= '0';
+                    sd_write_multi_last <= '0';
+                    if sdio_busy='1' then
+                      report "SDWRITE: sdio_busy is set, not writing";
+                      sdio_error <= '1';
+                      sdio_fsm_error <= '1';
+                    else
+                      report "SDWRITE: Commencing write";
+                      sd_state <= WriteSector;
+                      sdio_error <= '0';
+                      sdio_fsm_error <= '0';
+                      f011_sector_fetch <= '0';
+                      
+                      sd_wrote_byte <= '0';
+                      sd_buffer_offset <= (others => '0');
+                    end if;
+                  else
+                    report "SDWRITE: Attempt to write a sector without opening the gate"
                     sdio_error <= '1';
                     sdio_fsm_error <= '1';
-                  else
-                    report "SDWRITE: Commencing write";
-                    sd_state <= WriteSector;
-                    sdio_error <= '0';
-                    sdio_fsm_error <= '0';
-                    f011_sector_fetch <= '0';
-
-                    sd_wrote_byte <= '0';
-                    sd_buffer_offset <= (others => '0');
                   end if;
                 when x"04" =>
                   -- Multi-sector write: first sector
-                  sd_write_multi <= '1';
-                  sd_write_multi_first <= '1';
-                  sd_write_multi_last <= '0';
-                  if sdio_busy='1' then
-                    report "SDWRITE: sdio_busy is set, not writing";
-                    sdio_error <= '1';
-                    sdio_fsm_error <= '1';
-                  else
-                    report "SDWRITE: Commencing write";
-                    sd_state <= WriteSector;
-                    sdio_error <= '0';
-                    sdio_fsm_error <= '0';
-                    f011_sector_fetch <= '0';
-
-                    sd_wrote_byte <= '0';
-                    sd_buffer_offset <= (others => '0');
+                  if (write_sector_gate_open='1' and sd_sector /= to_unsigned(0,32))
+                    or (write_sector0_gate_open='1' and sd_sector = to_unsigned(0,32))
+                  then 
+                    sd_write_multi <= '1';
+                    sd_write_multi_first <= '1';
+                    sd_write_multi_last <= '0';
+                    if sdio_busy='1' then
+                      report "SDWRITE: sdio_busy is set, not writing";
+                      sdio_error <= '1';
+                      sdio_fsm_error <= '1';
+                    else
+                      report "SDWRITE: Commencing write";
+                      sd_state <= WriteSector;
+                      sdio_error <= '0';
+                      sdio_fsm_error <= '0';
+                      f011_sector_fetch <= '0';
+                      
+                      sd_wrote_byte <= '0';
+                      sd_buffer_offset <= (others => '0');
+                    end if;
                   end if;
                 when x"05" =>
-                  -- Multi-sector write: neither first nor last sector
-                  sd_write_multi <= '1';
-                  sd_write_multi_first <= '0';
-                  sd_write_multi_last <= '0';
-                  if sdio_busy='1' then
-                    report "SDWRITE: sdio_busy is set, not writing";
-                    sdio_error <= '1';
-                    sdio_fsm_error <= '1';
-                  else
-                    report "SDWRITE: Commencing write";
-                    sd_state <= WriteSector;
-                    sdio_error <= '0';
-                    sdio_fsm_error <= '0';
-                    f011_sector_fetch <= '0';
-
-                    sd_wrote_byte <= '0';
-                    sd_buffer_offset <= (others => '0');
+                  if (write_sector_gate_open='1' and sd_sector /= to_unsigned(0,32))
+                    or (write_sector0_gate_open='1' and sd_sector = to_unsigned(0,32))
+                  then 
+                    -- Multi-sector write: neither first nor last sector
+                    sd_write_multi <= '1';
+                    sd_write_multi_first <= '0';
+                    sd_write_multi_last <= '0';
+                    if sdio_busy='1' then
+                      report "SDWRITE: sdio_busy is set, not writing";
+                      sdio_error <= '1';
+                      sdio_fsm_error <= '1';
+                    else
+                      report "SDWRITE: Commencing write";
+                      sd_state <= WriteSector;
+                      sdio_error <= '0';
+                      sdio_fsm_error <= '0';
+                      f011_sector_fetch <= '0';
+                      
+                      sd_wrote_byte <= '0';
+                      sd_buffer_offset <= (others => '0');
+                    end if;
                   end if;
                 when x"06" =>
-                  -- Multi-sector write: final sector
-                  sd_write_multi <= '1';
-                  sd_write_multi_first <= '0';
-                  sd_write_multi_last <= '1';                  
-                  if sdio_busy='1' then
-                    report "SDWRITE: sdio_busy is set, not writing";
-                    sdio_error <= '1';
-                    sdio_fsm_error <= '1';
-                  else
-                    report "SDWRITE: Commencing write";
-                    sd_state <= WriteSector;
-                    sdio_error <= '0';
-                    sdio_fsm_error <= '0';
-                    f011_sector_fetch <= '0';
+                  if (write_sector_gate_open='1' and sd_sector /= to_unsigned(0,32))
+                    or (write_sector0_gate_open='1' and sd_sector = to_unsigned(0,32))
+                  then 
+                    -- Multi-sector write: final sector
+                    sd_write_multi <= '1';
+                    sd_write_multi_first <= '0';
+                    sd_write_multi_last <= '1';                  
+                    if sdio_busy='1' then
+                      report "SDWRITE: sdio_busy is set, not writing";
+                      sdio_error <= '1';
+                      sdio_fsm_error <= '1';
+                    else
+                      report "SDWRITE: Commencing write";
+                      sd_state <= WriteSector;
+                      sdio_error <= '0';
+                      sdio_fsm_error <= '0';
+                      f011_sector_fetch <= '0';
 
-                    sd_wrote_byte <= '0';
-                    sd_buffer_offset <= (others => '0');
+                      sd_wrote_byte <= '0';
+                      sd_buffer_offset <= (others => '0');
+                    end if;
                   end if;
                 when x"40" => sdhc_mode <= '0';
                 when x"41" => sdhc_mode <= '1';
 
                 when x"45" => sd_clear_error <= '1';
                 when x"44" => sd_clear_error <= '0';
-                              
+                when x"4D" => 
+                  write_sector0_gate_open <= '1';
+                  write_sector_gate_timeout <= 40000; -- about 1ms               
+                when x"57" => 
+                  write_sector_gate_open <= '1';
+                  write_sector_gate_timeout <= 40000; -- about 1ms               
                 when x"81" => sector_buffer_mapped<='1';
                               sdio_error <= '0';
                               sdio_fsm_error <= '0';

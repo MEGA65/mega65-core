@@ -105,6 +105,24 @@ issdhc:
 ;; /*  -------------------------------------------------------------------
 ;;     SD Card access routines
 ;;     ---------------------------------------------------------------- */
+
+sd_open_write_gate:	
+	lda #$57
+	sta $d680
+	rts
+
+write_non_mbr_sector:
+	jsr sd_open_write_gate
+	jmp write_sector_trigger
+write_mbr_sector:
+	lda #$4D
+	sta $d680
+write_sector_trigger:	
+	lda #$03
+	sta $d680
+	rts
+	
+
 sd_wait_for_ready:
         jsr sdtimeoutreset
 @loop:  jsr sdreadytest
