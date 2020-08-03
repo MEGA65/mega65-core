@@ -843,6 +843,12 @@ begin
          
       );
 
+  -- BUFG on ethernet clock to keep the clock nice and strong
+  ethbufg0:
+  bufg port map ( I => ethclock,
+                  O => eth_clock);
+
+  
   process (pixelclock) is
   begin
     vdac_sync_n <= '0';  -- no sync on green
