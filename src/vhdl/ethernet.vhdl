@@ -490,6 +490,9 @@ begin  -- behavioural
         when "10" =>
           eth_txd_delayed(3 downto 2) <= eth_txd;
           eth_txen_delayed(1) <= eth_txen;
+        when "11" =>
+          eth_txd_delayed(1 downto 0) <= eth_txd;
+          eth_txen_delayed(0) <= eth_txen;
         when others =>
           eth_txd_delayed(1 downto 0) <= eth_txd;
           eth_txen_delayed(0) <= eth_txen;
