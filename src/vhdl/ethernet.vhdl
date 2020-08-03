@@ -1038,6 +1038,7 @@ begin  -- behavioural
           -- bit 7 is high if CRC fails, else is low.
           report "ETHRX: writing packet length at " & integer'image(rxbuffer_writeaddress);
           report "ETHRX: Recording crc_valid = " & std_logic'image(rx_crc_valid) & "   (CRC = $"& to_hstring(rx_crc_reg)&")";
+          rxbuffer_write <= '1';
           rxbuffer_writeaddress <= rxbuffer_writeaddress + 1;
           rxbuffer_wdata(7) <= not rx_crc_valid;
           rxbuffer_wdata(6) <= frame_is_for_me;
