@@ -793,6 +793,7 @@ begin  -- behavioural
       end if;
       
       frame_length := to_unsigned(eth_frame_len,12);
+      rxbuffer_write <= '0';
       case eth_state is
         when Idle =>
           if debug_rx = '1' then
@@ -800,7 +801,6 @@ begin  -- behavioural
             eth_state <= DebugRxFrameWait;
           end if;
           rx_keyinput <= '1';
-          rxbuffer_write <= '0';
           if eth_rxdv='1' then
             -- start receiving frame
             report "CRC: Frame carrier detected";
