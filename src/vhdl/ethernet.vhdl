@@ -276,6 +276,8 @@ architecture behavioural of ethernet is
  signal eth_txen_delayed : std_logic_vector(3 downto 0) := "0000";
  signal eth_txd_phase : unsigned(1 downto 0) := "00";
  signal eth_txd_phase_drive : unsigned(1 downto 0) := "00";
+ signal eth_txd_out_stage : unsigned(1 downto 0) := "00";
+ signal eth_txen_out_stage : std_logic := '0';
 
  signal eth_tx_packet_count : unsigned(5 downto 0) := "000000";
  
@@ -456,8 +458,13 @@ begin  -- behavioural
   process(clock200) is
   begin
     if rising_edge(clock200) then
-      eth_txd_out <= eth_txd_delayed(7 downto 6);
-      eth_txen_out <= eth_txen_delayed(3);
+
+      -- Extra drive stage to de-glitch TX lines
+      eth_txd_out <= eth_txd_out_stage;
+      eth_txen_out <= eth_txen_out_stage;
+      
+      eth_txd_out_stage <= eth_txd_delayed(7 downto 6);
+      eth_txen_out_stage <= eth_txen_delayed(3);
 
       if rx_phase_counter /= 3 then
         rx_phase_counter <= rx_phase_counter + 1;
