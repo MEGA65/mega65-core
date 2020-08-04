@@ -62,7 +62,7 @@ entity container is
          paddle_drain : out std_logic := '0';
 
          -- 8 test points on the motherboard
-         testpoint : inout unsigned(8 downto 1) := 'Z';
+         testpoint : inout unsigned(8 downto 1) := to_unsigned(0,8);
          
          ----------------------------------------------------------------------
          -- Expansion/cartridge port
