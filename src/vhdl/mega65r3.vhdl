@@ -144,8 +144,6 @@ entity container is
          
          hdmi_scl : inout std_logic;
          hdmi_sda : inout std_logic;
-         hdmi_de : out std_logic; -- high when valid pixels being output
-         hdmi_clk : out std_logic; 
 
          hpd_a : inout std_logic;
          ct_hpd : out std_logic := '1';
@@ -546,7 +544,6 @@ begin
       clk => cpuclock,
       temp => fpga_temperature);
 
-  hdmi_de <= hdmi_dataenable;
   
   hdmiaudio: entity work.hdmi_spdif
     generic map ( samplerate => 44100 )
@@ -950,9 +947,6 @@ begin
 
     -- VGA output at full pixel clock
     vdac_clk <= pixelclock;
-
-    -- HDMI output at 27MHz
-    hdmi_clk <= clock27;
 
     -- Ethernet clock at 50MHz
     -- Now done by BUFG above
