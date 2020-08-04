@@ -157,7 +157,7 @@ architecture behavioural of ethernet is
                           Interpacketgap,  -- $0C
                           WaitBeforeTX,    -- $0D
                           SendingPreamble,
-                          SendingFrame,
+                          SendingFrame,    -- $0F
                           SendFCS,
                           SentFrame        -- $11
                           );
@@ -788,7 +788,11 @@ begin  -- behavioural
 
       -- Allow resetting of the ethernet TX state machine
       if eth_reset_int='0' or reset='0' or eth_soft_reset='0' then
-        eth_tx_state <= IdleWait;
+        eth_tx_state <= Idle;
+        eth_txen_int <= '0';
+        eth_txd_int <= "11";        
+        eth_tx_viciv <= '0';
+        eth_tx_dump <= '0';
       end if;
       
       -- Ethernet RX FSM
