@@ -5,7 +5,7 @@
 
 ### Magic comment to allow monitor_load JTAg to automatically use the correct
 ### part boundary scan information.
-### monitor_load:hint:part:xc7a100tfgg484
+### monitor_load:hint:part:xc7ar200tfgg484
 
 ## Clock signal (100MHz)
 set_property -dict {PACKAGE_PIN V13 IOSTANDARD LVCMOS33} [get_ports CLK_IN]
@@ -103,6 +103,20 @@ set_property -dict {PACKAGE_PIN A13 IOSTANDARD LVCMOS33} [get_ports kb_io1]
 set_property -dict {PACKAGE_PIN C13 IOSTANDARD LVCMOS33} [get_ports kb_io2]
 set_property -dict {PACKAGE_PIN B13 IOSTANDARD LVCMOS33} [get_ports kb_jtagen]
 
+# Test points
+set_property -dict {PACKAGE_PIN J19 IOSTANDARD LVCMOS33} [get_ports testpoint[4]]
+set_property -dict {PACKAGE_PIN K17 IOSTANDARD LVCMOS33} [get_ports testpoint[5]]
+set_property -dict {PACKAGE_PIN N19 IOSTANDARD LVCMOS33} [get_ports testpoint[6]]
+set_property -dict {PACKAGE_PIN N20 IOSTANDARD LVCMOS33} [get_ports testpoint[7]]
+set_property -dict {PACKAGE_PIN D20 IOSTANDARD LVCMOS33} [get_ports testpoint[8]]
+
+# Paddles
+set_property -dict {PACKAGE_PIN H13 IOSTANDARD LVCMOS33} [get_ports paddle[0]]
+set_property -dict {PACKAGE_PIN G15 IOSTANDARD LVCMOS33} [get_ports paddle[1]]
+set_property -dict {PACKAGE_PIN J14 IOSTANDARD LVCMOS33} [get_ports paddle[2]]
+set_property -dict {PACKAGE_PIN J22 IOSTANDARD LVCMOS33} [get_ports paddle[3]]
+set_property -dict {PACKAGE_PIN H22 IOSTANDARD LVCMOS33} [get_ports paddle_discharge]
+
 # Joystick port A
 set_property -dict {PACKAGE_PIN F16 IOSTANDARD LVCMOS33} [get_ports fa_down]
 set_property -dict {PACKAGE_PIN C14 IOSTANDARD LVCMOS33} [get_ports fa_up]
@@ -156,9 +170,32 @@ set_property -dict {PACKAGE_PIN W12 IOSTANDARD LVCMOS33} [get_ports hsync]
 set_property -dict {PACKAGE_PIN V14 IOSTANDARD LVCMOS33} [get_ports vsync]
 
 # HDMI output
-set_property -dict {PACKAGE_PIN T3 IOSTANDARD LVCMOS33} [get_ports hdmi_scl]
-set_property -dict {PACKAGE_PIN U7 IOSTANDARD LVCMOS33} [get_ports hdmi_sda]
-set_property -dict {PACKAGE_PIN Y9 IOSTANDARD LVCMOS33} [get_ports hdmi_int]
+############## HDMIOUT define##################
+set_property PACKAGE_PIN Y1 [get_ports TMDS_clk_n]
+set_property IOSTANDARD TMDS_33 [get_ports TMDS_clk_n]
+set_property PACKAGE_PIN W1 [get_ports TMDS_clk_p]
+set_property IOSTANDARD TMDS_33 [get_ports TMDS_clk_p]
+
+set_property PACKAGE_PIN AB1 [get_ports {TMDS_data_n[0]}]
+set_property IOSTANDARD TMDS_33 [get_ports {TMDS_data_n[0]}]
+set_property PACKAGE_PIN AA1 [get_ports {TMDS_data_p[0]}]
+set_property IOSTANDARD TMDS_33 [get_ports {TMDS_data_p[0]}]
+
+set_property PACKAGE_PIN AB2 [get_ports {TMDS_data_n[1]}]
+set_property IOSTANDARD TMDS_33 [get_ports {TMDS_data_n[1]}]
+set_property PACKAGE_PIN AB3 [get_ports {TMDS_data_p[1]}]
+set_property IOSTANDARD TMDS_33 [get_ports {TMDS_data_p[1]}]
+
+set_property PACKAGE_PIN AB5 [get_ports {TMDS_data_n[2]}]
+set_property IOSTANDARD TMDS_33 [get_ports {TMDS_data_n[2]}]
+set_property PACKAGE_PIN AA5 [get_ports {TMDS_data_p[2]}]
+set_property IOSTANDARD TMDS_33 [get_ports {TMDS_data_p[2]}]
+
+set_property -dict {PACKAGE_PIN AB7 IOSTANDARD LVCMOS33} [get_ports hdmi_scl]
+set_property -dict {PACKAGE_PIN V9 IOSTANDARD LVCMOS33} [get_ports hdmi_sda]
+set_property -dict {PACKAGE_PIN AB8 IOSTANDARD LVCMOS33} [get_ports hdmi_enable]
+set_property -dict {PACKAGE_PIN Y8 IOSTANDARD LVCMOS33} [get_ports hdmi_hotplugdetect]
+set_property -dict {PACKAGE_PIN W9 IOSTANDARD LVCMOS33} [get_ports hdmi_cec_a]
 
 # I2C bus for on-board peripherals
 set_property -dict {PACKAGE_PIN A15 IOSTANDARD LVCMOS33} [get_ports fpga_scl]
@@ -184,53 +221,14 @@ set_property -dict {PACKAGE_PIN AB8 IOSTANDARD LVCMOS33} [get_ports ls_oe]
 set_property -dict {PACKAGE_PIN G21 IOSTANDARD LVCMOS33} [get_ports grove_scl0]
 set_property -dict {PACKAGE_PIN G22 IOSTANDARD LVCMOS33} [get_ports grove_sda0]
 
-
-set_property -dict {PACKAGE_PIN AB3 IOSTANDARD LVCMOS33} [get_ports {hdmired[0]}]
-set_property -dict {PACKAGE_PIN Y4 IOSTANDARD LVCMOS33} [get_ports {hdmired[1]}]
-set_property -dict {PACKAGE_PIN AA4 IOSTANDARD LVCMOS33} [get_ports {hdmired[2]}]
-set_property -dict {PACKAGE_PIN AA5 IOSTANDARD LVCMOS33} [get_ports {hdmired[3]}]
-set_property -dict {PACKAGE_PIN AB5 IOSTANDARD LVCMOS33} [get_ports {hdmired[4]}]
-set_property -dict {PACKAGE_PIN Y6 IOSTANDARD LVCMOS33} [get_ports {hdmired[5]}]
-set_property -dict {PACKAGE_PIN AA6 IOSTANDARD LVCMOS33} [get_ports {hdmired[6]}]
-set_property -dict {PACKAGE_PIN AB6 IOSTANDARD LVCMOS33} [get_ports {hdmired[7]}]
-
-set_property -dict {PACKAGE_PIN Y1 IOSTANDARD LVCMOS33} [get_ports {hdmigreen[0]}]
-set_property -dict {PACKAGE_PIN Y3 IOSTANDARD LVCMOS33} [get_ports {hdmigreen[1]}]
-set_property -dict {PACKAGE_PIN W4 IOSTANDARD LVCMOS33} [get_ports {hdmigreen[2]}]
-set_property -dict {PACKAGE_PIN W5 IOSTANDARD LVCMOS33} [get_ports {hdmigreen[3]}]
-set_property -dict {PACKAGE_PIN V7 IOSTANDARD LVCMOS33} [get_ports {hdmigreen[4]}]
-set_property -dict {PACKAGE_PIN V8 IOSTANDARD LVCMOS33} [get_ports {hdmigreen[5]}]
-set_property -dict {PACKAGE_PIN AB1 IOSTANDARD LVCMOS33} [get_ports {hdmigreen[6]}]
-set_property -dict {PACKAGE_PIN W6 IOSTANDARD LVCMOS33} [get_ports {hdmigreen[7]}]
-
-set_property -dict {PACKAGE_PIN T6 IOSTANDARD LVCMOS33} [get_ports {hdmiblue[0]}]
-set_property -dict {PACKAGE_PIN U1 IOSTANDARD LVCMOS33} [get_ports {hdmiblue[1]}]
-set_property -dict {PACKAGE_PIN U5 IOSTANDARD LVCMOS33} [get_ports {hdmiblue[2]}]
-set_property -dict {PACKAGE_PIN U6 IOSTANDARD LVCMOS33} [get_ports {hdmiblue[3]}]
-set_property -dict {PACKAGE_PIN U2 IOSTANDARD LVCMOS33} [get_ports {hdmiblue[4]}]
-set_property -dict {PACKAGE_PIN U3 IOSTANDARD LVCMOS33} [get_ports {hdmiblue[5]}]
-set_property -dict {PACKAGE_PIN V4 IOSTANDARD LVCMOS33} [get_ports {hdmiblue[6]}]
-set_property -dict {PACKAGE_PIN V2 IOSTANDARD LVCMOS33} [get_ports {hdmiblue[7]}]
-
-# XXX - We may need to tell the HDMI driver to set the appropriate operating mode
-# XXX - We may need to provide a Data Enable signal to tell the HDMI driver when pixels are drawing
-#
-set_property -dict {PACKAGE_PIN R4 IOSTANDARD LVCMOS33} [get_ports hdmi_hsync]
-set_property -dict {PACKAGE_PIN R6 IOSTANDARD LVCMOS33} [get_ports hdmi_vsync]
-set_property -dict {PACKAGE_PIN R2 IOSTANDARD LVCMOS33} [get_ports hdmi_de]
-set_property -dict {PACKAGE_PIN Y2 IOSTANDARD LVCMOS33} [get_ports hdmi_clk]
-
-# This is the output from FPGA to ADV7511
-set_property -dict {PACKAGE_PIN AA1 IOSTANDARD LVCMOS33} [get_ports hdmi_spdif]
-# This is the output from the ADV7511, which we can safely ignore
-set_property -dict {PACKAGE_PIN AA8 IOSTANDARD LVCMOS33} [get_ports hdmi_spdif_out]
-
 # PWM Audio
 #
 set_property -dict {PACKAGE_PIN L6 IOSTANDARD LVCMOS33} [get_ports pwm_l]
 set_property -dict {PACKAGE_PIN F4 IOSTANDARD LVCMOS33} [get_ports pwm_r]
 set_property -dict {PACKAGE_PIN F18 IOSTANDARD LVCMOS33} [get_ports pcspeaker_muten]
 set_property -dict {PACKAGE_PIN E16 IOSTANDARD LVCMOS33} [get_ports pcspeaker_left]
+set_property -dict {PACKAGE_PIN F19 IOSTANDARD LVCMOS33} [get_ports pcspeaker_leftright_clock]
+set_property -dict {PACKAGE_PIN E19 IOSTANDARD LVCMOS33} [get_ports pcspeaker_b_clock]
 
 
 ##USB HID (PS/2)
@@ -301,30 +299,10 @@ set_property -dict {PACKAGE_PIN D1 IOSTANDARD LVCMOS33 PULLUP FALSE} [get_ports 
 set_property -dict {PACKAGE_PIN H4 IOSTANDARD LVCMOS33 PULLUP FALSE} [get_ports hr2_rwds]
 set_property -dict {PACKAGE_PIN H5 IOSTANDARD LVCMOS33 PULLUP FALSE} [get_ports hr2_reset]
 set_property -dict {PACKAGE_PIN J5 IOSTANDARD LVCMOS33 PULLUP FALSE} [get_ports hr2_cs0]
-##
-### Pmod Header P1 (actually redirected to motherboard HyperRAM hr_d[0-7] for debug)
-#set_property -dict { PACKAGE_PIN A21 IOSTANDARD LVCMOS33 } [get_ports {p1lo[0]}]
-#set_property -dict { PACKAGE_PIN D21 IOSTANDARD LVCMOS33 } [get_ports {p1lo[1]}]
-#set_property -dict { PACKAGE_PIN C20 IOSTANDARD LVCMOS33 } [get_ports {p1lo[2]}]
-#set_property -dict { PACKAGE_PIN A20 IOSTANDARD LVCMOS33 } [get_ports {p1lo[3]}]
-#set_property -dict { PACKAGE_PIN B20 IOSTANDARD LVCMOS33 } [get_ports {p1hi[0]}]
-#set_property -dict { PACKAGE_PIN A19 IOSTANDARD LVCMOS33 } [get_ports {p1hi[1]}]
-#set_property -dict { PACKAGE_PIN E21 IOSTANDARD LVCMOS33 } [get_ports {p1hi[2]}]
-#set_property -dict { PACKAGE_PIN E22 IOSTANDARD LVCMOS33 } [get_ports {p1hi[3]}]
-#
-### Pmod Header P2 (actually redirected to motherboard HyperRAM for debug)
-### hr_RWDS, hr_reset, hr_cs0, NC, p2hi[0], p2lo[0], p1lo[3], NC
-#set_property -dict { PACKAGE_PIN B21 IOSTANDARD LVCMOS33 } [get_ports {p2lo[0]}]
-#set_property -dict { PACKAGE_PIN B22 IOSTANDARD LVCMOS33 } [get_ports {p2lo[1]}]
-#set_property -dict { PACKAGE_PIN C22 IOSTANDARD LVCMOS33 } [get_ports {p2lo[2]}]
-#set_property -dict { PACKAGE_PIN F19 IOSTANDARD LVCMOS33 } [get_ports {p2lo[3]}]
-#set_property -dict { PACKAGE_PIN E2 IOSTANDARD LVCMOS33 } [get_ports {p2hi[0]}]
-#set_property -dict { PACKAGE_PIN F3 IOSTANDARD LVCMOS33 } [get_ports {p2hi[1]}]
-#set_property -dict { PACKAGE_PIN A1 IOSTANDARD LVCMOS33 } [get_ports {p2hi[2]}]
-#set_property -dict { PACKAGE_PIN F20 IOSTANDARD LVCMOS33 } [get_ports {p2hi[3]}]
 
 ##SMSC Ethernet PHY
 #
+set_property -dict {PACKAGE_PIN R14 IOSTANDARD LVCMOS33} [get_ports {eth_led[1]}]
 set_property -dict {PACKAGE_PIN P4 IOSTANDARD LVCMOS33} [get_ports {eth_rxd[0]}]
 set_property -dict {PACKAGE_PIN L1 IOSTANDARD LVCMOS33} [get_ports {eth_rxd[1]}]
 set_property -dict {PACKAGE_PIN L3 IOSTANDARD LVCMOS33 SLEW SLOW DRIVE 4} [get_ports {eth_txd[0]}]
@@ -343,7 +321,13 @@ set_property -dict {PACKAGE_PIN M6 IOSTANDARD LVCMOS33} [get_ports eth_rxer]
 set_property -dict {PACKAGE_PIN L13 IOSTANDARD LVCMOS33} [get_ports UART_TXD]
 set_property -dict {PACKAGE_PIN L14 IOSTANDARD LVCMOS33} [get_ports RsRx]
 
+##Interface to MAX10
+set_property -dict {PACKAGE_PIN L16 IOSTANDARD LVCMOS33} [get_ports max10_tx]
+set_property -dict {PACKAGE_PIN K16 IOSTANDARD LVCMOS33} [get_ports max10_rx]
+
+
 ##Micro SD Connector (x2 on r2 PCB)
+set_property -dict {PACKAGE_PIN K1 IOSTANDARD LVCMOS33} [get_ports sd2CD]
 set_property -dict {PACKAGE_PIN G2 IOSTANDARD LVCMOS33} [get_ports sd2Clock]
 set_property -dict {PACKAGE_PIN K2 IOSTANDARD LVCMOS33} [get_ports sd2reset]
 set_property -dict {PACKAGE_PIN H2 IOSTANDARD LVCMOS33} [get_ports sd2MISO]
@@ -368,7 +352,9 @@ set_property -dict {PACKAGE_PIN D17 IOSTANDARD LVCMOS33} [get_ports sdCD]
 # Output signals
 set_property -dict {PACKAGE_PIN P6 IOSTANDARD LVCMOS33} [get_ports f_density]
 set_property -dict {PACKAGE_PIN M5 IOSTANDARD LVCMOS33} [get_ports f_motor]
+set_property -dict {PACKAGE_PIN H15 IOSTANDARD LVCMOS33} [get_ports f_motorb]
 set_property -dict {PACKAGE_PIN N5 IOSTANDARD LVCMOS33} [get_ports f_select]
+set_property -dict {PACKAGE_PIN G17 IOSTANDARD LVCMOS33} [get_ports f_selectb]
 set_property -dict {PACKAGE_PIN P5 IOSTANDARD LVCMOS33} [get_ports f_stepdir]
 set_property -dict {PACKAGE_PIN M3 IOSTANDARD LVCMOS33} [get_ports f_step]
 set_property -dict {PACKAGE_PIN N4 IOSTANDARD LVCMOS33} [get_ports f_wdata]
