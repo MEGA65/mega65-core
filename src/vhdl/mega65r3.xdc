@@ -5,7 +5,7 @@
 
 ### Magic comment to allow monitor_load JTAg to automatically use the correct
 ### part boundary scan information.
-### monitor_load:hint:part:xc7ar200tfgg484
+### monitor_load:hint:part:xc7ar200tfbg484
 
 ## Clock signal (100MHz)
 set_property -dict {PACKAGE_PIN V13 IOSTANDARD LVCMOS33} [get_ports CLK_IN]
