@@ -154,12 +154,12 @@ architecture behavioural of ethernet is
                           BadFrame,
 
                           IdleWait,
-                          Interpacketgap,
-                          WaitBeforeTX,
+                          Interpacketgap,  -- $0C
+                          WaitBeforeTX,    -- $0D
                           SendingPreamble,
                           SendingFrame,
                           SendFCS,
-                          SentFrame
+                          SentFrame        -- $11
                           );
   signal eth_state : ethernet_state := Idle;
 
@@ -183,6 +183,7 @@ architecture behavioural of ethernet is
  
   -- control reset line on ethernet controller
   signal eth_reset_int : std_logic := '1';
+  signal eth_soft_reset : std_logic := '1';
   -- which half of frame RX buffer is visible
   signal eth_rx_buffer_moby : std_logic := '0';
   signal eth_rx_buffer_moby_int1 : std_logic := '0';
@@ -786,7 +787,7 @@ begin  -- behavioural
       end case;
 
       -- Allow resetting of the ethernet TX state machine
-      if eth_reset_int='0' or reset='0' then
+      if eth_reset_int='0' or reset='0' or eth_soft_reset='0' then
         eth_tx_state <= IdleWait;
       end if;
       
@@ -1395,9 +1396,11 @@ begin  -- behavioural
         if ethernet_cs='1' then
           case fastio_addr(3 downto 0) is
             when x"0" =>
-              -- @IO:GS $D6E0.0 Clear to reset ethernet PHY
+              -- @IO:GS $D6E0.0 Clear to reset ethernet PHY and state machine
+              -- @IO:GS $D6E0.1 Clear to reset ethernet state machine only, but not the phy
               eth_reset <= fastio_wdata(0);
               eth_reset_int <= fastio_wdata(0);
+              eth_soft_reset <= fastio_wdata(1);
               
             when x"1" =>
               -- $D6E1 100mbit ethernet irq mask
