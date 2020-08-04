@@ -614,6 +614,12 @@ begin
   nmi <= not btn(4);
   restore_key <= not btn(1);
 
+  -- BUFG on ethernet clock to keep the clock nice and strong
+  ethbufg0:
+  bufg port map ( I => ethclock,
+                  O => eth_clock);
+
+  
   process (cpuclock,pixelclock,cpuclock,pal50_select)
   begin
     if rising_edge(pixelclock) then      
@@ -668,8 +674,4 @@ begin
     end if;
   end process;
 
-  -- Drive rotated clock to ethernet device so we can more safely latch on RX
-  -- and TX
-  eth_clock <= ethclock_rotate;
-  
 end Behavioral;
