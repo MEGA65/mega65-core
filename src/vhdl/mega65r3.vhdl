@@ -22,6 +22,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.cputypes.all;
+use work.types_pkg.all;
 
 -- Uncomment the following library declaration if using
 -- arithmetic functions with Signed or Unsigned values
@@ -546,8 +547,6 @@ begin
       temp => fpga_temperature);
 
   hdmi_de <= hdmi_dataenable;
-  hdmi_hsync <= v_vga_hsync;
-  hdmi_vsync <= v_vsync;
   
   hdmiaudio: entity work.hdmi_spdif
     generic map ( samplerate => 44100 )
@@ -1034,14 +1033,6 @@ begin
       h_audio_left(19) <= not audio_left(19);
     end if;
 
-    -- Make SPDIF audio switchable for debugging HDMI output
-    if portp(0) = '1' then
-      hdmi_spdif <= spdif_44100;
-    else
-      hdmi_spdif <= '0';
-    end if;      
-
-    
     if rising_edge(pixelclock) then
       hsync <= v_vga_hsync;
       vsync <= v_vsync;
