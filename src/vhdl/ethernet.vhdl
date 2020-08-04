@@ -784,7 +784,12 @@ begin  -- behavioural
         when others =>
           eth_tx_state <= IdleWait;
       end case;
-    
+
+      -- Allow resetting of the ethernet TX state machine
+      if eth_reset_int='0' or reset='0' then
+        eth_tx_state <= IdleWait;
+      end if;
+      
       -- Ethernet RX FSM
       if eth_rx_buffer_last_used_50mhz /= eth_rx_buffer_moby_50mhz then
         eth_buffer_blocked_50mhz <= '1';
@@ -1120,8 +1125,9 @@ begin  -- behavioural
           when x"2" =>
             fastio_rdata <= eth_tx_size(7 downto 0);
             -- @IO:GS $D6E3 ETH:TXSZMSB TX Packet size (high byte)
+          -- $D6E3.4-7 ETH:DBGTXWAIT counter low bits (read only) (DEBUG ONLY. May be deprecated)
           when x"3" =>
-            fastio_rdata(7 downto 4) <= "0000";
+            fastio_rdata(7 downto 4) <= to_unsigned(eth_tx_wait,4);
             fastio_rdata(3 downto 0) <= eth_tx_size(11 downto 8);
           -- $D6E4 ETH:DBGTXSTATE Status of frame transmitter (read only) (DEBUG ONLY. May be deprecated)
           when x"4"  =>
@@ -1169,8 +1175,8 @@ begin  -- behavioural
           when x"D" => fastio_rdata <= eth_mac(15 downto 8);
           when x"E" => fastio_rdata <= eth_mac(7 downto 0);
           when x"f" =>
-            -- @ IO:GS $D6EF ETH:DBGRXSTAT DEBUG show current ethernet RX state
-            fastio_rdata <= to_unsigned(ethernet_state'pos(eth_state),8);
+            -- @ IO:GS $D6EF ETH:DBGTXSTAT DEBUG show current ethernet TX state
+            fastio_rdata <= to_unsigned(ethernet_state'pos(eth_tx_state),8);
           when others =>
             fastio_rdata <= (others => 'Z');
         end case;
