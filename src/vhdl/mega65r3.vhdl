@@ -47,7 +47,7 @@ entity container is
          kb_io1 : out std_logic;
          kb_io2 : in std_logic;
 
-         -- Direct joystick lines
+         -- Direct joystick lines         
          fa_left : in std_logic;
          fa_right : in std_logic;
          fa_up : in std_logic;
@@ -58,7 +58,12 @@ entity container is
          fb_up : in std_logic;
          fb_down : in std_logic;
          fb_fire : in std_logic;
+         paddle : in std_logic_vector(3 downto 0);
+         paddle_drain : out std_logic := '0';
 
+         -- 8 test points on the motherboard
+         testpoint : inout unsigned(8 downto 1) := 'Z';
+         
          ----------------------------------------------------------------------
          -- Expansion/cartridge port
          ----------------------------------------------------------------------
@@ -131,13 +136,11 @@ entity container is
          vgagreen : out  UNSIGNED (7 downto 0);
          vgablue : out  UNSIGNED (7 downto 0);
 
-         hdmi_vsync : out  STD_LOGIC;
-         hdmi_hsync : out  STD_LOGIC;
-         hdmired : out  UNSIGNED (7 downto 0);
-         hdmigreen : out  UNSIGNED (7 downto 0);
-         hdmiblue : out  UNSIGNED (7 downto 0);
-         hdmi_int : in std_logic;
-         hdmi_spdif : out std_logic := '0';
+         TMDS_data_p : out STD_LOGIC_VECTOR(2 downto 0);
+         TMDS_data_n : out STD_LOGIC_VECTOR(2 downto 0);
+         TMDS_clk_p : out STD_LOGIC;
+         TMDS_clk_n : out STD_LOGIC;
+         
          hdmi_scl : inout std_logic;
          hdmi_sda : inout std_logic;
          hdmi_de : out std_logic; -- high when valid pixels being output
@@ -290,6 +293,11 @@ architecture Behavioral of container is
   signal v_blue : unsigned(7 downto 0);
   signal lcd_dataenable : std_logic;
   signal hdmi_dataenable : std_logic;
+
+  signal hdmired : UNSIGNED (7 downto 0);
+  signal hdmigreen : UNSIGNED (7 downto 0);
+  signal hdmiblue : UNSIGNED (7 downto 0);
+  signal hdmi_int : std_logic;
   
   -- XXX We should read the real temperature and feed this to the DDR controller
   -- so that it can update timing whenever the temperature changes too much.
@@ -443,6 +451,65 @@ begin
                clock325  => clock325    --  325     MHz
                );
 
+    pcm_n <= std_logic_vector(to_unsigned(6144,pcm_n'length));
+    pcm_cts <= std_logic_vector(to_unsigned(27000,pcm_cts'length));
+    
+    hdmi0: entity work.vga_to_hdmi
+      generic map (pcm_fs => 48.0 -- 48.0KHz audio
+                   )
+      port map (
+        dvi => '0',   -- Enable HDMI-style audio
+        vic => std_logic_vector(to_unsigned(17,8)), -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60 NTSC
+        aspect => "01", -- 01=4:3, 10=16:9
+        pix_rep => '0', -- no pixel repetition
+        vs_pol => '1',  -- 1=active high
+        hs_pol => '1',
+
+        vga_rst => reset_high, -- active high reset
+        vga_clk => clock27, -- VGA pixel clock
+        vga_vs => v_vsync, -- active high vsync
+        vga_hs => v_vga_hsync, -- active high hsync
+        vga_de => hdmi_dataenable,   -- pixel enable
+        vga_r => std_logic_vector(v_red),
+        vga_g => std_logic_vector(v_green),
+        vga_b => std_logic_vector(v_blue),
+
+        -- XXX For now the audio stuff is all dummy
+        pcm_rst => pcm_rst, -- active high audio reset
+        pcm_clk => pcm_clk, -- audio clock at fs
+        pcm_clken => pcm_clken, -- audio clock enable
+        pcm_l => pcm_l,
+        pcm_r => pcm_r,
+        pcm_acr => pcm_acr, -- 1KHz
+        pcm_n => pcm_n, -- ACR N value
+        pcm_cts => pcm_cts, -- ACR CTS value
+
+        tmds => tmds
+        );
+    
+     -- serialiser: in this design we use TMDS SelectIO outputs
+    GEN_HDMI_DATA: for i in 0 to 2 generate
+    begin
+        HDMI_DATA: entity work.serialiser_10to1_selectio
+            port map (
+                rst     => reset_high,
+                clk     => clock27,
+                clk_x5  => clock135p,
+                d       => tmds(i),
+                out_p   => TMDS_data_p(i),
+                out_n   => TMDS_data_n(i)
+            );
+    end generate GEN_HDMI_DATA;
+    HDMI_CLK: entity work.serialiser_10to1_selectio
+        port map (
+            rst     => reset_high,
+            clk     => clock27,
+            clk_x5  => clock135p,
+            d       => "0000011111",
+            out_p   => TMDS_clk_p,
+            out_n   => TMDS_clk_n
+        );
+  
   fpgatemp0: entity work.fpgatemp
     generic map (DELAY_CYCLES => 480)
     port map (
@@ -909,42 +976,19 @@ begin
       iec_reset <= iec_reset_drive;
       iec_atn <= not iec_atn_drive;
 
-      if pot_via_iec = '0' then
-        -- Normal IEC port operation
-        iec_clk_en <= iec_clk_o_drive;
-        iec_clk_o <= not iec_clk_o_drive;
-        iec_clk_i_drive <= iec_clk_i;
-        iec_data_en <= iec_data_o_drive;
-        iec_data_o <= not iec_data_o_drive;
-        iec_data_i_drive <= iec_data_i;
-        -- So pots act like infinite resistance
-        fa_potx <= '0';
-        fa_poty <= '0';
-        fb_potx <= '0';
-        fb_poty <= '0';
-      else
-        -- IEC lines being used as POT inputs
-        iec_clk_i_drive <= '1';
-        iec_data_i_drive <= '1';
-        if pot_drain = '1' then
-          -- IEC lines being used to drain pots
-          iec_clk_en <= '1';
-          iec_clk_o <= '0';
-          iec_data_en <= '1';
-          iec_data_o <= '0';
-        else
-          -- Stop draining
-          iec_clk_en <= '0';
-          iec_clk_o <= '0';
-          iec_data_en <= '0';
-          iec_data_o <= '0';
-        end if;
-        -- Copy IEC input values to POT inputs
-        fa_potx <= iec_data_i;
-        fa_poty <= iec_clk_i;
-        fb_potx <= iec_data_i;
-        fb_poty <= iec_clk_i;
-      end if;
+      iec_clk_en <= iec_clk_o_drive;
+      iec_clk_o <= not iec_clk_o_drive;
+      iec_clk_i_drive <= iec_clk_i;
+      iec_data_en <= iec_data_o_drive;
+      iec_data_o <= not iec_data_o_drive;
+      iec_data_i_drive <= iec_data_i;
+
+      -- So pots act like infinite resistance
+      paddle_drain <= pot_drain;
+      fa_potx <= paddle(0);
+      fa_poty <= paddle(1);
+      fb_potx <= paddle(2);
+      fb_poty <= paddle(3);
 
       pwm_l <= pwm_l_drive;
       pwm_r <= pwm_r_drive;

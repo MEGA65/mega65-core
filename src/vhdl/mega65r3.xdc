@@ -104,6 +104,9 @@ set_property -dict {PACKAGE_PIN C13 IOSTANDARD LVCMOS33} [get_ports kb_io2]
 set_property -dict {PACKAGE_PIN B13 IOSTANDARD LVCMOS33} [get_ports kb_jtagen]
 
 # Test points
+set_property -dict {PACKAGE_PIN T16 IOSTANDARD LVCMOS33} [get_ports testpoint[1]]
+set_property -dict {PACKAGE_PIN U16 IOSTANDARD LVCMOS33} [get_ports testpoint[2]]
+set_property -dict {PACKAGE_PIN W16 IOSTANDARD LVCMOS33} [get_ports testpoint[3]]
 set_property -dict {PACKAGE_PIN J19 IOSTANDARD LVCMOS33} [get_ports testpoint[4]]
 set_property -dict {PACKAGE_PIN K17 IOSTANDARD LVCMOS33} [get_ports testpoint[5]]
 set_property -dict {PACKAGE_PIN N19 IOSTANDARD LVCMOS33} [get_ports testpoint[6]]
