@@ -392,6 +392,34 @@ architecture Behavioral of container is
 
   signal fm_left : signed(15 downto 0);
   signal fm_right : signed(15 downto 0);
+
+  constant clock_frequency : integer := 27000000;
+  constant target_sample_rate : integer := 48000;
+  signal audio_counter : integer := 0;
+  signal sample_ready_toggle : std_logic := '0';
+  signal audio_counter_interval : unsigned(23 downto 0) := to_unsigned(clock_frequency/target_sample_rate,24);
+
+  signal pcm_clk : std_logic := '0';
+  signal pcm_rst : std_logic := '1';
+  signal pcm_clken : std_logic := '0';
+  signal pcm_l : std_logic_vector(15 downto 0) := std_logic_vector(to_unsigned(0,16));
+  signal pcm_r : std_logic_vector(15 downto 0) := std_logic_vector(to_unsigned(0,16));
+  signal pcm_acr : std_logic := '0';
+  signal pcm_n   : std_logic_vector(19 downto 0) := std_logic_vector(to_unsigned(0,20));
+  signal pcm_cts : std_logic_vector(19 downto 0) := std_logic_vector(to_unsigned(0,20));
+  
+  
+  signal hdmi_is_progressive : boolean := true;
+  signal hdmi_is_pal : boolean := true;
+  signal hdmi_is_30khz : boolean := true;
+  signal hdmi_is_limited : boolean := true;
+  signal hdmi_is_widescreen : boolean := true;
+
+  signal vga_blank : std_logic := '0';
+
+  signal tmds : slv_9_0_t(0 to 2);
+
+  signal reset_high : std_logic := '1';
   
 begin
 
@@ -938,6 +966,8 @@ begin
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then
 
+      reset_high <= not btncpureset;
+      
 --      led <= cart_exrom;
 --      led <= flopled_drive;
       
