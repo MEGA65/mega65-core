@@ -16,7 +16,7 @@ entity c65uart is
 
     osk_toggle_key : in std_logic;
     joyswap_key : in std_logic;
-    
+
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
     ---------------------------------------------------------------------------
@@ -81,6 +81,9 @@ entity c65uart is
     porto_out : out unsigned(7 downto 0) := (others => '0');
     portp_out : out unsigned(7 downto 0) := (others => '0');
     portq_in : in unsigned(7 downto 0);
+    j21in : in std_logic_vector(11 downto 0) := (others => '1');
+    j21out : inout std_logic_vector(11 downto 0) := (others => '1');
+    j21ddr : inout std_logic_vector(11 downto 0) := (others => '0');    
 
     suppress_key_glitches : out std_logic := '1';
     suppress_key_retrigger : out std_logic := '0';
@@ -459,6 +462,10 @@ begin  -- behavioural
             disco_led_val <= disco_led_val_int;            
           when x"1e" =>
             disco_led_val_int <= fastio_wdata;
+          when x"25" => j21out(7 downto 0) <= std_logic_vector(fastio_wdata);
+          when x"26" => j21out(11 downto 8) <= std_logic_vector(fastio_wdata(3 downto 0));
+          when x"27" => j21ddr(7 downto 0) <= std_logic_vector(fastio_wdata);
+          when x"28" => j21ddr(11 downto 8) <= std_logic_vector(fastio_wdata(3 downto 0));
           when others => null;
         end case;
       end if;
@@ -661,7 +668,19 @@ begin  -- behavioural
           fastio_rdata(4) <= fa_potx;
           fastio_rdata(5) <= fa_poty;
           fastio_rdata(6) <= fb_potx;
-          fastio_rdata(7) <= fb_poty;                        
+          fastio_rdata(7) <= fb_poty;
+        -- @IO:GS $D625 UARTMISC:J21L J21 pins 1 -- 6, 9 -- 10 input/output values
+        -- @IO:GS $D626 UARTMISC:J21H J21 pins 11 -- 14 input/output values
+        -- @IO:GS $D627 UARTMISC:J21LDDR J21 pins 1 -- 6, 9 -- 10 data direction register
+        -- @IO:GS $D628 UARTMISC:J21HDDR J21 pins 11 -- 14 data direction register
+        when x"25" => fastio_rdata <= unsigned(j21in(7 downto 0));
+        when x"26" => fastio_rdata(3 downto 0) <= (unsigned(j21in(11 downto 8)));
+                      fastio_rdata(7 downto 4) <= "0000";
+        when x"27" => fastio_rdata <= unsigned(j21ddr(7 downto 0));
+        when x"28" => fastio_rdata(3 downto 0) <= (unsigned(j21ddr(11 downto 8)));
+                      fastio_rdata(7 downto 4) <= "0000";
+                      
+                      
         when others =>
           report "Reading untied register, result = Z";
           fastio_rdata <= (others => 'Z');

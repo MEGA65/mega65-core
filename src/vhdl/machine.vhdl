@@ -87,6 +87,10 @@ entity machine is
          flopled : out std_logic := '0';
          flopmotor : out std_logic := '0';
 
+         j21in : in std_logic_vector(11 downto 0) := (others => '1');
+         j21out : inout std_logic_vector(11 downto 0) := (others => '1');
+         j21ddr : inout std_logic_vector(11 downto 0) := (others => '0');
+         
          buffereduart_rx : inout std_logic;
          buffereduart_tx : out std_logic := '1';
          buffereduart_ringindicate : in std_logic;
@@ -1405,6 +1409,10 @@ begin
       qspi_clock => qspi_clock,
       qspicsn => qspicsn,
       qspidb => qspidb,
+
+      j21in => j21in,
+      j21out => j21out,
+      j21ddr => j21ddr,
       
       joy3 => joy3,
       joy4 => joy4,

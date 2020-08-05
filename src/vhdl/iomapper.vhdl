@@ -47,6 +47,10 @@ entity iomapper is
 
         joy3 : in std_logic_vector(4 downto 0);
         joy4 : in std_logic_vector(4 downto 0);
+
+        j21in : in std_logic_vector(11 downto 0);
+        j21out : inout std_logic_vector(11 downto 0);
+        j21ddr : inout std_logic_vector(11 downto 0);
         
         uart_char : out unsigned(7 downto 0);
         uart_char_valid : out std_logic := '0';

@@ -751,6 +751,10 @@ begin
       hyper_data_strobe => hyper_data_strobe,
       
       fast_key => fastkey,
+
+      j21in => j21in,
+      j21out => j21out,
+      j21ddr => j21ddr,
       
       btncpureset => btncpureset,
       reset_out => reset_out,

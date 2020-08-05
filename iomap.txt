@@ -399,7 +399,7 @@ GS $D612.2 UARTMISC:PHYKEY Enable physical keyboard input
 GS $D612.3 UARTMISC:VRTKEY Enable virtual/snythetic keyboard input
 GS $D612.4 UARTMISC:OSKDEBUG Debug OSK overlay (WRITE ONLY)
 GS $D612.4 UARTMISC:PS2JOY Enable PS/2 / USB keyboard simulated joystick input
-GS $D612.5 UARTMISC:JOYSWAP Exchange joystick ports 1 & 2
+GS $D612.5 UARTMISC:JOYSWAP Exchange joystick ports 1 \& 2
 GS $D612.6 UARTMISC:LJOYA Rotate inputs of joystick A by 180 degrees (for left handed use)
 GS $D612.7 UARTMISC:LJOYB Rotate inputs of joystick B by 180 degrees (for left handed use)
 GS $D613 DEBUG:CRTACSCNT Count of cartridge port memory accesses (read only)
@@ -437,6 +437,10 @@ GS $D624.5 fa_poty line
 GS $D624.6 fb_potx line
 GS $D624.7 fb_poty line          
 GS $D624 DEBUG:POTDEBUG READ ONLY flags for paddles. See c65uart.vhdl for more information.
+GS $D625 UARTMISC:J21L J21 pins 1 -- 6, 9 -- 10 input/output values
+GS $D626 UARTMISC:J21H J21 pins 11 -- 14 input/output values
+GS $D627 UARTMISC:J21LDDR J21 pins 1 -- 6, 9 -- 10 data direction register
+GS $D628 UARTMISC:J21HDDR J21 pins 11 -- 14 data direction register
 GS $D640.6 - Thumbnail drawing was in progress.
 GS $D640.7 - Thumbnail is valid if 1.  Else there has not been a complete frame since elapsed without a trap to hypervisor mode, in which case the thumbnail may not reflect the current process.
 GS $D640 CPU:HTRAP00 Writing triggers hypervisor trap \$00
@@ -708,13 +712,15 @@ GS $D6DA MISC:SDDEBUGERRLSB DEBUG SD card last error code LSB
 GS $D6DB MISC:SDDEBUGERRMSB DEBUG SD card last error code MSB
 GS $D6DE FPGA:FPGATEMPLSB FPGA die temperature sensor (lower nybl)
 GS $D6DF FPGA:FPGATEMPMSB FPGA die temperature sensor (upper byte)
-GS $D6E0.0 Clear to reset ethernet PHY
+GS $D6E0.0 Clear to reset ethernet PHY and state machine
 GS $D6E0.0 ETH:RST Write 0 to hold ethernet controller under reset
 GS $D6E0.1-2 ETH:DRXD Read ethernet RX bits currently on the wire
+GS $D6E0.1 Clear to reset ethernet state machine only, but not the phy
 GS $D6E0.3 ETH:DRXDV Read ethernet RX data valid (debug)
 GS $D6E0.4 Allow remote keyboard input via magic ethernet frames
 GS $D6E0.4 ETH:KEYEN Allow remote keyboard input via magic ethernet frames
 GS $D6E0.6 ETH:RXBLKD Indicate if ethernet RX is blocked until RX buffers rotated
+GS $D6E0.7 ETH:TXIDLE Ethernet transmit side is idle, i.e., a packet can be sent.
 GS $D6E1.0 reset ethernet PHY
 GS $D6E1.1 ETH:RXBM Set which RX buffer is memory mapped
 GS $D6E1.1 - Set which RX buffer is memory mapped
@@ -736,9 +742,11 @@ GS $D6E5.0 ETH:NOPROM Ethernet disable promiscuous mode
 GS $D6E5.1 Disable CRC check for received packets
 GS $D6E5.1 ETH:NOCRC Disable CRC check for received packets
 GS $D6E5.2-3 Ethernet TX clock phase adjust
+GS $D6E5.2-3 ETH:RXPH Ethernet RX clock phase adjust
 GS $D6E5.2-3 ETH:TXPH Ethernet TX clock phase adjust
 GS $D6E5.4 ETH:BCST Accept broadcast frames
 GS $D6E5.5 ETH:MCST Accept multicast frames
+GS $D6E5.6-7 Ethernet RX clock phase adjust
 GS $D6E6.0-4 ETH:MIIMREG Ethernet MIIM register number
 GS $D6E6.7-5 ETH:MIIMPHY Ethernet MIIM PHY number (use 0 for Nexys4, 1 for MEGA65 r1 PCBs)
 GS $D6E7 ETH:MIIMVLSB Ethernet MIIM register value (LSB)
@@ -749,7 +757,7 @@ GS $D6EB ETH:MACADDR3 Ethernet MAC address
 GS $D6EC ETH:MACADDR4 Ethernet MAC address
 GS $D6ED ETH:MACADDR5 Ethernet MAC address
 GS $D6EE ETH:MACADDR6 Ethernet MAC address
-GS $D6EF ETH:DBGRXSTAT DEBUG show current ethernet RX state
+GS $D6EF ETH:DBGTXSTAT DEBUG show current ethernet TX state
 GS $D6F0 - LCD panel brightness control
 GS $D6F0 MISC:LCDBRIGHTNESS LCD panel brightness control
 GS $D6F2 MISC:FPGABUTTONS Read FPGA five-way buttons
@@ -884,16 +892,24 @@ GS $D75C DMA:CH3FREQ Audio DMA channel 3 current address MSB
 GS $D75D DMA:CH3FREQ Audio DMA channel 3 timing counter LSB
 GS $D75E DMA:CH3FREQ Audio DMA channel 3 timing counter middle byte
 GS $D75F DMA:CH3FREQ Audio DMA channel 3 timing counter address MSB
+GS $D768 MATH:MULTOUT 64-bit output of MULTINA $\div$ MULTINB
+GS $D769 MATH:MULTOUT 64-bit output of MULTINA $\div$ MULTINB
+GS $D76A MATH:MULTOUT 64-bit output of MULTINA $\div$ MULTINB
+GS $D76B MATH:MULTOUT 64-bit output of MULTINA $\div$ MULTINB
+GS $D76C MATH:MULTOUT 64-bit output of MULTINA $\div$ MULTINB
+GS $D76D MATH:MULTOUT 64-bit output of MULTINA $\div$ MULTINB
+GS $D76E MATH:MULTOUT 64-bit output of MULTINA $\div$ MULTINB
+GS $D76F MATH:MULTOUT 64-bit output of MULTINA $\div$ MULTINB
 GS $D770-3 32-bit multiplier input A
-GS $D770 MATH:MULTINA Multiplier input A (32 bit)
-GS $D771 MATH:MULTINA Multiplier input A (32 bit)
-GS $D772 MATH:MULTINA Multiplier input A (32 bit)
-GS $D773 MATH:MULTINA Multiplier input A (32 bit)
+GS $D770 MATH:MULTINA Multiplier input A / Divider numerator (32 bit)
+GS $D771 MATH:MULTINA Multiplier input A / Divider numerator (32 bit)
+GS $D772 MATH:MULTINA Multiplier input A / Divider numerator (32 bit)
+GS $D773 MATH:MULTINA Multiplier input A / Divider numerator (32 bit)
 GS $D774-7 32-bit multiplier input B
-GS $D774 MATH:MULTINB Multiplier input A (32 bit)
-GS $D775 MATH:MULTINB Multiplier input A (32 bit)
-GS $D776 MATH:MULTINB Multiplier input A (32 bit)
-GS $D777 MATH:MULTINB Multiplier input A (32 bit)
+GS $D774 MATH:MULTINB Multiplier input B / Divider denominator (32 bit)
+GS $D775 MATH:MULTINB Multiplier input B / Divider denominator (32 bit)
+GS $D776 MATH:MULTINB Multiplier input B / Divider denominator (32 bit)
+GS $D777 MATH:MULTINB Multiplier input B / Divider denominator (32 bit)
 GS $D778 MATH:MULTOUT 64-bit output of MULTINA $\times$ MULTINB
 GS $D779 MATH:MULTOUT 64-bit output of MULTINA $\times$ MULTINB
 GS $D77A MATH:MULTOUT 64-bit output of MULTINA $\times$ MULTINB
