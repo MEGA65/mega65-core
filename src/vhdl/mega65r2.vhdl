@@ -221,6 +221,12 @@ entity container is
          fpga_scl : inout std_logic;         
          
          ----------------------------------------------------------------------
+         -- Comms link to MAX10 FPGA
+         ----------------------------------------------------------------------
+         max10_tx : out std_logic := '1';
+         max10_rx : in std_logic;
+
+         ----------------------------------------------------------------------
          -- Serial monitor interface
          ----------------------------------------------------------------------
          UART_TXD : out std_logic;
@@ -889,7 +895,7 @@ begin
       if max10_counter = 31 then
         max10_counter <= 0;
         reset_from_max10 <= '0';
-        fpga_tx <= max10_out_vector(0);
+        max10_tx <= max10_out_vector(0);
         -- Latch read values, if vector is not stuck low
         if max10_in_vector /= x"00000000" then
           j21in <= max10_in_vector(11 downto 0);
@@ -900,7 +906,7 @@ begin
         max10_counter <= max10_counter + 1;
         reset_from_max10 <= '1';
       end if;
-      max10_in_vector(0) <= fpga_rx;
+      max10_in_vector(0) <= max10_rx;
       max10_in_vector(31 downto 1) <= max10_in_vector(30 downto 0);
       max10_out_vector(11 downto 0) <= j21ddr;
       max10_out_vector(23 downto 12) <= j21out;
