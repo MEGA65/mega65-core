@@ -255,6 +255,9 @@ architecture Behavioral of container is
   signal max10_out_vector : std_logic_vector(31 downto 0) := (others => '0');
   signal max10_in_vector : std_logic_vector(31 downto 0) := (others => '0');
   signal max10_counter : integer range 0 to 31 := 0;
+  signal fpga_done : std_logic := '1';
+  signal sw : std_logic_vector(15 downto 0) := (others => '0');
+  
   
   signal ethclock : std_logic;
   signal cpuclock : std_logic;
@@ -400,8 +403,6 @@ architecture Behavioral of container is
   signal fm_left : signed(15 downto 0);
   signal fm_right : signed(15 downto 0);
 
-  signal fpga_done : std_logic := '1';
-  
 begin
 
 --STARTUPE2:STARTUPBlock--7Series
@@ -858,7 +859,7 @@ begin
       widget_joya => (others => '1'),
       widget_joyb => (others => '1'),      
       
-      sw => (others => '0'),
+      sw => sw,
 --      uart_rx => '1',
       btn => (others => '1')
          
