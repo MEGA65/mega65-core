@@ -756,9 +756,10 @@ begin
   process(irq,nmi,restore_nmi,io_irq,vic_irq,io_nmi,sw,reset_io,btnCpuReset,
           power_on_reset,reset_monitor,hyper_trap)
   begin
-    -- XXX Allow switch 0 to mask IRQs
-    combinedirq <= ((irq and io_irq and vic_irq) or sw(0));
-    combinednmi <= (nmi and io_nmi and restore_nmi) or sw(14);
+    -- Dip switches on the MEGA65R2/R3 or Nexys4 boards can be used to inhibit
+    -- IRQs and NMIs
+    combinedirq <= ((irq and io_irq and vic_irq) or (not sw(15)));
+    combinednmi <= (nmi and io_nmi and restore_nmi) or (not sw(14));
     if btnCpuReset='0' then
       report "reset asserted via btnCpuReset";
       reset_combined <= '0';
@@ -778,7 +779,6 @@ begin
 
     hyper_trap_combined <= hyper_trap and monitor_hyper_trap;
     
-  -- report "btnCpuReset = " & std_logic'image(btnCpuReset) & ", reset_io = " & std_logic'image(reset_io) & ", sw(15) = " & std_logic'image(sw(15)) severity note;
     report "reset_combined = " & std_logic'image(reset_combined) severity note;
   end process;
   
@@ -813,7 +813,8 @@ begin
       led(14) <= speed_gate_enable;
       led(15) <= motor;
 
-      xray_mode <= sw(1);
+      -- Xray mode allows debugging raster time on VIC-IV
+      xray_mode <= sw(12);
       
       segled_counter <= segled_counter + 1;
 
@@ -1258,7 +1259,7 @@ begin
     visual_keyboard_enable => visual_keyboard_enable,
     keyboard_at_top => keyboard_at_top,
 
-    matrix_mode_enable => protected_hardware_sig(6),--sw(5),
+    matrix_mode_enable => protected_hardware_sig(6),
     secure_mode_flag =>  secure_mode_triage_required,
 
     vgared_in => vgared_viciv,
@@ -1720,7 +1721,7 @@ begin
     terminal_emulator_ready => terminal_emulator_ready,
     terminal_emulator_ack => terminal_emulator_ack,
 
-    force_single_step => sw(11),
+    force_single_step => sw(13),
 
     secure_mode_from_cpu => secure_mode_flag,
     secure_mode_from_monitor => secure_mode_from_monitor,

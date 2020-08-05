@@ -243,6 +243,16 @@ architecture Behavioral of container is
   signal cpu_game : std_logic := '1';
   signal cpu_exrom : std_logic := '1';
 
+  -- Communications with the MAX10 FPGA
+  signal btncpureset : std_logic := '1';
+  signal j21ddr : std_logic_vector(11 downto 0) := (others => '0');
+  signal j21out : std_logic_vector(11 downto 0) := (others => '0');
+  signal j21in : std_logic_vector(11 downto 0) := (others => '0');
+  signal max10_out_vector : std_logic_vector(31 downto 0) := (others => '0');
+  signal max10_in_vector : std_logic_vector(31 downto 0) := (others => '0');
+  signal max10_counter : integer range 0 to 31 := 0;
+  signal fpga_done : std_logic := '1';
+  
   signal ethclock : std_logic;
   signal cpuclock : std_logic;
   signal clock41 : std_logic;
@@ -451,8 +461,8 @@ begin
              USRCCLKTS=>'0',--1-bit input: User CCLK 3-state enable input
 
              -- Assert DONE pin
-             USRDONEO=>'1',--1-bit input: User DONE pin output control
-             USRDONETS=>'1' --1-bit input: User DONE 3-state enable output
+             USRDONEO=>fpga_done,--1-bit input: User DONE pin output control
+             USRDONETS=>'0' --1-bit input: User DONE 3-state enable output DISABLE
              );
 -- End of STARTUPE2_inst instantiation
 
@@ -948,9 +958,8 @@ begin
     -- VGA output at full pixel clock
     vdac_clk <= pixelclock;
 
-    -- Ethernet clock at 50MHz
-    -- Now done by BUFG above
---    eth_clock <= ethclock;
+    -- Drive communications to MAX10 at 40.5MHz
+    fpga_done <= clock41;
 
     -- Use both real and cartridge IRQ and NMI signals
     irq_combined <= irq and irq_out;
@@ -959,6 +968,26 @@ begin
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then
 
+      -- Drive simple serial protocol with MAX10 FPGA
+      if max10_counter = 31 then
+        max10_counter <= 0;
+        reset_from_max10 <= '0';
+        fpga_tx <= max10_out_vector(0);
+        -- Latch read values, if vector is not stuck low
+        if max10_in_vector /= x"00000000" then
+          j21in <= max10_in_vector(11 downto 0);
+          sw(15 downto 12) <= max10_in_vector(15 downto 12);
+          btncpureset <= max10_in_vector(16);
+        end if;
+      else
+        max10_counter <= max10_counter + 1;
+        reset_from_max10 <= '1';
+      end if;
+      max10_in_vector(0) <= fpga_rx;
+      max10_in_vector(31 downto 1) <= max10_in_vector(30 downto 0);
+      max10_out_vector(11 downto 0) <= j21ddr;
+      max10_out_vector(23 downto 12) <= j21out;
+      
       reset_high <= not btncpureset;
       
 --      led <= cart_exrom;
