@@ -992,7 +992,16 @@ begin
         end if;
       else
         max10_counter <= max10_counter + 1;
-        reset_from_max10 <= '1';
+        if max10_counter = 1 then
+          reset_from_max10 <= '1';
+        else
+          reset_from_max10 <= 'Z';
+        end if;
+        -- XXX Backward compatibility to older MAX10 firmware to keep
+        -- reset button working.
+        if max10_counter = 8 and reset_from_max10 = '0' then
+          btncpureset <= '0';
+        end if;
       end if;
       max10_in_vector(0) <= fpga_rx;
       max10_in_vector(31 downto 1) <= max10_in_vector(30 downto 0);

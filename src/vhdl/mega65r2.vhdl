@@ -900,12 +900,24 @@ begin
         -- Latch read values, if vector is not stuck low
         if max10_in_vector /= x"00000000" then
           j21in <= max10_in_vector(11 downto 0);
-          sw(15 downto 12) <= max10_in_vector(15 downto 12);
+          sw(15) <= not max10_in_vector(15);
+          sw(14) <= not max10_in_vector(14);
+          sw(13) <= not max10_in_vector(13);
+          sw(12) <= not max10_in_vector(12);
           btncpureset <= max10_in_vector(16);
         end if;
       else
         max10_counter <= max10_counter + 1;
-        reset_from_max10 <= '1';
+        if max10_counter = 1 then
+          reset_from_max10 <= '1';
+        else
+          reset_from_max10 <= 'Z';
+        end if;
+        -- XXX Backward compatibility to older MAX10 firmware to keep
+        -- reset button working.
+        if reset_from_max10 = '0' then
+          btncpureset <= '0';
+        end if;
       end if;
       max10_in_vector(0) <= max10_rx;
       max10_in_vector(31 downto 1) <= max10_in_vector(30 downto 0);
