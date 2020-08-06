@@ -915,8 +915,8 @@ begin
         end if;
         -- XXX Backward compatibility to older MAX10 firmware to keep
         -- reset button working.
-        if reset_from_max10 = '0' then
-          btncpureset <= '0';
+        if max10_counter = 8 and reset_from_max10 = '0' then
+--          btncpureset <= '0';
         end if;
       end if;
       max10_in_vector(0) <= max10_rx;

@@ -9,6 +9,14 @@
 //#define DEBUG_BITBASH(x) { printf("@%d:%02x",__LINE__,x); }
 #define DEBUG_BITBASH(x)
 
+#ifdef A100T
+#define SLOT_SIZE (4L*1048576L)
+#define SLOT_MB 4
+#else
+#define SLOT_MB 8
+#define SLOT_SIZE (8L*1048576L)
+#endif
+
 char *select_bitstream_file(void);
 void fetch_rdid(void);
 void flash_reset(void);
@@ -89,10 +97,9 @@ void wait_10ms(void)
   absolutely minimalistic.
  */
 
-const long sd_sectorbuffer=0xffd6e00L;
-const uint16_t sd_ctl=0xd680L;
-const uint16_t sd_addr=0xd681L;
-const uint16_t sd_errorcode=0xd6daL;
+#define sd_sectorbuffer 0xffd6e00L
+#define sd_ctl 0xd680L
+#define sd_addr 0xd681L
 
 const unsigned long sd_timeout_value=100000;
 
@@ -523,13 +530,22 @@ void reflash_slot(unsigned char slot)
   // so we will just write upto 4MB of stuff in one go.
   progress=0; progress_acc=0;
 
-  for(addr=(4L*1024L*1024L)*slot;addr<(4L*1024L*1024L)*(slot+1);addr+=512) {
+  for(addr=(SLOT_SIZE)*slot;addr<(SLOT_SIZE)*(slot+1);addr+=512) {
     progress_acc+=512;
+#ifdef A100T
     if (progress_acc>26214) {
       progress_acc-=26214;
       progress++;
       progress_bar(progress);
     }
+#else
+    if (progress_acc>52428) {
+      progress_acc-=52428;
+      progress++;
+      progress_bar(progress);
+    }
+#endif     
+
     // dummy read to flush buffer in flash
     read_data(addr);
     for(i=0;i<512;i++) if (data_buffer[i]!=0xff) break;
@@ -569,12 +585,19 @@ void reflash_slot(unsigned char slot)
     // Read the flash file and write it to the flash
     printf("%cWriting bitstream to flash...\n\n",0x93);
     progress=0; progress_acc=0;
-    for(addr=(4L*1024L*1024L)*slot;addr<(4L*1024L*1024L)*(slot+1);addr+=512) {
+    for(addr=(SLOT_SIZE)*slot;addr<(SLOT_SIZE)*(slot+1);addr+=512) {
       progress_acc+=512;
+#ifdef A100T      
       if (progress_acc>26214) {
 	progress_acc-=26214;
 	progress++;
       }
+#else
+      if (progress_acc>52428) {
+	progress_acc-=52428;
+	progress++;
+      }
+#endif     
       progress_bar(progress);
       
       bytes_returned=hy_read512(buffer);
@@ -615,7 +638,7 @@ void reflash_slot(unsigned char slot)
       return;
     }
     
-    for(addr=(4L*1024L*1024L)*slot;addr<(4L*1024L*1024L)*(slot+1);addr+=512) {
+    for(addr=(SLOT_SIZE)*slot;addr<(SLOT_SIZE)*(slot+1);addr+=512) {
       progress_acc+=512;
       if (progress_acc>26214) {
 	progress_acc-=26214;
@@ -1174,7 +1197,7 @@ void fetch_rdid(void)
 unsigned char slot_empty_check(unsigned short mb_num)
 {
   unsigned long addr;
-  for(addr=(mb_num*1048576L);addr<((mb_num+4)*1048576L);addr+=512)
+  for(addr=(mb_num*1048576L);addr<((mb_num*1048576L)+SLOT_SIZE);addr+=512)
     {
       read_data(addr);
       y=0xff;
@@ -1455,14 +1478,14 @@ void main(void)
       // XXX - For now, we just always show the menu
       
       // Check valid flag and empty state of the slot before launching it.
-      read_data(4*1048576+0*256);
+      read_data(SLOT_SIZE+0*256);
       y=0xff;
       valid=1;
       for(x=0;x<256;x++) y&=data_buffer[x];
       for(x=0;x<16;x++) if (data_buffer[x]!=bitstream_magic[x]) { valid=0; break; }
       // Check 512 bytes in total, because sometimes >256 bytes of FF are at the start of a bitstream.
       if (y==0xff) {
-	read_data(4*1048576+1*256);
+	read_data(SLOT_SIZE+1*256);
 	for(x=0;x<256;x++) y&=data_buffer[x];
       } else {
 	//      for(i=0;i<255;i++) printf("%02x",data_buffer[i]);
@@ -1472,7 +1495,7 @@ void main(void)
       
       if (valid) {
 	// Valid bitstream -- so start it
-	reconfig_fpga(1*(4*1048576)+4096);
+	reconfig_fpga(1*(SLOT_SIZE)+4096);
       } else if (y==0xff) {
 	// Empty slot -- ignore and resume
 	// Switch back to normal speed control before exiting
@@ -1547,7 +1570,7 @@ void main(void)
 
       // Scan for existing bitstreams
       // (ignore golden bitstream at offset #0)
-      for(i=0;i<mb;i+=4) {
+      for(i=0;i<mb;i+=SLOT_MB) {
 	
 	// Position cursor for slot
 	z=i>>2;
@@ -1626,7 +1649,7 @@ void main(void)
 	  if (x=='0') {
 	    reconfig_fpga(0);
 	  }
-	  else reconfig_fpga((x-'0')*(4*1048576)+4096);
+	  else reconfig_fpga((x-'0')*(SLOT_SIZE)+4096);
 	}
 	switch(x) {
 	case 0x03: case 0x1b:
@@ -1650,7 +1673,7 @@ void main(void)
 	    reconfig_fpga(0);
 	    printf("%c",0x93);
 	  }
-	  else reconfig_fpga(selected*(4*1048576)+4096);
+	  else reconfig_fpga(selected*(SLOT_SIZE)+4096);
 	  break;
 #if 1
 	case 0x4d: case 0x6d: // M / m
