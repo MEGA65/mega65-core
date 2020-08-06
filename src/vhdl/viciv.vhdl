@@ -227,6 +227,7 @@ architecture Behavioral of viciv is
   -- last value written to key register
   signal reg_key : unsigned(7 downto 0) := x"00";
 
+  signal last_dd00_bits : unsigned(1 downto 0) := "11";
   signal vicii_hot_regs_enable : std_logic := '1';
   signal viciv_legacy_mode_registers_touched : std_logic := '0';
   signal viciv_single_side_border_width_touched : std_logic := '0';
@@ -2190,7 +2191,7 @@ begin
         and (colourram_at_dc00_internal = '0')
       then
         report "Caught write to $DD00" severity note;
-        last_dd00_bits <= fastio_wdata(1 downto 0);
+        last_dd00_bits <= unsigned(fastio_wdata(1 downto 0));
         screen_ram_base(15) <= not fastio_wdata(1);
         screen_ram_base(14) <= not fastio_wdata(0);
         character_set_address(15) <= not fastio_wdata(1);
