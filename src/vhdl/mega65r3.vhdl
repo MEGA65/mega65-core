@@ -35,7 +35,7 @@ use UNISIM.VComponents.all;
 
 entity container is
   Port ( CLK_IN : STD_LOGIC;         
-         btnCpuReset : in  STD_LOGIC;
+         reset_from_max10 : inout  STD_LOGIC;
 --         irq : in  STD_LOGIC;
 --         nmi : in  STD_LOGIC;
          
@@ -983,7 +983,7 @@ begin
       if max10_counter = 31 then
         max10_counter <= 0;
         reset_from_max10 <= '0';
-        fpga_tx <= max10_out_vector(0);
+        max10_tx <= max10_out_vector(0);
         -- Latch read values, if vector is not stuck low
         if max10_in_vector /= x"00000000" then
           j21in <= max10_in_vector(11 downto 0);
@@ -1003,7 +1003,7 @@ begin
           btncpureset <= '0';
         end if;
       end if;
-      max10_in_vector(0) <= fpga_rx;
+      max10_in_vector(0) <= max10_rx;
       max10_in_vector(31 downto 1) <= max10_in_vector(30 downto 0);
       max10_out_vector(11 downto 0) <= j21ddr;
       max10_out_vector(23 downto 12) <= j21out;
