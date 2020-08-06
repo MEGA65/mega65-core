@@ -1661,10 +1661,10 @@ void main(void)
 	  
 	case 0x1d: case 0x11:
 	  selected++;
-	  if (selected>=(mb>>2)) selected=0;
+	  if (selected>=(mb/SLOT_MB)) selected=0;
 	  break;
 	case 0x9d: case 0x91:
-	  if (selected==0) selected=(mb>>2)-1; else selected--;
+	  if (selected==0) selected=(mb/SLOT_MB)-1; else selected--;
 	  break;
 	case 0x0d:
 	  // Launch selected bitstream
