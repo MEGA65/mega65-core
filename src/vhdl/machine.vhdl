@@ -762,8 +762,8 @@ begin
   begin
     -- Dip switches on the MEGA65R2/R3 or Nexys4 boards can be used to inhibit
     -- IRQs and NMIs
-    combinedirq <= ((irq and io_irq and vic_irq) or (not sw(15)));
-    combinednmi <= (nmi and io_nmi and restore_nmi) or (not sw(14));
+    combinedirq <= (irq and io_irq and vic_irq) or sw(15);
+    combinednmi <= (nmi and io_nmi and restore_nmi) or sw(14);
     if btnCpuReset='0' then
       report "reset asserted via btnCpuReset";
       reset_combined <= '0';
