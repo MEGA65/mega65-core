@@ -1471,6 +1471,7 @@ begin
                                        ,12);
       end if;
 
+      screen_ram_base(27 downto 16) <= (others => '0');
       if reg_h640='1' then
         screen_ram_base(13 downto 11) <= reg_d018_screen_addr(3 downto 1);
         screen_ram_base(10 downto 0) <= (others => '0');
@@ -1478,14 +1479,16 @@ begin
         screen_ram_base(13 downto 10) <= reg_d018_screen_addr;
         screen_ram_base(9 downto 0) <= (others => '0');
       end if;
-
+      
       -- Sprites fetch from screen ram base + $3F8 (or +$7F8 in VIC-III 80
       -- column mode).
       -- In 80 column mode the screen base must be on a 2K boundary on the
       -- C65, which changes the interpretation of the screen_ram_base.
-      -- Behaviour for 160 and 240 column modes is undefined.
       -- Note that our interpretation of V400 to double the number of text
       -- rows breaks strict C65 compatibility.
+      vicii_sprite_pointer_address(27 downto 16) <= (others => '0');
+      -- NOTE: Bits 14 and 15 are still set only by writing to $DD00
+      -- or the VIC-IV registers that modify this.
       vicii_sprite_pointer_address(13 downto 10)
         <= reg_d018_screen_addr;
       if reg_h640='1' or reg_v400='1' then
@@ -1493,10 +1496,18 @@ begin
       end if;
       vicii_sprite_pointer_address(9 downto 0) <= "1111111000";
 
+      -- Apply VIC-II banks
+      screen_ram_base(15 downto 14) <= last_dd00_bits;
+      vicii_sprite_pointer_address(15 downto 14) <= last_dd00_bits;
+      
       -- All VIC-II/VIC-III compatibility modes use the first part of the
       -- colour RAM.
       colour_ram_base <= (others => '0');
 
+      -- NOTE: We DONT reset the character set address with a legacy write.
+      -- This makes it easier to use alternate character sets, and full-colour
+      -- text mode upgrading of old programmes.
+      
     end procedure viciv_interpret_legacy_mode_registers;
     procedure viciv_update_side_border_dimensions is
     begin
@@ -2179,6 +2190,7 @@ begin
         and (colourram_at_dc00_internal = '0')
       then
         report "Caught write to $DD00" severity note;
+        last_dd00_bits <= fastio_wdata(1 downto 0);
         screen_ram_base(15) <= not fastio_wdata(1);
         screen_ram_base(14) <= not fastio_wdata(0);
         character_set_address(15) <= not fastio_wdata(1);
@@ -4776,7 +4788,7 @@ begin
           if vicii_sprite_pointer_address(23)='1' then
             -- 16-bit sprite pointers, allowing sprites to be sourced from
             -- anywhere in first 64K x 64 = 4MB of chip RAM (of which we
-            -- currently have only 128KB :)
+            -- currently have only 384KB :)
             sprite_pointer_address(19 downto 4) <= vicii_sprite_pointer_address(19 downto 4);
             sprite_pointer_address(3 downto 1) <=  to_unsigned(sprite_fetch_sprite_number,3);
             sprite_pointer_address(0) <= '1';
