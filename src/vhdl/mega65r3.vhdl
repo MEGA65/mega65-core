@@ -987,7 +987,10 @@ begin
         -- Latch read values, if vector is not stuck low
         if max10_in_vector /= x"00000000" then
           j21in <= max10_in_vector(11 downto 0);
-          sw(15 downto 12) <= max10_in_vector(15 downto 12);
+          sw(15) <= not max10_in_vector(15);
+          sw(14) <= not max10_in_vector(14);
+          sw(13) <= not max10_in_vector(13);
+          sw(12) <= not max10_in_vector(12);
           btncpureset <= max10_in_vector(16);
         end if;
       else
