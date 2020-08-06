@@ -4,7 +4,6 @@
 #include <hal.h>
 #include <memory.h>
 #include <dirent.h>
-#include <fileio.h>
 
 //#define DEBUG_BITBASH(x) { printf("@%d:%02x",__LINE__,x); }
 #define DEBUG_BITBASH(x)
