@@ -1502,7 +1502,7 @@ void main(void)
 	POKE(0xCF7f,0x4C);
 	asm (" jmp $cf7f ");
       } else {
-	printf("WARNING: Flash slot 1 is seems to be\n"
+	printf("WARNING: Flash slot 1 seems to be\n"
 	       "messed up (code $%02X).\n",y);
 	printf("To avoid seeing this message every time,either "
 	       "erase or re-flash the slot.\n");
