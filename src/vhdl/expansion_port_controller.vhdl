@@ -339,7 +339,7 @@ begin
             case cart_access_address(15 downto 0) is
               when x"0000" =>
                 -- @IO:GS $7010000.7 - Read cartridge /EXROM flag
-                -- @IO:GS $7010000.6 - Read cartridge /EXROM flag
+                -- @IO:GS $7010000.6 - Read cartridge /GAME flag
                 cart_access_rdata(7 downto 6) <= unsigned(cart_flags);
                 -- @IO:GS $7010000.5 - Read cartridge force reset (1=reset)
                 cart_access_rdata(5) <= cart_force_reset;
