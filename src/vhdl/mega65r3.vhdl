@@ -605,7 +605,7 @@ begin
       clock325 => clock325,
 
       -- XXX Debug by showing if expansion RAM unit is receiving requests or not
-      request_counter => led,
+--      request_counter => led,
 
       viciv_addr => hyper_addr,
       viciv_request_toggle => hyper_request_toggle,
@@ -1078,6 +1078,8 @@ begin
       h_audio_right(19) <= not audio_right(19);
       h_audio_left(19) <= not audio_left(19);
     end if;
+    -- LED on main board 
+    led <= portp(4);
 
     if rising_edge(pixelclock) then
       hsync <= v_vga_hsync;
