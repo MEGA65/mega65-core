@@ -444,7 +444,7 @@ reset_machine_state:
 	tsb $d7fb
 	
 	;; /EXROM and /GAME follow cartridge port
-        lda #$ff
+        lda #$3f
         sta $d7fd
 
         jsr audiomix_setup
