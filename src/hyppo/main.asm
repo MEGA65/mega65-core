@@ -439,6 +439,11 @@ reset_machine_state:
         lda #$6b    ;; 01101011
         sta hypervisor_feature_enables
 
+	;; Enable cartridge /EXROM and /GAME lines in CPU addressing
+	lda #$02
+	tsb $d7fb
+	
+	;; /EXROM and /GAME follow cartridge port
         lda #$ff
         sta $d7fd
 
