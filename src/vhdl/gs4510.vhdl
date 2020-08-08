@@ -1645,7 +1645,7 @@ begin
       
       -- Enable chipselect for all peripherals and memories
       chipselect_enables <= x"EF";
---      cartridge_enable <= '0';
+      cartridge_enable <= '1';
       hyper_protected_hardware <= x"00";
       
       -- CPU starts in hypervisor
@@ -3590,7 +3590,6 @@ begin
       
       -- Disable all non-essential IO devices from memory map when in secure mode.
       if hyper_protected_hardware(7)='1' then
-        cartridge_enable <= '0';
         chipselect_enables <= x"84"; -- SD card/multi IO controller and SIDs
       -- (we disable the undesirable parts of the SD card interface separately)
       else
@@ -3745,6 +3744,10 @@ begin
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) and all_pause='0' then
 
+      if hyper_protected_hardware(7)='1' then
+        cartridge_enable <= '0';
+      end if;
+      
       div_start_over <= '0';
       
       -- By default try to service pending background DMA requests.
@@ -4468,7 +4471,7 @@ begin
           immediate_monitor_char_busy <= '1';
         end if;
 
-                                        -- @IO:GS $D67D.0 HCPU:CARTEN Hypervisor enable /EXROM and /GAME from cartridge
+                                        -- @IO:GS $D67D.0 HCPU:RSVD RESERVED
                                         -- @IO:GS $D67D.1 HCPU:JMP32EN Hypervisor enable 32-bit JMP/JSR etc
                                         -- @IO:GS $D67D.2 HCPU:ROMPROT Hypervisor write protect C65 ROM \$20000-\$3FFFF
                                         -- @IO:GS $D67D.3 HCPU:ASCFAST Hypervisor enable ASC/DIN CAPS LOCK key to enable/disable CPU slow-down in C64/C128/C65 modes
@@ -4479,7 +4482,6 @@ begin
         
                                         -- @IO:GS $D67D HCPU:WATCHDOG Hypervisor watchdog register: writing any value clears the watch dog
         if last_write_address = x"FFD367D" and hypervisor_mode='1' then
-          cartridge_enable <= last_value(0);
           flat32_enabled <= last_value(1);
           rom_writeprotect <= last_value(2);
           speed_gate_enable <= last_value(3);
