@@ -223,10 +223,11 @@ set_property -dict {PACKAGE_PIN G22 IOSTANDARD LVCMOS33} [get_ports grove_sda0]
 #
 set_property -dict {PACKAGE_PIN L6 IOSTANDARD LVCMOS33} [get_ports pwm_l]
 set_property -dict {PACKAGE_PIN F4 IOSTANDARD LVCMOS33} [get_ports pwm_r]
-set_property -dict {PACKAGE_PIN F18 IOSTANDARD LVCMOS33} [get_ports pcspeaker_muten]
-set_property -dict {PACKAGE_PIN E16 IOSTANDARD LVCMOS33} [get_ports pcspeaker_left]
-set_property -dict {PACKAGE_PIN F19 IOSTANDARD LVCMOS33} [get_ports pcspeaker_leftright_clock]
-set_property -dict {PACKAGE_PIN E19 IOSTANDARD LVCMOS33} [get_ports pcspeaker_b_clock]
+set_property -dict {PACKAGE_PIN F18 IOSTANDARD LVCMOS33} [get_ports i2s_sd]
+set_property -dict {PACKAGE_PIN E16 IOSTANDARD LVCMOS33} [get_ports i2s_speaker]
+set_property -dict {PACKAGE_PIN D16 IOSTANDARD LVCMOS33} [get_ports i2s_mclk]
+set_property -dict {PACKAGE_PIN E19 IOSTANDARD LVCMOS33} [get_ports i2s_bclk]
+set_property -dict {PACKAGE_PIN F19 IOSTANDARD LVCMOS33} [get_ports i2s_sync]
 
 
 ##USB HID (PS/2)

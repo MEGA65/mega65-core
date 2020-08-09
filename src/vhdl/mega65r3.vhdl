@@ -186,10 +186,6 @@ entity container is
          -- Left and right headphone port audio
          pwm_l : out std_logic;
          pwm_r : out std_logic;
-
-         -- internal speaker
-         pcspeaker_left : out std_logic;
-         pcspeaker_muten : out std_logic;
          
          -- PMOD connectors on the MEGA65 R2 main board
          p1lo : inout std_logic_vector(3 downto 0);
@@ -216,6 +212,15 @@ entity container is
 
          led : out std_logic;
 
+         ----------------------------------------------------------------------
+         -- I2S speaker audio output
+         ----------------------------------------------------------------------
+         i2s_mclk : out std_logic;
+         i2s_sync : out std_logic;
+         i2s_speaker : out std_logic;
+         i2s_bclk : out std_logic := '1'; -- Force 16 cycles per sample,
+         i2s_sd : out std_logic;
+         
          ----------------------------------------------------------------------
          -- I2C on-board peripherals
          ----------------------------------------------------------------------
@@ -353,7 +358,6 @@ architecture Behavioral of container is
 
   signal pwm_l_drive : std_logic;
   signal pwm_r_drive : std_logic;
-  signal pcspeaker_left_drive : std_logic;
 
   signal flopled_drive : std_logic;
   signal flopmotor_drive : std_logic;
@@ -923,11 +927,15 @@ begin
       flopmotor => flopmotor_drive,
       ampPWM_l => pwm_l_drive,
       ampPWM_r => pwm_r_drive,
-      ampSD => pcspeaker_muten,
-      pcspeaker_left => pcspeaker_left_drive,
       audio_left => audio_left,
       audio_right => audio_right,
 
+      -- PC speakers left/right on main board
+      ampSD => i2s_sd,
+      i2s_master_clk => i2s_mclk,
+      i2s_master_sync => i2s_sync,
+      i2s_speaker_data_out => i2s_speaker,
+      
       -- Normal connection of I2C peripherals to dedicated address space
       i2c1sda => fpga_sda,
       i2c1scl => fpga_scl,
@@ -1076,7 +1084,6 @@ begin
 
       pwm_l <= pwm_l_drive;
       pwm_r <= pwm_r_drive;
-      pcspeaker_left <= pcspeaker_left_drive;
       
     end if;
 
