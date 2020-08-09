@@ -855,13 +855,13 @@ mountsystemdiskok:
         ;; Load and display boot logo
         ;; Prepare 32-bit pointer for loading boot logo @ $0057D00
         ;; (palette is $57D00-$57FFF, logo $58000-$5CFFF)
-        lda #$7d
-        sta <dos_file_loadaddress+1
         lda #$00
         sta <dos_file_loadaddress+0
-        ;; lda #$05
+        lda #$7d
+        sta <dos_file_loadaddress+1
+        lda #$05
         sta <dos_file_loadaddress+2
-        ;; lda #$00
+        lda #$00
         sta <dos_file_loadaddress+3
 
         ldx #<txt_BOOTLOGOM65
