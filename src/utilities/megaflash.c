@@ -1572,7 +1572,7 @@ void main(void)
       for(i=0;i<mb;i+=SLOT_MB) {
 	
 	// Position cursor for slot
-	z=i>>2;
+	z=i/SLOT_MB;
 	printf("%c%c",0x13,0x11);
 	for(y=0;y<z;y++) printf("%c%c%c",0x11,0x11,0x11);
 	
@@ -1592,11 +1592,11 @@ void main(void)
 
 	if (!i) {
 	  // Assume contains golden bitstream
-	  printf("    (%c) MEGA65 FACTORY CORE",'0'+(i>>2));
+	  printf("    (%c) MEGA65 FACTORY CORE",'0'+(i/SLOT_MB));
 	}
-	else if (y==0xff) printf("    (%c) EMPTY SLOT\n",'0'+(i>>2));
+	else if (y==0xff) printf("    (%c) EMPTY SLOT\n",'0'+(i/SLOT_MB));
 	else if (!valid) {
-	  printf("    (%c) UNKNOWN CONTENT\n",'0'+(i>>2));
+	  printf("    (%c) UNKNOWN CONTENT\n",'0'+(i/SLOT_MB));
 	} else {
 	  // Something valid in the slot
 	  char core_name[32];
@@ -1614,15 +1614,15 @@ void main(void)
 	  core_version[31]=0;
 	  
 	  // Display info about it
-	  printf("    %c(%c) %s\n",0x05,'0'+(i>>2),core_name);
+	  printf("    %c(%c) %s\n",0x05,'0'+(i/SLOT_MB),core_name);
 	  printf("        %s\n",core_version);
 	}
 
 	// Check if entire slot is empty
 	//    if (slot_empty_check(i)) printf("  slot is not completely empty.\n");
 
-	base_addr = 0x0400 + (i>>2)*(3*40);
-	if ((i>>2)==selected) {
+	base_addr = 0x0400 + (i/SLOT_MB)*(3*40);
+	if ((i/SLOT_MB)==selected) {
 	  // Highlight selected item
 	  for(x=0;x<(3*40);x++) {
 	    POKE(base_addr+x,PEEK(base_addr+x)|0x80);
