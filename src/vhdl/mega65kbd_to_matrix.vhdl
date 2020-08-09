@@ -12,6 +12,9 @@ entity mega65kbd_to_matrix is
     flopled : in std_logic;
     powerled : in std_logic;    
 
+    kbd_datestamp : out unsigned(13 downto 0) := to_unsigned(0,14);
+    kbd_commit : out unsigned(31 downto 0) := to_unsigned(0,32);
+    
     disco_led_id : in unsigned(7 downto 0) := x"00";
     disco_led_val : in unsigned(7 downto 0) := x"00";
     disco_led_en : in std_logic := '0';
@@ -131,6 +134,13 @@ begin  -- behavioural
           end if;
           if phase = 78 then
             fastkey <= kio10;
+          end if;
+          -- Also extract keyboard CPLD firmware information
+          if phase >= 82 and phase <= (82+13) then
+            kbd_datestamp(phase - 82) <= kio10;
+          end if;
+          if phase >= 96 and phase <= (96+31) then
+            kbd_commit(phase - 96) <= kio10;
           end if;
           
           -- Work around the data arriving 2 cycles late from the keyboard controller

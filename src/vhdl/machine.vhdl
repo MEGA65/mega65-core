@@ -154,6 +154,9 @@ entity machine is
 
          porto_out : out unsigned(7 downto 0) := x"00";
          portp_out : out unsigned(7 downto 0) := x"00";
+
+         kbd_datestamp : in unsigned(13 downto 0);
+         kbd_commit : in unsigned(31 downto 0);
          
          -------------------------------------------------------------------------
          -- CIA1 ports for keyboard and joysticks
@@ -1406,6 +1409,9 @@ begin
       speed_gate_enable => speed_gate_enable,
       ethernet_cpu_arrest => ethernet_cpu_arrest,
 
+      kbd_datestamp => kbd_datestamp,
+      kbd_commit => kbd_commit,
+      
       qspi_clock => qspi_clock,
       qspicsn => qspicsn,
       qspidb => qspidb,

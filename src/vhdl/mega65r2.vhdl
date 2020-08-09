@@ -403,6 +403,9 @@ architecture Behavioral of container is
   signal fm_left : signed(15 downto 0);
   signal fm_right : signed(15 downto 0);
 
+  signal kbd_datestamp : unsigned(13 downto 0);
+  signal kbd_commit : unsigned(31 downto 0);
+  
 begin
 
 --STARTUPE2:STARTUPBlock--7Series
@@ -498,6 +501,9 @@ begin
       kio9 => kb_io1,
       kio10 => kb_io2,
 
+      kbd_datestamp => kbd_datestamp,
+      kbd_commit => kbd_commit,
+      
       matrix_col => widget_matrix_col,
       matrix_col_idx => widget_matrix_col_idx,
       restore => widget_restore,
@@ -672,6 +678,9 @@ begin
       j21in => j21in,
       j21out => j21out,
       j21ddr => j21ddr,
+      
+      kbd_datestamp => kbd_datestamp,
+      kbd_commit => kbd_commit,
       
       btncpureset => btncpureset,
       reset_out => reset_out,

@@ -17,6 +17,9 @@ entity c65uart is
     osk_toggle_key : in std_logic;
     joyswap_key : in std_logic;
 
+    kbd_datestamp : in unsigned(13 downto 0);
+    kbd_commit : in unsigned(31 downto 0);        
+    
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
     ---------------------------------------------------------------------------
@@ -465,7 +468,7 @@ begin  -- behavioural
           when x"25" => j21out(7 downto 0) <= std_logic_vector(fastio_wdata);
           when x"26" => j21out(11 downto 8) <= std_logic_vector(fastio_wdata(3 downto 0));
           when x"27" => j21ddr(7 downto 0) <= std_logic_vector(fastio_wdata);
-          when x"28" => j21ddr(11 downto 8) <= std_logic_vector(fastio_wdata(3 downto 0));
+          when x"28" => j21ddr(11 downto 8) <= std_logic_vector(fastio_wdata(3 downto 0));                       
           when others => null;
         end case;
       end if;
@@ -679,7 +682,19 @@ begin  -- behavioural
         when x"27" => fastio_rdata <= unsigned(j21ddr(7 downto 0));
         when x"28" => fastio_rdata(3 downto 0) <= (unsigned(j21ddr(11 downto 8)));
                       fastio_rdata(7 downto 4) <= "0000";
-                      
+        -- @IO:GS $D62A KBD:FWDATEL LSB of keyboard firmware date stamp (days since 1 Jan 2020)
+        -- @IO:GS $D62B KBD:FWDATEH MSB of keyboard firmware date stamp (days since 1 Jan 2020)
+        when x"2a" => fastio_rdata <= kbd_datestamp(7 downto 0);
+        when x"2b" => fastio_rdata(5 downto 0) <= kbd_datestamp(13 downto 8);
+                      fastio_rdata(7 downto 6) <= "00";
+        -- @IO:GS $D62C KBD:FWGIT0 LSB of keyboard firmware git commit
+        -- @IO:GS $D62D KBD:FWGIT0 2nd byte of keyboard firmware git commit
+        -- @IO:GS $D62E KBD:FWGIT0 3rd byte of keyboard firmware git commit
+        -- @IO:GS $D62F KBD:FWGIT0 MSB of keyboard firmware git commit
+        when x"2c" => fastio_rdata <= kbd_commit(7 downto 0);
+        when x"2d" => fastio_rdata <= kbd_commit(15 downto 8);
+        when x"2e" => fastio_rdata <= kbd_commit(23 downto 16);
+        when x"2f" => fastio_rdata <= kbd_commit(31 downto 24);
                       
         when others =>
           report "Reading untied register, result = Z";

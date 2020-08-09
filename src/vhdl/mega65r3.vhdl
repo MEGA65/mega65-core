@@ -436,6 +436,9 @@ architecture Behavioral of container is
   signal tmds : slv_9_0_t(0 to 2);
 
   signal reset_high : std_logic := '1';
+
+  signal kbd_datestamp : unsigned(13 downto 0);
+  signal kbd_commit : unsigned(31 downto 0);
   
 begin
 
@@ -588,6 +591,9 @@ begin
       kio9 => kb_io1,
       kio10 => kb_io2,
 
+      kbd_datestamp => kbd_datestamp,
+      kbd_commit => kbd_commit,
+      
       matrix_col => widget_matrix_col,
       matrix_col_idx => widget_matrix_col_idx,
       restore => widget_restore,
@@ -762,6 +768,9 @@ begin
       j21in => j21in,
       j21out => j21out,
       j21ddr => j21ddr,
+
+      kbd_datestamp => kbd_datestamp,
+      kbd_commit => kbd_commit,
       
       btncpureset => btncpureset,
       reset_out => reset_out,
