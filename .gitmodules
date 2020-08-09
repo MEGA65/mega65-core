@@ -25,3 +25,6 @@
 [submodule "src/mega65-libc"]
 	path = src/mega65-libc
 	url = https://github.com/MEGA65/mega65-libc.git
+[submodule "sub/acme"]
+	path = sub/acme
+	url = https://github.com/MEGA65/acme.git
