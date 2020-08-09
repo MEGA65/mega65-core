@@ -10,7 +10,8 @@ OPHIS=	Ophis/bin/ophis
 OPHISOPT=	-4
 OPHIS_MON= Ophis/bin/ophis -c
 
-ACME=acme
+#ACME=acme
+ACME=src/tools/acme/src/acme
 
 VIVADO=	./vivado_wrapper
 
@@ -97,6 +98,11 @@ endif
 $(OPHIS):
 	git submodule init
 	git submodule update
+
+$(ACME):
+	git submodule init
+	git submodule update
+	( cd src/tools/acme/src && make )
 
 $(GHDL):
 	git submodule init
