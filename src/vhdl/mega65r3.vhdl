@@ -502,7 +502,7 @@ begin
       generic map (pcm_fs => 48.0 -- 48.0KHz audio
                    )
       port map (
-        dvi => '1',   -- Enable HDMI-style audio
+        dvi => '0',   -- Enable HDMI-style audio
         vic => std_logic_vector(to_unsigned(17,8)), -- CEA/CTA VIC 17=576p50 PAL, 2 = 480p60 NTSC
         aspect => "01", -- 01=4:3, 10=16:9
         pix_rep => '0', -- no pixel repetition
