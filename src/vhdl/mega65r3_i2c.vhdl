@@ -63,7 +63,7 @@ use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
 
-entity mega65r2_i2c is
+entity mega65r3_i2c is
   generic ( clock_frequency : integer);
   port (
     clock : in std_logic;
@@ -81,9 +81,9 @@ entity mega65r2_i2c is
     fastio_addr : in unsigned(19 downto 0)    
     
     );
-end mega65r2_i2c;
+end mega65r3_i2c;
 
-architecture behavioural of mega65r2_i2c is
+architecture behavioural of mega65r3_i2c is
 
   signal i2c1_address : unsigned(6 downto 0) := to_unsigned(0,7);
   signal i2c1_address_internal : unsigned(6 downto 0) := to_unsigned(0,7);

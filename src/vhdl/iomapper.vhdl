@@ -1226,9 +1226,9 @@ begin
     );
   end generate i2cperiph_megaphone;
   
-  i2cperiph_mega65r2:
-  if target = mega65r2 generate
-    i2c1: entity work.mega65r2_i2c
+  i2cperiph_mega65r3:
+  if target = mega65r3 generate
+    i2c1: entity work.mega65r3_i2c
       generic map ( clock_frequency => cpu_frequency)
       port map (
       clock => cpuclock,
@@ -1243,10 +1243,12 @@ begin
       fastio_wdata => unsigned(data_i),
       std_logic_vector(fastio_rdata) => data_o
 
-    );
-  i2cperiph_mega65r3:
-  if target = mega65r3 generate
-    i2c1: entity work.mega65r3_i2c
+      );
+  end generate i2cperiph_mega65r3;
+  
+  i2cperiph_mega65r2:
+  if target = mega65r2 generate
+    i2c1: entity work.mega65r2_i2c
       generic map ( clock_frequency => cpu_frequency)
       port map (
       clock => cpuclock,
