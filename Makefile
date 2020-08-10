@@ -10,7 +10,15 @@ OPHIS=	Ophis/bin/ophis
 OPHISOPT=	-4
 OPHIS_MON= Ophis/bin/ophis -c
 
-ACME=acme
+
+ifdef USE_LOCAL_ACME
+	# use locally installed binary (requires 'acme' to be in the $PATH)
+	ACME=	acme
+else
+	# use the binary built from the submodule
+	ACME=src/tools/acme/src/acme
+endif
+
 
 VIVADO=	./vivado_wrapper
 
@@ -97,6 +105,18 @@ endif
 $(OPHIS):
 	git submodule init
 	git submodule update
+
+$(ACME):
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
+	git submodule init
+	git submodule update
+ifdef USE_LOCAL_ACME
+	echo "NOTE: Using local installed ACME because USE_LOCAL_ACME=1."
+else
+	( cd src/tools/acme/src && make -j 8 )
+endif
+
 
 $(GHDL):
 	git submodule init
