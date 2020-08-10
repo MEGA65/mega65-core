@@ -14,9 +14,11 @@ OPHIS_MON= Ophis/bin/ophis -c
 ifdef USE_LOCAL_ACME
 	# use locally installed binary (requires 'acme' to be in the $PATH)
 	ACME=	acme
+	ACME_DEPEND=
 else
 	# use the binary built from the submodule
 	ACME=src/tools/acme/src/acme
+	ACME_DEPEND=$(ACME)
 endif
 
 
@@ -106,7 +108,7 @@ $(OPHIS):
 	git submodule init
 	git submodule update
 
-$(ACME):
+src/tools/acme/src/acme:
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	git submodule init
@@ -595,7 +597,7 @@ $(BINDIR)/border.prg: 	$(SRCDIR)/border.a65 $(OPHIS)
 	$(OPHIS) $(OPHISOPT) $< -l $(BINDIR)/border.list -m $*.map -o $(BINDIR)/border.prg
 
 # ============================ done moved, print-warn, clean-target
-$(BINDIR)/HICKUP.M65: $(SRCDIR)/hyppo/main.asm $(SRCDIR)/version.asm
+$(BINDIR)/HICKUP.M65: $(ACME_DEPEND) $(SRCDIR)/hyppo/main.asm $(SRCDIR)/version.asm
 	$(ACME) --cpu m65 --setpc 0x8000 -I $(SRCDIR)/hyppo $(SRCDIR)/hyppo/main.asm
 
 $(SRCDIR)/monitor/monitor_dis.a65: $(SRCDIR)/monitor/gen_dis
