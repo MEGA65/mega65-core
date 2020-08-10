@@ -666,7 +666,7 @@ begin
   
   slow_devices0: entity work.slow_devices
     generic map (
-      target => mega65r2
+      target => mega65r3
       )
     port map (
       cpuclock => cpuclock,
@@ -748,7 +748,7 @@ begin
   
   machine0: entity work.machine
     generic map (cpu_frequency => 40500000,
-                 target => mega65r2,
+                 target => mega65r3,
                  hyper_installed => true -- For VIC-IV to know it can use
                                          -- hyperram for full-colour glyphs
                  )                 

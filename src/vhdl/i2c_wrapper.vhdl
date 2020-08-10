@@ -540,7 +540,7 @@ begin
           if busy_count > 45 and i2c1_error='0' then
             bytes(busy_count - 1 - 45 + 22) <= i2c1_rdata;
           end if;
-          report "Real Time clock regs 0 -- 18";
+          report "Real Time clock regs 0 -- 19";
         when 48 =>
           i2c1_command_en <= '1';
           i2c1_address <= "1010001"; -- 0xA2/2 = I2C address of device;
@@ -553,7 +553,7 @@ begin
           if busy_count > 49 and i2c1_error='0' then
             bytes(busy_count - 1 - 49 + 24) <= i2c1_rdata;
           end if;
-          report "Audio amplifier regs 0 - 15";
+          report "Audio amplifier regs 0 - 18";
         when 69 =>
           i2c1_command_en <= '1';
           i2c1_address <= "0110100"; -- 0x68/2 = I2C address of device;
