@@ -245,12 +245,12 @@ begin
       if i2c1_busy='1' and last_busy='0' then
 
         -- Sequence through the list of transactions endlessly
-        if (busy_count < 126) or ((write_job_pending='1') and (busy_count < (126+4))) then
+        if (busy_count < 147) or ((write_job_pending='1') and (busy_count < (147+4))) then
           busy_count <= busy_count + 1;
           report "busy_count = " & integer'image(busy_count + 1);
           -- Delay switch to write so we generate a stop before hand and after
           -- the write.
-          if ((busy_count = 125) or (busy_count = 127)) and (delayed_en = 0) then
+          if ((busy_count = 146) or (busy_count = 148)) and (delayed_en = 0) then
             delayed_en <= 1024;
           end if;
         else
@@ -326,7 +326,7 @@ begin
         --------------------------------------------------------------------
         -- End of Auto-Generated Content
         --------------------------------------------------------------------        
-        when 126 =>
+        when 147 =>
           -- Write to a register, if a request is pending:
           -- First, write the address and register number.
           if last_busy_count /= busy_count then
@@ -336,7 +336,7 @@ begin
           command_en <= '1';
           i2c1_address <= write_addr(7 downto 1);
           i2c1_wdata <= write_reg;
-        when 127 =>
+        when 148 =>
           -- Second, write the actual value into the register
           if last_busy_count /= busy_count then
             report "Writing value $" & to_hstring(write_val) & " to register";
