@@ -106,7 +106,7 @@ architecture behavioural of mega65r3_i2c is
   signal last_busy : std_logic := '1';
   
   subtype uint8 is unsigned(7 downto 0);
-  type byte_array is array (0 to 127) of uint8;
+  type byte_array is array (0 to 255) of uint8;
   signal bytes : byte_array := (others => x"00");
 
   signal write_job_pending : std_logic := '0';
@@ -149,23 +149,23 @@ begin
   begin
 
     if cs='1' and fastio_read='1' then
-      if fastio_addr(7) = '0' then
+--      if fastio_addr(7) = '0' then
         report "reading buffered I2C data";
         fastio_rdata <= bytes(to_integer(fastio_addr(6 downto 0)));
-      elsif fastio_addr(7 downto 0) = "11111111" then
-        -- Show busy status for writing
-        fastio_rdata <= (others => write_job_pending);
-      elsif fastio_addr(7 downto 0) = "11111110" then
-        -- Show error status from I2C
-        fastio_rdata <= (others => i2c1_error);
-      elsif fastio_addr(7 downto 0) = "11111101" then
-        -- Show error status from I2C
-        fastio_rdata(7 downto 6) <= "10";
-        fastio_rdata(5 downto 0) <= debug_status;
-      else
-        -- Else for debug show busy count
-        fastio_rdata <= to_unsigned(busy_count,8);
-      end if;
+--      elsif fastio_addr(7 downto 0) = "11111111" then
+--        -- Show busy status for writing
+--        fastio_rdata <= (others => write_job_pending);
+--      elsif fastio_addr(7 downto 0) = "11111110" then
+--        -- Show error status from I2C
+--        fastio_rdata <= (others => i2c1_error);
+--      elsif fastio_addr(7 downto 0) = "11111101" then
+--        -- Show error status from I2C
+--        fastio_rdata(7 downto 6) <= "10";
+--        fastio_rdata(5 downto 0) <= debug_status;
+--      else
+--        -- Else for debug show busy count
+--        fastio_rdata <= to_unsigned(busy_count,8);
+--      end if;
     else
       fastio_rdata <= (others => 'Z');
     end if; 
