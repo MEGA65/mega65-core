@@ -1707,6 +1707,13 @@ begin
         end if;
       end if;
       
+      if target = mega65r3 then
+        if address(19 downto 8) = x"D71" then
+          i2cperipherals_cs <= '1';
+          report "i2cperipherals_cs for MEGA65R3 asserted";
+        end if;
+      end if;      
+
       cs_driveram <= '0';
       cs_driverom <= '0';
       if address(19 downto 16) = x"C" then
