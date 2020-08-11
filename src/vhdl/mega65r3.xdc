@@ -18,6 +18,7 @@ set_clock_groups -asynchronous \
      -group { cpuclock hdmi_clk_OBUF vdac_clk_OBUF clock162 clock325 } \
      -group { CLKFBOUT clk_fb_eth clock100 eth_clock_OBUF }
 
+set_property CLOCK_DEDICATED_ROUTE BACKBONE [get_nets clocks1/CLKOUT0]
 
 # General purpose LED on mother board
 set_property -dict {PACKAGE_PIN U22 IOSTANDARD LVCMOS33} [get_ports led]
@@ -241,10 +242,10 @@ set_property  -dict { PACKAGE_PIN R22 IOSTANDARD LVCMOS33 } [get_ports {QspiDB[1
 set_property  -dict { PACKAGE_PIN P21 IOSTANDARD LVCMOS33 } [get_ports {QspiDB[2]}]
 set_property  -dict { PACKAGE_PIN R21 IOSTANDARD LVCMOS33 } [get_ports {QspiDB[3]}]
 set_property  -dict { PACKAGE_PIN T19 IOSTANDARD LVCMOS33 } [get_ports QspiCSn]
-set_property PULLUP true [get_ports {qspidb[0]}]
-set_property PULLUP true [get_ports {qspidb[1]}]
-set_property PULLUP true [get_ports {qspidb[2]}]
-set_property PULLUP true [get_ports {qspidb[3]}]
+set_property PULLUP true [get_ports {Qspidb[0]}]
+set_property PULLUP true [get_ports {Qspidb[1]}]
+set_property PULLUP true [get_ports {Qspidb[2]}]
+set_property PULLUP true [get_ports {Qspidb[3]}]
 
 ## Hyper RAM
 set_property -dict {PACKAGE_PIN D22 IOSTANDARD LVCMOS33 PULLUP FALSE SLEW FAST DRIVE 24} [get_ports hr_clk_p]
