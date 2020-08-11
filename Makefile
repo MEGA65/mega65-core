@@ -42,8 +42,18 @@ else
 	CC65_DEPEND=$(CC65)
 endif
 
-#GHDL=  ghdl/build/bin/ghdl
-GHDL=  ghdl
+
+
+ifdef USE_LOCAL_GHDL
+	# use locally installed binary (requires 'ghdl' to be in the $PATH)
+	GHDL=	ghdl
+	GHDL_DEPEND=
+else
+	# use the binary built from the submodule
+	GHDL=	ghdl/build/bin/ghdl
+	GHDL_DEPEND=$(GHDL)
+endif
+
 
 CBMCONVERT=	cbmconvert/cbmconvert
 
@@ -121,10 +131,12 @@ src/tools/acme/src/acme:
 	( cd src/tools/acme/src && make -j 8 )
 
 
-$(GHDL):
+ghdl/build/bin/ghdl:
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	git submodule init
 	git submodule update
-	( cd ghdl && ./configure --prefix=./build && make && make install )
+	( cd ghdl && ./configure --prefix=./build && make -j 8 && make install )
 
 # Not quite yet with Vivado...
 # $(BINDIR)/nexys4.mcs $(BINDIR)/nexys4ddr.mcs $(BINDIR)/lcd4ddr.mcs $(BINDIR)/touch_test.mcs
@@ -335,26 +347,36 @@ OPL3VERILOG=		$(VERILOGSRCDIR)/calc_phase_inc.v \
 
 
 # GHDL with mcode backend
-simulate:	$(GHDL) $(SIMULATIONVHDL) $(ASSETS)/synthesised-60ns.dat
+simulate:	$(GHDL_DEPEND) $(SIMULATIONVHDL) $(ASSETS)/synthesised-60ns.dat
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(SIMULATIONVHDL)
 	$(GHDL) -m cpu_test
-	$(GHDL) -r cpu_test --assert-level=warning 
+	$(GHDL) -r cpu_test --assert-level=warning
 
 # GHDL with llvm backend
-simulate-llvm:	$(SIMULATIONVHDL) $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(ASSETS)/synthesised-60ns.dat
-	ghdl -i $(SIMULATIONVHDL) $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl
-	ghdl -m -g cpu_test
+simulate-llvm:	$(GHDL_DEPEND) $(SIMULATIONVHDL) $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(ASSETS)/synthesised-60ns.dat
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
+	$(GHDL) -i $(SIMULATIONVHDL) $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl
+	$(GHDL) -m -g cpu_test
 
-ghdl_bug:	$(GHDL) $(VHDLSRCDIR)/ghdl_bug.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl 
-	ghdl -i $(VHDLSRCDIR)/ghdl_bug.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl 
-	ghdl -m -g ghdl_bug
+ghdl_bug:	$(GHDL_DEPEND) $(VHDLSRCDIR)/ghdl_bug.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
+	$(GHDL) -i $(VHDLSRCDIR)/ghdl_bug.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl
+	$(GHDL) -m -g ghdl_bug
 
-MFMTESTSRCS=	$(VHDLSRCDIR)/mfm_test.vhdl $(VHDLSRCDIR)/mfm_bits_to_gaps.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl 
-simulatemfm:	$(GHDL) $(MFMTESTSRCS)
-	ghdl -i $(MFMTESTSRCS)
-	ghdl -m -g mfm_test
+MFMTESTSRCS=	$(VHDLSRCDIR)/mfm_test.vhdl $(VHDLSRCDIR)/mfm_bits_to_gaps.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/debugtools.vhdl
+simulatemfm:	$(GHDL_DEPEND) $(MFMTESTSRCS)
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
+	$(GHDL) -i $(MFMTESTSRCS)
+	$(GHDL) -m -g mfm_test
 
-nocpu:	$(GHDL) $(NOCPUSIMULATIONVHDL)
+nocpu:	$(GHDL_DEPEND) $(NOCPUSIMULATIONVHDL)
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(NOCPUSIMULATIONVHDL)
 	$(GHDL) -m cpu_test
 	./cpu_test || $(GHDL) -r cpu_test
@@ -363,7 +385,9 @@ nocpu:	$(GHDL) $(NOCPUSIMULATIONVHDL)
 KVFILES=$(VHDLSRCDIR)/test_kv.vhdl $(VHDLSRCDIR)/keyboard_to_matrix.vhdl $(VHDLSRCDIR)/matrix_to_ascii.vhdl \
 	$(VHDLSRCDIR)/widget_to_matrix.vhdl $(VHDLSRCDIR)/ps2_to_matrix.vhdl $(VHDLSRCDIR)/keymapper.vhdl \
 	$(VHDLSRCDIR)/keyboard_complex.vhdl $(VHDLSRCDIR)/virtual_to_matrix.vhdl
-kvsimulate:	$(GHDL) $(KVFILES)
+kvsimulate:	$(GHDL_DEPEND) $(KVFILES)
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(KVFILES)
 	$(GHDL) -m test_kv
 	./test_kv || $(GHDL) -r test_kv
@@ -371,7 +395,9 @@ kvsimulate:	$(GHDL) $(KVFILES)
 OSKFILES=$(VHDLSRCDIR)/test_osk.vhdl \
 	$(VHDLSRCDIR)/visual_keyboard.vhdl \
 	$(VHDLSRCDIR)/oskmem.vhdl
-osksimulate:	$(GHDL) $(OSKFILES) $(TOOLDIR)/osk_image
+osksimulate:	$(GHDL_DEPEND) $(OSKFILES) $(TOOLDIR)/osk_image
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(OSKFILES)
 	$(GHDL) -m test_osk
 	( ./test_osk || $(GHDL) -r test_osk ) 2>&1 | $(TOOLDIR)/osk_image
@@ -385,7 +411,9 @@ MMFILES=$(VHDLSRCDIR)/test_matrix.vhdl \
 	$(VHDLSRCDIR)/oskmem.vhdl \
 	$(VHDLSRCDIR)/termmem.vhdl
 
-mmsimulate:	$(GHDL) $(MMFILES) $(TOOLDIR)/osk_image
+mmsimulate:	$(GHDL_DEPEND) $(MMFILES) $(TOOLDIR)/osk_image
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(MMFILES)
 	$(GHDL) -m test_matrix
 	( ./test_matrix || $(GHDL) -r test_matrix ) 2>&1 | $(TOOLDIR)/osk_image matrix.png
@@ -398,51 +426,67 @@ MFMFILES=$(VHDLSRCDIR)/mfm_bits_to_bytes.vhdl \
 	 $(VHDLSRCDIR)/crc1581.vhdl \
 	 $(VHDLSRCDIR)/test_mfm.vhdl
 
-mfmsimulate: $(GHDL) $(MFMFILES) $(ASSETS)/synthesised-60ns.dat
+mfmsimulate: $(GHDL_DEPEND) $(MFMFILES) $(ASSETS)/synthesised-60ns.dat
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(MFMFILES)
 	$(GHDL) -m test_mfm
 	( ./test_mfm || $(GHDL) -r test_mfm )
 
-pdmsimulate: $(GHDL) $(VHDLSRCDIR)/test_pdm.vhdl $(VHDLSRCDIR)/pdm_to_pcm.vhdl
+pdmsimulate: $(GHDL_DEPEND) $(VHDLSRCDIR)/test_pdm.vhdl $(VHDLSRCDIR)/pdm_to_pcm.vhdl
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(VHDLSRCDIR)/test_pdm.vhdl $(VHDLSRCDIR)/pdm_to_pcm.vhdl
 	$(GHDL) -m test_pdm
 	( ./test_pdm || $(GHDL) -r test_pdm )
 
-hyperramsimulate: $(GHDL) $(VHDLSRCDIR)/test_hyperram.vhdl $(VHDLSRCDIR)/hyperram.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/fakehyperram.vhdl $(VHDLSRCDIR)/slow_devices.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/expansion_port_controller.vhdl
+hyperramsimulate: $(GHDL_DEPEND) $(VHDLSRCDIR)/test_hyperram.vhdl $(VHDLSRCDIR)/hyperram.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/fakehyperram.vhdl $(VHDLSRCDIR)/slow_devices.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/expansion_port_controller.vhdl
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(VHDLSRCDIR)/test_hyperram.vhdl $(VHDLSRCDIR)/hyperram.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/fakehyperram.vhdl $(VHDLSRCDIR)/slow_devices.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/expansion_port_controller.vhdl
 	$(GHDL) -m test_hyperram
 	( ./test_hyperram || $(GHDL) -r test_hyperram )
 
 # Get the gen_utils.vhd and conversions.vhd files from here: https://freemodelfoundry.com/fmf_VHDL_models.php
-hyperramsimulate2: $(GHDL) $(VHDLSRCDIR)/test_hyperram.vhdl $(VHDLSRCDIR)/hyperram.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/s27kl0641-pgs-modified.vhd $(VHDLSRCDIR)/slow_devices.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/expansion_port_controller.vhdl $(VHDLSRCDIR)/gen_utils.vhdl $(VHDLSRCDIR)/conversions.vhdl $(VHDLSRCDIR)/fake_opl2.vhdl
+hyperramsimulate2: $(GHDL_DEPEND) $(VHDLSRCDIR)/test_hyperram.vhdl $(VHDLSRCDIR)/hyperram.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/s27kl0641-pgs-modified.vhd $(VHDLSRCDIR)/slow_devices.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/expansion_port_controller.vhdl $(VHDLSRCDIR)/gen_utils.vhdl $(VHDLSRCDIR)/conversions.vhdl $(VHDLSRCDIR)/fake_opl2.vhdl
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(VHDLSRCDIR)/test_hyperram.vhdl $(VHDLSRCDIR)/hyperram.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/s27kl0641-pgs-modified.vhd $(VHDLSRCDIR)/slow_devices.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/expansion_port_controller.vhdl $(VHDLSRCDIR)/gen_utils.vhdl $(VHDLSRCDIR)/conversions.vhdl $(VHDLSRCDIR)/fake_opl2.vhdl
 	$(GHDL) -m test_hyperram
 	( ./test_hyperram || $(GHDL) -r test_hyperram )
 
-hyperramsimulate16: $(GHDL) $(VHDLSRCDIR)/test_hyperram16.vhdl $(VHDLSRCDIR)/hyperram.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/s27kl0641-pgs-modified.vhd $(VHDLSRCDIR)/slow_devices.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/expansion_port_controller.vhdl $(VHDLSRCDIR)/gen_utils.vhdl $(VHDLSRCDIR)/conversions.vhdl $(VHDLSRCDIR)/fake_opl2.vhdl
+hyperramsimulate16: $(GHDL_DEPEND) $(VHDLSRCDIR)/test_hyperram16.vhdl $(VHDLSRCDIR)/hyperram.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/s27kl0641-pgs-modified.vhd $(VHDLSRCDIR)/slow_devices.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/expansion_port_controller.vhdl $(VHDLSRCDIR)/gen_utils.vhdl $(VHDLSRCDIR)/conversions.vhdl $(VHDLSRCDIR)/fake_opl2.vhdl
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(VHDLSRCDIR)/test_hyperram16.vhdl $(VHDLSRCDIR)/hyperram.vhdl $(VHDLSRCDIR)/debugtools.vhdl $(VHDLSRCDIR)/s27kl0641-pgs-modified.vhd $(VHDLSRCDIR)/slow_devices.vhdl $(VHDLSRCDIR)/cputypes.vhdl $(VHDLSRCDIR)/expansion_port_controller.vhdl $(VHDLSRCDIR)/gen_utils.vhdl $(VHDLSRCDIR)/conversions.vhdl $(VHDLSRCDIR)/fake_opl2.vhdl
 	$(GHDL) -m test_hyperram16
 	( ./test_hyperram16 || $(GHDL) -r test_hyperram16 )
 
-
-
-i2csimulate: $(GHDL) $(VHDLSRCDIR)/test_i2c.vhdl $(VHDLSRCDIR)/i2c_master.vhdl $(VHDLSRCDIR)/i2c_slave.vhdl $(VHDLSRCDIR)/debounce.vhdl $(VHDLSRCDIR)/touch.vhdl $(VHDLSRCDIR)/mega65r2_i2c.vhdl 
+i2csimulate: $(GHDL_DEPEND) $(VHDLSRCDIR)/test_i2c.vhdl $(VHDLSRCDIR)/i2c_master.vhdl $(VHDLSRCDIR)/i2c_slave.vhdl $(VHDLSRCDIR)/debounce.vhdl $(VHDLSRCDIR)/touch.vhdl $(VHDLSRCDIR)/mega65r2_i2c.vhdl
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(VHDLSRCDIR)/test_i2c.vhdl $(VHDLSRCDIR)/i2c_master.vhdl $(VHDLSRCDIR)/i2c_slave.vhdl $(VHDLSRCDIR)/debounce.vhdl $(VHDLSRCDIR)/touch.vhdl $(VHDLSRCDIR)/mega65r2_i2c.vhdl
 	$(GHDL) -m test_i2c
 	( ./test_i2c || $(GHDL) -r test_i2c )
 
-k2simulate: $(GHDL) $(VHDLSRCDIR)/testkey.vhdl $(VHDLSRCDIR)/mega65kbd_to_matrix.vhdl
+k2simulate: $(GHDL_DEPEND) $(VHDLSRCDIR)/testkey.vhdl $(VHDLSRCDIR)/mega65kbd_to_matrix.vhdl
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(VHDLSRCDIR)/testkey.vhdl $(VHDLSRCDIR)/mega65kbd_to_matrix.vhdl
 	$(GHDL) -m testkey
-	( ./testkey || $(GHDL) -r testkey ) 
+	( ./testkey || $(GHDL) -r testkey )
 
-divsimulate: $(GHDL) $(VHDLSRCDIR)/testdiv.vhdl $(VHDLSRCDIR)/fast_divide.vhdl $(VHDLSRCDIR)/debugtools.vhdl
+divsimulate: $(GHDL_DEPEND) $(VHDLSRCDIR)/testdiv.vhdl $(VHDLSRCDIR)/fast_divide.vhdl $(VHDLSRCDIR)/debugtools.vhdl
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(VHDLSRCDIR)/testdiv.vhdl $(VHDLSRCDIR)/fast_divide.vhdl $(VHDLSRCDIR)/debugtools.vhdl
 	$(GHDL) -m testdiv
-	( ./testdev || $(GHDL) -r testdiv ) 
+	( ./testdev || $(GHDL) -r testdiv )
 
 
-fpacksimulate: $(GHDL) $(VHDLSRCDIR)/test_framepacker.vhdl $(VHDLSRCDIR)/framepacker.vhdl
+fpacksimulate: $(GHDL_DEPEND) $(VHDLSRCDIR)/test_framepacker.vhdl $(VHDLSRCDIR)/framepacker.vhdl
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(VHDLSRCDIR)/test_framepacker.vhdl $(VHDLSRCDIR)/framepacker.vhdl
 	$(GHDL) -m test_framepacker
 	( ./test_framepacker || $(GHDL) -r test_framepacker )
@@ -451,7 +495,9 @@ fpacksimulate: $(GHDL) $(VHDLSRCDIR)/test_framepacker.vhdl $(VHDLSRCDIR)/framepa
 MIIMFILES=	$(VHDLSRCDIR)/ethernet_miim.vhdl \
 		$(VHDLSRCDIR)/test_miim.vhdl
 
-miimsimulate:	$(GHDL) $(MIIMFILES)
+miimsimulate:	$(GHDL_DEPEND) $(MIIMFILES)
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(MIIMFILES)
 	$(GHDL) -m test_miim
 	( ./test_miim || $(GHDL) -r test_miim )
@@ -459,16 +505,22 @@ miimsimulate:	$(GHDL) $(MIIMFILES)
 ASCIIFILES=	$(VHDLSRCDIR)/matrix_to_ascii.vhdl \
 		$(VHDLSRCDIR)/test_ascii.vhdl
 
-asciisimulate:	$(GHDL) $(ASCIIFILES)
+asciisimulate:	$(GHDL_DEPEND) $(ASCIIFILES)
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(ASCIIFILES)
 	$(GHDL) -m test_ascii
 	( ./test_ascii || $(GHDL) -r test_ascii )
 
 SPRITEFILES=$(VHDLSRCDIR)/sprite.vhdl $(VHDLSRCDIR)/test_sprite.vhdl $(VHDLSRCDIR)/victypes.vhdl
-spritesimulate:	$(GHDL) $(SPRITEFILES)
+spritesimulate:	$(GHDL_DEPEND) $(SPRITEFILES)
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(SPRITEFILES)
 	$(GHDL) -m test_sprite
 	./test_sprite || $(GHDL) -r test_sprite
+
+
 
 $(TOOLDIR)/merge-issue:	$(TOOLDIR)/merge-issue.c
 	$(CC) $(COPT) -o $(TOOLDIR)/merge-issue $(TOOLDIR)/merge-issue.c
@@ -482,7 +534,9 @@ $(TOOLDIR)/osk_image:	$(TOOLDIR)/osk_image.c
 $(TOOLDIR)/frame2png:	$(TOOLDIR)/frame2png.c
 	$(CC) $(COPT) -I/usr/local/include -L/usr/local/lib -o $(TOOLDIR)/frame2png $(TOOLDIR)/frame2png.c -lpng
 
-vfsimulate:	$(GHDL) $(VHDLSRCDIR)/frame_test.vhdl $(VHDLSRCDIR)/video_frame.vhdl
+vfsimulate:	$(GHDL_DEPEND) $(VHDLSRCDIR)/frame_test.vhdl $(VHDLSRCDIR)/video_frame.vhdl
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(GHDL) -i $(VHDLSRCDIR)/frame_test.vhdl $(VHDLSRCDIR)/video_frame.vhdl
 	$(GHDL) -m frame_test
 	./frame_test || $(GHDL) -r frame_test
