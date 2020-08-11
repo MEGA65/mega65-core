@@ -59,8 +59,7 @@ SDCARD_DIR=	sdcard-files
 #
 # NOTE: that all files listed below will be embedded within the "MEGA65.D81".
 #
-UTILITIES=	$(UTILDIR)/ethertest.prg \
-		$(UTILDIR)/etherload.prg \
+UTILITIES=	$(UTILDIR)/etherload.prg \
 		$(UTILDIR)/test01prg.prg \
 		$(UTILDIR)/c65test02prg.prg \
 		$(UTILDIR)/c65-rom-910111-fastload-patch.prg \
