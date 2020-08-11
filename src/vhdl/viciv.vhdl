@@ -307,10 +307,6 @@ architecture Behavioral of viciv is
 
   -- PAL/NTSC raster layout
   signal vicii_first_raster : unsigned(8 downto 0) := to_unsigned(0,9);
-  -- We use full number of PAL rasters in NTSC mode, so that PAL programs will
-  -- run correctly, even if at 60Hz video / interrupt rate.  The only problem I
-  -- can imagine with doing this, is that PAL/NTSC detection routines will
-  -- always think the system is PAL.
   constant ntsc_max_raster : unsigned(8 downto 0) := to_unsigned(262,9);
   constant pal_max_raster : unsigned(8 downto 0) := to_unsigned(311,9);
   signal vicii_max_raster : unsigned(8 downto 0) := pal_max_raster;
