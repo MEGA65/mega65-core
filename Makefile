@@ -6,9 +6,19 @@
 COPT=	-Wall -g -std=gnu99
 CC=	gcc
 
-OPHIS=	Ophis/bin/ophis
-OPHISOPT=	-4
-OPHIS_MON= Ophis/bin/ophis -c
+ifdef USE_LOCAL_OPHIS
+	# use locally installed binary (requires 'ophis' to be in the $PATH)
+	OPHIS=	ophis
+	OPHISOPT=	-4
+	OPHIS_MON= ophis -c
+	OPHIS_DEPEND=
+else
+	# use the binary built from the submodule
+	OPHIS=	Ophis/bin/ophis
+	OPHISOPT=	-4
+	OPHIS_MON= Ophis/bin/ophis -c
+	OPHIS_DEPEND=$(OPHIS)
+endif
 
 
 ifdef USE_LOCAL_ACME
@@ -119,9 +129,13 @@ cc65/bin/cc65:
 	( cd cc65 && make -j 8 )
 
 
-$(OPHIS):
-	git submodule init
-	git submodule update
+Ophis/bin/ophis:
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
+	git submodule init Ophis
+	git submodule update Ophis
+	# Ophis submodule has the executable pre-built at Ophis/bin/ophis
+
 
 src/tools/acme/src/acme:
 	$(warning =============================================================)
@@ -569,17 +583,21 @@ $(SDCARD_DIR)/MEGA65.D81:	$(UTILITIES) $(CBMCONVERT)
 	mkdir -p $(SDCARD_DIR)
 	$(CBMCONVERT) -v2 -D8o $(SDCARD_DIR)/MEGA65.D81 $(UTILITIES)
 
+
+
 # ============================ done moved, print-warn, clean-target
 # ophis converts the *.a65 file (assembly text) to *.prg (assembly bytes)
-%.prg:	%.a65 $(OPHIS)
+%.prg:	%.a65 $(OPHIS_DEPEND)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(OPHIS) $(OPHISOPT) $< -l $*.list -m $*.map -o $*.prg
 
-%.bin:	%.a65 $(OPHIS)
+%.bin:	%.a65 $(OPHIS_DEPEND)
 	$(warning =============================================================)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(OPHIS) $(OPHISOPT) $< -l $*.list -m $*.map -o $*.prg
+
+
 
 %.o:	%.s $(CC65_DEPEND)
 	$(warning =============================================================)
@@ -680,7 +698,9 @@ $(UTILDIR)/diskmenu.prg:       $(UTILDIR)/diskmenuprg.o $(CC65_DEPEND)
 $(SRCDIR)/mega65-fdisk/m65fdisk.prg:
 	( cd $(SRCDIR)/mega65-fdisk ; make  USE_LOCAL_CC65=$(USE_LOCAL_CC65) m65fdisk.prg)  
 
-$(BINDIR)/border.prg: 	$(SRCDIR)/border.a65 $(OPHIS)
+$(BINDIR)/border.prg: 	$(SRCDIR)/border.a65 $(OPHIS_DEPEND)
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(OPHIS) $(OPHISOPT) $< -l $(BINDIR)/border.list -m $*.map -o $(BINDIR)/border.prg
 
 # ============================ done moved, print-warn, clean-target
@@ -690,8 +710,10 @@ $(BINDIR)/HICKUP.M65: $(ACME_DEPEND) $(SRCDIR)/hyppo/main.asm $(SRCDIR)/version.
 $(SRCDIR)/monitor/monitor_dis.a65: $(SRCDIR)/monitor/gen_dis
 	$(SRCDIR)/monitor/gen_dis >$(SRCDIR)/monitor/monitor_dis.a65
 
-$(BINDIR)/monitor.m65:	$(SRCDIR)/monitor/monitor.a65 $(SRCDIR)/monitor/monitor_dis.a65 $(SRCDIR)/monitor/version.a65
-	$(OPHIS_MON) $< -l monitor.list -m monitor.map
+$(BINDIR)/monitor.m65:	$(OPHIS_DEPEND) $(SRCDIR)/monitor/monitor.a65 $(SRCDIR)/monitor/monitor_dis.a65 $(SRCDIR)/monitor/version.a65
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
+	$(OPHIS_MON) -l $(SRCDIR)/monitor/monitor.list -m $(SRCDIR)/monitor/monitor.map -o $(BINDIR)/monitor.m65 $(SRCDIR)/monitor/monitor.a65
 
 # ============================ done moved, print-warn, clean-target
 $(UTILDIR)/diskmenuc000.o:     $(UTILDIR)/diskmenuc000.a65 $(UTILDIR)/diskmenu.a65 $(UTILDIR)/diskmenu_sort.a65 $(CC65_DEPEND)
@@ -704,7 +726,9 @@ $(BINDIR)/diskmenu_c000.bin:   $(UTILDIR)/diskmenuc000.o $(CC65_DEPEND)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(LD65) $< --mapfile $*.map -o $*.bin
 
-$(BINDIR)/etherload.prg:	$(UTILDIR)/etherload.a65 $(OPHIS)
+$(BINDIR)/etherload.prg:	$(UTILDIR)/etherload.a65 $(OPHIS_DEPEND)
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(OPHIS) $(OPHISOPT) $< -l $*.list -m $*.map -o $*.prg
 
 
@@ -832,7 +856,9 @@ monitor_drive:	monitor_drive.c Makefile
 $(TOOLDIR)/monitor_load:	$(TOOLDIR)/monitor_load.c $(TOOLDIR)/fpgajtag/*.c $(TOOLDIR)/fpgajtag/*.h Makefile
 	$(CC) $(COPT) -g -Wall -I/usr/include/libusb-1.0 -I/opt/local/include/libusb-1.0 -I/usr/local//Cellar/libusb/1.0.18/include/libusb-1.0/ -o $(TOOLDIR)/monitor_load $(TOOLDIR)/monitor_load.c $(TOOLDIR)/fpgajtag/fpgajtag.c $(TOOLDIR)/fpgajtag/util.c $(TOOLDIR)/fpgajtag/process.c -lusb-1.0 -lz -lpthread
 
-$(BINDIR)/ftphelper.bin:	src/ftphelper.a65
+$(BINDIR)/ftphelper.bin:	$(OPHIS_DEPEND) src/ftphelper.a65
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(OPHIS) $(OPHISOPT) src/ftphelper.a65
 
 $(TOOLDIR)/ftphelper.c:	$(BINDIR)/ftphelper.bin $(TOOLDIR)/bin2c
