@@ -320,7 +320,7 @@ begin
           -- Read the 19 bytes from the device
           i2c1_rw <= '1';
           i2c1_command_en <= '1';
-          if busy_count > 49 and i2c1_error='0' then
+          if busy_count > 127 and i2c1_error='0' then
             bytes(busy_count - 1 - 127 + 220) <= i2c1_rdata;
           end if;
         --------------------------------------------------------------------

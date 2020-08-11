@@ -86,7 +86,8 @@ megaphone_i2c_settings:
         !8 $17,$00 ;; Port 1 to output
         !8 $12,$bf ;; Enable power to all sub-systems ($BF = $FF - $40)
         !8 $13,$20 ;; Power up headphones amplifier
-
+	;; FALL THROUGH
+mega65r3_i2c_settings:	
         ;; Speaker amplifier configuration
         !8 $35,$FF   ;; Left volume initial mute
         !8 $36,$FF   ;; Right volume initial mute
