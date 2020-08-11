@@ -151,7 +151,7 @@ begin
     if cs='1' and fastio_read='1' then
 --      if fastio_addr(7) = '0' then
         report "reading buffered I2C data";
-        fastio_rdata <= bytes(to_integer(fastio_addr(6 downto 0)));
+        fastio_rdata <= bytes(to_integer(fastio_addr(7 downto 0)));
 --      elsif fastio_addr(7 downto 0) = "11111111" then
 --        -- Show busy status for writing
 --        fastio_rdata <= (others => write_job_pending);
