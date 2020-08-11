@@ -392,6 +392,8 @@ architecture Behavioral of container is
   
   signal audio_left : std_logic_vector(19 downto 0);
   signal audio_right : std_logic_vector(19 downto 0);
+  signal audio_left_slow : std_logic_vector(19 downto 0);
+  signal audio_right_slow : std_logic_vector(19 downto 0);
   signal h_audio_left : std_logic_vector(19 downto 0);
   signal h_audio_right : std_logic_vector(19 downto 0);
   signal spdif_44100 : std_logic;
@@ -502,6 +504,27 @@ begin
                clock325  => clock325    --  325     MHz
                );
 
+    -- Feed audio into digital video feed
+    AUDIO_TONE: entity work.audio_out_test_tone
+      generic map (
+        -- You have to update audio_clock if you change this
+        fref        => 50.0
+        )
+        port map (
+            ref_rst   => reset_high,
+            ref_clk   => ethclock,
+            pcm_rst   => pcm_rst,
+            pcm_clk   => pcm_clk,
+            pcm_clken => pcm_clken,
+
+            audio_left_slow => audio_left_slow,
+            audio_right_slow => audio_right_slow,
+            sample_ready_toggle => sample_ready_toggle,
+            
+            pcm_l     => pcm_l,
+            pcm_r     => pcm_r
+        );
+  
     pcm_n <= std_logic_vector(to_unsigned(6144,pcm_n'length));
     pcm_cts <= std_logic_vector(to_unsigned(27000,pcm_cts'length));
     
@@ -525,7 +548,7 @@ begin
         vga_g => std_logic_vector(v_green),
         vga_b => std_logic_vector(v_blue),
 
-        -- XXX For now the audio stuff is all dummy
+        -- Feed in audio
         pcm_rst => pcm_rst, -- active high audio reset
         pcm_clk => pcm_clk, -- audio clock at fs
         pcm_clken => pcm_clken, -- audio clock enable
@@ -996,6 +1019,20 @@ begin
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then
 
+      reset_high <= not btncpureset;
+      
+      -- We need to pass audio to 12.288 MHz clock domain.
+      -- Easiest way is to hold samples constant for 16 ticks, and
+      -- have a slow toggle
+      if audio_counter /= to_integer(audio_counter_interval) then
+        audio_counter <= audio_counter + 1;
+      else
+        audio_counter <= 0;
+        sample_ready_toggle <= not sample_ready_toggle;
+        audio_left_slow <= h_audio_left;
+        audio_right_slow <= h_audio_right;
+      end if;
+      
       -- Drive simple serial protocol with MAX10 FPGA
       if max10_counter = 31 then
         max10_counter <= 0;
