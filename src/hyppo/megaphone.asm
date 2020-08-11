@@ -37,12 +37,44 @@ megaphone_setup:
         dez
         bne -
 
-        ;; Restore full screen brightness
-        lda #$ff
-        sta $d6f0
+	;; Apply MEGA65 R3 I2C settings (harmless on other targets)
+
+mega65_i2c_setup
+        lda #>$7100
+        sta zptempv32+1
+        lda #$00
+        sta $d020
+        ldy #$00
+mps3_loop:
+        lda mega65r3_i2c_settings,y
+        cmp #$ff
+        bne +
+        ldz #$00
 
         rts
++
+        taz
+        iny
+        lda mega65r3_i2c_settings,y
+        iny
 
+
+        ;; Keep writing it until it gets written
+-
+        sta [<zptempv32],z
+
+        ;; Wait for I2C register to get written
+
+        inc $d020
+
+        cmp [<zptempv32],z
+        bne -
+
+
+        jmp mps3_loop
+	
+
+	
 have_i2cperipherals:
         lda #$00
         sta $d020
@@ -86,8 +118,7 @@ megaphone_i2c_settings:
         !8 $17,$00 ;; Port 1 to output
         !8 $12,$bf ;; Enable power to all sub-systems ($BF = $FF - $40)
         !8 $13,$20 ;; Power up headphones amplifier
-	;; FALL THROUGH
-mega65r3_i2c_settings:	
+
         ;; Speaker amplifier configuration
         !8 $35,$FF   ;; Left volume initial mute
         !8 $36,$FF   ;; Right volume initial mute
@@ -101,6 +132,24 @@ mega65r3_i2c_settings:
         !8 $39,$99
         !8 $35,$60   ;; Left volume set ($FF = mute, $40 = full volume)
         !8 $36,$60   ;; Right volume set ($FF = mute, $40 = full volume)
+
+
+        !8 $FF,$FF ;; End of list marker
+
+mega65r3_i2c_settings:	
+        ;; Speaker amplifier configuration
+        !8 $e1,$FF   ;; Left volume initial mute
+        !8 $e2,$FF   ;; Right volume initial mute
+        !8 $dc,$20
+        !8 $dd,$00
+        !8 $de,$02
+        !8 $df,$00
+        !8 $e0,$10
+        !8 $e3,$80
+        !8 $e4,$0C
+        !8 $e5,$99
+        !8 $e1,$50   ;; Left volume set ($FF = mute, $40 = full volume)
+        !8 $e2,$50   ;; Right volume set ($FF = mute, $40 = full volume)
 
 
         !8 $FF,$FF ;; End of list marker
