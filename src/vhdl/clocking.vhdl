@@ -39,6 +39,8 @@ architecture RTL of clocking is
   signal clock124mhz : std_logic := '0';
   signal clock9969mhz : std_logic := '0'; 
   signal clock9969mhz_bufg : std_logic := '0'; 
+  signal u_clock27 : std_logic := '0';
+  signal u_clock135p : std_logic := '0';
   
 begin
 
@@ -193,6 +195,14 @@ begin
   bufg port map ( I => clock9969mhz,
                   O => clock9969mhz_bufg);  
   
+  bufg1:
+  bufg port map ( I => u_clock27,
+                  O => clock27);  
+  
+  bufg2:
+  bufg port map ( I => u_clock135p,
+                  O => clock135p);  
+  
   mmcm_adv0 : MMCM_ADV
   generic map
    (BANDWIDTH            => "OPTIMIZED",
@@ -254,12 +264,12 @@ begin
     -- Output clocks
    (CLKFBOUT            => clk_fb,
     CLKOUT0             => clock325,
-    CLKOUT1             => clock135p,
+    CLKOUT1             => u_clock135p,
     CLKOUT1B            => clock135n,
     CLKOUT2             => clock81p,
     CLKOUT2B            => clock81n,
     CLKOUT3             => clock41,
-    CLKOUT4             => clock27,
+    CLKOUT4             => u_clock27,
     CLKOUT5             => clock163,
     -- Input clock control
     CLKFBIN             => clk_fb,
