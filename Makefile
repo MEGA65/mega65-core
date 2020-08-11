@@ -24,16 +24,22 @@ endif
 
 VIVADO=	./vivado_wrapper
 
-ifeq ($(USE_LOCAL_CC65),"")
-CC65=  cc65/bin/cc65
-CA65=  cc65/bin/ca65 --cpu 4510
-LD65=  cc65/bin/ld65 -t none
-CL65=  cc65/bin/cl65 --config src/tests/vicii.cfg
+
+
+ifdef USE_LOCAL_CC65
+	# use locally installed binary (requires 'cc65,ld65,etc' to be in the $PATH)
+	CC65=  cc65
+	CA65=  ca65 --cpu 4510
+	LD65=  ld65 -t none
+	CL65=  cl65 --config src/tests/vicii.cfg
+	CC65_DEPEND=
 else
-CC65=  cc65
-CA65=  ca65 --cpu 4510
-LD65=  ld65 -t none
-CL65=  cl65 --config src/tests/vicii.cfg
+	# use the binary built from the submodule
+	CC65=  cc65/bin/cc65
+	CA65=  cc65/bin/ca65 --cpu 4510
+	LD65=  cc65/bin/ld65 -t none
+	CL65=  cc65/bin/cl65 --config src/tests/vicii.cfg
+	CC65_DEPEND=$(CC65)
 endif
 
 #GHDL=  ghdl/build/bin/ghdl
@@ -95,14 +101,13 @@ $(CBMCONVERT):
 	git submodule update
 	( cd cbmconvert && make -f Makefile.unix )
 
-$(CC65):
+cc65/bin/cc65:
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	git submodule init
 	git submodule update
-ifeq ($(USE_LOCAL_CC65),"")
 	( cd cc65 && make -j 8 )
-else
-	echo "Using local installed CC65."
-endif
+
 
 $(OPHIS):
 	git submodule init
@@ -522,68 +527,100 @@ $(SDCARD_DIR)/MEGA65.D81:	$(UTILITIES) $(CBMCONVERT)
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(OPHIS) $(OPHISOPT) $< -l $*.list -m $*.map -o $*.prg
 
-%.o:	%.s $(CC65)
+%.o:	%.s $(CC65_DEPEND)
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CA65) $< -l $*.list
 
-$(UTILDIR)/mega65_config.o:      $(UTILDIR)/mega65_config.s $(UTILDIR)/mega65_config.inc $(CC65)
+$(UTILDIR)/mega65_config.o:      $(UTILDIR)/mega65_config.s $(UTILDIR)/mega65_config.inc $(CC65_DEPEND)
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CA65) $< -l $*.list
 
-$(TESTDIR)/vicii.prg:       $(TESTDIR)/vicii.c $(TESTDIR)/vicii_asm.s $(CC65)
+$(TESTDIR)/vicii.prg:       $(TESTDIR)/vicii.c $(TESTDIR)/vicii_asm.s $(CC65_DEPEND)
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CL65) -O -o $*.prg --mapfile $*.map $< $(TESTDIR)/vicii_asm.s
 
-$(TESTDIR)/pulseoxy.prg:       $(TESTDIR)/pulseoxy.c $(CC65)
+$(TESTDIR)/pulseoxy.prg:       $(TESTDIR)/pulseoxy.c $(CC65_DEPEND)
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CL65) -O -o $*.prg --mapfile $*.map $< 
 
-$(TESTDIR)/qspitest.prg:       $(TESTDIR)/qspitest.c $(CC65)
+$(TESTDIR)/qspitest.prg:       $(TESTDIR)/qspitest.c $(CC65_DEPEND)
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CL65) -O -o $*.prg --mapfile $*.map $< 
 
-$(TESTDIR)/unicorns.prg:       $(TESTDIR)/unicorns.c $(CC65)
+$(TESTDIR)/unicorns.prg:       $(TESTDIR)/unicorns.c $(CC65_DEPEND)
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CL65) -O -o $*.prg --mapfile $*.map $<
 
-$(TESTDIR)/eth_mdio.prg:       $(TESTDIR)/eth_mdio.c $(CC65)
+$(TESTDIR)/eth_mdio.prg:       $(TESTDIR)/eth_mdio.c $(CC65_DEPEND)
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CL65) -O -o $*.prg --mapfile $*.map $< 
 
-$(TESTDIR)/instructiontiming.prg:       $(TESTDIR)/instructiontiming.c $(TESTDIR)/instructiontiming_asm.s $(CC65)
+$(TESTDIR)/instructiontiming.prg:       $(TESTDIR)/instructiontiming.c $(TESTDIR)/instructiontiming_asm.s $(CC65_DEPEND)
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CL65) -O -o $*.prg --mapfile $*.map $< $(TESTDIR)/instructiontiming_asm.s
 
-$(UTILDIR)/mega65_config.prg:       $(UTILDIR)/mega65_config.o $(CC65)
+$(UTILDIR)/mega65_config.prg:       $(UTILDIR)/mega65_config.o $(CC65_DEPEND)
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(LD65) $< --mapfile $*.map -o $*.prg
 
-$(UTILDIR)/megaflash-a100t.prg:       $(UTILDIR)/megaflash.c $(CC65)
-	git submodule init
-	git submodule update
+$(UTILDIR)/megaflash-a100t.prg:       $(UTILDIR)/megaflash.c $(CC65_DEPEND)
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA100T -O -o $(UTILDIR)/megaflash-a100t.prg --mapfile $*.map $<  $(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c
 	# Make sure that result is not too big.  Top must be below <$8000 after loading, so that
 	# it doesn't overlap with hypervisor
 	test -n "$$(find $(UTILDIR)/megaflash-a100t.prg -size -29000c)"
 
-$(UTILDIR)/megaflash-a200t.prg:       $(UTILDIR)/megaflash.c $(CC65)
-	git submodule init
-	git submodule update
+$(UTILDIR)/megaflash-a200t.prg:       $(UTILDIR)/megaflash.c $(CC65_DEPEND)
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -DA200T -O -o $(UTILDIR)/megaflash-a200t.prg --mapfile $*.map $< $(SRCDIR)/mega65-libc/cc65/src/memory.c $(SRCDIR)/mega65-libc/cc65/src/hal.c
 	# Make sure that result is not too big.  Top must be below <$8000 after loading, so that
 	# it doesn't overlap with hypervisor
 	test -n "$$(find $(UTILDIR)/megaflash-a200t.prg -size -29000c)"
 
-$(UTILDIR)/hyperramtest.prg:       $(UTILDIR)/hyperramtest.c $(CC65) $(wildcard $(SRCDIR)/mega65-libc/cc65/src/*.c) $(wildcard $(SRCDIR)/mega65-libc/cc65/src/*.s) $(wildcard $(SRCDIR)/mega65-libc/cc65/include/*.h)
+$(UTILDIR)/hyperramtest.prg:       $(UTILDIR)/hyperramtest.c $(wildcard $(SRCDIR)/mega65-libc/cc65/src/*.c) $(wildcard $(SRCDIR)/mega65-libc/cc65/src/*.s) $(wildcard $(SRCDIR)/mega65-libc/cc65/include/*.h) $(CC65_DEPEND)
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -O -o $*.prg --mapfile $*.map $< $(wildcard $(SRCDIR)/mega65-libc/cc65/src/*.c) $(wildcard $(SRCDIR)/mega65-libc/cc65/src/*.s)
 
-$(UTILDIR)/i2clist.prg:       $(UTILDIR)/i2clist.c $(CC65)
+$(UTILDIR)/i2clist.prg:       $(UTILDIR)/i2clist.c $(CC65_DEPEND)
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CL65) $< --mapfile $*.map -o $*.prg
 
-$(UTILDIR)/i2cstatus.prg:       $(UTILDIR)/i2cstatus.c $(CC65)  $(SRCDIR)/mega65-libc/cc65/src/*.c $(SRCDIR)/mega65-libc/cc65/src/*.s $(SRCDIR)/mega65-libc/cc65/include/*.h
+$(UTILDIR)/i2cstatus.prg:       $(UTILDIR)/i2cstatus.c $(SRCDIR)/mega65-libc/cc65/src/*.c $(SRCDIR)/mega65-libc/cc65/src/*.s $(SRCDIR)/mega65-libc/cc65/include/*.h $(CC65_DEPEND)
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CL65) -I $(SRCDIR)/mega65-libc/cc65/include -O -o $*.prg --mapfile $*.map $<  $(SRCDIR)/mega65-libc/cc65/src/*.c $(SRCDIR)/mega65-libc/cc65/src/*.s
 
-$(UTILDIR)/floppystatus.prg:       $(UTILDIR)/floppystatus.c $(CC65)
+$(UTILDIR)/floppystatus.prg:       $(UTILDIR)/floppystatus.c $(CC65_DEPEND)
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CL65) $< --mapfile $*.map -o $*.prg
 
-$(UTILDIR)/tiles.prg:       $(UTILDIR)/tiles.o $(CC65)
+$(UTILDIR)/tiles.prg:       $(UTILDIR)/tiles.o $(CC65_DEPEND)
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(LD65) $< --mapfile $*.map -o $*.prg
 
-$(UTILDIR)/diskmenuprg.o:      $(UTILDIR)/diskmenuprg.a65 $(UTILDIR)/diskmenu.a65 $(UTILDIR)/diskmenu_sort.a65 $(CC65)
+$(UTILDIR)/diskmenuprg.o:      $(UTILDIR)/diskmenuprg.a65 $(UTILDIR)/diskmenu.a65 $(UTILDIR)/diskmenu_sort.a65 $(CC65_DEPEND)
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CA65) $< -l $*.list
 
-$(UTILDIR)/diskmenu.prg:       $(UTILDIR)/diskmenuprg.o $(CC65)
+$(UTILDIR)/diskmenu.prg:       $(UTILDIR)/diskmenuprg.o $(CC65_DEPEND)
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(LD65) $< --mapfile $*.map -o $*.prg
 
 $(SRCDIR)/mega65-fdisk/m65fdisk.prg:
@@ -603,10 +640,14 @@ $(BINDIR)/monitor.m65:	$(SRCDIR)/monitor/monitor.a65 $(SRCDIR)/monitor/monitor_d
 	$(OPHIS_MON) $< -l monitor.list -m monitor.map
 
 # ============================ done moved, print-warn, clean-target
-$(UTILDIR)/diskmenuc000.o:     $(UTILDIR)/diskmenuc000.a65 $(UTILDIR)/diskmenu.a65 $(UTILDIR)/diskmenu_sort.a65 $(CC65)
+$(UTILDIR)/diskmenuc000.o:     $(UTILDIR)/diskmenuc000.a65 $(UTILDIR)/diskmenu.a65 $(UTILDIR)/diskmenu_sort.a65 $(CC65_DEPEND)
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(CA65) $< -l $*.list
 
-$(BINDIR)/diskmenu_c000.bin:   $(UTILDIR)/diskmenuc000.o $(CC65)
+$(BINDIR)/diskmenu_c000.bin:   $(UTILDIR)/diskmenuc000.o $(CC65_DEPEND)
+	$(warning =============================================================)
+	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	$(LD65) $< --mapfile $*.map -o $*.bin
 
 $(BINDIR)/etherload.prg:	$(UTILDIR)/etherload.a65 $(OPHIS)
