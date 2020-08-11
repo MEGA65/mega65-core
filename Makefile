@@ -113,11 +113,7 @@ src/tools/acme/src/acme:
 	$(warning ~~~~~~~~~~~~~~~~> Making: $@)
 	git submodule init
 	git submodule update
-ifdef USE_LOCAL_ACME
-	echo "NOTE: Using local installed ACME because USE_LOCAL_ACME=1."
-else
 	( cd src/tools/acme/src && make -j 8 )
-endif
 
 
 $(GHDL):
