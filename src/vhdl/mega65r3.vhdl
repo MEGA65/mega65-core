@@ -508,11 +508,11 @@ begin
     AUDIO_TONE: entity work.audio_out_test_tone
       generic map (
         -- You have to update audio_clock if you change this
-        fref        => 50.0
+        fref        => 100.0
         )
         port map (
             ref_rst   => reset_high,
-            ref_clk   => ethclock,
+            ref_clk   => CLK_IN,
             pcm_rst   => pcm_rst,
             pcm_clk   => pcm_clk,
             pcm_clken => pcm_clken,
