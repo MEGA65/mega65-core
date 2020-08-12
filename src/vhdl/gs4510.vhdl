@@ -693,8 +693,12 @@ architecture Behavioural of gs4510 is
   signal instruction_phase : unsigned(3 downto 0)  := (others => '0');
 
   signal ocean_cart_mode : std_logic := '0';
-  signal ocean_cart_lo_bank : unsigned(7 downto 0) := x"00";
-  signal ocean_cart_hi_bank : unsigned(7 downto 0) := x"00";
+  -- Banks are 8KB each.  For efficiency the bank here must include
+  -- the M65 RAM bank in bits 3-5.  Default is to present
+  -- $40000 in lo, and $40000 in hi
+  -- $40000 / $2000 = $20
+  signal ocean_cart_lo_bank : unsigned(7 downto 0) := x"20";
+  signal ocean_cart_hi_bank : unsigned(7 downto 0) := x"20";
   
 -- Indicate source of operand for instructions
 -- Note that ROM is actually implemented using
@@ -7371,10 +7375,8 @@ begin
             -- point to the same 128KB.  So only 128KB carts will work.
             -- The bank bits go to bits 20 -- 13, so for bank 4 we need to set
             -- bit 18 = bit 5 of the bank registers
-            ocean_cart_hi_bank(3 downto 0) <= memory_access_wdata(3 downto 0);
-            ocean_cart_lo_bank(3 downto 0) <= memory_access_wdata(3 downto 0);
-            ocean_cart_lo_bank(7 downto 4) <= x"2";
-            ocean_cart_hi_bank(7 downto 4) <= x"2";
+            ocean_cart_hi_bank <= to_unsigned(32+to_integer(memory_access_wdata(3 downto 0)),8);
+            ocean_cart_lo_bank <= to_unsigned(32+to_integer(memory_access_wdata(3 downto 0)),8);
           end if;
           
           if memory_access_address = x"FFD3700"
@@ -7647,10 +7649,11 @@ begin
               end if;
               -- IO mode "10" = ethernet buffer at $D800-$DFFF, so no cartridge
               -- IO
-              if sector_buffer_mapped='0' and colourram_at_dc00='0' and viciii_iomode/="10" then
+              if sector_buffer_mapped='0' and colourram_at_dc00='0' and viciii_iomode/="10" and ocean_cart_mode='0' then
                 -- Map $DE00-$DFFF IO expansion areas to expansion port
                 -- (but only if SD card sector buffer is not mapped, and
-                -- 2nd KB of colour RAM is not mapped).
+                -- 2nd KB of colour RAM is not mapped, and we aren't pretending
+                -- to be an Ocean caretridge).
                 if (short_address(11 downto 8) = x"E")
                   or (short_address(11 downto 8) = x"F") then
                   temp_address(27 downto 12) := x"7FFD";

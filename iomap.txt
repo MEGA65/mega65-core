@@ -20,7 +20,7 @@ GS $4000000 - $7FFFFFF SUMMARY:SLOWDEV Slow Device memory (64MB)
 GS $7010000.4-0 - Read /EXROM & /GAME signal probe count (MEGA65 R1 PCB only)
 GS $7010000.5 - Force assertion of /RESET on cartridge port
 GS $7010000.5 - Read cartridge force reset (1=reset)
-GS $7010000.6 - Read cartridge /EXROM flag
+GS $7010000.6 - Read cartridge /GAME flag
 GS $7010000.7 - Read cartridge /EXROM flag
 GS $7010001.0-4 - Directly read lower 5 bits of cartridge port data lines.
 GS $7010001.5 - Joystick read toggle flag DEBUG
@@ -441,6 +441,12 @@ GS $D625 UARTMISC:J21L J21 pins 1 -- 6, 9 -- 10 input/output values
 GS $D626 UARTMISC:J21H J21 pins 11 -- 14 input/output values
 GS $D627 UARTMISC:J21LDDR J21 pins 1 -- 6, 9 -- 10 data direction register
 GS $D628 UARTMISC:J21HDDR J21 pins 11 -- 14 data direction register
+GS $D62A KBD:FWDATEL LSB of keyboard firmware date stamp (days since 1 Jan 2020)
+GS $D62B KBD:FWDATEH MSB of keyboard firmware date stamp (days since 1 Jan 2020)
+GS $D62C KBD:FWGIT0 LSB of keyboard firmware git commit
+GS $D62D KBD:FWGIT0 2nd byte of keyboard firmware git commit
+GS $D62E KBD:FWGIT0 3rd byte of keyboard firmware git commit
+GS $D62F KBD:FWGIT0 MSB of keyboard firmware git commit
 GS $D640.6 - Thumbnail drawing was in progress.
 GS $D640.7 - Thumbnail is valid if 1.  Else there has not been a complete frame since elapsed without a trap to hypervisor mode, in which case the thumbnail may not reflect the current process.
 GS $D640 CPU:HTRAP00 Writing triggers hypervisor trap \$00
@@ -564,7 +570,7 @@ GS $D67C.0-7 HCPU:UARTDATA (write) Hypervisor write serial output to UART monito
 GS $D67C.6 - (read) Hypervisor internal immediate UART monitor busy flag (can write when 0)
 GS $D67C.7 - (read) Hypervisor serial output from UART monitor busy flag (can write when 0)
 GS $D67C CPU:HTRAP3C Writing triggers hypervisor trap \$3C
-GS $D67D.0 HCPU:CARTEN Hypervisor enable /EXROM and /GAME from cartridge
+GS $D67D.0 HCPU:RSVD RESERVED
 GS $D67D.1 HCPU:JMP32EN Hypervisor enable 32-bit JMP/JSR etc
 GS $D67D.2 HCPU:ROMPROT Hypervisor write protect C65 ROM \$20000-\$3FFFF
 GS $D67D.3 HCPU:ASCFAST Hypervisor enable ASC/DIN CAPS LOCK key to enable/disable CPU slow-down in C64/C128/C65 modes
@@ -1119,6 +1125,7 @@ GS $D7FD.6 CPU:NOGAME Override for /GAME : Must be 0 to enable /GAME signal
 GS $D7FD.6 CPU:POWEREN Set to zero to power off computer on supported systems. WRITE ONLY.
 GS $D7FD.7 CPU:NOEXROM Override for /EXROM : Must be 0 to enable /EXROM signal
 GS $D7FE.0 CPU:PREFETCH Enable expansion RAM pre-fetch logic
+GS $D7FE.1 CPU:OCEANA Enable Ocean Type A cartridge emulation
 C64 $DC00 CIA1:PORTA Port A 
 C64 $DC01 CIA1:PORTB Port B
 C64 $DC02 CIA1:DDRA Port A DDR
