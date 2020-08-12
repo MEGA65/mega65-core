@@ -63,13 +63,11 @@ mps3_loop:
 -
         sta [<zptempv32],z
 
-        ;; Wait for I2C register to get written
-
-        inc $d020
-
-        cmp [<zptempv32],z
-        bne -
-
+        ;; Wait a while for I2C register to get written
+	ldx #$00
+-        inc $d020
+	dex
+	bne -
 
         jmp mps3_loop
 	
