@@ -384,7 +384,7 @@ architecture Behavioral of viciv is
   signal displayline0 : std_logic := '1';
   signal displaycolumn0 : std_logic := '1';
 
-  -- Asserted if in the 1200 vetical lines of the frame
+  -- Asserted if in the displayed part of vertical frame
   -- DEBUG: Power up with in frame to make simulation in ghdl much quicker.
   signal vert_in_frame : std_logic := '1';
 
@@ -1979,11 +1979,15 @@ begin
         elsif register_number=122 then  -- $D307A Read raster compare MSB / raster compare source
           fastio_rdata(2 downto 0) <= std_logic_vector(vicii_raster_compare(10 downto 8));
           fastio_rdata(6 downto 3) <= (others => '0');
+          -- XXX debug why VIC-III blink attribute is not blinking          
+          fastio_rdata(3) <= viciii_blink_phase;
 	  fastio_rdata(7) <= vicii_is_raster_source;
         elsif register_number=123 then  -- $D307B
           fastio_rdata <= std_logic_vector(display_row_count);
         elsif register_number=124 then  -- $D307C
-          fastio_rdata(3 downto 0) <= x"F";
+          -- fastio_rdata(3 downto 0) <= x"F";
+          -- XXX debug why VIC-III blink attribute is not blinking
+          fastio_rdata(3 downto 0) <= std_logic_vector(to_unsigned(viciii_blink_phase_counter,4));
           fastio_rdata(4) <= hsync_polarity_internal;
           fastio_rdata(5) <= vsync_polarity_internal;
           fastio_rdata(7 downto 6) <= "11";
@@ -2831,7 +2835,7 @@ begin
           display_row_count <= unsigned(fastio_wdata);
         elsif register_number=124 then
           -- @IO:GS $D07C.0-3 VIC-IV:RESERVED UNUSED BITS
-          null;
+          null;                    
           -- @IO:GS $D07C.4 VIC-IV:HSYNCP hsync polarity
           hsync_polarity_internal <= fastio_wdata(4);
           -- @IO:GS $D07C.5 VIC-IV:VSYNCP vsync polarity
