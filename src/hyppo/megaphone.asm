@@ -37,14 +37,31 @@ megaphone_setup:
         dez
         bne -
 
+	;; If we are on a MEGA65R2, then don't setup any I2C peripherals
+        lda #>$7200
+        sta zptempv32+1
+	
+        ldz #$1f
+        lda #$00
+-
+        lda (<zptempv32),y
+        lda [<zptempv32],z
+        bne is_mega65r2
+        dez
+        bne -
+
+
+	
 	;; Apply MEGA65 R3 I2C settings (harmless on other targets)
 
-mega65_i2c_setup
+mega65_i2c_setup:	
+	
         lda #>$7100
         sta zptempv32+1
         lda #$00
         sta $d020
         ldy #$00
+
 mps3_loop:
         lda mega65r3_i2c_settings,y
         cmp #$ff
@@ -61,17 +78,18 @@ mps3_loop:
 
         ;; Keep writing it until it gets written
 -
-        sta [<zptempv32],z
+ 	sta [<zptempv32],z
 
         ;; Wait a while for I2C register to get written
-	ldx #$00
--        inc $d020
+	ldx #$00		
+-       inc $d020
 	dex
 	bne -
 
         jmp mps3_loop
 	
-
+is_mega65r2:
+	rts	
 	
 have_i2cperipherals:
         lda #$00
