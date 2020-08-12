@@ -691,6 +691,10 @@ architecture Behavioural of gs4510 is
   signal axyz_phase : integer range 0 to 4 := 0;
   
   signal instruction_phase : unsigned(3 downto 0)  := (others => '0');
+
+  signal ocean_cart_mode : std_logic := '0';
+  signal ocean_cart_lo_bank : unsigned(7 downto 0) := x"00";
+  signal ocean_cart_hi_bank : unsigned(7 downto 0) := x"00";
   
 -- Indicate source of operand for instructions
 -- Note that ROM is actually implemented using
@@ -2601,7 +2605,8 @@ begin
               return value;
             when x"fe" =>
               value(0) := slow_prefetch_enable;
-              value(7 downto 1) := (others => '0');
+              value(1) := ocean_cart_mode;
+              value(7 downto 2) := (others => '0');
               return value;
             when others => return x"ff";
           end case;
@@ -3082,6 +3087,8 @@ begin
       elsif (long_address = x"FFD37FE") then
         -- @IO:GS $D7FE.0 CPU:PREFETCH Enable expansion RAM pre-fetch logic
         slow_prefetch_enable <= value(0);
+        -- @IO:GS $D7FE.1 CPU:OCEANA Enable Ocean Type A cartridge emulation
+        ocean_cart_mode <= value(1);        
       elsif (long_address = x"FFD37ff") or (long_address = x"FFD17ff") then
         null;
       end if;
@@ -7349,6 +7356,26 @@ begin
           if memory_access_address = x"FFD3601" and vdc_reg_num = x"1E" and hypervisor_mode='0' and (vdc_enabled='1') then
             state <= VDCRead;
           end if;
+
+          if memory_access_address = x"FFD0E00"
+            or memory_access_address = x"FFD1E00"
+            or memory_access_address = x"FFD3E00" then
+            -- Ocean cartridge emulation bank register
+            -- 16x8KB banks. Lower 128KB at $8000-$9FFF,
+            -- Upper 128KB at $A000-$BFFF
+            -- For stock MEGA65, we map the lower 128KB to banks 4 & 5
+            -- The upper banks should map somewhere, too, but this is trickier
+            -- due to only 384KB total.  We can re-use BANK 3 easily enough,
+            -- but the last 64KB is a problem, as not all of BANK 1 is really free.
+            -- Better point that to HyperRAM, perhaps. But for now, it will just
+            -- point to the same 128KB.  So only 128KB carts will work.
+            -- The bank bits go to bits 20 -- 13, so for bank 4 we need to set
+            -- bit 18 = bit 5 of the bank registers
+            ocean_cart_hi_bank(3 downto 0) <= memory_access_wdata(3 downto 0);
+            ocean_cart_lo_bank(3 downto 0) <= memory_access_wdata(3 downto 0);
+            ocean_cart_lo_bank(7 downto 4) <= x"2";
+            ocean_cart_hi_bank(7 downto 4) <= x"2";
+          end if;
           
           if memory_access_address = x"FFD3700"
             or memory_access_address = x"FFD1700" then
@@ -7677,7 +7704,13 @@ begin
             )
         then
           -- ULTIMAX mode or cartridge external ROM
-          temp_address(27 downto 16) := x"7FF";
+          if ocean_cart_mode='1' then
+            -- Simulate $8000-$9FFF access to an Ocean Type 1 cart
+            temp_address(27 downto 21) := (others => '0');
+            temp_address(20 downto 13) := ocean_cart_lo_bank;
+          else
+            temp_address(27 downto 16) := x"7FF";
+          end if;            
         end if;
         if (blocknum=10) and (lhc(0)='1') and (lhc(1)='1') and (writeP=false) then
           
@@ -7691,8 +7724,14 @@ begin
         if (((blocknum=10) or (blocknum=11)) -- $A000-$BFFF cartridge ROM
             and ((gated_exrom='0') and (gated_game='0'))) and (writeP=false)
         then
-          -- ULTIMAX mode or cartridge external ROM
-          temp_address(27 downto 16) := x"7FF";          
+          if ocean_cart_mode='1' then
+            -- Simulate $8000-$9FFF access to an Ocean Type 1 cart
+            temp_address(27 downto 21) := (others => '0');
+            temp_address(20 downto 13) := ocean_cart_hi_bank;
+          else
+            -- ULTIMAX mode or cartridge external ROM
+            temp_address(27 downto 16) := x"7FF";
+          end if;
         end if;
       end if;
 
