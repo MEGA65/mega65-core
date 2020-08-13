@@ -296,39 +296,41 @@ begin  -- behavioural
         
     if rising_edge(cpuclock) then
 
-      if accessible_key_event = x"FE" then
-        -- Turn OSK off
-        portk_internal(7) <= '0';
-      elsif accessible_key_event = x"FD" then
-        -- Turn OSK on
-        portk_internal(7) <= '1';
-        portl_internal(7) <= '1'; -- And put at top of screen for now
-      elsif accessible_key_event(6 downto 0) < to_unsigned(100,7) then
-        -- Key up or down event from accessibile keyboard system
-        if accessible_key_event(7)='1' then
-          -- Key down
-          if portk_internal(6 downto 0) /= std_logic_vector(accessible_key_event(6 downto 0))
-            and portl_internal(6 downto 0) /= std_logic_vector(accessible_key_event(6 downto 0))
-            and portm_internal(6 downto 0) /= std_logic_vector(accessible_key_event(6 downto 0)) then
-            -- This key is not currently pressed
-            if portk_internal(6 downto 0) = "1111111" then
-              portk_internal(6 downto 0) <= std_logic_vector(accessible_key_event(6 downto 0));
-            elsif portl_internal(6 downto 0) = "1111111" then
-              portl_internal(6 downto 0) <= std_logic_vector(accessible_key_event(6 downto 0));
-            elsif portm_internal(6 downto 0) = "1111111" then
-              portm_internal(6 downto 0) <= std_logic_vector(accessible_key_event(6 downto 0));
+      if accessible_key_enable = '1' then
+        if accessible_key_event = x"FE" then
+          -- Turn OSK off
+          portk_internal(7) <= '0';
+        elsif accessible_key_event = x"FD" then
+          -- Turn OSK on
+          portk_internal(7) <= '1';
+          portl_internal(7) <= '1'; -- And put at top of screen for now
+        elsif accessible_key_event(6 downto 0) < to_unsigned(100,7) then
+          -- Key up or down event from accessibile keyboard system
+          if accessible_key_event(7)='1' then
+            -- Key down
+            if portk_internal(6 downto 0) /= std_logic_vector(accessible_key_event(6 downto 0))
+              and portl_internal(6 downto 0) /= std_logic_vector(accessible_key_event(6 downto 0))
+              and portm_internal(6 downto 0) /= std_logic_vector(accessible_key_event(6 downto 0)) then
+              -- This key is not currently pressed
+              if portk_internal(6 downto 0) = "1111111" then
+                portk_internal(6 downto 0) <= std_logic_vector(accessible_key_event(6 downto 0));
+              elsif portl_internal(6 downto 0) = "1111111" then
+                portl_internal(6 downto 0) <= std_logic_vector(accessible_key_event(6 downto 0));
+              elsif portm_internal(6 downto 0) = "1111111" then
+                portm_internal(6 downto 0) <= std_logic_vector(accessible_key_event(6 downto 0));
+              end if;
             end if;
-          end if;
-        else
-          -- Key released
-          if portk_internal(6 downto 0) = std_logic_vector(accessible_key_event(6 downto 0)) then
-            portk_internal(6 downto 0) <= "1111111";
-          end if;
-          if portl_internal(6 downto 0) = std_logic_vector(accessible_key_event(6 downto 0)) then
-            portl_internal(6 downto 0) <= "1111111";
-          end if;
-          if portm_internal(6 downto 0) = std_logic_vector(accessible_key_event(6 downto 0)) then
-            portm_internal(6 downto 0) <= "1111111";
+          else
+            -- Key released
+            if portk_internal(6 downto 0) = std_logic_vector(accessible_key_event(6 downto 0)) then
+              portk_internal(6 downto 0) <= "1111111";
+            end if;
+            if portl_internal(6 downto 0) = std_logic_vector(accessible_key_event(6 downto 0)) then
+              portl_internal(6 downto 0) <= "1111111";
+            end if;
+            if portm_internal(6 downto 0) = std_logic_vector(accessible_key_event(6 downto 0)) then
+              portm_internal(6 downto 0) <= "1111111";
+            end if;
           end if;
         end if;
       end if;

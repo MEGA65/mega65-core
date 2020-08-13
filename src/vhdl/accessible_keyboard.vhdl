@@ -16,7 +16,7 @@ entity accessible_keyboard is
     accessible_key : out unsigned(6 downto 0) := to_unsigned(127,7);
 
     -- cpuclock
-    accessible_key_event : out unsigned(7 downto 0);
+    accessible_key_event : out unsigned(7 downto 0) := x"7f";
     accessible_key_enable : in std_logic    
     
     );
@@ -165,6 +165,9 @@ begin
           end case;          
           end if;
         end if;
+      end if;
+      if accessible_key_enable='0' then
+        accessible_key_event <= x"7F";
       end if;
     end if;
     if rising_edge(pixelclock) then

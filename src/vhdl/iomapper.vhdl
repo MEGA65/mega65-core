@@ -362,7 +362,7 @@ end iomapper;
 architecture behavioral of iomapper is
 
   signal the_button : std_logic;
-  signal i2c_joya_fire_int : std_logic;
+  signal i2c_joya_fire_int : std_logic := '1';
 
   -- Enables for each of the chip select lines,
   -- used for disabling IO devices for debugging
@@ -1473,7 +1473,7 @@ begin
 
     if rising_edge(cpuclock) then
 
-      the_button <= fa_fire and i2c_joya_fire_int;
+      the_button <= fb_fire and i2c_joya_fire_int;
       i2c_joya_fire <= i2c_joya_fire_int;
       
       -- Enable 2nd two SIDs only if they are being accessed. If they are not
