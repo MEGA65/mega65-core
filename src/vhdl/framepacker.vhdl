@@ -219,10 +219,10 @@ begin  -- behavioural
         -- @IO:GS $D646 - Thumbnail write address MSB DEBUG
         fastio_rdata(3 downto 0) <= thumbnail_write_address_int(11 downto 8);
         fastio_rdata(7 downto 4) <= "0000";
-      elsif fastio_addr(3 downto 0) = x"5" then
+      elsif fastio_addr(3 downto 0) = x"7" then
         -- @IO:GS $D647 - Thumbnail pixel_y LSB DEBUG
         fastio_rdata <= pixel_y(7 downto 0);
-      elsif fastio_addr(3 downto 0) = x"6" then
+      elsif fastio_addr(3 downto 0) = x"8" then
         -- @IO:GS $D648 - Thumbnail pixel_y MSB DEBUG
         fastio_rdata(3 downto 0) <= pixel_y(11 downto 8);
         fastio_rdata(7 downto 4) <= "0000";
