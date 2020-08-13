@@ -55,7 +55,7 @@ architecture behavioural of accessible_keyboard is
     ( 1 => ( 63, 127, 71, 66, 64, 127, 4, 5, 6, 3, 127, 68, 69, 70, 67, 127 ),
       2 => ( 57, 56, 59, 8, 11, 16, 19, 24, 27, 32, 35, 40, 43, 48, 51, 0 ),
       -- RESTORE has pseudo key 81 = $51
-      3 => ( 65, 62, 9, 14, 17, 22, 25, 30, 33, 36, 41, 46, 49, 54, 81, 127 ),
+      3 => ( 65, 62, 9, 14, 17, 22, 25, 30, 33, 38, 41, 46, 49, 54, 81, 127 ),
       4 => ( 58, 15, 10, 13, 18, 21, 26, 29, 34, 37, 42, 45, 50, 53, 1, 127 ),
       -- cursor up has pseudo key 82 = $52
       5 => ( 61, 15, 12, 23, 20, 31, 28, 39, 36, 47, 44, 55, 52, 82, 127, 127 ),
@@ -81,29 +81,31 @@ begin
         end if;
         
         -- Get debounced button status
-        if button_counter = 10000 then
+        if button_counter = 100 then
           if selecting_row = '1' then
-            selecting_row <= '0';
+            case accessible_row_drive is
+              -- RETURN
+              when 7 => accessible_key_event <= to_unsigned(1,8);
+                        key_up_countdown <= key_hold_time;
+              -- (right) SHIFT
+              when 8 => accessible_key_event <= to_unsigned(52,8);
+                        key_up_countdown <= key_hold_time;
+              -- SPACE
+              when 9 => accessible_key_event <= to_unsigned(60,8);
+                        key_up_countdown <= key_hold_time;
+              when others =>
+                -- Else no key highlighted
+--                accessible_key_event <= to_unsigned(127,8);
+                -- Begin scanning columns of this row
+                selecting_row <= '0';
+                accessible_col <= 0;
+            end case;          
           else
             selecting_row <= '1';
             if accessible_row_drive < 7 then 
               accessible_key_event <= to_unsigned(key_rows(accessible_row_drive)(accessible_col),8);
               key_up_countdown <= key_hold_time;
             else
-              case accessible_row_drive is
-                -- SPACE
-                when 7 => accessible_key_event <= to_unsigned(60,8);
-                          key_up_countdown <= key_hold_time;
-                -- RETURN
-                when 8 => accessible_key_event <= to_unsigned(1,8);
-                          key_up_countdown <= key_hold_time;
-                -- (left) SHIFT
-                when 9 => accessible_key_event <= to_unsigned(15,8);
-                          key_up_countdown <= key_hold_time;
-                when others =>
-                  -- Else no key highlighted
-                  accessible_key_event <= to_unsigned(127,8);
-              end case;          
             end if;
           end if;
         end if;
@@ -130,12 +132,12 @@ begin
           -- 6 real rows, plus SPACE, RETURN and SHIFT = 9 rows
           accessible_row_drive <= accessible_row_drive + 1;
           case accessible_row_drive+1 is
-            -- SPACE
-            when 7 => accessible_key_drive <= to_unsigned(60,7);
             -- RETURN
-            when 8 => accessible_key_drive <= to_unsigned(1,7);
-            -- (left) SHIFT
-            when 9 => accessible_key_drive <= to_unsigned(15,7);
+            when 7 => accessible_key_drive <= to_unsigned(1,7);
+            -- (right) SHIFT
+            when 8 => accessible_key_drive <= to_unsigned(52,7);
+            -- SPACE
+            when 9 => accessible_key_drive <= to_unsigned(60,7);
             when others =>
               -- Else no key highlighted
               accessible_key_drive <= to_unsigned(127,7);

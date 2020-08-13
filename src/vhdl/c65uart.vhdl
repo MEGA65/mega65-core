@@ -640,7 +640,7 @@ begin  -- behavioural
         when x"0f" =>
           -- @IO:GS $D60F.0 UARTMISC:KEYLEFT Directly read C65 Cursor left key
           -- @IO:GS $D60F.1 UARTMISC:KEYUP Directly read C65 Cursor up key
-          -- @IO:GS $D60F.7 UARTMISC:ACCESSKEY Enable accessible keyboard input via joystick port 1 fire button
+          -- @IO:GS $D60F.7 UARTMISC:ACCESSKEY Enable accessible keyboard input via joystick port 2 fire button
           -- @IO:GS $D60F.6 UARTMISC:OSKDIM Light or heavy dimming of background material behind on-screen keyboard
           fastio_rdata(0) <= key_left;
           fastio_rdata(1) <= key_up;
