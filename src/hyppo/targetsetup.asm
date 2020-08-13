@@ -21,7 +21,7 @@ targetspecific_setup:
 	lda $d629
 	and #$e0
 	cmp #$20
-	beq megaphone_setup
+	beq megaphone_i2c_setup
 	rts
 	
 mega65r3_i2c_setup:	
