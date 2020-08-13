@@ -114,6 +114,7 @@ architecture behavioural of framepacker is
   signal output_write : std_logic := '0';
 
   signal thumbnail_write_address : unsigned(11 downto 0) := x"000";
+  signal thumbnail_write_address_int : unsigned(11 downto 0) := x"000";
   signal thumbnail_row_address : unsigned(11 downto 0) := x"000";
   signal thumbnail_read_address : unsigned(11 downto 0) := x"000";
   signal thumbnail_wdata : unsigned(7 downto 0) := x"00";
@@ -211,6 +212,20 @@ begin  -- behavioural
       elsif fastio_addr(3 downto 0) = x"4" then
         -- @IO:GS $D644 - Thumbnail Y position DEBUG
         fastio_rdata <= to_unsigned(thumbnail_y_counter,8);
+      elsif fastio_addr(3 downto 0) = x"5" then
+        -- @IO:GS $D645 - Thumbnail write address LSB DEBUG
+        fastio_rdata <= thumbnail_write_address_int(7 downto 0);
+      elsif fastio_addr(3 downto 0) = x"6" then
+        -- @IO:GS $D646 - Thumbnail write address MSB DEBUG
+        fastio_rdata(3 downto 0) <= thumbnail_write_address_int(11 downto 8);
+        fastio_rdata(7 downto 4) <= "0000";
+      elsif fastio_addr(3 downto 0) = x"5" then
+        -- @IO:GS $D647 - Thumbnail pixel_y LSB DEBUG
+        fastio_rdata <= pixel_y(7 downto 0);
+      elsif fastio_addr(3 downto 0) = x"6" then
+        -- @IO:GS $D648 - Thumbnail pixel_y MSB DEBUG
+        fastio_rdata(3 downto 0) <= pixel_y(11 downto 8);
+        fastio_rdata(7 downto 4) <= "0000";
       else
         fastio_rdata <= (others => 'Z');
       end if;
@@ -270,6 +285,7 @@ begin  -- behavioural
       if to_integer(last_pixel_y) /= to_integer(pixel_y) then
         if to_integer(pixel_y) = 0 then
           thumbnail_write_address <= (others => '0');
+          thumbnail_write_address_int <= (others => '0');
           thumbnail_row_address <= (others => '0');
           report "THUMB: Reset write address";
           thumbnail_y_counter <= 0;
@@ -288,6 +304,7 @@ begin  -- behavioural
           end if;
           thumbnail_active_row <= '0';
           thumbnail_write_address <= thumbnail_row_address;
+          thumbnail_write_address_int <= thumbnail_row_address;
             
           report "THUMB: active_row cleared on row "
             & to_string(std_logic_vector(pixel_y));
@@ -300,11 +317,14 @@ begin  -- behavioural
           if to_integer(thumbnail_row_address) < ( 4095 - 80 ) then
             thumbnail_write_address
               <= to_unsigned(to_integer(thumbnail_row_address) + 80,12);
+            thumbnail_write_address_int
+              <= to_unsigned(to_integer(thumbnail_row_address) + 80,12);
             thumbnail_row_address
               <= to_unsigned(to_integer(thumbnail_row_address) + 80,12);
           else
             -- Make sure we don't overflow and wrap at the bottom of the frame.
             thumbnail_write_address <= to_unsigned(4095 - 80,12);
+            thumbnail_write_address_int <= to_unsigned(4095 - 80,12);
             thumbnail_row_address <= to_unsigned(4095 - 80,12);
           end if;            
 
@@ -338,6 +358,8 @@ begin  -- behavioural
       if thumbnail_active_pixel='1' then
         if to_integer(thumbnail_write_address) /= 4095 then
           thumbnail_write_address
+            <= to_unsigned(to_integer(thumbnail_write_address) + 1,12);
+          thumbnail_write_address_int
             <= to_unsigned(to_integer(thumbnail_write_address) + 1,12);
         end if;
         thumbnail_wdata <= pixel_drive;
