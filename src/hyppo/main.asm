@@ -407,9 +407,9 @@ invalid_subfunction:
 !src "audiomix.asm"
 
 ;; /*  -------------------------------------------------------------------
-;;     MEGAphone I2C register setup
+;;     Target-specific register setup
 ;;     ---------------------------------------------------------------- */
-!src "megaphone.asm"
+!src "targetsetup.asm"
 
 ;; /*  -------------------------------------------------------------------
 ;;     CPU Hypervisor Entry Point on reset
