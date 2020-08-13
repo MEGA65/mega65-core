@@ -23,7 +23,7 @@ entity visual_keyboard is
 
     -- Accessibility key press display
     selected_row : in integer range 0 to 255 := 255; 
-    accessible_key : in unsigned(6 downto 0) := x"FF";
+    accessible_key : in unsigned(6 downto 0) := to_unsigned(127,7);
     dim_shift : in std_logic := '0'; -- allow background to be shifted much
                                      -- dimmer for accessible keyboard
     

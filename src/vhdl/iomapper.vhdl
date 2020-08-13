@@ -20,8 +20,8 @@ entity iomapper is
         uartclock : in std_logic;
 
         accessible_row : out integer range 0 to 255 := 255;
-        acessible_key : out unsigned(6 downto 0) := to_unsigned(127,7);
-        dim_shift : out std_logic := '0';
+        accessible_key : out unsigned(6 downto 0) := to_unsigned(127,7);
+        dim_shift : inout std_logic := '0';
         
         protected_hardware_in : in unsigned(7 downto 0);
         virtualised_hardware_in : in unsigned(7 downto 0);

@@ -742,6 +742,7 @@ architecture Behavioral of machine is
 
   signal accessible_row : integer range 0 to 255;
   signal accessible_key : unsigned(6 downto 0);
+  signal dim_shift : std_logic;
   
 begin
 
@@ -1438,7 +1439,7 @@ begin
       portp_out => portp_out,
 
       -- Accessibility inputs for showing on visual keyboard
-      selected_row => accessible_row,
+      accessible_row => accessible_row,
       accessible_key => accessible_key,
       dim_shift => dim_shift,
       
