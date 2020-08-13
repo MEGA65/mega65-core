@@ -205,6 +205,12 @@ begin  -- behavioural
         fastio_rdata(7) <= thumbnail_valid;
         fastio_rdata(6) <= thumbnail_started;
         fastio_rdata(5 downto 0) <= (others => '0');
+      elsif fastio_addr(3 downto 0) = x"3" then
+        -- @IO:GS $D643 - Thumbnail X position DEBUG
+        fastio_rdata <= to_unsigned(thumbnail_x_counter,8);
+      elsif fastio_addr(3 downto 0) = x"4" then
+        -- @IO:GS $D644 - Thumbnail Y position DEBUG
+        fastio_rdata <= to_unsigned(thumbnail_y_counter,8);
       else
         fastio_rdata <= (others => 'Z');
       end if;

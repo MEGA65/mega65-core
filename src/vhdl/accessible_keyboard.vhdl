@@ -92,17 +92,17 @@ begin
             else
               case accessible_row_drive is
                 -- SPACE
-                when 7 => accessible_key_event <= to_unsigned(60,7);
+                when 7 => accessible_key_event <= to_unsigned(60,8);
                           key_up_countdown <= key_hold_time;
                 -- RETURN
-                when 8 => accessible_key_event <= to_unsigned(1,7);
+                when 8 => accessible_key_event <= to_unsigned(1,8);
                           key_up_countdown <= key_hold_time;
                 -- (left) SHIFT
-                when 9 => accessible_key_event <= to_unsigned(15,7);
+                when 9 => accessible_key_event <= to_unsigned(15,8);
                           key_up_countdown <= key_hold_time;
                 when others =>
                   -- Else no key highlighted
-                  accessible_key_event <= to_unsigned(127,7);
+                  accessible_key_event <= to_unsigned(127,8);
               end case;          
             end if;
           end if;

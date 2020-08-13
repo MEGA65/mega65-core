@@ -361,6 +361,9 @@ end iomapper;
 
 architecture behavioral of iomapper is
 
+  signal the_button : std_logic;
+  signal i2c_joya_fire_int : std_logic;
+
   -- Enables for each of the chip select lines,
   -- used for disabling IO devices for debugging
   signal cia1cs_en : std_logic := '1';
@@ -573,6 +576,23 @@ begin
     data_i  => data_i
     );
   end block;
+
+  access0: block
+  begin
+    accesskbd0: entity work.accessible_keyboard port map (
+      pixelclock => pixelclk,
+      cpuclock => cpuclock,
+
+      the_button => the_button,
+
+      accessible_row => accessible_row,
+      accessible_key => accessible_key,
+      accessible_key_event => accessible_key_event,
+      accessible_key_enable => accessible_key_enable
+      
+      );
+  end block;
+  
   
   -- IRQ line is wire-anded together as if it had a pullup.
   irq <= cia1_irq and ethernet_irq and uart_irq;
@@ -1213,7 +1233,7 @@ begin
       adc2_out => volume_knob2,
       adc3_out => volume_knob3,
       
-      i2c_joya_fire => i2c_joya_fire,
+      i2c_joya_fire => i2c_joya_fire_int,
       i2c_joya_up => i2c_joya_up,
       i2c_joya_down => i2c_joya_down,
       i2c_joya_left => i2c_joya_left,
@@ -1453,6 +1473,9 @@ begin
 
     if rising_edge(cpuclock) then
 
+      the_button <= fa_fire and i2c_joya_fire_int;
+      i2c_joya_fire <= i2c_joya_fire_int;
+      
       -- Enable 2nd two SIDs only if they are being accessed. If they are not
       -- accessed for a couple of frames, then we remove them from the audio stream,
       -- and leave the primary two SIDs at full volume
