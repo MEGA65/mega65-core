@@ -296,7 +296,14 @@ begin  -- behavioural
         
     if rising_edge(cpuclock) then
 
-      if accessible_key_event(6 downto 0) < to_unsigned(72,7) then
+      if accessible_key_event = x"FE" then
+        -- Turn OSK off
+        portk_internal(7) <= '0';
+      elsif accessible_key_event = x"FD" then
+        -- Turn OSK on
+        portk_internal(7) <= '1';
+        portl_internal(7) <= '1'; -- And put at top of screen for now
+      elsif accessible_key_event(6 downto 0) < to_unsigned(100,7) then
         -- Key up or down event from accessibile keyboard system
         if accessible_key_event(7)='1' then
           -- Key down

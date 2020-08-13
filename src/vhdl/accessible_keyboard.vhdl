@@ -61,6 +61,45 @@ begin
   process (cpuclock,pixelclock) is
   begin
     if rising_edge(cpuclock) then
+      if the_button='1' then
+        button_counter <= 0;
+      else
+        -- Get debounced button status
+        if button_counter = 10000 then
+          if selecting_row = '1' then
+            selecting_row <= '0';
+          else
+            selecting_row <= '1';
+            if accessible_row_drive < 7 then 
+              accessible_key_event <= key_rows(accessible_row_drive)(accessible_col);
+            else
+              case accessible_row_drive is
+                -- SPACE
+                when 7 => accessible_key_event <= to_unsigned(60,7);
+                -- RETURN
+                when 8 => accessible_key_event <= to_unsigned(1,7);
+                -- (left) SHIFT
+                when 9 => accessible_key_event <= to_unsigned(15,7);
+                when others =>
+                  -- Else no key highlighted
+                  accessible_key_event <= to_unsigned(127,7);
+          end case;          
+            end if;
+        end if;
+        button_counter <= button_counter + 1;
+        if button_counter = 81000000 then
+          -- Toggle OSK          
+          button_counter <= 0;
+
+          if osk_active = '1' then
+            osk_active <= '0';
+            accessible_key_event <= x"FE"; -- Turn OSK off
+          else
+            osk_active <= '1';
+            accessible_key_event <= x"FD"; -- Turn OSK on
+          end if;
+        end if;
+      end if;
       if cycle_counter < cycle_interval then
         cycle_counter <= cycle_counter + 1;
       else
