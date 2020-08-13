@@ -24,6 +24,14 @@ end accessible_keyboard;
 
 architecture behavioural of accessible_keyboard is
 
+  signal osk_active : std_logic := '0';
+  
+  -- Hold key as pressed for a while so the user can see what would be pressesd
+  constant key_hold_time : integer := 10000000;
+  signal key_up_countdown : integer := 0;
+  
+  signal button_counter : integer := 0;
+  
   signal accessible_col : integer range 0 to 255 := 0;
   signal accessible_row_drive : integer range 0 to 255 := 255;
   signal accessible_key_drive : unsigned(6 downto 0) := to_unsigned(127,7);
@@ -64,6 +72,14 @@ begin
       if the_button='1' then
         button_counter <= 0;
       else
+        -- Release keys after shot press
+        if key_up_countdown /= 0 then
+          key_up_countdown <= key_up_countdown - 1;
+          if key_up_countdown = 1 then
+            accessible_key_event(7) <= '1';
+          end if;
+        end if;
+        
         -- Get debounced button status
         if button_counter = 10000 then
           if selecting_row = '1' then
@@ -71,20 +87,25 @@ begin
           else
             selecting_row <= '1';
             if accessible_row_drive < 7 then 
-              accessible_key_event <= key_rows(accessible_row_drive)(accessible_col);
+              accessible_key_event <= to_unsigned(key_rows(accessible_row_drive)(accessible_col),8);
+              key_up_countdown <= key_hold_time;
             else
               case accessible_row_drive is
                 -- SPACE
                 when 7 => accessible_key_event <= to_unsigned(60,7);
+                          key_up_countdown <= key_hold_time;
                 -- RETURN
                 when 8 => accessible_key_event <= to_unsigned(1,7);
+                          key_up_countdown <= key_hold_time;
                 -- (left) SHIFT
                 when 9 => accessible_key_event <= to_unsigned(15,7);
+                          key_up_countdown <= key_hold_time;
                 when others =>
                   -- Else no key highlighted
                   accessible_key_event <= to_unsigned(127,7);
-          end case;          
+              end case;          
             end if;
+          end if;
         end if;
         button_counter <= button_counter + 1;
         if button_counter = 81000000 then
@@ -140,7 +161,7 @@ begin
             -- (left) SHIFT
             when 9 => accessible_key_drive <= to_unsigned(15,7);
             when others =>
-              accessible_key_drive <= key_rows(accessible_row_drive)(accessible_col);
+              accessible_key_drive <= to_unsigned(key_rows(accessible_row_drive)(accessible_col),7);
           end case;          
           end if;
         end if;
