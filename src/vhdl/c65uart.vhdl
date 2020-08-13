@@ -7,6 +7,7 @@ use Std.TextIO.all;
 use work.debugtools.all;
 
 entity c65uart is
+  generic ( target : mega65_target_t );
   port (
     pixelclock : in std_logic;
     cpuclock : in std_logic;
@@ -127,6 +128,8 @@ architecture behavioural of c65uart is
   signal filtered_rx : std_logic := '1';
   signal rx_samples : std_logic_vector(15 downto 0);
 
+  signal target_id : unsigned(7 downto 0) := x"FF";
+  
   -- Transmit buffer for current byte
   -- (Note the UART can also have a byte buffered in reg_data_tx, to allow
   -- back-to-back char sending)
@@ -266,7 +269,26 @@ begin  -- behavioural
 
     register_number(7 downto 6) := "00";
     register_number(5 downto 0) := fastio_address(5 downto 0);
-    
+
+    -- Determine model number
+    case target is
+      -- $00-$1F = MEGA65 desktop versions
+      when mega65r1 => target_id <= x"01";
+      when mega65r2 => target_id <= x"02";
+      when mega65r3 => target_id <= x"03";
+      -- $20-$3F = MEGAphone/handheld versions
+      when megaphoner1 => target_id <= x"21";
+      -- $40-$5F = Nexys4 / Nexys4 DDR
+      when nexys4 => target_id <= x"40";
+      when nexys4ddr => target_id <= x"41";
+      when nexys4ddr_widget => target_id <= x"42";
+      -- Misc other targets, that don't have common properties
+      when wukong => target_id <= x"FD";                               
+      when simulation => target_id <= x"FE";
+                         
+      when others => target_id <= x"FF";
+    end case;    
+        
     if rising_edge(cpuclock) then
 
       -- Monitor OSK toggle key input for MEGAphone, and cycle through the
@@ -682,6 +704,9 @@ begin  -- behavioural
         when x"27" => fastio_rdata <= unsigned(j21ddr(7 downto 0));
         when x"28" => fastio_rdata(3 downto 0) <= (unsigned(j21ddr(11 downto 8)));
                       fastio_rdata(7 downto 4) <= "0000";
+        when x"29" =>
+        -- @IO:GS $D629 MISC:M65MODEL MEGA65 model ID. Can be used to determine the model of MEGA65 a programme is running on, e.g., to enable touch controls on MEGAphone.
+          fastio_rdata <= target_id;
         -- @IO:GS $D62A KBD:FWDATEL LSB of keyboard firmware date stamp (days since 1 Jan 2020)
         -- @IO:GS $D62B KBD:FWDATEH MSB of keyboard firmware date stamp (days since 1 Jan 2020)
         when x"2a" => fastio_rdata <= kbd_datestamp(7 downto 0);

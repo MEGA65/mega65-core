@@ -481,7 +481,7 @@ reset_machine_state:
         sta $d054
 
         ;; Setup I2C peripherals on the MEGAphone platform
-        jsr megaphone_setup
+        jsr targetspecific_setup
 
         ;; sprites off, and normal mode, 256-colour char data from chipram
         lda #$00

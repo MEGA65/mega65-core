@@ -726,7 +726,10 @@ begin
 
   block4b: block
   begin
-    c65uart0: entity work.c65uart port map (
+    c65uart0: entity work.c65uart generic map (
+      target => target,
+      )
+      port map (
       pixelclock => pixelclk,
       cpuclock => cpuclock,
       c65uart_cs => c65uart_cs,

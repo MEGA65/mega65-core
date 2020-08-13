@@ -2,13 +2,9 @@
         ;; Basically setup the I2C IO expanders with sensible values, turning
         ;; all peripherals on.
 
-megaphone_setup:
+targetspecific_setup:
 
-        ;; Start with backscreen very dim, to avoid inrush current
-        ;; causing FGPA power rail to sag.
-        lda #$01
-        sta $d6f0
-
+	;; Setup common I2C area 32-bit pointer
         lda #<$7000
         sta zptempv32+0
         lda #>$7000
@@ -17,45 +13,19 @@ megaphone_setup:
         sta zptempv32+2
         lda #>$0FFD
         sta zptempv32+3
-
-        ;; Detect if we have MEGAphone I2C perihperals or not
-        ;; NOTE: It takes a little while for the I2C controller to
-        ;; start up.  So we should wait a few milliseconds before
-        ;; deciding.
-        ;; (This is also why it works when replacing the hypervisor on boot,
-        ;; as the replaced version has started late enough.
--       lda $d012
-        cmp #$ff
-        bne -
-
-        ldz #$1f
-        lda #$00
--
-        lda (<zptempv32),y
-        lda [<zptempv32],z
-        bne have_i2cperipherals
-        dez
-        bne -
-
-	;; If we are on a MEGA65R2, then don't setup any I2C peripherals
-        lda #>$7200
-        sta zptempv32+1
 	
-        ldz #$1f
-        lda #$00
--
-        lda (<zptempv32),y
-        lda [<zptempv32],z
-        bne is_mega65r2
-        dez
-        bne -
-
-
+	;; Apply I2C settings based on target ID
+	lda $d629
+	cmp #$03
+	beq mega65r3_i2c_setup
+	lda $d629
+	and #$e0
+	cmp #$20
+	beq megaphone_setup
+	rts
 	
-	;; Apply MEGA65 R3 I2C settings (harmless on other targets)
+mega65r3_i2c_setup:	
 
-mega65_i2c_setup:	
-	
         lda #>$7100
         sta zptempv32+1
         lda #$00
@@ -80,18 +50,19 @@ mps3_loop:
 -
  	sta [<zptempv32],z
 
-        ;; Wait a while for I2C register to get written
-	ldx #$00		
--       inc $d020
-	dex
-	bne -
+	inc $d020	
+        cmp [<zptempv32],z
+        bne -
 
         jmp mps3_loop
 	
-is_mega65r2:
-	rts	
+megaphone_i2c_setup:
+
+        ;; Start with backscreen very dim, to avoid inrush current
+        ;; causing FGPA power rail to sag.
+        lda #$01
+        sta $d6f0
 	
-have_i2cperipherals:
         lda #$00
         sta $d020
         ldy #$00
