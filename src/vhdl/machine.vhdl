@@ -739,6 +739,9 @@ architecture Behavioral of machine is
   signal cpu_pcm_enable : std_logic := '0';
   signal cpu_pcm_bypass : std_logic := '0';
   signal pwm_mode_select : std_logic := '0';
+
+  signal accessible_row : integer range 0 to 255;
+  signal accessible_key : unsigned(6 downto 0);
   
 begin
 
@@ -1289,6 +1292,11 @@ begin
       -- (visual keyboard is only for LCD display, so this makes sense
       -- here).
       lcd_display_enable => lcd_dataenable_internal,
+
+      -- Accessibility inputs for showing on visual keyboard
+      selected_row => accessible_row,
+      accessible_key => accessible_key,
+      dim_shift => dim_shift,
       
       -- Pixels from video pipeline
       pixel_strobe_in => pixel_strobe_viciv,
@@ -1428,6 +1436,11 @@ begin
 
       porto_out => porto_out,
       portp_out => portp_out,
+
+      -- Accessibility inputs for showing on visual keyboard
+      selected_row => accessible_row,
+      accessible_key => accessible_key,
+      dim_shift => dim_shift,
       
       disco_led_en => disco_led_en,
       disco_led_id => disco_led_id,

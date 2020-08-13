@@ -90,6 +90,10 @@ entity c65uart is
     j21out : inout std_logic_vector(11 downto 0) := (others => '1');
     j21ddr : inout std_logic_vector(11 downto 0) := (others => '0');    
 
+    accessible_key_event : in unsigned(7 downto 0);
+    accessible_key_enable : inout std_logic := '0';
+    accessible_key_extradim : inout std_logic := '0';
+    
     suppress_key_glitches : out std_logic := '1';
     suppress_key_retrigger : out std_logic := '0';
     ascii_key_event_count : in unsigned(15 downto 0)
@@ -292,6 +296,36 @@ begin  -- behavioural
         
     if rising_edge(cpuclock) then
 
+      if accessible_key_event(6 downto 0) < to_unsigned(72,7) then
+        -- Key up or down event from accessibile keyboard system
+        if accessible_key_event(7)='1' then
+          -- Key down
+          if portk_internal(6 downto 0) /= accessible_key_event(6 downto 0)
+            and portl_internal(6 downto 0) /= accessible_key_event(6 downto 0)
+            and portm_internal(6 downto 0) /= accessible_key_event(6 downto 0) then
+            -- This key is not currently pressed
+            if portk_internal(6 downto 0) = "1111111" then
+              portk_internal(6 downto 0) <= accessible_key_event(6 downto 0);
+            elsif portl_internal(6 downto 0) = "1111111" then
+              portl_internal(6 downto 0) <= accessible_key_event(6 downto 0);
+            elsif portm_internal(6 downto 0) = "1111111" then
+              portm_internal(6 downto 0) <= accessible_key_event(6 downto 0);
+            end if;
+          end if;
+        else
+          -- Key released
+          if portk_internal(6 downto 0) = accessible_key_event(6 downto 0) then
+            portk_internal(6 downto 0) <= "1111111";
+          end if;
+          if portl_internal(6 downto 0) = accessible_key_event(6 downto 0) then
+            portl_internal(6 downto 0) <= "1111111";
+          end if;
+          if portm_internal(6 downto 0) = accessible_key_event(6 downto 0) then
+            portm_internal(6 downto 0) <= "1111111";
+          end if;
+        end if;
+      end if;
+      
       -- Monitor OSK toggle key input for MEGAphone, and cycle through the
       -- various OSK states (off, bottom and top position).
       last_osk_toggle_key <= osk_toggle_key;
@@ -427,6 +461,9 @@ begin  -- behavioural
           when x"0c" => reg_portf_ddr <= std_logic_vector(fastio_wdata);
           when x"0d" => reg_portg_out <= std_logic_vector(fastio_wdata);
           when x"0e" => reg_portg_ddr <= std_logic_vector(fastio_wdata);
+          when x"0f" =>
+            accessible_key_enable <= fastio_wdata(7);
+            accessible_key_extradim <= fastio_wdata(6);
           when x"10" => porth_write_strobe <= '1';
           when x"11" =>
             -- bucky keys readonly
@@ -594,8 +631,12 @@ begin  -- behavioural
         when x"0f" =>
           -- @IO:GS $D60F.0 UARTMISC:KEYLEFT Directly read C65 Cursor left key
           -- @IO:GS $D60F.1 UARTMISC:KEYUP Directly read C65 Cursor up key
+          -- @IO:GS $D60F.7 UARTMISC:ACCESSKEY Enable accessible keyboard input via joystick port 1 fire button
+          -- @IO:GS $D60F.6 UARTMISC:OSKDIM Light or heavy dimming of background material behind on-screen keyboard
           fastio_rdata(0) <= key_left;
           fastio_rdata(1) <= key_up;
+          fastio_rdata(6) <= accessible_key_extradim;
+          fastio_rdata(7) <= accessible_key_enable;
         when x"10" =>
           -- @IO:GS $D610 UARTMISC:ASCIIKEY Last key press as ASCII (hardware accelerated keyboard scanner). Write to clear event ready for next.
           fastio_rdata(7 downto 0) <= unsigned(porth);

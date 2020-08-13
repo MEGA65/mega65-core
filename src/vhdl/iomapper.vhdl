@@ -18,6 +18,10 @@ entity iomapper is
         phi0_1mhz : in std_logic;
         pixelclk : in std_logic;
         uartclock : in std_logic;
+
+        accessible_row : out integer range 0 to 255 := 255;
+        acessible_key : out unsigned(6 downto 0) := to_unsigned(127,7);
+        dim_shift : out std_logic := '0';
         
         protected_hardware_in : in unsigned(7 downto 0);
         virtualised_hardware_in : in unsigned(7 downto 0);
@@ -551,6 +555,9 @@ architecture behavioral of iomapper is
 
   signal sid4_enable : std_logic := '0';
   signal sid4_enable_counter : integer := 0;
+
+  signal accessible_key_event : unsigned(7 downto 0);
+  signal accessible_key_enable : std_logic;
   
 begin
 
@@ -758,6 +765,10 @@ begin
       portg(1) => drive_reset,
       portg(0) => drive_connect,
 
+      accessible_key_event => accessible_key_event,
+      accessible_key_enable => accessible_key_enable,
+      accessible_key_extradim => dim_shift,
+      
       disco_led_en => disco_led_en,
       disco_led_id => disco_led_id,
       disco_led_val => disco_led_val,

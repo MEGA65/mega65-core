@@ -2848,9 +2848,9 @@ begin
           -- @IO:GS $D07E DEBUG:DEBUGY VIC-IV debug Y position (LSB)
           debug_y(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=127 then
-          -- @IO:GS $D07F.0-5 DEBUG:DEBUGX VIC-IV debug X position (MSB)
+          -- @IO:GS $D07F.0-3 DEBUG:DEBUGX VIC-IV debug X position (MSB)
           -- @IO:GS $D07F.7 DEBUG:DEBUGOOF VIC-IV debug out-of-frame signal enable
-          debug_x(13 downto 8) <= unsigned(fastio_wdata(5 downto 0));
+          debug_x(11 downto 8) <= unsigned(fastio_wdata(3 downto 0));
           -- @IO:GS $D07F.4-7 DEBUG:DEBUGY VIC-IV debug Y position (MSB)
           debug_y(11 downto 8) <= unsigned(fastio_wdata(7 downto 4));
         elsif register_number<255 then
