@@ -35,7 +35,8 @@ architecture behavioural of accessible_keyboard is
   signal accessible_col : integer range 0 to 255 := 0;
   signal accessible_row_drive : integer range 0 to 255 := 255;
   signal accessible_key_drive : unsigned(6 downto 0) := to_unsigned(127,7);
-
+  signal selected_row : integer range 0 to 255 := 255;
+  
   -- 1/3 second between advancing to the next phase of the cylce
   constant cycle_interval : integer := 40500000 / 3;
 
@@ -81,8 +82,8 @@ begin
         end if;
         
         -- Get debounced button status
-        if button_counter = 100 then
-          if selecting_row = '1' then
+        if button_counter = 100 and osk_active='1' then
+          if selecting_row = '1' then            
             case accessible_row_drive is
               -- RETURN
               when 7 => accessible_key_event <= to_unsigned(1,8);
@@ -99,11 +100,14 @@ begin
                 -- Begin scanning columns of this row
                 selecting_row <= '0';
                 accessible_col <= 0;
+                selected_row <= 1 + accessible_row_drive;
+                -- Don't keep showing the row
+                accessible_row_drive <= 255;
             end case;          
           else
             selecting_row <= '1';
             if accessible_row_drive < 7 then 
-              accessible_key_event <= to_unsigned(key_rows(accessible_row_drive)(accessible_col),8);
+              accessible_key_event <= to_unsigned(key_rows(selected_row)(accessible_col),8);
               key_up_countdown <= key_hold_time;
             else
             end if;
@@ -163,7 +167,7 @@ begin
             -- (left) SHIFT
             when 9 => accessible_key_drive <= to_unsigned(15,7);
             when others =>
-              accessible_key_drive <= to_unsigned(key_rows(accessible_row_drive)(accessible_col),7);
+              accessible_key_drive <= to_unsigned(key_rows(selected_row)(accessible_col),7);
           end case;          
           end if;
         end if;
