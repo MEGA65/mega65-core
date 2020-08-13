@@ -283,7 +283,8 @@ begin  -- behavioural
       -- 800 / 80 = every 10th column
       last_pixel_y <= pixel_y;
       if to_integer(last_pixel_y) /= to_integer(pixel_y) then
-        if to_integer(pixel_y) < 10 then
+        -- Very robustly determine when a new frame starts
+        if to_integer(pixel_y) < to_integer(last_pixel_y) then
           thumbnail_write_address <= (others => '0');
           thumbnail_write_address_int <= (others => '0');
           thumbnail_row_address <= (others => '0');
