@@ -3444,9 +3444,7 @@ begin
       end if;
 
       -- Calculate vertical flyback and related signals
-      if ycounter=0 then
-        null;
-      elsif ycounter=frame_v_front then
+      if ycounter=frame_v_front then
         vert_in_frame <= '1';
       elsif ycounter=0 then
         -- Start of vertical flyback
