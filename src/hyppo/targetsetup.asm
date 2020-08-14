@@ -135,8 +135,8 @@ mega65r3_i2c_settings:
         !8 $e3,$80
         !8 $e4,$0C
         !8 $e5,$99
-        !8 $e1,$50   ;; Left volume set ($FF = mute, $40 = full volume)
-        !8 $e2,$50   ;; Right volume set ($FF = mute, $40 = full volume)
+        !8 $e1,$20   ;; Left volume set ($FF = mute, $40 = full volume, $00 = +24dB)
+        !8 $e2,$20   ;; Right volume set ($FF = mute, $40 = full volume, $00 = +24dB)
 
 
         !8 $FF,$FF ;; End of list marker

@@ -19,7 +19,9 @@ aml1:
         ldx #$de
         jsr audiomix_set2coefficients
 	;; And also for speaker / HDMI audio outputs
-	lda #$0f
+	;; Now we have a fun problem: Internal speakers need it MUCH louder than HDMI
+	;; and we wouldn't be able to set the two independently.
+	lda #$ff
         ldx #$1e
         jsr audiomix_set2coefficients
         ldx #$3e
