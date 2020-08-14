@@ -7649,7 +7649,7 @@ begin
               end if;
               -- IO mode "10" = ethernet buffer at $D800-$DFFF, so no cartridge
               -- IO
-              if sector_buffer_mapped='0' and colourram_at_dc00='0' and viciii_iomode/="10" and ocean_cart_mode='0' then
+              if sector_buffer_mapped='0' and colourram_at_dc00='0' and viciii_iomode/="10" then -- and ocean_cart_mode='0' then
                 -- Map $DE00-$DFFF IO expansion areas to expansion port
                 -- (but only if SD card sector buffer is not mapped, and
                 -- 2nd KB of colour RAM is not mapped, and we aren't pretending
@@ -7707,13 +7707,13 @@ begin
             )
         then
           -- ULTIMAX mode or cartridge external ROM
-          if ocean_cart_mode='1' then
-            -- Simulate $8000-$9FFF access to an Ocean Type 1 cart
-            temp_address(27 downto 21) := (others => '0');
-            temp_address(20 downto 13) := ocean_cart_lo_bank;
-          else
+--          if ocean_cart_mode='1' then
+--            -- Simulate $8000-$9FFF access to an Ocean Type 1 cart
+--            temp_address(27 downto 21) := (others => '0');
+--            temp_address(20 downto 13) := ocean_cart_lo_bank;
+--          else
             temp_address(27 downto 16) := x"7FF";
-          end if;            
+--          end if;            
         end if;
         if (blocknum=10) and (lhc(0)='1') and (lhc(1)='1') and (writeP=false) then
           
@@ -7727,14 +7727,14 @@ begin
         if (((blocknum=10) or (blocknum=11)) -- $A000-$BFFF cartridge ROM
             and ((gated_exrom='0') and (gated_game='0'))) and (writeP=false)
         then
-          if ocean_cart_mode='1' then
-            -- Simulate $8000-$9FFF access to an Ocean Type 1 cart
-            temp_address(27 downto 21) := (others => '0');
-            temp_address(20 downto 13) := ocean_cart_hi_bank;
-          else
+--          if ocean_cart_mode='1' then
+--            -- Simulate $8000-$9FFF access to an Ocean Type 1 cart
+--            temp_address(27 downto 21) := (others => '0');
+--            temp_address(20 downto 13) := ocean_cart_hi_bank;
+--          else
             -- ULTIMAX mode or cartridge external ROM
             temp_address(27 downto 16) := x"7FF";
-          end if;
+--          end if;
         end if;
       end if;
 
