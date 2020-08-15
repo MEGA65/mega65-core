@@ -47,6 +47,7 @@ entity cia6526 is
 
     spout : out std_logic;
     spin : in std_logic;
+    sp_ddr : out std_logic := '0';
 
     countout : out std_logic;
     countin : in std_logic);
@@ -361,6 +362,8 @@ begin  -- behavioural
   begin
     if rising_edge(cpuclock) then
 
+      sp_ddr <= reg_serialport_direction;
+      
       if reset='0' then
         -- Clear interrupt flags on reset
         imask_flag <= '0';

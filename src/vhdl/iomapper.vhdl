@@ -188,6 +188,9 @@ entity iomapper is
         iec_reset : out std_logic := '1';
         iec_clk_o : out std_logic := '1';
         iec_atn_o : out std_logic := '1';
+        iec_srq_o : out std_logic := '1';
+        iec_srq_en : out std_logic := '0';
+        iec_srq_external : in std_logic := 'Z';
         iec_data_external : in std_logic := 'Z';
         iec_clk_external : in std_logic := 'Z';
 
@@ -746,7 +749,9 @@ begin
     portbin => userport_in,
     portbout => userport_out,
     flagin => '1',
-    spin => '1',
+    spin => iec_srq_external,
+    spout => iec_srq_o,
+    sp_ddr => iec_srq_en,
     countin => '1'
     );
   end block;
