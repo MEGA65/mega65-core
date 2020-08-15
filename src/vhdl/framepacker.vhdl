@@ -149,6 +149,8 @@ architecture behavioural of framepacker is
   signal pixel_valid_tap : integer := 0; -- 0 = 1 cycle delay, 15 = 16 cycle delay
   signal pixel_valid_history : std_logic_vector(15 downto 0) := (others => '0');
   signal pixel_valid_out : std_logic := '0';
+
+  signal pixel_y_drive : unsigned(11 downto 0) := (others => '0');
   
 begin  -- behavioural
 
@@ -206,26 +208,26 @@ begin  -- behavioural
         fastio_rdata(7) <= thumbnail_valid;
         fastio_rdata(6) <= thumbnail_started;
         fastio_rdata(5 downto 0) <= (others => '0');
-      elsif fastio_addr(3 downto 0) = x"3" then
-        -- @IO:GS $D643 - Thumbnail X position DEBUG
-        fastio_rdata <= to_unsigned(thumbnail_x_counter,8);
-      elsif fastio_addr(3 downto 0) = x"4" then
-        -- @IO:GS $D644 - Thumbnail Y position DEBUG
-        fastio_rdata <= to_unsigned(thumbnail_y_counter,8);
-      elsif fastio_addr(3 downto 0) = x"5" then
-        -- @IO:GS $D645 - Thumbnail write address LSB DEBUG
-        fastio_rdata <= thumbnail_write_address_int(7 downto 0);
-      elsif fastio_addr(3 downto 0) = x"6" then
-        -- @IO:GS $D646 - Thumbnail write address MSB DEBUG
-        fastio_rdata(3 downto 0) <= thumbnail_write_address_int(11 downto 8);
-        fastio_rdata(7 downto 4) <= "0000";
-      elsif fastio_addr(3 downto 0) = x"7" then
-        -- @IO:GS $D647 - Thumbnail pixel_y LSB DEBUG
-        fastio_rdata <= pixel_y(7 downto 0);
-      elsif fastio_addr(3 downto 0) = x"8" then
-        -- @IO:GS $D648 - Thumbnail pixel_y MSB DEBUG
-        fastio_rdata(3 downto 0) <= pixel_y(11 downto 8);
-        fastio_rdata(7 downto 4) <= "0000";
+--      elsif fastio_addr(3 downto 0) = x"3" then
+--        -- @IO:GS $D643 - Thumbnail X position DEBUG
+--        fastio_rdata <= to_unsigned(thumbnail_x_counter,8);
+--      elsif fastio_addr(3 downto 0) = x"4" then
+--        -- @IO:GS $D644 - Thumbnail Y position DEBUG
+--        fastio_rdata <= to_unsigned(thumbnail_y_counter,8);
+--      elsif fastio_addr(3 downto 0) = x"5" then
+--        -- @IO:GS $D645 - Thumbnail write address LSB DEBUG
+--        fastio_rdata <= thumbnail_write_address_int(7 downto 0);
+--      elsif fastio_addr(3 downto 0) = x"6" then
+--        -- @IO:GS $D646 - Thumbnail write address MSB DEBUG
+--        fastio_rdata(3 downto 0) <= thumbnail_write_address_int(11 downto 8);
+--        fastio_rdata(7 downto 4) <= "0000";
+--      elsif fastio_addr(3 downto 0) = x"7" then
+--        -- @IO:GS $D647 - Thumbnail pixel_y LSB DEBUG
+--        fastio_rdata <= pixel_y_drive(7 downto 0);
+--      elsif fastio_addr(3 downto 0) = x"8" then
+--        -- @IO:GS $D648 - Thumbnail pixel_y MSB DEBUG
+--        fastio_rdata(3 downto 0) <= pixel_y_drive(11 downto 8);
+--        fastio_rdata(7 downto 4) <= "0000";
       else
         fastio_rdata <= (others => 'Z');
       end if;
@@ -261,6 +263,8 @@ begin  -- behavioural
   begin
     if rising_edge(pixelclock) then
 
+      pixel_y_drive <= pixel_y;
+      
       report "pixel_y=" & integer'image(to_integer(pixel_y))
         & ", pixel_valid=" & std_logic'image(pixel_valid)
         & ", pal_mode=" & std_logic'image(pal_mode);
