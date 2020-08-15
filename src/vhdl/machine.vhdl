@@ -1559,7 +1559,7 @@ begin
       iec_reset => iec_reset,
       iec_clk_o => iec_clk_o,
       iec_atn_o => iec_atn_o,
-      iec_srq_o => iec_atn_o,
+      iec_srq_o => iec_srq_o,
       iec_data_external => iec_data_external,
       iec_clk_external => iec_clk_external,
       
