@@ -20,6 +20,7 @@ set_clock_groups -asynchronous \
 
 # Deal with more false paths crossing ethernet / cpu clock domains
 set_false_path -from [get_clocks cpuclock] -to [get_clocks ethclock]
+set_false_path -from [get_clocks ethclock] -to [get_clocks cpuclock]
 
 # General purpose LED on mother board
 set_property -dict {PACKAGE_PIN U22 IOSTANDARD LVCMOS33} [get_ports led]
