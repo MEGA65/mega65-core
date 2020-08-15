@@ -1106,10 +1106,10 @@ begin
       iec_atn <= iec_atn_drive;
 
       iec_clk_en <= iec_clk_o_drive;
-      iec_clk_o <= iec_clk_o_drive;
+      iec_clk_o <= not iec_clk_o_drive;
       iec_clk_i_drive <= iec_clk_i;
       iec_data_en <= iec_data_o_drive;
-      iec_data_o <= iec_data_o_drive;
+      iec_data_o <= not iec_data_o_drive;
       iec_data_i_drive <= iec_data_i;
 
       -- So pots act like infinite resistance
