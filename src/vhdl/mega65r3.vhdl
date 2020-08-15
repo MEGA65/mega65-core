@@ -210,7 +210,7 @@ entity container is
          f_rdata : in std_logic;
          f_diskchanged : in std_logic;
 
-         led : out std_logic;
+         led : inout std_logic;
 
          ----------------------------------------------------------------------
          -- I2S speaker audio output
@@ -415,7 +415,7 @@ architecture Behavioral of container is
   signal fm_left : signed(15 downto 0);
   signal fm_right : signed(15 downto 0);
 
-  constant clock_frequency : integer := 27000000;
+  constant clock_frequency : integer := 40500000;
   constant target_sample_rate : integer := 48000;
   signal audio_counter : integer := 0;
   signal sample_ready_toggle : std_logic := '0';
@@ -589,18 +589,7 @@ begin
     port map (
       rst => '0',
       clk => cpuclock,
-      temp => fpga_temperature);
-
-  
-  hdmiaudio: entity work.hdmi_spdif
-    generic map ( samplerate => 44100 )
-    port map (
-      clock27 => clock27,
-      spdif_out => spdif_44100,
-      left_in => h_audio_left,
-      right_in => h_audio_right
-      ); 
-
+      temp => fpga_temperature); 
   
   kbd0: entity work.mega65kbd_to_matrix
     port map (
@@ -1033,6 +1022,7 @@ begin
       else
         audio_counter <= 0;
         sample_ready_toggle <= not sample_ready_toggle;
+        led <= not led;
         audio_left_slow <= h_audio_left;
         audio_right_slow <= h_audio_right;
       end if;
@@ -1132,14 +1122,14 @@ begin
     end if;
 
     h_audio_right <= audio_right;
-    h_audio_right <= audio_left;
+    h_audio_left <= audio_left;
     -- toggle signed/unsigned audio flipping
     if portp(7)='1' then
       h_audio_right(19) <= not audio_right(19);
       h_audio_left(19) <= not audio_left(19);
     end if;
     -- LED on main board 
-    led <= portp(4);
+--    led <= portp(4);
 
     if rising_edge(pixelclock) then
       hsync <= v_vga_hsync;
