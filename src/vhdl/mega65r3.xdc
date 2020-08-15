@@ -21,6 +21,8 @@ set_clock_groups -asynchronous \
 # Deal with more false paths crossing ethernet / cpu clock domains
 set_false_path -from [get_clocks cpuclock] -to [get_clocks ethclock]
 set_false_path -from [get_clocks ethclock] -to [get_clocks cpuclock]
+set_false_path -from [get_clocks cpuclock] -to [get_clocks clk_u]
+set_false_path -from [get_clocks vdac_clk_OBUF] -to [get_clocks ethclock]
 
 set_property CLOCK_DEDICATED_ROUTE BACKBONE [get_nets clocks1/CLKOUT0]
 
