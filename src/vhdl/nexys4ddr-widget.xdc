@@ -15,6 +15,16 @@ set_false_path -to [get_cells vga*]
 ## Accept sub-optimal clock placement
 set_property CLOCK_DEDICATED_ROUTE FALSE [get_nets clocks1/CLKOUT0]
 
+## Make Ethernet clocks unrelated to other clocks to avoid erroneous timing
+## violations, and hopefully make everything synthesise faster.
+set_clock_groups -asynchronous \
+     -group { cpuclock hdmi_clk_OBUF vdac_clk_OBUF clock162 clock325 } \
+     -group { CLKFBOUT clk_fb_eth clock100 clock200 eth_clock_OBUF } \
+
+# Deal with more false paths crossing ethernet / cpu clock domains
+set_false_path -from [get_clocks cpuclock] -to [get_clocks ethclock]
+set_false_path -from [get_clocks ethclock] -to [get_clocks cpuclock]
+
 
 ## Switches
 set_property -dict {PACKAGE_PIN J15 IOSTANDARD LVCMOS33} [get_ports {sw[0]}]

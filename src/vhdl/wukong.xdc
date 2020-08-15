@@ -14,6 +14,17 @@ create_clock -period 20.000 [get_ports CLK_IN]
 ### and the same idiom works for the MEGA65 R2 board?
 set_property CLOCK_DEDICATED_ROUTE FALSE [get_nets {CLK_IN_IBUF}]
 
+
+## Make Ethernet clocks unrelated to other clocks to avoid erroneous timing
+## violations, and hopefully make everything synthesise faster.
+set_clock_groups -asynchronous \
+     -group { cpuclock hdmi_clk_OBUF vdac_clk_OBUF clock162 clock325 } \
+     -group { CLKFBOUT clk_fb_eth clock100 clock200 eth_clock_OBUF } \
+
+# Deal with more false paths crossing ethernet / cpu clock domains
+set_false_path -from [get_clocks cpuclock] -to [get_clocks ethclock]
+set_false_path -from [get_clocks ethclock] -to [get_clocks cpuclock]
+
 ### XXX And for that matter, why do we need this, when it syntheses fine on the
 ### MEGA65 R2 board which also has an 100T part, with the same number of clocking
 ### resources.
