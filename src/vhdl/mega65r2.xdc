@@ -18,6 +18,8 @@ set_clock_groups -asynchronous \
      -group { cpuclock hdmi_clk_OBUF vdac_clk_OBUF clock162 clock325 } \
      -group { CLKFBOUT clk_fb_eth clock100 clock200 eth_clock_OBUF } \
 
+# Deal with more false paths crossing ethernet / cpu clock domains
+set_false_path -from [get_clocks cpuclock] -to [get_clocks ethclock]
 
 # General purpose LED on mother board
 set_property -dict {PACKAGE_PIN U22 IOSTANDARD LVCMOS33} [get_ports led]
@@ -416,3 +418,4 @@ set_false_path -from [get_pins machine0/iomapper0/block2.framepacker0/buffer_mob
 set_false_path -from [get_pins machine0/iomapper0/block2.framepacker0/buffer_moby_toggle_reg/C] -to [get_pins machine0/iomapper0/ethernet0/eth_tx_commenced_reg/D]
 set_max_delay -from [get_pins machine0/iomapper0/block2.framepacker0/buffer_moby_toggle_reg/C] -to [get_pins machine0/iomapper0/ethernet0/eth_tx_complete_reg/D] 0.000
 set_false_path -from [get_pins machine0/iomapper0/block2.framepacker0/buffer_moby_toggle_reg/C] -to [get_pins machine0/iomapper0/ethernet0/eth_tx_dump_reg/D]
+
