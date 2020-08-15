@@ -834,12 +834,12 @@ begin
       ----------------------------------------------------------------------
       iec_clk_en => iec_clk_en_drive,
       iec_data_en => iec_data_en_drive,
-      iec_data_o => not iec_data_o_drive,
+      iec_data_o => iec_data_o_drive,
       iec_reset => iec_reset_drive,
-      iec_clk_o => not iec_clk_o_drive,
+      iec_clk_o => iec_clk_o_drive,
       iec_data_external => iec_data_i_drive,
       iec_clk_external => iec_clk_i_drive,
-      iec_atn_o => not iec_atn_drive,
+      iec_atn_o => iec_atn_drive,
 
 --      buffereduart_rx => '1',
       buffereduart_ringindicate => '1',
@@ -1103,13 +1103,13 @@ begin
       -- to ground.
 
       iec_reset <= iec_reset_drive;
-      iec_atn <= not iec_atn_drive;
+      iec_atn <= iec_atn_drive;
 
       iec_clk_en <= iec_clk_o_drive;
-      iec_clk_o <= not iec_clk_o_drive;
+      iec_clk_o <= iec_clk_o_drive;
       iec_clk_i_drive <= iec_clk_i;
       iec_data_en <= iec_data_o_drive;
-      iec_data_o <= not iec_data_o_drive;
+      iec_data_o <= iec_data_o_drive;
       iec_data_i_drive <= iec_data_i;
 
       -- So pots act like infinite resistance
