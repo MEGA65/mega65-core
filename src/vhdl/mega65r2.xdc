@@ -16,7 +16,8 @@ create_clock -period 10.000 -name CLK_IN [get_ports CLK_IN]
 ## violations, and hopefully make everything synthesise faster.
 set_clock_groups -asynchronous \
      -group { cpuclock hdmi_clk_OBUF vdac_clk_OBUF clock162 clock325 } \
-     -group { CLKFBOUT clk_fb_eth clock100 clock200 eth_clock_OBUF }
+     -group { CLKFBOUT clk_fb_eth clock100 eth_clock_OBUF } \
+     -group { clock200 }
 
 
 # General purpose LED on mother board
