@@ -1099,12 +1099,24 @@ begin
       iec_reset <= iec_reset_drive;
       iec_atn <= iec_atn_drive;
 
-      iec_clk_en <= not iec_clk_o_drive;
-      iec_clk_o <= iec_clk_o_drive;
+      if portp(6)='1' then
+        iec_clk_en <= not iec_clk_o_drive;
+        iec_clk_o <= iec_clk_o_drive;
+      else
+        iec_clk_en <= iec_clk_o_drive;
+        iec_clk_o <= not iec_clk_o_drive;
+      end if;      
       iec_clk_i_drive <= iec_clk_i;
-      iec_data_en <= not iec_data_o_drive;
-      iec_data_o <= iec_data_o_drive;
+      
+      if portp(6)='1' then
+        iec_data_en <= not iec_data_o_drive;
+        iec_data_o <= iec_data_o_drive;
+      else
+        iec_data_en <= iec_data_o_drive;
+        iec_data_o <= not iec_data_o_drive;
+      end if;
       iec_data_i_drive <= iec_data_i;
+      
       iec_srq_en <= iec_srq_o_drive;
       iec_srq_o <= not iec_srq_o_drive;
       iec_srq_i_drive <= iec_srq_i;
