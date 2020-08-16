@@ -277,7 +277,7 @@ GS $D07C.5 VIC-IV:VSYNCP vsync polarity
 GS $D07C.6-7 VIC-IV:RESERVED UNUSED BITS
 GS $D07D DEBUG:DEBUGX VIC-IV debug X position (LSB)
 GS $D07E DEBUG:DEBUGY VIC-IV debug Y position (LSB)
-GS $D07F.0-5 DEBUG:DEBUGX VIC-IV debug X position (MSB)
+GS $D07F.0-3 DEBUG:DEBUGX VIC-IV debug X position (MSB)
 GS $D07F.4-7 DEBUG:DEBUGY VIC-IV debug Y position (MSB)
 GS $D07F.7 DEBUG:DEBUGOOF VIC-IV debug out-of-frame signal enable
 C65 $D080 - F011 FDC control
@@ -382,6 +382,8 @@ GS $D60D Bit bashing port
 GS $D60E UARTMISC:BASHDDR Data Direction Register (DDR) for \$D60D bit bashing port.
 GS $D60F.0 UARTMISC:KEYLEFT Directly read C65 Cursor left key
 GS $D60F.1 UARTMISC:KEYUP Directly read C65 Cursor up key
+GS $D60F.6 UARTMISC:OSKDIM Light or heavy dimming of background material behind on-screen keyboard
+GS $D60F.7 UARTMISC:ACCESSKEY Enable accessible keyboard input via joystick port 2 fire button
 GS $D610 UARTMISC:ASCIIKEY Last key press as ASCII (hardware accelerated keyboard scanner). Write to clear event ready for next.
 GS $D611.0 UARTMISC:MRSHFT Right shift key state (hardware accelerated keyboard scanner).
 GS $D611.0 WRITE ONLY Connect POT lines to IEC port (for r1 PCB only)
@@ -441,6 +443,7 @@ GS $D625 UARTMISC:J21L J21 pins 1 -- 6, 9 -- 10 input/output values
 GS $D626 UARTMISC:J21H J21 pins 11 -- 14 input/output values
 GS $D627 UARTMISC:J21LDDR J21 pins 1 -- 6, 9 -- 10 data direction register
 GS $D628 UARTMISC:J21HDDR J21 pins 11 -- 14 data direction register
+GS $D629 MISC:M65MODEL MEGA65 model ID. Can be used to determine the model of MEGA65 a programme is running on, e.g., to enable touch controls on MEGAphone.
 GS $D62A KBD:FWDATEL LSB of keyboard firmware date stamp (days since 1 Jan 2020)
 GS $D62B KBD:FWDATEH MSB of keyboard firmware date stamp (days since 1 Jan 2020)
 GS $D62C KBD:FWGIT0 LSB of keyboard firmware git commit
@@ -462,16 +465,22 @@ GS $D642 HCPU_REGY Hypervisor Y register storage
 GS $D642 - Lower 8 bits of thumbnail buffer read address (TEMPORARY DEBUG REGISTER)
 GS $D643 CPU:HTRAP03 Writing triggers hypervisor trap \$03
 GS $D643 HCPU:REGZ Hypervisor Z register storage
+GS $D643 - Thumbnail X position DEBUG
 GS $D644 CPU:HTRAP04 Writing triggers hypervisor trap \$04
 GS $D644 HCPU:REGB Hypervisor B register storage
+GS $D644 - Thumbnail Y position DEBUG
 GS $D645 CPU:HTRAP05 Writing triggers hypervisor trap \$05
 GS $D645 HCPU:SPL Hypervisor SPL register storage
+GS $D645 - Thumbnail write address LSB DEBUG
 GS $D646 CPU:HTRAP06 Writing triggers hypervisor trap \$06
 GS $D646 HCPU:SPH Hypervisor SPH register storage
+GS $D646 - Thumbnail write address MSB DEBUG
 GS $D647 CPU:HTRAP07 Writing triggers hypervisor trap \$07
 GS $D647 HCPU:PFLAGS Hypervisor P register storage
+GS $D647 - Thumbnail pixel_y LSB DEBUG
 GS $D648 CPU:HTRAP08 Writing triggers hypervisor trap \$08
 GS $D648 HCPU:PCL Hypervisor PC-low register storage
+GS $D648 - Thumbnail pixel_y MSB DEBUG
 GS $D649 CPU:HTRAP09 Writing triggers hypervisor trap \$09
 GS $D649 HCPU:PCH Hypervisor PC-high register storage
 GS $D64A CPU:HTRAP0A Writing triggers hypervisor trap \$0A
@@ -1117,12 +1126,14 @@ GS $D7E8 MATH:ITERCMP Math iteration counter comparator (32 bit)
 GS $D7E9 MATH:ITERCMP Math iteration counter comparator (32 bit)
 GS $D7EA MATH:ITERCMP Math iteration counter comparator (32 bit)
 GS $D7EB MATH:ITERCMP Math iteration counter comparator (32 bit)
-GS $D7FA CPU:SPEEDBIAS 1/2/3.5MHz CPU speed fine adjustment
+GS $D7F8 CPU:CYCPERFRAME Count the number of usable (proceed=1) CPU cycles per video frame (LSB)              
+GS $D7F9 CPU:CYCPERFRAME Count the number of usable (proceed=1) CPU cycles per video frame (MSB)
+GS $D7FA CPU:FRAMECOUNT Count number of elapsed video frames
 GS $D7FB.0 CPU:BRCOST 1=charge extra cycle(s) for branches taken
 GS $D7FB.1 CPU:CARTEN 1= enable cartridges
 GS $D7FC DEBUG chip-select enables for various devices
+GS $D7FD.0 CPU:POWEREN Set to zero to power off computer on supported systems. WRITE ONLY.
 GS $D7FD.6 CPU:NOGAME Override for /GAME : Must be 0 to enable /GAME signal
-GS $D7FD.6 CPU:POWEREN Set to zero to power off computer on supported systems. WRITE ONLY.
 GS $D7FD.7 CPU:NOEXROM Override for /EXROM : Must be 0 to enable /EXROM signal
 GS $D7FE.0 CPU:PREFETCH Enable expansion RAM pre-fetch logic
 GS $D7FE.1 CPU:OCEANA Enable Ocean Type A cartridge emulation

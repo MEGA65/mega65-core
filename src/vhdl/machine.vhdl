@@ -971,6 +971,7 @@ begin
       dat_offset => dat_offset,
       dat_even => dat_even,
       dat_bitplane_addresses => dat_bitplane_addresses,
+      pixel_newframe => pixel_newframe,
 
       cpu_pcm_left => cpu_pcm_left,
       cpu_pcm_right => cpu_pcm_right,

@@ -83,6 +83,7 @@ entity gs4510 is
     dat_offset : in unsigned(15 downto 0);
     dat_even : in std_logic;
     dat_bitplane_addresses : in sprite_vector_eight;
+    pixel_newframe : in std_logic;
     
     cpuis6502 : out std_logic := '0';
     cpuspeed : out unsigned(7 downto 0) := x"01";
@@ -292,7 +293,10 @@ architecture Behavioural of gs4510 is
     others => to_unsigned(0,8));
   signal dat_offset_drive : unsigned(15 downto 0) := to_unsigned(0,16);
   signal dat_even_drive : std_logic := '1';
+  signal pixel_newframe_drive : std_logic := '0';
+  signal last_pixel_newframe_drive : std_logic := '0';
 
+  
   -- Instruction log
   signal last_instruction_pc : unsigned(15 downto 0) := x"FFFF";
   signal last_opcode : unsigned(7 downto 0)  := (others => '0');
@@ -1132,8 +1136,9 @@ architecture Behavioural of gs4510 is
   signal memory_access_wdata_next : unsigned(7 downto 0);
 
   signal cycle_counter : unsigned(15 downto 0) := (others => '0');
-
-  signal cpu_speed_bias : integer := 128;
+  signal cycles_per_frame : unsigned(15 downto 0) := (others => '0');
+  signal last_cycles_per_frame : unsigned(15 downto 0) := (others => '0');
+  signal frame_counter : unsigned(15 downto 0) := (others => '0');
 
   type microcode_lut_t is array (instruction)
     of microcodeops;
@@ -2593,7 +2598,12 @@ begin
             when x"ea" => return reg_math_cycle_compare(23 downto 16);
             when x"eb" => return reg_math_cycle_compare(31 downto 24);
 
-            when x"fa" => return to_unsigned(cpu_speed_bias,8);
+            --@IO:GS $D7F8 CPU:CYCPERFRAME Count the number of usable (proceed=1) CPU cycles per video frame (LSB)              
+            --@IO:GS $D7F9 CPU:CYCPERFRAME Count the number of usable (proceed=1) CPU cycles per video frame (MSB)
+            when x"f8" => return last_cycles_per_frame(7 downto 0);
+            when x"f9" => return last_cycles_per_frame(15 downto 8);
+            -- @IO:GS $D7FA CPU:FRAMECOUNT Count number of elapsed video frames
+            when x"fa" => return frame_counter(7 downto 0);
             when x"fb" => return "000000" & cartridge_enable & charge_for_branches_taken;
             when x"fc" => return unsigned(chipselect_enables);
             when x"fd" =>
@@ -3070,9 +3080,6 @@ begin
         reg_math_cycle_compare(23 downto 16) <= value;
       elsif (long_address = x"FFD37EB") or (long_address = x"FFD17EB") then
         reg_math_cycle_compare(31 downto 24) <= value;
-      elsif (long_address = x"FFD37FA") then
-        -- @IO:GS $D7FA CPU:SPEEDBIAS 1/2/3.5MHz CPU speed fine adjustment
-        cpu_speed_bias <= to_integer(value);
       elsif (long_address = x"FFD37FB") then
         -- @IO:GS $D7FB.0 CPU:BRCOST 1=charge extra cycle(s) for branches taken
         -- @IO:GS $D7FB.1 CPU:CARTEN 1= enable cartridges
@@ -4092,6 +4099,14 @@ begin
       dat_bitplane_addresses_drive <= dat_bitplane_addresses;
       dat_offset_drive <= dat_offset;
       dat_even_drive <= dat_even;
+      pixel_newframe_drive <= pixel_newframe;
+      last_pixel_newframe_drive <= pixel_newframe_drive;
+
+      if last_pixel_newframe_drive = '0' and pixel_newframe_drive = '1' then
+        frame_counter <= frame_counter + 1;
+        cycles_per_frame <= to_unsigned(0,16);
+        last_cycles_per_frame <= cycles_per_frame;
+      end if;
       
       cycle_counter <= cycle_counter + 1;
       
@@ -4784,6 +4799,8 @@ begin
           pop_a <= '0'; pop_x <= '0'; pop_y <= '0'; pop_z <= '0';
           pop_p <= '0';
 
+          cycles_per_frame <= cycles_per_frame + 1;
+          
           case state is
             when ResetLow =>
                                         -- Reset now maps hyppo at $8000-$BFFF, and enters through $8000
@@ -5048,6 +5065,10 @@ begin
               flag_i <= hyper_p(2); flag_z <= hyper_p(1);
               flag_c <= hyper_p(0);
 
+              frame_counter <= to_unsigned(0,16);
+              last_cycles_per_frame <= to_unsigned(0,16);
+              cycles_per_frame <= to_unsigned(0,16);
+              
               report "ZPCACHE: Flushing cache due to return from hypervisor";
               cache_flushing <= '1';
               cache_flush_counter <= (others => '0');

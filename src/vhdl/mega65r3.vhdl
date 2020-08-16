@@ -819,7 +819,7 @@ begin
       hdmi_dataenable =>  hdmi_dataenable,
       
       ----------------------------------------------------------------------
-      -- CBM floppy  std_logic_vectorerial port
+      -- CBM floppy  serial port
       ----------------------------------------------------------------------
       iec_clk_en => iec_clk_en_drive,
       iec_data_en => iec_data_en_drive,

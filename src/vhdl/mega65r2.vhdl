@@ -107,17 +107,17 @@ entity container is
          ----------------------------------------------------------------------
          -- CBM floppy serial port
          ----------------------------------------------------------------------
+         iec_reset : out std_logic;
+         iec_atn : out std_logic;
          iec_clk_en : out std_logic;
          iec_data_en : out std_logic;
-         iec_data_o : out std_logic;
-         iec_reset : out std_logic;
-         iec_clk_o : out std_logic;
-         iec_data_i : in std_logic;
-         iec_clk_i : in std_logic;
-         iec_srq_o : out std_logic;
          iec_srq_en : out std_logic;
-         iec_src_i : in std_logic;
-         iec_atn : out std_logic;
+         iec_clk_o : out std_logic;
+         iec_data_o : out std_logic;
+         iec_srq_o : out std_logic;
+         iec_clk_i : in std_logic;
+         iec_data_i : in std_logic;
+         iec_srq_i : in std_logic;
          
          ----------------------------------------------------------------------
          -- VGA output
@@ -717,11 +717,14 @@ begin
       ----------------------------------------------------------------------
       iec_clk_en => iec_clk_en_drive,
       iec_data_en => iec_data_en_drive,
+      iec_srq_en => iec_srq_en_drive,
       iec_data_o => iec_data_o_drive,
       iec_reset => iec_reset_drive,
       iec_clk_o => iec_clk_o_drive,
+      iec_srq_o => iec_srq_o_drive,
       iec_data_external => iec_data_i_drive,
       iec_clk_external => iec_clk_i_drive,
+      iec_srq_external => iec_srq_i_drive,
       iec_atn_o => iec_atn_drive,
 
 --      buffereduart_rx => '1',
@@ -972,6 +975,11 @@ begin
       iec_reset <= iec_reset_drive;
       iec_atn <= not iec_atn_drive;
 
+      iec_srq_en <= iec_srq_o_drive;
+      iec_srq_o <= not iec_srq_o_drive;
+      iec_srq_i_drive <= iec_srq_i;
+
+      
       if pot_via_iec = '0' then
         -- Normal IEC port operation
         iec_clk_en <= iec_clk_o_drive;
