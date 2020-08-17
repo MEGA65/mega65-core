@@ -4108,14 +4108,6 @@ begin
       pixel_frame_toggle_drive <= pixel_frame_toggle;
       last_pixel_frame_toggle <= pixel_frame_toggle_drive;
 
-      if last_pixel_frame_toggle /= pixel_frame_toggle_drive then
-        frame_counter <= frame_counter + 1;
-        cycles_per_frame <= to_unsigned(0,16);
-        proceeds_per_frame <= to_unsigned(0,16);
-        last_cycles_per_frame <= cycles_per_frame;
-        last_proceeds_per_frame <= proceeds_per_frame;
-      end if;
-      
       cycle_counter <= cycle_counter + 1;
       
       if cache_flushing = '1' then
@@ -7319,6 +7311,14 @@ begin
 
         end if;
 
+        if last_pixel_frame_toggle /= pixel_frame_toggle_drive then
+          frame_counter <= frame_counter + 1;
+          cycles_per_frame <= to_unsigned(0,16);
+          proceeds_per_frame <= to_unsigned(0,16);
+          last_cycles_per_frame <= cycles_per_frame;
+          last_proceeds_per_frame <= proceeds_per_frame;
+        end if;
+          
         report "pc_inc = " & std_logic'image(pc_inc)
           & ", cpu_state = " & processor_state'image(state)
           & " ($" & to_hstring(to_unsigned(processor_state'pos(state),8)) & ")"
