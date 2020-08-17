@@ -627,6 +627,7 @@ architecture Behavioral of machine is
   signal pixel_blue : unsigned (7 downto 0);
   signal pixel_y : unsigned (11 downto 0);
   signal vicii_raster : unsigned (11 downto 0);
+  signal pixel_frame_toggle : std_logic;
   signal pixel_newframe : std_logic;
   signal pixel_newraster : std_logic;
 
@@ -971,7 +972,7 @@ begin
       dat_offset => dat_offset,
       dat_even => dat_even,
       dat_bitplane_addresses => dat_bitplane_addresses,
-      pixel_newframe => pixel_newframe,
+      pixel_frame_toggle => pixel_frame_toggle,
 
       cpu_pcm_left => cpu_pcm_left,
       cpu_pcm_right => cpu_pcm_right,
@@ -1216,6 +1217,7 @@ begin
       pixel_blue_out => pixel_blue,
       pixel_y => pixel_y,
       pixel_newframe => pixel_newframe,
+      pixel_frame_toggle => pixel_frame_toggle,
       pixel_newraster => pixel_newraster,
       vicii_raster_out => vicii_raster,
 

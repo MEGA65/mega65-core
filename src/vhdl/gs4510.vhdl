@@ -83,7 +83,7 @@ entity gs4510 is
     dat_offset : in unsigned(15 downto 0);
     dat_even : in std_logic;
     dat_bitplane_addresses : in sprite_vector_eight;
-    pixel_newframe : in std_logic;
+    pixel_frame_toggle : in std_logic;
     
     cpuis6502 : out std_logic := '0';
     cpuspeed : out unsigned(7 downto 0) := x"01";
@@ -293,8 +293,8 @@ architecture Behavioural of gs4510 is
     others => to_unsigned(0,8));
   signal dat_offset_drive : unsigned(15 downto 0) := to_unsigned(0,16);
   signal dat_even_drive : std_logic := '1';
-  signal pixel_newframe_drive : std_logic := '0';
-  signal last_pixel_newframe_drive : std_logic := '0';
+  signal pixel_frame_toggle_drive : std_logic := '0';
+  signal last_pixel_frame_toggle : std_logic := '0';
 
   
   -- Instruction log
@@ -4099,10 +4099,10 @@ begin
       dat_bitplane_addresses_drive <= dat_bitplane_addresses;
       dat_offset_drive <= dat_offset;
       dat_even_drive <= dat_even;
-      pixel_newframe_drive <= pixel_newframe;
-      last_pixel_newframe_drive <= pixel_newframe_drive;
+      pixel_frame_toggle_drive <= pixel_frame_toggle;
+      last_pixel_frame_toggle <= pixel_frame_toggle_drive;
 
-      if last_pixel_newframe_drive = '0' and pixel_newframe_drive = '1' then
+      if last_pixel_frame_toggle /= pixel_frame_toggle_drive then
         frame_counter <= frame_counter + 1;
         cycles_per_frame <= to_unsigned(0,16);
         last_cycles_per_frame <= cycles_per_frame;

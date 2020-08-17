@@ -141,6 +141,7 @@ entity viciv is
     pixel_x_out : out integer := 0;
     pixel_strobe_out : out std_logic;
     pixel_newframe : out std_logic;
+    pixel_frame_toggle : inout std_logic;
     pixel_newraster : out std_logic;
     -- Pixel x counter scaled to count to about 640
     pixel_x_640 : out integer := 0;
@@ -3455,6 +3456,7 @@ begin
         -- Send a 1 cycle pulse at the end of each frame for
         -- streaming display module to synchronise on.
         if vert_in_frame = '1' then
+          pixel_frame_toggle <= not pixel_frame_toggle;
           pixel_newframe <= '1';
           pixel_newframe_internal <= '1';
         else
