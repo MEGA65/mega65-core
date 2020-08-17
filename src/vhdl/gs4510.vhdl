@@ -1136,10 +1136,10 @@ architecture Behavioural of gs4510 is
   signal memory_access_wdata_next : unsigned(7 downto 0);
 
   signal cycle_counter : unsigned(15 downto 0) := (others => '0');
-  signal cycles_per_frame : unsigned(15 downto 0) := (others => '0');
-  signal proceeds_per_frame : unsigned(15 downto 0) := (others => '0');
-  signal last_cycles_per_frame : unsigned(15 downto 0) := (others => '0');
-  signal last_proceeds_per_frame : unsigned(15 downto 0) := (others => '0');
+  signal cycles_per_frame : unsigned(31 downto 0) := (others => '0');
+  signal proceeds_per_frame : unsigned(31 downto 0) := (others => '0');
+  signal last_cycles_per_frame : unsigned(31 downto 0) := (others => '0');
+  signal last_proceeds_per_frame : unsigned(31 downto 0) := (others => '0');
   signal frame_counter : unsigned(15 downto 0) := (others => '0');
 
   type microcode_lut_t is array (instruction)
@@ -2600,14 +2600,18 @@ begin
             when x"ea" => return reg_math_cycle_compare(23 downto 16);
             when x"eb" => return reg_math_cycle_compare(31 downto 24);
 
-            --@IO:GS $D7F6 CPU:PHIPERFRAME Count the number of PHI cycles per video frame (LSB)              
-            --@IO:GS $D7F7 CPU:PHIPERFRAME Count the number of PHI cycles per video frame (MSB)
-            when x"f6" => return last_cycles_per_frame(7 downto 0);
-            when x"f7" => return last_cycles_per_frame(15 downto 8);
-            --@IO:GS $D7F8 CPU:CYCPERFRAME Count the number of usable (proceed=1) CPU cycles per video frame (LSB)              
+            --@IO:GS $D7F2 CPU:PHIPERFRAME Count the number of PHI cycles per video frame (LSB)              
+            --@IO:GS $D7F5 CPU:PHIPERFRAME Count the number of PHI cycles per video frame (MSB)
+            when x"f2" => return last_cycles_per_frame(7 downto 0);
+            when x"f3" => return last_cycles_per_frame(15 downto 8);
+            when x"f4" => return last_cycles_per_frame(23 downto 16);
+            when x"f5" => return last_cycles_per_frame(31 downto 24);
+            --@IO:GS $D7F6 CPU:CYCPERFRAME Count the number of usable (proceed=1) CPU cycles per video frame (LSB)              
             --@IO:GS $D7F9 CPU:CYCPERFRAME Count the number of usable (proceed=1) CPU cycles per video frame (MSB)
-            when x"f8" => return last_proceeds_per_frame(7 downto 0);
-            when x"f9" => return last_proceeds_per_frame(15 downto 8);
+            when x"f6" => return last_proceeds_per_frame(7 downto 0);
+            when x"f7" => return last_proceeds_per_frame(15 downto 8);
+            when x"f8" => return last_proceeds_per_frame(23 downto 16);
+            when x"f9" => return last_proceeds_per_frame(31 downto 24);
             -- @IO:GS $D7FA CPU:FRAMECOUNT Count number of elapsed video frames
             when x"fa" => return frame_counter(7 downto 0);
             when x"fb" => return "000000" & cartridge_enable & charge_for_branches_taken;
@@ -5070,10 +5074,10 @@ begin
 
               -- Reset counters so no timing side-channels through hypervisor calls
               frame_counter <= to_unsigned(0,16);
-              last_cycles_per_frame <= to_unsigned(0,16);
-              last_proceeds_per_frame <= to_unsigned(0,16);
-              cycles_per_frame <= to_unsigned(0,16);
-              proceeds_per_frame <= to_unsigned(0,16);
+              last_cycles_per_frame <= to_unsigned(0,32);
+              last_proceeds_per_frame <= to_unsigned(0,32);
+              cycles_per_frame <= to_unsigned(0,32);
+              proceeds_per_frame <= to_unsigned(0,32);
               
               report "ZPCACHE: Flushing cache due to return from hypervisor";
               cache_flushing <= '1';
@@ -7540,8 +7544,8 @@ begin
 
       if last_pixel_frame_toggle /= pixel_frame_toggle_drive then
         frame_counter <= frame_counter + 1;
-        cycles_per_frame <= to_unsigned(0,16);
-        proceeds_per_frame <= to_unsigned(0,16);
+        cycles_per_frame <= to_unsigned(0,32);
+        proceeds_per_frame <= to_unsigned(0,32);
         last_cycles_per_frame <= cycles_per_frame;
         last_proceeds_per_frame <= proceeds_per_frame;
       end if;                
