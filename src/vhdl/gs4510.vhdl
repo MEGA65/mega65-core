@@ -1363,6 +1363,10 @@ architecture Behavioural of gs4510 is
   signal reg_math_cycle_compare : unsigned(31 downto 0) := to_unsigned(0,32);
 
   signal badline_enable : std_logic := '1';
+  -- XXX We make bad lines cost 43 cycles, even if there were write cycles in
+  -- instructions.  Working out if there are write cycles to subtract is a bit
+  -- tricky, but we should do it at some point.
+  signal badline_extra_cycles : unsigned(1 downto 0) := "11";
   signal slow_interrupts : std_logic := '1';
 
   -- Simulated VDC access
@@ -2117,7 +2121,7 @@ begin
                             & reg_dmagic_addr(22 downto 16);
             when x"03" => return reg_dmagic_status(7 downto 1) & support_f018b;
             when x"04" => return reg_dmagic_addr(27 downto 20);
-
+            when x"10" => return "00" & badline_extra_cycles  & charge_for_branches_taken & vdc_enabled & slow_interrupts & badline_enable;
             -- @IO:GS $D711.7 DMA:AUDEN Enable Audio DMA
             -- @IO:GS $D711.6 DMA:BLKD Audio DMA blocked (read only) DEBUG
             -- @IO:GS $D711.5 DMA:AUDWRBLK Audio DMA block writes (samples still get read) 
@@ -2614,7 +2618,7 @@ begin
             when x"f9" => return last_proceeds_per_frame(31 downto 24);
             -- @IO:GS $D7FA CPU:FRAMECOUNT Count number of elapsed video frames
             when x"fa" => return frame_counter(7 downto 0);
-            when x"fb" => return "000000" & cartridge_enable & charge_for_branches_taken;
+            when x"fb" => return "000000" & cartridge_enable & "0";
             when x"fc" => return unsigned(chipselect_enables);
             when x"fd" =>
               report "Reading $D7FD";
@@ -2957,12 +2961,16 @@ begin
         -- @IO:GS $D705 DMA:ETRIG Set low-order byte of DMA list address, and trigger Enhanced DMA job (uses DMA option list)
         reg_dmagic_addr(7 downto 0) <= value;
       elsif (long_address = x"FFD3710") or (long_address = x"FFD1710") then
-        -- @IO:GS $D710.0 - MISC:BADLEN Enable badline emulation
-        -- @IO:GS $D710.1 - MISC:SLIEN Enable 6502-style slow (7 cycle) interrupts
+        -- @IO:GS $D710.0 - CPU:BADLEN Enable badline emulation
+        -- @IO:GS $D710.1 - CPU:SLIEN Enable 6502-style slow (7 cycle) interrupts
         -- @IO:GS $D710.2 - MISC:VDCSEN Enable VDC inteface simulation
         badline_enable <= value(0);
         slow_interrupts <= value(1);
         vdc_enabled <= value(2);
+        -- @IO:GS $D710.3 CPU:BRCOST 1=charge extra cycle(s) for branches taken
+        charge_for_branches_taken <= value(3);
+        -- @IO:GS $D710.4-5 CPU:BADEXTRA Cost of badlines minus 40. ie. 00=40 cycles, 11 = 43 cycles.
+        badline_extra_cycles <= value(5 downto 4);
       elsif (long_address = x"FFD3711") or (long_address = x"FFD1711") then
         audio_dma_enable <= value(7);
         audio_dma_disable_writes <= value(5);
@@ -3091,9 +3099,7 @@ begin
       elsif (long_address = x"FFD37EB") or (long_address = x"FFD17EB") then
         reg_math_cycle_compare(31 downto 24) <= value;
       elsif (long_address = x"FFD37FB") then
-        -- @IO:GS $D7FB.0 CPU:BRCOST 1=charge extra cycle(s) for branches taken
         -- @IO:GS $D7FB.1 CPU:CARTEN 1= enable cartridges
-        charge_for_branches_taken <= value(0);
         cartridge_enable <= value(1);
       elsif (long_address = x"FFD37FC") then
       -- @IO:GS $D7FC DEBUG chip-select enables for various devices
@@ -4163,7 +4169,7 @@ begin
               -- as soon as there is a read operation.
               if (badline_toggle /= last_badline_toggle) and (monitor_mem_attention_request_drive='0') and (badline_enable='1') then
                 phi_pause <= '1';
-                phi_backlog <= 40;
+                phi_backlog <= 40 + to_integer(badline_extra_cycles);
                 last_badline_toggle <= badline_toggle;
               else
                 phi_backlog <= 0;
