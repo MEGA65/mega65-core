@@ -974,7 +974,7 @@ begin
       -- Finally, because we have the output value of 0 hard-wired
       -- on the output drivers, we need only gate the EN line.
       -- But we only do this if the DDR is set to output
-      iec_srq_en <= iec_srq_o_drive and ieq_seq_en_drive;
+      iec_srq_en <= iec_srq_o_drive and iec_srq_en_drive;
       iec_clk_en <= iec_clk_o_drive and iec_clk_en_drive;
       iec_data_en <= iec_data_o_drive and iec_data_en_drive;
 
