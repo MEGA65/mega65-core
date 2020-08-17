@@ -1556,7 +1556,7 @@ begin
       -- CBM floppy  std_logic_vectorerial port
       ----------------------------------------------------------------------
       iec_clk_en => iec_clk_en,
-      iec_srq_en => iec_clk_en,
+      iec_srq_en => iec_srq_en,
       iec_data_en => iec_data_en,
       iec_data_o => iec_data_o,
       iec_reset => iec_reset,
