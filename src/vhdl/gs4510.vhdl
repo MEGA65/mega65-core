@@ -4143,10 +4143,12 @@ begin
         when x"04" => phi_internal <= phi_3mhz;
         when others => phi_internal <= '1'; -- Full speed = 1 clock tick per cycle
       end case;
+      if phi_internal = '1' then
+        cycles_per_frame <= cycles_per_frame + 1;
+      end if;
       if cpuspeed_internal /= x"40" and monitor_mem_attention_request_drive='0' then
         if (phi_internal='1') then
           -- phi2 cycle has passed
-          cycles_per_frame <= cycles_per_frame + 1;
           if phi_backlog = 1 or phi_backlog=0 then
             if phi_add_backlog = '0' then
               -- We have just finished our backlog, allow CPU to proceed,
@@ -7311,14 +7313,6 @@ begin
 
         end if;
 
-        if last_pixel_frame_toggle /= pixel_frame_toggle_drive then
-          frame_counter <= frame_counter + 1;
-          cycles_per_frame <= to_unsigned(0,16);
-          proceeds_per_frame <= to_unsigned(0,16);
-          last_cycles_per_frame <= cycles_per_frame;
-          last_proceeds_per_frame <= proceeds_per_frame;
-        end if;
-          
         report "pc_inc = " & std_logic'image(pc_inc)
           & ", cpu_state = " & processor_state'image(state)
           & " ($" & to_hstring(to_unsigned(processor_state'pos(state),8)) & ")"
@@ -7543,6 +7537,15 @@ begin
           report "MEMORY no action (possibly waiting for a wait-state)";
         end if;
       end if; -- if not reseting
+
+      if last_pixel_frame_toggle /= pixel_frame_toggle_drive then
+        frame_counter <= frame_counter + 1;
+        cycles_per_frame <= to_unsigned(0,16);
+        proceeds_per_frame <= to_unsigned(0,16);
+        last_cycles_per_frame <= cycles_per_frame;
+        last_proceeds_per_frame <= proceeds_per_frame;
+      end if;                
+      
     end if;                         -- if rising edge of clock
   end process;
   
