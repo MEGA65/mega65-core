@@ -951,71 +951,38 @@ begin
       fb_down_drive <= fb_down;
       fb_fire_drive <= fb_fire;  
 
-      -- The CIAs drive these lines naively, so we need to apply the inverters
-      -- on the outputs here, and also deal with the particulars of how the
-      -- MEGA65 PCB drives these lines.
-      -- Note that the MEGA65 PCB lacks pull-ups on these lines, and relies on
-      -- the connected disk drive(s) having pull-ups of their own.
-      -- Here is the truth table for behaviour with a pull-up on the pin:
-      -- +----+-----++----+
-      -- | _o | _en || _i |
-      -- +----+-----++----+
-      -- |  0 |   X || 0  |
-      -- |  1 |   0 || 1* |
-      -- |  1 |   1 || 1  |
-      -- +----+-----++----+
-      -- * Value provided by pin up, or equivalently device on the bus
-      --
-      -- End result is simple: Invert output bit, and copy output enable
-      -- Except, that the CIA always thinks it is driving the line, so
-      -- we need to ignore the _en lines, and instead use the _o lines
-      -- (before inversion) to indicate when we should be driving the pin
-      -- to ground.
-
+      -- The simple output-only IEC lines we just drive
       iec_reset <= iec_reset_drive;
       iec_atn <= not iec_atn_drive;
-
-      iec_srq_en <= iec_srq_o_drive;
-      iec_srq_o <= not iec_srq_o_drive;
-      iec_srq_i_drive <= iec_srq_i;
-
       
-      if pot_via_iec = '0' then
-        -- Normal IEC port operation
-        iec_clk_en <= iec_clk_o_drive;
-        iec_clk_o <= not iec_clk_o_drive;
-        iec_clk_i_drive <= iec_clk_i;
-        iec_data_en <= iec_data_o_drive;
-        iec_data_o <= not iec_data_o_drive;
-        iec_data_i_drive <= iec_data_i;
-        -- So pots act like infinite resistance
-        fa_potx <= '0';
-        fa_poty <= '0';
-        fb_potx <= '0';
-        fb_poty <= '0';
-      else
-        -- IEC lines being used as POT inputs
-        iec_clk_i_drive <= '1';
-        iec_data_i_drive <= '1';
-        if pot_drain = '1' then
-          -- IEC lines being used to drain pots
-          iec_clk_en <= '1';
-          iec_clk_o <= '0';
-          iec_data_en <= '1';
-          iec_data_o <= '0';
-        else
-          -- Stop draining
-          iec_clk_en <= '0';
-          iec_clk_o <= '0';
-          iec_data_en <= '0';
-          iec_data_o <= '0';
-        end if;
-        -- Copy IEC input values to POT inputs
-        fa_potx <= iec_data_i;
-        fa_poty <= iec_clk_i;
-        fb_potx <= iec_data_i;
-        fb_poty <= iec_clk_i;
-      end if;
+      -- The active-high EN lines enable the IEC output drivers.
+      -- We need to invert the signal, so that if a signal from CIA
+      -- is high, we drive the IEC pin low. Else we let the line
+      -- float high.  We have external pull-ups, so shouldn't use them
+      -- in the FPGA.  This also means we can leave the input line to
+      -- the output drivers set a 0, as we never "send" a 1 -- only relax
+      -- and let it float to 1.
+      iec_srq_o <= '0';
+      iec_clk_o <= '0';
+      iec_data_o <= '0';
+
+      -- Reading pins is simple
+      iec_srq_i_drive <= iec_srq_i;
+      iec_clk_i_drive <= iec_clk_i;
+      iec_data_i_drive <= iec_data_i;
+
+      -- Finally, because we have the output value of 0 hard-wired
+      -- on the output drivers, we need only gate the EN line.
+      -- But we only do this if the DDR is set to output
+      iec_srq_en <= iec_srq_o_drive and ieq_seq_en_drive;
+      iec_clk_en <= iec_clk_o_drive and iec_clk_en_drive;
+      iec_data_en <= iec_data_o_drive and iec_data_en_drive;
+
+      -- Pots act like infinite resistance, as we have no real pots on R2 PCB
+      fa_potx <= '0';
+      fa_poty <= '0';
+      fb_potx <= '0';
+      fb_poty <= '0';
 
       pwm_l <= pwm_l_drive;
       pwm_r <= pwm_r_drive;
