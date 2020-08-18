@@ -1099,7 +1099,8 @@ begin  -- behavioural
     end if;
   end process;
   
-  process (clock,fastio_addr,fastio_wdata,fastio_read,fastio_write
+  process (clock,fastio_addr,fastio_wdata,fastio_read,fastio_write,rxbuffer_write_toggle,
+           rxbuffer_wdata,rxbuffer_writeaddress
            ) is
     variable temp_cmd : unsigned(7 downto 0);
 
@@ -1204,7 +1205,10 @@ begin  -- behavioural
           when x"f" =>
 
             -- @ IO:GS $D6EF ETH:DBGRXWCOUNT DEBUG show number of writes to eth RX buffer
-            fastio_rdata <= eth_rx_write_count;
+            fastio_rdata(3 downto 0) <= eth_rx_write_count(3 downto 5);
+            fastio_rdata(7) <= last_rxbuffer_write_toggle;
+            fastio_rdata(6) <= rxbuffer_write_toggle;
+            fastio_rdata(5) <= rxbuffer_write_toggle_drive;
                          
             -- @ IO:GS $D6EF ETH:DBGTXSTAT DEBUG show current ethernet TX state
             -- fastio_rdata <= to_unsigned(ethernet_state'pos(eth_tx_state),8);
