@@ -150,7 +150,9 @@ architecture behavioural of ethernet is
                           ReceivingPreamble,
                           ReceivingFrame,
                           ReceivedFrame,
+                          ReceivedFrameWait,
                           ReceivedFrame2,
+                          ReceivedFrame2Wait,
                           BadFrame,
 
                           IdleWait,
@@ -161,7 +163,8 @@ architecture behavioural of ethernet is
                           SendFCS,
                           SentFrame        -- $11
                           );
-  signal eth_state : ethernet_state := Idle;
+ signal eth_state : ethernet_state := Idle;
+ signal eth_wait : integer range 0 to 10 := 0;
 
   -- MAC address and filtering functions
   signal eth_mac : unsigned(47 downto 0) := x"024753656565";
@@ -202,9 +205,14 @@ architecture behavioural of ethernet is
   signal eth_mac_counter : integer range 0 to 7;
   
   signal rxbuffer_cs : std_logic;
-  signal rxbuffer_write : std_logic;
+  signal rxbuffer_write : std_logic := '0';
+  signal rxbuffer_write_toggle : std_logic := '0';
+  signal rxbuffer_write_toggle_drive : std_logic := '0';
+  signal last_rxbuffer_write_toggle : std_logic := '0';
   signal rxbuffer_writeaddress : integer range 0 to 4095;
+  signal rxbuffer_writeaddress_l : integer range 0 to 4095;
   signal rxbuffer_readaddress : integer range 0 to 4095;
+  signal rxbuffer_wdata_l : unsigned(7 downto 0);
   signal rxbuffer_wdata : unsigned(7 downto 0);
 
   signal eth_tx_toggle_48mhz : std_logic := '1';
@@ -361,12 +369,12 @@ begin  -- behavioural
   -- We could use _sync, in which case we just need to make sure that we
   -- have the right number of waitstates in the CPU.
   rxbuffer0: entity work.ram8x4096 port map (
-    clkw => clock50mhz,
+    clkw => clock,
     clkr => clock,
     cs => rxbuffer_cs,
     w => rxbuffer_write,
-    write_address => rxbuffer_writeaddress,
-    wdata => rxbuffer_wdata,
+    write_address => rxbuffer_writeaddress_l,
+    wdata => rxbuffer_wdata_l,
     address => rxbuffer_readaddress,
     rdata => fastio_rdata);  
 
@@ -803,7 +811,6 @@ begin  -- behavioural
       end if;
       
       frame_length := to_unsigned(eth_frame_len,12);
-      rxbuffer_write <= '0';
       case eth_state is
         when Idle =>
           if debug_rx = '1' then
@@ -849,7 +856,7 @@ begin  -- behavioural
           end if;
         when DebugRxFrame =>
           rxbuffer_writeaddress <= eth_frame_len;
-          rxbuffer_write <= '1';
+          rxbuffer_write_toggle <= not rxbuffer_write_toggle;
           rxbuffer_wdata <= x"00";
           rxbuffer_wdata(7) <= eth_rxdv;
           rxbuffer_wdata(6) <= eth_rxer;
@@ -897,10 +904,11 @@ begin  -- behavioural
             -- subtract two length field bytes to
             -- obtain actual number of bytes received
             eth_frame_len <= eth_frame_len - 2;
-            eth_state <= ReceivedFrame;
+            eth_wait <= 10;
+            eth_state <= ReceivedFrameWait;
             -- put a marker at the end of the frame so we can see where it stops in
             -- the RX buffer.
-            rxbuffer_write <= '1';
+            rxbuffer_write_toggle <= not rxbuffer_write_toggle;
             rxbuffer_wdata <= x"BD";
             rxbuffer_writeaddress <= eth_frame_len;
           else
@@ -975,7 +983,7 @@ begin  -- behavioural
                     & ", multicast=" & std_logic'image(frame_is_multicast);
                 end if;
                 eth_frame_len <= eth_frame_len + 1;
-                rxbuffer_write <= '1';
+                rxbuffer_write_toggle <= not rxbuffer_write_toggle;
                 report "ETHRX: Received byte $" & to_hstring(eth_rxd & eth_rxbits);
                 rxbuffer_wdata <= eth_rxd & eth_rxbits;
                 rxbuffer_writeaddress <= eth_frame_len;
@@ -1030,6 +1038,12 @@ begin  -- behavioural
               eth_rxbits <= eth_rxd & eth_rxbits(5 downto 2);
             end if;
           end if;
+        when ReceivedFrameWait =>
+          if eth_wait /= 0 then
+            eth_wait <= eth_wait - 1;
+          else
+            eth_state <= ReceivedFrame;
+          end if;
         when ReceivedFrame =>
           rx_fcs_crc_d_valid <= '0';
           rx_fcs_crc_calc_en <= '0';
@@ -1039,16 +1053,22 @@ begin  -- behavioural
           else
             rxbuffer_writeaddress <= 0;
           end if;
-          rxbuffer_write <= '1';
+          rxbuffer_write_toggle <= not rxbuffer_write_toggle;
           rxbuffer_wdata <= to_unsigned(eth_frame_len,8);
           report "ETHRX: writing frame_length(7 downto 0) = $" & to_hstring(frame_length);
-          eth_state <= ReceivedFrame2;
+          eth_state <= ReceivedFrame2Wait;
+        when ReceivedFrame2Wait =>
+          if eth_wait /= 0 then
+            eth_wait <= eth_wait - 1;
+          else
+            eth_state <= ReceivedFrame2;
+          end if;
         when ReceivedFrame2 =>
           -- write high byte of frame length + crc failure status
           -- bit 7 is high if CRC fails, else is low.
           report "ETHRX: writing packet length at " & integer'image(rxbuffer_writeaddress);
           report "ETHRX: Recording crc_valid = " & std_logic'image(rx_crc_valid) & "   (CRC = $"& to_hstring(rx_crc_reg)&")";
-          rxbuffer_write <= '1';
+          rxbuffer_write_toggle <= not rxbuffer_write_toggle;
           rxbuffer_writeaddress <= rxbuffer_writeaddress + 1;
           rxbuffer_wdata(7) <= not rx_crc_valid;
           rxbuffer_wdata(6) <= frame_is_for_me;
@@ -1199,6 +1219,22 @@ begin  -- behavioural
 
     if rising_edge(clock) then
 
+      -- Capture writes to the RX buffer from 50MHz side of clock.
+      -- We process them here to avoid contention on the dual-ported
+      -- memory used for the buffer, to try to fix the corruption we have been
+      -- seeing.
+      rxbuffer_write_toggle_drive <= rxbuffer_write_toggle_drive;
+      if (rxbuffer_write_toggle = rxbuffer_write_toggle_drive)
+        and (last_rxbuffer_write_toggle /= rxbuffer_write_toggle) then
+        last_rxbuffer_write_toggle <= rxbuffer_write_toggle;
+        rxbuffer_write <= '1';
+        rxbuffer_wdata_l <= rxbuffer_wdata;
+        rxbuffer_writeaddress_l <= rxbuffer_writeaddress;
+      else
+        rxbuffer_write <= '0';
+      end if;
+      
+      
       eth_buffer_blocked <= eth_buffer_blocked_50mhz;
       
       -- Notice when we change raster lines
