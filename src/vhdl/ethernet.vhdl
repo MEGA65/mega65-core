@@ -1233,7 +1233,7 @@ begin  -- behavioural
       -- We process them here to avoid contention on the dual-ported
       -- memory used for the buffer, to try to fix the corruption we have been
       -- seeing.
-      rxbuffer_write_toggle_drive <= rxbuffer_write_toggle_drive;
+      rxbuffer_write_toggle_drive <= rxbuffer_write_toggle;
       if (rxbuffer_write_toggle = rxbuffer_write_toggle_drive)
         and (last_rxbuffer_write_toggle /= rxbuffer_write_toggle) then
         last_rxbuffer_write_toggle <= rxbuffer_write_toggle;
