@@ -336,6 +336,8 @@ architecture behavioural of ethernet is
 
  signal eth_buffer_blocked_50mhz : std_logic := '0';
  signal eth_buffer_blocked : std_logic := '0';
+
+ signal eth_rx_write_count : unsigned(7 downto 0) := x"00";
  
  -- Reverse the input vector.
  function reversed(slv: std_logic_vector) return std_logic_vector is
@@ -1200,8 +1202,12 @@ begin  -- behavioural
           when x"D" => fastio_rdata <= eth_mac(15 downto 8);
           when x"E" => fastio_rdata <= eth_mac(7 downto 0);
           when x"f" =>
+
+            -- @ IO:GS $D6EF ETH:DBGRXWCOUNT DEBUG show number of writes to eth RX buffer
+            fastio_rdata <= eth_rx_write_count;
+                         
             -- @ IO:GS $D6EF ETH:DBGTXSTAT DEBUG show current ethernet TX state
-            fastio_rdata <= to_unsigned(ethernet_state'pos(eth_tx_state),8);
+            -- fastio_rdata <= to_unsigned(ethernet_state'pos(eth_tx_state),8);
           when others =>
             fastio_rdata <= (others => 'Z');
         end case;
@@ -1230,6 +1236,7 @@ begin  -- behavioural
         rxbuffer_write <= '1';
         rxbuffer_wdata_l <= rxbuffer_wdata;
         rxbuffer_writeaddress_l <= rxbuffer_writeaddress;
+        eth_rx_write_count <= eth_rx_write_count + 1;
       else
         rxbuffer_write <= '0';
       end if;
@@ -1520,7 +1527,7 @@ begin  -- behavioural
             when x"C" => eth_mac(23 downto 16) <= fastio_wdata;
             when x"D" => eth_mac(15 downto 8) <= fastio_wdata;
             when x"E" => eth_mac(7 downto 0) <= fastio_wdata;
-              
+
             when others =>
               -- Other registers do nothing
               null;
