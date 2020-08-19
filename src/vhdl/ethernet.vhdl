@@ -1139,8 +1139,7 @@ begin  -- behavioural
             else
               fastio_rdata(2 downto 1) <= "11"; -- At least 3 RX buffers free
             end if;
-            -- $D6E1.0 - Clear to hold ethernet adapter in reset.
-            fastio_rdata(0) <= eth_reset_int;
+            -- $D6E1.0 - RESERVED
           -- @IO:GS $D6E2 ETH:TXSZLSB TX Packet size (low byte)
           when x"2" =>
             fastio_rdata <= eth_tx_size(7 downto 0);
@@ -1466,6 +1465,7 @@ begin  -- behavioural
                 eth_rx_buffers_free <= 3;
                 rxbuff_id_ethside <= 1;
                 rxbuff_id_cpuside <= 0;
+                eth_rx_blocked <= '0';
               end if;
               
             when x"1" =>
@@ -1520,9 +1520,7 @@ begin  -- behavioural
 
               end if;
 
-              -- @IO:GS $D6E1.0 reset ethernet PHY
-              eth_reset <= fastio_wdata(0);
-              eth_reset_int <= fastio_wdata(0);
+              -- @IO:GS $D6E1.0 RESERVED
             -- @IO:GS $D6E2 Set low-order size of frame to TX
             when x"2" =>
               eth_tx_size(7 downto 0) <= fastio_wdata;

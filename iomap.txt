@@ -734,12 +734,11 @@ GS $D6E0.1 Clear to reset ethernet state machine only, but not the phy
 GS $D6E0.3 ETH:DRXDV Read ethernet RX data valid (debug)
 GS $D6E0.4 Allow remote keyboard input via magic ethernet frames
 GS $D6E0.4 ETH:KEYEN Allow remote keyboard input via magic ethernet frames
-GS $D6E0.6 ETH:RXBLKD Indicate if ethernet RX is blocked until RX buffers rotated
+GS $D6E0.6 ETH:RXBLKD Indicate if ethernet RX is blocked until RX buffers freed
 GS $D6E0.7 ETH:TXIDLE Ethernet transmit side is idle, i.e., a packet can be sent.
-GS $D6E1.0 reset ethernet PHY
-GS $D6E1.1 ETH:RXBM Set which RX buffer is memory mapped
-GS $D6E1.1 - Set which RX buffer is memory mapped
-GS $D6E1.2 ETH:RXBU Indicate which RX buffer was most recently used
+GS $D6E1.0 RESERVED
+GS $D6E1.1-2 ETH:RXBF Number of free receive buffers
+GS $D6E1.1 WRITE ONLY Access next received ethernet frame
 GS $D6E1.2 WRITE ONLY Enable real-time CPU/BUS monitoring via ethernet
 GS $D6E1.3 Enable real-time video streaming via ethernet (or fast IO bus if CPU/bus monitoring enabled)
 GS $D6E1.3 ETH:STRM Enable streaming of CPU instruction stream or VIC-IV display on ethernet
@@ -772,6 +771,7 @@ GS $D6EB ETH:MACADDR3 Ethernet MAC address
 GS $D6EC ETH:MACADDR4 Ethernet MAC address
 GS $D6ED ETH:MACADDR5 Ethernet MAC address
 GS $D6EE ETH:MACADDR6 Ethernet MAC address
+GS $D6EF ETH:DBGRXWCOUNT DEBUG show number of writes to eth RX buffer
 GS $D6EF ETH:DBGTXSTAT DEBUG show current ethernet TX state
 GS $D6F0 - LCD panel brightness control
 GS $D6F0 MISC:LCDBRIGHTNESS LCD panel brightness control
