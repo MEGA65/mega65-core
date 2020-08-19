@@ -342,6 +342,7 @@ architecture behavioural of ethernet is
  signal eth_rx_blocked : std_logic := '0';
 
  signal last_rx_rotate_bit : std_logic := '0';
+ signal rx_rotate_count : unsigned(3 downto 0) := to_unsigned(0,4);
  
  -- Reverse the input vector.
  function reversed(slv: std_logic_vector) return std_logic_vector is
@@ -1200,7 +1201,7 @@ begin  -- behavioural
             -- @ IO:GS $D6EF ETH:DBGRXWCOUNT DEBUG show number of writes to eth RX buffer
             fastio_rdata(1 downto 0) <= to_unsigned(rxbuff_id_cpuside,2);
             fastio_rdata(3 downto 2) <= to_unsigned(rxbuff_id_ethside,2);
-            fastio_rdata(7 downto 4) <= "0000";
+            fastio_rdata(7 downto 4) <= rx_rotate_count;
                          
             -- @ IO:GS $D6EF ETH:DBGTXSTAT DEBUG show current ethernet TX state
             -- fastio_rdata <= to_unsigned(ethernet_state'pos(eth_tx_state),8);
@@ -1496,6 +1497,8 @@ begin  -- behavioural
               if fastio_wdata(1) = '1' and last_rx_rotate_bit = '0' then
                 -- Request next RX'd packet (if any)
 
+                rx_rotate_count <= rx_rotate_count + 1;
+                
                 -- Give time for signals to propagate between attempts.
                 -- This also helps to make sure we don't get successive write
                 -- glitching, when M65 CPU sometimes writes to an address for 2
