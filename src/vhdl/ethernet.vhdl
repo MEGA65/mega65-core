@@ -1235,13 +1235,19 @@ begin  -- behavioural
         eth_irq_rx <= '1';
         
         -- Now work out the next RX buffer to use.
-        eth_rx_blocked <= '1';
-        for i in 0 to 3 loop
-          if eth_rx_buffer_inuse(i) = '0' then
-            eth_rx_blocked <= '0';
-            rxbuff_id_ethside <= i;
+        -- If the next buffer would be the one the CPU is looking at,
+        -- then we have run out of buffers and are blocked.
+        if ((rxbuff_id_ethside + 1) = rxbuff_id_cpuside)
+          or ((rxbuff_id_ethside = 3) and (rxbuff_id_cpuside = 0)) then
+          eth_rx_blocked <= '1';
+        else
+          if rxbuff_id_ethside /= 3 then
+            rxbuff_id_ethside <= rxbuff_id_ethside + 1;
+          else
+            rxbuff_id_ethside <= 0;
           end if;
-        end loop;
+        end if;
+        
       end if;
       
       rxbuffer_write_toggle_drive <= rxbuffer_write_toggle;
@@ -1493,22 +1499,21 @@ begin  -- behavioural
                 end if;
                 eth_rx_buffer_inuse(rxbuff_id_cpuside) <= '0';
 
-                -- Now pick the next occupied buffer slot
-                for i in 0 to 3 loop
-                  -- But don't pick the same buffer as now (which will still be
-                  -- marked as inuse untile next cycle).
-                  -- But don't pick the buffer the ethernet side is currently
-                  -- writing into, as that might have only 1/2 a packet in it.
-                  -- Finally, the buffer must actually be marked as in use.
-                  if (rxbuff_id_cpuside /= i) and (rxbuff_id_ethside /= i) and (eth_rx_buffer_inuse(i)='1') then
-                    -- This is a buffer that has a packet in it, and which we
-                    -- have not yet looked at. In theory.
-                    rxbuff_id_cpuside <= i;
+                -- Advance to next buffer, if there are any
+                if ((rxbuff_id_cpuside + 1) = rxbuff_id_ethside)
+                  or ((rxbuff_id_cpuside = 3) and (rxbuff_id_ethside = 0 )) then
+                  -- No more waiting packets
+                  null;
+                else
+                  if rxbuff_id_cpuside /= 3 then
+                    rxbuff_id_cpuside <= rxbuff_id_cpuside + 1;
+                  else
+                    rxbuff_id_cpuside <= 0;
                   end if;
-                end loop;
-
-                -- If we are freeing a buffer, we should unblock the reception
-                -- of more frames
+                end if;
+                
+                -- By definition, popping a packet from the rx queue has to enable
+                -- another packet to be received.
                 eth_rx_blocked <= '0';
                 -- If we were blocked, then the next buffer to use for eth RX
                 -- side is the one we have just freed up. If it wasn't blocked,
