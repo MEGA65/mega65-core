@@ -1506,7 +1506,18 @@ begin  -- behavioural
                   if rxbuff_id_cpuside /= i and rxbuff_id_ethside /= i and eth_rx_buffer_inuse(i)='1' then
                     rxbuff_id_cpuside <= i;
                   end if;
-                end loop;                                  
+                end loop;
+
+                -- If we are freeing a buffer, we should unblock the reception
+                -- of more frames
+                eth_rx_blocked <= '0';
+                -- If we were blocked, then the next buffer to use for eth RX
+                -- side is the one we have just freed up. If it wasn't blocked,
+                -- then there is nothing more to be done.
+                if eth_rx_blocked = '1' then
+                  rxbuff_id_ethside <= rxbuff_id_cpuside;
+                end if;
+
               end if;
 
               -- @IO:GS $D6E1.0 reset ethernet PHY
