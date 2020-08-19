@@ -341,7 +341,7 @@ architecture behavioural of ethernet is
  signal eth_rx_blocked_50mhz : std_logic := '0';
  signal eth_rx_blocked : std_logic := '0';
 
- signal latch_timeout : integer range 0 to 16 := 0;
+ signal last_rx_rotate_bit : std_logic := '0';
  
  -- Reverse the input vector.
  function reversed(slv: std_logic_vector) return std_logic_vector is
@@ -1220,11 +1220,6 @@ begin  -- behavioural
     end if;
 
     if rising_edge(clock) then
-
-
-      if latch_timeout /= 0 then
-        latch_timeout <= latch_timeout - 1;
-      end if;
       
       -- Capture writes to the RX buffer from 50MHz side of clock.
       -- We process them here to avoid contention on the dual-ported
@@ -1497,14 +1492,14 @@ begin  -- behavioural
               activity_dump <= fastio_wdata(2);
               
               -- @IO:GS $D6E1.1 WRITE ONLY Access next received ethernet frame
-              if fastio_wdata(1) = '1' and latch_timeout = 0 then
+              last_rx_rotate_bit <= fastio_wdata(1);
+              if fastio_wdata(1) = '1' and last_rx_rotate_bit = '0' then
                 -- Request next RX'd packet (if any)
 
                 -- Give time for signals to propagate between attempts.
                 -- This also helps to make sure we don't get successive write
                 -- glitching, when M65 CPU sometimes writes to an address for 2
                 -- cycles instead of one.
-                latch_timeout <= 16;
 
                 -- Free up the RX buffer we were looking at
                 if eth_rx_buffer_inuse(rxbuff_id_cpuside)='1' and (eth_rx_buffers_free < 3) then
