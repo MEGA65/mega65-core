@@ -1491,9 +1491,7 @@ begin  -- behavioural
                 if eth_rx_buffer_inuse(rxbuff_id_cpuside)='1' and (eth_rx_buffers_free < 3) then
                   eth_rx_buffers_free <= eth_rx_buffers_free + 1;                  
                 end if;
-                if eth_rx_buffer_inuse(rxbuff_id_cpuside)='1' then
-                  eth_rx_buffer_inuse(rxbuff_id_cpuside) <= '0';
-                end if;
+                eth_rx_buffer_inuse(rxbuff_id_cpuside) <= '0';
 
                 -- Now pick the next occupied buffer slot
                 for i in 0 to 3 loop
@@ -1502,7 +1500,9 @@ begin  -- behavioural
                   -- But don't pick the buffer the ethernet side is currently
                   -- writing into, as that might have only 1/2 a packet in it.
                   -- Finally, the buffer must actually be marked as in use.
-                  if rxbuff_id_cpuside /= i and rxbuff_id_ethside /= i and eth_rx_buffer_inuse(i)='1' then
+                  if (rxbuff_id_cpuside /= i) and (rxbuff_id_ethside /= i) and (eth_rx_buffer_inuse(i)='1') then
+                    -- This is a buffer that has a packet in it, and which we
+                    -- have not yet looked at. In theory.
                     rxbuff_id_cpuside <= i;
                   end if;
                 end loop;
