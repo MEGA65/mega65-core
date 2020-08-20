@@ -41,6 +41,8 @@ architecture RTL of clocking is
   signal clock9969mhz_bufg : std_logic := '0'; 
   signal u_clock27 : std_logic := '0';
   signal u_clock135p : std_logic := '0';
+  signal u_clock50 : std_logic := '0';
+  signal u_clock50q : std_logic := '0';
   
 begin
 
@@ -202,6 +204,14 @@ begin
   bufg2:
   bufg port map ( I => u_clock135p,
                   O => clock135p);  
+
+  bufg3:
+  bufg port map ( I => u_clock50,
+                  O => clock50);  
+
+  bufg4:
+  bufg port map ( I => u_clock50q,
+                  O => clock50q);  
   
   mmcm_adv0 : MMCM_ADV
   generic map
