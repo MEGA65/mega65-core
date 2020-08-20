@@ -1201,12 +1201,12 @@ begin  -- behavioural
           when x"f" =>
 
             -- @ IO:GS $D6EF ETH:DBGRXWCOUNT DEBUG show number of writes to eth RX buffer
-            fastio_rdata(1 downto 0) <= to_unsigned(rxbuff_id_cpuside,2);
-            fastio_rdata(3 downto 2) <= to_unsigned(rxbuff_id_ethside,2);
-            fastio_rdata(7 downto 4) <= rx_rotate_count;
+            -- fastio_rdata(1 downto 0) <= to_unsigned(rxbuff_id_cpuside,2);
+            -- fastio_rdata(3 downto 2) <= to_unsigned(rxbuff_id_ethside,2);
+            -- fastio_rdata(7 downto 4) <= rx_rotate_count;
                          
             -- @ IO:GS $D6EF ETH:DBGTXSTAT DEBUG show current ethernet TX state
-            -- fastio_rdata <= to_unsigned(ethernet_state'pos(eth_tx_state),8);
+            fastio_rdata <= to_unsigned(ethernet_state'pos(eth_tx_state),8);
           when others =>
             fastio_rdata <= (others => 'Z');
         end case;
