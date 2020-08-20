@@ -227,8 +227,8 @@ architecture behavioural of ethernet is
   signal eth_tx_bit_count : integer range 0 to 6;
   signal eth_tx_viciv : std_logic := '0';
   signal eth_tx_dump : std_logic := '0';
-  signal txbuffer_writeaddress : integer range 0 to 4095;
-  signal txbuffer_readaddress : integer range 0 to 4095;
+  signal txbuffer_writeaddress : integer range 0 to 2047;
+  signal txbuffer_readaddress : integer range 0 to 2047;
   signal txbuffer_write : std_logic := '0';
   signal txbuffer_wdata : unsigned(7 downto 0);
   signal txbuffer_rdata : unsigned(7 downto 0);
@@ -388,9 +388,9 @@ begin  -- behavioural
       rdata => fastio_rdata);
     end generate;
 
-  txbuffer0: entity work.ram8x4096 port map (
+  txbuffer0: entity work.ram8x2048 port map (
     clkr => clock50mhz,
-    clkw => clock50mhz,
+    clkw => clock,
     cs => '1',
     w => txbuffer_write,
     write_address => txbuffer_writeaddress,
@@ -1443,8 +1443,8 @@ begin  -- behavioural
       if fastio_write='0' then
         txbuffer_write <= '0';          
       else
-        if (fastio_addr(19 downto 10)&"00" = x"DE8")
-          or (fastio_addr(19 downto 10)&"00" = x"D20")
+        if (fastio_addr(19 downto 11)&"000" = x"DE8")
+          or (fastio_addr(19 downto 11)&"000" = x"D20")
         then
           -- Writing to TX buffer
           -- (we don't need toclear the write lines, as noone else can write to
