@@ -108,6 +108,7 @@ set files [list \
  "[file normalize "$origin_dir/src/vhdl/sdcard.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ghdl_videobuffer.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ghdl_ram8x512.vhdl"]"\
+ "[file normalize "$origin_dir/src/vhdl/ghdl_ram8x2048.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ghdl_ram8x4096.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ghdl_ram32x1024_sync.vhdl"]"\
  "[file normalize "$origin_dir/src/vhdl/ghdl_ram8x4096_sync.vhdl"]"\
@@ -275,6 +276,10 @@ set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
 set file "vhdl/ghdl_ram8x4096.vhdl"
+set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
+set_property -name "file_type" -value "VHDL" -objects $file_obj
+
+set file "vhdl/ghdl_ram8x2048.vhdl"
 set file_obj [get_files -of_objects [get_filesets sources_1] [list "*$file"]]
 set_property -name "file_type" -value "VHDL" -objects $file_obj
 
