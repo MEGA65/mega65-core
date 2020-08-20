@@ -1486,7 +1486,7 @@ begin  -- behavioural
               eth_irqenable_tx <= fastio_wdata(6);
               -- Writing here also clears any current interrupts
               report "ETHRX: Clearing IRQ";
-              eth_irq_rx <= '0';
+              eth_irq_rx <= eth_rx_blocked;
               eth_irq_tx <= '0';
 
               -- @IO:GS $D6E1.3 Enable real-time video streaming via ethernet (or fast IO bus if CPU/bus monitoring enabled)
