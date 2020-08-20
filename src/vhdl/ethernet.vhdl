@@ -156,12 +156,12 @@ architecture behavioural of ethernet is
                           BadFrame,
 
                           IdleWait,
-                          Interpacketgap,  -- $0C
-                          WaitBeforeTX,    -- $0D
+                          Interpacketgap,  -- $0E
+                          WaitBeforeTX,    -- $0F
                           SendingPreamble,
-                          SendingFrame,    -- $0F
+                          SendingFrame,    -- $11
                           SendFCS,
-                          SentFrame        -- $11
+                          SentFrame        -- $13
                           );
  signal eth_state : ethernet_state := Idle;
  signal eth_wait : integer range 0 to 10 := 0;
@@ -196,7 +196,7 @@ architecture behavioural of ethernet is
   -- ethernet receiver signals
   signal eth_rxbits : unsigned(5 downto 0);
   signal eth_bit_count : integer range 0 to 6;  
-  signal eth_frame_len : integer range 0 to 4095;
+  signal eth_frame_len : integer range 0 to 2047;
   signal eth_mac_counter : integer range 0 to 7;
 
   signal rxbuffer_cs : std_logic_vector(3 downto 0) := "0000";
@@ -527,7 +527,7 @@ begin  -- behavioural
   end process;
   
   process(clock50mhz) is
-    variable frame_length : unsigned(11 downto 0);
+    variable frame_length : unsigned(10 downto 0);
   begin
     if rising_edge(clock50mhz) then
 
@@ -594,7 +594,7 @@ begin  -- behavioural
             eth_tx_state <= WaitBeforeTX;
             eth_tx_viciv <= '0';
             eth_tx_dump <= '0';
-          elsif (activity_dump='1') and activity_dump_ready_toggle /= last_activity_dump_ready_toggle then
+          elsif false and (activity_dump='1') and activity_dump_ready_toggle /= last_activity_dump_ready_toggle then
             -- start sending an IPv6 multicast packet containing the compressed
             -- video or CPU instruction trace.
             report "ETHERDUMP: Sending next packet ("
@@ -611,7 +611,7 @@ begin  -- behavioural
             eth_tx_state <= WaitBeforeTX;
             eth_tx_viciv <= '0';
             eth_tx_dump <= '1';
-          elsif (eth_videostream='1') and (activity_dump='0') and (buffer_moby_toggle /= last_buffer_moby_toggle) then            
+          elsif false and (eth_videostream='1') and (activity_dump='0') and (buffer_moby_toggle /= last_buffer_moby_toggle) then            
             -- start sending an IPv6 multicast packet containing the compressed
             -- video.
             report "FRAMEPACKER: Sending next packet ("
@@ -818,7 +818,7 @@ begin  -- behavioural
         eth_tx_dump <= '0';
       end if;
             
-      frame_length := to_unsigned(eth_frame_len,12);
+      frame_length := to_unsigned(eth_frame_len,11);
       case eth_state is
         when Idle =>
           if debug_rx = '1' then
