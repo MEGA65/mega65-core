@@ -274,6 +274,7 @@ architecture behavioural of ethernet is
 
  signal eth_rxdv : std_logic := '0';
  signal eth_rxdv_last : std_logic := '0';
+ signal eth_rxdv_last2 : std_logic := '0';
  signal eth_rxdv_latched : std_logic := '0';
  signal eth_rxd : unsigned(1 downto 0) := "00";
  signal eth_rxd_latched : unsigned(1 downto 0) := "00";
@@ -538,6 +539,7 @@ begin  -- behavioural
       eth_rxd <= eth_rxd_latched;
       eth_rxdv <= eth_rxdv_latched;
       eth_rxdv_last <= eth_rxdv;
+      eth_rxdv_last2 <= eth_rxdv_last;
       
       -- Register ethernet data lines and data valid signal
       eth_txd <= eth_txd_int;
@@ -897,7 +899,7 @@ begin  -- behavioural
           -- RXDV is multiplexed with carrier sense on some PHYs, so we
           -- need two consecutive low readings to be sure. Otherwise we
           -- lose the last CRC, and sometimes the last byte.
-          if (eth_rxdv='0') and (eth_rxdv_last='0') then
+          if (eth_rxdv='0') and (eth_rxdv_last='0') and (eth_rxdv_last2='0') then
             report "ETHRX: Ethernet carrier has stopped.";
             -- finished receiving frame
             -- subtract two length field bytes to
@@ -908,7 +910,7 @@ begin  -- behavioural
             -- put a marker at the end of the frame so we can see where it stops in
             -- the RX buffer.
             rxbuffer_write_toggle <= not rxbuffer_write_toggle;
-            rxbuffer_wdata <= x"BD";
+            rxbuffer_wdata <= x"EA";
             rxbuffer_writeaddress <= eth_frame_len;
           else
             -- got two more bits
