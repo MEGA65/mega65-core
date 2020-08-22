@@ -75,6 +75,7 @@ architecture gothic of hyperram is
 
   type state_t is (
     StartupDelay,
+    ReadAbort,
     Idle,
     ReadSetup,
     WriteSetup,
@@ -1112,6 +1113,7 @@ begin
               if queued_write='1' then
                 -- Bother. We already had a queued write.
                 -- So remember that one, too
+                report "Stashing in queued2";
                 queued2_waddr <= address;
                 queued2_wdata <= wdata;
                 queued2_wdata_hi <= wdata_hi;
@@ -1119,6 +1121,7 @@ begin
                 queued2_wen_hi <= wen_hi;
                 queued2_write <= '1';
               else
+                report "Stashing in queued";
                 queued_waddr <= address;
                 queued_wdata <= wdata;
                 queued_wdata_hi <= wdata_hi;
@@ -1710,6 +1713,12 @@ begin
       case state is
         when StartupDelay =>
           null;
+        when ReadAbort =>
+          -- Make sure we don't abort a read so quickly, that we allow
+          -- glitching of clock line with clock phase shifting
+          hr_cs0 <= '1';
+          hr_cs1 <= '1';
+          state <= Idle;
         when Idle =>
           report "Tristating hr_d";
           hr_d <= (others => 'Z');
@@ -2137,6 +2146,7 @@ begin
           
         when HyperRAMOutputCommandSlow =>
           report "Writing command, hyperram_access_address=$" & to_hstring(hyperram_access_address);
+          report "hr_command = $" & to_hstring(hr_command);
           -- Call HyperRAM to attention
           hr_cs0 <= not hyperram0_select;
           hr_cs1 <= not (hyperram1_select or first_transaction);
@@ -2912,7 +2922,7 @@ begin
                 -- that the write can happen first.
                 if byte_phase_greater_than_address_low_bits = '0' then
                   report "DISPATCH: Aborting pre-fetch due to incoming conflicting write request";
-                  state <= Idle;
+                  state <= ReadAbort;
                 end if;
                 
               elsif read_request_prev='1' and address_matches_hyperram_access_address_block='1' then
@@ -2963,7 +2973,7 @@ begin
                 
               elsif read_request_prev='1' and (not is_expected_to_respond) and (not is_vic_fetch) then
                 report "DISPATCH: Aborting pre-fetch due to incoming read request";
-                state <= Idle;
+                state <= ReadAbort;
               end if;
             end if;
             -- Because we can now abort at any time, we can pretend we are
@@ -3184,7 +3194,7 @@ begin
               or (read_request='1')
             then
               report "DISPATCH: Aborting pre-fetch due to incoming request";
-              state <= Idle;
+              state <= ReadAbort;
             end if;
             -- Because we can now abort at any time, we can pretend we are
             -- not busy. We are just filling in time...

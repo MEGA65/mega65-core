@@ -89,6 +89,9 @@ architecture foo of test_hyperram16 is
     -- Issue #280, let's write then read a few pages of data, and see if we get
     -- the wrong results at the start of each page.
     -- sy2002 wrote at word $333333 onwards = real address $8666666 for us
+    (address => x"8000000", write_p => '1', value => x"1234"),
+    (address => x"8000000", write_p => '1', value => x"5678"),
+    (address => x"8000000", write_p => '1', value => x"9abc"),
     (address => x"8666666", write_p => '1', value => x"0000"),
     (address => x"8666668", write_p => '1', value => x"0001"),
     (address => x"866666a", write_p => '1', value => x"0002"),
@@ -1744,7 +1747,7 @@ begin
           hr2_cs0, hr2_clk_p, hr2_reset, hr2_rwds, hr2_d
           ) is
   begin
-    if false then
+    if true then
       report
         "hr_cs0 = " & std_logic'image(hr_cs0) & ", " &
         "hr_clk_p = " & std_logic'image(hr_clk_p) & ", " &

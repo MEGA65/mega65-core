@@ -7,7 +7,7 @@ int main(int argc,char **argv)
   char line[1024];
   int timepoint;
   int regnum;
-  int active=10000;
+  int active=100000;
   char sda,scl;
   unsigned char hr_cs0,hr_clk_p,hr_reset,hr_rwds;
   unsigned char hr_d[8];
