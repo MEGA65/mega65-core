@@ -250,11 +250,14 @@ architecture Behavioral of container is
   ----------------------------------------------------------------------
   signal iec_clk_en : std_logic := 'Z';
   signal iec_data_en : std_logic := 'Z';
+  signal iec_srq_en : std_logic := 'Z';
   signal iec_data_o : std_logic := 'Z';
+  signal iec_srq_o : std_logic := 'Z';
   signal iec_reset : std_logic := 'Z';
   signal iec_clk_o : std_logic := 'Z';
   signal iec_data_i : std_logic := '1';
   signal iec_clk_i : std_logic := '1';
+  signal iec_srq_i : std_logic := '1';
   signal iec_atn : std_logic := 'Z';  
 
   
@@ -479,12 +482,14 @@ begin
       ----------------------------------------------------------------------
       iec_clk_en => iec_clk_en,
       iec_data_en => iec_data_en,
+      iec_srq_en => iec_srq_en,
       iec_data_o => iec_data_o,
       iec_reset => iec_reset,
       iec_clk_o => iec_clk_o,
       iec_atn_o => iec_atn,
       iec_data_external => iec_data_i,
       iec_clk_external => iec_clk_i,
+      iec_srq_external => iec_srq_i,
       
       no_hyppo => '0',
       
