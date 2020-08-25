@@ -281,7 +281,10 @@ architecture Behavioral of container is
 
   signal qspi_clock : std_logic := '0';
 --  signal qspi_clock_int : std_logic := '0';
-  
+
+  signal kbd_datestamp : unsigned(13 downto 0) := to_unsigned(0,14);
+  signal kbd_commit : unsigned(31 downto 0) := to_unsigned(0,32);
+
 begin
 
 --STARTUPE2:STARTUPBlock--7Series
@@ -549,6 +552,9 @@ begin
       -- Add second I2C bus we can connect to external things for testing.
       i2c1sda => jdlo(4),
       i2c1scl => jchi(7),
+
+      kbd_datestamp => kbd_datestamp,
+      kbd_commit => kbd_commit,
       
       -- This is for modem as PCM master:
       pcm_modem_clk_in => jdhi(7),
