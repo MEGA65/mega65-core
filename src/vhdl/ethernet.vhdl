@@ -153,6 +153,7 @@ architecture behavioural of ethernet is
                           ReceivedFrameWait,
                           ReceivedFrame2,
                           ReceivedFrame2Wait,
+                          PostRxDelay,
                           BadFrame,
 
                           IdleWait,
@@ -344,6 +345,8 @@ architecture behavioural of ethernet is
 
  signal last_rx_rotate_bit : std_logic := '0';
  signal rx_rotate_count : unsigned(3 downto 0) := to_unsigned(0,4);
+
+ signal post_rx_countdown : integer range 0 to 15 := 0;
  
  -- Reverse the input vector.
  function reversed(slv: std_logic_vector) return std_logic_vector is
@@ -1081,13 +1084,25 @@ begin  -- behavioural
               or ((frame_is_broadcast and eth_accept_broadcast)='1') 
               or (frame_is_for_me='1') or (eth_mac_filter='0') then
               report "ETHRX: Frame accepted: Toggling eth_rx_buffer_last_used_50mhz";
-              -- Mark frame as finished, i.e., accepted
-              rxbuffer_end_of_packet_toggle <= not rxbuffer_end_of_packet_toggle;
+              eth_state <= PostRxDelay;
+              post_rx_countdown <= 15;
             else
               report "ETHRX: Frame does not match filter.";
+              eth_state <= Idle;
             end if;
+          else
+            eth_state <= Idle;            
           end if;
-          eth_state <= Idle;
+        when PostRxDelay =>
+          -- This state makes sure we commit the packet length to the correct buffer
+          -- before marking the buffer as received.
+          if post_rx_countdown /= 0 then
+            post_rx_countdown <= post_rx_countdown - 1;
+          else
+            -- Mark frame as finished, i.e., accepted
+            rxbuffer_end_of_packet_toggle <= not rxbuffer_end_of_packet_toggle;
+            eth_state <= Idle;
+          end if;
         when others =>
           null;
       end case;
