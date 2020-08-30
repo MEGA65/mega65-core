@@ -2193,12 +2193,14 @@ begin
       then
         report "Caught write to $DD00" severity note;
         last_dd00_bits <= unsigned(fastio_wdata(1 downto 0));
-        screen_ram_base(15) <= not fastio_wdata(1);
-        screen_ram_base(14) <= not fastio_wdata(0);
-        character_set_address(15) <= not fastio_wdata(1);
-        character_set_address(14) <= not fastio_wdata(0);
-        vicii_sprite_pointer_address(15) <= not fastio_wdata(1);
-        vicii_sprite_pointer_address(14) <= not fastio_wdata(0);
+        if vicii_hot_regs_enable = '1' then
+          screen_ram_base(15) <= not fastio_wdata(1);
+          screen_ram_base(14) <= not fastio_wdata(0);
+          character_set_address(15) <= not fastio_wdata(1);
+          character_set_address(14) <= not fastio_wdata(0);
+          vicii_sprite_pointer_address(15) <= not fastio_wdata(1);
+          vicii_sprite_pointer_address(14) <= not fastio_wdata(0);
+        end if;
       end if;
       
       -- Reading some registers clears IRQ flags
