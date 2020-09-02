@@ -309,7 +309,7 @@ architecture Behavioral of viciv is
   -- PAL/NTSC raster layout
   signal vicii_first_raster : unsigned(8 downto 0) := to_unsigned(0,9);
   constant ntsc_max_raster : unsigned(8 downto 0) := to_unsigned(262,9);
-  constant pal_max_raster : unsigned(8 downto 0) := to_unsigned(311,9);
+  constant pal_max_raster : unsigned(8 downto 0) := to_unsigned(312,9);
   signal vicii_max_raster : unsigned(8 downto 0) := pal_max_raster;
   -- Setting this value positive causes the chargen and screen to move down the
   -- screen relative to the VIC-II raster counter.
@@ -2601,7 +2601,7 @@ begin
         -- @IO:GS $D053.0-2 VIC-IV:FNRASTER Read physical raster position
         -- Allow setting of fine raster for IRQ (high bits)
         -- vicii_raster_compare(10 downto 8) <= unsigned(fastio_wdata(2 downto 0));
-        -- @IO:GS $D053.7 VIC-IV:FNRST Raster compare source (1=VIC-IV fine raster, 0=VIC-II raster)
+        -- @IO:GS $D053.7 VIC-IV:FNRST Raster compare source (0=VIC-IV fine raster, 1=VIC-II raster)
         elsif register_number=84 then
           -- @IO:GS $D054 SUMMARY:VIC-IV Control register C
           -- @IO:GS $D054.7 VIC-IV:ALPHEN Alpha compositor enable
