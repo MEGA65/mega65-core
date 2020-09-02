@@ -579,6 +579,10 @@ begin  -- behavioural
             eth_tx_wait <= eth_tx_wait - 1;
           end if;
         when Idle =>
+          if eth_tx_trigger = '0' then
+            eth_tx_complete <= '0';
+          end if;
+          
           if eth_tx_trigger = '1' then
 
             -- reset frame padding state
