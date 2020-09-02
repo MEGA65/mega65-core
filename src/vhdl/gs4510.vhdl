@@ -5547,7 +5547,7 @@ begin
                     else
                       next_is_axyz32_instruction <= '1';
                     end if;
-                  when x"43" => reg_a <= a_asr; set_nz(a_asr); -- ASR A
+                  when x"43" => reg_a <= a_asr; set_nz(a_asr); flag_c <= reg_a(0); -- ASR A
                   when x"4A" => reg_a <= a_lsr; set_nz(a_lsr); flag_c <= reg_a(0); -- LSR A
                   when x"4B" => reg_z <= reg_a; set_nz(reg_a); -- TAZ
                   when x"5B" =>
@@ -5763,7 +5763,7 @@ begin
                   when x"2A" => reg_a <= a_rol; set_nz(a_rol); flag_c <= reg_a(7); -- ROL A
                   when x"38" => flag_c <= '1';  -- SEC
                   when x"3A" => reg_a <= a_decremented; set_nz(a_decremented); -- DEC A
-                  when x"43" => reg_a <= a_asr; set_nz(a_asr); -- ASR A
+                  when x"43" => reg_a <= a_asr; set_nz(a_asr); flag_c <= reg_a(0); -- ASR A
                   when x"4A" => reg_a <= a_lsr; set_nz(a_lsr); flag_c <= reg_a(0); -- LSR A
                   when x"5B" => reg_b <= reg_a; -- TAB
                   when x"6A" => reg_a <= a_ror; set_nz(a_ror); flag_c <= reg_a(0); -- ROR A
@@ -6894,6 +6894,7 @@ begin
                     flag_z <= '0';
                   end if;
                   flag_n <= vreg33(31);
+                  flag_c <= vreg33(0);
                   axyz_phase <= 0;
                   state <= StoreTarget32;
                 when I_ROL =>
