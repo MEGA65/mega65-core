@@ -347,6 +347,8 @@ architecture behavioural of ethernet is
  signal rx_rotate_count : unsigned(3 downto 0) := to_unsigned(0,4);
 
  signal post_rx_countdown : integer range 0 to 15 := 0;
+
+ signal eth_debug_select : unsigned(7 downto 0) := x"00";
  
  -- Reverse the input vector.
  function reversed(slv: std_logic_vector) return std_logic_vector is
@@ -595,7 +597,9 @@ begin  -- behavioural
             -- begin transmission
             eth_tx_commenced <= '1';
             eth_tx_complete <= '0';
-            tx_preamble_count <= 29;
+            -- 56 bits of preamble = 28 dibits.
+            -- We add a few extra just to make sure.
+            tx_preamble_count <= 28 + 4;
             eth_txen_int <= '1';
             eth_txd_int <= "01";
             eth_tx_state <= WaitBeforeTX;
@@ -1218,13 +1222,22 @@ begin  -- behavioural
           when x"D" => fastio_rdata <= eth_mac(15 downto 8);
           when x"E" => fastio_rdata <= eth_mac(7 downto 0);
           when x"f" =>
-            -- @ IO:GS $D6EF ETH:DBGRXWCOUNT DEBUG show number of writes to eth RX buffer
-            -- fastio_rdata(1 downto 0) <= to_unsigned(rxbuff_id_cpuside,2);
-            -- fastio_rdata(3 downto 2) <= to_unsigned(rxbuff_id_ethside,2);
-            -- fastio_rdata(7 downto 4) <= rx_rotate_count;
-                         
-            -- @ IO:GS $D6EF ETH:DBGTXSTAT DEBUG show current ethernet TX state
-            fastio_rdata <= to_unsigned(ethernet_state'pos(eth_tx_state),8);
+            case eth_debug_select is
+              when x"00" =>
+                -- @ IO:GS $D6EF ETH:DBGRXWCOUNT DEBUG show number of writes to eth RX buffer
+                fastio_rdata(1 downto 0) <= to_unsigned(rxbuff_id_cpuside,2);
+                fastio_rdata(3 downto 2) <= to_unsigned(rxbuff_id_ethside,2);
+                fastio_rdata(7 downto 4) <= rx_rotate_count;
+              when x"01" =>
+                -- @ IO:GS $D6EF ETH:DBGTXSTAT DEBUG show current ethernet TX state
+                fastio_rdata <= to_unsigned(ethernet_state'pos(eth_tx_state),8);
+              when x"02" =>
+                -- @ IO:GS $D6EF ETH:DBGTXSTAT DEBUG show current ethernet TX state
+                fastio_rdata <= tx_frame_count;
+              when others =>
+                fastio_rdata <= x"FF";
+            end if;
+                
           when others =>
             fastio_rdata <= (others => 'Z');
         end case;
@@ -1612,6 +1625,7 @@ begin  -- behavioural
             when x"C" => eth_mac(23 downto 16) <= fastio_wdata;
             when x"D" => eth_mac(15 downto 8) <= fastio_wdata;
             when x"E" => eth_mac(7 downto 0) <= fastio_wdata;
+            when x"f" => eth_debug_select <= fastio_wdata;
 
             when others =>
               -- Other registers do nothing
