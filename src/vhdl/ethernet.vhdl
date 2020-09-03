@@ -223,7 +223,7 @@ architecture behavioural of ethernet is
   signal eth_tx_toggle_int2 : std_logic := '1';
   signal eth_tx_toggle_int1 : std_logic := '1';
   signal eth_tx_toggle_50mhz : std_logic := '1';
-  signal tx_preamble_count : integer range 31 downto 0;
+  signal tx_preamble_count : integer range 32 downto 0;
   signal eth_tx_state : ethernet_state := Idle;
   signal eth_tx_bit_count : integer range 0 to 6;
   signal eth_tx_viciv : std_logic := '0';
