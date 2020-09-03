@@ -223,7 +223,8 @@ architecture behavioural of ethernet is
   signal eth_tx_toggle_int2 : std_logic := '1';
   signal eth_tx_toggle_int1 : std_logic := '1';
   signal eth_tx_toggle_50mhz : std_logic := '1';
-  signal tx_preamble_count : integer range 32 downto 0;
+  signal tx_preamble_count : integer range 63 downto 0;
+  signal tx_preamble_length : integer range 63 downto 0 := 29;
   signal eth_tx_state : ethernet_state := Idle;
   signal eth_tx_bit_count : integer range 0 to 6;
   signal eth_tx_viciv : std_logic := '0';
@@ -601,7 +602,7 @@ begin  -- behavioural
             eth_tx_complete <= '0';
             -- 56 bits of preamble = 28 dibits.
             -- We add a few extra just to make sure.
-            tx_preamble_count <= 28 + 4;
+            tx_preamble_count <= tx_preamble_length;
             eth_txen_int <= '1';
             eth_txd_int <= "01";
             eth_tx_state <= WaitBeforeTX;
@@ -618,7 +619,7 @@ begin  -- behavioural
             dumpram_raddr <= (not activity_dump_ready_toggle) & "00000000000";
             eth_tx_commenced <= '1';
             eth_tx_complete <= '0';
-            tx_preamble_count <= 29;
+            tx_preamble_count <= tx_preamble_length;
             eth_txen_int <= '1';
             eth_txd_int <= "01";
             eth_tx_state <= WaitBeforeTX;
@@ -635,7 +636,7 @@ begin  -- behavioural
             buffer_address <= (not buffer_moby_toggle) & "00000000000";
             eth_tx_commenced <= '1';
             eth_tx_complete <= '0';
-            tx_preamble_count <= 29;
+            tx_preamble_count <= tx_preamble_length;
             eth_txen_int <= '1';
             eth_txd_int <= "01";
             eth_tx_state <= WaitBeforeTX;
@@ -1626,8 +1627,12 @@ begin  -- behavioural
             when x"C" => eth_mac(23 downto 16) <= fastio_wdata;
             when x"D" => eth_mac(15 downto 8) <= fastio_wdata;
             when x"E" => eth_mac(7 downto 0) <= fastio_wdata;
-            when x"f" => eth_debug_select <= fastio_wdata;
-
+            when x"f" =>
+              if fastio_wdata(7 downto 6) = "11" then
+                tx_preamble_length <= to_integer(fastio_wdata(5 downto 0));
+              else
+                eth_debug_select <= fastio_wdata;
+              end if;
             when others =>
               -- Other registers do nothing
               null;
