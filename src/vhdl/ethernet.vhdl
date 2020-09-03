@@ -1238,8 +1238,7 @@ begin  -- behavioural
                 fastio_rdata <= tx_frame_count;
               when others =>
                 fastio_rdata <= x"FF";
-            end if;
-                
+            end case;                
           when others =>
             fastio_rdata <= (others => 'Z');
         end case;
