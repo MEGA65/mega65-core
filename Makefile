@@ -704,7 +704,7 @@ $(BINDIR)/border.prg: 	$(SRCDIR)/border.a65 $(OPHIS_DEPEND)
 
 # ============================ done moved, print-warn, clean-target
 $(BINDIR)/HICKUP.M65: $(ACME_DEPEND) $(SRCDIR)/hyppo/main.asm $(SRCDIR)/version.asm
-	$(ACME) --cpu m65 --setpc 0x8000 -I $(SRCDIR)/hyppo $(SRCDIR)/hyppo/main.asm
+	$(ACME) --cpu m65 --setpc 0x8000 -l bin/HICKUP.sym -I $(SRCDIR)/hyppo $(SRCDIR)/hyppo/main.asm
 
 $(SRCDIR)/monitor/monitor_dis.a65: $(SRCDIR)/monitor/gen_dis
 	$(SRCDIR)/monitor/gen_dis >$(SRCDIR)/monitor/monitor_dis.a65
