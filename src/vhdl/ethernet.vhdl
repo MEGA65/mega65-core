@@ -349,6 +349,7 @@ architecture behavioural of ethernet is
  signal post_rx_countdown : integer range 0 to 15 := 0;
 
  signal eth_debug_select : unsigned(7 downto 0) := x"00";
+ signal tx_frame_count : unsigned(7 downto 0) := x"00";
  
  -- Reverse the input vector.
  function reversed(slv: std_logic_vector) return std_logic_vector is
@@ -595,6 +596,7 @@ begin  -- behavioural
               eth_tx_size_padded <= eth_tx_size;
             end if;
             -- begin transmission
+            tx_frame_count <= tx_frame_count + 1;
             eth_tx_commenced <= '1';
             eth_tx_complete <= '0';
             -- 56 bits of preamble = 28 dibits.
