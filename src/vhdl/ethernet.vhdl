@@ -185,9 +185,15 @@ architecture behavioural of ethernet is
   -- If asserted, collect raw signals for exactly one frame, then do nothing.
   signal debug_rx : std_logic := '0';
  
-  -- control reset line on ethernet controller
+ -- control reset line on ethernet controller
+  signal reset_50mhz : std_logic := '1';
+  signal reset_50mhz_drive : std_logic := '1';
   signal eth_reset_int : std_logic := '1';
+  signal eth_reset_int_50mhz : std_logic := '1';
+  signal eth_reset_int_50mhz_drive : std_logic := '1';
   signal eth_soft_reset : std_logic := '1';
+  signal eth_soft_reset_50mhz : std_logic := '1';
+  signal eth_soft_reset_50mhz_drive : std_logic := '1';
   -- which half of frame RX buffer is visible
   signal eth_rx_buffer_moby : std_logic := '0';
   signal eth_rx_buffer_moby_int1 : std_logic := '0';
@@ -241,6 +247,7 @@ architecture behavioural of ethernet is
   signal eth_tx_trigger : std_logic := '0';
   signal eth_tx_trigger_drive : std_logic := '0';
   signal eth_tx_trigger_50mhz : std_logic := '0';
+  signal eth_tx_trigger_50mhz_drive : std_logic := '0';
   signal eth_tx_commenced : std_logic := '0';
   signal eth_tx_complete : std_logic := '0';
   signal eth_txen_int : std_logic := '0';
@@ -540,7 +547,17 @@ begin  -- behavioural
   begin
     if rising_edge(clock50mhz) then
 
-      eth_tx_trigger_50mhz <= eth_tx_trigger_drive;
+      -- Cross-domain latch the reset signals
+      reset_50mhz <= reset_50mhz_drive;
+      reset_50mhz_drive <= reset;
+      eth_soft_reset_50mhz_drive <= eth_soft_reset;
+      eth_soft_reset_50mhz <= eth_soft_reset_50mhz_drive;
+      eth_reset_int_50mhz_drive <= eth_reset_int;
+      eth_reset_int_50mhz <= eth_reset_int_50mhz_drive;
+      
+      -- Double flip-flop latch the eth_tx_trigger
+      eth_tx_trigger_50mhz_drive <= eth_tx_trigger_drive;
+      eth_tx_trigger_50mhz <= eth_tx_trigger_50mhz_drive;
       
       eth_rx_blocked_50mhz <= eth_rx_blocked;
       
@@ -832,7 +849,7 @@ begin  -- behavioural
       end case;
 
       -- Allow resetting of the ethernet TX state machine
-      if eth_reset_int='0' or reset='0' or eth_soft_reset='0' then
+      if eth_reset_int_50mhz='0' or reset_50mhz='0' or eth_soft_reset_50mhz='0' then
         eth_tx_state <= Idle;
         eth_txen_int <= '0';
         eth_txd_int <= "11";        
