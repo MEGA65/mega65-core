@@ -239,6 +239,8 @@ architecture behavioural of ethernet is
   signal eth_tx_size_padded : unsigned(11 downto 0) := to_unsigned(98,12);
   signal eth_tx_padding : std_logic := '0';
   signal eth_tx_trigger : std_logic := '0';
+  signal eth_tx_trigger_drive : std_logic := '0';
+  signal eth_tx_trigger_50mhz : std_logic := '0';
   signal eth_tx_commenced : std_logic := '0';
   signal eth_tx_complete : std_logic := '0';
   signal eth_txen_int : std_logic := '0';
@@ -538,6 +540,8 @@ begin  -- behavioural
   begin
     if rising_edge(clock50mhz) then
 
+      eth_tx_trigger_50mhz <= eth_tx_trigger_drive;
+      
       eth_rx_blocked_50mhz <= eth_rx_blocked;
       
       eth_txd_phase_drive <= eth_txd_phase;
@@ -583,7 +587,7 @@ begin  -- behavioural
             eth_tx_wait <= eth_tx_wait - 1;
           end if;
         when Idle =>
-          if eth_tx_trigger = '0' then
+          if eth_tx_trigger_50mhz = '0' then
             eth_tx_complete <= '0';
           end if;
 
@@ -591,7 +595,7 @@ begin  -- behavioural
           -- fixes the weird problem with packet loss due to wrong preamble length.
           eth_txd_int <= "01";
           
-          if eth_tx_trigger = '1' then
+          if eth_tx_trigger_50mhz = '1' then
 
             -- reset frame padding state
             eth_tx_padding <= '0';
@@ -1260,6 +1264,9 @@ begin  -- behavioural
     end if;
 
     if rising_edge(clock) then
+
+      -- De-glitch eth_tx_trigger before we push it to the 50MHz side
+      eth_tx_trigger_drive <= eth_tx_trigger;
       
       -- Capture writes to the RX buffer from 50MHz side of clock.
       -- We process them here to avoid contention on the dual-ported
