@@ -1316,6 +1316,14 @@ begin  -- behavioural
         end if;
         
       end if;
+
+      -- When we get blocked due to filling all RX buffers, the RX IRQ status
+      -- can end up cleared, while there are still packet(s) left in the RX
+      -- queue.  So we look for this situation and re-assert irq_rx so long as
+      -- we don't have all our RX buffers free.
+      if eth_rx_buffers_free < 3 then
+        eth_irq_rx <= '1';
+      end if;
       
       rxbuffer_write_toggle_drive <= rxbuffer_write_toggle;
       if (last_rxbuffer_write_toggle /= rxbuffer_write_toggle_drive) then
