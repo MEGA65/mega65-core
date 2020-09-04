@@ -586,6 +586,10 @@ begin  -- behavioural
           if eth_tx_trigger = '0' then
             eth_tx_complete <= '0';
           end if;
+
+          -- XXX Try having TXD be ready for preamble, to see if that
+          -- fixes the weird problem with packet loss due to wrong preamble length.
+          eth_txd_int <= "01";
           
           if eth_tx_trigger = '1' then
 
