@@ -1105,7 +1105,7 @@ begin  -- behavioural
           report "ETHRX: writing packet length at " & integer'image(rxbuffer_writeaddress);
           report "ETHRX: Recording crc_valid = " & std_logic'image(rx_crc_valid) & "   (CRC = $"& to_hstring(rx_crc_reg)&")";
           rxbuffer_write_toggle <= not rxbuffer_write_toggle;
-          rxbuffer_writeaddress <= rxbuffer_writeaddress + 1;
+          rxbuffer_writeaddress <= 1;
           rxbuffer_wdata(7) <= not rx_crc_valid;
           rxbuffer_wdata(6) <= frame_is_for_me;
           rxbuffer_wdata(5) <= frame_is_broadcast;
@@ -1317,8 +1317,7 @@ begin  -- behavioural
       end if;
       
       rxbuffer_write_toggle_drive <= rxbuffer_write_toggle;
-      if (rxbuffer_write_toggle = rxbuffer_write_toggle_drive)
-        and (last_rxbuffer_write_toggle /= rxbuffer_write_toggle) then
+      if (last_rxbuffer_write_toggle /= rxbuffer_write_toggle_drive) then
         last_rxbuffer_write_toggle <= rxbuffer_write_toggle;
         rxbuffer_write <= "0000";
         rxbuffer_write(rxbuff_id_ethside) <= '1';
