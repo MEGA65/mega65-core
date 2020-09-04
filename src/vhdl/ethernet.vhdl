@@ -165,7 +165,7 @@ architecture behavioural of ethernet is
                           SentFrame        -- $13
                           );
  signal eth_state : ethernet_state := Idle;
- signal eth_wait : integer range 0 to 10 := 0;
+ signal eth_wait : integer range 0 to 20 := 0;
 
   -- MAC address and filtering functions
   signal eth_mac : unsigned(47 downto 0) := x"024753656565";
@@ -944,7 +944,7 @@ begin  -- behavioural
             -- subtract two length field bytes to
             -- obtain actual number of bytes received
             eth_frame_len <= eth_frame_len - 2;
-            eth_wait <= 10;
+            eth_wait <= 20;
             eth_state <= ReceivedFrameWait;
             -- put a marker at the end of the frame so we can see where it stops in
             -- the RX buffer.
@@ -1092,6 +1092,7 @@ begin  -- behavioural
           rxbuffer_write_toggle <= not rxbuffer_write_toggle;
           rxbuffer_wdata <= to_unsigned(eth_frame_len,8);
           report "ETHRX: writing frame_length(7 downto 0) = $" & to_hstring(frame_length);
+          eth_wait <= 20;
           eth_state <= ReceivedFrame2Wait;
         when ReceivedFrame2Wait =>
           if eth_wait /= 0 then
