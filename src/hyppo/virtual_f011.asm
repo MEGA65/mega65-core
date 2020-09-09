@@ -59,7 +59,6 @@ wait5usec:
 
 f011_virtual_write:
 
-        inc     $D020
         ;; Reset buffer pointers and stop SD card from reading
         ;; from card and overwriting what we load
         lda #$01
