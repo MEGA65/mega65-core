@@ -207,7 +207,7 @@ GS $D050.0-5 VIC-IV:XPOS Read horizontal raster scan position
 GS $D051 VIC-IV:XPOS Read horizontal raster scan position
 GS $D052 VIC-IV:FNRASTER Read physical raster position
 GS $D053.0-2 VIC-IV:FNRASTER Read physical raster position
-GS $D053.7 VIC-IV:FNRST Raster compare source (1=VIC-IV fine raster, 0=VIC-II raster)
+GS $D053.7 VIC-IV:FNRST Raster compare source (0=VIC-IV fine raster, 1=VIC-II raster)
 GS $D054.0 VIC-IV:CHR16 enable 16-bit character numbers (two screen bytes per character)
 GS $D054.1 VIC-IV:FCLRLO enable full-colour mode for character numbers <=\$FF
 GS $D054.2 VIC-IV:FCLRHI enable full-colour mode for character numbers >\$FF
