@@ -1172,7 +1172,8 @@ begin  -- behavioural
             fastio_rdata(4) <= eth_keycode_toggle_internal;
           -- @IO:GS $D6E0.3 ETH:DRXDV Read ethernet RX data valid (debug)
             fastio_rdata(3) <= eth_rxdv;
-          -- @IO:GS $D6E0.1-2 ETH:DRXD Read ethernet RX bits currently on the wire
+          -- @IO:GS $D6E0.2 ETH:DRXD Read ethernet RX bits currently on the wire
+          -- @IO:GS $D6E0.1 ETH:TXRST Write 0 to hold ethernet controller transmit sub-system under reset
             fastio_rdata(2 downto 1) <= eth_rxd;
           -- @IO:GS $D6E0.0 ETH:RST Write 0 to hold ethernet controller under reset
             fastio_rdata(0) <= eth_reset_int;
