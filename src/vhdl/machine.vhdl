@@ -388,6 +388,8 @@ architecture Behavioral of machine is
       bit_rate_divisor : out unsigned(15 downto 0);
       activity : out std_logic;
 
+      iec_bus_active : in std_logic;
+      
       protected_hardware_in : in unsigned(7 downto 0);
       uart_char : in unsigned(7 downto 0);
       uart_char_valid : in std_logic;
@@ -510,7 +512,6 @@ architecture Behavioral of machine is
   signal power_on_reset : std_logic_vector(7 downto 0) := (others => '0');
   signal reset_combined : std_logic := '1';
 
-  signal iec_bus_active : std_logic;
   signal io_irq : std_logic;
   signal io_nmi : std_logic;
   signal vic_irq : std_logic;
