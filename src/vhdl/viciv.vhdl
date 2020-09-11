@@ -1983,7 +1983,7 @@ begin
           fastio_rdata(2 downto 0) <= std_logic_vector(vicii_raster_compare(10 downto 8));
           fastio_rdata(6 downto 3) <= (others => '0');
           -- XXX debug DD00 bits
-          fastio_rdata(4 downto 3) <= last_dd00_bits;
+          fastio_rdata(4 downto 3) <= std_logic_vector(last_dd00_bits);
 	  fastio_rdata(7) <= vicii_is_raster_source;
         elsif register_number=123 then  -- $D307B
           fastio_rdata <= std_logic_vector(display_row_count);
@@ -5358,6 +5358,8 @@ begin
   begin
     if rising_edge(pixelclock) then
 
+      last_dd00_bits <= dd00_bits;
+      
       -- XXX Export $D031 mystery writes debug signal
       d031_written <= d031_written_internal;
 
