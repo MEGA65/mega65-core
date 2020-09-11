@@ -75,6 +75,7 @@ entity machine is
          cpu_game : in std_logic;
 
          fast_key : in std_logic := '1';
+         iec_bus_active : in std_logic;      
          
          power_down : out std_logic := '1';
          
@@ -388,8 +389,6 @@ architecture Behavioral of machine is
       bit_rate_divisor : out unsigned(15 downto 0);
       activity : out std_logic;
 
-      iec_bus_active : in std_logic;
-      
       protected_hardware_in : in unsigned(7 downto 0);
       uart_char : in unsigned(7 downto 0);
       uart_char_valid : in std_logic;
