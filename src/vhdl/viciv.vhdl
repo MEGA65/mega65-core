@@ -78,6 +78,8 @@ entity viciv is
 
     reset : in std_logic;
 
+    dd00_bits : in unsigned(1 downto 0);
+    
     -- Touch event to simulate light pen
     touch_x : in unsigned(13 downto 0);
     touch_y : in unsigned(11 downto 0);
@@ -1980,8 +1982,8 @@ begin
         elsif register_number=122 then  -- $D307A Read raster compare MSB / raster compare source
           fastio_rdata(2 downto 0) <= std_logic_vector(vicii_raster_compare(10 downto 8));
           fastio_rdata(6 downto 3) <= (others => '0');
-          -- XXX debug why VIC-III blink attribute is not blinking          
-          fastio_rdata(3) <= viciii_blink_phase;
+          -- XXX debug DD00 bits
+          fastio_rdata(4 downto 3) <= last_dd00_bits;
 	  fastio_rdata(7) <= vicii_is_raster_source;
         elsif register_number=123 then  -- $D307B
           fastio_rdata <= std_logic_vector(display_row_count);
@@ -2182,26 +2184,6 @@ begin
 --        sprite_number_for_data_tx <= sprite_number_for_data_tx + 1;
 --      end if;
 
-      -- $DD00 video bank bits
-      if fastio_write='1'
-        and vicii_hot_regs_enable='1'
-        and (fastio_addr(19 downto 16)=x"D")
-        and (fastio_addr(15 downto 14) = "00")
-        and (fastio_addr(11 downto 8)=x"D")
-        and (fastio_addr(3 downto 0) = x"0")
-        and (colourram_at_dc00_internal = '0')
-      then
-        report "Caught write to $DD00" severity note;
-        last_dd00_bits <= unsigned(fastio_wdata(1 downto 0));
-        if vicii_hot_regs_enable = '1' then
-          screen_ram_base(15) <= not fastio_wdata(1);
-          screen_ram_base(14) <= not fastio_wdata(0);
-          character_set_address(15) <= not fastio_wdata(1);
-          character_set_address(14) <= not fastio_wdata(0);
-          vicii_sprite_pointer_address(15) <= not fastio_wdata(1);
-          vicii_sprite_pointer_address(14) <= not fastio_wdata(0);
-        end if;
-      end if;
       
       -- Reading some registers clears IRQ flags
       clear_collisionspritebitmap_1 <= '0';

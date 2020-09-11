@@ -19,6 +19,8 @@ entity iomapper is
         pixelclk : in std_logic;
         uartclock : in std_logic;
 
+        dd00_bits : out unsigned(1 downto 0) := "11";
+        
         accessible_row : out integer range 0 to 255 := 255;
         accessible_key : out unsigned(6 downto 0) := to_unsigned(127,7);
         dim_shift : inout std_logic := '0';
@@ -564,6 +566,9 @@ architecture behavioral of iomapper is
 
   signal accessible_key_event : unsigned(7 downto 0);
   signal accessible_key_enable : std_logic;
+
+  signal dd00_bits_out : std_logic_vector(1 downto 0);
+  signal dd00_bits_ddr : std_logic_vector(1 downto 0);
   
 begin
 
@@ -731,7 +736,8 @@ begin
     portain(5) => iec_data_reflect,
     portain(6) => iec_clk_external,
     portain(7) => iec_data_external,
-    portaout(2 downto 0) => dummy(2 downto 0),
+    portaout(2) => dummy(2),
+    portaout(1 downto 0) => dd00_bits_out,
     portaout(3) => iec_atn_fromcia,
     portaout(4) => iec_clk_fromcia,
     portaout(5) => iec_data_fromcia,
@@ -740,6 +746,7 @@ begin
     portaddr(4) => iec_clk_en,
     portaddr(5) => iec_data_en,
     portaddr(7 downto 6) => dummy(10 downto 9),
+    portaddr(1 downto 0) => dd00_bits_ddr,
     
     -- CIA port b (user port)
     -- As the MEGA65 has no user port, we don't connect this normally
@@ -1478,6 +1485,14 @@ begin
 
     if rising_edge(cpuclock) then
 
+      for i in 0 to 1 loop
+        if dd00_bits_out(i)='1' or dd00_bits_ddr(i)='0' then
+          dd00_bits(i) <= '1';
+        else
+          dd00_bits(i) <= '0';
+        end if;
+      end loop;      
+      
       the_button <= fb_fire and i2c_joya_fire_int;
       i2c_joya_fire <= i2c_joya_fire_int;
       

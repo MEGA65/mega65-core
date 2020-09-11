@@ -747,6 +747,8 @@ architecture Behavioral of machine is
   signal accessible_row : integer range 0 to 255;
   signal accessible_key : unsigned(6 downto 0);
   signal dim_shift : std_logic;
+
+  signal dd00_bits : unsigned(1 downto 0);
   
 begin
 
@@ -1159,6 +1161,8 @@ begin
       cpuclock        => cpuclock,
       all_pause => all_pause,
 
+      dd00_bits => dd00_bits,
+      
       viciv_frame_indicate => viciv_frame_indicate,
       
       hypervisor_mode => cpu_hypervisor_mode,
@@ -1424,6 +1428,8 @@ begin
       speed_gate_enable => speed_gate_enable,
       ethernet_cpu_arrest => ethernet_cpu_arrest,
 
+      dd00_bits => dd00_bits,
+      
       kbd_datestamp => kbd_datestamp,
       kbd_commit => kbd_commit,
       
