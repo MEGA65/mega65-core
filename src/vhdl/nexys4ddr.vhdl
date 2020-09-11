@@ -447,6 +447,7 @@ begin
       iec_atn_o => iec_atn,
       iec_data_external => iec_data_i,
       iec_clk_external => iec_clk_i,
+      iec_bus_active => '0', -- No IEC port on this target
       
       no_hyppo => '0',
       

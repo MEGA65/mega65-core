@@ -751,6 +751,7 @@ begin
       iec_data_external => iec_data_i_drive,
       iec_clk_external => iec_clk_i_drive,
       iec_atn_o => iec_atn_drive,
+      iec_bus_active => '0', -- No IEC port on this target
 
 --      buffereduart_rx => '1',
       buffereduart_ringindicate => '1',
