@@ -1573,7 +1573,6 @@ begin
       iec_srq_o => iec_srq_o,
       iec_data_external => iec_data_external,
       iec_clk_external => iec_clk_external,
-      iec_bus_active => iec_bus_active,
       
       porta_pins => porta_pins,
       portb_pins => portb_pins,
