@@ -3790,7 +3790,7 @@ begin
       if iec_bus_active='1' then
         iec_bus_slowdown <= '1';
         iec_bus_cooldown <= 40000;
-      elsif iec_bus_cooldown /= 0
+      elsif iec_bus_cooldown /= 0 then
         iec_bus_cooldown <= iec_bus_cooldown - 1;
       else
         iec_bus_slowdown <= '0';
