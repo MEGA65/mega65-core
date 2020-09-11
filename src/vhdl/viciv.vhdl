@@ -1499,6 +1499,7 @@ begin
       -- Apply VIC-II banks
       screen_ram_base(15 downto 14) <= not last_dd00_bits;
       vicii_sprite_pointer_address(15 downto 14) <= not last_dd00_bits;
+      character_set_address(15 downto 14) <= not last_dd00_bits;
       
       -- All VIC-II/VIC-III compatibility modes use the first part of the
       -- colour RAM.
