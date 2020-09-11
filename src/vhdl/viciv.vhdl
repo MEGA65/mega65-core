@@ -2041,6 +2041,11 @@ begin
 
     if rising_edge(cpuclock) then
 
+      last_dd00_bits <= dd00_bits;
+      if last_dd00_bits /= dd00_bits then
+        viciv_legacy_mode_registers_touched <= '1';
+      end if;
+      
       if reset='0' then
         -- Reset sprites to normal behaviour on reset
         sprite_horizontal_tile_enables <= (others => '0');
@@ -5358,8 +5363,6 @@ begin
   begin
     if rising_edge(pixelclock) then
 
-      last_dd00_bits <= dd00_bits;
-      
       -- XXX Export $D031 mystery writes debug signal
       d031_written <= d031_written_internal;
 
