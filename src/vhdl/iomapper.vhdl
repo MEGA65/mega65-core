@@ -742,7 +742,7 @@ begin
     portaout(4) => iec_clk_fromcia,
     portaout(5) => iec_data_fromcia,
     portaout(7 downto 6) => dummy(4 downto 3),
-    portaddr(3 downto 0) => dummy(8 downto 5),
+    portaddr(3 downto 2) => dummy(8 downto 7),
     portaddr(4) => iec_clk_en,
     portaddr(5) => iec_data_en,
     portaddr(7 downto 6) => dummy(10 downto 9),
