@@ -205,6 +205,7 @@ entity gs4510 is
     vicii_2mhz : in std_logic;
     viciii_fast : in std_logic;
     viciv_fast : in std_logic;
+    iec_bus_active : in std_logic;
     speed_gate : in std_logic;
     speed_gate_enable : out std_logic := '1';
     -- When badline_toggle toggles, we need to act as though 40-43 clock cycles
@@ -262,6 +263,9 @@ entity gs4510 is
 end entity gs4510;
 
 architecture Behavioural of gs4510 is
+
+  signal iec_bus_slowdown : std_logic := '0';
+  signal iec_bus_cooldown : integer range 0 to 65535 := 0;
   
   -- DMAgic settings
   signal support_f018b : std_logic := '0';
@@ -2713,7 +2717,8 @@ begin
 
             when "111101" =>
               -- this section $D67D
-              return "11"
+              return "1"
+                & iec_bus_active
                 & force_4502
                 & force_fast
                 & speed_gate_enable_internal
@@ -3778,6 +3783,19 @@ begin
     -- BEGINNING OF MAIN PROCESS FOR CPU
     if rising_edge(clock) and all_pause='0' then
 
+      -- Fiddling with IEC lines (either by us, or by a connected device)
+      -- cancels POKe0,65 / holding CAPS LOCK to force full CPU speed.
+      -- If you set the 40MHz select register, then the slowdown doesn't
+      -- apply, as the programmer is assumed to know what they are doing.
+      if iec_bus_active='1' then
+        iec_bus_slowdown <= '1';
+        iec_bus_cooldown <= 40000;
+      elsif iec_bus_cooldown /= 0
+        iec_bus_cooldown <= iec_bus_cooldown - 1;
+      else
+        iec_bus_slowdown <= '0';
+      end if;                                  
+      
       if hyper_protected_hardware(7)='1' then
         cartridge_enable <= '0';
       end if;
@@ -4637,7 +4655,7 @@ begin
           when others =>
             cpuspeed_external <= x"04";
         end case;
-        if hypervisor_mode='0' and ((speed_gate_drive='1') and (force_fast='0')) and (fast_key='1') then
+        if hypervisor_mode='0' and (((speed_gate_drive='1') and ((force_fast='0')) and (fast_key='1')) or iec_bus_slowdown='1') then
           case cpu_speed is
             when "100" => -- 1mhz
               cpuspeed <= x"01";

@@ -509,7 +509,8 @@ architecture Behavioral of machine is
   --  i.e., for much longer than this here provides).
   signal power_on_reset : std_logic_vector(7 downto 0) := (others => '0');
   signal reset_combined : std_logic := '1';
-  
+
+  signal iec_bus_active : std_logic;
   signal io_irq : std_logic;
   signal io_nmi : std_logic;
   signal vic_irq : std_logic;
@@ -962,6 +963,7 @@ begin
       hyper_trap => hyper_trap_combined,
       hyper_trap_f011_read => hyper_trap_f011_read,
       hyper_trap_f011_write => hyper_trap_f011_write,    
+      iec_bus_active => iec_bus_active,
       speed_gate => speed_gate,
       speed_gate_enable => speed_gate_enable,
       cpuis6502 => cpuis6502,
@@ -1571,6 +1573,7 @@ begin
       iec_srq_o => iec_srq_o,
       iec_data_external => iec_data_external,
       iec_clk_external => iec_clk_external,
+      iec_bus_active => iec_bus_active,
       
       porta_pins => porta_pins,
       portb_pins => portb_pins,

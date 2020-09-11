@@ -344,6 +344,8 @@ architecture Behavioral of container is
   signal iec_clk_i_drive : std_logic;
   signal iec_srq_i_drive : std_logic;
   signal iec_atn_drive : std_logic;
+  signal last_iec_atn_drive : std_logic;
+  signal iec_bus_active : std_logic := '0';
 
   signal pwm_l_drive : std_logic;
   signal pwm_r_drive : std_logic;
@@ -726,7 +728,8 @@ begin
       iec_clk_external => iec_clk_i_drive,
       iec_srq_external => iec_srq_i_drive,
       iec_atn_o => iec_atn_drive,
-
+      iec_bus_active => iec_bus_active,
+      
 --      buffereduart_rx => '1',
       buffereduart_ringindicate => '1',
 
@@ -971,6 +974,16 @@ begin
       iec_clk_i_drive <= iec_clk_i;
       iec_data_i_drive <= iec_data_i;
 
+      last_iec_atn_drive <= iec_atn_drive;
+      if (iec_srq_i_drive /= iec_srq_i)
+        or (iec_clk_i_drive /= iec_clk_i)
+        or (iec_data_i_drive /= iec_data_i)
+        or (iec_atn_drive /= last_iec_atn_drive) then
+        iec_bus_active <= '1';
+      else
+        iec_bus_active <= '0';
+      end if;
+      
       -- Finally, because we have the output value of 0 hard-wired
       -- on the output drivers, we need only gate the EN line.
       -- But we only do this if the DDR is set to output
