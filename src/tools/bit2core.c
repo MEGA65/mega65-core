@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <strings.h>
 
-unsigned char bitstream[4*1048576];
+unsigned char bitstream[8*1048576];
 
 int main(int argc,char **argv)
 {
@@ -17,12 +17,12 @@ int main(int argc,char **argv)
     fprintf(stderr,"ERROR: Could not read bitstream file '%s'\n",argv[1]);
     exit(-3);
   }
-  int bit_size=fread(bitstream,1,4*1048576,bf);
+  int bit_size=fread(bitstream,1,8*1048576,bf);
   fclose(bf);
 
   printf("Bitstream file is %d bytes long.\n",bit_size);
-  if (bit_size<1024||bit_size>(4*1048576-4096)) {
-    fprintf(stderr,"ERROR: Bitstream file must be >1K and no bigger than (4MB - 4K)\n");
+  if (bit_size<1024||bit_size>(8*1048576-4096)) {
+    fprintf(stderr,"ERROR: Bitstream file must be >1K and no bigger than (8MB - 4K)\n");
     exit(-2);
   }
 

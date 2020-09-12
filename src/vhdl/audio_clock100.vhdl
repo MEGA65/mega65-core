@@ -16,6 +16,7 @@
 --------------------------------------------------------------------------------
 
 library ieee;
+use ieee.numeric_std.all;
 use ieee.std_logic_1164.all;
 
 library unisim;
@@ -39,12 +40,14 @@ end entity audio_clock;
 
 architecture synth of audio_clock is
 
-    signal locked   : std_logic;     -- MMCM lock status
-    signal clk_u    : std_logic;     -- unbuffered output clock
-    signal clko_fb  : std_logic;     -- unbuffered feedback clock
-    signal clki_fb  : std_logic;    -- feedback clock
-    signal count    : integer range 0 to ratio-1;
-
+  signal locked   : std_logic;     -- MMCM lock status
+  signal clk_60 : stD_logic;       -- 60MHz intermediate clock
+  signal clk_u    : std_logic;     -- unbuffered output clock
+  signal clko_fb  : std_logic;     -- unbuffered feedback clock
+  signal clki_fb  : std_logic;    -- feedback clock
+  signal count    : integer range 0 to ratio-1;
+  signal clk12288_counter : unsigned(26 downto 0) := to_unsigned(0,27);
+  
 
     ----------------------------------------------------------------------
 
@@ -69,7 +72,7 @@ begin
     MMCM: mmcme2_adv
     generic map(
         bandwidth               => "OPTIMIZED",
-        clkfbout_mult_f         => 12.0, -- 50x12 = 1200 mhz
+        clkfbout_mult_f         => 12.0, -- 100MHz x 12 = 1200 mhz
         clkfbout_phase          => 0.0,
         clkfbout_use_fine_ps    => false,
         divclk_divide           => 1,    -- keep 1200MHz
@@ -80,7 +83,7 @@ begin
         clkout0_duty_cycle      => 0.5,
         clkout0_phase           => 0.0,
         clkout0_use_fine_ps     => false,
-        clkout1_divide          => 1,
+        clkout1_divide          => 20,      -- 1200 / 20 = 60 MHz
         clkout1_duty_cycle      => 0.5,
         clkout1_phase           => 0.0,
         clkout1_use_fine_ps     => false,
@@ -130,9 +133,9 @@ begin
         clkfbout        => clko_fb,
         clkfboutb       => open,
         clkfbstopped    => open,
-        clkout0         => clk_u,
+--        clkout0         => clk_u,
         clkout0b        => open,
-        clkout1         => open,
+        clkout1         => clk_60,
         clkout1b        => open,
         clkout2         => open,
         clkout2b        => open,
@@ -153,7 +156,7 @@ begin
         psen            => '0',
         psincdec        => '0'
     );
-
+    
     BUFG_O: unisim.vcomponents.bufg
         port map (
             I   => clk_u,
@@ -168,4 +171,21 @@ begin
 
     rsto <= not locked;
 
+    process(clk_60)
+    begin 
+      if rising_edge(clk_60) then
+        -- 12.228 MHz is our goal, and we clock at 60MHz
+        -- So we want to add 0.2038 x 2 = 0.4076 of a
+        -- half-clock counter every cycle.
+        -- 27353573 / 2^26 = .407600001
+        -- 60MHz x .407600001 / 2 = 12.288000.01 MHz
+        -- i.e., well within the jitter of everything
+        clk12288_counter <= clk12288_counter + 27353573;
+        -- Then pick out the right bit of our counter to
+        -- get a very-close-to-12.288MHz-indeed clock
+        clk_u <= clk12288_counter(26);
+      end if;   
+    end process;
+      
+      
 end architecture synth;

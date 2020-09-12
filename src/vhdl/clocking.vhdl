@@ -262,7 +262,7 @@ begin
     CLKOUT4_DUTY_CYCLE   => 0.500,
     CLKOUT4_USE_FINE_PS  => FALSE,
     
-    -- CLKOUT5 = CLK_OUT6 = clock163 - 812.5MHz/5
+    -- CLKOUT5 = CLK_OUT6 = clock163 - 812.5MHz/5 = 162.5 MHz
     CLKOUT5_DIVIDE       => 5,
     CLKOUT5_PHASE        => 0.0,
     CLKOUT5_DUTY_CYCLE   => 0.500,
