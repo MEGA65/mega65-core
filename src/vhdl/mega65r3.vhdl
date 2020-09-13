@@ -421,7 +421,7 @@ architecture Behavioral of container is
   constant target_sample_rate : integer := 48000;
   signal audio_counter : integer := 0;
   signal sample_ready_toggle : std_logic := '0';
-  signal audio_counter_interval : unsigned(23 downto 0) := to_unsigned(clock_frequency/target_sample_rate,24);
+  signal audio_counter_interval : unsigned(25 downto 0) := to_unsigned(4*clock_frequency/target_sample_rate,26);
 
   signal pcm_clk : std_logic := '0';
   signal pcm_rst : std_logic := '1';
@@ -1019,15 +1019,25 @@ begin
       -- We need to pass audio to 12.288 MHz clock domain.
       -- Easiest way is to hold samples constant for 16 ticks, and
       -- have a slow toggle
-      if audio_counter /= to_integer(audio_counter_interval) then
-        audio_counter <= audio_counter + 1;
+      -- At 40.5MHz and 48KHz sample rate, we have a ratio of 843.75
+      -- Thus we need to calculate the remainder, so that we can get the
+      -- sample rate EXACTLY 48KHz.
+      -- Otherwise we end up using 844, which gives a sample rate of
+      -- 40.5MHz / 844 = 47.986KHz, which might just be enough to throw
+      -- some monitors out, since it means that the CTS / N rates will
+      -- be wrong.
+      -- (Or am I just chasing my tail, because this is only used to set the
+      -- rate at which we LATCH the samples?)
+      if audio_counter < to_integer(audio_counter_interval) then
+        audio_counter <= audio_counter + 4;
       else
-        audio_counter <= 0;
+        audio_counter <= audio_counter - to_integer(audio_counter_interval);
         sample_ready_toggle <= not sample_ready_toggle;
-        led <= not led;
         audio_left_slow <= h_audio_left;
         audio_right_slow <= h_audio_right;
       end if;
+      -- XXX debug: export exactly 1KHz rate out to the LED for monitoring 
+      led <= pcm_acr;
       
       -- Drive simple serial protocol with MAX10 FPGA
       if max10_counter = 31 then
