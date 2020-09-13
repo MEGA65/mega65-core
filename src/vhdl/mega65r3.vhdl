@@ -997,7 +997,7 @@ begin
                   O => eth_clock);
 
   -- XXX debug: export exactly 1KHz rate out to the LED for monitoring 
-  led <= pcm_acr;  
+--  led <= pcm_acr;  
   
   process (pixelclock,cpuclock,pcm_clk) is
   begin
