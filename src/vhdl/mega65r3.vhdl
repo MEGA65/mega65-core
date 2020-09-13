@@ -995,6 +995,8 @@ begin
   bufg port map ( I => ethclock,
                   O => eth_clock);
 
+  -- XXX debug: export exactly 1KHz rate out to the LED for monitoring 
+  led <= pcm_acr;  
   
   process (pixelclock) is
   begin
@@ -1012,8 +1014,8 @@ begin
     nmi_combined <= nmi and nmi_out;
     
     -- Drive most ports, to relax timing
-    if rising_edge(cpuclock) then
-
+    if rising_edge(cpuclock) then      
+      
       reset_high <= not btncpureset;
       
       -- We need to pass audio to 12.288 MHz clock domain.
@@ -1035,9 +1037,8 @@ begin
         sample_ready_toggle <= not sample_ready_toggle;
         audio_left_slow <= h_audio_left;
         audio_right_slow <= h_audio_right;
-      end if;
-      -- XXX debug: export exactly 1KHz rate out to the LED for monitoring 
-      led <= pcm_acr;
+        led <= not led;
+      end if;      
       
       -- Drive simple serial protocol with MAX10 FPGA
       if max10_counter = 31 then
