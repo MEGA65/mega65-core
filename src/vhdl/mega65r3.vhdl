@@ -422,7 +422,8 @@ architecture Behavioral of container is
   signal audio_counter : integer := 0;
   signal sample_ready_toggle : std_logic := '0';
   signal audio_counter_interval : unsigned(25 downto 0) := to_unsigned(4*clock_frequency/target_sample_rate,26);
-
+  signal acr_counter : integer range 0 to 12288 := 0;
+  
   signal pcm_clk : std_logic := '0';
   signal pcm_rst : std_logic := '1';
   signal pcm_clken : std_logic := '0';
@@ -998,7 +999,7 @@ begin
   -- XXX debug: export exactly 1KHz rate out to the LED for monitoring 
   led <= pcm_acr;  
   
-  process (pixelclock) is
+  process (pixelclock,cpuclock,pcm_clk) is
   begin
     vdac_sync_n <= '0';  -- no sync on green
     vdac_blank_n <= '1'; -- was: not (v_hsync or v_vsync); 
@@ -1012,6 +1013,17 @@ begin
     -- Use both real and cartridge IRQ and NMI signals
     irq_combined <= irq and irq_out;
     nmi_combined <= nmi and nmi_out;
+
+    if rising_edge(pcm_clk) then
+      -- Generate 1KHz ACR pulse train from 12.288MHz
+      if acr_counter /= (12288 - 1) then
+        acr_counter <= acr_counter + 1;
+        pcm_acr <= '0';
+      else
+        pcm_acr <= '1';
+        acr_counter <= 0;
+      end if;
+    end if;
     
     -- Drive most ports, to relax timing
     if rising_edge(cpuclock) then      
@@ -1038,8 +1050,8 @@ begin
         audio_left_slow <= h_audio_left;
         audio_right_slow <= h_audio_right;
         led <= not led;
-      end if;      
-      
+      end if;
+
       -- Drive simple serial protocol with MAX10 FPGA
       if max10_counter = 31 then
         max10_counter <= 0;
