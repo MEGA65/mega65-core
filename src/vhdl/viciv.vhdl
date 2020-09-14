@@ -2575,10 +2575,10 @@ begin
           -- @IO:GS $D04F.7-4 VIC-IV:SPRTILEN Sprite 7-4 horizontal tile enables
           sprite_horizontal_tile_enables(7 downto 4) <= fastio_wdata(7 downto 4);
         elsif register_number=80 then
-          -- @IO:GS $D050.0-5 VIC-IV:XPOS Read horizontal raster scan position
+          -- @IO:GS $D050 VIC-IV:XPOS Read horizontal raster scan position LSB
           null;
         elsif register_number=81 then
-          -- @IO:GS $D051 VIC-IV:XPOS Read horizontal raster scan position
+          -- @IO:GS $D051.0-5 VIC-IV:XPOS Read horizontal raster scan position MSB
           null;
         elsif register_number=82 then
         -- @IO:GS $D052 VIC-IV:FNRASTER Read physical raster position

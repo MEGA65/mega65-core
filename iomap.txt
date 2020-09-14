@@ -203,8 +203,8 @@ GS $D04D.7-4 VIC-IV:SPRTILEN Sprite horizontal tile enables.
 GS $D04E VIC-IV:TEXTYPOS Character generator vertical position
 GS $D04F.3-0 VIC-IV:TEXTYPOS Character generator vertical position
 GS $D04F.7-4 VIC-IV:SPRTILEN Sprite 7-4 horizontal tile enables
-GS $D050.0-5 VIC-IV:XPOS Read horizontal raster scan position
-GS $D051 VIC-IV:XPOS Read horizontal raster scan position
+GS $D050 VIC-IV:XPOS Read horizontal raster scan position LSB
+GS $D051.0-5 VIC-IV:XPOS Read horizontal raster scan position MSB
 GS $D052 VIC-IV:FNRASTER Read physical raster position
 GS $D053.0-2 VIC-IV:FNRASTER Read physical raster position
 GS $D053.7 VIC-IV:FNRST Raster compare source (0=VIC-IV fine raster, 1=VIC-II raster)
@@ -729,8 +729,9 @@ GS $D6DE FPGA:FPGATEMPLSB FPGA die temperature sensor (lower nybl)
 GS $D6DF FPGA:FPGATEMPMSB FPGA die temperature sensor (upper byte)
 GS $D6E0.0 Clear to reset ethernet PHY and state machine
 GS $D6E0.0 ETH:RST Write 0 to hold ethernet controller under reset
-GS $D6E0.1-2 ETH:DRXD Read ethernet RX bits currently on the wire
 GS $D6E0.1 Clear to reset ethernet state machine only, but not the phy
+GS $D6E0.1 ETH:TXRST Write 0 to hold ethernet controller transmit sub-system under reset
+GS $D6E0.2 ETH:DRXD Read ethernet RX bits currently on the wire
 GS $D6E0.3 ETH:DRXDV Read ethernet RX data valid (debug)
 GS $D6E0.4 Allow remote keyboard input via magic ethernet frames
 GS $D6E0.4 ETH:KEYEN Allow remote keyboard input via magic ethernet frames
