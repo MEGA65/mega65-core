@@ -997,7 +997,7 @@ begin
                   O => eth_clock);
 
   -- XXX debug: export exactly 1KHz rate out to the LED for monitoring 
---  led <= pcm_acr;  
+  led <= pcm_acr;  
   
   process (pixelclock,cpuclock,pcm_clk) is
   begin
@@ -1049,7 +1049,7 @@ begin
         sample_ready_toggle <= not sample_ready_toggle;
         audio_left_slow <= h_audio_left;
         audio_right_slow <= h_audio_right;
-        led <= not led;
+--        led <= not led;
       end if;
 
       -- Drive simple serial protocol with MAX10 FPGA
