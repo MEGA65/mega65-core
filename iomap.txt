@@ -450,6 +450,12 @@ GS $D62C KBD:FWGIT0 LSB of keyboard firmware git commit
 GS $D62D KBD:FWGIT0 2nd byte of keyboard firmware git commit
 GS $D62E KBD:FWGIT0 3rd byte of keyboard firmware git commit
 GS $D62F KBD:FWGIT0 MSB of keyboard firmware git commit
+GS $D630 FPGA:FWDATEL LSB of MEGA65 FPGA design date stamp (days since 1 Jan 2020)
+GS $D631 FPGA:FWDATEH MSB of MEGA65 FPGA design date stamp (days since 1 Jan 2020)
+GS $D632 FPGA:FWGIT0 LSB of MEGA65 FPGA design git commit
+GS $D633 FPGA:FWGIT0 2nd byte of MEGA65 FPGA design git commit
+GS $D634 FPGA:FWGIT0 3rd byte of MEGA65 FPGA design git commit
+GS $D635 FPGA:FWGIT0 MSB of MEGA65 FPGA design git commit
 GS $D640.6 - Thumbnail drawing was in progress.
 GS $D640.7 - Thumbnail is valid if 1.  Else there has not been a complete frame since elapsed without a trap to hypervisor mode, in which case the thumbnail may not reflect the current process.
 GS $D640 CPU:HTRAP00 Writing triggers hypervisor trap \$00

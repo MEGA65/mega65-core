@@ -5,6 +5,8 @@ branch=`git status -b -s | head -n 1`
 # get from charpos3, for 6 chars
 branch2=${branch:3:6}
 version=`git describe --always --abbrev=7 --dirty=+DIRTY`
+version32=`git describe --always --abbrev=8`
+datestamp=$(expr $(expr $(date +%Y) - 2020) \* 366 + `date +%j`)
 
 datetime=`date +%Y%m%d.%H`
 stringout="${branch2},${version},${datetime}"
@@ -18,6 +20,8 @@ use ieee.numeric_std.all;
 package version is
 
   constant gitcommit : string := "${stringout}";
+  constant fpga_commit : unsigned(31 downto 0) := x"${version32}";
+  constant fpga_datestamp : unsigned(15 downto 0) := to_unsigned(${datestamp},16);
 
 end version;
 ENDTEMPLATE

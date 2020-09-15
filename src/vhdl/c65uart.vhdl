@@ -6,6 +6,7 @@ use ieee.numeric_std.all;
 use Std.TextIO.all;
 use work.debugtools.all;
 use work.cputypes.all;
+use work.version.all;
 
 entity c65uart is
   generic ( target : mega65_target_t );
@@ -21,7 +22,7 @@ entity c65uart is
 
     kbd_datestamp : in unsigned(13 downto 0);
     kbd_commit : in unsigned(31 downto 0);        
-    
+
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space
     ---------------------------------------------------------------------------
@@ -134,7 +135,7 @@ architecture behavioural of c65uart is
   signal rx_samples : std_logic_vector(15 downto 0);
 
   signal target_id : unsigned(7 downto 0) := x"FF";
-  
+
   -- Transmit buffer for current byte
   -- (Note the UART can also have a byte buffered in reg_data_tx, to allow
   -- back-to-back char sending)
@@ -771,6 +772,18 @@ begin  -- behavioural
         when x"2d" => fastio_rdata <= kbd_commit(15 downto 8);
         when x"2e" => fastio_rdata <= kbd_commit(23 downto 16);
         when x"2f" => fastio_rdata <= kbd_commit(31 downto 24);
+        -- @IO:GS $D630 FPGA:FWDATEL LSB of MEGA65 FPGA design date stamp (days since 1 Jan 2020)
+        -- @IO:GS $D631 FPGA:FWDATEH MSB of MEGA65 FPGA design date stamp (days since 1 Jan 2020)
+        when x"30" => fastio_rdata <= fpga_datestamp(7 downto 0);
+        when x"31" => fastio_rdata <= fpga_datestamp(15 downto 8);
+        -- @IO:GS $D632 FPGA:FWGIT0 LSB of MEGA65 FPGA design git commit
+        -- @IO:GS $D633 FPGA:FWGIT0 2nd byte of MEGA65 FPGA design git commit
+        -- @IO:GS $D634 FPGA:FWGIT0 3rd byte of MEGA65 FPGA design git commit
+        -- @IO:GS $D635 FPGA:FWGIT0 MSB of MEGA65 FPGA design git commit
+        when x"32" => fastio_rdata <= fpga_commit(7 downto 0);
+        when x"33" => fastio_rdata <= fpga_commit(15 downto 8);
+        when x"34" => fastio_rdata <= fpga_commit(23 downto 16);
+        when x"35" => fastio_rdata <= fpga_commit(31 downto 24);
                       
         when others =>
           report "Reading untied register, result = Z";
