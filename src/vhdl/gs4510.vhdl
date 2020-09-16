@@ -8126,7 +8126,7 @@ begin
           memory_access_address := dmagic_dest_addr(35 downto 8);
 
           -- redirect memory write to IO block if required
-          if dmagic_dest_addr(23 downto 20) = x"d" and dmagic_dest_io='1' then
+          if dmagic_dest_addr(15 downto 12) = x"d" and dmagic_dest_io='1' then
           report "MEMORY Setting memory_access_address upper bits to IO block";
             memory_access_address(27 downto 16) := x"FFD";
             memory_access_address(15 downto 14) := "00";
@@ -8163,8 +8163,8 @@ begin
             & to_hstring(dmagic_src_addr) & ").";
           memory_access_address := dmagic_src_addr(35 downto 8);
 
-          -- redirect memory write to IO block if required
-          if dmagic_src_addr(23 downto 20) = x"d" and dmagic_src_io='1' then
+          -- redirect memory read to IO block if required
+          if dmagic_src_addr(15 downto 12) = x"d" and dmagic_src_io='1' then
             memory_access_address(27 downto 16) := x"FFD";
             memory_access_address(15 downto 14) := "00";
             if hypervisor_mode='0' then
