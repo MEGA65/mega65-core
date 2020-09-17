@@ -2429,7 +2429,7 @@ begin
               -- C65GS VIC-IV mode
               viciii_iomode <= "11";
             end if;
-          -- @IO:GS $D02F VIC-IV:KEY Write $45 then $54 to map 45E100 ethernet controller buffers to \$D000-\$DFFF
+          -- @IO:GS $D02F VIC-IV:KEY Write $45 then $54 to map 45E100 ethernet controller buffers to $D000-$DFFF
           elsif reg_key=x"45" then
             if fastio_wdata=x"54" then
               -- C65GS Map ethernet frame buffer mode
@@ -2443,24 +2443,24 @@ begin
           vicii_2mhz_internal <= fastio_wdata(0);
         elsif register_number=48 then
           -- @IO:C65 $D030 SUMMARY:VIC-III Control Register A
-          -- @IO:C65 $D030.7 VIC-III:ROME Map C65 ROM \@ \$E000
+          -- @IO:C65 $D030.7 VIC-III:ROME Map C65 ROM @ $E000
           rom_at_e000 <= fastio_wdata(7);
           reg_rom_e000 <= fastio_wdata(7);
           -- @IO:C65 $D030.6 VIC-III:CROM9 Select between C64 and C65 charset.
           reg_c65_charset <= fastio_wdata(6);
-          -- @IO:C65 $D030.5 VIC-III:ROMC Map C65 ROM \@ \$C000
+          -- @IO:C65 $D030.5 VIC-III:ROMC Map C65 ROM @ $C000
           rom_at_c000 <= fastio_wdata(5);
           reg_rom_c000 <= fastio_wdata(5);
-          -- @IO:C65 $D030.4 VIC-III:ROMA Map C65 ROM \@ \$A000
+          -- @IO:C65 $D030.4 VIC-III:ROMA Map C65 ROM @ $A000
           rom_at_a000 <= fastio_wdata(4);
           reg_rom_a000 <= fastio_wdata(4);
-          -- @IO:C65 $D030.3 VIC-III:ROM8 Map C65 ROM \@ \$8000
+          -- @IO:C65 $D030.3 VIC-III:ROM8 Map C65 ROM @ $8000
           rom_at_8000 <= fastio_wdata(3);
           reg_rom_8000 <= fastio_wdata(3);
           -- @IO:C65 $D030.2 VIC-III:PAL Use PALETTE ROM or RAM entries for colours 0 - 15
           reg_palrom <= fastio_wdata(2);
           -- @IO:C65 $D030.1 VIC-III:EXTSYNC Enable external video sync (genlock input)
-          -- @IO:C65 $D030.0 VIC-III:CRAM2K Map 2nd KB of colour RAM \@ \$DC00-\$DFFF
+          -- @IO:C65 $D030.0 VIC-III:CRAM2K Map 2nd KB of colour RAM @ $DC00-$DFFF
           colourram_at_dc00_internal<= fastio_wdata(0);
           colourram_at_dc00<= fastio_wdata(0);
         elsif register_number=49 then
@@ -2473,7 +2473,7 @@ begin
           -- @IO:C65 $D031 SUMMARY:VIC-III Control Register B
           -- @IO:C65 $D031.7 VIC-III:H640 Enable C64 640 horizontal pixels / 80 column mode
           reg_h640 <= fastio_wdata(7);
-          -- @IO:C65 $D031.6 VIC-III:FAST Enable C65 FAST mode (\~3.5MHz)
+          -- @IO:C65 $D031.6 VIC-III:FAST Enable C65 FAST mode (~3.5MHz)
           viciii_fast_internal <= fastio_wdata(6);
           -- @IO:C65 $D031.5 VIC-III:ATTR Enable extended attributes and 8 bit colour entries
           viciii_extended_attributes <= fastio_wdata(5);
@@ -2602,9 +2602,9 @@ begin
           sprite_h640 <= fastio_wdata(4);
           -- @IO:GS $D054.3 VIC-IV:SMTH video output horizontal smoothing enable
           horizontal_filter <= fastio_wdata(3);
-          -- @IO:GS $D054.2 VIC-IV:FCLRHI enable full-colour mode for character numbers >\$FF
+          -- @IO:GS $D054.2 VIC-IV:FCLRHI enable full-colour mode for character numbers >$FF
           fullcolour_extendedchars <= fastio_wdata(2);
-          -- @IO:GS $D054.1 VIC-IV:FCLRLO enable full-colour mode for character numbers <=\$FF
+          -- @IO:GS $D054.1 VIC-IV:FCLRLO enable full-colour mode for character numbers <=$FF
           fullcolour_8bitchars <= fastio_wdata(1);
           -- @IO:GS $D054.0 VIC-IV:CHR16 enable 16-bit character numbers (two screen bytes per character)
           sixteenbit_charset <= fastio_wdata(0);
@@ -2778,7 +2778,7 @@ begin
           end if;
         elsif register_number=112 then
           -- @IO:GS $D070 NONE:VIC-IV palette bank selection
-          -- @IO:GS $D070.7-6 VIC-IV:MAPEDPAL palette bank mapped at \$D100-\$D3FF
+          -- @IO:GS $D070.7-6 VIC-IV:MAPEDPAL palette bank mapped at $D100-$D3FF
           palette_bank_fastio <= fastio_wdata(7 downto 6);
           -- @IO:GS $D070.5-4 VIC-IV:BTPALSEL bitmap/text palette bank
           palette_bank_chargen <= fastio_wdata(5 downto 4);
