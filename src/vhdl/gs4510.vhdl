@@ -5470,7 +5470,7 @@ begin
                     -- negative card overflow on Y only
                     dmagic_dest_addr <= dmagic_dest_addr + (256*1) - (256*8)
                                         - (reg_dmagic_y8_offset&"00000000");
-                  elsif dmagic_dest_addr(14 downto 8)="111" then
+                  elsif dmagic_dest_addr(10 downto 8)="111" then
                     -- positive overflow on X only
                     dmagic_dest_addr <= dmagic_dest_addr + (256*1) - (256*8)
                                         + (reg_dmagic_x8_offset&"00000000");
@@ -5488,7 +5488,7 @@ begin
                     -- positive card overflow on Y only
                     dmagic_dest_addr <= dmagic_dest_addr - (256*1) + (256*8)
                                         + (reg_dmagic_y8_offset&"00000000");
-                  elsif dmagic_dest_addr(14 downto 8)="000" then
+                  elsif dmagic_dest_addr(10 downto 8)="000" then
                     -- negative overflow on X only
                     dmagic_dest_addr <= dmagic_dest_addr - (256*1) + (256*8)
                                         - (reg_dmagic_x8_offset&"00000000");
@@ -5506,7 +5506,7 @@ begin
                     -- positive card overflow on Y only
                     dmagic_dest_addr <= dmagic_dest_addr - (256*1) - (256*8)
                                         - (reg_dmagic_y8_offset&"00000000");
-                  elsif dmagic_dest_addr(14 downto 8)="000" then
+                  elsif dmagic_dest_addr(10 downto 8)="000" then
                     -- negative overflow on X only
                     dmagic_dest_addr <= dmagic_dest_addr - (256*1) - (256*8)
                                         - (reg_dmagic_x8_offset&"00000000");
