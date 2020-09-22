@@ -200,8 +200,10 @@ entity iomapper is
          -- Floppy drive interface
          ----------------------------------------------------------------------
          f_density : out std_logic := '1';
-         f_motor : out std_logic := '1';
-         f_select : out std_logic := '1';
+         f_motora : out std_logic := '1';
+         f_selecta : out std_logic := '1';
+         f_motorb : out std_logic := '1';
+         f_selectb : out std_logic := '1';
          f_stepdir : out std_logic := '1';
          f_step : out std_logic := '1';
          f_wdata : out std_logic := '1';
@@ -1343,7 +1345,8 @@ begin
     hypervisor_mode => cpu_hypervisor_mode,
     hyper_trap_f011_read => hyper_trap_f011_read,
     hyper_trap_f011_write => hyper_trap_f011_write,
-    virtualise_f011 => virtualised_hardware_in(0),
+    virtualise_f011_drive0 => virtualised_hardware_in(0),
+    virtualise_f011_drive1 => virtualised_hardware_in(1),
     secure_mode => protected_hardware_in(7),
     
     fpga_temperature => fpga_temperature,
@@ -1374,8 +1377,10 @@ begin
     volume_knob3_target => volume_knob3_target,
     
     f_density => f_density,
-    f_motor => f_motor,
-    f_select => f_select,
+    f_motora => f_motora,
+    f_selecta => f_selecta,
+    f_motorb => f_motorb,
+    f_selectb => f_selectb,
     f_stepdir => f_stepdir,
     f_step => f_step,
     f_wdata => f_wdata,

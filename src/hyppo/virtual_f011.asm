@@ -85,7 +85,7 @@ f011_virtual_write:
         sta $D67C
 
         jsr wait5usec
-        lda #'\''
+        lda #$5C
         sta $D67C
 
 fvw1:   lda $d086

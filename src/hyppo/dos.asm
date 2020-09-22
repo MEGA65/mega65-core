@@ -3765,9 +3765,9 @@ dos_d81attach0:
 d81a1:        ;; XXX - Why do we call closefile here?
         jsr dos_closefile
 
-	jsr dos_d81check
-	bcs d81a1a
-	rts
+        jsr dos_d81check
+        bcs d81a1a
+        rts
 d81a1a:	
 
         ;; copy sector number from $D681 to $D68c
@@ -3778,8 +3778,13 @@ l94d:   lda $d681,x		;; resolved sector number
         dex
         bpl l94d
 	
-        ;; Set flags to indicate it is mounted (and read-write)
-        ;; But don't mess up the flags for the 2nd drive
+        // disable real floppy 0
+        lda $d6a1
+        and #$fe
+        sta $d6a1
+        
+        // Set flags to indicate it is mounted (and read-write)
+        // But don't mess up the flags for the 2nd drive
 	lda $d68b
 	and #%10111000
         ora #$03
@@ -3849,10 +3854,9 @@ dos_d81attach1:
 d81a1b:        ;; XXX - Why do we call closefile here?
         jsr dos_closefile
 
-	jsr dos_d81check
-
-	bcs d81a1ab
-	rts
+        jsr dos_d81check
+        bcs d81a1ab
+        rts
 d81a1ab:	
 
         ;; copy sector number from $D681 to $D68c
@@ -3863,8 +3867,13 @@ l94db:   lda $d681,x		;; resolved sector number
         dex
         bpl l94db
 		
-        ;; Set flags to indicate it is mounted (and read-write)
-        ;; But don't mess up the flags for the 2nd drive
+        // disable real floppy 1
+        lda $d6a1
+        and #$fb
+        sta $d6a1
+
+        // Set flags to indicate it is mounted (and read-write)
+        // But don't mess up the flags for the 2nd drive
 	lda $d68b
 	and #%01000111
         ora #$18

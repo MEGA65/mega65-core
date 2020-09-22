@@ -40,6 +40,7 @@ entity gs4510 is
     math_unit_enable : boolean := false;
     chipram_1mb : std_logic := '0';
 
+    cpufrequency : integer := 40;
     chipram_size : integer := 393216;
     target : mega65_target_t := mega65r2);
   port (
@@ -59,6 +60,7 @@ entity gs4510 is
     
     hyper_trap : in std_logic;
     cpu_hypervisor_mode : out std_logic := '0';
+    privileged_access : out std_logic := '0';
     matrix_trap_in : in std_logic;
     hyper_trap_f011_read : in std_logic;
     hyper_trap_f011_write : in std_logic;
@@ -291,7 +293,8 @@ architecture Behavioural of gs4510 is
   signal iomode_set_toggle_internal : std_logic := '0';
   signal rom_writeprotect : std_logic := '0';
 
-  signal virtualise_sd : std_logic := '0';
+  signal virtualise_sd0 : std_logic := '0';
+  signal virtualise_sd1 : std_logic := '0';
 
   signal dat_bitplane_addresses_drive : sprite_vector_eight := (
     others => to_unsigned(0,8));
@@ -2684,7 +2687,7 @@ begin
             when "011000" =>
               return to_unsigned(0,4)&hyper_dmagic_list_addr(27 downto 24);
             when "011001" =>
-              return "0000000"&virtualise_sd;
+              return "000000"&virtualise_sd1&virtualise_sd0;
               
             -- Virtual memory page registers here
             when "011101" =>
@@ -4429,9 +4432,11 @@ begin
           hyper_dmagic_list_addr(27 downto 24) <= last_value(3 downto 0);
         end if;
                                         -- @IO:GS $D659 - Hypervisor virtualise hardware flags
-                                        -- @IO:GS $D659.0 HCPU:VFLOP 1=Virtualise SD/Floppy access (usually for access via serial debugger interface)
+                                        -- @IO:GS $D659.0 HCPU:VFLOP 1=Virtualise SD/Floppy0 access (usually for access via serial debugger interface)
+                                        -- @IO:GS $D659.1 HCPU:VFLOP 1=Virtualise SD/Floppy1 access (usually for access via serial debugger interface)
         if last_write_address = x"FFD3659" and hypervisor_mode='1' then
-          virtualise_sd <= last_value(0);
+          virtualise_sd0 <= last_value(0);
+          virtualise_sd1 <= last_value(1);
         end if;
                                         -- @IO:GS $D65D - Hypervisor current virtual page number (low byte)
         if last_write_address = x"FFD365D" and hypervisor_mode='1' then
@@ -4579,18 +4584,23 @@ begin
 
       end if;
 
-                                        -- Propagate slow device access interface signals
+      -- Propagate slow device access interface signals
       slow_access_request_toggle <= slow_access_request_toggle_drive;
       slow_access_address <= slow_access_address_drive;
       slow_access_write <= slow_access_write_drive;
       slow_access_wdata <= slow_access_wdata_drive;
       slow_access_ready_toggle_buffer <= slow_access_ready_toggle;
 
-                                        -- Allow matrix mode in hypervisor
+      -- Allow matrix mode in hypervisor
       protected_hardware <= hyper_protected_hardware;
-      virtualised_hardware(0) <= virtualise_sd;
-      virtualised_hardware(7 downto 1) <= (others => '0');
+      virtualised_hardware(0) <= virtualise_sd0;
+      virtualised_hardware(1) <= virtualise_sd1;
+      virtualised_hardware(7 downto 2) <= (others => '0');
       cpu_hypervisor_mode <= hypervisor_mode;
+      -- Serial monitor interface sees memory as though hypervisor mode is
+      -- active, to aid debugging and ease of tool writing
+      privileged_access <= monitor_mem_attention_request or hypervisor_mode;
+      
       
       check_for_interrupts;
       
@@ -4610,7 +4620,7 @@ begin
       if shadow_write='1' then
         shadow_observed_write_count <= shadow_observed_write_count + 1;
       end if;
-      
+
       monitor_mem_attention_request_drive <= monitor_mem_attention_request;
       monitor_mem_read_drive <= monitor_mem_read;
       monitor_mem_write_drive <= monitor_mem_write;

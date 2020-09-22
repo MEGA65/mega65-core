@@ -233,8 +233,10 @@ entity machine is
          -- Floppy drive interface
          ----------------------------------------------------------------------
          f_density : out std_logic := '1';
-         f_motor : out std_logic := '1';
-         f_select : out std_logic := '1';
+         f_motora : out std_logic := '1';
+         f_selecta : out std_logic := '1';
+         f_motorb : out std_logic := '1';
+         f_selectb : out std_logic := '1';
          f_stepdir : out std_logic := '1';
          f_step : out std_logic := '1';
          f_wdata : out std_logic := '1';
@@ -1001,7 +1003,7 @@ begin
       -- Hypervisor signals: we need to tell hyppo memory whether
       -- to map or not, and we also need to be able to set the VIC-III
       -- IO mode.
-      cpu_hypervisor_mode => cpu_hypervisor_mode,
+      privileged_access => cpu_hypervisor_mode,
       iomode_set => iomode_set,
       iomode_set_toggle => iomode_set_toggle,
       
@@ -1547,8 +1549,10 @@ begin
     monitor_p => monitor_p,
       
     f_density => f_density,
-    f_motor => f_motor,
-    f_select => f_select,
+    f_motora => f_motora,
+    f_selecta => f_selecta,
+    f_motorb => f_motorb,
+    f_selectb => f_selectb,
     f_stepdir => f_stepdir,
     f_step => f_step,
     f_wdata => f_wdata,

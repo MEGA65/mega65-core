@@ -97,7 +97,8 @@ entity sdcardio is
     fastio_wdata : in unsigned(7 downto 0);
     fastio_rdata_sel : out unsigned(7 downto 0);
     
-    virtualise_f011 : in std_logic;
+    virtualise_f011_drive0 : in std_logic;
+    virtualise_f011_drive1 : in std_logic;
     
     colourram_at_dc00 : in std_logic;
     viciii_iomode : in std_logic_vector(1 downto 0);
@@ -128,8 +129,10 @@ entity sdcardio is
     -- Floppy drive interface
     ----------------------------------------------------------------------
     f_density : out std_logic := '1';
-    f_motor : out std_logic := '1';
-    f_select : out std_logic := '1';
+    f_motora : out std_logic := '1';
+    f_selecta : out std_logic := '1';
+    f_motorb : out std_logic := '1';
+    f_selectb : out std_logic := '1';
     f_stepdir : out std_logic := '1';
     f_step : out std_logic := '1';
     f_wdata : out std_logic := '1';
@@ -316,7 +319,8 @@ architecture behavioural of sdcardio is
   signal f011_buffer_rdata : unsigned(7 downto 0);
   signal f011_buffer_write : std_logic := '0';
   signal f011_flag_eq : std_logic := '1';
-  signal f011_swap : std_logic := '0';
+  signal f011_swap : std_logic := '0'; -- swap buffer halves, C65 style
+  signal f011_swap_drives : std_logic := '0'; -- swap drive 0 and drive 1
 
   signal f011_eq_inhibit : std_logic := '0';
 
@@ -386,6 +390,7 @@ architecture behavioural of sdcardio is
   signal fdc_rotation_timeout : integer range 0 to 10 := 0;
   signal rotation_count : integer range 0 to 15 := 0;
   signal index_wait_timeout : integer := 0;
+  signal fdc_rotation_timeout_reserve_counter : integer range 0 to 100000000 := 0;
   signal last_f_index : std_logic := '1';
 
   signal fdc_bytes_read : unsigned(15 downto 0) := x"0000";
@@ -907,8 +912,10 @@ begin  -- behavioural
           when x"88" => fastio_rdata <= f011_buffer_disk_address(7 downto 0);
           -- @IO:GS $D689.0 - High bit of F011 buffer pointer (disk side) (read only)
           -- @IO:GS $D689.1 - Sector read from SD/F011/FDC, but not yet read by CPU (i.e., EQ and DRQ)
-          -- @IO:GS $D689.3 - (read only) sd_data_ready signal.
+          -- @IO:GS $D689.2 - (read only, debug) sd_handshake signal.
+          -- @IO:GS $D689.3 - (read only, debug) sd_data_ready signal.
           -- @IO:GS $D689.4 - Disable FDC automatic track seeking (auto-tune)
+          -- @IO:GS $D689.5 - F011 swap drive 0 / 1 
           -- @IO:GS $D689.7 - Memory mapped sector buffer select: 1=SD-Card, 0=F011/FDC
           when x"89" =>
             fastio_rdata(0) <= f011_buffer_disk_address(8);
@@ -916,12 +923,17 @@ begin  -- behavioural
             fastio_rdata(2) <= sd_handshake;
             fastio_rdata(3) <= sd_data_ready;
             fastio_rdata(4) <= not autotune_enable;
+            fastio_rdata(5) <= f011_swap_drives;
+            fastio_rdata(6) <= '0';
             fastio_rdata(7) <= f011sd_buffer_select;
-            fastio_rdata(6 downto 5) <= (others => '0');
           when x"8a" =>
             -- @IO:GS $D68A - DEBUG check signals that can inhibit sector buffer mapping
+            -- @IO:GS $D68A.2 - Read only: is drive 0 virtualized F011
+            -- @IO:GS $D68A.3 - Read only: is drive 1 virtualized F011
             fastio_rdata(0) <= colourram_at_dc00;
             fastio_rdata(1) <= viciii_iomode(1);
+            fastio_rdata(2) <= virtualise_f011_drive0;
+            fastio_rdata(3) <= virtualise_f011_drive1;
             
           when x"8b" =>
             -- BG the description seems in conflict with the assignment in the write section (below)
@@ -1480,13 +1492,13 @@ begin  -- behavioural
         end if;
       end if;
 
-      if use_real_floppy0='1' and f011_ds = "000" then
+      if use_real_floppy0='1' and virtualise_f011_drive0='0' and f011_ds = "000" then
         -- PC drives use a combined RDY and DISKCHANGE signal.
         -- You can only clear the DISKCHANGE and re-assert RDY
         -- by stepping the disk (thus the ticking of 
         f011_disk_present <= '1';
         f011_write_protected <= not f_writeprotect;
-      elsif use_real_floppy2='1' and f011_ds = "001" then
+      elsif use_real_floppy2='1' and virtualise_f011_drive1='0' and f011_ds = "001" then
         -- PC drives use a combined RDY and DISKCHANGE signal.
         -- You can only clear the DISKCHANGE and re-assert RDY
         -- by stepping the disk (thus the ticking of 
@@ -1499,7 +1511,7 @@ begin  -- behavioural
         f011_write_protected <= f011_disk2_write_protected;      
         f011_disk_present <= f011_disk2_present;
       end if;
-      
+       
       if use_real_floppy0='1' and f011_ds="000" then
         -- When using the real drive, use correct index and track 0 sensors
         f011_track0 <= not f_track0;
@@ -1611,8 +1623,17 @@ begin  -- behavioural
               f011_motor <= fastio_wdata(5);
               motor <= fastio_wdata(5);
 
-              f_motor <= not fastio_wdata(5); -- start motor on real drive
-              f_select <= not fastio_wdata(5);
+              f_motora <= '1'; f_selecta <= '1'; f_motorb <= '1'; f_selectb <= '1';
+              if f011_ds(2 downto 1) = "00" then
+                if (f011_ds(0) xor f011_swap_drives) = '0' then
+                  f_motora <= not fastio_wdata(5); -- start motor on real drive
+                  f_selecta <= not fastio_wdata(5);
+                else
+                  f_motorb <= not fastio_wdata(5); -- start motor on real drive
+                  f_selectb <= not fastio_wdata(5);
+                end if;
+              end if;
+              
               -- De-selecting drive cancelled disk change event
               if fastio_wdata(5)='0' then
                 latched_disk_change_event <= '0';
@@ -1628,7 +1649,7 @@ begin  -- behavioural
               f011_head_side(0) <= fastio_wdata(3);
               f011_ds <= fastio_wdata(2 downto 0);
               if not ((use_real_floppy0='1' and f011_ds="000") or (use_real_floppy2='1' and f011_ds="001"))  then
-                if fastio_wdata(2 downto 0) /= f011_ds then
+                if (fastio_wdata(2 downto 0) /= f011_ds) then
                   f011_disk_changed <= '0';
                 end if;
               end if;
@@ -1698,7 +1719,8 @@ begin  -- behavioural
                   -- Start reading into start of pointer
                   f011_buffer_disk_address <= (others => '0');
                   
-                  if (use_real_floppy0='1' and f011_ds="000") or (use_real_floppy2='1' and f011_ds="001") then
+                  if (use_real_floppy0='1' and virtualise_f011_drive0='0' and f011_ds="000") or 
+                     (use_real_floppy2='1' and virtualise_f011_drive1='0' and f011_ds="001") then
                     report "Using real floppy drive, asserting fdc_read_request";
                     -- Real floppy drive request
                     fdc_read_request <= '1';
@@ -1707,6 +1729,9 @@ begin  -- behavioural
                     -- disk to the other, it can take a little longer than 1.2
                     -- sec)
                     fdc_rotation_timeout <= 10;                      
+                    -- If no physical drive, we won't get SYNC pulses, so
+                    -- should have an absolute timeout of 2 seconds
+                    fdc_rotation_timeout_reserve_counter <= 100000000;
                     
                     -- Mark F011 as busy with FDC job
                     f011_busy <= '1';
@@ -1750,7 +1775,9 @@ begin  -- behavioural
                         end if;
                       end if;                        
                     end if;
-                    if virtualise_f011='1' then
+                    if (virtualise_f011_drive0='1' and f011_ds="000")
+                      or (virtualise_f011_drive1='1' and f011_ds="001")
+                    then
                       -- Hypervisor virtualised
                       sd_state <= HyperTrapRead;
                       if f011_ds="000" then
@@ -1826,7 +1853,8 @@ begin  -- behavioural
                     end if;
                     -- XXX Writing with real floppy causes a hypervisor trap
                     -- instead of writing to disk.
-                    if virtualise_f011='0' and
+                    if ((virtualise_f011_drive0='0' and f011_ds="000") or (virtualise_f011_drive1='0' and f011_ds="001"))
+                        and
                       ((use_real_floppy0='0' and f011_ds="000") or (use_real_floppy2='0' and f011_ds="001")) then
                       sd_state <= F011WriteSector;
                     else
@@ -1849,7 +1877,16 @@ begin  -- behavioural
                   f011_head_track <= f011_head_track - 1;
                   f_step <= '0';
                   f_stepdir <= '1';
-                  f_select <= '0';
+
+                  f_selecta <= '1'; f_selectb <= '1';
+                  if f011_ds(2 downto 1) = "00" then
+                    if (f011_ds(0) xor f011_swap_drives) = '0' then              
+                      f_selecta <= '0';
+                    else
+                      f_selectb <= '0';
+                    end if;
+                  end if;
+                  
                   f_wgate <= '1';
                   f011_busy <= '1';
                   busy_countdown(15 downto 8) <= (others => '0');
@@ -1858,13 +1895,33 @@ begin  -- behavioural
                   -- be busy for one step interval, without
                   -- actually stepping
                   f011_busy <= '1';
-                  f_select <= '0';
+
+                  f_selecta <= '1'; f_selectb <= '1';
+                  if f011_ds(2 downto 1) = "00" then
+                    if (f011_ds(0) xor f011_swap_drives) = '0' then              
+                      f_selecta <= '0';
+                    else
+                      f_selectb <= '0';
+                    end if;
+                  end if;
+
+                                    
                   busy_countdown(15 downto 8) <= (others => '0');
                   busy_countdown(7 downto 0) <= f011_reg_step; 
                 when x"18" =>         -- head step in
                   f_step <= '0';
                   f_stepdir <= '0';
-                  f_select <= '0';
+
+                  f_selecta <= '1'; f_selectb <= '1';
+                  if f011_ds(2 downto 1) = "00" then
+                    if (f011_ds(0) xor f011_swap_drives) = '0' then              
+                      f_selecta <= '0';
+                    else
+                      f_selectb <= '0';
+                    end if;
+                  end if;
+
+                                    
                   f_wgate <= '1';
                   f011_head_track <= f011_head_track + 1;
                   f011_busy <= '1';
@@ -2177,6 +2234,7 @@ begin  -- behavioural
                           sd_handshake <= fastio_wdata(2);
                           sd_handshake_internal <= fastio_wdata(2);
                           autotune_enable <= not fastio_wdata(4);
+                          f011_swap_drives <= fastio_wdata(5);
 
                           -- ================================================================== END
                           -- the section above was for the SDcard
@@ -2206,30 +2264,72 @@ begin  -- behavioural
               report "writing $" & to_hstring(fastio_wdata) & " to FDC control";
 
             -- @IO:GS $D68C-$D68F - F011 disk 1 disk image address on SD card
-            when x"8c" => diskimage_sector(7 downto 0) <= fastio_wdata;
-            when x"8d" => diskimage_sector(15 downto 8) <= fastio_wdata;
-            when x"8e" => diskimage_sector(23 downto 16) <= fastio_wdata;
-            when x"8f" => diskimage_sector(31 downto 24) <= fastio_wdata;
+            when x"8c" =>
+              if hypervisor_mode='1' then
+                diskimage_sector(7 downto 0) <= fastio_wdata;
+              end if;
+            when x"8d" =>
+              if hypervisor_mode='1' then
+                diskimage_sector(15 downto 8) <= fastio_wdata;
+              end if;
+            when x"8e" =>
+              if hypervisor_mode='1' then
+                diskimage_sector(23 downto 16) <= fastio_wdata;
+              end if;
+            when x"8f" =>
+              if hypervisor_mode='1' then
+                diskimage_sector(31 downto 24) <= fastio_wdata;
+              end if;
 
             -- @IO:GS $D690-$D693 - F011 disk 2 disk image address on SD card
-            when x"90" => diskimage2_sector(7 downto 0) <= fastio_wdata;
-            when x"91" => diskimage2_sector(15 downto 8) <= fastio_wdata;
-            when x"92" => diskimage2_sector(23 downto 16) <= fastio_wdata;
-            when x"93" => diskimage2_sector(31 downto 24) <= fastio_wdata;
+            when x"90" =>
+              if hypervisor_mode='1' then
+                diskimage2_sector(7 downto 0) <= fastio_wdata;
+              end if;
+            when x"91" =>
+              if hypervisor_mode='1' then
+                diskimage2_sector(15 downto 8) <= fastio_wdata;
+              end if;
+            when x"92" =>
+              if hypervisor_mode='1' then
+                diskimage2_sector(23 downto 16) <= fastio_wdata;
+              end if;
+            when x"93" =>
+              if hypervisor_mode='1' then
+                diskimage2_sector(31 downto 24) <= fastio_wdata;
+              end if;
 
             when x"a0" =>
               -- @IO:GS $D6A0 - 3.5" FDC control line debug access
               f_density <= fastio_wdata(7);
-              f_motor <= fastio_wdata(6);
-              f_select <= fastio_wdata(5);
+
+              f_motora <= '1'; f_motorb <= '1';
+              f_selecta <= '1'; f_selectb <= '1';
+              if f011_ds(2 downto 1) = "00" then
+                if (f011_ds(0) xor f011_swap_drives) = '0' then              
+                  f_selecta <= fastio_wdata(5);
+                  f_motora <= fastio_wdata(6);
+                else
+                  f_selectb <= fastio_wdata(5);
+                  f_motorb <= fastio_wdata(6);
+                end if;
+              end if;
+                               
               f_stepdir <= fastio_wdata(4);
               f_step <= fastio_wdata(3);
               f_wdata <= fastio_wdata(2);
               f_wgate <= fastio_wdata(1);
               f_side1 <= fastio_wdata(0);
             when x"a1" =>
-              use_real_floppy0 <= fastio_wdata(0);
-              use_real_floppy2 <= fastio_wdata(2);
+              -- Setting F011 drives to use SD card is a privileged operation,
+              -- so that you can't take advantage of stale contents of the
+              -- sector number to get direct access to the SD card that way.
+              if fastio_wdata(0)='1' or hypervisor_mode='1' or use_real_floppy0=fastio_wdata(0) then
+                use_real_floppy0 <= fastio_wdata(0);
+              end if;
+              if fastio_wdata(2)='1' or hypervisor_mode='1' or use_real_floppy2=fastio_wdata(2) then
+                use_real_floppy2 <= fastio_wdata(2);
+              end if;
               target_any <= fastio_wdata(1);
               -- Setting flag to use real floppy or not causes disk change event
               latched_disk_change_event <= '1';
@@ -2656,6 +2756,20 @@ begin  -- behavioural
         when FDCReadingSector =>
           if fdc_read_request='1' then
             -- We have an FDC request in progress.
+
+            if fdc_rotation_timeout_reserve_counter /= 0 then
+              fdc_rotation_timeout_reserve_counter <= fdc_rotation_timeout_reserve_counter - 1;
+            else
+              -- Out of time: fail job
+              report "Clearing fdc_read_request due to timeout";
+              f011_rnf <= '1';
+              fdc_read_request <= '0';
+              fdc_bytes_read(4) <= '1';
+              f011_busy <= '0';
+              sd_state <= Idle;
+            end if;
+
+            
 --        report "fdc_read_request asserted, checking for activity";
             last_f_index <= f_index;
             if index_wait_timeout /= 0 then
