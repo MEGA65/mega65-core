@@ -687,6 +687,7 @@ architecture Behavioral of viciv is
   signal sprite_fetch_byte_number_drive : integer range 0 to 319 := 0;
   signal sprite_pointer_address : unsigned(19 downto 0) := to_unsigned(0,20);
   signal sprite_data_address : unsigned(19 downto 0) := to_unsigned(0,20);
+  signal sprite_data_addresses : spritebaseaddresses := (others => to_unsigned(0,20));
   signal sprite_h640_msbs : std_logic_vector(7 downto 0) := x"00";
 
   -- Compatibility registers
@@ -2883,7 +2884,7 @@ begin
       vgagreen <= vgagreen_driver;
       vgablue <= vgablue_driver;
 
-      sprite_data_offsets(sprite_number_for_data_rx) <= sprite_data_offset_rx;
+      sprite_data_offsets(sprite_number_for_data_rx) <= sprite_data_offset_rx;      
       -- Ask for the next one (8 sprites + 8 C65 bitplanes)
       if sprite_number_counter = 15 then
         sprite_number_counter <= 0;
@@ -4797,10 +4798,17 @@ begin
           -- from the ram data to be added to the upper bits of the
           -- sprite_data_offsets() value for the sprite
           if sprite_fetch_sprite_number < 8 then
-            sprite_data_address(16) <= '0';
-            sprite_data_address(15) <= sprite_pointer_address(15);
-            sprite_data_address(14) <= sprite_pointer_address(14);
-            sprite_data_address(13 downto 0) <= (ramdata_drive&"000000") + to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
+            -- But only accept the new sprite data address at the start of
+            -- display of a sprite
+            if sprite_data_offsets(sprite_fetch_sprite_number) /= 0 then
+              sprite_data_address <= sprite_data_addresses(sprite_fetch_sprite_number) + to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
+            else
+              sprite_data_addresses(sprite_fetch_sprite_number)(19 downto 16) <= "0000";
+              sprite_data_addresses(sprite_fetch_sprite_number)(16) <= '0';
+              sprite_data_addresses(sprite_fetch_sprite_number)(15) <= sprite_pointer_address(15);
+              sprite_data_addresses(sprite_fetch_sprite_number)(14) <= sprite_pointer_address(14);
+              sprite_data_addresses(sprite_fetch_sprite_number)(13 downto 0) <= (ramdata_drive&"000000");
+            end if;
             -- sprite_data_address(5 downto 0) <= to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),6);
             report "SPRITE: sprite #"
               & integer'image(sprite_fetch_sprite_number)
@@ -4830,7 +4838,11 @@ begin
           -- XXX It would be nice to use bit 7 to indicate to source from
           -- colour RAM, but for now we just clip to the 1MB chip RAM range
           report "SPRITE: setting upper bits of sprite data address to $" & to_hstring(ramdata_drive);
-          sprite_data_address(19 downto 14) <= ramdata_drive(5 downto 0);
+          if sprite_data_offsets(sprite_fetch_sprite_number) /= 0 then
+            sprite_data_address <= sprite_data_addresses(sprite_fetch_sprite_number) + to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
+          else
+            sprite_data_addresses(sprite_fetch_sprite_number)(19 downto 14) <= ramdata_drive(5 downto 0);
+          end if;
           raster_fetch_state <= SpriteDataFetch;
         when SpriteDataFetch =>
           -- Show what we are doing in debug display mode
