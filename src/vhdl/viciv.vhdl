@@ -4804,12 +4804,10 @@ begin
             -- But only accept the new sprite data address at the start of
             -- display of a sprite
             if sprite_continuous_pointer_monitoring='1' then
-              sprite_data_addresses(sprite_fetch_sprite_number)(19 downto 16) <= "0000";
-              sprite_data_addresses(sprite_fetch_sprite_number)(16) <= '0';
-              sprite_data_addresses(sprite_fetch_sprite_number)(15) <= sprite_pointer_address(15);
-              sprite_data_addresses(sprite_fetch_sprite_number)(14) <= sprite_pointer_address(14);
-              sprite_data_addresses(sprite_fetch_sprite_number)(13 downto 0)
-                <= (ramdata_drive&"000000") + to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
+              sprite_data_address(16) <= '0';
+              sprite_data_address(15) <= sprite_pointer_address(15);
+              sprite_data_address(14) <= sprite_pointer_address(14);
+              sprite_data_address(13 downto 0) <= (ramdata_drive&"000000") + to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
             else 
               if sprite_data_offsets(sprite_fetch_sprite_number) /= 0 then
                 sprite_data_address <= sprite_data_addresses(sprite_fetch_sprite_number) + to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
