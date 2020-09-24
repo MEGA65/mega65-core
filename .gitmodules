@@ -1,30 +1,40 @@
 [submodule "cc65"]
 	path = cc65
 	url = https://github.com/cc65/cc65.git
+	ignore = dirty
 [submodule "cbmconvert"]
 	path = cbmconvert
 	url = https://github.com/sasq64/cbmconvert.git
+	ignore = dirty
 [submodule "Ophis"]
 	path = Ophis
 	url = https://github.com/gardners/Ophis.git
+	ignore = dirty
 [submodule "src/mega65-fdisk"]
 	path = src/mega65-fdisk
 	url = https://github.com/MEGA65/mega65-fdisk.git
+	ignore = dirty
 [submodule "iverilog"]
 	path = iverilog
 	url = https://github.com/steveicarus/iverilog.git
+	ignore = dirty
 [submodule "ghdl"]
 	path = ghdl
 	url = https://github.com/ghdl/ghdl.git
+	ignore = dirty
 [submodule "src/mega65-freezemenu"]
 	path = src/mega65-freezemenu
 	url = https://github.com/MEGA65/mega65-freezemenu.git
+	ignore = dirty
 [submodule "open-roms"]
 	path = src/open-roms
 	url = https://github.com/MEGA65/open-roms.git
+	ignore = dirty
 [submodule "src/mega65-libc"]
 	path = src/mega65-libc
 	url = https://github.com/MEGA65/mega65-libc.git
+	ignore = dirty
 [submodule "src/tools/acme"]
 	path = src/tools/acme
 	url = https://github.com/MEGA65/acme.git
+	ignore = dirty
