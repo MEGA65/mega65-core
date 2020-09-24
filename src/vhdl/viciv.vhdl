@@ -299,7 +299,7 @@ architecture Behavioral of viciv is
   signal vicii_ycounter_scale_minus_zero : unsigned(3 downto 0) := to_unsigned(2-1,4);
   signal chargen_x_scale : unsigned(7 downto 0) := to_unsigned(120,8);
   signal sprite_first_x : unsigned(13 downto 0) := to_unsigned(31,14); 
-  signal sprite_y_adjust : unsigned(7 downto 0) := to_unsigned(2,8);  
+  signal sprite_y_adjust : unsigned(7 downto 0) := to_unsigned(0,8);  
   signal sprite_x_counting : std_logic := '0';
   signal sprite_x_scale_toggle : std_logic := '0';
   -- Each character pixel will be (n+1) pixels high
@@ -2748,7 +2748,7 @@ begin
                   vicii_first_raster <= to_unsigned(0,9);
                 end if;
               when "10" => -- NTSC, 720x480 @ 60Hz
-                sprite_y_adjust <= to_unsigned(22,8);
+                sprite_y_adjust <= to_unsigned(24,8);
                 vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                 vicii_max_raster <= ntsc_max_raster;
                 hsync_polarity_internal <= '1';
@@ -2758,7 +2758,7 @@ begin
                 end if;
                 
               when "11" => -- NTSC 720x480 60Hz
-                sprite_y_adjust <= to_unsigned(22,8);
+                sprite_y_adjust <= to_unsigned(24,8);
                 vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                 -- NTSC but with PAL max raster
                 vicii_max_raster <= pal_max_raster;
@@ -2768,7 +2768,7 @@ begin
                   vicii_first_raster <= to_unsigned(7,9);
                 end if;
               when others => -- Default to NTSC 800x600 60Hz
-                sprite_y_adjust <= to_unsigned(22,8);
+                sprite_y_adjust <= to_unsigned(24,8);
                 vicii_ycounter_scale_minus_zero <= to_unsigned(2-1,4);
                 hsync_polarity_internal <= '1';
                 vsync_polarity_internal <= '0';
