@@ -1038,6 +1038,8 @@ architecture Behavioral of viciv is
   signal hyper_request_toggle_drive2 : std_logic := '0';
   signal hyper_request_toggle_drive3 : std_logic := '0';
   signal hyper_data_counter : unsigned(31 downto 0) := to_unsigned(0,32);
+
+  signal sprite_continuous_pointer_monitoring : std_logic := '1';
   
 begin
 
@@ -1983,9 +1985,8 @@ begin
           fastio_rdata <= std_logic_vector(vicii_raster_compare(7 downto 0));
         elsif register_number=122 then  -- $D307A Read raster compare MSB / raster compare source
           fastio_rdata(2 downto 0) <= std_logic_vector(vicii_raster_compare(10 downto 8));
-          fastio_rdata(6 downto 3) <= (others => '0');
-          -- XXX debug DD00 bits
-          fastio_rdata(4 downto 3) <= std_logic_vector(last_dd00_bits);
+          fastio_rdata(3) <= sprite_continuous_pointer_monitoring;
+          fastio_rdata(6 downto 4) <= (others => '0');
 	  fastio_rdata(7) <= vicii_is_raster_source;
         elsif register_number=123 then  -- $D307B
           fastio_rdata <= std_logic_vector(display_row_count);
@@ -2818,8 +2819,10 @@ begin
           vicii_raster_compare(7 downto 0) <= unsigned(fastio_wdata);
         elsif register_number=122 then  -- $D307A
           -- @IO:GS $D07A.0-2 VIC-IV:RSTCMP Raster compare value MSB
-          -- @IO:GS $D07A.3-6 VIC-IV:RESERVED 
+          -- @IO:GS $D07A.4-6 VIC-IV:RESERVED 
           -- @IO:GS $D07A.7 VIC-IV:FNRSTCMP Raster compare is in physical rasters if set, or VIC-II raster if clear
+          -- @IO:GS $D07A.7 VIC-IV:SPTRCONT Continuously monitor sprite pointer, to allow changing sprite data source while a sprite is being drawn
+          sprite_continuous_pointer_monitoring <= fastio_wdata(3);
           vicii_raster_compare(10 downto 8) <= unsigned(fastio_wdata(2 downto 0));
           vicii_is_raster_source <= fastio_wdata(7);
         elsif register_number=123 then
@@ -4800,14 +4803,23 @@ begin
           if sprite_fetch_sprite_number < 8 then
             -- But only accept the new sprite data address at the start of
             -- display of a sprite
-            if sprite_data_offsets(sprite_fetch_sprite_number) /= 0 then
-              sprite_data_address <= sprite_data_addresses(sprite_fetch_sprite_number) + to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
-            else
+            if sprite_continuous_pointer_monitoring='1' then
               sprite_data_addresses(sprite_fetch_sprite_number)(19 downto 16) <= "0000";
               sprite_data_addresses(sprite_fetch_sprite_number)(16) <= '0';
               sprite_data_addresses(sprite_fetch_sprite_number)(15) <= sprite_pointer_address(15);
               sprite_data_addresses(sprite_fetch_sprite_number)(14) <= sprite_pointer_address(14);
-              sprite_data_addresses(sprite_fetch_sprite_number)(13 downto 0) <= (ramdata_drive&"000000");
+              sprite_data_addresses(sprite_fetch_sprite_number)(13 downto 0)
+                <= (ramdata_drive&"000000") + to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
+            else 
+              if sprite_data_offsets(sprite_fetch_sprite_number) /= 0 then
+                sprite_data_address <= sprite_data_addresses(sprite_fetch_sprite_number) + to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),14);
+              else
+                sprite_data_addresses(sprite_fetch_sprite_number)(19 downto 16) <= "0000";
+                sprite_data_addresses(sprite_fetch_sprite_number)(16) <= '0';
+                sprite_data_addresses(sprite_fetch_sprite_number)(15) <= sprite_pointer_address(15);
+                sprite_data_addresses(sprite_fetch_sprite_number)(14) <= sprite_pointer_address(14);
+                sprite_data_addresses(sprite_fetch_sprite_number)(13 downto 0) <= (ramdata_drive&"000000");
+              end if;
             end if;
             -- sprite_data_address(5 downto 0) <= to_unsigned(sprite_data_offsets(sprite_fetch_sprite_number),6);
             report "SPRITE: sprite #"
