@@ -513,6 +513,9 @@ begin
       clock27 => clock27,
       clock50mhz      => ethclock,
 
+      -- No IEC bus on this hardware, so no need to slow CPU down for it.
+      iec_bus_active => '0',
+      
       btncpureset => '1',
       reset_out => reset_out,
       irq => irq,
