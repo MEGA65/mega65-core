@@ -215,6 +215,8 @@ architecture Behavioral of container is
   
   signal sector_buffer_mapped : std_logic;
 
+  signal kbd_datestamp : unsigned(13 downto 0)  := to_unsigned(0,14);  
+  signal kbd_commit : unsigned(31 downto 0) := to_unsigned(0,32);  
 
   signal vgaredignore : unsigned(3 downto 0);
   signal vgagreenignore : unsigned(3 downto 0);
@@ -515,6 +517,9 @@ begin
 
       -- No IEC bus on this hardware, so no need to slow CPU down for it.
       iec_bus_active => '0',
+
+      kbd_datestamp => kbd_datestamp,
+      kbd_commit => kbd_commit,
       
       btncpureset => '1',
       reset_out => reset_out,
