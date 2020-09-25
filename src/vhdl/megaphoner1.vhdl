@@ -187,19 +187,19 @@ architecture Behavioral of container is
   signal buffer_vgagreen : unsigned(7 downto 0);
   signal buffer_vgablue : unsigned(7 downto 0);
 
-  signal pixelclock : std_logic;
-  signal cpuclock : std_logic;
   signal ethclock : std_logic;
+  signal cpuclock : std_logic;
   signal clock41 : std_logic;
   signal clock27 : std_logic;
-  signal clock81 : std_logic;
+  signal pixelclock : std_logic; -- i.e., clock81p
   signal clock81n : std_logic;
-  signal clock100 : std_logic; 
+  signal clock100 : std_logic;
   signal clock135p : std_logic;
   signal clock135n : std_logic;
+  signal clock162 : std_logic;
+  signal clock200 : std_logic;
   signal clock325 : std_logic;
-  signal clock163 : std_logic;
-
+  
   signal segled_counter : unsigned(31 downto 0) := (others => '0');
 
   signal slow_access_request_toggle : std_logic;
@@ -357,8 +357,8 @@ begin
              );
 -- End of STARTUPE2_inst instantiation
 
-  
-  -- New clocking setup, using more optimised selection of multipliers
+
+    -- New clocking setup, using more optimised selection of multipliers
   -- and dividers, as well as the ability of some clock outputs to provide an
   -- inverted clock for free.
   -- Also, the 50 and 100MHz ethernet clocks are now independent of the other
@@ -366,16 +366,17 @@ begin
   -- protected) domain crossings used for those.
   clocks1: entity work.clocking
     port map ( clk_in    => CLK_IN,
-               clock27   => clock27,    --   27.083 MHz
-               clock41   => cpuclock,   --   40.625 MHz
+               clock27   => clock27,    --   27     MHz
+               clock41   => cpuclock,   --   40.5   MHz
                clock50   => ethclock,   --   50     MHz
-               clock81p  => pixelclock, --   81.25  MHz
-               clock81n  => clock81n,   --   81.25  MHz
+               clock81p  => pixelclock, --   81     MHz
+               clock81n  => clock81n,   --   81     MHz
                clock100  => clock100,   --  100     MHz
-               clock135p => clock135p,  --  135.417 MHz
-               clock135n => clock135n,  --  135.417 MHz
-               clock163  => clock163,   -- 162.5    MHz
-               clock325  => clock325    -- 325      MHz
+               clock135p => clock135p,  --  135     MHz
+               clock135n => clock135n,  --  135     MHz
+               clock163  => clock162,   --  162.5   MHz
+               clock200  => clock200,   --  200     MHz
+               clock325  => clock325    --  325     MHz
                );
 
   fpgatemp0: fpgatemp
@@ -506,10 +507,12 @@ begin
       pixelclock      => pixelclock,
       cpuclock        => cpuclock,
       uartclock       => cpuclock, -- Match CPU clock
-      clock162 => clock163,
+      clock162 => clock162,
       clock100 => clock100,
+      clock200 => clock200,
       clock27 => clock27,
       clock50mhz      => ethclock,
+
       btncpureset => '1',
       reset_out => reset_out,
       irq => irq,
