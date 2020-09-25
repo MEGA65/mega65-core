@@ -390,7 +390,7 @@ begin
   hyperram0: entity work.hyperram
     port map (
       pixelclock => pixelclock,
-      clock163 => clock163,
+      clock163 => clock162,
       clock325 => clock325,
 
       -- XXX Debug by showing if expansion RAM unit is receiving requests or not
