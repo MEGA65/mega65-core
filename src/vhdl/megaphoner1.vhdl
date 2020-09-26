@@ -45,6 +45,9 @@ entity container is
          i2c1sda : inout std_logic;
          i2c1scl : inout std_logic;
 
+         smartcard_clk : inout std_logic;
+         smartcard_io : inout std_logic;
+         
          modem1_pcm_clk_in : in std_logic;
          modem1_pcm_sync_in : in std_logic;
          modem1_pcm_data_in : in std_logic;
@@ -261,7 +264,8 @@ architecture Behavioral of container is
   signal iec_data_i : std_logic := '1';
   signal iec_clk_i : std_logic := '1';
   signal iec_atn : std_logic := 'Z';
-
+  signal smartcard_io_read : std_logic := '1';
+  signal smartcard_clk_read : std_logic := '1';
 
   -- XXX We should read the real temperature and feed this to the DDR controller
   -- so that it can update timing whenever the temperature changes too much.
@@ -596,8 +600,8 @@ begin
       iec_reset => iec_reset,
       iec_clk_o => iec_clk_o,
       iec_atn_o => iec_atn,
-      iec_data_external => '1',
-      iec_clk_external => '1',
+      iec_data_external => smartcard_io_read,
+      iec_clk_external => smartcard_clk_read,
 
       no_hyppo => '0',
 
@@ -730,6 +734,29 @@ begin
 
   lcd_dclk <= clock27;
 
+  process (cpuclock)
+  begin    
+    if rising_edge(cpuclock) then
+      -- Connect Smartcard CLK and IO lines to IEC bus lines for easy control
+      -- and debugging
+      if iec_data_en='1' then
+        smartcard_io <= not iec_data_o;
+        smartcard_io_read <= not iec_data_o;
+      else
+        smartcard_io <= 'Z';
+        smartcard_io_read <= smartcard_io;
+      end if;
+      if iec_clk_en='1' then
+        smartcard_clk <= not iec_clk_o;
+        smartcard_clk_read <= not iec_clk_o;
+      else
+        smartcard_clk <= 'Z';
+        smartcard_clk_read <= smartcard_clk;
+      end if;
+    end if;
+  end process;
+  
+  
   process (clock27)
   begin
 

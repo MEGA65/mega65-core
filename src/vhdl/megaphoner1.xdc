@@ -47,6 +47,15 @@ set_property -dict {PACKAGE_PIN V2 IOSTANDARD LVCMOS33} [get_ports i2s_bclk]
 set_property -dict {PACKAGE_PIN U3 IOSTANDARD LVCMOS33} [get_ports i2s_sync]
 set_property -dict {PACKAGE_PIN U4 IOSTANDARD LVCMOS33} [get_ports i2s_speaker]
 
+# Smart card interface
+set_property -dict {PACKAGE_PIN B6 IOSTANDARD LVCMOS33} [get_ports smartcard_clk]
+set_property -dict {PACKAGE_PIN G2 IOSTANDARD LVCMOS33} [get_ports smartcard_io]
+# Smartcard RST connects to P17 of U12, the 2nd IO expander
+#set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports smartcard_rst]
+# Smartcard SenseA connects to GPIO12 of the bluetooth module
+#set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports smartcard_sense]
+
+
 # MiniPCIe modem port 1
 set_property -dict {PACKAGE_PIN R7 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_clk_in]
 set_property -dict {PACKAGE_PIN V6 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_sync_in]
