@@ -299,27 +299,46 @@ set_property -dict {PACKAGE_PIN D1 IOSTANDARD LVCMOS33 PULLUP FALSE} [get_ports 
 set_property -dict {PACKAGE_PIN H4 IOSTANDARD LVCMOS33 PULLUP FALSE} [get_ports hr2_rwds]
 set_property -dict {PACKAGE_PIN H5 IOSTANDARD LVCMOS33 PULLUP FALSE} [get_ports hr2_reset]
 set_property -dict {PACKAGE_PIN J5 IOSTANDARD LVCMOS33 PULLUP FALSE} [get_ports hr2_cs0]
-##
-### Pmod Header P1 (actually redirected to motherboard HyperRAM hr_d[0-7] for debug)
-#set_property -dict { PACKAGE_PIN A21 IOSTANDARD LVCMOS33 } [get_ports {p1lo[0]}]
-#set_property -dict { PACKAGE_PIN D21 IOSTANDARD LVCMOS33 } [get_ports {p1lo[1]}]
-#set_property -dict { PACKAGE_PIN C20 IOSTANDARD LVCMOS33 } [get_ports {p1lo[2]}]
-#set_property -dict { PACKAGE_PIN A20 IOSTANDARD LVCMOS33 } [get_ports {p1lo[3]}]
-#set_property -dict { PACKAGE_PIN B20 IOSTANDARD LVCMOS33 } [get_ports {p1hi[0]}]
-#set_property -dict { PACKAGE_PIN A19 IOSTANDARD LVCMOS33 } [get_ports {p1hi[1]}]
-#set_property -dict { PACKAGE_PIN E21 IOSTANDARD LVCMOS33 } [get_ports {p1hi[2]}]
-#set_property -dict { PACKAGE_PIN E22 IOSTANDARD LVCMOS33 } [get_ports {p1hi[3]}]
-#
-### Pmod Header P2 (actually redirected to motherboard HyperRAM for debug)
-### hr_RWDS, hr_reset, hr_cs0, NC, p2hi[0], p2lo[0], p1lo[3], NC
-#set_property -dict { PACKAGE_PIN B21 IOSTANDARD LVCMOS33 } [get_ports {p2lo[0]}]
-#set_property -dict { PACKAGE_PIN B22 IOSTANDARD LVCMOS33 } [get_ports {p2lo[1]}]
-#set_property -dict { PACKAGE_PIN C22 IOSTANDARD LVCMOS33 } [get_ports {p2lo[2]}]
-#set_property -dict { PACKAGE_PIN F19 IOSTANDARD LVCMOS33 } [get_ports {p2lo[3]}]
-#set_property -dict { PACKAGE_PIN E2 IOSTANDARD LVCMOS33 } [get_ports {p2hi[0]}]
-#set_property -dict { PACKAGE_PIN F3 IOSTANDARD LVCMOS33 } [get_ports {p2hi[1]}]
-#set_property -dict { PACKAGE_PIN A1 IOSTANDARD LVCMOS33 } [get_ports {p2hi[2]}]
-#set_property -dict { PACKAGE_PIN F20 IOSTANDARD LVCMOS33 } [get_ports {p2hi[3]}]
+
+# 80 MHz Hyperram bus
+set hbus_freq_ns   12
+# Set allowable clock drift 
+set dqs_in_min_dly -0.5
+set dqs_in_max_dly  0.5
+ 
+set hr0_dq_ports    [get_ports hr_d[*]]
+create_clock -period 12 -name rwds_clk      [get_ports hr_rwds]
+create_clock -period 12 -name virt_rwds_clk
+
+set_input_delay -clock [get_clocks virt_rwds_clk]             -max ${dqs_in_max_dly} ${hr0_dq_ports}
+set_input_delay -clock [get_clocks virt_rwds_clk] -clock_fall -max ${dqs_in_max_dly} ${hr0_dq_ports} -add_delay
+set_input_delay -clock [get_clocks virt_rwds_clk]             -min ${dqs_in_min_dly} ${hr0_dq_ports} -add_delay
+set_input_delay -clock [get_clocks virt_rwds_clk] -clock_fall -min ${dqs_in_min_dly} ${hr0_dq_ports} -add_delay
+set_multicycle_path -setup -end -rise_from [get_clocks virt_rwds_clk] -rise_to [get_clocks rwds_clk] 0
+set_multicycle_path -setup -end -fall_from [get_clocks virt_rwds_clk] -fall_to [get_clocks rwds_clk] 0
+set_false_path  -fall_from [get_clocks virt_rwds_clk] -rise_to [get_clocks rwds_clk] -setup
+set_false_path  -rise_from [get_clocks virt_rwds_clk] -fall_to [get_clocks rwds_clk] -setup
+set_false_path  -fall_from [get_clocks virt_rwds_clk] -fall_to [get_clocks rwds_clk] -hold
+set_false_path  -rise_from [get_clocks virt_rwds_clk] -rise_to [get_clocks rwds_clk] -hold
+set_false_path -from [get_clocks clk_in] -to [get_clocks rwds_clk]
+set_false_path -from [get_clocks rwds_clk] -to [get_clocks clk_in]
+
+set hr2_dq_ports    [get_ports hr2_d[*]]
+create_clock -period 12 -name rwds2_clk      [get_ports hr2_rwds]
+create_clock -period 12 -name virt_rwds2_clk
+
+set_input_delay -clock [get_clocks virt_rwds2_clk]             -max ${dqs_in_max_dly} ${hr2_dq_ports}
+set_input_delay -clock [get_clocks virt_rwds2_clk] -clock_fall -max ${dqs_in_max_dly} ${hr2_dq_ports} -add_delay
+set_input_delay -clock [get_clocks virt_rwds2_clk]             -min ${dqs_in_min_dly} ${hr2_dq_ports} -add_delay
+set_input_delay -clock [get_clocks virt_rwds2_clk] -clock_fall -min ${dqs_in_min_dly} ${hr2_dq_ports} -add_delay
+set_multicycle_path -setup -end -rise_from [get_clocks virt_rwds2_clk] -rise_to [get_clocks rwds2_clk] 0
+set_multicycle_path -setup -end -fall_from [get_clocks virt_rwds2_clk] -fall_to [get_clocks rwds2_clk] 0
+set_false_path  -fall_from [get_clocks virt_rwds2_clk] -rise_to [get_clocks rwds2_clk] -setup
+set_false_path  -rise_from [get_clocks virt_rwds2_clk] -fall_to [get_clocks rwds2_clk] -setup
+set_false_path  -fall_from [get_clocks virt_rwds2_clk] -fall_to [get_clocks rwds2_clk] -hold
+set_false_path  -rise_from [get_clocks virt_rwds2_clk] -rise_to [get_clocks rwds2_clk] -hold
+set_false_path -from [get_clocks clk_in] -to [get_clocks rwds2_clk]
+set_false_path -from [get_clocks rwds2_clk] -to [get_clocks clk_in]
 
 ##SMSC Ethernet PHY
 #
