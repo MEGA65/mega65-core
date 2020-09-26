@@ -517,6 +517,7 @@ begin
 
       -- No IEC bus on this hardware, so no need to slow CPU down for it.
       iec_bus_active => '0',
+      iec_srq_external => '1',
 
       kbd_datestamp => kbd_datestamp,
       kbd_commit => kbd_commit,
