@@ -17,6 +17,9 @@ set_clock_groups -asynchronous \
 set_false_path -from [get_clocks cpuclock] -to [get_clocks ethclock]
 set_false_path -from [get_clocks ethclock] -to [get_clocks cpuclock]
 
+# Allow sub-optimal placement of MMCMs
+set_property CLOCK_DEDICATED_ROUTE BACKBONE [get_nets clocks1/clock124mhz]
+
 ## LED on TE0725
 set_property -dict { PACKAGE_PIN M16 IOSTANDARD LVCMOS33 } [get_ports led]
 
