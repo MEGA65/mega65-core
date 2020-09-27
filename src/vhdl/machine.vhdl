@@ -92,11 +92,9 @@ entity machine is
          j21out : inout std_logic_vector(11 downto 0) := (others => '1');
          j21ddr : inout std_logic_vector(11 downto 0) := (others => '0');
          
-         buffereduart_rx : inout std_logic;
-         buffereduart_tx : out std_logic := '1';
-         buffereduart_ringindicate : in std_logic;
-         buffereduart2_rx : inout std_logic := '0';
-         buffereduart2_tx : out std_logic := '1';
+         buffereduart_rx : inout std_logic_vector(7 downto 0);
+         buffereduart_tx : out std_logic_vector(7 downto 0);
+         buffereduart_ringindicate : in std_logic_vector(7 downto 0);
          
          slow_access_request_toggle : out std_logic := '0';
          slow_access_ready_toggle : in std_logic := '0';
@@ -1466,8 +1464,6 @@ begin
       buffereduart_rx => buffereduart_rx,
       buffereduart_tx => buffereduart_tx,
       buffereduart_ringindicate => buffereduart_ringindicate,
-      buffereduart2_rx => buffereduart2_rx,
-      buffereduart2_tx => buffereduart2_tx,
 
       cpu_pcm_left => cpu_pcm_left,
       cpu_pcm_right => cpu_pcm_right,

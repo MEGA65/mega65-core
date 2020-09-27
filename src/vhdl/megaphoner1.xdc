@@ -34,8 +34,22 @@ set_property -dict {PACKAGE_PIN L13 IOSTANDARD LVCMOS33} [get_ports QspiCSn]
 set_property -dict {PACKAGE_PIN C5 IOSTANDARD LVCMOS33} [get_ports power_down]
 
 # WiFi header UART
-set_property -dict {PACKAGE_PIN D8 IOSTANDARD LVCMOS33} [get_ports wifitx]
-set_property -dict {PACKAGE_PIN F6 IOSTANDARD LVCMOS33} [get_ports wifirx]
+set_property -dict {PACKAGE_PIN D8 IOSTANDARD LVCMOS33} [get_ports wifi_uart_tx]
+set_property -dict {PACKAGE_PIN F6 IOSTANDARD LVCMOS33} [get_ports wifi_uart_rx]
+
+# LoRa A and B header UARTs
+set_property -dict {PACKAGE_PIN C7 IOSTANDARD LVCMOS33} [get_ports lora1_uart_tx]
+set_property -dict {PACKAGE_PIN G6 IOSTANDARD LVCMOS33} [get_ports lora1_uart_rx]
+set_property -dict {PACKAGE_PIN D7 IOSTANDARD LVCMOS33} [get_ports lora2_uart_tx]
+set_property -dict {PACKAGE_PIN E5 IOSTANDARD LVCMOS33} [get_ports lora2_uart_rx]
+
+
+# Bluetooth UART
+set_property -dict {PACKAGE_PIN F4 IOSTANDARD LVCMOS33} [get_ports bluetooth_wifi_tx]
+set_property -dict {PACKAGE_PIN F3 IOSTANDARD LVCMOS33} [get_ports bluetooth_wifi_rx]
+set_property -dict {PACKAGE_PIN N5 IOSTANDARD LVCMOS33} [get_ports bluetooth_pcm_clk]
+set_property -dict {PACKAGE_PIN P5 IOSTANDARD LVCMOS33} [get_ports bluetooth_pcm_sync]
+set_property -dict {PACKAGE_PIN V1 IOSTANDARD LVCMOS33} [get_ports bluetooth_pcm_out]
 
 # I2C bus for IO expanders, accelerometer and speaker amplifier controller
 set_property -dict {PACKAGE_PIN B7 IOSTANDARD LVCMOS33} [get_ports i2c1sda]
@@ -139,7 +153,7 @@ set_property -dict {PACKAGE_PIN T8 IOSTANDARD LVCMOS33} [get_ports sdMOSI]
 set_property -dict {PACKAGE_PIN R8 IOSTANDARD LVCMOS33} [get_ports sdClock]
 
 ##PWM Audio Amplifier
-set_property -dict {PACKAGE_PIN P5 IOSTANDARD LVCMOS33} [get_ports headphone_left]
+set_property -dict {PACKAGE_PIN T5 IOSTANDARD LVCMOS33} [get_ports headphone_left]
 set_property -dict {PACKAGE_PIN T4 IOSTANDARD LVCMOS33} [get_ports headphone_right]
 
 ## Hyper RAM : 1.8V allows for higher speed, but requires differential clock pair

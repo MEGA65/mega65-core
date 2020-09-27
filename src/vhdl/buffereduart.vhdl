@@ -35,18 +35,11 @@ entity buffereduart is
     buffereduart_cs : in std_logic;
 
     ---------------------------------------------------------------------------
-    -- IO lines to the UART
+    -- IO lines to the UARTs
     ---------------------------------------------------------------------------
-    uart_rx : inout std_logic := 'H';
-    uart_tx : out std_logic := '1';
-    -- Only the primary UART has a ring indicate input
-    uart_ringindicate : in std_logic;    
-
-    ---------------------------------------------------------------------------
-    -- IO lines to the second (auxilliary) UART
-    ---------------------------------------------------------------------------    
-    uart2_rx : inout std_logic := 'H';
-    uart2_tx : out std_logic := '1';
+    uart_rx : inout std_logic_vector(7 downto 0) := (others => 'H');
+    uart_tx : out std_logic_vector(7 downto 0) := (others => '1');
+    uart_ringindicate : in std_logic_vector(7 downto 0);    
     
     ---------------------------------------------------------------------------
     -- fast IO port (clocked at core clock). 1MB address space

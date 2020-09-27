@@ -66,11 +66,9 @@ entity iomapper is
         uart_monitor_char : out unsigned(7 downto 0);
         uart_monitor_char_valid : out std_logic := '0';
 
-        buffereduart_rx : inout std_logic := 'H';
-        buffereduart_tx : out std_logic := '1';
-        buffereduart_ringindicate : in std_logic;
-        buffereduart2_rx : inout std_logic := 'H';
-        buffereduart2_tx : out std_logic := '1';
+        buffereduart_rx : inout std_logic_vector(7 downto 0) := 'H';
+        buffereduart_tx : out std_logic_vector(7 downto 0) := '1';
+        buffereduart_ringindicate : in std_logic_vector(7 downto 0);
 
         fm_left : in signed(15 downto 0) := x"0000";
         fm_right : in signed(15 downto 0) := x"0000";
@@ -1152,8 +1150,6 @@ begin
     uart_rx => buffereduart_rx,
     uart_tx => buffereduart_tx,
     uart_ringindicate => buffereduart_ringindicate,
-    uart2_rx => buffereduart2_rx,
-    uart2_tx => buffereduart2_tx,
 
     fastio_addr => unsigned(address),
     fastio_write => w,

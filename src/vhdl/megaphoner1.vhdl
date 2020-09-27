@@ -39,8 +39,16 @@ entity container is
 --         irq : in  STD_LOGIC;
 --         nmi : in  STD_LOGIC;
 
-         wifirx : out std_logic := '1';
-         wifitx : out std_logic := '1';
+         wifi_uart_rx : inout std_logic := '1';
+         wifi_uart_tx : out std_logic := '1';
+
+         lora1_uart_rx : inout std_logic := '1';
+         lora1_uart_tx : out std_logic := '1';
+         lora2_uart_rx : inout std_logic := '1';
+         lora2_uart_tx : out std_logic := '1';
+
+         bluetooth_uart_rx : inout std_logic := '1';
+         bluetooth_uart_tx : out std_logic := '1';
 
          i2c1sda : inout std_logic;
          i2c1scl : inout std_logic;
@@ -52,8 +60,9 @@ entity container is
          modem1_pcm_sync_in : in std_logic;
          modem1_pcm_data_in : in std_logic;
          modem1_pcm_data_out : out std_logic;
---         modem1_uart2_rx : inout std_logic;
---         modem1_uart2_tx : out std_logic;
+
+         modem1_debug_uart_rx : inout std_logic;
+         modem1_debug_uart_tx : out std_logic;
          modem1_uart_rx : inout std_logic;
          modem1_uart_tx : out std_logic;
 
@@ -61,8 +70,9 @@ entity container is
          modem2_pcm_sync_in : in std_logic;
          modem2_pcm_data_in : in std_logic;
          modem2_pcm_data_out : out std_logic;
---         modem2_uart2_rx : inout std_logic;
---         modem2_uart2_tx : out std_logic;
+
+         modem2_debug_uart_rx : inout std_logic;
+         modem2_debug_uart_tx : out std_logic;
          modem2_uart_rx : inout std_logic;
          modem2_uart_tx : out std_logic;
 
@@ -702,11 +712,26 @@ begin
 --      uart_tx => jclo(2),
 
       -- Buffered UARTs for cellular modems etc
-      buffereduart_rx => modem1_uart_rx,
-      buffereduart_tx => modem1_uart_tx,
-      buffereduart2_rx => modem2_uart_rx,
-      buffereduart2_tx => modem2_uart_tx,
-      buffereduart_ringindicate => '0',
+      buffereduart_rx(0) => modem1_uart_rx,
+      buffereduart_tx(0) => modem1_uart_tx,
+      buffereduart_rx(1) => modem1_debug_uart_rx,
+      buffereduart_tx(1) => modem1_debug_uart_tx,
+      buffereduart_rx(2) => modem2_uart_rx,
+      buffereduart_tx(2) => modem2_uart_tx,
+      buffereduart_rx(3) => modem2_debug_uart_rx,
+      buffereduart_tx(3) => modem2_debug_uart_tx,
+      buffereduart_rx(4) => wifi_uart_rx,
+      buffereduart_tx(4) => wifi_uart_tx,
+      buffereduart_rx(5) => bluetooth_uart_rx,
+      buffereduart_tx(5) => bluetooth_uart_tx,
+      buffereduart_rx(6) => lora1_uart_rx,
+      buffereduart_tx(6) => lora1_uart_tx,
+      buffereduart_rx(7) => lora2_uart_rx,
+      buffereduart_tx(6) => lora2_uart_tx,
+      buffereduart_ringindicate(0) => modem1_ringindicate,
+      buffereduart_ringindicate(1) => '0',
+      buffereduart_ringindicate(2) => modem1_ringindicate,
+      buffereduart_ringindicate(7 downto 3) => "00000",
 
       slow_access_request_toggle => slow_access_request_toggle,
       slow_access_ready_toggle => slow_access_ready_toggle,
