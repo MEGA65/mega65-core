@@ -61,8 +61,8 @@ entity container is
          modem1_pcm_data_in : in std_logic;
          modem1_pcm_data_out : out std_logic;
 
-         modem1_debug_uart_rx : inout std_logic;
-         modem1_debug_uart_tx : out std_logic;
+--         modem1_debug_uart_rx : inout std_logic;
+--         modem1_debug_uart_tx : out std_logic;
          modem1_uart_rx : inout std_logic;
          modem1_uart_tx : out std_logic;
 
@@ -71,8 +71,8 @@ entity container is
          modem2_pcm_data_in : in std_logic;
          modem2_pcm_data_out : out std_logic;
 
-         modem2_debug_uart_rx : inout std_logic;
-         modem2_debug_uart_tx : out std_logic;
+--         modem2_debug_uart_rx : inout std_logic;
+--         modem2_debug_uart_tx : out std_logic;
          modem2_uart_rx : inout std_logic;
          modem2_uart_tx : out std_logic;
 

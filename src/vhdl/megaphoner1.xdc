@@ -76,8 +76,8 @@ set_property -dict {PACKAGE_PIN V6 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_sy
 set_property -dict {PACKAGE_PIN V7 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_data_in]
 set_property -dict {PACKAGE_PIN T6 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_data_out]
 # No debug UARTs on this revision of board, as we ran out of pins
-#set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports modem1_uart_debug_rx] 
-#set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports modem1_uart_debug_tx]
+#set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports modem1_debug_uart_rx] 
+#set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports modem1_debug_uart_tx]
 set_property -dict {PACKAGE_PIN M6 IOSTANDARD LVCMOS33} [get_ports modem1_uart_rx] 
 set_property -dict {PACKAGE_PIN N6 IOSTANDARD LVCMOS33} [get_ports modem1_uart_tx]
 
@@ -87,8 +87,8 @@ set_property -dict {PACKAGE_PIN R5 IOSTANDARD LVCMOS33} [get_ports modem2_pcm_sy
 set_property -dict {PACKAGE_PIN R6 IOSTANDARD LVCMOS33} [get_ports modem2_pcm_data_in]
 set_property -dict {PACKAGE_PIN V5 IOSTANDARD LVCMOS33} [get_ports modem2_pcm_data_out]
 # No debug UARTs on this revision of board, as we ran out of pins
-#set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports modem2_uart_debug_rx] 
-#set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports modem2_uart_debug_tx]
+#set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports modem2_debug_uart_rx] 
+#set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports modem2_debug_uart_tx]
 set_property -dict {PACKAGE_PIN U7 IOSTANDARD LVCMOS33} [get_ports modem2_uart_rx] 
 set_property -dict {PACKAGE_PIN U6 IOSTANDARD LVCMOS33} [get_ports modem2_uart_tx]
 
