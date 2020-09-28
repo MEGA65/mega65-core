@@ -54,114 +54,49 @@ end buffereduart;
 
 architecture behavioural of buffereduart is
 
+  -- Single shared buffer for all serial ports of 4KB
+  -- This means 512 bytes for each UART
+  -- 256 bytes TX buffer and 256 bytes RX buffer
   signal buffer_write : std_logic := '0';
   signal buffer_writeaddress : integer := 0;
   signal buffer_readaddress : integer := 0;
   signal buffer_wdata : unsigned(7 downto 0) := x"00"; 
   signal buffer_rdata : unsigned(7 downto 0) := x"00"; 
 
-  signal uart0_bit_rate_divisor_internal : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal uart2_bit_rate_divisor_internal : unsigned(15 downto 0) := to_unsigned(0,16);
-  signal tx0_data : unsigned(7 downto 0) := x"00";
-  signal tx0_last_data : unsigned(7 downto 0) := x"00";
-  signal tx2_data : unsigned(7 downto 0) := x"00";
-  signal tx0_ready : std_logic;
-  signal tx2_ready : std_logic;
-  signal tx0_trigger : std_logic := '0';
-  signal tx2_trigger : std_logic := '0';
-  signal rx0_data : unsigned(7 downto 0);
-  signal rx2_data : unsigned(7 downto 0);
-  signal rx0_ready : std_logic;
-  signal rx2_ready : std_logic;
-  signal rx0_ready_wait : std_logic := '0';
-  signal rx2_ready_wait : std_logic := '0';
-  signal tx0_ready_wait : std_logic := '0';
-  signal tx2_ready_wait : std_logic := '0';
-  signal rx0_acknowledge : std_logic := '0';
-  signal rx2_acknowledge : std_logic := '0';
+  signal uart_bit_rate_divisor : array(0 to 7) of unsigned(23 downto 0) := (others => to_unsigned(0,24));
+  signal uart_bit_rate_divisor_internal : array(0 to 7) of unsigned(23 downto 0) := (others => to_unsigned(0,24));
+  signal tx_data : array(0 to 7) of unsigned(7 downto 0) := (others => x"00");
+  signal last_tx_byte_written : array(0 to 7) of unsigned(7 downto 0) := (others => x"FF");
+  signal tx_ready : std_logic_vector(7 downto 0);
+  signal tx_trigger : std_logic_vector(7 downto 0) := (others => '0');
+  signal rx_data : array(0 to 7) of unsigned(7 downto 0);
+  signal rx_data_for_reading : array(0 to 7) of unsigned(7 downto 0) := (others => x"FF");
+  signal rx_ready : std_logic_vector(7 downto 0);
+  signal rx_acknowledge : std_logic_vector(7 downto 0) := (others => '0');
 
-  -- 1KB RX buffers for each UART, and 512 byte TX buffers
-  constant uart0_rx_buffer_start : integer := 0;
-  constant uart2_rx_buffer_start : integer := 1024;
-  constant uart0_tx_buffer_start : integer := 1024+1024;
-  constant uart2_tx_buffer_start : integer := 1024+1024+512;
-  signal uart0_rx_buffer_pointer : unsigned(9 downto 0) := to_unsigned(0,10);
-  signal uart0_rx_buffer_pointer_prev : unsigned(9 downto 0) := to_unsigned(1023,10);
-  signal uart2_rx_buffer_pointer : unsigned(9 downto 0) := to_unsigned(0,10);
-  signal uart2_rx_buffer_pointer_prev : unsigned(9 downto 0) := to_unsigned(1023,10);
-  signal uart0_tx_buffer_pointer : unsigned(8 downto 0) := to_unsigned(0,9);
-  signal uart2_tx_buffer_pointer : unsigned(8 downto 0) := to_unsigned(0,9);
-  -- Duplicates of the pointers for the CPU side
-  -- The RX pointers point to the last address read from, so need to be
-  -- initialised to point to the end of the buffer
-  signal uart0_rx_buffer_pointer_cpu : unsigned(9 downto 0) := to_unsigned(1023,10);
-  signal uart2_rx_buffer_pointer_cpu : unsigned(9 downto 0) := to_unsigned(1023,10);
-  signal uart0_tx_buffer_pointer_cpu : unsigned(8 downto 0) := to_unsigned(0,9);
-  signal uart2_tx_buffer_pointer_cpu : unsigned(8 downto 0) := to_unsigned(0,9);
-  -- (when the two are equal, the buffer is either empty or full)
-
-  signal queued_read : std_logic := '0';
-  signal queued_read_tx0 : std_logic := '0';
-  signal queued_read_tx2 : std_logic := '0';
-  signal queued_read_rx0 : std_logic := '0';
-  signal queued_read_rx2 : std_logic := '0';
-
-  signal queued_write : std_logic := '0';
-  signal queued_wdata : unsigned(7 downto 0) := x"00";
-  signal queued_address : integer := 0;
-
-  signal uart0_rx_byte : unsigned(7 downto 0) := x"00";
-  signal uart0_rx_byte_ready : std_logic := '0';
-  signal uart0_irq : std_logic := '0';
-  signal uart0_irq_on_rx : std_logic := '0';
-  signal uart0_irq_on_rx_highwater : std_logic := '0';
-  signal uart0_irq_on_tx_lowwater : std_logic := '0';
-  signal uart0_rx_empty : std_logic := '1';
-  signal uart0_tx_empty : std_logic := '1';
-  signal uart0_rx_full : std_logic := '0';
-  signal uart0_tx_full : std_logic := '0';
-  signal uart0_check_full : std_logic := '0';
-  signal uart0_check_empty : std_logic := '0';
+  signal rx_target : integer range 0 to 255 := 255;
   
-  signal uart2_rx_byte : unsigned(7 downto 0) := x"00";
-  signal uart2_rx_byte_ready : std_logic := '0';
-  signal uart2_irq : std_logic := '0';
-  signal uart2_irq_on_rx : std_logic := '0';
-  signal uart2_irq_on_rx_highwater : std_logic := '0';
-  signal uart2_irq_on_tx_lowwater : std_logic := '0';
-  signal uart2_rx_empty : std_logic := '1';
-  signal uart2_tx_empty : std_logic := '1';
-  signal uart2_rx_full : std_logic := '0';
-  signal uart2_tx_full : std_logic := '0';
-  signal uart2_check_full : std_logic := '0';
-  signal uart2_check_empty  : std_logic := '0';
-
-  signal uart0_rx_mux : std_logic;
-  signal uart2_rx_mux : std_logic;
-
-  signal uart0_rx_from_uart2_tx : std_logic := '0';
-  signal uart2_rx_from_uart0_tx : std_logic := '0';
-
-  signal uart0_tx_drive : std_logic;
-  signal uart2_tx_drive : std_logic;
-
-  signal uart0_read_byte_from_buffer : std_logic := '0';
-  signal uart2_read_byte_from_buffer : std_logic := '0';
-
-  signal uart0_rx_cpu_was_last : std_logic := '0';
-  signal uart2_rx_cpu_was_last : std_logic := '0';
-
-  signal uart0_tx_dummy_data : std_logic := '0';
-  signal uart0_tx_queue_dummy_data : std_logic := '0';
-  signal uart0_no_tx_buffer : std_logic := '0';
-
-  signal uart_rx_auto_advance : std_logic := '1';
-  signal uart0_rx_read_advance : std_logic := '0';
-  signal uart2_rx_read_advance : std_logic := '0';
+  signal uart_rx_buffer_pointer_write : array(0 to 7) of unsigned(7 downto 0) := to_unsigned(0,8);
+  signal uart_rx_buffer_pointer_read : array(0 to 7) of unsigned(7 downto 0) := to_unsigned(0,8);
+  signal uart_tx_buffer_pointer_write : array(0 to 7) of unsigned(7 downto 0) := to_unsigned(0,8);
+  signal uart_tx_buffer_pointer_read : array(0 to 7) of unsigned(7 downto 0) := to_unsigned(0,8);
   
-  signal last_was_read : std_logic := '0';
+  signal uart_rx_mux : std_logic_vector(7 downto 0);
 
-  signal queued_write_settle_counter : integer range 0 to 7 := 0;
+  -- Set when ANY IRQ condition for this UART is triggered
+  signal uart_irq_status : std_logic_vector(7 downto 0) := (others => '0');
+  -- Set when UART RX buffer is empty etc
+  signal uart_rx_empty : std_logic_vector(7 downto 0) := (others => '0');
+  signal uart_rx_highwater : std_logic_vector(7 downto 0) := (others => '0');
+  signal uart_rx_full : std_logic_vector(7 downto 0) := (others => '0');
+  -- And similarly for TX buffers
+  signal uart_tx_empty : std_logic_vector(7 downto 0) := (others => '0');
+  signal uart_tx_lowwater : std_logic_vector(7 downto 0) := (others => '0');
+  signal uart_tx_full : std_logic_vector(7 downto 0) := (others => '0');
+  -- Flags to enable interrupts on various conditions
+  signal uart_irq_on_rx_byte : std_logic_vector(7 downto 0) := (others => '0');
+  signal uart_irq_on_rx_highwater : std_logic_vector(7 downto 0) := (others => '0');
+  signal uart_irq_on_tx_lowwater : std_logic_vector(7 downto 0) := (others => '0'); 
   
 begin  -- behavioural
 
@@ -176,59 +111,30 @@ begin  -- behavioural
     address => buffer_readaddress,
     rdata => buffer_rdata);
 
-  uart_tx0: entity work.UART_TX_CTRL
-    port map (
-      send    => tx0_trigger,
-      BIT_TMR_MAX => uart0_bit_rate_divisor_internal,
-      clk     => clock,
-      data    => tx0_data,
-      ready   => tx0_ready,
-      uart_tx => uart0_tx_drive);
+  uarts: 
+  for i in 0 to 7 generate
+    tx: entity work.UART_TX_CTRL
+      port map (
+        send    => tx_trigger(i),
+        BIT_TMR_MAX => uart_bit_rate_divisor(i),
+        clk     => clock,
+        data    => tx_data(i),
+        ready   => tx_ready(i),
+        uart_tx => uart_tx_drive(i));
 
-  uart_rx0: entity work.uart_rx 
-    generic map (name => "0")
-    Port map ( clk => clock,
-               bit_rate_divisor => uart0_bit_rate_divisor_internal,
-               UART_RX => uart0_rx_mux,
+    rx: entity work.uart_rx 
+      generic map (name => to_string(i))
+      Port map ( clk => clock,
+                 bit_rate_divisor => uart_bit_rate_divisor(i),
+                 UART_RX => uart_rx_mux(i),
 
-               data => rx0_data,
-               data_ready => rx0_ready,
-               data_acknowledge => rx0_acknowledge);
-
-  uart_tx1: entity work.UART_TX_CTRL
-    port map (
-      send    => tx2_trigger,
-      BIT_TMR_MAX => uart2_bit_rate_divisor_internal,
-      clk     => clock,
-      data    => tx2_data,
-      ready   => tx2_ready,
-      uart_tx => uart2_tx_drive);
-
-  uart_rx1: entity work.uart_rx
-    generic map (name => "2")
-    Port map ( clk => clock,
-               bit_rate_divisor => uart2_bit_rate_divisor_internal,
-               UART_RX => uart2_rx_mux,
-
-               data => rx2_data,
-               data_ready => rx2_ready,
-               data_acknowledge => rx2_acknowledge);
+                 data => rx_data(i),
+                 data_ready => rx_ready(i),
+                 data_acknowledge => rx_acknowledge(i));
+    end generate uarts;
 
   
-  process (clock,fastio_addr,fastio_wdata,fastio_read,fastio_write,
-           uart0_rx_from_uart2_tx,uart2_rx_from_uart0_tx,
-           uart_rx,uart0_tx_drive,uart2_rx,uart0_rx_byte,uart0_irq,
-           uart0_rx_byte_ready,uart0_tx_empty,uart0_rx_full,
-           uart0_tx_full,uart0_irq_on_rx,uart0_irq_on_rx_highwater,
-           uart0_irq_on_tx_lowwater,uart0_rx_buffer_pointer_cpu,
-           uart0_rx_buffer_pointer,uart0_bit_rate_divisor_internal,
-           uart2_rx_byte,uart2_irq,uart2_rx_byte_ready,uart2_tx_empty,
-           uart2_tx_full,uart2_rx_full,uart2_irq_on_rx,uart2_irq_on_rx_highwater,
-           uart2_irq_on_tx_lowwater,uart2_rx_buffer_pointer_cpu,
-           uart2_tx_buffer_pointer_cpu,uart2_rx_buffer_pointer,
-           uart2_tx_buffer_pointer,uart2_bit_rate_divisor_internal,
-           uart2_tx_drive,buffereduart_cs,uart0_tx_buffer_pointer,
-           uart0_tx_buffer_pointer_cpu
+  process (clock,fastio_addr,fastio_wdata,fastio_read,fastio_write
            ) is
     variable temp_cmd : unsigned(7 downto 0);
 
@@ -236,84 +142,92 @@ begin  -- behavioural
 
     -- MUX to allow connecting serial ports to outside lines, or alternatively
     -- to the opposite buffered UART (as a remote loopback diagnostic mode)
-    if uart0_rx_from_uart2_tx='0' then
-      uart0_rx_mux <= uart_rx;
+    if loopback_mode='1' then
+      for i in 0 to 7 loop
+        uart_rx_mux(i) <= uart_tx(7-i);
+      end loop;
     else
-      uart0_rx_mux <= uart2_tx_drive;
-    end if;
-    if uart2_rx_from_uart0_tx='0' then
-      uart2_rx_mux <= uart2_rx;
-    else
-      uart2_rx_mux <= uart0_tx_drive;
+      uart_rx_mux <= uart_rx;
     end if;
     
     irq <= '1';
 
+    rx_byte_stale <= '0';
+    tx_byte_written <= '0';
+    
     -- Register reading is asynchronous to avoid wait states
     if fastio_read='1' then
       if buffereduart_cs='1' then
         case fastio_addr(3 downto 0) is
           -- Use this notation to create entries for auto-populating iomap.txt
-          -- @IO:GS $D0E0 Buffered UART1 Data register (read to accept a byte, write to transmit a byte)
-          -- @IO:GS $D0E1 Buffered UART1 Status register
-          -- @IO:GS $D0E1.7 Buffered UART1 interrupt status
-          -- @IO:GS $D0E1.6 Buffered UART1 RX buffer empty
-          -- @IO:GS $D0E1.5 Buffered UART1 TX buffer empty
-          -- @IO:GS $D0E1.4 Buffered UART1 RX buffer full
-          -- @IO:GS $D0E1.3 Buffered UART1 TX buffer full
-          -- @IO:GS $D0E1.2 Buffered UART1 enable interrupt on RX byte
-          -- @IO:GS $D0E1.1 Buffered UART1 enable interrupt on RX high-water mark
-          -- @IO:GS $D0E1.0 Buffered UART1 enable interrupt on TX buffer low-water mark
-          -- @IO:GS $D0E6 Buffered UART2 frequency divisor (LSB)
-          -- @IO:GS $D0E7 Buffered UART2 frequency divisor (MSB)
-
-          -- @IO:GS $D0E8 Buffered UART2 Data register (read to accept a byte, write to transmit a byte)
-          -- @IO:GS $D0E9 Buffered UART2 Status register
-          -- @IO:GS $D0E9.7 Buffered UART2 interrupt status
-          -- @IO:GS $D0E9.6 Buffered UART2 RX buffer empty
-          -- @IO:GS $D0E9.5 Buffered UART2 TX buffer empty
-          -- @IO:GS $D0E9.4 Buffered UART2 RX buffer full
-          -- @IO:GS $D0E9.3 Buffered UART2 TX buffer full
-          -- @IO:GS $D0E9.2 Buffered UART2 enable interrupt on RX byte
-          -- @IO:GS $D0E9.1 Buffered UART2 enable interrupt on RX high-water mark
-          -- @IO:GS $D0E9.0 Buffered UART2 enable interrupt on TX buffer low-water mark
-          -- @IO:GS $D0EE Buffered UART2 frequency divisor (LSB)
-          -- @IO:GS $D0EF Buffered UART2 frequency divisor (MSB)
-          
-          when x"0" => fastio_rdata <= uart0_rx_byte;
+          -- @IO:GS $D0E0.0-3 Select active UART for other registers
+          -- @IO:GS $D0E0.7 Buffered UART master IRQ enable
+          -- @IO:GS $D0E0.6 Buffered UART master TX queue low-water IRQ enable
+          -- @IO:GS $D0E0.5 Buffered UART master RX buffer high-water IRQ enable
+          -- @IO:GS $D0E0.4 Enable loopback mode
+          when x"0" =>
+            fastio_rdata(3 downto 0) <= to_unsigned(selected_uart,4);
+            fastio_rdata(7) <= master_irq_enable;
+            fastio_rdata(6) <= master_tx_irq_enable;
+            fastio_rdata(5) <= master_rx_irq_enable;
+            fastio_rdata(4) <= loopback_mode;
           when x"1" =>
-            fastio_rdata(7) <= uart0_irq;
-            fastio_rdata(6) <= uart0_rx_empty;
-            fastio_rdata(5) <= uart0_tx_empty;
-            fastio_rdata(4) <= uart0_rx_full;
-            fastio_rdata(3) <= uart0_tx_full;
-            fastio_rdata(2) <= uart0_irq_on_rx;
-            fastio_rdata(1) <= uart0_irq_on_rx_highwater;
-            fastio_rdata(0) <= uart0_irq_on_tx_lowwater;
-          when x"2" => fastio_rdata <= uart0_rx_buffer_pointer_cpu(7 downto 0);
-          when x"3" => fastio_rdata <= uart0_tx_buffer_pointer_cpu(7 downto 0);
-          when x"4" => fastio_rdata <= uart0_rx_buffer_pointer(7 downto 0);
-          when x"5" => fastio_rdata <= tx0_last_data;
-          when x"6" => fastio_rdata <= uart0_bit_rate_divisor_internal(7 downto 0);
-          when x"7" =>
-            fastio_rdata <= uart0_bit_rate_divisor_internal(15 downto 8);
-          when x"8" => fastio_rdata <= uart2_rx_byte;
-          when x"9" =>
-            fastio_rdata(7) <= uart2_irq;
-            fastio_rdata(6) <= uart2_rx_empty;
-            fastio_rdata(5) <= uart2_tx_empty;
-            fastio_rdata(4) <= uart2_rx_full;
-            fastio_rdata(3) <= uart2_tx_full;
-            fastio_rdata(2) <= uart2_irq_on_rx;
-            fastio_rdata(1) <= uart2_irq_on_rx_highwater;
-            fastio_rdata(0) <= uart2_irq_on_tx_lowwater;
-          when x"A" => fastio_rdata <= uart2_rx_buffer_pointer_cpu(7 downto 0);
-          when x"B" => fastio_rdata <= uart2_tx_buffer_pointer_cpu(7 downto 0);
-          when x"C" => fastio_rdata <= uart2_rx_buffer_pointer(7 downto 0);
-          when x"D" => fastio_rdata <= uart2_tx_buffer_pointer(7 downto 0);
-          when x"E" => fastio_rdata <= uart2_bit_rate_divisor_internal(7 downto 0);
-          when x"F" =>
-            fastio_rdata <= uart2_bit_rate_divisor_internal(15 downto 8);
+            -- @IO:GS $D0E1 Buffered UART Status register / interrupt select register
+            -- @IO:GS $D0E1.7 Buffered UART interrupt status
+            -- @IO:GS $D0E1.6 Buffered UART RX buffer empty
+            -- @IO:GS $D0E1.5 Buffered UART TX buffer empty
+            -- @IO:GS $D0E1.4 Buffered UART RX buffer full
+            -- @IO:GS $D0E1.3 Buffered UART TX buffer full
+            -- @IO:GS $D0E1.2 Buffered UART enable interrupt on RX byte
+            -- @IO:GS $D0E1.1 Buffered UART enable interrupt on RX high-water mark
+            -- @IO:GS $D0E1.0 Buffered UART enable interrupt on TX buffer low-water mark
+            if selected_uart<8 then
+              fastio_rdata(7) <= uart_irq_status(selected_uart);
+              fastio_rdata(6) <= uart_rx_empty(selected_uart);
+              fastio_rdata(5) <= uart_tx_empty(selected_uart);
+              fastio_rdata(4) <= uart_rx_full(selected_uart);
+              fastio_rdata(3) <= uart_tx_full(selected_uart);
+              fastio_rdata(2) <= uart_irq_on_rx_byte(selected_uart);
+              fastio_rdata(1) <= uart_irq_on_rx_highwater(selected_uart);
+              fastio_rdata(0) <= uart_irq_on_tx_lowwater(selected_uart);
+            else
+              fastio_rdata <= x"FF";
+            end if;
+          when x"2" =>
+            -- @IO:GS $D0E2 Buffered UART Read register (write to ACK receipt of byte)
+            if selected_uart < 8 then
+              fastio_rdata <= rx_data_for_reading(selected_uart);
+            else
+              fastio_rdata <= x"FF";
+            end if;
+          when x"3" =>
+            -- @IO:GS $D0E3 Buffered UART Write register (write to send byte)
+            if selected_uart < 8 then
+              fastio_rdata <= last_tx_byte_written(selected_uart);
+            else
+              fastio_rdata <= x"FF";
+            end if;
+          when x"4" =>
+            -- @IO:GS $D0E4 Buffered UART bit rate divisor LSB
+            if selected_uart < 8 then
+              fastio_rdata <= uart_bit_rate_divisor_internal(i)(7 downto 0);
+            else
+              fastio_rdata <= x"FF";
+            end if;
+          when x"5" =>
+            -- @IO:GS $D0E5 Buffered UART bit rate divisor middle byte
+            if selected_uart < 8 then
+              fastio_rdata <= uart_bit_rate_divisor_internal(i)(15 downto 8);
+            else
+              fastio_rdata <= x"FF";
+            end if;
+          when x"6" =>
+            -- @IO:GS $D0E5 Buffered UART bit rate divisor MSB
+            if selected_uart < 8 then
+              fastio_rdata <= uart_bit_rate_divisor_internal(i)(23 downto 16);
+            else
+              fastio_rdata <= x"FF";
+            end if;
           when others =>
             fastio_rdata <= (others => 'Z');
         end case;
@@ -326,370 +240,172 @@ begin  -- behavioural
 
     if rising_edge(clock) then
 
-      rx0_acknowledge <= '0';
-      rx2_acknowledge <= '0';
-      tx0_trigger <= '0';
-      tx2_trigger <= '0';
       buffer_write <= '0';
-          
-      uart_tx <= uart0_tx_drive;
-      uart2_tx <= uart2_tx_drive;
+      rx_acknowledge <= (others => '0');
+      tx_trigger <= (others => ='0');
 
-      if uart0_rx_read_advance='1' then
-        uart0_rx_read_advance <= '0';
+      -- Update status flags
+      for i in 0 to 7 loop
+        -- RX buffer empty?
+        if uart_rx_buffer_pointer_write(i) = uart_rx_buffer_pointer_read(i) then
+          uart_rx_empty(i) <= '1';
+        else
+          uart_rx_empty(i) <= '0';
+        end if;
+        -- Or full?
+        if (to_integer(uart_rx_buffer_pointer_write(i) + 1) = to_integer(uart_rx_buffer_pointer_read(i)))
+          or (uart_rx_buffer_pointer_write(i) = x"FF" and uart_rx_buffer_pointer_read(i) = x"00")
+        then
+          uart_rx_full(i) <= '1';
+        else
+          uart_rx_full(i) <= '0';
+        end if;
+        -- Has the RX buffer reached the high-water mark?
+        if uart_rx_buffer_pointer_write(i) < uart_rx_buffer_pointer_read(i) then
+          -- Write point comes before read point
+          if to_integer(uart_rx_buffer_pointer_write(i)+32) < to_integer(uart_rx_buffer_pointer_read(i)) then
+            -- Write + 32 < read point, so not at high water point
+            uart_rx_highwater(i) <= '0';
+          else
+            uart_rx_highwater(i) <= '1';            
+          end if;
+        else
+          if to_integer(uart_rx_buffer_pointer_write(i)+32) < (to_integer(uart_rx_buffer_pointer_read(i))+256) then
+            -- Write + 32 < read point, so not at high water point
+            uart_rx_highwater(i) <= '0';
+          else
+            uart_rx_highwater(i) <= '1';            
+          end if;
+        end if;
 
-        uart0_rx_byte_ready <= '0';
-        if uart0_rx_empty='1' or
-          -- Buffer is either full or empty
-          ((uart0_rx_buffer_pointer_prev = uart0_rx_buffer_pointer_cpu)
-           -- And it is empty (because it was read from to get here)
-           and (uart0_rx_cpu_was_last='1')) then
-          -- Buffer is empty, so don't advance pointer
-          uart0_rx_empty <= '1';
-          uart0_rx_byte <= x"00";
+        -- Now similarly for the TX buffers
+        if uart_tx_Buffer_pointer_read(i) = uart_tx_buffer_pointer_write(i) then
+          uart_tx_empty(i) <= '1';
         else
-          -- Buffer is not empty, so advance
-          uart0_rx_empty <= '0';
-          uart0_rx_cpu_was_last <= '1';
-          if uart0_rx_buffer_pointer_cpu /= "1111111111" then
-            uart0_rx_buffer_pointer_cpu <= uart0_rx_buffer_pointer_cpu + 1;
+          uart_tx_empty(i) <= '0';
+        end if;
+        -- Or full?
+        if (to_integer(uart_tx_buffer_pointer_write(i) + 1) = to_integer(uart_tx_buffer_pointer_read(i)))
+          or (uart_tx_buffer_pointer_write(i) = x"FF" and uart_tx_buffer_pointer_read(i) = x"00")
+        then
+          uart_tx_full(i) <= '1';
+        else
+          uart_tx_full(i) <= '0';
+        end if;
+        -- Has the TX buffer reached the low-water mark?
+        if uart_rx_buffer_pointer_write(i) < uart_rx_buffer_pointer_read(i) then
+          -- Write point comes before read point
+          if to_integer(uart_tx_buffer_pointer_write(i)+(256-32)) < to_integer(uart_tx_buffer_pointer_read(i)) then
+            uart_tx_lowwater(i) <= '1';
           else
-            uart0_rx_buffer_pointer_cpu <= to_unsigned(0,10);
+            uart_tx_lowwater(i) <= '0';            
           end if;
-          uart0_read_byte_from_buffer <= '1';
-        end if;
-      end if;        
-      if uart2_rx_read_advance='1' then
-        uart2_rx_read_advance <= '0';
-        -- After reading a byte from buffer, advance buffer pointer
-        uart2_rx_byte_ready <= '0';
-        report "UART2 reading from $D0E8 : uart2_rx_buffer_pointer_prev=$" & to_hstring(uart2_rx_buffer_pointer_prev)
-          & ", *_cpu=$" & to_hstring(uart2_rx_buffer_pointer_cpu)
-          & ", *_empty=" & std_logic'image(uart2_rx_empty)
-          & ", *_cpu_was_last=" & std_logic'image(uart2_rx_cpu_was_last);
-        if uart2_rx_empty='1' or
-          -- Buffer is either full or empty
-          ((uart2_rx_buffer_pointer_prev = uart2_rx_buffer_pointer_cpu)
-           -- And it is empty (because it was read from to get here)
-           and (uart2_rx_cpu_was_last='1')) then
-          report "UART2: not advancing buffer, because empty";
-          -- Buffer is empty, so don't advance pointer
-          uart2_rx_empty <= '1';
-          uart2_rx_byte <= x"00";
         else
-          -- Buffer is not empty, so advance
-          report "UART2: advancing pointer in non-empty buffer";
-          uart2_rx_empty <= '0';
-          uart2_rx_cpu_was_last <= '1';
-          if uart2_rx_buffer_pointer_cpu /= "1111111111" then
-            uart2_rx_buffer_pointer_cpu <= uart2_rx_buffer_pointer_cpu + 1;
+          if to_integer(uart_tx_buffer_pointer_write(i)+(256-32)) < (to_integer(uart_tx_buffer_pointer_read(i))+256) then
+            -- Write + 32 < read point, so not at high water point
+            uart_rx_lowwater(i) <= '1';
           else
-            uart2_rx_buffer_pointer_cpu <= to_unsigned(0,10);
+            uart_rx_lowwater(i) <= '0';            
           end if;
-          uart2_read_byte_from_buffer <= '1';
         end if;
-      end if;
+      end loop;
       
-      -- Update module status based on register reads
-      if fastio_read='1' and buffereduart_cs='1' then
-        -- CPU can cause successive reads to a single address
-        -- that are spurious, so we require a non-access between
-        -- accesses for the side effect to happen
-        last_was_read <= '1';
-        if last_was_read = '0' then
-          case fastio_addr(3 downto 0) is
-            when x"0" =>
-              if uart_rx_auto_advance='1' then
-                uart0_rx_read_advance <= '1';
-              end if;
-            when x"8" =>
-              if uart_rx_auto_advance='1' then
-                uart2_rx_read_advance <= '1';
-              end if;
-            when others =>
-              null;
-          end case;
-        else
-          last_was_read <= '0';
-        end if;
-      end if;
-      
+      uart_tx <= uart_tx_drive;
+            
       if fastio_write='1' and buffereduart_cs='1' then
         case fastio_addr(3 downto 0) is
           when x"0" =>
-            -- XXX For some reason the buffering doesn't work correctly
-            if uart0_no_tx_buffer='1' and tx0_ready='1' then
-              tx0_trigger <= '1';
-              tx0_data <= fastio_wdata;
-              tx0_last_data <= fastio_wdata;
-            else
-              -- CPU asks for byte to be TXd, so put in buffer
-              queued_write <= '1';
-              if uart0_tx_queue_dummy_data='1' then
-                queued_wdata <= x"99";
-              else
-                queued_wdata <= fastio_wdata;
-              end if;
-              queued_address <= uart0_tx_buffer_start
-                                + to_integer(uart0_tx_buffer_pointer_cpu);
-              if uart0_tx_buffer_pointer_cpu /= "111111111" then
-                uart0_tx_buffer_pointer_cpu <= uart0_tx_buffer_pointer_cpu + 1;
-              else
-                uart0_tx_buffer_pointer_cpu <= to_unsigned(0,9);
-              end if;
-              uart0_check_full <= '1';
-            end if;
-          when x"8" =>
-            -- CPU asks for byte to be TXd, so put in buffer
-            queued_write <= '1';
-            queued_wdata <= fastio_wdata;
-            queued_address <= uart2_tx_buffer_start
-                              + to_integer(uart2_tx_buffer_pointer_cpu);
-            if uart2_tx_buffer_pointer_cpu /= "111111111" then
-              uart2_tx_buffer_pointer_cpu <= uart2_tx_buffer_pointer_cpu + 1;
-            else
-              uart2_tx_buffer_pointer_cpu <= to_unsigned(0,9);
-            end if;
-            uart2_check_full <= '1';            
+            selected_uart <= to_integer(fastio_wdata(3 downto 0));
+            master_irq_enable <= fastio_wdata(7);
+            master_tx_irq_enable <= fastio_wdata(6);
+            master_rx_irq_enable <= fastio_wdata(5);
+            loopback_mode <= fastio_wdata(4);
           when x"1" =>
-            -- Set control values for UART0
-            -- Writing always clears current IRQ status
-            uart0_irq <= '0';
-            uart0_irq_on_rx <= fastio_wdata(2);
-            uart0_irq_on_rx_highwater <= fastio_wdata(1);
-            uart0_irq_on_tx_lowwater <= fastio_wdata(0);
-          when x"9" =>
-            -- Set control values for UART2
-            -- Writing always clears current IRQ status
-            uart2_irq <= '0';
-            uart2_irq_on_rx <= fastio_wdata(2);
-            uart2_irq_on_rx_highwater <= fastio_wdata(1);
-            uart2_irq_on_tx_lowwater <= fastio_wdata(0);
+            if selected_uart < 8 then
+              uart_irq_on_rx_byte(selected_uart) <= fastio_wdata(2);
+              uart_irq_on_rx_highwater(selected_uart) <= fastio_wdata(1);
+              uart_irq_on_tx_lowwater(selected_uart) <= fastio_wdata(0);
+            end if;
           when x"2" =>
-            uart0_rx_from_uart2_tx <= fastio_wdata(0);
-            uart0_tx_dummy_data <= fastio_wdata(1);
-            uart0_tx_queue_dummy_data <= fastio_wdata(2);
-            uart0_no_tx_buffer <= fastio_wdata(3);
-            uart_rx_auto_advance <= fastio_wdata(4);
+            -- Advance UART RX read point
+            if selected_uart < 8 then
+              if not uart_rx_empty(selected_uart) then
+                -- Advance buffer position
+                uart_rx_buffer_pointer_read(i) <= uart_rx_buffer_pointer_read(i) + 1;
+                rx_byte_stale <= '1';
+              end if;
+            end if;
           when x"3" =>
-            -- Advance RX buffer manually
-            uart0_rx_read_advance <= '1';
-          when x"b" =>
-            -- Advance RX buffer manually
-            uart2_rx_read_advance <= '1';
-          when x"a" =>
-            uart2_rx_from_uart0_tx <= fastio_wdata(0);
-          when x"6" =>
-            uart0_bit_rate_divisor_internal(7 downto 0) <= fastio_wdata;
-          when x"7" =>
-            uart0_bit_rate_divisor_internal(15 downto 8)
-              <= fastio_wdata;
-          when x"e" =>
-            uart2_bit_rate_divisor_internal(7 downto 0) <= fastio_wdata;
-          when x"f" =>
-            uart2_bit_rate_divisor_internal(15 downto 8)
-              <= fastio_wdata;
+            -- Write byte to UART TX queue
+            if selected_uart < 8 then
+              -- Remember the byte we wrote.
+              last_tx_byte_written(selected_uart) <= fastio_wdata;
+              tx_byte_written <= '1';
+            end if;
           when others =>
             null;
         end case;
       end if;
 
-      if uart0_check_full='1' then
-        report "UART0: Check full";
-        if uart0_rx_buffer_pointer = uart0_rx_buffer_pointer_cpu then
-          uart0_rx_full <= '1';
-        else
-          uart0_rx_full <= '0';          
-        end if;
-        uart0_check_full <= '0';
+      -- Highest priority is reading next byte when acknowledging or
+      -- switching which UART we are looking at
+      last_selected_uart <= selected_uart;
+      if last_selected_uart /= selected_uart then
+        rx_byte_stale <= '1';
       end if;
-      if uart0_check_empty='1' then
-        report "UART0: Check empty";
-        if uart0_tx_buffer_pointer = uart0_tx_buffer_pointer_cpu then
-          uart0_tx_empty <= '1';
+      if rx_byte_stale = '1' then
+        if selected_uart < 8 then
+          rx_scheduled <= '1';
+          rx_target <= 0 + selected_uart;
+          buffer_readaddress <= (512*selected_uart) + 0 + uart_rx_buffer_pointer_read(selected_uart);
         else
-          uart0_tx_empty <= '0';
+          rx_scheduled <= '0';
         end if;
-        uart0_check_empty <= '0';
-      end if;
-      if uart2_check_full='1' then
-        report "UART2: Check full";
-        if uart2_rx_buffer_pointer = uart2_rx_buffer_pointer_cpu then
-          uart2_rx_full <= '1';
-        else
-          uart2_rx_full <= '0';          
-        end if;
-        uart2_check_full <= '0';
-      end if;
-      if uart2_check_empty='1' then
-        report "UART2: Check empty";
-        if uart2_tx_buffer_pointer = uart2_tx_buffer_pointer_cpu then
-          uart2_tx_empty <= '1';
-        else
-          uart2_tx_empty <= '0';
-        end if;
-        uart2_check_empty <= '0';
-      end if;
-      
-      -- Do synchronous actions
-      if queued_write='0' then
-        if queued_write_settle_counter /= 0 then
-          queued_write_settle_counter <= queued_write_settle_counter - 1;
-          report "UART: queued_write_settle_counter = " & integer'image(queued_write_settle_counter);
-        end if;
-      end if;
-      if queued_write='1' then
-        report "UART: Performing queued write of $" & to_hstring(queued_wdata) & " to $" & to_hstring(to_unsigned(queued_address,12));
-        -- CPU queued buffer write
-        buffer_wdata <= queued_wdata;
-        buffer_writeaddress <= queued_address;
-        buffer_Write <= '1';
-        -- XXX Clearing this here means back-to-back writes will
-        -- not work.  Only a problem for DMA filling the buffer.
-        queued_write <= '0';
-        queued_write_settle_counter <= 7;
-      elsif uart0_read_byte_from_buffer='1' and queued_read='0' and uart0_rx_empty='0' then
-        uart0_rx_byte <= x"00";
-        report "UART0: Scheduling read of next byte from RX buffer in preparation for next CPU read"
-          & " (address = $" & to_hstring(to_unsigned(uart0_rx_buffer_start
-                                + to_integer(uart0_rx_buffer_pointer_cpu),12));
-        queued_read <= '1';
-        queued_read_rx0 <= '1';
-        buffer_readaddress <= uart0_rx_buffer_start
-                              + to_integer(uart0_rx_buffer_pointer_cpu);
-          uart0_read_byte_from_buffer <= '0';
-      elsif uart2_read_byte_from_buffer='1' and queued_read='0' and uart2_rx_empty='0' then
-        uart2_rx_byte <= x"00";
-        report "UART2: Scheduling read of next byte from RX buffer in preparation for next CPU read"
-          & " (address = $" & to_hstring(to_unsigned(uart2_rx_buffer_start
-                                + to_integer(uart2_rx_buffer_pointer_cpu),12));
-        queued_read <= '1';
-        queued_read_rx2 <= '1';
-        buffer_readaddress <= uart2_rx_buffer_start
-                              + to_integer(uart2_rx_buffer_pointer_cpu);
-        uart2_read_byte_from_buffer <= '0';
-      elsif rx0_ready='0' and rx0_ready_wait='1' then
-        rx0_ready_wait <= '0';        
-      elsif tx0_ready='0' and tx0_ready_wait='1' then
-        tx0_ready_wait <= '0';        
-      elsif rx0_ready='1' and rx0_ready_wait='0' and queued_write='0' and fastio_write='0' then
-        report "UART0: Data ready was asserted by UART RX. Byte is $" & to_hstring(rx0_data)
-          & ", writing to $" & to_hstring(to_unsigned(uart0_rx_buffer_start
-                               + to_integer(uart0_rx_buffer_pointer),12));
-        rx0_ready_wait <= '1';
-        buffer_wdata <= rx0_data;
-        uart0_rx_empty <= '0';
-        uart0_rx_cpu_was_last <= '0';
-        uart0_check_full <= '1';
-        buffer_writeaddress <= uart0_rx_buffer_start
-                               + to_integer(uart0_rx_buffer_pointer);
-        if uart0_rx_buffer_pointer /= "1111111111" then
-          uart0_rx_buffer_pointer <= uart0_rx_buffer_pointer + 1;
-        else
-          uart0_rx_buffer_pointer <= to_unsigned(0,10);
-        end if;
-        uart0_rx_buffer_pointer_prev <= uart0_rx_buffer_pointer;
-        buffer_write <= '1';
-        rx0_acknowledge <= '1';        
-      elsif rx2_ready='0' and rx2_ready_wait='1' then
-        rx2_ready_wait <= '0';        
-      elsif tx2_ready='0' and tx2_ready_wait='1' then
-        tx2_ready_wait <= '0';        
-      elsif rx2_ready='1' and rx2_ready_wait='0' and queued_write='0' and fastio_write='0' then
-        rx2_ready_wait <= '1';
-        report "UART2: Data ready was asserted by UART RX. Byte is $" & to_hstring(rx2_data)
-          & ", writing to $" & to_hstring(to_unsigned(uart2_rx_buffer_start
-                               + to_integer(uart2_rx_buffer_pointer),12));
-        buffer_wdata <= rx2_data;
-        uart2_rx_empty <= '0';
-        uart2_check_full <= '1';
-        uart2_rx_cpu_was_last <= '0';
-        buffer_writeaddress <= uart2_rx_buffer_start
-                               + to_integer(uart2_rx_buffer_pointer);
-        if uart2_rx_buffer_pointer /= "1111111111" then
-          uart2_rx_buffer_pointer <= uart2_rx_buffer_pointer + 1;
-        else
-          uart2_rx_buffer_pointer <= to_unsigned(0,10);
-        end if;
-        uart2_rx_buffer_pointer_prev <= uart2_rx_buffer_pointer;
-        report "UART2: Updating uart2_rx_buffer_pointer_prev to $"
-          & to_hstring(uart2_rx_buffer_pointer);
-        buffer_write <= '1';
-        rx2_acknowledge <= '1';
-      elsif queued_read='1' then
-        report "UART: Processing queued read";
-        queued_read <= '0';
-        queued_read_tx0 <= '0';
-        queued_read_tx2 <= '0';
-        queued_read_rx0 <= '0';
-        queued_read_rx2 <= '0';        
-        if queued_read_tx0 = '1' then
-          tx0_trigger <= '1';
-          if uart0_tx_dummy_data='1' then
-            tx0_data <= x"55";
-            tx0_last_data <= x"55";
-          else
-            tx0_data <= buffer_rdata;
-            tx0_last_data <= buffer_rdata;
+      elsif tx_byte_written = '1' then
+        rx_scheduled <= '0';
+          -- Schedule writing byte into TX buffer.
+          tx_byte_written <= '0';
+          if selected_uart < 8 then
+            -- Write to TX buffer, but only if not full
+            if uart_tx_full(selected_uart) = '0' then
+              buffer_writeaddress <= (512*selected_uart) + 256 + uart_tx_buffer_pointer_write(selected_uart);
+              buffer_wdata <= last_tx_byte_written(selected_uart);
+              buffer_write <= '1';
+              uart_tx_buffer_pointer_write(selected_uart) <= uart_tx_buffer_pointer_write(selected_uart) + 1;
+            end if;
           end if;
-          queued_read_tx0 <= '0';
-          report "UART0: Triggering transmit of $" & to_hstring(buffer_rdata);
-        end if;
-        if queued_read_tx2 = '1' then
-          tx2_trigger <= '1';
-          tx2_data <= buffer_rdata;
-          queued_read_tx2 <= '0';
-          report "UART2: Triggering transmit of $" & to_hstring(buffer_rdata);
-        end if;
-        if queued_read_rx0 = '1' then
-          uart0_rx_byte_ready <= '1';
-          uart0_rx_byte <= buffer_rdata;
-          report "UART0: Pre-fetching next received byte to show at $D0E0 (byte is $" & to_hstring(buffer_rdata) & ")";
-        end if;
-        if queued_read_rx2 = '1' then
-          uart2_rx_byte_ready <= '1';
-          uart2_rx_byte <= buffer_rdata;
-          report "UART2: Pre-fetching next received byte to show at $D0E0 (byte is $" & to_hstring(buffer_rdata) & ")";
-        end if;
-      elsif uart0_tx_buffer_pointer_cpu /= uart0_tx_buffer_pointer then
-        -- Queue buffer read
-        report "UART0: TX buffer is not empty, consider sending a byte.";
-        if tx0_ready='1' and queued_read='0' and queued_write_settle_counter=0 and tx0_ready_wait='0' then
-          report "UART0: Queuing reading of byte at $"
-            & to_hstring(to_unsigned(uart0_tx_buffer_start
-                                     + to_integer(uart0_tx_buffer_pointer),12))
-            & " ready for TX";
-          queued_read <= '1';
-          queued_read_tx0 <= '1';
-          tx0_ready_wait <= '1';
-          buffer_readaddress <= uart0_tx_buffer_start
-                                + to_integer(uart0_tx_buffer_pointer);
-          if uart0_tx_buffer_pointer /= "111111111" then
-            uart0_tx_buffer_pointer <= uart0_tx_buffer_pointer + 1;
-          else
-            uart0_tx_buffer_pointer <= to_unsigned(0,9);
-          end if;
-        end if;
-      elsif uart2_tx_buffer_pointer_cpu /= uart2_tx_buffer_pointer then
-        report "UART2: TX buffer is not empty, consider sending a byte.";
-        if tx2_ready='1' and queued_read='0' and queued_write_settle_counter=0 and tx2_ready_wait='0' then
-          report "UART2: Queuing reading of byte at $"
-            & to_hstring(to_unsigned(uart2_tx_buffer_start
-                                     + to_integer(uart2_tx_buffer_pointer),12))
-            & " ready for TX";
-          queued_read <= '1';
-          queued_read_tx2 <= '1';
-          tx2_ready_wait <= '1';
-          buffer_readaddress <= uart2_tx_buffer_start
-                                + to_integer(uart2_tx_buffer_pointer);
-          if uart2_tx_buffer_pointer /= "111111111" then
-            uart2_tx_buffer_pointer <= uart2_tx_buffer_pointer + 1;
-          else
-            uart2_tx_buffer_pointer <= to_unsigned(0,9);
-          end if;
-        end if;
       else
-        buffer_write <= '0';
+        -- Neither a buffer read nor buffer write is scheduled, so we can check
+        -- for arriving or departing bytes in the actual UARTs
+        if tx_ready(cycled_uart_id)='1' and not uart_tx_empty(cycled_uart_id) then
+          -- We should send the next byte
+          rx_scheduled <= '1';
+          rx_target <= 16 + selected_uart;
+          buffer_readaddress <= (512*cycled_uart_id) + 256 + uart_tx_buffer_pointer_read(cycled_uart_id);
+        elsif rx_ready(cycled_uart_id)='1' and not uart_rx_full(cycled_uart_id) then
+          rx_acknowledge(cycled_uart_id) <= '1';
+          buffer_writeaddress <= (512*cycled_uart_id) + 0 + uart_rx_buffer_pointer_write(cycled_uart_id);
+          buffer_wdata <= rx_data(cycled_uart_id);
+          buffer_write <= '1';
+          uart_tx_buffer_pointer_read(cycled_uart_id) <= uart_tx_buffer_pointer_read(cycled_uart_id) + 1;
+          if cycled_uart_id = selected_uart and uart_rx_empty(cycled_uart_id) = '0' then
+            -- We are receiving a byte for the selected UART, and our RX buffer
+            -- is empty, so we should present this byte to the CPU
+            rx_byte_stale <= '1';
+          end if;
+        end if;
+      end if;
+
+      -- Now process freshly read data
+      if rx_target < 8 then
+        -- Read to refresh received data to present to CPU
+        rx_data_for_reading(selected_uart) <= buffer_rdata;
+        rx_target <= 255;
+      elsif rx_target >= 16 and rx_target < 24 then
+        -- Read TX buffer to TX a byte
+        tx_trigger(rx_target - 16) <= '1';
+        tx_data <= buffer_rdata;
+        rx_target <= 255;
       end if;
       
     end if;
