@@ -183,6 +183,7 @@ SIDVHDL=		$(VHDLSRCDIR)/sid_6581.vhdl \
 CPUVHDL=		$(VHDLSRCDIR)/gs4510.vhdl \
 			$(VHDLSRCDIR)/multiply32.vhdl \
 			$(VHDLSRCDIR)/divider32.vhdl \
+			$(VHDLSRCDIR)/fast_divide.vhdl \
 			$(VHDLSRCDIR)/shifter32.vhdl
 
 NOCPUVHDL=		$(VHDLSRCDIR)/nocpu.vhdl
@@ -238,6 +239,7 @@ PERIPHVHDL=		$(VHDLSRCDIR)/sdcardio.vhdl \
 			$(VHDLSRCDIR)/mfm_quantise_gaps.vhdl \
 			$(VHDLSRCDIR)/crc1581.vhdl \
 			$(VHDLSRCDIR)/ethernet.vhdl \
+			$(VHDLSRCDIR)/ghdl_ram8x2048.vhdl \
 			$(VHDLSRCDIR)/ethernet_miim.vhdl \
 			$(VHDLSRCDIR)/ghdl_fpgatemp.vhdl \
 			$(VHDLSRCDIR)/expansion_port_controller.vhdl \
@@ -246,6 +248,7 @@ PERIPHVHDL=		$(VHDLSRCDIR)/sdcardio.vhdl \
 			$(KBDVHDL)
 
 KBDVHDL=		$(VHDLSRCDIR)/keymapper.vhdl \
+			$(VHDLSRCDIR)/accessible_keyboard.vhdl \
 			$(VHDLSRCDIR)/keyboard_complex.vhdl \
 			$(VHDLSRCDIR)/kb_matrix_ram.vhdl \
 			$(VHDLSRCDIR)/keyboard_to_matrix.vhdl \
@@ -275,6 +278,7 @@ M65VHDL=		$(VHDLSRCDIR)/machine.vhdl \
 			$(VHDLSRCDIR)/framepacker.vhdl \
 			$(VHDLSRCDIR)/hyppo.vhdl \
 			$(VHDLSRCDIR)/mega65r2_i2c.vhdl \
+			$(VHDLSRCDIR)/mega65r3_i2c.vhdl \
 			$(VHDLSRCDIR)/version.vhdl \
 			$(C65VHDL) \
 			$(VICIVVHDL) \

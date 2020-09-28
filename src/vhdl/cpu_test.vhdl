@@ -418,8 +418,14 @@ begin
       
       no_hyppo => '0',
 
+      iec_bus_active => '0',
+      iec_srq_external => '1',
+
+      kbd_datestamp => (others => '0'),
+      kbd_commit => (others => '0'),
+      
 --      buffereduart_rx => '1',
-      buffereduart_ringindicate => '1',
+      buffereduart_ringindicate => (others => '0'),
 --      buffereduart2_rx => '1',
       
       ps2data => '1',
