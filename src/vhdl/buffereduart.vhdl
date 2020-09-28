@@ -247,6 +247,30 @@ begin  -- behavioural
             else
               fastio_rdata <= x"FF";
             end if;
+          when x"c" =>
+            if selected_uart < 8 then
+              fastio_rdata <= uart_rx_buffer_pointer_write(selected_uart);
+            else
+              fastio_rdata <= x"FF";
+            end if;
+          when x"d" =>
+            if selected_uart < 8 then
+              fastio_rdata <= uart_rx_buffer_pointer_read(selected_uart);
+            else
+              fastio_rdata <= x"FF";
+            end if;
+          when x"e" =>
+            if selected_uart < 8 then
+              fastio_rdata <= uart_tx_buffer_pointer_write(selected_uart);
+            else
+              fastio_rdata <= x"FF";
+            end if;
+          when x"f" =>
+            if selected_uart < 8 then
+              fastio_rdata <= uart_tx_buffer_pointer_read(selected_uart);
+            else
+              fastio_rdata <= x"FF";
+            end if;
           when others =>
             fastio_rdata <= (others => 'Z');
         end case;
@@ -361,6 +385,18 @@ begin  -- behavioural
               last_tx_byte_written(selected_uart) <= fastio_wdata;
               tx_byte_written <= '1';
             end if;
+          when x"4" =>
+            if selected_uart < 8 then
+              uart_bit_rate_divisor_internal(selected_uart)(7 downto 0) <= fastio_wdata;
+            end if;            
+          when x"5" =>
+            if selected_uart < 8 then
+              uart_bit_rate_divisor_internal(selected_uart)(15 downto 8) <= fastio_wdata;
+            end if;            
+          when x"6" =>
+            if selected_uart < 8 then
+              uart_bit_rate_divisor_internal(selected_uart)(23 downto 16) <= fastio_wdata;
+            end if;
           when others =>
             null;
         end case;
@@ -401,12 +437,13 @@ begin  -- behavioural
           read_scheduled <= '1';
           rx_target <= 16 + selected_uart;
           buffer_readaddress <= (512*cycled_uart_id) + 256 + to_integer(uart_tx_buffer_pointer_read(cycled_uart_id));
+          uart_tx_buffer_pointer_read(cycled_uart_id) <= uart_tx_buffer_pointer_read(cycled_uart_id) + 1;
         elsif rx_ready(cycled_uart_id)='1' and uart_rx_full(cycled_uart_id)='0' then
           rx_acknowledge(cycled_uart_id) <= '1';
           buffer_writeaddress <= (512*cycled_uart_id) + 0 + to_integer(uart_rx_buffer_pointer_write(cycled_uart_id));
           buffer_wdata <= rx_data(cycled_uart_id);
           buffer_write <= '1';
-          uart_tx_buffer_pointer_read(cycled_uart_id) <= uart_tx_buffer_pointer_read(cycled_uart_id) + 1;
+          uart_rx_buffer_pointer_read(cycled_uart_id) <= uart_rx_buffer_pointer_read(cycled_uart_id) + 1;
           if cycled_uart_id = selected_uart and uart_rx_empty(cycled_uart_id) = '0' then
             -- We are receiving a byte for the selected UART, and our RX buffer
             -- is empty, so we should present this byte to the CPU
