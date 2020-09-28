@@ -733,7 +733,7 @@ begin
       iec_bus_active => iec_bus_active,
       
 --      buffereduart_rx => '1',
-      buffereduart_ringindicate => '1',
+      buffereduart_ringindicate => (others => '0'),
 
       porta_pins => column(7 downto 0),
       portb_pins => row(7 downto 0),
