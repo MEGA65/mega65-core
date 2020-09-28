@@ -742,21 +742,21 @@ $(VHDLSRCDIR)/hyppo.vhdl:	$(TOOLDIR)/makerom/rom_template.vhdl $(BINDIR)/HICKUP.
 $(VHDLSRCDIR)/colourram.vhdl:	$(TOOLDIR)/makerom/colourram_template.vhdl $(BINDIR)/COLOURRAM.BIN $(TOOLDIR)/makerom/makerom
 	$(TOOLDIR)/makerom/makerom $(TOOLDIR)/makerom/colourram_template.vhdl $(BINDIR)/COLOURRAM.BIN $(VHDLSRCDIR)/colourram ram8x32k
 
-$(SRCDIR)/open-roms/build/mega65.rom:	$(SRCDIR)/open-roms/assets/8x8font.png
-	( cd $(SRCDIR)/open-roms ; make build/mega65.rom )
+$(SRCDIR)/open-roms/bin/mega65.rom:	$(SRCDIR)/open-roms/assets/8x8font.png
+	( cd $(SRCDIR)/open-roms ; make bin/mega65.rom )
 
 $(SRCDIR)/open-roms/assets/8x8font.png:
 	git submodule init
 	git submodule update
 	( cd $(SRCDIR)/open-roms ; git submodule init ; git submodule update )
 
-$(VHDLSRCDIR)/shadowram-a100t.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65 $(ASSETS)/alphatest.bin Makefile $(SDCARD_DIR)/FREEZER.M65  $(SRCDIR)/open-roms/build/mega65.rom $(UTILDIR)/megaflash-a100t.prg
+$(VHDLSRCDIR)/shadowram-a100t.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65 $(ASSETS)/alphatest.bin Makefile $(SDCARD_DIR)/FREEZER.M65  $(SRCDIR)/open-roms/bin/mega65.rom $(UTILDIR)/megaflash-a100t.prg
 	mkdir -p $(SDCARD_DIR)
-	$(TOOLDIR)/mempacker/mempacker_new -n shadowram -s 393215 -f $(VHDLSRCDIR)/shadowram-a100t.vhdl $(SDCARD_DIR)/BANNER.M65@57D00 $(SDCARD_DIR)/FREEZER.M65@12000 $(SRCDIR)/open-roms/build/mega65.rom@20000 $(UTILDIR)/megaflash-a100t.prg@50000
+	$(TOOLDIR)/mempacker/mempacker_new -n shadowram -s 393215 -f $(VHDLSRCDIR)/shadowram-a100t.vhdl $(SDCARD_DIR)/BANNER.M65@57D00 $(SDCARD_DIR)/FREEZER.M65@12000 $(SRCDIR)/open-roms/bin/mega65.rom@20000 $(UTILDIR)/megaflash-a100t.prg@50000
 
-$(VHDLSRCDIR)/shadowram-a200t.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65 $(ASSETS)/alphatest.bin Makefile $(SDCARD_DIR)/FREEZER.M65  $(SRCDIR)/open-roms/build/mega65.rom $(UTILDIR)/megaflash-a200t.prg
+$(VHDLSRCDIR)/shadowram-a200t.vhdl:	$(TOOLDIR)/mempacker/mempacker_new $(SDCARD_DIR)/BANNER.M65 $(ASSETS)/alphatest.bin Makefile $(SDCARD_DIR)/FREEZER.M65  $(SRCDIR)/open-roms/bin/mega65.rom $(UTILDIR)/megaflash-a200t.prg
 	mkdir -p $(SDCARD_DIR)
-	$(TOOLDIR)/mempacker/mempacker_new -n shadowram -s 393215 -f $(VHDLSRCDIR)/shadowram-a200t.vhdl $(SDCARD_DIR)/BANNER.M65@57D00 $(SDCARD_DIR)/FREEZER.M65@12000 $(SRCDIR)/open-roms/build/mega65.rom@20000 $(UTILDIR)/megaflash-a200t.prg@50000
+	$(TOOLDIR)/mempacker/mempacker_new -n shadowram -s 393215 -f $(VHDLSRCDIR)/shadowram-a200t.vhdl $(SDCARD_DIR)/BANNER.M65@57D00 $(SDCARD_DIR)/FREEZER.M65@12000 $(SRCDIR)/open-roms/bin/mega65.rom@20000 $(UTILDIR)/megaflash-a200t.prg@50000
 
 $(VERILOGSRCDIR)/monitor_mem.v:	$(TOOLDIR)/mempacker/mempacker_v $(BINDIR)/monitor.m65
 	$(TOOLDIR)/mempacker/mempacker_v -n monitormem -w 12 -s 4096 -f $(VERILOGSRCDIR)/monitor_mem.v $(BINDIR)/monitor.m65@0000
