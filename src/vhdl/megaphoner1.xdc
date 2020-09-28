@@ -45,8 +45,8 @@ set_property -dict {PACKAGE_PIN E5 IOSTANDARD LVCMOS33} [get_ports lora2_uart_rx
 
 
 # Bluetooth UART
-set_property -dict {PACKAGE_PIN F4 IOSTANDARD LVCMOS33} [get_ports bluetooth_wifi_tx]
-set_property -dict {PACKAGE_PIN F3 IOSTANDARD LVCMOS33} [get_ports bluetooth_wifi_rx]
+set_property -dict {PACKAGE_PIN F4 IOSTANDARD LVCMOS33} [get_ports bluetooth_uart_tx]
+set_property -dict {PACKAGE_PIN F3 IOSTANDARD LVCMOS33} [get_ports bluetooth_uart_rx]
 set_property -dict {PACKAGE_PIN N5 IOSTANDARD LVCMOS33} [get_ports bluetooth_pcm_clk]
 set_property -dict {PACKAGE_PIN P5 IOSTANDARD LVCMOS33} [get_ports bluetooth_pcm_sync]
 set_property -dict {PACKAGE_PIN V1 IOSTANDARD LVCMOS33} [get_ports bluetooth_pcm_out]
@@ -75,6 +75,9 @@ set_property -dict {PACKAGE_PIN R7 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_cl
 set_property -dict {PACKAGE_PIN V6 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_sync_in]
 set_property -dict {PACKAGE_PIN V7 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_data_in]
 set_property -dict {PACKAGE_PIN T6 IOSTANDARD LVCMOS33} [get_ports modem1_pcm_data_out]
+# No debug UARTs on this revision of board, as we ran out of pins
+#set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports modem1_uart_debug_rx] 
+#set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports modem1_uart_debug_tx]
 set_property -dict {PACKAGE_PIN M6 IOSTANDARD LVCMOS33} [get_ports modem1_uart_rx] 
 set_property -dict {PACKAGE_PIN N6 IOSTANDARD LVCMOS33} [get_ports modem1_uart_tx]
 
@@ -83,6 +86,9 @@ set_property -dict {PACKAGE_PIN V4 IOSTANDARD LVCMOS33} [get_ports modem2_pcm_cl
 set_property -dict {PACKAGE_PIN R5 IOSTANDARD LVCMOS33} [get_ports modem2_pcm_sync_in]
 set_property -dict {PACKAGE_PIN R6 IOSTANDARD LVCMOS33} [get_ports modem2_pcm_data_in]
 set_property -dict {PACKAGE_PIN V5 IOSTANDARD LVCMOS33} [get_ports modem2_pcm_data_out]
+# No debug UARTs on this revision of board, as we ran out of pins
+#set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports modem2_uart_debug_rx] 
+#set_property -dict {PACKAGE_PIN  IOSTANDARD LVCMOS33} [get_ports modem2_uart_debug_tx]
 set_property -dict {PACKAGE_PIN U7 IOSTANDARD LVCMOS33} [get_ports modem2_uart_rx] 
 set_property -dict {PACKAGE_PIN U6 IOSTANDARD LVCMOS33} [get_ports modem2_uart_tx]
 
