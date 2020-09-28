@@ -867,14 +867,14 @@ begin
           if (mem_jobs(cycles).write_p='0') then
             -- Let reads finish serially
             -- (In the worst case, this can take quite a while)
-            idle_wait <= 0;
+            idle_wait <= 256;
             report "DISPATCHER: Reading from $" & to_hstring(mem_jobs(cycles).address) & ", expecting to see $"
               & to_hstring(mem_jobs(cycles).value);
             expect_value <= '1';
             expected_value <= mem_jobs(cycles).value;
           else
             -- Try to rush writes, so that writes get merged
-            idle_wait <= 0;
+            idle_wait <= 256;
             report "DISPATCHER: Writing to $" & to_hstring(mem_jobs(cycles).address) & " <- $"
               & to_hstring(mem_jobs(cycles).value);
             expect_value <= '0';
