@@ -1368,6 +1368,8 @@ architecture Behavioural of gs4510 is
   -- (this is to avoid ISE doing really weird things in synthesis, thinking
   -- that each bit of each register was a clock or something similarly odd.)
   signal reg_math_write : std_logic := '0';
+  signal reg_math_write_toggle : std_logic := '0';
+  signal last_reg_math_write_toggle : std_logic := '0';
   signal reg_math_regnum : integer range 0 to 15 := 0;
   signal reg_math_regbyte : integer range 0 to 3 := 0;
   signal reg_math_write_value : unsigned(7 downto 0) := x"00";
@@ -3082,7 +3084,7 @@ begin
       elsif (long_address(27 downto 6)&"00"=x"FFD378")
         or  (long_address(27 downto 6)&"00"=x"FFD178") then
         -- Math unit register writing
-        reg_math_write <= '1';
+        reg_math_write_toggle <= not reg_math_write_toggle;
         reg_math_regnum <= to_integer(long_address(5 downto 2));
         reg_math_regbyte <= to_integer(long_address(1 downto 0));
         reg_math_write_value <= value;
@@ -3773,6 +3775,10 @@ begin
       end if;
 
       -- Implement writing to math registers
+      if reg_math_write_toggle /= last_reg_math_write_toggle then
+        last_reg_math_write_toggle <= reg_math_write_toggle;
+        reg_math_write <= '1';
+      end if;
       reg_math_write <= '0';
       if math_unit_flags(0) = '1' then
         if reg_math_write = '1' then
