@@ -146,7 +146,7 @@ architecture behavioral of matrix_to_ascii is
     64 => x"00", -- NO/SCRL
     65 => x"09", -- TAB/NO KEY
     66 => x"00", -- ALT/NO KEY
-    67 => x"00", -- HELP/NO KEY
+    67 => x"1f", -- HELP/NO KEY
     68 => x"f9", -- F10/F9
     69 => x"fb", -- F12/F11
     70 => x"fd", -- F14/F13
@@ -223,7 +223,7 @@ architecture behavioral of matrix_to_ascii is
     64 => x"00", -- NO/SCRL
     65 => x"0f", -- TAB/NO KEY
     66 => x"00", -- ALT/NO KEY
-    67 => x"00", -- HELP/NO KEY
+    67 => x"1f", -- HELP/NO KEY
     68 => x"fa", -- F10/F9
     69 => x"fc", -- F12/F11
     70 => x"fe", -- F14/F13
@@ -300,7 +300,7 @@ architecture behavioral of matrix_to_ascii is
     64 => x"00", -- NO/SCRL
     65 => x"0f", -- TAB/NO KEY
     66 => x"00", -- ALT/NO KEY
-    67 => x"00", -- HELP/NO KEY
+    67 => x"1f", -- HELP/NO KEY
     68 => x"fa", -- F10/F9
     69 => x"fc", -- F12/F11
     70 => x"fe", -- F14/F13
@@ -377,7 +377,7 @@ architecture behavioral of matrix_to_ascii is
     64 => x"00", -- NO/SCRL
     65 => x"ef", -- TAB/NO KEY               C= + TAB = matrix mode toggle
     66 => x"00", -- ALT/NO KEY
-    67 => x"00", -- HELP/NO KEY
+    67 => x"1f", -- HELP/NO KEY
     68 => x"fa", -- F10/F9
     69 => x"fc", -- F12/F11
     70 => x"fe", -- F14/F13
@@ -454,7 +454,7 @@ architecture behavioral of matrix_to_ascii is
     64 => x"00", -- NO/SCRL
     65 => x"00", -- TAB/NO KEY
     66 => x"00", -- ALT/NO KEY
-    67 => x"00", -- HELP/NO KEY
+    67 => x"1f", -- HELP/NO KEY
     68 => x"BC", -- 1/4 fraction
     69 => x"BD", -- 1/2 fraction
     70 => x"BE", -- 3/4 fraction
