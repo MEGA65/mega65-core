@@ -713,21 +713,23 @@ begin
 
       -- Buffered UARTs for cellular modems etc
       buffereduart_rx(0) => modem1_uart_rx,
-      buffereduart_tx(0) => modem1_uart_tx,
       buffereduart_rx(1) => modem1_debug_uart_rx,
-      buffereduart_tx(1) => modem1_debug_uart_tx,
       buffereduart_rx(2) => modem2_uart_rx,
-      buffereduart_tx(2) => modem2_uart_tx,
       buffereduart_rx(3) => modem2_debug_uart_rx,
-      buffereduart_tx(3) => modem2_debug_uart_tx,
       buffereduart_rx(4) => wifi_uart_rx,
-      buffereduart_tx(4) => wifi_uart_tx,
       buffereduart_rx(5) => bluetooth_uart_rx,
-      buffereduart_tx(5) => bluetooth_uart_tx,
       buffereduart_rx(6) => lora1_uart_rx,
-      buffereduart_tx(6) => lora1_uart_tx,
       buffereduart_rx(7) => lora2_uart_rx,
-      buffereduart_tx(6) => lora2_uart_tx,
+
+      buffereduart_tx(0) => modem1_uart_tx,
+      buffereduart_tx(1) => modem1_debug_uart_tx,
+      buffereduart_tx(2) => modem2_uart_tx,
+      buffereduart_tx(3) => modem2_debug_uart_tx,
+      buffereduart_tx(4) => wifi_uart_tx,
+      buffereduart_tx(5) => bluetooth_uart_tx,
+      buffereduart_tx(6) => lora1_uart_tx,
+      buffereduart_tx(7) => lora2_uart_tx,
+      
       -- Ring indicate on MEGAphone PCB is not directly readable.
       -- Rather it will cause FPGA to power on, if it was off.
       -- FPGA programme needs to probe M.2 modules for clues as to why
@@ -785,7 +787,7 @@ begin
   end process;
   
   
-  process (clock27)
+  process (clock27,cpuclock)
   begin
 
     if rising_edge(clock27) then
