@@ -66,8 +66,8 @@ entity iomapper is
         uart_monitor_char : out unsigned(7 downto 0);
         uart_monitor_char_valid : out std_logic := '0';
 
-        buffereduart_rx : inout std_logic_vector(7 downto 0) := 'H';
-        buffereduart_tx : out std_logic_vector(7 downto 0) := '1';
+        buffereduart_rx : inout std_logic_vector(7 downto 0) := (others => 'H');
+        buffereduart_tx : out std_logic_vector(7 downto 0) := (others => '1');
         buffereduart_ringindicate : in std_logic_vector(7 downto 0);
 
         fm_left : in signed(15 downto 0) := x"0000";
