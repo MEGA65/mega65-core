@@ -728,10 +728,13 @@ begin
       buffereduart_tx(6) => lora1_uart_tx,
       buffereduart_rx(7) => lora2_uart_rx,
       buffereduart_tx(6) => lora2_uart_tx,
-      buffereduart_ringindicate(0) => modem1_ringindicate,
-      buffereduart_ringindicate(1) => '0',
-      buffereduart_ringindicate(2) => modem1_ringindicate,
-      buffereduart_ringindicate(7 downto 3) => "00000",
+      -- Ring indicate on MEGAphone PCB is not directly readable.
+      -- Rather it will cause FPGA to power on, if it was off.
+      -- FPGA programme needs to probe M.2 modules for clues as to why
+      -- it has been woken up. In a future version we will have it directly
+      -- readable, and a little CPLD buffer the serial message from the modem
+      -- that will hopefully explain why the RI line was asserted.
+      buffereduart_ringindicate => (others => '0'),
 
       slow_access_request_toggle => slow_access_request_toggle,
       slow_access_ready_toggle => slow_access_ready_toggle,
