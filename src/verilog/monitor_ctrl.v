@@ -105,7 +105,7 @@ module monitor_ctrl(input clk, input reset, output wire reset_out,
 				input 		   uart_char_valid,
 		    
 		    
-				output wire [15:0] bit_rate_divisor, input rx, output wire tx, output reg activity);
+				output wire [23:0] bit_rate_divisor, input rx, output wire tx, output reg activity);
 
    initial  secure_mode_from_monitor = 0;
    
@@ -179,7 +179,7 @@ begin
 end
 
 // Shared UART control
-reg [15:0] bit_rate_divisor_reg;
+reg [23:0] bit_rate_divisor_reg;
 assign bit_rate_divisor = bit_rate_divisor_reg;
 
 // TX UART control signals

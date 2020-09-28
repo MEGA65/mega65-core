@@ -100,7 +100,7 @@ begin  -- behavioural
           data <= unsigned(rx_data(8 downto 1));
           data_ready <= '1';
           data_ready_internal <= '1';
-          bit_timer <= to_unsigned(1,16);
+          bit_timer <= to_unsigned(1,24);
           rx_state <= WaitForRise;
         end if;        
       end if;
