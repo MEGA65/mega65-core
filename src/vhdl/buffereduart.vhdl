@@ -54,6 +54,10 @@ end buffereduart;
 
 architecture behavioural of buffereduart is
 
+  signal master_irq_enable : std_logic := '0';
+  signal master_tx_irq_enable : std_logic := '0';
+  signal master_rx_irq_enable : std_logic := '0';
+  
   -- Single shared buffer for all serial ports of 4KB
   -- This means 512 bytes for each UART
   -- 256 bytes TX buffer and 256 bytes RX buffer
@@ -63,26 +67,41 @@ architecture behavioural of buffereduart is
   signal buffer_wdata : unsigned(7 downto 0) := x"00"; 
   signal buffer_rdata : unsigned(7 downto 0) := x"00"; 
 
-  signal uart_bit_rate_divisor : array(0 to 7) of unsigned(23 downto 0) := (others => to_unsigned(0,24));
-  signal uart_bit_rate_divisor_internal : array(0 to 7) of unsigned(23 downto 0) := (others => to_unsigned(0,24));
-  signal tx_data : array(0 to 7) of unsigned(7 downto 0) := (others => x"00");
-  signal last_tx_byte_written : array(0 to 7) of unsigned(7 downto 0) := (others => x"FF");
+  type baud_divisor_t is array(0 to 7) of unsigned(23 downto 0);
+  type eightbytes_t is array(0 to 7) of unsigned(7 downto 0);
+  
+  signal uart_bit_rate_divisor : baud_divisor_t  := (others => to_unsigned(0,24));
+  signal uart_bit_rate_divisor_internal : baud_divisor_t  := (others => to_unsigned(0,24));
+  signal tx_data :  eightbytes_t := (others => x"00");
+  signal last_tx_byte_written : eightbytes_t := (others => x"FF");
   signal tx_ready : std_logic_vector(7 downto 0);
   signal tx_trigger : std_logic_vector(7 downto 0) := (others => '0');
-  signal rx_data : array(0 to 7) of unsigned(7 downto 0);
-  signal rx_data_for_reading : array(0 to 7) of unsigned(7 downto 0) := (others => x"FF");
+  signal rx_data : eightbytes_t;
+  signal rx_data_for_reading : eightbytes_t := (others => x"FF");
   signal rx_ready : std_logic_vector(7 downto 0);
   signal rx_acknowledge : std_logic_vector(7 downto 0) := (others => '0');
 
+  signal read_scheduled : std_logic := '0';
   signal rx_target : integer range 0 to 255 := 255;
+
+  signal tx_byte_written : std_logic := '0';
+  signal rx_byte_stale : std_logic := '0';
+
+  signal selected_uart : integer range 0 to 15 := 0;
+  signal last_selected_uart : integer range 0 to 15 := 0;
+  signal cycled_uart_id : integer range 0 to 7 := 0;
   
-  signal uart_rx_buffer_pointer_write : array(0 to 7) of unsigned(7 downto 0) := to_unsigned(0,8);
-  signal uart_rx_buffer_pointer_read : array(0 to 7) of unsigned(7 downto 0) := to_unsigned(0,8);
-  signal uart_tx_buffer_pointer_write : array(0 to 7) of unsigned(7 downto 0) := to_unsigned(0,8);
-  signal uart_tx_buffer_pointer_read : array(0 to 7) of unsigned(7 downto 0) := to_unsigned(0,8);
-  
+  signal uart_rx_buffer_pointer_write : eightbytes_t := (others => to_unsigned(0,8));
+  signal uart_rx_buffer_pointer_read : eightbytes_t := (others => to_unsigned(0,8));
+  signal uart_tx_buffer_pointer_write : eightbytes_t := (others => to_unsigned(0,8));
+  signal uart_tx_buffer_pointer_read : eightbytes_t := (others => to_unsigned(0,8));
+
+  signal loopback_mode : std_logic := '0';
   signal uart_rx_mux : std_logic_vector(7 downto 0);
 
+  signal uart_tx_drive : std_logic_vector(7 downto 0);  
+
+  
   -- Set when ANY IRQ condition for this UART is triggered
   signal uart_irq_status : std_logic_vector(7 downto 0) := (others => '0');
   -- Set when UART RX buffer is empty etc
@@ -123,7 +142,7 @@ begin  -- behavioural
         uart_tx => uart_tx_drive(i));
 
     rx: entity work.uart_rx 
-      generic map (name => to_string(i))
+      generic map (name => integer'image(i))
       Port map ( clk => clock,
                  bit_rate_divisor => uart_bit_rate_divisor(i),
                  UART_RX => uart_rx_mux(i),
@@ -144,7 +163,7 @@ begin  -- behavioural
     -- to the opposite buffered UART (as a remote loopback diagnostic mode)
     if loopback_mode='1' then
       for i in 0 to 7 loop
-        uart_rx_mux(i) <= uart_tx(7-i);
+        uart_rx_mux(i) <= uart_tx_drive(7-i);
       end loop;
     else
       uart_rx_mux <= uart_rx;
@@ -210,21 +229,21 @@ begin  -- behavioural
           when x"4" =>
             -- @IO:GS $D0E4 Buffered UART bit rate divisor LSB
             if selected_uart < 8 then
-              fastio_rdata <= uart_bit_rate_divisor_internal(i)(7 downto 0);
+              fastio_rdata <= uart_bit_rate_divisor_internal(selected_uart)(7 downto 0);
             else
               fastio_rdata <= x"FF";
             end if;
           when x"5" =>
             -- @IO:GS $D0E5 Buffered UART bit rate divisor middle byte
             if selected_uart < 8 then
-              fastio_rdata <= uart_bit_rate_divisor_internal(i)(15 downto 8);
+              fastio_rdata <= uart_bit_rate_divisor_internal(selected_uart)(15 downto 8);
             else
               fastio_rdata <= x"FF";
             end if;
           when x"6" =>
             -- @IO:GS $D0E5 Buffered UART bit rate divisor MSB
             if selected_uart < 8 then
-              fastio_rdata <= uart_bit_rate_divisor_internal(i)(23 downto 16);
+              fastio_rdata <= uart_bit_rate_divisor_internal(selected_uart)(23 downto 16);
             else
               fastio_rdata <= x"FF";
             end if;
@@ -242,7 +261,7 @@ begin  -- behavioural
 
       buffer_write <= '0';
       rx_acknowledge <= (others => '0');
-      tx_trigger <= (others => ='0');
+      tx_trigger <= (others => '0');
 
       -- Update status flags
       for i in 0 to 7 loop
@@ -303,9 +322,9 @@ begin  -- behavioural
         else
           if to_integer(uart_tx_buffer_pointer_write(i)+(256-32)) < (to_integer(uart_tx_buffer_pointer_read(i))+256) then
             -- Write + 32 < read point, so not at high water point
-            uart_rx_lowwater(i) <= '1';
+            uart_tx_lowwater(i) <= '1';
           else
-            uart_rx_lowwater(i) <= '0';            
+            uart_tx_lowwater(i) <= '0';            
           end if;
         end if;
       end loop;
@@ -329,9 +348,9 @@ begin  -- behavioural
           when x"2" =>
             -- Advance UART RX read point
             if selected_uart < 8 then
-              if not uart_rx_empty(selected_uart) then
+              if uart_rx_empty(selected_uart)='0' then
                 -- Advance buffer position
-                uart_rx_buffer_pointer_read(i) <= uart_rx_buffer_pointer_read(i) + 1;
+                uart_rx_buffer_pointer_read(selected_uart) <= uart_rx_buffer_pointer_read(selected_uart) + 1;
                 rx_byte_stale <= '1';
               end if;
             end if;
@@ -355,20 +374,20 @@ begin  -- behavioural
       end if;
       if rx_byte_stale = '1' then
         if selected_uart < 8 then
-          rx_scheduled <= '1';
+          read_scheduled <= '1';
           rx_target <= 0 + selected_uart;
-          buffer_readaddress <= (512*selected_uart) + 0 + uart_rx_buffer_pointer_read(selected_uart);
+          buffer_readaddress <= (512*selected_uart) + 0 + to_integer(uart_rx_buffer_pointer_read(selected_uart));
         else
-          rx_scheduled <= '0';
+          read_scheduled <= '0';
         end if;
       elsif tx_byte_written = '1' then
-        rx_scheduled <= '0';
+        read_scheduled <= '0';
           -- Schedule writing byte into TX buffer.
           tx_byte_written <= '0';
           if selected_uart < 8 then
             -- Write to TX buffer, but only if not full
             if uart_tx_full(selected_uart) = '0' then
-              buffer_writeaddress <= (512*selected_uart) + 256 + uart_tx_buffer_pointer_write(selected_uart);
+              buffer_writeaddress <= (512*selected_uart) + 256 + to_integer(uart_tx_buffer_pointer_write(selected_uart));
               buffer_wdata <= last_tx_byte_written(selected_uart);
               buffer_write <= '1';
               uart_tx_buffer_pointer_write(selected_uart) <= uart_tx_buffer_pointer_write(selected_uart) + 1;
@@ -377,14 +396,14 @@ begin  -- behavioural
       else
         -- Neither a buffer read nor buffer write is scheduled, so we can check
         -- for arriving or departing bytes in the actual UARTs
-        if tx_ready(cycled_uart_id)='1' and not uart_tx_empty(cycled_uart_id) then
+        if tx_ready(cycled_uart_id)='1' and uart_tx_empty(cycled_uart_id)='0' then
           -- We should send the next byte
-          rx_scheduled <= '1';
+          read_scheduled <= '1';
           rx_target <= 16 + selected_uart;
-          buffer_readaddress <= (512*cycled_uart_id) + 256 + uart_tx_buffer_pointer_read(cycled_uart_id);
-        elsif rx_ready(cycled_uart_id)='1' and not uart_rx_full(cycled_uart_id) then
+          buffer_readaddress <= (512*cycled_uart_id) + 256 + to_integer(uart_tx_buffer_pointer_read(cycled_uart_id));
+        elsif rx_ready(cycled_uart_id)='1' and uart_rx_full(cycled_uart_id)='0' then
           rx_acknowledge(cycled_uart_id) <= '1';
-          buffer_writeaddress <= (512*cycled_uart_id) + 0 + uart_rx_buffer_pointer_write(cycled_uart_id);
+          buffer_writeaddress <= (512*cycled_uart_id) + 0 + to_integer(uart_rx_buffer_pointer_write(cycled_uart_id));
           buffer_wdata <= rx_data(cycled_uart_id);
           buffer_write <= '1';
           uart_tx_buffer_pointer_read(cycled_uart_id) <= uart_tx_buffer_pointer_read(cycled_uart_id) + 1;
@@ -393,19 +412,29 @@ begin  -- behavioural
             -- is empty, so we should present this byte to the CPU
             rx_byte_stale <= '1';
           end if;
+        else
+          -- Nothing to do for this UART, so get ready to consider the next
+          if cycled_uart_id /= 7 then
+            cycled_uart_id <= cycled_uart_id + 1;
+          else
+            cycled_uart_id <= 0;
+          end if;
         end if;
       end if;
 
       -- Now process freshly read data
-      if rx_target < 8 then
-        -- Read to refresh received data to present to CPU
-        rx_data_for_reading(selected_uart) <= buffer_rdata;
-        rx_target <= 255;
-      elsif rx_target >= 16 and rx_target < 24 then
-        -- Read TX buffer to TX a byte
-        tx_trigger(rx_target - 16) <= '1';
-        tx_data <= buffer_rdata;
-        rx_target <= 255;
+      if read_scheduled = '1' then
+        read_scheduled <= '0';
+        if rx_target < 8 then
+          -- Read to refresh received data to present to CPU
+          rx_data_for_reading(selected_uart) <= buffer_rdata;
+          rx_target <= 255;
+        elsif rx_target >= 16 and rx_target < 24 then
+          -- Read TX buffer to TX a byte
+          tx_trigger(rx_target - 16) <= '1';
+          tx_data(rx_target - 16) <= buffer_rdata;
+          rx_target <= 255;
+        end if;
       end if;
       
     end if;
