@@ -8,7 +8,7 @@ branch=`git rev-parse --abbrev-ref HEAD`
 #
 # if branchname is long, just use the first X-chars and last X-chars, ie "abcde...vwxyz"
 branchlen=$(( ${#branch} ))
-echo ${branchlen}
+#echo ${branchlen}
 #
 if [ ${branchlen} -gt 13 ] ; then
   branch_abcde=${branch:0:5}
@@ -36,7 +36,7 @@ datetime=`date +%Y%m%d.%H`
 
 # ###############################
 # get incrememting number (number of commits since branching from branch "ghdl-crash-20200604")
-num_commits="$(git log upstream/ghdl-crash-20200604..138-hdmi-audio-27mhz --oneline | wc -l)"
+num_commits="$(git log ghdl-crash-20200604..138-hdmi-audio-27mhz --oneline | wc -l)"
 #echo ${num_commits}
 
 
