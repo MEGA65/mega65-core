@@ -171,9 +171,6 @@ begin  -- behavioural
     
     irq <= '1';
 
-    rx_byte_stale <= '0';
-    tx_byte_written <= '0';
-    
     -- Register reading is asynchronous to avoid wait states
     if fastio_read='1' then
       if buffereduart_cs='1' then
@@ -283,6 +280,7 @@ begin  -- behavioural
 
     if rising_edge(clock) then
 
+      tx_byte_written <= '0';          
       buffer_write <= '0';
       rx_acknowledge <= (others => '0');
       tx_trigger <= (others => '0');
@@ -399,6 +397,7 @@ begin  -- behavioural
               -- Remember the byte we wrote.
               last_tx_byte_written(selected_uart) <= fastio_wdata;
               tx_byte_written <= '1';
+              report "Received byte $" & to_hstring(fastio_wdata) & " for queueing for transmit via uart #" & integer'image(selected_uart);
             end if;
           when x"4" =>
             if selected_uart < 8 then
@@ -422,16 +421,26 @@ begin  -- behavioural
       last_selected_uart <= selected_uart;
       if last_selected_uart /= selected_uart then
         rx_byte_stale <= '1';
+        report "asserting rx_byte_stale due to UART selection";
       end if;
+      report "Considering buffer memory transactions.";
       if rx_byte_stale = '1' then
+        report "rx_byte_stale was asserted.";
+        rx_byte_stale <= '0';
         if selected_uart < 8 then
-          read_scheduled <= '1';
-          rx_target <= 0 + selected_uart;
+          if uart_rx_empty(selected_uart) = '0' then
+            read_scheduled <= '1';
+            rx_target <= 0 + selected_uart;
+          else
+            read_scheduled <= '0';
+            rx_target <= 255;
+          end if;
           buffer_readaddress <= (512*selected_uart) + 0 + to_integer(uart_rx_buffer_pointer_read(selected_uart));
         else
           read_scheduled <= '0';
         end if;
       elsif tx_byte_written = '1' then
+        report "Committing byte $" & to_hstring(last_tx_byte_written(selected_uart)) & " to TX queue for uart #" & integer'image(selected_uart);
         read_scheduled <= '0';
           -- Schedule writing byte into TX buffer.
           tx_byte_written <= '0';
@@ -463,6 +472,7 @@ begin  -- behavioural
             -- We are receiving a byte for the selected UART, and our RX buffer
             -- is empty, so we should present this byte to the CPU
             rx_byte_stale <= '1';
+            report "asserting rx_byte_stale due to receiving byte for UART with empty RX buffer";
           end if;
         else
           -- Nothing to do for this UART, so get ready to consider the next
