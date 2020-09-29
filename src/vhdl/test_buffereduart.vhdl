@@ -42,14 +42,14 @@ architecture foo of test_buffereduart is
   signal dispatch_time : integer := 0;
   
   signal mem_jobs : mem_job_list_t := (
-    -- Read $D0E0 status register
-    ( address => x"D0E0", write_p => '0', value => x"00", delay => 1),
+    -- Read $D0E0 status register and wait a while for flags to all update
+    ( address => x"D0E0", write_p => '0', value => x"00", delay => 0),
     -- Read $D0E1 status register
-    ( address => x"D0E1", write_p => '0', value => x"00", delay => 1),
+    ( address => x"D0E1", write_p => '0', value => x"60", delay => 0),
     others => ( address => x"FFFF", write_p => '0', value => x"00", delay => 1)
     );
 
-  signal idle_wait : integer := 1000;
+  signal idle_wait : integer := 0;
   
   signal expect_value : std_logic := '0';
   signal expected_value : unsigned(7 downto 0) := x"00";
@@ -79,10 +79,11 @@ begin
   
   process is
   begin
+    -- pretend clock at 50MHz, just so the ns display is easier to read in simulation
     cpuclock <= '0';
-    wait for 12.5 ns;
+    wait for 10 ns;
     cpuclock <= '1';
-    wait for 12.5 ns;
+    wait for 10 ns;
   end process;
   
   
@@ -126,8 +127,12 @@ begin
         end if;
         
         if expect_value='1' then
-          report "DISPATCHER: Read value $" & to_hstring(fastio_rdata) & ", expected to see $"
-            & to_hstring(expected_value);
+          if fastio_rdata /= expected_value then
+            report "DISPATCHER: ERROR: Read value $" & to_hstring(fastio_rdata) & ", expected to see $"
+              & to_hstring(expected_value);
+          else
+            report "DISPATCHER: Read correct value $" & to_hstring(fastio_rdata);
+          end if;
         end if;
         
       end if;
