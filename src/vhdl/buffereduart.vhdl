@@ -499,15 +499,11 @@ begin  -- behavioural
           buffer_wdata <= rx_data(cycled_uart_id);
           buffer_write <= '1';
           uart_rx_buffer_pointer_write(cycled_uart_id) <= uart_rx_buffer_pointer_write(cycled_uart_id) + 1;
-          if cycled_uart_id = selected_uart and uart_rx_empty(cycled_uart_id) = '1' then
-            -- We are receiving a byte for the selected UART, and our RX buffer
-            -- is empty, so we should present this byte to the CPU
-            rx_byte_stale <= '1';
-            report "RXBUFFER: asserting rx_byte_stale due to receiving byte for UART with empty RX buffer";
-            -- And force RX buffer to be non-empty, so that we schedule the
-            -- read to make the newly received byte visible
-            uart_rx_empty(cycled_uart_id) <= '0';
-            end if;
+          if uart_rx_empty(cycled_uart_id) = '1' then
+            -- We are receiving a byte, and our RX buffer
+            -- is empty, so we should present this byte to the CPU immediately
+            rx_data_for_reading(cycled_uart_id) <= rx_data(cycled_uart_id);
+          end if;
           rx_inhibit(cycled_uart_id) <= 7;
         else
           -- Nothing to do for this UART, so get ready to consider the next
