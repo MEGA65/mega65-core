@@ -337,17 +337,16 @@ begin  -- behavioural
           uart_rx_full(i) <= '0';
         end if;
         -- Has the RX buffer reached the high-water mark?
-        if uart_rx_buffer_pointer_write(i) < uart_rx_buffer_pointer_read(i) then
-          -- Write point comes before read point
-          if to_integer(uart_rx_buffer_pointer_write(i)+32) < to_integer(uart_rx_buffer_pointer_read(i)) then
-            -- Write + 32 < read point, so not at high water point
+        if uart_rx_buffer_pointer_write(i) >= uart_rx_buffer_pointer_read(i) then
+          -- Write point comes after read point, so simple subtraction
+          if (uart_rx_buffer_pointer_write(i) - uart_rx_buffer_pointer_read(i)) < 224 then
             uart_rx_highwater(i) <= '0';
           else
             uart_rx_highwater(i) <= '1';            
           end if;
         else
-          if to_integer(uart_rx_buffer_pointer_write(i)+32) < (to_integer(uart_rx_buffer_pointer_read(i))+256) then
-            -- Write + 32 < read point, so not at high water point
+          if ((256 - uart_rx_buffer_pointer_read(i)) + uart_rx_buffer_pointer_write(i)) < 224 then
+            -- Write point comes before read, so it must have wrapped
             uart_rx_highwater(i) <= '0';
           else
             uart_rx_highwater(i) <= '1';            
@@ -369,16 +368,16 @@ begin  -- behavioural
           uart_tx_full(i) <= '0';
         end if;
         -- Has the TX buffer reached the low-water mark?
-        if uart_rx_buffer_pointer_write(i) < uart_rx_buffer_pointer_read(i) then
-          -- Write point comes before read point
-          if to_integer(uart_tx_buffer_pointer_write(i)+(256-32)) < to_integer(uart_tx_buffer_pointer_read(i)) then
+        if uart_tx_buffer_pointer_write(i) >= uart_tx_buffer_pointer_read(i) then
+          -- Write point comes after read point, so simple subtraction
+          if (uart_tx_buffer_pointer_write(i) - uart_tx_buffer_pointer_read(i)) < 32 then
             uart_tx_lowwater(i) <= '1';
           else
             uart_tx_lowwater(i) <= '0';            
           end if;
         else
-          if to_integer(uart_tx_buffer_pointer_write(i)+(256-32)) < (to_integer(uart_tx_buffer_pointer_read(i))+256) then
-            -- Write + 32 < read point, so not at high water point
+          if ((256 - uart_tx_buffer_pointer_read(i)) + uart_tx_buffer_pointer_write(i)) < 32 then
+            -- Write point comes before read, so it must have wrapped
             uart_tx_lowwater(i) <= '1';
           else
             uart_tx_lowwater(i) <= '0';            
