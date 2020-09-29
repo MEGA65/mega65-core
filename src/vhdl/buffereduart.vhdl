@@ -72,6 +72,7 @@ architecture behavioural of buffereduart is
   type eightcounters_t is array(0 to 7) of integer range 0 to 7;
 
   signal tx_inhibit : eightcounters_t := (others => 0);
+  signal rx_inhibit : eightcounters_t := (others => 0);
   signal uart_bit_rate_divisor : baud_divisor_t  := (others => to_unsigned(0,24));
   signal uart_bit_rate_divisor_internal : baud_divisor_t  := (others => to_unsigned(0,24));
   signal tx_data :  eightbytes_t := (others => x"00");
@@ -297,9 +298,14 @@ begin  -- behavioural
         if tx_inhibit(cycled_uart_id) /= 0 then
           tx_inhibit(cycled_uart_id) <= tx_inhibit(cycled_uart_id) - 1;
         end if;
+        -- A similar situation applies to the RX path with acknowledging and
+        -- waiting for rx_ready to clear
+        if rx_inhibit(cycled_uart_id) /= 0 then
+          rx_inhibit(cycled_uart_id) <= rx_inhibit(cycled_uart_id) - 1;
+        end if;
 
         -- RX buffer empty?
-        if i = 0 then
+        if i = 0 or i = 7 then
           report "uart_rx_buffer_pointers("& integer'image(i)&"): w=$" & to_hstring(uart_rx_buffer_pointer_write(i))
             &", r=$" & to_hstring(uart_rx_buffer_pointer_read(i)) & ", rx_empty=" & std_logic'image(uart_rx_empty(i))
             & ", rx_full=" & std_logic'image(uart_rx_full(i))
@@ -313,8 +319,14 @@ begin  -- behavioural
         
         if uart_rx_buffer_pointer_write(i) = uart_rx_buffer_pointer_read(i) then
           uart_rx_empty(i) <= '1';
+          if uart_rx_empty(i) = '0' then
+            report "RXBUFFER: Marking UART#" & integer'image(i) & " empty.";
+          end if;
         else
           uart_rx_empty(i) <= '0';
+          if uart_rx_empty(i) = '1' then
+            report "RXBUFFER: Marking UART#" & integer'image(i) & " not empty.";
+          end if;
         end if;
         -- Or full?
         if (to_integer(uart_rx_buffer_pointer_write(i) + 1) = to_integer(uart_rx_buffer_pointer_read(i)))
@@ -475,18 +487,20 @@ begin  -- behavioural
           report "TXBUFFER: Increment read position from $" & to_hstring(uart_tx_buffer_pointer_read(cycled_uart_id));
           uart_tx_buffer_pointer_read(cycled_uart_id) <= uart_tx_buffer_pointer_read(cycled_uart_id) + 1;
           tx_inhibit(cycled_uart_id) <= 7;
-        elsif rx_ready(cycled_uart_id)='1' and uart_rx_full(cycled_uart_id)='0' then
+        elsif rx_ready(cycled_uart_id)='1' and uart_rx_full(cycled_uart_id)='0' and rx_inhibit(cycled_uart_id) = 0 then
+          report "RXBUFFER: Received a byte from UART#" & integer'image(cycled_uart_id);
           rx_acknowledge(cycled_uart_id) <= '1';
           buffer_writeaddress <= (512*cycled_uart_id) + 0 + to_integer(uart_rx_buffer_pointer_write(cycled_uart_id));
           buffer_wdata <= rx_data(cycled_uart_id);
           buffer_write <= '1';
-          uart_rx_buffer_pointer_read(cycled_uart_id) <= uart_rx_buffer_pointer_read(cycled_uart_id) + 1;
+          uart_rx_buffer_pointer_write(cycled_uart_id) <= uart_rx_buffer_pointer_write(cycled_uart_id) + 1;
           if cycled_uart_id = selected_uart and uart_rx_empty(cycled_uart_id) = '0' then
             -- We are receiving a byte for the selected UART, and our RX buffer
             -- is empty, so we should present this byte to the CPU
             rx_byte_stale <= '1';
-            report "asserting rx_byte_stale due to receiving byte for UART with empty RX buffer";
+            report "RXBUFFER: asserting rx_byte_stale due to receiving byte for UART with empty RX buffer";
           end if;
+          rx_inhibit(cycled_uart_id) <= 7;
         else
           -- Nothing to do for this UART, so get ready to consider the next
           if cycled_uart_id /= 7 then
@@ -526,6 +540,7 @@ begin  -- behavioural
         uart_tx_buffer_pointer_read <= (others => to_unsigned(0,8));
 
         tx_inhibit <= (others => 0);
+        rx_inhibit <= (others => 0);
         
       end if;
       
