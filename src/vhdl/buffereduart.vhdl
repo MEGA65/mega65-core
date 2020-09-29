@@ -410,14 +410,17 @@ begin  -- behavioural
           when x"4" =>
             if selected_uart < 8 then
               uart_bit_rate_divisor_internal(selected_uart)(7 downto 0) <= fastio_wdata;
+              uart_bit_rate_divisor(selected_uart)(7 downto 0) <= fastio_wdata;
             end if;            
           when x"5" =>
             if selected_uart < 8 then
               uart_bit_rate_divisor_internal(selected_uart)(15 downto 8) <= fastio_wdata;
+              uart_bit_rate_divisor(selected_uart)(15 downto 8) <= fastio_wdata;
             end if;            
           when x"6" =>
             if selected_uart < 8 then
               uart_bit_rate_divisor_internal(selected_uart)(23 downto 16) <= fastio_wdata;
+              uart_bit_rate_divisor(selected_uart)(23 downto 16) <= fastio_wdata;
             end if;
           when others =>
             null;
@@ -503,6 +506,7 @@ begin  -- behavioural
           rx_target <= 255;
         elsif rx_target >= 16 and rx_target < 24 then
           -- Read TX buffer to TX a byte
+          report "TXBUFFER: Read back value $" & to_hstring(buffer_rdata) & " for immediate dispatch.";
           tx_trigger(rx_target - 16) <= '1';
           tx_data(rx_target - 16) <= buffer_rdata;
           rx_target <= 255;
