@@ -64,13 +64,27 @@ architecture foo of test_buffereduart is
     ( address => x"D0E5", write_p => '1', value => x"00", delay => 0),
     ( address => x"D0E6", write_p => '1', value => x"00", delay => 0),
 
-    -- Write a char to uart #0, which should then get received by uart #1
+    -- Write a char to uart #0, which should then get received by uart #7
     ( address => x"D0E3", write_p => '1', value => x"12", delay => 2),
     -- Read at the right time to observe that tx_empty is cleared
     ( address => x"D0E1", write_p => '0', value => x"40", delay => 8),
     -- Read at the right time to observe that tx_empty is again asserted
     ( address => x"D0E1", write_p => '0', value => x"60", delay => 0),
 
+    -- Now select uart #7, and see what we can see there
+    -- We add a delay of 70 cycles to allow for the RX of the byte to complete
+    ( address => x"D0E0", write_p => '1', value => x"17", delay => 70),
+    
+    -- rx_empty should be clear
+    ( address => x"D0E1", write_p => '0', value => x"20", delay => 0),
+    -- see if we can read the received byte ok
+    ( address => x"D0E2", write_p => '0', value => x"12", delay => 0),
+    -- Acknowledge the received byte
+    ( address => x"D0E2", write_p => '1', value => x"12", delay => 8),
+    -- rx_empty should be asserted again now
+    ( address => x"D0E1", write_p => '0', value => x"60", delay => 0),
+    
+    
     -- End of procedure
     others => ( address => x"FFFF", write_p => '0', value => x"00", delay => 1000)
 
