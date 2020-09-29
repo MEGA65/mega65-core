@@ -14,7 +14,7 @@ if [ ${branchlen} -gt 13 ] ; then
   branch_abcde=${branch:0:5}
   branch_v_pos=$(( ${branchlen}-5 ))
   branch_vwxyz=${branch:${branch_v_pos}:5}
-  echo "${branch_abcde} ${branch_v_pos} ${branch_vwxyz}"
+#  echo "${branch_abcde} ${branch_v_pos} ${branch_vwxyz}"
   branch="${branch_abcde}...${branch_vwxyz}"
 fi
 echo ${branch}
@@ -36,7 +36,7 @@ datetime=`date +%Y%m%d.%H`
 
 # ###############################
 # get incrememting number (number of commits since branching from branch "ghdl-crash-20200604")
-num_commits="$(git log ghdl-crash-20200604..138-hdmi-audio-27mhz --oneline | wc -l)"
+num_commits="$(git log 4957c7ba..138-hdmi-audio-27mhz --oneline | wc -l)"
 #echo ${num_commits}
 
 
