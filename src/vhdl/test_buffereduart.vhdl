@@ -65,7 +65,11 @@ architecture foo of test_buffereduart is
     ( address => x"D0E6", write_p => '1', value => x"00", delay => 0),
 
     -- Write a char to uart #0, which should then get received by uart #1
-    ( address => x"D0E3", write_p => '1', value => x"12", delay => 0),
+    ( address => x"D0E3", write_p => '1', value => x"12", delay => 2),
+    -- Read at the right time to observe that tx_empty is cleared
+    ( address => x"D0E1", write_p => '0', value => x"40", delay => 8),
+    -- Read at the right time to observe that tx_empty is again asserted
+    ( address => x"D0E1", write_p => '0', value => x"60", delay => 0),
 
     -- End of procedure
     others => ( address => x"FFFF", write_p => '0', value => x"00", delay => 1000)
@@ -115,7 +119,7 @@ begin
 
     if rising_edge(cpuclock) then
 
-
+      expect_value <= '0';
       fastio_read <= '0';
       fastio_write <= '0';
       
@@ -153,17 +157,16 @@ begin
             dispatch_time <= current_time;
           end if;
         end if;
-        
-        if expect_value='1' then
-          if fastio_rdata /= expected_value then
-            report "DISPATCHER: ERROR: Read value $" & to_hstring(fastio_rdata) & ", expected to see $"
-              & to_hstring(expected_value);
-          else
-            report "DISPATCHER: Read correct value $" & to_hstring(fastio_rdata);
-          end if;
-        end if;
-        
       end if;
+        
+      if expect_value='1' then
+        if fastio_rdata /= expected_value then
+          report "DISPATCHER: ERROR: Read value $" & to_hstring(fastio_rdata) & ", expected to see $"
+            & to_hstring(expected_value);
+        else
+          report "DISPATCHER: Read correct value $" & to_hstring(fastio_rdata);
+        end if;
+      end if;        
       
     end if;
       
