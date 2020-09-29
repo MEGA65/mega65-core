@@ -69,7 +69,9 @@ architecture behavioural of buffereduart is
 
   type baud_divisor_t is array(0 to 7) of unsigned(23 downto 0);
   type eightbytes_t is array(0 to 7) of unsigned(7 downto 0);
-  
+  type eightcounters_t is array(0 to 7) of integer range 0 to 7;
+
+  signal tx_inhibit : eightcounters_t := (others => 0);
   signal uart_bit_rate_divisor : baud_divisor_t  := (others => to_unsigned(0,24));
   signal uart_bit_rate_divisor_internal : baud_divisor_t  := (others => to_unsigned(0,24));
   signal tx_data :  eightbytes_t := (others => x"00");
@@ -284,13 +286,19 @@ begin  -- behavioural
       buffer_write <= '0';
       rx_acknowledge <= (others => '0');
       tx_trigger <= (others => '0');
-
+      
       report "selected_uart=" & integer'image(selected_uart);
     
       -- Update status flags
       for i in 0 to 7 loop
-        -- RX buffer empty?
+        -- Decrement TX inhibit counters.
+        -- These are used to handle the fact that tx_empty and tx_ready take a
+        -- couple of cycles to update.
+        if tx_inhibit(cycled_uart_id) /= 0 then
+          tx_inhibit(cycled_uart_id) <= tx_inhibit(cycled_uart_id) - 1;
+        end if;
 
+        -- RX buffer empty?
         if i = 0 then
           report "uart_rx_buffer_pointers("& integer'image(i)&"): w=$" & to_hstring(uart_rx_buffer_pointer_write(i))
             &", r=$" & to_hstring(uart_rx_buffer_pointer_read(i)) & ", rx_empty=" & std_logic'image(uart_rx_empty(i))
@@ -456,12 +464,14 @@ begin  -- behavioural
       else
         -- Neither a buffer read nor buffer write is scheduled, so we can check
         -- for arriving or departing bytes in the actual UARTs
-        if tx_ready(cycled_uart_id)='1' and uart_tx_empty(cycled_uart_id)='0' then
+        if tx_ready(cycled_uart_id)='1' and uart_tx_empty(cycled_uart_id)='0' and tx_inhibit(cycled_uart_id)=0 then
           -- We should send the next byte
           read_scheduled <= '1';
           rx_target <= 16 + selected_uart;
           buffer_readaddress <= (512*cycled_uart_id) + 256 + to_integer(uart_tx_buffer_pointer_read(cycled_uart_id));
+          report "TXBUFFER: Increment read position from $" & to_hstring(uart_tx_buffer_pointer_read(cycled_uart_id));
           uart_tx_buffer_pointer_read(cycled_uart_id) <= uart_tx_buffer_pointer_read(cycled_uart_id) + 1;
+          tx_inhibit(cycled_uart_id) <= 7;
         elsif rx_ready(cycled_uart_id)='1' and uart_rx_full(cycled_uart_id)='0' then
           rx_acknowledge(cycled_uart_id) <= '1';
           buffer_writeaddress <= (512*cycled_uart_id) + 0 + to_integer(uart_rx_buffer_pointer_write(cycled_uart_id));
@@ -510,6 +520,8 @@ begin  -- behavioural
         uart_rx_buffer_pointer_read <= (others => to_unsigned(0,8));
         uart_tx_buffer_pointer_write <= (others => to_unsigned(0,8));
         uart_tx_buffer_pointer_read <= (others => to_unsigned(0,8));
+
+        tx_inhibit <= (others => 0);
         
       end if;
       
